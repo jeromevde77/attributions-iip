@@ -19,6 +19,7 @@ import ExcelJS from 'exceljs';
 import db from '../db/index.js';
 import { authRequired, getUserSections } from '../middleware/auth.js';
 import { envelopperDocument } from '../lib/document.js';
+import { donneesInscritsUnites } from './etudiants.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { decisionDeSession, structureUE } from './acquis.js';
 import { calculerEtp } from './pilotage.js';
@@ -2327,6 +2328,72 @@ r.post('/:id/apercu', authRequired, (req, res) => {
  * (lib/document.js) : A4, marges de 18 mm, en-tête de l'établissement, pied
  * numéroté. On n'en écrit pas une dixième.
  */
+/**
+ * LES INSCRITS PAR UNITÉ — CE QUI EST SÉLECTIONNÉ À L'ÉCRAN (Charles,
+ * 7 octobre 2026 : « et impression aussi de ce qui a été sélectionné »).
+ * L'écran envoie les unités retenues et les étudiants que ses filtres
+ * laissent passer ; le serveur relit les faits et compose — un chiffre
+ * imprimé ne vient jamais d'un calcul fait dans le navigateur.
+ */
+r.post('/inscrits-unites', authRequired, (req, res) => {
+  const b = req.body || {};
+  const annee = String(b.annee || ''), section = String(b.section || '');
+  if (!annee || !section) return res.status(400).json({ error: 'annee et section requises' });
+  const perim = getUserSections(req.user);
+  if (perim && !perim.includes(section)) return res.status(403).json({ error: 'Section hors de votre périmètre.' });
+  const d = donneesInscritsUnites(annee, section);
+  const ues = new Set((Array.isArray(b.ues) ? b.ues : []).map(Number));
+  const ids = Array.isArray(b.ids) ? new Set(b.ids.map(Number)) : null;
+  const unites = d.unites.filter(u => !ues.size || ues.has(u.ue_num))
+    .map(u => ({ ...u, lignes: u.lignes.filter(l => !ids || ids.has(l.id)) }));
+  const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const E = d.etudiants;
+  const compte = (u, f) => u.lignes.filter(f).length;
+  const distincts = new Set(unites.flatMap(u => u.lignes.map(l => l.id)));
+  const nouveauxDistincts = [...distincts].filter(id => E[id]?.nouveau).length;
+
+  const synthese = `<table class="serre"><thead><tr><th>Unité</th><th class="n" style="width:18mm">Inscrits</th>
+      <th class="n" style="width:18mm">Nouveaux</th><th class="n" style="width:18mm">Reprises</th>
+      <th class="n" style="width:24mm">A · à suivre</th><th class="n" style="width:24mm">B · dispense</th>
+      <th class="n" style="width:24mm">C · déjà acquise</th></tr></thead>
+    <tbody>${unites.map(u => `<tr><td>UE ${u.ue_num} — ${esc(u.ue_nom || '')}${u.hors_cursus ? ' <span class="fin">(hors cursus)</span>' : ''}</td>
+      <td class="n">${u.lignes.length}</td><td class="n">${compte(u, l => E[l.id]?.nouveau)}</td><td class="n">${compte(u, l => l.reprise)}</td>
+      <td class="n">${compte(u, l => l.partie === 'A')}</td><td class="n">${compte(u, l => l.partie === 'B')}</td>
+      <td class="n">${compte(u, l => l.partie === 'C')}</td></tr>`).join('')}</tbody>
+    <tfoot><tr class="repere"><td>Étudiants distincts</td><td class="n">${distincts.size}</td><td class="n">${nouveauxDistincts}</td>
+      <td colspan="4"></td></tr></tfoot></table>`;
+
+  const SIGNE = { suit: '●', R: 'R', VA: 'VA', D: 'D', acquis: '—' };
+  const detail = b.detail ? unites.filter(u => u.lignes.length).map(u => `
+    <section style="break-before:page;page-break-before:always">
+      <h2>UE ${u.ue_num} — ${esc(u.ue_nom || '')}</h2>
+      <table class="serre"><thead><tr><th class="n" style="width:8mm">N°</th><th>Étudiant</th><th style="width:20mm">Matricule</th>
+        <th style="width:10mm">Bloc</th><th style="width:16mm">Profil</th><th style="width:9mm">Partie</th>
+        ${u.cours.map(c => `<th class="n" title="${esc(c.nom)}">${esc(c.code)}</th>`).join('')}<th>Mention</th></tr></thead>
+      <tbody>${u.lignes.map((l, i) => { const e = E[l.id] || {}; return `<tr><td class="n">${i + 1}</td><td>${esc(e.nom)}</td>
+        <td>${esc(e.matricule)}</td><td>${esc(e.bloc || '')}</td>
+        <td>${[e.nouveau ? 'nouveau' : '', l.reprise ? 'reprise' : '', e.sle ? 'SLE' : ''].filter(Boolean).join(', ')}</td>
+        <td>${l.partie}</td>${u.cours.map(c => `<td class="n">${SIGNE[l.cours[c.code]] || ''}</td>`).join('')}
+        <td>${esc(l.detail.join(' · '))}</td></tr>`; }).join('')}</tbody>
+      <tfoot><tr class="repere"><td colspan="6">À suivre par cours</td>
+        ${u.cours.map(c => `<td class="n">${u.lignes.filter(l => l.cours[c.code] === 'suit').length}</td>`).join('')}<td></td></tr></tfoot></table>
+      <p class="fin">${u.cours.map(c => `${esc(c.code)} ${esc(c.nom)}`).join(' · ')}</p>
+      <p class="fin">● suit le cours · R report de note (dispensé, note reprise) · VA valorisé · D dispense complète · — unité déjà acquise.</p>
+    </section>`).join('') : '';
+
+  const filtres = String(b.filtres || '').slice(0, 300);
+  const corps = `<p class="fin">${unites.length} unité(s)${filtres ? ` · filtres : ${esc(filtres)}` : ''}.</p>${synthese}${detail}`;
+  res.json({
+    html: envelopperDocument({
+      html: corps, titre: 'Inscrits par unité', orientation: b.detail ? 'paysage' : 'portrait',
+      styles: STYLE_RAPPORT + STYLE_REPORTING,
+      entete: { titre: 'Inscrits par unité', sous: `Année académique ${annee} · ${section}` },
+    }),
+    nom: `Inscrits-par-unite-${section}-${annee}`,
+    orientation: b.detail ? 'paysage' : 'portrait',
+  });
+});
+
 /**
  * METTRE EN PAGE UNE LISTE CONSTRUITE À L'ÉCRAN.
  *

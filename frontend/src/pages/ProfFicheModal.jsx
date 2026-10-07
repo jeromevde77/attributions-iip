@@ -467,6 +467,19 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
       sous={isNew ? 'Identité, statut, coordonnées — rien n’est enregistré avant validation'
         : 'Identité, statut, charges et disponibilités'}
       large="grande" onFermer={onClose}
+      /* LES FLÈCHES EN HAUT, À CÔTÉ DU X (Charles, 7 octobre 2026), comme sur
+         la fiche de consultation et la fiche étudiant. */
+      outils={(onPrec || onSuiv) && (
+        <span className="inline-flex items-center gap-1 mr-2">
+          <button type="button" onClick={() => aller(onPrec)} disabled={!onPrec} title="Fiche précédente (flèche gauche)"
+            className="w-8 h-8 grid place-items-center rounded-champ border border-white/40 text-white hover:bg-white/10 disabled:opacity-30">
+            <IconChevronLeft size={16} /></button>
+          {position && <span className="text-[12px] text-white/80 tabular-nums min-w-[4rem] text-center">{position.i} / {position.n}</span>}
+          <button type="button" onClick={() => aller(onSuiv)} disabled={!onSuiv} title="Fiche suivante (flèche droite)"
+            className="w-8 h-8 grid place-items-center rounded-champ border border-white/40 text-white hover:bg-white/10 disabled:opacity-30">
+            <IconChevronRight size={16} /></button>
+        </span>
+      )}
       pied={<>
         <button type="submit" form="fiche-personnel" disabled={saving}
           className="bouton bouton-fort disabled:opacity-40">
@@ -476,16 +489,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
           {isNew ? 'La fiche est créée à la validation, pas avant.'
             : 'Les modifications ne sont enregistrées qu’à la validation.'}
         </span>
-        {(onPrec || onSuiv) && (
-          <span className="ml-auto inline-flex items-center gap-1">
-            <button type="button" onClick={() => aller(onPrec)} disabled={!onPrec} title="Fiche précédente (flèche gauche)"
-              className="bouton px-2 disabled:opacity-30"><IconChevronLeft size={15} /></button>
-            {position && <span className="text-[12px] text-slate-500 tabular-nums min-w-[3.5rem] text-center">{position.i} / {position.n}</span>}
-            <button type="button" onClick={() => aller(onSuiv)} disabled={!onSuiv} title="Fiche suivante (flèche droite)"
-              className="bouton px-2 disabled:opacity-30"><IconChevronRight size={15} /></button>
-          </span>
-        )}
-        <button type="button" onClick={onClose} className={`bouton ${onPrec || onSuiv ? '' : 'ml-auto'}`}>Annuler</button>
+        <button type="button" onClick={onClose} className="bouton ml-auto">Annuler</button>
       </>}>
       <form id="fiche-personnel" onSubmit={handleSubmit} autoComplete="off"
         className="space-y-3">
