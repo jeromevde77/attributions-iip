@@ -274,7 +274,7 @@ function ChangelogView({ data }) {
 // ─── Gestion des paramètres ───────────────────────────────────────────────────
 
 const GROUPE_LABELS = {
-  couts:         { icon: IconCoin, label: 'Coût des périodes de cours', desc: "Montants en euros d'une période, par niveau et par type de cours (circulaire des conventions). Ils font les « Coûts et recettes des formations » d'Éditions → Gestion — avec, plus bas, les inscrits prévus des sections qui n'en ont pas encore. À corriger à chaque nouvelle circulaire." },
+  couts:         { icon: IconCoin, label: 'Coût des périodes de cours', desc: "Montants en euros d'une période, par niveau et par type de cours (circulaire des conventions). Ils font les « Rapport statistique » d'Éditions → Gestion — avec, plus bas, les inscrits prévus des sections qui n'en ont pas encore. À corriger à chaque nouvelle circulaire." },
   planification: { icon: IconAdjustments, label: 'Planification', desc: 'Valeurs des cellules EV1/EV2/VC, durée des périodes, contraintes calendaires' },
   session:       { icon: IconCalendar, label: 'Calendrier des sessions', desc: 'Dernier jour admin + délais rétroactifs (EV1, VC, EV2, délibé, recours) pour calculer la dernière semaine de cours' },
   procedures:    { icon: IconScale, label: 'Procédures',    desc: 'Délais légaux, email de direction utilisé dans les PV' },

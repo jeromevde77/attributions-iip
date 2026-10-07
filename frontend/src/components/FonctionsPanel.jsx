@@ -5,7 +5,7 @@
  * — la fiche de saisie renvoyait à un écran supprimé). Un seul chemin
  * d'écriture : PUT /ref/personnel-mission.
  *
- * L'ETP fait le coût des fonctions (Coûts et recettes des formations) : en
+ * L'ETP fait le coût des fonctions (Rapport statistique) : en
  * périodes B pour la direction et le secrétariat, en ETP × 800 pour une
  * coordination ou une fonction HELB tenue sans période attribuée.
  */
@@ -69,7 +69,7 @@ export default function FonctionsPanel({ profId }) {
     <div className="space-y-3">
       <p className="text-[12px] text-slate-500">
         Fonctions en {annee} : {actives.length ? <b className="text-slate-700">{actives.join(' · ')}</b> : 'aucune'}.
-        {' '}L’ETP fait le coût des fonctions dans « Coûts et recettes des formations ».
+        {' '}L’ETP fait le coût des fonctions dans « Rapport statistique ».
         {!peutRegler && ' Réservé à l’administration : lecture seule.'}
       </p>
       {erreur && <p className="text-[12px]" style={{ color: 'var(--c-refuse)' }}>{erreur}</p>}

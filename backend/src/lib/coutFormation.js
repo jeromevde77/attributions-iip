@@ -39,6 +39,7 @@ export function semerCoutsFonctions(dbx = db) {
       ins.run(`pncc.periodes_b.${t.id}`, String(eq), `Périodes B d'un temps plein — ${t.libelle} (circ. 7949)`, null, 'couts');
     }
   }
+  ins.run('cout.remplacement_jours', '10', "Remplacement sans coût supplémentaire à partir de … jours ouvrables d'absence (circ. 9760, III.2.8)", null, 'couts');
   ins.run('pncc.cout_periode_b', '0', "Coût d'une période B (€) — vide : le montant d'une période CT du secondaire inférieur", null, 'couts');
   try { dbx.prepare("UPDATE parametre SET label = ? WHERE cle = 'pncc.cout_periode_b'").run("Coût d'une période B (€) — vide : le montant d'une période CT du secondaire inférieur"); } catch { /* */ }
 }
@@ -64,7 +65,7 @@ export function donneesCout(annee) {
   const T = tarifs();
   // Le type manque sur quelques attributions : on le reprend du cours ; à
   // défaut, CT — et la pièce dit combien de périodes sont dans ce cas.
-  const lignes = db.prepare(`
+  let lignes = db.prepare(`
     SELECT v.section, v.ue_num, MIN(v.ue_nom) AS ue_nom, v.niveau, v.contrat_mdp AS contrat,
            COALESCE(v.type_cours, (SELECT c.ct_pp FROM cours c WHERE c.cours_code = v.code_cours
              AND c.annee_scolaire = v.annee_scolaire LIMIT 1)) AS type,
@@ -76,6 +77,38 @@ export function donneesCout(annee) {
       FROM v_attribution_complete v
      WHERE v.annee_scolaire = ? AND COALESCE(v.en_conge, 0) = 0 AND COALESCE(v.total_attribue_professeur, 0) > 0
      GROUP BY v.section, v.ue_num, v.niveau, v.contrat_mdp, type, type_deduit, statut, sexe`).all(annee);
+  /* UNE UNITÉ PARTAGÉE SE RÉPARTIT ENTRE SES SECTIONS AU PRORATA DE LEURS
+     ÉTUDIANTS (Charles, 7 octobre 2026 : « comment distingues-tu opto d'ortho ?
+     par étudiant ? »). Les attributions du tronc commun portent toutes la
+     section Optométrie : sans cette répartition, Orthoptie et ses 115 étudiants
+     n'auraient coûté aucun cours. Le coût de l'unité (toutes organisations
+     confondues) se partage entre les sections qui la portent, selon le nombre
+     d'étudiants de chacune inscrits à l'unité. */
+  const sectionsUE = new Map();
+  for (const r of db.prepare(`SELECT ue_num, section s FROM ue WHERE annee_scolaire = ? AND section IS NOT NULL
+      UNION SELECT ue_num, section_code FROM ue_section WHERE annee_scolaire = ?`).all(annee, annee)) {
+    if (!sectionsUE.has(r.ue_num)) sectionsUE.set(r.ue_num, new Set());
+    sectionsUE.get(r.ue_num).add(r.s);
+  }
+  // La section de l'étudiant se lit comme dans les chiffres clés : son
+  // rattachement, sinon celle de l'unité (hors cursus exclues).
+  const etuParSection = db.prepare(`SELECT s, COUNT(DISTINCT id) n FROM (SELECT e.id,
+         COALESCE(e.section_rattachement, (SELECT u.section FROM ue u WHERE u.ue_num = i.ue_num
+           AND u.annee_scolaire = i.annee_scolaire AND COALESCE(u.hors_cursus, 0) = 0 LIMIT 1)) AS s
+      FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id WHERE i.annee_scolaire = ? AND i.ue_num = ?
+       AND COALESCE(e.sortie_statut, '') <> 'archive') GROUP BY s`);
+  const partsUE = new Map();   // ue_num → [[section, part]]
+  for (const [ue, secs] of sectionsUE) {
+    if (secs.size < 2) continue;
+    const comptes = etuParSection.all(annee, ue).filter(r => secs.has(r.s));
+    const t = comptes.reduce((a, r) => a + r.n, 0);
+    if (comptes.length > 1 && t) partsUE.set(ue, comptes.map(r => [r.s, r.n / t, r.n]));
+  }
+  if (partsUE.size) {
+    lignes = lignes.flatMap(l => (partsUE.has(l.ue_num)
+      ? partsUE.get(l.ue_num).map(([s, q, n]) => ({ ...l, section: s, periodes: l.periodes * q, part: q, etudiants_part: n }))
+      : [l]));
+  }
   let sansTarif = 0, typeDefaut = 0, expertsBase = 0;
   const indice = indiceExpert();
   const nouveauxStatuts = () => Object.fromEntries(['CC', 'EXP', 'AUTRE'].map(k => [k,
@@ -103,7 +136,7 @@ export function donneesCout(annee) {
     const k = type === 'PP' ? 'pp' : 'ct';
     S['per_' + k] += l.periodes; S['cout_' + k] += cout; S.cout += cout; S.periodes += l.periodes;
     if (l.contrat === 'HELB') S.cout_helb += cout; else S.cout_iip += cout;
-    const U = S.ues.get(l.ue_num) || { ue_num: l.ue_num, ue_nom: l.ue_nom, niveau: niv, periodes: 0, cout: 0,
+    const U = S.ues.get(l.ue_num) || { ue_num: l.ue_num, ue_nom: l.ue_nom, niveau: niv, periodes: 0, cout: 0, part: l.part || null, etudiants_part: l.etudiants_part || null,
       per_ct: 0, per_pp: 0, cout_ct: 0, cout_pp: 0, tarif_ct: niv ? T[niv].CT : 0, tarif_pp: niv ? T[niv].PP : 0,
       statuts: nouveauxStatuts(), sexes: nouveauxSexes() };
     U.periodes += l.periodes; U.cout += cout; U['per_' + k] += l.periodes; U['cout_' + k] += cout; S.ues.set(l.ue_num, U);
@@ -234,7 +267,8 @@ export function donneesCout(annee) {
           const niv = niveauDeSection(m.section_code);
           const tCT = T[niv]?.CT || 0;
           const quoi = etpHelb && partIIP ? `${etpCompte} ETP (dont ${etpHelb} HELB)` : etpHelb ? `${etpHelb} ETP HELB` : `${partIIP} ETP`;
-          return { ...m, pncc, portee, etp: etpCompte, annuel: 0, mode: 'etp800', niveau: niv,
+          return { ...m, pncc, portee, etp: etpCompte, annuel: 0, mode: 'etp800', niveau: niv, tarif_ct: tCT,
+            etp_helb_compte: etpHelb, etp_iip_compte: partIIP,
             calcul: `${quoi} × 800 × ${tCT.toFixed(2).replace('.', ',')} € (CT ${niv})${per && etpHelb ? ' — hors ses périodes' : ''}`, cout: etpCompte * 800 * tCT };
         }
         return { ...m, pncc, portee, etp, annuel: 0, mode: per ? 'periodes' : 'sans_etp', cout: 0 };
@@ -257,6 +291,7 @@ export function donneesCout(annee) {
   //    entre elles au prorata des périodes de ses UE.
   const recettes = { di: 0, dis: 0, frais: 0, verse: 0, etudiants: 0, exoneres: 0 };
   const recSec = new Map();
+  const recTiers = new Map();   // section → ce que doit un tiers (Orthoptie : HELB)
   try {
     const secUe = new Map(db.prepare(`SELECT ue_num, MIN(section) AS section, MAX(COALESCE(hors_cursus, 0)) AS hc
         FROM ue WHERE annee_scolaire = ? GROUP BY ue_num`).all(annee).map(u => [u.ue_num, u]));
@@ -266,20 +301,31 @@ export function donneesCout(annee) {
     for (const e of etus) {
       const f = calculerFrais(e.id, annee);
       if (!f) continue;
-      recettes.etudiants++; if (f.exonere_di) recettes.exoneres++;
       /* PERÇU PAR UN TIERS (Orthoptie : HELB) : rien pour l'établissement ;
          compté à part, pour dire d'où vient le DI. */
       if (f.tiers) {
+        /* DÛ PAR LE TIERS (Charles, 7 octobre 2026 : « il faut mettre le total du
+           DI, mais il sera négatif et dû par la HE »). Le montant reste dans le
+           total du DI, à la section de l'étudiant, et se lit comme dû par la HELB. */
         const cle = f.tiers.payeur;
         recettes.tiers = recettes.tiers || {};
         recettes.tiers[cle] = (recettes.tiers[cle] || 0) + f.droit_inscription + f.droit_specifique + f.frais_administratifs;
         recettes.etudiants_tiers = (recettes.etudiants_tiers || 0) + 1;
+        const tx = recettes.tiers_detail = recettes.tiers_detail || { di: 0, dis: 0, frais: 0, verse: 0 };
+        tx.di += f.droit_inscription; tx.dis += f.droit_specifique; tx.frais += f.frais_administratifs; tx.verse += f.verse;
+        const sec = e.rat || '(sans section)';
+        const T2 = recTiers.get(sec) || { di: 0, dis: 0, frais: 0, verse: 0, payeur: cle, etudiants: 0 };
+        T2.di += f.droit_inscription; T2.dis += f.droit_specifique; T2.frais += f.frais_administratifs; T2.verse += f.verse; T2.etudiants++;
+        recTiers.set(sec, T2);
         continue;
       }
+      recettes.etudiants++; if (f.exonere_di) recettes.exoneres++;
       const parts = new Map();
       for (const d of f.detail_ue || []) {
         const u = secUe.get(d.ue_num) || {};
-        const sec = (u.hc ? e.rat : u.section) || e.rat || '(sans section)';
+        // Une unité partagée (tronc commun) compte dans la section de l'étudiant.
+        const partagee = e.rat && sectionsUE.get(d.ue_num)?.has(e.rat);
+        const sec = (u.hc || partagee ? e.rat : u.section) || e.rat || '(sans section)';
         parts.set(sec, (parts.get(sec) || 0) + (Number(d.periodes) || 0));
       }
       const totalPer = [...parts.values()].reduce((a, b) => a + b, 0);
@@ -295,11 +341,14 @@ export function donneesCout(annee) {
       recettes.frais += f.frais_administratifs; recettes.verse += f.verse;
     }
   } catch (e) { recettes.erreur = e.message; }
-  for (const S of sections) S.recettes = recSec.get(S.section) || { di: 0, dis: 0, frais: 0, verse: 0 };
+  for (const S of sections) {
+    S.recettes = recSec.get(S.section) || { di: 0, dis: 0, frais: 0, verse: 0 };
+    if (recTiers.has(S.section)) S.recettes_tiers = recTiers.get(S.section);
+  }
   // Des droits rattachés à une section absente de la liste (UE d'une section
   // sans attribution ni inscrit compté) : on la montre plutôt que de les perdre.
-  for (const [sec, Rx] of recSec) {
-    if (!sections.some(S => S.section === sec)) sections.push({ section: sec, per_ct: 0, per_pp: 0, cout_ct: 0, cout_pp: 0,
+  for (const [sec, Rx] of [...recSec, ...[...recTiers.keys()].filter(k => !recSec.has(k)).map(k => [k, { di: 0, dis: 0, frais: 0, verse: 0 }])]) {
+    if (!sections.some(S => S.section === sec)) sections.push({ recettes_tiers: recTiers.get(sec), section: sec, per_ct: 0, per_pp: 0, cout_ct: 0, cout_pp: 0,
       cout: 0, cout_iip: 0, cout_helb: 0, periodes: 0, ues: [], statuts: nouveauxStatuts(), sexes: nouveauxSexes(),
       inscrits: 0, part_fonctions: 0, cout_complet: 0, recettes: Rx });
   }

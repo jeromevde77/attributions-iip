@@ -26,6 +26,7 @@ import { calculerEtp } from './pilotage.js';
 import { MOTIFS_DI } from './droitInscription.js';
 import { donneesChiffresCles, donneesPersonnel, TRANCHES_ETP } from '../lib/chiffresCles.js';
 import { donneesCout } from '../lib/coutFormation.js';
+import { getParamNum } from './parametres.js';
 import { TITRES_ACCES, DIPLOMES_MAX } from '../lib/profilEtudiant.js';
 import { couleurs } from '../lib/couleurs.js';
 import { controlePrerequisPae, corpsControlePae, prenomSeul, STYLES_CONTROLE_PAE } from '../lib/controlePae.js';
@@ -777,6 +778,9 @@ function documentPersonnelStats(p) {
  */
 function documentCoutFormations(p) {
   const d = donneesCout(p.annee);
+  const dateRapport = new Date().toLocaleDateString('fr-BE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const joursRemplacement = getParamNum('cout.remplacement_jours', 10);
+  const pastilleHelb = '<span style="display:inline-block;padding:0 1.6mm;border-radius:1mm;background:#B83280;color:#fff;font-size:7.5pt;margin-left:1.5mm">HELB</span>';
   const K = paletteStats();
   const T = d.tarifs;
   const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -818,6 +822,8 @@ function documentCoutFormations(p) {
       supérieur de type court ${m2(T.SUP.CT)} € (cours généraux et techniques) · ${m2(T.SUP.PP)} € (pratique professionnelle) ;
       secondaire supérieur ${m2(T.DS.CT)} € · ${m2(T.DS.PP)} €${T.reference ? ` (${esc(T.reference)}${T.date_effet ? `, au ${esc(T.date_effet.split('-').reverse().join('/'))}` : ''})` : ''}.
       Ce montant vaut pour les <b>chargés de cours</b> comme pour les <b>experts</b>, payés eux aussi en périodes ; ils sont détaillés sur des lignes séparées.
+      Une <b>unité partagée</b> entre sections (le tronc commun Optométrie–Orthoptie) se répartit entre elles au prorata
+      de leurs étudiants inscrits à l'unité.
       Les lignes en congé ne coûtent rien
       (leur remplaçant est compté) ; les activités Z n'entrent pas.<br>
       <b>Fonctions</b> — coût annuel d'un temps plein de la fonction × ETP de la personne dans cette fonction,
@@ -864,14 +870,31 @@ function documentCoutFormations(p) {
 
   // LES DROITS ET LES FRAIS : ce que paient les étudiants, et à qui cela revient.
   const R = d.recettes || {};
+  /* CE QUE DOIT UN TIERS (Charles, 7 octobre 2026 : « pour le total dû en DI à
+     la FWB, il faut mettre le total du DI, mais il sera négatif et dû par la
+     HE »). La section d'Orthoptie porte ses droits en négatif — ils ne sont pas
+     perçus par l'établissement, la HELB les doit — et le total du DI les compte. */
+  const TX = R.tiers_detail || { di: 0, dis: 0, frais: 0, verse: 0 };
+  const neg = v => (v ? `−${k0(v)}` : '0');
   const tRecettes = `<table class="serre"><thead><tr><th>Section</th>${['DI (€)', 'DIS (€)', 'Frais adm. (€)', 'Total dû (€)',
       'Versé (€)', 'Frais / étudiant (€)'].map(c => `<th class="n">${c}</th>`).join('')}</tr></thead>
-    <tbody>${d.sections.map(S => { const x = S.recettes; const dû = x.di + x.dis + x.frais; return `<tr><td>${esc(S.section)}</td>
+    <tbody>${d.sections.filter(S => { const x = S.recettes; return x.di || x.dis || x.frais || x.verse || S.recettes_tiers || S.inscrits; }).map(S => {
+      const x = S.recettes; const dû = x.di + x.dis + x.frais; const t = S.recettes_tiers;
+      const ligne = !(dû || x.verse) && t ? '' : `<tr><td>${esc(S.section)}</td>
       <td class="n">${k0(x.di)}</td><td class="n">${k0(x.dis)}</td><td class="n">${k0(x.frais)}</td><td class="n g">${k0(dû)}</td>
-      <td class="n">${k0(x.verse)}</td><td class="n">${S.inscrits ? k0(dû / S.inscrits) : '—'}</td></tr>`; }).join('')}</tbody>
-    <tfoot><tr class="repere"><td>Ensemble</td><td class="n">${k0(R.di)}</td><td class="n">${k0(R.dis)}</td><td class="n">${k0(R.frais)}</td>
+      <td class="n">${k0(x.verse)}</td><td class="n">${S.inscrits ? k0(dû / S.inscrits) : '—'}</td></tr>`;
+      const lt = !t ? '' : `<tr><td>${esc(S.section)}${pastilleHelb}<span class="fin"> dû par ${esc(t.payeur)} · ${n0(t.etudiants)} étudiant(s)</span></td>
+      <td class="n">${neg(t.di)}</td><td class="n">${neg(t.dis)}</td><td class="n">${neg(t.frais)}</td><td class="n g">${neg(t.di + t.dis + t.frais)}</td>
+      <td class="n">${k0(t.verse)}</td><td class="n">${t.etudiants ? neg((t.di + t.dis + t.frais) / t.etudiants) : '—'}</td></tr>`;
+      return ligne + lt; }).join('')}</tbody>
+    <tfoot><tr class="repere"><td>Perçu par l'établissement</td><td class="n">${k0(R.di)}</td><td class="n">${k0(R.dis)}</td><td class="n">${k0(R.frais)}</td>
       <td class="n">${k0((R.di || 0) + (R.dis || 0) + (R.frais || 0))}</td><td class="n">${k0(R.verse)}</td>
-      <td class="n">${R.etudiants ? k0(((R.di || 0) + (R.dis || 0) + (R.frais || 0)) / R.etudiants) : '—'}</td></tr></tfoot></table>
+      <td class="n">${R.etudiants ? k0(((R.di || 0) + (R.dis || 0) + (R.frais || 0)) / R.etudiants) : '—'}</td></tr>
+    ${R.etudiants_tiers ? `<tr class="repere"><td>Dû par la HELB</td><td class="n">${neg(TX.di)}</td><td class="n">${neg(TX.dis)}</td><td class="n">${neg(TX.frais)}</td>
+      <td class="n">${neg(TX.di + TX.dis + TX.frais)}</td><td class="n">${k0(TX.verse)}</td><td class="n"></td></tr>
+    <tr class="repere"><td><b>Total du DI — tous les étudiants</b></td><td class="n"><b>${k0((R.di || 0) + TX.di)}</b></td><td class="n">${k0((R.dis || 0) + TX.dis)}</td>
+      <td class="n">${k0((R.frais || 0) + TX.frais)}</td><td class="n">${k0((R.di || 0) + (R.dis || 0) + (R.frais || 0) + TX.di + TX.dis + TX.frais)}</td>
+      <td class="n">${k0((R.verse || 0) + TX.verse)}</td><td class="n"></td></tr>` : ''}</tfoot></table>
     <p class="fin">Calcul de la fiche de chaque étudiant (Frais de scolarité) : <b>droit d'inscription</b> (forfait + montant par période,
       plafonné) et <b>frais administratifs</b> (fixe + montant par période du PAE), qui <b>restent à l'établissement</b> ;
       <b>droit d'inscription spécifique</b>, qui revient à la Fédération. Barèmes réglables dans la fiche Frais de scolarité.
@@ -881,28 +904,67 @@ function documentCoutFormations(p) {
       ce que l'établissement perçoit (droit d'inscription et frais administratifs : ${eur((R.di || 0) + (R.frais || 0))})
       en couvre ${tot.cout_complet && ((R.di || 0) + (R.frais || 0)) ? pc((R.di || 0) + (R.frais || 0), tot.cout_complet) : '—'}.</p>`;
 
-  const tFonctions = d.missions.length ? `<table><thead><tr><th>Personne</th><th>Fonction</th><th>Portée</th>
-      <th class="n" style="width:14mm">ETP</th><th class="n" style="width:62mm">Calcul</th><th class="n" style="width:24mm">Coût</th></tr></thead>
-    <tbody>${d.missions.map(m => `<tr><td>${esc(`${m.prenom || ''} ${String(m.nom || '').toUpperCase()}`.trim())}</td>
-      <td>${esc(m.fonction)}</td><td>${esc(m.portee)}</td>
-      <td class="n">${m.etp ? e1(m.etp) : '<span class="fin">à régler</span>'}</td>
-      <td class="n">${m.mode === 'periodes' ? '<span class="fin">payée par ses périodes attribuées</span>'
-        : !m.etp ? '<span class="fin">ETP à régler (onglet Fonctions)</span>' : esc(m.calcul || '')}</td>
-      <td class="n">${m.cout ? eur(m.cout) : '—'}</td></tr>`).join('')}</tbody>
-    <tfoot><tr class="repere"><td colspan="5">Ensemble des fonctions</td><td class="n">${eur(tot.cout_fonctions)}</td></tr></tfoot></table>
+  /* LES FONCTIONS, REGROUPÉES — SANS LES NOMS (Charles, 7 octobre 2026 : « on
+     enlève les noms, on regroupe par fonction, on met HELB si nécessaire ; les
+     comptes sont bons »). Une ligne par fonction et par formule ; la part HELB
+     d'une fonction a sa propre ligne. */
+  const morceaux = d.missions.flatMap(m => {
+    const base = { fonction: m.fonction || '(sans libellé)', portee: m.portee, personne: `${m.nom}|${m.prenom}` };
+    if (m.mode === 'periodes_b') return [{ ...base, helb: false, mode: m.mode, etp: m.etp, cout: m.cout,
+      cle: `${m.periodes_b}|${m.cout_b}`, formule: e => `${e1(e)} ETP × ${n0(m.periodes_b)} pér. B × ${m2(m.cout_b)} €` }];
+    if (m.mode === 'annuel') return [{ ...base, helb: false, mode: m.mode, etp: m.etp, cout: m.cout,
+      cle: `${m.annuel}`, formule: e => `${e1(e)} ETP × ${eur(m.annuel)}` }];
+    if (m.mode === 'etp800') return [[false, m.etp_iip_compte], [true, m.etp_helb_compte]].filter(([, e]) => e).map(([helb, e]) => ({
+      ...base, helb, mode: m.mode, etp: e, cout: e * 800 * m.tarif_ct, cle: `${m.tarif_ct}|${m.niveau}`,
+      formule: x => `${e1(x)} ETP × 800 × ${m2(m.tarif_ct)} € (CT ${m.niveau})` }));
+    return [{ ...base, helb: false, mode: m.mode, etp: m.etp, cout: 0, cle: '' }];
+  });
+  const groupesF = [];
+  for (const x of morceaux) {
+    const k = `${x.fonction}|${x.helb}|${x.mode}|${x.cle}`;
+    let g = groupesF.find(y => y.k === k);
+    if (!g) groupesF.push(g = { k, fonction: x.fonction, helb: x.helb, mode: x.mode, formule: x.formule, etp: 0, cout: 0, personnes: new Set(), portees: new Set() });
+    g.etp += x.etp || 0; g.cout += x.cout || 0; g.personnes.add(x.personne); if (x.portee) g.portees.add(x.portee);
+  }
+  const tFonctions = groupesF.length ? `<table><thead><tr><th>Fonction</th><th>Portée</th>
+      <th class="n" style="width:18mm">Personnes</th><th class="n" style="width:14mm">ETP</th><th class="n" style="width:66mm">Calcul</th><th class="n" style="width:24mm">Coût</th></tr></thead>
+    <tbody>${groupesF.map(g => `<tr><td>${esc(g.fonction)}${g.helb ? pastilleHelb : ''}</td>
+      <td>${esc([...g.portees].join(', '))}</td><td class="n">${g.personnes.size}</td>
+      <td class="n">${g.etp ? e1(g.etp) : '<span class="fin">à régler</span>'}</td>
+      <td class="n">${g.mode === 'periodes' ? '<span class="fin">payée par les périodes attribuées</span>'
+        : g.mode === 'sans_etp' || !g.etp ? '<span class="fin">ETP à régler (onglet Fonctions)</span>' : esc(g.formule(g.etp))}</td>
+      <td class="n">${g.cout ? eur(g.cout) : '—'}</td></tr>`).join('')}</tbody>
+    <tfoot><tr class="repere"><td colspan="5">Ensemble des fonctions${groupesF.some(g => g.helb) ? ` — dont HELB ${eur(groupesF.filter(g => g.helb).reduce((a, g) => a + g.cout, 0))}` : ''}</td><td class="n">${eur(tot.cout_fonctions)}</td></tr></tfoot></table>
     <p class="fin"><b>Direction et secrétariat</b> sont des emplois de personnel non chargé de cours (PNCC) : coût = ETP × l'équivalent
       d'un temps plein en <b>périodes B</b> (circulaire 7949 : directeur 1 200, directeur adjoint 1 000, secrétaire de direction 900,
-      éducateur-secrétaire 800) × le coût d'une période B. Une <b>coordination</b> ou une fonction HELB tenue par quelqu'un
-      <b>sans période attribuée</b> se compte en ETP × 800 × le montant d'une période CT du niveau de la section ; tenue par un
-      enseignant qui a des périodes, elle est déjà payée par elles et n'est pas comptée deux fois.
-      Réglages : Configuration → Coût des périodes ; ETP : onglet Fonctions de la fiche.</p>`
+      éducateur-secrétaire 800) × le coût d'une période B. Une <b>coordination</b> tenue par quelqu'un <b>sans période attribuée</b>
+      se compte en ETP × 800 × le montant d'une période CT du niveau de la section ; tenue par un enseignant qui a des périodes,
+      elle est déjà payée par elles et n'est pas comptée deux fois. La <b>part HELB</b> d'une fonction se compte toujours, sur sa
+      propre ligne. Réglages : Configuration → Coût des périodes ; ETP : onglet Fonctions de la fiche.</p>`
     : '<p class="fin">Aucune fonction encodée pour cette année (onglet Fonctions de la fiche du personnel).</p>';
+
+  /* LE COÛT COMPLET, POSTE PAR POSTE (Charles, 7 octobre 2026 : « cours /
+     fonctions, c'est trop peu clair ; il faut détailler cours, admin,
+     coordination… ça comprend la HE ? »). Oui : cours et fonctions HELB y
+     sont, et se lisent à part. */
+  const postes = [{ nom: 'Cours — IIP', valeur: tot.cout - (tot.cout_helb || 0) }, { nom: 'Cours — HELB', valeur: tot.cout_helb || 0 }];
+  for (const g of groupesF) {
+    if (!g.cout) continue;
+    const nom = `${g.fonction}${g.helb ? ' — HELB' : ''}`;
+    const p0 = postes.find(x => x.nom === nom);
+    if (p0) p0.valeur += g.cout; else postes.push({ nom, valeur: g.cout });
+  }
+  // Le rose dit la HELB, et lui seul ; les autres postes prennent la série.
+  const serieP = couleursSerie(K).filter(c => c !== K.bleu);
+  let iP = 0;
+  const postesCouleurs = postes.filter(x => x.valeur > 0).map(x => ({ ...x, nom: esc(x.nom),
+    couleur: /HELB/.test(x.nom) ? '#B83280' : x.nom === 'Cours — IIP' ? K.bleu : serieP[iP++ % serieP.length] }));
 
   // UNITÉ PAR UNITÉ : une ligne par statut, le calcul écrit.
   const calc = (per, tarif, cout) => (per ? `${n0(per)} × ${m2(tarif)} = ${eur(cout)}` : '—');
   const detail = d.sections.map(S => `
     <tr class="groupe"><td colspan="5">${esc(S.section)}<span class="fin"> — ${eur(S.cout)} · ${pc(S.statuts.CC.periodes, S.periodes)} CC · ${pc(S.statuts.EXP.periodes, S.periodes)} EXP</span></td></tr>
-    ${S.ues.map(u => `<tr class="repere"><td>UE ${u.ue_num} — ${esc(u.ue_nom || '')}</td><td class="n">${u.niveau || '—'}</td>
+    ${S.ues.map(u => `<tr class="repere"><td>UE ${u.ue_num} — ${esc(u.ue_nom || '')}${u.part ? `<span class="fin"> · unité partagée : ${Math.round(u.part * 100)} % (${n0(u.etudiants_part)} étudiant(s) de la section)</span>` : ''}</td><td class="n">${u.niveau || '—'}</td>
         <td class="n" colspan="2">${pc(u.statuts.CC.periodes, u.periodes)} CC · ${pc(u.statuts.EXP.periodes, u.periodes)} EXP</td>
         <td class="n">${eur(u.cout)}</td></tr>
       ${['CC', 'EXP', 'AUTRE'].filter(k => u.statuts[k].periodes).map(k => { const x = u.statuts[k]; return `<tr>
@@ -946,7 +1008,10 @@ function documentCoutFormations(p) {
       du personnel sont payés au barème, selon leur titre et le niveau d'enseignement. Pour permettre la comparaison, les
       montants de ce document — cours et fonctions — sont exprimés en <b>coût de convention</b> : ce que coûte une période
       lorsque l'établissement doit l'acheter à la Fédération Wallonie-Bruxelles. Ils ne reflètent donc pas les traitements
-      réellement versés.</p></div>
+      réellement versés.<br>
+      <b>Un membre du personnel absent</b> peut être remplacé <b>sans coût supplémentaire</b> pour l'établissement à partir de
+      ${n0(joursRemplacement)} jours ouvrables d'absence (circulaire 9760, III.2.8) : seul le remplaçant est alors compté, la ligne en
+      congé ne coûte rien.</p></div>
     ${rangeeTuiles([
       tuile({ valeur: eur(tot.cout_complet), libelle: 'Coût complet', precision: `${d.sections.length} section(s)`, ton: 'fort' }),
       tuile({ valeur: eur(tot.cout), libelle: 'Cours', precision: `${n0(tot.periodes)} périodes attribuées` }),
@@ -971,8 +1036,8 @@ function documentCoutFormations(p) {
     <section class="bloc">
     <h2>Les coûts</h2>
     ${rangeeCamemberts(
-      camembert('Coût complet — cours et fonctions', [{ nom: 'Cours', valeur: tot.cout, couleur: K.bleu },
-        { nom: 'Fonctions', valeur: tot.cout_fonctions, couleur: K.or }], { total: `${Math.round(tot.cout_complet / 1000).toLocaleString('fr-BE')} k€` }),
+      camembert('Coût complet — poste par poste', postesCouleurs, { total: `${Math.round(tot.cout_complet / 1000).toLocaleString('fr-BE')} k€`,
+        note: `HELB comprise : ${eur((tot.cout_helb || 0) + groupesF.filter(g => g.helb).reduce((a, g) => a + g.cout, 0))}` }),
       camembert('Coût des cours par section', d.sections.filter(S => S.cout).map((S, i) => ({ nom: esc(S.section), valeur: S.cout, couleur: couleursSerie(K)[i % 10] })),
         { total: `${Math.round(tot.cout / 1000).toLocaleString('fr-BE')} k€` }))}
     ${duo(
@@ -1031,9 +1096,9 @@ function documentCoutFormations(p) {
 
   return {
     corps,
-    entete: { titre: 'Coûts et recettes des formations', sous: `Année académique ${p.annee} · cours au montant des conventions, fonctions au coût annuel` },
-    titre: 'Coûts et recettes des formations',
-    nom: `Couts-et-recettes-formations-${p.annee}.html`,
+    entete: { titre: `Rapport statistique ${p.annee} (${dateRapport})`, sous: `Année académique ${p.annee} · cours au montant des conventions, fonctions au coût annuel` },
+    titre: `Rapport statistique ${p.annee} (${dateRapport})`,
+    nom: `Rapport-statistique-${p.annee}.html`,
     orientation: 'paysage',
     styles: STYLE_RAPPORT + STYLE_REPORTING + STYLE_STATS + `
       /* PAS DE PARTIE COUPÉE (Charles, 7 octobre 2026) : un bloc court tient sur
@@ -1919,8 +1984,8 @@ export const RAPPORTS = [
     /* LE COÛT RÉEL DES FORMATIONS (Charles, 6 octobre 2026 — circulaire des
        conventions n° 9789 ; montants réglables dans Configuration). */
     id: 'cout-formations', domaine: 'gestion', params: ['annee'],
-    libelle: 'Coûts et recettes des formations',
-    aide: "Ce que coûtent les cours et les fonctions, et ce que rapportent droits et frais — par section et par unité, formules écrites.",
+    libelle: 'Rapport statistique',
+    aide: "Coûts et recettes des formations : ce que coûtent les cours et les fonctions, et ce que rapportent droits et frais — par section et par unité, formules écrites.",
     colonnes: COLS([['section', 'Section', 24], ['per_ct', 'Pér. CT'], ['per_pp', 'Pér. PP'], ['cout', 'Cours (€)'],
       ['cout_cc', 'dont CC (€)'], ['cout_exp', 'dont EXP (€)'], ['pc_cc', '% CC'], ['pc_exp', '% EXP'],
       ['cout_helb', 'dont HELB (€)'], ['inscrits', 'Inscrits'], ['fonctions', 'Fonctions (€)'], ['complet', 'Complet (€)'],
