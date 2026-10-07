@@ -39,7 +39,8 @@ export function semerCoutsFonctions(dbx = db) {
       ins.run(`pncc.periodes_b.${t.id}`, String(eq), `Périodes B d'un temps plein — ${t.libelle} (circ. 7949)`, null, 'couts');
     }
   }
-  ins.run('pncc.cout_periode_b', '0', "Coût d'une période B (€) — vide : le montant d'une période CT du supérieur", null, 'couts');
+  ins.run('pncc.cout_periode_b', '0', "Coût d'une période B (€) — vide : le montant d'une période CT du secondaire inférieur", null, 'couts');
+  try { dbx.prepare("UPDATE parametre SET label = ? WHERE cle = 'pncc.cout_periode_b'").run("Coût d'une période B (€) — vide : le montant d'une période CT du secondaire inférieur"); } catch { /* */ }
 }
 
 /** Le niveau de tarif d'une section : SUP, DS ou DI, d'après son niveau déclaré. */
@@ -207,7 +208,10 @@ export function donneesCout(annee) {
           /* EN PÉRIODES B (circ. 7949) quand l'équivalence est réglée ; sinon le
              coût annuel saisi. ETP × périodes B × coût d'une période B. */
           const perB = m.type_id ? getParamNum(`pncc.periodes_b.${m.type_id}`, 0) : 0;
-          const coutB = getParamNum('pncc.cout_periode_b', 0) || T.SUP.CT;
+          // UNE PÉRIODE B EST UNE PÉRIODE CT DU SECONDAIRE INFÉRIEUR (Charles,
+          // 7 octobre 2026 : « tu les paies en périodes C ») : à défaut de réglage,
+          // le montant de la circulaire des conventions pour le secondaire inférieur.
+          const coutB = getParamNum('pncc.cout_periode_b', 0) || T.DI.CT;
           if (perB) return { ...m, pncc, portee, etp, annuel, periodes_b: perB, cout_b: coutB, mode: 'periodes_b',
             calcul: `${etp} ETP × ${perB} pér. B × ${coutB.toFixed(2).replace('.', ',')} €`, cout: etp * perB * coutB };
           return { ...m, pncc, portee, etp, annuel, mode: 'annuel', calcul: `${etp} ETP × ${Math.round(annuel)} €`, cout: etp * annuel };
@@ -216,14 +220,22 @@ export function donneesCout(annee) {
            7 octobre 2026) : « il faut alors compter les ETP en 800e » — ETP × 800 ×
            le montant d'une période CT du niveau de la section (SUP si SUP, DS si
            DS). Avec des périodes attribuées, elle est déjà payée : rien de plus. */
+        /* LA PART HELB COMPTE TOUJOURS (Charles, 7 octobre 2026 : « tu ne comptes ni
+           Moiny, ni Carly, ni Delvosal ») : elle n'est pas payée par les périodes
+           de cours de la personne. La part IIP (ETP − HELB) ne compte que si la
+           personne n'a aucune période attribuée — sinon ce sont elles qui la paient.
+           « ETP » et « dont HELB » : la part HELB est comprise dans l'ETP. */
         const per = Number(m.per_attribuees) || 0;
         const etpHelb = Number(m.etp_helb) || 0;
-        const etpCompte = etp || etpHelb;   // l'ETP HELB, quand la fonction n'a que lui
-        if (!per && etpCompte) {
+        const etpTotal = Math.max(etp, etpHelb);
+        const partIIP = per ? 0 : Math.max(0, etpTotal - etpHelb);
+        const etpCompte = etpHelb + partIIP;
+        if (etpCompte) {
           const niv = niveauDeSection(m.section_code);
           const tCT = T[niv]?.CT || 0;
+          const quoi = etpHelb && partIIP ? `${etpCompte} ETP (dont ${etpHelb} HELB)` : etpHelb ? `${etpHelb} ETP HELB` : `${partIIP} ETP`;
           return { ...m, pncc, portee, etp: etpCompte, annuel: 0, mode: 'etp800', niveau: niv,
-            calcul: `${etpCompte} ETP${!etp && etpHelb ? ' HELB' : ''} × 800 × ${tCT.toFixed(2).replace('.', ',')} € (CT ${niv})`, cout: etpCompte * 800 * tCT };
+            calcul: `${quoi} × 800 × ${tCT.toFixed(2).replace('.', ',')} € (CT ${niv})${per && etpHelb ? ' — hors ses périodes' : ''}`, cout: etpCompte * 800 * tCT };
         }
         return { ...m, pncc, portee, etp, annuel: 0, mode: per ? 'periodes' : 'sans_etp', cout: 0 };
       });
