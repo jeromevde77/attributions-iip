@@ -67,11 +67,14 @@ export function donneesChiffresCles(annee, ref = new Date()) {
            COALESCE(e.section_rattachement, (SELECT u.section FROM ue u WHERE u.ue_num = i.ue_num
              AND u.annee_scolaire = i.annee_scolaire AND COALESCE(u.hors_cursus, 0) = 0 LIMIT 1)) AS section
       FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
-     WHERE i.annee_scolaire = ?`).all(annee);
+     WHERE i.annee_scolaire = ? AND COALESCE(e.sortie_statut, '') <> 'archive'`).all(annee);
+  /* LES ARCHIVÉS NE COMPTENT PAS (Charles, 7 octobre 2026 : « pas les
+     étudiants archivés ») — un PAE non confirmé, si : l'étudiant est inscrit. */
   const fiches = new Map(db.prepare(`
     SELECT e.id, e.sexe, e.date_naissance, e.nationalite, e.titre_acces, e.diplome_max,
            COALESCE(e.sejour_limite_etudes, 0) AS sle, COALESCE(e.di_exonere, 0) AS di_exonere, e.di_motif
-      FROM etudiant e WHERE e.id IN (SELECT etudiant_id FROM etudiant_inscription WHERE annee_scolaire = ?)`)
+      FROM etudiant e WHERE e.id IN (SELECT etudiant_id FROM etudiant_inscription WHERE annee_scolaire = ?)
+        AND COALESCE(e.sortie_statut, '') <> 'archive'`)
     .all(annee).map(f => [f.id, f]));
   const etuParSection = new Map();
   for (const l of ins) {

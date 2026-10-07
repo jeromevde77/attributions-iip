@@ -22,6 +22,36 @@ import { vaRetenue } from '../lib/valorisation.js';
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
+import { getParam } from './parametres.js';
+import { sectionRattachement } from './etudiants.js';
+
+/**
+ * QUI PERÇOIT LES DROITS DE CET ÉTUDIANT. La fiche d'abord (di_tiers, avec sa
+ * raison) ; à défaut, la section (réglage « di.sections_tiers », Orthoptie =
+ * HELB). null : l'établissement perçoit. Les montants restent calculés — la
+ * vérification veut savoir d'où vient le DI —, mais ils sortent des recettes.
+ */
+/** Map section → payeur, d'après le réglage « di.sections_tiers ». */
+export function sectionsTiers() {
+  const m = new Map();
+  for (const x of String(getParam('di.sections_tiers', 'Orthoptie=HELB') || '').split(',')) {
+    const [s, p] = x.split('=').map(y => (y || '').trim());
+    if (s && p) m.set(s, p);
+  }
+  return m;
+}
+
+export function payeurTiers(etudId, annee) {
+  const e = db.prepare('SELECT di_tiers, di_tiers_motif FROM etudiant WHERE id = ?').get(etudId);
+  if (e?.di_tiers) return { payeur: e.di_tiers, motif: e.di_tiers_motif || null, source: 'fiche' };
+  let sec = null; try { sec = sectionRattachement(etudId, annee).section || null; } catch { /* */ }
+  if (!sec) return null;
+  for (const x of String(getParam('di.sections_tiers', 'Orthoptie=HELB') || '').split(',')) {
+    const [s, p] = x.split('=').map(y => (y || '').trim());
+    if (s && p && s === sec) return { payeur: p, motif: `Inscription prise en charge par ${p} (section ${sec})`, source: 'section' };
+  }
+  return null;
+}
 
 const r = Router();
 
@@ -91,6 +121,13 @@ export function migrerDroitInscription(dbx) {
     addCol('dis_soumis INTEGER NOT NULL DEFAULT 0');     // nationalité étrangère hors exemption
     addCol('dis_motif_exemption TEXT');
     addCol('dis_periodes_hebdo REAL');
+    // DROITS PERÇUS PAR UN TIERS (Charles, 7 octobre 2026 : « Orthoptie ne
+    // génère aucun revenu, inscription HELB ; la vérification demandera d'où
+    // vient le DI ») : qui perçoit, et pourquoi.
+    addCol('di_tiers TEXT');
+    addCol('di_tiers_motif TEXT');
+    dbx.prepare(`INSERT OR IGNORE INTO parametre (cle, valeur, label, section, groupe) VALUES (?,?,?,?,?)`)
+      .run('di.sections_tiers', 'Orthoptie=HELB', "Sections dont les droits et frais sont perçus par un tiers (Section=Payeur, séparés par des virgules)", null, 'couts');
     console.log('[migration] di_bareme + champs droit d\u2019inscription');
   } catch (e) { console.error('[migration] droit inscription :', e.message); }
 }
@@ -265,6 +302,7 @@ export function calculerDI(etudId, annee) {
     montant_arrondi: percu,
     exonere,
     motif: e.di_motif || null,
+    tiers: payeurTiers(etudId, annee),
   };
 }
 
@@ -327,6 +365,10 @@ r.put('/etudiant/:id', authRequired, roleRequired('admin', 'editeur'), (req, res
     dis_soumis ? 1 : 0, dis_motif_exemption || null,
     dis_periodes_hebdo != null && dis_periodes_hebdo !== '' ? Number(dis_periodes_hebdo) : null,
     Number(req.params.id));
+  if ('di_tiers' in req.body) {
+    db.prepare('UPDATE etudiant SET di_tiers = ?, di_tiers_motif = ? WHERE id = ?')
+      .run(String(req.body.di_tiers || '').trim() || null, String(req.body.di_tiers_motif || '').trim() || null, Number(req.params.id));
+  }
   res.json({ ok: true });
 });
 

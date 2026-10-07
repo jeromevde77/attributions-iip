@@ -161,6 +161,7 @@ export function calculerFrais(etudId, annee) {
     restant: arrondi(total - verse),
     acompte_verse: verse >= acompte,
     exonere_di: di.exonere,
+    tiers: di.tiers,   // droits perçus par un tiers : hors recettes de l'établissement
     detail_ue: di.detail,
   };
 }

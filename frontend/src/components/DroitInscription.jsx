@@ -193,6 +193,12 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
                 </select>
               )}
 
+              {/* PERÇU PAR UN TIERS (Charles, 7 octobre 2026 : Orthoptie, inscription
+                  HELB — « la vérification demandera d'où vient le DI »). La fiche
+                  l'emporte ; à défaut, le réglage de la section s'applique. */}
+              <TiersPayeur di={di} peutEcrire={peutEcrire && !enregistrement}
+                onPoser={(payeur, motif) => enregistrer({ di_tiers: payeur, di_tiers_motif: motif })} />
+
               <button onClick={() => setDetailOuvert(o => !o)}
                 className="text-[12px] text-slate-500 underline">
                 {detailOuvert ? 'Masquer le détail par UE' : `Détail des ${di.detail.length} UE`}
@@ -318,6 +324,42 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
         Le droit est payé avant le premier dixième de la durée de l'UE : à défaut, l'étudiant
         n'est pas régulier et n'est pas comptabilisé pour l'encadrement ni la dotation.
       </p>
+    </div>
+  );
+}
+
+
+const PAYEURS = ['HELB', 'Autre établissement', 'Forem / Actiris / VDAB', 'CPAS', 'Employeur', 'Autre'];
+function TiersPayeur({ di, peutEcrire, onPoser }) {
+  const t = di.tiers;
+  const [payeur, setPayeur] = useState(t?.source === 'fiche' ? t.payeur : '');
+  const [motif, setMotif] = useState(t?.source === 'fiche' ? (t.motif || '') : '');
+  const coche = !!t;
+  return (
+    <div className="border border-slate-200 rounded-lg p-2.5 space-y-2 text-[13px]">
+      <label className="flex items-start gap-2">
+        <input type="checkbox" checked={coche} disabled={!peutEcrire || t?.source === 'section'}
+          onChange={e => onPoser(e.target.checked ? (payeur || 'HELB') : '', e.target.checked ? motif : '')} className="mt-0.5" />
+        <span>Droits et frais <b>perçus par un tiers</b> — hors recettes de l’établissement</span>
+      </label>
+      {t?.source === 'section' && (
+        <p className="text-[12px] text-slate-600">Par défaut de la section : <b>{t.payeur}</b> — {t.motif}.
+          <span className="text-slate-400"> (Configuration → Coût des périodes ; une précision propre à l’étudiant se pose ci-dessous.)</span></p>)}
+      {(coche || t?.source === 'section') && (
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="text-[12px]"><span className="block text-slate-500">Perçus par</span>
+            <select className="controle" value={payeur || (t?.source === 'section' ? '' : t?.payeur || '')} disabled={!peutEcrire}
+              onChange={e => setPayeur(e.target.value)}>
+              <option value="">{t?.source === 'section' ? `— comme la section (${t.payeur}) —` : '— choisir —'}</option>
+              {PAYEURS.map(p => <option key={p} value={p}>{p}</option>)}
+            </select></label>
+          <label className="text-[12px] flex-1 min-w-[14rem]"><span className="block text-slate-500">Raison (ce que dira la vérification)</span>
+            <input className="controle w-full" value={motif} disabled={!peutEcrire} placeholder="ex. inscription HELB, convention de co-organisation"
+              onChange={e => setMotif(e.target.value)} /></label>
+          <button type="button" className="bouton" disabled={!peutEcrire || (!payeur && t?.source !== 'fiche')}
+            onClick={() => onPoser(payeur, motif)}>Enregistrer</button>
+        </div>)}
+      {t?.source === 'fiche' && <p className="text-[12px] text-slate-600">Perçus par <b>{t.payeur}</b>{t.motif ? ` — ${t.motif}` : ''}.</p>}
     </div>
   );
 }
