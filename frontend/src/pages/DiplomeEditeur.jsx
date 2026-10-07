@@ -194,6 +194,13 @@ export default function DiplomeEditeur({ assets = {} }) {
   const [busy, setBusy] = useState(false);
   const [logoHelb, setLogoHelb] = useState('');
   const [signatures, setSignatures] = useState({});   // { section: [{ qualite, nom }] }
+  // LE PRÉSIDENT DU JURY, PAR SECTION (7 octobre 2026) — une autre personne que le directeur.
+  const [presidents, setPresidents] = useState({});   // { section: nom }
+  const [presidentSaisi, setPresidentSaisi] = useState('');
+  useEffect(() => {
+    af('/api/config/diplome_president_jury').then(d => { try { setPresidents(JSON.parse(d.valeur) || {}); } catch { setPresidents({}); } })
+      .catch(() => setPresidents({}));
+  }, []);
   const [sections, setSections] = useState([]);
   const [secSig, setSecSig] = useState('');
   const [liste, setListe] = useState(null);          // liste en cours d'édition
@@ -424,6 +431,27 @@ export default function DiplomeEditeur({ assets = {} }) {
             </span>
           )}
         </div>
+        {secSig && (
+          <div className="flex flex-wrap items-end gap-2 border border-slate-200 rounded-lg p-2.5">
+            <label className="text-[12px]"><span className="block text-slate-600">Président(e) du jury d’épreuve intégrée — {secSig}</span>
+              <input key={secSig} className="controle w-72 text-[13px]" defaultValue={presidents[secSig] || ''} disabled={!peutEcrire}
+                placeholder="Prénom NOM — une autre personne que le directeur"
+                onChange={e => setPresidentSaisi(e.target.value)} /></label>
+            {peutEcrire && <button className="bouton" onClick={async () => {
+              const nom = (presidentSaisi || presidents[secSig] || '').trim();
+              const suivant = { ...presidents, [secSig]: nom };
+              if (!nom) delete suivant[secSig];
+              try {
+                await af('/api/config/diplome_president_jury', { method: 'PUT', body: JSON.stringify({ valeur: JSON.stringify(suivant) }) });
+                setPresidents(suivant); setSigOk(true); setTimeout(() => setSigOk(false), 2500);
+              } catch (e) { setErr(e.message); }
+            }}>Enregistrer le président</button>}
+            <span className="text-[11px] text-slate-500 min-w-0">Remplit <code>{'{{president_jury}}'}</code>. Le titulaire, le président du jury et la direction
+              sont trois personnes différentes : un diplôme qui porterait deux fois le même nom ne sort pas.</span>
+            {presidents[secSig] && etab.directeur && presidents[secSig].toLowerCase().replace(/\s+/g, ' ').split(' ').sort().join(' ')
+              === etab.directeur.toLowerCase().replace(/\s+/g, ' ').split(' ').sort().join(' ') && (
+              <span className="text-[12px] text-amber-700">⚠ C’est le nom du directeur : choisissez une autre personne.</span>)}
+          </div>)}
         {liste && (
           <>
             <EditeurSignataires liste={liste} setListe={setListe} palette={palette}
