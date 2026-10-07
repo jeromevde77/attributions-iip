@@ -2329,6 +2329,76 @@ r.post('/:id/apercu', authRequired, (req, res) => {
  * numéroté. On n'en écrit pas une dixième.
  */
 /**
+ * LA GRILLE DES INSCRITS, TELLE QU'À L'ÉCRAN (Charles, 7 octobre 2026). Un
+ * étudiant par ligne, une colonne par unité affichée, et ses cours pour les
+ * unités ouvertes ; l'ordre des lignes est celui de l'écran (tri par nom ou
+ * par état). Les ÉTATS sont relus ici : seul l'ordre vient du navigateur.
+ */
+r.post('/inscrits-grille', authRequired, (req, res) => {
+  const b = req.body || {};
+  const annee = String(b.annee || ''), section = String(b.section || '');
+  if (!annee || !section) return res.status(400).json({ error: 'annee et section requises' });
+  const perim = getUserSections(req.user);
+  if (perim && !perim.includes(section)) return res.status(403).json({ error: 'Section hors de votre périmètre.' });
+  const d = donneesInscritsUnites(annee, section);
+  const voulues = (Array.isArray(b.ues) ? b.ues : []).map(Number);
+  const unites = voulues.length ? voulues.map(n => d.unites.find(u => u.ue_num === n)).filter(Boolean) : d.unites;
+  const ouvertes = new Set((Array.isArray(b.ouvertes) ? b.ouvertes : []).map(Number));
+  const cols = (Array.isArray(b.colonnes) ? b.colonnes : []).filter(c => ['matricule', 'bloc', 'profil', 'sle'].includes(c));
+  const cle = new Map(); for (const u of unites) for (const l of u.lignes) cle.set(`${l.id}|${u.ue_num}`, l);
+  const presents = new Set([...cle.keys()].map(k => Number(k.split('|')[0])));
+  const ids = (Array.isArray(b.ids) ? b.ids.map(Number) : [...presents]).filter(id => presents.has(id));
+  const E = d.etudiants;
+  const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const court = v => (!v ? '' : /^\d{4}-\d{2}-\d{2}/.test(v) ? `${v.slice(8, 10)}/${v.slice(5, 7)}/${v.slice(2, 4)}` : String(v).replace(/^20(\d\d)-20(\d\d)$/, '$1-$2'));
+  const TEINTE = { I: ['#fff', '#16406A', '#9AA5B4'], VA: ['#3E7D5E', '#fff'], VAE: ['#2F6049', '#fff'], VAP: ['#fff', '#2F6049', '#3E7D5E'],
+    RP: ['#0F766E', '#fff'], D: ['#64748B', '#fff'], AQ: ['#B45309', '#fff'] };
+  const LIB = { I: 'inscrit, suit', VA: 'VA totale', VAE: 'VAE totale', VAP: 'valorisation partielle', RP: 'report de note', D: 'dispense complète', AQ: 'déjà acquise — à retirer' };
+  const pastille = (k, sous) => { const [f, t, bord] = TEINTE[k] || ['#fff', '#000']; return k ? `<span class="pa" style="background:${f};color:${t};border:0.3mm solid ${bord || f}">${k}${sous ? `<i>${esc(sous)}</i>` : ''}</span>` : ''; };
+  const libCol = { matricule: 'Matricule', bloc: 'Bloc', profil: 'Profil', sle: 'SLE' };
+
+  const tete1 = `<tr><th rowspan="2">Nom</th><th rowspan="2">Prénom</th>${cols.map(c => `<th rowspan="2">${libCol[c]}</th>`).join('')}
+    ${unites.map(u => `<th class="ue" colspan="${1 + (ouvertes.has(u.ue_num) ? u.cours.length : 0)}">UE ${u.ue_num}</th>`).join('')}</tr>`;
+  const tete2 = `<tr>${unites.map(u => `<th class="sous">${esc((u.ue_nom || '').slice(0, 28))}</th>${ouvertes.has(u.ue_num)
+    ? u.cours.map(c => `<th class="sous cours">${esc(c.code)}</th>`).join('') : ''}`).join('')}</tr>`;
+  const corpsLignes = ids.map(id => { const e = E[id] || {}; return `<tr><td class="nom">${esc(e.nom_famille)}</td><td>${esc(e.prenom)}</td>
+    ${cols.map(c => `<td>${c === 'matricule' ? esc(e.matricule) : c === 'bloc' ? esc(e.bloc || '') : c === 'profil' ? (e.nouveau ? 'nouveau' : '') : (e.sle ? 'SLE' : '')}</td>`).join('')}
+    ${unites.map(u => { const l = cle.get(`${id}|${u.ue_num}`); return `<td class="c ue">${l ? pastille(l.code, court(l.date)) + (l.tags.length || l.reprise || !l.inscrit
+        ? `<span class="tag">${[...l.tags, l.reprise ? 'reprise' : '', l.inscrit ? '' : 'non inscrit'].filter(Boolean).join(' ')}</span>` : '') : '·'}</td>${ouvertes.has(u.ue_num)
+      ? u.cours.map(c => { const k = l?.cellules?.[c.code]; return `<td class="c cours">${k ? pastille(k.k, k.note != null ? String(k.note).replace('.', ',') : court(k.date || k.annee)) : ''}</td>`; }).join('') : ''}`; }).join('')}</tr>`; }).join('');
+  const pied = `<tr class="repere"><td colspan="${2 + cols.length}">À suivre (I) — ${ids.length} étudiant(s)</td>${unites.map(u => `<td class="c">${ids.filter(id => cle.get(`${id}|${u.ue_num}`)?.code === 'I').length}</td>${ouvertes.has(u.ue_num)
+    ? u.cours.map(c => `<td class="c">${ids.filter(id => cle.get(`${id}|${u.ue_num}`)?.cellules?.[c.code]?.k === 'I').length}</td>`).join('') : ''}`).join('')}</tr>`;
+  const cours = unites.filter(u => ouvertes.has(u.ue_num)).flatMap(u => u.cours.map(c => `${esc(c.code)} ${esc(c.nom)}`));
+  const corps = `<p class="fin">${ids.length} étudiant(s) · ${unites.length} unité(s) · tri : ${esc(String(b.tri || 'ordre alphabétique').slice(0, 80))}.</p>
+    <table class="grille"><thead>${tete1}${tete2}</thead><tbody>${corpsLignes}</tbody><tfoot>${pied}</tfoot></table>
+    <p class="fin">${Object.keys(LIB).map(k => `${pastille(k)} ${LIB[k]}`).join(' &nbsp; ')} — sous la pastille : date de décision, année d'origine ou note reportée.</p>
+    ${cours.length ? `<p class="fin">${cours.join(' · ')}</p>` : ''}`;
+  const n = 2 + cols.length + unites.reduce((t, u) => t + 1 + (ouvertes.has(u.ue_num) ? u.cours.length : 0), 0);
+  const taille = n > 30 ? 6.5 : n > 20 ? 7.5 : 8.5;
+  res.json({
+    html: envelopperDocument({
+      html: corps, titre: 'Grille des inscrits', orientation: 'paysage',
+      styles: STYLE_RAPPORT + STYLE_REPORTING + `
+        table.grille { border-collapse: collapse; width: 100%; font-size: ${taille}pt; }
+        table.grille th, table.grille td { border-bottom: 0.2mm solid #E2E6EC; padding: 0.6mm 0.8mm; }
+        table.grille th { background: #EDF2F8; color: #16406A; font-weight: 600; text-align: left; }
+        table.grille th.ue, table.grille td.ue { border-left: 0.3mm solid #B8C2D0; text-align: center; }
+        table.grille th.sous { font-weight: 400; font-size: ${taille - 1}pt; text-align: center; }
+        table.grille th.cours, table.grille td.cours { background: #F7F9FB; }
+        table.grille td.c { text-align: center; white-space: nowrap; }
+        table.grille td.nom { font-weight: 600; white-space: nowrap; }
+        table.grille thead { display: table-header-group; }
+        table.grille tr { break-inside: avoid; }
+        .pa { display: inline-block; min-width: 6mm; padding: 0.3mm 0.8mm; border-radius: 1mm; font-weight: 600; text-align: center; line-height: 1.05; }
+        .pa i { display: block; font-style: normal; font-weight: 400; font-size: 0.8em; }
+        .tag { display: block; font-size: 0.75em; color: #5B6B80; }`,
+      entete: { titre: 'Grille des inscrits', sous: `Année académique ${annee} · ${section}` },
+    }),
+    nom: `Grille-inscrits-${section}-${annee}`,
+  });
+});
+
+/**
  * LES INSCRITS PAR UNITÉ — CE QUI EST SÉLECTIONNÉ À L'ÉCRAN (Charles,
  * 7 octobre 2026 : « et impression aussi de ce qui a été sélectionné »).
  * L'écran envoie les unités retenues et les étudiants que ses filtres
@@ -2345,7 +2415,7 @@ r.post('/inscrits-unites', authRequired, (req, res) => {
   const ues = new Set((Array.isArray(b.ues) ? b.ues : []).map(Number));
   const ids = Array.isArray(b.ids) ? new Set(b.ids.map(Number)) : null;
   const unites = d.unites.filter(u => !ues.size || ues.has(u.ue_num))
-    .map(u => ({ ...u, lignes: u.lignes.filter(l => !ids || ids.has(l.id)) }));
+    .map(u => ({ ...u, lignes: u.lignes.filter(l => l.inscrit !== false && (!ids || ids.has(l.id))) }));
   const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
   const E = d.etudiants;
   const compte = (u, f) => u.lignes.filter(f).length;
