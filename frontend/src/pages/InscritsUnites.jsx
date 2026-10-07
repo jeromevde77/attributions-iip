@@ -18,6 +18,7 @@ import { authHeaders, getAnnee } from '../lib/api.js';
 import { ouvrirApercu } from '../lib/apercu.js';
 import { TuileEtat } from '../components/ui.jsx';
 import { FicheEtudiant } from './Etudiants.jsx';
+import GrilleInscrits from '../components/GrilleInscrits.jsx';
 
 const PARTIES = { A: 'À suivre', B: 'Dispense', C: 'Déjà acquise' };
 const CASE = {
@@ -48,6 +49,10 @@ export default function InscritsUnites() {
   const [f, setF] = useState({ profil: new Set(), bloc: new Set(), partie: new Set(), sle: false });
   const [fiche, setFiche] = useState(null);
   const [impression, setImpression] = useState(false);
+  // DEUX LECTURES : la GRILLE (un étudiant par ligne, une unité par colonne) et
+  // la vue PAR UNITÉ (une ligne par unité, puis ses étudiants).
+  const [vue, setVue] = useState(() => { try { return localStorage.getItem('iu.vue') || 'grille'; } catch { return 'grille'; } });
+  useEffect(() => { try { localStorage.setItem('iu.vue', vue); } catch { /* */ } }, [vue]);
 
   useEffect(() => {
     fetch('/api/ref/sections', { headers: authHeaders() })
@@ -82,7 +87,7 @@ export default function InscritsUnites() {
     if (f.sle && !e.sle) return false;
     return true;
   };
-  const unites = useMemo(() => (data?.unites || []).map(u => ({ ...u, vues: u.lignes.filter(passe) })),
+  const unites = useMemo(() => (data?.unites || []).map(u => ({ ...u, vues: u.lignes.filter(l => l.inscrit !== false).filter(passe) })),
     [data, f]);   // eslint-disable-line react-hooks/exhaustive-deps
   const distincts = l => new Set(l.flatMap(u => u.vues.map(x => x.id)));
   const tous = distincts(unites);
@@ -133,20 +138,25 @@ export default function InscritsUnites() {
           <option value="">Choisir une section</option>
           {sections.map(s => <option key={s.code} value={s.code}>{s.libelle || s.code}</option>)}
         </select>
+        <div className="segments">
+          {[['grille', 'Grille'], ['unites', 'Par unité']].map(([k, lib]) => (
+            <button key={k} type="button" onClick={() => setVue(k)}
+              className={vue === k ? 'bg-iip-blue text-white' : 'text-slate-600 hover:bg-slate-50'}>{lib}</button>))}
+        </div>
         <span className="text-[11px] text-slate-500 ml-2">Étudiants :</span>
         <Bascule actif={f.profil.has('nouveau')} onClick={() => basculer('profil', 'nouveau')}
           titre="Aucune inscription ni valorisation avant cette année">Nouveaux</Bascule>
         <Bascule actif={f.profil.has('reprise')} onClick={() => basculer('profil', 'reprise')}
           titre="Déjà inscrit à cette unité une année précédente, sans l'avoir réussie">Reprises</Bascule>
         {blocs.map(b => <Bascule key={b} actif={f.bloc.has(b)} onClick={() => basculer('bloc', b)}>{b}</Bascule>)}
-        {Object.entries(PARTIES).map(([k, lib]) => (
+        {vue === 'unites' && Object.entries(PARTIES).map(([k, lib]) => (
           <Bascule key={k} actif={f.partie.has(k)} onClick={() => basculer('partie', k)}>{k} · {lib}</Bascule>))}
         <Bascule actif={f.sle} onClick={() => setF(x => ({ ...x, sle: !x.sle }))} titre="Séjour limité aux études">SLE</Bascule>
         {filtresActifs.length > 0 && (
           <button type="button" className="text-[12px] text-slate-500 underline"
             onClick={() => setF({ profil: new Set(), bloc: new Set(), partie: new Set(), sle: false })}>effacer les filtres</button>)}
         <div className="flex-1" />
-        {data && (
+        {data && vue === 'unites' && (
           <button type="button" className="bouton-sortir controle flex items-center gap-1.5" disabled={impression} onClick={imprimer}
             title={choisies.length ? 'La synthèse des unités cochées, puis une page par unité avec ses cours' : 'La synthèse de toutes les unités de la section'}>
             <IconPrinter size={16} /> {impression ? 'Préparation…' : choisies.length ? `Imprimer la sélection (${choisies.length})` : 'Imprimer la section'}
@@ -157,7 +167,10 @@ export default function InscritsUnites() {
       {!section && <p className="text-[13px] text-slate-500">Choisissez une section.</p>}
       {section && !data && !erreur && <p className="text-[13px] text-slate-400">Chargement…</p>}
 
-      {data && (<>
+      {data && vue === 'grille' && (
+        <GrilleInscrits data={data} passe={passe} annee={annee} section={section} onFiche={setFiche} />)}
+
+      {data && vue === 'unites' && (<>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 max-w-4xl">
           <TuileEtat etat="fort" valeur={tous.size} libelle={`Étudiants — ${section}`} precision={`${annee}${filtresActifs.length ? ' · filtré' : ''}`} />
           <TuileEtat etat="neutre" valeur={nNouveaux(tous)} libelle="Nouveaux" precision="première année à l'IIP" />
