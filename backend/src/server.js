@@ -56,6 +56,7 @@ import fraisScolariteRoutes, { migrerFraisScolarite } from './routes/fraisScolar
 import { GRILLE_DEFAUT } from './routes/grilleEntretienDefaut.js';
 import repartitionRoutes, { migrerRepartition } from './routes/repartitionPeriodes.js';
 import amenagementsRoutes, { migrerAmenagements } from './routes/amenagements.js';
+import effectifsPrevusRoutes, { migrerEffectifsPrevus } from './routes/effectifsPrevus.js';
 import cepRoutes from './routes/cep.js';
 import { migrerCep } from './lib/cep.js';
 import stagesRoutes, { migrerStages } from './routes/stages.js';
@@ -3080,6 +3081,8 @@ app.use('/api/profils-acces', garderModule('profils-acces'), profilsAccesRoutes)
 app.use('/api/frais-scolarite', garderModule('frais-scolarite'), fraisScolariteRoutes);
 app.use('/api/repartition', garderModule('repartition'), repartitionRoutes);
 app.use('/api/amenagements', garderModule('amenagements'), amenagementsRoutes);
+try { migrerEffectifsPrevus(); } catch (e) { console.error('[migration] effectifs prévus :', e.message); }
+app.use('/api/effectifs-prevus', effectifsPrevusRoutes);
 app.use('/api/cep', cepRoutes);
 app.use('/api/stages', garderModule('stages'), stagesRoutes);
 app.use('/api/conventions', garderModule('stages'), conventionsRoutes);

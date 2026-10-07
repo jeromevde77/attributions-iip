@@ -831,7 +831,7 @@ function documentCoutFormations(p) {
     <tbody>${d.sections.map(S => `<tr><td>${esc(S.section)}</td><td class="n">${k0(S.cout)}</td>
       <td class="n">${k0(S.statuts.CC.cout)}</td><td class="n">${k0(S.statuts.EXP.cout)}</td>
       <td class="n">${pc(S.statuts.CC.periodes, S.periodes)}</td><td class="n">${pc(S.statuts.EXP.periodes, S.periodes)}</td>
-      <td class="n">${S.cout_helb ? k0(S.cout_helb) : '—'}</td><td class="n">${S.inscrits ? n0(S.inscrits) : '—'}</td>
+      <td class="n">${S.cout_helb ? k0(S.cout_helb) : '—'}</td><td class="n">${S.inscrits ? n0(S.inscrits) + (S.inscrits_prevus ? ' (prévu)' : '') : '—'}</td>
       <td class="n">${S.part_fonctions ? k0(S.part_fonctions) : '—'}</td><td class="n g">${k0(S.cout_complet)}</td>
       <td class="n">${S.inscrits ? k0(S.cout_complet / S.inscrits) : '—'}</td></tr>`).join('')}</tbody>
     <tfoot><tr class="repere"><td>Ensemble</td><td class="n">${k0(tot.cout)}</td><td class="n">${k0(ST.CC.cout)}</td>
@@ -896,6 +896,36 @@ function documentCoutFormations(p) {
         <td class="n">${calc(x.per_ct, x.tarif_ct ?? u.tarif_ct, x.cout_ct)}</td><td class="n">${calc(x.per_pp, x.tarif_pp ?? u.tarif_pp, x.cout_pp)}</td>
         <td class="n">${eur(x.cout)}</td></tr>`; }).join('')}`).join('')}`).join('');
 
+  /* LE DROIT ET LES FRAIS, UNITÉ PAR UNITÉ, AVEC LA FORMULE (Charles,
+     7 octobre 2026). Ce que paie UN étudiant pour cette unité, puis × les
+     inscrits de la section ; les forfaits une fois par étudiant, à la section.
+     Théorique : ni plafond de 800, ni exonération, ni dispense. */
+  const bd = d.sections.find(S => (S.droits_ues || []).length)?.droits_ues[0]?.droits;
+  const fx = d.sections.find(S => S.forfaits)?.forfaits;
+  const tDroitsUE = !bd ? '' : `
+    <h2>Droits d'inscription et frais — unité par unité, la formule</h2>
+    <p class="fin">Par étudiant et par unité : <b>droit d'inscription</b> = périodes professeur du dossier pédagogique
+      (autonomie comprise, hors périodes Z) × ${m2(d.baremes?.di?.tarif_superieur)} € (supérieur)
+      ou × ${m2(d.baremes?.di?.tarif_secondaire)} € (secondaire) ; <b>frais</b> = mêmes périodes × ${m2(bd.par_periode)} €. Une fois par étudiant, s'ajoutent
+      <b>${m2(fx?.di)} € de forfait</b> (porté par sa première unité, de quelque niveau qu'elle soit) et
+      <b>${m2(fx?.frais)} € de frais fixes</b>. Calcul théorique : sans le plafond de 800 périodes, ni exonération, ni dispense ;
+      le perçu réel figure plus haut. <i>(prévu)</i> : inscrits saisis à la main, faute d'inscription encodée.</p>
+    <table><thead><tr><th>Unité</th><th class="n" style="width:16mm">Périodes</th>
+      <th class="n" style="width:42mm">DI par étudiant</th><th class="n" style="width:42mm">Frais par étudiant</th>
+      <th class="n" style="width:16mm">Inscrits</th><th class="n" style="width:48mm">Recette de l'unité</th></tr></thead>
+    <tbody>${d.sections.filter(S => (S.droits_ues || []).length || S.inscrits).map(S => {
+      const totS = (S.droits_ues || []).reduce((a, u) => a + (u.droits?.recette || 0), 0) + (S.forfaits?.montant || 0);
+      return `<tr class="groupe"><td colspan="6">${esc(S.section)}<span class="fin"> — ${n0(S.inscrits)} étudiant(s)${S.inscrits_prevus ? ' (prévu)' : ''} · ${eur(totS)} théoriques</span></td></tr>
+      ${(S.droits_ues || []).map(u => { const x = u.droits; return `<tr>
+        <td>UE ${u.ue_num} — ${esc(u.ue_nom || '')}<span class="fin"> · ${x.niveau}</span></td>
+        <td class="n">${n0(x.periodes)}</td>
+        <td class="n">${n0(x.periodes)} × ${m2(x.tarif_di)} = ${m2(x.di_etudiant)} €</td>
+        <td class="n">${n0(x.periodes)} × ${m2(x.par_periode)} = ${m2(x.frais_etudiant)} €</td>
+        <td class="n">${x.inscrits ? n0(x.inscrits) : '—'}${x.prevu ? ' <i>(prévu)</i>' : ''}</td>
+        <td class="n">${x.inscrits ? `${n0(x.inscrits)} × ${m2(x.di_etudiant + x.frais_etudiant)} = ${eur(x.recette)}` : '—'}</td></tr>`; }).join('')}
+      ${S.forfaits?.etudiants ? `<tr class="repere"><td colspan="5">Forfaits — ${n0(S.forfaits.etudiants)} étudiant(s) × (${m2(S.forfaits.di)} € + ${m2(S.forfaits.frais)} €)</td>
+        <td class="n">${eur(S.forfaits.montant)}</td></tr>` : ''}`; }).join('')}</tbody></table>`;
+
   const corps = `
     ${rangeeTuiles([
       tuile({ valeur: eur(tot.cout_complet), libelle: 'Coût complet', precision: `${d.sections.length} section(s)`, ton: 'fort' }),
@@ -959,13 +989,14 @@ function documentCoutFormations(p) {
     <h2>Unité par unité — le calcul</h2>
     <table><thead><tr><th>Unité</th><th class="n" style="width:14mm">Niveau</th>
       <th class="n" style="width:42mm">CT : périodes × €</th><th class="n" style="width:42mm">PP : périodes × €</th>
-      <th class="n" style="width:24mm">Coût</th></tr></thead><tbody>${detail}</tbody></table>`;
+      <th class="n" style="width:24mm">Coût</th></tr></thead><tbody>${detail}</tbody></table>
+    ${tDroitsUE}`;
 
   return {
     corps,
-    entete: { titre: 'Coût des formations', sous: `Année académique ${p.annee} · cours au montant des conventions, fonctions au coût annuel` },
-    titre: 'Coût des formations',
-    nom: `Cout-formations-${p.annee}.html`,
+    entete: { titre: 'Coûts et recettes des formations', sous: `Année académique ${p.annee} · cours au montant des conventions, fonctions au coût annuel` },
+    titre: 'Coûts et recettes des formations',
+    nom: `Couts-et-recettes-formations-${p.annee}.html`,
     orientation: 'paysage',
     styles: STYLE_RAPPORT + STYLE_REPORTING + STYLE_STATS,
   };
@@ -1843,8 +1874,8 @@ export const RAPPORTS = [
     /* LE COÛT RÉEL DES FORMATIONS (Charles, 6 octobre 2026 — circulaire des
        conventions n° 9789 ; montants réglables dans Configuration). */
     id: 'cout-formations', domaine: 'gestion', params: ['annee'],
-    libelle: 'Coût des formations',
-    aide: "Chaque période attribuée au montant de la circulaire des conventions, par section et par unité — et par étudiant inscrit.",
+    libelle: 'Coûts et recettes des formations',
+    aide: "Ce que coûtent les cours et les fonctions, et ce que rapportent droits et frais — par section et par unité, formules écrites.",
     colonnes: COLS([['section', 'Section', 24], ['per_ct', 'Pér. CT'], ['per_pp', 'Pér. PP'], ['cout', 'Cours (€)'],
       ['cout_cc', 'dont CC (€)'], ['cout_exp', 'dont EXP (€)'], ['pc_cc', '% CC'], ['pc_exp', '% EXP'],
       ['cout_helb', 'dont HELB (€)'], ['inscrits', 'Inscrits'], ['fonctions', 'Fonctions (€)'], ['complet', 'Complet (€)'],
@@ -2372,7 +2403,7 @@ r.post('/inscrits-grille', authRequired, (req, res) => {
   const LIB = { I: 'inscrit, suit', VA: 'VA totale', VAE: 'VAE totale', VAP: 'valorisation partielle', RP: 'report de note', D: 'dispense complète', AQ: 'déjà acquise — à retirer' };
   const pastille = (k, sous, texte = null) => { const [f, t, bord] = TEINTE[k] || ['#fff', '#000']; return k ? `<span class="pa" style="background:${f};color:${t};border:0.3mm solid ${bord || f}">${texte != null ? esc(texte) : k}${sous ? `<i>${esc(sous)}</i>` : ''}</span>` : ''; };
   // Le report se lit à sa note : le bleu reste, « RP » s'efface (7 octobre 2026).
-  const note1 = n => String(Math.round(Number(n) * 10) / 10).replace('.', ',');
+  const note1 = n => String(Math.round(Number(n)));   // sans décimale, comme à l'écran
   const notesRP = l => { const n = Object.values(l.cellules || {}).filter(c => c.k === 'RP' && c.note != null).map(c => note1(c.note)); return n.length ? n.join(' · ') : 'RP'; };
   const libCol = { matricule: 'Matricule', bloc: 'Bloc', profil: 'Profil', sle: 'SLE' };
 

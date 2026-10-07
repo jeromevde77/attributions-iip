@@ -11,7 +11,10 @@
 import db from '../db/index.js';
 import { getParam, getParamNum } from '../routes/parametres.js';
 import { donneesChiffresCles } from './chiffresCles.js';
-import { calculerFrais } from '../routes/fraisScolarite.js';
+import { calculerFrais, bareme as baremeFrais } from '../routes/fraisScolarite.js';
+import { bareme as baremeDI } from '../routes/droitInscription.js';
+import { periodesDI } from './periodesUE.js';
+import { effectifsPrevus } from '../routes/effectifsPrevus.js';
 import { tauxExpertBase, indiceExpert } from './tauxExperts.js';
 
 /** Un coût annuel d'un temps plein par fonction (table fonction_type), amorcé
@@ -97,12 +100,52 @@ export function donneesCout(annee) {
   try { for (const l of donneesChiffresCles(annee).lignes) inscrits[l.section] = l.etudiants.n; } catch { inscrits = {}; }
   // Une section qui a des inscrits mais aucune attribution figure aussi : elle
   // reçoit sa part des fonctions et ses droits, même sans coût de cours.
-  for (const sec of Object.keys(inscrits)) {
-    if (!parSection.has(sec) && inscrits[sec]) parSection.set(sec, { section: sec, per_ct: 0, per_pp: 0, cout_ct: 0, cout_pp: 0,
+  const prevus = effectifsPrevus(annee);
+  for (const sec of [...Object.keys(inscrits), ...[...prevus.keys()].filter(k => k.endsWith('|0')).map(k => k.slice(0, -2))]) {
+    if (!parSection.has(sec) && (inscrits[sec] || prevus.has(`${sec}|0`))) parSection.set(sec, { section: sec, per_ct: 0, per_pp: 0, cout_ct: 0, cout_pp: 0,
       cout: 0, cout_iip: 0, cout_helb: 0, periodes: 0, ues: new Map(), statuts: nouveauxStatuts(), sexes: nouveauxSexes() });
   }
   const sections = [...parSection.values()].map(S => ({ ...S, ues: [...S.ues.values()].sort((a, b) => a.ue_num - b.ue_num),
     inscrits: inscrits[S.section] || 0 })).sort((a, b) => b.cout - a.cout);
+  /* LES INSCRITS PRÉVUS, LÀ OÙ L'ON N'EN COMPTE AUCUN (7 octobre 2026) —
+     Configuration → Coût des périodes. Jamais à la place d'un inscrit réel. */
+  for (const S of sections) {
+    if (!S.inscrits && prevus.has(`${S.section}|0`)) { S.inscrits = prevus.get(`${S.section}|0`); S.inscrits_prevus = true; }
+  }
+  /* LE DROIT ET LES FRAIS, UNITÉ PAR UNITÉ, AVEC LEUR FORMULE (Charles,
+     7 octobre 2026 : « pour chaque UE, le calcul du DI et des frais, avec la
+     formule appliquée »). Par étudiant : périodes professeur du dossier
+     (autonomie comprise, hors Z) × tarif du niveau, et × le montant par
+     période des frais. Les forfaits (DI, frais fixes) se paient une fois par
+     étudiant : ils vont à la section, pas à l'unité. Ce calcul est THÉORIQUE —
+     ni plafond, ni exonération, ni dispense — ; le perçu réel vient des fiches. */
+  const BD = baremeDI(annee), BF = baremeFrais(annee);
+  const refUE = db.prepare(`SELECT MAX(ue_tot_prf) tot_prf, MAX(ue_per_cours) per_cours, MAX(ue_aut) aut, MAX(ue_niveau) niveau
+      FROM ue WHERE annee_scolaire = ? AND ue_num = ?`);
+  const nSections = db.prepare(`SELECT COUNT(DISTINCT s) n FROM (SELECT section s FROM ue WHERE annee_scolaire = ? AND ue_num = ? AND section IS NOT NULL
+      UNION SELECT section_code FROM ue_section WHERE annee_scolaire = ? AND ue_num = ?)`);
+  const inscritsUE = db.prepare(`SELECT COUNT(DISTINCT i.etudiant_id) n FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+      WHERE i.annee_scolaire = ? AND i.ue_num = ? AND (? = 0 OR e.section_rattachement = ?)`);
+  const uesDeSection = db.prepare(`SELECT ue_num, MIN(ue_nom) AS ue_nom FROM ue WHERE annee_scolaire = ? AND (section = ? OR ue_num IN
+      (SELECT ue_num FROM ue_section WHERE section_code = ? AND annee_scolaire = ?)) GROUP BY ue_num ORDER BY ue_num`);
+  for (const S of sections) {
+    // LES UNITÉS DU RÉFÉRENTIEL, pas seulement celles qui portent une attribution :
+    // une unité sans professeur encore attribué fait payer ses étudiants quand même.
+    S.droits_ues = uesDeSection.all(annee, S.section, S.section, annee).map(U => {
+      const r = refUE.get(annee, U.ue_num) || {};
+      const per = periodesDI(r);
+      const sup = String(r.niveau || '').toUpperCase().startsWith('SUP');
+      const partagee = (nSections.get(annee, U.ue_num, annee, U.ue_num)?.n || 0) > 1;
+      let ins = inscritsUE.get(annee, U.ue_num, partagee ? 1 : 0, S.section)?.n || 0;
+      let prevu = false;
+      if (!ins && prevus.has(`${S.section}|${U.ue_num}`)) { ins = prevus.get(`${S.section}|${U.ue_num}`); prevu = true; }
+      const tarif = sup ? BD.tarif_superieur : BD.tarif_secondaire;
+      const di = per * tarif, frais = per * BF.par_periode;
+      return { ...U, droits: { periodes: per, niveau: sup ? 'supérieur' : 'secondaire', tarif_di: tarif, par_periode: BF.par_periode,
+        di_etudiant: di, frais_etudiant: frais, inscrits: ins, prevu, recette: ins * (di + frais) } };
+    });
+    S.forfaits = { di: BD.forfait, frais: BF.frais_fixes, etudiants: S.inscrits, montant: S.inscrits * (BD.forfait + BF.frais_fixes) };
+  }
   const total = sections.reduce((t, S) => ({ cout: t.cout + S.cout, periodes: t.periodes + S.periodes,
     cout_iip: t.cout_iip + S.cout_iip, cout_helb: t.cout_helb + S.cout_helb }), { cout: 0, periodes: 0, cout_iip: 0, cout_helb: 0 });
 
@@ -187,7 +230,7 @@ export function donneesCout(annee) {
 
   return { annee, tarifs: T, sections, statuts: totStatuts, sexes: totSexes, recettes,
     total: { ...total, cout_fonctions: coutFonctions, cout_complet: total.cout + coutFonctions },
-    missions, base_inscrits: baseInscrits,
+    missions, base_inscrits: baseInscrits, baremes: { di: BD, frais: BF },
     sans_etp: missions.filter(m => m.pncc && !m.etp).length, sans_cout: missions.filter(m => m.pncc && m.etp && !m.annuel).length,
     sans_tarif: sansTarif, type_defaut: typeDefaut,
     experts: { indice, periodes: expertsBase } };
