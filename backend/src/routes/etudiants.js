@@ -2200,7 +2200,7 @@ r.get('/inscrits-unites', authRequired, (req, res) => {
 
 export function donneesInscritsUnites(annee, section) {
   const ues = db.prepare(`SELECT ue_num, MIN(ue_nom) AS ue_nom, MAX(COALESCE(hors_cursus, 0)) AS hors_cursus,
-        MIN(ue_niveau) AS niveau
+        MIN(ue_niveau) AS niveau, MIN(ue_niv) AS bloc, MAX(COALESCE(is_epreuve_integree, 0)) AS ei
       FROM ue WHERE annee_scolaire = ? AND (section = ? OR ue_num IN
         (SELECT ue_num FROM ue_section WHERE section_code = ? AND annee_scolaire = ?))
       GROUP BY ue_num ORDER BY ue_num`).all(annee, section, section, annee);
@@ -2328,7 +2328,7 @@ export function donneesInscritsUnites(annee, section) {
       lignes.push(ligne);
     }
     lignes.sort((a, b) => etudiants.get(a.id).nom.localeCompare(etudiants.get(b.id).nom, 'fr'));
-    unites.push({ ue_num: u.ue_num, ue_nom: u.ue_nom, niveau: u.niveau, hors_cursus: !!u.hors_cursus, cours, lignes });
+    unites.push({ ue_num: u.ue_num, ue_nom: u.ue_nom, niveau: u.niveau, bloc: u.bloc || null, ei: !!u.ei, hors_cursus: !!u.hors_cursus, cours, lignes });
   }
   return { annee, section, unites, etudiants: Object.fromEntries(etudiants) };
 }

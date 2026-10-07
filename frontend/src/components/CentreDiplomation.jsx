@@ -95,7 +95,9 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
    * produit donc d'abord ; chaque pièce attend ensuite son geste — aperçu et
    * impression, PDF, envoi —, et c'est CE clic qui ouvre ce qui doit l'être.
    */
-  const produire = async (presidentJury = null) => {
+  const produire = async (presidentArg = null) => {
+    // Appelée par un bouton, elle reçoit l'événement du clic : seul un nom (texte) compte.
+    const presidentJury = typeof presidentArg === 'string' ? presidentArg : null;
     const titres = veut.diplome || veut.attestation;
     if (!retenus.size || !(titres || veut.provisoire || veut.liste || veut.pv)) return;
     setEnCours(true); setErreur(null); setProduits(null); setManques([]);

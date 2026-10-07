@@ -14,6 +14,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react';
 import { IconChevronRight, IconChevronDown, IconPrinter, IconColumns3 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { ouvrirApercu } from '../lib/apercu.js';
+import { couleurBloc, blocDe, OR_EPREUVE } from '../lib/blocs.js';
 import { demander, informer } from '../lib/dialogue.jsx';
 import { peutGeste } from '../lib/droits.js';
 
@@ -259,33 +260,49 @@ export default function GrilleInscrits({ data, passe, annee, section, onFiche, o
 
       <div className="overflow-auto max-h-[72vh] border border-slate-200 rounded-carte">
         <table className="text-[12px] tabular-nums border-separate border-spacing-0">
+          {/* L'ENTÊTE EN TROIS ÉTAGES (Charles, 7 octobre 2026 : « plus joli —
+              l'UE sur un fond à la couleur de son bloc, le nom en dessous, puis
+              les cours »). Hauteurs fixes : l'entête reste collé en haut, étage
+              par étage, sans se chevaucher. */}
           <thead>
-            <tr className="tab-entete">
-              <th rowSpan={2} className="sticky top-0 left-0 z-30 tab-entete text-left px-2 py-1.5 border-b border-slate-300 min-w-[9rem]">
+            <tr>
+              <th rowSpan={3} className="sticky top-0 left-0 z-30 tab-entete text-left px-2 py-1.5 border-b border-slate-300 min-w-[9rem] align-bottom">
                 <button type="button" onClick={() => trier('nom')} className="hover:underline [text-transform:inherit] [letter-spacing:inherit]">Nom{tri.par === 'nom' ? (tri.sens > 0 ? ' ▲' : ' ▼') : ''}</button></th>
-              <th rowSpan={2} className="sticky top-0 left-[9rem] z-30 tab-entete text-left px-2 border-b border-r border-slate-300 min-w-[8rem]">Prénom</th>
+              <th rowSpan={3} className="sticky top-0 left-[9rem] z-30 tab-entete text-left px-2 pb-1.5 border-b border-r border-slate-300 min-w-[8rem] align-bottom">Prénom</th>
               {IDENTITE.filter(([k]) => avec(k)).map(([k, lib]) => (
-                <th key={k} rowSpan={2} className="sticky top-0 z-20 tab-entete text-left px-2 border-b border-slate-300">{lib}</th>))}
-              {visibles.map(u => (
-                <th key={u.ue_num} colSpan={1 + (ouvertes.has(u.ue_num) ? u.cours.length : 0)}
-                  className="sticky top-0 z-20 tab-entete px-1 pt-1.5 border-l border-slate-300 text-center whitespace-nowrap">
-                  <span className="inline-flex items-center gap-0.5">
-                    <button type="button" onClick={() => setOuvertes(s => basculer(s, u.ue_num))} className="text-slate-500 hover:text-iip-blue"
-                      title={ouvertes.has(u.ue_num) ? 'Refermer les cours' : `Ouvrir les cours (${u.cours.length})`}>
-                      {ouvertes.has(u.ue_num) ? <IconChevronDown size={13} /> : <IconChevronRight size={13} />}</button>
-                    <button type="button" onClick={() => trier(u.ue_num)} title={`${u.ue_nom} — trier par état`} className="hover:underline font-medium">
-                      UE {u.ue_num}{tri.par === u.ue_num ? (tri.sens > 0 ? ' ▲' : ' ▼') : ''}</button>
-                  </span>
-                </th>))}
+                <th key={k} rowSpan={3} className="sticky top-0 z-20 tab-entete text-left px-2 pb-1.5 border-b border-slate-300 align-bottom">{lib}</th>))}
+              {visibles.map(u => {
+                const fond = u.ei ? OR_EPREUVE : (couleurBloc(u.bloc) || 'var(--c-principal, #16406A)');
+                const clair = blocDe(u.bloc) === 'BA2' && !u.ei;   // BA2 bleu clair : texte foncé
+                return (
+                  <th key={u.ue_num} colSpan={1 + (ouvertes.has(u.ue_num) ? u.cours.length : 0)}
+                    className="sticky top-0 z-20 h-[28px] px-1.5 border-l-2 border-white text-center whitespace-nowrap"
+                    style={{ background: fond, color: clair ? '#16406A' : '#fff' }}>
+                    <span className="inline-flex items-center gap-1">
+                      <button type="button" onClick={() => setOuvertes(s => basculer(s, u.ue_num))} className="opacity-80 hover:opacity-100"
+                        title={ouvertes.has(u.ue_num) ? 'Refermer les cours' : `Ouvrir les cours (${u.cours.length})`}>
+                        {ouvertes.has(u.ue_num) ? <IconChevronDown size={13} /> : <IconChevronRight size={13} />}</button>
+                      <button type="button" onClick={() => trier(u.ue_num)} title={`${u.ue_nom} — trier par état`} className="hover:underline font-semibold text-[12px]">
+                        UE {u.ue_num}{tri.par === u.ue_num ? (tri.sens > 0 ? ' ▲' : ' ▼') : ''}</button>
+                      <span className="text-[9.5px] font-medium opacity-85">{u.ei ? 'EI' : blocDe(u.bloc) || ''}</span>
+                    </span>
+                  </th>);
+              })}
             </tr>
-            <tr className="tab-entete">
+            <tr>
+              {visibles.map(u => (
+                <th key={`${u.ue_num}-nom`} colSpan={1 + (ouvertes.has(u.ue_num) ? u.cours.length : 0)} title={u.ue_nom}
+                  className="sticky top-[28px] z-20 h-[34px] tab-entete px-1.5 border-l-2 border-white font-normal text-[10.5px] leading-tight text-iip-blue normal-case tracking-normal align-middle" style={{ textTransform: 'none', letterSpacing: 'normal' }}>
+                  <div className={`line-clamp-2 ${ouvertes.has(u.ue_num) ? '' : 'max-w-[7.5rem] mx-auto'}`}>{u.ue_nom}</div></th>))}
+            </tr>
+            <tr>
               {visibles.map(u => [
-                <th key={`${u.ue_num}-e`} className="sticky top-[30px] z-20 tab-entete px-1 pb-1 border-b border-l border-slate-300 font-normal text-[10px] text-slate-500 max-w-[6rem] truncate" title={u.ue_nom}>
-                  {u.ue_nom}</th>,
+                <th key={`${u.ue_num}-e`} className="sticky top-[62px] z-20 h-[30px] bg-white px-1 border-b border-l-2 border-slate-200 font-normal text-[10px] text-slate-400 normal-case tracking-normal">
+                  unité</th>,
                 ...(ouvertes.has(u.ue_num) ? u.cours.map(c => (
                   <th key={`${u.ue_num}-${c.code}`} title={c.nom}
-                    className="sticky top-[30px] z-20 bg-slate-50 px-1 pb-1 border-b border-slate-300 font-normal text-[10px] text-slate-600 max-w-[5.5rem]">
-                    <div className="font-medium text-iip-blue">{c.code}</div><div className="truncate">{c.nom}</div></th>)) : []),
+                    className="sticky top-[62px] z-20 h-[30px] bg-white px-1 border-b border-slate-200 font-normal text-[10px] text-slate-600 max-w-[6.5rem] normal-case tracking-normal">
+                    <div className="font-semibold text-iip-blue">{c.code}</div><div className="truncate">{c.nom}</div></th>)) : []),
               ])}
             </tr>
           </thead>
