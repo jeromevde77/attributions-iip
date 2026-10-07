@@ -906,7 +906,7 @@ function documentCoutFormations(p) {
     <h2>Droits d'inscription et frais — unité par unité, la formule</h2>
     <p class="fin">Par étudiant et par unité : <b>droit d'inscription</b> = périodes professeur du dossier pédagogique
       (autonomie comprise, hors périodes Z) × ${m2(d.baremes?.di?.tarif_superieur)} € (supérieur)
-      ou × ${m2(d.baremes?.di?.tarif_secondaire)} € (secondaire) ; <b>frais</b> = mêmes périodes × ${m2(bd.par_periode)} €. Une fois par étudiant, s'ajoutent
+      ou × ${m2(d.baremes?.di?.tarif_secondaire)} € (secondaire) ; <b>frais</b> = périodes de l'étudiant (cette année : celles qu'il preste, stage compris) × ${m2(d.baremes?.frais?.par_periode)} €. Une fois par étudiant, s'ajoutent
       <b>${m2(fx?.di)} € de forfait</b> (porté par sa première unité, de quelque niveau qu'elle soit) et
       <b>${m2(fx?.frais)} € de frais fixes</b>. Calcul théorique : sans le plafond de 800 périodes, ni exonération, ni dispense ;
       le perçu réel figure plus haut. <i>(prévu)</i> : inscrits saisis à la main, faute d'inscription encodée.</p>
@@ -920,7 +920,7 @@ function documentCoutFormations(p) {
         <td>UE ${u.ue_num} — ${esc(u.ue_nom || '')}<span class="fin"> · ${x.niveau}</span></td>
         <td class="n">${n0(x.periodes)}</td>
         <td class="n">${n0(x.periodes)} × ${m2(x.tarif_di)} = ${m2(x.di_etudiant)} €</td>
-        <td class="n">${x.sans_frais ? '— (section exemptée)' : `${n0(x.periodes)} × ${m2(x.par_periode)} = ${m2(x.frais_etudiant)} €`}</td>
+        <td class="n">${x.sans_frais ? '— (section exemptée)' : `${n0(x.periodes_etudiant)} × ${m2(x.par_periode)} = ${m2(x.frais_etudiant)} €`}</td>
         <td class="n">${x.inscrits ? n0(x.inscrits) : '—'}${x.prevu ? ' <i>(prévu)</i>' : ''}</td>
         <td class="n">${x.inscrits ? `${n0(x.inscrits)} × ${m2(x.di_etudiant + x.frais_etudiant)} = ${eur(x.recette)}` : '—'}</td></tr>`; }).join('')}
       ${S.forfaits?.etudiants ? `<tr class="repere"><td colspan="5">Forfaits — ${n0(S.forfaits.etudiants)} étudiant(s) × (${m2(S.forfaits.di)} €${S.sans_frais ? '' : ` + ${m2(S.forfaits.frais)} €`})</td>

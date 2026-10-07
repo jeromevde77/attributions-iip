@@ -13,7 +13,7 @@ import { getParam, getParamNum } from '../routes/parametres.js';
 import { donneesChiffresCles } from './chiffresCles.js';
 import { calculerFrais, bareme as baremeFrais, sectionsSansFrais } from '../routes/fraisScolarite.js';
 import { bareme as baremeDI } from '../routes/droitInscription.js';
-import { periodesDI } from './periodesUE.js';
+import { periodesDI, periodesEtudiantUE } from './periodesUE.js';
 import { effectifsPrevus } from '../routes/effectifsPrevus.js';
 import { tauxExpertBase, indiceExpert } from './tauxExperts.js';
 
@@ -120,7 +120,7 @@ export function donneesCout(annee) {
      étudiant : ils vont à la section, pas à l'unité. Ce calcul est THÉORIQUE —
      ni plafond, ni exonération, ni dispense — ; le perçu réel vient des fiches. */
   const BD = baremeDI(annee), BF = baremeFrais(annee);
-  const refUE = db.prepare(`SELECT MAX(ue_tot_prf) tot_prf, MAX(ue_per_cours) per_cours, MAX(ue_aut) aut, MAX(ue_niveau) niveau
+  const refUE = db.prepare(`SELECT MAX(ue_tot_prf) tot_prf, MAX(ue_per_etudiants) per_etud, MAX(ue_per_cours) per_cours, MAX(ue_aut) aut, MAX(ue_niveau) niveau
       FROM ue WHERE annee_scolaire = ? AND ue_num = ?`);
   const nSections = db.prepare(`SELECT COUNT(DISTINCT s) n FROM (SELECT section s FROM ue WHERE annee_scolaire = ? AND ue_num = ? AND section IS NOT NULL
       UNION SELECT section_code FROM ue_section WHERE annee_scolaire = ? AND ue_num = ?)`);
@@ -142,8 +142,9 @@ export function donneesCout(annee) {
       let prevu = false;
       if (!ins && prevus.has(`${S.section}|${U.ue_num}`)) { ins = prevus.get(`${S.section}|${U.ue_num}`); prevu = true; }
       const tarif = sup ? BD.tarif_superieur : BD.tarif_secondaire;
-      const di = per * tarif, frais = sansFrais ? 0 : per * BF.par_periode;
-      return { ...U, droits: { periodes: per, niveau: sup ? 'supérieur' : 'secondaire', tarif_di: tarif, par_periode: sansFrais ? 0 : BF.par_periode, sans_frais: sansFrais,
+      const perEtud = periodesEtudiantUE(r);   // les frais : périodes de l'étudiant
+      const di = per * tarif, frais = sansFrais ? 0 : perEtud * BF.par_periode;
+      return { ...U, droits: { periodes: per, periodes_etudiant: perEtud, niveau: sup ? 'supérieur' : 'secondaire', tarif_di: tarif, par_periode: sansFrais ? 0 : BF.par_periode, sans_frais: sansFrais,
         di_etudiant: di, frais_etudiant: frais, inscrits: ins, prevu, recette: ins * (di + frais) } };
     });
     S.sans_frais = sansFrais;
