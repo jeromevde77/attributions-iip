@@ -40,6 +40,14 @@ import { ouvrirApercu } from '../lib/apercu.js';
 import { demander, informer } from '../lib/dialogue.jsx';
 import { useDroits, passeRole, ecritModule, peutGeste } from '../lib/droits.js';
 
+/** Les champs de la fiche identité qu'on peut filtrer (clés de `champs_vides`). */
+const CHAMPS_IDENTITE = [
+  ['sexe', 'Sexe'], ['date_naissance', 'Date de naissance'], ['lieu_naissance', 'Lieu de naissance'],
+  ['nationalite', 'Nationalité'], ['niss', 'N° de registre national'], ['etat_civil', 'État civil'],
+  ['adresse', 'Adresse postale'], ['adresse_mail', 'Courriel de l’école'], ['mail_prive', 'Courriel privé'],
+  ['tel_gsm', 'Téléphone'], ['iban', 'IBAN'], ['matricule', 'Matricule'], ['titres', 'Titres et diplômes'],
+];
+
 const EMPTY = {
   nom: '', prenom: '', adresse_mail: '', mail_prive: '',
   statut: '', adresse_rue: '', code_postal: '', commune: '',
@@ -1572,6 +1580,10 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
   const fonctionsListe = useMemo(() => [...new Set((missions || []).map(m => m.fonction).filter(Boolean))]
     .sort((a, b) => a.localeCompare(b, 'fr')), [missions]);
   const [fAnc, setFAnc]         = useState(false); // avec ancienneté
+  /* LA FICHE IDENTITÉ, CHAMP PAR CHAMP (Charles, 7 octobre 2026) : le serveur
+     rend `champs_vides` — les noms des champs vides, jamais leurs valeurs. */
+  const [fChamp, setFChamp]     = useState('');      // '' | __incomplete | clé d'un champ
+  const [fChampMode, setFChampMode] = useState('manquant');   // manquant | present
   const [showSansCharge, setShowSansCharge] = useState(false); // volet "à zéro" fermé par défaut
   const [loading, setLoading] = useState(true);
   const [detailId, setDetailId] = useState(null);
@@ -2175,6 +2187,13 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
     }
     // Filtre ancienneté
     if (fAnc) arr = arr.filter(p => (Number(p.anciennete_25_26_po) || 0) > 0);
+    if (fChamp) {
+      const vides = p => String(p.champs_vides || '').split(',').filter(Boolean);
+      arr = arr.filter(p => {
+        const manque = fChamp === '__incomplete' ? vides(p).length > 0 : vides(p).includes(fChamp);
+        return fChampMode === 'manquant' ? manque : !manque;
+      });
+    }
 
     if (sortBy.key) {
       arr = [...arr].sort((a, b) => {
@@ -2194,7 +2213,7 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
       });
     }
     return arr;
-  }, [profs, sortBy, search, fContrat, fStatut, fCharge, fSection, fAnc, fFonction, missions]);
+  }, [profs, sortBy, search, fContrat, fStatut, fCharge, fSection, fAnc, fFonction, missions, fChamp, fChampMode]);
 
   // Séparation : profs avec charge (affichés) / sans charge (volet repliable)
   const avecCharge = useMemo(() => filtered.filter(p => charge(p) > 0), [filtered]);
@@ -2465,8 +2484,21 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
             <input type="checkbox" checked={fAnc} onChange={e => setFAnc(e.target.checked)} />
             Avec ancienneté
           </label>
-          {(fContrat || fStatut || fCharge || fSection || fAnc || fFonction) && (
-            <button onClick={() => { setFContrat(''); setFStatut(''); setFCharge(''); setFSection(''); setFAnc(false); setFFonction(''); }}
+          <select value={fChamp} onChange={e => setFChamp(e.target.value)} title="Filtrer sur un champ de la fiche identité"
+            className="border border-gray-300 rounded-lg px-2 py-1.5 h-9 text-sm focus:outline-none focus:border-iip-gold">
+            <option value="">Fiche identité</option>
+            <option value="__incomplete">Un champ au moins</option>
+            {CHAMPS_IDENTITE.map(([k, lib]) => <option key={k} value={k}>{lib}</option>)}
+          </select>
+          {fChamp && (
+            <select value={fChampMode} onChange={e => setFChampMode(e.target.value)}
+              className="border border-gray-300 rounded-lg px-2 py-1.5 h-9 text-sm focus:outline-none focus:border-iip-gold">
+              <option value="manquant">manquant</option>
+              <option value="present">{fChamp === '__incomplete' ? 'fiche complète' : 'présent'}</option>
+            </select>
+          )}
+          {(fContrat || fStatut || fCharge || fSection || fAnc || fFonction || fChamp) && (
+            <button onClick={() => { setFContrat(''); setFStatut(''); setFCharge(''); setFSection(''); setFAnc(false); setFFonction(''); setFChamp(''); }}
               className="text-xs text-gray-500 hover:text-gray-700 underline">Réinitialiser</button>
           )}
           {selection.size > 0 && (
