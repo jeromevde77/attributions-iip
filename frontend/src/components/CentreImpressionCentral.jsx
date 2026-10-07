@@ -1,4 +1,5 @@
 import PiecesEtudiant from './PiecesEtudiant.jsx';
+import { selectionEtudiants } from '../lib/selectionEtudiants.js';
 import OngletSLE from './OngletSLE.jsx';
 import { useDroits } from '../lib/droits.js';
 import CentreDiplomation from './CentreDiplomation.jsx';
@@ -1402,7 +1403,9 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
   // unité sans que cette unité soit déjà choisie ferait recommencer un travail
   // qu'on venait de faire : on arrive là où l'on était.
   const [session, setSession] = useState(perimetre?.session === 2 ? 2 : 1);
-  const [sections, setSections] = useState(() => new Set(perimetre?.sections || []));
+  // Les sections : celles que l'écran passe, sinon celles des étudiants sélectionnés dans la liste.
+  const [sections, setSections] = useState(() => new Set(perimetre?.sections
+    || (!perimetre?.coches && selectionEtudiants().ids.length ? selectionEtudiants().sections : [])));
   const [ues, setUes] = useState(() => new Set(perimetre?.ue_nums || []));
   const [cours, setCours] = useState(() => new Set(perimetre?.cours_codes || []));
   const [deplie, setDeplie] = useState(() => new Set());
@@ -1439,7 +1442,14 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
     setChoix(c => Object.fromEntries(Object.entries(c).filter(([k]) => garde.has(k))));
     // eslint-disable-next-line
   }, [mode]);
-  const cochesImposees = useRef(perimetre?.coches ? new Set(perimetre.coches) : null);
+  /* LES COCHÉS : ceux que l'écran passe, sinon la sélection de la liste des
+     étudiants (lib/selectionEtudiants.js) — ouvrir Éditions depuis le rail ne
+     la perd plus. */
+  const selectionListe = selectionEtudiants().ids;
+  const cochesImposees = useRef(perimetre?.coches ? new Set(perimetre.coches)
+    : selectionListe.length ? new Set(selectionListe) : null);
+  const reprisDeLaListe = !perimetre?.coches && selectionListe.length > 0;
+  const selOrigine = useMemo(() => new Set(perimetre?.coches || selectionListe), []);   // eslint-disable-line react-hooks/exhaustive-deps
   const [separer, setSeparer] = useState(
     () => localStorage.getItem('impression.separer') === '1');
   // L'envoi ne se montre que s'il est allumé ET permis. La route refuse de
@@ -1740,7 +1750,10 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
   const visibles = etudiants
     .filter(e => !modePublic || e[modePublic])
     .filter(e => !fNouveau || (fNouveau === 'nouveaux' ? e.nouveau : !e.nouveau))
-    .filter(e => !fBloc || e.bloc === fBloc);
+    .filter(e => !fBloc || e.bloc === fBloc)
+    // LES ÉTUDIANTS SÉLECTIONNÉS DANS LA LISTE EN TÊTE (7 octobre 2026) : trois
+    // cochés parmi quatre-vingt-quatre ne se cherchent pas dans l'alphabet.
+    .sort((a, b) => (selOrigine.has(b.id) ? 1 : 0) - (selOrigine.has(a.id) ? 1 : 0));
   const blocsDispo = [...new Set(etudiants.map(e => e.bloc).filter(Boolean))].sort();
   const basculerPiece = p => setChoix(c => {
     const n = { ...c, [p.cle]: !c[p.cle] };
@@ -1818,6 +1831,10 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
     <div className="flex min-h-0 flex-1">
       {/* LE PÉRIMÈTRE */}
       <div className="w-[340px] border-r border-slate-200 flex flex-col min-h-0">
+        {reprisDeLaListe && !seul && (
+          <div data-etat="disponible" className="bloc-etat mx-3 mt-3 px-3 py-2 text-[12px]">
+            <b>{selectionListe.length} étudiant(s)</b> repris de votre sélection dans la liste des étudiants — cochés d’avance.
+          </div>)}
         {seul && (
           <div className="px-3 py-2 border-b border-slate-200">
             <div className="text-[11px] uppercase tracking-wide text-slate-500">Pour</div>

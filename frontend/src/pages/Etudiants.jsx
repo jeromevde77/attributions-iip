@@ -1,4 +1,5 @@
 import { ICONE_AXE } from '../lib/iconesAxes.js';
+import { poserSelectionEtudiants } from '../lib/selectionEtudiants.js';
 import { useDroits, passeRole, peutGeste, ecritModule } from '../lib/droits.js';
 import OngletCep from '../components/OngletCep.jsx';
 import OngletSLE from '../components/OngletSLE.jsx';
@@ -3879,6 +3880,12 @@ export default function Etudiants() {
   // section — sans quoi on la perdrait au premier changement et l'outil
   // deviendrait agaçant.
   const [selEtudiants, setSelEtudiants] = useState(new Set());
+  // La sélection, connue des Éditions (lib/selectionEtudiants.js) — effacée en quittant la liste.
+  useEffect(() => {
+    poserSelectionEtudiants([...selEtudiants], annee,
+      etudiants.filter(e => selEtudiants.has(e.id)).map(e => e.section_rattachement));
+  }, [selEtudiants, annee, etudiants]);
+  useEffect(() => () => poserSelectionEtudiants([], null), []);
 
   const basculerSelection = useCallback(id => setSelEtudiants(s => {
     const n = new Set(s);
