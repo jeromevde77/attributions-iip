@@ -17,6 +17,7 @@
 // Les montants sont indexés chaque année : ils sont donc paramétrés, non codés.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { periodesEtudiantUE } from '../lib/periodesUE.js';
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
@@ -123,7 +124,11 @@ export function calculerDI(etudId, annee) {
   const lignes = db.prepare(`
     SELECT i.ue_num, i.dispense_complete, i.annee_scolaire,
            (SELECT ue_per_etudiants FROM ue x
-             WHERE x.ue_num = i.ue_num AND x.annee_scolaire = i.annee_scolaire) AS per_annee,
+             WHERE x.ue_num = i.ue_num AND x.annee_scolaire = i.annee_scolaire LIMIT 1) AS per_annee,
+           (SELECT ue_per_cours FROM ue x
+             WHERE x.ue_num = i.ue_num AND x.annee_scolaire = i.annee_scolaire LIMIT 1) AS cours_annee,
+           (SELECT ue_aut FROM ue x
+             WHERE x.ue_num = i.ue_num AND x.annee_scolaire = i.annee_scolaire LIMIT 1) AS aut_annee,
            (SELECT ue_niveau FROM ue x
              WHERE x.ue_num = i.ue_num AND x.annee_scolaire = i.annee_scolaire) AS niv_annee
     FROM etudiant_inscription i
@@ -132,7 +137,7 @@ export function calculerDI(etudId, annee) {
   `).all(etudId, annee);
 
   const recent = db.prepare(`
-    SELECT ue_per_etudiants AS periodes, ue_niveau AS niveau, ue_nom
+    SELECT ue_per_etudiants AS periodes, ue_per_cours AS per_cours, ue_aut AS aut, ue_niveau AS niveau, ue_nom
     FROM ue WHERE ue_num = ? ORDER BY annee_scolaire DESC LIMIT 1
   `);
 
@@ -143,7 +148,13 @@ export function calculerDI(etudId, annee) {
 
   const detail = lignes.map(l => {
     const r0 = recent.get(l.ue_num) || {};
-    const periodes = l.per_annee != null ? Number(l.per_annee) : Number(r0.periodes || 0);
+    /* LE DROIT SE PAIE SUR TOUTES LES PÉRIODES DE L'UNITÉ, AUTONOMIE COMPRISE
+       (Charles, 7 octobre 2026 : « le prix est le calcul DI × périodes UE »).
+       `ue_per_etudiants` seul oubliait l'autonomie là où le dossier ne l'y
+       compte pas — 80 au lieu de 100 pour l'UE 246. */
+    const periodes = l.per_annee != null
+      ? periodesEtudiantUE({ per_etud: l.per_annee, per_cours: l.cours_annee, aut: l.aut_annee })
+      : periodesEtudiantUE({ per_etud: r0.periodes, per_cours: r0.per_cours, aut: r0.aut });
     const niveau = l.niv_annee || r0.niveau || '';
     const dispensee = !!l.dispense_complete || vaCompletes.has(l.ue_num);
     const sup = String(niveau).toUpperCase().startsWith('SUP');
