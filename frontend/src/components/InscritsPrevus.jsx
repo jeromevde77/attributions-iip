@@ -1,7 +1,7 @@
 /**
  * LES INSCRITS PRÉVUS (Charles, 7 octobre 2026 : « opticien : s'il n'y a pas
  * d'inscrit, il faut pouvoir les mettre à la main, idem ailleurs »). Ils ne
- * servent qu'aux « Coûts et recettes des formations », et seulement là où
+ * servent qu'aux « Rapport statistique », et seulement là où
  * aucun inscrit n'est encodé : un inscrit réel l'emporte toujours.
  */
 import { useEffect, useState } from 'react';
@@ -45,7 +45,7 @@ export default function InscritsPrevus() {
       <div>
         <div className="text-[15px] font-medium text-iip-blue">Inscrits prévus — {annee}</div>
         <p className="text-[12px] text-slate-500">Pour une section ou une unité qui n’a encore aucun inscrit encodé (Optique, par exemple).
-          Ces chiffres ne servent qu’à la pièce « Coûts et recettes des formations », marqués « prévu » ; un inscrit réel l’emporte toujours.</p>
+          Ces chiffres ne servent qu’à la pièce « Rapport statistique », marqués « prévu » ; un inscrit réel l’emporte toujours.</p>
       </div>
       <select className="controle" value={section} onChange={e => setSection(e.target.value)}>
         <option value="">Choisir une section</option>
