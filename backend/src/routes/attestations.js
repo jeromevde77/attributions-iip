@@ -448,6 +448,9 @@ function envelopperBrut(corps, titre) {
      ou d'un désigné serait un faux. Ces pièces-là se signent à la main. */
   .cloture.sans-paraphe .paraphe{background-image:none;
     border-bottom:0.3mm solid #94a3b8;height:16mm;align-self:end}
+  /* UN SEUL TRAIT (7 octobre 2026, PV de section : « double ligne ») : la place
+     de la signature porte le sien ; le bloc du nom n'en ajoute pas un second. */
+  .cloture.sans-paraphe .legende{border-top:none;padding-top:1.2mm}
   .cloture .legende{grid-column:3;grid-row:2;text-align:center;
     border-top:.4pt solid #94a3b8;padding-top:1mm;width:46mm}
   .cloture .qualite{font-size:8.5pt;color:#334}
