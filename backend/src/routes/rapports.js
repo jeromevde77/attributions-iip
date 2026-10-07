@@ -872,16 +872,20 @@ function documentCoutFormations(p) {
       en couvre ${tot.cout_complet && ((R.di || 0) + (R.frais || 0)) ? pc((R.di || 0) + (R.frais || 0), tot.cout_complet) : '—'}.</p>`;
 
   const tFonctions = d.missions.length ? `<table><thead><tr><th>Personne</th><th>Fonction</th><th>Portée</th>
-      <th class="n" style="width:14mm">ETP</th><th class="n" style="width:28mm">Temps plein / an</th><th class="n" style="width:24mm">Coût</th></tr></thead>
+      <th class="n" style="width:14mm">ETP</th><th class="n" style="width:62mm">Calcul</th><th class="n" style="width:24mm">Coût</th></tr></thead>
     <tbody>${d.missions.map(m => `<tr><td>${esc(`${m.prenom || ''} ${String(m.nom || '').toUpperCase()}`.trim())}</td>
       <td>${esc(m.fonction)}</td><td>${esc(m.portee)}</td>
-      <td class="n">${!m.pncc ? '<span class="fin">—</span>' : m.etp ? e1(m.etp) : '<span class="fin">à régler</span>'}</td>
-      <td class="n">${!m.pncc ? '<span class="fin">dans ses périodes</span>' : m.annuel ? eur(m.annuel) : '<span class="fin">à régler</span>'}</td>
+      <td class="n">${m.etp ? e1(m.etp) : '<span class="fin">à régler</span>'}</td>
+      <td class="n">${m.mode === 'periodes' ? '<span class="fin">payée par ses périodes attribuées</span>'
+        : !m.etp ? '<span class="fin">ETP à régler (onglet Fonctions)</span>' : esc(m.calcul || '')}</td>
       <td class="n">${m.cout ? eur(m.cout) : '—'}</td></tr>`).join('')}</tbody>
     <tfoot><tr class="repere"><td colspan="5">Ensemble des fonctions</td><td class="n">${eur(tot.cout_fonctions)}</td></tr></tfoot></table>
-    <p class="fin"><b>Direction et secrétariat</b> sont des emplois de personnel non chargé de cours (PNCC, circulaire 6992) :
-      coût = ETP × coût annuel d'un temps plein. Les <b>coordinations</b> sont tenues par des enseignants payés par leurs périodes
-      attribuées : elles sont listées sans montant, pour ne pas les compter deux fois.${d.sans_etp ? ` <b>${d.sans_etp} fonction(s) sans ETP</b> (onglet Fonctions de la fiche) ne sont pas comptées.` : ''}${d.sans_cout ? ` <b>${d.sans_cout} fonction(s) sans coût annuel</b> (Configuration → Coût des périodes) ne sont pas comptées.` : ''}</p>`
+    <p class="fin"><b>Direction et secrétariat</b> sont des emplois de personnel non chargé de cours (PNCC) : coût = ETP × l'équivalent
+      d'un temps plein en <b>périodes B</b> (circulaire 7949 : directeur 1 200, directeur adjoint 1 000, secrétaire de direction 900,
+      éducateur-secrétaire 800) × le coût d'une période B. Une <b>coordination</b> ou une fonction HELB tenue par quelqu'un
+      <b>sans période attribuée</b> se compte en ETP × 800 × le montant d'une période CT du niveau de la section ; tenue par un
+      enseignant qui a des périodes, elle est déjà payée par elles et n'est pas comptée deux fois.
+      Réglages : Configuration → Coût des périodes ; ETP : onglet Fonctions de la fiche.</p>`
     : '<p class="fin">Aucune fonction encodée pour cette année (onglet Fonctions de la fiche du personnel).</p>';
 
   // UNITÉ PAR UNITÉ : une ligne par statut, le calcul écrit.
@@ -915,14 +919,14 @@ function documentCoutFormations(p) {
       <th class="n" style="width:16mm">Inscrits</th><th class="n" style="width:48mm">Recette de l'unité</th></tr></thead>
     <tbody>${d.sections.filter(S => (S.droits_ues || []).length || S.inscrits).map(S => {
       const totS = (S.droits_ues || []).reduce((a, u) => a + (u.droits?.recette || 0), 0) + (S.forfaits?.montant || 0);
-      return `<tr class="groupe"><td colspan="6">${esc(S.section)}<span class="fin"> — ${n0(S.inscrits)} étudiant(s)${S.inscrits_prevus ? ' (prévu)' : ''}${S.sans_frais ? ' · sans frais d’inscription complémentaires' : ''} · ${eur(totS)} théoriques</span></td></tr>
+      return `<tr class="groupe"><td colspan="6">${esc(S.section)}<span class="fin"> — ${n0(S.inscrits)} étudiant(s)${S.inscrits_prevus ? ' (prévu)' : ''}${S.sans_frais ? ' · sans frais d’inscription complémentaires' : ''}${S.tiers ? ` · <b>droits perçus par ${esc(S.tiers)}</b> — aucune recette pour l'établissement` : ''} · ${eur(totS)} théoriques</span></td></tr>
       ${(S.droits_ues || []).map(u => { const x = u.droits; return `<tr>
         <td>UE ${u.ue_num} — ${esc(u.ue_nom || '')}<span class="fin"> · ${x.niveau}</span></td>
         <td class="n">${n0(x.periodes)}</td>
         <td class="n">${n0(x.periodes)} × ${m2(x.tarif_di)} = ${m2(x.di_etudiant)} €</td>
         <td class="n">${x.sans_frais ? '— (section exemptée)' : `${n0(x.periodes_etudiant)} × ${m2(x.par_periode)} = ${m2(x.frais_etudiant)} €`}</td>
         <td class="n">${x.inscrits ? n0(x.inscrits) : '—'}${x.prevu ? ' <i>(prévu)</i>' : ''}</td>
-        <td class="n">${x.inscrits ? `${n0(x.inscrits)} × ${m2(x.di_etudiant + x.frais_etudiant)} = ${eur(x.recette)}` : '—'}</td></tr>`; }).join('')}
+        <td class="n">${x.inscrits ? `${n0(x.inscrits)} × ${m2(x.di_etudiant + x.frais_etudiant)} = ${eur(x.recette)}${S.tiers ? ` → ${esc(S.tiers)}` : ''}` : '—'}</td></tr>`; }).join('')}
       ${S.forfaits?.etudiants ? `<tr class="repere"><td colspan="5">Forfaits — ${n0(S.forfaits.etudiants)} étudiant(s) × (${m2(S.forfaits.di)} €${S.sans_frais ? '' : ` + ${m2(S.forfaits.frais)} €`})</td>
         <td class="n">${eur(S.forfaits.montant)}</td></tr>` : ''}`; }).join('')}</tbody></table>`;
 
@@ -983,6 +987,8 @@ function documentCoutFormations(p) {
         .sort((a, b) => b.recettes.frais - a.recettes.frais)
         .map(S => ({ nom: esc(S.section), valeur: S.recettes.frais, couleur: K.or, texte: eur(S.recettes.frais) })) })))}
     ${tRecettes}
+    ${R.tiers && Object.keys(R.tiers).length ? `<p class="fin"><b>Perçus par un tiers</b>, hors recettes de l'établissement : ${Object.entries(R.tiers).map(([p, v]) => `${esc(p)} ${eur(v)}`).join(' · ')}
+      (${n0(R.etudiants_tiers)} étudiant(s) — la fiche de chacun dit qui perçoit et pourquoi).</p>` : ''}
     <h2>Femmes et hommes</h2>${tSexes}
     <h2>Personnel administratif (PNCC) et coordinations</h2>${tFonctions}
 

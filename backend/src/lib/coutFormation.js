@@ -12,18 +12,42 @@ import db from '../db/index.js';
 import { getParam, getParamNum } from '../routes/parametres.js';
 import { donneesChiffresCles } from './chiffresCles.js';
 import { calculerFrais, bareme as baremeFrais, sectionsSansFrais } from '../routes/fraisScolarite.js';
-import { bareme as baremeDI } from '../routes/droitInscription.js';
+import { bareme as baremeDI, sectionsTiers } from '../routes/droitInscription.js';
 import { periodesDI, periodesEtudiantUE } from './periodesUE.js';
 import { effectifsPrevus } from '../routes/effectifsPrevus.js';
 import { tauxExpertBase, indiceExpert } from './tauxExperts.js';
 
 /** Un coût annuel d'un temps plein par fonction (table fonction_type), amorcé
  *  à zéro : le montant est à régler, Lucie ne l'invente pas. */
+/* LES EMPLOIS PNCC EN PÉRIODES B (circulaire 7949 du 2 février 2021, § 1.1 —
+   Charles, 7 octobre 2026 : « pour les admins »). Un temps plein de directeur
+   vaut 1 200 périodes B, de directeur adjoint 1 000, de secrétaire de direction,
+   comptable ou éducateur-économe 900, de chef d'atelier 1 000, d'éducateur-
+   secrétaire, rédacteur ou commis 800. « Secrétaire » est posé à 800
+   (éducateur-secrétaire) : 900 si c'est un emploi de secrétaire de direction. */
+const EQUIV_PERIODES_B = [
+  [/directeur adjoint|direction adjointe/i, 1000], [/directeur|direction/i, 1200],
+  [/secr[ée]taire de direction|comptable|[ée]conome/i, 900], [/chef d.atelier/i, 1000],
+  [/[ée]ducateur|r[ée]dacteur|commis|secr[ée]tai/i, 800],
+];
 export function semerCoutsFonctions(dbx = db) {
   const ins = dbx.prepare(`INSERT OR IGNORE INTO parametre (cle, valeur, label, section, groupe) VALUES (?,?,?,?,?)`);
-  for (const t of dbx.prepare('SELECT id, libelle FROM fonction_type ORDER BY ordre, libelle').all()) {
+  for (const t of dbx.prepare('SELECT id, libelle, portee FROM fonction_type ORDER BY ordre, libelle').all()) {
     ins.run(`cout.fonction.${t.id}`, '0', `Coût annuel d'un temps plein — ${t.libelle} (€)`, null, 'couts');
+    if (t.portee === 'etablissement') {
+      const eq = EQUIV_PERIODES_B.find(([re]) => re.test(t.libelle))?.[1] || 0;
+      ins.run(`pncc.periodes_b.${t.id}`, String(eq), `Périodes B d'un temps plein — ${t.libelle} (circ. 7949)`, null, 'couts');
+    }
   }
+  ins.run('pncc.cout_periode_b', '0', "Coût d'une période B (€) — vide : le montant d'une période CT du supérieur", null, 'couts');
+}
+
+/** Le niveau de tarif d'une section : SUP, DS ou DI, d'après son niveau déclaré. */
+function niveauDeSection(code) {
+  const n = String(db.prepare('SELECT niveau FROM section WHERE code = ?').get(code)?.niveau || '').toLowerCase();
+  if (/secondaire inf|\bdi\b/.test(n)) return 'DI';
+  if (/secondaire|\bds\b/.test(n)) return 'DS';
+  return 'SUP';   // bachelier, BES, formation continue du supérieur
 }
 
 export function tarifs() {
@@ -125,11 +149,14 @@ export function donneesCout(annee) {
   const nSections = db.prepare(`SELECT COUNT(DISTINCT s) n FROM (SELECT section s FROM ue WHERE annee_scolaire = ? AND ue_num = ? AND section IS NOT NULL
       UNION SELECT section_code FROM ue_section WHERE annee_scolaire = ? AND ue_num = ?)`);
   const inscritsUE = db.prepare(`SELECT COUNT(DISTINCT i.etudiant_id) n FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
-      WHERE i.annee_scolaire = ? AND i.ue_num = ? AND (? = 0 OR e.section_rattachement = ?)`);
+      WHERE i.annee_scolaire = ? AND i.ue_num = ? AND (? = 0 OR e.section_rattachement = ?)
+        AND COALESCE(e.sortie_statut, '') <> 'archive'`);
   const uesDeSection = db.prepare(`SELECT ue_num, MIN(ue_nom) AS ue_nom FROM ue WHERE annee_scolaire = ? AND (section = ? OR ue_num IN
       (SELECT ue_num FROM ue_section WHERE section_code = ? AND annee_scolaire = ?)) GROUP BY ue_num ORDER BY ue_num`);
   const exemptes = sectionsSansFrais();
+  const tiersDe = sectionsTiers();
   for (const S of sections) {
+    S.tiers = tiersDe.get(S.section) || null;   // droits perçus par un tiers (Orthoptie : HELB)
     const sansFrais = exemptes.has(S.section);
     // LES UNITÉS DU RÉFÉRENTIEL, pas seulement celles qui portent une attribution :
     // une unité sans professeur encore attribué fait payer ses étudiants quand même.
@@ -159,7 +186,9 @@ export function donneesCout(annee) {
   let missions = [];
   try {
     missions = db.prepare(`
-      SELECT pm.fonction, pm.section_code, pm.etp, p.nom, p.prenom, ft.id AS type_id, ft.portee AS type_portee
+      SELECT pm.fonction, pm.section_code, pm.etp, p.nom, p.prenom, ft.id AS type_id, ft.portee AS type_portee,
+        (SELECT COALESCE(SUM(a.periodes_attribuees), 0) FROM attribution a
+          WHERE a.professeur_id = pm.professeur_id AND a.annee_scolaire = pm.annee_scolaire) AS per_attribuees
         FROM personnel_mission pm JOIN professeur p ON p.id = pm.professeur_id
         LEFT JOIN fonction_type ft ON ft.libelle = pm.fonction
        WHERE pm.annee_scolaire = ?
@@ -175,7 +204,28 @@ export function donneesCout(annee) {
         const pncc = m.type_portee === 'etablissement' || m.section_code === '__ETAB__';
         const annuel = pncc && m.type_id ? getParamNum(`cout.fonction.${m.type_id}`, 0) : 0;
         const etp = Number(m.etp) || 0;
-        return { ...m, pncc, portee: m.section_code === '__ETAB__' ? 'établissement' : m.section_code, etp, annuel, cout: pncc ? etp * annuel : 0 };
+        const portee = m.section_code === '__ETAB__' ? 'établissement' : m.section_code;
+        if (pncc) {
+          /* EN PÉRIODES B (circ. 7949) quand l'équivalence est réglée ; sinon le
+             coût annuel saisi. ETP × périodes B × coût d'une période B. */
+          const perB = m.type_id ? getParamNum(`pncc.periodes_b.${m.type_id}`, 0) : 0;
+          const coutB = getParamNum('pncc.cout_periode_b', 0) || T.SUP.CT;
+          if (perB) return { ...m, pncc, portee, etp, annuel, periodes_b: perB, cout_b: coutB, mode: 'periodes_b',
+            calcul: `${etp} ETP × ${perB} pér. B × ${coutB.toFixed(2).replace('.', ',')} €`, cout: etp * perB * coutB };
+          return { ...m, pncc, portee, etp, annuel, mode: 'annuel', calcul: `${etp} ETP × ${Math.round(annuel)} €`, cout: etp * annuel };
+        }
+        /* UNE COORDINATION, OU UNE FONCTION HELB, SANS PÉRIODE ATTRIBUÉE (Charles,
+           7 octobre 2026) : « il faut alors compter les ETP en 800e » — ETP × 800 ×
+           le montant d'une période CT du niveau de la section (SUP si SUP, DS si
+           DS). Avec des périodes attribuées, elle est déjà payée : rien de plus. */
+        const per = Number(m.per_attribuees) || 0;
+        if (!per && etp) {
+          const niv = niveauDeSection(m.section_code);
+          const tCT = T[niv]?.CT || 0;
+          return { ...m, pncc, portee, etp, annuel: 0, mode: 'etp800', niveau: niv,
+            calcul: `${etp} ETP × 800 × ${tCT.toFixed(2).replace('.', ',')} € (CT ${niv})`, cout: etp * 800 * tCT };
+        }
+        return { ...m, pncc, portee, etp, annuel: 0, mode: per ? 'periodes' : 'sans_etp', cout: 0 };
       });
   } catch { missions = []; }
   const coutFonctions = missions.reduce((t, m) => t + m.cout, 0);
@@ -199,11 +249,21 @@ export function donneesCout(annee) {
     const secUe = new Map(db.prepare(`SELECT ue_num, MIN(section) AS section, MAX(COALESCE(hors_cursus, 0)) AS hc
         FROM ue WHERE annee_scolaire = ? GROUP BY ue_num`).all(annee).map(u => [u.ue_num, u]));
     const etus = db.prepare(`SELECT DISTINCT i.etudiant_id AS id, e.section_rattachement AS rat
-        FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id WHERE i.annee_scolaire = ?`).all(annee);
+        FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id WHERE i.annee_scolaire = ?
+          AND COALESCE(e.sortie_statut, '') <> 'archive'`).all(annee);   // les archivés ne paient rien
     for (const e of etus) {
       const f = calculerFrais(e.id, annee);
       if (!f) continue;
       recettes.etudiants++; if (f.exonere_di) recettes.exoneres++;
+      /* PERÇU PAR UN TIERS (Orthoptie : HELB) : rien pour l'établissement ;
+         compté à part, pour dire d'où vient le DI. */
+      if (f.tiers) {
+        const cle = f.tiers.payeur;
+        recettes.tiers = recettes.tiers || {};
+        recettes.tiers[cle] = (recettes.tiers[cle] || 0) + f.droit_inscription + f.droit_specifique + f.frais_administratifs;
+        recettes.etudiants_tiers = (recettes.etudiants_tiers || 0) + 1;
+        continue;
+      }
       const parts = new Map();
       for (const d of f.detail_ue || []) {
         const u = secUe.get(d.ue_num) || {};
