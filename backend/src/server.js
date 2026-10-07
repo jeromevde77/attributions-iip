@@ -2863,6 +2863,7 @@ try {
   semerCoutsFonctions(db);
 } catch (e) { console.error('[migration] coût des fonctions :', e.message); }
 try { semerTauxExperts(db); } catch (e) { console.error('[migration] taux des experts :', e.message); }
+try { (await import('./routes/fraisScolarite.js')).semerSectionsSansFrais(db); } catch (e) { console.error('[migration] sections sans frais :', e.message); }
 
 
 // ── Lucie V3++ : échéancier, dossier administratif, communication ──

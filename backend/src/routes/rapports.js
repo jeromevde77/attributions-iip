@@ -915,15 +915,15 @@ function documentCoutFormations(p) {
       <th class="n" style="width:16mm">Inscrits</th><th class="n" style="width:48mm">Recette de l'unité</th></tr></thead>
     <tbody>${d.sections.filter(S => (S.droits_ues || []).length || S.inscrits).map(S => {
       const totS = (S.droits_ues || []).reduce((a, u) => a + (u.droits?.recette || 0), 0) + (S.forfaits?.montant || 0);
-      return `<tr class="groupe"><td colspan="6">${esc(S.section)}<span class="fin"> — ${n0(S.inscrits)} étudiant(s)${S.inscrits_prevus ? ' (prévu)' : ''} · ${eur(totS)} théoriques</span></td></tr>
+      return `<tr class="groupe"><td colspan="6">${esc(S.section)}<span class="fin"> — ${n0(S.inscrits)} étudiant(s)${S.inscrits_prevus ? ' (prévu)' : ''}${S.sans_frais ? ' · sans frais d’inscription complémentaires' : ''} · ${eur(totS)} théoriques</span></td></tr>
       ${(S.droits_ues || []).map(u => { const x = u.droits; return `<tr>
         <td>UE ${u.ue_num} — ${esc(u.ue_nom || '')}<span class="fin"> · ${x.niveau}</span></td>
         <td class="n">${n0(x.periodes)}</td>
         <td class="n">${n0(x.periodes)} × ${m2(x.tarif_di)} = ${m2(x.di_etudiant)} €</td>
-        <td class="n">${n0(x.periodes)} × ${m2(x.par_periode)} = ${m2(x.frais_etudiant)} €</td>
+        <td class="n">${x.sans_frais ? '— (section exemptée)' : `${n0(x.periodes)} × ${m2(x.par_periode)} = ${m2(x.frais_etudiant)} €`}</td>
         <td class="n">${x.inscrits ? n0(x.inscrits) : '—'}${x.prevu ? ' <i>(prévu)</i>' : ''}</td>
         <td class="n">${x.inscrits ? `${n0(x.inscrits)} × ${m2(x.di_etudiant + x.frais_etudiant)} = ${eur(x.recette)}` : '—'}</td></tr>`; }).join('')}
-      ${S.forfaits?.etudiants ? `<tr class="repere"><td colspan="5">Forfaits — ${n0(S.forfaits.etudiants)} étudiant(s) × (${m2(S.forfaits.di)} € + ${m2(S.forfaits.frais)} €)</td>
+      ${S.forfaits?.etudiants ? `<tr class="repere"><td colspan="5">Forfaits — ${n0(S.forfaits.etudiants)} étudiant(s) × (${m2(S.forfaits.di)} €${S.sans_frais ? '' : ` + ${m2(S.forfaits.frais)} €`})</td>
         <td class="n">${eur(S.forfaits.montant)}</td></tr>` : ''}`; }).join('')}</tbody></table>`;
 
   const corps = `
@@ -2435,7 +2435,7 @@ r.post('/inscrits-grille', authRequired, (req, res) => {
   }).join('') + `<tr class="repere"><td colspan="${2 + cols.length}"><b>Total · ${ids.length} étudiant(s)</b></td>${unites.map(u => `<td class="c"><b>${ids.filter(id => cle.get(`${id}|${u.ue_num}`)).length || ''}</b></td>${ouvertes.has(u.ue_num) ? u.cours.map(() => '<td></td>').join('') : ''}`).join('')}</tr>`;
   const cours = unites.filter(u => ouvertes.has(u.ue_num)).flatMap(u => u.cours.map(c => `${esc(c.code)} ${esc(c.nom)}`));
   const corps = `<p class="fin">${ids.length} étudiant(s) · ${unites.length} unité(s) · tri : ${esc(String(b.tri || 'ordre alphabétique').slice(0, 80))}.</p>
-    <table class="grille"><thead>${tete1}${tete2}</thead><tbody>${corpsLignes}</tbody><tfoot>${pied}</tfoot></table>
+    <table class="grille"><thead>${tete1}${tete2}</thead><tbody>${pied}</tbody><tbody>${corpsLignes}</tbody></table>
     <p class="fin">${Object.keys(LIB).map(k => `${pastille(k)} ${LIB[k]}`).join(' &nbsp; ')} — bleu : report de note (la note, puis l'année d'origine) · à côté du code : date de décision · ↻ reprise · n.i. non inscrit.</p>
     ${cours.length ? `<p class="fin">${cours.join(' · ')}</p>` : ''}`;
   const n = 2 + cols.length + unites.reduce((t, u) => t + 1 + (ouvertes.has(u.ue_num) ? u.cours.length : 0), 0);

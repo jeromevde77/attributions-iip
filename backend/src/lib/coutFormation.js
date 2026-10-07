@@ -11,7 +11,7 @@
 import db from '../db/index.js';
 import { getParam, getParamNum } from '../routes/parametres.js';
 import { donneesChiffresCles } from './chiffresCles.js';
-import { calculerFrais, bareme as baremeFrais } from '../routes/fraisScolarite.js';
+import { calculerFrais, bareme as baremeFrais, sectionsSansFrais } from '../routes/fraisScolarite.js';
 import { bareme as baremeDI } from '../routes/droitInscription.js';
 import { periodesDI } from './periodesUE.js';
 import { effectifsPrevus } from '../routes/effectifsPrevus.js';
@@ -128,7 +128,9 @@ export function donneesCout(annee) {
       WHERE i.annee_scolaire = ? AND i.ue_num = ? AND (? = 0 OR e.section_rattachement = ?)`);
   const uesDeSection = db.prepare(`SELECT ue_num, MIN(ue_nom) AS ue_nom FROM ue WHERE annee_scolaire = ? AND (section = ? OR ue_num IN
       (SELECT ue_num FROM ue_section WHERE section_code = ? AND annee_scolaire = ?)) GROUP BY ue_num ORDER BY ue_num`);
+  const exemptes = sectionsSansFrais();
   for (const S of sections) {
+    const sansFrais = exemptes.has(S.section);
     // LES UNITÉS DU RÉFÉRENTIEL, pas seulement celles qui portent une attribution :
     // une unité sans professeur encore attribué fait payer ses étudiants quand même.
     S.droits_ues = uesDeSection.all(annee, S.section, S.section, annee).map(U => {
@@ -140,11 +142,12 @@ export function donneesCout(annee) {
       let prevu = false;
       if (!ins && prevus.has(`${S.section}|${U.ue_num}`)) { ins = prevus.get(`${S.section}|${U.ue_num}`); prevu = true; }
       const tarif = sup ? BD.tarif_superieur : BD.tarif_secondaire;
-      const di = per * tarif, frais = per * BF.par_periode;
-      return { ...U, droits: { periodes: per, niveau: sup ? 'supérieur' : 'secondaire', tarif_di: tarif, par_periode: BF.par_periode,
+      const di = per * tarif, frais = sansFrais ? 0 : per * BF.par_periode;
+      return { ...U, droits: { periodes: per, niveau: sup ? 'supérieur' : 'secondaire', tarif_di: tarif, par_periode: sansFrais ? 0 : BF.par_periode, sans_frais: sansFrais,
         di_etudiant: di, frais_etudiant: frais, inscrits: ins, prevu, recette: ins * (di + frais) } };
     });
-    S.forfaits = { di: BD.forfait, frais: BF.frais_fixes, etudiants: S.inscrits, montant: S.inscrits * (BD.forfait + BF.frais_fixes) };
+    S.sans_frais = sansFrais;
+    S.forfaits = { di: BD.forfait, frais: sansFrais ? 0 : BF.frais_fixes, etudiants: S.inscrits, montant: S.inscrits * (BD.forfait + (sansFrais ? 0 : BF.frais_fixes)) };
   }
   const total = sections.reduce((t, S) => ({ cout: t.cout + S.cout, periodes: t.periodes + S.periodes,
     cout_iip: t.cout_iip + S.cout_iip, cout_helb: t.cout_helb + S.cout_helb }), { cout: 0, periodes: 0, cout_iip: 0, cout_helb: 0 });
