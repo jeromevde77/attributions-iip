@@ -941,6 +941,12 @@ function documentCoutFormations(p) {
         <td class="n">${eur(S.forfaits.montant)}</td></tr>` : ''}`; }).join('')}</tbody></table>`;
 
   const corps = `
+    <div class="cadre"><p class="fin" style="margin:0">
+      <b>À lire avant les chiffres.</b> Un établissement d'enseignement pour adultes est financé en périodes. Les membres
+      du personnel sont payés au barème, selon leur titre et le niveau d'enseignement. Pour permettre la comparaison, les
+      montants de ce document — cours et fonctions — sont exprimés en <b>coût de convention</b> : ce que coûte une période
+      lorsque l'établissement doit l'acheter à la Fédération Wallonie-Bruxelles. Ils ne reflètent donc pas les traitements
+      réellement versés.</p></div>
     ${rangeeTuiles([
       tuile({ valeur: eur(tot.cout_complet), libelle: 'Coût complet', precision: `${d.sections.length} section(s)`, ton: 'fort' }),
       tuile({ valeur: eur(tot.cout), libelle: 'Cours', precision: `${n0(tot.periodes)} périodes attribuées` }),
