@@ -555,6 +555,29 @@ async function signatairesDe(sectionCode) {
   return { liste: coDiplomee(sectionCode) ? SIGNATAIRES_DEFAUT : SIGNATAIRES_IIP, propre: false };
 }
 
+/* LE PRÉSIDENT DU JURY D'ÉPREUVE INTÉGRÉE, PAR SECTION (Charles, 7 octobre
+ * 2026 : « les noms du titulaire, du président de jury et de la direction
+ * doivent être des personnes différentes »). Il était pris dans la présidence
+ * du Conseil des études — le directeur —, et retombait sur le directeur à
+ * défaut : le diplôme portait deux fois le même nom. Réglé dans l'éditeur du
+ * diplôme (lucie_config.diplome_president_jury : { section: nom }) ; sans
+ * réglage, le diplôme ne sort pas. */
+export function presidentJuryDe(sectionCode) {
+  try {
+    const v = JSON.parse(db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'diplome_president_jury'").get()?.valeur || '{}') || {};
+    return String(v[sectionCode] || '').trim() || null;
+  } catch { return null; }
+}
+const memePersonne = n => String(n || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  .split(/[\s,.-]+/).filter(Boolean).sort().join(' ');
+/** Les noms en double parmi les signataires résolus : [] si tous diffèrent. */
+export function signatairesEnDouble(liste, jetons) {
+  const noms = liste.map(x => String(x.nom || '').replace(/\{\{\s*([a-z_]+)\s*\}\}/gi, (_, k) => jetons[k] || '').trim()).filter(Boolean);
+  const vus = new Map(); const doubles = [];
+  for (const n of noms) { const k = memePersonne(n); if (vus.has(k)) doubles.push(n); else vus.set(k, n); }
+  return doubles;
+}
+
 function blocSignatures(liste, jetons) {
   const resoudre = v => String(v || '').replace(/\{\{\s*([a-z_]+)\s*\}\}/gi,
     (_, k) => (jetons[k] != null && jetons[k] !== '' ? jetons[k] : `[${k} à compléter]`));
@@ -841,10 +864,18 @@ r.post('/pieces', authRequired,
 
     const sig = await signatairesDe(sec.code);
     const ds = donneesSectionDiplome(sec.code);
-    const jetonsSig = {
-      president_jury: presidence?.titulaire?.nom || ident.directeur,
-      directeur: ident.directeur,
-    };
+    const jetonsSig = { president_jury: presidentJuryDe(sec.code) || '', directeur: ident.directeur };
+    /* TROIS PERSONNES DIFFÉRENTES — le diplôme ne sort pas sinon. */
+    if (sig.liste.some(x => /\{\{\s*president_jury\s*\}\}/.test(x.nom || '')) && !jetonsSig.president_jury) {
+      return res.status(409).json({ error: `Le président du jury d'épreuve intégrée de ${sec.libelle || sec.code} n'est pas réglé `
+        + '(Configuration → Diplôme, signataires de la section). Il doit être une autre personne que le directeur.' });
+    }
+    const doubles = signatairesEnDouble(sig.liste, jetonsSig);
+    if (doubles.length) {
+      return res.status(409).json({ error: `Les signataires du diplôme de ${sec.libelle || sec.code} doivent être des personnes `
+        + `différentes : ${[...new Set(doubles)].join(', ')} figure deux fois (président du jury, direction…). `
+        + 'Corrigez-les dans Configuration → Diplôme.' });
+    }
     const { html: modeleSigneSansLogo, pose } = poserSignatures(modele, blocSignatures(sig.liste, jetonsSig), sig.propre);
     const modeleSigne = poserLogos(modeleSigneSansLogo, await logosDe(sec.code));
     if (!pose) {
@@ -865,9 +896,10 @@ r.post('/pieces', authRequired,
         total_ects: ectsTotal || ds.total_ects, duree_annees: ds.duree_annees,
         date_deliberation: dateLongue(dateDelib),
         ville_etab: ident.ville, directeur: ident.directeur,
-        president_jury: presidence?.titulaire?.nom || ident.directeur,
-        titulaire_nom: presidence?.titulaire?.nom || '',
-        article_titulaire: 'Le', date_approbation: ds.date_approbation,
+        president_jury: jetonsSig.president_jury,
+        // LE TITULAIRE EST LE DIPLÔMÉ, qui signe son diplôme — et non la présidence.
+        titulaire_nom: `${d.prenom || ''} ${String(d.nom || '').toUpperCase()}`.trim(),
+        article_titulaire: d.genre === 'F' ? 'La' : 'Le', date_approbation: ds.date_approbation,
         // Posés par poserLogos() ; ces jetons restent pour un modèle qui les
         // citerait ailleurs, et ne doivent jamais partir vides.
         logo_helb: ' ', logo_iip: ' ',
@@ -881,7 +913,7 @@ r.post('/pieces', authRequired,
     styles.add(STYLE_SECTION);
     const dsP = donneesSectionDiplome(sec.code);
     const sigP = await signatairesDe(sec.code);
-    const jetonsP = { president_jury: presidence?.titulaire?.nom || ident.directeur, directeur: ident.directeur };
+    const jetonsP = { president_jury: presidentJuryDe(sec.code) || '', directeur: ident.directeur };
     const resoudre = t => String(t || '').replace(/\{\{\s*([a-z_]+)\s*\}\}/gi, (_, k) => jetonsP[k] || '');
     // Les cosignataires : tous ceux du diplôme, sauf le directeur, qui signe la pièce.
     ctx.cosignataires = (sigP.liste || [])
