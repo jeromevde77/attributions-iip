@@ -38,6 +38,8 @@ import PassageAnnee from '../components/PassageAnnee.jsx';
 import ComposerPAE from '../components/ComposerPAE.jsx';
 import CentreEchanges from '../components/CentreEchanges.jsx';
 import SeanceValorisation from '../components/SeanceValorisation.jsx';
+import NotificationVA from '../components/NotificationVA.jsx';
+import ChampEtudiant from '../components/ChampEtudiant.jsx';
 import ImportSurMesure from '../components/ImportSurMesure.jsx';
 import ImportSignaletique from '../components/ImportSignaletique.jsx';
 import ImportHELB from '../components/ImportHELB.jsx';
@@ -201,7 +203,7 @@ const STATUTS_PIECE = [
  * dispensé, à suivre —, le parcours à droite, et une case « PAE revu » qui
  * garde qui l'a cochée et quand. Les UE sans report sont repliées.
  */
-function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
+export function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
   /* TOUT VOIR, FILTRER, ENCODER (Charles, 1er octobre 2026, après le premier
      essai : « pas clair — il faut tout voir ; un filtre par section, par
      année ; voir directement les reports, et surtout pouvoir les encoder »). */
@@ -221,6 +223,7 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
   const [saisieUE, setSaisieUE] = useState(null);
   const [editions, setEditions] = useState(false);  // { ue, nature, origine } — VA / VAE de l'UE entière
   const [ajout, setAjout] = useState('');
+  const [aller, setAller] = useState(null);       // l'étudiant à rejoindre une fois les filtres tombés
   const [versionSchema, setVersionSchema] = useState(0);
   const [ouverts, setOuverts] = useState(() => new Set());   // les volets d'UE ouverts
   // Le verdict des gestes, réglages compris (3.1.20) — le secrétariat reporte aussi.
@@ -264,6 +267,11 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
     return true;
   }), [base, synthese, fSection, fNiveau, fCritere]);
   useEffect(() => { setI(0); }, [fSection, fNiveau, fCritere, annee]);
+  useEffect(() => {
+    if (aller == null) return;
+    const k = liste.findIndex(y => y.id === aller);
+    if (k >= 0) { setI(k); setAller(null); }
+  }, [aller, liste]);
   const cur = liste[Math.min(i, Math.max(0, liste.length - 1))];
 
   const charger = useCallback(async () => {
@@ -459,11 +467,17 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
           ))}
         </div>
         {/* ALLER DIRECTEMENT À UN ÉTUDIANT DE LA LISTE. */}
-        <select className="controle text-[13px] max-w-[16rem]" value={cur?.id || ''}
-          onChange={e => { const k = liste.findIndex(x => x.id === Number(e.target.value)); if (k >= 0) setI(k); }}
-          title="Aller directement à un étudiant">
-          {liste.map((x, k) => <option key={x.id} value={x.id}>{k + 1}. {nomPropre(x.nom, x.prenom)}{synthese?.[x.id]?.revu ? ' ✓' : ''}{synthese?.[x.id] && !synthese[x.id].pae ? ' · sans PAE' : ''}</option>)}
-        </select>
+        {/* ALLER À UN ÉTUDIANT EN TAPANT (7 octobre 2026) : la liste déroulante de
+            plusieurs centaines de noms laisse place au champ qui propose. Un
+            étudiant hors des filtres posés les fait tomber, plutôt que d'être
+            introuvable. */}
+        <ChampEtudiant className="w-[18rem]" options={base} placeholder="Aller à un étudiant…"
+          detail={x => [synthese?.[x.id]?.revu ? '✓ validé' : '', synthese?.[x.id] && !synthese[x.id].pae ? 'sans PAE' : ''].filter(Boolean).join(' · ')}
+          onChoisir={x => {
+            const k = liste.findIndex(y => y.id === x.id);
+            if (k >= 0) { setI(k); return; }
+            setFSection(''); setFNiveau(''); setFCritere(''); setAller(x.id);
+          }} />
 
       </div>
       {erreurSyn && <div data-etat="surveiller" className="bloc-etat px-3 py-2 text-[12.5px] mb-3">{erreurSyn}</div>}
@@ -505,7 +519,7 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
           </span>
         );
         const BadgeUE = ({ u }) => {
-          if (u.nature_totale) return <span className="text-[11px] font-semibold text-white rounded px-1.5 py-px bg-teal-800">{u.nature_totale}</span>;
+          if (u.nature_totale) return <span className="text-[11px] font-semibold text-emerald-800 bg-white border-2 border-emerald-600 rounded px-1.5 py-px">{u.nature_totale}</span>;
           const out = [];
           if (u.reports) out.push(<span key="r" className="text-[11px] font-semibold text-white rounded px-1.5 py-px bg-emerald-700">{u.reports} report{u.reports > 1 ? 's' : ''}</span>);
           if (u.va) out.push(<span key="v" className="text-[11px] font-semibold text-white rounded px-1.5 py-px bg-teal-800">{u.nature_partielle || 'VAP'}</span>);
@@ -617,7 +631,7 @@ function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
                                             {vaReprise ? (c.nature === 'DISPENSE' ? 'Dispense' : c.nature) : 'Report'} {String(c.annee_origine || '').replace(/^20(\d\d)-20(\d\d)$/, '$1-$2')}{c.note != null ? ` · ${Math.round(c.note)}/20` : ''}</span>
                                           {peutReporter && <button type="button" disabled={occupe} className="underline text-slate-500" onClick={() => retirer(u.ue_num, c.code)}>retirer</button>}
                                         </>}
-                                        {c.statut === 'va' && <span className="rounded px-1.5 py-px bg-teal-800 text-white font-semibold">{c.nature || 'VAP'}</span>}
+                                        {c.statut === 'va' && <span className="rounded px-1.5 py-px bg-white border-2 border-emerald-600 text-emerald-800 font-semibold">{c.nature || 'VAP'}</span>}
                                         {c.statut === 'suivre' && saisieVAIci && <>
                                           <select className="border border-slate-300 rounded h-7 px-1.5 text-[12px] bg-white" value={saisieVA.nature} onChange={ev => setSaisieVA({ ...saisieVA, nature: ev.target.value })}>
                                             {[['VAP', 'VAP'], ['VAEP', 'VAEP'], ['DISPENSE', 'Dispense']].map(([x, l]) => <option key={x} value={x}>{l}</option>)}
@@ -861,7 +875,7 @@ const KINDS_CELLULE = [
   // aussi, avec sa mention —, ocre ajournée, brique refusée. Le violet ne dit
   // que la faveur.
   { val: 'inscrit', label: 'Inscrit',  short: '·',  cls: 'bg-[color-mix(in_srgb,var(--c-disponible)_11%,#fff)] border-[color-mix(in_srgb,var(--c-disponible)_32%,#fff)] text-iip-texte' },
-  { val: 'reussi',  label: 'Réussi',   short: '✓',  cls: 'bg-[color-mix(in_srgb,var(--c-reussi)_11%,#fff)] border-[color-mix(in_srgb,var(--c-reussi)_32%,#fff)] text-[color:var(--c-texte)]' },
+  { val: 'reussi',  label: 'Réussi',   short: '✓',  cls: 'bg-white border-2 border-[color:var(--c-reussi)] text-[color:var(--c-texte)]' },   // VA : contour vert (7 octobre 2026)
   // LA FAVEUR DU CONSEIL (5 octobre 2026) : l'unité vaut 10, réussie ; violet
   // et cadeau, la seule couleur qui la dise.
   { val: 'faveur',  label: 'Réussi par faveur', short: '10', cls: 'bg-[color-mix(in_srgb,var(--c-faveur)_11%,#fff)] border-[color-mix(in_srgb,var(--c-faveur)_32%,#fff)] text-[color:var(--c-texte)]' },
@@ -1850,6 +1864,8 @@ function Valorisations({ etudId, annee }) {
           Valorisation des acquis — AGCF du 13-12-2024 · décisions du Conseil des études
         </p>
         <span className="ml-auto" />
+        {(valos || []).some(v => v.valide_le && v.annee_scolaire === annee) && passeRole(['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat']) && (
+          <span className="mr-2"><NotificationVA etudId={etudId} annee={annee} onFait={charger} /></span>)}
         {peutInstruireVA && <>
         <button onClick={() => setSeance(true)}
           className="bouton bouton-fort mr-2 inline-flex items-center gap-1.5"
@@ -2329,7 +2345,7 @@ function Valorisations({ etudId, annee }) {
                     <>
                       {TYPES_VA.find(t => t.val === v.type)?.label}
                       {v.cible ? ` · ${v.cible === 'cours' ? 'cours' : 'AA'} : ${v.cible_detail}` : ''}
-                      {v.pourcentage != null ? ` · ${v.pourcentage} %` : ''}
+                      {v.pourcentage != null && v.decision !== 'refusee' ? ` · ${Number(v.pourcentage) > 20 ? Math.round(v.pourcentage / 5) : v.pourcentage}/20` : ''}
                     </>
                   )}
                   {v.decision_ce_date ? ` · CE du ${v.decision_ce_date}` : ''}
@@ -3686,7 +3702,10 @@ export default function Etudiants() {
       if (anneeCohorte) params.set('annee', anneeCohorte);
       if (statut) params.set('statut', statut);
       if (ueCohorte) params.set('ue_num', ueCohorte);
-      if (recherche) params.set('q', recherche);
+      /* LA RECHERCHE NE PART PLUS AU SERVEUR (7 octobre 2026 : « si je vide la
+         cellule, il ne remet pas le filtre à zéro ») : un rechargement l'y
+         envoyait, la liste revenait réduite, et vider le champ ne la
+         rechargeait pas. Elle filtre à l'écran, sur la cohorte entière. */
       const rep = await fetch(`/api/etudiants?${params}`, { headers: authHeaders() });
       const j = await rep.json();
       if (rep.ok) {
@@ -3753,11 +3772,12 @@ export default function Etudiants() {
   }, [etudiants]);
 
   const filtres = useMemo(() => {
-    const q = recherche.toLowerCase();
-    let base = (recherche
-      ? etudiants.filter(e =>
-          e.nom?.toLowerCase().includes(q) || e.prenom?.toLowerCase().includes(q) ||
-          e.id_ecampus?.toLowerCase().includes(q))
+    // Sans accents ni casse, chaque mot tapé doit se retrouver (« cha » trouve
+    // CHARLIER comme Charlotte ; « dup mar » trouve DUPONT Marie).
+    const norm = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const mots = norm(recherche).split(/\s+/).filter(Boolean);
+    let base = (mots.length
+      ? etudiants.filter(e => { const foin = norm(`${e.nom} ${e.prenom} ${e.id_ecampus || ''}`); return mots.every(m => foin.includes(m)); })
       : [...etudiants])
       .filter(e => !section || (section === '__aucune__'
         ? !e.section_rattachement : e.section_rattachement === section))
@@ -4108,8 +4128,10 @@ export default function Etudiants() {
         <div className="relative flex-1 min-w-[200px]">
           <IconSearch size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input value={recherche} onChange={e => setRecherche(e.target.value)}
-            placeholder="Nom, prénom ou identifiant…"
-            className="w-full border border-slate-300 rounded-lg pl-9 pr-3 py-2 text-sm" />
+            placeholder="Nom, prénom ou identifiant…" data-reponses="non"
+            className="w-full border border-slate-300 rounded-lg pl-9 pr-8 py-2 text-sm" />
+          {recherche && <button type="button" onClick={() => setRecherche('')} title="Effacer la recherche"
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><IconX size={14} /></button>}
         </div>
         <select value={section} onChange={e => setSection(e.target.value)}
           title="La section de l'étudiant — posée, ou déduite de ses UE"

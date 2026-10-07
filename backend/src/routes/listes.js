@@ -14,7 +14,7 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, getUserSections, soiSeul } from '../middleware/auth.js';
 import { niveauEtudiant, sectionRattachement } from './etudiants.js';
-import { POURCENTAGE_DISPENSE } from '../lib/valorisation.js';
+import { POURCENTAGE_DISPENSE, vaRetenue } from '../lib/valorisation.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 
 const r = Router();
@@ -205,7 +205,7 @@ r.get('/etudiants', authRequired, (req, res) => {
     const vas = new Set(db.prepare(`
       SELECT etudiant_id FROM etudiant_valorisation
       WHERE annee_scolaire = ? AND ue_num = ?
-        AND COALESCE(decision,'accordee') <> 'refusee'`).all(annee, ueNum)
+        AND ${vaRetenue()}`).all(annee, ueNum)
       .map(x => x.etudiant_id));
     // Report : la réussite d'une année ANTÉRIEURE, avec sa note et son année.
     const reports = new Map();

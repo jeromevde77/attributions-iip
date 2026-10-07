@@ -120,6 +120,9 @@ export default function ParcoursCompact({ etudId, annee, programme = new Set(), 
   const plein = c => ({ fond: c, bord: c, lisere: fonce(c), texte: '#fff' });
   const etatTuile = n => {
     if (n.epreuve_integree && !['acquise'].includes(n.statut)) return { fond: '#fff', bord: '#D8DCE4', lisere: '#C9A227', texte: '#16406A' };
+    // ACQUISE PAR VALORISATION : CONTOUR VERT ET « VA » ÉCRIT (Charles, 7 octobre
+    // 2026) — le vert plein reste à l'unité réussie en délibération.
+    if (n.statut === 'acquise' && n.reussite?.va && !n.reussite?.faveur) return { fond: '#fff', bord: 'var(--c-reussi, #3E7D5E)', lisere: 'var(--c-reussi, #3E7D5E)', texte: '#16406A', epais: 2, va: true };
     if (n.statut === 'acquise') return plein(n.reussite?.faveur ? 'var(--c-faveur, #6B46C1)' : 'var(--c-reussi, #3E7D5E)');
     if (auPAE(n.ue_num)) return plein('var(--c-disponible, #2F6FB0)');
     if (n.statut === 'en_attente') return { fond: '#fff', bord: '#D8DCE4', lisere: 'var(--c-refuse, #9D4A38)', texte: '#16406A' };
@@ -188,14 +191,15 @@ export default function ParcoursCompact({ etudId, annee, programme = new Set(), 
               <title>{`${n.ue_num} ${n.ue_nom || ''}`}</title>
               <path d={forme(x, y)}
                 style={{ fill: t.fond, stroke: n.ue_num === survol ? '#16406A' : t.bord }}
-                strokeWidth={n.ue_num === survol ? 1.8 : 1} />
+                strokeWidth={n.ue_num === survol ? 1.8 : (t.epais || 1)} />
               <rect x={x} y={y} width={LIS} height={H} style={{ fill: t.lisere }} />
-              <text x={x + (L + LIS) / 2} y={y + 15.5} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: t.texte }}>{n.ue_num}</text>
+              <text x={x + (L + LIS) / 2} y={y + (t.va ? 12.5 : 15.5)} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: t.texte }}>{n.ue_num}</text>
+              {t.va && <text x={x + (L + LIS) / 2} y={y + H - 3} textAnchor="middle" fontSize="7.5" fontWeight="700" style={{ fill: 'var(--c-reussi, #3E7D5E)' }}>VA</text>}
               {/* Repères : refusée une fois (rouge, haut gauche), déterminante
                   (marine, haut droit), report ou VA (gris, bas droit). */}
               {n.refusee && <circle cx={x} cy={y} r={3.6} fill="#C0392B" stroke="#fff" strokeWidth={1} />}
               {n.determinante && <circle cx={x + L} cy={y} r={3.6} fill="#16406A" stroke="#fff" strokeWidth={1} />}
-              {dispenses.has(n.ue_num) && <circle cx={x + L - 5} cy={y + H - 5} r={2.5} fill={auPAE(n.ue_num) ? '#fff' : '#475569'} />}
+              {dispenses.has(n.ue_num) && !t.va && <circle cx={x + L - 6} cy={y + H - 6} r={3.6} fill={auPAE(n.ue_num) ? '#fff' : '#475569'} stroke="#16406A" strokeWidth={1} />}
             </g>
           );
         })}
@@ -203,6 +207,7 @@ export default function ParcoursCompact({ etudId, annee, programme = new Set(), 
       <div className="min-h-[20px] mt-1 text-[12px] text-iip-texte">{etiquette || <span className="text-slate-400">Survolez une unité pour voir sa chaîne de prérequis.</span>}</div>
       <div className="text-[11px] text-slate-500 leading-[1.9] mt-1">
         <Leg fond="var(--c-reussi, #3E7D5E)" lisere="color-mix(in srgb, var(--c-reussi, #3E7D5E) 62%, #000)" /> réussie ·
+        <Leg lisere="var(--c-reussi, #3E7D5E)" contour="var(--c-reussi, #3E7D5E)" /> acquise par VA ·
         <Leg fond="var(--c-faveur, #6B46C1)" lisere="color-mix(in srgb, var(--c-faveur, #6B46C1) 62%, #000)" /> faveur ·
         <Leg fond="var(--c-disponible, #2F6FB0)" lisere="color-mix(in srgb, var(--c-disponible, #2F6FB0) 62%, #000)" /> au PAE ·
         <Leg fond="var(--c-disponible, #2F6FB0)" lisere="color-mix(in srgb, var(--c-disponible, #2F6FB0) 62%, #000)" point /> avec report ou VA ·
@@ -218,10 +223,10 @@ export default function ParcoursCompact({ etudId, annee, programme = new Set(), 
   );
 }
 
-function Leg({ fond = '#fff', lisere, point = false }) {
+function Leg({ fond = '#fff', lisere, point = false, contour = null }) {
   return (
     <span className="relative inline-block align-[-2px] mx-1" style={{ width: 20, height: 12, borderRadius: '0 3px 3px 0', background: fond,
-      border: '1px solid #D8DCE4', borderLeft: `3px solid ${lisere}` }}>
+      border: contour ? `2px solid ${contour}` : '1px solid #D8DCE4', borderLeft: `3px solid ${lisere}` }}>
       {point && <span className="absolute right-[2px] bottom-[2px] w-[4px] h-[4px] rounded-full bg-white" />}
     </span>
   );

@@ -2647,7 +2647,7 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
           onPrec={i > 0 ? () => setEditProf(ordre[i - 1]) : null}
           onSuiv={i >= 0 && i < ordre.length - 1 ? () => setEditProf(ordre[i + 1]) : null}
           position={i >= 0 ? { i: i + 1, n: ordre.length } : null}
-          onSaved={() => { setEditProf(null); load(); }} />
+          onSaved={() => { setEditProf(null); load(); }} onEnregistre={() => load()} />
         );
       })()}
       {editionsMembre && (

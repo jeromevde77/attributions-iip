@@ -743,7 +743,7 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
                         }
                         return (
                           <td key={u.ue_num} className="text-center px-1 py-1 bg-white border-l border-slate-100">
-                            {x.va ? <span className="text-[10px] text-slate-600 font-semibold" title="Valorisation">VA</span>
+                            {x.va ? <span className="inline-block text-[10px] font-semibold text-emerald-800 bg-white border-2 border-emerald-600 rounded px-1 leading-4" title="Acquise par valorisation">VA</span>
                               : x.inscrit
                                 ? <CasePAE x={x} anneau={hors ? 'var(--c-attente)' : null}
                                     titre={hors ? 'Inscrite sans les prérequis (aucune dérogation posée)' : null} />
@@ -761,7 +761,7 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
                         if (x.va) {
                           return (
                             <td key={u.ue_num} className="text-center px-1 py-1 bg-white border-l border-slate-100">
-                              <span className="text-[10px] text-slate-600 font-semibold" title="Valorisation">VA</span>
+                              <span className="inline-block text-[10px] font-semibold text-emerald-800 bg-white border-2 border-emerald-600 rounded px-1 leading-4" title="Acquise par valorisation">VA</span>
                             </td>
                           );
                         }
@@ -795,7 +795,7 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
                       return (
                         <td key={u.ue_num} onClick={() => basculerCase(e, u)}
                           className={`text-center px-1 py-1 bg-white border-l border-slate-100 ${x.va || (x.acquise && !x.inscrit && !x.attente) ? '' : 'cursor-pointer hover:bg-slate-50'}`}>
-                          {x.va ? <span className="text-[10px] text-slate-600 font-semibold" title="Valorisation">VA</span>
+                          {x.va ? <span className="inline-block text-[10px] font-semibold text-emerald-800 bg-white border-2 border-emerald-600 rounded px-1 leading-4" title="Acquise par valorisation">VA</span>
                             : <CasePAE x={x} attente={x.attente} />}
                         </td>
                       );

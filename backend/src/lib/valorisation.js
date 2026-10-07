@@ -522,6 +522,34 @@ export const PEUT_INSTRUIRE = ['admin', 'directeur', 'directeur_adjoint',
                                'editeur', 'secretariat', 'coordination'];
 
 export const POURCENTAGE_DISPENSE = 50;
+
+/**
+ * UNE DEMANDE N'EST PAS UNE DÉCISION (Charles, 7 octobre 2026). Une VA ne
+ * compte comme acquise qu'une fois décidée par le Conseil — sauf les années
+ * reprises d'avant le circuit (2024-2025, 2025-2026), dont les dossiers n'ont
+ * jamais porté de date de décision : les écarter effacerait des acquis réels.
+ * Fragment SQL, à poser derrière `type = 'complete'` ; `a` est l'alias de table.
+ */
+export const ANNEE_CIRCUIT_VA = '2026-2027';
+export const vaRetenue = (a = '') =>
+  `COALESCE(${a}decision, 'accordee') <> 'refusee' AND (${a}decision_le IS NOT NULL OR ${a}annee_scolaire < '${ANNEE_CIRCUIT_VA}')`;
+
+/**
+ * LA VA SE LIT 10/20 DANS LUCIE, 50 % SUR LES PIÈCES (Charles, 7 octobre
+ * 2026). La colonne `pourcentage` porte 50 (décision du Conseil) ou, pour les
+ * reprises de la grille, 10 — c'est-à-dire déjà sur 20. Deux lectures, une
+ * seule conversion.
+ */
+export function vaSur20(p) {
+  if (p == null || p === '') return Math.round(20 * POURCENTAGE_DISPENSE / 100);
+  const n = Number(p);
+  return n > 20 ? Math.round(n / 5) : n;
+}
+export function vaPourcent(p) {
+  if (p == null || p === '') return POURCENTAGE_DISPENSE;
+  const n = Number(p);
+  return n <= 20 ? Math.round(n * 5) : n;
+}
 export function pourcentageDe({ decision, type }) {
   if (decision === 'refusee') return null;
   if (type === 'admission') return null;

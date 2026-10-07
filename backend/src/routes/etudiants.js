@@ -26,7 +26,7 @@ import {
   controleDelai, manquesDossier, pieceProduisible, journaliser, journalDe,
   rafraichirEtat, pourcentageDe, POURCENTAGE_DISPENSE,
   PEUT_INSTRUIRE, PORTES, CODES_PORTE,
-  estAdmissionDeSection, unitesDeBase, decideHorsCircuit,
+  estAdmissionDeSection, unitesDeBase, decideHorsCircuit, vaRetenue, vaSur20, vaPourcent, ANNEE_CIRCUIT_VA,
 } from '../lib/valorisation.js';
 import { gesteRequis, gesteAutorise } from '../lib/gestes.js';
 import { codeGroupe } from '../lib/groupes.js';
@@ -38,6 +38,7 @@ import { lirePackUF } from '../lib/packUF.js';
 import { schemaSvg, legendeSchemaHtml } from '../lib/schemaSvg.js';
 import { appelerCharges, avisCoordination, motifsVA } from '../lib/avisVA.js';
 import { TITRES_ACCES, DIPLOMES_MAX } from '../lib/profilEtudiant.js';
+import { composerNotificationVA } from '../lib/pieceNotificationVA.js';
 
 const r = Router();
 
@@ -563,7 +564,7 @@ const SQL_DEJA_REUSSIE = `(
   OR EXISTS (SELECT 1 FROM etudiant_valorisation v
           WHERE v.etudiant_id = i.etudiant_id AND v.ue_num = i.ue_num
             AND v.annee_scolaire < i.annee_scolaire AND v.type = 'complete'
-            AND COALESCE(v.decision, 'accordee') <> 'refusee'))`;
+            AND ${vaRetenue('v.')}))`;
 function reprisesNonForcees(etudId, annee) {
   return db.prepare(`SELECT i.ue_num FROM etudiant_inscription i
     WHERE i.etudiant_id = ? AND i.annee_scolaire = ? AND COALESCE(i.derogation, 0) = 0
@@ -845,7 +846,7 @@ export function faitsPAE(etudId, annee, sections, cache = null) {
   const acquis = new Set([
     ...db.prepare("SELECT DISTINCT ue_num FROM etudiant_inscription WHERE etudiant_id = ? AND resultat = 'reussi'").all(etudId).map(x => x.ue_num),
     ...db.prepare(`SELECT DISTINCT ue_num FROM etudiant_valorisation WHERE etudiant_id = ? AND type = 'complete'
-      AND COALESCE(decision, 'accordee') <> 'refusee'`).all(etudId).map(x => x.ue_num),
+      AND ${vaRetenue()}`).all(etudId).map(x => x.ue_num),
   ]);
   // En attente : AJOURNÉE à sa dernière inscription, l'année consultée ou la
   // précédente. Sans note, ce n'est pas une attente : c'est non acquis.
@@ -1656,7 +1657,7 @@ r.get('/rapport', authRequired, (req, res) => {
     SELECT v.etudiant_id, v.ue_num, v.pourcentage, e.nom, e.prenom, e.id_ecampus
     FROM etudiant_valorisation v
     JOIN etudiant e ON e.id = v.etudiant_id
-    WHERE v.annee_scolaire = ? AND v.type = 'complete' AND COALESCE(v.decision, 'accordee') <> 'refusee'
+    WHERE v.annee_scolaire = ? AND v.type = 'complete' AND ${vaRetenue('v.')}
   `).all(annee).filter(v => ueNums.has(v.ue_num));
 
   // Regrouper par étudiant
@@ -1674,7 +1675,7 @@ r.get('/rapport', authRequired, (req, res) => {
   }
   for (const v of vas) {
     if (!etudiants.has(cle(v))) etudiants.set(cle(v), { nom: v.nom, prenom: v.prenom, id_ecampus: v.id_ecampus, cells: {} });
-    etudiants.get(cle(v)).cells[v.ue_num] = { m: 'VA', pts: v.pourcentage };
+    etudiants.get(cle(v)).cells[v.ue_num] = { m: 'VA', pts: vaSur20(v.pourcentage) };
   }
   const lignes = [...etudiants.values()].sort((a, b) =>
     (a.nom || '').localeCompare(b.nom || '') || (a.prenom || '').localeCompare(b.prenom || ''));
@@ -1683,7 +1684,7 @@ r.get('/rapport', authRequired, (req, res) => {
   const cellHtml = c0 => {
     if (!c0) return '<td></td>';
     const cls = c0.m === 'C' ? 'c' : c0.m === 'R' ? 'r' : c0.m === 'A' ? 'a' : c0.m === 'VA' ? 'va' : 'i';
-    const titre = c0.pts != null ? ' title="' + c0.pts + ' %"' : '';
+    const titre = c0.pts != null ? ' title="' + c0.pts + '/20"' : '';
     return '<td class="' + cls + '"' + titre + '>' + c0.m + '</td>';
   };
 
@@ -1969,7 +1970,7 @@ r.get('/rapport-pae', authRequired, (req, res) => {
   `).all();
   const vas = db.prepare(`
     SELECT etudiant_id, ue_num, annee_scolaire FROM etudiant_valorisation
-    WHERE etudiant_id IN (${ids}) AND ue_num IN (${listeUe}) AND type = 'complete' AND COALESCE(decision, 'accordee') <> 'refusee'
+    WHERE etudiant_id IN (${ids}) AND ue_num IN (${listeUe}) AND type = 'complete' AND ${vaRetenue()}
   `).all();
   let resCours = [];
   try {
@@ -2062,6 +2063,75 @@ r.get('/rapport-pae', authRequired, (req, res) => {
 // refusées — plutôt que d'en détailler les UE : le détail est à un clic, dans
 // la vue de délibération. C'est ce qui la garde lisible sur cinq ou six
 // colonnes là où une matrice complète en compterait cinquante.
+/**
+ * CHERCHER UN ÉTUDIANT PENDANT QU'ON TAPE (Charles, 7 octobre 2026 : « si je
+ * tape Cha, il doit proposer tous les noms ou prénoms avec CHA… le même
+ * système partout »). Léger : nom, prénom, matricule, section — sans accents
+ * ni casse, chaque mot tapé doit se retrouver. Le périmètre de l'utilisateur
+ * s'applique comme à la liste.
+ */
+r.get('/chercher', authRequired, (req, res) => {
+  const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const mots = norm(req.query.q).split(/\s+/).filter(Boolean);
+  if (!mots.length) return res.json([]);
+  const limite = Math.min(50, Number(req.query.limite) || 20);
+  const autorisees = perimetre(req);
+  const lignes = db.prepare(`SELECT id, nom, prenom, id_ecampus, matricule_helb, section_rattachement
+    FROM etudiant ORDER BY upper(nom), prenom`).all();
+  const out = [];
+  for (const e of lignes) {
+    const foin = norm(`${e.nom} ${e.prenom} ${e.id_ecampus || ''} ${e.matricule_helb || ''}`);
+    if (!mots.every(m => foin.includes(m))) continue;
+    let section = e.section_rattachement || null;
+    if (autorisees !== null) {
+      if (!section) { try { section = sectionRattachement(e.id).section || null; } catch { /* */ } }
+      if (!section || !autorisees.includes(section)) continue;
+    }
+    out.push({ id: e.id, nom: e.nom, prenom: e.prenom, matricule: e.id_ecampus || e.matricule_helb || '', section });
+    if (out.length >= limite) break;
+  }
+  res.json(out);
+});
+
+/**
+ * LA NOTIFICATION DES DÉCISIONS DE VA, PAR ÉTUDIANT (7 octobre 2026) —
+ * lib/pieceNotificationVA.js. GET compose la pièce ; POST /notifier consigne
+ * la notification APRÈS l'envoi par le centre d'envoi, dossier par dossier,
+ * au nom de qui a envoyé. Seuls les dossiers validés (ou irrecevables) se
+ * notifient.
+ */
+r.get('/:id/valorisations/notification', authRequired,
+  roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'), (req, res) => {
+    const etudId = Number(req.params.id);
+    if (!etudiantPermis(req, res, etudId)) return;
+    const annee = String(req.query.annee || anneeDeTravail(req) || '');
+    const p = composerNotificationVA(etudId, annee);
+    if (p.erreur) return res.status(p.code || 400).json({ error: p.erreur, manques: p.manques || [] });
+    res.json({ html: p.html, nom: p.nom, titre: 'Notification des décisions de valorisation',
+               ids: p.ids, en_cours: p.en_cours, etudiant_id: etudId });
+  });
+
+r.post('/:id/valorisations/notifier', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const etudId = Number(req.params.id);
+  if (!etudiantPermis(req, res, etudId)) return;
+  const ids = (Array.isArray(req.body?.ids) ? req.body.ids : []).map(Number).filter(Boolean);
+  if (!ids.length) return res.status(400).json({ error: 'aucun dossier' });
+  const qui = req.user?.nom || req.user?.email || null;
+  const faits = [];
+  for (const vid of ids) {
+    const v = db.prepare('SELECT * FROM etudiant_valorisation WHERE id = ? AND etudiant_id = ?').get(vid, etudId);
+    if (!v || v.notifie_le) continue;
+    const notifiable = (v.decision_le && v.valide_le) || (v.recevable === 0 && !v.decision_le);
+    if (!notifiable) continue;
+    db.prepare("UPDATE etudiant_valorisation SET notifie_le = datetime('now'), notifie_par = ? WHERE id = ?")
+      .run(qui, vid);
+    journaliser(vid, 'notifiee', req, String(req.body?.detail || 'notification des décisions envoyée à l’étudiant').slice(0, 300));
+    rafraichirEtat(vid);
+    faits.push(vid);
+  }
+  res.json({ ok: true, notifies: faits });
+});
+
 /**
  * LES INSCRITS PAR UNITÉ, À L'ÉCRAN (Charles, 7 octobre 2026 : « un tableau
  * par section, avec des filtres ; d'abord tous les inscrits de la section,
@@ -2241,7 +2311,7 @@ r.get('/synthese', authRequired, (req, res) => {
   try {
     vas = db.prepare(`
       SELECT etudiant_id, annee_scolaire FROM etudiant_valorisation
-      WHERE etudiant_id IN (${ids}) AND ue_num IN (${listeUe}) AND type = 'complete' AND COALESCE(decision, 'accordee') <> 'refusee'
+      WHERE etudiant_id IN (${ids}) AND ue_num IN (${listeUe}) AND type = 'complete' AND ${vaRetenue()}
     `).all();
   } catch { /* table absente */ }
 
@@ -3125,10 +3195,10 @@ r.get('/:id/fiche-parcours', authRequired, (req, res) => {
   }
   for (const v of db.prepare(`
     SELECT ue_num, pourcentage, annee_scolaire FROM etudiant_valorisation
-    WHERE etudiant_id = ? AND type = 'complete' AND COALESCE(decision, 'accordee') <> 'refusee'
+    WHERE etudiant_id = ? AND type = 'complete' AND ${vaRetenue()}
   `).all(etudId)) {
     if (!acquis.has(v.ue_num)) {
-      acquis.set(v.ue_num, { points: v.pourcentage, annee: v.annee_scolaire, mode: 'va' });
+      acquis.set(v.ue_num, { points: vaSur20(v.pourcentage), annee: v.annee_scolaire, mode: 'va' });
     }
   }
 
@@ -3213,9 +3283,9 @@ export function documentParcours(etudId, annee) {
   }
   for (const v of db.prepare(`
     SELECT ue_num, pourcentage, annee_scolaire FROM etudiant_valorisation
-    WHERE etudiant_id = ? AND type = 'complete' AND COALESCE(decision, 'accordee') <> 'refusee'`).all(etudId)) {
+    WHERE etudiant_id = ? AND type = 'complete' AND ${vaRetenue()}`).all(etudId)) {
     if (!acquis.has(v.ue_num)) {
-      acquis.set(v.ue_num, { points: v.pourcentage, annee: v.annee_scolaire, mode: 'va' });
+      acquis.set(v.ue_num, { points: vaSur20(v.pourcentage), annee: v.annee_scolaire, mode: 'va' });
     }
   }
   const inscrites = new Set(db.prepare(`
@@ -3382,14 +3452,14 @@ export function documentBulletin(etudId, annee) {
     }
   } catch { /* table absente */ }
   const vas = db.prepare(`SELECT ue_num, annee_scolaire FROM etudiant_valorisation WHERE etudiant_id = ?
-      AND type = 'complete' AND COALESCE(decision, 'accordee') <> 'refusee'`).all(etudId);
+      AND type = 'complete' AND ${vaRetenue()}`).all(etudId);
   const annees = [...new Set([...insc.map(i => i.annee_scolaire), ...vas.map(v => v.annee_scolaire)])].filter(Boolean).sort();
   if (!annees.includes(annee) && insc.some(i => i.annee_scolaire === annee)) annees.push(annee);
 
   const noteLisible = p => { if (p == null) return null; const n = Math.round(Number(p)); return n < 10 ? 'NA' : String(n); };
   // Une case : ce qui s'est passé pour cette UE cette année-là.
   const caseDe = (ue, an) => {
-    if (vas.some(v => v.ue_num === ue && v.annee_scolaire === an)) return { cls: 'c-ok', txt: 'VA', m: 'valorisation', acquise: true };
+    if (vas.some(v => v.ue_num === ue && v.annee_scolaire === an)) return { cls: 'c-va', txt: 'VA', m: 'valorisation', acquise: true };
     const i = insc.find(x => x.ue_num === ue && x.annee_scolaire === an);
     if (!i) return null;
     const s1 = sessions.get(`${ue}|${an}|1`), s2 = sessions.get(`${ue}|${an}|2`);
@@ -3556,6 +3626,7 @@ table.ues td.ei{border-left:1mm solid #C9A227}
 .n{text-align:center;white-space:nowrap}
 .cote{display:inline-block;min-width:8mm;text-align:center;font-weight:700;border-radius:1mm;padding:.35mm 1mm;color:#fff;font-size:7.5pt}
 .c-ok{background:#3E7D5E}.c-fav{background:#6B46C1}.c-na{background:#9D4A38}
+.c-va{background:#fff;color:#2F6049;border:.45mm solid #3E7D5E}
 .c-cours{background:#fff;color:#2F6FB0;border:.3mm solid #2F6FB0}
 .m{display:block;font-size:6.3pt;color:#64748b;margin-top:.3mm}
 .vide{color:#cbd5e1}
@@ -3728,7 +3799,7 @@ export function revuePAE(etudId, annee) {
      reporté. */
   const vaCours = new Map(), vaComplete = new Map();
   for (const v of db.prepare(`SELECT ue_num, type, cible, cible_detail, porte FROM etudiant_valorisation
-      WHERE etudiant_id = ? AND annee_scolaire = ? AND COALESCE(decision, 'accordee') <> 'refusee'
+      WHERE etudiant_id = ? AND annee_scolaire = ? AND ${vaRetenue()}
         AND decision_le IS NOT NULL`).all(etudId, annee)) {
     const vae = v.porte === 'vae';
     if (v.type === 'complete') vaComplete.set(v.ue_num, vae ? 'VAE' : 'VA');
@@ -3788,7 +3859,7 @@ export function revuePAE(etudId, annee) {
   const acquises = db.prepare(`SELECT DISTINCT ue_num FROM etudiant_inscription WHERE etudiant_id = ? AND resultat = 'reussi'
       AND annee_scolaire < ?`).all(etudId, annee).map(x => x.ue_num);
   for (const v of db.prepare(`SELECT DISTINCT ue_num FROM etudiant_valorisation WHERE etudiant_id = ? AND type = 'complete'
-      AND COALESCE(decision, 'accordee') <> 'refusee' AND annee_scolaire < ?`).all(etudId, annee)) acquises.push(v.ue_num);
+      AND ${vaRetenue()} AND annee_scolaire < ?`).all(etudId, annee)) acquises.push(v.ue_num);
   const dejaAcquises = new Map(db.prepare(`SELECT ue_num, MIN(annee_scolaire) a FROM etudiant_inscription WHERE etudiant_id = ?
       AND resultat = 'reussi' AND annee_scolaire < ? GROUP BY ue_num`).all(etudId, annee).map(x => [x.ue_num, x.a]));
   for (const u of ues) if (dejaAcquises.has(u.ue_num)) u.deja = dejaAcquises.get(u.ue_num);
@@ -4098,7 +4169,7 @@ function pageRevue(d, esc) {
       lignes += `<tr class="ue"><td class="num">${u.ue_num}</td><td>${esc(u.ue_nom)}${mention ? ` <span class="mention">${mention}</span>` : ''}`
         + `${u.deja ? `<div class="alerte">déjà acquise en ${esc(u.deja)} — à vérifier</div>` : ''}</td>`
         + `<td class="n">${u.ects || ''}</td><td class="n">${u.periodes || ''}</td>`
-        + `<td class="c">${u.nature_totale ? `<span class="code">${esc(u.nature_totale)}</span>` : ''}</td><td class="n"></td></tr>`;
+        + `<td class="c">${u.nature_totale ? `<span class="code code-va">${esc(u.nature_totale)}</span>` : ''}</td><td class="n"></td></tr>`;
       for (const c of u.cours) {
         const code = u.nature_totale ? null : codeDe(c);
         const note = !code ? '' : code === 'RP'
@@ -4170,6 +4241,7 @@ const STYLE_REVUE = `
 .revue table.pae tr.cours td.num{padding-left:5mm;color:#6e6e73}
 .revue table.pae .c{text-align:center}
 .revue table.pae .code{display:inline-block;min-width:8mm;padding:.2mm 1.2mm;border-radius:.8mm;background:#1B2B4B;color:#fff;font-weight:700;font-size:7.5pt;text-align:center}
+.revue table.pae .code-va{background:#fff;color:#2F6049;border:.45mm solid #3E7D5E}
 .revue table.pae tr.cours.dispense td{color:#1B2B4B}
 .revue table.pae .orig{display:inline-block;margin-left:1.2mm;font-size:7pt;color:#6e6e73}
 .revue table.pae .mention{font-weight:500;font-size:7.5pt;color:#6e6e73;margin-left:1.5mm}
@@ -4364,7 +4436,7 @@ r.get('/matrice', authRequired, (req, res) => {
   `).all();
   const vas = db.prepare(`
     SELECT etudiant_id, ue_num, annee_scolaire FROM etudiant_valorisation
-    WHERE etudiant_id IN (${ids}) AND ue_num IN (${listeUe}) AND type = 'complete' AND COALESCE(decision, 'accordee') <> 'refusee'
+    WHERE etudiant_id IN (${ids}) AND ue_num IN (${listeUe}) AND type = 'complete' AND ${vaRetenue()}
   `).all();
 
   const parEtud = {};
@@ -4460,13 +4532,13 @@ r.get('/encodage-direct', authRequired, (req, res) => {
   // disaient pas la même chose du même étudiant.
   for (const v of db.prepare(`
     SELECT etudiant_id, ue_num, pourcentage FROM etudiant_valorisation
-    WHERE annee_scolaire = ? AND type = 'complete' AND COALESCE(decision, 'accordee') <> 'refusee'
+    WHERE annee_scolaire = ? AND type = 'complete' AND ${vaRetenue()}
       AND ue_num IN (${ues.map(() => '?').join(',')})
   `).all(annee, ...ues.map(u => u.ue_num))) {
     const cle = `${v.etudiant_id}|${v.ue_num}`;
     const insc = existant[cle];
     existant[cle] = {
-      resultat: 'va', points: v.pourcentage,
+      resultat: 'va', points: vaSur20(v.pourcentage),
       // Une valorisation ET un résultat encodé sur la même unité, c'est une
       // contradiction : on la signale plutôt que d'en taire une des deux.
       conflit: insc?.resultat ? insc.resultat : null,
@@ -4588,7 +4660,7 @@ r.get('/pae-grille', authRequired, (req, res) => {
       FROM etudiant_inscription WHERE resultat = 'reussi' AND annee_scolaire < ?
       ORDER BY annee_scolaire`).all(annee),
     ...db.prepare(`SELECT etudiant_id, ue_num, annee_scolaire AS annee, NULL AS note, 1 AS va
-      FROM etudiant_valorisation WHERE type = 'complete' AND COALESCE(decision, 'accordee') <> 'refusee'
+      FROM etudiant_valorisation WHERE type = 'complete' AND ${vaRetenue()}
         AND annee_scolaire < ? ORDER BY annee_scolaire`).all(annee),
   ];
   for (const a of acquisAvant) {
@@ -5770,7 +5842,7 @@ export function composerPAE(profId, annee, options = {}) {
   const vaCompletes = new Set(
     db.prepare(`
       SELECT DISTINCT ue_num FROM etudiant_valorisation
-      WHERE etudiant_id = ? AND type = 'complete' AND COALESCE(decision, 'accordee') <> 'refusee'
+      WHERE etudiant_id = ? AND type = 'complete' AND ${vaRetenue()}
     `).all(profId).map(r => r.ue_num)
   );
 
@@ -6364,7 +6436,7 @@ export function donneesCapitalisation(etudId, annee, sectionForcee = null) {
 
   const acquis = new Set([
     ...db.prepare("SELECT DISTINCT ue_num FROM etudiant_inscription WHERE etudiant_id = ? AND resultat = 'reussi'").all(etudId).map(r0 => r0.ue_num),
-    ...db.prepare("SELECT DISTINCT ue_num FROM etudiant_valorisation WHERE etudiant_id = ? AND type = 'complete' AND COALESCE(decision, 'accordee') <> 'refusee'").all(etudId).map(r0 => r0.ue_num),
+    ...db.prepare(`SELECT DISTINCT ue_num FROM etudiant_valorisation WHERE etudiant_id = ? AND type = 'complete' AND ${vaRetenue()}`).all(etudId).map(r0 => r0.ue_num),
   ]);
   const inscrites = new Set(
     db.prepare('SELECT ue_num FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ?')
@@ -6396,7 +6468,7 @@ export function donneesCapitalisation(etudId, annee, sectionForcee = null) {
       faveur: avecFaveur.has(cleFaveur(r0.ue_num, r0.annee_scolaire)), s2: !!r0.s2 };
   }
   for (const v of db.prepare(`SELECT ue_num, annee_scolaire FROM etudiant_valorisation
-      WHERE etudiant_id = ? AND type = 'complete' AND COALESCE(decision, 'accordee') <> 'refusee'
+      WHERE etudiant_id = ? AND type = 'complete' AND ${vaRetenue()}
       ORDER BY annee_scolaire`).all(etudId)) {
     if (!reussite[v.ue_num]) reussite[v.ue_num] = { annee: v.annee_scolaire, note: null, va: true };
   }
@@ -6714,7 +6786,7 @@ r.get('/:id/grille', authRequired, (req, res) => {
   const inscriptions = db.prepare(
     'SELECT * FROM etudiant_inscription WHERE etudiant_id = ?').all(etudId);
   const vas = db.prepare(
-    "SELECT * FROM etudiant_valorisation WHERE etudiant_id = ? AND type = 'complete' AND COALESCE(decision, 'accordee') <> 'refusee'").all(etudId);
+    `SELECT * FROM etudiant_valorisation WHERE etudiant_id = ? AND type = 'complete' AND ${vaRetenue()}`).all(etudId);
 
   const cellules = {};
   for (const i of inscriptions) {
@@ -6724,7 +6796,7 @@ r.get('/:id/grille', authRequired, (req, res) => {
   }
   for (const v of vas) {
     (cellules[v.annee_scolaire] = cellules[v.annee_scolaire] || {})[v.ue_num] = {
-      kind: 'va', points: v.pourcentage, derogation: false, vid: v.id,
+      kind: 'va', points: vaSur20(v.pourcentage), derogation: false, vid: v.id,
     };
   }
   // La faveur : posée par le Conseil (ou dans cette grille) sur l'unité, ou
@@ -7063,6 +7135,12 @@ r.put('/:id/grille', authRequired, roleRequired('admin', 'editeur'), (req, res) 
        délibération. Qu'elle puisse effacer un refus motivé — et faire sortir
        l'attestation de réussite correspondante — n'était voulu par personne.
        Elle refuse donc, et renvoie vers l'écran où la décision se corrige. */
+    /* DEPUIS LE CIRCUIT (2026-2027), UNE VA NE S'ÉCRIT QU'AVEC UNE DÉCISION
+       DU CONSEIL : la grille reste la porte des années reprises. */
+    if (annee >= ANNEE_CIRCUIT_VA) {
+      return res.status(409).json({ error: "Depuis 2026-2027, une valorisation se décide dans l'écran Valorisation des acquis "
+        + '(recevabilité, avis, décision du Conseil) : la grille ne la pose plus.' });
+    }
     const refusExistant = db.prepare(`SELECT id FROM etudiant_valorisation
       WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=? AND decision='refusee'`)
       .get(etudId, annee, ueN);
@@ -7077,9 +7155,8 @@ r.put('/:id/grille', authRequired, roleRequired('admin', 'editeur'), (req, res) 
       INSERT INTO etudiant_valorisation
         (etudiant_id, annee_scolaire, ue_num, type, pourcentage, decision)
       VALUES (?,?,?,'complete',?,'accordee')
-    `).run(etudId, annee, ueN, points != null ? Number(points) : 10);
-    // 10/20 : équivalent de la note de 50 % conseillée par la circulaire 9447
-    // pour une valorisation, exprimée dans l'échelle sur 20 de l'établissement.
+    `).run(etudId, annee, ueN, vaPourcent(points != null ? Number(points) : null));
+    // La colonne porte le POURCENTAGE (50) ; Lucie le lit 10/20 (vaSur20).
     return res.json({ ok: true });
   }
 
@@ -9062,6 +9139,12 @@ for (const [chemin, colonne, etape] of [
         return res.status(409).json({ error: "La décision du Conseil n'est pas "
           + 'enregistrée : il n’y a rien à notifier, encoder ni archiver.' });
       }
+      // ON NE NOTIFIE PAS CE QUE LA DIRECTION N'A PAS VALIDÉ (7 octobre 2026) :
+      // la pièce remise à l'étudiant engage la signature.
+      if (colonne === 'notifie_le' && !v.valide_le) {
+        return res.status(409).json({ error: 'Ce dossier n’est pas encore validé par la direction : '
+          + 'la décision ne se notifie qu’une fois validée.' });
+      }
       const qui = req.user?.nom || req.user?.email || null;
       const sup = colonne === 'notifie_le' ? ', notifie_par = ?'
         : colonne === 'eprom_le' ? ', eprom_par = ?' : '';
@@ -9101,7 +9184,7 @@ r.get('/valorisations/en-retard', authRequired, (req, res) => {
   `).all(annee);
 
   const paquets = {
-    recevabilite: [], avis: [], decision: [], notification: [], eprom: [],
+    recevabilite: [], avis: [], decision: [], validation: [], notification: [], eprom: [],
     hors_delai: [], sans_preuve: [], sans_base: [], test_sans_copie: [],
   };
   for (const v of filtrerValorisationsParPerimetre(req, lignes)) {
@@ -9110,8 +9193,9 @@ r.get('/valorisations/en-retard', authRequired, (req, res) => {
                     prenom: v.prenom, ue_num: v.ue_num, etat };
     if (v.recevable == null) paquets.recevabilite.push(court);
     else if (v.recevable === 1 && !v.avis_le) paquets.avis.push(court);
-    else if (!v.decision_le) paquets.decision.push(court);
-    if (v.decision_le && !v.notifie_le) paquets.notification.push(court);
+    else if (v.recevable === 1 && !v.decision_le) paquets.decision.push(court);   // l'irrecevable n'attend pas le Conseil
+    if (v.decision_le && !v.valide_le) paquets.validation.push(court);
+    if (v.valide_le && !v.notifie_le) paquets.notification.push(court);
     if (v.decision_le && !v.eprom_le) paquets.eprom.push(court);
     if (v.decision_le && v.decision !== 'refusee'
         && !CODES_BASE.includes(String(v.base_code || ''))) paquets.sans_base.push(court);
@@ -9393,6 +9477,9 @@ r.put('/valorisations/:vid', authRequired, roleRequired('admin', 'editeur'), (re
   const avant = db.prepare('SELECT * FROM etudiant_valorisation WHERE id = ?').get(vid);
   if (!avant) return res.status(404).json({ error: 'Valorisation introuvable.' });
   if (!valorisationPermise(req, res, vid)) return;
+  // L'ANCIENNE PORTE NE CONTOURNE PLUS LE GEL : un dossier validé ne se
+  // corrige qu'après réouverture par la direction.
+  if (refuseSiValide(avant, res)) return;
 
   const b = { ...req.body,
     annee_scolaire: req.body.annee_scolaire || avant.annee_scolaire,
@@ -9703,7 +9790,7 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
     SELECT v.annee_scolaire, v.ue_num, v.pourcentage AS points, u.ue_nom, 'va' AS kind
     FROM etudiant_valorisation v
     LEFT JOIN ${UE_REF} u ON u.ue_num = v.ue_num
-    WHERE v.etudiant_id = ? AND v.type = 'complete' AND COALESCE(v.decision, 'accordee') <> 'refusee'
+    WHERE v.etudiant_id = ? AND v.type = 'complete' AND ${vaRetenue('v.')}
   `).all(etudId);
   const acquisRows = [...reussites, ...vasAcq].sort((a, b) =>
     String(a.annee_scolaire || '').localeCompare(String(b.annee_scolaire || '')) || a.ue_num - b.ue_num);
@@ -9819,7 +9906,7 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
       ...acquisRows.map(a => ({
         annee: a.annee_scolaire || '—', ue_num: a.ue_num, ue_nom: a.ue_nom,
         mode: a.kind === 'va' ? '<b>Valorisation des acquis</b>' : 'Réussite',
-        points: a.points, acquis: true,
+        points: a.points, va: a.kind === 'va', acquis: true,
       })),
       ...autres.map(h => ({
         annee: h.annee_scolaire || '—', ue_num: h.ue_num, ue_nom: h.ue_nom,
@@ -9848,7 +9935,7 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
       <td>${esc(x.ue_nom || '')}</td>
       <td>${x.mode}</td>
       <td style="text-align:right;white-space:nowrap">${
-        x.points != null ? x.points + ' / 20' : '—'}</td>
+        x.va ? `${vaPourcent(x.points)} %` : x.points != null ? x.points + ' / 20' : '—'}</td>
     </tr>`).join('');
     }).join('');
   })();

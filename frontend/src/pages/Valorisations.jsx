@@ -8,6 +8,7 @@ import {
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import { BulleAide, Fenetre, RailLateral, OuvrirEditions } from '../components/ui.jsx';
 import SeanceValorisation from '../components/SeanceValorisation.jsx';
+import NotificationVA from '../components/NotificationVA.jsx';
 import { nomListe, parNom } from '../lib/nom.js';
 import { demander, saisir } from '../lib/dialogue.jsx';
 
@@ -1709,12 +1710,12 @@ function ValoriserEnSerie({ annee, onClose, onCree }) {
                 )}
 
                 <div className="flex flex-wrap items-end gap-3">
-                  <label className="block">
-                    <span className="text-[12px] text-slate-600">Pourcentage</span>
-                    <input value={pourcentage} inputMode="numeric"
-                      onChange={e => setPourcentage(e.target.value.replace(/[^\d]/g, ''))}
-                      className="controle w-24 text-[13px] mt-1" />
-                  </label>
+                  {/* LA NOTE NE SE SAISIT PAS : le serveur pose 50 % (RDE art. 29 § 3), que
+                      Lucie lit 10/20 (Charles, 7 octobre 2026). */}
+                  <div className="block">
+                    <span className="text-[12px] text-slate-600">Note</span>
+                    <div className="h-9 mt-1 flex items-center text-[13px] text-slate-700">10/20 <span className="text-[11px] text-slate-400 ml-1.5">(50 % sur le PV)</span></div>
+                  </div>
                   <label className="block">
                     <span className="text-[12px] text-slate-600">
                       Date de décision du Conseil
@@ -3602,6 +3603,7 @@ function CeQuiResteAFaire({ annee, onOuvrir }) {
     ['recevabilite', 'Recevabilité à contrôler', '5 jours ouvrables'],
     ['avis', 'Avis du chargé de cours', '10 jours ouvrables'],
     ['decision', 'Décision du Conseil', "avant le premier dixième de l'UE"],
+    ['validation', 'À valider par la direction', 'avant toute notification'],
     ['notification', 'À notifier', '2 jours ouvrables'],
     ['eprom', 'À encoder dans eProm', '5 jours ouvrables — obligatoire'],
     ['sans_base', 'Sans base VAF/VANFI', 'décision non encodable'],
@@ -3681,7 +3683,8 @@ function EtapeValidation({ dossier, peutValider, peutDevalider, manques,
       {valide ? (
         <>
           <p className="text-[12px] text-slate-500">
-            Le dossier est gelé : recevabilité, avis et décision ne se modifient plus.
+            Le dossier est gelé : recevabilité, avis et décision ne se modifient plus
+            {peutDevalider ? ' — sauf à le rouvrir, avec un motif.' : '.'}
           </p>
           {peutDevalider && (
             retrait ? (
@@ -3695,13 +3698,13 @@ function EtapeValidation({ dossier, peutValider, peutDevalider, manques,
                 </label>
                 <button onClick={() => onRetirer(motif)} disabled={enCours || !motif.trim()}
                   className="bouton bouton-detruire disabled:opacity-40">
-                  Retirer la validation
+                  Rouvrir — retirer la validation
                 </button>
                 <button onClick={() => setRetrait(false)} className="bouton">Annuler</button>
               </div>
             ) : (
               <button onClick={() => setRetrait(true)} className="bouton text-[12px]">
-                Retirer la validation
+                Rouvrir le dossier
               </button>
             )
           )}
@@ -4413,7 +4416,9 @@ function choixDepuisAvis(d) {
   return {
     branche: sens, cible: d.cible === 'aa' ? 'acquis' : 'cours',
     coches: sens === 'partielle' ? demande : [],
-    motif: sens === 'refusee' ? (d.avis_texte || '') : '',
+    // LE MOTIF EST CELUI DU CONSEIL (Charles, 7 octobre 2026) : l'avis du
+    // chargé de cours se lit à côté, il ne se recopie pas dans la décision.
+    motif: '',
     base: d.base_code || '', propose: !!sens,
   };
 }
@@ -4630,6 +4635,8 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
                 {g.d0.section && <span className="text-[11px] font-bold text-white bg-iip-blue rounded px-1.5 py-px">{g.d0.section}</span>}
                 <span className="text-[12px] text-slate-500">{iCur + 1} sur {groupes.length} · {lignes.length} {mode === 'etudiant' ? 'unité(s)' : 'étudiant(s)'}</span>
                 <span className="ml-auto" />
+                {mode === 'etudiant' && lignes.some(d => d.valide_le) && passeRole(['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat']) && (
+                  <NotificationVA etudId={g.d0.etudiant_id} annee={annee} nom={`${(g.d0.nom || '').toUpperCase()} ${g.d0.prenom || ''}`} onFait={charger} />)}
                 {peutValider && aValider.length > 0 && (
                   <button className="bouton font-semibold" disabled={enCours} onClick={() => valider()}
                     style={{ borderColor: 'var(--c-reussi, #3E7D5E)', color: 'var(--c-reussi, #3E7D5E)' }}
@@ -4700,14 +4707,26 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
                             {d.valide_le ? (
                               <span className="text-[12px]"><span className="inline-block text-[11px] font-semibold text-white rounded-full px-2 mr-1.5"
                                 style={{ background: TEINTE_DECISION[choixInitial(d).branche] }}>{LIB_DECISION[choixInitial(d).branche] || '—'}</span>
-                                validée le {String(d.valide_le).slice(0, 10).split('-').reverse().join('/')}{d.valide_par ? ` par ${d.valide_par}` : ''}</span>
+                                validée le {String(d.valide_le).slice(0, 10).split('-').reverse().join('/')}{d.valide_par ? ` par ${d.valide_par}` : ''}
+                                {/* ROUVRIR, LÀ OÙ L'ON VOIT LA DÉCISION (Charles, 7 octobre 2026 : « si
+                                    le CDE a validé, on ne peut pas revenir en arrière »). Direction,
+                                    motif écrit, conservé au journal. */}
+                                {PEUT_DEVALIDER.includes(getUser()?.role) && (
+                                  <button type="button" className="ml-2 text-[11.5px] underline text-iip-blue" onClick={async () => {
+                                    const motif = await saisir({ message: `Rouvrir le dossier de l'UE ${d.ue_num} : la validation est retirée, la décision redevient modifiable.\n\nUne pièce a pu partir sur la foi de cette validation : le motif reste au journal.\n\nMotif :`, valeur: '' });
+                                    if (!motif || !motif.trim()) return;
+                                    const r = await fetch(`/api/etudiants/valorisations/${d.id}/validation`, { method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ motif: motif.trim() }) });
+                                    const j = await r.json().catch(() => ({}));
+                                    if (!r.ok) { setErreur(j.error || 'Refusé.'); return; }
+                                    await charger(); onChange?.();
+                                  }}>rouvrir le dossier</button>)}</span>
                             ) : bloque ? <span className="text-[12px] text-slate-500">{bloque}</span> : (
                               <div className="space-y-1.5">
                                 <div className="inline-flex border border-slate-300 rounded-champ overflow-hidden">
                                   {['totale', 'partielle', 'refusee'].map(v => (
                                     <button key={v} type="button"
                                       onClick={() => poser(d.id, { branche: v, ...(v !== 'partielle' ? { coches: [] } : {}),
-                                        ...(v === 'refusee' ? { motif: c.motif || (d.avis_sens === 'defavorable' ? d.avis_texte || '' : '') } : { motif: '' }) })}
+                                        ...(v === 'refusee' ? { motif: c.motif || '' } : { motif: '' }) })}
                                       className="px-3 py-1 text-[12.5px] font-semibold border-r border-slate-200 last:border-r-0"
                                       style={c.branche === v ? { background: TEINTE_DECISION[v], color: '#fff' } : { color: '#475569' }}>
                                       {LIB_DECISION[v]}</button>
