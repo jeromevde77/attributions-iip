@@ -15,7 +15,7 @@ import { calculerFrais, bareme as baremeFrais, sectionsSansFrais } from '../rout
 import { bareme as baremeDI, sectionsTiers } from '../routes/droitInscription.js';
 import { periodesDI, periodesEtudiantUE } from './periodesUE.js';
 import { effectifsPrevus } from '../routes/effectifsPrevus.js';
-import { tauxExpertBase, indiceExpert } from './tauxExperts.js';
+import { indiceExpert } from './tauxExperts.js';
 
 /** Un coût annuel d'un temps plein par fonction (table fonction_type), amorcé
  *  à zéro : le montant est à régler, Lucie ne l'invente pas. */
@@ -88,14 +88,11 @@ export function donneesCout(annee) {
     let type = String(l.type || '').toUpperCase();
     if (type === 'Z') continue;                                   // aucun enseignant
     if (type !== 'PP' && type !== 'CS') { if (type !== 'CT') typeDefaut += l.periodes; type = 'CT'; }
-    /* UN EXPERT N'EST PAS PAYÉ AU TARIF DES CONVENTIONS (A.E. 26-01-1993,
-       art. 8) : son taux dépend du niveau et du type de cours, × le
-       coefficient d'indexation depuis 1991. Sans coefficient réglé, la base
-       nue est comptée — et la pièce le dit. */
+    /* UN EXPERT EST PAYÉ EN PÉRIODES, COMME UN CHARGÉ DE COURS (Charles,
+       7 octobre 2026 : « 800 CT, c'est donc 800 × 106 € en supérieur ») : le
+       même montant de période ; les experts restent sur leurs propres lignes. */
     const estExpert = l.statut === 'EXP';
-    const t = !niv ? 0 : estExpert
-      ? tauxExpertBase(niv, type) * (indice || 1)
-      : T[niv][type];
+    const t = !niv ? 0 : T[niv][type];
     if (estExpert) expertsBase += l.periodes;
     if (!niv || !t) { sansTarif += l.periodes; }
     const cout = (l.periodes || 0) * (t || 0);
