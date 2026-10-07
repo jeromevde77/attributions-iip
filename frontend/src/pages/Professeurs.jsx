@@ -2606,10 +2606,18 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
 
       </>)}
 
-      {editProf !== null && (
-        <ProfFicheModal prof={editProf} onClose={() => setEditProf(null)}
+      {editProf !== null && (() => {
+        // La fiche de saisie suit l'ordre de la liste, comme la fiche de consultation.
+        const ordre = [...listePrincipale, ...(fCharge === 'sans' ? [] : sansCharge)];
+        const i = editProf?.id ? ordre.findIndex(p => p.id === editProf.id) : -1;
+        return (
+        <ProfFicheModal key={editProf?.id || 'nouveau'} prof={editProf} onClose={() => setEditProf(null)}
+          onPrec={i > 0 ? () => setEditProf(ordre[i - 1]) : null}
+          onSuiv={i >= 0 && i < ordre.length - 1 ? () => setEditProf(ordre[i + 1]) : null}
+          position={i >= 0 ? { i: i + 1, n: ordre.length } : null}
           onSaved={() => { setEditProf(null); load(); }} />
-      )}
+        );
+      })()}
       {editionsMembre && (
         <CentreImpressionCentral ongletInitial="personnel" membreInitial={editionsMembre}
           outilsMembre={{ fiche: (id, filtre) => { setEditionsMembre(null); genererFicheAttributions(id, filtre); },

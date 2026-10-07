@@ -971,6 +971,108 @@ function documentCoutFormations(p) {
 }
 
 /**
+ * LES LISTES PAR UNITÉ, EN PARTIES (Charles, 7 octobre 2026 : « première partie
+ * les étudiants inscrits dans TOUS les cours, sans aucune VA, ni dispense, ni
+ * report de notes, et qui n'ont JAMAIS réussi l'UE ; puis la liste des étudiants
+ * qui ont des dispenses »). Une page par unité :
+ *   A. à suivre en entier ;
+ *   B. avec dispense — VA totale ou partielle, report de notes — et ce qui est
+ *      dispensé, cours par cours ;
+ *   C. déjà acquise — réussie ou valorisée une année précédente : inscription
+ *      à retirer.
+ * Une demande de VA pas encore décidée n'est pas une dispense : l'étudiant
+ * reste en A, la mention le dit.
+ */
+export function donneesListesUE(annee, section) {
+  const ues = db.prepare(`SELECT ue_num, MIN(ue_nom) AS ue_nom FROM ue WHERE annee_scolaire = ? AND (? IS NULL OR section = ?)
+      GROUP BY ue_num ORDER BY ue_num`).all(annee, section || null, section || null);
+  const inscrits = db.prepare(`SELECT e.id, e.nom, e.prenom, COALESCE(e.id_ecampus, e.matricule_helb) AS matricule,
+        MAX(COALESCE(i.dispense_complete, 0)) AS dispense_complete
+      FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+     WHERE i.annee_scolaire = ? AND i.ue_num = ? GROUP BY e.id ORDER BY upper(e.nom), e.prenom`);
+  const vas = db.prepare(`SELECT etudiant_id, annee_scolaire, type, cible, cible_detail, porte, decision_le
+      FROM etudiant_valorisation WHERE ue_num = ? AND COALESCE(decision, 'accordee') <> 'refusee'`);
+  const reports = db.prepare(`SELECT etudiant_id, cours_code, annee_origine, nature FROM etudiant_report_note
+      WHERE annee_scolaire = ? AND ue_num = ? AND COALESCE(statut, 'accorde') = 'accorde' AND COALESCE(cible, 'cours') = 'cours'`);
+  const reussies = db.prepare(`SELECT etudiant_id, MIN(annee_scolaire) AS annee FROM etudiant_inscription
+      WHERE ue_num = ? AND annee_scolaire < ? AND resultat = 'reussi' GROUP BY etudiant_id`);
+  const anterieures = db.prepare(`SELECT DISTINCT etudiant_id FROM etudiant_inscription WHERE ue_num = ? AND annee_scolaire < ?`);
+  const coursNom = db.prepare(`SELECT cours_code, cours_nom FROM cours WHERE ue_num = ? AND annee_scolaire = ?`);
+  const nomP = e => `${String(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim();
+  const out = [];
+  for (const u of ues) {
+    const l = inscrits.all(annee, u.ue_num);
+    if (!l.length) continue;
+    const nomsCours = Object.fromEntries(coursNom.all(u.ue_num, annee).map(c => [c.cours_code, c.cours_nom]));
+    const vaPar = new Map(); for (const v of vas.all(u.ue_num)) (vaPar.get(v.etudiant_id) || vaPar.set(v.etudiant_id, []).get(v.etudiant_id)).push(v);
+    const repPar = new Map(); for (const x of reports.all(annee, u.ue_num)) (repPar.get(x.etudiant_id) || repPar.set(x.etudiant_id, []).get(x.etudiant_id)).push(x);
+    const reussPar = new Map(reussies.all(u.ue_num, annee).map(x => [x.etudiant_id, x.annee]));
+    const avant = new Set(anterieures.all(u.ue_num, annee).map(x => x.etudiant_id));
+    const A = [], B = [], C = [];
+    for (const e of l) {
+      const lesVa = vaPar.get(e.id) || [];
+      const decidees = lesVa.filter(v => v.decision_le);
+      const totaleAvant = decidees.find(v => v.type === 'complete' && v.annee_scolaire < annee);
+      const ligne = { nom: nomP(e), matricule: e.matricule || '' };
+      // C. Déjà acquise : réussie, ou valorisée en entier, une année précédente.
+      if (reussPar.has(e.id) || totaleAvant) {
+        C.push({ ...ligne, detail: reussPar.has(e.id) ? `réussie en ${reussPar.get(e.id)}` : `${(totaleAvant.porte || 'va').toUpperCase()} totale en ${totaleAvant.annee_scolaire}` });
+        continue;
+      }
+      // B. Ce qui est dispensé cette année, dit cours par cours.
+      const quoi = [];
+      if (e.dispense_complete) quoi.push('dispense complète');
+      for (const v of decidees.filter(v => v.annee_scolaire === annee)) {
+        const porte = (v.porte || 'va').toUpperCase();
+        if (v.type === 'complete') quoi.push(`${porte} totale`);
+        else if (v.type === 'partielle') {
+          const cibles = String(v.cible_detail || '').split(',').map(x => x.trim()).filter(Boolean);
+          quoi.push(`${porte} partielle — ${v.cible === 'aa' ? 'acquis' : 'cours'} ${cibles.map(c => v.cible === 'cours' && nomsCours[c] ? `${c} ${nomsCours[c]}` : c).join(', ') || '(à préciser)'}`);
+        }
+      }
+      for (const x of repPar.get(e.id) || []) {
+        quoi.push(`report de note — ${x.cours_code}${nomsCours[x.cours_code] ? ` ${nomsCours[x.cours_code]}` : ''}${x.annee_origine ? ` (${x.annee_origine})` : ''}`);
+      }
+      if (quoi.length) { B.push({ ...ligne, detail: quoi.join(' · ') }); continue; }
+      // A. À suivre en entier.
+      const enCours = lesVa.some(v => !v.decision_le && v.annee_scolaire === annee);
+      A.push({ ...ligne, detail: [avant.has(e.id) ? 'reprise' : '', enCours ? 'demande de VA en cours' : ''].filter(Boolean).join(' · ') });
+    }
+    out.push({ ue_num: u.ue_num, ue_nom: u.ue_nom, inscrits: l.length, A, B, C });
+  }
+  return out;
+}
+
+function documentListesUE(p) {
+  const d = donneesListesUE(p.annee, p.section);
+  const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const table = (titre, lignes, colDetail, vide) => `
+    <h3 class="partie">${titre} — ${lignes.length}</h3>
+    ${lignes.length ? `<table class="serre"><thead><tr><th class="n" style="width:10mm">N°</th><th>Étudiant</th>
+      <th style="width:26mm">Matricule</th><th>${colDetail}</th></tr></thead>
+      <tbody>${lignes.map((x, i) => `<tr><td class="n">${i + 1}</td><td>${esc(x.nom)}</td><td>${esc(x.matricule)}</td>
+        <td>${esc(x.detail)}</td></tr>`).join('')}</tbody></table>` : `<p class="fin">${vide}</p>`}`;
+  const corps = d.length ? d.map((u, k) => `
+    <section class="ue-liste"${k ? ' style="break-before:page;page-break-before:always"' : ''}>
+      <h2>UE ${u.ue_num} — ${esc(u.ue_nom || '')}</h2>
+      <p class="fin">${u.inscrits} inscrit(s) en ${esc(p.annee)} : <b>${u.A.length}</b> à suivre en entier · <b>${u.B.length}</b> avec dispense
+        ${u.C.length ? ` · <b>${u.C.length}</b> déjà acquise — inscription à retirer` : ''}.</p>
+      ${table('A. À suivre en entier', u.A, 'Mention', 'Personne.')}
+      ${table('B. Avec dispense, VA ou report de notes', u.B, 'Ce qui est dispensé', 'Aucune dispense.')}
+      ${u.C.length ? table('C. Déjà acquise — inscription à retirer', u.C, 'Acquise par', '') : ''}
+    </section>`).join('') : '<p class="fin">Aucun inscrit pour cette sélection.</p>';
+  return {
+    corps,
+    entete: { titre: 'Listes par unité', sous: `Année académique ${p.annee}${p.section ? ` · ${p.section}` : ''} · à suivre, dispenses, déjà acquises` },
+    titre: 'Listes par unité',
+    nom: `Listes-par-unite-${p.section || 'toutes'}-${p.annee}.html`,
+    styles: STYLE_RAPPORT + STYLE_REPORTING + STYLE_STATS + `
+      h3.partie { font-size:10pt; color:#1B2B4B; margin:4mm 0 1.5mm; }
+      .ue-liste h2 { margin-top:0; }`,
+  };
+}
+
+/**
  * LES CHIFFRES CLÉS PAR SECTION — pour le conseil d'entreprise. L'année en
  * cours, au jour de l'impression. Une donnée personnelle peu remplie se
  * montre avec son taux, jamais comme une répartition complète.
@@ -2006,6 +2108,19 @@ export const RAPPORTS = [
     },
   },
 
+  {
+    /* LES LISTES PAR UNITÉ, EN PARTIES (Charles, 7 octobre 2026). */
+    id: 'listes-par-ue', domaine: 'etudiants', params: ['annee', 'section'],
+    libelle: 'Listes par unité — à suivre, dispenses, déjà acquises',
+    aide: "Une page par unité : A. les étudiants qui suivent tout (ni VA, ni dispense, ni report, jamais réussie), B. ceux qui ont une dispense — et laquelle, C. ceux qui l'ont déjà acquise.",
+    colonnes: COLS([['ue', 'UE', 10], ['partie', 'Partie', 22], ['n', 'N°', 8], ['etudiant', 'Étudiant', 36], ['matricule', 'Matricule', 16], ['detail', 'Détail', 50]]),
+    lignes: (p) => donneesListesUE(p.annee, p.section).flatMap(u => [
+      ...u.A.map((x, i) => ({ ue: u.ue_num, partie: 'A. à suivre', n: i + 1, etudiant: x.nom, matricule: x.matricule, detail: x.detail })),
+      ...u.B.map((x, i) => ({ ue: u.ue_num, partie: 'B. dispense', n: i + 1, etudiant: x.nom, matricule: x.matricule, detail: x.detail })),
+      ...u.C.map((x, i) => ({ ue: u.ue_num, partie: 'C. déjà acquise', n: i + 1, etudiant: x.nom, matricule: x.matricule, detail: x.detail })),
+    ]),
+    document: (p) => documentListesUE(p),
+  },
   {
     /* PAR UNITÉ, COMBIEN ET QUI (Charles, 7 octobre 2026 : « j'ai besoin de
        savoir, par UE, combien d'étudiants et une liste de noms »). Le
