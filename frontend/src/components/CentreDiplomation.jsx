@@ -46,6 +46,10 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
   const [retenus, setRetenus] = useState(new Set());
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [veut, setVeut] = useState({ diplome: true, attestation: true, liste: false, pv: false });
+  /* LE BAS DE PAGE DU DIPLÔME (7 octobre 2026) : le papier actuel le porte,
+     pré-imprimé — décoché par défaut ; le papier à venir ne l'aura plus. */
+  const [piedDiplome, setPiedDiplome] = useState(() => { try { return localStorage.getItem('diplome.pied') === '1'; } catch { return false; } });
+  useEffect(() => { try { localStorage.setItem('diplome.pied', piedDiplome ? '1' : '0'); } catch { /* */ } }, [piedDiplome]);
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState(null);
   // Ce qui a été produit, en attente d'être vu, imprimé, tiré en PDF ou envoyé.
@@ -111,6 +115,7 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
           section, annee, etudiants: ids, date_deliberation: date,
           pieces: ['diplome', 'attestation'].filter(k => veut[k]),
           ...(presidentJury ? { president_jury: presidentJury } : {}),
+          pied_diplome: piedDiplome,
         }) : null,
         veut.liste ? poster('/api/diplomes/document', {
           section, annee, etudiants: ids, date: dateLongue(date),
@@ -249,6 +254,12 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
               ))}
             </div>
           </div>
+          {veut.diplome && (
+            <label className="flex items-center gap-1.5 text-[12px] text-slate-600 self-end pb-2"
+              title="Le papier à diplôme actuel porte déjà son bas de page, pré-imprimé : laissez décoché.">
+              <input type="checkbox" checked={piedDiplome} onChange={e => setPiedDiplome(e.target.checked)} />
+              Imprimer le bas de page du diplôme <span className="text-slate-400">(papier sans pied pré-imprimé)</span>
+            </label>)}
         </div>
   );
 

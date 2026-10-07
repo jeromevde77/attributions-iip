@@ -13,6 +13,7 @@
 // c'est le Conseil qui délivre le titre, pas une requête.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { piedDocument } from './parametres.js';
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
@@ -978,7 +979,22 @@ r.post('/pieces', authRequired,
         `Attestation provisoire de diplôme — ${d.nom} ${d.prenom}`) } : {}),
     }))
     : [];
-  const diplomes = pages.filter(p => p.entier).map(p => p.h);
+  /* LE BAS DE PAGE DU DIPLÔME, SUR DEMANDE (Charles, 7 octobre 2026) : le
+     papier actuel le porte déjà, pré-imprimé ; le papier à venir ne l'aura
+     plus. Décoché par défaut, il se pose dans les 2 cm que le modèle réserve. */
+  const piedDiplome = (() => {
+    if (!req.body?.pied_diplome) return null;
+    let p = ''; try { p = piedDocument(); } catch { p = ''; }
+    p = p.replace(/<div class="pied-trace"[\s\S]*?<\/div>/, '');   // pas de « produit par » sur un titre
+    return `<div class="pied-diplome" style="position:absolute;left:16mm;right:16mm;bottom:6mm;border-top:0.3mm solid #C9A84C;
+      padding-top:1.2mm;text-align:center;font-size:6.5pt;line-height:1.35;color:#3F4652">${p}</div>`;
+  })();
+  const avecPied = h => {
+    if (!piedDiplome) return h;
+    const fin = h.lastIndexOf('</div>', h.indexOf('</body>') >= 0 ? h.indexOf('</body>') : h.length);
+    return fin >= 0 ? h.slice(0, fin) + piedDiplome + h.slice(fin) : h;
+  };
+  const diplomes = pages.filter(p => p.entier).map(p => avecPied(p.h));
 
   res.json({
     section: sec.code, annee: an, date_deliberation: dateDelib,
