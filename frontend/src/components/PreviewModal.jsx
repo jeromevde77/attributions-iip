@@ -76,7 +76,36 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
   }
   const envoiMail = useEnvoiMail();
 
-  function imprimer() {
+  /* UNE PIÈCE EN PAYSAGE S'IMPRIME DEPUIS LE PDF DU SERVEUR (Charles,
+     7 octobre 2026 : « il propose toujours une impression à 66 % et non en
+     pleine page »). Safari ignore la consigne @page « A4 landscape » : il
+     imprime en portrait et réduit la page de 297 mm pour la faire tenir dans
+     210 mm. Le PDF, lui, porte des pages paysage — le navigateur l'imprime tel
+     quel. La fenêtre s'ouvre tout de suite (sinon le bloqueur la refuse), le
+     PDF y arrive dès qu'il est composé. */
+  const paysage = pdf?.orientation === 'paysage' || /size:\s*A4\s+landscape/.test(htmlAffiche || '');
+  async function imprimerPdf() {
+    const w = window.open('', '_blank');
+    try { if (w) w.document.write('<p style="font:14px system-ui;padding:24px;color:#16406A">Composition du PDF en A4 paysage…</p>'); } catch { /* */ }
+    try {
+      const r = await fetch('/api/impression/pdf', { method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ html: htmlAffiche, nom: nomFichier || titre, orientation: 'paysage',
+          ...(pdf?.marge_basse ? { marge_basse: pdf.marge_basse } : {}),
+          ...(pdf?.pied === false ? { pied: false, pagination: 'jamais' } : {}) }) });
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `Erreur ${r.status}`);
+      const url = URL.createObjectURL(await r.blob());
+      if (w) w.location.href = url; else window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 120000);
+    } catch (e) {
+      // Pas de PDF (serveur sans moteur) : on retombe sur le navigateur, en le disant.
+      try { w?.close(); } catch { /* */ }
+      informer(`${e.message || 'Le PDF n’a pas pu être composé.'} — impression par le navigateur : choisissez « Paysage » et l’échelle 100 %.`);
+      imprimerNavigateur();
+    }
+  }
+  function imprimer() { if (paysage) imprimerPdf(); else imprimerNavigateur(); }
+
+  function imprimerNavigateur() {
     // Safari imprime le document PARENT lorsqu'on lui demande d'imprimer un
     // cadre alimenté par srcDoc : on obtenait une capture de l'écran, fenêtre
     // d'aperçu comprise. Une fenêtre dédiée porte le document seul, et
@@ -151,7 +180,7 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
             )}
             <button onClick={imprimer} disabled={!pret}
               className={`${pdf ? 'bouton' : 'bouton-sortir'} controle px-3 flex items-center gap-1.5 disabled:opacity-40`}>
-              {!pdf && <IconSend size={15} />} {pdf ? 'Imprimer (navigateur)' : 'Imprimer / PDF'}
+              {!pdf && <IconSend size={15} />} {paysage ? 'Imprimer — A4 paysage' : pdf ? 'Imprimer (navigateur)' : 'Imprimer / PDF'}
             </button>
             {envoiPossible && envoiMail?.actif && peutGeste('envois.envoyer') && (
               <button onClick={() => setEnvoi(true)} disabled={!pret}
