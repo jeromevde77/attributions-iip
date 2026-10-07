@@ -102,8 +102,10 @@ export function calculerFrais(etudId, annee) {
 
   // Périodes du PAE, hors UE dispensées — le RDE parle des périodes « prévues
   // au PAE », et une UE valorisée n'est pas suivie.
+  // LES FRAIS SUR LES PÉRIODES DE L'ÉTUDIANT (Charles, 7 octobre 2026) — le
+  // droit d'inscription, lui, sur les périodes professeur du dossier.
   const periodes = di.detail.filter(d => !d.dispensee)
-    .reduce((s, d) => s + Number(d.periodes || 0), 0);
+    .reduce((s, d) => s + Number(d.periodes_etudiant ?? d.periodes ?? 0), 0);
 
   let sec = null; try { sec = sectionRattachement(etudId, annee).section || null; } catch { /* */ }
   const sansFrais = !!sec && sectionsSansFrais().has(sec);
@@ -239,8 +241,8 @@ r.get('/etudiant/:id/document', authRequired, (req, res) => {
     <tr${d.dispensee ? ' class="dispensee"' : ''}>
       <td>${d.ue_num}</td>
       <td>${esc(d.ue_nom || '')}</td>
-      <td style="text-align:right">${d.dispensee ? '—' : d.periodes}</td>
-      <td style="text-align:right">${d.dispensee ? 'dispensée' : f.sans_frais ? '—' : eur(d.periodes * f.bareme.par_periode)}</td>
+      <td style="text-align:right">${d.dispensee ? '—' : (d.periodes_etudiant ?? d.periodes)}</td>
+      <td style="text-align:right">${d.dispensee ? 'dispensée' : f.sans_frais ? '—' : eur((d.periodes_etudiant ?? d.periodes) * f.bareme.par_periode)}</td>
     </tr>`).join('');
 
   const lignesPaiement = f.paiements.map(p => `

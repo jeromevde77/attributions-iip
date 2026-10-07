@@ -17,7 +17,7 @@
 // Les montants sont indexés chaque année : ils sont donc paramétrés, non codés.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { periodesDI } from '../lib/periodesUE.js';
+import { periodesDI, periodesEtudiantUE } from '../lib/periodesUE.js';
 import { vaRetenue } from '../lib/valorisation.js';
 import { Router } from 'express';
 import db from '../db/index.js';
@@ -126,6 +126,8 @@ export function calculerDI(etudId, annee) {
     SELECT i.ue_num, i.dispense_complete, i.annee_scolaire,
            (SELECT ue_tot_prf FROM ue x
              WHERE x.ue_num = i.ue_num AND x.annee_scolaire = i.annee_scolaire LIMIT 1) AS tot_annee,
+           (SELECT ue_per_etudiants FROM ue x
+             WHERE x.ue_num = i.ue_num AND x.annee_scolaire = i.annee_scolaire LIMIT 1) AS etud_annee,
            (SELECT ue_niveau FROM ue x
              WHERE x.ue_num = i.ue_num AND x.annee_scolaire = i.annee_scolaire LIMIT 1) AS existe_annee,
            (SELECT ue_per_cours FROM ue x
@@ -140,7 +142,7 @@ export function calculerDI(etudId, annee) {
   `).all(etudId, annee);
 
   const recent = db.prepare(`
-    SELECT ue_tot_prf AS tot_prf, ue_per_cours AS per_cours, ue_aut AS aut, ue_niveau AS niveau, ue_nom
+    SELECT ue_tot_prf AS tot_prf, ue_per_etudiants AS per_etud, ue_per_cours AS per_cours, ue_aut AS aut, ue_niveau AS niveau, ue_nom
     FROM ue WHERE ue_num = ? ORDER BY annee_scolaire DESC LIMIT 1
   `);
 
@@ -156,6 +158,10 @@ export function calculerDI(etudId, annee) {
     const periodes = l.existe_annee != null || l.tot_annee != null
       ? periodesDI({ tot_prf: l.tot_annee, per_cours: l.cours_annee, aut: l.aut_annee })
       : periodesDI(r0);
+    // Les frais complémentaires, eux, se comptent en périodes ÉTUDIANT (lib/periodesUE.js).
+    const perEtud = l.existe_annee != null || l.tot_annee != null
+      ? periodesEtudiantUE({ per_etud: l.etud_annee, per_cours: l.cours_annee, aut: l.aut_annee })
+      : periodesEtudiantUE(r0);
     const niveau = l.niv_annee || r0.niveau || '';
     const dispensee = !!l.dispense_complete || vaCompletes.has(l.ue_num);
     const sup = String(niveau).toUpperCase().startsWith('SUP');
@@ -163,6 +169,7 @@ export function calculerDI(etudId, annee) {
       ue_num: l.ue_num, ue_nom: r0.ue_nom || null,
       periodes: dispensee ? 0 : periodes,
       periodes_brutes: periodes,
+      periodes_etudiant: dispensee ? 0 : perEtud,
       niveau: sup ? 'superieur' : 'secondaire',
       dispensee,
     };
