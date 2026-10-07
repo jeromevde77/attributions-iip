@@ -252,6 +252,11 @@ export default function GrilleInscrits({ data, passe, annee, section, onFiche, o
 
       {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2 text-[13px]">{erreur}</div>}
 
+      <div className="flex flex-wrap gap-3 text-[11px] text-slate-600">
+        {ORDRE_ETAT.map(k => <span key={k} className="inline-flex items-center gap-1"><Pastille k={k} petite /> {ETATS[k].lib}</span>)}
+        <span>· bleu : report de note — la note, puis l’année d’origine · à côté du code : date de décision · ↻ reprise · +VA, +RP : autre dispense sur l’unité · n.i. : non inscrit · un clic sur RP, VA, VAP ou D ouvre la revue du PAE</span>
+      </div>
+
       <div className="overflow-auto max-h-[72vh] border border-slate-200 rounded-carte">
         <table className="text-[12px] tabular-nums border-separate border-spacing-0">
           <thead>
@@ -284,6 +289,36 @@ export default function GrilleInscrits({ data, passe, annee, section, onFiche, o
               ])}
             </tr>
           </thead>
+          {/* LES SOUS-TOTAUX EN HAUT (Charles, 7 octobre 2026 : « pour la lisibilité
+              et l'accès aux données ») : on lit la synthèse, puis les noms. */}
+          <tbody>
+            {/* LES SOUS-TOTAUX PAR CATÉGORIE (Charles, 7 octobre 2026) : I, I en
+                reprise, VA… — sur les lignes affichées, donc filtres compris. */}
+            {CATEGORIES.map(cat => {
+              const nUE = u => lignes.filter(id => cat.f(ligneDe(id, u.ue_num))).length;
+              const nCours = (u, c) => lignes.filter(id => { const l = ligneDe(id, u.ue_num); return l && cat.fc && cat.fc(l, c.code); }).length;
+              const etudiantsCat = lignes.filter(id => visibles.some(u => cat.f(ligneDe(id, u.ue_num)))).length;
+              if (!etudiantsCat) return null;
+              return (
+                <tr key={cat.cle} className="tab-repere">
+                  <td colSpan={nId} className="sticky left-0 z-10 tab-repere px-2 py-1 border-t border-slate-200 whitespace-nowrap">
+                    <span className="inline-flex items-center gap-1.5">{cat.k ? <Pastille k={cat.k} petite /> : null}<span className="text-[12px]">{cat.lib}</span>
+                      <span className="text-[11px] text-slate-500">· {etudiantsCat} étudiant(s)</span></span></td>
+                  {visibles.map(u => [
+                    <td key={u.ue_num} className="text-center border-t border-l border-slate-200 font-medium">{nUE(u) || ''}</td>,
+                    ...(ouvertes.has(u.ue_num) ? u.cours.map(c => (
+                      <td key={`${u.ue_num}-${c.code}`} className="text-center border-t border-slate-200 text-slate-600">{cat.fc ? (nCours(u, c) || '') : ''}</td>)) : []),
+                  ])}
+                </tr>);
+            })}
+            <tr className="tab-repere font-semibold">
+              <td colSpan={nId} className="sticky left-0 z-10 tab-repere px-2 py-1.5 border-b-2 border-t border-slate-300">Total · {lignes.length} étudiant(s)</td>
+              {visibles.map(u => [
+                <td key={u.ue_num} className="text-center border-b-2 border-t border-l border-slate-300">{lignes.filter(id => ligneDe(id, u.ue_num)).length || ''}</td>,
+                ...(ouvertes.has(u.ue_num) ? u.cours.map(c => <td key={`${u.ue_num}-${c.code}`} className="border-b-2 border-t border-slate-300" />) : []),
+              ])}
+            </tr>
+          </tbody>
           <tbody>
             {lignes.map((id, rangLigne) => { const e = E[id] || {};
               const prio = etats.size ? ORDRE_ETAT.filter(k => etats.has(k)) : ['RP', 'VA', 'VAE', 'VAP', 'D', 'AQ'];
@@ -328,39 +363,7 @@ export default function GrilleInscrits({ data, passe, annee, section, onFiche, o
                 ]; })}
               </tr></Fragment>); })}
           </tbody>
-          <tfoot>
-            {/* LES SOUS-TOTAUX PAR CATÉGORIE (Charles, 7 octobre 2026) : I, I en
-                reprise, VA… — sur les lignes affichées, donc filtres compris. */}
-            {CATEGORIES.map(cat => {
-              const nUE = u => lignes.filter(id => cat.f(ligneDe(id, u.ue_num))).length;
-              const nCours = (u, c) => lignes.filter(id => { const l = ligneDe(id, u.ue_num); return l && cat.fc && cat.fc(l, c.code); }).length;
-              const etudiantsCat = lignes.filter(id => visibles.some(u => cat.f(ligneDe(id, u.ue_num)))).length;
-              if (!etudiantsCat) return null;
-              return (
-                <tr key={cat.cle} className="tab-repere">
-                  <td colSpan={nId} className="sticky left-0 z-10 tab-repere px-2 py-1 border-t border-slate-200 whitespace-nowrap">
-                    <span className="inline-flex items-center gap-1.5">{cat.k ? <Pastille k={cat.k} petite /> : null}<span className="text-[12px]">{cat.lib}</span>
-                      <span className="text-[11px] text-slate-500">· {etudiantsCat} étudiant(s)</span></span></td>
-                  {visibles.map(u => [
-                    <td key={u.ue_num} className="text-center border-t border-l border-slate-200 font-medium">{nUE(u) || ''}</td>,
-                    ...(ouvertes.has(u.ue_num) ? u.cours.map(c => (
-                      <td key={`${u.ue_num}-${c.code}`} className="text-center border-t border-slate-200 text-slate-600">{cat.fc ? (nCours(u, c) || '') : ''}</td>)) : []),
-                  ])}
-                </tr>);
-            })}
-            <tr className="tab-repere font-semibold">
-              <td colSpan={nId} className="sticky left-0 z-10 tab-repere px-2 py-1.5 border-t-2 border-slate-300">Total · {lignes.length} étudiant(s)</td>
-              {visibles.map(u => [
-                <td key={u.ue_num} className="text-center border-t-2 border-l border-slate-300">{lignes.filter(id => ligneDe(id, u.ue_num)).length || ''}</td>,
-                ...(ouvertes.has(u.ue_num) ? u.cours.map(c => <td key={`${u.ue_num}-${c.code}`} className="border-t-2 border-slate-300" />) : []),
-              ])}
-            </tr>
-          </tfoot>
         </table>
-      </div>
-      <div className="flex flex-wrap gap-3 text-[11px] text-slate-600">
-        {ORDRE_ETAT.map(k => <span key={k} className="inline-flex items-center gap-1"><Pastille k={k} petite /> {ETATS[k].lib}</span>)}
-        <span>· bleu : report de note — la note, puis l’année d’origine · à côté du code : date de décision · ↻ reprise · +VA, +RP : autre dispense sur l’unité · n.i. : non inscrit · un clic sur RP, VA, VAP ou D ouvre la revue du PAE</span>
       </div>
     </div>
   );

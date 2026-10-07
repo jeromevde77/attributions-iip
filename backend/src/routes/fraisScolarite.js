@@ -21,7 +21,8 @@ import { Router } from 'express';
 import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 import { piedBalisage, piedStyles, reglesDePage } from '../lib/document.js';
 import db from '../db/index.js';
-import { piedDocument } from './parametres.js';
+import { piedDocument, getParam } from './parametres.js';
+import { sectionRattachement } from './etudiants.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { calculerDI, calculerDIS } from './droitInscription.js';
 
@@ -81,6 +82,18 @@ const arrondi = n => Math.round((Number(n) || 0) * 100) / 100;
  * Les périodes retenues sont celles du droit d'inscription : mêmes UE, mêmes
  * dispenses, pour que les deux documents ne se contredisent pas.
  */
+/* LES SECTIONS SANS FRAIS D'INSCRIPTION COMPLÉMENTAIRES (Charles, 7 octobre
+   2026 : « en AeSI, il n'y a pas de frais complémentaires — section interdite
+   à cela »). Un réglage, pas une règle en dur : Configuration → Coût des
+   périodes. Le droit d'inscription, lui, reste dû. */
+export function semerSectionsSansFrais(dbx = db) {
+  dbx.prepare(`INSERT OR IGNORE INTO parametre (cle, valeur, label, section, groupe) VALUES (?,?,?,?,?)`)
+    .run('frais.sections_sans_frais', 'AeSI', "Sections sans frais d'inscription complémentaires (codes séparés par des virgules)", null, 'couts');
+}
+export function sectionsSansFrais() {
+  return new Set(String(getParam('frais.sections_sans_frais', 'AeSI') || '').split(',').map(s => s.trim()).filter(Boolean));
+}
+
 export function calculerFrais(etudId, annee) {
   const b = bareme(annee);
   const di = calculerDI(etudId, annee);
@@ -92,13 +105,16 @@ export function calculerFrais(etudId, annee) {
   const periodes = di.detail.filter(d => !d.dispensee)
     .reduce((s, d) => s + Number(d.periodes || 0), 0);
 
-  const fraisVariables = arrondi(periodes * b.par_periode);
-  const fraisAdmin = arrondi(b.frais_fixes + fraisVariables);
+  let sec = null; try { sec = sectionRattachement(etudId, annee).section || null; } catch { /* */ }
+  const sansFrais = !!sec && sectionsSansFrais().has(sec);
+  const fixes = sansFrais ? 0 : b.frais_fixes;
+  const fraisVariables = sansFrais ? 0 : arrondi(periodes * b.par_periode);
+  const fraisAdmin = arrondi(fixes + fraisVariables);
   const droit = di.exonere ? 0 : arrondi(di.montant_arrondi);
   const droitSpecifique = dis?.soumis ? arrondi(dis.montant_du) : 0;
 
   const total = arrondi(droit + droitSpecifique + fraisAdmin);
-  const acompte = arrondi(droit + droitSpecifique + b.frais_fixes);
+  const acompte = arrondi(droit + droitSpecifique + fixes);
   const solde = arrondi(total - acompte);          // = 0,25 € × périodes
 
   const paiements = db.prepare(`
@@ -130,7 +146,8 @@ export function calculerFrais(etudId, annee) {
     periodes,
     droit_inscription: droit,
     droit_specifique: droitSpecifique,
-    frais_fixes: arrondi(b.frais_fixes),
+    frais_fixes: arrondi(fixes),
+    sans_frais: sansFrais, section: sec,
     frais_variables: fraisVariables,
     frais_administratifs: fraisAdmin,
     total,
@@ -223,7 +240,7 @@ r.get('/etudiant/:id/document', authRequired, (req, res) => {
       <td>${d.ue_num}</td>
       <td>${esc(d.ue_nom || '')}</td>
       <td style="text-align:right">${d.dispensee ? '—' : d.periodes}</td>
-      <td style="text-align:right">${d.dispensee ? 'dispensée' : eur(d.periodes * f.bareme.par_periode)}</td>
+      <td style="text-align:right">${d.dispensee ? 'dispensée' : f.sans_frais ? '—' : eur(d.periodes * f.bareme.par_periode)}</td>
     </tr>`).join('');
 
   const lignesPaiement = f.paiements.map(p => `
@@ -290,7 +307,7 @@ r.get('/etudiant/:id/document', authRequired, (req, res) => {
         <td style="text-align:right">${eur(f.droit_specifique)}</td></tr>` : ''}
     <tr><td>Frais administratifs — partie fixe</td>
         <td style="text-align:right">${eur(f.frais_fixes)}</td></tr>
-    <tr><td>Frais administratifs — ${f.periodes} période(s) à ${String(f.bareme.par_periode).replace('.', ',')} €</td>
+    <tr><td>Frais administratifs — ${f.sans_frais ? `aucun : la section ${esc(f.section || '')} n'en perçoit pas` : `${f.periodes} période(s) à ${String(f.bareme.par_periode).replace('.', ',')} €`}</td>
         <td style="text-align:right">${eur(f.frais_variables)}</td></tr>
     <tr class="tot"><td style="text-align:right">TOTAL DÛ</td>
         <td style="text-align:right">${eur(f.total)}</td></tr>

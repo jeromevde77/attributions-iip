@@ -58,13 +58,17 @@ export default function FraisScolarite({ etudId, annee }) {
             vérifier quand un étudiant conteste, pas le seul résultat. */}
         <div className="flex items-end justify-between gap-4 flex-wrap">
           <div className="text-[12px] text-slate-600 space-y-0.5">
+            {f.sans_frais ? (
+              <div>Aucun frais d’inscription complémentaire : la section <b>{f.section}</b> n’en perçoit pas
+                (Configuration → Coût des périodes).</div>
+            ) : (<>
             <div>
               Frais fixes : <b>{eur(b.frais_fixes)}</b>
             </div>
             <div>
               Périodes du PAE : <b>{f.periodes}</b> × {num(b.par_periode)} €
               = <b>{eur(f.frais_variables)}</b>
-            </div>
+            </div></>)}
             <div className="text-[11px] text-slate-400">
               Hors UE en dispense complète : une unité valorisée n'est pas suivie.
             </div>
