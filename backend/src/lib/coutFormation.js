@@ -121,7 +121,8 @@ export function donneesCout(annee) {
   }
   // Les inscrits par section : ceux des chiffres clés, comptés de la même façon.
   let inscrits = {};
-  try { for (const l of donneesChiffresCles(annee).lignes) inscrits[l.section] = l.etudiants.n; } catch { inscrits = {}; }
+  let humains = null;   // les personnes, pour « Femmes et hommes » (chiffres clés)
+  try { humains = donneesChiffresCles(annee); for (const l of humains.lignes) inscrits[l.section] = l.etudiants.n; } catch { inscrits = {}; }
   // Une section qui a des inscrits mais aucune attribution figure aussi : elle
   // reçoit sa part des fonctions et ses droits, même sans coût de cours.
   const prevus = effectifsPrevus(annee);
@@ -294,7 +295,7 @@ export function donneesCout(annee) {
 
   return { annee, tarifs: T, sections, statuts: totStatuts, sexes: totSexes, recettes,
     total: { ...total, cout_fonctions: coutFonctions, cout_complet: total.cout + coutFonctions },
-    missions, base_inscrits: baseInscrits, baremes: { di: BD, frais: BF },
+    missions, base_inscrits: baseInscrits, baremes: { di: BD, frais: BF }, humains,
     sans_etp: missions.filter(m => m.pncc && !m.etp).length, sans_cout: missions.filter(m => m.pncc && m.etp && !m.annuel).length,
     sans_tarif: sansTarif, type_defaut: typeDefaut,
     experts: { indice, periodes: expertsBase } };
