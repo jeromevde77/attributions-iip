@@ -205,6 +205,7 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
                       <th className="py-1 text-left">UE</th>
                       <th className="py-1 text-left w-24">Niveau</th>
                       <th className="py-1 text-right w-20">Périodes</th>
+                      <th className="py-1 text-right">Calcul</th>
                       <th className="py-1 text-right w-24">Montant</th>
                     </tr>
                   </thead>
@@ -227,10 +228,20 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
                             <span className="block text-[10px] text-sky-700">{d.periodes_facturees} facturée(s)</span>
                           )}
                         </td>
-                        <td className="py-1 text-right">{d.dispensee ? '—' : eur(d.montant)}</td>
+                        <td className="py-1 text-right text-[11px] text-slate-500 whitespace-nowrap">{d.formule || ''}</td>
+                        <td className="py-1 text-right">{d.dispensee ? '—' : eur(d.total ?? d.montant)}</td>
                       </tr>
                     ))}
                   </tbody>
+                  <tfoot>
+                    <tr className="border-t border-slate-300 font-semibold">
+                      <td className="py-1" colSpan={2}>Droit constaté{di.exonere ? ' — exonéré' : ''}</td>
+                      <td className="py-1 text-right">{di.periodes?.total}</td>
+                      <td className="py-1 text-right text-[11px] font-normal text-slate-500 whitespace-nowrap">
+                        {eur(di.forfait)} + {di.retenues?.superieur || 0} × {eur(di.bareme?.tarif_superieur)}{(di.retenues?.secondaire || 0) ? ` + ${di.retenues.secondaire} × ${eur(di.bareme?.tarif_secondaire)}` : ''}</td>
+                      <td className="py-1 text-right">{eur(di.montant_constate)}</td>
+                    </tr>
+                  </tfoot>
                 </table>
               )}
             </>

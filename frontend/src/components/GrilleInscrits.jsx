@@ -10,7 +10,7 @@
  * sont ouvertes, et l'on trie par l'état d'une unité. Ce qui s'imprime est ce
  * qui est à l'écran — le serveur le recompose, en paysage.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { IconChevronRight, IconChevronDown, IconPrinter, IconColumns3 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { ouvrirApercu } from '../lib/apercu.js';
@@ -95,6 +95,21 @@ export default function GrilleInscrits({ data, passe, annee, section, onFiche, o
     for (const u of visibles) for (const l of u.lignes) if (passe(l)) ids.add(l.id);
     let l = [...ids];
     if (etats.size) l = l.filter(id => visibles.some(u => etats.has(ligneDe(id, u.ue_num)?.code)));
+    /* CLASSER SUR TOUTES LES UNITÉS (Charles, 7 octobre 2026 : « classer
+       d'abord, pour TOUTES les UE, les reports, etc. »). L'ordre suit les états
+       choisis dans « Ne montrer que », sinon : reports, VA, VAE, VAP, D, AQ ;
+       à égalité, celui qui en compte le plus passe devant. */
+    const priorite = etats.size ? ORDRE_ETAT.filter(k => etats.has(k)) : ['RP', 'VA', 'VAE', 'VAP', 'D', 'AQ'];
+    const groupeDe = id => {
+      const codes = visibles.map(u => ligneDe(id, u.ue_num)?.code).filter(Boolean);
+      const i = priorite.findIndex(k => codes.includes(k));
+      return { i: i < 0 ? priorite.length : i, n: i < 0 ? 0 : codes.filter(c => c === priorite[i]).length };
+    };
+    if (tri.par === 'etats') {
+      const g = new Map(l.map(id => [id, groupeDe(id)]));
+      return l.sort((a, b) => (g.get(a).i - g.get(b).i) * tri.sens || g.get(b).n - g.get(a).n
+        || (E[a]?.nom || '').localeCompare(E[b]?.nom || '', 'fr'));
+    }
     const rang = (id) => {
       if (tri.par === 'nom') return 0;
       const c = ligneDe(id, tri.par)?.code;
@@ -108,8 +123,9 @@ export default function GrilleInscrits({ data, passe, annee, section, onFiche, o
   const basculer = (set, v) => { const s = new Set(set); s.has(v) ? s.delete(v) : s.add(v); return s; };
   const compte = (ue, k) => lignes.filter(id => ligneDe(id, ue)?.code === k).length;
   const avec = k => idCols.includes(k);
-  // LA NOTE REPORTÉE À UNE DÉCIMALE (« RP 14,911 » ne se lit pas).
-  const noteCourte = n => String(Math.round(Number(n) * 10) / 10).replace('.', ',');
+  // LA NOTE REPORTÉE SANS DÉCIMALE (Charles, 7 octobre 2026) : arrondie à
+  // l'unité, comme toute note qu'on lit dans Lucie (9,6 devient 10).
+  const noteCourte = n => String(Math.round(Number(n)));
   /* LE REPORT SE LIT À SA NOTE (Charles, 7 octobre 2026 : « il faut la note à
      côté ; enlève le RP, on laisse le bleu ») : la ou les notes reportées des
      cours de l'unité, l'année d'origine en petit. */
@@ -152,7 +168,7 @@ export default function GrilleInscrits({ data, passe, annee, section, onFiche, o
         method: 'POST', headers: authHeaders(),
         body: JSON.stringify({ annee, section, ues: visibles.map(u => u.ue_num), ouvertes: [...ouvertes],
           colonnes: idCols, ids: lignes,
-          tri: tri.par === 'nom' ? 'ordre alphabétique' : `état de l'UE ${tri.par}` }),
+          tri: tri.par === 'nom' ? 'ordre alphabétique' : tri.par === 'etats' ? 'par état, toutes les unités' : `état de l'UE ${tri.par}` }),
       });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
@@ -184,8 +200,9 @@ export default function GrilleInscrits({ data, passe, annee, section, onFiche, o
             <Pastille k={k} petite />
           </button>))}
         {etats.size > 0 && <button type="button" className="text-[12px] text-slate-500 underline" onClick={() => setEtats(new Set())}>tous</button>}
-        <select className="controle" value={String(tri.par)} onChange={e => setTri({ par: e.target.value === 'nom' ? 'nom' : Number(e.target.value), sens: 1 })}>
+        <select className="controle" value={String(tri.par)} onChange={e => setTri({ par: ['nom', 'etats'].includes(e.target.value) ? e.target.value : Number(e.target.value), sens: 1 })}>
           <option value="nom">Trier : ordre alphabétique</option>
+          <option value="etats">Trier : par état, toutes les unités</option>
           {visibles.map(u => <option key={u.ue_num} value={u.ue_num}>Trier : état de l’UE {u.ue_num} (I, VA, RP…)</option>)}
         </select>
         <div className="flex-1" />
@@ -268,8 +285,18 @@ export default function GrilleInscrits({ data, passe, annee, section, onFiche, o
             </tr>
           </thead>
           <tbody>
-            {lignes.map(id => { const e = E[id] || {}; return (
-              <tr key={id} className="hover:bg-slate-50 group">
+            {lignes.map((id, rangLigne) => { const e = E[id] || {};
+              const prio = etats.size ? ORDRE_ETAT.filter(k => etats.has(k)) : ['RP', 'VA', 'VAE', 'VAP', 'D', 'AQ'];
+              const gDe = x => { const codes = visibles.map(u => ligneDe(x, u.ue_num)?.code); return prio.find(k => codes.includes(k)) || null; };
+              const g = tri.par === 'etats' ? gDe(id) : undefined;
+              const nouveau = tri.par === 'etats' && (rangLigne === 0 || gDe(lignes[rangLigne - 1]) !== g);
+              return (<Fragment key={id}>
+              {nouveau && (
+                <tr><td colSpan={nId + visibles.reduce((s, u) => s + 1 + (ouvertes.has(u.ue_num) ? u.cours.length : 0), 0)}
+                  className="sticky left-0 bg-slate-50 px-2 py-1 border-b border-slate-200 text-[12px] font-medium text-iip-blue">
+                  {g ? <span className="inline-flex items-center gap-1.5"><Pastille k={g} petite /> {ETATS[g].lib}</span> : 'Les autres — à suivre seulement'}
+                  <span className="font-normal text-slate-500"> · {lignes.filter(x => gDe(x) === g).length} étudiant(s)</span></td></tr>)}
+              <tr className="hover:bg-slate-50 group">
                 <td className="sticky left-0 z-10 bg-white group-hover:bg-slate-50 px-2 py-1 border-b border-slate-100 whitespace-nowrap">
                   <button type="button" className="hover:underline font-medium text-iip-blue" onClick={() => onFiche(id)}>{e.nom_famille}</button></td>
                 <td className="sticky left-[9rem] z-10 bg-white group-hover:bg-slate-50 px-2 border-b border-r border-slate-100 whitespace-nowrap">{e.prenom}</td>
@@ -278,7 +305,7 @@ export default function GrilleInscrits({ data, passe, annee, section, onFiche, o
                 {avec('profil') && <td className="px-2 border-b border-slate-100 text-[11px] text-slate-600">{e.nouveau ? 'nouveau' : ''}</td>}
                 {avec('sle') && <td className="px-2 border-b border-slate-100 text-[11px]">{e.sle ? 'SLE' : ''}</td>}
                 {visibles.map(u => { const l = ligneDe(id, u.ue_num); return [
-                  <td key={u.ue_num} className="px-2 py-1 border-b border-l border-slate-100 text-center whitespace-nowrap">
+                  <td key={u.ue_num} className={`px-2 py-1 border-b border-l border-slate-100 text-center whitespace-nowrap ${etats.size && l && !etats.has(l.code) ? 'opacity-25' : ''}`}>
                     {l ? <span className="inline-flex items-center gap-1 whitespace-nowrap">
                       <Pastille k={l.code} sous={fr(l.date)}
                         texte={l.code === 'RP' ? notesRP(l) : null}
@@ -299,7 +326,7 @@ export default function GrilleInscrits({ data, passe, annee, section, onFiche, o
                         onClick={VERS_REVUE.has(k.k) && onRevue ? () => onRevue(id) : undefined} /> : ''}
                     </td>); }) : []),
                 ]; })}
-              </tr>); })}
+              </tr></Fragment>); })}
           </tbody>
           <tfoot>
             {/* LES SOUS-TOTAUX PAR CATÉGORIE (Charles, 7 octobre 2026) : I, I en

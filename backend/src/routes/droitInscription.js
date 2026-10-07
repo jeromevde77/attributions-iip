@@ -219,6 +219,19 @@ export function calculerDI(etudId, annee) {
     d.montant = Math.round(d.periodes_facturees * b.tarif_superieur * 100) / 100;
   }
 
+  /* LE CALCUL S'ÉCRIT, UNITÉ PAR UNITÉ (Charles, 7 octobre 2026 : « je veux le
+     détail du calcul ; n'oublie pas que les 34 de base sont à compter dans la
+     première UE, ou en secondaire »). Le forfait va à l'UE qui le porte, de
+     quelque niveau qu'elle soit ; la ligne dit sa formule. */
+  const e2 = n => (Math.round(Number(n) * 100) / 100).toFixed(2).replace('.', ',');
+  for (const d of detail) {
+    d.forfait = d.porte_forfait ? b.forfait : 0;
+    d.total = d.dispensee ? 0 : Math.round(((d.montant || 0) + d.forfait) * 100) / 100;
+    d.formule = d.dispensee ? 'dispensée — aucun droit'
+      : `${d.forfait ? `${e2(d.forfait)} € (forfait) + ` : ''}${d.periodes_facturees ?? d.periodes} × ${e2(d.tarif)} € = ${e2(d.total)} €`
+        + (d.periodes_facturees != null && d.periodes_facturees < d.periodes ? ` (plafond : ${d.periodes_facturees} sur ${d.periodes})` : '');
+  }
+
   const montantSec = secRetenues * b.tarif_secondaire;
   const montantSup = supRetenues * b.tarif_superieur;
   const brut = detail.length ? b.forfait + montantSec + montantSup : 0;
