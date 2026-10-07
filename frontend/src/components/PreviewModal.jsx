@@ -31,7 +31,9 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
                                           navigateur dépend de ses réglages — marges, échelle,
                                           orientation ; le PDF du serveur impose A4, l'orientation
                                           et le pied, et c'est lui qui a été vérifié. */
-                                       pdf = null }) {
+                                       pdf = null,
+                                       // Une pièce déjà en PDF (formulaire officiel, fiche signalétique).
+                                       pdfUrl = null }) {
   const iframeRef = useRef(null);
   const [pret, setPret] = useState(false);
   /* LA SIGNATURE NE SORT JAMAIS NUE (1er octobre 2026 : « ma signature doit
@@ -140,6 +142,33 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
     };
     w.onload = lancer;
     setTimeout(lancer, 400);
+  }
+
+  useEffect(() => () => { if (pdfUrl) URL.revokeObjectURL(pdfUrl); }, [pdfUrl]);
+  if (pdfUrl) {
+    const nomPdf = `${String(nomFichier || titre || 'document').replace(/\.pdf$/i, '')}.pdf`;
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col items-center p-2 sm:p-4"
+           onClick={e => e.target === e.currentTarget && onClose()}>
+        <div aria-hidden="true" className="absolute inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px]" />
+        <div className="relative bg-white rounded-fenetre shadow-dessus w-full max-w-5xl flex flex-col overflow-hidden" style={{ height: '95vh' }}>
+          <div className="flex items-center justify-between gap-3 px-4 py-2.5 flex-shrink-0 border-b border-slate-200" style={{ background: 'var(--barre-fond, #F8FAFC)' }}>
+            <div className="min-w-0">
+              <div className="titre-ecran mb-0 truncate">{titre}</div>
+              <div className="text-[11px] text-slate-400 truncate">{[sousTitre, nomPdf].filter(Boolean).join(' · ')}</div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button onClick={() => window.open(pdfUrl, '_blank')} className="bouton-sortir controle px-3 flex items-center gap-1.5">
+                <IconSend size={15} /> Imprimer</button>
+              <a href={pdfUrl} download={nomPdf} className="bouton controle px-3 flex items-center gap-1.5">
+                <IconDownload size={15} /> Enregistrer</a>
+              <button onClick={onClose} aria-label="Fermer" className="controle w-9 grid place-items-center rounded-champ text-slate-400 hover:text-slate-700 hover:bg-slate-100">
+                <IconX size={17} /></button>
+            </div>
+          </div>
+          <iframe src={pdfUrl} title={nomPdf} className="flex-1 w-full border-0 bg-gray-100" />
+        </div>
+      </div>);
   }
 
   return (

@@ -546,6 +546,8 @@ th{text-align:left;font-size:7.5pt;text-transform:uppercase;letter-spacing:.04em
 td{padding:2.2mm 2mm;border-bottom:.2mm solid #E4E7EC}
 tr{break-inside:avoid}`,
   });
+  // ?format=html : la pièce elle-même, pour l'aperçu commun (galerie, Mes cours).
+  if (req.query.format === 'html') return res.json({ html, nom: `Liste_${code}${demande ? `_${demande}` : ''}` });
   const cap = await capacitePdf();
   if (!cap.disponible) return res.json({ html });
   try {

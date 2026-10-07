@@ -1103,7 +1103,7 @@ export default function Configuration() {
          les faces d'un même onglet — les modèles des pièces officielles. Les
          anciennes clés restent valables (?onglet=attestation y mène). */
       { key: 'editeur', label: 'Modèles de pièces', icon: IconEdit,
-        faces: [['editeur', 'Écrire un modèle'], ['apercu', 'Voir une pièce']] },
+        faces: [['editeur', 'Écrire un modèle'], ['apercu', 'Galerie des pièces']] },
       { key: 'contrat', label: 'Pièces officielles', icon: IconAward,
         faces: [['contrat', 'Contrat'], ['attestation', 'Attestation'], ['diplome', 'Diplôme'], ['recrutement', 'Recrutement']] },
       { key: 'due', label: "Descriptifs d'UE", icon: IconFileDescription },

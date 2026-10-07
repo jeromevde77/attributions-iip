@@ -1,3 +1,4 @@
+import { ouvrirApercuPdf } from '../lib/apercu.js';
 /**
  * COMPLÉTER UNE ANNEXE DANS LUCIE (Charles, 27 septembre 2026 : « cela ne me
  * sert à rien d'avoir un document Word à compléter dans Word… il faut que
@@ -55,6 +56,8 @@ export default function SaisieAnnexe({ annexe, membre, annee, moisInitial, onFer
       if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || `Erreur ${r.status}`); }
       const cd = r.headers.get('Content-Disposition') || '';
       const nom = decodeURIComponent((/filename\*=UTF-8''([^;]+)/.exec(cd) || [])[1] || `${annexe.cle}.${format === 'pdf' ? 'pdf' : 'docx'}`);
+      // Le PDF s'aperçoit avant de s'enregistrer ; le Word se télécharge (il se retouche).
+      if (format === 'pdf') { ouvrirApercuPdf({ blob: await r.blob(), titre: annexe.titre, nomFichier: nom }); return; }
       const url = URL.createObjectURL(await r.blob());
       const a = document.createElement('a'); a.href = url; a.download = nom; a.click();
       setTimeout(() => URL.revokeObjectURL(url), 2000);
@@ -71,7 +74,7 @@ export default function SaisieAnnexe({ annexe, membre, annee, moisInitial, onFer
       </div>
       <button type="button" className="bouton" disabled={!v || busy || !sale} onClick={enregistrer}>{busy === 'save' ? '…' : 'Enregistrer'}</button>
       <button type="button" className="bouton bouton-sortir" disabled={!v || busy || (!sale && manque.length > 0)} onClick={() => produire('docx')}>{busy === 'docx' ? '…' : 'Word'}</button>
-      <button type="button" className="bouton bouton-sortir" disabled={!v || busy || (!sale && manque.length > 0)} onClick={() => produire('pdf')}>{busy === 'pdf' ? '…' : 'PDF'}</button>
+      <button type="button" className="bouton bouton-sortir" disabled={!v || busy || (!sale && manque.length > 0)} onClick={() => produire('pdf')}>{busy === 'pdf' ? '…' : 'Aperçu PDF'}</button>
     </div>
   );
 

@@ -1,4 +1,5 @@
 import { ICONE_AXE } from '../lib/iconesAxes.js';
+import { ouvrirApercu } from '../lib/apercu.js';
 import { IconChalkboard } from '@tabler/icons-react';
 import { couleurBloc, rangBloc } from '../lib/blocs.js';
 import { useEffect, useState } from 'react';
@@ -360,19 +361,15 @@ export default function MesCours() {
         const imprimerGroupes = async () => {
           setImpression('…'); setErreur(null);
           try {
-            const r0 = await fetch(`/api/mes-cours/${encodeURIComponent(ouvert)}/listes?annee=${encodeURIComponent(annee)}${groupeVu ? `&groupe=${encodeURIComponent(groupeVu)}` : ''}`,
+            /* L'APERÇU D'ABORD (Charles, 7 octobre 2026 : « pour TOUS les documents,
+               un aperçu ») : la feuille s'ouvrait en PDF dans un onglet, sans
+               relecture. Elle passe désormais par l'aperçu commun, PDF compris. */
+            const r0 = await fetch(`/api/mes-cours/${encodeURIComponent(ouvert)}/listes?annee=${encodeURIComponent(annee)}&format=html${groupeVu ? `&groupe=${encodeURIComponent(groupeVu)}` : ''}`,
               { headers: authHeaders() });
-            if (!r0.ok) { const x = await r0.json().catch(() => ({})); throw new Error(x.error || `Erreur ${r0.status}`); }
-            if ((r0.headers.get('Content-Type') || '').includes('pdf')) {
-              const url = URL.createObjectURL(await r0.blob());
-              window.open(url, '_blank');
-              setTimeout(() => URL.revokeObjectURL(url), 60000);
-            } else {
-              // Le serveur ne sait pas produire de PDF : l'aperçu du navigateur, annoncé.
-              const j = await r0.json();
-              const w = window.open('', '_blank');
-              if (w) { w.document.write(j.html); w.document.close(); }
-            }
+            const j = await r0.json().catch(() => ({}));
+            if (!r0.ok) throw new Error(j.error || `Erreur ${r0.status}`);
+            ouvrirApercu({ html: j.html, titre: `Liste — ${ouvert}${groupeVu ? ` · groupe ${groupeVu}` : ''}`, nomFichier: j.nom,
+              envoiPossible: false, pdf: { orientation: 'portrait' } });
           } catch (e) { setErreur(e.message); } finally { setImpression(null); }
         };
         return (

@@ -815,7 +815,9 @@ r.delete('/:id', authRequired,
 // saura rien, et personne ne pourra la relire. Le PV passe par l'enveloppe
 // commune — A4, en-tête de l'établissement, pied numéroté.
 
-r.post('/:id/document', authRequired, (req, res) => {
+r.post('/:id/document', authRequired, (req, res, next) => {
+  // « taches » n'est pas une réunion : la route de la feuille des tâches vient plus bas.
+  if (req.params.id === 'taches') return next();
   const reunion = db.prepare('SELECT * FROM reunion WHERE id = ?').get(req.params.id);
   if (!reunion) return res.status(404).json({ error: 'réunion inconnue' });
   /* DEUX PV, ET UN SEUL CIRCULE. Le PV ordinaire ne reproduit jamais le

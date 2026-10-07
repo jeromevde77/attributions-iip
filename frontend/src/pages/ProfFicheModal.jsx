@@ -1,3 +1,5 @@
+import { ouvrirApercuPdf } from '../lib/apercu.js';
+import { authHeaders } from '../lib/api.js';
 import { useState, useEffect, useRef } from 'react';
 import FonctionsPanel from '../components/FonctionsPanel.jsx';
 import ChampsAdresse, { ChoixPays } from '../components/ChampsAdresse.jsx';
@@ -457,7 +459,10 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
     setGenPdf(true);
     try {
       const fn = `Fiche_signaletique_${form.nom || ''}_${form.prenom || ''}.pdf`.replace(/\s+/g, '_');
-      await api.ficheDocumentPdf(prof.id, fn);
+      // L'APERÇU AVANT D'ENREGISTRER (7 octobre 2026) : la fiche se lit d'abord.
+      const r = await fetch(`/api/ref/professeurs/${prof.id}/fiche-pdf`, { headers: authHeaders() });
+      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || 'Génération de la fiche échouée'); }
+      ouvrirApercuPdf({ blob: await r.blob(), titre: `Fiche signalétique — ${String(form.nom || '').toUpperCase()} ${form.prenom || ''}`, nomFichier: fn });
     } catch (e) { informer('Erreur : ' + e.message); }
     finally { setGenPdf(false); }
   }

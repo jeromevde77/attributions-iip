@@ -1585,7 +1585,8 @@ r.get('/professeurs/:id/fiche-pdf', authRequired, soiSeul(), async (req, res) =>
     catch (e2) { throw new Error('conversion PDF (LibreOffice) : ' + e2.message); }
 
     const fname = `Fiche_signaletique_${p.nom}_${p.prenom}.pdf`.replace(/\s+/g, '_');
-    archiverDocument({
+    // L'APERÇU N'ARCHIVE PAS (galerie de Configuration) : seule une pièce sortie se trace.
+    if (req.query.apercu !== '1') archiverDocument({
       type_doc: 'fiche', professeur_id: p.id, prof_nom: p.nom, prof_prenom: p.prenom,
       annee_scolaire: null, nom_fichier: fname, pdf,
       genere_par: req.user?.email || req.user?.identifiant || null,
@@ -1593,7 +1594,7 @@ r.get('/professeurs/:id/fiche-pdf', authRequired, soiSeul(), async (req, res) =>
 
     res.status(200);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${fname}"`);
+    res.setHeader('Content-Disposition', `${req.query.apercu === '1' ? 'inline' : 'attachment'}; filename="${fname}"`);
     res.setHeader('Content-Length', pdf.length);
     res.end(pdf);
   } catch (err) {
