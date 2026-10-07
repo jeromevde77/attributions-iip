@@ -2354,7 +2354,10 @@ r.post('/inscrits-grille', authRequired, (req, res) => {
   const TEINTE = { I: ['#fff', '#16406A', '#9AA5B4'], VA: ['#3E7D5E', '#fff'], VAE: ['#2F6049', '#fff'], VAP: ['#fff', '#2F6049', '#3E7D5E'],
     RP: ['#0F766E', '#fff'], D: ['#64748B', '#fff'], AQ: ['#B45309', '#fff'] };
   const LIB = { I: 'inscrit, suit', VA: 'VA totale', VAE: 'VAE totale', VAP: 'valorisation partielle', RP: 'report de note', D: 'dispense complète', AQ: 'déjà acquise — à retirer' };
-  const pastille = (k, sous) => { const [f, t, bord] = TEINTE[k] || ['#fff', '#000']; return k ? `<span class="pa" style="background:${f};color:${t};border:0.3mm solid ${bord || f}">${k}${sous ? `<i>${esc(sous)}</i>` : ''}</span>` : ''; };
+  const pastille = (k, sous, texte = null) => { const [f, t, bord] = TEINTE[k] || ['#fff', '#000']; return k ? `<span class="pa" style="background:${f};color:${t};border:0.3mm solid ${bord || f}">${texte != null ? esc(texte) : k}${sous ? `<i>${esc(sous)}</i>` : ''}</span>` : ''; };
+  // Le report se lit à sa note : le bleu reste, « RP » s'efface (7 octobre 2026).
+  const note1 = n => String(Math.round(Number(n) * 10) / 10).replace('.', ',');
+  const notesRP = l => { const n = Object.values(l.cellules || {}).filter(c => c.k === 'RP' && c.note != null).map(c => note1(c.note)); return n.length ? n.join(' · ') : 'RP'; };
   const libCol = { matricule: 'Matricule', bloc: 'Bloc', profil: 'Profil', sle: 'SLE' };
 
   const tete1 = `<tr><th rowspan="2">Nom</th><th rowspan="2">Prénom</th>${cols.map(c => `<th rowspan="2">${libCol[c]}</th>`).join('')}
@@ -2363,9 +2366,9 @@ r.post('/inscrits-grille', authRequired, (req, res) => {
     ? u.cours.map(c => `<th class="sous cours">${esc(c.code)}</th>`).join('') : ''}`).join('')}</tr>`;
   const corpsLignes = ids.map(id => { const e = E[id] || {}; return `<tr><td class="nom">${esc(e.nom_famille)}</td><td>${esc(e.prenom)}</td>
     ${cols.map(c => `<td>${c === 'matricule' ? esc(e.matricule) : c === 'bloc' ? esc(e.bloc || '') : c === 'profil' ? (e.nouveau ? 'nouveau' : '') : (e.sle ? 'SLE' : '')}</td>`).join('')}
-    ${unites.map(u => { const l = cle.get(`${id}|${u.ue_num}`); return `<td class="c ue">${l ? pastille(l.code, court(l.date)) + (l.tags.length || l.reprise || !l.inscrit
+    ${unites.map(u => { const l = cle.get(`${id}|${u.ue_num}`); return `<td class="c ue">${l ? pastille(l.code, court(l.date), l.code === 'RP' ? notesRP(l) : null) + (l.tags.length || l.reprise || !l.inscrit
         ? `<span class="tag">${[l.reprise ? '↻' : '', ...l.tags.map(x => (x === 'VA ?' ? 'VA?' : `+${x}`)), l.inscrit ? '' : 'n.i.'].filter(Boolean).join(' ')}</span>` : '') : '·'}</td>${ouvertes.has(u.ue_num)
-      ? u.cours.map(c => { const k = l?.cellules?.[c.code]; return `<td class="c cours">${k ? pastille(k.k, k.note != null ? String(k.note).replace('.', ',') : court(k.date || k.annee)) : ''}</td>`; }).join('') : ''}`; }).join('')}</tr>`; }).join('');
+      ? u.cours.map(c => { const k = l?.cellules?.[c.code]; return `<td class="c cours">${k ? (k.k === 'RP' && k.note != null ? pastille('RP', court(k.annee), note1(k.note)) : pastille(k.k, k.note != null ? note1(k.note) : court(k.date || k.annee))) : ''}</td>`; }).join('') : ''}`; }).join('')}</tr>`; }).join('');
   // LES SOUS-TOTAUX PAR CATÉGORIE, comme à l'écran.
   const CAT = [
     ['I', 'à suivre', l => l?.code === 'I' && !l.reprise, (l, c) => !l.reprise && l.cellules?.[c]?.k === 'I'],
@@ -2386,7 +2389,7 @@ r.post('/inscrits-grille', authRequired, (req, res) => {
   const cours = unites.filter(u => ouvertes.has(u.ue_num)).flatMap(u => u.cours.map(c => `${esc(c.code)} ${esc(c.nom)}`));
   const corps = `<p class="fin">${ids.length} étudiant(s) · ${unites.length} unité(s) · tri : ${esc(String(b.tri || 'ordre alphabétique').slice(0, 80))}.</p>
     <table class="grille"><thead>${tete1}${tete2}</thead><tbody>${corpsLignes}</tbody><tfoot>${pied}</tfoot></table>
-    <p class="fin">${Object.keys(LIB).map(k => `${pastille(k)} ${LIB[k]}`).join(' &nbsp; ')} — à côté du code : date de décision, année d'origine ou note reportée · ↻ reprise · n.i. non inscrit.</p>
+    <p class="fin">${Object.keys(LIB).map(k => `${pastille(k)} ${LIB[k]}`).join(' &nbsp; ')} — bleu : report de note (la note, puis l'année d'origine) · à côté du code : date de décision · ↻ reprise · n.i. non inscrit.</p>
     ${cours.length ? `<p class="fin">${cours.join(' · ')}</p>` : ''}`;
   const n = 2 + cols.length + unites.reduce((t, u) => t + 1 + (ouvertes.has(u.ue_num) ? u.cours.length : 0), 0);
   const taille = n > 30 ? 6.5 : n > 20 ? 7.5 : 8.5;
