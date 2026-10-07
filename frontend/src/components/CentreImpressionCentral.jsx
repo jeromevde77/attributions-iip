@@ -23,7 +23,7 @@ import { api, authHeaders, getAnnee } from '../lib/api.js';
 import { Fenetre, GroupeFenetre, PieceFenetre } from './ui.jsx';
 import SchemaCapitalisation from './SchemaCapitalisation.jsx';
 import { svgImprimable } from '../lib/svgImprimable.js';
-import { ouvrirApercu } from '../lib/apercu.js';
+import { ouvrirApercu, ouvrirApercuPdf } from '../lib/apercu.js';
 
 /**
  * LE CENTRE D'IMPRESSION — un seul endroit d'où tout sort.
@@ -981,6 +981,16 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
       setTimeout(() => URL.revokeObjectURL(url), 2000);
     } catch (e) { setErreur(e.message); } finally { setEnCours(null); }
   };
+  // L'APERÇU D'UNE ANNEXE : le formulaire rempli, en PDF, avant de prendre le Word.
+  const apercuAnnexe = async a => {
+    setEnCours(`v${a.cle}`); setErreur(null);
+    try {
+      const q = new URLSearchParams({ professeur_id: choisi.id, annee, ...(a.mois ? { mois } : {}), format: 'pdf' });
+      const r = await fetch(`/api/formulaires/${a.cle}?${q}`, { headers: authHeaders() });
+      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || `Erreur ${r.status}`); }
+      ouvrirApercuPdf({ blob: await r.blob(), titre: a.titre, sousTitre: `${String(choisi.nom || '').toUpperCase()} ${choisi.prenom || ''}`, nomFichier: `${a.cle}_${choisi.nom || ''}` });
+    } catch (e) { setErreur(e.message); } finally { setEnCours(null); }
+  };
   const PREREMPLIES = ['A1ter', 'A4', 'A6', 'A14', 'A15', 'A27'];
   /* LE CONTRAT D'EXPERT ACCOMPAGNE TOUJOURS L'EA12 (Charles, 27 septembre
      2026) : un par niveau — supérieur, secondaire —, la période n'y étant pas
@@ -1148,7 +1158,9 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
                       <span>{a.titre}{a.mois && <span className="text-slate-400 text-[12px]"> · mois de {['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'][mois - 1]}</span>}</span>
                       {a.saisie
                         ? <Avion titre="Compléter dans Lucie, puis produire en Word ou PDF" onClick={() => setACompleter(a)} />
-                        : <Avion titre="Produire le Word officiel" onClick={() => telecharger(a)} occupe={enCours === a.cle} />}
+                        : <span className="inline-flex items-center gap-1">
+                            <button type="button" onClick={() => apercuAnnexe(a)} disabled={!!enCours} className="bouton text-[12px] px-2 py-0.5" title="Voir le formulaire rempli, en PDF">{enCours === `v${a.cle}` ? '…' : 'Aperçu'}</button>
+                            <Avion titre="Produire le Word officiel" onClick={() => telecharger(a)} occupe={enCours === a.cle} /></span>}
                     </li>
                   ))}
                 </ul>
@@ -1178,7 +1190,9 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
                       </span>
                       {a.saisie
                         ? <Avion titre="Compléter dans Lucie, puis produire en Word ou PDF" onClick={() => setACompleter(a)} />
-                        : <Avion titre="Produire le Word officiel" onClick={() => telecharger(a)} occupe={enCours === a.cle} />}
+                        : <span className="inline-flex items-center gap-1">
+                            <button type="button" onClick={() => apercuAnnexe(a)} disabled={!!enCours} className="bouton text-[12px] px-2 py-0.5" title="Voir le formulaire rempli, en PDF">{enCours === `v${a.cle}` ? '…' : 'Aperçu'}</button>
+                            <Avion titre="Produire le Word officiel" onClick={() => telecharger(a)} occupe={enCours === a.cle} /></span>}
                     </li>
                   ))}
                 </ul>

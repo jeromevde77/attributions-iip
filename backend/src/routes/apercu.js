@@ -27,7 +27,17 @@ import {
   documentPV, pageComposition, documentMotivation,
 } from './acquis.js';
 
+import { galerie, exemples, choix } from '../lib/galerieDocuments.js';
+
 const r = Router();
+
+/* LA GALERIE : toutes les pièces, leurs choix, et un exemple tiré de la base
+   pour chacune (lib/galerieDocuments.js). Lecture seule. */
+r.get('/galerie', authRequired, (req, res) => {
+  const annee = String(req.query.annee || anneeDeTravail(req));
+  try { res.json({ ...galerie(), exemples: exemples(annee), choix: choix(annee), annee }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
 
 /** Le dossier d'exemple. Un nom qui ne peut pas passer pour un vrai. */
 const ETUDIANT_EXEMPLE = {

@@ -13,6 +13,18 @@
  */
 export const EVT_APERCU = 'lucie:apercu';
 export function ouvrirApercu(opts) {
-  if (!opts?.html) return;
+  if (!opts?.html && !opts?.pdfUrl) return;
   window.dispatchEvent(new CustomEvent(EVT_APERCU, { detail: opts }));
+}
+
+/**
+ * UN PDF S'APERÇOIT AUSSI (Charles, 7 octobre 2026 : « pour TOUS les documents,
+ * la possibilité d'avoir un aperçu »). Les formulaires officiels et la fiche
+ * signalétique sortent du serveur en PDF : on les montre dans le même aperçu,
+ * avant de les imprimer ou de les enregistrer.
+ */
+export function ouvrirApercuPdf({ blob, titre, nomFichier, sousTitre }) {
+  if (!blob) return;
+  const pdfUrl = URL.createObjectURL(blob);
+  window.dispatchEvent(new CustomEvent(EVT_APERCU, { detail: { pdfUrl, html: '', titre, nomFichier, sousTitre, envoiPossible: false } }));
 }

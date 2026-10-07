@@ -872,7 +872,10 @@ r.post('/pieces', authRequired,
        section) ; la présidence de la séance de l'épreuve intégrée, si ce n'est
        pas le directeur ; le réglage de la section ; sinon, on demande. */
     const saisi = String(req.body?.president_jury || '').trim();
-    if (saisi) {
+    // L'APERÇU (galerie de Configuration) n'enregistre rien et ne bloque pas :
+    // à défaut de président connu, la place reste marquée « à désigner ».
+    const apercu = req.body?.apercu === true;
+    if (saisi && !apercu) {
       let v = {}; try { v = JSON.parse(db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'diplome_president_jury'").get()?.valeur || '{}') || {}; } catch { v = {}; }
       v[sec.code] = saisi;
       db.prepare(`INSERT INTO lucie_config (cle, valeur) VALUES ('diplome_president_jury', ?)
@@ -890,7 +893,7 @@ r.post('/pieces', authRequired,
       return null;
     })();
     const seanceValable = deLaSeance && memePersonne(deLaSeance) !== memePersonne(ident.directeur) ? deLaSeance : null;
-    const jetonsSig = { president_jury: saisi || seanceValable || presidentJuryDe(sec.code) || '', directeur: ident.directeur };
+    const jetonsSig = { president_jury: saisi || seanceValable || presidentJuryDe(sec.code) || (apercu ? '(président du jury — à désigner)' : ''), directeur: ident.directeur };
     /* TROIS PERSONNES DIFFÉRENTES — le diplôme ne sort pas sinon. */
     if (sig.liste.some(x => /\{\{\s*president_jury\s*\}\}/.test(x.nom || '')) && !jetonsSig.president_jury) {
       return res.status(409).json({ code: 'president_jury_requis', section: sec.code,
