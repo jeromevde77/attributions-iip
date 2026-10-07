@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import FonctionsPanel from '../components/FonctionsPanel.jsx';
 import ChampsAdresse, { ChoixPays } from '../components/ChampsAdresse.jsx';
 import { Fenetre } from '../components/ui.jsx';
 import { api, getAnnee } from '../lib/api.js';
@@ -756,36 +757,13 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
           )}
 
           {/* 6 ter. Missions & coordinations (lecture — édition dans Configuration > Personnel) */}
-          <Section titre="6 ter · Missions & coordinations"
+          <Section titre="6 ter · Fonctions — direction, secrétariat, coordinations"
             sous={missions.length ? `${missions.length} mission(s)` : 'Aucune mission'}
             ouvert={open.missions} onToggle={() => toggle('missions')}>
-            <div className="space-y-3">
-              {missions.length === 0 ? (
-                <p className="text-sm text-gray-500">
-                  Aucune mission enregistrée pour cette année. Les missions se définissent dans
-                  <span className="font-medium"> Configuration &gt; Personnel</span> (tableau par section).
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {missions.map((m, i) => (
-                    <div key={i} className="flex items-center justify-between border border-gray-200 rounded-lg px-3 py-2">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium text-gray-800 text-sm">{m.fonction}</span>
-                        {m.etablissement && (
-                          <span className="text-[11px] px-2 py-0.5 rounded bg-slate-100 text-slate-600">🏛 Tout l'établissement</span>
-                        )}
-                        {(m.sections || []).map(s => (
-                          <span key={s} className="text-[11px] px-2 py-0.5 rounded bg-iip-mauve/10 text-iip-mauve font-medium">{s}</span>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <p className="text-xs text-gray-400">
-                Pour ajouter ou retirer une mission, utilisez le tableau dans Configuration &gt; Personnel.
-              </p>
-            </div>
+            {/* LES FONCTIONS SE RÈGLENT ICI AUSSI (7 octobre 2026 : « je mets où
+                la fonction de direction ? ») — le renvoi visait un écran supprimé. */}
+            {isNew ? <p className="text-sm text-gray-500">Les fonctions se posent une fois la fiche créée.</p>
+              : <FonctionsPanel profId={prof.id} />}
           </Section>
 
 

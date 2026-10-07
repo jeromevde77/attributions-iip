@@ -1,4 +1,5 @@
 import { ICONE_AXE } from '../lib/iconesAxes.js';
+import FonctionsPanel from '../components/FonctionsPanel.jsx';
 import { IconChalkboardTeacher } from '@tabler/icons-react';
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { calculHELB, estHELB } from '../lib/helb.js';
@@ -138,91 +139,6 @@ function ouvrirFeuilleImpression(data) {
 // permissions_json stocke : { attributions: {lire, ecrire, voir_tout}, personnel: {lire, ecrire}, ..., recrutement: {lire, ecrire} }
 const PERM_DEFAUT = () => Object.fromEntries(MODULES_ACCES.map(m => [m.key, { lire: false, ecrire: false, voir_tout: false }]));
 
-/* LES FONCTIONS DE LA PERSONNE, SUR SA FICHE (2.12.206, Charles, 26
- * septembre 2026 : « selon moi, ceci doit être dans la fiche du MDP »).
- * Directeur, secrétaire, coordination de cursus, des stages, de TFE… par
- * portée — l'établissement ou une section — et pour l'année de travail. Même
- * écriture que l'ancienne matrice (PUT /ref/personnel-mission) : un seul
- * chemin, deux lectures — la fiche pour régler, la vue d'ensemble pour voir. */
-function FonctionsPanel({ profId }) {
-  const annee = getAnnee();
-  const [d, setD] = useState(null);
-  const [erreur, setErreur] = useState(null);
-  const [enCours, setEnCours] = useState(null);
-  const peutRegler = ['admin', 'editeur'].includes(getUser()?.role);
-  const charger = () => fetch(`/api/ref/personnel-fonctions/${profId}?annee=${encodeURIComponent(annee)}`,
-    { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
-    .then(r => r.json()).then(setD).catch(e => setErreur(e.message));
-  useEffect(() => { charger(); /* eslint-disable-next-line */ }, [profId, annee]);
-  async function basculer(portee, f) {
-    const cle = `${portee.code}|${f.libelle}`;
-    setEnCours(cle); setErreur(null);
-    try {
-      await api.setMission({ professeur_id: profId, fonction: f.libelle, section_code: portee.code,
-        annee_scolaire: annee, actif: !f.actif });
-      await charger();
-    } catch (e) { setErreur(e.message); }
-    finally { setEnCours(null); }
-  }
-  if (!d) return <div className="text-[13px] text-slate-400">{erreur || 'Chargement…'}</div>;
-  const actives = d.portees.flatMap(p => p.fonctions.filter(f => f.actif).map(f => `${f.libelle} (${p.code === '__ETAB__' ? 'établissement' : p.code})`));
-  return (
-    <div className="space-y-3">
-      <p className="text-[12px] text-slate-500">
-        Les fonctions de cette personne en {annee}.{' '}
-        {actives.length ? <>Aujourd'hui : <b className="text-slate-700">{actives.join(' · ')}</b>.</> : 'Aucune fonction pour cette année.'}
-        {!peutRegler && ' Réservé à l’administration : vous pouvez lire, pas modifier.'}
-      </p>
-      {erreur && <p className="text-[12px]" style={{ color: 'var(--c-refuse)' }}>{erreur}</p>}
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {d.portees.map(p => (
-          <div key={p.code} className="carte px-3 py-2">
-            <div className="text-[13px] font-semibold text-iip-blue mb-1">{p.libelle}</div>
-            <div className="space-y-1">
-              {p.fonctions.map(f => (
-                <label key={f.id} className={`flex items-center gap-2 text-[13px] ${peutRegler ? 'cursor-pointer' : ''}`}>
-                  <input type="checkbox" checked={f.actif} disabled={!peutRegler || enCours === `${p.code}|${f.libelle}`}
-                    onChange={() => basculer(p, f)} />
-                  <span className={`flex-1 ${f.actif ? 'text-slate-800 font-medium' : 'text-slate-600'}`}>{f.libelle}</span>
-                  {/* L'ETP DANS LA FONCTION (6 octobre 2026) : il fait le coût des
-                      fonctions — coût annuel d'un temps plein × ETP. */}
-                  {f.actif && (
-                    <input type="number" min="0" max="2" step="0.05" disabled={!peutRegler}
-                      defaultValue={f.etp ?? ''} placeholder="ETP"
-                      title="Temps de travail dans cette fonction (1 = temps plein) — sert au coût des formations"
-                      onClick={e => e.preventDefault()}
-                      onBlur={async e => {
-                        const brut = String(e.target.value).trim().replace(',', '.');
-                        const v = brut === '' ? null : parseFloat(brut);
-                        if (v === (f.etp ?? null)) return;
-                        try { await api.setMission({ professeur_id: profId, fonction: f.libelle, section_code: p.code,
-                          annee_scolaire: annee, etp: v }); await charger(); } catch (x) { setErreur(x.message); }
-                      }}
-                      className="w-16 h-7 border border-slate-300 rounded-champ px-1 text-[12px] text-right bg-white" />
-                  )}
-                  {f.actif && p.code !== '__ETAB__' && (
-                    <input type="number" min="0" max="1" step="0.1" disabled={!peutRegler}
-                      defaultValue={f.etp_helb || ''} placeholder="ETP HELB"
-                      title="ETP financé par la HELB (hors dotation IIP)"
-                      onClick={e => e.preventDefault()}
-                      onBlur={async e => {
-                        const v = parseFloat(String(e.target.value).replace(',', '.')) || 0;
-                        if (v === (f.etp_helb || 0)) return;
-                        try { await api.setMission({ professeur_id: profId, fonction: f.libelle, section_code: p.code,
-                          annee_scolaire: annee, etp_helb: v }); await charger(); } catch (x) { setErreur(x.message); }
-                      }}
-                      className="w-20 h-7 border border-slate-300 rounded-champ px-1 text-[12px] text-right bg-white" />
-                  )}
-                </label>
-              ))}
-              {!p.fonctions.length && <div className="text-[12px] text-slate-400">Aucune fonction de ce type.</div>}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 function AccesLuciePanel({ profId, detail }) {
   const af = (url, opts = {}) => fetch(url, {
