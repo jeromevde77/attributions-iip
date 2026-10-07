@@ -215,8 +215,18 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
      enregistrée ne se perd pas sans qu'on l'ait dit. */
   const [touche, setTouche] = useState(false);
   const [enregistreA, setEnregistreA] = useState(null);
+  /* PASSER À LA FICHE VOISINE ENREGISTRE (Charles, 7 octobre 2026 : « passer
+     au suivant doit sauver »). La saisie part, puis on avance ; si
+     l'enregistrement échoue, on reste sur la fiche, l'erreur sous les yeux.
+     « Ma fiche » (une demande à valider) garde la question. */
+  const apresSauvegarde = useRef(null);
   const aller = async (fn) => {
     if (!fn) return;
+    if (touche && !isNew && !restreint && onEnregistre) {
+      apresSauvegarde.current = fn;
+      await handleSubmit({ preventDefault() {} });
+      return;
+    }
     if (touche && !(await demander('Des modifications de cette fiche ne sont pas enregistrées. Passer quand même à la fiche voisine ? Elles seront perdues.'))) return;
     fn();
   };
@@ -398,7 +408,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!form.nom.trim() || !form.prenom.trim()) return informer('Nom et prénom sont obligatoires');
+    if (!form.nom.trim() || !form.prenom.trim()) { apresSauvegarde.current = null; return informer('Nom et prénom sont obligatoires'); }
     setSaving(true);
     try {
       let id = prof?.id;
@@ -432,10 +442,13 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
         setTouche(false);
         setEnregistreA(new Date().toLocaleTimeString('fr-BE', { hour: '2-digit', minute: '2-digit' }));
         onEnregistre();
+        const suite = apresSauvegarde.current;
+        apresSauvegarde.current = null;
+        if (suite) suite();
         return;
       }
       onSaved();
-    } catch (e) { informer('Erreur : ' + e.message); }
+    } catch (e) { apresSauvegarde.current = null; informer('Erreur : ' + e.message); }
     finally { setSaving(false); }
   }
 
@@ -482,11 +495,11 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
          la fiche de consultation et la fiche étudiant. */
       outils={(onPrec || onSuiv) && (
         <span className="inline-flex items-center gap-1 mr-2">
-          <button type="button" onClick={() => aller(onPrec)} disabled={!onPrec} title="Fiche précédente (flèche gauche)"
+          <button type="button" onClick={() => aller(onPrec)} disabled={!onPrec} title="Fiche précédente (flèche gauche) — enregistre d’abord"
             className="w-8 h-8 grid place-items-center rounded-champ border border-white/40 text-white hover:bg-white/10 disabled:opacity-30">
             <IconChevronLeft size={16} /></button>
           {position && <span className="text-[12px] text-white/80 tabular-nums min-w-[4rem] text-center">{position.i} / {position.n}</span>}
-          <button type="button" onClick={() => aller(onSuiv)} disabled={!onSuiv} title="Fiche suivante (flèche droite)"
+          <button type="button" onClick={() => aller(onSuiv)} disabled={!onSuiv} title="Fiche suivante (flèche droite) — enregistre d’abord"
             className="w-8 h-8 grid place-items-center rounded-champ border border-white/40 text-white hover:bg-white/10 disabled:opacity-30">
             <IconChevronRight size={16} /></button>
         </span>
