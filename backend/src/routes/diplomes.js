@@ -275,7 +275,13 @@ r.get('/candidats', authRequired, (req, res) => {
  * diplomation lisait les périodes étudiant sans l'autonomie, le PV de section
  * les périodes professeur plus l'autonomie — : le PV et le diplôme pouvaient
  * porter deux mentions. Une seule expression, ici, pour les deux. */
-const POIDS_DETERMINANTE = 'MAX(COALESCE(ue_per_etudiants, 0)) + MAX(COALESCE(ue_aut, 0))';
+/* L'AUTONOMIE UNE FOIS, PAS DEUX (Charles, 7 octobre 2026). Le dossier porte
+ * tantôt les périodes étudiant SANS l'autonomie (TIM : 80 + 20), tantôt AVEC
+ * (Psychomotricité, Optométrie : 120 = 96 + 24) ; les additionner à l'autonomie
+ * la comptait deux fois dans ces unités-là. Le plus grand des deux — la règle
+ * du PAE —, en entiers : une cellule vide vaut zéro, pas une chaîne. */
+const ENTIER = c => `MAX(CAST(COALESCE(NULLIF(${c}, ''), 0) AS INTEGER))`;
+const POIDS_DETERMINANTE = `MAX(${ENTIER('ue_per_etudiants')}, ${ENTIER('ue_per_cours')} + ${ENTIER('ue_aut')})`;
 function determinantesDe(unites, annee) {
   if (!unites.length) return [];
   const m = unites.map(() => '?').join(',');
