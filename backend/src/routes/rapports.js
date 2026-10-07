@@ -841,16 +841,27 @@ function documentCoutFormations(p) {
     <p class="fin">${ST.AUTRE.periodes ? `${n0(ST.AUTRE.periodes)} période(s) portées par un membre sans statut CC ou EXP sont comptées dans le coût, hors pourcentages CC / EXP. ` : ''}${d.type_defaut ? `${n0(d.type_defaut)} période(s) sans type de cours ont été comptées au tarif des cours généraux. ` : ''}${d.sans_tarif ? `<b>${n0(d.sans_tarif)} période(s) sans niveau ou sans tarif ne sont pas valorisées.</b> ` : ''}Un étudiant inscrit dans deux sections compte dans chacune.</p>`;
 
   const sexConnu = tot.periodes - SX.NR.periodes;
-  const tSexes = `<table><thead><tr><th>Section</th>${['Femmes', 'Hommes', 'X', 'Non renseigné', '% femmes', '% hommes']
-      .map(c => `<th class="n">${c}</th>`).join('')}</tr></thead>
-    <tbody>${d.sections.map(S => { const v = S.sexes; const c = S.periodes - v.NR.periodes; return `<tr><td>${esc(S.section)}</td>
-      <td class="n">${n0(v.F.periodes)}</td><td class="n">${n0(v.M.periodes)}</td><td class="n">${n0(v.X.periodes)}</td>
-      <td class="n">${n0(v.NR.periodes)}</td><td class="n">${pc(v.F.periodes, c)}</td><td class="n">${pc(v.M.periodes, c)}</td></tr>`; }).join('')}</tbody>
-    <tfoot><tr class="repere"><td>Ensemble</td><td class="n">${n0(SX.F.periodes)}</td><td class="n">${n0(SX.M.periodes)}</td>
-      <td class="n">${n0(SX.X.periodes)}</td><td class="n">${n0(SX.NR.periodes)}</td><td class="n">${pc(SX.F.periodes, sexConnu)}</td>
-      <td class="n">${pc(SX.M.periodes, sexConnu)}</td></tr></tfoot></table>
-    <p class="fin">En périodes données. Les pourcentages portent sur les périodes dont l'enseignant a son sexe renseigné
-      — <b>${pc(sexConnu, tot.periodes)} des périodes</b> ; le reste se complète sur la fiche (Ma fiche ou Personnel).</p>`;
+  /* FEMMES ET HOMMES : DES PERSONNES, PAS DES PÉRIODES (Charles, 7 octobre
+     2026 : « pas de sens — on donne le sexe par humain présent ; en AeSI,
+     84 humains »). Les étudiants inscrits (hors archivés) et les membres du
+     personnel de la section, comptés comme dans les chiffres clés ; l'ensemble
+     compte chacun une fois. */
+  const H = d.humains;
+  const ligneSexe = (lib, x) => { const c = (x?.n || 0) - (x?.sexe_inconnu || 0); return `<tr><td>${lib}</td><td class="n">${n0(x?.n)}</td>
+      <td class="n">${n0(x?.F)}</td><td class="n">${n0(x?.M)}</td><td class="n">${n0(x?.X)}</td><td class="n">${n0(x?.sexe_inconnu)}</td>
+      <td class="n">${pc(x?.F || 0, c)}</td><td class="n">${pc(x?.M || 0, c)}</td></tr>`; };
+  const teteSexe = `<thead><tr><th>Section</th>${['Personnes', 'Femmes', 'Hommes', 'X', 'Non renseigné', '% femmes', '% hommes']
+      .map(c => `<th class="n">${c}</th>`).join('')}</tr></thead>`;
+  const tSexes = !H ? '<p class="fin">Données indisponibles.</p>' : `
+    <h3 class="partie">Étudiants</h3>
+    <table>${teteSexe}<tbody>${H.lignes.filter(l => l.etudiants?.n).map(l => ligneSexe(esc(l.section), l.etudiants)).join('')}</tbody>
+      <tfoot>${ligneSexe('<b>Ensemble (chacun une fois)</b>', H.ensemble.etudiants).replace('<tr>', '<tr class="repere">')}</tfoot></table>
+    <h3 class="partie">Personnel</h3>
+    <table>${teteSexe}<tbody>${H.lignes.filter(l => l.personnel?.n).map(l => ligneSexe(esc(l.section), l.personnel)).join('')}</tbody>
+      <tfoot>${ligneSexe('<b>Ensemble (chacun une fois)</b>', H.ensemble.personnel).replace('<tr>', '<tr class="repere">')}</tfoot></table>
+    <p class="fin">Des personnes présentes : les étudiants inscrits cette année (hors archivés), le personnel qui porte une attribution
+      ou une fonction. Une personne présente dans deux sections compte dans chacune ; l'ensemble la compte une fois.
+      Les pourcentages portent sur les personnes dont le sexe est renseigné.</p>`;
 
   // LES DROITS ET LES FRAIS : ce que paient les étudiants, et à qui cela revient.
   const R = d.recettes || {};
@@ -956,8 +967,9 @@ function documentCoutFormations(p) {
     ${rangeeCamemberts(
       camembert('Chargés de cours et experts — périodes', ['CC', 'EXP', 'AUTRE'].map(k => ({ nom: libStatut[k], valeur: ST[k].periodes,
         couleur: coulStatut[k], pale: coulStatut[k] === GRIS })), { note: `CC ${eur(ST.CC.cout)} · EXP ${eur(ST.EXP.cout)}` }),
-      camembert('Femmes et hommes — périodes', ['F', 'M', 'X', 'NR'].map(k => ({ nom: libSexe[k], valeur: SX[k].periodes,
-        couleur: coulSexe[k], pale: coulSexe[k] === GRIS })), { note: `sexe renseigné pour ${pc(sexConnu, tot.periodes)} des périodes` }),
+      ...(H ? [['Étudiants', H.ensemble.etudiants], ['Personnel', H.ensemble.personnel]].map(([lib, x]) =>
+        camembert(`${lib} — femmes et hommes`, [['F', x.F], ['M', x.M], ['X', x.X], ['NR', x.sexe_inconnu]].map(([k, v]) => ({ nom: libSexe[k], valeur: v || 0,
+          couleur: coulSexe[k], pale: coulSexe[k] === GRIS })), { total: `${n0(x.n)}`, note: `${n0(x.n)} personnes` })) : []),
       camembert('Coût complet — cours et fonctions', [{ nom: 'Cours', valeur: tot.cout, couleur: K.bleu },
         { nom: 'Fonctions', valeur: tot.cout_fonctions, couleur: K.or }], { total: `${Math.round(tot.cout_complet / 1000).toLocaleString('fr-BE')} k€` }),
       camembert('Ce que paient les étudiants', [{ nom: "Droit d'inscription", valeur: R.di || 0, couleur: K.bleu },
@@ -975,7 +987,10 @@ function documentCoutFormations(p) {
         .map(S => ({ nom: esc(S.section), valeur: S.cout_complet / S.inscrits, couleur: K.donnees, texte: eur(S.cout_complet / S.inscrits) })) })))}
     ${duo(
       parSection('CC et EXP par section', S => S.statuts, ['CC', 'EXP', 'AUTRE'], libStatut, coulStatut),
-      parSection('Femmes et hommes par section', S => S.sexes, ['F', 'M', 'X', 'NR'], libSexe, coulSexe))}
+      !H ? '' : cadreGraphe('Étudiants par section — femmes et hommes', `<table class="barres">${H.lignes.filter(l => l.etudiants?.n).map(l => {
+        const x = l.etudiants; const c = (x.n || 0) - (x.sexe_inconnu || 0);
+        return `<tr><td class="barres-lib">${esc(l.section)}</td><td>${barreNue([['F', x.F], ['M', x.M], ['X', x.X], ['NR', x.sexe_inconnu]].map(([k, v]) => ({ v: v || 0, c: coulSexe[k], pale: coulSexe[k] === GRIS })))}</td>
+          <td class="barres-val">${n0(x.n)} · ${pc(x.F || 0, c)} F</td></tr>`; }).join('')}</table>${legende(['F', 'M', 'X', 'NR'], libSexe, coulSexe)}`))}
 
     <h2>Section par section</h2>${tSections}
     <h2>Droits d'inscription et frais</h2>
