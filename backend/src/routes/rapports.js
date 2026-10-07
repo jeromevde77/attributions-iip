@@ -2025,7 +2025,12 @@ export const RAPPORTS = [
                      AND j.annee_scolaire < i.annee_scolaire) AS reprise,
             (SELECT CASE WHEN v.porte = 'vae' THEN 'VAE' ELSE 'VA' END FROM etudiant_valorisation v
               WHERE v.etudiant_id = e.id AND v.ue_num = i.ue_num AND v.type = 'complete'
-                AND COALESCE(v.decision, 'accordee') <> 'refusee' AND v.decision_le IS NOT NULL LIMIT 1) AS va
+                AND COALESCE(v.decision, 'accordee') <> 'refusee' AND v.decision_le IS NOT NULL LIMIT 1) AS va,
+            (SELECT MIN(v2.annee_scolaire) FROM etudiant_valorisation v2
+              WHERE v2.etudiant_id = e.id AND v2.ue_num = i.ue_num AND v2.type = 'complete'
+                AND COALESCE(v2.decision, 'accordee') <> 'refusee' AND v2.decision_le IS NOT NULL) AS va_annee,
+            (SELECT MIN(j2.annee_scolaire) FROM etudiant_inscription j2 WHERE j2.etudiant_id = e.id AND j2.ue_num = i.ue_num
+              AND j2.annee_scolaire < i.annee_scolaire AND j2.resultat = 'reussi') AS reussie_en
           FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
          WHERE i.annee_scolaire = ? AND i.ue_num = ?
          GROUP BY e.id ORDER BY upper(e.nom), e.prenom`);
@@ -2035,7 +2040,13 @@ export const RAPPORTS = [
         if (!l.length) continue;
         const unite = `UE ${u.ue_num} — ${u.ue_nom || ''} · ${l.length} inscrit${l.length > 1 ? 's' : ''}`;
         l.forEach((e, i) => out.push({ unite, n: String(i + 1), etudiant: `${String(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim(),
-          matricule: e.matricule || '', mention: e.va ? `dispensé (${e.va})` : e.reprise ? 'reprise' : '' }));
+          matricule: e.matricule || '',
+          /* DÉJÀ ACQUISE N'EST PAS DISPENSÉE (7 octobre 2026, 25-00003) : une VA ou une
+             réussite d'une année antérieure veut dire que l'inscription de cette
+             année est une erreur — à retirer du PAE, pas à suivre. */
+          mention: e.reussie_en ? `déjà réussie en ${e.reussie_en} — à retirer`
+            : e.va && e.va_annee < p.annee ? `déjà acquise (${e.va} ${e.va_annee}) — à retirer`
+            : e.va ? `dispensé (${e.va})` : e.reprise ? 'reprise' : '' }));
       }
       return out;
     },
