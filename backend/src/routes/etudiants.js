@@ -2133,6 +2133,49 @@ r.post('/:id/valorisations/notifier', authRequired, roleRequired('admin', 'edite
 });
 
 /**
+ * RETIRER CE QUI EST DÉJÀ ACQUIS (Charles, 7 octobre 2026 : « si AQ et
+ * retirer, alors prévoir le bouton pour le faire »). Le serveur ne croit pas
+ * l'écran : il revérifie, paire par paire, que l'unité a été réussie ou
+ * valorisée en entier une année précédente, puis retire par la porte du PAE
+ * (ecrireProgramme) — une inscription qui porte un résultat, des notes ou un
+ * report est conservée et nommée. Simulation d'abord.
+ */
+r.post('/inscrits-unites/retirer-acquises', authRequired, gesteRequis('etudiants.pae_composer'), (req, res) => {
+  const annee = String(req.body?.annee || '');
+  const paires = (Array.isArray(req.body?.paires) ? req.body.paires : [])
+    .map(p => ({ id: Number(p?.id), ue: Number(p?.ue) })).filter(p => p.id && p.ue).slice(0, 2000);
+  const simulation = req.body?.simulation !== false;
+  if (!annee || !paires.length) return res.status(400).json({ error: 'annee et paires requises' });
+  const reussie = db.prepare(`SELECT MIN(annee_scolaire) a FROM etudiant_inscription
+    WHERE etudiant_id = ? AND ue_num = ? AND annee_scolaire < ? AND resultat = 'reussi'`);
+  const vaAvant = db.prepare(`SELECT MIN(annee_scolaire) a FROM etudiant_valorisation
+    WHERE etudiant_id = ? AND ue_num = ? AND annee_scolaire < ? AND type = 'complete' AND ${vaRetenue()}`);
+  const nom = db.prepare('SELECT nom, prenom FROM etudiant WHERE id = ?');
+  const par = req.user?.nom || req.user?.email || null;
+  const retirees = [], conservees = [], refusees = [];
+  const parEtudiant = new Map();
+  for (const p of paires) {
+    const e = nom.get(p.id);
+    const qui = e ? `${String(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim() : `#${p.id}`;
+    const quand = reussie.get(p.id, p.ue, annee)?.a || vaAvant.get(p.id, p.ue, annee)?.a;
+    if (!quand) { refusees.push({ ...p, nom: qui, pourquoi: "l'unité n'est pas acquise" }); continue; }
+    (parEtudiant.get(p.id) || parEtudiant.set(p.id, { nom: qui, ues: [] }).get(p.id)).ues.push({ ue: p.ue, quand });
+  }
+  for (const [id, x] of parEtudiant) {
+    const perim = perimetre(req);
+    if (perim) {
+      let s = null; try { s = sectionRattachement(id, annee).section || null; } catch { /* */ }
+      if (!s || !perim.includes(s)) { for (const u of x.ues) refusees.push({ id, ue: u.ue, nom: x.nom, pourquoi: 'hors de votre périmètre' }); continue; }
+    }
+    const b = ecrireProgramme({ etudId: id, annee, retirer: x.ues.map(u => u.ue), origine: 'inscrits par unité — déjà acquise',
+      par, simulation, motifs: Object.fromEntries(x.ues.map(u => [u.ue, `déjà acquise (${u.quand})`])) });
+    for (const u of b.retirees || []) retirees.push({ id, ue: u, nom: x.nom });
+    for (const c of b.conservees || []) conservees.push({ id, ue: c.ue_num, nom: x.nom, pourquoi: c.pourquoi });
+  }
+  res.json({ simulation, retirees, conservees, refusees });
+});
+
+/**
  * LES INSCRITS PAR UNITÉ, À L'ÉCRAN (Charles, 7 octobre 2026 : « un tableau
  * par section, avec des filtres ; d'abord tous les inscrits de la section,
  * puis pour des UE sélectionnées ou une seule ; ensuite le détail avec des

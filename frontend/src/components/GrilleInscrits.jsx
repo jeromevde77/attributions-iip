@@ -14,6 +14,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { IconChevronRight, IconChevronDown, IconPrinter, IconColumns3 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { ouvrirApercu } from '../lib/apercu.js';
+import { demander, informer } from '../lib/dialogue.jsx';
+import { peutGeste } from '../lib/droits.js';
 
 /** L'ordre de tri « par état » : d'abord ceux qui suivent, puis les valorisés, puis les reports… */
 export const ORDRE_ETAT = ['I', 'VA', 'VAE', 'VAP', 'RP', 'D', 'AQ'];
@@ -64,7 +66,7 @@ function Pastille({ k, sous, titre, petite, onClick }) {
 /** Les cases qui mènent à la revue du PAE : ce qui dispense (report, VA…). */
 const VERS_REVUE = new Set(['RP', 'VA', 'VAE', 'VAP', 'D']);
 
-export default function GrilleInscrits({ data, passe, annee, section, onFiche, onRevue }) {
+export default function GrilleInscrits({ data, passe, annee, section, onFiche, onRevue, onChange }) {
   const E = data.etudiants;
   const cle = `iu.grille.${section}`;
   const [idCols, setIdCols] = useState(() => lire(`${cle}.id`, ['matricule', 'bloc', 'profil']));
@@ -106,6 +108,35 @@ export default function GrilleInscrits({ data, passe, annee, section, onFiche, o
   const basculer = (set, v) => { const s = new Set(set); s.has(v) ? s.delete(v) : s.add(v); return s; };
   const compte = (ue, k) => lignes.filter(id => ligneDe(id, ue)?.code === k).length;
   const avec = k => idCols.includes(k);
+  // LA NOTE REPORTÉE À UNE DÉCIMALE (« RP 14,911 » ne se lit pas).
+  const noteCourte = n => String(Math.round(Number(n) * 10) / 10).replace('.', ',');
+
+  /* RETIRER CE QUI EST DÉJÀ ACQUIS (Charles, 7 octobre 2026) : le serveur
+     revérifie, simule, et passe par la porte du PAE ; on voit avant d'écrire. */
+  const peutRetirer = peutGeste('etudiants.pae_composer');
+  const aqVisibles = lignes.flatMap(id => visibles.filter(u => ligneDe(id, u.ue_num)?.code === 'AQ' && ligneDe(id, u.ue_num)?.inscrit)
+    .map(u => ({ id, ue: u.ue_num })));
+  async function retirerAcquises(paires) {
+    const appel = simulation => fetch('/api/etudiants/inscrits-unites/retirer-acquises', {
+      method: 'POST', headers: authHeaders(), body: JSON.stringify({ annee, paires, simulation }) }).then(async r => {
+        const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`); return j; });
+    try {
+      const s = await appel(true);
+      const liste = l => l.slice(0, 12).map(x => `· ${x.nom} — UE ${x.ue}${x.pourquoi ? ` (${x.pourquoi})` : ''}`).join('\n') + (l.length > 12 ? `\n… et ${l.length - 12} autre(s)` : '');
+      if (!s.retirees.length) {
+        await informer({ titre: 'Rien à retirer', message: [s.conservees.length ? `Conservées (résultat, notes ou report encodés) :\n${liste(s.conservees)}` : '',
+          s.refusees.length ? `Refusées :\n${liste(s.refusees)}` : ''].filter(Boolean).join('\n\n') || 'Aucune inscription à retirer.' });
+        return;
+      }
+      const ok = await demander(`Retirer ${s.retirees.length} inscription(s) d'unités déjà acquises du programme ${annee} ?\n\n${liste(s.retirees)}`
+        + (s.conservees.length ? `\n\nConservées (résultat, notes ou report encodés) : ${s.conservees.length}` : '')
+        + '\n\nLe retrait passe par le PAE : un programme modifié perd sa confirmation.');
+      if (!ok) return;
+      const f = await appel(false);
+      await informer({ titre: 'Inscriptions retirées', ton: 'reussi', message: `${f.retirees.length} inscription(s) retirée(s).` });
+      onChange?.();
+    } catch (e) { setErreur(e.message); }
+  }
 
   async function imprimer() {
     setImpression(true); setErreur(null);
@@ -151,6 +182,10 @@ export default function GrilleInscrits({ data, passe, annee, section, onFiche, o
           {visibles.map(u => <option key={u.ue_num} value={u.ue_num}>Trier : état de l’UE {u.ue_num} (I, VA, RP…)</option>)}
         </select>
         <div className="flex-1" />
+        {peutRetirer && aqVisibles.length > 0 && (
+          <button type="button" className="controle flex items-center gap-1.5 text-amber-800 border-amber-600" onClick={() => retirerAcquises(aqVisibles)}
+            title="Retirer du programme de l'année les unités déjà réussies ou valorisées (affichées)">
+            Retirer les AQ ({aqVisibles.length})</button>)}
         <span className="text-[13px] text-slate-600"><b>{lignes.length}</b> étudiant(s)</span>
         <button type="button" className="bouton-sortir controle flex items-center gap-1.5" disabled={impression || !lignes.length} onClick={imprimer}
           title="Ce qui est affiché — colonnes, unités ouvertes, filtres et tri — en paysage">
@@ -239,8 +274,9 @@ export default function GrilleInscrits({ data, passe, annee, section, onFiche, o
                   <td key={u.ue_num} className="px-2 py-1 border-b border-l border-slate-100 text-center whitespace-nowrap">
                     {l ? <span className="inline-flex items-center gap-1 whitespace-nowrap">
                       <Pastille k={l.code} sous={fr(l.date)}
-                        titre={`${ETATS[l.code]?.lib}${l.detail.length ? ' — ' + l.detail.join(' · ') : ''}${l.reprise ? ' · reprise' : ''}${VERS_REVUE.has(l.code) ? ' — clic : revue du PAE' : ''}`}
-                        onClick={VERS_REVUE.has(l.code) && onRevue ? () => onRevue(id) : undefined} />
+                        titre={`${ETATS[l.code]?.lib}${l.detail.length ? ' — ' + l.detail.join(' · ') : ''}${l.reprise ? ' · reprise' : ''}${VERS_REVUE.has(l.code) ? ' — clic : revue du PAE' : l.code === 'AQ' && l.inscrit && peutRetirer ? ' — clic : retirer du programme' : ''}`}
+                        onClick={VERS_REVUE.has(l.code) && onRevue ? () => onRevue(id)
+                          : l.code === 'AQ' && l.inscrit && peutRetirer ? () => retirerAcquises([{ id, ue: u.ue_num }]) : undefined} />
                       {l.reprise && <span title="Reprise : déjà inscrit à cette unité une année précédente" className="text-[10px] font-semibold text-slate-500">↻</span>}
                       {l.tags.filter(t => t !== 'VA ?').map(t => <span key={t} className="text-[10px] text-slate-500">+{t}</span>)}
                       {l.tags.includes('VA ?') && <span title="Demande de VA en cours" className="text-[10px] text-amber-700">VA?</span>}
@@ -249,7 +285,7 @@ export default function GrilleInscrits({ data, passe, annee, section, onFiche, o
                   </td>,
                   ...(ouvertes.has(u.ue_num) ? u.cours.map(c => { const k = l?.cellules?.[c.code]; return (
                     <td key={`${u.ue_num}-${c.code}`} className="px-1.5 py-1 border-b border-slate-100 text-center bg-slate-50/50 whitespace-nowrap">
-                      {k ? <Pastille petite k={k.k} sous={k.note != null ? String(k.note).replace('.', ',') : fr(k.date || k.annee)}
+                      {k ? <Pastille petite k={k.k} sous={k.note != null ? noteCourte(k.note) : fr(k.date || k.annee)}
                         titre={`${ETATS[k.k]?.lib}${k.note != null ? ` — note ${k.note}/20` : ''}${k.annee ? ` (${k.annee})` : ''}${VERS_REVUE.has(k.k) ? ' — clic : revue du PAE' : ''}`}
                         onClick={VERS_REVUE.has(k.k) && onRevue ? () => onRevue(id) : undefined} /> : ''}
                     </td>); }) : []),
