@@ -968,38 +968,48 @@ function documentCoutFormations(p) {
       ]);
     })()}
     ${regle}
+    <section class="bloc">
+    <h2>Les coûts</h2>
     ${rangeeCamemberts(
-      camembert('Chargés de cours et experts — périodes', ['CC', 'EXP', 'AUTRE'].map(k => ({ nom: libStatut[k], valeur: ST[k].periodes,
-        couleur: coulStatut[k], pale: coulStatut[k] === GRIS })), { note: `CC ${eur(ST.CC.cout)} · EXP ${eur(ST.EXP.cout)}` }),
-      ...(H ? [['Étudiants', H.ensemble.etudiants], ['Personnel', H.ensemble.personnel]].map(([lib, x]) =>
-        camembert(`${lib} — femmes et hommes`, [['F', x.F], ['M', x.M], ['X', x.X], ['NR', x.sexe_inconnu]].map(([k, v]) => ({ nom: libSexe[k], valeur: v || 0,
-          couleur: coulSexe[k], pale: coulSexe[k] === GRIS })), { total: `${n0(x.n)}`, note: `${n0(x.n)} personnes` })) : []),
       camembert('Coût complet — cours et fonctions', [{ nom: 'Cours', valeur: tot.cout, couleur: K.bleu },
         { nom: 'Fonctions', valeur: tot.cout_fonctions, couleur: K.or }], { total: `${Math.round(tot.cout_complet / 1000).toLocaleString('fr-BE')} k€` }),
-      camembert('Ce que paient les étudiants', [{ nom: "Droit d'inscription", valeur: R.di || 0, couleur: K.bleu },
-        { nom: 'Frais administratifs', valeur: R.frais || 0, couleur: K.or }, { nom: 'Droit spécifique (FWB)', valeur: R.dis || 0, couleur: K.cyan }],
-        { total: `${Math.round(((R.di || 0) + (R.frais || 0) + (R.dis || 0)) / 1000).toLocaleString('fr-BE')} k€` }))}
-    ${duo(
       camembert('Coût des cours par section', d.sections.filter(S => S.cout).map((S, i) => ({ nom: esc(S.section), valeur: S.cout, couleur: couleursSerie(K)[i % 10] })),
-        { total: `${Math.round(tot.cout / 1000).toLocaleString('fr-BE')} k€` }),
-      camembert('Périodes par type de cours', [{ nom: 'Cours généraux et techniques (CT)', valeur: d.sections.reduce((t, S) => t + (S.per_ct || 0), 0), couleur: K.bleu },
-        { nom: 'Pratique professionnelle (PP)', valeur: d.sections.reduce((t, S) => t + (S.per_pp || 0), 0), couleur: K.or }]))}
+        { total: `${Math.round(tot.cout / 1000).toLocaleString('fr-BE')} k€` }))}
     ${duo(
       cadreGraphe('Coût complet par section', barres({ donnees: d.sections.map(S => ({ nom: esc(S.section), valeur: S.cout_complet, couleur: K.marine, texte: eur(S.cout_complet) })) })),
       cadreGraphe('Coût complet par étudiant inscrit', barres({ donnees: d.sections.filter(S => S.inscrits)
         .sort((a, b) => b.cout_complet / b.inscrits - a.cout_complet / a.inscrits)
         .map(S => ({ nom: esc(S.section), valeur: S.cout_complet / S.inscrits, couleur: K.donnees, texte: eur(S.cout_complet / S.inscrits) })) })))}
-    ${duo(
-      parSection('CC et EXP par section', S => S.statuts, ['CC', 'EXP', 'AUTRE'], libStatut, coulStatut),
-      !H ? '' : cadreGraphe('Étudiants par section — femmes et hommes', `<table class="barres">${H.lignes.filter(l => l.etudiants?.n).map(l => {
+    </section>
+    <section class="bloc">
+    <h2>Les enseignants — chargés de cours et experts</h2>
+    ${rangeeCamemberts(
+      camembert('Chargés de cours et experts — périodes', ['CC', 'EXP', 'AUTRE'].map(k => ({ nom: libStatut[k], valeur: ST[k].periodes,
+        couleur: coulStatut[k], pale: coulStatut[k] === GRIS })), { note: `CC ${eur(ST.CC.cout)} · EXP ${eur(ST.EXP.cout)}` }),
+      camembert('Périodes par type de cours', [{ nom: 'Cours généraux et techniques (CT)', valeur: d.sections.reduce((t, S) => t + (S.per_ct || 0), 0), couleur: K.bleu },
+        { nom: 'Pratique professionnelle (PP)', valeur: d.sections.reduce((t, S) => t + (S.per_pp || 0), 0), couleur: K.or }]))}
+    ${parSection('CC et EXP par section', S => S.statuts, ['CC', 'EXP', 'AUTRE'], libStatut, coulStatut)}
+    </section>
+    <section class="bloc">
+    <h2>Les personnes — femmes et hommes</h2>
+    ${rangeeCamemberts(
+      ...(H ? [['Étudiants', H.ensemble.etudiants], ['Personnel', H.ensemble.personnel]].map(([lib, x]) =>
+        camembert(`${lib} — femmes et hommes`, [['F', x.F], ['M', x.M], ['X', x.X], ['NR', x.sexe_inconnu]].map(([k, v]) => ({ nom: libSexe[k], valeur: v || 0,
+          couleur: coulSexe[k], pale: coulSexe[k] === GRIS })), { total: `${n0(x.n)}`, note: `${n0(x.n)} personnes` })) : []))}
+    ${!H ? '' : cadreGraphe('Étudiants par section — femmes et hommes', `<table class="barres">${H.lignes.filter(l => l.etudiants?.n).map(l => {
         const x = l.etudiants; const c = (x.n || 0) - (x.sexe_inconnu || 0);
         return `<tr><td class="barres-lib">${esc(l.section)}</td><td>${barreNue([['F', x.F], ['M', x.M], ['X', x.X], ['NR', x.sexe_inconnu]].map(([k, v]) => ({ v: v || 0, c: coulSexe[k], pale: coulSexe[k] === GRIS })))}</td>
-          <td class="barres-val">${n0(x.n)} · ${pc(x.F || 0, c)} F</td></tr>`; }).join('')}</table>${legende(['F', 'M', 'X', 'NR'], libSexe, coulSexe)}`))}
-
-    <h2>Section par section</h2>${tSections}
+          <td class="barres-val">${n0(x.n)} · ${pc(x.F || 0, c)} F</td></tr>`; }).join('')}</table>${legende(['F', 'M', 'X', 'NR'], libSexe, coulSexe)}`)}
+    </section>
+    <section class="saut"><h2>Section par section</h2>${tSections}</section>
+    <section class="saut">
     <h2>Droits d'inscription et frais</h2>
+    ${rangeeCamemberts(
+      camembert('Ce que paient les étudiants', [{ nom: "Droit d'inscription", valeur: R.di || 0, couleur: K.bleu },
+        { nom: 'Frais administratifs', valeur: R.frais || 0, couleur: K.or }, { nom: 'Droit spécifique (FWB)', valeur: R.dis || 0, couleur: K.cyan }],
+        { total: `${Math.round(((R.di || 0) + (R.frais || 0) + (R.dis || 0)) / 1000).toLocaleString('fr-BE')} k€` }))}
     ${duo(
-      cadreGraphe('Ce que paient les étudiants', `<p class="fin">${eur((R.di || 0) + (R.dis || 0) + (R.frais || 0))} dus, dont
+      cadreGraphe('En résumé', `<p class="fin">${eur((R.di || 0) + (R.dis || 0) + (R.frais || 0))} dus, dont
         ${eur((R.di || 0) + (R.frais || 0))} pour l'établissement (droit d'inscription et frais administratifs)
         et ${eur(R.dis || 0)} de droit spécifique pour la Fédération · ${eur(R.verse)} versés à ce jour.</p>`),
       cadreGraphe('Frais administratifs par section', barres({ donnees: [...d.sections].filter(S => S.recettes.frais)
@@ -1008,14 +1018,16 @@ function documentCoutFormations(p) {
     ${tRecettes}
     ${R.tiers && Object.keys(R.tiers).length ? `<p class="fin"><b>Perçus par un tiers</b>, hors recettes de l'établissement : ${Object.entries(R.tiers).map(([p, v]) => `${esc(p)} ${eur(v)}`).join(' · ')}
       (${n0(R.etudiants_tiers)} étudiant(s) — la fiche de chacun dit qui perçoit et pourquoi).</p>` : ''}
-    <h2>Femmes et hommes</h2>${tSexes}
-    <h2>Personnel administratif (PNCC) et coordinations</h2>${tFonctions}
-
+    </section>
+    <section class="saut"><h2>Femmes et hommes</h2>${tSexes}</section>
+    <section class="bloc"><h2>Personnel administratif (PNCC) et coordinations</h2>${tFonctions}</section>
+    <section class="saut">
     <h2>Unité par unité — le calcul</h2>
     <table><thead><tr><th>Unité</th><th class="n" style="width:14mm">Niveau</th>
       <th class="n" style="width:42mm">CT : périodes × €</th><th class="n" style="width:42mm">PP : périodes × €</th>
       <th class="n" style="width:24mm">Coût</th></tr></thead><tbody>${detail}</tbody></table>
-    ${tDroitsUE}`;
+    </section>
+    <section class="saut">${tDroitsUE}</section>`;
 
   return {
     corps,
@@ -1023,7 +1035,15 @@ function documentCoutFormations(p) {
     titre: 'Coûts et recettes des formations',
     nom: `Couts-et-recettes-formations-${p.annee}.html`,
     orientation: 'paysage',
-    styles: STYLE_RAPPORT + STYLE_REPORTING + STYLE_STATS,
+    styles: STYLE_RAPPORT + STYLE_REPORTING + STYLE_STATS + `
+      /* PAS DE PARTIE COUPÉE (Charles, 7 octobre 2026) : un bloc court tient sur
+         sa page ou passe à la suivante ; une partie longue, ou qui doit se lire
+         seule, ouvre une page. */
+      section.bloc { break-inside: avoid; page-break-inside: avoid; }
+      section.saut { break-before: page; page-break-before: always; }
+      section.bloc h2, section.saut h2 { margin-top: 0; }
+      h2 { break-after: avoid; page-break-after: avoid; }
+      .cadre, .camemberts, table.barres, tr { break-inside: avoid; }`,
   };
 }
 
