@@ -199,6 +199,17 @@ export function camembert(titre, parts, { total = null, note = '' } = {}) {
       <b>${Math.round(p.valeur / somme * 100)} %</b></div>`).join('') : '<div class="fin">rien d’encodé</div>'}</div></div>
     ${note ? `<div class="fin">${note}</div>` : ''}</div>`;
 }
+/**
+ * EN BREF (Charles, 6 octobre 2026 : « plus de phrases de synthèse »). Ce que
+ * la pièce démontre, en phrases, en tête — calculées, jamais rédigées à la
+ * main : une phrase écrite d'avance mentirait l'année suivante. Une donnée
+ * trop peu remplie ne fait pas de conclusion : la phrase dit ce qui manque.
+ */
+export const enBref = (phrases) => `<div class="en-bref"><h3>En bref</h3><ul>${phrases.filter(Boolean)
+  .map(x => `<li>${x}</li>`).join('')}</ul></div>`;
+/** Les couleurs d'une série de sections, dans l'ordre. */
+const couleursSerie = K => [K.bleu, K.or, K.cyan, K.marine, K.donnees, K.helb, '#64748b', '#94a3b8', '#3E7D5E', '#B45309'];
+
 /** Une rangée de camemberts, côte à côte. */
 export const rangeeCamemberts = (...c) => `<table class="cams"><tr>${c.filter(Boolean).map(x => `<td>${x}</td>`).join('')}</tr></table>`;
 
@@ -633,6 +644,11 @@ const STYLE_STATS = `
   table.duo .barres-val { width:30% !important; padding-left:2mm !important; white-space:nowrap; }
   .cadre h3 { font-size:9.5pt; color:#1B2B4B; margin:0 0 2mm; font-weight:700; }
   table.cams { width:100%; border-collapse:collapse; table-layout:fixed; margin:0 0 4mm; }
+  .en-bref { border:0.3mm solid #D8DCE4; border-left:1mm solid #C9A84C; border-radius:0 2.6mm 2.6mm 0;
+             padding:2.5mm 4mm; margin:0 0 5mm; break-inside:avoid; background:#fff; }
+  .en-bref h3 { font-size:9.5pt; color:#1B2B4B; margin:0 0 1.5mm; font-weight:700; }
+  .en-bref ul { margin:0; padding-left:4.5mm; columns:2; column-gap:8mm; }
+  .en-bref li { font-size:8.5pt; color:#1E293B; line-height:1.45; margin:0 0 1mm; break-inside:avoid; }
   table.cams td { vertical-align:top; padding:0 2mm !important; border:0; }
   .camembert { break-inside:avoid; }
   .camembert h3 { font-size:9pt; color:#1B2B4B; margin:0 0 1.5mm; font-weight:700; }
@@ -685,7 +701,7 @@ function documentPersonnelStats(p) {
   const graphes = `
     ${rangeeCamemberts(
       camembert('Statut', [{ nom: 'Chargés de cours', valeur: E.cc, couleur: K.bleu }, { nom: 'Experts', valeur: E.exp, couleur: K.cyan },
-        { nom: 'Autre', valeur: E.autre_statut, ...g }]),
+        { nom: 'Administratifs', valeur: E.adm || 0, couleur: K.or }, { nom: 'Autre', valeur: E.autre_statut, ...g }]),
       camembert('Nomination', [{ nom: 'Définitifs', valeur: E.definitif, couleur: K.bleu }, { nom: 'Temporaires', valeur: E.temporaire, couleur: K.or },
         { nom: 'Non renseignée', valeur: E.n - E.definitif - E.temporaire, ...g }]),
       camembert('Employeur', [{ nom: 'Institut', valeur: E.iip, couleur: K.iip }, { nom: 'Haute École', valeur: E.helb, couleur: K.helb }],
@@ -713,13 +729,35 @@ function documentPersonnelStats(p) {
 
   const corps = `
     ${rangeeTuiles([
-      tuile({ valeur: n0(E.n), libelle: 'Membres du personnel', precision: `${n0(E.enseignant)} enseignant(s)`, ton: 'fort' }),
+      tuile({ valeur: n0(E.n), libelle: 'Membres du personnel', precision: `${n0(E.enseignant)} enseignant(s) · ${n0(E.adm || 0)} administratif(s)`, ton: 'fort' }),
       tuile({ valeur: n2(E.etp), unite: 'ETP', libelle: 'Charge totale', precision: `${d.sections.length} section(s)` }),
       tuile({ valeur: E.n ? n2(E.etp / E.n) : '—', unite: 'ETP', libelle: 'Charge moyenne', precision: 'par membre' }),
       tuile({ valeur: pc(E.temporaire, E.n), libelle: 'Temporaires', precision: `${n0(E.definitif)} définitif(s)` }),
       tuile({ valeur: pc(E.cc, E.n), libelle: 'Chargés de cours', precision: `${n0(E.exp)} expert(s)` }),
     ])}
+    ${(() => {
+      const petits = (E.t1 || 0) + (E.t2 || 0);
+      const domConnu = E.n - E.domicile_inconnu, sexeConnu = E.n - E.sexe_inconnu, ageConnu = E.n - E.age_inconnu;
+      const grosse = [...d.sections].sort((a, b) => b.etp_section - a.etp_section)[0];
+      return enBref([
+        `<b>${n0(E.n)} membres</b> assurent <b>${n2(E.etp)} ETP</b> : la charge moyenne est de <b>${E.n ? n2(E.etp / E.n) : '—'} ETP</b> par personne.`,
+        `<b>${pc(petits, E.n)}</b> des membres ont <b>moins d'un quart-temps</b> (moins de 0,25 ETP) ; ${n0(E.t5 || 0)} ont 0,75 ETP ou plus.`,
+        `${pc(E.temporaire, E.n)} des membres sont <b>temporaires</b>, ${n0(E.definitif)} définitif(s).`,
+        `Les <b>chargés de cours</b> sont ${pc(E.cc, E.n)}, les <b>experts</b> ${pc(E.exp, E.n)}${E.adm ? `, les <b>administratifs</b> ${pc(E.adm, E.n)} (${n0(E.adm)} personne(s) sans attribution de cours)` : ''}.`,
+        E.helb ? `<b>${n0(E.helb)}</b> membre(s) ont au moins une attribution sous <b>contrat HELB</b>.` : '',
+        grosse ? `La section la plus chargée est <b>${esc(grosse.section)}</b>, avec ${n2(grosse.etp_section)} ETP (${pc(grosse.etp_section, E.etp)} du total).` : '',
+        domConnu >= E.n * 0.5 ? `${pc(E.bruxelles, domConnu)} des membres habitent <b>Bruxelles</b>, ${pc(E.wallonie, domConnu)} la Wallonie, ${pc(E.flandre, domConnu)} la Flandre.` : '',
+        sexeConnu >= E.n * 0.5 ? `Les <b>femmes</b> sont ${pc(E.F, sexeConnu)} des membres dont le sexe est connu${ageConnu >= E.n * 0.5 ? ` ; l'âge moyen est de ${n1(E.age_moyen)} ans` : ''}.`
+          : `Le sexe et l'âge ne sont connus que pour ${pc(sexeConnu, E.n)} des membres : à compléter (Ma fiche, ou Compléter les fiches).`,
+      ]);
+    })()}
     ${graphes}
+    ${duo(
+      cadreGraphe('Membres par section', barres({ donnees: [...d.sections].sort((a, b) => b.n - a.n)
+        .map(x => ({ nom: esc(x.section), valeur: x.n, couleur: K.donnees, texte: `${n0(x.n)} · ${n0(x.cc)} CC · ${n0(x.exp)} EXP` })) })),
+      cadreGraphe('Charge moyenne par membre, par section', barres({ donnees: d.sections.filter(x => x.n)
+        .sort((a, b) => b.etp_section / b.n - a.etp_section / a.n)
+        .map(x => ({ nom: esc(x.section), valeur: x.etp_section / x.n, couleur: K.marine, texte: `${n2(x.etp_section / x.n)} ETP` })) })))}
     <h2>Section par section</h2>${tSec}`;
 
   return {
@@ -778,7 +816,9 @@ function documentCoutFormations(p) {
       <b>Cours</b> — périodes attribuées × montant d'une période, selon le niveau de l'unité et le type du cours :
       supérieur de type court ${m2(T.SUP.CT)} € (cours généraux et techniques) · ${m2(T.SUP.PP)} € (pratique professionnelle) ;
       secondaire supérieur ${m2(T.DS.CT)} € · ${m2(T.DS.PP)} €${T.reference ? ` (${esc(T.reference)}${T.date_effet ? `, au ${esc(T.date_effet.split('-').reverse().join('/'))}` : ''})` : ''}.
-      Le même montant vaut pour les chargés de cours et pour les experts. Les lignes en congé ne coûtent rien
+      Ce tarif vaut pour les <b>chargés de cours</b>. Les <b>experts</b> sont comptés au taux de l'A.E. du 26/01/1993 (art. 8) —
+      selon le niveau et le type de cours, ${d.experts?.indice ? `× ${String(d.experts.indice).replace('.', ',')} (indexation depuis le 01/07/1991)` : '<b>sans coefficient d\'indexation réglé : montants de base de 1991, donc sous-estimés</b>'}.
+      Les lignes en congé ne coûtent rien
       (leur remplaçant est compté) ; les activités Z n'entrent pas.<br>
       <b>Fonctions</b> — coût annuel d'un temps plein de la fonction × ETP de la personne dans cette fonction,
       réparti entre les sections au prorata de leurs inscrits (part = coût des fonctions × inscrits de la section ÷ ${n0(ins)}).<br>
@@ -834,11 +874,13 @@ function documentCoutFormations(p) {
       <th class="n" style="width:14mm">ETP</th><th class="n" style="width:28mm">Temps plein / an</th><th class="n" style="width:24mm">Coût</th></tr></thead>
     <tbody>${d.missions.map(m => `<tr><td>${esc(`${m.prenom || ''} ${String(m.nom || '').toUpperCase()}`.trim())}</td>
       <td>${esc(m.fonction)}</td><td>${esc(m.portee)}</td>
-      <td class="n">${m.etp ? e1(m.etp) : '<span class="fin">à régler</span>'}</td>
-      <td class="n">${m.annuel ? eur(m.annuel) : '<span class="fin">à régler</span>'}</td>
+      <td class="n">${!m.pncc ? '<span class="fin">—</span>' : m.etp ? e1(m.etp) : '<span class="fin">à régler</span>'}</td>
+      <td class="n">${!m.pncc ? '<span class="fin">dans ses périodes</span>' : m.annuel ? eur(m.annuel) : '<span class="fin">à régler</span>'}</td>
       <td class="n">${m.cout ? eur(m.cout) : '—'}</td></tr>`).join('')}</tbody>
     <tfoot><tr class="repere"><td colspan="5">Ensemble des fonctions</td><td class="n">${eur(tot.cout_fonctions)}</td></tr></tfoot></table>
-    <p class="fin">Coût = ETP × coût annuel d'un temps plein.${d.sans_etp ? ` <b>${d.sans_etp} fonction(s) sans ETP</b> (onglet Fonctions de la fiche) ne sont pas comptées.` : ''}${d.sans_cout ? ` <b>${d.sans_cout} fonction(s) sans coût annuel</b> (Configuration → Coût des périodes) ne sont pas comptées.` : ''}</p>`
+    <p class="fin"><b>Direction et secrétariat</b> sont des emplois de personnel non chargé de cours (PNCC, circulaire 6992) :
+      coût = ETP × coût annuel d'un temps plein. Les <b>coordinations</b> sont tenues par des enseignants payés par leurs périodes
+      attribuées : elles sont listées sans montant, pour ne pas les compter deux fois.${d.sans_etp ? ` <b>${d.sans_etp} fonction(s) sans ETP</b> (onglet Fonctions de la fiche) ne sont pas comptées.` : ''}${d.sans_cout ? ` <b>${d.sans_cout} fonction(s) sans coût annuel</b> (Configuration → Coût des périodes) ne sont pas comptées.` : ''}</p>`
     : '<p class="fin">Aucune fonction encodée pour cette année (onglet Fonctions de la fiche du personnel).</p>';
 
   // UNITÉ PAR UNITÉ : une ligne par statut, le calcul écrit.
@@ -850,7 +892,7 @@ function documentCoutFormations(p) {
         <td class="n">${eur(u.cout)}</td></tr>
       ${['CC', 'EXP', 'AUTRE'].filter(k => u.statuts[k].periodes).map(k => { const x = u.statuts[k]; return `<tr>
         <td style="padding-left:6mm">${libStatut[k]}</td><td></td>
-        <td class="n">${calc(x.per_ct, u.tarif_ct, x.cout_ct)}</td><td class="n">${calc(x.per_pp, u.tarif_pp, x.cout_pp)}</td>
+        <td class="n">${calc(x.per_ct, x.tarif_ct ?? u.tarif_ct, x.cout_ct)}</td><td class="n">${calc(x.per_pp, x.tarif_pp ?? u.tarif_pp, x.cout_pp)}</td>
         <td class="n">${eur(x.cout)}</td></tr>`; }).join('')}`).join('')}`).join('');
 
   const corps = `
@@ -861,6 +903,20 @@ function documentCoutFormations(p) {
       tuile({ valeur: eur(tot.cout_fonctions), libelle: 'Fonctions', precision: `${d.missions.length} fonction(s) encodée(s)` }),
       tuile({ valeur: ins ? eur(tot.cout_complet / ins) : '—', libelle: 'Par étudiant', precision: `${n0(ins)} inscrits` }),
     ])}
+    ${(() => {
+      const parEtu = d.sections.filter(S => S.inscrits && S.cout_complet).map(S => ({ s: S.section, v: S.cout_complet / S.inscrits })).sort((a, b) => b.v - a.v);
+      const percu = (R.di || 0) + (R.frais || 0);
+      const manque = (d.sans_etp || 0) + (d.sans_cout || 0);
+      return enBref([
+        `Le <b>coût complet</b> de l'année est de <b>${eur(tot.cout_complet)}</b> : ${eur(tot.cout)} de cours (${pc(tot.cout, tot.cout_complet)}) et ${eur(tot.cout_fonctions)} de fonctions.`,
+        ins ? `Il revient en moyenne à <b>${eur(tot.cout_complet / ins)} par étudiant</b> inscrit${parEtu.length > 1 ? ` — de ${eur(parEtu[parEtu.length - 1].v)} en ${esc(parEtu[parEtu.length - 1].s)} à ${eur(parEtu[0].v)} en ${esc(parEtu[0].s)}` : ''}.` : '',
+        `Les <b>chargés de cours</b> donnent ${pc(ST.CC.periodes, tot.periodes)} des périodes, les <b>experts</b> ${pc(ST.EXP.periodes, tot.periodes)} — pour ${pc(ST.EXP.cout, tot.cout)} du coût des cours.`,
+        d.experts?.indice ? '' : 'Le <b>coefficient d\'indexation des experts</b> n\'est pas réglé (Configuration → Coût des périodes) : leur coût est compté aux montants de base de 1991.',
+        tot.cout_helb ? `Les <b>contrats HELB</b> représentent ${eur(tot.cout_helb)}, soit ${pc(tot.cout_helb, tot.cout)} du coût des cours.` : '',
+        percu ? `Les étudiants doivent <b>${eur(percu + (R.dis || 0))}</b> ; l'établissement perçoit ${eur(percu)} (droit d'inscription et frais), qui couvrent <b>${pc(percu, tot.cout_complet)}</b> du coût complet ; ${eur(R.verse)} versés à ce jour.` : '',
+        manque ? `Le coût des fonctions est <b>incomplet</b> : ${manque} fonction(s) sans ETP ou sans coût annuel.` : (tot.cout_fonctions ? '' : 'Aucun coût de fonction n\'est encore réglé : il manque les montants annuels (Configuration) et les ETP (fiche, onglet Fonctions).'),
+      ]);
+    })()}
     ${regle}
     ${rangeeCamemberts(
       camembert('Chargés de cours et experts — périodes', ['CC', 'EXP', 'AUTRE'].map(k => ({ nom: libStatut[k], valeur: ST[k].periodes,
@@ -872,6 +928,11 @@ function documentCoutFormations(p) {
       camembert('Ce que paient les étudiants', [{ nom: "Droit d'inscription", valeur: R.di || 0, couleur: K.bleu },
         { nom: 'Frais administratifs', valeur: R.frais || 0, couleur: K.or }, { nom: 'Droit spécifique (FWB)', valeur: R.dis || 0, couleur: K.cyan }],
         { total: `${Math.round(((R.di || 0) + (R.frais || 0) + (R.dis || 0)) / 1000).toLocaleString('fr-BE')} k€` }))}
+    ${duo(
+      camembert('Coût des cours par section', d.sections.filter(S => S.cout).map((S, i) => ({ nom: esc(S.section), valeur: S.cout, couleur: couleursSerie(K)[i % 10] })),
+        { total: `${Math.round(tot.cout / 1000).toLocaleString('fr-BE')} k€` }),
+      camembert('Périodes par type de cours', [{ nom: 'Cours généraux et techniques (CT)', valeur: d.sections.reduce((t, S) => t + (S.per_ct || 0), 0), couleur: K.bleu },
+        { nom: 'Pratique professionnelle (PP)', valeur: d.sections.reduce((t, S) => t + (S.per_pp || 0), 0), couleur: K.or }]))}
     ${duo(
       cadreGraphe('Coût complet par section', barres({ donnees: d.sections.map(S => ({ nom: esc(S.section), valeur: S.cout_complet, couleur: K.marine, texte: eur(S.cout_complet) })) })),
       cadreGraphe('Coût complet par étudiant inscrit', barres({ donnees: d.sections.filter(S => S.inscrits)
@@ -892,7 +953,7 @@ function documentCoutFormations(p) {
         .map(S => ({ nom: esc(S.section), valeur: S.recettes.frais, couleur: K.or, texte: eur(S.recettes.frais) })) })))}
     ${tRecettes}
     <h2>Femmes et hommes</h2>${tSexes}
-    <h2>Fonctions — direction, secrétariat, coordinations</h2>${tFonctions}
+    <h2>Personnel administratif (PNCC) et coordinations</h2>${tFonctions}
 
     <h2>Unité par unité — le calcul</h2>
     <table><thead><tr><th>Unité</th><th class="n" style="width:14mm">Niveau</th>
@@ -906,6 +967,108 @@ function documentCoutFormations(p) {
     nom: `Cout-formations-${p.annee}.html`,
     orientation: 'paysage',
     styles: STYLE_RAPPORT + STYLE_REPORTING + STYLE_STATS,
+  };
+}
+
+/**
+ * LES LISTES PAR UNITÉ, EN PARTIES (Charles, 7 octobre 2026 : « première partie
+ * les étudiants inscrits dans TOUS les cours, sans aucune VA, ni dispense, ni
+ * report de notes, et qui n'ont JAMAIS réussi l'UE ; puis la liste des étudiants
+ * qui ont des dispenses »). Une page par unité :
+ *   A. à suivre en entier ;
+ *   B. avec dispense — VA totale ou partielle, report de notes — et ce qui est
+ *      dispensé, cours par cours ;
+ *   C. déjà acquise — réussie ou valorisée une année précédente : inscription
+ *      à retirer.
+ * Une demande de VA pas encore décidée n'est pas une dispense : l'étudiant
+ * reste en A, la mention le dit.
+ */
+export function donneesListesUE(annee, section) {
+  const ues = db.prepare(`SELECT ue_num, MIN(ue_nom) AS ue_nom FROM ue WHERE annee_scolaire = ? AND (? IS NULL OR section = ?)
+      GROUP BY ue_num ORDER BY ue_num`).all(annee, section || null, section || null);
+  const inscrits = db.prepare(`SELECT e.id, e.nom, e.prenom, COALESCE(e.id_ecampus, e.matricule_helb) AS matricule,
+        MAX(COALESCE(i.dispense_complete, 0)) AS dispense_complete
+      FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+     WHERE i.annee_scolaire = ? AND i.ue_num = ? GROUP BY e.id ORDER BY upper(e.nom), e.prenom`);
+  const vas = db.prepare(`SELECT etudiant_id, annee_scolaire, type, cible, cible_detail, porte, decision_le
+      FROM etudiant_valorisation WHERE ue_num = ? AND COALESCE(decision, 'accordee') <> 'refusee'`);
+  const reports = db.prepare(`SELECT etudiant_id, cours_code, annee_origine, nature FROM etudiant_report_note
+      WHERE annee_scolaire = ? AND ue_num = ? AND COALESCE(statut, 'accorde') = 'accorde' AND COALESCE(cible, 'cours') = 'cours'`);
+  const reussies = db.prepare(`SELECT etudiant_id, MIN(annee_scolaire) AS annee FROM etudiant_inscription
+      WHERE ue_num = ? AND annee_scolaire < ? AND resultat = 'reussi' GROUP BY etudiant_id`);
+  const anterieures = db.prepare(`SELECT DISTINCT etudiant_id FROM etudiant_inscription WHERE ue_num = ? AND annee_scolaire < ?`);
+  const coursNom = db.prepare(`SELECT cours_code, cours_nom FROM cours WHERE ue_num = ? AND annee_scolaire = ?`);
+  const nomP = e => `${String(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim();
+  const out = [];
+  for (const u of ues) {
+    const l = inscrits.all(annee, u.ue_num);
+    if (!l.length) continue;
+    const nomsCours = Object.fromEntries(coursNom.all(u.ue_num, annee).map(c => [c.cours_code, c.cours_nom]));
+    const vaPar = new Map(); for (const v of vas.all(u.ue_num)) (vaPar.get(v.etudiant_id) || vaPar.set(v.etudiant_id, []).get(v.etudiant_id)).push(v);
+    const repPar = new Map(); for (const x of reports.all(annee, u.ue_num)) (repPar.get(x.etudiant_id) || repPar.set(x.etudiant_id, []).get(x.etudiant_id)).push(x);
+    const reussPar = new Map(reussies.all(u.ue_num, annee).map(x => [x.etudiant_id, x.annee]));
+    const avant = new Set(anterieures.all(u.ue_num, annee).map(x => x.etudiant_id));
+    const A = [], B = [], C = [];
+    for (const e of l) {
+      const lesVa = vaPar.get(e.id) || [];
+      const decidees = lesVa.filter(v => v.decision_le);
+      const totaleAvant = decidees.find(v => v.type === 'complete' && v.annee_scolaire < annee);
+      const ligne = { nom: nomP(e), matricule: e.matricule || '' };
+      // C. Déjà acquise : réussie, ou valorisée en entier, une année précédente.
+      if (reussPar.has(e.id) || totaleAvant) {
+        C.push({ ...ligne, detail: reussPar.has(e.id) ? `réussie en ${reussPar.get(e.id)}` : `${(totaleAvant.porte || 'va').toUpperCase()} totale en ${totaleAvant.annee_scolaire}` });
+        continue;
+      }
+      // B. Ce qui est dispensé cette année, dit cours par cours.
+      const quoi = [];
+      if (e.dispense_complete) quoi.push('dispense complète');
+      for (const v of decidees.filter(v => v.annee_scolaire === annee)) {
+        const porte = (v.porte || 'va').toUpperCase();
+        if (v.type === 'complete') quoi.push(`${porte} totale`);
+        else if (v.type === 'partielle') {
+          const cibles = String(v.cible_detail || '').split(',').map(x => x.trim()).filter(Boolean);
+          quoi.push(`${porte} partielle — ${v.cible === 'aa' ? 'acquis' : 'cours'} ${cibles.map(c => v.cible === 'cours' && nomsCours[c] ? `${c} ${nomsCours[c]}` : c).join(', ') || '(à préciser)'}`);
+        }
+      }
+      for (const x of repPar.get(e.id) || []) {
+        quoi.push(`report de note — ${x.cours_code}${nomsCours[x.cours_code] ? ` ${nomsCours[x.cours_code]}` : ''}${x.annee_origine ? ` (${x.annee_origine})` : ''}`);
+      }
+      if (quoi.length) { B.push({ ...ligne, detail: quoi.join(' · ') }); continue; }
+      // A. À suivre en entier.
+      const enCours = lesVa.some(v => !v.decision_le && v.annee_scolaire === annee);
+      A.push({ ...ligne, detail: [avant.has(e.id) ? 'reprise' : '', enCours ? 'demande de VA en cours' : ''].filter(Boolean).join(' · ') });
+    }
+    out.push({ ue_num: u.ue_num, ue_nom: u.ue_nom, inscrits: l.length, A, B, C });
+  }
+  return out;
+}
+
+function documentListesUE(p) {
+  const d = donneesListesUE(p.annee, p.section);
+  const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const table = (titre, lignes, colDetail, vide) => `
+    <h3 class="partie">${titre} — ${lignes.length}</h3>
+    ${lignes.length ? `<table class="serre"><thead><tr><th class="n" style="width:10mm">N°</th><th>Étudiant</th>
+      <th style="width:26mm">Matricule</th><th>${colDetail}</th></tr></thead>
+      <tbody>${lignes.map((x, i) => `<tr><td class="n">${i + 1}</td><td>${esc(x.nom)}</td><td>${esc(x.matricule)}</td>
+        <td>${esc(x.detail)}</td></tr>`).join('')}</tbody></table>` : `<p class="fin">${vide}</p>`}`;
+  const corps = d.length ? d.map((u, k) => `
+    <section class="ue-liste"${k ? ' style="break-before:page;page-break-before:always"' : ''}>
+      <h2>UE ${u.ue_num} — ${esc(u.ue_nom || '')}</h2>
+      <p class="fin">${u.inscrits} inscrit(s) en ${esc(p.annee)} : <b>${u.A.length}</b> à suivre en entier · <b>${u.B.length}</b> avec dispense
+        ${u.C.length ? ` · <b>${u.C.length}</b> déjà acquise — inscription à retirer` : ''}.</p>
+      ${table('A. À suivre en entier', u.A, 'Mention', 'Personne.')}
+      ${table('B. Avec dispense, VA ou report de notes', u.B, 'Ce qui est dispensé', 'Aucune dispense.')}
+      ${u.C.length ? table('C. Déjà acquise — inscription à retirer', u.C, 'Acquise par', '') : ''}
+    </section>`).join('') : '<p class="fin">Aucun inscrit pour cette sélection.</p>';
+  return {
+    corps,
+    entete: { titre: 'Listes par unité', sous: `Année académique ${p.annee}${p.section ? ` · ${p.section}` : ''} · à suivre, dispenses, déjà acquises` },
+    titre: 'Listes par unité',
+    nom: `Listes-par-unite-${p.section || 'toutes'}-${p.annee}.html`,
+    styles: STYLE_RAPPORT + STYLE_REPORTING + STYLE_STATS + `
+      h3.partie { font-size:10pt; color:#1B2B4B; margin:4mm 0 1.5mm; }
+      .ue-liste h2 { margin-top:0; }`,
   };
 }
 
@@ -992,7 +1155,29 @@ function documentChiffresCles(p) {
       tuile({ valeur: n0(P.n), libelle: 'Membres du personnel', precision: `${n0(P.cc)} CC · ${n0(P.exp)} EXP` }),
       tuile({ valeur: n2(d.ensemble.etp), unite: 'ETP', libelle: 'Charge', precision: `${n0(d.ensemble.ues)} UE organisées` }),
     ])}
+    ${(() => {
+      const secs = d.lignes.filter(l => l.etudiants.n).sort((a, b) => b.etudiants.n - a.etudiants.n);
+      const top = secs[0];
+      const sexeConnu = E.n - E.sexe_inconnu, ageConnu = E.n - E.age_inconnu, natConnue = E.n - E.nat_inconnue;
+      const pcs = (k, n) => (n ? Math.round(k / n * 100) : 0);
+      return enBref([
+        `<b>${n0(E.n)} étudiants</b> sont inscrits en ${esc(p.annee)}, répartis en ${secs.length} sections${top ? ` ; <b>${esc(top.section)}</b> en rassemble ${pc(top.etudiants.n, E.n)}` : ''}.`,
+        sexeConnu >= E.n * 0.5 ? `Les <b>femmes</b> représentent <b>${pc(E.F, sexeConnu)}</b> des inscrits dont le sexe est connu.`
+          : `Le sexe n'est connu que pour ${pc(sexeConnu, E.n)} des inscrits : pas de conclusion à en tirer.`,
+        ageConnu >= E.n * 0.5 ? `L'<b>âge moyen</b> est de <b>${n1(E.age_moyen)} ans</b> ; ${pc(E.m25, ageConnu)} ont moins de 25 ans, ${pc(E.p45, ageConnu)} ont 45 ans ou plus.` : '',
+        natConnue >= E.n * 0.8 ? `${pc(E.be, natConnue)} des inscrits sont belges, ${pc(E.ue, natConnue)} d'un autre pays de l'Union, ${pc(E.hors_ue, natConnue)} hors Union.`
+          : `La <b>nationalité</b> n'est connue que pour <b>${pc(natConnue, E.n)}</b> des inscrits : à compléter avant d'en tirer une répartition.`,
+        E.sle ? `<b>${n0(E.sle)}</b> étudiants (${pc(E.sle, E.n)}) sont en <b>séjour limité aux études</b>.` : 'Aucun étudiant n\'est marqué en séjour limité aux études.',
+        E.exo?.exoneres ? `<b>${n0(E.exo.exoneres)}</b> étudiants (${pc(E.exo.exoneres, E.n)}) sont <b>exonérés</b> du droit d'inscription.`
+          : 'Aucune <b>exonération</b> du droit d\'inscription n\'est encodée : le motif se coche sur la fiche de l\'étudiant.',
+        `<b>${n0(P.n)} membres</b> du personnel assurent <b>${n2(d.ensemble.etp)} ETP</b>${d.ensemble.etp ? `, soit ${n1(E.n / d.ensemble.etp)} étudiants par ETP` : ''} ; ${pc(P.cc, P.n)} sont chargés de cours, ${pc(P.exp, P.n)} experts.`,
+        `L'offre compte <b>${n0(d.ensemble.ues)} unités</b> organisées et <b>${n0(d.ensemble.periodes)} périodes</b> de cours.`,
+      ]);
+    })()}
     ${(() => { const K = paletteStats(); const g = { couleur: GRIS_INCONNU, pale: true };
+      const serie = couleursSerie(K);
+      const secsN = d.lignes.filter(l => l.etudiants.n).sort((a, b) => b.etudiants.n - a.etudiants.n);
+      const pays = Object.entries(E.pays || {}).sort((a, b) => b[1] - a[1]).slice(0, 8);
       const libMotif = Object.fromEntries(MOTIFS_DI.map(m => [m.code, m.libelle]));
       const couleursMotifs = [K.bleu, K.or, K.cyan, K.marine, K.donnees, K.helb, '#64748b', '#94a3b8'];
       const motifs = Object.entries(E.exo?.motifs || {}).sort((a, b) => b[1] - a[1]);
@@ -1003,6 +1188,10 @@ function documentChiffresCles(p) {
       cadreGraphe('ETP par section', barres({ donnees: d.lignes.filter(l => l.etp).sort((a, b) => b.etp - a.etp)
         .map(l => ({ nom: esc(l.section), valeur: l.etp, couleur: K.marine, texte: `${n2(l.etp)} ETP` })) })))}
     <h2>Les étudiants</h2>
+    ${duo(
+      camembert('Inscrits par section', secsN.map((l, i) => ({ nom: esc(l.section), valeur: l.etudiants.n, couleur: serie[i % serie.length] }))),
+      cadreGraphe('Âge moyen par section', barres({ donnees: secsN.filter(l => l.etudiants.age_moyen != null)
+        .map(l => ({ nom: esc(l.section), valeur: l.etudiants.age_moyen, couleur: K.donnees, texte: `${n1(l.etudiants.age_moyen)} ans` })) })))}
     ${rangeeCamemberts(...camembertsProfil(E, K, 'inscrits'),
       camembert('Séjour limité aux études', [{ nom: 'SLE', valeur: E.sle, couleur: K.or }, { nom: 'Autres', valeur: E.n - E.sle, couleur: K.bleu }]))}
     ${rangeeCamemberts(
@@ -1013,6 +1202,12 @@ function documentChiffresCles(p) {
         valeur: n, couleur: couleursMotifs[i % couleursMotifs.length] }))) : '',
       camembert("Titre d'accès", Object.entries(E.acces || {}).map(([k, n], i) => ({ nom: esc(Object.fromEntries(TITRES_ACCES)[k] || k), valeur: n,
         couleur: couleursMotifs[i % couleursMotifs.length] })).concat([{ nom: 'Non renseigné', valeur: E.n - (E.acces_connu || 0), ...g }])))}
+    ${duo(
+      pays.length ? cadreGraphe('Pays les plus représentés', barres({ donnees: pays.map(([n, c]) => ({ nom: esc(n), valeur: c, couleur: K.cyan, texte: n0(c) })) }),
+        `parmi les ${n0(E.n - E.nat_inconnue)} inscrits dont la nationalité est connue`) : '',
+      cadreGraphe('Étudiants par ETP, par section', barres({ donnees: d.lignes.filter(l => l.etudiants.n && l.etp)
+        .sort((a, b) => b.etudiants.n / b.etp - a.etudiants.n / a.etp)
+        .map(l => ({ nom: esc(l.section), valeur: l.etudiants.n / l.etp, couleur: K.marine, texte: n1(l.etudiants.n / l.etp) })) })))}
     <h2>Le personnel</h2>
     ${rangeeCamemberts(...camembertsProfil(P, K, 'membres'),
       camembert('Statut', [{ nom: 'Chargés de cours', valeur: P.cc, couleur: K.bleu }, { nom: 'Experts', valeur: P.exp, couleur: K.cyan },
@@ -1914,6 +2109,65 @@ export const RAPPORTS = [
   },
 
   {
+    /* LES LISTES PAR UNITÉ, EN PARTIES (Charles, 7 octobre 2026). */
+    id: 'listes-par-ue', domaine: 'etudiants', params: ['annee', 'section'],
+    libelle: 'Listes par unité — à suivre, dispenses, déjà acquises',
+    aide: "Une page par unité : A. les étudiants qui suivent tout (ni VA, ni dispense, ni report, jamais réussie), B. ceux qui ont une dispense — et laquelle, C. ceux qui l'ont déjà acquise.",
+    colonnes: COLS([['ue', 'UE', 10], ['partie', 'Partie', 22], ['n', 'N°', 8], ['etudiant', 'Étudiant', 36], ['matricule', 'Matricule', 16], ['detail', 'Détail', 50]]),
+    lignes: (p) => donneesListesUE(p.annee, p.section).flatMap(u => [
+      ...u.A.map((x, i) => ({ ue: u.ue_num, partie: 'A. à suivre', n: i + 1, etudiant: x.nom, matricule: x.matricule, detail: x.detail })),
+      ...u.B.map((x, i) => ({ ue: u.ue_num, partie: 'B. dispense', n: i + 1, etudiant: x.nom, matricule: x.matricule, detail: x.detail })),
+      ...u.C.map((x, i) => ({ ue: u.ue_num, partie: 'C. déjà acquise', n: i + 1, etudiant: x.nom, matricule: x.matricule, detail: x.detail })),
+    ]),
+    document: (p) => documentListesUE(p),
+  },
+  {
+    /* PAR UNITÉ, COMBIEN ET QUI (Charles, 7 octobre 2026 : « j'ai besoin de
+       savoir, par UE, combien d'étudiants et une liste de noms »). Le
+       générateur de listes ne sortait qu'une unité à la fois : ici, toutes les
+       unités d'une section, une bande par unité — son effectif en tête — puis
+       les noms. La mention dit ce qui distingue : reprise (déjà inscrit à
+       l'unité une année précédente) ou dispense par valorisation. */
+    id: 'inscrits-par-ue', domaine: 'etudiants', params: ['annee', 'section'],
+    libelle: 'Inscrits par unité — liste nominative',
+    aide: "Pour chaque unité de la section : son effectif et la liste des étudiants inscrits, reprises et dispenses signalées.",
+    colonnes: COLS([['unite', 'Unité', 44], ['n', 'N°', 8], ['etudiant', 'Étudiant', 40], ['matricule', 'Matricule', 18], ['mention', 'Mention', 30]]),
+    lignes: (p) => {
+      const ues = db.prepare(`SELECT ue_num, MIN(ue_nom) AS ue_nom FROM ue WHERE annee_scolaire = ? AND (? IS NULL OR section = ?)
+          GROUP BY ue_num ORDER BY ue_num`).all(p.annee, p.section, p.section);
+      const inscrits = db.prepare(`SELECT e.id, e.nom, e.prenom, COALESCE(e.id_ecampus, e.matricule_helb) AS matricule,
+            EXISTS (SELECT 1 FROM etudiant_inscription j WHERE j.etudiant_id = e.id AND j.ue_num = i.ue_num
+                     AND j.annee_scolaire < i.annee_scolaire) AS reprise,
+            (SELECT CASE WHEN v.porte = 'vae' THEN 'VAE' ELSE 'VA' END FROM etudiant_valorisation v
+              WHERE v.etudiant_id = e.id AND v.ue_num = i.ue_num AND v.type = 'complete'
+                AND COALESCE(v.decision, 'accordee') <> 'refusee' AND v.decision_le IS NOT NULL LIMIT 1) AS va,
+            (SELECT MIN(v2.annee_scolaire) FROM etudiant_valorisation v2
+              WHERE v2.etudiant_id = e.id AND v2.ue_num = i.ue_num AND v2.type = 'complete'
+                AND COALESCE(v2.decision, 'accordee') <> 'refusee' AND v2.decision_le IS NOT NULL) AS va_annee,
+            (SELECT MIN(j2.annee_scolaire) FROM etudiant_inscription j2 WHERE j2.etudiant_id = e.id AND j2.ue_num = i.ue_num
+              AND j2.annee_scolaire < i.annee_scolaire AND j2.resultat = 'reussi') AS reussie_en
+          FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+         WHERE i.annee_scolaire = ? AND i.ue_num = ?
+         GROUP BY e.id ORDER BY upper(e.nom), e.prenom`);
+      const out = [];
+      for (const u of ues) {
+        const l = inscrits.all(p.annee, u.ue_num);
+        if (!l.length) continue;
+        const unite = `UE ${u.ue_num} — ${u.ue_nom || ''} · ${l.length} inscrit${l.length > 1 ? 's' : ''}`;
+        l.forEach((e, i) => out.push({ unite, n: String(i + 1), etudiant: `${String(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim(),
+          matricule: e.matricule || '',
+          /* DÉJÀ ACQUISE N'EST PAS DISPENSÉE (7 octobre 2026, 25-00003) : une VA ou une
+             réussite d'une année antérieure veut dire que l'inscription de cette
+             année est une erreur — à retirer du PAE, pas à suivre. */
+          mention: e.reussie_en ? `déjà réussie en ${e.reussie_en} — à retirer`
+            : e.va && e.va_annee < p.annee ? `déjà acquise (${e.va} ${e.va_annee}) — à retirer`
+            : e.va ? `dispensé (${e.va})` : e.reprise ? 'reprise' : '' }));
+      }
+      return out;
+    },
+  },
+
+  {
     id: 'referentiel-ue-sans-attribution', domaine: 'organisation', params: ['annee', 'section'],
     libelle: 'Unités sans attribution',
     aide: "Ce qui est organisé mais que personne ne donne — à vérifier avant la rentrée.",
@@ -1987,13 +2241,19 @@ export const RAPPORTS = [
       ['par_periode', 'Étu. par période', 18]]),
     lignes: (p) => db.prepare(`
       SELECT u.section, u.ue_num, u.ue_nom, u.ue_quad,
-             u.nb_etudiants AS etudiants,
+             -- LES INSCRITS SE COMPTENT, ILS NE SE SAISISSENT PAS (7 octobre 2026) :
+             -- nb_etudiants, champ saisi, était vide partout — l'effectif sortait vide.
+             (SELECT COUNT(DISTINCT i.etudiant_id) FROM etudiant_inscription i
+               WHERE i.ue_num = u.ue_num AND i.annee_scolaire = u.annee_scolaire) AS etudiants,
              ROUND(COALESCE((SELECT SUM(v.total_attribue_professeur)
                                FROM v_attribution_complete v
                               WHERE v.annee_scolaire = u.annee_scolaire
                                 AND v.ue_num = u.ue_num), 0), 2) AS periodes,
-             CASE WHEN u.nb_etudiants > 0 THEN
-               ROUND(u.nb_etudiants / NULLIF((SELECT SUM(v2.total_attribue_professeur)
+             CASE WHEN (SELECT COUNT(DISTINCT i2.etudiant_id) FROM etudiant_inscription i2
+                         WHERE i2.ue_num = u.ue_num AND i2.annee_scolaire = u.annee_scolaire) > 0 THEN
+               ROUND((SELECT COUNT(DISTINCT i3.etudiant_id) FROM etudiant_inscription i3
+                       WHERE i3.ue_num = u.ue_num AND i3.annee_scolaire = u.annee_scolaire) * 1.0
+                     / NULLIF((SELECT SUM(v2.total_attribue_professeur)
                  FROM v_attribution_complete v2
                 WHERE v2.annee_scolaire = u.annee_scolaire AND v2.ue_num = u.ue_num), 0), 2)
              END AS par_periode

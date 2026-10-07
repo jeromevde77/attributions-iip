@@ -12,6 +12,7 @@ import db from '../db/index.js';
 import { getParam, getParamNum } from '../routes/parametres.js';
 import { donneesChiffresCles } from './chiffresCles.js';
 import { calculerFrais } from '../routes/fraisScolarite.js';
+import { tauxExpertBase, indiceExpert } from './tauxExperts.js';
 
 /** Un coût annuel d'un temps plein par fonction (table fonction_type), amorcé
  *  à zéro : le montant est à régler, Lucie ne l'invente pas. */
@@ -47,7 +48,8 @@ export function donneesCout(annee) {
       FROM v_attribution_complete v
      WHERE v.annee_scolaire = ? AND COALESCE(v.en_conge, 0) = 0 AND COALESCE(v.total_attribue_professeur, 0) > 0
      GROUP BY v.section, v.ue_num, v.niveau, v.contrat_mdp, type, type_deduit, statut, sexe`).all(annee);
-  let sansTarif = 0, typeDefaut = 0;
+  let sansTarif = 0, typeDefaut = 0, expertsBase = 0;
+  const indice = indiceExpert();
   const nouveauxStatuts = () => Object.fromEntries(['CC', 'EXP', 'AUTRE'].map(k => [k,
     { periodes: 0, cout: 0, per_ct: 0, per_pp: 0, cout_ct: 0, cout_pp: 0 }]));
   const totStatuts = nouveauxStatuts();
@@ -59,7 +61,15 @@ export function donneesCout(annee) {
     let type = String(l.type || '').toUpperCase();
     if (type === 'Z') continue;                                   // aucun enseignant
     if (type !== 'PP' && type !== 'CS') { if (type !== 'CT') typeDefaut += l.periodes; type = 'CT'; }
-    const t = niv ? T[niv][type] : 0;
+    /* UN EXPERT N'EST PAS PAYÉ AU TARIF DES CONVENTIONS (A.E. 26-01-1993,
+       art. 8) : son taux dépend du niveau et du type de cours, × le
+       coefficient d'indexation depuis 1991. Sans coefficient réglé, la base
+       nue est comptée — et la pièce le dit. */
+    const estExpert = l.statut === 'EXP';
+    const t = !niv ? 0 : estExpert
+      ? tauxExpertBase(niv, type) * (indice || 1)
+      : T[niv][type];
+    if (estExpert) expertsBase += l.periodes;
     if (!niv || !t) { sansTarif += l.periodes; }
     const cout = (l.periodes || 0) * (t || 0);
     const sec = l.section || '(sans section)';
@@ -77,6 +87,7 @@ export function donneesCout(annee) {
     for (const X of [U.statuts[l.statut], S.statuts[l.statut], totStatuts[l.statut]]) {
       X.periodes += l.periodes; X.cout += cout; X['per_' + k] += l.periodes; X['cout_' + k] += cout;
     }
+    U.statuts[l.statut]['tarif_' + k] = t;   // le montant d'une période, par statut, pour le détail
     // Hommes / femmes : le sexe de l'enseignant, « NR » quand la fiche ne le dit pas.
     for (const X of [U.sexes[l.sexe], S.sexes[l.sexe], totSexes[l.sexe]]) { X.periodes += l.periodes; X.cout += cout; }
     parSection.set(sec, S);
@@ -101,15 +112,23 @@ export function donneesCout(annee) {
   let missions = [];
   try {
     missions = db.prepare(`
-      SELECT pm.fonction, pm.section_code, pm.etp, p.nom, p.prenom, ft.id AS type_id
+      SELECT pm.fonction, pm.section_code, pm.etp, p.nom, p.prenom, ft.id AS type_id, ft.portee AS type_portee
         FROM personnel_mission pm JOIN professeur p ON p.id = pm.professeur_id
         LEFT JOIN fonction_type ft ON ft.libelle = pm.fonction
        WHERE pm.annee_scolaire = ?
        ORDER BY ft.ordre, pm.fonction, p.nom`).all(annee)
       .map(m => {
-        const annuel = m.type_id ? getParamNum(`cout.fonction.${m.type_id}`, 0) : 0;
+        /* LES ADMINISTRATIFS SONT DES EMPLOIS PNCC ; LES COORDINATIONS, NON
+           (Charles, 6 octobre 2026 : « leur coût est mal calculé »). Direction
+           et secrétariat — fonctions d'établissement — sont des emplois de
+           personnel non chargé de cours (circulaire 6992) : emploi × coût
+           annuel. Une coordination est tenue par un enseignant déjà payé par
+           ses périodes attribuées : la compter en plus serait la compter deux
+           fois. Elle reste listée, sans montant. */
+        const pncc = m.type_portee === 'etablissement' || m.section_code === '__ETAB__';
+        const annuel = pncc && m.type_id ? getParamNum(`cout.fonction.${m.type_id}`, 0) : 0;
         const etp = Number(m.etp) || 0;
-        return { ...m, portee: m.section_code === '__ETAB__' ? 'établissement' : m.section_code, etp, annuel, cout: etp * annuel };
+        return { ...m, pncc, portee: m.section_code === '__ETAB__' ? 'établissement' : m.section_code, etp, annuel, cout: pncc ? etp * annuel : 0 };
       });
   } catch { missions = []; }
   const coutFonctions = missions.reduce((t, m) => t + m.cout, 0);
@@ -169,6 +188,7 @@ export function donneesCout(annee) {
   return { annee, tarifs: T, sections, statuts: totStatuts, sexes: totSexes, recettes,
     total: { ...total, cout_fonctions: coutFonctions, cout_complet: total.cout + coutFonctions },
     missions, base_inscrits: baseInscrits,
-    sans_etp: missions.filter(m => !m.etp).length, sans_cout: missions.filter(m => m.etp && !m.annuel).length,
-    sans_tarif: sansTarif, type_defaut: typeDefaut };
+    sans_etp: missions.filter(m => m.pncc && !m.etp).length, sans_cout: missions.filter(m => m.pncc && m.etp && !m.annuel).length,
+    sans_tarif: sansTarif, type_defaut: typeDefaut,
+    experts: { indice, periodes: expertsBase } };
 }

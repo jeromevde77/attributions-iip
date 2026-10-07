@@ -2243,6 +2243,16 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
           ) : (
             <button onClick={() => setDetailId(p.id)} className="hover:text-iip-gold hover:underline text-left flex items-center gap-2">
               {nomDepuisChaine(p.nom_prenom)}
+              {/* LE PLAFOND DES EXPERTS (A.E. 26-01-1993, art. 2) : au-delà de
+                  260 périodes, il faut une dérogation ; au-delà de 360, c'est hors cadre. */}
+              {p.plafond_expert && (
+                <span title={p.plafond_expert === 'au-dela'
+                    ? `${Math.round(p.per_iip_annee)} périodes : au-delà du plafond avec dérogation (${p.plafond_valeurs?.derogation})`
+                    : `${Math.round(p.per_iip_annee)} périodes : au-delà de ${p.plafond_valeurs?.plafond}, une dérogation ministérielle est nécessaire`}
+                  className={`text-white text-[10px] font-bold px-1.5 py-0.5 rounded-champ flex-shrink-0 ${p.plafond_expert === 'au-dela' ? 'bg-red-600' : 'bg-amber-600'}`}>
+                  {Math.round(p.per_iip_annee)} pér.
+                </span>
+              )}
               {nouveau && (
                 <span className="bg-emerald-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-champ uppercase tracking-wide flex-shrink-0">
                   NEW
@@ -2596,10 +2606,18 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
 
       </>)}
 
-      {editProf !== null && (
-        <ProfFicheModal prof={editProf} onClose={() => setEditProf(null)}
+      {editProf !== null && (() => {
+        // La fiche de saisie suit l'ordre de la liste, comme la fiche de consultation.
+        const ordre = [...listePrincipale, ...(fCharge === 'sans' ? [] : sansCharge)];
+        const i = editProf?.id ? ordre.findIndex(p => p.id === editProf.id) : -1;
+        return (
+        <ProfFicheModal key={editProf?.id || 'nouveau'} prof={editProf} onClose={() => setEditProf(null)}
+          onPrec={i > 0 ? () => setEditProf(ordre[i - 1]) : null}
+          onSuiv={i >= 0 && i < ordre.length - 1 ? () => setEditProf(ordre[i + 1]) : null}
+          position={i >= 0 ? { i: i + 1, n: ordre.length } : null}
           onSaved={() => { setEditProf(null); load(); }} />
-      )}
+        );
+      })()}
       {editionsMembre && (
         <CentreImpressionCentral ongletInitial="personnel" membreInitial={editionsMembre}
           outilsMembre={{ fiche: (id, filtre) => { setEditionsMembre(null); genererFicheAttributions(id, filtre); },

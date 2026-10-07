@@ -4,8 +4,8 @@ import { Fenetre } from '../components/ui.jsx';
 import { api, getAnnee } from '../lib/api.js';
 import { eidStatus, eidReadAll, eidToProf, eidChamps } from '../lib/eid.js';
 import NominationsPanel from '../components/NominationsPanel.jsx';
-import { IconId, IconTrash, IconFileText, IconChevronRight } from '@tabler/icons-react';
-import { informer } from '../lib/dialogue.jsx';
+import { IconId, IconTrash, IconFileText, IconChevronRight, IconChevronLeft } from '@tabler/icons-react';
+import { informer, demander } from '../lib/dialogue.jsx';
 
 const _tok = () => localStorage.getItem('token');
 const _fetch = (url, opts = {}) =>
@@ -205,7 +205,26 @@ function DispoGrid({ creneaux, dispoQ1, setDispoQ1, dispoQ2, setDispoQ2, profId 
    il ne voit que son identité civile et ses coordonnées bancaires (Charles,
    5 octobre 2026 : « QUE identité civile, coordonnées bancaires et
    attributions ; PAS le reste »). */
-export default function ProfFicheModal({ prof, onClose, onSaved, restreint = false }) {
+export default function ProfFicheModal({ prof, onClose, onSaved, restreint = false, onPrec = null, onSuiv = null, position = null }) {
+  /* PASSER D'UNE FICHE À L'AUTRE EN SAISIE (Charles, 7 octobre 2026 :
+     « urgence, flèche gauche droite depuis la fiche prof »). Une saisie non
+     enregistrée ne se perd pas sans qu'on l'ait dit. */
+  const [touche, setTouche] = useState(false);
+  const aller = async (fn) => {
+    if (!fn) return;
+    if (touche && !(await demander('Des modifications de cette fiche ne sont pas enregistrées. Passer quand même à la fiche voisine ? Elles seront perdues.'))) return;
+    fn();
+  };
+  useEffect(() => {
+    const dansUnChamp = t => ['input', 'textarea', 'select'].includes((t?.tagName || '').toLowerCase()) || t?.isContentEditable;
+    const au = ev => {
+      if (ev.metaKey || ev.ctrlKey || ev.altKey || dansUnChamp(ev.target)) return;
+      if (ev.key === 'ArrowLeft' && onPrec) { ev.preventDefault(); aller(onPrec); }
+      if (ev.key === 'ArrowRight' && onSuiv) { ev.preventDefault(); aller(onSuiv); }
+    };
+    window.addEventListener('keydown', au);
+    return () => window.removeEventListener('keydown', au);
+  });
   const isNew = !prof?.id;
 
   // Champs simples (colonne professeur)
@@ -247,7 +266,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
   const [sectionsDispo, setSectionsDispo] = useState([]);      // toutes les sections
 
   function toggle(k) { setOpen(o => ({ ...o, [k]: !o[k] })); }
-  function set(k, v) { setForm(f => ({ ...f, [k]: v })); }
+  function set(k, v) { setForm(f => ({ ...f, [k]: v })); setTouche(true); }
 
   // ── Import optionnel depuis la carte eID belge ──
   const eidTimer = useRef(null);
@@ -363,14 +382,14 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
   }, [prof?.id, isNew]);
 
   // ── Titres ──
-  function addTitre() { setTitres(t => [...t, { date_obtention: '', intitule: '', delivre_par: '' }]); }
-  function setTitre(i, k, v) { setTitres(t => t.map((x, j) => j === i ? { ...x, [k]: v } : x)); }
-  function delTitre(i) { setTitres(t => t.filter((_, j) => j !== i)); }
+  function addTitre() { setTouche(true); setTitres(t => [...t, { date_obtention: '', intitule: '', delivre_par: '' }]); }
+  function setTitre(i, k, v) { setTouche(true); setTitres(t => t.map((x, j) => j === i ? { ...x, [k]: v } : x)); }
+  function delTitre(i) { setTouche(true); setTitres(t => t.filter((_, j) => j !== i)); }
 
   // ── Charges ──
-  function addCharge(cat) { setCharges(c => [...c, { categorie: cat, date_naissance: '', handicap: 'non' }]); }
-  function setCharge(i, k, v) { setCharges(c => c.map((x, j) => j === i ? { ...x, [k]: v } : x)); }
-  function delCharge(i) { setCharges(c => c.filter((_, j) => j !== i)); }
+  function addCharge(cat) { setTouche(true); setCharges(c => [...c, { categorie: cat, date_naissance: '', handicap: 'non' }]); }
+  function setCharge(i, k, v) { setTouche(true); setCharges(c => c.map((x, j) => j === i ? { ...x, [k]: v } : x)); }
+  function delCharge(i) { setTouche(true); setCharges(c => c.filter((_, j) => j !== i)); }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -457,7 +476,16 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
           {isNew ? 'La fiche est créée à la validation, pas avant.'
             : 'Les modifications ne sont enregistrées qu’à la validation.'}
         </span>
-        <button type="button" onClick={onClose} className="bouton ml-auto">Annuler</button>
+        {(onPrec || onSuiv) && (
+          <span className="ml-auto inline-flex items-center gap-1">
+            <button type="button" onClick={() => aller(onPrec)} disabled={!onPrec} title="Fiche précédente (flèche gauche)"
+              className="bouton px-2 disabled:opacity-30"><IconChevronLeft size={15} /></button>
+            {position && <span className="text-[12px] text-slate-500 tabular-nums min-w-[3.5rem] text-center">{position.i} / {position.n}</span>}
+            <button type="button" onClick={() => aller(onSuiv)} disabled={!onSuiv} title="Fiche suivante (flèche droite)"
+              className="bouton px-2 disabled:opacity-30"><IconChevronRight size={15} /></button>
+          </span>
+        )}
+        <button type="button" onClick={onClose} className={`bouton ${onPrec || onSuiv ? '' : 'ml-auto'}`}>Annuler</button>
       </>}>
       <form id="fiche-personnel" onSubmit={handleSubmit} autoComplete="off"
         className="space-y-3">

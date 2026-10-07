@@ -15,6 +15,7 @@
  * contrat qui mêlerait les deux engagerait l'école sur un montant faux.
  */
 import { LOGO_IIP_JPEG } from './assets/logo_iip_jpeg.js';
+import { tauxExpertBase, typeExpert, LIB_TYPE_EXPERT } from '../lib/tauxExperts.js';
 import { SIGNATURE_SOHET } from './assets/signature_sohet.js';
 import { piedDocument } from '../routes/parametres.js';
 
@@ -150,7 +151,7 @@ export function genererTemplateExpert() {
     <div class="article-titre">Article 4</div>
     <div class="article-corps">
       <p>Le montant de la rétribution est liquidé par la Communauté française, soit :</p>
-      <p><b>{{total_periodes}} périodes</b> à raison de <b>{{taux}} €/période</b>, à indexer à l'indice des prix à la consommation tel qu'il était au 1er juillet 1991.</p>
+      <p>{{remuneration}}, montants à indexer à l'indice des prix à la consommation tel qu'il était au 1er juillet 1991.</p>
       <p>{{civilite}} {{nom_prof}} marque expressément son accord pour que chaque rétribution soit payée au compte n° {{iban}}.</p>
     </div>
   </div>
@@ -241,7 +242,22 @@ export function genererContratExpert({ etab, prof, lignes, annee, date_contrat, 
       <div><div class="cours-ue">n° adm. : ${esc(g.ue_num)} — ${esc(g.section || '')} : ${esc(g.ue_nom || '')}</div>
       <div class="cours-per">${g.periodes} périodes ${[...g.types].join(' et ')}${g.debut || g.fin ? ` entre le ${dateLongue(g.debut)} et le ${dateLongue(g.fin)}` : ''}</div></div>
     </div>`).join('') || '<p><i>Aucune prestation d’expert attribuée pour cette année.</i></p>';
-  const t = Number(taux ?? TAUX_DEFAUT[niveau] ?? 0);
+  /* LE TAUX DÉPEND DU TYPE DE COURS (A.E. 26-01-1993, art. 8 — Charles, 6
+     octobre 2026). Un seul taux par niveau faisait payer la pratique
+     professionnelle au prix des cours généraux. Les périodes se groupent par
+     type ; chaque groupe a son taux de base. */
+  const parType = {};
+  for (const l of lignes) {
+    const ty = typeExpert(l.cla);
+    parType[ty] = (parType[ty] || 0) + Math.round(Number(l.periodes) || 0);
+  }
+  const groupes = Object.entries(parType).filter(([, n]) => n > 0)
+    .map(([ty, n]) => ({ ty, n, t: tauxExpertBase(niveau, ty === 'pp' ? 'PP' : ty === 'spec' ? 'CS' : 'CT') }));
+  const fr2 = x => Number(x).toFixed(2).replace('.', ',');
+  const remuneration = groupes.length > 1
+    ? groupes.map(g => `<b>${g.n} périodes</b> de ${LIB_TYPE_EXPERT[g.ty]} à raison de <b>${fr2(g.t)} €/période</b>`).join(' et ')
+    : `<b>${total} périodes</b> à raison de <b>${fr2(groupes[0]?.t ?? taux ?? TAUX_DEFAUT[niveau] ?? 0)} €/période</b>`;
+  const t = Number(groupes[0]?.t ?? taux ?? TAUX_DEFAUT[niveau] ?? 0);
   const vars = {
     '{{nom_etab}}': esc(etab.etab_nom || 'Institut Ilya Prigogine'),
     '{{adresse_etab}}': esc(etab.adresse || 'Campus Erasme, Bât. P, route de Lennik 808, 1070 Anderlecht'),
@@ -258,6 +274,7 @@ export function genererContratExpert({ etab, prof, lignes, annee, date_contrat, 
     '{{prestations}}': prestations,
     '{{total_periodes}}': String(total),
     '{{taux}}': t.toFixed(2).replace('.', ','),
+    '{{remuneration}}': remuneration,
     '{{iban}}': prof.iban ? `IBAN ${esc(prof.iban)}` : '<i>(IBAN à compléter)</i>',
     '{{signature_representant}}': /sohet/i.test(rep) ? `<img src="${SIGNATURE_SOHET}" alt="signature">` : '',
     '{{logo_iip}}': LOGO_IIP_JPEG,
