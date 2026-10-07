@@ -85,7 +85,8 @@ export function donneesChiffresCles(annee, ref = new Date()) {
     SELECT DISTINCT a.section, a.professeur_id AS id, a.contrat_mdp AS contrat
       FROM attribution a WHERE a.annee_scolaire = ? AND a.professeur_id IS NOT NULL`).all(annee);
   const profs = new Map(db.prepare(`SELECT id, statut, sexe, date_naissance, nationalite,
-      (SELECT COUNT(*) FROM titre_capacite t WHERE t.professeur_id = professeur.id) AS nb_titres FROM professeur`)
+      (SELECT COUNT(*) FROM titre_capacite t WHERE t.professeur_id = professeur.id) AS nb_titres FROM professeur
+      WHERE COALESCE(est_a_designer, 0) = 0`)   /* « À DÉSIGNER » n'est pas une personne */
     .all().map(p => [p.id, p]));
   const persParSection = new Map();
   for (const a of attr) {
@@ -196,7 +197,7 @@ export function donneesPersonnel(annee, ref = new Date()) {
      GROUP BY professeur_id, section, contrat_mdp`).all(annee);
   const fiches = new Map(db.prepare(`SELECT id, statut, statut_nomination, type_personnel, sexe, date_naissance,
       nationalite, code_postal, capaes, (SELECT COUNT(*) FROM titre_capacite t WHERE t.professeur_id = professeur.id) AS nb_titres
-      FROM professeur`).all().map(p => [p.id, p]));
+      FROM professeur WHERE COALESCE(est_a_designer, 0) = 0`).all().map(p => [p.id, p]));   /* « À DÉSIGNER » n'est pas une personne */
   const parPersonne = new Map();
   for (const l of lignes) {
     const f = fiches.get(l.id); if (!f) continue;
