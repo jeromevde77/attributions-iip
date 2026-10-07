@@ -176,7 +176,7 @@ export default function InscritsUnites() {
       {section && !data && !erreur && <p className="text-[13px] text-slate-400">Chargement…</p>}
 
       {data && vue === 'grille' && (
-        <GrilleInscrits data={data} passe={passe} annee={annee} section={section} onFiche={setFiche} onRevue={setRevue} />)}
+        <GrilleInscrits data={data} passe={passe} annee={annee} section={section} onFiche={setFiche} onRevue={setRevue} onChange={() => setRecharge(x => x + 1)} />)}
 
       {data && vue === 'unites' && (<>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 max-w-4xl">
