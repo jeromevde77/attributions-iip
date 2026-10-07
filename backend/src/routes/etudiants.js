@@ -2216,6 +2216,9 @@ export function donneesInscritsUnites(annee, section) {
       WHERE v.annee_scolaire = ? AND v.ue_num = ? AND v.decision_le IS NOT NULL AND COALESCE(v.decision, 'accordee') <> 'refusee'
         AND NOT EXISTS (SELECT 1 FROM etudiant_inscription i WHERE i.etudiant_id = v.etudiant_id
           AND i.ue_num = v.ue_num AND i.annee_scolaire = v.annee_scolaire)`);
+  const sectionsDeLUE = db.prepare(`SELECT COUNT(DISTINCT s) n FROM (
+      SELECT section AS s FROM ue WHERE annee_scolaire = ? AND ue_num = ? AND section IS NOT NULL
+      UNION SELECT section_code FROM ue_section WHERE annee_scolaire = ? AND ue_num = ?)`);
   const fiche = db.prepare(`SELECT id, nom, prenom, COALESCE(id_ecampus, matricule_helb) AS matricule,
       COALESCE(sejour_limite_etudes, 0) AS sle FROM etudiant WHERE id = ?`);
   const vas = db.prepare(`SELECT etudiant_id, annee_scolaire, type, cible, cible_detail, porte, decision_le,
@@ -2248,9 +2251,15 @@ export function donneesInscritsUnites(annee, section) {
   for (const u of ues) {
     let l = inscrits.all(annee, u.ue_num).map(x => ({ ...x, inscrit: true }));
     l.push(...vaSeules.all(annee, u.ue_num).map(x => ({ id: x.id, dispense_complete: 0, inscrit: false })));
-    if (u.hors_cursus) l = l.filter(e => estDeLaSection(e.id));
+    /* UNE UNITÉ PARTAGÉE GARDE LES SIENS (Charles, 7 octobre 2026 : « tu as mis
+       les orthoptistes avec les optos » — 187 inscrits en UE 282). Le tronc
+       commun Optométrie/Orthoptie est un regroupement d'organisation : chaque
+       étudiant reste dans SA section. Une unité hors cursus, ou rattachée à
+       plus d'une section, ne retient que les étudiants de la section affichée. */
+    const partagee = u.hors_cursus || sectionsDeLUE.get(annee, u.ue_num, annee, u.ue_num).n > 1;
+    if (partagee) l = l.filter(e => estDeLaSection(e.id));
     if (!l.length) continue;
-    const cours = coursDe.all(u.ue_num, annee, section, u.hors_cursus ? 1 : 0);
+    const cours = coursDe.all(u.ue_num, annee, section, partagee ? 1 : 0);
     const codes = cours.map(c => c.code);
     const vaPar = grouper(vas.all(u.ue_num));
     const repPar = grouper(reports.all(annee, u.ue_num));

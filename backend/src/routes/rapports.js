@@ -984,6 +984,20 @@ function documentCoutFormations(p) {
  * Une demande de VA pas encore décidée n'est pas une dispense : l'étudiant
  * reste en A, la mention le dit.
  */
+/**
+ * QUI APPARTIENT À LA SECTION, UNITÉ PAR UNITÉ — la règle de l'écran Inscrits
+ * par unité (donneesInscritsUnites), reprise telle quelle : une unité partagée
+ * (tronc commun Optométrie/Orthoptie, hors cursus) ne garde que les étudiants
+ * de la section. Map ue_num → Set(etudiant_id) ; null sans section.
+ */
+function etudiantsDeLaSection(annee, section) {
+  if (!section) return null;
+  const d = donneesInscritsUnites(annee, section);
+  const m = new Map(d.unites.map(u => [u.ue_num, new Set(u.lignes.filter(l => l.inscrit !== false).map(l => l.id))]));
+  m.noms = new Map(d.unites.map(u => [u.ue_num, u.ue_nom]));   // l'unité rattachée par ue_section a aussi son nom
+  return m;
+}
+
 export function donneesListesUE(annee, section) {
   const ues = db.prepare(`SELECT ue_num, MIN(ue_nom) AS ue_nom FROM ue WHERE annee_scolaire = ? AND (? IS NULL OR section = ?)
       GROUP BY ue_num ORDER BY ue_num`).all(annee, section || null, section || null);
@@ -1000,9 +1014,10 @@ export function donneesListesUE(annee, section) {
   const anterieures = db.prepare(`SELECT DISTINCT etudiant_id FROM etudiant_inscription WHERE ue_num = ? AND annee_scolaire < ?`);
   const coursNom = db.prepare(`SELECT cours_code, cours_nom FROM cours WHERE ue_num = ? AND annee_scolaire = ?`);
   const nomP = e => `${String(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim();
+  const siens = etudiantsDeLaSection(annee, section);
   const out = [];
-  for (const u of ues) {
-    const l = inscrits.all(annee, u.ue_num);
+  for (const u of (siens ? [...siens.keys()].map(n => ues.find(x => x.ue_num === n) || { ue_num: n, ue_nom: siens.noms.get(n) }) : ues)) {
+    const l = inscrits.all(annee, u.ue_num).filter(e => !siens || siens.get(u.ue_num)?.has(e.id));
     if (!l.length) continue;
     const nomsCours = Object.fromEntries(coursNom.all(u.ue_num, annee).map(c => [c.cours_code, c.cours_nom]));
     const vaPar = new Map(); for (const v of vas.all(u.ue_num)) (vaPar.get(v.etudiant_id) || vaPar.set(v.etudiant_id, []).get(v.etudiant_id)).push(v);
@@ -2151,8 +2166,9 @@ export const RAPPORTS = [
          WHERE i.annee_scolaire = ? AND i.ue_num = ?
          GROUP BY e.id ORDER BY upper(e.nom), e.prenom`);
       const out = [];
-      for (const u of ues) {
-        const l = inscrits.all(p.annee, u.ue_num);
+      const siens = etudiantsDeLaSection(p.annee, p.section);
+      for (const u of (siens ? [...siens.keys()].map(n => ues.find(x => x.ue_num === n) || { ue_num: n, ue_nom: siens.noms.get(n) }) : ues)) {
+        const l = inscrits.all(p.annee, u.ue_num).filter(e => !siens || siens.get(u.ue_num)?.has(e.id));
         if (!l.length) continue;
         const unite = `UE ${u.ue_num} — ${u.ue_nom || ''} · ${l.length} inscrit${l.length > 1 ? 's' : ''}`;
         l.forEach((e, i) => out.push({ unite, n: String(i + 1), etudiant: `${String(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim(),
