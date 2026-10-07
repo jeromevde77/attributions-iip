@@ -7,7 +7,7 @@ import {
   IconHome, IconChecklist, IconSend, IconLayoutDashboard, IconCalendarStats,
   IconChartBar,
   IconCertificate, IconClipboardList, IconScale, IconShieldExclamation, IconDoorEnter,
-  IconUserCheck, IconRoute, IconFileText, IconStairsUp, IconEyeCheck, IconArrowForwardUp, IconTablePlus, IconFolder, IconNotes, IconAccessible,
+  IconUserCheck, IconRoute, IconFileText, IconStairsUp, IconEyeCheck, IconArrowForwardUp, IconTablePlus, IconFolder, IconNotes, IconAccessible, IconTable,
 } from '@tabler/icons-react';
 import Axe from '../components/Axe.jsx';
 import Accueil from './Accueil.jsx';
@@ -23,6 +23,7 @@ const Listes = lazy(() => import('./Listes.jsx'));
 const Procedures = lazy(() => import('./Procedures.jsx'));
 const Valorisations = lazy(() => import('./Valorisations.jsx'));
 const RegistreAmenagements = lazy(() => import('./RegistreAmenagements.jsx'));
+const InscritsUnites = lazy(() => import('./InscritsUnites.jsx'));
 
 const Attente = () => <div className="p-6 text-sm text-slate-400">Chargement…</div>;
 
@@ -125,6 +126,7 @@ export function AxeEtudiants() {
           { key: 'passage', label: 'Composer le PAE', icone: IconStairsUp,
             peut: () => peutGeste('etudiants.pae_composer') },
           { key: 'revue-pae', label: 'Revue des PAE', icone: IconEyeCheck },
+          { key: 'inscrits-unites', label: 'Inscrits par unité', icone: IconTable },
           { key: 'reports', label: 'Reports de notes', icone: IconArrowForwardUp,
             peut: () => passeRole(['admin', 'directeur', 'directeur_adjoint', 'editeur']) },
           { key: 'valorisation', label: 'Valorisation des acquis (VA)', icone: IconCertificate },
@@ -134,6 +136,10 @@ export function AxeEtudiants() {
         { key: 'pae', module: 'etudiants', label: 'Inscriptions & PAE', icone: IconClipboardList,
           sansMarge: true, railPropre: true,
           rendu: <Etudiants /> },
+        /* LES INSCRITS PAR UNITÉ (Charles, 7 octobre 2026) : la section, une
+           ligne par unité, puis l'étudiant × ses cours pour les unités cochées. */
+        { key: 'inscrits-unites', module: 'etudiants', label: 'Inscrits par unité', icone: IconTable,
+          rendu: <Suspense fallback={<Attente />}><InscritsUnites /></Suspense> },
         { key: 'valorisation', module: 'etudiants', label: 'Valorisation des acquis', icone: IconCertificate,
           sansMarge: true, railPropre: true,
           rendu: <Suspense fallback={<Attente />}><Valorisations /></Suspense> },

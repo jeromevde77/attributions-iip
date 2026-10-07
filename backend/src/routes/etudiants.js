@@ -2062,6 +2062,115 @@ r.get('/rapport-pae', authRequired, (req, res) => {
 // refusées — plutôt que d'en détailler les UE : le détail est à un clic, dans
 // la vue de délibération. C'est ce qui la garde lisible sur cinq ou six
 // colonnes là où une matrice complète en compterait cinquante.
+/**
+ * LES INSCRITS PAR UNITÉ, À L'ÉCRAN (Charles, 7 octobre 2026 : « un tableau
+ * par section, avec des filtres ; d'abord tous les inscrits de la section,
+ * puis pour des UE sélectionnées ou une seule ; ensuite le détail avec des
+ * colonnes cours, et des filtres sur les étudiants : nouveaux, qui
+ * recommencent… »). Le serveur rend les faits, étudiant par étudiant et cours
+ * par cours ; l'écran filtre et compte — un filtre ne refait pas la requête.
+ *
+ * Mêmes parties que la pièce « Listes par unité » : A à suivre en entier,
+ * B avec dispense / VA / report, C déjà acquise (à retirer).
+ * Nouveau = aucune inscription ni valorisation avant l'année (le « primo »).
+ * Reprise = déjà inscrit à CETTE unité une année précédente, sans l'avoir
+ * réussie. Une unité hors cursus ne garde que les étudiants rattachés à la
+ * section.
+ */
+r.get('/inscrits-unites', authRequired, (req, res) => {
+  const annee = req.query.annee || anneeDeTravail(req);
+  const section = req.query.section;
+  if (!section) return res.status(400).json({ error: 'section requise' });
+  if (!sectionAutoriseeReq(req, section)) return res.status(403).json({ error: 'Section hors de votre périmètre.' });
+  res.json(donneesInscritsUnites(annee, section));
+});
+
+export function donneesInscritsUnites(annee, section) {
+
+  const ues = db.prepare(`SELECT ue_num, MIN(ue_nom) AS ue_nom, MAX(COALESCE(hors_cursus, 0)) AS hors_cursus,
+        MIN(ue_niveau) AS niveau
+      FROM ue WHERE annee_scolaire = ? AND (section = ? OR ue_num IN
+        (SELECT ue_num FROM ue_section WHERE section_code = ? AND annee_scolaire = ?))
+      GROUP BY ue_num ORDER BY ue_num`).all(annee, section, section, annee);
+  const coursDe = db.prepare(`SELECT cours_code AS code, cours_nom AS nom FROM cours
+      WHERE ue_num = ? AND annee_scolaire = ? AND (section = ? OR section IS NULL OR ? = 1)
+      GROUP BY cours_code ORDER BY cours_num, cours_code`);
+  const inscrits = db.prepare(`SELECT e.id, e.nom, e.prenom, COALESCE(e.id_ecampus, e.matricule_helb) AS matricule,
+        COALESCE(e.sejour_limite_etudes, 0) AS sle, MAX(COALESCE(i.dispense_complete, 0)) AS dispense_complete
+      FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+     WHERE i.annee_scolaire = ? AND i.ue_num = ? GROUP BY e.id ORDER BY upper(e.nom), e.prenom`);
+  const vas = db.prepare(`SELECT etudiant_id, annee_scolaire, type, cible, cible_detail, porte, decision_le
+      FROM etudiant_valorisation WHERE ue_num = ? AND COALESCE(decision, 'accordee') <> 'refusee'`);
+  const reports = db.prepare(`SELECT etudiant_id, cours_code FROM etudiant_report_note
+      WHERE annee_scolaire = ? AND ue_num = ? AND COALESCE(statut, 'accorde') = 'accorde' AND COALESCE(cible, 'cours') = 'cours'`);
+  const reussies = db.prepare(`SELECT etudiant_id, MIN(annee_scolaire) AS annee FROM etudiant_inscription
+      WHERE ue_num = ? AND annee_scolaire < ? AND resultat = 'reussi' GROUP BY etudiant_id`);
+  const anterieures = db.prepare('SELECT DISTINCT etudiant_id FROM etudiant_inscription WHERE ue_num = ? AND annee_scolaire < ?');
+  const anciens = new Set([
+    ...db.prepare('SELECT DISTINCT etudiant_id FROM etudiant_inscription WHERE annee_scolaire < ?').all(annee).map(x => x.etudiant_id),
+    ...db.prepare('SELECT DISTINCT etudiant_id FROM etudiant_valorisation WHERE annee_scolaire < ?').all(annee).map(x => x.etudiant_id),
+  ]);
+  const blocs = new Map();
+  const blocDe = id => {
+    if (!blocs.has(id)) { let b = null; try { b = niveauEtudiant(id, annee).niveau || null; } catch { /* */ } blocs.set(id, b); }
+    return blocs.get(id);
+  };
+  const rattache = new Map();
+  const estDeLaSection = id => {
+    if (!rattache.has(id)) { let s = null; try { s = sectionRattachement(id, annee).section || null; } catch { /* */ } rattache.set(id, s); }
+    return rattache.get(id) === section;
+  };
+  const grouper = l => { const m = new Map(); for (const x of l) (m.get(x.etudiant_id) || m.set(x.etudiant_id, []).get(x.etudiant_id)).push(x); return m; };
+
+  const etudiants = new Map();
+  const unites = [];
+  for (const u of ues) {
+    let l = inscrits.all(annee, u.ue_num);
+    if (u.hors_cursus) l = l.filter(e => estDeLaSection(e.id));
+    if (!l.length) continue;
+    const cours = coursDe.all(u.ue_num, annee, section, u.hors_cursus ? 1 : 0);
+    const codes = cours.map(c => c.code);
+    const vaPar = grouper(vas.all(u.ue_num));
+    const repPar = grouper(reports.all(annee, u.ue_num));
+    const reussPar = new Map(reussies.all(u.ue_num, annee).map(x => [x.etudiant_id, x.annee]));
+    const avant = new Set(anterieures.all(u.ue_num, annee).map(x => x.etudiant_id));
+    const lignes = [];
+    for (const e of l) {
+      if (!etudiants.has(e.id)) {
+        etudiants.set(e.id, { id: e.id, nom: `${String(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim(),
+          matricule: e.matricule || '', sle: !!Number(e.sle), nouveau: !anciens.has(e.id), bloc: blocDe(e.id) });
+      }
+      const decidees = (vaPar.get(e.id) || []).filter(v => v.decision_le);
+      const totaleAvant = decidees.find(v => v.type === 'complete' && v.annee_scolaire < annee);
+      const ligne = { id: e.id, reprise: avant.has(e.id) && !reussPar.has(e.id), cours: {}, detail: [] };
+      if (reussPar.has(e.id) || totaleAvant) {
+        ligne.partie = 'C';
+        ligne.detail.push(reussPar.has(e.id) ? `réussie en ${reussPar.get(e.id)}` : `${(totaleAvant.porte || 'va').toUpperCase()} totale en ${totaleAvant.annee_scolaire}`);
+        for (const c of codes) ligne.cours[c] = 'acquis';
+        lignes.push(ligne); continue;
+      }
+      for (const c of codes) ligne.cours[c] = 'suit';
+      if (e.dispense_complete) { ligne.detail.push('dispense complète'); for (const c of codes) ligne.cours[c] = 'D'; }
+      for (const v of decidees.filter(v => v.annee_scolaire === annee)) {
+        const porte = (v.porte || 'va').toUpperCase();
+        if (v.type === 'complete') { ligne.detail.push(`${porte} totale`); for (const c of codes) ligne.cours[c] = 'VA'; }
+        else if (v.type === 'partielle') {
+          const cibles = String(v.cible_detail || '').split(',').map(x => x.trim()).filter(Boolean);
+          if (v.cible === 'cours') { for (const c of cibles) if (c in ligne.cours) ligne.cours[c] = 'VA'; ligne.detail.push(`${porte} partielle (cours)`); }
+          else ligne.detail.push(`${porte} partielle — acquis ${cibles.join(', ') || '(à préciser)'}`);
+        }
+      }
+      for (const x of repPar.get(e.id) || []) { if (x.cours_code in ligne.cours && ligne.cours[x.cours_code] === 'suit') ligne.cours[x.cours_code] = 'R'; ligne.detail.push(`report ${x.cours_code}`); }
+      if ((vaPar.get(e.id) || []).some(v => !v.decision_le && v.annee_scolaire === annee)) ligne.va_en_cours = true;
+      ligne.partie = ligne.detail.length ? 'B' : 'A';
+      if (ligne.va_en_cours) ligne.detail.push('demande de VA en cours');
+      lignes.push(ligne);
+    }
+    unites.push({ ue_num: u.ue_num, ue_nom: u.ue_nom, niveau: u.niveau, hors_cursus: !!u.hors_cursus, cours, lignes });
+  }
+  return { annee, section, unites, etudiants: Object.fromEntries(etudiants) };
+}
+
 r.get('/synthese', authRequired, (req, res) => {
   const { section } = req.query;
   if (!section) return res.status(400).json({ error: 'section requise' });
