@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { saisir } from '../lib/dialogue.jsx';
 import { peutGeste } from '../lib/droits.js';
 import { nomPropre } from '../lib/nom.js';
 import {
@@ -94,19 +95,20 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
    * produit donc d'abord ; chaque pièce attend ensuite son geste — aperçu et
    * impression, PDF, envoi —, et c'est CE clic qui ouvre ce qui doit l'être.
    */
-  const produire = async () => {
+  const produire = async (presidentJury = null) => {
     const titres = veut.diplome || veut.attestation;
     if (!retenus.size || !(titres || veut.provisoire || veut.liste || veut.pv)) return;
     setEnCours(true); setErreur(null); setProduits(null); setManques([]);
     const ids = [...retenus];
     const poster = (url, corps) => fetch(url, {
       method: 'POST', headers: authHeaders(), body: JSON.stringify(corps),
-    }).then(async r => { const j = await r.json(); if (!r.ok) throw new Error(j.error); return j; });
+    }).then(async r => { const j = await r.json(); if (!r.ok) { const e = new Error(j.error); e.code = j.code; e.seance = j.seance; throw e; } return j; });
     try {
       const [t, l, pv, pr] = await Promise.all([
         titres ? poster('/api/diplomes/pieces', {
           section, annee, etudiants: ids, date_deliberation: date,
           pieces: ['diplome', 'attestation'].filter(k => veut[k]),
+          ...(presidentJury ? { president_jury: presidentJury } : {}),
         }) : null,
         veut.liste ? poster('/api/diplomes/document', {
           section, annee, etudiants: ids, date: dateLongue(date),
@@ -118,6 +120,7 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
         // se mêle pas aux attestations de section dans un même document.
         veut.provisoire ? poster('/api/diplomes/pieces', {
           section, annee, etudiants: ids, date_deliberation: date, pieces: ['provisoire'],
+          ...(presidentJury ? { president_jury: presidentJury } : {}),
         }) : null,
       ]);
       const an = String(annee).replace(/\W/g, '');
@@ -159,7 +162,20 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
       });
       setProduits(out);
       setManques([...(t?.manques || []), ...(pr?.manques || []), ...(l?.manques || []), ...(pv?.manques || [])]);
-    } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
+    } catch (e) {
+      /* LE PRÉSIDENT DU JURY N'EST PAS CONNU (7 octobre 2026) : on le demande,
+         puis on reprend. Il est retenu pour la section. */
+      if (e.code === 'president_jury_requis') {
+        setEnCours(false);
+        const nom = await saisir({ titre: "Président(e) du jury de l'épreuve intégrée",
+          message: `${e.message}\n\nQui a présidé le jury de l'épreuve intégrée ? (Prénom NOM — une autre personne que le directeur ; retenu pour la section)`,
+          valeur: '' });
+        if (nom && nom.trim()) return produire(nom.trim());
+        setErreur('Diplôme non émis : le président du jury de l’épreuve intégrée est requis.');
+        return;
+      }
+      setErreur(e.message);
+    } finally { setEnCours(false); }
   };
 
   // Le PDF se rend au serveur : format imposé, et le pied sur chaque feuille

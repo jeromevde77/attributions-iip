@@ -864,11 +864,39 @@ r.post('/pieces', authRequired,
 
     const sig = await signatairesDe(sec.code);
     const ds = donneesSectionDiplome(sec.code);
-    const jetonsSig = { president_jury: presidentJuryDe(sec.code) || '', directeur: ident.directeur };
+    /* LE PRÉSIDENT DU JURY SE LIT À LA DÉLIBÉRATION (Charles, 7 octobre 2026 :
+       « le président de l'épreuve intégrée se fait à la délibération ; si cela
+       n'a pas été fait, avant d'émettre le diplôme, un pop-up qui le
+       demande »). Ordre : ce que l'écran vient de demander (retenu pour la
+       section) ; la présidence de la séance de l'épreuve intégrée, si ce n'est
+       pas le directeur ; le réglage de la section ; sinon, on demande. */
+    const saisi = String(req.body?.president_jury || '').trim();
+    if (saisi) {
+      let v = {}; try { v = JSON.parse(db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'diplome_president_jury'").get()?.valeur || '{}') || {}; } catch { v = {}; }
+      v[sec.code] = saisi;
+      db.prepare(`INSERT INTO lucie_config (cle, valeur) VALUES ('diplome_president_jury', ?)
+        ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur`).run(JSON.stringify(v));
+    }
+    const deLaSeance = (() => {
+      const ei = epreuveIntegreeDe(dossier.requises || []);
+      if (!ei) return null;
+      for (const s of db.prepare(`SELECT president_role, president_nom FROM deliberation_seance
+          WHERE ue_num = ? AND annee_scolaire = ? ORDER BY session`).all(ei, an)) {
+        const n = s.president_nom || (s.president_role === 'titulaire' ? presidence?.titulaire?.nom
+          : s.president_role === 'suppleant' ? presidence?.suppleant?.nom : null);
+        if (n) return n;
+      }
+      return null;
+    })();
+    const seanceValable = deLaSeance && memePersonne(deLaSeance) !== memePersonne(ident.directeur) ? deLaSeance : null;
+    const jetonsSig = { president_jury: saisi || seanceValable || presidentJuryDe(sec.code) || '', directeur: ident.directeur };
     /* TROIS PERSONNES DIFFÉRENTES — le diplôme ne sort pas sinon. */
     if (sig.liste.some(x => /\{\{\s*president_jury\s*\}\}/.test(x.nom || '')) && !jetonsSig.president_jury) {
-      return res.status(409).json({ error: `Le président du jury d'épreuve intégrée de ${sec.libelle || sec.code} n'est pas réglé `
-        + '(Configuration → Diplôme, signataires de la section). Il doit être une autre personne que le directeur.' });
+      return res.status(409).json({ code: 'president_jury_requis', section: sec.code,
+        seance: deLaSeance || null,
+        error: `Le président du jury d'épreuve intégrée de ${sec.libelle || sec.code} n'est pas connu`
+          + (deLaSeance ? ` (la séance de délibération porte ${deLaSeance}, qui est le directeur)` : ' (la séance de délibération ne le porte pas)')
+          + ' : il doit être une autre personne que le directeur.' });
     }
     const doubles = signatairesEnDouble(sig.liste, jetonsSig);
     if (doubles.length) {
