@@ -17,7 +17,8 @@
 // Les montants sont indexés chaque année : ils sont donc paramétrés, non codés.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { periodesEtudiantUE } from '../lib/periodesUE.js';
+import { periodesDI } from '../lib/periodesUE.js';
+import { vaRetenue } from '../lib/valorisation.js';
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
@@ -123,8 +124,10 @@ export function calculerDI(etudId, annee) {
 
   const lignes = db.prepare(`
     SELECT i.ue_num, i.dispense_complete, i.annee_scolaire,
-           (SELECT ue_per_etudiants FROM ue x
-             WHERE x.ue_num = i.ue_num AND x.annee_scolaire = i.annee_scolaire LIMIT 1) AS per_annee,
+           (SELECT ue_tot_prf FROM ue x
+             WHERE x.ue_num = i.ue_num AND x.annee_scolaire = i.annee_scolaire LIMIT 1) AS tot_annee,
+           (SELECT ue_niveau FROM ue x
+             WHERE x.ue_num = i.ue_num AND x.annee_scolaire = i.annee_scolaire LIMIT 1) AS existe_annee,
            (SELECT ue_per_cours FROM ue x
              WHERE x.ue_num = i.ue_num AND x.annee_scolaire = i.annee_scolaire LIMIT 1) AS cours_annee,
            (SELECT ue_aut FROM ue x
@@ -137,24 +140,22 @@ export function calculerDI(etudId, annee) {
   `).all(etudId, annee);
 
   const recent = db.prepare(`
-    SELECT ue_per_etudiants AS periodes, ue_per_cours AS per_cours, ue_aut AS aut, ue_niveau AS niveau, ue_nom
+    SELECT ue_tot_prf AS tot_prf, ue_per_cours AS per_cours, ue_aut AS aut, ue_niveau AS niveau, ue_nom
     FROM ue WHERE ue_num = ? ORDER BY annee_scolaire DESC LIMIT 1
   `);
 
   // Les UE valorisées en dispense complète ne donnent lieu à aucun droit
   const vaCompletes = new Set(
-    db.prepare("SELECT ue_num FROM etudiant_valorisation WHERE etudiant_id = ? AND type = 'complete' AND COALESCE(decision, 'accordee') <> 'refusee'")
+    db.prepare(`SELECT ue_num FROM etudiant_valorisation WHERE etudiant_id = ? AND type = 'complete' AND ${vaRetenue()}`)
       .all(etudId).map(v => v.ue_num));
 
   const detail = lignes.map(l => {
     const r0 = recent.get(l.ue_num) || {};
-    /* LE DROIT SE PAIE SUR TOUTES LES PÉRIODES DE L'UNITÉ, AUTONOMIE COMPRISE
-       (Charles, 7 octobre 2026 : « le prix est le calcul DI × périodes UE »).
-       `ue_per_etudiants` seul oubliait l'autonomie là où le dossier ne l'y
-       compte pas — 80 au lieu de 100 pour l'UE 246. */
-    const periodes = l.per_annee != null
-      ? periodesEtudiantUE({ per_etud: l.per_annee, per_cours: l.cours_annee, aut: l.aut_annee })
-      : periodesEtudiantUE({ per_etud: r0.periodes, per_cours: r0.per_cours, aut: r0.aut });
+    /* LE DROIT SE PAIE SUR LES PÉRIODES PROFESSEUR DU DOSSIER, AUTONOMIE
+       COMPRISE, HORS Z (Charles, 7 octobre 2026) — lib/periodesUE.js. */
+    const periodes = l.existe_annee != null || l.tot_annee != null
+      ? periodesDI({ tot_prf: l.tot_annee, per_cours: l.cours_annee, aut: l.aut_annee })
+      : periodesDI(r0);
     const niveau = l.niv_annee || r0.niveau || '';
     const dispensee = !!l.dispense_complete || vaCompletes.has(l.ue_num);
     const sup = String(niveau).toUpperCase().startsWith('SUP');

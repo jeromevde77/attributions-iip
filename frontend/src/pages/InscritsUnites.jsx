@@ -12,12 +12,12 @@
  * Les parties sont celles de la pièce « Listes par unité » : A à suivre en
  * entier, B avec dispense / VA / report, C déjà acquise (à retirer).
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { IconPrinter } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { ouvrirApercu } from '../lib/apercu.js';
 import { TuileEtat } from '../components/ui.jsx';
-import { FicheEtudiant } from './Etudiants.jsx';
+import { FicheEtudiant, RevuePAE } from './Etudiants.jsx';
 import GrilleInscrits from '../components/GrilleInscrits.jsx';
 
 const PARTIES = { A: 'À suivre', B: 'Dispense', C: 'Déjà acquise' };
@@ -48,6 +48,9 @@ export default function InscritsUnites() {
   const [choix, setChoix] = useState(() => new Set());     // unités cochées
   const [f, setF] = useState({ profil: new Set(), bloc: new Set(), partie: new Set(), sle: false });
   const [fiche, setFiche] = useState(null);
+  const [revue, setRevue] = useState(null);   // l'étudiant dont on ouvre la revue du PAE
+  const [recharge, setRecharge] = useState(0);
+  const derniereLecture = useRef('');
   const [impression, setImpression] = useState(false);
   // DEUX LECTURES : la GRILLE (un étudiant par ligne, une unité par colonne) et
   // la vue PAR UNITÉ (une ligne par unité, puis ses étudiants).
@@ -64,7 +67,12 @@ export default function InscritsUnites() {
 
   useEffect(() => {
     try { localStorage.setItem('iu.section', section); } catch { /* */ }
-    setData(null); setErreur(null); setChoix(new Set());
+    // Relire après une revue garde l'écran tel quel (tri, colonnes) ; changer de
+    // section ou d'année repart de zéro.
+    const cleLecture = `${annee}|${section}`;
+    if (derniereLecture.current !== cleLecture) { setData(null); setChoix(new Set()); }
+    derniereLecture.current = cleLecture;
+    setErreur(null);
     if (!section) return;
     let vivant = true;
     fetch(`/api/etudiants/inscrits-unites?annee=${encodeURIComponent(annee)}&section=${encodeURIComponent(section)}`, { headers: authHeaders() })
@@ -72,7 +80,7 @@ export default function InscritsUnites() {
       .then(j => { if (vivant) setData(j); })
       .catch(e => { if (vivant) setErreur(e.message); });
     return () => { vivant = false; };
-  }, [annee, section]);
+  }, [annee, section, recharge]);
 
   const E = data?.etudiants || {};
   const blocs = useMemo(() => [...new Set(Object.values(E).map(e => e.bloc).filter(Boolean))].sort(), [data]);   // eslint-disable-line react-hooks/exhaustive-deps
@@ -168,7 +176,7 @@ export default function InscritsUnites() {
       {section && !data && !erreur && <p className="text-[13px] text-slate-400">Chargement…</p>}
 
       {data && vue === 'grille' && (
-        <GrilleInscrits data={data} passe={passe} annee={annee} section={section} onFiche={setFiche} />)}
+        <GrilleInscrits data={data} passe={passe} annee={annee} section={section} onFiche={setFiche} onRevue={setRevue} />)}
 
       {data && vue === 'unites' && (<>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 max-w-4xl">
@@ -267,6 +275,11 @@ export default function InscritsUnites() {
       </>)}
 
       {fiche && <FicheEtudiant id={fiche} annee={annee} onClose={() => setFiche(null)} />}
+      {/* LE REPORT DE NOTE MÈNE À LA REVUE DU PAE (7 octobre 2026 : « pour aller
+          voir et éventuellement corriger ») ; la grille se relit en sortant. */}
+      {revue && data?.etudiants?.[revue] && (
+        <RevuePAE liste={[{ id: revue, nom: data.etudiants[revue].nom_famille, prenom: data.etudiants[revue].prenom, section, niveau: null }]}
+          annee={annee} onClose={() => { setRevue(null); setRecharge(x => x + 1); }} />)}
     </div>
   );
 }

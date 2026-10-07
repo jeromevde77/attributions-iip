@@ -205,11 +205,16 @@ function DispoGrid({ creneaux, dispoQ1, setDispoQ1, dispoQ2, setDispoQ2, profId 
    il ne voit que son identité civile et ses coordonnées bancaires (Charles,
    5 octobre 2026 : « QUE identité civile, coordonnées bancaires et
    attributions ; PAS le reste »). */
-export default function ProfFicheModal({ prof, onClose, onSaved, restreint = false, onPrec = null, onSuiv = null, position = null }) {
+export default function ProfFicheModal({ prof, onClose, onSaved, restreint = false, onPrec = null, onSuiv = null, position = null,
+                                        /* ENREGISTRER SANS QUITTER (Charles, 7 octobre 2026 : « j'enregistre mais je
+                                           peux continuer », avec les flèches) : si l'écran le fournit, la fiche reste
+                                           ouverte après l'enregistrement et la liste se rafraîchit derrière. */
+                                        onEnregistre = null }) {
   /* PASSER D'UNE FICHE À L'AUTRE EN SAISIE (Charles, 7 octobre 2026 :
      « urgence, flèche gauche droite depuis la fiche prof »). Une saisie non
      enregistrée ne se perd pas sans qu'on l'ait dit. */
   const [touche, setTouche] = useState(false);
+  const [enregistreA, setEnregistreA] = useState(null);
   const aller = async (fn) => {
     if (!fn) return;
     if (touche && !(await demander('Des modifications de cette fiche ne sont pas enregistrées. Passer quand même à la fiche voisine ? Elles seront perdues.'))) return;
@@ -423,6 +428,12 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
         const reports = Object.entries(reportsCours).map(([cours_nom, jours]) => ({ cours_nom, jours }));
         await api.saveProfAncienneteCours(id, reports);
       }
+      if (!isNew && onEnregistre) {
+        setTouche(false);
+        setEnregistreA(new Date().toLocaleTimeString('fr-BE', { hour: '2-digit', minute: '2-digit' }));
+        onEnregistre();
+        return;
+      }
       onSaved();
     } catch (e) { informer('Erreur : ' + e.message); }
     finally { setSaving(false); }
@@ -485,11 +496,12 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
           className="bouton bouton-fort disabled:opacity-40">
           {saving ? 'Sauvegarde…' : isNew ? 'Créer la fiche' : 'Enregistrer'}
         </button>
-        <span className="text-[12px] text-slate-500">
+        <span className="text-[12px] text-slate-500 min-w-0">
           {isNew ? 'La fiche est créée à la validation, pas avant.'
+            : enregistreA && !touche ? <span className="text-emerald-700">✓ Enregistré à {enregistreA} — vous pouvez continuer ou passer à la fiche voisine.</span>
             : 'Les modifications ne sont enregistrées qu’à la validation.'}
         </span>
-        <button type="button" onClick={onClose} className="bouton ml-auto">Annuler</button>
+        <button type="button" onClick={onClose} className="bouton ml-auto">{enregistreA && !touche ? 'Fermer' : 'Annuler'}</button>
       </>}>
       <form id="fiche-personnel" onSubmit={handleSubmit} autoComplete="off"
         className="space-y-3">

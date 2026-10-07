@@ -132,6 +132,20 @@ export const DOCUMENTS = [
     destinataires: 'conseil',
     roles: ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'],
   },
+  /* LA NOTIFICATION DES DÉCISIONS DE VA, PAR ÉTUDIANT (7 octobre 2026) :
+     toutes ses demandes de l'année dont la décision est validée, et la
+     motivation DU CONSEIL. Composition : lib/pieceNotificationVA.js. */
+  {
+    cle: 'valorisation_notification',
+    libelle: 'Valorisation des acquis — notification des décisions',
+    description: "Lettre de la direction à l'étudiant : chaque unité demandée, la décision du Conseil, sa motivation ; mention de l'absence de recours.",
+    portee: 'etudiant', lot: false, groupe: 'Étudiants',
+    route: { methode: 'GET', chemin: '/api/etudiants/:id/valorisations/notification' },
+    parametres: ['annee'],
+    nomFichier: 'VA_Notification_{nom}_{prenom}_{annee}',
+    destinataires: 'etudiant',
+    roles: ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'],
+  },
   /* LE SCHÉMA DE CAPITALISATION D'UNE SECTION (5 octobre 2026), A4 paysage :
      Éditions → Organisation → Schémas de capitalisation, ou Structure. Le
      dessin vient de l'écran, la mise en page de l'enveloppe commune. */
