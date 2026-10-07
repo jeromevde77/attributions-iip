@@ -874,7 +874,23 @@ r.get('/professeurs', authRequired, soiSeul({ liste: true }), (req, res) => {
        AND a.contrat_mdp IS NOT NULL AND a.contrat_mdp != '') AS contrats_annee,
       (SELECT GROUP_CONCAT(DISTINCT a.section)
        FROM attribution a WHERE a.professeur_id = p.id AND a.annee_scolaire = '${anneeActive}'
-       AND a.section IS NOT NULL AND a.section != '') AS sections_annee
+       AND a.section IS NOT NULL AND a.section != '') AS sections_annee,
+      /* CE QUI MANQUE À LA FICHE IDENTITÉ (Charles, 7 octobre 2026 : « filtrer
+         par données présentes ou manquantes »). Des noms de champs, jamais
+         des valeurs : la liste dit qu'un IBAN manque, pas lequel est encodé. */
+      ((CASE WHEN TRIM(COALESCE(p.sexe,''))='' THEN 'sexe,' ELSE '' END) ||
+      (CASE WHEN TRIM(COALESCE(p.date_naissance,''))='' THEN 'date_naissance,' ELSE '' END) ||
+      (CASE WHEN TRIM(COALESCE(p.lieu_naissance_ville,''))='' THEN 'lieu_naissance,' ELSE '' END) ||
+      (CASE WHEN TRIM(COALESCE(p.nationalite,''))='' THEN 'nationalite,' ELSE '' END) ||
+      (CASE WHEN TRIM(COALESCE(p.niss,''))='' THEN 'niss,' ELSE '' END) ||
+      (CASE WHEN TRIM(COALESCE(p.etat_civil,''))='' THEN 'etat_civil,' ELSE '' END) ||
+      (CASE WHEN TRIM(COALESCE(p.adresse_rue,''))='' OR TRIM(COALESCE(p.code_postal,''))='' OR TRIM(COALESCE(p.commune,''))='' THEN 'adresse,' ELSE '' END) ||
+      (CASE WHEN TRIM(COALESCE(p.adresse_mail,''))='' THEN 'adresse_mail,' ELSE '' END) ||
+      (CASE WHEN TRIM(COALESCE(p.mail_prive,''))='' THEN 'mail_prive,' ELSE '' END) ||
+      (CASE WHEN TRIM(COALESCE(p.tel_gsm,''))='' THEN 'tel_gsm,' ELSE '' END) ||
+      (CASE WHEN TRIM(COALESCE(p.iban,''))='' THEN 'iban,' ELSE '' END) ||
+      (CASE WHEN TRIM(COALESCE(p.matricule,''))='' THEN 'matricule,' ELSE '' END) ||
+      (CASE WHEN (NOT EXISTS (SELECT 1 FROM titre_capacite tc WHERE tc.professeur_id = p.id) AND TRIM(COALESCE(p.titre1,''))='') THEN 'titres,' ELSE '' END)) AS champs_vides
     FROM professeur p
     LEFT JOIN v_professeur_total v ON v.id = p.id`;
 
