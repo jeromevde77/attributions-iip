@@ -35,9 +35,16 @@ r.get('/', authRequired, (req, res) => {
   const ues = db.prepare(`SELECT ue_num, MIN(ue_nom) AS ue_nom FROM ue WHERE annee_scolaire = ? AND (section = ? OR ue_num IN
       (SELECT ue_num FROM ue_section WHERE section_code = ? AND annee_scolaire = ?)) GROUP BY ue_num ORDER BY ue_num`)
     .all(annee, section, section, annee);
-  const reel = db.prepare(`SELECT COUNT(DISTINCT etudiant_id) n FROM etudiant_inscription WHERE annee_scolaire = ? AND ue_num = ?`);
+  /* LES INSCRITS RÉELS SE COMPTENT COMME DANS LE RAPPORT (Charles, 8 octobre 2026 :
+     « d'où vient le 121 ? » — 94 étudiants archivés portaient encore une inscription
+     de l'année). Hors archivés ; la section de l'étudiant est son rattachement, sinon
+     celle de l'unité, comme dans les chiffres clés. */
+  const reel = db.prepare(`SELECT COUNT(DISTINCT i.etudiant_id) n FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+      WHERE i.annee_scolaire = ? AND i.ue_num = ? AND COALESCE(e.sortie_statut, '') <> 'archive'`);
   const reelSection = db.prepare(`SELECT COUNT(DISTINCT i.etudiant_id) n FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
-      WHERE i.annee_scolaire = ? AND e.section_rattachement = ?`).get(annee, section).n;
+      WHERE i.annee_scolaire = ? AND COALESCE(e.sortie_statut, '') <> 'archive'
+        AND COALESCE(e.section_rattachement, (SELECT u.section FROM ue u WHERE u.ue_num = i.ue_num
+          AND u.annee_scolaire = i.annee_scolaire AND COALESCE(u.hors_cursus, 0) = 0 LIMIT 1)) = ?`).get(annee, section).n;
   res.json({
     annee, section, section_reel: reelSection, section_prevu: prevus.get(`${section}|0`) ?? null,
     ues: ues.map(u => ({ ...u, reel: reel.get(annee, u.ue_num).n, prevu: prevus.get(`${section}|${u.ue_num}`) ?? null })),
