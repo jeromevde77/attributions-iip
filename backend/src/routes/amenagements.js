@@ -76,6 +76,8 @@ function circuitDe(d, req = null) {
   const charges = (() => { try { return chargesDeCours(chargerDossier(d.id)); } catch { return []; } })();
   return {
     hors_circuit: horsCircuit(d),
+    // Rouvrir pour corriger : tant que le Conseil n'a ni accordé ni refusé.
+    decide: DECIDE.includes(d.statut) || !!d.cde_date,
     a: { valide_le: d.valide_a_le || null, valide_par: d.valide_a_par || null, manques: manquesA(d, nbMesures) },
     b: { valide_le: d.valide_b_le || null, valide_par: d.valide_b_par || null, manques: manquesB(d, nbMesures),
          // Qui peut valider le rapport : la direction (geste) ou la personne de référence (3.1.20).
@@ -583,6 +585,10 @@ r.put('/dossier/:id/valider-a', authRequired, peutAmenagerGeste('amenagements.va
 r.delete('/dossier/:id/valider-a', authRequired, peutAmenagerGeste('amenagements.valider_a'), (req, res) => {
   const d = db.prepare('SELECT * FROM amenagement_dossier WHERE id = ?').get(Number(req.params.id));
   if (!d) return res.status(404).json({ error: 'dossier introuvable' });
+  /* RIEN NE SE ROUVRE APRÈS LE CONSEIL (Charles, 8 octobre 2026, à la demande
+     d'Audrey Perez : « rouvrir un dossier AR pour corriger des erreurs — sauf si
+     le CDE a donné un accord ou un refus »). Le volet B le vérifiait ; le A non. */
+  if (DECIDE.includes(d.statut) || d.cde_date) return res.status(409).json({ error: 'Le Conseil a décidé : la demande ne se rouvre plus.' });
   if (d.valide_b_le) return res.status(409).json({ error: 'Le rapport (volet B) est validé : rouvrez-le d’abord.' });
   db.prepare(`UPDATE amenagement_dossier SET valide_a_le = NULL, valide_a_par = NULL, maj_le = datetime('now') WHERE id = ?`).run(d.id);
   res.json({ ok: true });
