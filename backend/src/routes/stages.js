@@ -273,13 +273,41 @@ r.post('/import-releve', authRequired, roleRequired(...ECRITURE), (req, res) => 
   const deLaSection = new Set(db.prepare(`SELECT DISTINCT i.etudiant_id id FROM etudiant_inscription i
       WHERE i.ue_num IN (SELECT ue_num FROM ue WHERE section = ?)`).all(section).map(x => x.id));
   for (const e of tous) if (e.section_rattachement === section) deLaSection.add(e.id);
-  const parSac = new Map();
-  for (const e of tous) { const k = sacDe(e.nom, e.prenom); (parSac.get(k) || parSac.set(k, []).get(k)).push(e); }
+  const parSac = new Map(), parNom = new Map();
+  const cleNom = t => sansAccents(t).replace(/[^a-z]+/g, ' ').trim();
+  const motsPrenom = t => sansAccents(t).replace(/[^a-z]+/g, ' ').trim().split(' ').filter(w => w.length >= 2);
+  for (const e of tous) {
+    const k = sacDe(e.nom, e.prenom); (parSac.get(k) || parSac.set(k, []).get(k)).push(e);
+    const n = cleNom(e.nom); (parNom.get(n) || parNom.set(n, []).get(n)).push(e);
+  }
+  // Une lettre d'écart au plus (ajoutée, ôtée ou changée) : « Emanuel » / « Emmanuel ».
+  const procheDe = (a, b) => {
+    if (a === b) return true;
+    if (Math.abs(a.length - b.length) > 1) return false;
+    let i = 0, j = 0, ecarts = 0;
+    while (i < a.length && j < b.length) {
+      if (a[i] === b[j]) { i++; j++; continue; }
+      if (++ecarts > 1) return false;
+      if (a.length > b.length) i++; else if (b.length > a.length) j++; else { i++; j++; }
+    }
+    return ecarts + (a.length - i) + (b.length - j) <= 1;
+  };
+  const unSeul = c => { const sec = c.filter(e => deLaSection.has(e.id)); const l = sec.length ? sec : c; return l.length === 1 ? l[0] : (l.length ? 'homonymes' : null); };
+  /* LE PRÉNOM D'eCAMPUS PORTE DES INITIALES (« Midrelle S », « Axelle C, H. ») que le
+   * relevé n'a pas (Charles, 8 octobre 2026 : « il ne trouve pas les étudiants »).
+   * Le nom identique, puis le premier prénom du relevé parmi ceux de Lucie ; à
+   * défaut, l'unique étudiant de ce nom dans la section dont le prénom commence
+   * pareil (« Emanuel » / « Emmanuel »). */
   const trouver = (nom, prenom) => {
-    const c = parSac.get(sacDe(nom, prenom)) || [];
-    const sec = c.filter(e => deLaSection.has(e.id));
-    const l = sec.length ? sec : c;
-    return l.length === 1 ? { e: l[0] } : { e: null, motif: l.length ? 'homonymes' : 'introuvable' };
+    const exact = unSeul(parSac.get(sacDe(nom, prenom)) || []);
+    if (exact && exact !== 'homonymes') return { e: exact };
+    const memeNom = parNom.get(cleNom(nom)) || [];
+    const p1 = motsPrenom(prenom)[0] || '';
+    const parPrenom = unSeul(memeNom.filter(e => p1 && motsPrenom(e.prenom).includes(p1)));
+    if (parPrenom && parPrenom !== 'homonymes') return { e: parPrenom };
+    const sec = memeNom.filter(e => deLaSection.has(e.id));
+    if (sec.length === 1 && p1.length >= 3 && procheDe(motsPrenom(sec[0].prenom)[0] || '', p1)) return { e: sec[0] };
+    return { e: null, motif: exact === 'homonymes' || parPrenom === 'homonymes' ? 'homonymes' : 'introuvable' };
   };
   const lieuExiste = db.prepare("SELECT id FROM stage_lieu WHERE lower(trim(nom)) = lower(trim(?)) AND COALESCE(section, '') = ? ORDER BY (service IS NULL) DESC LIMIT 1");
   const stageExiste = db.prepare('SELECT id FROM stage WHERE etudiant_id = ? AND lieu_id = ? AND date_debut = ?');
