@@ -954,11 +954,15 @@ function documentCoutFormations(p) {
     const p0 = postes.find(x => x.nom === nom);
     if (p0) p0.valeur += g.cout; else postes.push({ nom, valeur: g.cout });
   }
-  // Le rose dit la HELB, et lui seul ; les autres postes prennent la série.
-  const serieP = couleursSerie(K).filter(c => c !== K.bleu);
-  let iP = 0;
+  /* UNE TEINTE PAR POSTE (Charles, 8 octobre 2026 : « différencie les couleurs »).
+     La HELB garde la famille du rose — une nuance par poste, de la plus foncée à
+     la plus claire ; les postes de l'établissement prennent des teintes franches,
+     éloignées l'une de l'autre. */
+  const TEINTES_IIP = ['#19537E', '#F9B619', '#05B7E6', '#3E7D5E', '#B45309', '#8FA3B8', '#0F2A44', '#C9A227', '#5E9C8B'];
+  const TEINTES_HELB = ['#97266D', '#D53F8C', '#F687B3', '#702459', '#ED64A6', '#B83280', '#FBB6CE'];
+  let iI = 0, iH = 0;
   const postesCouleurs = postes.filter(x => x.valeur > 0).map(x => ({ ...x, nom: esc(x.nom),
-    couleur: /HELB/.test(x.nom) ? '#B83280' : x.nom === 'Cours — IIP' ? K.bleu : serieP[iP++ % serieP.length] }));
+    couleur: /HELB/.test(x.nom) ? TEINTES_HELB[iH++ % TEINTES_HELB.length] : TEINTES_IIP[iI++ % TEINTES_IIP.length] }));
 
   // UNITÉ PAR UNITÉ : une ligne par statut, le calcul écrit.
   const calc = (per, tarif, cout) => (per ? `${n0(per)} × ${m2(tarif)} = ${eur(cout)}` : '—');
