@@ -25,7 +25,7 @@ import { decisionDeSession, structureUE } from './acquis.js';
 import { calculerEtp } from './pilotage.js';
 import { MOTIFS_DI } from './droitInscription.js';
 import { donneesChiffresCles, donneesPersonnel, TRANCHES_ETP } from '../lib/chiffresCles.js';
-import { donneesCout } from '../lib/coutFormation.js';
+import { donneesCout, syntheseCout } from '../lib/coutFormation.js';
 import { getParamNum } from './parametres.js';
 import { TITRES_ACCES, DIPLOMES_MAX } from '../lib/profilEtudiant.js';
 import { couleurs } from '../lib/couleurs.js';
@@ -778,6 +778,7 @@ function documentPersonnelStats(p) {
  */
 function documentCoutFormations(p) {
   const d = donneesCout(p.annee);
+  const Y = syntheseCout(d);
   const dateRapport = new Date().toLocaleDateString('fr-BE', { day: '2-digit', month: '2-digit', year: 'numeric' });
   const joursRemplacement = getParamNum('cout.remplacement_jours', 10);
   const pastilleHelb = '<span style="display:inline-block;padding:0 1.6mm;border-radius:1mm;background:#B83280;color:#fff;font-size:7.5pt;margin-left:1.5mm">HELB</span>';
@@ -849,13 +850,11 @@ function documentCoutFormations(p) {
      en €, les ETP par section — le total, les CC, les EXP »). Comme Pilotage :
      périodes CT ÷ 800 + périodes PP ÷ 1 000, sur les périodes du coût des cours
      (hors congé, hors Z ; une unité partagée au prorata des étudiants). */
-  const etpDe = x => (x?.per_ct || 0) / 800 + (x?.per_pp || 0) / 1000;
   const e2 = n => (n ? n.toFixed(2).replace('.', ',') : '—');
-  const tEtpTot = d.sections.reduce((t, S) => ({ tot: t.tot + etpDe(S), cc: t.cc + etpDe(S.statuts.CC), exp: t.exp + etpDe(S.statuts.EXP), autre: t.autre + etpDe(S.statuts.AUTRE) }),
-    { tot: 0, cc: 0, exp: 0, autre: 0 });
+  const tEtpTot = { tot: Y.etp_total.total, cc: Y.etp_total.cc, exp: Y.etp_total.exp, autre: Y.etp_total.autre };
   const tEtp = `<table class="serre"><thead><tr><th>Section</th>${['ETP total', 'dont CC', 'dont EXP', '% CC', '% EXP'].map(c => `<th class="n">${c}</th>`).join('')}${tEtpTot.autre ? '<th class="n">Sans statut</th>' : ''}</tr></thead>
-    <tbody>${d.sections.filter(S => S.periodes).map(S => { const t = etpDe(S), c = etpDe(S.statuts.CC), x = etpDe(S.statuts.EXP), a = etpDe(S.statuts.AUTRE);
-      return `<tr><td>${esc(S.section)}</td><td class="n g">${e2(t)}</td><td class="n">${e2(c)}</td><td class="n">${e2(x)}</td>
+    <tbody>${Y.etp.map(E => { const t = E.total, c = E.cc, x = E.exp, a = E.autre;
+      return `<tr><td>${esc(E.section)}</td><td class="n g">${e2(t)}</td><td class="n">${e2(c)}</td><td class="n">${e2(x)}</td>
         <td class="n">${pc(c, t)}</td><td class="n">${pc(x, t)}</td>${tEtpTot.autre ? `<td class="n">${e2(a)}</td>` : ''}</tr>`; }).join('')}</tbody>
     <tfoot><tr class="repere"><td>Ensemble</td><td class="n">${e2(tEtpTot.tot)}</td><td class="n">${e2(tEtpTot.cc)}</td><td class="n">${e2(tEtpTot.exp)}</td>
       <td class="n">${pc(tEtpTot.cc, tEtpTot.tot)}</td><td class="n">${pc(tEtpTot.exp, tEtpTot.tot)}</td>${tEtpTot.autre ? `<td class="n">${e2(tEtpTot.autre)}</td>` : ''}</tr></tfoot></table>
@@ -920,34 +919,17 @@ function documentCoutFormations(p) {
      enlève les noms, on regroupe par fonction, on met HELB si nécessaire ; les
      comptes sont bons »). Une ligne par fonction et par formule ; la part HELB
      d'une fonction a sa propre ligne. */
-  const morceaux = d.missions.flatMap(m => {
-    const base = { fonction: m.fonction || '(sans libellé)', portee: m.portee, personne: `${m.nom}|${m.prenom}` };
-    if (m.mode === 'periodes_b') return [{ ...base, helb: false, mode: m.mode, etp: m.etp, cout: m.cout,
-      cle: `${m.periodes_b}|${m.cout_b}`, formule: e => `${e1(e)} ETP × ${n0(m.periodes_b)} pér. B × ${m2(m.cout_b)} €` }];
-    if (m.mode === 'annuel') return [{ ...base, helb: false, mode: m.mode, etp: m.etp, cout: m.cout,
-      cle: `${m.annuel}`, formule: e => `${e1(e)} ETP × ${eur(m.annuel)}` }];
-    if (m.mode === 'etp800') return [[false, m.etp_iip_compte], [true, m.etp_helb_compte]].filter(([, e]) => e).map(([helb, e]) => ({
-      ...base, helb, mode: m.mode, etp: e, cout: e * 800 * m.tarif_ct, cle: `${m.tarif_ct}|${m.niveau}`,
-      formule: x => `${e1(x)} ETP × 800 × ${m2(m.tarif_ct)} € (CT ${m.niveau})` }));
-    return [{ ...base, helb: false, mode: m.mode, etp: m.etp, cout: 0, cle: '', per: m.periodes_coord || 0, coutP: m.cout_periodes || 0, code: m.code_coord }];
-  });
-  const groupesF = [];
-  for (const x of morceaux) {
-    const k = `${x.fonction}|${x.helb}|${x.mode}|${x.cle}`;
-    let g = groupesF.find(y => y.k === k);
-    if (!g) groupesF.push(g = { k, fonction: x.fonction, helb: x.helb, mode: x.mode, formule: x.formule, etp: 0, cout: 0, per: 0, coutP: 0, code: x.code, personnes: new Set(), portees: new Set() });
-    g.etp += x.etp || 0; g.cout += x.cout || 0; g.per += x.per || 0; g.coutP += x.coutP || 0; g.personnes.add(x.personne); if (x.portee) g.portees.add(x.portee);
-  }
-  const coutEnPeriodes = groupesF.reduce((a, g) => a + (g.coutP || 0), 0);
+  const groupesF = Y.fonctions;
+  const coutEnPeriodes = Y.cout_en_periodes;
   const tFonctions = groupesF.length ? `<table><thead><tr><th>Fonction</th><th>Portée</th>
       <th class="n" style="width:18mm">Personnes</th><th class="n" style="width:14mm">ETP</th><th class="n" style="width:66mm">Calcul</th><th class="n" style="width:24mm">Coût</th></tr></thead>
     <tbody>${groupesF.map(g => `<tr><td>${esc(g.fonction)}${g.helb ? pastilleHelb : ''}</td>
-      <td>${esc([...g.portees].join(', '))}</td><td class="n">${g.personnes.size}</td>
+      <td>${esc(g.portees.join(', '))}</td><td class="n">${g.personnes}</td>
       <td class="n">${g.etp ? e1(g.etp) : '<span class="fin">à régler</span>'}</td>
-      <td class="n">${g.mode === 'periodes' ? (g.per ? `${n0(g.per)} pér. de coordination (${esc(g.code || '')}) × la période de leur unité *`
-          : '<span class="fin">payée par les périodes attribuées — aucune ligne de coordination à son nom</span>')
-        : g.mode === 'sans_etp' || !g.etp ? '<span class="fin">ETP à régler (onglet Fonctions)</span>' : esc(g.formule(g.etp))}</td>
-      <td class="n">${g.cout ? eur(g.cout) : g.coutP ? `<i>${eur(g.coutP)}</i> *` : '—'}</td></tr>`).join('')}</tbody>
+      <td class="n">${g.calcul ? esc(g.calcul) : g.mode === 'periodes'
+          ? '<span class="fin">payée par les périodes attribuées — aucune ligne de coordination à son nom</span>'
+          : '<span class="fin">ETP à régler (onglet Fonctions)</span>'}</td>
+      <td class="n">${g.cout ? eur(g.cout) : g.cout_periodes ? `<i>${eur(g.cout_periodes)}</i> *` : '—'}</td></tr>`).join('')}</tbody>
     <tfoot><tr class="repere"><td colspan="5">Ensemble des fonctions${groupesF.some(g => g.helb) ? ` — dont HELB ${eur(groupesF.filter(g => g.helb).reduce((a, g) => a + g.cout, 0))}` : ''}</td><td class="n">${eur(tot.cout_fonctions)}</td></tr>
     ${coutEnPeriodes ? `<tr><td colspan="5">* Fonctions payées par des périodes attribuées — déjà comprises dans le coût des cours, hors total des fonctions</td><td class="n"><i>${eur(coutEnPeriodes)}</i> *</td></tr>` : ''}</tfoot></table>
     <p class="fin"><b>Direction et secrétariat</b> sont des emplois de personnel non chargé de cours (PNCC) : coût = ETP × l'équivalent
@@ -962,30 +944,7 @@ function documentCoutFormations(p) {
      fonctions, c'est trop peu clair ; il faut détailler cours, admin,
      coordination… ça comprend la HE ? »). Oui : cours et fonctions HELB y
      sont, et se lisent à part. */
-  const postes = [{ nom: 'Cours — IIP', valeur: tot.cout - (tot.cout_helb || 0) }, { nom: 'Cours — HELB', valeur: tot.cout_helb || 0 }];
-  // Les fonctions payées en périodes sortent des « Cours — IIP » pour se lire à part (*).
-  for (const g of groupesF) {
-    if (!g.coutP) continue;
-    postes[0].valeur -= g.coutP;
-    const nom = `${g.fonction} (en périodes) *`;
-    const p0 = postes.find(x => x.nom === nom);
-    if (p0) p0.valeur += g.coutP; else postes.push({ nom, valeur: g.coutP });
-  }
-  for (const g of groupesF) {
-    if (!g.cout) continue;
-    const nom = `${g.fonction}${g.helb ? ' — HELB' : ''}`;
-    const p0 = postes.find(x => x.nom === nom);
-    if (p0) p0.valeur += g.cout; else postes.push({ nom, valeur: g.cout });
-  }
-  /* UNE TEINTE PAR POSTE (Charles, 8 octobre 2026 : « différencie les couleurs »).
-     La HELB garde la famille du rose — une nuance par poste, de la plus foncée à
-     la plus claire ; les postes de l'établissement prennent des teintes franches,
-     éloignées l'une de l'autre. */
-  const TEINTES_IIP = ['#19537E', '#F9B619', '#05B7E6', '#3E7D5E', '#B45309', '#8FA3B8', '#0F2A44', '#C9A227', '#5E9C8B'];
-  const TEINTES_HELB = ['#97266D', '#D53F8C', '#F687B3', '#702459', '#ED64A6', '#B83280', '#FBB6CE'];
-  let iI = 0, iH = 0;
-  const postesCouleurs = postes.filter(x => x.valeur > 0).map(x => ({ ...x, nom: esc(x.nom),
-    couleur: /HELB/.test(x.nom) ? TEINTES_HELB[iH++ % TEINTES_HELB.length] : TEINTES_IIP[iI++ % TEINTES_IIP.length] }));
+  const postesCouleurs = Y.postes.map(x => ({ ...x, nom: esc(x.nom) }));
 
   // UNITÉ PAR UNITÉ : une ligne par statut, le calcul écrit.
   const calc = (per, tarif, cout) => (per ? `${n0(per)} × ${m2(tarif)} = ${eur(cout)}` : '—');
@@ -1064,7 +1023,7 @@ function documentCoutFormations(p) {
     <h2>Les coûts</h2>
     ${rangeeCamemberts(
       camembert('Coût complet — poste par poste', postesCouleurs, { total: `${Math.round(tot.cout_complet / 1000).toLocaleString('fr-BE')} k€`,
-        note: `HELB comprise : ${eur((tot.cout_helb || 0) + groupesF.filter(g => g.helb).reduce((a, g) => a + g.cout, 0))}${coutEnPeriodes ? ' · * payées par des périodes, comprises dans les cours' : ''}` }),
+        note: `HELB comprise : ${eur(Y.cout_helb_total)}${coutEnPeriodes ? ' · * payées par des périodes, comprises dans les cours' : ''}` }),
       camembert('Coût des cours par section', d.sections.filter(S => S.cout).map((S, i) => ({ nom: esc(S.section), valeur: S.cout, couleur: couleursSerie(K)[i % 10] })),
         { total: `${Math.round(tot.cout / 1000).toLocaleString('fr-BE')} k€` }))}
     ${duo(
@@ -2484,6 +2443,20 @@ r.get('/catalogue', authRequired, (req, res) => {
       piece: !!document, portees: portees || null,
     })),
   });
+});
+
+/* LE RAPPORT STATISTIQUE, EN OUTIL (Charles, 8 octobre 2026 : « ce ne doit pas
+   être une feuille mise en page mais un outil… avec ensuite un print ou envoi »).
+   Les données de la pièce, en JSON, pour la feuille de Pilotage — sans les noms
+   des membres du personnel (les fonctions se lisent regroupées). */
+r.get('/cout-formations/donnees', authRequired, (req, res) => {
+  try {
+    const annee = String(req.query.annee || anneeDeTravail(req));
+    const d = donneesCout(annee);
+    const { missions, ...reste } = d;
+    res.json({ ...reste, nb_fonctions: missions.length, synthese: syntheseCout(d),
+      remplacement_jours: getParamNum('cout.remplacement_jours', 10) });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 /** Un aperçu à l'écran avant de télécharger : on voit ce qu'on emporte. */
