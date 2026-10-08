@@ -580,19 +580,9 @@ function AccesLuciePanel({ profId, detail }) {
 }
 
 function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint = false, onPrec = null, onSuiv = null, position = null }) {
-  /* PASSER D'UN MEMBRE À L'AUTRE (Charles, 6 octobre 2026 : « avec les
-     flèches gauche droite, comme les étudiants ») — dans l'ordre et les
-     filtres de la liste. Jamais pendant qu'on écrit dans un champ. */
-  useEffect(() => {
-    const dansUnChamp = t => ['input', 'textarea', 'select'].includes((t?.tagName || '').toLowerCase()) || t?.isContentEditable;
-    const au = ev => {
-      if (ev.metaKey || ev.ctrlKey || ev.altKey || dansUnChamp(ev.target)) return;
-      if (ev.key === 'ArrowLeft' && onPrec) { ev.preventDefault(); onPrec(); }
-      if (ev.key === 'ArrowRight' && onSuiv) { ev.preventDefault(); onSuiv(); }
-    };
-    window.addEventListener('keydown', au);
-    return () => window.removeEventListener('keydown', au);
-  }, [onPrec, onSuiv]);
+  /* PASSER D'UN MEMBRE À L'AUTRE (Charles, 6 octobre 2026) : les flèches et les
+     touches ← → vivent désormais dans le bandeau de la fenêtre (Fenetre,
+     `navigation`), comme partout dans Lucie. */
   useDroits();
   const [detail, setDetail] = useState(null);
   const [onglet, setOnglet] = useState('attributions');
@@ -782,31 +772,13 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint =
           {detail.statut && <span className="bg-white/20 text-white/90 text-[10px] px-1.5 rounded">{detail.statut}</span>}
         </span>
       }
-      outils={(onEditions || onPrec || onSuiv) && (
-        <>
-            {(onPrec || onSuiv) && (
-              <span className="inline-flex items-center gap-1 mr-2">
-                <button onClick={onPrec || undefined} disabled={!onPrec} title="Membre précédent (flèche gauche)"
-                  className="w-8 h-8 grid place-items-center rounded-champ border border-white/40 text-white hover:bg-white/10 disabled:opacity-30">
-                  <IconChevronLeft size={16} /></button>
-                {position && <span className="text-[12px] text-white/80 tabular-nums min-w-[4rem] text-center">{position.i} / {position.n}</span>}
-                <button onClick={onSuiv || undefined} disabled={!onSuiv} title="Membre suivant (flèche droite)"
-                  className="w-8 h-8 grid place-items-center rounded-champ border border-white/40 text-white hover:bg-white/10 disabled:opacity-30">
-                  <IconChevronRight size={16} /></button>
-              </span>
-            )}
-            {onEditions && <>
-            {/* L'AVION, VERS LES ÉDITIONS (Charles, 27 septembre 2026) : contrats,
-                fiches, EA12 et annexes s'impriment ou s'envoient depuis un seul
-                endroit, qui sait si ce membre est chargé de cours, expert, ou
-                les deux — et propose les pièces qui en découlent. */}
-              <button onClick={() => onEditions(profId)} title="Imprimer ou envoyer — contrats, fiches, EA12, annexes"
-                className="w-9 h-9 grid place-items-center rounded-champ border border-white/40 text-white hover:bg-white/10">
-                <IconSend size={17} />
-              </button>
-            </>}
-        </>
-      )}>
+      navigation={position && (onPrec || onSuiv) ? {
+        position: position.i - 1, total: position.n,
+        onAller: i => (i < position.i - 1 ? onPrec : onSuiv)?.(),
+      } : null}
+      /* L'AVION, VERS LES ÉDITIONS (Charles, 27 septembre 2026) : contrats, fiches,
+         EA12 et annexes, depuis un seul endroit. */
+      editions={onEditions ? () => onEditions(profId) : null}>
 
         {/* ── Layout 2 colonnes ──
             Chaque colonne défile pour elle-même : le contenu de la fenêtre

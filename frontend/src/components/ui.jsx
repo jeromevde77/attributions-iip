@@ -3,7 +3,8 @@ import { createContext, Fragment, lazy, Suspense, useContext, useEffect, useRef,
 const CentreImpressionCentral = lazy(() => import('./CentreImpressionCentral.jsx'));
 const Ameliorations = lazy(() => import('./Ameliorations.jsx'));
 import { createPortal } from 'react-dom';
-import { IconPin, IconPinnedOff, IconSun, IconMoon, IconSend, IconBulb, IconX, IconGift } from '@tabler/icons-react';
+import { IconPin, IconPinnedOff, IconSun, IconMoon, IconSend, IconBulb, IconX, IconGift, IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
+import { demander } from '../lib/dialogue.jsx';
 import { useRailEpingle, basculerEpingle, LARGEUR_RAIL } from '../lib/railEpingle.js';
 import { useMode, basculerMode } from '../lib/theme.js';
 
@@ -1068,8 +1069,19 @@ export function BulleAide({ titre, children }) {
 /** Les fenêtres ouvertes, de la plus ancienne à celle du dessus. */
 const PILE_FENETRES = [];
 
+/* LE BANDEAU PORTE LES FLÈCHES ET L'AVION — UNE FOIS, POUR TOUTES LES FENÊTRES
+   (Charles, 8 octobre 2026 : « généraliser dans le bandeau les flèches avant /
+   après et le bouton Éditions »). Trois écrans avaient leurs flèches, chacun à
+   sa façon ; une fenêtre les reçoit désormais par deux options :
+     navigation = { position, total, onAller(i), sale }  — ouverte DEPUIS UNE
+       LISTE : ◀ 3 / 17 ▶, et les touches ← → (hors d'un champ de saisie).
+       `sale` : des modifications non enregistrées — la flèche demande avant
+       de les abandonner. Sans liste, pas de flèches : une flèche grise
+       promettrait un « suivant » qui n'existe pas.
+     editions = () => … | { …contexte d'Éditions }  — l'avion : les pièces de
+       l'objet affiché ; un objet ouvre le centre d'Éditions sur ce contexte. */
 export function Fenetre({ icone: Ic, titre, sous, large = 'moyenne',
-                         hauteurFixe = false, outils = null,
+                         hauteurFixe = false, outils = null, navigation = null, editions = null,
                           pied = null, ton = 'neutre', onFermer, children }) {
   const largeurs = {
     petite: 'w-[440px]', moyenne: 'w-[720px]',
@@ -1090,12 +1102,31 @@ export function Fenetre({ icone: Ic, titre, sous, large = 'moyenne',
   if (!moi.current) moi.current = Symbol('fenetre');
   const fermer = useRef(onFermer);
   fermer.current = onFermer;
+  const [editionsOuvert, setEditionsOuvert] = useState(false);
+  const nav = useRef(navigation);
+  nav.current = navigation;
+  const aller = async delta => {
+    const n = nav.current;
+    if (!n) return;
+    const i = n.position + delta;
+    if (i < 0 || i >= n.total) return;
+    if (n.sale && !(await demander({ message: 'Des modifications ne sont pas enregistrées.\n\nPasser à la fiche '
+      + (delta > 0 ? 'suivante' : 'précédente') + ' en les abandonnant ?', confirmer: 'Abandonner et passer' }))) return;
+    n.onAller(i);
+  };
   useEffect(() => {
     const jeton = moi.current;
     PILE_FENETRES.push(jeton);
     const f = e => {
-      if (e.key !== 'Escape' || PILE_FENETRES[PILE_FENETRES.length - 1] !== jeton) return;
-      fermer.current?.();
+      if (PILE_FENETRES[PILE_FENETRES.length - 1] !== jeton) return;
+      if (e.key === 'Escape') { fermer.current?.(); return; }
+      // ← → : seulement hors d'un champ, où elles déplacent le curseur.
+      if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && nav.current && !e.altKey && !e.metaKey && !e.ctrlKey) {
+        const t = e.target;
+        if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+        e.preventDefault();
+        aller(e.key === 'ArrowLeft' ? -1 : 1);
+      }
     };
     window.addEventListener('keydown', f);
     return () => {
@@ -1149,7 +1180,31 @@ export function Fenetre({ icone: Ic, titre, sous, large = 'moyenne',
             <div className="text-[15px] font-semibold truncate">{titre}</div>
             {sous && <div className="text-[12px] text-white/70 truncate">{sous}</div>}
           </div>
-          {/* Les outils de la fenêtre (l'avion d'Éditions…), à côté de la croix. */}
+          {navigation && navigation.total > 1 && (
+            <div className="flex items-center gap-0.5 flex-none text-[12px] text-white/80">
+              <button type="button" onClick={() => aller(-1)} disabled={navigation.position <= 0}
+                aria-label="Précédent" title="Précédent (←)"
+                className="w-8 h-8 grid place-items-center rounded-champ hover:bg-white/15 disabled:opacity-30 disabled:hover:bg-transparent">
+                <IconChevronLeft size={17} />
+              </button>
+              <span className="tabular-nums min-w-[3.5rem] text-center">{navigation.position + 1} / {navigation.total}</span>
+              <button type="button" onClick={() => aller(1)} disabled={navigation.position >= navigation.total - 1}
+                aria-label="Suivant" title="Suivant (→)"
+                className="w-8 h-8 grid place-items-center rounded-champ hover:bg-white/15 disabled:opacity-30 disabled:hover:bg-transparent">
+                <IconChevronRight size={17} />
+              </button>
+            </div>)}
+          {editions && (
+            <button type="button" aria-label="Éditions" title="Éditions — imprimer ou envoyer les pièces"
+              onClick={() => (typeof editions === 'function' ? editions() : setEditionsOuvert(true))}
+              className="flex-none w-8 h-8 grid place-items-center rounded-champ hover:bg-white/15 transition-colors duration-150 ease-ios">
+              <IconSend size={16} />
+            </button>)}
+          {editionsOuvert && editions && typeof editions === 'object' && createPortal(
+            <Suspense fallback={null}>
+              <CentreImpressionCentral {...editions} onClose={() => setEditionsOuvert(false)} />
+            </Suspense>, document.body)}
+          {/* Les outils de la fenêtre, à côté de la croix. */}
           {outils}
           <button onClick={onFermer} aria-label="Fermer"
             className="flex-none w-8 h-8 grid place-items-center rounded-champ
