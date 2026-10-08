@@ -40,7 +40,20 @@ export default function ImportHELB({ onClose, onTermine }) {
     setR(null); setFait(null); setExclus(new Set());
     try {
       const wb = XLSX.read(await f.arrayBuffer(), { type: 'array' });
-      const lignes = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '', raw: false });
+      /* DEUX FORMATS DE LA HELB (8 octobre 2026). L'avis « new inscrit B1 » avait
+         ses colonnes en minuscules sur la première feuille ; l'exportation
+         « cursus sans les cours » met une feuille « Informations » devant les
+         « Données », et écrit « Matricule · Nom · Prénom · Courriel ». On prend
+         la feuille qui porte un matricule, et l'on ramène les en-têtes à la
+         forme attendue (minuscules, sans accents ; « Courriel » est l'adresse). */
+      const cle = k => String(k).normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase()
+        .replace(/\s+/g, '_').replace(/^courriel$/, 'email');
+      let lignes = [];
+      for (const n of wb.SheetNames) {
+        const brutes = XLSX.utils.sheet_to_json(wb.Sheets[n], { defval: '', raw: false });
+        const l = brutes.map(o => Object.fromEntries(Object.entries(o).map(([k, v]) => [cle(k), v])));
+        if (l.length && 'matricule' in l[0] && 'nom' in l[0]) { lignes = l; break; }
+      }
       if (!lignes.length || !('matricule' in lignes[0]) || !('nom' in lignes[0])) {
         setErreur("Ce fichier n'a pas les colonnes de la liste HELB (matricule, nom, prenom…)."); return;
       }

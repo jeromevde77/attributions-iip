@@ -5060,6 +5060,9 @@ r.post('/import-helb', authRequired, roleRequired('admin', 'directeur', 'directe
   const aLier = tc.filter(u => u.section !== SECTION_HELB && !dejaLie.get(u.ue_num, SECTION_HELB, annee));
 
   const parMatricule = db.prepare('SELECT id FROM etudiant WHERE matricule_helb = ?');
+  const parEmail = db.prepare('SELECT id FROM etudiant WHERE lower(email_ecole) = ? LIMIT 1');
+  const parNomOrtho = db.prepare(`SELECT id FROM etudiant WHERE upper(trim(nom)) = ? AND lower(trim(prenom)) = ?
+    AND (section_rattachement = '${SECTION_HELB}' OR matricule_helb IS NOT NULL) LIMIT 1`);
   const fiche = db.prepare('SELECT id, nom, prenom, id_ecampus, matricule_helb, section_rattachement, email_ecole FROM etudiant WHERE id = ?');
   const plan = [];
   for (const [i, l] of lignes.entries()) {
@@ -5081,6 +5084,18 @@ r.post('/import-helb', authRequired, roleRequired('admin', 'directeur', 'directe
     if (!trouve) {
       const rp = rapprocher({ num_national: donnees.num_national, nom, prenom, date_naissance: donnees.date_naissance });
       if (rp) { trouve = { id: rp.id }; methode = rp.methode === 'numero_national' ? 'registre national' : 'nom, prénom et naissance'; }
+    }
+    /* L'EXPORTATION « CURSUS » NE PORTE NI NAISSANCE NI REGISTRE NATIONAL (8 octobre
+       2026) : sans ces deux clés, un étudiant déjà importé serait recréé. Deux
+       rapprochements de secours, du plus sûr au moins sûr : l'adresse HELB, puis
+       le nom et le prénom exacts parmi les dossiers d'Orthoptie. */
+    if (!trouve && email) {
+      const x = parEmail.get(email);
+      if (x) { trouve = x; methode = 'adresse HELB'; }
+    }
+    if (!trouve) {
+      const x = parNomOrtho.get(nom, prenom.toLocaleLowerCase('fr'));
+      if (x) { trouve = x; methode = 'nom et prénom (Orthoptie)'; }
     }
     if (!trouve) { plan.push({ i, action: 'creer', nom, prenom, matricule: mat, email, donnees }); continue; }
     const f = fiche.get(trouve.id);
