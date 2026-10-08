@@ -738,8 +738,9 @@ export default function Accueil() {
           {groupes.map(([groupe, gItems]) => (
             <div key={groupe}>
               <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">{groupe}</div>
+              <TableauNotes items={gItems.filter(i => i.type === 'notes')} marquerLu={marquerLu} navigate={navigate} />
               <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-2 items-start">
-                {gItems.map(item => {
+                {gItems.filter(i => i.type !== 'notes').map(item => {
                   const cfg = getConfig(item.type, item.action);
                   const Icon = cfg.icon;
                   return (
@@ -804,6 +805,86 @@ export default function Accueil() {
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+/* LES NOTES ENCODÉES SE LISENT EN TABLEAU, PAS EN TUILES (Charles, 8 octobre
+ * 2026 : « pas une grande tuile — une ligne, comme les tâches, dans un tableau ;
+ * tu regroupes »). Six professeurs qui encodent le même cours faisaient six
+ * grandes cartes : on les range par cours, une ligne par professeur, et
+ * l'avancement se lit dans sa colonne. Le total vient en tête. */
+function TableauNotes({ items, marquerLu, navigate }) {
+  if (!items.length) return null;
+  const lire = it => {
+    const cours = String(it.titre || '').replace(/^Notes (encodées|complètes) — /, '');
+    const txt = String(it.corps || '').replace(/<[^>]+>/g, '');
+    const notes = txt.match(/(\d+) note\(s\)/)?.[1] || '';
+    const etud = txt.match(/(\d+\s*\/\s*\d+) étudiants/)?.[1]?.replace(/\s/g, '') || txt.match(/(\d+) étudiant/)?.[1] || '';
+    return { ...it, cours, notes, etud, complet: /^Notes complètes/.test(it.titre || '') };
+  };
+  const lignes = items.map(lire).sort((a, b) => a.cours.localeCompare(b.cours, 'fr', { numeric: true })
+    || String(a.auteur || '').localeCompare(String(b.auteur || ''), 'fr'));
+  const nonLus = lignes.filter(l => !l.lue);
+  const totalNotes = lignes.reduce((t, l) => t + (Number(l.notes) || 0), 0);
+  let precedent = null;
+  return (
+    <div className="mb-3 border border-gray-200 rounded-carte overflow-hidden bg-white">
+      <table className="w-full text-[12px]">
+        <thead>
+          <tr className="tab-entete text-left">
+            <th className="px-3 py-1.5 font-semibold">
+              <span className="inline-flex items-center gap-1.5">
+                <IconWriting size={14} style={{ color: 'var(--c-disponible)' }} /> Notes encodées
+              </span>
+            </th>
+            <th className="px-3 py-1.5 font-semibold">Professeur</th>
+            <th className="px-3 py-1.5 font-semibold text-right">Notes</th>
+            <th className="px-3 py-1.5 font-semibold text-right">Étudiants</th>
+            <th className="px-3 py-1.5 font-semibold text-right">Quand</th>
+            <th className="px-3 py-1.5 w-[5.5rem]"></th>
+          </tr>
+          <tr className="tab-repere font-semibold">
+            <td className="px-3 py-1">{new Set(lignes.map(l => l.cours)).size} cours · {lignes.length} encodage(s)</td>
+            <td className="px-3 py-1">{nonLus.length ? `${nonLus.length} non lu(s)` : 'tout est lu'}</td>
+            <td className="px-3 py-1 text-right tabular-nums">{totalNotes || ''}</td>
+            <td></td><td></td>
+            <td className="px-3 py-1 text-right">
+              {nonLus.length > 0 && (
+                <button type="button" className="text-[11px] text-gray-500 hover:text-iip-blue"
+                  onClick={async () => { for (const l of nonLus) await marquerLu(l); }}>tout lu</button>)}
+            </td>
+          </tr>
+        </thead>
+        <tbody>
+          {lignes.map(l => {
+            const memeCours = l.cours === precedent; precedent = l.cours;
+            return (
+              <tr key={l.id} className={`border-t border-gray-100 ${l.lue ? 'text-gray-500' : 'text-gray-800'}`}>
+                <td className="px-3 py-1.5">
+                  {!memeCours && (
+                    <span className="inline-flex items-center gap-1.5">
+                      {!l.lue && <span className="w-1.5 h-1.5 rounded-full flex-none" style={{ background: 'var(--c-disponible)' }} />}
+                      <span className={l.lue ? '' : 'font-medium'}>{l.cours}</span>
+                    </span>)}
+                </td>
+                <td className="px-3 py-1.5">{l.auteur}{l.complet && <span className="ml-1.5 text-[10px] text-gray-400">complet</span>}</td>
+                <td className="px-3 py-1.5 text-right tabular-nums">{l.notes}</td>
+                <td className="px-3 py-1.5 text-right tabular-nums">{l.etud}</td>
+                <td className="px-3 py-1.5 text-right text-gray-400 whitespace-nowrap">{timeAgo(l.date)}</td>
+                <td className="px-3 py-1.5 text-right whitespace-nowrap">
+                  {l.lien && (
+                    <button type="button" title="Ouvrir le cours" className="text-iip-blue hover:underline inline-flex items-center"
+                      onClick={() => { if (!l.lue) marquerLu(l); navigate(l.lien); }}>Voir <IconChevronRight size={12} /></button>)}
+                  {!l.lue && (
+                    <button type="button" title="Marquer comme lu" className="ml-2 text-gray-400 hover:text-green-600 align-middle"
+                      onClick={() => marquerLu(l)}><IconCheck size={13} /></button>)}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }

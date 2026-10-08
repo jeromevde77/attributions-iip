@@ -24,6 +24,7 @@ import { enteteDocument } from '../lib/document.js';
 import { identiteEtablissement } from './config.js';
 import { calculerMention, reglesMention } from '../lib/mention.js';
 import { TITRES_ACCES } from '../lib/profilEtudiant.js';
+import { LOGO_EUROPASS } from '../lib/logoEuropass.js';
 import { presidenceConseil } from './acquis.js';
 
 const r = Router();
@@ -734,9 +735,9 @@ function attestationSection(d, ctx) {
  * Jamais de cote sous 10 : une unité réussie l'est ; une unité valorisée le dit.
  */
 const SUPPLEMENT_DEFAUT = {
-  statut_etab: "Établissement d'enseignement de promotion sociale (enseignement pour adultes), libre subventionné, "
-    + "organisé par l'ASBL Institut Ilya Prigogine et reconnu par la Fédération Wallonie-Bruxelles (Communauté française "
-    + "de Belgique), conformément au décret du 16 avril 1991 organisant l'enseignement de promotion sociale.",
+  statut_etab: "Établissement d'enseignement pour adultes, libre subventionné, organisé par l'ASBL Institut Ilya "
+    + "Prigogine et reconnu par la Fédération Wallonie-Bruxelles (Communauté française de Belgique), conformément "
+    + "au décret du 16 avril 1991.",
   acces: "Certificat d'enseignement secondaire supérieur (CESS) ou titre reconnu équivalent ; à défaut, réussite d'une "
     + "épreuve portant sur les capacités préalables requises fixées par le dossier pédagogique de la section. "
     + "Les acquis d'apprentissage formels, non formels ou informels peuvent être valorisés pour l'admission "
@@ -778,7 +779,7 @@ function schemaSystemeFWB() {
     <text transform="translate(6.4 ${y + h / 2}) rotate(-90)" text-anchor="middle" font-size="2.5" font-weight="700" fill="${C}">${t}</text>`;
   const pied = (x, w, lignes, fort = false) => `<rect x="${x}" y="96" width="${w}" height="12" rx="1.6" fill="${fort ? C : G}"/>
     ${lignes.map((t, i) => `<text x="${x + w / 2}" y="${100.6 + i * 3.1 - (lignes.length - 2) * 1.5}" text-anchor="middle" font-size="2.3" font-weight="700" fill="${fort ? '#fff' : C}">${t}</text>`).join('')}`;
-  return `<svg viewBox="0 0 172 111" width="100%" style="max-height:110mm;display:block;margin:2mm auto 0" font-family="Arial, Helvetica, sans-serif">
+  return `<svg viewBox="0 0 172 111" width="100%" style="max-height:92mm;display:block;margin:2mm auto 0" font-family="Arial, Helvetica, sans-serif">
     ${cycle(2, 18, '3e cycle')}${cycle(22, 34, '2e cycle')}${cycle(58, 36, '1er cycle')}
     ${box(12, 2, 36, 18, ['DOCTORAT'], '180 crédits')}
     ${box(12, 22, 36, 12, ['MASTER DE', 'SPÉCIALISATION'], '60 crédits et plus')}
@@ -795,10 +796,27 @@ function schemaSystemeFWB() {
     ${pied(12, 36, ['UNIVERSITÉS'])}
     ${pied(52, 36, ['HAUTES ÉCOLES', 'ET ESA — TYPE LONG'])}
     ${pied(92, 36, ['HAUTES ÉCOLES', 'ET ESA — TYPE COURT'])}
-    ${pied(132, 38, ['ENSEIGNEMENT', 'DE PROMOTION SOCIALE'], true)}
+    ${pied(132, 38, ['ENSEIGNEMENT', 'POUR ADULTES'], true)}
     <line x1="132" y1="110" x2="170" y2="110" stroke="${O}" stroke-width="0.6"/>
   </svg>
-  <p class="petit" style="text-align:center;margin-top:1mm">ESA : écoles supérieures des arts. En foncé, les titres délivrés par l'enseignement de promotion sociale.</p>`;
+  <p class="petit" style="text-align:center;margin-top:1mm">ESA : écoles supérieures des arts. En foncé, les titres délivrés par l'enseignement pour adultes.</p>`;
+}
+
+/* Quatre vagues de micro-texte entrelacées, comme le fac-similé de la
+ * signature (lib/filigraneDocument.js), mais longues de toute la page. Une
+ * unité = 0,25 mm dans les deux sens : le texte n'est pas déformé. */
+function bandeVerticale(texte) {
+  const code = esc(`${texte} · `.toUpperCase());
+  const V = [[1, 0, 4.2], [1, Math.PI, 4.2], [-1, 1.2, 2.6], [-1, 1.2 + Math.PI, 2.6]];
+  let defs = '', txt = '';
+  V.forEach(([sens, ph, amp], k) => {
+    let a = '';
+    for (let x = -10; x <= 1020; x += 3) a += (a ? 'L' : 'M') + x + ' ' + (14 + amp * Math.sin(sens * x / 22 + ph)).toFixed(2);
+    defs += `<path id="sbv-${k}" d="${a}"/>`;
+    txt += `<text font-size="2.3" letter-spacing=".25" fill="${k < 2 ? '#C3CBD7' : '#D3D9E2'}"><textPath href="#sbv-${k}" startOffset="${k * 19}">${code.repeat(12)}</textPath></text>`;
+  });
+  return `<div class="sup-bande"><svg class="sup-bande-svg" viewBox="0 0 1000 28" aria-hidden="true">
+<defs>${defs}</defs><g font-family="Arial, Helvetica, sans-serif" font-weight="700">${txt}</g></svg></div>`;
 }
 
 function supplementDiplome(d, ctx) {
@@ -838,14 +856,25 @@ function supplementDiplome(d, ctx) {
   const titreDiplome = ds.intitule_diplome || section.libelle || section.code;
   const nomComplet = `${d.prenom || ''} ${String(d.nom || '').toUpperCase()}`.trim();
   const cod = coDiplomee(section.code);
-  const rub = (n, fr0, en) => `<h2 class="rub"><span class="num">${n}.</span> ${fr0} <span class="en">/ ${en}</span></h2>`;
+  const rub = (n, fr0, en) => `<div class="ouv"><h2 class="rub"><span class="num">${n}.</span> ${fr0} <span class="en">/ ${en}</span></h2>`;
   const item = (n, fr0, en, contenu) => `<div class="item"><div class="lib"><span class="num">${n}</span> ${fr0} <span class="en">/ ${en}</span></div>
     <div class="val">${contenu || '<span class="vide">—</span>'}</div></div>`;
   const parBloc = {};
   for (const u of reussies) (parBloc[u.ue_niv || '—'] ||= []).push(u);
 
+  /* LA BANDE VERTICALE DE CHAQUE PAGE (Charles, 8 octobre 2026 : « comme celui
+     en forme d'ADN, mais au travers, à gauche »). Les vagues de micro-texte du
+     fac-similé de la signature (lib/filigraneDocument.js), posées debout le
+     long du bord gauche ; en `fixed`, elles se répètent sur chaque feuille. Le
+     PDF du serveur ne peint rien dans la marge : la bande vit dans la zone de
+     contenu, et le texte se décale d'autant. Même dessin et même texte pour
+     toute une section — un lot imprime toutes les pièces dans un document, et
+     des bandes identiques s'y superposent sans se brouiller. */
+  const bande = bandeVerticale(`Supplément au diplôme · ${ident.nom} · ${titreDiplome} · ${ctx.annee || ''}`);
   return `<div class="attestation piece supplement">
-    ${enteteDocument({ titre: 'Supplément au diplôme', sous: `Diploma Supplement — Europass · ${esc(titreDiplome)}`, ligne: esc(nomComplet) })}
+    ${bande}
+    ${enteteDocument({ titre: 'Supplément au diplôme', sous: `Diploma Supplement · ${titreDiplome}`, ligne: nomComplet })
+      .replace('<div class="doc-cadre">', `<div class="doc-cadre doc-cadre-europass"><img class="europass" src="${LOGO_EUROPASS}" alt="Europass">`)}
 
     <div class="preambule">
       <p>Ce supplément au diplôme suit le modèle élaboré par la Commission européenne, le Conseil de l'Europe et l'UNESCO.
@@ -861,7 +890,7 @@ function supplementDiplome(d, ctx) {
     </div>
 
     ${rub(1, 'Informations sur le titulaire du diplôme', 'Information identifying the holder of the qualification')}
-    ${item('1.1', 'Nom(s) de famille', 'Family name(s)', `<b>${esc(String(d.nom || '').toUpperCase())}</b>`)}
+    ${item('1.1', 'Nom(s) de famille', 'Family name(s)', `<b>${esc(String(d.nom || '').toUpperCase())}</b>`)}</div>
     ${item('1.2', 'Prénom(s)', 'Given name(s)', esc(d.prenom))}
     ${item('1.3', 'Date et lieu de naissance', 'Date and place of birth', `${enToutesLettres(d.date_naissance)}${d.lieu_naissance ? ` à ${esc(d.lieu_naissance)}` : ''}`)}
     ${item('1.4', "Numéro de matricule de l'étudiant", 'Student identification number', esc(e.id_ecampus || d.id_ecampus || ''))}
@@ -869,7 +898,7 @@ function supplementDiplome(d, ctx) {
     ${rub(2, 'Informations sur le diplôme', 'Information identifying the qualification')}
     ${item('2.1', 'Intitulé du diplôme et titre conféré', 'Name of qualification and title conferred',
       `<b>${esc(titreDiplome)}</b>${ds.code_section ? `<div class="petit">Code de la section : ${esc(ds.code_section)}${ds.date_approbation ? ` — dossier pédagogique approuvé le ${esc(ds.date_approbation)}` : ''}</div>` : ''}`)}
-    ${item('2.2', "Domaine(s) d'études", 'Main field(s) of study', esc(ds.domaine || section.domaine || ''))}
+    ${item('2.2', "Domaine(s) d'études", 'Main field(s) of study', esc(ds.domaine || section.domaine || ''))}</div>
     ${item('2.3', "Nom et statut de l'établissement ayant délivré le diplôme", 'Name and status of awarding institution',
       `<b>${esc(ident.nom)}</b><br>${esc(ident.adresse)}${ident.site ? ` — ${esc(ident.site)}` : ''}
       <div class="petit">${ident.matricule ? `Matricule ${esc(ident.matricule)}` : ''}${ident.fase ? ` · FASE ${esc(ident.fase)}` : ''}</div>
@@ -880,7 +909,7 @@ function supplementDiplome(d, ctx) {
     ${item('2.5', "Langue(s) de formation et d'évaluation", 'Language(s) of instruction and examination', 'Français.')}
 
     ${rub(3, 'Informations sur le niveau de qualification', 'Information on the level of the qualification')}
-    ${item('3.1', 'Niveau de qualification', 'Level of qualification', `${esc(niv.texte)}<div class="petit">Le système d'enseignement supérieur de la Fédération Wallonie-Bruxelles est décrit à la rubrique 8.</div>`)}
+    ${item('3.1', 'Niveau de qualification', 'Level of qualification', `${esc(niv.texte)}<div class="petit">Le système d'enseignement supérieur de la Fédération Wallonie-Bruxelles est décrit à la rubrique 8.</div>`)}</div>
     ${item('3.2', 'Durée officielle du programme', 'Official length of programme',
       `${totalCredits ? `${totalCredits} crédits ECTS` : ''}${ds.total_periodes ? `${totalCredits ? ' — ' : ''}${ds.total_periodes} périodes de 50 minutes` : ''}${ds.duree_annees ? ` (${esc(ds.duree_annees)} ans)` : ''}.
       <div>Au terme de sa formation, l'étudiant a acquis <b>${credits} crédits</b>.</div>`)}
@@ -888,12 +917,12 @@ function supplementDiplome(d, ctx) {
       ${e.titre_acces ? `<p>Condition remplie par l'étudiant : <b>${esc(LIBELLES_ACCES[e.titre_acces] || e.titre_acces)}</b>.</p>` : ''}`)}
 
     ${rub(4, 'Informations sur le contenu et les résultats obtenus', 'Information on the contents and results gained')}
-    ${item('4.1', 'Organisation des études', 'Mode of study', esc(R.mode))}
+    ${item('4.1', 'Organisation des études', 'Mode of study', esc(R.mode))}</div>
     ${item('4.2', 'Exigences du programme', 'Programme requirements',
       `Le profil professionnel, les unités d'enseignement et leurs acquis d'apprentissage sont fixés par le dossier pédagogique de la section${ds.code_section ? ` (code ${esc(ds.code_section)})` : ''}, approuvé par le Gouvernement de la Fédération Wallonie-Bruxelles. La section est sanctionnée par une épreuve intégrée.`)}
-    <div class="item"><div class="lib"><span class="num">4.3</span> Précisions sur le programme <span class="en">/ Programme details</span></div>
-      <div class="val">
-        <p>L'étudiant a été inscrit ${annees.a && annees.b && annees.a !== annees.b ? `de ${esc(annees.a)} à ${esc(annees.b)}` : `en ${esc(annees.a || annees.b || '')}`} et a réussi les unités d'enseignement suivantes :</p>
+    <div class="ouv"><div class="lib lib-seule"><span class="num">4.3</span> Précisions sur le programme <span class="en">/ Programme details</span></div>
+      <p class="intro">L'étudiant a été inscrit ${annees.a && annees.b && annees.a !== annees.b ? `de ${esc(annees.a)} à ${esc(annees.b)}` : `en ${esc(annees.a || annees.b || '')}`} et a réussi les unités d'enseignement suivantes :</p></div>
+    <div class="item"><div class="val">
         <table class="doc ues">
           <thead><tr><th style="width:12mm">UE</th><th>Unité d'enseignement</th><th style="width:16mm" class="n">Périodes</th>
             <th style="width:12mm" class="n">ECTS</th><th style="width:16mm" class="n">Année</th><th style="width:18mm" class="n">Résultat</th></tr></thead>
@@ -928,14 +957,14 @@ function supplementDiplome(d, ctx) {
     ${item('5.1', "Accès à un niveau d'études supérieur", 'Access to further study', esc(propre.suite || (niv.cec === 6
       ? "Le titre de bachelier donne accès aux études de deuxième cycle, dans les conditions fixées par le décret du 7 novembre 2013 définissant le paysage de l'enseignement supérieur et l'organisation académique des études, et aux études de spécialisation."
       : niv.cec === 5 ? "Le brevet de l'enseignement supérieur permet la poursuite d'études supérieures de premier cycle, avec valorisation des crédits acquis."
-        : 'Sans objet.')))}
+        : 'Sans objet.')))}</div>
     ${item('5.2', 'Statut professionnel (si applicable)', 'Professional status (if applicable)', esc(propre.statut_pro || 'Pas applicable.'))}
 
     ${rub(6, 'Informations complémentaires', 'Additional information')}
-    <div class="item"><div class="lib"><span class="num">6.1</span> Informations complémentaires <span class="en">/ Additional information</span></div>
-      <div class="val">
-        ${stages.length ? `<p>Stages effectués en milieu professionnel :</p>
-        <table class="doc stages">
+    <div class="lib lib-seule"><span class="num">6.1</span> Informations complémentaires <span class="en">/ Additional information</span></div>
+    ${stages.length ? '<p class="intro">Stages effectués en milieu professionnel :</p>' : ''}</div>
+    <div class="item"><div class="val">
+        ${stages.length ? `<table class="doc stages">
           <thead><tr><th>Stage</th><th>Établissement d'accueil</th><th style="width:38mm">Période</th><th style="width:14mm" class="n">Heures</th></tr></thead>
           <tbody>
             <tr class="total"><td>Total — ${stages.length} stage(s)</td><td></td><td></td><td class="n">${heuresFr(heuresStage)}</td></tr>
@@ -943,12 +972,12 @@ function supplementDiplome(d, ctx) {
               <td>${esc(x.nom || '')}<span class="ref">${esc([x.adresse, [x.cp, x.localite].filter(Boolean).join(' ')].filter(Boolean).join(', '))}</span></td>
               <td class="periode">${fr(x.date_debut)} → ${fr(x.date_fin)}</td><td class="n">${heuresFr(x.heures_effectuees ?? x.heures_prevues)}</td></tr>`).join('')}
           </tbody>
-        </table>` : '<p>Aucune information complémentaire.</p>'}
+        </table>` : '<p>Aucun stage n’est enregistré au dossier.</p>'}
       </div></div>
     ${item('6.2', "Autres sources d'information", 'Further information sources', `<ul class="sources">
       <li>${esc(ident.nom)}${ident.site ? ` : ${esc(ident.site)}` : ''}</li>
       <li>Fédération Wallonie-Bruxelles : www.federation-wallonie-bruxelles.be et www.enseignement.be</li>
-      <li>Enseignement de promotion sociale : www.enseignement.be/promotionsociale</li>
+      <li>Enseignement pour adultes : www.enseignement.be</li>
       <li>Centre ENIC-NARIC de la Fédération Wallonie-Bruxelles : www.equivalences.cfwb.be</li>
       <li>Réseau européen ENIC-NARIC : www.enic-naric.net</li>
       ${/sant/i.test(ds.domaine || section.domaine || '') ? '<li>SPF Santé publique, Sécurité de la Chaîne alimentaire et Environnement : www.health.belgium.be</li>' : ''}
@@ -962,21 +991,22 @@ function supplementDiplome(d, ctx) {
       <div class="paraphe"></div>
       <div class="lieu">Fait à ${esc(ident.ville)}, le ${dateLongue(dateDelib)}.</div>
       <div class="legende"><div class="qualite">Le Directeur</div><div class="nom">${esc(ident.directeur)}</div></div>
-    </div>
+    </div></div>
 
-    <div class="saut"></div>
-    ${rub(8, "Informations sur le système national d'enseignement supérieur", 'Information on the national higher education system')}
+    <section class="rub8">
+    ${rub(8, "Informations sur le système national d'enseignement supérieur", 'Information on the national higher education system')}</div>
     <div class="val systeme">
       <p>En Fédération Wallonie-Bruxelles (Communauté française de Belgique), l'enseignement supérieur est organisé par les
-      universités, les hautes écoles, les écoles supérieures des arts et les établissements d'enseignement de promotion sociale,
+      universités, les hautes écoles, les écoles supérieures des arts et les établissements d'enseignement pour adultes,
       conformément au décret du 7 novembre 2013 définissant le paysage de l'enseignement supérieur et l'organisation académique
       des études. Il s'articule en trois cycles et s'exprime en crédits ECTS (un crédit correspond à 30 heures de travail de
       l'étudiant, une année à 60 crédits).</p>
-      <p>L'enseignement de promotion sociale — enseignement pour adultes, régi par le décret du 16 avril 1991 — délivre des
+      <p>L'enseignement pour adultes, régi par le décret du 16 avril 1991, délivre des
       titres de bachelier et de brevet de l'enseignement supérieur correspondant à ceux des hautes écoles. Il est organisé en
       unités d'enseignement capitalisables ; chaque section est sanctionnée par une épreuve intégrée.</p>
       ${schemaSystemeFWB()}
     </div>
+    </section>
   </div>`;
 }
 
@@ -1012,7 +1042,17 @@ const STYLE_SUPPLEMENT = `<style>
   .supplement table.doc .va { font-style: italic; color: #475569; }
   .supplement .final { margin-top: 2mm; font-size: 10pt; color: #1B2B4B; }
   .supplement ul.seuils, .supplement ul.sources { margin: 0; padding-left: 5mm; }
-  .supplement .saut { break-before: page; }
+  .supplement .ouv { break-inside: avoid; }
+  .supplement { padding-left: 10mm; }
+  .sup-bande { position: fixed; left: 0; bottom: 0; width: 250mm; height: 7mm;
+    transform: translateX(7mm) rotate(-90deg); transform-origin: left bottom; pointer-events: none; }
+  .sup-bande-svg { display: block; width: 100%; height: 100%; }
+  .supplement .doc-cadre-europass { position: relative; padding-right: 48mm; }
+  .supplement .europass { position: absolute; right: 4mm; top: 50%; transform: translateY(-50%); height: 9mm; width: auto; }
+  .supplement .rub8 { break-inside: avoid; }
+  .supplement .lib-seule { font-weight: 600; color: #1B2B4B; padding-top: 1.2mm; }
+  .supplement .lib-seule .num { color: #8a6d2f; margin-right: 1mm; }
+  .supplement .intro { margin: 1.5mm 0 0; }
   .supplement .systeme p { margin: 0 0 2mm; }
   .supplement .cloture { display: grid; grid-template-columns: auto 1fr auto; gap: 4mm; align-items: end; margin-top: 3mm; break-inside: avoid; }
   .supplement .cloture .sceau, .supplement .cloture .paraphe { height: 16mm; }
