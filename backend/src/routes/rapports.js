@@ -861,6 +861,27 @@ function documentCoutFormations(p) {
     <p class="fin">ETP = périodes de cours généraux et techniques (CT) ÷ 800 + périodes de pratique professionnelle (PP) ÷ 1 000, comme dans Pilotage.
       Les périodes sont celles du coût des cours : lignes en congé et activités Z exclues ; une unité partagée (tronc commun) répartie entre ses sections
       au prorata de leurs étudiants. Les fonctions (direction, secrétariat, coordinations hors périodes) n'y sont pas.</p>`;
+  /* LE COÛT MOYEN BRUT PONDÉRÉ (Charles, 8 octobre 2026 : « la haute école
+     parle en coût moyen brut »). Une valeur par niveau × le total des périodes
+     attribuées, à côté du coût détaillé de la circulaire. */
+  const C = Y.cmb;
+  const tCmb = !C.lignes.length ? '<p class="fin">Aucune période attribuée cette année.</p>' : `<table class="serre"><thead><tr><th>Niveau</th>${
+      ['Périodes IIP', 'Périodes HELB', 'Total des périodes', 'Coût moyen brut / période', 'Montant IIP (€)', 'Montant HELB (€)', 'Montant total (€)', 'Coût détaillé (€)']
+        .map(c => `<th class="n">${c}</th>`).join('')}</tr></thead>
+    <tbody>${C.lignes.map(l => `<tr><td>${esc(l.libelle)}</td><td class="n">${n0(l.per_iip)}</td><td class="n">${l.per_helb ? n0(l.per_helb) : '—'}</td>
+      <td class="n g">${n0(l.periodes)}</td><td class="n">${l.taux ? `${m2(l.taux)} €` : '<i>à régler</i>'}</td>
+      <td class="n">${l.taux ? k0(l.montant_iip) : '—'}</td><td class="n">${l.taux && l.per_helb ? k0(l.montant_helb) : '—'}</td>
+      <td class="n g">${l.taux ? k0(l.montant) : '—'}</td><td class="n">${k0(l.cout_detaille)}</td></tr>`).join('')}</tbody>
+    ${C.lignes.length > 1 ? `<tfoot><tr class="repere"><td>Ensemble${C.a_regler.length ? ' — montants des niveaux chiffrés seulement' : ''}</td>
+      <td class="n">${n0(C.lignes.reduce((a, l) => a + l.per_iip, 0))}</td><td class="n">${n0(C.lignes.reduce((a, l) => a + l.per_helb, 0))}</td>
+      <td class="n">${n0(C.total.periodes)}</td><td></td><td class="n">${k0(C.total.montant_iip)}</td><td class="n">${k0(C.total.montant_helb)}</td>
+      <td class="n">${k0(C.total.montant)}</td><td class="n">${k0(C.total.cout_detaille)}</td></tr></tfoot>` : ''}</table>
+    <p class="fin">Montant = total des périodes attribuées du niveau × coût moyen brut pondéré d'une période — la lecture de la Haute École,
+      une seule valeur quel que soit le type de cours. Les périodes sont celles du coût des cours (lignes en congé et activités Z exclues).
+      Le <b>coût détaillé</b> applique, lui, le montant de la circulaire propre à chaque type de cours (généraux et techniques, pratique professionnelle) ;
+      l'écart entre les deux colonnes vient de cette différence de méthode, pas d'une différence de périodes.${
+      C.a_regler.length ? ` <b>Coût moyen brut à régler pour : ${C.a_regler.map(esc).join(', ')}</b> (Configuration → Coût des périodes) — ses périodes sont comptées, sans montant.` : ''}${
+      C.sans_niveau ? ` ${n0(C.sans_niveau)} période(s) portées par une unité sans niveau déclaré ne sont pas réparties.` : ''}</p>`;
   const sexConnu = tot.periodes - SX.NR.periodes;
   /* FEMMES ET HOMMES : DES PERSONNES, PAS DES PÉRIODES (Charles, 7 octobre
      2026 : « pas de sens — on donne le sexe par humain présent ; en AeSI,
@@ -1052,6 +1073,7 @@ function documentCoutFormations(p) {
         return `<tr><td class="barres-lib">${esc(l.section)}</td><td>${barreNue([['F', x.F], ['M', x.M], ['X', x.X], ['NR', x.sexe_inconnu]].map(([k, v]) => ({ v: v || 0, c: coulSexe[k], pale: coulSexe[k] === GRIS })))}</td>
           <td class="barres-val">${n0(x.n)} · ${pc(x.F || 0, c)} F</td></tr>`; }).join('')}</table>${legende(['F', 'M', 'X', 'NR'], libSexe, coulSexe)}`)}
     </section>
+    <section class="saut"><h2>Coût moyen brut pondéré, par niveau</h2>${tCmb}</section>
     <section class="saut"><h2>Les ETP par section</h2>${tEtp}</section>
     <section class="saut"><h2>Section par section</h2>${tSections}</section>
     <section class="saut">

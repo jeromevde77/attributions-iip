@@ -1215,6 +1215,17 @@ onglet. **La faveur s'encode aussi dans la grille du parcours** (choix « Réuss
 par faveur ») : ajustement d'unité dans `deliberation_ajustement`, au nom de qui
 clique, retiré par tout autre choix sur la case.
 
+**LE COÛT MOYEN BRUT PONDÉRÉ, À CÔTÉ DU COÛT DÉTAILLÉ** (3.1.141, Charles,
+8 octobre 2026 : « une période d'enseignement supérieur coûte 106 € ; la haute
+école parle en coût moyen brut »). Une valeur par niveau (`cout.cmb_sup` = 106,
+`cout.cmb_ds`, `cout.cmb_di` — 0 = « à régler », jamais zéro euro ;
+Configuration → Coût des périodes) × le total des périodes attribuées du niveau
+(mêmes périodes que le coût détaillé : hors congé, hors Z), IIP et HELB
+séparés. `coutMoyenBrut()` (`lib/coutFormation.js`), servi par `syntheseCout` :
+l'outil de Pilotage et la pièce lisent le même chiffre. Il ne REMPLACE pas le
+coût détaillé de la circulaire (CT, PP, cours spéciaux) : les deux colonnes
+sont côte à côte, l'écart venant de la méthode, pas des périodes.
+
 **Chantiers de conformité ouverts, dans l'ordre :** geler les décisions à la
 clôture et historiser par ajout ; figer et horodater le PV ; bloc de signatures
 nominatif ; date d'affichage et mode de publication en champs propres ; écrire

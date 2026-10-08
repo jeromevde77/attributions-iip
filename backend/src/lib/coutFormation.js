@@ -120,6 +120,11 @@ export function donneesCout(annee) {
   const nouveauxSexes = () => Object.fromEntries(['F', 'M', 'X', 'NR'].map(k => [k, { periodes: 0, cout: 0 }]));
   const totSexes = nouveauxSexes();
   const parSection = new Map();
+  /* LES PÉRIODES PAR NIVEAU, pour la lecture en coût moyen brut (Charles,
+     8 octobre 2026 : « la haute école parle en coût moyen brut » — 106 € la
+     période du supérieur, au total des heures). Les mêmes périodes que le coût
+     détaillé : hors congé, hors Z, IIP et HELB séparés. */
+  const parNiveau = {};
   for (const l of lignes) {
     const niv = ['SUP', 'DS', 'DI'].includes(l.niveau) ? l.niveau : null;
     let type = String(l.type || '').toUpperCase();
@@ -133,6 +138,9 @@ export function donneesCout(annee) {
     if (estExpert) expertsBase += l.periodes;
     if (!niv || !t) { sansTarif += l.periodes; }
     const cout = (l.periodes || 0) * (t || 0);
+    const N = parNiveau[niv || '?'] ||= { niveau: niv, per_iip: 0, per_helb: 0, cout_detaille: 0 };
+    if (l.contrat === 'HELB') N.per_helb += l.periodes || 0; else N.per_iip += l.periodes || 0;
+    N.cout_detaille += cout;
     const sec = l.section || '(sans section)';
     const S = parSection.get(sec) || { section: sec, per_ct: 0, per_pp: 0, cout_ct: 0, cout_pp: 0, cout: 0,
       cout_iip: 0, cout_helb: 0, periodes: 0, ues: new Map(), statuts: nouveauxStatuts(), sexes: nouveauxSexes() };
@@ -384,7 +392,7 @@ export function donneesCout(annee) {
     total: { ...total, cout_fonctions: coutFonctions, cout_complet: total.cout + coutFonctions },
     missions, base_inscrits: baseInscrits, baremes: { di: BD, frais: BF }, humains,
     sans_etp: missions.filter(m => m.pncc && !m.etp).length, sans_cout: missions.filter(m => m.pncc && m.etp && !m.annuel).length,
-    sans_tarif: sansTarif, type_defaut: typeDefaut,
+    sans_tarif: sansTarif, type_defaut: typeDefaut, niveaux: parNiveau,
     experts: { indice, periodes: expertsBase } };
 }
 
@@ -448,5 +456,33 @@ export function syntheseCout(d) {
   const etpTotal = etp.reduce((t, x) => ({ total: t.total + x.total, cc: t.cc + x.cc, exp: t.exp + x.exp, autre: t.autre + x.autre }),
     { total: 0, cc: 0, exp: 0, autre: 0 });
   return { fonctions, cout_en_periodes: coutEnPeriodes, postes: postes.filter(p => p.valeur > 0), etp, etp_total: etpTotal,
+    cmb: coutMoyenBrut(d),
     cout_helb_total: (tot.cout_helb || 0) + fonctions.filter(g => g.helb).reduce((a, g) => a + g.cout, 0) };
+}
+
+/* LE COÛT MOYEN BRUT PONDÉRÉ, PAR NIVEAU (Charles, 8 octobre 2026 : « une
+ * période d'enseignement supérieur coûte 106 € ; la haute école parle en coût
+ * moyen brut »). Une seule valeur par niveau, appliquée au total des périodes
+ * attribuées — la lecture de la Haute École, à côté du calcul détaillé de la
+ * circulaire (CT, PP, cours spéciaux), qu'elle ne remplace pas. Les montants se
+ * règlent dans Configuration → Coût des périodes ; un niveau sans montant
+ * montre ses périodes et le dit, il ne vaut pas zéro euro. */
+export const NIVEAUX_CMB = [['SUP', 'Enseignement supérieur'], ['DS', 'Secondaire supérieur'], ['DI', 'Secondaire inférieur']];
+export function coutMoyenBrut(d) {
+  const lignes = [];
+  for (const [niv, libelle] of NIVEAUX_CMB) {
+    const N = d.niveaux?.[niv];
+    if (!N || !(N.per_iip + N.per_helb)) continue;
+    const taux = getParamNum(`cout.cmb_${niv.toLowerCase()}`, 0);
+    const per = N.per_iip + N.per_helb;
+    lignes.push({ niveau: niv, libelle, taux, per_iip: N.per_iip, per_helb: N.per_helb, periodes: per,
+      montant_iip: taux ? N.per_iip * taux : null, montant_helb: taux ? N.per_helb * taux : null,
+      montant: taux ? per * taux : null, cout_detaille: N.cout_detaille });
+  }
+  const sansNiveau = d.niveaux?.['?'] ? d.niveaux['?'].per_iip + d.niveaux['?'].per_helb : 0;
+  const chiffres = lignes.filter(l => l.taux);
+  const somme = k => chiffres.reduce((a, l) => a + (l[k] || 0), 0);
+  return { lignes, sans_niveau: sansNiveau, a_regler: lignes.filter(l => !l.taux).map(l => l.libelle),
+    total: { periodes: lignes.reduce((a, l) => a + l.periodes, 0), montant: somme('montant'),
+      montant_iip: somme('montant_iip'), montant_helb: somme('montant_helb'), cout_detaille: somme('cout_detaille') } };
 }
