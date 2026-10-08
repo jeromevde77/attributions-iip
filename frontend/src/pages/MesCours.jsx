@@ -11,7 +11,7 @@ import IndicateursNotes from '../components/IndicateursNotes.jsx';
 import { OuvrirEditions, RailLateral } from '../components/ui.jsx';
 import AvisValorisationProf from '../components/AvisValorisationProf.jsx';
 import AvisAmenagementProf from '../components/AvisAmenagementProf.jsx';
-import DUE from './DUE.jsx';
+import AtelierUE from './AtelierUE.jsx';
 
 /**
  * MES COURS — la porte du professeur.
@@ -146,7 +146,7 @@ export default function MesCours() {
       sections={[{ items: [
         { key: 'liste', label: 'Mes cours', icon: IconBooks, actif: !ouvert && !vueDue,
           onClick: () => { setVueDue(false); setOuvert(null); setFeuille(null); } },
-        { key: 'due', label: 'Descriptifs de mes unités (DUE)', icon: IconFileDescription, actif: vueDue,
+        { key: 'due', label: 'Mes unités : croisement et DUE', icon: IconFileDescription, actif: vueDue,
           onClick: () => { setVueDue(true); setOuvert(null); setFeuille(null); } },
         { key: 'avis-va', label: 'Avis de valorisation', icon: IconCertificate,
           onClick: () => { setVueDue(false); setOuvert(null); setFeuille(null); setTimeout(() => allerA('avis-va'), 50); } },
@@ -158,7 +158,7 @@ export default function MesCours() {
           { key: 'presences', label: 'Présences', icon: IconUserCheck, actif: face === 'presences', onClick: () => setFace('presences') },
         ] : []),
       ] }]} />
-    {vueDue ? <div className="gouttiere-rail px-4 py-3 md:px-6"><DUE /></div> : (
+    {vueDue ? <div className="gouttiere-rail"><AtelierUE faces={['croisement', 'descriptif']} /></div> : (
     <div className="gouttiere-rail px-4 py-3 md:px-6 space-y-2.5">
       <div className="flex items-center gap-2">
         <IconBooks size={20} className="text-iip-turquoise" />

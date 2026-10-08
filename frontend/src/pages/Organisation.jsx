@@ -5,19 +5,18 @@ import { useSearchParams } from 'react-router-dom';
 import Axe from '../components/Axe.jsx';
 import {
   IconLayoutGrid, IconSchool, IconSitemap, IconFileDescription,
-  IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup, IconPercentage, IconCalendarWeek, IconChartBar,
+  IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup, IconCalendarWeek, IconChartBar,
 } from '@tabler/icons-react';
 import Attributions from './Attributions.jsx';
 import Planification from './Planification.jsx';
 import HoraireComparateur from './HoraireComparateur.jsx';
-import DUE from './DUE.jsx';
+const AtelierUE = lazy(() => import('./AtelierUE.jsx'));
 import StructureSection from './StructureSection.jsx';
 import Rentree from './Rentree.jsx';
 import { authHeaders } from '../lib/api.js';
 
 const CentrePlanification = lazy(() => import('./CentrePlanification.jsx'));
 const RepartitionCours = lazy(() => import('./RepartitionCours.jsx'));
-const PonderationsUE = lazy(() => import('./PonderationsUE.jsx'));
 const HoraireSemaine = lazy(() => import('./HoraireSemaine.jsx'));
 const Effectifs = lazy(() => import('./Configuration.jsx').then(m => ({ default: m.OngletStatistiques })));
 
@@ -32,7 +31,9 @@ const Effectifs = lazy(() => import('./Configuration.jsx').then(m => ({ default:
  */
 export default function Organisation({ ongletInitial }) {
   const [params] = useSearchParams();
-  const ongletDemande = params.get('onglet') || ongletInitial;
+  const demande = params.get('onglet') || ongletInitial;
+  const faceUnite = demande === 'ponderations' ? 'ponderation' : params.get('face') || 'descriptif';
+  const ongletDemande = ['ponderations', 'due'].includes(demande) ? 'unite' : demande;
   const [annee, setAnnee] = useState('');
   useEffect(() => {
     fetch('/api/annees', { headers: authHeaders() })
@@ -89,18 +90,15 @@ export default function Organisation({ ongletInitial }) {
           rendu: annee
             ? <StructureSection annee={annee} />
             : <div className="text-sm text-slate-400 p-4">Chargement de l'année active…</div> },
-        /* LES PONDÉRATIONS SONT UN CHOIX ANNUEL (Charles, 25 septembre 2026) :
-           elles quittent Configuration pour l'axe de ce qu'on organise cette
-           année. Part des cours dans l'UE, liens acquis → cours, dix points
-           par cours. */
-        { key: 'ponderations', module: 'organisation', label: 'Pondérations', icone: IconPercentage, sansMarge: true,
+        /* UNE UNITÉ, TROIS FACES (Charles, 8 octobre 2026 : « un onglet qui reprend
+           pondération, DUE et tableau de croisement »). Les pondérations (choix
+           annuel, 25 septembre 2026) et le descriptif d'unité avaient chacun leur
+           entrée ; le croisement acquis × programme les relie. L'unité se choisit
+           une fois. Les anciennes adresses (?onglet=ponderations, ?onglet=due, /due)
+           mènent ici, sur la bonne face. */
+        { key: 'unite', module: 'organisation', label: 'Pondération, croisement et DUE', icone: IconFileDescription, sansMarge: true,
           rendu: <Suspense fallback={<div className="p-4 text-[13px] text-slate-400">Chargement…</div>}>
-                   <PonderationsUE /></Suspense> },
-        // Le descriptif d'unité était un Word recopié d'année en année. Il
-        // trouve ici sa place : c'est bien de l'organisation de l'enseignement
-        // qu'il parle, et les titulaires y accèdent pour leurs propres unités.
-        { key: 'due', module: 'organisation', label: "Descriptifs d'UE", icone: IconFileDescription, sansMarge: true,
-          rendu: <DUE /> },
+                   <AtelierUE faceInitiale={faceUnite} /></Suspense> },
         /* UN SEUL CENTRE HORAIRE (Charles, 29 septembre 2026 : « les deux
            premières icônes doivent devenir un seul centre horaire ; la
            troisième est un ancien module, à cacher »). Deux faces d'un même

@@ -524,6 +524,15 @@ r.put('/:ueNum', authRequired, (req, res) => {
     contenu.programme_blocs = Object.fromEntries(Object.entries(contenu.programme_blocs).slice(0, 60)
       .map(([k, v]) => [String(k).slice(0, 30), assainirDUE(String(v || '').slice(0, 60000))]));
   } else delete contenu.programme_blocs;
+  // Le croisement acquis × programme : cours → point → acquis cochés.
+  if (contenu.croisement && typeof contenu.croisement === 'object') {
+    contenu.croisement = Object.fromEntries(Object.entries(contenu.croisement).slice(0, 60).map(([co, pts]) => [
+      String(co).slice(0, 30),
+      Object.fromEntries(Object.entries(pts && typeof pts === 'object' ? pts : {}).slice(0, 300)
+        .map(([pt, aa]) => [String(pt).slice(0, 2000), (Array.isArray(aa) ? aa : []).map(String).filter(Boolean).slice(0, 60)])
+        .filter(([, aa]) => aa.length)),
+    ]));
+  } else delete contenu.croisement;
   if (Array.isArray(contenu.points)) {
     contenu.points = contenu.points.filter(p => p && typeof p === 'object').slice(0, 300)
       .map(p => ({ type: ['intro', 'chapeau', 'point'].includes(p.type) ? p.type : 'point',

@@ -70,7 +70,9 @@ function Zone({ lettre, titre, sous, children, droite }) {
   );
 }
 
-export default function PonderationsUE() {
+/* `ueFixe` : l'unité est choisie par l'écran qui l'embarque (l'onglet « Pondération,
+   croisement et DUE ») — ni sélecteurs, ni titre ici. */
+export default function PonderationsUE({ ueFixe = null }) {
   const annee = getAnnee();
   const role = getUser?.()?.role;
   const passee = annee < ANNEE_PERIODES;
@@ -79,7 +81,8 @@ export default function PonderationsUE() {
   const [sections, setSections] = useState([]);
   const [section, setSection] = useState('');
   const [ues, setUes] = useState([]);
-  const [ue, setUe] = useState(null);
+  const [ue, setUe] = useState(ueFixe);
+  useEffect(() => { if (ueFixe) setUe(ueFixe); }, [ueFixe]);
   const [structure, setStructure] = useState(null);
   const [liens, setLiens] = useState(null);
   const [brouillon, setBrouillon] = useState({});      // cours → { aa: poids }
@@ -92,6 +95,7 @@ export default function PonderationsUE() {
   const [trace, setTrace] = useState(false);
 
   useEffect(() => {
+    if (ueFixe) return;
     lire('/api/ref/sections').then(l => {
       const t = Array.isArray(l) ? l : [];
       setSections(t);
@@ -101,7 +105,7 @@ export default function PonderationsUE() {
   }, []);
 
   useEffect(() => {
-    if (!section) return;
+    if (!section || ueFixe) return;
     setUe(null); setStructure(null); setLiens(null);
     lire(`/api/acquis/sections/${encodeURIComponent(section)}/ues?annee=${encodeURIComponent(annee)}`)
       .then(l => { setUes(Array.isArray(l) ? l : []); if (l?.length) setUe(l[0].ue_num); })
@@ -202,8 +206,9 @@ export default function PonderationsUE() {
   const coursC = cours.find(c => c.cours_code === coursActif);
 
   return (
-    <div className="p-4 space-y-3.5">
+    <div className={ueFixe ? 'space-y-3.5' : 'p-4 space-y-3.5'}>
       <div className="flex flex-wrap items-center gap-2">
+        {!ueFixe && <>
         <h2 className="text-[17px] font-semibold text-iip-blue mr-auto">Pondérations · {annee}</h2>
         <select value={section} onChange={e => setSection(e.target.value)} className="controle" aria-label="Section">
           {sections.map(s => <option key={s.code} value={s.code}>{s.libelle || s.code}</option>)}
@@ -211,6 +216,7 @@ export default function PonderationsUE() {
         <select value={ue || ''} onChange={e => setUe(Number(e.target.value))} className="controle max-w-[26rem]" aria-label="Unité">
           {ues.map(u => <option key={u.ue_num} value={u.ue_num}>{u.ue_num} — {u.ue_nom}{u.pret ? '' : ' ⚠'}</option>)}
         </select>
+        </>}
         {peutRegler && ue && (
           <>
             <button className="bouton" onClick={reprendre} title={`Recopier les points de ${avant} sur ${annee}`}>
@@ -232,7 +238,7 @@ export default function PonderationsUE() {
       {erreur && <div className="carte p-2.5 text-[12px] text-iip-texte flex items-start gap-1.5"><IconAlertTriangle size={14} className="mt-0.5 flex-none" />{erreur}</div>}
       {message && <div className="text-[12px] text-iip-texte flex items-center gap-1.5"><IconCheck size={14} />{message}</div>}
 
-      {!ues.length && section && <p className="text-[13px] text-slate-400">Aucune unité pour {section} en {annee}.</p>}
+      {!ueFixe && !ues.length && section && <p className="text-[13px] text-slate-400">Aucune unité pour {section} en {annee}.</p>}
       {ue && structure && liens && (
         <>
           {/* ── A ─────────────────────────────────────────────────────── */}
