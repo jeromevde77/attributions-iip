@@ -4044,7 +4044,14 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
 
   // ── 2. Le COURS ──────────────────────────────────────────────────────────
   const profsCoursUE = profsParCours(ueNum, annee);
-  const cours = structure.map(c => {
+  /* UN COURS QUI NE S'ÉVALUE PAS NE SE DÉLIBÈRE PAS (Charles, 8 octobre 2026, UE 333 :
+     « l'activité 5 n'est pas évaluée, je ne comprends pas pourquoi elle est dans la
+     délibération — des étudiants ont tout réussi et tu ne les valides pas d'entrée »).
+     Le cours non évalué (et l'activité Z, travail de l'étudiant sans enseignant)
+     ne pèse rien, mais il restait dans la liste avec une note vide : « tous les
+     cours au seuil » n'était jamais vrai, et aucune réussite de plein droit ne
+     sortait. */
+  const cours = structure.filter(c => !c.non_evalue && String(c.ct_pp || '').toUpperCase() !== 'Z').map(c => {
     const siennes = paires.filter(p => p.cours_code === c.cours_code);
     // Ajourner un ACQUIS ajourne les cours qui l'évaluent : cet acquis n'y est
     // pas maîtrisé, et le cours est donc lui aussi à représenter.
