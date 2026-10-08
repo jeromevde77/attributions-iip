@@ -119,7 +119,7 @@ export default function MesCours() {
       });
       const j = await r.json();
       if (!r.ok) throw new Error([j.error, (j.manquants || []).slice(0, 6).map(m => `${m.nom} (${m.aa_code})`).join(', ')].filter(Boolean).join(' — ') || 'Erreur');
-      setFait(`${j.proposees} note(s) proposée(s) — la coordination les reprendra dans l'encodage officiel.`);
+      setFait(`${j.proposees} note(s) enregistrée(s)${j.reprise?.ecrites ? ` — ${j.reprise.ecrites} entrée(s) dans l'encodage officiel` : ''}${j.reprise?.differentes ? ` ; ${j.reprise.differentes} diffèrent d'une note déjà officielle : la coordination tranche` : ''}.`);
     } catch (e) { setErreur(e.message); }
     finally { setEnCours(false); }
   }
@@ -444,7 +444,8 @@ export default function MesCours() {
             {face === 'indicateurs' && feuille && (
               <IndicateursNotes etudiants={vus} tous={feuille.etudiants} cols={cols}
                 nomCol={(k, i) => (k ? `${nomAA(null, i)} · ${k}` : 'Note du cours')}
-                valeurDe={valeurDe} noteCours={noteCours} groupesDispo={groupeVu ? [] : groupesDispo} groupesDe={groupesDe} />)}
+                valeurDe={valeurDe} noteCours={noteCours} groupesDispo={groupeVu ? [] : groupesDispo} groupesDe={groupesDe}
+                coursCode={ouvert} annee={annee} ueNum={feuille.ue_num} />)}
             {fait && <p className="text-[13px] m-0" style={{ color: 'var(--c-reussi)' }}>✓ {fait}</p>}
             {!feuille && !erreur && <p className="text-sm text-slate-400">Chargement…</p>}
 
@@ -472,7 +473,7 @@ export default function MesCours() {
                     <button type="button" onClick={enregistrer} disabled={enCours || !!invalides || manquants.length > 0}
                       title={invalides ? `${invalides} case(s) à corriger : un nombre entier de 0 à 20, PP, NP ou CM`
                         : manquants.length ? `${manquants.length} note(s) sous 10 sans justificatif`
-                        : 'Vos notes sont des propositions : la coordination les reprend dans l’encodage officiel'}
+                        : 'Vos notes entrent dans l’encodage officiel dès l’enregistrement ; une note qui diffère d’une note déjà officielle attend la coordination'}
                       className="bouton bouton-fort h-7 px-3 disabled:opacity-40">
                       {enCours ? 'Enregistrement…' : 'Enregistrer'}
                     </button>
@@ -693,7 +694,7 @@ export default function MesCours() {
                   {invalides ? <span style={{ color: 'var(--c-texte)' }}>{invalides} case{invalides > 1 ? 's' : ''} à corriger : un nombre entier de 0 à 20, PP, NP ou CM.</span>
                     : manquants.length ? <span style={{ color: 'var(--c-attente)' }}>{manquants.length} note{manquants.length > 1 ? 's' : ''} sous 10 sans justificatif.{' '}
                         <button type="button" className="underline" onClick={() => allerA(manquants[0])}>Aller au premier</button></span>
-                    : 'Vos notes sont des propositions : la coordination les reprend dans l’encodage officiel.'}
+                    : 'Vos notes entrent dans l’encodage officiel dès l’enregistrement ; une note qui diffère d’une note déjà officielle attend la coordination.'}
                 </span>
               </div>
             )}

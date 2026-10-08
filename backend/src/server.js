@@ -94,7 +94,7 @@ import planifIARoutes      from './routes/planification-ia.js';
 import locauxRoutes        from './routes/locaux.js';
 import apercuRoutes        from './routes/apercu.js';
 import perimetreRoutes     from './routes/perimetre.js';
-import mesCoursRoutes      from './routes/mesCours.js';
+import mesCoursRoutes, { rattraperPropositions } from './routes/mesCours.js';
 import suiviEtudiantRoutes from './routes/suiviEtudiant.js';
 import rapportsRoutes      from './routes/rapports.js';
 import nominationsRoutes   from './routes/nominations.js';
@@ -3117,6 +3117,9 @@ app.use('/api/locaux', garderModule('locaux'), locauxRoutes);
 app.use('/api/apercu', garderModule('apercu'), apercuRoutes);
 app.use('/api/perimetre', garderModule('perimetre'), perimetreRoutes);
 app.use('/api/mes-cours', garderModule('mes-cours'), mesCoursRoutes);
+// LES PROPOSITIONS EN ATTENTE ENTRENT DANS L'ENCODAGE (reprise automatique, 8 octobre 2026) —
+// celles d'avant ce choix, une fois au démarrage ; ensuite, à chaque enregistrement.
+setTimeout(() => { try { rattraperPropositions(); } catch (e) { console.error('[reprise auto]', e.message); } }, 5000);
 app.use('/api/suivi-etudiant', garderModule('suivi-etudiant'), suiviEtudiantRoutes);
 app.use('/api/rapports', garderModule('rapports'), rapportsRoutes);
 app.use('/api/nominations', garderModule('nominations'), nominationsRoutes);
