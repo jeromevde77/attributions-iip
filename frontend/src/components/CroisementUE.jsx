@@ -189,6 +189,21 @@ export default function CroisementUE({ ueNum }) {
       {erreur && <p className="text-[12px] flex items-start gap-1.5 m-0" style={{ color: 'var(--c-refuse)' }}><IconAlertTriangle size={14} className="mt-0.5 flex-none" />{erreur}</p>}
       {message && <p className="text-[12px] text-slate-700 flex items-center gap-1.5 m-0"><IconCheck size={14} />{message}</p>}
 
+      {/* LA LÉGENDE DES ACQUIS (Charles, 8 octobre 2026 : « il faut la légende des AA…
+          c'est important »). Les colonnes ne portent que le code : sans le texte, on
+          coche au jugé. */}
+      {acquis.length > 0 && (
+        <section className="rounded-carte border border-slate-200 px-3 py-2">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Acquis d’apprentissage de l’unité</div>
+          <dl className="m-0 grid gap-x-4 gap-y-1 text-[12px]" style={{ gridTemplateColumns: 'max-content 1fr' }}>
+            {acquis.map(a => (
+              <div key={a.aa_code} className="contents">
+                <dt className="font-semibold text-iip-blue">{a.aa_code}</dt>
+                <dd className="m-0 text-slate-700">{a.description || '—'}</dd>
+              </div>))}
+          </dl>
+        </section>)}
+
       {cours.map(x => {
         const co = x.cours_code;
         const pts = points[co] || [];
