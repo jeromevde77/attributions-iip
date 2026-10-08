@@ -578,7 +578,7 @@ function Fiche({ ueNum, onRetour }) {
     if (vide('finalites')) m.push('finalités particulières');
     if (vide('programme')) m.push('programme');
     if (!Object.values(c.methodes || {}).some(Boolean)) m.push("méthodes d'apprentissage");
-    if (!c.criteres) m.push("critères d'évaluation");
+    if (!c.criteres) m.push('contrat pédagogique');
     if (vide('degre_maitrise')) m.push('degré de maîtrise');
     const sansEval = (d.cours || []).filter(x =>
       !Object.values(c.evaluation?.[x.cours_code]?.s1 || {}).some(Boolean));
@@ -811,6 +811,16 @@ function Fiche({ ueNum, onRetour }) {
           <Champ label="Autre" valeur={c.methode_autre} lecture={lecture}
             onChange={v => maj('methode_autre', v)} />
         </div>
+        {/* LE CONTRAT PÉDAGOGIQUE (Charles, 8 octobre 2026 : « ceci doit passer dans
+            méthodes d'apprentissage, c'est le contrat pédagogique ») — le même champ
+            qu'avant (« criteres ») : ce qui y était écrit suit. */}
+        <div className="mt-3">
+          <span className="block text-[11px] font-semibold text-slate-500 mb-1">Contrat pédagogique</span>
+          <Riche valeur={c.criteres} lecture={lecture} onChange={v => maj('criteres', v)} />
+          <DuDossier texte={d.dp?.capacites} valeur={c.criteres} lecture={lecture}
+            onChange={v => maj('criteres', v)}
+            libelle="les capacités préalables du dossier pédagogique" />
+        </div>
       </Bloc>
 
       <Bloc titre="Supports de cours"
@@ -896,11 +906,7 @@ function Fiche({ ueNum, onRetour }) {
         </div>
       </Bloc>
 
-      <Bloc titre="Critères d'évaluation" aide="Ce qui, concrètement, mène à la réussite.">
-        <Riche valeur={c.criteres} lecture={lecture} onChange={v => maj('criteres', v)} />
-        <DuDossier texte={d.dp?.capacites} valeur={c.criteres} lecture={lecture}
-          onChange={v => maj('criteres', v)}
-          libelle="les capacités préalables du dossier pédagogique" />
+      <Bloc titre="Critères d'évaluation" aide="Acquis par acquis : les points du programme, l'indicateur, le signe de non-réussite, un exemple de question.">
         <GrilleCriteres d={d} c={c} lecture={lecture} ueNum={ueNum}
           onGrille={g => maj('grille_criteres', g)}
           onMode={unique => setD(x => ({ ...x, evaluation_unique: unique }))} />

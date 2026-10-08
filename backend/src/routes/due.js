@@ -768,7 +768,8 @@ export function documentDUE(ueNum, annee) {
 
     ${bloc('Programme', programmeHtml(c, rediges.programme, auto))}
 
-    ${bloc("Méthodes d'apprentissage", methodes || '<p class="vide">à compléter</p>')}
+    ${bloc("Méthodes d'apprentissage", (methodes || '<p class="vide">à compléter</p>')
+      + (rediges.criteres ? `<div class="sous-t">Contrat pédagogique</div>${riche(rediges.criteres)}` : ''))}
 
     ${bloc('Supports de cours', `<table class="doc">
       <tr><th>Activité</th><th>Type de support</th><th class="n">Statut</th></tr>${supports}</table>
@@ -779,7 +780,7 @@ export function documentDUE(ueNum, annee) {
       ${evaluation}</table>
       <div class="fin">${c.note_ue ? riche(c.note_ue) : esc(getParam('due_note_evaluation', NOTE_UE_DEFAUT))}</div>`)}
 
-    ${bloc("Critères d'évaluation", (rediges.criteres ? riche(rediges.criteres) : '') + grillesCriteres(auto, c, evaluationUnique(ueNum, annee)))}
+    ${bloc("Critères d'évaluation", grillesCriteres(auto, c, evaluationUnique(ueNum, annee)) || '<p class="vide">à compléter</p>')}
 
     ${bloc('Degré de maîtrise', riche(rediges.degre_maitrise))}
   </div>`;
@@ -820,6 +821,7 @@ const STYLE_DUE = `<style>
   table.doc.crit tr { break-inside: avoid; }
   .riche p { margin: 0 0 1.5mm; } .riche ul, .riche ol { margin: 0 0 1.5mm; padding-left: 5mm; }
   .riche table { border-collapse: collapse; width: 100%; } .riche td, .riche th { border: 0.25mm solid #d8dde6; padding: 1mm 1.5mm; }
+  .sous-t { font-weight: 700; color:#1B2B4B; font-size: 8.5pt; margin: 2.5mm 0 1mm; }
   .schema-due { margin: 2mm 0 0; } .schema-due svg { max-width: 120mm; max-height: 70mm; height: auto; }
 </style>`;
 
