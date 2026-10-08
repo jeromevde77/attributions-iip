@@ -874,8 +874,6 @@ function documentCoutFormations(p) {
      la FWB, il faut mettre le total du DI, mais il sera négatif et dû par la
      HE »). La section d'Orthoptie porte ses droits en négatif — ils ne sont pas
      perçus par l'établissement, la HELB les doit — et le total du DI les compte. */
-  const TX = R.tiers_detail || { di: 0, dis: 0, frais: 0, verse: 0 };
-  const neg = v => (v ? `−${k0(v)}` : '0');
   const tRecettes = `<table class="serre"><thead><tr><th>Section</th>${['DI (€)', 'DIS (€)', 'Frais adm. (€)', 'Total dû (€)',
       'Versé (€)', 'Frais / étudiant (€)'].map(c => `<th class="n">${c}</th>`).join('')}</tr></thead>
     <tbody>${d.sections.filter(S => { const x = S.recettes; return x.di || x.dis || x.frais || x.verse || S.recettes_tiers || S.inscrits; }).map(S => {
@@ -883,18 +881,15 @@ function documentCoutFormations(p) {
       const ligne = !(dû || x.verse) && t ? '' : `<tr><td>${esc(S.section)}</td>
       <td class="n">${k0(x.di)}</td><td class="n">${k0(x.dis)}</td><td class="n">${k0(x.frais)}</td><td class="n g">${k0(dû)}</td>
       <td class="n">${k0(x.verse)}</td><td class="n">${S.inscrits ? k0(dû / S.inscrits) : '—'}</td></tr>`;
-      const lt = !t ? '' : `<tr><td>${esc(S.section)}${pastilleHelb}<span class="fin"> dû par ${esc(t.payeur)} · ${n0(t.etudiants)} étudiant(s)</span></td>
-      <td class="n">${neg(t.di)}</td><td class="n">${neg(t.dis)}</td><td class="n">${neg(t.frais)}</td><td class="n g">${neg(t.di + t.dis + t.frais)}</td>
-      <td class="n">${k0(t.verse)}</td><td class="n">${t.etudiants ? neg((t.di + t.dis + t.frais) / t.etudiants) : '—'}</td></tr>`;
+      /* PERÇU PAR LA HELB : 0 POUR L'ÉTABLISSEMENT, AVEC LE BADGE (Charles, 8 octobre
+         2026 : « le dû par la HELB va mal passer ; je mettrais 0 avec le badge HELB »). */
+      const lt = !t ? '' : `<tr><td>${esc(S.section)}${pastilleHelb}<span class="fin"> perçu par ${esc(t.payeur)} · ${n0(t.etudiants)} étudiant(s)</span></td>
+      <td class="n">0</td><td class="n">0</td><td class="n">0</td><td class="n g">0</td><td class="n">0</td><td class="n">0</td></tr>`;
       return ligne + lt; }).join('')}</tbody>
-    <tfoot><tr class="repere"><td>Perçu par l'établissement</td><td class="n">${k0(R.di)}</td><td class="n">${k0(R.dis)}</td><td class="n">${k0(R.frais)}</td>
+    <tfoot><tr class="repere"><td>Ensemble — perçu par l'établissement</td><td class="n">${k0(R.di)}</td><td class="n">${k0(R.dis)}</td><td class="n">${k0(R.frais)}</td>
       <td class="n">${k0((R.di || 0) + (R.dis || 0) + (R.frais || 0))}</td><td class="n">${k0(R.verse)}</td>
       <td class="n">${R.etudiants ? k0(((R.di || 0) + (R.dis || 0) + (R.frais || 0)) / R.etudiants) : '—'}</td></tr>
-    ${R.etudiants_tiers ? `<tr class="repere"><td>Dû par la HELB</td><td class="n">${neg(TX.di)}</td><td class="n">${neg(TX.dis)}</td><td class="n">${neg(TX.frais)}</td>
-      <td class="n">${neg(TX.di + TX.dis + TX.frais)}</td><td class="n">${k0(TX.verse)}</td><td class="n"></td></tr>
-    <tr class="repere"><td><b>Total du DI — tous les étudiants</b></td><td class="n"><b>${k0((R.di || 0) + TX.di)}</b></td><td class="n">${k0((R.dis || 0) + TX.dis)}</td>
-      <td class="n">${k0((R.frais || 0) + TX.frais)}</td><td class="n">${k0((R.di || 0) + (R.dis || 0) + (R.frais || 0) + TX.di + TX.dis + TX.frais)}</td>
-      <td class="n">${k0((R.verse || 0) + TX.verse)}</td><td class="n"></td></tr>` : ''}</tfoot></table>
+    </tfoot></table>
     <p class="fin">Calcul de la fiche de chaque étudiant (Frais de scolarité) : <b>droit d'inscription</b> (forfait + montant par période,
       plafonné) et <b>frais administratifs</b> (fixe + montant par période du PAE), qui <b>restent à l'établissement</b> ;
       <b>droit d'inscription spécifique</b>, qui revient à la Fédération. Barèmes réglables dans la fiche Frais de scolarité.
@@ -1011,9 +1006,9 @@ function documentCoutFormations(p) {
         <td>UE ${u.ue_num} — ${esc(u.ue_nom || '')}<span class="fin"> · ${x.niveau}</span></td>
         <td class="n">${n0(x.periodes)}</td>
         <td class="n">${n0(x.periodes)} × ${m2(x.tarif_di)} = ${m2(x.di_etudiant)} €</td>
-        <td class="n">${x.sans_frais ? '— (section exemptée)' : `${n0(x.periodes_etudiant)} × ${m2(x.par_periode)} = ${m2(x.frais_etudiant)} €`}</td>
+        <td class="n">${S.tiers ? `0${pastilleHelb}` : x.sans_frais ? '— (section exemptée)' : `${n0(x.periodes_etudiant)} × ${m2(x.par_periode)} = ${m2(x.frais_etudiant)} €`}</td>
         <td class="n">${x.inscrits ? n0(x.inscrits) : '—'}${x.prevu ? ' <i>(prévu)</i>' : ''}</td>
-        <td class="n">${x.inscrits ? `${n0(x.inscrits)} × ${m2(x.di_etudiant + x.frais_etudiant)} = ${eur(x.recette)}${S.tiers ? ` → ${esc(S.tiers)}` : ''}` : '—'}</td></tr>`; }).join('')}
+        <td class="n">${S.tiers ? `0 €${pastilleHelb}` : x.inscrits ? `${n0(x.inscrits)} × ${m2(x.di_etudiant + x.frais_etudiant)} = ${eur(x.recette)}` : '—'}</td></tr>`; }).join('')}
       ${S.forfaits?.etudiants ? `<tr class="repere"><td colspan="5">Forfaits — ${n0(S.forfaits.etudiants)} étudiant(s) × (${m2(S.forfaits.di)} €${S.sans_frais ? '' : ` + ${m2(S.forfaits.frais)} €`})</td>
         <td class="n">${eur(S.forfaits.montant)}</td></tr>` : ''}`; }).join('')}</tbody></table>`;
 
@@ -1096,8 +1091,8 @@ function documentCoutFormations(p) {
         .sort((a, b) => b.recettes.frais - a.recettes.frais)
         .map(S => ({ nom: esc(S.section), valeur: S.recettes.frais, couleur: K.or, texte: eur(S.recettes.frais) })) })))}
     ${tRecettes}
-    ${R.tiers && Object.keys(R.tiers).length ? `<p class="fin"><b>Perçus par un tiers</b>, hors recettes de l'établissement : ${Object.entries(R.tiers).map(([p, v]) => `${esc(p)} ${eur(v)}`).join(' · ')}
-      (${n0(R.etudiants_tiers)} étudiant(s) — la fiche de chacun dit qui perçoit et pourquoi).</p>` : ''}
+    ${R.tiers && Object.keys(R.tiers).length ? `<p class="fin">${Object.keys(R.tiers).map(p => `${pastilleHelb.replace('HELB', esc(p))}`).join(' ')} : droit d'inscription et frais perçus
+      par ${Object.keys(R.tiers).map(esc).join(', ')} — aucune recette pour l'établissement (${n0(R.etudiants_tiers)} étudiant(s) ; la fiche de chacun dit qui perçoit et pourquoi).</p>` : ''}
     </section>
     <section class="saut"><h2>Femmes et hommes</h2>${tSexes}</section>
     <section class="bloc"><h2>Personnel administratif (PNCC) et coordinations</h2>${tFonctions}</section>
