@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { IconUsersGroup, IconAlertTriangle, IconWand, IconFileSpreadsheet, IconX, IconPencil, IconSortAscendingLetters } from '@tabler/icons-react';
+import { IconUsersGroup, IconAlertTriangle, IconWand, IconFileSpreadsheet, IconX, IconPencil, IconSortAscendingLetters, IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 import { api, authHeaders, getAnnee } from '../lib/api.js';
 import { demander, saisir, informer } from '../lib/dialogue.jsx';
 import { peutGeste, ecritModule } from '../lib/droits.js';
@@ -120,6 +120,18 @@ export default function RepartitionCours() {
       })
       .catch(e => setErreur(e.message));
   }, [section, annee]);
+
+  async function basculerCarnet(c) {
+    setErreur(null);
+    try {
+      const r = await fetch('/api/etudiants/repartition-cours/carnet', { method: 'PUT',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ annee, cours_code: c.cours_code, activite_id: c.activite_id || 0, exclu: !c.hors_carnet }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || `Refusé (${r.status})`);
+      setData(d => ({ ...d, cours: d.cours.map(x => (x.cle === c.cle ? { ...x, hors_carnet: j.hors_carnet } : x)) }));
+    } catch (e) { setErreur(e.message); }
+  }
 
   async function ouvrirUE(num) {
     setUeNum(num); setData(null); setAttente(new Map()); setCoches(new Set()); setErreur(null);
@@ -411,6 +423,24 @@ export default function RepartitionCours() {
         </select>
         {/* Une section porte vite vingt UE : un sélecteur, pas un mur de
             pastilles (Charles, 25 septembre). */}
+        {/* ◀ ▶ D'UNE UE À L'AUTRE (Charles, 8 octobre 2026) — dans l'ordre de la
+            liste ; un placement non enregistré se garde ou s'abandonne d'abord. */}
+        {ues && ueNum != null && (() => {
+          const i = ues.findIndex(u => u.ue_num === ueNum);
+          const aller = async d => {
+            const v = ues[i + d]; if (!v) return;
+            if (attente.size && !(await demander({ message: `${attente.size} placement(s) non enregistré(s) : passer à l'UE ${v.ue_num} en les abandonnant ?`, confirmer: 'Abandonner et passer' }))) return;
+            ouvrirUE(v.ue_num);
+          };
+          return (
+            <span className="inline-flex items-center gap-1">
+              <button type="button" className="bouton px-2" disabled={i <= 0} onClick={() => aller(-1)}
+                title="UE précédente" aria-label="UE précédente"><IconChevronLeft size={16} /></button>
+              <span className="text-[12px] text-slate-500 tabular-nums">{i + 1} / {ues.length}</span>
+              <button type="button" className="bouton px-2" disabled={i >= ues.length - 1} onClick={() => aller(1)}
+                title="UE suivante" aria-label="UE suivante"><IconChevronRight size={16} /></button>
+            </span>);
+        })()}
         {ues && (
           <select value={ueNum ?? ''}
             onChange={e => e.target.value && ouvrirUE(Number(e.target.value))}
@@ -583,6 +613,14 @@ export default function RepartitionCours() {
                       {c.sans_groupe ? ' · sans groupe'
                         : ` · ${c.groupes.length} groupes${c.plafond_groupe ? ` · plafond ${c.plafond_groupe}` : ''}`}
                     </span>
+                    {/* HORS DU CARNET DE COTES (Charles, 8 octobre 2026) : de l'EPT, des
+                        périodes de correction… — le titulaire ne la voit pas dans Mes cours. */}
+                    <label className={`mt-0.5 inline-flex items-center gap-1 text-[10.5px] font-normal ${c.hors_carnet ? 'text-slate-400' : 'text-slate-600'} ${peutRenommer ? 'cursor-pointer' : ''}`}
+                      title="Décoché : cette activité n'ouvre pas de carnet de cotes dans Mes cours (EPT, périodes de correction…)">
+                      <input type="checkbox" className="w-3.5 h-3.5 accent-iip-blue" checked={!c.hors_carnet} disabled={!peutRenommer}
+                        onChange={() => basculerCarnet(c)} />
+                      carnet de cotes
+                    </label>
                   </th>
                 ))}
               </tr>

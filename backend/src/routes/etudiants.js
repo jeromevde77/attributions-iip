@@ -1408,6 +1408,30 @@ r.get('/repartition-cours', authRequired, (req, res) => {
   res.json({ section, annee, ues });
 });
 
+/* HORS DU CARNET DE COTES (Charles, 8 octobre 2026 : « je dois pouvoir décocher le
+ * cours pour qu'il n'apparaisse pas dans le carnet de cotes du prof — c'est
+ * parfois de l'EPT, ou des périodes données pour des corrections »). Un cours et
+ * une activité, pour une année : les lignes d'attribution qui les portent ne
+ * mettent plus le cours dans Mes cours de leur titulaire (routes/mesCours.js,
+ * attributionsDe). Les attributions, elles, ne changent pas. */
+db.exec(`CREATE TABLE IF NOT EXISTS carnet_exclusion (
+  annee_scolaire TEXT NOT NULL, cours_code TEXT NOT NULL, activite_id INTEGER NOT NULL DEFAULT 0,
+  par TEXT, le TEXT DEFAULT (datetime('now')), PRIMARY KEY (annee_scolaire, cours_code, activite_id))`);
+const horsCarnet = db.prepare('SELECT 1 FROM carnet_exclusion WHERE annee_scolaire = ? AND cours_code = ? AND activite_id = ?');
+r.put('/repartition-cours/carnet', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
+  const { cours_code, exclu } = req.body || {};
+  const activite = Number(req.body?.activite_id) || 0;
+  const annee = String(req.body?.annee || anneeDeTravail(req));
+  if (!cours_code) return res.status(400).json({ error: 'cours_code requis' });
+  const c = db.prepare('SELECT ue_num FROM cours WHERE cours_code = ? AND annee_scolaire = ? LIMIT 1').get(cours_code, annee);
+  if (!c) return res.status(404).json({ error: 'Cours inconnu pour cette année.' });
+  if (!unitePermise(req, res, c.ue_num)) return;
+  if (exclu) db.prepare('INSERT OR IGNORE INTO carnet_exclusion (annee_scolaire, cours_code, activite_id, par) VALUES (?,?,?,?)')
+    .run(annee, cours_code, activite, req.user?.nom || req.user?.email || null);
+  else db.prepare('DELETE FROM carnet_exclusion WHERE annee_scolaire = ? AND cours_code = ? AND activite_id = ?').run(annee, cours_code, activite);
+  res.json({ ok: true, hors_carnet: !!exclu });
+});
+
 r.get('/repartition-cours/ue', authRequired, (req, res) => {
   const ueNum = Number(req.query.ue_num);
   const annee = req.query.annee || anneeDeTravail(req);
@@ -1453,7 +1477,8 @@ r.get('/repartition-cours/ue', authRequired, (req, res) => {
           || String(x.groupe || '').localeCompare(String(y.groupe || ''), 'fr', { numeric: true }));
       // Un seul groupe (ou aucun) : « Tous » — chaque inscrit y est d'office.
       return { ...c, activite_id: b.activite_id, activite_libelle: b.activite_libelle,
-        cle: `${c.cours_code}#${b.activite_id}`, groupes, sans_groupe: groupes.length <= 1 };
+        cle: `${c.cours_code}#${b.activite_id}`, groupes, sans_groupe: groupes.length <= 1,
+        hors_carnet: !!horsCarnet.get(annee, c.cours_code, b.activite_id) };
     });
   });
 

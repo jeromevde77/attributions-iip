@@ -140,6 +140,10 @@ function attributionsDe(profId, annee) {
              ORDER BY (x.annee_scolaire = ?) DESC, x.annee_scolaire DESC LIMIT 1) AS ue_niv
     FROM attribution a
     WHERE a.professeur_id = ? AND a.annee_scolaire = ? AND a.code_cours IS NOT NULL
+      -- Les activités retirées du carnet de cotes (Répartition des étudiants) :
+      -- de l'EPT, des périodes de correction… ne font pas un carnet.
+      AND NOT EXISTS (SELECT 1 FROM carnet_exclusion x WHERE x.annee_scolaire = a.annee_scolaire
+            AND x.cours_code = a.code_cours AND x.activite_id = COALESCE(a.activite_id, 0))
     ORDER BY a.ue_num, a.code_cours, org, groupe
   `).all(annee, annee, profId, annee);
 }
