@@ -242,13 +242,67 @@ const norm = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLow
 export function lireProgramme(texte, cours) {
   const out = [];
   let courant = null;
-  for (const brut of String(texte || '').replace(/<[^>]+>/g, '\n').split('\n')) {
-    const l = brut.replace(/^[\s•\-–*]+/, '').trim();
+  /* L'INTITULÉ COLLÉ EN FIN DE LIGNE (Charles, 8 octobre 2026 : « pourquoi en
+     psychomot les cours n'ont pas de point de programme ? »). Les dossiers lus
+     d'un PDF collent l'intitulé du cours à la ligne précédente — « L'étudiant
+     sera capable : Psychologie générale », « …situations concrètes ; Psychologie
+     sociale » — et rien ne commençait de groupe. On le remet sur sa ligne. */
+  const echap = t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  let brutTexte = String(texte || '').replace(/<[^>]+>/g, '\n');
+  for (const c of cours) {
+    const n = String(c.cours_nom || '').trim();
+    if (n.length < 4) continue;
+    // L'intitulé, et ce qui le suit sur la même ligne (« … interpersonnelle à partir
+    // de situations d'expérimentation, ») devient la ligne suivante.
+    brutTexte = brutTexte.replace(new RegExp(`([:;.])[ \\t]*(${echap(n)})(?=[ \\t,]|\\n|$)[ \\t]*`, 'gi'), '$1\n$2\n');
+  }
+  /* L'INTITULÉ DU DOSSIER N'EST PAS TOUJOURS CELUI DU COURS : « Pratique des écrits »
+     pour « Pratique des écrits - Psychomotricité », « Théorie et concepts » pour
+     « Théorie et concept ». On compare les MOTS — sans accents, sans les petits
+     mots, au singulier : presque tous ceux de l'intitulé lu, la moitié au moins
+     de ceux du cours. */
+  // « 1er soins » et « Premiers soins » disent la même chose.
+  const motsDe = t => norm(t).split(' ').filter(w => w.length >= 3)
+    .map(w => (/^1(er|re|ers|res)$/.test(w) ? 'premier' : w.replace(/s$/, '')));
+  const ressemble = (t, c) => {
+    const a = motsDe(t), b = new Set(motsDe(c.cours_nom));
+    if (a.length < 2 || !b.size || a.length > 14) return false;
+    const inter = a.filter(w => b.has(w)).length;
+    // Presque tous les mots lus sont ceux du cours… ou tous ceux du cours sont lus
+    // (« Élaboration ET MÉTHODOLOGIE de l'intervention en éducation-prévention »).
+    return (inter / a.length >= 0.8 && inter / b.size >= 0.5)
+      || (b.size >= 2 && inter >= b.size && a.length <= b.size * 2);
+  };
+  const coursDe = t => cours.find(x => norm(x.cours_nom) && norm(t) === norm(x.cours_nom))
+    || cours.find(x => ressemble(t, x));
+  /* UNE LIGNE QUI PORTE TOUT LE PROGRAMME (l'UE 76 : les puces du PDF perdues, les
+     points séparés par « ; ») se coupe à chaque point-virgule. */
+  const lignesLues = brutTexte.split('\n')
+    .flatMap(x => (x.length > 250 && (x.match(/;/g) || []).length >= 2 ? x.split(/(?<=;)\s+/) : [x]));
+  for (const brut of lignesLues) {
+    let l = brut.replace(/^[\s•\-–*]+/, '').trim();
     if (l.length < 3) continue;
-    const c = cours.find(x => norm(x.cours_nom) && norm(l) === norm(x.cours_nom));
+    // Un intitulé collé après le dernier « : ; , . » de la ligne : la ligne s'arrête là.
+    const m = /^(.*[:;,.])\s*([^:;,.]{4,})$/.exec(l);
+    const queue = m && coursDe(m[2]);
+    if (queue) {
+      const tete = m[1].trim();
+      if (tete.length >= 3) {
+        if (!courant) out.push({ type: 'intro', texte: tete, cours: [] });
+        else out.push({ type: /[,:]$/.test(tete) ? 'chapeau' : 'point', texte: tete, cours: [courant] });
+      }
+      courant = queue.cours_code; continue;
+    }
+    const c = !/^[\s•\-–*]/.test(brut) && coursDe(l);
     if (c) { courant = c.cours_code; continue; }
     if (!courant) { out.push({ type: 'intro', texte: l, cours: [] }); continue; }
     out.push({ type: /[,:]$/.test(l) ? 'chapeau' : 'point', texte: l, cours: [courant] });
+  }
+  // UNE UNITÉ D'UN SEUL COURS : le dossier n'a pas d'intitulé à donner, tout le
+  // programme est le sien (la première phrase, « L'étudiant sera capable… », reste
+  // l'introduction).
+  if (cours.length === 1 && !out.some(p => p.type !== 'intro')) {
+    return out.map((p, i) => (i === 0 ? p : { type: /[,:]$/.test(p.texte) ? 'chapeau' : 'point', texte: p.texte, cours: [cours[0].cours_code] }));
   }
   return out;
 }
