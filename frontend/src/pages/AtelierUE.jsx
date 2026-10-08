@@ -16,6 +16,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { IconPercentage, IconTable, IconFileDescription } from '@tabler/icons-react';
 import { api } from '../lib/api.js';
 import { Fiche } from './DUE.jsx';
+import { RailLateral } from '../components/ui.jsx';
 import PonderationsUE from './PonderationsUE.jsx';
 import CroisementUE from '../components/CroisementUE.jsx';
 
@@ -30,14 +31,22 @@ const ecrireMemo = v => { try { localStorage.setItem(MEMO, JSON.stringify(v)); }
 
 /* `faces` : celles qu'on ouvre ici — Mes cours n'ouvre pas la pondération, que
    l'enseignant ne règle pas. */
-export default function AtelierUE({ faceInitiale = 'descriptif', faces = FACES.map(f => f[0]) }) {
+/* LES FACES SONT DANS LE RAIL (Charles, 8 octobre 2026 : « tu n'as pas mis le menu
+   dans le rail en glissant, comme normal »). Dans un axe, elles s'inscrivent dans
+   le tiroir ; dans Mes cours, qui tient son propre rail, l'écran parent les y pose
+   (`railPropre = false`, `face` et `onFace` fournis). `faces` : celles qu'on ouvre
+   ici — Mes cours n'ouvre pas la pondération, que l'enseignant ne règle pas. */
+export default function AtelierUE({ faceInitiale = 'descriptif', faces = FACES.map(f => f[0]),
+                                    face: faceDonnee, onFace, railPropre = true }) {
   const ouvertes = FACES.filter(f => faces.includes(f[0]));
   const memo = lireMemo();
   const [liste, setListe] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [section, setSection] = useState(memo.section || '');
   const [ue, setUe] = useState(memo.ue || null);
-  const [face, setFace] = useState(ouvertes.some(f => f[0] === faceInitiale) ? faceInitiale : 'descriptif');
+  const [faceLocale, setFaceLocale] = useState(ouvertes.some(f => f[0] === faceInitiale) ? faceInitiale : 'descriptif');
+  const face = faceDonnee || faceLocale;
+  const setFace = onFace || setFaceLocale;
   const [numero, setNumero] = useState('');
 
   useEffect(() => {
@@ -84,13 +93,9 @@ export default function AtelierUE({ faceInitiale = 'descriptif', faces = FACES.m
           onChange={e => setNumero(e.target.value.replace(/\D/g, ''))} onKeyDown={e => { if (e.key === 'Enter') allerA(numero); }} />
       </div>
 
-      <div className="flex gap-1 border-b border-slate-200" role="tablist">
-        {ouvertes.map(([k, l, I]) => (
-          <button key={k} role="tab" aria-selected={face === k} onClick={() => setFace(k)}
-            className={`onglet-page ${face === k ? 'onglet-page-actif' : ''} inline-flex items-center gap-1.5`}>
-            <I size={14} /> {l}
-          </button>))}
-      </div>
+      {railPropre && (
+        <RailLateral titre="Unité" sections={[{ items: ouvertes.map(([k, l, I]) => (
+          { key: `face-${k}`, label: l, icon: I, actif: face === k, onClick: () => setFace(k) })) }]} />)}
 
       {ue && face === 'ponderation' && faces.includes('ponderation') && <PonderationsUE key={ue} ueFixe={ue} />}
       {ue && face === 'croisement' && <CroisementUE key={ue} ueNum={ue} />}

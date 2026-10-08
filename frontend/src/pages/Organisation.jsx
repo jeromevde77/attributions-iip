@@ -5,7 +5,7 @@ import { useSearchParams } from 'react-router-dom';
 import Axe from '../components/Axe.jsx';
 import {
   IconLayoutGrid, IconSchool, IconSitemap, IconFileDescription,
-  IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup, IconCalendarWeek, IconChartBar,
+  IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup, IconListDetails, IconCalendarWeek, IconChartBar,
 } from '@tabler/icons-react';
 import Attributions from './Attributions.jsx';
 import Planification from './Planification.jsx';
@@ -96,7 +96,7 @@ export default function Organisation({ ongletInitial }) {
            entrée ; le croisement acquis × programme les relie. L'unité se choisit
            une fois. Les anciennes adresses (?onglet=ponderations, ?onglet=due, /due)
            mènent ici, sur la bonne face. */
-        { key: 'unite', module: 'organisation', label: 'Pondération, croisement et DUE', icone: IconFileDescription, sansMarge: true,
+        { key: 'unite', module: 'organisation', label: 'Pondération, croisement et DUE', icone: IconListDetails, sansMarge: true,
           rendu: <Suspense fallback={<div className="p-4 text-[13px] text-slate-400">Chargement…</div>}>
                    <AtelierUE faceInitiale={faceUnite} /></Suspense> },
         /* UN SEUL CENTRE HORAIRE (Charles, 29 septembre 2026 : « les deux
