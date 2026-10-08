@@ -23,6 +23,7 @@ import { envelopper } from './attestations.js';
 import { enteteDocument } from '../lib/document.js';
 import { identiteEtablissement } from './config.js';
 import { calculerMention, reglesMention } from '../lib/mention.js';
+import { TITRES_ACCES } from '../lib/profilEtudiant.js';
 import { presidenceConseil } from './acquis.js';
 
 const r = Router();
@@ -719,6 +720,307 @@ function attestationSection(d, ctx) {
   </div>`;
 }
 
+/* ── LE SUPPLÉMENT AU DIPLÔME (EUROPASS) ─────────────────────────────────────
+ *
+ * Charles, 8 octobre 2026 : « il faut aussi prévoir le modèle de supplément au
+ * diplôme Europass — sur base de celui de mon diplôme, mais format mise en page
+ * Lucie ; ça doit être impeccable ». Les huit rubriques du modèle de la
+ * Commission européenne, du Conseil de l'Europe et de l'UNESCO, intitulés
+ * bilingues comme le veut le modèle ; le contenu, en français, vient du dossier :
+ * identité, titre, unités réussies et leurs cotes, mention, stages, signature.
+ * Ce qui ne se déduit pas — statut de l'établissement, conditions d'accès,
+ * statut professionnel ouvert par la section — vit dans un réglage
+ * (lucie_config.supplement_diplome), avec des textes par défaut prudents.
+ * Jamais de cote sous 10 : une unité réussie l'est ; une unité valorisée le dit.
+ */
+const SUPPLEMENT_DEFAUT = {
+  statut_etab: "Établissement d'enseignement de promotion sociale (enseignement pour adultes), libre subventionné, "
+    + "organisé par l'ASBL Institut Ilya Prigogine et reconnu par la Fédération Wallonie-Bruxelles (Communauté française "
+    + "de Belgique), conformément au décret du 16 avril 1991 organisant l'enseignement de promotion sociale.",
+  acces: "Certificat d'enseignement secondaire supérieur (CESS) ou titre reconnu équivalent ; à défaut, réussite d'une "
+    + "épreuve portant sur les capacités préalables requises fixées par le dossier pédagogique de la section. "
+    + "Les acquis d'apprentissage formels, non formels ou informels peuvent être valorisés pour l'admission "
+    + "ou pour la dispense d'unités d'enseignement, selon le règlement des études de l'Institut.",
+  mode: "Enseignement pour adultes, organisé en unités d'enseignement capitalisables, en horaire adapté aux adultes "
+    + "(cours en journée et en soirée), assorti de stages en milieu professionnel.",
+  par_section: {},
+};
+function reglagesSupplement() {
+  let v = {};
+  try { v = JSON.parse(db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'supplement_diplome'").get()?.valeur || '{}') || {}; } catch { v = {}; }
+  return { ...SUPPLEMENT_DEFAUT, ...v, par_section: { ...(v.par_section || {}) } };
+}
+const LIBELLES_ACCES = Object.fromEntries(TITRES_ACCES);
+
+/** Le niveau du cadre des certifications, selon le niveau de la section. */
+function niveauSupplement(niv) {
+  const n = String(niv || '').toLowerCase();
+  if (/bachelier/.test(n)) return { cec: 6, texte: "Enseignement supérieur de type court, premier cycle : bachelier. "
+    + "Niveau 6 du Cadre francophone des certifications (CFC), correspondant au niveau 6 du Cadre européen des certifications (CEC)." };
+  if (/\bbes\b|brevet/.test(n)) return { cec: 5, texte: "Enseignement supérieur de type court : brevet de l'enseignement supérieur (BES). "
+    + "Niveau 5 du Cadre francophone des certifications (CFC), correspondant au niveau 5 du Cadre européen des certifications (CEC)." };
+  if (/\bds\b|secondaire/.test(n)) return { cec: 4, texte: "Enseignement secondaire supérieur — niveau 4 du Cadre francophone des certifications (CFC) et du Cadre européen des certifications (CEC)." };
+  return { cec: null, texte: 'Formation continue de l’enseignement pour adultes, hors cadre des certifications.' };
+}
+
+/** Le schéma de l'enseignement supérieur en Fédération Wallonie-Bruxelles (rubrique 8). */
+function schemaSystemeFWB() {
+  const C = '#1B2B4B', O = '#C9A84C', G = '#E4E8EF', P = '#EEF2F7';
+  // Chaque intitulé tient sur ses lignes : un SVG ne coupe pas le texte, il déborde.
+  const box = (x, y, w, h, lignes, sous, fort = false) => {
+    const n = lignes.length + (sous ? 1 : 0), y0 = y + h / 2 - (n - 1) * 1.6 + 0.9;
+    return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="1.6" fill="${fort ? P : '#fff'}"
+        stroke="${fort ? C : '#94A3B8'}" stroke-width="${fort ? 0.5 : 0.3}"/>
+      ${lignes.map((t, i) => `<text x="${x + w / 2}" y="${y0 + i * 3.2}" text-anchor="middle" font-size="2.5" font-weight="700" fill="${C}">${t}</text>`).join('')}
+      ${sous ? `<text x="${x + w / 2}" y="${y0 + lignes.length * 3.2}" text-anchor="middle" font-size="2.3" fill="#475569">${sous}</text>` : ''}`;
+  };
+  const cycle = (y, h, t) => `<rect x="2" y="${y}" width="7" height="${h}" rx="1.2" fill="${G}"/>
+    <text transform="translate(6.4 ${y + h / 2}) rotate(-90)" text-anchor="middle" font-size="2.5" font-weight="700" fill="${C}">${t}</text>`;
+  const pied = (x, w, lignes, fort = false) => `<rect x="${x}" y="96" width="${w}" height="12" rx="1.6" fill="${fort ? C : G}"/>
+    ${lignes.map((t, i) => `<text x="${x + w / 2}" y="${100.6 + i * 3.1 - (lignes.length - 2) * 1.5}" text-anchor="middle" font-size="2.3" font-weight="700" fill="${fort ? '#fff' : C}">${t}</text>`).join('')}`;
+  return `<svg viewBox="0 0 172 111" width="100%" style="max-height:110mm;display:block;margin:2mm auto 0" font-family="Arial, Helvetica, sans-serif">
+    ${cycle(2, 18, '3e cycle')}${cycle(22, 34, '2e cycle')}${cycle(58, 36, '1er cycle')}
+    ${box(12, 2, 36, 18, ['DOCTORAT'], '180 crédits')}
+    ${box(12, 22, 36, 12, ['MASTER DE', 'SPÉCIALISATION'], '60 crédits et plus')}
+    ${box(12, 36, 36, 20, ['MASTER'], '60 à 180 crédits')}
+    ${box(12, 58, 36, 36, ['BACHELIER'], '180 crédits')}
+    ${box(52, 36, 36, 20, ['MASTER'], '60 à 120 crédits')}
+    ${box(52, 58, 36, 36, ['BACHELIER'], '180 crédits')}
+    ${box(92, 42, 36, 14, ['BACHELIER DE', 'SPÉCIALISATION'], '60 crédits')}
+    ${box(92, 58, 36, 36, ['BACHELIER'], '180 crédits')}
+    ${box(132, 22, 38, 20, ['MASTER'], '120 crédits')}
+    ${box(132, 44, 38, 12, ['BACHELIER DE', 'SPÉCIALISATION'], '60 crédits')}
+    ${box(132, 58, 38, 22, ['BACHELIER'], '180 crédits', true)}
+    ${box(132, 82, 38, 12, ['BREVET DE L’ENSEIGNEMENT', 'SUPÉRIEUR (BES)'], '120 crédits', true)}
+    ${pied(12, 36, ['UNIVERSITÉS'])}
+    ${pied(52, 36, ['HAUTES ÉCOLES', 'ET ESA — TYPE LONG'])}
+    ${pied(92, 36, ['HAUTES ÉCOLES', 'ET ESA — TYPE COURT'])}
+    ${pied(132, 38, ['ENSEIGNEMENT', 'DE PROMOTION SOCIALE'], true)}
+    <line x1="132" y1="110" x2="170" y2="110" stroke="${O}" stroke-width="0.6"/>
+  </svg>
+  <p class="petit" style="text-align:center;margin-top:1mm">ESA : écoles supérieures des arts. En foncé, les titres délivrés par l'enseignement de promotion sociale.</p>`;
+}
+
+function supplementDiplome(d, ctx) {
+  const { section, ident, dateDelib, dossier } = ctx;
+  const R = reglagesSupplement();
+  const propre = R.par_section[section.code] || {};
+  const ds = donneesSectionDiplome(section.code);
+  const niv = niveauSupplement(section.niveau);
+  const e = db.prepare('SELECT id_ecampus, titre_acces FROM etudiant WHERE id = ?').get(d.id) || {};
+  const requises = dossier.requises || [];
+  const ei = epreuveIntegreeDe(requises);
+  const det = new Set((d.determinantes || []).map(u => u.ue_num));
+  const infoUE = num => db.prepare(`SELECT ue_nom, ue_niv, ects, ${POIDS_DETERMINANTE} AS periodes FROM ue
+      WHERE ue_num = ? ORDER BY (section = ?) DESC, annee_scolaire DESC LIMIT 1`).get(num, section.code) || {};
+  // Les unités réussies : la cote arrêtée, ou la valorisation qui l'a acquise.
+  const reussies = requises.map(num => {
+    const r = db.prepare(`SELECT MAX(annee_scolaire) a FROM etudiant_inscription WHERE etudiant_id = ? AND ue_num = ? AND resultat = 'reussi'`).get(d.id, num);
+    const va = db.prepare(`SELECT 1 FROM etudiant_valorisation WHERE etudiant_id = ? AND ue_num = ? AND type = 'complete'
+        AND COALESCE(decision, 'accordee') = 'accordee' LIMIT 1`).get(d.id, num);
+    if (!r?.a && !va) return null;
+    const c = coteArretee(d.id, num);
+    return { num, ...infoUE(num), annee: c.annee || r?.a, cote: c.cote, va: !!va && c.cote == null };
+  }).filter(Boolean);
+  const credits = reussies.reduce((t, u) => t + (Number(u.ects) || 0), 0);
+  const totalCredits = Number(ds.total_ects) || requises.reduce((t, n) => t + (Number(infoUE(n).ects) || 0), 0);
+  const annees = db.prepare(`SELECT MIN(annee_scolaire) a, MAX(annee_scolaire) b FROM etudiant_inscription
+      WHERE etudiant_id = ? AND ue_num IN (${requises.map(() => '?').join(',') || 'NULL'})`).get(d.id, ...requises) || {};
+  const stages = db.prepare(`SELECT s.intitule, s.domaine, s.date_debut, s.date_fin, s.heures_effectuees, s.heures_prevues,
+      l.nom, l.adresse, l.cp, l.localite FROM stage s LEFT JOIN stage_lieu l ON l.id = s.lieu_id
+      WHERE s.etudiant_id = ? AND s.statut NOT IN ('annule', 'rompu') ORDER BY s.date_debut`).all(d.id);
+  const heuresStage = stages.reduce((t, x) => t + (Number(x.heures_effectuees ?? x.heures_prevues) || 0), 0);
+  const fr = iso => (iso ? String(iso).slice(0, 10).split('-').reverse().join('/') : '—');
+  const heuresFr = h => (h == null || h === '' ? '' : (Math.round(Number(h) * 100) / 100).toLocaleString('fr-BE'));
+  const regles = dossier.regles_mention || reglesMention();
+  const cote = u => (u.va ? '<span class="va">valorisée</span>' : u.cote == null ? 'acquise'
+    : `${Math.max(10, Math.round(Number(u.cote)))}/20`);
+  const titreDiplome = ds.intitule_diplome || section.libelle || section.code;
+  const nomComplet = `${d.prenom || ''} ${String(d.nom || '').toUpperCase()}`.trim();
+  const cod = coDiplomee(section.code);
+  const rub = (n, fr0, en) => `<h2 class="rub"><span class="num">${n}.</span> ${fr0} <span class="en">/ ${en}</span></h2>`;
+  const item = (n, fr0, en, contenu) => `<div class="item"><div class="lib"><span class="num">${n}</span> ${fr0} <span class="en">/ ${en}</span></div>
+    <div class="val">${contenu || '<span class="vide">—</span>'}</div></div>`;
+  const parBloc = {};
+  for (const u of reussies) (parBloc[u.ue_niv || '—'] ||= []).push(u);
+
+  return `<div class="attestation piece supplement">
+    ${enteteDocument({ titre: 'Supplément au diplôme', sous: `Diploma Supplement — Europass · ${esc(titreDiplome)}`, ligne: esc(nomComplet) })}
+
+    <div class="preambule">
+      <p>Ce supplément au diplôme suit le modèle élaboré par la Commission européenne, le Conseil de l'Europe et l'UNESCO.
+      Il vise à fournir des données indépendantes et suffisantes pour améliorer la « transparence » internationale et la
+      reconnaissance académique et professionnelle équitable des qualifications. Il décrit la nature, le niveau, le contexte,
+      le contenu et le statut des études accomplies avec succès par la personne désignée sur le diplôme original auquel il est
+      annexé. Il est dépourvu de tout jugement de valeur, déclaration d'équivalence ou suggestion de reconnaissance.</p>
+      <p class="en">This Diploma Supplement follows the model developed by the European Commission, Council of Europe and UNESCO.
+      It provides a description of the nature, level, context, content and status of the studies that were pursued and
+      successfully completed by the individual named on the original qualification to which this supplement is appended.</p>
+      <p class="avert"><b>Avertissement :</b> ce supplément ne vaut qu'accompagné du diplôme officiel.
+      <span class="en">/ This Diploma Supplement is only valid if presented with the official diploma.</span></p>
+    </div>
+
+    ${rub(1, 'Informations sur le titulaire du diplôme', 'Information identifying the holder of the qualification')}
+    ${item('1.1', 'Nom(s) de famille', 'Family name(s)', `<b>${esc(String(d.nom || '').toUpperCase())}</b>`)}
+    ${item('1.2', 'Prénom(s)', 'Given name(s)', esc(d.prenom))}
+    ${item('1.3', 'Date et lieu de naissance', 'Date and place of birth', `${enToutesLettres(d.date_naissance)}${d.lieu_naissance ? ` à ${esc(d.lieu_naissance)}` : ''}`)}
+    ${item('1.4', "Numéro de matricule de l'étudiant", 'Student identification number', esc(e.id_ecampus || d.id_ecampus || ''))}
+
+    ${rub(2, 'Informations sur le diplôme', 'Information identifying the qualification')}
+    ${item('2.1', 'Intitulé du diplôme et titre conféré', 'Name of qualification and title conferred',
+      `<b>${esc(titreDiplome)}</b>${ds.code_section ? `<div class="petit">Code de la section : ${esc(ds.code_section)}${ds.date_approbation ? ` — dossier pédagogique approuvé le ${esc(ds.date_approbation)}` : ''}</div>` : ''}`)}
+    ${item('2.2', "Domaine(s) d'études", 'Main field(s) of study', esc(ds.domaine || section.domaine || ''))}
+    ${item('2.3', "Nom et statut de l'établissement ayant délivré le diplôme", 'Name and status of awarding institution',
+      `<b>${esc(ident.nom)}</b><br>${esc(ident.adresse)}${ident.site ? ` — ${esc(ident.site)}` : ''}
+      <div class="petit">${ident.matricule ? `Matricule ${esc(ident.matricule)}` : ''}${ident.fase ? ` · FASE ${esc(ident.fase)}` : ''}</div>
+      <p>${esc(R.statut_etab)}</p>`)}
+    ${item('2.4', "Nom et statut de l'établissement ayant dispensé les cours (si différent)", 'Name and status of institution administering studies (if different)',
+      cod ? "Formation organisée en codiplomation avec la Haute École Libre de Bruxelles Ilya Prigogine (HELB), haute école reconnue par la Fédération Wallonie-Bruxelles."
+        : 'Sans objet — les cours ont été dispensés par l’établissement mentionné en 2.3.')}
+    ${item('2.5', "Langue(s) de formation et d'évaluation", 'Language(s) of instruction and examination', 'Français.')}
+
+    ${rub(3, 'Informations sur le niveau de qualification', 'Information on the level of the qualification')}
+    ${item('3.1', 'Niveau de qualification', 'Level of qualification', `${esc(niv.texte)}<div class="petit">Le système d'enseignement supérieur de la Fédération Wallonie-Bruxelles est décrit à la rubrique 8.</div>`)}
+    ${item('3.2', 'Durée officielle du programme', 'Official length of programme',
+      `${totalCredits ? `${totalCredits} crédits ECTS` : ''}${ds.total_periodes ? `${totalCredits ? ' — ' : ''}${ds.total_periodes} périodes de 50 minutes` : ''}${ds.duree_annees ? ` (${esc(ds.duree_annees)} ans)` : ''}.
+      <div>Au terme de sa formation, l'étudiant a acquis <b>${credits} crédits</b>.</div>`)}
+    ${item('3.3', "Conditions d'accès", 'Access requirement(s)', `<p>${esc(R.acces)}</p>
+      ${e.titre_acces ? `<p>Condition remplie par l'étudiant : <b>${esc(LIBELLES_ACCES[e.titre_acces] || e.titre_acces)}</b>.</p>` : ''}`)}
+
+    ${rub(4, 'Informations sur le contenu et les résultats obtenus', 'Information on the contents and results gained')}
+    ${item('4.1', 'Organisation des études', 'Mode of study', esc(R.mode))}
+    ${item('4.2', 'Exigences du programme', 'Programme requirements',
+      `Le profil professionnel, les unités d'enseignement et leurs acquis d'apprentissage sont fixés par le dossier pédagogique de la section${ds.code_section ? ` (code ${esc(ds.code_section)})` : ''}, approuvé par le Gouvernement de la Fédération Wallonie-Bruxelles. La section est sanctionnée par une épreuve intégrée.`)}
+    <div class="item"><div class="lib"><span class="num">4.3</span> Précisions sur le programme <span class="en">/ Programme details</span></div>
+      <div class="val">
+        <p>L'étudiant a été inscrit ${annees.a && annees.b && annees.a !== annees.b ? `de ${esc(annees.a)} à ${esc(annees.b)}` : `en ${esc(annees.a || annees.b || '')}`} et a réussi les unités d'enseignement suivantes :</p>
+        <table class="doc ues">
+          <thead><tr><th style="width:12mm">UE</th><th>Unité d'enseignement</th><th style="width:16mm" class="n">Périodes</th>
+            <th style="width:12mm" class="n">ECTS</th><th style="width:16mm" class="n">Année</th><th style="width:18mm" class="n">Résultat</th></tr></thead>
+          <tbody>
+            <tr class="total"><td></td><td>Total — ${reussies.length} unité(s)</td>
+              <td class="n">${reussies.reduce((t, u) => t + (Number(u.periodes) || 0), 0) || ''}</td><td class="n">${credits}</td><td></td><td></td></tr>
+            ${Object.entries(parBloc).sort(([a], [b]) => a.localeCompare(b, 'fr', { numeric: true })).map(([bloc, l]) => `
+              <tr class="bloc"><td colspan="6">${esc(bloc)}</td></tr>
+              ${l.map(u => `<tr${u.num === ei ? ' class="ei"' : ''}><td>${u.num}</td>
+                <td>${esc(u.ue_nom || '')}${det.has(u.num) ? ' <span class="ref">déterminante</span>' : ''}${u.num === ei ? ' <span class="ref">épreuve intégrée</span>' : ''}</td>
+                <td class="n">${u.periodes || ''}</td><td class="n">${u.ects || ''}</td>
+                <td class="n">${esc(String(u.annee || '').replace(/^20(\d\d)-20(\d\d)$/, '$1-$2'))}</td><td class="n">${cote(u)}</td></tr>`).join('')}`).join('')}
+          </tbody>
+        </table>
+        <p class="final">a obtenu le ${dateLongue(dateDelib)}${d.mention?.mention ? ` avec <b>${esc(d.mention.mention.toLowerCase())}</b>` : ''} le titre de
+          <b>${esc(titreDiplome)}</b>${d.mention?.pourcent != null ? `, avec un résultat global de <b>${Math.round(Number(d.mention.pourcent))} %</b>` : ''}.</p>
+      </div></div>
+    ${item('4.4', 'Système de notation', 'Grading scheme and grade distribution guidance',
+      `<p>L'évaluation finale d'une unité d'enseignement s'exprime par une note sur 20 ; le seuil de réussite est de 10/20.
+      Une unité est acquise lorsque l'étudiant maîtrise l'ensemble de ses acquis d'apprentissage, sans compensation entre eux.
+      Le Conseil des études délibère collégialement et souverainement ; il peut octroyer la réussite d'une unité.
+      Les unités acquises par valorisation des acquis ne portent pas de note chiffrée.</p>
+      <p class="petit">Aucun tableau de répartition des notes ECTS n'est établi par l'établissement.</p>`)}
+    ${item('4.5', 'Classification générale du diplôme', 'Overall classification of the graduate',
+      `<p>Le résultat global combine les unités déterminantes de la section, pondérées par leurs périodes, pour
+      ${Math.round((1 - (regles.poids_epreuve ?? 1 / 3)) * 100)} %, et l'épreuve intégrée pour ${Math.round((regles.poids_epreuve ?? 1 / 3) * 100)} %.
+      La mention est attribuée selon les seuils suivants :</p>
+      <ul class="seuils">${(regles.seuils || []).map(sx => `<li>${esc(sx.libelle)} : à partir de ${sx.min} %</li>`).join('')}</ul>
+      ${d.mention?.mention ? `<p>Mention obtenue : <b>${esc(d.mention.mention)}</b>.</p>` : ''}`)}
+
+    ${rub(5, 'Informations sur la fonction de la qualification', 'Information on the function of the qualification')}
+    ${item('5.1', "Accès à un niveau d'études supérieur", 'Access to further study', esc(propre.suite || (niv.cec === 6
+      ? "Le titre de bachelier donne accès aux études de deuxième cycle, dans les conditions fixées par le décret du 7 novembre 2013 définissant le paysage de l'enseignement supérieur et l'organisation académique des études, et aux études de spécialisation."
+      : niv.cec === 5 ? "Le brevet de l'enseignement supérieur permet la poursuite d'études supérieures de premier cycle, avec valorisation des crédits acquis."
+        : 'Sans objet.')))}
+    ${item('5.2', 'Statut professionnel (si applicable)', 'Professional status (if applicable)', esc(propre.statut_pro || 'Pas applicable.'))}
+
+    ${rub(6, 'Informations complémentaires', 'Additional information')}
+    <div class="item"><div class="lib"><span class="num">6.1</span> Informations complémentaires <span class="en">/ Additional information</span></div>
+      <div class="val">
+        ${stages.length ? `<p>Stages effectués en milieu professionnel :</p>
+        <table class="doc stages">
+          <thead><tr><th>Stage</th><th>Établissement d'accueil</th><th style="width:38mm">Période</th><th style="width:14mm" class="n">Heures</th></tr></thead>
+          <tbody>
+            <tr class="total"><td>Total — ${stages.length} stage(s)</td><td></td><td></td><td class="n">${heuresFr(heuresStage)}</td></tr>
+            ${stages.map(x => `<tr><td>${esc(x.intitule || '')}${x.domaine ? `<span class="ref">${esc(x.domaine)}</span>` : ''}</td>
+              <td>${esc(x.nom || '')}<span class="ref">${esc([x.adresse, [x.cp, x.localite].filter(Boolean).join(' ')].filter(Boolean).join(', '))}</span></td>
+              <td class="periode">${fr(x.date_debut)} → ${fr(x.date_fin)}</td><td class="n">${heuresFr(x.heures_effectuees ?? x.heures_prevues)}</td></tr>`).join('')}
+          </tbody>
+        </table>` : '<p>Aucune information complémentaire.</p>'}
+      </div></div>
+    ${item('6.2', "Autres sources d'information", 'Further information sources', `<ul class="sources">
+      <li>${esc(ident.nom)}${ident.site ? ` : ${esc(ident.site)}` : ''}</li>
+      <li>Fédération Wallonie-Bruxelles : www.federation-wallonie-bruxelles.be et www.enseignement.be</li>
+      <li>Enseignement de promotion sociale : www.enseignement.be/promotionsociale</li>
+      <li>Centre ENIC-NARIC de la Fédération Wallonie-Bruxelles : www.equivalences.cfwb.be</li>
+      <li>Réseau européen ENIC-NARIC : www.enic-naric.net</li>
+      ${/sant/i.test(ds.domaine || section.domaine || '') ? '<li>SPF Santé publique, Sécurité de la Chaîne alimentaire et Environnement : www.health.belgium.be</li>' : ''}
+    </ul>`)}
+
+    ${rub(7, 'Certification du supplément', 'Certification of the supplement')}
+    ${item('7.1', 'Date', 'Date', dateLongue(dateDelib))}
+    ${item('7.2 — 7.4', 'Signature, fonction, sceau', 'Signature, capacity, official stamp or seal', `${esc(ident.directeur)}, directeur — sceau de l'établissement ci-dessous.`)}
+    <div class="cloture">
+      <div class="sceau"></div>
+      <div class="paraphe"></div>
+      <div class="lieu">Fait à ${esc(ident.ville)}, le ${dateLongue(dateDelib)}.</div>
+      <div class="legende"><div class="qualite">Le Directeur</div><div class="nom">${esc(ident.directeur)}</div></div>
+    </div>
+
+    <div class="saut"></div>
+    ${rub(8, "Informations sur le système national d'enseignement supérieur", 'Information on the national higher education system')}
+    <div class="val systeme">
+      <p>En Fédération Wallonie-Bruxelles (Communauté française de Belgique), l'enseignement supérieur est organisé par les
+      universités, les hautes écoles, les écoles supérieures des arts et les établissements d'enseignement de promotion sociale,
+      conformément au décret du 7 novembre 2013 définissant le paysage de l'enseignement supérieur et l'organisation académique
+      des études. Il s'articule en trois cycles et s'exprime en crédits ECTS (un crédit correspond à 30 heures de travail de
+      l'étudiant, une année à 60 crédits).</p>
+      <p>L'enseignement de promotion sociale — enseignement pour adultes, régi par le décret du 16 avril 1991 — délivre des
+      titres de bachelier et de brevet de l'enseignement supérieur correspondant à ceux des hautes écoles. Il est organisé en
+      unités d'enseignement capitalisables ; chaque section est sanctionnée par une épreuve intégrée.</p>
+      ${schemaSystemeFWB()}
+    </div>
+  </div>`;
+}
+
+const STYLE_SUPPLEMENT = `<style>
+  .supplement { font-size: 9.5pt; line-height: 1.45; }
+  .supplement .preambule { font-size: 8.5pt; color: #334155; border-left: 0.6mm solid #C9A84C; padding: 1mm 0 1mm 3mm; margin: 2mm 0 3mm; }
+  .supplement .preambule p { margin: 0 0 1.5mm; }
+  .supplement .en { font-style: italic; color: #64748B; font-weight: 400; }
+  .supplement .avert { color: #1B2B4B; }
+  .supplement h2.rub { font-size: 10.5pt; color: #1B2B4B; text-transform: uppercase; letter-spacing: .2pt; margin: 5mm 0 2mm;
+    padding-bottom: 1mm; border-bottom: 0.3mm solid #C9A84C; break-after: avoid; }
+  .supplement h2.rub .en { text-transform: none; font-size: 9pt; }
+  .supplement h2.rub .num { color: #C9A84C; }
+  .supplement .item { display: grid; grid-template-columns: 62mm 1fr; gap: 4mm; padding: 1.2mm 0; break-inside: avoid; }
+  .supplement .item .lib { font-weight: 600; color: #1B2B4B; }
+  .supplement .item .lib .num { color: #8a6d2f; margin-right: 1mm; }
+  .supplement .item .lib .en { display: block; font-size: 8pt; }
+  .supplement .item .val p { margin: 0 0 1.5mm; }
+  .supplement .petit { font-size: 8pt; color: #475569; }
+  .supplement .vide { color: #94A3B8; }
+  .supplement .item:has(table) { grid-template-columns: 1fr; break-inside: auto; }
+  .supplement table.doc td.periode { white-space: nowrap; }
+  .supplement table.doc thead { display: table-header-group; }
+  .supplement table.doc tr { break-inside: avoid; }
+  .supplement table.doc tr.bloc { break-after: avoid; }
+  .supplement .item:has(table) .lib .en { display: inline; }
+  .supplement table.doc { font-size: 8.5pt; margin: 1mm 0 2mm; }
+  .supplement table.doc td.n, .supplement table.doc th.n { text-align: right; white-space: nowrap; }
+  .supplement table.doc tr.total td { font-weight: 700; background: #EEF2F7; }
+  .supplement table.doc tr.bloc td { font-weight: 700; color: #1B2B4B; background: #F8FAFC; font-size: 8pt; text-transform: uppercase; letter-spacing: .3pt; }
+  .supplement table.doc tr.ei td { background: #F8F5EC; }
+  .supplement table.doc .ref { display: block; font-size: 7pt; color: #8a6d2f; }
+  .supplement table.doc .va { font-style: italic; color: #475569; }
+  .supplement .final { margin-top: 2mm; font-size: 10pt; color: #1B2B4B; }
+  .supplement ul.seuils, .supplement ul.sources { margin: 0; padding-left: 5mm; }
+  .supplement .saut { break-before: page; }
+  .supplement .systeme p { margin: 0 0 2mm; }
+  .supplement .cloture { display: grid; grid-template-columns: auto 1fr auto; gap: 4mm; align-items: end; margin-top: 3mm; break-inside: avoid; }
+  .supplement .cloture .sceau, .supplement .cloture .paraphe { height: 16mm; }
+  .supplement .cloture { --filigrane-h: 16mm; }
+  .supplement .cloture .legende { text-align: center; }
+  .supplement .cloture .legende .nom { font-weight: 700; color: #1B2B4B; }
+</style>`;
+
 /**
  * L'ATTESTATION PROVISOIRE DE DIPLÔME (Charles, 2 octobre 2026 : « j'avais
  * cela, à mettre au goût du jour » — le générateur de juin, `pages/
@@ -963,6 +1265,13 @@ r.post('/pieces', authRequired,
     }
   }
 
+  if (veut.includes('supplement')) {
+    styles.add(STYLE_SUPPLEMENT);
+    for (const d of choisis) {
+      pages.push({ t: `Supplément au diplôme — ${d.nom} ${d.prenom}`, h: supplementDiplome(d, { ...ctxDe(d), dossier }) });
+    }
+  }
+
   if (veut.includes('attestation')) {
     styles.add(STYLE_SECTION);
     for (const d of choisis) {
@@ -973,11 +1282,13 @@ r.post('/pieces', authRequired,
 
   // UNE PIÈCE PAR PERSONNE, pour l'envoi : on n'adresse pas à quelqu'un un
   // fichier qui porte vingt noms. L'attestation de chacun est enveloppée seule.
-  const parEtudiant = veut.includes('attestation') || veut.includes('provisoire')
+  const parEtudiant = veut.includes('attestation') || veut.includes('provisoire') || veut.includes('supplement')
     ? choisis.map(d => ({
       id: d.id, nom: d.nom, prenom: d.prenom,
       ...(veut.includes('attestation') ? { attestation: envelopper(STYLE_SECTION + attestationSection(d, ctxDe(d)),
         `Attestation de réussite de section — ${d.nom} ${d.prenom}`) } : {}),
+      ...(veut.includes('supplement') ? { supplement: envelopper(STYLE_SUPPLEMENT + supplementDiplome(d, { ...ctxDe(d), dossier }),
+        `Supplément au diplôme — ${d.nom} ${d.prenom}`) } : {}),
       ...(veut.includes('provisoire') ? { provisoire: envelopper(STYLE_SECTION + attestationProvisoire(d, ctxDe(d)),
         `Attestation provisoire de diplôme — ${d.nom} ${d.prenom}`) } : {}),
     }))

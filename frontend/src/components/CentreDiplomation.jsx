@@ -103,14 +103,14 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
     // Appelée par un bouton, elle reçoit l'événement du clic : seul un nom (texte) compte.
     const presidentJury = typeof presidentArg === 'string' ? presidentArg : null;
     const titres = veut.diplome || veut.attestation;
-    if (!retenus.size || !(titres || veut.provisoire || veut.liste || veut.pv)) return;
+    if (!retenus.size || !(titres || veut.provisoire || veut.supplement || veut.liste || veut.pv)) return;
     setEnCours(true); setErreur(null); setProduits(null); setManques([]);
     const ids = [...retenus];
     const poster = (url, corps) => fetch(url, {
       method: 'POST', headers: authHeaders(), body: JSON.stringify(corps),
     }).then(async r => { const j = await r.json(); if (!r.ok) { const e = new Error(j.error); e.code = j.code; e.seance = j.seance; throw e; } return j; });
     try {
-      const [t, l, pv, pr] = await Promise.all([
+      const [t, l, pv, pr, su] = await Promise.all([
         titres ? poster('/api/diplomes/pieces', {
           section, annee, etudiants: ids, date_deliberation: date,
           pieces: ['diplome', 'attestation'].filter(k => veut[k]),
@@ -128,6 +128,10 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
         veut.provisoire ? poster('/api/diplomes/pieces', {
           section, annee, etudiants: ids, date_deliberation: date, pieces: ['provisoire'],
           ...(presidentJury ? { president_jury: presidentJury } : {}),
+        }) : null,
+        // LE SUPPLÉMENT AU DIPLÔME (Europass) : plusieurs pages par étudiant, à part.
+        veut.supplement ? poster('/api/diplomes/pieces', {
+          section, annee, etudiants: ids, date_deliberation: date, pieces: ['supplement'],
         }) : null,
       ]);
       const an = String(annee).replace(/\W/g, '');
@@ -154,6 +158,16 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
         envoi: (pr.par_etudiant || []).map(e => ({
           html: e.provisoire,
           nom_fichier: `Attestation_provisoire_${e.nom}_${e.prenom}_${an}`,
+          destinataire: { type: 'etudiant', id: e.id, nom: nomPropre(e.nom, e.prenom) },
+        })),
+      });
+      if (su?.html) out.push({
+        cle: 'supplement', titre: 'Suppléments au diplôme (Europass)',
+        nb: su.par_etudiant?.length || 0, detail: 'huit rubriques, plusieurs pages par étudiant',
+        html: su.html, nom: `Supplements_diplome_${section}_${an}`,
+        envoi: (su.par_etudiant || []).map(e => ({
+          html: e.supplement,
+          nom_fichier: `Supplement_diplome_${e.nom}_${e.prenom}_${an}`,
           destinataire: { type: 'etudiant', id: e.id, nom: nomPropre(e.nom, e.prenom) },
         })),
       });
@@ -216,7 +230,7 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
   const cocherTout = () => setRetenus(new Set(liste.map(x => x.id)));
   const decocherTout = () => setRetenus(new Set());
   const cetteAnnee = () => setRetenus(new Set(d?.proposes || []));
-  const nbPieces = ['diplome', 'attestation', 'provisoire', 'liste', 'pv'].filter(k => veut[k]).length;
+  const nbPieces = ['diplome', 'attestation', 'provisoire', 'supplement', 'liste', 'pv'].filter(k => veut[k]).length;
 
   // Les réglages : section, date, pièces.
   const filtres = (
@@ -244,7 +258,7 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
             <div className="font-semibold mb-0.5">Pièces</div>
             <div className="flex gap-1">
               {[['diplome', 'Diplôme'], ['provisoire', 'Attestation provisoire'], ['attestation', 'Attestation de section'],
-                ['liste', 'Liste des diplômés'], ['pv', 'PV de section']].map(([k, l]) => (
+                ['supplement', 'Supplément au diplôme'], ['liste', 'Liste des diplômés'], ['pv', 'PV de section']].map(([k, l]) => (
                 <button key={k} onClick={() => setVeut(v => ({ ...v, [k]: !v[k] }))}
                   className={`px-2 py-1.5 text-[12px] rounded-lg border font-medium
                     ${veut[k] ? 'bg-iip-blue border-iip-blue text-white'

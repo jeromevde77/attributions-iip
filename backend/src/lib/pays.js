@@ -38,6 +38,17 @@ const ADJ = {
   kenyan: 'KE', ghaneen: 'GH', angolais: 'AO', mozambicain: 'MZ', sudafricain: 'ZA', nigerien: 'NE',
   libyen: 'LY', jordanien: 'JO', saoudien: 'SA', yemenite: 'YE', cap: 'CV', capverdien: 'CV', moldave: 'MD',
 };
+/* Ce qu'Intl n'écrit pas comme les gens : « Congo - Kinshasa » pour la RDC… */
+const VARIANTES = {
+  democraticrepublicofthecongo: 'CD', democraticrepublicofcongo: 'CD', drcongo: 'CD', drc: 'CD', rdc: 'CD', rdcongo: 'CD',
+  republiquedemocratiqueducongo: 'CD', congokinshasa: 'CD', zaire: 'CD',
+  republicofthecongo: 'CG', republicofcongo: 'CG', congobrazzaville: 'CG', republiqueducongo: 'CG',
+  ivorycoast: 'CI', cotedivoire: 'CI', unitedstatesofamerica: 'US', usa: 'US', uk: 'GB', greatbritain: 'GB',
+  england: 'GB', angleterre: 'GB', holland: 'NL', hollande: 'NL', turkiye: 'TR', czechia: 'CZ', czechrepublic: 'CZ',
+  republiquetcheque: 'CZ', capeverde: 'CV', burma: 'MM', swaziland: 'SZ', macedonia: 'MK', northmacedonia: 'MK',
+  southkorea: 'KR', northkorea: 'KP', russia: 'RU', syria: 'SY', iran: 'IR', vietnam: 'VN', laos: 'LA',
+  palestine: 'PS', tanzania: 'TZ', moldova: 'MD', bolivia: 'BO', venezuela: 'VE',
+};
 const feminin = m => (m.endsWith('ien') || m.endsWith('een') ? m + 'ne' : m.endsWith('e') ? m : m + 'e');
 
 let index = null;
@@ -46,6 +57,17 @@ function indexer() {
   index = new Map();
   for (const [c, n] of nomsPays()) index.set(plat(n), c);
   for (const [m, c] of Object.entries(ADJ)) { index.set(m, c); index.set(feminin(m), c); }
+  /* LES NOMS ANGLAIS ET NÉERLANDAIS AUSSI (Charles, 8 octobre 2026 : « c'est
+     évident, c'est de l'anglais ») — « Belgium », « Cameroon », « Morocco »
+     viennent d'eCampus ou d'un formulaire en ligne. Un nom français déjà
+     indexé garde la main. */
+  for (const lang of ['en', 'nl']) {
+    try {
+      const dn = new Intl.DisplayNames([lang], { type: 'region' });
+      for (const c of CODES) { const k = plat(dn.of(c)); if (k && !index.has(k)) index.set(k, c); }
+    } catch { /* ICU réduit */ }
+  }
+  for (const [k, c] of Object.entries(VARIANTES)) if (!index.has(k)) index.set(k, c);
   return index;
 }
 
