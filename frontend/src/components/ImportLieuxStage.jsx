@@ -15,8 +15,10 @@ import { api, authHeaders } from '../lib/api.js';
  * Rien ne s'écrit sans simulation : on voit ce qui sera créé, ce qui sera
  * complété (même nom dans la section), ce qui est ignoré.
  */
+/* Les en-têtes de chaque section ne se ressemblent pas : AeSI écrit « Lieux de
+   stage · Statuts · Adresses · Personne de contact » (8 octobre 2026). */
 const COLONNES = {
-  type: /type/i, responsable: /responsable/i, nom: /nom de l|organisme/i,
+  type: /type|statut/i, responsable: /responsable|contact/i, nom: /nom de l|organisme|lieux? de stage/i,
   adresse: /adresse/i, demande: /demande/i,
 };
 
@@ -33,6 +35,11 @@ function lireClasseur(buffer) {
     const lignes = rows.slice(h + 1)
       .map(r => Object.fromEntries(Object.entries(idx).map(([k, i]) => [k, String(r[i] ?? '').trim()])))
       .filter(l => l.nom);
+    /* UN MÊME LIEU, DEUX SERVICES (« Scheutbos — maison de repos » et « Scheutbos —
+       revalidation ») : le type devient le service, sans quoi la seconde ligne
+       complèterait la première au lieu d'exister. */
+    const compte = {}; lignes.forEach(l => { const k = l.nom.toLowerCase(); compte[k] = (compte[k] || 0) + 1; });
+    lignes.forEach(l => { if (compte[l.nom.toLowerCase()] > 1 && l.type) l.service = l.type; });
     return { feuille: nomFeuille, colonnes: Object.keys(idx), lignes };
   }
   return null;
@@ -56,9 +63,12 @@ export default function ImportLieuxStage({ onClose, onFini }) {
     if (!r) { setErreur("Aucune colonne « Nom de l'organisme » trouvée dans ce classeur."); return; }
     setLu(r);
     // Les UE se devinent du nom du fichier (« UE 77, 78 & 79 ») ; on corrige au besoin.
-    const nums = (f.name.match(/\b\d{2,3}\b/g) || []).filter(n => Number(n) < 1000);
+    // « 26-27 » est une année, pas deux unités.
+    const nums = (f.name.replace(/\b\d{2}(\d{2})?\s*[-–\/]\s*\d{2}(\d{2})?\b/g, ' ').match(/\b\d{2,3}\b/g) || []).filter(n => Number(n) < 1000);
     if (nums.length && !ues) setUes(nums.join(', '));
-    const sec = sections.find(s => new RegExp(String(s.libelle || s.code).slice(0, 8), 'i').test(f.name));
+    const echap = t => String(t || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const sec = sections.find(s => new RegExp(`\\b${echap(s.code)}\\b`, 'i').test(f.name))
+      || sections.find(s => new RegExp(echap(String(s.libelle || s.code).slice(0, 8)), 'i').test(f.name));
     if (sec && !section) setSection(sec.code);
   }
 

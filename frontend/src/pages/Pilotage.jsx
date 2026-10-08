@@ -1618,7 +1618,7 @@ export default function Pilotage({ vue = 'tout' }) {
             au-dessus de chiffres d'étudiants. */}
         {tab === 'rapport' ? (
           <PageHeader icon={IconReportMoney} titre="Rapport statistique"
-            sous="Coûts et recettes des formations, enseignants et personnes — la pièce entière, à l’écran" />
+            sous="Coûts et recettes des formations, enseignants et personnes — à lire ici ; la pièce mise en page s’imprime ou s’envoie" />
         ) : ['deliberation', 'distributions', 'population'].includes(tab) ? (
           <PageHeader icon={IconChartBar} titre="Statistiques étudiantes"
             sous="Décisions du Conseil, cotes et effectifs — par section et par unité" />

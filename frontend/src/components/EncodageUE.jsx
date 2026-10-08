@@ -5,6 +5,7 @@ import { authHeaders } from '../lib/api.js';
 import PanneauAcquis from './PanneauAcquis.jsx';
 import ClasseurNotes from './ClasseurNotes.jsx';
 import { naviguerGrille, caseGrille } from '../lib/grilleClavier.js';
+import { couleurBloc } from '../lib/blocs.js';
 
 /**
  * SAISIE DES NOTES DE TOUTE UNE UNITÉ.
@@ -90,6 +91,12 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
   const [recherche, setRecherche] = useState('');
   const [enAttente, setEnAttente] = useState(0);
   const [dernier, setDernier] = useState(null);
+  const [vue, setVue] = useState('cours');         // 'cours' | 'acquis'
+  const [niv, setNiv] = useState(null);            // le bloc de l'unité, pour le repère de couleur
+  useEffect(() => {
+    fetch(`/api/ref/ue/${ueNum}?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : null)).then(u => setNiv(u?.ue_niv || null)).catch(() => {});
+  }, [ueNum, annee]);
 
   async function charger() {
     setErreur(null);
@@ -177,21 +184,119 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
 
   const note = (e, col) => data?.notes?.[e.id]?.[`${col.cours.cours_code}|${col.aa_code}`];
   const mention = (e, coursCode) => data?.mentions?.[e.id]?.[coursCode];
+  const fermeDe = (e, coursCode) => !!data?.a_representer && !(data.a_representer[e.id] || []).includes(coursCode);
+  const coursVus = (data?.cours || []).filter(c => c.acquis?.length);
+
+  /* LA MENTION SE TAPE DANS LA CASE (refonte du 8 octobre 2026) : deux boutons
+     NP / PP par cours et par étudiant faisaient l'essentiel du bruit. NP ou PP
+     tapé dans n'importe quelle case d'un cours vaut pour TOUT le cours —
+     c'est l'épreuve qui n'a pas été présentée, pas un acquis. Effacer la case,
+     ou y taper une note, retire la mention. */
+  async function sortieCase(e, c, a, texte, v, m) {
+    const t = String(texte ?? '').trim().toUpperCase();
+    if (t === 'NP' || t === 'PP') { if (t !== m) await poserMention(e.id, c.cours_code, t); return; }
+    if (m) {
+      if (t === m) return;
+      await poserMention(e.id, c.cours_code, null);
+      if (t !== '') await poser(e.id, c.cours_code, a.aa_code, t);
+      return;
+    }
+    if (t !== '' && !/^\d{1,2}([.,]\d+)?$/.test(t)) { setErreur('Une note de 0 à 20, ou NP / PP pour l’épreuve du cours.'); return; }
+    // On compare des NOMBRES : « 13,8 » affiché et « 13.8 » en base sont la même note.
+    const avant = v == null || v === '' ? null : Number(v);
+    const apres = t === '' ? null : Number(t.replace(',', '.'));
+    if (avant !== apres) await poser(e.id, c.cours_code, a.aa_code, texte);
+  }
+
+  /* LA COULEUR D'UN ÉTAT EST UNE PASTILLE PLEINE (règle du 29 septembre 2026) :
+     12 et plus vert, 10 ou 11 ocre, sous 10 brique ; un ajournement en ocre. */
+  const fond = n => (n >= 12 ? 'var(--c-reussi)' : n >= 10 ? 'var(--c-attente)' : 'var(--c-refuse)');
+  const Pastille = ({ n, na, ajourne, titre, large = false }) => (n == null && !na
+    ? <span className="text-slate-300 tabular-nums" title={titre}>—</span>
+    : <span title={titre} className={`inline-block ${large ? 'min-w-[46px] py-1 text-[14px]' : 'min-w-[38px] py-0.5 text-[13px]'} rounded-md text-center font-bold text-white tabular-nums`}
+        style={{ background: na ? 'var(--c-refuse)' : ajourne ? 'var(--c-attente)' : fond(Math.round(Number(n))) }}>
+        {na ? 'NA' : fmtCote(n)}
+      </span>);
+
+  // CE QUE DIT L'UNITÉ, ÉTUDIANT PAR ÉTUDIANT : acquis en défaut (aucune
+  // compensation), cases encore vides — sur les seules colonnes ouvertes.
+  const bilanUE = e => {
+    let defaut = [], manque = 0;
+    for (const c of coursVus) {
+      if (fermeDe(e, c.cours_code)) continue;
+      const m = mention(e, c.cours_code);
+      if (m) { defaut.push(...c.acquis.map(a => a.aa_code)); continue; }
+      for (const a of c.acquis) {
+        const v = note(e, { ...a, cours: c });
+        if (v == null || v === '') manque++;
+        else if (Math.round(Number(v)) < SEUIL) defaut.push(a.aa_code);
+      }
+    }
+    return { defaut: [...new Set(defaut)], manque };
+  };
+  const motUE = b => (b.manque ? 'incomplète' : b.defaut.length ? `${session === 2 ? 'refusée' : 'ajournée'} · ${b.defaut.length} AA` : 'réussie');
+
+  // L'avancement : les cases remplies (note ou mention) sur les cases ouvertes.
+  const avancement = useMemo(() => {
+    let faites = 0, total = 0;
+    for (const e of data?.etudiants || []) for (const c of coursVus) {
+      if (fermeDe(e, c.cours_code)) continue;
+      const m = mention(e, c.cours_code);
+      for (const a of c.acquis) { total++; if (m || (note(e, { ...a, cours: c }) ?? '') !== '') faites++; }
+    }
+    return { faites, total };
+  }, [data]);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  // LE PIED : moyenne et part des notes ≥ 10, colonne par colonne.
+  const resume = vals => {
+    const v = vals.filter(x => x != null && x !== '' && Number.isFinite(Number(x))).map(Number);
+    if (!v.length) return { moy: '—', taux: '' };
+    return { moy: (v.reduce((s, x) => s + x, 0) / v.length).toFixed(1).replace('.', ','),
+      taux: `${Math.round(v.filter(x => Math.round(x) >= SEUIL).length / v.length * 100)} %` };
+  };
+
+  // LA VUE « TOUS LES ACQUIS DE L'UE » : un acquis, une colonne — porté par
+  // plusieurs cours, sa note est la moyenne de ses évaluations.
+  const acquisUE = useMemo(() => {
+    const m = new Map();
+    for (const c of coursVus) for (const a of c.acquis) {
+      const x = m.get(a.aa_code) || { aa_code: a.aa_code, description: a.description, cours: [], poids: a.poids };
+      x.cours.push(c); m.set(a.aa_code, x);
+    }
+    return [...m.values()];
+  }, [data]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const noteAcquis = (e, x) => {
+    if (x.cours.some(c => mention(e, c.cours_code))) return x.cours.map(c => mention(e, c.cours_code)).find(Boolean);
+    const v = x.cours.map(c => note(e, { aa_code: x.aa_code, cours: c })).filter(y => y != null && y !== '').map(Number);
+    return v.length ? Math.round(v.reduce((s, y) => s + y, 0) / v.length) : null;
+  };
+
+  const ligneEtudiant = e => (
+    <td className="sticky left-0 z-10 bg-white group-focus-within:bg-[#F1F6FB] px-4 py-1.5 border-b border-slate-100 min-w-[240px]">
+      <div className="text-[13px] whitespace-nowrap"><span className="font-semibold">{String(e.nom || '').toUpperCase()}</span>{' '}{e.prenom}
+        {e.source_s2 === 'dossier' && (
+          <span title="Ajourné d'après le dossier : aucune décision de première session n'a été enregistrée pour cette unité"
+            className="ml-1.5 text-[10px] uppercase tracking-wide font-bold text-white rounded px-1 py-px" style={{ background: 'var(--c-attente)' }}>dossier</span>)}
+      </div>
+      <div className="text-[11px] text-slate-400">{e.id_ecampus || ''}</div>
+    </td>);
+
+  const couleurRepere = data?.epreuve_integree ? '#C9A227' : (couleurBloc(niv) || '#16406A');
 
   return (
-    <Fenetre titre={`UE ${ueNum}${data?.ue?.ue_nom ? ` · ${data.ue.ue_nom}` : ''}`}
+    <Fenetre titre={`UE ${ueNum}${data?.ue?.ue_nom ? ` — ${data.ue.ue_nom}` : ''}`}
       large="pleine" hauteurFixe onFermer={onClose}
       pied={<>
         <span className="text-[11px] text-slate-500">
-          Chaque note s'enregistre seule, en quittant la case. <b>NP</b> vaut zéro sur tout le
-          cours en gardant la seconde session ; <b>PP</b> est l'absence non justifiée.
+          Chaque note s'enregistre en quittant la case · flèches et Entrée pour se déplacer ·
+          <b> NP</b> ou <b>PP</b> tapé dans une case vaut pour l'épreuve de tout le cours (NP : zéro, seconde session ouverte ;
+          PP : absence non justifiée) — effacer la case retire la mention.
         </span>
         {/* TOUS LES PROFESSEURS N'ENCODENT PAS À L'ÉCRAN. Le classeur part,
             revient rempli, et se relit sur les clés qu'il porte. */}
         <ClasseurNotes ueNum={ueNum} annee={annee} session={session}
           ueNom={data?.ue?.ue_nom}
-          colonnes={(data?.cours || []).filter(c => c.acquis?.length)
-            .flatMap(c => c.acquis.map(a => ({
+          colonnes={coursVus.flatMap(c => c.acquis.map(a => ({
               cours_code: c.cours_code, cours_nom: c.cours_nom,
               aa_code: a.aa_code, description: a.description, poids: a.poids })))}
           etudiants={data?.etudiants || []}
@@ -200,80 +305,79 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
           ferme={(id, cc) => !!data?.a_representer
             && !(data.a_representer[id] || []).includes(cc)}
           onImporte={charger} />
-        <button onClick={onClose}
-          className="bouton">
-          Fermer
-        </button>
+        <button onClick={onClose} className="bouton">Fermer</button>
       </>}>
-      {/* La grille et le panneau des acquis défilent chacun pour soi : le
-          contenu prend toute la hauteur de la fenêtre. */}
       <div className="h-full -mx-5 flex flex-col">
-        <div className="flex-none px-5 pb-3 flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[12px] text-slate-500">
+        {/* L'EN-TÊTE : où l'on en est, et les vues (refonte du 8 octobre 2026). */}
+        <div className="flex-none px-5 pb-3 space-y-3">
+          <div className="flex items-end justify-between gap-4 flex-wrap">
+            <p className="text-[12px] text-slate-500 m-0">
               {data && (data.epreuve_integree
-                ? `épreuve intégrée · ${colonnes.length} acquis · `
-                : `${data.cours.length} cours · ${colonnes.length} acquis · `)}
-              {data && `${data.etudiants.length} étudiant(s)${
-                data.a_representer ? ' à représenter' : ''} · `}{annee}
-              {enAttente > 0 && <span className="text-amber-700"> · enregistrement…</span>}
-              {!enAttente && dernier && (
-                <span className="text-emerald-700"> · <IconCheck size={11} className="inline" /> enregistré</span>
-              )}
+                ? `Épreuve intégrée · ${colonnes.length} acquis · `
+                : `${coursVus.length} cours · ${acquisUE.length} acquis · `)}
+              {data && `${data.etudiants.length} étudiant(s)${data.a_representer ? ' à représenter' : ''} · `}{annee}
             </p>
+            <div className="flex items-center gap-5">
+              {avancement.total > 0 && (
+                <div className="flex flex-col items-end gap-1">
+                  <div className="text-[12px] text-slate-500"><b className="text-[15px] text-iip-blue tabular-nums">{avancement.faites}</b> / {avancement.total} notes encodées</div>
+                  <div className="h-1.5 w-48 rounded-full bg-slate-200 overflow-hidden">
+                    <div className="h-full" style={{ width: `${(avancement.faites / avancement.total) * 100}%`, background: 'var(--c-principal, #19537E)' }} />
+                  </div>
+                </div>)}
+              <span className="text-[12px] whitespace-nowrap">
+                {enAttente > 0 ? <span className="text-slate-500">Enregistrement…</span>
+                  : dernier ? <span style={{ color: 'var(--c-reussi)' }}><IconCheck size={13} className="inline -mt-0.5" /> Enregistré</span> : null}
+              </span>
+            </div>
           </div>
-          <div className="flex items-center gap-2 flex-none">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="segments">
+              {[['cours', 'Par cours'], ['acquis', 'Tous les acquis de l’UE']].map(([k, l]) => (
+                <button key={k} type="button" onClick={() => setVue(k)}
+                  className={`px-3 py-1 text-[12px] ${vue === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>{l}</button>))}
+            </div>
             <div className="segments">
               {[1, 2].map(s => (
-                <button key={s} onClick={() => { setChoisie(true); setSession(s); }}
-                  className={`px-2.5 py-1 text-[12px] ${session === s
-                    ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>
+                <button key={s} type="button" onClick={() => { setChoisie(true); setSession(s); }}
+                  className={`px-2.5 py-1 text-[12px] ${session === s ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>
                   {s === 1 ? '1re' : '2e'} session
-                </button>
-              ))}
+                </button>))}
             </div>
             <div className="relative">
-              <IconSearch size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input value={recherche} onChange={e => setRecherche(e.target.value)}
-                placeholder="Étudiant…"
-                className="pl-7 pr-2 py-1 text-[12px] border border-slate-300 rounded-lg w-36" />
+              <IconSearch size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <input value={recherche} onChange={e => setRecherche(e.target.value)} placeholder="Chercher un étudiant…"
+                className="controle controle-icone w-56" />
+            </div>
+            <div className="ml-auto flex items-center gap-3 text-[11px] text-slate-500">
+              {[['var(--c-refuse)', 'sous 10'], ['var(--c-attente)', '10 ou 11'], ['var(--c-reussi)', '12 et plus']].map(([c, l]) => (
+                <span key={l} className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: c }} />{l}</span>))}
             </div>
           </div>
         </div>
 
         {erreur && (
-          <div className="flex-none mx-5 mb-3 px-3 py-2 rounded-lg bg-red-50 border
-                          border-red-200 text-[12px] text-red-800 flex items-start gap-1.5">
+          <div className="flex-none mx-5 mb-3 bloc-etat px-3 py-2 text-[12px] flex items-start gap-1.5" data-etat="corriger">
             <IconAlertTriangle size={14} className="mt-0.5 flex-none" /> {erreur}
           </div>
         )}
 
         <div className="flex-1 flex overflow-hidden">
-          {/* L'ÉNONCÉ DES ACQUIS, À CÔTÉ DE LA GRILLE. Elle ne montre que des
-              codes ; le professeur qui corrige a l'énoncé sur sa copie, pas à
-              l'écran, et rien n'est plus facile que de coter la mauvaise
-              colonne quand on ne les distingue que par un numéro. */}
-          <PanneauAcquis ueNum={ueNum} colonnes={(data?.cours || [])
-            .filter(c => c.acquis?.length)
-            .flatMap(c => c.acquis.map(a => ({
+          {/* L'ÉNONCÉ DES ACQUIS, À CÔTÉ DE LA GRILLE. */}
+          <PanneauAcquis ueNum={ueNum} colonnes={coursVus.flatMap(c => c.acquis.map(a => ({
               cours_code: c.cours_code, cours_nom: c.cours_nom,
               professeurs: c.professeurs, aa_code: a.aa_code,
               description: a.description, poids: a.poids })))} />
-        <div className="flex-1 overflow-auto p-5 pt-3">
-          {/* CE QUE LA SECONDE SESSION ATTEND — et ce qu'elle n'attend pas.
-              Sans un mot, une feuille plus courte se lit comme une perte
-              d'étudiants ; et une colonne grisée, comme une panne. */}
+        <div className="flex-1 overflow-auto p-5 pt-1">
           {data?.epreuve_integree && (
-            <div className="mb-3 px-3 py-2 rounded-lg bg-violet-50 border border-violet-200
-                            text-[12px] text-violet-900">
+            <div className="mb-3 bloc-etat px-3 py-2 text-[12px]" data-etat="neutre">
               Cette unité est évaluée par une <b>épreuve intégrée</b> : une seule grille,
               les <b>acquis de l'unité entière</b>, une note commune. Il n'y a pas de note
               par cours — <b>chaque cours de l'unité reçoit la note de l'unité</b>.
             </div>
           )}
           {data?.a_representer && (
-            <div className="mb-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
-                            text-[12px] text-amber-900">
+            <div className="mb-3 bloc-etat px-3 py-2 text-[12px]" data-etat="surveiller">
               Seuls les <b>étudiants ajournés</b> figurent ici : les autres ne présentent pas
               de seconde session. Et pour chacun, seules les colonnes des <b>cours qu'il avait
               à représenter</b> sont ouvertes — les autres gardent la note de juin, que la
@@ -281,8 +385,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
             </div>
           )}
           {data?.a_representer && !data.etudiants.length && (
-            <div className="py-10 text-center text-[13px] text-slate-500 border-2
-                            border-dashed rounded-xl">
+            <div className="py-10 text-center text-[13px] text-slate-500 border-2 border-dashed rounded-xl">
               Aucun étudiant ajourné en première session : il n'y a pas de seconde session
               à encoder pour cette unité.
             </div>
@@ -290,12 +393,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
           {!data ? (
             <div className="py-10 text-center text-slate-400 text-sm">Chargement…</div>
           ) : data.sans_acquis && !data.epreuve_integree ? (
-            /* UN CUL-DE-SAC N'EST PAS UN MESSAGE.
-               L'écran disait d'aller au paramétrage sans y conduire : il
-               fallait fermer, retrouver l'unité, ouvrir le paramétrage. Le
-               blocage lui-même porte donc maintenant la porte de sortie —
-               réservée à qui peut la franchir, puisque relier les acquis
-               engage toute l'unité et non le seul cours qu'on encodait. */
+            /* UN CUL-DE-SAC N'EST PAS UN MESSAGE : le blocage porte la porte de sortie. */
             <div className="py-10 text-center text-slate-500 text-sm space-y-3">
               <div>
                 Aucun acquis n'est rattaché aux cours de cette unité.<br />
@@ -305,9 +403,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
                 </span>
               </div>
               {onParametrer ? (
-                <button onClick={() => onParametrer(ueNum)}
-                  className="px-4 py-2 text-[13px] rounded-lg bg-iip-blue text-white
-                             font-semibold inline-flex items-center gap-1.5">
+                <button onClick={() => onParametrer(ueNum)} className="bouton bouton-fort inline-flex items-center gap-1.5">
                   <IconLink size={14} /> Relier les acquis aux cours
                 </button>
               ) : (
@@ -320,195 +416,182 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
             <div className="py-10 text-center text-slate-500 text-sm">
               {recherche ? 'Aucun étudiant ne correspond.' : 'Aucun étudiant inscrit à cette unité.'}
             </div>
-          ) : (
-            <table ref={grille} onKeyDown={ev => naviguerGrille(ev, grille.current)}
-              className="text-[12px] border-separate border-spacing-0">
+          ) : vue === 'acquis' ? (
+            /* ── TOUS LES ACQUIS DE L'UE — la vue du Conseil, en lecture. ── */
+            <div className="rounded-carte border border-slate-200 bg-white overflow-hidden inline-block min-w-full">
+            <table className="border-separate border-spacing-0 text-[13px]">
               <thead>
-                {/* Les cours en bandeau, chacun couvrant ses acquis. */}
                 <tr>
-                  <th className="sticky left-0 z-20 bg-white text-left px-2 pb-1" />
-                  {data.cours.filter(c => c.acquis?.length).map((c, i) => (
-                    <th key={c.cours_code} colSpan={c.acquis.length + 2}
-                      className={`px-2 py-1 border rounded-t-lg text-left align-bottom
-                                  ${TEINTES[i % TEINTES.length]}`}>
-                      <div className="font-semibold text-iip-blue truncate max-w-[220px]">
-                        {c.cours_nom || c.cours_code}
-                      </div>
-                      {/* Le code technique de l'épreuve intégrée (« __ue__ ») n'est
-                          pas un cours : il ne s'affiche pas. */}
-                      {!c.integree && (
-                        <div className="text-[10px] text-slate-500 font-normal">
-                          {c.cours_code}{c.cours_per ? ` · ${c.cours_per} pér.` : ''}
-                        </div>
-                      )}
-                      {/* Qui porte le cours : le professeur se reconnaît dans
-                          sa colonne, et le Conseil sait à qui s'adresser. */}
-                      {c.professeurs && (
-                        <div className="text-[10px] text-iip-blue/80 font-normal italic
-                                        truncate max-w-[220px]" title={c.professeurs}>
-                          {c.professeurs}
-                        </div>
-                      )}
-                    </th>
-                  ))}
-                  <th className="px-2 py-1 border rounded-t-lg align-bottom bg-slate-100
-                                 border-slate-300">
-                    <div className="font-semibold text-iip-blue">Unité</div>
-                    <div className="text-[10px] text-slate-500 font-normal">calculée</div>
-                  </th>
-                </tr>
-                <tr>
-                  <th className="sticky left-0 z-20 bg-white text-left px-2 pb-1
-                                 text-[10px] uppercase text-slate-400">Étudiant</th>
-                  {data.cours.filter(c => c.acquis?.length).flatMap((c, i) => [
-                    ...c.acquis.map(a => (
-                      <th key={`${c.cours_code}|${a.aa_code}`}
-                        title={a.description || a.aa_code}
-                        className={`px-1 pb-1 border-x text-[10px] font-semibold text-slate-600
-                                    ${TEINTES[i % TEINTES.length]}`}>
-                        <div>{a.aa_code}</div>
-                        {a.poids != null && (
-                          <div className="text-[10px] font-normal text-slate-400">{a.poids}</div>
-                        )}
-                      </th>
-                    )),
-                    <th key={`${c.cours_code}|cote`}
-                      className={`px-1 pb-1 border-x text-[10px] font-bold text-iip-blue
-                                  ${TEINTES[i % TEINTES.length]}`}>
-                      note
-                    </th>,
-                    <th key={`${c.cours_code}|mention`}
-                      className={`px-1 pb-1 border-x text-[10px] text-slate-400 font-normal
-                                  ${TEINTES[i % TEINTES.length]}`}>
-                      épreuve
-                    </th>,
-                  ])}
-                  <th className="px-1 pb-1 border-x text-[10px] font-bold text-iip-blue
-                                 bg-slate-100">UE</th>
+                  <th className="sticky left-0 z-20 bg-white text-left px-4 py-3 text-[11px] uppercase tracking-wide text-slate-500 font-semibold border-b border-slate-200 align-bottom">Étudiant</th>
+                  {acquisUE.map((x, i) => (
+                    <th key={x.aa_code} title={x.description || x.aa_code}
+                      className={`px-2 pt-3 pb-2 w-24 border-b border-slate-200 align-bottom text-center ${i && acquisUE[i - 1].cours[0] !== x.cours[0] ? 'border-l border-l-slate-300' : 'border-l border-l-slate-100'}`}
+                      style={{ borderTop: `4px solid ${couleurRepere}` }}>
+                      <div className="text-[12px] font-bold">{x.aa_code}</div>
+                      <div className="text-[10px] text-slate-500 font-normal truncate max-w-[88px] mx-auto">{x.cours.map(c => c.cours_code).join(' · ')}</div>
+                      {x.poids != null && <div className="text-[10px] text-slate-400 font-normal">{x.poids}</div>}
+                    </th>))}
+                  <th className="px-3 pb-2 border-b border-l border-slate-200 align-bottom text-[11px] font-bold">Acquis<br />en défaut</th>
+                  <th className="px-3 pb-2 border-b border-slate-200 align-bottom text-[11px] font-bold bg-[#F7F9FC]"
+                    style={{ borderLeft: '2px solid var(--c-principal, #16406A)', borderTop: '4px solid var(--c-principal, #16406A)' }}>Note d'unité<div className="text-[10px] text-slate-400 font-normal">/20</div></th>
+                  <th className="px-3 pb-2 border-b border-l border-slate-200 align-bottom text-left text-[11px] font-bold min-w-[150px]">Décision proposée</th>
                 </tr>
               </thead>
               <tbody>
-                {etudiants.map((e, ligne) => (
-                  <tr key={e.id} className="hover:bg-slate-50/60">
-                    <td className="sticky left-0 z-10 bg-white hover:bg-slate-50/60 px-2 py-0.5
-                                   whitespace-nowrap border-b border-slate-100">
-                      <span className="font-medium text-slate-800">{e.nom}</span>{' '}
-                      <span className="text-slate-500">{e.prenom}</span>
-                      {/* D'OÙ VIENT SA PRÉSENCE ICI. Devant une liste de
-                          seconde session, la première question est « pourquoi
-                          celui-là ? » — et rien n'y répondait. */}
-                      {e.source_s2 === 'dossier' && (
-                        <span title="Ajourné d'après le dossier : aucune décision de première
-                                     session n'a été enregistrée pour cette unité"
-                          className="ml-1.5 text-[10px] uppercase tracking-wide text-amber-700
-                                     bg-amber-50 border border-amber-200 rounded px-1 py-px">
-                          dossier
-                        </span>
-                      )}
-                    </td>
+                {etudiants.map(e => {
+                  const b = bilanUE(e);
+                  return (
+                    <tr key={e.id} className="group">
+                      {ligneEtudiant(e)}
+                      {acquisUE.map(x => {
+                        const v = noteAcquis(e, x);
+                        return (
+                          <td key={x.aa_code} className="text-center border-b border-slate-100 border-l border-l-slate-50 tabular-nums">
+                            {v == null ? <span className="text-slate-300">·</span>
+                              : typeof v === 'string' ? <span className="text-[11px] font-bold text-slate-500">{v}</span>
+                              : <span className={v < SEUIL ? 'font-bold' : ''} style={v < SEUIL ? { color: 'var(--c-refuse)' } : undefined}>{v}</span>}
+                          </td>);
+                      })}
+                      <td className="px-3 text-center border-b border-l border-slate-100 text-[12px] font-semibold" style={{ color: b.defaut.length ? 'var(--c-refuse)' : '#CBD5E1' }}>
+                        {b.defaut.length ? `${b.defaut.length} · ${b.defaut.slice(0, 2).map(c => c.replace(/^AA/, '')).join(', ')}${b.defaut.length > 2 ? '…' : ''}` : '—'}
+                      </td>
+                      <td className="px-3 text-center border-b border-slate-100 bg-[#F7F9FC]" style={{ borderLeft: '2px solid var(--c-principal, #16406A)' }}>
+                        <Pastille n={data.cotes?.[e.id]?.ue} ajourne={!!b.defaut.length} large
+                          titre="Note de l’unité, calculée depuis les cours et leurs poids — elle ne se saisit pas" />
+                      </td>
+                      <td className="px-3 border-b border-l border-slate-100">
+                        {b.manque ? <span className="inline-block text-[12px] font-semibold text-slate-500 border border-slate-300 rounded-md px-2.5 py-0.5">Incomplète</span>
+                          : <span className="inline-block text-[12px] font-semibold text-white rounded-md px-2.5 py-1"
+                              style={{ background: b.defaut.length ? (session === 2 ? 'var(--c-refuse)' : 'var(--c-attente)') : 'var(--c-reussi)' }}>
+                              {b.defaut.length ? (session === 2 ? 'Refusée' : 'Ajournée') : 'Réussie'}</span>}
+                      </td>
+                    </tr>);
+                })}
+              </tbody>
+            </table>
+            <p className="text-[11px] text-slate-500 px-4 py-2 m-0 border-t border-slate-100">Note d'un acquis porté par plusieurs cours : la moyenne de ses évaluations. Pas de compensation :
+              un seul acquis sous 10 {session === 2 ? 'refuse' : 'ajourne'} l'unité, quelle que soit sa note. La décision reste celle du Conseil.</p>
+            </div>
+          ) : (
+            /* ── PAR COURS — la saisie. ── */
+            <div className="rounded-carte border border-slate-200 bg-white overflow-hidden inline-block min-w-full">
+            <table ref={grille} onKeyDown={ev => naviguerGrille(ev, grille.current)}
+              className="text-[13px] border-separate border-spacing-0">
+              <thead>
+                <tr>
+                  <th rowSpan={2} className="sticky left-0 z-20 bg-white text-left px-4 pb-2 align-bottom text-[11px] uppercase tracking-wide text-slate-500 font-semibold border-b border-slate-200">Étudiant</th>
+                  {coursVus.map(c => (
+                    <th key={c.cours_code} colSpan={c.acquis.length + 1}
+                      className="px-3 pt-3 pb-1 text-left align-bottom border-l border-slate-200 font-normal"
+                      style={{ borderTop: `4px solid ${couleurRepere}` }}>
+                      <div className="font-semibold text-[14px] truncate max-w-[260px]">{c.cours_nom || c.cours_code}</div>
+                      <div className="text-[11px] text-slate-500 truncate max-w-[260px]" title={c.professeurs || undefined}>
+                        {!c.integree && <>{c.cours_code}{c.cours_per ? ` · ${c.cours_per} pér.` : ''}</>}
+                        {c.professeurs ? `${c.integree ? '' : ' · '}${c.professeurs}` : ''}
+                      </div>
+                    </th>
+                  ))}
+                  <th rowSpan={2} className="px-3 pb-2 align-bottom text-center bg-[#F7F9FC] border-b border-slate-200 min-w-[110px]"
+                    style={{ borderLeft: '2px solid var(--c-principal, #16406A)', borderTop: '4px solid var(--c-principal, #16406A)' }}>
+                    <div className="text-[13px] font-semibold">UE {ueNum}</div>
+                    <div className="text-[11px] font-bold mt-2">Note d'unité</div>
+                    <div className="text-[10px] text-slate-400 font-normal">/20</div>
+                  </th>
+                </tr>
+                <tr>
+                  {coursVus.flatMap((c, i) => [
+                    ...c.acquis.map((a, j) => (
+                      <th key={`${c.cours_code}|${a.aa_code}`} title={a.description || a.aa_code}
+                        className={`px-1 pb-2 pt-1 w-16 text-center border-b border-slate-200 ${j === 0 ? 'border-l border-l-slate-200' : ''}`}>
+                        <div className="text-[11px] font-semibold text-slate-700">{a.aa_code}</div>
+                        {a.poids != null && <div className="text-[10px] font-normal text-slate-400">{a.poids}</div>}
+                      </th>)),
+                    <th key={`${c.cours_code}|cote`} className="px-1 pb-2 pt-1 w-[72px] text-center border-b border-slate-200">
+                      <div className="text-[11px] font-bold">Cours</div>
+                      <div className="text-[10px] font-normal text-slate-400">/20</div>
+                    </th>,
+                  ])}
+                </tr>
+              </thead>
+              <tbody>
+                {etudiants.map((e, ligne) => {
+                  const b = bilanUE(e);
+                  return (
+                  <tr key={e.id} className="group focus-within:bg-[#F1F6FB]">
+                    {ligneEtudiant(e)}
                     {(() => { colonne = 0; return null; })()}
-                    {data.cours.filter(c => c.acquis?.length).flatMap(c => {
+                    {coursVus.flatMap(c => {
                       const m = mention(e, c.cours_code);
                       // EN SECONDE SESSION, SEULS LES COURS À REPRÉSENTER.
-                      // Les autres gardent la note de juin : rouvrir leur
-                      // colonne, c'est inviter à la réécrire, et la seconde
-                      // session effacerait ce qu'elle devait laisser.
-                      const ferme = data.a_representer
-                        && !(data.a_representer[e.id] || []).includes(c.cours_code);
+                      const ferme = fermeDe(e, c.cours_code);
+                      const na = data.cotes?.[e.id]?.na?.[c.cours_code];
                       return [
-                        ...c.acquis.map(a => {
+                        ...c.acquis.map((a, j) => {
                           const col = { ...a, cours: c };
                           const v = note(e, col);
                           const nc = colonne++;
+                          const sous = v != null && v !== '' && Math.round(Number(v)) < SEUIL;
                           return (
                             <td key={`${e.id}|${c.cours_code}|${a.aa_code}`}
-                              className="px-1 py-0.5 border-b border-slate-100 text-center">
-                              {/* LA CASE DOIT SE REMONTER QUAND LA DONNÉE CHANGE.
-                                  « defaultValue » n'est lu qu'au montage : la clé
-                                  ne portant ni la session ni la note, la case
-                                  gardait à l'écran ce qu'elle affichait avant le
-                                  rechargement — les notes de juin sous l'onglet
-                                  de septembre. Et « onBlur » comparait ce texte
-                                  périmé à la donnée fraîche : quitter la case
-                                  suffisait alors à réécrire l'ancienne note dans
-                                  l'autre session. La clé porte donc la session et
-                                  la valeur : à donnée nouvelle, case neuve. */}
+                              className={`px-1 py-1 border-b border-slate-100 text-center ${j === 0 ? 'border-l border-l-slate-200' : ''}`}>
+                              {/* LA CASE SE REMONTE QUAND LA DONNÉE CHANGE : la clé porte
+                                  la session, la valeur et la mention (cf. l'historique :
+                                  une case périmée réécrivait l'ancienne note). */}
                               <input {...caseGrille(ligne, nc)}
-                                key={`${session}|${v ?? ''}`}
-                                defaultValue={v ?? ''} disabled={!!m || ferme}
-                                title={ferme
-                                  ? 'Ce cours n’était pas à représenter : la note de première '
-                                    + 'session reste acquise'
+                                key={`${session}|${v ?? ''}|${m || ''}`}
+                                defaultValue={m || (v == null ? '' : String(v).replace('.', ','))} disabled={ferme} placeholder="·"
+                                title={ferme ? 'Ce cours n’était pas à représenter : la note de première session reste acquise'
+                                  : m ? (m === 'NP' ? 'Note de présence — zéro, la seconde session reste ouverte' : "Pas présenté — absence non justifiée")
                                   : undefined}
-                                onBlur={ev => {
-                                  if (String(ev.target.value) !== String(v ?? '')) {
-                                    poser(e.id, c.cours_code, a.aa_code, ev.target.value);
-                                  }
-                                }}
-                                className={`w-12 text-center py-0.5 border rounded
-                                            disabled:bg-slate-100 disabled:text-slate-400
-                                            ${tonNote(v)}`} />
+                                onBlur={ev => sortieCase(e, c, a, ev.target.value, v, m)}
+                                className={`w-14 h-8 text-center rounded-lg bg-transparent border border-transparent outline-none tabular-nums
+                                  placeholder:text-slate-300 focus:bg-white focus:border-[var(--c-principal,#19537E)] focus:ring-1 focus:ring-[var(--c-principal,#19537E)]
+                                  disabled:text-slate-300 ${m ? 'text-[11px] font-bold tracking-wide text-slate-500' : sous ? 'font-semibold' : 'text-iip-blue'}`}
+                                style={sous && !m ? { color: 'var(--c-refuse)' } : undefined} />
                             </td>
                           );
                         }),
-                        // LA NOTE DU COURS, CALCULÉE ET NON SAISIE. Le
-                        // professeur encodait ses acquis sans jamais voir ce
-                        // qu'ils donnaient : la cote n'apparaissait qu'à la
-                        // délibération, dans un autre écran. C'est pourtant en
-                        // encodant qu'on repère la note tapée de travers.
-                        <td key={`${e.id}|${c.cours_code}|cote`}
-                          className="px-1 py-0.5 border-b border-slate-100 text-center">
-                          <span title={data.cotes?.[e.id]?.na?.[c.cours_code]
-                            ? 'Non acquis — le Conseil a ajourné ce cours, ou l’épreuve '
-                              + 'n’a pas été présentée'
-                            : 'Note du cours, calculée depuis les acquis et leurs poids'}
-                            className={`inline-block min-w-[34px] px-1 py-0.5 rounded font-bold
-                              tabular-nums ${data.cotes?.[e.id]?.na?.[c.cours_code]
-                                ? 'text-white bg-red-500'
-                                : tonCote(data.cotes?.[e.id]?.cours?.[c.cours_code])}`}>
-                            {data.cotes?.[e.id]?.na?.[c.cours_code]
-                              ? 'NA' : fmtCote(data.cotes?.[e.id]?.cours?.[c.cours_code])}
-                          </span>
-                        </td>,
-                        <td key={`${e.id}|${c.cours_code}|mention`}
-                          className="px-1 py-0.5 border-b border-slate-100 text-center whitespace-nowrap">
-                          {!ferme && ['NP', 'PP'].map(x => (
-                            <button key={x}
-                              onClick={() => poserMention(e.id, c.cours_code, m === x ? null : x)}
-                              title={x === 'NP'
-                                ? 'Note de présence — zéro, mais la seconde session reste ouverte'
-                                : "Pas présenté — absence non justifiée, refus d'office"}
-                              className={`px-1 mx-0.5 rounded text-[10px] font-semibold border
-                                ${m === x
-                    ? (x === 'NP' ? 'bg-amber-500 border-amber-500 text-white'
-                      : 'bg-red-500 border-red-500 text-white')
-                    : 'border-slate-200 text-slate-400 hover:border-slate-400'}`}>
-                              {x}
-                            </button>
-                          ))}
+                        // LA NOTE DU COURS, CALCULÉE ET NON SAISIE — en pastille pleine.
+                        <td key={`${e.id}|${c.cours_code}|cote`} className="px-1 py-1 border-b border-slate-100 text-center">
+                          <Pastille n={data.cotes?.[e.id]?.cours?.[c.cours_code]} na={na}
+                            titre={na ? 'Non acquis — le Conseil a ajourné ce cours, ou l’épreuve n’a pas été présentée'
+                              : 'Note du cours, calculée depuis les acquis et leurs poids'} />
                         </td>,
                       ];
                     })}
-                    {/* LA NOTE DE L'UNITÉ — vue, jamais saisie. Elle est la
-                        somme pondérée des cours ; la laisser modifier, ce
-                        serait permettre d'écrire un total qui ne correspond à
-                        aucune des notes encodées. Le professeur la voit, le
-                        Conseil la décide. */}
-                    <td className="px-1 py-0.5 border-b border-slate-100 text-center
-                                   bg-slate-50">
-                      <span title={data.cotes?.[e.id]?.ue == null
-                        ? 'Non calculable : un cours est non acquis, ou tout n’est pas encodé'
-                        : 'Note de l’unité, calculée depuis les cours et leurs poids — '
-                          + 'elle ne se saisit pas'}
-                        className={`inline-block min-w-[38px] px-1.5 py-0.5 rounded font-bold
-                          tabular-nums ${tonCote(data.cotes?.[e.id]?.ue)}`}>
-                        {fmtCote(data.cotes?.[e.id]?.ue)}
-                      </span>
+                    {/* LA NOTE DE L'UNITÉ — vue, jamais saisie ; un acquis sous 10 l'ajourne. */}
+                    <td className="px-2 py-1 border-b border-slate-100 text-center bg-[#F7F9FC]"
+                      style={{ borderLeft: '2px solid var(--c-principal, #16406A)' }}>
+                      <Pastille n={data.cotes?.[e.id]?.ue} ajourne={!!b.defaut.length} large
+                        titre={data.cotes?.[e.id]?.ue == null ? 'Non calculable : un cours est non acquis, ou tout n’est pas encodé'
+                          : 'Note de l’unité, calculée depuis les cours et leurs poids — elle ne se saisit pas'} />
+                      <div className="text-[10px] font-semibold mt-0.5"
+                        style={{ color: b.manque ? '#94A3B8' : b.defaut.length ? 'var(--c-attente)' : 'var(--c-reussi)' }}>{motUE(b)}</div>
                     </td>
-                  </tr>
-                ))}
+                  </tr>);
+                })}
               </tbody>
+              <tfoot>
+                <tr>
+                  <td className="sticky left-0 z-10 bg-slate-50 px-4 py-2 text-[11px] text-slate-500 border-t border-slate-200">Moyenne · réussite</td>
+                  {coursVus.flatMap(c => [
+                    ...c.acquis.map((a, j) => {
+                      const r = resume(etudiants.map(e => (mention(e, c.cours_code) ? null : note(e, { ...a, cours: c }))));
+                      return <td key={`p|${c.cours_code}|${a.aa_code}`} className={`bg-slate-50 py-2 text-center text-[11px] leading-tight text-slate-600 border-t border-slate-200 ${j === 0 ? 'border-l border-l-slate-200' : ''}`}>
+                        {r.moy}<div className="text-slate-400">{r.taux}</div></td>;
+                    }),
+                    (() => { const r = resume(etudiants.map(e => data.cotes?.[e.id]?.cours?.[c.cours_code])); return (
+                      <td key={`p|${c.cours_code}|cote`} className="bg-slate-50 py-2 text-center text-[11px] leading-tight font-semibold border-t border-slate-200">
+                        {r.moy}<div className="text-slate-400 font-normal">{r.taux}</div></td>); })(),
+                  ])}
+                  {(() => { const r = resume(etudiants.map(e => data.cotes?.[e.id]?.ue)); return (
+                    <td className="bg-slate-50 py-2 text-center text-[11px] leading-tight font-semibold border-t border-slate-200"
+                      style={{ borderLeft: '2px solid var(--c-principal, #16406A)' }}>
+                      {r.moy}<div className="text-slate-400 font-normal">{etudiants.filter(e => motUE(bilanUE(e)) === 'réussie').length} réussie(s)</div></td>); })()}
+                </tr>
+              </tfoot>
             </table>
+            </div>
           )}
         </div>
         </div>

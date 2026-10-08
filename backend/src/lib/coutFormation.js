@@ -387,3 +387,66 @@ export function donneesCout(annee) {
     sans_tarif: sansTarif, type_defaut: typeDefaut,
     experts: { indice, periodes: expertsBase } };
 }
+
+/* LA SYNTHÈSE, COMMUNE À L'OUTIL ET À LA PIÈCE (Charles, 8 octobre 2026 : « ce
+ * ne doit pas être une feuille mise en page mais un outil, avec ensuite un print
+ * ou un envoi »). Les fonctions regroupées sans les noms, les postes du coût
+ * complet, les ETP par section : calculés UNE fois ici — l'écran de Pilotage et
+ * la pièce imprimée les lisent tous deux, et ne peuvent donc pas différer. */
+export function syntheseCout(d) {
+  const e1 = n => (Math.round((n || 0) * 100) / 100).toString().replace('.', ',');
+  const n0 = n => Math.round(n || 0).toLocaleString('fr-BE');
+  const m2 = n => (n || 0).toFixed(2).replace('.', ',');
+  const eur = n => `${Math.round(n || 0).toLocaleString('fr-BE')} €`;
+  const morceaux = d.missions.flatMap(m => {
+    const base = { fonction: m.fonction || '(sans libellé)', portee: m.portee, personne: `${m.nom}|${m.prenom}` };
+    if (m.mode === 'periodes_b') return [{ ...base, helb: false, mode: m.mode, etp: m.etp, cout: m.cout,
+      cle: `${m.periodes_b}|${m.cout_b}`, formule: e => `${e1(e)} ETP × ${n0(m.periodes_b)} pér. B × ${m2(m.cout_b)} €` }];
+    if (m.mode === 'annuel') return [{ ...base, helb: false, mode: m.mode, etp: m.etp, cout: m.cout,
+      cle: `${m.annuel}`, formule: e => `${e1(e)} ETP × ${eur(m.annuel)}` }];
+    if (m.mode === 'etp800') return [[false, m.etp_iip_compte], [true, m.etp_helb_compte]].filter(([, e]) => e).map(([helb, e]) => ({
+      ...base, helb, mode: m.mode, etp: e, cout: e * 800 * m.tarif_ct, cle: `${m.tarif_ct}|${m.niveau}`,
+      formule: x => `${e1(x)} ETP × 800 × ${m2(m.tarif_ct)} € (CT ${m.niveau})` }));
+    return [{ ...base, helb: false, mode: m.mode, etp: m.etp, cout: 0, cle: '', per: m.periodes_coord || 0, coutP: m.cout_periodes || 0, code: m.code_coord }];
+  });
+  const groupes = [];
+  for (const x of morceaux) {
+    const k = `${x.fonction}|${x.helb}|${x.mode}|${x.cle}`;
+    let g = groupes.find(y => y.k === k);
+    if (!g) groupes.push(g = { k, fonction: x.fonction, helb: x.helb, mode: x.mode, f: x.formule, etp: 0, cout: 0, per: 0, coutP: 0, code: x.code || null, personnes: new Set(), portees: new Set() });
+    g.etp += x.etp || 0; g.cout += x.cout || 0; g.per += x.per || 0; g.coutP += x.coutP || 0; g.personnes.add(x.personne); if (x.portee) g.portees.add(x.portee);
+  }
+  const fonctions = groupes.map(g => ({ fonction: g.fonction, helb: g.helb, mode: g.mode, etp: g.etp, cout: g.cout,
+    periodes_coord: g.per, cout_periodes: g.coutP, code: g.code, personnes: g.personnes.size, portees: [...g.portees],
+    calcul: g.mode === 'periodes' ? (g.per ? `${n0(g.per)} pér. de coordination (${g.code || ''}) × la période de leur unité *` : null)
+      : g.mode === 'sans_etp' || !g.etp ? null : g.f(g.etp) }));
+  const coutEnPeriodes = fonctions.reduce((a, g) => a + (g.cout_periodes || 0), 0);
+  const tot = d.total;
+  const postes = [{ nom: 'Cours — IIP', valeur: tot.cout - (tot.cout_helb || 0), helb: false }, { nom: 'Cours — HELB', valeur: tot.cout_helb || 0, helb: true }];
+  for (const g of fonctions) {
+    if (!g.cout_periodes) continue;
+    postes[0].valeur -= g.cout_periodes;
+    const nom = `${g.fonction} (en périodes) *`;
+    const p0 = postes.find(x => x.nom === nom);
+    if (p0) p0.valeur += g.cout_periodes; else postes.push({ nom, valeur: g.cout_periodes, helb: false });
+  }
+  for (const g of fonctions) {
+    if (!g.cout) continue;
+    const nom = `${g.fonction}${g.helb ? ' — HELB' : ''}`;
+    const p0 = postes.find(x => x.nom === nom);
+    if (p0) p0.valeur += g.cout; else postes.push({ nom, valeur: g.cout, helb: g.helb });
+  }
+  // UNE TEINTE PAR POSTE : la HELB en nuances de rose, l'établissement en teintes franches.
+  const TEINTES_IIP = ['#19537E', '#F9B619', '#05B7E6', '#3E7D5E', '#B45309', '#8FA3B8', '#0F2A44', '#C9A227', '#5E9C8B'];
+  const TEINTES_HELB = ['#97266D', '#D53F8C', '#F687B3', '#702459', '#ED64A6', '#B83280', '#FBB6CE'];
+  let iI = 0, iH = 0;
+  for (const p of postes) p.couleur = p.helb || /HELB/.test(p.nom) ? TEINTES_HELB[iH++ % TEINTES_HELB.length] : TEINTES_IIP[iI++ % TEINTES_IIP.length];
+  // LES ETP PAR SECTION : CT ÷ 800 + PP ÷ 1 000, comme Pilotage.
+  const etpDe = x => (x?.per_ct || 0) / 800 + (x?.per_pp || 0) / 1000;
+  const etp = d.sections.filter(S => S.periodes).map(S => ({ section: S.section, total: etpDe(S),
+    cc: etpDe(S.statuts.CC), exp: etpDe(S.statuts.EXP), autre: etpDe(S.statuts.AUTRE) }));
+  const etpTotal = etp.reduce((t, x) => ({ total: t.total + x.total, cc: t.cc + x.cc, exp: t.exp + x.exp, autre: t.autre + x.autre }),
+    { total: 0, cc: 0, exp: 0, autre: 0 });
+  return { fonctions, cout_en_periodes: coutEnPeriodes, postes: postes.filter(p => p.valeur > 0), etp, etp_total: etpTotal,
+    cout_helb_total: (tot.cout_helb || 0) + fonctions.filter(g => g.helb).reduce((a, g) => a + g.cout, 0) };
+}
