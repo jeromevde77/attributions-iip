@@ -26,9 +26,9 @@ r.post('/', authRequired, roleRequired('admin'), (req, res) => {
     if (source) {
       // Copier la structure académique (UE + cours) de l'année source
       db.prepare(`
-        INSERT INTO ue (ue_num, annee_scolaire, ue_nom, ue_code_fwb, section, ue_tc, ue_det,
+        INSERT INTO ue (ue_num, annee_scolaire, ue_nom, ue_code_fwb, section, ue_tc, ue_det, ue_dp,
           ue_niv, ue_per_etudiants, ue_per_cours, ue_aut, ue_tot_prf, ue_niveau, ue_quad, et_ref, ects, ue_prerequise)
-        SELECT ue_num, ?, ue_nom, ue_code_fwb, section, ue_tc, ue_det,
+        SELECT ue_num, ?, ue_nom, ue_code_fwb, section, ue_tc, ue_det, ue_dp,
           ue_niv, ue_per_etudiants, ue_per_cours, ue_aut, ue_tot_prf, ue_niveau, ue_quad, et_ref, ects, ue_prerequise
         FROM ue WHERE annee_scolaire = ?
       `).run(code, source);
@@ -182,9 +182,9 @@ r.post('/import-ues', authRequired, roleRequired('admin', 'editeur'), (req, res)
   }
 
   const copyUE = db.prepare(`
-    INSERT OR IGNORE INTO ue (ue_num, annee_scolaire, ue_nom, ue_code_fwb, section, ue_tc, ue_det,
+    INSERT OR IGNORE INTO ue (ue_num, annee_scolaire, ue_nom, ue_code_fwb, section, ue_tc, ue_det, ue_dp,
       ue_niv, ue_per_etudiants, ue_per_cours, ue_aut, ue_tot_prf, ue_niveau, ue_quad, et_ref, ects, ue_prerequise)
-    SELECT ue_num, @cible, ue_nom, ue_code_fwb, section, ue_tc, ue_det,
+    SELECT ue_num, @cible, ue_nom, ue_code_fwb, section, ue_tc, ue_det, ue_dp,
       ue_niv, ue_per_etudiants, ue_per_cours, ue_aut, ue_tot_prf, ue_niveau, ue_quad, et_ref, ects, ue_prerequise
     FROM ue WHERE ue_num = @ue AND annee_scolaire = @source
   `);

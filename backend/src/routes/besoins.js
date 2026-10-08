@@ -63,8 +63,8 @@ export function contenuSynthetique(codeCours, annee) {
   }
   acquis = acquis.filter(a => String(a.description || '').trim());
 
-  const det = db.prepare(`SELECT ue_det FROM ue WHERE ue_num = ? AND ue_det LIKE '%## Programme%'
-     ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1`).get(cours.ue_num, an)?.ue_det || '';
+  const det = db.prepare(`SELECT ue_dp FROM ue WHERE ue_num = ? AND ue_dp LIKE '%## Programme%'
+     ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1`).get(cours.ue_num, an)?.ue_dp || '';
   let programme = '';
   let portee = null;
   const m = /## Programme\n([\s\S]*?)(?=\n## |$)/.exec(det);

@@ -1792,6 +1792,20 @@ try {
       console.log('[migration] Table ue : colonne hors_cursus ajoutée');
     }
 
+    /* LE DOSSIER PÉDAGOGIQUE A SA COLONNE (8 octobre 2026). `ue_det` portait deux
+     * faits : la case « UE déterminante » ('x'), lue par la mention et la
+     * capitalisation, ET le texte du dossier, que l'import y écrivait — si bien
+     * qu'importer le dossier d'une UE déterminante effaçait sa case, en
+     * silence. Le texte passe dans `ue_dp` ; `ue_det` ne dit plus que « x ».
+     * Un texte n'a jamais valu « déterminante » : le retirer de `ue_det` ne
+     * change aucun calcul. */
+    if (!ueColsNow.includes('ue_dp')) {
+      db.exec('ALTER TABLE ue ADD COLUMN ue_dp TEXT');
+      const n = db.prepare("UPDATE ue SET ue_dp = ue_det WHERE length(ue_det) > 5").run().changes;
+      db.prepare("UPDATE ue SET ue_det = NULL WHERE length(ue_det) > 5").run();
+      console.log(`[migration] Table ue : colonne ue_dp ajoutée, ${n} dossier(s) pédagogique(s) déplacé(s) depuis ue_det`);
+    }
+
     // Table dotation_civile : dotation organique par année civile
     db.exec(`
       CREATE TABLE IF NOT EXISTS dotation_civile (
