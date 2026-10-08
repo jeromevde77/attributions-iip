@@ -2850,6 +2850,11 @@ try {
     ['cout.ds_pp', '69.85', 'Secondaire supérieur — cours techniques et de pratique professionnelle, pratique professionnelle (€ / période)', null, 'couts'],
     ['cout.di_gen', '80.45', 'Secondaire inférieur — cours généraux, spéciaux et techniques (€ / période)', null, 'couts'],
     ['cout.di_pp', '68.26', 'Secondaire inférieur — cours techniques et de pratique professionnelle, pratique professionnelle (€ / période)', null, 'couts'],
+    /* LE COÛT MOYEN BRUT PONDÉRÉ (Charles, 8 octobre 2026) : une valeur par
+       niveau, la lecture de la Haute École. 0 = à régler, jamais zéro euro. */
+    ['cout.cmb_sup', '106', 'Coût moyen brut pondéré d\'une période — supérieur (€), lecture Haute École', null, 'couts'],
+    ['cout.cmb_ds', '0', 'Coût moyen brut pondéré d\'une période — secondaire supérieur (€) — 0 : à régler', null, 'couts'],
+    ['cout.cmb_di', '0', 'Coût moyen brut pondéré d\'une période — secondaire inférieur (€) — 0 : à régler', null, 'couts'],
   ]) ins.run(...p);
 } catch (e) { console.error('[migration] coût des périodes :', e.message); }
 

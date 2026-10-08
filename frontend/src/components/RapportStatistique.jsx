@@ -171,6 +171,30 @@ export default function RapportStatistique() {
           </Carte>
         </div>
 
+        {Y.cmb?.lignes?.length > 0 && (
+        <Carte titre="Coût moyen brut pondéré, par niveau" sous="Total des périodes attribuées × une seule valeur par niveau — la lecture de la Haute École, à côté du coût détaillé de la circulaire.">
+          <div className="overflow-x-auto">
+          <table className="text-[13px] min-w-full">
+            <thead className="tab-entete"><tr><Th>Niveau</Th><Th n>Périodes IIP</Th><Th n>Périodes HELB</Th><Th n>Total</Th><Th n>Coût moyen / période</Th>
+              <Th n>Montant IIP</Th><Th n>Montant HELB</Th><Th n>Montant total</Th><Th n>Coût détaillé</Th></tr></thead>
+            <tbody>{Y.cmb.lignes.map(l => (
+              <tr key={l.niveau} className="border-b border-slate-100">
+                <Td>{l.libelle}</Td><Td n>{k0(l.per_iip)}</Td><Td n>{l.per_helb ? k0(l.per_helb) : '—'}</Td><Td n b>{k0(l.periodes)}</Td>
+                <Td n>{l.taux ? `${l.taux.toFixed(2).replace('.', ',')} €` : <i className="text-amber-700">à régler</i>}</Td>
+                <Td n>{l.taux ? eur(l.montant_iip) : '—'}</Td><Td n>{l.taux && l.per_helb ? eur(l.montant_helb) : '—'}</Td>
+                <Td n b>{l.taux ? eur(l.montant) : '—'}</Td><Td n>{eur(l.cout_detaille)}</Td>
+              </tr>))}</tbody>
+            {Y.cmb.lignes.length > 1 && (
+            <tfoot><tr className="font-semibold bg-slate-50"><Td>Ensemble{Y.cmb.a_regler.length ? ' — montants des niveaux chiffrés seulement' : ''}</Td>
+              <Td n>{k0(Y.cmb.lignes.reduce((a, l) => a + l.per_iip, 0))}</Td><Td n>{k0(Y.cmb.lignes.reduce((a, l) => a + l.per_helb, 0))}</Td>
+              <Td n>{k0(Y.cmb.total.periodes)}</Td><Td /><Td n>{eur(Y.cmb.total.montant_iip)}</Td><Td n>{eur(Y.cmb.total.montant_helb)}</Td>
+              <Td n>{eur(Y.cmb.total.montant)}</Td><Td n>{eur(Y.cmb.total.cout_detaille)}</Td></tr></tfoot>)}
+          </table></div>
+          {Y.cmb.a_regler.length > 0 && (
+            <p className="text-[12px] text-slate-600 mt-2">Coût moyen brut à régler pour <b>{Y.cmb.a_regler.join(', ')}</b> dans
+              Configuration → Coût des périodes : ses périodes sont comptées, sans montant.</p>)}
+        </Carte>)}
+
         <Carte titre="Les ETP par section" sous="Périodes CT ÷ 800 + PP ÷ 1 000, comme Pilotage — hors congés et activités Z ; le tronc commun réparti au prorata des étudiants.">
           <div className="overflow-x-auto">
           <table className="text-[13px] min-w-full">
