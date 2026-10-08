@@ -11,7 +11,8 @@
  * Indicatifs : la note qui fait foi est celle de l'encodage officiel, et la
  * réussite d'une unité se décide acquis par acquis, sans compensation.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { authHeaders } from '../lib/api.js';
 
 const MENTIONS = ['PP', 'NP', 'CM'];
 const v1 = n => (n == null || !Number.isFinite(n) ? '—' : (Math.round(n * 10) / 10).toString().replace('.', ','));
@@ -64,9 +65,20 @@ function Diagramme({ s }) {
   );
 }
 
-export default function IndicateursNotes({ etudiants, cols, nomCol, valeurDe, noteCours, groupesDispo = [], groupesDe = () => [], tous = etudiants }) {
-  const choix = [...(cols.length > 1 ? [['__cours', 'Note du cours (moyenne pondérée des acquis)']] : []), ...cols.map((k, i) => [k, nomCol(k, i)])];
+export default function IndicateursNotes({ etudiants, cols, nomCol, valeurDe, noteCours, groupesDispo = [], groupesDe = () => [], tous = etudiants,
+                                          coursCode = null, annee = null, ueNum = null }) {
+  const choix = [...(cols.length > 1 ? [['__cours', 'Note du cours (moyenne pondérée des acquis)']] : []), ...cols.map((k, i) => [k, nomCol(k, i)]),
+    ...(coursCode ? [['__ue', `Note de l’unité${ueNum ? ` (UE ${ueNum})` : ''} — tous les inscrits`]] : [])];
   const [col, setCol] = useState(choix[0]?.[0]);
+  /* L'UNITÉ (8 octobre 2026) : la note d'unité calculée par la délibération, sur
+     l'encodage officiel, pour tous les inscrits — anonyme ; et chaque cours. */
+  const [ue, setUe] = useState(null);
+  useEffect(() => {
+    if (col !== '__ue' || !coursCode) return;
+    setUe(null);
+    fetch(`/api/mes-cours/${encodeURIComponent(coursCode)}/stats-ue?annee=${encodeURIComponent(annee || '')}`, { headers: authHeaders() })
+      .then(r => r.json()).then(j => setUe(j.error ? { erreur: j.error } : j)).catch(e => setUe({ erreur: e.message }));
+  }, [col, coursCode, annee]);
   const lire = (e, k) => {
     if (k === '__cours') { const c = noteCours(e.id); return { note: c.note ?? null, mention: c.note == null && c.mentions ? 'mention' : null }; }
     const t = String(valeurDe(e.id, k) ?? '').trim().toUpperCase();
@@ -81,8 +93,12 @@ export default function IndicateursNotes({ etudiants, cols, nomCol, valeurDe, no
     const mentions = Object.fromEntries(MENTIONS.map(m => [m, lus.filter(x => x.mention === m).length]));
     return { ...s, total: liste.length, manquantes: lus.filter(x => x.note == null && !x.mention).length, mentions };
   };
-  const s = useMemo(() => calc(etudiants), [etudiants, col, valeurDe]);   // eslint-disable-line react-hooks/exhaustive-deps
-  const parGroupe = useMemo(() => groupesDispo.map(g => [g, calc(tous.filter(e => groupesDe(e).includes(g)))]), [groupesDispo, tous, col, valeurDe]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const s = useMemo(() => {
+    if (col !== '__ue') return calc(etudiants);
+    if (!ue || ue.erreur) return { n: 0, total: ue?.inscrits || 0, manquantes: 0, mentions: {} };
+    return { ...statistiques(ue.notes), total: ue.inscrits, manquantes: ue.sans_note, mentions: {}, ajournes: ue.ajournes };
+  }, [etudiants, col, valeurDe, ue]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const parGroupe = useMemo(() => (col === '__ue' ? [] : groupesDispo).map(g => [g, calc(tous.filter(e => groupesDe(e).includes(g)))]), [groupesDispo, tous, col, valeurDe]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const Tuile = ({ valeur, libelle, precision, etat = 'neutre' }) => (
     <div className="bloc-etat px-3 py-2 min-w-[7.5rem]" data-etat={etat}>
@@ -99,7 +115,11 @@ export default function IndicateursNotes({ etudiants, cols, nomCol, valeurDe, no
           {choix.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
         </select>
       </div>
-      {!s.n ? <p className="text-[13px] text-slate-500">Aucune note chiffrée pour l’instant{s.total ? ` (${s.total} étudiant(s))` : ''}.</p> : (<>
+      {col === '__ue' && !ue && <p className="text-[13px] text-slate-500">Calcul des notes d’unité…</p>}
+      {col === '__ue' && ue?.erreur && <p className="text-[13px] text-slate-500">{ue.erreur}</p>}
+      {col === '__ue' && ue && !ue.erreur && <p className="text-[12px] text-slate-500 -mt-2">Notes d’unité calculées comme en délibération, sur l’encodage officiel
+        ({ue.session === 2 ? 'seconde' : 'première'} session), pour les {ue.inscrits} inscrits — sans les noms : les autres cours ne se lisent pas étudiant par étudiant.</p>}
+      {(col !== '__ue' || (ue && !ue.erreur)) && (!s.n ? <p className="text-[13px] text-slate-500">Aucune note chiffrée pour l’instant{s.total ? ` (${s.total} étudiant(s))` : ''}.</p> : (<>
         <div className="flex flex-wrap gap-2">
           <Tuile valeur={`${s.n} / ${s.total}`} libelle="notes chiffrées" precision={s.manquantes ? `${s.manquantes} à encoder` : 'complet'} etat={s.manquantes ? 'surveiller' : 'reussi'} />
           <Tuile valeur={v1(s.moyenne)} libelle="moyenne" precision={`écart type ${v1(s.ecart)}`} />
@@ -108,6 +128,7 @@ export default function IndicateursNotes({ etudiants, cols, nomCol, valeurDe, no
           <Tuile valeur={s.reussites} libelle="réussites (≥ 10)" precision={pct(s.reussites, s.n)} etat="reussi" />
           <Tuile valeur={s.echecs} libelle="échecs (< 10)" precision={pct(s.echecs, s.n)} etat={s.echecs ? 'corriger' : 'neutre'} />
           <Tuile valeur={s.limite} libelle="à 8 ou 9" precision="juste sous le seuil" etat={s.limite ? 'surveiller' : 'neutre'} />
+          {col === '__ue' && <Tuile valeur={s.ajournes ?? 0} libelle="acquis en défaut" precision="ajournés malgré la moyenne, ou en échec" etat={s.ajournes ? 'surveiller' : 'neutre'} />}
           {MENTIONS.some(m => s.mentions[m]) && <Tuile valeur={MENTIONS.map(m => s.mentions[m]).reduce((a, b) => a + b, 0)} libelle="mentions"
             precision={MENTIONS.filter(m => s.mentions[m]).map(m => `${m} ${s.mentions[m]}`).join(' · ')} />}
         </div>
@@ -115,6 +136,16 @@ export default function IndicateursNotes({ etudiants, cols, nomCol, valeurDe, no
         <p className="text-[11px] text-slate-500 -mt-2">Barres : nombre d’étudiants par note (vert à partir de 10). Dessous : l’étendue (du plus bas au plus haut),
           la boîte du quart au trois-quarts des notes, la <b>médiane</b> en trait épais, la <b>moyenne</b> en point ocre.
           Indicatif : la réussite de l’unité se décide acquis par acquis, sans compensation.</p>
+        {col === '__ue' && ue?.cours?.length > 0 && (
+          <table className="text-[13px] tabular-nums">
+            <thead className="tab-entete"><tr>{['Cours de l’unité', 'Notes', 'Moyenne', 'Réussites'].map((t, i) =>
+              <th key={t} className={`px-2 py-1.5 ${i ? 'text-right' : 'text-left'}`}>{t}</th>)}</tr></thead>
+            <tbody>{ue.cours.map(c => (
+              <tr key={c.cours_code} className={`border-b border-slate-100 ${c.ce_cours ? 'font-semibold' : ''}`}>
+                <td className="px-2 py-1">{c.cours_code} — {c.cours_nom}{c.ce_cours ? ' (ce cours)' : ''}</td>
+                <td className="px-2 text-right">{c.n}</td><td className="px-2 text-right">{v1(c.moyenne)}</td>
+                <td className="px-2 text-right">{c.reussites} ({pct(c.reussites, c.n)})</td></tr>))}</tbody>
+          </table>)}
         {parGroupe.length > 1 && (
           <table className="text-[13px] tabular-nums">
             <thead className="tab-entete"><tr>{['Groupe', 'Notes', 'Moyenne', 'Médiane', 'Écart type', 'Réussites', 'Échecs'].map((t, i) =>
@@ -126,7 +157,7 @@ export default function IndicateursNotes({ etudiants, cols, nomCol, valeurDe, no
                 <td className="px-2 text-right">{x.n ? `${x.reussites} (${pct(x.reussites, x.n)})` : '—'}</td>
                 <td className="px-2 text-right">{x.n ? x.echecs : '—'}</td></tr>))}</tbody>
           </table>)}
-      </>)}
+      </>))}
     </div>
   );
 }

@@ -601,7 +601,10 @@ r.post('/:coursCode/notes', authRequired, (req, res) => {
     VALUES (?,?,?,?,?,?,?,?,datetime('now'))
     ON CONFLICT(etudiant_id, annee_scolaire, cours_code, aa_code) DO UPDATE SET
       note = excluded.note, mention = excluded.mention, justification = excluded.justification,
-      propose_par = excluded.propose_par, propose_le = datetime('now')`);
+      propose_par = excluded.propose_par, propose_le = datetime('now'),
+      -- une proposition MODIFIÉE redevient en attente de reprise
+      reprise_le = CASE WHEN note_proposee.note IS excluded.note AND note_proposee.mention IS excluded.mention THEN note_proposee.reprise_le END,
+      reprise_par = CASE WHEN note_proposee.note IS excluded.note AND note_proposee.mention IS excluded.mention THEN note_proposee.reprise_par END`);
   const oter = db.prepare(
     'DELETE FROM note_proposee WHERE etudiant_id = ? AND annee_scolaire = ? AND cours_code = ? AND aa_code = ?');
   let n = 0;
@@ -612,9 +615,10 @@ r.post('/:coursCode/notes', authRequired, (req, res) => {
         x.note != null && x.note < 10 ? x.justification : null, req.user?.email || null); n++; }
     }
   })();
-  let complet = false;
+  let complet = false, reprise = null;
+  try { reprise = repriseAutomatique(req.params.coursCode, annee, req.user?.email || 'reprise automatique'); } catch (e) { console.error('[reprise auto]', e.message); }
   try { complet = signalerSiComplet(req, d, req.params.coursCode, annee, aaPermis); } catch (e) { console.error('[notes complètes]', e.message); }
-  res.json({ ok: true, proposees: n, complet });
+  res.json({ ok: true, proposees: n, complet, reprise });
 });
 
 /* LE SECRÉTARIAT EST PRÉVENU QUAND UN COURS EST COMPLET (Charles, 8 octobre 2026 :
@@ -680,32 +684,19 @@ r.get('/:coursCode/propositions', authRequired, roleRequired(...PEUT_INSTRUIRE),
  *     pas d'office : ils sont nommés.
  * Chaque note reprise porte son origine (`proposition:<qui>`), et la
  * proposition sa date de reprise et son auteur. */
-r.post('/:coursCode/reprendre', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
-  const coursCode = req.params.coursCode;
-  const annee = String(req.body?.annee || anneeDeTravail(req));
-  const session = Number(req.body?.session) === 2 ? 2 : 1;
-  const simulation = req.body?.simulation !== false;
-  const remplacer = new Set((Array.isArray(req.body?.remplacer) ? req.body.remplacer : []).map(x => `${x.etudiant_id}|${x.aa_code}`));
+/** L'ANALYSE D'UNE REPRISE — une seule règle pour le bouton et pour la reprise
+ *  automatique. `etudiantsPermis` (Set) restreint, `session` dit où écrire. */
+function analyserReprise(coursCode, annee, session, remplacer = new Set(), { etudiantsPermis = null, enAttente = false, suivreProposition = false } = {}) {
   const ue = db.prepare('SELECT ue_num FROM cours WHERE cours_code = ? AND annee_scolaire = ? LIMIT 1').get(coursCode, annee)?.ue_num
     ?? db.prepare('SELECT ue_num FROM cours WHERE cours_code = ? ORDER BY annee_scolaire DESC LIMIT 1').get(coursCode)?.ue_num;
-  if (ue == null) return res.status(404).json({ error: 'Cours inconnu.' });
-  const perim = getUserSections(req.user);
-  if (perim) {
-    const sec = db.prepare('SELECT section FROM ue WHERE ue_num = ? AND section IS NOT NULL LIMIT 1').get(ue)?.section;
-    if (sec && !perim.includes(sec)) return res.status(403).json({ error: 'Cours hors de votre périmètre.' });
-  }
+  if (ue == null) return null;
   const props = db.prepare(`SELECT p.*, e.nom, e.prenom FROM note_proposee p JOIN etudiant e ON e.id = p.etudiant_id
-    WHERE p.annee_scolaire = ? AND p.cours_code = ? ORDER BY e.nom, e.prenom, p.aa_code`).all(annee, coursCode);
-  const lire = db.prepare(`SELECT points, mention FROM etudiant_note_detail
+    WHERE p.annee_scolaire = ? AND p.cours_code = ? ${enAttente ? 'AND p.reprise_le IS NULL' : ''} ORDER BY e.nom, e.prenom, p.aa_code`).all(annee, coursCode)
+    .filter(p => !etudiantsPermis || etudiantsPermis.has(p.etudiant_id));
+  const lire = db.prepare(`SELECT points, mention, origine FROM etudiant_note_detail
     WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND type = 'aa' AND code = ?`);
   const reporte = db.prepare(`SELECT 1 FROM etudiant_report_note WHERE etudiant_id = ? AND annee_scolaire = ?
     AND cours_code = ? AND statut = 'accorde'`);
-  const ecrire = db.prepare(`INSERT INTO etudiant_note_detail (etudiant_id, annee_scolaire, ue_num, type, code, points, mention, origine, cours_code)
-    VALUES (?,?,?, 'aa', ?, ?, ?, ?, ?)
-    ON CONFLICT(etudiant_id, annee_scolaire, ue_num, type, code) DO UPDATE SET
-      points = excluded.points, mention = excluded.mention, origine = excluded.origine`);
-  const pointer = db.prepare(`UPDATE note_proposee SET reprise_le = datetime('now'), reprise_par = ? WHERE id = ?`);
-  const qui = req.user?.nom || req.user?.email || null;
   const nomDe = p => `${String(p.nom || '').toUpperCase()} ${p.prenom || ''}`.trim();
   const r0 = { a_poser: [], identiques: 0, differentes: [], ignorees: [], remplacees: 0 };
   const faire = [];
@@ -723,6 +714,8 @@ r.post('/:coursCode/reprendre', authRequired, roleRequired(...PEUT_INSTRUIRE), (
       const o = off.mention || (off.points != null ? Math.round(off.points) : null);
       if (String(o) === String(pr)) { r0.identiques++; faire.push(['pointer', p]); continue; }
       const cle = `${p.etudiant_id}|${p.aa_code}`;
+      // La note officielle VIENT d'une proposition : l'enseignant la corrige, elle suit.
+      if (suivreProposition && String(off.origine || '').startsWith('proposition')) { faire.push(['ecrire', p, code, val]); r0.remplacees++; continue; }
       r0.differentes.push({ ...base, officiel: o, propose: pr, remplacer: remplacer.has(cle) });
       if (remplacer.has(cle)) { faire.push(['ecrire', p, code, val]); r0.remplacees++; }
       continue;
@@ -730,14 +723,116 @@ r.post('/:coursCode/reprendre', authRequired, roleRequired(...PEUT_INSTRUIRE), (
     r0.a_poser.push({ ...base, propose: pr });
     faire.push(['ecrire', p, code, val]);
   }
-  if (!simulation) {
-    db.transaction(() => {
-      for (const [g, p, code, val] of faire) {
-        if (g === 'ecrire') ecrire.run(p.etudiant_id, annee, ue, code, val, p.mention || null, `proposition:${p.propose_par || ''}`, coursCode);
-        pointer.run(qui, p.id);
-      }
-    })();
+  return { ue, props, r0, faire };
+}
+
+function appliquerReprise(an, annee, coursCode, qui, origine = null) {
+  const ecrire = db.prepare(`INSERT INTO etudiant_note_detail (etudiant_id, annee_scolaire, ue_num, type, code, points, mention, origine, cours_code)
+    VALUES (?,?,?, 'aa', ?, ?, ?, ?, ?)
+    ON CONFLICT(etudiant_id, annee_scolaire, ue_num, type, code) DO UPDATE SET
+      points = excluded.points, mention = excluded.mention, origine = excluded.origine`);
+  const pointer = db.prepare(`UPDATE note_proposee SET reprise_le = datetime('now'), reprise_par = ? WHERE id = ?`);
+  db.transaction(() => {
+    for (const [g, p, code, val] of an.faire) {
+      if (g === 'ecrire') ecrire.run(p.etudiant_id, annee, an.ue, code, val, p.mention || null, origine || `proposition:${p.propose_par || ''}`, coursCode);
+      pointer.run(qui, p.id);
+    }
+  })();
+}
+
+/* LA REPRISE AUTOMATIQUE (Charles, 8 octobre 2026 : « les notes des carnets de
+ * notes n'apparaissent pas en délibération » — choix : « reprise auto »). Ce que
+ * l'enseignant enregistre dans Mes cours entre dans l'encodage officiel :
+ *   · seulement dans une case officielle VIDE (ou identique, simplement pointée) ;
+ *     une case qui DIFFÈRE attend la coordination (« Reprendre les propositions ») ;
+ *   · jamais dans une séance close : la première session close, on écrit en
+ *     seconde, et pour les seuls ajournés de l'unité ; la seconde close, rien ;
+ *   · CM, note de cours sans acquis, cours reporté : comme au bouton, nommés, non repris.
+ * Chaque note porte son origine `proposition:auto:<qui>`. */
+export function repriseAutomatique(coursCode, annee, qui = 'reprise automatique') {
+  const ue = db.prepare('SELECT ue_num FROM cours WHERE cours_code = ? ORDER BY (annee_scolaire = ?) DESC LIMIT 1').get(coursCode, annee)?.ue_num;
+  if (ue == null) return null;
+  const close = ses => !!db.prepare(`SELECT 1 FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ? AND session = ? AND cloturee = 1`).get(ue, annee, ses);
+  let session = 1, permis = null;
+  if (close(1)) {
+    if (close(2)) return { session: null, ecrites: 0 };
+    session = 2;
+    permis = new Set(db.prepare(`SELECT etudiant_id FROM etudiant_inscription WHERE ue_num = ? AND annee_scolaire = ? AND resultat = 'ajourne'`)
+      .all(ue, annee).map(x => x.etudiant_id));
   }
+  const an = analyserReprise(coursCode, annee, session, new Set(), { etudiantsPermis: permis, enAttente: true, suivreProposition: true });
+  if (!an || !an.faire.length) return { session, ecrites: 0, differentes: an?.r0.differentes.length || 0 };
+  appliquerReprise(an, annee, coursCode, qui, `proposition:auto:${qui}`);
+  return { session, ecrites: an.r0.a_poser.length + an.r0.remplacees, identiques: an.r0.identiques, differentes: an.r0.differentes.length };
+}
+
+/** Les propositions en attente, reprises au démarrage (celles d'avant la reprise
+ *  automatique). Mêmes règles ; idempotent : une case remplie n'est plus vide. */
+export function rattraperPropositions() {
+  let total = 0;
+  try {
+    for (const { cours_code, annee_scolaire } of db.prepare(`SELECT DISTINCT cours_code, annee_scolaire FROM note_proposee WHERE reprise_le IS NULL`).all()) {
+      try { total += repriseAutomatique(cours_code, annee_scolaire)?.ecrites || 0; } catch (e) { console.error('[reprise auto]', cours_code, e.message); }
+    }
+  } catch { /* table absente */ }
+  if (total) console.log(`[reprise auto] ${total} note(s) proposée(s) reprise(s) dans l'encodage officiel`);
+  return total;
+}
+
+/* LES STATISTIQUES DE L'UNITÉ (Charles, 8 octobre 2026 : « il faut prévoir les
+ * statistiques au niveau de l'UE aussi »). La note d'unité de chaque inscrit,
+ * calculée par la délibération elle-même (delibererUE) sur l'encodage officiel —
+ * ANONYME : l'enseignant voit la forme de l'unité, pas les notes des autres
+ * cours étudiant par étudiant. Et la moyenne de chaque cours de l'unité. */
+r.get('/:coursCode/stats-ue', authRequired, async (req, res) => {
+  const annee = String(req.query.annee || anneeDeTravail(req));
+  const session = Number(req.query.session) === 2 ? 2 : 1;
+  const d = accesCours(req, req.params.coursCode, annee);
+  if (!d) return res.status(403).json({ error: "Ce cours n'est ni dans vos attributions, ni dans votre section." });
+  const { delibererUE } = await import('./acquis.js');
+  const ue = d.ueNum;
+  const nomUE = db.prepare('SELECT MIN(ue_nom) n FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ue, annee)?.n || '';
+  const etus = db.prepare(`SELECT DISTINCT i.etudiant_id id FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+      WHERE i.annee_scolaire = ? AND i.ue_num = ? AND COALESCE(e.sortie_statut, '') <> 'archive'`).all(annee, ue);
+  const notes = []; let ajournes = 0, sansNote = 0;
+  const parCours = new Map();
+  for (const { id } of etus) {
+    let r = null; try { r = delibererUE(id, ue, annee, session); } catch { r = null; }
+    if (!r) { sansNote++; continue; }
+    const n = r.ue?.note_calculee;
+    if (n == null) sansNote++; else notes.push(n);
+    if (r.ue?.na) ajournes++;
+    for (const c of r.cours || []) {
+      if (c.note == null) continue;
+      const x = parCours.get(c.cours_code) || { cours_code: c.cours_code, cours_nom: c.cours_nom || '', notes: [] };
+      x.notes.push(Number(c.note)); parCours.set(c.cours_code, x);
+    }
+  }
+  const moy = a => (a.length ? a.reduce((s, v) => s + v, 0) / a.length : null);
+  res.json({ ue_num: ue, ue_nom: nomUE, annee, session, inscrits: etus.length, notes, ajournes, sans_note: sansNote,
+    cours: [...parCours.values()].map(c => ({ cours_code: c.cours_code, cours_nom: c.cours_nom, n: c.notes.length,
+      moyenne: moy(c.notes), reussites: c.notes.filter(v => Math.round(v) >= 10).length,
+      ce_cours: c.cours_code === req.params.coursCode })).sort((a, b) => a.cours_code.localeCompare(b.cours_code, 'fr', { numeric: true })) });
+});
+
+r.post('/:coursCode/reprendre', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
+  const coursCode = req.params.coursCode;
+  const annee = String(req.body?.annee || anneeDeTravail(req));
+  const session = Number(req.body?.session) === 2 ? 2 : 1;
+  const simulation = req.body?.simulation !== false;
+  const remplacer = new Set((Array.isArray(req.body?.remplacer) ? req.body.remplacer : []).map(x => `${x.etudiant_id}|${x.aa_code}`));
+  const ue0 = db.prepare('SELECT ue_num FROM cours WHERE cours_code = ? AND annee_scolaire = ? LIMIT 1').get(coursCode, annee)?.ue_num
+    ?? db.prepare('SELECT ue_num FROM cours WHERE cours_code = ? ORDER BY annee_scolaire DESC LIMIT 1').get(coursCode)?.ue_num;
+  if (ue0 == null) return res.status(404).json({ error: 'Cours inconnu.' });
+  const perim = getUserSections(req.user);
+  if (perim) {
+    const sec = db.prepare('SELECT section FROM ue WHERE ue_num = ? AND section IS NOT NULL LIMIT 1').get(ue0)?.section;
+    if (sec && !perim.includes(sec)) return res.status(403).json({ error: 'Cours hors de votre périmètre.' });
+  }
+  const an = analyserReprise(coursCode, annee, session, remplacer);
+  const qui = req.user?.nom || req.user?.email || null;
+  if (!simulation) appliquerReprise(an, annee, coursCode, qui);
+  const { ue, props, r0 } = an;
   res.json({ ok: true, simulation, cours_code: coursCode, ue_num: ue, annee, session,
     propositions: props.length, ...r0, a_poser: r0.a_poser.length, a_poser_liste: r0.a_poser.slice(0, 300) });
 });
