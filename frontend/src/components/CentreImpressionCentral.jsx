@@ -10,8 +10,9 @@ import { nomPropre } from '../lib/nom.js';
 import {
   IconPrinter, IconUsers, IconSchool, IconChartBar, IconCalendarStats,
   IconBooks, IconAlertTriangle, IconChevronRight, IconChevronDown, IconSearch,
-  IconDownload, IconSend, IconFilePlus,
+  IconDownload, IconSend, IconFilePlus, IconMailForward,
 } from '@tabler/icons-react';
+const RegistreEnvois = lazy(() => import('./RegistreEnvois.jsx'));
 import PreviewModal from './PreviewModal.jsx';
 import SaisieAnnexe from './SaisieAnnexe.jsx';
 /* La séance de valorisation est chargée à la demande : Éditions s'ouvre
@@ -2209,6 +2210,15 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
                                                   membreInitial = null, outilsMembre = null,
                                                   familleInitiale = null, onClose }) {
   const [onglet, setOnglet] = useState(ongletInitial);
+  /* CE QUI EST PARTI SE RETROUVE ICI (demande du secrétariat, 8 octobre 2026 :
+     « voir l'historique des messages envoyés — pour ne pas faire de doublons et
+     vérifier qu'un étudiant a bien reçu le document qu'il demande »). Le
+     registre vivait dans Configuration, où le secrétariat n'entre pas ; la
+     route le lui ouvrait déjà (geste « envoyer »). Même geste, même porte : qui
+     envoie voit ce qui est parti. */
+  const { peut: peutDroit } = useDroits();
+  const onglets = peutDroit('envois.envoyer')
+    ? [...ONGLETS, { cle: 'envois', label: 'Envois', icon: IconMailForward }] : ONGLETS;
   // Dans un axe qui porte deux familles : les pièces par personne, ou les
   // rapports du catalogue. On entre par les pièces, qui sont le quotidien.
   /* La famille par défaut : les pièces dans Étudiants — c'est son métier —,
@@ -2249,7 +2259,7 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
       {/* Les domaines : ce qu'on sort ici porte sur les étudiants, le
           personnel, l'établissement… Le domaine ouvert est le seul en marine. */}
       <div className="flex gap-1 flex-wrap mb-4 pb-3 border-b border-slate-200">
-        {ONGLETS.map(o => (
+        {onglets.map(o => (
           <button key={o.cle} onClick={() => setOnglet(o.cle)}
             className={`px-3 py-1.5 rounded-champ text-[13px] inline-flex items-center gap-1.5
               transition-colors duration-150 ease-ios
@@ -2270,7 +2280,9 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
           Ranger sans vérifier que la pièce arrive quelque part, c'est déplacer
           un dossier dans un tiroir qui n'existe pas. L'axe porte donc une
           bascule quand il a les deux familles. */}
-      {onglet === 'etudiants' ? (
+      {onglet === 'envois' ? (
+        <Suspense fallback={<div className="text-[13px] text-slate-400">Chargement…</div>}><RegistreEnvois /></Suspense>
+      ) : onglet === 'etudiants' ? (
         <>
           <div className="px-1 pb-3 flex flex-wrap items-center gap-3">
             <span className="seg-fam">

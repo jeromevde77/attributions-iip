@@ -139,7 +139,15 @@ export default function Amenagements({ etudId, annee }) {
       <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg text-[13px] text-white" style={{ background: 'var(--c-reussi, #3E7D5E)' }}>
         <b>{libelle} validé</b> le {quand(v.valide_le)} par {v.valide_par || '—'}.
         {suite && <span className="text-white/90">{suite}</span>}
-        {v.peut !== false && <button type="button" className="ml-auto underline text-white/90 text-[12px]" onClick={() => geste(route, 'DELETE')}>rouvrir</button>}
+        {/* ROUVRIR POUR CORRIGER, tant que le Conseil n'a pas tranché ; rouvrir la
+            demande rouvre d'abord le rapport, qui en dépend (Charles, 8 octobre 2026). */}
+        {v.peut !== false && !c?.decide && (
+          <button type="button" className="ml-auto bouton h-7 text-[12px]" style={{ background: '#fff', color: 'var(--c-texte, #1B2B4B)' }}
+            onClick={async () => {
+              if (vol === 'a' && c?.b?.valide_le && !(await geste('valider-b', 'DELETE'))) return;
+              await geste(route, 'DELETE');
+            }}>Rouvrir pour corriger</button>)}
+        {c?.decide && <span className="ml-auto text-[12px] text-white/90">Le Conseil a décidé : le dossier ne se rouvre plus.</span>}
       </div>
     ) : (
       <div className="flex flex-wrap items-center gap-2">
