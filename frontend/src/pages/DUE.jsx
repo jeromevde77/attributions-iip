@@ -7,7 +7,7 @@ import {
 } from '@tabler/icons-react';
 import { api } from '../lib/api.js';
 import { ouvrirApercu } from '../lib/apercu.js';
-import EditeurTexte from '../components/EditeurTexte.jsx';
+import EditeurDUE from '../components/EditeurDUE.jsx';
 
 /**
  * LES DESCRIPTIFS D'UNITÉ D'ENSEIGNEMENT.
@@ -225,12 +225,12 @@ function Riche({ valeur, onChange, lecture }) {
   if (lecture) {
     if (!valeur) return <div className="text-[13px] text-slate-400 italic">non complété</div>;
     return estHtml(valeur)
-      ? <div className="texte-corpus text-[13px]" dangerouslySetInnerHTML={{ __html: valeur }} />
+      ? <div className="texte-due" dangerouslySetInnerHTML={{ __html: valeur }} />
       : <div className="text-[13px] text-slate-700 whitespace-pre-wrap">{valeur}</div>;
   }
   return (
     <div className="border border-slate-300 rounded-lg overflow-hidden bg-white">
-      <EditeurTexte valeur={enHtml(valeur)} onChange={onChange} importer={false} />
+      <EditeurDUE valeur={enHtml(valeur)} onChange={onChange} />
     </div>);
 }
 
@@ -345,8 +345,8 @@ function Situation({ d }) {
       <p className="m-0">{S.suites?.length ? <>L'UE {n} <b>est prérequise à</b> {lien(S.suites)}.</> : <>L'UE {n} n'est prérequise à aucune autre unité.</>}</p>
       {S.schema && <>
         {/* Le dessin vient du serveur (lib/schemaSvg.js) : le même que la fiche de l'étudiant. */}
-        <div className="border border-slate-200 rounded-lg p-2 bg-white max-w-full [&_svg]:w-full [&_svg]:h-auto" style={{ width: 520 }} dangerouslySetInnerHTML={{ __html: S.schema }} />
-        <p className="text-[11px] text-slate-500 m-0">En bleu plein, cette unité ; en bleu clair, ses prérequis et ses suites. Les liens se règlent dans les référentiels (prérequis).</p>
+        <div className="inline-block border border-slate-200 rounded-lg p-1.5 bg-white max-w-full overflow-x-auto" dangerouslySetInnerHTML={{ __html: S.schema }} />
+        <p className="text-[11px] text-slate-500 m-0">En bleu plein, cette unité ; cerclées de bleu, ses prérequis et ses suites. Les liens se règlent dans les référentiels (prérequis).</p>
       </>}
     </div>);
 }
@@ -740,8 +740,6 @@ function Fiche({ ueNum, onRetour }) {
           <Su label="Code FWB" valeur={u.ue_code_fwb} />
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
-          <Champ label="Cursus" valeur={c.cursus} lecture={lecture}
-            placeholder={u.section} onChange={v => maj('cursus', v)} />
           <Responsable c={c} d={d} lecture={lecture} onChange={v => maj('responsable', v)} />
           <Champ label="Bloc d'études administratif" valeur={c.bloc} lecture={lecture}
             placeholder="1, 2 ou 3" onChange={v => maj('bloc', v)} />

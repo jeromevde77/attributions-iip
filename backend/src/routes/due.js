@@ -31,7 +31,7 @@ import { identiteEtablissement } from './config.js';
 import { getParam } from './parametres.js';
 import { introductionAcquis } from './aa.js';
 import { construireGraphe } from './capitalisation.js';
-import { schemaSvg } from '../lib/schemaSvg.js';
+import sanitizeHtml from 'sanitize-html';
 import { assainir } from '../lib/texteCorpus.js';
 import { gesteAutorise } from '../lib/gestes.js';
 
@@ -223,10 +223,45 @@ function situationDansLaSection(ue, annee) {
         // construireGraphe passe le NUMÉRO de l'unité, pas le nœud.
         etat: num => (num === ue.ue_num ? { statut: 'accessible', inscrite: true }
           : proches.has(num) ? { statut: 'accessible' } : { statut: 'bloquee' }) });
-      if (g.nodes?.length) schema = schemaSvg(g);
+      if (g.nodes?.length) schema = miniSchema(g, ue.ue_num, proches);
     }
     return { prerequis, suites, schema };
   } catch (e) { console.error('[due] situation :', e.message); return { prerequis: [], suites: [], schema: null }; }
+}
+
+/* LE MINI SCHÉMA (Charles, 8 octobre 2026 : « trop grand ; pas un énorme schéma,
+   juste le numéro de l'UE »). Les colonnes et l'ordre du schéma de capitalisation
+   (construireGraphe), en petites pastilles : l'unité en bleu IIP plein, ses
+   prérequis et ses suites cerclés de bleu, le reste en gris ; les flèches du
+   référentiel. Titres de colonne : le bloc (BA1, BE1…). */
+function miniSchema(g, num, proches) {
+  const W = 40, H = 18, GX = 22, GY = 6, TETE = 14, PAD = 4;
+  const cols = [...new Set(g.nodes.map(n => n.couche))].sort((a, b) => a - b);
+  const ix = Object.fromEntries(cols.map((c, i) => [c, i]));
+  const pos = {}; const rang = {};
+  for (const n of [...g.nodes].sort((a, b) => a.couche - b.couche || a.ordre - b.ordre || a.ue_num - b.ue_num)) {
+    const r = rang[n.couche] = (rang[n.couche] ?? -1) + 1;
+    pos[n.ue_num] = { x: PAD + ix[n.couche] * (W + GX), y: PAD + TETE + r * (H + GY) };
+  }
+  const largeur = PAD * 2 + cols.length * W + (cols.length - 1) * GX;
+  const hauteur = PAD * 2 + TETE + Math.max(...Object.values(rang)) * (H + GY) + H;
+  const titres = (g.colonnes || []).filter(c => c.label && ix[c.index] != null)
+    .map(c => `<text x="${PAD + ix[c.index] * (W + GX) + W / 2}" y="${PAD + 9}" text-anchor="middle" font-size="8" font-weight="700" fill="#94A3B8">${esc(c.label)}</text>`).join('');
+  const fleches = (g.edges || []).filter(e => pos[e.from] && pos[e.to]).map(e => {
+    const a = pos[e.from], b = pos[e.to];
+    const fort = e.from === num || e.to === num;
+    return `<path d="M${a.x + W},${a.y + H / 2} C${a.x + W + GX / 2},${a.y + H / 2} ${b.x - GX / 2},${b.y + H / 2} ${b.x - 2},${b.y + H / 2}" fill="none" stroke="${fort ? '#19537E' : '#CBD5E1'}" stroke-width="${fort ? 1.2 : 0.8}" marker-end="url(#f${fort ? 'f' : 'g'})"/>`;
+  }).join('');
+  const boites = g.nodes.map(n => {
+    const p = pos[n.ue_num]; const moi = n.ue_num === num; const proche = proches.has(n.ue_num);
+    const fond = moi ? '#19537E' : '#FFFFFF', bord = moi ? '#19537E' : proche ? '#19537E' : '#D8DCE4', texte = moi ? '#FFFFFF' : proche ? '#19537E' : '#94A3B8';
+    return `<rect x="${p.x}" y="${p.y}" width="${W}" height="${H}" rx="4" fill="${fond}" stroke="${bord}" stroke-width="${proche || moi ? 1.2 : 0.8}"/>
+      <text x="${p.x + W / 2}" y="${p.y + 12.5}" text-anchor="middle" font-size="9" font-weight="${moi || proche ? 700 : 500}" fill="${texte}">${n.ue_num}</text>`;
+  }).join('');
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${largeur} ${hauteur}" width="${largeur}" height="${hauteur}" font-family="Inter, Arial, sans-serif">
+    <defs><marker id="ff" viewBox="0 0 6 6" refX="5" refY="3" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#19537E"/></marker>
+    <marker id="fg" viewBox="0 0 6 6" refX="5" refY="3" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#CBD5E1"/></marker></defs>
+    ${titres}${fleches}${boites}</svg>`;
 }
 
 /** LES FINALITÉS EN DEUX (Charles, 8 octobre 2026) : le dossier pédagogique les
@@ -454,7 +489,7 @@ r.put('/:ueNum', authRequired, (req, res) => {
   }
   // LA MISE EN PAGE SE FILTRE À L'ÉCRITURE (liste fermée, lib/texteCorpus.js) :
   // la base ne garde que du texte sûr, le document peut l'afficher tel quel.
-  for (const k of CHAMPS_RICHES) if (typeof contenu[k] === 'string' && estHtml(contenu[k])) contenu[k] = assainir(contenu[k]);
+  for (const k of CHAMPS_RICHES) if (typeof contenu[k] === 'string' && estHtml(contenu[k])) contenu[k] = assainirDUE(contenu[k]);
   if (Array.isArray(contenu.points)) {
     contenu.points = contenu.points.filter(p => p && typeof p === 'object').slice(0, 300)
       .map(p => ({ type: ['intro', 'chapeau', 'point'].includes(p.type) ? p.type : 'point',
@@ -580,11 +615,22 @@ function bloc(titre, corps) {
 }
 const para = t => String(t || '').split(/\n+/).filter(Boolean)
   .map(l => `<p>${esc(l)}</p>`).join('') || '<p class="vide">à compléter</p>';
-// Les champs que la coordination met en page (gras, couleurs, listes, tableaux).
+/* LE FILTRE DE LA DUE (Charles, 8 octobre 2026 : « pas trop de choix ») : gras,
+   italique, souligné, puces, cadre, ligne, et cinq couleurs — rien d'autre. */
+const COULEURS_DUE = ['#19537E', '#05B7E6', '#F9B619', '#3E7D5E', '#D2335C'];
+function assainirDUE(html) {
+  return sanitizeHtml(String(html || ''), {
+    allowedTags: ['p', 'br', 'hr', 'blockquote', 'strong', 'b', 'em', 'i', 'u', 'span', 'ul', 'li'],
+    allowedAttributes: { span: ['style'] },
+    allowedStyles: { span: { color: [new RegExp(`^(${COULEURS_DUE.join('|')})$`, 'i'), /^rgb\(\s*(25,\s*83,\s*126|5,\s*183,\s*230|249,\s*182,\s*25|62,\s*125,\s*94|210,\s*51,\s*92)\s*\)$/] } },
+    transformTags: { ol: 'ul', h1: 'p', h2: 'p', h3: 'p', h4: 'p' },
+  }).trim();
+}
+// Les champs que la coordination met en page.
 const CHAMPS_RICHES = ['finalites_generales', 'finalites', 'programme', 'criteres', 'degre_maitrise', 'note_ue'];
 const estHtml = t => /<\/?(p|br|b|strong|i|em|u|ul|ol|li|span|h[1-4]|table|mark|sub|sup|a)\b/i.test(String(t || ''));
 /** Un texte riche (HTML filtré) tel quel ; un texte simple, en paragraphes. */
-const riche = t => (estHtml(t) ? `<div class="riche">${assainir(t)}</div>` : para(t));
+const riche = t => (estHtml(t) ? `<div class="riche">${assainirDUE(t)}</div>` : para(t));
 
 /**
  * LE TABLEAU DES CRITÈRES (Charles, 30 septembre 2026 ; le modèle : UE 333,
@@ -695,7 +741,6 @@ export function documentDUE(ueNum, annee) {
     : (typeof c.responsable === 'string' && !/^\d+$/.test(c.responsable) ? c.responsable : null);
 
   const ident = [
-    ['Cursus', c.cursus || auto.ue.section],
     ['Section', u.section],
     ["Bloc d'études", c.bloc ? `Bloc ${c.bloc}` : null],
     ['Situation dans la formation', u.quadrimestre],
@@ -847,11 +892,16 @@ const STYLE_DUE = `<style>
   table.doc.crit td, table.doc.crit th { vertical-align: top; font-size: 8pt; }
   table.doc.crit tr { break-inside: avoid; }
   table.doc.crit th .def { font-weight: 400; font-style: italic; font-size: 7pt; color: #4b5563; margin-top: 0.5mm; }
-  .riche p { margin: 0 0 1.5mm; } .riche ul, .riche ol { margin: 0 0 1.5mm; padding-left: 5mm; }
+  .riche p { margin: 0 0 1.5mm; } .riche ul, .riche ol { margin: 0 0 1.5mm; padding-left: 5mm; list-style: disc; }
+  .riche blockquote { border: 0.25mm solid #C9D3E1; border-radius: 1.5mm; padding: 1.5mm 2.5mm; margin: 1.5mm 0; }
+  .riche hr { border: 0; border-top: 0.3mm solid #C9A84C; margin: 2mm 0; }
+  /* PAS DE TABLEAU DANS UN TABLEAU (Charles, 8 octobre 2026) : un bloc qui porte un
+     tableau perd son propre cadre ; le tableau s'aligne sous le titre. */
+  .bloc-c:has(> table.doc) { border: 0; padding: 1.5mm 0 0; }
   .riche table { border-collapse: collapse; width: 100%; } .riche td, .riche th { border: 0.25mm solid #d8dde6; padding: 1mm 1.5mm; }
   .intro-prog { font-style: italic; color: #4b5563; margin: 0 0 1mm; }
   .sous-t { font-weight: 700; color:#1B2B4B; font-size: 8.5pt; margin: 2.5mm 0 1mm; }
-  .schema-due { margin: 2mm 0 0; } .schema-due svg { max-width: 120mm; max-height: 70mm; height: auto; }
+  .schema-due { margin: 2mm 0 0; } .schema-due svg { max-width: 90mm; height: auto; }
 </style>`;
 
 r.get('/:ueNum/document', authRequired, (req, res) => {
