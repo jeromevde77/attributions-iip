@@ -307,7 +307,7 @@ function Situation({ d }) {
       {S.schema && <>
         {/* Le dessin vient du serveur (lib/schemaSvg.js) : le même que la fiche de l'étudiant. */}
         <div className="inline-block border border-slate-200 rounded-lg p-1.5 bg-white max-w-full overflow-x-auto" dangerouslySetInnerHTML={{ __html: S.schema }} />
-        <p className="text-[11px] text-slate-500 m-0">En bleu plein, cette unité ; cerclées de bleu, ses prérequis et ses suites. Les liens se règlent dans les référentiels (prérequis).</p>
+        <p className="text-[11px] text-slate-500 m-0">En bleu plein, cette unité ; cerclées de bleu, ses prérequis et ses suites ; en bleu, les flèches qui la touchent ; pastille marine : unité déterminante. Les liens se règlent dans les référentiels (prérequis).</p>
       </>}
     </div>);
 }
