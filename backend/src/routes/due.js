@@ -891,8 +891,9 @@ export function documentDUE(ueNum, annee) {
   const corps = `
   <div class="attestation">
     <div class="tete-due">
-      <div class="reperes">${[u.section, [u.niv, u.quadrimestre].filter(Boolean).join(' · '), u.ects ? `${u.ects} ECTS` : null,
-        u.periodes ? `${u.periodes} périodes` : null].filter(Boolean).map(esc).join('<span class="pt">·</span>')}
+      <!-- La ligne « section · bloc · ECTS · périodes » répétait la grille juste en
+           dessous (Charles, 8 octobre 2026) : seul l'état de la pièce reste. -->
+      <div class="reperes">
         <span class="etat ${statut === 'validee' ? 'ok' : 'brouillon'}">${statut === 'validee'
     ? `Validée par la direction le ${esc(valide_le || '')}` : 'En préparation — non validée'}</span></div>
     </div>
