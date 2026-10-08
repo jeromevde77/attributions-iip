@@ -396,7 +396,8 @@ function Liste({ onOuvrir }) {
 const COLONNES_CRIT = [
   ['point', 'Critère', 'l’AA contextualisée par le point du programme : l’étudiant est capable concrètement de…'],
   ['indicateur', 'Indicateurs', 'l’échelle : quand j’observe que c’est réussi (seuil = 50 %) — composé des degrés de maîtrise du DP'],
-  ['non_reussite', 'Signe de non-réussite'], ['exemple', 'Exemples de question'],
+  // Signe de non-réussite et exemples de question : le chargé de cours les donne en
+  // classe (Charles, 8 octobre 2026) — ils ne figurent pas dans la DUE.
 ];
 // **gras** dans une case, comme sur le modèle.
 const avecGras = t => String(t || '').split(/(\*\*.+?\*\*)/g).map((m, i) => (/^\*\*.+\*\*$/.test(m) ? <b key={i}>{m.slice(2, -2)}</b> : m));
@@ -459,7 +460,7 @@ function GrilleCriteres({ d, c, lecture, ueNum, onGrille, onMode }) {
               </tr></thead>
               <tbody>
                 {!lignes.length && (
-                  <tr><td colSpan={7} className="px-2 py-2 text-slate-400">Aucune ligne. {!lecture && 'Ajoutez un acquis ci-dessous, ou tous d’un coup.'}</td></tr>
+                  <tr><td colSpan={5} className="px-2 py-2 text-slate-400">Aucune ligne. {!lecture && 'Ajoutez un acquis ci-dessous, ou tous d’un coup.'}</td></tr>
                 )}
                 {lignes.map((l, i) => {
                   const premier = i === 0 || lignes[i - 1].aa_code !== l.aa_code;
@@ -926,7 +927,7 @@ function Fiche({ ueNum, onRetour }) {
         </div>
       </Bloc>
 
-      <Bloc titre="Critères d'évaluation" aide="Acquis par acquis, sous son chapeau : le critère, l'indicateur, le signe de non-réussite, un exemple de question. Pour mettre un mot en gras dans une case : **mot**.">
+      <Bloc titre="Critères d'évaluation" aide="Acquis par acquis, sous son chapeau : le critère et ses indicateurs. Pour mettre un mot en gras dans une case : **mot**.">
         <GrilleCriteres d={d} c={c} lecture={lecture} ueNum={ueNum}
           onGrille={g => maj('grille_criteres', g)}
           onMode={unique => setD(x => ({ ...x, evaluation_unique: unique }))} />
