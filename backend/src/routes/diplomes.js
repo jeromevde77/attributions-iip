@@ -812,11 +812,14 @@ function bandeVerticale(texte) {
   V.forEach(([sens, ph, amp], k) => {
     let a = '';
     for (let x = -10; x <= 1020; x += 3) a += (a ? 'L' : 'M') + x + ' ' + (14 + amp * Math.sin(sens * x / 22 + ph)).toFixed(2);
-    defs += `<path id="sbv-${k}" d="${a}"/>`;
-    txt += `<text font-size="2.3" letter-spacing=".25" fill="${k < 2 ? '#C3CBD7' : '#D3D9E2'}"><textPath href="#sbv-${k}" startOffset="${k * 19}">${code.repeat(12)}</textPath></text>`;
+    defs += `<path id="v${k}" d="${a}"/>`;
+    txt += `<text font-size="2.3" letter-spacing=".25" fill="${k < 2 ? '#A9B3C2' : '#C3CBD7'}"><textPath href="#v${k}" startOffset="${k * 19}">${code.repeat(12)}</textPath></text>`;
   });
-  return `<div class="sup-bande"><svg class="sup-bande-svg" viewBox="0 0 1000 28" aria-hidden="true">
-<defs>${defs}</defs><g font-family="Arial, Helvetica, sans-serif" font-weight="700">${txt}</g></svg></div>`;
+  // Debout : la bande de 1000 × 28 tourne d'un quart de tour, de bas en haut.
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 1000" width="28" height="1000"><defs>${defs}</defs>`
+    + `<g transform="translate(0 1000) rotate(-90)" font-family="Arial, Helvetica, sans-serif" font-weight="700">${txt}</g></svg>`;
+  // Guillemets SIMPLES : l'url se pose dans un attribut style="…".
+  return `url('data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}')`;
 }
 
 function supplementDiplome(d, ctx) {
@@ -865,14 +868,13 @@ function supplementDiplome(d, ctx) {
   /* LA BANDE VERTICALE DE CHAQUE PAGE (Charles, 8 octobre 2026 : « comme celui
      en forme d'ADN, mais au travers, à gauche »). Les vagues de micro-texte du
      fac-similé de la signature (lib/filigraneDocument.js), posées debout le
-     long du bord gauche ; en `fixed`, elles se répètent sur chaque feuille. Le
-     PDF du serveur ne peint rien dans la marge : la bande vit dans la zone de
-     contenu, et le texte se décale d'autant. Même dessin et même texte pour
-     toute une section — un lot imprime toutes les pièces dans un document, et
-     des bandes identiques s'y superposent sans se brouiller. */
+     long du bord gauche. C'est un FOND de la pièce, répété sur toute sa
+     hauteur : il suit la feuille à l'écran comme sur le papier — un élément
+     `fixed` se collait au bord de la fenêtre, hors de la feuille, et
+     l'aperçu ne le montrait pas. Le PDF ne peint rien dans la marge : la
+     bande vit dans la zone de contenu, et le texte se décale d'autant. */
   const bande = bandeVerticale(`Supplément au diplôme · ${ident.nom} · ${titreDiplome} · ${ctx.annee || ''}`);
-  return `<div class="attestation piece supplement">
-    ${bande}
+  return `<div class="attestation piece supplement" style="background-image:${bande}">
     ${enteteDocument({ titre: 'Supplément au diplôme', sous: `Diploma Supplement · ${titreDiplome}`, ligne: nomComplet })
       .replace('<div class="doc-cadre">', `<div class="doc-cadre doc-cadre-europass"><img class="europass" src="${LOGO_EUROPASS}" alt="Europass">`)}
 
@@ -1043,10 +1045,8 @@ const STYLE_SUPPLEMENT = `<style>
   .supplement .final { margin-top: 2mm; font-size: 10pt; color: #1B2B4B; }
   .supplement ul.seuils, .supplement ul.sources { margin: 0; padding-left: 5mm; }
   .supplement .ouv { break-inside: avoid; }
-  .supplement { padding-left: 10mm; }
-  .sup-bande { position: fixed; left: 0; bottom: 0; width: 250mm; height: 7mm;
-    transform: translateX(7mm) rotate(-90deg); transform-origin: left bottom; pointer-events: none; }
-  .sup-bande-svg { display: block; width: 100%; height: 100%; }
+  .supplement { padding-left: 10mm; background-repeat: repeat-y; background-size: 7mm 250mm; background-position: left top;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .supplement .doc-cadre-europass { position: relative; padding-right: 48mm; }
   .supplement .europass { position: absolute; right: 4mm; top: 50%; transform: translateY(-50%); height: 9mm; width: auto; }
   .supplement .rub8 { break-inside: avoid; }
