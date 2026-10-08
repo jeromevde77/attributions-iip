@@ -30,6 +30,9 @@ const EQUIV_PERIODES_B = [
   [/secr[ée]taire de direction|comptable|[ée]conome/i, 900], [/chef d.atelier/i, 1000],
   [/[ée]ducateur|r[ée]dacteur|commis|secr[ée]tai/i, 800],
 ];
+/** La fonction et le code de ses lignes d'attribution (table type_encadrement). */
+const CODE_COORDINATION = [[/cursus/i, 'COCUR'], [/stage/i, 'COSTA'], [/tfe|fin d.[ée]tudes/i, 'COTFE'],
+  [/section/i, 'COSEC'], [/qualit/i, 'COQUAL'], [/inclusi/i, 'COINCL'], [/r[ée]f[ée]rent/i, 'CREF']];
 export function semerCoutsFonctions(dbx = db) {
   const ins = dbx.prepare(`INSERT OR IGNORE INTO parametre (cle, valeur, label, section, groupe) VALUES (?,?,?,?,?)`);
   for (const t of dbx.prepare('SELECT id, libelle, portee FROM fonction_type ORDER BY ordre, libelle').all()) {
@@ -215,10 +218,14 @@ export function donneesCout(annee) {
   // ── Les fonctions (direction, secrétariat, coordinations…) : coût annuel
   //    d'un temps plein × ETP de la personne dans la fonction, cette année.
   try { semerCoutsFonctions(); } catch { /* table absente */ }
+  const lignesCoordination = db.prepare(`SELECT v.section, v.niveau, COALESCE(v.type_cours, 'CT') AS type,
+      SUM(v.total_attribue_professeur) AS periodes FROM v_attribution_complete v
+     WHERE v.professeur_id = ? AND v.annee_scolaire = ? AND v.coordination_encadrement = ?
+       AND COALESCE(v.en_conge, 0) = 0 GROUP BY v.section, v.niveau, type`);
   let missions = [];
   try {
     missions = db.prepare(`
-      SELECT pm.fonction, pm.section_code, pm.etp, pm.etp_helb, p.nom, p.prenom, ft.id AS type_id, ft.portee AS type_portee,
+      SELECT pm.fonction, pm.section_code, pm.etp, pm.etp_helb, pm.professeur_id, p.nom, p.prenom, ft.id AS type_id, ft.portee AS type_portee,
         (SELECT COALESCE(SUM(a.periodes_attribuees), 0) FROM attribution a
           WHERE a.professeur_id = pm.professeur_id AND a.annee_scolaire = pm.annee_scolaire) AS per_attribuees
         FROM personnel_mission pm JOIN professeur p ON p.id = pm.professeur_id
@@ -271,7 +278,27 @@ export function donneesCout(annee) {
             etp_helb_compte: etpHelb, etp_iip_compte: partIIP,
             calcul: `${quoi} × 800 × ${tCT.toFixed(2).replace('.', ',')} € (CT ${niv})${per && etpHelb ? ' — hors ses périodes' : ''}`, cout: etpCompte * 800 * tCT };
         }
-        return { ...m, pncc, portee, etp, annuel: 0, mode: per ? 'periodes' : 'sans_etp', cout: 0 };
+        /* PAYÉE PAR SES PÉRIODES, MAIS CHIFFRÉE (Charles, 8 octobre 2026 : « j'aimerais
+           quand même avoir les montants, même si payé en périodes — avec un * »). Les
+           lignes d'attribution de la coordination (COCUR, COSTA, COTFE…) au montant de
+           leur période ; déjà dans le coût des cours, elles ne s'ajoutent pas au total
+           des fonctions. */
+        if (per) {
+          const code = CODE_COORDINATION.find(([re]) => re.test(m.fonction || ''))?.[1];
+          const lignesC = code ? lignesCoordination.all(m.professeur_id, annee, code) : [];
+          const dansSection = lignesC.filter(l => l.section === m.section_code);
+          let perC = 0, coutC = 0; const parts = [];
+          for (const l of (dansSection.length ? dansSection : lignesC)) {
+            const niv = ['SUP', 'DS', 'DI'].includes(l.niveau) ? l.niveau : niveauDeSection(l.section);
+            const ty = ['PP', 'CS'].includes(String(l.type || '').toUpperCase()) ? String(l.type).toUpperCase() : 'CT';
+            const t = T[niv]?.[ty] || 0;
+            perC += l.periodes; coutC += l.periodes * t;
+            parts.push(`${Math.round(l.periodes)} pér. × ${t.toFixed(2).replace('.', ',')} € (${ty} ${niv})`);
+          }
+          return { ...m, pncc, portee, etp, annuel: 0, mode: 'periodes', cout: 0,
+            periodes_coord: perC, cout_periodes: coutC, code_coord: code || null, calcul: parts.join(' + ') };
+        }
+        return { ...m, pncc, portee, etp, annuel: 0, mode: 'sans_etp', cout: 0 };
       });
   } catch { missions = []; }
   const coutFonctions = missions.reduce((t, m) => t + m.cout, 0);

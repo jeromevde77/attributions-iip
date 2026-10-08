@@ -917,24 +917,27 @@ function documentCoutFormations(p) {
     if (m.mode === 'etp800') return [[false, m.etp_iip_compte], [true, m.etp_helb_compte]].filter(([, e]) => e).map(([helb, e]) => ({
       ...base, helb, mode: m.mode, etp: e, cout: e * 800 * m.tarif_ct, cle: `${m.tarif_ct}|${m.niveau}`,
       formule: x => `${e1(x)} ETP × 800 × ${m2(m.tarif_ct)} € (CT ${m.niveau})` }));
-    return [{ ...base, helb: false, mode: m.mode, etp: m.etp, cout: 0, cle: '' }];
+    return [{ ...base, helb: false, mode: m.mode, etp: m.etp, cout: 0, cle: '', per: m.periodes_coord || 0, coutP: m.cout_periodes || 0, code: m.code_coord }];
   });
   const groupesF = [];
   for (const x of morceaux) {
     const k = `${x.fonction}|${x.helb}|${x.mode}|${x.cle}`;
     let g = groupesF.find(y => y.k === k);
-    if (!g) groupesF.push(g = { k, fonction: x.fonction, helb: x.helb, mode: x.mode, formule: x.formule, etp: 0, cout: 0, personnes: new Set(), portees: new Set() });
-    g.etp += x.etp || 0; g.cout += x.cout || 0; g.personnes.add(x.personne); if (x.portee) g.portees.add(x.portee);
+    if (!g) groupesF.push(g = { k, fonction: x.fonction, helb: x.helb, mode: x.mode, formule: x.formule, etp: 0, cout: 0, per: 0, coutP: 0, code: x.code, personnes: new Set(), portees: new Set() });
+    g.etp += x.etp || 0; g.cout += x.cout || 0; g.per += x.per || 0; g.coutP += x.coutP || 0; g.personnes.add(x.personne); if (x.portee) g.portees.add(x.portee);
   }
+  const coutEnPeriodes = groupesF.reduce((a, g) => a + (g.coutP || 0), 0);
   const tFonctions = groupesF.length ? `<table><thead><tr><th>Fonction</th><th>Portée</th>
       <th class="n" style="width:18mm">Personnes</th><th class="n" style="width:14mm">ETP</th><th class="n" style="width:66mm">Calcul</th><th class="n" style="width:24mm">Coût</th></tr></thead>
     <tbody>${groupesF.map(g => `<tr><td>${esc(g.fonction)}${g.helb ? pastilleHelb : ''}</td>
       <td>${esc([...g.portees].join(', '))}</td><td class="n">${g.personnes.size}</td>
       <td class="n">${g.etp ? e1(g.etp) : '<span class="fin">à régler</span>'}</td>
-      <td class="n">${g.mode === 'periodes' ? '<span class="fin">payée par les périodes attribuées</span>'
+      <td class="n">${g.mode === 'periodes' ? (g.per ? `${n0(g.per)} pér. de coordination (${esc(g.code || '')}) × la période de leur unité *`
+          : '<span class="fin">payée par les périodes attribuées — aucune ligne de coordination à son nom</span>')
         : g.mode === 'sans_etp' || !g.etp ? '<span class="fin">ETP à régler (onglet Fonctions)</span>' : esc(g.formule(g.etp))}</td>
-      <td class="n">${g.cout ? eur(g.cout) : '—'}</td></tr>`).join('')}</tbody>
-    <tfoot><tr class="repere"><td colspan="5">Ensemble des fonctions${groupesF.some(g => g.helb) ? ` — dont HELB ${eur(groupesF.filter(g => g.helb).reduce((a, g) => a + g.cout, 0))}` : ''}</td><td class="n">${eur(tot.cout_fonctions)}</td></tr></tfoot></table>
+      <td class="n">${g.cout ? eur(g.cout) : g.coutP ? `<i>${eur(g.coutP)}</i> *` : '—'}</td></tr>`).join('')}</tbody>
+    <tfoot><tr class="repere"><td colspan="5">Ensemble des fonctions${groupesF.some(g => g.helb) ? ` — dont HELB ${eur(groupesF.filter(g => g.helb).reduce((a, g) => a + g.cout, 0))}` : ''}</td><td class="n">${eur(tot.cout_fonctions)}</td></tr>
+    ${coutEnPeriodes ? `<tr><td colspan="5">* Fonctions payées par des périodes attribuées — déjà comprises dans le coût des cours, hors total des fonctions</td><td class="n"><i>${eur(coutEnPeriodes)}</i> *</td></tr>` : ''}</tfoot></table>
     <p class="fin"><b>Direction et secrétariat</b> sont des emplois de personnel non chargé de cours (PNCC) : coût = ETP × l'équivalent
       d'un temps plein en <b>périodes B</b> (circulaire 7949 : directeur 1 200, directeur adjoint 1 000, secrétaire de direction 900,
       éducateur-secrétaire 800) × le coût d'une période B. Une <b>coordination</b> tenue par quelqu'un <b>sans période attribuée</b>
@@ -948,6 +951,14 @@ function documentCoutFormations(p) {
      coordination… ça comprend la HE ? »). Oui : cours et fonctions HELB y
      sont, et se lisent à part. */
   const postes = [{ nom: 'Cours — IIP', valeur: tot.cout - (tot.cout_helb || 0) }, { nom: 'Cours — HELB', valeur: tot.cout_helb || 0 }];
+  // Les fonctions payées en périodes sortent des « Cours — IIP » pour se lire à part (*).
+  for (const g of groupesF) {
+    if (!g.coutP) continue;
+    postes[0].valeur -= g.coutP;
+    const nom = `${g.fonction} (en périodes) *`;
+    const p0 = postes.find(x => x.nom === nom);
+    if (p0) p0.valeur += g.coutP; else postes.push({ nom, valeur: g.coutP });
+  }
   for (const g of groupesF) {
     if (!g.cout) continue;
     const nom = `${g.fonction}${g.helb ? ' — HELB' : ''}`;
@@ -1041,7 +1052,7 @@ function documentCoutFormations(p) {
     <h2>Les coûts</h2>
     ${rangeeCamemberts(
       camembert('Coût complet — poste par poste', postesCouleurs, { total: `${Math.round(tot.cout_complet / 1000).toLocaleString('fr-BE')} k€`,
-        note: `HELB comprise : ${eur((tot.cout_helb || 0) + groupesF.filter(g => g.helb).reduce((a, g) => a + g.cout, 0))}` }),
+        note: `HELB comprise : ${eur((tot.cout_helb || 0) + groupesF.filter(g => g.helb).reduce((a, g) => a + g.cout, 0))}${coutEnPeriodes ? ' · * payées par des périodes, comprises dans les cours' : ''}` }),
       camembert('Coût des cours par section', d.sections.filter(S => S.cout).map((S, i) => ({ nom: esc(S.section), valeur: S.cout, couleur: couleursSerie(K)[i % 10] })),
         { total: `${Math.round(tot.cout / 1000).toLocaleString('fr-BE')} k€` }))}
     ${duo(

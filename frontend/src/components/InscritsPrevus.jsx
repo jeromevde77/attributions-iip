@@ -7,8 +7,8 @@
 import { useEffect, useState } from 'react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 
-export default function InscritsPrevus() {
-  const [annee] = useState(getAnnee());
+export default function InscritsPrevus({ annee: anneeChoisie = null, onEnregistre = null, replie = false }) {
+  const annee = anneeChoisie || getAnnee();
   const [sections, setSections] = useState([]);
   const [section, setSection] = useState('');
   const [d, setD] = useState(null);
@@ -33,6 +33,7 @@ export default function InscritsPrevus() {
       body: JSON.stringify({ annee, section, valeurs: Object.entries(valeurs).map(([ue_num, inscrits]) => ({ ue_num: Number(ue_num), inscrits })) }) });
     const j = await r.json().catch(() => ({}));
     setEtat(r.ok ? 'Enregistré.' : (j.error || 'Refusé.'));
+    if (r.ok) onEnregistre?.();
   }
   const champ = (cle, reel) => (
     <input value={valeurs[cle] ?? ''} inputMode="numeric" placeholder={reel ? '—' : 'à saisir'} disabled={!!reel}
@@ -40,8 +41,18 @@ export default function InscritsPrevus() {
       className="controle w-20 text-right disabled:bg-slate-50 disabled:text-slate-400" />
   );
 
-  return (
-    <div className="carte p-4 space-y-3 mt-4">
+  /* DANS ÉDITIONS, AVANT LE RAPPORT (Charles, 8 octobre 2026 : « avant de générer
+     le rapport, je devrais pouvoir entrer le nombre d'étudiants s'ils ne sont pas
+     encore inscrits »). Repliée par défaut ; enregistrer refait la pièce. */
+  if (replie) return (
+    <details className="px-3 py-2 border-b border-slate-200">
+      <summary className="cursor-pointer text-[13px] text-iip-blue">Inscrits prévus — une section ou une unité sans inscrit encodé</summary>
+      {contenu()}
+    </details>);
+  return <div className="carte p-4 mt-4">{contenu()}</div>;
+
+  function contenu() { return (
+    <div className="space-y-3 mt-2">
       <div>
         <div className="text-[15px] font-medium text-iip-blue">Inscrits prévus — {annee}</div>
         <p className="text-[12px] text-slate-500">Pour une section ou une unité qui n’a encore aucun inscrit encodé (Optique, par exemple).
@@ -68,5 +79,5 @@ export default function InscritsPrevus() {
           {etat && <span className="text-[12px] text-slate-600">{etat}</span>}
         </div>)}
     </div>
-  );
+  ); }
 }

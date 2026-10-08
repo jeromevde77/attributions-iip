@@ -1,5 +1,5 @@
 import { ICONE_AXE } from '../lib/iconesAxes.js';
-import { IconReportAnalytics } from '@tabler/icons-react';
+import { IconReportAnalytics, IconReportMoney } from '@tabler/icons-react';
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import { api, getAnnee, getUser, authHeaders } from '../lib/api.js';
 import { IconChartBar, IconHome, IconUsers, IconSettings, IconChevronRight, IconChevronDown, IconPrinter, IconRotateClockwise, IconCheck, IconX, IconTrash, IconCash, IconCalendar, IconArrowsLeftRight, IconScale, IconUsersGroup } from '@tabler/icons-react';
@@ -8,6 +8,7 @@ import Distributions from '../components/Distributions.jsx';
 import Population from '../components/Population.jsx';
 import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
 import Budget from './Budget.jsx';
+import RapportStatistique from '../components/RapportStatistique.jsx';
 import RepartitionPeriodes from './RepartitionPeriodes.jsx';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -1569,6 +1570,11 @@ export default function Pilotage({ vue = 'tout' }) {
            pas ouvrir l'un sans l'autre. « vue » le scinde : « reporting » ne
            montre que ce qui se consulte, « gestion » que ce qui engage. */
         sections={[{ items: [
+          /* LE RAPPORT STATISTIQUE, EN TÊTE (Charles, 8 octobre 2026 : « super
+             important ») — coûts, recettes et personnes, dans les deux vues. */
+          ...(getUser()?.role === 'coordination' ? [] : [
+            { key: 'rapport', label: 'Rapport statistique', icon: IconReportMoney, actif: tab === 'rapport', onClick: () => setTab('rapport') },
+          ]),
           ...(vue === 'gestion' ? [] : [
             { key: 'etp',      label: 'ETP',         icon: IconUsers,    actif: tab === 'etp',      onClick: () => setTab('etp') },
             { key: 'dotation', label: 'Comparaison', icon: IconArrowsLeftRight, actif: tab === 'dotation', onClick: () => setTab('dotation') },
@@ -1610,7 +1616,10 @@ export default function Pilotage({ vue = 'tout' }) {
             pluriannuelle » coiffait aussi les résultats de délibération et les
             distributions de cotes : on annonçait de l'argent et des périodes
             au-dessus de chiffres d'étudiants. */}
-        {['deliberation', 'distributions', 'population'].includes(tab) ? (
+        {tab === 'rapport' ? (
+          <PageHeader icon={IconReportMoney} titre="Rapport statistique"
+            sous="Coûts et recettes des formations, enseignants et personnes — la pièce entière, à l’écran" />
+        ) : ['deliberation', 'distributions', 'population'].includes(tab) ? (
           <PageHeader icon={IconChartBar} titre="Statistiques étudiantes"
             sous="Décisions du Conseil, cotes et effectifs — par section et par unité" />
         ) : (
@@ -1618,7 +1627,9 @@ export default function Pilotage({ vue = 'tout' }) {
             sous={`Année civile ${selYear} · Enveloppes extérieures · Comparaison pluriannuelle`} />
         )}
 
-        {tab === 'repartition' ? (
+        {tab === 'rapport' ? (
+          <RapportStatistique />
+        ) : tab === 'repartition' ? (
           <RepartitionPeriodes />
         ) : tab === 'distributions' ? (
           <Distributions />

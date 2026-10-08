@@ -22,6 +22,7 @@ import { useEnvoiMail } from '../lib/envoiMail.js';
 import { api, authHeaders, getAnnee } from '../lib/api.js';
 import { Fenetre, GroupeFenetre, PieceFenetre } from './ui.jsx';
 import SchemaCapitalisation from './SchemaCapitalisation.jsx';
+import InscritsPrevus from './InscritsPrevus.jsx';
 import { svgImprimable } from '../lib/svgImprimable.js';
 import { ouvrirApercu, ouvrirApercuPdf } from '../lib/apercu.js';
 
@@ -849,6 +850,9 @@ function OngletRapports({ domaine, sansListe = false, rapportId = null }) {
             <div className="text-[12px] text-slate-500 mt-0.5">{choisi.aide}</div>
           </div>
         )}
+
+        {choisi?.id === 'cout-formations' && (
+          <InscritsPrevus replie annee={annee} onEnregistre={() => voir(choisi)} />)}
 
         <div className="flex-1 overflow-auto min-h-0 bg-slate-100 p-3">
           {!choisi && (
