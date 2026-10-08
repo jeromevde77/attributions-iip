@@ -44,7 +44,7 @@ function pointsDuBloc(html) {
 }
 
 /** Dix points répartis au prorata des croix, par pas de 0,5, somme exacte. */
-function proposer(comptes) {
+export function proposer(comptes) {
   const total = Object.values(comptes).reduce((s, n) => s + n, 0);
   if (!total) return {};
   const demi = Object.entries(comptes).map(([aa, n]) => ({ aa, brut: (n / total) * 20 }));
@@ -54,7 +54,7 @@ function proposer(comptes) {
   return Object.fromEntries(Object.entries(out).map(([aa, n]) => [aa, n / 2]));
 }
 
-export default function CroisementUE({ ueNum }) {
+export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
   const annee = getAnnee();
   const { passe } = useDroits();
   const [d, setD] = useState(null);
@@ -211,6 +211,7 @@ export default function CroisementUE({ ueNum }) {
         }
       }
       await charger();
+      onEnregistre?.();
       setMessage(['Croisement enregistré',
         ajoutees || retirees ? `tableau des critères : ${ajoutees} ligne(s) ajoutée(s)${retirees ? `, ${retirees} retirée(s)` : ''}` : null,
         peutPonderer ? (ponderes ? `pondération ${annee} mise à jour pour ${ponderes} cours` : 'pondération déjà conforme')
@@ -226,8 +227,8 @@ export default function CroisementUE({ ueNum }) {
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-[12px] text-slate-600 m-0 mr-auto max-w-3xl">
-          <b>1.</b> Pour chaque cours, cochez les acquis que sert chaque point de son programme.{' '}
-          <b>2.</b> L’enregistrement complète le tableau des critères du descriptif et la pondération de l’année.
+          Pour chaque cours, cochez les acquis que sert chaque point de son programme. L’enregistrement
+          en tire la pondération (étape 2) et le tableau des critères du descriptif (étape 3).
         </p>
         {!lecture && (
           <button className="bouton bouton-fort disabled:opacity-40" onClick={enregistrer} disabled={enCours || !sale}>
@@ -236,7 +237,9 @@ export default function CroisementUE({ ueNum }) {
       </div>
       {lecture && <p className="text-[12px] text-slate-500 m-0">Lecture seule{d.statut === 'validee' ? ' : le descriptif est validé' : ''}.</p>}
       {erreur && <p className="text-[12px] flex items-start gap-1.5 m-0" style={{ color: 'var(--c-refuse)' }}><IconAlertTriangle size={14} className="mt-0.5 flex-none" />{erreur}</p>}
-      {message && <p className="text-[12px] text-slate-700 flex items-center gap-1.5 m-0"><IconCheck size={14} />{message}</p>}
+      {message && (
+        <p className="text-[12px] text-slate-700 flex flex-wrap items-center gap-1.5 m-0"><IconCheck size={14} />{message}
+          {suivante && <button type="button" className="underline text-iip-blue ml-1" onClick={suivante}>Étape suivante →</button>}</p>)}
 
       {/* LA LÉGENDE DES ACQUIS (Charles, 8 octobre 2026 : « il faut la légende des AA…
           c'est important »). Les colonnes ne portent que le code : sans le texte, on
