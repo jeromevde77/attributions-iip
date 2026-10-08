@@ -23,6 +23,7 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
+import { getParam } from './parametres.js';
 
 const r = Router();
 
@@ -366,9 +367,11 @@ r.get('/etudiant/:id', authRequired, (req, res) => {
     ORDER BY s.annee_scolaire DESC, s.date_debut
   `).all(etudId);
 
-  // Ce qui manque avant que le stage puisse commencer (art. 51 et 55)
+  // Ce qui manque avant que le stage puisse commencer (art. 51 et 55) — sans objet
+  // pour un stage terminé, rompu ou annulé (les stages repris d'un relevé, entre autres).
   for (const s of stages) {
     s.blocages = [];
+    if (['termine', 'rompu', 'annule'].includes(s.statut)) { s.pret = true; continue; }
     if (!s.autorisation_le) s.blocages.push("autorisation écrite du professeur de stage");
     if (!s.convention_le) s.blocages.push("convention signée");
     if (s.casier_le) {
@@ -381,7 +384,27 @@ r.get('/etudiant/:id', authRequired, (req, res) => {
     s.pret = s.blocages.length === 0;
   }
 
-  res.json({ stages });
+  /* LE MINIMUM D'HEURES DE STAGE DE LA SECTION (Charles, 8 octobre 2026 : « la somme
+     totale pour vérifier qu'on a respecté le minimum de 600 h en TIM — différent
+     ailleurs ») : un réglage par section (`stages_heures_min`), TIM 600 par défaut. */
+  const sec = db.prepare('SELECT section_rattachement s FROM etudiant WHERE id = ?').get(etudId)?.s
+    || stages.find(x => x.section)?.section || null;
+  res.json({ stages, section: sec, minimum: sec ? (minimaStages()[sec] ?? null) : null });
+});
+
+function minimaStages() {
+  try { return { TIM: 600, ...JSON.parse(getParam('stages_heures_min', '{}') || '{}') }; } catch { return { TIM: 600 }; }
+}
+// Le régler : la direction, section par section (0 ou vide = pas de minimum).
+r.put('/minimum', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'), (req, res) => {
+  const section = String(req.body?.section || '').trim();
+  if (!section) return res.status(400).json({ error: 'section requise' });
+  const m = minimaStages();
+  const h = Number(req.body?.heures);
+  if (Number.isFinite(h) && h > 0) m[section] = h; else m[section] = null;
+  db.prepare(`INSERT INTO parametre (cle, valeur) VALUES ('stages_heures_min', ?)
+    ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur`).run(JSON.stringify(m));
+  res.json({ ok: true, section, heures: m[section] });
 });
 
 r.post('/', authRequired, roleRequired(...ECRITURE), (req, res) => {
@@ -410,7 +433,7 @@ r.put('/:id', authRequired, roleRequired(...ECRITURE), (req, res) => {
                   'maitre_email', 'maitre_tel', 'professeur_id', 'date_debut', 'date_fin',
                   'heures_prevues', 'heures_effectuees', 'fractionne', 'autorisation_le',
                   'convention_le', 'convention_ref', 'casier_le', 'medecine_le',
-                  'vaccination_ok', 'statut', 'evaluation_tuteur', 'note_tuteur', 'remarques'];
+                  'vaccination_ok', 'statut', 'evaluation_tuteur', 'note_tuteur', 'remarques', 'intitule', 'domaine'];
   const presents = champs.filter(k => k in s);
   if (!presents.length) return res.json({ ok: true, inchange: true });
 

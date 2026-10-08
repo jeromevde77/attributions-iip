@@ -7,7 +7,8 @@ import { authHeaders } from '../lib/api.js';
 import ChoixUnite from './ChoixUnite.jsx';
 import ConventionStage from './ConventionStage.jsx';
 import { Tableau, TableauEntete, Th, Td, Tr, Badge, Fenetre } from './ui.jsx';
-import { demander } from '../lib/dialogue.jsx';
+import { demander, saisir } from '../lib/dialogue.jsx';
+import { passeRole } from '../lib/droits.js';
 
 /**
  * Stages d'un étudiant — RDE, titre XIII.
@@ -38,6 +39,7 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
   const [ouvert, setOuvert] = useState(null);
   const [message, setMessage] = useState(null);
   const [nouveauLieu, setNouveauLieu] = useState(null);
+  const [minimum, setMinimum] = useState({ section: null, heures: null });
 
   async function charger() {
     const [s, l] = await Promise.all([
@@ -45,6 +47,7 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
       fetch('/api/stages/lieux', { headers: authHeaders() }).then(r => r.json()),
     ]);
     setStages(s.stages || []);
+    setMinimum({ section: s.section || null, heures: s.minimum ?? null });
     setLieux(Array.isArray(l) ? l : []);
   }
   useEffect(() => { charger(); /* eslint-disable-next-line */ }, [etudId]);
@@ -73,6 +76,15 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
     if (!(await demander('Supprimer ce stage du dossier ?'))) return;
     await fetch(`/api/stages/${id}`, { method: 'DELETE', headers: authHeaders() });
     await charger();
+  }
+
+  const peutReglerMin = passeRole(['admin', 'directeur', 'directeur_adjoint']);
+  async function reglerMinimum() {
+    const v = await saisir({ message: `Minimum d'heures de stage pour la section ${minimum.section} (vide = aucun) :`, valeur: String(minimum.heures ?? '') });
+    if (v == null) return;
+    const rep = await fetch('/api/stages/minimum', { method: 'PUT', headers: authHeaders(),
+      body: JSON.stringify({ section: minimum.section, heures: String(v).replace(',', '.') }) });
+    if (rep.ok) await charger();
   }
 
   async function creerLieu() {
@@ -119,34 +131,47 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
           Aucun stage enregistré.
         </div>
       ) : (
-        <div className="space-y-2">
+        /* UN TABLEAU À VOLETS, PAS DES TUILES (Charles, 8 octobre 2026 : « fais une
+           liste ou un tableau à volets, moderne ; sur chaque ligne, en visible, le
+           nombre d'heures, le lieu et la note, puis on déroule ; et la somme totale
+           pour vérifier le minimum de 600 h en TIM »). */
+        <div className="border border-slate-200 rounded-carte overflow-hidden">
+          <div className="grid grid-cols-[6.5rem_minmax(0,1.3fr)_minmax(0,1.2fr)_4.5rem_3.5rem_5.5rem_2rem] gap-2 px-3 py-1.5 tab-entete text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            <span>Période</span><span>Stage</span><span>Lieu</span><span className="text-right">Heures</span>
+            <span className="text-right">Note</span><span>Statut</span><span />
+          </div>
           {stages.map(s => (
-            <div key={s.id} className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-              <button onClick={() => setOuvert(o => (o === s.id ? null : s.id))}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-slate-50">
-                <IconBuilding size={16} className="text-slate-400 flex-none" />
-                <div className="flex-1 min-w-0">
-                  <div className="text-[13px] font-medium text-slate-800">
-                    {s.lieu_nom || <span className="text-slate-400 italic">lieu à préciser</span>}
-                    {s.localite && <span className="text-slate-500 font-normal"> · {s.localite}</span>}
-                  </div>
-                  <div className="text-[11px] text-slate-500">
-                    {s.annee_scolaire}
-                    {s.ue_num ? ` · UE ${s.ue_num}` : ''}
-                    {s.date_debut ? ` · ${fr(s.date_debut)} → ${fr(s.date_fin)}` : ''}
-                  </div>
-                </div>
-                {!s.pret && (
-                  <Badge ton="alerte">
-                    {s.blocages.length} pièce(s) manquante(s)
-                  </Badge>
-                )}
-                <Badge ton={STATUTS[s.statut]?.ton || 'neutre'}>
-                  {STATUTS[s.statut]?.libelle || s.statut}
-                </Badge>
-                <span className="text-slate-400 text-[13px]">{ouvert === s.id ? '−' : '+'}</span>
-              </button>
-
+            <div key={s.id} className="border-t border-slate-100">
+              <div role="button" tabIndex={0} onClick={() => setOuvert(o => (o === s.id ? null : s.id))}
+                onKeyDown={e => { if (e.key === 'Enter') setOuvert(o => (o === s.id ? null : s.id)); }}
+                className={`grid grid-cols-[6.5rem_minmax(0,1.3fr)_minmax(0,1.2fr)_4.5rem_3.5rem_5.5rem_2rem] gap-2 items-center px-3 py-2 text-[13px] cursor-pointer hover:bg-slate-50 ${ouvert === s.id ? 'bg-slate-50' : 'bg-white'}`}>
+                <span className="text-[12px] text-slate-600 tabular-nums leading-tight">
+                  {s.date_debut ? <>{fr(s.date_debut)}<span className="block text-slate-400">→ {fr(s.date_fin)}</span>
+                    {/* Une fin avant le début : une faute de frappe dans le relevé, à corriger. */}
+                    {s.date_fin && s.date_fin < s.date_debut && (
+                      <span className="block text-[10px] font-semibold" style={{ color: 'var(--c-attente)' }}>fin avant début</span>)}</> : s.annee_scolaire}
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-slate-800">{s.intitule || (s.ue_num ? `UE ${s.ue_num}` : '—')}</span>
+                  {s.domaine && <span className="block truncate text-[11px] text-slate-500">{s.domaine}</span>}
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate font-medium text-slate-800">{s.lieu_nom || <span className="text-slate-400 italic font-normal">lieu à préciser</span>}</span>
+                  {s.localite && <span className="block truncate text-[11px] text-slate-500">{s.localite}</span>}
+                </span>
+                <span className="text-right tabular-nums font-semibold">{(s.heures_effectuees ?? s.heures_prevues) != null ? `${s.heures_effectuees ?? s.heures_prevues} h` : '—'}</span>
+                <span className="text-right tabular-nums">{s.note_tuteur ?? '—'}</span>
+                <span className="flex items-center gap-1 min-w-0">
+                  <Badge ton={STATUTS[s.statut]?.ton || 'neutre'}>{STATUTS[s.statut]?.libelle || s.statut}</Badge>
+                  {!s.pret && <IconAlertTriangle size={14} className="flex-none" style={{ color: 'var(--c-attente)' }} title={`${s.blocages.length} pièce(s) manquante(s)`} />}
+                </span>
+                <span className="flex justify-end">
+                  {peutEcrire && (
+                    <button type="button" title="Supprimer ce stage" aria-label="Supprimer ce stage"
+                      onClick={e => { e.stopPropagation(); supprimer(s.id); }}
+                      className="text-slate-400 hover:text-[color:var(--c-refuse)]"><IconTrash size={15} /></button>)}
+                </span>
+              </div>
               {ouvert === s.id && (
                 <div className="border-t border-slate-100 p-4 space-y-3">
                   {!s.pret && (
@@ -160,6 +185,15 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
                       </span>
                     </div>
                   )}
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <ChampTexte libelle="Intitulé (« 3e année – Stage 5 »)" valeur={s.intitule}
+                      onValider={v => maj(s.id, { intitule: v })} lecture={!peutEcrire} />
+                    <ChampTexte libelle="Domaine" valeur={s.domaine}
+                      onValider={v => maj(s.id, { domaine: v })} lecture={!peutEcrire} />
+                    <ChampTexte libelle="Note du stage" valeur={s.note_tuteur} type="number"
+                      onValider={v => maj(s.id, { note_tuteur: v })} lecture={!peutEcrire} />
+                  </div>
 
                   <Champ libelle="Lieu de stage">
                     <div className="flex gap-2">
@@ -283,6 +317,30 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
               )}
             </div>
           ))}
+          {/* LE TOTAL, FACE AU MINIMUM DE LA SECTION — réglable par la direction. */}
+          {(() => {
+            const total = stages.filter(x => !['rompu', 'annule'].includes(x.statut))
+              .reduce((t, x) => t + (Number(x.heures_effectuees ?? x.heures_prevues) || 0), 0);
+            const min = Number(minimum.heures) || 0;
+            const ok = !min || total >= min;
+            return (
+              <div className="grid grid-cols-[6.5rem_minmax(0,1.3fr)_minmax(0,1.2fr)_4.5rem_3.5rem_5.5rem_2rem] gap-2 items-center px-3 py-2 border-t-2 border-slate-200 tab-entete text-[13px]">
+                <span className="col-span-3 font-semibold text-slate-700">
+                  Total · {stages.length} stage(s)
+                  {min ? <span className="font-normal text-slate-500"> — minimum {minimum.section} : {min} h</span>
+                    : minimum.section && <span className="font-normal text-slate-400"> — aucun minimum réglé pour {minimum.section}</span>}
+                  {peutReglerMin && minimum.section && (
+                    <button type="button" className="ml-2 text-[11px] underline text-iip-blue font-normal" onClick={reglerMinimum}>régler</button>)}
+                </span>
+                <span className="text-right tabular-nums font-bold">{total} h</span>
+                <span className="col-span-3">
+                  {min > 0 && (
+                    <span className="inline-flex items-center rounded-full px-2 h-6 text-[11px] font-semibold text-white"
+                      style={{ background: ok ? 'var(--c-reussi)' : 'var(--c-attente)' }}>
+                      {ok ? 'minimum atteint' : `manque ${min - total} h`}</span>)}
+                </span>
+              </div>);
+          })()}
         </div>
       )}
 
