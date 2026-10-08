@@ -3,7 +3,7 @@ import { ouvrirApercu } from '../lib/apercu.js';
 import { IconChalkboard } from '@tabler/icons-react';
 import { couleurBloc, rangBloc } from '../lib/blocs.js';
 import { useEffect, useState } from 'react';
-import { IconChartHistogram, IconBooks, IconChevronLeft, IconAlertTriangle, IconMessageCircle, IconPrinter, IconCertificate, IconAccessible, IconPencil, IconUserCheck, IconFileDescription } from '@tabler/icons-react';
+import { IconChartHistogram, IconBooks, IconChevronLeft, IconAlertTriangle, IconMessageCircle, IconPrinter, IconCertificate, IconAccessible, IconPencil, IconUserCheck, IconFileDescription, IconTable, IconFileText } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { MOTIFS_ECHEC } from '../components/motifsEchec.js';
 import PresencesCours from '../components/PresencesCours.jsx';
@@ -66,6 +66,7 @@ export default function MesCours() {
      professeur n'entre pas. Le même écran, ici ; le serveur ne lui rend que les
      unités où il porte une attribution. */
   const [vueDue, setVueDue] = useState(false);
+  const [faceDue, setFaceDue] = useState('descriptif');
   const [face, setFace] = useState('notes');          // notes | presences
   const [caseActive, setCaseActive] = useState(null);   // { id, k, r, ci } — la case que visent PP et NP
   /* LE GROUPE QU'ON A DEVANT SOI (1er octobre 2026, UE 333 AESI : « il ne
@@ -152,13 +153,17 @@ export default function MesCours() {
           onClick: () => { setVueDue(false); setOuvert(null); setFeuille(null); setTimeout(() => allerA('avis-va'), 50); } },
         { key: 'avis-ar', label: 'Aménagements raisonnables', icon: IconAccessible,
           onClick: () => { setVueDue(false); setOuvert(null); setFeuille(null); setTimeout(() => allerA('avis-ar'), 50); } },
+        ...(vueDue ? [
+          { key: 'due-croisement', label: 'Croisement acquis × programme', icon: IconTable, actif: faceDue === 'croisement', onClick: () => setFaceDue('croisement') },
+          { key: 'due-descriptif', label: 'Descriptif (DUE)', icon: IconFileText, actif: faceDue === 'descriptif', onClick: () => setFaceDue('descriptif') },
+        ] : []),
         ...(ouvert && !vueDue ? [
           { key: 'notes', label: 'Notes du cours', icon: IconPencil, actif: face === 'notes', onClick: () => setFace('notes') },
           { key: 'indicateurs', label: 'Indicateurs', icon: IconChartHistogram, actif: face === 'indicateurs', onClick: () => setFace('indicateurs') },
           { key: 'presences', label: 'Présences', icon: IconUserCheck, actif: face === 'presences', onClick: () => setFace('presences') },
         ] : []),
       ] }]} />
-    {vueDue ? <div className="gouttiere-rail"><AtelierUE faces={['croisement', 'descriptif']} /></div> : (
+    {vueDue ? <div className="gouttiere-rail"><AtelierUE faces={['croisement', 'descriptif']} face={faceDue} onFace={setFaceDue} railPropre={false} /></div> : (
     <div className="gouttiere-rail px-4 py-3 md:px-6 space-y-2.5">
       <div className="flex items-center gap-2">
         <IconBooks size={20} className="text-iip-turquoise" />
