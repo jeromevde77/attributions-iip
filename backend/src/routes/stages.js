@@ -105,6 +105,12 @@ export function migrerStages(dbx) {
     for (const col of ['section TEXT', 'ues TEXT', 'demande TEXT']) {
       try { dbx.exec(`ALTER TABLE stage_lieu ADD COLUMN ${col}`); } catch { /* déjà là */ }
     }
+    // L'INTITULÉ ET LE DOMAINE D'UN STAGE (8 octobre 2026, relevé des stages de TIM
+    // pour le supplément au diplôme) : « 3e année – Stage 5 », « Angiographie /
+    // Échographie » — le même hôpital accueille des stages de domaines différents.
+    for (const col of ['intitule TEXT', 'domaine TEXT']) {
+      try { dbx.exec(`ALTER TABLE stage ADD COLUMN ${col}`); } catch { /* déjà là */ }
+    }
     console.log('[migration] stages : lieux et périodes');
   } catch (e) { console.error('[migration] stages :', e.message); }
 }
@@ -142,8 +148,11 @@ r.get('/lieux', authRequired, (req, res) => {
 function decouperAdresse(brut) {
   const t = String(brut || '').replace(/\s+/g, ' ').trim();
   const m = /^(.*?)[,\s-]+(\d{4})\s+([^,]+?)\s*$/.exec(t);
-  return m ? { adresse: m[1].replace(/,\s*$/, '').trim(), cp: m[2], localite: m[3].trim() }
-           : { adresse: t || null, cp: null, localite: null };
+  if (m) return { adresse: m[1].replace(/,\s*$/, '').trim(), cp: m[2], localite: m[3].trim() };
+  // « Rue du Foyer Schaerbeekois 36, 1030 » : le code postal seul, en fin d'adresse.
+  const c = /^(.*?),\s*(\d{4})\s*$/.exec(t);
+  if (c) return { adresse: c[1].trim(), cp: c[2], localite: null };
+  return { adresse: t || null, cp: null, localite: null };
 }
 r.post('/lieux/import', authRequired, roleRequired(...ECRITURE), (req, res) => {
   const { section, ues, lignes, simulation = true } = req.body || {};
@@ -227,6 +236,92 @@ r.delete('/lieux/:id', authRequired, roleRequired(...ECRITURE), (req, res) => {
   }
   db.prepare('DELETE FROM stage_lieu WHERE id = ?').run(Number(req.params.id));
   res.json({ ok: true, supprime: true });
+});
+
+/* IMPORTER UN RELEVÉ DE STAGES EFFECTUÉS (Charles, 8 octobre 2026 : « je dois intégrer
+ * ceci pour compléter les suppléments au diplôme »). Le relevé d'une section — une
+ * ligne par stage : année et numéro, étudiant, domaine, établissement, adresse,
+ * période, heures, maître de stage et ses coordonnées — devient les stages des
+ * dossiers. Simulation d'abord ; tout ou rien.
+ *   · L'étudiant se retrouve par son NOM et son PRÉNOM (le relevé ne porte pas de
+ *     matricule), ceux de la section d'abord ; un homonyme ou un inconnu est nommé,
+ *     jamais deviné.
+ *   · Le lieu se retrouve par son nom dans la section ; sinon il se crée, adresse
+ *     découpée (rue, CP, localité) — elle figure au supplément.
+ *   · L'année scolaire se déduit du début du stage (septembre ouvre l'année).
+ *   · Un stage déjà là — même étudiant, même lieu, même premier jour — n'est pas
+ *     doublé : réimporter le relevé complété ne fait que l'ajouter. */
+const sansAccents = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+const sacDe = (...p) => sansAccents(p.join(' ')).replace(/[^a-z]+/g, ' ').trim().split(' ').filter(Boolean).sort().join(' ');
+function versIso(v) {
+  const t = String(v || '').trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(t)) return t.slice(0, 10);
+  const m = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})$/.exec(t);
+  if (m) { const a = m[3].length === 2 ? `20${m[3]}` : m[3]; return `${a}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`; }
+  return null;
+}
+const anneeDe = iso => { const y = Number(iso.slice(0, 4)), mo = Number(iso.slice(5, 7)); return mo >= 9 ? `${y}-${y + 1}` : `${y - 1}-${y}`; };
+r.post('/import-releve', authRequired, roleRequired(...ECRITURE), (req, res) => {
+  const { section, lignes, simulation = true } = req.body || {};
+  if (!section) return res.status(400).json({ error: 'Choisissez la section du relevé.' });
+  const perim = perimetre(req);
+  if (perim && !perim.includes(section)) return res.status(403).json({ error: 'Section hors de votre périmètre.' });
+  if (!Array.isArray(lignes) || !lignes.length) return res.status(400).json({ error: 'Aucune ligne à importer.' });
+
+  // Les étudiants : ceux de la section d'abord (rattachement ou inscription), puis tous.
+  const tous = db.prepare('SELECT id, nom, prenom, section_rattachement FROM etudiant').all();
+  const deLaSection = new Set(db.prepare(`SELECT DISTINCT i.etudiant_id id FROM etudiant_inscription i
+      WHERE i.ue_num IN (SELECT ue_num FROM ue WHERE section = ?)`).all(section).map(x => x.id));
+  for (const e of tous) if (e.section_rattachement === section) deLaSection.add(e.id);
+  const parSac = new Map();
+  for (const e of tous) { const k = sacDe(e.nom, e.prenom); (parSac.get(k) || parSac.set(k, []).get(k)).push(e); }
+  const trouver = (nom, prenom) => {
+    const c = parSac.get(sacDe(nom, prenom)) || [];
+    const sec = c.filter(e => deLaSection.has(e.id));
+    const l = sec.length ? sec : c;
+    return l.length === 1 ? { e: l[0] } : { e: null, motif: l.length ? 'homonymes' : 'introuvable' };
+  };
+  const lieuExiste = db.prepare("SELECT id FROM stage_lieu WHERE lower(trim(nom)) = lower(trim(?)) AND COALESCE(section, '') = ? ORDER BY (service IS NULL) DESC LIMIT 1");
+  const stageExiste = db.prepare('SELECT id FROM stage WHERE etudiant_id = ? AND lieu_id = ? AND date_debut = ?');
+  const aujourdhui = new Date().toISOString().slice(0, 10);
+  const rapport = { a_creer: 0, deja: 0, lieux_crees: [], inconnus: [], illisibles: [], par_annee: {} };
+  const lieuxNeufs = new Map();
+  const ecrire = db.transaction(() => {
+    for (const l of lignes) {
+      const nom = String(l.nom || '').trim(), prenom = String(l.prenom || '').trim();
+      const etab = String(l.etablissement || '').trim();
+      if (!nom || !etab) continue;
+      const debut = versIso(l.debut), fin = versIso(l.fin);
+      if (!debut) { rapport.illisibles.push(`${nom} ${prenom} — date de début « ${l.debut} »`); continue; }
+      const t = trouver(nom, prenom);
+      if (!t.e) { rapport.inconnus.push({ nom: `${nom.toUpperCase()} ${prenom}`, motif: t.motif }); continue; }
+      let lieuId = lieuExiste.get(etab, section)?.id || lieuxNeufs.get(sansAccents(etab)) || null;
+      if (!lieuId) {
+        const a = decouperAdresse(l.adresse);
+        rapport.lieux_crees.push({ nom: etab, ...a });
+        if (!simulation) {
+          lieuId = Number(db.prepare(`INSERT INTO stage_lieu (nom, adresse, cp, localite, section, cree_par) VALUES (?,?,?,?,?,?)`)
+            .run(etab, a.adresse, a.cp, a.localite, section, req.user?.email || null).lastInsertRowid);
+        } else lieuId = -(rapport.lieux_crees.length);
+        lieuxNeufs.set(sansAccents(etab), lieuId);
+      }
+      if (lieuId > 0 && stageExiste.get(t.e.id, lieuId, debut)) { rapport.deja++; continue; }
+      const annee = anneeDe(debut);
+      rapport.a_creer++; rapport.par_annee[annee] = (rapport.par_annee[annee] || 0) + 1;
+      if (simulation) continue;
+      const contact = String(l.maitre_contact || '').trim();
+      const heures = Number(String(l.heures || '').replace(',', '.')) || null;
+      const termine = fin && fin < aujourdhui;
+      db.prepare(`INSERT INTO stage (etudiant_id, annee_scolaire, section, lieu_id, maitre_stage, maitre_email, maitre_tel,
+          date_debut, date_fin, heures_prevues, heures_effectuees, statut, intitule, domaine, cree_par)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(t.e.id, annee, section, lieuId, String(l.maitre || '').trim() || null,
+        /@/.test(contact) ? contact : null, contact && !/@/.test(contact) ? contact : null, debut, fin, heures,
+        termine ? heures : null, termine ? 'termine' : 'prevu', String(l.intitule || '').trim() || null,
+        String(l.domaine || '').trim() || null, `import relevé (${req.user?.email || '?'})`);
+    }
+  });
+  ecrire();
+  res.json({ simulation: !!simulation, section, ...rapport });
 });
 
 // ── Stages d'un étudiant ────────────────────────────────────────────────────

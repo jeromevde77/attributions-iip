@@ -60,6 +60,7 @@ import FraisScolarite from '../components/FraisScolarite.jsx';
 import ImportHistorique from '../components/ImportHistorique.jsx';
 import ImportTableauPlat from '../components/ImportTableauPlat.jsx';
 import ImportLieuxStage from '../components/ImportLieuxStage.jsx';
+import ImportReleveStages from '../components/ImportReleveStages.jsx';
 import { demander, informer, saisir } from '../lib/dialogue.jsx';
 
 // Niveau de l'étudiant : BA1/BA2 s'il ne suit qu'une année, « Diplômant »
@@ -3492,6 +3493,7 @@ export default function Etudiants() {
   const [importHisto, setImportHisto] = useState(false);
   const [tableauPlat, setTableauPlat] = useState(false);
   const [lieuxStage, setLieuxStage] = useState(false);
+  const [releveStages, setReleveStages] = useState(false);
   const [complement, setComplement] = useState(false);
   const [rapportPAESel, setRapportPAESel] = useState(false);
   const [revuePAE, setRevuePAE] = useState(null);       // liste d'étudiants à passer en revue
@@ -4598,6 +4600,10 @@ export default function Etudiants() {
               quoi: 'Les lieux d’une section (type, responsable, adresse, demande) : on les choisit ensuite dans la fiche de stage.',
               attend: 'un classeur avec la colonne « Nom de l’organisme »',
               onClick: () => setLieuxStage(true) },
+            { cle: 'releve-stages', ok: peutLieux, titre: 'Relevé des stages effectués',
+              quoi: 'Les stages déjà faits — intitulé, domaine, lieu, période, heures, maître de stage — pour les dossiers et le supplément au diplôme.',
+              attend: 'un classeur avec « Établissement », « Nom », « Prénom », « Période du stage »',
+              onClick: () => setReleveStages(true) },
             { cle: 'complement', ok: peutImporter, titre: 'Compléter les dossiers',
               quoi: 'Ajouter adresses, dates de naissance et pièces aux dossiers existants.',
               attend: 'un classeur portant les matricules',
@@ -4647,6 +4653,7 @@ export default function Etudiants() {
       )}
 
       {lieuxStage && <ImportLieuxStage onClose={() => setLieuxStage(false)} />}
+      {releveStages && <ImportReleveStages onClose={() => setReleveStages(false)} />}
       {tableauPlat && (
         <ImportTableauPlat annee={annee} onClose={() => setTableauPlat(false)} onFini={charger} />
       )}
