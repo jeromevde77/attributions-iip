@@ -83,6 +83,70 @@ function Carte({ titre, sous, children, className = '' }) {
 const Th = ({ children, n }) => <th className={`px-2 py-1.5 font-semibold ${n ? 'text-right' : 'text-left'}`}>{children}</th>;
 const Td = ({ children, n, b, className = '', ...reste }) => <td {...reste} className={`px-2 py-1.5 ${n ? 'text-right tabular-nums' : ''} ${b ? 'font-semibold' : ''} ${className}`}>{children}</td>;
 
+
+/* LES PERSONNES — SEXE ET NATIONALITÉS (Charles, 8 octobre 2026 : « tu n'affiches
+   plus ou pas les données liées au sexe ni aux nationalités »). Des personnes
+   présentes : étudiants inscrits (hors archivés), personnel qui porte une
+   attribution ou une fonction ; l'ensemble compte chacun une fois. Les
+   pourcentages portent sur ce qui est renseigné, et l'écran dit combien l'est. */
+const COUL_SEXE = { F: '#F9B619', M: '#19537E', X: '#05B7E6', NR: '#CBD5E1' };
+const COUL_NAT = { be: '#19537E', ue: '#05B7E6', hors_ue: '#F9B619', nat_inconnue: '#CBD5E1' };
+function Personnes({ d }) {
+  const [qui, setQui] = useState('etudiants');
+  const H = d.humains;
+  if (!H) return (
+    <Carte titre="Les personnes — sexe et nationalités">
+      <div className="bloc-etat px-3 py-2 text-[13px]" data-etat="surveiller">
+        Les chiffres des personnes n'ont pas pu être calculés{d.humains_erreur ? ` : ${d.humains_erreur}` : ''}.
+      </div>
+    </Carte>);
+  const x = H.ensemble?.[qui] || {};
+  const sexeC = (x.n || 0) - (x.sexe_inconnu || 0);
+  const natC = (x.n || 0) - (x.nat_inconnue || 0);
+  const pays = Object.entries(x.pays || {}).sort((a, b) => b[1] - a[1]);
+  return (
+    <Carte titre="Les personnes — sexe et nationalités"
+      sous="Des personnes présentes : étudiants inscrits (hors archivés), personnel qui porte une attribution ou une fonction. L'ensemble compte chacun une fois.">
+      <div className="segments w-fit">
+        {[['etudiants', 'Étudiants'], ['personnel', 'Personnel']].map(([k, l]) => (
+          <button key={k} type="button" onClick={() => setQui(k)}
+            className={`px-3 py-1 text-[12px] ${qui === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>{l}</button>))}
+      </div>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div>
+          <div className="text-[13px] font-semibold mb-1">Femmes et hommes <span className="text-slate-500 font-normal">· {k0(x.n)} personnes</span></div>
+          <Anneau centre={k0(x.n)} parts={[['Femmes', x.F, 'F'], ['Hommes', x.M, 'M'], ['X', x.X, 'X'], ['Non renseigné', x.sexe_inconnu, 'NR']]
+            .map(([nom, v, k]) => ({ nom, valeur: v || 0, couleur: COUL_SEXE[k] }))} />
+          <div className="text-[11px] text-slate-500 mt-1">{pc(x.F || 0, sexeC)} de femmes parmi les {k0(sexeC)} dont le sexe est renseigné.</div>
+        </div>
+        <div>
+          <div className="text-[13px] font-semibold mb-1">Nationalités</div>
+          <Anneau centre={k0(x.n)} parts={[['Belgique', x.be, 'be'], ['Union européenne', x.ue, 'ue'], ['Hors Union européenne', x.hors_ue, 'hors_ue'], ['Non renseignée', x.nat_inconnue, 'nat_inconnue']]
+            .map(([nom, v, k]) => ({ nom, valeur: v || 0, couleur: COUL_NAT[k] }))} />
+          <div className="text-[11px] text-slate-500 mt-1">Nationalité renseignée pour {k0(natC)} sur {k0(x.n)}{x.nat_inconnue ? ' — à compléter dans les fiches' : ''}.</div>
+        </div>
+        <div>
+          <div className="text-[13px] font-semibold mb-1">Les pays <span className="text-slate-500 font-normal">· {pays.length}</span></div>
+          {!pays.length ? <p className="text-[12px] text-slate-500 m-0">Aucune nationalité renseignée.</p> : (
+            <Barres lignes={pays.slice(0, 12).map(([nom, v]) => ({ nom, valeur: v, couleur: nom === 'Belgique' ? COUL_NAT.be : '#5E9C8B' }))} format={v => `${k0(v)} · ${pc(v, natC)}`} />)}
+          {pays.length > 12 && <div className="text-[11px] text-slate-500 mt-1">… et {pays.length - 12} autre(s) pays.</div>}
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="text-[13px] min-w-full">
+          <thead className="tab-entete"><tr><Th>Section</Th><Th n>Personnes</Th><Th n>Femmes</Th><Th n>Hommes</Th><Th n>% F</Th>
+            <Th n>Belgique</Th><Th n>UE</Th><Th n>Hors UE</Th><Th n>Non renseignée</Th></tr></thead>
+          <tbody>{H.lignes.filter(l => l[qui]?.n).map(l => { const y = l[qui]; const c = (y.n || 0) - (y.sexe_inconnu || 0); const cn = (y.n || 0) - (y.nat_inconnue || 0); return (
+            <tr key={l.section} className="border-b border-slate-100"><Td>{l.section}</Td><Td n>{k0(y.n)}</Td><Td n>{k0(y.F)}</Td><Td n>{k0(y.M)}</Td><Td n>{pc(y.F || 0, c)}</Td>
+              <Td n>{k0(y.be)} <span className="text-[11px] text-slate-400">{pc(y.be || 0, cn)}</span></Td><Td n>{k0(y.ue)}</Td><Td n>{k0(y.hors_ue)}</Td>
+              <Td n className={y.nat_inconnue ? 'text-slate-400' : ''}>{k0(y.nat_inconnue)}</Td></tr>); })}</tbody>
+          <tfoot><tr className="font-semibold bg-slate-50"><Td>Ensemble (chacun une fois)</Td><Td n>{k0(x.n)}</Td><Td n>{k0(x.F)}</Td><Td n>{k0(x.M)}</Td><Td n>{pc(x.F || 0, sexeC)}</Td>
+            <Td n>{k0(x.be)} <span className="text-[11px] text-slate-400 font-normal">{pc(x.be || 0, natC)}</span></Td><Td n>{k0(x.ue)}</Td><Td n>{k0(x.hors_ue)}</Td><Td n>{k0(x.nat_inconnue)}</Td></tr></tfoot>
+        </table>
+      </div>
+    </Carte>);
+}
+
 export default function RapportStatistique() {
   const [annee, setAnnee] = useState(getAnnee());
   const [annees, setAnnees] = useState([]);
@@ -195,6 +259,8 @@ export default function RapportStatistique() {
               Configuration → Coût des périodes : ses périodes sont comptées, sans montant.</p>)}
         </Carte>)}
 
+        <Personnes d={d} />
+
         <Carte titre="Les ETP par section" sous="Périodes CT ÷ 800 + PP ÷ 1 000, comme Pilotage — hors congés et activités Z ; le tronc commun réparti au prorata des étudiants.">
           <div className="overflow-x-auto">
           <table className="text-[13px] min-w-full">
@@ -270,23 +336,6 @@ export default function RapportStatistique() {
             </tfoot>
           </table></div>)}
         </Carte>
-
-        {d.humains && (
-          <Carte titre="Femmes et hommes" sous="Des personnes présentes : étudiants inscrits (hors archivés), personnel qui porte une attribution ou une fonction.">
-            <div className="grid gap-4 lg:grid-cols-2">
-              {[['Étudiants', 'etudiants'], ['Personnel', 'personnel']].map(([lib, k]) => (
-                <div key={k} className="overflow-x-auto">
-                  <div className="text-[13px] font-semibold mb-1">{lib}</div>
-                  <table className="text-[13px] min-w-full">
-                    <thead className="tab-entete"><tr><Th>Section</Th><Th n>Personnes</Th><Th n>Femmes</Th><Th n>Hommes</Th><Th n>% F</Th></tr></thead>
-                    <tbody>{d.humains.lignes.filter(l => l[k]?.n).map(l => { const x = l[k]; const c = (x.n || 0) - (x.sexe_inconnu || 0); return (
-                      <tr key={l.section} className="border-b border-slate-100"><Td>{l.section}</Td><Td n>{k0(x.n)}</Td><Td n>{k0(x.F)}</Td><Td n>{k0(x.M)}</Td><Td n>{pc(x.F || 0, c)}</Td></tr>); })}</tbody>
-                    <tfoot>{(() => { const x = d.humains.ensemble?.[k] || {}; const c = (x.n || 0) - (x.sexe_inconnu || 0); return (
-                      <tr className="font-semibold bg-slate-50"><Td>Ensemble (chacun une fois)</Td><Td n>{k0(x.n)}</Td><Td n>{k0(x.F)}</Td><Td n>{k0(x.M)}</Td><Td n>{pc(x.F || 0, c)}</Td></tr>); })()}</tfoot>
-                  </table>
-                </div>))}
-            </div>
-          </Carte>)}
 
         <Carte titre="Unité par unité" sous="Le coût de chaque unité, section par section — cliquez une section pour la déplier.">
           <div className="divide-y divide-slate-100">

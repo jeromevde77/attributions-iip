@@ -889,10 +889,13 @@ function documentCoutFormations(p) {
      personnel de la section, comptés comme dans les chiffres clés ; l'ensemble
      compte chacun une fois. */
   const H = d.humains;
-  const ligneSexe = (lib, x) => { const c = (x?.n || 0) - (x?.sexe_inconnu || 0); return `<tr><td>${lib}</td><td class="n">${n0(x?.n)}</td>
+  // LE SEXE ET LES NATIONALITÉS (Charles, 8 octobre 2026) : Belgique, Union
+  // européenne, hors Union — les pourcentages sur ce qui est renseigné.
+  const ligneSexe = (lib, x) => { const c = (x?.n || 0) - (x?.sexe_inconnu || 0); const cn = (x?.n || 0) - (x?.nat_inconnue || 0); return `<tr><td>${lib}</td><td class="n">${n0(x?.n)}</td>
       <td class="n">${n0(x?.F)}</td><td class="n">${n0(x?.M)}</td><td class="n">${n0(x?.X)}</td><td class="n">${n0(x?.sexe_inconnu)}</td>
-      <td class="n">${pc(x?.F || 0, c)}</td><td class="n">${pc(x?.M || 0, c)}</td></tr>`; };
-  const teteSexe = `<thead><tr><th>Section</th>${['Personnes', 'Femmes', 'Hommes', 'X', 'Non renseigné', '% femmes', '% hommes']
+      <td class="n">${pc(x?.F || 0, c)}</td><td class="n">${pc(x?.be || 0, cn)}</td><td class="n">${pc(x?.ue || 0, cn)}</td>
+      <td class="n">${pc(x?.hors_ue || 0, cn)}</td><td class="n">${n0(x?.nat_inconnue)}</td></tr>`; };
+  const teteSexe = `<thead><tr><th>Section</th>${['Personnes', 'Femmes', 'Hommes', 'X', 'Sexe n. r.', '% femmes', '% Belgique', '% UE', '% hors UE', 'Nat. n. r.']
       .map(c => `<th class="n">${c}</th>`).join('')}</tr></thead>`;
   const tSexes = !H ? '<p class="fin">Données indisponibles.</p>' : `
     <h3 class="partie">Étudiants</h3>
@@ -903,7 +906,7 @@ function documentCoutFormations(p) {
       <tfoot>${ligneSexe('<b>Ensemble (chacun une fois)</b>', H.ensemble.personnel).replace('<tr>', '<tr class="repere">')}</tfoot></table>
     <p class="fin">Des personnes présentes : les étudiants inscrits cette année (hors archivés), le personnel qui porte une attribution
       ou une fonction. Une personne présente dans deux sections compte dans chacune ; l'ensemble la compte une fois.
-      Les pourcentages portent sur les personnes dont le sexe est renseigné.</p>`;
+      Les pourcentages portent sur les personnes dont le sexe, ou la nationalité, est renseigné ; « n. r. » : non renseigné.</p>`;
 
   // LES DROITS ET LES FRAIS : ce que paient les étudiants, et à qui cela revient.
   const R = d.recettes || {};
@@ -1093,7 +1096,7 @@ function documentCoutFormations(p) {
     ${R.tiers && Object.keys(R.tiers).length ? `<p class="fin">${Object.keys(R.tiers).map(p => `${pastilleHelb.replace('HELB', esc(p))}`).join(' ')} : droit d'inscription et frais perçus
       par ${Object.keys(R.tiers).map(esc).join(', ')} — aucune recette pour l'établissement (${n0(R.etudiants_tiers)} étudiant(s) ; la fiche de chacun dit qui perçoit et pourquoi).</p>` : ''}
     </section>
-    <section class="saut"><h2>Femmes et hommes</h2>${tSexes}</section>
+    <section class="saut"><h2>Femmes et hommes, nationalités</h2>${tSexes}</section>
     <section class="bloc"><h2>Personnel administratif (PNCC) et coordinations</h2>${tFonctions}</section>
     <section class="saut">
     <h2>Unité par unité — le calcul</h2>
