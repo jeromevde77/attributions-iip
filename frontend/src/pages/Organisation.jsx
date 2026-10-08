@@ -1,11 +1,12 @@
 import { ICONE_AXE } from '../lib/iconesAxes.js';
 import { lazy, Suspense, useEffect, useState } from 'react';
+import { RailLateral } from '../components/ui.jsx';
 import GardeAnnee from '../components/GardeAnnee.jsx';
 import { useSearchParams } from 'react-router-dom';
 import Axe from '../components/Axe.jsx';
 import {
   IconLayoutGrid, IconSchool, IconSitemap, IconFileDescription,
-  IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup, IconListDetails, IconPercentage, IconTable, IconCalendarWeek, IconChartBar,
+  IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup, IconListDetails, IconCalendarEvent, IconPercentage, IconTable, IconCalendarWeek, IconChartBar,
 } from '@tabler/icons-react';
 import Attributions from './Attributions.jsx';
 import Planification from './Planification.jsx';
@@ -62,7 +63,11 @@ export default function Organisation({ ongletInitial }) {
          ses trois étapes dessous. */
       ordreRail={[['attributions', 'planifier', 'rentree', 'repartition', 'structure', 'unite',
         'horaire-semaine', 'effectifs']]}
-      sousMenus={[{ key: 'unite', label: 'Unité : croiser, pondérer, décrire', icone: IconListDetails, hote: 'unite',
+      sousMenus={[{ key: 'horaire-semaine', label: 'Horaires', icone: IconCalendarWeek, hote: 'horaire-semaine',
+        enfants: [
+          { key: 'horaire-composer', label: 'Composer la semaine', icone: IconCalendarEvent },
+          { key: 'horaire-controler', label: 'Contrôler contre les attributions', icone: IconClock },
+        ] }, { key: 'unite', label: 'Unité : croiser, pondérer, décrire', icone: IconListDetails, hote: 'unite',
         enfants: [
           { key: 'face-croisement', label: '1. Croiser les acquis et le programme', icone: IconTable },
           { key: 'face-ponderation', label: '2. Pondérer', icone: IconPercentage },
@@ -139,27 +144,22 @@ export default function Organisation({ ongletInitial }) {
   );
 }
 
+/* LES DEUX FACES DE L'HORAIRE SONT DANS LE RAIL (Charles, 8 octobre 2026 : « sous
+   menu rail ») : comme les étapes de l'unité, elles se déplient sous la rubrique. */
 function CentreHoraire({ annee }) {
-  const [face, setFace] = useState('composer');
-  const FACES = [
-    { cle: 'composer', label: 'Composer la semaine', icone: IconCalendarWeek,
-      aide: 'La semaine par classe, professeur ou local ; les tuiles se déplacent, le bac tient ce qui reste à poser.' },
-    { cle: 'controler', label: 'Contrôler contre les attributions', icone: IconClock,
-      aide: "Ce que l'horaire dépense, rapporté à ce qui a été attribué, et par qui." },
-  ];
+  const [face, setFace] = useState(() => {
+    try {
+      const o = sessionStorage.getItem('lucie.outil');
+      if (o === 'horaire-controler' || o === 'horaire-composer') { sessionStorage.removeItem('lucie.outil'); return o.slice(8); }
+    } catch { /* sans mémoire de session */ }
+    return 'composer';
+  });
   return (
     <div>
-      <div className="flex items-center gap-1 px-4 pt-3 border-b border-slate-200">
-        {FACES.map(o => {
-          const Icone = o.icone;
-          return (
-            <button key={o.cle} type="button" onClick={() => setFace(o.cle)} title={o.aide}
-              className={`onglet-page ${face === o.cle ? 'onglet-page-actif' : ''} flex items-center gap-1.5`}>
-              <Icone size={15} /> {o.label}
-            </button>
-          );
-        })}
-      </div>
+      <RailLateral titre="Horaires" sections={[{ items: [
+        { key: 'horaire-composer', label: 'Composer la semaine', icon: IconCalendarEvent, actif: face === 'composer', onClick: () => setFace('composer') },
+        { key: 'horaire-controler', label: 'Contrôler contre les attributions', icon: IconClock, actif: face === 'controler', onClick: () => setFace('controler') },
+      ] }]} />
       {face === 'composer' ? (
         <div className="p-4">
           <Suspense fallback={<div className="text-[13px] text-slate-400">Chargement…</div>}>
