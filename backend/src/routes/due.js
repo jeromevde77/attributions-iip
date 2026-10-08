@@ -31,6 +31,7 @@ import { identiteEtablissement } from './config.js';
 import { getParam } from './parametres.js';
 import { introductionAcquis } from './aa.js';
 import { construireGraphe } from './capitalisation.js';
+import { teintesSchema } from '../lib/schemaSvg.js';
 import sanitizeHtml from 'sanitize-html';
 import { assainir } from '../lib/texteCorpus.js';
 import { gesteAutorise } from '../lib/gestes.js';
@@ -249,8 +250,19 @@ function situationDansLaSection(ue, annee) {
    (construireGraphe), en petites pastilles : l'unité en bleu IIP plein, ses
    prérequis et ses suites cerclés de bleu, le reste en gris ; les flèches du
    référentiel. Titres de colonne : le bloc (BA1, BE1…). */
+/* LE MINI SCHÉMA SUIT LE DESSIN DU PARCOURS (Charles, 8 octobre 2026 : « respecter
+   la nouvelle mise en forme du schéma de capitalisation, avec les flèches
+   visibles »). Mêmes repères que la fiche de l'étudiant : une bande de couleur
+   par bloc au-dessus des colonnes, une tuile à liseré gauche, la pastille des
+   déterminantes, l'épreuve intégrée dans sa colonne dorée — mais le numéro seul
+   dans la tuile, la DUE n'a besoin que de situer l'unité. Cette unité est en
+   bleu plein ; ses prérequis et ses suites, cerclés de bleu ; les flèches qui la
+   touchent sont bleues et pleines, les autres grises. Les teintes viennent des
+   réglages (teintesSchema). */
 function miniSchema(g, num, proches) {
-  const W = 40, H = 18, GX = 22, GY = 6, TETE = 14, PAD = 4;
+  const T = teintesSchema();
+  const W = 44, H = 22, GX = 30, GY = 7, PAD = 4, TETE = 20;
+  const blocDe = niv => { const m = /^\s*B[AE]\s*(\d+)/i.exec(String(niv || '')); return m ? `BA${m[1]}` : null; };
   const cols = [...new Set(g.nodes.map(n => n.couche))].sort((a, b) => a - b);
   const ix = Object.fromEntries(cols.map((c, i) => [c, i]));
   const pos = {}; const rang = {};
@@ -258,25 +270,38 @@ function miniSchema(g, num, proches) {
     const r = rang[n.couche] = (rang[n.couche] ?? -1) + 1;
     pos[n.ue_num] = { x: PAD + ix[n.couche] * (W + GX), y: PAD + TETE + r * (H + GY) };
   }
-  const largeur = PAD * 2 + cols.length * W + (cols.length - 1) * GX;
-  const hauteur = PAD * 2 + TETE + Math.max(...Object.values(rang)) * (H + GY) + H;
-  const titres = (g.colonnes || []).filter(c => c.label && ix[c.index] != null)
-    .map(c => `<text x="${PAD + ix[c.index] * (W + GX) + W / 2}" y="${PAD + 9}" text-anchor="middle" font-size="8" font-weight="700" fill="#94A3B8">${esc(c.label)}</text>`).join('');
+  const largeur = PAD * 2 + cols.length * W + (cols.length - 1) * GX + 6;
+  const hauteur = PAD * 2 + TETE + Math.max(...Object.values(rang)) * (H + GY) + H + 4;
+  const bleu = T.programme.fond;
+  // Les en-têtes : le libellé du bloc, et sous lui une bande de sa couleur.
+  const entetes = (g.groupes || []).filter(gr => ix[gr.debut] != null).map(gr => {
+    const xd = PAD + ix[gr.debut] * (W + GX), xf = PAD + (ix[gr.fin] ?? ix[gr.debut]) * (W + GX) + W;
+    const c = gr.sous_titre ? T.or : (T.blocs[blocDe(gr.label)] || '#94A3B8');
+    const lib = gr.sous_titre ? 'ÉPREUVE' : gr.label;
+    return `<text x="${(xd + xf) / 2}" y="${PAD + 8}" text-anchor="middle" font-size="7.5" font-weight="700" fill="#7A879E" letter-spacing=".4">${esc(lib)}</text>
+      <rect x="${xd}" y="${PAD + 11.5}" width="${xf - xd}" height="2.2" rx="1.1" fill="${c}"/>`;
+  }).join('');
+  const marqueur = (id, c) => `<marker id="${id}" markerWidth="7" markerHeight="7" refX="6" refY="2.5" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,5 L6,2.5 z" fill="${c}"/></marker>`;
   const fleches = (g.edges || []).filter(e => pos[e.from] && pos[e.to]).map(e => {
     const a = pos[e.from], b = pos[e.to];
     const fort = e.from === num || e.to === num;
-    return `<path d="M${a.x + W},${a.y + H / 2} C${a.x + W + GX / 2},${a.y + H / 2} ${b.x - GX / 2},${b.y + H / 2} ${b.x - 2},${b.y + H / 2}" fill="none" stroke="${fort ? '#19537E' : '#CBD5E1'}" stroke-width="${fort ? 1.2 : 0.8}" marker-end="url(#f${fort ? 'f' : 'g'})"/>`;
+    const x1 = a.x + W, y1 = a.y + H / 2, x2 = b.x - 6, y2 = b.y + H / 2;
+    const dx = Math.max(12, (x2 - x1) / 2);
+    return `<path d="M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}" fill="none" stroke="${fort ? bleu : '#9AA6B8'}" stroke-width="${fort ? 1.4 : 1}"${e.type === 'interne' ? ' stroke-dasharray="3 2"' : ''} marker-end="url(#${fort ? 'mf' : 'mg'})"/>`;
   }).join('');
-  const boites = g.nodes.map(n => {
+  const boite = (x, y, w, h, r) => `M${x},${y} H${x + w - r} Q${x + w},${y} ${x + w},${y + r} V${y + h - r} Q${x + w},${y + h} ${x + w - r},${y + h} H${x} Z`;
+  const tuiles = g.nodes.map(n => {
     const p = pos[n.ue_num]; const moi = n.ue_num === num; const proche = proches.has(n.ue_num);
-    const fond = moi ? '#19537E' : '#FFFFFF', bord = moi ? '#19537E' : proche ? '#19537E' : '#D8DCE4', texte = moi ? '#FFFFFF' : proche ? '#19537E' : '#94A3B8';
-    return `<rect x="${p.x}" y="${p.y}" width="${W}" height="${H}" rx="4" fill="${fond}" stroke="${bord}" stroke-width="${proche || moi ? 1.2 : 0.8}"/>
-      <text x="${p.x + W / 2}" y="${p.y + 12.5}" text-anchor="middle" font-size="9" font-weight="${moi || proche ? 700 : 500}" fill="${texte}">${n.ue_num}</text>`;
+    const co = moi ? { fond: bleu, bord: bleu, rail: T.programme.rail, texte: '#FFFFFF' }
+      : proche ? { fond: T.accessible.fond, bord: bleu, rail: bleu, texte: '#1B2B4B' }
+        : { fond: '#FFFFFF', bord: '#D8DCE4', rail: n.epreuve_integree ? T.or : '#C3CAD6', texte: '#7A879E' };
+    return `<path d="${boite(p.x, p.y, W, H, 5)}" fill="${co.fond}" stroke="${co.bord}" stroke-width="${moi || proche ? 1.2 : 0.8}"/>
+      <rect x="${p.x}" y="${p.y}" width="3" height="${H}" fill="${co.rail}"/>
+      <text x="${p.x + W / 2 + 1.5}" y="${p.y + 14.5}" text-anchor="middle" font-size="9.5" font-weight="700" fill="${co.texte}">${n.ue_num}</text>
+      ${n.determinante ? `<circle cx="${p.x + W}" cy="${p.y}" r="3.2" fill="#1B2B4B" stroke="#fff" stroke-width="0.9"/>` : ''}`;
   }).join('');
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${largeur} ${hauteur}" width="${largeur}" height="${hauteur}" font-family="Inter, Arial, sans-serif">
-    <defs><marker id="ff" viewBox="0 0 6 6" refX="5" refY="3" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#19537E"/></marker>
-    <marker id="fg" viewBox="0 0 6 6" refX="5" refY="3" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#CBD5E1"/></marker></defs>
-    ${titres}${fleches}${boites}</svg>`;
+    <defs>${marqueur('mf', bleu)}${marqueur('mg', '#9AA6B8')}</defs>${entetes}${fleches}${tuiles}</svg>`;
 }
 
 /* LE NIVEAU DU CADRE EUROPÉEN, DÉDUIT DE LA SECTION (Charles, 8 octobre 2026 : « ce
@@ -733,7 +758,7 @@ function situationHtml(auto) {
     S.suites?.length ? `<p>L'UE ${n} est prérequise à ${liste(S.suites)}.</p>` : `<p>L'UE ${n} n'est prérequise à aucune autre unité.</p>`,
   ].join('');
   return phrases + (S.schema ? `<div class="schema-due">${S.schema}</div>
-    <p class="fin">En bleu plein, cette unité ; en bleu clair, ses prérequis et ses suites.</p>` : '');
+    <p class="fin">En bleu plein, cette unité ; cerclées de bleu, ses prérequis et ses suites ; en bleu, les flèches qui la touchent ; pastille marine : unité déterminante.</p>` : '');
 }
 
 /** LE PROGRAMME, POINT PAR POINT, AVEC LES CODES DE COURS (Charles, 8 octobre 2026). */
