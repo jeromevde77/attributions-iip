@@ -603,12 +603,12 @@ function grillesCriteres(auto, c, unique) {
      contextualisée par le point du programme) · Indicateurs (l'échelle, seuil 50 %,
      composée des degrés de maîtrise du DP) · Signe de non-réussite · Exemples. */
   const tableau = lignes => {
-    const ls = (lignes || []).filter(l => l && (l.aa_code || l.point || l.indicateur || l.non_reussite || l.exemple));
+    const ls = (lignes || []).filter(l => l && (l.aa_code || l.point || l.indicateur));
     if (!ls.length) return '<p class="vide">à compléter</p>';
     let html = '<table class="doc crit"><tr><th style="width:15%">Contexte (chapeau)</th><th style="width:17%">Acquis d’apprentissage</th>'
       + '<th>Critère<div class="def">l’AA contextualisée par le point du programme : l’étudiant est capable concrètement de…</div></th>'
       + '<th>Indicateurs<div class="def">l’échelle : quand j’observe que c’est réussi (seuil = 50 %) — composé des degrés de maîtrise du DP</div></th>'
-      + '<th>Signe de non-réussite</th><th>Exemples de question</th></tr>';
+      + '</tr>';   // signe de non-réussite et exemples : donnés en classe, hors DUE (8 octobre 2026)
     for (let i = 0; i < ls.length; i++) {
       const l = ls[i];
       let span = 1;
@@ -616,7 +616,7 @@ function grillesCriteres(auto, c, unique) {
       else span = 0;
       const a = aaDe[l.aa_code] || {};
       html += '<tr>' + (span ? `<td rowspan="${span}">${cellule(a.contexte || '')}</td><td rowspan="${span}"><b>${esc(l.aa_code || '')}</b>${a.description ? `<br>${esc(a.description)}` : ''}</td>` : '')
-        + ['point', 'indicateur', 'non_reussite', 'exemple'].map(k => `<td>${cellule(l[k])}</td>`).join('') + '</tr>';
+        + ['point', 'indicateur'].map(k => `<td>${cellule(l[k])}</td>`).join('') + '</tr>';
     }
     return html + '</table>';
   };
