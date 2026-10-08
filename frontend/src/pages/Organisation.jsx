@@ -32,7 +32,7 @@ const Effectifs = lazy(() => import('./Configuration.jsx').then(m => ({ default:
 export default function Organisation({ ongletInitial }) {
   const [params] = useSearchParams();
   const demande = params.get('onglet') || ongletInitial;
-  const faceUnite = demande === 'ponderations' ? 'ponderation' : params.get('face') || 'descriptif';
+  const faceUnite = demande === 'ponderations' ? 'ponderation' : params.get('face') || (demande === 'due' ? 'descriptif' : 'croisement');
   const ongletDemande = ['ponderations', 'due'].includes(demande) ? 'unite' : demande;
   const [annee, setAnnee] = useState('');
   useEffect(() => {
@@ -96,7 +96,7 @@ export default function Organisation({ ongletInitial }) {
            entrée ; le croisement acquis × programme les relie. L'unité se choisit
            une fois. Les anciennes adresses (?onglet=ponderations, ?onglet=due, /due)
            mènent ici, sur la bonne face. */
-        { key: 'unite', module: 'organisation', label: 'Pondération, croisement et DUE', icone: IconListDetails, sansMarge: true,
+        { key: 'unite', module: 'organisation', label: 'Unité : croiser, pondérer, décrire', icone: IconListDetails, sansMarge: true,
           rendu: <Suspense fallback={<div className="p-4 text-[13px] text-slate-400">Chargement…</div>}>
                    <AtelierUE faceInitiale={faceUnite} /></Suspense> },
         /* UN SEUL CENTRE HORAIRE (Charles, 29 septembre 2026 : « les deux

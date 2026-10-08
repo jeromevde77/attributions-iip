@@ -66,7 +66,7 @@ export default function MesCours() {
      professeur n'entre pas. Le même écran, ici ; le serveur ne lui rend que les
      unités où il porte une attribution. */
   const [vueDue, setVueDue] = useState(false);
-  const [faceDue, setFaceDue] = useState('descriptif');
+  const [faceDue, setFaceDue] = useState('croisement');
   const [face, setFace] = useState('notes');          // notes | presences
   const [caseActive, setCaseActive] = useState(null);   // { id, k, r, ci } — la case que visent PP et NP
   /* LE GROUPE QU'ON A DEVANT SOI (1er octobre 2026, UE 333 AESI : « il ne
@@ -154,8 +154,8 @@ export default function MesCours() {
         { key: 'avis-ar', label: 'Aménagements raisonnables', icon: IconAccessible,
           onClick: () => { setVueDue(false); setOuvert(null); setFeuille(null); setTimeout(() => allerA('avis-ar'), 50); } },
         ...(vueDue ? [
-          { key: 'due-croisement', label: 'Croisement acquis × programme', icon: IconTable, actif: faceDue === 'croisement', onClick: () => setFaceDue('croisement') },
-          { key: 'due-descriptif', label: 'Descriptif (DUE)', icon: IconFileText, actif: faceDue === 'descriptif', onClick: () => setFaceDue('descriptif') },
+          { key: 'due-croisement', label: '1. Croiser les acquis et le programme', icon: IconTable, actif: faceDue === 'croisement', onClick: () => setFaceDue('croisement') },
+          { key: 'due-descriptif', label: '3. Décrire l’unité (DUE)', icon: IconFileText, actif: faceDue === 'descriptif', onClick: () => setFaceDue('descriptif') },
         ] : []),
         ...(ouvert && !vueDue ? [
           { key: 'notes', label: 'Notes du cours', icon: IconPencil, actif: face === 'notes', onClick: () => setFace('notes') },
