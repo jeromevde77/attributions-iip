@@ -3,10 +3,11 @@ import { ouvrirApercu } from '../lib/apercu.js';
 import { IconChalkboard } from '@tabler/icons-react';
 import { couleurBloc, rangBloc } from '../lib/blocs.js';
 import { useEffect, useState } from 'react';
-import { IconBooks, IconChevronLeft, IconAlertTriangle, IconMessageCircle, IconPrinter, IconCertificate, IconAccessible, IconPencil, IconUserCheck } from '@tabler/icons-react';
+import { IconChartHistogram, IconBooks, IconChevronLeft, IconAlertTriangle, IconMessageCircle, IconPrinter, IconCertificate, IconAccessible, IconPencil, IconUserCheck } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { MOTIFS_ECHEC } from '../components/motifsEchec.js';
 import PresencesCours from '../components/PresencesCours.jsx';
+import IndicateursNotes from '../components/IndicateursNotes.jsx';
 import { OuvrirEditions, RailLateral } from '../components/ui.jsx';
 import AvisValorisationProf from '../components/AvisValorisationProf.jsx';
 import AvisAmenagementProf from '../components/AvisAmenagementProf.jsx';
@@ -145,6 +146,7 @@ export default function MesCours() {
           onClick: () => { setOuvert(null); setFeuille(null); setTimeout(() => allerA('avis-ar'), 50); } },
         ...(ouvert ? [
           { key: 'notes', label: 'Notes du cours', icon: IconPencil, actif: face === 'notes', onClick: () => setFace('notes') },
+          { key: 'indicateurs', label: 'Indicateurs', icon: IconChartHistogram, actif: face === 'indicateurs', onClick: () => setFace('indicateurs') },
           { key: 'presences', label: 'Présences', icon: IconUserCheck, actif: face === 'presences', onClick: () => setFace('presences') },
         ] : []),
       ] }]} />
@@ -414,7 +416,7 @@ export default function MesCours() {
                 présences séance par séance — celles-ci partent sur les
                 attestations du congé-éducation payé. */}
             <div className="flex items-center gap-1 border-b border-slate-200">
-              {[['notes', 'Notes'], ['presences', 'Présences']].map(([k, l]) => (
+              {[['notes', 'Notes'], ['indicateurs', 'Indicateurs'], ['presences', 'Présences']].map(([k, l]) => (
                 <button key={k} type="button" onClick={() => setFace(k)}
                   className={`onglet-page ${face === k ? 'onglet-page-actif' : ''}`}>{l}</button>
               ))}
@@ -437,6 +439,12 @@ export default function MesCours() {
               </div>
             )}
             {face === 'presences' && <PresencesCours coursCode={ouvert} annee={annee} />}
+            {/* LES INDICATEURS DU COURS (8 octobre 2026) : sur les étudiants affichés
+                (le groupe choisi), notes tapées comprises. */}
+            {face === 'indicateurs' && feuille && (
+              <IndicateursNotes etudiants={vus} tous={feuille.etudiants} cols={cols}
+                nomCol={(k, i) => (k ? `${nomAA(null, i)} · ${k}` : 'Note du cours')}
+                valeurDe={valeurDe} noteCours={noteCours} groupesDispo={groupeVu ? [] : groupesDispo} groupesDe={groupesDe} />)}
             {fait && <p className="text-[13px] m-0" style={{ color: 'var(--c-reussi)' }}>✓ {fait}</p>}
             {!feuille && !erreur && <p className="text-sm text-slate-400">Chargement…</p>}
 
@@ -489,7 +497,9 @@ export default function MesCours() {
                               </th>
                             ))
                           : <th className="py-1.5 px-1 w-20 text-center">Note /20</th>}
-                        {cols.length > 1 && (
+                        {/* LA NOTE DU COURS AUSSI AVEC UN SEUL ACQUIS (Charles, 8 octobre 2026 :
+                            « on n'a pas les couleurs, il faudrait ») : elle vaut l'acquis. */}
+                        {cols.length >= 1 && (
                           <th className="py-1.5 px-2 w-20 text-center" title="Moyenne des acquis pondérée par leur poids dans le cours — indicative">Cours</th>
                         )}
                       </tr>
@@ -567,7 +577,7 @@ export default function MesCours() {
                               </td>
                             );
                           })}
-                          {cols.length > 1 && (() => {
+                          {cols.length >= 1 && (() => {
                             const nc = noteCours(e.id);
                             return (
                               <td className="py-0.5 px-2 text-center tabular-nums font-semibold whitespace-nowrap">
@@ -587,7 +597,7 @@ export default function MesCours() {
                         </tr>
                       ))}
                       {!feuille.etudiants.length && (
-                        <tr><td colSpan={3 + cols.length} className="py-4 text-center text-slate-400">
+                        <tr><td colSpan={4 + cols.length} className="py-4 text-center text-slate-400">
                           Aucun étudiant — la répartition de ce cours ne vous en attribue pas encore.
                         </td></tr>
                       )}
