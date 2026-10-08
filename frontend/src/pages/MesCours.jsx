@@ -82,6 +82,12 @@ export default function MesCours() {
      (clé ''). */
   const colonnes = (f) => (f?.acquis?.length ? f.acquis.map(a => a.aa_code) : ['']);
 
+  // Le lien d'une notification « notes complètes » ouvre le cours : /mes-cours?cours=CODE.
+  useEffect(() => {
+    const c = new URLSearchParams(window.location.search).get('cours');
+    if (c) ouvrir(c);
+  }, []);   // eslint-disable-line react-hooks/exhaustive-deps
+
   async function ouvrir(code) {
     setOuvert(code); setFeuille(null); setNotes({}); setJustifs({}); setFait(null); setErreur(null); setGroupeVu('');
     try {

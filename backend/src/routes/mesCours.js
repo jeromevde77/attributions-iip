@@ -612,8 +612,51 @@ r.post('/:coursCode/notes', authRequired, (req, res) => {
         x.note != null && x.note < 10 ? x.justification : null, req.user?.email || null); n++; }
     }
   })();
-  res.json({ ok: true, proposees: n });
+  let complet = false;
+  try { complet = signalerSiComplet(req, d, req.params.coursCode, annee, aaPermis); } catch (e) { console.error('[notes complètes]', e.message); }
+  res.json({ ok: true, proposees: n, complet });
 });
+
+/* LE SECRÉTARIAT EST PRÉVENU QUAND UN COURS EST COMPLET (Charles, 8 octobre 2026 :
+ * « une notification sur l'écran d'accueil pour le secrétariat quand un prof a
+ * complété les notes d'un cours »). Complet = chaque étudiant de l'enseignant
+ * (hors cours reporté) a une note ou une mention (PP, NP, CM) pour chaque acquis
+ * du cours — ou la note de cours, si le cours n'a pas d'acquis. Une fois par
+ * enseignant, cours et année ; si le cours redevient incomplet, la marque tombe
+ * et la complétion suivante prévient de nouveau. */
+function signalerSiComplet(req, d, coursCode, annee, aaPermis) {
+  db.exec(`CREATE TABLE IF NOT EXISTS notes_cours_completes (
+    annee_scolaire TEXT NOT NULL, cours_code TEXT NOT NULL, propose_par TEXT NOT NULL,
+    complet_le TEXT DEFAULT (datetime('now')), PRIMARY KEY (annee_scolaire, cours_code, propose_par))`);
+  const qui = req.user?.email || String(req.user?.id || '');
+  const acquis = [...aaPermis].filter(Boolean);
+  const cles = acquis.length ? acquis : [''];
+  const reporte = db.prepare(`SELECT 1 FROM etudiant_report_note WHERE etudiant_id = ? AND annee_scolaire = ?
+    AND cours_code = ? AND statut = 'accorde'`);
+  const etus = d.etudiants.filter(e => { try { return !reporte.get(e.id, annee, coursCode); } catch { return true; } });
+  if (!etus.length) return false;
+  const poses = new Set(db.prepare(`SELECT etudiant_id || '|' || aa_code k FROM note_proposee
+      WHERE annee_scolaire = ? AND cours_code = ? AND (note IS NOT NULL OR mention IS NOT NULL)`).all(annee, coursCode).map(x => x.k));
+  const complet = etus.every(e => cles.every(a => poses.has(`${e.id}|${a}`)));
+  const deja = db.prepare('SELECT 1 FROM notes_cours_completes WHERE annee_scolaire = ? AND cours_code = ? AND propose_par = ?').get(annee, coursCode, qui);
+  if (!complet) {
+    if (deja) db.prepare('DELETE FROM notes_cours_completes WHERE annee_scolaire = ? AND cours_code = ? AND propose_par = ?').run(annee, coursCode, qui);
+    return false;
+  }
+  if (deja) return true;
+  db.prepare('INSERT INTO notes_cours_completes (annee_scolaire, cours_code, propose_par) VALUES (?,?,?)').run(annee, coursCode, qui);
+  const c = db.prepare('SELECT cours_nom, ue_num FROM cours WHERE cours_code = ? ORDER BY (annee_scolaire = ?) DESC LIMIT 1').get(coursCode, annee) || {};
+  const p = db.prepare(`SELECT p.nom, p.prenom FROM professeur p JOIN utilisateur u ON u.professeur_id = p.id WHERE u.id = ?`).get(req.user?.id)
+    || { nom: req.user?.nom || qui, prenom: '' };
+  const nomProf = `${String(p.nom || '').toUpperCase()} ${p.prenom || ''}`.trim();
+  const titre = `Notes complètes — ${c.cours_nom || coursCode} (${coursCode}${c.ue_num ? `, UE ${c.ue_num}` : ''})`;
+  const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const corps = `<strong>${esc(nomProf)}</strong> a encodé toutes les notes de ses ${etus.length} étudiant(s)`
+    + `${acquis.length ? `, ${acquis.length} acquis chacun` : ''} — ${annee}. À reprendre dans l'encodage officiel (Mes cours → « Reprendre les propositions »).`;
+  const ins = db.prepare(`INSERT INTO lucie_notification (type, titre, corps, lien, cible_role, cree_par) VALUES ('notes_completes', ?, ?, ?, ?, ?)`);
+  for (const role of ['secretariat', 'editeur']) ins.run(titre, corps, `/mes-cours?cours=${encodeURIComponent(coursCode)}`, role, nomProf || qui);
+  return true;
+}
 
 // ── Ce que la coordination reprend dans l'encodage officiel ──────────────────
 r.get('/:coursCode/propositions', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {

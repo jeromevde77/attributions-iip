@@ -483,7 +483,7 @@ r.get('/feed', authRequired, (req, res) => {
         source_id: n.id,
         // Le type conditionne l'icône et la couleur dans la cloche : les rappels
         // de l'échéancier ne doivent pas s'afficher comme du recrutement.
-        type: n.type === 'echeance_rappel' ? 'echeance' : 'recrutement',
+        type: n.type === 'echeance_rappel' ? 'echeance' : n.type === 'notes_completes' ? 'notes' : 'recrutement',
         action: 'info',
         titre: n.titre,
         detail: null,
