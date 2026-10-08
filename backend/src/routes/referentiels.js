@@ -1501,9 +1501,9 @@ r.post('/ue-section', authRequired, roleRequired('admin', 'editeur'), (req, res)
     const tx = db.transaction(() => {
       // Copier l'UE
       db.prepare(`
-        INSERT OR IGNORE INTO ue (ue_num, annee_scolaire, ue_nom, ue_code_fwb, section, ue_tc, ue_det,
+        INSERT OR IGNORE INTO ue (ue_num, annee_scolaire, ue_nom, ue_code_fwb, section, ue_tc, ue_det, ue_dp,
           ue_niv, ue_per_etudiants, ue_per_cours, ue_aut, ue_tot_prf, ue_niveau, ue_quad, et_ref, ects, ue_prerequise, pot_code)
-        SELECT ue_num, @cible, ue_nom, ue_code_fwb, @section, ue_tc, ue_det,
+        SELECT ue_num, @cible, ue_nom, ue_code_fwb, @section, ue_tc, ue_det, ue_dp,
           ue_niv, ue_per_etudiants, ue_per_cours, ue_aut, ue_tot_prf, ue_niveau, ue_quad, et_ref, ects, ue_prerequise, pot_code
         FROM ue WHERE ue_num = @ue AND annee_scolaire = @source AND section = @srcsec
       `).run({ ue: ue_num, cible: annee, source: source.annee_scolaire, section: section_code, srcsec: source.section });
@@ -2342,7 +2342,8 @@ r.post('/import-dp', authRequired, roleRequired('admin', 'editeur'), async (req,
       ue_aut:           ueData.ue_aut         ?? undefined,
       ue_per_etudiants: ueData.ue_per_etudiants ?? undefined,
       ue_code_fwb:      ueData.ue_code_fwb    || undefined,
-      ue_det:           ueData.ue_det         || undefined,
+      // Le texte du dossier va dans ue_dp : ue_det est la case « déterminante ».
+      ue_dp:            ueData.ue_det         || undefined,
     };
     // Supprimer les undefined
     for (const k of Object.keys(fieldsToUpdate)) if (fieldsToUpdate[k] === undefined) delete fieldsToUpdate[k];
@@ -2363,14 +2364,14 @@ r.post('/import-dp', authRequired, roleRequired('admin', 'editeur'), async (req,
       // Générer un numéro UE : max existant + 1
       const maxRow = db.prepare('SELECT MAX(ue_num) AS m FROM ue WHERE annee_scolaire = ?').get(annee);
       ueNum = (maxRow?.m || 0) + 1;
-      db.prepare(`INSERT INTO ue (ue_num, annee_scolaire, ue_nom, section, ue_niveau, ects, ue_aut, ue_per_etudiants, ue_code_fwb, ue_det)
-        VALUES (@ue_num, @annee, @ue_nom, @section, @ue_niveau, @ects, @ue_aut, @ue_per_etudiants, @ue_code_fwb, @ue_det)`)
+      db.prepare(`INSERT INTO ue (ue_num, annee_scolaire, ue_nom, section, ue_niveau, ects, ue_aut, ue_per_etudiants, ue_code_fwb, ue_dp)
+        VALUES (@ue_num, @annee, @ue_nom, @section, @ue_niveau, @ects, @ue_aut, @ue_per_etudiants, @ue_code_fwb, @ue_dp)`)
         .run({
           ue_num: ueNum, annee, section,
           ue_nom: ueData.ue_nom || '', ue_niveau: ueData.ue_niveau || null,
           ects: ueData.ects || null, ue_aut: ueData.ue_aut || null,
           ue_per_etudiants: ueData.ue_per_etudiants || null,
-          ue_code_fwb: ueData.ue_code_fwb, ue_det: ueData.ue_det || null,
+          ue_code_fwb: ueData.ue_code_fwb, ue_dp: ueData.ue_det || null,
         });
       action = 'created';
     }

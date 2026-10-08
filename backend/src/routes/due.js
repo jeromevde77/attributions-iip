@@ -177,7 +177,7 @@ const enHeures = per => (per == null ? null : Math.round(Number(per) / 1.2));
  * Le modèle Word disait, à trois endroits, « copier le contenu du DP » — et
  * c'est exactement ce que chacun faisait, à la main, en recopiant un texte
  * officiel qui figure déjà dans Lucie. L'import du dossier pédagogique dépose
- * ses sections dans `ue.ue_det`, sous des titres « ## ». On les redonne ici
+ * ses sections dans `ue.ue_dp` (jusqu'au 8 octobre 2026 : `ue_det`), sous des titres « ## ». On les redonne ici
  * telles quelles, à charge pour l'écran de les proposer d'un clic.
  *
  * Le degré de maîtrise n'est pas une section à lui seul : le dossier le loge à
@@ -358,7 +358,11 @@ function partieAutomatique(ueNum, annee) {
   return {
     responsable_propose: enseignants[0]?.id ?? null,
     situation: situationDansLaSection(ue, annee),
-    dp: sectionsDuDP(ue.ue_det),
+    // Le dossier de l'année ; à défaut, le plus récent importé pour cette unité :
+    // un dossier pédagogique ne change pas d'une année à l'autre.
+    dp: sectionsDuDP(ue.ue_dp || (String(ue.ue_det || '').length > 5 ? ue.ue_det : null)
+      || db.prepare(`SELECT ue_dp FROM ue WHERE ue_num = ? AND length(ue_dp) > 5
+           ORDER BY annee_scolaire DESC LIMIT 1`).get(ueNum)?.ue_dp || null),
     ue: {
       ue_num: ue.ue_num, ue_nom: ue.ue_nom, ue_code_fwb: ue.ue_code_fwb,
       section: ue.section, ects: ue.ects, niveau: ue.ue_niveau, niv: ue.ue_niv,

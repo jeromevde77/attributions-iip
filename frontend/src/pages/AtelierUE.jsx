@@ -121,6 +121,15 @@ export default function AtelierUE({ faceInitiale = 'croisement', faces = FACES.m
   const [section, setSection] = useState(memo.section || '');
   const [ue, setUe] = useState(memo.ue || null);
   const [faceLocale, setFaceLocale] = useState(ouvertes.some(f => f[0] === faceInitiale) ? faceInitiale : ouvertes[0][0]);
+  // Un clic sur une étape du rail quand l'écran n'était pas encore ouvert : l'axe
+  // l'a notée (`lucie.outil`), on l'ouvre directement.
+  useEffect(() => {
+    try {
+      const o = sessionStorage.getItem('lucie.outil');
+      if (o?.startsWith('face-')) { sessionStorage.removeItem('lucie.outil');
+        const k = o.slice(5); if (ouvertes.some(f => f[0] === k)) (onFace || setFaceLocale)(k); }
+    } catch { /* sans mémoire de session */ }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const face = faceDonnee || faceLocale;
   const setFace = onFace || setFaceLocale;
   const [numero, setNumero] = useState('');

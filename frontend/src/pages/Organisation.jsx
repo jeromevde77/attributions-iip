@@ -5,7 +5,7 @@ import { useSearchParams } from 'react-router-dom';
 import Axe from '../components/Axe.jsx';
 import {
   IconLayoutGrid, IconSchool, IconSitemap, IconFileDescription,
-  IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup, IconListDetails, IconCalendarWeek, IconChartBar,
+  IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup, IconListDetails, IconPercentage, IconTable, IconCalendarWeek, IconChartBar,
 } from '@tabler/icons-react';
 import Attributions from './Attributions.jsx';
 import Planification from './Planification.jsx';
@@ -55,6 +55,19 @@ export default function Organisation({ ongletInitial }) {
       titre="Organisation" icone={ICONE_AXE.organisation} impression="organisation" echanges
       question="« Qu'organise-t-on cette année ? »"
       ongletInitial={ongletDemande}
+      /* LES ÉTAPES DE L'UNITÉ SE DÉPLIENT SOUS ELLE (Charles, 8 octobre 2026 : « bug
+         ordre »). Sans ordre déclaré, le tiroir de l'écran ouvert se rangeait sous
+         la DERNIÈRE rubrique — après Horaires et Effectifs —, loin de l'icône
+         cliquée. L'ordre est celui du rail tel qu'il était ; seule l'unité porte
+         ses trois étapes dessous. */
+      ordreRail={[['attributions', 'planifier', 'rentree', 'repartition', 'structure', 'unite',
+        'horaire-semaine', 'effectifs']]}
+      sousMenus={[{ key: 'unite', label: 'Unité : croiser, pondérer, décrire', icone: IconListDetails, hote: 'unite',
+        enfants: [
+          { key: 'face-croisement', label: '1. Croiser les acquis et le programme', icone: IconTable },
+          { key: 'face-ponderation', label: '2. Pondérer', icone: IconPercentage },
+          { key: 'face-descriptif', label: '3. Décrire l’unité (DUE)', icone: IconFileDescription },
+        ] }]}
       onglets={[
         { key: 'attributions', module: 'attributions', label: 'Attributions', icone: IconLayoutGrid, sansMarge: true,
           rendu: <Attributions /> },
