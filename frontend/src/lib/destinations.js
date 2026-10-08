@@ -39,8 +39,9 @@ export const DESTINATIONS = [
   { label: 'Rentrée', axe: 'Organisation', chemin: '/organisation?onglet=rentree', mots: 'rentree' },
   { label: 'Répartition des étudiants dans les cours', axe: 'Organisation', chemin: '/organisation?onglet=repartition', mots: 'repartition groupes etudiants cours' },
   { label: 'Schéma de capitalisation', axe: 'Organisation', chemin: '/organisation?onglet=structure', mots: 'schema capitalisation prerequis structure section' },
-  { label: 'Pondérations', axe: 'Organisation', chemin: '/organisation?onglet=ponderations', mots: 'ponderations poids acquis cours' },
-  { label: 'Descriptifs d’UE', axe: 'Organisation', chemin: '/organisation?onglet=due', mots: 'due descriptif unite enseignement' },
+  { label: 'Pondérations', axe: 'Organisation', chemin: '/organisation?onglet=ponderations', mots: 'ponderations poids acquis cours croisement' },
+  { label: 'Descriptifs d’UE', axe: 'Organisation', chemin: '/organisation?onglet=due', mots: 'due descriptif unite enseignement croisement programme' },
+  { label: 'Croisement acquis × programme', axe: 'Organisation', chemin: '/organisation?onglet=unite&face=croisement', mots: 'croisement acquis programme points tableau aa' },
   { label: 'Horaires', axe: 'Organisation', chemin: '/organisation?onglet=horaire-semaine', mots: 'horaire semaine hyperplanning locaux seances' },
   { label: 'Effectifs et postes PNCC', axe: 'Organisation', chemin: '/organisation?onglet=effectifs', mots: 'effectifs statistiques pncc postes' },
   // Gestion

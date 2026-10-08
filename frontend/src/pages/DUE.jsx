@@ -551,7 +551,9 @@ function GrilleCriteres({ d, c, lecture, ueNum, onGrille, onMode }) {
 
 // ── La fiche ─────────────────────────────────────────────────────────────────
 
-function Fiche({ ueNum, onRetour }) {
+/* `integree` : la fiche vit dans l'onglet « Pondération, croisement et DUE », qui
+   porte déjà l'unité et son titre — ni retour, ni second titre. */
+export function Fiche({ ueNum, onRetour, integree = false }) {
   const [d, setD] = useState(null);
   const [c, setC] = useState({});
   const [erreur, setErreur] = useState(null);
@@ -669,9 +671,10 @@ function Fiche({ ueNum, onRetour }) {
 
   return (
     /* PLEINE PAGE (Charles, 8 octobre 2026 : « laisser en pleine page pour la mise en page »). */
-    <div className="p-4">
+    <div className={integree ? '' : 'p-4'}>
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="min-w-0">
+          {!integree && <>
           <button onClick={onRetour}
             className="text-[12px] text-slate-500 hover:text-iip-blue flex items-center gap-1 mb-1">
             <IconArrowLeft size={13} /> Tous les descriptifs
@@ -679,6 +682,7 @@ function Fiche({ ueNum, onRetour }) {
           <h2 className="text-[15px] font-semibold text-iip-blue truncate">
             UE {u.ue_num} — {u.ue_nom}
           </h2>
+          </>}
           <div className="flex items-center gap-2 mt-1">
             <span className={`text-[11px] px-2 py-0.5 rounded-champ font-semibold ${
               d.statut === 'validee'
