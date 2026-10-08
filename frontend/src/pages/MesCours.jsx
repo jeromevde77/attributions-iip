@@ -3,7 +3,7 @@ import { ouvrirApercu } from '../lib/apercu.js';
 import { IconChalkboard } from '@tabler/icons-react';
 import { couleurBloc, rangBloc } from '../lib/blocs.js';
 import { useEffect, useState } from 'react';
-import { IconChartHistogram, IconBooks, IconChevronLeft, IconAlertTriangle, IconMessageCircle, IconPrinter, IconCertificate, IconAccessible, IconPencil, IconUserCheck } from '@tabler/icons-react';
+import { IconChartHistogram, IconBooks, IconChevronLeft, IconAlertTriangle, IconMessageCircle, IconPrinter, IconCertificate, IconAccessible, IconPencil, IconUserCheck, IconFileDescription } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { MOTIFS_ECHEC } from '../components/motifsEchec.js';
 import PresencesCours from '../components/PresencesCours.jsx';
@@ -11,6 +11,7 @@ import IndicateursNotes from '../components/IndicateursNotes.jsx';
 import { OuvrirEditions, RailLateral } from '../components/ui.jsx';
 import AvisValorisationProf from '../components/AvisValorisationProf.jsx';
 import AvisAmenagementProf from '../components/AvisAmenagementProf.jsx';
+import DUE from './DUE.jsx';
 
 /**
  * MES COURS — la porte du professeur.
@@ -60,6 +61,11 @@ export default function MesCours() {
   const [enCours, setEnCours] = useState(false);
   const [filtre, setFiltre] = useState('');
   const [filtreSection, setFiltreSection] = useState('');
+  /* LES DUE DE MES UNITÉS (Charles, 8 octobre 2026 : « elle ne voit pas ses DUE…
+     que cela paraisse dans Mes cours ») : l'écran vivait dans Organisation, où un
+     professeur n'entre pas. Le même écran, ici ; le serveur ne lui rend que les
+     unités où il porte une attribution. */
+  const [vueDue, setVueDue] = useState(false);
   const [face, setFace] = useState('notes');          // notes | presences
   const [caseActive, setCaseActive] = useState(null);   // { id, k, r, ci } — la case que visent PP et NP
   /* LE GROUPE QU'ON A DEVANT SOI (1er octobre 2026, UE 333 AESI : « il ne
@@ -138,18 +144,21 @@ export default function MesCours() {
         ouvert — ses deux faces. */}
     <RailLateral icon={ICONE_AXE.mesCours} titre="Mes cours" sousTitre={annee}
       sections={[{ items: [
-        { key: 'liste', label: 'Mes cours', icon: IconBooks, actif: !ouvert,
-          onClick: () => { setOuvert(null); setFeuille(null); } },
+        { key: 'liste', label: 'Mes cours', icon: IconBooks, actif: !ouvert && !vueDue,
+          onClick: () => { setVueDue(false); setOuvert(null); setFeuille(null); } },
+        { key: 'due', label: 'Descriptifs de mes unités (DUE)', icon: IconFileDescription, actif: vueDue,
+          onClick: () => { setVueDue(true); setOuvert(null); setFeuille(null); } },
         { key: 'avis-va', label: 'Avis de valorisation', icon: IconCertificate,
-          onClick: () => { setOuvert(null); setFeuille(null); setTimeout(() => allerA('avis-va'), 50); } },
+          onClick: () => { setVueDue(false); setOuvert(null); setFeuille(null); setTimeout(() => allerA('avis-va'), 50); } },
         { key: 'avis-ar', label: 'Aménagements raisonnables', icon: IconAccessible,
-          onClick: () => { setOuvert(null); setFeuille(null); setTimeout(() => allerA('avis-ar'), 50); } },
-        ...(ouvert ? [
+          onClick: () => { setVueDue(false); setOuvert(null); setFeuille(null); setTimeout(() => allerA('avis-ar'), 50); } },
+        ...(ouvert && !vueDue ? [
           { key: 'notes', label: 'Notes du cours', icon: IconPencil, actif: face === 'notes', onClick: () => setFace('notes') },
           { key: 'indicateurs', label: 'Indicateurs', icon: IconChartHistogram, actif: face === 'indicateurs', onClick: () => setFace('indicateurs') },
           { key: 'presences', label: 'Présences', icon: IconUserCheck, actif: face === 'presences', onClick: () => setFace('presences') },
         ] : []),
       ] }]} />
+    {vueDue ? <div className="gouttiere-rail px-4 py-3 md:px-6"><DUE /></div> : (
     <div className="gouttiere-rail px-4 py-3 md:px-6 space-y-2.5">
       <div className="flex items-center gap-2">
         <IconBooks size={20} className="text-iip-turquoise" />
@@ -702,6 +711,7 @@ export default function MesCours() {
         );
       })()}
     </div>
+    )}
     </>
   );
 }

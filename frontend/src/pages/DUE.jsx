@@ -357,6 +357,7 @@ function Liste({ onOuvrir }) {
   const [etat, setEtat] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [fSection, setFSection] = useState('');
+  const [rechercheUE, setRechercheUE] = useState('');
 
   useEffect(() => {
     api.dueListe().then(setEtat).catch(e => setErreur(e.message));
@@ -373,7 +374,12 @@ function Liste({ onOuvrir }) {
     );
   }
 
-  const visibles = fSection ? etat.ues.filter(u => u.section === fSection) : etat.ues;
+  // LE NUMÉRO D'UE (Charles, 8 octobre 2026) : on tape quelques chiffres, la liste se
+  // réduit aux unités qui commencent par eux — nom et section à côté ; Entrée ouvre
+  // l'unité quand une seule répond.
+  const q = rechercheUE.trim();
+  const visibles = (fSection ? etat.ues.filter(u => u.section === fSection) : etat.ues)
+    .filter(u => !q || String(u.ue_num).startsWith(q) || (/\D/.test(q) && String(u.ue_nom || '').toLowerCase().includes(q.toLowerCase())));
 
   return (
     <div className="p-4">
@@ -383,6 +389,16 @@ function Liste({ onOuvrir }) {
             ? "Toutes les unités de l'année. Une DUE validée passe en lecture seule pour ses titulaires."
             : "Les unités de vos sections et celles où vous portez une attribution. Vous complétez le descriptif de vos unités tant qu'il n'est pas validé."}
         </p>
+        <label className="flex items-center gap-2 text-[12px] text-slate-500">
+          UE n°
+          <input value={rechercheUE} autoFocus inputMode="numeric" placeholder="ex. 333" data-reponses="non"
+            onChange={e => setRechercheUE(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && visibles.length === 1) onOuvrir(visibles[0].ue_num); }}
+            className="controle w-28" />
+          {q && <span className="text-[12px] text-slate-600">
+            {visibles.length === 1 ? <>UE {visibles[0].ue_num} — <b>{visibles[0].ue_nom}</b> · {visibles[0].section} <span className="text-slate-400">(Entrée pour ouvrir)</span></>
+              : `${visibles.length} unité(s)`}</span>}
+        </label>
         {(etat.sections || []).length > 1 && (
           <label className="flex items-center gap-2 text-[12px] text-slate-500">
             Section
@@ -634,7 +650,7 @@ function Fiche({ ueNum, onRetour }) {
       const j = await api.dueDocument(ueNum);
       ouvrirApercu({
         html: j.html, titre: `Descriptif de l'unité ${ueNum}`, nomFichier: `DUE_UE${ueNum}`,
-        envoiPossible: false, astuceImpression: 'A4 portrait',
+        envoiPossible: false, astuceImpression: 'A4 portrait', pdf: { orientation: 'portrait' },
       });
     } catch (e) { setErreur(e.message); }
   }
@@ -735,7 +751,7 @@ function Fiche({ ueNum, onRetour }) {
           <Su label="Crédits ECTS" valeur={u.ects} />
           <Su label="Volume horaire"
             valeur={u.periodes ? `${u.periodes} périodes · ${u.heures} h` : null} />
-          <Su label="Quadrimestre" valeur={u.quadrimestre} />
+          <Su label="Situation dans la formation" valeur={[u.niv, u.quadrimestre].filter(Boolean).join(' · ') || null} />
           <Su label="Unité prérequise" valeur={u.prerequise || 'Aucune'} />
           <Su label="Code FWB" valeur={u.ue_code_fwb} />
         </div>
@@ -744,7 +760,7 @@ function Fiche({ ueNum, onRetour }) {
           <Champ label="Bloc d'études administratif" valeur={c.bloc} lecture={lecture}
             placeholder="1, 2 ou 3" onChange={v => maj('bloc', v)} />
           <Champ label="Niveau du cadre européen des certifications" valeur={c.niveau_cec}
-            lecture={lecture} placeholder="Niveau 6 (TC)" onChange={v => maj('niveau_cec', v)} />
+            lecture={lecture} placeholder={d.cec_defaut || 'aucun (formation continue)'} onChange={v => maj('niveau_cec', v)} />
           <Champ label="Langue d'enseignement" valeur={c.langue_ens} lecture={lecture}
             placeholder="Français" onChange={v => maj('langue_ens', v)} />
           <Champ label="Langue d'évaluation" valeur={c.langue_eval} lecture={lecture}

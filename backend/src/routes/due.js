@@ -26,7 +26,7 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, getUserSections } from '../middleware/auth.js';
 import { anneeDeTravail } from '../helpers/annee.js';
-import { envelopper } from './attestations.js';
+import { envelopperDocument } from '../lib/document.js';
 import { identiteEtablissement } from './config.js';
 import { getParam } from './parametres.js';
 import { introductionAcquis } from './aa.js';
@@ -264,6 +264,18 @@ function miniSchema(g, num, proches) {
     ${titres}${fleches}${boites}</svg>`;
 }
 
+/* LE NIVEAU DU CADRE EUROPÉEN, DÉDUIT DE LA SECTION (Charles, 8 octobre 2026 : « ce
+   n'est pas niveau 6 mais 5 ici, BES ») : bachelier 6, BES 5, secondaire supérieur 4 ;
+   une formation continue n'en porte pas. Une valeur saisie l'emporte. */
+function cecDe(section) {
+  const n = String(db.prepare('SELECT niveau FROM section WHERE code = ?').get(section)?.niveau || '').toLowerCase();
+  if (/^fc|formation continue/.test(n)) return null;
+  if (/bachelier/.test(n)) return 'Niveau 6';
+  if (/\bbes\b|brevet/.test(n)) return 'Niveau 5';
+  if (/\bds\b|secondaire/.test(n)) return 'Niveau 4';
+  return null;
+}
+
 /** LES FINALITÉS EN DEUX (Charles, 8 octobre 2026) : le dossier pédagogique les
  *  écrit d'un tenant — générales, puis particulières. On coupe au titre
  *  « particulières » ; sans lui, tout reste aux particulières. */
@@ -458,6 +470,7 @@ r.get('/:ueNum', authRequired, (req, res) => {
     annee, ...auto, ...d,
     evaluation_unique: evaluationUnique(ueNum, annee),
     finalites_generales_defaut: getParam('due_finalites_generales', FINALITES_GENERALES_DEFAUT),
+    cec_defaut: cecDe(auto.ue.section),
     note_supports: getParam('due_note_supports', NOTE_SUPPORTS_DEFAUT),
     points_programme: (Array.isArray(d.contenu?.points) && d.contenu.points.length)
       ? d.contenu.points.filter(p => (p.type || 'point') === 'point').map(p => p.texte).filter(Boolean)
@@ -743,19 +756,20 @@ export function documentDUE(ueNum, annee) {
   const ident = [
     ['Section', u.section],
     ["Bloc d'études", c.bloc ? `Bloc ${c.bloc}` : null],
-    ['Situation dans la formation', u.quadrimestre],
+    // Le niveau ET le quadrimestre (Charles, 8 octobre 2026 : « BE1 · Q1 »).
+    ['Situation dans la formation', [u.niv, u.quadrimestre].filter(Boolean).join(' · ') || null],
     ['Unité prérequise', u.prerequise || 'Aucune'],
     ['Tronc commun', u.tc ? 'Oui' : null],
     ['Volume horaire / an', u.periodes ? `${u.periodes} périodes — soit ${u.heures} h` : null],
     ['Crédits ECTS', u.ects],
     ["Langue d'enseignement", c.langue_ens || 'Français'],
     ["Langue d'évaluation", c.langue_eval || 'Français'],
-    ['Niveau du cadre européen des certifications', c.niveau_cec
-      || (u.niveau === 'SUP' ? 'Niveau 6 (TC)' : null)],
+    ['Niveau du cadre européen des certifications', c.niveau_cec || cecDe(u.section)],
     ["Responsable de l'unité", nomResp],
-    ['Co-diplomation HELB', c.codiplomation ? 'Oui' : 'Non'],
+    // Rien à dire quand il n'y en a pas (Charles, 8 octobre 2026).
+    ['Co-diplomation HELB', c.codiplomation ? 'Oui' : null],
   ].filter(([, v]) => v != null && v !== '')
-    .map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('');
+    .map(([k, v]) => `<div class="id-c"><div class="id-l">${esc(k)}</div><div class="id-v">${esc(v)}</div></div>`).join('');
 
   const titulaires = auto.enseignants.length
     ? auto.enseignants.map(e =>
@@ -796,31 +810,26 @@ export function documentDUE(ueNum, annee) {
       <td class="n">${s.obligatoire ? 'Obligatoire' : '—'}</td></tr>`;
   }).join('');
 
+  /* DES CASES COCHÉES, PAS UN TABLEAU (Charles, 8 octobre 2026) : par session, une
+     ligne par activité, ses six modes d'évaluation en cases ☑ / ☐. */
   const evaluation = ['s1', 's2'].map(sess => `
-    <tr class="sess"><td colspan="${EPREUVES.length + 1}">
-      ${sess === 's1' ? 'Première session' : 'Seconde session'}</td></tr>
+    <div class="sous-t">${sess === 's1' ? 'Première session' : 'Seconde session'}</div>
     ${auto.cours.map(x => {
     const e = c.evaluation?.[x.cours_code]?.[sess] || {};
-    return `<tr><td><b>${esc(x.cours_code)}</b> — ${esc(x.cours_nom)}</td>${EPREUVES
-      .map(([k]) => `<td class="n">${e[k] ? '✔' : ''}</td>`).join('')}</tr>`;
+    return `<div class="eval-l"><span class="eval-c"><b>${esc(x.cours_code)}</b> — ${esc(x.cours_nom)}</span>${EPREUVES
+      .map(([k, l]) => `<span class="case${e[k] ? ' on' : ''}">${e[k] ? '☑' : '☐'} ${esc(l)}</span>`).join('')}</div>`;
   }).join('')}`).join('');
 
   const corps = `
   <div class="attestation">
-    <div class="entete">
-      <div class="nom">${esc(auto.etablissement.nom)}</div>
-      <div class="sous">Description d'unité d'enseignement</div>
+    <div class="tete-due">
+      <div class="reperes">${[u.section, [u.niv, u.quadrimestre].filter(Boolean).join(' · '), u.ects ? `${u.ects} ECTS` : null,
+        u.periodes ? `${u.periodes} périodes` : null].filter(Boolean).map(esc).join('<span class="pt">·</span>')}
+        <span class="etat ${statut === 'validee' ? 'ok' : 'brouillon'}">${statut === 'validee'
+    ? `Validée par la direction le ${esc(valide_le || '')}` : 'En préparation — non validée'}</span></div>
     </div>
 
-    <div class="titre-ue">UE ${u.ue_num} — ${esc(u.ue_nom)}
-      <span class="millesime">${esc(annee)}</span></div>
-    <div class="etat ${statut === 'validee' ? 'ok' : 'brouillon'}">
-      ${statut === 'validee'
-    ? `Validée par la direction le ${esc(valide_le || '')}`
-    : 'En préparation — document non encore validé par la direction'}
-    </div>
-
-    <table class="doc ident">${ident}</table>
+    <div class="ident">${ident}</div>
 
     ${bloc("Titulaires des activités d'apprentissage", `<ul class="serre">${titulaires}</ul>`)}
 
@@ -847,9 +856,7 @@ export function documentDUE(ueNum, annee) {
       <tr><th>Activité</th><th>Type de support</th><th class="n">Statut</th></tr>${supports}</table>
       <p class="fin">${esc(getParam('due_note_supports', NOTE_SUPPORTS_DEFAUT))}</p>`)}
 
-    ${bloc("Modalités d'évaluation", `<table class="doc">
-      <tr><th>Activité</th>${EPREUVES.map(([, l]) => `<th class="n">${esc(l)}</th>`).join('')}</tr>
-      ${evaluation}</table>
+    ${bloc("Modalités d'évaluation", `${evaluation}
       <div class="fin">${c.note_ue ? riche(c.note_ue) : esc(getParam('due_note_evaluation', NOTE_UE_DEFAUT))}</div>`)}
 
     ${bloc("Critères d'évaluation", grillesCriteres(auto, c, evaluationUnique(ueNum, annee)) || '<p class="vide">à compléter</p>')}
@@ -860,26 +867,44 @@ export function documentDUE(ueNum, annee) {
   // LA FEUILLE DANS LE <head>, PAS APRÈS </html> : ajoutée à la fin, elle
   // cassait le saut de page (catalogue des erreurs, CLAUDE.md). Elle vient
   // après celle de l'enveloppe, donc ses règles l'emportent toujours.
-  const doc = envelopper(corps, `DUE ${ueNum} — ${annee}`);
-  return doc.includes('</head>') ? doc.replace('</head>', `${STYLE_DUE}</head>`) : doc + STYLE_DUE;
+  /* L'ENVELOPPE COMMUNE (Charles, 8 octobre 2026 : « dans le style des documents
+     envoyés aux étudiants, et bas de page ») : en-tête de la Fédération, identité de
+     l'établissement, cadre de titre, pied sur chaque feuille — lib/document.js. */
+  return envelopperDocument({
+    html: corps, titre: `DUE ${ueNum} — ${annee}`,
+    styles: STYLE_DUE.replace(/<\/?style>/g, ''),
+    entete: { titre: "Description d'unité d'enseignement", sous: `UE ${u.ue_num} — ${u.ue_nom}`, ligne: `${u.section || ''} · ${annee}` },
+  });
 }
 
 // Le gabarit commun porte l'en-tête, les filets dorés et le pied ; la DUE y
 // ajoute ses propres blocs. La feuille est concaténée après coup pour que ces
 // règles l'emportent sur celles de l'enveloppe.
 const STYLE_DUE = `<style>
-  .titre-ue { font-size: 13pt; font-weight: 700; color:#1B2B4B; margin: 4mm 0 1mm; }
-  .titre-ue .millesime { font-weight: 400; color:#7a8699; font-size: 10pt; }
-  .etat { display:inline-block; padding:1mm 3mm; border-radius:2mm; font-size:8pt;
-          margin-bottom:3mm; }
-  .etat.ok { background:#ecfdf5; border:0.3mm solid #6ee7b7; color:#065f46; }
-  .etat.brouillon { background:#fff7ed; border:0.3mm solid #fdba74; color:#9a3412; }
-  .bloc { margin: 3mm 0; break-inside: avoid; }
-  .bloc-t { background:#1B2B4B; color:#fff; font-size:8.5pt; font-weight:700;
-            text-transform:uppercase; letter-spacing:.04em; padding:1.2mm 3mm; }
-  .bloc-c { border:0.25mm solid #d8dde6; border-top:0; padding:2.5mm 3mm; font-size:9pt; }
+  /* UNE MISE EN PAGE D'AUJOURD'HUI (Charles, 8 octobre 2026 : « un peu datée ») : la
+     hiérarchie par la graisse et par l'air — titres marine soulignés d'un filet or,
+     plus de bandeaux pleins ni de cadres autour des blocs, tableaux légers. */
+  .tete-due { margin: 0 0 4mm; }
+  .tete-due .nature { font-size: 7.5pt; letter-spacing: .08em; text-transform: uppercase; color: #7a8699; }
+  .titre-ue { font-size: 16pt; font-weight: 700; color:#16406A; margin: 1.5mm 0 1.5mm; line-height: 1.2; }
+  .titre-ue .num { color: #19537E; margin-right: 1.5mm; }
+  .reperes { font-size: 9pt; color: #334155; display: flex; flex-wrap: wrap; align-items: center; gap: 1.5mm; }
+  .reperes .pt { color: #C9A84C; }
+  .etat { margin-left: auto; display:inline-block; padding:0.6mm 2.5mm; border-radius:3mm; font-size:7.5pt; font-weight: 600; }
+  .etat.ok { background:#3E7D5E; color:#fff; }
+  .etat.brouillon { background:#B45309; color:#fff; }
+  .ident { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2.5mm 6mm; margin: 0 0 5mm; }
+  .id-l { font-size: 7pt; text-transform: uppercase; letter-spacing: .05em; color: #7a8699; }
+  .id-v { font-size: 9.5pt; color: #16406A; font-weight: 600; }
+  .bloc { margin: 0 0 5mm; break-inside: avoid; }
+  .bloc-t { color:#16406A; font-size:11pt; font-weight:700; padding: 0 0 1.2mm; margin-bottom: 2mm;
+            border-bottom: 0.3mm solid #C9A84C; }
+  .bloc-c { font-size:9.5pt; line-height: 1.45; color: #1f2937; }
   .bloc-c p { margin: 0 0 1.5mm; }
-  table.doc.ident th { width: 52mm; text-align:left; }
+  .attestation table.doc { border-collapse: collapse; width: 100%; font-size: 8.5pt; }
+  .attestation table.doc th { background: #EEF2F7; color: #16406A; font-weight: 600; text-transform: none; font-size: 8pt;
+            border: 0; border-bottom: 0.3mm solid #C9D3E1; padding: 1.5mm 2mm; text-align: left; }
+  .attestation table.doc td { border: 0; border-bottom: 0.2mm solid #E4E8EF; padding: 1.5mm 2mm; background: #fff; }
   .serre { margin:0; padding-left:5mm; }
   .chapeau { font-style: italic; margin: 1.5mm 0 0.8mm; }
   .serre li { margin-bottom:0.8mm; }
@@ -897,8 +922,12 @@ const STYLE_DUE = `<style>
   .riche hr { border: 0; border-top: 0.3mm solid #C9A84C; margin: 2mm 0; }
   /* PAS DE TABLEAU DANS UN TABLEAU (Charles, 8 octobre 2026) : un bloc qui porte un
      tableau perd son propre cadre ; le tableau s'aligne sous le titre. */
-  .bloc-c:has(> table.doc) { border: 0; padding: 1.5mm 0 0; }
+
   .riche table { border-collapse: collapse; width: 100%; } .riche td, .riche th { border: 0.25mm solid #d8dde6; padding: 1mm 1.5mm; }
+  .eval-l { display: grid; grid-template-columns: 50mm repeat(6, auto); align-items: baseline; column-gap: 2.5mm; padding: 1mm 0; border-bottom: 0.2mm solid #eef1f5; break-inside: avoid; }
+  .eval-c { font-size: 8.5pt; }
+  .case { font-size: 7.5pt; color: #94a3b8; white-space: nowrap; }
+  .case.on { color: #1B2B4B; font-weight: 700; }
   .intro-prog { font-style: italic; color: #4b5563; margin: 0 0 1mm; }
   .sous-t { font-weight: 700; color:#1B2B4B; font-size: 8.5pt; margin: 2.5mm 0 1mm; }
   .schema-due { margin: 2mm 0 0; } .schema-due svg { max-width: 90mm; height: auto; }
