@@ -8,7 +8,7 @@ import {
   // Les trois icônes de calendrier ont disparu avec les trois entrées de
   // période : un réglage n'est pas un territoire, il vit dans une fenêtre.
   IconUserPlus, IconClipboardList, IconSettings, IconRefresh, IconCake,
-  IconFilter, IconFileText, IconInfoCircle, IconClock, IconExclamationCircle, IconClipboardCheck} from '@tabler/icons-react';
+  IconFilter, IconFileText, IconInfoCircle, IconClock, IconExclamationCircle, IconClipboardCheck, IconWriting } from '@tabler/icons-react';
 import { urgence } from '../lib/urgence.js';
 import { Fenetre } from '../components/ui.jsx';
 import ConventionsASigner from '../components/ConventionsASigner.jsx';
@@ -19,7 +19,7 @@ const tok = () => localStorage.getItem('token');
 
 /* Les libellés du filtre courant, rappelés sous le titre de l'écran. */
 const LIBELLES_FILTRE = {
-  attribution: 'attributions seules', recrutement: 'recrutement seul', notes: 'notes complètes seules',
+  attribution: 'attributions seules', recrutement: 'recrutement seul', notes: 'notes seules',
   systeme: 'système seul',
 };
 const LIBELLES_PERIODE = { 7: '7 derniers jours', 90: '3 derniers mois' };
@@ -34,6 +34,9 @@ const TYPE_CONFIG = {
   // UN COURS DONT LES NOTES SONT COMPLÈTES (8 octobre 2026) : pour le secrétariat.
   notes: {
     info: { label: 'Notes complètes', color: '#FFFFFF', bg: 'var(--c-reussi)', icon: IconClipboardCheck },
+    // NOTES ENCODÉES (8 octobre 2026) : un professeur a encodé, le cours n'est
+    // pas forcément complet — bleu « disponible », la plume de l'encodage.
+    encodage: { label: 'Notes encodées', color: '#FFFFFF', bg: 'var(--c-disponible)', icon: IconWriting },
   },
   recrutement: {
     info: { label: 'Recrutement', color: 'var(--c-texte)', bg: 'rgb(var(--e-faveur-100))', icon: IconUserPlus },
@@ -619,7 +622,7 @@ export default function Accueil() {
               <div className="carte divide-y divide-slate-100">
                 {[['tout', `Tout`, nbNonLus],
                   ['attribution', 'Attributions', nbAttr],
-                  ['notes', 'Notes complètes', nbNotes],
+                  ['notes', 'Notes', nbNotes],
                   ['recrutement', 'Recrutement', nbRecr],
                   ['systeme', 'Système', nbSys]].map(([cle, lib, n]) => (
                   <label key={cle}
@@ -700,7 +703,7 @@ export default function Accueil() {
             <h2 className="text-lg font-semibold text-iip-blue">
               {filtre === 'tout' ? 'Fil d\'activité' :
                filtre === 'attribution' ? 'Attributions' :
-               filtre === 'recrutement' ? 'Recrutement' : filtre === 'notes' ? 'Notes complètes' : 'Système'}
+               filtre === 'recrutement' ? 'Recrutement' : filtre === 'notes' ? 'Notes' : 'Système'}
             </h2>
             {nbNonLus > 0 && (
               <span className="text-xs bg-iip-turquoise text-white rounded-champ px-2 py-0.5 font-bold">{nbNonLus} non lu{nbNonLus > 1 ? 's' : ''}</span>

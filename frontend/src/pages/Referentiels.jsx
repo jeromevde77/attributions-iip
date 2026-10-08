@@ -1,5 +1,5 @@
 import { MODES_GROUPES } from '../lib/groupes.js';
-import { useEffect, useState, Fragment } from 'react';
+import { useEffect, useRef, useState, Fragment } from 'react';
 import { estDirection } from '../lib/modules.js';
 import { api, getAnnee, getUser } from '../lib/api.js';
 import CoursFormModal from '../components/CoursFormModal.jsx';
@@ -601,7 +601,7 @@ function SectionModal({ section, onClose, onSaved, annee, isAdmin }) {
 }
 
 // ─── Modale UE ───
-function UEModal({ ue, sections, onClose, onSaved }) {
+function UEModal({ ue, sections, onClose, onSaved, navigation = null }) {
   const isNew = !ue?._edit;
   const me = getUser?.();
   const isAdmin = estDirection(me);
@@ -615,6 +615,9 @@ function UEModal({ ue, sections, onClose, onSaved }) {
     ects: ue?.ects || '', ue_prerequise: ue?.ue_prerequise || '', ue_per_z: ue?.ue_per_z || '',
     nb_etudiants: ue?.nb_etudiants ?? ''
   });
+  // Ce que la fiche contenait à l'ouverture : la flèche demande avant d'abandonner une saisie.
+  const depart = useRef(null);
+  if (depart.current == null) depart.current = JSON.stringify(form);
   const [saving, setSaving] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [newNum, setNewNum] = useState('');
@@ -820,6 +823,8 @@ function UEModal({ ue, sections, onClose, onSaved }) {
 
   return (
     <Fenetre icone={IconBooks} large="pleine" onFermer={onClose}
+      navigation={navigation ? { ...navigation, sale: JSON.stringify(form) !== depart.current } : null}
+      editions={isNew ? null : { ongletInitial: 'organisation' }}
       titre={isNew ? 'Nouvelle UE' : `Modifier l'UE ${ue.ue_num}`}
       sous={isNew ? 'Son identification, son contenu et sa charge' : form.ue_nom}
       pied={<>
@@ -1173,7 +1178,7 @@ export default function Referentiels({ embedded = false }) {
                             <td className="px-2 py-1.5 h-9 text-right text-gray-400">{ue.cours.length}</td>
                             <td className="px-2 py-1.5 h-9 text-right text-gray-400">{ue.nb_attributions}</td>
                             <td className={`px-2 py-1.5 text-right whitespace-nowrap ${activeUE === ueKey ? (isHelb ? 'border-r-2 border-pink-400' : 'border-r-2 border-iip-gold/60') : ''}`}>
-                              <button onClick={() => setUeModal({ ...ue, _edit: true })} className="text-iip-gold hover:text-iip-amber" title="Modifier l'UE"><IconPencil size={15} /></button>
+                              <button onClick={() => setUeModal({ ...ue, _edit: true, _liste: sg.ues })} className="text-iip-gold hover:text-iip-amber" title="Modifier l'UE"><IconPencil size={15} /></button>
                               <button onClick={() => delUE(ue)} className="text-red-400 hover:text-red-600 ml-2" title="Supprimer"><IconTrash size={15} /></button>
                             </td>
                           </tr>
@@ -1323,7 +1328,7 @@ export default function Referentiels({ embedded = false }) {
                         <td className="px-2 py-1.5 h-9 text-right">{ue.ects ?? '—'}</td>
                         <td className="px-2 py-1.5 h-9 text-right text-gray-400">{ue.cours.length}</td>
                         <td className="px-2 py-1.5 h-9 text-right whitespace-nowrap">
-                          <button onClick={() => setUeModal({ ...ue, _edit: true })} className="text-iip-gold hover:text-iip-amber" title="Modifier l'UE"><IconPencil size={15} /></button>
+                          <button onClick={() => setUeModal({ ...ue, _edit: true, _liste: allUes })} className="text-iip-gold hover:text-iip-amber" title="Modifier l'UE"><IconPencil size={15} /></button>
                           <button onClick={() => delUE(ue)} className="text-red-400 hover:text-red-600 ml-2" title="Supprimer"><IconTrash size={15} /></button>
                         </td>
                       </tr>
@@ -1410,7 +1415,15 @@ export default function Referentiels({ embedded = false }) {
       )}
       {effectifsOpen && <EffectifsImportModal annee={annee} onClose={() => setEffectifsOpen(false)} onSaved={() => { setEffectifsOpen(false); load(); }} />}
       {dpImportOpen && <DPImportModal annee={annee} sections={sections} onClose={() => setDpImportOpen(false)} onSaved={() => { setDpImportOpen(false); load(); }} />}
-      {ueModal && <UEModal ue={ueModal} sections={sections} onClose={() => setUeModal(null)} onSaved={() => { setUeModal(null); load(); }} />}
+      {ueModal && <UEModal key={`${ueModal.ue_num || 'nouvelle'}|${ueModal.section || ''}`} ue={ueModal} sections={sections}
+        onClose={() => setUeModal(null)} onSaved={() => { setUeModal(null); load(); }}
+        /* LES FLÈCHES DU BANDEAU parcourent la liste d'où la fiche a été ouverte
+           (la section, ou le tableau de toutes les UE), dans son ordre. */
+        navigation={ueModal._edit && ueModal._liste?.length > 1 ? {
+          position: Math.max(0, ueModal._liste.findIndex(x => x.ue_num === ueModal.ue_num)),
+          total: ueModal._liste.length,
+          onAller: i => setUeModal({ ...ueModal._liste[i], _edit: true, _liste: ueModal._liste }),
+        } : null} />}
       {coursModal && <CoursFormModal {...coursModal} onClose={() => setCoursModal(null)} onSaved={() => { setCoursModal(null); load(); }} />}
       {grilleSection && <GrilleSectionModal section={grilleSection} onClose={() => { setGrilleSection(null); load(); }} />}
 

@@ -618,6 +618,10 @@ r.post('/:coursCode/notes', authRequired, (req, res) => {
   let complet = false, reprise = null;
   try { reprise = repriseAutomatique(req.params.coursCode, annee, req.user?.email || 'reprise automatique'); } catch (e) { console.error('[reprise auto]', e.message); }
   try { complet = signalerSiComplet(req, d, req.params.coursCode, annee, aaPermis); } catch (e) { console.error('[notes complètes]', e.message); }
+  if (!complet) {
+    try { signalerEncodage(req.params.coursCode, annee, req.user?.email || null, d.etudiants.length, nomDuProf(req.user?.email, req.user)); }
+    catch (e) { console.error('[notes encodées]', e.message); }
+  }
   res.json({ ok: true, proposees: n, complet, reprise });
 });
 
@@ -658,8 +662,77 @@ function signalerSiComplet(req, d, coursCode, annee, aaPermis) {
   const corps = `<strong>${esc(nomProf)}</strong> a encodé toutes les notes de ses ${etus.length} étudiant(s)`
     + `${acquis.length ? `, ${acquis.length} acquis chacun` : ''} — ${annee}. À reprendre dans l'encodage officiel (Mes cours → « Reprendre les propositions »).`;
   const ins = db.prepare(`INSERT INTO lucie_notification (type, titre, corps, lien, cible_role, cree_par) VALUES ('notes_completes', ?, ?, ?, ?, ?)`);
-  for (const role of ['secretariat', 'editeur']) ins.run(titre, corps, `/mes-cours?cours=${encodeURIComponent(coursCode)}`, role, nomProf || qui);
+  for (const role of ROLES_PREVENUS) ins.run(titre, corps, `/mes-cours?cours=${encodeURIComponent(coursCode)}`, role, nomProf || qui);
   return true;
+}
+
+/* QUI EST PRÉVENU DES NOTES : le secrétariat et la direction adjointe (Charles,
+ * 8 octobre 2026 : « en mode Mati, Mélina, Florian ou Nicolas »). */
+const ROLES_PREVENUS = ['secretariat', 'editeur', 'directeur_adjoint'];
+
+/* LES NOTES ENCODÉES SE VOIENT DÈS QU'ELLES ARRIVENT (Charles, 8 octobre 2026 :
+ * « je ne vois pas la notification qui dit que les notes ont été encodées pour
+ * certains cours en 333 »). La seule notification attendait qu'un cours soit
+ * COMPLET — or un cours de 84 inscrits dont 3 n'ont pas encore de note ne l'est
+ * jamais : aucune n'était partie, sur aucun cours. Désormais, chaque
+ * enregistrement prévient, avec l'avancement (« 81 / 84 étudiants ») ; une seule
+ * notification par cours et par professeur et par jour, mise à jour au fil des
+ * enregistrements, plutôt que dix lignes pour dix clics. La complétude garde la
+ * sienne. */
+export function signalerEncodage(coursCode, annee, proposePar, totalEtudiants, nomProf) {
+  const c = db.prepare('SELECT cours_nom, ue_num FROM cours WHERE cours_code = ? ORDER BY (annee_scolaire = ?) DESC LIMIT 1').get(coursCode, annee) || {};
+  const n = db.prepare(`SELECT count(DISTINCT etudiant_id) n, count(*) notes, max(propose_le) le FROM note_proposee
+      WHERE annee_scolaire = ? AND cours_code = ? AND propose_par = ? AND (note IS NOT NULL OR mention IS NOT NULL)`).get(annee, coursCode, proposePar);
+  if (!n?.notes) return false;
+  const titre = `Notes encodées — ${c.cours_nom || coursCode} (${coursCode}${c.ue_num ? `, UE ${c.ue_num}` : ''})`;
+  const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const avancement = totalEtudiants ? `${n.n} / ${totalEtudiants} étudiants` : `${n.n} étudiant(s)`;
+  const corps = `<strong>${esc(nomProf)}</strong> a encodé ${n.notes} note(s) — ${avancement} — ${annee}.`
+    + ` Elles passent dans l'encodage officiel (Mes cours).`;
+  const lien = `/mes-cours?cours=${encodeURIComponent(coursCode)}`;
+  const existe = db.prepare(`SELECT id FROM lucie_notification WHERE type = 'notes_encodees' AND lien = ? AND cree_par = ?
+      AND cible_role = ? AND date(cree_le) = date('now')`);
+  const maj = db.prepare(`UPDATE lucie_notification SET titre = ?, corps = ?, cree_le = datetime('now'), lue_par = '[]' WHERE id = ?`);
+  const ins = db.prepare(`INSERT INTO lucie_notification (type, titre, corps, lien, cible_role, cree_par, cree_le)
+      VALUES ('notes_encodees', ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))`);
+  for (const role of ROLES_PREVENUS) {
+    const e = existe.get(lien, nomProf, role);
+    if (e) maj.run(titre, corps, e.id); else ins.run(titre, corps, lien, role, nomProf, null);
+  }
+  return true;
+}
+
+/** Le nom du professeur derrière une adresse — « NOM Prénom ». */
+function nomDuProf(email, user = null) {
+  const p = db.prepare(`SELECT p.nom, p.prenom FROM professeur p JOIN utilisateur u ON u.professeur_id = p.id
+      WHERE lower(u.email) = lower(?) LIMIT 1`).get(email || '')
+    || (user ? { nom: user.nom || email, prenom: '' } : { nom: email, prenom: '' });
+  return `${String(p.nom || '').toUpperCase()} ${p.prenom || ''}`.trim();
+}
+
+/* LE RATTRAPAGE : les cours déjà encodés avant cette version n'ont jamais
+ * prévenu personne. Une notification par cours et par professeur, datée du
+ * dernier enregistrement, s'il n'y en a pas déjà une. */
+export function rattraperNotificationsNotes() {
+  const annees = db.prepare("SELECT DISTINCT annee_scolaire a FROM note_proposee WHERE propose_le >= datetime('now', '-30 days')").all().map(x => x.a);
+  let n = 0;
+  for (const annee of annees) {
+    for (const x of db.prepare(`SELECT cours_code, propose_par, max(propose_le) le FROM note_proposee
+        WHERE annee_scolaire = ? AND propose_par IS NOT NULL GROUP BY cours_code, propose_par`).all(annee)) {
+      const lien = `/mes-cours?cours=${encodeURIComponent(x.cours_code)}`;
+      const nomProf = nomDuProf(x.propose_par);
+      if (db.prepare(`SELECT 1 FROM lucie_notification WHERE type IN ('notes_encodees', 'notes_completes') AND lien = ? AND cree_par = ? LIMIT 1`)
+        .get(lien, nomProf)) continue;
+      const c = db.prepare('SELECT ue_num FROM cours WHERE cours_code = ? AND annee_scolaire = ?').get(x.cours_code, annee);
+      const total = c ? db.prepare(`SELECT count(DISTINCT i.etudiant_id) n FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+          WHERE i.ue_num = ? AND i.annee_scolaire = ? AND e.actif = 1`).get(c.ue_num, annee).n : 0;
+      if (signalerEncodage(x.cours_code, annee, x.propose_par, total, nomProf)) {
+        db.prepare(`UPDATE lucie_notification SET cree_le = ? WHERE type = 'notes_encodees' AND lien = ? AND cree_par = ?`).run(x.le, lien, nomProf);
+        n++;
+      }
+    }
+  }
+  if (n) console.log(`[notes] ${n} notification(s) d'encodage rattrapée(s)`);
 }
 
 // ── Ce que la coordination reprend dans l'encodage officiel ──────────────────

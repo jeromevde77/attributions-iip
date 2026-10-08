@@ -233,16 +233,6 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
     if (touche && !(await demander('Des modifications de cette fiche ne sont pas enregistrées. Passer quand même à la fiche voisine ? Elles seront perdues.'))) return;
     fn();
   };
-  useEffect(() => {
-    const dansUnChamp = t => ['input', 'textarea', 'select'].includes((t?.tagName || '').toLowerCase()) || t?.isContentEditable;
-    const au = ev => {
-      if (ev.metaKey || ev.ctrlKey || ev.altKey || dansUnChamp(ev.target)) return;
-      if (ev.key === 'ArrowLeft' && onPrec) { ev.preventDefault(); aller(onPrec); }
-      if (ev.key === 'ArrowRight' && onSuiv) { ev.preventDefault(); aller(onSuiv); }
-    };
-    window.addEventListener('keydown', au);
-    return () => window.removeEventListener('keydown', au);
-  });
   const isNew = !prof?.id;
 
   // Champs simples (colonne professeur)
@@ -499,17 +489,11 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
       large="grande" onFermer={onClose}
       /* LES FLÈCHES EN HAUT, À CÔTÉ DU X (Charles, 7 octobre 2026), comme sur
          la fiche de consultation et la fiche étudiant. */
-      outils={(onPrec || onSuiv) && (
-        <span className="inline-flex items-center gap-1 mr-2">
-          <button type="button" onClick={() => aller(onPrec)} disabled={!onPrec} title="Fiche précédente (flèche gauche) — enregistre d’abord"
-            className="w-8 h-8 grid place-items-center rounded-champ border border-white/40 text-white hover:bg-white/10 disabled:opacity-30">
-            <IconChevronLeft size={16} /></button>
-          {position && <span className="text-[12px] text-white/80 tabular-nums min-w-[4rem] text-center">{position.i} / {position.n}</span>}
-          <button type="button" onClick={() => aller(onSuiv)} disabled={!onSuiv} title="Fiche suivante (flèche droite) — enregistre d’abord"
-            className="w-8 h-8 grid place-items-center rounded-champ border border-white/40 text-white hover:bg-white/10 disabled:opacity-30">
-            <IconChevronRight size={16} /></button>
-        </span>
-      )}
+      navigation={position && (onPrec || onSuiv) ? {
+        position: position.i - 1, total: position.n,
+        // aller() enregistre d'abord, puis passe : la fiche ne perd rien.
+        onAller: i => aller(i < position.i - 1 ? onPrec : onSuiv),
+      } : null}
       pied={<>
         <button type="submit" form="fiche-personnel" disabled={saving}
           className="bouton bouton-fort disabled:opacity-40">
