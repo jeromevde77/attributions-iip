@@ -140,6 +140,31 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
             <span>Période</span><span>Stage</span><span>Lieu</span><span className="text-right">Heures</span>
             <span className="text-right">Note</span><span>Statut</span><span />
           </div>
+          {/* LE TOTAL EN PREMIER (Charles, 8 octobre 2026 : « les totaux doivent TOUJOURS être en
+              premier dans les tableaux, sinon on doit scroller »), face au minimum de la section. */}
+          {(() => {
+            const total = stages.filter(x => !['rompu', 'annule'].includes(x.statut))
+              .reduce((t, x) => t + (Number(x.heures_effectuees ?? x.heures_prevues) || 0), 0);
+            const min = Number(minimum.heures) || 0;
+            const ok = !min || total >= min;
+            return (
+              <div className="grid grid-cols-[6.5rem_minmax(0,1.3fr)_minmax(0,1.2fr)_4.5rem_3.5rem_5.5rem_2rem] gap-2 items-center px-3 py-2 border-b-2 border-slate-200 bg-white text-[13px]">
+                <span className="col-span-3 font-semibold text-slate-700">
+                  Total · {stages.length} stage(s)
+                  {min ? <span className="font-normal text-slate-500"> — minimum {minimum.section} : {min} h</span>
+                    : minimum.section && <span className="font-normal text-slate-400"> — aucun minimum réglé pour {minimum.section}</span>}
+                  {peutReglerMin && minimum.section && (
+                    <button type="button" className="ml-2 text-[11px] underline text-iip-blue font-normal" onClick={reglerMinimum}>régler</button>)}
+                </span>
+                <span className="text-right tabular-nums font-bold">{total} h</span>
+                <span className="col-span-3">
+                  {min > 0 && (
+                    <span className="inline-flex items-center rounded-full px-2 h-6 text-[11px] font-semibold text-white"
+                      style={{ background: ok ? 'var(--c-reussi)' : 'var(--c-attente)' }}>
+                      {ok ? 'minimum atteint' : `manque ${min - total} h`}</span>)}
+                </span>
+              </div>);
+          })()}
           {stages.map(s => (
             <div key={s.id} className="border-t border-slate-100">
               <div role="button" tabIndex={0} onClick={() => setOuvert(o => (o === s.id ? null : s.id))}
@@ -317,30 +342,7 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
               )}
             </div>
           ))}
-          {/* LE TOTAL, FACE AU MINIMUM DE LA SECTION — réglable par la direction. */}
-          {(() => {
-            const total = stages.filter(x => !['rompu', 'annule'].includes(x.statut))
-              .reduce((t, x) => t + (Number(x.heures_effectuees ?? x.heures_prevues) || 0), 0);
-            const min = Number(minimum.heures) || 0;
-            const ok = !min || total >= min;
-            return (
-              <div className="grid grid-cols-[6.5rem_minmax(0,1.3fr)_minmax(0,1.2fr)_4.5rem_3.5rem_5.5rem_2rem] gap-2 items-center px-3 py-2 border-t-2 border-slate-200 tab-entete text-[13px]">
-                <span className="col-span-3 font-semibold text-slate-700">
-                  Total · {stages.length} stage(s)
-                  {min ? <span className="font-normal text-slate-500"> — minimum {minimum.section} : {min} h</span>
-                    : minimum.section && <span className="font-normal text-slate-400"> — aucun minimum réglé pour {minimum.section}</span>}
-                  {peutReglerMin && minimum.section && (
-                    <button type="button" className="ml-2 text-[11px] underline text-iip-blue font-normal" onClick={reglerMinimum}>régler</button>)}
-                </span>
-                <span className="text-right tabular-nums font-bold">{total} h</span>
-                <span className="col-span-3">
-                  {min > 0 && (
-                    <span className="inline-flex items-center rounded-full px-2 h-6 text-[11px] font-semibold text-white"
-                      style={{ background: ok ? 'var(--c-reussi)' : 'var(--c-attente)' }}>
-                      {ok ? 'minimum atteint' : `manque ${min - total} h`}</span>)}
-                </span>
-              </div>);
-          })()}
+
         </div>
       )}
 
