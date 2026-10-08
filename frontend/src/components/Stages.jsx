@@ -180,7 +180,7 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
                           ].filter(([, l]) => l.length);
                           const option = l => (
                             <option key={l.id} value={l.id}>
-                              {l.nom}{l.secteur ? ` — ${l.secteur}` : ''}{l.localite ? ` · ${l.localite}` : ''}
+                              {l.nom}{l.service ? ` — ${l.service}` : ''}{l.secteur && l.secteur !== l.service ? ` — ${l.secteur}` : ''}{l.localite ? ` · ${l.localite}` : ''}
                               {l.nb_stages ? ` (${l.nb_stages})` : ''}
                             </option>
                           );

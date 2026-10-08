@@ -152,7 +152,8 @@ r.post('/lieux/import', authRequired, roleRequired(...ECRITURE), (req, res) => {
   if (perim && !perim.includes(section)) return res.status(403).json({ error: 'Section hors de votre périmètre.' });
   if (!Array.isArray(lignes) || !lignes.length) return res.status(400).json({ error: 'Aucune ligne à importer.' });
   const uesTxt = (Array.isArray(ues) ? ues : String(ues || '').split(/[,;\s]+/)).map(x => String(x).trim()).filter(Boolean).join(',') || null;
-  const existe = db.prepare('SELECT id, ues FROM stage_lieu WHERE lower(trim(nom)) = lower(trim(?)) AND COALESCE(section, \'\') = ?');
+  // Même nom ET même service dans la section : un lieu à deux services en fait deux.
+  const existe = db.prepare("SELECT id, ues FROM stage_lieu WHERE lower(trim(nom)) = lower(trim(?)) AND COALESCE(section, '') = ? AND lower(COALESCE(service, '')) = lower(?)");
   const rapport = { crees: [], completes: [], ignores: [] };
   const ecrire = db.transaction(() => {
     for (const l of lignes) {
@@ -160,9 +161,10 @@ r.post('/lieux/import', authRequired, roleRequired(...ECRITURE), (req, res) => {
       if (!nom) { rapport.ignores.push({ ...l, motif: "pas de nom d'organisme" }); continue; }
       if (/^nom de l/i.test(nom)) { rapport.ignores.push({ nom, motif: "ligne d'en-tête répétée" }); continue; }
       const a = decouperAdresse(l.adresse);
-      const fiche = { nom, secteur: String(l.type || '').trim() || null, contact_nom: String(l.responsable || '').trim() || null,
+      const service = String(l.service || '').trim() || null;
+      const fiche = { nom, service, secteur: String(l.type || '').trim() || null, contact_nom: String(l.responsable || '').trim() || null,
         demande: String(l.demande || '').trim() || null, ...a };
-      const deja = existe.get(nom, section);
+      const deja = existe.get(nom, section, service || '');
       if (deja) {
         rapport.completes.push({ nom, ...a });
         if (!simulation) {
@@ -173,10 +175,10 @@ r.post('/lieux/import', authRequired, roleRequired(...ECRITURE), (req, res) => {
             .run(fiche.secteur, fiche.contact_nom, fiche.demande, fiche.adresse, fiche.cp, fiche.localite, toutes, deja.id);
         }
       } else {
-        rapport.crees.push({ nom, ...a, secteur: fiche.secteur });
+        rapport.crees.push({ nom: service ? `${nom} — ${service}` : nom, ...a, secteur: fiche.secteur });
         if (!simulation) {
-          db.prepare(`INSERT INTO stage_lieu (nom, secteur, contact_nom, demande, adresse, cp, localite, section, ues, cree_par)
-            VALUES (?,?,?,?,?,?,?,?,?,?)`).run(fiche.nom, fiche.secteur, fiche.contact_nom, fiche.demande,
+          db.prepare(`INSERT INTO stage_lieu (nom, service, secteur, contact_nom, demande, adresse, cp, localite, section, ues, cree_par)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?)`).run(fiche.nom, fiche.service, fiche.secteur, fiche.contact_nom, fiche.demande,
             fiche.adresse, fiche.cp, fiche.localite, section, uesTxt, req.user?.email || null);
         }
       }
