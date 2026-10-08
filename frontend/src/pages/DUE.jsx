@@ -3,9 +3,8 @@ import { OuvrirEditions } from '../components/ui.jsx';
 import {
   IconPrinter, IconDeviceFloppy, IconLock, IconLockOpen, IconArrowLeft,
   IconAlertTriangle, IconCheck, IconCircleCheck, IconPencil, IconEye, IconFileText,
-  IconGripVertical, IconPlus, IconX,
 } from '@tabler/icons-react';
-import { api } from '../lib/api.js';
+import { api, authHeaders } from '../lib/api.js';
 import { ouvrirApercu } from '../lib/apercu.js';
 import EditeurDUE from '../components/EditeurDUE.jsx';
 
@@ -234,11 +233,6 @@ function Riche({ valeur, onChange, lecture }) {
     </div>);
 }
 
-/* LES POINTS DU PROGRAMME, À GLISSER-DÉPOSER (Charles, 8 octobre 2026 : « un outil
-   de modification en drag and drop… dans les points de programme, pouvoir ajouter
-   les codes de cours »). Un point par ligne, dans l'ordre qu'on veut, chacun avec
-   les activités d'apprentissage qui le portent. Ce sont aussi les points que
-   propose le tableau des critères. */
 /* LE PROGRAMME, RANGÉ PAR ACTIVITÉ (Charles, 8 octobre 2026 : « cette partie pas
    top »). Le dossier pédagogique écrit le programme d'un tenant : une introduction,
    puis, cours par cours, des phrases de contexte (« Pour les systèmes …, ») et
@@ -258,79 +252,46 @@ export function lireProgramme(texte, cours) {
   }
   return out;
 }
-function PointsProgramme({ points, cours, lecture, onChange }) {
-  const [tire, setTire] = useState(null);
-  const groupes = [...cours.map(c => ({ cle: c.cours_code, titre: `${c.cours_code} — ${c.cours_nom || ''}` })),
-    { cle: '', titre: 'Sans activité désignée' }];
-  const groupeDe = p => ((p.cours || [])[0] && cours.some(c => c.cours_code === p.cours[0]) ? p.cours[0] : '');
-  const intro = points.map((p, i) => ({ p, i })).filter(x => x.p.type === 'intro');
-  const poser = (i, v) => onChange(points.map((p, j) => (j === i ? { ...p, ...v } : p)));
-  // Déposer sur un élément : avant lui, dans son groupe. Sur un groupe vide : à la fin.
-  const deposer = (cible, groupe) => {
-    if (tire == null) return;
-    const n = [...points];
-    const [x] = n.splice(tire, 1);
-    const y = { ...x, cours: groupe ? [groupe, ...(x.cours || []).filter(k => k !== groupe)] : (x.cours || []).slice(1) };
-    let pos = cible == null ? -1 : cible - (cible > tire ? 1 : 0);
-    if (pos < 0) { const derniers = n.map((p, k) => (p.type !== 'intro' && groupeDe(p) === groupe ? k : -1)).filter(k => k >= 0); pos = derniers.length ? derniers[derniers.length - 1] + 1 : n.length; }
-    n.splice(pos, 0, y); onChange(n); setTire(null);
+/* LE PROGRAMME, UN BLOC PAR COURS — ET RIEN DE PLUS (Charles, 8 octobre 2026 :
+   « ok de mettre par blocs de cours, mais pas plus… c'est trop complexe ; et prévoir
+   le même type de possibilité de mise en page »). Une introduction, puis, pour
+   chaque activité d'apprentissage, un texte mis en page avec le même éditeur que le
+   reste de la DUE. Le premier affichage reprend ce que le dossier pédagogique (ou
+   l'ancienne liste de points) disait déjà, rangé sous son cours. */
+const echap = t => String(t || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+export function blocsDepuisPoints(points, cours) {
+  const codes = new Set(cours.map(x => x.cours_code));
+  const html = items => {
+    let h = ''; let liste = [];
+    const vider = () => { if (liste.length) { h += `<ul>${liste.join('')}</ul>`; liste = []; } };
+    for (const p of items) {
+      if (p.type === 'point') liste.push(`<li><p>${echap(p.texte)}</p></li>`);
+      else { vider(); h += p.type === 'chapeau' ? `<p><em>${echap(p.texte)}</em></p>` : `<p>${echap(p.texte)}</p>`; }
+    }
+    vider(); return h;
   };
-  const ligne = ({ p, i }) => (lecture ? (
-    p.type === 'chapeau'
-      ? <p key={i} className="italic text-slate-600 mt-2 mb-0.5 text-[13px]">{p.texte}</p>
-      : <li key={i} className="text-[13px] ml-5 list-disc">{p.texte}{(p.cours || []).slice(1).map(k => <span key={k} className="ml-1.5 text-[10px] font-semibold text-white rounded px-1 py-px" style={{ background: 'var(--c-principal, #19537E)' }}>{k}</span>)}</li>
-  ) : (
-    <div key={i} draggable onDragStart={e => { setTire(i); e.dataTransfer.effectAllowed = 'move'; }}
-      onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); e.stopPropagation(); deposer(i, groupeDe(p)); }}
-      onDragEnd={() => setTire(null)}
-      className={`flex items-start gap-2 rounded-lg px-2 py-1 ${p.type === 'chapeau' ? 'bg-slate-50' : 'bg-white border border-slate-200'} ${tire === i ? 'opacity-40' : ''}`}>
-      <IconGripVertical size={15} className="mt-1.5 text-slate-400 cursor-grab flex-none" />
-      <textarea rows={1} value={p.texte} onChange={e => poser(i, { texte: e.target.value })} data-reponses="non"
-        className={`flex-1 min-w-0 text-[13px] border-0 outline-none resize-y py-1 bg-transparent ${p.type === 'chapeau' ? 'italic text-slate-600' : ''}`}
-        placeholder={p.type === 'chapeau' ? 'Contexte (chapeau)' : 'Point du programme'} />
-      {p.type !== 'chapeau' && (
-        <div className="flex flex-wrap gap-1 justify-end max-w-[40%]" title="Activités qui portent aussi ce point">
-          {cours.filter(c => c.cours_code !== groupeDe(p)).map(c => {
-            const on = (p.cours || []).includes(c.cours_code);
-            return (
-              <button key={c.cours_code} type="button" title={`Aussi en ${c.cours_code} — ${c.cours_nom}`}
-                onClick={() => poser(i, { cours: on ? p.cours.filter(k => k !== c.cours_code) : [...(p.cours || []), c.cours_code] })}
-                className={`text-[10px] font-semibold rounded px-1.5 py-0.5 border ${on ? 'text-white border-transparent' : 'text-slate-400 border-slate-200'}`}
-                style={on ? { background: 'var(--c-principal, #19537E)' } : undefined}>{c.cours_code}</button>);
-          })}
-        </div>)}
-      <button type="button" title={p.type === 'chapeau' ? 'En faire un point' : 'En faire un chapeau (contexte)'}
-        onClick={() => poser(i, { type: p.type === 'chapeau' ? 'point' : 'chapeau' })}
-        className="mt-1 text-[10px] text-slate-400 hover:text-slate-700 flex-none">{p.type === 'chapeau' ? 'point' : 'chapeau'}</button>
-      <button type="button" title="Retirer" onClick={() => onChange(points.filter((_, j) => j !== i))}
-        className="mt-1 text-slate-400 hover:text-slate-700 flex-none"><IconX size={14} /></button>
-    </div>));
+  const premier = p => ((p.cours || [])[0] && codes.has(p.cours[0]) ? p.cours[0] : '');
+  const out = { _intro: html(points.filter(p => p.type === 'intro' || !premier(p))) };
+  for (const x of cours) out[x.cours_code] = html(points.filter(p => p.type !== 'intro' && premier(p) === x.cours_code));
+  return out;
+}
+function ProgrammeParCours({ blocs, cours, lecture, onChange }) {
+  const poser = (k, v) => onChange({ ...blocs, [k]: v });
+  const bloc = (k, titre) => {
+    if (lecture && !String(blocs[k] || '').replace(/<[^>]+>/g, '').trim()) return null;
+    return (
+      <div key={k || '_'} className="rounded-lg border border-slate-200 overflow-hidden">
+        <div className="px-3 py-1.5 tab-entete text-[12px] font-semibold">{titre}</div>
+        <div className={lecture ? 'px-3 py-2' : ''}>
+          {lecture ? <div className="texte-due" dangerouslySetInnerHTML={{ __html: blocs[k] }} />
+            : <EditeurDUE valeur={blocs[k] || ''} onChange={v => poser(k, v)} />}
+        </div>
+      </div>);
+  };
   return (
     <div className="space-y-3">
-      {intro.length > 0 && (
-        <div className="text-[13px] text-slate-600 italic space-y-0.5">
-          {intro.map(({ p, i }) => lecture ? <p key={i} className="m-0">{p.texte}</p>
-            : <div key={i} className="flex items-start gap-2"><textarea rows={1} value={p.texte} data-reponses="non" onChange={e => poser(i, { texte: e.target.value })}
-                className="flex-1 border-0 outline-none bg-transparent italic resize-y" />
-              <button type="button" title="Retirer" onClick={() => onChange(points.filter((_, j) => j !== i))} className="text-slate-400 hover:text-slate-700"><IconX size={14} /></button></div>)}
-        </div>)}
-      {groupes.map(g => {
-        const items = points.map((p, i) => ({ p, i })).filter(x => x.p.type !== 'intro' && groupeDe(x.p) === g.cle);
-        if (!items.length && (lecture || g.cle === '')) return null;
-        return (
-          <div key={g.cle || 'aucun'} onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); deposer(null, g.cle); }}
-            className="rounded-lg border border-slate-200 overflow-hidden">
-            <div className="px-3 py-1.5 tab-entete text-[12px] font-semibold flex items-center gap-2">
-              <span>{g.titre}</span><span className="text-slate-400 font-normal">{items.filter(x => x.p.type === 'point').length} point(s)</span>
-              {!lecture && <button type="button" className="ml-auto text-[11px] text-iip-blue inline-flex items-center gap-1"
-                onClick={() => onChange([...points, { type: 'point', texte: '', cours: g.cle ? [g.cle] : [] }])}><IconPlus size={12} /> point</button>}
-            </div>
-            <div className={lecture ? 'px-3 py-2' : 'p-2 space-y-1'}>
-              {items.length ? (lecture ? <ul className="m-0 p-0">{items.map(ligne)}</ul> : items.map(ligne))
-                : <p className="text-[12px] text-slate-400 m-0 px-1">Aucun point — glissez-en un ici, ou ajoutez-le.</p>}
-            </div>
-          </div>);
-      })}
+      {bloc('_intro', 'Introduction')}
+      {cours.map(x => bloc(x.cours_code, `${x.cours_code} — ${x.cours_nom || ''}`))}
     </div>);
 }
 
@@ -597,6 +558,14 @@ function Fiche({ ueNum, onRetour }) {
   const [message, setMessage] = useState(null);
   const [sale, setSale] = useState(false);
   const [enCours, setEnCours] = useState(false);
+  /* L'APERÇU AVANT IMPRESSION (Charles, 8 octobre 2026 : « prévoir en haut un mode
+     aperçu pour voir ce que cela donne avant impression ») : le PDF même que sortira
+     l'impression — enveloppe, pages, pied —, composé par le serveur. Ce qui n'est
+     pas encore enregistré l'est d'abord : l'aperçu montre ce qui sortira, pas un
+     brouillon que la pièce ignorerait. */
+  const [vue, setVue] = useState('rediger');
+  const [apercu, setApercu] = useState({ url: null, html: null, enCours: false, erreur: null });
+  useEffect(() => () => { if (apercu.url) URL.revokeObjectURL(apercu.url); }, [apercu.url]);
 
   useEffect(() => {
     api.dueLire(ueNum)
@@ -628,8 +597,25 @@ function Fiche({ ueNum, onRetour }) {
       const j = await api.dueEnregistrer(ueNum, c);
       setD(x => ({ ...x, ...j })); setSale(false);
       setMessage('Descriptif enregistré.');
-    } catch (e) { setErreur(e.message); }
+      return true;
+    } catch (e) { setErreur(e.message); return false; }
     finally { setEnCours(false); }
+  }
+
+  async function voirApercu() {
+    setVue('apercu');
+    setApercu(a => ({ ...a, enCours: true, erreur: null }));
+    try {
+      if (sale && !lecture && !(await enregistrer())) throw new Error("Le descriptif n'a pas pu être enregistré : l'aperçu montrerait une version ancienne.");
+      const j = await api.dueDocument(ueNum);
+      const r = await fetch('/api/impression/pdf', { method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ html: j.html, nom: `DUE_UE${ueNum}`, orientation: 'portrait' }) }).catch(() => null);
+      // LE MÊME REPLI QUE PARTOUT : sans PDF du serveur, la pièce elle-même, telle
+      // que le navigateur l'imprimerait.
+      if (!r?.ok) { setApercu({ url: null, html: j.html, enCours: false, erreur: null }); return; }
+      const url = URL.createObjectURL(await r.blob());
+      setApercu({ url, html: null, enCours: false, erreur: null });
+    } catch (e) { setApercu({ url: null, html: null, enCours: false, erreur: e.message }); }
   }
 
   async function basculerValidation() {
@@ -662,7 +648,8 @@ function Fiche({ ueNum, onRetour }) {
     const m = [];
     const vide = cle => !(c[cle] || d.dp?.[cle]);
     if (vide('finalites')) m.push('finalités particulières');
-    if (vide('programme')) m.push('programme');
+    const blocsPleins = Object.values(c.programme_blocs || {}).some(h => String(h || '').replace(/<[^>]+>/g, '').trim());
+    if (vide('programme') && !blocsPleins && !(c.points || []).length) m.push('programme');
     if (!Object.values(c.methodes || {}).some(Boolean)) m.push("méthodes d'apprentissage");
     if (!c.criteres) m.push('contrat pédagogique');
     if (vide('degre_maitrise')) m.push('degré de maîtrise');
@@ -701,7 +688,15 @@ function Fiche({ ueNum, onRetour }) {
             </span>
           </div>
         </div>
-        <div className="flex flex-none gap-2">
+        <div className="flex flex-none gap-2 items-center">
+          <div className="segments" role="tablist" aria-label="Mode">
+            {[['rediger', 'Rédiger', IconPencil], ['apercu', 'Aperçu', IconEye]].map(([v, l, I]) => (
+              <button key={v} type="button" role="tab" aria-selected={vue === v}
+                onClick={() => (v === 'apercu' ? voirApercu() : setVue('rediger'))}
+                className={`gap-1.5 ${vue === v ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>
+                <I size={14} /> {l}
+              </button>))}
+          </div>
           <OuvrirEditions titre="Imprimer ou envoyer le DUE — centre d'édition"
             pieces={[{ cle: 'due', label: 'Document d’unité d’enseignement (DUE)', description: 'Tel qu’il est à l’écran', onClick: () => imprimer() }]} />
           {d.droits.valider && (
@@ -743,6 +738,18 @@ function Fiche({ ueNum, onRetour }) {
         </div>
       )}
 
+      {vue === 'apercu' ? (
+        <div className="rounded-lg border border-slate-200 bg-slate-100 p-3">
+          {apercu.enCours && <p className="text-[13px] text-slate-500 m-0 p-6 text-center">Composition de la pièce…</p>}
+          {apercu.erreur && <p className="text-[13px] text-red-700 m-0 p-4">{apercu.erreur}</p>}
+          {apercu.url && !apercu.enCours && (
+            <iframe title={`Aperçu du descriptif de l'UE ${ueNum}`} src={apercu.url}
+              className="w-full bg-white rounded" style={{ height: 'calc(100vh - 220px)', minHeight: 500, border: 0 }} />)}
+          {apercu.html && !apercu.enCours && (
+            <iframe title={`Aperçu du descriptif de l'UE ${ueNum}`} srcDoc={apercu.html} sandbox=""
+              className="block mx-auto bg-white shadow" style={{ width: '210mm', maxWidth: '100%', height: 'calc(100vh - 220px)', minHeight: 500, border: 0 }} />)}
+        </div>
+      ) : (<>
       {/* ── Ce que Lucie sait déjà ── */}
       <Bloc titre="Identification de l'unité"
         aide="Repris du référentiel de l'année : pour le corriger, passez par les référentiels.">
@@ -864,15 +871,10 @@ function Fiche({ ueNum, onRetour }) {
       </Bloc>
 
       <Bloc titre="Programme"
-        aide="Rangé par activité d'apprentissage : les chapeaux (contexte) en italique, puis les points. Glissez un point pour le déplacer, y compris vers une autre activité ; les codes à droite disent qu'il est aussi vu ailleurs.">
-        <PointsProgramme cours={d.cours || []} lecture={lecture}
-          points={c.points ?? lireProgramme(c.programme || d.dp?.programme || (d.points_programme || []).join('\n'), d.cours || [])}
-          onChange={v => maj('points', v)} />
-        <details className="mt-3">
-          <summary className="text-[12px] text-slate-500 cursor-pointer">Présentation du programme (texte mis en page, facultatif)</summary>
-          <div className="mt-2"><Riche valeur={valeur('programme')} lecture={lecture} onChange={v => maj('programme', v)} /></div>
-          <Repris actif={reprisDuDP('programme')} />
-        </details>
+        aide="Une introduction, puis un bloc par activité d'apprentissage, mis en page avec la même barre que le reste du descriptif.">
+        <ProgrammeParCours cours={d.cours || []} lecture={lecture}
+          blocs={c.programme_blocs ?? blocsDepuisPoints(c.points ?? lireProgramme(c.programme || d.dp?.programme || (d.points_programme || []).join('\n'), d.cours || []), d.cours || [])}
+          onChange={v => maj('programme_blocs', v)} />
       </Bloc>
 
       <Bloc titre="Méthodes d'apprentissage">
@@ -1001,7 +1003,8 @@ function Fiche({ ueNum, onRetour }) {
         <Repris actif={reprisDuDP('degre_maitrise')} />
       </Bloc>
 
-      {!lecture && sale && (
+      </>)}
+      {vue === 'rediger' && !lecture && sale && (
         <div className="sticky bottom-3 flex justify-end">
           <button onClick={enregistrer} disabled={enCours}
             className="px-4 py-2 text-[13px] rounded-lg bg-iip-blue text-white font-semibold

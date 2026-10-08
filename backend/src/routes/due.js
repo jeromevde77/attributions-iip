@@ -149,6 +149,21 @@ function pointsDuProgramme(programme) {
     .filter(l => l.length > 3).slice(0, 200);
 }
 
+/** Les points d'un programme rédigé par bloc de cours : ses puces, à défaut
+ *  ses paragraphes — ce que propose le tableau des critères. */
+function pointsDesBlocs(blocs) {
+  if (!blocs || typeof blocs !== 'object') return [];
+  const txt = h => h.replace(/<\/(p|li|div)>|<br ?\/?>/gi, ' ').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/\s+/g, ' ').trim();
+  const out = [];
+  for (const [k, h] of Object.entries(blocs)) {
+    if (k === '_intro') continue;
+    const lis = [...String(h || '').matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)].map(m => txt(m[1]));
+    const items = lis.length ? lis : [...String(h || '').matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)].map(m => txt(m[1]));
+    out.push(...items.filter(t => t.length > 3));
+  }
+  return out.slice(0, 300);
+}
+
 // ── La part automatique ──────────────────────────────────────────────────────
 
 // Le référentiel exprime le volume en périodes ; la DUE l'annonce aussi en
@@ -472,7 +487,8 @@ r.get('/:ueNum', authRequired, (req, res) => {
     finalites_generales_defaut: getParam('due_finalites_generales', FINALITES_GENERALES_DEFAUT),
     cec_defaut: cecDe(auto.ue.section),
     note_supports: getParam('due_note_supports', NOTE_SUPPORTS_DEFAUT),
-    points_programme: (Array.isArray(d.contenu?.points) && d.contenu.points.length)
+    points_programme: pointsDesBlocs(d.contenu?.programme_blocs).length ? pointsDesBlocs(d.contenu.programme_blocs)
+      : (Array.isArray(d.contenu?.points) && d.contenu.points.length)
       ? d.contenu.points.filter(p => (p.type || 'point') === 'point').map(p => p.texte).filter(Boolean)
       : pointsDuProgramme(String(d.contenu?.programme || auto.dp?.programme || '').replace(/<[^>]+>/g, '\n')),
     grille_precedente,
@@ -503,6 +519,11 @@ r.put('/:ueNum', authRequired, (req, res) => {
   // LA MISE EN PAGE SE FILTRE À L'ÉCRITURE (liste fermée, lib/texteCorpus.js) :
   // la base ne garde que du texte sûr, le document peut l'afficher tel quel.
   for (const k of CHAMPS_RICHES) if (typeof contenu[k] === 'string' && estHtml(contenu[k])) contenu[k] = assainirDUE(contenu[k]);
+  // Le programme par bloc de cours : une clé par cours (et _intro), chacune filtrée.
+  if (contenu.programme_blocs && typeof contenu.programme_blocs === 'object') {
+    contenu.programme_blocs = Object.fromEntries(Object.entries(contenu.programme_blocs).slice(0, 60)
+      .map(([k, v]) => [String(k).slice(0, 30), assainirDUE(String(v || '').slice(0, 60000))]));
+  } else delete contenu.programme_blocs;
   if (Array.isArray(contenu.points)) {
     contenu.points = contenu.points.filter(p => p && typeof p === 'object').slice(0, 300)
       .map(p => ({ type: ['intro', 'chapeau', 'point'].includes(p.type) ? p.type : 'point',
@@ -704,6 +725,15 @@ function situationHtml(auto) {
 
 /** LE PROGRAMME, POINT PAR POINT, AVEC LES CODES DE COURS (Charles, 8 octobre 2026). */
 function programmeHtml(c, texte, auto) {
+  // UN BLOC PAR COURS (Charles, 8 octobre 2026) : l'introduction, puis chaque cours
+  // sous son intitulé, mis en page comme à l'écran.
+  const B = c.programme_blocs;
+  const plein = h => String(h || '').replace(/<[^>]+>/g, '').trim();
+  if (B && typeof B === 'object' && Object.values(B).some(plein)) {
+    return (plein(B._intro) ? riche(B._intro) : '')
+      + (auto.cours || []).filter(x => plein(B[x.cours_code]))
+        .map(x => `<div class="sous-t">${esc(`${x.cours_code} — ${x.cours_nom || ''}`)}</div>${riche(B[x.cours_code])}`).join('');
+  }
   const pts = (Array.isArray(c.points) ? c.points : []).filter(p => String(p.texte || '').trim());
   if (!pts.length) return riche(texte);
   // RANGÉ PAR ACTIVITÉ, comme à l'écran : l'introduction, puis chaque cours avec ses
