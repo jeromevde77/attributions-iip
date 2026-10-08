@@ -76,6 +76,7 @@ export const GROUPES = [
   { cle: 'deliberation',  label: 'Délibération',               plafond: 'etudiants' },
   { cle: 'diplomes',      label: 'Diplômes et titres',         plafond: 'etudiants' },
   { cle: 'amenagements',  label: 'Aménagements raisonnables',  plafond: 'amenagements' },
+  { cle: 'due',           label: "Descriptifs d'unité (DUE)",  plafond: 'due' },
   { cle: 'attributions',  label: 'Attributions',               plafond: 'attributions' },
   { cle: 'personnel',     label: 'Personnel',                  plafond: 'personnel' },
   { cle: 'envois',        label: 'Impression & envois',        plafond: 'listes' },
@@ -188,6 +189,23 @@ export const GESTES = [
   { module: 'diplomes', cle: 'produire', label: 'Produire diplômes, attestations, PV de section',
     roles: ['admin', 'directeur', 'directeur_adjoint', 'editeur'], mode: 'garde',
     source: 'routes/diplomes.js POST /pieces, /document, /pv-section' },
+
+  // ── Descriptifs d'unité (DUE) ──────────────────────────────────────────────
+  /* LA DUE A SES GESTES (Charles, 8 octobre 2026 : « DUE n'a pas de rôle ; un
+     coordinateur ne sait donc pas le modifier »). Rédiger : la coordination de
+     la section (et les fonctions de coordination de la fiche), les titulaires
+     d'un cours de l'unité ; valider : la direction. */
+  { module: 'due', cle: 'rediger', label: 'Rédiger et mettre en page la DUE',
+    roles: ['admin', 'directeur', 'directeur_adjoint', 'coordination', 'professeur'], mode: 'liste',
+    conditions: { coordination: 'dans les sections de son périmètre', professeur: "titulaire d'un cours de l'unité, ou fonction de coordination" },
+    source: 'routes/due.js PUT /:ueNum' },
+  { module: 'due', cle: 'mode_evaluation', label: "Régler l'évaluation globale ou par activité",
+    roles: ['admin', 'directeur', 'directeur_adjoint', 'coordination'], mode: 'liste',
+    conditions: { coordination: 'dans les sections de son périmètre' },
+    source: 'routes/due.js PUT /:ueNum/mode-evaluation' },
+  { module: 'due', verrou: true, cle: 'valider', label: 'Valider ou rouvrir la DUE',
+    roles: ['admin', 'directeur', 'directeur_adjoint'], mode: 'liste',
+    source: 'routes/due.js POST /:ueNum/valider' },
 
   // ── Aménagements ───────────────────────────────────────────────────────────
   { module: 'amenagements', cle: 'instruire', label: 'Ouvrir et compléter un dossier',

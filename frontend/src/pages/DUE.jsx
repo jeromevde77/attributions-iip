@@ -3,9 +3,11 @@ import { OuvrirEditions } from '../components/ui.jsx';
 import {
   IconPrinter, IconDeviceFloppy, IconLock, IconLockOpen, IconArrowLeft,
   IconAlertTriangle, IconCheck, IconCircleCheck, IconPencil, IconEye, IconFileText,
+  IconGripVertical, IconPlus, IconX,
 } from '@tabler/icons-react';
 import { api } from '../lib/api.js';
 import { ouvrirApercu } from '../lib/apercu.js';
+import EditeurTexte from '../components/EditeurTexte.jsx';
 
 /**
  * LES DESCRIPTIFS D'UNITÉ D'ENSEIGNEMENT.
@@ -33,8 +35,10 @@ const METHODES = [
   ['pratique', 'Pratique'], ['debats', 'Débats'], ['jeux_roles', 'Jeux de rôles'],
   ['simulation', 'Simulation'], ['hybridation', 'Hybridation'],
 ];
+/* TRAVAIL INDIVIDUEL OU DE GROUPE (Charles, 8 octobre 2026) : deux colonnes. L'ancienne
+   case « Travail » se lit comme un travail individuel. */
 const EPREUVES = [['ecrit', 'Écrit'], ['oral', 'Oral'], ['pratique', 'Pratique'],
-  ['travail', 'Travail'], ['continue', 'Év. continue']];
+  ['travail', 'Travail individuel'], ['travail_groupe', 'Travail de groupe'], ['continue', 'Év. continue']];
 
 // ── Briques d'écriture ───────────────────────────────────────────────────────
 
@@ -210,6 +214,94 @@ function Su({ label, valeur }) {
   );
 }
 
+/* LA MISE EN PAGE POUR LES COORDINATIONS (Charles, 8 octobre 2026 : « gras, passer
+   à la ligne, tabulations, couleurs… »). L'éditeur de la Documentation, sans
+   import de fichier ; un texte simple (repris du dossier) y entre en paragraphes.
+   Le serveur filtre le HTML à l'enregistrement (liste fermée). */
+const echapper = t => String(t || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const estHtml = t => /<\/?(p|br|b|strong|i|em|u|ul|ol|li|span|h[1-4]|table|mark|sub|sup|a)\b/i.test(String(t || ''));
+const enHtml = t => (estHtml(t) ? t : String(t || '').split(/\n+/).filter(Boolean).map(l => `<p>${echapper(l)}</p>`).join(''));
+function Riche({ valeur, onChange, lecture }) {
+  if (lecture) {
+    if (!valeur) return <div className="text-[13px] text-slate-400 italic">non complété</div>;
+    return estHtml(valeur)
+      ? <div className="texte-corpus text-[13px]" dangerouslySetInnerHTML={{ __html: valeur }} />
+      : <div className="text-[13px] text-slate-700 whitespace-pre-wrap">{valeur}</div>;
+  }
+  return (
+    <div className="border border-slate-300 rounded-lg overflow-hidden bg-white">
+      <EditeurTexte valeur={enHtml(valeur)} onChange={onChange} importer={false} />
+    </div>);
+}
+
+/* LES POINTS DU PROGRAMME, À GLISSER-DÉPOSER (Charles, 8 octobre 2026 : « un outil
+   de modification en drag and drop… dans les points de programme, pouvoir ajouter
+   les codes de cours »). Un point par ligne, dans l'ordre qu'on veut, chacun avec
+   les activités d'apprentissage qui le portent. Ce sont aussi les points que
+   propose le tableau des critères. */
+function PointsProgramme({ points, cours, lecture, onChange }) {
+  const [tire, setTire] = useState(null);
+  const [survol, setSurvol] = useState(null);
+  const poser = (i, v) => onChange(points.map((p, j) => (j === i ? { ...p, ...v } : p)));
+  const deplacer = (de, vers) => {
+    if (de == null || vers == null || de === vers) return;
+    const n = [...points]; const [x] = n.splice(de, 1); n.splice(vers, 0, x); onChange(n);
+  };
+  if (lecture) {
+    return points.length ? (
+      <table className="w-full text-[13px]"><tbody>{points.map((p, i) => (
+        <tr key={i} className="border-t border-slate-100 align-top"><td className="py-1 pr-3">{p.texte}</td>
+          <td className="py-1 whitespace-nowrap">{(p.cours || []).map(k => <span key={k} className="mr-1 text-[11px] font-semibold text-white rounded px-1.5 py-px" style={{ background: 'var(--c-principal, #19537E)' }}>{k}</span>)}</td></tr>))}</tbody></table>)
+      : <div className="text-[13px] text-slate-400 italic">aucun point</div>;
+  }
+  return (
+    <div className="space-y-1">
+      {points.map((p, i) => (
+        <div key={i} draggable
+          onDragStart={e => { setTire(i); e.dataTransfer.effectAllowed = 'move'; }}
+          onDragOver={e => { e.preventDefault(); setSurvol(i); }}
+          onDragLeave={() => setSurvol(s => (s === i ? null : s))}
+          onDrop={e => { e.preventDefault(); deplacer(tire, i); setTire(null); setSurvol(null); }}
+          onDragEnd={() => { setTire(null); setSurvol(null); }}
+          className={`flex items-start gap-2 rounded-lg border px-2 py-1.5 bg-white ${survol === i && tire !== i ? 'border-iip-blue' : 'border-slate-200'} ${tire === i ? 'opacity-40' : ''}`}>
+          <IconGripVertical size={16} className="mt-1.5 text-slate-400 cursor-grab flex-none" title="Glisser pour déplacer" />
+          <textarea rows={1} value={p.texte} onChange={e => poser(i, { texte: e.target.value })} data-reponses="non"
+            className="flex-1 min-w-0 text-[13px] border-0 outline-none resize-y py-1 bg-transparent" placeholder="Point du programme" />
+          <div className="flex flex-wrap gap-1 justify-end max-w-[45%]">
+            {cours.map(c => {
+              const on = (p.cours || []).includes(c.cours_code);
+              return (
+                <button key={c.cours_code} type="button" title={c.cours_nom}
+                  onClick={() => poser(i, { cours: on ? p.cours.filter(k => k !== c.cours_code) : [...(p.cours || []), c.cours_code] })}
+                  className={`text-[11px] font-semibold rounded px-1.5 py-0.5 border ${on ? 'text-white border-transparent' : 'text-slate-500 border-slate-300'}`}
+                  style={on ? { background: 'var(--c-principal, #19537E)' } : undefined}>{c.cours_code}</button>);
+            })}
+          </div>
+          <button type="button" title="Retirer ce point" onClick={() => onChange(points.filter((_, j) => j !== i))}
+            className="mt-1 text-slate-400 hover:text-slate-700 flex-none"><IconX size={15} /></button>
+        </div>))}
+      <button type="button" className="bouton inline-flex items-center gap-1 text-[12px]" onClick={() => onChange([...points, { texte: '', cours: [] }])}>
+        <IconPlus size={13} /> Ajouter un point</button>
+    </div>);
+}
+
+/** La situation de l'unité dans sa section : prérequis, suites, mini schéma. */
+function Situation({ d }) {
+  const S = d.situation || {};
+  const n = d.ue.ue_num;
+  const lien = l => l.map(x => `UE ${x.ue_num}${x.ue_nom ? ` (${x.ue_nom})` : ''}${x.type === 'interne' ? ' — prérequis interne' : ''}`).join(', ');
+  return (
+    <div className="space-y-2 text-[13px]">
+      <p className="m-0">{S.prerequis?.length ? <>L'UE {n} <b>fait suite à</b> {lien(S.prerequis)}.</> : <>L'UE {n} n'a pas de prérequis dans la section.</>}</p>
+      <p className="m-0">{S.suites?.length ? <>L'UE {n} <b>est prérequise à</b> {lien(S.suites)}.</> : <>L'UE {n} n'est prérequise à aucune autre unité.</>}</p>
+      {S.schema && <>
+        {/* Le dessin vient du serveur (lib/schemaSvg.js) : le même que la fiche de l'étudiant. */}
+        <div className="border border-slate-200 rounded-lg p-2 bg-white max-w-full [&_svg]:w-full [&_svg]:h-auto" style={{ width: 520 }} dangerouslySetInnerHTML={{ __html: S.schema }} />
+        <p className="text-[11px] text-slate-500 m-0">En bleu plein, cette unité ; en bleu clair, ses prérequis et ses suites. Les liens se règlent dans les référentiels (prérequis).</p>
+      </>}
+    </div>);
+}
+
 // ── La liste ─────────────────────────────────────────────────────────────────
 
 function Liste({ onOuvrir }) {
@@ -299,10 +391,15 @@ function Liste({ onOuvrir }) {
    la direction : un tableau pour l'unité si elle est évaluée d'une seule
    épreuve, un par activité d'enseignement sinon. La case écrit le réglage
    « évaluation unique » que la délibération lit : un seul fait, une source. */
+/* LE MODÈLE DU 8 OCTOBRE 2026 (Charles) : Contexte = chapeau · AA · Critère · Indicateurs ·
+   Signe de non-réussite · Exemples. « point » garde sa clé : les lignes déjà saisies restent. */
 const COLONNES_CRIT = [
-  ['point', 'Point du programme'], ['indicateur', 'Indicateurs (seuil = 50 %)'],
+  ['point', 'Critère', 'l’AA contextualisée par le point du programme : l’étudiant est capable concrètement de…'],
+  ['indicateur', 'Indicateurs', 'l’échelle : quand j’observe que c’est réussi (seuil = 50 %) — composé des degrés de maîtrise du DP'],
   ['non_reussite', 'Signe de non-réussite'], ['exemple', 'Exemples de question'],
 ];
+// **gras** dans une case, comme sur le modèle.
+const avecGras = t => String(t || '').split(/(\*\*.+?\*\*)/g).map((m, i) => (/^\*\*.+\*\*$/.test(m) ? <b key={i}>{m.slice(2, -2)}</b> : m));
 function GrilleCriteres({ d, c, lecture, ueNum, onGrille, onMode }) {
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(false);
@@ -310,6 +407,7 @@ function GrilleCriteres({ d, c, lecture, ueNum, onGrille, onMode }) {
   const grille = c.grille_criteres || {};
   const acquis = d.acquis || [];
   const descr = Object.fromEntries(acquis.map(a => [a.aa_code, a.description || '']));
+  const contexte = Object.fromEntries(acquis.map(a => [a.aa_code, a.contexte || '']));
   const tables = unique
     ? [{ cle: '__ue__', titre: 'Épreuve de l’unité — évaluation globale', aa: acquis.map(a => a.aa_code) }]
     : (d.cours || []).map(co => ({ cle: co.cours_code, titre: `${co.cours_code} — ${co.cours_nom || ''}`,
@@ -353,18 +451,21 @@ function GrilleCriteres({ d, c, lecture, ueNum, onGrille, onMode }) {
             <div className="tab-entete px-3 py-1.5 text-[12px] font-semibold text-slate-700">{t.titre}</div>
             <table className="w-full text-[12px]">
               <thead className="tab-entete"><tr className="text-left text-[11px] text-slate-500">
-                <th className="px-2 py-1 w-[18%]">Acquis d’apprentissage</th>
-                {COLONNES_CRIT.map(([k, l]) => <th key={k} className="px-2 py-1">{l}</th>)}
+                <th className="px-2 py-1 w-[14%] align-top">Contexte (chapeau)</th>
+                <th className="px-2 py-1 w-[16%] align-top">Acquis d’apprentissage</th>
+                {COLONNES_CRIT.map(([k, l, def]) => <th key={k} className="px-2 py-1 align-top">{l}
+                  {def && <div className="font-normal italic normal-case text-[10px] text-slate-500 leading-snug">{def}</div>}</th>)}
                 {!lecture && <th className="w-8" />}
               </tr></thead>
               <tbody>
                 {!lignes.length && (
-                  <tr><td colSpan={6} className="px-2 py-2 text-slate-400">Aucune ligne. {!lecture && 'Ajoutez un acquis ci-dessous.'}</td></tr>
+                  <tr><td colSpan={7} className="px-2 py-2 text-slate-400">Aucune ligne. {!lecture && 'Ajoutez un acquis ci-dessous, ou tous d’un coup.'}</td></tr>
                 )}
                 {lignes.map((l, i) => {
                   const premier = i === 0 || lignes[i - 1].aa_code !== l.aa_code;
                   return (
                     <tr key={i} className={`bg-white align-top ${premier ? 'border-t border-slate-200' : ''}`}>
+                      <td className="px-2 py-1 text-slate-600 whitespace-pre-line">{premier ? contexte[l.aa_code] || '' : ''}</td>
                       <td className="px-2 py-1">
                         {premier && (lecture
                           ? <span title={descr[l.aa_code]}><b>{l.aa_code}</b> <span className="text-slate-500">{descr[l.aa_code]}</span></span>
@@ -376,10 +477,17 @@ function GrilleCriteres({ d, c, lecture, ueNum, onGrille, onMode }) {
                       </td>
                       {COLONNES_CRIT.map(([k]) => (
                         <td key={k} className="px-1 py-1">
-                          {lecture ? <span className="whitespace-pre-line">{l[k] || ''}</span>
-                            : k === 'point'
-                              ? <input list={idList} className="controle w-full h-auto py-1 text-[12px]" value={l[k] || ''} onChange={e => maj(i, k, e.target.value)} />
-                              : <textarea rows={2} className="controle w-full h-auto py-1 text-[12px]" value={l[k] || ''} onChange={e => maj(i, k, e.target.value)} />}
+                          {lecture ? <span className="whitespace-pre-line">{avecGras(l[k])}</span>
+                            : <>
+                              <textarea rows={3} className="controle w-full h-auto py-1 text-[12px]" value={l[k] || ''} data-reponses="non"
+                                onChange={e => maj(i, k, e.target.value)} />
+                              {k === 'point' && (d.points_programme || []).length > 0 && (
+                                <select className="w-full text-[11px] text-slate-500 border-0 bg-transparent" value=""
+                                  onChange={e => e.target.value && maj(i, k, l[k] ? `${l[k]} ${e.target.value}` : e.target.value)}>
+                                  <option value="">+ un point du programme…</option>
+                                  {(d.points_programme || []).map((p, j) => <option key={j} value={p}>{p.slice(0, 90)}</option>)}
+                                </select>)}
+                            </>}
                         </td>
                       ))}
                       {!lecture && (
@@ -397,6 +505,10 @@ function GrilleCriteres({ d, c, lecture, ueNum, onGrille, onMode }) {
             {!lecture && (
               <div className="px-2 py-1.5 border-t border-slate-100 flex flex-wrap items-center gap-2 text-[12px]">
                 <span className="text-slate-500">Ajouter un acquis :</span>
+                {t.aa.some(a => !lignes.some(l => l.aa_code === a)) && (
+                  <button type="button" className="bouton" title="Une ligne pour chaque acquis qui n'en a pas encore"
+                    onClick={() => poser(t.cle, [...lignes, ...t.aa.filter(a => !lignes.some(l => l.aa_code === a)).map(a => ({ aa_code: a }))]
+                      .sort((x, y) => String(x.aa_code).localeCompare(String(y.aa_code), 'fr', { numeric: true })))}>Tous les acquis</button>)}
                 {t.aa.filter(a => !lignes.some(l => l.aa_code === a)).map(a => (
                   <button key={a} type="button" className="bouton" title={descr[a]} onClick={() => ajouter(a)}>{a}</button>
                 ))}
@@ -435,7 +547,7 @@ function Fiche({ ueNum, onRetour }) {
   // champ arrive donc rempli du dossier, et l'enseignant l'adapte. Rien n'est
   // enregistré tant qu'il n'a rien touché : le jour où le dossier change, la
   // DUE suit.
-  const duDP = { finalites: 'finalites', programme: 'programme',
+  const duDP = { finalites: 'finalites', finalites_generales: 'finalites_generales', programme: 'programme',
     degre_maitrise: 'degre_maitrise' };
   const valeur = cle => c[cle] ?? (duDP[cle] ? d?.dp?.[duDP[cle]] : null) ?? '';
   const reprisDuDP = cle => c[cle] == null && !!(duDP[cle] && d?.dp?.[duDP[cle]]);
@@ -486,7 +598,7 @@ function Fiche({ ueNum, onRetour }) {
     if (vide('finalites')) m.push('finalités particulières');
     if (vide('programme')) m.push('programme');
     if (!Object.values(c.methodes || {}).some(Boolean)) m.push("méthodes d'apprentissage");
-    if (!c.criteres) m.push("critères d'évaluation");
+    if (!c.criteres) m.push('contrat pédagogique');
     if (vide('degre_maitrise')) m.push('degré de maîtrise');
     const sansEval = (d.cours || []).filter(x =>
       !Object.values(c.evaluation?.[x.cours_code]?.s1 || {}).some(Boolean));
@@ -499,7 +611,8 @@ function Fiche({ ueNum, onRetour }) {
   const u = d.ue;
 
   return (
-    <div className="p-4 max-w-4xl mx-auto">
+    /* PLEINE PAGE (Charles, 8 octobre 2026 : « laisser en pleine page pour la mise en page »). */
+    <div className="p-4">
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="min-w-0">
           <button onClick={onRetour}
@@ -598,6 +711,10 @@ function Fiche({ ueNum, onRetour }) {
         )}
       </Bloc>
 
+      <Bloc titre="Situation dans la section" aide="Les prérequis du référentiel : ce que l'unité suppose, et ce qu'elle ouvre.">
+        <Situation d={d} />
+      </Bloc>
+
       <Bloc titre="Titulaires" aide="Tirés des attributions de l'année.">
         {d.enseignants.length ? (
           <ul className="text-[13px] text-slate-700 space-y-0.5">
@@ -669,18 +786,29 @@ function Fiche({ ueNum, onRetour }) {
         </table>
       </Bloc>
 
-      {/* ── Ce que l'enseignant rédige ── */}
+      {/* ── Ce que l'enseignant et la coordination rédigent ── */}
+      <Bloc titre="Finalités générales"
+        aide="Celles du dossier pédagogique quand il les écrit à part ; à défaut, le texte de l'établissement (article 7 du décret).">
+        <Riche valeur={c.finalites_generales ?? d.dp?.finalites_generales ?? d.finalites_generales_defaut} lecture={lecture}
+          onChange={v => maj('finalites_generales', v)} />
+      </Bloc>
+
       <Bloc titre="Finalités particulières"
-        aide="Ce que cette unité vise à faire acquérir, au-delà des finalités générales du décret.">
-        <Zone valeur={valeur('finalites')} lecture={lecture} lignes={4}
-          onChange={v => maj('finalites', v)} />
+        aide="Ce que cette unité vise à faire acquérir, au-delà des finalités générales.">
+        <Riche valeur={valeur('finalites')} lecture={lecture} onChange={v => maj('finalites', v)} />
         <Repris actif={reprisDuDP('finalites')} />
       </Bloc>
 
-      <Bloc titre="Programme" aide="Le contenu, tel qu'il figure au dossier pédagogique.">
-        <Zone valeur={valeur('programme')} lecture={lecture} lignes={6}
-          onChange={v => maj('programme', v)} />
-        <Repris actif={reprisDuDP('programme')} />
+      <Bloc titre="Programme"
+        aide="Les points du programme, dans l'ordre voulu (glisser-déposer), chacun avec les activités qui le portent. Ce sont aussi les points proposés dans le tableau des critères.">
+        <PointsProgramme cours={d.cours || []} lecture={lecture}
+          points={c.points ?? (d.points_programme || []).map(t => ({ texte: t, cours: [] }))}
+          onChange={v => maj('points', v)} />
+        <details className="mt-3">
+          <summary className="text-[12px] text-slate-500 cursor-pointer">Présentation du programme (texte mis en page, facultatif)</summary>
+          <div className="mt-2"><Riche valeur={valeur('programme')} lecture={lecture} onChange={v => maj('programme', v)} /></div>
+          <Repris actif={reprisDuDP('programme')} />
+        </details>
       </Bloc>
 
       <Bloc titre="Méthodes d'apprentissage">
@@ -703,6 +831,16 @@ function Fiche({ ueNum, onRetour }) {
           <Champ label="Autre" valeur={c.methode_autre} lecture={lecture}
             onChange={v => maj('methode_autre', v)} />
         </div>
+        {/* LE CONTRAT PÉDAGOGIQUE (Charles, 8 octobre 2026 : « ceci doit passer dans
+            méthodes d'apprentissage, c'est le contrat pédagogique ») — le même champ
+            qu'avant (« criteres ») : ce qui y était écrit suit. */}
+        <div className="mt-3">
+          <span className="block text-[11px] font-semibold text-slate-500 mb-1">Contrat pédagogique</span>
+          <Riche valeur={c.criteres} lecture={lecture} onChange={v => maj('criteres', v)} />
+          <DuDossier texte={d.dp?.capacites} valeur={c.criteres} lecture={lecture}
+            onChange={v => maj('criteres', v)}
+            libelle="les capacités préalables du dossier pédagogique" />
+        </div>
       </Bloc>
 
       <Bloc titre="Supports de cours"
@@ -720,7 +858,7 @@ function Fiche({ ueNum, onRetour }) {
               const poser = v => majSous('supports', x.cours_code, { ...s, ...v });
               return (
                 <tr key={x.cours_code} className="border-t border-slate-100">
-                  <td className="py-1 text-slate-800">{x.cours_nom}</td>
+                  <td className="py-1 text-slate-800"><b className="text-iip-blue">{x.cours_code}</b> — {x.cours_nom}</td>
                   <td>
                     {lecture ? (s.type || '—')
                       : <input value={s.type || ''} placeholder="Syllabus, PowerPoint, ouvrage…"
@@ -738,6 +876,8 @@ function Fiche({ ueNum, onRetour }) {
           </tbody>
         </table>
       </Bloc>
+
+      {d.note_supports && <p className="-mt-2 mb-4 text-[12px] text-slate-600 italic">{d.note_supports}</p>}
 
       <Bloc titre="Modalités d'évaluation">
         {['s1', 's2'].map(sess => (
@@ -762,7 +902,7 @@ function Fiche({ ueNum, onRetour }) {
                   };
                   return (
                     <tr key={x.cours_code} className="border-t border-slate-100">
-                      <td className="py-1 text-slate-800">{x.cours_nom}</td>
+                      <td className="py-1 text-slate-800"><b className="text-iip-blue">{x.cours_code}</b> — {x.cours_nom}</td>
                       {EPREUVES.map(([k]) => (
                         <td key={k} className="text-center">
                           <input type="checkbox" disabled={lecture} checked={!!e[k]}
@@ -781,29 +921,19 @@ function Fiche({ ueNum, onRetour }) {
           <span className="block text-[11px] font-semibold text-slate-500 mb-0.5">
             Note générale de l'unité
           </span>
-          <Zone valeur={c.note_ue} lecture={lecture} lignes={3}
-            placeholder={"Laissé vide, le document reprend la règle usuelle : moyenne pondérée "
-              + "des acquis, mais unité non acquise dès qu'une note est sous 10/20, "
-              + 'sauf décision du Conseil des études.'}
-            onChange={v => maj('note_ue', v)} />
+          <Riche valeur={c.note_ue} lecture={lecture} onChange={v => maj('note_ue', v)} />
+          {!c.note_ue && <p className="text-[11px] text-slate-500 mt-1">Laissée vide, la DUE reprend la règle usuelle : moyenne pondérée des acquis, mais unité non acquise dès qu'une note est sous 10/20, sauf décision du Conseil des études.</p>}
         </div>
       </Bloc>
 
-      <Bloc titre="Critères d'évaluation" aide="Ce qui, concrètement, mène à la réussite.">
-        <Zone valeur={c.criteres} lecture={lecture} lignes={3}
-          placeholder="Introduction facultative ; le détail se pose dans le tableau ci-dessous, acquis par acquis."
-          onChange={v => maj('criteres', v)} />
-        <DuDossier texte={d.dp?.capacites} valeur={c.criteres} lecture={lecture}
-          onChange={v => maj('criteres', v)}
-          libelle="les capacités préalables du dossier pédagogique" />
+      <Bloc titre="Critères d'évaluation" aide="Acquis par acquis, sous son chapeau : le critère, l'indicateur, le signe de non-réussite, un exemple de question. Pour mettre un mot en gras dans une case : **mot**.">
         <GrilleCriteres d={d} c={c} lecture={lecture} ueNum={ueNum}
           onGrille={g => maj('grille_criteres', g)}
           onMode={unique => setD(x => ({ ...x, evaluation_unique: unique }))} />
       </Bloc>
 
       <Bloc titre="Degré de maîtrise" aide="Pour chaque acquis, ce qui distingue la maîtrise.">
-        <Zone valeur={valeur('degre_maitrise')} lecture={lecture} lignes={4}
-          onChange={v => maj('degre_maitrise', v)} />
+        <Riche valeur={valeur('degre_maitrise')} lecture={lecture} onChange={v => maj('degre_maitrise', v)} />
         <Repris actif={reprisDuDP('degre_maitrise')} />
       </Bloc>
 
