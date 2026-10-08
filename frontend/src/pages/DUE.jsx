@@ -239,49 +239,98 @@ function Riche({ valeur, onChange, lecture }) {
    les codes de cours »). Un point par ligne, dans l'ordre qu'on veut, chacun avec
    les activités d'apprentissage qui le portent. Ce sont aussi les points que
    propose le tableau des critères. */
+/* LE PROGRAMME, RANGÉ PAR ACTIVITÉ (Charles, 8 octobre 2026 : « cette partie pas
+   top »). Le dossier pédagogique écrit le programme d'un tenant : une introduction,
+   puis, cours par cours, des phrases de contexte (« Pour les systèmes …, ») et
+   des points. On le lit ainsi : l'intitulé d'un cours ouvre son groupe, une ligne
+   qui finit par « , » ou « : » est un chapeau, le reste est un point. */
+const norm = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+export function lireProgramme(texte, cours) {
+  const out = [];
+  let courant = null;
+  for (const brut of String(texte || '').replace(/<[^>]+>/g, '\n').split('\n')) {
+    const l = brut.replace(/^[\s•\-–*]+/, '').trim();
+    if (l.length < 3) continue;
+    const c = cours.find(x => norm(x.cours_nom) && norm(l) === norm(x.cours_nom));
+    if (c) { courant = c.cours_code; continue; }
+    if (!courant) { out.push({ type: 'intro', texte: l, cours: [] }); continue; }
+    out.push({ type: /[,:]$/.test(l) ? 'chapeau' : 'point', texte: l, cours: [courant] });
+  }
+  return out;
+}
 function PointsProgramme({ points, cours, lecture, onChange }) {
   const [tire, setTire] = useState(null);
-  const [survol, setSurvol] = useState(null);
+  const groupes = [...cours.map(c => ({ cle: c.cours_code, titre: `${c.cours_code} — ${c.cours_nom || ''}` })),
+    { cle: '', titre: 'Sans activité désignée' }];
+  const groupeDe = p => ((p.cours || [])[0] && cours.some(c => c.cours_code === p.cours[0]) ? p.cours[0] : '');
+  const intro = points.map((p, i) => ({ p, i })).filter(x => x.p.type === 'intro');
   const poser = (i, v) => onChange(points.map((p, j) => (j === i ? { ...p, ...v } : p)));
-  const deplacer = (de, vers) => {
-    if (de == null || vers == null || de === vers) return;
-    const n = [...points]; const [x] = n.splice(de, 1); n.splice(vers, 0, x); onChange(n);
+  // Déposer sur un élément : avant lui, dans son groupe. Sur un groupe vide : à la fin.
+  const deposer = (cible, groupe) => {
+    if (tire == null) return;
+    const n = [...points];
+    const [x] = n.splice(tire, 1);
+    const y = { ...x, cours: groupe ? [groupe, ...(x.cours || []).filter(k => k !== groupe)] : (x.cours || []).slice(1) };
+    let pos = cible == null ? -1 : cible - (cible > tire ? 1 : 0);
+    if (pos < 0) { const derniers = n.map((p, k) => (p.type !== 'intro' && groupeDe(p) === groupe ? k : -1)).filter(k => k >= 0); pos = derniers.length ? derniers[derniers.length - 1] + 1 : n.length; }
+    n.splice(pos, 0, y); onChange(n); setTire(null);
   };
-  if (lecture) {
-    return points.length ? (
-      <table className="w-full text-[13px]"><tbody>{points.map((p, i) => (
-        <tr key={i} className="border-t border-slate-100 align-top"><td className="py-1 pr-3">{p.texte}</td>
-          <td className="py-1 whitespace-nowrap">{(p.cours || []).map(k => <span key={k} className="mr-1 text-[11px] font-semibold text-white rounded px-1.5 py-px" style={{ background: 'var(--c-principal, #19537E)' }}>{k}</span>)}</td></tr>))}</tbody></table>)
-      : <div className="text-[13px] text-slate-400 italic">aucun point</div>;
-  }
+  const ligne = ({ p, i }) => (lecture ? (
+    p.type === 'chapeau'
+      ? <p key={i} className="italic text-slate-600 mt-2 mb-0.5 text-[13px]">{p.texte}</p>
+      : <li key={i} className="text-[13px] ml-5 list-disc">{p.texte}{(p.cours || []).slice(1).map(k => <span key={k} className="ml-1.5 text-[10px] font-semibold text-white rounded px-1 py-px" style={{ background: 'var(--c-principal, #19537E)' }}>{k}</span>)}</li>
+  ) : (
+    <div key={i} draggable onDragStart={e => { setTire(i); e.dataTransfer.effectAllowed = 'move'; }}
+      onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); e.stopPropagation(); deposer(i, groupeDe(p)); }}
+      onDragEnd={() => setTire(null)}
+      className={`flex items-start gap-2 rounded-lg px-2 py-1 ${p.type === 'chapeau' ? 'bg-slate-50' : 'bg-white border border-slate-200'} ${tire === i ? 'opacity-40' : ''}`}>
+      <IconGripVertical size={15} className="mt-1.5 text-slate-400 cursor-grab flex-none" />
+      <textarea rows={1} value={p.texte} onChange={e => poser(i, { texte: e.target.value })} data-reponses="non"
+        className={`flex-1 min-w-0 text-[13px] border-0 outline-none resize-y py-1 bg-transparent ${p.type === 'chapeau' ? 'italic text-slate-600' : ''}`}
+        placeholder={p.type === 'chapeau' ? 'Contexte (chapeau)' : 'Point du programme'} />
+      {p.type !== 'chapeau' && (
+        <div className="flex flex-wrap gap-1 justify-end max-w-[40%]" title="Activités qui portent aussi ce point">
+          {cours.filter(c => c.cours_code !== groupeDe(p)).map(c => {
+            const on = (p.cours || []).includes(c.cours_code);
+            return (
+              <button key={c.cours_code} type="button" title={`Aussi en ${c.cours_code} — ${c.cours_nom}`}
+                onClick={() => poser(i, { cours: on ? p.cours.filter(k => k !== c.cours_code) : [...(p.cours || []), c.cours_code] })}
+                className={`text-[10px] font-semibold rounded px-1.5 py-0.5 border ${on ? 'text-white border-transparent' : 'text-slate-400 border-slate-200'}`}
+                style={on ? { background: 'var(--c-principal, #19537E)' } : undefined}>{c.cours_code}</button>);
+          })}
+        </div>)}
+      <button type="button" title={p.type === 'chapeau' ? 'En faire un point' : 'En faire un chapeau (contexte)'}
+        onClick={() => poser(i, { type: p.type === 'chapeau' ? 'point' : 'chapeau' })}
+        className="mt-1 text-[10px] text-slate-400 hover:text-slate-700 flex-none">{p.type === 'chapeau' ? 'point' : 'chapeau'}</button>
+      <button type="button" title="Retirer" onClick={() => onChange(points.filter((_, j) => j !== i))}
+        className="mt-1 text-slate-400 hover:text-slate-700 flex-none"><IconX size={14} /></button>
+    </div>));
   return (
-    <div className="space-y-1">
-      {points.map((p, i) => (
-        <div key={i} draggable
-          onDragStart={e => { setTire(i); e.dataTransfer.effectAllowed = 'move'; }}
-          onDragOver={e => { e.preventDefault(); setSurvol(i); }}
-          onDragLeave={() => setSurvol(s => (s === i ? null : s))}
-          onDrop={e => { e.preventDefault(); deplacer(tire, i); setTire(null); setSurvol(null); }}
-          onDragEnd={() => { setTire(null); setSurvol(null); }}
-          className={`flex items-start gap-2 rounded-lg border px-2 py-1.5 bg-white ${survol === i && tire !== i ? 'border-iip-blue' : 'border-slate-200'} ${tire === i ? 'opacity-40' : ''}`}>
-          <IconGripVertical size={16} className="mt-1.5 text-slate-400 cursor-grab flex-none" title="Glisser pour déplacer" />
-          <textarea rows={1} value={p.texte} onChange={e => poser(i, { texte: e.target.value })} data-reponses="non"
-            className="flex-1 min-w-0 text-[13px] border-0 outline-none resize-y py-1 bg-transparent" placeholder="Point du programme" />
-          <div className="flex flex-wrap gap-1 justify-end max-w-[45%]">
-            {cours.map(c => {
-              const on = (p.cours || []).includes(c.cours_code);
-              return (
-                <button key={c.cours_code} type="button" title={c.cours_nom}
-                  onClick={() => poser(i, { cours: on ? p.cours.filter(k => k !== c.cours_code) : [...(p.cours || []), c.cours_code] })}
-                  className={`text-[11px] font-semibold rounded px-1.5 py-0.5 border ${on ? 'text-white border-transparent' : 'text-slate-500 border-slate-300'}`}
-                  style={on ? { background: 'var(--c-principal, #19537E)' } : undefined}>{c.cours_code}</button>);
-            })}
-          </div>
-          <button type="button" title="Retirer ce point" onClick={() => onChange(points.filter((_, j) => j !== i))}
-            className="mt-1 text-slate-400 hover:text-slate-700 flex-none"><IconX size={15} /></button>
-        </div>))}
-      <button type="button" className="bouton inline-flex items-center gap-1 text-[12px]" onClick={() => onChange([...points, { texte: '', cours: [] }])}>
-        <IconPlus size={13} /> Ajouter un point</button>
+    <div className="space-y-3">
+      {intro.length > 0 && (
+        <div className="text-[13px] text-slate-600 italic space-y-0.5">
+          {intro.map(({ p, i }) => lecture ? <p key={i} className="m-0">{p.texte}</p>
+            : <div key={i} className="flex items-start gap-2"><textarea rows={1} value={p.texte} data-reponses="non" onChange={e => poser(i, { texte: e.target.value })}
+                className="flex-1 border-0 outline-none bg-transparent italic resize-y" />
+              <button type="button" title="Retirer" onClick={() => onChange(points.filter((_, j) => j !== i))} className="text-slate-400 hover:text-slate-700"><IconX size={14} /></button></div>)}
+        </div>)}
+      {groupes.map(g => {
+        const items = points.map((p, i) => ({ p, i })).filter(x => x.p.type !== 'intro' && groupeDe(x.p) === g.cle);
+        if (!items.length && (lecture || g.cle === '')) return null;
+        return (
+          <div key={g.cle || 'aucun'} onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); deposer(null, g.cle); }}
+            className="rounded-lg border border-slate-200 overflow-hidden">
+            <div className="px-3 py-1.5 tab-entete text-[12px] font-semibold flex items-center gap-2">
+              <span>{g.titre}</span><span className="text-slate-400 font-normal">{items.filter(x => x.p.type === 'point').length} point(s)</span>
+              {!lecture && <button type="button" className="ml-auto text-[11px] text-iip-blue inline-flex items-center gap-1"
+                onClick={() => onChange([...points, { type: 'point', texte: '', cours: g.cle ? [g.cle] : [] }])}><IconPlus size={12} /> point</button>}
+            </div>
+            <div className={lecture ? 'px-3 py-2' : 'p-2 space-y-1'}>
+              {items.length ? (lecture ? <ul className="m-0 p-0">{items.map(ligne)}</ul> : items.map(ligne))
+                : <p className="text-[12px] text-slate-400 m-0 px-1">Aucun point — glissez-en un ici, ou ajoutez-le.</p>}
+            </div>
+          </div>);
+      })}
     </div>);
 }
 
@@ -801,9 +850,9 @@ function Fiche({ ueNum, onRetour }) {
       </Bloc>
 
       <Bloc titre="Programme"
-        aide="Les points du programme, dans l'ordre voulu (glisser-déposer), chacun avec les activités qui le portent. Ce sont aussi les points proposés dans le tableau des critères.">
+        aide="Rangé par activité d'apprentissage : les chapeaux (contexte) en italique, puis les points. Glissez un point pour le déplacer, y compris vers une autre activité ; les codes à droite disent qu'il est aussi vu ailleurs.">
         <PointsProgramme cours={d.cours || []} lecture={lecture}
-          points={c.points ?? (d.points_programme || []).map(t => ({ texte: t, cours: [] }))}
+          points={c.points ?? lireProgramme(c.programme || d.dp?.programme || (d.points_programme || []).join('\n'), d.cours || [])}
           onChange={v => maj('points', v)} />
         <details className="mt-3">
           <summary className="text-[12px] text-slate-500 cursor-pointer">Présentation du programme (texte mis en page, facultatif)</summary>

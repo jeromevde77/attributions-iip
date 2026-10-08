@@ -425,7 +425,7 @@ r.get('/:ueNum', authRequired, (req, res) => {
     finalites_generales_defaut: getParam('due_finalites_generales', FINALITES_GENERALES_DEFAUT),
     note_supports: getParam('due_note_supports', NOTE_SUPPORTS_DEFAUT),
     points_programme: (Array.isArray(d.contenu?.points) && d.contenu.points.length)
-      ? d.contenu.points.map(p => p.texte).filter(Boolean)
+      ? d.contenu.points.filter(p => (p.type || 'point') === 'point').map(p => p.texte).filter(Boolean)
       : pointsDuProgramme(String(d.contenu?.programme || auto.dp?.programme || '').replace(/<[^>]+>/g, '\n')),
     grille_precedente,
     droits: { ...droits, ecrire: droits.ecrire && d.statut !== 'validee',
@@ -457,7 +457,8 @@ r.put('/:ueNum', authRequired, (req, res) => {
   for (const k of CHAMPS_RICHES) if (typeof contenu[k] === 'string' && estHtml(contenu[k])) contenu[k] = assainir(contenu[k]);
   if (Array.isArray(contenu.points)) {
     contenu.points = contenu.points.filter(p => p && typeof p === 'object').slice(0, 300)
-      .map(p => ({ texte: String(p.texte || '').slice(0, 2000), cours: (Array.isArray(p.cours) ? p.cours : []).map(String).slice(0, 20) }));
+      .map(p => ({ type: ['intro', 'chapeau', 'point'].includes(p.type) ? p.type : 'point',
+        texte: String(p.texte || '').slice(0, 2000), cours: (Array.isArray(p.cours) ? p.cours : []).map(String).slice(0, 20) }));
   }
 
   db.prepare(`
@@ -646,9 +647,25 @@ function situationHtml(auto) {
 function programmeHtml(c, texte, auto) {
   const pts = (Array.isArray(c.points) ? c.points : []).filter(p => String(p.texte || '').trim());
   if (!pts.length) return riche(texte);
-  const noms = Object.fromEntries((auto.cours || []).map(x => [x.cours_code, x.cours_nom]));
-  return `${texte && estHtml(texte) ? riche(texte) : ''}<table class="doc"><tr><th>Point du programme</th><th style="width:30%">Activités d'apprentissage</th></tr>${pts.map(p =>
-    `<tr><td>${esc(p.texte)}</td><td>${(p.cours || []).map(k => `<span class="puce" title="${esc(noms[k] || '')}">${esc(k)}</span>`).join(' ') || '<span class="vide">—</span>'}</td></tr>`).join('')}</table>`;
+  // RANGÉ PAR ACTIVITÉ, comme à l'écran : l'introduction, puis chaque cours avec ses
+  // chapeaux (contexte, en italique) et ses points ; un point vu aussi ailleurs le dit.
+  const premier = p => (p.cours || [])[0] || '';
+  const groupes = [...(auto.cours || []).map(x => ({ cle: x.cours_code, titre: `${x.cours_code} — ${x.cours_nom || ''}` })), { cle: '', titre: '' }];
+  const intro = pts.filter(p => p.type === 'intro').map(p => `<p class="intro-prog">${esc(p.texte)}</p>`).join('');
+  const corps = groupes.map(g => {
+    const items = pts.filter(p => p.type !== 'intro' && (g.cle ? premier(p) === g.cle : !(auto.cours || []).some(x => x.cours_code === premier(p))));
+    if (!items.length) return '';
+    let html = g.titre ? `<div class="sous-t">${esc(g.titre)}</div>` : '';
+    let liste = [];
+    const vider = () => { if (liste.length) { html += `<ul class="serre">${liste.join('')}</ul>`; liste = []; } };
+    for (const p of items) {
+      if (p.type === 'chapeau') { vider(); html += `<p class="chapeau">${esc(p.texte)}</p>`; }
+      else liste.push(`<li>${esc(p.texte)}${(p.cours || []).slice(1).map(k => ` <span class="puce">${esc(k)}</span>`).join('')}</li>`);
+    }
+    vider();
+    return html;
+  }).join('');
+  return `${texte && estHtml(texte) ? riche(texte) : ''}${intro}${corps}`;
 }
 
 export function documentDUE(ueNum, annee) {
@@ -832,6 +849,7 @@ const STYLE_DUE = `<style>
   table.doc.crit th .def { font-weight: 400; font-style: italic; font-size: 7pt; color: #4b5563; margin-top: 0.5mm; }
   .riche p { margin: 0 0 1.5mm; } .riche ul, .riche ol { margin: 0 0 1.5mm; padding-left: 5mm; }
   .riche table { border-collapse: collapse; width: 100%; } .riche td, .riche th { border: 0.25mm solid #d8dde6; padding: 1mm 1.5mm; }
+  .intro-prog { font-style: italic; color: #4b5563; margin: 0 0 1mm; }
   .sous-t { font-weight: 700; color:#1B2B4B; font-size: 8.5pt; margin: 2.5mm 0 1mm; }
   .schema-due { margin: 2mm 0 0; } .schema-due svg { max-width: 120mm; max-height: 70mm; height: auto; }
 </style>`;
