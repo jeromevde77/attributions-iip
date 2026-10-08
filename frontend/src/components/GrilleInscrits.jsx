@@ -320,7 +320,12 @@ export default function GrilleInscrits({ data, passe, annee, section, onFiche, o
                 <tr key={cat.cle} className="tab-repere">
                   <td colSpan={nId} className="sticky left-0 z-10 tab-repere px-2 py-1 border-t border-slate-200 whitespace-nowrap">
                     <span className="inline-flex items-center gap-1.5">{cat.k ? <Pastille k={cat.k} petite /> : null}<span className="text-[12px]">{cat.lib}</span>
-                      <span className="text-[11px] text-slate-500">· {etudiantsCat} étudiant(s)</span></span></td>
+                      {/* « SOUCI DE NOMBRES » (Charles, 8 octobre 2026) : ce nombre compte les
+                          étudiants qui ont AU MOINS UNE unité dans ce cas — un même étudiant
+                          peut être nouveau dans une unité et en reprise dans une autre. Les
+                          colonnes, elles, comptent par unité. On le dit. */}
+                      <span className="text-[11px] text-slate-500" title="Étudiants qui ont au moins une unité dans ce cas. Un même étudiant peut figurer sur deux lignes (nouveau dans une unité, en reprise dans une autre) : les lignes ne s'additionnent pas. Les colonnes comptent par unité.">
+                        · {etudiantsCat} étudiant(s) dans au moins une UE</span></span></td>
                   {visibles.map(u => [
                     <td key={u.ue_num} className="text-center border-t border-l border-slate-200 font-medium">{nUE(u) || ''}</td>,
                     ...(ouvertes.has(u.ue_num) ? u.cours.map(c => (
@@ -329,7 +334,7 @@ export default function GrilleInscrits({ data, passe, annee, section, onFiche, o
                 </tr>);
             })}
             <tr className="tab-repere font-semibold">
-              <td colSpan={nId} className="sticky left-0 z-10 tab-repere px-2 py-1.5 border-b-2 border-t border-slate-300">Total · {lignes.length} étudiant(s)</td>
+              <td colSpan={nId} className="sticky left-0 z-10 tab-repere px-2 py-1.5 border-b-2 border-t border-slate-300">Inscrits par unité · {lignes.length} étudiant(s) en tout</td>
               {visibles.map(u => [
                 <td key={u.ue_num} className="text-center border-b-2 border-t border-l border-slate-300">{lignes.filter(id => ligneDe(id, u.ue_num)).length || ''}</td>,
                 ...(ouvertes.has(u.ue_num) ? u.cours.map(c => <td key={`${u.ue_num}-${c.code}`} className="border-b-2 border-t border-slate-300" />) : []),
