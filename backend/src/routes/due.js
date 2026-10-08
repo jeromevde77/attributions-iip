@@ -30,6 +30,10 @@ import { envelopper } from './attestations.js';
 import { identiteEtablissement } from './config.js';
 import { getParam } from './parametres.js';
 import { introductionAcquis } from './aa.js';
+import { construireGraphe } from './capitalisation.js';
+import { schemaSvg } from '../lib/schemaSvg.js';
+import { assainir } from '../lib/texteCorpus.js';
+import { gesteAutorise } from '../lib/gestes.js';
 
 const r = Router();
 
@@ -61,7 +65,10 @@ export function migrerDUE(dbx) {
 // coordination et le secrétariat lisent tout ; seule la direction valide.
 function droitsSurLUE(user, ueNum, annee) {
   const direction = NIVEAU_DIRECTION.includes(user?.role);
-  if (direction) return { lire: true, ecrire: true, valider: true, titulaire: false };
+  // LES GESTES DE LA DUE se règlent dans Configuration → Accès (lib/gestes.js).
+  const peutRediger = gesteAutorise(user, 'due.rediger') === 'oui';
+  const peutValider = gesteAutorise(user, 'due.valider') === 'oui';
+  if (direction) return { lire: true, ecrire: peutRediger, valider: peutValider, titulaire: false };
 
   let titulaire = false;
   const u = db.prepare('SELECT professeur_id FROM utilisateur WHERE id = ?').get(user.id);
@@ -72,7 +79,8 @@ function droitsSurLUE(user, ueNum, annee) {
     `).get(u.professeur_id, ueNum, annee);
   }
   if (user?.role === 'professeur') {
-    return { lire: titulaire, ecrire: titulaire, valider: false, titulaire };
+    const coord = estCoordinationDe(user, ueNum, annee);
+    return { lire: titulaire || coord, ecrire: peutRediger && (titulaire || coord), valider: peutValider, titulaire, coordination: coord };
   }
 
   /* Les autres lisent selon leur périmètre : la gestion de la section OU une
@@ -83,7 +91,13 @@ function droitsSurLUE(user, ueNum, annee) {
     .get(ueNum, annee);
   const lire = titulaire || perim === null
     || (ueRow?.section ? perim.includes(ueRow.section) : false);
-  return { lire, ecrire: titulaire, valider: false, titulaire };
+  /* LA COORDINATION ÉCRIT LA DUE (Charles, 8 octobre 2026 : « la personne qui a
+   * un rôle de coordination doit pouvoir modifier tous les éléments du DUE ») —
+   * la coordination de la section, et les fonctions de coordination de la fiche
+   * du personnel (cursus pour sa section, pédagogique et qualité partout) :
+   * la même règle que le mode d'évaluation. */
+  const coordination = estCoordinationDe(user, ueNum, annee);
+  return { lire: lire || coordination, ecrire: peutRediger && (titulaire || coordination), valider: peutValider, titulaire, coordination };
 }
 
 // ── L'évaluation de l'unité : globale ou par activité ────────────────────────
@@ -105,6 +119,13 @@ function evaluationUnique(ueNum, annee) {
 // pédagogique et qualité partout).
 const FONCTIONS_MODE = ['Coordinateur de cursus', 'Coordinateur pédagogique', 'Conseiller qualité'];
 function peutReglerMode(user, ueNum, annee) {
+  if (NIVEAU_DIRECTION.includes(user?.role)) return true;
+  if (user?.role === 'coordination' && gesteAutorise(user, 'due.mode_evaluation') !== 'oui') return false;
+  return estCoordinationDe(user, ueNum, annee);
+}
+/** La coordination de l'unité : rôle coordination dans le périmètre, ou fonction
+ *  de coordination sur la fiche (cursus pour sa section, pédagogique, qualité). */
+function estCoordinationDe(user, ueNum, annee) {
   if (NIVEAU_DIRECTION.includes(user?.role)) return true;
   const section = db.prepare('SELECT section FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ueNum, annee)?.section || null;
   if (user?.role === 'coordination') {
@@ -166,8 +187,10 @@ function sectionsDuDP(ueDet) {
   // détermination / Pour déterminer le degré de maîtrise ». On coupe alors là.
   const coupe = parts['degré de maîtrise'] ? -1
     : acquisBrut.search(/pour (la d[ée]termination du|d[ée]terminer le) degr[ée] de ma[îi]trise/i);
+  const fin = couperFinalites(parts['finalités']);
   const dp = {
-    finalites: parts['finalités'] || null,
+    finalites: fin.particulieres,
+    finalites_generales: fin.generales,
     capacites: parts['capacités préalables'] || null,
     acquis: (coupe > 0 ? acquisBrut.slice(0, coupe) : acquisBrut).trim() || null,
     degre_maitrise: parts['degré de maîtrise']
@@ -175,6 +198,48 @@ function sectionsDuDP(ueDet) {
     programme: parts['programme'] || null,
   };
   return Object.values(dp).some(Boolean) ? dp : null;
+}
+
+/**
+ * L'UNITÉ DANS SA SECTION (Charles, 8 octobre 2026 : « indiquer où se trouve l'UE
+ * dans la section : si elle est prérequise d'une autre et la suite d'une autre ;
+ * un mini schéma de capitalisation »). Les prérequis du référentiel
+ * (ue_prerequis), et le schéma de la section — le même dessin que la fiche de
+ * l'étudiant (construireGraphe, schemaSvg) — où l'unité est en bleu plein, ses
+ * prérequis et ses suites en bleu clair, le reste en gris.
+ */
+function situationDansLaSection(ue, annee) {
+  try {
+    const nom = db.prepare('SELECT MIN(ue_nom) n FROM ue WHERE ue_num = ? AND annee_scolaire = ?');
+    const lien = l => ({ ue_num: l.n, ue_nom: nom.get(l.n, annee)?.n || null, type: l.type || 'legal' });
+    const prerequis = db.prepare("SELECT DISTINCT prerequis_num n, COALESCE(type,'legal') type FROM ue_prerequis WHERE ue_num = ? AND (annee_scolaire IS NULL OR annee_scolaire = ?)")
+      .all(ue.ue_num, annee).map(lien).sort((a, b) => a.ue_num - b.ue_num);
+    const suites = db.prepare("SELECT DISTINCT ue_num n, COALESCE(type,'legal') type FROM ue_prerequis WHERE prerequis_num = ? AND (annee_scolaire IS NULL OR annee_scolaire = ?)")
+      .all(ue.ue_num, annee).map(lien).sort((a, b) => a.ue_num - b.ue_num);
+    const proches = new Set([...prerequis, ...suites].map(x => x.ue_num));
+    let schema = null;
+    if (ue.section) {
+      const g = construireGraphe({ sections: [ue.section], annee,
+        // construireGraphe passe le NUMÉRO de l'unité, pas le nœud.
+        etat: num => (num === ue.ue_num ? { statut: 'accessible', inscrite: true }
+          : proches.has(num) ? { statut: 'accessible' } : { statut: 'bloquee' }) });
+      if (g.nodes?.length) schema = schemaSvg(g);
+    }
+    return { prerequis, suites, schema };
+  } catch (e) { console.error('[due] situation :', e.message); return { prerequis: [], suites: [], schema: null }; }
+}
+
+/** LES FINALITÉS EN DEUX (Charles, 8 octobre 2026) : le dossier pédagogique les
+ *  écrit d'un tenant — générales, puis particulières. On coupe au titre
+ *  « particulières » ; sans lui, tout reste aux particulières. */
+function couperFinalites(t) {
+  const txt = String(t || '').trim();
+  if (!txt) return { generales: null, particulieres: null };
+  const i = txt.search(/finalit[ée]s?\s+particuli[èe]res?/i);
+  if (i < 0) return { generales: null, particulieres: txt };
+  const avant = txt.slice(0, i).replace(/^\s*\d*[.)]?\s*finalit[ée]s?\s+g[ée]n[ée]rales?\s*:?\s*/i, '').replace(/\s*\d+(\.\d+)*[.)]?\s*$/, '').trim();
+  const apres = txt.slice(i).replace(/^finalit[ée]s?\s+particuli[èe]res?\s*:?\s*/i, '').trim();
+  return { generales: avant || null, particulieres: apres || null };
 }
 
 function partieAutomatique(ueNum, annee) {
@@ -220,8 +285,15 @@ function partieAutomatique(ueNum, annee) {
     ORDER BY periodes DESC, nb_cours DESC, p.nom
   `).all(ueNum, annee);
 
+  /* DANS L'ORDRE DES NUMÉROS (Charles, 8 octobre 2026) : 333.2 avant 333.10, AA333.2
+     avant AA333.10 — le tri alphabétique les mélangeait. */
+  const naturel = (a, b) => String(a).localeCompare(String(b), 'fr', { numeric: true });
+  cours.sort((a, b) => naturel(a.cours_code, b.cours_code));
+  acquis.sort((a, b) => naturel(a.aa_code, b.aa_code));
+
   return {
     responsable_propose: enseignants[0]?.id ?? null,
+    situation: situationDansLaSection(ue, annee),
     dp: sectionsDuDP(ue.ue_det),
     ue: {
       ue_num: ue.ue_num, ue_nom: ue.ue_nom, ue_code_fwb: ue.ue_code_fwb,
@@ -348,7 +420,11 @@ r.get('/:ueNum', authRequired, (req, res) => {
   res.json({
     annee, ...auto, ...d,
     evaluation_unique: evaluationUnique(ueNum, annee),
-    points_programme: pointsDuProgramme(d.contenu?.programme || auto.dp?.programme),
+    finalites_generales_defaut: getParam('due_finalites_generales', FINALITES_GENERALES_DEFAUT),
+    note_supports: getParam('due_note_supports', NOTE_SUPPORTS_DEFAUT),
+    points_programme: (Array.isArray(d.contenu?.points) && d.contenu.points.length)
+      ? d.contenu.points.map(p => p.texte).filter(Boolean)
+      : pointsDuProgramme(String(d.contenu?.programme || auto.dp?.programme || '').replace(/<[^>]+>/g, '\n')),
     grille_precedente,
     droits: { ...droits, ecrire: droits.ecrire && d.statut !== 'validee',
       regler_mode: peutReglerMode(req.user, ueNum, annee) && (d.statut !== 'validee' || droits.valider) },
@@ -373,6 +449,13 @@ r.put('/:ueNum', authRequired, (req, res) => {
   const contenu = req.body?.contenu;
   if (!contenu || typeof contenu !== 'object') {
     return res.status(400).json({ error: 'contenu requis' });
+  }
+  // LA MISE EN PAGE SE FILTRE À L'ÉCRITURE (liste fermée, lib/texteCorpus.js) :
+  // la base ne garde que du texte sûr, le document peut l'afficher tel quel.
+  for (const k of CHAMPS_RICHES) if (typeof contenu[k] === 'string' && estHtml(contenu[k])) contenu[k] = assainir(contenu[k]);
+  if (Array.isArray(contenu.points)) {
+    contenu.points = contenu.points.filter(p => p && typeof p === 'object').slice(0, 300)
+      .map(p => ({ texte: String(p.texte || '').slice(0, 2000), cours: (Array.isArray(p.cours) ? p.cours : []).map(String).slice(0, 20) }));
   }
 
   db.prepare(`
@@ -442,8 +525,9 @@ const METHODES = [
   ['pratique', 'Pratique'], ['debats', 'Débats'], ['jeux_roles', 'Jeux de rôles'],
   ['simulation', 'Simulation'], ['hybridation', 'Hybridation'],
 ];
+// Travail individuel et travail de groupe (Charles, 8 octobre 2026) ; « travail » garde sa clé.
 const EPREUVES = [['ecrit', 'Écrit'], ['oral', 'Oral'], ['pratique', 'Pratique'],
-  ['travail', 'Travail'], ['continue', 'Évaluation continue']];
+  ['travail', 'Travail individuel'], ['travail_groupe', 'Travail de groupe'], ['continue', 'Évaluation continue']];
 
 const NOTE_UE_DEFAUT =
   "Les notes de chaque activité d'apprentissage de l'UE s'additionnent en une moyenne "
@@ -463,9 +547,13 @@ const FINALITES_GENERALES_DEFAUT =
   + "sociale, culturelle et scolaire, et répondre aux besoins et demandes en formation "
   + "émanant des entreprises, des administrations, de l'enseignement et, d'une manière "
   + "générale, des milieux socio-économiques et culturels.";
-const NOTE_SUPPORTS_DEFAUT =
+/* (Charles, 8 octobre 2026.) La phrase sous les supports de cours. */
+const NOTE_SUPPORTS_ANCIENNE =
   "L'existence d'un support de cours obligatoire ne dispense pas l'étudiant de la prise "
   + "de notes.";
+const NOTE_SUPPORTS_DEFAUT =
+  "L'existence d'un support de cours obligatoire ne dispense pas de la prise de note de "
+  + "l'étudiant. Toute matière vue aux cours est matière d'évaluation.";
 
 export function seedParametresDUE(dbx) {
   try {
@@ -475,6 +563,9 @@ export function seedParametresDUE(dbx) {
       'DUE — texte des finalités générales', 'due');
     ins.run('due_note_supports', NOTE_SUPPORTS_DEFAUT,
       'DUE — mention sous les supports de cours', 'due');
+    // La nouvelle phrase remplace l'ancienne — jamais un texte qu'on a déjà retouché.
+    dbx.prepare("UPDATE parametre SET valeur = ? WHERE cle = 'due_note_supports' AND valeur = ?")
+      .run(NOTE_SUPPORTS_DEFAUT, NOTE_SUPPORTS_ANCIENNE);
     ins.run('due_note_evaluation', NOTE_UE_DEFAUT,
       "DUE — règle d'évaluation par défaut (modifiable par UE)", 'due');
   } catch (e) { console.error('[migration] parametres DUE :', e.message); }
@@ -486,6 +577,11 @@ function bloc(titre, corps) {
 }
 const para = t => String(t || '').split(/\n+/).filter(Boolean)
   .map(l => `<p>${esc(l)}</p>`).join('') || '<p class="vide">à compléter</p>';
+// Les champs que la coordination met en page (gras, couleurs, listes, tableaux).
+const CHAMPS_RICHES = ['finalites_generales', 'finalites', 'programme', 'criteres', 'degre_maitrise', 'note_ue'];
+const estHtml = t => /<\/?(p|br|b|strong|i|em|u|ul|ol|li|span|h[1-4]|table|mark|sub|sup|a)\b/i.test(String(t || ''));
+/** Un texte riche (HTML filtré) tel quel ; un texte simple, en paragraphes. */
+const riche = t => (estHtml(t) ? `<div class="riche">${assainir(t)}</div>` : para(t));
 
 /**
  * LE TABLEAU DES CRITÈRES (Charles, 30 septembre 2026 ; le modèle : UE 333,
@@ -522,6 +618,29 @@ function grillesCriteres(auto, c, unique) {
   return avec.map(co => `<div class="crit-t">${esc(co.cours_code)} — ${esc(co.cours_nom || '')}</div>${tableau(g[co.cours_code])}`).join('');
 }
 
+/** La situation : prérequis, suites, et le mini schéma de la section. */
+function situationHtml(auto) {
+  const S = auto.situation || {};
+  const n = auto.ue.ue_num;
+  const liste = l => l.map(x => `UE ${x.ue_num}${x.ue_nom ? ` (${esc(x.ue_nom)})` : ''}${x.type === 'interne' ? ' — prérequis interne' : ''}`).join(', ');
+  const phrases = [
+    S.prerequis?.length ? `<p>L'UE ${n} fait suite à ${liste(S.prerequis)} : ${S.prerequis.length > 1 ? 'elles en sont' : 'elle en est'} le prérequis.</p>`
+      : `<p>L'UE ${n} n'a pas de prérequis dans la section.</p>`,
+    S.suites?.length ? `<p>L'UE ${n} est prérequise à ${liste(S.suites)}.</p>` : `<p>L'UE ${n} n'est prérequise à aucune autre unité.</p>`,
+  ].join('');
+  return phrases + (S.schema ? `<div class="schema-due">${S.schema}</div>
+    <p class="fin">En bleu plein, cette unité ; en bleu clair, ses prérequis et ses suites.</p>` : '');
+}
+
+/** LE PROGRAMME, POINT PAR POINT, AVEC LES CODES DE COURS (Charles, 8 octobre 2026). */
+function programmeHtml(c, texte, auto) {
+  const pts = (Array.isArray(c.points) ? c.points : []).filter(p => String(p.texte || '').trim());
+  if (!pts.length) return riche(texte);
+  const noms = Object.fromEntries((auto.cours || []).map(x => [x.cours_code, x.cours_nom]));
+  return `${texte && estHtml(texte) ? riche(texte) : ''}<table class="doc"><tr><th>Point du programme</th><th style="width:30%">Activités d'apprentissage</th></tr>${pts.map(p =>
+    `<tr><td>${esc(p.texte)}</td><td>${(p.cours || []).map(k => `<span class="puce" title="${esc(noms[k] || '')}">${esc(k)}</span>`).join(' ') || '<span class="vide">—</span>'}</td></tr>`).join('')}</table>`;
+}
+
 export function documentDUE(ueNum, annee) {
   const auto = partieAutomatique(ueNum, annee);
   if (!auto) return null;
@@ -536,6 +655,7 @@ export function documentDUE(ueNum, annee) {
   // mieux qu'une DUE vide. Dès qu'il écrit, c'est son texte qui vaut.
   const dp = auto.dp || {};
   const rediges = {
+    finalites_generales: c.finalites_generales || dp.finalites_generales,
     finalites:      c.finalites      || dp.finalites,
     programme:      c.programme      || dp.programme,
     degre_maitrise: c.degre_maitrise || dp.degre_maitrise,
@@ -600,7 +720,7 @@ export function documentDUE(ueNum, annee) {
 
   const supports = auto.cours.map(x => {
     const s = c.supports?.[x.cours_code] || {};
-    return `<tr><td>${esc(x.cours_nom)}</td><td>${esc(s.type || '')}</td>
+    return `<tr><td><b>${esc(x.cours_code)}</b> — ${esc(x.cours_nom)}</td><td>${esc(s.type || '')}</td>
       <td class="n">${s.obligatoire ? 'Obligatoire' : '—'}</td></tr>`;
   }).join('');
 
@@ -609,7 +729,7 @@ export function documentDUE(ueNum, annee) {
       ${sess === 's1' ? 'Première session' : 'Seconde session'}</td></tr>
     ${auto.cours.map(x => {
     const e = c.evaluation?.[x.cours_code]?.[sess] || {};
-    return `<tr><td>${esc(x.cours_nom)}</td>${EPREUVES
+    return `<tr><td><b>${esc(x.cours_code)}</b> — ${esc(x.cours_nom)}</td>${EPREUVES
       .map(([k]) => `<td class="n">${e[k] ? '✔' : ''}</td>`).join('')}</tr>`;
   }).join('')}`).join('');
 
@@ -632,10 +752,13 @@ export function documentDUE(ueNum, annee) {
 
     ${bloc("Titulaires des activités d'apprentissage", `<ul class="serre">${titulaires}</ul>`)}
 
-    ${bloc('Finalités générales',
-      para(getParam('due_finalites_generales', FINALITES_GENERALES_DEFAUT)))}
+    ${bloc("Situation dans la section", situationHtml(auto))}
 
-    ${bloc('Finalités particulières', para(rediges.finalites))}
+    ${bloc('Finalités générales',
+      rediges.finalites_generales ? riche(rediges.finalites_generales)
+        : para(getParam('due_finalites_generales', FINALITES_GENERALES_DEFAUT)))}
+
+    ${bloc('Finalités particulières', riche(rediges.finalites))}
 
     ${bloc("Acquis d'apprentissage", blocAA)}
 
@@ -643,7 +766,7 @@ export function documentDUE(ueNum, annee) {
       <tr><th>Code</th><th>Intitulé</th><th class="n">Périodes</th><th class="n">Heures</th>
           <th>Acquis évalués</th></tr>${listeCours}</table>`)}
 
-    ${bloc('Programme', para(rediges.programme))}
+    ${bloc('Programme', programmeHtml(c, rediges.programme, auto))}
 
     ${bloc("Méthodes d'apprentissage", methodes || '<p class="vide">à compléter</p>')}
 
@@ -654,11 +777,11 @@ export function documentDUE(ueNum, annee) {
     ${bloc("Modalités d'évaluation", `<table class="doc">
       <tr><th>Activité</th>${EPREUVES.map(([, l]) => `<th class="n">${esc(l)}</th>`).join('')}</tr>
       ${evaluation}</table>
-      <p class="fin">${esc(c.note_ue || getParam('due_note_evaluation', NOTE_UE_DEFAUT))}</p>`)}
+      <div class="fin">${c.note_ue ? riche(c.note_ue) : esc(getParam('due_note_evaluation', NOTE_UE_DEFAUT))}</div>`)}
 
-    ${bloc("Critères d'évaluation", (rediges.criteres ? para(rediges.criteres) : '') + grillesCriteres(auto, c, evaluationUnique(ueNum, annee)))}
+    ${bloc("Critères d'évaluation", (rediges.criteres ? riche(rediges.criteres) : '') + grillesCriteres(auto, c, evaluationUnique(ueNum, annee)))}
 
-    ${bloc('Degré de maîtrise', para(rediges.degre_maitrise))}
+    ${bloc('Degré de maîtrise', riche(rediges.degre_maitrise))}
   </div>`;
 
   // LA FEUILLE DANS LE <head>, PAS APRÈS </html> : ajoutée à la fin, elle
@@ -695,6 +818,9 @@ const STYLE_DUE = `<style>
   .crit-t { font-weight:700; color:#1B2B4B; font-size:9pt; margin: 2.5mm 0 1mm; }
   table.doc.crit td, table.doc.crit th { vertical-align: top; font-size: 8pt; }
   table.doc.crit tr { break-inside: avoid; }
+  .riche p { margin: 0 0 1.5mm; } .riche ul, .riche ol { margin: 0 0 1.5mm; padding-left: 5mm; }
+  .riche table { border-collapse: collapse; width: 100%; } .riche td, .riche th { border: 0.25mm solid #d8dde6; padding: 1mm 1.5mm; }
+  .schema-due { margin: 2mm 0 0; } .schema-due svg { max-width: 120mm; max-height: 70mm; height: auto; }
 </style>`;
 
 r.get('/:ueNum/document', authRequired, (req, res) => {
