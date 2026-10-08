@@ -845,6 +845,23 @@ function documentCoutFormations(p) {
       <td class="n">${k0(tot.cout_complet)}</td><td class="n">${ins ? k0(tot.cout_complet / ins) : '—'}</td></tr></tfoot></table>
     <p class="fin">${ST.AUTRE.periodes ? `${n0(ST.AUTRE.periodes)} période(s) portées par un membre sans statut CC ou EXP sont comptées dans le coût, hors pourcentages CC / EXP. ` : ''}${d.type_defaut ? `${n0(d.type_defaut)} période(s) sans type de cours ont été comptées au tarif des cours généraux. ` : ''}${d.sans_tarif ? `<b>${n0(d.sans_tarif)} période(s) sans niveau ou sans tarif ne sont pas valorisées.</b> ` : ''}Un étudiant inscrit dans deux sections compte dans chacune.</p>`;
 
+  /* LES ETP PAR SECTION (Charles, 8 octobre 2026 : « avant les chiffres par section
+     en €, les ETP par section — le total, les CC, les EXP »). Comme Pilotage :
+     périodes CT ÷ 800 + périodes PP ÷ 1 000, sur les périodes du coût des cours
+     (hors congé, hors Z ; une unité partagée au prorata des étudiants). */
+  const etpDe = x => (x?.per_ct || 0) / 800 + (x?.per_pp || 0) / 1000;
+  const e2 = n => (n ? n.toFixed(2).replace('.', ',') : '—');
+  const tEtpTot = d.sections.reduce((t, S) => ({ tot: t.tot + etpDe(S), cc: t.cc + etpDe(S.statuts.CC), exp: t.exp + etpDe(S.statuts.EXP), autre: t.autre + etpDe(S.statuts.AUTRE) }),
+    { tot: 0, cc: 0, exp: 0, autre: 0 });
+  const tEtp = `<table class="serre"><thead><tr><th>Section</th>${['ETP total', 'dont CC', 'dont EXP', '% CC', '% EXP'].map(c => `<th class="n">${c}</th>`).join('')}${tEtpTot.autre ? '<th class="n">Sans statut</th>' : ''}</tr></thead>
+    <tbody>${d.sections.filter(S => S.periodes).map(S => { const t = etpDe(S), c = etpDe(S.statuts.CC), x = etpDe(S.statuts.EXP), a = etpDe(S.statuts.AUTRE);
+      return `<tr><td>${esc(S.section)}</td><td class="n g">${e2(t)}</td><td class="n">${e2(c)}</td><td class="n">${e2(x)}</td>
+        <td class="n">${pc(c, t)}</td><td class="n">${pc(x, t)}</td>${tEtpTot.autre ? `<td class="n">${e2(a)}</td>` : ''}</tr>`; }).join('')}</tbody>
+    <tfoot><tr class="repere"><td>Ensemble</td><td class="n">${e2(tEtpTot.tot)}</td><td class="n">${e2(tEtpTot.cc)}</td><td class="n">${e2(tEtpTot.exp)}</td>
+      <td class="n">${pc(tEtpTot.cc, tEtpTot.tot)}</td><td class="n">${pc(tEtpTot.exp, tEtpTot.tot)}</td>${tEtpTot.autre ? `<td class="n">${e2(tEtpTot.autre)}</td>` : ''}</tr></tfoot></table>
+    <p class="fin">ETP = périodes de cours généraux et techniques (CT) ÷ 800 + périodes de pratique professionnelle (PP) ÷ 1 000, comme dans Pilotage.
+      Les périodes sont celles du coût des cours : lignes en congé et activités Z exclues ; une unité partagée (tronc commun) répartie entre ses sections
+      au prorata de leurs étudiants. Les fonctions (direction, secrétariat, coordinations hors périodes) n'y sont pas.</p>`;
   const sexConnu = tot.periodes - SX.NR.periodes;
   /* FEMMES ET HOMMES : DES PERSONNES, PAS DES PÉRIODES (Charles, 7 octobre
      2026 : « pas de sens — on donne le sexe par humain présent ; en AeSI,
@@ -1076,6 +1093,7 @@ function documentCoutFormations(p) {
         return `<tr><td class="barres-lib">${esc(l.section)}</td><td>${barreNue([['F', x.F], ['M', x.M], ['X', x.X], ['NR', x.sexe_inconnu]].map(([k, v]) => ({ v: v || 0, c: coulSexe[k], pale: coulSexe[k] === GRIS })))}</td>
           <td class="barres-val">${n0(x.n)} · ${pc(x.F || 0, c)} F</td></tr>`; }).join('')}</table>${legende(['F', 'M', 'X', 'NR'], libSexe, coulSexe)}`)}
     </section>
+    <section class="saut"><h2>Les ETP par section</h2>${tEtp}</section>
     <section class="saut"><h2>Section par section</h2>${tSections}</section>
     <section class="saut">
     <h2>Droits d'inscription et frais</h2>
