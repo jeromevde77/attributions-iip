@@ -918,21 +918,22 @@ const STYLE_DUE = `<style>
   .tete-due .nature { font-size: 7.5pt; letter-spacing: .08em; text-transform: uppercase; color: #7a8699; }
   .titre-ue { font-size: 16pt; font-weight: 700; color:#16406A; margin: 1.5mm 0 1.5mm; line-height: 1.2; }
   .titre-ue .num { color: #19537E; margin-right: 1.5mm; }
-  .reperes { font-size: 9pt; color: #334155; display: flex; flex-wrap: wrap; align-items: center; gap: 1.5mm; }
+  .reperes { font-size: 10pt; color: #334155; display: flex; flex-wrap: wrap; align-items: center; gap: 1.5mm; }
   .reperes .pt { color: #C9A84C; }
   .etat { margin-left: auto; display:inline-block; padding:0.6mm 2.5mm; border-radius:3mm; font-size:7.5pt; font-weight: 600; }
   .etat.ok { background:#3E7D5E; color:#fff; }
   .etat.brouillon { background:#B45309; color:#fff; }
   .ident { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2.5mm 6mm; margin: 0 0 5mm; }
-  .id-l { font-size: 7pt; text-transform: uppercase; letter-spacing: .05em; color: #7a8699; }
-  .id-v { font-size: 9.5pt; color: #16406A; font-weight: 600; }
+  .id-l { font-size: 8pt; text-transform: uppercase; letter-spacing: .05em; color: #7a8699; }
+  .id-v { font-size: 10pt; color: #16406A; font-weight: 600; }
   .bloc { margin: 0 0 5mm; break-inside: avoid; }
   .bloc-t { color:#16406A; font-size:11pt; font-weight:700; padding: 0 0 1.2mm; margin-bottom: 2mm;
             border-bottom: 0.3mm solid #C9A84C; }
-  .bloc-c { font-size:9.5pt; line-height: 1.45; color: #1f2937; }
+  .bloc-c { font-size:10pt; line-height: 1.45; color: #1f2937; }
   .bloc-c p { margin: 0 0 1.5mm; }
-  .attestation table.doc { border-collapse: collapse; width: 100%; font-size: 8.5pt; }
-  .attestation table.doc th { background: #EEF2F7; color: #16406A; font-weight: 600; text-transform: none; font-size: 8pt;
+  .attestation table.doc { border-collapse: collapse; width: 100%; font-size: 10pt; }
+  .attestation table.doc td { font-size: 10pt; }
+  .attestation table.doc th { background: #EEF2F7; color: #16406A; font-weight: 600; text-transform: none; font-size: 10pt;
             border: 0; border-bottom: 0.3mm solid #C9D3E1; padding: 1.5mm 2mm; text-align: left; }
   .attestation table.doc td { border: 0; border-bottom: 0.2mm solid #E4E8EF; padding: 1.5mm 2mm; background: #fff; }
   .serre { margin:0; padding-left:5mm; }
@@ -941,10 +942,10 @@ const STYLE_DUE = `<style>
   .puce { display:inline-block; border:0.25mm solid #C9A227; border-radius:2mm;
           padding:0.5mm 2mm; margin:0.5mm 0.5mm 0 0; font-size:8pt; }
   .vide { color:#9aa3b2; font-style:italic; }
-  .fin { font-size:8pt; color:#4b5563; margin-top:1.5mm; }
-  tr.sess td { background:#f1f4f9; font-weight:700; font-size:8pt; }
-  .crit-t { font-weight:700; color:#1B2B4B; font-size:9pt; margin: 2.5mm 0 1mm; }
-  table.doc.crit td, table.doc.crit th { vertical-align: top; font-size: 8pt; }
+  .fin { font-size:10pt; color:#4b5563; margin-top:1.5mm; }
+  tr.sess td { background:#f1f4f9; font-weight:700; font-size:10pt; }
+  .crit-t { font-weight:700; color:#1B2B4B; font-size:10pt; margin: 2.5mm 0 1mm; }
+  table.doc.crit td, table.doc.crit th { vertical-align: top; font-size: 10pt; }
   table.doc.crit tr { break-inside: avoid; }
   table.doc.crit th .def { font-weight: 400; font-style: italic; font-size: 7pt; color: #4b5563; margin-top: 0.5mm; }
   .riche p { margin: 0 0 1.5mm; } .riche ul, .riche ol { margin: 0 0 1.5mm; padding-left: 5mm; list-style: disc; }
@@ -955,11 +956,11 @@ const STYLE_DUE = `<style>
 
   .riche table { border-collapse: collapse; width: 100%; } .riche td, .riche th { border: 0.25mm solid #d8dde6; padding: 1mm 1.5mm; }
   .eval-l { display: grid; grid-template-columns: 50mm repeat(6, auto); align-items: baseline; column-gap: 2.5mm; padding: 1mm 0; border-bottom: 0.2mm solid #eef1f5; break-inside: avoid; }
-  .eval-c { font-size: 8.5pt; }
+  .eval-c { font-size: 10pt; }
   .case { font-size: 7.5pt; color: #94a3b8; white-space: nowrap; }
   .case.on { color: #1B2B4B; font-weight: 700; }
   .intro-prog { font-style: italic; color: #4b5563; margin: 0 0 1mm; }
-  .sous-t { font-weight: 700; color:#1B2B4B; font-size: 8.5pt; margin: 2.5mm 0 1mm; }
+  .sous-t { font-weight: 700; color:#1B2B4B; font-size: 10pt; margin: 2.5mm 0 1mm; }
   .schema-due { margin: 2mm 0 0; } .schema-due svg { max-width: 90mm; height: auto; }
 </style>`;
 

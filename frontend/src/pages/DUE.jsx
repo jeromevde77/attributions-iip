@@ -612,7 +612,11 @@ function Fiche({ ueNum, onRetour }) {
         body: JSON.stringify({ html: j.html, nom: `DUE_UE${ueNum}`, orientation: 'portrait' }) }).catch(() => null);
       // LE MÊME REPLI QUE PARTOUT : sans PDF du serveur, la pièce elle-même, telle
       // que le navigateur l'imprimerait.
-      if (!r?.ok) { setApercu({ url: null, html: j.html, enCours: false, erreur: null }); return; }
+      if (!r?.ok) {
+        const e = r ? await r.json().catch(() => ({})) : {};
+        setApercu({ url: null, html: j.html, raison: e.error || (r ? `Erreur ${r.status}` : 'serveur injoignable'), enCours: false, erreur: null });
+        return;
+      }
       const url = URL.createObjectURL(await r.blob());
       setApercu({ url, html: null, enCours: false, erreur: null });
     } catch (e) { setApercu({ url: null, html: null, enCours: false, erreur: e.message }); }
@@ -745,6 +749,8 @@ function Fiche({ ueNum, onRetour }) {
           {apercu.url && !apercu.enCours && (
             <iframe title={`Aperçu du descriptif de l'UE ${ueNum}`} src={apercu.url}
               className="w-full bg-white rounded" style={{ height: 'calc(100vh - 220px)', minHeight: 500, border: 0 }} />)}
+          {apercu.html && !apercu.enCours && apercu.raison && (
+            <p className="text-[12px] text-slate-600 m-0 mb-2">Le PDF n'a pas pu être composé ({apercu.raison}) : voici la pièce telle que le navigateur l'imprimerait.</p>)}
           {apercu.html && !apercu.enCours && (
             <iframe title={`Aperçu du descriptif de l'UE ${ueNum}`} srcDoc={apercu.html} sandbox=""
               className="block mx-auto bg-white shadow" style={{ width: '210mm', maxWidth: '100%', height: 'calc(100vh - 220px)', minHeight: 500, border: 0 }} />)}
