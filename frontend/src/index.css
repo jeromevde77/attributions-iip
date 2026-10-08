@@ -1226,3 +1226,12 @@ tr.ligne-lecture select, tr.ligne-lecture input.input-cell {
   appearance: none; -webkit-appearance: none; background: transparent !important;
   border-color: transparent !important; cursor: default; color: inherit; opacity: 1;
 }
+
+/* LA DUE, AU STYLE LUCIE (8 octobre 2026) : police et taille imposées, puces rondes,
+   un cadre pour isoler un passage, une ligne de séparation — à l'écran comme sur la pièce. */
+.texte-due { font-family: inherit; font-size: 13px; line-height: 1.55; color: var(--c-texte, #16406A); }
+.texte-due p { margin: 0 0 0.4rem; }
+.texte-due ul { list-style: disc; padding-left: 1.4rem; margin: 0 0 0.4rem; }
+.texte-due blockquote { border: 1px solid #C9D3E1; border-radius: 8px; padding: 0.5rem 0.75rem; margin: 0.4rem 0; background: #fff; }
+.texte-due hr { border: 0; border-top: 1px solid #C9A84C; margin: 0.6rem 0; }
+.texte-due u { text-underline-offset: 2px; }
