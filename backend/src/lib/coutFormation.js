@@ -192,7 +192,7 @@ export function donneesCout(annee) {
   const tiersDe = sectionsTiers();
   for (const S of sections) {
     S.tiers = tiersDe.get(S.section) || null;   // droits perçus par un tiers (Orthoptie : HELB)
-    const sansFrais = exemptes.has(S.section);
+    const sansFrais = exemptes.has(S.section) || !!S.tiers;   // un tiers perçoit : pas de frais pour l'IIP
     // LES UNITÉS DU RÉFÉRENTIEL, pas seulement celles qui portent une attribution :
     // une unité sans professeur encore attribué fait payer ses étudiants quand même.
     S.droits_ues = uesDeSection.all(annee, S.section, S.section, annee).map(U => {
@@ -207,10 +207,10 @@ export function donneesCout(annee) {
       const perEtud = periodesEtudiantUE(r);   // les frais : périodes de l'étudiant
       const di = per * tarif, frais = sansFrais ? 0 : perEtud * BF.par_periode;
       return { ...U, droits: { periodes: per, periodes_etudiant: perEtud, niveau: sup ? 'supérieur' : 'secondaire', tarif_di: tarif, par_periode: sansFrais ? 0 : BF.par_periode, sans_frais: sansFrais,
-        di_etudiant: di, frais_etudiant: frais, inscrits: ins, prevu, recette: ins * (di + frais) } };
+        di_etudiant: di, frais_etudiant: frais, inscrits: ins, prevu, recette: S.tiers ? 0 : ins * (di + frais) } };
     });
     S.sans_frais = sansFrais;
-    S.forfaits = { di: BD.forfait, frais: sansFrais ? 0 : BF.frais_fixes, etudiants: S.inscrits, montant: S.inscrits * (BD.forfait + (sansFrais ? 0 : BF.frais_fixes)) };
+    S.forfaits = { di: BD.forfait, frais: sansFrais ? 0 : BF.frais_fixes, etudiants: S.inscrits, montant: S.tiers ? 0 : S.inscrits * (BD.forfait + (sansFrais ? 0 : BF.frais_fixes)) };
   }
   const total = sections.reduce((t, S) => ({ cout: t.cout + S.cout, periodes: t.periodes + S.periodes,
     cout_iip: t.cout_iip + S.cout_iip, cout_helb: t.cout_helb + S.cout_helb }), { cout: 0, periodes: 0, cout_iip: 0, cout_helb: 0 });

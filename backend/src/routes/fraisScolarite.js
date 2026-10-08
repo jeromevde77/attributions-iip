@@ -108,7 +108,9 @@ export function calculerFrais(etudId, annee) {
     .reduce((s, d) => s + Number(d.periodes_etudiant ?? d.periodes ?? 0), 0);
 
   let sec = null; try { sec = sectionRattachement(etudId, annee).section || null; } catch { /* */ }
-  const sansFrais = !!sec && sectionsSansFrais().has(sec);
+  /* DROITS PERÇUS PAR UN TIERS : AUCUN FRAIS POUR L'ÉTABLISSEMENT (Charles, 8 octobre
+     2026 : « pour Orthoptie, PAS de frais — c'est la HELB qui gagne »). */
+  const sansFrais = !!di.tiers || (!!sec && sectionsSansFrais().has(sec));
   const fixes = sansFrais ? 0 : b.frais_fixes;
   const fraisVariables = sansFrais ? 0 : arrondi(periodes * b.par_periode);
   const fraisAdmin = arrondi(fixes + fraisVariables);
