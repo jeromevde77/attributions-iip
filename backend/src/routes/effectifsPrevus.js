@@ -39,15 +39,20 @@ r.get('/', authRequired, (req, res) => {
      « d'où vient le 121 ? » — 94 étudiants archivés portaient encore une inscription
      de l'année). Hors archivés ; la section de l'étudiant est son rattachement, sinon
      celle de l'unité, comme dans les chiffres clés. */
+  // UNE UNITÉ NE COMPTE QUE LES ÉTUDIANTS DE LA SECTION (Charles, 8 octobre 2026 :
+  // « tu comptes des étudiants ortho en trop ») : le tronc commun Optométrie–Orthoptie
+  // comptait les deux sections — l'UE 282 affichait 179 pour Orthoptie.
   const reel = db.prepare(`SELECT COUNT(DISTINCT i.etudiant_id) n FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
-      WHERE i.annee_scolaire = ? AND i.ue_num = ? AND COALESCE(e.sortie_statut, '') <> 'archive'`);
+      WHERE i.annee_scolaire = ? AND i.ue_num = ? AND COALESCE(e.sortie_statut, '') <> 'archive'
+        AND COALESCE(e.section_rattachement, (SELECT u.section FROM ue u WHERE u.ue_num = i.ue_num
+          AND u.annee_scolaire = i.annee_scolaire AND COALESCE(u.hors_cursus, 0) = 0 LIMIT 1)) = ?`);
   const reelSection = db.prepare(`SELECT COUNT(DISTINCT i.etudiant_id) n FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
       WHERE i.annee_scolaire = ? AND COALESCE(e.sortie_statut, '') <> 'archive'
         AND COALESCE(e.section_rattachement, (SELECT u.section FROM ue u WHERE u.ue_num = i.ue_num
           AND u.annee_scolaire = i.annee_scolaire AND COALESCE(u.hors_cursus, 0) = 0 LIMIT 1)) = ?`).get(annee, section).n;
   res.json({
     annee, section, section_reel: reelSection, section_prevu: prevus.get(`${section}|0`) ?? null,
-    ues: ues.map(u => ({ ...u, reel: reel.get(annee, u.ue_num).n, prevu: prevus.get(`${section}|${u.ue_num}`) ?? null })),
+    ues: ues.map(u => ({ ...u, reel: reel.get(annee, u.ue_num, section).n, prevu: prevus.get(`${section}|${u.ue_num}`) ?? null })),
   });
 });
 
