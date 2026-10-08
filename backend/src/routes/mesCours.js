@@ -882,8 +882,19 @@ r.get('/:coursCode/stats-ue', authRequired, async (req, res) => {
     }
   }
   const moy = a => (a.length ? a.reduce((s, v) => s + v, 0) / a.length : null);
-  res.json({ ue_num: ue, ue_nom: nomUE, annee, session, inscrits: etus.length, notes, ajournes, sans_note: sansNote,
+  /* PP, NP, CM COMPTÉS (Charles, 8 octobre 2026) : un étudiant par mention, par
+     cours et pour l'unité — tels que les enseignants les ont encodés. */
+  const inscrits = new Set(etus.map(x => x.id));
+  const lignesM = db.prepare(`SELECT p.etudiant_id, p.cours_code, p.mention FROM note_proposee p
+      JOIN cours c ON c.cours_code = p.cours_code AND c.annee_scolaire = p.annee_scolaire
+      WHERE p.annee_scolaire = ? AND c.ue_num = ? AND p.mention IN ('PP', 'NP', 'CM')`).all(annee, ue)
+    .filter(x => inscrits.has(x.etudiant_id));
+  const compter = l => Object.fromEntries(['PP', 'NP', 'CM'].map(m => [m, new Set(l.filter(x => x.mention === m).map(x => x.etudiant_id)).size]));
+  const mentions = compter(lignesM);
+  for (const x of lignesM) if (!parCours.has(x.cours_code)) parCours.set(x.cours_code, { cours_code: x.cours_code, cours_nom: '', notes: [] });
+  res.json({ ue_num: ue, ue_nom: nomUE, annee, session, inscrits: etus.length, notes, ajournes, sans_note: sansNote, mentions,
     cours: [...parCours.values()].map(c => ({ cours_code: c.cours_code, cours_nom: c.cours_nom, n: c.notes.length,
+      mentions: compter(lignesM.filter(x => x.cours_code === c.cours_code)),
       moyenne: moy(c.notes), reussites: c.notes.filter(v => Math.round(v) >= 10).length,
       ce_cours: c.cours_code === req.params.coursCode })).sort((a, b) => a.cours_code.localeCompare(b.cours_code, 'fr', { numeric: true })) });
 });

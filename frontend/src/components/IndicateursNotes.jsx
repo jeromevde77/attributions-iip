@@ -15,6 +15,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { authHeaders } from '../lib/api.js';
 
 const MENTIONS = ['PP', 'NP', 'CM'];
+const SENS_MENTION = { PP: 'pas présenté', NP: 'note de présence', CM: 'certificat médical' };
 const v1 = n => (n == null || !Number.isFinite(n) ? '—' : (Math.round(n * 10) / 10).toString().replace('.', ','));
 const pct = (k, n) => (n ? `${Math.round((k / n) * 100)} %` : '—');
 
@@ -80,7 +81,12 @@ export default function IndicateursNotes({ etudiants, cols, nomCol, valeurDe, no
       .then(r => r.json()).then(j => setUe(j.error ? { erreur: j.error } : j)).catch(e => setUe({ erreur: e.message }));
   }, [col, coursCode, annee]);
   const lire = (e, k) => {
-    if (k === '__cours') { const c = noteCours(e.id); return { note: c.note ?? null, mention: c.note == null && c.mentions ? 'mention' : null }; }
+    if (k === '__cours') {
+      const c = noteCours(e.id);
+      // La mention d'un étudiant pour le cours : la première portée sur l'un de ses acquis.
+      const m = cols.map(a => String(valeurDe(e.id, a) ?? '').trim().toUpperCase()).find(t => MENTIONS.includes(t)) || null;
+      return { note: c.note ?? null, mention: c.note == null ? m : null, mentionAA: m };
+    }
     const t = String(valeurDe(e.id, k) ?? '').trim().toUpperCase();
     if (!t) return { note: null, mention: null };
     if (MENTIONS.includes(t)) return { note: null, mention: t };
@@ -90,13 +96,15 @@ export default function IndicateursNotes({ etudiants, cols, nomCol, valeurDe, no
   const calc = liste => {
     const lus = liste.map(e => lire(e, col));
     const s = statistiques(lus.map(x => x.note).filter(x => x != null));
-    const mentions = Object.fromEntries(MENTIONS.map(m => [m, lus.filter(x => x.mention === m).length]));
+    // LES MENTIONS COMPTÉES UNE À UNE (Charles, 8 octobre 2026 : « le nombre de PP,
+    // NP, CM ») — sur la note du cours, l'étudiant qui en porte une sur un acquis.
+    const mentions = Object.fromEntries(MENTIONS.map(m => [m, lus.filter(x => (x.mentionAA ?? x.mention) === m).length]));
     return { ...s, total: liste.length, manquantes: lus.filter(x => x.note == null && !x.mention).length, mentions };
   };
   const s = useMemo(() => {
     if (col !== '__ue') return calc(etudiants);
     if (!ue || ue.erreur) return { n: 0, total: ue?.inscrits || 0, manquantes: 0, mentions: {} };
-    return { ...statistiques(ue.notes), total: ue.inscrits, manquantes: ue.sans_note, mentions: {}, ajournes: ue.ajournes };
+    return { ...statistiques(ue.notes), total: ue.inscrits, manquantes: ue.sans_note, mentions: ue.mentions || {}, ajournes: ue.ajournes };
   }, [etudiants, col, valeurDe, ue]);   // eslint-disable-line react-hooks/exhaustive-deps
   const parGroupe = useMemo(() => (col === '__ue' ? [] : groupesDispo).map(g => [g, calc(tous.filter(e => groupesDe(e).includes(g)))]), [groupesDispo, tous, col, valeurDe]);   // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -119,7 +127,13 @@ export default function IndicateursNotes({ etudiants, cols, nomCol, valeurDe, no
       {col === '__ue' && ue?.erreur && <p className="text-[13px] text-slate-500">{ue.erreur}</p>}
       {col === '__ue' && ue && !ue.erreur && <p className="text-[12px] text-slate-500 -mt-2">Notes d’unité calculées comme en délibération, sur l’encodage officiel
         ({ue.session === 2 ? 'seconde' : 'première'} session), pour les {ue.inscrits} inscrits — sans les noms : les autres cours ne se lisent pas étudiant par étudiant.</p>}
-      {(col !== '__ue' || (ue && !ue.erreur)) && (!s.n ? <p className="text-[13px] text-slate-500">Aucune note chiffrée pour l’instant{s.total ? ` (${s.total} étudiant(s))` : ''}.</p> : (<>
+      {(col !== '__ue' || (ue && !ue.erreur)) && (!s.n ? (<>
+        <p className="text-[13px] text-slate-500">Aucune note chiffrée pour l’instant{s.total ? ` (${s.total} étudiant(s))` : ''}.</p>
+        {MENTIONS.some(m => s.mentions?.[m]) && (
+          <div className="flex flex-wrap gap-2">
+            {MENTIONS.map(m => <Tuile key={m} valeur={s.mentions?.[m] || 0} libelle={m} precision={SENS_MENTION[m]} etat={s.mentions?.[m] ? 'surveiller' : 'neutre'} />)}
+          </div>)}
+      </>) : (<>
         <div className="flex flex-wrap gap-2">
           <Tuile valeur={`${s.n} / ${s.total}`} libelle="notes chiffrées" precision={s.manquantes ? `${s.manquantes} à encoder` : 'complet'} etat={s.manquantes ? 'surveiller' : 'reussi'} />
           <Tuile valeur={v1(s.moyenne)} libelle="moyenne" precision={`écart type ${v1(s.ecart)}`} />
@@ -129,8 +143,9 @@ export default function IndicateursNotes({ etudiants, cols, nomCol, valeurDe, no
           <Tuile valeur={s.echecs} libelle="échecs (< 10)" precision={pct(s.echecs, s.n)} etat={s.echecs ? 'corriger' : 'neutre'} />
           <Tuile valeur={s.limite} libelle="à 8 ou 9" precision="juste sous le seuil" etat={s.limite ? 'surveiller' : 'neutre'} />
           {col === '__ue' && <Tuile valeur={s.ajournes ?? 0} libelle="acquis en défaut" precision="ajournés malgré la moyenne, ou en échec" etat={s.ajournes ? 'surveiller' : 'neutre'} />}
-          {MENTIONS.some(m => s.mentions[m]) && <Tuile valeur={MENTIONS.map(m => s.mentions[m]).reduce((a, b) => a + b, 0)} libelle="mentions"
-            precision={MENTIONS.filter(m => s.mentions[m]).map(m => `${m} ${s.mentions[m]}`).join(' · ')} />}
+          {MENTIONS.map(m => (
+            <Tuile key={m} valeur={s.mentions?.[m] || 0} libelle={m} precision={SENS_MENTION[m]}
+              etat={s.mentions?.[m] ? 'surveiller' : 'neutre'} />))}
         </div>
         <Diagramme s={s} />
         <p className="text-[11px] text-slate-500 -mt-2">Barres : nombre d’étudiants par note (vert à partir de 10). Dessous : l’étendue (du plus bas au plus haut),
@@ -138,24 +153,26 @@ export default function IndicateursNotes({ etudiants, cols, nomCol, valeurDe, no
           Indicatif : la réussite de l’unité se décide acquis par acquis, sans compensation.</p>
         {col === '__ue' && ue?.cours?.length > 0 && (
           <table className="text-[13px] tabular-nums">
-            <thead className="tab-entete"><tr>{['Cours de l’unité', 'Notes', 'Moyenne', 'Réussites'].map((t, i) =>
+            <thead className="tab-entete"><tr>{['Cours de l’unité', 'Notes', 'Moyenne', 'Réussites', ...MENTIONS].map((t, i) =>
               <th key={t} className={`px-2 py-1.5 ${i ? 'text-right' : 'text-left'}`}>{t}</th>)}</tr></thead>
             <tbody>{ue.cours.map(c => (
               <tr key={c.cours_code} className={`border-b border-slate-100 ${c.ce_cours ? 'font-semibold' : ''}`}>
                 <td className="px-2 py-1">{c.cours_code} — {c.cours_nom}{c.ce_cours ? ' (ce cours)' : ''}</td>
                 <td className="px-2 text-right">{c.n}</td><td className="px-2 text-right">{v1(c.moyenne)}</td>
-                <td className="px-2 text-right">{c.reussites} ({pct(c.reussites, c.n)})</td></tr>))}</tbody>
+                <td className="px-2 text-right">{c.reussites} ({pct(c.reussites, c.n)})</td>
+                {MENTIONS.map(m => <td key={m} className="px-2 text-right">{c.mentions?.[m] || ''}</td>)}</tr>))}</tbody>
           </table>)}
         {parGroupe.length > 1 && (
           <table className="text-[13px] tabular-nums">
-            <thead className="tab-entete"><tr>{['Groupe', 'Notes', 'Moyenne', 'Médiane', 'Écart type', 'Réussites', 'Échecs'].map((t, i) =>
+            <thead className="tab-entete"><tr>{['Groupe', 'Notes', 'Moyenne', 'Médiane', 'Écart type', 'Réussites', 'Échecs', ...MENTIONS].map((t, i) =>
               <th key={t} className={`px-2 py-1.5 ${i ? 'text-right' : 'text-left'}`}>{t}</th>)}</tr></thead>
             <tbody>{parGroupe.map(([g, x]) => (
               <tr key={g} className="border-b border-slate-100"><td className="px-2 py-1">{g}</td>
                 <td className="px-2 text-right">{x.n} / {x.total}</td><td className="px-2 text-right">{v1(x.moyenne)}</td>
                 <td className="px-2 text-right">{v1(x.mediane)}</td><td className="px-2 text-right">{v1(x.ecart)}</td>
                 <td className="px-2 text-right">{x.n ? `${x.reussites} (${pct(x.reussites, x.n)})` : '—'}</td>
-                <td className="px-2 text-right">{x.n ? x.echecs : '—'}</td></tr>))}</tbody>
+                <td className="px-2 text-right">{x.n ? x.echecs : '—'}</td>
+                {MENTIONS.map(m => <td key={m} className="px-2 text-right">{x.mentions?.[m] || ''}</td>)}</tr>))}</tbody>
           </table>)}
       </>))}
     </div>
