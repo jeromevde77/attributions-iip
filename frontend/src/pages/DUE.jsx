@@ -391,10 +391,15 @@ function Liste({ onOuvrir }) {
    la direction : un tableau pour l'unité si elle est évaluée d'une seule
    épreuve, un par activité d'enseignement sinon. La case écrit le réglage
    « évaluation unique » que la délibération lit : un seul fait, une source. */
+/* LE MODÈLE DU 8 OCTOBRE 2026 (Charles) : Contexte = chapeau · AA · Critère · Indicateurs ·
+   Signe de non-réussite · Exemples. « point » garde sa clé : les lignes déjà saisies restent. */
 const COLONNES_CRIT = [
-  ['point', 'Point du programme'], ['indicateur', 'Indicateurs (seuil = 50 %)'],
+  ['point', 'Critère', 'l’AA contextualisée par le point du programme : l’étudiant est capable concrètement de…'],
+  ['indicateur', 'Indicateurs', 'l’échelle : quand j’observe que c’est réussi (seuil = 50 %) — composé des degrés de maîtrise du DP'],
   ['non_reussite', 'Signe de non-réussite'], ['exemple', 'Exemples de question'],
 ];
+// **gras** dans une case, comme sur le modèle.
+const avecGras = t => String(t || '').split(/(\*\*.+?\*\*)/g).map((m, i) => (/^\*\*.+\*\*$/.test(m) ? <b key={i}>{m.slice(2, -2)}</b> : m));
 function GrilleCriteres({ d, c, lecture, ueNum, onGrille, onMode }) {
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(false);
@@ -402,6 +407,7 @@ function GrilleCriteres({ d, c, lecture, ueNum, onGrille, onMode }) {
   const grille = c.grille_criteres || {};
   const acquis = d.acquis || [];
   const descr = Object.fromEntries(acquis.map(a => [a.aa_code, a.description || '']));
+  const contexte = Object.fromEntries(acquis.map(a => [a.aa_code, a.contexte || '']));
   const tables = unique
     ? [{ cle: '__ue__', titre: 'Épreuve de l’unité — évaluation globale', aa: acquis.map(a => a.aa_code) }]
     : (d.cours || []).map(co => ({ cle: co.cours_code, titre: `${co.cours_code} — ${co.cours_nom || ''}`,
@@ -445,18 +451,21 @@ function GrilleCriteres({ d, c, lecture, ueNum, onGrille, onMode }) {
             <div className="tab-entete px-3 py-1.5 text-[12px] font-semibold text-slate-700">{t.titre}</div>
             <table className="w-full text-[12px]">
               <thead className="tab-entete"><tr className="text-left text-[11px] text-slate-500">
-                <th className="px-2 py-1 w-[18%]">Acquis d’apprentissage</th>
-                {COLONNES_CRIT.map(([k, l]) => <th key={k} className="px-2 py-1">{l}</th>)}
+                <th className="px-2 py-1 w-[14%] align-top">Contexte (chapeau)</th>
+                <th className="px-2 py-1 w-[16%] align-top">Acquis d’apprentissage</th>
+                {COLONNES_CRIT.map(([k, l, def]) => <th key={k} className="px-2 py-1 align-top">{l}
+                  {def && <div className="font-normal italic normal-case text-[10px] text-slate-500 leading-snug">{def}</div>}</th>)}
                 {!lecture && <th className="w-8" />}
               </tr></thead>
               <tbody>
                 {!lignes.length && (
-                  <tr><td colSpan={6} className="px-2 py-2 text-slate-400">Aucune ligne. {!lecture && 'Ajoutez un acquis ci-dessous.'}</td></tr>
+                  <tr><td colSpan={7} className="px-2 py-2 text-slate-400">Aucune ligne. {!lecture && 'Ajoutez un acquis ci-dessous, ou tous d’un coup.'}</td></tr>
                 )}
                 {lignes.map((l, i) => {
                   const premier = i === 0 || lignes[i - 1].aa_code !== l.aa_code;
                   return (
                     <tr key={i} className={`bg-white align-top ${premier ? 'border-t border-slate-200' : ''}`}>
+                      <td className="px-2 py-1 text-slate-600 whitespace-pre-line">{premier ? contexte[l.aa_code] || '' : ''}</td>
                       <td className="px-2 py-1">
                         {premier && (lecture
                           ? <span title={descr[l.aa_code]}><b>{l.aa_code}</b> <span className="text-slate-500">{descr[l.aa_code]}</span></span>
@@ -468,10 +477,17 @@ function GrilleCriteres({ d, c, lecture, ueNum, onGrille, onMode }) {
                       </td>
                       {COLONNES_CRIT.map(([k]) => (
                         <td key={k} className="px-1 py-1">
-                          {lecture ? <span className="whitespace-pre-line">{l[k] || ''}</span>
-                            : k === 'point'
-                              ? <input list={idList} className="controle w-full h-auto py-1 text-[12px]" value={l[k] || ''} onChange={e => maj(i, k, e.target.value)} />
-                              : <textarea rows={2} className="controle w-full h-auto py-1 text-[12px]" value={l[k] || ''} onChange={e => maj(i, k, e.target.value)} />}
+                          {lecture ? <span className="whitespace-pre-line">{avecGras(l[k])}</span>
+                            : <>
+                              <textarea rows={3} className="controle w-full h-auto py-1 text-[12px]" value={l[k] || ''} data-reponses="non"
+                                onChange={e => maj(i, k, e.target.value)} />
+                              {k === 'point' && (d.points_programme || []).length > 0 && (
+                                <select className="w-full text-[11px] text-slate-500 border-0 bg-transparent" value=""
+                                  onChange={e => e.target.value && maj(i, k, l[k] ? `${l[k]} ${e.target.value}` : e.target.value)}>
+                                  <option value="">+ un point du programme…</option>
+                                  {(d.points_programme || []).map((p, j) => <option key={j} value={p}>{p.slice(0, 90)}</option>)}
+                                </select>)}
+                            </>}
                         </td>
                       ))}
                       {!lecture && (
@@ -489,6 +505,10 @@ function GrilleCriteres({ d, c, lecture, ueNum, onGrille, onMode }) {
             {!lecture && (
               <div className="px-2 py-1.5 border-t border-slate-100 flex flex-wrap items-center gap-2 text-[12px]">
                 <span className="text-slate-500">Ajouter un acquis :</span>
+                {t.aa.some(a => !lignes.some(l => l.aa_code === a)) && (
+                  <button type="button" className="bouton" title="Une ligne pour chaque acquis qui n'en a pas encore"
+                    onClick={() => poser(t.cle, [...lignes, ...t.aa.filter(a => !lignes.some(l => l.aa_code === a)).map(a => ({ aa_code: a }))]
+                      .sort((x, y) => String(x.aa_code).localeCompare(String(y.aa_code), 'fr', { numeric: true })))}>Tous les acquis</button>)}
                 {t.aa.filter(a => !lignes.some(l => l.aa_code === a)).map(a => (
                   <button key={a} type="button" className="bouton" title={descr[a]} onClick={() => ajouter(a)}>{a}</button>
                 ))}
@@ -906,7 +926,7 @@ function Fiche({ ueNum, onRetour }) {
         </div>
       </Bloc>
 
-      <Bloc titre="Critères d'évaluation" aide="Acquis par acquis : les points du programme, l'indicateur, le signe de non-réussite, un exemple de question.">
+      <Bloc titre="Critères d'évaluation" aide="Acquis par acquis, sous son chapeau : le critère, l'indicateur, le signe de non-réussite, un exemple de question. Pour mettre un mot en gras dans une case : **mot**.">
         <GrilleCriteres d={d} c={c} lecture={lecture} ueNum={ueNum}
           onGrille={g => maj('grille_criteres', g)}
           onMode={unique => setD(x => ({ ...x, evaluation_unique: unique }))} />

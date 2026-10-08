@@ -290,6 +290,8 @@ function partieAutomatique(ueNum, annee) {
   const naturel = (a, b) => String(a).localeCompare(String(b), 'fr', { numeric: true });
   cours.sort((a, b) => naturel(a.cours_code, b.cours_code));
   acquis.sort((a, b) => naturel(a.aa_code, b.aa_code));
+  // LE CONTEXTE D'UN ACQUIS : le chapeau sous lequel il se range (le dernier posé).
+  { let ch = null; for (const a of acquis) { if (a.chapeau) ch = a.chapeau; a.contexte = ch; } }
 
   return {
     responsable_propose: enseignants[0]?.id ?? null,
@@ -594,19 +596,27 @@ const riche = t => (estHtml(t) ? `<div class="riche">${assainir(t)}</div>` : par
  */
 function grillesCriteres(auto, c, unique) {
   const g = c.grille_criteres || {};
-  const descr = Object.fromEntries((auto.acquis || []).map(a => [a.aa_code, a.description || '']));
+  const aaDe = Object.fromEntries((auto.acquis || []).map(a => [a.aa_code, a]));
+  // **gras** dans une case : le seul balisage admis, comme sur le modèle de la direction.
+  const cellule = t => esc(t || '').replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
+  /* LE MODÈLE DU 8 OCTOBRE 2026 (Charles) : Contexte = chapeau · AA · Critère (l'AA
+     contextualisée par le point du programme) · Indicateurs (l'échelle, seuil 50 %,
+     composée des degrés de maîtrise du DP) · Signe de non-réussite · Exemples. */
   const tableau = lignes => {
     const ls = (lignes || []).filter(l => l && (l.aa_code || l.point || l.indicateur || l.non_reussite || l.exemple));
     if (!ls.length) return '<p class="vide">à compléter</p>';
-    let html = '<table class="doc crit"><tr><th style="width:22%">Acquis d’apprentissage</th><th>Point du programme</th>'
-      + '<th>Indicateurs (seuil = 50 %)</th><th>Signe de non-réussite</th><th>Exemples de question</th></tr>';
+    let html = '<table class="doc crit"><tr><th style="width:15%">Contexte (chapeau)</th><th style="width:17%">Acquis d’apprentissage</th>'
+      + '<th>Critère<div class="def">l’AA contextualisée par le point du programme : l’étudiant est capable concrètement de…</div></th>'
+      + '<th>Indicateurs<div class="def">l’échelle : quand j’observe que c’est réussi (seuil = 50 %) — composé des degrés de maîtrise du DP</div></th>'
+      + '<th>Signe de non-réussite</th><th>Exemples de question</th></tr>';
     for (let i = 0; i < ls.length; i++) {
       const l = ls[i];
       let span = 1;
       if (i === 0 || ls[i - 1].aa_code !== l.aa_code) { while (i + span < ls.length && ls[i + span].aa_code === l.aa_code) span++; }
       else span = 0;
-      html += '<tr>' + (span ? `<td rowspan="${span}"><b>${esc(l.aa_code || '')}</b>${descr[l.aa_code] ? `<br>${esc(descr[l.aa_code])}` : ''}</td>` : '')
-        + ['point', 'indicateur', 'non_reussite', 'exemple'].map(k => `<td>${esc(l[k] || '').replace(/\n/g, '<br>')}</td>`).join('') + '</tr>';
+      const a = aaDe[l.aa_code] || {};
+      html += '<tr>' + (span ? `<td rowspan="${span}">${cellule(a.contexte || '')}</td><td rowspan="${span}"><b>${esc(l.aa_code || '')}</b>${a.description ? `<br>${esc(a.description)}` : ''}</td>` : '')
+        + ['point', 'indicateur', 'non_reussite', 'exemple'].map(k => `<td>${cellule(l[k])}</td>`).join('') + '</tr>';
     }
     return html + '</table>';
   };
@@ -819,6 +829,7 @@ const STYLE_DUE = `<style>
   .crit-t { font-weight:700; color:#1B2B4B; font-size:9pt; margin: 2.5mm 0 1mm; }
   table.doc.crit td, table.doc.crit th { vertical-align: top; font-size: 8pt; }
   table.doc.crit tr { break-inside: avoid; }
+  table.doc.crit th .def { font-weight: 400; font-style: italic; font-size: 7pt; color: #4b5563; margin-top: 0.5mm; }
   .riche p { margin: 0 0 1.5mm; } .riche ul, .riche ol { margin: 0 0 1.5mm; padding-left: 5mm; }
   .riche table { border-collapse: collapse; width: 100%; } .riche td, .riche th { border: 0.25mm solid #d8dde6; padding: 1mm 1.5mm; }
   .sous-t { font-weight: 700; color:#1B2B4B; font-size: 8.5pt; margin: 2.5mm 0 1mm; }
