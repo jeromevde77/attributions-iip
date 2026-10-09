@@ -6,6 +6,9 @@ import ChoixUnite from './ChoixUnite.jsx';
 import ChampEtudiant from './ChampEtudiant.jsx';
 import { ouvrirApercu } from '../lib/apercu.js';
 import { Fenetre } from './ui.jsx';
+import EditeurModelePiece from './EditeurModelePiece.jsx';
+import { useDroits } from '../lib/droits.js';
+import { IconPencil } from '@tabler/icons-react';
 
 /**
  * LA GALERIE DES PIÈCES — un exemple de CHAQUE document que Lucie sait sortir
@@ -47,6 +50,11 @@ export default function ApercuDocuments({ onClose }) {
   const [enCours, setEnCours] = useState(false);
   const [filtre, setFiltre] = useState('');
   const urlPdf = useRef(null);
+  // L'ÉDITEUR DU MODÈLE (9 octobre 2026) : il prend la place de la liste, et
+  // l'aperçu de droite se recompose avec son brouillon.
+  const [edition, setEdition] = useState(false);
+  const [brouillon, setBrouillon] = useState(null);
+  const droits = useDroits();
 
   useEffect(() => {
     fetch(`/api/apercu/galerie?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() })
@@ -83,7 +91,7 @@ export default function ApercuDocuments({ onClose }) {
         const val = { ...valeurs, mois_num: valeurs.mois ? Number(String(valeurs.mois).slice(5)) : '' };
         const q = a.query ? new URLSearchParams(remplacer(a.query, val)) : null;
         const url = remplacer(a.chemin, val) + (q && [...q].length ? `?${q}` : '');
-        const rep = await fetch(url, { method: a.methode, headers: authHeaders({ 'X-Annee': val.annee || annee }),
+        const rep = await fetch(url, { method: a.methode, headers: authHeaders({ 'X-Annee': val.annee || annee, ...(edition && brouillon ? { 'X-Modele-Brouillon': brouillon } : {}) }),
           ...(a.methode === 'POST' ? { body: JSON.stringify(remplacer(a.corps || {}, val)) } : {}) });
         const type = rep.headers.get('content-type') || '';
         if (!rep.ok || type.includes('application/json')) {
@@ -105,7 +113,7 @@ export default function ApercuDocuments({ onClose }) {
       finally { if (vivant) setEnCours(false); }
     })();
     return () => { vivant = false; };
-  }, [choisi, val]);   // eslint-disable-line react-hooks/exhaustive-deps
+  }, [choisi, val, brouillon]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const groupes = useMemo(() => {
     const m = new Map();
@@ -127,6 +135,12 @@ export default function ApercuDocuments({ onClose }) {
       pied={<><span className="text-[12px] text-slate-500">L’aperçu passe par la route qui produit la pièce : ce que vous voyez est ce qui sortira.</span>
         <button onClick={onClose} className="bouton">Fermer</button></>}>
       <div className="flex -mx-5 -my-4 h-[calc(88vh-8rem)]">
+        {edition && choisi?.modeles?.length ? (
+        <div className="w-[min(52%,760px)] border-r border-slate-200 flex flex-col min-h-0">
+          <EditeurModelePiece key={choisi.id} cles={choisi.modeles} onBrouillon={setBrouillon}
+            onFermer={() => { setEdition(false); setBrouillon(null); }} />
+        </div>
+        ) : (
         <div className="w-[320px] border-r border-slate-200 flex flex-col">
           <div className="p-2 border-b border-slate-200 relative">
             <IconSearch size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -156,6 +170,8 @@ export default function ApercuDocuments({ onClose }) {
               </div>)}
           </div>
         </div>
+
+        )}
 
         <div className="flex-1 flex flex-col min-w-0">
           <div className="px-3 py-2 border-b border-slate-200 flex flex-wrap items-center gap-2">
@@ -189,6 +205,10 @@ export default function ApercuDocuments({ onClose }) {
                 {(g?.choix?.[k] || []).map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
               </select>))}
             <span className="flex-1" />
+            {!edition && !!choisi?.modeles?.length && droits.peut('documentation.modeles') && (
+              <button className="bouton controle inline-flex items-center gap-1" onClick={() => setEdition(true)}>
+                <IconPencil size={14} /> Modifier le modèle
+              </button>)}
             {rendu?.html && (
               <button className="bouton controle inline-flex items-center gap-1"
                 onClick={() => ouvrirApercu({ html: rendu.html, titre: choisi?.libelle, nomFichier: rendu.nom, envoiPossible: false })}>

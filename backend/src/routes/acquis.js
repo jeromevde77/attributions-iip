@@ -30,6 +30,7 @@ import { authRequired, roleRequired, getUserSections } from '../middleware/auth.
 import { gesteRequis } from '../lib/gestes.js';
 import { SIGNATURE_SOHET, SCEAU_IIP } from '../services/assets/signature_sohet.js';
 import { identiteEtablissement } from './config.js';
+import { composerModele } from '../lib/modelesPieces.js';
 // Les trois pièces de la délibération — attestation de réussite, motivation
 // d'ajournement ou de refus, procès-verbal — partagent une seule mise en page.
 // Le contenu légal diffère ; la charte, non.
@@ -1819,6 +1820,20 @@ export function documentMotivation(etudId, ueNum, annee, session = 1) {
        Le cadre de titre le dit désormais, et l'annexe avec. Deux encadrés qui
        disent la même chose, c'est un de trop. -->
 
+  ${composerModele(estRefus ? 'motivation_refus' : 'motivation_ajournement', {
+    champs: {
+      nom_prenom: `${esc2((e.nom || '').toUpperCase())} ${esc2(e.prenom || '')}`,
+      ne_e: genre === 'F' ? 'Née' : 'Né',
+      lieu_naissance: esc2(e.lieu_naissance) || '………',
+      date_naissance: jour(e.date_naissance),
+      organe: esc2(organe),
+      ue_num: esc2(ueNum), ue_nom: esc2(ue.ue_nom || ''),
+      annee: esc2(String(annee).replace('-', '/')),
+      date_seance: seance.date_seance ? jour(seance.date_seance) : '………………',
+      ville: esc2(ident.ville || 'Anderlecht'),
+    },
+    blocs: {
+      caracteristiques: `
   <div class="carac">
     <div class="large">Code approuvé par le Gouvernement :
       ${ue.ue_code_fwb ? `<b>${esc2(ue.ue_code_fwb)}</b>`
@@ -1829,12 +1844,8 @@ export function documentMotivation(etudId, ueNum, annee, session = 1) {
     <div>Unité n<sup>o</sup> <b>${ueNum}</b></div>
   </div>
 
-  <p class="corps">
-    Nous, soussignés, Président-e et Membres du ${esc2(organe)} constitué par le
-    Pouvoir organisateur de l'établissement précité en vue de la délivrance de
-    l'attestation de réussite de l'unité d'enseignement susvisée, attestons que
-  </p>
-
+`,
+      identite: `
   <div class="etudiant">
     <div class="nom">${esc2((e.nom || '').toUpperCase())} ${esc2(e.prenom || '')}</div>
     <div class="naissance">
@@ -1843,8 +1854,8 @@ export function documentMotivation(etudId, ueNum, annee, session = 1) {
     </div>
   </div>
 
-  <p class="corps">ne maîtrise pas les acquis d'apprentissage suivants :</p>
-
+`,
+      acquis_en_echec: `
   <table class="doc">
     <thead><tr>
       <th style="width:42%">Acquis d'apprentissage</th>
@@ -1862,6 +1873,8 @@ export function documentMotivation(etudId, ueNum, annee, session = 1) {
     </tbody>
   </table>
 
+`,
+      origine: `
   <!-- ELLE PORTE SUR LA MOTIVATION, NON SUR LA SÉANCE. Une unité dont le
        Conseil a bel et bien rédigé la justification n'a pas à porter une
        mention de reconstitution parce que la séance, elle, a été clôturée
@@ -1878,46 +1891,8 @@ export function documentMotivation(etudId, ueNum, annee, session = 1) {
     <div class="ligne">${esc2(MENTION_REPRISE)}</div>
   </div>` : ''}
 
-  ${estRefus ? `
-  <!-- LES VOIES DE RECOURS, avec leurs fondements. Le décret ouvre le recours
-       contre les seules décisions de REFUS (art. 123ter, § 1er) ; le règlement
-       des études en fixe les modalités (art. 87 à 91). Les délais sont ceux du
-       décret, non ceux qu'on croit se rappeler. -->
-  ${etab.voies_recours ? `
-  <div class="info">
-    <div class="titre">Voies de recours</div>
-    <div class="ligne">${esc2(etab.voies_recours)}</div>
-  </div>` : `
-  <div class="info recours">
-    <div class="titre">Base légale et voies de recours</div>
-    <div class="ligne"><b>Base légale de la décision.</b> ${esc2(etab.base_legale_refus
-      || "Décret du 16 avril 1991 organisant l'enseignement pour adultes, articles 52, 53 "
-       + "et 58 ; arrêté du Gouvernement de la Communauté française du 2 septembre 2015 "
-       + "relatif à la sanction des études ; règlement des études de l'Institut, "
-       + "articles 44 et 78.")}</div>
-    <div class="ligne"><b>Recours interne.</b> Tout étudiant peut introduire un recours
-      écrit contre une décision de refus ; <b>à peine d'irrecevabilité</b>, il mentionne
-      les irrégularités précises qui le motivent. La plainte est adressée à la Direction
-      par pli recommandé ou remise contre accusé de réception, <b>au plus tard le
-      4<sup>e</sup> jour calendrier suivant la publication des résultats</b>. La
-      procédure ne peut excéder <b>7 jours calendrier</b> hors congés scolaires,
-      envoi recommandé de la décision motivée compris.
-      <span class="ref2">Décret du 16 avril 1991, art. 123<i>ter</i> ·
-        Règlement des études, art. 87 à 89.</span></div>
-    <div class="ligne"><b>Recours externe.</b> Le recours interne doit être épuisé au
-      préalable. Le recours s'introduit par pli recommandé auprès de l'Administration,
-      copie à la Direction, dans les <b>7 jours calendrier</b> à compter du troisième
-      jour ouvrable suivant l'envoi de la décision interne — y joints la présente
-      motivation et la décision prise sur recours interne, ou à défaut le récépissé de
-      celui-ci. Adresse : Direction générale du Service général de l'Enseignement tout au
-      long de la vie, rue Adolphe Lavallée 1, 1080 Bruxelles. La Commission de recours
-      notifie sa décision motivée par recommandé dans les <b>30 jours calendrier</b> hors
-      congés scolaires, et au plus tard le 31 août pour les recours introduits entre le
-      1<sup>er</sup> juin et le 7 juillet.
-      <span class="ref2">Décret du 16 avril 1991, art. 123<i>ter</i> et 123<i>quater</i> ·
-        Règlement des études, art. 90 et 91.</span></div>
-  </div>`}
-  ` : `
+`,
+      a_representer: estRefus ? '' : `
   ${regles.portee === 'aa' && regles.session2 === 'unique' ? `
   <p class="corps">Les acquis d'apprentissage ci-dessus seront à représenter en
     <b>une épreuve unique</b> par acquis, quels que soient les cours dans
@@ -1983,9 +1958,47 @@ export function documentMotivation(etudId, ueNum, annee, session = 1) {
   : `<p class="champ" style="font-size:8pt;color:#475569">
        Les épreuves se tiennent à
        ${esc2(seanceS1.session2_adresse || ident.adresse || '……………')}.</p>`}
-  `}
-
-  ${estRefus ? '' : `
+  `,
+      recours: estRefus ? `
+  <!-- LES VOIES DE RECOURS, avec leurs fondements. Le décret ouvre le recours
+       contre les seules décisions de REFUS (art. 123ter, § 1er) ; le règlement
+       des études en fixe les modalités (art. 87 à 91). Les délais sont ceux du
+       décret, non ceux qu'on croit se rappeler. -->
+  ${etab.voies_recours ? `
+  <div class="info">
+    <div class="titre">Voies de recours</div>
+    <div class="ligne">${esc2(etab.voies_recours)}</div>
+  </div>` : `
+  <div class="info recours">
+    <div class="titre">Base légale et voies de recours</div>
+    <div class="ligne"><b>Base légale de la décision.</b> ${esc2(etab.base_legale_refus
+      || "Décret du 16 avril 1991 organisant l'enseignement pour adultes, articles 52, 53 "
+       + "et 58 ; arrêté du Gouvernement de la Communauté française du 2 septembre 2015 "
+       + "relatif à la sanction des études ; règlement des études de l'Institut, "
+       + "articles 44 et 78.")}</div>
+    <div class="ligne"><b>Recours interne.</b> Tout étudiant peut introduire un recours
+      écrit contre une décision de refus ; <b>à peine d'irrecevabilité</b>, il mentionne
+      les irrégularités précises qui le motivent. La plainte est adressée à la Direction
+      par pli recommandé ou remise contre accusé de réception, <b>au plus tard le
+      4<sup>e</sup> jour calendrier suivant la publication des résultats</b>. La
+      procédure ne peut excéder <b>7 jours calendrier</b> hors congés scolaires,
+      envoi recommandé de la décision motivée compris.
+      <span class="ref2">Décret du 16 avril 1991, art. 123<i>ter</i> ·
+        Règlement des études, art. 87 à 89.</span></div>
+    <div class="ligne"><b>Recours externe.</b> Le recours interne doit être épuisé au
+      préalable. Le recours s'introduit par pli recommandé auprès de l'Administration,
+      copie à la Direction, dans les <b>7 jours calendrier</b> à compter du troisième
+      jour ouvrable suivant l'envoi de la décision interne — y joints la présente
+      motivation et la décision prise sur recours interne, ou à défaut le récépissé de
+      celui-ci. Adresse : Direction générale du Service général de l'Enseignement tout au
+      long de la vie, rue Adolphe Lavallée 1, 1080 Bruxelles. La Commission de recours
+      notifie sa décision motivée par recommandé dans les <b>30 jours calendrier</b> hors
+      congés scolaires, et au plus tard le 31 août pour les recours introduits entre le
+      1<sup>er</sup> juin et le 7 juillet.
+      <span class="ref2">Décret du 16 avril 1991, art. 123<i>ter</i> et 123<i>quater</i> ·
+        Règlement des études, art. 90 et 91.</span></div>
+  </div>`}
+` : `
   <div class="info">
     <div class="titre">Voies de recours</div>
     <div class="ligne">Une décision d'ajournement <b>ne fait pas l'objet d'un recours</b> :
@@ -1993,8 +2006,8 @@ export function documentMotivation(etudId, ueNum, annee, session = 1) {
       les recours interne et externe.</div>
     <div class="ligne" style="color:#475569">
       Règlement des études, art. 87, § 2.</div>
-  </div>`}
-
+  </div>`,
+      visite: `
   <div class="info">
     <div class="titre">Consultation de la copie</div>
     ${visite.mention
@@ -2004,6 +2017,8 @@ export function documentMotivation(etudId, ueNum, annee, session = 1) {
       local ${visite.local ? `<b>${esc2(visite.local)}</b>` : '…………'}</div>`}
   </div>
 
+`,
+      signature: `
   <!-- LES ANNEXES 8 ET 9 SONT SIGNÉES (Charles, 9 octobre 2026 : « il n'y a pas
        ma signature »). Elles avaient été rangées avec le procès-verbal, qui se
        signe à la main en séance ; mais ce ne sont pas des PV : elles partent à
@@ -2029,6 +2044,9 @@ export function documentMotivation(etudId, ueNum, annee, session = 1) {
            <div class="nom">${esc2(identiteEtablissement()?.directeur || '……………………')}</div>`}
     </div>
   </div>
+`,
+    },
+  })}
 </div>`;
 
   const html = envelopper(corps,

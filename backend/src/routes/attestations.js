@@ -29,6 +29,7 @@ import { capacitePdf, rendrePdf, rendrePdfs, compterPages } from '../services/pd
 import { SIGNATURE_SOHET, SCEAU_IIP } from '../services/assets/signature_sohet.js';
 import { piedDocument } from './parametres.js';
 import { identiteEtablissement } from './config.js';
+import { composerModele, STYLE_MODELE } from '../lib/modelesPieces.js';
 // Le Conseil des études est le même pour la valorisation que pour la
 // délibération : ce sont les professeurs de l'unité, la coordination et la
 // direction. Recomposer la liste ici en aurait fait une seconde source — et
@@ -343,6 +344,7 @@ function envelopperBrut(corps, titre) {
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
 <title>${esc(titre)}</title>
 <style>
+${STYLE_MODELE}
 :root{--sceau:url("${SCEAU_IIP}");--paraphe:url("${SIGNATURE_SOHET}")}
   * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
@@ -762,6 +764,33 @@ export function pageAttestation(e, u, annee, etab, dateDoc = null,
     ligne: `Année académique ${String(annee).replace('-', '/')}`,
   })}
 
+  ${composerModele('attestation_reussite', {
+    champs: {
+      nom_prenom: `${esc((e.nom || '').toUpperCase())} ${esc(e.prenom || '')}`,
+      ne_e: genre === 'F' ? 'Née' : 'Né',
+      lieu_naissance: esc(e.lieu_naissance) || '………',
+      date_naissance: frDate(e.date_naissance),
+      il_elle: genre === 'F' ? 'elle' : 'il',
+      ue_num: esc(u.ue_num), ue_nom: esc(u.ue_nom || ''),
+      section: esc(u.section_libelle || u.section || ''),
+      annee: esc(String(annee).replace('-', '/')),
+      articles: u.superieur ? '52, 53 et 58' : '31, 32 et 37',
+      organe: u.epreuve_integree ? "le Jury d'épreuve intégrée" : 'le Conseil des études',
+      organe_maj: u.epreuve_integree ? "Le Jury d'épreuve intégrée" : 'Le Conseil des études',
+      ei_mention: u.epreuve_integree ? ' « épreuve intégrée »' : '',
+      periodes: `${u.periodes || '………'}`,
+      comportant: u.est_stage || u.epreuve_integree
+        // Annexes 12, 13, 17 et 18 : « comportant, pour l'étudiant, X périodes »,
+        // SANS répartition par activité. Annexe 11 : la répartition y figure.
+        ? `comportant, pour l'étudiant, <b>${u.periodes || '………'}</b> périodes d'activités d'enseignement ;`
+        : `comportant au total <b>${u.periodes || '………'}</b> périodes d'activités d'enseignement réparties comme suit :`,
+      pourcentage: u.pourcentage != null ? `${u.pourcentage} %` : '………',
+      date_doc: frDate(dateDoc || new Date().toISOString()),
+      ville: esc(ident.ville || 'Anderlecht'),
+      directeur: esc(ident.directeur || 'Charles SOHET'),
+    },
+    blocs: {
+      caracteristiques: `
   <div class="carac">
     <!-- LA SECTION, EN TÊTE DES CARACTÉRISTIQUES.
          Elle figurait dans les données depuis toujours, et n'était imprimée
@@ -793,14 +822,8 @@ export function pageAttestation(e, u, annee, etab, dateDoc = null,
       : '<span class="manque">périodes à compléter</span>'}</div>
   </div>
 
-  <p class="corps">
-    Conformément aux articles ${u.superieur ? '52, 53 et 58' : '31, 32 et 37'}
-    alinéa 1<sup>er</sup> du décret du 16 avril 1991
-    organisant l'enseignement de promotion sociale, ${u.epreuve_integree
-      ? "le Jury d'épreuve intégrée" : 'le Conseil des études'}, chargé de procéder
-    à l'évaluation de l'unité d'enseignement susvisée, atteste que
-  </p>
-
+`,
+      identite: `
   <div class="etudiant">
     <div class="nom">${esc((e.nom || '').toUpperCase())} ${esc(e.prenom || '')}</div>
     <div class="naissance">
@@ -809,35 +832,20 @@ export function pageAttestation(e, u, annee, etab, dateDoc = null,
     </div>
   </div>
 
-  <p class="corps indente">
-    a suivi avec fruit, dans l'établissement précité, l'unité d'enseignement${
-      u.epreuve_integree ? ' « épreuve intégrée »' : ''} susvisée,
-    ${u.est_stage || u.epreuve_integree
-      // Annexes 12, 13, 17 et 18 : « comportant, pour l'étudiant, X périodes »,
-      // SANS répartition par activité.
-      ? `comportant, pour l'étudiant, <b>${u.periodes || '………'}</b> périodes
-         d'activités d'enseignement ;`
-      // Annexe 11 : la répartition par activité y figure.
-      : `comportant au total <b>${u.periodes || '………'}</b> périodes d'activités
-         d'enseignement réparties comme suit :`}
-  </p>
-  ${u.est_stage || u.epreuve_integree ? '' : `<div class="activites">${activites}${u.autonomie
+`,
+      activites: `${u.est_stage || u.epreuve_integree ? '' : `<div class="activites">${activites}${u.autonomie
     ? `<div class="ligne autonomie"><span>Activités d'enseignement en autonomie</span> `
       + `<span>(<b>${u.autonomie}</b> périodes)</span></div>`
-    : ''}</div>`}
-
-  <p class="corps">Attendu qu'${accord} tous les acquis d'apprentissage de l'unité
-    d'enseignement, soit :</p>
-  ${acquis}
-
-  ${u.est_stage || u.epreuve_integree
+    : ''}</div>`}`,
+      acquis: acquis,
+      fin_etudes: `${u.est_stage || u.epreuve_integree
     // Le modèle de stage porte « termine ses études avec succès », mais un
     // stage n'est pas la fin du cursus : l'affirmer serait inexact. On s'en
     // tient au stage. L'épreuve intégrée, elle, clôt bien les études.
     ? `<p class="corps">Attendu qu'${genre === 'F' ? 'elle termine' : 'il termine'}
        ${u.est_stage && !u.epreuve_integree ? 'son stage' : 'ses études'} avec succès ;</p>`
-    : ''}
-
+    : ''}`,
+      resultat: `
   <div class="resultat">
     ${u.epreuve_integree ? "Le Jury d'épreuve intégrée" : 'Le Conseil des études'} lui délivre
     la présente attestation, pour laquelle
@@ -854,6 +862,8 @@ export function pageAttestation(e, u, annee, etab, dateDoc = null,
     : ''}
   </div>
 
+`,
+      signature: `
   <!-- AUCUN NOM DE MEMBRE ICI. Les modèles d'attestation — annexes 10 à 18 —
        ne portent que la formule « Le Conseil des études » ou « Le Jury
        d'épreuve intégrée », le sceau, la date et la signature du Directeur.
@@ -876,6 +886,9 @@ export function pageAttestation(e, u, annee, etab, dateDoc = null,
       <div class="nom">${esc(ident.directeur || 'Charles SOHET')}</div>
     </div>
   </div>
+`,
+    },
+  })}
 </div>`;
 }
 

@@ -20,6 +20,7 @@ import { envelopper, frDate } from '../routes/attestations.js';
 import { enteteDocument } from './document.js';
 import { identiteEtablissement } from '../routes/config.js';
 import { BASES, POURCENTAGE_DISPENSE } from './valorisation.js';
+import { composerModele } from './modelesPieces.js';
 
 const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
   .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -118,36 +119,42 @@ export function composerNotificationVA(etudId, annee) {
     sous: 'La Direction',
     ligne: `Année ${String(annee).replace('-', '/')} · RDE art. 27 à 30`,
   })}
-  <div class="etudiant">
+  ${composerModele('notification_va', {
+    champs: {
+      nom_prenom: nom,
+      civilite: feminin ? 'Madame' : 'Madame, Monsieur',
+      annee: esc(String(annee).replace('-', '/')),
+      seances: dates.length ? `en sa séance du <b>${dates.map(jour).join('</b>, du <b>')}</b>` : '',
+      date_doc: jour(new Date().toISOString()),
+      ville: esc(ident.ville || 'Bruxelles'),
+      directeur: esc(ident.directeur || '……………………'),
+    },
+    blocs: {
+      identite: `<div class="etudiant">
     <div class="nom">${nom}</div>
     <div class="naissance">Matricule ${esc(e.id_ecampus || e.matricule_helb || '—')}${e.date_naissance
       ? ` · né${feminin ? 'e' : ''} le ${jour(e.date_naissance)}` : ''}</div>
-  </div>
-  <p class="corps">${feminin ? 'Madame' : 'Madame, Monsieur'},</p>
-  <p class="corps">Par la présente, nous vous notifions les décisions prises par le Conseil des études
-    ${dates.length ? `en sa séance du <b>${dates.map(jour).join('</b>, du <b>')}</b>` : ''} sur vos demandes de
-    valorisation des acquis pour l'année ${esc(String(annee).replace('-', '/'))}.</p>
-  <table class="doc">
+  </div>`,
+      tableau: `<table class="doc">
     <thead><tr><th style="width:24%">Unité d'enseignement</th><th style="width:7%">Demande</th>
       <th style="width:17%">Décision</th><th style="width:12%">Résultat</th><th>Motivation du Conseil des études</th></tr></thead>
     <tbody>${lignes}</tbody>
-  </table>
-  ${en_cours.length ? `<p class="corps">Vos demandes portant sur ${en_cours.map(v => `l'UE ${v.ue_num}`).join(', ')}
-    sont encore à l'examen : leur décision vous sera notifiée séparément.</p>` : ''}
-  <p class="corps">Une unité dont vous êtes dispensé(e) n'est plus à suivre ; une dispense partielle
-    vous dispense des seules activités citées, et l'unité reste à présenter. Votre programme annuel
-    (PAE) est adapté en conséquence.</p>
-  <div class="info"><div class="titre">Voies de recours</div>
+  </table>`,
+      en_cours: en_cours.length ? `<p class="corps">Vos demandes portant sur ${en_cours.map(v => `l'UE ${v.ue_num}`).join(', ')}
+    sont encore à l'examen : leur décision vous sera notifiée séparément.</p>` : '',
+      recours: `<div class="info"><div class="titre">Voies de recours</div>
     <div class="ligne">Les décisions de valorisation des acquis ne sont pas susceptibles de recours
-    (règlement des études, art. 30 et 87 § 2). Elles sont motivées ci-dessus.</div></div>
-  <!-- LA NOTIFICATION EST SIGNÉE (Charles, 9 octobre 2026 : « je ne vois pas ma
-       signature ») : c'est une décision de la direction remise à l'étudiant ;
-       le paraphe y est protégé par les vagues de micro-texte, comme ailleurs. -->
-  <div class="cloture">
+    (règlement des études, art. 30 et 87 § 2). Elles sont motivées ci-dessus.</div></div>`,
+      // LA NOTIFICATION EST SIGNÉE (Charles, 9 octobre 2026 : « je ne vois pas
+      // ma signature ») : c'est une décision de la direction remise à
+      // l'étudiant ; le paraphe y est protégé par les vagues de micro-texte.
+      signature: `<div class="cloture">
     <div class="sceau"></div><div class="paraphe"></div>
     <div class="lieu">Fait à ${esc(ident.ville || 'Bruxelles')}, le ${jour(new Date().toISOString())}</div>
     <div class="legende"><div class="qualite">Pour la Direction,<br>le Directeur</div><div class="nom">${esc(ident.directeur || '……………………')}</div></div>
-  </div>
+  </div>`,
+    },
+  })}
 </div>`;
   const base = `${String(e.nom || '').toUpperCase()}_${e.prenom || ''}_${annee}`.replace(/[^A-Za-z0-9_-]+/g, '-');
   return { html: envelopper(corps, 'Notification des décisions de valorisation'), nom: `VA_Notification_${base}`,
