@@ -3408,6 +3408,16 @@ const LIBELLE_RES = {
   ajourne: 'ajourné', refuse: 'refusé', va: 'valorisé',
 };
 
+/* Les renseignements dont un dossier ne devrait pas manquer, dans l'ordre où
+   le secrétariat les complète (le serveur rend leurs clés : e.manques). */
+const MANQUES = [
+  ['nationalite', 'nationalité'], ['nationalite_libre', 'nationalité reconnue (à corriger)'], ['sexe', 'sexe'],
+  ['date_naissance', 'date de naissance'], ['lieu_naissance', 'lieu de naissance'], ['num_national', 'n° national'],
+  ['titre_acces', "titre d'accès"], ['diplome_max', 'diplôme le plus élevé'], ['adresse', 'adresse complète'],
+  ['email_ecole', "e-mail de l'école"], ['email_perso', 'e-mail privé'], ['gsm', 'GSM'],
+];
+const LIBELLE_MANQUE = Object.fromEntries(MANQUES.map(([k, l]) => [k, l.replace(' reconnue (à corriger)', ' à corriger')]));
+
 export default function Etudiants() {
   /**
    * Export Excel de la section : signalétique et résultats, réimportables.
@@ -3455,6 +3465,8 @@ export default function Etudiants() {
   // '' tous · 'primo' les primo-arrivés · 'anciens' les autres (2 octobre 2026).
   const [fPrimo, setFPrimo] = useState('');
   const [fPlus60, setFPlus60] = useState(false);   // plus de 60 ECTS au programme (3 octobre 2026)
+  // CE QUI MANQUE AU DOSSIER (9 octobre 2026) : '' · 'tout' (au moins un champ) · une clé de MANQUES.
+  const [fManque, setFManque] = useState('');
   // « Doublons » : ne garder que les étudiants dont le nom+prénom (accents et
   // casse ignorés) existe sur PLUSIEURS fiches — les dossiers coupés en deux.
   const [fDoublons, setFDoublons] = useState(false);
@@ -3781,6 +3793,19 @@ export default function Etudiants() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [etudiants]);
 
+  // Combien de dossiers manquent de chaque champ, dans la section choisie : le
+  // menu dit d'avance où est le travail.
+  const comptesManques = useMemo(() => {
+    const c = { tout: 0 };
+    for (const e of etudiants) {
+      if (section && (section === '__aucune__' ? e.section_rattachement : e.section_rattachement !== section)) continue;
+      const m = e.manques || [];
+      if (m.length) c.tout++;
+      for (const k of m) c[k] = (c[k] || 0) + 1;
+    }
+    return c;
+  }, [etudiants, section]);
+
   const filtres = useMemo(() => {
     // Sans accents ni casse, chaque mot tapé doit se retrouver (« cha » trouve
     // CHARLIER comme Charlotte ; « dup mar » trouve DUPONT Marie).
@@ -3797,7 +3822,8 @@ export default function Etudiants() {
         : fRatt === 'deduite' ? (e.section_rattachement && e.section_deduite)
           : (e.section_rattachement && !e.section_deduite)))
       .filter(e => !fPrimo || (fPrimo === 'primo' ? e.primo : !e.primo))
-      .filter(e => !fPlus60 || Number(frises?.etats?.[e.id]?.ects) > 60);
+      .filter(e => !fPlus60 || Number(frises?.etats?.[e.id]?.ects) > 60)
+      .filter(e => !fManque || (fManque === 'tout' ? (e.manques || []).length > 0 : (e.manques || []).includes(fManque)));
     if (fDoublons) {
       const cleDe = e => `${e.nom || ''}|${e.prenom || ''}`.normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9|]/g, '');
@@ -3826,7 +3852,7 @@ export default function Etudiants() {
       if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * tri.sens;
       return String(va).localeCompare(String(vb), 'fr') * tri.sens;
     });
-  }, [etudiants, recherche, tri, section, fNiveau, fUE, fRatt, fPrimo, fDoublons, fPlus60, frises]);
+  }, [etudiants, recherche, tri, section, fNiveau, fUE, fRatt, fPrimo, fDoublons, fPlus60, fManque, frises]);
 
   // Volets par section, comme dans la répartition des périodes : la liste se
   // parcourt section par section, et un étudiant inscrit dans plusieurs
@@ -3846,9 +3872,9 @@ export default function Etudiants() {
      volets fermés dont les comptes ne disaient pas qu'ils étaient filtrés —
      on ne savait plus si « 61 étudiants » était la section ou le filtre. Tout
      filtre ouvre désormais les volets, et chaque volet dit « 61 sur 120 ». */
-  const filtreActif = !!(recherche.trim() || fNiveau || fUE || fRatt || fPrimo || fDoublons);
+  const filtreActif = !!(recherche.trim() || fNiveau || fUE || fRatt || fPrimo || fDoublons || fManque);
   const [repliesRecherche, setRepliesRecherche] = useState({});
-  useEffect(() => { setRepliesRecherche({}); }, [recherche, fNiveau, fUE, fRatt, fPrimo, fDoublons]);
+  useEffect(() => { setRepliesRecherche({}); }, [recherche, fNiveau, fUE, fRatt, fPrimo, fDoublons, fManque]);
   const totalParSection = useMemo(() => {
     const m = {};
     for (const e of etudiants || []) { const s = e.section_rattachement || '(sans section)'; m[s] = (m[s] || 0) + 1; }
@@ -4189,6 +4215,16 @@ export default function Etudiants() {
           <option value="primo">Primo-arrivés</option>
           <option value="anciens">Déjà inscrits avant (non primo)</option>
         </select>
+        {/* LES DOSSIERS À COMPLÉTER (Charles, 9 octobre 2026) : un champ à la
+            fois, pour que le secrétariat passe en revue « tous ceux sans
+            nationalité », puis « tous ceux sans titre d'accès ». */}
+        <select value={fManque} onChange={e => setFManque(e.target.value)}
+          title="Ne montrer que les dossiers auxquels manque ce renseignement"
+          className="controle text-sm">
+          <option value="">Dossier complet ou non</option>
+          <option value="tout">Incomplet — au moins un champ ({comptesManques.tout || 0})</option>
+          {MANQUES.map(([k, l]) => <option key={k} value={k}>Sans {l} ({comptesManques[k] || 0})</option>)}
+        </select>
         <label className="flex items-center gap-1.5 text-sm text-slate-600 self-center"
           title="Ne montrer que les étudiants dont le nom et le prénom existent sur plusieurs fiches">
           <input type="checkbox" checked={fDoublons} onChange={e => setFDoublons(e.target.checked)} />
@@ -4199,9 +4235,9 @@ export default function Etudiants() {
           <input type="checkbox" checked={fPlus60} onChange={e => setFPlus60(e.target.checked)} />
           Plus de 60 ECTS
         </label>
-        {(section || fNiveau || fUE || fRatt || fPrimo || fDoublons || fPlus60) && (
+        {(section || fNiveau || fUE || fRatt || fPrimo || fDoublons || fPlus60 || fManque) && (
           <button className="text-[12px] text-iip-blue underline self-center"
-            onClick={() => { setSection(''); setFNiveau(''); setFUE(''); setFRatt(''); setFPrimo(''); setFDoublons(false); setFPlus60(false); }}>
+            onClick={() => { setSection(''); setFNiveau(''); setFUE(''); setFRatt(''); setFPrimo(''); setFDoublons(false); setFPlus60(false); setFManque(''); }}>
             Tout effacer
           </button>
         )}
@@ -4418,6 +4454,11 @@ export default function Etudiants() {
                     <span className="text-[11px] text-slate-400 ml-1.5 tabular-nums">{e.id_ecampus}</span>
                     {e.primo && <span className="ml-1.5 text-[10px] font-semibold px-1.5 rounded bg-slate-100 text-slate-600"
                       title="Primo-arrivé : aucune trace avant l'année de travail">primo</span>}
+                    {fManque && (e.manques || []).length > 0 && (
+                      <span className="ml-2 text-[11px] text-slate-500"
+                        title="Ce qui manque à ce dossier — à compléter dans la fiche">
+                        manque : {(e.manques || []).map(k => LIBELLE_MANQUE[k] || k).join(', ')}
+                      </span>)}
                   </td>
                   {/* LE CRAYON DIT LE PAE, ET IL L'OUVRE (Charles, 2 octobre 2026) :
                       vert quand le PAE est validé dans la revue, gris sinon ; un

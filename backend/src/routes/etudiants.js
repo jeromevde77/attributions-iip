@@ -1151,6 +1151,32 @@ r.get('/', authRequired, (req, res) => {
       valides.set(x.etudiant_id, x);
   } catch { /* table pas encore créée */ }
 
+  /* CE QUI MANQUE AU DOSSIER (Charles, 9 octobre 2026 : « afin d'aider le
+     secrétariat à compléter les dossiers incomplets, des filtres par type :
+     nationalité, sexe, date de naissance, titre d'accès… »). Seuls les NOMS
+     des champs vides partent vers l'écran, jamais les valeurs : le n° national
+     et l'adresse restent réservés à qui peut les lire. */
+  const manquesDe = new Map();
+  {
+    const vide = v => v == null || String(v).trim() === '';
+    for (const x of db.prepare(`SELECT id, nationalite, sexe, date_naissance, lieu_naissance, titre_acces, diplome_max,
+        adresse, cp, localite, email_ecole, email_perso, gsm, num_national FROM etudiant WHERE actif = 1`).all()) {
+      const m = [];
+      if (vide(x.nationalite)) m.push('nationalite'); else if (!estUnPays(x.nationalite)) m.push('nationalite_libre');
+      if (vide(x.sexe)) m.push('sexe');
+      if (vide(x.date_naissance)) m.push('date_naissance');
+      if (vide(x.lieu_naissance)) m.push('lieu_naissance');
+      if (vide(x.titre_acces)) m.push('titre_acces');
+      if (vide(x.diplome_max)) m.push('diplome_max');
+      if (vide(x.adresse) || vide(x.cp) || vide(x.localite)) m.push('adresse');
+      if (vide(x.email_ecole)) m.push('email_ecole');
+      if (vide(x.email_perso)) m.push('email_perso');
+      if (vide(x.gsm)) m.push('gsm');
+      if (vide(x.num_national)) m.push('num_national');
+      if (m.length) manquesDe.set(x.id, m);
+    }
+  }
+
   res.json(vus.map(r0 => {
     const n = niveauEtudiant(r0.id, anneeActive);
     const rat = sectionRattachement(r0.id, anneeActive);
@@ -1167,6 +1193,7 @@ r.get('/', authRequired, (req, res) => {
       primo: !anciensListe.has(r0.id),
       section_rattachement: rat.section,
       section_deduite: rat.deduite,
+      manques: manquesDe.get(r0.id) || [],
     };
   }));
 });
