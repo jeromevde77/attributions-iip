@@ -4,6 +4,8 @@ import { authRequired, roleRequired } from '../middleware/auth.js';
 import { parse as parseHtml } from 'node-html-parser';
 import { LOGO_IIP_HTML } from '../services/assets/logo_iip.js';
 import { LOGO_IIP_BLANC_HTML } from '../services/assets/logo_iip_blanc.js';
+import { sectionRattachement } from './etudiants.js';
+import { identiteEtablissement } from './config.js';
 
 const r = Router();
 
@@ -227,13 +229,59 @@ function fetchBoucleData(boucleType, ctx) {
 }
 
 // ─── Génération ────────────────────────────────────────────────────────────
-r.post('/:id/generer', authRequired, async (req, res) => {
- try {
-  const t = db.prepare('SELECT * FROM document_template WHERE id = ?').get(req.params.id);
-  if (!t) return res.status(404).json({ error: 'Template introuvable' });
+/** Remplit un modèle pour un contexte (membre du personnel, unité, section,
+ *  ÉTUDIANT). Rend { html, headerHtml, footerHtml }. */
 
-  const { prof_id, ue_num, section, annee } = req.body;
-  const ctx = { prof_id, ue_num, section, annee: annee || '2025-2026' };
+/* ── LES DONNÉES D'UN ÉTUDIANT, POUR LES LETTRES INDIVIDUELLES ─────────────
+   Les documents gardent « Prénom NOM » (règle des pièces) ; « NOM Prénom »
+   reste disponible pour une liste. */
+const frDate = d => (d && /^\d{4}-\d{2}-\d{2}/.test(String(d)) ? new Date(String(d).slice(0, 10) + 'T12:00:00Z')
+  .toLocaleDateString('fr-BE', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) : (d || ''));
+const escT = x => String(x ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+export function donneesEtudiant(id, annee) {
+  const e = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(Number(id));
+  if (!e) return {};
+  const f = /^(mme|madame|mlle|mademoiselle)\b/i.test(String(e.titre || '').trim()) || e.sexe === 'F';
+  const h = !f && (/^(m\.?|monsieur)\b/i.test(String(e.titre || '').trim()) || e.sexe === 'M');
+  let section = '';
+  try {
+    const rat = sectionRattachement(e.id, annee);
+    section = rat.section ? (db.prepare('SELECT libelle FROM section WHERE code = ?').get(rat.section)?.libelle || rat.section) : '';
+  } catch { section = e.section_rattachement || ''; }
+  const ues = db.prepare(`SELECT DISTINCT i.ue_num,
+      (SELECT u.ue_nom FROM ue u WHERE u.ue_num = i.ue_num ORDER BY (u.annee_scolaire = ?) DESC, u.annee_scolaire DESC LIMIT 1) AS ue_nom,
+      (SELECT u.ects FROM ue u WHERE u.ue_num = i.ue_num ORDER BY (u.annee_scolaire = ?) DESC, u.annee_scolaire DESC LIMIT 1) AS ects,
+      (SELECT u.ue_per_etudiants FROM ue u WHERE u.ue_num = i.ue_num ORDER BY (u.annee_scolaire = ?) DESC, u.annee_scolaire DESC LIMIT 1) AS periodes
+    FROM etudiant_inscription i WHERE i.etudiant_id = ? AND i.annee_scolaire = ? ORDER BY i.ue_num`).all(annee, annee, annee, e.id, annee);
+  const ects = ues.reduce((t, u) => t + (Number(u.ects) || 0), 0);
+  const per = ues.reduce((t, u) => t + (Number(u.periodes) || 0), 0);
+  const cel = 'padding:5px 8px;border:1px solid #CBD5E1';
+  const tableau = ues.length ? `<table style="width:100%;border-collapse:collapse;font-size:9.5pt;margin:6px 0 10px">
+    <tr style="background:#1B2B4B;color:#fff"><th style="${cel};text-align:left;width:14%">UE</th><th style="${cel};text-align:left">Unité d'enseignement</th><th style="${cel};width:12%">ECTS</th><th style="${cel};width:14%">Périodes</th></tr>
+    <tr style="background:#EDF2F8;font-weight:700"><td style="${cel}" colspan="2">Total — ${ues.length} unité(s)</td><td style="${cel};text-align:right">${ects || ''}</td><td style="${cel};text-align:right">${per || ''}</td></tr>
+    ${ues.map(u => `<tr><td style="${cel}">${u.ue_num}</td><td style="${cel}">${escT(u.ue_nom || '')}</td><td style="${cel};text-align:right">${u.ects ?? ''}</td><td style="${cel};text-align:right">${u.periodes ?? ''}</td></tr>`).join('')}
+  </table>` : '<p style="font-style:italic;color:#64748b">Aucune unité inscrite pour cette année.</p>';
+  const nom = String(e.nom || '').toUpperCase();
+  return {
+    'etudiant.civilite': f ? 'Madame' : h ? 'Monsieur' : 'Madame, Monsieur',
+    'etudiant.cher': f ? 'Chère Madame' : h ? 'Cher Monsieur' : 'Madame, Monsieur',
+    'etudiant.nom': escT(nom), 'etudiant.prenom': escT(e.prenom || ''),
+    'etudiant.prenom_nom': escT(`${e.prenom || ''} ${nom}`.trim()), 'etudiant.nom_prenom': escT(`${nom} ${e.prenom || ''}`.trim()),
+    'etudiant.matricule': escT(e.id_ecampus || e.matricule_helb || ''),
+    'etudiant.date_naissance': frDate(e.date_naissance), 'etudiant.lieu_naissance': escT(e.lieu_naissance || ''),
+    'etudiant.ne_e': f ? 'née' : 'né', 'etudiant.inscrit_e': f ? 'inscrite' : 'inscrit',
+    'etudiant.adresse': escT(e.adresse || ''), 'etudiant.cp_localite': escT([e.cp, e.localite].filter(Boolean).join(' ')),
+    'etudiant.email': escT(e.email_ecole || ''), 'etudiant.section': escT(section),
+    'etudiant.annee': String(annee || '').replace('-', '/'),
+    'etudiant.nb_ues': String(ues.length), 'etudiant.ects': String(ects || ''), 'etudiant.periodes': String(per || ''),
+    'etudiant.ues_tableau': tableau,
+  };
+}
+
+export function composerTemplate(t, { prof_id, ue_num, section, annee, etudiant_id } = {}) {
+  const ctx = { prof_id, ue_num, section, annee: annee || '2025-2026', etudiant_id };
+  // ── Les données de l'ÉTUDIANT (lettres individuelles) ──
+  const varsEtudiant = etudiant_id ? donneesEtudiant(etudiant_id, ctx.annee) : null;
 
   // ── 1. Variables simples ─────────────────────────────────────────────────
   const vars = {};
@@ -302,6 +350,9 @@ r.post('/:id/generer', authRequired, async (req, res) => {
   vars['sys.section']  = section || '';
 
   let html = t.contenu;
+  if (varsEtudiant) Object.assign(vars, varsEtudiant);
+  // Le directeur, à défaut d'une fonction « Directeur » au personnel : la fiche de l'établissement.
+  if (!vars['directeur.nom_prenom']) { try { vars['directeur.nom_prenom'] = identiteEtablissement()?.directeur || ''; } catch { /* */ } }
   for (const [key, val] of Object.entries(vars)) html = html.replaceAll(`{{${key}}}`, String(val));
 
   // ── 2a. Champ spécial : tableau des attributions du prof (pour le contrat) ─
@@ -409,11 +460,43 @@ r.post('/:id/generer', authRequired, async (req, res) => {
     bodyHtml   = bodyHtml.replace(footerMatch[0], '');
   }
 
-  res.json({ html: bodyHtml, headerHtml, footerHtml, nom: t.nom });
+  return { html: bodyHtml, headerHtml, footerHtml };
+}
+
+r.post('/:id/generer', authRequired, async (req, res) => {
+ try {
+  const t = db.prepare('SELECT * FROM document_template WHERE id = ?').get(req.params.id);
+  if (!t) return res.status(404).json({ error: 'Template introuvable' });
+  const out = composerTemplate(t, req.body || {});
+  res.json({ ...out, nom: t.nom });
  } catch (e) {
   console.error('[generer] ERREUR :', e);
   res.status(500).json({ error: 'Erreur de génération : ' + e.message });
  }
+});
+
+/* UNE LETTRE PAR ÉTUDIANT (Charles, 9 octobre 2026 : « écrire une lettre
+   individuelle à chaque étudiant — une confirmation d'inscription »). Le même
+   modèle, rempli pour chacun : une pièce par personne, jamais une liasse à
+   vingt noms. */
+r.post('/:id/lot', authRequired, (req, res) => {
+  try {
+    const t = db.prepare('SELECT * FROM document_template WHERE id = ?').get(req.params.id);
+    if (!t) return res.status(404).json({ error: 'Modèle introuvable' });
+    const ids = [...new Set((req.body?.etudiants || []).map(Number).filter(Boolean))].slice(0, 600);
+    if (!ids.length) return res.status(400).json({ error: 'Choisissez au moins un étudiant.' });
+    const annee = req.body?.annee;
+    const documents = ids.map(id => {
+      const e = db.prepare('SELECT id, nom, prenom, email_ecole FROM etudiant WHERE id = ?').get(id);
+      if (!e) return null;
+      const out = composerTemplate(t, { annee, etudiant_id: id, section: req.body?.section || null });
+      return { etudiant_id: id, nom: `${String(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim(), email: e.email_ecole || null, ...out };
+    }).filter(Boolean);
+    res.json({ nom: t.nom, format: t.format, margins: t.margins, documents });
+  } catch (e) {
+    console.error('[lot] ERREUR :', e);
+    res.status(500).json({ error: 'Erreur de génération : ' + e.message });
+  }
 });
 
 export default r;

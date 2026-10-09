@@ -27,6 +27,7 @@ import modelesPiecesRoutes from './routes/modelesPieces.js';
 import { migrerModelesPieces } from './lib/modelesPieces.js';
 import { habillerReponses } from './lib/habillagePieces.js';
 import { galerie as galerieDesPieces } from './lib/galerieDocuments.js';
+import { MODELES_EXEMPLES } from './lib/modelesExemples.js';
 import suggestionsRoutes, { migrerSuggestions } from './routes/suggestions.js';
 import reponsesTypesRoutes, { migrerReponsesTypes } from './routes/reponsesTypes.js';
 import { migrerJournalModifications } from './lib/journalModifications.js';
@@ -2895,6 +2896,15 @@ try { migrerReunions(db); } catch (e) { console.error('[migration] reunions :', 
 try { migrerDocumentation(db); } catch (e) { console.error('[migration] documentation :', e.message); }
 try { migrerModelesPieces(db); } catch (e) { console.error('[migration] modèles des pièces :', e.message); }
 try { galerieDesPieces(); } catch (e) { console.error('[habillage] galerie :', e.message); }
+// Les modèles d'exemple de l'atelier (lib/modelesExemples.js), une fois chacun.
+try {
+  for (const m of MODELES_EXEMPLES) {
+    if (!db.prepare('SELECT 1 FROM document_template WHERE slug = ?').get(m.slug)) {
+      db.prepare("INSERT INTO document_template (nom, slug, description, contenu, format) VALUES (?, ?, ?, ?, 'A4P')")
+        .run(m.nom, m.slug, m.description, m.contenu);
+    }
+  }
+} catch (e) { console.error('[modèles d’exemple]', e.message); }
 try { migrerSuggestions(db); } catch (e) { console.error('[migration] suggestions :', e.message); }
 try { migrerReponsesTypes(db); } catch (e) { console.error('[migration] réponses types :', e.message); }
 try { migrerBesoinsOffres(db); } catch (e) { console.error('[migration] besoins :', e.message); }

@@ -1102,8 +1102,10 @@ export default function Configuration() {
          face de l'éditeur ; contrat, attestation, diplôme et recrutement sont
          les faces d'un même onglet — les modèles des pièces officielles. Les
          anciennes clés restent valables (?onglet=attestation y mène). */
-      { key: 'editeur', label: 'Modèles de pièces', icon: IconEdit,
-        faces: [['editeur', 'Écrire un modèle'], ['apercu', 'Galerie des pièces']] },
+      // LA GALERIE EN PREMIER (Charles, 9 octobre 2026) : on part d'une pièce
+      // qui existe, on la corrige ; écrire un modèle vierge est l'exception.
+      { key: 'apercu', label: 'Modèles de pièces', icon: IconEdit,
+        faces: [['apercu', 'Galerie des pièces'], ['editeur', 'L’atelier de Lucie']] },
       { key: 'contrat', label: 'Pièces officielles', icon: IconAward,
         faces: [['contrat', 'Contrat'], ['attestation', 'Attestation'], ['diplome', 'Diplôme'], ['recrutement', 'Recrutement']] },
       { key: 'due', label: "Descriptifs d'UE", icon: IconFileDescription },

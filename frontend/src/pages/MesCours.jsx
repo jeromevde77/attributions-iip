@@ -308,7 +308,7 @@ export default function MesCours() {
            sous 10 sur un acquis demande sa raison ; elle part avec la note, et
            devient la proposition de motivation de la délibération. */
         const sousSeuil = v => /^\d{1,2}$/.test(String(v ?? '').trim()) && Number(v) < 10;
-        const manquants = feuille ? feuille.etudiants.flatMap((e, r) => e.report ? [] : cols
+        const manquants = feuille ? feuille.etudiants.flatMap((e, r) => e.report || e.dispense ? [] : cols
           .map((k, ci) => ({ e, k, r, ci }))
           .filter(x => x.k !== '' && sousSeuil(notes[e.id]?.[x.k]) && !String(justifs[e.id]?.[x.k] ?? '').trim())) : [];
         const allerA = x => { const el = document.querySelector(`[data-case="${x.r}:${x.ci}"]`); if (el) el.focus(); };
@@ -527,6 +527,8 @@ export default function MesCours() {
                             {e.report && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded border border-slate-200 text-slate-500"
                               title="Tous les acquis de ce cours ont été maîtrisés l'an passé : le cours est dispensé et ses notes sont reprises">
                               reporté {String(e.report.annee_origine || '').replace(/^20(\d\d)-20(\d\d)$/, '$1-$2')}</span>}
+                            {e.dispense && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded border border-slate-200 text-slate-500"
+                              title="Dispensé de ce cours par la valorisation des acquis : il ne se note pas ici">dispensé · {e.dispense}</span>}
                             {/* Les mesures accordées, et elles seules : le survol les
                                 énumère, la nature de la situation n'est jamais là. */}
                             {e.amenagements?.length > 0 && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded border border-iip-blue/30 text-[color:var(--c-texte)] cursor-help"
@@ -540,6 +542,12 @@ export default function MesCours() {
                             /* COURS REPORTÉ (27 septembre 2026) : tous ses acquis ont été
                                maîtrisés l'an passé, la note est reprise d'office. Elle se lit,
                                grise, et ne se saisit pas. */
+                            if (e.dispense) {
+                              return (
+                                <td key={k} className="py-0.5 px-1 text-center text-[12px] text-slate-400"
+                                  title={`Dispensé de ce cours (${e.dispense}) : aucune note à poser`}>—</td>
+                              );
+                            }
                             if (e.report) {
                               const vr = e.report.notes?.[k];
                               return (

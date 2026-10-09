@@ -1,0 +1,199 @@
+import { useEffect, useMemo, useState } from 'react';
+import { IconAlertTriangle, IconWand, IconDeviceFloppy, IconUsersGroup } from '@tabler/icons-react';
+import { api, authHeaders, getAnnee } from '../lib/api.js';
+import { demander, informer } from '../lib/dialogue.jsx';
+import { passeRole } from '../lib/droits.js';
+
+/**
+ * LES GROUPES COMMUNS (Charles, 9 octobre 2026 : « des TP par 4, par 6, par 8
+ * dans plusieurs UE : je dois trouver des groupes communs pour mes horaires »).
+ *
+ * Une cohorte (section + bloc) se coupe en BRIQUES ; chaque groupe de chaque
+ * activité est un assemblage fixe de briques. On range les étudiants dans les
+ * briques (Lucie propose, on ajuste en glissant), puis « Remplir les groupes »
+ * écrit, après simulation, tous les groupes de toutes les activités d'un coup.
+ * Le moteur est lib/groupesCommuns.js. Les boutons sont en haut.
+ */
+const BLOCS = ['BA1', 'BA2', 'BA3'];
+const pgcd = (a, b) => (b ? pgcd(b, a % b) : a);
+const ppcm = l => l.filter(n => n > 1).reduce((a, b) => a / pgcd(a, b) * b, 1);
+
+export default function GroupesCommuns() {
+  const annee = getAnnee();
+  const [sections, setSections] = useState([]);
+  const [section, setSection] = useState('');
+  const [bloc, setBloc] = useState('BA2');
+  const [c, setC] = useState(null);                  // la cohorte telle que le serveur la rend
+  const [reglages, setReglages] = useState({});      // clé → { nb_groupes, quadri, inclus }
+  const [briques, setBriques] = useState({});        // etudiant_id → brique
+  const [modifie, setModifie] = useState(false);
+  const [simu, setSimu] = useState(null);
+  const [glisse, setGlisse] = useState(null);
+  const [erreur, setErreur] = useState(null);
+  const peutEcrire = passeRole(['admin', 'directeur', 'directeur_adjoint', 'secretariat', 'coordination', 'editeur']);
+
+  useEffect(() => { api.sections().then(l => { const ls = Array.isArray(l) ? l : []; setSections(ls); if (!section && ls.some(s => s.code === 'TIM')) setSection('TIM'); }).catch(() => {}); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
+  const charger = async () => {
+    if (!section) return;
+    setErreur(null); setSimu(null);
+    const r = await fetch(`/api/etudiants/repartition-cours/communs?section=${encodeURIComponent(section)}&bloc=${bloc}&annee=${encodeURIComponent(annee)}`, { headers: authHeaders() });
+    const j = await r.json();
+    if (!r.ok) { setErreur(j.error); setC(null); return; }
+    setC(j); setBriques(j.briques || {}); setModifie(false);
+    setReglages(Object.fromEntries(j.activites.map(a => [`${a.cours_code}#${a.activite_id}`, { nb_groupes: a.nb_groupes, quadri: a.quadri, inclus: a.inclus }])));
+  };
+  useEffect(() => { charger(); }, [section, bloc]);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  const acts = useMemo(() => (c?.activites || []).map(a => ({ ...a, ...reglages[`${a.cours_code}#${a.activite_id}`] })), [c, reglages]);
+  const B = useMemo(() => ppcm(acts.filter(a => a.inclus).map(a => Number(a.nb_groupes) || 1)), [acts]);
+  const regler = (a, k, v) => { setReglages(r => ({ ...r, [`${a.cours_code}#${a.activite_id}`]: { ...r[`${a.cours_code}#${a.activite_id}`], [k]: v } })); setModifie(true); setSimu(null); };
+  const parBrique = useMemo(() => {
+    const m = Array.from({ length: B + 1 }, () => []);
+    for (const e of c?.etudiants || []) { const b = briques[e.id]; m[b && b <= B ? b : 0].push(e); }
+    return m;
+  }, [c, briques, B]);
+  const nomCourt = e => `${String(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim();
+  const ueCourt = new Map((c?.ues || []).map(u => [u.ue_num, u.ue_nom]));
+
+  async function enregistrer() {
+    const r = await fetch('/api/etudiants/repartition-cours/communs', { method: 'PUT', headers: authHeaders(),
+      body: JSON.stringify({ section, bloc, annee, briques,
+        reglages: acts.map(a => ({ cours_code: a.cours_code, activite_id: a.activite_id, nb_groupes: Number(a.nb_groupes), quadri: a.quadri, inclus: a.inclus })) }) });
+    const j = await r.json();
+    if (!r.ok) { informer(j.error || 'Enregistrement refusé.'); return false; }
+    setC(j); setModifie(false); return true;
+  }
+  async function proposer() {
+    if (Object.keys(briques).length && !(await demander('Proposer une nouvelle répartition en briques ?\n\nLa répartition actuelle est remplacée (rien n’est enregistré avant « Enregistrer »).'))) return;
+    const r = await fetch('/api/etudiants/repartition-cours/communs/proposer', { method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({ section, bloc, annee, nb_briques: B }) });
+    const j = await r.json();
+    if (!r.ok) { informer(j.error); return; }
+    setBriques(j.briques); setModifie(true); setSimu(null);
+  }
+  async function simuler() {
+    if (modifie && !(await enregistrer())) return;
+    const r = await fetch('/api/etudiants/repartition-cours/communs/appliquer', { method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({ section, bloc, annee, simulation: true }) });
+    setSimu(await r.json());
+  }
+  async function appliquer() {
+    if (!(await demander(`Remplir les groupes de ${simu.activites.length} activité(s) ?\n\n${simu.a_poser} placement(s) nouveaux, ${simu.a_changer} changement(s) de groupe. La répartition actuelle de ces activités est remplacée.`))) return;
+    const r = await fetch('/api/etudiants/repartition-cours/communs/appliquer', { method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({ section, bloc, annee, simulation: false }) });
+    const j = await r.json();
+    if (!r.ok) { informer(j.error); return; }
+    informer(`✓ Groupes remplis : ${j.a_poser + j.a_changer} placement(s) écrit(s). La répartition et les listes les montrent dès à présent.`);
+    setSimu(null);
+  }
+  const deposer = b => { if (glisse == null) return; setBriques(x => ({ ...x, [glisse]: b })); setGlisse(null); setModifie(true); setSimu(null); };
+
+  return (
+    <div className="p-4 space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <select value={section} onChange={e => setSection(e.target.value)} className="controle">
+          <option value="">— Section —</option>
+          {sections.map(s => <option key={s.code} value={s.code}>{s.libelle || s.code}</option>)}
+        </select>
+        <div className="segments flex h-9">
+          {BLOCS.map(b => <button key={b} onClick={() => setBloc(b)} className={`px-3 text-[13px] ${bloc === b ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'}`}>{b}</button>)}
+        </div>
+        <span className="flex-1" />
+        {peutEcrire && c && <>
+          <button className="bouton controle inline-flex items-center gap-1.5" onClick={proposer}><IconWand size={15} /> Proposer les briques</button>
+          <button className="bouton controle inline-flex items-center gap-1.5" disabled={!modifie} onClick={enregistrer}><IconDeviceFloppy size={15} /> Enregistrer</button>
+          <button className="bouton bouton-fort controle inline-flex items-center gap-1.5" disabled={!Object.keys(briques).length} onClick={simuler}>
+            <IconUsersGroup size={15} /> Remplir les groupes…</button>
+        </>}
+      </div>
+      {erreur && <div className="text-[13px]" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
+
+      {simu && (
+        <div className="carte p-3 space-y-2" style={{ borderLeft: '4px solid var(--c-disponible)' }}>
+          <div className="flex items-center gap-3 flex-wrap">
+            <b className="text-[13px]">Simulation</b>
+            <span className="text-[13px] text-slate-600">{simu.a_poser} placement(s) nouveaux · {simu.a_changer} changement(s) · {simu.inchanges} déjà en place</span>
+            <span className="flex-1" />
+            <button className="bouton bouton-fort" onClick={appliquer} disabled={!simu.a_poser && !simu.a_changer}>Écrire ces groupes</button>
+            <button className="bouton" onClick={() => setSimu(null)}>Fermer</button>
+          </div>
+          {simu.ecarts.map((x, i) => <div key={i} className="text-[12.5px] flex gap-1.5" style={{ color: 'var(--c-attente)' }}><IconAlertTriangle size={14} className="mt-0.5 flex-none" />{x}</div>)}
+          <div className="grid gap-x-6 gap-y-1 text-[12px]" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(320px,1fr))' }}>
+            {simu.activites.map(a => <div key={a.libelle}><b>{a.libelle}</b> — {a.groupes.map(g => `${g.nom} : ${g.effectif}`).join(' · ')}</div>)}
+          </div>
+        </div>)}
+
+      {c && (
+        <div className="carte overflow-hidden">
+          <div className="px-3 py-2 border-b border-slate-200 flex items-center gap-3 flex-wrap">
+            <b className="text-[13px]">Activités à groupes — {section} · {bloc}</b>
+            <span className="text-[12.5px] text-slate-600">{c.etudiants.length} étudiant(s) · <b>{B} brique(s)</b> : le plus petit nombre qui convient à tous les découpages cochés</span>
+          </div>
+          <table className="w-full text-[12.5px]">
+            <thead><tr className="tab-entete text-left">
+              <th className="px-3 py-1.5">Dans les briques</th><th className="px-3 py-1.5">Cours · activité</th>
+              <th className="px-3 py-1.5">Groupes en attribution</th><th className="px-3 py-1.5">Découpage</th>
+              <th className="px-3 py-1.5">Quadrimestre</th><th className="px-3 py-1.5">Un groupe =</th></tr></thead>
+            <tbody>
+              {acts.map(a => {
+                const n = Number(a.nb_groupes) || 1;
+                const ecart = a.inclus && n !== a.groupes.length;
+                const tombe = !a.inclus || B % n === 0;
+                return (
+                  <tr key={`${a.cours_code}#${a.activite_id}`} className={`border-t border-slate-100 ${a.inclus ? '' : 'text-slate-400'}`}>
+                    <td className="px-3 py-1"><input type="checkbox" checked={!!a.inclus} disabled={!peutEcrire} onChange={e => regler(a, 'inclus', e.target.checked)} /></td>
+                    <td className="px-3 py-1"><b>{a.cours_code}</b> {a.activite || a.cours_nom}<span className="text-slate-400"> · UE {a.ue_num}</span></td>
+                    <td className="px-3 py-1">{a.groupes.length} <span className="text-slate-400">({a.groupes.map(g => g.groupe).join(' ')})</span></td>
+                    <td className="px-3 py-1">
+                      <input type="number" min="1" max="48" value={a.nb_groupes} disabled={!peutEcrire}
+                        onChange={e => regler(a, 'nb_groupes', Math.max(1, Math.min(48, Number(e.target.value) || 1)))} className="controle w-20" />
+                      {ecart && <span className="ml-2 text-[11.5px]" style={{ color: 'var(--c-attente)' }}>≠ attributions</span>}
+                    </td>
+                    <td className="px-3 py-1">
+                      <select value={a.quadri} disabled={!peutEcrire} onChange={e => regler(a, 'quadri', e.target.value)} className="controle">
+                        <option value="AN">Toute l’année</option><option value="Q1">Q1</option><option value="Q2">Q2</option></select>
+                    </td>
+                    <td className="px-3 py-1 text-slate-600">{a.inclus ? (tombe ? `${B / n} brique(s)` : <span style={{ color: 'var(--c-refuse)' }}>ne tombe pas juste</span>) : 'hors briques'}</td>
+                  </tr>);
+              })}
+              {!acts.length && <tr><td colSpan="6" className="px-3 py-4 text-slate-400">Aucune activité à groupes dans les attributions de ce bloc.</td></tr>}
+            </tbody>
+          </table>
+        </div>)}
+
+      {c && (
+        <div className="space-y-2">
+          <div className="text-[12.5px] text-slate-600">Glissez un étudiant d’une brique à l’autre : tous ses groupes suivent. Chaque brique dit, sous son numéro, dans quel groupe elle tombe pour chaque découpage.</div>
+          {parBrique[0].length > 0 && (
+            <div className="carte p-2" onDragOver={e => e.preventDefault()} onDrop={() => deposer(0)}>
+              <div className="text-[12px] font-semibold mb-1" style={{ color: 'var(--c-attente)' }}>Sans brique · {parBrique[0].length}</div>
+              <div className="flex flex-wrap gap-1">{parBrique[0].map(e => <Puce key={e.id} e={e} nom={nomCourt(e)} disp={c.dispenses[e.id]} onGlisse={setGlisse} ues={ueCourt} />)}</div>
+            </div>)}
+          <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(210px,1fr))' }}>
+            {Array.from({ length: B }, (_, i) => i + 1).map(b => (
+              <div key={b} className="carte p-2 min-h-[90px]" onDragOver={e => e.preventDefault()} onDrop={() => deposer(b)}>
+                <div className="flex items-baseline gap-2 mb-1">
+                  <b className="text-[13px]">Brique {b}</b><span className="text-[11.5px] text-slate-500">{parBrique[b].length} étudiant(s)</span>
+                </div>
+                <div className="text-[10.5px] text-slate-400 mb-1.5 leading-snug">
+                  {[...new Set(acts.filter(a => a.inclus && B % a.nb_groupes === 0).map(a => a.nb_groupes))].sort((x, y) => y - x)
+                    .map(n => `${n} gr. → ${Math.floor((b - 1) / (B / n)) + 1}`).join(' · ')}
+                </div>
+                <div className="flex flex-wrap gap-1">{parBrique[b].map(e => <Puce key={e.id} e={e} nom={nomCourt(e)} disp={c.dispenses[e.id]} onGlisse={setGlisse} ues={ueCourt} />)}</div>
+              </div>))}
+          </div>
+        </div>)}
+    </div>
+  );
+}
+
+function Puce({ e, nom, disp, onGlisse, ues }) {
+  const d = disp ? Object.entries(disp).map(([k, v]) => `${k} (${v})`).join(', ') : '';
+  return (
+    <span draggable onDragStart={() => onGlisse(e.id)}
+      title={`${nom}\nUE : ${e.ues.map(u => `${u} ${ues.get(u) || ''}`).join(' · ')}${e.num_organisation != null ? `\nOrganisation ${e.num_organisation}` : ''}${d ? `\nDispensé de ${d}` : ''}`}
+      className="text-[11.5px] px-1.5 py-0.5 rounded border border-slate-200 bg-white cursor-grab hover:border-[var(--c-disponible)] whitespace-nowrap">
+      {nom}{d ? <span className="text-slate-400"> · D</span> : ''}
+    </span>
+  );
+}

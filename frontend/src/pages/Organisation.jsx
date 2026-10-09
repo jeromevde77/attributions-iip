@@ -6,7 +6,7 @@ import { useSearchParams } from 'react-router-dom';
 import Axe from '../components/Axe.jsx';
 import {
   IconLayoutGrid, IconSchool, IconSitemap, IconFileDescription,
-  IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup, IconListDetails, IconCalendarEvent, IconPercentage, IconTable, IconCalendarWeek, IconChartBar,
+  IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup, IconListDetails, IconCalendarEvent, IconPercentage, IconTable, IconCalendarWeek, IconChartBar, IconPuzzle,
 } from '@tabler/icons-react';
 import Attributions from './Attributions.jsx';
 import Planification from './Planification.jsx';
@@ -18,6 +18,7 @@ import { authHeaders } from '../lib/api.js';
 
 const CentrePlanification = lazy(() => import('./CentrePlanification.jsx'));
 const RepartitionCours = lazy(() => import('./RepartitionCours.jsx'));
+const GroupesCommuns = lazy(() => import('./GroupesCommuns.jsx'));
 const HoraireSemaine = lazy(() => import('./HoraireSemaine.jsx'));
 const Effectifs = lazy(() => import('./Configuration.jsx').then(m => ({ default: m.OngletStatistiques })));
 
@@ -104,6 +105,11 @@ export default function Organisation({ ongletInitial }) {
           sansMarge: true,
           rendu: <Suspense fallback={<div className="p-4 text-[13px] text-slate-400">Chargement…</div>}>
                    <RepartitionCours /></Suspense> },
+        /* LES GROUPES COMMUNS (9 octobre 2026) : les TP d'un bloc coupés en
+           briques, pour que les groupes de tous les cours s'emboîtent à l'horaire. */
+        { key: 'groupes-communs', module: 'organisation', label: 'Groupes communs (TP)', icone: IconPuzzle, sansMarge: true,
+          rendu: <Suspense fallback={<div className="p-4 text-[13px] text-slate-400">Chargement…</div>}>
+                   <GroupesCommuns /></Suspense> },
         { key: 'structure', module: 'organisation', label: 'Schéma de capitalisation', icone: IconSitemap, sansMarge: true,
           rendu: annee
             ? <StructureSection annee={annee} />

@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { dispensesDeLUE, dispenseDuCours } from '../lib/dispenses.js';
 import db from '../db/index.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
 import { anneeDeTravail } from '../helpers/annee.js';
@@ -494,6 +495,7 @@ r.get('/:coursCode/etudiants', authRequired, (req, res) => {
     }
   } catch { /* module absent */ }
 
+  const dispensesCours = dispensesDeLUE(d.ueNum, annee);
   res.json({
     annee, cours_code: req.params.coursCode, ue_num: d.ueNum,
     repartition: d.repartition, portee: d.portee,
@@ -505,6 +507,9 @@ r.get('/:coursCode/etudiants', authRequired, (req, res) => {
       notes: props[e.id] || {}, note: (props[e.id] || {})[''] ?? null,
       justifications: justifs[e.id] || {},
       report: reportes[e.id] || null,
+      /* DISPENSÉ DE CE COURS PAR VALORISATION (Charles, 9 octobre 2026, cas
+         Dethier) : il ne se note pas ici — VAP, VAEP, ou l'unité entière. */
+      dispense: reportes[e.id] ? null : dispenseDuCours(dispensesCours, e.id, req.params.coursCode),
       amenagements: amenagements[e.id] || [] })),
   });
 });
@@ -645,7 +650,8 @@ function signalerSiComplet(req, d, coursCode, annee, aaPermis) {
   const cles = acquis.length ? acquis : [''];
   const reporte = db.prepare(`SELECT 1 FROM etudiant_report_note WHERE etudiant_id = ? AND annee_scolaire = ?
     AND cours_code = ? AND statut = 'accorde'`);
-  const etus = d.etudiants.filter(e => { try { return !reporte.get(e.id, annee, coursCode); } catch { return true; } });
+  const dispCours = dispensesDeLUE(d.ueNum, annee);
+  const etus = d.etudiants.filter(e => { try { return !reporte.get(e.id, annee, coursCode) && !dispenseDuCours(dispCours, e.id, coursCode); } catch { return true; } });
   if (!etus.length) return false;
   const poses = new Set(db.prepare(`SELECT etudiant_id || '|' || aa_code k FROM note_proposee
       WHERE annee_scolaire = ? AND cours_code = ? AND (note IS NOT NULL OR mention IS NOT NULL)`).all(annee, coursCode).map(x => x.k));

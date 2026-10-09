@@ -1,6 +1,10 @@
 import { useEditor, EditorContent } from '@tiptap/react';
+import { BarreEdition, BulleSelection } from '../components/BarreEdition.jsx';
+import ChampEtudiant from '../components/ChampEtudiant.jsx';
+import { monterAtelier, lireStructure, ecrireContenu } from '../lib/atelier.js';
 import { nomPropre } from '../lib/nom.js';
-import { IconAlignLeft, IconAlignCenter, IconAlignRight, IconAlignJustified, IconX, IconDeviceFloppy, IconPrinter } from '@tabler/icons-react';
+import { IconAlignLeft, IconAlignCenter, IconAlignRight, IconAlignJustified, IconX, IconDeviceFloppy, IconPrinter,
+  IconPlus, IconTrash, IconFolder, IconFileImport, IconLayout, IconChevronDown, IconEye, IconSearch, IconRepeat, IconRectangle, IconRectangleVertical } from '@tabler/icons-react';
 import StarterKit from '@tiptap/starter-kit';
 import { Table } from '@tiptap/extension-table';
 import { TableRow } from '@tiptap/extension-table-row';
@@ -160,6 +164,29 @@ function aplatirSurBlanc(src) {
 
 // ─── Champs simples ────────────────────────────────────────────────────────
 const CHAMPS = {
+  /* L'ÉTUDIANT — pour les lettres individuelles, produites dans Éditions →
+     Étudiants → Lettres (une lettre par étudiant). */
+  'Étudiant': [
+    { key: 'etudiant.cher',          label: 'Formule d’appel (Chère Madame…)' },
+    { key: 'etudiant.civilite',      label: 'Civilité (Madame / Monsieur)' },
+    { key: 'etudiant.prenom_nom',    label: 'Prénom NOM' },
+    { key: 'etudiant.nom',           label: 'Nom' },
+    { key: 'etudiant.prenom',        label: 'Prénom' },
+    { key: 'etudiant.matricule',     label: 'Matricule' },
+    { key: 'etudiant.date_naissance', label: 'Date de naissance' },
+    { key: 'etudiant.lieu_naissance', label: 'Lieu de naissance' },
+    { key: 'etudiant.ne_e',          label: 'né / née' },
+    { key: 'etudiant.inscrit_e',     label: 'inscrit / inscrite' },
+    { key: 'etudiant.adresse',       label: 'Adresse (rue)' },
+    { key: 'etudiant.cp_localite',   label: 'Code postal et localité' },
+    { key: 'etudiant.email',         label: 'Adresse de l’école' },
+    { key: 'etudiant.section',       label: 'Section' },
+    { key: 'etudiant.annee',         label: 'Année académique' },
+    { key: 'etudiant.nb_ues',        label: 'Nombre d’UE inscrites' },
+    { key: 'etudiant.ects',          label: 'Total des ECTS' },
+    { key: 'etudiant.periodes',      label: 'Total des périodes' },
+    { key: 'etudiant.ues_tableau',   label: 'Tableau des UE inscrites' },
+  ],
   'Établissement': [
     { key: 'etab.logo',           label: '🖼 Logo IIP couleurs (grand)' },
     { key: 'etab.logo_sm',        label: '🖼 Logo IIP couleurs (petit)' },
@@ -414,8 +441,8 @@ function Sep() { return <div className="w-px h-5 bg-gray-200 mx-0.5 self-center"
 
 // Formats de page supportés : A4 Portrait et A4 Paysage.
 const PAGE_FORMATS = {
-  A4P: { label: '⬜ Portrait', w: '210mm', h: '297mm', minH: '257mm', rulerCount: 21, marginCm: 2, printSize: 'A4 portrait' },
-  A4L: { label: '🔲 Paysage',  w: '297mm', h: '210mm', minH: '170mm', rulerCount: 30, marginCm: 2, printSize: 'A4 landscape' },
+  A4P: { label: 'Portrait', w: '210mm', h: '297mm', minH: '257mm', rulerCount: 21, marginCm: 2, printSize: 'A4 portrait' },
+  A4L: { label: 'Paysage',  w: '297mm', h: '210mm', minH: '170mm', rulerCount: 30, marginCm: 2, printSize: 'A4 landscape' },
 };
 
 const DEFAULT_MARGINS = { top: 20, right: 20, bottom: 20, left: 20 };
@@ -491,133 +518,11 @@ function Regle({ fmt = 'A4P', margins, onMarginChange }) {
  * toute façon d'un texte du corpus (police, taille, interligne, retrait,
  * cases à cocher, code) : un bouton dont l'effet disparaît à l'enregistrement
  * est un bouton qui ment. */
+/* LA BARRE D'ÉDITION VIT DÉSORMAIS DANS components/BarreEdition.jsx (refonte du
+   9 octobre 2026). Le nom `Toolbar` reste exporté : les autres éditeurs
+   l'importent d'ici. */
 export function Toolbar({ editor, sobre = false }) {
-  // Force le re-rendu de la barre à chaque transaction (déplacement du curseur,
-  // entrée/sortie de tableau…) pour que isActive() et les groupes conditionnels suivent.
-  const [, forceUpdate] = useState(0);
-  useEffect(() => {
-    if (!editor) return;
-    const rerender = () => forceUpdate(n => n + 1);
-    editor.on('transaction', rerender);
-    return () => { editor.off('transaction', rerender); };
-  }, [editor]);
-  // Insère le logo en base64 (auto-contenu, pas d'URL relative rejetée par TipTap)
-  async function insertLogo(url, alt) {
-    try {
-      const resp = await fetch(url);
-      const blob = await resp.blob();
-      const b64 = await new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob); });
-      const plat = await aplatirSurBlanc(b64);
-      editor.chain().focus().setImage({ src: plat, alt }).run();
-    } catch { informer('Impossible de charger le logo.'); }
-  }
-  if (!editor) return null;
-  return (
-    /* LA BARRE PREND LA HAUTEUR DE CE QU'ELLE PORTE. Elle était fixée à
-       36 px et passe sur deux lignes dès qu'un tableau est sélectionné (ou
-       qu'on est dans une fenêtre) : la seconde ligne débordait, et le texte
-       défilait DERRIÈRE « Fusionner / Scinder ». min-h, pas h. */
-    <div className="flex flex-wrap items-center gap-0.5 px-2 py-1.5 min-h-9 border-b border-gray-200 bg-gray-50 sticky top-0 z-10">
-      <Btn onClick={() => editor.chain().focus().undo().run()} disabled={!editor?.can()?.undo?.()} title="Annuler">↩</Btn>
-      <Btn onClick={() => editor.chain().focus().redo().run()} disabled={!editor?.can()?.redo?.()} title="Rétablir">↪</Btn>
-      <Sep/>
-      <select value={(()=>{const l=[1,2,3,4,5,6].find(n=>editor.isActive('heading',{level:n}));return l?'h'+l:'p';})()}
-        onChange={e=>{const v=e.target.value; v==='p'?editor.chain().focus().setParagraph().run():editor.chain().focus().toggleHeading({level:parseInt(v[1])}).run()}}
-        className="h-7 border border-gray-300 rounded text-sm px-1 bg-white">
-        <option value="p">Normal</option>
-        {(sobre ? [1,2,3,4] : [1,2,3,4,5,6]).map(n=><option key={n} value={'h'+n}>Titre {n}</option>)}
-      </select>
-      <Sep/>
-      <Btn onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive('bold')} title="Gras"><b>G</b></Btn>
-      <Btn onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive('italic')} title="Italique"><i>I</i></Btn>
-      <Btn onClick={() => editor.chain().focus().toggleUnderline().run()} active={editor.isActive('underline')} title="Souligné"><u>S</u></Btn>
-      <Btn onClick={() => editor.chain().focus().toggleStrike().run()} active={editor.isActive('strike')} title="Barré"><s>B</s></Btn>
-      <Sep/>
-      <Btn onClick={() => editor.chain().focus().setTextAlign('left').run()} active={editor.isActive({textAlign:'left'})} title="Aligner à gauche"><IcoAlignLeft/></Btn>
-      <Btn onClick={() => editor.chain().focus().setTextAlign('center').run()} active={editor.isActive({textAlign:'center'})} title="Centrer"><IcoAlignCenter/></Btn>
-      <Btn onClick={() => editor.chain().focus().setTextAlign('right').run()} active={editor.isActive({textAlign:'right'})} title="Aligner à droite"><IcoAlignRight/></Btn>
-      <Btn onClick={() => editor.chain().focus().setTextAlign('justify').run()} active={editor.isActive({textAlign:'justify'})} title="Justifier"><IcoAlignJustify/></Btn>
-      <Sep/>
-      <Btn onClick={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive('bulletList')} title="Liste à puces">•</Btn>
-      <Btn onClick={() => editor.chain().focus().toggleOrderedList().run()} active={editor.isActive('orderedList')} title="Liste numérotée">1.</Btn>
-      {!sobre && <Btn onClick={() => editor.chain().focus().toggleTaskList().run()} active={editor.isActive('taskList')} title="Liste de tâches (cases à cocher)">☑</Btn>}
-      <Sep/>
-      <Btn onClick={() => editor.chain().focus().toggleSubscript().run()} active={editor.isActive('subscript')} title="Indice (X₂)">X₂</Btn>
-      <Btn onClick={() => editor.chain().focus().toggleSuperscript().run()} active={editor.isActive('superscript')} title="Exposant (X²)">X²</Btn>
-      <Btn onClick={async () => { const url = await saisir({ message: 'URL du lien (vide pour retirer) :', valeur: editor.getAttributes('link').href || '' }); if (url === null) return; const c = editor.chain().focus().extendMarkRange('link'); (url ? c.setLink({ href: url }) : c.unsetLink()).run(); }} active={editor.isActive('link')} title="Lien hypertexte">🔗</Btn>
-      <Btn onClick={() => editor.chain().focus().toggleBlockquote().run()} active={editor.isActive('blockquote')} title="Citation">❝</Btn>
-      {!sobre && <Btn onClick={() => editor.chain().focus().toggleCodeBlock().run()} active={editor.isActive('codeBlock')} title="Bloc de code">&lt;/&gt;</Btn>}
-      <Btn onClick={() => editor.chain().focus().setHorizontalRule().run()} title="Ligne horizontale">―</Btn>
-      {!sobre && <>
-      <Sep/>
-      <Btn onClick={() => editor.chain().focus().outdent().run()} title="Diminuer le retrait">⇤</Btn>
-      <Btn onClick={() => editor.chain().focus().indent().run()} title="Augmenter le retrait">⇥</Btn>
-      <select title="Interligne" value="" onChange={e=>{ if(e.target.value) editor.chain().focus().setLineHeight(e.target.value).run(); }}
-        className="h-7 border border-gray-300 rounded text-sm px-1 bg-white">
-        <option value="">Interligne</option>
-        <option value="1">1.0</option><option value="1.15">1.15</option><option value="1.5">1.5</option><option value="2">2.0</option>
-      </select>
-      <Btn onClick={() => editor.chain().focus().setPageBreak().run()} title="Insérer un saut de page">⤓ Saut</Btn>
-      </>}
-      <Sep/>
-      <Btn onClick={() => editor.chain().focus().insertTable({ rows:3, cols:3, withHeaderRow:true }).run()} title="Insérer un tableau 3×3">⊞ Tableau</Btn>
-      {editor.isActive('table') && <>
-        <Btn onClick={() => editor.chain().focus().addColumnBefore().run()} title="Insérer une colonne à gauche">+Col ←</Btn>
-        <Btn onClick={() => editor.chain().focus().addColumnAfter().run()} title="Insérer une colonne à droite">+Col →</Btn>
-        <Btn onClick={() => editor.chain().focus().addRowBefore().run()} title="Insérer une ligne au-dessus">+Lig ↑</Btn>
-        <Btn onClick={() => editor.chain().focus().addRowAfter().run()} title="Insérer une ligne en dessous">+Lig ↓</Btn>
-        <Btn onClick={() => editor.chain().focus().mergeCells().run()} disabled={!editor?.can()?.mergeCells?.()} title="Fusionner les cellules sélectionnées">Fusionner</Btn>
-        <Btn onClick={() => editor.chain().focus().splitCell().run()} disabled={!editor?.can()?.splitCell?.()} title="Scinder la cellule">Scinder</Btn>
-        <Btn onClick={() => editor.chain().focus().toggleHeaderRow().run()} title="Basculer la ligne d'en-tête">En-tête</Btn>
-        <label title="Couleur de fond de la cellule" className="flex items-center gap-0.5 h-7 px-1.5 rounded hover:bg-gray-100 cursor-pointer text-sm">
-          Fond <input type="color" className="w-5 h-5 cursor-pointer border-0 p-0 bg-transparent" defaultValue="#fff3cd"
-            onChange={e=>editor.chain().focus().setCellAttribute('backgroundColor', e.target.value).run()} />
-        </label>
-        <label title="Couleur de bordure de la cellule" className="flex items-center gap-0.5 h-7 px-1.5 rounded hover:bg-gray-100 cursor-pointer text-sm">
-          Bordure <input type="color" className="w-5 h-5 cursor-pointer border-0 p-0 bg-transparent" defaultValue="#333333"
-            onChange={e=>editor.chain().focus().setCellAttribute('borderColor', e.target.value).run()} />
-        </label>
-        <Btn onClick={() => editor.chain().focus().deleteColumn().run()} title="Supprimer la colonne" danger>− Col</Btn>
-        <Btn onClick={() => editor.chain().focus().deleteRow().run()} title="Supprimer la ligne" danger>− Lig</Btn>
-        <Btn onClick={() => editor.chain().focus().deleteTable().run()} title="Supprimer le tableau" danger>− Tableau</Btn>
-      </>}
-      {!sobre && <>
-      <Sep/>
-      <Btn onClick={() => insertLogo('/api/logo-iip', 'Institut Ilya Prigogine')} title="Insérer le logo IIP couleurs">🖼 Logo</Btn>
-      <Btn onClick={() => editor.chain().focus().insertContent({ type: 'enTeteBlock', content: [{ type: 'paragraph' }] }).run()} title="Insérer un en-tête (répété sur chaque page)">⬆ En-tête</Btn>
-      <Btn onClick={() => editor.chain().focus().insertContent({ type: 'piedDePageBlock', content: [{ type: 'paragraph' }] }).run()} title="Insérer un bas de page (répété sur chaque page)">⬇ Pied</Btn>
-      </>}
-      <Sep/>
-      <label title="Couleur du texte" className="flex items-center gap-0.5 h-7 px-1.5 rounded hover:bg-gray-100 cursor-pointer text-sm">
-        A <input type="color" className="w-5 h-5 cursor-pointer border-0 p-0 bg-transparent" defaultValue="#000000"
-          onChange={e=>editor.chain().focus().setColor(e.target.value).run()} />
-      </label>
-      <label title="Surligner" className="flex items-center gap-0.5 h-7 px-1.5 rounded hover:bg-gray-100 cursor-pointer text-sm">
-        🖍 <input type="color" className="w-5 h-5 cursor-pointer border-0 p-0 bg-transparent" defaultValue="#ffff00"
-          onChange={e=>editor.chain().focus().toggleHighlight({ color: e.target.value }).run()} />
-      </label>
-      {!sobre && <>
-      <Sep/>
-      <select title="Police" value="" onChange={e=>{ if(e.target.value) editor.chain().focus().setFontFamily(e.target.value).run(); }}
-        className="h-7 border border-gray-300 rounded text-sm px-1 bg-white max-w-[6.5rem]">
-        <option value="">Police</option>
-        <option value="Arial, sans-serif">Arial</option>
-        <option value="'Times New Roman', serif">Times New Roman</option>
-        <option value="Calibri, sans-serif">Calibri</option>
-        <option value="Georgia, serif">Georgia</option>
-        <option value="Verdana, sans-serif">Verdana</option>
-        <option value="'Courier New', monospace">Courier New</option>
-      </select>
-      <select title="Taille (pt)" value="" onChange={e=>{ if(e.target.value) editor.chain().focus().setFontSize(e.target.value).run(); }}
-        className="h-7 border border-gray-300 rounded text-sm px-1 bg-white">
-        <option value="">Taille</option>
-        {['8pt','9pt','10pt','11pt','12pt','14pt','16pt','18pt','20pt','24pt','28pt','36pt'].map(s=>(
-          <option key={s} value={s}>{s.replace('pt','')}</option>
-        ))}
-      </select>
-      </>}
-    </div>
-  );
+  return <><BarreEdition editor={editor} sobre={sobre} aplatirLogo={aplatirSurBlanc} /><BulleSelection editor={editor} /></>;
 }
 
 // ─── Composant principal ───────────────────────────────────────────────────
@@ -625,10 +530,15 @@ export default function Editeur() {
   const annee = getAnnee() || '2025-2026';
   const [templates, setTemplates] = useState([]);
   const [templateId, setTemplateId]   = useState(null);
-  const [nom, setNom]                 = useState('Nouveau template');
+  const [nom, setNom]                 = useState('Nouveau modèle');
   const [format, setFormat]           = useState('A4P');
   const [margins, setMargins]         = useState({ ...DEFAULT_MARGINS });
   const [showMargins, setShowMargins] = useState(false);
+  const [showExemple, setShowExemple] = useState(false);
+  const [showModeles, setShowModeles] = useState(false);
+  const [etudiantId, setEtudiantId] = useState('');
+  const [nomEtudiant, setNomEtudiant] = useState('');
+  const [filtreModeles, setFiltreModeles] = useState('');
   const [saving, setSaving]           = useState(false);
   const [generating, setGenerating]   = useState(false);
   const [previewHtml, setPreviewHtml] = useState(null);
@@ -695,6 +605,29 @@ export default function Editeur() {
   // écrite à la main survit à l'enregistrement depuis le code, mais pas à un
   // aller-retour par le mode visuel. C'est dit à l'écran, pas caché.
   const [modeCode, setModeCode] = useState(false);
+  /* L'ATELIER (9 octobre 2026) : composer en glissant des éléments tout faits.
+     Un modèle fait dans l'Atelier s'y rouvre ; les autres restent en Texte. */
+  const [atelier, setAtelier] = useState(true);
+  const [structure, setStructure] = useState(null);      // ce qu'on ouvre dans l'Atelier
+  const [cleAtelier, setCleAtelier] = useState(0);        // remonte l'Atelier sur un autre modèle
+  const sortieAtelier = useRef({ structure: null, html: '' });
+  const conteneurAtelier = useRef(null);
+  /* L'ÉDITEUR TIENT DANS LA FENÊTRE (Charles, 9 octobre 2026 : « le menu doit
+     rester, à la façon Word ») : sa hauteur va de son bord haut au bas de
+     l'écran ; seule la feuille défile, le ruban reste en place. */
+  const racine = useRef(null);
+  const [hauteur, setHauteur] = useState('calc(100vh - 220px)');
+  useEffect(() => {
+    const f = () => { const r = racine.current?.getBoundingClientRect(); if (r) setHauteur(`${Math.max(420, window.innerHeight - r.top - 12)}px`); };
+    f(); window.addEventListener('resize', f);
+    return () => window.removeEventListener('resize', f);
+  }, []);
+  useEffect(() => {
+    if (!atelier || !conteneurAtelier.current) return undefined;
+    const a = monterAtelier(conteneurAtelier.current, { structure, champs: CHAMPS,
+      onChange: (st, html) => { sortieAtelier.current = { structure: st, html }; } });
+    return () => a.detruire();
+  }, [atelier, cleAtelier]);   // eslint-disable-line react-hooks/exhaustive-deps
   const [codeHtml, setCodeHtml] = useState('');
 
   function versCode() {
@@ -770,7 +703,8 @@ export default function Editeur() {
     setSaving(true);
     // EN MODE CODE, C'EST LE CODE QUI FAIT FOI. Prendre editor.getHTML()
     // enregistrerait la version d'avant la frappe, sans rien dire.
-    const contenu = modeCode ? codeHtml : editor.getHTML();
+    const contenu = atelier ? ecrireContenu(sortieAtelier.current.structure || [], sortieAtelier.current.html || '')
+      : modeCode ? codeHtml : editor.getHTML();
     const token = localStorage.getItem('token');
     try {
       if (templateId) {
@@ -800,12 +734,12 @@ export default function Editeur() {
       contenu = contenu.replace(/<img([^>]*)src="(?!data:|https?:\/\/)[^"]*"([^>]*)>/gi,
         '<span style="background:#fef3c7;padding:2px 6px;border-radius:4px;font-size:11px">🖼 [logo — réinsérer via bouton]</span>');
 
-      console.log('[Éditeur] setContent, longueur:', contenu.length);
-      editor?.commands.setContent(contenu);
+      const st = lireStructure(d.contenu);
+      if (st) { setStructure(st); setAtelier(true); setModeCode(false); setCleAtelier(k => k + 1); }
+      else { setAtelier(false); editor?.commands.setContent(contenu); }
       // Le code montre CE QUI EST EN BASE, pas ce que TipTap en a fait : c'est
       // tout l'intérêt d'aller y voir quand un modèle sort de travers.
       setCodeHtml(d.contenu || '');
-      console.log('[Éditeur] setContent OK');
     } catch (e) {
       console.error('[chargerTemplate] ERREUR :', e);
       informer(`Erreur au chargement du template "${t.nom}" :\n\n${e.message}\n\n(voir console F12 pour le détail)`);
@@ -813,9 +747,10 @@ export default function Editeur() {
   }
 
   function nouveauTemplate() {
-    setTemplateId(null); setNom('Nouveau template'); setFormat('A4P'); setMargins({ ...DEFAULT_MARGINS });
+    setTemplateId(null); setNom('Nouveau modèle'); setFormat('A4P'); setMargins({ ...DEFAULT_MARGINS });
     editor?.commands.setContent('<p>Commencez votre document…</p>');
     setCodeHtml('<p>Commencez votre document…</p>');
+    setStructure(null); setAtelier(true); setModeCode(false); setCleAtelier(k => k + 1);
   }
 
   async function generer() {
@@ -826,7 +761,7 @@ export default function Editeur() {
       const r = await fetch(`/api/templates/${templateId}/generer`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ prof_id: profId || undefined, ue_num: ueNum || undefined, section: section || undefined, annee }),
+        body: JSON.stringify({ prof_id: profId || undefined, ue_num: ueNum || undefined, section: section || undefined, etudiant_id: etudiantId || undefined, annee }),
       });
       const { html, headerHtml, footerHtml, nom: tnom } = await r.json();
       const hasHeader = headerHtml && headerHtml.trim();
@@ -883,126 +818,138 @@ export default function Editeur() {
   const boucleInfo = BOUCLES[boucleActive];
 
   return (
-    <div className="flex h-full min-h-0 overflow-hidden">
-      {/* ── Panneau gauche : liste des templates ── */}
-      <div className="w-52 flex-shrink-0 border-r border-gray-200 bg-gray-50 flex flex-col overflow-hidden">
-        <div className="px-3 py-3 border-b border-gray-200">
-          <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Templates</div>
-          <button onClick={nouveauTemplate} className="w-full text-left text-xs bg-iip-gold text-white rounded px-2 py-1.5 h-9 hover:bg-iip-amber">+ Nouveau</button>
-        </div>
-        <div className="flex-1 overflow-auto py-1">
-          {templates.map(t => (
-            <div key={t.id} className={`group flex items-start border-b border-gray-100 hover:bg-white transition ${templateId === t.id ? 'bg-white' : ''}`}>
-              <button onClick={() => chargerTemplate(t)} className="flex-1 text-left px-3 py-2 text-sm min-w-0">
-                <div className={`truncate ${templateId === t.id ? 'font-semibold text-iip-gold' : 'text-gray-700'}`}>{t.nom}</div>
-                <div className="text-xs text-gray-400">{t.modifie_le?.slice(0,10)}</div>
-              </button>
-              <button
-                onClick={async e => {
-                  e.stopPropagation();
-                  if (!(await demander(`Supprimer le template « ${t.nom} » ?`))) return;
-                  await fetch(`/api/templates/${t.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
-                  if (templateId === t.id) { setTemplateId(null); setNom('Nouveau template'); editor?.commands.setContent('<p></p>'); }
-                  chargerTemplates();
-                }}
-                title="Supprimer ce template"
-                className="opacity-0 group-hover:opacity-100 flex-shrink-0 px-2 py-2 text-gray-300 hover:text-red-500 transition text-base">
-                <IconX size={16} />
-              </button>
-            </div>
-          ))}
-          {templates.length === 0 && <div className="text-xs text-gray-400 px-3 py-4">Aucun template</div>}
-        </div>
-      </div>
-
+    <div ref={racine} className="flex min-h-0 overflow-hidden" style={{ height: hauteur }}>
       {/* ── Zone centrale : éditeur ── */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Barre du haut */}
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-200 bg-white flex-shrink-0 flex-wrap">
-          <input value={nom} onChange={e => setNom(e.target.value)}
-            className="flex-1 min-w-32 border border-gray-300 rounded px-3 py-1.5 h-9 text-sm font-medium" placeholder="Nom du template" />
-          <button onClick={sauvegarder} disabled={saving}
-            className="bg-iip-gold hover:bg-iip-amber disabled:opacity-40 text-white text-sm px-4 py-1.5 h-9 rounded font-medium whitespace-nowrap">
-            {saving ? '…' : <><IconDeviceFloppy size={15} className="inline align-[-2px] mr-1" />Sauvegarder</>}
-          </button>
-          <label title="Importer un document Word (.docx) et l'éditer" className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm px-3 py-1.5 h-9 rounded font-medium whitespace-nowrap cursor-pointer">
-            📄 Importer Word
+        {/* UNE BARRE D'EN-TÊTE, TROIS GESTES : nommer, régler la page, produire.
+            Les données d'exemple vont avec l'aperçu, la mise en page avec la page. */}
+        <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-200 bg-white flex-shrink-0 flex-wrap">
+          {/* LES MODÈLES S'OUVRENT D'UN MENU (Charles, 9 octobre 2026 : « pas de liste
+              à gauche ») : la feuille prend toute la largeur. */}
+          <div className="relative">
+            <button onClick={() => setShowModeles(v => !v)} className="bouton controle inline-flex items-center gap-1.5" title="Ouvrir un modèle enregistré">
+              <IconFolder size={15} /> Modèles <IconChevronDown size={12} className="opacity-60" />
+            </button>
+            {showModeles && (
+              <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-carte shadow-flottant p-2 z-50 w-80">
+                <input value={filtreModeles} onChange={e => setFiltreModeles(e.target.value)} placeholder="Chercher un modèle…" autoFocus
+                  data-reponses="non" className="controle w-full text-[13px] mb-1.5" />
+                <div className="max-h-[50vh] overflow-auto">
+                  {templates.filter(t => !filtreModeles || String(t.nom || '').toLowerCase().includes(filtreModeles.toLowerCase())).map(t => (
+                    <div key={t.id} className={`group flex items-center rounded-champ ${templateId === t.id ? 'bg-slate-100' : 'hover:bg-slate-50'}`}>
+                      <button onClick={() => { chargerTemplate(t); setShowModeles(false); }} className="flex-1 text-left px-2.5 py-1.5 min-w-0">
+                        <div className="truncate text-[13px] text-slate-800">{t.nom}</div>
+                        <div className="text-[11px] text-slate-400">modifié le {String(t.modifie_le || '').slice(0, 10).split('-').reverse().join('/')}</div>
+                      </button>
+                      <button title="Supprimer ce modèle" className="opacity-0 group-hover:opacity-100 px-2 text-slate-300 hover:text-rose-600"
+                        onClick={async e => {
+                          e.stopPropagation();
+                          if (!(await demander(`Supprimer le modèle « ${t.nom} » ?`))) return;
+                          await fetch(`/api/templates/${t.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+                          if (templateId === t.id) nouveauTemplate();
+                          chargerTemplates();
+                        }}><IconTrash size={15} /></button>
+                    </div>))}
+                  {!templates.length && <div className="text-[12px] text-slate-400 px-2 py-3">Aucun modèle enregistré.</div>}
+                </div>
+              </div>)}
+          </div>
+          <button onClick={() => { nouveauTemplate(); setShowModeles(false); }} className="bouton controle inline-flex items-center gap-1.5" title="Commencer un nouveau modèle">
+            <IconPlus size={15} /> Nouveau</button>
+          <input value={nom} onChange={e => setNom(e.target.value)} data-reponses="non"
+            className="flex-1 min-w-[12rem] h-9 px-2 rounded-champ border border-transparent hover:border-slate-200 focus:border-slate-300 text-[15px] font-semibold text-iip-texte outline-none"
+            placeholder="Nom du modèle" />
+          <label title="Importer un document Word (.docx) comme nouveau modèle"
+            className="bouton controle inline-flex items-center gap-1.5 cursor-pointer">
+            <IconFileImport size={15} /> Word
             <input type="file" accept=".docx" className="hidden"
               onChange={e => { const f = e.target.files?.[0]; if (f) importerWord(f); e.target.value = ''; }} />
           </label>
-          <div className="flex items-center gap-1 border border-gray-300 rounded overflow-hidden text-sm" title="Format de page">
-            {Object.entries(PAGE_FORMATS).map(([key, pf]) => (
-              <button key={key} onClick={() => setFormat(key)}
-                className={`px-2 py-1.5 font-medium whitespace-nowrap transition ${format === key ? 'bg-iip-mauve text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
-                {pf.label}
-              </button>
-            ))}
-          </div>
           <div className="relative">
-            <button onClick={() => setShowMargins(v => !v)}
-              className="border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 text-sm px-3 py-1.5 h-9 rounded font-medium whitespace-nowrap"
-              title="Régler les marges">
-              📐 Marges
+            <button onClick={() => setShowMargins(v => !v)} className="bouton controle inline-flex items-center gap-1.5" title="Format et marges">
+              <IconLayout size={15} /> Page <IconChevronDown size={12} className="opacity-60" />
             </button>
             {showMargins && (
-              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded shadow-lg p-3 z-50 w-56">
-                <div className="text-xs font-semibold text-gray-500 mb-2">Marges (mm)</div>
-                <div className="grid grid-cols-2 gap-2">
-                  {[['top','Haut'],['bottom','Bas'],['left','Gauche'],['right','Droite']].map(([side, label]) => (
-                    <label key={side} className="flex flex-col gap-0.5">
-                      <span className="text-xs text-gray-500">{label}</span>
-                      <input type="number" min="5" max="60" value={margins[side]}
-                        onChange={e => setMargins(m => ({ ...m, [side]: Math.max(5, Math.min(60, Number(e.target.value) || 5)) }))}
-                        className="border border-gray-300 rounded px-2 py-1 text-sm w-full" />
-                    </label>
-                  ))}
+              <div className="absolute top-full right-0 mt-1 bg-white border border-slate-200 rounded-carte shadow-flottant p-3 z-50 w-64 space-y-3">
+                <div>
+                  <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Format</div>
+                  <div className="segments flex">
+                    {Object.entries(PAGE_FORMATS).map(([key, pf]) => (
+                      <button key={key} onClick={() => setFormat(key)}
+                        className={`flex-1 px-2 py-1.5 text-[12px] ${format === key ? 'bg-iip-blue text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>
+                        {key === 'A4P' ? <IconRectangleVertical size={14} className="inline -mt-0.5 mr-1" /> : <IconRectangle size={14} className="inline -mt-0.5 mr-1" />}{pf.label}</button>))}
+                  </div>
                 </div>
-                <button onClick={() => setMargins({ ...DEFAULT_MARGINS })}
-                  className="mt-2 text-xs text-gray-400 hover:text-gray-600 w-full text-left">
-                  ↺ Rétablir les marges par défaut (20 mm)
-                </button>
-              </div>
-            )}
+                <div>
+                  <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Marges (mm)</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[['top', 'Haut'], ['bottom', 'Bas'], ['left', 'Gauche'], ['right', 'Droite']].map(([side, label]) => (
+                      <label key={side} className="flex flex-col gap-0.5">
+                        <span className="text-[11px] text-slate-500">{label}</span>
+                        <input type="number" min="5" max="60" value={margins[side]}
+                          onChange={e => setMargins(m => ({ ...m, [side]: Math.max(5, Math.min(60, Number(e.target.value) || 5)) }))}
+                          className="controle w-full" />
+                      </label>))}
+                  </div>
+                  <button onClick={() => setMargins({ ...DEFAULT_MARGINS })} className="mt-2 text-[12px] text-slate-500 hover:text-slate-800">
+                    Rétablir 20 mm partout</button>
+                </div>
+              </div>)}
           </div>
-          <select value={section} onChange={e => setSection(e.target.value)}
-            className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm bg-white">
-            <option value="">— Section —</option>
-            {sections.map(s => <option key={s.code} value={s.code}>{s.code}</option>)}
-          </select>
-          <select value={profId} onChange={e => setProfId(e.target.value)}
-            className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm bg-white">
-            <option value="">— Prof —</option>
-            {profs.map(p => <option key={p.id} value={p.id}>{nomPropre(p.nom, p.prenom)}</option>)}
-          </select>
-          <select value={ueNum} onChange={e => setUeNum(e.target.value)}
-            className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm bg-white max-w-[260px]">
-            <option value="">— UE —</option>
-            {uesEd.map(u => (
-              <option key={u.ue_num} value={u.ue_num}>
-                UE {u.ue_num} — {(u.ue_nom || '').slice(0, 40)}
-              </option>
-            ))}
-          </select>
-          <div className="flex rounded border border-gray-300 overflow-hidden h-9">
-            {[
-              { k: false, l: 'Visuel', t: 'Édition assistée' },
-              { k: true, l: 'Code', t: 'Le HTML du modèle, tel qu’il est enregistré' },
-            ].map(x => (
-              <button key={String(x.k)} title={x.t}
-                onClick={() => (x.k ? versCode() : versVisuel())}
-                className={`px-3 text-sm ${modeCode === x.k
-                  ? 'bg-iip-blue text-white font-medium' : 'bg-white text-gray-600'}`}>
-                {x.l}
-              </button>
-            ))}
+          <div className="segments flex h-9" title="Façon de composer le modèle">
+            {[['atelier', 'Atelier', 'L’atelier de Lucie : glisser des éléments tout faits sur la feuille'], ['texte', 'Texte', 'Écrire comme dans un traitement de texte'],
+              ['html', 'HTML', 'Le HTML du modèle, tel qu’il est enregistré']].map(([k, l, t]) => {
+              const actif = k === 'atelier' ? atelier : k === 'html' ? (!atelier && modeCode) : (!atelier && !modeCode);
+              return (
+                <button key={k} title={t} onClick={async () => {
+                  if (actif) return;
+                  if (atelier && !(await demander('Quitter l’atelier de Lucie ?\n\nLe modèle passe en texte libre : il ne se rouvrira plus dans l’atelier avec ses éléments.'))) return;
+                  if (k === 'atelier') {
+                    if (!(await demander('Recommencer ce modèle dans l’Atelier ?\n\nLe texte actuel n’y est pas repris : l’Atelier part d’une feuille type.'))) return;
+                    setStructure(null); setAtelier(true); setModeCode(false); setCleAtelier(x => x + 1); return;
+                  }
+                  if (atelier) { editor?.commands.setContent(sortieAtelier.current.html || '<p></p>'); setCodeHtml(sortieAtelier.current.html || ''); setAtelier(false); }
+                  if (k === 'html') versCode(); else if (modeCode) versVisuel();
+                }}
+                  className={`px-3 text-[13px] ${actif ? 'bg-iip-blue text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>{l}</button>);
+            })}
           </div>
-          <button onClick={generer} disabled={generating}
-            className="bg-iip-mauve hover:opacity-90 disabled:opacity-40 text-white text-sm px-4 py-1.5 h-9 rounded font-medium whitespace-nowrap">
-            {generating ? '…' : <><IconPrinter size={15} className="inline align-[-2px] mr-1" />Générer PDF</>}
+          <div className="relative">
+            {/* UN SEUL BOUTON, COUPÉ D'UN FILET : l'aperçu, et la flèche qui choisit l'exemple. */}
+            <div className="inline-flex h-9 rounded-champ border border-[#16406A] overflow-hidden bg-white">
+              <button onClick={generer} disabled={generating} className="px-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-[#16406A] hover:bg-slate-50"
+                title="Composer la pièce sur les données d'exemple choisies">
+                <IconEye size={15} /> {generating ? 'Composition…' : 'Aperçu'}</button>
+              <span className="w-px bg-[#16406A]/30 my-1.5" />
+              <button onClick={() => setShowExemple(v => !v)} className="px-2 text-[#16406A] hover:bg-slate-50"
+                title="Sur quelles données composer l'aperçu"><IconChevronDown size={13} /></button>
+            </div>
+            {showExemple && (
+              <div className="absolute top-full right-0 mt-1 bg-white border border-slate-200 rounded-carte shadow-flottant p-3 z-50 w-80 space-y-2">
+                <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">L’aperçu se compose sur…</div>
+                <select value={section} onChange={e => setSection(e.target.value)} className="controle w-full">
+                  <option value="">Section — aucune</option>
+                  {sections.map(s => <option key={s.code} value={s.code}>{s.libelle || s.code}</option>)}
+                </select>
+                <select value={profId} onChange={e => setProfId(e.target.value)} className="controle w-full">
+                  <option value="">Membre du personnel — aucun</option>
+                  {profs.map(p => <option key={p.id} value={p.id}>{nomPropre(p.nom, p.prenom)}</option>)}
+                </select>
+                <ChampEtudiant valeur={nomEtudiant} className="w-full"
+                  onChoisir={e => { setEtudiantId(e?.id || ''); setNomEtudiant(e ? `${String(e.nom || '').toUpperCase()} ${e.prenom || ''}` : ''); }} />
+                <select value={ueNum} onChange={e => setUeNum(e.target.value)} className="controle w-full">
+                  <option value="">Unité — aucune</option>
+                  {uesEd.map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {(u.ue_nom || '').slice(0, 40)}</option>)}
+                </select>
+              </div>)}
+          </div>
+          <button onClick={sauvegarder} disabled={saving} className="bouton bouton-fort controle inline-flex items-center gap-1.5">
+            <IconDeviceFloppy size={15} /> {saving ? 'Enregistrement…' : 'Enregistrer'}
           </button>
         </div>
-        {!modeCode && <Toolbar editor={editor} />}
-        {modeCode ? (
+        {atelier && <div ref={conteneurAtelier} className="flex-1 min-h-0" key={cleAtelier} />}
+        {!atelier && !modeCode && <Toolbar editor={editor} />}
+        {modeCode && !atelier ? (
           <div className="flex-1 flex flex-col overflow-hidden bg-slate-50">
             <div className="flex-none px-4 py-2 text-[12px] text-amber-900 bg-amber-50
                             border-b border-amber-200">
@@ -1019,7 +966,7 @@ export default function Editeur() {
                          bg-white text-slate-800 outline-none resize-none" />
           </div>
         ) : (
-          <div className="flex-1 overflow-auto bg-gray-200 py-6">
+          <div className={`flex-1 overflow-auto bg-slate-100 py-6 ${atelier ? 'hidden' : ''}`}>
             <div className="editeur-doc mx-auto">
               <Regle fmt={format} margins={margins} onMarginChange={setMargins} />
               <div className="editeur-page">
@@ -1028,92 +975,71 @@ export default function Editeur() {
             </div>
           </div>
         )}
-        {editor && (
-          <div className="flex-shrink-0 border-t border-gray-200 bg-white px-4 py-1 text-xs text-gray-400 text-right">
+        {editor && !atelier && (
+          <div className="flex-shrink-0 border-t border-slate-200 bg-white px-4 py-1 text-[11px] text-slate-400 text-right">
             {editor.storage.characterCount.words()} mots · {editor.storage.characterCount.characters()} caractères
           </div>
         )}
       </div>
 
-      {/* ── Panneau droit : champs + boucles ── */}
-      <div className="w-60 flex-shrink-0 border-l border-gray-200 bg-gray-50 flex flex-col overflow-hidden">
-        {/* Onglets Champs / Boucles */}
-        <div className="flex border-b border-gray-200">
-          <button onClick={() => setPanelMode('champs')}
-            className={`flex-1 py-2 text-xs font-semibold transition ${panelMode === 'champs' ? 'bg-white text-iip-gold border-b-2 border-iip-gold' : 'text-gray-500 hover:bg-gray-100'}`}>
-            Champs
-          </button>
-          <button onClick={() => setPanelMode('boucles')}
-            className={`flex-1 py-2 text-xs font-semibold transition ${panelMode === 'boucles' ? 'bg-white text-iip-mauve border-b-2 border-iip-mauve' : 'text-gray-500 hover:bg-gray-100'}`}>
-            🔄 Boucles
-          </button>
+      {/* ── Panneau droit : ce qu'on insère (l'Atelier a le sien) ── */}
+      {!atelier && <div className="w-64 flex-shrink-0 border-l border-slate-200 flex flex-col overflow-hidden">
+        <div className="flex px-2 pt-2 gap-3 border-b border-slate-200">
+          {[['champs', 'Champs'], ['boucles', 'Listes répétées']].map(([k, l]) => (
+            <button key={k} onClick={() => setPanelMode(k)}
+              className={panelMode === k ? 'onglet-page onglet-page-actif' : 'onglet-page'}>{l}</button>))}
         </div>
 
         {panelMode === 'champs' ? (
-          /* ── Panneau Champs ── */
           <>
-            <div className="px-3 pt-2 pb-1">
-              <input value={search} onChange={e => setSearch(e.target.value)}
-                placeholder="Rechercher…" className="w-full border border-gray-300 rounded px-2 py-1 text-xs" />
+            <div className="px-3 pt-2 pb-1 relative">
+              <IconSearch size={14} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input value={search} onChange={e => setSearch(e.target.value)} data-reponses="non"
+                placeholder="Chercher un champ…" className="controle controle-icone w-full text-[13px]" />
             </div>
-            <div className="flex-1 overflow-auto py-1">
+            <p className="px-3 pb-1 text-[11px] text-slate-500">Un clic l’insère au curseur ; il se remplit à la production.</p>
+            <div className="flex-1 overflow-auto pb-2">
               {Object.entries(champsFiltres).map(([cat, champs]) => (
                 <div key={cat}>
-                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide px-3 pt-3 pb-1">{cat}</div>
+                  <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide px-3 pt-3 pb-1">{cat}</div>
                   {champs.map(c => (
-                    <button key={c.key} onClick={() => insererChamp(c)}
-                      className="w-full text-left px-3 py-1.5 h-9 text-xs hover:bg-iip-gold/10 hover:text-iip-gold flex items-center gap-1 group">
-                      <span className="text-gray-400 group-hover:text-iip-gold">⊕</span>
+                    <button key={c.key} onClick={() => insererChamp(c)} title={`{{${c.key}}}`}
+                      className="w-full text-left px-3 py-1 text-[13px] text-slate-700 hover:bg-slate-100 flex items-center gap-2">
+                      <IconPlus size={13} className="text-slate-400 flex-none" />
                       <span className="truncate">{c.label}</span>
-                    </button>
-                  ))}
-                </div>
-              ))}
+                    </button>))}
+                </div>))}
             </div>
           </>
         ) : (
-          /* ── Panneau Boucles ── */
           <div className="flex-1 overflow-auto">
-            <div className="px-3 pt-3 pb-2">
-              <p className="text-xs text-gray-500 mb-3">Une boucle répète automatiquement un bloc pour chaque enregistrement. Insérez le bloc, mettez en page une ligne à l'intérieur, puis insérez les champs <code className="bg-gray-200 px-1 rounded">item.xxx</code>.</p>
-              {/* Sélecteur de type de boucle */}
+            <p className="px-3 pt-3 pb-2 text-[12px] text-slate-500">Une liste répétée reproduit un bloc pour chaque
+              élément — chaque attribution, chaque unité… Insérez-la, mettez en page UNE ligne à l’intérieur, puis
+              placez-y les champs de la liste.</p>
+            <div className="px-2 space-y-0.5">
               {Object.entries(BOUCLES).map(([type, info]) => (
                 <button key={type} onClick={() => setBoucleActive(type)}
-                  className={`w-full text-left px-3 py-2 rounded mb-1 text-sm transition ${boucleActive === type ? 'font-semibold text-white' : 'hover:bg-gray-100 text-gray-700'}`}
-                  style={boucleActive === type ? { background: info.border } : {}}>
-                  🔄 {info.label}
-                </button>
-              ))}
+                  className={`w-full text-left px-2.5 py-1.5 rounded-champ text-[13px] flex items-center gap-2 ${boucleActive === type ? 'bg-white border border-[var(--c-disponible)] font-semibold text-iip-texte' : 'border border-transparent hover:bg-slate-100 text-slate-700'}`}>
+                  <IconRepeat size={14} className="text-slate-400 flex-none" />{info.label}
+                </button>))}
             </div>
-
-            {/* Bouton insérer + champs de la boucle active */}
-              <div className="px-3 border-t border-gray-200 pt-3">
-              <button onClick={() => insererBoucle(boucleActive)}
-                className="w-full text-white text-sm font-semibold py-2 rounded mb-3 transition"
-                style={{ background: boucleInfo.border }}>
-                ⊕ Insérer ce bloc dans le document
-              </button>
-              {boucleInfo.description && (
-                <p className="text-xs text-gray-500 mb-3 leading-relaxed">{boucleInfo.description}</p>
-              )}
+            <div className="px-3 border-t border-slate-200 mt-3 pt-3">
+              <button onClick={() => insererBoucle(boucleActive)} className="bouton bouton-fort w-full mb-3">Insérer cette liste</button>
+              {boucleInfo.description && <p className="text-[12px] text-slate-500 mb-3 leading-relaxed">{boucleInfo.description}</p>}
               {boucleInfo.champs.length > 0 ? (
                 <>
-                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Champs disponibles dans ce bloc</div>
+                  <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Champs de cette liste</div>
                   {boucleInfo.champs.map(c => (
                     <button key={c.key} onClick={() => insererChamp(c)}
-                      className="w-full text-left px-2 py-1.5 h-9 text-xs hover:bg-gray-100 flex items-center gap-1 group rounded">
-                      <span className="text-gray-400 group-hover:text-iip-gold">⊕</span>
-                      <span className="truncate">{c.label}</span>
-                    </button>
-                  ))}
+                      className="w-full text-left px-2 py-1 text-[13px] text-slate-700 hover:bg-slate-100 flex items-center gap-2 rounded-champ">
+                      <IconPlus size={13} className="text-slate-400 flex-none" /><span className="truncate">{c.label}</span>
+                    </button>))}
                 </>
-              ) : (
-                <p className="text-xs text-gray-400 italic">Ce bloc génère automatiquement son contenu — pas besoin de champs supplémentaires.</p>
-              )}
+              ) : <p className="text-[12px] text-slate-400 italic">Cette liste produit son contenu seule : aucun champ à placer.</p>}
             </div>
           </div>
         )}
-      </div>
+      </div>}
 
       <style>{`
         .editeur-doc { width: ${PAGE_FORMATS[format]?.w || '210mm'}; }
@@ -1136,7 +1062,7 @@ export default function Editeur() {
           width: ${PAGE_FORMATS[format]?.w || '210mm'}; min-height: ${PAGE_FORMATS[format]?.h || '297mm'};
           padding: ${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm;
           background: #fff; box-sizing: border-box;
-          box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+          box-shadow: 0 1px 3px rgba(15,23,42,.08), 0 8px 24px rgba(15,23,42,.08); border-radius: 2px;
         }
         .editeur-content { min-height: calc(${PAGE_FORMATS[format]?.h || '297mm'} - ${margins.top}mm - ${margins.bottom}mm); outline: none; }
         .champ-tag {
