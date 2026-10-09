@@ -53,7 +53,9 @@ function aJustifier(acquis = [], cours = [], decision = null) {
   const enCause = new Set(acquis.filter(a => a.na || a.echec).map(a => a.aa_code));
   // Un cours ajourné fait entrer ses acquis — tous, ou ceux seuls que le Conseil a
   // rouverts (9 octobre 2026) : un acquis réussi qu'on ne représente pas ne se justifie pas.
-  for (const c of cours) if (c.na) for (const code of (c.aas_a_representer || c.aas || [])) enCause.add(code);
+  // Un cours tombé parce qu'un de ses ACQUIS a été ajourné n'emporte que cet acquis.
+  for (const c of cours) if (c.na) for (const code of (c.aas_a_representer
+    || (c.ajourne_directement ? c.aas : (c.aas_ajournes?.length ? c.aas_ajournes : c.aas)) || [])) enCause.add(code);
   // Sur un REFUS, l'unité entière est renvoyée : tout acquis non maîtrisé
   // entre dans la motivation, quel que soit le cours qui le portait.
   if (decision === 'refuse') {
@@ -2016,12 +2018,15 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
   /* LE NA GARDE SA NOTE (Charles, 9 octobre 2026 : « je ne sais pas dire si
      l'échec est profond »). Ajourné, l'acquis ou le cours n'a plus de cote
      retenue ; on montre à côté ce qu'il valait — 6, ce n'est pas 9. */
-  const sousNA = n => n == null ? 'NA'
-    : <>NA<span className="ml-1 font-normal opacity-90 tabular-nums">{fmt(n)}</span></>;
+  // Avant la décision, LE CHIFFRE d'abord, « NA » en petit ; une fois la décision
+  // enregistrée, seulement NA (Charles, 9 octobre 2026).
+  const enregistree = !!e.resultat;
+  const sousNA = n => (n == null || enregistree) ? 'NA'
+    : <>{fmt(n)}<span className="ml-1 text-[9.5px] font-normal opacity-90">NA</span></>;
   const note = (v, { na = false } = {}) => {
     if (na) {
       const n = v?.mention ? null : (v?.note_brute ?? v?.note ?? null);
-      return rect('var(--c-refuse)', v?.mention ? `NA ${v.mention}` : sousNA(n),
+      return rect('var(--c-refuse)', v?.mention ? (enregistree ? 'NA' : <>{v.mention}<span className="ml-1 text-[9.5px] font-normal opacity-90">NA</span></>) : sousNA(n),
         n != null ? `Non acquis — à représenter · cote calculée ${fmt(n)}/20` : 'Non acquis — à représenter');
     }
     if (!v) return <span className="text-slate-300">·</span>;
@@ -2103,8 +2108,9 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
                               cours fait tomber ses acquis AU GLOBAL — on représente le cours
                               entier —, mais la case de ce même acquis dans un AUTRE cours,
                               réussi, restait peinte en échec. Elle ne tombe qu'avec son cours,
-                              ou quand l'acquis lui-même est ajourné. */}
-                          {note(caseDe(a, c.cours_code), { na: !!caseDe(a, c.cours_code)?.ajourne || !!a.ajourne_directement })}
+                              ou quand l'acquis lui-même est ajourné — et seulement là où ce
+                              cours l'évalue : une case vide reste vide. */}
+                          {note(caseDe(a, c.cours_code), { na: !!caseDe(a, c.cours_code) && (!!caseDe(a, c.cours_code).ajourne || !!a.ajourne_directement) })}
                         </td>
                       ))}
                       <td className="px-2 py-1 text-center bg-iip-blue/10 whitespace-nowrap">
@@ -3187,15 +3193,16 @@ function VueTableau({ data, liste, onOuvrir, session = 1 }) {
                     {' '}<span className="text-slate-600">{e.prenom}</span>
                   </button>
                 </td>
-                {data.colonnes_acquis.map(a => <Case key={a.aa_code} etat={parAA[a.aa_code]} />)}
+                {data.colonnes_acquis.map(a => <Case key={a.aa_code} etat={parAA[a.aa_code]} decide={!!e.resultat} />)}
                 {colonnesCours.map((c, k) => (
-                  <Case key={c.cours_code} etat={parCo[c.cours_code]} cours premier={k === 0} />
+                  <Case key={c.cours_code} etat={parCo[c.cours_code]} cours premier={k === 0} decide={!!e.resultat} />
                 ))}
                 <td className="border-b border-l border-slate-200 px-2 text-center">
                   {teinteUE
                     ? <span className="inline-flex items-center justify-center min-w-[30px] h-[22px] px-1.5 rounded-full
                                        text-white font-bold text-[11.5px] tabular-nums" style={{ background: teinteUE }}>
-                        {ue.na ? (ue.note_calculee != null ? `NA ${fmt(ue.note_calculee)}` : 'NA') : fmt(ue.note)}
+                        {ue.na ? (ue.note_calculee != null && !e.resultat
+                          ? <>{fmt(ue.note_calculee)}<span className="ml-0.5 text-[8.5px] font-normal">NA</span></> : 'NA') : fmt(ue.note)}
                       </span>
                     /* SANS NOTE, LA DÉCISION SE LIT QUAND MÊME (Charles, 5 octobre
                        2026 : « pourquoi ces étudiants ne sont pas refusés ? »). Neuf
@@ -3223,14 +3230,16 @@ const DECISION_TABLEAU = {
   reussi: { l: 'Réussi', c: 'var(--c-reussi)' },
   absent: { l: 'Absent', c: '#94A3B8' },
 };
-function Case({ etat, cours, premier }) {
+function Case({ etat, cours, premier, decide = false }) {
   const bord = `border-b border-slate-100 ${premier ? 'border-l border-l-slate-200' : ''}`;
   if (!etat) return <td className={`${bord} text-center text-slate-300`}>·</td>;
   const enDefaut = !etat.faveur && !etat.na && etat.echec;
   const pastille = etat.faveur ? 'var(--c-faveur)' : enDefaut ? 'var(--c-refuse)' : null;
   // Le NA garde la cote qu'il valait, comme dans la fiche.
   const brute = etat.note_brute ?? null;
-  const texte = etat.na ? (brute != null ? `NA ${fmt(brute)}` : 'NA') : etat.note == null ? '—' : fmt(etat.note);
+  const texte = etat.na ? (brute != null && !decide
+      ? <>{fmt(brute)}<span className="ml-0.5 text-[8.5px] font-normal">NA</span></> : 'NA')
+    : etat.note == null ? '—' : fmt(etat.note);
   return (
     <td className={`${bord} px-1 py-1 text-center tabular-nums`}>
       {pastille

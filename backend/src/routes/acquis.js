@@ -4332,7 +4332,8 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
         cours_code: c.cours_code, cours_nom: c.cours_nom,
         // Les seuls acquis rouverts, quand le Conseil n'a pas rouvert tout le
         // cours : c'est ce que l'annexe 8 et l'étudiant doivent lire.
-        professeurs: c.professeurs || '', aas: c.aas_a_representer || c.aas,
+        professeurs: c.professeurs || '',
+        aas: c.aas_a_representer || (c.ajourne_directement ? c.aas : (c.aas_ajournes?.length ? c.aas_ajournes : c.aas)),
       })),
       // La réussite de plein droit : tous les acquis et tous les cours au
       // seuil, sans qu'aucune faveur ni aucun ajournement n'ait été nécessaire.
