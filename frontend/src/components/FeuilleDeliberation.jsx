@@ -2013,13 +2013,22 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
     <span title={titre || undefined} style={{ background: fond }}
       className="inline-flex items-center justify-center min-w-[40px] h-[22px] px-1.5 rounded-[5px] text-white font-semibold tabular-nums">{texte}</span>
   );
+  /* LE NA GARDE SA NOTE (Charles, 9 octobre 2026 : « je ne sais pas dire si
+     l'échec est profond »). Ajourné, l'acquis ou le cours n'a plus de cote
+     retenue ; on montre à côté ce qu'il valait — 6, ce n'est pas 9. */
+  const sousNA = n => n == null ? 'NA'
+    : <>NA<span className="ml-1 font-normal opacity-90 tabular-nums">{fmt(n)}</span></>;
   const note = (v, { na = false } = {}) => {
-    if (na) return rect('var(--c-refuse)', 'NA', 'Non acquis — à représenter');
+    if (na) {
+      const n = v?.mention ? null : (v?.note_brute ?? v?.note ?? null);
+      return rect('var(--c-refuse)', v?.mention ? `NA ${v.mention}` : sousNA(n),
+        n != null ? `Non acquis — à représenter · cote calculée ${fmt(n)}/20` : 'Non acquis — à représenter');
+    }
     if (!v) return <span className="text-slate-300">·</span>;
     if (v.mention) return rect(v.mention === 'PP' ? 'var(--c-refuse)' : 'var(--c-attente)', v.mention,
       v.mention === 'NP' ? 'Note de présence' : v.mention === 'PP' ? 'Pas présenté' : '');
     if (v.note == null) return <span className="text-slate-300">·</span>;
-    if (v.note < seuil) return rect('var(--c-refuse)', decidee ? 'NA' : fmt(v.note), decidee ? `Cote calculée : ${fmt(v.note)}/20 — non acquis` : '');
+    if (v.note < seuil) return rect('var(--c-refuse)', decidee ? sousNA(v.note) : fmt(v.note), decidee ? `Cote calculée : ${fmt(v.note)}/20 — non acquis` : '');
     if (v.note === seuil) return rect('var(--c-attente)', fmt(v.note), 'Au seuil, tout juste');
     return rect('var(--c-reussi)', fmt(v.note));
   };
