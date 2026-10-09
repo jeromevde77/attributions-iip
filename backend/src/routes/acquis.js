@@ -4074,9 +4074,23 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
     }
     const forcee = aaFaveur(code) || (ueFaveur && !na && note != null && note < SEUIL_AA);
     const affichee = na ? null : (forcee ? SEUIL_AA : note);
+    /* LA NOTE SOUS LE NA (Charles, 9 octobre 2026 : « tu ne me donnes pas la
+       note de l'AA, je ne sais pas dire si l'échec est profond »). Un acquis
+       ajourné n'a plus de cote retenue, mais le Conseil doit voir ce qu'il
+       vaut : la moyenne de ses évaluations, toutes comptées. Lecture seule —
+       elle ne décide de rien. */
+    let brute = null;
+    if (na) {
+      if (integree) brute = parAA[code] != null ? Number(parAA[code]) : null;
+      else {
+        let num = 0, den = 0;
+        for (const e of evals) { if (e.note == null) continue; num += e.note * (e.poids || 0); den += (e.poids || 0); }
+        brute = den ? arrondir(num / den) : null;
+      }
+    }
     return {
       aa_code: code, description: descr[code] || null,
-      evaluations: evals, note_calculee: note, note: affichee,
+      evaluations: evals, note_calculee: note, note: affichee, note_brute: brute,
       /* LE MOTIF DU CHARGÉ DE COURS EST LE MOTIF DÉLIBÉRÉ (Charles, 28
          septembre 2026 : « ce n'est pas une proposition ; ce que le chargé de
          cours dit, c'est ce qui est délibéré ; on change à la limite, mais
@@ -4161,12 +4175,23 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
     const forcee = coursFaveur(c.cours_code) || siennes.some(p => aaFaveur(p.aa_code))
       || (ueFaveur && !na && note != null && note < SEUIL_UE);
     const affichee = na ? null : (forcee ? SEUIL_UE : note);
+    // La note du cours sous son NA, comme pour l'acquis : lecture seule.
+    let brute = null;
+    if (na && !integree) {
+      let num = 0, den = 0;
+      for (const p of siennes) {
+        const v = noteDe(c.cours_code, p.aa_code);
+        if (v == null) continue;
+        num += v * (p.poids || 0); den += (p.poids || 0);
+      }
+      brute = den ? arrondir(num / den) : null;
+    }
     return {
       cours_code: c.cours_code, cours_nom: c.cours_nom,
       professeurs: profsCoursUE[c.cours_code] || '',
       poids_cours: c.poids_cours, poids_cours_affiche: c.poids_cours_affiche,
       aas: siennes.map(p => p.aa_code),
-      note_calculee: note, note: affichee, na, faveur: forcee,
+      note_calculee: note, note: affichee, note_brute: brute, na, faveur: forcee,
       // L'épreuve du cours n'a pas été présentée, ou l'a été sans rien
       // produire : la mention vaut pour tous ses acquis.
       mention: (() => {
