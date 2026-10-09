@@ -17,6 +17,7 @@ export const ETATS = [['fort', 'Marine', '#16406A'], ['reussi', 'Réussi', '#3E7
   ['surveiller', 'Attention', '#B45309'], ['corriger', 'Problème', '#9D4A38'], ['faveur', 'Faveur', '#6B46C1'], ['neutre', 'Neutre', '#CBD5E1']];
 const coul = k => (ETATS.find(e => e[0] === k) || ETATS[6])[2];
 const LOGO = '<svg viewBox="0 0 220 60" xmlns="http://www.w3.org/2000/svg"><path d="M30 8a26 26 0 1 0 0 44" fill="none" stroke="#F9B619" stroke-width="5"/><path d="M38 12a20 20 0 1 0 0 36" fill="none" stroke="#05B7E6" stroke-width="4"/><text x="58" y="34" font-family="Arial" font-size="24" font-weight="700" fill="#19537E">institut</text><text x="58" y="50" font-family="Arial" font-size="12" fill="#F9B619">Ilya Prigogine</text></svg>';
+const COULEURS_TEXTE = [['Encre', '#1B2B4B'], ['Marine', '#16406A'], ['Or', '#A8862E'], ['Vert', '#3E7D5E'], ['Brique', '#9D4A38'], ['Violet', '#6B46C1'], ['Gris', '#64748B'], ['Noir', '#000000']];
 const FORME = { rayon: 10, coins: { tl: 0, tr: 1, br: 1, bl: 0 }, bande: 4, pos: 'gauche' };
 const clone = o => JSON.parse(JSON.stringify(o));
 const chip = (k, l) => `<span class="chip" data-d="${k}" contenteditable="false">${l}</span>`;
@@ -270,7 +271,7 @@ export function monterAtelier(el, { structure = null, champs = {}, onChange = ()
       d.className = `bloc${b.id === sel ? ' sel' : ''}`; d.dataset.id = b.id;
       if (redimensionnable(b.type)) d.style.width = `calc(${b.p.largeur}% - ${b.p.largeur < 100 ? 8 : 0}px)`;
       if (hauteurLibre(b.type) && b.p.hauteur) d.style.height = `${b.p.hauteur}px`;
-      d.innerHTML = contenu(b) + `<div class="saisir"><button class="grip" draggable="true" title="Glisser pour déplacer">⠿ Déplacer</button><button data-act="dup">Dupliquer</button><button data-act="suppr" class="danger">Retirer</button></div>`
+      d.innerHTML = contenu(b) + `<div class="saisir"><button class="grip" draggable="true" title="Glisser pour déplacer cet élément">⠿ Déplacer</button></div>`
         + (redimensionnable(b.type) ? `<span class="poignee p-e" data-r="e"></span>${hauteurLibre(b.type) ? '<span class="poignee p-s" data-r="s"></span><span class="poignee p-se" data-r="se"></span>' : ''}<span class="mesure"></span>` : '');
       (b.type === 'pied' ? $('.pied-zone') : flux).appendChild(d);
     }
@@ -282,6 +283,18 @@ export function monterAtelier(el, { structure = null, champs = {}, onChange = ()
     if (enApercu) { r.innerHTML = '<p class="at-aide">Vous voyez la pièce sans les poignées ; les données sont surlignées en jaune. Cliquez « Revenir à l’édition » pour la modifier.</p>'; return; }
     if (!b) { r.innerHTML = '<p class="at-aide">Cliquez sur un élément de la feuille pour le mettre en forme ici. Pour en ajouter un, ouvrez l’onglet « Insérer ».</p>'; return; }
     let h = `<span class="at-quoi">${MODELES[b.type].lib}</span>`;
+    /* LE TEXTE SE MET EN FORME COMME DANS WORD (Charles, 9 octobre 2026 :
+       « je change comment la taille de la police ? le gras ? ») : on
+       sélectionne des mots dans l'élément, puis on clique. */
+    if (['texte', 'titre', 'tuile', 'encadre', 'signature', 'tableau', 'train'].includes(b.type)) {
+      h += `<div class="groupe"><h4>Texte</h4>
+        <div class="seg"><button data-fmt="bold" title="Gras (⌘B)"><b>G</b></button><button data-fmt="italic" title="Italique (⌘I)"><i>I</i></button><button data-fmt="underline" title="Souligné (⌘U)"><u>S</u></button></div>
+        <select class="at-taille" title="Taille du texte sélectionné" style="height:30px;border:1px solid #CBD5E1;border-radius:8px;padding:0 6px;font-size:12.5px">
+          <option value="">Taille</option>${[8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28].map(t => `<option value="${t}">${t} pt</option>`).join('')}</select>
+        <div class="pastilles" title="Couleur du texte sélectionné">${COULEURS_TEXTE.map(([l, c]) => `<button class="pastille" data-fcoul="${c}" title="${l}"><i style="background:${c}"></i></button>`).join('')}</div>
+        <div class="seg"><button data-fmt="justifyLeft" title="Aligner à gauche">⇤</button><button data-fmt="justifyCenter" title="Centrer">↔</button><button data-fmt="justifyRight" title="Aligner à droite">⇥</button><button data-fmt="justifyFull" title="Justifier">☰</button></div>
+        <button class="at-bouton" data-fmt="removeFormat" title="Retirer la mise en forme du texte sélectionné">Effacer</button></div>`;
+    }
     const past = (cle, val) => `<div class="pastilles">${ETATS.map(([k, l, c]) => `<button class="pastille ${val === k ? 'on' : ''}" data-${cle}="${k}" title="${l}"><i style="background:${c}"></i></button>`).join('')}</div>`;
     if (['tuile', 'encadre'].includes(b.type)) h += `<div class="groupe"><h4>Couleur</h4>${past('etat', b.p.etat)}</div>`;
     if (b.type === 'train') {
@@ -408,6 +421,7 @@ export function monterAtelier(el, { structure = null, champs = {}, onChange = ()
   R.addEventListener('click', e => {
     const b = bloc(sel), t = e.target.closest('button'); if (!b || !t) return;
     const d = t.dataset;
+    if (d.fmt || d.fcoul) { formater(d.fmt || 'foreColor', d.fcoul || null); return; }
     if (d.etat) { memoriser(); b.p.etat = d.etat; }
     else if (d.wetat) { memoriser(); b.p.wagons[wagonSel][2] = d.wetat; }
     else if (d.larg) { memoriser(); b.p.largeur = +d.larg; }
@@ -419,6 +433,8 @@ export function monterAtelier(el, { structure = null, champs = {}, onChange = ()
     rendre(); signaler();
   });
   R.addEventListener('pointerdown', e => { if (e.target.dataset.curseur) memoriser(); });
+  R.addEventListener('mousedown', e => { if (e.target.closest('[data-fmt],[data-fcoul]')) e.preventDefault(); });
+  R.addEventListener('change', e => { if (e.target.classList.contains('at-taille') && e.target.value) { tailleTexte(Number(e.target.value)); e.target.value = ''; } });
   R.addEventListener('input', e => {
     const k = e.target.dataset.curseur, b = bloc(sel); if (!k || !b) return;
     b.p[k] = +e.target.value; e.target.nextElementSibling.textContent = `${e.target.value} px`;
@@ -426,6 +442,36 @@ export function monterAtelier(el, { structure = null, champs = {}, onChange = ()
     d.replaceChild(tmp.firstElementChild, d.firstElementChild); signaler();
   });
   R.addEventListener('change', e => { if (e.target.hasAttribute('data-zebre')) { memoriser(); bloc(sel).p.zebre = e.target.checked; rendre(); signaler(); } });
+
+  // Mise en forme du texte sélectionné (gras, taille, couleur, alignement).
+  function restaurer() {
+    if (!derniereZone) return null;
+    const s0 = getSelection(); s0.removeAllRanges(); s0.addRange(derniereZone);
+    return derniereZone.startContainer.parentElement?.closest('[contenteditable="true"]') || null;
+  }
+  function apresFormat(zone) {
+    zone?.dispatchEvent(new Event('input', { bubbles: true }));
+    const s0 = getSelection(); if (s0.rangeCount) derniereZone = s0.getRangeAt(0).cloneRange();
+  }
+  function formater(cmd, val) {
+    const zone = restaurer(); if (!zone) return;
+    memoriser();
+    document.execCommand('styleWithCSS', false, true);
+    document.execCommand(cmd, false, val);
+    apresFormat(zone);
+  }
+  function tailleTexte(pt) {
+    const zone = restaurer(); if (!zone) return;
+    memoriser();
+    document.execCommand('styleWithCSS', false, true);
+    document.execCommand('fontSize', false, '7');
+    // Le navigateur ne connaît que 7 tailles : on remplace la sienne par des points.
+    zone.querySelectorAll('span[style*="xxx-large"], font[size="7"]').forEach(x => {
+      if (x.tagName === 'FONT') { const sp = document.createElement('span'); sp.innerHTML = x.innerHTML; x.replaceWith(sp); sp.style.fontSize = `${pt}pt`; }
+      else x.style.fontSize = `${pt}pt`;
+    });
+    apresFormat(zone);
+  }
 
   // Redimensionner
   let redim = null, sep = null;

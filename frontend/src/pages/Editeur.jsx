@@ -889,12 +889,14 @@ export default function Editeur() {
             })}
           </div>
           <div className="relative">
-            <div className="flex">
-              <button onClick={generer} disabled={generating} className="bouton bouton-sortir controle rounded-r-none inline-flex items-center gap-1.5"
+            {/* UN SEUL BOUTON, COUPÉ D'UN FILET : l'aperçu, et la flèche qui choisit l'exemple. */}
+            <div className="inline-flex h-9 rounded-champ border border-[#16406A] overflow-hidden bg-white">
+              <button onClick={generer} disabled={generating} className="px-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-[#16406A] hover:bg-slate-50"
                 title="Composer la pièce sur les données d'exemple choisies">
                 <IconEye size={15} /> {generating ? 'Composition…' : 'Aperçu'}</button>
-              <button onClick={() => setShowExemple(v => !v)} className="bouton bouton-sortir controle rounded-l-none border-l-0 px-2"
-                title="Données d'exemple de l'aperçu"><IconChevronDown size={13} /></button>
+              <span className="w-px bg-[#16406A]/30 my-1.5" />
+              <button onClick={() => setShowExemple(v => !v)} className="px-2 text-[#16406A] hover:bg-slate-50"
+                title="Sur quelles données composer l'aperçu"><IconChevronDown size={13} /></button>
             </div>
             {showExemple && (
               <div className="absolute top-full right-0 mt-1 bg-white border border-slate-200 rounded-carte shadow-flottant p-3 z-50 w-80 space-y-2">
