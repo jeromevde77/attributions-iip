@@ -18,12 +18,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { IconChevronLeft, IconChevronRight, IconCopy, IconTrash, IconUpload } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import { Fenetre } from '../components/ui.jsx';
+import { teinteCours, styleTuileCours } from '../lib/teinteCours.js';
 
 const H0 = 8, H1 = 21, PX = 12;                     // 12 px par quart d'heure
 const NOMS_JOURS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
-const TEINTES = ['var(--c-reussi)', 'var(--c-attente)', 'var(--c-disponible)', 'var(--c-reussi)', 'var(--c-attente)', '#6A8797', 'var(--c-disponible)', 'var(--c-faveur)',
-  'var(--c-disponible)', 'var(--c-reussi)', '#8C96A8', 'var(--c-refuse)', 'var(--c-attente)', 'var(--c-accent)'];
-const teinte = code => { let h = 0; for (const c of String(code || '')) h = (h * 31 + c.charCodeAt(0)) >>> 0; return TEINTES[h % TEINTES.length]; };
+const teinte = teinteCours;
 const hm = t => { const [h, m] = String(t || '0:0').split(':').map(Number); return h * 60 + (m || 0); };
 const deHm = n => `${String(Math.floor(n / 60)).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}`;
 const lisible = t => { const n = hm(t); return `${Math.floor(n / 60)}h${String(n % 60).padStart(2, '0')}`; };
@@ -51,7 +50,7 @@ export default function HoraireSemaine() {
   const [lundi, setLundi] = useState(() => lundiDe(iso(new Date())));
   const [data, setData] = useState(null);
   const [erreur, setErreur] = useState(null);
-  const [duree, setDuree] = useState(120);
+  const duree = 120;
   const [sel, setSel] = useState(null);             // séance ouverte dans la bulle
   const [recopie, setRecopie] = useState(null);     // fenêtre de recopie
   const [importer, setImporter] = useState(false);  // import Hyperplanning (CSV)
@@ -214,8 +213,8 @@ export default function HoraireSemaine() {
                     <div key={s.id} onPointerDown={ev => commencer(ev, { seance: s, decalY: ev.clientY - ev.currentTarget.getBoundingClientRect().top, long: hm(s.heure_fin) - hm(s.heure_debut) })}
                       title={s.conflits?.length ? `Conflit : ${s.conflits.map(x => RAISONS[x]).join(', ')}` : undefined}
                       className={`absolute left-[3px] right-[3px] overflow-hidden rounded-r-[8px] px-1.5 py-1 text-[11px] leading-tight ${peutEcrire ? 'cursor-grab' : 'cursor-pointer'} ${g ? 'opacity-80 z-10' : ''}`}
-                      style={{ top: (debut - H0 * 60) / 15 * PX, height: (fin - debut) / 15 * PX - 2, borderLeft: `4px solid ${c}`,
-                        background: s.annule ? 'repeating-linear-gradient(45deg,#F4F5F7 0 6px,#fff 6px 12px)' : `#fff`,
+                      style={{ top: (debut - H0 * 60) / 15 * PX, height: (fin - debut) / 15 * PX - 2,
+                        ...(s.annule ? { borderLeft: `4px solid ${c}`, background: 'repeating-linear-gradient(45deg,#F4F5F7 0 6px,#fff 6px 12px)' } : styleTuileCours(s.cours_code)),
                         outline: s.conflits?.length ? '2px solid var(--c-refuse)' : 'none', outlineOffset: -2 }}>
                       <div className={`font-semibold truncate ${s.annule ? 'line-through text-slate-400' : 'text-[#1B2B4B]'}`}>{s.cours_code} {s.cours_nom || s.matiere || ''}</div>
                       <div className="truncate text-slate-600">{s.annule ? 'Annulée' : nomProf(s)}{s.sous_groupe ? ` · gr. ${s.sous_groupe}` : s.groupe_nom && s.groupe_nom !== 'A' ? ` · gr. ${s.groupe_nom}` : ''}</div>
@@ -228,7 +227,7 @@ export default function HoraireSemaine() {
                 {glisse?.groupe && glisse.d === d && (
                   <div className="absolute left-[3px] right-[3px] rounded-r-[8px] px-1.5 py-1 text-[11px] opacity-80 z-10"
                     style={{ top: (glisse.debut - H0 * 60) / 15 * PX, height: (glisse.fin - glisse.debut) / 15 * PX - 2,
-                      borderLeft: `4px solid ${teinte(glisse.groupe.code_cours)}`, background: `#fff` }}>
+                      ...styleTuileCours(glisse.groupe.code_cours) }}>
                     <b>{glisse.groupe.code_cours}</b> {lisible(deHm(glisse.debut))}–{lisible(deHm(glisse.fin))}
                   </div>
                 )}
@@ -242,19 +241,18 @@ export default function HoraireSemaine() {
           <div className="border border-slate-200 rounded-carte p-2.5 space-y-2 self-start">
             <div className="flex items-center justify-between gap-2">
               <b className="text-[12.5px] text-iip-blue">À placer</b>
-              <select className="controle !h-7 text-[12px]" value={duree} onChange={e => setDuree(Number(e.target.value))} aria-label="Durée du bloc posé">
-                <option value={120}>blocs de 2 h</option><option value={60}>blocs de 1 h</option>
-              </select>
+              {/* CHEZ NOUS, UN BLOC FAIT 120 MINUTES (Charles, 9 octobre 2026). Une
+                  séance plus longue se rallonge sur la grille, par quart d'heure. */}
+              <span className="text-[11px] text-slate-500">blocs de 2 h</span>
             </div>
             <p className="text-[11px] text-slate-500">Glissez une carte sur la grille. Le reste se calcule sur les heures attribuées au groupe.</p>
             <div className="space-y-1.5 max-h-[60vh] overflow-auto pr-0.5">
               {(data?.bac || []).map(g => {
-                const c = teinte(g.code_cours);
                 const fini = g.reste <= 0;
                 return (
                   <div key={g.id} onPointerDown={ev => !fini && commencer(ev, { groupe: g, decalY: 0, long: duree })}
-                    className={`rounded-r-[8px] px-2 py-1 text-[11.5px] bg-white border border-slate-200 ${fini ? 'opacity-50' : peutEcrire ? 'cursor-grab' : ''}`}
-                    style={{ borderLeft: `4px solid ${c}` }}>
+                    className={`rounded-r-[8px] px-2 py-1 text-[11.5px] ${fini ? 'opacity-50' : peutEcrire ? 'cursor-grab' : ''}`}
+                    style={styleTuileCours(g.code_cours, { fond: 12 })}>
                     <div className="font-semibold text-[#1B2B4B] truncate">{g.code_cours} {g.cours_nom}{g.nom !== 'A' ? ` · gr. ${g.nom}` : ''}</div>
                     <div className="text-slate-500 truncate">{[g.prof_nom, g.prof_prenom].filter(Boolean).join(' ') || 'professeur à attribuer'}</div>
                     <div className="text-slate-500 tabular-nums">

@@ -34,7 +34,12 @@ const JOURS = ['', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
 export function migrerPlages(base = db) {
   base.exec(`CREATE TABLE IF NOT EXISTS horaire_plage (
     section TEXT NOT NULL, jour INTEGER NOT NULL, debut TEXT NOT NULL, fin TEXT NOT NULL,
-    PRIMARY KEY (section, jour, debut))`);
+    PRIMARY KEY (section, jour, debut));
+  CREATE TABLE IF NOT EXISTS horaire_local_activite (
+    annee_scolaire TEXT NOT NULL, section TEXT NOT NULL, bloc TEXT NOT NULL,
+    cours_code TEXT NOT NULL, activite_id INTEGER NOT NULL DEFAULT 0,
+    locaux TEXT NOT NULL DEFAULT '[]', maj_par TEXT, maj_le TEXT DEFAULT (datetime('now')),
+    PRIMARY KEY (annee_scolaire, section, bloc, cours_code, activite_id))`);
   // Les plages de TIM, données par Charles le 9 octobre 2026.
   if (!base.prepare("SELECT 1 FROM horaire_plage WHERE section = 'TIM'").get()) {
     const ins = base.prepare('INSERT INTO horaire_plage (section, jour, debut, fin) VALUES (?,?,?,?)');
@@ -50,6 +55,44 @@ export function ecrirePlages(section, plages) {
     for (const p of plages) if (p.jour >= 1 && p.jour <= 7 && /^\d\d:\d\d$/.test(p.debut) && /^\d\d:\d\d$/.test(p.fin) && p.debut < p.fin) ins.run(section, p.jour, p.debut, p.fin);
   })();
 }
+/*
+ * LES LOCAUX (Charles, 9 octobre 2026 : « fais les locaux »). Le référentiel
+ * des locaux (table local, clé = le NOM) dit ce qui existe ; ce qu'il ne dit
+ * pas, c'est OÙ se donne une activité. D'où, par activité d'un bloc, la liste
+ * des locaux POSSIBLES, dans l'ordre de préférence. Sans liste : la théorie et
+ * les activités de tout le bloc prennent une classe ou un auditoire assez
+ * grand ; un TP n'a pas de local d'office — un labo ne se devine pas — et la
+ * simulation le dit « local à désigner ».
+ */
+export function locauxDuReferentiel() {
+  try { return db.prepare('SELECT nom, type, places FROM local ORDER BY nom').all(); } catch { return []; }
+}
+export function locauxActivites(section, bloc, annee) {
+  const m = new Map();
+  for (const r of db.prepare(`SELECT cours_code, activite_id, locaux FROM horaire_local_activite
+      WHERE annee_scolaire = ? AND section = ? AND bloc = ?`).all(annee, section, bloc)) {
+    let l = []; try { l = JSON.parse(r.locaux || '[]'); } catch { l = []; }
+    m.set(`${r.cours_code}#${r.activite_id}`, Array.isArray(l) ? l : []);
+  }
+  return m;
+}
+export function ecrireLocaux(section, bloc, annee, liste, par = null) {
+  const connus = new Set(locauxDuReferentiel().map(l => l.nom));
+  const ins = db.prepare(`INSERT INTO horaire_local_activite (annee_scolaire, section, bloc, cours_code, activite_id, locaux, maj_par, maj_le)
+    VALUES (?,?,?,?,?,?,?, datetime('now'))
+    ON CONFLICT(annee_scolaire, section, bloc, cours_code, activite_id) DO UPDATE SET locaux = excluded.locaux, maj_par = excluded.maj_par, maj_le = excluded.maj_le`);
+  db.transaction(() => {
+    for (const x of liste) {
+      if (!x?.cours_code) continue;
+      // Un local inconnu du référentiel ne s'enregistre pas : on choisit, on ne tape pas.
+      const l = [...new Set((Array.isArray(x.locaux) ? x.locaux : []).map(String).filter(n => connus.has(n)))];
+      ins.run(annee, section, bloc, String(x.cours_code), Number(x.activite_id) || 0, JSON.stringify(l), par);
+    }
+  })();
+}
+
+/** Comparaison lexicographique de deux scores. */
+const plusGrand = (x, y) => { const i = x.findIndex((v, j) => v !== y[j]); return i >= 0 && x[i] > y[i]; };
 const minutes = (d, f) => { const [a, b] = d.split(':').map(Number); const [c, e] = f.split(':').map(Number); return (c * 60 + e) - (a * 60 + b); };
 const iso = d => d.toISOString().slice(0, 10);
 
@@ -102,6 +145,7 @@ function demandes(c, annee) {
     const q = String(a?.quadri || l.quadris || '');
     const quadri = q === 'Q1' || (/Q1/.test(q) && !/Q2/.test(q)) ? 'Q1' : q === 'Q2' || (/Q2/.test(q) && !/Q1/.test(q)) ? 'Q2' : 'AN';
     out.push({ cle: `${l.code_cours}#${l.act}#${l.org}#${l.code || ''}`, ue_num: l.ue_num, cours_code: l.code_cours, cours_nom: l.cours_nom,
+      activite_id: l.act, tp: !!(a && a.inclus),
       activite: l.libelle || null, groupe, briques, tout_le_bloc: briques.length === toutes.length,
       professeur_id: l.professeur_id || null, professeur: l.prof_nom ? `${String(l.prof_nom).toUpperCase()} ${l.prof_prenom || ''}`.trim() : null,
       periodes: l.periodes, minutes: l.periodes * MINUTES_PERIODE, quadri });
@@ -116,7 +160,8 @@ export function simuler(section, bloc, annee) {
   const dem = demandes(c, annee);
   // Occupations : brique et enseignant, par créneau (date + début).
   const k = s => `${s.date}|${s.debut}`;
-  const occB = new Map(), occP = new Map();
+  const occB = new Map(), occP = new Map(), occL = new Map();
+  const marquer = (m, cle, v) => { if (!m.has(cle)) m.set(cle, new Set()); m.get(cle).add(v); };
   // Les séances déjà posées ailleurs (toutes sections) occupent leurs enseignants.
   let posees = [];
   try {
@@ -124,17 +169,39 @@ export function simuler(section, bloc, annee) {
     // pouvoir proposer une alternative ») : l'horaire actuel de CETTE classe ne
     // contraint pas la proposition — c'est lui qu'on compare. Celui des autres
     // classes, oui : ses enseignants y sont occupés.
-    posees = db.prepare(`SELECT date, heure_debut, heure_fin, professeur_id FROM horaire_seance
-      WHERE annee_scolaire = ? AND professeur_id IS NOT NULL AND COALESCE(annule, 0) = 0
+    posees = db.prepare(`SELECT date, heure_debut, heure_fin, professeur_id, local_texte FROM horaire_seance
+      WHERE annee_scolaire = ? AND (professeur_id IS NOT NULL OR local_texte IS NOT NULL) AND COALESCE(annule, 0) = 0
         AND NOT (section = ? AND bloc = ?) AND COALESCE(source, '') <> 'simulation'`).all(annee, section, bloc);
   } catch { posees = []; }
   for (const h of posees) {
     for (const s of slots) if (s.date === h.date && s.debut < (h.heure_fin || '') && s.fin > (h.heure_debut || '')) {
-      if (!occP.has(k(s))) occP.set(k(s), new Set()); occP.get(k(s)).add(h.professeur_id);
+      if (h.professeur_id) marquer(occP, k(s), h.professeur_id);
+      // Le local d'une autre classe est pris — sauf le distanciel, qui n'en occupe aucun.
+      if (h.local_texte && !/distanciel|à distance|en ligne/i.test(h.local_texte)) marquer(occL, k(s), h.local_texte);
     }
   }
   const libre = (s, d) => !(d.briques.some(b => occB.get(k(s))?.has(b)) || (d.professeur_id && occP.get(k(s))?.has(d.professeur_id)));
-  const poser = (s, d) => {
+  const salleLibre = (s, l) => !l || !occL.get(k(s))?.has(l);
+  // LES LOCAUX POSSIBLES de chaque demande, et son effectif.
+  const referentiel = locauxDuReferentiel();
+  const parNom = new Map(referentiel.map(l => [l.nom, l]));
+  const reglesLocaux = locauxActivites(section, bloc, annee);
+  const nbGroupes = new Map();
+  for (const d of dem) { const a = `${d.cours_code}#${d.activite_id}`; nbGroupes.set(a, (nbGroupes.get(a) || 0) + 1); }
+  for (const d of dem) {
+    const inscrits = c.etudiants.filter(e => e.ues.includes(d.ue_num)).length;
+    d.effectif = d.tp && c.nb_briques ? Math.ceil(inscrits * d.briques.length / c.nb_briques)
+      : Math.ceil(inscrits / (nbGroupes.get(`${d.cours_code}#${d.activite_id}`) || 1));
+    const choisis = (reglesLocaux.get(`${d.cours_code}#${d.activite_id}`) || []).filter(n => parNom.has(n));
+    if (choisis.length) { d.locaux = choisis; d.local_origine = 'choisi'; }
+    else if (!d.tp) {
+      d.locaux = referentiel.filter(l => /auditoire|classe/i.test(l.type || '') && (l.places || 0) >= d.effectif)
+        .sort((x, y) => x.places - y.places).map(l => l.nom);
+      d.local_origine = d.locaux.length ? 'auto' : 'aucun';
+    } else { d.locaux = []; d.local_origine = 'a_designer'; }
+  }
+  const poser = (s, d, l) => {
+    if (l) marquer(occL, k(s), l);
     if (!occB.has(k(s))) occB.set(k(s), new Set()); d.briques.forEach(b => occB.get(k(s)).add(b));
     if (d.professeur_id) { if (!occP.has(k(s))) occP.set(k(s), new Set()); occP.get(k(s)).add(d.professeur_id); }
   };
@@ -148,9 +215,9 @@ export function simuler(section, bloc, annee) {
   // Le plus contraint d'abord : tout le bloc (théorie), puis les groupes les plus longs.
   const ordre = [...dem].sort((x, y) => (y.tout_le_bloc - x.tout_le_bloc) || (y.minutes - x.minutes));
   const seances = [], restes = [], fixes = new Map();
-  const ajouter = (s, d, regulier) => {
-    poser(s, d); seances.push({ ...s, cle: d.cle, cours_code: d.cours_code, activite: d.activite, groupe: d.groupe,
-      professeur: d.professeur, briques: d.briques, tout_le_bloc: d.tout_le_bloc, regulier });
+  const ajouter = (s, d, regulier, local) => {
+    poser(s, d, local); seances.push({ ...s, cle: d.cle, cours_code: d.cours_code, activite: d.activite, groupe: d.groupe,
+      professeur: d.professeur, briques: d.briques, tout_le_bloc: d.tout_le_bloc, regulier, local: local || null });
   };
   for (const d of ordre) {
     const possibles = slots.filter(s => d.quadri === 'AN' || s.quadri === d.quadri);
@@ -171,41 +238,51 @@ export function simuler(section, bloc, annee) {
       // Pour chaque créneau type : les occurrences libres, prises dans l'ordre,
       // jusqu'au besoin. Un TROU (semaine où le créneau existe mais est occupé)
       // casse la régularité ; un férié non (le créneau n'existe pas ce jour-là).
+      // LE MÊME LOCAL CHAQUE SEMAINE : un créneau fixe est un couple
+      // (créneau, local) ; à égalité, le local préféré — le premier de la liste.
       let meilleur = null;
+      const salles = d.local_origine === 'a_designer' ? [null] : d.locaux;
       for (const [t, occ] of types) {
         if ([...fixes.get(d.cle)].some(f => f.type === t)) continue;
-        const reste = besoin - place, choisies = [];
-        let trous = 0;
-        for (const s of occ) {
-          if (choisies.length >= reste) break;
-          if (libre(s, d)) choisies.push(s);
-          else if (choisies.length) trous++;
+        for (const [rang, l] of salles.entries()) {
+          const reste = besoin - place, choisies = [];
+          let trous = 0;
+          for (const s of occ) {
+            if (choisies.length >= reste) break;
+            if (libre(s, d) && salleLibre(s, l)) choisies.push(s);
+            else if (choisies.length) trous++;
+          }
+          if (!choisies.length) continue;
+          // Score : couvrir le plus, avec le moins de trous, finir le plus tôt, le local préféré.
+          const score = [choisies.length, -trous, -choisies[choisies.length - 1].semaine, -rang];
+          if (!meilleur || plusGrand(score, meilleur.score)) meilleur = { t, l, choisies, trous, score };
         }
-        if (!choisies.length) continue;
-        // Score : couvrir le plus, avec le moins de trous, et finir le plus tôt.
-        const score = [choisies.length, -trous, -choisies[choisies.length - 1].semaine];
-        if (!meilleur || score[0] > meilleur.score[0] || (score[0] === meilleur.score[0] && (score[1] > meilleur.score[1]
-          || (score[1] === meilleur.score[1] && score[2] > meilleur.score[2])))) meilleur = { t, choisies, trous, score };
       }
       // Un créneau qui ne porterait qu'une poignée de séances n'est pas un créneau fixe.
       if (!meilleur || (meilleur.choisies.length < Math.min(3, besoin - place) && fixes.get(d.cle).length)) break;
       const [s0] = meilleur.choisies, sN = meilleur.choisies[meilleur.choisies.length - 1];
-      meilleur.choisies.forEach(s => ajouter(s, d, true));
+      meilleur.choisies.forEach(s => ajouter(s, d, true, meilleur.l));
       place += meilleur.choisies.length;
-      fixes.get(d.cle).push({ type: meilleur.t, jour: s0.jour, jour_nom: JOURS[s0.jour], debut: s0.debut, fin: s0.fin,
+      fixes.get(d.cle).push({ type: meilleur.t, local: meilleur.l || null, jour: s0.jour, jour_nom: JOURS[s0.jour], debut: s0.debut, fin: s0.fin,
         de: s0.semaine, a: sN.semaine, seances: meilleur.choisies.length, trous: meilleur.trous });
     }
     // Ce qui reste : au mieux, n'importe quel créneau libre — signalé irrégulier.
     let irreguliers = 0;
     for (const s of possibles) {
       if (place >= besoin) break;
-      if (libre(s, d)) { ajouter(s, d, false); place++; irreguliers++; }
+      if (!libre(s, d)) continue;
+      const l = d.local_origine === 'a_designer' ? null : d.locaux.find(x => salleLibre(s, x));
+      if (l === undefined) continue;
+      ajouter(s, d, false, l); place++; irreguliers++;
     }
     if (irreguliers) fixes.get(d.cle).irreguliers = irreguliers;
     if (place < besoin) {
       const conflitProf = d.professeur_id && possibles.some(s => !d.briques.some(b => occB.get(k(s))?.has(b)) && occP.get(k(s))?.has(d.professeur_id));
+      const sansSalle = d.local_origine !== 'a_designer' && possibles.some(s => libre(s, d));
       restes.push({ ...d, place, manque: besoin - place,
-        raison: conflitProf ? 'l’enseignant est déjà occupé sur les créneaux où ses étudiants sont libres' : 'plus de créneau libre pour ces étudiants dans le quadrimestre' });
+        raison: d.local_origine === 'aucun' ? `aucune classe ni auditoire de ${d.effectif} places au référentiel des locaux`
+          : sansSalle ? 'ses locaux possibles sont tous occupés quand étudiants et enseignant sont libres'
+          : conflitProf ? 'l’enseignant est déjà occupé sur les créneaux où ses étudiants sont libres' : 'plus de créneau libre pour ces étudiants dans le quadrimestre' });
     }
   }
   // La capacité, brique par brique : heures disponibles et heures demandées.
@@ -229,7 +306,9 @@ export function simuler(section, bloc, annee) {
     activites: dem.map(d => ({ cle: d.cle, cours_code: d.cours_code, activite: d.activite, groupe: d.groupe, professeur: d.professeur,
       periodes: d.periodes, quadri: d.quadri, tout_le_bloc: d.tout_le_bloc,
       besoin: Math.ceil(d.minutes / (slots[0]?.minutes || 120)), place: seances.filter(s => s.cle === d.cle).length,
-      creneaux_fixes: (fixes.get(d.cle) || []).map(({ type, ...f }) => f), irreguliers: fixes.get(d.cle)?.irreguliers || 0 })),
+      creneaux_fixes: (fixes.get(d.cle) || []).map(({ type, ...f }) => f), irreguliers: fixes.get(d.cle)?.irreguliers || 0,
+      activite_id: d.activite_id, effectif: d.effectif, locaux: d.locaux, local_origine: d.local_origine })),
+    referentiel_locaux: referentiel,
     restes, seances: seances.sort((x, y) => (x.date + x.debut).localeCompare(y.date + y.debut)),
   };
 }
@@ -255,8 +334,8 @@ export function poserSimulation(section, bloc, annee, { simulation = true, par =
   const groupeId = db.prepare('SELECT id FROM groupe WHERE annee_scolaire = ? AND code_cours = ? AND nom = ? LIMIT 1');
   const profId = new Map();
   const ins = db.prepare(`INSERT INTO horaire_seance (annee_scolaire, classe, section, bloc, date, heure_debut, heure_fin, minutes,
-      cours_code, ue_num, matiere, professeur_id, groupe_id, sous_groupe, source, modifie_lucie, cree_par, cree_le)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'simulation', 0, ?, datetime('now'))`);
+      cours_code, ue_num, matiere, professeur_id, groupe_id, sous_groupe, local_texte, source, modifie_lucie, cree_par, cree_le)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'simulation', 0, ?, datetime('now'))`);
   db.transaction(() => {
     db.prepare(`DELETE FROM horaire_seance WHERE annee_scolaire = ? AND section = ? AND bloc = ?
       AND source = 'simulation' AND COALESCE(modifie_lucie, 0) = 0`).run(annee, section, bloc);
@@ -271,7 +350,7 @@ export function poserSimulation(section, bloc, annee, { simulation = true, par =
       const g = code ? groupeId.get(annee, x.cours_code, code)?.id || null : null;
       const sg = x.tout_le_bloc ? null : `B${Math.min(...x.briques)}-${Math.max(...x.briques)}`;
       ins.run(annee, classe, section, bloc, x.date, x.debut, x.fin, x.minutes, x.cours_code, a.ue_num || null,
-        `${x.activite || ''}${code && code !== 'Ts' ? ` · groupe ${code}` : ''}`.trim() || null, a.professeur_id || null, g, sg, par);
+        `${x.activite || ''}${code && code !== 'Ts' ? ` · groupe ${code}` : ''}`.trim() || null, a.professeur_id || null, g, sg, x.local || null, par);
     }
   })();
   return { ...rapport, ok: true };
