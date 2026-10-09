@@ -2,6 +2,7 @@
 // Lucie — Module Étudiants : base étudiants, inscriptions, résultats et PAE
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { migrerPlages, plagesDe, ecrirePlages, simuler as simulerAnnee } from '../lib/simulationHoraire.js';
 import { migrerGroupesCommuns, cohorte as cohorteGC, proposerBriques, appliquerBriques } from '../lib/groupesCommuns.js';
 import { dispensesDeLUE } from '../lib/dispenses.js';
 import { paysDe, estUnPays } from '../lib/pays.js';
@@ -1515,6 +1516,24 @@ r.post('/repartition-cours/communs/appliquer', authRequired, roleRequired(...PEU
     console.error('[groupes communs]', e);
     res.status(500).json({ error: `Le remplissage a échoué : ${e.message}` });
   }
+});
+
+/* LA SIMULATION DE L'ANNÉE (lib/simulationHoraire.js) — rien ne s'écrit. */
+migrerPlages(db);
+r.get('/repartition-cours/communs/simulation', authRequired, (req, res) => {
+  try {
+    const section = String(req.query.section || ''), bloc = String(req.query.bloc || '').toUpperCase();
+    if (!section || !bloc) return res.status(400).json({ error: 'section et bloc requis' });
+    if (!sectionAutoriseeReq(req, section)) return res.status(403).json({ error: 'Section hors de votre périmètre' });
+    res.json(simulerAnnee(section, bloc, String(req.query.annee || anneeDeTravail(req))));
+  } catch (e) { console.error('[simulation]', e); res.status(500).json({ error: `La simulation a échoué : ${e.message}` }); }
+});
+r.get('/horaire-plages', authRequired, (req, res) => res.json({ plages: plagesDe(String(req.query.section || '')) }));
+r.put('/horaire-plages', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
+  const section = String(req.body?.section || '');
+  if (!section || !sectionAutoriseeReq(req, section)) return res.status(403).json({ error: 'Section hors de votre périmètre' });
+  ecrirePlages(section, Array.isArray(req.body?.plages) ? req.body.plages : []);
+  res.json({ plages: plagesDe(section) });
 });
 
 r.get('/repartition-cours/ue', authRequired, (req, res) => {
