@@ -802,6 +802,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
                 setEtape((data?.etudiants || []).some(aMentionADecider) ? 'mentions' : 'fiche'); }} />
           ) : etape === 'mentions' ? (
             <Mentions liste={(data?.etudiants || []).filter(aMentionADecider)} session={session}
+              colonnesCours={data?.colonnes_cours || []} colonnesAcquis={data?.colonnes_acquis || []}
               enCours={enCours} onDecider={ajournerLot}
               onFini={() => { setIdx(0); setEtape('fiche'); }} />
           ) : etape === 'cloture' ? (
@@ -1475,8 +1476,28 @@ function aMentionADecider(e) {
     && ['ajourne', 'refuse'].includes(e.ue?.decision_proposee);
 }
 
-function Mentions({ liste, session, enCours, onDecider, onFini }) {
+function Mentions({ liste, session, enCours, onDecider, onFini, colonnesCours = [], colonnesAcquis = [] }) {
   const [ecartes, setEcartes] = useState(() => new Set());
+  /* LE TABLEAU SE RETOURNE (Charles, 9 octobre 2026) : au recto les COURS — on
+     voit qui est en échec partout ; au verso les ACQUIS de l'unité. Une case dit
+     la mention (PP, NP, CM) ou la cote, en rouge sous le seuil. */
+  const [face, setFace] = useState('cours');
+  const colonnes = face === 'cours'
+    ? colonnesCours.map(c => ({ code: c.cours_code, titre: c.cours_nom }))
+    : colonnesAcquis.map(a => ({ code: a.aa_code, titre: a.description }));
+  const caseDe = (e, code) => face === 'cours'
+    ? (e.cours || []).find(c => c.cours_code === code)
+    : (e.acquis || []).find(a => a.aa_code === code);
+  const pastille = v => {
+    if (!v) return <span className="text-slate-300">·</span>;
+    const n = v.note_brute ?? v.note_calculee ?? v.note;
+    const txt = v.mention || (n == null ? '—' : fmt(n));
+    const ko = !!v.mention || v.na || (n != null && n < 10);
+    if (n == null && !v.mention) return <span className="text-slate-300">—</span>;
+    return ko ? <span className="inline-flex min-w-[30px] justify-center px-1.5 rounded-full text-white text-[11px] font-semibold"
+      style={{ background: v.mention === 'NP' || v.mention === 'CM' ? 'var(--c-attente)' : 'var(--c-refuse)' }}>{txt}</span>
+      : <span className="tabular-nums text-slate-700">{txt}</span>;
+  };
   const [motifs, setMotifs] = useState(MOTIF_MENTION);
   const [mode, setMode] = useState('tous');       // 'tous' | 'echec'
   const [apercu, setApercu] = useState(null);
@@ -1494,7 +1515,7 @@ function Mentions({ liste, session, enCours, onDecider, onFini }) {
   const manqueMotif = MENTIONS_LOT.some(m => groupes.some(g => g.m === m) && (motifs[m] || '').trim().length < 5);
 
   return (
-    <div className="space-y-3 max-w-3xl mx-auto">
+    <div className="space-y-3 max-w-5xl mx-auto">
       <div className="px-3 py-2 rounded-xl bg-white border border-slate-200 border-l-4" style={{ borderLeftColor: 'var(--c-attente)' }}>
         <div className="text-[13px] font-semibold text-iip-texte">PP, NP et CM — à décider en lot</div>
         <p className="text-[12px] text-slate-600">
@@ -1506,20 +1527,28 @@ function Mentions({ liste, session, enCours, onDecider, onFini }) {
         </p>
       </div>
 
-      <div className="border border-slate-200 rounded-carte overflow-hidden bg-white">
+      <div className="flex items-center gap-2 text-[12px] text-slate-600">
+        <span>Voir par :</span>
+        <div className="segments">
+          {[['cours', 'cours'], ['acquis', "acquis de l'unité"]].map(([k, l]) => (
+            <button key={k} type="button" onClick={() => setFace(k)}
+              className={face === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>{l}</button>))}
+        </div>
+      </div>
+      <div className="border border-slate-200 rounded-carte overflow-x-auto bg-white">
         <table className="w-full text-[12.5px]">
           <thead>
             <tr className="tab-entete text-left">
               <th className="px-3 py-1.5 w-8"></th>
               <th className="px-3 py-1.5">Étudiant</th>
-              <th className="px-3 py-1.5">Mention</th>
-              <th className="px-3 py-1.5">Cours concernés</th>
+              {colonnes.map(c => (
+                <th key={c.code} className="px-2 py-1.5 text-center whitespace-nowrap" title={c.titre || ''}>{c.code}</th>))}
               <th className="px-3 py-1.5 text-right">Décision</th>
             </tr>
             <tr className="tab-repere font-semibold">
               <td></td>
               <td className="px-3 py-1">{retenus.length} sur {liste.length} retenu(s)</td>
-              <td></td><td></td>
+              {colonnes.map(c => <td key={c.code} />)}
               <td className="px-3 py-1 text-right whitespace-nowrap">
                 {nbAjourn > 0 && `${nbAjourn} ajourné(s)`}{nbAjourn > 0 && nbRefus > 0 && ' · '}{nbRefus > 0 && `${nbRefus} refusé(s)`}
               </td>
@@ -1527,19 +1556,15 @@ function Mentions({ liste, session, enCours, onDecider, onFini }) {
           </thead>
           {groupes.map(g => (
             <tbody key={g.m}>
-              <tr className="tab-repere"><td colSpan={5} className="px-3 py-1 text-[11px] uppercase tracking-wide">
+              <tr className="tab-repere"><td colSpan={colonnes.length + 3} className="px-3 py-1 text-[11px] uppercase tracking-wide">
                 {LIBELLE_MENTION[g.m]} · {g.gens.length}</td></tr>
               {g.gens.map(e => {
                 const pris = !ecartes.has(e.id), dec = decisionDe(e);
-                const concernes = (e.cours || []).filter(c => MENTIONS_LOT.includes(c.mention));
                 return (
                   <tr key={e.id} className={`border-t border-slate-100 ${pris ? '' : 'text-slate-400'}`}>
                     <td className="px-3 py-1"><input type="checkbox" checked={pris} onChange={() => bascule(e.id)} /></td>
                     <td className="px-3 py-1 whitespace-nowrap"><b className={pris ? 'text-iip-blue' : ''}>{String(e.nom || '').toUpperCase()}</b> {e.prenom}</td>
-                    <td className="px-3 py-1">{mentionsDe(e).join(', ')}</td>
-                    <td className="px-3 py-1 text-[11.5px] text-slate-500">
-                      {concernes.map(c => `${c.cours_code} ${c.mention}`).join(' · ') || 'acquis seulement'}
-                    </td>
+                    {colonnes.map(c => <td key={c.code} className="px-2 py-1 text-center">{pastille(caseDe(e, c.code))}</td>)}
                     <td className="px-3 py-1 text-right">
                       {pris && <span className="inline-block px-2 rounded-full text-white text-[11px] font-semibold"
                         style={{ background: dec === 'refuse' ? 'var(--c-refuse)' : 'var(--c-attente)' }}>
