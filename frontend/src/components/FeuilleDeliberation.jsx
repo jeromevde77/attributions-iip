@@ -1,3 +1,4 @@
+import { choisir } from '../lib/dialogue.jsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { nomPropre } from '../lib/nom.js';
 import {
@@ -275,13 +276,15 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
    */
   async function ajusterLot(portee, codes, action) {
     if (!etud || !codes.length) return;
+    const mode = portee === 'cours' && action === 'ajourne' ? await porteeAjournement(codes) : 'tous';
+    if (!mode) return;
     setEnCours(true); setErreur(null);
     try {
       const rep = await fetch('/api/acquis/deliberation/ajustement/lot', {
         method: 'PUT', headers: authHeaders(),
         body: JSON.stringify({
           etudiant_id: etud.id, annee_scolaire: annee, ue_num: ueNum, session,
-          portee, codes, action,
+          portee, codes, action, mode,
         }),
       });
       const j = await rep.json();
@@ -292,16 +295,42 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
     finally { setEnCours(false); }
   }
 
+
+  /* À L'AJOURNEMENT D'UN COURS, LA QUESTION (Charles, 9 octobre 2026) : « l'étudiant
+     doit-il représenter tous les AA du cours en échec, ou seulement les AA en
+     échec ? ». Posée seulement quand elle a un sens — le cours porte à la fois
+     des acquis réussis et des acquis en échec. Rend 'tous', 'echec', ou null. */
+  async function porteeAjournement(coursCodes) {
+    const evals = (etud?.acquis || []).flatMap(a => (a.evaluations || [])
+      .filter(v => coursCodes.includes(v.cours_code)).map(v => ({ ...v, aa: a.aa_code })));
+    const ko = v => ['PP', 'NP', 'CM'].includes(v.mention) || v.note == null || Number(v.note) < 10;
+    const enEchec = [...new Set(evals.filter(ko).map(v => v.aa))];
+    const reussis = [...new Set(evals.filter(v => !ko(v)).map(v => v.aa))].filter(a => !enEchec.includes(a));
+    if (!enEchec.length || !reussis.length) return 'tous';
+    return choisir({
+      titre: coursCodes.length > 1 ? 'Ajourner ces cours' : `Ajourner le cours ${coursCodes[0]}`,
+      message: `L'étudiant doit-il représenter tous les acquis du cours, ou seulement ceux en échec ?\n\n`
+        + `En échec : ${enEchec.join(', ')}\nRéussis : ${reussis.join(', ')}\n\n`
+        + `Chaque acquis à représenter devra être justifié. Il tombe dans ce cours et au global, pas dans les autres cours qui l'évaluent.`,
+      choix: [
+        { valeur: 'echec', libelle: 'Seulement ceux en échec' },
+        { valeur: 'tous', libelle: 'Tous les acquis du cours' },
+      ],
+    });
+  }
+
   /** Poser ou retirer un ajustement. Le serveur renvoie l'étudiant recalculé. */
   async function ajuster(portee, code, action) {
     if (!etud) return;
+    const mode = portee === 'cours' && action === 'ajourne' ? await porteeAjournement([code]) : 'tous';
+    if (!mode) return;
     setEnCours(true); setErreur(null);
     try {
       const rep = await fetch('/api/acquis/deliberation/ajustement', {
         method: 'PUT', headers: authHeaders(),
         body: JSON.stringify({
           etudiant_id: etud.id, annee_scolaire: annee, ue_num: ueNum, session,
-          portee, code, action,
+          portee, code, action, mode,
         }),
       });
       const j = await rep.json();
@@ -469,7 +498,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
    * Le serveur choisit, pour CHACUN, les acquis réellement en défaut : deux
    * étudiants n'échouent pas aux mêmes.
    */
-  async function ajournerLot(ids, motif, simulation, coursParEtudiant, parEtudiant = null) {
+  async function ajournerLot(ids, motif, simulation, coursParEtudiant, parEtudiant = null, mode = 'tous') {
     setEnCours(true); setErreur(null);
     try {
       const rep = await fetch(`/api/acquis/deliberation/ue/${ueNum}/ajourner-lot`, {
@@ -477,7 +506,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
         body: JSON.stringify({ annee, session, etudiants: ids, motif, simulation,
                                cours_par_etudiant: coursParEtudiant || undefined,
                                decision_par_etudiant: parEtudiant?.decisions || undefined,
-                               motif_par_etudiant: parEtudiant?.motifs || undefined }),
+                               motif_par_etudiant: parEtudiant?.motifs || undefined, mode }),
       });
       const j = await rep.json();
       if (!rep.ok) { setErreur(j.detail || j.error); return null; }
@@ -1445,6 +1474,7 @@ function aMentionADecider(e) {
 function Mentions({ liste, session, enCours, onDecider, onFini }) {
   const [ecartes, setEcartes] = useState(() => new Set());
   const [motifs, setMotifs] = useState(MOTIF_MENTION);
+  const [mode, setMode] = useState('tous');       // 'tous' | 'echec'
   const [apercu, setApercu] = useState(null);
   const decisionDe = e => (session >= 2 || e.ue?.decision_proposee === 'refuse') ? 'refuse' : 'ajourne';
   const groupes = MENTIONS_LOT.map(m => ({ m, gens: liste.filter(e => mentionsDe(e)[0] === m) }))
@@ -1530,6 +1560,19 @@ function Mentions({ liste, session, enCours, onDecider, onFini }) {
         ))}
       </div>
 
+      {/* LA QUESTION DU CONSEIL, POSÉE UNE FOIS POUR LE LOT (Charles, 9 octobre
+          2026) : un cours ajourné se représente-t-il entier, ou pour ses seuls
+          acquis en échec ? */}
+      <div className="flex flex-wrap items-center gap-2 text-[12px] text-slate-600">
+        <span>Dans un cours ajourné, l'étudiant représente :</span>
+        <div className="segments">
+          {[['tous', 'tous les acquis du cours'], ['echec', 'seulement les acquis en échec']].map(([k, l]) => (
+            <button key={k} type="button" onClick={() => setMode(k)}
+              className={mode === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>{l}</button>
+          ))}
+        </div>
+      </div>
+
       {apercu && (
         <div className="px-3 py-2 rounded-lg bg-white border border-slate-200 text-[13px]">
           Simulation : <b>{apercu.ajournes}</b> ajourné(s), <b>{apercu.refuses}</b> refusé(s) ·
@@ -1545,10 +1588,10 @@ function Mentions({ liste, session, enCours, onDecider, onFini }) {
         <div className="flex gap-2">
           <button type="button" className="bouton" onClick={onFini}>Passer — les revoir un à un</button>
           <button type="button" className="bouton" disabled={enCours || manqueMotif || !retenus.length}
-            onClick={async () => setApercu(await onDecider(retenus.map(e => e.id), '', true, null, corps()))}>
+            onClick={async () => setApercu(await onDecider(retenus.map(e => e.id), '', true, null, corps(), mode))}>
             Simuler</button>
           <button type="button" className="bouton bouton-fort" disabled={enCours || manqueMotif || !retenus.length}
-            onClick={async () => { const j = await onDecider(retenus.map(e => e.id), '', false, null, corps()); if (j) onFini(); }}>
+            onClick={async () => { const j = await onDecider(retenus.map(e => e.id), '', false, null, corps(), mode); if (j) onFini(); }}>
             {enCours ? 'Enregistrement…' : `Décider ces ${retenus.length}`}
           </button>
         </div>
@@ -2045,7 +2088,12 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
                       </td>
                       {cours.map(c => (
                         <td key={c.cours_code} className="px-1.5 py-1 text-center">
-                          {note(caseDe(a, c.cours_code), { na: c.na || a.na })}
+                          {/* LA CASE DIT CE COURS-CI (Charles, 9 octobre 2026). Ajourner un
+                              cours fait tomber ses acquis AU GLOBAL — on représente le cours
+                              entier —, mais la case de ce même acquis dans un AUTRE cours,
+                              réussi, restait peinte en échec. Elle ne tombe qu'avec son cours,
+                              ou quand l'acquis lui-même est ajourné. */}
+                          {note(caseDe(a, c.cours_code), { na: !!caseDe(a, c.cours_code)?.ajourne || !!a.ajourne_directement })}
                         </td>
                       ))}
                       <td className="px-2 py-1 text-center bg-iip-blue/10 whitespace-nowrap">
@@ -2080,6 +2128,11 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
                     <td key={c.cours_code} className={`px-1.5 py-1.5 text-center whitespace-nowrap ${!regarde.cours ? 'opacity-60' : ''}`}>
                       <span className="relative inline-flex align-middle">
                       {note(c, { na: c.na })}
+                      {c.aas_a_representer && (
+                        <span className="absolute left-1/2 -translate-x-1/2 top-full mt-0.5 whitespace-nowrap text-[9.5px] text-slate-500"
+                          title="Le Conseil n'a rouvert que ces acquis du cours">
+                          seuls {c.aas_a_representer.join(', ')}
+                        </span>)}
                       {bouton(!!c.ajourne_directement, c.ajourne_directement ? "Lever l'ajournement du cours" : 'Ajourner ce cours — à représenter',
                         () => onAjuster('cours', c.cours_code, c.ajourne_directement ? null : 'ajourne'))}
                       </span>
@@ -3192,6 +3245,7 @@ function VueLot({ liste, onAjourner, onOuvrir, enCours, session = 1 }) {
   // donc les VOIR, et pouvoir en écarter un — d'où, par étudiant, la liste
   // de ses cours en défaut, tous retenus par défaut.
   const [ecartes, setEcartes] = useState({});   // { [id]: Set(cours_code) }
+  const [mode, setMode] = useState('tous');       // 'tous' | 'echec'
 
   const enDefaut = e => (e.cours || [])
     .filter(c => !c.faveur && (c.na || ['PP', 'NP', 'CM'].includes(c.mention) || (c.note != null && c.note < 10)));
@@ -3308,6 +3362,19 @@ function VueLot({ liste, onAjourner, onOuvrir, enCours, session = 1 }) {
         })}
       </div>
 
+      {/* LA QUESTION DU CONSEIL, POSÉE UNE FOIS POUR LE LOT (Charles, 9 octobre
+          2026) : un cours ajourné se représente-t-il entier, ou pour ses seuls
+          acquis en échec ? */}
+      <div className="flex flex-wrap items-center gap-2 text-[12px] text-slate-600">
+        <span>Dans un cours ajourné, l'étudiant représente :</span>
+        <div className="segments">
+          {[['tous', 'tous les acquis du cours'], ['echec', 'seulement les acquis en échec']].map(([k, l]) => (
+            <button key={k} type="button" onClick={() => setMode(k)}
+              className={mode === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>{l}</button>
+          ))}
+        </div>
+      </div>
+
       <label className="block text-[12px] text-slate-600">
         Justification commune — elle sera portée sur chaque acquis ajourné, et
         c'est elle que reprendra l'annexe 8
@@ -3336,14 +3403,14 @@ function VueLot({ liste, onAjourner, onOuvrir, enCours, session = 1 }) {
         </span>
         <div className="flex gap-2">
           <button disabled={!pret || enCours}
-            onClick={async () => setApercu(await onAjourner(ids, motif.trim(), true, parCours))}
+            onClick={async () => setApercu(await onAjourner(ids, motif.trim(), true, parCours, null, mode))}
             className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300
                        text-slate-600 disabled:opacity-40">
             Simuler
           </button>
           <button disabled={!pret || enCours}
             onClick={async () => {
-              const j = await onAjourner(ids, motif.trim(), false, parCours);
+              const j = await onAjourner(ids, motif.trim(), false, parCours, null, mode);
               if (j) { setApercu(null); setChoisis(new Set()); }
             }}
             className="px-4 py-2 text-[13px] rounded-lg bg-amber-600 text-white

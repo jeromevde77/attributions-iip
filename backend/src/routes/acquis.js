@@ -2937,6 +2937,76 @@ r.get('/deliberation/plan', authRequired, (req, res) => {
 // DÉLIBÉRATION D'UNE UNITÉ POUR UN ÉTUDIANT
 // ═══════════════════════════════════════════════════════════════════════════
 
+/* QUELS ACQUIS D'UN COURS AJOURNÉ SONT À REPRÉSENTER (Charles, 9 octobre
+ * 2026 : « l'étudiant doit-il représenter tous les AA du cours en échec, ou
+ * seulement les AA en échec ? »). Un cours ajourné SANS ligne ici se
+ * représente entier, comme toujours ; AVEC des lignes, seuls ces acquis-là
+ * tombent — dans ce cours et au global, jamais dans les autres cours qui les
+ * évaluent aussi. Table à part : la table des ajustements est relue par la
+ * seconde session, les rapports et les pièces, qui attendent un code de cours. */
+try {
+  db.exec(`CREATE TABLE IF NOT EXISTS deliberation_ajourne_aa (
+    etudiant_id    INTEGER NOT NULL,
+    annee_scolaire TEXT    NOT NULL,
+    ue_num         INTEGER NOT NULL,
+    session        INTEGER NOT NULL DEFAULT 1,
+    cours_code     TEXT    NOT NULL,
+    aa_code        TEXT    NOT NULL,
+    maj_le         TEXT DEFAULT CURRENT_TIMESTAMP,
+    maj_par        TEXT,
+    UNIQUE(etudiant_id, annee_scolaire, ue_num, session, cours_code, aa_code))`);
+} catch (e) { console.error('[migration] deliberation_ajourne_aa :', e.message); }
+
+/** Les acquis à représenter, par cours, pour une session : { cours: Set(aa) }. */
+function partielsDe(etudId, annee, ueNum, session) {
+  const m = {};
+  try {
+    for (const r0 of db.prepare(`SELECT cours_code, aa_code FROM deliberation_ajourne_aa
+        WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND session = ?`).all(etudId, annee, ueNum, session))
+      (m[r0.cours_code] ||= new Set()).add(r0.aa_code);
+  } catch { /* table absente */ }
+  return m;
+}
+
+/**
+ * Poser la portée d'un cours ajourné : 'tous' efface la précision (le cours se
+ * représente entier), 'echec' ne garde que les acquis en échec DANS CE COURS —
+ * note sous le seuil, PP, NP, CM, ou sans note. `d` est le calcul AVANT
+ * l'ajournement, quand les notes du cours se lisent encore.
+ */
+function poserPortee(etudId, annee, ueNum, ses, coursCode, mode, d, par) {
+  db.prepare(`DELETE FROM deliberation_ajourne_aa WHERE etudiant_id = ? AND annee_scolaire = ?
+      AND ue_num = ? AND session = ? AND cours_code = ?`).run(etudId, annee, ueNum, ses, coursCode);
+  if (mode !== 'echec') return [];
+  const enEchec = (d.acquis || []).flatMap(a => {
+    const ev = (a.evaluations || []).find(v => v.cours_code === coursCode);
+    if (!ev || a.faveur) return [];
+    const ko = ['PP', 'NP', 'CM'].includes(ev.mention) || ev.note == null || Number(ev.note) < (a.seuil ?? SEUIL_UE);
+    return ko ? [a.aa_code] : [];
+  });
+  // Rien en échec dans ce cours : il se représente entier, on ne précise rien.
+  if (!enEchec.length) return [];
+  const ins = db.prepare(`INSERT OR IGNORE INTO deliberation_ajourne_aa
+      (etudiant_id, annee_scolaire, ue_num, session, cours_code, aa_code, maj_par) VALUES (?,?,?,?,?,?,?)`);
+  for (const aa of enEchec) ins.run(etudId, annee, ueNum, ses, coursCode, aa, par);
+  return enEchec;
+}
+
+/** Les acquis qui tombent avec ces cours ajournés : tous ceux qu'ils évaluent
+ *  ('tous'), ou seulement ceux en échec dans l'un d'eux ('echec'). */
+function aasQuiTombent(d, cours, mode) {
+  const out = new Set();
+  for (const a of d.acquis || []) {
+    if (a.faveur) continue;
+    for (const ev of a.evaluations || []) {
+      if (!cours.includes(ev.cours_code)) continue;
+      const ko = ['PP', 'NP', 'CM'].includes(ev.mention) || ev.note == null || Number(ev.note) < (a.seuil ?? SEUIL_UE);
+      if (mode !== 'echec' || ko) out.add(a.aa_code);
+    }
+  }
+  return [...out];
+}
+
 (function migrerAjustements() {
   try {
     db.exec(`
@@ -3838,6 +3908,8 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
   `).all(etudId, annee, ueNum);
   const coursARepresenter = new Set(
     ajournesS1.filter(a => a.portee === 'cours').map(a => a.code));
+  // Un cours ajourné « pour ses seuls acquis en échec » ne rouvre que ceux-là.
+  const partielsS1 = session < 2 ? {} : partielsDe(etudId, annee, ueNum, 1);
   const aaARepresenter = new Set(
     ajournesS1.filter(a => a.portee === 'aa').map(a => a.code));
 
@@ -3867,7 +3939,8 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
   // sur un cours, un acquis ou l'unité — rouvre l'épreuve, et sa note de
   // septembre compte. La feuille l'ouvrait déjà ainsi ; le calcul, non.
   const s2Compte = (cours, aa) => sansTrace || (integree && ajournesS1.length > 0)
-    || (cours ? coursARepresenter.has(cours) : false) || aaARepresenter.has(aa);
+    || (cours ? coursARepresenter.has(cours) && (!partielsS1[cours] || partielsS1[cours].has(aa)) : false)
+    || aaARepresenter.has(aa);
 
   const parCoursAA = {}, parAA = {}, mentionDe = {};
   const rang = { '': 0, s1: 1, s2: 2 };
@@ -3948,6 +4021,10 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
     : Math.round(v * 100) / 100;
 
   const coursAjourne = c => ajust[`cours|${c}`] === 'ajourne';
+  const partiels = partielsDe(etudId, annee, ueNum, session);
+  // L'acquis tombe-t-il AVEC ce cours ? Oui si le cours se représente entier ;
+  // sinon, seulement s'il fait partie des acquis retenus.
+  const evalAjournee = (c, aa) => coursAjourne(c) && (!partiels[c] || partiels[c].has(aa));
   const coursFaveur = c => ajust[`cours|${c}`] === 'faveur';
   const aaAjourne = a => ajust[`aa|${a}`] === 'ajourne';
   const aaFaveur = a => ajust[`aa|${a}`] === 'faveur';
@@ -3967,7 +4044,7 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
       cours_code: p.cours_code, poids: p.poids,
       note: noteDe(p.cours_code, code),
       mention: mentionAA(p.cours_code, code),
-      ajourne: coursAjourne(p.cours_code),
+      ajourne: evalAjournee(p.cours_code, code),
     }));
     // En portée « par cours », un cours ajourné emporte tous ses acquis — même
     // ceux qu'un autre cours évalue aussi : c'est le cours qu'on représente.
@@ -4093,6 +4170,8 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
       })(),
       faveur_directe: coursFaveur(c.cours_code),
       ajourne_directement: coursAjourne(c.cours_code), aas_ajournes,
+      // Les seuls acquis à représenter, quand le Conseil n'a pas rouvert tout le cours.
+      aas_a_representer: coursAjourne(c.cours_code) && partiels[c.cours_code] ? [...partiels[c.cours_code]] : null,
       echec: !na && affichee != null && affichee < SEUIL_UE,
     };
   });
@@ -4221,7 +4300,9 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
       // c'est ce que l'annexe 8 doit énoncer à l'étudiant.
       a_representer_detail: cours.filter(c => c.na).map(c => ({
         cours_code: c.cours_code, cours_nom: c.cours_nom,
-        professeurs: c.professeurs || '', aas: c.aas,
+        // Les seuls acquis rouverts, quand le Conseil n'a pas rouvert tout le
+        // cours : c'est ce que l'annexe 8 et l'étudiant doivent lire.
+        professeurs: c.professeurs || '', aas: c.aas_a_representer || c.aas,
       })),
       // La réussite de plein droit : tous les acquis et tous les cours au
       // seuil, sans qu'aucune faveur ni aucun ajournement n'ait été nécessaire.
@@ -7777,6 +7858,8 @@ r.delete('/deliberation/ue/:ueNum', authRequired,
       DELETE FROM deliberation_ajustement
       WHERE annee_scolaire = ? AND ue_num = ?${cond}
     `).run(...args).changes;
+    // Les acquis retenus d'un cours ajourné s'en vont avec l'ajournement.
+    try { db.prepare(`DELETE FROM deliberation_ajourne_aa WHERE annee_scolaire = ? AND ue_num = ?${cond}`).run(...args); } catch { /* */ }
 
     // La séance ne se rouvre que si l'on annule l'unité entière.
     if (!etudId) {
@@ -8581,6 +8664,8 @@ r.post('/deliberation/ue/:ueNum/ajourner-lot', authRequired,
     && req.body.motif_par_etudiant) || {};
   const decisionDe = id => (ses >= 2 || decisionParEtudiant[id] === 'refuse') ? 'refuse' : 'ajourne';
   const motifDe = id => String(motifParEtudiant[id] || '').trim() || motif;
+  // « Tous les acquis du cours » (défaut) ou « seulement ceux en échec ».
+  const mode = req.body?.mode === 'echec' ? 'echec' : 'tous';
 
   if (!ids.length) return res.status(400).json({ error: 'aucun étudiant sélectionné' });
 
@@ -8639,21 +8724,24 @@ r.post('/deliberation/ue/:ueNum/ajourner-lot', authRequired,
         : enDefaut;
       const cours = aussiCours ? choisis : [];
 
-      // LES ACQUIS SUIVENT LEURS COURS. Un acquis en défaut n'est ajourné que
-      // s'il est évalué dans l'un des cours retenus : ajourner l'acquis d'un
-      // cours qu'on ne représente pas obligerait l'étudiant à repasser une
-      // épreuve dont le Conseil vient de dire qu'elle est acquise.
-      // Un acquis en défaut qu'aucun cours retenu n'évalue reste ajourné pour
-      // lui-même lorsque le Conseil n'a rien choisi — sinon il serait perdu.
-      const aas = (d.acquis || [])
+      // LES ACQUIS SUIVENT LEURS COURS — et seulement leurs cours (Charles,
+      // 9 octobre 2026). Ils ne s'ajournent plus pour eux-mêmes : un ajournement
+      // d'ACQUIS vaut pour tous les cours qui l'évaluent, si bien qu'un acquis
+      // réussi dans un autre cours y tombait aussi. Ce qui tombe, c'est ce que
+      // le cours emporte : tous ses acquis, ou ses seuls acquis en échec, selon
+      // ce que le Conseil a répondu (`mode`). Un acquis en défaut qu'aucun cours
+      // retenu n'évalue reste ajourné pour lui-même quand le Conseil n'a rien
+      // choisi — sinon il serait perdu.
+      const tombent = aasQuiTombent(d, cours, mode);
+      const seuls = aussiCours && cours.length ? [] : (d.acquis || [])
         .filter(a => !a.faveur && (a.na || ['PP', 'NP', 'CM'].includes(a.mention)
           || (a.note != null && a.note < SEUIL_UE)))
         .filter(a => {
           const evs = (a.evaluations || []).map(e => e.cours_code);
-          if (!evs.length) return !coursParEtudiant;
-          return evs.some(c => choisis.includes(c));
+          return !evs.length ? !coursParEtudiant : evs.some(c => choisis.includes(c));
         })
         .map(a => a.aa_code);
+      const aas = [...new Set([...tombent, ...seuls])];
 
       const e = db.prepare('SELECT nom, prenom FROM etudiant WHERE id = ?').get(id) || {};
       const decision = decisionDe(id), justification = motifDe(id);
@@ -8670,8 +8758,12 @@ r.post('/deliberation/ue/:ueNum/ajourner-lot', authRequired,
       if (simulation) continue;
 
       const par = req.user?.email || null;
-      for (const code of aas) poser.run(id, annee, ueNum, ses, 'aa', code, par);
-      for (const code of cours) poser.run(id, annee, ueNum, ses, 'cours', code, par);
+      for (const code of seuls) poser.run(id, annee, ueNum, ses, 'aa', code, par);
+      for (const code of cours) {
+        poser.run(id, annee, ueNum, ses, 'cours', code, par);
+        poserPortee(id, annee, ueNum, ses, code, mode, d, par);
+      }
+      // Chaque acquis à représenter porte sa justification (RDE art. 88 §3).
       if (justification) for (const code of aas) poserMotif.run(id, annee, ueNum, code, justification, par);
 
       poserResultat.run(id, annee, ueNum, ses, decision, d.ue?.note ?? null, par);
@@ -8714,13 +8806,19 @@ r.put('/deliberation/ajustement/lot', authRequired,
     DO UPDATE SET action = excluded.action, maj_le = CURRENT_TIMESTAMP, maj_par = excluded.maj_par
   `);
 
+  // Un cours ajourné se représente entier, ou pour ses seuls acquis en échec.
+  const mode = req.body?.mode === 'echec' ? 'echec' : 'tous';
+  const avant = portee === 'cours' && action === 'ajourne'
+    ? delibererUE(Number(etudiant_id), Number(ue_num), annee_scolaire, ses) : null;
   db.transaction(() => {
     for (const code of codes) {
       if (action == null) {
         oter.run(Number(etudiant_id), annee_scolaire, Number(ue_num), ses, portee, code);
+        if (portee === 'cours') poserPortee(Number(etudiant_id), annee_scolaire, Number(ue_num), ses, code, 'tous', null, null);
       } else {
         poser.run(Number(etudiant_id), annee_scolaire, Number(ue_num), ses, portee, code, action,
           req.user?.email || null);
+        if (avant) poserPortee(Number(etudiant_id), annee_scolaire, Number(ue_num), ses, code, mode, avant, req.user?.email || null);
       }
     }
   })();
@@ -8739,11 +8837,15 @@ r.put('/deliberation/ajustement', authRequired,
   if (action != null && !['faveur', 'ajourne'].includes(action)) {
     return res.status(400).json({ error: 'action invalide' });
   }
+  const mode = req.body?.mode === 'echec' ? 'echec' : 'tous';
+  const avant = portee === 'cours' && action === 'ajourne'
+    ? delibererUE(Number(etudiant_id), Number(ue_num), annee_scolaire, ses) : null;
   if (action == null) {
     db.prepare(`DELETE FROM deliberation_ajustement
       WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND session = ?
         AND portee = ? AND code = ?`)
       .run(Number(etudiant_id), annee_scolaire, Number(ue_num), ses, portee, code);
+    if (portee === 'cours') poserPortee(Number(etudiant_id), annee_scolaire, Number(ue_num), ses, code, 'tous', null, null);
   } else {
     db.prepare(`
       INSERT INTO deliberation_ajustement
@@ -8753,6 +8855,7 @@ r.put('/deliberation/ajustement', authRequired,
       DO UPDATE SET action = excluded.action, maj_le = CURRENT_TIMESTAMP, maj_par = excluded.maj_par
     `).run(Number(etudiant_id), annee_scolaire, Number(ue_num), ses, portee, code, action,
            req.user?.email || null);
+    if (avant) poserPortee(Number(etudiant_id), annee_scolaire, Number(ue_num), ses, code, mode, avant, req.user?.email || null);
   }
   // On renvoie l'étudiant recalculé AVEC son aide à la décision : sans elle,
   // poser un ajustement faisait disparaître de l'écran le coût de la faveur et
