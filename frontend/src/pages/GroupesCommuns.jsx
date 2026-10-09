@@ -509,7 +509,7 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
           </div>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-[11.5px] border-collapse min-w-[860px]">
+          <table className="w-full table-fixed text-[11.5px] border-collapse min-w-[860px]">
             <thead><tr className="tab-entete">
               <th className="px-2 py-1 w-24 text-left">Plage</th>
               {jours.map(j => <th key={j} className="px-2 py-1 text-left">{NOMS_JOURS[j]}{datesSemaine[j] ? <span className="font-normal text-slate-500"> {datesSemaine[j].slice(8, 10)}/{datesSemaine[j].slice(5, 7)}</span> : ''}</th>)}
@@ -535,20 +535,29 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
                     const existe = (plages || []).some(p => p.jour === j && `${p.debut}-${p.fin}` === h);
                     return (
                       <td key={j} className={`px-1 py-1 border-l border-slate-100 ${existe ? '' : 'bg-slate-50'}`}>
-                        <div className="flex flex-col gap-0.5">
+                        {/* UN BLOC = TOUTE LA HAUTEUR DE SA PLAGE (Charles, 9 octobre 2026 :
+                            « des blocs de hauteur fixe, quitte à en avoir trois côte à côte »).
+                            Les séances en parallèle se partagent la LARGEUR, jamais la hauteur. */}
+                        <div className="grid gap-[3px]" style={{ gridTemplateColumns: `repeat(${Math.max(1, Math.min(3, act.length + ici.length))}, minmax(0,1fr))` }}>
                           {act.map((x, i) => (
-                            <span key={`a${i}`} className="rounded px-1.5 py-0.5 border border-dashed text-slate-600"
+                            <div key={`a${i}`} className="min-w-0 h-[46px] rounded px-1.5 py-1 border border-dashed text-[11px] leading-tight overflow-hidden text-slate-600"
                               title={`Horaire actuel — ${x.cours_code || ''} ${x.cours_nom || x.matiere || ''} ${x.heure_debut}–${x.heure_fin}${x.groupe_nom ? ` · groupe ${x.groupe_nom}` : ''}${x.conflits?.length ? `\nConflit : ${x.conflits.join(', ')}` : ''}`}
                               style={{ borderColor: x.conflits?.length ? 'var(--c-refuse)' : '#94A3B8', background: '#F8FAFC' }}>
-                              <span className="text-[10px] text-slate-400">actuel </span><b>{x.cours_code || '—'}</b> {x.heure_debut}–{x.heure_fin}{x.groupe_nom ? ` · ${x.groupe_nom}` : ''}
-                            </span>))}
+                              <div className="text-[9.5px] text-slate-400">actuel</div>
+                              <div className="flex items-center gap-1"><span className="font-bold truncate">{x.cours_code || '—'}</span>
+                              {x.groupe_nom && x.groupe_nom !== 'A' && (
+                                <span className="flex-none inline-flex items-center justify-center min-w-[20px] h-[20px] px-1 rounded-[6px] bg-white text-[11px] font-bold border border-slate-400">{x.groupe_nom}</span>)}</div>
+                            </div>))}
                           {ici.map((s, i) => (
-                            <span key={i} className="rounded px-1.5 py-0.5 border" title={`${s.cours_code} ${s.activite || ''} — groupe ${s.groupe}${s.professeur ? ` — ${s.professeur}` : ''}${s.local ? `\nLocal ${s.local}` : ''}\nBriques ${s.tout_le_bloc ? 'toutes' : s.briques.join(', ')}`}
-                              style={{ ...styleTuileCours(s.cours_code), border: 'none', borderLeft: `4px solid ${teinteCours(s.cours_code)}`, fontWeight: s.tout_le_bloc ? 600 : undefined }}>
-                              <b>{s.cours_code}</b> {s.groupe !== 'Tous' && s.groupe !== 'Ts' ? `· ${s.groupe}` : '· tous'}
-                              <span className="text-slate-500"> {String(s.activite || '').replace(/\s*\((TP|TH)\)\s*$/i, '').slice(0, 22)}</span>
-                              {s.local && <span className="text-slate-500"> · {s.local}</span>}
-                            </span>))}
+                            <div key={i} className="min-w-0 h-[46px] rounded-r px-1.5 py-1 text-[12px] leading-tight overflow-hidden text-[#1B2B4B] flex flex-col items-start justify-center gap-0.5"
+                              title={`${s.cours_code} ${s.activite || ''} — groupe ${s.groupe}${s.professeur ? ` — ${s.professeur}` : ''}${s.local ? `\nLocal ${s.local}` : ''}\nBriques ${s.tout_le_bloc ? 'toutes' : s.briques.join(', ')}`}
+                              style={styleTuileCours(s.cours_code)}>
+                              {/* Le numéro du cours, et le groupe dans sa pastille ; le reste au survol. */}
+                              <span className="font-bold truncate">{s.cours_code}</span>
+                              {s.groupe !== 'Tous' && s.groupe !== 'Ts' && (
+                                <span className="flex-none inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-[5px] bg-white text-[10.5px] font-bold"
+                                  style={{ border: `1.5px solid ${teinteCours(s.cours_code)}` }}>{s.groupe}</span>)}
+                            </div>))}
                         </div>
                       </td>);
                   })}
