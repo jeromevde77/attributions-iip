@@ -2,7 +2,7 @@
 // Lucie — Module Étudiants : base étudiants, inscriptions, résultats et PAE
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { migrerPlages, plagesDe, ecrirePlages, simuler as simulerAnnee, poserSimulation, ecrireLocaux } from '../lib/simulationHoraire.js';
+import { migrerPlages, plagesDe, ecrirePlages, simuler as simulerAnnee, poserSimulation, ecrireLocaux, reglesDe, ecrireRegles, documentHoraire } from '../lib/simulationHoraire.js';
 import { migrerGroupesCommuns, cohorte as cohorteGC, proposerBriques, appliquerBriques } from '../lib/groupesCommuns.js';
 import { dispensesDeLUE } from '../lib/dispenses.js';
 import { paysDe, estUnPays } from '../lib/pays.js';
@@ -1528,6 +1528,16 @@ r.get('/repartition-cours/communs/simulation', authRequired, (req, res) => {
     res.json(simulerAnnee(section, bloc, String(req.query.annee || anneeDeTravail(req))));
   } catch (e) { console.error('[simulation]', e); res.status(500).json({ error: `La simulation a échoué : ${e.message}` }); }
 });
+// L'HORAIRE D'UN GROUPE OU D'UN ÉTUDIANT, à imprimer (catalogue : horaire_propose).
+r.post('/repartition-cours/communs/simulation/document', authRequired, (req, res) => {
+  try {
+    const section = String(req.body?.section || ''), bloc = String(req.body?.bloc || '').toUpperCase();
+    if (!section || !bloc) return res.status(400).json({ error: 'section et bloc requis' });
+    if (!sectionAutoriseeReq(req, section)) return res.status(403).json({ error: 'Section hors de votre périmètre' });
+    res.json(documentHoraire(section, bloc, String(req.body?.annee || anneeDeTravail(req)),
+      { brique: req.body?.brique || null, etudiantId: req.body?.etudiant_id || null }));
+  } catch (e) { console.error('[horaire document]', e); res.status(e.status || 500).json({ error: e.message }); }
+});
 r.post('/repartition-cours/communs/simulation/poser', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
   try {
     const section = String(req.body?.section || ''), bloc = String(req.body?.bloc || '').toUpperCase();
@@ -1547,12 +1557,13 @@ r.put('/horaire-locaux', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, re
     res.json({ ok: true });
   } catch (e) { console.error('[locaux simulation]', e); res.status(500).json({ error: `Enregistrement impossible : ${e.message}` }); }
 });
-r.get('/horaire-plages', authRequired, (req, res) => res.json({ plages: plagesDe(String(req.query.section || '')) }));
+r.get('/horaire-plages', authRequired, (req, res) => { const section = String(req.query.section || ''); res.json({ plages: plagesDe(section), regles: reglesDe(section) }); });
 r.put('/horaire-plages', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
   const section = String(req.body?.section || '');
   if (!section || !sectionAutoriseeReq(req, section)) return res.status(403).json({ error: 'Section hors de votre périmètre' });
-  ecrirePlages(section, Array.isArray(req.body?.plages) ? req.body.plages : []);
-  res.json({ plages: plagesDe(section) });
+  if (Array.isArray(req.body?.plages)) ecrirePlages(section, req.body.plages);
+  if (req.body?.regles) ecrireRegles(section, req.body.regles, req.user?.email || null);
+  res.json({ plages: plagesDe(section), regles: reglesDe(section) });
 });
 
 r.get('/repartition-cours/ue', authRequired, (req, res) => {
