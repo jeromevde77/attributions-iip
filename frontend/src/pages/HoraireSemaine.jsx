@@ -27,6 +27,9 @@ const hm = t => { const [h, m] = String(t || '0:0').split(':').map(Number); retu
 const deHm = n => `${String(Math.floor(n / 60)).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}`;
 const lisible = t => { const n = hm(t); return `${Math.floor(n / 60)}h${String(n % 60).padStart(2, '0')}`; };
 const iso = d => d.toISOString().slice(0, 10);
+const MODULE = 120;
+const MODULES_DEFAUT = [480, 600, 720, 840, 960, 1080].map(m => [m, m + MODULE]);
+const etiquette = m => `${Math.floor(m / 60)}h${m % 60 ? String(m % 60).padStart(2, '0') : ''}`;
 const ajouter = (dIso, n) => { const d = new Date(dIso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return iso(d); };
 const lundiDe = dIso => { const d = new Date(dIso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return iso(d); };
 const court = dIso => dIso.slice(8, 10) + '-' + dIso.slice(5, 7);
@@ -50,7 +53,13 @@ export default function HoraireSemaine() {
   const [lundi, setLundi] = useState(() => lundiDe(iso(new Date())));
   const [data, setData] = useState(null);
   const [erreur, setErreur] = useState(null);
-  const duree = 120;
+  /* CHEZ NOUS, UN MODULE FAIT 120 MINUTES (Charles, 9 octobre 2026 : « ça DOIT
+     être 120 min »). La grille montre les PLAGES de la section (Groupes communs
+     → plages horaires), une tuile se pose et se déplace sur le début d'un
+     module, et une séance se rallonge de 2 h en 2 h. Sans plages réglées, des
+     modules de 2 h à partir de 8 h. */
+  const duree = MODULE;
+  const [plages, setPlages] = useState([]);
   const [sel, setSel] = useState(null);             // séance ouverte dans la bulle
   const [recopie, setRecopie] = useState(null);     // fenêtre de recopie
   const [importer, setImporter] = useState(false);  // import Hyperplanning (CSV)
@@ -69,6 +78,22 @@ export default function HoraireSemaine() {
       .then(j => { setData(j); setErreur(null); }).catch(e => setErreur(e.message));
   };
   useEffect(charger, [annee, lundi, vue, cle]);   // eslint-disable-line
+  const sectionVue = vue === 'classe' ? classes.find(c => c.cle === cle)?.section : null;
+  useEffect(() => {
+    if (!sectionVue) { setPlages([]); return; }
+    appel(`/api/etudiants/horaire-plages?section=${encodeURIComponent(sectionVue)}`).then(j => setPlages(j.plages || [])).catch(() => setPlages([]));
+  }, [sectionVue]);
+  // Les modules d'un jour (0 = lundi), en minutes.
+  const modulesDu = d => {
+    const l = plages.filter(p => p.jour === d + 1).map(p => [hm(p.debut), hm(p.fin)]);
+    return l.length ? l : plages.length ? [] : MODULES_DEFAUT;
+  };
+  // Le début de module le plus proche ; un jour sans plage garde le pas de 2 h depuis 8 h.
+  const caler = (d, m) => {
+    const l = modulesDu(d);
+    if (!l.length) return H0 * 60 + Math.round((m - H0 * 60) / MODULE) * MODULE;
+    return l.reduce((best, [a]) => (Math.abs(a - m) < Math.abs(best - m) ? a : best), l[0][0]);
+  };
 
   const choisirVue = v => {
     setVue(v); setSel(null);
@@ -104,12 +129,13 @@ export default function HoraireSemaine() {
       if (geste.type === 'rallonger') {
         const p = posDe(e.clientX, e.clientY);
         if (!p) return;
-        const fin = Math.max(hm(geste.seance.heure_debut) + 15, Math.min(H1 * 60, p.m));
+        const d0 = hm(geste.seance.heure_debut);
+        const fin = Math.min(H1 * 60, d0 + Math.max(1, Math.round((p.m - d0) / MODULE)) * MODULE);
         courant = { id: geste.seance.id, d: geste.d, debut: hm(geste.seance.heure_debut), fin };
       } else {
         const p = posDe(e.clientX, e.clientY - geste.decalY);
         if (!p) return;
-        const debut = borne(p.m, geste.long);
+        const debut = borne(caler(p.d, p.m), geste.long);
         courant = { id: geste.seance?.id, groupe: geste.groupe, d: p.d, debut, fin: debut + geste.long };
       }
       setGlisse(courant);
@@ -191,39 +217,72 @@ export default function HoraireSemaine() {
               </div>
             ))}
             <div className="relative" style={{ height: hauteur }}>
-              {Array.from({ length: H1 - H0 }, (_, i) => (
-                <div key={i} className="absolute right-1 text-[10px] text-slate-400" style={{ top: i * 4 * PX - 6 }}>{H0 + i}h</div>
+              {[...new Set(jours.flatMap((_, d) => modulesDu(d).flat()))].sort((a, b) => a - b).map(m => (
+                <div key={m} className="absolute right-1 text-[10px] text-slate-400" style={{ top: (m - H0 * 60) / 15 * PX - 6 }}>{etiquette(m)}</div>
               ))}
             </div>
             {jours.map((j, d) => (
               <div key={j.date} data-jour={d} className="relative border-l border-slate-200" style={{ height: hauteur }}>
-                {Array.from({ length: H1 - H0 }, (_, i) => (
-                  <div key={i} className="absolute left-0 right-0 border-t border-dashed border-slate-100" style={{ top: i * 4 * PX }} />
+                {modulesDu(d).map(([a, b]) => (
+                  <div key={a} className="absolute left-0 right-0 border-t border-b border-slate-200 bg-slate-50/60"
+                    style={{ top: (a - H0 * 60) / 15 * PX, height: (b - a) / 15 * PX }} />
                 ))}
                 {j.ferie && (
                   <div className="absolute inset-0 flex items-center justify-center text-slate-300 text-[13px] pointer-events-none"
                     style={{ background: 'repeating-linear-gradient(45deg, transparent 0 8px, rgba(27,43,75,.05) 8px 16px)' }}>Férié</div>
                 )}
-                {seances.filter(s => s.date === j.date).map(s => {
+                {(() => {
+                  /* LES SÉANCES EN PARALLÈLE SE PARTAGENT LA LARGEUR (Charles, 9 octobre
+                     2026 : « des blocs de hauteur fixe, quitte à en avoir trois côte à
+                     côte » — comme dans la simulation). Les séances qui se chevauchent
+                     forment un paquet : trois par ligne au plus, les suivantes dessous,
+                     dans la hauteur du paquet. Seule, une séance garde tout son détail ;
+                     en paquet, le numéro du cours et la pastille du groupe, le reste au survol. */
+                  const duJour = seances.filter(x => x.date === j.date).sort((x, y) => hm(x.heure_debut) - hm(y.heure_debut) || String(x.cours_code).localeCompare(String(y.cours_code)));
+                  const place = new Map();
+                  for (let i = 0; i < duJour.length;) {
+                    let fin = hm(duJour[i].heure_fin), k = i + 1;
+                    while (k < duJour.length && hm(duJour[k].heure_debut) < fin) { fin = Math.max(fin, hm(duJour[k].heure_fin)); k++; }
+                    const paquet = duJour.slice(i, k), debutP = hm(duJour[i].heure_debut);
+                    const cols = Math.min(3, paquet.length), lignes = Math.ceil(paquet.length / cols);
+                    paquet.forEach((x, n) => place.set(x.id, { debut: debutP, fin, col: n % cols, cols, ligne: Math.floor(n / cols), lignes, seul: paquet.length === 1 }));
+                    i = k;
+                  }
+                  return duJour.map(s => {
                   const g = glisse && glisse.id === s.id ? glisse : null;
                   if (g && g.d !== d) return null;
+                  const pl = place.get(s.id);
+                  const seul = g || pl.seul;
                   const debut = g ? g.debut : hm(s.heure_debut), fin = g ? g.fin : hm(s.heure_fin);
+                  const hP = (pl.fin - pl.debut) / 15 * PX;
+                  const pos = seul ? { top: (debut - H0 * 60) / 15 * PX, height: (fin - debut) / 15 * PX - 2, left: 3, width: 'calc(100% - 6px)' }
+                    : { top: (pl.debut - H0 * 60) / 15 * PX + pl.ligne * hP / pl.lignes, height: hP / pl.lignes - 2,
+                      left: `calc(${pl.col * 100 / pl.cols}% + 2px)`, width: `calc(${100 / pl.cols}% - 4px)` };
                   const c = s.annule ? '#9AA3B2' : teinte(s.cours_code);
+                  const gr = s.sous_groupe || (s.groupe_nom && s.groupe_nom !== 'A' ? s.groupe_nom : null);
+                  const pastille = gr && <span className="flex-none inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-[5px] bg-white text-[10.5px] font-bold text-[#1B2B4B]"
+                    style={{ border: `1.5px solid ${c}` }}>{gr}</span>;
+                  const detail = `${s.cours_code} ${s.cours_nom || s.matiere || ''}\n${s.annule ? 'Annulée' : nomProf(s)}${gr ? ` · groupe ${gr}` : ''}\n${s.local_texte || 'local à préciser'} · ${lisible(deHm(debut))}–${lisible(deHm(fin))}`;
                   return (
                     <div key={s.id} onPointerDown={ev => commencer(ev, { seance: s, decalY: ev.clientY - ev.currentTarget.getBoundingClientRect().top, long: hm(s.heure_fin) - hm(s.heure_debut) })}
-                      title={s.conflits?.length ? `Conflit : ${s.conflits.map(x => RAISONS[x]).join(', ')}` : undefined}
-                      className={`absolute left-[3px] right-[3px] overflow-hidden rounded-r-[8px] px-1.5 py-1 text-[11px] leading-tight ${peutEcrire ? 'cursor-grab' : 'cursor-pointer'} ${g ? 'opacity-80 z-10' : ''}`}
-                      style={{ top: (debut - H0 * 60) / 15 * PX, height: (fin - debut) / 15 * PX - 2,
+                      title={s.conflits?.length ? `${detail}\nConflit : ${s.conflits.map(x => RAISONS[x]).join(', ')}` : detail}
+                      className={`absolute overflow-hidden rounded-r-[8px] px-1.5 py-1 text-[11px] leading-tight ${peutEcrire ? 'cursor-grab' : 'cursor-pointer'} ${g ? 'opacity-80 z-10' : ''}`}
+                      style={{ ...pos,
                         ...(s.annule ? { borderLeft: `4px solid ${c}`, background: 'repeating-linear-gradient(45deg,#F4F5F7 0 6px,#fff 6px 12px)' } : styleTuileCours(s.cours_code)),
                         outline: s.conflits?.length ? '2px solid var(--c-refuse)' : 'none', outlineOffset: -2 }}>
-                      <div className={`font-semibold truncate ${s.annule ? 'line-through text-slate-400' : 'text-[#1B2B4B]'}`}>{s.cours_code} {s.cours_nom || s.matiere || ''}</div>
-                      <div className="truncate text-slate-600">{s.annule ? 'Annulée' : nomProf(s)}{s.sous_groupe ? ` · gr. ${s.sous_groupe}` : s.groupe_nom && s.groupe_nom !== 'A' ? ` · gr. ${s.groupe_nom}` : ''}</div>
-                      <div className="truncate text-slate-500">{s.local_texte || 'local à préciser'} · {lisible(deHm(debut))}–{lisible(deHm(fin))}</div>
+                      {seul ? <>
+                        <div className={`font-semibold truncate flex items-center gap-1.5 ${s.annule ? 'line-through text-slate-400' : 'text-[#1B2B4B]'}`}>
+                          <span className="truncate">{s.cours_code} {s.cours_nom || s.matiere || ''}</span>{pastille}</div>
+                        <div className="truncate text-slate-600">{s.annule ? 'Annulée' : nomProf(s)}</div>
+                        <div className="truncate text-slate-500">{s.local_texte || 'local à préciser'} · {lisible(deHm(debut))}–{lisible(deHm(fin))}</div>
+                      </> : <div className="flex flex-col items-start justify-center gap-0.5 h-full">
+                        <span className={`font-bold text-[12px] truncate max-w-full ${s.annule ? 'line-through text-slate-400' : 'text-[#1B2B4B]'}`}>{s.cours_code}</span>{pastille}</div>}
                       {peutEcrire && <div onPointerDown={ev => { ev.stopPropagation(); commencer(ev, { type: 'rallonger', seance: s, d }); }}
                         className="absolute left-0 right-0 bottom-0 h-1.5 cursor-ns-resize" />}
                     </div>
                   );
-                })}
+                  });
+                })()}
                 {glisse?.groupe && glisse.d === d && (
                   <div className="absolute left-[3px] right-[3px] rounded-r-[8px] px-1.5 py-1 text-[11px] opacity-80 z-10"
                     style={{ top: (glisse.debut - H0 * 60) / 15 * PX, height: (glisse.fin - glisse.debut) / 15 * PX - 2,
@@ -300,7 +359,8 @@ export default function HoraireSemaine() {
               <span className="text-[11px] text-slate-500">Durée</span>
               <select className="controle w-full" disabled={!peutEcrire}
                 value={sel._duree ?? (hm(sel.heure_fin) - hm(sel.heure_debut))} onChange={e => setSel({ ...sel, _duree: Number(e.target.value) })}>
-                {[30, 45, 60, 90, 120, 150, 180, 240].map(m => <option key={m} value={m}>{Math.floor(m / 60)} h{m % 60 ? String(m % 60).padStart(2, '0') : ''}</option>)}
+                {[...new Set([MODULE, 2 * MODULE, 3 * MODULE, hm(sel.heure_fin) - hm(sel.heure_debut)])].sort((a, b) => a - b)
+                  .map(m => <option key={m} value={m}>{Math.floor(m / 60)} h{m % 60 ? String(m % 60).padStart(2, '0') : ''}{m % MODULE ? ' (hors module)' : ` — ${m / MODULE} module${m > MODULE ? 's' : ''}`}</option>)}
               </select>
             </label>
             <label className="flex items-center gap-2">
