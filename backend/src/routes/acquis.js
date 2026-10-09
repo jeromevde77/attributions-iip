@@ -2001,14 +2001,13 @@ export function documentMotivation(etudId, ueNum, annee, session = 1) {
       local ${visite.local ? `<b>${esc2(visite.local)}</b>` : '…………'}</div>`}
   </div>
 
-  <!-- UN PROCÈS-VERBAL SE SIGNE À LA MAIN.
-       Le fac-similé de la direction s'apposait ici dès que le président était
-       le titulaire déclaré. Or un PV est signé EN SÉANCE, par les membres
-       présents et par la direction : une signature pré-imprimée sur une pièce
-       que personne n'a encore signée fait croire que la séance a eu lieu comme
-       elle est décrite. L'image reste sur les ATTESTATIONS, qui partent par
-       voie numérique à l'étudiant et qu'aucune main ne signera. -->
-  <div class="cloture sans-paraphe">
+  <!-- LES ANNEXES 8 ET 9 SONT SIGNÉES (Charles, 9 octobre 2026 : « il n'y a pas
+       ma signature »). Elles avaient été rangées avec le procès-verbal, qui se
+       signe à la main en séance ; mais ce ne sont pas des PV : elles partent à
+       l'étudiant, souvent par voie numérique, et aucune main ne les signera —
+       comme les attestations. Le Directeur les signe toujours : son paraphe y
+       figure, protégé par les vagues de micro-texte. -->
+  <div class="cloture">
     <div class="sceau"></div>
     <div class="paraphe"></div>
     <div class="lieu">Fait à ${esc2(ident.ville || 'Anderlecht')},
