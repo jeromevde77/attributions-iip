@@ -15,6 +15,7 @@ import { passeRole } from '../lib/droits.js';
  * Le moteur est lib/groupesCommuns.js. Les boutons sont en haut.
  */
 const BLOCS = ['BA1', 'BA2', 'BA3'];
+const cleG = g => `${g.num_organisation}|${g.groupe || ''}`;
 const pgcd = (a, b) => (b ? pgcd(b, a % b) : a);
 const ppcm = l => l.filter(n => n > 1).reduce((a, b) => a / pgcd(a, b) * b, 1);
 
@@ -40,11 +41,16 @@ export default function GroupesCommuns() {
     const j = await r.json();
     if (!r.ok) { setErreur(j.error); setC(null); return; }
     setC(j); setBriques(j.briques || {}); setModifie(false);
-    setReglages(Object.fromEntries(j.activites.map(a => [`${a.cours_code}#${a.activite_id}`, { nb_groupes: a.nb_groupes, quadri: a.quadri, inclus: a.inclus }])));
+    setReglages(Object.fromEntries(j.activites.map(a => [`${a.cours_code}#${a.activite_id}`, { nb_groupes: a.nb_groupes, quadri: a.quadri, inclus: a.inclus, ordre: a.groupes.map(cleG) }])));
   };
   useEffect(() => { charger(); }, [section, bloc]);   // eslint-disable-line react-hooks/exhaustive-deps
 
-  const acts = useMemo(() => (c?.activites || []).map(a => ({ ...a, ...reglages[`${a.cours_code}#${a.activite_id}`] })), [c, reglages]);
+  const acts = useMemo(() => (c?.activites || []).map(a => {
+    const r = reglages[`${a.cours_code}#${a.activite_id}`] || {};
+    const parCle = new Map(a.groupes.map(g => [cleG(g), g]));
+    const groupes = (r.ordre || []).map(k => parCle.get(k)).filter(Boolean);
+    return { ...a, ...r, groupes: groupes.length === a.groupes.length ? groupes : a.groupes };
+  }), [c, reglages]);
   const B = useMemo(() => ppcm(acts.filter(a => a.inclus).map(a => Number(a.nb_groupes) || 1)), [acts]);
   const regler = (a, k, v) => { setReglages(r => ({ ...r, [`${a.cours_code}#${a.activite_id}`]: { ...r[`${a.cours_code}#${a.activite_id}`], [k]: v } })); setModifie(true); setSimu(null); };
   const parBrique = useMemo(() => {
@@ -58,7 +64,7 @@ export default function GroupesCommuns() {
   async function enregistrer() {
     const r = await fetch('/api/etudiants/repartition-cours/communs', { method: 'PUT', headers: authHeaders(),
       body: JSON.stringify({ section, bloc, annee, briques,
-        reglages: acts.map(a => ({ cours_code: a.cours_code, activite_id: a.activite_id, nb_groupes: Number(a.nb_groupes), quadri: a.quadri, inclus: a.inclus })) }) });
+        reglages: acts.map(a => ({ cours_code: a.cours_code, activite_id: a.activite_id, nb_groupes: Number(a.nb_groupes), quadri: a.quadri, inclus: a.inclus, ordre: a.groupes.map(cleG) })) }) });
     const j = await r.json();
     if (!r.ok) { informer(j.error || 'Enregistrement refusé.'); return false; }
     setC(j); setModifie(false); return true;
@@ -132,23 +138,18 @@ export default function GroupesCommuns() {
           <table className="w-full text-[12.5px]">
             <thead><tr className="tab-entete text-left">
               <th className="px-3 py-1.5">Dans les briques</th><th className="px-3 py-1.5">Cours · activité</th>
-              <th className="px-3 py-1.5">Groupes en attribution</th><th className="px-3 py-1.5">Découpage</th>
+              <th className="px-3 py-1.5">Groupes en attribution</th><th className="px-3 py-1.5">Découpage (attributions)</th>
               <th className="px-3 py-1.5">Quadrimestre</th><th className="px-3 py-1.5">Un groupe =</th></tr></thead>
             <tbody>
               {acts.map(a => {
                 const n = Number(a.nb_groupes) || 1;
-                const ecart = a.inclus && n !== a.groupes.length;
                 const tombe = !a.inclus || B % n === 0;
                 return (
                   <tr key={`${a.cours_code}#${a.activite_id}`} className={`border-t border-slate-100 ${a.inclus ? '' : 'text-slate-400'}`}>
                     <td className="px-3 py-1"><input type="checkbox" checked={!!a.inclus} disabled={!peutEcrire} onChange={e => regler(a, 'inclus', e.target.checked)} /></td>
                     <td className="px-3 py-1"><b>{a.cours_code}</b> {a.activite || a.cours_nom}<span className="text-slate-400"> · UE {a.ue_num}</span></td>
                     <td className="px-3 py-1">{a.groupes.length} <span className="text-slate-400">({a.groupes.map(g => g.groupe).join(' ')})</span></td>
-                    <td className="px-3 py-1">
-                      <input type="number" min="1" max="48" value={a.nb_groupes} disabled={!peutEcrire}
-                        onChange={e => regler(a, 'nb_groupes', Math.max(1, Math.min(48, Number(e.target.value) || 1)))} className="controle w-20" />
-                      {ecart && <span className="ml-2 text-[11.5px]" style={{ color: 'var(--c-attente)' }}>≠ attributions</span>}
-                    </td>
+                    <td className="px-3 py-1" title="Cette année, le nombre de groupes est celui des attributions">{n} groupes</td>
                     <td className="px-3 py-1">
                       <select value={a.quadri} disabled={!peutEcrire} onChange={e => regler(a, 'quadri', e.target.value)} className="controle">
                         <option value="AN">Toute l’année</option><option value="Q1">Q1</option><option value="Q2">Q2</option></select>
@@ -160,6 +161,12 @@ export default function GroupesCommuns() {
             </tbody>
           </table>
         </div>)}
+
+      {c && B > 1 && <PlanGroupes acts={acts.filter(a => a.inclus && B % a.nb_groupes === 0)} B={B} peutEcrire={peutEcrire}
+        onEchanger={(a, i, j) => {
+          const ordre = a.groupes.map(cleG); [ordre[i], ordre[j]] = [ordre[j], ordre[i]];
+          regler(a, 'ordre', ordre);
+        }} />}
 
       {c && (
         <div className="space-y-2">
@@ -195,5 +202,56 @@ function Puce({ e, nom, disp, onGlisse, ues }) {
       className="text-[11.5px] px-1.5 py-0.5 rounded border border-slate-200 bg-white cursor-grab hover:border-[var(--c-disponible)] whitespace-nowrap">
       {nom}{d ? <span className="text-slate-400"> · D</span> : ''}
     </span>
+  );
+}
+
+/**
+ * LE PLAN DES GROUPES : une ligne par TP, les briques en colonnes, chaque groupe
+ * est une barre sur les briques qu'il couvre. Ce qui est aligné verticalement
+ * partage les mêmes étudiants ; on glisse une barre sur une autre de sa ligne
+ * pour les échanger — c'est ainsi qu'on LIE 252.2 C à 250.1 B. Le survol d'une
+ * barre éclaire ses briques sur toutes les lignes : on voit qui est à cheval.
+ */
+function PlanGroupes({ acts, B, peutEcrire, onEchanger }) {
+  const [prise, setPrise] = useState(null);     // { cle, i }
+  const [survol, setSurvol] = useState(null);   // [debut, fin] en briques
+  if (!acts.length) return null;
+  const col = `minmax(18px, 1fr)`;
+  return (
+    <div className="carte p-3 space-y-1.5 overflow-x-auto">
+      <div className="flex items-baseline gap-2 flex-wrap">
+        <b className="text-[13px]">Plan des groupes</b>
+        <span className="text-[12px] text-slate-500">Les groupes alignés partagent les mêmes étudiants. Glissez une barre sur une autre de sa ligne pour les échanger, et lier ainsi un groupe à ceux des autres cours.</span>
+      </div>
+      <div className="grid gap-y-1 min-w-[760px]" style={{ gridTemplateColumns: `minmax(220px, 260px) repeat(${B}, ${col})` }}>
+        <div />
+        {Array.from({ length: B }, (_, k) => (
+          <div key={k} className={`text-center text-[10px] ${survol && k + 1 >= survol[0] && k + 1 <= survol[1] ? 'text-[color:var(--c-disponible)] font-bold' : 'text-slate-400'}`}>{k + 1}</div>))}
+        {acts.map(a => {
+          const cle = `${a.cours_code}#${a.activite_id}`;
+          const larg = B / a.nb_groupes;
+          return [
+            <div key={cle + 'l'} className="text-[11.5px] pr-2 truncate self-center" title={`${a.cours_code} ${a.activite || ''}`}>
+              <b>{a.cours_code}</b> {a.activite || ''}</div>,
+            ...a.groupes.map((g, i) => {
+              const debut = i * larg + 1, fin = (i + 1) * larg;
+              const eclaire = survol && !(fin < survol[0] || debut > survol[1]);
+              return (
+                <div key={cle + i} style={{ gridColumn: `${debut + 1} / span ${larg}` }}
+                  draggable={peutEcrire} onDragStart={() => setPrise({ cle, i })}
+                  onDragOver={e => { if (prise?.cle === cle) e.preventDefault(); }}
+                  onDrop={() => { if (prise?.cle === cle && prise.i !== i) onEchanger(a, prise.i, i); setPrise(null); }}
+                  onMouseEnter={() => setSurvol([debut, fin])} onMouseLeave={() => setSurvol(null)}
+                  title={`${a.cours_code} · groupe ${g.groupe || ''} — briques ${debut} à ${fin}`}
+                  className={`mx-[1px] h-7 rounded-[6px] border text-[11.5px] font-semibold flex items-center justify-center select-none
+                    ${peutEcrire ? 'cursor-grab' : ''} ${eclaire ? 'bg-[color-mix(in_srgb,var(--c-disponible)_18%,white)] border-[var(--c-disponible)]' : 'bg-white border-slate-300'}
+                    ${prise?.cle === cle && prise.i === i ? 'opacity-50' : ''}`}>
+                  {g.groupe || `Org ${g.num_organisation}`}
+                </div>);
+            }),
+          ];
+        })}
+      </div>
+    </div>
   );
 }

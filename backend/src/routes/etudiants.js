@@ -1479,9 +1479,9 @@ r.get('/repartition-cours/communs', authRequired, (req, res) => {
 r.put('/repartition-cours/communs', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
   const c = lireCohorte(req, res); if (!c) return;
   const par = req.user?.email || null;
-  const reg = db.prepare(`INSERT INTO groupe_commun_reglage (annee_scolaire, section, bloc, cours_code, activite_id, nb_groupes, quadri, inclus, maj_par)
-    VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(annee_scolaire, section, bloc, cours_code, activite_id) DO UPDATE SET
-    nb_groupes = excluded.nb_groupes, quadri = excluded.quadri, inclus = excluded.inclus, maj_par = excluded.maj_par, maj_le = datetime('now')`);
+  const reg = db.prepare(`INSERT INTO groupe_commun_reglage (annee_scolaire, section, bloc, cours_code, activite_id, nb_groupes, quadri, inclus, ordre, maj_par)
+    VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT(annee_scolaire, section, bloc, cours_code, activite_id) DO UPDATE SET
+    nb_groupes = excluded.nb_groupes, quadri = excluded.quadri, inclus = excluded.inclus, ordre = excluded.ordre, maj_par = excluded.maj_par, maj_le = datetime('now')`);
   const bri = db.prepare(`INSERT INTO groupe_commun_brique (annee_scolaire, section, bloc, etudiant_id, brique, maj_par)
     VALUES (?,?,?,?,?,?) ON CONFLICT(annee_scolaire, section, bloc, etudiant_id) DO UPDATE SET
     brique = excluded.brique, maj_par = excluded.maj_par, maj_le = datetime('now')`);
@@ -1491,7 +1491,8 @@ r.put('/repartition-cours/communs', authRequired, roleRequired(...PEUT_INSTRUIRE
     for (const x of (req.body?.reglages || [])) {
       if (!actifs.has(`${x.cours_code}#${Number(x.activite_id) || 0}`)) continue;
       reg.run(c.annee, c.section, c.bloc, x.cours_code, Number(x.activite_id) || 0,
-        Math.max(1, Math.min(48, Number(x.nb_groupes) || 1)), ['Q1', 'Q2', 'AN'].includes(x.quadri) ? x.quadri : 'AN', x.inclus === false ? 0 : 1, par);
+        Math.max(1, Math.min(48, Number(x.nb_groupes) || 1)), ['Q1', 'Q2', 'AN'].includes(x.quadri) ? x.quadri : 'AN', x.inclus === false ? 0 : 1,
+        Array.isArray(x.ordre) ? JSON.stringify(x.ordre.map(String).slice(0, 48)) : null, par);
     }
     if (req.body?.briques) {
       db.prepare('DELETE FROM groupe_commun_brique WHERE annee_scolaire = ? AND section = ? AND bloc = ?').run(c.annee, c.section, c.bloc);
