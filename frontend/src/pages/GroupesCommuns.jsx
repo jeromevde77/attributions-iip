@@ -165,6 +165,8 @@ export default function GroupesCommuns() {
           </table>
         </div>)}
 
+      {c && <SimulationAnnee section={section} bloc={bloc} annee={annee} peutEcrire={peutEcrire} />}
+
       {c && B > 1 && <PlanGroupes acts={acts.filter(a => a.inclus && B % a.nb_groupes === 0)} B={B} peutEcrire={peutEcrire}
         onEchanger={(a, i, j) => {
           const ordre = a.groupes.map(cleG); [ordre[i], ordre[j]] = [ordre[j], ordre[i]];
@@ -255,6 +257,128 @@ function PlanGroupes({ acts, B, peutEcrire, onEchanger }) {
           ];
         })}
       </div>
+    </div>
+  );
+}
+
+/**
+ * LA SIMULATION DE L'ANNÉE (lib/simulationHoraire.js) : les plages de la
+ * section (réglables), la capacité, ce qui est placé et ce qui reste, et la
+ * semaine de son choix en grille. Rien ne s'écrit dans l'horaire.
+ */
+const NOMS_JOURS = ['', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
+  const [plages, setPlages] = useState(null);
+  const [texte, setTexte] = useState({});
+  const [sim, setSim] = useState(null);
+  const [enCours, setEnCours] = useState(false);
+  const [semaine, setSemaine] = useState(1);
+  const [erreur, setErreur] = useState(null);
+  useEffect(() => {
+    setSim(null);
+    fetch(`/api/etudiants/horaire-plages?section=${encodeURIComponent(section)}`, { headers: authHeaders() }).then(r => r.json())
+      .then(j => { setPlages(j.plages || []); const t = {}; for (let d = 1; d <= 6; d++) t[d] = (j.plages || []).filter(p => p.jour === d).map(p => `${p.debut}-${p.fin}`).join(', '); setTexte(t); })
+      .catch(() => setPlages([]));
+  }, [section]);
+  async function enregistrerPlages() {
+    const liste = [];
+    for (const [j, v] of Object.entries(texte)) for (const m of String(v || '').split(',').map(x => x.trim()).filter(Boolean)) {
+      const r = /^(\d{1,2})[:h](\d{2})\s*-\s*(\d{1,2})[:h](\d{2})$/.exec(m);
+      if (r) liste.push({ jour: Number(j), debut: `${r[1].padStart(2, '0')}:${r[2]}`, fin: `${r[3].padStart(2, '0')}:${r[4]}` });
+    }
+    const r = await fetch('/api/etudiants/horaire-plages', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ section, plages: liste }) });
+    const j = await r.json();
+    if (!r.ok) { setErreur(j.error); return; }
+    setPlages(j.plages); setSim(null);
+  }
+  async function simuler() {
+    setEnCours(true); setErreur(null);
+    try {
+      const r = await fetch(`/api/etudiants/repartition-cours/communs/simulation?section=${encodeURIComponent(section)}&bloc=${bloc}&annee=${encodeURIComponent(annee)}`, { headers: authHeaders() });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
+      setSim(j); setSemaine(1);
+    } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
+  }
+  const creneauxSemaine = useMemo(() => (sim?.seances || []).filter(s => s.semaine === semaine), [sim, semaine]);
+  const heures = [...new Set((plages || []).map(p => `${p.debut}-${p.fin}`))].sort();
+  const jours = [...new Set((plages || []).map(p => p.jour))].sort();
+  const datesSemaine = useMemo(() => Object.fromEntries(creneauxSemaine.map(s => [s.jour, s.date])), [creneauxSemaine]);
+
+  return (
+    <div className="carte p-3 space-y-3">
+      <div className="flex items-center gap-3 flex-wrap">
+        <b className="text-[13px]">Simulation de l’année — {section} · {bloc}</b>
+        <span className="text-[12px] text-slate-500">Semaines de cours du calendrier, congés et fériés déduits ; périodes attribuées (50 min) ; une brique et un enseignant jamais à deux endroits à la fois. Rien ne s’écrit dans l’horaire.</span>
+        <span className="flex-1" />
+        <button className="bouton bouton-fort" onClick={simuler} disabled={enCours || !plages?.length}>{enCours ? 'Simulation…' : 'Simuler l’année'}</button>
+      </div>
+      {erreur && <div className="text-[12.5px]" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
+
+      <details className="text-[12.5px]">
+        <summary className="cursor-pointer text-slate-600">Plages horaires de {section} ({(plages || []).length} tranche(s) par semaine)</summary>
+        <div className="mt-2 grid gap-1.5 max-w-[640px]">
+          {[1, 2, 3, 4, 5, 6].map(d => (
+            <label key={d} className="flex items-center gap-2">
+              <span className="w-20">{NOMS_JOURS[d]}</span>
+              <input value={texte[d] || ''} disabled={!peutEcrire} onChange={e => setTexte(t => ({ ...t, [d]: e.target.value }))}
+                placeholder="aucune — ex. 15:30-17:30, 17:30-19:30" className="controle flex-1" data-reponses="non" />
+            </label>))}
+          {peutEcrire && <div><button className="bouton" onClick={enregistrerPlages}>Enregistrer les plages</button></div>}
+        </div>
+      </details>
+
+      {sim && <>
+        <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))' }}>
+          {[[sim.nb_semaines, 'semaines de cours'], [sim.creneaux, 'créneaux disponibles'], [`${sim.heures_disponibles} h`, 'disponibles par étudiant'],
+            [`${sim.heures_demandees_min}–${sim.heures_demandees_max} h`, 'demandées par brique'], [`${sim.nb_seances}`, 'séances placées'],
+            [sim.restes.length ? `${sim.restes.reduce((t, r) => t + r.manque, 0)}` : '0', sim.restes.length ? 'séances sans place' : 'tout est placé']].map(([v, l]) => (
+            <div key={l} className="bloc-etat px-3 py-2" data-etat={l === 'séances sans place' ? 'corriger' : 'neutre'}>
+              <div className="text-[17px] font-bold">{v}</div><div className="text-[11.5px] text-slate-500">{l}</div></div>))}
+        </div>
+        {sim.restes.length > 0 && (
+          <div className="space-y-1">
+            {sim.restes.map(r => <div key={r.cle} className="text-[12.5px] flex gap-1.5" style={{ color: 'var(--c-refuse)' }}>
+              <IconAlertTriangle size={14} className="mt-0.5 flex-none" /><span><b>{r.cours_code}</b> {r.activite} · {r.groupe} — {r.manque} séance(s) sans place : {r.raison}{r.professeur ? ` (${r.professeur})` : ''}</span></div>)}
+          </div>)}
+        <div className="flex items-center gap-2">
+          <button className="bouton px-2" disabled={semaine <= 1} onClick={() => setSemaine(s => s - 1)}>◀</button>
+          <select value={semaine} onChange={e => setSemaine(Number(e.target.value))} className="controle">
+            {Array.from({ length: sim.nb_semaines }, (_, i) => i + 1).map(w => <option key={w} value={w}>Semaine {w}</option>)}
+          </select>
+          <button className="bouton px-2" disabled={semaine >= sim.nb_semaines} onClick={() => setSemaine(s => s + 1)}>▶</button>
+          <span className="text-[12px] text-slate-500">{creneauxSemaine.length} séance(s) cette semaine</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-[11.5px] border-collapse min-w-[860px]">
+            <thead><tr className="tab-entete">
+              <th className="px-2 py-1 w-24 text-left">Plage</th>
+              {jours.map(j => <th key={j} className="px-2 py-1 text-left">{NOMS_JOURS[j]}{datesSemaine[j] ? <span className="font-normal text-slate-500"> {datesSemaine[j].slice(8, 10)}/{datesSemaine[j].slice(5, 7)}</span> : ''}</th>)}
+            </tr></thead>
+            <tbody>
+              {heures.map(h => (
+                <tr key={h} className="border-t border-slate-200 align-top">
+                  <td className="px-2 py-1 font-semibold whitespace-nowrap">{h.replace('-', ' – ')}</td>
+                  {jours.map(j => {
+                    const ici = creneauxSemaine.filter(s => s.jour === j && `${s.debut}-${s.fin}` === h);
+                    const existe = (plages || []).some(p => p.jour === j && `${p.debut}-${p.fin}` === h);
+                    return (
+                      <td key={j} className={`px-1 py-1 border-l border-slate-100 ${existe ? '' : 'bg-slate-50'}`}>
+                        <div className="flex flex-col gap-0.5">
+                          {ici.map((s, i) => (
+                            <span key={i} className="rounded px-1.5 py-0.5 border" title={`${s.cours_code} ${s.activite || ''} — groupe ${s.groupe}${s.professeur ? ` — ${s.professeur}` : ''}\nBriques ${s.tout_le_bloc ? 'toutes' : s.briques.join(', ')}`}
+                              style={{ borderColor: s.tout_le_bloc ? 'var(--c-fort, #16406A)' : '#CBD5E1', background: s.tout_le_bloc ? '#EEF3F9' : '#fff' }}>
+                              <b>{s.cours_code}</b> {s.groupe !== 'Tous' && s.groupe !== 'Ts' ? `· ${s.groupe}` : '· tous'}
+                              <span className="text-slate-500"> {String(s.activite || '').replace(/\s*\((TP|TH)\)\s*$/i, '').slice(0, 22)}</span>
+                            </span>))}
+                        </div>
+                      </td>);
+                  })}
+                </tr>))}
+            </tbody>
+          </table>
+        </div>
+      </>}
     </div>
   );
 }
