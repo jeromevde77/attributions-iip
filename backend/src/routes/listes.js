@@ -15,6 +15,7 @@ import db from '../db/index.js';
 import { authRequired, getUserSections, soiSeul } from '../middleware/auth.js';
 import { niveauEtudiant, sectionRattachement } from './etudiants.js';
 import { POURCENTAGE_DISPENSE, vaRetenue } from '../lib/valorisation.js';
+import { dispensesDeLUE } from '../lib/dispenses.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 
 const r = Router();
@@ -201,12 +202,18 @@ r.get('/etudiants', authRequired, (req, res) => {
     const nonDisp = [];
     const dispenses = [];
     // VA de l'année sur l'unité (décision non refusée) : 10/20 conventionnels.
+    /* LA DISPENSE SE LIT AU BON NIVEAU (Charles, 9 octobre 2026, cas Dethier) :
+       toute valorisation de l'unité rangeait l'étudiant parmi les dispensés,
+       PARTIELLE comprise — dispensé du seul 250.3, il disparaissait de la liste
+       de 250.1, qu'il doit suivre. Une liste par UNITÉ ne retire que la
+       dispense de l'unité entière ; une liste par COURS retire aussi la
+       dispense de ce cours (VAP, report). La dispense partielle se dit en
+       regard du nom (lib/dispenses.js). */
     const noteVA = `${Math.round(20 * (POURCENTAGE_DISPENSE / 100))}/20`;
-    const vas = new Set(db.prepare(`
-      SELECT etudiant_id FROM etudiant_valorisation
-      WHERE annee_scolaire = ? AND ue_num = ?
-        AND ${vaRetenue()}`).all(annee, ueNum)
-      .map(x => x.etudiant_id));
+    const disp = dispensesDeLUE(ueNum, annee);
+    const vas = new Set([...disp].filter(([, d]) => d.ue).map(([id]) => id));
+    const dispCours = new Map();
+    if (cours_code) for (const [id, d] of disp) if (!d.ue && d.cours.has(cours_code)) dispCours.set(id, d.cours.get(cours_code));
     // Report : la réussite d'une année ANTÉRIEURE, avec sa note et son année.
     const reports = new Map();
     for (const x of db.prepare(`
@@ -216,14 +223,21 @@ r.get('/etudiants', authRequired, (req, res) => {
       if (!reports.has(x.etudiant_id)) reports.set(x.etudiant_id, x);
     }
     for (const x of lignes) {
+      const d = disp.get(x.id);
       if (vas.has(x.id)) {
-        dispenses.push({ ...x, statut: `Dispensé — VA (${noteVA})`, resultat: '', points: null });
+        dispenses.push({ ...x, statut: `Dispensé — ${d.ue} (${noteVA})`, resultat: '', points: null });
+      } else if (dispCours.has(x.id)) {
+        dispenses.push({ ...x, statut: `Dispensé du cours — ${dispCours.get(x.id)}`, resultat: '', points: null });
       } else if (reports.has(x.id)) {
         const r0 = reports.get(x.id);
         dispenses.push({ ...x,
           statut: `Dispensé — report ${r0.annee_scolaire}${r0.points != null ? ` (${r0.points}/20)` : ''}`,
           resultat: '', points: null });
-      } else nonDisp.push(x);
+      } else {
+        // Une dispense partielle d'autres cours se dit, sans retirer l'étudiant.
+        const autres = d && !d.ue ? [...d.cours].filter(([c]) => c !== cours_code) : [];
+        nonDisp.push(autres.length ? { ...x, statut: `Inscrit — dispensé de ${autres.map(([c, l]) => `${c} (${l})`).join(', ')}` } : x);
+      }
     }
     // Ceux qui ont l'unité par VA ou report SANS y être inscrits cette année :
     // ils appartiennent aussi à la liste des dispensés, s'ils sont de l'année.

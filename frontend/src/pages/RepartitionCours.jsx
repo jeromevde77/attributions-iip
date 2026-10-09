@@ -168,8 +168,15 @@ export default function RepartitionCours() {
   const coursAvecGroupes = useMemo(
     () => (data?.cours || []).filter(c => !c.sans_groupe), [data]);
 
+  /* LES DISPENSES (Charles, 9 octobre 2026, cas Dethier) : dispensé d'un
+     cours (VAP, report) ou de l'unité (VA), l'étudiant n'a pas de groupe à y
+     recevoir. La case se grise et dit pourquoi ; rien ne s'y pose. */
+  const dispense = (e, c) => {
+    const d = data?.dispenses?.[e.id];
+    return d ? (d.ue || d.cours?.[c.cours_code] || null) : null;
+  };
   const manquants = (e) => coursAvecGroupes
-    .filter(c => !affect.has(cle(e.id, c.cle))).length;
+    .filter(c => !dispense(e, c) && !affect.has(cle(e.id, c.cle))).length;
 
   function confirmerOrg(noms, orgEtu, orgGroupe) {
     return demander(
@@ -179,6 +186,7 @@ export default function RepartitionCours() {
   }
 
   function poser(e, c, g) {
+    if (dispense(e, c)) return;
     const k = cle(e.id, c.cle);
     const actuel = affect.get(k);
     setAttente(prev => {
@@ -232,7 +240,7 @@ export default function RepartitionCours() {
         if (e.num_organisation == null) continue;
         for (const c of coursAvecGroupes) {
           const k = cle(e.id, c.cle);
-          if (affect.has(k) || n.has(k)) continue;
+          if (dispense(e, c) || affect.has(k) || n.has(k)) continue;
           const candidats = c.groupes.filter(g => g.num_organisation === e.num_organisation);
           if (candidats.length === 1) {
             n.set(k, { org: candidats[0].num_organisation, groupe: candidats[0].groupe || null });
@@ -681,7 +689,13 @@ export default function RepartitionCours() {
                         </span>
                       )}
                     </td>
-                    {(data.cours || []).map(c => c.sans_groupe ? (
+                    {(data.cours || []).map(c => dispense(e, c) ? (
+                      (c.sans_groupe ? [null] : c.groupes).map((g, gi) => (
+                        <td key={c.cle + (g ? cleGroupe(g) : '') + gi} className="text-center border-l border-dashed border-slate-100 bg-slate-50">
+                          {gi === 0 && <span title={`${e.nom} ${e.prenom} est dispensé(e) de ce cours — ${dispense(e, c)}`}
+                            className="inline-block px-1 h-[15px] rounded bg-slate-300 text-white text-[9px] font-bold leading-[15px]">D</span>}
+                        </td>))
+                    ) : c.sans_groupe ? (
                       <td key={c.cle} className="text-center border-l border-dashed border-slate-100">
                         <span title="Cours sans groupe : suivi par tous les inscrits"
                           className="inline-block w-[15px] h-[15px] rounded bg-emerald-500 text-white text-[10px] leading-[15px]">✓</span>
@@ -717,7 +731,7 @@ export default function RepartitionCours() {
                   <span className="font-normal text-slate-400"> · {data.etudiants.length} inscrit{data.etudiants.length > 1 ? 's' : ''}</span>
                 </td>
                 {(data.cours || []).map(c => c.sans_groupe ? (
-                  <td key={c.cle} className="text-center border-l border-dashed border-slate-200">{data.etudiants.length}</td>
+                  <td key={c.cle} className="text-center border-l border-dashed border-slate-200">{data.etudiants.filter(e => !dispense(e, c)).length}</td>
                 ) : c.groupes.map(g => {
                   const n = effectif(c, g);
                   const trop = c.plafond_groupe && n > c.plafond_groupe;

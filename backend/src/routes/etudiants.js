@@ -2,6 +2,7 @@
 // Lucie — Module Étudiants : base étudiants, inscriptions, résultats et PAE
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { dispensesDeLUE } from '../lib/dispenses.js';
 import { paysDe, estUnPays } from '../lib/pays.js';
 import { Router } from 'express';
 import multer from 'multer';
@@ -1522,7 +1523,13 @@ r.get('/repartition-cours/ue', authRequired, (req, res) => {
     WHERE annee_scolaire = ? AND cours_code IN (${coursRows.map(() => '?').join(',')})
   `).all(annee, ...coursRows.map(c => c.cours_code)) : [];
 
-  res.json({ ue_num: ueNum, annee, cours, etudiants, affectations });
+  /* LES DISPENSES PAR COURS (Charles, 9 octobre 2026, cas Dethier) : un
+     étudiant dispensé d'un cours (VAP, report) n'a pas de groupe à y recevoir ;
+     dispensé de l'unité (VA), d'aucun. L'écran grise la case et le dit. */
+  const disp = dispensesDeLUE(ueNum, annee);
+  const dispenses = Object.fromEntries([...disp].map(([id, d]) => [id, { ue: d.ue, cours: Object.fromEntries(d.cours) }]));
+
+  res.json({ ue_num: ueNum, annee, cours, etudiants, affectations, dispenses });
 });
 
 /* RENOMMER UN GROUPE, ET L'ATTRIBUTION SUIT (3.1.23, Charles, 4 octobre 2026 :
