@@ -523,7 +523,8 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
         body: JSON.stringify({ annee, session, etudiants: ids, motif, simulation,
                                cours_par_etudiant: coursParEtudiant || undefined,
                                decision_par_etudiant: parEtudiant?.decisions || undefined,
-                               motif_par_etudiant: parEtudiant?.motifs || undefined, mode }),
+                               motif_par_etudiant: parEtudiant?.motifs || undefined,
+                               motif_par_mention: parEtudiant?.parMention || undefined, mode }),
       });
       const j = await rep.json();
       if (!rep.ok) { setErreur(j.detail || j.error); return null; }
@@ -1483,11 +1484,18 @@ function PleinDroit({ auto, onAppliquer, onPasser, enCours }) {
  */
 const MENTIONS_LOT = ['PP', 'NP', 'CM'];
 const LIBELLE_MENTION = { PP: 'Pas présenté', NP: 'Rien produit (NP)', CM: 'Certificat médical' };
+/* Une phrase par MENTION, portée sur chaque acquis selon la sienne (Charles,
+   9 octobre 2026). « autre » : un acquis en échec sans mention (0, cote basse). */
 const MOTIF_MENTION = {
   PP: "Ne s'est pas présenté aux évaluations de l'unité.",
-  NP: "N'a pas produit de travail évaluable lors des évaluations de l'unité.",
+  NP: "S'est présenté à l'évaluation mais n'a pas répondu au questionnaire.",
   CM: "Absent aux évaluations de l'unité pour raison médicale (certificat médical).",
+  autre: 'Les réponses sont soit inexistantes, soit très partielles ou incomplètes.',
+  cours: "Acquis à représenter avec l'ensemble du cours ajourné.",
 };
+const LIBELLE_MOTIF = { PP: 'Pas présenté (PP)', NP: 'Rien produit (NP)', CM: 'Certificat médical (CM)',
+  autre: 'Autres acquis en échec (sans mention)',
+  cours: 'Acquis réussis repassés avec leur cours (« tous les acquis du cours »)' };
 /** Les mentions d'un étudiant — sur ses cours, à défaut sur ses acquis. */
 function mentionsDe(e) {
   const m = new Set();
@@ -1534,10 +1542,15 @@ function Mentions({ liste, session, enCours, onDecider, onFini, colonnesCours = 
   const nbAjourn = retenus.length - nbRefus;
   const corps = () => ({
     decisions: Object.fromEntries(retenus.map(e => [e.id, decisionDe(e)])),
-    motifs: Object.fromEntries(retenus.map(e => [e.id, mentionsDe(e).map(m => motifs[m]).filter(Boolean).join(' ')])),
+    parMention: motifs,
   });
+  // Les mentions effectivement présentes, et « autre » dès qu'un acquis échoue sans mention.
+  const presentes = [...MENTIONS_LOT.filter(m => liste.some(e => mentionsDe(e).includes(m))),
+    ...(liste.some(e => (e.acquis || []).some(a => !a.mention && !(a.evaluations || []).some(v => v.mention)
+      && (a.na || (a.note_calculee ?? a.note) != null && (a.note_calculee ?? a.note) < 10))) ? ['autre'] : []),
+    ...(mode === 'tous' ? ['cours'] : [])];
   const bascule = id => setEcartes(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
-  const manqueMotif = MENTIONS_LOT.some(m => groupes.some(g => g.m === m) && (motifs[m] || '').trim().length < 5);
+  const manqueMotif = presentes.some(m => (motifs[m] || '').trim().length < 5);
 
   return (
     <div className="space-y-3 max-w-5xl mx-auto">
@@ -1604,11 +1617,12 @@ function Mentions({ liste, session, enCours, onDecider, onFini, colonnesCours = 
       </div>
 
       <div className="space-y-2">
-        {groupes.map(g => (
-          <label key={g.m} className="block text-[12px] text-slate-600">
-            Justification — {LIBELLE_MENTION[g.m]} (portée sur chaque acquis en défaut, reprise à l'annexe 8)
-            <textarea rows={1} value={motifs[g.m] || ''} data-reponses={`deliberation.mention.${g.m}`}
-              onChange={ev => setMotifs(m => ({ ...m, [g.m]: ev.target.value }))}
+        <div className="text-[12px] text-slate-600">Justifications — chaque acquis reçoit celle de sa mention (reprise à l'annexe 8 ou 9)</div>
+        {presentes.map(m => (
+          <label key={m} className="block text-[12px] text-slate-600">
+            <span className="font-semibold text-iip-texte">{LIBELLE_MOTIF[m]}</span>
+            <textarea rows={1} value={motifs[m] || ''} data-reponses={`deliberation.mention.${m}`}
+              onChange={ev => setMotifs(x => ({ ...x, [m]: ev.target.value }))}
               className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]" />
           </label>
         ))}
