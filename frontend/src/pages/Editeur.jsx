@@ -1,5 +1,6 @@
 import { useEditor, EditorContent } from '@tiptap/react';
 import { BarreEdition, BulleSelection } from '../components/BarreEdition.jsx';
+import ChampEtudiant from '../components/ChampEtudiant.jsx';
 import { monterAtelier, lireStructure, ecrireContenu } from '../lib/atelier.js';
 import { nomPropre } from '../lib/nom.js';
 import { IconAlignLeft, IconAlignCenter, IconAlignRight, IconAlignJustified, IconX, IconDeviceFloppy, IconPrinter,
@@ -163,6 +164,29 @@ function aplatirSurBlanc(src) {
 
 // ─── Champs simples ────────────────────────────────────────────────────────
 const CHAMPS = {
+  /* L'ÉTUDIANT — pour les lettres individuelles, produites dans Éditions →
+     Étudiants → Lettres (une lettre par étudiant). */
+  'Étudiant': [
+    { key: 'etudiant.cher',          label: 'Formule d’appel (Chère Madame…)' },
+    { key: 'etudiant.civilite',      label: 'Civilité (Madame / Monsieur)' },
+    { key: 'etudiant.prenom_nom',    label: 'Prénom NOM' },
+    { key: 'etudiant.nom',           label: 'Nom' },
+    { key: 'etudiant.prenom',        label: 'Prénom' },
+    { key: 'etudiant.matricule',     label: 'Matricule' },
+    { key: 'etudiant.date_naissance', label: 'Date de naissance' },
+    { key: 'etudiant.lieu_naissance', label: 'Lieu de naissance' },
+    { key: 'etudiant.ne_e',          label: 'né / née' },
+    { key: 'etudiant.inscrit_e',     label: 'inscrit / inscrite' },
+    { key: 'etudiant.adresse',       label: 'Adresse (rue)' },
+    { key: 'etudiant.cp_localite',   label: 'Code postal et localité' },
+    { key: 'etudiant.email',         label: 'Adresse de l’école' },
+    { key: 'etudiant.section',       label: 'Section' },
+    { key: 'etudiant.annee',         label: 'Année académique' },
+    { key: 'etudiant.nb_ues',        label: 'Nombre d’UE inscrites' },
+    { key: 'etudiant.ects',          label: 'Total des ECTS' },
+    { key: 'etudiant.periodes',      label: 'Total des périodes' },
+    { key: 'etudiant.ues_tableau',   label: 'Tableau des UE inscrites' },
+  ],
   'Établissement': [
     { key: 'etab.logo',           label: '🖼 Logo IIP couleurs (grand)' },
     { key: 'etab.logo_sm',        label: '🖼 Logo IIP couleurs (petit)' },
@@ -512,6 +536,8 @@ export default function Editeur() {
   const [showMargins, setShowMargins] = useState(false);
   const [showExemple, setShowExemple] = useState(false);
   const [showModeles, setShowModeles] = useState(false);
+  const [etudiantId, setEtudiantId] = useState('');
+  const [nomEtudiant, setNomEtudiant] = useState('');
   const [filtreModeles, setFiltreModeles] = useState('');
   const [saving, setSaving]           = useState(false);
   const [generating, setGenerating]   = useState(false);
@@ -735,7 +761,7 @@ export default function Editeur() {
       const r = await fetch(`/api/templates/${templateId}/generer`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ prof_id: profId || undefined, ue_num: ueNum || undefined, section: section || undefined, annee }),
+        body: JSON.stringify({ prof_id: profId || undefined, ue_num: ueNum || undefined, section: section || undefined, etudiant_id: etudiantId || undefined, annee }),
       });
       const { html, headerHtml, footerHtml, nom: tnom } = await r.json();
       const hasHeader = headerHtml && headerHtml.trim();
@@ -909,6 +935,8 @@ export default function Editeur() {
                   <option value="">Membre du personnel — aucun</option>
                   {profs.map(p => <option key={p.id} value={p.id}>{nomPropre(p.nom, p.prenom)}</option>)}
                 </select>
+                <ChampEtudiant valeur={nomEtudiant} className="w-full"
+                  onChoisir={e => { setEtudiantId(e?.id || ''); setNomEtudiant(e ? `${String(e.nom || '').toUpperCase()} ${e.prenom || ''}` : ''); }} />
                 <select value={ueNum} onChange={e => setUeNum(e.target.value)} className="controle w-full">
                   <option value="">Unité — aucune</option>
                   {uesEd.map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {(u.ue_nom || '').slice(0, 40)}</option>)}

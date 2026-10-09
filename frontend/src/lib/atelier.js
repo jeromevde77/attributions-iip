@@ -195,7 +195,7 @@ export function exporterHtml(blocs) {
       case 'logo': out.push(`<div style="width:${p.largeur || 28}%;margin:0 0 10px">{{etab.logo}}</div>`); break;
       case 'signature': out.push(`<table style="${T};width:100%;border-collapse:collapse;margin-top:14px;font-size:9.5pt"><tr><td style="border:none;vertical-align:bottom">${v(p.lieu)}</td><td style="border:none;width:220px;text-align:center"><div style="border-bottom:1px solid #94A3B8;height:42px;margin-bottom:4px"></div>${v(p.qual)}<br><b>${v(p.nom)}</b></td></tr></table>`); break;
       case 'filet': out.push('<div style="height:2px;background:#C9A84C;margin:6px 0 12px"></div>'); break;
-      case 'pied': out.push(`<div data-pied="true" style="${T};border-top:1px solid #C9A84C;padding-top:5px;text-align:center;font-size:7pt;color:#4B5563;line-height:1.5;margin-top:18px">{{etab.etab_nom}} • {{etab.adresse}}</div>`); break;
+      case 'pied': out.push(`<div data-pied="true"><p style="${T};border-top:1px solid #C9A84C;padding-top:5px;margin:18px 0 0;text-align:center;font-size:7pt;color:#4B5563;line-height:1.5">{{etab.etab_nom}} • {{etab.adresse}}</p></div>`); break;
       default:
     }
   }

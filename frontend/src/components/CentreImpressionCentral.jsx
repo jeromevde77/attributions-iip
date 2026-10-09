@@ -3,6 +3,7 @@ import { selectionEtudiants } from '../lib/selectionEtudiants.js';
 import OngletSLE from './OngletSLE.jsx';
 import { useDroits, peutGeste } from '../lib/droits.js';
 import CentreDiplomation from './CentreDiplomation.jsx';
+import LettresModele from './LettresModele.jsx';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
@@ -2512,6 +2513,12 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
                 className={famille === 'listes' || famille === 'rapports' ? 'on' : ''}>
                 Listes et rapports
               </button>
+              {/* LES LETTRES DE L'ATELIER (9 octobre 2026) : un modèle composé dans
+                  l'atelier de Lucie, une lettre par étudiant choisi. */}
+              <button onClick={() => setFamille('lettres')}
+                className={famille === 'lettres' ? 'on' : ''}>
+                Lettres
+              </button>
             </span>
             {/* UN ÉTUDIANT — TOUTES SES PIÈCES, depuis n'importe quelle famille. */}
             <div className="ml-auto w-72 max-w-full">
@@ -2527,6 +2534,7 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
             : famille === 'dossiers' ? <OngletEtudiants perimetre={perimetre} mode="dossiers" />
             : famille === 'valorisation' ? <OngletValorisation initial={perimetre?.valorisation || null} />
             : famille === 'diplomes' ? <CentreDiplomation annee={getAnnee()} integre onClose={onClose} />
+            : famille === 'lettres' ? <LettresModele annee={getAnnee()} />
             : <ListesEtRapports domaine="etudiants" />}
         </>
       ) : (
