@@ -120,8 +120,13 @@ export function simuler(section, bloc, annee) {
   // Les séances déjà posées ailleurs (toutes sections) occupent leurs enseignants.
   let posees = [];
   try {
+    // UNE ALTERNATIVE, PAS UN COMPLÉMENT (Charles, 9 octobre 2026 : « Lucie doit
+    // pouvoir proposer une alternative ») : l'horaire actuel de CETTE classe ne
+    // contraint pas la proposition — c'est lui qu'on compare. Celui des autres
+    // classes, oui : ses enseignants y sont occupés.
     posees = db.prepare(`SELECT date, heure_debut, heure_fin, professeur_id FROM horaire_seance
-      WHERE annee_scolaire = ? AND professeur_id IS NOT NULL AND COALESCE(annule, 0) = 0`).all(annee);
+      WHERE annee_scolaire = ? AND professeur_id IS NOT NULL AND COALESCE(annule, 0) = 0
+        AND NOT (section = ? AND bloc = ?) AND COALESCE(source, '') <> 'simulation'`).all(annee, section, bloc);
   } catch { posees = []; }
   for (const h of posees) {
     for (const s of slots) if (s.date === h.date && s.debut < (h.heure_fin || '') && s.fin > (h.heure_debut || '')) {
@@ -170,8 +175,18 @@ export function simuler(section, bloc, annee) {
   // La capacité, brique par brique : heures disponibles et heures demandées.
   const dispo = slots.reduce((t, s) => t + s.minutes, 0);
   const demandeParBrique = Array.from({ length: Math.max(1, c.nb_briques) }, (_, i) => dem.filter(d => d.briques.includes(i + 1)).reduce((t, d) => t + d.minutes, 0));
+  // LES SEMAINES (leur lundi) et L'HORAIRE ACTUEL de la classe, pour comparer.
+  const semainesListe = db.prepare(`SELECT date_debut FROM annee_calendrier WHERE annee_scolaire = ? AND type = 'cours' ORDER BY date_debut`).all(annee)
+    .map((x, i) => ({ num: i + 1, lundi: x.date_debut }));
+  let actuel = { seances: 0, heures: 0, premiere: null, derniere: null };
+  try {
+    const a = db.prepare(`SELECT COUNT(*) n, COALESCE(SUM(minutes), 0) m, MIN(date) d, MAX(date) f FROM horaire_seance
+      WHERE annee_scolaire = ? AND section = ? AND bloc = ? AND COALESCE(annule, 0) = 0 AND COALESCE(source, '') <> 'simulation'`).get(annee, section, bloc);
+    actuel = { seances: a.n, heures: Math.round(a.m / 60), premiere: a.d, derniere: a.f };
+  } catch { /* table absente */ }
+  const heuresDemandeesBloc = Math.round(dem.reduce((t, d) => t + d.minutes, 0) / 60);
   return {
-    section, bloc, annee, nb_semaines: nbSemaines, plages: plages.map(p => ({ ...p, jour_nom: JOURS[p.jour] })),
+    section, bloc, annee, nb_semaines: nbSemaines, semaines: semainesListe, actuel, heures_attribuees: heuresDemandeesBloc, plages: plages.map(p => ({ ...p, jour_nom: JOURS[p.jour] })),
     creneaux: slots.length, heures_disponibles: Math.round(dispo / 60),
     heures_demandees_max: Math.round(Math.max(...demandeParBrique) / 60), heures_demandees_min: Math.round(Math.min(...demandeParBrique) / 60),
     nb_demandes: dem.length, nb_seances: seances.length,
