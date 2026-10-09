@@ -216,7 +216,7 @@ export function simuler(section, bloc, annee) {
   const ordre = [...dem].sort((x, y) => (y.tout_le_bloc - x.tout_le_bloc) || (y.minutes - x.minutes));
   const seances = [], restes = [], fixes = new Map();
   const ajouter = (s, d, regulier, local) => {
-    poser(s, d, local); seances.push({ ...s, cle: d.cle, cours_code: d.cours_code, activite: d.activite, groupe: d.groupe,
+    poser(s, d, local); seances.push({ ...s, cle: d.cle, cours_code: d.cours_code, cours_nom: d.cours_nom, activite: d.activite, groupe: d.groupe,
       professeur: d.professeur, briques: d.briques, tout_le_bloc: d.tout_le_bloc, regulier, local: local || null });
   };
   for (const d of ordre) {

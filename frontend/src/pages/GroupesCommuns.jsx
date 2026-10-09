@@ -533,6 +533,8 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
                       return meilleure === h;
                     });
                     const existe = (plages || []).some(p => p.jour === j && `${p.debut}-${p.fin}` === h);
+                    // Deux tuiles ou moins sur la ligne : il y a la place du nom du cours.
+                    const large = act.length + ici.length <= 2;
                     return (
                       <td key={j} className={`px-1 py-1 border-l border-slate-100 ${existe ? '' : 'bg-slate-50'}`}>
                         {/* UN BLOC = TOUTE LA HAUTEUR DE SA PLAGE (Charles, 9 octobre 2026 :
@@ -550,11 +552,17 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
                             </div>))}
                           {ici.map((s, i) => (
                             <div key={i} className="min-w-0 h-[46px] rounded-r px-1.5 py-1 text-[12px] leading-tight overflow-hidden text-[#1B2B4B] flex flex-col items-start justify-center gap-0.5"
-                              title={`${s.cours_code} ${s.activite || ''} — groupe ${s.groupe}${s.professeur ? ` — ${s.professeur}` : ''}${s.local ? `\nLocal ${s.local}` : ''}\nBriques ${s.tout_le_bloc ? 'toutes' : s.briques.join(', ')}`}
+                              title={`${s.cours_code} ${s.cours_nom || ''}\n${s.activite || ''} — groupe ${s.groupe}${s.professeur ? ` — ${s.professeur}` : ''}${s.local ? `\nLocal ${s.local}` : ''}\nBriques ${s.tout_le_bloc ? 'toutes' : s.briques.join(', ')}`}
                               style={styleTuileCours(s.cours_code)}>
-                              {/* Le numéro du cours, et le groupe dans sa pastille ; le reste au survol. */}
-                              <span className="font-bold truncate">{s.cours_code}</span>
-                              {s.groupe !== 'Tous' && s.groupe !== 'Ts' && (
+                              {/* Le numéro du cours, et le groupe dans sa pastille ; le nom quand il y a la place ; le reste au survol. */}
+                              <span className="flex items-center gap-1.5 max-w-full min-w-0">
+                                <span className="font-bold truncate">{s.cours_code}</span>
+                                {large && s.groupe !== 'Tous' && s.groupe !== 'Ts' && (
+                                  <span className="flex-none inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-[5px] bg-white text-[10.5px] font-bold"
+                                    style={{ border: `1.5px solid ${teinteCours(s.cours_code)}` }}>{s.groupe}</span>)}
+                              </span>
+                              {large ? <span className="text-[11px] text-slate-600 truncate max-w-full">{s.cours_nom || s.activite || ''}</span>
+                                : s.groupe !== 'Tous' && s.groupe !== 'Ts' && (
                                 <span className="flex-none inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-[5px] bg-white text-[10.5px] font-bold"
                                   style={{ border: `1.5px solid ${teinteCours(s.cours_code)}` }}>{s.groupe}</span>)}
                             </div>))}
