@@ -12,6 +12,7 @@
 // les séances qui manquent plutôt que de sortir une pièce fausse.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { composerModele, declarerModele, blocModele } from './modelesPieces.js';
 import db from '../db/index.js';
 import { envelopper, frDate } from '../routes/attestations.js';
 import { enteteDocument } from './document.js';
@@ -167,33 +168,68 @@ function annexe(d, u, titre) {
 </div>`;
 }
 
+/* LE TEXTE DES DEUX ATTESTATIONS SE CORRIGE DANS LUCIE (Galerie des pièces →
+   Modifier le modèle). Les tableaux d'heures, l'horaire, les congés,
+   l'assiduité et la signature restent des blocs verrouillés : ils viennent de
+   l'horaire et des présences. */
+declarerModele('cep', {
+  libelle: "Congé-éducation payé — attestations d'inscription et d'assiduité", galerie: ['cep_inscription', 'cep_assiduite'],
+  champs: { directeur: 'Directeur', nom_prenom: "Nom et prénom de l'étudiant", inscrit_e: 'inscrit / inscrite',
+    annee: 'Année', ville: 'Ville' },
+  blocs: { cadre_legal: 'Base légale (loi du 22 janvier 1985…)', identite: "Identité et domicile de l'étudiant",
+    unite: "L'unité : niveau, section, dates", heures: 'Tableau des heures (a) à (d)', horaire: 'Horaire des cours suivis',
+    conges: 'Vacances et congés', assiduite: "Tableau d'assiduité (attestation d'assiduité)", abandon: "Date d'abandon (s'il y a lieu)",
+    signature: 'Lieu, date et signature' },
+  obligatoires: { blocs: ['cadre_legal', 'identite', 'unite', 'heures', 'horaire', 'conges', 'assiduite', 'abandon', 'signature'] },
+  defaut: `${blocModele('cadre_legal')}
+<p>Je soussigné, <b>{{directeur}}</b>, agissant en qualité de <b>Directeur</b> de l'établissement d'enseignement dont la dénomination et l'adresse figurent ci-dessus, atteste que</p>
+${blocModele('identite')}
+<p>est {{inscrit_e}} régulièrement — à l'exclusion des élèves libres — aux cours ci-après décrits :</p>
+${blocModele('unite')}
+${blocModele('heures')}
+${blocModele('horaire')}
+${blocModele('conges')}
+${blocModele('assiduite')}
+${blocModele('abandon')}
+${blocModele('signature')}`,
+});
+
 function page(type, d, u) {
   const ident = identiteEtablissement() || {};
+  const e = d.etudiant;
+  const f = feminin(e);
   const titre = type === 'inscription' ? "Attestation d'inscription régulière" : "Attestation d'assiduité";
   const cadre = d.cep.region === 'bruxelles'
     ? " (loi de redressement du 22 janvier 1985 ; arrêté du Gouvernement de la Région de Bruxelles-Capitale du 29 juin 2023)"
     : '';
-  const abandon = d.etudiant.sortie_statut === 'sorti' && d.etudiant.sortie_le
-    ? `<div class="champ"><span class="lab">Date d'abandon des cours :</span> <b>${jour(d.etudiant.sortie_le)}</b></div>` : '';
+  const abandon = e.sortie_statut === 'sorti' && e.sortie_le
+    ? `<div class="champ"><span class="lab">Date d'abandon des cours :</span> <b>${jour(e.sortie_le)}</b></div>` : '';
   return `<div class="attestation piece">
   ${enteteDocument({ titre, sous: 'Congé-éducation payé — enseignement pour adultes',
     ligne: [`Année ${String(d.annee).replace('-', '/')}`, d.section_libelle,
       `Lieu de travail : ${REGIONS[d.cep.region] || d.cep.region}`].filter(Boolean).join(' · ') })}
-  <p style="margin:0 0 1.5mm;font-size:7.5pt;color:#475569">Document délivré en application de la législation relative à l'octroi
-    du congé-éducation payé dans le cadre de la formation permanente des travailleurs${cadre}.</p>
-  ${blocIdentite(d, ident)}
-  ${blocUnite(d, u)}
-  ${tableHeures(u)}
-  ${tableHoraire(u)}
-  ${blocConges(d)}
-  ${type === 'assiduite' ? tableAssiduite(u) : ''}
-  ${abandon}
-  <div class="cloture sans-paraphe">
+  ${composerModele('cep', {
+    champs: { directeur: esc(ident.directeur || '……………'), nom_prenom: `${esc(String(e.nom || '').toUpperCase())} ${esc(e.prenom || '')}`,
+      inscrit_e: f ? 'inscrite' : 'inscrit', annee: esc(String(d.annee).replace('-', '/')), ville: esc(ident.ville || 'Bruxelles') },
+    blocs: {
+      cadre_legal: `<p style="margin:0 0 1.5mm;font-size:7.5pt;color:#475569">Document délivré en application de la législation relative à l'octroi
+    du congé-éducation payé dans le cadre de la formation permanente des travailleurs${cadre}.</p>`,
+      identite: `<div class="etudiant">
+    <div class="nom">${esc(String(e.nom || '').toUpperCase())} ${esc(e.prenom || '')}</div>
+    <div class="naissance">né${f ? 'e' : ''} à ${esc(e.lieu_naissance || '……')} le ${jour(e.date_naissance)}
+      · domicilié${f ? 'e' : ''} ${esc(e.adresse || '……')}, ${esc(e.cp || '')} ${esc(e.localite || '')}</div>
+  </div>`,
+      unite: blocUnite(d, u), heures: tableHeures(u), horaire: tableHoraire(u), conges: blocConges(d),
+      assiduite: type === 'assiduite' ? tableAssiduite(u) : '',
+      abandon,
+      signature: `<div class="cloture sans-paraphe">
     <div class="sceau"></div><div class="paraphe"></div>
     <div class="lieu">Fait à ${esc(ident.ville || 'Bruxelles')}, le ${jour(new Date().toISOString().slice(0, 10))}</div>
     <div class="legende"><div class="qualite">Date et signature (en original)<br>le Directeur</div>
       <div class="nom">${esc(ident.directeur || '……………')}</div></div>
-  </div>
+  </div>`,
+    },
+  })}
 </div>`;
 }
 

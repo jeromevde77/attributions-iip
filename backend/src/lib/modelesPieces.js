@@ -40,7 +40,7 @@ const B = k => `<div data-bloc="${k}"></div>`;
 export const MODELES = {
   attestation_reussite: {
     libelle: "Attestation de réussite d'unité (annexes 10 à 13, 17, 18)",
-    galerie: 'attestation_reussite',
+    galerie: ['attestation_reussite', 'delib_reussite', 'specimen_attestation-reussite', 'specimen_attestation-stage', 'specimen_attestation-ei'],
     champs: {
       nom_prenom: "Nom et prénom de l'étudiant", ne_e: 'Né / Née', lieu_naissance: 'Lieu de naissance',
       date_naissance: 'Date de naissance', il_elle: 'il / elle', ue_num: "N° de l'unité", ue_nom: "Intitulé de l'unité",
@@ -72,7 +72,7 @@ ${B('signature')}`,
 
   motivation_ajournement: {
     libelle: "Motivation d'ajournement (annexe 8)",
-    galerie: 'motivation_decision',
+    galerie: ['motivation_decision', 'delib_ajournement'],
     champs: {
       nom_prenom: "Nom et prénom de l'étudiant", ne_e: 'Né / Née', lieu_naissance: 'Lieu de naissance',
       date_naissance: 'Date de naissance', organe: 'Conseil des études / Jury', ue_num: "N° de l'unité",
@@ -101,7 +101,7 @@ ${B('signature')}`,
 
   motivation_refus: {
     libelle: 'Motivation de refus (annexe 9)',
-    galerie: 'motivation_decision',
+    galerie: ['motivation_decision', 'delib_refus'],
     champs: null,                 // ceux de l'annexe 8 (ci-dessous)
     blocs: {
       caracteristiques: "Caractéristiques de l'unité", identite: "Identité de l'étudiant",
@@ -296,7 +296,7 @@ export function composerModele(cle, { champs = {}, blocs = {} }) {
   // La police et la taille ne valent que pour le TEXTE du modèle : les blocs
   // gardent la leur, qui est celle de la charte.
   const style = [v.police && POLICES.includes(v.police) ? `--mp-police:'${v.police}', Arial, sans-serif` : '',
-                 v.taille && TAILLES.includes(v.taille) ? `--mp-taille:${v.taille}` : ''].filter(Boolean).join(';');
+                 v.taille && TAILLES.includes(v.taille) ? `--mp-taille:${v.taille}` : m.taille ? `--mp-taille:${m.taille}` : ''].filter(Boolean).join(';');
   return `<div class="modele-piece" style="${style}">${html}</div>`;
 }
 
@@ -309,5 +309,5 @@ export function versEditeur(cle, contenu) {
 
 /** Les modèles d'une entrée de la galerie. */
 export function modelesDeLaGalerie(idGalerie) {
-  return Object.entries(MODELES).filter(([, m]) => m.galerie === idGalerie).map(([cle]) => cle);
+  return Object.entries(MODELES).filter(([, m]) => [].concat(m.galerie).includes(idGalerie)).map(([cle]) => cle);
 }

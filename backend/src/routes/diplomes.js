@@ -26,6 +26,7 @@ import { calculerMention, reglesMention } from '../lib/mention.js';
 import { TITRES_ACCES } from '../lib/profilEtudiant.js';
 import { LOGO_EUROPASS } from '../lib/logoEuropass.js';
 import { presidenceConseil } from './acquis.js';
+import { composerModele, declarerModele, blocModele } from '../lib/modelesPieces.js';
 
 const r = Router();
 
@@ -658,6 +659,41 @@ async function modeleDiplome() {
  * Elle emprunte l'enveloppe des attestations : l'audit en a relevé neuf
  * concurrentes, on n'en crée pas une dixième.
  */
+/* LES TEXTES DE L'ATTESTATION DE SECTION ET DE L'ATTESTATION PROVISOIRE SE
+   CORRIGENT DANS LUCIE (Galerie des pièces → Modifier le modèle). */
+declarerModele('attestation_section', {
+  libelle: 'Attestation de réussite de section', galerie: 'diplome_attestation',
+  champs: { nom_prenom: "Nom et prénom de l'étudiant", section: 'Section', annee: 'Année',
+    voie: 'Voie de réussite (épreuve intégrée ou toutes les unités)', date_delib: 'Date de la délibération',
+    ville: 'Ville', directeur: 'Directeur' },
+  blocs: { identite: "Identité de l'étudiant (naissance en toutes lettres)", tableau: 'Unités déterminantes et épreuve intégrée',
+    resultat: 'Résultat global et mention', signature: 'Lieu, date, sceau et signature' },
+  obligatoires: { blocs: ['identite', 'tableau', 'resultat', 'signature'] },
+  defaut: `<p>Le Conseil des études atteste que</p>
+${blocModele('identite')}
+<p>a satisfait aux conditions de sanction de la section susvisée, {{voie}}.</p>
+${blocModele('tableau')}
+${blocModele('resultat')}
+${blocModele('signature')}`,
+});
+declarerModele('attestation_provisoire', {
+  libelle: 'Attestation provisoire de diplôme', galerie: 'diplome_provisoire', taille: '10pt',
+  champs: { directeur: 'Directeur', nom_prenom: "Nom et prénom de l'étudiant", date_delib: 'Date de la délibération',
+    diplome: 'Intitulé du diplôme', mention: '« , avec la mention … »', intitule_section: 'Intitulé de la section',
+    code_section: 'Code de la section', total_periodes: 'Total des périodes', total_ects: 'Total des ECTS',
+    interesse: "« de l'intéressé(e) »", ville: 'Ville' },
+  blocs: { identite: "Identité de l'étudiant (naissance en toutes lettres)", cosignataires: 'Cosignataires (s’il y en a)',
+    signature: 'Lieu, date, sceau et signature' },
+  obligatoires: { blocs: ['identite', 'cosignataires', 'signature'], champs: ['diplome', 'code_section'] },
+  defaut: `<p>Je soussigné, {{directeur}}, Directeur de l'établissement, certifie que</p>
+${blocModele('identite')}
+<p>a obtenu, le {{date_delib}}, le {{diplome}}{{mention}},</p>
+<p>à l'issue de la section {{intitule_section}}, approuvée par le Gouvernement sous le numéro de code {{code_section}}. Ladite section comporte {{total_periodes}} périodes et {{total_ects}} crédits ECTS.</p>
+<p><i>Le diplôme {{interesse}} est actuellement soumis à la signature de l'autorité compétente. La présente attestation en tient lieu jusqu'à sa délivrance.</i></p>
+${blocModele('cosignataires')}
+${blocModele('signature')}`,
+});
+
 function attestationSection(d, ctx) {
   const { section, annee, ident, dateDelib } = ctx;
   const e0 = d.genre === 'F' ? 'e' : '';
@@ -673,18 +709,23 @@ function attestationSection(d, ctx) {
       ligne: annee ? `Année ${String(annee).replace('-', '/')}` : null,
     })}
 
-    <p class="corps">Le Conseil des études atteste que</p>
+    ${composerModele('attestation_section', {
+      champs: {
+        nom_prenom: `${esc((d.nom || '').toUpperCase())} ${esc(d.prenom || '')}`,
+        section: esc(section.libelle || section.code || ''), annee: esc(String(annee || '').replace('-', '/')),
+        voie: d.par_epreuve ? "ayant réussi l'épreuve intégrée qui la sanctionne" : 'ayant acquis l’ensemble des unités qui la composent',
+        date_delib: dateLongue(dateDelib), ville: esc(ident.ville || ''), directeur: esc(ident.directeur || ''),
+      },
+      blocs: {
+        identite: `
     <div class="etudiant">
       <div class="nom">${esc((d.nom || '').toUpperCase())} ${esc(d.prenom || '')}</div>
       <div class="naissance">Né${e0} à ${esc(d.lieu_naissance) || '………'},
         ${enToutesLettres(d.date_naissance)}</div>
     </div>
 
-    <p class="corps indente">a satisfait aux conditions de sanction de la section
-      susvisée, ${d.par_epreuve
-        ? "ayant réussi l'épreuve intégrée qui la sanctionne"
-        : 'ayant acquis l’ensemble des unités qui la composent'}.</p>
-
+`,
+        tableau: `
     <table class="doc">
       <thead><tr><th style="width:16mm">UE</th><th>Unité d'enseignement</th>
         <th style="width:22mm">Périodes</th><th style="width:20mm">Résultat</th></tr></thead>
@@ -700,12 +741,16 @@ function attestationSection(d, ctx) {
       </tbody>
     </table>
 
+`,
+        resultat: `
     <div class="resultat">
       Résultat global : <span class="pct">${d.mention.pourcent != null
         ? `${Math.round(Number(d.mention.pourcent))} %` : '………'}</span>
       ${d.mention.mention ? `<br>Mention : <b>${esc(d.mention.mention)}</b>` : ''}
     </div>
 
+`,
+        signature: `
     <!-- LE BLOC DES ATTESTATIONS : sceau, signature (protégée par le
          fac-similé au PDF, à l'aperçu et à l'envoi), lieu et date, qualité.
          Cette pièce n'avait que le lieu et le nom — rien à signer. -->
@@ -718,6 +763,9 @@ function attestationSection(d, ctx) {
         <div class="nom">${esc(ident.directeur)}</div>
       </div>
     </div>
+`,
+      },
+    })}
   </div>`;
 }
 
@@ -1086,18 +1134,25 @@ function attestationProvisoire(d, ctx) {
       sous: section.libelle || section.code,
       ligne: annee ? `Année académique ${String(annee).replace('-', '/')}` : null,
     })}
-    <p class="corps">Je soussigné, ${esc(ident.directeur || '')}, Directeur de l'établissement, certifie que</p>
+    ${composerModele('attestation_provisoire', {
+      champs: {
+        directeur: esc(ident.directeur || ''), nom_prenom: `${esc((d.nom || '').toUpperCase())} ${esc(d.prenom || '')}`,
+        date_delib: dateLongue(dateDelib),
+        diplome: `<b>diplôme de ${esc(String(ds.intitule_diplome || ds.intitule_section || '').toLocaleLowerCase('fr'))}</b>`,
+        mention: d.mention?.mention ? `, avec la mention <b>${esc(d.mention.mention)}</b>` : '',
+        intitule_section: v(ds.intitule_section), code_section: v(ds.code_section),
+        total_periodes: v(ds.total_periodes), total_ects: v(ds.total_ects),
+        interesse: lui, ville: esc(ident.ville || 'Bruxelles'),
+      },
+      blocs: {
+        identite: `
     <div class="etudiant">
       <div class="nom">${esc((d.nom || '').toUpperCase())} ${esc(d.prenom || '')}</div>
       <div class="naissance">${ne}${d.lieu_naissance ? ` à ${esc(d.lieu_naissance)}` : ''}, ${enToutesLettres(d.date_naissance) || '………'}</div>
     </div>
-    <p class="corps">a obtenu, le ${dateLongue(dateDelib)}, le <b>diplôme de ${esc(String(ds.intitule_diplome || ds.intitule_section || '').toLocaleLowerCase('fr'))}</b>${
-      d.mention?.mention ? `, avec la mention <b>${esc(d.mention.mention)}</b>` : ''},</p>
-    <p class="corps">à l'issue de la section ${v(ds.intitule_section)}, approuvée par le Gouvernement sous le numéro de code ${v(ds.code_section)}.
-      Ladite section comporte ${v(ds.total_periodes)} périodes et ${v(ds.total_ects)} crédits ECTS.</p>
-    <p class="corps avis">Le diplôme ${lui} est actuellement soumis à la signature de l'autorité compétente.
-      La présente attestation en tient lieu jusqu'à sa délivrance.</p>
-    ${pour}
+`,
+        cosignataires: pour,
+        signature: `
     <div class="cloture">
       <div class="sceau"></div>
       <div class="paraphe"></div>
@@ -1107,6 +1162,9 @@ function attestationProvisoire(d, ctx) {
         <div class="nom">${esc(ident.directeur || '')}</div>
       </div>
     </div>
+`,
+      },
+    })}
   </div>`;
 }
 
@@ -1121,7 +1179,7 @@ const STYLE_SECTION = `<style>
   .resultat { margin-top: 4mm; padding: 2.5mm 4mm; border: 0.3mm solid #C9A84C;
     border-radius: 1.5mm; text-align: right; font-size: 10pt; }
   .resultat .pct { font-size: 13pt; font-weight: 700; color: #1B2B4B; }
-  .provisoire .corps { font-size: 10pt; line-height: 1.6; }
+  .provisoire .corps, .provisoire .modele-piece > p:not([class]) { font-size: 10pt; line-height: 1.6; }
   .provisoire .avis { font-style: italic; color: #475569; margin-top: 4mm; }
   .provisoire .pour { font-size: 9.5pt; text-align: center; margin: 6mm 6mm 0; line-height: 1.6; }
   .provisoire .manque { color: #b45309; font-style: italic; }
