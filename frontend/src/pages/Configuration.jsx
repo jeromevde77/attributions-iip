@@ -1105,7 +1105,7 @@ export default function Configuration() {
       // LA GALERIE EN PREMIER (Charles, 9 octobre 2026) : on part d'une pièce
       // qui existe, on la corrige ; écrire un modèle vierge est l'exception.
       { key: 'apercu', label: 'Modèles de pièces', icon: IconEdit,
-        faces: [['apercu', 'Galerie des pièces'], ['editeur', 'Écrire un modèle']] },
+        faces: [['apercu', 'Galerie des pièces'], ['editeur', 'L’atelier de Lucie']] },
       { key: 'contrat', label: 'Pièces officielles', icon: IconAward,
         faces: [['contrat', 'Contrat'], ['attestation', 'Attestation'], ['diplome', 'Diplôme'], ['recrutement', 'Recrutement']] },
       { key: 'due', label: "Descriptifs d'UE", icon: IconFileDescription },

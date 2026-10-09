@@ -1,5 +1,6 @@
 import { useEditor, EditorContent } from '@tiptap/react';
 import { BarreEdition, BulleSelection } from '../components/BarreEdition.jsx';
+import { monterAtelier, lireStructure, ecrireContenu } from '../lib/atelier.js';
 import { nomPropre } from '../lib/nom.js';
 import { IconAlignLeft, IconAlignCenter, IconAlignRight, IconAlignJustified, IconX, IconDeviceFloppy, IconPrinter,
   IconPlus, IconTrash, IconFileImport, IconLayout, IconChevronDown, IconEye, IconSearch, IconRepeat } from '@tabler/icons-react';
@@ -577,6 +578,19 @@ export default function Editeur() {
   // écrite à la main survit à l'enregistrement depuis le code, mais pas à un
   // aller-retour par le mode visuel. C'est dit à l'écran, pas caché.
   const [modeCode, setModeCode] = useState(false);
+  /* L'ATELIER (9 octobre 2026) : composer en glissant des éléments tout faits.
+     Un modèle fait dans l'Atelier s'y rouvre ; les autres restent en Texte. */
+  const [atelier, setAtelier] = useState(true);
+  const [structure, setStructure] = useState(null);      // ce qu'on ouvre dans l'Atelier
+  const [cleAtelier, setCleAtelier] = useState(0);        // remonte l'Atelier sur un autre modèle
+  const sortieAtelier = useRef({ structure: null, html: '' });
+  const conteneurAtelier = useRef(null);
+  useEffect(() => {
+    if (!atelier || !conteneurAtelier.current) return undefined;
+    const a = monterAtelier(conteneurAtelier.current, { structure, champs: CHAMPS,
+      onChange: (st, html) => { sortieAtelier.current = { structure: st, html }; } });
+    return () => a.detruire();
+  }, [atelier, cleAtelier]);   // eslint-disable-line react-hooks/exhaustive-deps
   const [codeHtml, setCodeHtml] = useState('');
 
   function versCode() {
@@ -652,7 +666,8 @@ export default function Editeur() {
     setSaving(true);
     // EN MODE CODE, C'EST LE CODE QUI FAIT FOI. Prendre editor.getHTML()
     // enregistrerait la version d'avant la frappe, sans rien dire.
-    const contenu = modeCode ? codeHtml : editor.getHTML();
+    const contenu = atelier ? ecrireContenu(sortieAtelier.current.structure || [], sortieAtelier.current.html || '')
+      : modeCode ? codeHtml : editor.getHTML();
     const token = localStorage.getItem('token');
     try {
       if (templateId) {
@@ -682,12 +697,12 @@ export default function Editeur() {
       contenu = contenu.replace(/<img([^>]*)src="(?!data:|https?:\/\/)[^"]*"([^>]*)>/gi,
         '<span style="background:#fef3c7;padding:2px 6px;border-radius:4px;font-size:11px">🖼 [logo — réinsérer via bouton]</span>');
 
-      console.log('[Éditeur] setContent, longueur:', contenu.length);
-      editor?.commands.setContent(contenu);
+      const st = lireStructure(d.contenu);
+      if (st) { setStructure(st); setAtelier(true); setModeCode(false); setCleAtelier(k => k + 1); }
+      else { setAtelier(false); editor?.commands.setContent(contenu); }
       // Le code montre CE QUI EST EN BASE, pas ce que TipTap en a fait : c'est
       // tout l'intérêt d'aller y voir quand un modèle sort de travers.
       setCodeHtml(d.contenu || '');
-      console.log('[Éditeur] setContent OK');
     } catch (e) {
       console.error('[chargerTemplate] ERREUR :', e);
       informer(`Erreur au chargement du template "${t.nom}" :\n\n${e.message}\n\n(voir console F12 pour le détail)`);
@@ -698,6 +713,7 @@ export default function Editeur() {
     setTemplateId(null); setNom('Nouveau modèle'); setFormat('A4P'); setMargins({ ...DEFAULT_MARGINS });
     editor?.commands.setContent('<p>Commencez votre document…</p>');
     setCodeHtml('<p>Commencez votre document…</p>');
+    setStructure(null); setAtelier(true); setModeCode(false); setCleAtelier(k => k + 1);
   }
 
   async function generer() {
@@ -847,10 +863,23 @@ export default function Editeur() {
                 </div>
               </div>)}
           </div>
-          <div className="segments flex h-9" title="Mode d'édition">
-            {[{ k: false, l: 'Visuel', t: 'Édition assistée' }, { k: true, l: 'HTML', t: 'Le HTML du modèle, tel qu’il est enregistré' }].map(x => (
-              <button key={String(x.k)} title={x.t} onClick={() => (x.k ? versCode() : versVisuel())}
-                className={`px-3 text-[13px] ${modeCode === x.k ? 'bg-iip-blue text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>{x.l}</button>))}
+          <div className="segments flex h-9" title="Façon de composer le modèle">
+            {[['atelier', 'Atelier', 'L’atelier de Lucie : glisser des éléments tout faits sur la feuille'], ['texte', 'Texte', 'Écrire comme dans un traitement de texte'],
+              ['html', 'HTML', 'Le HTML du modèle, tel qu’il est enregistré']].map(([k, l, t]) => {
+              const actif = k === 'atelier' ? atelier : k === 'html' ? (!atelier && modeCode) : (!atelier && !modeCode);
+              return (
+                <button key={k} title={t} onClick={async () => {
+                  if (actif) return;
+                  if (atelier && !(await demander('Quitter l’atelier de Lucie ?\n\nLe modèle passe en texte libre : il ne se rouvrira plus dans l’atelier avec ses éléments.'))) return;
+                  if (k === 'atelier') {
+                    if (!(await demander('Recommencer ce modèle dans l’Atelier ?\n\nLe texte actuel n’y est pas repris : l’Atelier part d’une feuille type.'))) return;
+                    setStructure(null); setAtelier(true); setModeCode(false); setCleAtelier(x => x + 1); return;
+                  }
+                  if (atelier) { editor?.commands.setContent(sortieAtelier.current.html || '<p></p>'); setCodeHtml(sortieAtelier.current.html || ''); setAtelier(false); }
+                  if (k === 'html') versCode(); else if (modeCode) versVisuel();
+                }}
+                  className={`px-3 text-[13px] ${actif ? 'bg-iip-blue text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>{l}</button>);
+            })}
           </div>
           <div className="relative">
             <div className="flex">
@@ -881,8 +910,9 @@ export default function Editeur() {
             <IconDeviceFloppy size={15} /> {saving ? 'Enregistrement…' : 'Enregistrer'}
           </button>
         </div>
-        {!modeCode && <Toolbar editor={editor} />}
-        {modeCode ? (
+        {atelier && <div ref={conteneurAtelier} className="flex-1 min-h-0" key={cleAtelier} />}
+        {!atelier && !modeCode && <Toolbar editor={editor} />}
+        {modeCode && !atelier ? (
           <div className="flex-1 flex flex-col overflow-hidden bg-slate-50">
             <div className="flex-none px-4 py-2 text-[12px] text-amber-900 bg-amber-50
                             border-b border-amber-200">
@@ -899,7 +929,7 @@ export default function Editeur() {
                          bg-white text-slate-800 outline-none resize-none" />
           </div>
         ) : (
-          <div className="flex-1 overflow-auto bg-slate-100 py-6">
+          <div className={`flex-1 overflow-auto bg-slate-100 py-6 ${atelier ? 'hidden' : ''}`}>
             <div className="editeur-doc mx-auto">
               <Regle fmt={format} margins={margins} onMarginChange={setMargins} />
               <div className="editeur-page">
@@ -908,15 +938,15 @@ export default function Editeur() {
             </div>
           </div>
         )}
-        {editor && (
+        {editor && !atelier && (
           <div className="flex-shrink-0 border-t border-slate-200 bg-white px-4 py-1 text-[11px] text-slate-400 text-right">
             {editor.storage.characterCount.words()} mots · {editor.storage.characterCount.characters()} caractères
           </div>
         )}
       </div>
 
-      {/* ── Panneau droit : ce qu'on insère ── */}
-      <div className="w-64 flex-shrink-0 border-l border-slate-200 flex flex-col overflow-hidden">
+      {/* ── Panneau droit : ce qu'on insère (l'Atelier a le sien) ── */}
+      {!atelier && <div className="w-64 flex-shrink-0 border-l border-slate-200 flex flex-col overflow-hidden">
         <div className="flex px-2 pt-2 gap-3 border-b border-slate-200">
           {[['champs', 'Champs'], ['boucles', 'Listes répétées']].map(([k, l]) => (
             <button key={k} onClick={() => setPanelMode(k)}
@@ -972,7 +1002,7 @@ export default function Editeur() {
             </div>
           </div>
         )}
-      </div>
+      </div>}
 
       <style>{`
         .editeur-doc { width: ${PAGE_FORMATS[format]?.w || '210mm'}; }
