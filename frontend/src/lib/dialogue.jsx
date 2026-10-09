@@ -66,6 +66,9 @@ export const demander = entree => pousser('demander', entree);
 export const informer = entree => pousser('informer', entree);
 /** Remplace `prompt()` : rend le texte saisi, ou null si l'on annule. */
 export const saisir = entree => pousser('saisir', entree);
+/** Une question à plusieurs réponses : { message, choix: [{ valeur, libelle, aide? }] }.
+ *  Rend la valeur choisie, ou null si l'on annule (9 octobre 2026). */
+export const choisir = entree => pousser('choisir', entree);
 
 function fermer(reponse) {
   const [tete, ...reste] = file;
@@ -74,7 +77,7 @@ function fermer(reponse) {
   tete?.resoudre(reponse);
 }
 
-const TITRES = { demander: 'Confirmer', informer: 'Information', saisir: 'Saisir' };
+const TITRES = { demander: 'Confirmer', informer: 'Information', saisir: 'Saisir', choisir: 'Choisir' };
 
 export function Dialogues() {
   const courant = useSyncExternalStore(
@@ -89,12 +92,13 @@ function Dialogue({ d }) {
   const [valeur, setValeur] = useState(d.valeur ?? '');
   const refChamp = useRef(null);
   const refOk = useRef(null);
-  const annuler = () => fermer(d.genre === 'demander' ? false : d.genre === 'saisir' ? null : undefined);
+  const annuler = () => fermer(d.genre === 'demander' ? false : d.genre === 'saisir' || d.genre === 'choisir' ? null : undefined);
   const valider = () => {
     if (d.genre === 'saisir') {
       if (d.obligatoire && !String(valeur).trim()) return;
       fermer(valeur);
-    } else fermer(d.genre === 'demander' ? true : undefined);
+    } else if (d.genre === 'choisir') fermer((d.choix || [])[0]?.valeur ?? null);
+    else fermer(d.genre === 'demander' ? true : undefined);
   };
 
   // ÉCHAP ANNULE CETTE BOÎTE, ET ELLE SEULE : la fenêtre ouverte dessous
@@ -113,7 +117,7 @@ function Dialogue({ d }) {
   useEffect(() => { (refChamp.current || refOk.current)?.focus(); }, []);
 
   const alerte = d.ton === 'alerte';
-  const Ic = d.genre === 'saisir' ? IconHelpCircle
+  const Ic = d.genre === 'saisir' || d.genre === 'choisir' ? IconHelpCircle
     : alerte ? IconAlertTriangle : d.ton === 'reussi' ? IconCircleCheck
     : d.genre === 'demander' ? IconHelpCircle : IconInfoCircle;
   const teinte = alerte ? 'var(--c-refuse)' : d.ton === 'reussi' ? 'var(--c-reussi)' : 'var(--c-principal)';
@@ -145,14 +149,20 @@ function Dialogue({ d }) {
                   className="controle mt-3 w-full" />)}
           </div>
         </div>
-        <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-slate-200">
+        <div className="flex flex-wrap items-center justify-end gap-2 px-5 py-3 border-t border-slate-200">
           {d.genre !== 'informer' && (
             <button type="button" className="bouton" onClick={annuler}>{d.annuler || 'Annuler'}</button>
           )}
+          {d.genre === 'choisir' ? (d.choix || []).map((c, i) => (
+            <button key={c.valeur} type="button" ref={i === 0 ? refOk : undefined} title={c.aide || ''}
+              onClick={() => fermer(c.valeur)} className={`bouton ${i === 0 ? 'bouton-fort' : ''}`}>
+              {c.libelle}
+            </button>
+          )) : (
           <button type="button" ref={refOk} disabled={bloque} onClick={valider}
             className={`bouton ${alerte && d.genre === 'demander' ? 'bouton-detruire' : 'bouton-fort'}`}>
             {libelleOk}
-          </button>
+          </button>)}
         </div>
       </div>
     </div>
