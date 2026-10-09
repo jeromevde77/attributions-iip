@@ -9,7 +9,7 @@ import { Underline } from '@tiptap/extension-underline';
 import { Color, TextStyle } from '@tiptap/extension-text-style';
 import { Subscript } from '@tiptap/extension-subscript';
 import { Superscript } from '@tiptap/extension-superscript';
-import { IconLock, IconAlertTriangle, IconHistory, IconArrowBackUp, IconGripVertical, IconPlus } from '@tabler/icons-react';
+import { IconLock, IconAlertTriangle, IconHistory, IconArrowBackUp, IconGripVertical, IconPlus, IconPencil } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { Toolbar, CustomTableCell, CustomTableHeader, ChampNode } from '../pages/Editeur.jsx';
 import { demander, informer } from '../lib/dialogue.jsx';
@@ -51,6 +51,7 @@ const BlocPiece = Node.create({
 
 const STYLE = `
 .texte-modele { font-size: 13px; line-height: 1.55; min-height: 50vh; outline: none; }
+.modele-commun .texte-modele { min-height: 14vh; }
 .texte-modele p { margin: 6px 0; }
 .texte-modele .bloc-piece { margin: 6px 0; padding: 6px 10px 6px 30px; border: 1px dashed #b8c0cc; border-radius: 8px;
   background: #f4f5f7 url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'><rect x='5' y='11' width='14' height='10' rx='2'/><path d='M8 11V7a4 4 0 0 1 8 0v4'/></svg>") 9px center no-repeat;
@@ -115,6 +116,21 @@ export default function EditeurModelePiece({ cles, onBrouillon, onFermer }) {
     }, 600);
     return () => clearTimeout(minuterie.current);
   }, [contenu, police, taille, remp, m]);   // eslint-disable-line react-hooks/exhaustive-deps
+  // Une phrase corrigée dans l'aperçu (ApercuDocuments) devient une phrase réécrite.
+  useEffect(() => {
+    const f = ev => {
+      const { avant, apres } = ev.detail || {};
+      if (!avant) return;
+      setRemp(l => {
+        const i = l.findIndex(r => r.apres.replace(/\s+/g, ' ').trim() === avant);
+        if (i >= 0) return l.map((r, k) => (k === i ? { ...r, apres } : r));   // on reprend une phrase déjà réécrite
+        return [...l, { avant, apres }];
+      });
+      setModifie(true);
+    };
+    window.addEventListener('lucie:remplacement', f);
+    return () => window.removeEventListener('lucie:remplacement', f);
+  }, []);
   useEffect(() => () => onBrouillon(null), []);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const present = new Set([...contenu.matchAll(/data-bloc="([a-z0-9_]+)"/g)].map(x => x[1]));
@@ -183,6 +199,14 @@ export default function EditeurModelePiece({ cles, onBrouillon, onFermer }) {
         <span className="text-[11px] text-slate-500">La police et la taille valent pour le texte ; les blocs gardent celles de la charte.</span>
       </div>
 
+      {m.generique && (
+        <div className="px-3 py-2 border-b border-slate-200 text-[12.5px] text-iip-texte flex items-start gap-2"
+          style={{ borderLeft: '4px solid var(--c-disponible)' }}>
+          <IconPencil size={15} className="flex-none mt-0.5" style={{ color: 'var(--c-disponible)' }} />
+          <span><b>Cliquez sur le texte de la pièce, à droite, pour le corriger</b> : chaque phrase se modifie sur place
+            (Entrée pour valider) et rejoint la liste « Phrases réécrites » ci-dessous. Ici, à gauche, vous ajoutez du texte
+            avant ou après le contenu calculé.</span>
+        </div>)}
       {histo && (
         <div className="px-3 py-2 border-b border-slate-200 max-h-48 overflow-auto text-[12px]">
           {!m.historique.length && <div className="text-slate-500">Aucune modification : le modèle d’origine est en vigueur.</div>}
@@ -199,7 +223,7 @@ export default function EditeurModelePiece({ cles, onBrouillon, onFermer }) {
       <div className="flex flex-1 min-h-0">
         <div className="flex-1 min-w-0 flex flex-col">
           <Toolbar editor={editor} sobre />
-          <div className="flex-1 overflow-auto bg-white"><EditorContent editor={editor} /></div>
+          <div className={`${m.generique ? 'modele-commun' : ''} flex-1 overflow-auto bg-white`}><EditorContent editor={editor} /></div>
         </div>
         <div className="w-[200px] border-l border-slate-200 overflow-auto p-2 text-[12px] space-y-3">
           <div>
@@ -233,13 +257,13 @@ export default function EditeurModelePiece({ cles, onBrouillon, onFermer }) {
       {m.generique && (
         <div className="px-3 py-2 border-t border-slate-200 max-h-56 overflow-auto">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-[11px] uppercase tracking-wide text-slate-500">Phrases à réécrire</span>
-            <span className="text-[11px] text-slate-500">— une phrase fixe de la pièce, telle qu’elle s’affiche, et ce qu’elle devient.</span>
+            <span className="text-[11px] uppercase tracking-wide text-slate-500">Phrases réécrites</span>
+            <span className="text-[11px] text-slate-500">— corrigées dans la pièce, ou saisies ici. Une phrase qui porte un nom ou une date ne vaut que pour cet exemple.</span>
             <span className="flex-1" />
             <button className="bouton text-[11px] py-0.5 inline-flex items-center gap-1"
               onClick={() => { setRemp(l => [...l, { avant: '', apres: '' }]); setModifie(true); }}><IconPlus size={12} /> Ajouter</button>
           </div>
-          {!remp.length && <div className="text-[12px] text-slate-500">Aucune. Exemple : « Programme retenu » → « Votre programme de l’année ».</div>}
+          {!remp.length && <div className="text-[12px] text-slate-500">Aucune pour l’instant : cliquez sur une phrase de la pièce, à droite.</div>}
           {remp.map((r, i) => (
             <div key={i} className="flex items-center gap-1.5 py-0.5">
               <input value={r.avant} data-reponses="non" placeholder="Texte de la pièce" className="controle flex-1 min-w-0"
