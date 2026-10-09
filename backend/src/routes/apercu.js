@@ -24,7 +24,7 @@ import {
   envelopper, pageAttestation, pageAttestationValorisation,
 } from './attestations.js';
 import {
-  documentPV, pageComposition, documentMotivation,
+  documentPV, numeroterPagesPV, pageComposition, documentMotivation,
 } from './acquis.js';
 
 import { galerie, exemples, choix } from '../lib/galerieDocuments.js';
@@ -103,7 +103,7 @@ r.get('/catalogue', authRequired, (req, res) => {
   res.json({ documents: CATALOGUE, etudiant_exemple: `${ETUDIANT_EXEMPLE.nom} ${ETUDIANT_EXEMPLE.prenom}` });
 });
 
-r.get('/:id', authRequired, (req, res) => {
+r.get('/:id', authRequired, async (req, res) => {
   const def = CATALOGUE.find(d => d.id === req.params.id);
   if (!def) return res.status(404).json({ error: 'document inconnu' });
 
@@ -142,6 +142,7 @@ r.get('/:id', authRequired, (req, res) => {
 
     if (def.id === 'pv') {
       const d = documentPV(ueNum, annee, session);
+      d.corps = await numeroterPagesPV(d.corps, d.style || '');
       return res.json({ html: envelopper((d.style || '') + d.corps,
         `Aperçu — PV UE ${ueNum}`), annexe: def.annexe, manques: d.manques || [] });
     }

@@ -34,7 +34,10 @@ import { identiteEtablissement } from './config.js';
 // d'ajournement ou de refus, procès-verbal — partagent une seule mise en page.
 // Le contenu légal diffère ; la charte, non.
 import { envelopper, unitesReussies, pageAttestation, frDate } from './attestations.js';
-import { enteteDocument, stylesEntete } from '../lib/document.js';
+import { enteteDocument, stylesEntete, BANDE_PIED_MM, piedGabaritPdf } from '../lib/document.js';
+import { capacitePdf, rendrePdf, compterPages } from '../services/pdf.js';
+import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
+import { piedDocument } from './parametres.js';
 import { motifPropose } from '../lib/motifPropose.js';
 import { migrerReprise, simulerReprise, appliquerReprise, forcerCloture,
          MOTIF_REPRISE, MENTION_REPRISE } from '../lib/repriseHistorique.js';
@@ -7501,7 +7504,7 @@ const LIBELLE_PIECE_LOT = { grille: 'grille de délibération', pv: 'procès-ver
   reussite: 'attestation de réussite', ajournement: "motivation d'ajournement",
   refus: 'motivation de refus', listes: 'listes' };
 
-r.post('/deliberation/ue/:ueNum/documents', authRequired, (req, res) => {
+r.post('/deliberation/ue/:ueNum/documents', authRequired, async (req, res) => {
   const ueNum = Number(req.params.ueNum);
   const annee = req.body?.annee || anneeDeTravail(req);
   const veut = {
@@ -7522,6 +7525,7 @@ r.post('/deliberation/ue/:ueNum/documents', authRequired, (req, res) => {
     date_document: req.body?.date_document || null,
     org: req.body?.org != null && req.body.org !== '' ? Number(req.body.org) : null,
   });
+  for (const pg of a.pages) if (pg.t === 'pv') pg.h = await numeroterPagesPV(pg.h, a.styles.join(''));
 
   if (!a.pages.length) {
     return res.status(400).json({
@@ -7665,7 +7669,7 @@ r.get('/deliberation/documents-lot', authRequired, (req, res) => {
   });
 });
 
-r.post('/deliberation/documents-lot', authRequired, (req, res) => {
+r.post('/deliberation/documents-lot', authRequired, async (req, res) => {
   const annee = req.body?.annee || anneeDeTravail(req);
   const nums = Array.isArray(req.body?.ue_nums) ? req.body.ue_nums.map(Number) : [];
   const veut = {
@@ -7723,6 +7727,9 @@ r.post('/deliberation/documents-lot', authRequired, (req, res) => {
                   reussites: a.reussites, ajournements: a.ajournements, refus: a.refus,
                   pv: a.pv, listes: a.listes, conseil: a.conseil });
   }
+
+  // Chaque PV compte SES pages, avant d'être cousu au lot.
+  for (const pg of pages) if (pg.t === 'pv') pg.h = await numeroterPagesPV(pg.h, styles.join(''));
 
   if (!pages.length) {
     return res.status(400).json({
@@ -7960,6 +7967,28 @@ r.delete('/deliberation/ue/:ueNum', authRequired,
  * Le procès-verbal, en fonction : le centre d'impression l'enchaîne avec les
  * attestations et les notifications, dans un seul document à imprimer.
  */
+/* LE NOMBRE DE PAGES DU PV SE CONSTATE (Charles, 9 octobre 2026 : « tu ne
+   complètes pas le nombre de pages, pourtant c'est important »). Comme pour le
+   PV de valorisation : on compose la pièce seule, en PDF, avec les marges et le
+   pied du rendu réel, on la compte, et l'on inscrit le chiffre. Sans Chromium
+   sur le serveur, la mention garde ses pointillés : un nombre inventé sur une
+   mention réglementaire vaut moins qu'un blanc. */
+export const PH_PAGES_PV = '{{NB_PAGES_PV}}';
+export async function numeroterPagesPV(corps, style = '') {
+  if (!String(corps || '').includes(PH_PAGES_PV)) return corps;
+  let n = null;
+  try {
+    if ((await capacitePdf()).disponible) {
+      n = compterPages(await rendrePdf(envelopper(style + corps.split(PH_PAGES_PV).join('……'), 'PV'), {
+        marges: { top: '12mm', right: '15mm', bottom: `${BANDE_PIED_MM}mm`, left: '15mm' },
+        pied: avecNum => piedGabaritPdf(LOGO_IIP_JPEG, piedDocument(), avecNum),
+        pagination: 'si-plusieurs',
+      }));
+    }
+  } catch (e) { console.error('[pv/pages]', e.message); }
+  return corps.split(PH_PAGES_PV).join(n != null ? String(n) : '……');
+}
+
 /* `anonyme` : LE PV PAR MATRICULE (Charles, 9 octobre 2026) — pour l'afficher
    ou le transmettre sans exposer les noms. Le fond est le même ; l'étudiant
    n'y est désigné que par son matricule, sans lieu ni date de naissance qui le
@@ -8110,7 +8139,7 @@ export function documentPV(ueNum, annee, session = 1, org = null, { anonyme = fa
   </div>
 
   <div class="info">
-    <div class="ligne">Le présent procès-verbal comporte …… page(s).</div>
+    <div class="ligne">Le présent procès-verbal comporte <b>${PH_PAGES_PV}</b> page(s).</div>
     <div class="ligne">Le ${esc(conseil)} a délibéré le
       <b>${esc(jour(seance.date_seance) || '……………')}</b>${
       seance.heure_seance ? ` à <b>${esc(seance.heure_seance)}</b>` : ''}.</div>
@@ -8169,11 +8198,13 @@ export function documentPV(ueNum, annee, session = 1, org = null, { anonyme = fa
   };
 }
 
-r.get('/deliberation/ue/:ueNum/pv', authRequired, (req, res) => {
+r.get('/deliberation/ue/:ueNum/pv', authRequired, async (req, res) => {
   const d = documentPV(Number(req.params.ueNum),
     req.query.annee || anneeDeTravail(req),
     req.query.session === '2' ? 2 : 1,
     req.query.org != null && req.query.org !== '' ? Number(req.query.org) : null);
+  d.corps = await numeroterPagesPV(d.corps, d.style || '');
+  if (d.html) d.html = await numeroterPagesPV(d.html, '');
   res.json(d);
 });
 
