@@ -275,7 +275,12 @@ export default function HoraireSemaine() {
                           <span className="truncate">{s.cours_code} {s.cours_nom || s.matiere || ''}</span>{pastille}</div>
                         <div className="truncate text-slate-600">{s.annule ? 'Annulée' : nomProf(s)}</div>
                         <div className="truncate text-slate-500">{s.local_texte || 'local à préciser'} · {lisible(deHm(debut))}–{lisible(deHm(fin))}</div>
-                      </> : <div className="flex flex-col items-start justify-center gap-0.5 h-full">
+                      </> : pl.cols <= 2 ? <div className="flex flex-col justify-center gap-0.5 h-full min-w-0">
+                        {/* Deux de front : la place du nom du cours. */}
+                        <span className={`flex items-center gap-1.5 min-w-0 ${s.annule ? 'line-through text-slate-400' : 'text-[#1B2B4B]'}`}>
+                          <span className="font-bold text-[12px] truncate">{s.cours_code}</span>{pastille}</span>
+                        <span className="truncate text-slate-600">{s.cours_nom || s.matiere || ''}</span></div>
+                      : <div className="flex flex-col items-start justify-center gap-0.5 h-full">
                         <span className={`font-bold text-[12px] truncate max-w-full ${s.annule ? 'line-through text-slate-400' : 'text-[#1B2B4B]'}`}>{s.cours_code}</span>{pastille}</div>}
                       {peutEcrire && <div onPointerDown={ev => { ev.stopPropagation(); commencer(ev, { type: 'rallonger', seance: s, d }); }}
                         className="absolute left-0 right-0 bottom-0 h-1.5 cursor-ns-resize" />}
