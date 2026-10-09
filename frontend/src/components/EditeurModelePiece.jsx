@@ -68,6 +68,7 @@ export default function EditeurModelePiece({ cles, onBrouillon, onFermer }) {
   const [police, setPolice] = useState('');
   const [taille, setTaille] = useState('');
   const [commentaire, setCommentaire] = useState('');
+  const [remp, setRemp] = useState([]);              // phrases fixes réécrites (modèles communs)
   const [manques, setManques] = useState([]);
   const [histo, setHisto] = useState(false);
   const [modifie, setModifie] = useState(false);
@@ -93,6 +94,7 @@ export default function EditeurModelePiece({ cles, onBrouillon, onFermer }) {
     if (!r.ok) { informer(j.error || 'Modèle introuvable.'); return; }
     window.__libellesBlocs = j.blocs;
     setM(j); setPolice(j.police || ''); setTaille(j.taille || ''); setCommentaire(''); setModifie(false);
+    setRemp(j.remplacements || []);
     editor?.commands.setContent(j.contenu, { emitUpdate: false });
     setContenu(editor?.getHTML() || j.contenu);
   }
@@ -106,13 +108,13 @@ export default function EditeurModelePiece({ cles, onBrouillon, onFermer }) {
     minuterie.current = setTimeout(async () => {
       try {
         const r = await fetch(`/api/documentation/modeles/${cle}/brouillon`, { method: 'POST', headers: authHeaders(),
-          body: JSON.stringify({ contenu, police: police || null, taille: taille || null }) });
+          body: JSON.stringify({ contenu, police: police || null, taille: taille || null, remplacements: remp }) });
         const j = await r.json();
         if (r.ok) { onBrouillon(j.id); setManques(j.manques || []); }
       } catch { /* l'aperçu garde la version précédente */ }
     }, 600);
     return () => clearTimeout(minuterie.current);
-  }, [contenu, police, taille, m]);   // eslint-disable-line react-hooks/exhaustive-deps
+  }, [contenu, police, taille, remp, m]);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => onBrouillon(null), []);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const present = new Set([...contenu.matchAll(/data-bloc="([a-z0-9_]+)"/g)].map(x => x[1]));
@@ -122,7 +124,7 @@ export default function EditeurModelePiece({ cles, onBrouillon, onFermer }) {
     setEnCours(true);
     try {
       const r = await fetch(`/api/documentation/modeles/${cle}`, { method: 'POST', headers: authHeaders(),
-        body: JSON.stringify({ contenu, police: police || null, taille: taille || null, commentaire }) });
+        body: JSON.stringify({ contenu, police: police || null, taille: taille || null, remplacements: remp, commentaire }) });
       const j = await r.json();
       if (!r.ok) { setManques(j.manques || []); informer(j.error || 'Enregistrement refusé.'); return; }
       informer(`✓ Version ${j.version} enregistrée : c'est elle que portent désormais les pièces qui sortent.`);
@@ -141,7 +143,7 @@ export default function EditeurModelePiece({ cles, onBrouillon, onFermer }) {
     const j = await r.json();
     if (!r.ok) { informer(j.error); return; }
     editor?.commands.setContent(j.contenu, { emitUpdate: true });
-    setPolice(j.police || ''); setTaille(j.taille || ''); setHisto(false);
+    setPolice(j.police || ''); setTaille(j.taille || ''); setRemp(j.remplacements || []); setHisto(false); setModifie(true);
   }
   async function changerDePiece(c) {
     if (modifie && !(await demander('Abandonner les modifications non enregistrées ?'))) return;
@@ -228,6 +230,27 @@ export default function EditeurModelePiece({ cles, onBrouillon, onFermer }) {
         </div>
       </div>
 
+      {m.generique && (
+        <div className="px-3 py-2 border-t border-slate-200 max-h-56 overflow-auto">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[11px] uppercase tracking-wide text-slate-500">Phrases à réécrire</span>
+            <span className="text-[11px] text-slate-500">— une phrase fixe de la pièce, telle qu’elle s’affiche, et ce qu’elle devient.</span>
+            <span className="flex-1" />
+            <button className="bouton text-[11px] py-0.5 inline-flex items-center gap-1"
+              onClick={() => { setRemp(l => [...l, { avant: '', apres: '' }]); setModifie(true); }}><IconPlus size={12} /> Ajouter</button>
+          </div>
+          {!remp.length && <div className="text-[12px] text-slate-500">Aucune. Exemple : « Programme retenu » → « Votre programme de l’année ».</div>}
+          {remp.map((r, i) => (
+            <div key={i} className="flex items-center gap-1.5 py-0.5">
+              <input value={r.avant} data-reponses="non" placeholder="Texte de la pièce" className="controle flex-1 min-w-0"
+                onChange={e => { const v = e.target.value; setRemp(l => l.map((x, k) => (k === i ? { ...x, avant: v } : x))); setModifie(true); }} />
+              <span className="text-slate-400">→</span>
+              <input value={r.apres} data-reponses="non" placeholder="Nouveau texte (vide = effacer)" className="controle flex-1 min-w-0"
+                onChange={e => { const v = e.target.value; setRemp(l => l.map((x, k) => (k === i ? { ...x, apres: v } : x))); setModifie(true); }} />
+              <button className="text-slate-400 hover:text-slate-700 px-1" title="Retirer"
+                onClick={() => { setRemp(l => l.filter((_, k) => k !== i)); setModifie(true); }}>×</button>
+            </div>))}
+        </div>)}
       <div className="px-3 py-2 border-t border-slate-200 space-y-2">
         {!!manques.length && (
           <div className="text-[12px] flex items-start gap-1.5" style={{ color: 'var(--c-refuse)' }}>

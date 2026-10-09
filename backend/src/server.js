@@ -25,6 +25,8 @@ import reunionsRoutes, { planifierRapportMensuel } from './routes/reunions.js';
 import documentationRoutes, { migrerDocumentation } from './routes/documentation.js';
 import modelesPiecesRoutes from './routes/modelesPieces.js';
 import { migrerModelesPieces } from './lib/modelesPieces.js';
+import { habillerReponses } from './lib/habillagePieces.js';
+import { galerie as galerieDesPieces } from './lib/galerieDocuments.js';
 import suggestionsRoutes, { migrerSuggestions } from './routes/suggestions.js';
 import reponsesTypesRoutes, { migrerReponsesTypes } from './routes/reponsesTypes.js';
 import { migrerJournalModifications } from './lib/journalModifications.js';
@@ -2892,6 +2894,7 @@ try { migrerEcheancier(db); } catch (e) { console.error('[migration] echeancier 
 try { migrerReunions(db); } catch (e) { console.error('[migration] reunions :', e.message); }
 try { migrerDocumentation(db); } catch (e) { console.error('[migration] documentation :', e.message); }
 try { migrerModelesPieces(db); } catch (e) { console.error('[migration] modèles des pièces :', e.message); }
+try { galerieDesPieces(); } catch (e) { console.error('[habillage] galerie :', e.message); }
 try { migrerSuggestions(db); } catch (e) { console.error('[migration] suggestions :', e.message); }
 try { migrerReponsesTypes(db); } catch (e) { console.error('[migration] réponses types :', e.message); }
 try { migrerBesoinsOffres(db); } catch (e) { console.error('[migration] besoins :', e.message); }
@@ -3002,6 +3005,10 @@ app.use(express.json({ limit: '5mb' }));
  * plus loin. Le middleware relit donc l'utilisateur au moment où la mention
  * est fabriquée, pas ici. */
 app.use((req, res, next) => porterContexte(req, res, next));
+// TOUTE PIÈCE A UN MODÈLE (lib/habillagePieces.js) : le modèle commun se pose à
+// la sortie de la pièce. La galerie se compose une fois au démarrage pour que
+// chaque route sache quelle pièce elle produit.
+app.use(habillerReponses);
 app.use(morgan('tiny'));
 
 app.get('/api/health', (req, res) => res.json({ ok: true, ts: new Date().toISOString() }));

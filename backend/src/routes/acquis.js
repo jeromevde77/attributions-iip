@@ -6970,6 +6970,7 @@ const STYLE_DOSSIER = `<style>
   .grille .dec { font-weight: 700; white-space: nowrap; }
   .grille .dec-reussi { color: #15803d; } .grille .dec-ajourne { color: #b45309; }
   .grille .dec-refuse { color: #b91c1c; }
+  .faveur-grille { color: #6B46C1; font-weight: 700; }
   .grille .col-code { font-family: ui-monospace, monospace; font-weight: 400;
                       font-size: 6pt; color: #5b6577; }
   .grille .col-prof { font-weight: 400; font-size: 6pt; color: #1B2B4B;
@@ -7006,6 +7007,14 @@ const STYLE_DOSSIER = `<style>
  * archive, et c'est elle qu'on relit un an après.
  */
 export function pageGrilleDeliberation(ueNum, annee, session = 1, { total = false, org = null } = {}) {
+  // Les faveurs octroyées sur l'unité (une ligne d'ajustement « faveur », portée UE).
+  const faveursUE = new Set((() => {
+    try {
+      return db.prepare(`SELECT DISTINCT etudiant_id FROM deliberation_ajustement
+        WHERE annee_scolaire = ? AND ue_num = ? AND action = 'faveur' AND portee = 'ue'`).all(annee, ueNum).map(x => x.etudiant_id);
+    } catch { return []; }
+  })());
+  const faveurUE = id => faveursUE.has(id);
   const ident = identiteEtablissement();
   const esc0 = t => String(t ?? '').replace(/[&<>"]/g,
     x => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[x]));
@@ -7156,7 +7165,13 @@ export function pageGrilleDeliberation(ueNum, annee, session = 1, { total = fals
         const na = !recu && (v == null || v < SEUIL_UE);
         return `<td class="sep"><b>${na ? '<span class="faible">NA</span>' : n2(v)}</b></td>`;
       })()}
-      <td class="dec dec-${arrete || dec || ''}">${LIB[arrete] || (dec ? `(${LIB[dec]})` : '—')}</td>
+      <td class="dec dec-${arrete || dec || ''}">${
+        /* LA FAVEUR SE VOIT DANS LA GRILLE (Charles, 9 octobre 2026 : « réussite
+           en mauve avec * ») : le Conseil doit lire, sur sa propre pièce, les
+           réussites qu'il a octroyées. */
+        (arrete === 'reussi' || (!arrete && dec === 'reussi')) && faveurUE(e.id)
+          ? `<span class="faveur-grille">${arrete ? 'Réussi' : '(Réussi'}*${arrete ? '' : ')'}</span>`
+          : (LIB[arrete] || (dec ? `(${LIB[dec]})` : '—'))}</td>
     </tr>`;
   });
 
@@ -7190,6 +7205,7 @@ export function pageGrilleDeliberation(ueNum, annee, session = 1, { total = fals
       celle que le calcul propose : elle n'a pas encore été arrêtée par le Conseil.
       <b>PP</b> : pas présenté · <b>NP</b> : présent, sans réponse · <b>CM</b> : certificat
       médical · <b>—</b> : aucune note encodée pour cet acquis.
+      ${faveursUE.size ? '<span class="faveur-grille">Réussi*</span> : réussite par faveur octroyée par le Conseil.' : ''}
       Les cotes sont arrondies ${{
         entier: 'à l’unité', demi: 'au demi-point',
       }[reglesGrille.arrondi] || 'au centième'} — c'est l'arrondi retenu

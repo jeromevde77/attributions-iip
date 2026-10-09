@@ -12,7 +12,8 @@ import db from '../db/index.js';
 import { authRequired } from '../middleware/auth.js';
 import { gesteRequis } from '../lib/gestes.js';
 import { MODELES, POLICES, TAILLES, modeleEnVigueur, verifierModele, assainirModele,
-         deposerBrouillon, versEditeur } from '../lib/modelesPieces.js';
+         deposerBrouillon, versEditeur, lireRemplacements } from '../lib/modelesPieces.js';
+import { galerie } from '../lib/galerieDocuments.js';
 
 const r = express.Router();
 /* Celui qui écrit est LA PERSONNE CONNECTÉE, lue en base — jamais un nom tapé. */
@@ -21,12 +22,16 @@ const auteur = user => {
   return u?.nom_complet || user?.nom || u?.email || user?.email || null;
 };
 const nonModele = (req, res) => {
+  if (!MODELES[req.params.cle]) { try { galerie(); } catch { /* */ } }
   if (MODELES[req.params.cle]) return false;
   res.status(404).json({ error: 'Modèle inconnu.' });
   return true;
 };
 
+// Les modèles communs se déclarent en composant la galerie : on s'en assure.
+const nonModele0 = () => { try { galerie(); } catch { /* */ } };
 r.get('/', authRequired, (req, res) => {
+  nonModele0();
   res.json(Object.entries(MODELES).map(([cle, m]) => {
     const v = modeleEnVigueur(cle);
     return { cle, libelle: m.libelle, galerie: m.galerie, version: v.version, d_origine: v.d_origine,
@@ -39,12 +44,14 @@ r.get('/:cle', authRequired, (req, res) => {
   const { cle } = req.params;
   const m = MODELES[cle];
   const v = modeleEnVigueur(cle);
-  const historique = db.prepare(`SELECT version, contenu IS NULL AS origine, police, taille, commentaire, cree_par, cree_le
+  const historique = db.prepare(`SELECT version, (contenu IS NULL AND police IS NULL AND taille IS NULL
+      AND (remplacements IS NULL OR remplacements = '[]')) AS origine, police, taille, commentaire, cree_par, cree_le
     FROM modele_piece_version WHERE cle = ? ORDER BY version DESC`).all(cle);
   res.json({
     cle, libelle: m.libelle, champs: m.champs, blocs: m.blocs, obligatoires: m.obligatoires,
     contenu: versEditeur(cle, v.contenu), origine: versEditeur(cle, m.defaut),
-    police: v.police, taille: v.taille, version: v.version, d_origine: v.d_origine,
+    police: v.police, taille: v.taille, remplacements: v.remplacements, generique: !!m.generique,
+    version: v.version, d_origine: v.d_origine,
     polices: POLICES, tailles: TAILLES, historique,
   });
 });
@@ -55,20 +62,22 @@ r.get('/:cle/versions/:version', authRequired, (req, res) => {
   const v = db.prepare('SELECT * FROM modele_piece_version WHERE cle = ? AND version = ?')
     .get(req.params.cle, Number(req.params.version));
   if (!v) return res.status(404).json({ error: 'Version introuvable.' });
-  res.json({ ...v, contenu: versEditeur(req.params.cle, v.contenu || MODELES[req.params.cle].defaut) });
+  res.json({ ...v, remplacements: lireRemplacements(v.remplacements),
+    contenu: versEditeur(req.params.cle, v.contenu || MODELES[req.params.cle].defaut) });
 });
 
 /** Le brouillon de l'aperçu : rien ne s'écrit en base. */
 r.post('/:cle/brouillon', authRequired, gesteRequis('documentation.modeles'), (req, res) => {
   if (nonModele(req, res)) return;
-  const { contenu, police, taille } = req.body || {};
-  res.json({ id: deposerBrouillon(req.params.cle, { contenu, police, taille }, req.user.id),
+  const { contenu, police, taille, remplacements } = req.body || {};
+  res.json({ id: deposerBrouillon(req.params.cle, { contenu, police, taille, remplacements }, req.user.id),
              manques: verifierModele(req.params.cle, assainirModele(contenu)) });
 });
 
 function ecrire(req, res, contenu) {
   const { cle } = req.params;
   const { police = null, taille = null, commentaire = '' } = req.body || {};
+  const remp = contenu === null ? [] : lireRemplacements(req.body?.remplacements);
   if (police && !POLICES.includes(police)) return res.status(400).json({ error: 'Police inconnue.' });
   if (taille && !TAILLES.includes(taille)) return res.status(400).json({ error: 'Taille inconnue.' });
   if (contenu !== null) {
@@ -78,14 +87,16 @@ function ecrire(req, res, contenu) {
         error: `Le modèle ne peut pas être enregistré : il manque ${manques.join(', ')}.` });
     }
     const actuel = modeleEnVigueur(cle);
-    if (contenu === actuel.contenu && police === actuel.police && taille === actuel.taille) {
+    if (contenu === actuel.contenu && police === actuel.police && taille === actuel.taille
+        && JSON.stringify(remp) === JSON.stringify(actuel.remplacements)) {
       return res.status(400).json({ error: 'Rien n’a changé depuis la version en vigueur.' });
     }
   }
   const version = (db.prepare('SELECT MAX(version) AS n FROM modele_piece_version WHERE cle = ?').get(cle)?.n || 0) + 1;
-  db.prepare(`INSERT INTO modele_piece_version (cle, version, contenu, police, taille, commentaire, cree_par, cree_par_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+  db.prepare(`INSERT INTO modele_piece_version (cle, version, contenu, police, taille, remplacements, commentaire, cree_par, cree_par_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
     .run(cle, version, contenu, contenu === null ? null : police, contenu === null ? null : taille,
+         remp.length ? JSON.stringify(remp) : null,
          String(commentaire || '').slice(0, 500) || null, auteur(req.user), req.user.id ?? null);
   res.json({ ok: true, version });
 }
@@ -98,7 +109,7 @@ r.post('/:cle', authRequired, gesteRequis('documentation.modeles'), (req, res) =
 /** Revenir au modèle d'origine : une version de plus, au contenu nul. */
 r.post('/:cle/origine', authRequired, gesteRequis('documentation.modeles'), (req, res) => {
   if (nonModele(req, res)) return;
-  if (modeleEnVigueur(req.params.cle).d_origine && !modeleEnVigueur(req.params.cle).police) {
+  if (modeleEnVigueur(req.params.cle).d_origine) {
     return res.status(400).json({ error: 'Le modèle d’origine est déjà en vigueur.' });
   }
   ecrire(req, res, null);
