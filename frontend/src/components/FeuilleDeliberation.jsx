@@ -226,8 +226,10 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
       // délibérés d'office n'y sont plus. Les repasser en revue ne leur
       // ajoutait rien et coûtait un clic par étudiant.
       const pos = Object.fromEntries(ordre.map((id, i) => [id, i]));
-      return base.filter(e => pos[e.id] !== undefined)
-        .sort((a, b) => pos[a.id] - pos[b.id]);
+      // UNE RECHERCHE RETROUVE TOUT LE MONDE, même ceux déjà décidés et sortis de
+      // la file : c'est ainsi qu'on revient sur une décision.
+      return base.filter(e => q || pos[e.id] !== undefined)
+        .sort((a, b) => (pos[a.id] ?? 1e6) - (pos[b.id] ?? 1e6));
     }
     return [...base].sort((a, b) => {
       const d = rang(b) - rang(a);
@@ -237,9 +239,20 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
 
   /** Figer l'ordre au moment où la revue commence. */
   function figerOrdre(source) {
-    const depart = source || data?.etudiants || [];
+    /* LA FILE NE REPREND QUE CE QUI RESTE À DÉCIDER (Charles, 9 octobre 2026 :
+       « j'ai fait les deux étapes et il me reste 75 »). Les réussites de plein
+       droit et les décisions prises en lot ne repassent pas en revue. */
+    const depart = (source || data?.etudiants || []).filter(e => !e.resultat);
     const filtre = groupe ? depart.filter(e => (e.groupes || []).includes(groupe)) : depart;
+    /* LES CAS SEMBLABLES ENSEMBLE (Charles, 9 octobre 2026). Après les réussites
+       de plein droit et les PP, la file s'ouvre sur les FAVEURS ENVISAGEABLES —
+       la même question posée plusieurs fois de suite, du point qui manque aux
+       deux points —, puis le reste, du meilleur au moins bon. */
+    const groupeDe = e => e.ue?.faveur_eligible ? 0 : 1;
     const l = [...filtre].sort((a, b) => {
+      const g = groupeDe(a) - groupeDe(b);
+      if (g) return g;
+      if (!groupeDe(a)) { const c = (a.ue?.faveur_cout ?? 9) - (b.ue?.faveur_cout ?? 9); if (c) return c; }
       const d = rang(b) - rang(a);
       return d || `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`);
     });
@@ -804,7 +817,9 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
             <Mentions liste={(data?.etudiants || []).filter(aMentionADecider)} session={session}
               colonnesCours={data?.colonnes_cours || []} colonnesAcquis={data?.colonnes_acquis || []}
               enCours={enCours} onDecider={ajournerLot}
-              onFini={() => { setIdx(0); setEtape('fiche'); }} />
+              onFini={async decides => {
+                if (decides?.length) { const frais = await charger(); if (frais) figerOrdre(frais); }
+                setIdx(0); setEtape('fiche'); }} />
           ) : etape === 'cloture' ? (
             <Cloture seance={seance?.seance} enCours={enCours} nb={liste.length}
               quorum={seance?.quorum} erreur={erreur}
@@ -817,7 +832,10 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
           ) : !liste.length ? (
             <div className="py-10 text-center text-[13px] text-slate-400 border-2
                             border-dashed rounded-xl">
-              Aucun étudiant inscrit à cette unité pour {annee}.
+              {(data?.etudiants || []).length
+                ? <>Tous les étudiants ont une décision. <button type="button" className="underline text-iip-blue"
+                    onClick={() => setEtape('cloture')}>Passer à la clôture</button> — ou cherchez un nom pour revenir sur une décision.</>
+                : <>Aucun étudiant inscrit à cette unité pour {annee}.</>}
             </div>
           ) : lot ? (
             <VueLot liste={liste} enCours={enCours} onAjourner={ajournerLot} session={session}
@@ -843,6 +861,13 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
                 <div className="flex-1 min-w-0 px-1 flex items-baseline gap-2 truncate">
                   <span className="text-[15px] font-bold text-iip-blue truncate">{nomPropre(etud.nom, etud.prenom)}</span>
                   <span className="text-[11px] text-slate-500 whitespace-nowrap">{etud.id_ecampus || '—'} · {idx + 1} / {liste.length}</span>
+                  {(() => {
+                    // Le paquet où l'on se trouve : les faveurs envisageables passent d'abord.
+                    const fav = liste.filter(x => x.ue?.faveur_eligible);
+                    const k = fav.findIndex(x => x.id === etud.id);
+                    return k >= 0 ? <span className="text-[11px] font-semibold px-2 rounded-full text-white whitespace-nowrap"
+                      style={{ background: 'var(--c-reussi)' }}>faveur envisageable · {k + 1} sur {fav.length}</span> : null;
+                  })()}
                 </div>
                 <div className="flex items-center gap-2">
                   {tuile}
@@ -1620,7 +1645,7 @@ function Mentions({ liste, session, enCours, onDecider, onFini, colonnesCours = 
             onClick={async () => setApercu(await onDecider(retenus.map(e => e.id), '', true, null, corps(), mode))}>
             Simuler</button>
           <button type="button" className="bouton bouton-fort" disabled={enCours || manqueMotif || !retenus.length}
-            onClick={async () => { const j = await onDecider(retenus.map(e => e.id), '', false, null, corps(), mode); if (j) onFini(); }}>
+            onClick={async () => { const j = await onDecider(retenus.map(e => e.id), '', false, null, corps(), mode); if (j) onFini(retenus.map(e => e.id)); }}>
             {enCours ? 'Enregistrement…' : `Décider ces ${retenus.length}`}
           </button>
         </div>
