@@ -3656,7 +3656,16 @@ export function documentBulletin(etudId, annee) {
 
   const tuile = (v, l, p) => `<div class="tuile"><div class="v">${v}</div><div class="l">${l}</div>${p ? `<div class="p">${p}</div>` : ''}</div>`;
   const naissance = e.date_naissance ? String(e.date_naissance).replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$3/$2/$1') : null;
-  const svg = schemaSvg(graphe);
+  /* À L'ÉCHELLE DU DESSIN, PAS DE LA PAGE (Charles, 9 octobre 2026 : « très
+     grand »). Étiré sur les 235 mm de la feuille, un cursus de quatre unités
+     donnait des blocs géants. Une échelle naturelle (0,42 mm par unité de
+     dessin), plafonnée à la page : un petit cursus reste petit, un grand se
+     resserre pour tenir. */
+  const svgBrut = schemaSvg(graphe);
+  const vb = (svgBrut.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/) || []).slice(1).map(Number);
+  const svg = vb.length === 2
+    ? svgBrut.replace('<svg ', `<svg style="width:${Math.min(235, Math.round(vb[0] * 0.42))}mm;max-width:100%" `)
+    : svgBrut;
   const ident = identiteEtablissement();
   const dateLongue = new Date().toLocaleDateString('fr-BE', { day: 'numeric', month: 'long', year: 'numeric' })
     .replace(/^1 /, '1er ');
