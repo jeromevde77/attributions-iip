@@ -1722,8 +1722,13 @@ export function documentMotivation(etudId, ueNum, annee, session = 1) {
     (coursDe[code] = coursDe[code] || []).push(c);
   }
   const aRepresenter = [];
+  // L'acquis se représente dans le cours ajourné qui l'emporte, non dans ceux où
+  // il est réussi ; s'il est ajourné pour lui-même, dans tous ses cours.
+  const emporte = (c, code) => c.na && (!c.aas_a_representer || c.aas_a_representer.includes(code));
   for (const l of lignes) {
-    for (const c of (coursDe[l.code] || [])) {
+    const tous = coursDe[l.code] || [];
+    const ou = tous.some(c => emporte(c, l.code)) ? tous.filter(c => emporte(c, l.code)) : tous;
+    for (const c of ou) {
       let e0 = aRepresenter.find(x => x.cours_code === c.cours_code);
       if (!e0) aRepresenter.push(e0 = { cours_code: c.cours_code, cours_nom: c.cours_nom,
         professeurs: c.professeurs || '', aas: [] });
