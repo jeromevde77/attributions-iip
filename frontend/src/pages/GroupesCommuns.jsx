@@ -4,6 +4,7 @@ import { api, authHeaders, getAnnee } from '../lib/api.js';
 import { demander, informer } from '../lib/dialogue.jsx';
 import { passeRole } from '../lib/droits.js';
 import { teinteCours, styleTuileCours } from '../lib/teinteCours.js';
+import { ouvrirApercu } from '../lib/apercu.js';
 
 /**
  * LES GROUPES COMMUNS (Charles, 9 octobre 2026 : « des TP par 4, par 6, par 8
@@ -371,6 +372,8 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
   const [semaine, setSemaine] = useState(1);
   const [erreur, setErreur] = useState(null);
   const [vueSem, setVueSem] = useState('deux');       // proposition | actuel | deux
+  const [regles, setRegles] = useState({ jours_max: 5, regrouper: true });
+  const [qui, setQui] = useState('');                  // '' = tout le bloc · 'b:3' = une brique · 'e:123' = un étudiant
   const [actuelSem, setActuelSem] = useState([]);
   useEffect(() => {
     const lundi = sim?.semaines?.[semaine - 1]?.lundi;
@@ -381,7 +384,7 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
   useEffect(() => {
     setSim(null);
     fetch(`/api/etudiants/horaire-plages?section=${encodeURIComponent(section)}`, { headers: authHeaders() }).then(r => r.json())
-      .then(j => { setPlages(j.plages || []); const t = {}; for (let d = 1; d <= 6; d++) t[d] = (j.plages || []).filter(p => p.jour === d).map(p => `${p.debut}-${p.fin}`).join(', '); setTexte(t); })
+      .then(j => { setPlages(j.plages || []); if (j.regles) setRegles(j.regles); const t = {}; for (let d = 1; d <= 6; d++) t[d] = (j.plages || []).filter(p => p.jour === d).map(p => `${p.debut}-${p.fin}`).join(', '); setTexte(t); })
       .catch(() => setPlages([]));
   }, [section]);
   async function enregistrerPlages() {
@@ -390,10 +393,10 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
       const r = /^(\d{1,2})[:h](\d{2})\s*-\s*(\d{1,2})[:h](\d{2})$/.exec(m);
       if (r) liste.push({ jour: Number(j), debut: `${r[1].padStart(2, '0')}:${r[2]}`, fin: `${r[3].padStart(2, '0')}:${r[4]}` });
     }
-    const r = await fetch('/api/etudiants/horaire-plages', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ section, plages: liste }) });
+    const r = await fetch('/api/etudiants/horaire-plages', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ section, plages: liste, regles }) });
     const j = await r.json();
     if (!r.ok) { setErreur(j.error); return; }
-    setPlages(j.plages); setSim(null);
+    setPlages(j.plages); if (j.regles) setRegles(j.regles); setSim(null);
   }
   async function simuler() {
     setEnCours(true); setErreur(null);
@@ -424,7 +427,30 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
       informer(`✓ ${j.a_poser} séance(s) posées dans l’horaire de ${section} ${bloc}. Elles sont visibles dans Organisation → Horaire de la semaine (classe ${section} · ${bloc}).`);
     } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
   }
-  const creneauxSemaine = useMemo(() => (sim?.seances || []).filter(s => s.semaine === semaine), [sim, semaine]);
+  /* L'HORAIRE D'UN GROUPE, D'UN ÉTUDIANT (Charles, 9 octobre 2026). Un étudiant
+     appartient à une brique ; ses séances sont la théorie du bloc et les groupes
+     qui contiennent sa brique. */
+  const etuVue = qui.startsWith('e:') ? (sim?.etudiants || []).find(e => String(e.id) === qui.slice(2)) || null : null;
+  const briqueVue = qui.startsWith('b:') ? Number(qui.slice(2)) : etuVue?.brique || null;
+  async function imprimerHoraire() {
+    setErreur(null);
+    const corps = { section, bloc, annee, ...(qui.startsWith('b:') ? { brique: Number(qui.slice(2)) } : {}), ...(qui.startsWith('e:') ? { etudiant_id: Number(qui.slice(2)) } : {}) };
+    const r = await fetch('/api/etudiants/repartition-cours/communs/simulation/document', { method: 'POST', headers: authHeaders(), body: JSON.stringify(corps) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { setErreur(j.error || `L’horaire n’a pas pu être composé (erreur ${r.status}).`); return; }
+    ouvrirApercu({ html: j.html, titre: `Horaire proposé — ${section} ${bloc}`, nomFichier: j.nom, envoiPossible: false, pdf: { orientation: 'paysage' } });
+  }
+  /* Même règle que pourQui() du serveur (lib/simulationHoraire.js) : un groupe
+     hors briques (séminaire) se lit dans la répartition nominative de l'étudiant. */
+  const pourQui = s => {
+    if (!qui) return true;
+    if (s.tout_le_bloc && s.groupe && s.groupe !== 'Tous' && s.groupe !== 'Ts') {
+      const g = etuVue?.groupes?.[`${s.cours_code}#${s.activite_id}`];
+      return g ? g === s.groupe : true;
+    }
+    return s.tout_le_bloc || (briqueVue != null && (s.briques || []).includes(briqueVue));
+  };
+  const creneauxSemaine = useMemo(() => (sim?.seances || []).filter(s => s.semaine === semaine && pourQui(s)), [sim, semaine, qui]);   // eslint-disable-line
   const heures = [...new Set((plages || []).map(p => `${p.debut}-${p.fin}`))].sort();
   const jours = [...new Set((plages || []).map(p => p.jour))].sort();
   const datesSemaine = useMemo(() => Object.fromEntries(creneauxSemaine.map(s => [s.jour, s.date])), [creneauxSemaine]);
@@ -449,13 +475,31 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
               <input value={texte[d] || ''} disabled={!peutEcrire} onChange={e => setTexte(t => ({ ...t, [d]: e.target.value }))}
                 placeholder="aucune — ex. 15:30-17:30, 17:30-19:30" className="controle flex-1" data-reponses="non" />
             </label>))}
-          {peutEcrire && <div><button className="bouton" onClick={enregistrerPlages}>Enregistrer les plages</button></div>}
+          {/* LES PRIORITÉS DE LA SECTION : des réglages, pas des constantes. */}
+          <div className="mt-2 pt-2 border-t border-slate-200 grid gap-1.5">
+            <b className="text-[12px] text-slate-600">Priorités de la simulation</b>
+            <label className="flex items-center gap-2">
+              <span>Un étudiant vient au plus</span>
+              <select className="controle !h-8" value={regles.jours_max} disabled={!peutEcrire} onChange={e => setRegles(r => ({ ...r, jours_max: Number(e.target.value) }))}>
+                {[3, 4, 5, 6].map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+              <span>jours par semaine</span>
+            </label>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={!!regles.regrouper} disabled={!peutEcrire} onChange={e => setRegles(r => ({ ...r, regrouper: e.target.checked }))} />
+              Regrouper : à créneau égal, placer un cours un jour où ses étudiants viennent déjà
+            </label>
+          </div>
+          {peutEcrire && <div><button className="bouton" onClick={enregistrerPlages}>Enregistrer les plages et les priorités</button></div>}
         </div>
       </details>
 
       {sim && <>
         <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))' }}>
           {[[sim.nb_semaines, 'semaines de cours', 'neutre'], [`${sim.heures_disponibles} h`, 'disponibles par étudiant', 'neutre'],
+            ...(sim.presence?.length ? [(() => { const p = briqueVue ? sim.presence.filter(x => x.brique === briqueVue) : sim.presence;
+              const mx = Math.max(0, ...p.map(x => x.max)), my = p.length ? (p.reduce((t, x) => t + x.moyenne, 0) / p.length).toFixed(1).replace('.', ',') : '0';
+              return [`${mx} j`, `de présence au plus par semaine (moyenne ${my}) — règle : ${sim.regles?.jours_max ?? 5}`, mx > (sim.regles?.jours_max ?? 5) ? 'corriger' : 'reussi']; })()] : []),
             [`${sim.heures_attribuees} h`, 'attribuées au bloc (hors stage et évaluations)', 'neutre'],
             [`${sim.actuel.heures} h`, `horaire actuel — ${sim.actuel.seances} séance(s)${sim.actuel.derniere ? `, jusqu’au ${sim.actuel.derniere.slice(8, 10)}/${sim.actuel.derniere.slice(5, 7)}` : ''}`, sim.actuel.heures < sim.heures_attribuees ? 'surveiller' : 'reussi'],
             [`${Math.round(sim.seances.reduce((t, x) => t + x.minutes, 0) / 60)} h`, `proposition de Lucie — ${sim.nb_seances} séance(s)`, sim.restes.length ? 'corriger' : 'reussi'],
@@ -479,7 +523,7 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
               <th className="px-3 py-1">Cours</th><th className="px-3 py-1">Activité</th><th className="px-3 py-1">Groupe</th>
               <th className="px-3 py-1">Créneau fixe</th><th className="px-3 py-1">Semaines</th><th className="px-3 py-1">Local</th><th className="px-3 py-1">Enseignant</th></tr></thead>
             <tbody>
-              {sim.activites.map(a => (
+              {sim.activites.filter(pourQui).map(a => (
                 <tr key={a.cle} className="border-t border-slate-100 align-top">
                   <td className="px-3 py-1 font-semibold whitespace-nowrap">{a.cours_code}</td>
                   <td className="px-3 py-1">{String(a.activite || '').slice(0, 40)}</td>
@@ -503,6 +547,16 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
           <button className="bouton px-2" disabled={semaine >= sim.nb_semaines} onClick={() => setSemaine(s => s + 1)}>▶</button>
           <span className="text-[12px] text-slate-500">{sim.semaines?.[semaine - 1] ? `semaine du ${sim.semaines[semaine - 1].lundi.split('-').reverse().join('/')}` : ''}</span>
           <span className="flex-1" />
+          <select value={qui} onChange={e => setQui(e.target.value)} className="controle max-w-[16rem]" title="Ne montrer que l’horaire d’un groupe d’étudiants (brique) ou d’un étudiant">
+            <option value="">Tout le bloc</option>
+            <optgroup label="Un groupe d’étudiants (brique)">
+              {Array.from({ length: sim.nb_briques || 0 }, (_, i) => i + 1).map(b => <option key={b} value={`b:${b}`}>Brique {b}</option>)}
+            </optgroup>
+            <optgroup label="Un étudiant">
+              {(sim.etudiants || []).filter(e => e.brique).map(e => <option key={e.id} value={`e:${e.id}`}>{String(e.nom || '').toUpperCase()} {e.prenom} — brique {e.brique}</option>)}
+            </optgroup>
+          </select>
+          <button className="bouton bouton-sortir" onClick={imprimerHoraire} title="La semaine type et les séances de l’année, pour la sélection">Imprimer l’horaire</button>
           <div className="segments flex h-8">
             {[['proposition', 'Proposition de Lucie'], ['actuel', 'Horaire actuel'], ['deux', 'Côte à côte']].map(([k, l]) => (
               <button key={k} onClick={() => setVueSem(k)} className={`px-3 text-[12.5px] ${vueSem === k ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'}`}>{l}</button>))}
@@ -525,7 +579,8 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
                     // Une séance actuelle va dans la plage qu'elle recouvre le PLUS : à cheval sur deux, elle s'affichait deux fois.
                     const m = t => { const [a, b] = String(t).split(':').map(Number); return a * 60 + b; };
                     const recouvre = (x, p0) => Math.max(0, Math.min(m(x.heure_fin), m(p0.split('-')[1])) - Math.max(m(x.heure_debut), m(p0.split('-')[0])));
-                    const act = vueSem === 'proposition' ? [] : actuelSem.filter(x => {
+                    // L'horaire actuel ne dit pas les briques : il ne se montre que pour tout le bloc.
+                    const act = vueSem === 'proposition' || qui ? [] : actuelSem.filter(x => {
                       if (jourDe(x.date) !== j) return false;
                       const duJour = (plages || []).filter(p0 => p0.jour === j).map(p0 => `${p0.debut}-${p0.fin}`);
                       const cand = duJour.length ? duJour : heures;

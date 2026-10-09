@@ -160,6 +160,20 @@ export const DOCUMENTS = [
     destinataires: null,
     roles: null,
   },
+  /* L'HORAIRE PROPOSÉ D'UN BLOC, D'UN GROUPE OU D'UN ÉTUDIANT (9 octobre 2026),
+     A4 paysage : semaine type et séances de l'année, tirées de la simulation.
+     Porte : Organisation → Groupes communs → Simulation de l'année. */
+  {
+    cle: 'horaire_propose',
+    libelle: 'Horaire proposé (simulation)',
+    description: "La semaine type et les séances de l'année d'un bloc, d'un groupe d'étudiants ou d'un étudiant — proposition de la simulation.",
+    portee: 'section', lot: false, groupe: 'Organisation',
+    route: { methode: 'POST', chemin: '/api/etudiants/repartition-cours/communs/simulation/document' },
+    parametres: ['annee', 'section', 'bloc'],
+    nomFichier: 'Horaire_{section}_{bloc}_{annee}',
+    destinataires: null,
+    roles: null,
+  },
   /* LES PIÈCES D'UN DOSSIER D'AMÉNAGEMENTS RAISONNABLES (décret du 30 juin
      2016). Elles se produisent depuis le dossier — fiche de l'étudiant, onglet
      Aménagements —, qui est leur porte ; elles se déclarent ici pour que le

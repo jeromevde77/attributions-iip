@@ -27,6 +27,7 @@
 import db from '../db/index.js';
 import { joursFeries } from '../routes/horaire.js';
 import { cohorte, groupeDeBrique } from './groupesCommuns.js';
+import { envelopperDocument } from './document.js';
 
 export const MINUTES_PERIODE = 50;
 const JOURS = ['', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
@@ -35,6 +36,9 @@ export function migrerPlages(base = db) {
   base.exec(`CREATE TABLE IF NOT EXISTS horaire_plage (
     section TEXT NOT NULL, jour INTEGER NOT NULL, debut TEXT NOT NULL, fin TEXT NOT NULL,
     PRIMARY KEY (section, jour, debut));
+  CREATE TABLE IF NOT EXISTS horaire_regle (
+    section TEXT NOT NULL, cle TEXT NOT NULL, valeur TEXT, maj_par TEXT, maj_le TEXT DEFAULT (datetime('now')),
+    PRIMARY KEY (section, cle));
   CREATE TABLE IF NOT EXISTS horaire_local_activite (
     annee_scolaire TEXT NOT NULL, section TEXT NOT NULL, bloc TEXT NOT NULL,
     cours_code TEXT NOT NULL, activite_id INTEGER NOT NULL DEFAULT 0,
@@ -46,6 +50,32 @@ export function migrerPlages(base = db) {
     for (let j = 1; j <= 5; j++) { ins.run('TIM', j, '15:30', '17:30'); ins.run('TIM', j, '17:30', '19:30'); }
     for (const [d, f] of [['08:00', '10:00'], ['10:00', '12:00'], ['12:00', '14:00'], ['14:00', '16:00']]) ins.run('TIM', 6, d, f);
   }
+}
+/*
+ * LES PRIORITÉS DE LA SECTION (Charles, 9 octobre 2026 : « répartir 5 jours sur
+ * 6 ; grouper ; mais cela doit faire partie de ce que l'on encode comme
+ * priorité »). Des RÉGLAGES, pas des constantes : une section les règle à
+ * l'écran, à côté de ses plages.
+ *   · jours_max — au plus N jours de présence par semaine pour un étudiant ;
+ *   · regrouper — à créneau égal, placer un cours un jour où ses étudiants
+ *     viennent déjà, plutôt que de les faire venir un jour de plus.
+ */
+export const REGLES_DEFAUT = { jours_max: 5, regrouper: true };
+export function reglesDe(section) {
+  const r = { ...REGLES_DEFAUT };
+  for (const x of db.prepare('SELECT cle, valeur FROM horaire_regle WHERE section = ?').all(section)) {
+    if (x.cle === 'jours_max') r.jours_max = Math.max(1, Math.min(7, Number(x.valeur) || REGLES_DEFAUT.jours_max));
+    if (x.cle === 'regrouper') r.regrouper = x.valeur === '1';
+  }
+  return r;
+}
+export function ecrireRegles(section, regles, par = null) {
+  const ins = db.prepare(`INSERT INTO horaire_regle (section, cle, valeur, maj_par, maj_le) VALUES (?,?,?,?, datetime('now'))
+    ON CONFLICT(section, cle) DO UPDATE SET valeur = excluded.valeur, maj_par = excluded.maj_par, maj_le = excluded.maj_le`);
+  db.transaction(() => {
+    if (regles.jours_max != null) ins.run(section, 'jours_max', String(Math.max(1, Math.min(7, Number(regles.jours_max) || 5))), par);
+    if (regles.regrouper != null) ins.run(section, 'regrouper', regles.regrouper ? '1' : '0', par);
+  })();
 }
 export const plagesDe = section => db.prepare('SELECT jour, debut, fin FROM horaire_plage WHERE section = ? ORDER BY jour, debut').all(section);
 export function ecrirePlages(section, plages) {
@@ -180,7 +210,15 @@ export function simuler(section, bloc, annee) {
       if (h.local_texte && !/distanciel|à distance|en ligne/i.test(h.local_texte)) marquer(occL, k(s), h.local_texte);
     }
   }
-  const libre = (s, d) => !(d.briques.some(b => occB.get(k(s))?.has(b)) || (d.professeur_id && occP.get(k(s))?.has(d.professeur_id)));
+  const libreSansJours = (s, d) => !(d.briques.some(b => occB.get(k(s))?.has(b)) || (d.professeur_id && occP.get(k(s))?.has(d.professeur_id)));
+  // Les jours de présence de chaque brique, semaine par semaine.
+  const regles = reglesDe(section);
+  const joursB = new Map();
+  const jours = (s, b) => joursB.get(`${s.semaine}|${b}`);
+  const dansLesJours = (s, d) => d.briques.every(b => { const j = jours(s, b); return !j || j.has(s.jour) || j.size < regles.jours_max; });
+  const libre = (s, d) => libreSansJours(s, d) && dansLesJours(s, d);
+  // Regroupé : tous les étudiants du groupe viennent déjà ce jour-là.
+  const regroupe = (s, d) => d.briques.every(b => jours(s, b)?.has(s.jour));
   const salleLibre = (s, l) => !l || !occL.get(k(s))?.has(l);
   // LES LOCAUX POSSIBLES de chaque demande, et son effectif.
   const referentiel = locauxDuReferentiel();
@@ -202,6 +240,7 @@ export function simuler(section, bloc, annee) {
   }
   const poser = (s, d, l) => {
     if (l) marquer(occL, k(s), l);
+    d.briques.forEach(b => marquer(joursB, `${s.semaine}|${b}`, s.jour));
     if (!occB.has(k(s))) occB.set(k(s), new Set()); d.briques.forEach(b => occB.get(k(s)).add(b));
     if (d.professeur_id) { if (!occP.has(k(s))) occP.set(k(s), new Set()); occP.get(k(s)).add(d.professeur_id); }
   };
@@ -216,7 +255,7 @@ export function simuler(section, bloc, annee) {
   const ordre = [...dem].sort((x, y) => (y.tout_le_bloc - x.tout_le_bloc) || (y.minutes - x.minutes));
   const seances = [], restes = [], fixes = new Map();
   const ajouter = (s, d, regulier, local) => {
-    poser(s, d, local); seances.push({ ...s, cle: d.cle, cours_code: d.cours_code, cours_nom: d.cours_nom, activite: d.activite, groupe: d.groupe,
+    poser(s, d, local); seances.push({ ...s, cle: d.cle, cours_code: d.cours_code, cours_nom: d.cours_nom, activite_id: d.activite_id, activite: d.activite, groupe: d.groupe,
       professeur: d.professeur, briques: d.briques, tout_le_bloc: d.tout_le_bloc, regulier, local: local || null });
   };
   for (const d of ordre) {
@@ -253,8 +292,9 @@ export function simuler(section, bloc, annee) {
             else if (choisies.length) trous++;
           }
           if (!choisies.length) continue;
-          // Score : couvrir le plus, avec le moins de trous, finir le plus tôt, le local préféré.
-          const score = [choisies.length, -trous, -choisies[choisies.length - 1].semaine, -rang];
+          // Score : couvrir le plus, avec le moins de trous, regroupé si la section le veut, finir le plus tôt, le local préféré.
+          const score = [choisies.length, -trous, regles.regrouper ? choisies.filter(x => regroupe(x, d)).length : 0,
+            -choisies[choisies.length - 1].semaine, -rang];
           if (!meilleur || plusGrand(score, meilleur.score)) meilleur = { t, l, choisies, trous, score };
         }
       }
@@ -279,12 +319,19 @@ export function simuler(section, bloc, annee) {
     if (place < besoin) {
       const conflitProf = d.professeur_id && possibles.some(s => !d.briques.some(b => occB.get(k(s))?.has(b)) && occP.get(k(s))?.has(d.professeur_id));
       const sansSalle = d.local_origine !== 'a_designer' && possibles.some(s => libre(s, d));
+      const parJours = possibles.some(s => libreSansJours(s, d) && !dansLesJours(s, d));
       restes.push({ ...d, place, manque: besoin - place,
-        raison: d.local_origine === 'aucun' ? `aucune classe ni auditoire de ${d.effectif} places au référentiel des locaux`
+        raison: parJours && !possibles.some(s => libre(s, d)) ? `ses étudiants ont déjà leurs ${regles.jours_max} jours de présence les semaines où le créneau serait libre`
+          : d.local_origine === 'aucun' ? `aucune classe ni auditoire de ${d.effectif} places au référentiel des locaux`
           : sansSalle ? 'ses locaux possibles sont tous occupés quand étudiants et enseignant sont libres'
           : conflitProf ? 'l’enseignant est déjà occupé sur les créneaux où ses étudiants sont libres' : 'plus de créneau libre pour ces étudiants dans le quadrimestre' });
     }
   }
+  // LES JOURS DE PRÉSENCE, brique par brique : le plus et la moyenne par semaine de cours.
+  const presence = Array.from({ length: Math.max(1, c.nb_briques) }, (_, i) => {
+    const n = [...new Set(slots.map(x => x.semaine))].map(w => joursB.get(`${w}|${i + 1}`)?.size || 0).filter(Boolean);
+    return { brique: i + 1, max: n.length ? Math.max(...n) : 0, moyenne: n.length ? Math.round(n.reduce((a, b) => a + b, 0) / n.length * 10) / 10 : 0 };
+  });
   // La capacité, brique par brique : heures disponibles et heures demandées.
   const dispo = slots.reduce((t, s) => t + s.minutes, 0);
   const demandeParBrique = Array.from({ length: Math.max(1, c.nb_briques) }, (_, i) => dem.filter(d => d.briques.includes(i + 1)).reduce((t, d) => t + d.minutes, 0));
@@ -299,7 +346,19 @@ export function simuler(section, bloc, annee) {
   } catch { /* table absente */ }
   const heuresDemandeesBloc = Math.round(dem.reduce((t, d) => t + d.minutes, 0) / 60);
   return {
-    section, bloc, annee, nb_semaines: nbSemaines, semaines: semainesListe, actuel, heures_attribuees: heuresDemandeesBloc, plages: plages.map(p => ({ ...p, jour_nom: JOURS[p.jour] })),
+    section, bloc, annee, regles, presence, nb_briques: c.nb_briques,
+    // Pour la vue « un étudiant » : sa brique dit ses séances.
+    // Et, pour les activités hors briques (séminaires…), son groupe dans la répartition.
+    etudiants: (() => {
+      const g = new Map();
+      try {
+        for (const x of db.prepare(`SELECT etudiant_id, cours_code, COALESCE(activite_id, 0) act, groupe_code FROM etudiant_cours_groupe WHERE annee_scolaire = ?`).all(annee)) {
+          if (!g.has(x.etudiant_id)) g.set(x.etudiant_id, {});
+          g.get(x.etudiant_id)[`${x.cours_code}#${x.act}`] = x.groupe_code;
+        }
+      } catch { /* table absente */ }
+      return c.etudiants.map(e => ({ id: e.id, nom: e.nom, prenom: e.prenom, brique: c.briques[e.id] || null, groupes: g.get(e.id) || {} }));
+    })(), nb_semaines: nbSemaines, semaines: semainesListe, actuel, heures_attribuees: heuresDemandeesBloc, plages: plages.map(p => ({ ...p, jour_nom: JOURS[p.jour] })),
     creneaux: slots.length, heures_disponibles: Math.round(dispo / 60),
     heures_demandees_max: Math.round(Math.max(...demandeParBrique) / 60), heures_demandees_min: Math.round(Math.min(...demandeParBrique) / 60),
     nb_demandes: dem.length, nb_seances: seances.length,
@@ -307,12 +366,104 @@ export function simuler(section, bloc, annee) {
       periodes: d.periodes, quadri: d.quadri, tout_le_bloc: d.tout_le_bloc,
       besoin: Math.ceil(d.minutes / (slots[0]?.minutes || 120)), place: seances.filter(s => s.cle === d.cle).length,
       creneaux_fixes: (fixes.get(d.cle) || []).map(({ type, ...f }) => f), irreguliers: fixes.get(d.cle)?.irreguliers || 0,
-      activite_id: d.activite_id, effectif: d.effectif, locaux: d.locaux, local_origine: d.local_origine })),
+      activite_id: d.activite_id, briques: d.briques, effectif: d.effectif, locaux: d.locaux, local_origine: d.local_origine })),
     referentiel_locaux: referentiel,
     restes, seances: seances.sort((x, y) => (x.date + x.debut).localeCompare(y.date + y.debut)),
   };
 }
 
+
+/**
+ * L'HORAIRE D'UN GROUPE OU D'UN ÉTUDIANT, À IMPRIMER (Charles, 9 octobre 2026 :
+ * « sortir l'horaire d'un groupe, d'un étudiant »). Deux parties : la SEMAINE
+ * TYPE — les créneaux fixes, avec leurs semaines —, puis la LISTE DES SÉANCES
+ * de l'année, date par date. Un étudiant appartient à une brique : ses séances
+ * sont la théorie du bloc et les groupes qui contiennent sa brique.
+ *
+ * C'est une PROPOSITION de la simulation, et la pièce le dit en tête : elle ne
+ * vaut pas horaire officiel tant que le plan n'est pas adopté. Sur papier, la
+ * charte : tuiles blanches, liseré marine — les couleurs d'écran ne s'impriment
+ * pas.
+ */
+/**
+ * À QUI S'ADRESSE UNE SÉANCE. Trois cas : tout le bloc (la théorie) ; un groupe
+ * de TP rangé en briques (la brique de l'étudiant le dit) ; un groupe HORS
+ * briques — un séminaire en deux groupes — que seule la répartition nominative
+ * connaît. Pour une brique sans étudiant nommé, ces derniers restent tous
+ * montrés : on ne sait pas lequel la brique suivra.
+ */
+export const multiGroupe = x => x.tout_le_bloc && x.groupe && x.groupe !== 'Tous' && x.groupe !== 'Ts';
+export function pourQui(x, b, e = null) {
+  if (b == null && !e) return true;
+  if (multiGroupe(x)) {
+    const g = e?.groupes?.[`${x.cours_code}#${x.activite_id}`];
+    return g ? g === x.groupe : true;
+  }
+  return x.tout_le_bloc || (x.briques || []).includes(b);
+}
+
+export function documentHoraire(section, bloc, annee, { brique = null, etudiantId = null } = {}) {
+  const sim = simuler(section, bloc, annee);
+  let b = brique ? Number(brique) : null, qui = brique ? `Groupe d’étudiants — brique ${brique}` : 'Tout le bloc', e = null;
+  if (etudiantId) {
+    e = sim.etudiants.find(x => x.id === Number(etudiantId));
+    if (!e) throw Object.assign(new Error('Étudiant inconnu dans ce bloc'), { status: 404 });
+    if (!e.brique) throw Object.assign(new Error('Cet étudiant n’est rangé dans aucune brique : remplissez d’abord les groupes communs.'), { status: 409 });
+    b = e.brique; qui = `${String(e.nom || '').toUpperCase()} ${e.prenom || ''} — brique ${e.brique}`;
+  }
+  const pour = x => pourQui(x, b, e);
+  const esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const lundiDe = n => sim.semaines[n - 1]?.lundi;
+  const dm = iso => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}` : '');
+  const plus = (iso, j) => { const d = new Date(`${iso}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + j); return d.toISOString().slice(0, 10); };
+  const grp = g => (g && g !== 'Tous' && g !== 'Ts' ? ` <span class="gr">${esc(g)}</span>` : '');
+  // 1. LA SEMAINE TYPE.
+  const acts = sim.activites.filter(pour);
+  const plages = [...new Set(sim.plages.map(p => `${p.debut}-${p.fin}`))].sort();
+  const jours = [...new Set(sim.plages.map(p => p.jour))].sort();
+  const cellule = (j, h) => acts.flatMap(a => (a.creneaux_fixes || []).filter(f => f.jour === j && `${f.debut}-${f.fin}` === h).map(f => {
+    const de = lundiDe(f.de), a2 = lundiDe(f.a);
+    const aConfirmer = (b != null || e) && multiGroupe(a) && !e?.groupes?.[`${a.cours_code}#${a.activite_id}`];
+    return `<div class="tu${aConfirmer ? ' conf' : ''}"><b>${esc(a.cours_code)}</b>${grp(a.groupe)}${aConfirmer ? ' <span class="cf">groupe à confirmer</span>' : ''} <span class="nm">${esc(String(a.activite || '').replace(/\s*\((TP|TH)\)\s*$/i, ''))}</span>
+      <div class="pt">${f.local ? `${esc(f.local)} · ` : ''}${de ? `${dm(de)} → ${dm(plus(a2, f.jour - 1))}` : ''} · ${f.seances} séance${f.seances > 1 ? 's' : ''}</div></div>`;
+  })).join('');
+  const semaineType = `<table class="st"><thead><tr><th class="pl">Plage</th>${jours.map(j => `<th>${JOURS[j]}</th>`).join('')}</tr></thead><tbody>
+    ${plages.map(h => `<tr><td class="pl">${h.replace('-', '<br>')}</td>${jours.map(j => `<td>${cellule(j, h)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+  // 2. LA LISTE DES SÉANCES.
+  const seances = sim.seances.filter(pour);
+  const heures = Math.round(seances.reduce((t, x) => t + x.minutes, 0) / 60);
+  const lignes = seances.map(x => `<tr><td class="n">${x.semaine}</td><td class="n">${JOURS[x.jour].slice(0, 3)}. ${dm(x.date)}</td><td class="n">${x.debut}–${x.fin}</td>
+    <td class="c"><b>${esc(x.cours_code)}</b> ${esc(x.cours_nom || '')}<span class="ac"> — ${esc(x.activite || '')}</span></td><td class="n">${x.tout_le_bloc ? 'bloc' : esc(x.groupe)}</td>
+    <td class="n">${esc(x.local || '')}</td><td class="n">${esc(x.professeur || '')}</td></tr>`).join('');
+  const liste = `<table class="li"><thead><tr><th>Sem.</th><th>Date</th><th>Heure</th><th>Cours — activité</th><th>Groupe</th><th>Local</th><th>Enseignant</th></tr>
+    <tr class="tot"><td colspan="7">${seances.length} séance(s) · ${heures} h</td></tr></thead><tbody>${lignes}</tbody></table>`;
+  const html = envelopperDocument({
+    titre: `Horaire proposé — ${section} ${bloc} — ${qui}`,
+    orientation: 'paysage',
+    entete: { titre: 'Horaire proposé', sous: `${section} · ${bloc} · ${annee} — ${qui}`, compact: true },
+    styles: `.avert { font-size: 8.5pt; color: #8a4b08; border-left: 1mm solid #B45309; padding: 1.2mm 2.5mm; margin: 0 0 3mm; }
+      table { border-collapse: collapse; width: 100%; font-size: 8pt; color: #16253D; }
+      th { text-align: left; background: #EAF0F7; color: #16406A; font-weight: 600; padding: 1.2mm 1.5mm; border-bottom: 0.3mm solid #D8DCE4; }
+      td { padding: 1mm 1.5mm; border-bottom: 0.2mm solid #E4E8EF; vertical-align: top; }
+      table.st { table-layout: fixed; } table.st td, table.st th { border-left: 0.2mm solid #E4E8EF; }
+      table.st .pl { width: 15mm; font-weight: 600; white-space: nowrap; }
+      .tu { border: 0.3mm solid #D8DCE4; border-left: 1mm solid #16406A; border-radius: 0 1.5mm 1.5mm 0; padding: 0.5mm 1.2mm; margin: 0 0 0.7mm; break-inside: avoid; font-size: 7.5pt; line-height: 1.2; }
+      .tu .nm { color: #55657E; font-size: 6.5pt; } .tu.conf { border-style: dashed; } .tu .cf { color: #B45309; font-size: 6.5pt; font-weight: 600; } .tu .pt { color: #55657E; font-size: 6.5pt; }
+      table.st tr { break-inside: avoid; } table.st td { padding: 0.8mm 1mm; }
+      table.li { font-size: 7pt; } table.li td { padding: 0.5mm 1.2mm; } table.li td.n { white-space: nowrap; }
+      table.li td.c { overflow: hidden; } table.li .ac { color: #55657E; }
+      .gr { display: inline-block; min-width: 3.4mm; padding: 0 0.8mm; border: 0.3mm solid #16406A; border-radius: 1mm; font-size: 6.5pt; font-weight: 700; text-align: center; }
+      h2 { font-size: 10pt; color: #16406A; margin: 4mm 0 1.5mm; }
+      .saut { break-before: page; }
+      tr.tot td { font-weight: 600; background: #F4F6FA; }
+      table.li tr { break-inside: avoid; }`,
+    html: `<div class="avert">Proposition calculée par Lucie (simulation de l’année) : elle ne remplace pas l’horaire officiel tant qu’elle n’est pas adoptée.</div>
+      <h2>La semaine type — ${acts.length} activité(s)</h2>${semaineType}
+      <div class="saut"></div><h2>Les séances de l’année</h2>${liste}`,
+  });
+  const nomF = `Horaire_${section}_${bloc}_${b != null ? `brique${b}` : 'bloc'}_${annee}`.replace(/[^A-Za-z0-9_-]+/g, '_');
+  return { html, nom: nomF };
+}
 
 /**
  * POSER LA SIMULATION DANS L'HORAIRE (Charles, 9 octobre 2026). Les séances
