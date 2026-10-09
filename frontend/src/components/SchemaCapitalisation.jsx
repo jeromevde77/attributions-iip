@@ -610,7 +610,10 @@ export default function SchemaCapitalisation({
                           fill="#FFFFFF" strokeWidth="1" style={{ stroke: base.rail }} />
                         <text x={p.x + layout.L - (n.determinante ? 15 : 8)} y={p.y + 11.4}
                           textAnchor="middle" fontSize={n.reussite.va ? 5 : 6.5} fontWeight="700" fill="#1B2B4B">
-                          {n.reussite.va ? 'VA' : n.reussite.note != null
+                          {/* UNE FAVEUR VAUT 10, PARTOUT (Charles, 9 octobre 2026 :
+                              « tu affiches 14 ! mais c'est une faveur, c'est 10 ») —
+                              comme sur la pièce imprimée (lib/schemaSvg.js). */}
+                          {n.reussite.va ? 'VA' : statut === 'faveur' ? '10' : n.reussite.note != null
                             ? String(Math.round(n.reussite.note)) : '✓'}
                         </text>
                         <text x={p.x + layout.L - 4} y={p.y + 22} textAnchor="end"

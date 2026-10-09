@@ -14,7 +14,7 @@ import SuiviEtudiant from '../components/SuiviEtudiant.jsx';
 import NouvelEtudiant from '../components/NouvelEtudiant.jsx';
 import {
   IconAddressBook, IconListSearch, IconAlertTriangle, IconEyeCheck, IconTablePlus, IconArrowForwardUp, IconArchive, IconDoorExit, IconSchool, IconArrowBackUp, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconSend, IconWritingSign, IconWritingSignOff, IconX,
-  IconChecks, IconLock
+  IconChecks, IconLock, IconGift,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
@@ -533,6 +533,9 @@ export function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
           if (u.reports) out.push(<span key="r" className="text-[11px] font-semibold text-white rounded px-1.5 py-px bg-emerald-700">{u.reports} report{u.reports > 1 ? 's' : ''}</span>);
           if (u.va) out.push(<span key="v" className="text-[11px] font-semibold text-white rounded px-1.5 py-px bg-teal-800">{u.nature_partielle || 'VAP'}</span>);
           if (u.deja) out.push(<span key="d" className="text-[11px] font-semibold text-white rounded px-1.5 py-px bg-amber-700">déjà acquise {String(u.deja).replace(/^20(\d\d)-20(\d\d)$/, '$1-$2')}</span>);
+          // Réussie cette année : verte, ou violette avec le cadeau quand c'est une faveur.
+          if (u.etat === 'reussie') out.push(<span key="ok" className="text-[11px] font-semibold text-white rounded px-1.5 py-px bg-emerald-700">réussie</span>);
+          if (u.etat === 'faveur') out.push(<span key="fv" className="text-[11px] font-semibold text-white rounded px-1.5 py-px bg-violet-700 inline-flex items-center gap-1"><IconGift size={11} stroke={2.2} />réussie par faveur</span>);
           if (u.etat === 'reprendre') out.push(<span key="p" className="text-[11px] font-semibold text-white rounded px-1.5 py-px bg-amber-700">à reprendre</span>);
           if (!out.length) out.push(<span key="a" className="text-[11px] font-semibold text-white rounded px-1.5 py-px bg-blue-700">au programme</span>);
           return <span className="inline-flex gap-1 flex-wrap">{out}</span>;

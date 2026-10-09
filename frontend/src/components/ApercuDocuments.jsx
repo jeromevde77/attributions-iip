@@ -96,7 +96,19 @@ export default function ApercuDocuments({ onClose }) {
         const type = rep.headers.get('content-type') || '';
         if (!rep.ok || type.includes('application/json')) {
           const j = await rep.json().catch(() => ({}));
-          if (!rep.ok) { if (vivant) setRendu({ erreur: j.detail || j.error || `Erreur ${rep.status}`, manques: j.manques }); return; }
+          if (!rep.ok) {
+            const raison = j.detail || j.error || `Erreur ${rep.status}`;
+            /* LE SPÉCIMEN, QUAND LA BASE N'A PAS DE DOSSIER COMPLET (Charles,
+               9 octobre 2026 : « il suffit d'utiliser des données factices ») :
+               la même composition, sur un dossier inventé — SPÉCIMEN Camille,
+               UE 999 —, et le bandeau dit pourquoi. */
+            if (choisi.specimen) {
+              const sp = await fetch(`/api/apercu/specimen/${choisi.id}?annee=${encodeURIComponent(val.annee || annee)}`, { headers: authHeaders() });
+              const sj = await sp.json().catch(() => ({}));
+              if (sp.ok && sj.html) { if (vivant) setRendu({ html: sj.html, nom: sj.nom, specimen: raison }); return; }
+            }
+            if (vivant) setRendu({ erreur: raison, manques: j.manques }); return;
+          }
           const html = j[choisi.champ || 'html'] || j.html || j.html_pv || j.documents?.[0]?.html || j.collectif?.html;
           if (vivant) setRendu(html ? { html, nom: j.nom, manques: j.manques } : { erreur: 'La pièce est vide pour ce choix : rien à montrer.', manques: j.manques });
           return;
@@ -239,6 +251,13 @@ export default function ApercuDocuments({ onClose }) {
               </a>)}
           </div>
           {choisi?.note && <div className="px-3 py-1.5 text-[12px] text-slate-500 border-b border-slate-200">{choisi.note}</div>}
+          {rendu?.specimen && (
+            <div className="px-3 py-1.5 text-[12px] border-b border-slate-200 flex items-start gap-1.5"
+              style={{ borderLeft: '4px solid var(--c-attente)' }}>
+              <IconAlertTriangle size={14} className="flex-none mt-0.5 text-amber-700" />
+              <span><b>Spécimen — données factices.</b> L’exemple choisi ne permet pas de produire la pièce
+                ({rendu.specimen.replace(/\.$/, '')}) : elle est composée sur un dossier inventé, par la même fonction.</span>
+            </div>)}
           {rendu?.erreur && (
             <div className="m-3 px-3 py-2 rounded-champ border-l-4 border-amber-600 bg-white text-[13px] flex items-start gap-2">
               <IconAlertTriangle size={15} className="flex-none mt-0.5 text-amber-700" />

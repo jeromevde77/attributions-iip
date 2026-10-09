@@ -3920,6 +3920,18 @@ export function revuePAE(etudId, annee) {
       for (const c of String(v.cible_detail || '').split(',').map(x => x.trim()).filter(Boolean)) vaCours.set(`${v.ue_num}|${c}`, vae ? 'VAEP' : 'VAP');
     }
   }
+  /* UNE UNITÉ RÉUSSIE CETTE ANNÉE EST RÉUSSIE, faveur ou non (Charles,
+     9 octobre 2026 : « une fois que l'UE est réussie, tu dois ajuster le PAE ;
+     elle doit être indiquée comme réussie »). Le PAE ne lisait que les années
+     ANTÉRIEURES : l'UE 333 délibérée en juin restait « au programme », ses
+     cours « à suivre », et ses ECTS hors du total réussi. */
+  const reussiesAnnee = new Set(db.prepare(`SELECT DISTINCT ue_num FROM etudiant_inscription
+      WHERE etudiant_id = ? AND annee_scolaire = ? AND resultat = 'reussi'`).all(etudId, annee).map(x => x.ue_num));
+  const faveurs = new Set();
+  try {
+    for (const f of db.prepare(`SELECT DISTINCT ue_num FROM deliberation_ajustement WHERE etudiant_id = ?
+        AND annee_scolaire = ? AND action = 'faveur' AND portee = 'ue'`).all(etudId, annee)) faveurs.add(f.ue_num);
+  } catch { /* table absente */ }
   const ues = inscr.map(n => {
     const u = refUe.get(n, annee, section) || {};
     let eligibles = [];
@@ -3942,7 +3954,10 @@ export function revuePAE(etudId, annee) {
     const estVA = c => c.statut === 'va' || (c.statut === 'report' && c.nature && c.nature !== 'Report');
     const nRep = cours.filter(c => c.statut === 'report' && !estVA(c)).length;
     const nVa = cours.filter(estVA).length;
+    const reussie = reussiesAnnee.has(n);
+    if (reussie) for (const c of cours) if (c.statut === 'suivre') c.statut = 'acquis';
     const etat = vaComplete.has(n) ? 'dispensee'
+      : reussie ? (faveurs.has(n) ? 'faveur' : 'reussie')
       : nRep || nVa ? 'partielle'
         : tentees.has(n) ? 'reprendre' : 'programme';
     /* LES PÉRIODES DE L'ÉTUDIANT, ET ELLES SEULES (Charles, 6 octobre 2026 :
@@ -3970,7 +3985,7 @@ export function revuePAE(etudId, annee) {
   }).sort((a, b) => (a.ei - b.ei) || rangBloc(a.niv) - rangBloc(b.niv) || a.ue_num - b.ue_num);
 
   const acquises = db.prepare(`SELECT DISTINCT ue_num FROM etudiant_inscription WHERE etudiant_id = ? AND resultat = 'reussi'
-      AND annee_scolaire < ?`).all(etudId, annee).map(x => x.ue_num);
+      AND annee_scolaire <= ?`).all(etudId, annee).map(x => x.ue_num);
   for (const v of db.prepare(`SELECT DISTINCT ue_num FROM etudiant_valorisation WHERE etudiant_id = ? AND type = 'complete'
       AND ${vaRetenue()} AND annee_scolaire < ?`).all(etudId, annee)) acquises.push(v.ue_num);
   const dejaAcquises = new Map(db.prepare(`SELECT ue_num, MIN(annee_scolaire) a FROM etudiant_inscription WHERE etudiant_id = ?
@@ -4267,7 +4282,7 @@ function pageRevue(d, esc) {
      note qui vaut (celle reportée, ou 10/20 pour une dispense), avec son
      année d'origine. Une ligne sans code est un cours à suivre. */
   const codeDe = c => {
-    if (c.statut === 'suivre') return null;
+    if (c.statut === 'suivre' || c.statut === 'acquis') return null;
     const n = String(c.nature || '');
     if (c.statut === 'report' && (!n || n === 'Report')) return 'RP';
     if (n.toUpperCase() === 'DISPENSE') return 'D';
@@ -4278,7 +4293,8 @@ function pageRevue(d, esc) {
     const fond = g.ei ? '#C9A227' : (couleurBloc[g.k] || '#64748b');
     lignes += `<tr class="bande"><td colspan="6" style="background:${fond};color:${g.k === 'BA2' ? '#1B2B4B' : '#fff'}">${esc(g.k)}<span>${g.ues.length} UE · ${g.ues.reduce((t, u) => t + u.ects, 0)} ECTS</span></td></tr>`;
     for (const u of g.ues) {
-      const mention = u.nature_totale ? '' : u.etat === 'reprendre' ? 'à reprendre' : u.etat === 'partielle' ? 'reprise partielle' : '';
+      const mention = u.nature_totale ? '' : u.etat === 'faveur' ? 'réussie par faveur' : u.etat === 'reussie' ? 'réussie'
+        : u.etat === 'reprendre' ? 'à reprendre' : u.etat === 'partielle' ? 'reprise partielle' : '';
       lignes += `<tr class="ue"><td class="num">${u.ue_num}</td><td>${esc(u.ue_nom)}${mention ? ` <span class="mention">${mention}</span>` : ''}`
         + `${u.deja ? `<div class="alerte">déjà acquise en ${esc(u.deja)} — à vérifier</div>` : ''}</td>`
         + `<td class="n">${u.ects || ''}</td><td class="n">${u.periodes || ''}</td>`
