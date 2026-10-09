@@ -2,6 +2,7 @@
 // Lucie — Module Étudiants : base étudiants, inscriptions, résultats et PAE
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { migrerGroupesCommuns, cohorte as cohorteGC, proposerBriques, appliquerBriques } from '../lib/groupesCommuns.js';
 import { dispensesDeLUE } from '../lib/dispenses.js';
 import { paysDe, estUnPays } from '../lib/pays.js';
 import { Router } from 'express';
@@ -1458,6 +1459,55 @@ r.put('/repartition-cours/carnet', authRequired, roleRequired(...PEUT_INSTRUIRE)
     .run(annee, cours_code, activite, req.user?.nom || req.user?.email || null);
   else db.prepare('DELETE FROM carnet_exclusion WHERE annee_scolaire = ? AND cours_code = ? AND activite_id = ?').run(annee, cours_code, activite);
   res.json({ ok: true, hors_carnet: !!exclu });
+});
+
+/* LES GROUPES COMMUNS (lib/groupesCommuns.js) : une cohorte = une section et
+   un bloc, coupée en briques ; tous les groupes de toutes ses activités s'en
+   déduisent. Lire est permis à qui lit la répartition ; écrire, à qui la fait. */
+migrerGroupesCommuns(db);
+const lireCohorte = (req, res) => {
+  const section = String(req.query.section || req.body?.section || '').trim();
+  const bloc = String(req.query.bloc || req.body?.bloc || '').trim().toUpperCase();
+  const annee = String(req.query.annee || req.body?.annee || anneeDeTravail(req));
+  if (!section || !bloc) { res.status(400).json({ error: 'section et bloc requis' }); return null; }
+  if (!sectionAutoriseeReq(req, section)) { res.status(403).json({ error: 'Section hors de votre périmètre' }); return null; }
+  return cohorteGC(section, bloc, annee);
+};
+r.get('/repartition-cours/communs', authRequired, (req, res) => {
+  const c = lireCohorte(req, res); if (c) res.json(c);
+});
+r.put('/repartition-cours/communs', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
+  const c = lireCohorte(req, res); if (!c) return;
+  const par = req.user?.email || null;
+  const reg = db.prepare(`INSERT INTO groupe_commun_reglage (annee_scolaire, section, bloc, cours_code, activite_id, nb_groupes, quadri, inclus, maj_par)
+    VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(annee_scolaire, section, bloc, cours_code, activite_id) DO UPDATE SET
+    nb_groupes = excluded.nb_groupes, quadri = excluded.quadri, inclus = excluded.inclus, maj_par = excluded.maj_par, maj_le = datetime('now')`);
+  const bri = db.prepare(`INSERT INTO groupe_commun_brique (annee_scolaire, section, bloc, etudiant_id, brique, maj_par)
+    VALUES (?,?,?,?,?,?) ON CONFLICT(annee_scolaire, section, bloc, etudiant_id) DO UPDATE SET
+    brique = excluded.brique, maj_par = excluded.maj_par, maj_le = datetime('now')`);
+  const actifs = new Set(c.activites.map(a => `${a.cours_code}#${a.activite_id}`));
+  const ids = new Set(c.etudiants.map(e => e.id));
+  db.transaction(() => {
+    for (const x of (req.body?.reglages || [])) {
+      if (!actifs.has(`${x.cours_code}#${Number(x.activite_id) || 0}`)) continue;
+      reg.run(c.annee, c.section, c.bloc, x.cours_code, Number(x.activite_id) || 0,
+        Math.max(1, Math.min(48, Number(x.nb_groupes) || 1)), ['Q1', 'Q2', 'AN'].includes(x.quadri) ? x.quadri : 'AN', x.inclus === false ? 0 : 1, par);
+    }
+    if (req.body?.briques) {
+      db.prepare('DELETE FROM groupe_commun_brique WHERE annee_scolaire = ? AND section = ? AND bloc = ?').run(c.annee, c.section, c.bloc);
+      for (const [id, b] of Object.entries(req.body.briques)) if (ids.has(Number(id)) && Number(b) > 0) bri.run(c.annee, c.section, c.bloc, Number(id), Number(b), par);
+    }
+  })();
+  res.json({ ok: true, ...cohorteGC(c.section, c.bloc, c.annee) });
+});
+r.post('/repartition-cours/communs/proposer', authRequired, (req, res) => {
+  const c = lireCohorte(req, res); if (!c) return;
+  const B = Math.max(1, Math.min(96, Number(req.body?.nb_briques) || c.nb_briques));
+  res.json({ nb_briques: B, briques: proposerBriques(c, B) });
+});
+r.post('/repartition-cours/communs/appliquer', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
+  const c = lireCohorte(req, res); if (!c) return;
+  res.json(appliquerBriques(c, { simulation: req.body?.simulation !== false, par: req.user?.email || null }));
 });
 
 r.get('/repartition-cours/ue', authRequired, (req, res) => {
