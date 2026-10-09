@@ -7430,6 +7430,12 @@ function assemblerDocumentsUE(ueNum, annee, veut, opts = {}) {
     nbPV = 1;
     for (const m of (d.manques || [])) manques.push(`Procès-verbal : ${m}`);
   }
+  if (veut.pv_anonyme) {
+    const d = documentPV(ueNum, annee, session, org, { anonyme: true });
+    pousser('pv', d.corps);
+    nbPV += 1;
+    if (!veut.pv) for (const m of (d.manques || [])) manques.push(`Procès-verbal : ${m}`);
+  }
 
   // L'IDENTITÉ DE L'ÉTUDIANT SE SIGNALE QUAND ELLE MANQUE.
   //
@@ -7667,6 +7673,7 @@ r.post('/deliberation/documents-lot', authRequired, (req, res) => {
     ajournement: req.body?.ajournement === true,
     refus: req.body?.refus === true,
     pv: req.body?.pv === true,
+    pv_anonyme: req.body?.pv_anonyme === true,
     listes: req.body?.listes === true,
     conseil: req.body?.conseil === true,
     grille: req.body?.grille === true,
@@ -7953,7 +7960,11 @@ r.delete('/deliberation/ue/:ueNum', authRequired,
  * Le procès-verbal, en fonction : le centre d'impression l'enchaîne avec les
  * attestations et les notifications, dans un seul document à imprimer.
  */
-export function documentPV(ueNum, annee, session = 1, org = null) {
+/* `anonyme` : LE PV PAR MATRICULE (Charles, 9 octobre 2026) — pour l'afficher
+   ou le transmettre sans exposer les noms. Le fond est le même ; l'étudiant
+   n'y est désigné que par son matricule, sans lieu ni date de naissance qui le
+   feraient reconnaître, et les lignes se rangent par matricule. */
+export function documentPV(ueNum, annee, session = 1, org = null, { anonyme = false } = {}) {
   // LE PV D'UNE ORGANISATION relate SA séance et SES étudiants — deux
   // organisations, deux procès-verbaux. org=null : l'unité entière.
   const orgN = org == null ? null : Math.max(0, Number(org) || 0);
@@ -7997,7 +8008,7 @@ export function documentPV(ueNum, annee, session = 1, org = null) {
   const aLieu = db.prepare("PRAGMA table_info(etudiant)").all()
     .some(c => c.name === 'lieu_naissance');
   const etudiants = db.prepare(`
-    SELECT e.id, e.nom, e.prenom, e.date_naissance,
+    SELECT e.id, e.nom, e.prenom, e.date_naissance, e.id_ecampus,
            ${aLieu ? 'e.lieu_naissance' : 'NULL AS lieu_naissance'},
            i.resultat AS resultat_dossier, i.points AS points_dossier
     FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
@@ -8013,6 +8024,7 @@ export function documentPV(ueNum, annee, session = 1, org = null) {
       return { ...e, resultat: d.resultat, points: d.points, mention: d.mention };
     })
     .filter(e => e.resultat);
+  if (anonyme) etudiants.sort((a, b) => String(a.id_ecampus || '').localeCompare(String(b.id_ecampus || ''), 'fr', { numeric: true }));
 
   const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
@@ -8028,7 +8040,12 @@ export function documentPV(ueNum, annee, session = 1, org = null) {
     // procès-verbal que lorsque l'unité est réussie.
     const pct = e.resultat === 'reussi' && e.points != null
       ? `${Math.round(Number(e.points) * 5)} %` : '';
-    return `<tr>
+    return anonyme ? `<tr>
+      <td><b>${esc(e.id_ecampus || '—')}</b></td>
+      <td class="c">50 %</td>
+      <td class="c">${pct}</td>
+      <td class="c">${esc(LIB[e.resultat] || '')}</td>
+    </tr>` : `<tr>
       <td>${esc(`${e.nom} ${e.prenom}`)}</td>
       <td>${esc([e.lieu_naissance, jour(e.date_naissance)].filter(Boolean).join(', '))}</td>
       <td class="c">50 %</td>
@@ -8044,7 +8061,7 @@ export function documentPV(ueNum, annee, session = 1, org = null) {
   ${enteteDocument({
     titre: "Procès-verbal de délibération d'une unité d'enseignement"
          + (integree ? ' « épreuve intégrée »' : ''),
-    sous: ue.ue_nom || `UE ${ueNum}`,
+    sous: (ue.ue_nom || `UE ${ueNum}`) + (anonyme ? ' — version anonymisée (matricules)' : ''),
     ligne: `Année ${String(annee).replace('-', '/')} · `
          + (/sup|bach|bes|master/i.test(ue.ue_niveau || ue.ue_niv || sec?.niveau || '')
             ? 'Enseignement supérieur' : 'Enseignement secondaire'),
@@ -8071,14 +8088,15 @@ export function documentPV(ueNum, annee, session = 1, org = null) {
   </p>
 
   <table class="doc">
-    <thead><tr>
+    <thead><tr>${anonyme ? `
+      <th style="width:34%">Matricule</th>` : `
       <th style="width:34%">Nom, prénom et initiales des autres prénoms</th>
-      <th style="width:26%">Lieu et date de naissance<br>(pays si pas la Belgique)</th>
+      <th style="width:26%">Lieu et date de naissance<br>(pays si pas la Belgique)</th>`}
       <th style="width:13%">Seuil de réussite</th>
       <th style="width:13%">Total des points en %<sup>1</sup></th>
       <th>Décision finale</th>
     </tr></thead>
-    <tbody>${lignes || '<tr><td colspan="5" class="c vide">Aucun étudiant inscrit.</td></tr>'}</tbody>
+    <tbody>${lignes || `<tr><td colspan="${anonyme ? 4 : 5}" class="c vide">Aucun étudiant inscrit.</td></tr>`}</tbody>
   </table>
   <p class="champ" style="font-size:7.5pt;color:#64748b">
     <sup>1</sup> À ne compléter qu'en cas de « Réussite ».</p>
