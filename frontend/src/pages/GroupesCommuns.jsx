@@ -73,15 +73,18 @@ export default function GroupesCommuns() {
     if (Object.keys(briques).length && !(await demander('Proposer une nouvelle répartition en briques ?\n\nLa répartition actuelle est remplacée (rien n’est enregistré avant « Enregistrer »).'))) return;
     const r = await fetch('/api/etudiants/repartition-cours/communs/proposer', { method: 'POST', headers: authHeaders(),
       body: JSON.stringify({ section, bloc, annee, nb_briques: B }) });
-    const j = await r.json();
-    if (!r.ok) { informer(j.error); return; }
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.briques) { informer(j.error || `La proposition a échoué (erreur ${r.status}).`); return; }
     setBriques(j.briques); setModifie(true); setSimu(null);
   }
   async function simuler() {
     if (modifie && !(await enregistrer())) return;
     const r = await fetch('/api/etudiants/repartition-cours/communs/appliquer', { method: 'POST', headers: authHeaders(),
       body: JSON.stringify({ section, bloc, annee, simulation: true }) });
-    setSimu(await r.json());
+    const j = await r.json().catch(() => ({}));
+    // Un refus du serveur se lit comme tel, jamais comme une simulation.
+    if (!r.ok || !Array.isArray(j.activites)) { setSimu(null); setErreur(j.error || `La simulation a échoué (erreur ${r.status}).`); return; }
+    setErreur(null); setSimu(j);
   }
   async function appliquer() {
     if (!(await demander(`Remplir les groupes de ${simu.activites.length} activité(s) ?\n\n${simu.a_poser} placement(s) nouveaux, ${simu.a_changer} changement(s) de groupe. La répartition actuelle de ces activités est remplacée.`))) return;
@@ -123,7 +126,7 @@ export default function GroupesCommuns() {
             <button className="bouton bouton-fort" onClick={appliquer} disabled={!simu.a_poser && !simu.a_changer}>Écrire ces groupes</button>
             <button className="bouton" onClick={() => setSimu(null)}>Fermer</button>
           </div>
-          {simu.ecarts.map((x, i) => <div key={i} className="text-[12.5px] flex gap-1.5" style={{ color: 'var(--c-attente)' }}><IconAlertTriangle size={14} className="mt-0.5 flex-none" />{x}</div>)}
+          {(simu.ecarts || []).map((x, i) => <div key={i} className="text-[12.5px] flex gap-1.5" style={{ color: 'var(--c-attente)' }}><IconAlertTriangle size={14} className="mt-0.5 flex-none" />{x}</div>)}
           <div className="grid gap-x-6 gap-y-1 text-[12px]" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(320px,1fr))' }}>
             {simu.activites.map(a => <div key={a.libelle}><b>{a.libelle}</b> — {a.groupes.map(g => `${g.nom} : ${g.effectif}`).join(' · ')}</div>)}
           </div>

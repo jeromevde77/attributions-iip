@@ -1474,7 +1474,8 @@ const lireCohorte = (req, res) => {
   return cohorteGC(section, bloc, annee);
 };
 r.get('/repartition-cours/communs', authRequired, (req, res) => {
-  const c = lireCohorte(req, res); if (c) res.json(c);
+  try { const c = lireCohorte(req, res); if (c) res.json(c); }
+  catch (e) { console.error('[groupes communs]', e); res.status(500).json({ error: `Lecture impossible : ${e.message}` }); }
 });
 r.put('/repartition-cours/communs', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
   const c = lireCohorte(req, res); if (!c) return;
@@ -1507,8 +1508,13 @@ r.post('/repartition-cours/communs/proposer', authRequired, (req, res) => {
   res.json({ nb_briques: B, briques: proposerBriques(c, B) });
 });
 r.post('/repartition-cours/communs/appliquer', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
-  const c = lireCohorte(req, res); if (!c) return;
-  res.json(appliquerBriques(c, { simulation: req.body?.simulation !== false, par: req.user?.email || null }));
+  try {
+    const c = lireCohorte(req, res); if (!c) return;
+    res.json(appliquerBriques(c, { simulation: req.body?.simulation !== false, par: req.user?.email || null }));
+  } catch (e) {
+    console.error('[groupes communs]', e);
+    res.status(500).json({ error: `Le remplissage a échoué : ${e.message}` });
+  }
 });
 
 r.get('/repartition-cours/ue', authRequired, (req, res) => {
