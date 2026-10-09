@@ -7066,6 +7066,16 @@ export function pageGrilleDeliberation(ueNum, annee, session = 1, { total = fals
         // mention, PP, NP ou CM, et non le 0 qui la porte.
         if (ev && ['PP', 'NP', 'CM'].includes(ev.mention)) mentionAA[`${c.cours_code}|${a.aa_code}`] = ev.mention;
       }
+      // Un acquis SANS NOTE d'un cours non présenté prend la mention de son
+      // cours : « — » à côté de « PP » ne disait rien (même règle que les
+      // justifications du lot).
+      const mentionCours = (d.acquis || []).map(a => (a.evaluations || []).find(x => x.cours_code === c.cours_code))
+        .map(ev => ev?.mention).find(m => ['PP', 'NP', 'CM'].includes(m));
+      if (mentionCours) for (const a of (d.acquis || [])) {
+        const ev = (a.evaluations || []).find(x => x.cours_code === c.cours_code);
+        const k = `${c.cours_code}|${a.aa_code}`;
+        if (ev && ev.note == null && !mentionAA[k]) mentionAA[k] = mentionCours;
+      }
     }
     const noteCours = Object.fromEntries((d.cours || []).map(c => [c.cours_code, c.note]));
     const naCours = Object.fromEntries((d.cours || []).map(c => [c.cours_code, c.na]));
