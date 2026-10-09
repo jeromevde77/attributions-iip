@@ -40,6 +40,12 @@ export function porterContexte(req, res, next) {
   stockage.run({ req, at: new Date() }, () => next());
 }
 
+/** La requête en cours, ou null hors requête. Lecture seule : aucun droit ne
+ *  s'en déduit (voir l'en-tête). */
+export function requeteCourante() {
+  return stockage.getStore()?.req || null;
+}
+
 /** L'utilisateur de la requête en cours, ou null hors requête (tâches, tests). */
 export function utilisateurCourant() {
   return stockage.getStore()?.req?.user || null;

@@ -284,7 +284,7 @@ const BOUCLES = {
 };
 
 // ─── TipTap : nœud ChampField (badge bleu) ────────────────────────────────
-const ChampNode = Node.create({
+export const ChampNode = Node.create({
   name: 'champ', group: 'inline', inline: true, atom: true,
   addAttributes() { return { key: { default: null }, label: { default: null } }; },
   parseHTML() { return [{ tag: 'span[data-champ]', getAttrs: el => ({ key: el.getAttribute('data-champ'), label: el.textContent }) }]; },

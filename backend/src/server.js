@@ -23,6 +23,8 @@ import annuelRoutes from './routes/annuel.js';
 import echeancierRoutes from './routes/echeancier.js';
 import reunionsRoutes, { planifierRapportMensuel } from './routes/reunions.js';
 import documentationRoutes, { migrerDocumentation } from './routes/documentation.js';
+import modelesPiecesRoutes from './routes/modelesPieces.js';
+import { migrerModelesPieces } from './lib/modelesPieces.js';
 import suggestionsRoutes, { migrerSuggestions } from './routes/suggestions.js';
 import reponsesTypesRoutes, { migrerReponsesTypes } from './routes/reponsesTypes.js';
 import { migrerJournalModifications } from './lib/journalModifications.js';
@@ -2889,6 +2891,7 @@ try { (await import('./routes/fraisScolarite.js')).semerSectionsSansFrais(db); }
 try { migrerEcheancier(db); } catch (e) { console.error('[migration] echeancier :', e.message); }
 try { migrerReunions(db); } catch (e) { console.error('[migration] reunions :', e.message); }
 try { migrerDocumentation(db); } catch (e) { console.error('[migration] documentation :', e.message); }
+try { migrerModelesPieces(db); } catch (e) { console.error('[migration] modèles des pièces :', e.message); }
 try { migrerSuggestions(db); } catch (e) { console.error('[migration] suggestions :', e.message); }
 try { migrerReponsesTypes(db); } catch (e) { console.error('[migration] réponses types :', e.message); }
 try { migrerBesoinsOffres(db); } catch (e) { console.error('[migration] besoins :', e.message); }
@@ -3071,6 +3074,8 @@ app.use('/api/echeancier',   garderModule('echeancier'), echeancierRoutes);
 app.use('/api/reunions',     garderModule('reunions'), reunionsRoutes);
 /* LE CORPUS ET LA PRISE DE CONNAISSANCE. Route montée après sa migration : les
    tables se créent au démarrage, comme partout ailleurs. */
+// Les modèles des pièces — avant /api/documentation, dont « /:cle » les avalerait.
+app.use('/api/documentation/modeles', garderModule('documentation'), modelesPiecesRoutes);
 app.use('/api/documentation', garderModule('documentation'), documentationRoutes);
 app.use('/api/suggestions',  garderModule('suggestions'), suggestionsRoutes);
 app.use('/api/reponses-types', garderModule('reponses-types'), reponsesTypesRoutes);

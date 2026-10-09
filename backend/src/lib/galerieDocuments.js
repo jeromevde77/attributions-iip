@@ -36,6 +36,7 @@ import { TYPES_PIECE } from './piecesAmenagement.js';
 import { TYPES_PIECE_CEP } from './piecesCep.js';
 import { PIECES as PIECES_PROC } from './piecesProcedures.js';
 import { dossierDiplomation } from '../routes/diplomes.js';
+import { modelesDeLaGalerie } from './modelesPieces.js';
 
 const DOMAINES_RAPPORT = { etudiants: 'Étudiants', personnel: 'Personnel', organisation: 'Organisation', gestion: 'Gestion' };
 
@@ -67,7 +68,9 @@ const A_L_ECRAN = [
 
 function entrees() {
   const L = [];
-  const E = (o) => L.push({ format: 'json', champ: 'html', ...o });
+  const E = (o) => L.push({ format: 'json', champ: 'html', ...o,
+    // La pièce a-t-elle un modèle qu'on peut corriger ? (lib/modelesPieces.js)
+    modeles: modelesDeLaGalerie(o.id) });
 
   // ── ÉTUDIANTS ──────────────────────────────────────────────────────────────
   E({ id: 'attestation_reussite', domaine: 'Étudiants', libelle: "Attestation de réussite d'unité (annexes 10 à 13, 17, 18)",

@@ -264,6 +264,10 @@ export const GESTES = [
   { module: 'documentation', verrou: true, cle: 'registre', label: 'Lire le registre des confirmations',
     roles: PEUT_PUBLIER, mode: 'garde', source: 'routes/documentation.js GET /:cle/registre' },
 
+  // ── Modèles des pièces ─────────────────────────────────────────────────────
+  { module: 'documentation', verrou: true, cle: 'modeles', label: 'Modifier les modèles des pièces (Galerie des pièces)',
+    roles: PEUT_PUBLIER, mode: 'garde', source: 'routes/modelesPieces.js POST /:cle, /:cle/brouillon, /:cle/origine' },
+
   // ── Conventions ────────────────────────────────────────────────────────────
   { module: 'conventions', cle: 'lire', label: 'Lire le registre des conventions',
     roles: CONVENTIONS_REGISTRE, mode: 'liste',
