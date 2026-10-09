@@ -7054,13 +7054,17 @@ export function pageGrilleDeliberation(ueNum, annee, session = 1, { total = fals
              AND resultat IS NOT NULL AND resultat != ''`).get(e.id, annee, ueNum) ? 2 : 1)
       : session;
     const d = delibererUE(e.id, ueNum, annee, sesLue);
-    const parAA = {};
+    const parAA = {}, mentionAA = {};
     for (const c of (d.cours || [])) {
       for (const a of (d.acquis || [])) {
         const ev = (a.evaluations || []).find(x => x.cours_code === c.cours_code);
         // La cote brute suit le même arrondi que le reste : une ligne ne mêle
         // pas des centièmes et des unités.
         if (ev) parAA[`${c.cours_code}|${a.aa_code}`] = arrondiMaison(ev.note ?? a.note, reglesGrille);
+        // UN PP N'EST PAS UN ZÉRO (Charles, 9 octobre 2026 : « pourquoi il y a
+        // 0 ? »). Il s'encode 0 point avec sa mention : la grille imprime la
+        // mention, PP, NP ou CM, et non le 0 qui la porte.
+        if (ev && ['PP', 'NP', 'CM'].includes(ev.mention)) mentionAA[`${c.cours_code}|${a.aa_code}`] = ev.mention;
       }
     }
     const noteCours = Object.fromEntries((d.cours || []).map(c => [c.cours_code, c.note]));
@@ -7087,7 +7091,7 @@ export function pageGrilleDeliberation(ueNum, annee, session = 1, { total = fals
 
     const cells = cours.flatMap(c => [
       ...c.aas.map((aa, i) => `<td class="${i === 0 ? 'sep' : ''}">`
-        + `${n2(parAA[`${c.cours_code}|${aa}`])}</td>`),
+        + `${mentionAA[`${c.cours_code}|${aa}`] ? `<span class="faible">${mentionAA[`${c.cours_code}|${aa}`]}</span>` : n2(parAA[`${c.cours_code}|${aa}`])}</td>`),
       // « NA » NE SURVIT PAS À UNE RÉUSSITE ARRÊTÉE.
       //
       // Un cours porté « non acquis » sous un étudiant que le Conseil a déclaré
@@ -7154,6 +7158,8 @@ export function pageGrilleDeliberation(ueNum, annee, session = 1, { total = fals
       l'épreuve n'a pas été présentée. En rouge, ce qui est sous le seuil de
       ${String(SEUIL_UE).replace('.', ',')}/20. Une décision entre parenthèses est
       celle que le calcul propose : elle n'a pas encore été arrêtée par le Conseil.
+      <b>PP</b> : pas présenté · <b>NP</b> : présent, sans réponse · <b>CM</b> : certificat
+      médical · <b>—</b> : aucune note encodée pour cet acquis.
       Les cotes sont arrondies ${{
         entier: 'à l’unité', demi: 'au demi-point',
       }[reglesGrille.arrondi] || 'au centième'} — c'est l'arrondi retenu
