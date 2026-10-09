@@ -29,7 +29,7 @@ import { capacitePdf, rendrePdf, rendrePdfs, compterPages } from '../services/pd
 import { SIGNATURE_SOHET, SCEAU_IIP } from '../services/assets/signature_sohet.js';
 import { piedDocument } from './parametres.js';
 import { identiteEtablissement } from './config.js';
-import { composerModele, STYLE_MODELE } from '../lib/modelesPieces.js';
+import { composerModele, STYLE_MODELE, declarerModele, blocModele } from '../lib/modelesPieces.js';
 // Le Conseil des études est le même pour la valorisation que pour la
 // délibération : ce sont les professeurs de l'unité, la coordination et la
 // direction. Recomposer la liste ici en aurait fait une seconde source — et
@@ -648,6 +648,30 @@ export function enseignantsDeLUE(ueNum, annee) {
  * Une attestation ordinaire délivrée sur une valorisation affirmerait donc
  * deux faits faux sur une pièce que l'étudiant garde à vie.
  */
+/* LE TEXTE DE L'ATTESTATION DE VALORISATION SE CORRIGE DANS LUCIE (Galerie
+   des pièces → Modifier le modèle). Les caractéristiques, l'identité, les
+   acquis, les activités et la signature restent des blocs verrouillés. */
+declarerModele('attestation_valorisation', {
+  libelle: "Attestation de réussite — valorisation de l'unité (annexes 14 et 15)",
+  galerie: ['va_pv', 'specimen_attestation-valorisation'],
+  champs: { nom_prenom: "Nom et prénom de l'étudiant", il_elle: 'il / elle', article: 'Article du décret (58 ou 37)',
+    periodes: 'Total des périodes', pourcentage: 'Pourcentage arrêté par le Conseil', ue_num: "N° de l'unité",
+    ue_nom: "Intitulé de l'unité", annee: 'Année', date_doc: 'Date de la pièce', ville: 'Ville', directeur: 'Directeur' },
+  blocs: { caracteristiques: "Caractéristiques de l'unité", identite: "Identité de l'étudiant",
+    acquis: "Liste des acquis d'apprentissage", activites: 'Répartition par activité', signature: 'Lieu, date, sceau et signature' },
+  obligatoires: { blocs: ['caracteristiques', 'identite', 'acquis', 'activites', 'signature'],
+    champs: ['article', 'pourcentage'], textes: ['16 avril 1991'] },
+  defaut: `${blocModele('caracteristiques')}
+<p>Conformément à l'article 8 et à l'article {{article}} alinéa 2 du décret du 16 avril 1991 organisant l'enseignement de promotion sociale, le Conseil des études, chargé de procéder à la valorisation de capacités, acquises en dehors de l'unité d'enseignement, pour l'unité d'enseignement susvisée, atteste que</p>
+${blocModele('identite')}
+<p>maîtrise les acquis d'apprentissage de l'unité d'enseignement susvisée, soit :</p>
+${blocModele('acquis')}
+<p>comportant au total <b>{{periodes}}</b> périodes d'activités d'enseignement réparties comme suit :</p>
+${blocModele('activites')}
+<p>Le Conseil des études lui délivre la présente attestation pour laquelle {{il_elle}} obtient {{pourcentage}} du total des points.</p>
+${blocModele('signature')}`,
+});
+
 export function pageAttestationValorisation(e, u, annee, etab, va,
                                             dateDoc = null,
                                             ident = identiteEtablissement()) {
@@ -659,6 +683,7 @@ export function pageAttestationValorisation(e, u, annee, etab, va,
   const activites = u.activites?.length
     ? u.activites.map(c => `${esc(c.cours_nom)} (${c.cours_per} périodes)`).join(' ;<br>')
     : '<i style="color:#b45309">répartition par activité à compléter</i>';
+  const dateSig = frDate(dateDoc || va?.decision_ce_date || new Date().toISOString());
 
   return `<div class="attestation">
   ${enteteDocument({
@@ -667,57 +692,46 @@ export function pageAttestationValorisation(e, u, annee, etab, va,
     ligne: `Année ${u.superieur ? 'académique' : 'scolaire'} `
          + `${String(annee).replace('-', '/')}`,
   })}
-
-  <div class="carac">
+  ${composerModele('attestation_valorisation', {
+    champs: {
+      nom_prenom: `${esc((e.nom || '').toUpperCase())} ${esc(e.prenom || '')}`,
+      il_elle: genre === 'F' ? 'elle' : 'il', article: u.superieur ? '58' : '37',
+      periodes: `${u.periodes || '………'}`,
+      // La cote garde sa classe : c'est elle que les vagues de micro-texte protègent.
+      pourcentage: `<b class="cote">${va?.pourcentage != null ? `${Math.round(Number(va.pourcentage))} %` : '………'}</b>`,
+      ue_num: esc(u.ue_num), ue_nom: esc(u.ue_nom || ''), annee: esc(String(annee).replace('-', '/')),
+      date_doc: dateSig, ville: esc(ident.ville || 'Anderlecht'), directeur: esc(ident.directeur || 'Charles SOHET'),
+    },
+    blocs: {
+      caracteristiques: `<div class="carac">
     <div>${esc(u.type_enseignement)}</div>
     ${u.superieur ? `<div>${u.domaine ? 'Domaine : ' + esc(u.domaine) : ''}</div>` : ''}
     <div class="large">Code approuvé par le Gouvernement :
       ${u.code_fwb ? `<b>${esc(u.code_fwb)}</b>`
                    : '<span class="manque">à compléter au référentiel</span>'}</div>
     ${u.superieur && u.ects ? `<div>Elle comprend <b>${u.ects}</b> E.C.T.S.</div>` : ''}
-  </div>
-
-  <p class="corps">
-    Conformément à l'article 8 et à l'article ${u.superieur ? '58' : '37'}
-    alinéa 2 du décret du 16 avril 1991 organisant l'enseignement de promotion
-    sociale, le Conseil des études, chargé de procéder à la valorisation de
-    capacités, acquises en dehors de l'unité d'enseignement, pour l'unité
-    d'enseignement susvisée, atteste que
-  </p>
-
-  <div class="etudiant">
+  </div>`,
+      identite: `<div class="etudiant">
     <div class="nom">${esc((e.nom || '').toUpperCase())} ${esc(e.prenom || '')}</div>
     <div class="naissance">
       Né${genre === 'F' ? 'e' : ''} à ${esc(e.lieu_naissance) || '………'},
       le ${frDate(e.date_naissance)}
     </div>
-  </div>
-
-  <p class="corps">maîtrise les acquis d'apprentissage de l'unité d'enseignement
-    susvisée, soit :</p>
-  ${acquis}
-
-  <p class="corps">comportant au total <b>${u.periodes || '………'}</b> périodes
-    d'activités d'enseignement réparties comme suit :</p>
-  <div class="activites">${activites}</div>
-
-  <p class="corps">
-    Le Conseil des études lui délivre la présente attestation pour laquelle
-    ${genre === 'F' ? 'elle obtient' : 'il obtient'}
-    <b class="cote">${va?.pourcentage != null ? `${Math.round(Number(va.pourcentage))} %`
-                                 : '………'}</b> du total des points.
-  </p>
-
-  <div class="cloture">
+  </div>`,
+      acquis,
+      activites: `<div class="activites">${activites}</div>`,
+      signature: `<div class="cloture">
     <div class="sceau"></div>
     <div class="paraphe"></div>
     <div class="lieu">Fait à ${esc(ident.ville || 'Anderlecht')},
-      le ${frDate(dateDoc || va?.decision_ce_date || new Date().toISOString())}</div>
+      le ${dateSig}</div>
     <div class="legende">
       <div class="qualite">Pour le Conseil des études,<br>le Directeur</div>
       <div class="nom">${esc(ident.directeur || 'Charles SOHET')}</div>
     </div>
-  </div>
+  </div>`,
+    },
+  })}
 </div>`;
 }
 
