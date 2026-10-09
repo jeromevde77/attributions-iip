@@ -510,8 +510,13 @@ function conflitsDe(seances) {
     if (!sansLocal(a.local_texte) && a.local_texte === b.local_texte) { ajouter(a, 'local'); ajouter(b, 'local'); }
     const memeClasse = a.section && a.section === b.section && a.bloc && a.bloc === b.bloc;
     // Deux sous-groupes de la classe travaillent en parallèle : ce n'est pas un conflit.
-    const sousGroupes = (a.cours_code === b.cours_code && a.groupe_id !== b.groupe_id)
-      || (a.sous_groupe && b.sous_groupe && a.sous_groupe !== b.sous_groupe);
+    // LES BRIQUES DES GROUPES COMMUNS (« B4-6 ») : deux TP ne se gênent que si
+    // leurs briques se recouvrent (lib/simulationHoraire.js).
+    const br = x => /^B(\d+)-(\d+)$/.exec(x || '');
+    const ba = br(a.sous_groupe), bb = br(b.sous_groupe);
+    const sousGroupes = ba && bb ? (Number(ba[2]) < Number(bb[1]) || Number(bb[2]) < Number(ba[1]))
+      : (a.cours_code === b.cours_code && a.groupe_id !== b.groupe_id)
+        || (a.sous_groupe && b.sous_groupe && a.sous_groupe !== b.sous_groupe);
     if (memeClasse && !sousGroupes) { ajouter(a, 'classe'); ajouter(b, 'classe'); }
   }
   return out;

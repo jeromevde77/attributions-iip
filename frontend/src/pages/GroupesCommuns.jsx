@@ -274,6 +274,14 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
   const [enCours, setEnCours] = useState(false);
   const [semaine, setSemaine] = useState(1);
   const [erreur, setErreur] = useState(null);
+  const [vueSem, setVueSem] = useState('deux');       // proposition | actuel | deux
+  const [actuelSem, setActuelSem] = useState([]);
+  useEffect(() => {
+    const lundi = sim?.semaines?.[semaine - 1]?.lundi;
+    if (!lundi) { setActuelSem([]); return; }
+    fetch(`/api/horaire/semaine?annee=${encodeURIComponent(annee)}&lundi=${lundi}&vue=classe&cle=${encodeURIComponent(`${section}|${bloc}`)}`, { headers: authHeaders() })
+      .then(r => r.json()).then(j => setActuelSem((j.seances || []).filter(x => x.source !== 'simulation' && !x.annule))).catch(() => setActuelSem([]));
+  }, [sim, semaine, section, bloc, annee]);
   useEffect(() => {
     setSim(null);
     fetch(`/api/etudiants/horaire-plages?section=${encodeURIComponent(section)}`, { headers: authHeaders() }).then(r => r.json())
@@ -300,6 +308,26 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
       setSim(j); setSemaine(1);
     } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
   }
+  /* POSER DANS L'HORAIRE : un compte rendu d'abord, puis l'écriture. Les
+     séances retouchées à la main dans l'horaire ne sont jamais remplacées. */
+  async function poser() {
+    const corps = { section, bloc, annee };
+    const r0 = await fetch('/api/etudiants/repartition-cours/communs/simulation/poser', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ ...corps, simulation: true }) });
+    const a = await r0.json();
+    if (!r0.ok) { setErreur(a.error || `Erreur ${r0.status}`); return; }
+    if (!(await demander(`Poser ${a.a_poser} séance(s) dans l’horaire de ${section} ${bloc} ?\n\n`
+      + (a.remplacees ? `${a.remplacees} séance(s) posées par une simulation précédente seront remplacées.\n` : '')
+      + (a.gardees ? `${a.gardees} séance(s) retouchées à la main sont gardées telles quelles.\n` : '')
+      + (a.restes ? `${a.restes} activité(s) n’ont pas toutes leurs séances : elles restent à placer à la main.\n` : '')
+      + '\nLes séances se déplacent ensuite dans Organisation → Horaire de la semaine.'))) return;
+    setEnCours(true);
+    try {
+      const r = await fetch('/api/etudiants/repartition-cours/communs/simulation/poser', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ ...corps, simulation: false }) });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
+      informer(`✓ ${j.a_poser} séance(s) posées dans l’horaire de ${section} ${bloc}. Elles sont visibles dans Organisation → Horaire de la semaine (classe ${section} · ${bloc}).`);
+    } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
+  }
   const creneauxSemaine = useMemo(() => (sim?.seances || []).filter(s => s.semaine === semaine), [sim, semaine]);
   const heures = [...new Set((plages || []).map(p => `${p.debut}-${p.fin}`))].sort();
   const jours = [...new Set((plages || []).map(p => p.jour))].sort();
@@ -311,7 +339,8 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
         <b className="text-[13px]">Simulation de l’année — {section} · {bloc}</b>
         <span className="text-[12px] text-slate-500">Semaines de cours du calendrier, congés et fériés déduits ; périodes attribuées (50 min) ; une brique et un enseignant jamais à deux endroits à la fois. Rien ne s’écrit dans l’horaire.</span>
         <span className="flex-1" />
-        <button className="bouton bouton-fort" onClick={simuler} disabled={enCours || !plages?.length}>{enCours ? 'Simulation…' : 'Simuler l’année'}</button>
+        <button className={sim ? 'bouton' : 'bouton bouton-fort'} onClick={simuler} disabled={enCours || !plages?.length}>{enCours ? 'Simulation…' : sim ? 'Simuler à nouveau' : 'Simuler l’année'}</button>
+
       </div>
       {erreur && <div className="text-[12.5px]" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
 
@@ -330,10 +359,12 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
 
       {sim && <>
         <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))' }}>
-          {[[sim.nb_semaines, 'semaines de cours'], [sim.creneaux, 'créneaux disponibles'], [`${sim.heures_disponibles} h`, 'disponibles par étudiant'],
-            [`${sim.heures_demandees_min}–${sim.heures_demandees_max} h`, 'demandées par brique'], [`${sim.nb_seances}`, 'séances placées'],
-            [sim.restes.length ? `${sim.restes.reduce((t, r) => t + r.manque, 0)}` : '0', sim.restes.length ? 'séances sans place' : 'tout est placé']].map(([v, l]) => (
-            <div key={l} className="bloc-etat px-3 py-2" data-etat={l === 'séances sans place' ? 'corriger' : 'neutre'}>
+          {[[sim.nb_semaines, 'semaines de cours', 'neutre'], [`${sim.heures_disponibles} h`, 'disponibles par étudiant', 'neutre'],
+            [`${sim.heures_attribuees} h`, 'attribuées au bloc (hors stage et évaluations)', 'neutre'],
+            [`${sim.actuel.heures} h`, `horaire actuel — ${sim.actuel.seances} séance(s)${sim.actuel.derniere ? `, jusqu’au ${sim.actuel.derniere.slice(8, 10)}/${sim.actuel.derniere.slice(5, 7)}` : ''}`, sim.actuel.heures < sim.heures_attribuees ? 'surveiller' : 'reussi'],
+            [`${Math.round(sim.seances.reduce((t, x) => t + x.minutes, 0) / 60)} h`, `proposition de Lucie — ${sim.nb_seances} séance(s)`, sim.restes.length ? 'corriger' : 'reussi'],
+            [sim.restes.length ? `${sim.restes.reduce((t, r) => t + r.manque, 0)}` : '0', sim.restes.length ? 'séances sans place dans la proposition' : 'tout est placé', sim.restes.length ? 'corriger' : 'reussi']].map(([v, l, e]) => (
+            <div key={l} className="bloc-etat px-3 py-2" data-etat={e}>
               <div className="text-[17px] font-bold">{v}</div><div className="text-[11.5px] text-slate-500">{l}</div></div>))}
         </div>
         {sim.restes.length > 0 && (
@@ -347,7 +378,12 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
             {Array.from({ length: sim.nb_semaines }, (_, i) => i + 1).map(w => <option key={w} value={w}>Semaine {w}</option>)}
           </select>
           <button className="bouton px-2" disabled={semaine >= sim.nb_semaines} onClick={() => setSemaine(s => s + 1)}>▶</button>
-          <span className="text-[12px] text-slate-500">{creneauxSemaine.length} séance(s) cette semaine</span>
+          <span className="text-[12px] text-slate-500">{sim.semaines?.[semaine - 1] ? `semaine du ${sim.semaines[semaine - 1].lundi.split('-').reverse().join('/')}` : ''}</span>
+          <span className="flex-1" />
+          <div className="segments flex h-8">
+            {[['proposition', 'Proposition de Lucie'], ['actuel', 'Horaire actuel'], ['deux', 'Côte à côte']].map(([k, l]) => (
+              <button key={k} onClick={() => setVueSem(k)} className={`px-3 text-[12.5px] ${vueSem === k ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'}`}>{l}</button>))}
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-[11.5px] border-collapse min-w-[860px]">
@@ -360,11 +396,29 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
                 <tr key={h} className="border-t border-slate-200 align-top">
                   <td className="px-2 py-1 font-semibold whitespace-nowrap">{h.replace('-', ' – ')}</td>
                   {jours.map(j => {
-                    const ici = creneauxSemaine.filter(s => s.jour === j && `${s.debut}-${s.fin}` === h);
+                    const [hd, hf] = h.split('-');
+                    const ici = vueSem === 'actuel' ? [] : creneauxSemaine.filter(s => s.jour === j && `${s.debut}-${s.fin}` === h);
+                    const jourDe = d => { const x = new Date(`${d}T12:00:00Z`).getUTCDay(); return x || 7; };
+                    // Une séance actuelle va dans la plage qu'elle recouvre le PLUS : à cheval sur deux, elle s'affichait deux fois.
+                    const m = t => { const [a, b] = String(t).split(':').map(Number); return a * 60 + b; };
+                    const recouvre = (x, p0) => Math.max(0, Math.min(m(x.heure_fin), m(p0.split('-')[1])) - Math.max(m(x.heure_debut), m(p0.split('-')[0])));
+                    const act = vueSem === 'proposition' ? [] : actuelSem.filter(x => {
+                      if (jourDe(x.date) !== j) return false;
+                      const duJour = (plages || []).filter(p0 => p0.jour === j).map(p0 => `${p0.debut}-${p0.fin}`);
+                      const cand = duJour.length ? duJour : heures;
+                      const meilleure = cand.reduce((best, p0) => (recouvre(x, p0) > recouvre(x, best) ? p0 : best), cand[0]);
+                      return meilleure === h;
+                    });
                     const existe = (plages || []).some(p => p.jour === j && `${p.debut}-${p.fin}` === h);
                     return (
                       <td key={j} className={`px-1 py-1 border-l border-slate-100 ${existe ? '' : 'bg-slate-50'}`}>
                         <div className="flex flex-col gap-0.5">
+                          {act.map((x, i) => (
+                            <span key={`a${i}`} className="rounded px-1.5 py-0.5 border border-dashed text-slate-600"
+                              title={`Horaire actuel — ${x.cours_code || ''} ${x.cours_nom || x.matiere || ''} ${x.heure_debut}–${x.heure_fin}${x.groupe_nom ? ` · groupe ${x.groupe_nom}` : ''}${x.conflits?.length ? `\nConflit : ${x.conflits.join(', ')}` : ''}`}
+                              style={{ borderColor: x.conflits?.length ? 'var(--c-refuse)' : '#94A3B8', background: '#F8FAFC' }}>
+                              <span className="text-[10px] text-slate-400">actuel </span><b>{x.cours_code || '—'}</b> {x.heure_debut}–{x.heure_fin}{x.groupe_nom ? ` · ${x.groupe_nom}` : ''}
+                            </span>))}
                           {ici.map((s, i) => (
                             <span key={i} className="rounded px-1.5 py-0.5 border" title={`${s.cours_code} ${s.activite || ''} — groupe ${s.groupe}${s.professeur ? ` — ${s.professeur}` : ''}\nBriques ${s.tout_le_bloc ? 'toutes' : s.briques.join(', ')}`}
                               style={{ borderColor: s.tout_le_bloc ? 'var(--c-fort, #16406A)' : '#CBD5E1', background: s.tout_le_bloc ? '#EEF3F9' : '#fff' }}>
