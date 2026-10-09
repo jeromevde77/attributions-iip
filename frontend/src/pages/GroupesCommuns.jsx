@@ -372,6 +372,30 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
             {sim.restes.map(r => <div key={r.cle} className="text-[12.5px] flex gap-1.5" style={{ color: 'var(--c-refuse)' }}>
               <IconAlertTriangle size={14} className="mt-0.5 flex-none" /><span><b>{r.cours_code}</b> {r.activite} · {r.groupe} — {r.manque} séance(s) sans place : {r.raison}{r.professeur ? ` (${r.professeur})` : ''}</span></div>)}
           </div>)}
+        {/* LA RÉGULARITÉ SE LIT : un créneau fixe par groupe, ses semaines. */}
+        <details className="border border-slate-200 rounded-carte">
+          <summary className="px-3 py-2 cursor-pointer text-[13px] font-semibold">
+            Créneaux fixes — {sim.activites.filter(a => a.creneaux_fixes?.length && !a.irreguliers).length} sur {sim.activites.length} activité(s) entièrement régulières
+          </summary>
+          <table className="w-full text-[12.5px]">
+            <thead><tr className="tab-entete text-left">
+              <th className="px-3 py-1">Cours</th><th className="px-3 py-1">Activité</th><th className="px-3 py-1">Groupe</th>
+              <th className="px-3 py-1">Créneau fixe</th><th className="px-3 py-1">Semaines</th><th className="px-3 py-1">Enseignant</th></tr></thead>
+            <tbody>
+              {sim.activites.map(a => (
+                <tr key={a.cle} className="border-t border-slate-100 align-top">
+                  <td className="px-3 py-1 font-semibold whitespace-nowrap">{a.cours_code}</td>
+                  <td className="px-3 py-1">{String(a.activite || '').slice(0, 40)}</td>
+                  <td className="px-3 py-1">{a.tout_le_bloc ? 'tout le bloc' : a.groupe}</td>
+                  <td className="px-3 py-1 whitespace-nowrap">{(a.creneaux_fixes || []).map((f, i) => <div key={i}>{f.jour_nom} {f.debut.replace(':', ' h ')} – {f.fin.replace(':', ' h ')}</div>)}
+                    {a.irreguliers > 0 && <div style={{ color: 'var(--c-attente)' }}>+ {a.irreguliers} séance(s) hors créneau fixe</div>}
+                    {!a.creneaux_fixes?.length && !a.irreguliers && <span className="text-slate-400">—</span>}</td>
+                  <td className="px-3 py-1 whitespace-nowrap text-slate-600">{(a.creneaux_fixes || []).map((f, i) => <div key={i}>{f.de === f.a ? `semaine ${f.de}` : `semaines ${f.de} à ${f.a}`} · {f.seances} séance(s)</div>)}</td>
+                  <td className="px-3 py-1 text-slate-600">{a.professeur || '—'}</td>
+                </tr>))}
+            </tbody>
+          </table>
+        </details>
         <div className="flex items-center gap-2">
           <button className="bouton px-2" disabled={semaine <= 1} onClick={() => setSemaine(s => s - 1)}>◀</button>
           <select value={semaine} onChange={e => setSemaine(Number(e.target.value))} className="controle">

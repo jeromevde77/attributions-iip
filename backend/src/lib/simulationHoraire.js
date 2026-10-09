@@ -138,34 +138,70 @@ export function simuler(section, bloc, annee) {
     if (!occB.has(k(s))) occB.set(k(s), new Set()); d.briques.forEach(b => occB.get(k(s)).add(b));
     if (d.professeur_id) { if (!occP.has(k(s))) occP.set(k(s), new Set()); occP.get(k(s)).add(d.professeur_id); }
   };
+  // LA RÉGULARITÉ D'ABORD (Charles, 9 octobre 2026 : « pour les étudiants et
+  // les profs, la régularité est importante »). Chaque demande reçoit UN
+  // CRÉNEAU FIXE — un jour, une plage — qu'elle garde semaine après semaine
+  // jusqu'à épuiser ses périodes ; un férié décale la fin d'une semaine. Quand
+  // un créneau ne suffit pas (plus d'une séance par semaine), un second créneau
+  // fixe s'ajoute. Seul ce qui ne trouve aucun créneau régulier se place au
+  // mieux, et se dit « irrégulier ».
   // Le plus contraint d'abord : tout le bloc (théorie), puis les groupes les plus longs.
   const ordre = [...dem].sort((x, y) => (y.tout_le_bloc - x.tout_le_bloc) || (y.minutes - x.minutes));
-  const seances = [], restes = [];
+  const seances = [], restes = [], fixes = new Map();
+  const ajouter = (s, d, regulier) => {
+    poser(s, d); seances.push({ ...s, cle: d.cle, cours_code: d.cours_code, activite: d.activite, groupe: d.groupe,
+      professeur: d.professeur, briques: d.briques, tout_le_bloc: d.tout_le_bloc, regulier });
+  };
   for (const d of ordre) {
     const possibles = slots.filter(s => d.quadri === 'AN' || s.quadri === d.quadri);
     const semaines = [...new Set(possibles.map(s => s.semaine))];
     const duree = possibles[0]?.minutes || 120;
-    let besoin = Math.ceil(d.minutes / duree), place = 0;
+    const besoin = Math.ceil(d.minutes / duree);
+    let place = 0;
+    fixes.set(d.cle, []);
     if (!semaines.length) { restes.push({ ...d, manque: besoin, raison: 'aucune semaine de cours dans son quadrimestre' }); continue; }
-    // Étaler : viser une séance toutes les `pas` semaines, puis combler.
-    const pas = Math.max(1, semaines.length / besoin);
-    const essayer = (sem) => {
-      const s = possibles.find(x => x.semaine === sem && libre(x, d));
-      if (!s) return false;
-      poser(s, d); seances.push({ ...s, cle: d.cle, cours_code: d.cours_code, activite: d.activite, groupe: d.groupe,
-        professeur: d.professeur, briques: d.briques, tout_le_bloc: d.tout_le_bloc }); place++; return true;
-    };
-    for (let i = 0; i < besoin; i++) {
-      const cible = Math.min(semaines.length - 1, Math.floor(i * pas));
-      let ok = false;
-      for (let delta = 0; delta < semaines.length && !ok; delta++) {
-        for (const sgn of delta ? [1, -1] : [1]) {
-          const j = cible + sgn * delta;
-          if (j >= 0 && j < semaines.length && essayer(semaines[j])) { ok = true; break; }
-        }
-      }
-      if (!ok) break;
+    // Les créneaux types (jour + début) et leurs occurrences, semaine par semaine.
+    const types = new Map();
+    for (const s of possibles) {
+      const t = `${s.jour}|${s.debut}`;
+      if (!types.has(t)) types.set(t, []);
+      types.get(t).push(s);
     }
+    while (place < besoin) {
+      // Pour chaque créneau type : les occurrences libres, prises dans l'ordre,
+      // jusqu'au besoin. Un TROU (semaine où le créneau existe mais est occupé)
+      // casse la régularité ; un férié non (le créneau n'existe pas ce jour-là).
+      let meilleur = null;
+      for (const [t, occ] of types) {
+        if ([...fixes.get(d.cle)].some(f => f.type === t)) continue;
+        const reste = besoin - place, choisies = [];
+        let trous = 0;
+        for (const s of occ) {
+          if (choisies.length >= reste) break;
+          if (libre(s, d)) choisies.push(s);
+          else if (choisies.length) trous++;
+        }
+        if (!choisies.length) continue;
+        // Score : couvrir le plus, avec le moins de trous, et finir le plus tôt.
+        const score = [choisies.length, -trous, -choisies[choisies.length - 1].semaine];
+        if (!meilleur || score[0] > meilleur.score[0] || (score[0] === meilleur.score[0] && (score[1] > meilleur.score[1]
+          || (score[1] === meilleur.score[1] && score[2] > meilleur.score[2])))) meilleur = { t, choisies, trous, score };
+      }
+      // Un créneau qui ne porterait qu'une poignée de séances n'est pas un créneau fixe.
+      if (!meilleur || (meilleur.choisies.length < Math.min(3, besoin - place) && fixes.get(d.cle).length)) break;
+      const [s0] = meilleur.choisies, sN = meilleur.choisies[meilleur.choisies.length - 1];
+      meilleur.choisies.forEach(s => ajouter(s, d, true));
+      place += meilleur.choisies.length;
+      fixes.get(d.cle).push({ type: meilleur.t, jour: s0.jour, jour_nom: JOURS[s0.jour], debut: s0.debut, fin: s0.fin,
+        de: s0.semaine, a: sN.semaine, seances: meilleur.choisies.length, trous: meilleur.trous });
+    }
+    // Ce qui reste : au mieux, n'importe quel créneau libre — signalé irrégulier.
+    let irreguliers = 0;
+    for (const s of possibles) {
+      if (place >= besoin) break;
+      if (libre(s, d)) { ajouter(s, d, false); place++; irreguliers++; }
+    }
+    if (irreguliers) fixes.get(d.cle).irreguliers = irreguliers;
     if (place < besoin) {
       const conflitProf = d.professeur_id && possibles.some(s => !d.briques.some(b => occB.get(k(s))?.has(b)) && occP.get(k(s))?.has(d.professeur_id));
       restes.push({ ...d, place, manque: besoin - place,
@@ -192,7 +228,8 @@ export function simuler(section, bloc, annee) {
     nb_demandes: dem.length, nb_seances: seances.length,
     activites: dem.map(d => ({ cle: d.cle, cours_code: d.cours_code, activite: d.activite, groupe: d.groupe, professeur: d.professeur,
       periodes: d.periodes, quadri: d.quadri, tout_le_bloc: d.tout_le_bloc,
-      besoin: Math.ceil(d.minutes / (slots[0]?.minutes || 120)), place: seances.filter(s => s.cle === d.cle).length })),
+      besoin: Math.ceil(d.minutes / (slots[0]?.minutes || 120)), place: seances.filter(s => s.cle === d.cle).length,
+      creneaux_fixes: (fixes.get(d.cle) || []).map(({ type, ...f }) => f), irreguliers: fixes.get(d.cle)?.irreguliers || 0 })),
     restes, seances: seances.sort((x, y) => (x.date + x.debut).localeCompare(y.date + y.debut)),
   };
 }
