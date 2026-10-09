@@ -140,7 +140,10 @@ export function composerNotificationVA(etudId, annee) {
   <div class="info"><div class="titre">Voies de recours</div>
     <div class="ligne">Les décisions de valorisation des acquis ne sont pas susceptibles de recours
     (règlement des études, art. 30 et 87 § 2). Elles sont motivées ci-dessus.</div></div>
-  <div class="cloture sans-paraphe">
+  <!-- LA NOTIFICATION EST SIGNÉE (Charles, 9 octobre 2026 : « je ne vois pas ma
+       signature ») : c'est une décision de la direction remise à l'étudiant ;
+       le paraphe y est protégé par les vagues de micro-texte, comme ailleurs. -->
+  <div class="cloture">
     <div class="sceau"></div><div class="paraphe"></div>
     <div class="lieu">Fait à ${esc(ident.ville || 'Bruxelles')}, le ${jour(new Date().toISOString())}</div>
     <div class="legende"><div class="qualite">Pour la Direction,<br>le Directeur</div><div class="nom">${esc(ident.directeur || '……………………')}</div></div>
