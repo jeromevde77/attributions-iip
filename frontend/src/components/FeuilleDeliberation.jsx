@@ -436,8 +436,9 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
       figerOrdre(restants);
       setIdx(0);
       // Tout le monde réussissait de plein droit : il n'y a plus rien à
-      // délibérer, on va droit à la clôture.
-      setEtape(restants.length ? 'fiche' : 'cloture');
+      // délibérer, on va droit à la clôture. Sinon, les PP, NP et CM passent
+      // d'abord, en lot (9 octobre 2026).
+      setEtape(!restants.length ? 'cloture' : restants.some(aMentionADecider) ? 'mentions' : 'fiche');
     } catch (e) { setErreur(e.message); }
     finally { setEnCours(false); }
   }
@@ -468,13 +469,15 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
    * Le serveur choisit, pour CHACUN, les acquis réellement en défaut : deux
    * étudiants n'échouent pas aux mêmes.
    */
-  async function ajournerLot(ids, motif, simulation, coursParEtudiant) {
+  async function ajournerLot(ids, motif, simulation, coursParEtudiant, parEtudiant = null) {
     setEnCours(true); setErreur(null);
     try {
       const rep = await fetch(`/api/acquis/deliberation/ue/${ueNum}/ajourner-lot`, {
         method: 'POST', headers: authHeaders(),
         body: JSON.stringify({ annee, session, etudiants: ids, motif, simulation,
-                               cours_par_etudiant: coursParEtudiant || undefined }),
+                               cours_par_etudiant: coursParEtudiant || undefined,
+                               decision_par_etudiant: parEtudiant?.decisions || undefined,
+                               motif_par_etudiant: parEtudiant?.motifs || undefined }),
       });
       const j = await rep.json();
       if (!rep.ok) { setErreur(j.detail || j.error); return null; }
@@ -762,7 +765,12 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
           ) : etape === 'auto' ? (
             <PleinDroit auto={auto} enCours={enCours}
               onAppliquer={appliquerAuto}
-              onPasser={() => { figerOrdre(); setIdx(0); setEtape('fiche'); }} />
+              onPasser={() => { figerOrdre(); setIdx(0);
+                setEtape((data?.etudiants || []).some(aMentionADecider) ? 'mentions' : 'fiche'); }} />
+          ) : etape === 'mentions' ? (
+            <Mentions liste={(data?.etudiants || []).filter(aMentionADecider)} session={session}
+              enCours={enCours} onDecider={ajournerLot}
+              onFini={() => { setIdx(0); setEtape('fiche'); }} />
           ) : etape === 'cloture' ? (
             <Cloture seance={seance?.seance} enCours={enCours} nb={liste.length}
               quorum={seance?.quorum} erreur={erreur}
@@ -778,7 +786,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
               Aucun étudiant inscrit à cette unité pour {annee}.
             </div>
           ) : lot ? (
-            <VueLot liste={liste} enCours={enCours} onAjourner={ajournerLot}
+            <VueLot liste={liste} enCours={enCours} onAjourner={ajournerLot} session={session}
               onOuvrir={e => { setIdx(liste.indexOf(e)); setLot(false); }} />
           ) : tableau ? (
             <VueTableau data={data} liste={liste} session={session}
@@ -1396,6 +1404,152 @@ function PleinDroit({ auto, onAppliquer, onPasser, enCours }) {
             className="px-4 py-2 text-[13px] rounded-lg bg-emerald-600 text-white
                        font-semibold disabled:opacity-40">
             Enregistrer ces {auto.reussites.length} réussites
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══ Les PP, NP et CM, pré-délibérés d'abord ═════════════════════════════
+ *
+ * Charles, 9 octobre 2026 : « si un étudiant n'a pas présenté tous les
+ * examens, ou NP, ou CM, il doit aussi être pré-délibéré d'abord. Tu les
+ * classes, et on ajourne ou refuse à la chaîne. » Après les réussites de plein
+ * droit, ce sont les autres évidences : le Conseil n'a pas de note à peser,
+ * seulement une mention à constater. La décision de chacun est celle que le
+ * moteur propose déjà (PP : refusé ; NP et CM : ajourné en première session,
+ * refusé en seconde), la justification suit la mention et se corrige. On
+ * peut décocher quelqu'un : il repassera dans la revue un par un.
+ */
+const MENTIONS_LOT = ['PP', 'NP', 'CM'];
+const LIBELLE_MENTION = { PP: 'Pas présenté', NP: 'Rien produit (NP)', CM: 'Certificat médical' };
+const MOTIF_MENTION = {
+  PP: "Ne s'est pas présenté aux évaluations de l'unité.",
+  NP: "N'a pas produit de travail évaluable lors des évaluations de l'unité.",
+  CM: "Absent aux évaluations de l'unité pour raison médicale (certificat médical).",
+};
+/** Les mentions d'un étudiant — sur ses cours, à défaut sur ses acquis. */
+function mentionsDe(e) {
+  const m = new Set();
+  for (const c of e.cours || []) if (MENTIONS_LOT.includes(c.mention)) m.add(c.mention);
+  for (const a of e.acquis || []) if (MENTIONS_LOT.includes(a.mention)) m.add(a.mention);
+  return MENTIONS_LOT.filter(x => m.has(x));
+}
+/** À pré-délibérer : une mention, une décision proposée défavorable, rien de décidé. */
+function aMentionADecider(e) {
+  return !e.resultat && !e.ue?.de_plein_droit && mentionsDe(e).length > 0
+    && ['ajourne', 'refuse'].includes(e.ue?.decision_proposee);
+}
+
+function Mentions({ liste, session, enCours, onDecider, onFini }) {
+  const [ecartes, setEcartes] = useState(() => new Set());
+  const [motifs, setMotifs] = useState(MOTIF_MENTION);
+  const [apercu, setApercu] = useState(null);
+  const decisionDe = e => (session >= 2 || e.ue?.decision_proposee === 'refuse') ? 'refuse' : 'ajourne';
+  const groupes = MENTIONS_LOT.map(m => ({ m, gens: liste.filter(e => mentionsDe(e)[0] === m) }))
+    .filter(g => g.gens.length);
+  const retenus = liste.filter(e => !ecartes.has(e.id));
+  const nbRefus = retenus.filter(e => decisionDe(e) === 'refuse').length;
+  const nbAjourn = retenus.length - nbRefus;
+  const corps = () => ({
+    decisions: Object.fromEntries(retenus.map(e => [e.id, decisionDe(e)])),
+    motifs: Object.fromEntries(retenus.map(e => [e.id, mentionsDe(e).map(m => motifs[m]).filter(Boolean).join(' ')])),
+  });
+  const bascule = id => setEcartes(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const manqueMotif = MENTIONS_LOT.some(m => groupes.some(g => g.m === m) && (motifs[m] || '').trim().length < 5);
+
+  return (
+    <div className="space-y-3 max-w-3xl mx-auto">
+      <div className="px-3 py-2 rounded-xl bg-white border border-slate-200 border-l-4" style={{ borderLeftColor: 'var(--c-attente)' }}>
+        <div className="text-[13px] font-semibold text-iip-texte">PP, NP et CM — à décider en lot</div>
+        <p className="text-[12px] text-slate-600">
+          Ces étudiants n'ont pas présenté une évaluation, n'ont rien produit, ou étaient
+          couverts par un certificat médical. La décision proposée est celle du règlement :
+          {session >= 2 ? ' en seconde session, tous sont refusés.'
+            : ' PP refusé ; NP et CM ajournés — ils représentent en seconde session.'}
+          {' '}Décochez ceux que le Conseil veut examiner un par un.
+        </p>
+      </div>
+
+      <div className="border border-slate-200 rounded-carte overflow-hidden bg-white">
+        <table className="w-full text-[12.5px]">
+          <thead>
+            <tr className="tab-entete text-left">
+              <th className="px-3 py-1.5 w-8"></th>
+              <th className="px-3 py-1.5">Étudiant</th>
+              <th className="px-3 py-1.5">Mention</th>
+              <th className="px-3 py-1.5">Cours concernés</th>
+              <th className="px-3 py-1.5 text-right">Décision</th>
+            </tr>
+            <tr className="tab-repere font-semibold">
+              <td></td>
+              <td className="px-3 py-1">{retenus.length} sur {liste.length} retenu(s)</td>
+              <td></td><td></td>
+              <td className="px-3 py-1 text-right whitespace-nowrap">
+                {nbAjourn > 0 && `${nbAjourn} ajourné(s)`}{nbAjourn > 0 && nbRefus > 0 && ' · '}{nbRefus > 0 && `${nbRefus} refusé(s)`}
+              </td>
+            </tr>
+          </thead>
+          {groupes.map(g => (
+            <tbody key={g.m}>
+              <tr className="tab-repere"><td colSpan={5} className="px-3 py-1 text-[11px] uppercase tracking-wide">
+                {LIBELLE_MENTION[g.m]} · {g.gens.length}</td></tr>
+              {g.gens.map(e => {
+                const pris = !ecartes.has(e.id), dec = decisionDe(e);
+                const concernes = (e.cours || []).filter(c => MENTIONS_LOT.includes(c.mention));
+                return (
+                  <tr key={e.id} className={`border-t border-slate-100 ${pris ? '' : 'text-slate-400'}`}>
+                    <td className="px-3 py-1"><input type="checkbox" checked={pris} onChange={() => bascule(e.id)} /></td>
+                    <td className="px-3 py-1 whitespace-nowrap"><b className={pris ? 'text-iip-blue' : ''}>{String(e.nom || '').toUpperCase()}</b> {e.prenom}</td>
+                    <td className="px-3 py-1">{mentionsDe(e).join(', ')}</td>
+                    <td className="px-3 py-1 text-[11.5px] text-slate-500">
+                      {concernes.map(c => `${c.cours_code} ${c.mention}`).join(' · ') || 'acquis seulement'}
+                    </td>
+                    <td className="px-3 py-1 text-right">
+                      {pris && <span className="inline-block px-2 rounded-full text-white text-[11px] font-semibold"
+                        style={{ background: dec === 'refuse' ? 'var(--c-refuse)' : 'var(--c-attente)' }}>
+                        {dec === 'refuse' ? 'Refusé' : 'Ajourné'}</span>}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          ))}
+        </table>
+      </div>
+
+      <div className="space-y-2">
+        {groupes.map(g => (
+          <label key={g.m} className="block text-[12px] text-slate-600">
+            Justification — {LIBELLE_MENTION[g.m]} (portée sur chaque acquis en défaut, reprise à l'annexe 8)
+            <textarea rows={1} value={motifs[g.m] || ''} data-reponses={`deliberation.mention.${g.m}`}
+              onChange={ev => setMotifs(m => ({ ...m, [g.m]: ev.target.value }))}
+              className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]" />
+          </label>
+        ))}
+      </div>
+
+      {apercu && (
+        <div className="px-3 py-2 rounded-lg bg-white border border-slate-200 text-[13px]">
+          Simulation : <b>{apercu.ajournes}</b> ajourné(s), <b>{apercu.refuses}</b> refusé(s) ·
+          {' '}<b>{apercu.acquis}</b> acquis et <b>{apercu.cours}</b> cours en défaut, justifiés.
+        </div>
+      )}
+
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-[12px] text-slate-500 min-w-0">
+          {manqueMotif ? 'Chaque mention demande sa justification.'
+            : !retenus.length ? 'Personne n’est retenu : tous passeront dans la revue.' : ''}
+        </span>
+        <div className="flex gap-2">
+          <button type="button" className="bouton" onClick={onFini}>Passer — les revoir un à un</button>
+          <button type="button" className="bouton" disabled={enCours || manqueMotif || !retenus.length}
+            onClick={async () => setApercu(await onDecider(retenus.map(e => e.id), '', true, null, corps()))}>
+            Simuler</button>
+          <button type="button" className="bouton bouton-fort" disabled={enCours || manqueMotif || !retenus.length}
+            onClick={async () => { const j = await onDecider(retenus.map(e => e.id), '', false, null, corps()); if (j) onFini(); }}>
+            {enCours ? 'Enregistrement…' : `Décider ces ${retenus.length}`}
           </button>
         </div>
       </div>
@@ -3027,7 +3181,9 @@ function Case({ etat, cours, premier }) {
  * réellement en défaut — deux étudiants n'échouent pas aux mêmes. Et l'on
  * voit le compte avant d'écrire.
  */
-function VueLot({ liste, onAjourner, onOuvrir, enCours }) {
+function VueLot({ liste, onAjourner, onOuvrir, enCours, session = 1 }) {
+  // En seconde session, « ajourné » n'existe pas : le lot refuse.
+  const verbe = session >= 2 ? 'Refuser' : 'Ajourner';
   const [choisis, setChoisis] = useState(() => new Set());
   const [motif, setMotif] = useState('');
   const [apercu, setApercu] = useState(null);
@@ -3038,7 +3194,7 @@ function VueLot({ liste, onAjourner, onOuvrir, enCours }) {
   const [ecartes, setEcartes] = useState({});   // { [id]: Set(cours_code) }
 
   const enDefaut = e => (e.cours || [])
-    .filter(c => !c.faveur && (c.na || (c.note != null && c.note < 10)));
+    .filter(c => !c.faveur && (c.na || ['PP', 'NP', 'CM'].includes(c.mention) || (c.note != null && c.note < 10)));
 
   const retenus = e => enDefaut(e).map(c => c.cours_code)
     .filter(c => !(ecartes[e.id] || new Set()).has(c));
@@ -3070,7 +3226,7 @@ function VueLot({ liste, onAjourner, onOuvrir, enCours }) {
   return (
     <div className="space-y-3">
       <div className="px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 border-l-4 border-l-amber-500">
-        <div className="text-[13px] font-semibold text-amber-900">Ajourner un paquet</div>
+        <div className="text-[13px] font-semibold text-amber-900">{verbe} un paquet</div>
         <p className="text-[12px] text-amber-800">
           On ajourne <b>par cours</b> : cochez les étudiants, et décochez au besoin l'un
           de leurs cours. Les acquis suivent leur cours. La justification, elle, est
@@ -3141,7 +3297,7 @@ function VueLot({ liste, onAjourner, onOuvrir, enCours }) {
                         className={`px-2 py-0.5 rounded-champ border text-[11px] font-semibold
                           ${off ? 'border-slate-300 text-slate-400 line-through'
                                 : 'border-amber-500 bg-amber-500 text-white'}`}>
-                        {c.cours_code} · {c.na ? 'NA' : fmt(c.note)}
+                        {c.cours_code} · {c.mention || (c.na ? 'NA' : fmt(c.note))}
                       </button>
                     );
                   })}
@@ -3192,7 +3348,7 @@ function VueLot({ liste, onAjourner, onOuvrir, enCours }) {
             }}
             className="px-4 py-2 text-[13px] rounded-lg bg-amber-600 text-white
                        font-semibold disabled:opacity-40">
-            {enCours ? 'Enregistrement…' : `Ajourner ${ids.length || ''}`}
+            {enCours ? 'Enregistrement…' : `${verbe} ${ids.length || ''}`}
           </button>
         </div>
       </div>

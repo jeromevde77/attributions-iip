@@ -4264,6 +4264,12 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
       decision_proposee: ajourne ? (session >= 2 ? 'refuse' : 'ajourne')
         : cours.some(c => c.mention === 'PP') ? 'refuse'
         : cours.some(c => c.mention === 'NP') ? (session >= 2 ? 'refuse' : 'ajourne')
+        // LE CERTIFICAT MÉDICAL NE VAUT PAS RÉUSSITE (Charles, 9 octobre 2026).
+        // Un cours couvert par un CM n'a pas de note : il sortait du calcul, et
+        // l'unité se proposait « réussie » sans l'épreuve. Il se représente :
+        // ajourné en première session, refusé en seconde.
+        : cours.some(c => c.mention === 'CM') || acquis.some(a => a.mention === 'CM')
+          ? (session >= 2 ? 'refuse' : 'ajourne')
         : noteUE == null ? null
         : ((regarde.aa && acquis.some(a => !a.na && a.note != null && a.note < SEUIL_AA))
            || (regarde.cours && cours.some(c => !c.na && c.note != null && c.note < SEUIL_UE))
@@ -8562,6 +8568,19 @@ r.post('/deliberation/ue/:ueNum/ajourner-lot', authRequired,
   // liste des cours retenus ; à défaut, ce sont tous ses cours en défaut.
   const coursParEtudiant = (req.body && typeof req.body.cours_par_etudiant === 'object'
     && req.body.cours_par_etudiant) || null;
+  /* LA DÉCISION ET LA JUSTIFICATION PEUVENT VENIR PAR ÉTUDIANT (Charles,
+     9 octobre 2026 : les PP, NP et CM « pré-délibérés d'abord », puis
+     « on ajourne ou refuse à la chaîne »). Un PP est refusé dès la première
+     session, un NP ou un CM ajourné : la décision de chacun est celle que
+     propose delibererUE, et la justification suit sa mention. EN SECONDE
+     SESSION, AJOURNÉ N'EXISTE PAS (RGE art. 69 §2) : le lot y refuse
+     toujours, quoi qu'on lui envoie. */
+  const decisionParEtudiant = (req.body && typeof req.body.decision_par_etudiant === 'object'
+    && req.body.decision_par_etudiant) || {};
+  const motifParEtudiant = (req.body && typeof req.body.motif_par_etudiant === 'object'
+    && req.body.motif_par_etudiant) || {};
+  const decisionDe = id => (ses >= 2 || decisionParEtudiant[id] === 'refuse') ? 'refuse' : 'ajourne';
+  const motifDe = id => String(motifParEtudiant[id] || '').trim() || motif;
 
   if (!ids.length) return res.status(400).json({ error: 'aucun étudiant sélectionné' });
 
@@ -8597,13 +8616,13 @@ r.post('/deliberation/ue/:ueNum/ajourner-lot', authRequired,
   const poserResultat = db.prepare(`
     INSERT INTO deliberation_resultat
       (etudiant_id, annee_scolaire, ue_num, session, resultat, points, decide_par)
-    VALUES (?,?,?,?,'ajourne',?,?)
+    VALUES (?,?,?,?,?,?,?)
     ON CONFLICT(etudiant_id, annee_scolaire, ue_num, session)
-    DO UPDATE SET resultat = 'ajourne', points = excluded.points,
+    DO UPDATE SET resultat = excluded.resultat, points = excluded.points,
       decide_le = CURRENT_TIMESTAMP, decide_par = excluded.decide_par`);
 
   const rapport = { ue_num: ueNum, annee, session: ses, simulation,
-                    traites: 0, acquis: 0, cours: 0, motifs: 0, details: [] };
+                    traites: 0, acquis: 0, cours: 0, motifs: 0, ajournes: 0, refuses: 0, details: [] };
 
   const faire = db.transaction(() => {
     for (const id of ids) {
@@ -8612,7 +8631,8 @@ r.post('/deliberation/ue/:ueNum/ajourner-lot', authRequired,
       // LES COURS EN DÉFAUT de cet étudiant-là — ou ceux que le Conseil a
       // retenus, quand il en a choisi.
       const enDefaut = (d.cours || [])
-        .filter(c => !c.faveur && (c.na || (c.note != null && c.note < SEUIL_UE)))
+        .filter(c => !c.faveur && (c.na || ['PP', 'NP', 'CM'].includes(c.mention)
+          || (c.note != null && c.note < SEUIL_UE)))
         .map(c => c.cours_code);
       const choisis = coursParEtudiant && Array.isArray(coursParEtudiant[id])
         ? coursParEtudiant[id].filter(c => enDefaut.includes(c))
@@ -8626,7 +8646,8 @@ r.post('/deliberation/ue/:ueNum/ajourner-lot', authRequired,
       // Un acquis en défaut qu'aucun cours retenu n'évalue reste ajourné pour
       // lui-même lorsque le Conseil n'a rien choisi — sinon il serait perdu.
       const aas = (d.acquis || [])
-        .filter(a => !a.faveur && (a.na || (a.note != null && a.note < SEUIL_UE)))
+        .filter(a => !a.faveur && (a.na || ['PP', 'NP', 'CM'].includes(a.mention)
+          || (a.note != null && a.note < SEUIL_UE)))
         .filter(a => {
           const evs = (a.evaluations || []).map(e => e.cours_code);
           if (!evs.length) return !coursParEtudiant;
@@ -8635,23 +8656,25 @@ r.post('/deliberation/ue/:ueNum/ajourner-lot', authRequired,
         .map(a => a.aa_code);
 
       const e = db.prepare('SELECT nom, prenom FROM etudiant WHERE id = ?').get(id) || {};
-      rapport.details.push({ etudiant_id: id, nom: e.nom, prenom: e.prenom,
+      const decision = decisionDe(id), justification = motifDe(id);
+      rapport[decision === 'refuse' ? 'refuses' : 'ajournes']++;
+      rapport.details.push({ etudiant_id: id, nom: e.nom, prenom: e.prenom, decision,
                              acquis: aas.length, cours: cours.length,
                              cours_codes: choisis, cours_en_defaut: enDefaut,
                              note: d.ue?.note ?? null });
       rapport.traites++;
       rapport.acquis += aas.length;
       rapport.cours += cours.length;
-      if (motif) rapport.motifs += aas.length;
+      if (justification) rapport.motifs += aas.length;
 
       if (simulation) continue;
 
       const par = req.user?.email || null;
       for (const code of aas) poser.run(id, annee, ueNum, ses, 'aa', code, par);
       for (const code of cours) poser.run(id, annee, ueNum, ses, 'cours', code, par);
-      if (motif) for (const code of aas) poserMotif.run(id, annee, ueNum, code, motif, par);
+      if (justification) for (const code of aas) poserMotif.run(id, annee, ueNum, code, justification, par);
 
-      poserResultat.run(id, annee, ueNum, ses, d.ue?.note ?? null, par);
+      poserResultat.run(id, annee, ueNum, ses, decision, d.ue?.note ?? null, par);
 
       // Le dossier porte la décision de la session la plus avancée.
       const fin = db.prepare(`SELECT resultat, points, mention FROM deliberation_resultat
