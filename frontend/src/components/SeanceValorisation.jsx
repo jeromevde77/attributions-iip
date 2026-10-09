@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
-import { IconAlertTriangle, IconFileTypePdf, IconPrinter } from '@tabler/icons-react';
+import { IconAlertTriangle, IconFileTypePdf, IconPrinter, IconSend } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { Fenetre } from './ui.jsx';
 import { ouvrirApercu } from '../lib/apercu.js';
+import { peutGeste } from '../lib/droits.js';
+import { useEnvoiMail } from '../lib/envoiMail.js';
+import EnvoiMailModal from './EnvoiMailModal.jsx';
 
 /**
  * LA SÉANCE DE VALORISATION DES ACQUIS, ET LES PIÈCES QUI EN DÉCOULENT.
@@ -28,6 +31,12 @@ import { ouvrirApercu } from '../lib/apercu.js';
  * concerne l'unité entière, et l'écran le dit.
  */
 export default function SeanceValorisation({ ueNum, ueNom, annee, onClose }) {
+  /* L'ENVOI SE FAIT PAR ÉTUDIANT (Charles, 9 octobre 2026). Le procès-verbal
+     porte toute l'unité : il ne part pas aux étudiants. Chacun reçoit SON
+     attestation, et elle seule — le serveur les rend déjà une par une. */
+  const envoiMail = useEnvoiMail();
+  const [attestations, setAttestations] = useState([]);
+  const [envoi, setEnvoi] = useState(false);
   const [etat, setEtat] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [manques, setManques] = useState([]);
@@ -142,6 +151,7 @@ export default function SeanceValorisation({ ueNum, ueNom, annee, onClose }) {
         envoiPossible: false, astuceImpression: 'A4 portrait',
       });
       setDoc({ html: j.html, nom: (j.nom || `Valorisation_UE${ueNum}`).replace(/\.html$/, '') });
+      setAttestations(j.attestations || []);
       setInfo(`Procès-verbal (${j.pages || '?'} page(s))`
         + ` + ${(j.attestations || []).length} attestation(s) `
         + `— annexe ${(j.attestations || [])[0]?.annexe || 15}.`);
@@ -160,6 +170,11 @@ export default function SeanceValorisation({ ueNum, ueNom, annee, onClose }) {
           className="bouton bouton-sortir disabled:opacity-50">
           <IconPrinter size={15} /> Produire le PV et les attestations
         </button>
+        {attestations.length > 0 && envoiMail?.actif && peutGeste('envois.envoyer') && (
+          <button onClick={() => setEnvoi(true)} disabled={enCours} className="bouton bouton-sortir"
+            title="Chaque étudiant reçoit sa propre attestation — le procès-verbal ne part pas">
+            <IconSend size={15} /> Envoyer aux étudiants ({attestations.length})
+          </button>)}
         <button onClick={enregistrer} disabled={enCours} className="bouton">
           Enregistrer la séance
         </button>
@@ -284,6 +299,16 @@ export default function SeanceValorisation({ ueNum, ueNom, annee, onClose }) {
 
         </div>
       )}
+    {envoi && (
+        <EnvoiMailModal typeDoc="valorisation_attestation"
+          sujet={`Valorisation des acquis — UE ${ueNum} — votre attestation`}
+          contenu={`Attestation de valorisation — UE ${ueNum} — ${annee}`}
+          pieces={attestations.map(a => ({
+            html: a.html,
+            nom_fichier: `VA_Attestation_UE${ueNum}_${String(a.etudiant || '').replace(/\s+/g, '_')}_${String(annee).replace(/\W/g, '')}`,
+            destinataire: { type: 'etudiant', id: a.etudiant_id, nom: a.etudiant },
+          }))}
+          onClose={() => setEnvoi(false)} />)}
     </Fenetre>
   );
 }
