@@ -173,6 +173,10 @@ r.post('/etudiants', authRequired, (req, res) => {
     decide: e.unites.some(u => u.resultat),
     reussites: e.unites.filter(u => u.resultat === 'reussi').length,
     echecs: e.unites.filter(u => u.resultat === 'ajourne' || u.resultat === 'refuse').length,
+    // Séparés : un PP est REFUSÉ dès la première session, et sa motivation de
+    // refus doit pouvoir sortir en juin (9 octobre 2026).
+    ajournes: e.unites.filter(u => u.resultat === 'ajourne').length,
+    refus: e.unites.filter(u => u.resultat === 'refuse').length,
   }));
 
   const nomsUE = Object.fromEntries(db.prepare(`SELECT ue_num, ue_nom FROM ue
