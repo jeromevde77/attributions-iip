@@ -2139,14 +2139,15 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
                     <td key={c.cours_code} className={`px-1.5 py-1.5 text-center whitespace-nowrap ${!regarde.cours ? 'opacity-60' : ''}`}>
                       <span className="relative inline-flex align-middle">
                       {note(c, { na: c.na })}
-                      {c.aas_a_representer && (
-                        <span className="absolute left-1/2 -translate-x-1/2 top-full mt-0.5 whitespace-nowrap text-[9.5px] text-slate-500"
-                          title="Le Conseil n'a rouvert que ces acquis du cours">
-                          seuls {c.aas_a_representer.join(', ')}
-                        </span>)}
+
                       {bouton(!!c.ajourne_directement, c.ajourne_directement ? "Lever l'ajournement du cours" : 'Ajourner ce cours — à représenter',
                         () => onAjuster('cours', c.cours_code, c.ajourne_directement ? null : 'ajourne'))}
                       </span>
+                      {c.aas_a_representer && (
+                        <div className="mt-0.5 text-[10px] leading-tight text-slate-500 whitespace-normal"
+                          title="Le Conseil n'a rouvert que ces acquis du cours">
+                          seuls {c.aas_a_representer.join(', ')}
+                        </div>)}
                     </td>
                   ))}
                   <td className="bg-iip-blue/10" />
@@ -3169,7 +3170,14 @@ function VueTableau({ data, liste, onOuvrir, session = 1 }) {
             const parAA = Object.fromEntries((e.acquis || []).map(a => [a.aa_code, a]));
             const parCo = Object.fromEntries((e.cours || []).map(c => [c.cours_code, c]));
             const ue = e.ue || {};
-            const teinteUE = ue.na ? '#94A3B8' : ue.faveur ? 'var(--c-faveur)'
+            /* L'UNITÉ DIT LA DÉCISION, PAS LA MOYENNE (Charles, 9 octobre 2026). Une
+               moyenne de 15 avec un acquis à 2 n'est pas une réussite : la pastille
+               verte se lisait « réussi » au Conseil. Elle prend la couleur de ce que
+               le calcul propose — ocre ajourné, brique refusé — et garde le chiffre. */
+            const proposee = e.resultat || ue.decision_proposee;
+            const teinteUE = ue.faveur ? 'var(--c-faveur)'
+              : proposee === 'refuse' ? 'var(--c-refuse)'
+              : proposee === 'ajourne' || ue.na ? 'var(--c-attente)'
               : ue.echec ? 'var(--c-refuse)' : ue.note != null ? 'var(--c-reussi)' : null;
             return (
               <tr key={e.id} className="hover:bg-slate-50">
@@ -3187,7 +3195,7 @@ function VueTableau({ data, liste, onOuvrir, session = 1 }) {
                   {teinteUE
                     ? <span className="inline-flex items-center justify-center min-w-[30px] h-[22px] px-1.5 rounded-full
                                        text-white font-bold text-[11.5px] tabular-nums" style={{ background: teinteUE }}>
-                        {ue.na ? 'NA' : fmt(ue.note)}
+                        {ue.na ? (ue.note_calculee != null ? `NA ${fmt(ue.note_calculee)}` : 'NA') : fmt(ue.note)}
                       </span>
                     /* SANS NOTE, LA DÉCISION SE LIT QUAND MÊME (Charles, 5 octobre
                        2026 : « pourquoi ces étudiants ne sont pas refusés ? »). Neuf
@@ -3220,7 +3228,9 @@ function Case({ etat, cours, premier }) {
   if (!etat) return <td className={`${bord} text-center text-slate-300`}>·</td>;
   const enDefaut = !etat.faveur && !etat.na && etat.echec;
   const pastille = etat.faveur ? 'var(--c-faveur)' : enDefaut ? 'var(--c-refuse)' : null;
-  const texte = etat.na ? 'NA' : etat.note == null ? '—' : fmt(etat.note);
+  // Le NA garde la cote qu'il valait, comme dans la fiche.
+  const brute = etat.note_brute ?? null;
+  const texte = etat.na ? (brute != null ? `NA ${fmt(brute)}` : 'NA') : etat.note == null ? '—' : fmt(etat.note);
   return (
     <td className={`${bord} px-1 py-1 text-center tabular-nums`}>
       {pastille
