@@ -75,6 +75,7 @@ const PIECES = [
   { cle: 'ajournement', label: 'Motivations d’ajournement', nominatif: true },
   { cle: 'refus', label: 'Motivations de refus', nominatif: true },
   { cle: 'pv', label: 'Procès-verbal de délibération', nominatif: false },
+  { cle: 'pv_anonyme', label: 'Procès-verbal — matricules seulement (anonymisé)', nominatif: false },
   { cle: 'conseil', label: 'Composition du Conseil', nominatif: false },
   { cle: 'grille', label: 'Grille de délibération', nominatif: false },
   // Pour les chargés de cours : qui revient, et pour quels acquis (9 octobre 2026).
@@ -1996,7 +1997,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
     // étudiant la concerne, quelle que soit la session.
     if (p.cle === 'ajournement') return etudiants.some(e => (e.ajournes ?? (session === 1 ? e.echecs : 0)) > 0);
     if (p.cle === 'refus') return etudiants.some(e => (e.refus ?? (session === 2 ? e.echecs : 0)) > 0);
-    if (['pv', 'conseil', 'grille'].includes(p.cle)) return etudiants.some(e => e.decide);
+    if (['pv', 'pv_anonyme', 'conseil', 'grille'].includes(p.cle)) return etudiants.some(e => e.decide);
     // Les ajournés ne reviennent qu'après la première session.
     if (p.cle === 'listes') return session === 1 && etudiants.some(e => e.decide);
     if (p.sle && !etudiants.some(e => e.sle)) return false;
