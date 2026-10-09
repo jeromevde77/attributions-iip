@@ -115,6 +115,25 @@ export default function ApercuDocuments({ onClose }) {
     return () => { vivant = false; };
   }, [choisi, val, brouillon]);   // eslint-disable-line react-hooks/exhaustive-deps
 
+  /* LA GALERIE MONTRE LA FEUILLE (9 octobre 2026) : comme l'aperçu commun,
+     une pièce qui porte le pied de Lucie se compose en PDF — le HTML n'a pas
+     de pages, et son pied tombait sous la dernière ligne. Pendant qu'on
+     modifie un modèle, le HTML reste : il suit la frappe sans attendre. */
+  const [feuille, setFeuille] = useState(null);
+  useEffect(() => {
+    setFeuille(null);
+    const h = rendu?.html;
+    if (!h || edition || !/class="pied-lucie"/.test(h)) return undefined;
+    let vivant = true; let url = null;
+    fetch('/api/impression/pdf', { method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({ html: h, nom: rendu.nom || choisi?.libelle || 'piece',
+        orientation: /size:\s*A4\s+landscape/.test(h) ? 'paysage' : 'portrait' }) })
+      .then(r => (r.ok ? r.blob() : null))
+      .then(b => { if (vivant && b) { url = URL.createObjectURL(b); setFeuille(url); } })
+      .catch(() => {});
+    return () => { vivant = false; if (url) URL.revokeObjectURL(url); };
+  }, [rendu, edition]);   // eslint-disable-line react-hooks/exhaustive-deps
+
   const groupes = useMemo(() => {
     const m = new Map();
     const f = filtre.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -230,7 +249,8 @@ export default function ApercuDocuments({ onClose }) {
             </div>)}
           <div className="flex-1 min-h-0 bg-slate-100 relative">
             {enCours && <div className="absolute top-2 right-3 text-[12px] text-slate-500">Rendu en cours…</div>}
-            {rendu?.html && <iframe aria-label="Aperçu" srcDoc={rendu.html} className="w-full h-full border-0" />}
+            {rendu?.html && feuille && <iframe aria-label="Aperçu PDF de la pièce" src={feuille} className="w-full h-full border-0" />}
+            {rendu?.html && <iframe aria-label="Aperçu" srcDoc={rendu.html} className={`w-full h-full border-0 ${feuille ? 'hidden' : ''}`} />}
             {rendu?.pdf && <iframe aria-label="Aperçu PDF" src={rendu.pdf} className="w-full h-full border-0" />}
           </div>
         </div>

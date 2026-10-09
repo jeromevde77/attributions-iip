@@ -78,6 +78,37 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
   }
   const envoiMail = useEnvoiMail();
 
+  /* L'APERÇU MONTRE LA FEUILLE, PAS LE HTML (Charles, 9 octobre 2026 : « vérifie
+     pour TOUS les documents que le bas de page soit bien collé en bas »). Le
+     HTML n'a pas de pages : à l'écran comme à l'impression du navigateur, le
+     pied tombait sous la dernière ligne, au milieu de la feuille. Le PDF du
+     serveur, lui, pose le pied au bas de CHAQUE feuille. Dès qu'une pièce
+     porte le pied de Lucie, l'aperçu la compose donc en PDF — le HTML s'affiche
+     le temps de la composition — et c'est ce PDF qu'on imprime. Une pièce sans
+     pied (le diplôme, qui a sa propre page) reste en HTML ; un serveur sans
+     moteur PDF aussi. */
+  const avecPied = /class="pied-lucie"/.test(html || '') && pdf?.pied !== false;
+  const orientationPdf = pdf?.orientation
+    || (/size:\s*A4\s+landscape/.test(html || '') ? 'paysage' : 'portrait');
+  const [feuille, setFeuille] = useState(null);       // URL du PDF composé
+  const [composition, setComposition] = useState(false);
+  useEffect(() => {
+    setFeuille(null);
+    if (!avecPied || pdfUrl) return undefined;
+    let vivant = true; let url = null;
+    setComposition(true);
+    fetch('/api/impression/pdf', { method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({ html, nom: nomFichier || titre, orientation: orientationPdf,
+        destinataire_nom: destinataire?.nom || null,
+        ...(pdf?.marge_basse ? { marge_basse: pdf.marge_basse } : {}) }) })
+      .then(r => (r.ok ? r.blob() : null))
+      .then(b => { if (vivant && b) { url = URL.createObjectURL(b); setFeuille(url); } })
+      .catch(() => { /* on garde le HTML */ })
+      .finally(() => { if (vivant) setComposition(false); });
+    return () => { vivant = false; if (url) URL.revokeObjectURL(url); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [html]);
+
   /* UNE PIÈCE EN PAYSAGE S'IMPRIME DEPUIS LE PDF DU SERVEUR (Charles,
      7 octobre 2026 : « il propose toujours une impression à 66 % et non en
      pleine page »). Safari ignore la consigne @page « A4 landscape » : il
@@ -105,7 +136,11 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
       imprimerNavigateur();
     }
   }
-  function imprimer() { if (paysage) imprimerPdf(); else imprimerNavigateur(); }
+  function imprimer() {
+    // Le PDF composé est la feuille : on l'imprime tel qu'on l'a vu.
+    if (feuille) { window.open(feuille, '_blank'); return; }
+    if (paysage) imprimerPdf(); else imprimerNavigateur();
+  }
 
   function imprimerNavigateur() {
     // Safari imprime le document PARENT lorsqu'on lui demande d'imprimer un
@@ -208,8 +243,8 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
               </button>
             )}
             <button onClick={imprimer} disabled={!pret}
-              className={`${pdf ? 'bouton' : 'bouton-sortir'} controle px-3 flex items-center gap-1.5 disabled:opacity-40`}>
-              {!pdf && <IconSend size={15} />} {paysage ? 'Imprimer — A4 paysage' : pdf ? 'Imprimer (navigateur)' : 'Imprimer / PDF'}
+              className={`${pdf && !feuille ? 'bouton' : 'bouton-sortir'} controle px-3 flex items-center gap-1.5 disabled:opacity-40`}>
+              {(!pdf || feuille) && <IconSend size={15} />} {feuille ? 'Imprimer' : paysage ? 'Imprimer — A4 paysage' : pdf ? 'Imprimer (navigateur)' : 'Imprimer / PDF'}
             </button>
             {envoiPossible && envoiMail?.actif && peutGeste('envois.envoyer') && (
               <button onClick={() => setEnvoi(true)} disabled={!pret}
@@ -228,12 +263,17 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
         </div>
 
         {/* ── iframe ── */}
+        {feuille && <iframe src={feuille} title={nomFichier || titre}
+          className="flex-1 w-full border-0 bg-gray-100" />}
+        {composition && !feuille && (
+          <div className="px-4 py-1 text-[11px] text-slate-500 border-b border-slate-200">
+            Mise en page A4 en cours — le pied se pose au bas de chaque feuille…</div>)}
         <iframe
           ref={iframeRef}
           srcDoc={htmlAffiche}
           onLoad={() => setPret(true)}
           title={nomFichier || titre}
-          className="flex-1 w-full border-0 bg-gray-100"
+          className={`flex-1 w-full border-0 bg-gray-100 ${feuille ? 'hidden' : ''}`}
         />
       </div>
       {envoi && (
