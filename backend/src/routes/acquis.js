@@ -8695,6 +8695,35 @@ r.post('/deliberation/ue/:ueNum/ajourner-lot', authRequired,
     && req.body.motif_par_etudiant) || {};
   const decisionDe = id => (ses >= 2 || decisionParEtudiant[id] === 'refuse') ? 'refuse' : 'ajourne';
   const motifDe = id => String(motifParEtudiant[id] || '').trim() || motif;
+  /* LA JUSTIFICATION SUIT LA MENTION DE CHAQUE ACQUIS (Charles, 9 octobre 2026) :
+     PP — pas présenté ; NP — présent, sans réponse au questionnaire ; un acquis
+     en échec sans mention — réponses inexistantes ou très partielles. Une phrase
+     par acquis, et non une par étudiant. */
+  const parMention = (req.body && typeof req.body.motif_par_mention === 'object'
+    && req.body.motif_par_mention) || null;
+  const motifAcquis = (d, code, defaut) => {
+    if (!parMention) return defaut;
+    const a = (d.acquis || []).find(x => x.aa_code === code) || {};
+    const MENT = ['PP', 'NP', 'CM'];
+    let m = a.mention || (a.evaluations || []).map(v => v.mention).find(x => MENT.includes(x)) || null;
+    // UN ACQUIS SANS NOTE NI MENTION n'a pas été « mal répondu » : il n'a pas été
+    // présenté. Il prend la mention des autres acquis de son cours (PP d'un cours
+    // non présenté), à défaut celle de l'étudiant.
+    const sansNote = (a.evaluations || []).every(v => v.note == null) && (a.note_calculee ?? a.note) == null;
+    if (!m && sansNote) {
+      const sesCours = (a.evaluations || []).map(v => v.cours_code);
+      m = (d.acquis || []).flatMap(x => (x.evaluations || []).filter(v => sesCours.includes(v.cours_code)).map(v => v.mention))
+            .find(x => MENT.includes(x))
+        || (d.acquis || []).flatMap(x => [x.mention, ...(x.evaluations || []).map(v => v.mention)]).find(x => MENT.includes(x))
+        || null;
+    }
+    // Un acquis RÉUSSI qui tombe avec son cours (« tous les acquis du cours ») n'a
+    // pas « mal répondu » : il se représente avec le cours.
+    const n = a.note_calculee ?? a.note_brute ?? a.note;
+    if (!m && n != null && n >= (a.seuil ?? SEUIL_UE))
+      return String(parMention.cours || '').trim() || "Acquis à représenter avec l'ensemble du cours ajourné.";
+    return String((m && parMention[m]) || parMention.autre || '').trim() || defaut;
+  };
   // « Tous les acquis du cours » (défaut) ou « seulement ceux en échec ».
   const mode = req.body?.mode === 'echec' ? 'echec' : 'tous';
 
@@ -8784,7 +8813,7 @@ r.post('/deliberation/ue/:ueNum/ajourner-lot', authRequired,
       rapport.traites++;
       rapport.acquis += aas.length;
       rapport.cours += cours.length;
-      if (justification) rapport.motifs += aas.length;
+      if (justification || parMention) rapport.motifs += aas.length;
 
       if (simulation) continue;
 
@@ -8795,7 +8824,10 @@ r.post('/deliberation/ue/:ueNum/ajourner-lot', authRequired,
         poserPortee(id, annee, ueNum, ses, code, mode, d, par);
       }
       // Chaque acquis à représenter porte sa justification (RDE art. 88 §3).
-      if (justification) for (const code of aas) poserMotif.run(id, annee, ueNum, code, justification, par);
+      for (const code of aas) {
+        const texte = motifAcquis(d, code, justification);
+        if (texte) poserMotif.run(id, annee, ueNum, code, texte, par);
+      }
 
       poserResultat.run(id, annee, ueNum, ses, decision, d.ue?.note ?? null, par);
 
