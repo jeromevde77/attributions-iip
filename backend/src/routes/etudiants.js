@@ -9838,6 +9838,20 @@ r.get('/ue/:ueNum/composantes', authRequired, (req, res) => {
     WHERE ue_num = ? ${annee ? 'AND annee_scolaire = ?' : ''}
     GROUP BY cours_code ORDER BY cours_code
   `).all(...(annee ? [ueNum, annee] : [ueNum]));
+  /* LES HEURES DE STAGE DE L'ÉTUDIANT, PAS LES PÉRIODES DU PROFESSEUR (Charles,
+     9 octobre 2026). Le cours de stage porte les périodes d'ENCADREMENT (20) ;
+     l'étudiant, lui, passe en stage ce que l'unité lui demande, moins ses
+     autres cours et son autonomie. Le total étudiant de l'unité est le plus
+     haut connu, toutes années confondues : un réimport de 2026-2027 l'avait
+     ramené aux périodes du professeur. */
+  const perEtud = db.prepare('SELECT MAX(COALESCE(ue_per_etudiants, 0)) AS n, MAX(COALESCE(ue_aut, 0)) AS aut FROM ue WHERE ue_num = ?').get(ueNum) || {};
+  const autres = cours.filter(c => !c.stage).reduce((t, c) => t + (Number(c.per) || 0), 0);
+  const nbStages = cours.filter(c => c.stage).length || 1;
+  for (const c of cours) {
+    if (!c.stage) continue;
+    const h = Math.round((Number(perEtud.n) - autres - Number(perEtud.aut || 0)) / nbStages);
+    c.heures_etudiant = h > Number(c.per || 0) ? h : null;
+  }
   const aas = db.prepare(`
     SELECT aa_code, aa_num, cours_code, description FROM aa
     WHERE ue_num = ? ORDER BY aa_num

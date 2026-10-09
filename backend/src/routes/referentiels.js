@@ -2349,6 +2349,18 @@ r.post('/import-dp', authRequired, roleRequired('admin', 'editeur'), async (req,
     for (const k of Object.keys(fieldsToUpdate)) if (fieldsToUpdate[k] === undefined) delete fieldsToUpdate[k];
 
     if (existing) {
+      /* LES HEURES ÉTUDIANT D'UN STAGE NE BAISSENT PAS À L'IMPORT (Charles,
+         9 octobre 2026 : « attention, ce sont les périodes prof »). Le total lu
+         dans le dossier d'une unité de stage est souvent celui du PROFESSEUR
+         (20 d'encadrement) : réimporté, il avait écrasé les heures de
+         l'étudiant — UE 263 de 600 à 20, 262 de 200 à 20, 261 de 140 à 60. Sur
+         une unité qui porte un stage, l'import ne fait plus baisser ce total. */
+      const avecStage = db.prepare('SELECT 1 FROM cours WHERE ue_num = ? AND annee_scolaire = ? AND is_stage = 1 LIMIT 1')
+        .get(existing.ue_num, annee);
+      const actuel = db.prepare('SELECT ue_per_etudiants FROM ue WHERE ue_num = ? AND annee_scolaire = ?')
+        .get(existing.ue_num, annee)?.ue_per_etudiants;
+      if (avecStage && fieldsToUpdate.ue_per_etudiants != null && Number(actuel) > Number(fieldsToUpdate.ue_per_etudiants))
+        delete fieldsToUpdate.ue_per_etudiants;
       // Mise à jour
       const sets = Object.keys(fieldsToUpdate).map(k => `${k} = @${k}`).join(', ');
       db.prepare(`UPDATE ue SET ${sets} WHERE ue_num = @ue_num AND annee_scolaire = @annee`)

@@ -4804,16 +4804,19 @@ export function DeliberationVA({ annee, onClose, onChange, mode: modeDepart = 'e
                                     {c.cible !== 'acquis' && (comp?.cours || []).filter(k => k.stage && (c.coches || []).includes(k.cours_code)).map(k => (
                                       <div key={k.cours_code} className="flex flex-wrap items-center gap-1.5 mt-1.5 text-[12px]">
                                         <span>Stage {k.cours_code} : heures dispensées</span>
-                                        <input type="number" min="0" max={k.per || undefined} value={c.heures?.[k.cours_code] ?? ''}
+                                        <input type="number" min="0" max={k.heures_etudiant || undefined} value={c.heures?.[k.cours_code] ?? ''}
                                           onChange={e => {
                                             const h = { ...(c.heures || {}), [k.cours_code]: e.target.value };
                                             const phrase = Object.entries(h).filter(([, v]) => v !== '' && v != null)
-                                              .map(([code, v]) => `Stage ${code} : ${v} h dispensées sur ${(comp.cours.find(x => x.cours_code === code) || {}).per || '…'} prévues ; l’évaluation du stage reste due.`).join(' ');
+                                              .map(([code, v]) => `Stage ${code} : ${v} h dispensées sur ${(comp.cours.find(x => x.cours_code === code) || {}).heures_etudiant || '…'} prévues ; l’évaluation du stage reste due.`).join(' ');
                                             const sansStage = String(c.remarque || '').replace(/Stage [^:]+ : \d+ h dispensées sur [^;]+; l’évaluation du stage reste due\.\s*/g, '').trim();
                                             poser(d.id, { heures: h, remarque: [phrase, sansStage].filter(Boolean).join(' ') });
                                           }}
                                           className="border border-slate-300 rounded h-7 px-1.5 w-20 text-[12px]" />
-                                        <span className="text-slate-500">sur {k.per || '…'} prévues</span>
+                                        <span className="text-slate-500">
+                                          {k.heures_etudiant ? `sur ${k.heures_etudiant} h de stage prévues pour l'étudiant`
+                                            : "heures de stage de l'étudiant inconnues — à compléter sur la fiche de l'unité"}
+                                        </span>
                                       </div>
                                     ))}
                                     <select value="" onChange={e => e.target.value && poser(d.id, { remarque: e.target.value })}
