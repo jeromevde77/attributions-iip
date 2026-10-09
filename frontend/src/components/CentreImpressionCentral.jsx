@@ -1981,8 +1981,8 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
     const l = [];
     if (delib) {
       if (choix.reussite && e.reussites > 0) l.push('Attestation');
-      if (choix.ajournement && e.echecs > 0 && session === 1) l.push('Motivation d’ajournement');
-      if (choix.refus && e.echecs > 0 && session === 2) l.push('Motivation de refus');
+      if (choix.ajournement && (e.ajournes ?? (session === 1 ? e.echecs : 0)) > 0) l.push('Motivation d’ajournement');
+      if (choix.refus && (e.refus ?? (session === 2 ? e.echecs : 0)) > 0) l.push('Motivation de refus');
     } else {
       for (const p of PIECES_DOSSIER) if (choix[p.cle] && (!p.sle || e.sle) && (!p.cep || e.cep)) l.push(p.cep ? p.label.replace('CEP — attestation d’', 'CEP ') : p.label.split(' — ')[0]);
     }
@@ -1992,8 +1992,10 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
   const dispo = p => {
     if (!etudiants.length) return false;
     if (p.cle === 'reussite') return etudiants.some(e => e.reussites > 0);
-    if (p.cle === 'ajournement') return session === 1 && etudiants.some(e => e.echecs > 0);
-    if (p.cle === 'refus') return session === 2 && etudiants.some(e => e.echecs > 0);
+    // UN REFUS PEUT SE PRONONCER EN JUIN (PP) : chaque pièce s'ouvre dès qu'un
+    // étudiant la concerne, quelle que soit la session.
+    if (p.cle === 'ajournement') return etudiants.some(e => (e.ajournes ?? (session === 1 ? e.echecs : 0)) > 0);
+    if (p.cle === 'refus') return etudiants.some(e => (e.refus ?? (session === 2 ? e.echecs : 0)) > 0);
     if (['pv', 'conseil', 'grille'].includes(p.cle)) return etudiants.some(e => e.decide);
     // Les ajournés ne reviennent qu'après la première session.
     if (p.cle === 'listes') return session === 1 && etudiants.some(e => e.decide);
@@ -2206,7 +2208,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
                   {p.label}
                   {p.sle && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">SLE · {etudiants.filter(e => e.sle).length}</span>}
                   {p.cep && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">CEP · {etudiants.filter(e => e.cep).length}</span>}
-                  {p.nominatif && dispo(p) && <span className="ml-auto text-[11.5px] text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
+                  {p.nominatif && dispo(p) && <span className="ml-auto text-[11.5px] text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : p.cle === 'refus' ? etudiants.filter(e => (e.refus ?? e.echecs) > 0).length : p.cle === 'ajournement' ? etudiants.filter(e => (e.ajournes ?? e.echecs) > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
                 </label>
               ))}
             </div>
@@ -2225,7 +2227,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
                   {p.label}
                   {p.sle && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">SLE · {etudiants.filter(e => e.sle).length}</span>}
                   {p.cep && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">CEP · {etudiants.filter(e => e.cep).length}</span>}
-                  {p.nominatif && dispo(p) && <span className="ml-auto text-[11.5px] text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
+                  {p.nominatif && dispo(p) && <span className="ml-auto text-[11.5px] text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : p.cle === 'refus' ? etudiants.filter(e => (e.refus ?? e.echecs) > 0).length : p.cle === 'ajournement' ? etudiants.filter(e => (e.ajournes ?? e.echecs) > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
                 </label>
               ))}
             </div>
@@ -2245,7 +2247,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
                   {p.label}
                   {p.sle && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">SLE · {etudiants.filter(e => e.sle).length}</span>}
                   {p.cep && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">CEP · {etudiants.filter(e => e.cep).length}</span>}
-                  {p.nominatif && dispo(p) && <span className="ml-auto text-[11.5px] text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
+                  {p.nominatif && dispo(p) && <span className="ml-auto text-[11.5px] text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : p.cle === 'refus' ? etudiants.filter(e => (e.refus ?? e.echecs) > 0).length : p.cle === 'ajournement' ? etudiants.filter(e => (e.ajournes ?? e.echecs) > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
                 </label>
               ))}
             </div>
@@ -2282,7 +2284,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
                     );
                   })()}
                   {p.cep && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">CEP · {etudiants.filter(e => e.cep).length}</span>}
-                  {p.nominatif && dispo(p) && <span className="ml-auto text-[11.5px] text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
+                  {p.nominatif && dispo(p) && <span className="ml-auto text-[11.5px] text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : p.cle === 'refus' ? etudiants.filter(e => (e.refus ?? e.echecs) > 0).length : p.cle === 'ajournement' ? etudiants.filter(e => (e.ajournes ?? e.echecs) > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
                 </label>
               ))}
             </div>
