@@ -3205,7 +3205,29 @@ function VueTableau({ data, liste, onOuvrir, session = 1 }) {
   const sansCours = Number(session) >= 2 && !((liste || [])[0]?.ue?.regarde?.cours ?? true);
   const colonnesCours = sansCours ? [] : (data.colonnes_cours || []);
   const nA = data.colonnes_acquis.length, nC = colonnesCours.length;
+  /* LA SYNTHÈSE DES DÉCISIONS (Charles, 9 octobre 2026) : le même tableau, mais
+     chaque case dit ce qui est décidé — ↻ ajourné, R refusé, la cote si réussi,
+     le cadeau si octroyé —, pour chaque acquis, chaque cours et l'unité. Une
+     décision seulement PROPOSÉE (pas encore enregistrée) se dessine en pâle. */
+  const [vue, setVue] = useState('notes');
   return (
+    <div className="space-y-2">
+    <div className="flex items-center gap-2 text-[12px] text-slate-600">
+      <span>Afficher :</span>
+      <div className="segments">
+        {[['notes', 'les notes'], ['decisions', 'la synthèse des décisions']].map(([k, l]) => (
+          <button key={k} type="button" onClick={() => setVue(k)}
+            className={vue === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>{l}</button>))}
+      </div>
+      {vue === 'decisions' && (
+        <span className="text-[11px] text-slate-500 inline-flex items-center gap-2 flex-wrap">
+          <span className="inline-flex items-center gap-1"><IconRepeat size={12} style={{ color: 'var(--c-attente)' }} /> ajourné</span>
+          <span><b style={{ color: 'var(--c-refuse)' }}>R</b> refusé</span>
+          <span className="inline-flex items-center gap-1"><IconGift size={12} style={{ color: 'var(--c-faveur)' }} /> faveur</span>
+          <span>la cote : réussi</span>
+          <span className="opacity-60">pâle : proposé, pas encore décidé</span>
+        </span>)}
+    </div>
     <div className="overflow-auto border border-slate-200 rounded-carte bg-white">
       <table className="text-[12px] border-collapse w-max min-w-full">
         <thead className="sticky top-0 z-10">
@@ -3236,7 +3258,10 @@ function VueTableau({ data, liste, onOuvrir, session = 1 }) {
           </tr>
         </thead>
         <tbody>
-          {liste.map(e => {
+          {(vue === 'decisions'
+            // La synthèse montre TOUT LE MONDE, décidés compris, par ordre alphabétique.
+            ? [...(data.etudiants || [])].sort((a, b) => `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`, 'fr'))
+            : liste).map(e => {
             const parAA = Object.fromEntries((e.acquis || []).map(a => [a.aa_code, a]));
             const parCo = Object.fromEntries((e.cours || []).map(c => [c.cours_code, c]));
             const ue = e.ue || {};
@@ -3257,6 +3282,12 @@ function VueTableau({ data, liste, onOuvrir, session = 1 }) {
                     {' '}<span className="text-slate-600">{e.prenom}</span>
                   </button>
                 </td>
+                {vue === 'decisions' ? <>
+                  {data.colonnes_acquis.map(a => <CaseDecision key={a.aa_code} etat={parAA[a.aa_code]} decision={proposee} decide={!!e.resultat} />)}
+                  {colonnesCours.map((c, k) => (
+                    <CaseDecision key={c.cours_code} etat={parCo[c.cours_code]} decision={proposee} decide={!!e.resultat} premier={k === 0} />))}
+                  <CaseDecision etat={{ ...ue, unite: true }} decision={proposee} decide={!!e.resultat} premier unite />
+                </> : <>
                 {data.colonnes_acquis.map(a => <Case key={a.aa_code} etat={parAA[a.aa_code]} decide={!!e.resultat} />)}
                 {colonnesCours.map((c, k) => (
                   <Case key={c.cours_code} etat={parCo[c.cours_code]} cours premier={k === 0} decide={!!e.resultat} />
@@ -3279,13 +3310,38 @@ function VueTableau({ data, liste, onOuvrir, session = 1 }) {
                         </span>
                       : <span className="text-slate-300">·</span>}
                 </td>
+                </>}
               </tr>
             );
           })}
         </tbody>
       </table>
     </div>
+    </div>
   );
+}
+
+/** Une case de la synthèse : ce qui est décidé pour cet acquis, ce cours ou l'unité. */
+function CaseDecision({ etat, decision, decide, premier = false, unite = false }) {
+  const bord = `border-b border-slate-100 ${premier ? 'border-l border-l-slate-200' : ''}`;
+  if (!etat) return <td className={`${bord} text-center text-slate-300`}>·</td>;
+  const pale = decide ? '' : 'opacity-50';
+  const pastille = (fond, contenu, titre) => (
+    <span title={titre} className={`inline-flex items-center justify-center gap-0.5 min-w-[26px] h-[20px] px-1.5 rounded-full
+      text-white font-bold text-[11px] ${pale}`} style={{ background: fond }}>{contenu}</span>);
+  const n = etat.note_calculee ?? etat.note;
+  const enEchec = unite
+    ? (decision === 'ajourne' || decision === 'refuse')
+    : !etat.faveur && (etat.na || etat.echec || ['PP', 'NP', 'CM'].includes(etat.mention) || (n != null && n < 10));
+  let contenu;
+  if (etat.faveur) contenu = pastille('var(--c-faveur)', <><IconGift size={11} /> 10</>, 'Octroyé par le Conseil');
+  else if (enEchec && decision === 'refuse') contenu = pastille('var(--c-refuse)', 'R', 'Refusé');
+  else if (enEchec) contenu = pastille('var(--c-attente)', <IconRepeat size={12} />, 'Ajourné — à représenter');
+  else if (unite && decision === 'absent') contenu = <span className={`text-[11px] text-slate-500 ${pale}`}>Abs.</span>;
+  else if (n == null) contenu = <span className="text-slate-300">—</span>;
+  else contenu = <span className={`tabular-nums text-[11.5px] font-semibold ${unite ? '' : 'text-iip-texte'} ${pale}`}
+    style={unite ? { color: 'var(--c-reussi)' } : undefined}>{fmt(n)}</span>;
+  return <td className={`${bord} ${unite ? 'border-l border-slate-200 px-2' : 'px-1'} py-1 text-center`}>{contenu}</td>;
 }
 
 const DECISION_TABLEAU = {
