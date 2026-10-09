@@ -3,7 +3,7 @@ import { BarreEdition, BulleSelection } from '../components/BarreEdition.jsx';
 import { monterAtelier, lireStructure, ecrireContenu } from '../lib/atelier.js';
 import { nomPropre } from '../lib/nom.js';
 import { IconAlignLeft, IconAlignCenter, IconAlignRight, IconAlignJustified, IconX, IconDeviceFloppy, IconPrinter,
-  IconPlus, IconTrash, IconFileImport, IconLayout, IconChevronDown, IconEye, IconSearch, IconRepeat } from '@tabler/icons-react';
+  IconPlus, IconTrash, IconFolder, IconFileImport, IconLayout, IconChevronDown, IconEye, IconSearch, IconRepeat, IconRectangle, IconRectangleVertical } from '@tabler/icons-react';
 import StarterKit from '@tiptap/starter-kit';
 import { Table } from '@tiptap/extension-table';
 import { TableRow } from '@tiptap/extension-table-row';
@@ -417,8 +417,8 @@ function Sep() { return <div className="w-px h-5 bg-gray-200 mx-0.5 self-center"
 
 // Formats de page supportés : A4 Portrait et A4 Paysage.
 const PAGE_FORMATS = {
-  A4P: { label: '⬜ Portrait', w: '210mm', h: '297mm', minH: '257mm', rulerCount: 21, marginCm: 2, printSize: 'A4 portrait' },
-  A4L: { label: '🔲 Paysage',  w: '297mm', h: '210mm', minH: '170mm', rulerCount: 30, marginCm: 2, printSize: 'A4 landscape' },
+  A4P: { label: 'Portrait', w: '210mm', h: '297mm', minH: '257mm', rulerCount: 21, marginCm: 2, printSize: 'A4 portrait' },
+  A4L: { label: 'Paysage',  w: '297mm', h: '210mm', minH: '170mm', rulerCount: 30, marginCm: 2, printSize: 'A4 landscape' },
 };
 
 const DEFAULT_MARGINS = { top: 20, right: 20, bottom: 20, left: 20 };
@@ -511,6 +511,7 @@ export default function Editeur() {
   const [margins, setMargins]         = useState({ ...DEFAULT_MARGINS });
   const [showMargins, setShowMargins] = useState(false);
   const [showExemple, setShowExemple] = useState(false);
+  const [showModeles, setShowModeles] = useState(false);
   const [filtreModeles, setFiltreModeles] = useState('');
   const [saving, setSaving]           = useState(false);
   const [generating, setGenerating]   = useState(false);
@@ -585,6 +586,16 @@ export default function Editeur() {
   const [cleAtelier, setCleAtelier] = useState(0);        // remonte l'Atelier sur un autre modèle
   const sortieAtelier = useRef({ structure: null, html: '' });
   const conteneurAtelier = useRef(null);
+  /* L'ÉDITEUR TIENT DANS LA FENÊTRE (Charles, 9 octobre 2026 : « le menu doit
+     rester, à la façon Word ») : sa hauteur va de son bord haut au bas de
+     l'écran ; seule la feuille défile, le ruban reste en place. */
+  const racine = useRef(null);
+  const [hauteur, setHauteur] = useState('calc(100vh - 220px)');
+  useEffect(() => {
+    const f = () => { const r = racine.current?.getBoundingClientRect(); if (r) setHauteur(`${Math.max(420, window.innerHeight - r.top - 12)}px`); };
+    f(); window.addEventListener('resize', f);
+    return () => window.removeEventListener('resize', f);
+  }, []);
   useEffect(() => {
     if (!atelier || !conteneurAtelier.current) return undefined;
     const a = monterAtelier(conteneurAtelier.current, { structure, champs: CHAMPS,
@@ -781,48 +792,44 @@ export default function Editeur() {
   const boucleInfo = BOUCLES[boucleActive];
 
   return (
-    <div className="flex h-full min-h-0 overflow-hidden">
-      {/* ── Panneau gauche : les modèles ── */}
-      <div className="w-60 flex-shrink-0 border-r border-slate-200 flex flex-col overflow-hidden">
-        <div className="px-3 pt-3 pb-2 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Modèles</span>
-            <button onClick={nouveauTemplate} className="bouton text-[12px] h-7 px-2 inline-flex items-center gap-1">
-              <IconPlus size={13} /> Nouveau</button>
-          </div>
-          <input value={filtreModeles} onChange={e => setFiltreModeles(e.target.value)} placeholder="Chercher un modèle…"
-            data-reponses="non" className="controle w-full text-[13px]" />
-        </div>
-        <div className="flex-1 overflow-auto px-1.5 pb-2">
-          {templates.filter(t => !filtreModeles || String(t.nom || '').toLowerCase().includes(filtreModeles.toLowerCase())).map(t => (
-            <div key={t.id} className={`group flex items-center rounded-champ mb-0.5 ${templateId === t.id ? 'bg-white border border-[var(--c-disponible)]' : 'border border-transparent hover:bg-slate-100'}`}>
-              <button onClick={() => chargerTemplate(t)} className="flex-1 text-left px-2.5 py-1.5 min-w-0">
-                <div className={`truncate text-[13px] ${templateId === t.id ? 'font-semibold text-iip-texte' : 'text-slate-700'}`}>{t.nom}</div>
-                <div className="text-[11px] text-slate-400">modifié le {String(t.modifie_le || '').slice(0, 10).split('-').reverse().join('/')}</div>
-              </button>
-              <button
-                onClick={async e => {
-                  e.stopPropagation();
-                  if (!(await demander(`Supprimer le modèle « ${t.nom} » ?`))) return;
-                  await fetch(`/api/templates/${t.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
-                  if (templateId === t.id) { setTemplateId(null); setNom('Nouveau modèle'); editor?.commands.setContent('<p></p>'); }
-                  chargerTemplates();
-                }}
-                title="Supprimer ce modèle"
-                className="opacity-0 group-hover:opacity-100 flex-shrink-0 px-2 text-slate-300 hover:text-rose-600 transition">
-                <IconTrash size={15} />
-              </button>
-            </div>
-          ))}
-          {templates.length === 0 && <div className="text-[12px] text-slate-400 px-3 py-4">Aucun modèle</div>}
-        </div>
-      </div>
-
+    <div ref={racine} className="flex min-h-0 overflow-hidden" style={{ height: hauteur }}>
       {/* ── Zone centrale : éditeur ── */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* UNE BARRE D'EN-TÊTE, TROIS GESTES : nommer, régler la page, produire.
             Les données d'exemple vont avec l'aperçu, la mise en page avec la page. */}
         <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-200 bg-white flex-shrink-0 flex-wrap">
+          {/* LES MODÈLES S'OUVRENT D'UN MENU (Charles, 9 octobre 2026 : « pas de liste
+              à gauche ») : la feuille prend toute la largeur. */}
+          <div className="relative">
+            <button onClick={() => setShowModeles(v => !v)} className="bouton controle inline-flex items-center gap-1.5" title="Ouvrir un modèle enregistré">
+              <IconFolder size={15} /> Modèles <IconChevronDown size={12} className="opacity-60" />
+            </button>
+            {showModeles && (
+              <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-carte shadow-flottant p-2 z-50 w-80">
+                <input value={filtreModeles} onChange={e => setFiltreModeles(e.target.value)} placeholder="Chercher un modèle…" autoFocus
+                  data-reponses="non" className="controle w-full text-[13px] mb-1.5" />
+                <div className="max-h-[50vh] overflow-auto">
+                  {templates.filter(t => !filtreModeles || String(t.nom || '').toLowerCase().includes(filtreModeles.toLowerCase())).map(t => (
+                    <div key={t.id} className={`group flex items-center rounded-champ ${templateId === t.id ? 'bg-slate-100' : 'hover:bg-slate-50'}`}>
+                      <button onClick={() => { chargerTemplate(t); setShowModeles(false); }} className="flex-1 text-left px-2.5 py-1.5 min-w-0">
+                        <div className="truncate text-[13px] text-slate-800">{t.nom}</div>
+                        <div className="text-[11px] text-slate-400">modifié le {String(t.modifie_le || '').slice(0, 10).split('-').reverse().join('/')}</div>
+                      </button>
+                      <button title="Supprimer ce modèle" className="opacity-0 group-hover:opacity-100 px-2 text-slate-300 hover:text-rose-600"
+                        onClick={async e => {
+                          e.stopPropagation();
+                          if (!(await demander(`Supprimer le modèle « ${t.nom} » ?`))) return;
+                          await fetch(`/api/templates/${t.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+                          if (templateId === t.id) nouveauTemplate();
+                          chargerTemplates();
+                        }}><IconTrash size={15} /></button>
+                    </div>))}
+                  {!templates.length && <div className="text-[12px] text-slate-400 px-2 py-3">Aucun modèle enregistré.</div>}
+                </div>
+              </div>)}
+          </div>
+          <button onClick={() => { nouveauTemplate(); setShowModeles(false); }} className="bouton controle inline-flex items-center gap-1.5" title="Commencer un nouveau modèle">
+            <IconPlus size={15} /> Nouveau</button>
           <input value={nom} onChange={e => setNom(e.target.value)} data-reponses="non"
             className="flex-1 min-w-[12rem] h-9 px-2 rounded-champ border border-transparent hover:border-slate-200 focus:border-slate-300 text-[15px] font-semibold text-iip-texte outline-none"
             placeholder="Nom du modèle" />
@@ -844,7 +851,7 @@ export default function Editeur() {
                     {Object.entries(PAGE_FORMATS).map(([key, pf]) => (
                       <button key={key} onClick={() => setFormat(key)}
                         className={`flex-1 px-2 py-1.5 text-[12px] ${format === key ? 'bg-iip-blue text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>
-                        {pf.label}</button>))}
+                        {key === 'A4P' ? <IconRectangleVertical size={14} className="inline -mt-0.5 mr-1" /> : <IconRectangle size={14} className="inline -mt-0.5 mr-1" />}{pf.label}</button>))}
                   </div>
                 </div>
                 <div>

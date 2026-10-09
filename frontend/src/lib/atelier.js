@@ -53,24 +53,33 @@ const VIG = {
 };
 
 const CSS = `
-.atelier-lucie{display:grid;grid-template-columns:230px minmax(0,1fr) 260px;height:100%;min-height:0;font-size:13px;color:#1B2B4B}
-.atelier-lucie .at-col{overflow:auto;padding:12px;background:#fff}
-.atelier-lucie .at-g{border-right:1px solid #E2E8F0}.atelier-lucie .at-d{border-left:1px solid #E2E8F0}
-.atelier-lucie .at-tc{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#64748B;margin:2px 0 8px}
-.atelier-lucie .at-aide{font-size:12px;color:#64748B;line-height:1.45;margin:0 0 10px}
-.atelier-lucie .at-cartes{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:16px}
-.atelier-lucie .at-carte{border:1px solid #E2E8F0;border-radius:10px;padding:7px;cursor:grab;background:#fff;display:flex;flex-direction:column;gap:5px;user-select:none;text-align:left}
-.atelier-lucie .at-carte:hover{border-color:#2F6FB0;background:#F8FAFC}
-.atelier-lucie .at-vig{height:40px;border-radius:6px;background:#F6F7F9;border:1px solid #E6E9EE;display:flex;align-items:center;justify-content:center;overflow:hidden}
-.atelier-lucie .at-lib{font-size:12px;font-weight:500;line-height:1.25}
-.atelier-lucie .at-cat{font-size:11px;color:#64748B;margin:8px 0 4px}
+.atelier-lucie{display:flex;flex-direction:column;height:100%;min-height:0;font-size:13px;color:#1B2B4B}
+.atelier-lucie .at-ruban{flex:none;background:#fff;border-bottom:1px solid #E2E8F0;box-shadow:0 1px 2px rgba(16,32,64,.04);z-index:10}
+.atelier-lucie .at-onglets{display:flex;align-items:flex-end;gap:2px;padding:6px 12px 0;border-bottom:1px solid #EEF1F5}
+.atelier-lucie .at-onglet{height:30px;padding:0 14px;border:none;background:none;font-size:13px;color:#5B6577;cursor:pointer;border-bottom:2px solid transparent}
+.atelier-lucie .at-onglet.on{color:#16406A;font-weight:600;border-bottom-color:#16406A}
+.atelier-lucie .at-onglets .at-droite{margin-left:auto;display:flex;align-items:center;gap:6px;padding-bottom:4px}
+.atelier-lucie .at-volet{display:flex;align-items:center;gap:14px;height:64px;padding:0 12px;overflow-x:auto;overflow-y:hidden;white-space:nowrap}
+.atelier-lucie .at-volet[hidden]{display:none}
+.atelier-lucie .at-carte{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-width:64px;height:56px;padding:3px 6px;border:1px solid transparent;border-radius:8px;background:none;cursor:grab;user-select:none;flex:none}
+.atelier-lucie .at-carte:hover{border-color:#CBD5E1;background:#F8FAFC}
+.atelier-lucie .at-vig{width:44px;height:26px;border-radius:5px;background:#F6F7F9;border:1px solid #E6E9EE;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.atelier-lucie .at-lib{font-size:11px;line-height:1.1;text-align:center;white-space:nowrap}
+.atelier-lucie .at-sepv{width:1px;align-self:stretch;margin:10px 2px;background:#E2E8F0;flex:none}
+.atelier-lucie .at-bouton{height:30px;padding:0 11px;border-radius:7px;border:1px solid #CBD5E1;background:#fff;font-size:12.5px;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:5px;flex:none}
+.atelier-lucie .at-bouton:hover{background:#F8FAFC}.atelier-lucie .at-bouton.on{background:#E7EEF6;border-color:#16406A;color:#16406A}
+.atelier-lucie .at-pop{position:relative;flex:none}
+.atelier-lucie .at-menu{position:fixed;width:340px;max-height:60vh;overflow:auto;background:#fff;border:1px solid #E2E8F0;border-radius:12px;box-shadow:0 12px 32px rgba(16,32,64,.16);padding:12px;z-index:60;white-space:normal}
+.atelier-lucie .at-cat{font-size:11px;color:#64748B;margin:10px 0 4px}
 .atelier-lucie .at-donnees{display:flex;flex-wrap:wrap;gap:5px}
 .atelier-lucie .at-donnee{font-size:12px;padding:3px 8px;border-radius:999px;border:1px solid #2F6FB0;color:#16406A;background:#EEF4FB;cursor:pointer}
-.atelier-lucie .at-centre{overflow:auto;background:#EEF1F5;display:flex;flex-direction:column;min-height:0}
-.atelier-lucie .at-outils{position:sticky;top:0;z-index:8;display:flex;gap:8px;align-items:center;padding:8px 16px;background:#EEF1F5}
-.atelier-lucie .at-outils button{height:32px;padding:0 12px;white-space:nowrap;flex:none;border-radius:8px;border:1px solid #CBD5E1;background:#fff;font-size:12.5px;cursor:pointer}
-.atelier-lucie .at-outils button.on{background:#E7EEF6;border-color:#16406A;color:#16406A}
-.atelier-lucie .feuille{width:794px;max-width:calc(100% - 32px);margin:4px auto 40px;background:#fff;box-shadow:0 1px 2px rgba(16,32,64,.06),0 8px 28px rgba(16,32,64,.10);min-height:1123px;padding:56px 60px 30px;position:relative;display:flex;flex-direction:column;font-family:Arial,Helvetica,sans-serif;font-size:13px}
+.atelier-lucie .at-reglages{display:flex;align-items:center;gap:16px}
+.atelier-lucie .at-reglages .groupe{display:flex;align-items:center;gap:7px;margin:0;flex:none}
+.atelier-lucie .at-reglages .groupe h4{margin:0;font-size:10.5px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:.05em}
+.atelier-lucie .at-quoi{font-weight:700;font-size:13px;padding-right:12px;border-right:1px solid #E2E8F0;flex:none}
+.atelier-lucie .at-aide{font-size:12px;color:#64748B;margin:0;white-space:normal}
+.atelier-lucie .at-centre{flex:1;overflow:auto;background:#EEF1F5;min-height:0;padding:20px 0 40px}
+.atelier-lucie .feuille{width:794px;margin:0 auto;transform-origin:top center;background:#fff;box-shadow:0 1px 2px rgba(16,32,64,.06),0 8px 28px rgba(16,32,64,.10);min-height:1123px;padding:56px 60px 30px;position:relative;display:flex;flex-direction:column;font-family:Arial,Helvetica,sans-serif;font-size:13px}
 .atelier-lucie .flux{display:flex;flex-wrap:wrap;gap:12px;align-content:flex-start;flex:1}
 .atelier-lucie .bloc{position:relative;width:100%;border-radius:4px;outline:1px dashed transparent;outline-offset:4px}
 .atelier-lucie .bloc:hover{outline-color:#A9C3E0}.atelier-lucie .bloc.sel{outline:2px solid #2F6FB0}
@@ -122,23 +131,21 @@ const CSS = `
 .atelier-lucie .pied{margin-top:auto;padding-top:14px;width:100%}
 .atelier-lucie .pied .ligne{border-top:1px solid #C9A84C;padding-top:6px;text-align:center;font-size:8.5px;color:#4B5563;line-height:1.5}
 .atelier-lucie .logo svg{display:block;width:100%;height:auto}
-.atelier-lucie .groupe{margin-bottom:16px}.atelier-lucie .groupe h4{margin:0 0 7px;font-size:11.5px;font-weight:600;color:#64748B;text-transform:uppercase;letter-spacing:.05em}
-.atelier-lucie .pastilles{display:flex;flex-wrap:wrap;gap:7px}
-.atelier-lucie .pastille{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10.5px;color:#64748B;cursor:pointer;background:none;border:none;padding:0;width:50px}
+.atelier-lucie .pastilles{display:flex;gap:4px}
+.atelier-lucie .pastille{cursor:pointer;background:none;border:none;padding:0}
 .atelier-lucie .pastille i{width:24px;height:24px;border-radius:50%;display:block;border:3px solid #fff;box-shadow:0 0 0 1px #CBD5E1}
 .atelier-lucie .pastille.on i{box-shadow:0 0 0 2px #16406A}
 .atelier-lucie .seg{display:flex;border:1px solid #CBD5E1;border-radius:8px;overflow:hidden}
-.atelier-lucie .seg button{flex:1;height:30px;border:none;background:#fff;font-size:12px;cursor:pointer}
+.atelier-lucie .seg button{padding:0 10px;height:30px;white-space:nowrap;border:none;background:#fff;font-size:12px;cursor:pointer}
 .atelier-lucie .seg button+button{border-left:1px solid #CBD5E1}.atelier-lucie .seg button.on{background:#E7EEF6;color:#16406A;font-weight:600}
 .atelier-lucie .rang{display:flex;gap:6px;flex-wrap:wrap}
 .atelier-lucie .rang button{height:30px;padding:0 10px;border-radius:8px;border:1px solid #CBD5E1;background:#fff;font-size:12px;cursor:pointer}
 .atelier-lucie .danger{color:#9D4A38}
-.atelier-lucie .vide{color:#64748B;line-height:1.5;border:1px dashed #CBD5E1;border-radius:10px;padding:12px}
-.atelier-lucie .coins{position:relative;width:90px;height:58px;border:2px solid #CBD5E1;border-radius:6px;margin:6px 0 10px 12px}
-.atelier-lucie .coin{position:absolute;width:20px;height:20px;border-radius:50%;border:2px solid #CBD5E1;background:#fff;cursor:pointer;padding:0}
+.atelier-lucie .coins{position:relative;width:46px;height:30px;border:2px solid #CBD5E1;border-radius:4px;margin:0 8px}
+.atelier-lucie .coin{position:absolute;width:14px;height:14px;border-radius:50%;border:2px solid #CBD5E1;background:#fff;cursor:pointer;padding:0}
 .atelier-lucie .coin.on{background:#16406A;border-color:#16406A}
-.atelier-lucie .coin.tl{left:-11px;top:-11px}.atelier-lucie .coin.tr{right:-11px;top:-11px}.atelier-lucie .coin.br{right:-11px;bottom:-11px}.atelier-lucie .coin.bl{left:-11px;bottom:-11px}
-.atelier-lucie .curseur{display:flex;align-items:center;gap:10px;font-size:12px}.atelier-lucie .curseur input{flex:1;accent-color:#16406A}
+.atelier-lucie .coin.tl{left:-8px;top:-8px}.atelier-lucie .coin.tr{right:-8px;top:-8px}.atelier-lucie .coin.br{right:-8px;bottom:-8px}.atelier-lucie .coin.bl{left:-8px;bottom:-8px}
+.atelier-lucie .curseur{display:flex;align-items:center;gap:6px;font-size:12px}.atelier-lucie .curseur input{width:110px;accent-color:#16406A}
 .atelier-lucie .curseur b{min-width:40px;text-align:right;font-variant-numeric:tabular-nums}
 `;
 
@@ -208,17 +215,27 @@ export function monterAtelier(el, { structure = null, champs = {}, onChange = ()
   const memoriser = () => { histo.push(JSON.stringify(blocs)); if (histo.length > 60) histo.shift(); };
 
   el.classList.add('atelier-lucie');
-  el.innerHTML = `<aside class="at-col at-g"><div class="at-tc">Éléments tout faits</div>
-      <p class="at-aide">Glissez un élément sur la feuille, ou cliquez dessus pour l'ajouter sous l'élément choisi.</p>
-      <div class="at-cartes"></div>
-      <div class="at-tc">Données de Lucie</div>
-      <p class="at-aide">Cliquez dans un texte de la feuille, puis sur une donnée : elle se remplira toute seule.</p>
-      <input class="controle at-cherche" placeholder="Chercher une donnée…" style="width:100%;margin-bottom:6px" data-reponses="non">
-      <div class="at-donnees-cats"></div></aside>
-    <main class="at-centre"><div class="at-outils"><b style="font-size:13px;white-space:nowrap">L’atelier de Lucie</b><button data-o="annuler">↶ Annuler</button><button data-o="apercu">Voir le rendu</button>
-      <span style="font-size:12px;color:#64748B">Cliquez un élément pour le régler à droite ; tirez ses poignées pour le dimensionner.</span></div>
-      <div class="feuille"><div class="flux"></div><div class="pied-zone"></div></div></main>
-    <aside class="at-col at-d at-reglages"></aside>`;
+  el.innerHTML = `<div class="at-ruban">
+      <div class="at-onglets">
+        <button class="at-onglet on" data-onglet="inserer">Insérer</button>
+        <button class="at-onglet" data-onglet="forme">Mise en forme</button>
+        <button class="at-onglet" data-onglet="affichage">Affichage</button>
+        <div class="at-droite"><button class="at-bouton" data-o="annuler" title="Annuler la dernière action (⌘Z)">↶ Annuler</button></div>
+      </div>
+      <div class="at-volet" data-volet="inserer"><span class="at-cartes" style="display:contents"></span><span class="at-sepv"></span>
+        <span class="at-pop"><button class="at-bouton" data-o="donnees" title="Insérer une donnée de Lucie là où se trouve le curseur">＋ Donnée de Lucie ▾</button>
+          <div class="at-menu" hidden><p class="at-aide" style="margin-bottom:8px">Cliquez d'abord dans un texte de la feuille, puis sur une donnée : elle se remplira toute seule.</p>
+            <input class="controle at-cherche" placeholder="Chercher une donnée…" style="width:100%" data-reponses="non"><div class="at-donnees-cats"></div></div></span></div>
+      <div class="at-volet at-reglages" data-volet="forme" hidden></div>
+      <div class="at-volet" data-volet="affichage" hidden>
+        <span class="at-etiq" style="font-size:11px;color:#64748B;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Zoom</span>
+        <span class="seg"><button data-zoom="ajuste" class="on" title="La feuille occupe la largeur">Ajuster à la largeur</button><button data-zoom="1" title="Taille réelle">100 %</button><button data-zoom="0.75">75 %</button></span>
+        <span class="at-sepv"></span>
+        <button class="at-bouton" data-o="apercu">Voir le rendu</button>
+        <span class="at-aide">« Voir le rendu » cache les poignées et surligne les données qui se rempliront.</span>
+      </div>
+    </div>
+    <main class="at-centre"><div class="feuille"><div class="flux"></div><div class="pied-zone"></div></div></main>`;
   const $ = s => el.querySelector(s);
   const feuille = $('.feuille'), flux = $('.flux');
 
@@ -262,39 +279,38 @@ export function monterAtelier(el, { structure = null, champs = {}, onChange = ()
   }
   function reglages() {
     const r = $('.at-reglages'), b = bloc(sel);
-    if (!b || enApercu) { r.innerHTML = `<div class="at-tc">Réglages</div><div class="vide">${enApercu ? 'Vous voyez la pièce sans les poignées ; les données sont surlignées en jaune. Cliquez « Revenir à l’édition » pour la modifier.' : 'Cliquez sur un élément de la feuille pour le régler ici.'}</div>`; return; }
-    let h = `<div class="at-tc">${MODELES[b.type].lib}</div>`;
-    const past = (cle, val) => `<div class="pastilles">${ETATS.map(([k, l, c]) => `<button class="pastille ${val === k ? 'on' : ''}" data-${cle}="${k}"><i style="background:${c}"></i>${l}</button>`).join('')}</div>`;
+    if (enApercu) { r.innerHTML = '<p class="at-aide">Vous voyez la pièce sans les poignées ; les données sont surlignées en jaune. Cliquez « Revenir à l’édition » pour la modifier.</p>'; return; }
+    if (!b) { r.innerHTML = '<p class="at-aide">Cliquez sur un élément de la feuille pour le mettre en forme ici. Pour en ajouter un, ouvrez l’onglet « Insérer ».</p>'; return; }
+    let h = `<span class="at-quoi">${MODELES[b.type].lib}</span>`;
+    const past = (cle, val) => `<div class="pastilles">${ETATS.map(([k, l, c]) => `<button class="pastille ${val === k ? 'on' : ''}" data-${cle}="${k}" title="${l}"><i style="background:${c}"></i></button>`).join('')}</div>`;
     if (['tuile', 'encadre'].includes(b.type)) h += `<div class="groupe"><h4>Couleur</h4>${past('etat', b.p.etat)}</div>`;
     if (b.type === 'train') {
       const w = b.p.wagons[wagonSel] || b.p.wagons[0];
-      h += `<div class="groupe"><h4>Wagons</h4><div class="rang"><button data-act="wplus">+ Wagon</button><button class="danger" data-act="wmoins">− Wagon</button></div>
-        <p class="at-aide" style="margin-top:8px">Cliquez un wagon pour le choisir ; tirez la séparation entre deux wagons pour changer leurs largeurs.</p></div>
+      h += `<div class="groupe"><h4>Wagons</h4><div class="rang"><button data-act="wplus">+ Wagon</button><button class="danger" data-act="wmoins">− Wagon</button></div></div>
         <div class="groupe"><h4>Couleur du wagon ${wagonSel + 1}</h4>${past('wetat', w[2])}</div>`;
-    }
-    if (['tuile', 'encadre', 'train', 'tableau'].includes(b.type)) {
-      const c = b.p.coins || {};
-      h += `<div class="groupe"><h4>Coins</h4><div style="display:flex;gap:20px;align-items:center"><div class="coins">${['tl', 'tr', 'br', 'bl'].map(k => `<button class="coin ${k} ${c[k] ? 'on' : ''}" data-coin="${k}" title="Arrondir ce coin"></button>`).join('')}</div>
-        <p class="at-aide" style="margin:0;flex:1">Cliquez un coin pour l'arrondir ou le rendre droit.</p></div>
-        <div class="curseur"><span>Arrondi</span><input type="range" min="0" max="28" step="1" value="${b.p.rayon || 0}" data-curseur="rayon"><b>${b.p.rayon || 0} px</b></div></div>`;
-    }
-    if (['tuile', 'encadre', 'train'].includes(b.type)) {
-      const choix = b.type === 'train' ? [['bas', 'En bas'], ['aucune', 'Aucune']] : [['gauche', 'Gauche'], ['haut', 'Haut'], ['bas', 'Bas'], ['aucune', 'Aucune']];
-      h += `<div class="groupe"><h4>Bande de couleur</h4><div class="seg">${choix.map(([k, l]) => `<button data-pos="${k}" class="${(b.p.pos || 'gauche') === k ? 'on' : ''}">${l}</button>`).join('')}</div>
-        <div class="curseur" style="margin-top:10px"><span>Épaisseur</span><input type="range" min="1" max="14" step="1" value="${b.p.bande ?? 4}" data-curseur="bande"><b>${b.p.bande ?? 4} px</b></div></div>`;
     }
     if (redimensionnable(b.type)) {
       h += `<div class="groupe"><h4>Largeur</h4><div class="seg">${[[25, '¼'], [33, '⅓'], [50, '½'], [66, '⅔'], [100, 'Toute']].map(([v, l]) => `<button data-larg="${v}" class="${Math.abs(b.p.largeur - v) < 2 ? 'on' : ''}">${l}</button>`).join('')}</div>
-        <p class="at-aide" style="margin-top:8px">Ou tirez la poignée à droite de l'élément${hauteurLibre(b.type) ? ', et celle du bas pour la hauteur' : ''}.</p>
-        ${hauteurLibre(b.type) && b.p.hauteur ? '<div class="rang"><button data-act="hauto">Hauteur automatique</button></div>' : ''}</div>`;
+        ${hauteurLibre(b.type) && b.p.hauteur ? '<div class="rang"><button data-act="hauto">Hauteur auto</button></div>' : ''}</div>`;
+    }
+    if (['tuile', 'encadre', 'train', 'tableau'].includes(b.type)) {
+      const c = b.p.coins || {};
+      h += `<div class="groupe"><h4>Coins</h4><div class="coins" title="Cliquez un coin pour l'arrondir ou le rendre droit">${['tl', 'tr', 'br', 'bl'].map(k => `<button class="coin ${k} ${c[k] ? 'on' : ''}" data-coin="${k}" title="Arrondir ce coin"></button>`).join('')}</div>
+        <div class="curseur"><input type="range" min="0" max="28" step="1" value="${b.p.rayon || 0}" data-curseur="rayon" aria-label="Arrondi"><b>${b.p.rayon || 0} px</b></div></div>`;
+    }
+    if (['tuile', 'encadre', 'train'].includes(b.type)) {
+      const choix = b.type === 'train' ? [['bas', 'En bas'], ['aucune', 'Aucune']] : [['gauche', 'Gauche'], ['haut', 'Haut'], ['bas', 'Bas'], ['aucune', 'Aucune']];
+      h += `<div class="groupe"><h4>Bande</h4><div class="seg">${choix.map(([k, l]) => `<button data-pos="${k}" class="${(b.p.pos || 'gauche') === k ? 'on' : ''}">${l}</button>`).join('')}</div>
+        <div class="curseur"><input type="range" min="1" max="14" step="1" value="${b.p.bande ?? 4}" data-curseur="bande" aria-label="Épaisseur de la bande"><b>${b.p.bande ?? 4} px</b></div></div>`;
     }
     if (b.type === 'tableau') {
-      h += `<div class="groupe"><h4>Présentation</h4><div class="seg">${[['marine', 'Marine'], ['sobre', 'Sobre'], ['leger', 'Léger']].map(([k, l]) => `<button data-style="${k}" class="${b.p.style === k ? 'on' : ''}">${l}</button>`).join('')}</div>
-        <label style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="checkbox" data-zebre ${b.p.zebre ? 'checked' : ''}> Une ligne sur deux en gris</label></div>
+      h += `<div class="groupe"><h4>Style</h4><div class="seg">${[['marine', 'Marine'], ['sobre', 'Sobre'], ['leger', 'Léger']].map(([k, l]) => `<button data-style="${k}" class="${b.p.style === k ? 'on' : ''}">${l}</button>`).join('')}</div>
+        <label style="display:flex;gap:6px;align-items:center;white-space:nowrap"><input type="checkbox" data-zebre ${b.p.zebre ? 'checked' : ''}> Lignes alternées</label></div>
         <div class="groupe"><h4>Lignes et colonnes</h4><div class="rang"><button data-act="lig">+ Ligne</button><button data-act="col">+ Colonne</button><button class="danger" data-act="moinslig">− Ligne</button><button class="danger" data-act="moinscol">− Colonne</button></div></div>`;
     }
     if (['entete', 'pied'].includes(b.type)) h += '<p class="at-aide">Élément de la charte de l’Institut : il est le même sur toutes les pièces.</p>';
-    h += '<div class="groupe"><div class="rang"><button data-act="dup">Dupliquer</button><button class="danger" data-act="suppr">Retirer</button></div></div>';
+    if (['texte', 'titre', 'signature'].includes(b.type)) h += '<p class="at-aide">Cliquez dans le texte pour l’écrire ; « Donnée de Lucie » insère une donnée qui se remplit seule.</p>';
+    h += '<div class="groupe" style="margin-left:auto"><div class="rang"><button data-act="dup">Dupliquer</button><button class="danger" data-act="suppr">Retirer</button></div></div>';
     r.innerHTML = h;
   }
   function action(act, b) {
@@ -319,7 +335,7 @@ export function monterAtelier(el, { structure = null, champs = {}, onChange = ()
       ? [['Inscrits', 'fort'], ['Réussites', 'reussi'], ['Ajournés', 'surveiller']].map(([l, e]) => nouveau('tuile', { ...clone(MODELES.tuile.p), v: '0', l, etat: e, largeur: 33 }))
       : [nouveau(k)];
     if (k === 'pied') blocs.push(neufs[0]); else blocs.splice(i, 0, ...neufs);
-    sel = neufs[0].id; rendre(); signaler();
+    sel = neufs[0].id; rendre(); signaler(); volet('forme');
     el.querySelector(`.bloc[data-id="${sel}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
   function basculer() { enApercu = !enApercu; $('[data-o="apercu"]').textContent = enApercu ? 'Revenir à l’édition' : 'Voir le rendu'; $('[data-o="apercu"]').classList.toggle('on', enApercu); rendre(); }
@@ -369,7 +385,7 @@ export function monterAtelier(el, { structure = null, champs = {}, onChange = ()
     const w = e.target.closest('.wagon');
     if (w && !e.target.closest('.sep-w')) { wagonSel = +w.dataset.w; d.querySelectorAll('.wagon').forEach(x => x.classList.toggle('wsel', +x.dataset.w === wagonSel)); }
     if (+d.dataset.id !== sel) { sel = +d.dataset.id; el.querySelectorAll('.bloc').forEach(x => x.classList.toggle('sel', x === d)); }
-    reglages();
+    reglages(); volet('forme');
   });
   feuille.addEventListener('click', e => { const a = e.target.closest('[data-act]'); if (a) action(a.dataset.act, bloc(a.closest('.bloc').dataset.id)); });
   feuille.addEventListener('focusin', () => memoriser());
@@ -463,11 +479,34 @@ export function monterAtelier(el, { structure = null, champs = {}, onChange = ()
   document.addEventListener('dragend', finGlisse);
 
   // Barre de l'Atelier et clavier
-  $('.at-outils').addEventListener('click', e => {
+  const menu = $('.at-menu');
+  const volet = nom => {
+    el.querySelectorAll('[data-onglet]').forEach(x => x.classList.toggle('on', x.dataset.onglet === nom));
+    el.querySelectorAll('[data-volet]').forEach(x => { x.hidden = x.dataset.volet !== nom; });
+  };
+  $('.at-ruban').addEventListener('click', e => {
+    const og = e.target.closest('[data-onglet]')?.dataset.onglet; if (og) { volet(og); return; }
     const o = e.target.closest('[data-o]')?.dataset.o;
     if (o === 'apercu') basculer();
     if (o === 'annuler') { const h = histo.pop(); if (h) { blocs = JSON.parse(h); rendre(); signaler(); } }
+    if (o === 'donnees') {
+      menu.hidden = !menu.hidden;
+      if (!menu.hidden) { const r = e.target.closest('button').getBoundingClientRect(); menu.style.top = `${r.bottom + 6}px`; menu.style.left = `${Math.max(8, Math.min(window.innerWidth - 350, r.left))}px`; $('.at-cherche').focus({ preventScroll: true }); }
+    }
+    const z = e.target.closest('[data-zoom]')?.dataset.zoom;
+    if (z) { zoom = z; el.querySelectorAll('[data-zoom]').forEach(x => x.classList.toggle('on', x.dataset.zoom === z)); ajuster(); }
   });
+  const fermerMenu = e => { if (!menu.hidden && !e.target.closest('.at-pop')) menu.hidden = true; };
+  document.addEventListener('mousedown', fermerMenu);
+  // LA FEUILLE OCCUPE LA LARGEUR : un zoom, pas une feuille plus large — la
+  // mise en page reste celle d'une A4.
+  let zoom = 'ajuste';
+  const centre = $('.at-centre');
+  function ajuster() {
+    const z = zoom === 'ajuste' ? Math.max(0.6, Math.min(1.8, (centre.clientWidth - 48) / 794)) : Number(zoom);
+    feuille.style.zoom = String(z);
+  }
+  const ro = new ResizeObserver(ajuster); ro.observe(centre);
   const clavier = e => {
     if (!el.isConnected || !el.contains(document.activeElement) && document.activeElement !== document.body) return;
     if ((e.key === 'Delete' || e.key === 'Backspace') && sel && !e.target.closest('[contenteditable="true"],input,textarea')) { e.preventDefault(); action('suppr', bloc(sel)); }
@@ -481,6 +520,7 @@ export function monterAtelier(el, { structure = null, champs = {}, onChange = ()
       document.removeEventListener('selectionchange', surSelection);
       document.removeEventListener('pointermove', bouge); document.removeEventListener('pointerup', lache);
       document.removeEventListener('dragend', finGlisse); document.removeEventListener('keydown', clavier);
+      document.removeEventListener('mousedown', fermerMenu); ro.disconnect();
       el.innerHTML = ''; el.classList.remove('atelier-lucie');
     },
   };
