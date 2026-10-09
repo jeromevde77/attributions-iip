@@ -39,6 +39,47 @@ function remplacer(v, val) {
   return v;
 }
 
+
+/* LE TEXTE SE CORRIGE DANS LA PIÈCE ELLE-MÊME (Charles, 9 octobre 2026 : « mais
+   on ne sait rien changer »). Pendant qu'on modifie un modèle commun, chaque
+   phrase de l'aperçu devient modifiable sur place ; en quittant la phrase, la
+   correction part à l'éditeur comme une « phrase réécrite » — le serveur la
+   rejoue à chaque sortie de la pièce. Une phrase qui porte une donnée (un nom,
+   une date) ne se retrouvera que chez cet étudiant : l'éditeur le signale. */
+function rendreEditable(iframe) {
+  const doc = iframe?.contentDocument;
+  if (!doc?.body) return;
+  const st = doc.createElement('style');
+  st.textContent = `.lucie-edit{outline:1px dashed transparent;border-radius:2px;cursor:text}
+    .lucie-edit:hover{outline-color:#2F6FB0;background:rgba(47,111,176,.06)}
+    .lucie-edit:focus{outline:2px solid #2F6FB0;background:#fff}`;
+  doc.head.appendChild(st);
+  const marcheur = doc.createTreeWalker(doc.body, 4 /* NodeFilter.SHOW_TEXT */);
+  const noeuds = [];
+  for (let n = marcheur.nextNode(); n; n = marcheur.nextNode()) {
+    const parent = n.parentElement;
+    if (!parent || ['STYLE', 'SCRIPT'].includes(parent.tagName) || parent.closest('svg')) continue;
+    if (n.textContent.trim().length < 2) continue;
+    noeuds.push(n);
+  }
+  for (const n of noeuds) {
+    const span = doc.createElement('span');
+    span.className = 'lucie-edit';
+    span.contentEditable = 'true';
+    span.spellcheck = true;
+    const origine = n.textContent;
+    n.parentNode.replaceChild(span, n);
+    span.appendChild(n);
+    span.addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); span.blur(); } });
+    span.addEventListener('blur', () => {
+      const avant = origine.trim(), apres = span.textContent.replace(/\s+/g, ' ').trim();
+      if (apres !== avant.replace(/\s+/g, ' ')) {
+        window.dispatchEvent(new CustomEvent('lucie:remplacement', { detail: { avant: avant.replace(/\s+/g, ' '), apres } }));
+      }
+    });
+  }
+}
+
 export default function ApercuDocuments({ onClose }) {
   const navigate = useNavigate();
   const [annee, setAnnee] = useState(getAnnee());
@@ -269,7 +310,8 @@ export default function ApercuDocuments({ onClose }) {
           <div className="flex-1 min-h-0 bg-slate-100 relative">
             {enCours && <div className="absolute top-2 right-3 text-[12px] text-slate-500">Rendu en cours…</div>}
             {rendu?.html && feuille && <iframe aria-label="Aperçu PDF de la pièce" src={feuille} className="w-full h-full border-0" />}
-            {rendu?.html && <iframe aria-label="Aperçu" srcDoc={rendu.html} className={`w-full h-full border-0 ${feuille ? 'hidden' : ''}`} />}
+            {rendu?.html && <iframe aria-label="Aperçu" srcDoc={rendu.html} className={`w-full h-full border-0 ${feuille ? 'hidden' : ''}`}
+              onLoad={e => { if (edition && choisi?.modeles?.some(c => c.startsWith('piece_'))) rendreEditable(e.currentTarget); }} />}
             {rendu?.pdf && <iframe aria-label="Aperçu PDF" src={rendu.pdf} className="w-full h-full border-0" />}
           </div>
         </div>
