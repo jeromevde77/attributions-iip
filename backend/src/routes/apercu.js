@@ -28,6 +28,7 @@ import {
 } from './acquis.js';
 
 import { galerie, exemples, choix } from '../lib/galerieDocuments.js';
+import { composerSpecimen } from '../lib/specimens.js';
 
 const r = Router();
 
@@ -37,6 +38,18 @@ r.get('/galerie', authRequired, (req, res) => {
   const annee = String(req.query.annee || anneeDeTravail(req));
   try { res.json({ ...galerie(), exemples: exemples(annee), choix: choix(annee), annee }); }
   catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+/* LE SPÉCIMEN D'UNE PIÈCE (lib/specimens.js) : la même composition que la
+   route réelle, sur un dossier factice complet. Lecture seule — rien ne
+   s'écrit ni ne s'archive. */
+r.get('/specimen/:id', authRequired, (req, res) => {
+  const annee = String(req.query.annee || anneeDeTravail(req));
+  try {
+    const out = composerSpecimen(String(req.params.id), annee);
+    if (out.code) return res.status(out.code).json({ error: out.erreur, manques: out.manques });
+    res.json({ html: out.html, nom: out.nom, specimen: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 /** Le dossier d'exemple. Un nom qui ne peut pas passer pour un vrai. */
