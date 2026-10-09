@@ -300,6 +300,26 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
       setSim(j); setSemaine(1);
     } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
   }
+  /* POSER DANS L'HORAIRE : un compte rendu d'abord, puis l'écriture. Les
+     séances retouchées à la main dans l'horaire ne sont jamais remplacées. */
+  async function poser() {
+    const corps = { section, bloc, annee };
+    const r0 = await fetch('/api/etudiants/repartition-cours/communs/simulation/poser', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ ...corps, simulation: true }) });
+    const a = await r0.json();
+    if (!r0.ok) { setErreur(a.error || `Erreur ${r0.status}`); return; }
+    if (!(await demander(`Poser ${a.a_poser} séance(s) dans l’horaire de ${section} ${bloc} ?\n\n`
+      + (a.remplacees ? `${a.remplacees} séance(s) posées par une simulation précédente seront remplacées.\n` : '')
+      + (a.gardees ? `${a.gardees} séance(s) retouchées à la main sont gardées telles quelles.\n` : '')
+      + (a.restes ? `${a.restes} activité(s) n’ont pas toutes leurs séances : elles restent à placer à la main.\n` : '')
+      + '\nLes séances se déplacent ensuite dans Organisation → Horaire de la semaine.'))) return;
+    setEnCours(true);
+    try {
+      const r = await fetch('/api/etudiants/repartition-cours/communs/simulation/poser', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ ...corps, simulation: false }) });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
+      informer(`✓ ${j.a_poser} séance(s) posées dans l’horaire de ${section} ${bloc}. Elles sont visibles dans Organisation → Horaire de la semaine (classe ${section} · ${bloc}).`);
+    } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
+  }
   const creneauxSemaine = useMemo(() => (sim?.seances || []).filter(s => s.semaine === semaine), [sim, semaine]);
   const heures = [...new Set((plages || []).map(p => `${p.debut}-${p.fin}`))].sort();
   const jours = [...new Set((plages || []).map(p => p.jour))].sort();
@@ -311,7 +331,8 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
         <b className="text-[13px]">Simulation de l’année — {section} · {bloc}</b>
         <span className="text-[12px] text-slate-500">Semaines de cours du calendrier, congés et fériés déduits ; périodes attribuées (50 min) ; une brique et un enseignant jamais à deux endroits à la fois. Rien ne s’écrit dans l’horaire.</span>
         <span className="flex-1" />
-        <button className="bouton bouton-fort" onClick={simuler} disabled={enCours || !plages?.length}>{enCours ? 'Simulation…' : 'Simuler l’année'}</button>
+        <button className={sim ? 'bouton' : 'bouton bouton-fort'} onClick={simuler} disabled={enCours || !plages?.length}>{enCours ? 'Simulation…' : sim ? 'Simuler à nouveau' : 'Simuler l’année'}</button>
+        {sim && peutEcrire && <button className="bouton bouton-fort" onClick={poser} disabled={enCours}>Poser dans l’horaire…</button>}
       </div>
       {erreur && <div className="text-[12.5px]" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
 

@@ -181,3 +181,46 @@ export function simuler(section, bloc, annee) {
     restes, seances: seances.sort((x, y) => (x.date + x.debut).localeCompare(y.date + y.debut)),
   };
 }
+
+
+/**
+ * POSER LA SIMULATION DANS L'HORAIRE (Charles, 9 octobre 2026). Les séances
+ * deviennent de vraies séances (horaire_seance, source « simulation »), que
+ * l'Horaire de la semaine montre, déplace et recopie. Poser à nouveau remplace
+ * les séances simulées du bloc — JAMAIS une séance retouchée à la main
+ * (modifie_lucie = 1). Un groupe de TP porte ses briques (« B4-6 ») : deux TP
+ * en parallèle sur des briques différentes ne sont pas un conflit de classe.
+ */
+export function poserSimulation(section, bloc, annee, { simulation = true, par = null } = {}) {
+  const sim = simuler(section, bloc, annee);
+  const classe = `${section} ${bloc}`;
+  const anciennes = db.prepare(`SELECT COUNT(*) n FROM horaire_seance WHERE annee_scolaire = ? AND section = ? AND bloc = ?
+    AND source = 'simulation' AND COALESCE(modifie_lucie, 0) = 0`).get(annee, section, bloc).n;
+  const gardees = db.prepare(`SELECT COUNT(*) n FROM horaire_seance WHERE annee_scolaire = ? AND section = ? AND bloc = ?
+    AND source = 'simulation' AND COALESCE(modifie_lucie, 0) = 1`).get(annee, section, bloc).n;
+  const rapport = { a_poser: sim.seances.length, remplacees: anciennes, gardees, restes: sim.restes.length };
+  if (simulation) return rapport;
+  const groupeId = db.prepare('SELECT id FROM groupe WHERE annee_scolaire = ? AND code_cours = ? AND nom = ? LIMIT 1');
+  const profId = new Map();
+  const ins = db.prepare(`INSERT INTO horaire_seance (annee_scolaire, classe, section, bloc, date, heure_debut, heure_fin, minutes,
+      cours_code, ue_num, matiere, professeur_id, groupe_id, sous_groupe, source, modifie_lucie, cree_par, cree_le)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'simulation', 0, ?, datetime('now'))`);
+  db.transaction(() => {
+    db.prepare(`DELETE FROM horaire_seance WHERE annee_scolaire = ? AND section = ? AND bloc = ?
+      AND source = 'simulation' AND COALESCE(modifie_lucie, 0) = 0`).run(annee, section, bloc);
+    for (const x of sim.seances) {
+      const [, , , code] = x.cle.split('#');
+      if (!profId.has(x.cle)) {
+        const a = db.prepare(`SELECT professeur_id, ue_num FROM attribution WHERE annee_scolaire = ? AND code_cours = ?
+          AND COALESCE(activite_id, 0) = ? AND COALESCE(code, '') = ? LIMIT 1`).get(annee, x.cours_code, Number(x.cle.split('#')[1]), code || '');
+        profId.set(x.cle, a || {});
+      }
+      const a = profId.get(x.cle);
+      const g = code ? groupeId.get(annee, x.cours_code, code)?.id || null : null;
+      const sg = x.tout_le_bloc ? null : `B${Math.min(...x.briques)}-${Math.max(...x.briques)}`;
+      ins.run(annee, classe, section, bloc, x.date, x.debut, x.fin, x.minutes, x.cours_code, a.ue_num || null,
+        `${x.activite || ''}${code && code !== 'Ts' ? ` · groupe ${code}` : ''}`.trim() || null, a.professeur_id || null, g, sg, par);
+    }
+  })();
+  return { ...rapport, ok: true };
+}
