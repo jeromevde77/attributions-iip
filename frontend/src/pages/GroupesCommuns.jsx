@@ -3,6 +3,7 @@ import { IconAlertTriangle, IconWand, IconDeviceFloppy, IconUsersGroup } from '@
 import { api, authHeaders, getAnnee } from '../lib/api.js';
 import { demander, informer } from '../lib/dialogue.jsx';
 import { passeRole } from '../lib/droits.js';
+import { teinteCours, styleTuileCours } from '../lib/teinteCours.js';
 
 /**
  * LES GROUPES COMMUNS (Charles, 9 octobre 2026 : « des TP par 4, par 6, par 8
@@ -267,6 +268,101 @@ function PlanGroupes({ acts, B, peutEcrire, onEchanger }) {
  * semaine de son choix en grille. Rien ne s'écrit dans l'horaire.
  */
 const NOMS_JOURS = ['', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+/**
+ * LES LOCAUX POSSIBLES, ACTIVITÉ PAR ACTIVITÉ (Charles, 9 octobre 2026 : « fais
+ * les locaux »). On choisit dans le référentiel, dans l'ordre de préférence ;
+ * la simulation garde le même local chaque semaine et ne met jamais deux
+ * séances dans la même salle. Sans choix : la théorie prend d'office une classe
+ * ou un auditoire assez grand ; un TP reste « à désigner » — un labo ne se
+ * devine pas.
+ */
+function LocauxActivites({ sim, section, bloc, annee, peutEcrire, onEnregistre }) {
+  const acts = useMemo(() => {
+    const m = new Map();
+    for (const a of sim.activites || []) {
+      const k = `${a.cours_code}#${a.activite_id}`;
+      const x = m.get(k) || { cle: k, cours_code: a.cours_code, activite_id: a.activite_id, activite: a.activite, groupes: 0,
+        effectif: 0, origine: a.local_origine, locaux: a.locaux || [] };
+      x.groupes++; x.effectif = Math.max(x.effectif, a.effectif || 0);
+      m.set(k, x);
+    }
+    return [...m.values()];
+  }, [sim]);
+  const [choix, setChoix] = useState({});
+  const [enCours, setEnCours] = useState(false);
+  const [erreur, setErreur] = useState(null);
+  useEffect(() => { setChoix(Object.fromEntries(acts.map(a => [a.cle, a.origine === 'choisi' ? a.locaux : []]))); }, [acts]);
+  const ref = sim.referentiel_locaux || [];
+  const parNom = Object.fromEntries(ref.map(l => [l.nom, l]));
+  const modifie = acts.some(a => JSON.stringify(choix[a.cle] || []) !== JSON.stringify(a.origine === 'choisi' ? a.locaux : []));
+  const aDesigner = acts.filter(a => !(choix[a.cle] || []).length && a.origine === 'a_designer').length;
+  async function enregistrer() {
+    setEnCours(true); setErreur(null);
+    try {
+      const r = await fetch('/api/etudiants/horaire-locaux', { method: 'PUT', headers: authHeaders(),
+        body: JSON.stringify({ section, bloc, annee, locaux: acts.map(a => ({ cours_code: a.cours_code, activite_id: a.activite_id, locaux: choix[a.cle] || [] })) }) });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
+      await onEnregistre();
+    } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
+  }
+  return (
+    <details className="border border-slate-200 rounded-carte">
+      <summary className="px-3 py-2 cursor-pointer text-[13px] font-semibold">
+        Locaux des activités{aDesigner ? <span className="font-normal" style={{ color: 'var(--c-attente)' }}> — {aDesigner} activité(s) sans local désigné</span> : ''}
+      </summary>
+      {/* LES BOUTONS EN HAUT. */}
+      <div className="px-3 py-2 flex items-center gap-2 flex-wrap border-b border-slate-100">
+        {peutEcrire && <button className="bouton bouton-fort" disabled={!modifie || enCours} onClick={enregistrer}>
+          {enCours ? 'Enregistrement…' : 'Enregistrer et simuler à nouveau'}</button>}
+        <span className="text-[12px] text-slate-500">Le premier local de la liste est le préféré. La simulation garde le même local toute l’année et n’en met jamais deux groupes en même temps.
+          Sans choix, la théorie prend d’office une classe ou un auditoire assez grand ; un TP reste à désigner.</span>
+        {erreur && <span className="text-[12.5px]" style={{ color: 'var(--c-refuse)' }}>{erreur}</span>}
+      </div>
+      <table className="w-full text-[12.5px]">
+        <thead><tr className="tab-entete text-left">
+          <th className="px-3 py-1">Cours</th><th className="px-3 py-1">Activité</th><th className="px-3 py-1">Étudiants / groupe</th>
+          <th className="px-3 py-1">Locaux possibles</th></tr></thead>
+        <tbody>
+          {acts.map(a => {
+            const l = choix[a.cle] || [];
+            return (
+              <tr key={a.cle} className="border-t border-slate-100 align-top">
+                <td className="px-3 py-1 font-semibold whitespace-nowrap">{a.cours_code}</td>
+                <td className="px-3 py-1">{String(a.activite || '').slice(0, 44)}{a.groupes > 1 && <span className="text-slate-400"> · {a.groupes} groupes</span>}</td>
+                <td className="px-3 py-1 tabular-nums">{a.effectif}</td>
+                <td className="px-3 py-1">
+                  <div className="flex flex-wrap items-center gap-1">
+                    {l.map((n, i) => {
+                      const petit = parNom[n]?.places && parNom[n].places < a.effectif;
+                      return (
+                        <span key={n} className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 border border-slate-300 bg-white"
+                          title={`${parNom[n]?.type || ''}${parNom[n]?.places ? ` · ${parNom[n].places} places` : ''}${petit ? ' — trop petit pour ce groupe' : ''}`}
+                          style={petit ? { borderColor: 'var(--c-attente)' } : undefined}>
+                          {i === 0 && l.length > 1 && <span className="text-[10px] text-slate-400">préféré</span>}
+                          {n}{petit && <IconAlertTriangle size={12} style={{ color: 'var(--c-attente)' }} />}
+                          {peutEcrire && <button type="button" className="text-slate-400 hover:text-slate-700" title="Retirer"
+                            onClick={() => setChoix(c => ({ ...c, [a.cle]: l.filter(x => x !== n) }))}>×</button>}
+                        </span>);
+                    })}
+                    {!l.length && (a.origine === 'auto' ? <span className="text-slate-500">d’office : {a.locaux.slice(0, 3).join(', ')}{a.locaux.length > 3 ? '…' : ''}</span>
+                      : a.origine === 'aucun' ? <span style={{ color: 'var(--c-refuse)' }}>aucune salle assez grande au référentiel</span>
+                      : <span style={{ color: 'var(--c-attente)' }}>à désigner</span>)}
+                    {peutEcrire && (
+                      <select className="controle !h-7 text-[12px]" value="" onChange={e => { const n = e.target.value; if (n) setChoix(c => ({ ...c, [a.cle]: [...l, n] })); }}>
+                        <option value="">+ local…</option>
+                        {ref.filter(x => !l.includes(x.nom)).map(x => <option key={x.nom} value={x.nom}>{x.nom} — {x.type || '?'}{x.places ? ` · ${x.places} pl.` : ''}</option>)}
+                      </select>)}
+                  </div>
+                </td>
+              </tr>);
+          })}
+        </tbody>
+      </table>
+    </details>
+  );
+}
+
 export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
   const [plages, setPlages] = useState(null);
   const [texte, setTexte] = useState({});
@@ -372,6 +468,7 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
             {sim.restes.map(r => <div key={r.cle} className="text-[12.5px] flex gap-1.5" style={{ color: 'var(--c-refuse)' }}>
               <IconAlertTriangle size={14} className="mt-0.5 flex-none" /><span><b>{r.cours_code}</b> {r.activite} · {r.groupe} — {r.manque} séance(s) sans place : {r.raison}{r.professeur ? ` (${r.professeur})` : ''}</span></div>)}
           </div>)}
+        <LocauxActivites sim={sim} section={section} bloc={bloc} annee={annee} peutEcrire={peutEcrire} onEnregistre={simuler} />
         {/* LA RÉGULARITÉ SE LIT : un créneau fixe par groupe, ses semaines. */}
         <details className="border border-slate-200 rounded-carte">
           <summary className="px-3 py-2 cursor-pointer text-[13px] font-semibold">
@@ -380,7 +477,7 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
           <table className="w-full text-[12.5px]">
             <thead><tr className="tab-entete text-left">
               <th className="px-3 py-1">Cours</th><th className="px-3 py-1">Activité</th><th className="px-3 py-1">Groupe</th>
-              <th className="px-3 py-1">Créneau fixe</th><th className="px-3 py-1">Semaines</th><th className="px-3 py-1">Enseignant</th></tr></thead>
+              <th className="px-3 py-1">Créneau fixe</th><th className="px-3 py-1">Semaines</th><th className="px-3 py-1">Local</th><th className="px-3 py-1">Enseignant</th></tr></thead>
             <tbody>
               {sim.activites.map(a => (
                 <tr key={a.cle} className="border-t border-slate-100 align-top">
@@ -391,6 +488,8 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
                     {a.irreguliers > 0 && <div style={{ color: 'var(--c-attente)' }}>+ {a.irreguliers} séance(s) hors créneau fixe</div>}
                     {!a.creneaux_fixes?.length && !a.irreguliers && <span className="text-slate-400">—</span>}</td>
                   <td className="px-3 py-1 whitespace-nowrap text-slate-600">{(a.creneaux_fixes || []).map((f, i) => <div key={i}>{f.de === f.a ? `semaine ${f.de}` : `semaines ${f.de} à ${f.a}`} · {f.seances} séance(s)</div>)}</td>
+                  <td className="px-3 py-1 whitespace-nowrap">{(a.creneaux_fixes || []).map((f, i) => <div key={i}>{f.local
+                    || <span style={{ color: 'var(--c-attente)' }}>à désigner</span>}</div>)}</td>
                   <td className="px-3 py-1 text-slate-600">{a.professeur || '—'}</td>
                 </tr>))}
             </tbody>
@@ -444,10 +543,11 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
                               <span className="text-[10px] text-slate-400">actuel </span><b>{x.cours_code || '—'}</b> {x.heure_debut}–{x.heure_fin}{x.groupe_nom ? ` · ${x.groupe_nom}` : ''}
                             </span>))}
                           {ici.map((s, i) => (
-                            <span key={i} className="rounded px-1.5 py-0.5 border" title={`${s.cours_code} ${s.activite || ''} — groupe ${s.groupe}${s.professeur ? ` — ${s.professeur}` : ''}\nBriques ${s.tout_le_bloc ? 'toutes' : s.briques.join(', ')}`}
-                              style={{ borderColor: s.tout_le_bloc ? 'var(--c-fort, #16406A)' : '#CBD5E1', background: s.tout_le_bloc ? '#EEF3F9' : '#fff' }}>
+                            <span key={i} className="rounded px-1.5 py-0.5 border" title={`${s.cours_code} ${s.activite || ''} — groupe ${s.groupe}${s.professeur ? ` — ${s.professeur}` : ''}${s.local ? `\nLocal ${s.local}` : ''}\nBriques ${s.tout_le_bloc ? 'toutes' : s.briques.join(', ')}`}
+                              style={{ ...styleTuileCours(s.cours_code), border: 'none', borderLeft: `4px solid ${teinteCours(s.cours_code)}`, fontWeight: s.tout_le_bloc ? 600 : undefined }}>
                               <b>{s.cours_code}</b> {s.groupe !== 'Tous' && s.groupe !== 'Ts' ? `· ${s.groupe}` : '· tous'}
                               <span className="text-slate-500"> {String(s.activite || '').replace(/\s*\((TP|TH)\)\s*$/i, '').slice(0, 22)}</span>
+                              {s.local && <span className="text-slate-500"> · {s.local}</span>}
                             </span>))}
                         </div>
                       </td>);
