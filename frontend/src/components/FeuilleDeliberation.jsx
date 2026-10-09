@@ -51,7 +51,9 @@ const fmt = n => n == null ? '—' : (Math.round(n * 100) / 100).toString().repl
  */
 function aJustifier(acquis = [], cours = [], decision = null) {
   const enCause = new Set(acquis.filter(a => a.na || a.echec).map(a => a.aa_code));
-  for (const c of cours) if (c.na) for (const code of (c.aas || [])) enCause.add(code);
+  // Un cours ajourné fait entrer ses acquis — tous, ou ceux seuls que le Conseil a
+  // rouverts (9 octobre 2026) : un acquis réussi qu'on ne représente pas ne se justifie pas.
+  for (const c of cours) if (c.na) for (const code of (c.aas_a_representer || c.aas || [])) enCause.add(code);
   // Sur un REFUS, l'unité entière est renvoyée : tout acquis non maîtrisé
   // entre dans la motivation, quel que soit le cours qui le portait.
   if (decision === 'refuse') {
