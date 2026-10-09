@@ -35,6 +35,7 @@ export function migrerGroupesCommuns(base = db) {
     PRIMARY KEY (annee_scolaire, section, bloc, etudiant_id));`);
   const cols = base.prepare('PRAGMA table_info(groupe_commun_reglage)').all().map(c => c.name);
   if (!cols.includes('inclus')) base.exec('ALTER TABLE groupe_commun_reglage ADD COLUMN inclus INTEGER');
+  if (!cols.includes('ordre')) base.exec('ALTER TABLE groupe_commun_reglage ADD COLUMN ordre TEXT');
 }
 
 const pgcd = (a, b) => (b ? pgcd(b, a % b) : a);
@@ -74,9 +75,19 @@ export function cohorte(section, bloc, annee) {
       const r = reglages.get(`${a.code_cours}#${a.activite_id}`);
       const q = String(a.quadris || '');
       const quadriAttr = /Q1/.test(q) && !/Q2/.test(q) ? 'Q1' : /Q2/.test(q) && !/Q1/.test(q) ? 'Q2' : 'AN';
+      /* L'ORDRE DES GROUPES FAIT LES LIENS (Charles, 9 octobre 2026 : « lier
+         certains en glissant ») : le groupe placé en position k couvre les
+         briques de la position k. Aligner 252.2 C sous 250.1 B, c'est leur
+         donner les mêmes étudiants. Un ordre enregistré qui ne correspond plus
+         aux attributions (groupe ajouté ou retiré) est complété, jamais perdu. */
+      const cle = g => `${g.num_organisation}|${g.groupe || ''}`;
+      let ordre = []; try { ordre = JSON.parse(r?.ordre || '[]'); } catch { ordre = []; }
+      const parCle = new Map(groupes.map(g => [cle(g), g]));
+      const ranges = [...ordre.filter(k => parCle.has(k)).map(k => parCle.get(k)), ...groupes.filter(g => !ordre.includes(cle(g)))];
       activites.push({ ue_num: u.ue_num, ue_nom: u.ue_nom, cours_code: a.code_cours, cours_nom: a.cours_nom,
-        activite_id: a.activite_id, activite: a.libelle || null, groupes,
-        nb_groupes: r?.nb_groupes || groupes.length, quadri: r?.quadri || quadriAttr,
+        activite_id: a.activite_id, activite: a.libelle || null, groupes: ranges,
+        // CETTE ANNÉE, LES ATTRIBUTIONS COMMANDENT : autant de groupes qu'attribués.
+        nb_groupes: groupes.length, quadri: r?.quadri || quadriAttr,
         /* LES BRIQUES SONT POUR LES TP (Charles, 9 octobre 2026 : « le stage ne
            compte pas, c'est pour les TP ») : travaux pratiques et laboratoires
            d'office ; stage, séminaires, évaluations hors d'office. Une case
