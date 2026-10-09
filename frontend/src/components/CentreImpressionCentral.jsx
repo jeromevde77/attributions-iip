@@ -1,7 +1,7 @@
 import PiecesEtudiant from './PiecesEtudiant.jsx';
 import { selectionEtudiants } from '../lib/selectionEtudiants.js';
 import OngletSLE from './OngletSLE.jsx';
-import { useDroits } from '../lib/droits.js';
+import { useDroits, peutGeste } from '../lib/droits.js';
 import CentreDiplomation from './CentreDiplomation.jsx';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -139,6 +139,10 @@ function OngletValorisation({ initial = null }) {
   const [dossiers, setDossiers] = useState(null);
   const [ouverte, setOuverte] = useState(initial?.ue_num != null ? { ue_num: initial.ue_num, ue_nom: initial.ue_nom || '' } : null);
   const [erreur, setErreur] = useState(null);
+  // PAR UNITÉ OU PAR ÉTUDIANT (Charles, 9 octobre 2026) : le PV se tire par
+  // unité ; les pièces d'un étudiant — sa notification, ses attestations — se
+  // tirent pour lui, toutes ou certaines.
+  const [vue, setVue] = useState('unite');
 
   useEffect(() => {
     fetch('/api/annees', { headers: authHeaders() })
@@ -206,10 +210,21 @@ function OngletValorisation({ initial = null }) {
           <option value="">Toutes les sections</option>
           {(arbre?.sections || []).map(sx => <option key={sx} value={sx}>{sx}</option>)}
         </select>
+        <div className="segments">
+          {[['unite', 'Par unité'], ['etudiant', 'Par étudiant']].map(([k, l]) => (
+            <button key={k} type="button" onClick={() => setVue(k)}
+              className={vue === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>{l}</button>))}
+        </div>
         <span className="text-[12px] text-slate-500">
-          {unites.length} unité(s) portant des demandes
+          {vue === 'unite' ? `${unites.length} unité(s) portant des demandes` : ''}
         </span>
       </div>
+      {vue === 'etudiant' && (
+        <ValorisationParEtudiant annee={annee} dossiers={(dossiers || []).filter(d => {
+          const sec = d.section || nomUE.get(d.ue_num)?.section || null;
+          return !section || sec === section;
+        })} nomUE={nomUE} />
+      )}
 
       {erreur && (
         <div className="px-3 py-2 rounded-lg bg-amber-50 text-amber-900 text-[13px] border-l-4 border-l-amber-500">
@@ -221,7 +236,7 @@ function OngletValorisation({ initial = null }) {
           Le procès-verbal porte TOUS les étudiants valorisés dans l'unité
           cette année-là : le compte est sur la ligne, pour qu'on sache ce
           qu'on s'apprête à produire. */}
-      {dossiers && !unites.length && (
+      {vue === 'unite' && dossiers && !unites.length && (
         <p className="text-[13px] text-slate-400">
           Aucune demande de valorisation enregistrée pour cette année
           {section ? ` en ${section}` : ''}. Les pièces se produisent depuis
@@ -230,7 +245,7 @@ function OngletValorisation({ initial = null }) {
       )}
 
       <div className="space-y-1.5">
-        {unites.map(u => (
+        {vue === 'unite' && unites.map(u => (
           <div key={u.ue_num} className="carte px-3 py-2 flex items-center gap-3">
             <span className="flex-1 min-w-0">
               <span className="text-[13px] font-semibold text-iip-blue">
@@ -263,6 +278,179 @@ function OngletValorisation({ initial = null }) {
             annee={annee} onClose={() => setOuverte(null)} />
         </Suspense>
       )}
+    </div>
+  );
+}
+
+/* ══ LES PIÈCES DE VALORISATION, ÉTUDIANT PAR ÉTUDIANT ════════════════════
+ *
+ * Charles, 9 octobre 2026 : « le choix par liste d'étudiants aussi, et pouvoir
+ * sortir tous les documents de l'étudiant, ou certains ». Deux pièces : la
+ * NOTIFICATION des décisions (une lettre qui porte toutes ses unités) et
+ * l'ATTESTATION de réussite (annexe 14 ou 15), une par unité accordée en
+ * entier. L'attestation se tire de la séance de son unité — le serveur la
+ * compose avec le PV —, on n'en garde ici que celle de l'étudiant. Le PV, qui
+ * porte toute l'unité, ne part jamais par étudiant.
+ */
+const PIECES_VA = [
+  { cle: 'notification', label: 'Notification des décisions' },
+  { cle: 'attestation', label: 'Attestation(s) de réussite (annexe 14 / 15)' },
+];
+function fusionnerHtml(docs) {
+  // Un document par étudiant : les styles de chaque pièce, puis leurs corps, page après page.
+  const styles = [...new Set(docs.flatMap(h => h.match(/<style[\s\S]*?<\/style>/gi) || []))].join('\n');
+  const corps = docs.map(h => (h.match(/<body[^>]*>([\s\S]*)<\/body>/i) || [null, h])[1]);
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">${styles}</head><body>`
+    + corps.join('<div style="break-after:page;page-break-after:always"></div>') + '</body></html>';
+}
+
+function ValorisationParEtudiant({ annee, dossiers, nomUE }) {
+  const envoiMail = useEnvoiMail();
+  const [coches, setCoches] = useState(() => new Set());
+  const [choix, setChoix] = useState({ notification: true, attestation: true });
+  const [q, setQ] = useState('');
+  const [enCours, setEnCours] = useState(false);
+  const [avis, setAvis] = useState([]);
+  const [produits, setProduits] = useState(null);   // [{ etudiant_id, etudiant, html, nom }]
+  const [envoi, setEnvoi] = useState(false);
+
+  const etudiants = useMemo(() => {
+    const m = new Map();
+    for (const d of dossiers) {
+      if (!m.has(d.etudiant_id)) m.set(d.etudiant_id, { id: d.etudiant_id, nom: d.nom, prenom: d.prenom, unites: [] });
+      m.get(d.etudiant_id).unites.push(d);
+    }
+    const n = s0 => String(s0 || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    return [...m.values()]
+      .filter(e => !q.trim() || n(`${e.nom} ${e.prenom}`).includes(n(q)))
+      .sort((a, b) => `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`, 'fr'));
+  }, [dossiers, q]);
+  useEffect(() => { setProduits(null); }, [annee, coches, choix]);
+
+  const tous = etudiants.length > 0 && etudiants.every(e => coches.has(e.id));
+  const basculer = id => setCoches(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const etat = d => d.decision === 'refusee' ? 'refusée'
+    : !d.decision_le ? 'à décider' : !d.valide_le ? 'non validée'
+    : d.type === 'complete' ? 'accordée' : 'partielle';
+
+  async function produire() {
+    setEnCours(true); setAvis([]); setProduits(null);
+    const ids = etudiants.filter(e => coches.has(e.id)).map(e => e.id);
+    const parEtud = new Map(ids.map(id => [id, []]));
+    const remarques = [];
+    try {
+      if (choix.notification) {
+        for (const id of ids) {
+          const r = await fetch(`/api/etudiants/${id}/valorisations/notification?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() });
+          const j = await r.json().catch(() => ({}));
+          const e = etudiants.find(x => x.id === id);
+          if (!r.ok || !j.html) remarques.push(`${String(e?.nom || '').toUpperCase()} ${e?.prenom || ''} — notification : ${j.error || 'non produite'}`);
+          else parEtud.get(id).push(j.html);
+        }
+      }
+      if (choix.attestation) {
+        // Une séance par unité, tirée UNE fois, et chacun y reprend la sienne.
+        const unitesVoulues = [...new Set(etudiants.filter(e => coches.has(e.id))
+          .flatMap(e => e.unites.filter(d => d.type === 'complete' && d.decision !== 'refusee' && d.valide_le).map(d => d.ue_num)))];
+        for (const ue of unitesVoulues) {
+          const r = await fetch(`/api/attestations/valorisation/ue/${ue}/documents`, {
+            method: 'POST', headers: authHeaders(), body: JSON.stringify({ annee }) });
+          const j = await r.json().catch(() => ({}));
+          if (!r.ok) { remarques.push(`UE ${ue} — attestations non produites : ${j.error || r.status}${(j.manques || []).length ? ` (${j.manques.slice(0, 2).join(' · ')}…)` : ''}`); continue; }
+          for (const a of j.attestations || []) if (parEtud.has(a.etudiant_id)) parEtud.get(a.etudiant_id).push(a.html);
+        }
+      }
+      const out = [];
+      for (const [id, docs] of parEtud) {
+        if (!docs.length) continue;
+        const e = etudiants.find(x => x.id === id);
+        out.push({ etudiant_id: id, etudiant: `${String(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim(),
+          html: docs.length === 1 ? docs[0] : fusionnerHtml(docs),
+          nom: `VA_${String(e.nom || '').replace(/\s+/g, '-')}_${String(e.prenom || '').replace(/\s+/g, '-')}_${String(annee).replace(/\W/g, '')}` });
+      }
+      setProduits(out); setAvis(remarques);
+      if (!out.length) setAvis(r0 => [...r0, 'Aucune pièce produite pour la sélection.']);
+    } catch (e) { setAvis([e.message]); }
+    finally { setEnCours(false); }
+  }
+
+  const apercu = k => {
+    const d = produits[k];
+    const nav = produits.length > 1 ? (
+      <span className="flex items-center gap-1 text-[12px] text-slate-500">
+        <button type="button" className="bouton controle px-2" disabled={k === 0} onClick={() => apercu(k - 1)}>◀</button>
+        <span className="tabular-nums px-1">{k + 1} / {produits.length}</span>
+        <button type="button" className="bouton controle px-2" disabled={k === produits.length - 1} onClick={() => apercu(k + 1)}>▶</button>
+      </span>) : null;
+    ouvrirApercu({ html: d.html, titre: `Valorisation — ${d.etudiant}`, nomFichier: d.nom, envoiPossible: false,
+      astuceImpression: 'A4 portrait', actionExtra: nav });
+  };
+  const toutImprimer = () => ouvrirApercu({ html: fusionnerHtml(produits.map(p0 => p0.html)),
+    titre: `Valorisation — ${produits.length} étudiant(s)`, nomFichier: `VA_lot_${String(annee).replace(/\W/g, '')}`,
+    envoiPossible: false, astuceImpression: 'A4 portrait' });
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Chercher un étudiant…" className="controle text-[13px] w-56" />
+        {PIECES_VA.map(p0 => (
+          <label key={p0.cle} className="flex items-center gap-1.5 text-[13px] cursor-pointer">
+            <input type="checkbox" checked={!!choix[p0.cle]} onChange={() => setChoix(c => ({ ...c, [p0.cle]: !c[p0.cle] }))} />
+            {p0.label}
+          </label>))}
+      </div>
+      <div className="border border-slate-200 rounded-carte overflow-hidden bg-white">
+        <table className="w-full text-[12.5px]">
+          <thead>
+            <tr className="tab-entete text-left">
+              <th className="px-3 py-1.5 w-8"><input type="checkbox" checked={tous}
+                onChange={() => setCoches(tous ? new Set() : new Set(etudiants.map(e => e.id)))} /></th>
+              <th className="px-3 py-1.5">Étudiant</th>
+              <th className="px-3 py-1.5">Unités et décisions</th>
+            </tr>
+            <tr className="tab-repere font-semibold">
+              <td></td><td className="px-3 py-1">{coches.size} sur {etudiants.length} coché(s)</td><td></td>
+            </tr>
+          </thead>
+          <tbody>
+            {etudiants.map(e => (
+              <tr key={e.id} className="border-t border-slate-100 cursor-pointer hover:bg-slate-50" onClick={() => basculer(e.id)}>
+                <td className="px-3 py-1" onClick={ev => ev.stopPropagation()}>
+                  <input type="checkbox" checked={coches.has(e.id)} onChange={() => basculer(e.id)} /></td>
+                <td className="px-3 py-1 whitespace-nowrap"><b className="text-iip-blue">{String(e.nom || '').toUpperCase()}</b> {e.prenom}</td>
+                <td className="px-3 py-1 text-[11.5px] text-slate-600">
+                  {e.unites.map(d => `${d.ue_num === 0 ? 'Admission' : `UE ${d.ue_num}`} (${etat(d)})`).join(' · ')}
+                </td>
+              </tr>))}
+          </tbody>
+        </table>
+      </div>
+      {avis.length > 0 && (
+        <div className="px-3 py-2 rounded-lg bg-white border border-slate-200 border-l-4 text-[12.5px] text-slate-700"
+          style={{ borderLeftColor: 'var(--c-attente)' }}>
+          {avis.map((a, i) => <div key={i}>{a}</div>)}
+        </div>)}
+      {produits?.length > 0 && (
+        <div className="text-[12.5px] text-slate-600">
+          {produits.length} document(s) prêt(s), un par étudiant — {produits.map(p0 => p0.etudiant).join(' · ')}
+        </div>)}
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" className="bouton bouton-fort" disabled={enCours || !coches.size || !Object.values(choix).some(Boolean)}
+          onClick={produire}>{enCours ? 'Production…' : `Produire pour ${coches.size} étudiant(s)`}</button>
+        {produits?.length > 0 && <>
+          <button type="button" className="bouton" onClick={() => apercu(0)}>Aperçu, un par un</button>
+          <button type="button" className="bouton bouton-sortir" onClick={toutImprimer}>Tout imprimer</button>
+          {envoiMail?.actif && peutGeste('envois.envoyer') && (
+            <button type="button" className="bouton bouton-sortir" onClick={() => setEnvoi(true)}>
+              Envoyer à chacun ({produits.length})</button>)}
+        </>}
+      </div>
+      {envoi && (
+        <EnvoiMailModal typeDoc="valorisation_etudiant" sujet={`Valorisation des acquis — ${annee} — vos documents`}
+          contenu={`Pièces de valorisation — ${annee}`}
+          pieces={produits.map(p0 => ({ html: p0.html, nom_fichier: p0.nom,
+            destinataire: { type: 'etudiant', id: p0.etudiant_id, nom: p0.etudiant } }))}
+          onClose={() => setEnvoi(false)} />)}
     </div>
   );
 }
