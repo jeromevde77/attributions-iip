@@ -25,6 +25,7 @@ import db from '../db/index.js';
 import { envelopper, frDate } from '../routes/attestations.js';
 import { enteteDocument } from './document.js';
 import { identiteEtablissement } from '../routes/config.js';
+import { composerModele, declarerModele, blocModele } from './modelesPieces.js';
 import { getParam } from '../routes/parametres.js';
 import { sectionRattachement } from '../routes/etudiants.js';
 
@@ -177,6 +178,97 @@ const SENS = {
   refuse: 'REFUSE la demande',
 };
 
+/* LES TEXTES DES QUATRE PIÈCES SE CORRIGENT DANS LUCIE (Galerie des pièces →
+   Modifier le modèle ; lib/modelesPieces.js). Ce qui suit est le texte
+   d'origine ; ce qui se calcule — tableaux des mesures, motivation, voies de
+   recours, signature — reste en blocs verrouillés. */
+const B = blocModele;
+const CHAMPS_AR = {
+  nom_prenom: "Nom et prénom de l'étudiant", civilite: 'Madame / Madame, Monsieur', annee: 'Année académique',
+  section: 'Section', date_demande: 'Date de la demande', date_cde: 'Date de la décision du Conseil',
+  date_recu: 'Reçue par le Conseil le', reference: 'Personne de référence (entre parenthèses)',
+  sens: 'Décision (accorde / accorde partiellement / refuse)', ponctuation: '« : » ou « . » selon la décision',
+  phrase_decision: 'Phrase de la décision (selon le sens)', delai: 'Délai de mise en œuvre',
+  unites: 'Unités concernées', ville: 'Ville', directeur: 'Directeur', date_lettre: 'Date de la lettre',
+};
+declarerModele('ar_decision', {
+  libelle: "Aménagement raisonnable — décision du Conseil des études", galerie: 'amenagement_decision', champs: CHAMPS_AR,
+  blocs: { caracteristiques: 'Dates de la demande et unités concernées', identite: "Identité de l'étudiant",
+    mesures_accordees: 'Tableau des mesures accordées', mesures_refusees: 'Mesures non accordées et leurs motifs',
+    motivation: 'Motivation du Conseil', modalites: 'Délai de mise en œuvre et conditions particulières',
+    mention_art7: 'Mention : un aménagement ne remet pas en cause les acquis (art. 7)',
+    recours: 'Voies de recours (si la demande n’est pas entièrement accordée)', signature: 'Lieu, date et signature' },
+  obligatoires: { blocs: ['identite', 'mesures_accordees', 'mesures_refusees', 'motivation', 'recours', 'signature'] },
+  defaut: `${B('caracteristiques')}
+<p>Le Conseil des études, réuni le <b>{{date_cde}}</b>, a examiné la demande d'aménagements raisonnables introduite par</p>
+${B('identite')}
+<p>ainsi que le rapport de la personne de référence{{reference}}. Il <b>{{sens}}</b>{{ponctuation}}</p>
+${B('mesures_accordees')}
+${B('mesures_refusees')}
+${B('motivation')}
+${B('modalites')}
+${B('mention_art7')}
+${B('recours')}
+${B('signature')}`,
+});
+declarerModele('ar_notification', {
+  libelle: "Aménagement raisonnable — notification de la décision", galerie: 'amenagement_notification', champs: CHAMPS_AR,
+  blocs: { identite: "Identité de l'étudiant", mise_en_oeuvre: 'Mise en œuvre et secret professionnel (si accordé)',
+    recours: 'Voies de recours (si la demande n’est pas entièrement accordée)',
+    mode: 'Mode de notification et copie', signature: 'Lieu, date et signature' },
+  obligatoires: { blocs: ['identite', 'recours', 'mode', 'signature'], champs: ['phrase_decision'] },
+  defaut: `${B('identite')}
+<p>{{civilite}},</p>
+<p>Par la présente, nous vous notifions la décision prise le <b>{{date_cde}}</b> par le Conseil des études sur votre demande d'aménagements raisonnables introduite le <b>{{date_demande}}</b>.</p>
+<p>{{phrase_decision}}</p>
+${B('mise_en_oeuvre')}
+${B('recours')}
+${B('mode')}
+${B('signature')}`,
+});
+declarerModele('ar_mesures', {
+  libelle: "Aménagement raisonnable — fiche « mesures » pour les chargés de cours", galerie: 'amenagement_mesures', champs: CHAMPS_AR,
+  blocs: { confidentiel: 'Encadré « document confidentiel » (secret professionnel)', identite: "Identité de l'étudiant",
+    caracteristiques: 'Date de la décision, mise en œuvre, unités', mesures_accordees: 'Tableau des mesures retenues' },
+  obligatoires: { blocs: ['confidentiel', 'identite', 'mesures_accordees'] },
+  defaut: `${B('confidentiel')}
+${B('identite')}
+${B('caracteristiques')}
+${B('mesures_accordees')}
+<p>Un aménagement porte sur la manière d'accéder aux acquis d'apprentissage et de les évaluer, jamais sur les acquis eux-mêmes (art. 7, § 1er). Une question sur sa mise en œuvre s'adresse au secrétariat ou à la personne de référence{{reference}}.</p>`,
+});
+declarerModele('ar_formulaire', {
+  libelle: "Aménagement raisonnable — demande (cadres A et B)", galerie: 'amenagement_formulaire', champs: CHAMPS_AR,
+  blocs: { cadre_a: 'Cadre A — tableau de la demande', cadre_b: 'Cadre B — tableau du rapport', signatures: 'Cases de signature' },
+  obligatoires: { blocs: ['cadre_a', 'cadre_b', 'signatures'] },
+  defaut: `<h3>Cadre A — la demande de l'étudiant</h3>
+${B('cadre_a')}
+<h3>Cadre B — le rapport de la personne de référence</h3>
+${B('cadre_b')}
+${B('signatures')}`,
+});
+
+/** Les champs communs aux quatre pièces. */
+function champsAR(d) {
+  const ident = identiteEtablissement() || {};
+  const e = d.etudiant;
+  return {
+    nom_prenom: nomEtudiant(e), civilite: feminin(e) ? 'Madame' : 'Madame, Monsieur',
+    annee: esc(String(d.annee_scolaire).replace('-', '/')), section: esc(d.section_libelle || ''),
+    date_demande: jour(d.date_demande), date_cde: jour(d.cde_date), date_recu: jour(d.cde_recu_le || d.transmis_cde_le),
+    reference: d.personne_reference ? ` (${esc(d.personne_reference)})` : '',
+    sens: SENS[d.sens] || 'statue sur la demande', ponctuation: d.sens === 'refuse' ? '.' : ' :',
+    phrase_decision: d.sens === 'accepte'
+      ? "Le Conseil des études a <b>accordé</b> les aménagements raisonnables décrits dans la décision ci-jointe."
+      : d.sens === 'partiel'
+        ? "Le Conseil des études a <b>accordé partiellement</b> votre demande : les mesures accordées et celles qui ne le sont pas, avec leurs motifs, figurent dans la décision ci-jointe."
+        : "Le Conseil des études a <b>refusé</b> votre demande, pour les motifs exposés dans la décision ci-jointe.",
+    delai: d.delai_mise_oeuvre ? esc(d.delai_mise_oeuvre) : 'dès réception',
+    unites: unitesConcernees(d), ville: esc(ident.ville || 'Bruxelles'), directeur: esc(ident.directeur || '……………………'),
+    date_lettre: jour(d.notifie_le || aujourdhui()),
+  };
+}
+
 function corpsDecision(d) {
   const ident = identiteEtablissement() || {};
   return `<div class="attestation piece">
@@ -185,67 +277,55 @@ function corpsDecision(d) {
     sous: 'Conseil des études',
     ligne: ligneEntete(d, 'Décret du 30 juin 2016, art. 6'),
   })}
-  <div class="carac">
+  ${composerModele('ar_decision', { champs: champsAR(d), blocs: {
+    caracteristiques: `<div class="carac">
     <div>Demande introduite le <b>${jour(d.date_demande)}</b></div>
     <div>Reçue par le Conseil le <b>${jour(d.cde_recu_le || d.transmis_cde_le)}</b></div>
     <div class="large">Unités concernées : <b>${unitesConcernees(d)}</b></div>
-  </div>
-  <p class="corps">Le Conseil des études, réuni le <b>${jour(d.cde_date)}</b>, a examiné la
-    demande d'aménagements raisonnables introduite par</p>
-  ${blocEtudiant(d)}
-  <p class="corps">ainsi que le rapport de la personne de référence${d.personne_reference
-    ? ` (${esc(d.personne_reference)})` : ''}. Il <b>${SENS[d.sens] || 'statue sur la demande'}</b>${
-    d.sens === 'refuse' ? '.' : ' :'}</p>
-  ${d.sens !== 'refuse' ? tableMesures(d.accordees) : ''}
-  ${d.refusees.length ? `<p class="corps">Les mesures suivantes ne sont pas accordées :</p>
-    ${tableMesures(d.refusees, { avecMotif: true })}` : ''}
-  <div class="info"><div class="titre">Motivation</div>
-    <div class="ligne">${multi(d.cde_motivation)}</div></div>
-  ${d.sens !== 'refuse' ? `<div class="champ"><span class="lab">Délai de mise en œuvre :</span>
+  </div>`,
+    identite: blocEtudiant(d),
+    mesures_accordees: d.sens !== 'refuse' ? tableMesures(d.accordees) : '',
+    mesures_refusees: d.refusees.length ? `<p class="corps">Les mesures suivantes ne sont pas accordées :</p>
+    ${tableMesures(d.refusees, { avecMotif: true })}` : '',
+    motivation: `<div class="info"><div class="titre">Motivation</div>
+    <div class="ligne">${multi(d.cde_motivation)}</div></div>`,
+    modalites: d.sens !== 'refuse' ? `<div class="champ"><span class="lab">Délai de mise en œuvre :</span>
       ${d.delai_mise_oeuvre ? esc(d.delai_mise_oeuvre) : 'dès la notification'}</div>
     ${d.conditions_particulieres ? `<div class="champ"><span class="lab">Conditions particulières :</span>
-      ${multi(d.conditions_particulieres)}</div>` : ''}` : ''}
-  <p class="corps" style="font-size:8pt;color:#475569">Un aménagement raisonnable ne remet
+      ${multi(d.conditions_particulieres)}</div>` : ''}` : '',
+    mention_art7: `<p class="corps" style="font-size:8pt;color:#475569">Un aménagement raisonnable ne remet
     pas en cause les acquis d'apprentissage définis dans les dossiers pédagogiques ; il porte
-    sur la manière d'y accéder et de les évaluer (art. 7, § 1er).</p>
-  ${d.sens === 'accepte' ? '' : recours()}
-  ${cloture(`Fait à ${esc(ident.ville || 'Bruxelles')}, le ${jour(d.cde_date)}`,
-    'Pour le Conseil des études,<br>le Directeur', ident.directeur || '……………………')}
+    sur la manière d'y accéder et de les évaluer (art. 7, § 1er).</p>`,
+    recours: d.sens === 'accepte' ? '' : recours(),
+    signature: cloture(`Fait à ${esc(ident.ville || 'Bruxelles')}, le ${jour(d.cde_date)}`,
+      'Pour le Conseil des études,<br>le Directeur', ident.directeur || '……………………'),
+  } })}
 </div>`;
 }
 
 function corpsNotification(d) {
   const ident = identiteEtablissement() || {};
-  const e = d.etudiant;
   const dateLettre = d.notifie_le || aujourdhui();
-  const phrase = d.sens === 'accepte'
-    ? "Le Conseil des études a <b>accordé</b> les aménagements raisonnables décrits dans la décision ci-jointe."
-    : d.sens === 'partiel'
-      ? "Le Conseil des études a <b>accordé partiellement</b> votre demande : les mesures accordées et celles qui ne le sont pas, avec leurs motifs, figurent dans la décision ci-jointe."
-      : "Le Conseil des études a <b>refusé</b> votre demande, pour les motifs exposés dans la décision ci-jointe.";
   return `<div class="attestation piece">
   ${enteteDocument({
     titre: "Notification d'une décision — aménagements raisonnables",
     sous: 'La Direction',
     ligne: ligneEntete(d, 'Décret du 30 juin 2016, art. 6, § 2'),
   })}
-  ${blocEtudiant(d)}
-  <p class="corps">${feminin(e) ? 'Madame' : 'Madame, Monsieur'},</p>
-  <p class="corps">Par la présente, nous vous notifions la décision prise le
-    <b>${jour(d.cde_date)}</b> par le Conseil des études sur votre demande d'aménagements
-    raisonnables introduite le <b>${jour(d.date_demande)}</b>.</p>
-  <p class="corps">${phrase}</p>
-  ${d.sens !== 'refuse' ? `<p class="corps">Ces aménagements sont mis en œuvre ${
-    d.delai_mise_oeuvre ? esc(d.delai_mise_oeuvre) : 'dès réception de la présente'}. Seules
+  ${composerModele('ar_notification', { champs: champsAR(d), blocs: {
+    identite: blocEtudiant(d),
+    mise_en_oeuvre: d.sens !== 'refuse' ? `<p class="corps">Ces aménagements sont mis en œuvre ${
+      d.delai_mise_oeuvre ? esc(d.delai_mise_oeuvre) : 'dès réception de la présente'}. Seules
     les mesures retenues sont communiquées aux chargés de cours concernés ; la nature de votre
-    situation reste couverte par le secret professionnel.</p>` : ''}
-  ${d.sens === 'accepte' ? '' : recours()}
-  <div class="champ"><span class="lab">Mode de notification :</span>
+    situation reste couverte par le secret professionnel.</p>` : '',
+    recours: d.sens === 'accepte' ? '' : recours(),
+    mode: `<div class="champ"><span class="lab">Mode de notification :</span>
     ${d.notifie_par ? esc(MODES[d.notifie_par] || d.notifie_par) : '……………'}
     · <span class="lab">Copie :</span> la personne de référence${d.personne_reference
-      ? ` (${esc(d.personne_reference)})` : ''}</div>
-  ${cloture(`Fait à ${esc(ident.ville || 'Bruxelles')}, le ${jour(dateLettre)}`,
-    'Pour la Direction,<br>le Directeur', ident.directeur || '……………………')}
+      ? ` (${esc(d.personne_reference)})` : ''}</div>`,
+    signature: cloture(`Fait à ${esc(ident.ville || 'Bruxelles')}, le ${jour(dateLettre)}`,
+      'Pour la Direction,<br>le Directeur', ident.directeur || '……………………'),
+  } })}
 </div>`;
 }
 
@@ -256,27 +336,24 @@ function corpsMesures(d) {
     sous: 'À l’attention des chargés de cours',
     ligne: ligneEntete(d),
   })}
-  <div class="info orange"><div class="titre">Document confidentiel</div>
+  ${composerModele('ar_mesures', { champs: champsAR(d), blocs: {
+    confidentiel: `<div class="info orange"><div class="titre">Document confidentiel</div>
     <div class="ligne">Cette fiche ne porte que les mesures retenues par le Conseil des études.
       La situation de l'étudiant est couverte par le secret professionnel (décret du 30 juin
-      2016, art. 5) : elle n'a pas à être recherchée ni évoquée.</div></div>
-  ${blocEtudiant(d)}
-  <div class="carac">
+      2016, art. 5) : elle n'a pas à être recherchée ni évoquée.</div></div>`,
+    identite: blocEtudiant(d),
+    caracteristiques: `<div class="carac">
     <div>Décision du <b>${jour(d.cde_date)}</b></div>
     <div>Mise en œuvre : <b>${d.delai_mise_oeuvre ? esc(d.delai_mise_oeuvre) : 'dès réception'}</b></div>
     <div class="large">Unités concernées : <b>${unitesConcernees(d)}</b></div>
-  </div>
-  ${tableMesures(d.accordees)}
-  <p class="corps" style="font-size:8pt;color:#475569">Un aménagement porte sur la manière
-    d'accéder aux acquis d'apprentissage et de les évaluer, jamais sur les acquis eux-mêmes
-    (art. 7, § 1er). Une question sur sa mise en œuvre s'adresse au secrétariat ou à la
-    personne de référence${d.personne_reference ? ` (${esc(d.personne_reference)})` : ''}.</p>
+  </div>`,
+    mesures_accordees: tableMesures(d.accordees),
+  } })}
 </div>`;
 }
 
 function corpsFormulaire(d) {
   const e = d.etudiant;
-  const oui = v => v === 1 ? 'Demandés' : v === 0 ? 'Non demandés' : '……………';
   const piece = { probant: 'Document probant (art. 7, § 2, 1°)',
                   rapport_specialiste: 'Rapport de spécialiste (art. 7, § 2, 2°)' }[d.piece_type];
   const ligne = (lab, val) => `<tr><td style="width:34%"><b>${lab}</b></td><td>${val || '<span class="vide">—</span>'}</td></tr>`;
@@ -286,8 +363,8 @@ function corpsFormulaire(d) {
     sous: 'Cadre A — l’étudiant · Cadre B — la personne de référence',
     ligne: ligneEntete(d, 'Pièce confidentielle — secret professionnel (art. 5)'),
   })}
-  <h3>Cadre A — la demande de l'étudiant</h3>
-  <table class="doc"><tbody>
+  ${composerModele('ar_formulaire', { champs: champsAR(d), blocs: {
+    cadre_a: `<table class="doc"><tbody>
     ${ligne('Étudiant', `${nomEtudiant(e)} · matricule ${esc(e.id_ecampus || '—')}`)}
     ${ligne('Date de la demande', jour(d.date_demande))}
     ${ligne('Unités concernées', unitesConcernees(d))}
@@ -299,20 +376,20 @@ function corpsFormulaire(d) {
     ${ligne('Annexes', d.annexes_nb != null ? `${d.annexes_nb}${d.annexes_desc ? ` — ${esc(d.annexes_desc)}` : ''}` : esc(d.annexes_desc))}
     ${ligne("Signé par l'étudiant le", d.signe_etudiant_le ? jour(d.signe_etudiant_le) : '')}
     ${ligne('Reçu et signé le', d.signe_reference_le ? jour(d.signe_reference_le) : '')}
-  </tbody></table>
-  <h3>Cadre B — le rapport de la personne de référence</h3>
-  <table class="doc"><tbody>
+  </tbody></table>`,
+    cadre_b: `<table class="doc"><tbody>
     ${ligne('Personne de référence', esc(d.personne_reference))}
     ${ligne('Aménagements matériels', listeMesures(d.mesures.filter(m => m.nature === 'materiel'), 'Non demandés'))}
     ${ligne('Aménagements pédagogiques', listeMesures(d.mesures.filter(m => m.nature !== 'materiel'), 'Non demandés'))}
     ${ligne('Annexes', d.rapport_annexes_nb != null ? `${d.rapport_annexes_nb}${d.rapport_annexes_desc ? ` — ${esc(d.rapport_annexes_desc)}` : ''}` : esc(d.rapport_annexes_desc))}
     ${ligne('Transmis au Conseil des études le', d.transmis_cde_le ? jour(d.transmis_cde_le) : '')}
     ${ligne('Reçu par le Conseil le', d.cde_recu_le ? jour(d.cde_recu_le) : '')}
-  </tbody></table>
-  <table class="doc" style="margin-top:6mm"><tbody><tr>
+  </tbody></table>`,
+    signatures: `<table class="doc" style="margin-top:6mm"><tbody><tr>
     <td style="width:50%;height:24mm;vertical-align:top"><b>Signature de l'étudiant</b></td>
     <td style="vertical-align:top"><b>Signature de la personne de référence</b></td>
-  </tr></tbody></table>
+  </tr></tbody></table>`,
+  } })}
 </div>`;
 }
 

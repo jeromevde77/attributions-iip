@@ -400,6 +400,28 @@ function ValorisationParEtudiant({ annee, dossiers, nomUE }) {
             {p0.label}
           </label>))}
       </div>
+      {/* LES BOUTONS EN HAUT, TOUJOURS (Charles, 9 octobre 2026) : on ne
+          déroule pas la liste des étudiants pour trouver de quoi produire. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" className="bouton bouton-fort" disabled={enCours || !coches.size || !Object.values(choix).some(Boolean)}
+          onClick={produire}>{enCours ? 'Production…' : `Produire pour ${coches.size} étudiant(s)`}</button>
+        {produits?.length > 0 && <>
+          <button type="button" className="bouton" onClick={() => apercu(0)}>Aperçu, un par un</button>
+          <button type="button" className="bouton bouton-sortir" onClick={toutImprimer}>Tout imprimer</button>
+          {envoiMail?.actif && peutGeste('envois.envoyer') && (
+            <button type="button" className="bouton bouton-sortir" onClick={() => setEnvoi(true)}>
+              Envoyer à chacun ({produits.length})</button>)}
+        </>}
+      </div>
+      {avis.length > 0 && (
+        <div className="px-3 py-2 rounded-lg bg-white border border-slate-200 border-l-4 text-[12.5px] text-slate-700"
+          style={{ borderLeftColor: 'var(--c-attente)' }}>
+          {avis.map((a, i) => <div key={i}>{a}</div>)}
+        </div>)}
+      {produits?.length > 0 && (
+        <div className="text-[12.5px] text-slate-600">
+          {produits.length} document(s) prêt(s), un par étudiant — {produits.map(p0 => p0.etudiant).join(' · ')}
+        </div>)}
       <div className="border border-slate-200 rounded-carte overflow-hidden bg-white">
         <table className="w-full text-[12.5px]">
           <thead>
@@ -425,26 +447,6 @@ function ValorisationParEtudiant({ annee, dossiers, nomUE }) {
               </tr>))}
           </tbody>
         </table>
-      </div>
-      {avis.length > 0 && (
-        <div className="px-3 py-2 rounded-lg bg-white border border-slate-200 border-l-4 text-[12.5px] text-slate-700"
-          style={{ borderLeftColor: 'var(--c-attente)' }}>
-          {avis.map((a, i) => <div key={i}>{a}</div>)}
-        </div>)}
-      {produits?.length > 0 && (
-        <div className="text-[12.5px] text-slate-600">
-          {produits.length} document(s) prêt(s), un par étudiant — {produits.map(p0 => p0.etudiant).join(' · ')}
-        </div>)}
-      <div className="flex flex-wrap items-center gap-2">
-        <button type="button" className="bouton bouton-fort" disabled={enCours || !coches.size || !Object.values(choix).some(Boolean)}
-          onClick={produire}>{enCours ? 'Production…' : `Produire pour ${coches.size} étudiant(s)`}</button>
-        {produits?.length > 0 && <>
-          <button type="button" className="bouton" onClick={() => apercu(0)}>Aperçu, un par un</button>
-          <button type="button" className="bouton bouton-sortir" onClick={toutImprimer}>Tout imprimer</button>
-          {envoiMail?.actif && peutGeste('envois.envoyer') && (
-            <button type="button" className="bouton bouton-sortir" onClick={() => setEnvoi(true)}>
-              Envoyer à chacun ({produits.length})</button>)}
-        </>}
       </div>
       {envoi && (
         <EnvoiMailModal typeDoc="valorisation_etudiant" sujet={`Valorisation des acquis — ${annee} — vos documents`}

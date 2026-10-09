@@ -150,6 +150,16 @@ ${B('signature')}`,
 };
 MODELES.motivation_refus.champs = MODELES.motivation_ajournement.champs;
 
+/** Chaque famille de pièces déclare ses modèles là où elle compose ses pièces
+ *  (piecesAmenagement.js, piecesProcedures.js…) : le texte d'origine vit à
+ *  côté du code qui le remplit. */
+export function declarerModele(cle, def) {
+  MODELES[cle] = { champs: {}, blocs: {}, obligatoires: { blocs: [], champs: [], textes: [] }, ...def };
+  MODELES[cle].obligatoires = { blocs: [], champs: [], textes: [], ...(def.obligatoires || {}) };
+  return cle;
+}
+export const blocModele = B;
+
 export const POLICES = ['Arial', 'Helvetica', 'Calibri', 'Georgia', 'Times New Roman', 'Garamond'];
 export const TAILLES = ['8pt', '8.5pt', '9pt', '9.5pt', '10pt', '10.5pt', '11pt'];
 

@@ -103,7 +103,7 @@ export default function ApercuDocuments({ onClose }) {
                la même composition, sur un dossier inventé — SPÉCIMEN Camille,
                UE 999 —, et le bandeau dit pourquoi. */
             if (choisi.specimen) {
-              const sp = await fetch(`/api/apercu/specimen/${choisi.id}?annee=${encodeURIComponent(val.annee || annee)}`, { headers: authHeaders() });
+              const sp = await fetch(`/api/apercu/specimen/${choisi.id}?annee=${encodeURIComponent(val.annee || annee)}`, { headers: authHeaders(edition && brouillon ? { 'X-Modele-Brouillon': brouillon } : {}) });
               const sj = await sp.json().catch(() => ({}));
               if (sp.ok && sj.html) { if (vivant) setRendu({ html: sj.html, nom: sj.nom, specimen: raison }); return; }
             }
