@@ -1404,6 +1404,27 @@ r.get('/valorisation/ue/:ueNum/seance', authRequired, (req, res) => {
  * la séance, pas un correctif. Une séance close ne se modifie plus.
  */
 
+/* LE TEXTE DU PROCÈS-VERBAL D'ANNEXE 4 SE CORRIGE DANS LUCIE (Galerie des
+   pièces → Modifier le modèle). Tableaux, remarques, membres, mentions et
+   signature restent verrouillés. */
+declarerModele('pv_valorisation', {
+  libelle: 'Procès-verbal de valorisation des acquis (annexe 4)', galerie: ['va_pv'],
+  champs: { ue_num: "N° de l'unité", ue_nom: "Intitulé de l'unité", annee: 'Année', date_seance: 'Date de la séance', ville: 'Ville' },
+  blocs: { caracteristiques: "Intitulé, code, périodes, ECTS, section", repartition: 'Répartition des périodes par activité',
+    decisions: 'Tableau des décisions, remarques et mentions de dispense', conseil: 'Membres du Conseil et signatures',
+    mentions: 'Nombre de pages, dates de délibération et de communication', signature: 'Lieu, date et signatures' },
+  obligatoires: { blocs: ['caracteristiques', 'repartition', 'decisions', 'conseil', 'mentions', 'signature'] },
+  defaut: `<p>Nous, soussignés, Président-e et Membres du Conseil des études constitué en vue d'évaluer la maîtrise des acquis d'apprentissage lorsque ceux-ci ont été obtenus en dehors de l'unité d'enseignement :</p>
+${blocModele('caracteristiques')}
+<p>Répartition des périodes par activité d'enseignement :</p>
+${blocModele('repartition')}
+<p>Après en avoir délibéré, avons pris les décisions suivantes :</p>
+${blocModele('decisions')}
+${blocModele('conseil')}
+${blocModele('mentions')}
+${blocModele('signature')}`,
+});
+
 /* LA SÉANCE DE VALORISATION SE TIENT PAR CEUX QUI INSTRUISENT (21 septembre
  * 2026). Ces deux portes n'avaient AUCUN contrôle de rôle : tout compte
  * connecté pouvait modifier la séance et produire le PV d'annexe 4 et les
@@ -1778,12 +1799,11 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, gesteRequis('valorisat
          + `${superieur ? 'Enseignement supérieur' : 'Enseignement secondaire'}`,
   })}
 
-  <p class="corps">
-    Nous, soussignés, Président-e et Membres du Conseil des études constitué en
-    vue d'évaluer la maîtrise des acquis d'apprentissage lorsque ceux-ci ont été
-    obtenus en dehors de l'unité d'enseignement :
-  </p>
-
+  ${composerModele('pv_valorisation', {
+    champs: { ue_num: esc(ueNum), ue_nom: esc(ue.ue_nom || ''), annee: esc(String(annee).replace('-', '/')),
+      date_seance: esc(frDate(seance.date_seance)), ville: esc(ident.ville || 'Anderlecht') },
+    blocs: {
+      caracteristiques: `
   <div class="carac">
     <div class="large">Intitulé de l'unité d'enseignement :
       <b>${esc(ue.ue_nom || `UE ${ueNum}`)}</b></div>
@@ -1798,8 +1818,8 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, gesteRequis('valorisat
           <b>${esc(ue.domaine || sectionUE.domaine)}</b></div>` : ''}
   </div>
 
-  <p class="corps" style="margin-bottom:1mm">Répartition des périodes par
-    activité d'enseignement :</p>
+`,
+      repartition: `
   <table class="doc">
     <thead><tr>
       <th style="width:16%">Code</th>
@@ -1819,8 +1839,8 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, gesteRequis('valorisat
         <td class="c"><b>${perTotal}</b></td></tr></tbody>
   </table>
 
-  <p class="corps">Après en avoir délibéré, avons pris les décisions suivantes :</p>
-
+`,
+      decisions: `
   <table class="doc">
     <thead><tr>
       <th style="width:34%">Nom, prénom et initiales des autres prénoms,<br>
@@ -1853,6 +1873,8 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, gesteRequis('valorisat
       activités professionnelles d'${superieur ? 'formation' : 'apprentissage'}.</b></div>
   </div>` : ''}
 
+`,
+      conseil: `
   <table class="doc" style="margin-top:4mm">
     <thead><tr>
       <th style="width:38%">Président-e et membres du Conseil des études</th>
@@ -1867,6 +1889,8 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, gesteRequis('valorisat
     </tr>`).join('')}</tbody>
   </table>
 
+`,
+      mentions: `
   <div class="info">
     <div class="ligne">Le présent procès-verbal comporte
       <b>{{NB_PAGES}}</b> page(s).</div>
@@ -1876,6 +1900,8 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, gesteRequis('valorisat
       l'établissement le <b>${esc(frDate(seance.communication_date))}</b>.</div>
   </div>
 
+`,
+      signature: `
   <div class="cloture sans-paraphe">
     <div class="sceau"></div>
     <div class="paraphe"></div>
@@ -1896,6 +1922,9 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, gesteRequis('valorisat
            <div class="nom">${esc(identiteEtablissement()?.directeur || '……………………')}</div>`}
     </div>
   </div>
+`,
+    },
+  })}
 </div>`;
 
   // LES ATTESTATIONS — ANNEXE 15 EN SUPÉRIEUR, 14 EN SECONDAIRE.

@@ -30,7 +30,7 @@ import { authRequired, roleRequired, getUserSections } from '../middleware/auth.
 import { gesteRequis } from '../lib/gestes.js';
 import { SIGNATURE_SOHET, SCEAU_IIP } from '../services/assets/signature_sohet.js';
 import { identiteEtablissement } from './config.js';
-import { composerModele } from '../lib/modelesPieces.js';
+import { composerModele, declarerModele, blocModele } from '../lib/modelesPieces.js';
 // Les trois pièces de la délibération — attestation de réussite, motivation
 // d'ajournement ou de refus, procès-verbal — partagent une seule mise en page.
 // Le contenu légal diffère ; la charte, non.
@@ -8011,6 +8011,25 @@ export async function numeroterPagesPV(corps, style = '') {
    ou le transmettre sans exposer les noms. Le fond est le même ; l'étudiant
    n'y est désigné que par son matricule, sans lieu ni date de naissance qui le
    feraient reconnaître, et les lignes se rangent par matricule. */
+/* LE TEXTE DU PROCÈS-VERBAL DE DÉLIBÉRATION SE CORRIGE DANS LUCIE (Galerie des
+   pièces → Modifier le modèle). Le tableau des décisions, la composition du
+   Conseil, les mentions (pages, dates) et la signature restent verrouillés. */
+declarerModele('pv_deliberation', {
+  libelle: 'Procès-verbal de délibération (annexes 3 et 5)', galerie: ['delib_pv'],
+  champs: { conseil: 'Conseil des études / Jury d’épreuve intégrée', ue_num: "N° de l'unité", ue_nom: "Intitulé de l'unité",
+    annee: 'Année', date_seance: 'Date de la délibération', ville: 'Ville' },
+  blocs: { caracteristiques: "Code, périodes, session et date", tableau: 'Tableau des décisions',
+    conseil: 'Membres présents du Conseil', mentions: 'Nombre de pages, dates de délibération et de communication',
+    signature: 'Lieu, date et signatures' },
+  obligatoires: { blocs: ['caracteristiques', 'tableau', 'conseil', 'mentions', 'signature'] },
+  defaut: `${blocModele('caracteristiques')}
+<p>Nous, soussignés, Président-e et Membres du {{conseil}} constitué par le Pouvoir organisateur de l'établissement précité en vue de la délivrance de l'attestation de réussite de l'unité d'enseignement susvisée, après en avoir délibéré, avons pris les décisions suivantes :</p>
+${blocModele('tableau')}
+${blocModele('conseil')}
+${blocModele('mentions')}
+${blocModele('signature')}`,
+});
+
 export function documentPV(ueNum, annee, session = 1, org = null, { anonyme = false } = {}) {
   // LE PV D'UNE ORGANISATION relate SA séance et SES étudiants — deux
   // organisations, deux procès-verbaux. org=null : l'unité entière.
@@ -8114,6 +8133,12 @@ export function documentPV(ueNum, annee, session = 1, org = null, { anonyme = fa
             ? 'Enseignement supérieur' : 'Enseignement secondaire'),
   })}
 
+  ${composerModele('pv_deliberation', {
+    champs: { conseil: esc(conseil), ue_num: esc(ueNum), ue_nom: esc(ue.ue_nom || ''),
+      annee: esc(String(annee).replace('-', '/')), date_seance: esc(jour(seance.date_seance) || '……………'),
+      ville: esc(ident.ville || 'Anderlecht') },
+    blocs: {
+      caracteristiques: `
   <div class="carac">
     <div class="large">Code approuvé par le Gouvernement :
       ${ue.ue_code_fwb ? `<b>${esc(ue.ue_code_fwb)}</b>`
@@ -8127,13 +8152,8 @@ export function documentPV(ueNum, annee, session = 1, org = null, { anonyme = fa
       ${sec?.code_fwb ? `· code ${esc(sec.code_fwb)}` : ''}</div>` : ''}
   </div>
 
-  <p class="corps">
-    Nous, soussignés, Président-e et Membres du ${esc(conseil)} constitué par le
-    Pouvoir organisateur de l'établissement précité en vue de la délivrance de
-    l'attestation de réussite de l'unité d'enseignement susvisée, après en avoir
-    délibéré, avons pris les décisions suivantes :
-  </p>
-
+`,
+      tableau: `
   <table class="doc">
     <thead><tr>${anonyme ? `
       <th style="width:34%">Matricule</th>` : `
@@ -8148,6 +8168,8 @@ export function documentPV(ueNum, annee, session = 1, org = null, { anonyme = fa
   <p class="champ" style="font-size:7.5pt;color:#64748b">
     <sup>1</sup> À ne compléter qu'en cas de « Réussite ».</p>
 
+`,
+      conseil: `
   <div class="info">
     <div class="titre">Le ${esc(conseil)}</div>
     ${presents.length
@@ -8156,6 +8178,8 @@ export function documentPV(ueNum, annee, session = 1, org = null, { anonyme = fa
       : '<div class="ligne vide">Les présences n\'ont pas été enregistrées.</div>'}
   </div>
 
+`,
+      mentions: `
   <div class="info">
     <div class="ligne">Le présent procès-verbal comporte <b>${PH_PAGES_PV}</b> page(s).</div>
     <div class="ligne">Le ${esc(conseil)} a délibéré le
@@ -8178,6 +8202,8 @@ export function documentPV(ueNum, annee, session = 1, org = null, { anonyme = fa
       seance.session2_local ? `, local ${esc(seance.session2_local)}` : ''}.</div>` : ''}
   </div>
 
+`,
+      signature: `
   <div class="cloture${president.signature ? '' : ' sans-paraphe'}">
     <div class="sceau"></div>
     <div class="paraphe"></div>
@@ -8195,6 +8221,9 @@ export function documentPV(ueNum, annee, session = 1, org = null, { anonyme = fa
            <div class="nom">${esc(ident.directeur || '……………………')}</div>`}
     </div>
   </div>
+`,
+    },
+  })}
 </div>`;
 
   const html = envelopper(corps, `PV de délibération — UE ${ueNum}`);
