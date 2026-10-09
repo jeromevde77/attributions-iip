@@ -170,10 +170,13 @@ export function migrerModelesPieces(dbx = db) {
     version INTEGER NOT NULL,
     contenu TEXT,                 -- NULL : le modèle d'origine
     police TEXT, taille TEXT,
+    remplacements TEXT,           -- JSON [{ avant, apres }] : phrases fixes réécrites
     commentaire TEXT,
     cree_par TEXT, cree_par_id INTEGER,
     cree_le TEXT NOT NULL DEFAULT (datetime('now','localtime')),
     UNIQUE (cle, version))`);
+  const cols = dbx.prepare('PRAGMA table_info(modele_piece_version)').all().map(c => c.name);
+  if (!cols.includes('remplacements')) dbx.exec('ALTER TABLE modele_piece_version ADD COLUMN remplacements TEXT');
 }
 
 /* LE HTML SE FILTRE À L'ÉCRITURE — liste fermée, comme le corpus : rien qui
@@ -219,6 +222,15 @@ export function verifierModele(cle, contenu) {
   return manques;
 }
 
+/** Les phrases réécrites d'une version, nettoyées. */
+export function lireRemplacements(x) {
+  let l = [];
+  try { l = Array.isArray(x) ? x : JSON.parse(x || '[]'); } catch { l = []; }
+  return (Array.isArray(l) ? l : [])
+    .map(r => ({ avant: String(r?.avant ?? '').trim(), apres: String(r?.apres ?? '') }))
+    .filter(r => r.avant.length >= 2).slice(0, 60);
+}
+
 /** La version en vigueur : { version, contenu (jamais nul), police, taille, d_origine }. */
 export function modeleEnVigueur(cle) {
   const m = MODELES[cle];
@@ -231,21 +243,23 @@ export function modeleEnVigueur(cle) {
     contenu: v?.contenu || m.defaut,
     police: v?.police || null,
     taille: v?.taille || null,
-    d_origine: !v?.contenu,
+    remplacements: lireRemplacements(v?.remplacements),
+    d_origine: !v?.contenu && !v?.police && !v?.taille && !lireRemplacements(v?.remplacements).length,
     cree_par: v?.cree_par || null, cree_le: v?.cree_le || null,
   };
 }
 
 // ── Les brouillons de l'aperçu, en mémoire ────────────────────────────────
 const BROUILLONS = new Map();
-export function deposerBrouillon(cle, { contenu, police, taille }, userId) {
+export function deposerBrouillon(cle, { contenu, police, taille, remplacements }, userId) {
   const id = crypto.randomBytes(9).toString('hex');
   const maintenant = Date.now();
   for (const [k, b] of BROUILLONS) if (maintenant - b.le > 10 * 60_000) BROUILLONS.delete(k);
-  BROUILLONS.set(id, { cle, contenu: assainirModele(contenu), police, taille, userId, le: maintenant });
+  BROUILLONS.set(id, { cle, contenu: assainirModele(contenu), police, taille,
+    remplacements: lireRemplacements(remplacements), userId, le: maintenant });
   return id;
 }
-function brouillonDeLaRequete(cle) {
+export function brouillonDeLaRequete(cle) {
   const req = requeteCourante();
   const id = req?.headers?.['x-modele-brouillon'];
   if (!id) return null;

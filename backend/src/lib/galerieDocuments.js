@@ -38,6 +38,7 @@ import { PIECES as PIECES_PROC } from './piecesProcedures.js';
 import { dossierDiplomation } from '../routes/diplomes.js';
 import { modelesDeLaGalerie } from './modelesPieces.js';
 import { SPECIMENS } from './specimens.js';
+import { preparerHabillage } from './habillagePieces.js';
 
 const DOMAINES_RAPPORT = { etudiants: 'Étudiants', personnel: 'Personnel', organisation: 'Organisation', gestion: 'Gestion' };
 
@@ -327,5 +328,5 @@ export function choix(annee) {
 }
 
 export function galerie() {
-  return { documents: entrees(), a_l_ecran: A_L_ECRAN.map(([domaine, libelle, ecran]) => ({ domaine, libelle, ecran })) };
+  return { documents: preparerHabillage(entrees()), a_l_ecran: A_L_ECRAN.map(([domaine, libelle, ecran]) => ({ domaine, libelle, ecran })) };
 }
