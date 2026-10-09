@@ -31,9 +31,13 @@ const PORTE = { va: 'VA', vae: 'VAE', admission: 'Admission' };
 export function dossiersNotifiables(etudId, annee) {
   const tous = db.prepare(`SELECT v.*,
       (SELECT ue_nom FROM ue u WHERE u.ue_num = v.ue_num AND u.ue_nom IS NOT NULL
-        ORDER BY (u.annee_scolaire = v.annee_scolaire) DESC, u.annee_scolaire DESC LIMIT 1) AS ue_nom
+        ORDER BY (u.annee_scolaire = ?) DESC, u.annee_scolaire DESC LIMIT 1) AS ue_nom
     FROM etudiant_valorisation v WHERE v.etudiant_id = ? AND v.annee_scolaire = ? AND v.ue_num > 0
-    ORDER BY v.ue_num`).all(etudId, annee);
+    ORDER BY v.ue_num`).all(annee, etudId, annee);
+  /* L'ANNÉE EST PASSÉE EN PARAMÈTRE, ET NON LUE SUR v (9 octobre 2026) : le
+     SQLite du serveur refuse qu'un ORDER BY de sous-requête désigne la requête
+     englobante (« no such column: v.annee_scolaire ») — le banc local, plus
+     récent, l'acceptait. */
   const irrecevable = v => v.recevable === 0 && !v.decision_le;
   return {
     pretes: tous.filter(v => (v.decision_le && v.valide_le) || irrecevable(v)),
