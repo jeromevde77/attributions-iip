@@ -77,6 +77,8 @@ const PIECES = [
   { cle: 'pv', label: 'Procès-verbal de délibération', nominatif: false },
   { cle: 'conseil', label: 'Composition du Conseil', nominatif: false },
   { cle: 'grille', label: 'Grille de délibération', nominatif: false },
+  // Pour les chargés de cours : qui revient, et pour quels acquis (9 octobre 2026).
+  { cle: 'listes', label: 'Ajournés par cours (pour les chargés de cours)', nominatif: false },
 ];
 
 /* LES PIÈCES DU DOSSIER — par étudiant, non par unité (1er octobre 2026 :
@@ -1805,6 +1807,8 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
     if (p.cle === 'ajournement') return session === 1 && etudiants.some(e => e.echecs > 0);
     if (p.cle === 'refus') return session === 2 && etudiants.some(e => e.echecs > 0);
     if (['pv', 'conseil', 'grille'].includes(p.cle)) return etudiants.some(e => e.decide);
+    // Les ajournés ne reviennent qu'après la première session.
+    if (p.cle === 'listes') return session === 1 && etudiants.some(e => e.decide);
     if (p.sle && !etudiants.some(e => e.sle)) return false;
     if (p.cep && !etudiants.some(e => e.cep)) return false;
     if (modePublic && PIECES_DOSSIER.includes(p) && publicDe(p) !== modePublic) return false;

@@ -6821,9 +6821,13 @@ export function documentAjournesParCours(ueNum, annee, session = 1) {
     SELECT ue_nom, ue_niv FROM ue WHERE ue_num = ?
     ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1
   `).get(ueNum, annee) || {};
+  // Un cours qui ne s'évalue pas (activité Z, développement professionnel) n'a
+  // personne à représenter : il n'a pas de liste.
   const cours = db.prepare(`
     SELECT cours_code, cours_nom FROM cours
-    WHERE ue_num = ? AND annee_scolaire = ? ORDER BY cours_num, cours_code
+    WHERE ue_num = ? AND annee_scolaire = ?
+      AND COALESCE(non_evalue, 0) = 0 AND UPPER(COALESCE(ct_pp, '')) <> 'Z'
+    ORDER BY cours_num, cours_code
   `).all(ueNum, annee);
   const profs = profsParCours(ueNum, annee);
 
@@ -6872,9 +6876,19 @@ export function documentAjournesParCours(ueNum, annee, session = 1) {
     const d = delibererUE(e.id, ueNum, annee, session);
     for (const c of d.cours) {
       if (!aRepasser(c)) continue;
+      // Les SEULS acquis à représenter, quand le Conseil n'a pas rouvert tout le
+      // cours (9 octobre 2026) — la même règle que la fiche et l'annexe 8.
+      // Un cours simplement raté, sans ajustement du Conseil : ses acquis en
+      // échec DANS CE COURS, et non tous ses acquis.
+      const enEchecIci = (d.acquis || []).filter(a => (a.evaluations || []).some(v => v.cours_code === c.cours_code
+        && (['PP', 'NP', 'CM'].includes(v.mention) || v.note == null || Number(v.note) < SEUIL_UE))).map(a => a.aa_code);
+      const aas = c.aas_a_representer
+        || (c.ajourne_directement ? c.aas
+          : c.aas_ajournes?.length ? c.aas_ajournes
+          : enEchecIci.length ? enEchecIci : c.aas) || [];
       (parCours[c.cours_code] ||= []).push({
         ...e,
-        aas: (c.aas || []).map(a => (typeof a === 'string' ? a : a.aa_code)),
+        aas: aas.map(a => (typeof a === 'string' ? a : a.aa_code)),
       });
     }
   }
