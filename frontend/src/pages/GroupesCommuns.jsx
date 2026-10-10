@@ -21,11 +21,17 @@ const cleG = g => `${g.num_organisation}|${g.groupe || ''}`;
 const pgcd = (a, b) => (b ? pgcd(b, a % b) : a);
 const ppcm = l => l.filter(n => n > 1).reduce((a, b) => a / pgcd(a, b) * b, 1);
 
-export default function GroupesCommuns() {
+/* DANS LE LABORATOIRE (Charles, 10 octobre 2026 : « tout cela est le labo ») :
+   le laboratoire temporel porte la section et le bloc ; cet écran devient sa face
+   « Les groupes » et ne montre plus ses propres choix — ni la simulation, qui est
+   la face « La semaine ». */
+export default function GroupesCommuns({ sectionImposee = null, blocImpose = null, dansLeLabo = false } = {}) {
   const annee = getAnnee();
   const [sections, setSections] = useState([]);
-  const [section, setSection] = useState('');
-  const [bloc, setBloc] = useState('BA2');
+  const [section, setSection] = useState(sectionImposee || '');
+  const [bloc, setBloc] = useState(blocImpose || 'BA2');
+  useEffect(() => { if (sectionImposee) setSection(sectionImposee); }, [sectionImposee]);
+  useEffect(() => { if (blocImpose) setBloc(blocImpose); }, [blocImpose]);
   const [c, setC] = useState(null);                  // la cohorte telle que le serveur la rend
   const [reglages, setReglages] = useState({});      // clé → { nb_groupes, quadri, inclus }
   const [briques, setBriques] = useState({});        // etudiant_id → brique
@@ -100,15 +106,16 @@ export default function GroupesCommuns() {
   const deposer = b => { if (glisse == null) return; setBriques(x => ({ ...x, [glisse]: b })); setGlisse(null); setModifie(true); setSimu(null); };
 
   return (
-    <div className="p-4 space-y-4">
+    <div className={dansLeLabo ? 'space-y-4' : 'p-4 space-y-4'}>
       <div className="flex flex-wrap items-center gap-2">
+        {!dansLeLabo && <>
         <select value={section} onChange={e => setSection(e.target.value)} className="controle">
           <option value="">— Section —</option>
           {sections.map(s => <option key={s.code} value={s.code}>{s.libelle || s.code}</option>)}
         </select>
         <div className="segments flex h-9">
           {BLOCS.map(b => <button key={b} onClick={() => setBloc(b)} className={`px-3 text-[13px] ${bloc === b ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'}`}>{b}</button>)}
-        </div>
+        </div></>}
         <span className="flex-1" />
         {peutEcrire && c && <>
           <button className="bouton controle inline-flex items-center gap-1.5" onClick={proposer}><IconWand size={15} /> Proposer les briques</button>
@@ -167,7 +174,7 @@ export default function GroupesCommuns() {
           </table>
         </div>)}
 
-      {c && <SimulationAnnee section={section} bloc={bloc} annee={annee} peutEcrire={peutEcrire} />}
+      {c && !dansLeLabo && <SimulationAnnee section={section} bloc={bloc} annee={annee} peutEcrire={peutEcrire} />}
 
       {c && B > 1 && <PlanGroupes acts={acts.filter(a => a.inclus && B % a.nb_groupes === 0)} B={B} peutEcrire={peutEcrire}
         onEchanger={(a, i, j) => {
@@ -298,7 +305,9 @@ function LigneDuTemps({ sim, filtre, semaine, onSemaine, peutEcrire, onRecharger
   const parCle = new Map();
   for (const x of sim.seances || []) {
     if (!parCle.has(x.cle)) parCle.set(x.cle, new Map());
-    const m = parCle.get(x.cle), c = colDe.get(x.semaine);
+    // Une séance de congé (semaine « n + ½ ») se range par sa date dans la colonne de sa semaine de vacances.
+    const parDate = () => { let j = -1; cal.forEach((w, n) => { if (w.date_debut <= x.date) j = n; }); return j >= 0 ? j + 1 : undefined; };
+    const m = parCle.get(x.cle), c = colDe.get(x.semaine) ?? parDate();
     if (c) m.set(c, { n: (m.get(c)?.n || 0) + 1, w: x.semaine, propose: x.etat === 'propose' || m.get(c)?.propose });
   }
   // Les colonnes consécutives se fondent en un rectangle ; une semaine sans cours (vacances) ne le coupe pas.
@@ -322,7 +331,7 @@ function LigneDuTemps({ sim, filtre, semaine, onSemaine, peutEcrire, onRecharger
   const NOMS_MOIS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
   const gabarit = { gridTemplateColumns: `13rem repeat(${nb}, minmax(0,1fr))` };
   const fond = t => (t === 'ev1' || t === 'ev2' ? 'color-mix(in srgb, var(--c-attente, #B45309) 14%, transparent)'
-    : t === 'cours' ? 'transparent' : 'repeating-linear-gradient(135deg, #EEF1F5 0 4px, transparent 4px 8px)');
+    : t === 'cours' ? 'transparent' : 'color-mix(in srgb, #64748B 9%, transparent)');
   const etiq = a => `${a.cours_code} ${a.tout_le_bloc && (!a.groupe || a.groupe === 'Tous' || a.groupe === 'Ts') ? '' : `· ${a.groupe}`}`;
   const [dates, setDates] = useState({});
   const [msg, setMsg] = useState(null);
@@ -370,7 +379,7 @@ function LigneDuTemps({ sim, filtre, semaine, onSemaine, peutEcrire, onRecharger
                 <div className="truncate pr-2 relative" title={o.ue_nom}><b>Stage {o.ue_num}</b>{o.num_organisation > 1 ? ` · org. ${o.num_organisation}` : ''} <span className="text-slate-500">{o.ue_nom}</span></div>
                 {p ? <div className="h-[16px] rounded-[4px] mx-px relative text-white text-[10px] px-1 truncate leading-[16px]"
                     title={`Stage ${o.ue_num} — du ${o.date_debut.split('-').reverse().join('/')} au ${o.date_fin.split('-').reverse().join('/')}`}
-                    style={{ gridColumn: `${p.de + 1} / ${p.a + 2}`, gridRow: 1, background: 'repeating-linear-gradient(135deg, #475569 0 6px, #64748B 6px 12px)' }}>stage</div>
+                    style={{ gridColumn: `${p.de + 1} / ${p.a + 2}`, gridRow: 1, background: '#64748B' }}>stage</div>
                   : <div className="relative flex items-center gap-1 py-0.5" style={{ gridColumn: `2 / ${nb + 2}`, gridRow: 1 }}>
                     <span style={{ color: 'var(--c-attente)' }}>dates du stage à poser</span>
                     {peutEcrire && <>
@@ -398,7 +407,7 @@ function LigneDuTemps({ sim, filtre, semaine, onSemaine, peutEcrire, onRecharger
           <div className="flex items-center gap-4 pt-2 text-slate-500">
             <span className="flex items-center gap-1"><i className="inline-block w-4 h-3 rounded-[3px]" style={{ background: fond('ev1') }} />évaluations</span>
             <span className="flex items-center gap-1"><i className="inline-block w-4 h-3 rounded-[3px] border border-slate-200" style={{ background: fond('vacances') }} />vacances</span>
-            <span className="flex items-center gap-1"><i className="inline-block w-4 h-3 rounded-[3px]" style={{ background: 'repeating-linear-gradient(135deg, #475569 0 6px, #64748B 6px 12px)' }} />stage</span>
+            <span className="flex items-center gap-1"><i className="inline-block w-4 h-3 rounded-[3px]" style={{ background: '#64748B' }} />stage</span>
           </div>
         </div>
       </div>
@@ -685,6 +694,15 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
             <div key={l} className="bloc-etat px-3 py-2" data-etat={e}>
               <div className="text-[17px] font-bold">{v}</div><div className="text-[11.5px] text-slate-500">{l}</div></div>))}
         </div>
+        {/* CE QUE LA SIMULATION A LU DU LABORATOIRE : d'où vient chaque contrainte. */}
+        {sim.liens && (
+          <div className="text-[12px] text-slate-600 flex flex-wrap gap-x-4 gap-y-1">
+            <span>Elle suit le laboratoire :</span>
+            <span>dates de <b>{sim.liens.ues_datees}</b> UE</span>
+            <span><b>{sim.liens.activites_datees}</b> activité(s) datée(s) dans les couches</span>
+            <span><b>{sim.liens.ues_conges}</b> UE avec cours pendant les congés</span>
+            {(sim.liens.stages_bloquants || []).map(x => <span key={x.ue_num}>stage {x.ue_num} bloquant du {x.de.split('-').reverse().join('/')} au {x.fin.split('-').reverse().join('/')}</span>)}
+          </div>)}
         {sim.restes.length > 0 && (
           <div className="space-y-1">
             {sim.restes.map(r => <div key={r.cle} className="text-[12.5px] flex gap-1.5" style={{ color: 'var(--c-refuse)' }}>

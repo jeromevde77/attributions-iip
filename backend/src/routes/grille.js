@@ -134,6 +134,8 @@ export function migrerGrille(dbx) {
     if (!colsGA.includes('date_fin')) dbx.exec('ALTER TABLE grille_activite ADD COLUMN date_fin TEXT');
     const colsOU = dbx.prepare('PRAGMA table_info(organisation_ue)').all().map(c => c.name);
     if (!colsOU.includes('stage_bloquant')) dbx.exec('ALTER TABLE organisation_ue ADD COLUMN stage_bloquant INTEGER NOT NULL DEFAULT 0');
+    // Par défaut, pas de cours pendant les vacances ; une UE peut en décider autrement.
+    if (!colsOU.includes('cours_pendant_conges')) dbx.exec('ALTER TABLE organisation_ue ADD COLUMN cours_pendant_conges INTEGER NOT NULL DEFAULT 0');
   } catch (e) { console.error('[migration] grille :', e.message); }
 }
 
@@ -402,7 +404,7 @@ r.get('/', authRequired, (req, res) => {
       ...u,
       organisation_id: o?.id || null,
       date_debut: o?.date_debut || null, date_fin: o?.date_fin || null,
-      stage: cours.some(c => c.is_stage), stage_bloquant: !!o?.stage_bloquant,
+      stage: cours.some(c => c.is_stage), stage_bloquant: !!o?.stage_bloquant, cours_pendant_conges: !!o?.cours_pendant_conges,
       nb_semaines: o?.nb_semaines ?? null,
       sem_debut: semDeb, sem_fin: semFin,
       // Vide, l'unité n'est pas encore posée dans l'année : c'est ce que la
@@ -480,6 +482,7 @@ r.put('/ue', authRequired, roleRequired('admin', 'editeur', 'coordination'), (re
         b.nb_semaines != null ? Number(b.nb_semaines) : o.nb_semaines, o.id);
   }
   if (a('stage_bloquant')) db.prepare('UPDATE organisation_ue SET stage_bloquant = ? WHERE id = ?').run(b.stage_bloquant ? 1 : 0, o.id);
+  if (a('cours_pendant_conges')) db.prepare('UPDATE organisation_ue SET cours_pendant_conges = ? WHERE id = ?').run(b.cours_pendant_conges ? 1 : 0, o.id);
 
   res.json({ ok: true, controle: controlerUE(annee, section, ueNum) });
 });

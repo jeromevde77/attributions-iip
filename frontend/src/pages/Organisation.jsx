@@ -18,7 +18,6 @@ import { authHeaders } from '../lib/api.js';
 
 const CentrePlanification = lazy(() => import('./CentrePlanification.jsx'));
 const RepartitionCours = lazy(() => import('./RepartitionCours.jsx'));
-const GroupesCommuns = lazy(() => import('./GroupesCommuns.jsx'));
 const LaboratoireTemporel = lazy(() => import('./LaboratoireTemporel.jsx'));
 import { IconeLaboratoire } from '../components/IconeLaboratoire.jsx';
 const HoraireSemaine = lazy(() => import('./HoraireSemaine.jsx'));
@@ -37,7 +36,8 @@ export default function Organisation({ ongletInitial }) {
   const [params] = useSearchParams();
   const demande = params.get('onglet') || ongletInitial;
   const faceUnite = demande === 'ponderations' ? 'ponderation' : params.get('face') || (demande === 'due' ? 'descriptif' : 'croisement');
-  const ongletDemande = ['ponderations', 'due'].includes(demande) ? 'unite' : demande;
+  // Groupes communs est devenu une face du laboratoire temporel (10 octobre 2026) : l'ancienne adresse y mène.
+  const ongletDemande = ['ponderations', 'due'].includes(demande) ? 'unite' : demande === 'groupes-communs' ? 'laboratoire' : demande;
   const [annee, setAnnee] = useState('');
   useEffect(() => {
     fetch('/api/annees', { headers: authHeaders() })
@@ -115,9 +115,7 @@ export default function Organisation({ ongletInitial }) {
                    <RepartitionCours /></Suspense> },
         /* LES GROUPES COMMUNS (9 octobre 2026) : les TP d'un bloc coupés en
            briques, pour que les groupes de tous les cours s'emboîtent à l'horaire. */
-        { key: 'groupes-communs', module: 'organisation', label: 'Groupes communs (TP)', icone: IconPuzzle, sansMarge: true,
-          rendu: <Suspense fallback={<div className="p-4 text-[13px] text-slate-400">Chargement…</div>}>
-                   <GroupesCommuns /></Suspense> },
+
         { key: 'structure', module: 'organisation', label: 'Schéma de capitalisation', icone: IconSitemap, sansMarge: true,
           rendu: annee
             ? <StructureSection annee={annee} />

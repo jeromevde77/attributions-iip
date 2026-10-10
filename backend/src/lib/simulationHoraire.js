@@ -140,17 +140,26 @@ function creneaux(section, annee) {
   const plages = plagesDe(section);
   const [a1, a2] = String(annee).split('-').map(Number);
   const feries = new Set([...joursFeries(a1), ...joursFeries(a2)].map(([d]) => d));
-  const semaines = db.prepare(`SELECT date_debut, date_fin FROM annee_calendrier WHERE annee_scolaire = ? AND type = 'cours' ORDER BY date_debut`).all(annee);
+  /* LES VACANCES AUSSI, MARQUÉES « congé » (Charles, 10 octobre 2026 : « faites
+     sauter les congés, je veux donner cours ! ») : une UE peut choisir d'y avoir
+     cours. Une semaine de congé porte le numéro de la semaine de cours qui la
+     précède, plus un demi — elle se range entre les deux. */
+  const toutes = db.prepare(`SELECT date_debut, date_fin, type FROM annee_calendrier WHERE annee_scolaire = ? AND type IN ('cours', 'vacances') ORDER BY date_debut`).all(annee);
+  const semaines = toutes.filter(x => x.type === 'cours');
   const finQ1 = db.prepare(`SELECT MAX(date_fin) f FROM annee_calendrier WHERE annee_scolaire = ? AND type = 'ev1'`).get(annee)?.f || `${a2}-01-31`;
   const out = [];
-  semaines.forEach((s, k) => {
+  let k = 0;
+  toutes.forEach(s => {
+    const conge = s.type !== 'cours';
+    if (!conge) k++;
+    const num = conge ? k + 0.5 : k;
     // La semaine de cours s'arrête au vendredi dans le calendrier ; le samedi
     // de la même semaine en fait partie quand la section y donne cours.
     const fin = new Date(`${s.date_debut}T12:00:00Z`); fin.setUTCDate(fin.getUTCDate() + 6);
     for (let d = new Date(`${s.date_debut}T12:00:00Z`); d <= fin; d.setUTCDate(d.getUTCDate() + 1)) {
       const date = iso(d), j = d.getUTCDay() || 7;
       if (feries.has(date)) continue;
-      for (const p of plages.filter(x => x.jour === j)) out.push({ date, semaine: k + 1, jour: j, quadri: date <= finQ1 ? 'Q1' : 'Q2', debut: p.debut, fin: p.fin, minutes: minutes(p.debut, p.fin) });
+      for (const p of plages.filter(x => x.jour === j)) out.push({ date, semaine: num, conge, jour: j, quadri: date <= finQ1 ? 'Q1' : 'Q2', debut: p.debut, fin: p.fin, minutes: minutes(p.debut, p.fin) });
     }
   });
   return { out, nbSemaines: semaines.length, plages };
@@ -189,7 +198,43 @@ function demandes(c, annee) {
       professeur_id: l.professeur_id || null, professeur: l.prof_nom ? `${String(l.prof_nom).toUpperCase()} ${l.prof_prenom || ''}`.trim() : null,
       periodes: l.periodes, minutes: l.periodes * MINUTES_PERIODE, quadri });
   }
+  /* LE LABORATOIRE TEMPOREL NOURRIT LA SIMULATION (Charles, 10 octobre 2026 :
+     « réunis tout dans le labo et relie les données »). Chaque demande reçoit
+     la fenêtre de son UE (Dates des UE) et, si l'activité a ses propres dates
+     dans la grille d'organisation (les couches), celles-là ; et le droit — ou
+     non — d'avoir cours pendant les congés. Les attributions restent, en
+     2026-2027, la source des groupes et des périodes. */
+  const orgs = new Map();
+  try {
+    for (const o of db.prepare(`SELECT * FROM organisation_ue WHERE annee_scolaire = ? AND section = ? ORDER BY num_organisation`).all(annee, c.section)) {
+      if (!orgs.has(o.ue_num)) orgs.set(o.ue_num, o);
+    }
+  } catch { /* table absente */ }
+  const datesAct = new Map();
+  try {
+    for (const x of db.prepare(`SELECT o.ue_num, gc.cours_code, ga.activite_id, ga.date_debut, ga.date_fin
+        FROM grille_activite ga JOIN grille_cours gc ON gc.id = ga.grille_cours_id JOIN organisation_ue o ON o.id = gc.organisation_id
+        WHERE o.annee_scolaire = ? AND o.section = ? AND ga.date_debut IS NOT NULL`).all(annee, c.section)) {
+      datesAct.set(`${x.ue_num}#${x.cours_code}#${x.activite_id}`, { de: x.date_debut, fin: x.date_fin || x.date_debut });
+    }
+  } catch { /* colonnes absentes */ }
+  for (const d of out) {
+    const o = orgs.get(d.ue_num), a = datesAct.get(`${d.ue_num}#${d.cours_code}#${d.activite_id}`);
+    d.fenetre = a ? { de: a.de, fin: a.fin, source: 'activite' }
+      : o?.date_debut && o?.date_fin ? { de: o.date_debut, fin: o.date_fin, source: 'ue' } : null;
+    d.conges = !!o?.cours_pendant_conges;
+  }
   return out;
+}
+
+/** Les stages BLOQUANTS du bloc : leurs semaines n'ont aucun cours. */
+function stagesBloquants(c, annee) {
+  if (!c.ues.length) return [];
+  try {
+    return db.prepare(`SELECT o.ue_num, o.date_debut AS de, o.date_fin AS fin FROM organisation_ue o
+      WHERE o.annee_scolaire = ? AND o.section = ? AND COALESCE(o.stage_bloquant, 0) = 1 AND o.date_debut IS NOT NULL AND o.date_fin IS NOT NULL
+        AND o.ue_num IN (${c.ues.map(() => '?').join(',')})`).all(annee, c.section, ...c.ues.map(u => u.ue_num));
+  } catch { return []; }
 }
 
 /** La simulation. Rend la capacité, les séances placées et ce qui reste. */
@@ -215,6 +260,8 @@ export function simuler(section, bloc, annee, { mode = 'plan' } = {}) {
   const c = cohorte(section, bloc, annee);
   const { out: slots, nbSemaines, plages } = creneaux(section, annee);
   const dem = demandes(c, annee);
+  const stages = stagesBloquants(c, annee);
+  const bloque = date => stages.some(x => date >= x.de && date <= x.fin);
   // Occupations : brique et enseignant, par créneau (date + début).
   const k = s => `${s.date}|${s.debut}`;
   const occB = new Map(), occP = new Map(), occL = new Map();
@@ -311,13 +358,16 @@ export function simuler(section, bloc, annee, { mode = 'plan' } = {}) {
       conflits: [...new Set(seances.filter(x => x.plan_id === l.id).flatMap(x => x.conflits))] });
   }
   for (const d of ordre) {
-    const possibles = slots.filter(s => d.quadri === 'AN' || s.quadri === d.quadri);
+    const possibles = slots.filter(s => (d.quadri === 'AN' || s.quadri === d.quadri)
+      && (!s.conge || d.conges)
+      && (!d.fenetre || (s.date >= d.fenetre.de && s.date <= d.fenetre.fin))
+      && !bloque(s.date));
     const semaines = [...new Set(possibles.map(s => s.semaine))];
     const duree = possibles[0]?.minutes || 120;
     const besoin = Math.ceil(d.minutes / duree);
     let place = Math.min(besoin, dejaPlace.get(d.cle) || 0);
     if (place >= besoin) continue;
-    if (!semaines.length) { restes.push({ ...d, manque: besoin, raison: 'aucune semaine de cours dans son quadrimestre' }); continue; }
+    if (!semaines.length) { restes.push({ ...d, manque: besoin, raison: d.fenetre ? 'aucune semaine de cours dans sa période (dates de l’UE ou de l’activité, stage bloquant)' : 'aucune semaine de cours dans son quadrimestre' }); continue; }
     // Les créneaux types (jour + début) et leurs occurrences, semaine par semaine.
     const types = new Map();
     for (const s of possibles) {
@@ -385,7 +435,7 @@ export function simuler(section, bloc, annee, { mode = 'plan' } = {}) {
     return { brique: i + 1, max: n.length ? Math.max(...n) : 0, moyenne: n.length ? Math.round(n.reduce((a, b) => a + b, 0) / n.length * 10) / 10 : 0 };
   });
   // La capacité, brique par brique : heures disponibles et heures demandées.
-  const dispo = slots.reduce((t, s) => t + s.minutes, 0);
+  const dispo = slots.filter(s => !s.conge && !bloque(s.date)).reduce((t, s) => t + s.minutes, 0);
   const demandeParBrique = Array.from({ length: Math.max(1, c.nb_briques) }, (_, i) => dem.filter(d => d.briques.includes(i + 1)).reduce((t, d) => t + d.minutes, 0));
   // LES SEMAINES (leur lundi) et L'HORAIRE ACTUEL de la classe, pour comparer.
   const semainesListe = db.prepare(`SELECT date_debut FROM annee_calendrier WHERE annee_scolaire = ? AND type = 'cours' ORDER BY date_debut`).all(annee)
@@ -399,6 +449,10 @@ export function simuler(section, bloc, annee, { mode = 'plan' } = {}) {
   const heuresDemandeesBloc = Math.round(dem.reduce((t, d) => t + d.minutes, 0) / 60);
   return {
     section, bloc, annee, mode, regles, presence, nb_briques: c.nb_briques, orphelines,
+    // Ce que la simulation a lu du laboratoire : on le dit, pour qu'on sache d'où vient une contrainte.
+    liens: { ues_datees: new Set(dem.filter(d => d.fenetre?.source === 'ue').map(d => d.ue_num)).size,
+      activites_datees: new Set(dem.filter(d => d.fenetre?.source === 'activite').map(d => `${d.cours_code}#${d.activite_id}`)).size,
+      ues_conges: new Set(dem.filter(d => d.conges).map(d => d.ue_num)).size, stages_bloquants: stages },
     /* TOUTE L'ANNÉE, PAS SEULEMENT LES SEMAINES DE COURS (Charles, 10 octobre 2026 :
        « il faut placer les stages, les examens, etc. ») : le calendrier entier
        pour la ligne du temps, et les UE de stage du bloc avec leurs dates — celles
