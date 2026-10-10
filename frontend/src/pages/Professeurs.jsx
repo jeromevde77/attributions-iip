@@ -566,7 +566,7 @@ function AccesLuciePanel({ profId, detail }) {
           </div>
         )}
         {pwd && (
-          <div className="bg-amber-50 border border-amber-300 rounded px-3 py-2 border-l-4 border-l-amber-500">
+          <div className="bloc-etat etat-surveiller px-3 py-2">
             <div className="text-xs font-semibold text-amber-800 flex items-center gap-1.5 mb-1"><IconKey size={14} /> Mot de passe — à noter maintenant</div>
             <div className="font-mono text-base bg-white border border-amber-200 rounded px-2 py-1 inline-block select-all mr-2">{pwd}</div>
             <button onClick={() => setPwd(null)} className="text-xs text-amber-700 hover:underline">masquer</button>

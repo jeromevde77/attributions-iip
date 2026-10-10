@@ -485,7 +485,7 @@ export default function RepartitionCours() {
       </div>
 
       {erreur && (
-        <div className="bg-red-50 border border-red-200 rounded-champ px-3 py-2 text-sm text-red-700 border-l-4 border-l-red-500">{erreur}</div>
+        <div className="bloc-etat etat-corriger px-3 py-2 text-sm text-red-700">{erreur}</div>
       )}
 
       {apercu && (

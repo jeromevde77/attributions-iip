@@ -260,7 +260,7 @@ export default function RepartitionPeriodes() {
       )}
 
       {data?.anomalies?.length > 0 && (
-        <div className="px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 border-l-4 border-l-amber-500">
+        <div className="bloc-etat etat-surveiller px-4 py-3">
           <div className="flex items-center gap-1.5 text-sm font-semibold text-amber-900 mb-1.5">
             <IconAlertTriangle size={15} /> {data.anomalies.length} contrôle(s) à examiner
           </div>

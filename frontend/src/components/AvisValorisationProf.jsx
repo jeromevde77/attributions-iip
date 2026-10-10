@@ -57,7 +57,7 @@ export default function AvisValorisationProf({ annee }) {
   };
 
   return (
-    <div className="bg-white border border-slate-200 border-l-[4px] rounded-l-none rounded-r-carte"
+    <div className="bloc-etat etat-neutre rounded-l-none rounded-r-carte"
       style={{ borderLeftColor: aRendre ? 'var(--c-attente, #B45309)' : 'var(--c-reussi, #3E7D5E)' }}>
       <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-100">
         <IconCertificate size={16} className="text-slate-500" />

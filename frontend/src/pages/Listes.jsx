@@ -1880,7 +1880,7 @@ ${methodologie}
                 if (entite === 'rapport-etp') genererRapportEtpExcel(d, filtres);
                 else def.grille ? genererGrilleExcel(d) : genererRapportExcel(d, filtres);
               }}
-              className="text-sm border border-emerald-500 text-emerald-700 hover:bg-emerald-50 px-3 py-2 rounded-lg font-medium flex items-center gap-1.5 border-l-4 border-l-emerald-500">
+              className="bloc-etat etat-reussi text-sm border-emerald-500 text-emerald-700 hover:bg-emerald-50 px-3 py-2 font-medium flex items-center gap-1.5">
               <IconFileSpreadsheet size={16} /> Excel
             </button>
           </>
@@ -1916,7 +1916,7 @@ ${methodologie}
               <IconDownload size={16} /> CSV
             </button>
             <button onClick={() => exportExcel(rows, colsVisibles, nomFichier)} disabled={rows.length === 0}
-              className="text-sm border border-emerald-500 text-emerald-700 hover:bg-emerald-50 disabled:opacity-40 px-3 py-2 rounded-lg font-medium flex items-center gap-1.5 border-l-4 border-l-emerald-500">
+              className="bloc-etat etat-reussi text-sm border-emerald-500 text-emerald-700 hover:bg-emerald-50 disabled:opacity-40 px-3 py-2 font-medium flex items-center gap-1.5">
               <IconFileSpreadsheet size={16} /> Excel
             </button>
           </>

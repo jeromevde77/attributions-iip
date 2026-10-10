@@ -1389,7 +1389,7 @@ export default function Pilotage({ vue = 'tout' }) {
                     ce dont on se souvient d'une année ; la consommation, on ne
                     l'a jamais soustraite. On saisit donc ce qu'on sait, et
                     Lucie en déduit le reste. */}
-                <td className="px-4 py-2"><input type="number" step="0.01" value={editDot.solde_constate ?? ''} onChange={e => setEditDot({ ...editDot, solde_constate: e.target.value })} placeholder="ex. 5" title="Périodes restées inutilisées, telles que la direction les constate" className="border border-amber-300 bg-amber-50 rounded px-2 py-1.5 h-9 text-sm w-28 text-right border-l-4 border-l-amber-500" /></td>
+                <td className="px-4 py-2"><input type="number" step="0.01" value={editDot.solde_constate ?? ''} onChange={e => setEditDot({ ...editDot, solde_constate: e.target.value })} placeholder="ex. 5" title="Périodes restées inutilisées, telles que la direction les constate" className="bloc-etat etat-surveiller px-2 py-1.5 h-9 text-sm w-28 text-right" /></td>
                 <td className="px-4 py-2"><input value={editDot.notes || ''} onChange={e => setEditDot({ ...editDot, notes: e.target.value })} className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-full" /></td>
                 <td className="px-4 py-2 flex gap-1 justify-end">
                   <button onClick={saveDotation} disabled={saving} className="bg-iip-gold text-white text-xs px-2 py-1 rounded"><IconCheck size={14} /></button>

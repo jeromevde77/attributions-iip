@@ -100,7 +100,7 @@ export default function Sauvegardes() {
       </div>
 
       {data.alerte && (
-        <div className="px-4 py-2.5 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-900 flex items-center gap-2 border-l-4 border-l-amber-500">
+        <div className="bloc-etat etat-surveiller px-4 py-2.5 text-sm text-amber-900 flex items-center gap-2">
           <IconAlertTriangle size={15} className="flex-none" /> {data.alerte}
         </div>
       )}

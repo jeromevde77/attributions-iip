@@ -281,7 +281,7 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
           ) : (
             <>
               {/* ── Encart Vue étudiant ── */}
-              <div className="bg-violet-50 border border-violet-200 rounded-lg p-3 mb-4 space-y-2 border-l-4 border-l-violet-500">
+              <div className="bloc-etat etat-faveur p-3 mb-4 space-y-2">
                 <div className="text-xs font-semibold text-violet-700 uppercase tracking-wider">🎓 Vue étudiant</div>
                 <div className="grid grid-cols-3 gap-3 text-center">
                   <div className="bg-white rounded border border-violet-100 p-2">

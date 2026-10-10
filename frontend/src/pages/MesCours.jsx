@@ -176,7 +176,7 @@ export default function MesCours() {
       </div>
 
       {erreur && (
-        <div className="bg-red-50 border border-red-200 rounded-carte px-4 py-3 text-sm text-red-700 flex items-start gap-2 border-l-4 border-l-red-500">
+        <div className="bloc-etat etat-corriger px-4 py-3 text-sm text-red-700 flex items-start gap-2">
           <IconAlertTriangle size={16} className="flex-none mt-0.5" />{erreur}
         </div>
       )}

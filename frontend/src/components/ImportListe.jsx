@@ -149,7 +149,7 @@ export default function ImportListe({ annee, onClose, onImporte }) {
       </>}>
         <div className="space-y-4">
           {erreur && (
-            <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-sm text-red-800 border-l-4 border-l-red-500">
+            <div className="bloc-etat etat-corriger px-3 py-2 text-sm text-red-800">
               {erreur}
             </div>
           )}
@@ -231,7 +231,7 @@ export default function ImportListe({ annee, onClose, onImporte }) {
 
           {etape === 'fait' && rapport && (
             <>
-              <div className="px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-900 border-l-4 border-l-emerald-500">
+              <div className="bloc-etat etat-reussi px-4 py-3 text-sm text-emerald-900">
                 <div className="font-semibold mb-1">Import terminé — {rapport.annee}</div>
                 <ul className="text-second space-y-0.5">
                   <li>{rapport.etudiants} étudiant(s) créé(s) ou mis à jour</li>

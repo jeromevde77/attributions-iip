@@ -415,7 +415,7 @@ function ValorisationParEtudiant({ annee, dossiers, nomUE }) {
         </>}
       </div>
       {avis.length > 0 && (
-        <div className="px-3 py-2 rounded-lg bg-white border border-slate-200 border-l-4 text-second text-slate-700"
+        <div className="bloc-etat etat-neutre px-3 py-2 text-second text-slate-700"
           style={{ borderLeftColor: 'var(--c-attente)' }}>
           {avis.map((a, i) => <div key={i}>{a}</div>)}
         </div>)}

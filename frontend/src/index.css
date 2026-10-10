@@ -1296,3 +1296,13 @@ button.objet-barre:hover { color: var(--menu-texte); }
    pointillé ; la cible du dépôt s'éclaire. */
 [data-glissable="1"] { cursor: grab; outline: 1px dashed var(--c-attente, #F0922E); outline-offset: 2px; }
 [data-glissable="1"][data-survol="1"] { outline: 2px solid var(--c-attente, #F0922E); background: color-mix(in srgb, var(--c-attente, #F0922E) 12%, transparent); }
+
+/* L'ÉTAT D'UN ENCADRÉ PAR SA CLASSE (3.1.257) : les encadrés dessinés à la main
+   (fond pâle + contour + liseré de 4 px) sont devenus des `.bloc-etat` ; leur état se
+   lit de la classe, comme de `data-etat`. Mêmes réglages, même dessin. */
+.bloc-etat.etat-reussi     { --e: var(--c-reussi); border-left-color: var(--e); }
+.bloc-etat.etat-faveur     { --e: var(--c-faveur); border-left-color: var(--e); }
+.bloc-etat.etat-disponible { --e: var(--c-disponible); border-left-color: var(--e); }
+.bloc-etat.etat-surveiller { --e: var(--c-attente); border-left-color: var(--e); }
+.bloc-etat.etat-corriger   { --e: var(--c-refuse); border-left-color: var(--e); }
+.bloc-etat.etat-neutre     { background: var(--c-fond_tuile, #fff); border-color: var(--c-filet, #D8DCE4); }

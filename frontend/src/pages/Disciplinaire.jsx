@@ -379,7 +379,7 @@ export default function Disciplinaire() {
             <Q text="S'agit-il d'une fraude / d'un plagiat ?" art={r2627 ? 'Art. 72-75' : 'Art. 54-55'} value={tf.fraude ? 'oui' : qGrave === '' ? '' : 'non'} onChange={() => {}} />
             <div className="mt-3"><label className={lab}>Sanction envisagée</label>
               <select className={champ} value={sanction} onChange={e => setSanction(e.target.value)}>{SANCTIONS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}</select></div>
-            <div className="mt-3 text-sm bg-amber-50 border border-amber-200 rounded p-3 text-amber-900 border-l-4 border-l-amber-500"><strong>Recommandation :</strong> {recommandation()}</div>
+            <div className="bloc-etat etat-surveiller mt-3 text-sm p-3 text-amber-900"><strong>Recommandation :</strong> {recommandation()}</div>
           </div>
           <div className="bg-iip-blue/5 border border-iip-blue/20 rounded-xl p-4">
             <div className="flex items-center gap-2 text-iip-blue font-semibold text-sm mb-2"><IconScale size={16} /> Analyse RDE/ROI</div>

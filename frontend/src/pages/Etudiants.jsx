@@ -548,7 +548,7 @@ export function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
                 <span className="block text-base font-bold text-iip-texte">{nomPropre(e.nom, e.prenom)}</span>
                 <span className="block text-xs text-slate-500 tabular-nums">{e.id_ecampus || '—'}</span>
               </span>
-              <span className="inline-flex items-stretch bg-white border border-slate-200 border-l-[4px] rounded divide-x divide-slate-200"
+              <span className="bloc-etat etat-neutre inline-flex items-stretch divide-x divide-slate-200"
                 style={{ borderLeftColor: couleurBloc(e.niveau) || '#D8DCE4' }}>
                 <Wagon v={e.section || '—'} l="section" fort />
                 <Wagon v={e.niveau_libelle || '—'} l="niveau" ligne="bleu" />
@@ -1403,7 +1403,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                     ecrire('effacer');
                 }}
                 title="Supprime l'inscription et tout ce qui s'y rattache"
-                className="text-second px-2 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 border-l-4 border-l-red-500">
+                className="bloc-etat etat-corriger text-second px-2 py-1.5 text-red-600 hover:bg-red-50">
                 Supprimer l'inscription
               </button>
             </div>
@@ -1465,7 +1465,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
 
                 {/* Reports de note proposés : cours validés dans une UE échouée */}
                 {(detail.candidats_report || []).length > 0 && (
-                  <div className="mb-3 border border-sky-200 bg-sky-50 rounded-xl px-3 py-2.5 border-l-4 border-l-sky-500">
+                  <div className="bloc-etat etat-disponible mb-3 px-3 py-2.5">
                     <div className="text-second font-semibold text-sky-900 mb-1.5">
                       Report de note possible
                     </div>
@@ -3233,7 +3233,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                   })()}
 
                   {bloquees.length > 0 && (
-                    <div className="mb-3 px-3 py-2.5 rounded-xl bg-red-50 border border-red-200 border-l-4 border-l-red-500">
+                    <div className="bloc-etat etat-corriger mb-3 px-3 py-2.5">
                       <div className="flex items-start gap-2">
                         <IconAlertTriangle size={15} className="text-red-600 mt-0.5 flex-none" />
                         <div className="flex-1 text-second text-red-900">
@@ -3255,7 +3255,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                   )}
 
                   {residuelles.length > 0 && (
-                    <div className="mb-3 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200 border-l-4 border-l-amber-500">
+                    <div className="bloc-etat etat-surveiller mb-3 px-3 py-2.5">
                       <div className="flex items-start gap-2">
                         <IconAlertTriangle size={15} className="text-amber-600 mt-0.5 flex-none" />
                         <div className="flex-1 text-second text-amber-900">

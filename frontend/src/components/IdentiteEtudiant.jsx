@@ -377,13 +377,13 @@ export function ComplementDossiers({ onTermine }) {
       </label>
 
       {avertissement && (
-        <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-900 border-l-4 border-l-amber-500">
+        <div className="bloc-etat etat-surveiller px-3 py-2 text-sm text-amber-900">
           {avertissement}
         </div>
       )}
 
       {erreur && (
-        <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-sm text-red-800 border-l-4 border-l-red-500">
+        <div className="bloc-etat etat-corriger px-3 py-2 text-sm text-red-800">
           {erreur}
         </div>
       )}
@@ -482,7 +482,7 @@ export function ComplementDossiers({ onTermine }) {
           )}
 
           {rapport.nb_ambigus > 0 && (
-            <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-second text-amber-900 border-l-4 border-l-amber-500">
+            <div className="bloc-etat etat-surveiller px-3 py-2 text-second text-amber-900">
               <div className="flex items-center gap-1.5 font-semibold mb-1">
                 <IconAlertTriangle size={14} /> {rapport.nb_ambigus} homonyme(s) non tranché(s)
               </div>
@@ -498,7 +498,7 @@ export function ComplementDossiers({ onTermine }) {
           )}
 
           {rapport.nb_conflits > 0 && (
-            <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-300 text-second text-amber-900 border-l-4 border-l-amber-500">
+            <div className="bloc-etat etat-surveiller px-3 py-2 text-second text-amber-900">
               <div className="flex items-center gap-1.5 font-semibold mb-1">
                 <IconAlertTriangle size={14} /> {rapport.nb_conflits} matricule(s) déjà attribué(s)
               </div>
@@ -517,7 +517,7 @@ export function ComplementDossiers({ onTermine }) {
           )}
 
           {rapport.nb_inconnus > 0 && (
-            <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-second text-amber-900 border-l-4 border-l-amber-500">
+            <div className="bloc-etat etat-surveiller px-3 py-2 text-second text-amber-900">
               <div className="flex items-center gap-1.5 font-semibold mb-1">
                 <IconAlertTriangle size={14} /> {rapport.nb_inconnus} numéro(s) sans correspondance
               </div>

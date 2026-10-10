@@ -188,14 +188,14 @@ export default function ImportHistorique({ onClose, onImporte }) {
       </>}>
         <div className="space-y-4">
           {erreur && (
-            <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-sm text-red-800 border-l-4 border-l-red-500">
+            <div className="bloc-etat etat-corriger px-3 py-2 text-sm text-red-800">
               {erreur}
             </div>
           )}
 
           {etape === 'fichiers' && (
             <>
-              <div className="px-3 py-2.5 rounded-lg bg-sky-50 border border-sky-200 text-second text-sky-900 border-l-4 border-l-sky-500">
+              <div className="bloc-etat etat-disponible px-3 py-2.5 text-second text-sky-900">
                 eCampus réattribue un matricule à chaque rentrée : le même étudiant figure sous
                 <code className="mx-1 px-1 bg-white rounded">24-00174</code> puis
                 <code className="mx-1 px-1 bg-white rounded">25-00298</code>. Le rapprochement se fait
@@ -237,7 +237,7 @@ export default function ImportHistorique({ onClose, onImporte }) {
               </div>
 
               {rapport && (
-                <div className="px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 border-l-4 border-l-amber-500">
+                <div className="bloc-etat etat-surveiller px-4 py-3">
                   <div className="flex items-center gap-1.5 text-sm font-semibold text-amber-900 mb-1.5">
                     <IconAlertTriangle size={15} /> Ce qui sera fait
                   </div>
@@ -269,7 +269,7 @@ export default function ImportHistorique({ onClose, onImporte }) {
 
           {etape === 'fait' && rapport && (
             <>
-              <div className="px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-900 border-l-4 border-l-emerald-500">
+              <div className="bloc-etat etat-reussi px-4 py-3 text-sm text-emerald-900">
                 <div className="font-semibold mb-1 flex items-center gap-1.5">
                   <IconCheck size={16} /> Historique reconstruit
                 </div>

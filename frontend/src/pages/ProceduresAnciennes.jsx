@@ -43,8 +43,8 @@ function fmtCourt(d) {
 // ─── Composants UI ────────────────────────────────────────────────────────────
 function Badge({ ok, label }) {
   return ok
-    ? <span className="inline-flex items-center gap-1 bg-green-100 text-green-800 border border-green-300 rounded-champ px-3 py-0.5 text-sm font-semibold border-l-4 border-l-green-500"><IconCheck size={15} stroke={2.2} /> {label}</span>
-    : <span className="inline-flex items-center gap-1 bg-red-100 text-red-800 border border-red-300 rounded-champ px-3 py-0.5 text-sm font-semibold border-l-4 border-l-red-500"><IconX size={15} stroke={2.2} /> {label}</span>;
+    ? <span className="bloc-etat etat-reussi inline-flex items-center gap-1 text-green-800 px-3 py-0.5 text-sm font-semibold"><IconCheck size={15} stroke={2.2} /> {label}</span>
+    : <span className="bloc-etat etat-corriger inline-flex items-center gap-1 text-red-800 px-3 py-0.5 text-sm font-semibold"><IconX size={15} stroke={2.2} /> {label}</span>;
 }
 function Ref({ text }) {
   return <span className="inline-flex items-center gap-1 text-xs text-iip-blue bg-iip-turquoise/5 border border-iip-turquoise/30 rounded px-1.5 py-0.5 ml-1"><IconScale size={13} stroke={1.8} /> {text}</span>;
@@ -654,7 +654,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
           </div>
         )}
         {q.decisionRefus === 'oui' && (
-          <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded text-sm text-green-800 inline-flex items-center gap-1.5 border-l-4 border-l-green-500">
+          <div className="bloc-etat etat-reussi mt-3 p-3 text-sm text-green-800 inline-flex items-center gap-1.5">
             <IconCheck size={16} /> La décision est de nature recourable (décision de refus). Procéder à l'analyse de recevabilité.
           </div>
         )}
@@ -754,7 +754,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
         </div>
 
         {limiteRecourseExterne && (
-          <div className="p-3 bg-orange-50 border border-orange-300 rounded text-sm mb-5 inline-flex items-center gap-1.5 border-l-4 border-l-orange-500">
+          <div className="bloc-etat etat-surveiller p-3 text-sm mb-5 inline-flex items-center gap-1.5">
             <IconClock size={15} /> <strong>Limite recours externe :</strong> {fmt(limiteRecourseExterne)}
             <span className="text-xs text-orange-700 ml-2 inline-flex items-center gap-1"><IconScale size={12} /> Art. 90 §2 RDE/ROI</span>
           </div>
@@ -1230,7 +1230,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
 
         {/* Membres présents */}
         {ueNum && (
-          <div className="mt-3 p-4 bg-red-50 border border-red-200 rounded-lg border-l-4 border-l-red-500">
+          <div className="bloc-etat etat-corriger mt-3 p-4">
             <div className="flex items-center justify-between mb-2">
               <p className="text-sm font-bold text-red-900">
                 Membres du CDE présents {loadingProfs && <span className="text-xs font-normal ml-1">…</span>}
@@ -1311,7 +1311,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm resize-y" />
           </div>
         </div>
-        <div className="mt-4 p-3 bg-amber-50 border border-amber-300 rounded text-sm border-l-4 border-l-amber-500">
+        <div className="bloc-etat etat-surveiller mt-4 p-3 text-sm">
           <p className="font-semibold text-amber-800 inline-flex items-center gap-1.5"><IconAlertTriangle size={15} /> Important — {is2526F ? 'Art. 54 ROI/RGE' : 'Art. 72 §2 RDE/ROI'}</p>
           <p className="text-amber-700 mt-1">L'élément suspect doit être saisi et joint au dossier. Le rapport du surveillant est obligatoire. L'étudiant peut terminer son épreuve même en cas de fraude constatée.</p>
         </div>
@@ -1326,7 +1326,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
             <p className="text-xs text-gray-400 mt-0.5">Courrier/e-mail informant des faits reprochés et du droit à l'audition</p>
           </label>
           {!dateNotification && (
-            <div className="mb-3 p-3 bg-red-50 border border-red-400 rounded text-sm text-red-800 flex items-start gap-1.5 border-l-4 border-l-red-500">
+            <div className="bloc-etat etat-corriger mb-3 p-3 border-red-400 text-sm text-red-800 flex items-start gap-1.5">
               <IconBan size={16} className="flex-shrink-0 mt-0.5" />
               <span>La notification préalable est obligatoire ({is2526F ? 'Art. 54 ROI/RGE' : 'Art. 74 §1'}). Toute décision sans notification préalable serait nulle.</span>
             </div>
@@ -1366,7 +1366,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
           </label>
         </div>
 
-        <div className="mb-4 p-3 bg-amber-50 border border-amber-300 rounded text-sm border-l-4 border-l-amber-500">
+        <div className="bloc-etat etat-surveiller mb-4 p-3 text-sm">
           <p className="font-semibold text-amber-800">Sanction applicable selon la situation :</p>
           <p className="text-amber-700 mt-1">
             {is2526F
@@ -1467,7 +1467,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
       {/* Réinitialiser */}
       <div className="flex justify-end">
         <button onClick={() => { setStep(1); setEtudiant(''); setUeNum(''); setSession('1'); setRecidive(false); setDateExamen(''); setDateFaits(''); setTypeFraude(''); setDescriptionFraits(''); setDateNotification(''); setDateAudition(''); setDeclarationsEtudiant(''); setDateCDE(''); setDateEnvoi(''); setDecision(''); setCommentaireCDE(''); setMomentFaits('pendant'); setConteste(false); setProfsPresents(new Set()); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-          className="border border-red-700 text-red-700 px-6 py-2 rounded-lg text-sm font-medium hover:bg-red-50 inline-flex items-center gap-1.5 border-l-4 border-l-red-500">
+          className="bloc-etat etat-corriger border-red-700 text-red-700 px-6 py-2 text-sm font-medium hover:bg-red-50 inline-flex items-center gap-1.5">
           <IconRefresh size={16} /> Nouveau dossier
         </button>
       </div>
@@ -1766,7 +1766,7 @@ export function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
               {/* Suppression */}
               <div className="border-t border-red-100 pt-4 mt-4">
                 {confirmSupp === detail.id ? (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-4 space-y-3 border-l-4 border-l-red-500">
+                  <div className="bloc-etat etat-corriger p-4 space-y-3">
                     <p className="text-sm font-medium text-red-800">Suppression physique définitive</p>
                     <p className="text-xs text-red-700">Cette action est irréversible. La procédure et toutes ses traces seront effacées de la base de données.</p>
                     <div className="flex gap-2">

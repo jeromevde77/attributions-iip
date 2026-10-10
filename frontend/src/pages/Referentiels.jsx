@@ -215,7 +215,7 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
             </div>
 
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 flex items-start gap-2 border-l-4 border-l-red-500">
+              <div className="bloc-etat etat-corriger p-3 text-sm text-red-700 flex items-start gap-2">
                 <IconAlertTriangle size={16} className="flex-shrink-0 mt-0.5" />{error}
               </div>
             )}

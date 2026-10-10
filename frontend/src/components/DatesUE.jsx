@@ -254,7 +254,7 @@ export default function DatesUE({ annee, sansTitre = false }) {
       </div>
 
       {incoherentes > 0 && (
-        <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-200 border-l-4 border-l-red-500">
+        <div className="bloc-etat etat-corriger px-4 py-3">
           <div className="text-sm font-semibold text-red-900 mb-1">
             {incoherentes === 1 ? 'Une organisation a ses dates inversées'
                                 : `${incoherentes} organisations ont leurs dates inversées`}

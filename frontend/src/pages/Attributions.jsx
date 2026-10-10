@@ -126,7 +126,7 @@ function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied 
           </div>
 
           {anneeSrc && nbSource > 0 && (
-            <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2 text-xs text-indigo-700 border-l-4 border-l-indigo-500">
+            <div className="bloc-etat etat-neutre px-3 py-2 text-xs text-indigo-700">
               {nbSource} attribution(s) seront copiées de <strong>{sectionSrc}</strong> ({anneeSrc}) vers <strong>{anneeDest}</strong>.
             </div>
           )}
@@ -149,7 +149,7 @@ function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied 
           )}
 
           {success && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-700 border-l-4 border-l-green-500">{success}</div>
+            <div className="bloc-etat etat-reussi p-3 text-sm text-green-700">{success}</div>
           )}
         </div>
     </Fenetre>
@@ -1960,7 +1960,7 @@ export default function Attributions() {
                 quadrimestre et l'organisation restent cliquables. En gris : ce
                 sont des mentions, aucun ne signale un état. */}
             <span className="min-w-0 overflow-hidden" onClick={e=>e.stopPropagation()}>
-              <span className="relative inline-flex items-stretch whitespace-nowrap text-xs text-slate-600 bg-white border border-slate-200 border-l-[3px] rounded divide-x divide-slate-200"
+              <span className="bloc-etat etat-neutre relative inline-flex items-stretch whitespace-nowrap text-xs text-slate-600 divide-x divide-slate-200"
                 style={{ borderLeftColor: couleurBloc(ue.bloc) || '#D8DCE4' }}>
                 {ue.bloc && <span className="px-1.5 py-0.5 font-semibold text-iip-blue">{ue.bloc}</span>}
                 <button disabled={!peutEcrireAttr} onClick={(e)=>{
@@ -2119,7 +2119,7 @@ export default function Attributions() {
               if (!ctrl || !ctrl.message || ctrl.etat === 'ok') return null;
               const liseré = { sous: 'var(--c-attente, #E8890C)', 'dépassement': 'var(--c-refuse, #9D4A38)', cours: 'var(--c-attente, #E8890C)' }[ctrl.etat] || '#94A3B8';
               return (
-                <div className="mx-6 my-2 px-3 py-2 bg-white border border-slate-200 border-l-4 rounded-r-carte text-second text-iip-texte"
+                <div className="bloc-etat etat-neutre mx-6 my-2 px-3 py-2 rounded-r-carte text-second text-iip-texte"
                   style={{ borderLeftColor: liseré }}>
                   <b className="mr-1">Autonomie</b>{ctrl.message}
                   <span className="text-slate-600 ml-2">· base {ctrl.ue_aut} · plancher {ctrl.min} · plafond {ctrl.max} · placé {ctrl.aut_attribuee}</span>
