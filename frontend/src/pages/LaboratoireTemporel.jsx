@@ -5,9 +5,10 @@ import { passeRole } from '../lib/droits.js';
 import { teinteCours, styleTuileCours } from '../lib/teinteCours.js';
 import { IconeLaboratoire } from '../components/IconeLaboratoire.jsx';
 import { RailLateral } from '../components/ui.jsx';
-import { IconSitemap, IconPuzzle, IconCalendarWeek, IconTimeline, IconTrash, IconHistory } from '@tabler/icons-react';
+import { IconSitemap, IconPuzzle, IconCalendarWeek, IconTimeline, IconTrash, IconHistory, IconUserCheck } from '@tabler/icons-react';
 const StructureSection = lazy(() => import('./StructureSection.jsx'));
 const GroupesCommuns = lazy(() => import('./GroupesCommuns.jsx'));
+const DisponibilitesSection = lazy(() => import('./DisponibilitesSection.jsx'));
 const SimulationAnnee = lazy(() => import('./GroupesCommuns.jsx').then(m => ({ default: m.SimulationAnnee })));
 
 /**
@@ -379,7 +380,7 @@ export default function LaboratoireTemporel() {
         </>}
         <span className="text-[12px] text-slate-500">{face !== 'temps' ? '' : zoom === 'ue' ? 'Glisser une activité dans un cours ; tirer le haut d’une couche ; double-clic : revenir à l’année.' : (zoom === 'couches' ? 'Glisser une barre la déplace, ses bords l’allongent ; « à la suite » ou « en parallèle » arrangent un cours d’un clic · double-clic : le verre.' : 'Ctrl + molette ou double-clic pour zoomer · glisser une tuile la déplace dans l’année, ses bords l’allongent.')}</span>
       </div>
-      <RailLateral titre="Le laboratoire temporel" sections={[{ items: [['temps', 'Le temps', IconTimeline], ['groupes', 'Les groupes', IconPuzzle], ['semaine', 'La semaine', IconCalendarWeek], ['schema', 'Schéma de capitalisation', IconSitemap]]
+      <RailLateral titre="Le laboratoire temporel" sections={[{ items: [['temps', 'Le temps', IconTimeline], ['groupes', 'Les groupes', IconPuzzle], ['semaine', 'La semaine', IconCalendarWeek], ['disponibilites', 'Les disponibilités', IconUserCheck], ['schema', 'Schéma de capitalisation', IconSitemap]]
         .map(([k, l, I]) => ({ key: `labo-${k}`, label: l, icon: I, actif: face === k,
           onClick: () => { setFace(k); if ((k === 'groupes' || k === 'semaine') && !bloc && blocs[0]) setBloc(blocs.includes('BA2') ? 'BA2' : blocs[0]); } })) }]} />
       {erreur && <div className="text-[12.5px]" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
@@ -394,6 +395,10 @@ export default function LaboratoireTemporel() {
           <SimulationAnnee key={`${section}-${bloc}`} section={section} bloc={bloc} annee={annee} peutEcrire={peutEcrire} />
         </Suspense>) : <p className="text-[13px] text-slate-500">Choisissez un bloc : la semaine se compose bloc par bloc.</p>)}
 
+      {face === 'disponibilites' && (
+        <Suspense fallback={<div className="text-[13px] text-slate-400">Chargement…</div>}>
+          <DisponibilitesSection key={section} section={section} annee={annee} peutEcrire={peutEcrire} />
+        </Suspense>)}
       {face === 'schema' && (
         <Suspense fallback={<div className="text-[13px] text-slate-400">Chargement…</div>}>
           <StructureSection key={section} annee={annee} sectionInitiale={section} />
@@ -974,7 +979,7 @@ function Verre({ u, types, annee, section, peutEcrire, onRetour, onAnnee, onEnre
             })()}
             {peutEcrire && <button className="bouton bouton-detruire" onClick={() => { changer(choix.c, c => ({ ...c, activites: c.activites.filter((_, i) => i !== choix.k) })); setChoix(null); }}>Retirer cette couche</button>}
           </>)}
-          <div className="text-[11.5px] text-slate-400 pt-1 border-t border-slate-100">Les disponibilités des enseignants viendront ici, saisies par le secrétariat ou la coordination (lot à venir).</div>
+          <div className="text-[11.5px] text-slate-400 pt-1 border-t border-slate-100">Les disponibilités des enseignants se saisissent dans la face « Les disponibilités » du laboratoire ; la simulation en tient compte.</div>
         </aside>
       </div>
     </div>

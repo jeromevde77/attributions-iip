@@ -97,7 +97,8 @@ function OuiNon({ label, value, onChange }) {
 }
 
 // ─── Grille de disponibilités ─────────────────────────────────────────────────
-const JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'];
+// Le samedi aussi : des sections y donnent cours (Charles, 10 octobre 2026).
+const JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
 
 function DispoGrid({ creneaux, dispoQ1, setDispoQ1, dispoQ2, setDispoQ2, profId }) {
   const [quadrimestre, setQ] = useState('Q1');
@@ -115,7 +116,7 @@ function DispoGrid({ creneaux, dispoQ1, setDispoQ1, dispoQ2, setDispoQ2, profId 
 
   function toutCocher() {
     const all = {};
-    for (let j = 1; j <= 5; j++)
+    for (let j = 1; j <= 6; j++)
       for (const c of creneaux) all[`${j}_${c.id}`] = true;
     setDispo(all); setSaved(false);
   }
@@ -125,7 +126,7 @@ function DispoGrid({ creneaux, dispoQ1, setDispoQ1, dispoQ2, setDispoQ2, profId 
   async function sauvegarder() {
     setSaving(true);
     const dispos = [];
-    for (let jour = 1; jour <= 5; jour++) {
+    for (let jour = 1; jour <= 6; jour++) {
       for (const c of creneaux) {
         if (dispo[`${jour}_${c.id}`]) dispos.push({ jour, creneau_id: c.id, disponible: 1 });
       }
@@ -172,7 +173,7 @@ function DispoGrid({ creneaux, dispoQ1, setDispoQ1, dispoQ2, setDispoQ2, profId 
                   {c.heure_debut}–{c.heure_fin}
                   <span className="ml-1 text-gray-400">{c.label}</span>
                 </td>
-                {[1,2,3,4,5].map(jour => {
+                {[1,2,3,4,5,6].map(jour => {
                   const key = `${jour}_${c.id}`;
                   const actif = !!dispo[key];
                   return (

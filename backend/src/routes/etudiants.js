@@ -1604,6 +1604,26 @@ r.put('/horaire-locaux', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, re
     res.json({ ok: true });
   } catch (e) { console.error('[locaux simulation]', e); res.status(500).json({ error: `Enregistrement impossible : ${e.message}` }); }
 });
+// LES DISPONIBILITÉS DES ENSEIGNANTS D'UNE SECTION (face du laboratoire) : qui enseigne
+// dans la section cette année (attributions), ses cours, les plages de la section et
+// le créneau de chacune, et ce qui est déjà saisi.
+r.get('/disponibilites-section', authRequired, (req, res) => {
+  try {
+    const section = String(req.query.section || ''), annee = String(req.query.annee || anneeDeTravail(req));
+    if (!section || !sectionAutoriseeReq(req, section)) return res.status(403).json({ error: 'Section hors de votre périmètre' });
+    const profs = db.prepare(`SELECT p.id, p.nom, p.prenom, GROUP_CONCAT(DISTINCT a.code_cours) cours
+      FROM attribution a JOIN professeur p ON p.id = a.professeur_id
+      WHERE a.annee_scolaire = ? AND (a.section = ? OR a.ue_num IN (SELECT ue_num FROM ue WHERE annee_scolaire = ? AND section = ?))
+        AND COALESCE(a.periodes_attribuees, 0) > 0 AND COALESCE(a.type_cours, '') <> 'Z'
+      GROUP BY p.id ORDER BY p.nom, p.prenom`).all(annee, section, annee, section);
+    const plages = plagesDe(section);
+    const creneaux = db.prepare('SELECT id, heure_debut, heure_fin FROM creneau').all();
+    const ids = profs.map(x => x.id);
+    const saisies = ids.length ? db.prepare(`SELECT professeur_id, quadrimestre, jour, creneau_id FROM prof_disponibilite
+      WHERE disponible = 1 AND professeur_id IN (${ids.map(() => '?').join(',')})`).all(...ids) : [];
+    res.json({ profs: profs.map(x => ({ ...x, cours: String(x.cours || '').split(',').filter(Boolean).sort() })), plages, creneaux, saisies });
+  } catch (e) { console.error('[disponibilités]', e); res.status(500).json({ error: e.message }); }
+});
 r.get('/horaire-plages', authRequired, (req, res) => { const section = String(req.query.section || ''); res.json({ plages: plagesDe(section), regles: reglesDe(section) }); });
 r.put('/horaire-plages', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
   const section = String(req.body?.section || '');
