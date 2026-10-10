@@ -6,6 +6,7 @@ import { LOGO_IIP_HTML } from '../services/assets/logo_iip.js';
 import { LOGO_IIP_BLANC_HTML } from '../services/assets/logo_iip_blanc.js';
 import { sectionRattachement } from './etudiants.js';
 import { identiteEtablissement } from './config.js';
+import { separerNomPrenom } from '../lib/nom.js';
 import { envelopperDocument } from '../lib/document.js';
 import { SIGNATURE_SOHET } from '../services/assets/signature_sohet.js';
 
@@ -354,7 +355,13 @@ export function composerTemplate(t, { prof_id, ue_num, section, annee, etudiant_
   let html = t.contenu;
   if (varsEtudiant) Object.assign(vars, varsEtudiant);
   // Le directeur, à défaut d'une fonction « Directeur » au personnel : la fiche de l'établissement.
-  if (!vars['directeur.nom_prenom']) { try { vars['directeur.nom_prenom'] = identiteEtablissement()?.directeur || ''; } catch { /* */ } }
+  // Sur un DOCUMENT, « Prénom NOM » (règle de Lucie) : la fiche l'écrit « SOHET Charles », on le remet dans l'ordre.
+  if (!vars['directeur.nom_prenom']) {
+    try {
+      const { nom, prenom } = separerNomPrenom(identiteEtablissement()?.directeur || '');
+      vars['directeur.nom_prenom'] = [prenom, nom ? String(nom).toUpperCase() : null].filter(Boolean).join(' ');
+    } catch { /* */ }
+  }
   for (const [key, val] of Object.entries(vars)) html = html.replaceAll(`{{${key}}}`, String(val));
 
   // ── 2a. Champ spécial : tableau des attributions du prof (pour le contrat) ─

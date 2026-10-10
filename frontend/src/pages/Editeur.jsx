@@ -236,13 +236,13 @@ const CHAMPS = {
     { key: 'sys.section',         label: 'Section (choisie à la génération)' },
   ],
   'Personnel établissement': [
-    { key: 'directeur.nom_prenom',      label: 'Directeur — Nom Prénom' },
+    { key: 'directeur.nom_prenom',      label: 'Directeur — Prénom NOM' },
     { key: 'directeur.qualite',          label: 'Directeur — Qualité/Fonction' },
     { key: 'directeur.email',            label: 'Directeur — E-mail' },
-    { key: 'dir_adjoint.nom_prenom',    label: 'Directeur adjoint — Nom Prénom' },
+    { key: 'dir_adjoint.nom_prenom',    label: 'Directeur adjoint — Prénom NOM' },
     { key: 'dir_adjoint.qualite',        label: 'Directeur adjoint — Qualité' },
-    { key: 'secretaire.nom_prenom',     label: 'Secrétaire — Nom Prénom' },
-    { key: 'coordinatrice.nom_prenom',  label: 'Coordinatrice — Nom Prénom' },
+    { key: 'secretaire.nom_prenom',     label: 'Secrétaire — Prénom NOM' },
+    { key: 'coordinatrice.nom_prenom',  label: 'Coordinatrice — Prénom NOM' },
   ],
   'Contrat': [
     { key: 'prof.date_naissance_fr',     label: 'Date de naissance (JJ/MM/AAAA)' },
