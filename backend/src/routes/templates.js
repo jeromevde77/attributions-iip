@@ -6,6 +6,7 @@ import { LOGO_IIP_HTML } from '../services/assets/logo_iip.js';
 import { LOGO_IIP_BLANC_HTML } from '../services/assets/logo_iip_blanc.js';
 import { sectionRattachement } from './etudiants.js';
 import { identiteEtablissement } from './config.js';
+import { envelopperDocument } from '../lib/document.js';
 
 const r = Router();
 
@@ -463,12 +464,29 @@ export function composerTemplate(t, { prof_id, ue_num, section, annee, etudiant_
   return { html: bodyHtml, headerHtml, footerHtml };
 }
 
+/* LE BAS DE PAGE DE L'ATELIER EST LE PIED COMMUN DE LUCIE (Charles, 10 octobre
+   2026 : « le bas de page n'est pas le bon ; il n'est pas complet et n'a pas le
+   petit logo »). Le bloc « Bas de page » de l'atelier écrivait sa propre ligne
+   d'adresse ; il se dit pourtant « élément de la charte, le même sur toutes
+   les pièces ». Une lettre de l'atelier passe donc par l'enveloppe commune
+   (lib/document.js) : logo, identité complète, « Produit par… », collé au bas
+   de CHAQUE page — et l'aperçu la rend alors en PDF serveur. Son en-tête reste
+   le sien (entete: false). Les modèles de l'ancien éditeur ne changent pas. */
+const piedDeLAtelier = t => /^<!--atelier:/.test(String(t.contenu || '')) && /data-pied/.test(String(t.contenu || ''));
+function enveloppeLettres(t, docs) {
+  let m = {};
+  try { m = (typeof t.margins === 'string' ? JSON.parse(t.margins) : t.margins) || {}; } catch { m = {}; }
+  const corps = docs.map((d, i) => `${i ? '<div class="page-break"></div>' : ''}${d.headerHtml || ''}${d.html || ''}`).join('\n');
+  return envelopperDocument({ html: corps, titre: t.nom, entete: false, orientation: t.format === 'A4L' ? 'paysage' : 'portrait',
+    margeHaut: Number(m.top) || 18, margeCote: Number(m.left) || 18 });
+}
+
 r.post('/:id/generer', authRequired, async (req, res) => {
  try {
   const t = db.prepare('SELECT * FROM document_template WHERE id = ?').get(req.params.id);
   if (!t) return res.status(404).json({ error: 'Template introuvable' });
   const out = composerTemplate(t, req.body || {});
-  res.json({ ...out, nom: t.nom });
+  res.json({ ...out, nom: t.nom, ...(piedDeLAtelier(t) ? { enveloppe: enveloppeLettres(t, [out]) } : {}) });
  } catch (e) {
   console.error('[generer] ERREUR :', e);
   res.status(500).json({ error: 'Erreur de génération : ' + e.message });
@@ -490,9 +508,12 @@ r.post('/:id/lot', authRequired, (req, res) => {
       const e = db.prepare('SELECT id, nom, prenom, email_ecole FROM etudiant WHERE id = ?').get(id);
       if (!e) return null;
       const out = composerTemplate(t, { annee, etudiant_id: id, section: req.body?.section || null });
-      return { etudiant_id: id, nom: `${String(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim(), email: e.email_ecole || null, ...out };
+      return { etudiant_id: id, nom: `${String(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim(), email: e.email_ecole || null, ...out,
+        ...(piedDeLAtelier(t) ? { enveloppe: enveloppeLettres(t, [out]) } : {}) };
     }).filter(Boolean);
-    res.json({ nom: t.nom, format: t.format, margins: t.margins, documents });
+    // Tout le lot dans UNE enveloppe, une lettre par page : le pied commun sur chacune.
+    res.json({ nom: t.nom, format: t.format, margins: t.margins, documents,
+      ...(piedDeLAtelier(t) ? { enveloppe: enveloppeLettres(t, documents) } : {}) });
   } catch (e) {
     console.error('[lot] ERREUR :', e);
     res.status(500).json({ error: 'Erreur de génération : ' + e.message });

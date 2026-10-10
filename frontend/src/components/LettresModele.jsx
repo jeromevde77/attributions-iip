@@ -65,7 +65,10 @@ export default function LettresModele({ annee }) {
       setProduits(j);
     } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
   }
-  const html = docs => documentModele(docs, { titre: nomModele, format: produits?.format, margins: produits?.margins });
+  // Un modèle de l'atelier revient déjà dans l'enveloppe commune (pied de Lucie, logo) : on la prend telle quelle.
+  const html = docs => (docs.length === 1 && docs[0].enveloppe) ? docs[0].enveloppe
+    : (produits?.enveloppe && docs.length === produits.documents.length) ? produits.enveloppe
+    : documentModele(docs, { titre: nomModele, format: produits?.format, margins: produits?.margins });
   const fichier = d => `${nomModele}_${d.nom}`.replace(/[^\p{L}\p{N}]+/gu, '_');
   const apercu = k => {
     const d = produits.documents[k];
