@@ -10,6 +10,7 @@ const StructureSection = lazy(() => import('./StructureSection.jsx'));
 const GroupesCommuns = lazy(() => import('./GroupesCommuns.jsx'));
 const DisponibilitesSection = lazy(() => import('./DisponibilitesSection.jsx'));
 const PlanningEcole = lazy(() => import('./PlanningEcole.jsx'));
+const CohortesBloc = lazy(() => import('../components/CohortesBloc.jsx'));
 const SimulationAnnee = lazy(() => import('./GroupesCommuns.jsx').then(m => ({ default: m.SimulationAnnee })));
 
 /**
@@ -70,6 +71,7 @@ export default function LaboratoireTemporel() {
      côté de l'autre, en carrousel, les changer d'ordre, comparer des UE »). */
   const [rangee, setRangee] = useState([]);           // n° d'UE, dans l'ordre choisi
   const [debutRangee, setDebutRangee] = useState(0);
+  const [cohortes, setCohortes] = useState(false);
 
   /* REMPLIR LES VERRES DEPUIS LES ATTRIBUTIONS (Charles, 10 octobre 2026) : le
      travail dans l'autre sens — ce qui est déjà attribué remplit les verres.
@@ -395,6 +397,13 @@ Les étudiants se répartissent ensuite entre les organisations (répartition de
           <button className="bouton" onClick={() => remplirDepuisAttributions(zoom === 'ue' && ueChoisie ? [ueChoisie.ue_num] : [...new Set(ues.filter(u => !u.stage).map(u => u.ue_num))])}
             title="Les activités, groupes et périodes déjà attribués remplissent les verres">
             {zoom === 'ue' && ueChoisie ? `Remplir le verre de l’UE ${ueChoisie.ue_num} depuis les attributions` : 'Remplir les verres depuis les attributions'}</button>)}
+        {face === 'temps' && data && (() => {
+          // LES COHORTES : dès qu'une UE du bloc est dédoublée. Sans bloc choisi, celui des UE dédoublées s'il n'y en a qu'un.
+          const bl = [...new Set((data.ues || []).filter(u => u.nb_organisations > 1).map(u => String(u.ue_niv || '').toUpperCase()).filter(Boolean))];
+          if (!bl.length) return null;
+          const b = bloc || (bl.length === 1 ? bl[0] : '');
+          return <button className="bouton" disabled={!b} onClick={() => setCohortes(b)} title={b ? `Placer les étudiants de ${b} dans les organisations de toutes les UE dédoublées` : 'Choisissez un bloc'}>Cohortes{b ? ` ${b}` : ''}</button>;
+        })()}
         {face === 'temps' && peutEcrire && data && <>
           <button className="bouton" onClick={restaurerSauvegarde} title="Revenir à une sauvegarde du laboratoire"><IconHistory size={15} />Sauvegardes</button>
           <button className="bouton bouton-detruire" onClick={grandNettoyage} title="Sauvegarder, tout vider (la structure reste), puis réimporter depuis les attributions"><IconTrash size={15} />Grand nettoyage du labo</button>
@@ -416,6 +425,10 @@ Les étudiants se répartissent ensuite entre les organisations (répartition de
           <SimulationAnnee key={`${section}-${bloc}`} section={section} bloc={bloc} annee={annee} peutEcrire={peutEcrire} versPlanning={() => setFace('planning')} />
         </Suspense>) : <p className="text-[13px] text-slate-500">Choisissez un bloc : la semaine se compose bloc par bloc.</p>)}
 
+      {cohortes && (
+        <Suspense fallback={null}>
+          <CohortesBloc section={section} bloc={cohortes} annee={annee} peutEcrire={peutEcrire} onFermer={() => setCohortes(false)} />
+        </Suspense>)}
       {face === 'planning' && (
         <Suspense fallback={<div className="text-[13px] text-slate-400">Chargement…</div>}>
           <PlanningEcole key={section} section={section} annee={annee} peutEcrire={peutEcrire} />

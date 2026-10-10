@@ -665,6 +665,57 @@ r.delete('/organisation', authRequired, roleRequired('admin', 'editeur', 'coordi
   res.json({ ok: true });
 });
 
+/* LES COHORTES (Charles, 10 octobre 2026 : « les deux selon la section » — des
+   demi-promotions stables là où la section fonctionne ainsi, comme l'AESI ; le cas
+   par cas ailleurs, par la répartition de chaque UE). Une cohorte = un numéro
+   d'organisation : placer un étudiant dans la cohorte 2, c'est le mettre en
+   organisation 2 dans TOUTES les UE dédoublées de son bloc (celles qui en ont une 2).
+   Rien ne s'écrit sans le compte rendu d'abord. */
+function uesDedoublees(annee, section, bloc) {
+  return db.prepare(`SELECT o.ue_num, GROUP_CONCAT(DISTINCT COALESCE(o.num_organisation, 1)) orgs FROM organisation_ue o
+    WHERE o.annee_scolaire = ? AND o.section = ? AND o.ue_num IN (SELECT ue_num FROM ue WHERE annee_scolaire = ? AND section = ? AND UPPER(COALESCE(ue_niv, '')) = UPPER(?))
+    GROUP BY o.ue_num HAVING COUNT(DISTINCT COALESCE(o.num_organisation, 1)) > 1 ORDER BY o.ue_num`).all(annee, section, annee, section, bloc)
+    .map(x => ({ ue_num: x.ue_num, orgs: String(x.orgs).split(',').map(Number).sort() }));
+}
+r.get('/cohortes', authRequired, (req, res) => {
+  const annee = req.query.annee || anneeDeTravail(req), section = String(req.query.section || ''), bloc = String(req.query.bloc || '');
+  if (!section || !bloc) return res.status(400).json({ error: 'section et bloc requis' });
+  const ues = uesDedoublees(annee, section, bloc);
+  const nums = ues.map(u => u.ue_num);
+  const lignes = nums.length ? db.prepare(`SELECT e.id, e.nom, e.prenom, i.ue_num, COALESCE(i.num_organisation, 1) org
+    FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.annee_scolaire = ? AND i.ue_num IN (${nums.map(() => '?').join(',')}) AND COALESCE(e.actif, 1) = 1
+    ORDER BY e.nom, e.prenom`).all(annee, ...nums) : [];
+  const parId = new Map();
+  for (const l of lignes) {
+    if (!parId.has(l.id)) parId.set(l.id, { id: l.id, nom: l.nom, prenom: l.prenom, orgs: {} });
+    parId.get(l.id).orgs[l.ue_num] = l.org;
+  }
+  res.json({ ues, etudiants: [...parId.values()] });
+});
+r.put('/cohortes', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
+  const b = req.body || {};
+  const annee = b.annee_scolaire || anneeDeTravail(req), section = String(b.section || ''), bloc = String(b.bloc || '');
+  const aff = Array.isArray(b.affectations) ? b.affectations : [];
+  if (!section || !bloc || !aff.length) return res.status(400).json({ error: 'section, bloc et affectations requis' });
+  const ues = uesDedoublees(annee, section, bloc);
+  const lire = db.prepare('SELECT COALESCE(num_organisation, 1) org FROM etudiant_inscription WHERE etudiant_id = ? AND ue_num = ? AND annee_scolaire = ?');
+  const maj = db.prepare('UPDATE etudiant_inscription SET num_organisation = ? WHERE etudiant_id = ? AND ue_num = ? AND annee_scolaire = ?');
+  const changements = [];
+  for (const x of aff) {
+    const eid = Number(x.etudiant_id), org = Number(x.org);
+    if (!Number.isInteger(eid) || !(org >= 1)) continue;
+    for (const u of ues) {
+      if (!u.orgs.includes(org)) continue;                  // cette UE n'a pas d'organisation de ce numéro
+      const cur = lire.get(eid, u.ue_num, annee);
+      if (cur && cur.org !== org) changements.push({ etudiant_id: eid, ue_num: u.ue_num, de: cur.org, vers: org });
+    }
+  }
+  if (b.simulation !== false) return res.json({ changements: changements.length, etudiants: new Set(changements.map(c => c.etudiant_id)).size });
+  db.transaction(() => { for (const c of changements) maj.run(c.vers, c.etudiant_id, c.ue_num, annee); })();
+  res.json({ ok: true, changements: changements.length });
+});
+
 r.post('/depuis-attributions', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
   const b = req.body || {};
   const annee = b.annee_scolaire || anneeDeTravail(req);

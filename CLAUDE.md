@@ -211,7 +211,12 @@ son organisation (attributions, ou verre de chaque organisation), ses dates et
 ses étudiants (`etudiant_inscription.num_organisation`) ; un stage bloquant d'une
 organisation n'arrête QUE la sienne ; occupation par brique × organisation et par
 étudiant (le cas par cas : un étudiant en orga 1 d'une UE, orga 2 d'une autre).
-Une UE en une seule organisation concerne tout le monde.
+Une UE en une seule organisation concerne tout le monde. **Les cohortes** (3.1.246, « les deux selon la
+section ») : bouton *Cohortes* du laboratoire dès qu'une UE du bloc est dédoublée
+(`components/CohortesBloc.jsx`, `GET/PUT /api/grille/cohortes`) — placer un
+étudiant en cohorte 2, c'est le mettre en organisation 2 dans TOUTES les UE
+dédoublées de son bloc ; « moitié / moitié » ; compte rendu avant écriture. Le cas
+par cas reste dans la répartition de chaque UE, et se lit « mixte ».
 
 **ÉVALUATION UNIQUE ≠ ÉPREUVE INTÉGRÉE** (2.12.289, Charles, 28 septembre 2026,
 UE 261 : « une seule évaluation ; la note doit aller aux deux cours »). Une unité
