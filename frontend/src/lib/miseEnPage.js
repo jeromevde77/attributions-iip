@@ -23,6 +23,8 @@ export function chargerMiseEnPage() {
     .catch(() => {});
   return charge;
 }
+/** Relire après une annulation (3.1.267). */
+export function rechargerMiseEnPage() { charge = null; return chargerMiseEnPage(); }
 export function useMiseEnPage() {
   const [, setN] = useState(0);
   useEffect(() => { const f = () => setN(n => n + 1); abonnes.add(f); chargerMiseEnPage(); return () => { abonnes.delete(f); }; }, []);
@@ -37,6 +39,8 @@ function enregistrer() {
     fetch('/api/config/mise-en-page', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ conf: etat.conf }) }).catch(() => {});
   }, 400);
 }
+// Une annulation commence : ce qui attendait d'être écrit ne doit pas réécrire après elle.
+if (typeof window !== 'undefined') window.addEventListener('lucie:reglages-avant', e => { if (e.detail?.quoi === 'mise_en_page') clearTimeout(minuterie); });
 export function changerMiseEnPage(f) { etat.conf = f(structuredClone(etat.conf)); prevenir(); enregistrer(); }
 
 /** Déplacer `de` juste avant `vers` dans une liste. */

@@ -1,3 +1,4 @@
+import ChoixRecherche from '../components/ChoixRecherche.jsx';
 import { useEffect, useMemo, useState } from 'react';
 import {
   IconPlus, IconTrash, IconUpload, IconCopy, IconAlertTriangle, IconCash,
@@ -35,7 +36,7 @@ export default function Budget() {
         if (!Array.isArray(l)) return;
         // Aux sections d'enseignement s'ajoutent les services, qui ont aussi
         // leur budget : direction, secrétariat, coordination…
-        const services = ['Direction', 'Direction adjointe', 'Secrétariat', 'Coordination', 'MDP', 'IIP'];
+        const services = ['Direction', 'Direction adjointe', 'Secrétariat', 'Coordination', 'MDP', 'IIP', 'Autres'];
         const codes = [...l.map(s => s.code), ...services];
         setSections(codes);
         if (codes.length && !section) setSection(codes[0]);
@@ -61,7 +62,8 @@ export default function Budget() {
   useEffect(() => { charger(); /* eslint-disable-next-line */ }, [annee, section, vue]);
 
   async function enregistrerLigne() {
-    const corps = { ...form, annee_civile: annee, section };
+    // La section de la FICHE : on peut corriger celle d'une ligne mal rangée (3.1.274).
+    const corps = { ...form, annee_civile: annee, section: form.section || section };
     const url = form.id ? `/api/budget/ligne/${form.id}` : '/api/budget/ligne';
     const rep = await fetch(url, {
       method: form.id ? 'PUT' : 'POST', headers: authHeaders(), body: JSON.stringify(corps),
@@ -123,6 +125,19 @@ export default function Budget() {
             bilan: l['Bilan'] || null, type: l['Type'] || null,
             tva_defaut: l['TVA'] != null ? Number(l['TVA']) : null,
           }));
+        /* LA COLONNE A DIT PLUS QUE LA LISTE (Charles, 10 octobre 2026) : le canevas emploie
+           des comptes absents de sa propre liste déroulante. On les prend aussi — numéro et
+           libellé tels qu'écrits ; charge pour les 6, produit pour les 7. */
+        const ongletBud = wb.SheetNames.find(n => /budget/i.test(n));
+        if (ongletBud) {
+          const connus = new Set(liste.map(c => c.reference));
+          for (const ligne of XLSX.utils.sheet_to_json(wb.Sheets[ongletBud], { header: 1, defval: null })) {
+            const m = /^(\d{6})\s+(.+)$/.exec(String(ligne?.[0] || '').trim());
+            if (!m || connus.has(m[1])) continue;
+            connus.add(m[1]);
+            liste.push({ reference: m[1], libelle: m[2].trim(), bilan: m[1][0] === '7' ? 'Produit' : m[1][0] === '6' ? 'Charge' : null, type: 'Cpte général', tva_defaut: null });
+          }
+        }
         if (liste.length) {
           const rep = await fetch('/api/budget/comptes', {
             method: 'PUT', headers: authHeaders(), body: JSON.stringify({ comptes: liste }),
@@ -280,7 +295,7 @@ export default function Budget() {
           )}
 
           {form && (
-            <LigneForm form={form} setForm={setForm} comptes={comptes}
+            <LigneForm form={form} setForm={setForm} comptes={comptes} sections={sections} sectionCourante={section}
               onEnregistrer={enregistrerLigne} onAnnuler={() => setForm(null)} />
           )}
 
@@ -409,25 +424,29 @@ function LigneBudget({ l, depenses, peutEcrire, onEditer, onSupprimer, onDepense
 }
 
 // ── Formulaire de prévision ────────────────────────────────────────────────
-function LigneForm({ form, setForm, comptes, onEnregistrer, onAnnuler }) {
+function LigneForm({ form, setForm, comptes, sections = [], sectionCourante, onEnregistrer, onAnnuler }) {
   const total = Number(form.prix_unitaire || 0) * Number(form.quantite || 0);
   const maj = (k, v) => setForm(f => ({ ...f, [k]: v }));
   return (
     <div className="border border-iip-turquoise/40 rounded-xl p-4 bg-iip-turquoise/5 space-y-3">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <label className="text-xs md:col-span-2">
-          <span className="intertitre block mb-1">Compte général</span>
-          <select value={form.compte_ref || ''} onChange={e => {
-              const c = comptes.find(x => x.reference === e.target.value);
-              setForm(f => ({ ...f, compte_ref: e.target.value,
-                taux_tva: c?.tva_defaut != null ? c.tva_defaut : f.taux_tva }));
-            }}
+          <span className="intertitre block mb-1">Section</span>
+          <select value={form.section || sectionCourante || ''} onChange={e => maj('section', e.target.value)}
+            title="« Autres » : ce qui ne relève d'aucune section ni d'aucun service (un projet, une formation qui n'existe pas comme section…)"
             className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white">
-            <option value="">— à préciser</option>
-            {comptes.map(c => (
-              <option key={c.reference} value={c.reference}>{c.reference} — {c.libelle}</option>
-            ))}
+            {sections.map(s0 => <option key={s0} value={s0}>{s0}</option>)}
           </select>
+        </label>
+        <label className="text-xs md:col-span-2">
+          <span className="intertitre block mb-1">Compte général</span>
+          {/* Une liste qui se cherche (3.1.275) : « peti », « matériel », un numéro. */}
+          <ChoixRecherche valeur={form.compte_ref || ''} placeholder="Chercher un compte : « matériel », « peti », « 6124 »…"
+            options={comptes.map(c => ({ valeur: c.reference, libelle: c.libelle, detail: c.bilan || undefined }))}
+            onChange={v => {
+              const c = comptes.find(x => x.reference === v);
+              setForm(f => ({ ...f, compte_ref: v, taux_tva: c?.tva_defaut != null ? c.tva_defaut : f.taux_tva }));
+            }} />
         </label>
         <label className="text-xs md:col-span-2">
           <span className="intertitre block mb-1">

@@ -1,4 +1,5 @@
 import { ICONE_AXE } from './lib/iconesAxes.js';
+import { BoutonAnnulerReglage } from './lib/annulerReglage.jsx';
 import { useMiseEnPage, basculerMiseEnPage, changerMiseEnPage, deplacer, poigneeGlisser } from './lib/miseEnPage.js';
 import { useDroits } from './lib/droits.js';
 import { useState, useEffect, useRef, Component, Fragment } from 'react';
@@ -47,6 +48,7 @@ import Login from './pages/Login.jsx';
 import MotDePasse from './pages/MotDePasse.jsx';
 import DemandeVA from './pages/DemandeVA.jsx';
 import RechercheLucie from './components/RechercheLucie.jsx';
+import AnnulerGestes from './components/AnnulerGestes.jsx';
 import { IconEtudiant } from './components/IconesLucie.jsx';
 import { useSousMenu } from './lib/sousMenu.js';
 import MonCompte from './components/MonCompte.jsx';
@@ -688,12 +690,14 @@ function ProtectedLayout({ children }) {
                 version et du compte, avec les autres choses qui ne dépendent
                 pas de là où l'on se trouve. */}
             <RechercheLucie />
+            <AnnulerGestes />
             {u?.role === 'admin' && (
               <button onClick={basculerMiseEnPage} aria-label="Mise en page" aria-pressed={mep.actif}
                 title={mep.actif ? 'Mise en page activée — glissez les menus et les blocs ; cliquer pour terminer' : 'Mise en page — ranger les menus et les pages en les glissant (administrateur)'}
                 className={`objet-barre ${mep.actif ? 'objet-barre-etat' : 'objet-barre-icone'}`} style={mep.actif ? { '--e': 'var(--c-attente)' } : undefined}>
                 <IconLayoutDashboard size={16} />{mep.actif && ' Mise en page'}
               </button>)}
+            {u?.role === 'admin' && mep.actif && <BoutonAnnulerReglage quoi="mise_en_page" className="objet-barre objet-barre-icone" libelle="Annuler" />}
             <button onClick={basculerMode} aria-label="Changer le mode d'affichage"
               title={mode === 'sombre' ? 'Menus en gris pâle' : 'Menus en marine'}
               className="objet-barre objet-barre-icone">

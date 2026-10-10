@@ -55,9 +55,67 @@ function themeGris() {
   } catch { return 'ardoise'; }
 }
 
+/* ON REVIENT EN ARRIÈRE (3.1.267, Charles, 10 octobre 2026 : « je viens de changer la
+   taille des boutons, je n'aime pas, je ne sais pas revenir en arrière »). Les réglages
+   s'enregistrent sans bouton ; chaque écriture garde donc d'abord l'état qu'elle
+   remplace (`reglage_historique`). Un curseur qu'on fait glisser écrit dix fois en
+   deux secondes : les écritures d'une même personne à moins de 20 s font UN pas.
+   « Annuler » rétablit le dernier état gardé, quel que soit l'écran d'où l'on vient,
+   et même le lendemain. */
+const LIRE_CONF = cle => db.prepare('SELECT valeur FROM lucie_config WHERE cle = ?').get(cle)?.valeur ?? null;
+const ECRIRE_CONF = (cle, v) => v === null
+  ? db.prepare('DELETE FROM lucie_config WHERE cle = ?').run(cle)
+  : db.prepare(`INSERT INTO lucie_config (cle, valeur) VALUES (?, ?) ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur`).run(cle, v);
+const PAQUETS = { design: ['design'], couleurs: ['couleurs', 'theme_gris'], mise_en_page: ['mise_en_page'] };
+function tableHistorique() {
+  db.exec(`CREATE TABLE IF NOT EXISTS reglage_historique (id INTEGER PRIMARY KEY AUTOINCREMENT,
+    quoi TEXT NOT NULL, valeur TEXT NOT NULL, par TEXT, le TEXT NOT NULL DEFAULT (datetime('now')))`);
+}
+function retenir(quoi, req) {
+  try {
+    tableHistorique();
+    const etat = JSON.stringify(Object.fromEntries(PAQUETS[quoi].map(c => [c, LIRE_CONF(c)])));
+    const par = req.user?.email || req.user?.nom || null;
+    const der = db.prepare(`SELECT valeur, par, (julianday('now') - julianday(le)) * 86400 age FROM reglage_historique WHERE quoi = ? ORDER BY id DESC LIMIT 1`).get(quoi);
+    if (der && der.par === par && der.age < 20) {
+      db.prepare(`UPDATE reglage_historique SET le = datetime('now') WHERE id = (SELECT MAX(id) FROM reglage_historique WHERE quoi = ?)`).run(quoi);
+      return;                                     // le même geste continue : l'état d'avant est déjà gardé
+    }
+    if (der && der.valeur === etat) return;
+    db.prepare('INSERT INTO reglage_historique (quoi, valeur, par) VALUES (?,?,?)').run(quoi, etat, par);
+    db.prepare(`DELETE FROM reglage_historique WHERE quoi = ? AND id NOT IN (SELECT id FROM reglage_historique WHERE quoi = ? ORDER BY id DESC LIMIT 50)`).run(quoi, quoi);
+  } catch (e) { console.error('[réglages] historique :', e.message); }
+}
+r.get('/historique', authRequired, (req, res) => {
+  tableHistorique();
+  const quoi = String(req.query.quoi || '');
+  if (!PAQUETS[quoi]) return res.status(400).json({ error: 'quoi : design, couleurs ou mise_en_page' });
+  const l = db.prepare('SELECT id, par, le FROM reglage_historique WHERE quoi = ? ORDER BY id DESC LIMIT 50').all(quoi);
+  res.json({ pas: l.length, dernier: l[0] || null });
+});
+r.post('/annuler', authRequired, (req, res, next) => {
+  const quoi = String(req.body?.quoi || '');
+  if (!PAQUETS[quoi]) return res.status(400).json({ error: 'quoi : design, couleurs ou mise_en_page' });
+  // Les mêmes droits que l'écriture qu'on annule.
+  const garde = quoi === 'couleurs' ? gesteRequis('configuration.couleurs') : roleRequired('admin');
+  garde(req, res, () => {
+    tableHistorique();
+    const der = db.prepare('SELECT * FROM reglage_historique WHERE quoi = ? ORDER BY id DESC LIMIT 1').get(quoi);
+    if (!der) return res.status(404).json({ error: 'Rien à annuler : aucun changement gardé.' });
+    const etat = JSON.parse(der.valeur);
+    db.transaction(() => {
+      for (const c of PAQUETS[quoi]) ECRIRE_CONF(c, etat[c] ?? null);
+      db.prepare('DELETE FROM reglage_historique WHERE id = ?').run(der.id);
+    })();
+    const reste = db.prepare('SELECT COUNT(*) n FROM reglage_historique WHERE quoi = ?').get(quoi).n;
+    res.json({ ok: true, annule_le: der.le, reste });
+  });
+});
+
 r.put('/couleurs', authRequired,
   gesteRequis('configuration.couleurs'), async (req, res) => {
     const { COULEURS_DEFAUT, couleurs } = await import('../lib/couleurs.js');
+    retenir('couleurs', req);
     const propre = {};
     for (const [cle, v] of Object.entries(req.body?.couleurs || {})) {
       // Même garde qu'à la lecture : seul le dièse et six chiffres passent.
@@ -82,15 +140,21 @@ r.put('/couleurs', authRequired,
    « c'est uniquement l'administrateur qui peut toucher »). */
 r.get('/design', authRequired, async (req, res) => {
   const { design, DESIGN_DEFAUT } = await import('../lib/design.js');
-  res.json({ design: design(), catalogue: DESIGN_DEFAUT });
+  let personnalise = null; try { personnalise = JSON.parse(LIRE_CONF('design_personnalise') || 'null'); } catch { personnalise = null; }
+  res.json({ design: design(), catalogue: DESIGN_DEFAUT, personnalise });
 });
 r.put('/design', authRequired, roleRequired('admin'), async (req, res) => {
   const { design, valide } = await import('../lib/design.js');
+  retenir('design', req);
   const propre = {};
   for (const [k, v] of Object.entries(req.body?.design || {})) { const ok = valide(k, v); if (ok !== undefined) propre[k] = ok; }
   db.prepare(`INSERT INTO lucie_config (cle, valeur, description) VALUES (?,?,?)
               ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur`)
     .run('design', JSON.stringify(propre), 'Formes et composants : rayons, contrôles, tuiles, ombres, police');
+  /* LE THÈME « PERSONNALISÉ » (3.1.268, Charles : « dès que je modifie une chose, il
+     faut créer un thème : personnalisé »). Un geste à la main (et non le clic sur un
+     thème) le réécrit : on peut alors essayer « Arrondi » et revenir à SES réglages. */
+  if (req.body?.personnalise) ECRIRE_CONF('design_personnalise', JSON.stringify(propre));
   res.json({ design: design() });
 });
 
@@ -108,6 +172,7 @@ r.put('/mise-en-page', authRequired, roleRequired('admin'), (req, res) => {
   for (const [k, p] of Object.entries(c.pages || {}).slice(0, 100)) propre.pages[String(k).slice(0, 80)] = { ordre: texte(p?.ordre), masques: texte(p?.masques), demis: texte(p?.demis) };
   const v = JSON.stringify(propre);
   if (v.length > 100000) return res.status(400).json({ error: 'Mise en page trop volumineuse.' });
+  retenir('mise_en_page', req);
   db.prepare(`INSERT INTO lucie_config (cle, valeur, description) VALUES ('mise_en_page', ?, 'Ordre des axes, des rails et des blocs des pages')
               ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur`).run(v);
   res.json({ conf: propre });

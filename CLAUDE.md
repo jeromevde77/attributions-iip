@@ -260,6 +260,14 @@ liste « Classe » de la fiche) : l'UE 77 de psychomotricité, passée de B2 à 
 donne en 2026-2027 au Q2 en BA1 (org 1) ET en BA2 (org 2) ; chaque classe ne
 simule que ses organisations et leurs étudiants.
 
+**LE PRIMO-INSCRIT A UNE DÉFINITION, ET UN BADGE** (3.1.268, Charles : « un filtre
+primo et un badge — utile dans toutes les fenêtres où il y a des étudiants ») :
+aucune inscription ni valorisation dans une année antérieure — `lib/primo.js`
+(`anciensAvant`, `marquerPrimo`), jamais une quatrième recopie. `BadgePrimo`
+(`ui.jsx`) le montre partout pareil ; filtre dans la répartition des groupes
+(UE 77 : 99 inscrits, 60 primo — les BA1 du nouveau système) et dans les cohortes.
+**À étendre** aux autres listes d'étudiants.
+
 **ÉVALUATION UNIQUE ≠ ÉPREUVE INTÉGRÉE** (2.12.289, Charles, 28 septembre 2026,
 UE 261 : « une seule évaluation ; la note doit aller aux deux cours »). Une unité
 peut être réglée, pour une année, en **évaluation unique**
@@ -1522,6 +1530,23 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
 > rien. Table des zones : `docs/contexte/inventaire-design-2026-10-10.md`. Une
 > nouvelle zone s'ajoute au catalogue, jamais en dur dans un écran.
 >
+> **ON REVIENT EN ARRIÈRE** (3.1.267, Charles : « je viens de changer la taille des
+> boutons, je n'aime pas, je ne sais pas revenir en arrière — les profs font souvent
+> des erreurs »). Les réglages s'enregistrent sans bouton ; chaque écriture de
+> `design`, `couleurs` (+ `theme_gris`) et `mise_en_page` garde d'abord l'état qu'elle
+> remplace (`reglage_historique`, 50 pas ; les écritures d'une même personne à moins
+> de 20 s font UN pas — un curseur qu'on glisse). `POST /api/config/annuler` rétablit
+> le dernier, avec les droits de l'écriture qu'il annule. Un seul bouton,
+> `BoutonAnnulerReglage` (`lib/annulerReglage.jsx`) : Formes et composants, Thèmes et
+> couleurs, boîte de propriétés du catalogue, mode mise en page. Un nouvel écran de
+> réglage le pose et relit par `useRelireReglages`.
+>
+> **LE THÈME « PERSONNALISÉ »** (3.1.268, Charles : « dès que je modifie une chose, il
+> faut créer un thème personnalisé »). Formes et composants montre le thème en vigueur
+> (sélecteur à segments) ; un geste à la main — curseur, liste, boîte de propriétés —
+> écrit aussi `design_personnalise`, le clic sur un thème ne l'écrase pas : on essaie
+> « Arrondi », on revient à « Personnalisé ».
+>
 > **LE CATALOGUE DES ÉLÉMENTS** (3.1.260, Charles : « tu n'as pas répertorié tous
 > les visuels — les tableaux, les titres… »). Configuration → *Catalogue des
 > éléments* (`components/CatalogueVisuels.jsx`) : douze familles — titres, boutons,
@@ -2117,6 +2142,21 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
 ---
 
 ### Écritures et garde-fous
+
+- **L'« ANNULER » GÉNÉRAL** (3.1.270, Charles, 10 octobre 2026 : « revenir en arrière
+  au moins sur 10 changements — les profs font souvent des erreurs »). Un geste = une
+  requête qui écrit ; des déclencheurs posés au démarrage sur toutes les tables
+  (`lib/annulation.js`, `poserDeclencheurs`, APRÈS toutes les migrations) recopient
+  la ligne d'avant et d'après dans `annulation_trace`, le numéro du geste venant de
+  `lucie_geste()` (contexte de la requête ; hors requête, rien). `annulation_geste` le
+  dit en mots ; 10 gestes gardés par personne. Bouton de la barre du haut
+  (`components/AnnulerGestes.jsx`) : on revient avant un geste, du plus récent à lui.
+  Tranché : chacun ses gestes, la direction ceux d'un autre avec motif ; **jamais les
+  actes officiels** (`OFFICIELS` : journaux en ajout seul, présences, procédures,
+  motivations, envois, textes publiés ; séance close, valorisation validée ou
+  notifiée) ; refus si la ligne a changé depuis, en nommant qui. Un import de plus de
+  20 000 lignes ne se garde pas. **Une table nouvelle est suivie au redémarrage
+  suivant** ; une table à colonne BLOB ou sans rowid ne l'est pas.
 
 - **Rien ne s'écrit sans qu'on ait vu ce qui sera écrit** : tout import et tout
   traitement en lot passe par une simulation.

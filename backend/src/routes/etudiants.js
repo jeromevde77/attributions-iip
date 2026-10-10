@@ -21,6 +21,7 @@ import { anneeDeTravail } from '../helpers/annee.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
 import { construireGraphe, niveauxEffectifs, rangNiveau } from './capitalisation.js';
 import { placementsSection } from '../lib/placement.js';
+import { marquerPrimo } from '../lib/primo.js';
 import { etatsPAE, plafondBloc, rangBloc } from '../lib/pae.js';
 import { SIGNATURE_SOHET, SCEAU_IIP } from '../services/assets/signature_sohet.js';
 import { identiteEtablissement } from './config.js';
@@ -1744,6 +1745,7 @@ r.get('/repartition-cours/ue', authRequired, (req, res) => {
   const disp = dispensesDeLUE(ueNum, annee);
   const dispenses = Object.fromEntries([...disp].map(([id, d]) => [id, { ue: d.ue, cours: Object.fromEntries(d.cours) }]));
 
+  marquerPrimo(etudiants, annee);
   res.json({ ue_num: ueNum, annee, cours, etudiants, affectations, dispenses });
 });
 

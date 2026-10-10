@@ -1,3 +1,5 @@
+import VoeuAnniversaire from '../components/VoeuAnniversaire.jsx';
+import FeteAnniversaire from '../components/FeteAnniversaire.jsx';
 import { ICONE_AXE } from '../lib/iconesAxes.js';
 import BlocsPage from '../components/BlocsPage.jsx';
 import { lazy, Suspense, useEffect, useState, useCallback } from 'react';
@@ -50,6 +52,7 @@ const TYPE_CONFIG = {
     // l'autre appelle.
     demain:     { label: 'Demain',      color: '#FFFFFF', bg: 'var(--c-attente)', icon: IconCake },
     aujourdhui: { label: "Aujourd'hui", color: 'var(--c-attente)', bg: 'rgb(var(--e-attente-100))', icon: IconCake },
+    voeux:      { label: 'Vos vœux',    color: 'var(--c-attente)', bg: 'rgb(var(--e-attente-100))', icon: IconCake },
   },
 };
 
@@ -746,12 +749,14 @@ export default function Accueil() {
                   const Icon = cfg.icon;
                   return (
                     <div key={item.id}
-                      className={`border rounded-xl p-3.5 flex items-start gap-3 transition ${
+                      className={`relative overflow-hidden border rounded-xl p-3.5 flex items-start gap-3 transition ${
                         item.lue
                           ? 'border-gray-100 bg-white/60'
                           : 'border-gray-200 bg-white shadow-pose'
                       }`}>
 
+                      {/* La fête, derrière la carte d'un anniversaire du jour (3.1.271). */}
+                      {item.type === 'anniversaire' && (item.action === 'aujourdhui' || item.action === 'voeux') && <FeteAnniversaire />}
                       {/* Icône colorée */}
                       <div className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center mt-0.5"
                         style={{ background: cfg.bg }}>
@@ -778,12 +783,13 @@ export default function Accueil() {
                           <div className="text-xs text-gray-400 mt-0.5">par {item.auteur}</div>
                         )}
                         {item.corps && (
-                          <div className="text-xs text-gray-600 mt-1.5 leading-relaxed bg-gray-50 rounded-lg px-3 py-2"
+                          <div className={`text-xs text-gray-600 mt-1.5 leading-relaxed rounded-lg px-3 py-2 ${item.type === 'anniversaire' ? '' : 'bg-gray-50'}`}
                             dangerouslySetInnerHTML={{ __html: item.corps }} />
                         )}
 
                         {/* Actions */}
-                        <div className="flex items-center gap-3 mt-2">
+                        <div className="flex items-center gap-3 mt-2 flex-wrap">
+                          {item.type === 'anniversaire' && item.action === 'aujourdhui' && item.personne_id && <VoeuAnniversaire item={item} />}
                           {item.lien && (
                             <button onClick={() => { if (!item.lue) marquerLu(item); navigate(item.lien); }}
                               className="text-xs text-iip-blue hover:underline flex items-center gap-0.5">

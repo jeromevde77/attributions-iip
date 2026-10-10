@@ -3,6 +3,7 @@ import { authHeaders } from './api.js';
 import { poserDesign } from './design.js';
 import { poser as poserCouleurs } from './couleurs.js';
 import { passeRole, peutGeste } from './droits.js';
+import { useRelireReglages } from './annulerReglage.jsx';
 
 /**
  * RÉGLER UN ÉLÉMENT LÀ OÙ ON LE VOIT (3.1.262, Charles, 10 octobre 2026 : « je dois
@@ -20,17 +21,20 @@ export function useReglagesVisuels() {
   const peutFormes = passeRole(['admin']);
   const peutCouleurs = peutGeste('configuration.couleurs') || passeRole(['admin']);
 
-  useEffect(() => {
+  const lire = () => {
     fetch('/api/config/design', { headers: authHeaders() }).then(r => r.json()).then(j => { setDesign(j.design || {}); setCatDesign(j.catalogue || {}); }).catch(() => {});
     fetch('/api/config/couleurs', { headers: authHeaders() }).then(r => r.json()).then(j => { setCouleurs(j.couleurs || {}); setCatCouleurs(j.catalogue || {}); setGris(j.gris || 'ardoise'); }).catch(() => {});
-  }, []);
+  };
+  useEffect(lire, []);
+  // Après « Annuler le dernier changement » : relire, et oublier ce qui attendait d'être écrit.
+  useRelireReglages(['design', 'couleurs'], lire, () => { clearTimeout(tD.current); clearTimeout(tC.current); });
 
   function changerForme(cle, v) {
     if (!peutFormes) return;
     const n = { ...design, [cle]: v }; setDesign(n); poserDesign(n);
     clearTimeout(tD.current); setEtat('…');
     tD.current = setTimeout(async () => {
-      const r = await fetch('/api/config/design', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ design: n }) });
+      const r = await fetch('/api/config/design', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ design: n, personnalise: true }) });
       setEtat(r.ok ? '✓ enregistré' : 'Refusé');
     }, 500);
   }

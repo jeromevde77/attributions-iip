@@ -24,6 +24,7 @@ import { authRequired, roleRequired } from '../middleware/auth.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { organisationsDe } from '../lib/groupesCommuns.js';
 import { placementsSection, uesDuBloc } from '../lib/placement.js';
+import { marquerPrimo } from '../lib/primo.js';
 
 const r = Router();
 
@@ -422,8 +423,23 @@ r.get('/', authRequired, (req, res) => {
     }
     const perSemaine = semCours > 0 ? Math.round((perTotal / semCours) * 10) / 10 : null;
 
+    /* LE NOMBRE D'ÉTUDIANTS DE CETTE ORGANISATION (Charles, 10 octobre 2026 : « voir le
+       nombre d'étudiants dans cette vue et les suivantes »). Les groupes font foi quand
+       les cours de l'UE sont répartis ; sinon l'inscription (sans organisation = la 1). */
+    const parGroupes = db.prepare(`SELECT COUNT(DISTINCT g.etudiant_id) n, COUNT(*) lignes FROM etudiant_cours_groupe g
+        JOIN etudiant e ON e.id = g.etudiant_id AND COALESCE(e.actif, 1) = 1
+        WHERE g.annee_scolaire = ? AND COALESCE(g.num_organisation, 1) = ?
+          AND g.cours_code IN (SELECT cours_code FROM cours WHERE annee_scolaire = ? AND ue_num = ?)`).get(annee, num, annee, u.ue_num);
+    const repartie = db.prepare(`SELECT 1 FROM etudiant_cours_groupe WHERE annee_scolaire = ?
+        AND cours_code IN (SELECT cours_code FROM cours WHERE annee_scolaire = ? AND ue_num = ?) LIMIT 1`).get(annee, annee, u.ue_num);
+    const inscrits = db.prepare(`SELECT COUNT(DISTINCT i.etudiant_id) n FROM etudiant_inscription i
+        JOIN etudiant e ON e.id = i.etudiant_id AND COALESCE(e.actif, 1) = 1
+        WHERE i.annee_scolaire = ? AND i.ue_num = ? AND (? = 1 OR COALESCE(i.num_organisation, 1) = ?)`).get(annee, u.ue_num, toutes.length > 1 ? 0 : 1, num).n;
+    const nbEtudiants = repartie ? parGroupes.n : inscrits;
+
     return {
       ...u,
+      nb_etudiants: nbEtudiants, etudiants_selon: repartie ? 'groupes' : 'inscriptions',
       // La classe de CETTE organisation : la sienne si elle en a une, sinon celle de l'UE.
       ue_niv: (o?.bloc || u.ue_niv || '').toUpperCase(), bloc_propre: o?.bloc || null, bloc_ue: u.ue_niv || '',
       num_organisation: num, nb_organisations: toutes.length, cle: toutes.length > 1 ? `${u.ue_num}#${num}` : String(u.ue_num),
@@ -837,7 +853,7 @@ r.get('/cohortes', authRequired, (req, res) => {
     const g = parGroupes.get(`${l.id}|${l.ue_num}`);
     parId.get(l.id).orgs[l.ue_num] = g ? (g.size === 1 ? [...g][0] : [...g].sort().join('+')) : l.org;
   }
-  res.json({ ues, etudiants: [...parId.values()] });
+  res.json({ ues, etudiants: marquerPrimo([...parId.values()], annee) });
 });
 r.put('/cohortes', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
   const b = req.body || {};

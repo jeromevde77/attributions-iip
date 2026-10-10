@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { porterContexte } from './lib/contexteRequete.js';
+import { cloreGeste, poserDeclencheurs } from './lib/annulation.js';
 import { demoWriteGuard } from './middleware/demo.js';
 import express from 'express';
 import cors from 'cors';
@@ -3015,6 +3016,9 @@ app.use(express.json({ limit: '5mb' }));
  * plus loin. Le middleware relit donc l'utilisateur au moment où la mention
  * est fabriquée, pas ici. */
 app.use((req, res, next) => porterContexte(req, res, next));
+// L'« ANNULER » GÉNÉRAL (3.1.270) : à la fin de chaque requête qui a écrit, le geste
+// s'enregistre (lib/annulation.js) — ses traces, les déclencheurs les ont déjà posées.
+app.use((req, res, next) => { res.on('finish', () => { if (req._geste) cloreGeste(req, res); }); next(); });
 // TOUTE PIÈCE A UN MODÈLE (lib/habillagePieces.js) : le modèle commun se pose à
 // la sortie de la pièce. La galerie se compose une fois au démarrage pour que
 // chaque route sache quelle pièce elle produit.
@@ -3170,6 +3174,7 @@ app.use('/api/dcpp',            garderModule('dcpp'), dcppRoutes);
 app.use('/api/recrutement',     garderModule('recrutement'), recrutementRoutes);
 app.use('/api/aa',              garderModule('aa'), aaRoutes);
 app.use('/api/config',          garderModule('config'), (await import('./routes/config.js')).default);
+app.use('/api/annulation', (await import('./routes/annulation.js')).default);
 app.use('/api/analyse-cv',      garderModule('analyse-cv'), (await import('./routes/analyseCv.js')).default);
 app.use('/api/dossiers-rh',     garderModule('dossiers-rh'), (await import('./routes/dossiersRh.js')).default);
 // Route logo IIP
@@ -3212,5 +3217,7 @@ try { demarrerPlanificateur(); } catch (e) { console.error('[sauvegarde] planifi
 try { migrerJournalModifications(db); } catch (e) { console.error('[migration] journal des modifications :', e.message); }
 // Les images de l'établissement (logo, logo blanc, signature, cachet) remplacent les fichiers d'origine (3.1.253).
 import('./routes/etablissement.js').then(m => m.migrerEtablissements())   // une base neuve crée la table après l'import des routes
-  .then(() => import('./lib/identite.js')).then(m => m.appliquerIdentite()).catch(e => console.error('[identité]', e.message));
+  .then(() => import('./lib/identite.js')).then(m => m.appliquerIdentite()).catch(e => console.error('[identité]', e.message))
+  // Les déclencheurs de l'« Annuler » en tout dernier : une table recréée par une migration perd les siens.
+  .finally(() => { try { console.log(`[annulation] ${poserDeclencheurs(db)} tables suivies`); } catch (e) { console.error('[annulation] déclencheurs :', e.message); } });
 app.listen(PORT, () => console.log(`🚀 Backend Attributions IIP sur http://localhost:${PORT}`));

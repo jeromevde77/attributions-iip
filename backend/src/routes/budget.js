@@ -65,6 +65,33 @@ export function migrerBudget(dbx) {
     `);
     console.log('[migration] Tables budget créées');
   } catch (e) { console.error('[migration] budget :', e.message); }
+  /* LE RÉFÉRENTIEL CORRIGÉ, UNE FOIS (Charles, 10 octobre 2026). Le canevas 2026 emploie
+     dans sa colonne A huit comptes absents de sa propre liste déroulante : ils entrent au
+     référentiel. Et les treize comptes HELB sortent de la liste de choix — INACTIFS, pas
+     effacés : une pièce ancienne qui les cite reste lisible. Aucune ligne ne les utilisait. */
+  try {
+    dbx.exec(`CREATE TABLE IF NOT EXISTS migration_faite (cle TEXT PRIMARY KEY, le TEXT DEFAULT (datetime('now')))`);
+    if (!dbx.prepare("SELECT 1 FROM migration_faite WHERE cle = 'budget_2026_10_10_comptes'").get()) {
+      const ajout = dbx.prepare(`INSERT INTO budget_compte (reference, libelle, bilan, type, tva_defaut) VALUES (?,?,?,'Cpte général',NULL)
+        ON CONFLICT(reference) DO NOTHING`);
+      const HUIT = [
+        ['612330', 'Contrats photocopieurs et consommables', 'Charge'],
+        ['613801', 'Rétribution enseignement - Société (Entreprise personne morale)', 'Charge'],
+        ['623001', 'IIP IP transport domicile/travail statutaires', 'Charge'],
+        ['626001', 'IIP Traitements FWB statutaires #737001', 'Charge'],
+        ['737001', 'IIP Traitements FWB statutaires #626001', 'Produit'],
+        ['737101', 'IIP Subventions de fonctionnement', 'Produit'],
+        ['737130', "IIP Droits d'inscription", 'Produit'],
+        ['737131', "IIP Droits d'inscription primo-arrivant", 'Produit'],
+      ];
+      dbx.transaction(() => {
+        for (const [r0, l, b] of HUIT) ajout.run(r0, l, b);
+        dbx.prepare("UPDATE budget_compte SET actif = 0 WHERE libelle LIKE '%HELB%'").run();
+        dbx.prepare("INSERT INTO migration_faite (cle) VALUES ('budget_2026_10_10_comptes')").run();
+      })();
+      console.log('[migration] budget : 8 comptes ajoutés, comptes HELB retirés de la liste');
+    }
+  } catch (e) { console.error('[migration] budget (comptes) :', e.message); }
 }
 
 // Périmètre de l'utilisateur : un coordinateur ne voit que ses sections.
@@ -253,16 +280,27 @@ r.put('/ligne/:id', authRequired, roleRequired('admin', 'directeur', 'directeur_
     return res.status(403).json({ error: 'Section hors de votre périmètre' });
   }
   const l = req.body;
-  db.prepare(`
-    UPDATE budget_ligne SET
-      compte_ref = ?, details = ?, a_charge = ?, prix_unitaire = ?, quantite = ?,
-      taux_tva = ?, remarque = ?, statut = ?, maj_le = datetime('now')
-    WHERE id = ?
-  `).run(l.compte_ref || null, l.details || '', l.a_charge || 'IIP',
-         Number(l.prix_unitaire || 0), Number(l.quantite || 1),
-         l.taux_tva != null ? Number(l.taux_tva) : 0.21, l.remarque || null,
-         l.statut || 'prevu', Number(req.params.id));
-  res.json({ ok: true });
+  /* LA SECTION SE CORRIGE (3.1.274, Charles, 10 octobre 2026 : « j'ai mis Restart et ce
+     n'est pas le cas ; c'est Psychologue, qui n'existe pas — donc Autres »). Une ligne
+     rangée dans la mauvaise section change de casier avec ses dépenses ; on doit
+     pouvoir écrire dans les deux. */
+  const nouvelle = String(l.section || ligne.section).trim();
+  if (nouvelle !== ligne.section && !peutEcrire(req.user, nouvelle)) {
+    return res.status(403).json({ error: `Section ${nouvelle} hors de votre périmètre` });
+  }
+  db.transaction(() => {
+    db.prepare(`
+      UPDATE budget_ligne SET
+        section = ?, compte_ref = ?, details = ?, a_charge = ?, prix_unitaire = ?, quantite = ?,
+        taux_tva = ?, remarque = ?, statut = ?, maj_le = datetime('now')
+      WHERE id = ?
+    `).run(nouvelle, l.compte_ref || null, l.details || '', l.a_charge || 'IIP',
+           Number(l.prix_unitaire || 0), Number(l.quantite || 1),
+           l.taux_tva != null ? Number(l.taux_tva) : 0.21, l.remarque || null,
+           l.statut || 'prevu', Number(req.params.id));
+    if (nouvelle !== ligne.section) db.prepare('UPDATE budget_depense SET section = ? WHERE ligne_id = ?').run(nouvelle, Number(req.params.id));
+  })();
+  res.json({ ok: true, section: nouvelle });
 });
 
 r.delete('/ligne/:id', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat', 'coordination'), (req, res) => {

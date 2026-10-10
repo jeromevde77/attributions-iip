@@ -4,6 +4,7 @@ import { api, authHeaders, getAnnee } from '../lib/api.js';
 import { demander, saisir, informer } from '../lib/dialogue.jsx';
 import { peutGeste, ecritModule } from '../lib/droits.js';
 import { MODES_GROUPES } from '../lib/groupes.js';
+import { BadgePrimo } from '../components/ui.jsx';
 
 /**
  * RÉPARTITION DES ÉTUDIANTS — le croisement attributions × PAE.
@@ -97,6 +98,7 @@ export default function RepartitionCours() {
   const [attente, setAttente] = useState(new Map()); // clé → { retirer } | { org, groupe }
   const [coches, setCoches] = useState(new Set());
   const [q, setQ] = useState('');
+  const [fPrimo, setFPrimo] = useState('');           // '' tous · 'primo' · 'anciens'
   const [erreur, setErreur] = useState(null);
   const [saving, setSaving] = useState(false);
   // Le classeur reste chargé d'une UE à l'autre : un même fichier couvre
@@ -160,8 +162,9 @@ export default function RepartitionCours() {
   const etudiants = useMemo(() => {
     const l = data?.etudiants || [];
     const t = q.trim().toLowerCase();
-    return t ? l.filter(e => `${e.nom} ${e.prenom}`.toLowerCase().includes(t)) : l;
-  }, [data, q]);
+    return l.filter(e => (!t || `${e.nom} ${e.prenom}`.toLowerCase().includes(t))
+      && (!fPrimo || (fPrimo === 'primo') === !!e.primo));
+  }, [data, q, fPrimo]);
 
   // Les cours qui se répartissent (les « Tous » ne comptent pas les lignes
   // incomplètes : chacun y est d'office).
@@ -566,6 +569,12 @@ export default function RepartitionCours() {
         <div className="flex items-center gap-2 flex-wrap">
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Rechercher un étudiant…"
             className="border border-gray-300 rounded-champ px-3 py-1.5 text-sm w-56" />
+          <select value={fPrimo} onChange={e => setFPrimo(e.target.value)} className="controle"
+            title="Primo : aucune inscription ni valorisation dans une année antérieure. « Tout cocher » ne coche que ce qui est affiché.">
+            <option value="">Tous les étudiants ({(data.etudiants || []).length})</option>
+            <option value="primo">Primo-inscrits ({(data.etudiants || []).filter(e => e.primo).length})</option>
+            <option value="anciens">Déjà inscrits avant ({(data.etudiants || []).filter(e => !e.primo).length})</option>
+          </select>
           {coches.size > 0 && (
             <span className="text-second font-semibold text-iip-blue bg-iip-turquoise/10 border border-iip-turquoise/40 rounded-champ px-3 py-1.5 inline-flex items-center gap-2">
               {coches.size} coché(s) — cliquez l'en-tête d'un groupe pour les y placer
@@ -679,6 +688,7 @@ export default function RepartitionCours() {
                         <span className="min-w-0 truncate" title={`${(e.nom || '').toUpperCase()} ${e.prenom || ''}`}>
                           {(e.nom || '').toUpperCase()} {e.prenom}
                         </span>
+                        {e.primo && <BadgePrimo />}
                         {e.num_organisation != null
                           ? <span className="flex-none whitespace-nowrap text-mention font-bold px-2 py-0.5 rounded-full bg-iip-light text-iip-blue">Org {e.num_organisation}</span>
                           : <span className="flex-none whitespace-nowrap text-mention font-bold px-2 py-0.5 rounded-full bg-amber-500 text-white">non réparti</span>}
