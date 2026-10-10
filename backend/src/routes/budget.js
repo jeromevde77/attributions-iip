@@ -253,16 +253,27 @@ r.put('/ligne/:id', authRequired, roleRequired('admin', 'directeur', 'directeur_
     return res.status(403).json({ error: 'Section hors de votre périmètre' });
   }
   const l = req.body;
-  db.prepare(`
-    UPDATE budget_ligne SET
-      compte_ref = ?, details = ?, a_charge = ?, prix_unitaire = ?, quantite = ?,
-      taux_tva = ?, remarque = ?, statut = ?, maj_le = datetime('now')
-    WHERE id = ?
-  `).run(l.compte_ref || null, l.details || '', l.a_charge || 'IIP',
-         Number(l.prix_unitaire || 0), Number(l.quantite || 1),
-         l.taux_tva != null ? Number(l.taux_tva) : 0.21, l.remarque || null,
-         l.statut || 'prevu', Number(req.params.id));
-  res.json({ ok: true });
+  /* LA SECTION SE CORRIGE (3.1.274, Charles, 10 octobre 2026 : « j'ai mis Restart et ce
+     n'est pas le cas ; c'est Psychologue, qui n'existe pas — donc Autres »). Une ligne
+     rangée dans la mauvaise section change de casier avec ses dépenses ; on doit
+     pouvoir écrire dans les deux. */
+  const nouvelle = String(l.section || ligne.section).trim();
+  if (nouvelle !== ligne.section && !peutEcrire(req.user, nouvelle)) {
+    return res.status(403).json({ error: `Section ${nouvelle} hors de votre périmètre` });
+  }
+  db.transaction(() => {
+    db.prepare(`
+      UPDATE budget_ligne SET
+        section = ?, compte_ref = ?, details = ?, a_charge = ?, prix_unitaire = ?, quantite = ?,
+        taux_tva = ?, remarque = ?, statut = ?, maj_le = datetime('now')
+      WHERE id = ?
+    `).run(nouvelle, l.compte_ref || null, l.details || '', l.a_charge || 'IIP',
+           Number(l.prix_unitaire || 0), Number(l.quantite || 1),
+           l.taux_tva != null ? Number(l.taux_tva) : 0.21, l.remarque || null,
+           l.statut || 'prevu', Number(req.params.id));
+    if (nouvelle !== ligne.section) db.prepare('UPDATE budget_depense SET section = ? WHERE ligne_id = ?').run(nouvelle, Number(req.params.id));
+  })();
+  res.json({ ok: true, section: nouvelle });
 });
 
 r.delete('/ligne/:id', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat', 'coordination'), (req, res) => {

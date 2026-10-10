@@ -35,7 +35,7 @@ export default function Budget() {
         if (!Array.isArray(l)) return;
         // Aux sections d'enseignement s'ajoutent les services, qui ont aussi
         // leur budget : direction, secrétariat, coordination…
-        const services = ['Direction', 'Direction adjointe', 'Secrétariat', 'Coordination', 'MDP', 'IIP'];
+        const services = ['Direction', 'Direction adjointe', 'Secrétariat', 'Coordination', 'MDP', 'IIP', 'Autres'];
         const codes = [...l.map(s => s.code), ...services];
         setSections(codes);
         if (codes.length && !section) setSection(codes[0]);
@@ -61,7 +61,8 @@ export default function Budget() {
   useEffect(() => { charger(); /* eslint-disable-next-line */ }, [annee, section, vue]);
 
   async function enregistrerLigne() {
-    const corps = { ...form, annee_civile: annee, section };
+    // La section de la FICHE : on peut corriger celle d'une ligne mal rangée (3.1.274).
+    const corps = { ...form, annee_civile: annee, section: form.section || section };
     const url = form.id ? `/api/budget/ligne/${form.id}` : '/api/budget/ligne';
     const rep = await fetch(url, {
       method: form.id ? 'PUT' : 'POST', headers: authHeaders(), body: JSON.stringify(corps),
@@ -280,7 +281,7 @@ export default function Budget() {
           )}
 
           {form && (
-            <LigneForm form={form} setForm={setForm} comptes={comptes}
+            <LigneForm form={form} setForm={setForm} comptes={comptes} sections={sections} sectionCourante={section}
               onEnregistrer={enregistrerLigne} onAnnuler={() => setForm(null)} />
           )}
 
@@ -409,12 +410,20 @@ function LigneBudget({ l, depenses, peutEcrire, onEditer, onSupprimer, onDepense
 }
 
 // ── Formulaire de prévision ────────────────────────────────────────────────
-function LigneForm({ form, setForm, comptes, onEnregistrer, onAnnuler }) {
+function LigneForm({ form, setForm, comptes, sections = [], sectionCourante, onEnregistrer, onAnnuler }) {
   const total = Number(form.prix_unitaire || 0) * Number(form.quantite || 0);
   const maj = (k, v) => setForm(f => ({ ...f, [k]: v }));
   return (
     <div className="border border-iip-turquoise/40 rounded-xl p-4 bg-iip-turquoise/5 space-y-3">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <label className="text-xs md:col-span-2">
+          <span className="intertitre block mb-1">Section</span>
+          <select value={form.section || sectionCourante || ''} onChange={e => maj('section', e.target.value)}
+            title="« Autres » : ce qui ne relève d'aucune section ni d'aucun service (un projet, une formation qui n'existe pas comme section…)"
+            className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white">
+            {sections.map(s0 => <option key={s0} value={s0}>{s0}</option>)}
+          </select>
+        </label>
         <label className="text-xs md:col-span-2">
           <span className="intertitre block mb-1">Compte général</span>
           <select value={form.compte_ref || ''} onChange={e => {
