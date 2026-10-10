@@ -74,7 +74,7 @@ export function DossierAdmin({ profId, peutEcrire }) {
             <span>{c.completes} / {c.requises} pièces</span>
             <span>{pct} %</span>
           </div>
-          <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+          <div className="jauge">
             <div className={`h-full rounded-full ${pct === 100 ? 'bg-emerald-500' : pct >= 60 ? 'bg-iip-turquoise' : 'bg-amber-500'}`}
                  style={{ width: `${pct}%` }} />
           </div>

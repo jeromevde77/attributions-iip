@@ -14,6 +14,7 @@ import { authHeaders, getAnnee } from '../lib/api.js';
 import { ouvrirApercu } from '../lib/apercu.js';
 import { Tuile } from './statsUi.jsx';
 import InscritsPrevus from './InscritsPrevus.jsx';
+import { Anneau, Barres as BarresMaison } from './graphiques.jsx';
 
 const eur = n => `${Math.round(n || 0).toLocaleString('fr-BE')} €`;
 const k0 = n => Math.round(n || 0).toLocaleString('fr-BE');
@@ -26,50 +27,8 @@ function BadgeHelb({ libelle = 'HELB' }) {
   return <span className="ml-1.5 text-mention font-bold text-white rounded px-1.5 py-px align-middle" style={{ background: HELB }}>{libelle}</span>;
 }
 
-/** Un anneau : les parts d'un tout, la légende avec les pourcentages. */
-function Anneau({ parts, total, centre }) {
-  const t = total ?? parts.reduce((a, p) => a + p.valeur, 0);
-  const R = 56, r = 34, C = 70;
-  let angle = -Math.PI / 2;
-  const arc = p => {
-    const a0 = angle, a1 = angle + (t ? (p.valeur / t) * Math.PI * 2 : 0); angle = a1;
-    const grand = a1 - a0 > Math.PI ? 1 : 0;
-    const pt = (rad, a) => `${C + rad * Math.cos(a)} ${C + rad * Math.sin(a)}`;
-    if (a1 - a0 >= Math.PI * 2 - 1e-6) return `M ${pt(R, a0)} A ${R} ${R} 0 1 1 ${pt(R, a0 + Math.PI)} A ${R} ${R} 0 1 1 ${pt(R, a0)} M ${pt(r, a0)} A ${r} ${r} 0 1 0 ${pt(r, a0 + Math.PI)} A ${r} ${r} 0 1 0 ${pt(r, a0)} Z`;
-    return `M ${pt(R, a0)} A ${R} ${R} 0 ${grand} 1 ${pt(R, a1)} L ${pt(r, a1)} A ${r} ${r} 0 ${grand} 0 ${pt(r, a0)} Z`;
-  };
-  return (
-    <div className="flex items-center gap-5 flex-wrap">
-      <svg viewBox="0 0 140 140" className="w-36 h-36 flex-none" role="img" aria-label={parts.map(p => `${p.nom} ${pc(p.valeur, t)}`).join(', ')}>
-        {parts.filter(p => p.valeur > 0).map(p => <path key={p.nom} d={arc(p)} style={{ fill: p.couleur }} fillRule="evenodd" />)}
-        <text x={C} y={C + 5} textAnchor="middle" fontSize="15" fontWeight="700" style={{ fill: 'var(--c-texte, #16406A)' }}>{centre}</text>
-      </svg>
-      <ul className="m-0 p-0 list-none space-y-1 text-second min-w-0">
-        {parts.filter(p => p.valeur > 0).map(p => (
-          <li key={p.nom} className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-sm flex-none" style={{ background: p.couleur }} />
-            <span className="truncate">{p.nom}</span>
-            <b className="tabular-nums ml-auto pl-2">{pc(p.valeur, t)}</b>
-          </li>))}
-      </ul>
-    </div>);
-}
-
-/** Des barres horizontales, à l'échelle de la plus grande. */
-function Barres({ lignes, couleur = 'var(--c-principal, #19537E)', format = eur }) {
-  const max = Math.max(1, ...lignes.map(l => l.valeur));
-  return (
-    <div className="space-y-1.5">
-      {lignes.map(l => (
-        <div key={l.nom} className="grid grid-cols-[minmax(0,9rem)_1fr_auto] items-center gap-3 text-second">
-          <span className="truncate">{l.nom}</span>
-          <div className="h-3 rounded bg-slate-100 overflow-hidden">
-            <div className="h-full rounded" style={{ width: `${(l.valeur / max) * 100}%`, background: l.couleur || couleur }} />
-          </div>
-          <span className="tabular-nums text-right w-24">{format(l.valeur)}</span>
-        </div>))}
-    </div>);
-}
+// L'anneau et les barres sont ceux de la maison (components/graphiques.jsx, 3.1.261).
+const Barres = props => <BarresMaison format={eur} {...props} />;
 
 function Carte({ titre, sous, children, className = '' }) {
   return (

@@ -1328,3 +1328,15 @@ button.objet-barre:hover { color: var(--menu-texte); }
 /* Les grilles de saisie suivent la densité et les filets. */
 table.grid-excel-soft th, table.grid-excel-soft td { padding-top: var(--d-cellule-v, 6px); padding-bottom: var(--d-cellule-v, 6px); }
 table.grid-excel-soft tbody tr:nth-child(even) { background-color: var(--d-zebre, var(--c-fond_ligne, transparent)); }
+
+/* JAUGES, BARRES ET VOLETS (3.1.261) — un seul dessin, réglable. */
+:root { --g-piste: var(--c-graphique_piste, #EEF1F5); }
+.jauge { display: flex; overflow: hidden; height: var(--d-jauge-h, 6px); border-radius: var(--d-jauge-rayon, 999px); background: var(--g-piste); }
+.jauge > * { height: 100%; }
+.barre-piste { height: var(--d-barre-h, 12px); border-radius: var(--d-rayon-pastille, 4px); background: var(--g-piste); overflow: hidden; }
+.barre-remplie { height: 100%; border-radius: var(--d-rayon-pastille, 4px); }
+.ligne-volet { cursor: pointer; }
+.chevron-volet { color: var(--menu-icone, #94A3B8); transition: transform 150ms; }
+.ligne-volet-ouverte .chevron-volet { transform: rotate(90deg); color: var(--c-principal); }
+.ligne-detail > .cellule-detail { background: var(--c-fond_volet, rgb(var(--gris-50))); padding: 8px 12px 10px var(--d-volet-retrait, 24px);
+  border-bottom: var(--d-filet-h, 1px) solid var(--c-filet, rgb(var(--gris-100))); }

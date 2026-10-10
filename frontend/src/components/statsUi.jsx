@@ -1,3 +1,4 @@
+import { Repartition } from './graphiques.jsx';
 import { TuileEtat } from './ui.jsx';
 /**
  * LE VOCABULAIRE COMMUN DES ÉCRANS DE STATISTIQUES.
@@ -51,20 +52,9 @@ export function couleurTaux(v) {
  * place dans une barre qui répartit des décisions.
  */
 export function BarreDecisions({ reussi = 0, ajourne = 0, refuse = 0, largeur = 'w-28' }) {
-  const t = (reussi + ajourne + refuse) || 1;
-  const seg = [
-    ['reussi', reussi, 'bg-emerald-500'],
-    ['ajourne', ajourne, 'bg-amber-500'],
-    ['refuse', refuse, 'bg-rose-500'],
-  ];
-  return (
-    <div className={`flex h-2 ${largeur} rounded-full overflow-hidden bg-slate-100`}
-      title={`${reussi} réussi(s) · ${ajourne} ajourné(s) · ${refuse} refusé(s) `
-           + `— sur ${reussi + ajourne + refuse} décidés`}>
-      {seg.map(([k, n, cl]) => (n
-        ? <div key={k} className={cl} style={{ width: `${(n / t) * 100}%` }} /> : null))}
-    </div>
-  );
+  // LA RÉPARTITION DE LA MAISON (3.1.261) : mêmes jauge, couleurs d'état et réglages.
+  return <Repartition className={largeur} title={`${reussi} réussi(s) · ${ajourne} ajourné(s) · ${refuse} refusé(s) — sur ${reussi + ajourne + refuse} décidés`}
+    parts={[{ nom: 'réussi', valeur: reussi, couleur: 'var(--c-reussi)' }, { nom: 'ajourné', valeur: ajourne, couleur: 'var(--c-attente)' }, { nom: 'refusé', valeur: refuse, couleur: 'var(--c-refuse)' }]} />;
 }
 
 /**

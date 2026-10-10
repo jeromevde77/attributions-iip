@@ -420,7 +420,7 @@ export default function MesCours() {
               <div className="text-right">
                 <div className="text-lg font-bold tabular-nums">{saisies} / {total}</div>
                 <div className="text-xs text-slate-500">notes saisies</div>
-                <div className="h-1.5 w-32 bg-slate-100 rounded-full overflow-hidden mt-1">
+                <div className="jauge w-32 mt-1">
                   <div className="h-full" style={{ width: `${total ? (saisies / total) * 100 : 0}%`, background: 'var(--c-disponible)' }} />
                 </div>
               </div>
