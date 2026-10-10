@@ -66,11 +66,11 @@ export default function GardeAnnee({ quoi = 'ces données' }) {
 
   return (
     <div className="fixed inset-0 z-[70] flex items-start justify-center p-4 pt-[12vh]
-                    bg-[rgba(11,21,45,.32)] backdrop-blur-[3px]">
+                    voile-fenetre">
       {/* LE DESSIN DES BOÎTES DE LUCIE (lib/dialogue.jsx) : liseré orange à
           gauche, coins droits de ce côté, l'action dans un pied. */}
-      <div className="bg-white rounded-r-fenetre max-w-lg w-full shadow-dessus overflow-hidden border-l-4"
-        style={{ borderLeftColor: 'var(--c-attente)' }}>
+      <div className="rounded-r-fenetre max-w-lg w-full shadow-dessus overflow-hidden border-l-4"
+        style={{ borderLeftColor: 'var(--c-attente)', background: 'var(--c-fenetre_corps, #fff)' }}>
         <div className="px-5 pt-5 pb-3 flex items-start gap-3">
           <IconCalendarExclamation size={22} className="text-[color:var(--c-attente,var(--c-attente))] flex-none mt-0.5" />
           <div>

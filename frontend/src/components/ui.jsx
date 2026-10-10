@@ -1058,7 +1058,7 @@ const PILE_FENETRES = [];
        l'objet affiché ; un objet ouvre le centre d'Éditions sur ce contexte. */
 export function Fenetre({ icone: Ic, titre, sous, large = 'moyenne',
                          hauteurFixe = false, outils = null, navigation = null, editions = null,
-                          pied = null, ton = 'neutre', onFermer, children }) {
+                          pied = null, ton = 'neutre', onFermer, children, pleinCorps = false }) {
   const largeurs = {
     petite: 'w-[440px]', moyenne: 'w-[720px]',
     grande: 'w-[1000px]', pleine: 'w-[1180px]',
@@ -1189,7 +1189,9 @@ export function Fenetre({ icone: Ic, titre, sous, large = 'moyenne',
           </button>
         </div>
 
-        <div className="min-h-0 overflow-y-auto px-5 py-4">{children}</div>
+        {/* LE CORPS PLEIN (3.1.255) : un document (aperçu de pièce) occupe toute la fenêtre, sans marge. */}
+        {pleinCorps ? <div className="flex-1 min-h-0 flex flex-col">{children}</div>
+          : <div className="min-h-0 overflow-y-auto px-5 py-4">{children}</div>}
 
         {pied && (
           /* LE PIED NE SE CHEVAUCHE PAS.

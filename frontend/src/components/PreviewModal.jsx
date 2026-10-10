@@ -3,6 +3,7 @@ import { informer } from '../lib/dialogue.jsx';
 import { peutGeste } from '../lib/droits.js';
 import { IconSend, IconX, IconDownload, IconMail } from '@tabler/icons-react';
 import EnvoiMailModal from './EnvoiMailModal.jsx';
+import { Fenetre } from './ui.jsx';
 import { useEnvoiMail } from '../lib/envoiMail.js';
 import { authHeaders } from '../lib/api.js';
 
@@ -183,27 +184,13 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
   if (pdfUrl) {
     const nomPdf = `${String(nomFichier || titre || 'document').replace(/\.pdf$/i, '')}.pdf`;
     return (
-      <div className="fixed inset-0 z-50 flex flex-col items-center p-2 sm:p-4"
-           onClick={e => e.target === e.currentTarget && onClose()}>
-        <div aria-hidden="true" className="absolute inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px]" />
-        <div className="relative bg-white rounded-fenetre shadow-dessus w-full max-w-5xl flex flex-col overflow-hidden" style={{ height: '95vh' }}>
-          <div className="flex items-center justify-between gap-3 px-4 py-2.5 flex-shrink-0 border-b border-slate-200" style={{ background: 'var(--barre-fond, #F8FAFC)' }}>
-            <div className="min-w-0">
-              <div className="titre-ecran mb-0 truncate">{titre}</div>
-              <div className="text-xs text-slate-400 truncate">{[sousTitre, nomPdf].filter(Boolean).join(' · ')}</div>
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <button onClick={() => window.open(pdfUrl, '_blank')} className="bouton-sortir controle px-3 flex items-center gap-1.5">
-                <IconSend size={15} /> Imprimer</button>
-              <a href={pdfUrl} download={nomPdf} className="bouton controle px-3 flex items-center gap-1.5">
-                <IconDownload size={15} /> Enregistrer</a>
-              <button onClick={onClose} aria-label="Fermer" className="controle w-9 grid place-items-center rounded-champ text-slate-400 hover:text-slate-700 hover:bg-slate-100">
-                <IconX size={17} /></button>
-            </div>
-          </div>
-          <iframe src={pdfUrl} title={nomPdf} className="flex-1 w-full border-0 bg-gray-100" />
-        </div>
-      </div>);
+      <Fenetre large="pleine" hauteurFixe pleinCorps titre={titre} sous={[sousTitre, nomPdf].filter(Boolean).join(' · ')} onFermer={onClose}
+        outils={<div className="flex items-center gap-2">
+          <button onClick={() => window.open(pdfUrl, '_blank')} className="bouton bouton-sortir"><IconSend size={15} /> Imprimer</button>
+          <a href={pdfUrl} download={nomPdf} className="bouton"><IconDownload size={15} /> Enregistrer</a>
+        </div>}>
+        <iframe src={pdfUrl} title={nomPdf} className="flex-1 w-full border-0 bg-gray-100" />
+      </Fenetre>);
   }
 
   return (
@@ -215,53 +202,34 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
        remplit, et elle vaut ici comme ailleurs. Un aperçu qui ne ressemble à
        aucune autre fenêtre donne l'impression d'avoir changé d'application au
        moment d'imprimer. */
-    <div className="fixed inset-0 z-50 flex flex-col items-center p-2 sm:p-4"
-         onClick={e => e.target === e.currentTarget && onClose()}>
-      <div aria-hidden="true"
-        className="absolute inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px]" />
-      <div className="relative bg-white rounded-fenetre shadow-dessus w-full max-w-5xl
-                      flex flex-col overflow-hidden" style={{ height: '95vh' }}>
-
-        {/* L'EN-TÊTE EST TON SUR TON, et un filet le sépare du document. */}
-        <div className="flex items-center justify-between gap-3 px-4 py-2.5 flex-shrink-0
-                        border-b border-slate-200" style={{ background: 'var(--barre-fond, #F8FAFC)' }}>
-          <div className="min-w-0">
-            <div className="titre-ecran mb-0 truncate">{titre}</div>
-            <div className="text-xs text-slate-400 truncate">
-              {[sousTitre, nomFichier].filter(Boolean).join(' · ')}
-            </div>
-          </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {astuceImpression && <span className="text-xs text-slate-400 hidden lg:inline">
+    /* L'APERÇU EST UNE FENÊTRE COMME LES AUTRES (3.1.255) : la fenêtre standard,
+       son bandeau, son voile et ses réglages — plus un dessin à part. */
+    <>
+    <Fenetre large="pleine" hauteurFixe pleinCorps titre={titre} sous={[sousTitre, nomFichier].filter(Boolean).join(' · ')} onFermer={onClose}
+      outils={<div className="flex items-center gap-2">
+            {astuceImpression && <span className="text-xs text-white/70 hidden lg:inline">
               {astuceImpression}
             </span>}
             {pdf && (
               <button onClick={telechargerPdf} disabled={!pret || pdfEnCours}
                 title={`Le PDF composé par le serveur — A4 ${pdf.orientation === 'paysage' ? 'paysage' : 'portrait'} imposé, quel que soit le navigateur`}
-                className="bouton-sortir controle px-3 flex items-center gap-1.5 disabled:opacity-40">
+                className="bouton bouton-sortir">
                 <IconSend size={15} /> {pdfEnCours ? 'PDF…' : `PDF — A4 ${pdf.orientation === 'paysage' ? 'paysage' : 'portrait'}`}
               </button>
             )}
             <button onClick={imprimer} disabled={!pret}
-              className={`${pdf && !feuille ? 'bouton' : 'bouton-sortir'} controle px-3 flex items-center gap-1.5 disabled:opacity-40`}>
+              className={`bouton ${pdf && !feuille ? '' : 'bouton-sortir'}`}>
               {(!pdf || feuille) && <IconSend size={15} />} {feuille ? 'Imprimer' : paysage ? 'Imprimer — A4 paysage' : pdf ? 'Imprimer (navigateur)' : 'Imprimer / PDF'}
             </button>
             {envoiPossible && envoiMail?.actif && peutGeste('envois.envoyer') && (
               <button onClick={() => setEnvoi(true)} disabled={!pret}
                 title="Envoyer ce document par courriel — PDF joint ou dans le corps du message"
-                className="bouton controle px-3 flex items-center gap-1.5 disabled:opacity-40">
+                className="bouton">
                 <IconMail size={15} /> Envoyer
               </button>
             )}
             {actionExtra}
-            <button onClick={onClose} aria-label="Fermer"
-              className="controle w-9 grid place-items-center rounded-champ
-                         text-slate-400 hover:text-slate-700 hover:bg-slate-100">
-              <IconX size={17} />
-            </button>
-          </div>
-        </div>
-
+      </div>}>
         {/* ── iframe ── */}
         {feuille && <iframe src={feuille} title={nomFichier || titre}
           className="flex-1 w-full border-0 bg-gray-100" />}
@@ -275,7 +243,7 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
           title={nomFichier || titre}
           className={`flex-1 w-full border-0 bg-gray-100 ${feuille ? 'hidden' : ''}`}
         />
-      </div>
+    </Fenetre>
       {envoi && (
         <EnvoiMailModal apercu={false}
           pieces={[{ html, nom_fichier: nomFichier || titre,
@@ -285,6 +253,6 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
           sujet={sujetMail || [sousTitre, titre].filter(Boolean).join(' — ') || 'Votre document'}
           onClose={() => setEnvoi(false)} />
       )}
-    </div>
+    </>
   );
 }
