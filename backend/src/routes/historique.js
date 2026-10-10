@@ -4,6 +4,7 @@ import { readFileSync, createReadStream, writeFileSync, copyFileSync, existsSync
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import db from '../db/index.js';
+import { professeurDe } from '../middleware/auth.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
 import { snapshotComplet } from '../lib/retention.js';
 import { peut } from '../middleware/permissions.js';
@@ -418,6 +419,39 @@ r.get('/changelog', authRequired, (req, res) => {
 
 // ─── Feed unifié pour la page Accueil ────────────────────────────────────────
 // Combine : attributions (créations/suppression de prof), notifications recrutement, changelog
+/* LES VŒUX D'ANNIVERSAIRE (3.1.272, Charles, 10 octobre 2026 : « je pourrais liker la
+   tuile ; elle aurait : vous avez reçu … vœux pour votre anniversaire, et la liste —
+   mieux et moins chronophage »). Un « j'aime » d'un clic, un mot facultatif de 100
+   caractères, le nom de qui l'envoie. La personne fêtée les trouve dans une seule carte
+   de son tableau de bord, sans pastille : elle n'est pas dérangée. */
+try {
+  db.exec(`CREATE TABLE IF NOT EXISTS anniversaire_voeu (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, annee INTEGER NOT NULL, personne_id INTEGER NOT NULL,
+    par_user_id INTEGER NOT NULL, par_nom TEXT, message TEXT, le TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (annee, personne_id, par_user_id))`);
+} catch (e) { console.error('[migration] vœux :', e.message); }
+const echapper = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+r.post('/anniversaire/:personneId/voeu', authRequired, (req, res) => {
+  const pid = Number(req.params.personneId), u = req.user;
+  const p = db.prepare('SELECT id, date_naissance FROM professeur WHERE id = ?').get(pid);
+  if (!p?.date_naissance) return res.status(404).json({ error: 'Personne inconnue.' });
+  if (professeurDe(u) === pid) return res.status(400).json({ error: 'On ne se souhaite pas son propre anniversaire 🙂' });
+  // Le jour même, ou dans la semaine qui suit : un vœu tardif reste un vœu.
+  const an = new Date().getFullYear(), fete = new Date(`${an}-${String(p.date_naissance).slice(5, 10)}T00:00:00`);
+  const ecart = (Date.now() - fete.getTime()) / 86400000;
+  if (!(ecart >= 0 && ecart < 8)) return res.status(400).json({ error: 'Les vœux se souhaitent le jour même ou dans la semaine.' });
+  const message = String(req.body?.message || '').trim().slice(0, 100) || null;
+  db.prepare(`INSERT INTO anniversaire_voeu (annee, personne_id, par_user_id, par_nom, message) VALUES (?,?,?,?,?)
+    ON CONFLICT (annee, personne_id, par_user_id) DO UPDATE SET message = COALESCE(excluded.message, message), le = datetime('now')`)
+    .run(an, pid, u.id, u.nom || u.email || null, message);   // « NOM Prénom », comme partout à l'écran
+  res.json({ ok: true, voeux: db.prepare('SELECT COUNT(*) n FROM anniversaire_voeu WHERE annee = ? AND personne_id = ?').get(an, pid).n });
+});
+r.delete('/anniversaire/:personneId/voeu', authRequired, (req, res) => {
+  db.prepare('DELETE FROM anniversaire_voeu WHERE annee = ? AND personne_id = ? AND par_user_id = ?').run(new Date().getFullYear(), Number(req.params.personneId), req.user.id);
+  res.json({ ok: true });
+});
+
 r.get('/feed', authRequired, (req, res) => {
   const { annee, jours = 30 } = req.query;
   const u = req.user;
@@ -562,6 +596,11 @@ r.get('/feed', authRequired, (req, res) => {
             : `Demain, anniversaire de ${String(p.nom || '').toUpperCase()} ${p.prenom || ''}`.trim(),
           corps: age ? `${age} ans` : null,
           auteur: 'Lucie',
+          personne_id: p.id,
+          ...(cestAujourdhui ? (() => {
+            const v = db.prepare('SELECT par_user_id FROM anniversaire_voeu WHERE annee = ? AND personne_id = ?').all(aujourdhui.getFullYear(), p.id);
+            return { voeux: v.length, aime: v.some(x => x.par_user_id === u.id), soi: professeurDe(u) === p.id };
+          })() : {}),
           // Daté du jour concerné, pour que le tri le place au bon endroit.
           date: (cestAujourdhui ? aujourdhui : demain).toISOString(),
           lue: false,
@@ -571,9 +610,26 @@ r.get('/feed', authRequired, (req, res) => {
     }
   } catch (e) { console.error('[feed] anniversaires :', e.message); }
 
+  // Mes vœux reçus : une carte, la semaine qui suit l'anniversaire, sans pastille.
+  try {
+    const moi = professeurDe(u);
+    if (moi) {
+      const an = new Date().getFullYear();
+      const v = db.prepare(`SELECT par_nom, message, le FROM anniversaire_voeu WHERE annee = ? AND personne_id = ?
+        AND le >= datetime('now', '-8 days') ORDER BY le`).all(an, moi);
+      if (v.length) items.push({
+        id: `voeux-${an}`, type: 'anniversaire', action: 'voeux', discret: true,
+        titre: `Vous avez reçu ${v.length} vœu${v.length > 1 ? 'x' : ''} pour votre anniversaire !`,
+        corps: v.map(x => `<b>${echapper(x.par_nom || '—')}</b>${x.message ? ` — « ${echapper(x.message)} »` : ''}`).join('<br>'),
+        auteur: 'Lucie', date: new Date(String(v[v.length - 1].le).replace(' ', 'T') + 'Z').toISOString(), lue: false,
+      });
+    }
+  } catch (e) { console.error('[feed] vœux :', e.message); }
+
   // Trier par date décroissante
   items.sort((a, b) => new Date(b.date) - new Date(a.date));
-  const nbNonLus = items.filter(i => !i.lue).length;
+  // Les cartes discrètes (les vœux reçus) ne comptent pas dans la pastille : on n'est pas dérangé.
+  const nbNonLus = items.filter(i => !i.lue && !i.discret).length;
 
   res.json({ items, nbNonLus });
 });
