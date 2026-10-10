@@ -3346,7 +3346,7 @@ const DECISION_TABLEAU = {
   refuse: { l: 'Refusé', c: 'var(--c-refuse)' },
   ajourne: { l: 'Ajourné', c: 'var(--c-attente)' },
   reussi: { l: 'Réussi', c: 'var(--c-reussi)' },
-  absent: { l: 'Absent', c: '#94A3B8' },
+  absent: { l: 'Absent', c: 'rgb(var(--gris-400))' },
 };
 function Case({ etat, cours, premier, decide = false }) {
   const bord = `border-b border-slate-100 ${premier ? 'border-l border-l-slate-200' : ''}`;

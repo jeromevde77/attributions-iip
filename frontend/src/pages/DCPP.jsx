@@ -29,7 +29,7 @@ const DISPOSITIFS = [
 ];
 
 const SCORE_LABELS = { 0: 'Non observable / absent', 1: 'Partiellement présent', 2: 'Présent et efficace' };
-const SCORE_COLORS = { 0: '#E5E7EB', 1: 'var(--c-attente)', 2: 'var(--c-reussi)' };
+const SCORE_COLORS = { 0: 'rgb(var(--gris-200))', 1: 'var(--c-attente)', 2: 'var(--c-reussi)' };
 
 // ─── Petit badge de statut ────────────────────────────────────────────────────
 function StatutBadge({ statut }) {
@@ -39,7 +39,7 @@ function StatutBadge({ statut }) {
     'actif':     { label: 'Actif',     bg: 'var(--c-disponible)', color: '#FFFFFF' },
     'atteint':   { label: 'Atteint',   bg: 'var(--c-reussi)', color: '#FFFFFF' },
     'abandonne': { label: 'Abandonné', bg: 'var(--c-attente)', color: '#FFFFFF' },
-  }[statut] || { label: statut, bg: '#F3F4F6', color: 'var(--c-texte)' };
+  }[statut] || { label: statut, bg: 'rgb(var(--gris-100))', color: 'var(--c-texte)' };
   return (
     <span style={{ background: cfg.bg, color: cfg.color, fontSize: 11, padding: '2px 8px', borderRadius: 10, fontWeight: 600 }}>
       {cfg.label}
@@ -70,7 +70,7 @@ function TableauDeBord({ profId, profNom, annee, onNavigate }) {
   return (
     <div style={{ padding: '24px 0' }}>
       <div style={{ marginBottom: 24 }}>
-        <div style={{ fontSize: 13, color: '#64748B', marginBottom: 4 }}>Année scolaire</div>
+        <div style={{ fontSize: 13, color: 'rgb(var(--gris-500))', marginBottom: 4 }}>Année scolaire</div>
         <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--c-texte)' }}>{profNom}</div>
         <div style={{ fontSize: 13, color: 'var(--c-accent)', marginTop: 2 }}>{annee}</div>
       </div>
@@ -102,7 +102,7 @@ function TableauDeBord({ profId, profNom, annee, onNavigate }) {
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
           <Kpi label="Actifs" val={countObj('actif')} couleur="var(--c-principal)" />
           <Kpi label="Atteints" val={countObj('atteint')} couleur="var(--c-texte)" />
-          <Kpi label="Max" val={4} couleur="#94A3B8" />
+          <Kpi label="Max" val={4} couleur="rgb(var(--gris-400))" />
         </div>
         <Btn onClick={() => onNavigate('pdcp')} icon={IconTargetArrow} variant="secondary">
           Voir le PDCP
@@ -175,7 +175,7 @@ function ListeSeances({ profId, annee, dispositif, onOuvrir }) {
       </div>
 
       {creating && (
-        <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10, padding: 16, marginBottom: 16 }}>
+        <div style={{ background: 'rgb(var(--gris-50))', border: '1px solid #E2E8F0', borderRadius: 10, padding: 16, marginBottom: 16 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
             <Field label="Date">
               <input type="date" value={form.date_seance} onChange={e => setForm(f => ({ ...f, date_seance: e.target.value }))} className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />
@@ -230,7 +230,7 @@ function ListeSeances({ profId, annee, dispositif, onOuvrir }) {
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 600, color: 'var(--c-texte)', fontSize: 14 }}>
                 {s.cours_nom || '(cours non précisé)'}
-                {s.ue_num && <span style={{ marginLeft: 8, fontSize: 12, color: '#64748B' }}>UE {s.ue_num}</span>}
+                {s.ue_num && <span style={{ marginLeft: 8, fontSize: 12, color: 'rgb(var(--gris-500))' }}>UE {s.ue_num}</span>}
               </div>
               <div style={{ fontSize: 12, color: 'var(--c-texte)', marginTop: 2 }}>
                 {s.date_seance || 'Date non renseignée'}
@@ -297,11 +297,11 @@ function GrilleSeance({ seanceId, referentiel, onBack }) {
   return (
     <div style={{ padding: '16px 0' }}>
       {/* En-tête séance */}
-      <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10, padding: '12px 16px', marginBottom: 20 }}>
+      <div style={{ background: 'rgb(var(--gris-50))', border: '1px solid #E2E8F0', borderRadius: 10, padding: '12px 16px', marginBottom: 20 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <div style={{ fontWeight: 700, color: 'var(--c-texte)', fontSize: 15 }}>{seance.cours_nom || '(cours)'}</div>
-            <div style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
+            <div style={{ fontSize: 12, color: 'rgb(var(--gris-500))', marginTop: 2 }}>
               {seance.date_seance} · {seance.type_cours === 'tp' ? 'TP/TD' : 'Cours théorique'}
               {seance.ue_num && ` · UE ${seance.ue_num}`}
               {estObservation && ` · Rencontre ${seance.rencontre_num}`}
@@ -343,7 +343,7 @@ function GrilleSeance({ seanceId, referentiel, onBack }) {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   {['avant', 'apres'].map(moment => (
                     <div key={moment}>
-                      <div style={{ fontSize: 11, color: '#64748B', marginBottom: 6, fontWeight: 600 }}>
+                      <div style={{ fontSize: 11, color: 'rgb(var(--gris-500))', marginBottom: 6, fontWeight: 600 }}>
                         {moment === 'avant' ? 'Avant la séance' : 'Après la séance'}
                       </div>
                       <div style={{ display: 'flex', gap: 6 }}>
@@ -356,8 +356,8 @@ function GrilleSeance({ seanceId, referentiel, onBack }) {
                             title={SCORE_LABELS[score]}
                             style={{
                               width: 32, height: 32, borderRadius: 6, border: '2px solid',
-                              borderColor: rep[`score_${moment}`] === score ? 'var(--c-principal)' : '#E5E7EB',
-                              background: rep[`score_${moment}`] === score ? SCORE_COLORS[score] : '#F9FAFB',
+                              borderColor: rep[`score_${moment}`] === score ? 'var(--c-principal)' : 'rgb(var(--gris-200))',
+                              background: rep[`score_${moment}`] === score ? SCORE_COLORS[score] : 'rgb(var(--gris-50))',
                               fontWeight: 700, fontSize: 14, cursor: 'pointer', color: 'var(--c-texte)',
                             }}>
                             {score}
@@ -493,7 +493,7 @@ function PlanDeveloppement({ profId, annee, referentiel }) {
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 600, color: 'var(--c-texte)', fontSize: 14 }}>{obj.libelle}</div>
                 {obj.indicateurs?.length > 0 && (
-                  <ul style={{ marginTop: 6, paddingLeft: 16, fontSize: 12, color: '#64748B' }}>
+                  <ul style={{ marginTop: 6, paddingLeft: 16, fontSize: 12, color: 'rgb(var(--gris-500))' }}>
                     {obj.indicateurs.map((ind, j) => <li key={j}>{ind}</li>)}
                   </ul>
                 )}
@@ -543,7 +543,7 @@ function Section({ titre, icon: Icon, couleur, children }) {
 function Field({ label, children }) {
   return (
     <div>
-      <div style={{ fontSize: 11, color: '#64748B', fontWeight: 600, marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: 11, color: 'rgb(var(--gris-500))', fontWeight: 600, marginBottom: 4 }}>{label}</div>
       {children}
     </div>
   );
@@ -616,7 +616,7 @@ export default function DCPP() {
   ];
 
   return (
-    <div style={{ display: 'flex', minHeight: 'calc(100vh - 64px)', background: '#F8FAFC' }}>
+    <div style={{ display: 'flex', minHeight: 'calc(100vh - 64px)', background: 'rgb(var(--gris-50))' }}>
       {/* Rail latéral */}
       <div style={{ width: 56, background: 'var(--c-principal)', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 12, gap: 4, flexShrink: 0 }}>
         <button onClick={goBack} title="Retour" style={{ color: 'var(--c-texte)', background: 'none', border: 'none', cursor: 'pointer', padding: 8, borderRadius: 8, marginBottom: 8 }}>
@@ -643,11 +643,11 @@ export default function DCPP() {
           <button onClick={() => navigate('/professeurs')} style={{ color: 'var(--c-texte)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12 }}>
             Membres du personnel
           </button>
-          <span style={{ color: '#CBD5E1' }}>›</span>
-          <span style={{ color: '#64748B', fontSize: 12 }}>{profNom}</span>
+          <span style={{ color: 'rgb(var(--gris-300))' }}>›</span>
+          <span style={{ color: 'rgb(var(--gris-500))', fontSize: 12 }}>{profNom}</span>
           {view !== 'dashboard' && (
             <>
-              <span style={{ color: '#CBD5E1' }}>›</span>
+              <span style={{ color: 'rgb(var(--gris-300))' }}>›</span>
               <span style={{ color: 'var(--c-texte)', fontSize: 12, fontWeight: 600 }}>{breadcrumb}</span>
             </>
           )}

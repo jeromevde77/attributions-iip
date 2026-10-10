@@ -54,7 +54,7 @@ const TYPE_CONFIG = {
 };
 
 function getConfig(type, action) {
-  return TYPE_CONFIG[type]?.[action] || { label: 'Info', color: '#6b7280', bg: '#f3f4f6', icon: IconBell };
+  return TYPE_CONFIG[type]?.[action] || { label: 'Info', color: 'rgb(var(--gris-500))', bg: 'rgb(var(--gris-100))', icon: IconBell };
 }
 
 /* LA PASTILLE DE NOTIFICATION — demandée par Jérôme (29 septembre 2026) : un

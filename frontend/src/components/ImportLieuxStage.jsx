@@ -143,7 +143,7 @@ export default function ImportLieuxStage({ onClose, onFini }) {
             <span className="rounded-full px-2.5 h-6 inline-flex items-center text-white font-semibold" style={{ background: 'var(--c-disponible)' }}>
               {rapport.completes.length} déjà connu(s), complété(s)</span>
             {rapport.ignores.length > 0 && (
-              <span className="rounded-full px-2.5 h-6 inline-flex items-center text-white font-semibold" style={{ background: '#94A3B8' }}>
+              <span className="rounded-full px-2.5 h-6 inline-flex items-center text-white font-semibold" style={{ background: 'rgb(var(--gris-400))' }}>
                 {rapport.ignores.length} ignoré(s)</span>
             )}
             <span className="text-slate-500 self-center">Section {rapport.section}{rapport.ues ? ` · UE ${rapport.ues}` : ''}{rapport.simulation ? ' — simulation, rien n’est écrit' : ''}</span>

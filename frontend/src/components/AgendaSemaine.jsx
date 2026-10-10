@@ -88,7 +88,7 @@ export default function AgendaSemaine({
                   return (
                     <button key={c.debut} type="button" disabled={desactive} onClick={() => onCase?.(j, c)}
                       className="absolute left-[2px] right-[2px] rounded-pastille text-white font-bold leading-tight overflow-hidden"
-                      style={{ top: y(c.debut), height: h, background: par?.v === 0 ? 'var(--c-fond_indispo, #E2E8F0)' : st.fond, color: par?.v === 0 ? '#64748B' : '#fff', opacity: v === 1 && par?.v !== 0 ? 0.88 : 1, cursor: desactive ? 'default' : 'pointer' }}
+                      style={{ top: y(c.debut), height: h, background: par?.v === 0 ? 'var(--c-fond_indispo, #E2E8F0)' : st.fond, color: par?.v === 0 ? 'rgb(var(--gris-500))' : '#fff', opacity: v === 1 && par?.v !== 0 ? 0.88 : 1, cursor: desactive ? 'default' : 'pointer' }}
                       title={`${NOMS_JOURS[j]} ${c.debut}–${c.fin} : ${st.nom}${par ? ` — déjà ${DISPO[par.v].nom} par ${par.par}` : ''}${desactive ? '' : ' — cliquer pour changer'}`}>
                       {compact ? st.signe : <>
                         <span className="block tabular-nums font-semibold text-mention opacity-90">{c.debut}</span>

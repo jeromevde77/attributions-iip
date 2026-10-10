@@ -103,7 +103,7 @@ export default function AvisAmenagementProf({ annee }) {
                                 {SENS.map(([v, l, col]) => (
                                   <button key={v} type="button" onClick={() => setSaisie(o => ({ ...o, [m.id]: { ...s, sens: v } }))}
                                     className="px-2.5 py-1 text-second font-semibold border-r border-slate-200 last:border-r-0"
-                                    style={s.sens === v ? { background: col, color: '#fff' } : { color: '#475569' }}>{l}</button>
+                                    style={s.sens === v ? { background: col, color: '#fff' } : { color: 'rgb(var(--gris-600))' }}>{l}</button>
                                 ))}
                               </div>
                               {s.sens && s.sens !== 'realisable' && (

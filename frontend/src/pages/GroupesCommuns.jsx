@@ -367,7 +367,7 @@ function LigneDuTemps({ sim, filtre, semaine, onSemaine, peutEcrire, onRecharger
             {cal.map((c, i) => (
               <button key={i} disabled={!numDe.get(i + 1)} onClick={() => onSemaine(numDe.get(i + 1))}
                 title={c.type === 'cours' ? `Semaine de cours ${numDe.get(i + 1)} — du ${c.date_debut.split('-').reverse().join('/')}` : (c.label || c.type)}
-                className={`relative text-center tabular-nums ${semaine === numDe.get(i + 1) ? 'font-bold text-[#16406A]' : 'text-slate-400'}`}>
+                className={`relative text-center tabular-nums ${semaine === numDe.get(i + 1) ? 'font-bold text[color:var(--c-principal,_#16406A)]' : 'text-slate-400'}`}>
                 {c.type === 'cours' ? numDe.get(i + 1) : c.type.startsWith('ev') ? 'É' : '·'}</button>))}
           </div>
           {/* LES STAGES : leurs dates sont celles de Dates des UE. */}
@@ -379,7 +379,7 @@ function LigneDuTemps({ sim, filtre, semaine, onSemaine, peutEcrire, onRecharger
                 <div className="truncate pr-2 relative" title={o.ue_nom}><b>Stage {o.ue_num}</b>{o.num_organisation > 1 ? ` · org. ${o.num_organisation}` : ''} <span className="text-slate-500">{o.ue_nom}</span></div>
                 {p ? <div className="h-[16px] rounded-pastille mx-px relative text-white text-mention px-1 truncate leading-[16px]"
                     title={`Stage ${o.ue_num} — du ${o.date_debut.split('-').reverse().join('/')} au ${o.date_fin.split('-').reverse().join('/')}`}
-                    style={{ gridColumn: `${p.de + 1} / ${p.a + 2}`, gridRow: 1, background: '#64748B' }}>stage</div>
+                    style={{ gridColumn: `${p.de + 1} / ${p.a + 2}`, gridRow: 1, background: 'rgb(var(--gris-500))' }}>stage</div>
                   : <div className="relative flex items-center gap-1 py-0.5" style={{ gridColumn: `2 / ${nb + 2}`, gridRow: 1 }}>
                     <span style={{ color: 'var(--c-attente)' }}>dates du stage à poser</span>
                     {peutEcrire && <>
@@ -407,7 +407,7 @@ function LigneDuTemps({ sim, filtre, semaine, onSemaine, peutEcrire, onRecharger
           <div className="flex items-center gap-4 pt-2 text-slate-500">
             <span className="flex items-center gap-1"><i className="inline-block w-4 h-3 rounded-pastille" style={{ background: fond('ev1') }} />évaluations</span>
             <span className="flex items-center gap-1"><i className="inline-block w-4 h-3 rounded-pastille border border-slate-200" style={{ background: fond('vacances') }} />vacances</span>
-            <span className="flex items-center gap-1"><i className="inline-block w-4 h-3 rounded-pastille" style={{ background: '#64748B' }} />stage</span>
+            <span className="flex items-center gap-1"><i className="inline-block w-4 h-3 rounded-pastille" style={{ background: 'rgb(var(--gris-500))' }} />stage</span>
           </div>
         </div>
       </div>
@@ -827,14 +827,14 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire, versPlanning
                           {act.map((x, i) => (
                             <div key={`a${i}`} className="min-w-0 h-[46px] rounded px-1.5 py-1 border border-dashed text-xs leading-tight overflow-hidden text-slate-600"
                               title={`Horaire actuel — ${x.cours_code || ''} ${x.cours_nom || x.matiere || ''} ${x.heure_debut}–${x.heure_fin}${x.groupe_nom ? ` · groupe ${x.groupe_nom}` : ''}${x.conflits?.length ? `\nConflit : ${x.conflits.join(', ')}` : ''}`}
-                              style={{ borderColor: x.conflits?.length ? 'var(--c-refuse)' : '#94A3B8', background: '#F8FAFC' }}>
+                              style={{ borderColor: x.conflits?.length ? 'var(--c-refuse)' : 'rgb(var(--gris-400))', background: 'rgb(var(--gris-50))' }}>
                               <div className="text-mention text-slate-400">actuel</div>
                               <div className="flex items-center gap-1"><span className="font-bold truncate">{x.cours_code || '—'}</span>
                               {x.groupe_nom && x.groupe_nom !== 'A' && (
                                 <span className="flex-none inline-flex items-center justify-center min-w-[20px] h-[20px] px-1 rounded-pastille bg-white text-xs font-bold border border-slate-400">{x.groupe_nom}</span>)}</div>
                             </div>))}
                           {ici.map((s, i) => (
-                            <div key={i} className="min-w-0 h-[46px] rounded-r px-1.5 py-1 text-second leading-tight overflow-hidden text-[#1B2B4B] flex flex-col items-start justify-center gap-0.5"
+                            <div key={i} className="min-w-0 h-[46px] rounded-r px-1.5 py-1 text-second leading-tight overflow-hidden text[color:var(--c-principal,_#1B2B4B)] flex flex-col items-start justify-center gap-0.5"
                               title={`${s.cours_code} ${s.cours_nom || ''}\n${s.activite || ''} — groupe ${s.groupe}${s.professeur ? ` — ${s.professeur}` : ''}${s.local ? `\nLocal ${s.local}` : ''}\nBriques ${s.tout_le_bloc ? 'toutes' : s.briques.join(', ')}`}
                               style={{ ...styleTuileCours(s.cours_code),
                                 ...(s.etat === 'propose' && sim.plan?.lignes?.n ? { outline: '1.5px dashed #64748B', outlineOffset: -2 } : {}),

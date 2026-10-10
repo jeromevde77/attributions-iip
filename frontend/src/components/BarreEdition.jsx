@@ -31,11 +31,11 @@ import { saisir, informer } from '../lib/dialogue.jsx';
  */
 
 const PALETTE = [
-  ['Encre', '#1B2B4B'], ['Bleu', '#16406A'], ['Logo', '#19537E'], ['Or', '#C9A84C'],
-  ['Vert', '#3E7D5E'], ['Ocre', '#B45309'], ['Brique', '#9D4A38'], ['Violet', '#6B46C1'],
-  ['Gris', '#64748B'], ['Noir', '#000000'],
+  ['Encre', 'var(--c-principal, #1B2B4B)'], ['Bleu', 'var(--c-principal, #16406A)'], ['Logo', 'var(--c-iip_bleu, #19537E)'], ['Or', 'var(--c-epreuve, #C9A84C)'],
+  ['Vert', 'var(--c-reussi, #3E7D5E)'], ['Ocre', 'var(--c-attente, #B45309)'], ['Brique', 'var(--c-refuse, #9D4A38)'], ['Violet', 'var(--c-faveur, #6B46C1)'],
+  ['Gris', 'rgb(var(--gris-500))'], ['Noir', '#000000'],
 ];
-const SURLIGNAGE = [['Jaune', '#FEF3C7'], ['Vert', '#DCFCE7'], ['Bleu', '#DBEAFE'], ['Rose', '#FCE7F3'], ['Gris', '#F1F5F9']];
+const SURLIGNAGE = [['Jaune', '#FEF3C7'], ['Vert', '#DCFCE7'], ['Bleu', '#DBEAFE'], ['Rose', '#FCE7F3'], ['Gris', 'rgb(var(--gris-100))']];
 const POLICES = [['Police', ''], ['Arial', 'Arial, sans-serif'], ['Calibri', 'Calibri, sans-serif'],
   ['Georgia', 'Georgia, serif'], ['Times New Roman', "'Times New Roman', serif"], ['Verdana', 'Verdana, sans-serif']];
 const TAILLES = ['8pt', '9pt', '10pt', '11pt', '12pt', '14pt', '16pt', '18pt', '24pt'];

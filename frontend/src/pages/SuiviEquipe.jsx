@@ -931,7 +931,7 @@ function ListeTaches({ taches, personnes, presents = [], obligations = [], api, 
         const u = urgence(t.echeance);
         const teinteDate = fini ? null : (u.niveau === 'depasse' || u.niveau === 'presse') ? 'var(--c-refuse)'
           : u.niveau === 'approche' ? 'var(--c-attente)' : null;
-        const teinteStatut = { a_faire: '#94A3B8', en_cours: 'var(--c-disponible)', fait: 'var(--c-reussi)', abandonnee: '#64748B' }[t.statut] || '#94A3B8';
+        const teinteStatut = { a_faire: 'rgb(var(--gris-400))', en_cours: 'var(--c-disponible)', fait: 'var(--c-reussi)', abandonnee: 'rgb(var(--gris-500))' }[t.statut] || 'rgb(var(--gris-400))';
         const informes = (t.informes || []).map(x => nomListe(x.nom || '')).filter(Boolean);
         return (
         <div key={t.id} className="border-t border-slate-100">

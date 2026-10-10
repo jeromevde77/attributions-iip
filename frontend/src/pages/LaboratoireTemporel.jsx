@@ -575,8 +575,8 @@ function TuileUE({ u, zoom, choisie, posee, pendantStage, style, onDeplacer, onD
   const remplies = arrondi((u.cours || []).reduce((t, c) => t + Math.min(Number(c.cours_per) || 0, sommeEtudiant(c)), 0));
   return (
     <div className="absolute rounded-r-tuile bg-white overflow-hidden select-none cursor-grab"
-      style={{ ...style, borderLeft: `4px solid ${u.stage ? '#64748B' : teinte}`, border: `1px ${posee ? 'solid' : 'dashed'} ${choisie ? '#16406A' : '#D8DCE4'}`,
-        borderLeftWidth: 4, borderLeftStyle: 'solid', borderLeftColor: u.stage ? '#64748B' : teinte,
+      style={{ ...style, borderLeft: `4px solid ${u.stage ? 'rgb(var(--gris-500))' : teinte}`, border: `1px ${posee ? 'solid' : 'dashed'} ${choisie ? 'var(--c-principal, #16406A)' : 'rgb(var(--gris-200))'}`,
+        borderLeftWidth: 4, borderLeftStyle: 'solid', borderLeftColor: u.stage ? 'rgb(var(--gris-500))' : teinte,
         // La tuile est COLORÉE de son UE, pour se lire (Charles, 10 octobre 2026).
         background: u.stage ? FOND_STAGE : `color-mix(in srgb, ${teinte} 16%, white)`,
         boxShadow: choisie ? '0 0 0 2px rgba(22,64,106,.25)' : undefined }}
@@ -585,13 +585,13 @@ function TuileUE({ u, zoom, choisie, posee, pendantStage, style, onDeplacer, onD
       {coupures.map(({ i }) => (
         <div key={`v${i}`} className="absolute top-0 bottom-0 z-0 pointer-events-none" title="Vacances : pas de cours"
           style={{ left: `calc(${(i - span.de) / n * 100}% - 4px)`, width: `calc(${100 / n}%)`, background: 'color-mix(in srgb, #64748B 22%, #F6F8FB)', borderLeft: '1px solid #fff', borderRight: '1px solid #fff' }} />))}
-      <div className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize z-10 hover:bg-[#16406A]/20" onPointerDown={onDebut} />
-      <div className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize z-10 hover:bg-[#16406A]/20" onPointerDown={onFin} />
-      <div className="relative z-[1] px-2 py-1 text-second leading-tight text-[#1B2B4B]">
+      <div className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize z-10 hover:bg[color:var(--c-principal,_#16406A)]/20" onPointerDown={onDebut} />
+      <div className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize z-10 hover:bg[color:var(--c-principal,_#16406A)]/20" onPointerDown={onFin} />
+      <div className="relative z-[1] px-2 py-1 text-second leading-tight text[color:var(--c-principal,_#1B2B4B)]">
         <div className="flex items-center gap-1.5 min-w-0">
           <b className="flex-none">{nomUE(u)}</b>
           <span className="truncate text-slate-600">{u.ue_nom}</span>
-          {u.stage && u.stage_bloquant && <span className="flex-none px-1.5 rounded-pastille text-mention font-semibold text-white" style={{ background: '#475569' }}>bloquant</span>}
+          {u.stage && u.stage_bloquant && <span className="flex-none px-1.5 rounded-pastille text-mention font-semibold text-white" style={{ background: 'rgb(var(--gris-600))' }}>bloquant</span>}
           {pendantStage && <span className="flex-none px-1.5 rounded-pastille text-mention font-semibold text-white" style={{ background: 'var(--c-refuse)' }} title="Cette UE a cours pendant un stage bloquant">pendant le stage</span>}
         </div>
         <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-0.5">
@@ -612,10 +612,10 @@ function TuileUE({ u, zoom, choisie, posee, pendantStage, style, onDeplacer, onD
                     <b>{c.cours_code}</b><span className="tabular-nums" style={{ color: s >= dp ? 'var(--c-reussi)' : 'var(--c-attente)' }}>{s}/{dp} p.</span>
                     {!(c.activites || []).length && <span className="text-slate-400">à découper — dans le verre</span>}
                     {peutEcrire && (c.activites || []).length > 1 && <>
-                      <button className="ml-1 px-1.5 rounded-pastille border border-slate-300 bg-white text-mention leading-[13px] hover:border-[#16406A]"
+                      <button className="ml-1 px-1.5 rounded-pastille border border-slate-300 bg-white text-mention leading-[13px] hover:border[color:var(--c-principal,_#16406A)]"
                         onPointerDown={ev => ev.stopPropagation()} onDoubleClick={ev => ev.stopPropagation()} onClick={() => onArranger(c, 'suite')}
                         title="Enchaîner les activités dans l’ordre du verre, l’évaluation en dernier ; les activités cochées forment un bloc en parallèle">⇢ à la suite{(coches[`${u.cle}#${c.cours_code}`] || []).length > 1 ? ` (${(coches[`${u.cle}#${c.cours_code}`] || []).length} en parallèle)` : ''}</button>
-                      <button className="px-1.5 rounded-pastille border border-slate-300 bg-white text-mention leading-[13px] hover:border-[#16406A]"
+                      <button className="px-1.5 rounded-pastille border border-slate-300 bg-white text-mention leading-[13px] hover:border[color:var(--c-principal,_#16406A)]"
                         onPointerDown={ev => ev.stopPropagation()} onDoubleClick={ev => ev.stopPropagation()} onClick={() => onArranger(c, 'parallele')}
                         title="Toutes les activités sur toute la période de l’UE">⇉ en parallèle</button></>}
                   </div>
@@ -625,7 +625,7 @@ function TuileUE({ u, zoom, choisie, posee, pendantStage, style, onDeplacer, onD
                         <div key={x.k} onPointerDown={ev => onActivite(ev, c, x.k, 'deplacer')} onDoubleClick={ev => ev.stopPropagation()}
                           className={`absolute top-[2px] h-[15px] rounded-pastille px-1.5 text-mention leading-[15px] text-white truncate ${peutEcrire ? 'cursor-grab' : ''}`}
                           style={{ left: `calc(${(x.de - span.de) / n * 100}% + 1px)`, width: `calc(${(x.fin - x.de + 1) / n * 100}% - 2px)`,
-                            background: x.act.activite_id && /valuation/i.test(x.act.activite_nom || '') ? '#B45309' : teinteCours(c.cours_code) }}
+                            background: x.act.activite_id && /valuation/i.test(x.act.activite_nom || '') ? 'var(--c-attente, #B45309)' : teinteCours(c.cours_code) }}
                           title={`${c.cours_code} — ${x.act.activite_nom || 'activité'} · ${arrondi(parEtudiant(x.act))} p. par étudiant${x.act.groupes > 1 ? `, ${x.act.groupes} groupes` : ''}\nGlisser : le déplacer ; tirer ses bords : l’allonger`}>
                           {peutEcrire && <span className="absolute left-0 top-0 bottom-0 w-1.5 cursor-ew-resize" onPointerDown={ev => onActivite(ev, c, x.k, 'debut')} />}
                           {peutEcrire && (c.activites || []).length > 1 && (
@@ -711,7 +711,7 @@ function Rangee({ ues, rangee, setRangee, actif, onChoisir, debut, setDebut }) {
               <div key={u.cle} draggable onDragStart={() => setPrise(idx)} onDragOver={e => e.preventDefault()}
                 onDrop={() => { if (prise != null && prise !== idx) deplacer(prise, idx); setPrise(null); }}
                 onClick={() => onChoisir(u.cle)}
-                className={`relative flex flex-col items-center gap-1 rounded-tuile p-1.5 cursor-pointer ${u.cle === actif ? 'bg-[#16406A]/10 ring-2 ring-[#16406A]/40' : 'hover:bg-slate-50'}`}>
+                className={`relative flex flex-col items-center gap-1 rounded-tuile p-1.5 cursor-pointer ${u.cle === actif ? 'bg[color:var(--c-principal,_#16406A)]/10 ring-2 ring[color:var(--c-principal,_#16406A)]/40' : 'hover:bg-slate-50'}`}>
                 <button className="absolute right-1 top-0.5 text-slate-400 hover:text-slate-700 text-sm" title="Retirer de la rangée"
                   onClick={ev => { ev.stopPropagation(); setRangee(rangee.filter(n => n !== u.cle)); }}>×</button>
                 {/* Les fonds alignés : le verre se pose au bas d'une hauteur commune. */}
@@ -728,7 +728,7 @@ function Rangee({ ues, rangee, setRangee, actif, onChoisir, debut, setDebut }) {
 }
 function VerreMini({ u, px }) {
   return (
-    <div className="w-[96px] flex flex-col-reverse p-[2px] rounded-b-carte border-2 border-t-0" style={{ borderColor: '#16406A', background: '#EEF3F9' }}>
+    <div className="w-[96px] flex flex-col-reverse p-[2px] rounded-b-carte border-2 border-t-0" style={{ borderColor: 'var(--c-principal, #16406A)', background: '#EEF3F9' }}>
       {(u.cours || []).map(c => {
         const dp = Number(c.cours_per) || 0, aut = Number(c.autonomie_placee) || 0, s = sommeEtudiant(c), manque = dp + aut - s;
         return (
@@ -943,7 +943,7 @@ function Verre({ u, types, annee, section, peutEcrire, onRetour, onAnnee, onEnre
           {barre.map(t => (
             <span key={t.id} draggable onDragStart={e => e.dataTransfer.setData('text/plain', String(t.id))}
               className="controle !h-8 inline-flex items-center gap-1.5 cursor-grab bg-white text-second">
-              <i className="inline-block w-2.5 h-2.5 rounded-pastille" style={{ background: t.role === 'evaluation' ? '#B45309' : estGroupes(t.libelle) ? '#2F6FB0' : '#16406A' }} />{t.libelle}</span>))}
+              <i className="inline-block w-2.5 h-2.5 rounded-pastille" style={{ background: t.role === 'evaluation' ? 'var(--c-attente, #B45309)' : estGroupes(t.libelle) ? 'var(--c-disponible, #2F6FB0)' : 'var(--c-principal, #16406A)' }} />{t.libelle}</span>))}
           <select className="controle !h-8 text-second max-w-[16rem]" value="" onChange={e => e.target.value && setAjoutees(a => [...a, e.target.value])}>
             <option value="">Autre activité…</option>
             {types.filter(t => !barre.some(x => x.id === t.id)).map(t => <option key={t.id} value={t.id}>{t.libelle}</option>)}
@@ -963,10 +963,10 @@ function Verre({ u, types, annee, section, peutEcrire, onRetour, onAnnee, onEnre
           {/* LA BURETTE : l'autonomie de l'UE, pleine au départ ; elle se vide quand un cours en prend. */}
           <div className="flex-none flex flex-col items-center gap-1 mr-2" title={`Autonomie de l’UE : ${autonomieUE} p. au dossier, ${arrondi(autonomiePrise)} prise(s), ${autonomieReste} restante(s)`}>
             <span className="text-mention text-slate-500 text-center leading-tight w-[64px]">autonomie<br />de l’UE</span>
-            <div className="relative w-[26px] rounded-b-tuile border-2 border-t-0 overflow-hidden" style={{ height: Math.max(40, autonomieUE * PX), borderColor: '#16406A', background: '#fff' }}>
+            <div className="relative w-[26px] rounded-b-tuile border-2 border-t-0 overflow-hidden" style={{ height: Math.max(40, autonomieUE * PX), borderColor: 'var(--c-principal, #16406A)', background: '#fff' }}>
               <div className="absolute left-0 right-0 bottom-0" style={{ height: `${autonomieUE ? Math.max(0, autonomieReste) / autonomieUE * 100 : 0}%`, background: `color-mix(in srgb, ${teinteCours(`${u.ue_num}.1`)} 70%, white)` }} />
             </div>
-            <b className="text-second tabular-nums" style={{ color: autonomieReste < 0 ? 'var(--c-refuse)' : '#1B2B4B' }}>{autonomieUE ? `${autonomieReste}/${autonomieUE}` : '0'}</b>
+            <b className="text-second tabular-nums" style={{ color: autonomieReste < 0 ? 'var(--c-refuse)' : 'var(--c-principal, #1B2B4B)' }}>{autonomieUE ? `${autonomieReste}/${autonomieUE}` : '0'}</b>
             <span className="text-mention text-slate-400">{autonomieUE ? 'p. restantes' : 'aucune au dossier'}</span>
             {autonomieReste > 0 && <span className="text-mention font-semibold text-center leading-tight w-[70px]" style={{ color: 'var(--c-attente)' }}>à dépenser dans l’UE</span>}
           </div>
@@ -978,7 +978,7 @@ function Verre({ u, types, annee, section, peutEcrire, onRetour, onAnnee, onEnre
           <div className="flex items-end">
             {/* LE VERRE EST PLEIN JUSQU'AU BORD (Charles, 10 octobre 2026 : « moche ») : son
                 contenu épouse le fond arrondi, sans liseré ; les étiquettes vivent à côté. */}
-            <div className="relative w-[440px] flex flex-col-reverse overflow-hidden rounded-b-panneau border-[3px] border-t-0" style={{ borderColor: '#16406A', background: '#fff' }}>
+            <div className="relative w-[440px] flex flex-col-reverse overflow-hidden rounded-b-panneau border-[3px] border-t-0" style={{ borderColor: 'var(--c-principal, #16406A)', background: '#fff' }}>
               {cours.map((c, ci) => {
                 const s = sommeEtudiant(c), dp = Number(c.cours_per) || 0, aut = Number(c.autonomie_placee) || 0, manque = arrondi(dp + aut - s);
                 return (
@@ -995,7 +995,7 @@ function Verre({ u, types, annee, section, peutEcrire, onRetour, onAnnee, onEnre
                               style={{ background: col, boxShadow: on ? 'inset 0 0 0 2px #16406A' : undefined }} title={`${a.activite_nom || 'activité'} — ${arrondi(p)} p. par étudiant${a.groupes > 1 ? ` · groupe ${lettre(g)}` : ''}`}>
                               {a.groupes > 1 ? <span className="bg-white text-[#16253D] rounded-pastille px-1 text-mention">{lettre(g)}</span> : (p * PX > 13 ? `${a.activite_nom || 'activité'} · ${arrondi(p)} p.` : '')}
                             </div>))}
-                          {peutEcrire && <div className="absolute left-0 right-0 -top-[3px] h-[7px] cursor-ns-resize z-10 hover:bg-[#16406A]/30" onPointerDown={e => tirer(e, ci, k)} title="Tirer : les périodes" />}
+                          {peutEcrire && <div className="absolute left-0 right-0 -top-[3px] h-[7px] cursor-ns-resize z-10 hover:bg[color:var(--c-principal,_#16406A)]/30" onPointerDown={e => tirer(e, ci, k)} title="Tirer : les périodes" />}
                         </div>);
                     })}
                     {manque > 0 && <div className="flex-none flex items-center justify-center text-xs font-semibold" style={{ height: manque * PX, background: HACHURE, color: 'var(--c-attente)' }}>{manque * PX > 12 ? `à remplir · ${manque} p.` : ''}</div>}
@@ -1032,7 +1032,7 @@ function Verre({ u, types, annee, section, peutEcrire, onRetour, onAnnee, onEnre
             <div className="text-second text-slate-500">Groupes
               <div className="flex items-center gap-2 mt-1">
                 <button className="bouton !h-8" disabled={!peutEcrire || act.groupes <= 1} onClick={() => regler(a => ({ ...a, periodes: parEtudiant(a) * (a.groupes - 1), groupes: a.groupes - 1 }))}>−</button>
-                <b className="text-sm text-[#1B2B4B] tabular-nums">{act.groupes}</b>
+                <b className="text-sm text[color:var(--c-principal,_#1B2B4B)] tabular-nums">{act.groupes}</b>
                 <button className="bouton !h-8" disabled={!peutEcrire || act.groupes >= 30} onClick={() => regler(a => ({ ...a, periodes: parEtudiant(a) * (a.groupes + 1), groupes: a.groupes + 1 }))}>+</button>
                 <span>{act.groupes > 1 ? `blocs ${Array.from({ length: act.groupes }, (_, g) => lettre(g)).join(', ')}` : 'tout le bloc ensemble'}</span>
               </div></div>

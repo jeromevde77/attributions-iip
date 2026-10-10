@@ -83,7 +83,7 @@ export default function CompositionSection({ sectionCode, data, choix, onChoix, 
                 return (
                   <div key={bloc} className="bg-white">
                     <div className="px-3 pt-2 pb-1 flex items-center gap-2 text-xs font-semibold text-slate-500">
-                      <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: couleurBloc(bloc) || '#D8DCE4' }} />
+                      <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: couleurBloc(bloc) || 'rgb(var(--gris-200))' }} />
                       {bloc}
                       {!aelle && !lecture && (
                         <button type="button" className="ml-1 font-normal underline text-slate-500" onClick={() => toutLeGroupe(lst, !tous)}>

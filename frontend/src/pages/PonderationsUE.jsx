@@ -373,7 +373,7 @@ export default function PonderationsUE({ ueFixe = null }) {
                                         className="w-14 h-7 rounded-champ border-[1.5px] border-dashed border-slate-300 text-slate-400 hover:border-slate-400">+</button>
                                     )
                                   ) : (
-                                    <span className="font-bold tabular-nums" style={{ color: v ? t : '#cbd5e1' }}>{v ? fr(v) : '·'}</span>
+                                    <span className="font-bold tabular-nums" style={{ color: v ? t : 'rgb(var(--gris-300))' }}>{v ? fr(v) : '·'}</span>
                                   )}
                                 </td>
                               );

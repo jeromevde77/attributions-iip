@@ -149,7 +149,7 @@ export default function PresencesCours({ coursCode, annee }) {
                         <button key={k} type="button" title={t} disabled={future || seance.annule}
                           onClick={() => poser(e.id, k)}
                           className="w-8 h-7 mr-1 rounded-champ border text-second font-semibold disabled:opacity-40"
-                          style={v.statut === k ? { background: c, borderColor: c, color: '#fff' } : { borderColor: '#cbd5e1', color: 'var(--c-texte)' }}>
+                          style={v.statut === k ? { background: c, borderColor: c, color: '#fff' } : { borderColor: 'rgb(var(--gris-300))', color: 'var(--c-texte)' }}>
                           {l}</button>
                       ))}
                     </td>

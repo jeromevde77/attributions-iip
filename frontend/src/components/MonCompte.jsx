@@ -25,7 +25,7 @@ function QrOtpauth({ uri }) {
   useEffect(() => {
     if (!uri || !toile.current) return;
     QRCode.toCanvas(toile.current, uri, { width: 190, margin: 1,
-      color: { dark: '#1B2B4B', light: '#FFFFFF' } })
+      color: { dark: 'var(--c-principal, #1B2B4B)', light: '#FFFFFF' } })
       .catch(() => setRate(true));
   }, [uri]);
   if (rate) {
@@ -99,7 +99,7 @@ function CodesSecours({ codes, onFini }) {
             le fond, dans le même style en ligne. */}
         <button onClick={onFini}
           className="controle text-second px-3 rounded-champ font-semibold"
-          style={{ background: '#1B2B4B', color: '#fff', borderColor: '#1B2B4B' }}>
+          style={{ background: 'var(--c-principal, #1B2B4B)', color: '#fff', borderColor: 'var(--c-principal, #1B2B4B)' }}>
           Je les ai notés
         </button>
       </div>
@@ -261,8 +261,8 @@ export default function MonCompte({ onFermer }) {
         <>
           <GroupeFenetre titre="Vérification en deux temps">
             <div className="flex items-start gap-3 px-3 py-2.5 rounded-carte border"
-              style={{ borderColor: actif ? '#b7d5c4' : '#e2e8f0',
-                       borderLeftWidth: 3, borderLeftColor: actif ? '#4a7c59' : '#cbd5e1',
+              style={{ borderColor: actif ? '#b7d5c4' : 'rgb(var(--gris-200))',
+                       borderLeftWidth: 3, borderLeftColor: actif ? '#4a7c59' : 'rgb(var(--gris-300))',
                        background: '#fff' }}>
               <div className="min-w-0 flex-1">
                 <div className="text-sm text-slate-700 font-semibold">
@@ -307,7 +307,7 @@ export default function MonCompte({ onFermer }) {
               </div>
             ) : (
               <div className="flex items-start gap-3 px-3 py-2.5 rounded-carte border"
-                style={{ borderColor: '#e2e8f0', borderLeftWidth: 3, borderLeftColor: '#cbd5e1',
+                style={{ borderColor: 'rgb(var(--gris-200))', borderLeftWidth: 3, borderLeftColor: 'rgb(var(--gris-300))',
                          background: '#fff' }}>
                 <div className="min-w-0 flex-1 text-second text-slate-600 leading-relaxed">
                   Choisissez-le vous-même : personne d'autre n'a à le connaître.

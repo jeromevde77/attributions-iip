@@ -281,7 +281,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
       <div className="text-xs text-slate-400">{e.id_ecampus || ''}</div>
     </td>);
 
-  const couleurRepere = data?.epreuve_integree ? '#C9A227' : (couleurBloc(niv) || '#16406A');
+  const couleurRepere = data?.epreuve_integree ? 'var(--c-epreuve, #C9A227)' : (couleurBloc(niv) || 'var(--c-principal, #16406A)');
 
   return (
     <Fenetre titre={`UE ${ueNum}${data?.ue?.ue_nom ? ` — ${data.ue.ue_nom}` : ''}`}
@@ -452,7 +452,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
                               : <span className={v < SEUIL ? 'font-bold' : ''} style={v < SEUIL ? { color: 'var(--c-refuse)' } : undefined}>{v}</span>}
                           </td>);
                       })}
-                      <td className="px-3 text-center border-b border-l border-slate-100 text-second font-semibold" style={{ color: b.defaut.length ? 'var(--c-refuse)' : '#CBD5E1' }}>
+                      <td className="px-3 text-center border-b border-l border-slate-100 text-second font-semibold" style={{ color: b.defaut.length ? 'var(--c-refuse)' : 'rgb(var(--gris-300))' }}>
                         {b.defaut.length ? `${b.defaut.length} · ${b.defaut.slice(0, 2).map(c => c.replace(/^AA/, '')).join(', ')}${b.defaut.length > 2 ? '…' : ''}` : '—'}
                       </td>
                       <td className="px-3 text-center border-b border-slate-100 bg-[#F7F9FC]" style={{ borderLeft: '2px solid var(--c-principal, #16406A)' }}>
@@ -566,7 +566,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
                         titre={data.cotes?.[e.id]?.ue == null ? 'Non calculable : un cours est non acquis, ou tout n’est pas encodé'
                           : 'Note de l’unité, calculée depuis les cours et leurs poids — elle ne se saisit pas'} />
                       <div className="text-mention font-semibold mt-0.5"
-                        style={{ color: b.manque ? '#94A3B8' : b.defaut.length ? 'var(--c-attente)' : 'var(--c-reussi)' }}>{motUE(b)}</div>
+                        style={{ color: b.manque ? 'rgb(var(--gris-400))' : b.defaut.length ? 'var(--c-attente)' : 'var(--c-reussi)' }}>{motUE(b)}</div>
                     </td>
                   </tr>);
                 })}
