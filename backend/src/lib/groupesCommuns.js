@@ -53,6 +53,28 @@ function groupesAttribution(ueNum, annee, coursCode, act) {
     || String(x.groupe || '').localeCompare(String(y.groupe || ''), 'fr', { numeric: true }));
 }
 
+/**
+ * LE VERRE NOURRIT LES GROUPES (Charles, 10 octobre 2026 : « relie les données »).
+ * Quand une UE n'a pas d'attributions pour l'année — 2027-2028, où l'horaire et
+ * les groupes viennent avant les attributions —, ses activités, leurs groupes et
+ * leurs périodes viennent du verre (la grille d'organisation). En 2026-2027, les
+ * attributions restent la source, comme convenu.
+ */
+export function activitesDeLaGrille(section, ueNum, annee) {
+  try {
+    const o = db.prepare(`SELECT id FROM organisation_ue WHERE annee_scolaire = ? AND section = ? AND ue_num = ? ORDER BY num_organisation LIMIT 1`).get(annee, section, ueNum);
+    if (!o) return [];
+    return db.prepare(`SELECT gc.cours_code AS code_cours, COALESCE(ga.activite_id, 0) AS activite_id, MAX(t.libelle) AS libelle,
+        MAX(c.cours_nom) AS cours_nom, MAX(COALESCE(c.is_stage, 0)) AS stage, MAX(COALESCE(ga.groupes, 1)) AS groupes, SUM(ga.periodes) AS periodes
+      FROM grille_activite ga JOIN grille_cours gc ON gc.id = ga.grille_cours_id
+      LEFT JOIN activite_type t ON t.id = ga.activite_id
+      LEFT JOIN cours c ON c.cours_code = gc.cours_code AND c.annee_scolaire = ?
+      WHERE gc.organisation_id = ? AND ga.periodes > 0
+      GROUP BY gc.cours_code, COALESCE(ga.activite_id, 0) ORDER BY gc.cours_code`).all(annee, o.id);
+  } catch { return []; }
+}
+export const groupesDeLaGrille = n => Array.from({ length: Math.max(1, n) }, (_, i) => ({ num_organisation: 1, groupe: n > 1 ? String.fromCharCode(65 + i) : null }));
+
 /** Tout ce que l'écran montre d'une cohorte. */
 export function cohorte(section, bloc, annee) {
   const ues = db.prepare(`SELECT DISTINCT u.ue_num, MAX(u.ue_nom) ue_nom FROM ue u
@@ -69,8 +91,11 @@ export function cohorte(section, bloc, annee) {
       LEFT JOIN cours c ON c.cours_code = a.code_cours AND c.annee_scolaire = a.annee_scolaire
       WHERE a.ue_num = ? AND a.annee_scolaire = ? AND a.code_cours IS NOT NULL
       GROUP BY a.code_cours, COALESCE(a.activite_id, 0) ORDER BY a.code_cours`).all(u.ue_num, annee);
-    for (const a of acts) {
-      const groupes = groupesAttribution(u.ue_num, annee, a.code_cours, a.activite_id);
+    // Sans attribution, le verre fait foi.
+    const depuisGrille = !acts.length;
+    const sources = depuisGrille ? activitesDeLaGrille(section, u.ue_num, annee).map(a => ({ ...a, quadris: '' })) : acts;
+    for (const a of sources) {
+      const groupes = depuisGrille ? groupesDeLaGrille(a.groupes) : groupesAttribution(u.ue_num, annee, a.code_cours, a.activite_id);
       if (groupes.length < 2) continue;           // une activité sans groupes réunit tout le monde
       const r = reglages.get(`${a.code_cours}#${a.activite_id}`);
       const q = String(a.quadris || '');

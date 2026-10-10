@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { IconAlertTriangle, IconWand, IconDeviceFloppy, IconUsersGroup, IconLock, IconLockOpen, IconTrash } from '@tabler/icons-react';
 import { api, authHeaders, getAnnee } from '../lib/api.js';
-import { demander, informer } from '../lib/dialogue.jsx';
+import { choisir, demander, informer, saisir } from '../lib/dialogue.jsx';
 import { passeRole } from '../lib/droits.js';
 import { teinteCours, styleTuileCours } from '../lib/teinteCours.js';
 import { ouvrirApercu } from '../lib/apercu.js';
@@ -574,6 +574,43 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
     if (!r.ok) { setErreur(j.error || `Erreur ${r.status}`); return; }
     await simuler('plan', true);
   }
+  /* LOT 3 — DU PLAN À L'HORAIRE : compte rendu d'abord ; un horaire importé ne se
+     remplace que sur demande, à partir d'une date, et il se rétablit. */
+  async function verser() {
+    const auj = new Date().toISOString().slice(0, 10);
+    const depuis = await saisir({ titre: 'Verser le plan dans l’horaire', message: 'À partir de quelle date ? (aaaa-mm-jj — les séances passées ne changent pas)', valeur: auj });
+    if (!depuis) return;
+    const corps = { section, bloc, annee, depuis };
+    const r0 = await fetch('/api/etudiants/repartition-cours/communs/plan/verser', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ ...corps, simulation: true }) });
+    const a = await r0.json().catch(() => ({}));
+    if (!r0.ok) { setErreur(a.error || `Erreur ${r0.status}`); return; }
+    const texte = `${a.a_poser} séance(s) du plan à poser dans l’Horaire de la semaine, à partir du ${depuis.split('-').reverse().join('/')}.\n`
+      + (a.remplacees_plan ? `${a.remplacees_plan} séance(s) d’un versement précédent sont remplacées.\n` : '')
+      + (a.gardees ? `${a.gardees} séance(s) retouchées à la main restent telles quelles.\n` : '')
+      + (a.propositions_non_adoptees ? `${a.propositions_non_adoptees} séance(s) seulement proposées (pas adoptées) ne sont PAS versées.\n` : '');
+    let remplacer = false;
+    if (a.importees) {
+      const v = await choisir({ titre: 'Un horaire importé existe déjà', ton: 'alerte',
+        message: texte + `\n${a.importees} séance(s) importées (Hyperplanning) existent pour ${section} ${bloc} sur la période.`,
+        choix: [{ valeur: 'remplacer', libelle: 'Les remplacer par le plan', aide: 'Elles sont mises à l’abri et se rétablissent avec « Rétablir l’horaire importé ».' }] });
+      if (v !== 'remplacer') return;
+      remplacer = true;
+    } else if (!(await demander({ titre: 'Verser le plan dans l’horaire', message: texte, confirmer: 'Verser' }))) return;
+    setEnCours(true);
+    try {
+      const r = await fetch('/api/etudiants/repartition-cours/communs/plan/verser', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ ...corps, remplacer, simulation: false }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
+      await informer(`✓ ${j.a_poser} séance(s) versées dans l’Horaire de la semaine (classe ${section} · ${bloc}).`);
+    } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
+  }
+  async function retablir() {
+    if (!(await demander({ titre: 'Rétablir l’horaire importé', message: `Les séances importées qu’un versement du plan avait remplacées pour ${section} ${bloc} reviennent ; les séances « plan » non retouchées de la période s’effacent.`, confirmer: 'Rétablir' }))) return;
+    const r = await fetch('/api/etudiants/repartition-cours/communs/plan/retablir', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ section, bloc, annee }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { setErreur(j.error || `Erreur ${r.status}`); return; }
+    await informer(j.retablies ? `✓ ${j.retablies} séance(s) importées rétablies.` : 'Rien à rétablir.');
+  }
   async function retoucher(id, modif) {
     const r = await fetch(`/api/etudiants/repartition-cours/communs/plan/${id}`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify(modif) });
     const j = await r.json().catch(() => ({}));
@@ -647,6 +684,9 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
           title="Garder les seules lignes verrouillées, et tout proposer à nouveau autour">Recalculer autour du verrouillé</button>}
         {sim && peutEcrire && sim.seances.some(x => x.etat === 'propose') && (
           <button className="bouton bouton-fort" onClick={() => adopter(null)} disabled={enCours}>Adopter la proposition</button>)}
+        {sim && peutEcrire && sim.plan?.lignes?.n > 0 && <>
+          <button className="bouton" onClick={verser} disabled={enCours} title="Les séances du plan enregistré deviennent celles de l’Horaire de la semaine">Verser le plan dans l’horaire</button>
+          <button className="bouton" onClick={retablir} disabled={enCours} title="Remettre les séances importées qu’un versement avait remplacées">Rétablir l’horaire importé</button></>}
 
       </div>
       {erreur && <div className="text-[12.5px]" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
