@@ -2,7 +2,7 @@
 // Lucie — Module Étudiants : base étudiants, inscriptions, résultats et PAE
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { migrerPlages, plagesDe, ecrirePlages, simuler as simulerAnnee, poserSimulation, ecrireLocaux, reglesDe, ecrireRegles, documentHoraire, adopterProposition, retoucherLigne, retirerLigne } from '../lib/simulationHoraire.js';
+import { migrerPlages, plagesDe, ecrirePlages, simuler as simulerAnnee, poserSimulation, ecrireLocaux, reglesDe, ecrireRegles, documentHoraire, adopterProposition, retoucherLigne, retirerLigne, verserPlan, retablirImportees } from '../lib/simulationHoraire.js';
 import { migrerGroupesCommuns, cohorte as cohorteGC, proposerBriques, appliquerBriques } from '../lib/groupesCommuns.js';
 import { dispensesDeLUE } from '../lib/dispenses.js';
 import { paysDe, estUnPays } from '../lib/pays.js';
@@ -1544,6 +1544,24 @@ r.post('/repartition-cours/communs/plan/adopter', authRequired, roleRequired(...
       mode: req.body?.mode === 'recalcul' ? 'recalcul' : 'plan', cles: Array.isArray(req.body?.cles) ? req.body.cles.map(String) : null,
       simulation: req.body?.simulation !== false, par: req.user?.email || null }));
   } catch (e) { console.error('[plan adopter]', e); res.status(500).json({ error: `L'adoption a échoué : ${e.message}` }); }
+});
+// LOT 3 : du plan enregistré à l'Horaire de la semaine.
+r.post('/repartition-cours/communs/plan/verser', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
+  try {
+    const section = String(req.body?.section || ''), bloc = String(req.body?.bloc || '').toUpperCase();
+    if (!section || !bloc) return res.status(400).json({ error: 'section et bloc requis' });
+    if (!sectionAutoriseeReq(req, section)) return res.status(403).json({ error: 'Section hors de votre périmètre' });
+    const depuis = /^\d{4}-\d{2}-\d{2}$/.test(String(req.body?.depuis || '')) ? req.body.depuis : null;
+    res.json(verserPlan(section, bloc, String(req.body?.annee || anneeDeTravail(req)), { depuis, remplacer: !!req.body?.remplacer,
+      simulation: req.body?.simulation !== false, par: req.user?.email || null }));
+  } catch (e) { console.error('[plan verser]', e); res.status(e.status || 500).json({ error: e.message }); }
+});
+r.post('/repartition-cours/communs/plan/retablir', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
+  try {
+    const section = String(req.body?.section || ''), bloc = String(req.body?.bloc || '').toUpperCase();
+    if (!section || !bloc || !sectionAutoriseeReq(req, section)) return res.status(403).json({ error: 'Section hors de votre périmètre' });
+    res.json(retablirImportees(section, bloc, String(req.body?.annee || anneeDeTravail(req))));
+  } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
 });
 r.put('/repartition-cours/communs/plan/:id', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
   try {

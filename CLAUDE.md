@@ -152,6 +152,29 @@ deux usages (Lucie seule, ou à côté d'Hyperplanning) — une séance posée o
 retouchée ici ne sera jamais écrasée par un import. **À venir :** l'import
 (Excel si Hyperplanning l'exporte, sinon la grille PDF), les salles partagées.
 
+**LE LABORATOIRE TEMPOREL DE LUCIE** (3.1.228 → 3.1.239, Charles, 10 octobre
+2026 — Organisation → *Le laboratoire temporel*, icône erlenmeyer + horloge).
+Une chaîne, quatre faces en sous-menu du rail : **le temps** (l'année en tuiles,
+les couches dans le temps, le verre au dernier zoom), **les groupes** (briques),
+**la semaine** (simulation, plan enregistré), **le schéma de capitalisation**.
+Sources, sans rien doubler : dates de l'UE = `organisation_ue` ; le verre = la
+grille d'organisation (`grille_cours`, `grille_activite` + `groupes`, dates par
+activité ; `periodes` = côté enseignant, l'étudiant en vit periodes / groupes) ;
+la burette = l'autonomie de l'UE (`ue_autonomie`), consommée par
+`grille_cours.autonomie_placee` — elle ne donne jamais plus qu'elle ne contient,
+et l'autonomie non utilisée se répartit, devient une activité ou se met de côté
+avec un motif (`organisation_ue.autonomie_reservee`) ; **elle reste dans son UE**
+(transfert entre UE : à confirmer réglementairement par Charles). Le plan =
+`plan_creneau` (adopter, retoucher = verrouiller, recalculer). **Liens** : la
+simulation lit dates d'UE, dates d'activités (même type d'activité que
+l'attribution), stage bloquant, congés (`cours_pendant_conges`) ; en 2026-2027
+les attributions donnent groupes et périodes, et une UE SANS attribution se lit
+dans son verre (groupes A, B, C…) ; « Remplir les verres depuis les attributions »
+fait le chemin inverse ; « Verser le plan dans l'horaire » écrit `horaire_seance`
+(source `plan`), ne remplace un horaire importé que sur demande et à partir d'une
+date (archive `horaire_seance_remplacee`, « Rétablir »). Le **grand nettoyage**
+sauvegarde d'abord (`labo_sauvegarde`, restaurable), vide, garde la structure.
+
 **ÉVALUATION UNIQUE ≠ ÉPREUVE INTÉGRÉE** (2.12.289, Charles, 28 septembre 2026,
 UE 261 : « une seule évaluation ; la note doit aller aux deux cours »). Une unité
 peut être réglée, pour une année, en **évaluation unique**

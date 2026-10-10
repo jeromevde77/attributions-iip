@@ -26,7 +26,7 @@
 
 import db from '../db/index.js';
 import { joursFeries } from '../routes/horaire.js';
-import { cohorte, groupeDeBrique } from './groupesCommuns.js';
+import { cohorte, groupeDeBrique, activitesDeLaGrille } from './groupesCommuns.js';
 import { envelopperDocument } from './document.js';
 
 export const MINUTES_PERIODE = 50;
@@ -180,6 +180,16 @@ function demandes(c, annee) {
     WHERE a.annee_scolaire = ? AND a.ue_num IN (${c.ues.map(() => '?').join(',')}) AND a.code_cours IS NOT NULL
       AND COALESCE(a.periodes_attribuees, 0) > 0 AND COALESCE(a.type_cours, '') <> 'Z'
     GROUP BY a.ue_num, a.code_cours, COALESCE(a.activite_id, 0), COALESCE(a.num_organisation, 1), a.code`).all(annee, ...c.ues.map(u => u.ue_num)) : [];
+  // UNE UE SANS ATTRIBUTION SE LIT DANS SON VERRE : un groupe par bloc du verre, A, B, C…
+  const attribuees = new Set(lignes.map(l => l.ue_num));
+  for (const u of c.ues) {
+    if (attribuees.has(u.ue_num)) continue;
+    for (const a of activitesDeLaGrille(c.section, u.ue_num, annee)) {
+      const g = Math.max(1, Number(a.groupes) || 1);
+      for (let i = 0; i < g; i++) lignes.push({ ue_num: u.ue_num, code_cours: a.code_cours, act: a.activite_id, org: 1, code: g > 1 ? String.fromCharCode(65 + i) : null,
+        periodes: (Number(a.periodes) || 0) / g, professeur_id: null, libelle: a.libelle, quadris: '', stage: a.stage, cours_nom: a.cours_nom, prof_nom: null, prof_prenom: null, verre: true });
+    }
+  }
   const out = [];
   for (const l of lignes) {
     if (l.stage) continue;                                    // le stage ne se planifie pas ici
@@ -195,7 +205,7 @@ function demandes(c, annee) {
     out.push({ cle: `${l.code_cours}#${l.act}#${l.org}#${l.code || ''}`, ue_num: l.ue_num, cours_code: l.code_cours, cours_nom: l.cours_nom,
       activite_id: l.act, tp: !!(a && a.inclus),
       activite: l.libelle || null, groupe, briques, tout_le_bloc: briques.length === toutes.length,
-      professeur_id: l.professeur_id || null, professeur: l.prof_nom ? `${String(l.prof_nom).toUpperCase()} ${l.prof_prenom || ''}`.trim() : null,
+      professeur_id: l.professeur_id || null, professeur: l.prof_nom ? `${String(l.prof_nom).toUpperCase()} ${l.prof_prenom || ''}`.trim() : l.verre ? 'à attribuer' : null, source: l.verre ? 'verre' : 'attributions',
       periodes: l.periodes, minutes: l.periodes * MINUTES_PERIODE, quadri });
   }
   /* LE LABORATOIRE TEMPOREL NOURRIT LA SIMULATION (Charles, 10 octobre 2026 :
@@ -687,3 +697,79 @@ export function poserSimulation(section, bloc, annee, { simulation = true, par =
   })();
   return { ...rapport, ok: true };
 }
+
+/**
+ * VERSER LE PLAN DANS L'HORAIRE (lot 3 du laboratoire, Charles, 10 octobre 2026 :
+ * « chaque étape jusqu'à l'horaire »). Les séances du plan ENREGISTRÉ (lignes
+ * adoptées et verrouillées — jamais une simple proposition) deviennent des séances
+ * de l'Horaire de la semaine (source « plan »), à partir d'une date. Reverser
+ * remplace les séances « plan » non retouchées ; une séance retouchée à la main
+ * (modifie_lucie = 1) n'est jamais touchée. Si un horaire IMPORTÉ (Hyperplanning)
+ * existe déjà pour la classe sur la période, on ne le remplace que sur demande —
+ * et les séances remplacées sont mises à l'abri (horaire_seance_remplacee), d'où
+ * elles se rétablissent. Rien ne s'écrit sans le compte rendu d'abord.
+ */
+export function verserPlan(section, bloc, annee, { depuis = null, remplacer = false, simulation = true, par = null } = {}) {
+  db.exec(`CREATE TABLE IF NOT EXISTS horaire_seance_remplacee AS SELECT * FROM horaire_seance WHERE 0`);
+  try { db.exec('ALTER TABLE horaire_seance_remplacee ADD COLUMN remplacee_le TEXT'); } catch { /* déjà là */ }
+  try { db.exec('ALTER TABLE horaire_seance_remplacee ADD COLUMN remplacee_par TEXT'); } catch { /* déjà là */ }
+  const sim = simuler(section, bloc, annee, { mode: 'plan' });
+  const d0 = depuis || '0000-00-00';
+  const aPoser = sim.seances.filter(x => (x.etat === 'plan' || x.etat === 'verrouille') && x.date >= d0);
+  const nonPlan = sim.seances.filter(x => x.etat === 'propose').length;
+  const filtre = `annee_scolaire = ? AND section = ? AND bloc = ? AND date >= ? AND COALESCE(modifie_lucie, 0) = 0`;
+  const anciennes = db.prepare(`SELECT COUNT(*) n FROM horaire_seance WHERE ${filtre} AND source = 'plan'`).get(annee, section, bloc, d0).n;
+  const importees = db.prepare(`SELECT COUNT(*) n FROM horaire_seance WHERE ${filtre} AND COALESCE(source, '') NOT IN ('plan', 'simulation')`).get(annee, section, bloc, d0).n;
+  const gardees = db.prepare(`SELECT COUNT(*) n FROM horaire_seance WHERE annee_scolaire = ? AND section = ? AND bloc = ? AND date >= ? AND COALESCE(modifie_lucie, 0) = 1`).get(annee, section, bloc, d0).n;
+  const rapport = { a_poser: aPoser.length, propositions_non_adoptees: nonPlan, remplacees_plan: anciennes, importees, gardees, depuis: d0 === '0000-00-00' ? null : d0 };
+  if (simulation) return rapport;
+  if (importees && !remplacer) throw Object.assign(new Error(`${importees} séance(s) importées existent pour ${section} ${bloc} sur la période : choisissez de les remplacer, ou une date de début plus tardive.`), { status: 409 });
+  const classe = `${section} ${bloc}`;
+  const groupeId = db.prepare('SELECT id FROM groupe WHERE annee_scolaire = ? AND code_cours = ? AND nom = ? LIMIT 1');
+  const prof = new Map();
+  const ins = db.prepare(`INSERT INTO horaire_seance (annee_scolaire, classe, section, bloc, date, heure_debut, heure_fin, minutes,
+      cours_code, ue_num, matiere, professeur_id, groupe_id, sous_groupe, local_texte, source, modifie_lucie, cree_par, cree_le)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'plan', 0, ?, datetime('now'))`);
+  db.transaction(() => {
+    if (importees) {
+      db.prepare(`INSERT INTO horaire_seance_remplacee SELECT *, datetime('now'), ? FROM horaire_seance WHERE ${filtre} AND COALESCE(source, '') NOT IN ('plan', 'simulation')`).run(par, annee, section, bloc, d0);
+      db.prepare(`DELETE FROM horaire_seance WHERE ${filtre} AND COALESCE(source, '') NOT IN ('plan', 'simulation')`).run(annee, section, bloc, d0);
+    }
+    db.prepare(`DELETE FROM horaire_seance WHERE ${filtre} AND source = 'plan'`).run(annee, section, bloc, d0);
+    for (const x of aPoser) {
+      const [, act, , code] = x.cle.split('#');
+      if (!prof.has(x.cle)) {
+        const a = db.prepare(`SELECT professeur_id, ue_num FROM attribution WHERE annee_scolaire = ? AND code_cours = ?
+          AND COALESCE(activite_id, 0) = ? AND COALESCE(code, '') = ? LIMIT 1`).get(annee, x.cours_code, Number(act), code || '');
+        prof.set(x.cle, a || { ue_num: Number(String(x.cours_code).split('.')[0]) || null });
+      }
+      const a = prof.get(x.cle);
+      const g = code ? groupeId.get(annee, x.cours_code, code)?.id || null : null;
+      const sg = x.tout_le_bloc ? null : `B${Math.min(...x.briques)}-${Math.max(...x.briques)}`;
+      ins.run(annee, classe, section, bloc, x.date, x.debut, x.fin, x.minutes, x.cours_code, a.ue_num || null,
+        `${x.activite || ''}${code && code !== 'Ts' ? ` · groupe ${code}` : ''}`.trim() || null, a.professeur_id || null, g, sg, x.local || null, par);
+    }
+  })();
+  return { ...rapport, ok: true };
+}
+
+/** Rétablir les séances importées qu'un versement du plan avait remplacées. */
+export function retablirImportees(section, bloc, annee) {
+  let n = 0;
+  try {
+    const cols = db.prepare('PRAGMA table_info(horaire_seance)').all().map(c => c.name).filter(c => c !== 'id');
+    db.transaction(() => {
+      const lignes = db.prepare('SELECT * FROM horaire_seance_remplacee WHERE annee_scolaire = ? AND section = ? AND bloc = ?').all(annee, section, bloc);
+      // Les séances « plan » non retouchées de la période remplacée cèdent la place.
+      const premiere = lignes.reduce((m, l) => (!m || l.date < m ? l.date : m), null);
+      if (premiere) db.prepare(`DELETE FROM horaire_seance WHERE annee_scolaire = ? AND section = ? AND bloc = ? AND source = 'plan' AND COALESCE(modifie_lucie, 0) = 0 AND date >= ?`).run(annee, section, bloc, premiere);
+      for (const l of lignes) {
+        db.prepare(`INSERT INTO horaire_seance (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`).run(...cols.map(c => l[c]));
+        n++;
+      }
+      db.prepare('DELETE FROM horaire_seance_remplacee WHERE annee_scolaire = ? AND section = ? AND bloc = ?').run(annee, section, bloc);
+    })();
+  } catch (e) { throw Object.assign(new Error(`Rétablissement impossible : ${e.message}`), { status: 500 }); }
+  return { retablies: n };
+}
+
