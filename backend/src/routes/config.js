@@ -94,6 +94,25 @@ r.put('/design', authRequired, roleRequired('admin'), async (req, res) => {
   res.json({ design: design() });
 });
 
+/* LA MISE EN PAGE (3.1.256) : l'ordre des axes, des rails et des blocs des pages.
+   Lecture ouverte (chacun voit l'école rangée), écriture à l'administrateur. */
+r.get('/mise-en-page', authRequired, (req, res) => {
+  let conf = {}; try { conf = JSON.parse(db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'mise_en_page'").get()?.valeur || '{}'); } catch { conf = {}; }
+  res.json({ conf });
+});
+r.put('/mise-en-page', authRequired, roleRequired('admin'), (req, res) => {
+  const c = req.body?.conf || {};
+  const texte = l => Array.isArray(l) ? l.filter(x => typeof x === 'string' && x.length < 120).slice(0, 200) : [];
+  const propre = { axes: c.axes ? texte(c.axes) : null, rails: {}, pages: {} };
+  for (const [k, g] of Object.entries(c.rails || {}).slice(0, 50)) if (Array.isArray(g)) propre.rails[String(k).slice(0, 80)] = g.slice(0, 20).map(texte);
+  for (const [k, p] of Object.entries(c.pages || {}).slice(0, 100)) propre.pages[String(k).slice(0, 80)] = { ordre: texte(p?.ordre), masques: texte(p?.masques), demis: texte(p?.demis) };
+  const v = JSON.stringify(propre);
+  if (v.length > 100000) return res.status(400).json({ error: 'Mise en page trop volumineuse.' });
+  db.prepare(`INSERT INTO lucie_config (cle, valeur, description) VALUES ('mise_en_page', ?, 'Ordre des axes, des rails et des blocs des pages')
+              ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur`).run(v);
+  res.json({ conf: propre });
+});
+
 // ── Routes attestation (avant /:cle) ────────────────────────────────────────
 r.get('/attestation_sections_defaut', authRequired, roleRequired('admin'), (req, res) => {
   res.json({ valeur: JSON.stringify([

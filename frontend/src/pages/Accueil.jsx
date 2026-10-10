@@ -1,4 +1,5 @@
 import { ICONE_AXE } from '../lib/iconesAxes.js';
+import BlocsPage from '../components/BlocsPage.jsx';
 import { lazy, Suspense, useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, getAnnee, getUser, authHeaders } from '../lib/api.js';
@@ -691,12 +692,16 @@ export default function Accueil() {
             procès-verbal, c'est-à-dire nulle part. Elle s'affiche ici, au-dessus
             du fil, et se coche d'ici — avec les tâches confiées à mon rôle, pas
             seulement à mon nom. */}
-        <ConventionsASigner />
-        <TextesAConfirmer />
-        <DemandesAValider />
-        <MesPropositions />
-        <MesTaches signal={rafraichirTaches} />
-
+        {/* LES BLOCS DE L'ACCUEIL SE RANGENT (mode mise en page, 3.1.256) : l'administrateur
+            les glisse, les masque, les met en demi-largeur ; l'ordre par défaut reste
+            « ce qui m'attend avant ce qui s'est passé ». */}
+        <BlocsPage page="accueil" blocs={[
+          { cle: 'conventions', titre: 'Conventions à signer', rendu: <ConventionsASigner /> },
+          { cle: 'textes', titre: 'Textes à confirmer', rendu: <TextesAConfirmer /> },
+          { cle: 'demandes', titre: 'Demandes à valider', rendu: <DemandesAValider /> },
+          { cle: 'propositions', titre: 'Mes propositions', rendu: <MesPropositions /> },
+          { cle: 'taches', titre: 'Mes tâches', rendu: <MesTaches signal={rafraichirTaches} /> },
+          { cle: 'fil', titre: 'Fil d’activité', rendu: <div>
         {/* En-tête du fil */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
@@ -804,6 +809,8 @@ export default function Accueil() {
             </div>
           ))}
         </div>
+        </div> },
+        ]} />
       </div>
     </div>
   );

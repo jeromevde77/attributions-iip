@@ -1,7 +1,10 @@
 import { useEditor, EditorContent } from '@tiptap/react';
 import { BarreEdition, BulleSelection } from '../components/BarreEdition.jsx';
 import ChampEtudiant from '../components/ChampEtudiant.jsx';
-import { monterAtelier, lireStructure, ecrireContenu } from '../lib/atelier.js';
+import { monterAtelier, lireStructure, ecrireContenu, poserLogoAtelier } from '../lib/atelier.js';
+import { chargerIdentite } from '../lib/identite.js';
+// Le logo de l'atelier est celui de l'établissement (3.1.253).
+chargerIdentite().then(i => poserLogoAtelier(i.logo));
 import { nomPropre } from '../lib/nom.js';
 import { IconAlignLeft, IconAlignCenter, IconAlignRight, IconAlignJustified, IconX, IconDeviceFloppy, IconPrinter,
   IconPlus, IconTrash, IconFolder, IconFileImport, IconLayout, IconChevronDown, IconEye, IconSearch, IconRepeat, IconRectangle, IconRectangleVertical } from '@tabler/icons-react';
@@ -186,6 +189,13 @@ const CHAMPS = {
     { key: 'etudiant.ects',          label: 'Total des ECTS' },
     { key: 'etudiant.periodes',      label: 'Total des périodes' },
     { key: 'etudiant.ues_tableau',   label: 'Tableau des UE inscrites' },
+    // Le prix à payer : le calcul des frais de scolarité (RDE art. 16-20), tel quel.
+    { key: 'etudiant.frais_tableau', label: 'Tableau des frais à payer' },
+    { key: 'etudiant.frais_total',   label: 'Frais — total de l’année' },
+    { key: 'etudiant.frais_acompte', label: 'Frais — acompte' },
+    { key: 'etudiant.frais_solde',   label: 'Frais — solde' },
+    { key: 'etudiant.frais_echeance', label: 'Frais — échéance du solde' },
+    { key: 'etudiant.frais_reste',   label: 'Frais — reste à payer' },
   ],
   'Établissement': [
     { key: 'etab.logo',           label: '🖼 Logo IIP couleurs (grand)' },
@@ -835,13 +845,13 @@ export default function Editeur() {
             {showModeles && (
               <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 rounded-carte shadow-flottant p-2 z-50 w-80">
                 <input value={filtreModeles} onChange={e => setFiltreModeles(e.target.value)} placeholder="Chercher un modèle…" autoFocus
-                  data-reponses="non" className="controle w-full text-[13px] mb-1.5" />
+                  data-reponses="non" className="controle w-full text-sm mb-1.5" />
                 <div className="max-h-[50vh] overflow-auto">
                   {templates.filter(t => !filtreModeles || String(t.nom || '').toLowerCase().includes(filtreModeles.toLowerCase())).map(t => (
                     <div key={t.id} className={`group flex items-center rounded-champ ${templateId === t.id ? 'bg-slate-100' : 'hover:bg-slate-50'}`}>
                       <button onClick={() => { chargerTemplate(t); setShowModeles(false); }} className="flex-1 text-left px-2.5 py-1.5 min-w-0">
-                        <div className="truncate text-[13px] text-slate-800">{t.nom}</div>
-                        <div className="text-[11px] text-slate-400">modifié le {String(t.modifie_le || '').slice(0, 10).split('-').reverse().join('/')}</div>
+                        <div className="truncate text-sm text-slate-800">{t.nom}</div>
+                        <div className="text-xs text-slate-400">modifié le {String(t.modifie_le || '').slice(0, 10).split('-').reverse().join('/')}</div>
                       </button>
                       <button title="Supprimer ce modèle" className="opacity-0 group-hover:opacity-100 px-2 text-slate-300 hover:text-rose-600"
                         onClick={async e => {
@@ -852,14 +862,14 @@ export default function Editeur() {
                           chargerTemplates();
                         }}><IconTrash size={15} /></button>
                     </div>))}
-                  {!templates.length && <div className="text-[12px] text-slate-400 px-2 py-3">Aucun modèle enregistré.</div>}
+                  {!templates.length && <div className="text-second text-slate-400 px-2 py-3">Aucun modèle enregistré.</div>}
                 </div>
               </div>)}
           </div>
           <button onClick={() => { nouveauTemplate(); setShowModeles(false); }} className="bouton controle inline-flex items-center gap-1.5" title="Commencer un nouveau modèle">
             <IconPlus size={15} /> Nouveau</button>
           <input value={nom} onChange={e => setNom(e.target.value)} data-reponses="non"
-            className="flex-1 min-w-[12rem] h-9 px-2 rounded-champ border border-transparent hover:border-slate-200 focus:border-slate-300 text-[15px] font-semibold text-iip-texte outline-none"
+            className="flex-1 min-w-[12rem] h-9 px-2 rounded-champ border border-transparent hover:border-slate-200 focus:border-slate-300 text-base font-semibold text-iip-texte outline-none"
             placeholder="Nom du modèle" />
           <label title="Importer un document Word (.docx) comme nouveau modèle"
             className="bouton controle inline-flex items-center gap-1.5 cursor-pointer">
@@ -874,26 +884,26 @@ export default function Editeur() {
             {showMargins && (
               <div className="absolute top-full right-0 mt-1 bg-white border border-slate-200 rounded-carte shadow-flottant p-3 z-50 w-64 space-y-3">
                 <div>
-                  <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Format</div>
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Format</div>
                   <div className="segments flex">
                     {Object.entries(PAGE_FORMATS).map(([key, pf]) => (
                       <button key={key} onClick={() => setFormat(key)}
-                        className={`flex-1 px-2 py-1.5 text-[12px] ${format === key ? 'bg-iip-blue text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>
+                        className={`flex-1 px-2 py-1.5 text-second ${format === key ? 'bg-iip-blue text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>
                         {key === 'A4P' ? <IconRectangleVertical size={14} className="inline -mt-0.5 mr-1" /> : <IconRectangle size={14} className="inline -mt-0.5 mr-1" />}{pf.label}</button>))}
                   </div>
                 </div>
                 <div>
-                  <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Marges (mm)</div>
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Marges (mm)</div>
                   <div className="grid grid-cols-2 gap-2">
                     {[['top', 'Haut'], ['bottom', 'Bas'], ['left', 'Gauche'], ['right', 'Droite']].map(([side, label]) => (
                       <label key={side} className="flex flex-col gap-0.5">
-                        <span className="text-[11px] text-slate-500">{label}</span>
+                        <span className="text-xs text-slate-500">{label}</span>
                         <input type="number" min="5" max="60" value={margins[side]}
                           onChange={e => setMargins(m => ({ ...m, [side]: Math.max(5, Math.min(60, Number(e.target.value) || 5)) }))}
                           className="controle w-full" />
                       </label>))}
                   </div>
-                  <button onClick={() => setMargins({ ...DEFAULT_MARGINS })} className="mt-2 text-[12px] text-slate-500 hover:text-slate-800">
+                  <button onClick={() => setMargins({ ...DEFAULT_MARGINS })} className="mt-2 text-second text-slate-500 hover:text-slate-800">
                     Rétablir 20 mm partout</button>
                 </div>
               </div>)}
@@ -913,13 +923,13 @@ export default function Editeur() {
                   if (atelier) { editor?.commands.setContent(sortieAtelier.current.html || '<p></p>'); setCodeHtml(sortieAtelier.current.html || ''); setAtelier(false); }
                   if (k === 'html') versCode(); else if (modeCode) versVisuel();
                 }}
-                  className={`px-3 text-[13px] ${actif ? 'bg-iip-blue text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>{l}</button>);
+                  className={`px-3 text-sm ${actif ? 'bg-iip-blue text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>{l}</button>);
             })}
           </div>
           <div className="relative">
             {/* UN SEUL BOUTON, COUPÉ D'UN FILET : l'aperçu, et la flèche qui choisit l'exemple. */}
             <div className="inline-flex h-9 rounded-champ border border-[#16406A] overflow-hidden bg-white">
-              <button onClick={generer} disabled={generating} className="px-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-[#16406A] hover:bg-slate-50"
+              <button onClick={generer} disabled={generating} className="px-3 inline-flex items-center gap-1.5 text-sm font-medium text-[#16406A] hover:bg-slate-50"
                 title="Composer la pièce sur les données d'exemple choisies">
                 <IconEye size={15} /> {generating ? 'Composition…' : 'Aperçu'}</button>
               <span className="w-px bg-[#16406A]/30 my-1.5" />
@@ -928,7 +938,7 @@ export default function Editeur() {
             </div>
             {showExemple && (
               <div className="absolute top-full right-0 mt-1 bg-white border border-slate-200 rounded-carte shadow-flottant p-3 z-50 w-80 space-y-2">
-                <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">L’aperçu se compose sur…</div>
+                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">L’aperçu se compose sur…</div>
                 <select value={section} onChange={e => setSection(e.target.value)} className="controle w-full">
                   <option value="">Section — aucune</option>
                   {sections.map(s => <option key={s.code} value={s.code}>{s.libelle || s.code}</option>)}
@@ -953,7 +963,7 @@ export default function Editeur() {
         {!atelier && !modeCode && <Toolbar editor={editor} />}
         {modeCode && !atelier ? (
           <div className="flex-1 flex flex-col overflow-hidden bg-slate-50">
-            <div className="flex-none px-4 py-2 text-[12px] text-amber-900 bg-amber-50
+            <div className="flex-none px-4 py-2 text-second text-amber-900 bg-amber-50
                             border-b border-amber-200">
               Le HTML du modèle. « Enregistrer » écrit ce que vous voyez ici.
               <b> Repasser en visuel</b> fait relire ce code par l'éditeur, qui ne
@@ -964,7 +974,7 @@ export default function Editeur() {
             </div>
             <textarea value={codeHtml} onChange={e => setCodeHtml(e.target.value)}
               spellCheck={false} wrap="off"
-              className="flex-1 w-full p-4 font-mono text-[12px] leading-relaxed
+              className="flex-1 w-full p-4 font-mono text-second leading-relaxed
                          bg-white text-slate-800 outline-none resize-none" />
           </div>
         ) : (
@@ -978,7 +988,7 @@ export default function Editeur() {
           </div>
         )}
         {editor && !atelier && (
-          <div className="flex-shrink-0 border-t border-slate-200 bg-white px-4 py-1 text-[11px] text-slate-400 text-right">
+          <div className="flex-shrink-0 border-t border-slate-200 bg-white px-4 py-1 text-xs text-slate-400 text-right">
             {editor.storage.characterCount.words()} mots · {editor.storage.characterCount.characters()} caractères
           </div>
         )}
@@ -997,16 +1007,16 @@ export default function Editeur() {
             <div className="px-3 pt-2 pb-1 relative">
               <IconSearch size={14} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input value={search} onChange={e => setSearch(e.target.value)} data-reponses="non"
-                placeholder="Chercher un champ…" className="controle controle-icone w-full text-[13px]" />
+                placeholder="Chercher un champ…" className="controle controle-icone w-full text-sm" />
             </div>
-            <p className="px-3 pb-1 text-[11px] text-slate-500">Un clic l’insère au curseur ; il se remplit à la production.</p>
+            <p className="px-3 pb-1 text-xs text-slate-500">Un clic l’insère au curseur ; il se remplit à la production.</p>
             <div className="flex-1 overflow-auto pb-2">
               {Object.entries(champsFiltres).map(([cat, champs]) => (
                 <div key={cat}>
-                  <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide px-3 pt-3 pb-1">{cat}</div>
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide px-3 pt-3 pb-1">{cat}</div>
                   {champs.map(c => (
                     <button key={c.key} onClick={() => insererChamp(c)} title={`{{${c.key}}}`}
-                      className="w-full text-left px-3 py-1 text-[13px] text-slate-700 hover:bg-slate-100 flex items-center gap-2">
+                      className="w-full text-left px-3 py-1 text-sm text-slate-700 hover:bg-slate-100 flex items-center gap-2">
                       <IconPlus size={13} className="text-slate-400 flex-none" />
                       <span className="truncate">{c.label}</span>
                     </button>))}
@@ -1015,29 +1025,29 @@ export default function Editeur() {
           </>
         ) : (
           <div className="flex-1 overflow-auto">
-            <p className="px-3 pt-3 pb-2 text-[12px] text-slate-500">Une liste répétée reproduit un bloc pour chaque
+            <p className="px-3 pt-3 pb-2 text-second text-slate-500">Une liste répétée reproduit un bloc pour chaque
               élément — chaque attribution, chaque unité… Insérez-la, mettez en page UNE ligne à l’intérieur, puis
               placez-y les champs de la liste.</p>
             <div className="px-2 space-y-0.5">
               {Object.entries(BOUCLES).map(([type, info]) => (
                 <button key={type} onClick={() => setBoucleActive(type)}
-                  className={`w-full text-left px-2.5 py-1.5 rounded-champ text-[13px] flex items-center gap-2 ${boucleActive === type ? 'bg-white border border-[var(--c-disponible)] font-semibold text-iip-texte' : 'border border-transparent hover:bg-slate-100 text-slate-700'}`}>
+                  className={`w-full text-left px-2.5 py-1.5 rounded-champ text-sm flex items-center gap-2 ${boucleActive === type ? 'bg-white border border-[var(--c-disponible)] font-semibold text-iip-texte' : 'border border-transparent hover:bg-slate-100 text-slate-700'}`}>
                   <IconRepeat size={14} className="text-slate-400 flex-none" />{info.label}
                 </button>))}
             </div>
             <div className="px-3 border-t border-slate-200 mt-3 pt-3">
               <button onClick={() => insererBoucle(boucleActive)} className="bouton bouton-fort w-full mb-3">Insérer cette liste</button>
-              {boucleInfo.description && <p className="text-[12px] text-slate-500 mb-3 leading-relaxed">{boucleInfo.description}</p>}
+              {boucleInfo.description && <p className="text-second text-slate-500 mb-3 leading-relaxed">{boucleInfo.description}</p>}
               {boucleInfo.champs.length > 0 ? (
                 <>
-                  <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Champs de cette liste</div>
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Champs de cette liste</div>
                   {boucleInfo.champs.map(c => (
                     <button key={c.key} onClick={() => insererChamp(c)}
-                      className="w-full text-left px-2 py-1 text-[13px] text-slate-700 hover:bg-slate-100 flex items-center gap-2 rounded-champ">
+                      className="w-full text-left px-2 py-1 text-sm text-slate-700 hover:bg-slate-100 flex items-center gap-2 rounded-champ">
                       <IconPlus size={13} className="text-slate-400 flex-none" /><span className="truncate">{c.label}</span>
                     </button>))}
                 </>
-              ) : <p className="text-[12px] text-slate-400 italic">Cette liste produit son contenu seule : aucun champ à placer.</p>}
+              ) : <p className="text-second text-slate-400 italic">Cette liste produit son contenu seule : aucun champ à placer.</p>}
             </div>
           </div>
         )}

@@ -557,7 +557,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
                    par-dessus — ni pastille blanche, ni ombre : seules les
                    icônes changent de couleur (marine pour la famille et au
                    survol, bleu pour la rubrique ouverte). */
-                <div key={it.key}
+                <div key={it.key} {...(it.poignee || {})}
                   className={`relative ${it.sous?.length > 0 ? `${epingle ? '' : 'w-9 mx-auto'} rounded-carte mb-0.5` : ''}`}
                   data-plateau={it.sous?.length > 0 ? '1' : undefined}
                   style={it.sous?.length > 0 ? { background: 'var(--menu-plateau)' } : undefined}>
@@ -1058,7 +1058,7 @@ const PILE_FENETRES = [];
        l'objet affiché ; un objet ouvre le centre d'Éditions sur ce contexte. */
 export function Fenetre({ icone: Ic, titre, sous, large = 'moyenne',
                          hauteurFixe = false, outils = null, navigation = null, editions = null,
-                          pied = null, ton = 'neutre', onFermer, children }) {
+                          pied = null, ton = 'neutre', onFermer, children, pleinCorps = false }) {
   const largeurs = {
     petite: 'w-[440px]', moyenne: 'w-[720px]',
     grande: 'w-[1000px]', pleine: 'w-[1180px]',
@@ -1189,7 +1189,9 @@ export function Fenetre({ icone: Ic, titre, sous, large = 'moyenne',
           </button>
         </div>
 
-        <div className="min-h-0 overflow-y-auto px-5 py-4">{children}</div>
+        {/* LE CORPS PLEIN (3.1.255) : un document (aperçu de pièce) occupe toute la fenêtre, sans marge. */}
+        {pleinCorps ? <div className="flex-1 min-h-0 flex flex-col">{children}</div>
+          : <div className="min-h-0 overflow-y-auto px-5 py-4">{children}</div>}
 
         {pied && (
           /* LE PIED NE SE CHEVAUCHE PAS.

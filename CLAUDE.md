@@ -23,6 +23,23 @@ l'application de gestion académique de l'Institut Ilya Prigogine (IIP).
 **Langue de travail : le français.** Style direct, exécutif. Les documents
 destinés à l'école expliquent **le travail, pas l'informatique**.
 
+**PLUSIEURS ÉTABLISSEMENTS** (3.1.253, Charles, 10 octobre 2026 : « HELB et IIP,
+ou deux établissements pour adultes comme l'EPFC ou Soralia, gérés par le même
+conseil d'administration ; chacun ses étudiants, ou un mélange comme ici »). La
+table `etablissement` n'est plus verrouillée sur une ligne : **l'IIP reste
+l'établissement 1** (les lecteurs `WHERE id = 1` / `LIMIT 1` le trouvent toujours),
+d'autres s'ajoutent dans Configuration → Identité. Chacun porte son logo, son logo
+blanc, sa signature et son cachet (data URL, contrôle des octets, 2 Mo, réservé à
+l'administrateur) ; chaque section y est rattachée (`section.etablissement_id`, 1
+par défaut). **Les images ne sont plus en dur** : `services/assets/*` exportent
+des liaisons vivantes que `lib/identite.js` remplace par celles de
+l'établissement 1 au démarrage et à chaque import ; `GET /api/etablissement/images`
+les sert à l'écran (`frontend/src/lib/identite.js`) — quatre écrans les
+embarquaient en texte (≈ 950 Ko retirés du code, Attestation 784 → 84 Ko). **À
+venir :** les pièces d'une section d'un AUTRE établissement lisent son identité
+(`etablissementDeSection`), le filtre par établissement, le périmètre d'accès par
+établissement.
+
 **Établissement :** IIP — N° ECOT 5222132070, FASE 292, Campus Erasme,
 Route de Lennik 808, 1070 Anderlecht. Enseignement pour adultes (FWB).
 Sections : TIM (la plus grande), Psychomotricité, AeSI (soins infirmiers,
@@ -1493,6 +1510,17 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
 > nouvelle zone s'ajoute au catalogue, jamais en dur dans un écran.
 
 ### Navigation
+
+- **LE MODE MISE EN PAGE** (3.1.256, Charles, 10 octobre 2026 : « paramétrer en
+  glisser-déposer les pages principales — toutes les pages, mais juste l'admin »).
+  L'administrateur l'allume depuis la barre du haut (icône de mise en page) ; les
+  axes de la barre, les rubriques des rails et les blocs des pages se rangent alors
+  à la souris, sur les pages elles-mêmes, pour toute l'école (`lucie_config`
+  « mise_en_page », `GET/PUT /api/config/mise-en-page`, PUT réservé à `admin`).
+  `lib/miseEnPage.js` (registre, `poigneeGlisser`), `Axe` (ordre du rail réglé,
+  qui l'emporte sur `ordreRail`), `components/BlocsPage.jsx` (ordre, masqués,
+  demi-largeur). **Une page se rend rangeable en déclarant ses blocs dans
+  `BlocsPage`** — l'Accueil d'abord ; les autres pages suivent par lots.
 
 - **Seul le menu principal est horizontal** : il dit dans quel métier on est.
   Tout le reste vit dans le **rail latéral** — les rubriques de l'axe d'abord,

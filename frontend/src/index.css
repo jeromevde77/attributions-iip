@@ -1281,3 +1281,18 @@ button.objet-barre:hover { color: var(--menu-texte); }
 .tuile-compacte { display: inline-flex; align-items: baseline; gap: .4rem; padding: .2rem .55rem; }
 .tuile-compacte .tuile-chiffre { font-size: calc(var(--d-tuile-compacte-chiffre, 13px) * var(--d-texte, 1)); }
 .tuile-compacte .tuile-libelle { font-size: calc(11px * var(--d-texte, 1)); }
+
+/* LES COULEURS DES GRAPHIQUES (3.1.254) — réglables dans Thèmes et couleurs. À lire
+   en `style` (fill, stroke, background) ; un attribut SVG `fill=` ne lit pas une
+   variable : pour recharts, `couleursGraphique()` (lib/couleurs.js) rend les valeurs. */
+:root {
+  --g-1: var(--c-serie_1, #19537E); --g-2: var(--c-serie_2, #05B7E6); --g-3: var(--c-serie_3, #F9B619);
+  --g-4: var(--c-serie_4, #8E4F9A); --g-5: var(--c-serie_5, #4FA64A); --g-6: var(--c-serie_6, #D14F8A);
+  --g-vide: var(--c-graphique_vide, #CBD5E1); --g-grille: var(--c-graphique_grille, #E8ECF2);
+  --g-ref: var(--c-graphique_reference, var(--c-refuse, #E0564F));
+}
+
+/* LE MODE MISE EN PAGE (3.1.256) : ce qui se range se dit — curseur de saisie, filet
+   pointillé ; la cible du dépôt s'éclaire. */
+[data-glissable="1"] { cursor: grab; outline: 1px dashed var(--c-attente, #F0922E); outline-offset: 2px; }
+[data-glissable="1"][data-survol="1"] { outline: 2px solid var(--c-attente, #F0922E); background: color-mix(in srgb, var(--c-attente, #F0922E) 12%, transparent); }

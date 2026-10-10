@@ -83,6 +83,18 @@ export const COULEURS_DEFAUT = {
   bouton_sortir:   { groupe: 'composants', libelle: 'Bouton « produire une pièce »', valeur: null, suit: 'principal' },
   bouton_detruire: { groupe: 'composants', libelle: 'Bouton « détruire »', valeur: null, suit: 'refuse' },
   segment_actif:   { groupe: 'composants', libelle: 'Segment choisi (choix exclusif)', valeur: null, suit: 'principal' },
+  // LES GRAPHIQUES (3.1.254, Charles : « penser aux graphiques, à tout ce qui est
+  // visible »). Six séries dans l'ordre où elles se présentent, la part vide, la
+  // grille, la ligne de référence. Défauts : les couleurs du logo, puis les états.
+  serie_1:   { groupe: 'graphiques', libelle: 'Série 1', valeur: '#19537E' },
+  serie_2:   { groupe: 'graphiques', libelle: 'Série 2', valeur: '#05B7E6' },
+  serie_3:   { groupe: 'graphiques', libelle: 'Série 3', valeur: '#F9B619' },
+  serie_4:   { groupe: 'graphiques', libelle: 'Série 4', valeur: '#8E4F9A' },
+  serie_5:   { groupe: 'graphiques', libelle: 'Série 5', valeur: '#4FA64A' },
+  serie_6:   { groupe: 'graphiques', libelle: 'Série 6', valeur: '#D14F8A' },
+  graphique_vide:      { groupe: 'graphiques', libelle: 'Part vide, sans réponse', valeur: '#CBD5E1' },
+  graphique_grille:    { groupe: 'graphiques', libelle: 'Grille et axes', valeur: '#E8ECF2' },
+  graphique_reference: { groupe: 'graphiques', libelle: 'Ligne de référence (norme, seuil)', valeur: null, suit: 'refuse' },
 };
 
 /** Les couleurs en vigueur : les défauts, écrasés par ce qui a été réglé. */

@@ -147,3 +147,12 @@ export async function chargerCouleurs() {
 }
 
 export default chargerCouleurs;
+
+/** Les couleurs des graphiques, RÉSOLUES (3.1.254) : recharts les pose en attributs
+ *  SVG, où une variable CSS ne se lit pas. On lit donc la valeur calculée. */
+export function couleursGraphique() {
+  const st = getComputedStyle(document.documentElement);
+  const v = n => st.getPropertyValue(n).trim();
+  return { series: [1, 2, 3, 4, 5, 6].map(i => v(`--g-${i}`)), vide: v('--g-vide'), grille: v('--g-grille'),
+    reference: v('--g-ref'), principal: v('--c-principal'), helb: v('--c-helb'), iip: v('--c-iip') };
+}

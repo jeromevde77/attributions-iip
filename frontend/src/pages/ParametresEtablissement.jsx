@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import EtablissementsGestion from '../components/EtablissementsGestion.jsx';
 import { api, authHeaders } from '../lib/api.js';
 
 function Champ({ label, value, onChange, placeholder, hint, className = '' }) {
@@ -18,6 +19,7 @@ function Champ({ label, value, onChange, placeholder, hint, className = '' }) {
 
 export default function ParametresEtablissement() {
   const [f, setF] = useState({});
+  const [etabId, setEtabId] = useState(1);   // plusieurs établissements (3.1.253)
   /* LE SIGNATAIRE DES PIÈCES (3 octobre 2026) : il vivait dans le bloc
      « Établissement » de l'attestation, retiré parce qu'Identité fait foi.
      C'est la seule donnée qui n'avait pas d'équivalent ici. */
@@ -33,7 +35,7 @@ export default function ParametresEtablissement() {
 
   useEffect(() => {
     Promise.all([
-      api.etablissement().then(d => setF(d || {})).catch(() => {}),
+      fetch(`/api/etablissement?id=${etabId}`, { headers: authHeaders() }).then(r => r.json()).then(d => setF(d || {})).catch(() => {}),
       fetch('/api/config/attestation_etab', { headers: authHeaders() })
         .then(r => (r.ok ? r.json() : null))
         .then(d => { try { setSignataire(JSON.parse(d?.valeur || '{}').directeur || ''); } catch { /* */ } })
@@ -45,7 +47,7 @@ export default function ParametresEtablissement() {
         setMep(o);
       }).catch(() => {}),
     ]).finally(() => setLoading(false));
-  }, []);
+  }, [etabId]);
 
   const set = (k, v) => setF(prev => ({ ...prev, [k]: v }));
   const toggleMep = (cle) => setMep(prev => ({ ...prev, [cle]: prev[cle] === '1' ? '0' : '1' }));
@@ -53,7 +55,8 @@ export default function ParametresEtablissement() {
   async function save() {
     setSaving(true); setMsg('');
     try {
-      await api.saveEtablissement(f);
+      { const r = await fetch(`/api/etablissement?id=${etabId}`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ ...f, id: etabId }) });
+        if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'établissement non enregistré'); }
       const rs = await fetch('/api/config/attestation_etab', { method: 'PUT', headers: authHeaders(),
         body: JSON.stringify({ valeur: JSON.stringify({ directeur: signataire.trim() }) }) });
       if (!rs.ok) throw new Error((await rs.json().catch(() => ({}))).error || 'signataire non enregistré');
@@ -83,6 +86,8 @@ export default function ParametresEtablissement() {
       {/* Les règles de délibération ne s'affichent plus ici : elles vivent dans
           Enseignement → Règles de délibération, et deux écrans pour un même
           réglage en font un de trop (2.12.200). */}
+
+      <EtablissementsGestion etabId={etabId} setEtabId={id => { setLoading(true); setEtabId(id); }} />
 
       {/* Identification de l'établissement */}
       <section className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">

@@ -53,7 +53,7 @@ function Diagramme({ s }) {
             style={{ fill: k >= 10 ? 'var(--c-reussi)' : 'var(--c-refuse)' }} opacity="0.85" />
           <text x={x(k)} y={bas - h(c) - 3} fontSize="9" textAnchor="middle" style={{ fill: 'var(--c-texte)' }}>{c}</text>
         </g>))}
-      <line x1={g} x2={L - d} y1={bas} y2={bas} style={{ stroke: '#CBD5E1' }} />
+      <line x1={g} x2={L - d} y1={bas} y2={bas} style={{ stroke: 'var(--g-grille)' }} />
       {[0, 5, 10, 15, 20].map(k => <text key={k} x={x(k)} y={bas + 12} fontSize="10" textAnchor="middle" style={{ fill: '#64748B' }}>{k}</text>)}
       {/* l'étendue et la boîte */}
       <line x1={x(s.min)} x2={x(s.max)} y1={bas + 30} y2={bas + 30} style={{ stroke: 'var(--c-principal, #16406A)' }} strokeWidth="1.5" />
@@ -61,7 +61,7 @@ function Diagramme({ s }) {
       <rect x={x(s.q1)} y={bas + 22} width={Math.max(2, x(s.q3) - x(s.q1))} height="16" rx="2"
         style={{ fill: 'var(--c-disponible)', stroke: 'var(--c-principal, #16406A)' }} fillOpacity="0.25" />
       <line x1={x(s.mediane)} x2={x(s.mediane)} y1={bas + 20} y2={bas + 40} style={{ stroke: 'var(--c-principal, #16406A)' }} strokeWidth="2.5" />
-      <circle cx={x(s.moyenne)} cy={bas + 30} r="4" style={{ fill: 'var(--c-surveiller, #B45309)' }} />
+      <circle cx={x(s.moyenne)} cy={bas + 30} r="4" style={{ fill: 'var(--c-attente, #B45309)' }} />
     </svg>
   );
 }

@@ -7,6 +7,7 @@ import { LOGO_IIP_BLANC_HTML } from '../services/assets/logo_iip_blanc.js';
 import { sectionRattachement } from './etudiants.js';
 import { identiteEtablissement } from './config.js';
 import { separerNomPrenom } from '../lib/nom.js';
+import { calculerFrais } from './fraisScolarite.js';
 import { envelopperDocument } from '../lib/document.js';
 import { SIGNATURE_SOHET } from '../services/assets/signature_sohet.js';
 
@@ -264,8 +265,30 @@ export function donneesEtudiant(id, annee) {
     <tr style="background:#EDF2F8;font-weight:700"><td style="${cel}" colspan="2">Total — ${ues.length} unité(s)</td><td style="${cel};text-align:right">${ects || ''}</td><td style="${cel};text-align:right">${per || ''}</td></tr>
     ${ues.map(u => `<tr><td style="${cel}">${u.ue_num}</td><td style="${cel}">${escT(u.ue_nom || '')}</td><td style="${cel};text-align:right">${u.ects ?? ''}</td><td style="${cel};text-align:right">${u.periodes ?? ''}</td></tr>`).join('')}
   </table>` : '<p style="font-style:italic;color:#64748b">Aucune unité inscrite pour cette année.</p>';
+  /* LE PRIX À PAYER (Charles, 10 octobre 2026 : « une lettre qui envoie à chaque
+     étudiant son PAE et le prix à payer »). Les montants viennent du calcul des
+     frais de scolarité (RDE art. 16-20) — le même que la pièce « frais » : droit
+     d'inscription, droit spécifique, frais administratifs, acompte, solde et son
+     échéance. Aucun montant n'est recalculé ici. */
+  let fr = null; try { fr = calculerFrais(e.id, annee); } catch { fr = null; }
+  const eur = v => (v == null ? '' : `${Number(v).toLocaleString('fr-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`);
+  const fraisTableau = fr ? `<table style="width:100%;border-collapse:collapse;font-size:9.5pt;margin:6px 0 10px">
+    <tr style="background:#1B2B4B;color:#fff"><th style="${cel};text-align:left">Montant</th><th style="${cel};width:22%">À payer</th></tr>
+    <tr style="background:#EDF2F8;font-weight:700"><td style="${cel}">Total de l’année</td><td style="${cel};text-align:right">${eur(fr.total)}</td></tr>
+    <tr><td style="${cel}">Droit d’inscription${fr.exonere_di ? ' (exonéré)' : fr.tiers ? ` (perçu par ${escT(fr.tiers.payeur || 'un tiers')})` : ''}</td><td style="${cel};text-align:right">${eur(fr.droit_inscription)}</td></tr>
+    ${fr.droit_specifique ? `<tr><td style="${cel}">Droit d’inscription spécifique</td><td style="${cel};text-align:right">${eur(fr.droit_specifique)}</td></tr>` : ''}
+    <tr><td style="${cel}">Frais administratifs${fr.sans_frais ? ' (aucun pour cette section)' : ` — ${eur(fr.frais_fixes)} fixes + ${fr.periodes} période(s) × ${eur(fr.bareme?.par_periode)}`}</td><td style="${cel};text-align:right">${eur(fr.frais_administratifs)}</td></tr>
+    <tr><td style="${cel}">Acompte, à l’inscription</td><td style="${cel};text-align:right">${eur(fr.acompte)}</td></tr>
+    <tr><td style="${cel}">Solde, au plus tard le ${frDate(fr.echeance_solde)}</td><td style="${cel};text-align:right">${eur(fr.solde)}</td></tr>
+    ${fr.verse ? `<tr><td style="${cel}">Déjà versé</td><td style="${cel};text-align:right">${eur(fr.verse)}</td></tr><tr style="font-weight:700"><td style="${cel}">Reste à payer</td><td style="${cel};text-align:right">${eur(fr.restant)}</td></tr>` : ''}
+  </table>` : '<p style="font-style:italic;color:#64748b">Montants indisponibles pour cette année.</p>';
   const nom = String(e.nom || '').toUpperCase();
   return {
+    'etudiant.frais_tableau': fraisTableau,
+    'etudiant.frais_total': fr ? eur(fr.total) : '', 'etudiant.frais_droit_inscription': fr ? eur(fr.droit_inscription) : '',
+    'etudiant.frais_administratifs': fr ? eur(fr.frais_administratifs) : '', 'etudiant.frais_acompte': fr ? eur(fr.acompte) : '',
+    'etudiant.frais_solde': fr ? eur(fr.solde) : '', 'etudiant.frais_echeance': fr ? frDate(fr.echeance_solde) : '',
+    'etudiant.frais_reste': fr ? eur(fr.restant) : '',
     'etudiant.civilite': f ? 'Madame' : h ? 'Monsieur' : 'Madame, Monsieur',
     'etudiant.cher': f ? 'Chère Madame' : h ? 'Cher Monsieur' : 'Madame, Monsieur',
     'etudiant.nom': escT(nom), 'etudiant.prenom': escT(e.prenom || ''),
@@ -499,7 +522,8 @@ function poserSignatures(html) {
       <div class="legende"><div class="qualite">${champ('qual')}</div><div class="nom">${nom}</div></div></div>`;
   });
 }
-const STYLE_SIGNATURE = `:root{--paraphe:url("${SIGNATURE_SOHET}")}
+// Une fonction, pas une constante : la signature importée (3.1.253) se lit à chaque pièce.
+const STYLE_SIGNATURE = () => `:root{--paraphe:url("${SIGNATURE_SOHET}")}
   .cloture{display:grid;grid-template-columns:1fr auto;grid-template-rows:auto auto;column-gap:14mm;align-items:end;margin-top:6mm;page-break-inside:avoid}
   .cloture .lieu{grid-column:1;grid-row:2;font-size:10pt;padding-bottom:1mm}
   .cloture .paraphe{grid-column:2;grid-row:1;width:52mm;height:20mm;background-image:var(--paraphe);background-repeat:no-repeat;background-position:center bottom;background-size:contain}
@@ -513,7 +537,7 @@ function enveloppeLettres(t, docs) {
   try { m = (typeof t.margins === 'string' ? JSON.parse(t.margins) : t.margins) || {}; } catch { m = {}; }
   const corps = poserSignatures(docs.map((d, i) => `${i ? '<div class="page-break"></div>' : ''}${d.headerHtml || ''}${d.html || ''}`).join('\n'));
   return envelopperDocument({ html: corps, titre: t.nom, entete: false, orientation: t.format === 'A4L' ? 'paysage' : 'portrait',
-    styles: corps.includes('class="cloture') ? STYLE_SIGNATURE : '',
+    styles: corps.includes('class="cloture') ? STYLE_SIGNATURE() : '',
     margeHaut: Number(m.top) || 18, margeCote: Number(m.left) || 18 });
 }
 

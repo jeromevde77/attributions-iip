@@ -20,7 +20,7 @@ const k0 = n => Math.round(n || 0).toLocaleString('fr-BE');
 const keur = n => `${Math.round((n || 0) / 1000).toLocaleString('fr-BE')} k€`;
 const pc = (k, n) => (n ? `${Math.round((k / n) * 100)} %` : '—');
 const e2 = n => (n ? n.toFixed(2).replace('.', ',') : '—');
-const HELB = '#B83280';
+const HELB = 'var(--c-helb)';
 
 function BadgeHelb({ libelle = 'HELB' }) {
   return <span className="ml-1.5 text-mention font-bold text-white rounded px-1.5 py-px align-middle" style={{ background: HELB }}>{libelle}</span>;
@@ -89,8 +89,8 @@ const Td = ({ children, n, b, className = '', ...reste }) => <td {...reste} clas
    présentes : étudiants inscrits (hors archivés), personnel qui porte une
    attribution ou une fonction ; l'ensemble compte chacun une fois. Les
    pourcentages portent sur ce qui est renseigné, et l'écran dit combien l'est. */
-const COUL_SEXE = { F: '#F9B619', M: '#19537E', X: '#05B7E6', NR: '#CBD5E1' };
-const COUL_NAT = { be: '#19537E', ue: '#05B7E6', hors_ue: '#F9B619', nat_inconnue: '#CBD5E1' };
+const COUL_SEXE = { F: 'var(--g-3)', M: 'var(--g-1)', X: 'var(--g-2)', NR: 'var(--g-vide)' };
+const COUL_NAT = { be: 'var(--g-1)', ue: 'var(--g-2)', hors_ue: 'var(--g-3)', nat_inconnue: 'var(--g-vide)' };
 function Personnes({ d }) {
   const [qui, setQui] = useState('etudiants');
   const H = d.humains;
@@ -231,7 +231,7 @@ export default function RapportStatistique() {
             <Barres lignes={sections.filter(S => S.cout_complet).map(S => ({ nom: S.section, valeur: S.cout_complet }))} />
           </Carte>
           <Carte titre="Coût complet par étudiant inscrit">
-            <Barres lignes={parEtu} couleur="#05B7E6" />
+            <Barres lignes={parEtu} couleur="var(--g-2)" />
           </Carte>
         </div>
 
@@ -270,13 +270,13 @@ export default function RapportStatistique() {
               <tr key={E.section} className="border-b border-slate-100">
                 <Td>{E.section}</Td><Td n b>{e2(E.total)}</Td><Td n>{e2(E.cc)}</Td><Td n>{e2(E.exp)}</Td><Td n>{pc(E.cc, E.total)}</Td>
                 <Td><div className="flex h-2.5 w-40 rounded overflow-hidden bg-slate-100">
-                  <div style={{ width: pc(E.cc, E.total), background: '#19537E' }} /><div style={{ width: pc(E.exp, E.total), background: '#05B7E6' }} /></div></Td>
+                  <div style={{ width: pc(E.cc, E.total), background: 'var(--g-1)' }} /><div style={{ width: pc(E.exp, E.total), background: 'var(--g-2)' }} /></div></Td>
                 {Y.etp_total.autre > 0 && <Td n>{e2(E.autre)}</Td>}
               </tr>))}</tbody>
             <tfoot><tr className="font-semibold bg-slate-50"><Td>Ensemble</Td><Td n>{e2(Y.etp_total.total)}</Td><Td n>{e2(Y.etp_total.cc)}</Td><Td n>{e2(Y.etp_total.exp)}</Td>
               <Td n>{pc(Y.etp_total.cc, Y.etp_total.total)}</Td><Td><span className="text-xs text-slate-500 font-normal">
-                <span className="inline-block w-2 h-2 rounded-sm mr-1" style={{ background: '#19537E' }} />CC
-                <span className="inline-block w-2 h-2 rounded-sm ml-3 mr-1" style={{ background: '#05B7E6' }} />EXP</span></Td>
+                <span className="inline-block w-2 h-2 rounded-sm mr-1" style={{ background: 'var(--g-1)' }} />CC
+                <span className="inline-block w-2 h-2 rounded-sm ml-3 mr-1" style={{ background: 'var(--g-2)' }} />EXP</span></Td>
               {Y.etp_total.autre > 0 && <Td n>{e2(Y.etp_total.autre)}</Td>}</tr></tfoot>
           </table></div>
         </Carte>

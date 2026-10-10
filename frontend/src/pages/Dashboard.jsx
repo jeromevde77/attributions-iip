@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, Cart
 import ActivityFeed from '../components/ActivityFeed.jsx';
 import { RailLateral, TuileEtat } from '../components/ui.jsx';
 import { IconChevronRight, IconLayoutDashboard, IconChartBar, IconBuildingCommunity, IconFileText, IconUsers } from '@tabler/icons-react';
+import { couleursGraphique } from '../lib/couleurs.js';
 
 const TAB_ICONS = { apercu: IconChartBar, sections: IconBuildingCommunity, doc23: IconFileText, etp: IconUsers };
 
@@ -121,13 +122,13 @@ export default function Dashboard() {
           <h2 className="font-title text-lg text-iip-gold mb-4">Répartition des périodes par section</h2>
           <ResponsiveContainer width="100%" height={400}>
             <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+              <CartesianGrid strokeDasharray="3 3" stroke={couleursGraphique().grille} />
               <XAxis dataKey="section" tick={{ fontSize: 11 }} angle={-30} textAnchor="end" height={70} />
               <YAxis />
               <Tooltip />
               <Legend />
-              <Bar dataKey="IIP"  stackId="a" fill="#1B2B4B" />
-              <Bar dataKey="HELB" stackId="a" fill="#00AACC" />
+              <Bar dataKey="IIP"  stackId="a" fill={couleursGraphique().iip} />
+              <Bar dataKey="HELB" stackId="a" fill={couleursGraphique().helb} />
             </BarChart>
           </ResponsiveContainer>
         </div>

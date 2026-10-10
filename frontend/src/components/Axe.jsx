@@ -3,6 +3,7 @@ import { IconDatabaseImport } from '@tabler/icons-react';
 import { RailDessine, FournisseurRail } from './ui.jsx';
 import { droitEffectif, usePlafonds } from '../lib/modules.js';
 import { getUser } from '../lib/api.js';
+import { useMiseEnPage, changerMiseEnPage, poigneeGlisser } from '../lib/miseEnPage.js';
 
 /**
  * Enveloppe d'un axe de la structure en 7 : des rubriques, et dans chacune un
@@ -209,10 +210,15 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial,
       sous: ouvert ? enfants : undefined });
   }
 
+  /* L'ORDRE DU RAIL SE RÈGLE EN GLISSANT (mode mise en page, 3.1.256) : ce que
+     l'administrateur a rangé l'emporte sur l'ordre écrit dans le code. En mode
+     mise en page, un rail sans ordre déclaré devient un groupe qu'on peut ranger. */
+  const mep = useMiseEnPage();
+  const ordreEffectif = mep.conf.rails?.[titre] || ordreRail || (mep.actif ? [[...parCle.keys()]] : null);
   const groupes = [];
-  if (Array.isArray(ordreRail) && ordreRail.length) {
+  if (Array.isArray(ordreEffectif) && ordreEffectif.length) {
     const places = new Set();
-    for (const g of ordreRail) {
+    for (const g of ordreEffectif) {
       const items = g.map(k => parCle.get(k)).filter(Boolean);
       for (const k of g) places.add(k);
       if (items.length) groupes.push(items);
@@ -243,8 +249,15 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial,
      groupe ne survivrait pas au rail replié, où le libellé est masqué — et un
      filet dit déjà ce qu'il faut. Le dernier ne porte pas de filet après lui :
      une barre en fin de liste ne sépare de rien. */
+  // Glisser une rubrique sur une autre la range juste avant, dans le groupe de celle-ci.
+  const ranger = (de, vers) => changerMiseEnPage(c => {
+    const g = groupes.map(items => items.map(i => i.key).filter(k => k !== de));
+    const gi = g.findIndex(l => l.includes(vers));
+    if (gi >= 0) g[gi].splice(g[gi].indexOf(vers), 0, de);
+    return { ...c, rails: { ...(c.rails || {}), [titre]: g.filter(l => l.length) } };
+  });
   const sectionsRail = groupes.length
-    ? groupes.map((items, i) => ({ items, filet: i > 0 }))
+    ? groupes.map((items, i) => ({ items: items.map(it => ({ ...it, poignee: poigneeGlisser(mep.actif, `rail:${titre}`, it.key, ranger) })), filet: i > 0 }))
     : [rubriques];
 
   return (
