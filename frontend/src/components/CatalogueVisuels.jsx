@@ -7,6 +7,7 @@ import { TuileEtat, PastilleEtat, Encadre, Fenetre, Tableau, TableauEntete, Th, 
 import AgendaSemaine from './AgendaSemaine.jsx';
 import { couleursGraphique } from '../lib/couleurs.js';
 import { reglagesGraphique } from '../lib/design.js';
+import { useReglagesVisuels } from '../lib/reglages.js';
 
 /**
  * LE CATALOGUE DES ÉLÉMENTS VISIBLES (3.1.260, Charles, 10 octobre 2026 : « tu n'as
@@ -86,21 +87,53 @@ const FAMILLES = [
     specimen: () => <div className="flex gap-2 items-center"><span className="objet-barre">v3.1</span><span className="objet-barre">SC</span><span className="objet-barre objet-barre-etat" style={{ '--e': 'var(--c-attente)' }}>DEV</span></div> },
 ];
 
+const LIB = { marquee: 'marquée', serree: 'serrée', aeree: 'aérée', pointille: 'pointillé', horizontaux: 'filets horizontaux', grille: 'grille complète' };
+
+/** Les réglages d'une famille, sous son spécimen. */
+function PanneauReglages({ f, rv }) {
+  const formes = f.formes.filter(r => rv.catDesign[r.cle]);
+  const couleurs = f.couleurs.filter(r => rv.catCouleurs[r.cle]);
+  return (
+    <div className="space-y-2 pt-2 border-t border-slate-200">
+      {formes.map(r => { const d = rv.catDesign[r.cle], v = rv.design?.[r.cle] ?? d.valeur; return (
+        <label key={r.cle} className="flex items-center gap-2 text-second">
+          <span className="flex-1">{d.libelle}</span>
+          {d.type === 'choix'
+            ? <select className="controle !h-8" value={v} disabled={!rv.peutFormes} onChange={e => rv.changerForme(r.cle, e.target.value)}>{d.choix.map(c => <option key={c} value={c}>{LIB[c] || c}</option>)}</select>
+            : <><input type="range" min={d.min} max={d.max} value={v} disabled={!rv.peutFormes} onChange={e => rv.changerForme(r.cle, Number(e.target.value))} className="w-28" />
+                <span className="w-12 text-right tabular-nums">{v}{d.type === 'px' ? ' px' : ''}</span></>}
+          {v !== d.valeur && rv.peutFormes && <button className="text-mention text-slate-400 hover:text-iip-blue" onClick={() => rv.changerForme(r.cle, d.valeur)} title="Valeur de la maison">défaut</button>}
+        </label>); })}
+      {couleurs.map(r => { const d = rv.catCouleurs[r.cle], regle = !!rv.couleurs?.[r.cle] && rv.couleurs[r.cle] !== d.valeur; return (
+        <label key={r.cle} className="flex items-center gap-2 text-second">
+          <span className="flex-1">{d.libelle}{!regle && d.suit ? <span className="text-slate-400"> — suit {rv.catCouleurs[d.suit]?.libelle?.toLowerCase() || d.suit}</span> : null}</span>
+          <input type="color" value={rv.couleurDe(r.cle)} disabled={!rv.peutCouleurs} onChange={e => rv.changerCouleur(r.cle, e.target.value.toUpperCase())} className="w-10 h-7 rounded-champ border border-slate-300 bg-white p-0.5" />
+          {regle && rv.peutCouleurs && <button className="text-mention text-slate-400 hover:text-iip-blue" onClick={() => rv.changerCouleur(r.cle, d.valeur || null)}>défaut</button>}
+        </label>); })}
+      {!rv.peutFormes && <p className="text-mention text-slate-400">Les formes ne se règlent que par l’administrateur.</p>}
+    </div>);
+}
+
 export default function CatalogueVisuels() {
+  const rv = useReglagesVisuels();
+  const [ouvert, setOuvert] = useState(null);
   const [fen, setFen] = useState(false);
   const [volet, setVolet] = useState(1);
   const chip = (r, onglet) => <a key={r.cle} href={`/configuration?onglet=${onglet}`} className="pastille-etat" data-etat={onglet === 'design' ? 'neutre' : 'disponible'} title={`Régler : ${r.cle}`}>{r.lib}</a>;
   return (
     <div className="space-y-3">
-      <p className="text-sm text-slate-600 max-w-[900px]">Chaque élément visible de Lucie, dessiné par ses vrais composants. Les étiquettes grises mènent aux <b>formes</b> (Formes et composants), les bleues aux <b>couleurs</b> (Thèmes et couleurs). Un élément absent d’ici n’est pas un standard : il est dessiné à la main, et il est à ramener ici.</p>
+      <div className="flex items-center gap-2"><span className="flex-1" /><span className="text-second text-slate-500">{rv.etat}</span></div>
+      <p className="text-sm text-slate-600 max-w-[900px]">Chaque élément visible de Lucie, dessiné par ses vrais composants. Les étiquettes grises mènent aux <b>formes</b> (Formes et composants), les bleues aux <b>couleurs</b> (Thèmes et couleurs). Un élément absent d’ici n’est pas un standard : il est dessiné à la main, et il est à ramener ici. <b>« Régler »</b> ouvre les réglages d’une famille sous son spécimen : le changement s’applique aussitôt à tout Lucie.</p>
       <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 1fr))' }}>
         {FAMILLES.map(f => (
           <div key={f.nom} className="carte p-3 space-y-2 min-w-0">
-            <h3 className="titre-carte">{f.nom}</h3>
+            <div className="flex items-center gap-2"><h3 className="titre-carte flex-1">{f.nom}</h3>
+              <button className={`bouton bouton-compact ${ouvert === f.nom ? 'bouton-fort' : ''}`} onClick={() => setOuvert(o => (o === f.nom ? null : f.nom))}>{ouvert === f.nom ? 'Fermer' : 'Régler'}</button></div>
             <p className="text-second text-slate-500">{f.role}</p>
             <div className="py-2">{f.specimen({ ouvrir: () => setFen(true), volet, setVolet })}</div>
             <div className="flex flex-wrap gap-1 items-center"><span className="intertitre mr-1">Formes</span>{f.formes.map(r => chip(r, 'design'))}</div>
             <div className="flex flex-wrap gap-1 items-center"><span className="intertitre mr-1">Couleurs</span>{f.couleurs.map(r => chip(r, 'couleurs'))}</div>
+            {ouvert === f.nom && rv.design && rv.couleurs && <PanneauReglages f={f} rv={rv} />}
           </div>))}
       </div>
       {fen && <Fenetre titre="Une fenêtre" sous="Bandeau, corps et pied réglables" onFermer={() => setFen(false)}
