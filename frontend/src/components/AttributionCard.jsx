@@ -81,7 +81,7 @@ export default function AttributionCard({ row, selected, onToggleSelect, onChang
           <div className="flex-1 min-w-0" onClick={() => setOpen(true)}>
             <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-1 flex-wrap">
               <span>UE {row.ue_num}</span>
-              {row.num_organisation > 1 && <span className="bg-white border border-slate-200 text-slate-600 px-1 rounded text-[10px]">Org. {row.num_organisation}</span>}
+              {row.num_organisation > 1 && <span className="bg-white border border-slate-200 text-slate-600 px-1 rounded text-mention">Org. {row.num_organisation}</span>}
               {row.code_cours && <><span>·</span><span>{row.code_cours}</span></>}
               {row.bloc && <><span>·</span><span>{row.bloc}</span></>}
             </div>
@@ -93,7 +93,7 @@ export default function AttributionCard({ row, selected, onToggleSelect, onChang
               <div className="flex items-center gap-1.5 flex-wrap">
                 {contratBadge}
                 {typeBadge}
-                {row.type_cours_helb && <span className="bg-pink-500 text-white text-[10px] px-1.5 py-0.5 rounded font-semibold">{row.type_cours_helb}</span>}
+                {row.type_cours_helb && <span className="bg-pink-500 text-white text-mention px-1.5 py-0.5 rounded font-semibold">{row.type_cours_helb}</span>}
                 {row.code && <span className="badge badge-exp">Gr. {row.code}</span>}
                 {row.quadrimestre_attribue && <span className="badge badge-exp">{row.quadrimestre_attribue}</span>}
                 {row.contrat && <span className="badge badge-exp">{row.contrat === 'EXP' && cardHelb ? 'PI' : row.contrat}</span>}
@@ -101,7 +101,7 @@ export default function AttributionCard({ row, selected, onToggleSelect, onChang
               </div>
               <div className="text-right">
                 <div className="text-base font-bold text-iip-gold leading-tight">{row.total_attribue_professeur ?? total}</div>
-                <div className="text-[10px] text-gray-500 leading-tight">per.</div>
+                <div className="text-mention text-gray-500 leading-tight">per.</div>
               </div>
             </div>
             <div className="mt-1.5 text-xs text-gray-600 truncate">
@@ -115,7 +115,7 @@ export default function AttributionCard({ row, selected, onToggleSelect, onChang
       {open && (
         <div className="fixed inset-0 z-40 flex items-end" onClick={() => setOpen(false)}>
           <div className="absolute inset-0 bg-black/40"></div>
-          <div className={`relative w-full rounded-t-2xl shadow-2xl p-4 max-h-[88vh] overflow-auto ${isHelb ? 'bg-pink-50 border-l-4 border-l-pink-500' : 'bg-white'}`}
+          <div className={`relative w-full rounded-t-2xl shadow-dessus p-4 max-h-[88vh] overflow-auto ${isHelb ? 'bg-pink-50 border-l-4 border-l-pink-500' : 'bg-white'}`}
                onClick={e => e.stopPropagation()}>
             <div className="w-12 h-1 bg-gray-300 rounded mx-auto mb-3"></div>
             <h3 className="font-title text-lg text-iip-gold mb-1">{row.nom_cours || row.ue_nom}</h3>
@@ -208,15 +208,15 @@ export default function AttributionCard({ row, selected, onToggleSelect, onChang
 
               <div className="grid grid-cols-3 gap-2 bg-gray-50 rounded p-2 text-center">
                 <div>
-                  <div className="text-[10px] text-gray-500">Total</div>
+                  <div className="text-mention text-gray-500">Total</div>
                   <div className="text-lg font-bold">{total}</div>
                 </div>
                 <div>
-                  <div className="text-[10px] text-gray-500">Heures</div>
+                  <div className="text-mention text-gray-500">Heures</div>
                   <div className="text-lg font-bold">{heures}</div>
                 </div>
                 <div>
-                  <div className="text-[10px] text-gray-500">Coût dot.</div>
+                  <div className="text-mention text-gray-500">Coût dot.</div>
                   <div className="text-lg font-bold">{row.cout_dotation || '—'}</div>
                 </div>
               </div>

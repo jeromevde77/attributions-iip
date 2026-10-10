@@ -127,7 +127,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
     finally { setEnCours(false); }
   }
 
-  if (erreur) return <Cadre onClose={onClose}><div className="text-[13px] text-red-700">{erreur}</div></Cadre>;
+  if (erreur) return <Cadre onClose={onClose}><div className="text-sm text-red-700">{erreur}</div></Cadre>;
   if (!detail || !bilan) return <Cadre onClose={onClose}><div className="py-8 text-center text-slate-400 text-sm">Chargement…</div></Cadre>;
 
   const e = bilan.etudiant;
@@ -140,7 +140,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
       titre={`${(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim()}
       sous={`UE ${ueNum} · ${e.section || '—'} · ${annee}`}
       pied={<>
-        <span className="text-[12px] text-amber-800">
+        <span className="text-second text-amber-800">
           {sansMotif > 0 && decision && decision !== 'reussi' && (<>
             {sansMotif} acquis sans motivation : la décision sera enregistrée, mais elle
             restera attaquable tant qu'ils ne sont pas motivés.
@@ -154,13 +154,13 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
       </>}>
 
       {message && (
-        <div className={`px-3 py-2 rounded-lg text-[13px] ${message.type === 'ok'
+        <div className={`px-3 py-2 rounded-lg text-sm ${message.type === 'ok'
           ? 'bg-emerald-500 border border-emerald-500 text-white'
           : 'bg-red-500 border border-red-500 text-white'}`}>{message.texte}</div>
       )}
 
       {/* ── IDENTITÉ ─────────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap gap-x-6 gap-y-1 text-[12px] text-slate-600">
+      <div className="flex flex-wrap gap-x-6 gap-y-1 text-second text-slate-600">
         {e.id_ecampus && <span>Matricule <b>{e.id_ecampus}</b></span>}
         {e.date_naissance && <span>Né(e) le <b>{e.date_naissance}</b></span>}
         {e.email_ecole && <span className="text-slate-400">{e.email_ecole}</span>}
@@ -169,10 +169,10 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
       {/* ── CRÉDITS : la jauge ───────────────────────────────────────────── */}
       <div>
         <div className="flex items-baseline justify-between mb-1">
-          <span className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">
+          <span className="text-xs uppercase tracking-wide text-slate-500 font-semibold">
             Crédits de la section {ects.section || ''}
           </span>
-          <span className="text-[12px] text-slate-600">
+          <span className="text-second text-slate-600">
             <b className="text-emerald-700">{ects.acquis}</b> acquis ·
             {' '}<b className="text-sky-700">{ects.programme}</b> au programme ·
             {' '}<b className="text-slate-400">{ects.restant}</b> à venir ·
@@ -187,7 +187,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
             tombe pas rond, c'est le référentiel qui est incomplet — mieux vaut
             le dire que d'afficher une jauge fausse sans le signaler. */}
         {!total && (
-          <p className="mt-1 text-[12px] text-amber-800 flex items-center gap-1">
+          <p className="mt-1 text-second text-amber-800 flex items-center gap-1">
             <IconAlertTriangle size={13} /> Aucun ECTS au référentiel de cette section : la jauge ne peut rien situer.
           </p>
         )}
@@ -196,21 +196,21 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
       {/* ── MOYENNE ──────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-end gap-6 border-t border-slate-200 pt-3">
         <div>
-          <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">
+          <div className="text-mention uppercase tracking-wide text-slate-500 font-semibold">
             Moyenne de l'année
           </div>
-          <div className={`text-[26px] font-bold leading-tight ${
+          <div className={`text-2xl font-bold leading-tight ${
             bilan.moyenne == null ? 'text-slate-300'
               : bilan.moyenne >= SEUIL ? 'text-iip-blue' : 'text-red-700'}`}>
             {bilan.moyenne == null ? '—' : `${String(bilan.moyenne).replace('.', ',')}/20`}
           </div>
-          <div className="text-[11px] text-slate-400">pondérée par les périodes du dossier pédagogique</div>
+          <div className="text-xs text-slate-400">pondérée par les périodes du dossier pédagogique</div>
         </div>
         <div>
-          <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">
+          <div className="text-mention uppercase tracking-wide text-slate-500 font-semibold">
             Unités de l'année
           </div>
-          <div className="text-[15px] font-bold text-slate-700">
+          <div className="text-base font-bold text-slate-700">
             {bilan.cette_annee.filter(i => i.resultat === 'reussi').length}
             <span className="text-slate-400"> / {bilan.cette_annee.length} réussies</span>
           </div>
@@ -219,7 +219,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
             pondération : la moyenne serait juste en apparence et fausse en
             silence. */}
         {bilan.moyenne_sans_ponderation > 0 && (
-          <div className="text-[12px] text-amber-800 flex items-start gap-1 max-w-sm">
+          <div className="text-second text-amber-800 flex items-start gap-1 max-w-sm">
             <IconAlertTriangle size={13} className="mt-0.5 flex-none" />
             {bilan.moyenne_sans_ponderation} unité(s) notée(s) sans périodes au référentiel :
             elles ne pèsent pas dans la moyenne.
@@ -229,19 +229,19 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
 
       {/* ── LE PARCOURS, en badges ───────────────────────────────────────── */}
       <div className="border-t border-slate-200 pt-3">
-        <div className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold mb-1.5">
+        <div className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-1.5">
           Programme de l'année
         </div>
         <div className="flex flex-wrap gap-1.5">
           {bilan.cette_annee.map(i => (
             <Badge key={i.ue_num} i={i} courante={i.ue_num === ueNum} />
           ))}
-          {!bilan.cette_annee.length && <span className="text-[12px] text-slate-400">Aucune inscription cette année.</span>}
+          {!bilan.cette_annee.length && <span className="text-second text-slate-400">Aucune inscription cette année.</span>}
         </div>
 
         {!!bilan.anterieures.length && (
           <>
-            <div className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold mt-3 mb-1.5">
+            <div className="text-xs uppercase tracking-wide text-slate-500 font-semibold mt-3 mb-1.5">
               Années antérieures
             </div>
             <div className="flex flex-wrap gap-1.5">
@@ -253,7 +253,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
         )}
 
         {!!bilan.valorisations.length && (
-          <div className="mt-2 text-[12px] text-violet-800">
+          <div className="mt-2 text-second text-violet-800">
             {bilan.valorisations.length} valorisation(s) :
             {' '}{bilan.valorisations.map(v => `UE ${v.ue_num}`).join(' · ')}
           </div>
@@ -262,37 +262,37 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
 
       {/* ── L'UNITÉ EN DÉLIBÉRATION ──────────────────────────────────────── */}
       <div className="border-t border-slate-200 pt-3">
-        <div className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold mb-1.5">
+        <div className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-1.5">
           UE {ueNum} — acquis d'apprentissage, par cours
         </div>
         <div className="border border-slate-200 rounded-xl divide-y divide-slate-100">
           {parCours.map(co => (
             <div key={co.cours_code || '—'} className="px-3 py-2">
               <div className="flex items-baseline gap-2 mb-1">
-                <span className="font-mono text-[11px] text-slate-500">{co.cours_code || '—'}</span>
-                <span className="text-[13px] font-semibold text-slate-700">{co.cours_nom || 'Cours non rattaché'}</span>
+                <span className="font-mono text-xs text-slate-500">{co.cours_code || '—'}</span>
+                <span className="text-sm font-semibold text-slate-700">{co.cours_nom || 'Cours non rattaché'}</span>
               </div>
               <div className="space-y-1">
                 {co.aas.map(a => (
-                  <div key={a.aa_code} className="flex items-center gap-2 text-[12px]">
-                    <span className={`px-1.5 py-0.5 rounded font-bold tabular-nums text-[12px] ${tonNote(a.note)}`}>
+                  <div key={a.aa_code} className="flex items-center gap-2 text-second">
+                    <span className={`px-1.5 py-0.5 rounded font-bold tabular-nums text-second ${tonNote(a.note)}`}>
                       {a.note == null ? '—' : String(a.note).replace('.', ',')}
                     </span>
-                    <span className="font-mono text-[11px] text-slate-400 w-20 flex-none truncate">{a.aa_code}</span>
+                    <span className="font-mono text-xs text-slate-400 w-20 flex-none truncate">{a.aa_code}</span>
                     <span className="flex-1 text-slate-700">{a.description || ''}</span>
-                    {a.non_evalue && <span className="text-[11px] text-slate-400">non évalué</span>}
+                    {a.non_evalue && <span className="text-xs text-slate-400">non évalué</span>}
                   </div>
                 ))}
               </div>
             </div>
           ))}
           {!parCours.length && (
-            <div className="px-3 py-4 text-[13px] text-slate-400">
+            <div className="px-3 py-4 text-sm text-slate-400">
               Aucun acquis au référentiel de cette unité.
             </div>
           )}
         </div>
-        <p className="mt-1 text-[12px] text-slate-500">
+        <p className="mt-1 text-second text-slate-500">
           {detail.nb_non_maitrises} acquis non maîtrisé(s) · {detail.nb_non_evalues} non évalué(s).
           Une absence d'évaluation n'est pas un échec.
         </p>
@@ -300,13 +300,13 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
 
       {/* ── LA DÉCISION ──────────────────────────────────────────────────── */}
       <div className="border-t border-slate-200 pt-3 space-y-2">
-        <div className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">
+        <div className="text-xs uppercase tracking-wide text-slate-500 font-semibold">
           Décision du Conseil des études
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {DECISIONS.map(d => (
             <button key={d.cle} type="button" onClick={() => setDecision(d.cle)}
-              className={`px-3 py-1.5 rounded-lg text-[13px] font-semibold border transition ${
+              className={`px-3 py-1.5 rounded-lg text-sm font-semibold border transition ${
                 decision === d.cle ? `${d.ton} text-white border-transparent`
                   : 'bg-white text-slate-600 border-slate-300 hover:border-slate-400'}`}>
               {d.libelle}
@@ -314,9 +314,9 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
           ))}
           {/* La cote est CELLE DE LA DÉLIBÉRATION : calculée, ou fixée au seuil
               par une faveur. Elle se lit, elle ne se ressaisit pas. */}
-          <span className="ml-2 flex items-center gap-1.5 text-[12px] text-slate-600">
+          <span className="ml-2 flex items-center gap-1.5 text-second text-slate-600">
             Cote délibérée
-            <b className={`text-[15px] tabular-nums ${
+            <b className={`text-base tabular-nums ${
               detail?.ue_na ? 'text-slate-500'
                 : detail?.ue_faveur ? 'text-amber-700'
                 : (detail?.note_deliberee ?? 0) < SEUIL ? 'text-red-700' : 'text-emerald-700'}`}>
@@ -328,13 +328,13 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
               <span className="text-slate-400">/20</span>
             )}
             {detail?.ue_faveur && (
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-champ
+              <span className="text-mention font-bold px-1.5 py-0.5 rounded-champ
                                bg-amber-100 text-amber-900 border border-amber-300">faveur</span>
             )}
           </span>
         </div>
 
-        <p className="text-[11px] text-slate-500">
+        <p className="text-xs text-slate-500">
           La cote vient de la délibération — du calcul, ou du seuil qu'impose une
           faveur. Elle se change dans la feuille de délibération, en ajustant les
           acquis ou les cours, non ici.
@@ -345,7 +345,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
             communication : les documents remis portent « NA ». */}
         {detail?.note_deliberee != null && detail.note_deliberee < SEUIL
           && decision === 'reussi' && (
-          <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-[12px] text-amber-900 border-l-4 border-l-amber-500">
+          <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-second text-amber-900 border-l-4 border-l-amber-500">
             Cote délibérée sous le seuil de {SEUIL}/20 avec une décision de réussite.
             C'est possible — le Conseil délibère — mais la décision devra être motivée,
             et une faveur porterait l'unité à exactement {SEUIL}.
@@ -357,11 +357,11 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
           <div className="border border-slate-200 rounded-xl overflow-hidden">
             <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200
                             flex items-center justify-between gap-2">
-              <span className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">
+              <span className="text-xs uppercase tracking-wide text-slate-500 font-semibold">
                 Motivation — {nonMaitrises.length} acquis non maîtrisé(s)
               </span>
               {sansMotif > 0 && (
-                <span className="text-[12px] text-amber-800 flex items-center gap-1">
+                <span className="text-second text-amber-800 flex items-center gap-1">
                   <IconAlertTriangle size={13} /> {sansMotif} sans motivation
                 </span>
               )}
@@ -370,16 +370,16 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
               {nonMaitrises.map(a => (
                 <div key={a.aa_code} className="px-3 py-2">
                   <div className="flex items-baseline gap-2 mb-1">
-                    <span className="font-mono text-[11px] text-slate-500">{a.aa_code}</span>
-                    <span className="text-[13px] flex-1">{a.description || a.cours_nom}</span>
-                    <span className="text-[12px] font-semibold text-red-700">
+                    <span className="font-mono text-xs text-slate-500">{a.aa_code}</span>
+                    <span className="text-sm flex-1">{a.description || a.cours_nom}</span>
+                    <span className="text-second font-semibold text-red-700">
                       {a.note == null ? '—' : String(a.note).replace('.', ',')}/20
                     </span>
                   </div>
 
                   <button type="button"
                     onClick={() => setOuvert(o => ({ ...o, [a.aa_code]: !o[a.aa_code] }))}
-                    className="text-[12px] text-iip-blue underline mb-1">
+                    className="text-second text-iip-blue underline mb-1">
                     {ouvert[a.aa_code] ? 'Masquer les motivations types' : 'Choisir des motivations types'}
                     {!!(coches[a.aa_code] || []).length && ` · ${(coches[a.aa_code] || []).length} cochée(s)`}
                   </button>
@@ -388,13 +388,13 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
                     <div className="mb-2 border border-slate-200 rounded-lg divide-y divide-slate-100">
                       {MOTIFS_ECHEC.map(g => (
                         <div key={g.cle} className="px-2.5 py-2">
-                          <div className="text-[11px] uppercase tracking-wide font-semibold mb-1"
+                          <div className="text-xs uppercase tracking-wide font-semibold mb-1"
                             style={{ color: g.couleur }}>{g.libelle}</div>
                           <div className="space-y-1">
                             {g.motifs.map(m => {
                               const pris = (coches[a.aa_code] || []).includes(m.cle);
                               return (
-                                <label key={m.cle} className="flex items-start gap-2 text-[12px] cursor-pointer">
+                                <label key={m.cle} className="flex items-start gap-2 text-second cursor-pointer">
                                   <input type="checkbox" checked={pris} className="mt-0.5"
                                     onChange={() => setCoches(c => {
                                       const act = c[a.aa_code] || [];
@@ -412,7 +412,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
                   )}
 
                   {!!(coches[a.aa_code] || []).length && !ouvert[a.aa_code] && (
-                    <div className="mb-1 text-[12px] text-slate-600 bg-slate-50
+                    <div className="mb-1 text-second text-slate-600 bg-slate-50
                                     border border-slate-200 rounded-lg px-2 py-1.5">
                       {(coches[a.aa_code] || []).map(texteDuMotif).filter(Boolean).join(' ')}
                     </div>
@@ -423,7 +423,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
                     placeholder={(coches[a.aa_code] || []).length
                       ? 'Précisions propres à ce dossier — ce qui a été observé'
                       : "Motivation — ce qui n'est pas maîtrisé, et pourquoi"}
-                    className={`w-full border rounded-lg px-2 py-1.5 text-[12px] ${
+                    className={`w-full border rounded-lg px-2 py-1.5 text-second ${
                       (coches[a.aa_code] || []).length || (motifs[a.aa_code] || '').trim()
                         ? 'border-slate-300' : 'border-amber-300 bg-amber-50/50'}`} />
                 </div>
@@ -458,8 +458,8 @@ function Badge({ i, courante = false, passe = false }) {
       title={`${i.ue_nom || ''}${i.points != null ? ` · ${i.points}/20` : ''}`
         + `${i.ects ? ` · ${i.ects} ECTS` : ''}${passe ? ` · ${i.annee_scolaire}` : ''}`
         + ' — cliquer pour le descriptif de l’unité'}
-      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border text-[12px]
-        cursor-pointer hover:shadow-sm
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border text-second
+        cursor-pointer hover:shadow-pose
         ${tonResultat(i.resultat)} ${courante ? 'ring-2 ring-iip-blue ring-offset-1' : ''}`}>
       <b>{i.ue_num}</b>
       {i.points != null && <span className="tabular-nums">{String(i.points).replace('.', ',')}</span>}

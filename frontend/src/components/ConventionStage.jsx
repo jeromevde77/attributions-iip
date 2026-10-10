@@ -91,7 +91,7 @@ export default function ConventionStage({ stage, peutEcrire, onChange }) {
         {active ? (
           <>
             <PastilleEtat etat={ETATS[active.etat].etat}>{ETATS[active.etat].libelle}</PastilleEtat>
-            <span className="text-[12px] text-slate-500">
+            <span className="text-second text-slate-500">
               {active.etat === 'signee' || active.etat === 'contresignee'
                 ? <>le {frDate(active.signe_le)} par {active.signe_par_nom} · réf. {active.reference}</>
                 : <>déposée le {frDate(active.depose_le)} par {active.depose_par_nom}</>}
@@ -115,7 +115,7 @@ export default function ConventionStage({ stage, peutEcrire, onChange }) {
           </>
         ) : (
           <>
-            <span className="text-[12px] text-slate-400">aucune convention déposée</span>
+            <span className="text-second text-slate-400">aucune convention déposée</span>
             <span className="flex-1" />
             {peutEcrire && (
               <label className={`bouton ${envoi ? 'opacity-50 pointer-events-none' : ''}`}
@@ -130,13 +130,13 @@ export default function ConventionStage({ stage, peutEcrire, onChange }) {
         )}
       </div>
       {anciennes.length > 0 && (
-        <div className="text-[11px] text-slate-400 mt-1">
+        <div className="text-xs text-slate-400 mt-1">
           {anciennes.map(c => (
             <div key={c.id}>Retirée le {frDate(c.retire_le)} par {c.retire_par} — {c.motif_retrait}</div>
           ))}
         </div>
       )}
-      {message && <div className="text-[12px] text-red-700 mt-1">{message}</div>}
+      {message && <div className="text-second text-red-700 mt-1">{message}</div>}
     </div>
   );
 }

@@ -64,19 +64,19 @@ export default function Annexe1({ etudId, annee, onClose, enPdf = true }) {
   const def = f.situation === 'definitive';
   const admis = f.situation === 'admis' || f.situation === 'preparatoire_admis';
   const sous54 = def && Number(f.credits_annee) < 54;
-  const lab = 'block text-[12px] text-slate-600';
+  const lab = 'block text-second text-slate-600';
   return (
     <Fenetre icone={IconFileText} titre="Visa ou titre de séjour étudiant" large="moyenne" onFermer={onClose}
       sous={`Annexe 1 de l'arrêté ministériel du 28 mars 2022 — Office des Étrangers · ${annee}`}
       pied={<div className="flex items-center gap-2 w-full">
-        <span className="text-[12px] text-slate-500 min-w-0 flex-1">
+        <span className="text-second text-slate-500 min-w-0 flex-1">
           {sous54 && !f.raisons.trim() ? 'Programme sous 54 crédits : la raison est attendue par le formulaire.' : ''}
         </span>
         <button type="button" className="bouton" onClick={onClose}>Fermer</button>
         <button type="button" className="bouton bouton-sortir" disabled={!d || enCours} onClick={produire}>
           {enCours ? 'Préparation…' : 'Produire le formulaire'}</button>
       </div>}>
-      <div className="space-y-3 text-[13px]">
+      <div className="space-y-3 text-sm">
         {erreur && <Encadre etat="corriger">{erreur}</Encadre>}
         {d?.manques?.length > 0 && (
           <Encadre etat="surveiller" titre="À compléter avant envoi">
@@ -90,7 +90,7 @@ export default function Annexe1({ etudId, annee, onClose, enPdf = true }) {
         )}
 
         <fieldset className="space-y-1">
-          <legend className="text-[12px] font-semibold text-slate-600 mb-1">Situation de l'étudiant</legend>
+          <legend className="text-second font-semibold text-slate-600 mb-1">Situation de l'étudiant</legend>
           {Object.entries(d?.situations || {}).map(([k, l]) => (
             <label key={k} className="flex items-center gap-2">
               <input type="radio" name="situation" checked={f.situation === k} onChange={() => set('situation', k)} /> {l}
@@ -116,10 +116,10 @@ export default function Annexe1({ etudId, annee, onClose, enPdf = true }) {
         </div>
 
         <div className="flex items-center gap-4">
-          <span className="text-[12px] text-slate-600">Mobilité dans un autre État membre cette année :</span>
+          <span className="text-second text-slate-600">Mobilité dans un autre État membre cette année :</span>
           <label className="flex items-center gap-1"><input type="radio" checked={!f.mobilite} onChange={() => set('mobilite', false)} /> Non</label>
           <label className="flex items-center gap-1"><input type="radio" checked={f.mobilite} onChange={() => set('mobilite', true)} /> Oui</label>
-          {f.mobilite && <label className="text-[12px] text-slate-600 flex items-center gap-1">durée
+          {f.mobilite && <label className="text-second text-slate-600 flex items-center gap-1">durée
             <input className="controle w-16" value={f.mobilite_mois} onChange={e => set('mobilite_mois', e.target.value)} /> mois</label>}
         </div>
 
@@ -141,7 +141,7 @@ export default function Annexe1({ etudId, annee, onClose, enPdf = true }) {
           <label className={lab}>Fait à<input className="controle w-full" value={f.lieu} onChange={e => set('lieu', e.target.value)} /></label>
           <label className={lab}>Le<input type="date" className="controle w-full" value={f.date_document} onChange={e => set('date_document', e.target.value)} /></label>
         </div>
-        <p className="text-[11px] text-slate-400">Crédits du programme annuel : la somme des ECTS des unités inscrites en {annee}.</p>
+        <p className="text-xs text-slate-400">Crédits du programme annuel : la somme des ECTS des unités inscrites en {annee}.</p>
       </div>
     </Fenetre>
   );

@@ -120,7 +120,7 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
       titre={`Reprise d'historique${planning ? ' — planning des séances' : ' — tableau de délibérations'}`}
       large="grande" onFermer={onClose}
       pied={<>
-        <span className="text-[12px] text-slate-500">
+        <span className="text-second text-slate-500">
           {lignes && !manquants.length
             ? (planning ? `${choisies.size} unité(s) · séances seules`
               : `${choisies.size} unité(s) · ${total} décision(s)`) : ''}
@@ -141,7 +141,7 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
       </>}>
         <div className="space-y-4">
           {/* Le sous-titre est long : il reste en tête du contenu, lisible en entier. */}
-          <p className="text-[12px] text-slate-500">
+          <p className="text-second text-slate-500">
             {planning
               ? <>Une ligne par unité et session : dates de délibération, créneaux et
                   locaux de visite des copies. <b>Aucun résultat n'est touché.</b></>
@@ -150,7 +150,7 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
           </p>
           {erreur && (
             <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200
-                            text-[13px] text-red-800 flex items-start gap-2">
+                            text-sm text-red-800 flex items-start gap-2">
               <IconAlertTriangle size={15} className="mt-px shrink-0" /> {erreur}
             </div>
           )}
@@ -159,10 +159,10 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
             <label className="block border-2 border-dashed border-slate-300 rounded-xl
                               px-6 py-10 text-center cursor-pointer hover:border-iip-blue">
               <IconUpload size={22} className="mx-auto text-slate-400" />
-              <div className="mt-2 text-[13px] font-semibold text-iip-blue">
+              <div className="mt-2 text-sm font-semibold text-iip-blue">
                 Choisir le fichier de reprise
               </div>
-              <div className="text-[12px] text-slate-500">
+              <div className="text-second text-slate-500">
                 .xlsx ou .csv — le tableau des décisions, ou le planning des séances
               </div>
               <input type="file" accept=".xlsx,.xlsm,.csv" className="hidden"
@@ -171,17 +171,17 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
           ) : (
             <>
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[12px] text-slate-500">
+                <span className="text-second text-slate-500">
                   <b className="text-slate-700">{nomFichier}</b> · {lignes.length - 1} ligne(s)
                 </span>
                 <span className="flex-1" />
-                <span className="text-[12px] text-slate-500">Ce fichier est :</span>
+                <span className="text-second text-slate-500">Ce fichier est :</span>
                 <div className="segments">
                   {[['decisions', 'un tableau de décisions'],
                     ['planning', 'un planning de séances']].map(([v, lib]) => (
                     <button key={v}
                       onClick={() => { setType(v); setManquants(manquantsDe(colonnes, v)); }}
-                      className={`px-2.5 py-1 text-[12px] ${type === v
+                      className={`px-2.5 py-1 text-second ${type === v
                         ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>
                       {lib}
                     </button>
@@ -192,14 +192,14 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
               {/* ── CE QUE LUCIE A COMPRIS DES COLONNES ──────────────────── */}
               <div className="rounded-xl border border-slate-200 overflow-hidden">
                 <div className="px-3 py-2 bg-slate-50 border-b border-slate-200
-                                text-[13px] font-semibold text-iip-blue">
+                                text-sm font-semibold text-iip-blue">
                   Les colonnes du fichier
                 </div>
                 <div className="p-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                   {CHAMPS.filter(c => !planning
                     || !['nom', 'prenom', 'decision', 'note', 'justification', 'matricule']
                       .includes(c.cle)).map(c => (
-                    <label key={c.cle} className="text-[11px] text-slate-600">
+                    <label key={c.cle} className="text-xs text-slate-600">
                       {c.libelle}
                       {manquantsDe({}, type).includes(c.libelle)
                         && <span className="text-red-600"> *</span>}
@@ -211,7 +211,7 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
                           setColonnes(suite);
                           setManquants(manquantsDe(suite, type));
                         }}
-                        className={`block mt-0.5 w-full px-2 py-1 border rounded-lg text-[12px]
+                        className={`block mt-0.5 w-full px-2 py-1 border rounded-lg text-second
                           ${manquants.includes(c.libelle)
                             ? 'border-red-300 bg-red-50' : 'border-slate-300'}`}>
                         <option value="">— aucune —</option>
@@ -224,7 +224,7 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
                 </div>
                 {!!manquants.length && (
                   <div className="px-3 py-2 bg-red-50 border-t border-red-200
-                                  text-[12px] text-red-800">
+                                  text-second text-red-800">
                     Colonnes indispensables non reconnues : <b>{manquants.join(', ')}</b>.
                     Désignez-les ci-dessus.{type === 'decisions'
                       ? ' Sans elles, une ligne ne peut pas être rattachée à un étudiant '
@@ -241,20 +241,20 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
                   <div className="rounded-xl border border-slate-200 overflow-hidden">
                     <div className="px-3 py-2 bg-slate-50 border-b border-slate-200
                                     flex items-center gap-2">
-                      <span className="text-[13px] font-semibold text-iip-blue">
+                      <span className="text-sm font-semibold text-iip-blue">
                         {unites.length} unité(s) lue(s)
                       </span>
                       <span className="flex-1" />
                       <button onClick={() => setChoisies(choisies.size === unites.length
                         ? new Set() : new Set(unites.map(u => u.ue_num)))}
-                        className="text-[12px] text-iip-blue underline">
+                        className="text-second text-iip-blue underline">
                         {choisies.size === unites.length ? 'tout décocher' : 'tout cocher'}
                       </button>
                     </div>
                     <div className="max-h-[30vh] overflow-y-auto divide-y divide-slate-100">
                       {unites.map(u => (
                         <label key={u.ue_num}
-                          className="px-3 py-1.5 flex items-center gap-2 text-[13px]
+                          className="px-3 py-1.5 flex items-center gap-2 text-sm
                                      cursor-pointer hover:bg-slate-50">
                           <input type="checkbox" checked={choisies.has(u.ue_num)}
                             onChange={() => setChoisies(s => {
@@ -270,15 +270,15 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
                               : `${u.resume.etudiants} étudiant(s) · ${u.resume.s1} en 1re · `
                                 + `${u.resume.s2} en 2e`}
                           </span>
-                          <span className="text-[12px] text-slate-500 w-24 text-right">
+                          <span className="text-second text-slate-500 w-24 text-right">
                             {u.resume.cotes} cote(s)
                           </span>
-                          <span className="text-[12px] text-slate-500 w-24 text-right">
+                          <span className="text-second text-slate-500 w-24 text-right">
                             {u.resume.motifs} motif(s)
                           </span>
                           {/* La date de séance est la pièce qui rend les documents
                               utilisables : son absence se voit d'ici. */}
-                          <span className={`text-[12px] w-28 text-right ${u.resume.date_s1
+                          <span className={`text-second w-28 text-right ${u.resume.date_s1
                             ? 'text-emerald-700' : 'text-amber-700 font-semibold'}`}>
                             {u.resume.date_s1 || 'sans date'}
                           </span>
@@ -289,7 +289,7 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
 
                   {!!rejets.length && (
                     <div className="px-3 py-2 rounded-xl bg-amber-50 border border-amber-200
-                                    text-[12px] text-amber-900">
+                                    text-second text-amber-900">
                       <b>{rejets.length} ligne(s) écartée(s)</b> — une décision qu'on ne sait
                       pas lire n'est pas rangée dans la catégorie la plus fréquente :
                       <div className="mt-1 max-h-24 overflow-y-auto">
@@ -306,28 +306,28 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
                   {/* ── CE QUI S'ÉCRIT ───────────────────────────────────── */}
                   <div className="space-y-2 px-1">
                     {!planning && (
-                      <label className="flex items-center gap-2 text-[13px] text-slate-700">
+                      <label className="flex items-center gap-2 text-sm text-slate-700">
                         <input type="checkbox" checked={creer} className="w-4 h-4 accent-iip-blue"
                           onChange={e => setCreer(e.target.checked)} />
                         Créer les étudiants inconnus et les inscrire aux unités
                       </label>
                     )}
-                    <label className="flex items-center gap-2 text-[13px] text-slate-700">
+                    <label className="flex items-center gap-2 text-sm text-slate-700">
                       <input type="checkbox" checked={clore} className="w-4 h-4 accent-iip-blue"
                         onChange={e => setClore(e.target.checked)} />
                       Clôturer les séances — elles ont réellement été tenues
                     </label>
                     {!planning && (
-                    <label className="block text-[12px] text-slate-700">
+                    <label className="block text-second text-slate-700">
                       Justification imposée là où le fichier n'en porte aucune
                       <textarea value={justifDefaut} onChange={e => setJustifDefaut(e.target.value)}
                         rows={2}
                         placeholder="ex. Décision du jury ; motivation non consignée — reprise d'historique."
                         className="mt-1 w-full px-2 py-1.5 border border-slate-300 rounded-lg
-                                   text-[12px]" />
+                                   text-second" />
                     </label>)}
                     {!planning && (
-                    <p className="text-[11px] text-slate-500">
+                    <p className="text-xs text-slate-500">
                       Elle est marquée « imposée » et ne se confond pas avec une motivation
                       prise en séance. Laissez vide pour n'en imposer aucune : le rapport
                       comptera les décisions défavorables restées sans motif.
@@ -337,7 +337,7 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
                   {rapport && (
                     <div className={`rounded-xl border p-3 ${applique
                       ? 'border-emerald-200 bg-emerald-50' : 'border-sky-200 bg-sky-50'}`}>
-                      <div className="text-[13px] font-semibold mb-2 text-slate-800">
+                      <div className="text-sm font-semibold mb-2 text-slate-800">
                         {applique ? 'Import appliqué' : 'Simulation — rien n’a été écrit'}
                       </div>
                       {/* POURQUOI UNE UNITÉ N'A RIEN REÇU. Le serveur le dit,
@@ -349,7 +349,7 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
                           import qu'on refait au hasard. */}
                       {!!(rapport.unites || []).filter(u => u.ignoree).length && (
                         <div className="mb-2 px-3 py-2 rounded-lg bg-red-50 border
-                                        border-red-200 text-[12px] text-red-800">
+                                        border-red-200 text-second text-red-800">
                           <b>{rapport.unites.filter(u => u.ignoree).length} unité(s) écartée(s)
                           — rien ne leur a été écrit :</b>
                           <div className="mt-1 max-h-28 overflow-y-auto">
@@ -379,8 +379,8 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
                             + rapport.total.hors_inscription + rapport.total.collisions],
                         ].map(([l, n]) => (
                           <div key={l} className="bg-white/70 rounded-lg px-2 py-1.5">
-                            <div className="text-[17px] font-bold tabular-nums text-iip-blue">{n}</div>
-                            <div className="text-[11px] text-slate-600">{l}</div>
+                            <div className="text-lg font-bold tabular-nums text-iip-blue">{n}</div>
+                            <div className="text-xs text-slate-600">{l}</div>
                           </div>
                         ))}
                       </div>

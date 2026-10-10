@@ -78,7 +78,7 @@ export default function ImportHELB({ onClose, onTermine }) {
       titre="Créer les étudiants d'orthoptie (HELB)"
       sous={`Liste des inscrits transmise par la HELB — section Orthoptie, ${annee}`}
       pied={<>
-        <span className="flex-1 min-w-0 text-[12px] text-slate-500">
+        <span className="flex-1 min-w-0 text-second text-slate-500">
           {!r ? 'Choisissez le fichier : la simulation se fait d’elle-même.'
             : `${retenus} dossier(s) seront créés ou complétés. Aucune inscription à une unité : les programmes se composent dans le PAE.`}
         </span>
@@ -86,7 +86,7 @@ export default function ImportHELB({ onClose, onTermine }) {
         <button className="bouton bouton-fort" disabled={!r || enCours || (!retenus && !aLier.length && !r.section_a_creer)} onClick={importer}>
           {enCours ? '…' : 'Importer'}</button>
       </>}>
-      <div className="space-y-3 text-[13px]">
+      <div className="space-y-3 text-sm">
         <div className="flex items-center gap-2">
           <input ref={entree} type="file" accept=".xls,.xlsx" className="hidden" onChange={e => e.target.files?.[0] && lire(e.target.files[0])} />
           <button className="bouton" onClick={() => entree.current?.click()}><IconFileSpreadsheet size={14} /> {fichier ? 'Changer de fichier' : 'Choisir le fichier HELB'}</button>
@@ -105,15 +105,15 @@ export default function ImportHELB({ onClose, onTermine }) {
               <TuileEtat etat={r.resume.sans_adresse ? 'surveiller' : 'neutre'} valeur={r.resume.sans_adresse} libelle="Sans adresse HELB" precision="le fichier n'en porte pas" />
               <TuileEtat etat="neutre" valeur={aLier.length} libelle="UE de tronc commun à rattacher" />
             </div>
-            <div className="text-[12px] text-slate-600">
+            <div className="text-second text-slate-600">
               {r.section_a_creer && <p>La section <b>Orthoptie</b> sera créée.</p>}
               <p>Tronc commun {annee} : {r.tronc_commun.length
                 ? r.tronc_commun.map(u => `UE ${u.ue_num}${u.a_lier ? '' : ' (déjà rattachée)'}`).join(' · ')
                 : 'aucune unité marquée « tronc commun » cette année.'}</p>
             </div>
             <div className="border border-slate-200 rounded-carte overflow-x-auto max-h-[46vh] overflow-y-auto">
-              <table className="w-full text-[12px]">
-                <thead className="tab-entete sticky top-0"><tr className="text-left text-[11px] text-slate-500">
+              <table className="w-full text-second">
+                <thead className="tab-entete sticky top-0"><tr className="text-left text-xs text-slate-500">
                   <th className="px-2 py-1.5 w-8"></th><th className="px-2 py-1.5">Étudiant</th><th className="px-2 py-1.5">Matricule HELB</th>
                   <th className="px-2 py-1.5">Ce qui sera fait</th><th className="px-2 py-1.5">Adresse</th></tr></thead>
                 <tbody>
@@ -126,7 +126,7 @@ export default function ImportHELB({ onClose, onTermine }) {
                         <td className="px-2 py-1 tabular-nums">{l.matricule || '—'}</td>
                         <td className="px-2 py-1">{ACTION[l.action]}
                           {l.methode && <span className="text-slate-400"> · reconnu par {l.methode}{l.id_ecampus ? ` (${l.id_ecampus})` : ''}</span>}
-                          {l.action === 'a_trancher' && <span className="block text-[11px] text-iip-texte">rattaché à {l.section_actuelle} : il n'est pas déplacé</span>}
+                          {l.action === 'a_trancher' && <span className="block text-xs text-iip-texte">rattaché à {l.section_actuelle} : il n'est pas déplacé</span>}
                           {l.raison && <span className="text-slate-400"> · {l.raison}</span>}</td>
                         <td className="px-2 py-1 text-slate-500">{l.email || '—'}</td>
                       </tr>

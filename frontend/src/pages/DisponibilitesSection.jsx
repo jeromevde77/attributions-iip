@@ -59,20 +59,20 @@ export default function DisponibilitesSection({ section, annee, peutEcrire }) {
   const profs = (d?.profs || []).filter(p => !q.trim() || n(`${p.nom} ${p.prenom} ${p.cours.join(' ')}`).includes(n(q)));
   const saisis = (d?.profs || []).filter(p => saisies(p.id, quadri).size).length;
 
-  if (erreur) return <div className="text-[12.5px]" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>;
-  if (!d) return <div className="text-[13px] text-slate-400">Chargement…</div>;
+  if (erreur) return <div className="text-second" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>;
+  if (!d) return <div className="text-sm text-slate-400">Chargement…</div>;
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <div className="segments flex h-9">
-          {['Q1', 'Q2'].map(x => <button key={x} onClick={() => setQuadri(x)} className={`px-3 text-[12.5px] ${quadri === x ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'}`}>{x}</button>)}
+          {['Q1', 'Q2'].map(x => <button key={x} onClick={() => setQuadri(x)} className={`px-3 text-second ${quadri === x ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'}`}>{x}</button>)}
         </div>
         <input value={q} onChange={e => setQ(e.target.value)} placeholder="Chercher un enseignant ou un cours…" className="controle w-64" data-reponses="non" />
-        <span className="text-[12.5px] text-slate-600"><b>{saisis}</b> enseignant(s) sur {d.profs.length} ont des contraintes en {quadri}.</span>
+        <span className="text-second text-slate-600"><b>{saisis}</b> enseignant(s) sur {d.profs.length} ont des contraintes en {quadri}.</span>
         <span className="flex-1" />
         <LegendeDispo />
       </div>
-      <div className="bloc-etat px-3 py-2 text-[12.5px]" data-etat="neutre">
+      <div className="bloc-etat px-3 py-2 text-second" data-etat="neutre">
         Cliquez sur une case pour la changer : <b>vert</b> disponible, <b>orange</b> éventuellement (la simulation l’évite tant qu’elle trouve mieux), <b>rouge</b> pas disponible.
         L’agenda est celui de <b>l’enseignant</b>, commun à <b>toutes ses sections</b> et à sa fiche, posé sur les blocs de l’école (face « Le planning »).
       </div>
@@ -84,14 +84,14 @@ export default function DisponibilitesSection({ section, annee, peutEcrire }) {
             <div key={p.id} className="carte p-3 space-y-2 bg-white">
               <div className="flex items-start gap-2">
                 <div className="min-w-0 flex-1">
-                  <b className="text-[13px] text-[#1B2B4B]">{String(p.nom || '').toUpperCase()} {p.prenom}</b>
-                  <div className="text-[11px] text-slate-500 truncate" title={p.cours.join(', ')}>{p.cours.join(' · ')}</div>
-                  {!!p.autres_sections?.length && <div className="text-[11px] text-slate-500">aussi en {p.autres_sections.join(', ')}</div>}
+                  <b className="text-sm text-[#1B2B4B]">{String(p.nom || '').toUpperCase()} {p.prenom}</b>
+                  <div className="text-xs text-slate-500 truncate" title={p.cours.join(', ')}>{p.cours.join(' · ')}</div>
+                  {!!p.autres_sections?.length && <div className="text-xs text-slate-500">aussi en {p.autres_sections.join(', ')}</div>}
                 </div>
                 {m.size
                   ? <span className="flex-none flex gap-1">{[2, 0].filter(v => compte(v)).map(v => (
-                      <span key={v} className="px-1.5 rounded-[5px] text-[10.5px] font-semibold text-white" style={{ background: DISPO[v].fond }} title={DISPO[v].nom}>{compte(v)}</span>))}</span>
-                  : <span className="flex-none px-1.5 rounded-[5px] text-[10.5px] font-semibold text-white" style={{ background: 'var(--c-reussi)' }}>disponible partout</span>}
+                      <span key={v} className="px-1.5 rounded-pastille text-mention font-semibold text-white" style={{ background: DISPO[v].fond }} title={DISPO[v].nom}>{compte(v)}</span>))}</span>
+                  : <span className="flex-none px-1.5 rounded-pastille text-mention font-semibold text-white" style={{ background: 'var(--c-reussi)' }}>disponible partout</span>}
               </div>
               <AgendaSemaine compact base={d.base} jours={joursBase} desactive={!peutEcrire} valeur={(j, c) => m.get(`${j}|${c.debut}`) ?? 1} onCase={(j, c) => changer(p.id, j, c)} />
               {peutEcrire && (
@@ -103,7 +103,7 @@ export default function DisponibilitesSection({ section, annee, peutEcrire }) {
                 </div>)}
             </div>);
         })}
-        {!profs.length && <p className="text-[13px] text-slate-500">Aucun enseignant n’a d’attribution dans {section} cette année.</p>}
+        {!profs.length && <p className="text-sm text-slate-500">Aucun enseignant n’a d’attribution dans {section} cette année.</p>}
       </div>
     </div>
   );

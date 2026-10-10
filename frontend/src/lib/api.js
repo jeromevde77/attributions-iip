@@ -74,6 +74,7 @@ function withAnnee(path, extra = {}) {
    Import différé : couleurs.js importe déjà ce fichier. */
 function relireCouleurs() {
   import('./couleurs.js').then(m => m.chargerCouleurs()).catch(() => {});
+  import('./design.js').then(m => m.chargerDesign()).catch(() => {});
 }
 
 export const api = {

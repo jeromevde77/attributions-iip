@@ -30,7 +30,7 @@ function QrOtpauth({ uri }) {
   }, [uri]);
   if (rate) {
     return (
-      <div className="text-[12px] text-slate-500 w-[190px] text-center">
+      <div className="text-second text-slate-500 w-[190px] text-center">
         Le QR n'a pas pu être dessiné — recopiez la clé à la main, ci-contre.
       </div>
     );
@@ -44,11 +44,11 @@ function CleALaMain({ secret }) {
   const groupes = (secret || '').match(/.{1,4}/g)?.join(' ') || '';
   return (
     <div>
-      <div className="text-[11px] uppercase tracking-[.13em] text-slate-400 mb-1">
+      <div className="text-xs uppercase tracking-[.13em] text-slate-400 mb-1">
         Ou saisir la clé à la main
       </div>
       <div className="flex items-center gap-2">
-        <code className="text-[13px] font-mono text-slate-700 break-all leading-relaxed">
+        <code className="text-sm font-mono text-slate-700 break-all leading-relaxed">
           {groupes}
         </code>
         <button onClick={() => { navigator.clipboard?.writeText(secret); setCopie(true); }}
@@ -75,7 +75,7 @@ function CodesSecours({ codes, onFini }) {
       <div className="flex items-start gap-2 mb-3 p-3 rounded-carte"
         style={{ background: '#fdf6ec', border: '1px solid #e8d5b0' }}>
         <IconAlertTriangle size={16} className="flex-none mt-0.5" style={{ color: '#9d6b28' }} />
-        <div className="text-[12px] leading-relaxed" style={{ color: '#6b4a16' }}>
+        <div className="text-second leading-relaxed" style={{ color: '#6b4a16' }}>
           <strong>Notez ces codes maintenant.</strong> Ils ne seront plus jamais
           affichés — Lucie n'en garde qu'une empreinte, comme d'un mot de passe.
           Chacun ouvre la connexion <strong>une seule fois</strong>, le jour où
@@ -84,12 +84,12 @@ function CodesSecours({ codes, onFini }) {
       </div>
       <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 mb-3">
         {codes.map(c => (
-          <code key={c} className="text-[13px] font-mono tracking-wider text-slate-700">{c}</code>
+          <code key={c} className="text-sm font-mono tracking-wider text-slate-700">{c}</code>
         ))}
       </div>
       <div className="flex gap-2">
         <button onClick={() => { navigator.clipboard?.writeText(texte); setCopie(true); }}
-          className="controle text-[12px] px-3 rounded-champ flex items-center gap-1.5">
+          className="controle text-second px-3 rounded-champ flex items-center gap-1.5">
           {copie ? <IconCheck size={14} /> : <IconCopy size={14} />}
           {copie ? 'Copiés' : 'Copier les dix'}
         </button>
@@ -98,7 +98,7 @@ function CodesSecours({ codes, onFini }) {
             marine sur un fond marine, donc illisible. La couleur voyage avec
             le fond, dans le même style en ligne. */}
         <button onClick={onFini}
-          className="controle text-[12px] px-3 rounded-champ font-semibold"
+          className="controle text-second px-3 rounded-champ font-semibold"
           style={{ background: '#1B2B4B', color: '#fff', borderColor: '#1B2B4B' }}>
           Je les ai notés
         </button>
@@ -184,7 +184,7 @@ export default function MonCompte({ onFermer }) {
           Annuler
         </BoutonFenetre>
         {code.length !== 6 && (
-          <span className="text-[12px] text-slate-400">
+          <span className="text-second text-slate-400">
             Saisissez les six chiffres affichés par votre application.
           </span>
         )}
@@ -197,7 +197,7 @@ export default function MonCompte({ onFermer }) {
         </BoutonFenetre>
         <BoutonFenetre onClick={() => { setPhase('repos'); setCode(''); }}>Annuler</BoutonFenetre>
         {code.length !== 6 && (
-          <span className="text-[12px] text-slate-400">
+          <span className="text-second text-slate-400">
             Saisissez le code affiché par votre application.
           </span>
         )}
@@ -214,7 +214,7 @@ export default function MonCompte({ onFermer }) {
         {/* CE QUI MANQUE SE DIT À CÔTÉ DU BOUTON GRIS, jamais dans le contenu
             qui défile : sinon on cherche pourquoi il ne se passe rien. */}
         {!mdpPret && (
-          <span className="text-[12px] text-slate-400">
+          <span className="text-second text-slate-400">
             {!ancien ? 'Votre mot de passe actuel est exigé.'
               : nouveau.length < LONGUEUR_MIN ? `Au moins ${LONGUEUR_MIN} caractères.`
               : 'Les deux saisies diffèrent.'}
@@ -229,7 +229,7 @@ export default function MonCompte({ onFermer }) {
         </BoutonFenetre>
         <BoutonFenetre onClick={() => { setPhase('repos'); setMotDePasse(''); }}>Annuler</BoutonFenetre>
         {!motDePasse && (
-          <span className="text-[12px] text-slate-400">Votre mot de passe est exigé.</span>
+          <span className="text-second text-slate-400">Votre mot de passe est exigé.</span>
         )}
       </>
     );
@@ -242,14 +242,14 @@ export default function MonCompte({ onFermer }) {
       large="moyenne" pied={pied} onFermer={onFermer}>
 
       {erreur && (
-        <div className="mb-4 p-3 rounded-carte text-[12px]"
+        <div className="mb-4 p-3 rounded-carte text-second"
           style={{ background: '#fbeceb', border: '1px solid #e3bdb6', color: '#7d3a2c' }}>
           {erreur}
         </div>
       )}
 
       {etat && !etat.cle_serveur && (
-        <div className="mb-4 p-3 rounded-carte text-[12px]"
+        <div className="mb-4 p-3 rounded-carte text-second"
           style={{ background: '#fdf6ec', border: '1px solid #e8d5b0', color: '#6b4a16' }}>
           La clé de chiffrement du serveur n'est pas configurée : la vérification
           en deux temps est indisponible. Signalez-le à la direction.
@@ -265,10 +265,10 @@ export default function MonCompte({ onFermer }) {
                        borderLeftWidth: 3, borderLeftColor: actif ? '#4a7c59' : '#cbd5e1',
                        background: '#fff' }}>
               <div className="min-w-0 flex-1">
-                <div className="text-[13px] text-slate-700 font-semibold">
+                <div className="text-sm text-slate-700 font-semibold">
                   {actif ? 'Active' : 'Inactive'}
                 </div>
-                <div className="text-[12px] text-slate-500 leading-relaxed mt-0.5">
+                <div className="text-second text-slate-500 leading-relaxed mt-0.5">
                   {actif
                     ? `Votre mot de passe ne suffit plus : un code à six chiffres est demandé
                        à chaque connexion. Il vous reste ${etat.codes_restants} code(s) de secours.`
@@ -300,7 +300,7 @@ export default function MonCompte({ onFermer }) {
           {/* ── Le mot de passe ───────────────────────────────────────── */}
           <GroupeFenetre titre="Mot de passe">
             {mdpFait ? (
-              <div className="px-3 py-2.5 rounded-carte border text-[13px]"
+              <div className="px-3 py-2.5 rounded-carte border text-sm"
                 style={{ borderColor: '#b7d5c4', borderLeftWidth: 3, borderLeftColor: '#4a7c59',
                          background: '#fff', color: '#2f5d43' }}>
                 Mot de passe modifié. Il sera demandé à votre prochaine connexion.
@@ -309,7 +309,7 @@ export default function MonCompte({ onFermer }) {
               <div className="flex items-start gap-3 px-3 py-2.5 rounded-carte border"
                 style={{ borderColor: '#e2e8f0', borderLeftWidth: 3, borderLeftColor: '#cbd5e1',
                          background: '#fff' }}>
-                <div className="min-w-0 flex-1 text-[12.5px] text-slate-600 leading-relaxed">
+                <div className="min-w-0 flex-1 text-second text-slate-600 leading-relaxed">
                   Choisissez-le vous-même : personne d'autre n'a à le connaître.
                   Au moins {LONGUEUR_MIN} caractères.
                 </div>
@@ -325,7 +325,7 @@ export default function MonCompte({ onFermer }) {
       {/* ── Changer le mot de passe ───────────────────────────────────── */}
       {phase === 'mot_de_passe' && (
         <GroupeFenetre titre="Changer le mot de passe">
-          <p className="text-[12.5px] text-slate-600 leading-relaxed mb-3">
+          <p className="text-second text-slate-600 leading-relaxed mb-3">
             {/* L'ANCIEN EST EXIGÉ MÊME ICI : une session laissée ouverte deux
                 minutes sur un poste partagé suffirait sinon à s'approprier le
                 compte, et le titulaire ne s'en apercevrait qu'après coup. */}
@@ -336,15 +336,15 @@ export default function MonCompte({ onFermer }) {
             <input type="password" autoFocus value={ancien} autoComplete="current-password"
               onChange={e => { setAncien(e.target.value); setErreur(''); }}
               placeholder="Mot de passe actuel"
-              className="controle w-full border border-slate-300 rounded-champ text-[13px]" />
+              className="controle w-full border border-slate-300 rounded-champ text-sm" />
             <input type="password" value={nouveau} autoComplete="new-password"
               onChange={e => { setNouveau(e.target.value); setErreur(''); }}
               placeholder={`Nouveau mot de passe (${LONGUEUR_MIN} caractères au moins)`}
-              className="controle w-full border border-slate-300 rounded-champ text-[13px]" />
+              className="controle w-full border border-slate-300 rounded-champ text-sm" />
             <input type="password" value={confirme} autoComplete="new-password"
               onChange={e => { setConfirme(e.target.value); setErreur(''); }}
               placeholder="Répéter le nouveau mot de passe"
-              className="controle w-full border border-slate-300 rounded-champ text-[13px]" />
+              className="controle w-full border border-slate-300 rounded-champ text-sm" />
           </div>
         </GroupeFenetre>
       )}
@@ -352,7 +352,7 @@ export default function MonCompte({ onFermer }) {
       {/* ── Enrôlement ─────────────────────────────────────────────────── */}
       {phase === 'enrolement' && enrol && (
         <GroupeFenetre titre="Configurer l'application">
-          <ol className="text-[13px] text-slate-600 leading-relaxed list-decimal ml-4 mb-3 space-y-1">
+          <ol className="text-sm text-slate-600 leading-relaxed list-decimal ml-4 mb-3 space-y-1">
             <li>Ouvrez votre application d'authentification (Microsoft Authenticator,
                 Google Authenticator, votre gestionnaire de mots de passe…).</li>
             <li>Scannez ce QR, ou saisissez la clé à la main.</li>
@@ -363,14 +363,14 @@ export default function MonCompte({ onFermer }) {
             <div className="flex-1 min-w-[220px] space-y-4">
               <CleALaMain secret={enrol.secret} />
               <div>
-                <div className="text-[11px] uppercase tracking-[.13em] text-slate-400 mb-1">
+                <div className="text-xs uppercase tracking-[.13em] text-slate-400 mb-1">
                   Code affiché
                 </div>
                 <input autoFocus value={code} inputMode="numeric" placeholder="••••••"
                   onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                   onKeyDown={e => { if (e.key === 'Enter' && code.length === 6) activer(); }}
                   className="controle w-40 text-center font-semibold tracking-[8px]
-                             text-[18px] border border-slate-300 rounded-champ bg-white" />
+                             text-lg border border-slate-300 rounded-champ bg-white" />
               </div>
             </div>
           </div>
@@ -380,7 +380,7 @@ export default function MonCompte({ onFermer }) {
       {/* ── Régénération des codes ─────────────────────────────────────── */}
       {phase === 'regeneration' && (
         <GroupeFenetre titre="Nouveaux codes de secours">
-          <p className="text-[13px] text-slate-600 leading-relaxed mb-3">
+          <p className="text-sm text-slate-600 leading-relaxed mb-3">
             Les dix anciens codes cesseront de fonctionner immédiatement.
             Saisissez le code affiché par votre application pour confirmer que
             c'est bien vous.
@@ -389,7 +389,7 @@ export default function MonCompte({ onFermer }) {
             onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
             onKeyDown={e => { if (e.key === 'Enter' && code.length === 6) regenerer(); }}
             className="controle w-40 text-center font-semibold tracking-[8px]
-                       text-[18px] border border-slate-300 rounded-champ bg-white" />
+                       text-lg border border-slate-300 rounded-champ bg-white" />
         </GroupeFenetre>
       )}
 
@@ -403,7 +403,7 @@ export default function MonCompte({ onFermer }) {
       {/* ── Désactivation ──────────────────────────────────────────────── */}
       {phase === 'desactivation' && (
         <GroupeFenetre titre="Désactiver la vérification en deux temps" ton="alerte">
-          <p className="text-[13px] text-slate-600 leading-relaxed mb-3">
+          <p className="text-sm text-slate-600 leading-relaxed mb-3">
             Votre compte s'ouvrira de nouveau avec le seul mot de passe, et vos
             codes de secours seront effacés. Votre mot de passe est demandé :
             sans lui, un poste laissé ouvert deux minutes suffirait à retirer
@@ -413,7 +413,7 @@ export default function MonCompte({ onFermer }) {
             onChange={e => setMotDePasse(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && motDePasse) desactiver(); }}
             placeholder="Mot de passe"
-            className="controle w-64 px-3 border border-slate-300 rounded-champ bg-white text-[13px]" />
+            className="controle w-64 px-3 border border-slate-300 rounded-champ bg-white text-sm" />
         </GroupeFenetre>
       )}
     </Fenetre>

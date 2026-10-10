@@ -74,7 +74,7 @@ function CasesRoles({ roles, onBasculer }) {
       {ROLES.map(([cle, lib]) => (
         <label key={cle}
           className={`flex items-center gap-1.5 px-2.5 py-1 rounded-champ border
-            cursor-pointer text-[12px] ${roles.has(cle)
+            cursor-pointer text-second ${roles.has(cle)
               ? 'border-iip-blue bg-iip-blue/5' : 'border-slate-200 text-slate-600'}`}>
           <input type="checkbox" checked={roles.has(cle)}
             onChange={() => onBasculer(cle)} className="w-3.5 h-3.5" />
@@ -188,7 +188,7 @@ export default function Documentation() {
               sous="Les règles du jeu — décrets, circulaires, règlements et procédures de l’Institut" />
 
             {erreur && (
-              <div className="carte p-3 text-[13px] text-rose-700">{erreur}</div>
+              <div className="carte p-3 text-sm text-rose-700">{erreur}</div>
             )}
 
             {/* CE QUI M'ATTEND, EN TÊTE ET NOMMÉ.
@@ -198,10 +198,10 @@ export default function Documentation() {
               <div className="carte p-3 flex items-start gap-2"
                 style={{ borderLeftWidth: 3, borderLeftColor: 'var(--c-attente)' }}>
                 <IconAlertTriangle size={16} className="flex-none mt-0.5 text-iip-texte" />
-                <div className="text-[13px]">
+                <div className="text-sm">
                   <b>La direction a publié {aLire === 1 ? 'un document'
                     : `${aLire} documents`} : veuillez en prendre connaissance.</b>
-                  <div className="text-[12px] text-slate-600 mt-0.5">
+                  <div className="text-second text-slate-600 mt-0.5">
                     {(docs || []).filter(d => d.a_confirmer).map(d => d.titre).join(' · ')}
                   </div>
                 </div>
@@ -210,19 +210,19 @@ export default function Documentation() {
 
             <div className="flex flex-wrap items-center gap-2">
               <select value={fNature} onChange={e => setFNature(e.target.value)}
-                className="controle text-[13px]">
+                className="controle text-sm">
                 <option value="">Toutes les natures</option>
                 {natures.map(n => (
                   <option key={n.cle} value={n.cle}>{n.libelle}</option>
                 ))}
               </select>
-              <span className="text-[12px] text-slate-500">
+              <span className="text-second text-slate-500">
                 {vus.length} texte(s)
               </span>
             </div>
 
             {docs && !vus.length && (
-              <p className="text-[13px] text-slate-400">
+              <p className="text-sm text-slate-400">
                 Aucun texte déposé{fNature ? ' de cette nature' : ''}.
                 {publie && ' Le bouton « Déposer un texte » en ajoute un.'}
               </p>
@@ -234,8 +234,8 @@ export default function Documentation() {
                   style={d.a_confirmer
                     ? { borderLeftWidth: 3, borderLeftColor: 'var(--c-attente)' } : undefined}>
                   <span className="flex-1 min-w-0">
-                    <span className="text-[13px] font-semibold text-iip-blue">{d.titre}</span>
-                    <span className="block text-[11px] text-slate-500">
+                    <span className="text-sm font-semibold text-iip-blue">{d.titre}</span>
+                    <span className="block text-xs text-slate-500">
                       {libelleNature.get(d.nature) || d.nature}
                       {d.version ? ` · version ${d.version.numero} du ${frDate(d.version.publiee_le)}` : ' · aucune version publiée'}
                       {d.retire_le ? ' · RETIRÉ' : ''}
@@ -244,21 +244,21 @@ export default function Documentation() {
 
                   {/* L'ÉTAT PERSONNEL, ET IL NE DIT QU'UNE CHOSE À LA FOIS. */}
                   {d.confirme_le ? (
-                    <span className="text-[11px] text-emerald-700 flex items-center gap-1 flex-none">
+                    <span className="text-xs text-emerald-700 flex items-center gap-1 flex-none">
                       <IconCheck size={14} /> confirmé le {frDate(d.confirme_le)}
                     </span>
                   ) : d.a_confirmer ? (
-                    <span className="text-[11px] text-iip-texte flex-none">à confirmer</span>
+                    <span className="text-xs text-iip-texte flex-none">à confirmer</span>
                   ) : d.me_concerne ? null : (
-                    <span className="text-[11px] text-slate-400 flex-none">pour information</span>
+                    <span className="text-xs text-slate-400 flex-none">pour information</span>
                   )}
 
-                  <button className="bouton text-[12px] px-2.5 py-1 flex-none"
+                  <button className="bouton text-second px-2.5 py-1 flex-none"
                     onClick={() => setOuvert(d.cle)}>
                     <IconFileText size={14} /> Lire
                   </button>
                   {publie && (
-                    <button className="bouton text-[12px] px-2.5 py-1 flex-none"
+                    <button className="bouton text-second px-2.5 py-1 flex-none"
                       title="Qui a confirmé, qui pas"
                       onClick={() => setRegistre(d.cle)}>
                       <IconUsersGroup size={14} />
@@ -268,7 +268,7 @@ export default function Documentation() {
                       ne sais toujours pas supprimer »). Le bouton sous le texte
                       ne se trouvait pas ; ici il ouvre le texte sur la confirmation. */}
                   {publie && !d.retire_le && (
-                    <button className="bouton text-[12px] px-2.5 py-1 flex-none"
+                    <button className="bouton text-second px-2.5 py-1 flex-none"
                       title="Retirer ce texte" aria-label="Retirer ce texte"
                       onClick={() => { setRetirerOuvert(true); setOuvert(d.cle); }}>
                       <IconTrash size={14} />
@@ -422,7 +422,7 @@ function LireTexte({ cle, publie, natures, onClose, onChange, retirer: retirerDe
       pied={<>
         {doitConfirmer ? (
           <>
-            <label className="flex items-center gap-2 text-[13px]">
+            <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={coche} disabled={!d?.ouvert_le}
                 onChange={e => setCoche(e.target.checked)} className="w-4 h-4" />
               Je confirme avoir pris connaissance de ce document
@@ -433,7 +433,7 @@ function LireTexte({ cle, publie, natures, onClose, onChange, retirer: retirerDe
             </button>
           </>
         ) : d?.confirme_le ? (
-          <span className="text-[12px] text-emerald-700 flex items-center gap-1">
+          <span className="text-second text-emerald-700 flex items-center gap-1">
             <IconCheck size={14} /> Vous avez confirmé le {frDate(d.confirme_le)}
             {/* LA VERSION QU'ON A ACCEPTÉE EST DITE, quand ce n'est pas celle
                 qu'on lit : la direction a publié depuis une correction qui ne
@@ -443,7 +443,7 @@ function LireTexte({ cle, publie, natures, onClose, onChange, retirer: retirerDe
               : '.'}
           </span>
         ) : (
-          <span className="text-[12px] text-slate-500">
+          <span className="text-second text-slate-500">
             Ce document ne vous est pas opposé : il est là pour information.
           </span>
         )}
@@ -451,13 +451,13 @@ function LireTexte({ cle, publie, natures, onClose, onChange, retirer: retirerDe
       </>}>
 
       {erreur && (
-        <div className="carte p-3 text-[12px] text-rose-700 mb-3 flex items-start gap-1.5">
+        <div className="carte p-3 text-second text-rose-700 mb-3 flex items-start gap-1.5">
           <IconAlertTriangle size={14} className="mt-0.5 flex-none" />{erreur}
         </div>
       )}
 
       {d?.version?.resume_changement && (
-        <div className="carte p-3 mb-3 text-[13px]"
+        <div className="carte p-3 mb-3 text-sm"
           style={{ borderLeftWidth: 3, borderLeftColor: 'var(--c-attente)' }}>
           <b>Ce qui a changé dans cette version :</b> {d.version.resume_changement}
         </div>
@@ -465,7 +465,7 @@ function LireTexte({ cle, publie, natures, onClose, onChange, retirer: retirerDe
 
       {d?.source_url && (
         <a href={d.source_url} target="_blank" rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-[12px] text-iip-blue underline mb-2">
+          className="inline-flex items-center gap-1 text-second text-iip-blue underline mb-2">
           <IconExternalLink size={13} /> Texte officiel en ligne
         </a>
       )}
@@ -481,7 +481,7 @@ function LireTexte({ cle, publie, natures, onClose, onChange, retirer: retirerDe
             dangerouslySetInnerHTML={{ __html: d.version.contenu }} />
         </div>
       ) : (
-        <div className="carte p-4 text-[13px] leading-relaxed whitespace-pre-wrap">
+        <div className="carte p-4 text-sm leading-relaxed whitespace-pre-wrap">
           {d?.version?.contenu || (erreur ? '' : 'Chargement…')}
         </div>
       )}
@@ -489,7 +489,7 @@ function LireTexte({ cle, publie, natures, onClose, onChange, retirer: retirerDe
       {/* L'HISTORIQUE — parce qu'une personne s'est engagée sur UNE version, et
           qu'elle doit pouvoir retrouver celle qu'elle a acceptée. */}
       {d?.versions?.length > 1 && (
-        <div className="mt-3 text-[12px] text-slate-500">
+        <div className="mt-3 text-second text-slate-500">
           <div className="flex items-center gap-1.5 mb-1">
             <IconHistory size={14} /> Versions précédentes
           </div>
@@ -507,21 +507,21 @@ function LireTexte({ cle, publie, natures, onClose, onChange, retirer: retirerDe
       {publie && d && (
         <div className="mt-4 carte p-3 space-y-2">
           <div className="flex items-baseline gap-2">
-            <span className="text-[11px] uppercase tracking-wide text-slate-500">À qui ce texte s’impose</span>
+            <span className="text-xs uppercase tracking-wide text-slate-500">À qui ce texte s’impose</span>
             {!roles && (
-              <button className="text-[12px] text-iip-blue underline ml-auto"
+              <button className="text-second text-iip-blue underline ml-auto"
                 onClick={() => setRoles(new Set(d.destinataires || []))}>Modifier</button>
             )}
           </div>
           {!roles ? (
-            <div className="text-[13px]">
+            <div className="text-sm">
               {d.destinataires?.length ? libelleRoles(d.destinataires)
                 : <span className="text-slate-500">Personne : consultable, mais pas opposable.</span>}
             </div>
           ) : (
             <>
               <CasesRoles roles={roles} onBasculer={c => setRoles(s0 => basculerDans(s0, c))} />
-              <p className="text-[12px] text-slate-500">
+              <p className="text-second text-slate-500">
                 Un rôle ajouté verra ce texte « à confirmer » sur son Accueil. Un rôle
                 retiré n’y est plus tenu ; les confirmations déjà données restent au
                 registre. Le texte ne change pas.
@@ -540,7 +540,7 @@ function LireTexte({ cle, publie, natures, onClose, onChange, retirer: retirerDe
       {publie && d && (
         <div className="mt-4">
           {retrait && (
-            <div data-etat="corriger" className="bloc-etat px-3 py-2.5 mb-2 flex items-center gap-3 flex-wrap text-[13px]">
+            <div data-etat="corriger" className="bloc-etat px-3 py-2.5 mb-2 flex items-center gap-3 flex-wrap text-sm">
               <span className="flex-1 min-w-0">Retirer « {d.titre} » ? Il cesse de s'imposer et sort des listes. Il reste lisible, avec les confirmations déjà données.</span>
               <button className="bouton bouton-detruire" disabled={enCours} onClick={retirer}>Retirer</button>
               <button className="bouton" onClick={() => setRetrait(false)}>Annuler</button>
@@ -548,28 +548,28 @@ function LireTexte({ cle, publie, natures, onClose, onChange, retirer: retirerDe
           )}
           {!renomme ? (
             <div className="flex gap-2 mb-2">
-              <button className="bouton text-[12px]"
+              <button className="bouton text-second"
                 onClick={() => setRenomme({ titre: d.titre || '', nature: d.nature || 'procedure' })}>
                 Renommer
               </button>
               {!d.retire_le && !retrait && (
-                <button className="bouton text-[12px] ml-auto" onClick={() => setRetrait(true)}>
+                <button className="bouton text-second ml-auto" onClick={() => setRetrait(true)}>
                   Retirer ce texte
                 </button>
               )}
             </div>
           ) : (
             <div className="carte p-3 space-y-2 mb-2">
-              <div className="text-[11px] uppercase tracking-wide text-slate-500">
+              <div className="text-xs uppercase tracking-wide text-slate-500">
                 Renommer — le texte, les versions et les confirmations ne changent pas
               </div>
               <input value={renomme.titre}
                 onChange={e => setRenomme(r0 => ({ ...r0, titre: e.target.value }))}
                 placeholder="Titre du document"
-                className="controle text-[13px] w-full" />
+                className="controle text-sm w-full" />
               <select value={renomme.nature}
                 onChange={e => setRenomme(r0 => ({ ...r0, nature: e.target.value }))}
-                className="controle text-[13px]">
+                className="controle text-sm">
                 {(natures || []).map(n => (
                   <option key={n.cle} value={n.cle}>{n.libelle}</option>
                 ))}
@@ -589,7 +589,7 @@ function LireTexte({ cle, publie, natures, onClose, onChange, retirer: retirerDe
       {publie && (
         <div className="mt-4">
           {!nouvelle ? (
-            <button className="bouton text-[12px]"
+            <button className="bouton text-second"
               onClick={() => setNouvelle({
                 contenu: d?.version?.format === 'html'
                   ? d.version.contenu : texteEnHtml(d?.version?.contenu),
@@ -601,7 +601,7 @@ function LireTexte({ cle, publie, natures, onClose, onChange, retirer: retirerDe
               {/* UNE VERSION PUBLIÉE NE SE MODIFIE PLUS — on en publie une
                   autre, qu'on part de la précédente pour corriger. Le résumé
                   n'est pas une politesse : la version reste au dossier. */}
-              <div className="text-[11px] uppercase tracking-wide text-slate-500">
+              <div className="text-xs uppercase tracking-wide text-slate-500">
                 Version {(d?.version?.numero || 0) + 1} — partie de la version {d?.version?.numero}
               </div>
               <EditeurTexte valeur={nouvelle.contenu}
@@ -609,23 +609,23 @@ function LireTexte({ cle, publie, natures, onClose, onChange, retirer: retirerDe
               <input value={nouvelle.resume}
                 onChange={e => setNouvelle(n => ({ ...n, resume: e.target.value }))}
                 placeholder="Ce qui change, en une phrase — obligatoire"
-                className="controle text-[13px] w-full" />
+                className="controle text-sm w-full" />
               <input value={nouvelle.source}
                 onChange={e => setNouvelle(n => ({ ...n, source: e.target.value }))}
                 placeholder="Lien vers le texte officiel en ligne (facultatif) — https://…"
-                className="controle text-[13px] w-full" />
+                className="controle text-sm w-full" />
               {/* LA CASE DE CHARLES (21 septembre 2026) : c'est celui qui
                   publie qui dit si le personnel doit relire. Décochée par
                   défaut — une date ou une adresse corrigée ne remet pas
                   quarante personnes au travail —, mais le serveur exige qu'on
                   ait répondu, et la version garde la réponse. */}
-              <label className="flex items-start gap-2 text-[13px] p-2 rounded-champ border border-slate-200 bg-white">
+              <label className="flex items-start gap-2 text-sm p-2 rounded-champ border border-slate-200 bg-white">
                 <input type="checkbox" checked={nouvelle.reconfirmer}
                   onChange={e => setNouvelle(n => ({ ...n, reconfirmer: e.target.checked }))}
                   className="w-4 h-4 mt-0.5" />
                 <span>
                   <b>Les membres du personnel doivent relire et confirmer à nouveau</b>
-                  <span className="block text-[12px] text-slate-500">
+                  <span className="block text-second text-slate-500">
                     {nouvelle.reconfirmer
                       ? 'Chaque destinataire verra ce texte réapparaître « à confirmer » sur son Accueil.'
                       : 'Correction sans nouvelle confirmation : les confirmations déjà données restent valables. La version et ce qui change restent au dossier.'}
@@ -706,7 +706,7 @@ function DeposerTexte({ natures, onClose, onCree }) {
           disabled={!!manque || enCours} onClick={creer}>
           {enCours ? 'Publication…' : 'Déposer et publier'}
         </button>
-        <span className="text-[12px] text-slate-500">
+        <span className="text-second text-slate-500">
           {manque || (roles.size
             ? `Opposable à ${roles.size} rôle(s) — chacun devra en accuser réception.`
             : 'Aucun rôle coché : le texte sera consultable, mais pas opposable.')}
@@ -715,32 +715,32 @@ function DeposerTexte({ natures, onClose, onCree }) {
       </>}>
 
       {erreur && (
-        <div className="carte p-3 text-[12px] text-rose-700 mb-3">{erreur}</div>
+        <div className="carte p-3 text-second text-rose-700 mb-3">{erreur}</div>
       )}
 
       <div className="space-y-3">
         <div className="flex flex-wrap gap-2">
           <input value={titre} onChange={e => setTitre(e.target.value)}
             placeholder="Titre du texte — « Circulaire examens 2026-2027 »"
-            className="controle text-[13px] flex-1 min-w-[18rem]" />
+            className="controle text-sm flex-1 min-w-[18rem]" />
           <select value={nature} onChange={e => setNature(e.target.value)}
-            className="controle text-[13px]">
+            className="controle text-sm">
             {natures.map(n => <option key={n.cle} value={n.cle}>{n.libelle}</option>)}
           </select>
         </div>
 
         <input value={source} onChange={e => setSource(e.target.value)}
           placeholder="Lien vers le texte officiel en ligne (facultatif, utile pour un décret) — https://…"
-          className="controle text-[13px] w-full" />
+          className="controle text-sm w-full" />
 
         <EditeurTexte valeur={contenu} onChange={setContenu} />
 
         <div className="carte p-3 space-y-2">
-          <div className="text-[11px] uppercase tracking-wide text-slate-500">
+          <div className="text-xs uppercase tracking-wide text-slate-500">
             À qui ce texte s’impose
           </div>
           <CasesRoles roles={roles} onBasculer={cle => setRoles(s0 => basculerDans(s0, cle))} />
-          <p className="text-[12px] text-slate-500">
+          <p className="text-second text-slate-500">
             Par RÔLE, jamais par personne : nommer les gens un à un, c’est
             oublier celui qui arrive en octobre.
           </p>
@@ -779,17 +779,17 @@ function Registre({ cle, onClose }) {
       titre="Prise de connaissance"
       sous={r?.document?.titre || ''}
       pied={<>
-        <span className="text-[12px] text-slate-500">
+        <span className="text-second text-slate-500">
           {r?.version ? `Version ${r.version.numero} · ${ok} sur ${nb} ont confirmé`
             : 'Aucune version publiée.'}
         </span>
         <button className="bouton ml-auto" onClick={onClose}>Fermer</button>
       </>}>
 
-      {erreur && <div className="carte p-3 text-[12px] text-rose-700">{erreur}</div>}
+      {erreur && <div className="carte p-3 text-second text-rose-700">{erreur}</div>}
 
       {r?.sans_destinataire && (
-        <p className="text-[13px] text-slate-500">
+        <p className="text-sm text-slate-500">
           Ce texte n’est opposé à personne : il est consultable, mais aucune
           confirmation n’est attendue.
         </p>
@@ -797,19 +797,19 @@ function Registre({ cle, onClose }) {
 
       <div className="space-y-1">
         {(r?.lignes || []).map(l => (
-          <div key={l.id} className="carte px-3 py-1.5 flex items-center gap-3 text-[13px]"
+          <div key={l.id} className="carte px-3 py-1.5 flex items-center gap-3 text-sm"
             style={l.confirme_le ? undefined
               : { borderLeftWidth: 3, borderLeftColor: 'var(--c-attente)' }}>
             <span className="flex-1 min-w-0">
               {l.nom_complet || l.email}
-              <span className="text-[11px] text-slate-400 ml-2">{l.role}</span>
+              <span className="text-xs text-slate-400 ml-2">{l.role}</span>
             </span>
             {/* LES DEUX TRACES SE LISENT SÉPARÉMENT : « on le lui a servi » et
                 « il a confirmé » ne disent pas la même chose. */}
-            <span className="text-[11px] text-slate-500 flex-none">
+            <span className="text-xs text-slate-500 flex-none">
               {l.ouvert_le ? `ouvert le ${frDate(l.ouvert_le)}` : 'jamais ouvert'}
             </span>
-            <span className={`text-[11px] flex-none ${l.confirme_le
+            <span className={`text-xs flex-none ${l.confirme_le
               ? 'text-emerald-700' : 'text-iip-texte font-semibold'}`}>
               {l.confirme_le ? `confirmé le ${frDate(l.confirme_le)}` : 'non confirmé'}
             </span>

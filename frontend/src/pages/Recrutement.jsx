@@ -21,7 +21,7 @@ function Champ({ label, value, onChange, placeholder, hint, className = '' }) {
         placeholder={placeholder}
         className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm"
       />
-      {hint && <div className="text-[11px] text-gray-400 mt-0.5">{hint}</div>}
+      {hint && <div className="text-xs text-gray-400 mt-0.5">{hint}</div>}
     </label>
   );
 }
@@ -222,11 +222,11 @@ export default function Recrutement() {
           revient à ce qu'il est, une liste déroulante, et il vit dans le volet
           du rail, là où vivent déjà les filtres des autres écrans. */}
       <VoletRail titre="Filtre">
-        <label className="block text-[11px] mb-1" style={{ color: 'var(--menu-texte-doux)' }}>
+        <label className="block text-xs mb-1" style={{ color: 'var(--menu-texte-doux)' }}>
           Section
         </label>
         <select value={filtre} onChange={e => setFiltre(e.target.value)}
-          className="controle w-full bg-white border border-slate-300 rounded-champ px-2 text-[13px]">
+          className="controle w-full bg-white border border-slate-300 rounded-champ px-2 text-sm">
           <option value="">Toutes les sections</option>
           {sections.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
@@ -271,13 +271,13 @@ export default function Recrutement() {
                     const detail = await af(`/postes/${p.ue_num}/${encodeURIComponent(p.code_cours)}/${encodeURIComponent(p.section)}?annee=${encodeURIComponent(annee)}`);
                     setPoste({ ...p, ...detail });
                   }}
-                  className="text-left border border-gray-200 bg-white rounded-lg px-4 py-3 hover:border-iip-turquoise hover:shadow-sm transition flex items-center justify-between gap-4">
+                  className="text-left border border-gray-200 bg-white rounded-lg px-4 py-3 hover:border-iip-turquoise hover:shadow-pose transition flex items-center justify-between gap-4">
                   <div className="min-w-0">
                     <div className="font-semibold text-iip-blue flex items-center gap-2 flex-wrap">
                       <span className="text-xs text-gray-400 font-normal">UE {p.ue_num}</span>
                       {p.nom_cours || p.ue_nom}
                       {p.contrat_mdp && (
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-white flex-shrink-0"
+                        <span className="text-mention font-bold px-1.5 py-0.5 rounded text-white flex-shrink-0"
                           style={{ background: p.contrat_mdp === 'HELB' ? 'var(--c-faveur)' : 'var(--c-principal)' }}>
                           {p.contrat_mdp}
                         </span>
@@ -292,7 +292,7 @@ export default function Recrutement() {
                   </div>
                   <div className="flex-shrink-0 text-right">
                     <div className="text-lg font-bold text-iip-blue">{p.nb_candidats}</div>
-                    <div className="text-[10px] text-gray-400">candidat{p.nb_candidats !== 1 ? 's' : ''}</div>
+                    <div className="text-mention text-gray-400">candidat{p.nb_candidats !== 1 ? 's' : ''}</div>
                   </div>
                 </button>
               ))}
@@ -338,12 +338,12 @@ function FichePoste({ poste, annee, onBack, grille }) {
               <span className="font-medium text-white/80">UE {poste.ue_num}</span>
               <span>{poste.section}</span>
               {poste.contrat_mdp && (
-                <span className="bg-white/20 text-white/90 text-[10px] font-bold px-2 py-0.5 rounded">
+                <span className="bg-white/20 text-white/90 text-mention font-bold px-2 py-0.5 rounded">
                   {poste.contrat_mdp}
                 </span>
               )}
               {candidats.length > 0 && (
-                <span className="bg-white/20 text-white/90 text-[10px] px-2 py-0.5 rounded">
+                <span className="bg-white/20 text-white/90 text-mention px-2 py-0.5 rounded">
                   {candidats.length} candidat{candidats.length > 1 ? 's' : ''}
                 </span>
               )}
@@ -369,7 +369,7 @@ function FichePoste({ poste, annee, onBack, grille }) {
             ['Référent', ue.et_ref],
           ].filter(([, v]) => v).map(([label, val]) => (
           <div key={label} className="bg-gray-50 rounded-lg px-3 py-2">
-            <div className="text-[10px] text-gray-400 uppercase tracking-wide">{label}</div>
+            <div className="text-mention text-gray-400 uppercase tracking-wide">{label}</div>
             <div className="text-sm font-medium text-gray-800 mt-0.5">{val}</div>
           </div>
         ))}
@@ -384,7 +384,7 @@ function FichePoste({ poste, annee, onBack, grille }) {
             <ul className="space-y-1">
               {aa.map((a, i) => (
                 <li key={i} className="text-sm text-gray-600 flex gap-2">
-                  <span className="text-[10px] text-gray-400 font-mono mt-0.5 flex-shrink-0">{a.aa_code}</span>
+                  <span className="text-mention text-gray-400 font-mono mt-0.5 flex-shrink-0">{a.aa_code}</span>
                   <span>L'étudiant·e sera capable {a.description}</span>
                 </li>
               ))}
@@ -570,7 +570,7 @@ function FormulaireCandidatIA({ annee, ue_num, code_cours, section, onSaved, onC
               <IconUpload size={14} className="text-gray-400 flex-shrink-0" />
               <div>
                 <div className="text-xs font-medium text-gray-700">{label}</div>
-                <div className="text-[10px] text-gray-400">PDF, Word, image…</div>
+                <div className="text-mention text-gray-400">PDF, Word, image…</div>
               </div>
               <input type="file" accept={accept} className="hidden" onChange={e => {
                 const file = e.target.files?.[0];
@@ -695,7 +695,7 @@ function CarteCandidatPoste({ candidature: c, onChange, onEntretien }) {
         <div className="min-w-0 flex-1">
           <div className="font-semibold text-iip-blue flex items-center gap-2">
             {c.nom}
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-champ"
+            <span className="text-mention font-semibold px-2 py-0.5 rounded-champ"
               style={{ color: st.color, background: st.bg }}>{st.label}</span>
           </div>
           <div className="text-xs text-gray-400">{[c.email, c.telephone].filter(Boolean).join(' · ') || '—'}</div>
@@ -750,7 +750,7 @@ function CarteCandidatPoste({ candidature: c, onChange, onEntretien }) {
           {/* Ajouter des documents */}
           <div className="flex flex-wrap gap-2">
             {Object.entries(TYPES_DOC).map(([type, { label, accept }]) => (
-              <label key={type} className="cursor-pointer text-[11px] border border-dashed border-gray-300 rounded px-2 py-1 hover:border-iip-turquoise hover:bg-white flex items-center gap-1 text-gray-500">
+              <label key={type} className="cursor-pointer text-xs border border-dashed border-gray-300 rounded px-2 py-1 hover:border-iip-turquoise hover:bg-white flex items-center gap-1 text-gray-500">
                 <IconUpload size={11} />
                 {label}
                 <input type="file" accept={accept} className="hidden" onChange={e => {
@@ -759,7 +759,7 @@ function CarteCandidatPoste({ candidature: c, onChange, onEntretien }) {
                 }} />
               </label>
             ))}
-            {uploading && <span className="text-[11px] text-iip-blue animate-pulse">Envoi…</span>}
+            {uploading && <span className="text-xs text-iip-blue animate-pulse">Envoi…</span>}
           </div>
         </div>
       )}
@@ -778,7 +778,7 @@ function CarteCandidatPoste({ candidature: c, onChange, onEntretien }) {
           <div className="-mx-5 -my-4 h-[calc(88vh-3.5rem)] overflow-hidden bg-black/70">
             {visionneur.mime?.startsWith('image/') ? (
               <div className="h-full flex items-center justify-center p-4">
-                <img src={visionneur.url} alt={visionneur.nom} className="max-h-full max-w-full object-contain rounded shadow-lg" />
+                <img src={visionneur.url} alt={visionneur.nom} className="max-h-full max-w-full object-contain rounded shadow-flottant" />
               </div>
             ) : visionneur.mime === 'application/pdf' ? (
               <iframe src={visionneur.url} aria-label={visionneur.nom} className="w-full h-full border-none" />
@@ -977,7 +977,7 @@ Réponds en JSON strict sans backticks : {"questions":["question 1","question 2"
           <div className="border border-iip-blue/20 rounded-xl overflow-hidden">
             <div className="px-4 py-2.5 text-sm font-semibold text-white flex items-center justify-between" style={{ background: 'var(--c-principal)' }}>
               <span>Axe 5 — Questions spécifiques au cours</span>
-              <span className="text-[10px] font-normal opacity-60">générées par l'IA · UE {poste.ue_num}</span>
+              <span className="text-mention font-normal opacity-60">générées par l'IA · UE {poste.ue_num}</span>
             </div>
             <ul className="px-4 py-3 space-y-2.5">
               {qIA.map((q, i) => (
@@ -1101,7 +1101,7 @@ function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSav
         <div className="max-w-none mx-auto px-4 py-5 space-y-5">
 
           {Object.entries(parAxe).map(([axe, { couleur, questions }]) => (
-            <div key={axe} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+            <div key={axe} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-pose">
               <div className="px-4 py-2.5 text-sm font-semibold text-white" style={{ background: couleur }}>
                 {axe}
               </div>
@@ -1113,7 +1113,7 @@ function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSav
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div className="text-sm text-gray-800 font-medium flex-1">{q}</div>
                       <button onClick={() => toggleDisabled(i)} title={disabled ? 'Réactiver la question' : 'Ne pas poser cette question'}
-                        className={`text-[10px] px-2 py-0.5 rounded border flex-shrink-0 mt-0.5 transition ${
+                        className={`text-mention px-2 py-0.5 rounded border flex-shrink-0 mt-0.5 transition ${
                           disabled ? 'border-gray-300 text-gray-400 bg-gray-50' : 'border-gray-200 text-gray-300 hover:border-orange-300 hover:text-orange-400'
                         }`}>
                         {disabled ? '+ Réactiver' : '✕ Non posée'}
@@ -1128,7 +1128,7 @@ function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSav
                           title={label}
                           className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-champ border transition font-medium ${
                             reponses[i]?.note === val
-                              ? 'text-white border-transparent shadow-sm'
+                              ? 'text-white border-transparent shadow-pose'
                               : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300'
                           }`}
                           style={reponses[i]?.note === val ? { background: color, borderColor: color } : {}}>
@@ -1138,7 +1138,7 @@ function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSav
                       ))}
                     </div>
                     {reponses[i]?.note > 0 && (
-                      <div className="text-[10px] text-gray-500 italic mb-2 pl-1">
+                      <div className="text-mention text-gray-500 italic mb-2 pl-1">
                         {LIKERT.find(l => l.val === reponses[i].note)?.desc}
                       </div>
                     )}
@@ -1158,7 +1158,7 @@ function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSav
           ))}
 
           {/* Bilan global */}
-          <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+          <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-pose">
             <div className="text-sm font-semibold text-iip-blue mb-2">Bilan global de l'entretien</div>
             <textarea
               value={commentaireGlobal}
@@ -1170,7 +1170,7 @@ function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSav
           </div>
 
           {/* Appréciation réflexive */}
-          <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 shadow-sm border-l-4 border-l-teal-500">
+          <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 shadow-pose border-l-4 border-l-teal-500">
             <div className="flex items-center gap-2 mb-3">
               <div className="text-sm font-semibold text-teal-800">Appréciation du niveau réflexif</div>
               <div className="text-xs text-teal-600">Évaluation globale de la posture réflexive du candidat</div>
@@ -1182,12 +1182,12 @@ function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSav
                   title={desc}
                   className={`flex flex-col items-center px-3 py-2 rounded-lg border-2 transition text-left ${
                     reflexifNiveaux.includes(val)
-                      ? 'text-white shadow-md'
+                      ? 'text-white shadow-flottant'
                       : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'
                   }`}
                   style={reflexifNiveaux.includes(val) ? { background: color, borderColor: color } : {}}>
                   <span className="font-bold text-sm">{val} — {label}</span>
-                  <span className={`text-[10px] mt-0.5 leading-tight ${reflexifNiveaux.includes(val) ? 'text-white/80' : 'text-gray-400'}`}>
+                  <span className={`text-mention mt-0.5 leading-tight ${reflexifNiveaux.includes(val) ? 'text-white/80' : 'text-gray-400'}`}>
                     {desc}
                   </span>
                 </button>
@@ -1309,7 +1309,7 @@ function VueParallele({ postes, candidats, fonctions, annee, onRecharger }) {
                   onDrop={() => onDrop(p)}
                   className={`border rounded-lg px-3 py-1.5 transition ${
                     isTarget
-                      ? 'border-iip-turquoise bg-iip-turquoise/10 shadow-md scale-[1.01]'
+                      ? 'border-iip-turquoise bg-iip-turquoise/10 shadow-flottant scale-[1.01]'
                       : 'border-gray-200 bg-white hover:border-gray-300'
                   }`}>
                   <div className="flex items-start justify-between gap-2">
@@ -1318,7 +1318,7 @@ function VueParallele({ postes, candidats, fonctions, annee, onRecharger }) {
                         <span className="text-xs text-gray-400 font-normal">UE {p.ue_num}</span>
                         <span className="truncate">{p.nom_cours || p.ue_nom}</span>
                         {p.contrat_mdp && (
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-white flex-shrink-0"
+                          <span className="text-mention font-bold px-1.5 py-0.5 rounded text-white flex-shrink-0"
                             style={{ background: p.contrat_mdp === 'HELB' ? 'var(--c-faveur)' : 'var(--c-principal)' }}>{p.contrat_mdp}</span>
                         )}
                       </div>
@@ -1328,7 +1328,7 @@ function VueParallele({ postes, candidats, fonctions, annee, onRecharger }) {
                     </div>
                     <div className="flex-shrink-0 text-right">
                       <div className="text-base font-bold text-iip-blue">{p.nb_candidats}</div>
-                      <div className="text-[10px] text-gray-400">cand.</div>
+                      <div className="text-mention text-gray-400">cand.</div>
                     </div>
                   </div>
                   {isTarget && dragId && (
@@ -1358,8 +1358,8 @@ function VueParallele({ postes, candidats, fonctions, annee, onRecharger }) {
                 onDragEnd={() => { setDragId(null); setDropTarget(null); }}
                 className={`border rounded-lg px-3 py-1.5 cursor-grab active:cursor-grabbing select-none transition ${
                   dragId === c.id
-                    ? 'border-iip-blue bg-iip-blue/5 opacity-70 shadow-lg'
-                    : 'border-gray-200 bg-white hover:border-iip-blue/40 hover:shadow-sm'
+                    ? 'border-iip-blue bg-iip-blue/5 opacity-70 shadow-flottant'
+                    : 'border-gray-200 bg-white hover:border-iip-blue/40 hover:shadow-pose'
                 }`}>
                 <div className="flex items-center gap-2">
                   <div className="flex flex-col items-center justify-center text-gray-200 flex-shrink-0">
@@ -1369,14 +1369,14 @@ function VueParallele({ postes, candidats, fonctions, annee, onRecharger }) {
                     <div className="text-sm font-semibold text-iip-blue">{c.prenom ? `${(c.nom || '').toUpperCase()} ${c.prenom}` : c.nom}</div>
                     <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                       {c.fonction && (
-                        <span className="text-[10px] bg-iip-blue/10 text-iip-blue px-1.5 py-0.5 rounded font-medium">
+                        <span className="text-mention bg-iip-blue/10 text-iip-blue px-1.5 py-0.5 rounded font-medium">
                           {c.fonction}
                         </span>
                       )}
                       <span className="text-xs text-gray-400">{c.email || '—'}</span>
                     </div>
                     {c.candidatures?.length > 0 && (
-                      <div className="text-[10px] text-gray-400 mt-0.5">
+                      <div className="text-mention text-gray-400 mt-0.5">
                         {c.candidatures.length} candidature{c.candidatures.length > 1 ? 's' : ''}
                       </div>
                     )}
@@ -1829,7 +1829,7 @@ ${tous.map(candidatHtml).join('')}
                   {c.candidatures?.map((ca, i) => {
                     const st = STATUT[ca.statut] || STATUT.a_voir;
                     return (
-                      <span key={i} className="text-[10px] px-2 py-0.5 rounded-champ font-semibold flex-shrink-0"
+                      <span key={i} className="text-mention px-2 py-0.5 rounded-champ font-semibold flex-shrink-0"
                         style={{ background: st.bg, color: st.color }}>
                         {st.label}
                       </span>
@@ -1843,7 +1843,7 @@ ${tous.map(candidatHtml).join('')}
               {/* Méta droite */}
               <div className="flex items-center gap-3 flex-shrink-0">
                 {docs > 0 && (
-                  <span className="text-[10px] text-gray-400 flex items-center gap-0.5">
+                  <span className="text-mention text-gray-400 flex items-center gap-0.5">
                     <IconFileCv size={12} /> {docs}
                   </span>
                 )}
@@ -1999,7 +1999,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
       <div className="-mx-5 -my-4 h-[calc(88vh-3.5rem)] overflow-hidden bg-black/70">
         {visionneur.mime && visionneur.mime.startsWith('image/') && (
           <div className="h-full flex items-center justify-center p-4">
-            <img src={visionneur.url} alt={visionneur.nom} className="max-h-full max-w-full object-contain rounded shadow-lg" />
+            <img src={visionneur.url} alt={visionneur.nom} className="max-h-full max-w-full object-contain rounded shadow-flottant" />
           </div>
         )}
         {visionneur.mime === 'application/pdf' && (
@@ -2047,7 +2047,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
     <Fenetre large="moyenne" onFermer={onClose}
       /* Les initiales tiennent lieu d'icône. */
       icone={() => (
-        <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-[12px] flex-shrink-0">
+        <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-second flex-shrink-0">
           {((f.prenom||candidat.prenom||'')[0]||'').toUpperCase()}{((f.nom||candidat.nom||'')[0]||'').toUpperCase()}
         </div>
       )}
@@ -2056,7 +2056,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
         <span className="inline-flex items-center gap-2">
           {(f.email||candidat.email) && <span>{f.email||candidat.email}</span>}
           {candidat.entretien_note && (
-            <span className="bg-white/20 text-white rounded-champ px-2 py-0.5 font-bold text-[10px]">
+            <span className="bg-white/20 text-white rounded-champ px-2 py-0.5 font-bold text-mention">
               {candidat.entretien_note}/5
             </span>
           )}
@@ -2184,14 +2184,14 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
               )}
               <div className="flex flex-wrap gap-2">
                 {Object.entries(TYPES_DOC).map(([type, { label, accept }]) => (
-                  <label key={type} className="cursor-pointer text-[11px] border border-dashed border-gray-300 rounded px-2 py-1 hover:border-iip-turquoise flex items-center gap-1 text-gray-500">
+                  <label key={type} className="cursor-pointer text-xs border border-dashed border-gray-300 rounded px-2 py-1 hover:border-iip-turquoise flex items-center gap-1 text-gray-500">
                     <IconUpload size={11} /> {label}
                     <input type="file" accept={accept} className="hidden" onChange={e => {
                       const file = e.target.files?.[0]; if (file) { ajouterDoc(type, file); e.target.value = ''; }
                     }} />
                   </label>
                 ))}
-                {uploading && <span className="text-[11px] text-iip-blue animate-pulse">Envoi…</span>}
+                {uploading && <span className="text-xs text-iip-blue animate-pulse">Envoi…</span>}
               </div>
             </div>
           </div>
@@ -2307,7 +2307,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
             )}
             {/* Sélecteur */}
             <div className="border border-dashed border-gray-300 rounded-lg p-3 space-y-2 bg-gray-50/50">
-              <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Ajouter un cours</div>
+              <div className="text-mention font-semibold text-gray-400 uppercase tracking-wide">Ajouter un cours</div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <div className="text-xs text-gray-500 mb-0.5">Section</div>
@@ -2384,7 +2384,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
                             const indisp = !!dispo[`${j}_${cren.key}`];
                             return (
                               <td key={j} className="text-center py-0.5 px-0.5">
-                                <span className={`inline-block w-9 h-6 rounded text-[10px] font-bold leading-6 ${
+                                <span className={`inline-block w-9 h-6 rounded text-mention font-bold leading-6 ${
                                   indisp ? 'bg-orange-400 text-white' : 'bg-gray-100 text-gray-300'
                                 }`}>{indisp ? '✗' : ''}</span>
                               </td>
@@ -2452,7 +2452,7 @@ function SemainierIndisp({ value = {}, onChange }) {
                   return (
                     <td key={j} className="text-center py-1 px-1">
                       <button type="button" onClick={() => toggle(j, cr.key)}
-                        className={`w-10 h-7 rounded border-2 transition text-[11px] font-bold ${
+                        className={`w-10 h-7 rounded border-2 transition text-xs font-bold ${
                           indisp ? 'bg-orange-400 text-white border-orange-400' : 'bg-white text-gray-200 border-gray-200 hover:border-orange-300'
                         }`}>
                         {indisp ? '✗' : ''}
@@ -2516,12 +2516,12 @@ function ModalAjoutQualification({ onClose, onAjouter, onFermer }) {
 
                 {/* Ligne 1 : Niveau d'étude (pills horizontales) */}
                 <div className="mb-2">
-                  <div className="text-[10px] text-gray-400 mb-1 uppercase tracking-wide">Niveau (CFC)</div>
+                  <div className="text-mention text-gray-400 mb-1 uppercase tracking-wide">Niveau (CFC)</div>
                   <div className="flex flex-wrap gap-1">
                     {NIVEAUX_ETUDE.map(n => (
                       <button key={n.val} type="button"
                         onClick={() => majLigne(i, 'niveau', l.niveau === n.val ? '' : n.val)}
-                        className={`text-[11px] px-2.5 py-1 rounded-champ border transition ${
+                        className={`text-xs px-2.5 py-1 rounded-champ border transition ${
                           l.niveau === n.val
                             ? 'bg-iip-blue text-white border-iip-blue font-semibold'
                             : 'border-gray-300 text-gray-600 hover:border-iip-blue/50 bg-white'
@@ -2536,7 +2536,7 @@ function ModalAjoutQualification({ onClose, onAjouter, onFermer }) {
                 {l.niveau && (
                   <div className="mb-2 flex gap-2 items-start">
                     <div className="flex-1">
-                      <div className="text-[10px] text-gray-400 mb-1 uppercase tracking-wide">Diplôme</div>
+                      <div className="text-mention text-gray-400 mb-1 uppercase tracking-wide">Diplôme</div>
                       {dipListe.length > 0 ? (
                         <select value={l.diplome} onChange={e => majLigne(i, 'diplome', e.target.value)}
                           className="w-full text-xs border border-gray-300 rounded px-2 py-1.5 h-8">
@@ -2556,12 +2556,12 @@ function ModalAjoutQualification({ onClose, onAjouter, onFermer }) {
 
                 {/* Ligne 3 : Titre pédagogique (pills) */}
                 <div>
-                  <div className="text-[10px] text-gray-400 mb-1 uppercase tracking-wide">Titre pédagogique (optionnel)</div>
+                  <div className="text-mention text-gray-400 mb-1 uppercase tracking-wide">Titre pédagogique (optionnel)</div>
                   <div className="flex flex-wrap gap-1">
                     {TITRES_PEDA.map(t => (
                       <button key={t.val} type="button"
                         onClick={() => majLigne(i, 'titre_peda', l.titre_peda === t.val ? '' : t.val)}
-                        className={`text-[11px] px-2.5 py-1 rounded-champ border transition ${
+                        className={`text-xs px-2.5 py-1 rounded-champ border transition ${
                           l.titre_peda === t.val
                             ? 'bg-iip-turquoise text-white border-iip-turquoise font-semibold'
                             : 'border-gray-300 text-gray-600 hover:border-iip-turquoise/50 bg-white'
@@ -2991,7 +2991,7 @@ function EditeurGrille({ grille, onSaved }) {
             onDrop={() => onDropAxe(ai)}
             className={`border rounded-xl overflow-hidden transition ${
               dragOver === ai && dragAxe !== ai
-                ? 'border-iip-turquoise shadow-md scale-[1.01]'
+                ? 'border-iip-turquoise shadow-flottant scale-[1.01]'
                 : 'border-gray-200'
             }`}>
             {/* En-tête axe — poignée de drag + titre + couleur + suppr */}
@@ -3134,7 +3134,7 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
     <Fenetre large="ecran" hauteurFixe onFermer={onClose}
       /* Les initiales tiennent lieu d'icône. */
       icone={() => (
-        <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-[12px] flex-shrink-0">
+        <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-second flex-shrink-0">
           {(nomComplet||'').split(' ').map(p=>p[0]||'').slice(0,2).join('').toUpperCase()}
         </div>
       )}
@@ -3143,7 +3143,7 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
         <span className="inline-flex items-center gap-2">
           <span>Guide d'entretien · 30 min</span>
           {noteGlobale != null && (
-            <span className="bg-white/20 text-white rounded-champ px-2 py-0.5 font-bold text-[10px]">
+            <span className="bg-white/20 text-white rounded-champ px-2 py-0.5 font-bold text-mention">
               moy. {noteGlobale}/5
             </span>
           )}
@@ -3199,7 +3199,7 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
 
           {/* ── Introduction ── */}
           {section === 'intro' && (
-            <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+            <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-pose">
               <h2 className="text-base font-bold text-iip-blue mb-4">Introduction — à lire au candidat</h2>
               {introTexte ? (
                 <div className="text-sm text-gray-700 leading-relaxed bg-iip-blue/5 border-l-4 border-iip-blue rounded-r-lg p-4 whitespace-pre-wrap">
@@ -3217,7 +3217,7 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
           {/* ── Questions fixes ── */}
           {section === 'q-fixe' && (
             <div className="space-y-4">
-              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-pose">
                 <div className="px-4 py-2.5 text-sm font-semibold text-white" style={{ background: 'var(--c-principal)' }}>
                   Questions fixes — posées à tous les candidats
                 </div>
@@ -3248,7 +3248,7 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
           {axeKeys.includes(section) && (() => {
             const { couleur, questions } = parAxe[section];
             return (
-              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-pose">
                 <div className="px-4 py-2.5 text-sm font-semibold text-white" style={{ background: couleur }}>{section}</div>
                 <div className="divide-y divide-gray-100">
                   {questions.map(({ q, i }) => {
@@ -3258,7 +3258,7 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
                         <div className="flex items-start justify-between gap-2 mb-2">
                           <div className="text-sm text-gray-800 font-medium flex-1">{q}</div>
                           <button onClick={() => toggleDisabled(i)}
-                            className={`text-[10px] px-2 py-0.5 rounded border flex-shrink-0 mt-0.5 transition ${
+                            className={`text-mention px-2 py-0.5 rounded border flex-shrink-0 mt-0.5 transition ${
                               disabled ? 'border-gray-300 text-gray-400 bg-gray-50' : 'border-gray-200 text-gray-300 hover:border-orange-300 hover:text-orange-400'
                             }`}>
                             {disabled ? '+ Réactiver' : '✕ Non posée'}
@@ -3271,7 +3271,7 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
                           title={label}
                           className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-champ border transition font-medium ${
                             reponses[i]?.note === val
-                              ? 'text-white border-transparent shadow-sm'
+                              ? 'text-white border-transparent shadow-pose'
                               : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300'
                           }`}
                           style={reponses[i]?.note === val ? { background: color, borderColor: color } : {}}>
@@ -3281,7 +3281,7 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
                       ))}
                     </div>
                     {reponses[i]?.note > 0 && (
-                      <div className="text-[10px] text-gray-500 italic mb-2 pl-1">
+                      <div className="text-mention text-gray-500 italic mb-2 pl-1">
                         {LIKERT.find(l => l.val === reponses[i].note)?.desc}
                       </div>
                     )}
@@ -3300,7 +3300,7 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
           {/* ── Administratif ── */}
           {section === 'admin' && (
             <div className="space-y-4">
-              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-pose">
                 <div className="px-4 py-2.5 text-sm font-semibold text-white" style={{ background: 'var(--c-attente)' }}>
                   Questions administratives
                 </div>
@@ -3317,12 +3317,12 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
                 </div>
               </div>
 
-              <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+              <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-pose">
                 <div className="text-sm font-semibold text-iip-blue mb-3">Indisponibilités</div>
                 <SemainierIndisp value={dispo} onChange={setDispo} />
               </div>
 
-              <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+              <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-pose">
                 <div className="text-sm font-semibold text-iip-blue mb-2">Divers / autres remarques</div>
                 <textarea value={divers} onChange={e => setDivers(e.target.value)}
                   placeholder="Tout autre élément pertinent noté pendant l'entretien…" rows={3}
@@ -3337,7 +3337,7 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
 
               {/* Mot de conclusion */}
               {conclusionTexte && (
-                <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+                <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-pose">
                   <h2 className="text-base font-bold text-iip-blue mb-4">Mot de fin — à lire au candidat</h2>
                   <div className="text-sm text-gray-700 leading-relaxed bg-iip-blue/5 border-l-4 border-iip-blue rounded-r-lg p-4 whitespace-pre-wrap">
                     {conclusionTexte}
@@ -3346,14 +3346,14 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
                 </div>
               )}
 
-              <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+              <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-pose">
                 <div className="text-sm font-semibold text-iip-blue mb-2">Bilan global de l'entretien</div>
                 <textarea value={commentaireGlobal} onChange={e => setCommentaireGlobal(e.target.value)}
                   placeholder="Impression générale, points forts, réserves, recommandation finale…" rows={4}
                   className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:border-iip-turquoise" />
               </div>
 
-              <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 shadow-sm border-l-4 border-l-teal-500">
+              <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 shadow-pose border-l-4 border-l-teal-500">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="text-sm font-semibold text-teal-800">Appréciation du niveau réflexif</div>
                 </div>
@@ -3362,7 +3362,7 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
                     <button key={val} type="button"
                       onClick={() => setReflexifNiveaux(prev => prev.includes(val) ? prev.filter(x=>x!==val) : [...prev, val])}
                       className={`flex items-center gap-3 px-4 py-2.5 rounded-lg border-2 text-left transition ${
-                        reflexifNiveaux.includes(val) ? 'text-white shadow-md' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+                        reflexifNiveaux.includes(val) ? 'text-white shadow-flottant' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
                       }`}
                       style={reflexifNiveaux.includes(val) ? { background: color, borderColor: color } : {}}>
                       <span className={`font-bold text-lg w-6 flex-shrink-0 ${reflexifNiveaux.includes(val) ? 'text-white' : 'text-gray-400'}`}>{val}</span>

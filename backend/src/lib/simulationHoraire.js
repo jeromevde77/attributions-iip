@@ -26,7 +26,7 @@
 
 import db from '../db/index.js';
 import { joursFeries } from '../routes/horaire.js';
-import { cohorte, groupeDeBrique, activitesDeLaGrille } from './groupesCommuns.js';
+import { cohorte, groupeDeBrique, activitesDeLaGrille, organisationsDe } from './groupesCommuns.js';
 import { envelopperDocument } from './document.js';
 
 export const MINUTES_PERIODE = 50;
@@ -354,9 +354,10 @@ function demandes(c, annee) {
   const attribuees = new Set(lignes.map(l => l.ue_num));
   for (const u of c.ues) {
     if (attribuees.has(u.ue_num)) continue;
-    for (const a of activitesDeLaGrille(c.section, u.ue_num, annee)) {
+    // Une organisation, un verre (le sien, ou celui de la première s'il est vide).
+    for (const org of organisationsDe(c.section, u.ue_num, annee)) for (const a of activitesDeLaGrille(c.section, u.ue_num, annee, org)) {
       const g = Math.max(1, Number(a.groupes) || 1);
-      for (let i = 0; i < g; i++) lignes.push({ ue_num: u.ue_num, code_cours: a.code_cours, act: a.activite_id, org: 1, code: g > 1 ? String.fromCharCode(65 + i) : null,
+      for (let i = 0; i < g; i++) lignes.push({ ue_num: u.ue_num, code_cours: a.code_cours, act: a.activite_id, org, code: g > 1 ? String.fromCharCode(65 + i) : null,
         periodes: (Number(a.periodes) || 0) / g, professeur_id: null, libelle: a.libelle, quadris: '', stage: a.stage, cours_nom: a.cours_nom, prof_nom: null, prof_prenom: null, verre: true });
     }
   }
@@ -375,6 +376,7 @@ function demandes(c, annee) {
     out.push({ cle: `${l.code_cours}#${l.act}#${l.org}#${l.code || ''}`, ue_num: l.ue_num, cours_code: l.code_cours, cours_nom: l.cours_nom,
       activite_id: l.act, tp: !!(a && a.inclus),
       activite: l.libelle || null, groupe, briques, tout_le_bloc: briques.length === toutes.length,
+      org: Number(l.org) || 1,
       professeur_id: l.professeur_id || null, professeur: l.prof_nom ? `${String(l.prof_nom).toUpperCase()} ${l.prof_prenom || ''}`.trim() : l.verre ? 'à attribuer' : null, source: l.verre ? 'verre' : 'attributions',
       periodes: l.periodes, minutes: l.periodes * MINUTES_PERIODE, quadri });
   }
@@ -384,12 +386,22 @@ function demandes(c, annee) {
      dans la grille d'organisation (les couches), celles-là ; et le droit — ou
      non — d'avoir cours pendant les congés. Les attributions restent, en
      2026-2027, la source des groupes et des périodes. */
-  const orgs = new Map();
+  /* LES ORGANISATIONS (Charles, 10 octobre 2026 : « en AESI, une partie des
+     étudiants va en stage de Toussaint à Noël (orga 1), l'autre de Carnaval à
+     Pâques (orga 2) ; pendant que l'orga 1 est en stage, l'orga 2 a des UE »).
+     Une UE en plusieurs organisations : chaque demande porte la SIENNE, ses
+     dates, et ne concerne que ses étudiants. Une UE en une seule organisation
+     concerne tout le monde. */
+  const orgs = new Map(), orgsUE = new Map();
+  const noterOrg = (ue, o) => { if (!orgsUE.has(ue)) orgsUE.set(ue, new Set()); orgsUE.get(ue).add(Number(o) || 1); };
   try {
     for (const o of db.prepare(`SELECT * FROM organisation_ue WHERE annee_scolaire = ? AND section = ? ORDER BY num_organisation`).all(annee, c.section)) {
       if (!orgs.has(o.ue_num)) orgs.set(o.ue_num, o);
+      orgs.set(`${o.ue_num}#${o.num_organisation || 1}`, o);
+      noterOrg(o.ue_num, o.num_organisation);
     }
   } catch { /* table absente */ }
+  for (const d of out) noterOrg(d.ue_num, d.org);
   const datesAct = new Map();
   try {
     for (const x of db.prepare(`SELECT o.ue_num, gc.cours_code, ga.activite_id, ga.date_debut, ga.date_fin
@@ -399,7 +411,8 @@ function demandes(c, annee) {
     }
   } catch { /* colonnes absentes */ }
   for (const d of out) {
-    const o = orgs.get(d.ue_num), a = datesAct.get(`${d.ue_num}#${d.cours_code}#${d.activite_id}`);
+    const o = orgs.get(`${d.ue_num}#${d.org}`) || orgs.get(d.ue_num), a = datesAct.get(`${d.ue_num}#${d.cours_code}#${d.activite_id}`);
+    d.orgs = (orgsUE.get(d.ue_num)?.size || 0) > 1 ? [d.org] : null;
     d.fenetre = a ? { de: a.de, fin: a.fin, source: 'activite' }
       : o?.date_debut && o?.date_fin ? { de: o.date_debut, fin: o.date_fin, source: 'ue' } : null;
     d.conges = !!o?.cours_pendant_conges;
@@ -411,9 +424,13 @@ function demandes(c, annee) {
 function stagesBloquants(c, annee) {
   if (!c.ues.length) return [];
   try {
-    return db.prepare(`SELECT o.ue_num, o.date_debut AS de, o.date_fin AS fin FROM organisation_ue o
+    // Un stage en plusieurs organisations n'arrête que les étudiants de la sienne.
+    return db.prepare(`SELECT o.ue_num, COALESCE(o.num_organisation, 1) org, o.date_debut AS de, o.date_fin AS fin,
+        (SELECT COUNT(*) FROM organisation_ue x WHERE x.annee_scolaire = o.annee_scolaire AND x.section = o.section AND x.ue_num = o.ue_num) nb_orgs
+      FROM organisation_ue o
       WHERE o.annee_scolaire = ? AND o.section = ? AND COALESCE(o.stage_bloquant, 0) = 1 AND o.date_debut IS NOT NULL AND o.date_fin IS NOT NULL
-        AND o.ue_num IN (${c.ues.map(() => '?').join(',')})`).all(annee, c.section, ...c.ues.map(u => u.ue_num));
+        AND o.ue_num IN (${c.ues.map(() => '?').join(',')})`).all(annee, c.section, ...c.ues.map(u => u.ue_num))
+      .map(x => ({ ...x, orgs: x.nb_orgs > 1 ? [x.org] : null }));
   } catch { return []; }
 }
 
@@ -441,10 +458,29 @@ export function simuler(section, bloc, annee, { mode = 'plan' } = {}) {
   const { out: slots, nbSemaines, plages } = creneaux(section, annee);
   const dem = demandes(c, annee);
   const stages = stagesBloquants(c, annee);
-  const bloque = date => stages.some(x => date >= x.de && date <= x.fin);
-  // Occupations : brique et enseignant, par créneau (date + début).
+  const bloque = date => stages.some(x => date >= x.de && date <= x.fin && !x.orgs);
+  /* LES UNITÉS D'OCCUPATION : une brique de TP × une organisation. Deux demandes
+     d'organisations différentes ne se gênent pas ; une demande commune à toutes
+     occupe toutes les organisations de ses briques. Et, pour le cas par cas (un
+     étudiant en orga 1 d'une UE et en orga 2 d'une autre), les ÉTUDIANTS eux-mêmes. */
+  const orgsBloc = [...new Set([1, ...dem.flatMap(d => d.orgs || []), ...stages.flatMap(x => x.orgs || [])])];
+  const insc = new Map();                       // « etudiant|ue » → organisation
+  if (c.ues.length) for (const r of db.prepare(`SELECT etudiant_id, ue_num, COALESCE(num_organisation, 1) org FROM etudiant_inscription
+      WHERE annee_scolaire = ? AND ue_num IN (${c.ues.map(() => '?').join(',')})`).all(annee, ...c.ues.map(u => u.ue_num))) insc.set(`${r.etudiant_id}|${r.ue_num}`, r.org);
+  const elevesDe = (ue, orgsVoulues, briques) => c.etudiants.filter(e => insc.has(`${e.id}|${ue}`)
+    && (!orgsVoulues || orgsVoulues.includes(insc.get(`${e.id}|${ue}`)))
+    // Un groupe de TP ne compte que les étudiants rangés dans ses briques : sans brique, on ne sait pas.
+    && (!briques || briques.includes(c.briques[e.id]))).map(e => e.id);
+  for (const d of dem) {
+    d.unites = d.briques.flatMap(b => (d.orgs || orgsBloc).map(o => `${b}|${o}`));
+    d.eleves = elevesDe(d.ue_num, d.orgs, d.tout_le_bloc ? null : d.briques);
+  }
+  for (const x of stages) x.eleves = new Set(x.orgs ? elevesDe(x.ue_num, x.orgs, null) : []);
+  const bloqueD = (date, d) => stages.some(x => date >= x.de && date <= x.fin
+    && (!x.orgs || !d.orgs || x.orgs.some(o => d.orgs.includes(o)) || d.eleves.some(e => x.eleves.has(e))));
+  // Occupations : unité, étudiant et enseignant, par créneau (date + début).
   const k = s => `${s.date}|${s.debut}`;
-  const occB = new Map(), occP = new Map(), occL = new Map();
+  const occB = new Map(), occP = new Map(), occL = new Map(), occE = new Map();
   const marquer = (m, cle, v) => { if (!m.has(cle)) m.set(cle, new Set()); m.get(cle).add(v); };
   // Les séances déjà posées ailleurs (toutes sections) occupent leurs enseignants.
   let posees = [];
@@ -473,15 +509,16 @@ export function simuler(section, bloc, annee, { mode = 'plan' } = {}) {
     niveauCible(idx, 'ue', String(d.ue_num), s), niveauCible(idx, 'cours', String(d.cours_code), s), niveauCible(idx, 'activite', `${d.cours_code}#${d.activite_id}`, s));
   const niveauTout = (s, d) => Math.min(niveauProf(s, d), niveauCadre(s, d));
   const dispoProf = (s, d) => niveauTout(s, d) > 0;
-  const libreSansJours = (s, d) => !(d.briques.some(b => occB.get(k(s))?.has(b)) || (d.professeur_id && occP.get(k(s))?.has(d.professeur_id))) && dispoProf(s, d);
+  const etudiantsPris = (s, d) => d.unites.some(u => occB.get(k(s))?.has(u)) || (occE.has(k(s)) && d.eleves.some(e => occE.get(k(s)).has(e)));
+  const libreSansJours = (s, d) => !(etudiantsPris(s, d) || (d.professeur_id && occP.get(k(s))?.has(d.professeur_id))) && dispoProf(s, d);
   // Les jours de présence de chaque brique, semaine par semaine.
   const regles = reglesDe(section);
   const joursB = new Map();
   const jours = (s, b) => joursB.get(`${s.semaine}|${b}`);
-  const dansLesJours = (s, d) => d.briques.every(b => { const j = jours(s, b); return !j || j.has(s.jour) || j.size < regles.jours_max; });
+  const dansLesJours = (s, d) => d.unites.every(b => { const j = jours(s, b); return !j || j.has(s.jour) || j.size < regles.jours_max; });
   const libre = (s, d) => libreSansJours(s, d) && dansLesJours(s, d);
   // Regroupé : tous les étudiants du groupe viennent déjà ce jour-là.
-  const regroupe = (s, d) => d.briques.every(b => jours(s, b)?.has(s.jour));
+  const regroupe = (s, d) => d.unites.every(b => jours(s, b)?.has(s.jour));
   const salleLibre = (s, l) => !l || (!occL.get(k(s))?.has(l) && niveauCible(idx, 'local', l, s) > 0);
   // LES LOCAUX POSSIBLES de chaque demande, et son effectif.
   const referentiel = locauxDuReferentiel();
@@ -503,8 +540,9 @@ export function simuler(section, bloc, annee, { mode = 'plan' } = {}) {
   }
   const poser = (s, d, l) => {
     if (l) marquer(occL, k(s), l);
-    d.briques.forEach(b => marquer(joursB, `${s.semaine}|${b}`, s.jour));
-    if (!occB.has(k(s))) occB.set(k(s), new Set()); d.briques.forEach(b => occB.get(k(s)).add(b));
+    d.unites.forEach(b => marquer(joursB, `${s.semaine}|${b}`, s.jour));
+    if (!occB.has(k(s))) occB.set(k(s), new Set()); d.unites.forEach(b => occB.get(k(s)).add(b));
+    if (d.eleves.length) { if (!occE.has(k(s))) occE.set(k(s), new Set()); d.eleves.forEach(e => occE.get(k(s)).add(e)); }
     if (d.professeur_id) { if (!occP.has(k(s))) occP.set(k(s), new Set()); occP.get(k(s)).add(d.professeur_id); }
   };
   // LA RÉGULARITÉ D'ABORD (Charles, 9 octobre 2026 : « pour les étudiants et
@@ -535,7 +573,7 @@ export function simuler(section, bloc, annee, { mode = 'plan' } = {}) {
       const s = slots.find(x => x.semaine === w && x.jour === l.jour && x.debut === l.debut);
       if (!s) continue;                                   // un férié tombé depuis : la séance n'existe plus ce jour-là
       const conflits = [];
-      if (d.briques.some(b => occB.get(k(s))?.has(b))) conflits.push('étudiants');
+      if (etudiantsPris(s, d)) conflits.push('étudiants');
       if (d.professeur_id && occP.get(k(s))?.has(d.professeur_id)) conflits.push('enseignant');
       if (l.local && occL.get(k(s))?.has(l.local)) conflits.push('local');
       if (!dispoProf(s, d)) conflits.push('enseignant indisponible');
@@ -551,7 +589,7 @@ export function simuler(section, bloc, annee, { mode = 'plan' } = {}) {
     const possibles = slots.filter(s => (d.quadri === 'AN' || s.quadri === d.quadri)
       && (!s.conge || d.conges)
       && (!d.fenetre || (s.date >= d.fenetre.de && s.date <= d.fenetre.fin))
-      && !bloque(s.date));
+      && !bloqueD(s.date, d));
     const semaines = [...new Set(possibles.map(s => s.semaine))];
     const duree = possibles[0]?.minutes || 120;
     const besoin = Math.ceil(d.minutes / duree);
@@ -609,8 +647,8 @@ export function simuler(section, bloc, annee, { mode = 'plan' } = {}) {
     }
     if (irreguliers) fixes.get(d.cle).irreguliers = irreguliers;
     if (place < besoin) {
-      const conflitProf = d.professeur_id && possibles.some(s => !d.briques.some(b => occB.get(k(s))?.has(b)) && occP.get(k(s))?.has(d.professeur_id));
-      const indispo = d.professeur_id && possibles.some(s => !d.briques.some(b => occB.get(k(s))?.has(b)) && niveauProf(s, d) === 0);
+      const conflitProf = d.professeur_id && possibles.some(s => !etudiantsPris(s, d) && occP.get(k(s))?.has(d.professeur_id));
+      const indispo = d.professeur_id && possibles.some(s => !etudiantsPris(s, d) && niveauProf(s, d) === 0);
       const cadre = possibles.length && possibles.every(s => niveauCadre(s, d) === 0);
       const sansSalle = d.local_origine !== 'a_designer' && possibles.some(s => libre(s, d));
       const parJours = possibles.some(s => libreSansJours(s, d) && !dansLesJours(s, d));
@@ -626,7 +664,7 @@ export function simuler(section, bloc, annee, { mode = 'plan' } = {}) {
   }
   // LES JOURS DE PRÉSENCE, brique par brique : le plus et la moyenne par semaine de cours.
   const presence = Array.from({ length: Math.max(1, c.nb_briques) }, (_, i) => {
-    const n = [...new Set(slots.map(x => x.semaine))].map(w => joursB.get(`${w}|${i + 1}`)?.size || 0).filter(Boolean);
+    const n = [...new Set(slots.map(x => x.semaine))].map(w => Math.max(0, ...orgsBloc.map(o => joursB.get(`${w}|${i + 1}|${o}`)?.size || 0))).filter(Boolean);
     return { brique: i + 1, max: n.length ? Math.max(...n) : 0, moyenne: n.length ? Math.round(n.reduce((a, b) => a + b, 0) / n.length * 10) / 10 : 0 };
   });
   // La capacité, brique par brique : heures disponibles et heures demandées.

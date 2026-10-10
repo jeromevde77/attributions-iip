@@ -185,14 +185,14 @@ export default function ImportPAE({ annee, onClose, onImporte }) {
       </>}>
         <div className="space-y-4">
           {erreur && (
-            <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-[13px] text-red-800 border-l-4 border-l-red-500">
+            <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-sm text-red-800 border-l-4 border-l-red-500">
               {erreur}
             </div>
           )}
 
           {etape === 'fichier' && (
             <>
-              <p className="text-[13px] text-slate-600">
+              <p className="text-sm text-slate-600">
                 Le classeur doit comporter un onglet <b>TOUS</b> : les intitulés en première ligne,
                 les codes de cours en deuxième, puis un étudiant par ligne.
               </p>
@@ -208,7 +208,7 @@ export default function ImportPAE({ annee, onClose, onImporte }) {
 
           {etape === 'legende' && analyse && (
             <>
-              <div className="text-[13px] text-slate-600">
+              <div className="text-sm text-slate-600">
                 Onglet <b>{analyse.onglet}</b> — {analyse.nEtudiants} étudiants,
                 {' '}{analyse.colonnes.length} colonnes de cours.
               </div>
@@ -232,25 +232,25 @@ export default function ImportPAE({ annee, onClose, onImporte }) {
               </div>
 
               <div>
-                <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-2">
+                <div className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-2">
                   Signification des valeurs rencontrées
                 </div>
                 <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 max-h-72 overflow-y-auto">
                   {analyse.liste.map(({ valeur, n }) => (
                     <div key={valeur} className="flex items-center gap-3 px-3 py-2">
-                      <code className="text-[12px] font-bold text-iip-blue bg-slate-100 px-2 py-0.5 rounded flex-none min-w-[70px] text-center">
+                      <code className="text-second font-bold text-iip-blue bg-slate-100 px-2 py-0.5 rounded flex-none min-w-[70px] text-center">
                         {valeur}
                       </code>
-                      <span className="text-[11px] text-slate-400 flex-none w-16">{n}×</span>
+                      <span className="text-xs text-slate-400 flex-none w-16">{n}×</span>
                       <select value={mapping[valeur] || 'ignorer'}
                         onChange={e => setMapping(m => ({ ...m, [valeur]: e.target.value }))}
-                        className="flex-1 border border-slate-300 rounded-lg px-2 py-1 text-[12px]">
+                        className="flex-1 border border-slate-300 rounded-lg px-2 py-1 text-second">
                         {SENS.map(s => <option key={s.val} value={s.val}>{s.label}</option>)}
                       </select>
                     </div>
                   ))}
                 </div>
-                <p className="text-[11px] text-slate-400 mt-1.5">
+                <p className="text-xs text-slate-400 mt-1.5">
                   Les commentaires libres du Conseil des études sont repris tels quels et
                   n'apparaissent pas ici. Une valeur laissée sur « ignorer » n'est pas importée.
                 </p>
@@ -261,9 +261,9 @@ export default function ImportPAE({ annee, onClose, onImporte }) {
 
           {etape === 'fait' && rapport && (
             <>
-              <div className="px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-[13px] text-emerald-900 border-l-4 border-l-emerald-500">
+              <div className="px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-900 border-l-4 border-l-emerald-500">
                 <div className="font-semibold mb-1">Import terminé</div>
-                <ul className="space-y-0.5 text-[12px]">
+                <ul className="space-y-0.5 text-second">
                   <li>{rapport.resultats_cours} résultat(s) de cours enregistré(s)</li>
                   <li>{rapport.ue_deduites} unité(s) d'enseignement déduite(s) et sanctionnée(s)</li>
                   <li>{rapport.pae_creees} inscription(s) créée(s) au PAE</li>
@@ -272,7 +272,7 @@ export default function ImportPAE({ annee, onClose, onImporte }) {
               </div>
 
               {(rapport.matricules_inconnus?.length > 0 || rapport.cours_inconnus?.length > 0) && (
-                <div className="px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-[12px] text-amber-900 border-l-4 border-l-amber-500">
+                <div className="px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-second text-amber-900 border-l-4 border-l-amber-500">
                   <div className="flex items-center gap-1.5 font-semibold mb-1">
                     <IconAlertTriangle size={14} /> À vérifier
                   </div>

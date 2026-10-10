@@ -252,16 +252,16 @@ export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
       onFermer={onClose}
       sous={`${ueNom || ''} · ${annee}${etat ? (etat.cloturee ? ' · séance close' : ' · séance non close') : ''}`}
       pied={<>
-          <span className="text-[12px] text-slate-500">
+          <span className="text-second text-slate-500">
             {total ? `${total} pièce(s) à produire` : 'Rien de coché'}
           {total ? (
-            <span className="block text-[11px] text-slate-400">
+            <span className="block text-xs text-slate-400">
               Le PDF porte le pied de page sur chaque feuille ; l'aperçu HTML, non —
               le navigateur ne sait pas répéter un pied.
             </span>
           ) : null}
           </span>
-            <label className="flex items-center gap-2 text-[12px] text-slate-600
+            <label className="flex items-center gap-2 text-second text-slate-600
                               cursor-pointer">
               <input type="checkbox" checked={separer}
                 onChange={e => {
@@ -270,7 +270,7 @@ export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
                 }}
                 className="w-4 h-4 accent-iip-blue" />
               Un document par étudiant
-              <span className="text-[11px] text-slate-400">
+              <span className="text-xs text-slate-400">
                 (les pièces du Conseil restent groupées)
               </span>
             </label>
@@ -297,7 +297,7 @@ export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
       </>}>
         <div className="space-y-3">
           <div>
-            <div className="text-[12px] text-slate-500 mb-1">Que montrent ces pièces ?</div>
+            <div className="text-second text-slate-500 mb-1">Que montrent ces pièces ?</div>
             <div className="segments">
               {[
                 { k: '1', l: '1re session', t: 'Tous les inscrits, décisions de juin' },
@@ -307,7 +307,7 @@ export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
                   t: 'Le résultat final : septembre là où il a eu lieu, juin partout ailleurs' },
               ].map(x => (
                 <button key={x.k} onClick={() => setLecture(x.k)} title={x.t}
-                  className={`flex-1 px-2 py-1.5 text-[12px] ${lecture === x.k
+                  className={`flex-1 px-2 py-1.5 text-second ${lecture === x.k
                     ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>
                   {x.l}
                 </button>
@@ -317,7 +317,7 @@ export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
 
           {erreur && (
             <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200
-                            text-[12px] text-red-800 flex items-start gap-1.5">
+                            text-second text-red-800 flex items-start gap-1.5">
               <IconAlertTriangle size={14} className="mt-0.5 flex-none" /> {erreur}
             </div>
           )}
@@ -336,12 +336,12 @@ export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
                       onChange={e => setChoix(c => ({ ...c, [p.cle]: e.target.checked }))}
                       className="mt-0.5 w-4 h-4 accent-iip-blue" />
                     <span className="flex-1 min-w-0">
-                      <span className="text-[13px] font-semibold text-slate-800">
+                      <span className="text-sm font-semibold text-slate-800">
                         {p.noms ? `${p.nb} ` : ''}{p.libelle.toLowerCase()}
                       </span>
-                      <span className="block text-[11px] text-slate-500">{p.aide}</span>
+                      <span className="block text-xs text-slate-500">{p.aide}</span>
                       {!!p.noms?.length && (
-                        <span className="block text-[11px] text-slate-400 truncate">
+                        <span className="block text-xs text-slate-400 truncate">
                           {p.noms.map(x => x.nom).join(', ')}
                         </span>
                       )}
@@ -352,13 +352,13 @@ export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
 
               {!!etat.sans_decision.length && (
                 <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
-                                text-[12px] text-amber-900">
+                                text-second text-amber-900">
                   <b>{etat.sans_decision.length} étudiant(s) sans décision</b> : aucune pièce
                   ne peut être produite pour eux tant que le Conseil n'a pas délibéré.
                 </div>
               )}
 
-              <p className="text-[11px] text-slate-500">
+              <p className="text-xs text-slate-500">
                 Toutes les pièces sortent dans un seul document, chacune sur sa page,
                 prêtes à imprimer et à signer.
               </p>

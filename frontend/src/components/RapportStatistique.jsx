@@ -23,7 +23,7 @@ const e2 = n => (n ? n.toFixed(2).replace('.', ',') : '—');
 const HELB = '#B83280';
 
 function BadgeHelb({ libelle = 'HELB' }) {
-  return <span className="ml-1.5 text-[10px] font-bold text-white rounded px-1.5 py-px align-middle" style={{ background: HELB }}>{libelle}</span>;
+  return <span className="ml-1.5 text-mention font-bold text-white rounded px-1.5 py-px align-middle" style={{ background: HELB }}>{libelle}</span>;
 }
 
 /** Un anneau : les parts d'un tout, la légende avec les pourcentages. */
@@ -44,7 +44,7 @@ function Anneau({ parts, total, centre }) {
         {parts.filter(p => p.valeur > 0).map(p => <path key={p.nom} d={arc(p)} style={{ fill: p.couleur }} fillRule="evenodd" />)}
         <text x={C} y={C + 5} textAnchor="middle" fontSize="15" fontWeight="700" style={{ fill: 'var(--c-texte, #16406A)' }}>{centre}</text>
       </svg>
-      <ul className="m-0 p-0 list-none space-y-1 text-[12px] min-w-0">
+      <ul className="m-0 p-0 list-none space-y-1 text-second min-w-0">
         {parts.filter(p => p.valeur > 0).map(p => (
           <li key={p.nom} className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-sm flex-none" style={{ background: p.couleur }} />
@@ -61,7 +61,7 @@ function Barres({ lignes, couleur = 'var(--c-principal, #19537E)', format = eur 
   return (
     <div className="space-y-1.5">
       {lignes.map(l => (
-        <div key={l.nom} className="grid grid-cols-[minmax(0,9rem)_1fr_auto] items-center gap-3 text-[12px]">
+        <div key={l.nom} className="grid grid-cols-[minmax(0,9rem)_1fr_auto] items-center gap-3 text-second">
           <span className="truncate">{l.nom}</span>
           <div className="h-3 rounded bg-slate-100 overflow-hidden">
             <div className="h-full rounded" style={{ width: `${(l.valeur / max) * 100}%`, background: l.couleur || couleur }} />
@@ -74,8 +74,8 @@ function Barres({ lignes, couleur = 'var(--c-principal, #19537E)', format = eur 
 function Carte({ titre, sous, children, className = '' }) {
   return (
     <section className={`carte p-4 space-y-3 ${className}`}>
-      {titre && <div><div className="text-[15px] font-semibold text-iip-blue">{titre}</div>
-        {sous && <div className="text-[12px] text-slate-500">{sous}</div>}</div>}
+      {titre && <div><div className="text-base font-semibold text-iip-blue">{titre}</div>
+        {sous && <div className="text-second text-slate-500">{sous}</div>}</div>}
       {children}
     </section>);
 }
@@ -96,7 +96,7 @@ function Personnes({ d }) {
   const H = d.humains;
   if (!H) return (
     <Carte titre="Les personnes — sexe et nationalités">
-      <div className="bloc-etat px-3 py-2 text-[13px]" data-etat="surveiller">
+      <div className="bloc-etat px-3 py-2 text-sm" data-etat="surveiller">
         Les chiffres des personnes n'ont pas pu être calculés{d.humains_erreur ? ` : ${d.humains_erreur}` : ''}.
       </div>
     </Carte>);
@@ -110,38 +110,38 @@ function Personnes({ d }) {
       <div className="segments w-fit">
         {[['etudiants', 'Étudiants'], ['personnel', 'Personnel']].map(([k, l]) => (
           <button key={k} type="button" onClick={() => setQui(k)}
-            className={`px-3 py-1 text-[12px] ${qui === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>{l}</button>))}
+            className={`px-3 py-1 text-second ${qui === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>{l}</button>))}
       </div>
       <div className="grid gap-4 lg:grid-cols-3">
         <div>
-          <div className="text-[13px] font-semibold mb-1">Femmes et hommes <span className="text-slate-500 font-normal">· {k0(x.n)} personnes</span></div>
+          <div className="text-sm font-semibold mb-1">Femmes et hommes <span className="text-slate-500 font-normal">· {k0(x.n)} personnes</span></div>
           <Anneau centre={k0(x.n)} parts={[['Femmes', x.F, 'F'], ['Hommes', x.M, 'M'], ['X', x.X, 'X'], ['Non renseigné', x.sexe_inconnu, 'NR']]
             .map(([nom, v, k]) => ({ nom, valeur: v || 0, couleur: COUL_SEXE[k] }))} />
-          <div className="text-[11px] text-slate-500 mt-1">{pc(x.F || 0, sexeC)} de femmes parmi les {k0(sexeC)} dont le sexe est renseigné.</div>
+          <div className="text-xs text-slate-500 mt-1">{pc(x.F || 0, sexeC)} de femmes parmi les {k0(sexeC)} dont le sexe est renseigné.</div>
         </div>
         <div>
-          <div className="text-[13px] font-semibold mb-1">Nationalités</div>
+          <div className="text-sm font-semibold mb-1">Nationalités</div>
           <Anneau centre={k0(x.n)} parts={[['Belgique', x.be, 'be'], ['Union européenne', x.ue, 'ue'], ['Hors Union européenne', x.hors_ue, 'hors_ue'], ['Non renseignée', x.nat_inconnue, 'nat_inconnue']]
             .map(([nom, v, k]) => ({ nom, valeur: v || 0, couleur: COUL_NAT[k] }))} />
-          <div className="text-[11px] text-slate-500 mt-1">Nationalité renseignée pour {k0(natC)} sur {k0(x.n)}{x.nat_inconnue ? ' — à compléter dans les fiches' : ''}.</div>
+          <div className="text-xs text-slate-500 mt-1">Nationalité renseignée pour {k0(natC)} sur {k0(x.n)}{x.nat_inconnue ? ' — à compléter dans les fiches' : ''}.</div>
         </div>
         <div>
-          <div className="text-[13px] font-semibold mb-1">Les pays <span className="text-slate-500 font-normal">· {pays.length}</span></div>
-          {!pays.length ? <p className="text-[12px] text-slate-500 m-0">Aucune nationalité renseignée.</p> : (
+          <div className="text-sm font-semibold mb-1">Les pays <span className="text-slate-500 font-normal">· {pays.length}</span></div>
+          {!pays.length ? <p className="text-second text-slate-500 m-0">Aucune nationalité renseignée.</p> : (
             <Barres lignes={pays.slice(0, 12).map(([nom, v]) => ({ nom, valeur: v, couleur: nom === 'Belgique' ? COUL_NAT.be : '#5E9C8B' }))} format={v => `${k0(v)} · ${pc(v, natC)}`} />)}
-          {pays.length > 12 && <div className="text-[11px] text-slate-500 mt-1">… et {pays.length - 12} autre(s) pays.</div>}
+          {pays.length > 12 && <div className="text-xs text-slate-500 mt-1">… et {pays.length - 12} autre(s) pays.</div>}
         </div>
       </div>
       <div className="overflow-x-auto">
-        <table className="text-[13px] min-w-full">
+        <table className="text-sm min-w-full">
           <thead className="tab-entete"><tr><Th>Section</Th><Th n>Personnes</Th><Th n>Femmes</Th><Th n>Hommes</Th><Th n>% F</Th>
             <Th n>Belgique</Th><Th n>UE</Th><Th n>Hors UE</Th><Th n>Non renseignée</Th></tr></thead>
           <tbody>{H.lignes.filter(l => l[qui]?.n).map(l => { const y = l[qui]; const c = (y.n || 0) - (y.sexe_inconnu || 0); const cn = (y.n || 0) - (y.nat_inconnue || 0); return (
             <tr key={l.section} className="border-b border-slate-100"><Td>{l.section}</Td><Td n>{k0(y.n)}</Td><Td n>{k0(y.F)}</Td><Td n>{k0(y.M)}</Td><Td n>{pc(y.F || 0, c)}</Td>
-              <Td n>{k0(y.be)} <span className="text-[11px] text-slate-400">{pc(y.be || 0, cn)}</span></Td><Td n>{k0(y.ue)}</Td><Td n>{k0(y.hors_ue)}</Td>
+              <Td n>{k0(y.be)} <span className="text-xs text-slate-400">{pc(y.be || 0, cn)}</span></Td><Td n>{k0(y.ue)}</Td><Td n>{k0(y.hors_ue)}</Td>
               <Td n className={y.nat_inconnue ? 'text-slate-400' : ''}>{k0(y.nat_inconnue)}</Td></tr>); })}</tbody>
           <tfoot><tr className="font-semibold bg-slate-50"><Td>Ensemble (chacun une fois)</Td><Td n>{k0(x.n)}</Td><Td n>{k0(x.F)}</Td><Td n>{k0(x.M)}</Td><Td n>{pc(x.F || 0, sexeC)}</Td>
-            <Td n>{k0(x.be)} <span className="text-[11px] text-slate-400 font-normal">{pc(x.be || 0, natC)}</span></Td><Td n>{k0(x.ue)}</Td><Td n>{k0(x.hors_ue)}</Td><Td n>{k0(x.nat_inconnue)}</Td></tr></tfoot>
+            <Td n>{k0(x.be)} <span className="text-xs text-slate-400 font-normal">{pc(x.be || 0, natC)}</span></Td><Td n>{k0(x.ue)}</Td><Td n>{k0(x.hors_ue)}</Td><Td n>{k0(x.nat_inconnue)}</Td></tr></tfoot>
         </table>
       </div>
     </Carte>);
@@ -206,9 +206,9 @@ export default function RapportStatistique() {
       <div className="carte-plate">
         <InscritsPrevus replie annee={annee} onEnregistre={() => setTour(t => t + 1)} />
       </div>
-      {erreur && <div className="bloc-etat px-3 py-2 text-[13px]" data-etat="corriger">{erreur}</div>}
-      {!d ? <p className="text-[13px] text-slate-400">{enCours ? 'Calcul du rapport…' : ''}</p> : (<>
-        <div className="bloc-etat px-3 py-2 text-[12px] text-slate-600" data-etat="neutre">
+      {erreur && <div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">{erreur}</div>}
+      {!d ? <p className="text-sm text-slate-400">{enCours ? 'Calcul du rapport…' : ''}</p> : (<>
+        <div className="bloc-etat px-3 py-2 text-second text-slate-600" data-etat="neutre">
           Montants au <b>coût de convention</b> : ce que coûte une période quand l'établissement doit l'acheter à la Fédération —
           pas les traitements réellement versés. Un membre du personnel absent peut être remplacé <b>sans coût supplémentaire</b> à
           partir de {d.remplacement_jours} jours ouvrables d'absence (circ. 9760, III.2.8).
@@ -238,7 +238,7 @@ export default function RapportStatistique() {
         {Y.cmb?.lignes?.length > 0 && (
         <Carte titre="Coût moyen brut pondéré, par niveau" sous="Total des périodes attribuées × une seule valeur par niveau — la lecture de la Haute École, à côté du coût détaillé de la circulaire.">
           <div className="overflow-x-auto">
-          <table className="text-[13px] min-w-full">
+          <table className="text-sm min-w-full">
             <thead className="tab-entete"><tr><Th>Niveau</Th><Th n>Périodes IIP</Th><Th n>Périodes HELB</Th><Th n>Total</Th><Th n>Coût moyen / période</Th>
               <Th n>Montant IIP</Th><Th n>Montant HELB</Th><Th n>Montant total</Th><Th n>Coût détaillé</Th></tr></thead>
             <tbody>{Y.cmb.lignes.map(l => (
@@ -255,7 +255,7 @@ export default function RapportStatistique() {
               <Td n>{eur(Y.cmb.total.montant)}</Td><Td n>{eur(Y.cmb.total.cout_detaille)}</Td></tr></tfoot>)}
           </table></div>
           {Y.cmb.a_regler.length > 0 && (
-            <p className="text-[12px] text-slate-600 mt-2">Coût moyen brut à régler pour <b>{Y.cmb.a_regler.join(', ')}</b> dans
+            <p className="text-second text-slate-600 mt-2">Coût moyen brut à régler pour <b>{Y.cmb.a_regler.join(', ')}</b> dans
               Configuration → Coût des périodes : ses périodes sont comptées, sans montant.</p>)}
         </Carte>)}
 
@@ -263,7 +263,7 @@ export default function RapportStatistique() {
 
         <Carte titre="Les ETP par section" sous="Périodes CT ÷ 800 + PP ÷ 1 000, comme Pilotage — hors congés et activités Z ; le tronc commun réparti au prorata des étudiants.">
           <div className="overflow-x-auto">
-          <table className="text-[13px] min-w-full">
+          <table className="text-sm min-w-full">
             <thead className="tab-entete"><tr><Th>Section</Th><Th n>ETP total</Th><Th n>dont CC</Th><Th n>dont EXP</Th><Th n>% CC</Th><Th>Répartition</Th>
               {Y.etp_total.autre > 0 && <Th n>Sans statut</Th>}</tr></thead>
             <tbody>{Y.etp.map(E => (
@@ -274,7 +274,7 @@ export default function RapportStatistique() {
                 {Y.etp_total.autre > 0 && <Td n>{e2(E.autre)}</Td>}
               </tr>))}</tbody>
             <tfoot><tr className="font-semibold bg-slate-50"><Td>Ensemble</Td><Td n>{e2(Y.etp_total.total)}</Td><Td n>{e2(Y.etp_total.cc)}</Td><Td n>{e2(Y.etp_total.exp)}</Td>
-              <Td n>{pc(Y.etp_total.cc, Y.etp_total.total)}</Td><Td><span className="text-[11px] text-slate-500 font-normal">
+              <Td n>{pc(Y.etp_total.cc, Y.etp_total.total)}</Td><Td><span className="text-xs text-slate-500 font-normal">
                 <span className="inline-block w-2 h-2 rounded-sm mr-1" style={{ background: '#19537E' }} />CC
                 <span className="inline-block w-2 h-2 rounded-sm ml-3 mr-1" style={{ background: '#05B7E6' }} />EXP</span></Td>
               {Y.etp_total.autre > 0 && <Td n>{e2(Y.etp_total.autre)}</Td>}</tr></tfoot>
@@ -283,13 +283,13 @@ export default function RapportStatistique() {
 
         <Carte titre="Section par section" sous="Coût des cours, part des fonctions au prorata des inscrits, coût complet et par étudiant.">
           <div className="overflow-x-auto">
-          <table className="text-[13px] min-w-full">
+          <table className="text-sm min-w-full">
             <thead className="tab-entete"><tr><Th>Section</Th><Th n>Cours</Th><Th n>dont CC</Th><Th n>dont EXP</Th><Th n>dont HELB</Th><Th n>Inscrits</Th><Th n>Fonctions</Th><Th n>Complet</Th><Th n>Par étudiant</Th></tr></thead>
             <tbody>{sections.map(S => (
               <tr key={S.section} className="border-b border-slate-100">
                 <Td>{S.section}</Td><Td n>{eur(S.cout)}</Td><Td n>{eur(S.statuts?.CC?.cout)}</Td><Td n>{eur(S.statuts?.EXP?.cout)}</Td>
                 <Td n>{S.cout_helb ? eur(S.cout_helb) : '—'}</Td>
-                <Td n>{S.inscrits ? k0(S.inscrits) : '—'}{S.inscrits_prevus ? <span className="text-[10px] text-slate-400"> prévu</span> : ''}</Td>
+                <Td n>{S.inscrits ? k0(S.inscrits) : '—'}{S.inscrits_prevus ? <span className="text-mention text-slate-400"> prévu</span> : ''}</Td>
                 <Td n>{S.part_fonctions ? eur(S.part_fonctions) : '—'}</Td><Td n b>{eur(S.cout_complet)}</Td>
                 <Td n>{S.inscrits ? eur(S.cout_complet / S.inscrits) : '—'}</Td>
               </tr>))}</tbody>
@@ -300,7 +300,7 @@ export default function RapportStatistique() {
 
         <Carte titre="Droits d'inscription et frais" sous="Le calcul de la fiche Frais de scolarité de chaque étudiant ; le DIS revient à la Fédération.">
           <div className="overflow-x-auto">
-          <table className="text-[13px] min-w-full">
+          <table className="text-sm min-w-full">
             <thead className="tab-entete"><tr><Th>Section</Th><Th n>DI</Th><Th n>DIS</Th><Th n>Frais adm.</Th><Th n>Total dû</Th><Th n>Versé</Th><Th n>Par étudiant</Th></tr></thead>
             <tbody>{sections.filter(S => { const x = S.recettes || {}; return x.di || x.dis || x.frais || x.verse || S.recettes_tiers || S.inscrits; }).map(S => {
               const x = S.recettes || {}; const du = (x.di || 0) + (x.dis || 0) + (x.frais || 0); const t = S.recettes_tiers;
@@ -309,7 +309,7 @@ export default function RapportStatistique() {
                   <Td>{S.section}</Td><Td n>{k0(x.di)}</Td><Td n>{k0(x.dis)}</Td><Td n>{k0(x.frais)}</Td><Td n b>{k0(du)}</Td><Td n>{k0(x.verse)}</Td>
                   <Td n>{S.inscrits ? k0(du / S.inscrits) : '—'}</Td></tr>,
                 t && <tr key={`${S.section}|tiers`} className="border-b border-slate-100">
-                  <Td>{S.section}<BadgeHelb libelle={t.payeur || 'HELB'} /><span className="text-[11px] text-slate-500"> perçu par {t.payeur} · {t.etudiants} étudiant(s)</span></Td>
+                  <Td>{S.section}<BadgeHelb libelle={t.payeur || 'HELB'} /><span className="text-xs text-slate-500"> perçu par {t.payeur} · {t.etudiants} étudiant(s)</span></Td>
                   <Td n>0</Td><Td n>0</Td><Td n>0</Td><Td n b>0</Td><Td n>0</Td><Td n>0</Td></tr>,
               ]; })}</tbody>
             <tfoot><tr className="font-semibold bg-slate-50"><Td>Ensemble — perçu par l'établissement</Td><Td n>{k0(R.di)}</Td><Td n>{k0(R.dis)}</Td><Td n>{k0(R.frais)}</Td>
@@ -319,20 +319,20 @@ export default function RapportStatistique() {
         </Carte>
 
         <Carte titre="Personnel administratif et coordinations" sous="Regroupés par fonction, sans les noms ; la part HELB a sa propre ligne.">
-          {!Y.fonctions.length ? <p className="text-[13px] text-slate-500 m-0">Aucune fonction encodée pour cette année (onglet Fonctions de la fiche du personnel).</p> : (
+          {!Y.fonctions.length ? <p className="text-sm text-slate-500 m-0">Aucune fonction encodée pour cette année (onglet Fonctions de la fiche du personnel).</p> : (
           <div className="overflow-x-auto">
-          <table className="text-[13px] min-w-full">
+          <table className="text-sm min-w-full">
             <thead className="tab-entete"><tr><Th>Fonction</Th><Th>Portée</Th><Th n>Personnes</Th><Th n>ETP</Th><Th>Calcul</Th><Th n>Coût</Th></tr></thead>
             <tbody>{Y.fonctions.map((g, i) => (
               <tr key={i} className="border-b border-slate-100">
                 <Td>{g.fonction}{g.helb && <BadgeHelb />}</Td><Td>{g.portees.join(', ')}</Td><Td n>{g.personnes}</Td>
                 <Td n>{g.etp ? String(Math.round(g.etp * 100) / 100).replace('.', ',') : <span className="text-slate-400">à régler</span>}</Td>
-                <Td className="text-[12px] text-slate-600">{g.calcul || (g.mode === 'periodes' ? 'payée par les périodes attribuées — aucune ligne de coordination à son nom' : 'ETP à régler (onglet Fonctions)')}</Td>
+                <Td className="text-second text-slate-600">{g.calcul || (g.mode === 'periodes' ? 'payée par les périodes attribuées — aucune ligne de coordination à son nom' : 'ETP à régler (onglet Fonctions)')}</Td>
                 <Td n>{g.cout ? eur(g.cout) : g.cout_periodes ? <i>{eur(g.cout_periodes)} *</i> : '—'}</Td>
               </tr>))}</tbody>
             <tfoot>
               <tr className="font-semibold bg-slate-50"><Td>Ensemble des fonctions</Td><Td /><Td /><Td /><Td>{Y.fonctions.some(g => g.helb) ? `dont HELB ${eur(Y.fonctions.filter(g => g.helb).reduce((a, g) => a + g.cout, 0))}` : ''}</Td><Td n>{eur(T.cout_fonctions)}</Td></tr>
-              {Y.cout_en_periodes > 0 && <tr><Td className="text-[12px] text-slate-500" colSpan={5}>* payées par des périodes attribuées — déjà comprises dans le coût des cours, hors total</Td><Td n><i>{eur(Y.cout_en_periodes)} *</i></Td></tr>}
+              {Y.cout_en_periodes > 0 && <tr><Td className="text-second text-slate-500" colSpan={5}>* payées par des périodes attribuées — déjà comprises dans le coût des cours, hors total</Td><Td n><i>{eur(Y.cout_en_periodes)} *</i></Td></tr>}
             </tfoot>
           </table></div>)}
         </Carte>
@@ -344,16 +344,16 @@ export default function RapportStatistique() {
               return (
                 <div key={S.section}>
                   <button type="button" onClick={() => setOuvertes(x => ({ ...x, [S.section]: !o }))}
-                    className="w-full flex items-center gap-2 py-2 text-left text-[13px]">
+                    className="w-full flex items-center gap-2 py-2 text-left text-sm">
                     {o ? <IconChevronDown size={15} /> : <IconChevronRight size={15} />}
                     <b>{S.section}</b><span className="text-slate-500">{S.ues.length} unité(s) · {eur(S.cout)} · {pc(S.statuts?.CC?.periodes, S.periodes)} CC</span>
                   </button>
                   {o && (
-                    <table className="text-[13px] min-w-full mb-3">
+                    <table className="text-sm min-w-full mb-3">
                       <thead className="tab-entete"><tr><Th>Unité</Th><Th n>Niveau</Th><Th n>Périodes</Th><Th n>% CC</Th><Th n>Coût</Th></tr></thead>
                       <tbody>{S.ues.map(u => (
                         <tr key={u.ue_num} className="border-b border-slate-100">
-                          <Td>UE {u.ue_num} — {u.ue_nom}{u.part ? <span className="text-[11px] text-slate-500"> · partagée : {Math.round(u.part * 100)} %</span> : null}</Td>
+                          <Td>UE {u.ue_num} — {u.ue_nom}{u.part ? <span className="text-xs text-slate-500"> · partagée : {Math.round(u.part * 100)} %</span> : null}</Td>
                           <Td n>{u.niveau || '—'}</Td><Td n>{k0(u.periodes)}</Td><Td n>{pc(u.statuts?.CC?.periodes, u.periodes)}</Td><Td n b>{eur(u.cout)}</Td>
                         </tr>))}</tbody>
                     </table>)}

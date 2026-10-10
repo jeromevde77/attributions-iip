@@ -32,7 +32,7 @@ const TYPES_ENTRETIEN = [
 
 function Pastille({ statut }) {
   const s = STATUTS_PIECE[statut] || STATUTS_PIECE.manquante;
-  return <span className={`px-2 py-0.5 rounded-champ text-[11px] font-bold ${s.classe}`}>{s.label}</span>;
+  return <span className={`px-2 py-0.5 rounded-champ text-xs font-bold ${s.classe}`}>{s.label}</span>;
 }
 
 // ═══ DOSSIER ADMINISTRATIF ═════════════════════════════════════════════════
@@ -105,10 +105,10 @@ export function DossierAdmin({ profId, peutEcrire }) {
                     {p.libelle}
                   </div>
                   {p.titre_intitule && p.code_piece === 'titre' && (
-                    <div className="text-[11px] text-slate-500">{p.titre_intitule}</div>
+                    <div className="text-xs text-slate-500">{p.titre_intitule}</div>
                   )}
                   {p.base_legale && (
-                    <div className="text-[10px] text-slate-400 mt-0.5">{p.base_legale}</div>
+                    <div className="text-mention text-slate-400 mt-0.5">{p.base_legale}</div>
                   )}
                 </td>
                 <td className="px-3 py-2 text-slate-600">{p.annexe || '—'}</td>
@@ -120,7 +120,7 @@ export function DossierAdmin({ profId, peutEcrire }) {
                         date_reception: e.target.value || null,
                       })}
                       disabled={enCours === p.code_piece}
-                      className="border border-slate-300 rounded-lg px-2 py-1 text-[13px] w-full" />
+                      className="border border-slate-300 rounded-lg px-2 py-1 text-sm w-full" />
                   ) : fr(p.date_reception)}
                 </td>
                 <td className="px-3 py-2"><Pastille statut={p.statut} /></td>
@@ -131,14 +131,14 @@ export function DossierAdmin({ profId, peutEcrire }) {
                         <button onClick={() => majPiece(p.code_piece, {
                             statut: 'transmise', date_reception: p.date_reception,
                             date_transmission: new Date().toISOString().slice(0, 10) })}
-                          className="text-[11px] px-2 py-1 rounded border border-slate-300 hover:bg-slate-50">
+                          className="text-xs px-2 py-1 rounded border border-slate-300 hover:bg-slate-50">
                           GEDI
                         </button>
                       )}
                       {p.statut !== 'non_requise' && (
                         <button onClick={() => majPiece(p.code_piece, { statut: 'non_requise' })}
                           title="Marquer non requise"
-                          className="text-[11px] px-2 py-1 rounded border border-slate-300 hover:bg-slate-50 text-slate-500">
+                          className="text-xs px-2 py-1 rounded border border-slate-300 hover:bg-slate-50 text-slate-500">
                           N/A
                         </button>
                       )}
@@ -150,7 +150,7 @@ export function DossierAdmin({ profId, peutEcrire }) {
           </tbody>
         </table>
       </div>
-      <p className="text-[11px] text-slate-400">
+      <p className="text-xs text-slate-400">
         Les pièces transmises via GEDI portent la date de transmission. Le titre de
         capacité est repris automatiquement de la fiche s'il y est encodé.
       </p>
@@ -250,7 +250,7 @@ export function Absences({ profId, peutEcrire }) {
             <button onClick={() => setForm(null)}
               className="text-sm px-3 py-1.5 rounded-lg border border-slate-300">Annuler</button>
           </div>
-          <p className="text-[11px] text-slate-500">
+          <p className="text-xs text-slate-500">
             L'enregistrement crée les échéances liées : déclaration CAMMAT et, au-delà
             de dix jours ouvrables, organisation du remplacement.
           </p>
@@ -273,23 +273,23 @@ export function Absences({ profId, peutEcrire }) {
             <div className="flex-1 min-w-[140px]">
               <div className="text-sm text-slate-800">{libelle}</div>
               {(a.code_cad || a.motif) && (
-                <div className="text-[11px] text-slate-500">{[a.code_cad, a.motif].filter(Boolean).join(' · ')}</div>
+                <div className="text-xs text-slate-500">{[a.code_cad, a.motif].filter(Boolean).join(' · ')}</div>
               )}
             </div>
             <button onClick={() => peutEcrire && basculer(a, 'cammat_declare')}
               disabled={!peutEcrire}
-              className={`text-[11px] px-2 py-1 rounded-champ font-bold ${a.cammat_declare
+              className={`text-xs px-2 py-1 rounded-champ font-bold ${a.cammat_declare
                 ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'}`}>
               CAMMAT {a.cammat_declare ? '✓' : '✗'}
             </button>
             <button onClick={() => peutEcrire && basculer(a, 'certificat_recu')}
               disabled={!peutEcrire}
-              className={`text-[11px] px-2 py-1 rounded-champ font-bold ${a.certificat_recu
+              className={`text-xs px-2 py-1 rounded-champ font-bold ${a.certificat_recu
                 ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-600'}`}>
               Certificat {a.certificat_recu ? '✓' : '✗'}
             </button>
             {a.remplacement_requis === 1 && (
-              <span className="text-[11px] px-2 py-1 rounded-champ bg-red-500 text-white font-bold">
+              <span className="text-xs px-2 py-1 rounded-champ bg-red-500 text-white font-bold">
                 Remplacement requis
               </span>
             )}
@@ -450,21 +450,21 @@ export function Entretiens({ profId, peutEcrire, estAdmin }) {
                   {libelle}
                   {e.confidentiel === 1 && <IconLock size={13} className="text-slate-400" />}
                 </div>
-                {e.mene_par && <div className="text-[11px] text-slate-500">{e.mene_par}</div>}
+                {e.mene_par && <div className="text-xs text-slate-500">{e.mene_par}</div>}
               </div>
-              <span className={`text-[11px] px-2 py-0.5 rounded-champ font-bold ${e.date_tenue
+              <span className={`text-xs px-2 py-0.5 rounded-champ font-bold ${e.date_tenue
                 ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'}`}>
                 {e.date_tenue ? 'Tenu' : 'Prévu'}
               </span>
               {(e.compte_rendu_html || e.masque) && !e.masque && (
                 <button onClick={() => setOuvert(ouvert === e.id ? null : e.id)}
-                  className="text-[12px] text-iip-turquoise font-semibold">
+                  className="text-second text-iip-turquoise font-semibold">
                   {ouvert === e.id ? 'Masquer' : 'Compte rendu'}
                 </button>
               )}
               {peutEcrire && (
                 <button onClick={() => setOuvert(ouvert === e.id ? null : e.id)}
-                  className="text-[12px] px-2.5 py-1 rounded-lg border border-slate-300 text-slate-600 hover:border-iip-turquoise hover:text-iip-turquoise">
+                  className="text-second px-2.5 py-1 rounded-lg border border-slate-300 text-slate-600 hover:border-iip-turquoise hover:text-iip-turquoise">
                   {ouvert === e.id ? 'Fermer' : e.date_tenue ? 'Modifier' : 'Compléter'}
                 </button>
               )}
@@ -578,7 +578,7 @@ export function Journal({ profId, peutEcrire, estAdmin }) {
         </div>
         {peutEcrire && (
           <button onClick={() => setRdv(r => r ? null : { type: 'suivi', date_prevue: '' })}
-            className="flex items-center gap-1.5 text-[13px] px-3 py-1.5 rounded-lg border border-iip-turquoise text-iip-turquoise hover:bg-iip-turquoise/5">
+            className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border border-iip-turquoise text-iip-turquoise hover:bg-iip-turquoise/5">
             <IconCalendarPlus size={14} /> {rdv ? 'Annuler le rendez-vous' : 'Planifier un rendez-vous'}
           </button>
         )}
@@ -612,7 +612,7 @@ export function Journal({ profId, peutEcrire, estAdmin }) {
             </label>
           </div>
           <div className="flex items-center justify-between gap-3 flex-wrap">
-            <label className="flex items-center gap-2 text-[12px] text-slate-700">
+            <label className="flex items-center gap-2 text-second text-slate-700">
               <input type="checkbox" checked={!!rdv.confidentiel}
                 onChange={e => setRdv(r => ({ ...r, confidentiel: e.target.checked }))} />
               <IconLock size={13} className="text-slate-400" /> Confidentiel
@@ -631,7 +631,7 @@ export function Journal({ profId, peutEcrire, estAdmin }) {
             placeholder="Noter une remarque datée… (inaltérable après enregistrement)"
             className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white" />
           <div className="flex items-center justify-between gap-3 flex-wrap">
-            <label className="flex items-center gap-2 text-[12px] text-slate-700">
+            <label className="flex items-center gap-2 text-second text-slate-700">
               <input type="checkbox" checked={confidentiel}
                      onChange={e => setConfidentiel(e.target.checked)} />
               <IconLock size={13} className="text-slate-400" />
@@ -662,12 +662,12 @@ export function Journal({ profId, peutEcrire, estAdmin }) {
               <div className="flex items-start gap-2">
                 <Icone size={15} className="text-slate-400 mt-0.5 flex-none" />
                 <div className="min-w-0 flex-1">
-                  <div className="text-[11px] text-slate-400">
+                  <div className="text-xs text-slate-400">
                     {String(it.date || '').slice(0, 10).split('-').reverse().join('/')}
                     {it.auteur ? ` · ${it.auteur}` : ''}
                     {it.confidentiel && <IconLock size={11} className="inline ml-1 align-[-1px]" />}
                   </div>
-                  <div className={`text-[13px] ${it.genre === 'remarque' ? 'text-slate-800' : 'text-slate-600'}`}>
+                  <div className={`text-sm ${it.genre === 'remarque' ? 'text-slate-800' : 'text-slate-600'}`}>
                     {it.masque
                       ? <span className="italic text-slate-400">Remarque confidentielle</span>
                       : it.contenu}
@@ -685,7 +685,7 @@ export function Journal({ profId, peutEcrire, estAdmin }) {
         })}
       </div>
 
-      <p className="text-[11px] text-slate-400 border-t border-slate-100 pt-3">
+      <p className="text-xs text-slate-400 border-t border-slate-100 pt-3">
         Les remarques sont des données personnelles : le membre du personnel peut
         exercer un droit de consultation de son dossier. La mention confidentielle
         restreint la lecture dans Lucie, pas ce droit légal.

@@ -51,8 +51,8 @@ export default function GroupesParBloc({ items, blocDeItem, estEpreuve, children
       className={`text-left px-3 py-2 border bg-white min-w-0 transition-colors duration-150
         ${filtre === cle ? 'border-slate-400 bg-slate-50' : 'border-slate-200 hover:border-slate-300'}`}
       style={{ borderLeft: `3px solid ${couleur}` }}>
-      <div className="text-[17px] font-bold text-iip-blue tabular-nums leading-tight">{n}</div>
-      <div className="text-[12px] text-slate-600 truncate">{titre}</div>
+      <div className="text-lg font-bold text-iip-blue tabular-nums leading-tight">{n}</div>
+      <div className="text-second text-slate-600 truncate">{titre}</div>
     </button>
   );
 
@@ -66,8 +66,8 @@ export default function GroupesParBloc({ items, blocDeItem, estEpreuve, children
         <section key={g.cle} className="border border-slate-200 bg-white overflow-hidden"
           style={{ borderLeft: `4px solid ${g.couleur}`, borderRadius: '0 14px 14px 0' }}>
           <div className="px-3 py-1.5 flex items-center gap-2 border-b border-slate-100 bg-slate-50/60">
-            <span className="text-[13px] font-semibold text-iip-blue">{g.titre}</span>
-            <span className="text-[12px] text-slate-500">{g.liste.length} {libelle}</span>
+            <span className="text-sm font-semibold text-iip-blue">{g.titre}</span>
+            <span className="text-second text-slate-500">{g.liste.length} {libelle}</span>
           </div>
           {children(g.liste, g)}
         </section>

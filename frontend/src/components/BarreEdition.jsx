@@ -44,7 +44,7 @@ function B({ onClick, actif, inactif, titre, children, danger }) {
   return (
     <button type="button" title={titre} aria-label={titre} disabled={inactif}
       onMouseDown={e => e.preventDefault()} onClick={onClick}
-      className={`h-8 min-w-8 px-1.5 inline-flex items-center justify-center gap-1 rounded-champ text-[13px] transition
+      className={`h-8 min-w-8 px-1.5 inline-flex items-center justify-center gap-1 rounded-champ text-sm transition
         ${actif ? 'bg-[color-mix(in_srgb,var(--c-disponible)_14%,white)] text-iip-texte' : 'text-slate-600 hover:bg-slate-100'}
         ${danger ? 'hover:!bg-rose-50 hover:!text-rose-700' : ''} disabled:opacity-30 disabled:hover:bg-transparent`}>
       {children}
@@ -76,7 +76,7 @@ function Menu({ bouton, titre, children, large = false }) {
 }
 const Ligne = ({ icone: I, children, onClick, danger }) => (
   <button type="button" onClick={onClick}
-    className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-champ text-[13px] text-left ${danger ? 'text-rose-700 hover:bg-rose-50' : 'text-slate-700 hover:bg-slate-100'}`}>
+    className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-champ text-sm text-left ${danger ? 'text-rose-700 hover:bg-rose-50' : 'text-slate-700 hover:bg-slate-100'}`}>
     {I && <I size={15} className="text-slate-500 flex-none" />}<span>{children}</span>
   </button>
 );
@@ -88,7 +88,7 @@ function Pastilles({ couleurs, onChoisir, onRetirer, libelleRetirer }) {
           <button key={c} type="button" title={n} onClick={() => onChoisir(c)}
             className="w-6 h-6 rounded-full border border-slate-300" style={{ background: c }} />))}
       </div>
-      <button type="button" onClick={onRetirer} className="mt-1.5 w-full text-[12px] text-slate-500 hover:text-slate-800 text-left px-0.5">{libelleRetirer}</button>
+      <button type="button" onClick={onRetirer} className="mt-1.5 w-full text-second text-slate-500 hover:text-slate-800 text-left px-0.5">{libelleRetirer}</button>
     </div>
   );
 }
@@ -135,17 +135,17 @@ export function BarreEdition({ editor, sobre = false, aplatirLogo = null }) {
         <Filet />
         <select title="Style du paragraphe" value={e.niveau}
           onChange={ev => { const n = Number(ev.target.value); n ? c().toggleHeading({ level: n }).run() : c().setParagraph().run(); }}
-          className="h-8 rounded-champ border border-slate-200 bg-white text-[13px] px-2 text-slate-700">
+          className="h-8 rounded-champ border border-slate-200 bg-white text-sm px-2 text-slate-700">
           <option value={0}>Texte</option><option value={1}>Titre 1</option><option value={2}>Titre 2</option>
           <option value={3}>Titre 3</option>{!sobre && <option value={4}>Titre 4</option>}
         </select>
         {!sobre && <>
           <select title="Police" value={e.police} onChange={ev => c().setMark('textStyle', { fontFamily: ev.target.value || null }).run()}
-            className="h-8 rounded-champ border border-slate-200 bg-white text-[13px] px-2 text-slate-700 max-w-[8.5rem] ml-1">
+            className="h-8 rounded-champ border border-slate-200 bg-white text-sm px-2 text-slate-700 max-w-[8.5rem] ml-1">
             {POLICES.map(([l, v]) => <option key={l} value={v}>{l}</option>)}
           </select>
           <select title="Taille" value={e.taille} onChange={ev => c().setMark('textStyle', { fontSize: ev.target.value || null }).run()}
-            className="h-8 rounded-champ border border-slate-200 bg-white text-[13px] px-1.5 text-slate-700 ml-1">
+            className="h-8 rounded-champ border border-slate-200 bg-white text-sm px-1.5 text-slate-700 ml-1">
             <option value="">Taille</option>{TAILLES.map(t => <option key={t} value={t}>{t.replace('pt', '')}</option>)}
           </select>
         </>}
@@ -174,7 +174,7 @@ export function BarreEdition({ editor, sobre = false, aplatirLogo = null }) {
           <B titre="Augmenter le retrait" onClick={() => c().indent().run()}><IconIndentIncrease size={16} /></B>
         </>}
         <Filet />
-        <Menu titre="Insérer" large bouton={<><IconPlus size={16} /><span className="text-[13px]">Insérer</span></>}>
+        <Menu titre="Insérer" large bouton={<><IconPlus size={16} /><span className="text-sm">Insérer</span></>}>
           <Ligne icone={IconTablePlus} onClick={() => c().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}>Tableau (3 × 3)</Ligne>
           <Ligne icone={IconLink} onClick={() => demanderLien(editor)}>Lien</Ligne>
           <Ligne icone={IconQuote} onClick={() => c().toggleBlockquote().run()}>Citation</Ligne>
@@ -188,11 +188,11 @@ export function BarreEdition({ editor, sobre = false, aplatirLogo = null }) {
             <Ligne icone={IconLayoutNavbar} onClick={() => c().insertContent({ type: 'enTeteBlock', content: [{ type: 'paragraph' }] }).run()}>En-tête répété sur chaque page</Ligne>
             <Ligne icone={IconLayoutBottombar} onClick={() => c().insertContent({ type: 'piedDePageBlock', content: [{ type: 'paragraph' }] }).run()}>Pied répété sur chaque page</Ligne>
             <div className="h-px bg-slate-100 my-1" />
-            <div className="px-2 py-1 text-[11px] uppercase tracking-wide text-slate-400">Interligne</div>
+            <div className="px-2 py-1 text-xs uppercase tracking-wide text-slate-400">Interligne</div>
             <div className="flex gap-1 px-2 pb-1">
               {['1', '1.15', '1.5', '2'].map(v => (
                 <button key={v} type="button" onClick={() => c().setLineHeight(v).run()}
-                  className="flex-1 h-7 rounded-champ border border-slate-200 text-[12px] hover:bg-slate-100">{v}</button>))}
+                  className="flex-1 h-7 rounded-champ border border-slate-200 text-second hover:bg-slate-100">{v}</button>))}
             </div>
           </>}
         </Menu>
@@ -201,7 +201,7 @@ export function BarreEdition({ editor, sobre = false, aplatirLogo = null }) {
 
       {e.table && (
         <div className="flex flex-wrap items-center gap-0.5 px-2 py-1 border-t border-slate-100 bg-slate-50/60">
-          <span className="inline-flex items-center gap-1 text-[12px] text-slate-500 mr-1"><IconTable size={14} />Tableau</span>
+          <span className="inline-flex items-center gap-1 text-second text-slate-500 mr-1"><IconTable size={14} />Tableau</span>
           <B titre="Colonne à gauche" onClick={() => c().addColumnBefore().run()}><IconColumnInsertLeft size={16} /></B>
           <B titre="Colonne à droite" onClick={() => c().addColumnAfter().run()}><IconColumnInsertRight size={16} /></B>
           <B titre="Ligne au-dessus" onClick={() => c().addRowBefore().run()}><IconRowInsertTop size={16} /></B>
@@ -209,7 +209,7 @@ export function BarreEdition({ editor, sobre = false, aplatirLogo = null }) {
           <Filet />
           <B titre="Fusionner les cellules" inactif={!e.merge} onClick={() => c().mergeCells().run()}><IconArrowsJoin size={16} /></B>
           <B titre="Scinder la cellule" inactif={!e.split} onClick={() => c().splitCell().run()}><IconArrowsSplit size={16} /></B>
-          <B titre="Ligne d’en-tête" onClick={() => c().toggleHeaderRow().run()}><span className="text-[12px]">En-tête</span></B>
+          <B titre="Ligne d’en-tête" onClick={() => c().toggleHeaderRow().run()}><span className="text-second">En-tête</span></B>
           <Menu titre="Fond de la cellule" bouton={<IconBucketDroplet size={16} />}>
             <Pastilles couleurs={[...SURLIGNAGE, ['Blanc', '#FFFFFF']]} onChoisir={v => c().setCellAttribute('backgroundColor', v).run()}
               onRetirer={() => c().setCellAttribute('backgroundColor', null).run()} libelleRetirer="Sans fond" />

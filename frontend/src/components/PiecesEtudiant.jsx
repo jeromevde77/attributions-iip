@@ -139,7 +139,7 @@ export default function PiecesEtudiant({ etud, annee }) {
   if (!id) return null;
   return (
     <div>
-      <div className="flex items-center gap-3 mb-3 text-[12.5px]">
+      <div className="flex items-center gap-3 mb-3 text-second">
         <span className="text-slate-500">Sortie :</span>
         <label className="flex items-center gap-1"><input type="radio" checked={sortie === 'pdf'} onChange={() => setSortie('pdf')} />
           PDF avec bas de page</label>
@@ -147,13 +147,13 @@ export default function PiecesEtudiant({ etud, annee }) {
           Aperçu à l'écran (pour envoyer par courriel)</label>
       </div>
       {produit && (
-        <div data-etat="reussi" className="bloc-etat px-3 py-2 text-[12.5px] mb-3 flex flex-wrap items-center gap-3">
+        <div data-etat="reussi" className="bloc-etat px-3 py-2 text-second mb-3 flex flex-wrap items-center gap-3">
           <span className="min-w-0 flex-1">Pièce produite : <b>{produit.nom}</b></span>
           <a href={produit.url} target="_blank" rel="noreferrer" className="underline">Ouvrir</a>
           <a href={produit.url} download={produit.nom} className="underline">Enregistrer</a>
         </div>
       )}
-      {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2 text-[12.5px] mb-3">{erreur}</div>}
+      {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2 text-second mb-3">{erreur}</div>}
       {groupes.map(([titre, pieces]) => (
         <GroupeFenetre key={titre} titre={titre}>
           <div className="grid gap-1.5 md:grid-cols-2">

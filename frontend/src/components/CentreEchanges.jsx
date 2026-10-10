@@ -30,7 +30,7 @@ export default function CentreEchanges({ entrees = [], risques = [], onClose }) 
     if (!items.length) return null;
     return (
       <section className="mb-4 last:mb-0">
-        <div className="text-[10.5px] font-semibold uppercase tracking-[.12em] mb-1.5"
+        <div className="text-mention font-semibold uppercase tracking-[.12em] mb-1.5"
           style={{ color: risque ? 'var(--c-refuse)' : 'var(--c-disponible)' }}>{titre}</div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
           {items.map(it => (
@@ -39,13 +39,13 @@ export default function CentreEchanges({ entrees = [], risques = [], onClose }) 
               className={`text-left rounded-champ border bg-white px-3 py-2 min-w-0
                 transition-colors duration-150 ease-ios hover:bg-slate-50
                 ${risque ? 'border-[color:var(--c-refuse)]/40' : 'border-slate-200 hover:border-slate-300'}`}>
-              <div className="flex items-center gap-1.5 text-[12.5px] font-semibold text-iip-texte">
+              <div className="flex items-center gap-1.5 text-second font-semibold text-iip-texte">
                 {risque ? <IconAlertTriangle size={14} className="flex-none" style={{ color: 'var(--c-refuse)' }} />
                         : <IconUpload size={14} className="flex-none text-slate-400" />}
                 <span className="truncate">{it.titre}</span>
               </div>
-              {it.quoi && <div className="text-[11px] text-slate-500 leading-snug line-clamp-2 mt-0.5">{it.quoi}</div>}
-              {it.attend && <div className="text-[10.5px] text-slate-400 truncate mt-0.5">{it.attend}</div>}
+              {it.quoi && <div className="text-xs text-slate-500 leading-snug line-clamp-2 mt-0.5">{it.quoi}</div>}
+              {it.attend && <div className="text-mention text-slate-400 truncate mt-0.5">{it.attend}</div>}
             </button>
           ))}
         </div>
@@ -58,7 +58,7 @@ export default function CentreEchanges({ entrees = [], risques = [], onClose }) 
       sous="Chaque outil dit le fichier qu'il attend."
       large="grande" onFermer={onClose}
       pied={<>
-        <span className="text-[12px] text-slate-500">
+        <span className="text-second text-slate-500">
           Les imports montrent toujours ce qu'ils vont écrire avant de l'écrire. Pour sortir un fichier : Éditions.
         </span>
         <BoutonFenetre onClick={onClose}>Fermer</BoutonFenetre>

@@ -577,12 +577,12 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
   }
 
   if (!data && enPage) {
-    return <div className="py-10 text-center text-[13px] text-slate-500">{erreur || 'Chargement…'}</div>;
+    return <div className="py-10 text-center text-sm text-slate-500">{erreur || 'Chargement…'}</div>;
   }
   if (!data) {
     return (
       <Fenetre titre="Délibération" large="petite" onFermer={onClose}>
-        <div className="text-[13px] text-slate-500">{erreur || 'Chargement…'}</div>
+        <div className="text-sm text-slate-500">{erreur || 'Chargement…'}</div>
       </Fenetre>
     );
   }
@@ -618,7 +618,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
                 séance, ni la clôture, ni le PV. */}
             {(data.groupes?.length > 0) && (
               <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                <span className="text-[11px] text-slate-500">Groupe</span>
+                <span className="text-xs text-slate-500">Groupe</span>
                 <div className="segments">
                   {[null, ...data.groupes].map(g => (
                     <button key={String(g)} type="button" onClick={() => setGroupe(g)}
@@ -703,7 +703,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
           {!!data?.etat_sessions?.seconde_attend && (
             <div className="px-3 py-2 rounded-carte bg-sky-50 border border-sky-200
                             flex items-start justify-between gap-3">
-              <span className="text-[12px] text-sky-900">
+              <span className="text-second text-sky-900">
                 Toutes les décisions de première session sont encodées, et
                 {' '}<b>{data.etat_sessions.s1?.ajournes ?? 0}</b> étudiant(s) sont ajournés.
                 La seconde session s'ouvrira à la <b>clôture de la séance</b> : jusque-là,
@@ -711,7 +711,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
                 ajournements.
               </span>
               <button onClick={() => { setLot(false); setTableau(false); setEtape('cloture'); }}
-                className="flex-none px-3 py-1.5 text-[12px] rounded-lg bg-iip-blue
+                className="flex-none px-3 py-1.5 text-second rounded-lg bg-iip-blue
                            text-white font-semibold">
                 Aller à la clôture
               </button>
@@ -724,7 +724,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
               faisait un escalier. Le retrait est celui du conteneur, une fois
               pour tous. */}
           {!!data?.etat_sessions?.seconde_possible && (
-        <div className="flex items-center gap-2 text-[12px]">
+        <div className="flex items-center gap-2 text-second">
           <span className="text-slate-500">Session délibérée :</span>
           <div className="segments">
             {[1, 2].map(n => (
@@ -745,7 +745,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
 
       {data?.session === 2 && !data?.etat_sessions?.seconde_possible && (
         <div className="px-3 py-2 rounded-carte bg-amber-50 border border-amber-200
-                        text-[12px] text-amber-900">
+                        text-second text-amber-900">
           <b>Seconde session.</b> Seuls les étudiants ajournés en première session sont
           présentés. Les cours qui n'étaient pas à représenter gardent leur note de
           première session ; les autres attendent celle de septembre. La décision prise
@@ -755,7 +755,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
       )}
       {erreur && (
             <div className="px-3 py-2 rounded-carte bg-red-50 border border-red-200
-                            text-[13px] text-red-800 flex items-center gap-2">
+                            text-sm text-red-800 flex items-center gap-2">
               <IconAlertTriangle size={14} /> {erreur}
             </div>
           )}
@@ -765,7 +765,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
                icône, titre — un fond pâle ton sur ton ne se lisait pas. */
             <div data-etat="surveiller" className="bloc-etat px-3 py-2.5 flex items-start gap-2.5">
               <IconAlertTriangle size={18} className="flex-none mt-0.5" style={{ color: 'var(--c-attente)' }} />
-              <div className="text-[13px]">
+              <div className="text-sm">
                 <div className="font-semibold">Unité non paramétrée</div>
                 <div className="text-slate-700">Ses acquis ne sont pas rattachés à des cours, ou aucun
                   cours n'y est déclaré. Les notes ne peuvent pas se consolider tant que ce lien
@@ -783,7 +783,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
           {reprise && (reprise.concordants + reprise.divergents) > 0
             && !seance?.seance?.cloturee
             && etape !== 'reprise' && etape !== 'cloture' && (
-            <div data-etat="disponible" className="bloc-etat px-3 py-1 flex items-center gap-3 text-[12px]">
+            <div data-etat="disponible" className="bloc-etat px-3 py-1 flex items-center gap-3 text-second">
               <span className="flex-1 min-w-0 truncate"
                 title="Vous pouvez reprendre ces décisions d'un coup plutôt que de passer chaque fiche en revue.">
                 <b>Délibérée dans le classeur</b> · {reprise.concordants + reprise.divergents} décision(s)
@@ -831,7 +831,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
               onReprendre={() => setCorrection(true)}
               onClore={champs => enregistrerSeance({ ...champs, cloturee: 1 })} />
           ) : !liste.length ? (
-            <div className="py-10 text-center text-[13px] text-slate-400 border-2
+            <div className="py-10 text-center text-sm text-slate-400 border-2
                             border-dashed rounded-xl">
               {(data?.etudiants || []).length
                 ? <>Tous les étudiants ont une décision. <button type="button" className="underline text-iip-blue"
@@ -860,13 +860,13 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
                   <IconChevronLeft size={18} />
                 </button>
                 <div className="flex-1 min-w-0 px-1 flex items-baseline gap-2 truncate">
-                  <span className="text-[15px] font-bold text-iip-blue truncate">{nomPropre(etud.nom, etud.prenom)}</span>
-                  <span className="text-[11px] text-slate-500 whitespace-nowrap">{etud.id_ecampus || '—'} · {idx + 1} / {liste.length}</span>
+                  <span className="text-base font-bold text-iip-blue truncate">{nomPropre(etud.nom, etud.prenom)}</span>
+                  <span className="text-xs text-slate-500 whitespace-nowrap">{etud.id_ecampus || '—'} · {idx + 1} / {liste.length}</span>
                   {(() => {
                     // Le paquet où l'on se trouve : les faveurs envisageables passent d'abord.
                     const fav = liste.filter(x => x.ue?.faveur_eligible);
                     const k = fav.findIndex(x => x.id === etud.id);
-                    return k >= 0 ? <span className="text-[11px] font-semibold px-2 rounded-full text-white whitespace-nowrap"
+                    return k >= 0 ? <span className="text-xs font-semibold px-2 rounded-full text-white whitespace-nowrap"
                       style={{ background: 'var(--c-reussi)' }}>faveur envisageable · {k + 1} sur {fav.length}</span> : null;
                   })()}
                 </div>
@@ -877,7 +877,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
                     <button onClick={() => document.getElementById('a-justifier')
                         ?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                       title="Aller aux justifications"
-                      className="h-9 inline-flex items-center gap-1.5 px-3 rounded-lg text-white text-[12px] whitespace-nowrap max-w-[320px]"
+                      className="h-9 inline-flex items-center gap-1.5 px-3 rounded-lg text-white text-second whitespace-nowrap max-w-[320px]"
                       style={{ background: 'var(--c-refuse)' }}>
                       <b>{aMotiver.length} acquis à justifier</b>
                       <span className="truncate opacity-90">· {aMotiver.map(a => a.aa_code).join(', ')}</span>
@@ -943,16 +943,16 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
         <div className="flex-none px-0 py-1.5 border-b border-slate-100">
           <div className="flex items-start justify-between gap-3 flex-wrap">
           <div className="min-w-0">
-            <h3 className="text-[15px] font-semibold text-iip-blue truncate">
+            <h3 className="text-base font-semibold text-iip-blue truncate">
               UE {data.ue_num} · {data.ue_nom}
               {data.epreuve_integree && (
-                <span className="ml-2 align-middle text-[10px] font-bold px-2 py-0.5 rounded-champ
+                <span className="ml-2 align-middle text-mention font-bold px-2 py-0.5 rounded-champ
                                  bg-violet-100 text-violet-800 border border-violet-200">
                   épreuve intégrée
                 </span>
               )}
             </h3>
-            <p className="text-[11.5px] text-slate-500">
+            <p className="text-xs text-slate-500">
               {data.section || '—'} · {annee} · {data.etudiants.length} étudiant(s)
             </p>
           </div>
@@ -1007,7 +1007,7 @@ function MotivationsProposees({ liste, detail, onRelire, onConfirmer, enCours })
     <Fenetre icone={IconAlertTriangle} ton="alerte" large="moyenne" onFermer={onRelire}
       titre={`${liste.length} motivation(s) rédigée(s) par Lucie, non par le Conseil`}
       pied={<>
-        <span className="text-[11px] text-slate-500">
+        <span className="text-xs text-slate-500">
           Ces {nbAcquis} énoncé(s) sont défendables tels quels, mais deux dossiers
           portant la même phrase s'affaiblissent l'un l'autre : une décision
           défavorable se motive au cas d'espèce (RGE art. 79). Confirmées, elles
@@ -1021,25 +1021,25 @@ function MotivationsProposees({ liste, detail, onRelire, onConfirmer, enCours })
           Notifier telles quelles et clore
         </button>
       </>}>
-      <p className="text-[12px] text-slate-600 mb-3">{detail}</p>
+      <p className="text-second text-slate-600 mb-3">{detail}</p>
       <div className="space-y-3">
       {liste.map(e => (
         <div key={e.etudiant_id} className="border border-slate-200 rounded-xl p-3">
-          <div className="text-[13px] font-semibold text-iip-blue">
+          <div className="text-sm font-semibold text-iip-blue">
             {nomPropre(e.nom, e.prenom)}
-            <span className="ml-2 text-[11px] font-normal text-slate-500">
+            <span className="ml-2 text-xs font-normal text-slate-500">
               {e.decision === 'refuse' ? 'refusé' : 'ajourné'}
             </span>
           </div>
           <ul className="mt-1.5 space-y-1.5">
             {e.acquis.map(a => (
-              <li key={a.aa_code} className="text-[12px]">
+              <li key={a.aa_code} className="text-second">
                 <span className="inline-block px-1 py-px rounded bg-slate-100
-                                 border border-slate-300 font-bold text-[10px]">
+                                 border border-slate-300 font-bold text-mention">
                   {a.aa_code}
                 </span>{' '}
                 <span className="text-slate-500 italic whitespace-pre-line">{a.motif_propose}</span>
-                {a.motif_source === 'enseignant' && <span className="ml-1 text-[10px] text-slate-400">· rédigé par l’enseignant</span>}
+                {a.motif_source === 'enseignant' && <span className="ml-1 text-mention text-slate-400">· rédigé par l’enseignant</span>}
               </li>
             ))}
           </ul>
@@ -1081,15 +1081,15 @@ function QuorumBandeau({ membres }) {
        cinquante pixels, au-dessus d'une liste qu'on veut voir en entier. */
     <div className={`px-3 py-1.5 rounded-carte border flex flex-wrap items-baseline gap-x-3
       ${ok ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-300'}`}>
-      <span className={`text-[17px] font-bold tabular-nums flex-none
+      <span className={`text-lg font-bold tabular-nums flex-none
         ${ok ? 'text-emerald-700' : 'text-amber-800'}`}>
         {presents}/{votants.length}
       </span>
-      <span className={`text-[13px] font-semibold flex-none
+      <span className={`text-sm font-semibold flex-none
         ${ok ? 'text-emerald-900' : 'text-amber-900'}`}>
         {ok ? 'Quorum atteint' : `Quorum non atteint — il en faut ${requis}`}
       </span>
-      <span className="text-[11px] text-slate-600 flex-1 min-w-0">
+      <span className="text-xs text-slate-600 flex-1 min-w-0">
         Deux tiers des voix délibératives (RGE art. 25 §1).
         {consultatifs > 0 && ' Les consultatives ne comptent pas.'}
       </span>
@@ -1129,7 +1129,7 @@ function Presences({ seance, onValider, enCours, ueNum, annee }) {
   }, [seance]);
 
   if (!membres) {
-    return <div className="py-10 text-center text-[13px] text-slate-400">Chargement du Conseil…</div>;
+    return <div className="py-10 text-center text-sm text-slate-400">Chargement du Conseil…</div>;
   }
 
   const presents = membres.filter(m => m.present).length;
@@ -1151,8 +1151,8 @@ function Presences({ seance, onValider, enCours, ueNum, annee }) {
           date comme l'heure arrivent déjà posées à maintenant. */}
       <div className="carte bg-white px-4 py-3 flex flex-wrap items-center gap-x-4 gap-y-2">
         <div className="flex-1 min-w-[260px]">
-          <div className="text-[13px] font-semibold text-iip-blue">Conseil des études</div>
-          <p className="text-[12px] text-slate-600">
+          <div className="text-sm font-semibold text-iip-blue">Conseil des études</div>
+          <p className="text-second text-slate-600">
             Cochez les présents avant d'ouvrir la délibération. La liste se déduit
             des attributions de l'unité. Date et heure figureront au procès-verbal
             et restent modifiables jusqu'à la clôture.
@@ -1162,12 +1162,12 @@ function Presences({ seance, onValider, enCours, ueNum, annee }) {
             héritaient du gris de l'étiquette et se lisaient comme des champs
             vides. Elles arrivent posées à aujourd'hui et maintenant. */}
         <label className="flex-none">
-          <span className="block text-[10.5px] uppercase tracking-[.1em] text-slate-400 font-semibold mb-0.5">Date</span>
+          <span className="block text-mention uppercase tracking-[.1em] text-slate-400 font-semibold mb-0.5">Date</span>
           <input type="date" value={date} onChange={e => setDate(e.target.value)}
             className="controle bg-white text-iip-texte tabular-nums" />
         </label>
         <label className="flex-none">
-          <span className="block text-[10.5px] uppercase tracking-[.1em] text-slate-400 font-semibold mb-0.5">Heure</span>
+          <span className="block text-mention uppercase tracking-[.1em] text-slate-400 font-semibold mb-0.5">Heure</span>
           <input type="time" value={heure} onChange={e => setHeure(e.target.value)}
             className="controle bg-white text-iip-texte tabular-nums w-[7rem]" />
         </label>
@@ -1188,19 +1188,19 @@ function Presences({ seance, onValider, enCours, ueNum, annee }) {
                 k === i ? { ...x, present: e.target.checked } : x))}
               className="w-4 h-4 accent-iip-blue flex-none" />
             <span className="flex-1 min-w-0">
-              <span className={`text-[13px] font-semibold ${ton[m.role] || 'text-slate-700'}`}>
+              <span className={`text-sm font-semibold ${ton[m.role] || 'text-slate-700'}`}>
                 {m.nom}
               </span>
-              <span className="block text-[11px] text-slate-500 truncate">{m.qualite}</span>
+              <span className="block text-xs text-slate-500 truncate">{m.qualite}</span>
             </span>
             {m.voix === 'consultative' && (
               <span title="Siège avec voix consultative : ne compte pas au quorum"
-                className="text-[10px] font-semibold px-2 py-0.5 rounded-champ flex-none
+                className="text-mention font-semibold px-2 py-0.5 rounded-champ flex-none
                            bg-sky-50 text-sky-800 border border-sky-200">
                 consultative
               </span>
             )}
-            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-champ flex-none
+            <span className={`text-xs font-semibold px-2 py-0.5 rounded-champ flex-none
               ${m.present ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-500'}`}>
               {m.present ? 'présent' : 'excusé'}
             </span>
@@ -1210,18 +1210,18 @@ function Presences({ seance, onValider, enCours, ueNum, annee }) {
 
       {/* AJOUTER UN MEMBRE — à son nom, et au titre auquel il siège. */}
       <div className="border border-slate-200 rounded-xl p-2.5 space-y-2">
-        <div className="text-[12px] text-slate-500">
+        <div className="text-second text-slate-500">
           Ajouter un membre. Le titre détermine la voix : seuls le délégué du
           Ministre et la coordination siègent avec voix consultative.
         </div>
         <div className="flex flex-wrap gap-2">
           <input value={ajout.nom} onChange={e => setAjout(a => ({ ...a, nom: e.target.value }))}
-            placeholder="Nom" className="w-36 border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]" />
+            placeholder="Nom" className="w-36 border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
           <input value={ajout.prenom} onChange={e => setAjout(a => ({ ...a, prenom: e.target.value }))}
-            placeholder="Prénom" className="w-32 border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]" />
+            placeholder="Prénom" className="w-32 border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
           <select value={ajout.categorie}
             onChange={e => setAjout(a => ({ ...a, categorie: e.target.value }))}
-            className="flex-1 min-w-[220px] border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]">
+            className="flex-1 min-w-[220px] border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
             <option value="">À quel titre siège-t-il ?</option>
             {(seance?.categories || []).map(c => (
               <option key={c.cle} value={c.cle}>{c.label}</option>
@@ -1232,7 +1232,7 @@ function Presences({ seance, onValider, enCours, ueNum, annee }) {
           <input value={ajout.qualite}
             onChange={e => setAjout(a => ({ ...a, qualite: e.target.value }))}
             placeholder="Précision facultative (fonction, établissement d'origine…)"
-            className="flex-1 border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]" />
+            className="flex-1 border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
           <button disabled={!ajout.nom.trim() || !ajout.categorie}
             onClick={() => {
               const cat = (seance?.categories || []).find(c => c.cle === ajout.categorie);
@@ -1247,7 +1247,7 @@ function Presences({ seance, onValider, enCours, ueNum, annee }) {
               }]);
               setAjout({ nom: '', prenom: '', categorie: '', qualite: '' });
             }}
-            className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300
+            className="px-3 py-1.5 text-sm rounded-lg border border-slate-300
                        text-slate-600 disabled:opacity-40">
             Ajouter
           </button>
@@ -1261,10 +1261,10 @@ function Presences({ seance, onValider, enCours, ueNum, annee }) {
           serait faux — d'où l'obligation de désigner. */}
       {membres.some(m => m.role === 'direction' && !m.present) && (
         <div className="border border-amber-300 bg-amber-50 rounded-xl p-2.5 space-y-2 border-l-4 border-l-amber-500">
-          <div className="text-[13px] font-semibold text-amber-900">
+          <div className="text-sm font-semibold text-amber-900">
             Présidence à désigner
           </div>
-          <p className="text-[12px] text-amber-800">
+          <p className="text-second text-amber-800">
             La direction n'a pas siégé. Le procès-verbal doit porter le nom de
             qui a présidé. Le délégué ne peut appartenir au Conseil de cette
             unité ni de cette section (décret art. 52 · AGCF art. 26) : les
@@ -1273,7 +1273,7 @@ function Presences({ seance, onValider, enCours, ueNum, annee }) {
           <div className="flex flex-wrap gap-2">
             <select value={president.role}
               onChange={e => setPresident(p => ({ ...p, role: e.target.value }))}
-              className="border border-amber-300 rounded-lg px-2 py-1.5 text-[13px] bg-white">
+              className="border border-amber-300 rounded-lg px-2 py-1.5 text-sm bg-white">
               <option value="suppleant">Le suppléant désigné</option>
               <option value="autre">Un membre du personnel</option>
             </select>
@@ -1281,7 +1281,7 @@ function Presences({ seance, onValider, enCours, ueNum, annee }) {
               <select value={president.nom}
                 onChange={e => setPresident(p => ({ ...p, nom: e.target.value }))}
                 className="flex-1 min-w-[220px] border border-amber-300 rounded-lg
-                           px-2 py-1.5 text-[13px] bg-white">
+                           px-2 py-1.5 text-sm bg-white">
                 <option value="">Choisir…</option>
                 {(eligibles?.eligibles || []).map(p => (
                   <option key={p.id} value={p.nom}>
@@ -1295,9 +1295,9 @@ function Presences({ seance, onValider, enCours, ueNum, annee }) {
             <input value={president.titre}
               onChange={e => setPresident(p => ({ ...p, titre: e.target.value }))}
               placeholder="Titre porté au procès-verbal (ex. Directeur adjoint)"
-              className="w-full border border-amber-300 rounded-lg px-2 py-1.5 text-[13px]" />
+              className="w-full border border-amber-300 rounded-lg px-2 py-1.5 text-sm" />
           )}
-          <p className="text-[11px] text-amber-700">
+          <p className="text-xs text-amber-700">
             Un président désigné signe de sa main : aucun fac-similé n'est
             apposé. Les attestations de réussite restent signées du Directeur.
           </p>
@@ -1305,14 +1305,14 @@ function Presences({ seance, onValider, enCours, ueNum, annee }) {
       )}
 
       <div className="flex items-center justify-between gap-3 pt-1">
-        <span className="text-[12px] text-slate-500">
+        <span className="text-second text-slate-500">
           <b className="text-iip-blue">{presents}</b> présent(s) sur {membres.length}
         </span>
         <button disabled={enCours || !presents || !date || presidenceIncomplete}
           title={presidenceIncomplete
             ? 'Désignez qui a présidé : la direction n’a pas siégé.' : undefined}
           onClick={() => onValider(membres, date, heure, president)}
-          className="px-4 py-2 text-[13px] rounded-lg bg-iip-blue text-white font-semibold
+          className="px-4 py-2 text-sm rounded-lg bg-iip-blue text-white font-semibold
                      disabled:opacity-40">
           Ouvrir la délibération
         </button>
@@ -1337,17 +1337,17 @@ function Presences({ seance, onValider, enCours, ueNum, annee }) {
  * écarts se lisent, ils ne se corrigent pas tout seuls.
  */
 function Reprise({ reprise, session, onAppliquer, onRetour, enCours }) {
-  if (!reprise) return <div className="py-10 text-center text-[13px] text-slate-400">Lecture…</div>;
+  if (!reprise) return <div className="py-10 text-center text-sm text-slate-400">Lecture…</div>;
   const aReprendre = reprise.concordants + reprise.divergents;
   const divergents = (reprise.etudiants || []).filter(l => l.statut === 'divergent');
   const sans = (reprise.etudiants || []).filter(l => l.statut === 'sans_decision');
   return (
     <div className="space-y-3 max-w-3xl mx-auto">
       <div className="px-3 py-2 rounded-xl bg-sky-50 border border-sky-200 border-l-4 border-l-sky-500">
-        <div className="text-[13px] font-semibold text-sky-900">
+        <div className="text-sm font-semibold text-sky-900">
           Reprendre la délibération encodée — session {session}
         </div>
-        <p className="text-[12px] text-sky-800">
+        <p className="text-second text-sky-800">
           Les décisions viennent du classeur : elles sont reprises telles quelles.
           Lucie y ajoute la cote de l'unité qu'elle calcule, et, pour les ajournés
           dont le classeur ne dit pas ce qui est à représenter, les cours en défaut —
@@ -1361,25 +1361,25 @@ function Reprise({ reprise, session, onAppliquer, onRetour, enCours }) {
           ['sans décision', reprise.sans_decision, 'text-slate-600 bg-slate-50 border-slate-200'],
         ].map(([lib, n, cls]) => (
           <div key={lib} className={`px-2 py-1.5 rounded-xl border ${cls}`}>
-            <div className="text-[17px] font-bold tabular-nums">{n}</div>
-            <div className="text-[11px]">{lib}</div>
+            <div className="text-lg font-bold tabular-nums">{n}</div>
+            <div className="text-xs">{lib}</div>
           </div>
         ))}
       </div>
 
       {!!divergents.length && (
         <div className="border border-amber-200 rounded-xl overflow-hidden">
-          <div className="px-3 py-1.5 bg-amber-50 text-[12px] text-amber-900 font-semibold border-l-4 border-l-amber-500">
+          <div className="px-3 py-1.5 bg-amber-50 text-second text-amber-900 font-semibold border-l-4 border-l-amber-500">
             Le classeur et le calcul ne disent pas la même chose — la décision du
             classeur est conservée, ces cas se relisent
           </div>
           <div className="divide-y divide-slate-100 max-h-[26vh] overflow-y-auto">
             {divergents.map(l => (
-              <div key={l.etudiant_id} className="px-3 py-1.5 flex items-center gap-2 text-[13px]">
+              <div key={l.etudiant_id} className="px-3 py-1.5 flex items-center gap-2 text-sm">
                 <span className="flex-1 truncate">
                   <b className="text-iip-blue">{l.nom}</b> {l.prenom}
                 </span>
-                <span className="text-[12px] text-slate-500">
+                <span className="text-second text-slate-500">
                   classeur <b className="text-slate-800">{l.decision_importee}</b>
                   {' · '}Lucie <b className="text-amber-800">{l.decision_proposee}</b>
                 </span>
@@ -1392,7 +1392,7 @@ function Reprise({ reprise, session, onAppliquer, onRetour, enCours }) {
 
       {!!sans.length && (
         <div className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200
-                        text-[12px] text-slate-600">
+                        text-second text-slate-600">
           {sans.length} étudiant(s) sans décision dans le classeur : ils ne sont pas
           repris et restent à délibérer — {sans.slice(0, 8).map(l => l.nom).join(', ')}
           {sans.length > 8 ? '…' : ''}
@@ -1401,11 +1401,11 @@ function Reprise({ reprise, session, onAppliquer, onRetour, enCours }) {
 
       <div className="flex items-center justify-end gap-2">
         <button onClick={onRetour}
-          className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300 text-slate-600">
+          className="px-3 py-1.5 text-sm rounded-lg border border-slate-300 text-slate-600">
           Passer — les revoir un à un
         </button>
         <button disabled={enCours || !aReprendre} onClick={onAppliquer}
-          className="px-4 py-2 text-[13px] rounded-lg bg-sky-700 text-white
+          className="px-4 py-2 text-sm rounded-lg bg-sky-700 text-white
                      font-semibold disabled:opacity-40">
           Reprendre ces {aReprendre} décisions
         </button>
@@ -1415,14 +1415,14 @@ function Reprise({ reprise, session, onAppliquer, onRetour, enCours }) {
 }
 
 function PleinDroit({ auto, onAppliquer, onPasser, enCours }) {
-  if (!auto) return <div className="py-10 text-center text-[13px] text-slate-400">Calcul…</div>;
+  if (!auto) return <div className="py-10 text-center text-sm text-slate-400">Calcul…</div>;
   return (
     <div className="space-y-3 max-w-2xl mx-auto">
       <div className="px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200 border-l-4 border-l-emerald-500">
-        <div className="text-[13px] font-semibold text-emerald-900">
+        <div className="text-sm font-semibold text-emerald-900">
           Réussites de plein droit
         </div>
-        <p className="text-[12px] text-emerald-800">
+        <p className="text-second text-emerald-800">
           Tous les acquis et tous les cours au seuil, sans faveur ni ajournement :
           le Conseil n'a rien à y apprécier. Les enregistrer d'un coup lui laisse
           le temps des cas qui le méritent.
@@ -1430,7 +1430,7 @@ function PleinDroit({ auto, onAppliquer, onPasser, enCours }) {
       </div>
 
       {!auto.reussites.length ? (
-        <div className="py-6 text-center text-[13px] text-slate-500 border-2
+        <div className="py-6 text-center text-sm text-slate-500 border-2
                         border-dashed rounded-xl">
           Aucun étudiant ne réussit de plein droit : chaque cas demande une décision.
         </div>
@@ -1438,11 +1438,11 @@ function PleinDroit({ auto, onAppliquer, onPasser, enCours }) {
         <div className="border border-slate-200 rounded-xl divide-y divide-slate-100
                         max-h-[46vh] overflow-y-auto">
           {auto.reussites.map(r => (
-            <div key={r.id} className="px-3 py-1.5 flex items-center gap-2 text-[13px]">
+            <div key={r.id} className="px-3 py-1.5 flex items-center gap-2 text-sm">
               <span className="flex-1 truncate">
                 <b className="text-iip-blue">{r.nom}</b> {r.prenom}
               </span>
-              {r.deja_decide && <span className="text-[11px] text-slate-400">déjà décidé</span>}
+              {r.deja_decide && <span className="text-xs text-slate-400">déjà décidé</span>}
               <span className="font-bold tabular-nums text-emerald-700 w-14 text-right">
                 {fmt(r.note)}/20
               </span>
@@ -1452,16 +1452,16 @@ function PleinDroit({ auto, onAppliquer, onPasser, enCours }) {
       )}
 
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[12px] text-slate-500">
+        <span className="text-second text-slate-500">
           {auto.a_deliberer.length} cas à examiner ensuite
         </span>
         <div className="flex gap-2">
           <button onClick={onPasser}
-            className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300 text-slate-600">
+            className="px-3 py-1.5 text-sm rounded-lg border border-slate-300 text-slate-600">
             Passer — les revoir un à un
           </button>
           <button disabled={enCours || !auto.reussites.length} onClick={onAppliquer}
-            className="px-4 py-2 text-[13px] rounded-lg bg-emerald-600 text-white
+            className="px-4 py-2 text-sm rounded-lg bg-emerald-600 text-white
                        font-semibold disabled:opacity-40">
             Enregistrer ces {auto.reussites.length} réussites
           </button>
@@ -1527,7 +1527,7 @@ function Mentions({ liste, session, enCours, onDecider, onFini, colonnesCours = 
     const txt = v.mention || (n == null ? '—' : fmt(n));
     const ko = !!v.mention || v.na || (n != null && n < 10);
     if (n == null && !v.mention) return <span className="text-slate-300">—</span>;
-    return ko ? <span className="inline-flex min-w-[30px] justify-center px-1.5 rounded-full text-white text-[11px] font-semibold"
+    return ko ? <span className="inline-flex min-w-[30px] justify-center px-1.5 rounded-full text-white text-xs font-semibold"
       style={{ background: v.mention === 'NP' || v.mention === 'CM' ? 'var(--c-attente)' : 'var(--c-refuse)' }}>{txt}</span>
       : <span className="tabular-nums text-slate-700">{txt}</span>;
   };
@@ -1555,8 +1555,8 @@ function Mentions({ liste, session, enCours, onDecider, onFini, colonnesCours = 
   return (
     <div className="space-y-3 max-w-5xl mx-auto">
       <div className="px-3 py-2 rounded-xl bg-white border border-slate-200 border-l-4" style={{ borderLeftColor: 'var(--c-attente)' }}>
-        <div className="text-[13px] font-semibold text-iip-texte">PP, NP et CM — à décider en lot</div>
-        <p className="text-[12px] text-slate-600">
+        <div className="text-sm font-semibold text-iip-texte">PP, NP et CM — à décider en lot</div>
+        <p className="text-second text-slate-600">
           Ces étudiants n'ont pas présenté une évaluation, n'ont rien produit, ou étaient
           couverts par un certificat médical. La décision proposée est celle du règlement :
           {session >= 2 ? ' en seconde session, tous sont refusés.'
@@ -1565,7 +1565,7 @@ function Mentions({ liste, session, enCours, onDecider, onFini, colonnesCours = 
         </p>
       </div>
 
-      <div className="flex items-center gap-2 text-[12px] text-slate-600">
+      <div className="flex items-center gap-2 text-second text-slate-600">
         <span>Voir par :</span>
         <div className="segments">
           {[['cours', 'cours'], ['acquis', "acquis de l'unité"]].map(([k, l]) => (
@@ -1574,7 +1574,7 @@ function Mentions({ liste, session, enCours, onDecider, onFini, colonnesCours = 
         </div>
       </div>
       <div className="border border-slate-200 rounded-carte overflow-x-auto bg-white">
-        <table className="w-full text-[12.5px]">
+        <table className="w-full text-second">
           <thead>
             <tr className="tab-entete text-left">
               <th className="px-3 py-1.5 w-8"></th>
@@ -1594,7 +1594,7 @@ function Mentions({ liste, session, enCours, onDecider, onFini, colonnesCours = 
           </thead>
           {groupes.map(g => (
             <tbody key={g.m}>
-              <tr className="tab-repere"><td colSpan={colonnes.length + 3} className="px-3 py-1 text-[11px] uppercase tracking-wide">
+              <tr className="tab-repere"><td colSpan={colonnes.length + 3} className="px-3 py-1 text-xs uppercase tracking-wide">
                 {LIBELLE_MENTION[g.m]} · {g.gens.length}</td></tr>
               {g.gens.map(e => {
                 const pris = !ecartes.has(e.id), dec = decisionDe(e);
@@ -1604,7 +1604,7 @@ function Mentions({ liste, session, enCours, onDecider, onFini, colonnesCours = 
                     <td className="px-3 py-1 whitespace-nowrap"><b className={pris ? 'text-iip-blue' : ''}>{String(e.nom || '').toUpperCase()}</b> {e.prenom}</td>
                     {colonnes.map(c => <td key={c.code} className="px-2 py-1 text-center">{pastille(caseDe(e, c.code))}</td>)}
                     <td className="px-3 py-1 text-right">
-                      {pris && <span className="inline-block px-2 rounded-full text-white text-[11px] font-semibold"
+                      {pris && <span className="inline-block px-2 rounded-full text-white text-xs font-semibold"
                         style={{ background: dec === 'refuse' ? 'var(--c-refuse)' : 'var(--c-attente)' }}>
                         {dec === 'refuse' ? 'Refusé' : 'Ajourné'}</span>}
                     </td>
@@ -1617,13 +1617,13 @@ function Mentions({ liste, session, enCours, onDecider, onFini, colonnesCours = 
       </div>
 
       <div className="space-y-2">
-        <div className="text-[12px] text-slate-600">Justifications — chaque acquis reçoit celle de sa mention (reprise à l'annexe 8 ou 9)</div>
+        <div className="text-second text-slate-600">Justifications — chaque acquis reçoit celle de sa mention (reprise à l'annexe 8 ou 9)</div>
         {presentes.map(m => (
-          <label key={m} className="block text-[12px] text-slate-600">
+          <label key={m} className="block text-second text-slate-600">
             <span className="font-semibold text-iip-texte">{LIBELLE_MOTIF[m]}</span>
             <textarea rows={1} value={motifs[m] || ''} data-reponses={`deliberation.mention.${m}`}
               onChange={ev => setMotifs(x => ({ ...x, [m]: ev.target.value }))}
-              className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]" />
+              className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
           </label>
         ))}
       </div>
@@ -1631,7 +1631,7 @@ function Mentions({ liste, session, enCours, onDecider, onFini, colonnesCours = 
       {/* LA QUESTION DU CONSEIL, POSÉE UNE FOIS POUR LE LOT (Charles, 9 octobre
           2026) : un cours ajourné se représente-t-il entier, ou pour ses seuls
           acquis en échec ? */}
-      <div className="flex flex-wrap items-center gap-2 text-[12px] text-slate-600">
+      <div className="flex flex-wrap items-center gap-2 text-second text-slate-600">
         <span>Dans un cours ajourné, l'étudiant représente :</span>
         <div className="segments">
           {[['tous', 'tous les acquis du cours'], ['echec', 'seulement les acquis en échec']].map(([k, l]) => (
@@ -1642,14 +1642,14 @@ function Mentions({ liste, session, enCours, onDecider, onFini, colonnesCours = 
       </div>
 
       {apercu && (
-        <div className="px-3 py-2 rounded-lg bg-white border border-slate-200 text-[13px]">
+        <div className="px-3 py-2 rounded-lg bg-white border border-slate-200 text-sm">
           Simulation : <b>{apercu.ajournes}</b> ajourné(s), <b>{apercu.refuses}</b> refusé(s) ·
           {' '}<b>{apercu.acquis}</b> acquis et <b>{apercu.cours}</b> cours en défaut, justifiés.
         </div>
       )}
 
       <div className="flex items-center justify-between gap-3">
-        <span className="text-[12px] text-slate-500 min-w-0">
+        <span className="text-second text-slate-500 min-w-0">
           {manqueMotif ? 'Chaque mention demande sa justification.'
             : !retenus.length ? 'Personne n’est retenu : tous passeront dans la revue.' : ''}
         </span>
@@ -1790,8 +1790,8 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
       {/* TOUTE LA LARGEUR (« trop vertical, il faut utiliser la page ») :
           séance et visite des copies côte à côte, le reste sur deux colonnes. */}
       <div data-etat="reussi" className="bloc-etat lg:col-span-2 px-4 py-3">
-        <div className="text-[15px] font-semibold">Délibération terminée</div>
-        <p className="text-[12px] text-slate-700">
+        <div className="text-base font-semibold">Délibération terminée</div>
+        <p className="text-second text-slate-700">
           Les {nb} étudiant(s) de cette unité ont été délibérés et leurs décisions
           sont enregistrées.
         </p>
@@ -1803,13 +1803,13 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
       {quorum && !quorum.atteint && (
         <div className="lg:col-span-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-300
                         flex items-start justify-between gap-3">
-          <span className="text-[12px] text-amber-900">
+          <span className="text-second text-amber-900">
             <b>Quorum non constaté</b> — {quorum.presents} présent(s) sur {quorum.membres}
             {' '}à voix délibérative, il en faut {quorum.requis} (RGE art. 25 §1).
             La clôture sera refusée tant que les présences ne sont pas enregistrées.
           </span>
           <button onClick={onPresences}
-            className="flex-none px-3 py-1.5 text-[12px] rounded-lg bg-amber-600
+            className="flex-none px-3 py-1.5 text-second rounded-lg bg-amber-600
                        text-white font-semibold">
             Appel des présences
           </button>
@@ -1819,8 +1819,8 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
       <div className="carte bg-white p-4 space-y-3 h-full">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="text-[13px] font-semibold text-iip-blue">Séance du Conseil</div>
-            <p className="text-[12px] text-slate-500">
+            <div className="text-sm font-semibold text-iip-blue">Séance du Conseil</div>
+            <p className="text-second text-slate-500">
               La clôture fige cette date et cette heure au procès-verbal : c'est
               le dernier moment pour les corriger.
             </p>
@@ -1830,34 +1830,34 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
                  + 'ouvrables (contacter le professeur), la seconde session à dix '
                  + 'jours à 8h00 (contacter la coordination). Ne remplace aucun '
                  + 'champ déjà rempli.'}
-            className="flex-none px-2.5 py-1 text-[12px] rounded-lg border
+            className="flex-none px-2.5 py-1 text-second rounded-lg border
                        border-iip-blue text-iip-blue font-semibold disabled:opacity-40">
             Valeurs par défaut
           </button>
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <label className="text-[12px] text-slate-600">
+          <label className="text-second text-slate-600">
             Date de délibération
             <input type="date" value={dateS} onChange={e => setDateS(e.target.value)}
-              className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]" />
+              className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
           </label>
-          <label className="text-[12px] text-slate-600">
+          <label className="text-second text-slate-600">
             Heure
             <input type="time" value={heureS} onChange={e => setHeureS(e.target.value)}
-              className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]" />
+              className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
           </label>
-          <label className="text-[12px] text-slate-600 col-span-2">
+          <label className="text-second text-slate-600 col-span-2">
             Résultats publiés le <span className="text-slate-400">— point de départ des 4 jours de recours (art. 88 §1)</span>
             <input type="date" value={publieLe} onChange={e => setPublieLe(e.target.value)}
-              className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]" />
+              className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
           </label>
         </div>
       </div>
 
       <div className="carte bg-white p-4 space-y-3 h-full">
         <div>
-          <div className="text-[13px] font-semibold text-iip-blue">Visite des copies</div>
-          <p className="text-[12px] text-slate-500">
+          <div className="text-sm font-semibold text-iip-blue">Visite des copies</div>
+          <p className="text-second text-slate-500">
             L'étudiant a le droit de consulter sa copie. La date, l'heure et le
             local figurent sur la notification qui lui est remise.
           </p>
@@ -1868,27 +1868,27 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
             à la fois qu'ils existent, qu'ils sont sans effet, et ce qui les
             neutralise. */}
         <div className="grid grid-cols-2 gap-2">
-          <label className="text-[12px] text-slate-600">
+          <label className="text-second text-slate-600">
             Date
             <input type="date" value={date} disabled={!!mention}
               onChange={e => setDate(e.target.value)}
-              className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]
+              className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-sm
                          disabled:bg-slate-100 disabled:text-slate-400" />
           </label>
-          <label className="text-[12px] text-slate-600">
+          <label className="text-second text-slate-600">
             Heure
             <input type="time" value={heure} disabled={!!mention}
               onChange={e => setHeure(e.target.value)}
-              className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]
+              className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-sm
                          disabled:bg-slate-100 disabled:text-slate-400" />
           </label>
         </div>
-        <label className="text-[12px] text-slate-600 block">
+        <label className="text-second text-slate-600 block">
           Local
           <input value={local} disabled={!!mention}
             onChange={e => setLocal(e.target.value)}
             placeholder="Bâtiment P, local 2.14…"
-            className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]
+            className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-sm
                        disabled:bg-slate-100 disabled:text-slate-400" />
         </label>
 
@@ -1899,8 +1899,8 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
             l'état, sans jamais l'effacer. */}
         {!!mention && (
           <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2">
-            <div className="text-[12px] text-slate-700">{mention}</div>
-            <div className="text-[11px] text-slate-500 mt-1">
+            <div className="text-second text-slate-700">{mention}</div>
+            <div className="text-xs text-slate-500 mt-1">
               Une mention administrative tient lieu de plage de consultation :
               c'est elle qui figurera sur la notification et au procès-verbal.
               Elle se modifie depuis <b>Corriger</b>.
@@ -1914,8 +1914,8 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
         <div data-etat="surveiller" className="bloc-etat lg:col-span-2 p-4 space-y-3">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <div className="text-[13px] font-semibold text-amber-900">Seconde session</div>
-              <p className="text-[12px] text-amber-800">
+              <div className="text-sm font-semibold text-amber-900">Seconde session</div>
+              <p className="text-second text-amber-800">
                 {ajournes} étudiant(s) ajourné(s). Chaque cours a sa date : elle
                 figure en regard du cours sur la notification (annexe 8).
               </p>
@@ -1923,7 +1923,7 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
             {s2.length > 1 && (
               <button onClick={reporterPartout} disabled={enCours || !s2[0].date}
                 title="Reporter la date, l'heure et le local du premier cours sur tous les autres"
-                className="flex-none px-2.5 py-1 text-[12px] rounded-lg border
+                className="flex-none px-2.5 py-1 text-second rounded-lg border
                            border-amber-500 text-amber-900 font-semibold disabled:opacity-40">
                 Même date pour tous
               </button>
@@ -1934,21 +1934,21 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
             {s2.map((c, i) => (
               <div key={c.cours_code} className="flex items-center gap-2">
                 <span className="w-32 flex-none min-w-0">
-                  <span className="block font-mono text-[12px] font-bold text-slate-700">
+                  <span className="block font-mono text-second font-bold text-slate-700">
                     {c.cours_code}
                   </span>
-                  <span className="block text-[10px] text-slate-500 truncate"
+                  <span className="block text-mention text-slate-500 truncate"
                     title={c.cours_nom || ''}>{c.cours_nom || ''}</span>
                 </span>
                 <input type="date" value={c.date}
                   onChange={e => majS2(i, 'date', e.target.value)}
-                  className="border border-slate-300 rounded-lg px-2 py-1 text-[12px] w-36" />
+                  className="border border-slate-300 rounded-lg px-2 py-1 text-second w-36" />
                 <input type="time" value={c.heure}
                   onChange={e => majS2(i, 'heure', e.target.value)}
-                  className="border border-slate-300 rounded-lg px-2 py-1 text-[12px] w-24" />
+                  className="border border-slate-300 rounded-lg px-2 py-1 text-second w-24" />
                 <input value={c.local} placeholder="local…"
                   onChange={e => majS2(i, 'local', e.target.value)}
-                  className="flex-1 border border-slate-300 rounded-lg px-2 py-1 text-[12px]" />
+                  className="flex-1 border border-slate-300 rounded-lg px-2 py-1 text-second" />
               </div>
             ))}
           </div>
@@ -1957,7 +1957,7 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
 
       <div className="lg:col-span-2 flex items-center justify-between gap-2">
         <button onClick={onRetour}
-          className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300 text-slate-600">
+          className="px-3 py-1.5 text-sm rounded-lg border border-slate-300 text-slate-600">
           Revenir aux fiches
         </button>
         <div className="flex items-center gap-2">
@@ -1967,7 +1967,7 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
             title={close
               ? 'Procès-verbal, attestations de réussite, notifications d’ajournement et de refus'
               : 'Clôturez d’abord : les pièces portent la date de communication'}
-            className="px-3 py-2 text-[13px] rounded-lg border border-iip-blue
+            className="px-3 py-2 text-sm rounded-lg border border-iip-blue
                        text-iip-blue font-semibold disabled:opacity-40
                        flex items-center gap-1.5">
             <IconFileText size={14} /> Générer les documents
@@ -1986,7 +1986,7 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
             title={complet ? '' : 'La date de délibération est requise, ainsi que '
               + 'la date, l’heure et le local de visite des copies — ou, à leur '
               + 'place, la mention qui dit comment les obtenir'}
-            className="px-4 py-2 text-[13px] rounded-lg bg-emerald-600 text-white font-semibold
+            className="px-4 py-2 text-sm rounded-lg bg-emerald-600 text-white font-semibold
                        disabled:opacity-40">
             {close ? 'Enregistré' : 'Clore la délibération'}
           </button>
@@ -1995,7 +1995,7 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
 
       {close && (
         <div className="lg:col-span-2 space-y-2">
-          <p className="text-[12px] text-emerald-800 text-center">
+          <p className="text-second text-emerald-800 text-center">
             Séance close. Les documents peuvent être générés, imprimés, puis signés.
           </p>
           {/* LA RÉOUVERTURE N'EST PLUS ICI. Elle vivait au bas de l'écran de
@@ -2005,7 +2005,7 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
               deux se sont rejoints dans « Corriger ou rouvrir… », en tête de
               l'unité close. */}
           <button onClick={onReprendre}
-            className="mx-auto block text-[12px] text-amber-900 underline">
+            className="mx-auto block text-second text-amber-900 underline">
             Corriger ou rouvrir cette séance
           </button>
         </div>
@@ -2077,7 +2077,7 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
      celles des réglages : réussi, à surveiller, à corriger. */
   const rect = (fond, texte, titre) => (
     <span title={titre || undefined} style={{ background: fond }}
-      className="inline-flex items-center justify-center min-w-[40px] h-[22px] px-1.5 rounded-[5px] text-white font-semibold tabular-nums">{texte}</span>
+      className="inline-flex items-center justify-center min-w-[40px] h-[22px] px-1.5 rounded-pastille text-white font-semibold tabular-nums">{texte}</span>
   );
   /* LE NA GARDE SA NOTE (Charles, 9 octobre 2026 : « je ne sais pas dire si
      l'échec est profond »). Ajourné, l'acquis ou le cours n'a plus de cote
@@ -2086,11 +2086,11 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
   // enregistrée, seulement NA (Charles, 9 octobre 2026).
   const enregistree = !!e.resultat;
   const sousNA = n => (n == null || enregistree) ? 'NA'
-    : <>{fmt(n)}<span className="ml-1 text-[9.5px] font-normal opacity-90">NA</span></>;
+    : <>{fmt(n)}<span className="ml-1 text-mention font-normal opacity-90">NA</span></>;
   const note = (v, { na = false } = {}) => {
     if (na) {
       const n = v?.mention ? null : (v?.note_brute ?? v?.note ?? null);
-      return rect('var(--c-refuse)', v?.mention ? (enregistree ? 'NA' : <>{v.mention}<span className="ml-1 text-[9.5px] font-normal opacity-90">NA</span></>) : sousNA(n),
+      return rect('var(--c-refuse)', v?.mention ? (enregistree ? 'NA' : <>{v.mention}<span className="ml-1 text-mention font-normal opacity-90">NA</span></>) : sousNA(n),
         n != null ? `Non acquis — à représenter · cote calculée ${fmt(n)}/20` : 'Non acquis — à représenter');
     }
     if (!v) return <span className="text-slate-300">·</span>;
@@ -2125,7 +2125,7 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
 
       <div className="space-y-2 min-w-0">
         {!regarde.aa && !regarde.cours && (
-          <div className="px-3 py-2 rounded-carte bg-slate-50 border border-slate-200 text-[12px] text-slate-600">
+          <div className="px-3 py-2 rounded-carte bg-slate-50 border border-slate-200 text-second text-slate-600">
             L'établissement délibère sur la <b>seule note d'unité</b> : acquis et cours restent
             consultables dans les documents, mais ne font pas la décision.
           </div>
@@ -2133,7 +2133,7 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
 
         {(regarde.aa || regarde.cours) && (
           <div id="a-justifier" className="border border-slate-200 rounded-carte overflow-x-auto">
-            <table className="w-full border-collapse text-[11.5px] table-fixed">
+            <table className="w-full border-collapse text-xs table-fixed">
               <thead className="bg-slate-50 normal-case tracking-normal">
                 <tr className="align-middle">
                   <th className="text-left px-2.5 py-1 font-semibold text-slate-600 w-[24%]">Acquis</th>
@@ -2142,8 +2142,8 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
                       title={[c.cours_nom, c.professeurs, c.poids_cours_affiche != null ? `${c.poids_cours_affiche} %` : null].filter(Boolean).join(' · ')}>
                       <div className="text-slate-700 truncate"><b className="font-semibold">{c.cours_code}</b>
                         {c.poids_cours_affiche != null && <span className="text-slate-400"> · {c.poids_cours_affiche} %</span>}</div>
-                      {c.cours_nom && <div className="text-[10.5px] text-slate-500 leading-tight line-clamp-2">{c.cours_nom}</div>}
-                      {c.professeurs && <div className="text-[10px] text-slate-400 italic truncate">{c.professeurs}</div>}
+                      {c.cours_nom && <div className="text-mention text-slate-500 leading-tight line-clamp-2">{c.cours_nom}</div>}
+                      {c.professeurs && <div className="text-mention text-slate-400 italic truncate">{c.professeurs}</div>}
                     </th>
                   ))}
                   <th className="w-[84px] px-2 py-1 text-center font-semibold text-slate-700 bg-iip-blue/10"
@@ -2164,7 +2164,7 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
                     <tr key={a.aa_code} className="border-t border-slate-100 bg-white align-middle">
                       <td className="px-2.5 py-1 max-w-0" title={a.description || ''}>
                         <div className="truncate"><b className={`font-semibold ${enCause ? 'text-red-700' : 'text-slate-700'}`}>{a.aa_code}</b>
-                          <span className="text-[10.5px] text-slate-500"> {a.description || ''}</span></div>
+                          <span className="text-mention text-slate-500"> {a.description || ''}</span></div>
                       </td>
                       {cours.map(c => (
                         <td key={c.cours_code} className="px-1.5 py-1 text-center">
@@ -2214,14 +2214,14 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
                         () => onAjuster('cours', c.cours_code, c.ajourne_directement ? null : 'ajourne'))}
                       </span>
                       {c.aas_a_representer && (
-                        <div className="mt-0.5 text-[10px] leading-tight text-slate-500 whitespace-normal"
+                        <div className="mt-0.5 text-mention leading-tight text-slate-500 whitespace-normal"
                           title="Le Conseil n'a rouvert que ces acquis du cours">
                           seuls {c.aas_a_representer.join(', ')}
                         </div>)}
                     </td>
                   ))}
                   <td className="bg-iip-blue/10" />
-                  {aJust.length > 0 && <td className="px-2.5 py-1.5 text-[10.5px] text-slate-400">
+                  {aJust.length > 0 && <td className="px-2.5 py-1.5 text-mention text-slate-400">
                     Ce texte est celui de l'annexe 8 (ajournement) ou 9 (refus).</td>}
                 </tr>
                 )}
@@ -2242,7 +2242,7 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
       {/* EN BAS, COLLÉS : LES SEULS BOUTONS DU CONSEIL (Charles, 29 septembre
           2026 : « juste le bouton ; et le nom en haut »). */}
       {lectureSeule() ? (
-        <div className="col-span-2 sticky bottom-0 z-20 -mx-1 px-1 py-2 border-t border-slate-200 text-[12.5px] text-slate-500"
+        <div className="col-span-2 sticky bottom-0 z-20 -mx-1 px-1 py-2 border-t border-slate-200 text-second text-slate-500"
           style={{ background: 'var(--page-fond, #fff)' }}>
           Lecture seule : les décisions du Conseil s'encodent par le secrétariat et la direction.
         </div>
@@ -2277,18 +2277,18 @@ function Thermometre({ pc, ueNum, onBord }) {
     <div className="flex flex-col items-center gap-[3px] pt-0.5 sticky top-0">
       {blocs.map(b => (
         <div key={b} className="flex flex-col items-center gap-[3px]">
-          <div className="text-[10px] text-slate-400 mt-1">{b || '—'}</div>
+          <div className="text-mention text-slate-400 mt-1">{b || '—'}</div>
           {unites.filter(u => u.bloc === b).map(u => (
             <span key={u.ue_num} title={`UE ${u.ue_num}${u.ue_nom ? ` — ${u.ue_nom}` : ''} · ${LIB_THERMO[u.etat]}`}
-              className="block w-3.5 rounded-[3px]"
+              className="block w-3.5 rounded-pastille"
               style={{ height: u.ue_num === ueNum ? 18 : 13, background: ETAT_THERMO[u.etat],
                 outline: u.ue_num === ueNum ? '2px solid var(--c-texte)' : 'none', outlineOffset: 1 }} />
           ))}
         </div>
       ))}
-      {pc.ects > 0 && <div className="text-[10px] text-slate-500 text-center leading-tight mt-1.5">{pc.ects}<br />ECTS</div>}
+      {pc.ects > 0 && <div className="text-mention text-slate-500 text-center leading-tight mt-1.5">{pc.ects}<br />ECTS</div>}
       <button type="button" onClick={onBord} title="Parcours complet et motivation"
-        className="mt-1 text-[10px] text-iip-blue underline">voir</button>
+        className="mt-1 text-mention text-iip-blue underline">voir</button>
     </div>
   );
 }
@@ -2323,10 +2323,10 @@ function MotifEnLigne({ a, onMotif, onReporter, seul, enCours }) {
   if (!ecrire && (a.motif || proposition)) {
     return (
       <div className="space-y-0.5">
-        <div className={`text-[11.5px] leading-snug ${a.motif ? 'text-slate-800' : 'text-slate-500 italic'}`}>
+        <div className={`text-xs leading-snug ${a.motif ? 'text-slate-800' : 'text-slate-500 italic'}`}>
           {a.motif ? texte : proposition}
         </div>
-        <div className="flex items-center gap-2 text-[10.5px]">
+        <div className="flex items-center gap-2 text-mention">
           <span className="text-slate-400">{a.motif ? provenance : 'proposé par Lucie · pas encore retenu'}</span>
           {!a.motif && (
             <button type="button" disabled={enCours} onClick={() => onMotif(a.aa_code, proposition)}
@@ -2344,7 +2344,7 @@ function MotifEnLigne({ a, onMotif, onReporter, seul, enCours }) {
       {!!cles.length && (
         <div className="flex flex-wrap gap-1">
           {cles.map(c => (
-            <span key={c} className="inline-flex items-start gap-1 max-w-full bg-iip-blue/10 rounded-[6px] px-1.5 py-0.5 text-[11px] text-slate-700">
+            <span key={c} className="inline-flex items-start gap-1 max-w-full bg-iip-blue/10 rounded-pastille px-1.5 py-0.5 text-xs text-slate-700">
               <span className="line-clamp-2" title={texteDuMotif(c) || ''}>{texteDuMotif(c)}</span>
               <button disabled={enCours} onClick={() => retirer(c)} title="Retirer cet énoncé" className="flex-none opacity-50 hover:opacity-100"><IconX size={10} /></button>
             </span>
@@ -2353,7 +2353,7 @@ function MotifEnLigne({ a, onMotif, onReporter, seul, enCours }) {
       )}
       <div className="flex items-center gap-1">
         <select value="" disabled={enCours} onChange={ev => { ajouter(ev.target.value); ev.target.value = ''; }}
-          className={`flex-1 min-w-0 border rounded-[6px] px-1.5 py-0.5 text-[11px] bg-white ${cles.length || libre ? 'border-slate-200 text-slate-500' : 'border-red-300 text-red-700'}`}>
+          className={`flex-1 min-w-0 border rounded-pastille px-1.5 py-0.5 text-xs bg-white ${cles.length || libre ? 'border-slate-200 text-slate-500' : 'border-red-300 text-red-700'}`}>
           <option value="">{cles.length ? '+ ajouter un énoncé' : '— choisir un énoncé —'}</option>
           {MOTIFS_ECHEC.map(g => (
             <optgroup key={g.groupe} label={g.groupe}>
@@ -2364,15 +2364,15 @@ function MotifEnLigne({ a, onMotif, onReporter, seul, enCours }) {
         {!seul && (
           <button disabled={enCours || !cles.length} onClick={() => onReporter(cles)}
             title="Reporter ces énoncés sur tous les acquis à justifier — ils s'ajoutent aux leurs"
-            className="flex-none w-6 h-6 rounded-[6px] border border-slate-300 text-slate-500 flex items-center justify-center disabled:opacity-30">
+            className="flex-none w-6 h-6 rounded-pastille border border-slate-300 text-slate-500 flex items-center justify-center disabled:opacity-30">
             <IconBrush size={12} />
           </button>
         )}
       </div>
       <textarea value={libre} disabled={enCours} rows={1} onChange={ev => setLibre(ev.target.value)} onBlur={() => poser(cles, libre)}
-        placeholder="ou écrire la justification…" className="w-full border border-slate-200 rounded-[6px] px-1.5 py-0.5 text-[11px] resize-y" />
+        placeholder="ou écrire la justification…" className="w-full border border-slate-200 rounded-pastille px-1.5 py-0.5 text-xs resize-y" />
       {(a.motif || proposition) && (
-        <button type="button" onClick={() => setEcrire(false)} className="text-[10.5px] text-slate-400 underline">fermer</button>
+        <button type="button" onClick={() => setEcrire(false)} className="text-mention text-slate-400 underline">fermer</button>
       )}
     </div>
   );
@@ -2409,10 +2409,10 @@ function Pilotage({ e, ue, onBord }) {
     <div className="rounded-xl bg-slate-800 text-slate-200 p-3 space-y-3
                     lg:sticky lg:top-2">
       <div>
-        <div className="text-[13px] font-bold text-white truncate">
+        <div className="text-sm font-bold text-white truncate">
           {nomPropre(e.nom, e.prenom)}
         </div>
-        <div className="text-[11px] text-slate-400">{e.id_ecampus || '—'}</div>
+        <div className="text-xs text-slate-400">{e.id_ecampus || '—'}</div>
       </div>
 
       {/* Les chiffres de l'année. */}
@@ -2431,11 +2431,11 @@ function Pilotage({ e, ue, onBord }) {
 
       {/* Les autres unités de l'année, en pastilles. */}
       <div>
-        <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1">
+        <div className="text-mention font-bold uppercase tracking-wide text-slate-400 mb-1">
           Les autres unités de l'année
         </div>
         {!autres.length ? (
-          <div className="text-[11px] text-slate-500">
+          <div className="text-xs text-slate-500">
             Aucune autre inscription cette année.
           </div>
         ) : (
@@ -2447,7 +2447,7 @@ function Pilotage({ e, ue, onBord }) {
                   + `${u.points != null ? ` (${fmt(u.points)}/20)` : ''}`
                   + `${u.faveur ? ' — levée en faveur' : ''}`}
                 className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg border
-                  text-[11px] font-semibold
+                  text-xs font-semibold
                   ${u.faveur ? TON_FAVEUR
                     : TON_RES[u.resultat] || 'bg-slate-700 text-slate-400 border-slate-600'}`}>
                 <span className="tabular-nums">{u.ue_num}</span>
@@ -2459,7 +2459,7 @@ function Pilotage({ e, ue, onBord }) {
             ))}
           </div>
         )}
-        <div className="mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-slate-400">
+        <div className="mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5 text-mention text-slate-400">
           <span><span className="text-emerald-300">■</span> réussi</span>
           <span><span className="text-amber-300">■</span> ajourné</span>
           <span><span className="text-red-300">■</span> refusé</span>
@@ -2471,7 +2471,7 @@ function Pilotage({ e, ue, onBord }) {
       {/* CADEAU SUR CADEAU : l'avertissement vit ici, où l'on voit le parcours. */}
       {enFaveur > 0 && (
         <div className="rounded-lg bg-violet-500/15 border border-violet-400/40 px-2 py-1.5
-                        text-[11px] text-violet-100">
+                        text-xs text-violet-100">
           <b>{enFaveur} unité(s) déjà levée(s) en faveur</b> cette année.
           Chaque unité se délibère séparément : sans cette ligne, le Conseil
           accorde sans le savoir une faveur de plus.
@@ -2479,7 +2479,7 @@ function Pilotage({ e, ue, onBord }) {
       )}
 
       <button onClick={onBord}
-        className="w-full px-2.5 py-1.5 text-[12px] rounded-lg bg-white/10 border
+        className="w-full px-2.5 py-1.5 text-second rounded-lg bg-white/10 border
                    border-white/20 text-white font-semibold hover:bg-white/15">
         Parcours complet et motivation
       </button>
@@ -2490,10 +2490,10 @@ function Pilotage({ e, ue, onBord }) {
 function Chiffre({ libelle, valeur, suffixe, ton }) {
   return (
     <div className="rounded-lg bg-slate-900/60 py-1.5">
-      <div className={`text-[15px] font-bold leading-none tabular-nums ${ton}`}>
-        {valeur}<span className="text-[10px] font-normal opacity-70">{suffixe}</span>
+      <div className={`text-base font-bold leading-none tabular-nums ${ton}`}>
+        {valeur}<span className="text-mention font-normal opacity-70">{suffixe}</span>
       </div>
-      <div className="text-[10px] uppercase tracking-wide text-slate-400 mt-0.5">{libelle}</div>
+      <div className="text-mention uppercase tracking-wide text-slate-400 mt-0.5">{libelle}</div>
     </div>
   );
 }
@@ -2524,7 +2524,7 @@ function TuileSomme({ etat, seuil, onAjourner, onFaveur, motif, enCours,
         : echec ? 'border-red-500 border-2 bg-red-500 text-white'
         : note == null ? 'border-slate-200 bg-white text-slate-300'
         : 'border-emerald-500 bg-emerald-500 text-white'}`}>
-      <span className={`text-[15px] font-bold tabular-nums flex-1 text-right
+      <span className={`text-base font-bold tabular-nums flex-1 text-right
         ${decidee && echec ? 'text-red-700' : ''}`}
         title={mention === 'NP' ? 'Note de présence'
           : mention === 'PP' ? 'Pas présenté'
@@ -2592,13 +2592,13 @@ function TuileUE({ ue, seuil, onFaveur, enCours, compacte = false }) {
     const fond = ue.note == null && !ue.na ? null
       : ue.faveur ? 'var(--c-faveur)' : (ue.na || echec) ? 'var(--c-refuse)' : 'var(--c-reussi)';
     return (
-      <div className={`h-9 inline-flex items-center gap-2 px-3 rounded-[8px] whitespace-nowrap ${fond ? 'text-white' : 'border border-slate-300'}`}
+      <div className={`h-9 inline-flex items-center gap-2 px-3 rounded-champ whitespace-nowrap ${fond ? 'text-white' : 'border border-slate-300'}`}
         style={fond ? { background: fond } : undefined}>
         {ue.faveur && <IconGift size={14} />}
-        <span className="text-[16px] font-bold tabular-nums">{ue.na ? 'NA' : fmt(ue.note)}</span>
-        <span className="text-[11.5px] opacity-90">/ 20 · note de l'unité</span>
+        <span className="text-base font-bold tabular-nums">{ue.na ? 'NA' : fmt(ue.note)}</span>
+        <span className="text-xs opacity-90">/ 20 · note de l'unité</span>
         {ue.cote_etudiant != null && String(ue.cote_etudiant) !== fmt(ue.note) && (
-          <span className="text-[11.5px] opacity-90">· à l'étudiant <b className="tabular-nums">{ue.cote_etudiant}</b></span>
+          <span className="text-xs opacity-90">· à l'étudiant <b className="tabular-nums">{ue.cote_etudiant}</b></span>
         )}
       </div>
     );
@@ -2606,9 +2606,9 @@ function TuileUE({ ue, seuil, onFaveur, enCours, compacte = false }) {
   return (
     <div data-etat={etat} className="bloc-etat px-2.5 py-1.5">
       <div className="flex items-center gap-1.5">
-        <span className="text-[20px] font-bold tabular-nums flex-1 leading-tight">
+        <span className="text-xl font-bold tabular-nums flex-1 leading-tight">
           {ue.faveur && <IconGift size={15} className="inline -mt-1 mr-1" style={{ color: 'var(--c-faveur)' }} />}
-          {ue.na ? 'NA' : fmt(ue.note)}<span className="text-[12px] font-normal text-slate-500"> / 20</span>
+          {ue.na ? 'NA' : fmt(ue.note)}<span className="text-second font-normal text-slate-500"> / 20</span>
         </span>
         {(echec || ue.faveur) && !ue.na && (
           <button disabled={enCours} onClick={onFaveur}
@@ -2621,7 +2621,7 @@ function TuileUE({ ue, seuil, onFaveur, enCours, compacte = false }) {
           </button>
         )}
       </div>
-      <div className="text-[11px] text-slate-500">
+      <div className="text-xs text-slate-500">
         {ue.faveur ? "note de l'unité · faveur" : echec ? "note de l'unité · non acquise" : "note de l'unité"}
       </div>
       {/* CE QUE L'ÉTUDIANT VERRA, dit ici pour qu'on n'ait pas à le deviner.
@@ -2632,7 +2632,7 @@ function TuileUE({ ue, seuil, onFaveur, enCours, compacte = false }) {
           légitimement ; ne montrer que le premier laissait croire à une erreur
           au moment de relire les pièces. */}
       {ue.cote_etudiant != null && String(ue.cote_etudiant) !== fmt(ue.note) && (
-        <div className="text-[10px] text-right border-t border-current/20 mt-0.5 pt-0.5
+        <div className="text-mention text-right border-t border-current/20 mt-0.5 pt-0.5
                         opacity-80" title="La cote portée sur les documents de l'étudiant">
           à l’étudiant : <b className="tabular-nums">{ue.cote_etudiant}</b>
         </div>
@@ -2684,10 +2684,10 @@ function AJustifier({ acquis, cours, onMotif, enCours, decision }) {
     <div id="a-justifier" className="border border-red-200 rounded-xl overflow-hidden">
       <div className="px-3 py-1.5 bg-red-50 border-b border-red-200 flex items-center
                       justify-between gap-2 flex-wrap">
-        <span className="text-[12px] font-semibold text-red-900">
+        <span className="text-second font-semibold text-red-900">
           À justifier — {liste.length} acquis
         </span>
-        <span className="text-[11px] text-red-700">
+        <span className="text-xs text-red-700">
           {sansMotif ? `${sansMotif} sans motivation` : 'tous motivés'}
         </span>
       </div>
@@ -2695,7 +2695,7 @@ function AJustifier({ acquis, cours, onMotif, enCours, decision }) {
       {/* Les cours à représenter, rappelés en une ligne : c'est l'acquis qu'on
           justifie, pas le cours. */}
       {!!aRepresenter.length && (
-        <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200 text-[12px]
+        <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200 text-second
                         text-slate-700">
           <span className="font-semibold">Cours ajournés, à représenter :</span>{' '}
           {aRepresenter.map(c => (
@@ -2719,7 +2719,7 @@ function AJustifier({ acquis, cours, onMotif, enCours, decision }) {
         ))}
       </div>
 
-      <p className="px-3 py-1.5 bg-slate-50 border-t border-slate-100 text-[11px] text-slate-500">
+      <p className="px-3 py-1.5 bg-slate-50 border-t border-slate-100 text-xs text-slate-500">
         Ce texte est celui que reprendra l'annexe 8 (ajournement) ou 9 (refus).
         Sans lui, la décision est attaquable et l'écran ne passe pas au suivant.
       </p>
@@ -2754,11 +2754,11 @@ function LigneMotif({ a, onMotif, onReporter, seul, enCours }) {
   return (
     <div className={`px-3 py-2 flex items-start gap-3 ${a.motif ? '' : 'bg-red-50/40 border-l-4 border-l-red-500'}`}>
       <div className="w-40 flex-none">
-        <div className="font-mono text-[12px] font-bold text-slate-700">{a.aa_code}</div>
-        <div className="text-[11px] text-slate-500 truncate" title={a.description || ''}>
+        <div className="font-mono text-second font-bold text-slate-700">{a.aa_code}</div>
+        <div className="text-xs text-slate-500 truncate" title={a.description || ''}>
           {a.description || ''}
         </div>
-        <span className={`inline-block mt-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-champ
+        <span className={`inline-block mt-0.5 text-mention font-bold px-1.5 py-0.5 rounded-champ
           ${a.na ? 'bg-slate-200 text-slate-700' : 'bg-red-500 text-white'}`}>
           {a.na ? 'ajourné · à représenter' : `${fmt(a.note)}/20`}
         </span>
@@ -2771,7 +2771,7 @@ function LigneMotif({ a, onMotif, onReporter, seul, enCours }) {
             {cles.map(c => (
               <span key={c} className="inline-flex items-start gap-1 max-w-full
                              bg-iip-blue/10 border border-iip-blue/30 rounded-lg
-                             px-1.5 py-0.5 text-[11px] text-iip-blue">
+                             px-1.5 py-0.5 text-xs text-iip-blue">
                 <span className="truncate" title={texteDuMotif(c) || ''}>
                   {texteDuMotif(c)}
                 </span>
@@ -2787,7 +2787,7 @@ function LigneMotif({ a, onMotif, onReporter, seul, enCours }) {
         <div className="flex items-center gap-1.5">
           <select value="" disabled={enCours}
             onChange={ev => { ajouter(ev.target.value); ev.target.value = ''; }}
-            className={`flex-1 border rounded-lg px-2 py-1.5 text-[12px]
+            className={`flex-1 border rounded-lg px-2 py-1.5 text-second
               ${cles.length ? 'border-slate-300' : 'border-red-400 text-red-700'}`}>
             <option value="">
               {cles.length ? '+ ajouter une justification…' : '— choisir la justification —'}
@@ -2818,7 +2818,7 @@ function LigneMotif({ a, onMotif, onReporter, seul, enCours }) {
           onChange={ev => setLibre(ev.target.value)}
           onBlur={() => poser(cles, libre)}
           placeholder="Précision propre à cet acquis (facultatif)…"
-          className="w-full border border-slate-200 rounded-lg px-2 py-1 text-[12px]" />
+          className="w-full border border-slate-200 rounded-lg px-2 py-1 text-second" />
       </div>
     </div>
   );
@@ -2844,22 +2844,22 @@ function AideDecision({ ue }) {
   return (
     <div className="space-y-1.5">
       {!!ue.faveur_cout && (
-        <div className={`rounded-xl border px-3 py-2 text-[12px]
+        <div className={`rounded-xl border px-3 py-2 text-second
           ${ok ? 'bg-emerald-500 border-emerald-500 text-white'
                : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-semibold">
               {ok ? 'Faveur envisageable' : 'Faveur hors de la ligne du Conseil'}
             </span>
-            <span className="text-[12px] opacity-80">
+            <span className="text-second opacity-80">
               il manque <b>{fmt(ue.faveur_cout)}</b> point(s)
             </span>
             {!!(ue.faveur_cours || []).length && (
-              <span className="text-[12px] opacity-80">
+              <span className="text-second opacity-80">
                 · sur {ue.faveur_cours.length} cours ({ue.faveur_cours.join(', ')})
               </span>
             )}
-            <span className="text-[12px] opacity-60 ml-auto">
+            <span className="text-second opacity-60 ml-auto">
               moyenne de l'année :
               {' '}<b>{ue.moyenne_annee != null ? fmt(ue.moyenne_annee) : '—'}</b>/20
               {ue.moyenne_annee != null && (
@@ -2871,7 +2871,7 @@ function AideDecision({ ue }) {
             </span>
           </div>
 
-          <div className="mt-1 text-[11px] opacity-80">
+          <div className="mt-1 text-xs opacity-80">
             {(ue.faveur_acquis || []).map(a => (
               <span key={a.aa_code} className="mr-2">
                 <span className="font-mono">{a.aa_code}</span> −{fmt(a.manque)}
@@ -2879,7 +2879,7 @@ function AideDecision({ ue }) {
             ))}
           </div>
 
-          <div className="mt-1 text-[11px] opacity-70">
+          <div className="mt-1 text-xs opacity-70">
             {ue.faveur_motif
               ? `Motif : ${ue.faveur_motif}.`
               : `Dans la limite retenue pour l'unité : ${b.points_max} point(s) au plus, `
@@ -2947,7 +2947,7 @@ function DecisionGenerale({ cours, enCours, onLot, onDecision, decision }) {
   const tousAjournes = enJeu.length > 0 && enJeu.every(c => c.ajourne_directement);
 
   return (
-    <div className="flex items-center gap-2 flex-wrap text-[12px]">
+    <div className="flex items-center gap-2 flex-wrap text-second">
       <span className="text-slate-500">Sur l'ensemble des cours :</span>
       <button disabled={enCours} onClick={() => onLot('cours', codes, tousAjournes ? null : 'ajourne')}
         title={tousAjournes
@@ -2997,7 +2997,7 @@ function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours,
   return (
     <div className={boutons && details ? 'border border-slate-200 rounded-xl overflow-hidden' : ''}>
       {boutons && details && (
-      <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200 text-[12px]
+      <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200 text-second
                       font-semibold text-iip-blue flex items-center justify-between gap-2">
         <span>Décision du Conseil des études</span>
         {!ue.na && ue.note != null && (
@@ -3020,7 +3020,7 @@ function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours,
               title={ue.faveur_ue
                 ? 'Retirer la faveur accordée à l’unité'
                 : 'Accorder l’unité en faveur — la cote monte au seuil, jamais au-delà'}
-              className={`h-9 px-3 inline-flex items-center text-[13px] font-semibold rounded-lg border transition
+              className={`h-9 px-3 inline-flex items-center text-sm font-semibold rounded-lg border transition
                 ${ue.faveur_ue
                   ? 'bg-violet-500 border-violet-500 text-white'
                   : 'bg-white border-slate-300 text-iip-texte hover:bg-violet-500 hover:border-violet-500 hover:text-white'}`}>
@@ -3052,14 +3052,14 @@ function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours,
                   onDecision(d.cle);
                 }}
                 title={d.cle === 'reussi' && nonAcquise && !ue.faveur_ue ? "L'unité n'est pas acquise : la réussir, c'est accorder une faveur — elle sera tracée" : undefined}
-                className={`h-9 px-3 inline-flex items-center text-[13px] font-semibold rounded-lg border
+                className={`h-9 px-3 inline-flex items-center text-sm font-semibold rounded-lg border
                   ${enFaveur ? 'bg-violet-500 border-violet-500 text-white'
                     : actif ? `${d.ton} text-white`
                           : 'bg-white border-slate-300 text-slate-600 hover:border-slate-400'}`}>
                 {enFaveur && <IconGift size={13} className="mr-1" />}
                 {d.libelle}
                 {d.cle === propose && (
-                  <span className={`ml-1.5 text-[10px] font-normal
+                  <span className={`ml-1.5 text-mention font-normal
                     ${actif ? 'opacity-80' : 'text-slate-400'}`}>proposé</span>
                 )}
               </button>
@@ -3071,7 +3071,7 @@ function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours,
           {(e.resultat || ue.faveur || ue.na) && onAnnuler && (
             <button onClick={onAnnuler} disabled={enCours}
               title="Effacer la décision et les ajustements de cet étudiant — ses notes sont conservées"
-              className="ml-auto text-[12px] px-2.5 py-1 rounded-lg border border-slate-300
+              className="ml-auto text-second px-2.5 py-1 rounded-lg border border-slate-300
                          text-slate-500 hover:border-red-400 hover:text-red-700
                          flex items-center gap-1">
               <IconRotate size={13} /> Reprendre ce dossier
@@ -3079,7 +3079,7 @@ function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours,
           )}
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap text-[12px]">
+        <div className="flex items-center gap-2 flex-wrap text-second">
           <span className="text-slate-500">
             {e.resultat
               ? <>Enregistré : <b className="text-slate-700">{LIB_RES[e.resultat]}</b>
@@ -3103,7 +3103,7 @@ function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours,
           )}
 
           {!!(ue.mentions || []).length && (
-            <span className="text-[12px] text-amber-900 bg-amber-50 border
+            <span className="text-second text-amber-900 bg-amber-50 border
                              border-amber-300 rounded-lg px-2 py-0.5">
               {ue.mentions.map(m => `${m.cours_code} : ${m.mention}`).join(' · ')}
               {' — '}
@@ -3124,7 +3124,7 @@ function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours,
         </>)}
         {details && (<>
         {ue.faveur && (
-          <p className="text-[12px] text-amber-900 bg-amber-50 border border-amber-200
+          <p className="text-second text-amber-900 bg-amber-50 border border-amber-200
                         rounded-lg px-2.5 py-1.5">
             Faveur accordée : l'unité vaut exactement le seuil. Le Conseil ne peut
             attester la réussite sans maîtrise de tous les acquis, ni donner plus de
@@ -3138,7 +3138,7 @@ function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours,
             et chaque acquis non maîtrisé doit être justifié : c'est ce que
             l'étudiant recevra, et ce sur quoi porterait un recours. */}
         {decision === 'refuse' && (
-          <div className="text-[12px] text-red-900 bg-red-50 border border-red-200
+          <div className="text-second text-red-900 bg-red-50 border border-red-200
                           rounded-lg px-2.5 py-1.5 space-y-1">
             <div className="font-semibold">
               Refus — décision définitive pour cette année
@@ -3163,7 +3163,7 @@ function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours,
         )}
 
         {ue.na && decision !== 'refuse' && (
-          <div className="text-[12px] text-slate-700 bg-slate-50 border border-slate-200
+          <div className="text-second text-slate-700 bg-slate-50 border border-slate-200
                           rounded-lg px-2.5 py-1.5 space-y-1">
             <div className="font-semibold">Ajournement — à représenter :</div>
             {detail.length ? detail.map(c => (
@@ -3212,7 +3212,7 @@ function VueTableau({ data, liste, onOuvrir, session = 1 }) {
   const [vue, setVue] = useState('notes');
   return (
     <div className="space-y-2">
-    <div className="flex items-center gap-2 text-[12px] text-slate-600">
+    <div className="flex items-center gap-2 text-second text-slate-600">
       <span>Afficher :</span>
       <div className="segments">
         {[['notes', 'les notes'], ['decisions', 'la synthèse des décisions']].map(([k, l]) => (
@@ -3220,7 +3220,7 @@ function VueTableau({ data, liste, onOuvrir, session = 1 }) {
             className={vue === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>{l}</button>))}
       </div>
       {vue === 'decisions' && (
-        <span className="text-[11px] text-slate-500 inline-flex items-center gap-2 flex-wrap">
+        <span className="text-xs text-slate-500 inline-flex items-center gap-2 flex-wrap">
           <span className="inline-flex items-center gap-1"><IconRepeat size={12} style={{ color: 'var(--c-attente)' }} /> ajourné</span>
           <span><b style={{ color: 'var(--c-refuse)' }}>R</b> refusé</span>
           <span className="inline-flex items-center gap-1"><IconGift size={12} style={{ color: 'var(--c-faveur)' }} /> faveur</span>
@@ -3229,29 +3229,29 @@ function VueTableau({ data, liste, onOuvrir, session = 1 }) {
         </span>)}
     </div>
     <div className="overflow-auto border border-slate-200 rounded-carte bg-white">
-      <table className="text-[12px] border-collapse w-max min-w-full">
+      <table className="text-second border-collapse w-max min-w-full">
         <thead className="sticky top-0 z-10">
-          <tr className="tab-entete text-[10px] uppercase tracking-[.1em] text-slate-500">
+          <tr className="tab-entete text-mention uppercase tracking-[.1em] text-slate-500">
             <th rowSpan={2} className="tab-entete sticky left-0 z-20 text-left px-3 py-2 align-bottom
-                           border-b border-r border-slate-200 min-w-[200px] normal-case tracking-normal text-[12px] text-iip-blue">Étudiant</th>
+                           border-b border-r border-slate-200 min-w-[200px] normal-case tracking-normal text-second text-iip-blue">Étudiant</th>
             {nA > 0 && <th colSpan={nA} className="tab-entete px-2 pt-1.5 font-semibold border-b border-slate-200">Acquis d'apprentissage</th>}
             {nC > 0 && <th colSpan={nC} className="tab-entete px-2 pt-1.5 font-semibold border-b border-l border-slate-200">Cours · indicatif</th>}
-            <th rowSpan={2} className="tab-entete px-2 py-2 align-bottom border-b border-l border-slate-200 w-16 text-[11px] text-iip-blue normal-case tracking-normal">Unité</th>
+            <th rowSpan={2} className="tab-entete px-2 py-2 align-bottom border-b border-l border-slate-200 w-16 text-xs text-iip-blue normal-case tracking-normal">Unité</th>
           </tr>
           <tr className="tab-entete">
             {data.colonnes_acquis.map(a => (
               <th key={a.aa_code} title={a.description || ''}
-                className="tab-entete px-1 py-1.5 border-b border-slate-200 min-w-[52px] text-[10.5px]
+                className="tab-entete px-1 py-1.5 border-b border-slate-200 min-w-[52px] text-mention
                            font-semibold text-iip-blue">{a.aa_code}</th>
             ))}
             {colonnesCours.map((c, k) => (
               <th key={c.cours_code}
                 title={[c.cours_nom, c.professeurs].filter(Boolean).join(' · ')}
                 className={`tab-entete px-1.5 py-1.5 border-b border-slate-200 min-w-[72px] max-w-[110px]
-                           text-[10.5px] font-semibold text-slate-600 ${k === 0 ? 'border-l' : ''}`}>
+                           text-mention font-semibold text-slate-600 ${k === 0 ? 'border-l' : ''}`}>
                 <div>{c.cours_code}</div>
                 {c.cours_nom && (
-                  <div className="font-normal text-[9.5px] text-slate-500 leading-tight truncate">{c.cours_nom}</div>
+                  <div className="font-normal text-mention text-slate-500 leading-tight truncate">{c.cours_nom}</div>
                 )}
               </th>
             ))}
@@ -3295,16 +3295,16 @@ function VueTableau({ data, liste, onOuvrir, session = 1 }) {
                 <td className="border-b border-l border-slate-200 px-2 text-center">
                   {teinteUE
                     ? <span className="inline-flex items-center justify-center min-w-[30px] h-[22px] px-1.5 rounded-full
-                                       text-white font-bold text-[11.5px] tabular-nums" style={{ background: teinteUE }}>
+                                       text-white font-bold text-xs tabular-nums" style={{ background: teinteUE }}>
                         {ue.na ? (ue.note_calculee != null && !e.resultat
-                          ? <>{fmt(ue.note_calculee)}<span className="ml-0.5 text-[8.5px] font-normal">NA</span></> : 'NA') : fmt(ue.note)}
+                          ? <>{fmt(ue.note_calculee)}<span className="ml-0.5 text-mention font-normal">NA</span></> : 'NA') : fmt(ue.note)}
                       </span>
                     /* SANS NOTE, LA DÉCISION SE LIT QUAND MÊME (Charles, 5 octobre
                        2026 : « pourquoi ces étudiants ne sont pas refusés ? »). Neuf
                        étudiants de l'UE 305, sans aucune note, étaient bien refusés
                        en base ; la colonne ne montrait que la note, donc rien. */
                     : DECISION_TABLEAU[e.resultat]
-                      ? <span className="inline-flex items-center justify-center h-[22px] px-2 rounded-full text-white font-bold text-[11px]"
+                      ? <span className="inline-flex items-center justify-center h-[22px] px-2 rounded-full text-white font-bold text-xs"
                           style={{ background: DECISION_TABLEAU[e.resultat].c }} title="Décision du Conseil, sans note d'unité">
                           {DECISION_TABLEAU[e.resultat].l}
                         </span>
@@ -3328,7 +3328,7 @@ function CaseDecision({ etat, decision, decide, premier = false, unite = false }
   const pale = decide ? '' : 'opacity-50';
   const pastille = (fond, contenu, titre) => (
     <span title={titre} className={`inline-flex items-center justify-center gap-0.5 min-w-[26px] h-[20px] px-1.5 rounded-full
-      text-white font-bold text-[11px] ${pale}`} style={{ background: fond }}>{contenu}</span>);
+      text-white font-bold text-xs ${pale}`} style={{ background: fond }}>{contenu}</span>);
   const n = etat.note_calculee ?? etat.note;
   const enEchec = unite
     ? (decision === 'ajourne' || decision === 'refuse')
@@ -3337,9 +3337,9 @@ function CaseDecision({ etat, decision, decide, premier = false, unite = false }
   if (etat.faveur) contenu = pastille('var(--c-faveur)', <><IconGift size={11} /> 10</>, 'Octroyé par le Conseil');
   else if (enEchec && decision === 'refuse') contenu = pastille('var(--c-refuse)', 'R', 'Refusé');
   else if (enEchec) contenu = pastille('var(--c-attente)', <IconRepeat size={12} />, 'Ajourné — à représenter');
-  else if (unite && decision === 'absent') contenu = <span className={`text-[11px] text-slate-500 ${pale}`}>Abs.</span>;
+  else if (unite && decision === 'absent') contenu = <span className={`text-xs text-slate-500 ${pale}`}>Abs.</span>;
   else if (n == null) contenu = <span className="text-slate-300">—</span>;
-  else contenu = <span className={`tabular-nums text-[11.5px] font-semibold ${unite ? '' : 'text-iip-texte'} ${pale}`}
+  else contenu = <span className={`tabular-nums text-xs font-semibold ${unite ? '' : 'text-iip-texte'} ${pale}`}
     style={unite ? { color: 'var(--c-reussi)' } : undefined}>{fmt(n)}</span>;
   return <td className={`${bord} ${unite ? 'border-l border-slate-200 px-2' : 'px-1'} py-1 text-center`}>{contenu}</td>;
 }
@@ -3358,14 +3358,14 @@ function Case({ etat, cours, premier, decide = false }) {
   // Le NA garde la cote qu'il valait, comme dans la fiche.
   const brute = etat.note_brute ?? null;
   const texte = etat.na ? (brute != null && !decide
-      ? <>{fmt(brute)}<span className="ml-0.5 text-[8.5px] font-normal">NA</span></> : 'NA')
+      ? <>{fmt(brute)}<span className="ml-0.5 text-mention font-normal">NA</span></> : 'NA')
     : etat.note == null ? '—' : fmt(etat.note);
   return (
     <td className={`${bord} px-1 py-1 text-center tabular-nums`}>
       {pastille
         ? <span className="inline-flex items-center justify-center min-w-[26px] h-[20px] px-1 rounded-full
-                           text-white font-bold text-[11px]" style={{ background: pastille }}>{texte}</span>
-        : <span className={`text-[11.5px] ${etat.na ? 'text-slate-400' : cours ? 'text-slate-600' : 'font-semibold text-iip-texte'}`}>{texte}</span>}
+                           text-white font-bold text-xs" style={{ background: pastille }}>{texte}</span>
+        : <span className={`text-xs ${etat.na ? 'text-slate-400' : cours ? 'text-slate-600' : 'font-semibold text-iip-texte'}`}>{texte}</span>}
     </td>
   );
 }
@@ -3430,15 +3430,15 @@ function VueLot({ liste, onAjourner, onOuvrir, enCours, session = 1 }) {
   return (
     <div className="space-y-3">
       <div className="px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 border-l-4 border-l-amber-500">
-        <div className="text-[13px] font-semibold text-amber-900">{verbe} un paquet</div>
-        <p className="text-[12px] text-amber-800">
+        <div className="text-sm font-semibold text-amber-900">{verbe} un paquet</div>
+        <p className="text-second text-amber-800">
           On ajourne <b>par cours</b> : cochez les étudiants, et décochez au besoin l'un
           de leurs cours. Les acquis suivent leur cours. La justification, elle, est
           commune. Ce qu'une faveur a levé reste levé.
         </p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 text-[12px]">
+      <div className="flex flex-wrap items-center gap-2 text-second">
         <span className="text-slate-500">Sélection rapide :</span>
         <button onClick={() => poser(liste.filter(zero).map(e => e.id))}
           className="px-2.5 py-1 rounded-lg border border-slate-300 text-slate-600">
@@ -3469,16 +3469,16 @@ function VueLot({ liste, onAjourner, onOuvrir, enCours, session = 1 }) {
                 <input type="checkbox" checked={pris} onChange={() => bascule(e.id)}
                   className="w-4 h-4 accent-amber-600 flex-none" />
                 <span className="flex-1 min-w-0">
-                  <span className="text-[13px] font-semibold text-iip-blue">{e.nom}</span>
-                  <span className="text-[13px] text-slate-600"> {e.prenom}</span>
+                  <span className="text-sm font-semibold text-iip-blue">{e.nom}</span>
+                  <span className="text-sm text-slate-600"> {e.prenom}</span>
                 </span>
-                <span className={`text-[12px] font-bold tabular-nums w-12 text-right
+                <span className={`text-second font-bold tabular-nums w-12 text-right
                   ${e.ue?.na ? 'text-slate-500'
                     : (e.ue?.note ?? 0) < 10 ? 'text-red-700' : 'text-emerald-700'}`}>
                   {e.ue?.na ? 'NA' : fmt(e.ue?.note)}
                 </span>
                 <button onClick={ev => { ev.preventDefault(); onOuvrir(e); }}
-                  className="text-[11px] text-slate-400 hover:text-iip-blue">fiche</button>
+                  className="text-xs text-slate-400 hover:text-iip-blue">fiche</button>
               </label>
 
               {/* LE DÉTAIL, SANS OUVRIR LA FICHE : les cours en défaut, avec
@@ -3487,7 +3487,7 @@ function VueLot({ liste, onAjourner, onOuvrir, enCours, session = 1 }) {
               {pris && (
                 <div className="pl-7 pt-1 pb-0.5 flex flex-wrap gap-1.5">
                   {!defauts.length && (
-                    <span className="text-[11px] text-slate-400">
+                    <span className="text-xs text-slate-400">
                       Aucun cours sous le seuil — rien ne sera ajourné pour lui.
                     </span>
                   )}
@@ -3498,7 +3498,7 @@ function VueLot({ liste, onAjourner, onOuvrir, enCours, session = 1 }) {
                         onClick={() => basculeCours(e.id, c.cours_code)}
                         title={[c.cours_nom || c.cours_code, c.professeurs]
                           .filter(Boolean).join(' · ')}
-                        className={`px-2 py-0.5 rounded-champ border text-[11px] font-semibold
+                        className={`px-2 py-0.5 rounded-champ border text-xs font-semibold
                           ${off ? 'border-slate-300 text-slate-400 line-through'
                                 : 'border-amber-500 bg-amber-500 text-white'}`}>
                         {c.cours_code} · {c.mention || (c.na ? 'NA' : fmt(c.note))}
@@ -3515,7 +3515,7 @@ function VueLot({ liste, onAjourner, onOuvrir, enCours, session = 1 }) {
       {/* LA QUESTION DU CONSEIL, POSÉE UNE FOIS POUR LE LOT (Charles, 9 octobre
           2026) : un cours ajourné se représente-t-il entier, ou pour ses seuls
           acquis en échec ? */}
-      <div className="flex flex-wrap items-center gap-2 text-[12px] text-slate-600">
+      <div className="flex flex-wrap items-center gap-2 text-second text-slate-600">
         <span>Dans un cours ajourné, l'étudiant représente :</span>
         <div className="segments">
           {[['tous', 'tous les acquis du cours'], ['echec', 'seulement les acquis en échec']].map(([k, l]) => (
@@ -3525,19 +3525,19 @@ function VueLot({ liste, onAjourner, onOuvrir, enCours, session = 1 }) {
         </div>
       </div>
 
-      <label className="block text-[12px] text-slate-600">
+      <label className="block text-second text-slate-600">
         Justification commune — elle sera portée sur chaque acquis ajourné, et
         c'est elle que reprendra l'annexe 8
         <textarea value={motif} onChange={e => setMotif(e.target.value)} rows={2}
           placeholder="Ne s'est pas présenté aux évaluations de l'unité."
-          className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]" />
+          className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
       </label>
 
       {apercu && (
-        <div className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-[13px]">
+        <div className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm">
           <b>{apercu.traites}</b> étudiant(s) · <b>{apercu.acquis}</b> acquis
           et <b>{apercu.cours}</b> cours seront ajournés, avec la même justification.
-          <div className="mt-1 text-[12px] text-slate-500">
+          <div className="mt-1 text-second text-slate-500">
             {apercu.details.slice(0, 8).map(d =>
               `${d.nom} (${d.acquis} acquis)`).join(' · ')}
             {apercu.details.length > 8 && ` … et ${apercu.details.length - 8} autre(s)`}
@@ -3546,7 +3546,7 @@ function VueLot({ liste, onAjourner, onOuvrir, enCours, session = 1 }) {
       )}
 
       <div className="flex items-center justify-between gap-3">
-        <span className="text-[12px] text-slate-500">
+        <span className="text-second text-slate-500">
           <b className="text-amber-800">{ids.length}</b> sélectionné(s) ·
           {' '}<b className="text-amber-800">{nbCours}</b> cours à représenter
           {ids.length > 0 && motif.trim().length < 5 && ' — la justification est requise'}
@@ -3554,7 +3554,7 @@ function VueLot({ liste, onAjourner, onOuvrir, enCours, session = 1 }) {
         <div className="flex gap-2">
           <button disabled={!pret || enCours}
             onClick={async () => setApercu(await onAjourner(ids, motif.trim(), true, parCours, null, mode))}
-            className="px-3 py-1.5 text-[13px] rounded-lg border border-slate-300
+            className="px-3 py-1.5 text-sm rounded-lg border border-slate-300
                        text-slate-600 disabled:opacity-40">
             Simuler
           </button>
@@ -3563,7 +3563,7 @@ function VueLot({ liste, onAjourner, onOuvrir, enCours, session = 1 }) {
               const j = await onAjourner(ids, motif.trim(), false, parCours, null, mode);
               if (j) { setApercu(null); setChoisis(new Set()); }
             }}
-            className="px-4 py-2 text-[13px] rounded-lg bg-amber-600 text-white
+            className="px-4 py-2 text-sm rounded-lg bg-amber-600 text-white
                        font-semibold disabled:opacity-40">
             {enCours ? 'Enregistrement…' : `${verbe} ${ids.length || ''}`}
           </button>
@@ -3579,11 +3579,11 @@ function VueLot({ liste, onAjourner, onOuvrir, enCours, session = 1 }) {
  *  un composant recréé à chaque frappe se démonte, et le curseur part avec. */
 function Ligne({ label, type = 'text', valeur, onChange, disabled }) {
   return (
-    <label className={`text-[12px] ${disabled ? 'text-slate-400' : 'text-slate-600'}`}>
+    <label className={`text-second ${disabled ? 'text-slate-400' : 'text-slate-600'}`}>
       {label}
       <input type={type} value={valeur} disabled={disabled}
         onChange={e => onChange(e.target.value)}
-        className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]
+        className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-sm
                    disabled:bg-slate-100 disabled:text-slate-400" />
     </label>
   );
@@ -3693,7 +3693,7 @@ export function CorrectionAdministrative({ ueNum, annee, session, org = 0, seanc
               </button>
             ))}
           </div>
-          <p className="text-[12px] text-slate-600 mt-2">
+          <p className="text-second text-slate-600 mt-2">
             {mode === 'corriger'
               ? 'La séance reste close. Dates, visite des copies, présidence et '
                 + 'présences se corrigent ici ; les décisions, les notes et les '
@@ -3718,18 +3718,18 @@ export function CorrectionAdministrative({ ueNum, annee, session, org = 0, seanc
             s'horodate. Les trois champs restent visibles mais grisés quand la
             mention s'applique : on voit ce qui est remplacé. */}
         <div className="border border-slate-200 rounded-xl p-3 space-y-2">
-          <div className="text-[12px] font-semibold text-iip-blue">Visite des copies</div>
+          <div className="text-second font-semibold text-iip-blue">Visite des copies</div>
           <div className="grid grid-cols-2 gap-2">
             {ligne('visite_date', 'Date', 'date', surDemande)}
             {ligne('visite_heure', 'Heure', 'time', surDemande)}
             {ligne('visite_local', 'Local', 'text', surDemande)}
           </div>
-          <label className="flex items-start gap-2 text-[12px] text-slate-700">
+          <label className="flex items-start gap-2 text-second text-slate-700">
             <input type="checkbox" checked={surDemande} className="mt-0.5"
               onChange={e => basculer(e.target.checked)} />
             <span>
               Aucune plage organisée — les modalités sont communiquées sur demande
-              <span className="block text-[11px] text-slate-500">
+              <span className="block text-xs text-slate-500">
                 La mention ci-dessous remplace la date, l'heure et le local sur la
                 notification remise à l'étudiant et au procès-verbal.
               </span>
@@ -3738,7 +3738,7 @@ export function CorrectionAdministrative({ ueNum, annee, session, org = 0, seanc
           {surDemande && (
             <textarea rows={2} value={champs.visite_mention}
               onChange={e => setChamps(c => ({ ...c, visite_mention: e.target.value }))}
-              className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]" />
+              className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
           )}
         </div>
 
@@ -3750,18 +3750,18 @@ export function CorrectionAdministrative({ ueNum, annee, session, org = 0, seanc
                   k === i ? { ...x, present: e.target.checked } : x))}
                 className="w-4 h-4 accent-iip-blue flex-none" />
               <span className="flex-1 min-w-0">
-                <span className="text-[13px] font-semibold">{m.nom}</span>
-                <span className="block text-[11px] text-slate-500 truncate">{m.qualite}</span>
+                <span className="text-sm font-semibold">{m.nom}</span>
+                <span className="block text-xs text-slate-500 truncate">{m.qualite}</span>
               </span>
               {m.voix === 'consultative' && (
-                <span className="text-[10px] px-2 py-0.5 rounded-champ bg-sky-50
+                <span className="text-mention px-2 py-0.5 rounded-champ bg-sky-50
                                  text-sky-800 border border-sky-200 flex-none">
                   consultative
                 </span>
               )}
               {m.role === 'ajoute' && (
                 <button onClick={() => setMembres(l => l.filter((_, k) => k !== i))}
-                  className="flex-none text-[11px] text-red-700 border border-red-200
+                  className="flex-none text-xs text-red-700 border border-red-200
                              rounded px-1.5 py-0.5">
                   retirer
                 </button>
@@ -3772,7 +3772,7 @@ export function CorrectionAdministrative({ ueNum, annee, session, org = 0, seanc
         </>)}
 
         <div className="pt-1">
-          <div className="text-[12px] font-semibold text-slate-700 mb-1">
+          <div className="text-second font-semibold text-slate-700 mb-1">
             Motif — il figurera au dossier
           </div>
           <ChoixMotif motifs={motifs} valeur={cle} precision={precision}
@@ -3780,7 +3780,7 @@ export function CorrectionAdministrative({ ueNum, annee, session, org = 0, seanc
         </div>
 
         {erreur && (
-          <div className="px-3 py-2 rounded-lg bg-red-50 text-red-700 text-[13px] border-l-4 border-l-red-500">{erreur}</div>
+          <div className="px-3 py-2 rounded-lg bg-red-50 text-red-700 text-sm border-l-4 border-l-red-500">{erreur}</div>
         )}
       </div>
     </Fenetre>
@@ -3833,7 +3833,7 @@ function ChoixMotif({ valeur, precision, onValeur, onPrecision,
       <div className="flex flex-wrap gap-1.5">
         {motifs.map(m => (
           <button key={m.cle} onClick={() => onValeur(m.cle)}
-            className={`px-2.5 py-1 text-[12px] rounded-champ border transition-colors
+            className={`px-2.5 py-1 text-second rounded-champ border transition-colors
               ${valeur === m.cle
                 ? 'border-amber-500 bg-amber-500 text-white font-semibold'
                 : 'border-slate-300 text-slate-600 hover:border-slate-400'}`}>
@@ -3845,7 +3845,7 @@ function ChoixMotif({ valeur, precision, onValeur, onPrecision,
         placeholder={valeur === 'autre'
           ? 'Précisez le motif — il figurera au dossier'
           : 'Précision (facultative) : référence de la pièce, nom de l\u2019étudiant…'}
-        className="w-full bg-white border border-slate-300 rounded-champ px-2 h-9 text-[13px]" />
+        className="w-full bg-white border border-slate-300 rounded-champ px-2 h-9 text-sm" />
     </div>
   );
 }
@@ -3873,7 +3873,7 @@ export function BandeauReouverture({ session, onReprendre }) {
      place perdue, il faut faire plus petit »). L'état se dit en quelques mots,
      le bouton reste à droite, compact. */
   return (
-    <div data-etat="neutre" className="bloc-etat px-3 py-1 flex items-center justify-between gap-3 text-[12px]">
+    <div data-etat="neutre" className="bloc-etat px-3 py-1 flex items-center justify-between gap-3 text-second">
       <span className="text-slate-700 min-w-0 truncate">
         <b>Séance close</b> · {session === 2 ? 'seconde' : 'première'} session — décisions figées
       </span>

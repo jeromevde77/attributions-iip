@@ -73,7 +73,7 @@ export default function LettresModele({ annee }) {
   const apercu = k => {
     const d = produits.documents[k];
     const nav = produits.documents.length > 1 ? (
-      <span className="flex items-center gap-1 text-[12px] text-slate-500">
+      <span className="flex items-center gap-1 text-second text-slate-500">
         <button type="button" className="bouton controle px-2" disabled={k === 0} onClick={() => apercu(k - 1)}>◀</button>
         <span className="tabular-nums px-1">{k + 1} / {produits.documents.length}</span>
         <button type="button" className="bouton controle px-2" disabled={k === produits.documents.length - 1} onClick={() => apercu(k + 1)}>▶</button>
@@ -111,16 +111,16 @@ export default function LettresModele({ annee }) {
           {envoiMail?.actif && peutGeste('envois.envoyer') && (
             <button type="button" className="bouton bouton-sortir" onClick={() => setEnvoi(true)}>Envoyer à chacun ({produits.documents.length})</button>)}
         </>}
-        {!modele && <span className="text-[12px] text-slate-500">Choisissez d’abord le modèle (composé dans Configuration → L’atelier de Lucie).</span>}
-        {modele && !coches.size && etudiants.length > 0 && <span className="text-[12px] text-slate-500">Cochez les étudiants qui reçoivent la lettre.</span>}
+        {!modele && <span className="text-second text-slate-500">Choisissez d’abord le modèle (composé dans Configuration → L’atelier de Lucie).</span>}
+        {modele && !coches.size && etudiants.length > 0 && <span className="text-second text-slate-500">Cochez les étudiants qui reçoivent la lettre.</span>}
       </div>
-      {erreur && <div className="text-[12.5px]" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
+      {erreur && <div className="text-second" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
 
       {!section && !ue ? (
-        <p className="text-[13px] text-slate-500">Choisissez une section, puis éventuellement une unité : ses étudiants s’affichent ici.</p>
+        <p className="text-sm text-slate-500">Choisissez une section, puis éventuellement une unité : ses étudiants s’affichent ici.</p>
       ) : (
         <div className="border border-slate-200 rounded-carte overflow-hidden bg-white">
-          <table className="w-full text-[12.5px]">
+          <table className="w-full text-second">
             <thead>
               <tr className="tab-entete text-left">
                 <th className="px-3 py-1.5 w-8"><input type="checkbox" checked={tous}

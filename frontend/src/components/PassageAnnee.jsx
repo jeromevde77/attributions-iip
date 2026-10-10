@@ -116,7 +116,7 @@ export default function PassageAnnee({ annee, onClose, onTermine }) {
     <Fenetre titre="Passage à l'année suivante" large="grande" onFermer={onClose}
       sous="Composer le programme de chacun sur ses résultats : les unités réussies libèrent la suite, celles qui ne l'ont pas été reviennent au programme."
       pied={rapport && (<>
-        <span className="text-[11px] text-slate-500">
+        <span className="text-xs text-slate-500">
           {retenus.length} dossier(s) retenu(s) · <b>{aCreer}</b> inscription(s) seront
           créées. Une unité déjà inscrite n'est jamais recréée, et rien n'est supprimé.
         </span>
@@ -131,10 +131,10 @@ export default function PassageAnnee({ annee, onClose, onTermine }) {
         <div className="sticky -top-4 z-10 bg-white -mx-5 -mt-4 mb-3">
         <div className="flex-none px-5 py-3 border-b border-slate-100 flex items-end
                         gap-3 flex-wrap">
-          <label className="text-[12px] text-slate-600">
+          <label className="text-second text-slate-600">
             <div className="font-semibold mb-0.5">Section</div>
             <select value={section} onChange={e => { setSection(e.target.value); setRapport(null); }}
-              className="border border-slate-300 rounded-lg px-2 py-1.5 text-[13px] min-w-[180px]">
+              className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm min-w-[180px]">
               <option value="">— choisir —</option>
               {sections.map(s => (
                 <option key={s.code || s} value={s.code || s}>
@@ -143,30 +143,30 @@ export default function PassageAnnee({ annee, onClose, onTermine }) {
               ))}
             </select>
           </label>
-          <div className="text-[12px] text-slate-600">
+          <div className="text-second text-slate-600">
             <div className="font-semibold mb-0.5">Résultats de</div>
             <div className="px-2 py-1.5 border border-slate-200 rounded-lg bg-slate-50
-                            text-[13px] tabular-nums">{annee}</div>
+                            text-sm tabular-nums">{annee}</div>
           </div>
           <IconArrowRight size={16} className="text-slate-400 mb-2" />
-          <label className="text-[12px] text-slate-600">
+          <label className="text-second text-slate-600">
             <div className="font-semibold mb-0.5">Programme pour</div>
             <select value={cible} onChange={e => { setCible(e.target.value); setRapport(null); }}
-              className="border border-slate-300 rounded-lg px-2 py-1.5 text-[13px] tabular-nums">
+              className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm tabular-nums">
               {choixAnnees.map(a => (
                 <option key={a} value={a}>{a}{annees.includes(a) ? '' : ' (pas encore créée)'}</option>
               ))}
             </select>
           </label>
           <button onClick={lancer} disabled={enCours || !section || !cible}
-            className="px-3 py-2 text-[13px] rounded-lg bg-iip-blue text-white font-semibold
+            className="px-3 py-2 text-sm rounded-lg bg-iip-blue text-white font-semibold
                        disabled:opacity-40">
             {enCours ? 'Calcul…' : 'Voir qui est admissible'}
           </button>
         </div>
         </div>
 
-        <div className="space-y-4 text-[13px]">
+        <div className="space-y-4 text-sm">
           {erreur && (
             <div data-etat="corriger" className="bloc-etat px-3 py-2">{erreur}</div>
           )}
@@ -195,7 +195,7 @@ export default function PassageAnnee({ annee, onClose, onTermine }) {
               {!!rapport.prets.length && (
                 <div className="border border-slate-200 rounded-xl overflow-hidden">
                   <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200
-                                  text-[11px] uppercase tracking-wide text-slate-500 font-semibold
+                                  text-xs uppercase tracking-wide text-slate-500 font-semibold
                                   flex items-center justify-between">
                     <span>Programmes à créer</span>
                     <span className="normal-case tracking-normal text-slate-400">
@@ -218,17 +218,17 @@ export default function PassageAnnee({ annee, onClose, onTermine }) {
                           <div className={`flex-1 min-w-0 ${pris ? '' : 'opacity-40'}`}>
                             <div className="font-semibold text-iip-blue">
                               {nomPropre(p.nom, p.prenom)}
-                              {p.niveau && <span className="ml-1.5 text-[10px] font-normal
+                              {p.niveau && <span className="ml-1.5 text-mention font-normal
                                 text-slate-500">{p.niveau}</span>}
                             </div>
-                            <div className="text-[11px] text-slate-600 mt-0.5">
+                            <div className="text-xs text-slate-600 mt-0.5">
                               {p.ues.length} unité(s) à inscrire
                               {p.deja > 0 && ` · ${p.deja} déjà inscrite(s)`}
                             </div>
                             <div className="flex flex-wrap gap-1 mt-1">
                               {p.ues.map(u => (
                                 <span key={u.ue_num} title={u.ue_nom || ''}
-                                  className={`px-1.5 py-px rounded text-[10px] border
+                                  className={`px-1.5 py-px rounded text-mention border
                                     ${u.epreuve_integree
                                       ? 'bg-violet-500 border-violet-500 text-white'
                                       : u.reprise
@@ -251,7 +251,7 @@ export default function PassageAnnee({ annee, onClose, onTermine }) {
               {!!rapport.attente.length && (
                 <div className="border border-amber-200 rounded-xl overflow-hidden">
                   <div className="px-3 py-1.5 bg-amber-50 border-b border-amber-200
-                                  text-[11px] uppercase tracking-wide text-amber-800 font-semibold
+                                  text-xs uppercase tracking-wide text-amber-800 font-semibold
                                   flex items-center gap-1.5">
                     <IconClock size={13} /> En attente — rien ne leur sera inscrit
                   </div>
@@ -259,7 +259,7 @@ export default function PassageAnnee({ annee, onClose, onTermine }) {
                     {rapport.attente.map(a => (
                       <div key={a.id} className="px-3 py-1.5">
                         <div className="font-semibold text-slate-700">{nomPropre(a.nom, a.prenom)}</div>
-                        <ul className="text-[11px] text-amber-800 mt-0.5">
+                        <ul className="text-xs text-amber-800 mt-0.5">
                           {a.attentes.map((x, i) => (
                             <li key={i}>
                               {x.ue_num ? `UE ${x.ue_num}${x.ue_nom ? ` — ${x.ue_nom}` : ''} : ` : ''}

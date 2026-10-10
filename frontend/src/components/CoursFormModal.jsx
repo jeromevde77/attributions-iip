@@ -229,12 +229,12 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
               <label className="block">
                 <div className={isZ ? lblZ : lbl}>
                   Heures étudiant
-                  <span className="text-[10px] text-gray-400 block font-normal">Contact étudiant (×60 min)</span>
+                  <span className="text-mention text-gray-400 block font-normal">Contact étudiant (×60 min)</span>
                 </div>
                 <input type="number" min="0" value={form.heures} onChange={e => set('heures', e.target.value)}
                   disabled={isZ} placeholder="0" className={isZ ? inpZ : inp} />
                 {Number(form.heures) > 0 && (
-                  <div className="text-[10px] text-iip-gold mt-0.5">
+                  <div className="text-mention text-iip-gold mt-0.5">
                     = {Math.round(Number(form.heures) * 1.2)} pér. contact étudiant
                   </div>
                 )}
@@ -257,29 +257,29 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
                 </div>
                 <div className="grid grid-cols-4 gap-3 text-center">
                   <div className="bg-white rounded border border-iip-blue/10 p-2">
-                    <div className="text-[10px] text-gray-500 mb-0.5">Heures de contact</div>
+                    <div className="text-mention text-gray-500 mb-0.5">Heures de contact</div>
                     <div className="font-bold text-iip-blue text-lg">{form.heures || '—'} h</div>
-                    <div className="text-[10px] text-gray-400">×60 min</div>
+                    <div className="text-mention text-gray-400">×60 min</div>
                   </div>
                   <div className="bg-white rounded border border-iip-blue/10 p-2">
-                    <div className="text-[10px] text-gray-500 mb-0.5">Pér. contact (×1.2)</div>
+                    <div className="text-mention text-gray-500 mb-0.5">Pér. contact (×1.2)</div>
                     <div className="font-bold text-iip-turquoise text-lg">
                       {Number(form.heures) > 0 ? Math.round(Number(form.heures) * 1.2) : '—'}
                     </div>
-                    <div className="text-[10px] text-gray-400">périodes 50 min</div>
+                    <div className="text-mention text-gray-400">périodes 50 min</div>
                   </div>
                   <div className="bg-white rounded border border-iip-blue/10 p-2">
-                    <div className="text-[10px] text-gray-500 mb-0.5">Pér. dossier pédag.</div>
+                    <div className="text-mention text-gray-500 mb-0.5">Pér. dossier pédag.</div>
                     <div className="font-bold text-iip-gold text-lg">{form.cours_per || '—'}</div>
-                    <div className="text-[10px] text-gray-400">périodes prof.</div>
+                    <div className="text-mention text-gray-400">périodes prof.</div>
                   </div>
                   <div className="bg-white rounded border border-amber-200 p-2">
-                    <div className="text-[10px] text-gray-500 mb-0.5">Autonomie du cours</div>
+                    <div className="text-mention text-gray-500 mb-0.5">Autonomie du cours</div>
                     <input type="number" min="0" value={form.cours_autonomie}
                       onChange={e => set('cours_autonomie', e.target.value)}
                       placeholder="0"
                       className="font-bold text-amber-600 text-lg text-center w-full bg-transparent border-b border-amber-200 focus:outline-none focus:border-amber-500" />
-                    <div className="text-[10px] text-gray-400">pér. autonomie</div>
+                    <div className="text-mention text-gray-400">pér. autonomie</div>
                   </div>
                 </div>
                 {Number(form.heures) > 0 && Number(form.cours_per) > 0 && (

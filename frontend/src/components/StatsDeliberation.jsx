@@ -37,11 +37,11 @@ function Tableau({ titre, sous, lignes, colonne = 'Groupe' }) {
   return (
     <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
       <div className="px-3 py-2 bg-slate-50 border-b border-slate-200">
-        <div className="text-[13px] font-semibold text-iip-blue">{titre}</div>
-        {sous && <div className="text-[11px] text-slate-500">{sous}</div>}
+        <div className="text-sm font-semibold text-iip-blue">{titre}</div>
+        {sous && <div className="text-xs text-slate-500">{sous}</div>}
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full text-[12px]">
+        <table className="w-full text-second">
           <thead>
             <tr className="text-slate-500 text-left border-b border-slate-200">
               <th className="px-3 py-1.5 font-semibold">{colonne}</th>
@@ -152,10 +152,10 @@ export default function StatsDeliberation({ annee }) {
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="max-w-3xl">
-          <div className="text-[15px] font-semibold text-iip-blue">
+          <div className="text-base font-semibold text-iip-blue">
             Résultats de la délibération — {annee}
           </div>
-          <p className="text-[12px] text-slate-600 mt-0.5">
+          <p className="text-second text-slate-600 mt-0.5">
             Ce que le Conseil a décidé, unité par unité. Le taux se calcule sur les
             dossiers <b>décidés</b> et non sur les inscrits : un dossier sans décision
             n'est pas un échec, c'est un dossier à finir — il se compte à part, dans la
@@ -183,7 +183,7 @@ export default function StatsDeliberation({ annee }) {
 
       {erreur && (
         <div className="px-3 py-2 rounded-xl bg-rose-50 border border-rose-200
-                        text-[12px] text-rose-900">{erreur}</div>
+                        text-second text-rose-900">{erreur}</div>
       )}
 
       {data && (
@@ -218,11 +218,11 @@ export default function StatsDeliberation({ annee }) {
           {formeUE && formeUE.n > 2 && (
             <div className="carte px-3 py-2.5 space-y-1.5">
               <div className="flex items-baseline justify-between gap-3 flex-wrap">
-                <div className="text-[12px] text-slate-600">
+                <div className="text-second text-slate-600">
                   Dispersion des taux de réussite de 1re session,
                   sur <b>{formeUE.n}</b> unité(s) délibérée(s)
                 </div>
-                <div className="text-[11px] text-slate-500 tabular-nums">
+                <div className="text-xs text-slate-500 tabular-nums">
                   la plus basse {nb(formeUE.min)} % · médiane <b className="text-iip-blue">
                     {nb(formeUE.mediane)} %</b> · moyenne {nb(formeUE.moyenne)} %
                   · la plus haute {nb(formeUE.max)} %
@@ -230,7 +230,7 @@ export default function StatsDeliberation({ annee }) {
               </div>
               <Etendue d={formeUE} max={100} />
               {Math.abs(formeUE.moyenne - formeUE.mediane) > 5 && (
-                <div className="text-[11px] text-[color:var(--c-attente,var(--c-attente))]">
+                <div className="text-xs text-[color:var(--c-attente,var(--c-attente))]">
                   Plus de cinq points entre la moyenne et la médiane : la série est
                   tirée par un bout — quelques unités pèsent sur l'ensemble.
                 </div>
@@ -240,7 +240,7 @@ export default function StatsDeliberation({ annee }) {
 
           {!!data.dossiers_ouverts && (
             <div className="px-3 py-2 rounded-xl bg-amber-50 border border-amber-300
-                            text-[12px] text-amber-900 flex items-start gap-1.5">
+                            text-second text-amber-900 flex items-start gap-1.5">
               <IconAlertTriangle size={15} className="flex-none mt-px" />
               <span>
                 <b>{data.dossiers_ouverts} inscription(s) sans aucune décision.</b> Elles
@@ -268,15 +268,15 @@ export default function StatsDeliberation({ annee }) {
           {!!data.par_cours?.length && (
             <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
               <div className="px-3 py-2 bg-slate-50 border-b border-slate-200">
-                <div className="text-[13px] font-semibold text-iip-blue">Par cours</div>
-                <div className="text-[11px] text-slate-500">
+                <div className="text-sm font-semibold text-iip-blue">Par cours</div>
+                <div className="text-xs text-slate-500">
                   Un cours n'a pas de décision — le Conseil délibère l'unité. Ce qui se dit
                   d'un cours, c'est la note qu'il a produite : un indicateur d'évaluation,
                   pas de délibération.
                 </div>
               </div>
               <div className="overflow-x-auto max-h-[420px]">
-                <table className="w-full text-[12px]">
+                <table className="w-full text-second">
                   <thead className="sticky top-0 bg-white">
                     <tr className="text-slate-500 text-left border-b border-slate-200">
                       <th className="px-3 py-1.5 font-semibold">Cours</th>

@@ -115,7 +115,7 @@ export function PageHeader({ icon: Icon, titre, sous, actions }) {
       <div className="flex items-baseline gap-2.5 min-w-0">
         <h1 className="titre-ecran flex-shrink-0 mb-0">{titre}</h1>
         {sous && (
-          <p className="text-[13px] text-slate-400 truncate hidden md:block">
+          <p className="text-sm text-slate-400 truncate hidden md:block">
             <span className="mr-2 text-slate-300">·</span>{sous}
           </p>
         )}
@@ -127,38 +127,28 @@ export function PageHeader({ icon: Icon, titre, sous, actions }) {
 
 // Barre d'onglets harmonisée. items = [{ key, label, icon }]. value = clé active.
 export function Tabs({ items, value, onChange }) {
+  // LE STANDARD (3.1.249) : le soulignement de la maison, `.onglet-page`, réglable.
   return (
-    <div className="flex gap-1 border-b border-gray-200 overflow-x-auto">
-      {items.map(({ key, label, icon: Icon }) => {
-        const actif = value === key;
-        return (
-          <button key={key} onClick={() => onChange(key)}
-            className={`flex items-center gap-2 px-3.5 py-2.5 text-[13px] whitespace-nowrap border-b-2 -mb-px transition-colors duration-150
-              ${actif
-                ? 'border-iip-turquoise text-iip-blue font-semibold'
-                : 'border-transparent text-gray-500 hover:text-iip-blue'}`}>
-            {Icon && <Icon size={17} stroke={1.8} className={actif ? 'text-iip-turquoise' : ''} />}
-            {label}
-          </button>
-        );
-      })}
+    <div className="flex gap-1 border-b border-slate-200 overflow-x-auto">
+      {items.map(({ key, label, icon: Icon }) => (
+        <button key={key} onClick={() => onChange(key)}
+          className={`onglet-page flex items-center gap-2 ${value === key ? 'onglet-page-actif' : ''}`}>
+          {Icon && <Icon size={17} stroke={1.8} />}
+          {label}
+        </button>))}
     </div>
   );
 }
 
 // Bouton harmonisé. variant : 'primary' | 'secondary' | 'accent' | 'danger' | 'danger-soft' | 'ghost'
 export function Btn({ variant = 'secondary', icon: Icon, children, className = '', ...props }) {
-  const base = 'inline-flex items-center gap-2 text-[13px] font-medium px-3.5 py-2 rounded-champ transition-colors duration-150 ease-ios disabled:opacity-40 disabled:cursor-not-allowed';
+  // LE STANDARD (3.1.249) : `.bouton` et ses trois emplois — fort, détruire, neutre.
   const variants = {
-    primary:      'bg-iip-blue text-white hover:bg-iip-blue-dark',
-    secondary:    'bg-white text-iip-blue border border-slate-300 hover:bg-slate-50',
-    accent:       'bg-iip-turquoise text-white hover:bg-iip-turquoise-dark',
-    danger:       'bg-iip-danger text-white hover:brightness-110',
-    'danger-soft':'bg-white text-iip-danger border border-red-200 hover:bg-red-50',
-    ghost:        'text-gray-500 hover:text-iip-blue hover:bg-slate-100',
+    primary: 'bouton bouton-fort', accent: 'bouton bouton-fort', secondary: 'bouton',
+    danger: 'bouton bouton-detruire', 'danger-soft': 'bouton', ghost: 'bouton',
   };
   return (
-    <button className={`${base} ${variants[variant] || variants.secondary} ${className}`} {...props}>
+    <button className={`${variants[variant] || 'bouton'} ${className}`} {...props}>
       {Icon && <Icon size={16} stroke={1.8} />}
       {children}
     </button>
@@ -167,19 +157,9 @@ export function Btn({ variant = 'secondary', icon: Icon, children, className = '
 
 // Carte KPI sobre. couleur : valeur affichée (sémantique). 'neutral'|'warn'|'good'|'bad'
 export function KpiCard({ label, valeur, sous, ton = 'neutral' }) {
-  const tons = {
-    neutral: 'text-iip-blue',
-    warn: 'text-amber-600',
-    good: 'text-emerald-700',
-    bad: 'text-iip-danger',
-  };
-  return (
-    <div className="bg-white border border-slate-200 rounded-carte shadow-pose px-5 py-4">
-      <div className="text-[10px] text-gray-400 uppercase tracking-wider">{label}</div>
-      <div className={`text-2xl font-semibold mt-1 ${tons[ton] || tons.neutral}`}>{valeur}</div>
-      {sous && <div className="text-[11px] text-gray-400 mt-0.5">{sous}</div>}
-    </div>
-  );
+  // LE STANDARD (3.1.249) : c'est une tuile ; le ton devient l'état.
+  const etat = { neutral: 'neutre', warn: 'surveiller', good: 'reussi', bad: 'corriger' }[ton] || 'neutre';
+  return <TuileEtat etat={etat} valeur={valeur} libelle={label} precision={sous} />;
 }
 
 // Rail latéral « glissant » partagé.
@@ -390,7 +370,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
             onMouseEnter={e => !epingle && surviser(e, `${titre} — écran de base`)}
             onMouseLeave={() => setSurvol(null)}
             disabled={!surAccueil}
-            className={`relative flex text-[13px] transition-colors duration-150 ease-ios
+            className={`relative flex text-sm transition-colors duration-150 ease-ios
               ${epingle
                 ? 'w-full items-center gap-3 py-2 px-2.5 rounded-fenetre'
                 : 'w-9 h-9 mx-auto items-center justify-center rounded-carte'}
@@ -414,7 +394,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
         {/* Le titre est porté par la porte de l'axe, juste au-dessus : ici il
             ne reste que le sous-titre et l'épingle. Un titre ne s'écrit
             qu'une fois. */}
-        <span className={`text-[15px] font-semibold flex-1 min-w-0 ${reveal}
+        <span className={`text-base font-semibold flex-1 min-w-0 ${reveal}
                           sr-only`}>{titre}</span>
         {/* L'ÉPINGLE : le survol montre, l'épingle décide. Décaler la page au
             survol la ferait sauter chaque fois qu'on frôle le bord gauche. */}
@@ -427,7 +407,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
         </button>
       </div>
       {sousTitre && (
-        <div className={`px-4 text-[11px] ${reveal}`}
+        <div className={`px-4 text-xs ${reveal}`}
           style={{ color: 'var(--menu-texte-doux)' }}>{sousTitre}</div>
       )}
       {extra && <div className={`px-3 pt-2 ${reveal}`}>{extra}</div>}
@@ -498,7 +478,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
                    elle seule dans toute l'application, ce qui la faisait
                    remarquer pour la mauvaise raison. Ce qui la distingue
                    désormais, c'est la COULEUR de son icône, et rien d'autre. */
-                className={`relative flex text-[13px] mb-0.5
+                className={`relative flex text-sm mb-0.5
                   transition-colors duration-150 ease-ios
                   ${epingle
                     ? 'w-full items-center gap-3 py-2 px-2.5 rounded-fenetre'
@@ -546,7 +526,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
                 style={{ borderColor: 'var(--menu-filet)' }} />
             )}
             {sec.label && (
-              <div className={`px-1.5 mt-2 mb-1 text-[10px] font-semibold uppercase
+              <div className={`px-1.5 mt-2 mb-1 text-mention font-semibold uppercase
                 tracking-wider ${reveal}`} style={{ color: 'var(--menu-texte-doux)' }}>
                 {sec.label}
               </div>
@@ -595,7 +575,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
                      AU SURVOL, LA MÊME PASTILLE QUE L'ACTIVE, en plus discret :
                      un fond blanc à coins largement arrondis, et non un simple
                      grisé. On voit ce qu'on vise. */
-                  className={`relative flex text-[13px] mb-0.5
+                  className={`relative flex text-sm mb-0.5
                     transition-colors duration-150 ease-ios
                     ${epingle
                       ? 'w-full items-start gap-3 py-2 px-2.5 rounded-fenetre'
@@ -681,7 +661,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
                           <button key={sv.key} onClick={sv.onClick} aria-label={sv.label}
                             onMouseEnter={e => !epingle && surviser(e, sv.label)}
                             onMouseLeave={() => setSurvol(null)}
-                            className={`relative flex text-[13px] mb-0.5
+                            className={`relative flex text-sm mb-0.5
                               transition-colors duration-150 ease-ios
                               ${epingle
                                 ? 'w-full items-center gap-3 py-2 px-2.5 rounded-fenetre'
@@ -738,12 +718,12 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
         <div className="flex-1 min-w-0 flex flex-col pb-3 px-3 min-h-0"
           style={{ paddingTop: '0.5rem' }}>
           {volet.titre && (
-            <div className="px-1 pb-2 text-[10px] font-semibold uppercase tracking-wider
+            <div className="px-1 pb-2 text-mention font-semibold uppercase tracking-wider
                             flex-shrink-0"
               style={{ color: 'var(--menu-texte-doux)' }}>{volet.titre}</div>
           )}
           <div ref={surNoeudVolet}
-            className="min-h-0 overflow-y-auto rail-defile text-[13px]"
+            className="min-h-0 overflow-y-auto rail-defile text-sm"
             style={{ color: 'var(--menu-texte)' }} />
         </div>
       )}
@@ -762,7 +742,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
                        left: volet ? 'calc(3.5rem + 10px)' : 'calc(100% + 10px)' }}
           className="pointer-events-none absolute -translate-y-1/2 z-50
                      px-2 py-0.5 rounded-champ shadow-flottant text-white font-medium
-                     text-[11.5px] whitespace-nowrap">
+                     text-xs whitespace-nowrap">
           {survol.label}
         </span>
       )}
@@ -814,7 +794,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
 export function Tableau({ children, className = '', dense = false }) {
   return (
     <div className={`border border-slate-200 rounded-xl overflow-x-auto bg-white ${className}`}>
-      <table className={`w-full ${dense ? 'text-[12px]' : 'text-sm'}`}>{children}</table>
+      <table className={`w-full ${dense ? 'text-second' : 'text-sm'}`}>{children}</table>
     </div>
   );
 }
@@ -849,9 +829,9 @@ export function Th({ children, align = 'gauche', largeur, className = '', ...pro
  */
 export function Td({ children, align = 'gauche', ton = 'normal', className = '', ...props }) {
   const a = align === 'droite' ? 'text-right' : align === 'centre' ? 'text-center' : 'text-left';
-  const t = ton === 'secondaire' ? 'text-[12px] text-slate-500'
-    : ton === 'fort' ? 'text-[13px] font-semibold text-iip-blue'
-    : 'text-[13px] text-slate-800';
+  const t = ton === 'secondaire' ? 'text-second text-slate-500'
+    : ton === 'fort' ? 'text-sm font-semibold text-iip-blue'
+    : 'text-sm text-slate-800';
   return <td className={`px-3 py-1.5 ${a} ${t} ${className}`} {...props}>{children}</td>;
 }
 
@@ -887,27 +867,18 @@ export function TrTotal({ children, className = '', ...props }) {
 export function TableauVide({ colonnes, children }) {
   return (
     <tr>
-      <td colSpan={colonnes} className="px-4 py-8 text-center text-[13px] text-slate-400">
+      <td colSpan={colonnes} className="px-4 py-8 text-center text-sm text-slate-400">
         {children}
       </td>
     </tr>
   );
 }
 
-const TEINTES_BADGE = {
-  neutre:  'bg-slate-100 text-slate-600',
-  info:    'bg-sky-500 text-white',
-  succes:  'bg-emerald-500 text-white',
-  alerte:  'bg-amber-500 text-white',
-  danger:  'bg-red-500 text-white',
-  accent:  'bg-violet-500 text-white',
-};
-
-/** Badge de tableau : discret, sans bordure, aux teintes de l'application. */
+/** Badge de tableau — LE STANDARD (3.1.249) : la pastille d'état, pleine. Le ton devient l'état. */
+const ETAT_BADGE = { neutre: 'neutre', info: 'disponible', succes: 'reussi', alerte: 'surveiller', danger: 'corriger', accent: 'faveur' };
 export function Badge({ children, ton = 'neutre', className = '', ...props }) {
   return (
-    <span className={`text-[10px] px-1.5 py-0.5 rounded ${TEINTES_BADGE[ton] || TEINTES_BADGE.neutre}
-                      ${className}`} {...props}>
+    <span className={`pastille-etat ${className}`} data-etat={ETAT_BADGE[ton] || 'neutre'} {...props}>
       {children}
     </span>
   );
@@ -939,13 +910,13 @@ export function TuileEtat({ etat = 'neutre', valeur, unite, libelle, precision, 
         ${onClick ? 'cursor-pointer hover:brightness-[.98] transition' : ''}
         ${actif ? 'ring-2 ring-offset-1 ring-iip-blue/30' : ''} ${className}`}>
       {Icone && <Icone size={15} stroke={1.8} className="absolute right-2.5 top-2.5" style={{ color: 'var(--e)' }} />}
-      <div className="text-[17px] font-bold tabular-nums leading-tight">
+      <div className="text-lg font-bold tabular-nums leading-tight">
         {valeur}
-        {unite && <span className="text-[11px] font-normal text-slate-500 ml-1">{unite}</span>}
+        {unite && <span className="text-xs font-normal text-slate-500 ml-1">{unite}</span>}
         {etat === 'faveur' && <IconeFaveur className="ml-1.5 align-[-1px]" />}
       </div>
-      {libelle && <div className="text-[11px] text-slate-600">{libelle}</div>}
-      {precision && <div className="text-[10px] text-slate-400">{precision}</div>}
+      {libelle && <div className="text-xs text-slate-600">{libelle}</div>}
+      {precision && <div className="text-mention text-slate-400">{precision}</div>}
     </Balise>
   );
 }
@@ -953,9 +924,9 @@ export function TuileEtat({ etat = 'neutre', valeur, unite, libelle, precision, 
 /** L'ENCADRÉ : une phrase qui porte un état — avertissement, erreur, confirmation. */
 export function Encadre({ etat = 'surveiller', titre, children, icone: Icone, className = '' }) {
   return (
-    <div data-etat={etat} className={`bloc-etat px-3 py-2 text-[12px] ${className}`}>
+    <div data-etat={etat} className={`bloc-etat px-3 py-2 text-second ${className}`}>
       {(titre || Icone) && (
-        <div className="flex items-center gap-1.5 font-semibold text-[13px]">
+        <div className="flex items-center gap-1.5 font-semibold text-sm">
           {Icone && <Icone size={15} stroke={1.8} style={{ color: 'var(--e)' }} />}
           {titre}
         </div>
@@ -979,7 +950,7 @@ export function PastilleEtat({ etat = 'neutre', children, className = '', title 
 export function Mention({ children, ton = 'neutre', className = '' }) {
   const t = ton === 'danger' ? 'text-red-600 font-semibold'
     : ton === 'alerte' ? 'text-amber-700' : 'text-slate-400';
-  return <span className={`ml-1 text-[10px] ${t} ${className}`}>{children}</span>;
+  return <span className={`ml-1 text-mention ${t} ${className}`}>{children}</span>;
 }
 
 
@@ -1037,7 +1008,7 @@ export function BulleAide({ titre, children }) {
         aria-label={titre ? `Aide : ${titre}` : 'Aide'}
         aria-expanded={ouvert}
         className="w-5 h-5 rounded-full border border-slate-300 text-slate-500
-                   text-[11px] font-semibold leading-none flex items-center
+                   text-xs font-semibold leading-none flex items-center
                    justify-center hover:bg-slate-50 transition-colors">
         ?
       </button>
@@ -1052,11 +1023,11 @@ export function BulleAide({ titre, children }) {
                            carte p-3 shadow-flottant bg-white text-left"
             role="dialog">
             {titre && (
-              <span className="block text-[13px] font-semibold text-iip-blue mb-1">
+              <span className="block text-sm font-semibold text-iip-blue mb-1">
                 {titre}
               </span>
             )}
-            <span className="block text-[12px] text-slate-600 whitespace-pre-line">
+            <span className="block text-second text-slate-600 whitespace-pre-line">
               {children}
             </span>
           </span>
@@ -1152,7 +1123,7 @@ export function Fenetre({ icone: Ic, titre, sous, large = 'moyenne',
           fenêtre s'y trouvait enfermée. Le flou vit donc sur un calque frère du
           panneau, jamais sur son ancêtre. */}
       <div aria-hidden="true"
-        className="absolute inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px]" />
+        className="absolute inset-0 voile-fenetre" />
       {/* UNE FENÊTRE FAIT LA HAUTEUR DE CE QU'ELLE DIT — JUSQU'À 88 vh.
        *
        * Les grandes étaient figées à 88 vh parce qu'elles portaient des
@@ -1177,11 +1148,11 @@ export function Fenetre({ icone: Ic, titre, sous, large = 'moyenne',
           {Ic && <Ic size={18} className="flex-shrink-0"
             style={{ color: ton === 'alerte' ? 'var(--c-texte)' : 'var(--c-accent)' }} />}
           <div className="min-w-0 flex-1">
-            <div className="text-[15px] font-semibold truncate">{titre}</div>
-            {sous && <div className="text-[12px] text-white/70 truncate">{sous}</div>}
+            <div className="text-base font-semibold truncate">{titre}</div>
+            {sous && <div className="text-second text-white/70 truncate">{sous}</div>}
           </div>
           {navigation && navigation.total > 1 && (
-            <div className="flex items-center gap-0.5 flex-none text-[12px] text-white/80">
+            <div className="flex items-center gap-0.5 flex-none text-second text-white/80">
               <button type="button" onClick={() => aller(-1)} disabled={navigation.position <= 0}
                 aria-label="Précédent" title="Précédent (←)"
                 className="w-8 h-8 grid place-items-center rounded-champ hover:bg-white/15 disabled:opacity-30 disabled:hover:bg-transparent">
@@ -1243,7 +1214,7 @@ export function GroupeFenetre({ titre, ton = 'neutre', children }) {
   return (
     <section className="mb-4 last:mb-0">
       {titre && (
-        <div className="text-[11px] font-semibold uppercase tracking-[.13em] mb-2"
+        <div className="text-xs font-semibold uppercase tracking-[.13em] mb-2"
           style={{ color: ton === 'alerte' ? 'var(--c-refuse)' : 'var(--c-disponible)' }}>{titre}</div>
       )}
       <div className="space-y-1.5">{children}</div>
@@ -1273,11 +1244,11 @@ export function PieceFenetre({ icone: Ic, titre, sous, meta, ton = 'neutre',
       {Ic && <Ic size={17} className="flex-shrink-0"
         style={{ color: teinte || 'var(--c-texte)' }} />}
       <span className="min-w-0 flex-1">
-        <span className="block text-[13px] text-slate-700">{titre}</span>
-        {sous && <span className="block text-[12px] text-slate-400">{sous}</span>}
+        <span className="block text-sm text-slate-700">{titre}</span>
+        {sous && <span className="block text-second text-slate-400">{sous}</span>}
       </span>
       {meta != null && (
-        <span className="flex-none text-[12px] text-slate-400 whitespace-nowrap">{meta}</span>
+        <span className="flex-none text-second text-slate-400 whitespace-nowrap">{meta}</span>
       )}
     </Balise>
   );
@@ -1286,16 +1257,9 @@ export function PieceFenetre({ icone: Ic, titre, sous, meta, ton = 'neutre',
 /** Les boutons du pied : un seul principal, le reste en retrait. */
 export function BoutonFenetre({ principal = false, ton = 'neutre', desactive = false,
                                 onClick, children }) {
-  const fond = ton === 'alerte' ? 'var(--c-refuse)' : 'var(--c-principal)';
-  return (
-    <button onClick={onClick} disabled={desactive}
-      className={`px-4 py-2 rounded-champ text-[13px] font-semibold
-        transition-colors duration-150 ease-ios disabled:opacity-40
-        ${principal ? 'text-white' : 'text-slate-600 border border-slate-300 hover:bg-slate-50'}`}
-      style={principal ? { background: fond } : undefined}>
-      {children}
-    </button>
-  );
+  // LE STANDARD (3.1.249) : `.bouton`, fort pour l'action principale, brique pour l'alerte.
+  const cls = principal ? (ton === 'alerte' ? 'bouton bouton-detruire' : 'bouton bouton-fort') : 'bouton';
+  return <button onClick={onClick} disabled={desactive} className={cls}>{children}</button>;
 }
 
 

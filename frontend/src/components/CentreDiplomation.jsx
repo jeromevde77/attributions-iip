@@ -236,11 +236,11 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
   const filtres = (
         <div className="flex-none px-5 py-3 border-b border-slate-100 flex items-end
                         gap-3 flex-wrap">
-          <label className="text-[12px] text-slate-600">
+          <label className="text-second text-slate-600">
             <div className="font-semibold mb-0.5">Section</div>
             <select value={section}
               onChange={e => { setSection(e.target.value); if (e.target.value) charger(e.target.value); }}
-              className="border border-slate-300 rounded-lg px-2 py-1.5 text-[13px] min-w-[200px]">
+              className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm min-w-[200px]">
               <option value="">— choisir —</option>
               {sections.map(s => (
                 <option key={s.code || s} value={s.code || s}>
@@ -249,18 +249,18 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
               ))}
             </select>
           </label>
-          <label className="text-[12px] text-slate-600">
+          <label className="text-second text-slate-600">
             <div className="font-semibold mb-0.5">Date de délibération</div>
             <input type="date" value={date} onChange={e => setDate(e.target.value)}
-              className="border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]" />
+              className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
           </label>
-          <div className="text-[12px] text-slate-600">
+          <div className="text-second text-slate-600">
             <div className="font-semibold mb-0.5">Pièces</div>
             <div className="flex gap-1">
               {[['diplome', 'Diplôme'], ['provisoire', 'Attestation provisoire'], ['attestation', 'Attestation de section'],
                 ['supplement', 'Supplément au diplôme'], ['liste', 'Liste des diplômés'], ['pv', 'PV de section']].map(([k, l]) => (
                 <button key={k} onClick={() => setVeut(v => ({ ...v, [k]: !v[k] }))}
-                  className={`px-2 py-1.5 text-[12px] rounded-lg border font-medium
+                  className={`px-2 py-1.5 text-second rounded-lg border font-medium
                     ${veut[k] ? 'bg-iip-blue border-iip-blue text-white'
                       : 'bg-white border-slate-300 text-slate-600'}`}>
                   {l}
@@ -269,7 +269,7 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
             </div>
           </div>
           {veut.diplome && (
-            <label className="flex items-center gap-1.5 text-[12px] text-slate-600 self-end pb-2"
+            <label className="flex items-center gap-1.5 text-second text-slate-600 self-end pb-2"
               title="Le papier à diplôme actuel porte déjà son bas de page, pré-imprimé : laissez décoché.">
               <input type="checkbox" checked={piedDiplome} onChange={e => setPiedDiplome(e.target.checked)} />
               Imprimer le bas de page du diplôme <span className="text-slate-400">(papier sans pied pré-imprimé)</span>
@@ -278,14 +278,14 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
   );
 
   const corps = (
-        <div className={integre ? 'flex-1 overflow-y-auto px-5 py-3 space-y-3 text-[13px]' : 'space-y-3 text-[13px]'}>
+        <div className={integre ? 'flex-1 overflow-y-auto px-5 py-3 space-y-3 text-sm' : 'space-y-3 text-sm'}>
           {erreur && (
             <div className="px-3 py-2 rounded-xl bg-rose-50 border border-rose-200
                             text-rose-900">{erreur}</div>
           )}
           {!!produits?.length && (
             <div className="border border-slate-200 rounded-xl overflow-hidden">
-              <div className="px-3 py-2 tab-entete text-[12px] font-semibold text-iip-blue">
+              <div className="px-3 py-2 tab-entete text-second font-semibold text-iip-blue">
                 Pièces prêtes — {nb} étudiant(s)
               </div>
               <div className="divide-y divide-slate-100">
@@ -295,7 +295,7 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
                       <div className="font-semibold text-slate-800">
                         {p.titre} <span className="text-slate-400 font-normal">· {p.nb}</span>
                       </div>
-                      <div className="text-[11px] text-slate-500">{p.detail}</div>
+                      <div className="text-xs text-slate-500">{p.detail}</div>
                     </div>
                     <button onClick={() => setApercu(p)}
                       className="bouton controle px-3 flex items-center gap-1.5">
@@ -320,7 +320,7 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
               </div>
               {!!manques.length && (
                 <div className="px-3 py-2 border-t border-amber-200 bg-amber-50
-                                text-[12px] text-amber-900 flex items-start gap-2">
+                                text-second text-amber-900 flex items-start gap-2">
                   <IconAlertTriangle size={14} className="mt-px flex-none" />
                   <span>
                     <b>{manques.length} champ(s) à compléter</b> avant signature :{' '}
@@ -353,7 +353,7 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
                 </div>
               )}
 
-              <div className="text-[11px] text-slate-500">
+              <div className="text-xs text-slate-500">
                 Mention : {Math.round((1 - d.regles_mention.poids_epreuve) * 100)} %
                 pour les unités déterminantes (pondérées par leurs périodes),{' '}
                 {Math.round(d.regles_mention.poids_epreuve * 100)} % pour l'épreuve
@@ -367,7 +367,7 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
               ) : (
                 <div className="border border-slate-200 rounded-xl overflow-hidden">
                   <div className="px-3 py-1.5 tab-entete flex items-center gap-2.5
-                                  text-[12px] text-slate-600">
+                                  text-second text-slate-600">
                     <button onClick={tous ? decocherTout : cocherTout}
                       title={tous ? 'Tout décocher' : 'Tout cocher'}
                       className="text-iip-blue">
@@ -404,24 +404,24 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
                                 {nomPropre(x.nom, x.prenom)}
                               </span>
                               {x.mention.mention ? (
-                                <span className="text-[11px] px-1.5 py-px rounded
+                                <span className="text-xs px-1.5 py-px rounded
                                                  bg-slate-100 text-slate-700 font-medium">
                                   {x.mention.mention} ·{' '}
                                   {String(x.mention.pourcent).replace('.', ',')} %
                                 </span>
                               ) : (
-                                <span className="text-[11px] px-1.5 py-px rounded
+                                <span className="text-xs px-1.5 py-px rounded
                                                  bg-red-50 text-red-700 font-medium">
                                   sans mention
                                 </span>
                               )}
                               {x.annee_fin !== annee && (
-                                <span className="text-[11px] text-slate-400">
+                                <span className="text-xs text-slate-400">
                                   terminé en {x.annee_fin}
                                 </span>
                               )}
                               {x.par_epreuve && !x.toutes_unites && (
-                                <span className="text-[11px] text-slate-400"
+                                <span className="text-xs text-slate-400"
                                   title="L'épreuve intégrée réussie vaut parcours complet">
                                   par l'épreuve intégrée
                                 </span>
@@ -431,7 +431,7 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
                               {x.determinantes.map(u => (
                                 <span key={u.ue_num}
                                   title={`${u.ue_nom || ''} · ${u.periodes || '?'} périodes`}
-                                  className={`text-[10px] px-1.5 py-px rounded border
+                                  className={`text-mention px-1.5 py-px rounded border
                                     ${u.cote == null
                                       ? 'bg-red-500 border-red-500 text-white'
                                       : 'bg-slate-50 border-slate-200 text-slate-600'}`}>
@@ -440,7 +440,7 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
                                 </span>
                               ))}
                               {x.epreuve && (
-                                <span className="text-[10px] px-1.5 py-px rounded border
+                                <span className="text-mention px-1.5 py-px rounded border
                                                  bg-violet-50 border-violet-200 text-violet-800">
                                   EI {x.epreuve.ue_num} : {x.epreuve.cote == null ? '—'
                                     : `${Math.round(x.epreuve.cote)}/20`}
@@ -448,7 +448,7 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
                               )}
                             </div>
                             {!!x.reserves.length && (
-                              <ul className="mt-1 text-[11px] text-amber-800">
+                              <ul className="mt-1 text-xs text-amber-800">
                                 {x.reserves.map((r, i) => (
                                   <li key={i} className="flex items-start gap-1">
                                     <IconClock size={11} className="mt-0.5 flex-none" />
@@ -498,7 +498,7 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
         {d && (
           <div className="flex-none px-5 py-3 border-b border-slate-100 bg-white flex items-center
                           justify-between gap-3">
-            <p className="text-[11px] text-slate-500">
+            <p className="text-xs text-slate-500">
               <b>{nb}</b> titre(s) retenu(s) sur {liste.length} en conditions
               {d.total.provisoires > 0 && (
                 <span className="text-amber-700">
@@ -507,7 +507,7 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
               )}
             </p>
             <button onClick={produire} disabled={enCours || !nb || !nbPieces}
-              className="px-4 py-2 text-[13px] rounded-lg bg-iip-blue text-white
+              className="px-4 py-2 text-sm rounded-lg bg-iip-blue text-white
                          font-semibold flex items-center gap-1.5 disabled:opacity-40">
               <IconCertificate size={15} /> Produire les pièces
             </button>
@@ -526,7 +526,7 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
       <Fenetre icone={IconAward} titre="Diplomation" large="grande" onFermer={onClose}
         sous="Les mentions sont calculées sur les délibérations. Vous arrêtez qui reçoit un titre."
         pied={d && (<>
-          <span className="text-[11px] text-slate-500">
+          <span className="text-xs text-slate-500">
             <b>{nb}</b> titre(s) retenu(s) sur {liste.length} en conditions
             {d.total.provisoires > 0 && (
               <span className="text-amber-700">

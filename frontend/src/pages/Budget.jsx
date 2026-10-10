@@ -207,7 +207,7 @@ export default function Budget() {
             Prévisions et dépenses, par année civile et par section.
           </p>
         </div>
-        <label className={`flex items-center gap-2 px-3 py-1.5 text-[13px] border border-slate-300 rounded-lg cursor-pointer hover:bg-slate-50`}>
+        <label className={`flex items-center gap-2 px-3 py-1.5 text-sm border border-slate-300 rounded-lg cursor-pointer hover:bg-slate-50`}>
           <IconUpload size={14} /> Importer le canevas ({annee})
           <input type="file" accept=".xlsx,.xlsm" className="hidden"
             onChange={e => e.target.files[0] && importerCanevas(e.target.files[0])} />
@@ -231,7 +231,7 @@ export default function Budget() {
         <div className="segments">
           {[['section', 'Par section'], ['synthese', "Vue d'ensemble"]].map(([v, l]) => (
             <button key={v} onClick={() => setVue(v)}
-              className={`px-3 py-1.5 text-[13px] ${vue === v
+              className={`px-3 py-1.5 text-sm ${vue === v
                 ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>
               {l}
             </button>
@@ -244,7 +244,7 @@ export default function Budget() {
               {sections.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
             <button onClick={reprendre}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-[13px] border border-slate-300 rounded-lg hover:bg-slate-50">
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm border border-slate-300 rounded-lg hover:bg-slate-50">
               <IconCopy size={14} /> Reprendre {annee - 1}
             </button>
           </>
@@ -266,8 +266,8 @@ export default function Budget() {
                (data.totaux.prevu_htva || 0) - (data.totaux.engage || 0) < 0 ? 'text-red-600' : 'text-emerald-700'],
             ].map(([lib, val, cls]) => (
               <div key={lib} className="border border-slate-200 rounded-xl px-3 py-2.5 bg-white">
-                <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">{lib}</div>
-                <div className={`text-[17px] font-bold ${cls}`}>{eur(val)}</div>
+                <div className="text-mention uppercase tracking-wide text-slate-500 font-semibold">{lib}</div>
+                <div className={`text-lg font-bold ${cls}`}>{eur(val)}</div>
               </div>
             ))}
           </div>
@@ -315,11 +315,11 @@ export default function Budget() {
 
           {data.hors_prevision?.length > 0 && (
             <div className="border border-amber-200 bg-amber-50 rounded-xl px-4 py-3 border-l-4 border-l-amber-500">
-              <div className="flex items-center gap-1.5 text-[13px] font-semibold text-amber-900 mb-1.5">
+              <div className="flex items-center gap-1.5 text-sm font-semibold text-amber-900 mb-1.5">
                 <IconAlertTriangle size={15} /> Dépenses hors prévision
               </div>
               {data.hors_prevision.map(d => (
-                <div key={d.id} className="flex items-center gap-2 text-[12px] text-amber-900 py-0.5">
+                <div key={d.id} className="flex items-center gap-2 text-second text-amber-900 py-0.5">
                   <span className="text-slate-500">{d.date_depense}</span>
                   <span className="flex-1">{d.libelle}</span>
                   <b>{eur(d.montant_htva)}</b>
@@ -349,35 +349,35 @@ function LigneBudget({ l, depenses, peutEcrire, onEditer, onSupprimer, onDepense
   return (
     <>
       <tr className={`border-b border-slate-100 hover:bg-slate-50/60 ${l.depasse ? 'bg-red-50/40' : ''}`}>
-        <td className="px-3 py-2 text-[12px] text-slate-500 align-top">
+        <td className="px-3 py-2 text-second text-slate-500 align-top">
           {l.compte_ref || '—'}
-          {l.compte_libelle && <span className="block text-[10px] text-slate-400">{l.compte_libelle}</span>}
+          {l.compte_libelle && <span className="block text-mention text-slate-400">{l.compte_libelle}</span>}
         </td>
-        <td className="px-3 py-2 text-[13px] text-slate-800">
+        <td className="px-3 py-2 text-sm text-slate-800">
           {l.details}
           {l.a_charge && l.a_charge !== 'IIP' && (
-            <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-violet-500 text-white border border-violet-500">
+            <span className="ml-1.5 text-mention px-1 py-0.5 rounded bg-violet-500 text-white border border-violet-500">
               {l.a_charge}
             </span>
           )}
           {depenses.length > 0 && (
-            <button onClick={() => setOuvert(o => !o)} className="ml-2 text-[11px] text-iip-turquoise underline">
+            <button onClick={() => setOuvert(o => !o)} className="ml-2 text-xs text-iip-turquoise underline">
               {depenses.length} dépense(s)
             </button>
           )}
         </td>
-        <td className="px-2 py-2 text-right text-[12px]">{eur(l.prix_unitaire)}</td>
-        <td className="px-2 py-2 text-right text-[12px]">{l.quantite}</td>
-        <td className="px-2 py-2 text-right text-[13px] font-semibold text-iip-blue">{eur(l.total_htva)}</td>
-        <td className="px-2 py-2 text-right text-[12px] text-amber-700">{l.engage ? eur(l.engage) : '—'}</td>
-        <td className={`px-2 py-2 text-right text-[13px] font-semibold ${l.depasse ? 'text-red-600' : 'text-emerald-700'}`}>
+        <td className="px-2 py-2 text-right text-second">{eur(l.prix_unitaire)}</td>
+        <td className="px-2 py-2 text-right text-second">{l.quantite}</td>
+        <td className="px-2 py-2 text-right text-sm font-semibold text-iip-blue">{eur(l.total_htva)}</td>
+        <td className="px-2 py-2 text-right text-second text-amber-700">{l.engage ? eur(l.engage) : '—'}</td>
+        <td className={`px-2 py-2 text-right text-sm font-semibold ${l.depasse ? 'text-red-600' : 'text-emerald-700'}`}>
           {eur(l.solde)}
         </td>
         <td className="px-2 py-2 text-right whitespace-nowrap">
           {peutEcrire && (
             <>
               <button onClick={onDepense} title="Encoder une dépense"
-                className="text-[11px] px-1.5 py-0.5 border border-slate-300 rounded mr-1">+ dép.</button>
+                className="text-xs px-1.5 py-0.5 border border-slate-300 rounded mr-1">+ dép.</button>
               <button onClick={onEditer} className="text-slate-400 hover:text-iip-blue mr-1" title="Modifier">✎</button>
               <button onClick={onSupprimer} className="text-slate-300 hover:text-red-500" title="Supprimer">
                 <IconTrash size={13} />
@@ -389,11 +389,11 @@ function LigneBudget({ l, depenses, peutEcrire, onEditer, onSupprimer, onDepense
       {ouvert && depenses.map(d => (
         <tr key={d.id} className="bg-slate-50/60 border-b border-slate-100">
           <td></td>
-          <td className="px-3 py-1 text-[12px] text-slate-600" colSpan={3}>
+          <td className="px-3 py-1 text-second text-slate-600" colSpan={3}>
             <span className="text-slate-400 mr-2">{d.date_depense}</span>{d.libelle}
             {d.piece && <span className="text-slate-400 ml-2">pièce {d.piece}</span>}
           </td>
-          <td className="px-2 py-1 text-right text-[12px]">{eur(d.montant_htva)}</td>
+          <td className="px-2 py-1 text-right text-second">{eur(d.montant_htva)}</td>
           <td colSpan={2}></td>
           <td className="px-2 py-1 text-right">
             {peutEcrire && (
@@ -466,7 +466,7 @@ function LigneForm({ form, setForm, comptes, onEnregistrer, onAnnuler }) {
         </div>
       </div>
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="text-[13px] text-slate-600">
+        <div className="text-sm text-slate-600">
           Total HTVA <b className="text-iip-blue">{eur(total)}</b> ·
           TVAC <b>{eur(total * (1 + Number(form.taux_tva ?? 0.21)))}</b>
         </div>
@@ -500,7 +500,7 @@ function DepenseForm({ ligne, onEnregistrer, onAnnuler }) {
         </button>
       </>}>
       <div className="space-y-3">
-        <div className="text-[12px] text-slate-500">
+        <div className="text-second text-slate-500">
           Sur la prévision « {ligne.details} » — solde actuel <b>{eur(ligne.solde)}</b>
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -551,7 +551,7 @@ function SyntheseBudget({ synthese, onOuvrir }) {
     <div className="border border-slate-200 rounded-xl overflow-hidden">
       <table className="w-full text-sm">
         <thead>
-          <tr className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500 border-b border-slate-200">
+          <tr className="bg-slate-50 text-mention uppercase tracking-wide text-slate-500 border-b border-slate-200">
             <th className="px-3 py-2 text-left">Section</th>
             <th className="px-3 py-2 text-right w-32">Prévu HTVA</th>
             <th className="px-3 py-2 text-right w-32">Engagé</th>
@@ -563,9 +563,9 @@ function SyntheseBudget({ synthese, onOuvrir }) {
           {synthese.sections.map(s => (
             <tr key={s.section} onClick={() => onOuvrir(s.section)}
               className="border-b border-slate-100 hover:bg-slate-50/60 cursor-pointer">
-              <td className="px-3 py-2 text-[13px] text-slate-800">
+              <td className="px-3 py-2 text-sm text-slate-800">
                 {s.section}
-                <span className="block text-[10px] text-slate-400">
+                <span className="block text-mention text-slate-400">
                   {s.lignes} prévision(s) · {s.depenses} dépense(s)
                 </span>
               </td>
@@ -579,12 +579,12 @@ function SyntheseBudget({ synthese, onOuvrir }) {
                   <div className={`h-full ${s.taux > 100 ? 'bg-red-500' : s.taux > 80 ? 'bg-amber-500' : 'bg-emerald-500'}`}
                     style={{ width: Math.min(100, s.taux || 0) + '%' }} />
                 </div>
-                <div className="text-[10px] text-slate-500 mt-0.5">{s.taux != null ? s.taux + ' %' : '—'}</div>
+                <div className="text-mention text-slate-500 mt-0.5">{s.taux != null ? s.taux + ' %' : '—'}</div>
               </td>
             </tr>
           ))}
           <tr className="bg-slate-50 font-semibold">
-            <td className="px-3 py-2 text-[13px] text-iip-blue">Total</td>
+            <td className="px-3 py-2 text-sm text-iip-blue">Total</td>
             <td className="px-3 py-2 text-right text-iip-blue">{eur(tot.prevu)}</td>
             <td className="px-3 py-2 text-right text-amber-700">{eur(tot.engage)}</td>
             <td className={`px-3 py-2 text-right ${tot.prevu - tot.engage < 0 ? 'text-red-600' : 'text-emerald-700'}`}>

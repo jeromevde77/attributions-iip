@@ -83,13 +83,13 @@ export default function ClasseurNotes({
         onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) relire(f); }} />
       <button onClick={exporter} disabled={enCours || !colonnes?.length}
         title="Exporter la grille en classeur, pour que le professeur la complète"
-        className="px-2.5 py-1.5 text-[12px] rounded-lg border border-slate-300
+        className="px-2.5 py-1.5 text-second rounded-lg border border-slate-300
                    text-slate-600 flex items-center gap-1.5 disabled:opacity-40">
         <IconTableExport size={14} /> Exporter
       </button>
       <button onClick={() => fichierRef.current?.click()} disabled={enCours}
         title="Relire un classeur rempli et en reprendre les notes"
-        className="px-2.5 py-1.5 text-[12px] rounded-lg border border-slate-300
+        className="px-2.5 py-1.5 text-second rounded-lg border border-slate-300
                    text-slate-600 flex items-center gap-1.5 disabled:opacity-40">
         <IconTableImport size={14} /> Importer
       </button>
@@ -106,7 +106,7 @@ export default function ClasseurNotes({
               <IconCheck size={15} /> Écrire {apercu.total.notes} note(s)
             </button>
           </>)}>
-            <div className="space-y-3 text-[13px]">
+            <div className="space-y-3 text-sm">
               {erreur && (
                 <div className="px-3 py-2 rounded-xl bg-rose-50 border border-rose-200
                                 text-rose-900">{erreur}</div>
@@ -151,13 +151,13 @@ export default function ClasseurNotes({
                     <div className="px-3 py-2 rounded-xl bg-rose-50 border border-rose-200
                                     text-rose-900">
                       <b>{lu.soucis.length} case(s) illisible(s)</b>, laissées de côté :
-                      <ul className="list-disc ml-5 mt-0.5 text-[12px]">
+                      <ul className="list-disc ml-5 mt-0.5 text-second">
                         {lu.soucis.slice(0, 8).map((x, i) => <li key={i}>{x}</li>)}
                       </ul>
                     </div>
                   )}
 
-                  <p className="text-[12px] text-slate-500">
+                  <p className="text-second text-slate-500">
                     Les notes écrites remplacent celles de la même session ; une case
                     laissée vide n'efface rien.
                   </p>

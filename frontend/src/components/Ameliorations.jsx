@@ -89,7 +89,7 @@ export default function Ameliorations({ ecran, onClose }) {
       pied={<>
         <button onClick={deposer} disabled={!titre.trim() || enCours}
           className="bouton bouton-fort disabled:opacity-40">Déposer l'idée</button>
-        {erreur && <span className="text-[12px] text-rose-700">{erreur}</span>}
+        {erreur && <span className="text-second text-rose-700">{erreur}</span>}
         <button onClick={onClose} className="bouton ml-auto">Fermer</button>
       </>}>
       <div className="flex-1 min-h-0 flex flex-col">
@@ -100,9 +100,9 @@ export default function Ameliorations({ ecran, onClose }) {
             className="controle w-full" />
           <textarea rows={3} value={detail} onChange={e => setDetail(e.target.value)}
             placeholder="Le contexte : quand cela arrive, ce que vous faites aujourd'hui à la place, ce que cela coûte"
-            className="w-full border border-slate-300 rounded-champ px-2 py-1.5 text-[13px]" />
+            className="w-full border border-slate-300 rounded-champ px-2 py-1.5 text-sm" />
           {ecran && (
-            <span className="text-[11px] text-slate-400">
+            <span className="text-xs text-slate-400">
               Déposée depuis <b>{ecran}</b> — l'écran est enregistré avec elle.
             </span>
           )}
@@ -110,9 +110,9 @@ export default function Ameliorations({ ecran, onClose }) {
 
         <div className="flex-1 overflow-auto min-h-0 p-3 space-y-2">
           {!etat ? (
-            <div className="text-[13px] text-slate-400 px-2">Chargement…</div>
+            <div className="text-sm text-slate-400 px-2">Chargement…</div>
           ) : !etat.lignes.length ? (
-            <div className="text-[13px] text-slate-400 px-2 py-6 text-center
+            <div className="text-sm text-slate-400 px-2 py-6 text-center
                             border-2 border-dashed rounded-carte">
               Rien encore. La première idée est souvent la plus utile :
               c'est celle qui gêne tous les jours.
@@ -122,8 +122,8 @@ export default function Ameliorations({ ecran, onClose }) {
               className={`carte px-3 py-2 border-l-[3px] ${TEINTE[s.etat] || TEINTE.nouvelle}`}>
               <div className="flex items-start gap-2">
                 <span className="flex-1 min-w-0">
-                  <span className="text-[13px] font-medium">{s.titre}</span>
-                  <span className="block text-[11px] text-slate-400">
+                  <span className="text-sm font-medium">{s.titre}</span>
+                  <span className="block text-xs text-slate-400">
                     {s.auteur_nom ? nomDepuisChaine(s.auteur_nom) : 'anonyme'}
                     {s.ecran ? ` · ${s.ecran}` : ''}
                     {s.cree_le ? ` · ${String(s.cree_le).slice(0, 10).split('-').reverse().join('/')}` : ''}
@@ -131,7 +131,7 @@ export default function Ameliorations({ ecran, onClose }) {
                 </span>
                 {etat.tout ? (
                   <select value={s.etat} onChange={e => majuscule(s.id, { etat: e.target.value })}
-                    className="controle text-[12px] h-7 py-0">
+                    className="controle text-second h-7 py-0">
                     {etats.map(e2 => <option key={e2.cle} value={e2.cle}>{e2.libelle}</option>)}
                   </select>
                 ) : (
@@ -148,7 +148,7 @@ export default function Ameliorations({ ecran, onClose }) {
               </div>
 
               {s.detail && (
-                <div className="text-[12px] text-slate-600 mt-1 whitespace-pre-wrap">
+                <div className="text-second text-slate-600 mt-1 whitespace-pre-wrap">
                   {s.detail}
                 </div>
               )}
@@ -159,7 +159,7 @@ export default function Ameliorations({ ecran, onClose }) {
                   le reproche que ce registre existe pour éteindre. */}
               <div className="mt-1.5 flex items-center gap-2">
                 <button onClick={() => basculer(s.id)}
-                  className="text-[12px] text-iip-blue hover:underline">
+                  className="text-second text-iip-blue hover:underline">
                   {ouverts.has(s.id) ? 'Fermer le fil'
                     : s.nb_messages ? `Lire le fil (${s.nb_messages})`
                       : (etat.tout && s.cote === 'direction' ? 'Répondre' : 'Écrire')}

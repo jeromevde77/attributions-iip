@@ -100,7 +100,7 @@ export default function Sauvegardes() {
       </div>
 
       {data.alerte && (
-        <div className="px-4 py-2.5 rounded-lg bg-amber-50 border border-amber-200 text-[13px] text-amber-900 flex items-center gap-2 border-l-4 border-l-amber-500">
+        <div className="px-4 py-2.5 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-900 flex items-center gap-2 border-l-4 border-l-amber-500">
           <IconAlertTriangle size={15} className="flex-none" /> {data.alerte}
         </div>
       )}
@@ -118,10 +118,10 @@ export default function Sauvegardes() {
       <div className="border border-slate-200 rounded-xl overflow-hidden">
         <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center gap-2">
           <IconClock size={15} className="text-slate-400" />
-          <span className="text-[13px] font-semibold text-iip-blue">Planification</span>
+          <span className="text-sm font-semibold text-iip-blue">Planification</span>
         </div>
         <div className="p-4 flex flex-wrap items-end gap-4">
-          <label className="flex items-center gap-2 text-[13px]">
+          <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={config.active}
               onChange={e => enregistrerConfig({ active: e.target.checked })} />
             Sauvegarde quotidienne
@@ -143,7 +143,7 @@ export default function Sauvegardes() {
                 className="w-20 border border-slate-300 rounded-lg px-2 py-1.5 text-sm text-right" />
             </label>
           ))}
-          <div className="text-[11px] text-slate-500 flex-1 min-w-[240px]">
+          <div className="text-xs text-slate-500 flex-1 min-w-[240px]">
             La rétention est en cascade : les plus récentes au jour le jour, puis une par semaine,
             puis une par mois. Une erreur découverte le lendemain et une erreur découverte à la
             vérification comptable n'appellent pas la même profondeur.
@@ -154,10 +154,10 @@ export default function Sauvegardes() {
       {/* Historique */}
       <div className="border border-slate-200 rounded-xl overflow-hidden">
         <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-          <span className="text-[13px] font-semibold text-iip-blue">
+          <span className="text-sm font-semibold text-iip-blue">
             {reussies.length} sauvegarde(s) conservée(s)
           </span>
-          <span className="text-[11px] text-slate-400">
+          <span className="text-xs text-slate-400">
             {octets(data.espace_total)} · {data.dossier}
           </span>
         </div>
@@ -179,28 +179,28 @@ export default function Sauvegardes() {
             <tbody>
               {data.sauvegardes.map(s => (
                 <tr key={s.id} className={`border-b border-slate-100 ${s.erreur ? 'bg-red-50/50' : 'hover:bg-slate-50/60'}`}>
-                  <td className="px-4 py-2 text-[13px] text-slate-800">
+                  <td className="px-4 py-2 text-sm text-slate-800">
                     {quand(s.cree_le)}
                     {s.duree_ms != null && (
-                      <span className="block text-[10px] text-slate-400">{s.duree_ms} ms</span>
+                      <span className="block text-mention text-slate-400">{s.duree_ms} ms</span>
                     )}
                   </td>
-                  <td className="px-3 py-2 text-[12px] text-slate-500">
+                  <td className="px-3 py-2 text-second text-slate-500">
                     {DECLENCHEUR[s.declencheur] || s.declencheur}
                   </td>
-                  <td className="px-3 py-2 text-right text-[12px]">{octets(s.taille)}</td>
+                  <td className="px-3 py-2 text-right text-second">{octets(s.taille)}</td>
                   <td className="px-3 py-2">
                     {s.erreur ? (
                       <Badge ton="danger">échec</Badge>
                     ) : s.integrite === 'ok' ? (
-                      <span className="text-[12px] text-emerald-700 flex items-center gap-1">
+                      <span className="text-second text-emerald-700 flex items-center gap-1">
                         <IconCheck size={13} /> ok
                       </span>
                     ) : (
-                      <span className="text-[12px] text-amber-700">{s.integrite}</span>
+                      <span className="text-second text-amber-700">{s.integrite}</span>
                     )}
                   </td>
-                  <td className="px-3 py-2 text-[11px] text-slate-500">
+                  <td className="px-3 py-2 text-xs text-slate-500">
                     {s.erreur ? (
                       <span className="text-red-700">{s.erreur}</span>
                     ) : s.comptes ? (
@@ -235,7 +235,7 @@ export default function Sauvegardes() {
         )}
       </div>
 
-      <div className="text-[11px] text-slate-500 space-y-1">
+      <div className="text-xs text-slate-500 space-y-1">
         <p>
           Chaque copie est produite après un point de contrôle du journal d'écriture, puis
           <b> vérifiée sur la copie elle-même</b> — intégrité et décompte des tables principales.

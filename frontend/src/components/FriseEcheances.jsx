@@ -87,12 +87,12 @@ export default function FriseEcheances({ taches = [], onOuvrir }) {
   return (
     <div className="carte overflow-hidden mb-4">
       <div className="flex items-baseline gap-2 px-3 py-2 border-b border-slate-200">
-        <span className="text-[13px] font-semibold text-iip-blue">Les trente jours qui viennent</span>
-        <span className="text-[11px] text-slate-400">
+        <span className="text-sm font-semibold text-iip-blue">Les trente jours qui viennent</span>
+        <span className="text-xs text-slate-400">
           {taches.filter(t => t.echeance).length} échéance(s)
           {sansEcheance.length > 0 && ` · ${sansEcheance.length} sans date`}
         </span>
-        <span className="ml-auto flex items-center gap-3 text-[11px] text-slate-500">
+        <span className="ml-auto flex items-center gap-3 text-xs text-slate-500">
           {[['var(--c-refuse)', 'en retard ou dans 3 jours'], ['var(--c-attente)', 'dans la semaine'], ['var(--c-reussi)', 'plus tard · fait']].map(([c, l]) => (
             <span key={l} className="flex items-center gap-1">
               <span className="w-2.5 h-2.5 rounded-full" style={{ background: c }} />{l}
@@ -107,7 +107,7 @@ export default function FriseEcheances({ taches = [], onOuvrir }) {
           {/* LES MOIS, EN TÊTE. Une frise de trente jours en enjambe deux : sans
               le nom, « 3 » ne dit pas s'il s'agit du 3 de ce mois ou du
               suivant. */}
-          <div className="flex h-5 text-[10px]">
+          <div className="flex h-5 text-mention">
             {jours.map(j => (
               <div key={`m${j.date}`} style={{ width: LARGEUR_JOUR }}
                 className="flex-none flex items-center">
@@ -151,7 +151,7 @@ export default function FriseEcheances({ taches = [], onOuvrir }) {
                   );
                 })}
                 {j.taches.length > 8 && (
-                  <span className="text-[9px] text-slate-400 text-center">
+                  <span className="text-mention text-slate-400 text-center">
                     +{j.taches.length - 8}
                   </span>
                 )}
@@ -160,7 +160,7 @@ export default function FriseEcheances({ taches = [], onOuvrir }) {
           </div>
 
           {/* LES QUANTIÈMES, SOUS LE FILET. */}
-          <div className="flex h-6 text-[10px]">
+          <div className="flex h-6 text-mention">
             {jours.map(j => (
               <div key={`q${j.date}`} style={{ width: LARGEUR_JOUR }}
                 className={`flex-none flex items-center justify-center
@@ -179,7 +179,7 @@ export default function FriseEcheances({ taches = [], onOuvrir }) {
       </div>
 
       {(sansEcheance.length > 0 || auDela.length > 0) && (
-        <div className="px-3 py-1.5 border-t border-slate-100 text-[11px] text-slate-500
+        <div className="px-3 py-1.5 border-t border-slate-100 text-xs text-slate-500
                         flex flex-wrap gap-x-4">
           {sansEcheance.length > 0 && (
             <span>

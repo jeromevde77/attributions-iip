@@ -20,7 +20,7 @@ export default function OutilsAFaces({ icone, titre, sous, faces, faceInitiale, 
             className={`onglet-page ${f.cle === face ? 'onglet-page-actif' : ''}`}>{f.label}</button>
         ))}
       </div>
-      <Suspense fallback={<p className="text-[13px] text-slate-400">Chargement…</p>}>
+      <Suspense fallback={<p className="text-sm text-slate-400">Chargement…</p>}>
         <div key={courante.cle}>{courante.rendu}</div>
       </Suspense>
     </Fenetre>

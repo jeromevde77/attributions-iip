@@ -60,9 +60,19 @@ function groupesAttribution(ueNum, annee, coursCode, act) {
  * leurs périodes viennent du verre (la grille d'organisation). En 2026-2027, les
  * attributions restent la source, comme convenu.
  */
-export function activitesDeLaGrille(section, ueNum, annee) {
+/** Les organisations d'une UE dans la section (au moins la première). */
+export function organisationsDe(section, ueNum, annee) {
   try {
-    const o = db.prepare(`SELECT id FROM organisation_ue WHERE annee_scolaire = ? AND section = ? AND ue_num = ? ORDER BY num_organisation LIMIT 1`).get(annee, section, ueNum);
+    const l = db.prepare(`SELECT COALESCE(num_organisation, 1) n FROM organisation_ue WHERE annee_scolaire = ? AND section = ? AND ue_num = ? ORDER BY 1`).all(annee, section, ueNum).map(x => x.n);
+    return l.length ? [...new Set(l)] : [1];
+  } catch { return [1]; }
+}
+/** Le verre d'une UE — celui d'une organisation donnée ; vide, il reprend celui de la première (même UE, même contenu). */
+export function activitesDeLaGrille(section, ueNum, annee, org = null) {
+  try {
+    const premier = () => db.prepare(`SELECT id FROM organisation_ue WHERE annee_scolaire = ? AND section = ? AND ue_num = ? ORDER BY num_organisation LIMIT 1`).get(annee, section, ueNum);
+    let o = org ? db.prepare(`SELECT id FROM organisation_ue WHERE annee_scolaire = ? AND section = ? AND ue_num = ? AND COALESCE(num_organisation, 1) = ?`).get(annee, section, ueNum, org) : premier();
+    if (o && org && !db.prepare('SELECT 1 FROM grille_cours gc JOIN grille_activite ga ON ga.grille_cours_id = gc.id WHERE gc.organisation_id = ? AND ga.periodes > 0 LIMIT 1').get(o.id)) o = premier();
     if (!o) return [];
     return db.prepare(`SELECT gc.cours_code AS code_cours, COALESCE(ga.activite_id, 0) AS activite_id, MAX(t.libelle) AS libelle,
         MAX(c.cours_nom) AS cours_nom, MAX(COALESCE(c.is_stage, 0)) AS stage, MAX(COALESCE(ga.groupes, 1)) AS groupes, SUM(ga.periodes) AS periodes

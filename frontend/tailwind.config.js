@@ -79,10 +79,11 @@ export default {
       // Quatre rayons, trois élévations, une courbe. C'est cela — plus que les
       // couleurs — qui sépare un système d'un assemblage.
       borderRadius: {
-        champ:   '8px',    // champs de saisie, boutons
-        carte:   '14px',   // cartes, tableaux, encadrés
-        fenetre: '22px',   // fenêtres, pastilles
-        panneau: '26px',   // panneaux flottants (le rail)
+        // RÉGLABLES (Configuration → Formes et composants, 3.1.248) : le repli est la valeur de la maison.
+        champ:   'var(--d-rayon-champ, 8px)',    // champs de saisie, boutons
+        carte:   'var(--d-rayon-carte, 14px)',   // cartes, tableaux, encadrés
+        fenetre: 'var(--d-rayon-fenetre, 22px)',   // fenêtres, pastilles
+        panneau: 'var(--d-rayon-panneau, 26px)',   // panneaux flottants (le rail)
 
         // ── ET LES RAYONS DE TAILWIND SONT RAMENÉS SUR L'ÉCHELLE ──────────
         //
@@ -99,13 +100,15 @@ export default {
         // qui est écrit aujourd'hui, et tout ce qui s'écrira demain, tombe sur
         // l'échelle sans que personne ait à y penser. Trois rayons dans toute
         // l'application, et le défaut est correct.
-        DEFAULT: '8px',    // rounded
-        sm:      '8px',
-        md:      '8px',
-        lg:      '8px',    // les boutons et les champs
-        xl:      '14px',   // les cartes
-        '2xl':   '14px',
-        '3xl':   '22px',
+        DEFAULT: 'var(--d-rayon-champ, 8px)',    // rounded
+        sm:      'var(--d-rayon-champ, 8px)',
+        md:      'var(--d-rayon-champ, 8px)',
+        lg:      'var(--d-rayon-champ, 8px)',    // les boutons et les champs
+        xl:      'var(--d-rayon-carte, 14px)',   // les cartes
+        '2xl':   'var(--d-rayon-carte, 14px)',
+        '3xl':   'var(--d-rayon-fenetre, 22px)',
+        tuile:    'var(--d-rayon-tuile, 10px)',    // la tuile, côté opposé au liseré
+        pastille: 'var(--d-rayon-pastille, 4px)',  // pastilles, étiquettes, petites cases
         full:    '9999px', // les pastilles rondes, et elles seules
       },
       // ─── L'ÉCHELLE TYPOGRAPHIQUE ────────────────────────────────────────
@@ -127,25 +130,29 @@ export default {
       // comme le corps, et non quatorze. Une seule échelle, deux façons de
       // l'écrire.
       fontSize: {
-        xs:      ['11px', '1.45'],
-        sm:      ['13px', '1.5'],
-        base:    ['15px', '1.55'],
-        lg:      ['17px', '1.35'],
-        xl:      ['21px', '1.25'],
-        '2xl':   ['27px', '1.2'],
-        '3xl':   ['34px', '1.15'],
+        // L'échelle se règle d'un seul coefficient (--d-texte), pour toutes les tailles nommées.
+        // Les deux degrés qui n'avaient pas de nom (3.1.249) : sans eux, 4 400 tailles s'écrivaient au pixel.
+        mention: ['calc(10px * var(--d-texte, 1))', '1.4'],
+        xs:      ['calc(11px * var(--d-texte, 1))', '1.45'],
+        second:  ['calc(12px * var(--d-texte, 1))', '1.45'],
+        sm:      ['calc(13px * var(--d-texte, 1))', '1.5'],
+        base:    ['calc(15px * var(--d-texte, 1))', '1.55'],
+        lg:      ['calc(17px * var(--d-texte, 1))', '1.35'],
+        xl:      ['calc(21px * var(--d-texte, 1))', '1.25'],
+        '2xl':   ['calc(27px * var(--d-texte, 1))', '1.2'],
+        '3xl':   ['calc(34px * var(--d-texte, 1))', '1.15'],
       },
       boxShadow: {
-        pose:     '0 1px 2px rgba(11,21,45,.06)',
-        flottant: '0 20px 50px -18px rgba(11,21,45,.35)',
-        dessus:   '0 30px 70px -20px rgba(11,21,45,.45)',
+        pose:     'var(--d-ombre-pose, 0 1px 2px rgba(11,21,45,.06))',
+        flottant: 'var(--d-ombre-flottant, 0 20px 50px -18px rgba(11,21,45,.35))',
+        dessus:   'var(--d-ombre-dessus, 0 30px 70px -20px rgba(11,21,45,.45))',
       },
       transitionTimingFunction: {
         ios: 'cubic-bezier(.32,.72,0,1)',
       },
       fontFamily: {
-        sans:  ['Inter', 'Aptos', 'system-ui', 'Arial', 'sans-serif'],
-        title: ['Inter', 'Aptos', 'system-ui', 'Arial', 'sans-serif']
+        sans:  ['var(--d-police, Inter)', 'Aptos', 'system-ui', 'Arial', 'sans-serif'],
+        title: ['var(--d-police, Inter)', 'Aptos', 'system-ui', 'Arial', 'sans-serif']
       }
     }
   },

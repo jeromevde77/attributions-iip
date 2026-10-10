@@ -78,7 +78,7 @@ export default function Audit() {
   }
   useEffect(() => { charger(); }, [qui, registre, depuis, jusqu]);
 
-  if (!d) return <div className="p-5 text-[13px] text-slate-400">Chargement…</div>;
+  if (!d) return <div className="p-5 text-sm text-slate-400">Chargement…</div>;
 
   return (
     <div className="p-5 space-y-4">
@@ -86,7 +86,7 @@ export default function Audit() {
         <h1 className="titre-ecran flex items-center gap-2">
           <IconHistory size={18} className="text-slate-400" /> Qui a fait quoi
         </h1>
-        <p className="text-[12px] text-slate-500 mt-0.5">
+        <p className="text-second text-slate-500 mt-0.5">
           Les gestes posés dans Lucie, tous registres réunis. Rien n’est enregistré ici :
           cet écran rassemble ce qui s’écrit déjà ailleurs.
         </p>
@@ -96,7 +96,7 @@ export default function Audit() {
           barre de l'écran — pas des entrées de rail. */}
       <div className="flex flex-wrap items-center gap-2">
         <select value={qui} onChange={e => setQui(e.target.value)}
-          className="controle border border-slate-300 rounded-champ text-[13px]">
+          className="controle border border-slate-300 rounded-champ text-sm">
           <option value="">Tout le monde</option>
           {d.personnes.map(p => (
             <option key={p.id ?? p.nom} value={p.id ?? p.nom}>
@@ -106,7 +106,7 @@ export default function Audit() {
         </select>
 
         <select value={registre} onChange={e => setRegistre(e.target.value)}
-          className="controle border border-slate-300 rounded-champ text-[13px]">
+          className="controle border border-slate-300 rounded-champ text-sm">
           <option value="">Tous les registres</option>
           {d.registres.map(r => (
             <option key={r.cle} value={r.cle}>
@@ -116,30 +116,30 @@ export default function Audit() {
         </select>
 
         <input type="date" value={depuis} onChange={e => setDepuis(e.target.value)}
-          title="Depuis" className="controle border border-slate-300 rounded-champ text-[13px]" />
+          title="Depuis" className="controle border border-slate-300 rounded-champ text-sm" />
         <input type="date" value={jusqu} onChange={e => setJusqu(e.target.value)}
-          title="Jusqu'au" className="controle border border-slate-300 rounded-champ text-[13px]" />
+          title="Jusqu'au" className="controle border border-slate-300 rounded-champ text-sm" />
 
         {(qui || registre || depuis || jusqu) && (
           <button onClick={() => { setQui(''); setRegistre(''); setDepuis(''); setJusqu(''); }}
-            className="text-[12px] text-slate-500 hover:text-iip-blue">Tout afficher</button>
+            className="text-second text-slate-500 hover:text-iip-blue">Tout afficher</button>
         )}
 
         <div className="flex-1" />
-        <span className="text-[12px] text-slate-500">
+        <span className="text-second text-slate-500">
           {occupe ? 'Chargement…' : `${d.total} geste(s)`}
           {d.tronque && <span className="text-amber-700"> · {d.lignes.length} affichés</span>}
         </span>
       </div>
 
       {!d.lignes.length ? (
-        <div className="carte px-4 py-3 text-[13px] text-slate-500">
+        <div className="carte px-4 py-3 text-sm text-slate-500">
           Aucun geste pour ce filtre. Une liste vide ne veut pas dire qu’il ne s’est rien
           passé : elle veut dire que rien ne correspond à ce qui est demandé ci-dessus.
         </div>
       ) : (
         <div className="carte overflow-hidden">
-          <table className="w-full text-[12px]">
+          <table className="w-full text-second">
             <thead className="tab-entete">
               <tr>
                 <th className="text-left px-3 py-1.5 w-[140px]">Quand</th>
@@ -182,7 +182,7 @@ export default function Audit() {
         </div>
       )}
 
-      <div className="carte px-4 py-2.5 text-[11px] text-slate-500 leading-relaxed">
+      <div className="carte px-4 py-2.5 text-xs text-slate-500 leading-relaxed">
         <b>Ce que cet écran ne dit pas.</b> Il montre ce que les registres ont écrit —
         pas ce qu’ils n’écrivent pas. Les pièces produites ne laissent une trace que
         dans quatre cas sur quarante et un (<code>archiverDocument()</code>), et les

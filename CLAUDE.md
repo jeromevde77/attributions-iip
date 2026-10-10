@@ -198,6 +198,38 @@ tranches de 3.1.242 (`prof_agenda`, `prof_disponibilite` ne sont plus lues). Les
 priorités de section (jours au plus, regrouper) restent dans `horaire_regle`,
 réglées depuis la même face.
 
+**L'ORGANISATION DE BASE SE DÉDUIT DU SCHÉMA DE CAPITALISATION** (3.1.247,
+Charles, 10 octobre 2026 : « tu sais quand les UE se donnent et ce qui dépend de
+quoi, donc tu sais faire une organisation de base »). Bouton *Organisation de
+base* du laboratoire (`POST /api/grille/organisation-de-base`, simulation
+d'abord) : le quadrimestre du dossier borne l'UE ; un prérequis du même bloc
+(`ue_prerequis`) se termine avant l'UE qui en dépend (la fenêtre se découpe en
+autant de tranches que la plus longue chaîne) ; une UE sans lien court sur toute
+sa fenêtre ; l'épreuve intégrée prend les quatre dernières semaines de cours ;
+seule l'organisation 1 est proposée. Ce qui ne tient pas (prérequis au Q2 pour
+une UE du Q1, boucle) se nomme. Les dates posées ne sont remplacées que sur
+demande, après une sauvegarde du laboratoire.
+
+**UNE UE, UN STAGE PEUVENT AVOIR DEUX ORGANISATIONS — ET LE LABORATOIRE LES
+SÉPARE** (3.1.244-3.1.245, Charles, 10 octobre 2026 : « en AESI, une partie des
+étudiants va en stage de Toussaint à Noël (orga 1), l'autre de Carnaval à Pâques
+(orga 2) ; pendant que l'orga 1 est en stage, l'orga 2 a des UE »). Une fiche par
+organisation dans le laboratoire (`cle` = « 336#2 », « UE 336 · org 2 »), chacune
+avec ses dates (`organisation_ue`) ; son verre est celui de l'organisation 1 tant
+qu'on ne le découpe pas (`verre_repris`), recopié en entier à la première
+découpe. *Dédoubler* / *Retirer l'org* dans la fiche de l'UE (refusé si une
+attribution ou un étudiant y est rattaché). La simulation : chaque demande porte
+son organisation (attributions, ou verre de chaque organisation), ses dates et
+ses étudiants (`etudiant_inscription.num_organisation`) ; un stage bloquant d'une
+organisation n'arrête QUE la sienne ; occupation par brique × organisation et par
+étudiant (le cas par cas : un étudiant en orga 1 d'une UE, orga 2 d'une autre).
+Une UE en une seule organisation concerne tout le monde. **Les cohortes** (3.1.246, « les deux selon la
+section ») : bouton *Cohortes* du laboratoire dès qu'une UE du bloc est dédoublée
+(`components/CohortesBloc.jsx`, `GET/PUT /api/grille/cohortes`) — placer un
+étudiant en cohorte 2, c'est le mettre en organisation 2 dans TOUTES les UE
+dédoublées de son bloc ; « moitié / moitié » ; compte rendu avant écriture. Le cas
+par cas reste dans la répartition de chaque UE, et se lit « mixte ».
+
 **ÉVALUATION UNIQUE ≠ ÉPREUVE INTÉGRÉE** (2.12.289, Charles, 28 septembre 2026,
 UE 261 : « une seule évaluation ; la note doit aller aux deux cours »). Une unité
 peut être réglée, pour une année, en **évaluation unique**
@@ -1426,6 +1458,25 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   des boutons de trois hauteurs.
 - **On ne touche ni aux polices, ni aux icônes, ni aux tailles** (Charles) : ce
   chantier est celui des couleurs et des tuiles.
+
+### Les formes et les composants — RÉGLABLES, PAR L'ADMINISTRATEUR
+
+> **LUCIE DEVIENT PARAMÉTRABLE** (3.1.248, Charles, 10 octobre 2026 : « Lucie
+> devient mature, elle doit être paramétrable et non en dur ; il faut uniformiser ;
+> c'est l'administrateur qui règle »). Cette décision LÈVE la règle « on ne touche
+> ni aux polices, ni aux icônes, ni aux tailles », qui ne valait que pour le
+> chantier des couleurs. Configuration → *Formes et composants*
+> (`components/ReglageDesign.jsx`) : rayons, tuiles et pastilles, hauteur des
+> contrôles, graisse des boutons, trait d'onglet, ombres, voile des fenêtres,
+> police, échelle du texte, titre d'écran — thèmes Maison IIP, Arrondi, Anguleux,
+> Compact, Confort. Catalogue `backend/src/lib/design.js` (`lucie_config` « design »,
+> valeurs bornées ou listes fermées) ; `GET /api/config/design` ouvert,
+> `PUT` réservé à `admin`. L'écran pose des `--d-*` (`frontend/src/lib/design.js`),
+> lus par `index.css` et `tailwind.config.js` avec la valeur de la maison en
+> repli. **Toute nouvelle valeur de forme lit un `--d-*`, jamais un chiffre en
+> dur.** Les écrans qui dessinent encore leurs propres tuiles, boutons, onglets ou
+> pastilles (≈ 4 400 `text-[Npx]`, ~10 tuiles, `Btn`, `KpiCard`…) n'obéissent pas
+> encore : on les ramène au standard par lots — `docs/contexte/inventaire-design-2026-10-10.md`.
 
 ### Navigation
 

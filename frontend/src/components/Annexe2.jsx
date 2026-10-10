@@ -84,7 +84,7 @@ export default function Annexe2({ etudId, annee, onClose }) {
     <Fenetre titre="Attestation du progrès des études" large="moyenne" onFermer={onClose}
       sous={`Annexe 2 — Office des Étrangers · année ${annee}`}
       pied={<>
-        <span className="text-[11px] text-slate-500">
+        <span className="text-xs text-slate-500">
           Le relevé de notes doit être joint au formulaire, comme le prévoit le modèle.
         </span>
         {pdfPossible && (
@@ -101,12 +101,12 @@ export default function Annexe2({ etudId, annee, onClose }) {
         <div className="space-y-4">
         {erreur && (
           <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200
-                          text-[13px] text-red-800">{erreur}</div>
+                          text-sm text-red-800">{erreur}</div>
         )}
 
         {donnees?.manques?.length > 0 && (
           <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
-                          text-[12px] text-amber-900">
+                          text-second text-amber-900">
             <div className="flex items-center gap-1.5 font-semibold mb-1">
               <IconAlertTriangle size={14} /> À compléter avant envoi
             </div>
@@ -121,15 +121,15 @@ export default function Annexe2({ etudId, annee, onClose }) {
             {[['Inscrits', c.inscritsAnnee], ['Acquis cette année', c.acquisAnnee],
               ['Acquis au total', c.acquisTotal], ['Dispense', c.valorises]].map(([l, v]) => (
               <div key={l} className="border border-slate-200 rounded-xl px-3 py-2">
-                <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">{l}</div>
-                <div className="text-[17px] font-bold text-iip-blue">{v}</div>
+                <div className="text-mention uppercase tracking-wide text-slate-500 font-semibold">{l}</div>
+                <div className="text-lg font-bold text-iip-blue">{v}</div>
               </div>
             ))}
           </div>
         )}
 
         {c?.sansEcts > 0 && (
-          <p className="text-[12px] text-amber-800">
+          <p className="text-second text-amber-800">
             {c.sansEcts} unité(s) sans ECTS au référentiel : le décompte ci-dessus
             les compte pour zéro et sera donc sous-évalué.
           </p>
@@ -142,7 +142,7 @@ export default function Annexe2({ etudId, annee, onClose }) {
           <input value={motif} onChange={e => setMotif(e.target.value)}
             placeholder="échec aux examens"
             className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
-          <span className="block text-[10px] text-slate-400 mt-0.5">
+          <span className="block text-mention text-slate-400 mt-0.5">
             Appréciation de la direction : Lucie ne la déduit pas des résultats.
           </span>
         </label>

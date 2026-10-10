@@ -202,13 +202,13 @@ function OngletValorisation({ initial = null }) {
     <div className="p-4 space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <select value={annee} onChange={e => setAnnee(e.target.value)}
-          className="controle text-[13px]">
+          className="controle text-sm">
           {(annees.length ? annees : [annee]).map(a => (
             <option key={a} value={a}>{a}</option>
           ))}
         </select>
         <select value={section} onChange={e => setSection(e.target.value)}
-          className="controle text-[13px]">
+          className="controle text-sm">
           <option value="">Toutes les sections</option>
           {(arbre?.sections || []).map(sx => <option key={sx} value={sx}>{sx}</option>)}
         </select>
@@ -217,7 +217,7 @@ function OngletValorisation({ initial = null }) {
             <button key={k} type="button" onClick={() => setVue(k)}
               className={vue === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>{l}</button>))}
         </div>
-        <span className="text-[12px] text-slate-500">
+        <span className="text-second text-slate-500">
           {vue === 'unite' ? `${unites.length} unité(s) portant des demandes` : ''}
         </span>
       </div>
@@ -229,7 +229,7 @@ function OngletValorisation({ initial = null }) {
       )}
 
       {erreur && (
-        <div className="px-3 py-2 rounded-lg bg-amber-50 text-amber-900 text-[13px] border-l-4 border-l-amber-500">
+        <div className="px-3 py-2 rounded-lg bg-amber-50 text-amber-900 text-sm border-l-4 border-l-amber-500">
           {erreur}
         </div>
       )}
@@ -239,7 +239,7 @@ function OngletValorisation({ initial = null }) {
           cette année-là : le compte est sur la ligne, pour qu'on sache ce
           qu'on s'apprête à produire. */}
       {vue === 'unite' && dossiers && !unites.length && (
-        <p className="text-[13px] text-slate-400">
+        <p className="text-sm text-slate-400">
           Aucune demande de valorisation enregistrée pour cette année
           {section ? ` en ${section}` : ''}. Les pièces se produisent depuis
           l'unité qui a convoqué le conseil des études.
@@ -250,11 +250,11 @@ function OngletValorisation({ initial = null }) {
         {vue === 'unite' && unites.map(u => (
           <div key={u.ue_num} className="carte px-3 py-2 flex items-center gap-3">
             <span className="flex-1 min-w-0">
-              <span className="text-[13px] font-semibold text-iip-blue">
+              <span className="text-sm font-semibold text-iip-blue">
                 {u.ue_num === 0 ? 'Admission de section' : `UE ${u.ue_num}`}
               </span>
-              <span className="text-[13px] text-slate-600 ml-2">{u.ue_nom}</span>
-              <span className="block text-[11px] text-slate-500">
+              <span className="text-sm text-slate-600 ml-2">{u.ue_nom}</span>
+              <span className="block text-xs text-slate-500">
                 {u.section || 'section à déduire'} · {u.n} dossier(s)
                 {u.partielles ? ` · ${u.partielles} partielle(s)` : ''}
                 {u.refus ? ` · ${u.refus} refus` : ''}
@@ -266,7 +266,7 @@ function OngletValorisation({ initial = null }) {
                   : null}
               </span>
             </span>
-            <button className="bouton-sortir controle px-3 text-[12px] flex-none"
+            <button className="bouton-sortir controle px-3 text-second flex-none"
               onClick={() => setOuverte(u)}>
               PV et attestations
             </button>
@@ -379,7 +379,7 @@ function ValorisationParEtudiant({ annee, dossiers, nomUE }) {
   const apercu = k => {
     const d = produits[k];
     const nav = produits.length > 1 ? (
-      <span className="flex items-center gap-1 text-[12px] text-slate-500">
+      <span className="flex items-center gap-1 text-second text-slate-500">
         <button type="button" className="bouton controle px-2" disabled={k === 0} onClick={() => apercu(k - 1)}>◀</button>
         <span className="tabular-nums px-1">{k + 1} / {produits.length}</span>
         <button type="button" className="bouton controle px-2" disabled={k === produits.length - 1} onClick={() => apercu(k + 1)}>▶</button>
@@ -394,9 +394,9 @@ function ValorisationParEtudiant({ annee, dossiers, nomUE }) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-3">
-        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Chercher un étudiant…" className="controle text-[13px] w-56" />
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Chercher un étudiant…" className="controle text-sm w-56" />
         {PIECES_VA.map(p0 => (
-          <label key={p0.cle} className="flex items-center gap-1.5 text-[13px] cursor-pointer">
+          <label key={p0.cle} className="flex items-center gap-1.5 text-sm cursor-pointer">
             <input type="checkbox" checked={!!choix[p0.cle]} onChange={() => setChoix(c => ({ ...c, [p0.cle]: !c[p0.cle] }))} />
             {p0.label}
           </label>))}
@@ -415,16 +415,16 @@ function ValorisationParEtudiant({ annee, dossiers, nomUE }) {
         </>}
       </div>
       {avis.length > 0 && (
-        <div className="px-3 py-2 rounded-lg bg-white border border-slate-200 border-l-4 text-[12.5px] text-slate-700"
+        <div className="px-3 py-2 rounded-lg bg-white border border-slate-200 border-l-4 text-second text-slate-700"
           style={{ borderLeftColor: 'var(--c-attente)' }}>
           {avis.map((a, i) => <div key={i}>{a}</div>)}
         </div>)}
       {produits?.length > 0 && (
-        <div className="text-[12.5px] text-slate-600">
+        <div className="text-second text-slate-600">
           {produits.length} document(s) prêt(s), un par étudiant — {produits.map(p0 => p0.etudiant).join(' · ')}
         </div>)}
       <div className="border border-slate-200 rounded-carte overflow-hidden bg-white">
-        <table className="w-full text-[12.5px]">
+        <table className="w-full text-second">
           <thead>
             <tr className="tab-entete text-left">
               <th className="px-3 py-1.5 w-8"><input type="checkbox" checked={tous}
@@ -442,7 +442,7 @@ function ValorisationParEtudiant({ annee, dossiers, nomUE }) {
                 <td className="px-3 py-1" onClick={ev => ev.stopPropagation()}>
                   <input type="checkbox" checked={coches.has(e.id)} onChange={() => basculer(e.id)} /></td>
                 <td className="px-3 py-1 whitespace-nowrap"><b className="text-iip-blue">{String(e.nom || '').toUpperCase()}</b> {e.prenom}</td>
-                <td className="px-3 py-1 text-[11.5px] text-slate-600">
+                <td className="px-3 py-1 text-xs text-slate-600">
                   {e.unites.map(d => `${d.ue_num === 0 ? 'Admission' : `UE ${d.ue_num}`} (${etat(d)})`).join(' · ')}
                 </td>
               </tr>))}
@@ -510,19 +510,19 @@ function OngletSchemas() {
   return (
     <div className="p-4 space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <select value={section} onChange={e => setSection(e.target.value)} className="controle text-[13px]">
+        <select value={section} onChange={e => setSection(e.target.value)} className="controle text-sm">
           {sections.map(sx => <option key={sx.code} value={sx.code}>{sx.code}{sx.libelle && sx.libelle !== sx.code ? ` — ${sx.libelle}` : ''}</option>)}
         </select>
-        <select value={annee} onChange={e => setAnnee(e.target.value)} className="controle text-[13px]">
+        <select value={annee} onChange={e => setAnnee(e.target.value)} className="controle text-sm">
           {(annees.length ? annees : [annee]).map(a => <option key={a} value={a}>{a}</option>)}
         </select>
         <span className="flex-1" />
-        <button type="button" className="bouton bouton-sortir controle px-3 text-[13px]"
+        <button type="button" className="bouton bouton-sortir controle px-3 text-sm"
           disabled={enCours || !data?.nodes?.length} onClick={produire}>
           {enCours ? 'Composition…' : 'Aperçu et impression — A4 paysage'}
         </button>
       </div>
-      {erreur && <p className="text-[12px] text-[color:var(--c-refuse)]">{erreur}</p>}
+      {erreur && <p className="text-second text-[color:var(--c-refuse)]">{erreur}</p>}
       <div ref={zone}>
         <SchemaCapitalisation data={data} mode="structure" titre={`Schéma de capitalisation — ${section}`} />
       </div>
@@ -540,7 +540,7 @@ function OngletSchemas() {
 /** Le générateur, servi dans une fenêtre — filtré sur un axe, ou complet. */
 function CadreListes({ domaine = null }) {
   return (
-    <Suspense fallback={<div className="p-6 text-[13px] text-slate-400">Chargement…</div>}>
+    <Suspense fallback={<div className="p-6 text-sm text-slate-400">Chargement…</div>}>
       <Listes integre domaine={domaine} />
     </Suspense>
   );
@@ -558,7 +558,7 @@ function ListesEtRapports({ domaine }) {
       .catch(() => setCatalogue([]));
   }, [domaine]);
   return (
-    <Suspense fallback={<div className="p-6 text-[13px] text-slate-400">Chargement…</div>}>
+    <Suspense fallback={<div className="p-6 text-sm text-slate-400">Chargement…</div>}>
       <Listes integre domaine={domaine} rapports={catalogue || []}
         renduRapport={r => <OngletRapports key={r.id} domaine={domaine} sansListe rapportId={r.id} />} />
     </Suspense>
@@ -837,17 +837,17 @@ function OngletRapports({ domaine, sansListe = false, rapportId = null }) {
             : null;
           return (
             <button key={r.id} onClick={() => voir(r)}
-              className={`w-full text-left px-2.5 py-1.5 rounded-lg border text-[13px]
+              className={`w-full text-left px-2.5 py-1.5 rounded-lg border text-sm
                 flex items-center gap-2
                 ${choisi?.id === r.id ? 'border-iip-blue bg-iip-blue/5'
                   : 'border-transparent hover:bg-slate-50'}`}>
               <span className="flex-1 min-w-0 truncate">{r.libelle}</span>
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-md flex-shrink-0
+              <span className={`text-mention px-1.5 py-0.5 rounded-md flex-shrink-0
                 ${r.piece ? 'bg-iip-turquoise/10 text-[color:var(--c-texte)]' : 'bg-slate-100 text-slate-500'}`}>
                 {r.piece ? 'pièce' : 'tableau'}
               </span>
               {portee && (
-                <span className="text-[10px] text-slate-400 flex-shrink-0 hidden lg:inline">
+                <span className="text-mention text-slate-400 flex-shrink-0 hidden lg:inline">
                   {portee}
                 </span>
               )}
@@ -855,17 +855,17 @@ function OngletRapports({ domaine, sansListe = false, rapportId = null }) {
           );
         })}
         {catalogue && !liste.length && (
-          <p className="p-4 text-[13px] text-slate-400">
+          <p className="p-4 text-sm text-slate-400">
             Aucun rapport dans ce domaine pour l’instant.
           </p>
         )}
-        {!catalogue && <p className="p-4 text-[12px] text-slate-400">Chargement…</p>}
+        {!catalogue && <p className="p-4 text-second text-slate-400">Chargement…</p>}
       </div>
 
       <div className="flex-1 flex flex-col min-h-0">
         <div className="px-3 py-2 border-b border-slate-200 flex flex-wrap items-center gap-2">
           <select value={annee} onChange={e => setAnnee(e.target.value)}
-            className="px-2 py-1 text-[12px] border border-slate-300 rounded"
+            className="px-2 py-1 text-second border border-slate-300 rounded"
             title="Année sur laquelle porte la pièce">
             {(annees.length ? annees : [annee]).map(a =>
               <option key={a} value={a}>{a}</option>)}
@@ -875,7 +875,7 @@ function OngletRapports({ domaine, sansListe = false, rapportId = null }) {
             <>
               <select value={portee.niveau}
                 onChange={e => setPortee(p => ({ ...p, niveau: e.target.value }))}
-                className="px-2 py-1 text-[12px] border border-slate-300 rounded"
+                className="px-2 py-1 text-second border border-slate-300 rounded"
                 title="Jusqu'où descendre">
                 {choisi.portees.map(n => (
                   <option key={n} value={n}>{{
@@ -886,7 +886,7 @@ function OngletRapports({ domaine, sansListe = false, rapportId = null }) {
               </select>
               {portee.niveau !== 'etablissement' && (
                 <select value={section} onChange={e => setSection(e.target.value)}
-                  className="px-2 py-1 text-[12px] border border-slate-300 rounded">
+                  className="px-2 py-1 text-second border border-slate-300 rounded">
                   <option value="">Toutes les sections</option>
                   {sections.map(s2 => <option key={s2} value={s2}>{s2}</option>)}
                 </select>
@@ -894,7 +894,7 @@ function OngletRapports({ domaine, sansListe = false, rapportId = null }) {
               {portee.niveau !== 'etablissement' && aTroncCommun && (
                 <select value={portee.tc}
                   onChange={e => setPortee(p => ({ ...p, tc: e.target.value }))}
-                  className="px-2 py-1 text-[12px] border border-slate-300 rounded"
+                  className="px-2 py-1 text-second border border-slate-300 rounded"
                   title="Restreindre au tronc commun, ou l'exclure">
                   <option value="">Tronc commun compris</option>
                   <option value="tc">Tronc commun seul</option>
@@ -907,7 +907,7 @@ function OngletRapports({ domaine, sansListe = false, rapportId = null }) {
               {portee.niveau === 'ue' && (
                 <div className="relative">
                   <button onClick={() => setOuvreUes(o => !o)}
-                    className="px-2 py-1 text-[12px] border border-slate-300 rounded
+                    className="px-2 py-1 text-second border border-slate-300 rounded
                                bg-white max-w-[18rem] truncate text-left">
                     {portee.ue_nums.length === 0 ? '— choisir des unités —'
                       : portee.ue_nums.length === 1 ? `UE ${portee.ue_nums[0]}`
@@ -917,18 +917,18 @@ function OngletRapports({ domaine, sansListe = false, rapportId = null }) {
                     <div className="absolute z-30 mt-1 w-[24rem] max-h-72 overflow-auto
                                     bg-white border border-slate-300 rounded-carte shadow-flottant p-2">
                       <div className="flex gap-2 pb-2 mb-1 border-b border-slate-200">
-                        <button className="text-[11px] text-iip-blue underline"
+                        <button className="text-xs text-iip-blue underline"
                           onClick={() => setPortee(p => ({ ...p,
                             ue_nums: uesOffertes.map(u => String(u.ue_num)) }))}>
                           Tout cocher ({uesOffertes.length})
                         </button>
-                        <button className="text-[11px] text-slate-500 underline"
+                        <button className="text-xs text-slate-500 underline"
                           onClick={() => setPortee(p => ({ ...p, ue_nums: [] }))}>
                           Tout décocher
                         </button>
                       </div>
                       {uesOffertes.length === 0 && (
-                        <div className="text-[12px] text-slate-400 px-1 py-2">
+                        <div className="text-second text-slate-400 px-1 py-2">
                           Aucune unité ne répond à ces filtres.
                         </div>
                       )}
@@ -936,7 +936,7 @@ function OngletRapports({ domaine, sansListe = false, rapportId = null }) {
                         const k = String(u.ue_num);
                         const coche = portee.ue_nums.includes(k);
                         return (
-                          <label key={k} className="flex items-start gap-2 py-0.5 text-[12px]
+                          <label key={k} className="flex items-start gap-2 py-0.5 text-second
                                                     cursor-pointer hover:bg-slate-50 rounded px-1">
                             <input type="checkbox" checked={coche} className="mt-0.5"
                               onChange={() => setPortee(p => ({ ...p,
@@ -945,7 +945,7 @@ function OngletRapports({ domaine, sansListe = false, rapportId = null }) {
                             <span>
                               <b>UE {u.ue_num}</b> {u.ue_nom}
                               {String(u.ue_tc || '').toLowerCase() === 'x' && (
-                                <span className="ml-1.5 text-[10px] px-1 rounded border
+                                <span className="ml-1.5 text-mention px-1 rounded border
                                                  border-iip-turquoise text-iip-blue font-bold">TC</span>
                               )}
                             </span>
@@ -962,7 +962,7 @@ function OngletRapports({ domaine, sansListe = false, rapportId = null }) {
                   onChange={e => setPortee(p => ({ ...p,
                     ue_num: e.target.value, ue_nums: e.target.value ? [e.target.value] : [],
                     code_cours: '' }))}
-                  className="px-2 py-1 text-[12px] border border-slate-300 rounded max-w-[16rem]">
+                  className="px-2 py-1 text-second border border-slate-300 rounded max-w-[16rem]">
                   <option value="">— choisir une unité —</option>
                   {uesOffertes.map(u => (
                     <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom}</option>
@@ -972,7 +972,7 @@ function OngletRapports({ domaine, sansListe = false, rapportId = null }) {
               {portee.niveau === 'cours' && !!coursUe.length && (
                 <select value={portee.code_cours}
                   onChange={e => setPortee(p => ({ ...p, code_cours: e.target.value }))}
-                  className="px-2 py-1 text-[12px] border border-slate-300 rounded max-w-[16rem]">
+                  className="px-2 py-1 text-second border border-slate-300 rounded max-w-[16rem]">
                   <option value="">Tous les cours de l'unité</option>
                   {coursUe.map(c => (
                     <option key={c.cours_code} value={c.cours_code}>
@@ -986,31 +986,31 @@ function OngletRapports({ domaine, sansListe = false, rapportId = null }) {
           {choisi?.params?.includes('section') && (
             <select value={section}
               onChange={e => { setSection(e.target.value); setApercu(null); }}
-              className="px-2 py-1 text-[12px] border border-slate-300 rounded">
+              className="px-2 py-1 text-second border border-slate-300 rounded">
               <option value="">Toutes les sections</option>
               {sections.map(s2 => <option key={s2} value={s2}>{s2}</option>)}
             </select>
           )}
           {choisi?.params?.includes('etudiants') && (
-            <label className="flex items-center gap-1.5 text-[12px] text-slate-500">
+            <label className="flex items-center gap-1.5 text-second text-slate-500">
               Étudiants
               <input type="number" min="0" value={etudiants} placeholder="inscrits"
                 onChange={e => setEtudiants(e.target.value)}
                 title="Laissez vide pour compter les inscrits encodés dans Lucie ; posez un nombre pour simuler."
-                className="w-20 px-2 py-1 text-[12px] border border-slate-300 rounded" />
+                className="w-20 px-2 py-1 text-second border border-slate-300 rounded" />
             </label>
           )}
           {choisi?.params?.includes('session') && (
             <select value={session}
               onChange={e => { setSession(Number(e.target.value)); setApercu(null); }}
-              className="px-2 py-1 text-[12px] border border-slate-300 rounded">
+              className="px-2 py-1 text-second border border-slate-300 rounded">
               <option value={1}>1re session</option>
               <option value={2}>2e session</option>
             </select>
           )}
           <span className="flex-1" />
           {apercu && (
-            <span className="text-[12px] text-slate-500">
+            <span className="text-second text-slate-500">
               {apercu.nb} ligne(s){apercu.tronque ? ' · 50 premières affichées' : ''}
             </span>
           )}
@@ -1031,7 +1031,7 @@ function OngletRapports({ domaine, sansListe = false, rapportId = null }) {
         </div>
 
         {erreur && (
-          <div className="m-3 px-3 py-2 rounded-lg bg-amber-50 text-amber-900 text-[13px]
+          <div className="m-3 px-3 py-2 rounded-lg bg-amber-50 text-amber-900 text-sm
                           flex items-start gap-2">
             <IconAlertTriangle size={15} className="flex-none mt-0.5" /> {erreur}
           </div>
@@ -1041,8 +1041,8 @@ function OngletRapports({ domaine, sansListe = false, rapportId = null }) {
             pas dans la liste, où elle noyait le nom des pièces. */}
         {choisi?.aide && (
           <div className="px-3 py-2 border-b border-slate-200 bg-[#FCFCFD]">
-            <div className="text-[13px] font-medium">{choisi.libelle}</div>
-            <div className="text-[12px] text-slate-500 mt-0.5">{choisi.aide}</div>
+            <div className="text-sm font-medium">{choisi.libelle}</div>
+            <div className="text-second text-slate-500 mt-0.5">{choisi.aide}</div>
           </div>
         )}
 
@@ -1051,12 +1051,12 @@ function OngletRapports({ domaine, sansListe = false, rapportId = null }) {
 
         <div className="flex-1 overflow-auto min-h-0 bg-slate-100 p-3">
           {!choisi && (
-            <p className="p-6 text-[13px] text-slate-400">
+            <p className="p-6 text-sm text-slate-400">
               Choisissez une pièce à gauche.
             </p>
           )}
           {choisi && !apercu && !erreur && (
-            <p className="p-6 text-[13px] text-slate-400">
+            <p className="p-6 text-sm text-slate-400">
               {enCours ? 'Composition de la pièce…' : '—'}
             </p>
           )}
@@ -1104,7 +1104,7 @@ function Avion({ titre, onClick, disabled = false, occupe = false }) {
       /* FOND BLANC, AVION MARINE (Charles, 27 septembre 2026 : « pas ce bleu,
          on reste dans nos couleurs ») — le même carré que « Nouvel EA12 ». */
       className="bouton bouton-icone flex-none text-iip-blue">
-      {occupe ? <span className="text-[12px]">…</span> : <IconSend size={17} stroke={1.8} />}
+      {occupe ? <span className="text-second">…</span> : <IconSend size={17} stroke={1.8} />}
     </button>
   );
 }
@@ -1243,24 +1243,24 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
         <div className="relative">
           <IconSearch size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Nom du membre"
-            className="controle controle-icone w-full border border-slate-300 rounded-champ bg-white text-[13px]" />
+            className="controle controle-icone w-full border border-slate-300 rounded-champ bg-white text-sm" />
         </div>
         <div className="border border-slate-200 rounded-carte max-h-[50vh] overflow-y-auto">
-          {profs === null ? <p className="p-3 text-[12px] text-slate-400">Chargement…</p>
-            : !liste.length ? <p className="p-3 text-[12px] text-slate-400">Personne ne correspond.</p>
+          {profs === null ? <p className="p-3 text-second text-slate-400">Chargement…</p>
+            : !liste.length ? <p className="p-3 text-second text-slate-400">Personne ne correspond.</p>
             : liste.map(p => {
               const actif = coches.size < 2 && choisi?.id === p.id;
               return (
               <div key={p.id} className={`flex items-center border-b border-slate-100 last:border-0 ${actif ? 'bg-iip-blue text-white' : 'hover:bg-slate-50'}`}>
                 <input type="checkbox" checked={coches.has(p.id)} onChange={() => basculer(p.id)}
                   aria-label={`Cocher ${nom(p)}`} className="ml-2.5 flex-none" />
-                <button type="button" onClick={() => setChoisi(p)} className="flex-1 min-w-0 text-left px-2 py-1.5 text-[13px]">
-                  {nom(p)}{p.statut ? <span className={`ml-1.5 text-[11px] ${actif ? 'text-white/70' : 'text-slate-400'}`}>{p.statut}</span> : null}
+                <button type="button" onClick={() => setChoisi(p)} className="flex-1 min-w-0 text-left px-2 py-1.5 text-sm">
+                  {nom(p)}{p.statut ? <span className={`ml-1.5 text-xs ${actif ? 'text-white/70' : 'text-slate-400'}`}>{p.statut}</span> : null}
                 </button>
               </div>
             ); })}
         </div>
-        <div className="flex items-center justify-between text-[12px] text-slate-500">
+        <div className="flex items-center justify-between text-second text-slate-500">
           <span>{coches.size ? `${coches.size} coché${coches.size > 1 ? 's' : ''}` : 'Cochez pour produire en série'}</span>
           <span className="flex gap-3">
             {!!liste.length && <button type="button" className="underline hover:text-iip-blue"
@@ -1273,37 +1273,37 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
         {coches.size >= 2 ? (
           <SeriePersonnel ids={[...coches]} profs={profs || []} annee={annee} annexes={annexes} nom={nom} outilsMembre={outilsMembre} />
         ) : !choisi ? (
-          <p className="text-[13px] text-slate-400 italic py-6">Choisissez un membre du personnel.</p>
+          <p className="text-sm text-slate-400 italic py-6">Choisissez un membre du personnel.</p>
         ) : (
           <div className="space-y-3">
             {/* SUR LA LIGNE DES FAMILLES (Charles, 27 septembre 2026) : le nom
                 remonte à hauteur de « Pièces par membre · Rapports · Listes » ;
                 il y avait là une bande vide, et le nom descendait d'autant. */}
-            <div className="text-[15px] font-semibold text-iip-blue md:-mt-[3.35rem] md:h-[2.6rem] md:mb-[0.75rem] flex items-center">{nom(choisi)}</div>
+            <div className="text-base font-semibold text-iip-blue md:-mt-[3.35rem] md:h-[2.6rem] md:mb-[0.75rem] flex items-center">{nom(choisi)}</div>
             {/* LE STATUT D'ABORD (Charles, 27 septembre 2026) : il dit quelles pièces
                 reviennent à ce membre. Les périodes d'expert ne vont que sur l'EA12
                 et le contrat d'expert ; le reste, sur le contrat et l'EA12 classiques. */}
             {statut && (
-              <div data-etat={statut.statut === 'aucun' ? 'neutre' : 'fort'} className="bloc-etat px-3 py-2 text-[13px]" style={statut.statut === 'aucun' ? undefined : { background: '#fff' }}>
+              <div data-etat={statut.statut === 'aucun' ? 'neutre' : 'fort'} className="bloc-etat px-3 py-2 text-sm" style={statut.statut === 'aucun' ? undefined : { background: '#fff' }}>
                 {statut.statut === 'mixte' && <><b>Ce membre du personnel a deux statuts : expert et chargé de cours.</b> <span className="text-slate-500">{statut.cc.periodes} périodes CC · {statut.expert.periodes} périodes d'expert en {annee}</span></>}
                 {statut.statut === 'expert' && <><b>Ce membre du personnel est expert.</b> <span className="text-slate-500">{statut.expert.periodes} périodes en {annee}</span></>}
                 {statut.statut === 'cc' && <><b>Ce membre du personnel est chargé de cours.</b> <span className="text-slate-500">{statut.cc.periodes} périodes en {annee}</span></>}
                 {statut.statut === 'aucun' && <><b>Aucune attribution en {annee}.</b> <span className="text-slate-500">Rien à contractualiser pour cette année.</span></>}
               </div>
             )}
-            {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2 text-[12px]">{erreur}</div>}
+            {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2 text-second">{erreur}</div>}
 
             {/* LA FICHE D'ATTRIBUTIONS VAUT POUR TOUT MEMBRE (Charles, 27 septembre
                 2026) — chargé de cours comme expert : c'est le relevé de ce qui
                 lui est confié, avant tout contrat. */}
             {outilsMembre?.fiche && statut && statut.statut !== 'aucun' && (
               <div data-etat="neutre" className="bloc-etat px-3 py-2.5">
-                <div className="flex items-center justify-between gap-3 text-[13px]">
-                  <span><span className="font-semibold">Fiche d'attributions</span> <span className="text-slate-400 text-[12px]">· ce qui lui est confié en {annee}</span></span>
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span><span className="font-semibold">Fiche d'attributions</span> <span className="text-slate-400 text-second">· ce qui lui est confié en {annee}</span></span>
                   <Avion titre="Imprimer ou envoyer la fiche d'attributions" onClick={imprimerFiche} occupe={enCours === 'fiche'} />
                 </div>
                 {choixFiche && (
-                  <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between gap-3 flex-wrap text-[13px]">
+                  <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between gap-3 flex-wrap text-sm">
                     <span>Ce membre du personnel a deux types de fiches. Laquelle souhaitez-vous imprimer ?</span>
                     <span className="flex gap-1.5">
                       {[['IIP', 'IIP'], ['HELB', 'HELB'], ['Les deux (globale)', null]].map(([l, f]) => (
@@ -1317,21 +1317,21 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
 
             {peutContrats && statut && (statut.statut === 'cc' || statut.statut === 'mixte') && (
               <div data-etat="neutre" className="bloc-etat px-3 py-2.5 space-y-2">
-                <div className="text-[13px] font-semibold">Chargé de cours</div>
+                <div className="text-sm font-semibold">Chargé de cours</div>
                 <ul className="divide-y divide-slate-100 border-t border-slate-100">
-                  <li className="flex items-center justify-between gap-3 py-1.5 text-[13px]">
-                    <span>Contrat de travail <span className="text-slate-400 text-[12px]">· ses périodes CC, sans les périodes d'expert</span></span>
+                  <li className="flex items-center justify-between gap-3 py-1.5 text-sm">
+                    <span>Contrat de travail <span className="text-slate-400 text-second">· ses périodes CC, sans les périodes d'expert</span></span>
                     <Avion titre="Imprimer ou envoyer le contrat" onClick={ouvrirContratCC} />
                   </li>
-                  <li className="py-1.5 text-[13px] space-y-1">
+                  <li className="py-1.5 text-sm space-y-1">
                     <div className="flex items-center justify-between gap-3">
-                      <span>EA12 — Doc12 supérieur <span className="text-slate-400 text-[12px]">· le Word officiel, rempli par Lucie</span></span>
+                      <span>EA12 — Doc12 supérieur <span className="text-slate-400 text-second">· le Word officiel, rempli par Lucie</span></span>
                       <button type="button" onClick={creer} title="Nouvel EA12" aria-label="Nouvel EA12" className="bouton bouton-icone flex-none"><IconFilePlus size={17} stroke={1.8} /></button>
                     </div>
-                    {ea12 === null ? <p className="text-[12px] text-slate-400">Chargement…</p>
-                      : !ea12.length ? <p className="text-[12px] text-slate-400">Aucun EA12 pour {annee}.</p>
+                    {ea12 === null ? <p className="text-second text-slate-400">Chargement…</p>
+                      : !ea12.length ? <p className="text-second text-slate-400">Aucun EA12 pour {annee}.</p>
                       : ea12.map(e => (
-                        <div key={e.id} className="flex items-center justify-between gap-3 pl-3 text-[12px] text-slate-600">
+                        <div key={e.id} className="flex items-center justify-between gap-3 pl-3 text-second text-slate-600">
                           <span>Document n° {e.num_doc ?? '—'} · modifié le {String(e.modifie_le || e.cree_le || '').slice(0, 10).split('-').reverse().join('/')}{e.statut_doc === 'genere' ? ' · déjà produit' : ''}</span>
                           <Avion titre="Ouvrir, compléter et produire cet EA12" onClick={() => ouvrir(e.id)} />
                         </div>
@@ -1343,22 +1343,22 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
 
             {peutContrats && !!expert.length && (
               <div data-etat="neutre" className="bloc-etat px-3 py-2.5 space-y-2">
-                <div className="text-[13px] font-semibold">Expert</div>
+                <div className="text-sm font-semibold">Expert</div>
                 <ul className="divide-y divide-slate-100 border-t border-slate-100">
                   {expert.map(n => (
-                    <li key={n.niveau} className="flex items-center justify-between gap-3 py-1.5 text-[13px]">
+                    <li key={n.niveau} className="flex items-center justify-between gap-3 py-1.5 text-sm">
                       <span>Contrat d'emploi d'un expert — {n.niveau === 'secondaire' ? 'secondaire' : 'supérieur'}
-                        <span className="text-slate-400 text-[12px]"> · {n.periodes} périodes, {n.unites} unité{n.unites > 1 ? 's' : ''} · {String(n.taux).replace('.', ',')} €/période</span></span>
+                        <span className="text-slate-400 text-second"> · {n.periodes} périodes, {n.unites} unité{n.unites > 1 ? 's' : ''} · {String(n.taux).replace('.', ',')} €/période</span></span>
                       <Avion titre="Imprimer ou envoyer le contrat d'expert" onClick={() => ouvrirContrat(n.niveau)} />
                     </li>
                   ))}
                   {annexes.filter(a => a.cle === 'A1ter' || a.cle === 'A27').map(a => (
-                    <li key={a.cle} className="flex items-center justify-between gap-3 py-1.5 text-[13px]">
-                      <span>{a.titre}{a.mois && <span className="text-slate-400 text-[12px]"> · mois de {['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'][mois - 1]}</span>}</span>
+                    <li key={a.cle} className="flex items-center justify-between gap-3 py-1.5 text-sm">
+                      <span>{a.titre}{a.mois && <span className="text-slate-400 text-second"> · mois de {['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'][mois - 1]}</span>}</span>
                       {a.saisie
                         ? <Avion titre="Compléter dans Lucie, puis produire en Word ou PDF" onClick={() => setACompleter(a)} />
                         : <span className="inline-flex items-center gap-1">
-                            <button type="button" onClick={() => apercuAnnexe(a)} disabled={!!enCours} className="bouton text-[12px] px-2 py-0.5" title="Voir le formulaire rempli, en PDF">{enCours === `v${a.cle}` ? '…' : 'Aperçu'}</button>
+                            <button type="button" onClick={() => apercuAnnexe(a)} disabled={!!enCours} className="bouton text-second px-2 py-0.5" title="Voir le formulaire rempli, en PDF">{enCours === `v${a.cle}` ? '…' : 'Aperçu'}</button>
                             <Avion titre="Produire le Word officiel" onClick={() => telecharger(a)} occupe={enCours === a.cle} /></span>}
                     </li>
                   ))}
@@ -1370,11 +1370,11 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
               <div data-etat="neutre" className="bloc-etat px-3 py-2.5 space-y-2">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <div>
-                    <div className="text-[13px] font-semibold">Autres annexes de la circulaire 9760</div>
-                    <div className="text-[12px] text-slate-500">Le modèle Word officiel, établissement et identité remplis.</div>
+                    <div className="text-sm font-semibold">Autres annexes de la circulaire 9760</div>
+                    <div className="text-second text-slate-500">Le modèle Word officiel, établissement et identité remplis.</div>
                   </div>
-                  <label className="text-[12px] text-slate-600 inline-flex items-center gap-1.5">Mois des relevés
-                    <select value={mois} onChange={e => setMois(Number(e.target.value))} className="controle border border-slate-300 rounded-champ bg-white text-[12px]">
+                  <label className="text-second text-slate-600 inline-flex items-center gap-1.5">Mois des relevés
+                    <select value={mois} onChange={e => setMois(Number(e.target.value))} className="controle border border-slate-300 rounded-champ bg-white text-second">
                       {['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'].map((m, i) =>
                         <option key={m} value={i + 1}>{m}</option>)}
                     </select>
@@ -1382,15 +1382,15 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
                 </div>
                 <ul className="grid gap-x-4 sm:grid-cols-2 border-t border-slate-100">
                   {annexes.filter(a => !a.ea12 && a.cle !== 'A1ter' && a.cle !== 'A27').map(a => (
-                    <li key={a.cle} className="flex items-center justify-between gap-2 py-1 border-b border-slate-100 text-[13px]">
+                    <li key={a.cle} className="flex items-center justify-between gap-2 py-1 border-b border-slate-100 text-sm">
                       <span className="min-w-0 truncate" title={a.titre}>
                         {a.titre}
-                        {PREREMPLIES.includes(a.cle) && <span className="ml-1.5 text-[10px] text-slate-400">pré-rempli</span>}
+                        {PREREMPLIES.includes(a.cle) && <span className="ml-1.5 text-mention text-slate-400">pré-rempli</span>}
                       </span>
                       {a.saisie
                         ? <Avion titre="Compléter dans Lucie, puis produire en Word ou PDF" onClick={() => setACompleter(a)} />
                         : <span className="inline-flex items-center gap-1">
-                            <button type="button" onClick={() => apercuAnnexe(a)} disabled={!!enCours} className="bouton text-[12px] px-2 py-0.5" title="Voir le formulaire rempli, en PDF">{enCours === `v${a.cle}` ? '…' : 'Aperçu'}</button>
+                            <button type="button" onClick={() => apercuAnnexe(a)} disabled={!!enCours} className="bouton text-second px-2 py-0.5" title="Voir le formulaire rempli, en PDF">{enCours === `v${a.cle}` ? '…' : 'Aperçu'}</button>
                             <Avion titre="Produire le Word officiel" onClick={() => telecharger(a)} occupe={enCours === a.cle} /></span>}
                     </li>
                   ))}
@@ -1458,25 +1458,25 @@ function SeriePersonnel({ ids, profs, annee, annexes, nom, outilsMembre = null }
   };
   return (
     <div className="space-y-3">
-      <div className="text-[15px] font-semibold text-iip-blue md:-mt-[3.35rem] md:h-[2.6rem] md:mb-[0.75rem] flex items-center">En série — {ids.length} membres</div>
-      <div data-etat="fort" className="bloc-etat px-3 py-2 text-[13px]" style={{ background: '#fff' }}>
+      <div className="text-base font-semibold text-iip-blue md:-mt-[3.35rem] md:h-[2.6rem] md:mb-[0.75rem] flex items-center">En série — {ids.length} membres</div>
+      <div data-etat="fort" className="bloc-etat px-3 py-2 text-sm" style={{ background: '#fff' }}>
         <b>Chaque pièce est remplie des données de chaque membre.</b>{' '}
         <span className="text-slate-500">{noms.slice(0, 6).join(', ')}{noms.length > 6 ? ` et ${noms.length - 6} autres` : ''}.</span>
       </div>
-      {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2 text-[12px]">{erreur}</div>}
-      {avis && <div data-etat="surveiller" className="bloc-etat px-3 py-2 text-[12px]">{avis}</div>}
+      {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2 text-second">{erreur}</div>}
+      {avis && <div data-etat="surveiller" className="bloc-etat px-3 py-2 text-second">{avis}</div>}
 
       {outilsMembre?.fichesLot && (
         <div data-etat="neutre" className="bloc-etat px-3 py-2.5">
-          <div className="flex items-center justify-between gap-3 text-[13px]">
+          <div className="flex items-center justify-between gap-3 text-sm">
             <div>
               <div className="font-semibold">Fiches d'attributions</div>
-              <div className="text-[12px] text-slate-500">Une fiche par membre, chacune sur sa page.</div>
+              <div className="text-second text-slate-500">Une fiche par membre, chacune sur sa page.</div>
             </div>
             <Avion titre="Imprimer ou envoyer les fiches d'attributions" onClick={() => setChoixFiches(c => !c)} />
           </div>
           {choixFiches && (
-            <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between gap-3 flex-wrap text-[13px]">
+            <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between gap-3 flex-wrap text-sm">
               <span>Quelles fiches imprimer ? Un membre sans attribution du type choisi n'a pas de fiche.</span>
               <span className="flex gap-1.5">
                 {[['IIP', 'IIP'], ['HELB', 'HELB'], ['Globales', 'GLOBAL']].map(([l, t]) => (
@@ -1491,12 +1491,12 @@ function SeriePersonnel({ ids, profs, annee, annexes, nom, outilsMembre = null }
       {peutContrats && <div data-etat="neutre" className="bloc-etat px-3 py-2.5 space-y-2">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="text-[13px] font-semibold">Contrats de travail</div>
-            <div className="text-[12px] text-slate-500">Selon le statut de chacun : classique sur ses périodes CC, d'expert par niveau. Un seul document, une pièce par page.</div>
+            <div className="text-sm font-semibold">Contrats de travail</div>
+            <div className="text-second text-slate-500">Selon le statut de chacun : classique sur ses périodes CC, d'expert par niveau. Un seul document, une pièce par page.</div>
           </div>
           <Avion titre="Imprimer ou envoyer les contrats" onClick={contrats} disabled={!!enCours || (!types.cc && !types.expert)} occupe={enCours === 'contrats'} />
         </div>
-        <div className="flex gap-4 text-[13px] border-t border-slate-100 pt-1.5">
+        <div className="flex gap-4 text-sm border-t border-slate-100 pt-1.5">
           {[['cc', 'Chargé de cours'], ['expert', 'Expert']].map(([k, l]) => (
             <label key={k} className="inline-flex items-center gap-1.5">
               <input type="checkbox" checked={types[k]} onChange={() => setTypes(t => ({ ...t, [k]: !t[k] }))} />{l}
@@ -1508,13 +1508,13 @@ function SeriePersonnel({ ids, profs, annee, annexes, nom, outilsMembre = null }
       {peutAnnexes && <div data-etat="neutre" className="bloc-etat px-3 py-2.5 space-y-2">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
-            <div className="text-[13px] font-semibold">EA12 et annexes de la circulaire 9760</div>
-            <div className="text-[12px] text-slate-500">Le Word officiel, rempli pour chacun ; une archive, un dossier par personne.</div>
+            <div className="text-sm font-semibold">EA12 et annexes de la circulaire 9760</div>
+            <div className="text-second text-slate-500">Le Word officiel, rempli pour chacun ; une archive, un dossier par personne.</div>
           </div>
           <span className="flex items-center gap-2">
             {besoinMois && (
               <select value={mois} onChange={e => setMois(Number(e.target.value))} aria-label="Mois des relevés"
-                className="controle border border-slate-300 rounded-champ bg-white text-[12px]">
+                className="controle border border-slate-300 rounded-champ bg-white text-second">
                 {MOIS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
               </select>
             )}
@@ -1523,7 +1523,7 @@ function SeriePersonnel({ ids, profs, annee, annexes, nom, outilsMembre = null }
         </div>
         <ul className="grid gap-x-4 sm:grid-cols-2 border-t border-slate-100">
           {pieces.map(a => (
-            <li key={a.cle} className="py-1 border-b border-slate-100 text-[13px]">
+            <li key={a.cle} className="py-1 border-b border-slate-100 text-sm">
               <label className="flex items-center gap-2 min-w-0" title={a.titre}>
                 <input type="checkbox" checked={cles.has(a.cle)} onChange={() => bascule(a.cle)} className="flex-none" />
                 <span className="truncate">{a.titre}</span>
@@ -1562,10 +1562,10 @@ function UnEtudiantToutesAnnees({ annee, choisi, onChoisir, compact = false }) {
   // familles ; le titre et le texte d'aide repoussaient tout le contenu.
   return (
     <div className={compact ? 'relative' : 'px-3 py-2 border-b border-slate-200 space-y-1.5'}>
-      {!compact && <div className="text-[13px] font-semibold text-iip-blue">Un étudiant — toutes ses pièces</div>}
+      {!compact && <div className="text-sm font-semibold text-iip-blue">Un étudiant — toutes ses pièces</div>}
       <div className="relative">
         {compact && <IconSearch size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />}
-        <input className={`controle w-full text-[13px] ${compact ? 'controle-icone' : ''}`}
+        <input className={`controle w-full text-sm ${compact ? 'controle-icone' : ''}`}
           placeholder={compact ? 'Un étudiant — toutes ses pièces…' : 'Nom ou matricule…'}
           title="Attestations, bulletin, parcours, fiche d'inscription, annexes, congé-éducation, aménagements — toutes les pièces d'un étudiant"
           value={q} onChange={e => setQ(e.target.value)} />
@@ -1573,17 +1573,17 @@ function UnEtudiantToutesAnnees({ annee, choisi, onChoisir, compact = false }) {
           <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-champ shadow-flottant max-h-64 overflow-auto">
             {trouves.map(e => (
               <button key={e.id} type="button" onClick={() => { setChoisi(e); setTrouves([]); }}
-                className="w-full text-left px-2.5 py-1.5 text-[12.5px] hover:bg-slate-50">
+                className="w-full text-left px-2.5 py-1.5 text-second hover:bg-slate-50">
                 <b>{(e.nom || '').toUpperCase()}</b> {e.prenom} <span className="text-slate-400">· {e.id_ecampus || '—'}</span>
               </button>
             ))}
           </div>
         )}
       </div>
-      {!compact && <div className="text-[11px] text-slate-400">Attestations, bulletin, parcours, fiche d'inscription, annexes de l'Office des
+      {!compact && <div className="text-xs text-slate-400">Attestations, bulletin, parcours, fiche d'inscription, annexes de l'Office des
         Étrangers, congé-éducation, aménagements raisonnables — pour l'année {annee}.</div>}
       {choisi && !compact && (
-        <div className="text-[12px] text-iip-texte">Choisi : <b>{nomPropre(choisi.nom, choisi.prenom)}</b>
+        <div className="text-second text-iip-texte">Choisi : <b>{nomPropre(choisi.nom, choisi.prenom)}</b>
           <button type="button" className="ml-2 underline text-slate-500" onClick={() => { onChoisir(null); setQ(''); }}>retirer</button></div>
       )}
     </div>
@@ -1796,7 +1796,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
   function montrer(docs, k) {
     const d = docs[k];
     const nav = docs.length > 1 ? (
-      <span className="flex items-center gap-1 text-[12px] text-slate-500">
+      <span className="flex items-center gap-1 text-second text-slate-500">
         <button type="button" className="bouton controle px-2" disabled={k === 0} onClick={() => montrer(docs, k - 1)}>◀</button>
         <span className="tabular-nums px-1">{k + 1} / {docs.length}</span>
         <button type="button" className="bouton controle px-2" disabled={k === docs.length - 1} onClick={() => montrer(docs, k + 1)}>▶</button>
@@ -2049,22 +2049,22 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
       {/* LE PÉRIMÈTRE */}
       <div className="w-[340px] border-r border-slate-200 flex flex-col min-h-0">
         {reprisDeLaListe && !seul && (
-          <div data-etat="disponible" className="bloc-etat mx-3 mt-3 px-3 py-2 text-[12px]">
+          <div data-etat="disponible" className="bloc-etat mx-3 mt-3 px-3 py-2 text-second">
             <b>{selectionListe.length} étudiant(s)</b> repris de votre sélection dans la liste des étudiants — cochés d’avance.
           </div>)}
         {seul && (
           <div className="px-3 py-2 border-b border-slate-200">
-            <div className="text-[11px] uppercase tracking-wide text-slate-500">Pour</div>
-            <div className="text-[15px] font-semibold text-iip-texte">{nomPropre(seul.nom, seul.prenom)}</div>
-            <div className="text-[12px] text-slate-500">{seul.id_ecampus || ''}{seul.section_rattachement ? ` · ${seul.section_rattachement}` : ''}</div>
-            <button type="button" className="mt-1 text-[12px] underline text-iip-blue" onClick={onRevenir}>revenir au périmètre</button>
+            <div className="text-xs uppercase tracking-wide text-slate-500">Pour</div>
+            <div className="text-base font-semibold text-iip-texte">{nomPropre(seul.nom, seul.prenom)}</div>
+            <div className="text-second text-slate-500">{seul.id_ecampus || ''}{seul.section_rattachement ? ` · ${seul.section_rattachement}` : ''}</div>
+            <button type="button" className="mt-1 text-second underline text-iip-blue" onClick={onRevenir}>revenir au périmètre</button>
           </div>
         )}
         <div className="px-3 py-2 border-b border-slate-200">
-          <div className="text-[13px] font-semibold text-iip-blue mb-1.5">Périmètre</div>
+          <div className="text-sm font-semibold text-iip-blue mb-1.5">Périmètre</div>
           <select value={annee} onChange={e => setAnnee(e.target.value)}
             title="L'année sur laquelle portent les pièces"
-            className="controle w-full mb-2 text-[13px]">
+            className="controle w-full mb-2 text-sm">
             {(annees.length ? annees : [annee]).map(a => (
               <option key={a} value={a}>{a}</option>
             ))}
@@ -2072,7 +2072,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
           {delib && <div className="segments w-full">
             {[[1, '1re session'], [2, '2e session']].map(([v, lib]) => (
               <button key={v} onClick={() => setSession(v)}
-                className={`flex-1 px-2 py-1 text-[12px] ${session === v
+                className={`flex-1 px-2 py-1 text-second ${session === v
                   ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>
                 {lib}
               </button>
@@ -2083,16 +2083,16 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
         {/* Même retrait que le bloc « Périmètre » au-dessus (px-3) : à p-2, la
             section commençait 4 px plus à gauche que l'année. */}
         <div className="flex-1 overflow-auto px-3 py-2 space-y-1.5">
-          <select value={secChoisie} onChange={e => choisirSection(e.target.value)} className="controle w-full text-[13px]">
+          <select value={secChoisie} onChange={e => choisirSection(e.target.value)} className="controle w-full text-sm">
             <option value="">{arbre ? '— choisir une section —' : 'Chargement…'}</option>
             {(arbre?.sections || []).map(sec => <option key={sec} value={sec}>{sec}</option>)}
           </select>
           {secChoisie && (() => {
             const us = (arbre?.unites || []).filter(u => u.section === secChoisie && (!seul || !uesSeul || uesSeul.has(u.ue_num)));
-            if (!us.length) return <p className="text-[12px] text-slate-400 px-1">{seul ? 'Aucune UE de cet étudiant dans cette section.' : 'Aucune UE.'}</p>;
+            if (!us.length) return <p className="text-second text-slate-400 px-1">{seul ? 'Aucune UE de cet étudiant dans cette section.' : 'Aucune UE.'}</p>;
             return (
               <>
-                <div className="text-[11px] text-slate-500 px-1">{ues.size ? `${ues.size} UE cochée(s)` : `toute la section${seul ? ' — ses UE' : ''} · cochez pour restreindre`}</div>
+                <div className="text-xs text-slate-500 px-1">{ues.size ? `${ues.size} UE cochée(s)` : `toute la section${seul ? ' — ses UE' : ''} · cochez pour restreindre`}</div>
                 {us.map(u => (
                   <div key={u.ue_num}>
                     <div className="flex items-center gap-1.5 px-1 py-0.5">
@@ -2102,9 +2102,9 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
                           {deplie.has(u.ue_num) ? <IconChevronDown size={13} /> : <IconChevronRight size={13} />}
                         </button>
                       )}
-                      <span className="text-[12.5px] text-slate-700 truncate flex-1"><b>{u.ue_num}</b> {u.ue_nom}</span>
+                      <span className="text-second text-slate-700 truncate flex-1"><b>{u.ue_num}</b> {u.ue_nom}</span>
                       {seul && uesSeul?.get(u.ue_num) && (
-                        <span className="text-[10.5px] font-semibold text-white rounded-full px-1.5"
+                        <span className="text-mention font-semibold text-white rounded-full px-1.5"
                           style={{ background: uesSeul.get(u.ue_num) === 'reussi' ? 'var(--c-reussi, #3E7D5E)' : uesSeul.get(u.ue_num) === 'ajourne' ? 'var(--c-attente, #B45309)' : 'var(--c-refuse, #9D4A38)' }}>
                           {uesSeul.get(u.ue_num) === 'reussi' ? 'réussi' : uesSeul.get(u.ue_num) === 'ajourne' ? 'ajourné' : 'refusé'}</span>
                       )}
@@ -2116,7 +2116,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
                             <input type="checkbox" checked={cours.has(c.cours_code)} disabled={ues.has(u.ue_num)}
                               onChange={() => { setCours(s0 => bascule(s0, c.cours_code)); setSections(new Set()); }}
                               className="w-3.5 h-3.5 accent-iip-blue disabled:opacity-40" />
-                            <span className="text-[12px] text-slate-500 truncate">{c.cours_code} {c.cours_nom}</span>
+                            <span className="text-second text-slate-500 truncate">{c.cours_code} {c.cours_nom}</span>
                           </label>
                         ))}
                       </div>
@@ -2128,7 +2128,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
           })()}
         </div>
 
-        <div className="px-3 py-2 border-t border-slate-200 text-[11px] text-slate-500">
+        <div className="px-3 py-2 border-t border-slate-200 text-xs text-slate-500">
           Un cours sert à désigner des personnes : les pièces restent celles de
           leur unité.
         </div>
@@ -2148,8 +2148,8 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
           <div className="flex items-center gap-3 mb-3">
             <IconSchool size={18} className="text-iip-blue" />
             <div className="min-w-0 flex-1">
-              <div className="text-[15px] font-semibold text-iip-texte">{nomPropre(etudiantVu.nom, etudiantVu.prenom)}</div>
-              <div className="text-[12px] text-slate-500">{etudiantVu.id_ecampus || ''} · année {annee}</div>
+              <div className="text-base font-semibold text-iip-texte">{nomPropre(etudiantVu.nom, etudiantVu.prenom)}</div>
+              <div className="text-second text-slate-500">{etudiantVu.id_ecampus || ''} · année {annee}</div>
             </div>
             <button type="button" className="bouton controle" onClick={() => setEtudiantVu(null)}>Revenir au lot</button>
           </div>
@@ -2161,7 +2161,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
         {/* LES BOUTONS EN TÊTE, et ce qu'ils vont faire (maquette validée). */}
         <div className="border-b border-slate-200 p-3 space-y-2.5">
           <div className="flex flex-wrap items-center gap-2">
-            <label className="flex items-center gap-1.5 text-[12px] text-slate-600 cursor-pointer">
+            <label className="flex items-center gap-1.5 text-second text-slate-600 cursor-pointer">
               <input type="checkbox" checked={separer}
                 onChange={e => {
                   setSeparer(e.target.checked);
@@ -2173,35 +2173,35 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
             <span className="flex-1" />
             <button onClick={() => produire(true)} disabled={enCours || !coches.size || !nbPieces}
               title="Voir les pièces avant de les produire — rien n'est téléchargé"
-              className="bouton controle px-3 text-[13px] inline-flex items-center gap-1.5">
+              className="bouton controle px-3 text-sm inline-flex items-center gap-1.5">
               Aperçu
             </button>
             <button onClick={() => produire()} disabled={enCours || !coches.size || !nbPieces}
-              className="px-4 py-2 text-[13px] rounded-lg bg-iip-blue text-white font-semibold disabled:opacity-40 inline-flex items-center gap-1.5">
+              className="px-4 py-2 text-sm rounded-lg bg-iip-blue text-white font-semibold disabled:opacity-40 inline-flex items-center gap-1.5">
               <IconPrinter size={14} />
               {enCours ? 'Production…' : `Produire ${nbPieces} pièce${nbPieces > 1 ? 's' : ''} · ${coches.size} étudiant${coches.size > 1 ? 's' : ''}`}
             </button>
             {etatEnvoi?.actif && etatEnvoi?.peut_envoyer && (
               <button onClick={envoyer} disabled={enCours || !coches.size || !nbPieces}
                 title="Envoyer par courriel — un document par personne, jamais de copie collective"
-                className="px-4 py-2 text-[13px] rounded-lg border font-semibold disabled:opacity-40 inline-flex items-center gap-1.5"
+                className="px-4 py-2 text-sm rounded-lg border font-semibold disabled:opacity-40 inline-flex items-center gap-1.5"
                 style={{ borderColor: 'var(--c-principal, #16406A)', color: 'var(--c-principal, #16406A)' }}>
                 <IconSend size={14} /> Envoyer
               </button>
             )}
           </div>
           {erreur && (
-            <div data-etat="surveiller" className="bloc-etat px-3 py-2 text-[13px] flex items-start gap-2">
+            <div data-etat="surveiller" className="bloc-etat px-3 py-2 text-sm flex items-start gap-2">
               <IconAlertTriangle size={15} className="flex-none mt-0.5" /> {erreur}
             </div>
           )}
           <div className="grid gap-2.5 md:grid-cols-2">
             {delib ? <>
             <div className="border border-slate-200 rounded-carte p-2.5">
-              <div className="text-[14px] font-semibold">À remettre aux étudiants</div>
-              <div className="text-[11.5px] text-slate-500 mb-1.5">une pièce par étudiant décidé</div>
+              <div className="text-sm font-semibold">À remettre aux étudiants</div>
+              <div className="text-xs text-slate-500 mb-1.5">une pièce par étudiant décidé</div>
               {PIECES.filter(p => p.nominatif).map(p => (
-                <label key={p.cle} className={`flex items-center gap-2 py-0.5 text-[13px] ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
+                <label key={p.cle} className={`flex items-center gap-2 py-0.5 text-sm ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
                   title={dispo(p) ? '' : modePublic && publicDe(p) !== modePublic && PIECES_DOSSIER.includes(p) ? `Pièces ${modePublic.toUpperCase()} en cours — décochez-les pour les autres pièces` : 'Rien à produire pour ce périmètre'}>
                   {/* LA PETITE LIGNE DIT LE SENS (2 octobre 2026) : orange pour
                       l'ajournement, fraise pour le refus. */}
@@ -2210,17 +2210,17 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
                   <input type="checkbox" checked={!!choix[p.cle] && dispo(p)} disabled={!dispo(p)} onChange={() => basculerPiece(p)}
                     className="w-3.5 h-3.5 accent-iip-blue" />
                   {p.label}
-                  {p.sle && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">SLE · {etudiants.filter(e => e.sle).length}</span>}
-                  {p.cep && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">CEP · {etudiants.filter(e => e.cep).length}</span>}
-                  {p.nominatif && dispo(p) && <span className="ml-auto text-[11.5px] text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : p.cle === 'refus' ? etudiants.filter(e => (e.refus ?? e.echecs) > 0).length : p.cle === 'ajournement' ? etudiants.filter(e => (e.ajournes ?? e.echecs) > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
+                  {p.sle && <span className="text-mention font-bold text-slate-500 border border-slate-300 rounded px-1">SLE · {etudiants.filter(e => e.sle).length}</span>}
+                  {p.cep && <span className="text-mention font-bold text-slate-500 border border-slate-300 rounded px-1">CEP · {etudiants.filter(e => e.cep).length}</span>}
+                  {p.nominatif && dispo(p) && <span className="ml-auto text-xs text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : p.cle === 'refus' ? etudiants.filter(e => (e.refus ?? e.echecs) > 0).length : p.cle === 'ajournement' ? etudiants.filter(e => (e.ajournes ?? e.echecs) > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
                 </label>
               ))}
             </div>
             <div className="border border-slate-200 rounded-carte p-2.5">
-              <div className="text-[14px] font-semibold">Pour le Conseil</div>
-              <div className="text-[11.5px] text-slate-500 mb-1.5">une pièce pour l’unité</div>
+              <div className="text-sm font-semibold">Pour le Conseil</div>
+              <div className="text-xs text-slate-500 mb-1.5">une pièce pour l’unité</div>
               {PIECES.filter(p => !p.nominatif).map(p => (
-                <label key={p.cle} className={`flex items-center gap-2 py-0.5 text-[13px] ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
+                <label key={p.cle} className={`flex items-center gap-2 py-0.5 text-sm ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
                   title={dispo(p) ? '' : modePublic && publicDe(p) !== modePublic && PIECES_DOSSIER.includes(p) ? `Pièces ${modePublic.toUpperCase()} en cours — décochez-les pour les autres pièces` : 'Rien à produire pour ce périmètre'}>
                   {/* LA PETITE LIGNE DIT LE SENS (2 octobre 2026) : orange pour
                       l'ajournement, fraise pour le refus. */}
@@ -2229,18 +2229,18 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
                   <input type="checkbox" checked={!!choix[p.cle] && dispo(p)} disabled={!dispo(p)} onChange={() => basculerPiece(p)}
                     className="w-3.5 h-3.5 accent-iip-blue" />
                   {p.label}
-                  {p.sle && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">SLE · {etudiants.filter(e => e.sle).length}</span>}
-                  {p.cep && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">CEP · {etudiants.filter(e => e.cep).length}</span>}
-                  {p.nominatif && dispo(p) && <span className="ml-auto text-[11.5px] text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : p.cle === 'refus' ? etudiants.filter(e => (e.refus ?? e.echecs) > 0).length : p.cle === 'ajournement' ? etudiants.filter(e => (e.ajournes ?? e.echecs) > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
+                  {p.sle && <span className="text-mention font-bold text-slate-500 border border-slate-300 rounded px-1">SLE · {etudiants.filter(e => e.sle).length}</span>}
+                  {p.cep && <span className="text-mention font-bold text-slate-500 border border-slate-300 rounded px-1">CEP · {etudiants.filter(e => e.cep).length}</span>}
+                  {p.nominatif && dispo(p) && <span className="ml-auto text-xs text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : p.cle === 'refus' ? etudiants.filter(e => (e.refus ?? e.echecs) > 0).length : p.cle === 'ajournement' ? etudiants.filter(e => (e.ajournes ?? e.echecs) > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
                 </label>
               ))}
             </div>
             </> : <>
             <div className="border border-slate-200 rounded-carte p-2.5">
-              <div className="text-[14px] font-semibold">Le parcours</div>
-              <div className="text-[11.5px] text-slate-500 mb-1.5">à tout moment de l’année</div>
+              <div className="text-sm font-semibold">Le parcours</div>
+              <div className="text-xs text-slate-500 mb-1.5">à tout moment de l’année</div>
               {PIECES_DOSSIER.filter(p => ['bulletin', 'pae', 'parcours'].includes(p.cle)).map(p => (
-                <label key={p.cle} className={`flex items-center gap-2 py-0.5 text-[13px] ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
+                <label key={p.cle} className={`flex items-center gap-2 py-0.5 text-sm ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
                   title={dispo(p) ? '' : modePublic && publicDe(p) !== modePublic && PIECES_DOSSIER.includes(p) ? `Pièces ${modePublic.toUpperCase()} en cours — décochez-les pour les autres pièces` : 'Rien à produire pour ce périmètre'}>
                   {/* LA PETITE LIGNE DIT LE SENS (2 octobre 2026) : orange pour
                       l'ajournement, fraise pour le refus. */}
@@ -2249,17 +2249,17 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
                   <input type="checkbox" checked={!!choix[p.cle] && dispo(p)} disabled={!dispo(p)} onChange={() => basculerPiece(p)}
                     className="w-3.5 h-3.5 accent-iip-blue" />
                   {p.label}
-                  {p.sle && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">SLE · {etudiants.filter(e => e.sle).length}</span>}
-                  {p.cep && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">CEP · {etudiants.filter(e => e.cep).length}</span>}
-                  {p.nominatif && dispo(p) && <span className="ml-auto text-[11.5px] text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : p.cle === 'refus' ? etudiants.filter(e => (e.refus ?? e.echecs) > 0).length : p.cle === 'ajournement' ? etudiants.filter(e => (e.ajournes ?? e.echecs) > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
+                  {p.sle && <span className="text-mention font-bold text-slate-500 border border-slate-300 rounded px-1">SLE · {etudiants.filter(e => e.sle).length}</span>}
+                  {p.cep && <span className="text-mention font-bold text-slate-500 border border-slate-300 rounded px-1">CEP · {etudiants.filter(e => e.cep).length}</span>}
+                  {p.nominatif && dispo(p) && <span className="ml-auto text-xs text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : p.cle === 'refus' ? etudiants.filter(e => (e.refus ?? e.echecs) > 0).length : p.cle === 'ajournement' ? etudiants.filter(e => (e.ajournes ?? e.echecs) > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
                 </label>
               ))}
             </div>
             <div className="border border-slate-200 rounded-carte p-2.5">
-              <div className="text-[14px] font-semibold">L’inscription</div>
-              <div className="text-[11.5px] text-slate-500 mb-1.5">administratif — les annexes ne vont qu’aux SLE, les pièces CEP qu’aux étudiants au congé-éducation</div>
+              <div className="text-sm font-semibold">L’inscription</div>
+              <div className="text-xs text-slate-500 mb-1.5">administratif — les annexes ne vont qu’aux SLE, les pièces CEP qu’aux étudiants au congé-éducation</div>
               {PIECES_DOSSIER.filter(p => !['bulletin', 'pae', 'parcours'].includes(p.cle)).map(p => (
-                <label key={p.cle} className={`flex items-center gap-2 py-0.5 text-[13px] ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
+                <label key={p.cle} className={`flex items-center gap-2 py-0.5 text-sm ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
                   title={dispo(p) ? '' : modePublic && publicDe(p) !== modePublic && PIECES_DOSSIER.includes(p) ? `Pièces ${modePublic.toUpperCase()} en cours — décochez-les pour les autres pièces` : 'Rien à produire pour ce périmètre'}>
                   {/* LA PETITE LIGNE DIT LE SENS (2 octobre 2026) : orange pour
                       l'ajournement, fraise pour le refus. */}
@@ -2268,7 +2268,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
                   <input type="checkbox" checked={!!choix[p.cle] && dispo(p)} disabled={!dispo(p)} onChange={() => basculerPiece(p)}
                     className="w-3.5 h-3.5 accent-iip-blue" />
                   {p.label}
-                  {p.sle && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">SLE · {etudiants.filter(e => e.sle).length}</span>}
+                  {p.sle && <span className="text-mention font-bold text-slate-500 border border-slate-300 rounded px-1">SLE · {etudiants.filter(e => e.sle).length}</span>}
                   {/* LES CHAMPS DES ANNEXES SE COMPLÈTENT ENCORE (5 octobre 2026,
                       DAELEMAN Florian : « nous avions la possibilité de compléter
                       certains champs dans les annexes 1 et 2 ; nous n'y parvenons
@@ -2282,32 +2282,32 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
                       <button type="button" disabled={!ok}
                         onClick={ev => { ev.preventDefault(); ev.stopPropagation(); setFormAnnexe({ cle: p.cle, id: un.id }); }}
                         title={ok ? `Compléter les champs de l'annexe pour ${nomPropre(un.nom, un.prenom)}` : 'Cochez un seul étudiant en séjour limité aux études'}
-                        className="ml-auto text-[12px] underline text-iip-blue disabled:no-underline disabled:text-slate-400">
+                        className="ml-auto text-second underline text-iip-blue disabled:no-underline disabled:text-slate-400">
                         compléter…
                       </button>
                     );
                   })()}
-                  {p.cep && <span className="text-[10px] font-bold text-slate-500 border border-slate-300 rounded px-1">CEP · {etudiants.filter(e => e.cep).length}</span>}
-                  {p.nominatif && dispo(p) && <span className="ml-auto text-[11.5px] text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : p.cle === 'refus' ? etudiants.filter(e => (e.refus ?? e.echecs) > 0).length : p.cle === 'ajournement' ? etudiants.filter(e => (e.ajournes ?? e.echecs) > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
+                  {p.cep && <span className="text-mention font-bold text-slate-500 border border-slate-300 rounded px-1">CEP · {etudiants.filter(e => e.cep).length}</span>}
+                  {p.nominatif && dispo(p) && <span className="ml-auto text-xs text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : p.cle === 'refus' ? etudiants.filter(e => (e.refus ?? e.echecs) > 0).length : p.cle === 'ajournement' ? etudiants.filter(e => (e.ajournes ?? e.echecs) > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
                 </label>
               ))}
             </div>
             </>}
           </div>
-          <div className="flex flex-wrap items-center gap-2 text-[12px]">
+          <div className="flex flex-wrap items-center gap-2 text-second">
             <div className="relative">
               <IconSearch size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
               <input value={recherche} onChange={e => setRecherche(e.target.value)} placeholder="Un nom…"
-                className="pl-7 pr-2 py-1 text-[12px] border border-slate-300 rounded-lg w-48" />
+                className="pl-7 pr-2 py-1 text-second border border-slate-300 rounded-lg w-48" />
             </div>
             {!seul && <select value={fNouveau} onChange={e => setFNouveau(e.target.value)}
-              className="py-1 px-2 text-[12px] border border-slate-300 rounded-lg" aria-label="Nouveaux ou déjà inscrits">
+              className="py-1 px-2 text-second border border-slate-300 rounded-lg" aria-label="Nouveaux ou déjà inscrits">
               <option value="">Nouveaux et déjà inscrits</option>
               <option value="nouveaux">Nouveaux (première année chez nous)</option>
               <option value="anciens">Déjà inscrits avant</option>
             </select>}
             {!seul && !!blocsDispo.length && <select value={fBloc} onChange={e => setFBloc(e.target.value)}
-              className="py-1 px-2 text-[12px] border border-slate-300 rounded-lg" aria-label="Bloc">
+              className="py-1 px-2 text-second border border-slate-300 rounded-lg" aria-label="Bloc">
               <option value="">Tous les blocs</option>
               {blocsDispo.map(b => <option key={b} value={b}>{b === 'MIXTE' ? 'Parcours mixte' : b}</option>)}
             </select>}
@@ -2320,13 +2320,13 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
         </div>
         <div className="flex-1 overflow-auto min-h-0">
           {rien && (
-            <p className="p-6 text-[13px] text-slate-400">
+            <p className="p-6 text-sm text-slate-400">
               Choisissez un périmètre à gauche : une section, des unités, ou des
               cours.
             </p>
           )}
           {!rien && !etudiants.length && (
-            <p className="p-6 text-[13px] text-slate-400">
+            <p className="p-6 text-sm text-slate-400">
               Aucun étudiant dans ce périmètre.
             </p>
           )}
@@ -2338,18 +2338,18 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
                 onChange={() => setCoches(s => bascule(s, e.id))}
                 className="w-4 h-4 accent-iip-blue" />
               <span className="flex-1 min-w-0">
-                <span className="text-[13px] font-medium">{nomPropre(e.nom, e.prenom)}</span>
-                {e.bloc && <span className="ml-1.5 text-[10px] text-slate-500">{e.bloc === 'MIXTE' ? 'mixte' : e.bloc}</span>}
-                {e.nouveau && <span className="ml-1.5 text-[10px] font-semibold text-slate-600 border border-slate-300 rounded px-1">nouveau</span>}
-                {e.sle && <span className="ml-1.5 text-[10px] font-semibold text-white bg-iip-blue rounded px-1 py-px">SLE</span>}
-                {e.cep && <span className="ml-1.5 text-[10px] font-semibold text-white bg-iip-blue rounded px-1 py-px">CEP</span>}
-                {delib && <span className="block text-[11px] text-slate-500">
+                <span className="text-sm font-medium">{nomPropre(e.nom, e.prenom)}</span>
+                {e.bloc && <span className="ml-1.5 text-mention text-slate-500">{e.bloc === 'MIXTE' ? 'mixte' : e.bloc}</span>}
+                {e.nouveau && <span className="ml-1.5 text-mention font-semibold text-slate-600 border border-slate-300 rounded px-1">nouveau</span>}
+                {e.sle && <span className="ml-1.5 text-mention font-semibold text-white bg-iip-blue rounded px-1 py-px">SLE</span>}
+                {e.cep && <span className="ml-1.5 text-mention font-semibold text-white bg-iip-blue rounded px-1 py-px">CEP</span>}
+                {delib && <span className="block text-xs text-slate-500">
                   {e.decide
                     ? `${e.reussites} réussite(s) · ${e.echecs} échec(s) sur ${e.unites.length} unité(s)`
                     : 'aucune décision pour cette session'}
                 </span>}
               </span>
-              <span className="text-[12px] text-right max-w-[45%]" style={{ color: recoit(e).length ? '#334155' : '#94A3B8' }}>
+              <span className="text-second text-right max-w-[45%]" style={{ color: recoit(e).length ? '#334155' : '#94A3B8' }}>
                 {recoit(e).length ? recoit(e).join(' · ') : '—'}
               </span>
             </label>
@@ -2388,15 +2388,15 @@ function PiecesDeLEcran({ pieces, onChoisir }) {
   const p = pieces.find(x => x.cle === choisie) || pieces[0];
   return (
     <div className="mb-3 pb-3 border-b border-slate-200 flex flex-wrap items-center gap-x-4 gap-y-1.5">
-      <span className="text-[12px] font-semibold text-slate-500 uppercase tracking-wide">De cet écran</span>
+      <span className="text-second font-semibold text-slate-500 uppercase tracking-wide">De cet écran</span>
       {pieces.map(x => (
-        <label key={x.cle} className="flex items-center gap-1.5 text-[13px] cursor-pointer" title={x.description || ''}>
+        <label key={x.cle} className="flex items-center gap-1.5 text-sm cursor-pointer" title={x.description || ''}>
           <input type="radio" name="piece-ecran" checked={p.cle === x.cle} onChange={() => setChoisie(x.cle)} className="accent-iip-blue" />
           {x.label}
         </label>
       ))}
       <button type="button" onClick={() => onChoisir(p)}
-        className="ml-auto px-4 py-2 text-[13px] rounded-lg bg-iip-blue text-white font-semibold inline-flex items-center gap-1.5">
+        className="ml-auto px-4 py-2 text-sm rounded-lg bg-iip-blue text-white font-semibold inline-flex items-center gap-1.5">
         <IconPrinter size={14} /> Produire
       </button>
     </div>
@@ -2459,7 +2459,7 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
       <div className="flex gap-1 flex-wrap mb-4 pb-3 border-b border-slate-200">
         {onglets.map(o => (
           <button key={o.cle} onClick={() => setOnglet(o.cle)}
-            className={`px-3 py-1.5 rounded-champ text-[13px] inline-flex items-center gap-1.5
+            className={`px-3 py-1.5 rounded-champ text-sm inline-flex items-center gap-1.5
               transition-colors duration-150 ease-ios
               ${onglet === o.cle
                 ? 'bg-iip-blue text-white font-semibold'
@@ -2479,7 +2479,7 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
           un dossier dans un tiroir qui n'existe pas. L'axe porte donc une
           bascule quand il a les deux familles. */}
       {onglet === 'envois' ? (
-        <Suspense fallback={<div className="text-[13px] text-slate-400">Chargement…</div>}><RegistreEnvois /></Suspense>
+        <Suspense fallback={<div className="text-sm text-slate-400">Chargement…</div>}><RegistreEnvois /></Suspense>
       ) : onglet === 'etudiants' ? (
         <>
           <div className="px-1 pb-3 flex flex-wrap items-center gap-3">

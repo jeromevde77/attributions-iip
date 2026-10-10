@@ -94,7 +94,7 @@ export default function ImportLieuxStage({ onClose, onFini }) {
     <Fenetre icone={IconBuildingHospital} titre="Importer un répertoire de lieux de stage"
       sous="Type de lieu, responsable, organisme, adresse, demande" large="grande" onFermer={onClose}
       pied={<>
-        <span className="text-[12px]" style={{ color: erreur ? 'var(--c-refuse)' : undefined }}>
+        <span className="text-second" style={{ color: erreur ? 'var(--c-refuse)' : undefined }}>
           {erreur || (fait ? 'Import terminé.' : raison) || ''}
         </span>
         <button type="button" className="bouton" onClick={onClose}>{fait ? 'Fermer' : 'Annuler'}</button>
@@ -110,26 +110,26 @@ export default function ImportLieuxStage({ onClose, onFini }) {
       </>}>
       <div className="grid md:grid-cols-3 gap-3 mb-4">
         <label className="md:col-span-1">
-          <span className="block text-[10.5px] uppercase tracking-[.1em] text-slate-400 font-semibold mb-0.5">Classeur</span>
-          <input type="file" accept=".xlsx,.xls,.csv" className="block w-full text-[12px]"
+          <span className="block text-mention uppercase tracking-[.1em] text-slate-400 font-semibold mb-0.5">Classeur</span>
+          <input type="file" accept=".xlsx,.xls,.csv" className="block w-full text-second"
             onChange={e => choisirFichier(e.target.files?.[0])} />
         </label>
         <label>
-          <span className="block text-[10.5px] uppercase tracking-[.1em] text-slate-400 font-semibold mb-0.5">Section</span>
+          <span className="block text-mention uppercase tracking-[.1em] text-slate-400 font-semibold mb-0.5">Section</span>
           <select className="controle w-full bg-white" value={section} onChange={e => { setSection(e.target.value); setRapport(null); }}>
             <option value="">— choisir —</option>
             {sections.map(s => <option key={s.code} value={s.code}>{s.libelle || s.code}</option>)}
           </select>
         </label>
         <label>
-          <span className="block text-[10.5px] uppercase tracking-[.1em] text-slate-400 font-semibold mb-0.5">UE de stage concernées</span>
+          <span className="block text-mention uppercase tracking-[.1em] text-slate-400 font-semibold mb-0.5">UE de stage concernées</span>
           <input className="controle w-full bg-white" value={ues} placeholder="77, 78, 79"
             onChange={e => { setUes(e.target.value); setRapport(null); }} />
         </label>
       </div>
 
       {lu && !rapport && (
-        <p className="text-[13px] text-slate-700">
+        <p className="text-sm text-slate-700">
           <b>{lu.lignes.length}</b> lieu(x) lus dans la feuille « {lu.feuille} » — colonnes reconnues :
           {' '}{lu.colonnes.join(', ')}. Lancez la simulation pour voir ce qui sera écrit.
         </p>
@@ -137,7 +137,7 @@ export default function ImportLieuxStage({ onClose, onFini }) {
 
       {rapport && (
         <div className="space-y-3">
-          <div className="flex flex-wrap gap-2 text-[12px]">
+          <div className="flex flex-wrap gap-2 text-second">
             <span className="rounded-full px-2.5 h-6 inline-flex items-center text-white font-semibold" style={{ background: 'var(--c-reussi)' }}>
               {rapport.crees.length} à créer</span>
             <span className="rounded-full px-2.5 h-6 inline-flex items-center text-white font-semibold" style={{ background: 'var(--c-disponible)' }}>
@@ -149,8 +149,8 @@ export default function ImportLieuxStage({ onClose, onFini }) {
             <span className="text-slate-500 self-center">Section {rapport.section}{rapport.ues ? ` · UE ${rapport.ues}` : ''}{rapport.simulation ? ' — simulation, rien n’est écrit' : ''}</span>
           </div>
           <div className="border border-slate-200 rounded-carte overflow-hidden">
-            <table className="w-full text-[12.5px]">
-              <thead><tr className="tab-entete text-left text-[10.5px] uppercase tracking-[.08em] text-slate-500">
+            <table className="w-full text-second">
+              <thead><tr className="tab-entete text-left text-mention uppercase tracking-[.08em] text-slate-500">
                 <th className="px-3 py-1.5">Organisme</th><th className="px-3 py-1.5">Type</th>
                 <th className="px-3 py-1.5">Adresse</th><th className="px-3 py-1.5">CP · localité</th><th className="px-3 py-1.5" /></tr></thead>
               <tbody>
@@ -160,7 +160,7 @@ export default function ImportLieuxStage({ onClose, onFini }) {
                     <td className="px-3 py-1.5 text-slate-600">{l.secteur || '—'}</td>
                     <td className="px-3 py-1.5 text-slate-600">{l.adresse || '—'}</td>
                     <td className="px-3 py-1.5 text-slate-600">{[l.cp, l.localite].filter(Boolean).join(' ') || <span className="text-[color:var(--c-attente)]">à compléter</span>}</td>
-                    <td className="px-3 py-1.5 text-[11px] text-slate-400">{l.etat}</td>
+                    <td className="px-3 py-1.5 text-xs text-slate-400">{l.etat}</td>
                   </tr>
                 ))}
               </tbody>

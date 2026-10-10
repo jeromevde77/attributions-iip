@@ -156,7 +156,7 @@ export function ReponsesTypesHote() {
           onClick={() => setOuvert(true)}
           title="Insérer une réponse pré-établie"
           className="fixed z-[80] inline-flex items-center gap-1 h-6 px-2 rounded-full bg-white border border-slate-300
-                     text-[11px] text-slate-600 hover:text-iip-blue hover:border-iip-blue shadow-pose"
+                     text-xs text-slate-600 hover:text-iip-blue hover:border-iip-blue shadow-pose"
           style={{ top: rect.top + 5, left: rect.right - 128 }}>
           <IconMessageDots size={13} /> Réponses types
         </button>
@@ -236,30 +236,30 @@ function Panneau({ cible, rect, onFermer }) {
       <div className="flex items-center gap-2 px-3 pt-2.5 pb-2 border-b border-slate-200">
         <IconMessageDots size={15} className="text-slate-400 flex-none" />
         <div className="min-w-0 flex-1">
-          <div className="text-[13px] font-semibold text-iip-texte">Réponses types</div>
-          <div className="text-[11px] text-slate-400 truncate" title={libelle}>{libelle}</div>
+          <div className="text-sm font-semibold text-iip-texte">Réponses types</div>
+          <div className="text-xs text-slate-400 truncate" title={libelle}>{libelle}</div>
         </div>
         <button type="button" onClick={onFermer} className="text-slate-400 hover:text-slate-600" aria-label="Fermer"><IconX size={15} /></button>
       </div>
       <div className="px-3 py-2 border-b border-slate-100 relative">
         <IconSearch size={13} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" />
         <input ref={recherche} type="search" name="search_reponses" value={q} onChange={e => setQ(e.target.value)}
-          placeholder="Chercher une phrase…" className="controle controle-icone w-full text-[12.5px]" />
+          placeholder="Chercher une phrase…" className="controle controle-icone w-full text-second" />
       </div>
       <div className="overflow-y-auto flex-1 min-h-0 py-1">
-        {!data && !erreur && <p className="px-3 py-2 text-[12px] text-slate-400">Chargement…</p>}
+        {!data && !erreur && <p className="px-3 py-2 text-second text-slate-400">Chargement…</p>}
         {data && !liste.length && (
-          <p className="px-3 py-3 text-[12px] text-slate-500">
+          <p className="px-3 py-3 text-second text-slate-500">
             {q ? 'Aucune phrase ne correspond.' : 'Aucune réponse type pour ce champ. Écrivez la vôtre dans le champ, puis « Enregistrer le texte du champ ».'}
           </p>
         )}
         {groupes.map(({ g, l }) => (
           <div key={g}>
-            <div className="px-3 pt-2 pb-1 text-[10.5px] uppercase tracking-[.08em] font-semibold text-slate-400">{g}</div>
+            <div className="px-3 pt-2 pb-1 text-mention uppercase tracking-[.08em] font-semibold text-slate-400">{g}</div>
             {l.map(r => (
               <div key={r.id} className="group flex items-start gap-1 px-2">
                 <button type="button" onClick={() => { inserer(cible, remplir(r.texte)); onFermer(); }}
-                  className="flex-1 min-w-0 text-left px-1.5 py-1.5 rounded-champ hover:bg-slate-50 text-[12.5px] text-slate-700 whitespace-pre-line line-clamp-4">
+                  className="flex-1 min-w-0 text-left px-1.5 py-1.5 rounded-champ hover:bg-slate-50 text-second text-slate-700 whitespace-pre-line line-clamp-4">
                   {remplir(r.texte)}
                 </button>
                 {(!r.commun || data.peut_commun) && (
@@ -277,8 +277,8 @@ function Panneau({ cible, rect, onFermer }) {
         <button type="button" onClick={enregistrer} className="bouton bouton-compact inline-flex items-center gap-1">
           <IconPlus size={13} /> Enregistrer le texte du champ
         </button>
-        {erreur && <span className="text-[11.5px] text-red-700 min-w-0">{erreur}</span>}
-        {!erreur && <span className="text-[11px] text-slate-400 min-w-0">Les crochets restent à compléter.</span>}
+        {erreur && <span className="text-xs text-red-700 min-w-0">{erreur}</span>}
+        {!erreur && <span className="text-xs text-slate-400 min-w-0">Les crochets restent à compléter.</span>}
       </div>
     </div>
   );

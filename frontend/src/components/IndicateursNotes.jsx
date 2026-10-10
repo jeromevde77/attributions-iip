@@ -110,25 +110,25 @@ export default function IndicateursNotes({ etudiants, cols, nomCol, valeurDe, no
 
   const Tuile = ({ valeur, libelle, precision, etat = 'neutre' }) => (
     <div className="bloc-etat px-3 py-2 min-w-[7.5rem]" data-etat={etat}>
-      <div className="text-[17px] font-bold tabular-nums">{valeur}</div>
-      <div className="text-[11px] text-slate-600">{libelle}</div>
-      {precision && <div className="text-[11px] text-slate-400">{precision}</div>}
+      <div className="text-lg font-bold tabular-nums">{valeur}</div>
+      <div className="text-xs text-slate-600">{libelle}</div>
+      {precision && <div className="text-xs text-slate-400">{precision}</div>}
     </div>);
 
   return (
     <div className="carte p-4 space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="text-[15px] font-medium text-iip-blue">Indicateurs du cours</div>
+        <div className="text-base font-medium text-iip-blue">Indicateurs du cours</div>
         <select value={col} onChange={e => setCol(e.target.value)} className="controle ml-auto">
           {choix.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
         </select>
       </div>
-      {col === '__ue' && !ue && <p className="text-[13px] text-slate-500">Calcul des notes d’unité…</p>}
-      {col === '__ue' && ue?.erreur && <p className="text-[13px] text-slate-500">{ue.erreur}</p>}
-      {col === '__ue' && ue && !ue.erreur && <p className="text-[12px] text-slate-500 -mt-2">Notes d’unité calculées comme en délibération, sur l’encodage officiel
+      {col === '__ue' && !ue && <p className="text-sm text-slate-500">Calcul des notes d’unité…</p>}
+      {col === '__ue' && ue?.erreur && <p className="text-sm text-slate-500">{ue.erreur}</p>}
+      {col === '__ue' && ue && !ue.erreur && <p className="text-second text-slate-500 -mt-2">Notes d’unité calculées comme en délibération, sur l’encodage officiel
         ({ue.session === 2 ? 'seconde' : 'première'} session), pour les {ue.inscrits} inscrits — sans les noms : les autres cours ne se lisent pas étudiant par étudiant.</p>}
       {(col !== '__ue' || (ue && !ue.erreur)) && (!s.n ? (<>
-        <p className="text-[13px] text-slate-500">Aucune note chiffrée pour l’instant{s.total ? ` (${s.total} étudiant(s))` : ''}.</p>
+        <p className="text-sm text-slate-500">Aucune note chiffrée pour l’instant{s.total ? ` (${s.total} étudiant(s))` : ''}.</p>
         {MENTIONS.some(m => s.mentions?.[m]) && (
           <div className="flex flex-wrap gap-2">
             {MENTIONS.map(m => <Tuile key={m} valeur={s.mentions?.[m] || 0} libelle={m} precision={SENS_MENTION[m]} etat={s.mentions?.[m] ? 'surveiller' : 'neutre'} />)}
@@ -148,11 +148,11 @@ export default function IndicateursNotes({ etudiants, cols, nomCol, valeurDe, no
               etat={s.mentions?.[m] ? 'surveiller' : 'neutre'} />))}
         </div>
         <Diagramme s={s} />
-        <p className="text-[11px] text-slate-500 -mt-2">Barres : nombre d’étudiants par note (vert à partir de 10). Dessous : l’étendue (du plus bas au plus haut),
+        <p className="text-xs text-slate-500 -mt-2">Barres : nombre d’étudiants par note (vert à partir de 10). Dessous : l’étendue (du plus bas au plus haut),
           la boîte du quart au trois-quarts des notes, la <b>médiane</b> en trait épais, la <b>moyenne</b> en point ocre.
           Indicatif : la réussite de l’unité se décide acquis par acquis, sans compensation.</p>
         {col === '__ue' && ue?.cours?.length > 0 && (
-          <table className="text-[13px] tabular-nums">
+          <table className="text-sm tabular-nums">
             <thead className="tab-entete"><tr>{['Cours de l’unité', 'Notes', 'Moyenne', 'Réussites', ...MENTIONS].map((t, i) =>
               <th key={t} className={`px-2 py-1.5 ${i ? 'text-right' : 'text-left'}`}>{t}</th>)}</tr></thead>
             <tbody>{ue.cours.map(c => (
@@ -163,7 +163,7 @@ export default function IndicateursNotes({ etudiants, cols, nomCol, valeurDe, no
                 {MENTIONS.map(m => <td key={m} className="px-2 text-right">{c.mentions?.[m] || ''}</td>)}</tr>))}</tbody>
           </table>)}
         {parGroupe.length > 1 && (
-          <table className="text-[13px] tabular-nums">
+          <table className="text-sm tabular-nums">
             <thead className="tab-entete"><tr>{['Groupe', 'Notes', 'Moyenne', 'Médiane', 'Écart type', 'Réussites', 'Échecs', ...MENTIONS].map((t, i) =>
               <th key={t} className={`px-2 py-1.5 ${i ? 'text-right' : 'text-left'}`}>{t}</th>)}</tr></thead>
             <tbody>{parGroupe.map(([g, x]) => (

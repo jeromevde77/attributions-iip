@@ -230,11 +230,11 @@ export default function NouveauModal({ onClose, onCreated }) {
                     <label className="text-xs font-semibold text-gray-500">UE à importer</label>
                     <div className="flex gap-2">
                       <button onClick={() => setSelectedUEs(new Set(ues.map(u => u.ue_num)))}
-                        className="text-[10px] text-iip-blue hover:underline">Tout</button>
+                        className="text-mention text-iip-blue hover:underline">Tout</button>
                       <button onClick={() => setSelectedUEs(new Set(ues.filter(u => u.cours_manquants > 0).map(u => u.ue_num)))}
-                        className="text-[10px] text-iip-blue hover:underline">Manquantes</button>
+                        className="text-mention text-iip-blue hover:underline">Manquantes</button>
                       <button onClick={() => setSelectedUEs(new Set())}
-                        className="text-[10px] text-gray-400 hover:underline">Aucune</button>
+                        className="text-mention text-gray-400 hover:underline">Aucune</button>
                     </div>
                   </div>
                   <div className="max-h-64 overflow-y-auto space-y-1 border border-gray-200 rounded-lg p-2">
@@ -246,7 +246,7 @@ export default function NouveauModal({ onClose, onCreated }) {
                           <span className="text-xs font-semibold text-iip-blue">UE {u.ue_num}</span>
                           <span className="text-xs text-gray-600 ml-2 truncate">{u.ue_nom}</span>
                         </div>
-                        <div className="flex gap-1.5 flex-shrink-0 text-[10px]">
+                        <div className="flex gap-1.5 flex-shrink-0 text-mention">
                           {u.cours_total > 0 && (
                             <span className={`px-1.5 py-0.5 rounded-champ font-semibold ${u.cours_manquants > 0 ? 'bg-orange-500 text-white' : 'bg-green-500 text-white'}`}>
                               {u.cours_couverts}/{u.cours_total}
@@ -334,14 +334,14 @@ export default function NouveauModal({ onClose, onCreated }) {
                     {cours.map(c => (
                       <button key={c.cours_code} onClick={() => setSelCours(c.cours_code)}
                         className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition ${selCours === c.cours_code ? 'bg-iip-blue text-white' : 'hover:bg-gray-50 text-gray-700'}`}>
-                        <span className="font-mono text-[11px] flex-shrink-0 w-16 opacity-60">{c.cours_code}</span>
+                        <span className="font-mono text-xs flex-shrink-0 w-16 opacity-60">{c.cours_code}</span>
                         <span className="text-xs flex-1 truncate">{c.cours_nom}</span>
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold flex-shrink-0 ${
+                        <span className={`text-mention px-1.5 py-0.5 rounded font-bold flex-shrink-0 ${
                           selCours === c.cours_code ? 'bg-white/20 text-white' :
                           c.type_cours === 'CT' ? 'bg-blue-500 text-white' : 'bg-green-500 text-white'
                         }`}>{c.type_cours}</span>
                         {c.nb_attributions > 0 && (
-                          <span className={`text-[10px] flex-shrink-0 ${selCours === c.cours_code ? 'text-white/70' : 'text-gray-400'}`}>✓</span>
+                          <span className={`text-mention flex-shrink-0 ${selCours === c.cours_code ? 'text-white/70' : 'text-gray-400'}`}>✓</span>
                         )}
                       </button>
                     ))}

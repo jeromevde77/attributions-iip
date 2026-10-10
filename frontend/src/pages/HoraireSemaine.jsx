@@ -168,13 +168,13 @@ export default function HoraireSemaine() {
     : vue === 'professeur' ? ref.profs.find(p => String(p.id) === cle)?.nom : cle;
 
   return (
-    <div className="space-y-3 text-[13px]">
+    <div className="space-y-3 text-sm">
       {/* LA BARRE : quelle lecture, laquelle, quelle semaine */}
       <div className="flex items-center gap-2 flex-wrap">
         <div className="inline-flex rounded-champ border border-slate-300 overflow-hidden">
           {[['classe', 'Classe'], ['professeur', 'Professeur'], ['local', 'Local']].map(([k, l]) => (
             <button key={k} type="button" onClick={() => choisirVue(k)}
-              className={`px-3 h-9 text-[12.5px] ${vue === k ? 'bg-[#1B2B4B] text-white' : 'bg-white text-slate-700'}`}>{l}</button>
+              className={`px-3 h-9 text-second ${vue === k ? 'bg-[#1B2B4B] text-white' : 'bg-white text-slate-700'}`}>{l}</button>
           ))}
         </div>
         <select className="controle min-w-[14rem]" value={cle} onChange={e => { setCle(e.target.value); setSel(null); }}>
@@ -211,14 +211,14 @@ export default function HoraireSemaine() {
           <div className="grid" style={{ gridTemplateColumns: `3rem repeat(${nbJours}, minmax(0,1fr))` }}>
             <div className="tab-entete h-9" />
             {jours.map((j, i) => (
-              <div key={j.date} className="tab-entete h-9 flex flex-col items-center justify-center border-l border-slate-200 text-[11.5px] text-slate-600">
+              <div key={j.date} className="tab-entete h-9 flex flex-col items-center justify-center border-l border-slate-200 text-xs text-slate-600">
                 <span>{NOMS_JOURS[i]} {court(j.date)}</span>
-                {j.ferie && <span className="text-[10px] text-slate-400">{j.ferie}</span>}
+                {j.ferie && <span className="text-mention text-slate-400">{j.ferie}</span>}
               </div>
             ))}
             <div className="relative" style={{ height: hauteur }}>
               {[...new Set(jours.flatMap((_, d) => modulesDu(d).flat()))].sort((a, b) => a - b).map(m => (
-                <div key={m} className="absolute right-1 text-[10px] text-slate-400" style={{ top: (m - H0 * 60) / 15 * PX - 6 }}>{etiquette(m)}</div>
+                <div key={m} className="absolute right-1 text-mention text-slate-400" style={{ top: (m - H0 * 60) / 15 * PX - 6 }}>{etiquette(m)}</div>
               ))}
             </div>
             {jours.map((j, d) => (
@@ -228,7 +228,7 @@ export default function HoraireSemaine() {
                     style={{ top: (a - H0 * 60) / 15 * PX, height: (b - a) / 15 * PX }} />
                 ))}
                 {j.ferie && (
-                  <div className="absolute inset-0 flex items-center justify-center text-slate-300 text-[13px] pointer-events-none"
+                  <div className="absolute inset-0 flex items-center justify-center text-slate-300 text-sm pointer-events-none"
                     style={{ background: 'repeating-linear-gradient(45deg, transparent 0 8px, rgba(27,43,75,.05) 8px 16px)' }}>Férié</div>
                 )}
                 {(() => {
@@ -260,13 +260,13 @@ export default function HoraireSemaine() {
                       left: `calc(${pl.col * 100 / pl.cols}% + 2px)`, width: `calc(${100 / pl.cols}% - 4px)` };
                   const c = s.annule ? '#9AA3B2' : teinte(s.cours_code);
                   const gr = s.sous_groupe || (s.groupe_nom && s.groupe_nom !== 'A' ? s.groupe_nom : null);
-                  const pastille = gr && <span className="flex-none inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-[5px] bg-white text-[10.5px] font-bold text-[#1B2B4B]"
+                  const pastille = gr && <span className="flex-none inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-pastille bg-white text-mention font-bold text-[#1B2B4B]"
                     style={{ border: `1.5px solid ${c}` }}>{gr}</span>;
                   const detail = `${s.cours_code} ${s.cours_nom || s.matiere || ''}\n${s.annule ? 'Annulée' : nomProf(s)}${gr ? ` · groupe ${gr}` : ''}\n${s.local_texte || 'local à préciser'} · ${lisible(deHm(debut))}–${lisible(deHm(fin))}`;
                   return (
                     <div key={s.id} onPointerDown={ev => commencer(ev, { seance: s, decalY: ev.clientY - ev.currentTarget.getBoundingClientRect().top, long: hm(s.heure_fin) - hm(s.heure_debut) })}
                       title={s.conflits?.length ? `${detail}\nConflit : ${s.conflits.map(x => RAISONS[x]).join(', ')}` : detail}
-                      className={`absolute overflow-hidden rounded-r-[8px] px-1.5 py-1 text-[11px] leading-tight ${peutEcrire ? 'cursor-grab' : 'cursor-pointer'} ${g ? 'opacity-80 z-10' : ''}`}
+                      className={`absolute overflow-hidden rounded-r-champ px-1.5 py-1 text-xs leading-tight ${peutEcrire ? 'cursor-grab' : 'cursor-pointer'} ${g ? 'opacity-80 z-10' : ''}`}
                       style={{ ...pos,
                         ...(s.annule ? { borderLeft: `4px solid ${c}`, background: 'repeating-linear-gradient(45deg,#F4F5F7 0 6px,#fff 6px 12px)' } : styleTuileCours(s.cours_code)),
                         outline: s.conflits?.length ? '2px solid var(--c-refuse)' : 'none', outlineOffset: -2 }}>
@@ -278,10 +278,10 @@ export default function HoraireSemaine() {
                       </> : pl.cols <= 2 ? <div className="flex flex-col justify-center gap-0.5 h-full min-w-0">
                         {/* Deux de front : la place du nom du cours. */}
                         <span className={`flex items-center gap-1.5 min-w-0 ${s.annule ? 'line-through text-slate-400' : 'text-[#1B2B4B]'}`}>
-                          <span className="font-bold text-[12px] truncate">{s.cours_code}</span>{pastille}</span>
+                          <span className="font-bold text-second truncate">{s.cours_code}</span>{pastille}</span>
                         <span className="truncate text-slate-600">{s.cours_nom || s.matiere || ''}</span></div>
                       : <div className="flex flex-col items-start justify-center gap-0.5 h-full">
-                        <span className={`font-bold text-[12px] truncate max-w-full ${s.annule ? 'line-through text-slate-400' : 'text-[#1B2B4B]'}`}>{s.cours_code}</span>{pastille}</div>}
+                        <span className={`font-bold text-second truncate max-w-full ${s.annule ? 'line-through text-slate-400' : 'text-[#1B2B4B]'}`}>{s.cours_code}</span>{pastille}</div>}
                       {peutEcrire && <div onPointerDown={ev => { ev.stopPropagation(); commencer(ev, { type: 'rallonger', seance: s, d }); }}
                         className="absolute left-0 right-0 bottom-0 h-1.5 cursor-ns-resize" />}
                     </div>
@@ -289,7 +289,7 @@ export default function HoraireSemaine() {
                   });
                 })()}
                 {glisse?.groupe && glisse.d === d && (
-                  <div className="absolute left-[3px] right-[3px] rounded-r-[8px] px-1.5 py-1 text-[11px] opacity-80 z-10"
+                  <div className="absolute left-[3px] right-[3px] rounded-r-champ px-1.5 py-1 text-xs opacity-80 z-10"
                     style={{ top: (glisse.debut - H0 * 60) / 15 * PX, height: (glisse.fin - glisse.debut) / 15 * PX - 2,
                       ...styleTuileCours(glisse.groupe.code_cours) }}>
                     <b>{glisse.groupe.code_cours}</b> {lisible(deHm(glisse.debut))}–{lisible(deHm(glisse.fin))}
@@ -304,18 +304,18 @@ export default function HoraireSemaine() {
         {vue === 'classe' && (
           <div className="border border-slate-200 rounded-carte p-2.5 space-y-2 self-start">
             <div className="flex items-center justify-between gap-2">
-              <b className="text-[12.5px] text-iip-blue">À placer</b>
+              <b className="text-second text-iip-blue">À placer</b>
               {/* CHEZ NOUS, UN BLOC FAIT 120 MINUTES (Charles, 9 octobre 2026). Une
                   séance plus longue se rallonge sur la grille, par quart d'heure. */}
-              <span className="text-[11px] text-slate-500">blocs de 2 h</span>
+              <span className="text-xs text-slate-500">blocs de 2 h</span>
             </div>
-            <p className="text-[11px] text-slate-500">Glissez une carte sur la grille. Le reste se calcule sur les heures attribuées au groupe.</p>
+            <p className="text-xs text-slate-500">Glissez une carte sur la grille. Le reste se calcule sur les heures attribuées au groupe.</p>
             <div className="space-y-1.5 max-h-[60vh] overflow-auto pr-0.5">
               {(data?.bac || []).map(g => {
                 const fini = g.reste <= 0;
                 return (
                   <div key={g.id} onPointerDown={ev => !fini && commencer(ev, { groupe: g, decalY: 0, long: duree })}
-                    className={`rounded-r-[8px] px-2 py-1 text-[11.5px] ${fini ? 'opacity-50' : peutEcrire ? 'cursor-grab' : ''}`}
+                    className={`rounded-r-champ px-2 py-1 text-xs ${fini ? 'opacity-50' : peutEcrire ? 'cursor-grab' : ''}`}
                     style={styleTuileCours(g.code_cours, { fond: 12 })}>
                     <div className="font-semibold text-[#1B2B4B] truncate">{g.code_cours} {g.cours_nom}{g.nom !== 'A' ? ` · gr. ${g.nom}` : ''}</div>
                     <div className="text-slate-500 truncate">{[g.prof_nom, g.prof_prenom].filter(Boolean).join(' ') || 'professeur à attribuer'}</div>
@@ -326,19 +326,19 @@ export default function HoraireSemaine() {
                   </div>
                 );
               })}
-              {data && !(data.bac || []).length && <p className="text-slate-400 text-[12px]">Aucun groupe pour cette classe.</p>}
+              {data && !(data.bac || []).length && <p className="text-slate-400 text-second">Aucun groupe pour cette classe.</p>}
             </div>
           </div>
         )}
       </div>
 
       {conflits.length > 0 && (
-        <div data-etat="corriger" className="bloc-etat px-3 py-2 text-[12.5px]">
+        <div data-etat="corriger" className="bloc-etat px-3 py-2 text-second">
           <b>{conflits.length} séance(s) en conflit cette semaine</b> (cerclées de brique) :{' '}
           {conflits.slice(0, 6).map(s => `${s.cours_code} le ${court(s.date)} à ${lisible(s.heure_debut)} — ${s.conflits.map(x => RAISONS[x]).join(', ')}`).join(' · ')}
         </div>
       )}
-      {!peutEcrire && <p className="text-[11.5px] text-slate-400">Lecture seule : l'horaire se compose par la coordination, le secrétariat et la direction.</p>}
+      {!peutEcrire && <p className="text-xs text-slate-400">Lecture seule : l'horaire se compose par la coordination, le secrétariat et la direction.</p>}
 
       {/* LA BULLE D'UNE SÉANCE */}
       {sel && (
@@ -352,16 +352,16 @@ export default function HoraireSemaine() {
               heure_fin: deHm(hm(sel.heure_debut) + (sel._duree ?? (hm(sel.heure_fin) - hm(sel.heure_debut)))),
               annule: sel._annule ?? !!sel.annule, commentaire: sel._commentaire ?? sel.commentaire })}>Enregistrer</button>
           </> : null}>
-          <div className="space-y-3 text-[13px]">
+          <div className="space-y-3 text-sm">
             <label className="block">
-              <span className="text-[11px] text-slate-500">Local</span>
+              <span className="text-xs text-slate-500">Local</span>
               <input className="controle w-full" list="locaux-horaire" disabled={!peutEcrire}
                 value={sel._local ?? sel.local_texte ?? ''} onChange={e => setSel({ ...sel, _local: e.target.value })}
                 placeholder="P2 523, Nile, Distanciel asynchrone…" />
               <datalist id="locaux-horaire">{ref.locaux.map(l => <option key={l.nom} value={l.nom} />)}<option value="Distanciel asynchrone" /></datalist>
             </label>
             <label className="block">
-              <span className="text-[11px] text-slate-500">Durée</span>
+              <span className="text-xs text-slate-500">Durée</span>
               <select className="controle w-full" disabled={!peutEcrire}
                 value={sel._duree ?? (hm(sel.heure_fin) - hm(sel.heure_debut))} onChange={e => setSel({ ...sel, _duree: Number(e.target.value) })}>
                 {[...new Set([MODULE, 2 * MODULE, 3 * MODULE, hm(sel.heure_fin) - hm(sel.heure_debut)])].sort((a, b) => a - b)
@@ -370,15 +370,15 @@ export default function HoraireSemaine() {
             </label>
             <label className="flex items-center gap-2">
               <input type="checkbox" disabled={!peutEcrire} checked={sel._annule ?? !!sel.annule} onChange={e => setSel({ ...sel, _annule: e.target.checked })} />
-              Séance annulée <span className="text-slate-400 text-[11.5px]">— elle reste visible, barrée, et ne compte plus dans les heures posées</span>
+              Séance annulée <span className="text-slate-400 text-xs">— elle reste visible, barrée, et ne compte plus dans les heures posées</span>
             </label>
             <label className="block">
-              <span className="text-[11px] text-slate-500">Remarque</span>
+              <span className="text-xs text-slate-500">Remarque</span>
               <input className="controle w-full" disabled={!peutEcrire} value={sel._commentaire ?? sel.commentaire ?? ''}
                 onChange={e => setSel({ ...sel, _commentaire: e.target.value })} placeholder="Grand auditoire svp, sous-groupe…" />
             </label>
-            {sel.conflits?.length > 0 && <div data-etat="corriger" className="bloc-etat px-2.5 py-1.5 text-[12px]">Conflit : {sel.conflits.map(x => RAISONS[x]).join(', ')}.</div>}
-            <p className="text-[11px] text-slate-400">
+            {sel.conflits?.length > 0 && <div data-etat="corriger" className="bloc-etat px-2.5 py-1.5 text-second">Conflit : {sel.conflits.map(x => RAISONS[x]).join(', ')}.</div>}
+            <p className="text-xs text-slate-400">
               {sel.source === 'import' && !sel.modifie_lucie ? 'Séance reprise d’un import.' : ''}
               {sel.cree_par ? ` Posée par ${sel.cree_par}.` : ''}{sel.modifie_par ? ` Modifiée par ${sel.modifie_par}.` : ''}
             </p>
@@ -415,7 +415,7 @@ function Recopie({ annee, cle, lundi, libelle, etat, setEtat, onFini }) {
     <Fenetre titre="Recopier la semaine" large="moyenne" onFermer={() => setEtat(null)}
       sous={`${libelle || ''} · semaine du ${court(lundi)} — ses séances sont recopiées, jour pour jour, sur les semaines cochées`}
       pied={<>
-        <span className="flex-1 min-w-0 text-[12px] text-slate-500">
+        <span className="flex-1 min-w-0 text-second text-slate-500">
           {etat.rapport ? `${etat.rapport.total} séance(s) seront créées.` : 'Vérifiez d’abord : rien n’est écrit avant de confirmer.'}
         </span>
         <button className="bouton" onClick={() => setEtat(null)}>Annuler</button>
@@ -423,7 +423,7 @@ function Recopie({ annee, cle, lundi, libelle, etat, setEtat, onFini }) {
           ? <button className="bouton bouton-fort" disabled={!etat.cibles.size || etat.enCours} onClick={() => lancer(true)}>Vérifier</button>
           : <button className="bouton bouton-fort" disabled={!etat.rapport.total || etat.enCours} onClick={() => lancer(false)}>Recopier {etat.rapport.total} séance(s)</button>}
       </>}>
-      <div className="space-y-2 text-[13px]">
+      <div className="space-y-2 text-sm">
         <button type="button" className="bouton bouton-compact" onClick={toutesCours}>Cocher toutes les semaines de cours suivantes</button>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-1">
           {futures.map(s => {
@@ -431,8 +431,8 @@ function Recopie({ annee, cle, lundi, libelle, etat, setEtat, onFini }) {
             return (
               <label key={s.id} className={`flex items-start gap-1.5 px-2 py-1 rounded-champ border ${s.type === 'cours' ? 'border-slate-200' : 'border-dashed border-slate-300 text-slate-400'}`}>
                 <input type="checkbox" checked={etat.cibles.has(s.date_debut)} onChange={() => bascule(s.date_debut)} />
-                <span className="text-[12px]">S{s.semaine_num} · {court(s.date_debut)}{s.type !== 'cours' ? ` · ${s.label || s.type}` : ''}
-                  {r0 && <span className="block text-[11px] text-slate-500">{r0.creees} créée(s){r0.ignorees ? `, ${r0.ignorees} non posée(s) : ${r0.raison}` : ''}</span>}
+                <span className="text-second">S{s.semaine_num} · {court(s.date_debut)}{s.type !== 'cours' ? ` · ${s.label || s.type}` : ''}
+                  {r0 && <span className="block text-xs text-slate-500">{r0.creees} créée(s){r0.ignorees ? `, ${r0.ignorees} non posée(s) : ${r0.raison}` : ''}</span>}
                 </span>
               </label>
             );
@@ -489,20 +489,20 @@ function ImportHyper({ annee, cle, libelle, classes = [], vueClasse = true, onFe
       sous={tout ? 'Tout le fichier — chaque classe dans la sienne ; rien n’est écrit avant de confirmer'
         : `Dans la classe ${libelle || ''} — l'export « liste » en CSV ; rien n'est écrit avant de confirmer`}
       pied={<>
-        <span className="flex-1 min-w-0 text-[12px] text-slate-500">
+        <span className="flex-1 min-w-0 text-second text-slate-500">
           {R ? `${R.seances} séance(s) à importer${R.tout ? ` dans ${R.classes.filter(x => !x.ecartee).length} classe(s)` : (R.remplacees ? `, ${R.remplacees} séance(s) d'un import précédent remplacée(s)` : '')}.` : 'Choisissez le fichier, puis vérifiez.'}
         </span>
         <button className="bouton" onClick={onFermer}>Annuler</button>
         {!R ? <button className="bouton bouton-fort" disabled={!fichier || enCours || (!tout && !(vueClasse && cle))} onClick={() => envoyer(true)}>{enCours ? '…' : 'Vérifier'}</button>
           : <button className="bouton bouton-fort" disabled={!R.seances || enCours} onClick={() => envoyer(false)}>{enCours ? '…' : `Importer ${R.seances} séance(s)`}</button>}
       </>}>
-      <div className="space-y-3 text-[13px]">
+      <div className="space-y-3 text-sm">
         <div className="flex flex-wrap items-center gap-3">
           <input type="file" accept=".csv,text/csv" onChange={e => { setFichier(e.target.files?.[0] || null); setRapport(null); setChoix({}); }} />
           <span className="segments">
-            <button type="button" className={`px-3 py-1 text-[12px] ${tout ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}
+            <button type="button" className={`px-3 py-1 text-second ${tout ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}
               onClick={() => { setTout(true); setRapport(null); }}>Tout le fichier</button>
-            <button type="button" className={`px-3 py-1 text-[12px] ${!tout ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}
+            <button type="button" className={`px-3 py-1 text-second ${!tout ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}
               disabled={!vueClasse} title={vueClasse ? '' : 'Choisissez d’abord une classe dans la vue « classe »'}
               onClick={() => { setTout(false); setRapport(null); }}>Cette classe seulement{libelle && vueClasse ? ` (${libelle})` : ''}</button>
           </span>
@@ -515,8 +515,8 @@ function ImportHyper({ annee, cle, libelle, classes = [], vueClasse = true, onFe
               Une séance commune à plusieurs classes entre dans l'horaire de chacune.
             </div>
             <div className="border border-slate-200 rounded-carte overflow-hidden">
-              <table className="w-full text-[12.5px]">
-                <thead><tr className="tab-entete text-left text-[10.5px] uppercase tracking-[.08em] text-slate-500">
+              <table className="w-full text-second">
+                <thead><tr className="tab-entete text-left text-mention uppercase tracking-[.08em] text-slate-500">
                   <th className="px-3 py-1.5">Classe du fichier</th><th className="px-3 py-1.5">Classe de Lucie</th>
                   <th className="px-3 py-1.5 text-right">Séances</th><th className="px-3 py-1.5">Période</th><th className="px-3 py-1.5">À regarder</th></tr></thead>
                 <tbody>
@@ -524,16 +524,16 @@ function ImportHyper({ annee, cle, libelle, classes = [], vueClasse = true, onFe
                     <tr key={x.classe_source} className="border-t border-slate-100 align-top">
                       <td className="px-3 py-1.5 font-semibold">{x.classe_source}</td>
                       <td className="px-3 py-1.5">
-                        <select className="controle text-[12.5px]" value={x.cle || ''} disabled={enCours}
+                        <select className="controle text-second" value={x.cle || ''} disabled={enCours}
                           onChange={e => changerClasse(x.classe_source, e.target.value)}>
                           <option value="">— ne pas importer —</option>
                           {options(x.cle).map(c => <option key={c.cle} value={c.cle}>{c.libelle}</option>)}
                         </select>
-                        {x.ecartee && <div className="text-[11.5px] text-[color:var(--c-refuse)] mt-0.5">{x.ecartee}</div>}
+                        {x.ecartee && <div className="text-xs text-[color:var(--c-refuse)] mt-0.5">{x.ecartee}</div>}
                       </td>
                       <td className="px-3 py-1.5 text-right tabular-nums">{x.ecartee ? '—' : x.seances}</td>
                       <td className="px-3 py-1.5 text-slate-500">{x.du ? `${date(x.du)} → ${date(x.au)}` : ''}</td>
-                      <td className="px-3 py-1.5 text-[12px] text-slate-600">
+                      <td className="px-3 py-1.5 text-second text-slate-600">
                         {!x.ecartee && [
                           x.remplacees ? `${x.remplacees} séance(s) d'un import précédent remplacée(s)` : null,
                           x.conservees_retouchees ? `${x.conservees_retouchees} retouchée(s) dans Lucie, gardée(s)` : null,
@@ -549,7 +549,7 @@ function ImportHyper({ annee, cle, libelle, classes = [], vueClasse = true, onFe
                 </tbody>
               </table>
             </div>
-            {R.perdues?.length > 0 && <details className="text-[12.5px]"><summary className="cursor-pointer"><b>{R.perdues.length} ligne(s) qu'aucune classe retenue ne prend</b></summary>
+            {R.perdues?.length > 0 && <details className="text-second"><summary className="cursor-pointer"><b>{R.perdues.length} ligne(s) qu'aucune classe retenue ne prend</b></summary>
               <ul className="mt-1 text-slate-600">{R.perdues.map((x, i) => <li key={i}>ligne {x.ligne} — {x.libelle} ({x.classes})</li>)}</ul></details>}
           </div>
         )}
@@ -561,11 +561,11 @@ function ImportHyper({ annee, cle, libelle, classes = [], vueClasse = true, onFe
             </div>
             {R.conservees_retouchees > 0 && <div data-etat="surveiller" className="bloc-etat px-3 py-2">{R.conservees_retouchees} séance(s) d'un import précédent ont été retouchées dans Lucie : elles sont gardées telles quelles.</div>}
             {R.deja_posees_dans_lucie > 0 && <div data-etat="surveiller" className="bloc-etat px-3 py-2">{R.deja_posees_dans_lucie} séance(s) ont déjà été posées à la main dans Lucie pour cette classe : l'import s'y ajoute, vérifiez les doublons.</div>}
-            {R.sans_cours.length > 0 && <div className="text-[12.5px]"><b>Sans cours reconnu</b> — importées avec leur libellé : {R.sans_cours.map(x => `${x.libelle} (${x.seances})`).join(' · ')}</div>}
-            {R.profs_inconnus.length > 0 && <div className="text-[12.5px]"><b>Professeur non reconnu</b> — nom gardé en texte ; corrigez son orthographe dans sa fiche : {R.profs_inconnus.map(x => `${x.nom} (${x.seances})`).join(' · ')}</div>}
-            {R.ignorees.length > 0 && <details className="text-[12.5px]"><summary className="cursor-pointer"><b>{R.ignorees.length} ligne(s) écartée(s)</b></summary>
+            {R.sans_cours.length > 0 && <div className="text-second"><b>Sans cours reconnu</b> — importées avec leur libellé : {R.sans_cours.map(x => `${x.libelle} (${x.seances})`).join(' · ')}</div>}
+            {R.profs_inconnus.length > 0 && <div className="text-second"><b>Professeur non reconnu</b> — nom gardé en texte ; corrigez son orthographe dans sa fiche : {R.profs_inconnus.map(x => `${x.nom} (${x.seances})`).join(' · ')}</div>}
+            {R.ignorees.length > 0 && <details className="text-second"><summary className="cursor-pointer"><b>{R.ignorees.length} ligne(s) écartée(s)</b></summary>
               <ul className="mt-1 text-slate-600">{R.ignorees.map((x, i) => <li key={i}>ligne {x.ligne} — {x.libelle} : {x.raison}</li>)}</ul></details>}
-            {R.incoherentes.length > 0 && <div data-etat="corriger" className="bloc-etat px-3 py-2 text-[12.5px]"><b>{R.incoherentes.length} ligne(s) incohérente(s)</b> — leurs semaines ne retombent pas sur leurs dates ; elles ne sont pas importées : {R.incoherentes.map(x => `ligne ${x.ligne}`).join(', ')}</div>}
+            {R.incoherentes.length > 0 && <div data-etat="corriger" className="bloc-etat px-3 py-2 text-second"><b>{R.incoherentes.length} ligne(s) incohérente(s)</b> — leurs semaines ne retombent pas sur leurs dates ; elles ne sont pas importées : {R.incoherentes.map(x => `ligne ${x.ligne}`).join(', ')}</div>}
           </div>
         )}
       </div>

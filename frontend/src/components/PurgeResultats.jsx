@@ -120,16 +120,16 @@ export default function PurgeResultats({ anneeCourante, onClose, onPurge }) {
       large="grande" ton="alerte" onFermer={onClose}>
       <div className="space-y-4">
           {erreur && (
-            <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-[13px] text-red-800 border-l-4 border-l-red-500">
+            <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-sm text-red-800 border-l-4 border-l-red-500">
               {erreur}
             </div>
           )}
 
           {fait ? (
             <>
-              <div className="px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-[13px] text-emerald-900 border-l-4 border-l-emerald-500">
+              <div className="px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-900 border-l-4 border-l-emerald-500">
                 <div className="font-semibold mb-1">Purge effectuée</div>
-                <ul className="text-[12px] space-y-0.5">
+                <ul className="text-second space-y-0.5">
                   {Object.entries(fait.supprime || {}).map(([k, v]) => (
                     <li key={k}>{LIBELLES[k] || k} : {v}</li>
                   ))}
@@ -164,12 +164,12 @@ export default function PurgeResultats({ anneeCourante, onClose, onPurge }) {
               </div>
 
               <div>
-                <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
                   Étendue
                 </div>
                 <div className="flex gap-3 flex-wrap mb-2">
                   {[['section', "Toute la section"], ['ue', 'Une UE'], ['cours', 'Un cours']].map(([v, l]) => (
-                    <label key={v} className="flex items-center gap-1.5 text-[13px]">
+                    <label key={v} className="flex items-center gap-1.5 text-sm">
                       <input type="radio" checked={cible === v} onChange={() => setCible(v)} /> {l}
                     </label>
                   ))}
@@ -198,12 +198,12 @@ export default function PurgeResultats({ anneeCourante, onClose, onPurge }) {
 
               {/* Étudiants */}
               <div>
-                <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
                   Étudiants
                 </div>
                 <div className="flex gap-3 mb-2">
                   {[['tous', 'Tous'], ['selection', 'Une sélection']].map(([v, l]) => (
-                    <label key={v} className="flex items-center gap-1.5 text-[13px]">
+                    <label key={v} className="flex items-center gap-1.5 text-sm">
                       <input type="radio" checked={quiEtudiants === v} onChange={() => setQuiEtudiants(v)} /> {l}
                     </label>
                   ))}
@@ -214,16 +214,16 @@ export default function PurgeResultats({ anneeCourante, onClose, onPurge }) {
                       <IconSearch size={14} className="text-slate-400" />
                       <input value={recherche} onChange={e => setRecherche(e.target.value)}
                         placeholder="Nom, prénom ou matricule…"
-                        className="flex-1 bg-transparent text-[12px] outline-none" />
-                      <span className="text-[11px] text-slate-400">{choisis.size} sélectionné(s)</span>
+                        className="flex-1 bg-transparent text-second outline-none" />
+                      <span className="text-xs text-slate-400">{choisis.size} sélectionné(s)</span>
                       <button onClick={() => setChoisis(new Set(filtres.map(e => e.id)))}
-                        className="text-[11px] px-2 py-0.5 border border-slate-300 rounded-lg">Tout</button>
+                        className="text-xs px-2 py-0.5 border border-slate-300 rounded-lg">Tout</button>
                       <button onClick={() => setChoisis(new Set())}
-                        className="text-[11px] px-2 py-0.5 border border-slate-300 rounded-lg">Aucun</button>
+                        className="text-xs px-2 py-0.5 border border-slate-300 rounded-lg">Aucun</button>
                     </div>
                     <div className="max-h-48 overflow-y-auto divide-y divide-slate-100">
                       {!filtres.length ? (
-                        <div className="px-3 py-4 text-[12px] text-slate-400 text-center">
+                        <div className="px-3 py-4 text-second text-slate-400 text-center">
                           Aucun étudiant pour ce périmètre.
                         </div>
                       ) : filtres.map(e => (
@@ -234,8 +234,8 @@ export default function PurgeResultats({ anneeCourante, onClose, onPurge }) {
                               ev.target.checked ? n.add(e.id) : n.delete(e.id);
                               return n;
                             })} />
-                          <span className="text-[12px] text-slate-700 flex-1">{nomPropre(e.nom, e.prenom)}</span>
-                          <span className="text-[11px] text-slate-400">{e.nb_ue} UE · {e.nb_resultats} résultat(s)</span>
+                          <span className="text-second text-slate-700 flex-1">{nomPropre(e.nom, e.prenom)}</span>
+                          <span className="text-xs text-slate-400">{e.nb_ue} UE · {e.nb_resultats} résultat(s)</span>
                         </label>
                       ))}
                     </div>
@@ -245,25 +245,25 @@ export default function PurgeResultats({ anneeCourante, onClose, onPurge }) {
 
               {/* Portée */}
               <div>
-                <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
                   Ce qui est supprimé
                 </div>
                 <div className="space-y-1.5">
-                  <label className="flex items-start gap-2 text-[13px]">
+                  <label className="flex items-start gap-2 text-sm">
                     <input type="radio" checked={portee === 'resultats'} onChange={() => setPortee('resultats')} className="mt-0.5" />
                     <span>
                       <b>Les résultats seulement</b>
-                      <span className="block text-[11px] text-slate-500">
+                      <span className="block text-xs text-slate-500">
                         Notes d'acquis, résultats de cours et reports. Les inscriptions demeurent.
                       </span>
                     </span>
                   </label>
-                  <label className="flex items-start gap-2 text-[13px]">
+                  <label className="flex items-start gap-2 text-sm">
                     <input type="radio" checked={portee === 'inscriptions'} onChange={() => setPortee('inscriptions')}
                       className="mt-0.5" disabled={cible === 'cours'} />
                     <span className={cible === 'cours' ? 'opacity-40' : ''}>
                       <b>Les inscriptions aussi</b>
-                      <span className="block text-[11px] text-slate-500">
+                      <span className="block text-xs text-slate-500">
                         {cible === 'cours'
                           ? "Indisponible : une inscription porte sur une UE, pas sur un cours."
                           : "Supprime les inscriptions et les valorisations de l'année."}
@@ -276,10 +276,10 @@ export default function PurgeResultats({ anneeCourante, onClose, onPurge }) {
               {/* Simulation */}
               {simulation && (
                 <div className="px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 border-l-4 border-l-amber-500">
-                  <div className="flex items-center gap-1.5 text-[13px] font-semibold text-amber-900 mb-1.5">
+                  <div className="flex items-center gap-1.5 text-sm font-semibold text-amber-900 mb-1.5">
                     <IconAlertTriangle size={15} /> Ce qui sera supprimé
                   </div>
-                  <ul className="text-[12px] text-amber-900 space-y-0.5">
+                  <ul className="text-second text-amber-900 space-y-0.5">
                     <li>{simulation.compte.resultats_cours} résultat(s) de cours</li>
                     <li>{simulation.compte.notes_aa} note(s) d'acquis</li>
                     <li>{simulation.compte.reports} report(s) de note</li>

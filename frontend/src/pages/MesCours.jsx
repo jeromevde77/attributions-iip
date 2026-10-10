@@ -167,10 +167,10 @@ export default function MesCours() {
     <div className="gouttiere-rail px-4 py-3 md:px-6 space-y-2.5">
       <div className="flex items-center gap-2">
         <IconBooks size={20} className="text-iip-turquoise" />
-        <h1 className="text-[17px] font-semibold text-iip-blue m-0">Mes cours</h1>
+        <h1 className="text-lg font-semibold text-iip-blue m-0">Mes cours</h1>
         <select value={annee} onChange={e => { setAnnee(e.target.value); setOuvert(null); setFeuille(null); }}
           title="L'année des cours affichés — sans changer l'année de travail du reste de Lucie"
-          className="controle border border-slate-300 rounded-champ bg-white text-[13px] font-semibold">
+          className="controle border border-slate-300 rounded-champ bg-white text-sm font-semibold">
           {(annees.length ? annees : [annee]).map(a => <option key={a} value={a}>{a}</option>)}
         </select>
       </div>
@@ -221,15 +221,15 @@ export default function MesCours() {
             style={{ borderLeftColor: couleurBloc(x.ue_niv) || '#D8DCE4' }}
             className="w-full text-left bg-white border border-slate-200 border-l-[5px] rounded-l-none rounded-r-carte px-3 py-2 hover:border-iip-turquoise flex items-center gap-3">
             <div className="min-w-0 flex-1">
-              <div className="font-semibold text-iip-blue text-[13px]">{x.cours_code} · {x.cours_nom || ''}</div>
-              <div className="text-[12px] text-slate-500 truncate">
+              <div className="font-semibold text-iip-blue text-sm">{x.cours_code} · {x.cours_nom || ''}</div>
+              <div className="text-second text-slate-500 truncate">
                 {x.a_moi === false ? (x.section || '') : <>UE {x.ue_num}{x.ue_nom ? ` — ${x.ue_nom}` : ''} · {x.groupes.join(' + ')}</>}
               </div>
-              <div className="text-[12px] text-slate-600 truncate" title={(x.enseignants || []).join(', ')}>
+              <div className="text-second text-slate-600 truncate" title={(x.enseignants || []).join(', ')}>
                 {(x.enseignants || []).length ? x.enseignants.join(', ') : <span className="text-slate-400">aucun titulaire attribué</span>}
               </div>
             </div>
-            <span className="flex-none text-[12px] font-semibold text-iip-turquoise-dark text-right">
+            <span className="flex-none text-second font-semibold text-iip-turquoise-dark text-right">
               {x.nb_etudiants} étudiant{x.nb_etudiants > 1 ? 's' : ''}
               {!x.repartition && x.nb_etudiants > 0 && (
                 <span className="block font-normal text-slate-400">toute l'unité</span>
@@ -258,11 +258,11 @@ export default function MesCours() {
             )}
             {(miens.length > 0 || !aSection) && (
               <div className="space-y-1.5">
-                {aSection && <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Mes attributions</div>}
+                {aSection && <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Mes attributions</div>}
                 {!cours.length && <p className="text-sm text-slate-400">Aucune attribution pour {annee}.</p>}
                 {parSection.map(g => (
                   <div key={g.section} className="space-y-1.5">
-                    {(parSection.length > 1 || aSection) && <div className="text-[13px] font-semibold text-iip-blue pt-1">{g.section}</div>}
+                    {(parSection.length > 1 || aSection) && <div className="text-sm font-semibold text-iip-blue pt-1">{g.section}</div>}
                     <div className="grid gap-2 md:grid-cols-2 2xl:grid-cols-3">{g.cours.map(carte)}</div>
                   </div>
                 ))}
@@ -270,12 +270,12 @@ export default function MesCours() {
             )}
             {parUe.length > 0 && (
               <div className="space-y-2">
-                <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                   Les cours de ma section <span className="normal-case font-normal">— en tant que coordination</span>
                 </div>
                 {parUe.map(g => (
                   <div key={g.ue_num} className="space-y-1">
-                    <div className="text-[12px] font-semibold text-iip-blue">UE {g.ue_num}{g.ue_nom ? ` — ${g.ue_nom}` : ''}</div>
+                    <div className="text-second font-semibold text-iip-blue">UE {g.ue_num}{g.ue_nom ? ` — ${g.ue_nom}` : ''}</div>
                     <div className="grid gap-2 md:grid-cols-2 2xl:grid-cols-3">{g.cours.map(carte)}</div>
                   </div>
                 ))}
@@ -400,26 +400,26 @@ export default function MesCours() {
             <div data-etat="fort" className="bloc-etat px-4 py-2.5 flex flex-wrap items-center gap-x-6 gap-y-2">
               <div className="min-w-0 flex-1">
                 <button onClick={() => { setOuvert(null); setFeuille(null); }}
-                  className="text-[12px] text-slate-500 hover:text-iip-blue inline-flex items-center gap-1">
+                  className="text-second text-slate-500 hover:text-iip-blue inline-flex items-center gap-1">
                   <IconChevronLeft size={14} /> Mes cours
                   {c && <span className="text-slate-400">· UE {c.ue_num}{c.ue_nom ? ` — ${c.ue_nom}` : ''}</span>}
                 </button>
-                <div className="text-[15px] font-semibold leading-snug">{ouvert} · {c?.cours_nom || ''}</div>
+                <div className="text-base font-semibold leading-snug">{ouvert} · {c?.cours_nom || ''}</div>
                 {(feuille?.enseignants || c?.enseignants || []).length > 0 && (
-                  <div className="text-[12px] text-slate-600">Enseigné par {(feuille?.enseignants || c?.enseignants).join(', ')}</div>
+                  <div className="text-second text-slate-600">Enseigné par {(feuille?.enseignants || c?.enseignants).join(', ')}</div>
                 )}
-                <div className="text-[12px] text-slate-500">
+                <div className="text-second text-slate-500">
                   {feuille?.portee === 'coordination' ? 'Cours de votre section — en tant que coordination'
                     : (c?.groupes || []).join(' + ')} · {annee}
                 </div>
               </div>
               <div className="text-right">
-                <div className="text-[17px] font-bold tabular-nums">{nEtu}</div>
-                <div className="text-[11px] text-slate-500">étudiant{nEtu > 1 ? 's' : ''}</div>
+                <div className="text-lg font-bold tabular-nums">{nEtu}</div>
+                <div className="text-xs text-slate-500">étudiant{nEtu > 1 ? 's' : ''}</div>
               </div>
               <div className="text-right">
-                <div className="text-[17px] font-bold tabular-nums">{saisies} / {total}</div>
-                <div className="text-[11px] text-slate-500">notes saisies</div>
+                <div className="text-lg font-bold tabular-nums">{saisies} / {total}</div>
+                <div className="text-xs text-slate-500">notes saisies</div>
                 <div className="h-1.5 w-32 bg-slate-100 rounded-full overflow-hidden mt-1">
                   <div className="h-full" style={{ width: `${total ? (saisies / total) * 100 : 0}%`, background: 'var(--c-disponible)' }} />
                 </div>
@@ -442,7 +442,7 @@ export default function MesCours() {
                     {[['', `Tous (${feuille.etudiants.length})`], ...groupesDispo.map(g => [g,
                       `${g} (${feuille.etudiants.filter(e => groupesDe(e).includes(g)).length})`])].map(([g, l]) => (
                       <button key={g || 'tous'} type="button" onClick={() => setGroupeVu(g)}
-                        className={`px-2.5 py-1 text-[12px] ${groupeVu === g ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>{l}</button>
+                        className={`px-2.5 py-1 text-second ${groupeVu === g ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>{l}</button>
                     ))}
                   </div>
                 )}
@@ -460,13 +460,13 @@ export default function MesCours() {
                 nomCol={(k, i) => (k ? `${nomAA(null, i)} · ${k}` : 'Note du cours')}
                 valeurDe={valeurDe} noteCours={noteCours} groupesDispo={groupeVu ? [] : groupesDispo} groupesDe={groupesDe}
                 coursCode={ouvert} annee={annee} ueNum={feuille.ue_num} />)}
-            {fait && <p className="text-[13px] m-0" style={{ color: 'var(--c-reussi)' }}>✓ {fait}</p>}
+            {fait && <p className="text-sm m-0" style={{ color: 'var(--c-reussi)' }}>✓ {fait}</p>}
             {!feuille && !erreur && <p className="text-sm text-slate-400">Chargement…</p>}
 
             {face === 'notes' && feuille && (
               <div className="grid gap-3 items-start lg:grid-cols-[minmax(0,1fr)_320px]">
                 <div className="carte overflow-x-auto">
-                  <div className="flex items-center gap-2 px-3 py-1.5 border-b border-slate-100 text-[12px] text-slate-500">
+                  <div className="flex items-center gap-2 px-3 py-1.5 border-b border-slate-100 text-second text-slate-500">
                     <span className="min-w-0 flex-1">
                       {caseActive ? <>Dans la case active :</> : <>Cliquez une case, puis :</>}
                     </span>
@@ -493,13 +493,13 @@ export default function MesCours() {
                     </button>
                   </div>
                   {feuille.etudiants.some(e => e.amenagements?.length > 0) && (
-                    <div className="text-[12px] text-slate-600 px-3 py-1.5">
+                    <div className="text-second text-slate-600 px-3 py-1.5">
                       <b>AR</b> : l'étudiant bénéficie d'aménagements raisonnables dans cette unité —
                       survolez la mention pour lire les mesures à mettre en œuvre. Leur motif est
                       couvert par le secret professionnel et n'a pas à être recherché.
                     </div>
                   )}
-                  <table className="w-full text-[13px]">
+                  <table className="w-full text-sm">
                     <thead>
                       <tr className="tab-entete text-left">
                         <th className="py-1.5 px-3">Étudiant</th>
@@ -508,7 +508,7 @@ export default function MesCours() {
                           ? feuille.acquis.map((a, i) => (
                               <th key={a.aa_code} className="py-1.5 px-1 w-20 text-center" title={`${a.aa_code} — ${a.description || ''}`}>
                                 {nomAA(a, i)}
-                                <span className="block text-[10px] font-normal normal-case tracking-normal text-slate-500">{partDe(a.aa_code)} %</span>
+                                <span className="block text-mention font-normal normal-case tracking-normal text-slate-500">{partDe(a.aa_code)} %</span>
                               </th>
                             ))
                           : <th className="py-1.5 px-1 w-20 text-center">Note /20</th>}
@@ -523,20 +523,20 @@ export default function MesCours() {
                       {vus.map((e, r) => (
                         <tr key={e.id} className="border-t border-slate-100 bg-white">
                           <td className="py-0.5 px-3 whitespace-nowrap"><b>{(e.nom || '').toUpperCase()}</b> {e.prenom}
-                            <span className="text-slate-400 text-[11px]"> · {e.id_ecampus || '—'}</span>
-                            {e.report && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded border border-slate-200 text-slate-500"
+                            <span className="text-slate-400 text-xs"> · {e.id_ecampus || '—'}</span>
+                            {e.report && <span className="ml-2 text-mention px-1.5 py-0.5 rounded border border-slate-200 text-slate-500"
                               title="Tous les acquis de ce cours ont été maîtrisés l'an passé : le cours est dispensé et ses notes sont reprises">
                               reporté {String(e.report.annee_origine || '').replace(/^20(\d\d)-20(\d\d)$/, '$1-$2')}</span>}
-                            {e.dispense && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded border border-slate-200 text-slate-500"
+                            {e.dispense && <span className="ml-2 text-mention px-1.5 py-0.5 rounded border border-slate-200 text-slate-500"
                               title="Dispensé de ce cours par la valorisation des acquis : il ne se note pas ici">dispensé · {e.dispense}</span>}
                             {/* Les mesures accordées, et elles seules : le survol les
                                 énumère, la nature de la situation n'est jamais là. */}
-                            {e.amenagements?.length > 0 && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded border border-iip-blue/30 text-[color:var(--c-texte)] cursor-help"
+                            {e.amenagements?.length > 0 && <span className="ml-2 text-mention px-1.5 py-0.5 rounded border border-iip-blue/30 text-[color:var(--c-texte)] cursor-help"
                               title={`Aménagements raisonnables accordés :\n${e.amenagements.map(m =>
                                 `• ${m.libelle}${m.precisions ? ` — ${m.precisions}` : ''}`).join('\n')}`}>
                               AR · {e.amenagements.length}</span>}</td>
                           {feuille.repartition && (
-                            <td className="py-0.5 pr-4 text-[12px] text-slate-500 whitespace-nowrap">{e.groupe}</td>
+                            <td className="py-0.5 pr-4 text-second text-slate-500 whitespace-nowrap">{e.groupe}</td>
                           )}
                           {cols.map((k, ci) => {
                             /* COURS REPORTÉ (27 septembre 2026) : tous ses acquis ont été
@@ -544,7 +544,7 @@ export default function MesCours() {
                                grise, et ne se saisit pas. */
                             if (e.dispense) {
                               return (
-                                <td key={k} className="py-0.5 px-1 text-center text-[12px] text-slate-400"
+                                <td key={k} className="py-0.5 px-1 text-center text-second text-slate-400"
                                   title={`Dispensé de ce cours (${e.dispense}) : aucune note à poser`}>—</td>
                               );
                             }
@@ -553,10 +553,10 @@ export default function MesCours() {
                               return (
                                 <td key={k} className="py-0.5 px-1 text-center whitespace-nowrap"
                                   title={`Cours reporté de ${e.report.annee_origine || "l'an passé"} : note reprise d'office, elle ne se saisit pas`}>
-                                  <span className="inline-block w-12 text-right text-[13px] tabular-nums text-slate-500">
+                                  <span className="inline-block w-12 text-right text-sm tabular-nums text-slate-500">
                                     {vr != null ? Math.round(vr) : '·'}
                                   </span>
-                                  <span className={`ml-0.5 text-[10px] text-slate-400 ${vr != null ? '' : 'invisible'}`}>/20</span>
+                                  <span className={`ml-0.5 text-mention text-slate-400 ${vr != null ? '' : 'invisible'}`}>/20</span>
                                 </td>
                               );
                             }
@@ -576,7 +576,7 @@ export default function MesCours() {
                                      utile ? c'est moche ») : la grille est une feuille, pas un
                                      formulaire. Rien au repos, un filet au survol, le champ blanc
                                      cerclé sous le curseur — c'est là qu'on écrit. */
-                                  className={`w-12 h-7 rounded-champ px-1 text-[13px] text-right tabular-nums outline-none
+                                  className={`w-12 h-7 rounded-champ px-1 text-sm text-right tabular-nums outline-none
                                     border border-transparent hover:border-slate-200 focus:border-iip-blue focus:bg-white
                                     placeholder:text-slate-300
                                     ${!ok ? 'text-iip-texte bg-[#FBEDEA] font-semibold'
@@ -584,7 +584,7 @@ export default function MesCours() {
                                       : 'bg-transparent text-iip-blue font-semibold'}`} />
                                 {/* « /20 » : l'échelle se lit à côté de chaque NOTE (Charles) —
                                     pas à côté d'une case vide ni d'une mention. */}
-                                <span className={`ml-0.5 text-[10px] text-slate-400 ${ok && v !== '' && !MENTIONS.includes(t) ? '' : 'invisible'}`}>/20</span>
+                                <span className={`ml-0.5 text-mention text-slate-400 ${ok && v !== '' && !MENTIONS.includes(t) ? '' : 'invisible'}`}>/20</span>
                                 {k !== '' && (sousSeuil(v) ? (() => {
                                   const j = String(justifs[e.id]?.[k] ?? '').trim();
                                   return (
@@ -612,7 +612,7 @@ export default function MesCours() {
                                             l'unité, comme toute note de Lucie — 9,6 fait 10. */}
                                         {Math.round(nc.note)}{nc.partielle ? '*' : ''}
                                       </span>
-                                    : nc.mentions ? <span className="text-slate-400 text-[12px]">—</span>
+                                    : nc.mentions ? <span className="text-slate-400 text-second">—</span>
                                     : <span className="text-slate-300">·</span>}
                               </td>
                             );
@@ -634,8 +634,8 @@ export default function MesCours() {
                 <div className="carte px-3 py-2.5 space-y-2.5 lg:sticky lg:top-3">
                   {actifSous && actifEtu && (
                     <div data-etat={String(justifs[actifEtu.id]?.[caseActive.k] ?? '').trim() ? 'neutre' : 'surveiller'} className="bloc-etat px-2.5 py-2 space-y-1">
-                      <div className="text-[12.5px] font-semibold">Justificatif d'échec</div>
-                      <div className="text-[11.5px] text-slate-500">
+                      <div className="text-second font-semibold">Justificatif d'échec</div>
+                      <div className="text-xs text-slate-500">
                         {(actifEtu.nom || '').toUpperCase()} {actifEtu.prenom} · {actifAA >= 0 ? nomAA(feuille.acquis[actifAA], actifAA) : caseActive.k} · {notes[actifEtu.id]?.[caseActive.k]}/20
                       </div>
                       {/* LA LISTE DE LA MAISON D'ABORD (Charles, 27 septembre 2026 :
@@ -643,12 +643,12 @@ export default function MesCours() {
                           le souhaite, il écrit en manuel ») — le catalogue du Conseil,
                           le même que celui des motivations. Un clic ajoute la phrase,
                           un second la retire ; le champ reste libre. */}
-                      <details className="text-[11.5px]">
+                      <details className="text-xs">
                         <summary className="cursor-pointer text-iip-blue underline">Choisir dans la liste</summary>
                         <div className="mt-1 max-h-64 overflow-y-auto space-y-1.5 pr-1">
                           {MOTIFS_ECHEC.map(g => (
                             <div key={g.cle}>
-                              <div className="text-[10px] uppercase tracking-wide font-semibold text-slate-500">{g.libelle}</div>
+                              <div className="text-mention uppercase tracking-wide font-semibold text-slate-500">{g.libelle}</div>
                               {g.motifs.map(m => {
                                 const actuel = String(justifs[actifEtu.id]?.[caseActive.k] ?? '');
                                 const pris = actuel.includes(m.texte);
@@ -673,15 +673,15 @@ export default function MesCours() {
                         onChange={ev => { const val = ev.target.value;
                           setJustifs(j => ({ ...j, [actifEtu.id]: { ...(j[actifEtu.id] || {}), [caseActive.k]: val } })); }}
                         placeholder="Choisissez dans la liste, ou écrivez ce que l'étudiant n'a pas démontré pour cet acquis"
-                        className="w-full border border-slate-300 rounded-champ bg-white text-[12.5px] p-1.5" />
-                      <div className="text-[10.5px] text-slate-500 leading-snug">
+                        className="w-full border border-slate-300 rounded-champ bg-white text-second p-1.5" />
+                      <div className="text-mention text-slate-500 leading-snug">
                         Il accompagne la note et sera proposé au Conseil des études comme motivation de l'échec ; le Conseil le garde ou le réécrit.
                       </div>
                     </div>
                   )}
-                  <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Ce que vous évaluez</div>
+                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ce que vous évaluez</div>
                   {cols.length > 1 && !pondere && (
-                    <div data-etat="surveiller" className="bloc-etat px-2 py-1.5 text-[11.5px]">
+                    <div data-etat="surveiller" className="bloc-etat px-2 py-1.5 text-xs">
                       La pondération de ce cours n'est pas encore réglée : les acquis pèsent autant l'un que l'autre
                       dans la note du cours. Elle se règle dans Organisation → Pondérations.
                     </div>
@@ -690,17 +690,17 @@ export default function MesCours() {
                     const n = feuille.etudiants.filter(e => String(notes[e.id]?.[a.aa_code] ?? '').trim() !== '').length;
                     return (
                       <div key={a.aa_code} className="pl-2 border-l-[3px]" style={{ borderLeftColor: 'var(--c-disponible)' }}>
-                        <div className="text-[12.5px] font-semibold">{nomAA(a, i)} <span className="font-normal text-slate-400">· {a.aa_code}</span></div>
-                        <div className="text-[12px] text-slate-600 leading-snug">{a.description || '—'}</div>
-                        <div className="text-[11px] text-slate-400">
+                        <div className="text-second font-semibold">{nomAA(a, i)} <span className="font-normal text-slate-400">· {a.aa_code}</span></div>
+                        <div className="text-second text-slate-600 leading-snug">{a.description || '—'}</div>
+                        <div className="text-xs text-slate-400">
                           <b className="text-slate-600">{partDe(a.aa_code)} % de la note du cours</b>
                           {a.poids != null && Number(a.poids) > 0 ? ` (${String(a.poids).replace('.', ',')} sur ${String(Math.round(sommePoids * 10) / 10).replace('.', ',')})` : ''}
                           {' · '}{n} note{n > 1 ? 's' : ''} sur {nEtu}
                         </div>
                       </div>
                     );
-                  }) : <div className="text-[12px] text-slate-600">Aucun acquis rattaché à ce cours : une note de cours, sur 20.</div>}
-                  <div className="text-[11px] text-slate-500 border-t border-slate-100 pt-2 leading-snug">
+                  }) : <div className="text-second text-slate-600">Aucun acquis rattaché à ce cours : une note de cours, sur 20.</div>}
+                  <div className="text-xs text-slate-500 border-t border-slate-100 pt-2 leading-snug">
                     Une note entière sur 20 par acquis (0 à 20). <b>PP</b> : pas présenté. <b>NP</b> : note de présence. <b>CM</b> : certificat médical.
                     Une case vide n'est pas évaluée — elle ne compte pas comme zéro.
                     La colonne « Cours » est la moyenne pondérée des acquis, indicative ; * : sans les PP, NP et CM.
@@ -712,7 +712,7 @@ export default function MesCours() {
 
             {face === 'notes' && feuille && (
               <div className="flex items-center gap-3 justify-end border-t border-slate-200 pt-2">
-                <span className="text-[12px] text-slate-500 min-w-0 flex-1">
+                <span className="text-second text-slate-500 min-w-0 flex-1">
                   {invalides ? <span style={{ color: 'var(--c-texte)' }}>{invalides} case{invalides > 1 ? 's' : ''} à corriger : un nombre entier de 0 à 20, PP, NP ou CM.</span>
                     : manquants.length ? <span style={{ color: 'var(--c-attente)' }}>{manquants.length} note{manquants.length > 1 ? 's' : ''} sous 10 sans justificatif.{' '}
                         <button type="button" className="underline" onClick={() => allerA(manquants[0])}>Aller au premier</button></span>

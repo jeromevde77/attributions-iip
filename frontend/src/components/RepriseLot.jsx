@@ -88,7 +88,7 @@ export default function RepriseLot({ annee, section = null, onClose, onFini }) {
     <Fenetre titre="Reprendre les délibérations du classeur — en lot" large="grande" onFermer={onClose}
       sous={`Année ${annee} · première session`}
       pied={<>
-        <span className="text-[12px] text-slate-500">
+        <span className="text-second text-slate-500">
           {choisies.size} unité(s) cochée(s) sur {reprenables.length} reprenables
         </span>
         <button onClick={onClose} className="bouton">
@@ -102,25 +102,25 @@ export default function RepriseLot({ annee, section = null, onClose, onFini }) {
         </button>
       </>}>
         <div className="space-y-4">
-          <p className="text-[12px] text-slate-500">
+          <p className="text-second text-slate-500">
             Les décisions viennent du classeur et
             sont reprises telles quelles ; Lucie y ajoute la cote qu'elle calcule et les
             cours à représenter, puis pose la date que vous fixez.
           </p>
           {erreur && (
             <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200
-                            text-[13px] text-red-800 flex items-start gap-2">
+                            text-sm text-red-800 flex items-start gap-2">
               <IconAlertTriangle size={15} className="mt-px shrink-0" /> {erreur}
             </div>
           )}
 
           {fait && (
             <div className="px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200
-                            text-[13px] text-emerald-900">
+                            text-sm text-emerald-900">
               <b>{fait.reprises} unité(s) reprises</b>, {fait.etudiants} décisions écrites,
               {' '}{fait.closes} séance(s) close(s) au {fait.date_seance}.
               {!!fait.ignorees?.length && (
-                <div className="mt-1 text-[12px] text-emerald-800">
+                <div className="mt-1 text-second text-emerald-800">
                   Non reprises : {fait.ignorees.map(i => `UE${i.ue_num} (${i.motif})`).join(', ')}
                 </div>
               )}
@@ -129,34 +129,34 @@ export default function RepriseLot({ annee, section = null, onClose, onFini }) {
 
           {/* ── Le choix des unités ─────────────────────────────────────── */}
           {!etat ? (
-            <div className="py-8 text-center text-[13px] text-slate-400">Lecture du classeur…</div>
+            <div className="py-8 text-center text-sm text-slate-400">Lecture du classeur…</div>
           ) : (
             <>
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[12px] text-slate-500">Section :</span>
+                <span className="text-second text-slate-500">Section :</span>
                 <button onClick={() => setSec(null)}
-                  className={`px-2 py-1 rounded-lg border text-[12px] ${!sec
+                  className={`px-2 py-1 rounded-lg border text-second ${!sec
                     ? 'border-iip-blue text-iip-blue font-semibold' : 'border-slate-300 text-slate-600'}`}>
                   toutes
                 </button>
                 {(etat.sections || []).map(s => (
                   <button key={s} onClick={() => setSec(s)}
-                    className={`px-2 py-1 rounded-lg border text-[12px] ${sec === s
+                    className={`px-2 py-1 rounded-lg border text-second ${sec === s
                       ? 'border-iip-blue text-iip-blue font-semibold' : 'border-slate-300 text-slate-600'}`}>
                     {s}
                   </button>
                 ))}
                 <span className="flex-1" />
                 <button onClick={() => setChoisies(new Set(reprenables.map(u => u.ue_num)))}
-                  className="text-[12px] text-iip-blue underline">tout cocher</button>
+                  className="text-second text-iip-blue underline">tout cocher</button>
                 <button onClick={() => setChoisies(new Set())}
-                  className="text-[12px] text-slate-500 underline">tout décocher</button>
+                  className="text-second text-slate-500 underline">tout décocher</button>
               </div>
 
               <div className="border border-slate-200 rounded-xl divide-y divide-slate-100
                               max-h-[34vh] overflow-y-auto">
                 {!unites.length && (
-                  <div className="px-3 py-6 text-center text-[13px] text-slate-400">
+                  <div className="px-3 py-6 text-center text-sm text-slate-400">
                     Aucune unité pour cette année.
                   </div>
                 )}
@@ -165,23 +165,23 @@ export default function RepriseLot({ annee, section = null, onClose, onFini }) {
                   const bloquee = rien || u.cloturee;
                   return (
                     <label key={u.ue_num}
-                      className={`px-3 py-1.5 flex items-center gap-2 text-[13px]
+                      className={`px-3 py-1.5 flex items-center gap-2 text-sm
                         ${bloquee ? 'opacity-45' : 'cursor-pointer hover:bg-slate-50'}`}>
                       <input type="checkbox" disabled={bloquee}
                         checked={choisies.has(u.ue_num)} onChange={() => basculer(u.ue_num)} />
                       <span className="w-16 tabular-nums text-slate-500">UE{u.ue_num}</span>
                       <span className="flex-1 truncate">{u.ue_nom}</span>
-                      <span className="text-[11px] text-slate-400 w-14">{u.section}</span>
-                      <span className="text-[12px] text-slate-600 w-40 text-right">
+                      <span className="text-xs text-slate-400 w-14">{u.section}</span>
+                      <span className="text-second text-slate-600 w-40 text-right">
                         {u.cloturee ? 'séance close'
                           : rien ? 'rien d’encodé'
                           : `${u.concordants + u.divergents} décision(s)`}
                       </span>
-                      <span className={`text-[12px] w-24 text-right ${u.divergents
+                      <span className={`text-second w-24 text-right ${u.divergents
                         ? 'text-amber-700 font-semibold' : 'text-slate-300'}`}>
                         {u.divergents ? `${u.divergents} écart(s)` : '—'}
                       </span>
-                      <span className={`text-[12px] w-28 text-right ${u.sans_decision
+                      <span className={`text-second w-28 text-right ${u.sans_decision
                         ? 'text-slate-500' : 'text-slate-300'}`}>
                         {u.sans_decision ? `${u.sans_decision} sans décision` : '—'}
                       </span>
@@ -192,49 +192,49 @@ export default function RepriseLot({ annee, section = null, onClose, onFini }) {
 
               {/* ── La date, qui ira au procès-verbal ─────────────────────── */}
               <div className="px-3 py-3 rounded-xl border border-slate-200 space-y-2">
-                <div className="text-[13px] font-semibold text-iip-blue">
+                <div className="text-sm font-semibold text-iip-blue">
                   La date de la séance
                 </div>
-                <p className="text-[12px] text-slate-500">
+                <p className="text-second text-slate-500">
                   Le classeur ne dit pas quand le Conseil s'est réuni. La date que vous
                   fixez ici figurera sur tous les procès-verbaux et toutes les notifications
                   des unités cochées, et c'est d'elle que court le délai de recours
                   (RGE art. 87-91).
                 </p>
                 <div className="flex flex-wrap items-end gap-3">
-                  <label className="text-[12px] text-slate-600">
+                  <label className="text-second text-slate-600">
                     Date de séance
                     <input type="date" value={date} onChange={e => setDate(e.target.value)}
-                      className="block mt-0.5 px-2 py-1 border border-slate-300 rounded-lg text-[13px]" />
+                      className="block mt-0.5 px-2 py-1 border border-slate-300 rounded-lg text-sm" />
                   </label>
-                  <label className="text-[12px] text-slate-600">
+                  <label className="text-second text-slate-600">
                     Heure
                     <input type="time" value={heure} onChange={e => setHeure(e.target.value)}
-                      className="block mt-0.5 px-2 py-1 border border-slate-300 rounded-lg text-[13px]" />
+                      className="block mt-0.5 px-2 py-1 border border-slate-300 rounded-lg text-sm" />
                   </label>
-                  <label className="text-[12px] text-slate-600">
+                  <label className="text-second text-slate-600">
                     Visite des copies — date
                     <input type="date" value={vDate} onChange={e => setVDate(e.target.value)}
-                      className="block mt-0.5 px-2 py-1 border border-slate-300 rounded-lg text-[13px]" />
+                      className="block mt-0.5 px-2 py-1 border border-slate-300 rounded-lg text-sm" />
                   </label>
-                  <label className="text-[12px] text-slate-600">
+                  <label className="text-second text-slate-600">
                     Heure
                     <input type="time" value={vHeure} onChange={e => setVHeure(e.target.value)}
-                      className="block mt-0.5 px-2 py-1 border border-slate-300 rounded-lg text-[13px]" />
+                      className="block mt-0.5 px-2 py-1 border border-slate-300 rounded-lg text-sm" />
                   </label>
-                  <label className="text-[12px] text-slate-600 flex-1 min-w-[160px]">
+                  <label className="text-second text-slate-600 flex-1 min-w-[160px]">
                     Local
                     <input value={vLocal} onChange={e => setVLocal(e.target.value)}
                       placeholder="ex. secrétariat, 2e étage"
                       className="block mt-0.5 w-full px-2 py-1 border border-slate-300
-                                 rounded-lg text-[13px]" />
+                                 rounded-lg text-sm" />
                   </label>
                 </div>
               </div>
 
               {/* ── La clôture, et ce qu'elle engage ──────────────────────── */}
               <div className="px-3 py-3 rounded-xl border border-amber-200 bg-amber-50 space-y-2 border-l-4 border-l-amber-500">
-                <label className="flex items-start gap-2 text-[13px] text-amber-900">
+                <label className="flex items-start gap-2 text-sm text-amber-900">
                   <input type="checkbox" checked={clore} className="mt-0.5"
                     onChange={e => { setClore(e.target.checked); if (!e.target.checked) setPresents(false); }} />
                   <span>
@@ -243,7 +243,7 @@ export default function RepriseLot({ annee, section = null, onClose, onFini }) {
                   </span>
                 </label>
                 {clore && (
-                  <label className="flex items-start gap-2 text-[13px] text-amber-900 pl-6">
+                  <label className="flex items-start gap-2 text-sm text-amber-900 pl-6">
                     <input type="checkbox" checked={presents} className="mt-0.5"
                       onChange={e => setPresents(e.target.checked)} />
                     <span>
@@ -259,7 +259,7 @@ export default function RepriseLot({ annee, section = null, onClose, onFini }) {
 
               {apercu && (
                 <div className="px-3 py-2 rounded-xl border border-sky-200 bg-sky-50
-                                text-[12px] text-sky-900">
+                                text-second text-sky-900">
                   <b>Simulation — rien n'est écrit.</b> {apercu.reprises} unité(s),
                   {' '}{apercu.etudiants} décisions
                   {clore ? `, ${apercu.unites.filter(u => u.close).length} séance(s) seraient closes` : ''}.

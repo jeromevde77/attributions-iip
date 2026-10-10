@@ -66,24 +66,24 @@ export default function ReponsesTypesConfig() {
       </Encadre>
       <div className="flex items-center gap-2">
         <input type="search" name="search_catalogue" value={q} onChange={e => setQ(e.target.value)} placeholder="Chercher un champ ou une phrase…" className="controle w-80" />
-        <span className="text-[12px] text-slate-500">{(lignes || []).length} phrase(s) · {champs.length} champ(s)</span>
+        <span className="text-second text-slate-500">{(lignes || []).length} phrase(s) · {champs.length} champ(s)</span>
       </div>
       {erreur && <Encadre etat="corriger">{erreur}</Encadre>}
-      {!lignes ? <p className="text-[13px] text-slate-400">Chargement…</p> : champs.map(c => (
+      {!lignes ? <p className="text-sm text-slate-400">Chargement…</p> : champs.map(c => (
         <div key={c.champ} className="carte p-3">
           <div className="flex items-center gap-2 mb-2">
             <IconMessageDots size={15} className="text-slate-400" />
             <div className="min-w-0 flex-1">
-              <div className="text-[13px] font-semibold text-iip-texte">{c.libelle}</div>
-              <div className="text-[11px] text-slate-400">{c.champ}</div>
+              <div className="text-sm font-semibold text-iip-texte">{c.libelle}</div>
+              <div className="text-xs text-slate-400">{c.champ}</div>
             </div>
             <button type="button" onClick={() => ajouter(c)} className="bouton bouton-compact inline-flex items-center gap-1"><IconPlus size={13} /> Ajouter</button>
           </div>
           <ul className="divide-y divide-slate-100 border-t border-slate-100">
             {c.l.map(l => (
               <li key={l.id} className="flex items-start gap-3 py-2">
-                <span className="w-28 flex-none text-[11px] text-slate-500 pt-0.5">{l.groupe || '—'}</span>
-                <span className="flex-1 min-w-0 text-[12.5px] text-slate-700 whitespace-pre-line">{l.texte}</span>
+                <span className="w-28 flex-none text-xs text-slate-500 pt-0.5">{l.groupe || '—'}</span>
+                <span className="flex-1 min-w-0 text-second text-slate-700 whitespace-pre-line">{l.texte}</span>
                 <span className="flex-none flex gap-1.5 pt-0.5">
                   <button type="button" title="Corriger" onClick={() => modifier(l)} className="text-slate-400 hover:text-iip-blue"><IconPencil size={14} /></button>
                   <button type="button" title="Supprimer" onClick={() => supprimer(l)} className="text-slate-400 hover:text-red-600"><IconTrash size={14} /></button>

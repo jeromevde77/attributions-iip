@@ -102,7 +102,7 @@ function EditeurSignataires({ liste, setListe, palette, peutEcrire, rendu }) {
     });
   };
   const Tuile = ({ x, onX, ...rest }) => (
-    <div {...rest} className={`relative select-none rounded-champ border border-dashed border-slate-300 bg-white/60 backdrop-blur-sm px-2.5 py-1.5 text-[11px] leading-snug text-iip-blue ${peutEcrire ? 'cursor-grab active:cursor-grabbing hover:border-iip-blue' : ''} ${rest.className || ''}`}>
+    <div {...rest} className={`relative select-none rounded-champ border border-dashed border-slate-300 bg-white/60 backdrop-blur-sm px-2.5 py-1.5 text-xs leading-snug text-iip-blue ${peutEcrire ? 'cursor-grab active:cursor-grabbing hover:border-iip-blue' : ''} ${rest.className || ''}`}>
       <div className="whitespace-pre-line">{x.qualite || <i className="text-slate-400">qualité</i>}</div>
       <div className="font-semibold mt-0.5">{x.nom || <i className="text-slate-400 font-normal">nom</i>}</div>
       {onX && peutEcrire && (
@@ -118,7 +118,7 @@ function EditeurSignataires({ liste, setListe, palette, peutEcrire, rendu }) {
       <div className="space-y-2 min-w-0">
         {/* La rangée des signatures : là où l'on dépose, dans l'ordre du diplôme. */}
         <div className="rounded-carte border border-slate-200 bg-slate-50/60 p-2">
-          <div className="text-[11px] text-slate-500 mb-1.5">Signataires du diplôme, de gauche à droite — glissez une tuile ici</div>
+          <div className="text-xs text-slate-500 mb-1.5">Signataires du diplôme, de gauche à droite — glissez une tuile ici</div>
           <div className="flex flex-wrap items-stretch gap-2 min-h-[3.5rem]"
             onDragOver={e => { e.preventDefault(); if (survol == null) setSurvol(liste.length); }}
             onDragLeave={() => setSurvol(null)}
@@ -136,17 +136,17 @@ function EditeurSignataires({ liste, setListe, palette, peutEcrire, rendu }) {
               </div>
             ))}
             {survol === liste.length && <div className="w-1 rounded-full bg-iip-blue" />}
-            {!liste.length && <span className="text-[12px] text-slate-400 self-center">Aucun signataire : glissez-en un depuis la droite.</span>}
+            {!liste.length && <span className="text-second text-slate-400 self-center">Aucun signataire : glissez-en un depuis la droite.</span>}
           </div>
           {edition != null && liste[edition] && (
             <div className="mt-2 flex flex-wrap items-start gap-2">
               <textarea rows={2} value={liste[edition].qualite} autoFocus
                 onChange={e => setListe(l => l.map((x, j) => (j === edition ? { ...x, qualite: e.target.value } : x)))}
                 placeholder="Qualité — « Le Directeur » ↵ « de l'Institut Ilya Prigogine, »"
-                className="controle h-auto py-1 text-[13px] flex-1 min-w-[16rem]" />
+                className="controle h-auto py-1 text-sm flex-1 min-w-[16rem]" />
               <input value={liste[edition].nom}
                 onChange={e => setListe(l => l.map((x, j) => (j === edition ? { ...x, nom: e.target.value } : x)))}
-                placeholder="Nom — ou {{directeur}}, {{president_jury}}" className="controle text-[13px] w-64" />
+                placeholder="Nom — ou {{directeur}}, {{president_jury}}" className="controle text-sm w-64" />
               <button type="button" className="bouton bouton-compact" onClick={() => setEdition(null)}>OK</button>
             </div>
           )}
@@ -162,7 +162,7 @@ function EditeurSignataires({ liste, setListe, palette, peutEcrire, rendu }) {
       </div>
       {/* Les tuiles disponibles : on les glisse, elles restent ici. */}
       <div className="space-y-2">
-        <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Signataires disponibles</div>
+        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Signataires disponibles</div>
         {palette.map((x, i) => (
           <Tuile key={i} x={x} draggable={peutEcrire}
             onDragStart={e => e.dataTransfer.setData('text/plain', JSON.stringify({ de: 'palette', item: x }))}
@@ -175,7 +175,7 @@ function EditeurSignataires({ liste, setListe, palette, peutEcrire, rendu }) {
             onDoubleClick={() => setListe(l => [...l, { qualite: '', nom: '' }])}
             className="border-iip-blue/40 text-slate-500" />
         )}
-        <p className="text-[11px] text-slate-500">
+        <p className="text-xs text-slate-500">
           <code>{'{{directeur}}'}</code> et <code>{'{{president_jury}}'}</code> se remplissent d'eux-mêmes.
           « Au nom du Gouvernement… le titulaire » reste commun à toutes les sections.
         </p>
@@ -368,7 +368,7 @@ export default function DiplomeEditeur({ assets = {} }) {
           et des signataires — tout ce qui suit parle de CE diplôme-là. */}
       <div className="flex flex-wrap items-center gap-3 bg-white border border-gray-200 rounded-lg px-3 py-2">
         <span className="text-sm font-semibold text-iip-blue">Section</span>
-        <select value={secSig} onChange={e => setSecSig(e.target.value)} className="controle text-[13px] min-w-[14rem]">
+        <select value={secSig} onChange={e => setSecSig(e.target.value)} className="controle text-sm min-w-[14rem]">
           <option value="">— choisir la section à prévisualiser —</option>
           {sections.map(s0 => (
             <option key={s0.code} value={s0.code}>
@@ -378,7 +378,7 @@ export default function DiplomeEditeur({ assets = {} }) {
         </select>
         {secSig && (
           <>
-            <label className="flex items-center gap-1.5 text-[12px] text-gray-700">
+            <label className="flex items-center gap-1.5 text-second text-gray-700">
               <input type="checkbox" checked={coDiplomee(secSig)} disabled={!peutEcrire}
                 onChange={async e => {
                   const suivant = { ...cologo, [secSig]: e.target.checked };
@@ -422,9 +422,9 @@ export default function DiplomeEditeur({ assets = {} }) {
           <span className="text-sm font-semibold text-iip-blue flex items-center gap-1.5">
             <IconSignature size={16}/> Signataires par section
           </span>
-          {!secSig && <span className="text-[12px] text-gray-500">Choisissez une section en tête pour régler ses signataires.</span>}
+          {!secSig && <span className="text-second text-gray-500">Choisissez une section en tête pour régler ses signataires.</span>}
           {secSig && (
-            <span className="text-[12px] text-gray-500">
+            <span className="text-second text-gray-500">
               {propre ? 'Liste propre à cette section.'
                 : coDiplomee(secSig) ? 'Pas encore de liste propre : les signataires de la co-diplomation HELB.'
                 : 'Pas encore de liste propre : le jury et la direction de l’IIP.'}
@@ -433,8 +433,8 @@ export default function DiplomeEditeur({ assets = {} }) {
         </div>
         {secSig && (
           <div className="flex flex-wrap items-end gap-2 border border-slate-200 rounded-lg p-2.5">
-            <label className="text-[12px]"><span className="block text-slate-600">Président(e) du jury d’épreuve intégrée — {secSig}</span>
-              <input key={secSig} className="controle w-72 text-[13px]" defaultValue={presidents[secSig] || ''} disabled={!peutEcrire}
+            <label className="text-second"><span className="block text-slate-600">Président(e) du jury d’épreuve intégrée — {secSig}</span>
+              <input key={secSig} className="controle w-72 text-sm" defaultValue={presidents[secSig] || ''} disabled={!peutEcrire}
                 placeholder="Prénom NOM — une autre personne que le directeur"
                 onChange={e => setPresidentSaisi(e.target.value)} /></label>
             {peutEcrire && <button className="bouton" onClick={async () => {
@@ -446,11 +446,11 @@ export default function DiplomeEditeur({ assets = {} }) {
                 setPresidents(suivant); setSigOk(true); setTimeout(() => setSigOk(false), 2500);
               } catch (e) { setErr(e.message); }
             }}>Enregistrer le président</button>}
-            <span className="text-[11px] text-slate-500 min-w-0">Remplit <code>{'{{president_jury}}'}</code>. Le titulaire, le président du jury et la direction
+            <span className="text-xs text-slate-500 min-w-0">Remplit <code>{'{{president_jury}}'}</code>. Le titulaire, le président du jury et la direction
               sont trois personnes différentes : un diplôme qui porterait deux fois le même nom ne sort pas.</span>
             {presidents[secSig] && etab.directeur && presidents[secSig].toLowerCase().replace(/\s+/g, ' ').split(' ').sort().join(' ')
               === etab.directeur.toLowerCase().replace(/\s+/g, ' ').split(' ').sort().join(' ') && (
-              <span className="text-[12px] text-amber-700">⚠ C’est le nom du directeur : choisissez une autre personne.</span>)}
+              <span className="text-second text-amber-700">⚠ C’est le nom du directeur : choisissez une autre personne.</span>)}
           </div>)}
         {liste && (
           <>
@@ -467,11 +467,11 @@ export default function DiplomeEditeur({ assets = {} }) {
                     Revenir à la liste d’origine
                   </button>
                 )}
-                {sigOk && <span className="text-[12px] text-green-700">Signataires enregistrés.</span>}
+                {sigOk && <span className="text-second text-green-700">Signataires enregistrés.</span>}
               </div>
             )}
             {!modele.includes('{{signatures}}') && (
-              <p className="text-[12px] text-white bg-amber-500 border border-amber-500 rounded px-2 py-1">
+              <p className="text-second text-white bg-amber-500 border border-amber-500 rounded px-2 py-1">
                 Votre modèle n’a pas d’emplacement <code>{'{{signatures}}'}</code> : Lucie remplacera son bloc de
                 signatures actuel par la liste de la section. Pour le rendre explicite, remplacez dans le modèle les
                 colonnes de signataires par <code>{'{{signatures}}'}</code>, ou restaurez le modèle par défaut.
@@ -486,7 +486,7 @@ export default function DiplomeEditeur({ assets = {} }) {
         onChange={e => setModele(e.target.value)}
         readOnly={!peutEcrire}
         spellCheck={false}
-        className="w-full h-[60vh] font-mono text-[12px] leading-snug border border-gray-300 rounded-lg p-3 bg-gray-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-iip-turquoise"
+        className="w-full h-[60vh] font-mono text-second leading-snug border border-gray-300 rounded-lg p-3 bg-gray-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-iip-turquoise"
       />
 
       <details className="text-xs text-gray-500">

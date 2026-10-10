@@ -70,7 +70,7 @@ export default function AnnulationPanel({ annee, onClose, onRestaure }) {
       )}>
         <div className="space-y-3">
           {historiqueInactif && (
-            <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-amber-50 border border-amber-200 text-[13px] text-amber-800 border-l-4 border-l-amber-500">
+            <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800 border-l-4 border-l-amber-500">
               <IconAlertTriangle size={15} className="mt-0.5 flex-none" />
               <span>
                 L'historique est <b>désactivé</b> : les modifications ne sont plus enregistrées et
@@ -80,7 +80,7 @@ export default function AnnulationPanel({ annee, onClose, onRestaure }) {
           )}
 
           {message && (
-            <div className={`px-3 py-2 rounded-lg text-[13px] flex items-center justify-between ${
+            <div className={`px-3 py-2 rounded-lg text-sm flex items-center justify-between ${
               message.type === 'ok'
                 ? 'bg-emerald-500 text-white border border-emerald-500'
                 : 'bg-red-500 text-white border border-red-500'}`}>
@@ -101,23 +101,23 @@ export default function AnnulationPanel({ annee, onClose, onRestaure }) {
                 const a = ACTIONS[it.action] || ACTIONS.update;
                 return (
                   <div key={it.id} className="flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50/60">
-                    <span className={`text-[11px] px-2 py-0.5 rounded-lg border font-medium flex-none ${a.cls}`}>
+                    <span className={`text-xs px-2 py-0.5 rounded-lg border font-medium flex-none ${a.cls}`}>
                       {a.libelle}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <div className="text-[13px] text-slate-800 truncate">
+                      <div className="text-sm text-slate-800 truncate">
                         <b className="text-iip-blue">UE {it.ue_num ?? '—'}</b>
                         {it.nom_cours ? ` · ${it.nom_cours}` : ''}
                         {it.section ? <span className="text-slate-400"> · {it.section}</span> : null}
                       </div>
-                      <div className="text-[11px] text-slate-400">
+                      <div className="text-xs text-slate-400">
                         {new Date(it.created_at).toLocaleString('fr-BE')}
                         {it.utilisateur_nom ? ` · ${it.utilisateur_nom}` : ''}
                       </div>
                     </div>
                     {it.action !== 'rollback' && (
                       <button onClick={() => restaurer(it)} disabled={enCours === it.id}
-                        className="flex-none flex items-center gap-1 text-[12px] px-2.5 py-1.5 rounded-lg border border-slate-300 text-slate-600 hover:bg-white hover:border-iip-turquoise disabled:opacity-40">
+                        className="flex-none flex items-center gap-1 text-second px-2.5 py-1.5 rounded-lg border border-slate-300 text-slate-600 hover:bg-white hover:border-iip-turquoise disabled:opacity-40">
                         <IconArrowBackUp size={13} />
                         {enCours === it.id ? '…' : 'Rétablir l\u2019état antérieur'}
                       </button>
@@ -128,7 +128,7 @@ export default function AnnulationPanel({ annee, onClose, onRestaure }) {
             </div>
           )}
 
-          <p className="text-[11px] text-slate-400 border-t pt-3">
+          <p className="text-xs text-slate-400 border-t pt-3">
             « Rétablir l'état antérieur » réécrit l'attribution telle qu'elle était juste avant
             l'action choisie. Une attribution supprimée est recréée avec son identifiant d'origine.
             La restauration est elle-même enregistrée : elle peut donc être annulée à son tour.

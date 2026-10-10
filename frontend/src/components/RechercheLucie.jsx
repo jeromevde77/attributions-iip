@@ -60,18 +60,18 @@ export default function RechercheLucie() {
                   if (e.key === 'ArrowUp') { e.preventDefault(); setI(x => Math.max(x - 1, 0)); }
                   if (e.key === 'Enter') aller(res[i]);
                 }}
-                className="flex-1 h-12 text-[15px] outline-none bg-transparent" style={{ border: 0, boxShadow: "none" }} />
-              <span className="text-[11px] text-slate-400 border border-slate-200 rounded px-1.5">Échap</span>
+                className="flex-1 h-12 text-base outline-none bg-transparent" style={{ border: 0, boxShadow: "none" }} />
+              <span className="text-xs text-slate-400 border border-slate-200 rounded px-1.5">Échap</span>
             </div>
             <div className="max-h-[50vh] overflow-auto py-1">
-              {!q.trim() && <p className="px-4 py-3 text-[12.5px] text-slate-500">Tapez ce que vous cherchez : un mot suffit (« PAE », « diplôme », « VA », « horaire »…).</p>}
-              {q.trim() && !res.length && <p className="px-4 py-3 text-[12.5px] text-slate-500">Rien ne répond à « {q} ».</p>}
+              {!q.trim() && <p className="px-4 py-3 text-second text-slate-500">Tapez ce que vous cherchez : un mot suffit (« PAE », « diplôme », « VA », « horaire »…).</p>}
+              {q.trim() && !res.length && <p className="px-4 py-3 text-second text-slate-500">Rien ne répond à « {q} ».</p>}
               {res.map((d, k) => (
                 <button key={`${d.chemin}|${d.outil || ''}`} type="button" onMouseEnter={() => setI(k)} onClick={() => aller(d)}
                   className={`w-full text-left px-4 py-2 flex items-center gap-3 ${k === i ? 'bg-slate-100' : ''}`}>
                   <span className="flex-1 min-w-0">
-                    <span className="block text-[13.5px] text-iip-texte font-medium truncate">{d.label}</span>
-                    <span className="block text-[11px] text-slate-500">{d.axe}</span>
+                    <span className="block text-sm text-iip-texte font-medium truncate">{d.label}</span>
+                    <span className="block text-xs text-slate-500">{d.axe}</span>
                   </span>
                   {k === i && <IconCornerDownLeft size={15} className="text-slate-400 flex-none" />}
                 </button>

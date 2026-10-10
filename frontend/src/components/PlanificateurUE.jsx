@@ -177,7 +177,7 @@ export default function PlanificateurUE({ items, annee, val, editer, modifs }) {
             {moisSegments.map((m, i) => (
               <div key={i}
                 style={{ width: `${m.jours / totalJours * 100}%` }}
-                className="text-[10px] font-bold uppercase tracking-wide text-slate-400 text-center py-1.5 border-l border-slate-100 first:border-l-0">
+                className="text-mention font-bold uppercase tracking-wide text-slate-400 text-center py-1.5 border-l border-slate-100 first:border-l-0">
                 {m.nom}
               </div>
             ))}
@@ -190,7 +190,7 @@ export default function PlanificateurUE({ items, annee, val, editer, modifs }) {
               {semaines.map((s, i) => (
                 <span key={i}
                   style={{ left: `${s.offset / totalJours * 100}%` }}
-                  className="absolute top-0 text-[8.5px] text-slate-400 border-l border-slate-100 pl-0.5 h-4 leading-4">
+                  className="absolute top-0 text-mention text-slate-400 border-l border-slate-100 pl-0.5 h-4 leading-4">
                   {s.numero}
                 </span>
               ))}
@@ -198,7 +198,7 @@ export default function PlanificateurUE({ items, annee, val, editer, modifs }) {
           </div>
 
           {elargie && (
-            <div className="px-3 py-1 bg-amber-50 border-b border-amber-200 text-[11px] text-amber-800 border-l-4 border-l-amber-500">
+            <div className="px-3 py-1 bg-amber-50 border-b border-amber-200 text-xs text-amber-800 border-l-4 border-l-amber-500">
               Des dates sortent de l'année académique : la ligne du temps a été élargie pour les
               montrer. Vérifiez qu'il ne s'agit pas d'une erreur de saisie.
             </div>
@@ -207,7 +207,7 @@ export default function PlanificateurUE({ items, annee, val, editer, modifs }) {
           {items.map((item, idx) => {
             if (item.type === 'groupe') {
               return (
-                <div key={`g-${idx}`} className="px-3 py-1 bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                <div key={`g-${idx}`} className="px-3 py-1 bg-slate-50/80 border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500">
                   {item.libelle}
                 </div>
               );
@@ -223,10 +223,10 @@ export default function PlanificateurUE({ items, annee, val, editer, modifs }) {
             return (
               <div key={l.id} className="flex border-b border-slate-100 last:border-0 h-11">
                 <div className="w-[210px] flex-none border-r border-slate-200 px-3 flex flex-col justify-center min-w-0">
-                  <span className="text-[12px] font-semibold text-iip-blue truncate">
+                  <span className="text-second font-semibold text-iip-blue truncate">
                     UE {l.ue_num}{l.num_organisation > 1 ? ` · org. ${l.num_organisation}` : ''}
                   </span>
-                  <span className="text-[10px] text-slate-400 truncate">{l.ue_nom || l.section}</span>
+                  <span className="text-mention text-slate-400 truncate">{l.ue_nom || l.section}</span>
                 </div>
                 <div className="relative flex-1" data-piste
                   style={{ background: 'repeating-linear-gradient(90deg, transparent, transparent calc(100%/43 - 1px), #F5F7FA calc(100%/43 - 1px), #F5F7FA calc(100%/43))' }}>
@@ -247,9 +247,9 @@ export default function PlanificateurUE({ items, annee, val, editer, modifs }) {
                       onPointerDown={e => e.target.dataset.poignee ? demarrer(e, l, 'etirer') : demarrer(e, l, 'deplacer')}
                       onClick={() => setSelection(l.id)}
                       title={`${frDate(val(l, 'date_debut'))} → ${frDate(val(l, 'date_fin'))}`}
-                      className={`absolute top-1.5 h-8 rounded-lg text-white text-[11px] font-semibold
+                      className={`absolute top-1.5 h-8 rounded-lg text-white text-xs font-semibold
                         flex items-center px-2 cursor-grab active:cursor-grabbing select-none whitespace-nowrap overflow-hidden
-                        ${incoherente ? 'bg-red-600' : active ? 'bg-iip-turquoise shadow-md' : 'bg-iip-blue'}
+                        ${incoherente ? 'bg-red-600' : active ? 'bg-iip-turquoise shadow-flottant' : 'bg-iip-blue'}
                         ${modifiee ? 'ring-2 ring-amber-400 ring-offset-1' : ''}`}
                       style={{ left: `${d / totalJours * 100}%`, width: `${Math.max(2, (f - d) / totalJours * 100)}%` }}>
                       {Math.max(1, Math.round((f - d) / 7))} sem.
@@ -258,7 +258,7 @@ export default function PlanificateurUE({ items, annee, val, editer, modifs }) {
                     </div>
                   ) : (
                     <button onClick={() => placer(l)}
-                      className="absolute top-1.5 left-2 h-8 px-2.5 rounded-lg border border-dashed border-slate-300 text-[11px] text-slate-400 flex items-center gap-1 hover:border-iip-turquoise hover:text-iip-turquoise">
+                      className="absolute top-1.5 left-2 h-8 px-2.5 rounded-lg border border-dashed border-slate-300 text-xs text-slate-400 flex items-center gap-1 hover:border-iip-turquoise hover:text-iip-turquoise">
                       <IconPlus size={12} /> Placer
                     </button>
                   )}
@@ -275,7 +275,7 @@ export default function PlanificateurUE({ items, annee, val, editer, modifs }) {
       {/* Jalons de l'organisation sélectionnée */}
       {selectionnee && (
         <div className="border border-slate-200 rounded-xl bg-white px-4 py-3">
-          <div className="text-[13px] font-semibold text-iip-blue mb-1.5">
+          <div className="text-sm font-semibold text-iip-blue mb-1.5">
             Jalons — UE {selectionnee.ue_num}
             {selectionnee.num_organisation > 1 ? ` · organisation ${selectionnee.num_organisation}` : ''}
             <span className="font-normal text-slate-500">
@@ -283,30 +283,30 @@ export default function PlanificateurUE({ items, annee, val, editer, modifs }) {
             </span>
           </div>
           {modifs[selectionnee.id] ? (
-            <p className="text-[12px] text-amber-700 flex items-center gap-1.5">
+            <p className="text-second text-amber-700 flex items-center gap-1.5">
               <IconInfoCircle size={14} />
               Dates modifiées, non enregistrées — les jalons seront recalculés à l'enregistrement.
             </p>
           ) : jalons === null ? (
-            <p className="text-[12px] text-slate-400">Chargement des jalons…</p>
+            <p className="text-second text-slate-400">Chargement des jalons…</p>
           ) : jalons.length ? (
             <div className="divide-y divide-slate-100">
               {jalons.map((j, i) => (
-                <div key={i} className="flex gap-3 py-1 text-[13px]">
+                <div key={i} className="flex gap-3 py-1 text-sm">
                   <span className="font-bold text-iip-blue w-[86px] flex-none">{frDate(j.date_due)}</span>
                   <span className="text-slate-700">{j.libelle}</span>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-[12px] text-slate-400">
+            <p className="text-second text-slate-400">
               Aucun jalon pour ces dates (dates non enregistrées, ou échéances non instanciées).
             </p>
           )}
         </div>
       )}
 
-      <p className="text-[11px] text-slate-400">
+      <p className="text-xs text-slate-400">
         Glissez un bloc pour le déplacer, tirez son bord droit pour l'étirer (au jour
         près). Le contour ambre signale une modification non enregistrée — le bouton
         Enregistrer est commun aux deux vues.

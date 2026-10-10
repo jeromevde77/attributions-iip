@@ -66,9 +66,9 @@ function Jeton({ cle, dans, onBasculer }) {
       onClick={() => onBasculer(cle)}
       title={dans ? 'Retirer de la délibération' : 'Mettre dans la délibération'}
       className={`text-left px-3 py-2 rounded-xl border cursor-grab active:cursor-grabbing
-        ${dans ? 'border-iip-blue bg-white shadow-sm' : 'border-dashed border-slate-300 bg-white'}`}>
-      <span className="text-[13px] font-semibold text-slate-800">{n.titre}</span>
-      <span className="block text-[11px] text-slate-500">{n.detail}</span>
+        ${dans ? 'border-iip-blue bg-white shadow-pose' : 'border-dashed border-slate-300 bg-white'}`}>
+      <span className="text-sm font-semibold text-slate-800">{n.titre}</span>
+      <span className="block text-xs text-slate-500">{n.detail}</span>
     </button>
   );
 }
@@ -92,14 +92,14 @@ function ZoneBase({ valeur, onChange }) {
         onDrop={e => { e.preventDefault();
           poser(e.dataTransfer.getData('text/plain'), false); }}
         className="rounded-xl border border-slate-200 bg-slate-50 p-2.5 space-y-2">
-        <div className="text-[11px] uppercase tracking-wide text-slate-400">
+        <div className="text-xs uppercase tracking-wide text-slate-400">
           Disponibles
         </div>
         {dispos.map(c => (
           <Jeton key={c} cle={c} dans={false} onBasculer={basculer} />
         ))}
         {!dispos.length && (
-          <div className="text-[11px] text-slate-400 italic py-2">
+          <div className="text-xs text-slate-400 italic py-2">
             Tout est dans la délibération.
           </div>
         )}
@@ -109,7 +109,7 @@ function ZoneBase({ valeur, onChange }) {
         onDrop={e => { e.preventDefault();
           poser(e.dataTransfer.getData('text/plain'), true); }}
         className="rounded-xl border-2 border-iip-blue/40 bg-iip-blue/5 p-2.5 space-y-2">
-        <div className="text-[11px] uppercase tracking-wide text-iip-blue">
+        <div className="text-xs uppercase tracking-wide text-iip-blue">
           Le Conseil délibère sur
         </div>
         {/* L'UNITÉ NE SE RETIRE PAS. La montrer scellée vaut mieux
@@ -117,10 +117,10 @@ function ZoneBase({ valeur, onChange }) {
             enlever, et l'on chercherait pourquoi c'est refusé. */}
         <div className="px-3 py-2 rounded-xl border border-iip-blue
                         bg-iip-blue/10">
-          <span className="text-[13px] font-semibold text-iip-blue">
-            Unité <span className="text-[10px] font-normal">— toujours</span>
+          <span className="text-sm font-semibold text-iip-blue">
+            Unité <span className="text-mention font-normal">— toujours</span>
           </span>
-          <span className="block text-[11px] text-slate-500">
+          <span className="block text-xs text-slate-500">
             la note de l'unité d'enseignement
           </span>
         </div>
@@ -128,7 +128,7 @@ function ZoneBase({ valeur, onChange }) {
           <Jeton key={c} cle={c} dans onBasculer={basculer} />
         ))}
         {!dedans.length && (
-          <div className="text-[11px] text-slate-400 italic py-2">
+          <div className="text-xs text-slate-400 italic py-2">
             Déposez ici un niveau, ou laissez l'unité seule.
           </div>
         )}
@@ -176,7 +176,7 @@ export default function ReglesDeliberation({ onClose, onFini }) {
     <Fenetre titre="Règles de délibération de l'établissement" large="grande" onFermer={onClose}
       sous="Ce que le décret impose ne se règle pas. Le reste appartient à la maison, et vaut pour toutes les unités."
       pied={<>
-        <span className="text-[12px] text-emerald-700">
+        <span className="text-second text-emerald-700">
           {fait ? 'Règles enregistrées.' : ''}
         </span>
         <button onClick={onClose} className="bouton">Fermer</button>
@@ -187,27 +187,27 @@ export default function ReglesDeliberation({ onClose, onFini }) {
         <div className="space-y-5">
           {erreur && (
             <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200
-                            text-[13px] text-red-800 flex items-start gap-2">
+                            text-sm text-red-800 flex items-start gap-2">
               <IconAlertTriangle size={15} className="mt-px shrink-0" /> {erreur}
             </div>
           )}
           {!r ? (
-            <div className="py-10 text-center text-[13px] text-slate-400">Chargement…</div>
+            <div className="py-10 text-center text-sm text-slate-400">Chargement…</div>
           ) : (
             <>
               {/* ── SUR QUOI ON DÉLIBÈRE ─────────────────────────────────── */}
               <div>
-                <div className="text-[13px] font-semibold text-iip-blue">
+                <div className="text-sm font-semibold text-iip-blue">
                   Sur quoi le Conseil délibère
                 </div>
-                <p className="text-[12px] text-slate-500 mb-2">
+                <p className="text-second text-slate-500 mb-2">
                   Faites glisser les niveaux dans la zone de délibération — ou cliquez-les.
                   Ce qui s'y trouve peut faire échouer une unité. La note de l'unité y est
                   <b> toujours</b> : c'est elle que l'attestation sanctionne (RGE art. 77 §1).
                 </p>
                 <ZoneBase valeur={r.base} onChange={v => set('base', v)} />
                 <div className="mt-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
-                                text-[12px] text-amber-900">
+                                text-second text-amber-900">
                   <b>Ce que le Conseil verra en juin :</b> {APERCU[r.base]}
                 </div>
 
@@ -219,17 +219,17 @@ export default function ReglesDeliberation({ onClose, onFini }) {
                     représenter et ce qu'il avait déjà. C'était écrit en dur dans
                     le calcul — donc invisible et indiscutable. */}
                 <div className="mt-4 pt-4 border-t border-slate-200">
-                  <div className="text-[13px] font-semibold text-amber-800">
+                  <div className="text-sm font-semibold text-amber-800">
                     En seconde session
                   </div>
-                  <p className="text-[12px] text-slate-500 mb-2">
+                  <p className="text-second text-slate-500 mb-2">
                     Septembre peut se délibérer autrement que juin. Un niveau retiré
                     ici reste calculé et affiché, en tons plus clairs : le Conseil le
                     voit sans qu'il pèse sur la décision.
                   </p>
                   <ZoneBase valeur={r.base_s2 || 'aa'} onChange={v => set('base_s2', v)} />
                   <div className="mt-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
-                                  text-[12px] text-amber-900">
+                                  text-second text-amber-900">
                     <b>Ce que le Conseil verra en septembre :</b> {APERCU[r.base_s2 || 'aa']}
                   </div>
                 </div>
@@ -238,25 +238,25 @@ export default function ReglesDeliberation({ onClose, onFini }) {
               {/* ── LE SEUIL DE MAÎTRISE ─────────────────────────────────── */}
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="px-3 py-2.5 rounded-xl border border-slate-200">
-                  <div className="text-[13px] font-semibold text-slate-800">
+                  <div className="text-sm font-semibold text-slate-800">
                     Seuil de maîtrise d'un acquis
                   </div>
-                  <p className="text-[11px] text-slate-500 mb-1.5">
+                  <p className="text-xs text-slate-500 mb-1.5">
                     Jamais sous {etat.seuil_ue}/20 : en dessous, un acquis non maîtrisé
                     passerait pour acquis. Au-dessus, la maison peut être plus exigeante.
                   </p>
                   <input type="number" min={etat.seuil_ue} max="20" step="0.5"
                     value={r.seuil_aa}
                     onChange={e => set('seuil_aa', e.target.value)}
-                    className="px-2 py-1 border border-slate-300 rounded-lg text-[13px] w-24" />
+                    className="px-2 py-1 border border-slate-300 rounded-lg text-sm w-24" />
                 </div>
                 <div className="px-3 py-2.5 rounded-xl border border-slate-200">
-                  <div className="text-[13px] font-semibold text-slate-800">Arrondi des cotes</div>
-                  <p className="text-[11px] text-slate-500 mb-1.5">
+                  <div className="text-sm font-semibold text-slate-800">Arrondi des cotes</div>
+                  <p className="text-xs text-slate-500 mb-1.5">
                     Une cote arrondie à l'entier peut faire franchir le seuil à 9,6.
                   </p>
                   <select value={r.arrondi} onChange={e => set('arrondi', e.target.value)}
-                    className="px-2 py-1 border border-slate-300 rounded-lg text-[13px]">
+                    className="px-2 py-1 border border-slate-300 rounded-lg text-sm">
                     <option value="centieme">au centième (9,64)</option>
                     <option value="demi">au demi-point (9,5)</option>
                     <option value="entier">à l'entier (10)</option>
@@ -270,10 +270,10 @@ export default function ReglesDeliberation({ onClose, onFini }) {
                   <input type="checkbox" checked={!!r.auto_s1} className="mt-0.5"
                     onChange={e => set('auto_s1', e.target.checked)} />
                   <span>
-                    <span className="text-[13px] font-semibold text-slate-800">
+                    <span className="text-sm font-semibold text-slate-800">
                       Proposer l'ajournement d'office en première session
                     </span>
-                    <span className="block text-[11px] text-slate-500">
+                    <span className="block text-xs text-slate-500">
                       Dès qu'un acquis n'est pas maîtrisé, Lucie <b>propose</b> ce qu'il y
                       aurait à ajourner. La décision reste au Conseil : rien n'est posé
                       sans son geste.
@@ -282,11 +282,11 @@ export default function ReglesDeliberation({ onClose, onFini }) {
                 </label>
                 {r.auto_s1 && (
                   <div className="mt-2 pl-6">
-                    <div className="text-[12px] text-slate-600 mb-1">
+                    <div className="text-second text-slate-600 mb-1">
                       Ce qui serait ajourné :
                     </div>
                     <select value={r.portee} onChange={e => set('portee', e.target.value)}
-                      className="px-2 py-1 border border-slate-300 rounded-lg text-[13px]">
+                      className="px-2 py-1 border border-slate-300 rounded-lg text-sm">
                       <option value="cours">le cours qui évalue l'acquis</option>
                       <option value="aa">l'acquis seul</option>
                       <option value="ue">l'unité entière</option>
@@ -298,26 +298,26 @@ export default function ReglesDeliberation({ onClose, onFini }) {
               {/* ── LES PONDÉRATIONS MANQUANTES ──────────────────────────── */}
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="px-3 py-2.5 rounded-xl border border-slate-200">
-                  <div className="text-[13px] font-semibold text-slate-800">
+                  <div className="text-sm font-semibold text-slate-800">
                     Acquis sans pondération
                   </div>
                   <select value={r.aa_sans_poids} onChange={e => set('aa_sans_poids', e.target.value)}
-                    className="mt-1.5 px-2 py-1 border border-slate-300 rounded-lg text-[13px] w-full">
+                    className="mt-1.5 px-2 py-1 border border-slate-300 rounded-lg text-sm w-full">
                     <option value="egal">tous à poids égal dans leur cours</option>
                     <option value="cours_seuls">ignorer les acquis, ne compter que les cours</option>
                   </select>
                 </div>
                 <div className="px-3 py-2.5 rounded-xl border border-slate-200">
-                  <div className="text-[13px] font-semibold text-slate-800">
+                  <div className="text-sm font-semibold text-slate-800">
                     Cours sans pondération
                   </div>
                   <select value={r.cours_sans_poids}
                     onChange={e => set('cours_sans_poids', e.target.value)}
-                    className="mt-1.5 px-2 py-1 border border-slate-300 rounded-lg text-[13px] w-full">
+                    className="mt-1.5 px-2 py-1 border border-slate-300 rounded-lg text-sm w-full">
                     <option value="periodes">au prorata de leurs périodes</option>
                     <option value="egal">tous à poids égal dans l'unité</option>
                   </select>
-                  <p className="text-[11px] text-slate-500 mt-1">
+                  <p className="text-xs text-slate-500 mt-1">
                     Vaut jusqu'en 2025-2026. À partir de 2026-2027, les périodes du dossier
                     pédagogique font foi (activités Z exclues), sauf poids saisi pour une unité.
                   </p>
@@ -326,11 +326,11 @@ export default function ReglesDeliberation({ onClose, onFini }) {
 
               {/* ── LA SECONDE SESSION ───────────────────────────────────── */}
               <div className="px-3 py-2.5 rounded-xl border border-slate-200">
-                <div className="text-[13px] font-semibold text-slate-800 mb-1.5">
+                <div className="text-sm font-semibold text-slate-800 mb-1.5">
                   Ce que l'ajourné représente en seconde session
                 </div>
                 <select value={r.session2} onChange={e => set('session2', e.target.value)}
-                  className="px-2 py-1 border border-slate-300 rounded-lg text-[13px]">
+                  className="px-2 py-1 border border-slate-300 rounded-lg text-sm">
                   <option value="par_cours">les seuls cours ajournés</option>
                   <option value="unique">toute l'unité</option>
                 </select>
@@ -340,15 +340,15 @@ export default function ReglesDeliberation({ onClose, onFini }) {
               <div className="rounded-xl border border-slate-300 bg-slate-50 overflow-hidden">
                 <div className="px-3 py-2 border-b border-slate-200 flex items-center gap-2">
                   <IconLock size={14} className="text-slate-500" />
-                  <span className="text-[13px] font-semibold text-slate-700">
+                  <span className="text-sm font-semibold text-slate-700">
                     Ce que le décret impose — non modifiable
                   </span>
                 </div>
                 <div className="divide-y divide-slate-200">
                   {(etat.verrous || []).map((v, i) => (
-                    <div key={i} className="px-3 py-1.5 flex items-baseline gap-2 text-[12px]">
+                    <div key={i} className="px-3 py-1.5 flex items-baseline gap-2 text-second">
                       <span className="flex-1 text-slate-700">{v.regle}</span>
-                      <span className="text-[11px] text-slate-400 whitespace-nowrap">{v.ref}</span>
+                      <span className="text-xs text-slate-400 whitespace-nowrap">{v.ref}</span>
                     </div>
                   ))}
                 </div>

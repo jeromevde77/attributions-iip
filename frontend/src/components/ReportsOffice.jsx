@@ -57,7 +57,7 @@ export default function ReportsOffice({ annee, onClose }) {
       onFermer={onClose}
       pied={
         <>
-          <span className="flex-1 min-w-0 text-[12px] text-slate-500">
+          <span className="flex-1 min-w-0 text-second text-slate-500">
             {fait ? 'Reports posés. Ils se posent désormais seuls à chaque PAE enregistré.'
               : rapport ? (lignes.length ? 'Rien n’est écrit tant que vous n’avez pas cliqué.' : 'Aucun report à poser.')
               : 'Recherche des cours reportables…'}
@@ -70,7 +70,7 @@ export default function ReportsOffice({ annee, onClose }) {
           <button className="bouton" onClick={onClose}>Fermer</button>
         </>
       }>
-      <div className="space-y-3 text-[13px]">
+      <div className="space-y-3 text-sm">
         <div className="flex gap-1 border-b border-slate-200">
           <button type="button" onClick={() => setFace('poser')} className={`onglet-page ${face === 'poser' ? 'onglet-page-actif' : ''}`}>
             À poser{rapport ? ` (${lignes.length})` : ''}
@@ -94,9 +94,9 @@ export default function ReportsOffice({ annee, onClose }) {
             </div>
             {!!lignes.length && (
               <div className="border border-slate-200 rounded-carte overflow-hidden">
-                <table className="w-full text-[12px]">
+                <table className="w-full text-second">
                   <thead className="tab-entete">
-                    <tr className="text-left text-[11px] text-slate-500">
+                    <tr className="text-left text-xs text-slate-500">
                       <th className="px-3 py-1.5">Étudiant</th>
                       <th className="px-2 py-1.5">UE</th>
                       <th className="px-2 py-1.5">Cours</th>
@@ -146,13 +146,13 @@ function DejaPoses({ poses, filtre, setFiltre, court }) {
           <TuileEtat etat="neutre" valeur={etu} libelle="Étudiants" />
         </div>
         <input value={filtre} onChange={e => setFiltre(e.target.value)} placeholder="Nom, section, unité ou cours…"
-          className="controle w-64 max-w-full border border-slate-300 rounded-champ bg-white text-[13px]" />
+          className="controle w-64 max-w-full border border-slate-300 rounded-champ bg-white text-sm" />
       </div>
       {!vus.length ? <p className="text-slate-400">{poses.length ? 'Aucun report ne correspond.' : 'Aucun report posé pour cette année.'}</p> : (
         <div className="border border-slate-200 rounded-carte overflow-hidden">
-          <table className="w-full text-[12px]">
+          <table className="w-full text-second">
             <thead className="tab-entete">
-              <tr className="text-left text-[11px] text-slate-500">
+              <tr className="text-left text-xs text-slate-500">
                 <th className="px-3 py-1.5">Étudiant</th>
                 <th className="px-2 py-1.5">UE</th>
                 <th className="px-2 py-1.5">Cours</th>

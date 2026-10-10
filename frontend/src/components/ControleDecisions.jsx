@@ -94,7 +94,7 @@ export default function ControleDecisions() {
     </tr>
   );
   const Entete = ({ cochable }) => (
-    <thead className="tab-entete"><tr className="text-left text-[11px] text-slate-500">
+    <thead className="tab-entete"><tr className="text-left text-xs text-slate-500">
       <th className="px-2 py-1.5 w-8">{cochable && !!ecarts.length && (
         <input type="checkbox" checked={retenus.length === ecarts.length} onChange={e => toutCocher(e.target.checked)} aria-label="Tout cocher" />)}</th>
       <th className="px-2 py-1.5">Étudiant</th><th className="px-2 py-1.5">Unité</th><th className="px-2 py-1.5">Décision</th>
@@ -103,10 +103,10 @@ export default function ControleDecisions() {
   );
 
   return (
-    <div className="space-y-3 text-[13px]">
+    <div className="space-y-3 text-sm">
       <div>
-        <div className="text-[15px] font-semibold text-iip-blue">Contrôle des notes de décision</div>
-        <p className="text-slate-500 text-[12px]">
+        <div className="text-base font-semibold text-iip-blue">Contrôle des notes de décision</div>
+        <p className="text-slate-500 text-second">
           La note d'unité enregistrée avec chaque décision, comparée à celle que Lucie calcule aujourd'hui — la même que
           le procès-verbal. C'est la note enregistrée que lisent l'attestation et le parcours. On corrige la cote, jamais
           la décision. Une décision reprise du classeur n'est pas cochée d'office : la note du classeur fait foi.
@@ -136,16 +136,16 @@ export default function ControleDecisions() {
 
           {!!ecarts.length && (
             <div className="border border-slate-200 rounded-carte overflow-x-auto">
-              <table className="w-full text-[12px]"><Entete cochable /><tbody>
+              <table className="w-full text-second"><Entete cochable /><tbody>
                 {ecarts.map(l => <Ligne key={cle(l)} l={l} cochable />)}
               </tbody></table>
             </div>
           )}
 
           {!!retenus.length && (
-            !direction ? <p className="text-slate-500 text-[12px]">La correction est un geste de direction.</p> : (
+            !direction ? <p className="text-slate-500 text-second">La correction est un geste de direction.</p> : (
               <div className="space-y-2 max-w-3xl">
-                <label className="block text-[12px] text-slate-600">Motif de la correction (écrit au journal de chaque décision)
+                <label className="block text-second text-slate-600">Motif de la correction (écrit au journal de chaque décision)
                   <textarea className="controle w-full h-auto py-1.5 mt-1" rows={2} value={motif} onChange={e => setMotif(e.target.value)}
                     placeholder="Ex. : la note enregistrée était celle de l'écran avant le réglage de l'évaluation unique ; alignée sur le calcul du procès-verbal." />
                 </label>
@@ -153,7 +153,7 @@ export default function ControleDecisions() {
                   <div className="flex items-center gap-3 flex-wrap">
                     <button className="bouton bouton-fort" disabled={enCours || motif.trim().length < 5} onClick={() => setConfirmer(true)}>
                       Corriger {retenus.length} note(s)</button>
-                    {motif.trim().length < 5 && <span className="text-slate-500 text-[12px]">Une correction se motive.</span>}
+                    {motif.trim().length < 5 && <span className="text-slate-500 text-second">Une correction se motive.</span>}
                   </div>
                 ) : (
                   <div data-etat="surveiller" className="bloc-etat px-3 py-2 flex items-center gap-3 flex-wrap">
@@ -168,14 +168,14 @@ export default function ControleDecisions() {
 
           {!!aTrancher.length && (
             <div className="space-y-1.5">
-              <div className="text-[13px] font-semibold">À reprendre en séance — « réussi » sous le seuil, sans faveur</div>
-              <p className="text-slate-500 text-[12px]">
+              <div className="text-sm font-semibold">À reprendre en séance — « réussi » sous le seuil, sans faveur</div>
+              <p className="text-slate-500 text-second">
                 Ici la cote n'est pas en cause : le calcul place l'unité sous dix et aucune faveur n'est enregistrée. Deux
                 issues, et elles appartiennent au Conseil : poser la faveur (l'unité vaudra dix), ou revenir sur le résultat.
                 Délibération → la séance de l'unité → <i>Corriger ou rouvrir…</i>
               </p>
               <div className="border border-slate-200 rounded-carte overflow-x-auto">
-                <table className="w-full text-[12px]"><Entete /><tbody>
+                <table className="w-full text-second"><Entete /><tbody>
                   {aTrancher.map(l => <Ligne key={cle(l)} l={l} />)}
                 </tbody></table>
               </div>
@@ -183,11 +183,11 @@ export default function ControleDecisions() {
           )}
 
           {!!journal?.length && (
-            <details className="text-[12px]">
+            <details className="text-second">
               <summary className="cursor-pointer text-slate-600">Journal des corrections ({journal.length})</summary>
               <div className="border border-slate-200 rounded-carte overflow-x-auto mt-1.5">
-                <table className="w-full text-[12px]">
-                  <thead className="tab-entete"><tr className="text-left text-[11px] text-slate-500">
+                <table className="w-full text-second">
+                  <thead className="tab-entete"><tr className="text-left text-xs text-slate-500">
                     <th className="px-2 py-1.5">Le</th><th className="px-2 py-1.5">Par</th><th className="px-2 py-1.5">Étudiant</th>
                     <th className="px-2 py-1.5">Unité</th><th className="px-2 py-1.5 text-right">Avant</th><th className="px-2 py-1.5 text-right">Après</th>
                     <th className="px-2 py-1.5">Motif</th></tr></thead>

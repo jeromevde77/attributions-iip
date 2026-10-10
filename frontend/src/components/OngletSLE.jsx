@@ -82,23 +82,23 @@ export default function OngletSLE({ etudId, annee: anneeDepart }) {
   }
 
   if (erreur) return <Encadre etat="corriger">{erreur}</Encadre>;
-  if (!sle || !a1) return <p className="text-[13px] text-slate-400">Chargement du dossier SLE…</p>;
+  if (!sle || !a1) return <p className="text-sm text-slate-400">Chargement du dossier SLE…</p>;
   const peut = !!sle.peut_ecrire;
   const def = f.situation === 'definitive';
   const admis = f.situation === 'admis' || f.situation === 'preparatoire_admis';
   const credits = a1.credits_annee;
   const sous54 = def && Number(credits) < 54;
   const manques = [...new Set([...(a1.manques || []), ...(a2?.manques || [])])];
-  const lab = 'block text-[12px] text-slate-600';
+  const lab = 'block text-second text-slate-600';
   const proposition = sle.propositions?.motif_a2 || '';
 
   return (
-    <fieldset disabled={!peut} className={`space-y-4 text-[13px] ${peut ? '' : 'ligne-lecture'}`}>
+    <fieldset disabled={!peut} className={`space-y-4 text-sm ${peut ? '' : 'ligne-lecture'}`}>
       <div className="flex flex-wrap items-center gap-2">
-        <select className="controle text-[13px]" value={annee} onChange={e => setAnnee(e.target.value)}>
+        <select className="controle text-sm" value={annee} onChange={e => setAnnee(e.target.value)}>
           {(annees.length ? annees : [annee]).map(a => <option key={a} value={a}>{a}</option>)}
         </select>
-        <span className="text-[12px] text-slate-500">
+        <span className="text-second text-slate-500">
           {sle.enregistre ? `Enregistré${sle.enregistre.maj_par ? ` par ${sle.enregistre.maj_par}` : ''} le ${String(sle.enregistre.maj_le || '').slice(0, 10).split('-').reverse().join('/')}` : 'Rien d’enregistré pour cette année : Lucie propose, à vous de confirmer.'}
         </span>
         <span className="flex-1" />
@@ -116,7 +116,7 @@ export default function OngletSLE({ etudId, annee: anneeDepart }) {
         </Encadre>
       )}
 
-      <div className="text-[12.5px] text-slate-600">
+      <div className="text-second text-slate-600">
         Ce que Lucie sait déjà : <b>{a1.formation?.grade || 'grade à régler'}</b>
         {a1.formation?.total_ects ? ` · ${a1.formation.total_ects} ECTS pour la formation` : ''}
         {credits != null ? ` · ${credits} crédits au programme ${annee}` : ''}
@@ -127,13 +127,13 @@ export default function OngletSLE({ etudId, annee: anneeDepart }) {
           « largeur… ») — l'une sous l'autre sur un écran étroit. */}
       <div className="grid gap-4 xl:grid-cols-2 items-start">
       <section className="border border-slate-200 rounded-carte p-3 space-y-2">
-        <div className="text-[14px] font-semibold">Annexe 1 — visa ou titre de séjour</div>
+        <div className="text-sm font-semibold">Annexe 1 — visa ou titre de séjour</div>
         <fieldset className="space-y-1">
-          <legend className="text-[12px] font-semibold text-slate-600 mb-1">Situation de l'étudiant</legend>
+          <legend className="text-second font-semibold text-slate-600 mb-1">Situation de l'étudiant</legend>
           {Object.entries(a1.situations || {}).map(([k, l]) => (
             <label key={k} className="flex items-center gap-2">
               <input type="radio" name="sle-situation" checked={f.situation === k} onChange={() => set('situation', k)} /> {l}
-              {k === a1.situation_proposee && <span className="text-[11px] text-slate-400">— proposée par Lucie</span>}
+              {k === a1.situation_proposee && <span className="text-xs text-slate-400">— proposée par Lucie</span>}
             </label>
           ))}
         </fieldset>
@@ -148,10 +148,10 @@ export default function OngletSLE({ etudId, annee: anneeDepart }) {
             <input type="date" className="controle w-56 block" value={f.date_ultime} onChange={e => set('date_ultime', e.target.value)} /></label>
         )}
         <div className="flex flex-wrap items-center gap-4">
-          <span className="text-[12px] text-slate-600">Mobilité dans un autre État membre cette année :</span>
+          <span className="text-second text-slate-600">Mobilité dans un autre État membre cette année :</span>
           <label className="flex items-center gap-1"><input type="radio" checked={!f.mobilite} onChange={() => set('mobilite', false)} /> Non</label>
           <label className="flex items-center gap-1"><input type="radio" checked={f.mobilite} onChange={() => set('mobilite', true)} /> Oui</label>
-          {f.mobilite && <label className="text-[12px] text-slate-600 flex items-center gap-1">durée
+          {f.mobilite && <label className="text-second text-slate-600 flex items-center gap-1">durée
             <input className="controle w-16" value={f.mobilite_mois} onChange={e => set('mobilite_mois', e.target.value)} /> mois</label>}
         </div>
         {def && (
@@ -167,11 +167,11 @@ export default function OngletSLE({ etudId, annee: anneeDepart }) {
       </section>
 
       <section className="border border-slate-200 rounded-carte p-3 space-y-2">
-        <div className="text-[14px] font-semibold">Annexe 2 — progrès des études au terme de {annee}</div>
+        <div className="text-sm font-semibold">Annexe 2 — progrès des études au terme de {annee}</div>
         <label className={lab}>Raisons pour lesquelles l'étudiant(e) n'a pas obtenu ses crédits
           <textarea className="controle w-full h-20 py-1.5" value={f.motif_a2} data-reponses="sle-motif"
             onChange={e => set('motif_a2', e.target.value)} /></label>
-        <div className="text-[11.5px] text-slate-500">
+        <div className="text-xs text-slate-500">
           {proposition
             ? <>Proposé par Lucie à partir des résultats de {annee}. {f.motif_a2 !== proposition && peut && (
                 <button type="button" className="underline text-iip-blue" onClick={() => set('motif_a2', proposition)}>reprendre la proposition</button>)}</>

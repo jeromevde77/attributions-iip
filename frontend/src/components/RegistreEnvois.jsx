@@ -81,18 +81,18 @@ export default function RegistreEnvois() {
   };
 
   return (
-    <div className="space-y-3 text-[13px]">
+    <div className="space-y-3 text-sm">
       <div>
-        <div className="text-[15px] font-semibold text-iip-blue">Registre des envois</div>
-        <p className="text-slate-500 text-[12px]">
+        <div className="text-base font-semibold text-iip-blue">Registre des envois</div>
+        <p className="text-slate-500 text-second">
           Tout courriel parti de Lucie — délibération, éditions, aperçus, diplomation, aménagements : quand, par qui, à
           qui, et ce qu'il contenait. Depuis le 30 septembre 2026, chaque envoi garde aussi une copie du document, refaite
           à l'identique (même signature, même référence). Les envois antérieurs disent à qui et quand, pas quoi.
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <label className="text-[12px] text-slate-500">Du <input type="date" className="controle ml-1" value={du} onChange={e => setDu(e.target.value)} /></label>
-        <label className="text-[12px] text-slate-500">au <input type="date" className="controle ml-1" value={au} onChange={e => setAu(e.target.value)} /></label>
+        <label className="text-second text-slate-500">Du <input type="date" className="controle ml-1" value={du} onChange={e => setDu(e.target.value)} /></label>
+        <label className="text-second text-slate-500">au <input type="date" className="controle ml-1" value={au} onChange={e => setAu(e.target.value)} /></label>
         <select className="controle" value={par} onChange={e => setPar(e.target.value)} aria-label="Envoyé par">
           <option value="">Tous les expéditeurs</option>
           {expediteurs.map(x => <option key={x} value={x}>{x}</option>)}
@@ -111,8 +111,8 @@ export default function RegistreEnvois() {
           {!lots.length && <p className="text-slate-500">Aucun envoi sur cette période.</p>}
           {!!lots.length && (
             <div className="border border-slate-200 rounded-carte overflow-x-auto">
-              <table className="w-full text-[12px]">
-                <thead className="tab-entete"><tr className="text-left text-[11px] text-slate-500">
+              <table className="w-full text-second">
+                <thead className="tab-entete"><tr className="text-left text-xs text-slate-500">
                   <th className="px-2 py-1.5">Quand</th><th className="px-2 py-1.5">Par</th>
                   <th className="px-2 py-1.5">Quoi</th><th className="px-2 py-1.5 text-right">Courriels</th></tr></thead>
                 <tbody>
@@ -139,7 +139,7 @@ export default function RegistreEnvois() {
                           <td className="px-2 py-1 whitespace-nowrap"><b>{l.destinataire_nom}</b>
                             <span className="block text-slate-400">{l.email}</span></td>
                           <td className="px-2 py-1 text-slate-600">{l.contenu || <i className="text-slate-400">—</i>}
-                            <span className="block text-[11px] text-slate-400">{l.nom_fichier || (l.mode === 'corps' ? 'dans le corps du courriel' : '')}
+                            <span className="block text-xs text-slate-400">{l.nom_fichier || (l.mode === 'corps' ? 'dans le corps du courriel' : '')}
                               {l.reference ? ` · réf. ${l.reference}` : ''}{l.erreur ? ` · ${l.erreur}` : ''}</span></td>
                           <td className="px-2 py-1 text-right whitespace-nowrap">
                             <span className="pastille-etat" data-etat={(STATUT[l.statut] || [l.statut, 'neutre'])[1]}>{(STATUT[l.statut] || [l.statut])[0]}</span>

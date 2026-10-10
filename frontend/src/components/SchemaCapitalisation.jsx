@@ -197,7 +197,7 @@ export default function SchemaCapitalisation({
     };
   }, [data, mode]);
 
-  if (!data) return <div className="py-4 text-[12px] text-slate-400">Chargement du schéma…</div>;
+  if (!data) return <div className="py-4 text-second text-slate-400">Chargement du schéma…</div>;
   if (!data.nodes?.length) return (
     <div className="text-center py-6 text-slate-400 text-sm border-2 border-dashed rounded-xl">
       Aucune UE au référentiel pour ce périmètre.
@@ -320,7 +320,7 @@ export default function SchemaCapitalisation({
             <b className="text-iip-blue font-semibold">Schéma</b> · {resume}
           </span>
         ) : (
-          <span className="text-[13px] font-semibold text-iip-blue truncate">
+          <span className="text-sm font-semibold text-iip-blue truncate">
             {titre}
             <span className="ml-2 font-normal text-slate-500">
               {resume}{onNoeud ? ' · cliquer une unité pour voir ses notes' : ''}
@@ -332,17 +332,17 @@ export default function SchemaCapitalisation({
       {ouvert && layout && (
         <div className="flex items-center gap-1 flex-none">
           <button type="button" onClick={() => setZoom(z => Math.max(0.8, Math.round((z - 0.25) * 100) / 100))}
-            disabled={zoom <= 0.8} className="w-6 h-6 rounded border border-slate-200 bg-white text-slate-600 text-[13px] leading-none disabled:opacity-40"
+            disabled={zoom <= 0.8} className="w-6 h-6 rounded border border-slate-200 bg-white text-slate-600 text-sm leading-none disabled:opacity-40"
             title="Réduire">−</button>
           <button type="button" onClick={() => setZoom(1)}
-            className="px-1.5 h-6 rounded border border-slate-200 bg-white text-slate-600 text-[11px] tabular-nums"
+            className="px-1.5 h-6 rounded border border-slate-200 bg-white text-slate-600 text-xs tabular-nums"
             title="Revenir à la taille normale">{Math.round(zoom * 100)} %</button>
           <button type="button" onClick={() => setZoom(z => Math.min(3, Math.round((z + 0.25) * 100) / 100))}
-            disabled={zoom >= 3} className="w-6 h-6 rounded border border-slate-200 bg-white text-slate-600 text-[13px] leading-none disabled:opacity-40"
+            disabled={zoom >= 3} className="w-6 h-6 rounded border border-slate-200 bg-white text-slate-600 text-sm leading-none disabled:opacity-40"
             title="Agrandir">+</button>
         </div>
       )}
-      <button type="button" onClick={() => setOuvert(o => !o)} className="text-[11px] text-slate-400 hover:text-iip-blue flex-none">
+      <button type="button" onClick={() => setOuvert(o => !o)} className="text-xs text-slate-400 hover:text-iip-blue flex-none">
         {ouvert ? 'Masquer' : 'Afficher'}
       </button>
   </>);
@@ -358,7 +358,7 @@ export default function SchemaCapitalisation({
            « gagnons en hauteur, on peut tout mettre sur une ligne ») : le
            compte, le zoom et « Masquer » à côté de « Changer de section… », de
            l'œil et de l'avion — une rangée de moins au-dessus du schéma. */
-        <div className="flex items-center gap-2 min-w-0 text-[12px]">{entete(true)}</div>, enteteDans)
+        <div className="flex items-center gap-2 min-w-0 text-second">{entete(true)}</div>, enteteDans)
         : <div className="entete-plat">{entete(false)}</div>}
 
       {ouvert && layout && (
@@ -643,7 +643,7 @@ export default function SchemaCapitalisation({
           {mode === 'structure' && onLien && (
             <div className="px-3 py-2 border-t border-slate-200 bg-white flex items-center gap-3 flex-wrap">
               <button onClick={() => { setModeLien(m => !m); setSelection(null); }}
-                className={`text-[12px] px-3 py-1.5 rounded-lg border font-medium transition ${modeLien
+                className={`text-second px-3 py-1.5 rounded-lg border font-medium transition ${modeLien
                   ? 'bg-iip-turquoise text-white border-iip-turquoise'
                   : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
                 {modeLien ? 'Terminer les liens' : 'Modifier les prérequis'}
@@ -656,14 +656,14 @@ export default function SchemaCapitalisation({
                       title={v === 'interne'
                         ? "Fondé sur des motifs pédagogiques : avertit l'étudiant sans lui interdire l'UE"
                         : "Imposé par le dossier pédagogique : bloque tant qu'il n'est pas acquis"}
-                      className={`px-2.5 py-1 text-[12px] ${natureLien === v
+                      className={`px-2.5 py-1 text-second ${natureLien === v
                         ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>
                       {l}
                     </button>
                   ))}
                 </div>
               )}
-              <span className="text-[11px] text-slate-500 flex-1">
+              <span className="text-xs text-slate-500 flex-1">
                 {modeLien
                   ? "Tirez depuis la pastille droite d'une UE vers celle qu'elle conditionne. Cliquez un trait pour le supprimer."
                   : "La flèche prend la couleur du bloc où elle arrive : orange BA1, bleu clair BA2, marine BA3. Pointillé : règle interne, qui avertit sans interdire. Ocre : prérequis placé après l'UE qui en dépend."}
@@ -675,25 +675,25 @@ export default function SchemaCapitalisation({
             <div className="px-3 py-2 border-t border-slate-200 bg-white">
               {selection ? (
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[12px] text-slate-600">
+                  <span className="text-second text-slate-600">
                     UE <b className="text-iip-blue">{selection}</b> — placer en&nbsp;:
                   </span>
                   {niveauxPossibles.map(v => (
                     <button key={v}
                       onClick={() => { onNiveau(selection, v); setSelection(null); }}
-                      className="text-[12px] px-2.5 py-1 rounded-lg border border-slate-300 hover:bg-iip-blue hover:text-white hover:border-iip-blue transition">
+                      className="text-second px-2.5 py-1 rounded-lg border border-slate-300 hover:bg-iip-blue hover:text-white hover:border-iip-blue transition">
                       {v}
                     </button>
                   ))}
                   <button onClick={() => { onNiveau(selection, ''); setSelection(null); }}
-                    className="text-[12px] px-2.5 py-1 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50">
+                    className="text-second px-2.5 py-1 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50">
                     Valeur du référentiel
                   </button>
                   <button onClick={() => setSelection(null)}
-                    className="text-[12px] px-2 py-1 text-slate-400">Annuler</button>
+                    className="text-second px-2 py-1 text-slate-400">Annuler</button>
                 </div>
               ) : (
-                <div className="text-[11px] text-slate-400">
+                <div className="text-xs text-slate-400">
                   Glissez une UE vers une autre colonne pour changer son année d'études,
                   ou cliquez-la pour choisir dans une liste. Les prérequis, eux, viennent du
                   dossier pédagogique et ne bougent pas. Une flèche ambre signale un prérequis
@@ -704,7 +704,7 @@ export default function SchemaCapitalisation({
           )}
 
           {mode === 'etudiant' && (
-            <div className="flex flex-wrap items-center gap-3 px-1 pt-2 text-[11px] text-slate-500">
+            <div className="flex flex-wrap items-center gap-3 px-1 pt-2 text-xs text-slate-500">
               {['acquise', 'faveur', 'accessible', 'sous_reserve', 'en_attente', 'bloquee'].map(k => (
                 <span key={k} className="flex items-center gap-1.5">
                   <span className="inline-block w-3.5 h-3 rounded-r-sm"

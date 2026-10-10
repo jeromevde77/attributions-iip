@@ -25,10 +25,10 @@ const min = h => { const [a, b] = String(h).split(':').map(Number); return a * 6
 
 export function LegendeDispo({ libre = 'libre' }) {
   return (
-    <span className="inline-flex flex-wrap items-center gap-3 text-[11.5px] text-slate-600">
+    <span className="inline-flex flex-wrap items-center gap-3 text-xs text-slate-600">
       {[1, 2, 0].map(v => (
         <span key={v} className="inline-flex items-center gap-1">
-          <span className="inline-block w-3.5 h-3.5 rounded-[3px]" style={{ background: DISPO[v].fond }} />{v === 1 ? libre : DISPO[v].nom}</span>))}
+          <span className="inline-block w-3.5 h-3.5 rounded-pastille" style={{ background: DISPO[v].fond }} />{v === 1 ? libre : DISPO[v].nom}</span>))}
     </span>
   );
 }
@@ -69,31 +69,31 @@ export default function AgendaSemaine({
           return (
             <div key={j} className="min-w-0">
               <div className="h-[18px] text-center font-semibold text-slate-500">{NOMS_JOURS[j]}</div>
-              <div className="relative rounded-[6px]" style={{ height: haut, background: 'color-mix(in srgb, var(--c-texte, #1B2B4B) 4%, transparent)' }}>
+              <div className="relative rounded-pastille" style={{ height: haut, background: 'color-mix(in srgb, var(--c-texte, #1B2B4B) 4%, transparent)' }}>
                 {heures.map(h => <div key={h} className="absolute left-0 right-0 border-t border-slate-200/70" style={{ top: (h * 60 - debutJour) * ppm }} />)}
                 {fantomes.map(m => (
                   <button key={`f${m.debut}`} type="button" disabled={desactive} onClick={() => onCase?.(j, m, 'ajouter')}
-                    className="absolute left-[2px] right-[2px] rounded-[5px] border border-dashed border-slate-300 text-slate-400 hover:border-slate-500 hover:text-slate-600"
+                    className="absolute left-[2px] right-[2px] rounded-pastille border border-dashed border-slate-300 text-slate-400 hover:border-slate-500 hover:text-slate-600"
                     style={{ top: y(m.debut), height: Math.max(8, (min(m.fin) - min(m.debut)) * ppm - 2) }}
                     title={`${NOMS_JOURS[j]} ${m.debut}–${m.fin} : ajouter ce bloc`}>{!compact && '+'}</button>))}
                 {blocs.map(c => {
                   const h = Math.max(8, (min(c.fin) - min(c.debut)) * ppm - 2);
                   if (mode === 'base') return (
                     <button key={c.debut} type="button" disabled={desactive} onClick={() => onCase?.(j, c, 'retirer')}
-                      className="absolute left-[2px] right-[2px] rounded-[5px] text-white font-semibold leading-tight overflow-hidden"
+                      className="absolute left-[2px] right-[2px] rounded-pastille text-white font-semibold leading-tight overflow-hidden"
                       style={{ top: y(c.debut), height: h, background: 'var(--c-principal, #16406A)' }}
                       title={`${NOMS_JOURS[j]} ${c.debut}–${c.fin} : retirer ce bloc`}>
                       {!compact && <span className="block tabular-nums">{c.debut}<br />{c.fin}</span>}</button>);
                   const v = valeur(j, c), st = DISPO[v], par = herite?.(j, c);
                   return (
                     <button key={c.debut} type="button" disabled={desactive} onClick={() => onCase?.(j, c)}
-                      className="absolute left-[2px] right-[2px] rounded-[5px] text-white font-bold leading-tight overflow-hidden"
+                      className="absolute left-[2px] right-[2px] rounded-pastille text-white font-bold leading-tight overflow-hidden"
                       style={{ top: y(c.debut), height: h, background: par?.v === 0 ? 'var(--c-fond_indispo, #E2E8F0)' : st.fond, color: par?.v === 0 ? '#64748B' : '#fff', opacity: v === 1 && par?.v !== 0 ? 0.88 : 1, cursor: desactive ? 'default' : 'pointer' }}
                       title={`${NOMS_JOURS[j]} ${c.debut}–${c.fin} : ${st.nom}${par ? ` — déjà ${DISPO[par.v].nom} par ${par.par}` : ''}${desactive ? '' : ' — cliquer pour changer'}`}>
                       {compact ? st.signe : <>
-                        <span className="block tabular-nums font-semibold text-[10px] opacity-90">{c.debut}</span>
-                        <span className="block text-[13px]">{st.signe}</span>
-                        {par && <span className="block text-[9.5px] font-semibold opacity-95">{par.v === 0 ? '✕' : '?'} {par.par}</span>}
+                        <span className="block tabular-nums font-semibold text-mention opacity-90">{c.debut}</span>
+                        <span className="block text-sm">{st.signe}</span>
+                        {par && <span className="block text-mention font-semibold opacity-95">{par.v === 0 ? '✕' : '?'} {par.par}</span>}
                       </>}
                     </button>);
                 })}

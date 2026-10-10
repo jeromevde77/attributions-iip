@@ -40,17 +40,17 @@ export const VERDICTS = {
  * ne se colore pas.
  */
 export function Pastille({ def, occupe = false }) {
-  const base = 'w-full h-[20px] justify-center rounded-[4px]';
+  const base = 'w-full h-[20px] justify-center rounded-pastille';
   if (!def?.etat) {
     return (
-      <span className={`inline-flex items-center ${base} text-[10px] text-slate-300 border border-slate-200 bg-white`}>
+      <span className={`inline-flex items-center ${base} text-mention text-slate-300 border border-slate-200 bg-white`}>
         {occupe ? '…' : (def?.texte || '—')}
       </span>
     );
   }
   if (def.etat === 'reserve') {
     return (
-      <span className={`inline-flex items-center ${base} text-[10px] font-semibold border border-dashed bg-white whitespace-nowrap`}
+      <span className={`inline-flex items-center ${base} text-mention font-semibold border border-dashed bg-white whitespace-nowrap`}
         style={{ borderColor: 'var(--c-reussi)', color: 'var(--c-texte)' }}>
         {occupe ? '…' : def.texte}
       </span>
@@ -70,7 +70,7 @@ export function CaseDroit({ niveau, onClick, disabled, title, occupe, note }) {
     <button type="button" onClick={onClick} disabled={disabled} title={title}
       className={`block w-full ${disabled ? 'cursor-default' : 'cursor-pointer hover:opacity-80'}`}>
       <Pastille def={def} occupe={occupe} />
-      {note && <span aria-hidden="true" className="block text-[9px] leading-none text-slate-400 mt-0.5">{note}</span>}
+      {note && <span aria-hidden="true" className="block text-mention leading-none text-slate-400 mt-0.5">{note}</span>}
     </button>
   );
 }
@@ -80,7 +80,7 @@ export function EnteteModules() {
   return MODULES_ACCES.map(m => (
     <th key={m.key} className={`${COL_MODULE} px-1 py-1.5 align-bottom font-normal`} title={m.desc}>
       <div className="flex justify-center"><m.Icone size={14} stroke={1.6} /></div>
-      <div className="text-[10px] leading-tight mt-0.5 normal-case tracking-normal">{m.label}</div>
+      <div className="text-mention leading-tight mt-0.5 normal-case tracking-normal">{m.label}</div>
     </th>
   ));
 }
@@ -88,7 +88,7 @@ export function EnteteModules() {
 /** La légende, toujours au pied de la carte. */
 export function Legende({ defs, children }) {
   return (
-    <div className="px-4 py-2 border-t border-slate-200 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-600">
+    <div className="px-4 py-2 border-t border-slate-200 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600">
       {Object.values(defs).map(d => (
         <span key={d.texte} className="inline-flex items-center gap-1.5">
           <span className="inline-block w-[72px]"><Pastille def={d} /></span>{d.aide}
@@ -104,8 +104,8 @@ export function TitreCarte({ titre, children, droite }) {
   return (
     <div className="px-4 py-2.5 border-b border-slate-200 flex items-center gap-3 flex-wrap">
       <div className="min-w-0 flex-1">
-        <div className="text-[15px] font-semibold" style={{ color: 'var(--c-texte)' }}>{titre}</div>
-        {children && <div className="text-[12px] text-slate-500">{children}</div>}
+        <div className="text-base font-semibold" style={{ color: 'var(--c-texte)' }}>{titre}</div>
+        {children && <div className="text-second text-slate-500">{children}</div>}
       </div>
       {droite}
     </div>

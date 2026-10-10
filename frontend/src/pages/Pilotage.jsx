@@ -3,7 +3,7 @@ import { IconReportAnalytics, IconReportMoney } from '@tabler/icons-react';
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import { api, getAnnee, getUser, authHeaders } from '../lib/api.js';
 import { IconChartBar, IconHome, IconUsers, IconSettings, IconChevronRight, IconChevronDown, IconPrinter, IconRotateClockwise, IconCheck, IconX, IconTrash, IconCash, IconCalendar, IconArrowsLeftRight, IconScale, IconUsersGroup } from '@tabler/icons-react';
-import { PageHeader, Tabs, RailLateral, OuvrirEditions } from '../components/ui.jsx';
+import { PageHeader, Tabs, RailLateral, OuvrirEditions, TuileEtat } from '../components/ui.jsx';
 import Distributions from '../components/Distributions.jsx';
 import Population from '../components/Population.jsx';
 import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
@@ -65,14 +65,10 @@ function trafficColor(p) {
 function trafficBg() { return ''; }
 
 // ── KPI card ─────────────────────────────────────────────────────────────────
-function Kpi({ label, value, sub, color = 'text-iip-gold' }) {
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-      <div className="text-xs uppercase tracking-wider text-gray-500">{label}</div>
-      <div className={`text-2xl font-bold mt-1 ${color}`}>{value}</div>
-      {sub && <div className="text-xs text-gray-500 mt-1">{sub}</div>}
-    </div>
-  );
+// LE STANDARD (3.1.249) : la tuile de la maison ; la couleur devient un état.
+const etatDeCouleur = c => /emerald|green|reussi/.test(c || '') ? 'reussi' : /amber|orange|attente/.test(c || '') ? 'surveiller' : /red|danger|refuse/.test(c || '') ? 'corriger' : /violet|purple|faveur/.test(c || '') ? 'faveur' : 'neutre';
+function Kpi({ label, value, sub, color = '' }) {
+  return <TuileEtat etat={etatDeCouleur(color)} valeur={value} libelle={label} precision={sub} />;
 }
 
 // ── Barre de progression ──────────────────────────────────────────────────────
@@ -113,12 +109,12 @@ function ExtDotPanel({ annee }) {
               <div key={pot} data-etat="reussi" className="bloc-etat p-3">
                 <div className="flex justify-between items-center mb-1">
                   <span className="font-bold text-sm">{pot}</span>
-                  <span className="text-[10px] bg-teal-500 text-white px-1.5 py-0.5 rounded font-bold">∞ Illimité</span>
+                  <span className="text-mention bg-teal-500 text-white px-1.5 py-0.5 rounded font-bold">∞ Illimité</span>
                 </div>
                 <div className="text-xs text-gray-600 mb-2">
                   Enveloppe <b>illimitée</b> · Consommé : <b>{v.consomme}</b> pér. B
                 </div>
-                <div className="text-[11px] text-teal-700 mt-1">Aucune charge sur la dotation organique.</div>
+                <div className="text-xs text-teal-700 mt-1">Aucune charge sur la dotation organique.</div>
               </div>
             );
           }
@@ -126,7 +122,7 @@ function ExtDotPanel({ annee }) {
             <div key={pot} data-etat={depasse ? 'corriger' : 'reussi'} className="bloc-etat p-3">
               <div className="flex justify-between items-center mb-1">
                 <span className="font-bold text-sm">{pot}</span>
-                {depasse && <span className="text-[10px] bg-orange-500 text-white px-1.5 py-0.5 rounded font-bold">⚠ DOT {v.dot} pér. B</span>}
+                {depasse && <span className="text-mention bg-orange-500 text-white px-1.5 py-0.5 rounded font-bold">⚠ DOT {v.dot} pér. B</span>}
               </div>
               <div className="text-xs text-gray-600 mb-2">
                 Plafond EXT : <b>{v.plafond}</b> pér. B · Consommé : <b>{v.consomme}</b> pér. B
@@ -134,7 +130,7 @@ function ExtDotPanel({ annee }) {
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div className={`h-2 rounded-full ${depasse ? 'bg-orange-500' : 'bg-teal-500'}`} style={{ width: `${Math.min(100,pct)}%` }} />
               </div>
-              <div className="text-[10px] text-gray-500 mt-1 text-right">{pct}% du plafond</div>
+              <div className="text-mention text-gray-500 mt-1 text-right">{pct}% du plafond</div>
               {depasse && (
                 <div className="text-xs text-orange-700 mt-2 font-medium">
                   ⚠ {v.dot} pér. B au-delà du plafond → à charge de la dotation organique
@@ -157,31 +153,31 @@ function EnvCard({ env }) {
       {/* Nom + code */}
       <div className="min-w-0 flex-1">
         <div className="text-xs font-semibold text-gray-700 truncate">{env.label}</div>
-        <div className="text-[10px] text-gray-400">{env.code}</div>
+        <div className="text-mention text-gray-400">{env.code}</div>
       </div>
       {/* Alloc / Utilisé / Solde */}
       <div className="flex items-center gap-3 text-center flex-shrink-0">
         <div>
-          <div className="text-[10px] text-gray-400 uppercase">Alloc.</div>
+          <div className="text-mention text-gray-400 uppercase">Alloc.</div>
           <div className="text-xs font-bold text-gray-600">{fmt(env.periodes_b)}</div>
         </div>
         <div>
-          <div className="text-[10px] text-gray-400 uppercase">Utilisé</div>
+          <div className="text-mention text-gray-400 uppercase">Utilisé</div>
           <div className={`text-xs font-bold ${trafficColor(env.pct)}`}>{fmt(env.usage)}</div>
         </div>
         <div>
-          <div className="text-[10px] text-gray-400 uppercase">Solde</div>
+          <div className="text-mention text-gray-400 uppercase">Solde</div>
           <div className={`text-xs font-bold ${env.solde < 0 ? 'text-red-600' : 'text-green-700'}`}>{sign(env.solde)}{fmt(env.solde)}</div>
         </div>
       </div>
       {/* Barre + % */}
       <div className="w-20 flex-shrink-0">
         <ProgressBar pct={env.pct} />
-        <div className={`text-[10px] text-right font-medium mt-0.5 ${trafficColor(env.pct)}`}>{pct(env.pct)}</div>
+        <div className={`text-mention text-right font-medium mt-0.5 ${trafficColor(env.pct)}`}>{pct(env.pct)}</div>
       </div>
       {/* Badge dépassement */}
       {depasse && (
-        <span className="text-[10px] bg-orange-500 text-white border border-orange-500 px-1.5 py-0.5 rounded font-bold flex-shrink-0 whitespace-nowrap">
+        <span className="text-mention bg-orange-500 text-white border border-orange-500 px-1.5 py-0.5 rounded font-bold flex-shrink-0 whitespace-nowrap">
           ⚠ +{fmt(dot)}
         </span>
       )}
@@ -193,7 +189,7 @@ function EnvCard({ env }) {
 function ChartTip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-lg text-xs">
+    <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-flottant text-xs">
       <div className="font-semibold mb-1">Civile {label}</div>
       {payload.map(p => (
         <div key={p.name} className="flex items-center gap-2">
@@ -416,7 +412,7 @@ function DotationComparaison({ civil }) {
                   style={{borderLeft:'1px solid rgba(255,255,255,.18)'}}>{annee2}</th>
                 <Th col="delta" align="center" rowSpan={2} style={{borderLeft:'1px solid rgba(255,255,255,.18)',verticalAlign:'bottom',paddingBottom:'0.5rem'}}>Δ</Th>
               </tr>
-              <tr className="text-white/80 text-[10px]" style={{ background: 'var(--c-principal)' }}>
+              <tr className="text-white/80 text-mention" style={{ background: 'var(--c-principal)' }}>
                 <Th col="q1a" align="right" style={{borderLeft:'1px solid rgba(255,255,255,.12)',fontWeight:'normal'}}>Q1</Th>
                 <Th col="q2a" align="right" style={{fontWeight:'normal'}}>Q2</Th>
                 <Th col="ta" align="right" style={{fontWeight:'600'}}>Total</Th>
@@ -460,7 +456,7 @@ function DotationComparaison({ civil }) {
                           <span className="text-gray-600">{u.ue_nom}</span>
                         </td>
                         <td className="px-2 py-1.5 h-9 text-center" style={{width:colW.niv}}>
-                          {u.ue_niv && <span className="text-[10px] font-bold px-1 py-0.5 rounded text-white"
+                          {u.ue_niv && <span className="text-mention font-bold px-1 py-0.5 rounded text-white"
                             style={{background: nivColor(u.ue_niv)}}>{u.ue_niv}</span>}
                         </td>
                         <td className="px-2 py-1.5 h-9 text-center text-gray-400">{u.ue_quad||'—'}</td>
@@ -498,7 +494,7 @@ function DotationComparaison({ civil }) {
               </tr>
             </tbody>
           </table>
-          <div className="px-4 py-2 border-t border-gray-100 text-[11px] text-gray-400">
+          <div className="px-4 py-2 border-t border-gray-100 text-xs text-gray-400">
             {potFilter === 'TOUT'
               ? (pondere ? 'IIP en pér. B pondérées + HELB en brut' : 'IIP + HELB en périodes brutes')
               : potFilter === 'HELB' || !pondere ? 'Périodes brutes (sans pondération)' : 'Périodes B pondérées · ×1.5 SUP · ×1.25 DS'}
@@ -775,7 +771,7 @@ export default function Pilotage({ vue = 'tout' }) {
           {dotTable.map(s => {
             const open = dotOpen.has(s.section);
             return (
-              <div key={s.section} className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+              <div key={s.section} className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-pose">
                 <button onClick={() => setDotOpen(p => { const n = new Set(p); n.has(s.section) ? n.delete(s.section) : n.add(s.section); return n; })}
                   className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-gray-50 text-left">
                   {open ? <IconChevronDown size={16} className="text-gray-400" /> : <IconChevronRight size={16} className="text-gray-400" />}
@@ -785,7 +781,7 @@ export default function Pilotage({ vue = 'tout' }) {
                 {open && (
                   <div className="border-t border-gray-100 overflow-x-auto">
                     <table className="w-full text-sm">
-                      <thead className="bg-gray-50 text-[11px] text-gray-500 uppercase tracking-wider">
+                      <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wider">
                         <tr>
                           <th className="px-4 py-2 text-left">UE</th>
                           <th className="px-3 py-2 text-right">Périodes</th>
@@ -842,7 +838,7 @@ export default function Pilotage({ vue = 'tout' }) {
       <div className="space-y-5">
 
         {/* ── Grande carte unique : KPIs + enveloppes + dotation détaillée ── */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-pose overflow-hidden">
 
           {/* ── En-tête avec flip ── */}
           <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
@@ -889,7 +885,7 @@ export default function Pilotage({ vue = 'tout' }) {
                   { label: 'Dotation',      value: fmt(d.dotation_organique), sub: 'périodes B',            color: 'text-iip-blue' },
                   { label: 'Utilisées',     value: fmt(d.usage_organique),
                     sub: d.dot_total > 0
-                      ? <span className="text-orange-600 text-[10px]">dont {fmt(d.dot_total)} pér. de dépassement</span>
+                      ? <span className="text-orange-600 text-mention">dont {fmt(d.dot_total)} pér. de dépassement</span>
                       : 'périodes B',
                     color: trafficColor(d.pct_organique) },
                   { label: 'Charges fixes', value: <span className="text-orange-600">−{fmt(charges)}</span>, sub: `FELSI ${fmt(felsi)} + GIPS 40`, color: '' },
@@ -897,9 +893,9 @@ export default function Pilotage({ vue = 'tout' }) {
                   { label: 'Taux',          value: <span className={trafficColor(d.pct_organique)}>{pct(d.pct_organique)}</span>, sub: <ProgressBar pct={d.pct_organique} />, taux: true },
                 ].map(({ label, value, sub, color, taux }) => (
                   <div key={label} className={`px-4 py-3 bg-white ${taux ? trafficBg(d.pct_organique) : ''}`}>
-                    <div className="text-[10px] uppercase tracking-wider text-gray-400 mb-0.5">{label}</div>
+                    <div className="text-mention uppercase tracking-wider text-gray-400 mb-0.5">{label}</div>
                     <div className={`text-lg font-bold leading-tight ${color || 'text-iip-blue'}`}>{value}</div>
-                    <div className="text-[10px] text-gray-400 mt-0.5">{sub}</div>
+                    <div className="text-mention text-gray-400 mt-0.5">{sub}</div>
                   </div>
                 ))}
               </div>
@@ -914,30 +910,30 @@ export default function Pilotage({ vue = 'tout' }) {
               {(d.usage_jan_juin > 0 || d.usage_sep_dec > 0
                 || d.usage_jan_juin_suivant > 0) && (
                 <div className="px-4 py-3 border-b border-gray-100">
-                  <div className="text-[10px] font-semibold text-gray-400 uppercase
+                  <div className="text-mention font-semibold text-gray-400 uppercase
                                   tracking-wider mb-2">
                     L'année civile en deux moitiés
                   </div>
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                     <div className="rounded-carte border border-gray-200 px-3 py-2">
-                      <div className="text-[10px] text-gray-500">
+                      <div className="text-mention text-gray-500">
                         Janvier – juin {d.annee_civile}
                       </div>
                       <div className="text-lg font-bold text-iip-blue leading-tight">
                         {fmt(d.usage_jan_juin)}
                       </div>
-                      <div className="text-[10px] text-gray-400">
+                      <div className="text-mention text-gray-400">
                         Q2 de {d.scolaire_jan_juin} — consommé
                       </div>
                     </div>
                     <div className="rounded-carte border border-gray-200 px-3 py-2">
-                      <div className="text-[10px] text-gray-500">
+                      <div className="text-mention text-gray-500">
                         Septembre – décembre {d.annee_civile}
                       </div>
                       <div className="text-lg font-bold text-iip-blue leading-tight">
                         {fmt(d.usage_sep_dec)}
                       </div>
-                      <div className="text-[10px] text-gray-400">
+                      <div className="text-mention text-gray-400">
                         Q1 de {d.scolaire_sep_dec} — engagé, encore mouvant
                       </div>
                     </div>
@@ -949,26 +945,26 @@ export default function Pilotage({ vue = 'tout' }) {
                         civile revenait à couper l'année académique en cours en
                         deux et à n'en regarder que la première moitié. */}
                     <div className="rounded-carte border border-gray-200 px-3 py-2">
-                      <div className="text-[10px] text-gray-500">
+                      <div className="text-mention text-gray-500">
                         Janvier – juin {d.annee_civile + 1}
                       </div>
                       <div className="text-lg font-bold text-iip-blue leading-tight">
                         {fmt(d.usage_jan_juin_suivant)}
                       </div>
-                      <div className="text-[10px] text-gray-400">
+                      <div className="text-mention text-gray-400">
                         Q2 de {d.scolaire_sep_dec} — engagé, sur la dotation {d.annee_civile + 1}
                       </div>
                     </div>
 
                     <div data-etat={d.solde_apres_jan_juin < 0 ? 'corriger' : 'reussi'} className="bloc-etat px-3 py-2">
-                      <div className="text-[10px] text-gray-600">
+                      <div className="text-mention text-gray-600">
                         Reste pour la rentrée
                       </div>
                       <div className={`text-lg font-bold leading-tight ${
                         'text-iip-texte'}`}>
                         {fmt(d.solde_apres_jan_juin)}
                       </div>
-                      <div className="text-[10px] text-gray-500">
+                      <div className="text-mention text-gray-500">
                         après décompte de janvier – juin
                       </div>
                     </div>
@@ -986,41 +982,41 @@ export default function Pilotage({ vue = 'tout' }) {
                 <div className="px-4 py-3 border-b border-gray-100 border-l-4 border-l-[color:var(--c-attente)]">
                   <div className="flex items-center gap-6 flex-wrap text-xs">
                     <div>
-                      <div className="text-[10px] uppercase tracking-wider text-amber-700 mb-0.5">
+                      <div className="text-mention uppercase tracking-wider text-amber-700 mb-0.5">
                         Solde constaté
                       </div>
                       <div className="text-lg font-bold text-amber-900 leading-tight">
                         {fmt(d.solde_constate)}
                       </div>
-                      <div className="text-[10px] text-amber-700">déclaré par la direction</div>
+                      <div className="text-mention text-amber-700">déclaré par la direction</div>
                     </div>
                     <div>
-                      <div className="text-[10px] uppercase tracking-wider text-gray-400 mb-0.5">
+                      <div className="text-mention uppercase tracking-wider text-gray-400 mb-0.5">
                         Consommation qu'il implique
                       </div>
                       <div className="text-lg font-bold text-iip-blue leading-tight">
                         {fmt(d.usage_implique)}
                       </div>
-                      <div className="text-[10px] text-gray-400">
+                      <div className="text-mention text-gray-400">
                         dotation utilisable − solde constaté
                       </div>
                     </div>
                     <div>
-                      <div className="text-[10px] uppercase tracking-wider text-gray-400 mb-0.5">
+                      <div className="text-mention uppercase tracking-wider text-gray-400 mb-0.5">
                         Écart avec la base
                       </div>
                       <div className={`text-lg font-bold leading-tight ${
                         Math.abs(d.ecart_encodage || 0) < 1 ? 'text-green-700' : 'text-orange-600'}`}>
                         {sign(d.ecart_encodage)}{fmt(Math.abs(d.ecart_encodage))}
                       </div>
-                      <div className="text-[10px] text-gray-400">
+                      <div className="text-mention text-gray-400">
                         {Math.abs(d.ecart_encodage || 0) < 1
                           ? 'la base rend compte de l’année'
                           : 'périodes non encodées dans Lucie'}
                       </div>
                     </div>
                     {d.solde_constate_note && (
-                      <div className="flex-1 min-w-[200px] text-[11px] text-amber-900 italic">
+                      <div className="flex-1 min-w-[200px] text-xs text-amber-900 italic">
                         « {d.solde_constate_note} »
                       </div>
                     )}
@@ -1031,7 +1027,7 @@ export default function Pilotage({ vue = 'tout' }) {
               {/* Enveloppes extérieures — 4 cartes sur une ligne */}
               {d.enveloppes.length > 0 && (
                 <div className="px-4 py-3 border-b border-gray-100">
-                  <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Enveloppes extérieures</div>
+                  <div className="text-mention font-semibold text-gray-400 uppercase tracking-wider mb-2">Enveloppes extérieures</div>
                   <div className="grid grid-cols-4 gap-2">
                     {d.enveloppes.map(e => {
                       const dep = e.solde < 0;
@@ -1039,16 +1035,16 @@ export default function Pilotage({ vue = 'tout' }) {
                       return (
                         <div key={e.code} data-etat={dep ? 'corriger' : 'neutre'} className="bloc-etat px-3 py-2 text-xs">
                           <div className="font-semibold text-iip-blue truncate">{e.label}</div>
-                          <div className="text-[10px] text-gray-400 mb-1.5">{e.code}</div>
-                          <div className="flex justify-between text-[10px] text-gray-500 mb-1">
+                          <div className="text-mention text-gray-400 mb-1.5">{e.code}</div>
+                          <div className="flex justify-between text-mention text-gray-500 mb-1">
                             <span>{fmt(e.periodes_b)}</span>
                             <span className={trafficColor(e.pct)}>{fmt(e.usage)}</span>
                             <span className={e.solde < 0 ? 'text-red-600 font-semibold' : 'text-green-700 font-semibold'}>{sign(e.solde)}{fmt(e.solde)}</span>
                           </div>
                           <ProgressBar pct={e.pct} />
                           <div className="flex justify-between mt-0.5">
-                            <span className={`text-[10px] font-medium ${trafficColor(e.pct)}`}>{pct(e.pct)}</span>
-                            {dep && <span className="text-[10px] text-orange-600 font-bold">⚠ +{fmt(dot)}</span>}
+                            <span className={`text-mention font-medium ${trafficColor(e.pct)}`}>{pct(e.pct)}</span>
+                            {dep && <span className="text-mention text-orange-600 font-bold">⚠ +{fmt(dot)}</span>}
                           </div>
                         </div>
                       );
@@ -1060,11 +1056,11 @@ export default function Pilotage({ vue = 'tout' }) {
               {/* Table dotation par section/UE */}
               <div className="px-4 pt-3 pb-2">
                 <div className="flex items-center justify-between mb-2">
-                  <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
+                  <div className="text-mention font-semibold text-gray-400 uppercase tracking-wider">
                     Détail par section · {anneeActive}{anneePrec ? ` · Δ% vs ${anneePrec}` : ''}
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="flex rounded border border-gray-200 overflow-hidden text-[10px]">
+                    <div className="flex rounded border border-gray-200 overflow-hidden text-mention">
                       <button onClick={() => setRapportPaysage(false)} className={`px-2 py-1 ${!rapportPaysage ? 'bg-iip-blue text-white' : 'bg-white text-gray-500'}`}>Portrait</button>
                       <button onClick={() => setRapportPaysage(true)}  className={`px-2 py-1 ${rapportPaysage ? 'bg-iip-blue text-white' : 'bg-white text-gray-500'}`}>Paysage</button>
                     </div>
@@ -1097,7 +1093,7 @@ export default function Pilotage({ vue = 'tout' }) {
                           {open && (
                             <table className="w-full text-sm mb-1">
                               <thead>
-                                <tr className="text-[10px] text-gray-400 uppercase tracking-wider border-b border-gray-100">
+                                <tr className="text-mention text-gray-400 uppercase tracking-wider border-b border-gray-100">
                                   <th className="pb-1 text-left pl-5 font-medium">UE</th>
                                   <th className="pb-1 text-right font-medium pr-2">Périodes</th>
                                   <th className="pb-1 text-right font-medium pr-2">% Dot.</th>
@@ -1109,12 +1105,12 @@ export default function Pilotage({ vue = 'tout' }) {
                                   <Fragment key={g.niv}>
                                     {s.grouped.length > 1 && (
                                       <tr className="bg-iip-blue/5">
-                                        <td className="pl-5 py-1 text-[10px] font-semibold text-iip-blue" colSpan={4}>{g.niv}</td>
+                                        <td className="pl-5 py-1 text-mention font-semibold text-iip-blue" colSpan={4}>{g.niv}</td>
                                       </tr>
                                     )}
                                     {g.ues.map(u => (
                                       <tr key={u.ue_num} className="border-t border-gray-50 hover:bg-gray-50">
-                                        <td className="pl-5 py-1.5 h-9 text-gray-700"><span className="text-gray-400 text-[10px] mr-1">UE{u.ue_num}</span>{u.ue_nom || ''}</td>
+                                        <td className="pl-5 py-1.5 h-9 text-gray-700"><span className="text-gray-400 text-mention mr-1">UE{u.ue_num}</span>{u.ue_nom || ''}</td>
                                         <td className="py-1.5 h-9 text-right pr-2 font-mono text-gray-700">{fmt(u.periodes)}</td>
                                         <td className="py-1.5 h-9 text-right pr-2 text-gray-400 text-xs">{u.pct != null ? u.pct.toFixed(0) + ' %' : '—'}</td>
                                         <td className="py-1.5 h-9 text-right pr-1">
@@ -1144,12 +1140,12 @@ export default function Pilotage({ vue = 'tout' }) {
         {/* Section PEP */}
         {pepChartData.length > 0 && (
           <div className="space-y-3">
-            <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+            <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-pose">
               <div className="flex items-center justify-between mb-1">
                 <div className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
                   Périodes-élèves pondérées (PEP) · Art. 3 A.Gt 22-11-2002
                 </div>
-                <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded">
+                <span className="text-mention text-gray-400 bg-gray-100 px-2 py-0.5 rounded">
                   Dotation civile N = basée sur PEP N-2 · Bande neutre ±8 %
                 </span>
               </div>
@@ -1182,7 +1178,7 @@ export default function Pilotage({ vue = 'tout' }) {
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-50 text-[11px] text-gray-500 uppercase tracking-wider">
+                  <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wider">
                     <tr>
                       <th className="px-3 py-2 text-left">Dotation</th>
                       <th className="px-3 py-2 text-right">PEP N-2 utilisée</th>
@@ -1198,13 +1194,13 @@ export default function Pilotage({ vue = 'tout' }) {
                       <tr key={row.annee_civile} className={`border-t border-gray-100 ${row.annee_civile === selYear ? 'bg-iip-gold/5' : 'hover:bg-gray-50'}`}>
                         <td className={`px-3 py-2 font-semibold ${row.annee_civile === selYear ? 'text-iip-gold' : 'text-gray-700'}`}>
                           {row.annee_civile} {row.annee_civile === selYear ? '◄' : ''}
-                          {row.derogation && <span className="ml-1 text-[10px] bg-amber-500 text-white px-1 rounded">dérог.</span>}
-                          {row.partiel && <span className="ml-1 text-[10px] bg-iip-turquoise/10 text-iip-blue px-1 rounded">partiel</span>}
+                          {row.derogation && <span className="ml-1 text-mention bg-amber-500 text-white px-1 rounded">dérог.</span>}
+                          {row.partiel && <span className="ml-1 text-mention bg-iip-turquoise/10 text-iip-blue px-1 rounded">partiel</span>}
                         </td>
                         <td className="px-3 py-2 text-right text-gray-500 font-mono text-xs">{row.pep_annee_utilisee || '—'}</td>
                         <td className="px-3 py-2 text-right font-mono">
                           {row.pep_calc ? fmt(row.pep_calc) : '—'}
-                          {row.pep_brute ? <span className="block text-[10px] text-gray-400">brute: {fmt(row.pep_brute)}</span> : null}
+                          {row.pep_brute ? <span className="block text-mention text-gray-400">brute: {fmt(row.pep_brute)}</span> : null}
                         </td>
                         <td className="px-3 py-2 text-right font-mono text-gray-500">{row.pep_ref ? fmt(row.pep_ref) : <span className="text-gray-300">à saisir</span>}</td>
                         <td className="px-3 py-2 text-right">
@@ -1222,8 +1218,8 @@ export default function Pilotage({ vue = 'tout' }) {
                         </td>
                         <td className="px-3 py-2 text-right">
                           {row.dotation ? <span className="font-mono">{fmt(row.dotation)}</span> : <span className="text-gray-300 text-xs">—</span>}
-                          {row.dot_utilisable && row.dot_utilisable !== row.dotation ? <span className="block text-[10px] text-gray-400">util: {fmt(row.dot_utilisable)}</span> : null}
-                          {row.zone === 'BAISSE' && row.perte ? <span className="block text-[10px] text-red-500">−{fmt(row.perte)} pér. estimées</span> : null}
+                          {row.dot_utilisable && row.dot_utilisable !== row.dotation ? <span className="block text-mention text-gray-400">util: {fmt(row.dot_utilisable)}</span> : null}
+                          {row.zone === 'BAISSE' && row.perte ? <span className="block text-mention text-red-500">−{fmt(row.perte)} pér. estimées</span> : null}
                         </td>
                       </tr>
                     ))}
@@ -1247,7 +1243,7 @@ export default function Pilotage({ vue = 'tout' }) {
     const f3 = (x) => (x || 0).toFixed(3);
     return (
       <div>
-        <div className="mb-4 bg-iip-gold/5 border border-iip-gold/30 rounded-lg p-3 text-[12px] text-gray-700">
+        <div className="mb-4 bg-iip-gold/5 border border-iip-gold/30 rounded-lg p-3 text-second text-gray-700">
           <b>Répartition ETP</b> — équivalents temps plein par section et UE, année {etpData.annee}.
           <span className="block mt-1 text-gray-500">
             <b>IIP</b> : cours généraux (CT) ÷ 800 périodes + cours pratiques (PP) ÷ 1000 périodes.
@@ -1281,7 +1277,7 @@ export default function Pilotage({ vue = 'tout' }) {
                   <td className="px-3 py-2 text-right text-gray-400">{etpOpen.has(s.section) ? '▾' : '▸'}</td>
                 </tr>
                 {etpOpen.has(s.section) && s.ues.map(u => (
-                  <tr key={u.ue_num} className="bg-gray-50/50 text-[12px]">
+                  <tr key={u.ue_num} className="bg-gray-50/50 text-second">
                     <td className="px-3 py-1 pl-8 text-gray-600">UE {u.ue_num}{u.ue_nom ? ` — ${u.ue_nom}` : ''}</td>
                     <td className="px-3 py-1 text-right text-gray-400">{f3(u.etp_ct)}</td>
                     <td className="px-3 py-1 text-right text-gray-400">{f3(u.etp_pp)}</td>
@@ -1557,7 +1553,7 @@ export default function Pilotage({ vue = 'tout' }) {
              devenait illisible sur le gris pâle. Il lit désormais les jetons,
              comme tout ce qui vit dans un menu. */
           <select value={selYear} onChange={e => setSelYear(Number(e.target.value))}
-            className="w-full champ-barre text-[13px] rounded-champ px-2 py-1.5 h-9 focus:outline-none">
+            className="w-full champ-barre text-sm rounded-champ px-2 py-1.5 h-9 focus:outline-none">
             {civil.map(y => (
               <option key={y.annee_civile} value={y.annee_civile} className="text-gray-800">
                 {y.annee_civile}{y.pct_organique > 95 ? ' ⚠' : ''}

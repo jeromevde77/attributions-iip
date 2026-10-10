@@ -38,7 +38,7 @@ export default function ChoixUnite({ value, onChange, annee, section = null, vid
     return <select disabled className={`controle border border-slate-300 rounded-champ bg-white ${className}`}><option>Chargement…</option></select>;
   }
   if (!ues.length) {
-    return <span className="text-[12px] text-slate-400">Aucune unité pour {section ? `${section} en ` : ''}{an}.</span>;
+    return <span className="text-second text-slate-400">Aucune unité pour {section ? `${section} en ` : ''}{an}.</span>;
   }
   // Une ligne par (section, unité) ; groupes par section.
   const vus = new Set();

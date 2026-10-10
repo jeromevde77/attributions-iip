@@ -11,7 +11,7 @@ function Champ({ label, value, onChange, placeholder, hint, className = '' }) {
         placeholder={placeholder}
         className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm"
       />
-      {hint && <div className="text-[11px] text-gray-400 mt-0.5">{hint}</div>}
+      {hint && <div className="text-xs text-gray-400 mt-0.5">{hint}</div>}
     </label>
   );
 }
@@ -144,7 +144,7 @@ export default function ParametresEtablissement() {
             <option value="5">5 jours</option>
             <option value="6">6 jours</option>
           </select>
-          <div className="text-[11px] text-gray-400 mt-0.5">Se reporte automatiquement sur les EA12.</div>
+          <div className="text-xs text-gray-400 mt-0.5">Se reporte automatiquement sur les EA12.</div>
         </label>
       </section>
 
@@ -212,8 +212,8 @@ export default function ParametresEtablissement() {
 
         {/* Aperçu du pied de page */}
         <div className="mt-2 pt-3 border-t border-gray-100">
-          <div className="text-[11px] text-gray-400 mb-1">Aperçu du pied de page :</div>
-          <div className="text-center text-[11px] text-gray-600 leading-relaxed border border-dashed border-gray-300 rounded p-2 bg-gray-50">
+          <div className="text-xs text-gray-400 mb-1">Aperçu du pied de page :</div>
+          <div className="text-center text-xs text-gray-600 leading-relaxed border border-dashed border-gray-300 rounded p-2 bg-gray-50">
             {(() => {
               const on = (c) => mep[c] === '1';
               const l1 = [
@@ -288,8 +288,8 @@ export function ReglesDeliberation() {
           <input type="radio" name={nom} checked={valeur === o.cle}
             onChange={() => onChoisir(o.cle)} className="mt-0.5 accent-iip-blue" />
           <span>
-            <span className="text-[13px] font-semibold text-slate-800">{o.titre}</span>
-            <span className="block text-[12px] text-slate-500">{o.aide}</span>
+            <span className="text-sm font-semibold text-slate-800">{o.titre}</span>
+            <span className="block text-second text-slate-500">{o.aide}</span>
           </span>
         </label>
       ))}
@@ -298,10 +298,10 @@ export function ReglesDeliberation() {
 
   return (
     <section className="carte p-4 space-y-3 max-w-4xl">
-      <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
+      <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
         Délibération — ce que le Conseil ajourne
       </div>
-      <p className="text-[12px] text-slate-500">
+      <p className="text-second text-slate-500">
         Le décret ne fixe pas cette règle. Elle s'applique à toutes les délibérations et
         détermine ce que porte la notification d'ajournement (annexe 8).
       </p>
@@ -321,7 +321,7 @@ export function ReglesDeliberation() {
           portée « cours », l'étudiant repasse le cours, la question ne se pose pas. */}
       {ajour.portee === 'aa' && (
         <div className="pl-4 border-l-2 border-iip-blue/30 space-y-2">
-          <div className="text-[12px] font-semibold text-slate-700">
+          <div className="text-second font-semibold text-slate-700">
             Seconde session — comment l'acquis se représente
           </div>
           <Choix nom="session2" valeur={ajour.session2}
@@ -337,7 +337,7 @@ export function ReglesDeliberation() {
 
       <div className="flex items-center gap-3 pt-1">
         <button onClick={enregistrer} className="bouton-fort controle px-3">Enregistrer</button>
-        {etat && <span className="text-[12px] text-slate-500">{etat}</span>}
+        {etat && <span className="text-second text-slate-500">{etat}</span>}
       </div>
     </section>
   );

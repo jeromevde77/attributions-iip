@@ -128,22 +128,22 @@ function Dialogue({ d }) {
     <div role="alertdialog" aria-modal="true" aria-label={d.titre || TITRES[d.genre]}
       className="fixed inset-0 z-[90] flex items-start justify-center p-4 pt-[14vh]"
       onMouseDown={e => e.target === e.currentTarget && d.genre !== 'saisir' && annuler()}>
-      <div aria-hidden="true" className="absolute inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px]" />
+      <div aria-hidden="true" className="absolute inset-0 voile-fenetre" />
       {/* Le bloc signalé : blanc, liseré et icône dans la couleur, texte à l'encre. */}
       <div className="relative bg-white rounded-r-fenetre shadow-dessus w-[460px] max-w-full overflow-hidden
                       border-l-4" style={{ borderLeftColor: teinte }}>
         <div className="flex gap-3 px-5 pt-5 pb-4">
           <Ic size={22} className="flex-none mt-0.5" style={{ color: teinte }} />
           <div className="min-w-0 flex-1">
-            <div className="text-[15px] font-semibold text-iip-texte">{d.titre || TITRES[d.genre]}</div>
+            <div className="text-base font-semibold text-iip-texte">{d.titre || TITRES[d.genre]}</div>
             {d.message && (
-              <div className="mt-1.5 text-[13px] text-slate-700 whitespace-pre-line break-words leading-relaxed
+              <div className="mt-1.5 text-sm text-slate-700 whitespace-pre-line break-words leading-relaxed
                               max-h-[50vh] overflow-y-auto">{d.message}</div>
             )}
             {d.genre === 'saisir' && (d.multiligne
               ? <textarea ref={refChamp} rows={4} value={valeur} onChange={e => setValeur(e.target.value)}
                   placeholder={d.indice || ''}
-                  className="mt-3 w-full border border-slate-300 rounded-champ px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-iip-blue/30" />
+                  className="mt-3 w-full border border-slate-300 rounded-champ px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-iip-blue/30" />
               : <input ref={refChamp} value={valeur} onChange={e => setValeur(e.target.value)}
                   placeholder={d.indice || ''} type={d.type || 'text'}
                   className="controle mt-3 w-full" />)}

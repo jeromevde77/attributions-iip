@@ -119,7 +119,7 @@ export default function ConfierTache({ onClose, onCree }) {
           {choisies.size > 1 ? `Confier à ${choisies.size} personnes` : 'Confier'}
         </button>
         {!pret && (
-          <span className="text-[12px] text-amber-800">
+          <span className="text-second text-amber-800">
             {!form.titre.trim() ? "Écris ce qu'il y a à faire." : 'Coche au moins une personne.'}
           </span>
         )}
@@ -130,12 +130,12 @@ export default function ConfierTache({ onClose, onCree }) {
         {/* ── À QUI ─────────────────────────────────────────── */}
         <div className="w-[340px] border-r border-slate-200 flex flex-col min-h-0">
           <div className="flex-none p-3 space-y-2 border-b border-slate-100">
-            <div className="text-[13px] font-semibold text-iip-blue">À qui</div>
-            <div className="text-[11px] text-slate-500">
+            <div className="text-sm font-semibold text-iip-blue">À qui</div>
+            <div className="text-xs text-slate-500">
               Cochez qui fait la tâche ; « au courant » pour qui doit seulement savoir qu’elle est donnée.
             </div>
             <select value={section} onChange={e => setSection(e.target.value)}
-              className="controle w-full text-[13px]">
+              className="controle w-full text-sm">
               <option value="">Toutes les sections</option>
               {sections.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
@@ -143,15 +143,15 @@ export default function ConfierTache({ onClose, onCree }) {
               <IconSearch size={14}
                 className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input value={recherche} onChange={e => setRecherche(e.target.value)}
-                placeholder="Un nom…" className="controle controle-icone w-full text-[13px]" />
+                placeholder="Un nom…" className="controle controle-icone w-full text-sm" />
             </div>
           </div>
 
           <div className="flex-1 overflow-auto min-h-0">
             {!personnes ? (
-              <div className="p-4 text-[13px] text-slate-400">Chargement…</div>
+              <div className="p-4 text-sm text-slate-400">Chargement…</div>
             ) : !visibles.length ? (
-              <div className="p-4 text-[13px] text-slate-400">
+              <div className="p-4 text-sm text-slate-400">
                 Personne ne correspond à ce filtre.
               </div>
             ) : visibles.map(p => (
@@ -163,8 +163,8 @@ export default function ConfierTache({ onClose, onCree }) {
                   onChange={() => basculer(p.cle)}
                   className="w-4 h-4 accent-iip-blue" />
                 <span className="flex-1 min-w-0">
-                  <span className="text-[13px] font-medium block truncate">{p.nom}</span>
-                  <span className="block text-[11px] text-slate-500 truncate">
+                  <span className="text-sm font-medium block truncate">{p.nom}</span>
+                  <span className="block text-xs text-slate-500 truncate">
                     {(p.sections || []).join(' · ')
                       || p.role || p.statut || 'sans section'}
                   </span>
@@ -172,7 +172,7 @@ export default function ConfierTache({ onClose, onCree }) {
                 <button type="button"
                   onClick={e => { e.preventDefault(); basculerInforme(p.cle); }}
                   title="Tenir au courant, sans le rendre responsable"
-                  className={`flex-none inline-flex items-center gap-1 rounded-champ px-1.5 h-6 text-[11px] border
+                  className={`flex-none inline-flex items-center gap-1 rounded-champ px-1.5 h-6 text-xs border
                     ${informes.has(p.cle) ? 'bg-slate-700 text-white border-slate-700'
                       : 'border-slate-200 text-slate-400 hover:text-slate-700'}`}>
                   <IconEye size={12} /> au courant
@@ -182,7 +182,7 @@ export default function ConfierTache({ onClose, onCree }) {
           </div>
 
           <div className="flex-none px-3 py-2 border-t border-slate-100
-                          text-[12px] text-slate-600 flex items-center gap-2">
+                          text-second text-slate-600 flex items-center gap-2">
             <span className="flex-1">
               {choisies.size
                 ? `${choisies.size} responsable(s) — la première répond de la tâche`
@@ -236,11 +236,11 @@ export default function ConfierTache({ onClose, onCree }) {
             </span>
             <textarea rows={6} value={form.detail}
               placeholder="Le contexte, ce qui est attendu, où trouver la matière"
-              className="w-full border border-slate-300 rounded-champ px-2 py-1.5 text-[13px]"
+              className="w-full border border-slate-300 rounded-champ px-2 py-1.5 text-sm"
               onChange={e => set('detail', e.target.value)} />
           </label>
 
-          {erreur && <div className="text-[12px] text-rose-700">{erreur}</div>}
+          {erreur && <div className="text-second text-rose-700">{erreur}</div>}
 
 
         </div>

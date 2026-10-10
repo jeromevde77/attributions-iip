@@ -83,7 +83,7 @@ export default function ImportReleveStages({ onClose, onFini }) {
     <Fenetre icone={IconBuildingHospital} titre="Importer un relevé des stages effectués"
       sous="Une ligne par stage — pour les dossiers et le supplément au diplôme" large="grande" onFermer={onClose}
       pied={<>
-        <span className="text-[12px] min-w-0" style={{ color: erreur ? 'var(--c-refuse)' : undefined }}>
+        <span className="text-second min-w-0" style={{ color: erreur ? 'var(--c-refuse)' : undefined }}>
           {erreur || (fait ? 'Import terminé.' : raison) || ''}
         </span>
         <button type="button" className="bouton ml-auto" onClick={onClose}>{fait ? 'Fermer' : 'Annuler'}</button>
@@ -96,11 +96,11 @@ export default function ImportReleveStages({ onClose, onFini }) {
       </>}>
       <div className="grid md:grid-cols-2 gap-3 mb-4">
         <label>
-          <span className="block text-[10.5px] uppercase tracking-[.1em] text-slate-400 font-semibold mb-0.5">Relevé</span>
-          <input type="file" accept=".xlsx,.xls" className="block w-full text-[12px]" onChange={e => choisirFichier(e.target.files?.[0])} />
+          <span className="block text-mention uppercase tracking-[.1em] text-slate-400 font-semibold mb-0.5">Relevé</span>
+          <input type="file" accept=".xlsx,.xls" className="block w-full text-second" onChange={e => choisirFichier(e.target.files?.[0])} />
         </label>
         <label>
-          <span className="block text-[10.5px] uppercase tracking-[.1em] text-slate-400 font-semibold mb-0.5">Section</span>
+          <span className="block text-mention uppercase tracking-[.1em] text-slate-400 font-semibold mb-0.5">Section</span>
           <select className="controle w-full bg-white" value={section} onChange={e => { setSection(e.target.value); setRapport(null); }}>
             <option value="">— choisir —</option>
             {sections.map(s => <option key={s.code} value={s.code}>{s.libelle || s.code}</option>)}
@@ -109,14 +109,14 @@ export default function ImportReleveStages({ onClose, onFini }) {
       </div>
 
       {lu && !rapport && (
-        <p className="text-[13px] text-slate-700">
+        <p className="text-sm text-slate-700">
           <b>{lu.lignes.length}</b> stage(s) lus dans la feuille « {lu.feuille} » — colonnes reconnues : {lu.colonnes.join(', ')}.
           Lancez la simulation pour voir ce qui sera écrit.
         </p>)}
 
       {rapport && (
-        <div className="space-y-3 text-[13px]">
-          <div className="flex flex-wrap gap-2 text-[12px]">
+        <div className="space-y-3 text-sm">
+          <div className="flex flex-wrap gap-2 text-second">
             {pastille(rapport.a_creer, fait ? 'stage(s) créé(s)' : 'stage(s) à créer', 'var(--c-reussi)')}
             {pastille(rapport.deja, 'déjà dans Lucie', 'var(--c-disponible)')}
             {pastille(rapport.lieux_crees.length, 'lieu(x) nouveau(x)', 'var(--c-disponible)')}
@@ -129,7 +129,7 @@ export default function ImportReleveStages({ onClose, onFini }) {
           {rapport.inconnus.length > 0 && (
             <div>
               <div className="font-semibold text-iip-texte mb-1">Non retrouvés — à corriger dans le relevé ou à rapprocher à la main</div>
-              <div className="text-[12px] text-slate-600 columns-2 md:columns-3">
+              <div className="text-second text-slate-600 columns-2 md:columns-3">
                 {[...new Map(rapport.inconnus.map(x => [x.nom, x])).values()].map(x => (
                   <div key={x.nom}>{x.nom}{x.motif === 'homonymes' ? ' (homonymes)' : ''}</div>))}
               </div>
@@ -137,9 +137,9 @@ export default function ImportReleveStages({ onClose, onFini }) {
           {rapport.lieux_crees.length > 0 && (
             <div>
               <div className="font-semibold text-iip-texte mb-1">Lieux qui seront créés</div>
-              <div className="text-[12px] text-slate-600">{rapport.lieux_crees.map(l => `${l.nom}${l.localite ? ` (${l.cp || ''} ${l.localite})` : ''}`).join(' · ')}</div>
+              <div className="text-second text-slate-600">{rapport.lieux_crees.map(l => `${l.nom}${l.localite ? ` (${l.cp || ''} ${l.localite})` : ''}`).join(' · ')}</div>
             </div>)}
-          {rapport.illisibles.length > 0 && <div className="text-[12px] text-slate-600">{rapport.illisibles.join(' · ')}</div>}
+          {rapport.illisibles.length > 0 && <div className="text-second text-slate-600">{rapport.illisibles.join(' · ')}</div>}
         </div>)}
     </Fenetre>
   );

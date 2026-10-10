@@ -59,7 +59,7 @@ export default function RegistreAmenagements() {
 
   return (
     <div className="space-y-3">
-      {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2 text-[13px]">{erreur}</div>}
+      {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2 text-sm">{erreur}</div>}
       {data && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 max-w-3xl">
           <TuileEtat etat="neutre" valeur={lignes.length} libelle={`Dossiers ${annee}`} />
@@ -82,20 +82,20 @@ export default function RegistreAmenagements() {
           <option value="a_faire">Quelque chose reste à faire</option>
           {Object.entries(STATUTS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
-        <span className="text-[12px] text-slate-500">{visibles.length} dossier(s) affiché(s) sur {lignes.length}</span>
+        <span className="text-second text-slate-500">{visibles.length} dossier(s) affiché(s) sur {lignes.length}</span>
         {peutAmenager() && <button type="button" className="bouton bouton-fort controle ml-auto" onClick={() => setCreation(true)}>
           Créer un aménagement
         </button>}
       </div>
 
-      {!data ? <p className="text-slate-400 text-[13px]">Chargement…</p> : !lignes.length ? (
-        <p className="text-slate-500 text-[13px]">Aucun dossier d'aménagement raisonnable en {annee}. Un dossier s'ouvre depuis
+      {!data ? <p className="text-slate-400 text-sm">Chargement…</p> : !lignes.length ? (
+        <p className="text-slate-500 text-sm">Aucun dossier d'aménagement raisonnable en {annee}. Un dossier s'ouvre depuis
           la fiche de l'étudiant, onglet Aménagements.</p>
       ) : (
         <div className="border border-slate-200 rounded-carte overflow-hidden">
-          <table className="w-full text-[12.5px]">
+          <table className="w-full text-second">
             <thead className="tab-entete">
-              <tr className="text-left text-[11px] text-slate-500">
+              <tr className="text-left text-xs text-slate-500">
                 <th className="px-3 py-1.5">Étudiant</th><th className="px-2 py-1.5">Section</th>
                 <th className="px-2 py-1.5">État</th><th className="px-2 py-1.5">Demande</th>
                 <th className="px-2 py-1.5">Décision</th><th className="px-2 py-1.5">Notifiée</th>
@@ -112,10 +112,10 @@ export default function RegistreAmenagements() {
                   </td>
                   <td className="px-2 py-1.5 text-slate-600">{l.section || '—'}</td>
                   <td className="px-2 py-1.5">
-                    <span data-etat={ETAT_STATUT[l.statut] || 'neutre'} className="bloc-etat inline-block px-2 py-0.5 text-[11.5px]">
+                    <span data-etat={ETAT_STATUT[l.statut] || 'neutre'} className="bloc-etat inline-block px-2 py-0.5 text-xs">
                       {STATUTS[l.statut] || l.statut}
                     </span>
-                    {l.a_faire && <div className="text-[11px] text-iip-texte mt-0.5">{l.a_faire}</div>}
+                    {l.a_faire && <div className="text-xs text-iip-texte mt-0.5">{l.a_faire}</div>}
                   </td>
                   <td className="px-2 py-1.5 tabular-nums">{fr(l.date_demande)}</td>
                   <td className="px-2 py-1.5 tabular-nums">{fr(l.cde_date)}</td>
@@ -128,7 +128,7 @@ export default function RegistreAmenagements() {
                             {m.portee ? ` · ${PORTEES[m.portee] || m.portee}` : ''}
                             {m.ue_num ? ` · UE ${m.ue_num}` : ''}</span></li>))}</ul>
                       : <span className="text-slate-400">—</span>}
-                    {l.ues.length > 0 && <div className="text-[11px] text-slate-400 mt-0.5">Unités concernées : {l.ues.join(', ')}</div>}
+                    {l.ues.length > 0 && <div className="text-xs text-slate-400 mt-0.5">Unités concernées : {l.ues.join(', ')}</div>}
                   </td>
                   <td className="px-2 py-1.5 text-right">
                     {peutAmenager() && <button type="button" title="Supprimer ce dossier"
@@ -143,7 +143,7 @@ export default function RegistreAmenagements() {
           </table>
         </div>
       )}
-      <p className="text-[11px] text-slate-400">
+      <p className="text-xs text-slate-400">
         Seules les mesures retenues figurent ici : la nature de la situation et les pièces restent au dossier de
         l'étudiant (secret professionnel, décret du 30 juin 2016, art. 5).
       </p>
@@ -198,7 +198,7 @@ function CreerAmenagement({ annee, existants, onFermer, onOuvrir }) {
   return (
     <Fenetre titre="Créer un aménagement raisonnable" large="petite" onFermer={onFermer}
       sous={`Année ${annee} — choisissez l'étudiant ; son dossier s'ouvre ensuite sur sa fiche`}>
-      <div className="space-y-2 text-[13px]">
+      <div className="space-y-2 text-sm">
         <input className="controle w-full" autoFocus placeholder="Nom ou matricule…" value={q} onChange={e => setQ(e.target.value)} />
         <div className="space-y-1 max-h-72 overflow-auto">
           {trouves.map(e => {
@@ -207,11 +207,11 @@ function CreerAmenagement({ annee, existants, onFermer, onOuvrir }) {
               <button key={e.id} type="button" disabled={enCours} onClick={() => choisir(e)}
                 className="w-full text-left px-2.5 py-1.5 rounded-champ border border-slate-200 hover:bg-slate-50">
                 <b>{(e.nom || '').toUpperCase()}</b> {e.prenom} <span className="text-slate-400">· {e.id_ecampus || '—'}</span>
-                {deja && <span className="block text-[11.5px] text-slate-500">A déjà un dossier en {annee} : il s'ouvrira.</span>}
+                {deja && <span className="block text-xs text-slate-500">A déjà un dossier en {annee} : il s'ouvrira.</span>}
               </button>
             );
           })}
-          {q.trim().length >= 2 && !trouves.length && <p className="text-slate-400 text-[12px]">Aucun étudiant ne correspond.</p>}
+          {q.trim().length >= 2 && !trouves.length && <p className="text-slate-400 text-second">Aucun étudiant ne correspond.</p>}
         </div>
         {erreur && <div data-etat="corriger" className="bloc-etat px-2.5 py-1.5">{erreur}</div>}
       </div>
@@ -246,7 +246,7 @@ function SupprimerDossier({ ligne, onFermer, onFait }) {
     <Fenetre titre="Supprimer le dossier d'aménagement" large="petite" onFermer={onFermer}
       sous={`${(ligne.nom || '').toUpperCase()} ${ligne.prenom || ''} — ${STATUTS[ligne.statut] || ligne.statut}`}
       pied={<div className="flex items-center gap-2 w-full">
-        <span className="text-[12px] text-slate-500 min-w-0 flex-1">
+        <span className="text-second text-slate-500 min-w-0 flex-1">
           {engage && !direction ? 'Réservé à la direction : ce dossier porte une décision.'
             : bloque ? 'Écrivez le motif de la suppression.' : 'La suppression est définitive.'}
         </span>
@@ -255,7 +255,7 @@ function SupprimerDossier({ ligne, onFermer, onFait }) {
           Supprimer le dossier
         </button>
       </div>}>
-      <div className="space-y-2 text-[13px]">
+      <div className="space-y-2 text-sm">
         <p>Le dossier, ses mesures et ses unités concernées sont supprimés. Lucie en garde une copie datée,
           avec votre nom{engage ? ' et le motif' : ''}.</p>
         {engage && <div data-etat="surveiller" className="bloc-etat px-2.5 py-1.5">

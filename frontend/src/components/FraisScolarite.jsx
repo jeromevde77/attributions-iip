@@ -37,8 +37,8 @@ export default function FraisScolarite({ etudId, annee }) {
   const eur = n => (n ?? 0).toFixed(2).replace('.', ',') + ' €';
   const num = n => String(n ?? 0).replace('.', ',');
 
-  if (erreur) return <div className="text-[13px] text-slate-400">{erreur}</div>;
-  if (!f) return <div className="py-4 text-[13px] text-slate-400">Calcul en cours…</div>;
+  if (erreur) return <div className="text-sm text-slate-400">{erreur}</div>;
+  if (!f) return <div className="py-4 text-sm text-slate-400">Calcul en cours…</div>;
 
   const b = f.bareme || {};
   const soldeRegle = f.verse >= f.total;
@@ -47,8 +47,8 @@ export default function FraisScolarite({ etudId, annee }) {
     <div className="border border-slate-200 rounded-xl overflow-hidden">
       <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200
                       flex items-center justify-between gap-3 flex-wrap">
-        <span className="text-[13px] font-semibold text-iip-blue">Calcul des frais</span>
-        <span className="text-[11px] text-slate-400">
+        <span className="text-sm font-semibold text-iip-blue">Calcul des frais</span>
+        <span className="text-xs text-slate-400">
           RDE art. 16 à 20 · {annee}{b.defaut ? ' · barème par défaut' : ''}
         </span>
       </div>
@@ -57,7 +57,7 @@ export default function FraisScolarite({ etudId, annee }) {
         {/* La formule est écrite en toutes lettres : c'est elle qu'on vient
             vérifier quand un étudiant conteste, pas le seul résultat. */}
         <div className="flex items-end justify-between gap-4 flex-wrap">
-          <div className="text-[12px] text-slate-600 space-y-0.5">
+          <div className="text-second text-slate-600 space-y-0.5">
             {f.sans_frais ? (
               <div>Aucun frais d’inscription complémentaire : la section <b>{f.section}</b> n’en perçoit pas
                 (Configuration → Coût des périodes).</div>
@@ -69,16 +69,16 @@ export default function FraisScolarite({ etudId, annee }) {
               Périodes du PAE : <b>{f.periodes}</b> × {num(b.par_periode)} €
               = <b>{eur(f.frais_variables)}</b>
             </div></>)}
-            <div className="text-[11px] text-slate-400">
+            <div className="text-xs text-slate-400">
               Hors UE en dispense complète : une unité valorisée n'est pas suivie.
             </div>
           </div>
 
           <div className="text-right">
-            <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">
+            <div className="text-mention uppercase tracking-wide text-slate-500 font-semibold">
               Frais administratifs
             </div>
-            <div className="text-[26px] font-bold text-iip-blue leading-tight">
+            <div className="text-2xl font-bold text-iip-blue leading-tight">
               {eur(f.frais_administratifs)}
             </div>
           </div>
@@ -86,33 +86,33 @@ export default function FraisScolarite({ etudId, annee }) {
 
         {/* Ce que l'étudiant verse et quand. L'acompte s'impute sur le total. */}
         <div className="pt-3 border-t border-slate-200 grid gap-3
-                        sm:grid-cols-3 text-[12px]">
+                        sm:grid-cols-3 text-second">
           <div>
-            <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">
+            <div className="text-mention uppercase tracking-wide text-slate-500 font-semibold">
               Acompte à l'inscription
             </div>
-            <div className="text-[15px] font-bold text-slate-700">{eur(f.acompte)}</div>
-            <div className="text-[11px] text-slate-400">
+            <div className="text-base font-bold text-slate-700">{eur(f.acompte)}</div>
+            <div className="text-xs text-slate-400">
               Droit d'inscription + frais fixes · s'impute sur le total
             </div>
           </div>
           <div>
-            <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">
+            <div className="text-mention uppercase tracking-wide text-slate-500 font-semibold">
               Solde
             </div>
-            <div className="text-[15px] font-bold text-slate-700">{eur(f.solde)}</div>
+            <div className="text-base font-bold text-slate-700">{eur(f.solde)}</div>
             {f.echeance_solde && (
-              <div className="text-[11px] text-slate-400">
+              <div className="text-xs text-slate-400">
                 pour le {f.echeance_solde}
               </div>
             )}
           </div>
           <div>
-            <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">
+            <div className="text-mention uppercase tracking-wide text-slate-500 font-semibold">
               Total dû
             </div>
-            <div className="text-[15px] font-bold text-iip-blue">{eur(f.total)}</div>
-            <div className={`text-[11px] font-semibold ${soldeRegle ? 'text-emerald-700' : 'text-amber-700'}`}>
+            <div className="text-base font-bold text-iip-blue">{eur(f.total)}</div>
+            <div className={`text-xs font-semibold ${soldeRegle ? 'text-emerald-700' : 'text-amber-700'}`}>
               Versé {eur(f.verse)}
               {!soldeRegle && ` · reste ${eur(f.restant)}`}
             </div>
@@ -121,7 +121,7 @@ export default function FraisScolarite({ etudId, annee }) {
 
         {!f.acompte_verse && f.verse > 0 && (
           <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
-                          text-[12px] text-amber-900">
+                          text-second text-amber-900">
             L'acompte n'est pas entièrement versé : {eur(f.verse)} sur {eur(f.acompte)}.
           </div>
         )}
@@ -129,16 +129,16 @@ export default function FraisScolarite({ etudId, annee }) {
         {!!(f.paiements && f.paiements.length) && (
           <>
             <button onClick={() => setDetailOuvert(o => !o)}
-              className="text-[12px] text-slate-500 underline">
+              className="text-second text-slate-500 underline">
               {detailOuvert
                 ? 'Masquer les versements'
                 : `Détail des ${f.paiements.length} versement(s)`}
             </button>
 
             {detailOuvert && (
-              <table className="w-full text-[12px]">
+              <table className="w-full text-second">
                 <thead>
-                  <tr className="text-[10px] uppercase tracking-wide text-slate-400 border-b">
+                  <tr className="text-mention uppercase tracking-wide text-slate-400 border-b">
                     <th className="py-1 text-left w-28">Date</th>
                     <th className="py-1 text-left">Nature</th>
                     <th className="py-1 text-left">Moyen</th>
@@ -162,7 +162,7 @@ export default function FraisScolarite({ etudId, annee }) {
 
         {/* Le barème complet : ces tarifs-là ne dépendent pas du PAE, mais on
             vient les chercher ici et nulle part ailleurs. */}
-        <div className="pt-3 border-t border-slate-200 text-[11px] text-slate-500
+        <div className="pt-3 border-t border-slate-200 text-xs text-slate-500
                         flex flex-wrap gap-x-5 gap-y-1">
           <span>Duplicata de carte : <b>{eur(b.duplicata_carte)}</b></span>
           <span>Duplicata de document : <b>{eur(b.duplicata_document)}</b></span>

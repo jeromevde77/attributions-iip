@@ -285,7 +285,7 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
                 <div className="text-xs font-semibold text-violet-700 uppercase tracking-wider">🎓 Vue étudiant</div>
                 <div className="grid grid-cols-3 gap-3 text-center">
                   <div className="bg-white rounded border border-violet-100 p-2">
-                    <div className="text-[10px] text-gray-500 mb-0.5">Heures de contact</div>
+                    <div className="text-mention text-gray-500 mb-0.5">Heures de contact</div>
                     <input type="number" min="0"
                       value={heures}
                       onChange={e => setHeures(e.target.value)}
@@ -294,19 +294,19 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
                       placeholder="0"
                       className="font-bold text-violet-700 text-lg text-center w-full bg-transparent border-b border-violet-200 focus:outline-none focus:border-violet-500"
                     />
-                    <div className="text-[10px] text-gray-400">heures ×60 min</div>
+                    <div className="text-mention text-gray-400">heures ×60 min</div>
                   </div>
                   <div className="bg-white rounded border border-violet-100 p-2">
-                    <div className="text-[10px] text-gray-500 mb-0.5">Pér. contact (×1.2)</div>
+                    <div className="text-mention text-gray-500 mb-0.5">Pér. contact (×1.2)</div>
                     <div className="font-bold text-violet-600 text-lg">
                       {Number(heures) > 0 ? Math.round(Number(heures) * 1.2) : '—'}
                     </div>
-                    <div className="text-[10px] text-gray-400">périodes 50 min</div>
+                    <div className="text-mention text-gray-400">périodes 50 min</div>
                   </div>
                   <div className="bg-white rounded border border-violet-100 p-2">
-                    <div className="text-[10px] text-gray-500 mb-0.5">Pér. dossier pédag.</div>
+                    <div className="text-mention text-gray-500 mb-0.5">Pér. dossier pédag.</div>
                     <div className="font-bold text-iip-gold text-lg">{coursPer ?? '—'}</div>
-                    <div className="text-[10px] text-gray-400">périodes prof.</div>
+                    <div className="text-mention text-gray-400">périodes prof.</div>
                   </div>
                 </div>
                 {Number(heures) > 0 && coursPer > 0 && (

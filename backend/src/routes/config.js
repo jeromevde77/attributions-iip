@@ -77,6 +77,23 @@ r.put('/couleurs', authRequired,
     res.json({ couleurs: couleurs(), gris: themeGris() });
   });
 
+/* LES FORMES ET LES COMPOSANTS (3.1.248) : lecture ouverte à tous — l'écran les pose
+   dès l'ouverture ; écriture réservée à l'ADMINISTRATEUR (Charles, 10 octobre 2026 :
+   « c'est uniquement l'administrateur qui peut toucher »). */
+r.get('/design', authRequired, async (req, res) => {
+  const { design, DESIGN_DEFAUT } = await import('../lib/design.js');
+  res.json({ design: design(), catalogue: DESIGN_DEFAUT });
+});
+r.put('/design', authRequired, roleRequired('admin'), async (req, res) => {
+  const { design, valide } = await import('../lib/design.js');
+  const propre = {};
+  for (const [k, v] of Object.entries(req.body?.design || {})) { const ok = valide(k, v); if (ok !== undefined) propre[k] = ok; }
+  db.prepare(`INSERT INTO lucie_config (cle, valeur, description) VALUES (?,?,?)
+              ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur`)
+    .run('design', JSON.stringify(propre), 'Formes et composants : rayons, contrôles, tuiles, ombres, police');
+  res.json({ design: design() });
+});
+
 // ── Routes attestation (avant /:cle) ────────────────────────────────────────
 r.get('/attestation_sections_defaut', authRequired, roleRequired('admin'), (req, res) => {
   res.json({ valeur: JSON.stringify([

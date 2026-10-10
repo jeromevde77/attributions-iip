@@ -393,10 +393,10 @@ export default function Disciplinaire() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div><label className={lab}>Envoi de la convocation</label><input type="date" className={champ} value={dateEnvoi} onChange={e => setDateEnvoi(e.target.value)} /></div>
             <div><label className={lab}>Date d'audition</label><input type="date" className={champ} value={dateAudition} onChange={e => setDateAudition(e.target.value)} />
-              {estRenvoiDef && dateAuditionMin && <p className="text-[11px] text-gray-500 mt-1">Au plus tôt : <strong>{fmtLong(dateAuditionMin)}</strong> (8 j ouvrables)</p>}
-              {!estRenvoiDef && <p className="text-[11px] text-gray-400 mt-1">Aucun délai minimum imposé pour cette sanction.</p>}
-              {estRenvoiDef && delaiOk === false && <p className="text-[11px] text-red-600 mt-1">⚠ Délai de 8 jours ouvrables non respecté.</p>}
-              {estRenvoiDef && delaiOk === true && <p className="text-[11px] text-green-600 mt-1">✓ Délai respecté.</p>}</div>
+              {estRenvoiDef && dateAuditionMin && <p className="text-xs text-gray-500 mt-1">Au plus tôt : <strong>{fmtLong(dateAuditionMin)}</strong> (8 j ouvrables)</p>}
+              {!estRenvoiDef && <p className="text-xs text-gray-400 mt-1">Aucun délai minimum imposé pour cette sanction.</p>}
+              {estRenvoiDef && delaiOk === false && <p className="text-xs text-red-600 mt-1">⚠ Délai de 8 jours ouvrables non respecté.</p>}
+              {estRenvoiDef && delaiOk === true && <p className="text-xs text-green-600 mt-1">✓ Délai respecté.</p>}</div>
             <div><label className={lab}>Heure</label><input className={champ} value={heureAudition} onChange={e => setHeureAudition(e.target.value)} placeholder="ex : 14h00" /></div>
             <div><label className={lab}>Lieu</label><input className={champ} value={lieuAudition} onChange={e => setLieuAudition(e.target.value)} /></div>
           </div>
@@ -463,7 +463,7 @@ export default function Disciplinaire() {
           <ul className="divide-y divide-gray-100">
             {fichiers.map(f => (
               <li key={f.id} className="flex items-center gap-2 py-1.5 text-sm">
-                <span className="text-[11px] bg-gray-100 text-gray-600 rounded px-1.5 py-0.5">{f.categorie}</span>
+                <span className="text-xs bg-gray-100 text-gray-600 rounded px-1.5 py-0.5">{f.categorie}</span>
                 <span className="flex-1 truncate">{f.nom}</span>
                 <span className="text-xs text-gray-400">{ko(f.taille)}</span>
                 <button onClick={() => telechargerFichier(f.id, f.nom)} className="text-iip-turquoise hover:opacity-70 p-0.5"><IconDownload size={15} /></button>

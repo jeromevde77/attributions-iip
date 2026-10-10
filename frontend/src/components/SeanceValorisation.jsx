@@ -184,7 +184,7 @@ export default function SeanceValorisation({ ueNum, ueNom, annee, onClose }) {
         <div className="p-6 text-sm text-slate-400">Chargement…</div>
       ) : (
         <div className="p-5 space-y-4">
-          <p className="text-[12px] text-slate-500">
+          <p className="text-second text-slate-500">
             Procès-verbal de délibération de valorisation des acquis (annexe 4) et
             attestations de réussite par valorisation. <b>{etat.nb}</b> valorisation(s)
             enregistrée(s) pour cette unité — le procès-verbal les porte toutes,
@@ -199,13 +199,13 @@ export default function SeanceValorisation({ ueNum, ueNom, annee, onClose }) {
                 onChange={e => set('date_seance', e.target.value)} />
               {!etat.seance?.date_seance && etat.date_seance_proposee && (
                 <span className="block mt-1 font-normal normal-case tracking-normal
-                                 text-[11px] text-slate-500">
+                                 text-xs text-slate-500">
                   Reprise de la décision encodée sur les dossiers de cette unité.
                 </span>
               )}
               {!etat.seance?.date_seance && !etat.date_seance_proposee && etat.nb > 0 && (
                 <span className="block mt-1 font-normal normal-case tracking-normal
-                                 text-[11px] text-amber-700">
+                                 text-xs text-amber-700">
                   Les dossiers de cette unité ne portent pas tous la même date de
                   décision : à saisir, une date pour deux séances serait fausse.
                 </span>
@@ -228,13 +228,13 @@ export default function SeanceValorisation({ ueNum, ueNom, annee, onClose }) {
               outre, organiser un test ou une épreuve. Le procès-verbal doit
               dire lequel des deux : c'est ce qui distingue une dispense
               accordée sur pièces d'une dispense accordée après épreuve. */}
-          <label className="flex items-start gap-2 text-[13px] cursor-pointer">
+          <label className="flex items-start gap-2 text-sm cursor-pointer">
             <input type="checkbox" className="mt-0.5 w-4 h-4 accent-iip-blue"
               checked={!!etat.champs.test_complementaire}
               onChange={e => set('test_complementaire', e.target.checked)} />
             <span>Le Conseil a organisé un <b>test ou une épreuve
               complémentaire</b>
-              <span className="block text-[11px] text-slate-500">
+              <span className="block text-xs text-slate-500">
                 À défaut, le procès-verbal indique que l'évaluation s'est fondée
                 sur le seul dossier remis à l'appui de la demande.
               </span></span>
@@ -246,7 +246,7 @@ export default function SeanceValorisation({ ueNum, ueNom, annee, onClose }) {
                 Conseil des études — présences
               </span>
               {q && (
-                <span className={`text-[11px] ${q.atteint ? 'text-emerald-700' : 'text-rose-700'}`}>
+                <span className={`text-xs ${q.atteint ? 'text-emerald-700' : 'text-rose-700'}`}>
                   quorum {q.presents}/{q.membres} · {q.requis} requis
                 </span>
               )}
@@ -255,8 +255,8 @@ export default function SeanceValorisation({ ueNum, ueNom, annee, onClose }) {
               {etat.membres.map(m => (
                 <label key={m.cle} className="flex items-center gap-2.5 px-3 py-1.5 cursor-pointer">
                   <input type="checkbox" checked={!!m.present} onChange={() => basculer(m.cle)} />
-                  <span className="text-[13px] text-iip-blue flex-1">{m.nom}</span>
-                  <span className="text-[11px] text-slate-400">
+                  <span className="text-sm text-iip-blue flex-1">{m.nom}</span>
+                  <span className="text-xs text-slate-400">
                     {m.qualite}{(m.voix || 'deliberative') === 'consultative' ? ' · consultative' : ''}
                   </span>
                 </label>
@@ -266,15 +266,15 @@ export default function SeanceValorisation({ ueNum, ueNom, annee, onClose }) {
 
           {!!manques.length && (
             <div className="carte border-amber-300 bg-amber-50/60 px-3 py-2 border-l-4 border-l-amber-500">
-              <div className="flex items-center gap-1.5 text-[12px] font-semibold text-amber-800">
+              <div className="flex items-center gap-1.5 text-second font-semibold text-amber-800">
                 <IconAlertTriangle size={14} /> À encoder avant impression
               </div>
-              <ul className="mt-1 text-[11px] text-amber-900 list-disc pl-5 space-y-0.5">
+              <ul className="mt-1 text-xs text-amber-900 list-disc pl-5 space-y-0.5">
                 {manques.map((m, i) => <li key={i}>{m}</li>)}
               </ul>
             </div>
           )}
-          {info && <div className="text-[12px] text-emerald-700">{info}</div>}
+          {info && <div className="text-second text-emerald-700">{info}</div>}
 
           {/* L'APERÇU EST UN APERÇU ; LE PDF EST LA PIÈCE.
               L'onglet du navigateur rend le format à la boîte d'impression de
@@ -282,19 +282,19 @@ export default function SeanceValorisation({ ueNum, ueNom, annee, onClose }) {
               pied qu'une fois, à la fin. Le A4 et le pied répété se garantissent
               côté serveur, pas dans un onglet. */}
           {doc && (
-            <div className="flex items-center gap-2 text-[12px] border border-slate-200
+            <div className="flex items-center gap-2 text-second border border-slate-200
                             rounded-carte px-3 py-2 border-l-[3px] border-l-[color:var(--c-epreuve)]">
               <span className="flex-1">
                 L'onglet ouvert est un <b>aperçu</b>. Pour la pièce elle-même —
                 A4 garanti, pied de page sur chaque feuille — prends le PDF.
               </span>
               <button onClick={() => enPdf(doc.html, doc.nom)} disabled={enCours}
-                className="bouton bouton-sortir text-[12px] px-2.5 py-1 disabled:opacity-50">
+                className="bouton bouton-sortir text-second px-2.5 py-1 disabled:opacity-50">
                 <IconFileTypePdf size={14} /> PDF
               </button>
             </div>
           )}
-          {erreur && <div className="text-[12px] text-rose-700">{erreur}</div>}
+          {erreur && <div className="text-second text-rose-700">{erreur}</div>}
 
 
         </div>

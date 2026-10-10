@@ -25,10 +25,10 @@ export default function CursusCompatibles() {
   };
   const nom = c => sections.find(x => x.code === c)?.libelle || c;
   return (
-    <div className="space-y-3 text-[13px] max-w-2xl">
+    <div className="space-y-3 text-sm max-w-2xl">
       <div>
-        <div className="text-[15px] font-semibold text-iip-blue">Cursus compatibles</div>
-        <p className="text-slate-500 text-[12px]">
+        <div className="text-base font-semibold text-iip-blue">Cursus compatibles</div>
+        <p className="text-slate-500 text-second">
           Quand un étudiant change de section, son cursus précédent est archivé : il sort du schéma et du PAE, et se nomme
           au-dessus du schéma. Deux sections déclarées compatibles se suivent ensemble, sans que l'une archive l'autre.
         </p>
@@ -50,7 +50,7 @@ export default function CursusCompatibles() {
         </select>
         <button className="bouton bouton-fort" disabled={!a || !b || paires.some(p => p.includes(a) && p.includes(b))}
           onClick={() => { enregistrer([...paires, [a, b]]); setA(''); setB(''); }}>Déclarer compatibles</button>
-        {msg && <span className="text-[12px] text-slate-500">{msg}</span>}
+        {msg && <span className="text-second text-slate-500">{msg}</span>}
       </div>
     </div>
   );

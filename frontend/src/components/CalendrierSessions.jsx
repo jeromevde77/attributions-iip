@@ -42,7 +42,7 @@ function Case({ valeur, onPoser, type = 'date', classe = 'w-[118px]', titre, blo
       // champ date vierge de la date du jour, en gris : on lit alors une
       // section entière délibérée aujourd'hui, là où la base ne porte rien.
       // Le fond pâle dit « rien de posé » sans dépendre du navigateur.
-      className={`px-1.5 py-1 text-[12px] border rounded
+      className={`px-1.5 py-1 text-second border rounded
                   focus:border-iip-blue focus:outline-none disabled:text-slate-400
                   ${vide ? 'border-dashed border-slate-300 bg-slate-50/70 text-slate-400'
                          : 'border-slate-200'} ${classe}`} />
@@ -69,7 +69,7 @@ function ChoixLocal({ valeur, onPoser, locaux, bloque, classe = 'w-[118px]' }) {
   return (
     <select value={valeur ?? ''} disabled={bloque}
       onChange={e => onPoser(e.target.value)}
-      className={`px-1 py-1 text-[12px] border border-slate-200 rounded
+      className={`px-1 py-1 text-second border border-slate-200 rounded
                  focus:border-iip-blue focus:outline-none disabled:bg-slate-50 ${classe}`}>
       <option value="">local…</option>
       {valeur && !connus.has(valeur) && <option value={valeur}>{valeur} (hors liste)</option>}
@@ -117,24 +117,24 @@ function BarrePose({ locaux, nbCoches, appliquerLot }) {
   return (
     <div className="flex flex-wrap items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-slate-50
                     border border-slate-200">
-      <span className="text-[13px] text-slate-500">Poser</span>
+      <span className="text-sm text-slate-500">Poser</span>
       <select value={ses} onChange={e => {
         const n = Number(e.target.value); setSes(n);
         setCle(c => c.replace(/^s[12]/, n === 2 ? 's2' : 's1'));
-      }} className="px-2 py-1 text-[12px] border border-slate-300 rounded">
+      }} className="px-2 py-1 text-second border border-slate-300 rounded">
         <option value={1}>1re session</option>
         <option value={2}>2e session</option>
       </select>
       {def.type === 'local'
         ? <ChoixLocal valeur={valeur} locaux={locaux} onPoser={setValeur} classe="w-[150px]" />
         : <input type={def.type} value={valeur} onChange={e => setValeur(e.target.value)}
-            className="px-2 py-1 text-[12px] border border-slate-300 rounded w-[130px]" />}
+            className="px-2 py-1 text-second border border-slate-300 rounded w-[130px]" />}
       <select value={cle} onChange={e => { setCle(e.target.value); setValeur(''); }}
-        className="px-2 py-1 text-[12px] border border-slate-300 rounded">
+        className="px-2 py-1 text-second border border-slate-300 rounded">
         {champs.map(c => <option key={c.cle} value={c.cle}>{c.label}</option>)}
       </select>
       <button onClick={() => appliquerLot(ses, def, valeur)}
-        className="px-2.5 py-1 text-[12px] rounded border border-slate-300 text-slate-700
+        className="px-2.5 py-1 text-second rounded border border-slate-300 text-slate-700
                    hover:bg-white inline-flex items-center gap-1">
         <IconWand size={13} /> Poser sur {nbCoches} cochée{nbCoches > 1 ? 's' : ''}
       </button>
@@ -158,9 +158,9 @@ function VueCoteACote({
   const fondS2 = 'bg-slate-100/70';
   return (
     <div className="overflow-x-auto border border-slate-200 rounded-xl">
-      <table className="w-full text-[13px] min-w-[1180px]">
+      <table className="w-full text-sm min-w-[1180px]">
         <thead>
-          <tr className="text-[11px]">
+          <tr className="text-xs">
             <th />
             <th colSpan={3} className={`py-1 font-normal text-iip-blue ${fondS1}`}>
               Première session
@@ -169,7 +169,7 @@ function VueCoteACote({
               Seconde session
             </th>
           </tr>
-          <tr className="text-[11px] text-slate-500">
+          <tr className="text-xs text-slate-500">
             <th className="text-left font-normal py-1 px-2">Unité · cours</th>
             {[fondS1, fondS2].map((f, i) => ['Épreuve', 'Visite', 'Délib.'].map(t => (
               <th key={`${i}${t}`} className={`font-normal py-1 px-1 ${f}`}>{t}</th>
@@ -204,8 +204,8 @@ function VueCoteACote({
                   const f = ses === 1 ? fondS1 : fondS2;
                   const sc = seances[ses];
                   return [
-                    <td key={`e${ses}`} className={`text-center text-[11px] text-slate-400 ${f}`}>·</td>,
-                    <td key={`v${ses}`} className={`text-center text-[11px] text-slate-400 ${f}`}>·</td>,
+                    <td key={`e${ses}`} className={`text-center text-xs text-slate-400 ${f}`}>·</td>,
+                    <td key={`v${ses}`} className={`text-center text-xs text-slate-400 ${f}`}>·</td>,
                     <td key={`d${ses}`} className={`py-1 px-1 ${f}`}>
                       <div className="flex gap-1">
                         <Case valeur={sc.date_seance} classe="flex-1 min-w-0"
@@ -214,7 +214,7 @@ function VueCoteACote({
                           onPoser={v => poserSeance(u.ue_num, ses, 'heure_seance', v)} />
                       </div>
                       {!!sc.cloturee && (
-                        <span className="mt-0.5 inline-flex items-center gap-1 text-[10px] text-amber-700">
+                        <span className="mt-0.5 inline-flex items-center gap-1 text-mention text-amber-700">
                           <IconLock size={10} /> close
                         </span>
                       )}
@@ -224,7 +224,7 @@ function VueCoteACote({
               </tr>,
               ...(ouvert ? (u.cours || []).map(c => (
                 <tr key={`c${u.ue_num}-${c.cours_code}`}>
-                  <td className="py-1 px-2 pl-8 text-slate-500 text-[12px]">
+                  <td className="py-1 px-2 pl-8 text-slate-500 text-second">
                     {c.cours_code} {c.cours_nom}
                   </td>
                   {[1, 2].map(ses => {
@@ -253,7 +253,7 @@ function VueCoteACote({
         </tbody>
       </table>
       {!ues.length && (
-        <p className="text-[13px] text-slate-400 p-3">Aucune unité pour cette section.</p>
+        <p className="text-sm text-slate-400 p-3">Aucune unité pour cette section.</p>
       )}
     </div>
   );
@@ -281,7 +281,7 @@ function BlocSession({
   return (
     <section className={`border rounded-xl p-3 mb-4 ${cadre}`}>
       <div className="flex flex-wrap items-center gap-2 mb-2.5">
-        <h3 className={`text-[15px] font-medium ${titre}`}>
+        <h3 className={`text-base font-medium ${titre}`}>
           {bleu ? 'Première session' : 'Seconde session'}
         </h3>
         <span className="flex-1" />
@@ -290,26 +290,26 @@ function BlocSession({
               onPoser={v => setLot(l => ({ ...l, valeur: v }))} />
           : <input type={def.type} value={lot.valeur}
               onChange={e => setLot(l => ({ ...l, valeur: e.target.value }))}
-              className="px-2 py-1 text-[12px] border border-slate-300 rounded w-[130px]" />}
+              className="px-2 py-1 text-second border border-slate-300 rounded w-[130px]" />}
         <select value={lot.champ}
           onChange={e => setLot(l => ({ ...l, champ: e.target.value, valeur: '' }))}
-          className="px-2 py-1 text-[12px] border border-slate-300 rounded">
+          className="px-2 py-1 text-second border border-slate-300 rounded">
           {champs.map(c => <option key={c.cle} value={c.cle}>{c.label}</option>)}
         </select>
         <button onClick={() => appliquerLot(ses, def, lot.valeur)}
-          className="px-2.5 py-1 text-[12px] rounded border border-slate-300
+          className="px-2.5 py-1 text-second rounded border border-slate-300
                      text-slate-700 hover:bg-white inline-flex items-center gap-1">
           <IconWand size={13} /> Poser sur {coches.size} cochée{coches.size > 1 ? 's' : ''}
         </button>
       </div>
 
-      <table className="w-full text-[13px] table-fixed">
+      <table className="w-full text-sm table-fixed">
         <colgroup>
           <col /><col className="w-[212px]" />
           <col className="w-[212px]" /><col className="w-[212px]" />
         </colgroup>
         <thead>
-          <tr className={`text-[12px] ${bleu ? 'text-iip-blue/80' : 'text-slate-500'}`}>
+          <tr className={`text-second ${bleu ? 'text-iip-blue/80' : 'text-slate-500'}`}>
             <th className="text-left font-normal py-1 px-1">Unité · cours</th>
             <th className="font-normal py-1 px-1">Épreuve</th>
             <th className="font-normal py-1 px-1">Visite des copies</th>
@@ -342,14 +342,14 @@ function BlocSession({
                   <span className="font-medium ml-0.5">{u.ue_num}</span>{' '}
                   <span className="text-slate-500">{u.ue_nom}</span>
                   {close && (
-                    <span className="ml-1.5 px-1.5 py-px text-[11px] rounded bg-amber-50
+                    <span className="ml-1.5 px-1.5 py-px text-xs rounded bg-amber-50
                                      text-amber-700 inline-flex items-center gap-1">
                       <IconLock size={11} /> close
                     </span>
                   )}
                 </td>
-                <td className="text-center text-[11px] text-slate-400">par cours</td>
-                <td className="text-center text-[11px] text-slate-400">par cours</td>
+                <td className="text-center text-xs text-slate-400">par cours</td>
+                <td className="text-center text-xs text-slate-400">par cours</td>
                 <td className="py-1 px-1">
                   <div className="flex gap-1">
                     <Case valeur={s.date_seance} classe="flex-1 min-w-0"
@@ -363,10 +363,10 @@ function BlocSession({
                 const d = coursDe(c);
                 return (
                   <tr key={`c${u.ue_num}-${c.cours_code}`}>
-                    <td className="py-1 px-1 pl-7 text-slate-500 text-[12px]">
+                    <td className="py-1 px-1 pl-7 text-slate-500 text-second">
                       {c.cours_code} {c.cours_nom}
                       {c.professeurs && (
-                        <span className="block text-[11px] text-slate-400">{c.professeurs}</span>
+                        <span className="block text-xs text-slate-400">{c.professeurs}</span>
                       )}
                     </td>
                     <td className="py-1 px-1">
@@ -398,7 +398,7 @@ function BlocSession({
         </tbody>
       </table>
       {!ues.length && (
-        <p className="text-[13px] text-slate-400 py-3">Aucune unité pour cette section.</p>
+        <p className="text-sm text-slate-400 py-3">Aucune unité pour cette section.</p>
       )}
     </section>
   );
@@ -532,12 +532,12 @@ export default function CalendrierSessions({ sansTitre = false } = {}) {
         )}
 
         <div className="flex flex-wrap items-center gap-2 mb-3">
-          <label className="text-[11px] text-slate-500 flex items-center gap-1.5">
+          <label className="text-xs text-slate-500 flex items-center gap-1.5">
             Section
             <select value={section || ''}
               onChange={e => { setSection(e.target.value); setCoches(new Set()); }}
               className="controle bg-white border border-slate-300 rounded-champ
-                         px-2 text-[13px]">
+                         px-2 text-sm">
               {(sections || []).map(s2 => (
                 <option key={s2.section} value={s2.section}>
                   {s2.section}{s2.nb_ues ? ` — ${s2.nb_ues} UE` : ''}
@@ -550,7 +550,7 @@ export default function CalendrierSessions({ sansTitre = false } = {}) {
             <IconSearch size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
             <input value={recherche} onChange={e => setRecherche(e.target.value)}
               placeholder="Unité ou cours…"
-              className="controle controle-icone pr-2 text-[13px] bg-white border border-slate-300 rounded-champ w-56" />
+              className="controle controle-icone pr-2 text-sm bg-white border border-slate-300 rounded-champ w-56" />
           </div>
           <button onClick={() => setDeplie(toutDeplie ? new Set() : new Set(ues.map(u => u.ue_num)))}
             className="bouton controle px-3 inline-flex items-center gap-1.5">
@@ -569,7 +569,7 @@ export default function CalendrierSessions({ sansTitre = false } = {}) {
         </div>
 
         {erreur && (
-          <div className="mb-3 px-3 py-2 rounded-carte bg-[#FBF1EE] text-[color:var(--c-refuse)] text-[13px]
+          <div className="mb-3 px-3 py-2 rounded-carte bg-[#FBF1EE] text-[color:var(--c-refuse)] text-sm
                           border border-[color:var(--c-attente)] inline-flex items-center gap-2">
             <IconAlertTriangle size={15} /> {erreur}
           </div>
@@ -613,14 +613,14 @@ export default function CalendrierSessions({ sansTitre = false } = {}) {
                 Corriger
               </button>
             </>}>
-              <p className="text-[13px] text-slate-600 mb-3">
+              <p className="text-sm text-slate-600 mb-3">
                 {aMotiver.detail || `Cette modification touche ${aMotiver.closes?.length || 0}
                  séance(s) déjà closes.`} La séance reste close ; seule la date change,
                 et la correction est conservée avec son motif.
               </p>
               <textarea value={motif} onChange={e => setMotif(e.target.value)} rows={3}
                 placeholder="Pourquoi cette date est-elle corrigée ?"
-                className="w-full px-2 py-1.5 text-[13px] border border-slate-300 rounded-lg" />
+                className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded-lg" />
           </Fenetre>
         )}
       </div>

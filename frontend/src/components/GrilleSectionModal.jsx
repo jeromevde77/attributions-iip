@@ -231,7 +231,7 @@ export default function GrilleSectionModal({ section, onClose }) {
       large="pleine" onFermer={onClose}
       outils={
         <button onClick={imprimer} title="Imprimer la grille"
-          className="flex-none h-8 px-2.5 rounded-champ text-[13px] text-white hover:bg-white/15 transition-colors duration-150 ease-ios">
+          className="flex-none h-8 px-2.5 rounded-champ text-sm text-white hover:bg-white/15 transition-colors duration-150 ease-ios">
           <IconPrinter size={14} className="inline align-[-2px] mr-1" />Imprimer
         </button>
       }
@@ -278,7 +278,7 @@ export default function GrilleSectionModal({ section, onClose }) {
                     <div className="font-semibold text-iip-gold text-sm">
                       UE {ue.ue_num} <span className="text-gray-600 font-normal">· {ue.ue_nom}</span>
                       {ue.ue_tc === 'x' && (
-                        <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-iip-turquoise/5 text-iip-blue border border-iip-turquoise font-bold align-middle" title="Unité du tronc commun">TC</span>
+                        <span className="ml-2 text-mention px-1.5 py-0.5 rounded bg-iip-turquoise/5 text-iip-blue border border-iip-turquoise font-bold align-middle" title="Unité du tronc commun">TC</span>
                       )}
                     </div>
                   </div>

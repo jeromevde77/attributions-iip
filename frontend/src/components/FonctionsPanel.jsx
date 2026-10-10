@@ -32,7 +32,7 @@ export default function FonctionsPanel({ profId }) {
     } catch (e) { setErreur(e.message); }
     finally { setEnCours(null); }
   };
-  if (!d) return <div className="text-[13px] text-slate-400">{erreur || 'Chargement…'}</div>;
+  if (!d) return <div className="text-sm text-slate-400">{erreur || 'Chargement…'}</div>;
   const etab = d.portees.find(p => p.code === '__ETAB__');
   const sections = d.portees.filter(p => p.code !== '__ETAB__');
   const visibles = sections.filter(p => p.fonctions.some(f => f.actif) || ouvertes.has(p.code));
@@ -42,14 +42,14 @@ export default function FonctionsPanel({ profId }) {
       title={titre} onClick={e => e.preventDefault()}
       onBlur={e => { const b = String(e.target.value).trim().replace(',', '.'); const v = b === '' ? null : parseFloat(b);
         if (v !== (valeur ?? null)) onPose(v); }}
-      className="w-16 h-7 border border-slate-300 rounded-champ px-1 text-[12px] text-right bg-white" />
+      className="w-16 h-7 border border-slate-300 rounded-champ px-1 text-second text-right bg-white" />
   );
   const bloc = p => (
     <div key={p.code} className="carte px-3 py-2">
-      <div className="text-[13px] font-semibold text-iip-blue mb-1">{p.libelle}</div>
-      <table className="w-full text-[13px]">
+      <div className="text-sm font-semibold text-iip-blue mb-1">{p.libelle}</div>
+      <table className="w-full text-sm">
         {p.fonctions.some(f => f.actif) && (
-          <thead><tr className="text-[10px] uppercase text-slate-400"><th /><th className="text-left font-normal">Fonction</th>
+          <thead><tr className="text-mention uppercase text-slate-400"><th /><th className="text-left font-normal">Fonction</th>
             <th className="font-normal w-16">ETP</th>{p.code !== '__ETAB__' && <th className="font-normal w-16">dont HELB</th>}</tr></thead>)}
         <tbody>
           {p.fonctions.map(f => (
@@ -67,18 +67,18 @@ export default function FonctionsPanel({ profId }) {
   const actives = d.portees.flatMap(p => p.fonctions.filter(f => f.actif).map(f => `${f.libelle} (${p.code === '__ETAB__' ? 'établissement' : p.code})`));
   return (
     <div className="space-y-3">
-      <p className="text-[12px] text-slate-500">
+      <p className="text-second text-slate-500">
         Fonctions en {annee} : {actives.length ? <b className="text-slate-700">{actives.join(' · ')}</b> : 'aucune'}.
         {' '}L’ETP fait le coût des fonctions dans « Rapport statistique ».
         {!peutRegler && ' Réservé à l’administration : lecture seule.'}
       </p>
-      {erreur && <p className="text-[12px]" style={{ color: 'var(--c-refuse)' }}>{erreur}</p>}
+      {erreur && <p className="text-second" style={{ color: 'var(--c-refuse)' }}>{erreur}</p>}
       <div className="grid gap-3 md:grid-cols-2">
         {etab && bloc(etab)}
         {visibles.map(bloc)}
       </div>
       {peutRegler && autres.length > 0 && (
-        <select className="controle text-[13px]" value="" onChange={e => e.target.value && setOuvertes(s => new Set([...s, e.target.value]))}>
+        <select className="controle text-sm" value="" onChange={e => e.target.value && setOuvertes(s => new Set([...s, e.target.value]))}>
           <option value="">+ Une fonction dans une autre section…</option>
           {autres.map(p => <option key={p.code} value={p.code}>{p.libelle}</option>)}
         </select>)}

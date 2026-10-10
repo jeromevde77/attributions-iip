@@ -91,7 +91,7 @@ function PastilleType({ dossier }) {
     <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
       <PastilleEtat etat={g.etat}>{g.label}</PastilleEtat>
       {dossier.type === 'disciplinaire' && (
-        <span className="text-[11px] text-slate-500">{dossier.nature === 'fraude' ? 'fraude' : 'comportement'}</span>
+        <span className="text-xs text-slate-500">{dossier.nature === 'fraude' ? 'fraude' : 'comportement'}</span>
       )}
     </span>
   );
@@ -156,16 +156,16 @@ function Segments({ options, valeur, onChange, desactive = false }) {
 function Champ({ label, children, aide }) {
   return (
     <label className="block">
-      <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">{label}</span>
+      <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">{label}</span>
       {children}
-      {aide && <span className="block text-[11px] text-slate-400 mt-1">{aide}</span>}
+      {aide && <span className="block text-xs text-slate-400 mt-1">{aide}</span>}
     </label>
   );
 }
 function Intertitre({ children }) {
-  return <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-2">{children}</div>;
+  return <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">{children}</div>;
 }
-const CLS_TEXTE = 'w-full rounded-champ border border-slate-300 bg-white px-3 py-2 text-[13px] text-slate-800';
+const CLS_TEXTE = 'w-full rounded-champ border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800';
 function Choix({ valeur, onChange, options, vide = '— choisir —', desactive }) {
   return (
     <select className="controle w-full" value={valeur ?? ''} disabled={desactive}
@@ -181,7 +181,7 @@ function Date_({ valeur, onChange, desactive }) {
 }
 function Case({ coche, onChange, children, desactive }) {
   return (
-    <label className={`flex items-start gap-2 text-[13px] text-slate-700 ${desactive ? 'opacity-60' : 'cursor-pointer'}`}>
+    <label className={`flex items-start gap-2 text-sm text-slate-700 ${desactive ? 'opacity-60' : 'cursor-pointer'}`}>
       <input type="checkbox" className="mt-0.5" checked={!!coche} disabled={desactive}
         onChange={e => onChange(e.target.checked)} />
       <span>{children}</span>
@@ -197,7 +197,7 @@ function Bloc({ titre, children, actions }) {
   return (
     <section className="carte p-3">
       <div className="flex items-center justify-between gap-2 mb-2">
-        <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{titre}</div>
+        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{titre}</div>
         {actions}
       </div>
       {children}
@@ -242,7 +242,7 @@ export default function Procedures() {
         {vue === 'anciens' && (
           <>
             <PageHeader titre="Anciens dossiers" sous="Recours et fraudes enregistrés avant le 3 octobre 2026 — en lecture" />
-            <Suspense fallback={<div className="text-[13px] text-slate-400 p-6">Chargement…</div>}>
+            <Suspense fallback={<div className="text-sm text-slate-400 p-6">Chargement…</div>}>
               <ArchivesProcedures />
             </Suspense>
           </>
@@ -270,8 +270,8 @@ function PastilleEcheance({ dossier }) {
   const p = dossier.prochaine;
   if (dossier.hors_delai && !p) return <PastilleEtat etat="corriger">hors délai</PastilleEtat>;
   if (!p) {
-    if (dossier.clos) return <span className="text-[12px] text-slate-400">clos{dossier.issue ? ` · ${libelleIssue(dossier.issue)}` : ''}</span>;
-    return <span className="text-[12px] text-slate-400">—</span>;
+    if (dossier.clos) return <span className="text-second text-slate-400">clos{dossier.issue ? ` · ${libelleIssue(dossier.issue)}` : ''}</span>;
+    return <span className="text-second text-slate-400">—</span>;
   }
   const n = joursAvant(p.date);
   const etat = dossier.hors_delai || (n != null && n <= 3) ? 'corriger' : n != null && n <= 7 ? 'surveiller' : 'reussi';
@@ -460,7 +460,7 @@ function OuvrirDossier({ annee, onFermer, onOuvert }) {
     <Fenetre icone={IconPlus} titre="Ouvrir un dossier" sous={`Recours ou procédure disciplinaire · ${annee}`}
       large="grande" onFermer={onFermer}
       pied={<>
-        <span className="text-[12px]" style={{ color: erreur ? 'var(--c-refuse)' : undefined }}>
+        <span className="text-second" style={{ color: erreur ? 'var(--c-refuse)' : undefined }}>
           {erreur || raison || ''}
         </span>
         <button type="button" className="bouton" onClick={onFermer}>Annuler</button>
@@ -490,15 +490,15 @@ function OuvrirDossier({ annee, onFermer, onOuvert }) {
                       <button key={e.id} type="button"
                         onMouseDown={ev => { ev.preventDefault(); choisirEtudiant(e); }}
                         onKeyDown={ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); choisirEtudiant(e); } }}
-                        className="w-full text-left px-3 py-1.5 text-[13px] hover:bg-slate-50 border-b border-slate-100 last:border-0">
+                        className="w-full text-left px-3 py-1.5 text-sm hover:bg-slate-50 border-b border-slate-100 last:border-0">
                         <span className="font-semibold text-slate-800">{nomPropre(e.nom, e.prenom)}</span>
-                        <span className="text-[12px] text-slate-400"> · {[e.id_ecampus, e.sections].filter(Boolean).join(' · ')}</span>
+                        <span className="text-second text-slate-400"> · {[e.id_ecampus, e.sections].filter(Boolean).join(' · ')}</span>
                       </button>
                     ))}
                   </div>
                 )}
                 {recherche.trim().length >= 2 && !resultats.length && (
-                  <div className="text-[12px] text-slate-400 mt-1">Aucun étudiant trouvé.</div>
+                  <div className="text-second text-slate-400 mt-1">Aucun étudiant trouvé.</div>
                 )}
               </div>
             )}
@@ -519,7 +519,7 @@ function OuvrirDossier({ annee, onFermer, onOuvert }) {
           )}
           {genreChoisi === 'recours' && ue?.seance && (
             <Champ label="Résultats publiés le">
-              <div className="text-[13px] text-slate-700">
+              <div className="text-sm text-slate-700">
                 {ue.seance.publie_le ? fmt(ue.seance.publie_le) : 'pas encore publiés'}
                 {ue.seance.president_nom && <span className="text-slate-400"> · séance présidée par {ue.seance.president_nom}</span>}
               </div>
@@ -537,13 +537,13 @@ function OuvrirDossier({ annee, onFermer, onOuvert }) {
               {genreChoisi === 'recours' ? '3. Décision contestée — cette année ou la précédente'
                 : genreChoisi === 'fraude' ? "3. UE de l'épreuve" : '3. UE concernée — facultatif'}
             </Intertitre>
-            {!etudiant && <div className="text-[12px] text-slate-400">Choisissez d'abord l'étudiant.</div>}
+            {!etudiant && <div className="text-second text-slate-400">Choisissez d'abord l'étudiant.</div>}
             {etudiant && contexte && !inscriptions.length && (
-              <div className="text-[12px] text-slate-400">Aucune inscription en {annee} ni l'année précédente, dans votre périmètre.</div>
+              <div className="text-second text-slate-400">Aucune inscription en {annee} ni l'année précédente, dans votre périmètre.</div>
             )}
             <div className="divide-y divide-slate-100">
               {genreChoisi === 'discipline' && inscriptions.length > 0 && (
-                <label className="flex items-center gap-2 py-1.5 text-[13px] cursor-pointer">
+                <label className="flex items-center gap-2 py-1.5 text-sm cursor-pointer">
                   <input type="radio" checked={!ueNum} onChange={() => setUeNum(null)} />
                   <span className="text-slate-600">Aucune UE en particulier</span>
                 </label>
@@ -552,7 +552,7 @@ function OuvrirDossier({ annee, onFermer, onOuvert }) {
                 const ok = permise(i);
                 const r = lireResultat(i);
                 return (
-                  <label key={`${i.annee_scolaire}-${i.ue_num}`} className={`flex items-center gap-2 py-1.5 text-[13px] ${ok ? 'cursor-pointer' : 'opacity-50'}`}>
+                  <label key={`${i.annee_scolaire}-${i.ue_num}`} className={`flex items-center gap-2 py-1.5 text-sm ${ok ? 'cursor-pointer' : 'opacity-50'}`}>
                     <input type="radio" disabled={!ok} checked={ueNum === i.ue_num && ueAnnee === i.annee_scolaire}
                       onChange={() => { setUeNum(i.ue_num); setUeAnnee(i.annee_scolaire); }} />
                     <span className="flex-1 min-w-0 truncate text-slate-800">
@@ -560,7 +560,7 @@ function OuvrirDossier({ annee, onFermer, onOuvert }) {
                       {i.section && <span className="text-slate-400"> · {i.section}</span>}
                     </span>
                     {ok ? <PastilleEtat etat={r.etat}>{r.label}</PastilleEtat>
-                      : <span className="text-[12px] text-slate-400">{r.label} — non recourable</span>}
+                      : <span className="text-second text-slate-400">{r.label} — non recourable</span>}
                   </label>
                 );
               })}
@@ -570,8 +570,8 @@ function OuvrirDossier({ annee, onFermer, onOuvert }) {
           {genreChoisi === 'fraude' && ueNum && (
             <div>
               <Intertitre>4. Acquis visés par l'épreuve (art. 75 §1)</Intertitre>
-              {!ue && <div className="text-[12px] text-slate-400">Chargement des cours…</div>}
-              {ue && !(ue.cours || []).length && <div className="text-[12px] text-slate-400">Aucun cours connu pour cette UE.</div>}
+              {!ue && <div className="text-second text-slate-400">Chargement des cours…</div>}
+              {ue && !(ue.cours || []).length && <div className="text-second text-slate-400">Aucun cours connu pour cette UE.</div>}
               <ArbreAcquis cours={ue?.cours || []} coches={acquis} onBasculer={basculerAcquis} />
             </div>
           )}
@@ -579,7 +579,7 @@ function OuvrirDossier({ annee, onFermer, onOuvert }) {
           {genreChoisi === 'recours' && ueNum && ue && (
             <div>
               <Intertitre>CDE restreint (art. 89 §1) — proposé depuis la séance</Intertitre>
-              <div className="text-[12px] text-slate-600">
+              <div className="text-second text-slate-600">
                 {ue.seance?.president_nom ? <>Président : <b>{ue.seance.president_nom}</b>. </> : 'Pas de président de séance connu. '}
                 {(ue.charges || []).length
                   ? <>Chargés de cours proposés : {[...new Map(ue.charges.map(c => [c.id, c])).values()].map(c => nomPropre(c.nom, c.prenom)).join(', ')}.</>
@@ -601,8 +601,8 @@ function ArbreAcquis({ cours, coches, onBasculer, desactive = false }) {
     <div className="space-y-2">
       {cours.map(c => (
         <div key={c.cours_code}>
-          <div className="text-[12px] font-semibold text-slate-700">{c.cours_code} · {c.cours_nom}</div>
-          {!(c.aas || []).length && <div className="text-[12px] text-slate-400 pl-4">aucun acquis rattaché</div>}
+          <div className="text-second font-semibold text-slate-700">{c.cours_code} · {c.cours_nom}</div>
+          {!(c.aas || []).length && <div className="text-second text-slate-400 pl-4">aucun acquis rattaché</div>}
           {(c.aas || []).map(a => (
             <div key={`${c.cours_code}|${a.aa_code}`} className="pl-4 py-0.5">
               <Case coche={coche(a.aa_code)} desactive={desactive} onChange={() => onBasculer(c.cours_code, a.aa_code)}>
@@ -666,7 +666,7 @@ function Dossier({ id, ref_, onRetour }) {
       </>
     );
   }
-  if (!d) return <div className="text-[13px] text-slate-400 p-6">Chargement du dossier…</div>;
+  if (!d) return <div className="text-sm text-slate-400 p-6">Chargement du dossier…</div>;
 
   const peutInstruire = !!d.peut_instruire;
   const peutDecider = !!d.peut_decider;
@@ -704,7 +704,7 @@ function Dossier({ id, ref_, onRetour }) {
     <>
       <div className="flex items-center gap-3 mb-3">
         <button type="button" className="bouton" onClick={onRetour}><IconArrowLeft size={15} /> Registre</button>
-        <span className="text-[12px] text-slate-400">Dossier n° {d.id} · ouvert le {fmt(d.cree_le)}{d.cree_par_nom ? ` par ${d.cree_par_nom}` : ''}</span>
+        <span className="text-second text-slate-400">Dossier n° {d.id} · ouvert le {fmt(d.cree_le)}{d.cree_par_nom ? ` par ${d.cree_par_nom}` : ''}</span>
         {peutInstruire && (
           <button type="button" className="bouton bouton-detruire ml-auto inline-flex items-center gap-1.5" onClick={supprimer}>
             <IconTrash size={15} /> Supprimer le dossier
@@ -717,14 +717,14 @@ function Dossier({ id, ref_, onRetour }) {
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <PastilleType dossier={d} />
           <h1 className="titre-ecran mb-0">{nomPropre(d.etudiant?.nom, d.etudiant?.prenom)}</h1>
-          <span className="text-[13px] text-slate-500">
+          <span className="text-sm text-slate-500">
             {[d.section, d.ue_num ? `UE ${d.ue_num}${d.ue_nom ? ` · ${d.ue_nom}` : ''}` : null,
               d.session ? `session ${d.session}` : null, d.etudiant?.id_ecampus].filter(Boolean).join(' · ')}
           </span>
         </div>
-        {d.objet && <div className="text-[13px] text-slate-700 mt-1">{d.objet}</div>}
+        {d.objet && <div className="text-sm text-slate-700 mt-1">{d.objet}</div>}
         {d.type === 'recours' && (
-          <div className="text-[12px] text-slate-400 mt-0.5">
+          <div className="text-second text-slate-400 mt-0.5">
             Résultats publiés le {d.publie_le ? fmt(d.publie_le) : '— (date de publication inconnue : les délais ne se calculent pas)'}
           </div>
         )}
@@ -747,7 +747,7 @@ function Dossier({ id, ref_, onRetour }) {
       <div className="carte p-4 mb-3">
         <Frise etapes={etapes} courante={d.circuit?.courante} selection={etapeSel} onChoisir={setEtapeSel} />
         {ecartementPossible && (
-          <div className="mt-3 flex items-center gap-2 text-[12px]">
+          <div className="mt-3 flex items-center gap-2 text-second">
             <button type="button" onClick={() => setEtapeSel('ecartement')}
               className={`bouton bouton-compact ${etapeSel === 'ecartement' ? 'bouton-sortir' : ''}`}>
               Écartement provisoire (art. 115 septies)
@@ -798,16 +798,16 @@ function Frise({ etapes, courante, selection, onChoisir }) {
             )}
             <button type="button" onClick={() => onChoisir(e.cle)}
               className="relative z-10 w-full flex flex-col items-center text-center px-1 group">
-              <span className={`w-[28px] h-[28px] rounded-full grid place-items-center text-[12px] font-bold
+              <span className={`w-[28px] h-[28px] rounded-full grid place-items-center text-second font-bold
                                 ${plein ? 'text-white' : 'bg-white text-slate-500 border-2 border-slate-300'}
                                 ${choisie ? 'ring-4 ring-iip-blue/20' : ''}`}
                 style={plein ? { background: faite ? 'var(--c-reussi)' : 'var(--c-principal)' } : undefined}>
                 {faite ? <IconCheck size={15} stroke={3} /> : i + 1}
               </span>
-              <span className={`mt-1.5 text-[12px] leading-tight ${choisie || estCourante ? 'font-semibold text-slate-800' : 'text-slate-500'} group-hover:underline`}>
+              <span className={`mt-1.5 text-second leading-tight ${choisie || estCourante ? 'font-semibold text-slate-800' : 'text-slate-500'} group-hover:underline`}>
                 {e.label}
               </span>
-              <span className="text-[10px] text-slate-400 leading-tight">
+              <span className="text-mention text-slate-400 leading-tight">
                 {faite && e.trace ? `${fmt(e.trace.le)}${e.trace.par ? ` · ${e.trace.par}` : ''}`
                   : `art. ${e.art}${e.facultatif ? ' · facultatif' : ''}${e.decision ? ' · direction' : ''}`}
               </span>
@@ -864,7 +864,7 @@ function FormulaireEtape({ dossier: d, cle, ref_, ue, peutInstruire, peutDecider
   const reservee = def?.decision && !peutDecider;
   const lecture = !peutInstruire || reservee;
   const maj = (k, x) => setV(o => ({ ...o, [k]: x }));
-  if (!def) return <div className="text-[13px] text-slate-400">Étape inconnue.</div>;
+  if (!def) return <div className="text-sm text-slate-400">Étape inconnue.</div>;
 
   async function poser() {
     setEnvoi(true); setErreur(null);
@@ -970,7 +970,7 @@ function FormulaireEtape({ dossier: d, cle, ref_, ue, peutInstruire, peutDecider
         <Champ label="Description des faits">
           <textarea data-reponses="proc.description" rows={5} className={CLS_TEXTE} value={v.description || ''} disabled={lecture} onChange={e => maj('description', e.target.value)} />
         </Champ>
-        <div className="text-[12px] text-slate-500">
+        <div className="text-second text-slate-500">
           La personne qui a constaté les faits se choisit dans « Personnes »
           {d.nature === 'fraude' ? ', les acquis visés dans « Acquis visés »' : ''}.
         </div>
@@ -982,7 +982,7 @@ function FormulaireEtape({ dossier: d, cle, ref_, ue, peutInstruire, peutDecider
           <Champ label="Premier jour"><Date_ valeur={v.du} onChange={x => maj('du', x)} {...P} /></Champ>
           <Champ label="Dernier jour"><Date_ valeur={v.au} onChange={x => maj('au', x)} {...P} /></Champ>
         </div>
-        <div className="text-[12px] text-slate-500">Quinze jours ouvrables au plus (art. 115 septies).</div>
+        <div className="text-second text-slate-500">Quinze jours ouvrables au plus (art. 115 septies).</div>
       </div>
     );
     if (cle === 'convocation') corps = (
@@ -1016,7 +1016,7 @@ function FormulaireEtape({ dossier: d, cle, ref_, ue, peutInstruire, peutDecider
         <Champ label="Déclarations de l'étudiant">
           <textarea data-reponses="proc.declarations" rows={5} className={CLS_TEXTE} value={v.declarations || ''} disabled={lecture} onChange={e => maj('declarations', e.target.value)} />
         </Champ>
-        <div className="text-[12px] text-slate-500">Le membre du personnel qui rédige le PV se choisit dans « Personnes » (art. 115 quinquies).</div>
+        <div className="text-second text-slate-500">Le membre du personnel qui rédige le PV se choisit dans « Personnes » (art. 115 quinquies).</div>
       </div>
     );
     if (cle === 'avis') corps = (
@@ -1063,10 +1063,10 @@ function FormulaireEtape({ dossier: d, cle, ref_, ue, peutInstruire, peutDecider
   return (
     <div>
       <div className="flex flex-wrap items-baseline gap-x-2 mb-1">
-        <h2 className="text-[15px] font-semibold text-slate-800">{def.label}</h2>
-        <span className="text-[12px] text-slate-400">art. {def.art}{def.facultatif ? ' · facultatif' : ''}</span>
+        <h2 className="text-base font-semibold text-slate-800">{def.label}</h2>
+        <span className="text-second text-slate-400">art. {def.art}{def.facultatif ? ' · facultatif' : ''}</span>
       </div>
-      <div className="text-[12px] text-slate-500 mb-3">
+      <div className="text-second text-slate-500 mb-3">
         {pose && trace ? <>Posée le {fmt(trace.le)}{fmtHeure(trace.le)}{trace.par ? ` par ${trace.par}` : ''}. Enregistrer à nouveau la corrige ; la version précédente reste au journal.</>
           : 'Pas encore posée.'}
       </div>
@@ -1075,7 +1075,7 @@ function FormulaireEtape({ dossier: d, cle, ref_, ue, peutInstruire, peutDecider
         <button type="button" className="bouton bouton-fort" disabled={lecture || envoi} onClick={poser}>
           {envoi ? 'Enregistrement…' : pose ? 'Corriger l’étape' : 'Poser l’étape'}
         </button>
-        <span className="text-[12px] min-w-0 flex-1" style={{ color: erreur ? 'var(--c-refuse)' : undefined }}>
+        <span className="text-second min-w-0 flex-1" style={{ color: erreur ? 'var(--c-refuse)' : undefined }}>
           {erreur || (reservee ? 'Cette étape est une décision : elle revient à la direction.'
             : !peutInstruire ? "Vous pouvez lire ce dossier, pas l'instruire." : '')}
         </span>
@@ -1095,7 +1095,7 @@ function Echeances({ dossier: d }) {
   return (
     <Bloc titre="Échéances (RDE)">
       {!liste.length && (
-        <div className="text-[12px] text-slate-400">
+        <div className="text-second text-slate-400">
           {d.type === 'recours' && !d.publie_le ? 'La date de publication des résultats manque : aucun délai ne se calcule.'
             : 'Aucune échéance pour l’instant : elles naissent des étapes posées.'}
         </div>
@@ -1114,11 +1114,11 @@ function Echeances({ dossier: d }) {
           return (
             <div key={i} className="py-1.5">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[13px] text-slate-700">{e.label}</span>
-                <span className="text-[13px] font-semibold text-slate-800 whitespace-nowrap">{fmt(e.date)}</span>
+                <span className="text-sm text-slate-700">{e.label}</span>
+                <span className="text-sm font-semibold text-slate-800 whitespace-nowrap">{fmt(e.date)}</span>
               </div>
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] text-slate-400">art. {e.art}{e.information ? ' · pour information' : ''}</span>
+                <span className="text-xs text-slate-400">art. {e.art}{e.information ? ' · pour information' : ''}</span>
                 {pastille}
               </div>
             </div>
@@ -1167,19 +1167,19 @@ function Personnes({ dossier: d, ue, personnel, peut, onMaj }) {
   const parRole = r => membres.filter(m => m.role === r);
   return (
     <Bloc titre={d.type === 'recours' ? 'CDE restreint (art. 89 §1)' : 'Personnes'}>
-      {erreur && <div className="text-[12px] mb-1" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
-      {!membres.length && <div className="text-[12px] text-slate-400 mb-1">Personne pour l'instant.</div>}
+      {erreur && <div className="text-second mb-1" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
+      {!membres.length && <div className="text-second text-slate-400 mb-1">Personne pour l'instant.</div>}
       <div className="divide-y divide-slate-100">
         {roles.flatMap(r => parRole(r)).map(m => {
           const avecPresence = m.role === 'president' || m.role === 'membre';
           return (
-            <div key={m.id ?? `${m.role}-${m.cle}-${m.nom}`} className="flex items-center gap-2 py-1 text-[13px]">
+            <div key={m.id ?? `${m.role}-${m.cle}-${m.nom}`} className="flex items-center gap-2 py-1 text-sm">
               {avecPresence && (
                 <input type="checkbox" title="Présent" checked={!!m.present} disabled={!peut}
                   onChange={e => ecrire(membres.map(x => (x === m ? { ...x, present: e.target.checked } : x)))} />
               )}
               <span className={`flex-1 min-w-0 truncate ${m.role === 'president' ? 'font-semibold text-slate-800' : 'text-slate-700'}`}>{m.nom}</span>
-              <span className="text-[11px] text-slate-400 whitespace-nowrap">{ROLES[m.role]}</span>
+              <span className="text-xs text-slate-400 whitespace-nowrap">{ROLES[m.role]}</span>
               {peut && (
                 <button type="button" title="Retirer" className="text-slate-400 hover:text-slate-700"
                   onClick={() => ecrire(membres.filter(x => x !== m))}><IconTrash size={14} /></button>
@@ -1189,7 +1189,7 @@ function Personnes({ dossier: d, ue, personnel, peut, onMaj }) {
         })}
       </div>
       {d.type === 'recours' && membres.length > 0 && (
-        <div className="text-[11px] text-slate-400 mt-1">La case cochée dit « présent à la réunion ».</div>
+        <div className="text-xs text-slate-400 mt-1">La case cochée dit « présent à la réunion ».</div>
       )}
       {peut && (
         <div className="mt-2 space-y-1.5">
@@ -1232,11 +1232,11 @@ function AcquisVises({ dossier: d, ue, peut, onMaj }) {
   }
   return (
     <Bloc titre={`Acquis visés · ${d.acquis?.length || 0}`}>
-      {erreur && <div className="text-[12px] mb-1" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
-      {gele && <div className="text-[11px] text-slate-400 mb-1">La décision est posée : les acquis visés ne se changent plus.</div>}
+      {erreur && <div className="text-second mb-1" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
+      {gele && <div className="text-xs text-slate-400 mb-1">La décision est posée : les acquis visés ne se changent plus.</div>}
       {ue ? <ArbreAcquis cours={ue.cours || []} coches={d.acquis || []} onBasculer={basculer} desactive={!peut || gele} />
         : (
-          <div className="text-[13px] text-slate-700">
+          <div className="text-sm text-slate-700">
             {(d.acquis || []).map(a => a.aa_code).join(', ') || <span className="text-slate-400">aucun</span>}
           </div>
         )}
@@ -1296,11 +1296,11 @@ function Pieces({ dossier: d, peut, onMaj }) {
             return (
               <div key={o.piece} className="flex items-center gap-2 py-1">
                 <IconFileText size={15} className="text-slate-400 flex-none" />
-                <span className="flex-1 min-w-0 text-[13px] text-slate-700 truncate">{o.label}</span>
+                <span className="flex-1 min-w-0 text-sm text-slate-700 truncate">{o.label}</span>
                 {pret ? (
                   <button type="button" className="bouton bouton-compact bouton-sortir" onClick={() => produire(o)}>Produire</button>
                 ) : (
-                  <span className="text-[11px] text-slate-400 whitespace-nowrap">
+                  <span className="text-xs text-slate-400 whitespace-nowrap">
                     après « {(d.circuit?.etapes || []).find(e => e.cle === o.etape)?.label || o.etape} »
                   </span>
                 )}
@@ -1315,14 +1315,14 @@ function Pieces({ dossier: d, peut, onMaj }) {
             className="w-full flex items-center gap-2 py-1 text-left hover:bg-slate-50">
             <IconDownload size={14} className="text-slate-400 flex-none" />
             <span className="flex-1 min-w-0">
-              <span className="block text-[13px] text-slate-700 truncate">{p.nom}</span>
-              <span className="block text-[11px] text-slate-400">{libCat(p.categorie)} · {fmt(p.le)}{p.par_nom ? ` · ${p.par_nom}` : ''}</span>
+              <span className="block text-sm text-slate-700 truncate">{p.nom}</span>
+              <span className="block text-xs text-slate-400">{libCat(p.categorie)} · {fmt(p.le)}{p.par_nom ? ` · ${p.par_nom}` : ''}</span>
             </span>
           </button>
         ))}
-        {!(d.pieces || []).length && <div className="text-[12px] text-slate-400 py-1">Aucune pièce déposée.</div>}
+        {!(d.pieces || []).length && <div className="text-second text-slate-400 py-1">Aucune pièce déposée.</div>}
       </div>
-      {erreur && <div className="text-[12px] mt-1" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
+      {erreur && <div className="text-second mt-1" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
       {peut && (
         <div className="mt-2 flex gap-1.5">
           <select className="controle flex-1 min-w-0" value={categorie} onChange={e => setCategorie(e.target.value)}>
@@ -1345,14 +1345,14 @@ function Journal({ dossier: d }) {
   const lignes = [...(d.journal || [])].reverse();
   return (
     <Bloc titre={`Journal · ${lignes.length} geste${lignes.length > 1 ? 's' : ''}`}>
-      {!lignes.length && <div className="text-[12px] text-slate-400">Aucun geste encore.</div>}
+      {!lignes.length && <div className="text-second text-slate-400">Aucun geste encore.</div>}
       <div className="divide-y divide-slate-100 max-h-72 overflow-y-auto">
         {lignes.map((l, i) => (
           <div key={i} className="py-1">
-            <div className="text-[13px] text-slate-700">
+            <div className="text-sm text-slate-700">
               {libelles[l.etape] || l.etape}{l.retiree ? ' — retirée' : ''}
             </div>
-            <div className="text-[11px] text-slate-400">{fmt(l.le)}{fmtHeure(l.le)}{l.par ? ` · ${l.par}` : ''}</div>
+            <div className="text-xs text-slate-400">{fmt(l.le)}{fmtHeure(l.le)}{l.par ? ` · ${l.par}` : ''}</div>
           </div>
         ))}
       </div>

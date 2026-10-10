@@ -96,7 +96,7 @@ export default function RepartitionOrganisation({ ueNum, ueNom, annee, onClose, 
           )}
 
           {data && orgs.length >= 2 && (<>
-            <p className="text-[13px] text-slate-500">
+            <p className="text-sm text-slate-500">
               {data.etudiants.length} inscrit(s) ·
               {orgs.map(o => ` org. ${o} : ${compte[o] || 0}`).join(' ·')}
               {' · '}<span className={compte[0] ? 'text-iip-texte font-semibold' : ''}>
@@ -105,15 +105,15 @@ export default function RepartitionOrganisation({ ueNum, ueNom, annee, onClose, 
 
             {coches.size > 0 && (
               <div className="flex items-center gap-2 flex-wrap px-3 py-2 rounded-lg bg-iip-turquoise/10 border border-iip-turquoise/30">
-                <span className="text-[13px] font-semibold text-iip-blue">{coches.size} coché(s) →</span>
+                <span className="text-sm font-semibold text-iip-blue">{coches.size} coché(s) →</span>
                 {orgs.map(o => (
                   <button key={o} onClick={() => affecterCoches(o)}
-                    className="px-2.5 py-1 text-[12px] font-semibold rounded bg-iip-blue text-white hover:opacity-90">
+                    className="px-2.5 py-1 text-second font-semibold rounded bg-iip-blue text-white hover:opacity-90">
                     Organisation {o}
                   </button>
                 ))}
                 <button onClick={() => affecterCoches('')}
-                  className="px-2.5 py-1 text-[12px] rounded border border-slate-300 text-slate-600">
+                  className="px-2.5 py-1 text-second rounded border border-slate-300 text-slate-600">
                   Non réparti
                 </button>
               </div>
@@ -121,7 +121,7 @@ export default function RepartitionOrganisation({ ueNum, ueNom, annee, onClose, 
 
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-[11px] uppercase text-slate-400 text-left">
+                <tr className="text-xs uppercase text-slate-400 text-left">
                   <th className="py-1 w-8">
                     <input type="checkbox"
                       checked={coches.size === data.etudiants.length && data.etudiants.length > 0}
@@ -139,12 +139,12 @@ export default function RepartitionOrganisation({ ueNum, ueNom, annee, onClose, 
                       <input type="checkbox" checked={coches.has(e.id)} onChange={() => basculer(e.id)} />
                     </td>
                     <td className="py-1.5">{e.nom} {e.prenom}
-                      {e.id_ecampus && <span className="text-[11px] text-slate-400 ml-1.5">{e.id_ecampus}</span>}
+                      {e.id_ecampus && <span className="text-xs text-slate-400 ml-1.5">{e.id_ecampus}</span>}
                     </td>
                     <td className="py-1.5">
                       <select value={affect[e.id] ?? ''}
                         onChange={ev => setAffect(a => ({ ...a, [e.id]: ev.target.value }))}
-                        className={`border rounded px-2 py-1 text-[13px] w-full
+                        className={`border rounded px-2 py-1 text-sm w-full
                           ${affect[e.id] === '' ? 'border-amber-300 bg-amber-50' : 'border-slate-300 bg-white'}`}>
                         <option value="">— non réparti —</option>
                         {orgs.map(o => <option key={o} value={o}>Organisation {o}</option>)}

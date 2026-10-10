@@ -261,7 +261,7 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
                             de l'import, pas six mois plus tard devant une
                             unité dont personne ne sait d'où elle sort. */}
                         {x.data.code_depuis_nom && (
-                          <div className="text-[11px] text-iip-texte mt-0.5">
+                          <div className="text-xs text-iip-texte mt-0.5">
                             Code FWB repris du <b>nom du fichier</b> — le document ne le porte pas.
                           </div>
                         )}
@@ -296,7 +296,7 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
                         )}
                         {!resultats && x.data.action === 'updated' && cibles[x.fichier]
                           && cibles[x.fichier] !== String(x.data.ue_num) && (
-                          <div className="text-[11px] text-iip-texte mt-0.5 pl-6">
+                          <div className="text-xs text-iip-texte mt-0.5 pl-6">
                             Redirigé vers l'UE {cibles[x.fichier]} — pensez à supprimer
                             l'UE {x.data.ue_num} si c'est un doublon.
                           </div>
@@ -313,7 +313,7 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
                           const nbLies = carte.choix.filter(Boolean).length;
                           return (
                             <div className="pl-6 mt-1.5 ml-0.5 border-l-2 border-iip-turquoise/25 space-y-1 py-1">
-                              <div className="text-[10px] uppercase tracking-wide text-gray-400">
+                              <div className="text-mention uppercase tracking-wide text-gray-400">
                                 Correspondance des cours — {nbLies} rattaché(s), {coursDP.length - nbLies} à créer
                               </div>
                               {coursDP.map((c, ci) => (
@@ -329,7 +329,7 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
                                       choix[ci] = e.target.value;
                                       return { ...m, [x.fichier]: { ...c0, choix } };
                                     })}
-                                    className={`w-56 border rounded px-1.5 py-0.5 text-[11px] bg-white
+                                    className={`w-56 border rounded px-1.5 py-0.5 text-xs bg-white
                                       ${carte.choix[ci] ? 'border-green-400 text-green-800' : 'border-amber-300 text-iip-texte'}`}>
                                     <option value="">➕ Créer ce cours</option>
                                     {carte.cours.map(k => (
@@ -426,7 +426,7 @@ function EffectifsImportModal({ annee, onClose, onSaved }) {
         </div>
         {preview && preview.length > 0 && (
           <div className="border border-gray-200 rounded-lg overflow-auto mb-3 flex-1" style={{ minHeight: '80px' }}>
-            <table className="w-full text-[12px]">
+            <table className="w-full text-second">
               <thead className="bg-gray-50 sticky top-0"><tr><th className="text-left px-3 py-1.5 h-9 text-gray-500">N° UE</th><th className="text-right px-3 py-1.5 h-9 text-gray-500">Nb étudiants</th></tr></thead>
               <tbody>
                 {preview.map((e, i) => (
@@ -518,13 +518,13 @@ function SectionModal({ section, onClose, onSaved, annee, isAdmin }) {
     finally { setSaving(false); }
   }
 
-  const lbl = 'block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1';
+  const lbl = 'block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1';
   return (
     <Fenetre icone={IconBooks} large="pleine" hauteurFixe onFermer={onClose}
       titre={isNew ? 'Nouvelle section' : `Section ${code}`}
       sous={isNew ? 'La fiche d’abord ; la composition se coche ensuite, dans la même fenêtre' : `Fiche et composition — ${annee}`}
       pied={<>
-        <span className="flex-1 min-w-0 text-[12px]" style={{ color: error ? 'var(--c-refuse)' : undefined }}>
+        <span className="flex-1 min-w-0 text-second" style={{ color: error ? 'var(--c-refuse)' : undefined }}>
           {error || info || (compoModifiee ? 'La composition a changé : elle s’enregistre avec la fiche.' : '')}
         </span>
         <button type="button" className="bouton" onClick={onClose}>{isNew ? 'Annuler' : 'Fermer'}</button>
@@ -548,7 +548,7 @@ function SectionModal({ section, onClose, onSaved, annee, isAdmin }) {
                 {MODES_GROUPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select></label>
             {!isNew && form.code.trim() && form.code.trim() !== code && (
-              <div data-etat="surveiller" className="bloc-etat px-3 py-2 text-[12px] mt-2">
+              <div data-etat="surveiller" className="bloc-etat px-3 py-2 text-second mt-2">
                 Renommer « {code} » en « {form.code.trim()} » mettra à jour toutes les attributions, cours, UE et rattachements liés.</div>
             )}
             <label className="block mt-3"><span className={lbl}>Libellé</span>
@@ -572,28 +572,28 @@ function SectionModal({ section, onClose, onSaved, annee, isAdmin }) {
               <input value={form.domaine} onChange={e => set('domaine', e.target.value)} placeholder="Sciences de la santé publique" className="controle w-full" /></label>
             <label className="block mt-3"><span className={lbl}>Type d'enseignement</span>
               <input value={form.type_enseignement} onChange={e => set('type_enseignement', e.target.value)} placeholder="Enseignement supérieur de type court" className="controle w-full" /></label>
-            <p className="text-[11px] text-slate-500 mt-1.5">Elles figurent sur l'attestation de réussite de chaque unité de la section ; une unité peut les redéfinir si elle fait exception.</p>
+            <p className="text-xs text-slate-500 mt-1.5">Elles figurent sur l'attestation de réussite de chaque unité de la section ; une unité peut les redéfinir si elle fait exception.</p>
           </GroupeFenetre>
           <GroupeFenetre titre="Titre">
             {/* LE TITRE DÉLIVRÉ AILLEURS (30 septembre 2026, Orthoptie). */}
-            <label className="flex items-start gap-2 text-[13px] text-slate-700 cursor-pointer">
+            <label className="flex items-start gap-2 text-sm text-slate-700 cursor-pointer">
               <input type="checkbox" className="mt-0.5" checked={form.titre_externe} onChange={e => set('titre_externe', e.target.checked)} />
               <span>Le titre de cette section est délivré par un autre établissement
-                <span className="block text-[11px] text-slate-500">L'IIP n'en fait ni la diplomation, ni les attestations de section (ex. : Orthoptie, titre délivré par la HELB).</span></span>
+                <span className="block text-xs text-slate-500">L'IIP n'en fait ni la diplomation, ni les attestations de section (ex. : Orthoptie, titre délivré par la HELB).</span></span>
             </label>
           </GroupeFenetre>
         </form>
         <div>
-          <div className="text-[15px] font-semibold text-iip-texte mb-1">Composition — les UE de la section ({annee})</div>
-          <p className="text-[12px] text-slate-500 mb-3">
+          <div className="text-base font-semibold text-iip-texte mb-1">Composition — les UE de la section ({annee})</div>
+          <p className="text-second text-slate-500 mb-3">
             Cochez les UE que la section comprend. Une UE d'une autre section est <b>rattachée</b>, jamais dupliquée : le tronc commun
             reste une seule UE, suivie par les deux sections. Ce qu'on organise une année donnée se règle ailleurs (organisations, attributions).
           </p>
           {isNew
-            ? <div className="border border-dashed border-slate-300 rounded-carte px-4 py-8 text-center text-[13px] text-slate-500">
+            ? <div className="border border-dashed border-slate-300 rounded-carte px-4 py-8 text-center text-sm text-slate-500">
                 Créez d'abord la section : la grille des UE s'ouvre ici, dans la même fenêtre.</div>
             : <CompositionSection sectionCode={code} data={compo} choix={choix} onChoix={setChoix} lecture={!isAdmin} />}
-          {!isNew && !isAdmin && <p className="text-[11px] text-slate-500 mt-2">La composition se règle par l'administration.</p>}
+          {!isNew && !isAdmin && <p className="text-xs text-slate-500 mt-2">La composition se règle par l'administration.</p>}
         </div>
       </div>
     </Fenetre>
@@ -681,9 +681,9 @@ function UEModal({ ue, sections, onClose, onSaved, navigation = null }) {
      défilement, et le bouton Enregistrer au bas d'un contenu qui défile. Elle
      prend la Fenetre commune, en pleine largeur : la fiche à gauche, les
      acquis à droite, l'action dans le pied. */
-  const lbl = 'block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1';
+  const lbl = 'block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1';
   const inp = 'controle w-full';
-  const coche = 'flex items-start gap-2 cursor-pointer text-[13px] text-slate-700';
+  const coche = 'flex items-start gap-2 cursor-pointer text-sm text-slate-700';
   const aside = 'text-slate-400';
 
   const fiche = (
@@ -720,7 +720,7 @@ function UEModal({ ue, sections, onClose, onSaved, navigation = null }) {
 
         {renaming && (
           <div className="mt-2 rounded-carte border border-slate-200 p-3 space-y-2">
-            <p className="text-[12px] text-slate-600">
+            <p className="text-second text-slate-600">
               Forcer le numéro met à jour l'unité, ses cours, ses attributions et ses rattachements,
               sur toutes les années. Lucie vérifie qu'il est libre et montre ce qui changera avant d'écrire.
             </p>
@@ -739,7 +739,7 @@ function UEModal({ ue, sections, onClose, onSaved, navigation = null }) {
               lignes cachait les coches déjà posées. */}
           <div className="grid grid-cols-4 gap-x-3 gap-y-1">
             {sections.map(s => (
-              <label key={s.code} className="flex items-center gap-2 py-0.5 cursor-pointer text-[13px] text-slate-700 min-w-0">
+              <label key={s.code} className="flex items-center gap-2 py-0.5 cursor-pointer text-sm text-slate-700 min-w-0">
                 <input type="checkbox" checked={selSections.has(s.code)}
                   onChange={() => toggleSection(s.code)} className="w-4 h-4 accent-iip-blue" />
                 <span className="truncate" title={s.libelle || s.code}>{s.code}</span>
@@ -994,19 +994,19 @@ export default function Referentiels({ embedded = false }) {
       {/* Sélecteur de vue */}
       <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 w-fit">
         <button onClick={() => setViewMode('sections')}
-          className={`px-3 py-1.5 text-sm rounded-md transition ${viewMode === 'sections' ? 'bg-white shadow-sm text-iip-gold font-medium' : 'text-gray-500 hover:text-gray-700'}`}>
+          className={`px-3 py-1.5 text-sm rounded-md transition ${viewMode === 'sections' ? 'bg-white shadow-pose text-iip-gold font-medium' : 'text-gray-500 hover:text-gray-700'}`}>
           Sections
         </button>
         <button onClick={() => setViewMode('section')}
-          className={`px-3 py-1.5 text-sm rounded-md transition ${viewMode === 'section' ? 'bg-white shadow-sm text-iip-gold font-medium' : 'text-gray-500 hover:text-gray-700'}`}>
+          className={`px-3 py-1.5 text-sm rounded-md transition ${viewMode === 'section' ? 'bg-white shadow-pose text-iip-gold font-medium' : 'text-gray-500 hover:text-gray-700'}`}>
           UE
         </button>
         <button onClick={() => setViewMode('table')}
-          className={`px-3 py-1.5 text-sm rounded-md transition ${viewMode === 'table' ? 'bg-white shadow-sm text-iip-gold font-medium' : 'text-gray-500 hover:text-gray-700'}`}>
+          className={`px-3 py-1.5 text-sm rounded-md transition ${viewMode === 'table' ? 'bg-white shadow-pose text-iip-gold font-medium' : 'text-gray-500 hover:text-gray-700'}`}>
           Tableau global
         </button>
         <button onClick={() => setViewMode('activites')}
-          className={`px-3 py-1.5 text-sm rounded-md transition ${viewMode === 'activites' ? 'bg-white shadow-sm text-iip-gold font-medium' : 'text-gray-500 hover:text-gray-700'}`}>
+          className={`px-3 py-1.5 text-sm rounded-md transition ${viewMode === 'activites' ? 'bg-white shadow-pose text-iip-gold font-medium' : 'text-gray-500 hover:text-gray-700'}`}>
           <IconTarget size={15} className="inline align-[-2px] mr-1" />Activités
         </button>
       </div>
@@ -1119,7 +1119,7 @@ export default function Referentiels({ embedded = false }) {
                           title={`Ajouter une UE à ${sg.section}`}
                           className="w-6 h-6 inline-flex items-center justify-center rounded-full bg-iip-gold/10 hover:bg-iip-gold hover:text-white text-iip-gold font-bold transition"><IconPlus size={14} /></button>
                         {catalogueSection === sg.section && (
-                          <div className="absolute right-2 top-full mt-1 z-30 bg-white border border-gray-200 rounded-lg shadow-xl py-1 w-64 text-left">
+                          <div className="absolute right-2 top-full mt-1 z-30 bg-white border border-gray-200 rounded-lg shadow-dessus py-1 w-64 text-left">
                             <button onClick={() => { setCatalogueOpen(sg.section); setCatalogueSection(null); }}
                               className="w-full text-left px-3 py-2 text-sm hover:bg-iip-gold/10 flex items-center gap-2">
                               <IconLink size={15} className="text-iip-gold" /><span>Rattacher une UE existante</span>

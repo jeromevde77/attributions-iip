@@ -186,29 +186,29 @@ export default function PlanningEcole({ section, annee, peutEcrire }) {
 
   const modifie = brouillon !== null;
   const peutIci = enBase ? peutBase : peutEcrire;
-  if (erreur && !p) return <div className="text-[12.5px]" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>;
-  if (!p) return <div className="text-[13px] text-slate-400">Chargement…</div>;
+  if (erreur && !p) return <div className="text-second" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>;
+  if (!p) return <div className="text-sm text-slate-400">Chargement…</div>;
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <div className="segments flex h-9">
-          {TYPES.map(([k, l]) => <button key={k} onClick={() => setType(k)} className={`px-3 text-[12.5px] ${type === k ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'}`}>{l}</button>)}
+          {TYPES.map(([k, l]) => <button key={k} onClick={() => setType(k)} className={`px-3 text-second ${type === k ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'}`}>{l}</button>)}
         </div>
         {!enBase && options.length > 1 && (
           <select className="controle max-w-[340px]" value={cible} onChange={e => setCible(e.target.value)}>
             {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>)}
         {!enBase && <div className="segments flex h-9">
-          {QUADRIS.map(([k, l]) => <button key={k} onClick={() => setQuadri(k)} className={`px-3 text-[12.5px] ${quadri === k ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'}`}>{l}</button>)}
+          {QUADRIS.map(([k, l]) => <button key={k} onClick={() => setQuadri(k)} className={`px-3 text-second ${quadri === k ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'}`}>{l}</button>)}
         </div>}
         <span className="flex-1" />
         {peutIci && modifie && <button className="bouton" onClick={() => setBrouillon(null)} disabled={enCours}>Annuler</button>}
         {peutIci && !enBase && <button className="bouton" disabled={!peint.size || enCours} onClick={() => setBrouillon(new Map())} title="Plus rien de peint : tout redevient libre">Tout vert</button>}
         {peutIci && <button className="bouton bouton-fort" disabled={!modifie || enCours || (!enBase && !cible)} onClick={enregistrer}>{enCours ? 'Enregistrement…' : 'Enregistrer'}</button>}
       </div>
-      {erreur && <div className="text-[12.5px]" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
+      {erreur && <div className="text-second" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
 
-      <div className="bloc-etat px-3 py-2 text-[12.5px]" data-etat="neutre">
+      <div className="bloc-etat px-3 py-2 text-second" data-etat="neutre">
         {enBase
           ? <><b>La base de l’école</b> : les blocs de cours, jour par jour, pour tout l’IIP. Un clic sur un bloc le retire, un clic sur un bloc en pointillé l’ajoute ce jour-là. Tout le reste — enseignants, sections, cours, locaux — se peint sur ces blocs.{!peutBase && ' Seuls la direction et le secrétariat la modifient.'}</>
           : <>Cliquez sur un bloc pour le changer : <b>vert</b> libre (la simulation choisit), <b>orange</b> éventuellement (évité tant qu’il y a mieux), <b>rouge</b> jamais. Ce qu’un niveau au-dessus impose déjà s’écrit dans le bloc.
@@ -217,7 +217,7 @@ export default function PlanningEcole({ section, annee, peutEcrire }) {
 
       <div className="flex flex-wrap gap-4 items-start">
         <div className="carte p-3 bg-white flex-1 min-w-[520px] space-y-2">
-          {!enBase && <div className="flex items-center gap-3"><b className="text-[13px]">{options.find(o => o[0] === cible)?.[1] || '—'}</b><span className="flex-1" /><LegendeDispo /></div>}
+          {!enBase && <div className="flex items-center gap-3"><b className="text-sm">{options.find(o => o[0] === cible)?.[1] || '—'}</b><span className="flex-1" /><LegendeDispo /></div>}
           <AgendaSemaine base={baseVue} modeles={modeles} mode={enBase ? 'base' : 'peindre'} desactive={!peutIci}
             valeur={(j, c) => peint.get(`${j}|${c.debut}`) ?? 1} herite={enBase ? null : herite} onCase={changer} />
         </div>
@@ -225,15 +225,15 @@ export default function PlanningEcole({ section, annee, peutEcrire }) {
         <div className="w-[300px] flex-none space-y-3">
           {enBase && (
             <div className="carte p-3 space-y-2">
-              <b className="text-[13px]">Les blocs de cours</b>
+              <b className="text-sm">Les blocs de cours</b>
               <div className="space-y-1">
                 {modeles.map(m => (
-                  <div key={`${m.debut}|${m.fin}`} className="flex items-center gap-2 text-[12.5px]">
+                  <div key={`${m.debut}|${m.fin}`} className="flex items-center gap-2 text-second">
                     <span className="tabular-nums w-[92px]">{m.debut}–{m.fin}</span>
-                    <span className="text-slate-500 text-[11px] flex-1">{baseVue.filter(c => c.debut === m.debut && c.fin === m.fin).length} jour(s)</span>
+                    <span className="text-slate-500 text-xs flex-1">{baseVue.filter(c => c.debut === m.debut && c.fin === m.fin).length} jour(s)</span>
                     {peutBase && <>
-                      <button className="bouton !h-7 !px-2 text-[11px]" onClick={() => poserPartout(m, [1, 2, 3, 4, 5])} title="Poser ce bloc du lundi au vendredi">Lu–ve</button>
-                      <button className="bouton !h-7 !px-2 text-[11px]" onClick={() => retirerModele(m)} title="Retirer ce bloc de tous les jours">✕</button></>}
+                      <button className="bouton !h-7 !px-2 text-xs" onClick={() => poserPartout(m, [1, 2, 3, 4, 5])} title="Poser ce bloc du lundi au vendredi">Lu–ve</button>
+                      <button className="bouton !h-7 !px-2 text-xs" onClick={() => retirerModele(m)} title="Retirer ce bloc de tous les jours">✕</button></>}
                   </div>))}
               </div>
               {peutBase && <div className="flex items-center gap-1 pt-2 border-t border-slate-200">
@@ -242,11 +242,11 @@ export default function PlanningEcole({ section, annee, peutEcrire }) {
                 <input type="time" className="controle !h-8 w-[96px]" value={nouveau.fin} onChange={e => setNouveau(n => ({ ...n, fin: e.target.value }))} />
                 <button className="bouton !h-8" onClick={ajouterModele}>Ajouter</button>
               </div>}
-              <p className="text-[11px] text-slate-500">Un bloc ajouté paraît en pointillé dans l’agenda : un clic le pose sur un jour, « Lu–ve » sur toute la semaine. Deux blocs d’un même jour ne se chevauchent pas.</p>
+              <p className="text-xs text-slate-500">Un bloc ajouté paraît en pointillé dans l’agenda : un clic le pose sur un jour, « Lu–ve » sur toute la semaine. Deux blocs d’un même jour ne se chevauchent pas.</p>
             </div>)}
           {type === 'section' && (
-            <div className="carte p-3 space-y-2 text-[12.5px]">
-              <b className="text-[13px]">Priorités de {section}</b>
+            <div className="carte p-3 space-y-2 text-second">
+              <b className="text-sm">Priorités de {section}</b>
               <label className="flex items-center gap-2">
                 <span>Un étudiant vient au plus</span>
                 <select className="controle !h-8" value={regles.jours_max} disabled={!peutEcrire} onChange={e => { setRegles(r => ({ ...r, jours_max: Number(e.target.value) })); setBrouillon(b => b ?? new Map(enregistre)); }}>
@@ -261,10 +261,10 @@ export default function PlanningEcole({ section, annee, peutEcrire }) {
             </div>)}
           {!enBase && (
             <div className="carte p-3 space-y-1.5">
-              <b className="text-[13px]">Déjà peint pour {section}</b>
-              {!resume.length && <p className="text-[12px] text-slate-500">Rien encore : la simulation a toute la base.</p>}
+              <b className="text-sm">Déjà peint pour {section}</b>
+              {!resume.length && <p className="text-second text-slate-500">Rien encore : la simulation a toute la base.</p>}
               {resume.map(x => (
-                <button key={`${x.t}|${x.c}`} className="w-full flex items-center gap-2 text-left text-[12.5px] hover:underline" onClick={() => { if (x.t === type) setCible(x.c); else { setVoulue(x.c); setType(x.t); } }}>
+                <button key={`${x.t}|${x.c}`} className="w-full flex items-center gap-2 text-left text-second hover:underline" onClick={() => { if (x.t === type) setCible(x.c); else { setVoulue(x.c); setType(x.t); } }}>
                   <span className="flex-1 truncate">{x.nom}</span><span className="text-slate-500 tabular-nums">{x.nb}</span>
                 </button>))}
             </div>)}
