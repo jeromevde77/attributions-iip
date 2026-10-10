@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { api, authHeaders, getAnnee } from '../lib/api.js';
-import { informer } from '../lib/dialogue.jsx';
+import { demander, informer, saisir } from '../lib/dialogue.jsx';
 import { passeRole } from '../lib/droits.js';
 import { teinteCours, styleTuileCours } from '../lib/teinteCours.js';
 import { IconeLaboratoire } from '../components/IconeLaboratoire.jsx';
@@ -138,6 +138,77 @@ export default function LaboratoireTemporel() {
   // Seule une UE POSÉE peut tomber pendant le stage : sans dates, on ne sait pas.
   const pendantStage = u => !u.stage && etendue(u).posee && stagesBloquants.some(s => etendue(u).de <= s.a && etendue(u).a >= s.de);
 
+  /* LES COUCHES DANS LE TEMPS (Charles, 10 octobre 2026 : « le contenu de la tuile
+     est le reflet du verre, mais temporellement : l'évaluation à la fin, théorie
+     et exercices en suivant ou en parallèle »). Chaque cours est une petite ligne
+     du temps de ses activités ; deux activités qui se chevauchent passent l'une
+     sous l'autre. Une activité sans dates court sur toute l'unité — l'évaluation,
+     elle, se place d'office sur sa dernière semaine de cours. */
+  const evalId = data?.evaluation?.activite_id ?? null;
+  const [glisseAct, setGlisseAct] = useState(null);       // { ue, cours, k, de, a }
+  const idxDate = d => { if (!d) return -1; const i = semaines.findIndex(x => d >= x.date_debut && d <= (x.date_fin || x.date_debut)); if (i >= 0) return i;
+    let j = -1; semaines.forEach((x, n) => { if (x.date_debut <= d) j = n; }); return j; };
+  const spanAct = (u, c, a, k) => {
+    if (glisseAct && glisseAct.ue === u.ue_num && glisseAct.cours === c.cours_code && glisseAct.k === k) return { de: glisseAct.de, a: glisseAct.a };
+    const e = etendue(u);
+    const d = idxDate(a.date_debut), f = idxDate(a.date_fin);
+    if (d >= 0 && f >= 0) return { de: Math.max(e.de, Math.min(d, e.a)), a: Math.max(e.de, Math.min(f, e.a)) };
+    if (evalId != null && Number(a.activite_id) === Number(evalId)) {
+      let i = e.a; while (i > e.de && semaines[i]?.type !== 'cours') i--;
+      return { de: i, a: i };
+    }
+    return { de: e.de, a: e.a };
+  };
+  const couchesDe = u => (u.cours || []).map(c => {
+    const lignes = [];
+    (c.activites || []).map((act, k) => { const sp = spanAct(u, c, act, k); return { act, k, de: sp.de, fin: sp.a }; })
+      .sort((x, y) => x.de - y.de || y.fin - x.fin).forEach(x => {
+      let i = lignes.findIndex(l => l.every(y => y.fin < x.de || y.de > x.fin));
+      if (i < 0) { i = lignes.length; lignes.push([]); }
+      lignes[i].push(x);
+    });
+    return { c, lignes };
+  });
+  const hauteurUE = u => (zoom === 'annee' ? 54 : 40 + couchesDe(u).reduce((t, x) => t + 15 + 19 * Math.max(1, x.lignes.length), 0));
+  // Une piste fait la hauteur de sa plus haute tuile ; les suivantes s'empilent dessous.
+  const hauteursPistes = Array.from({ length: pistes.n }, (_, i) => Math.max(54, ...ues.filter(u => pistes.de.get(u.ue_num) === i).map(hauteurUE)));
+  const hautDePiste = i => hauteursPistes.slice(0, i).reduce((t, h) => t + h + 8, 0);
+
+  async function ecrireActivites(u, c, activites) {
+    const r = await fetch('/api/grille/cours', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({
+      annee_scolaire: annee, section, ue_num: u.ue_num, cours_code: c.cours_code,
+      date_debut: c.date_debut || null, date_fin: c.date_fin || null, autonomie_placee: c.autonomie_placee || 0, evaluation_mode: c.evaluation_mode || 'examen',
+      activites: activites.map(a => ({ activite_id: a.activite_id, periodes: a.periodes, groupes: a.groupes || 1, vu_etudiant: a.vu_etudiant !== 0,
+        date_debut: a.date_debut || null, date_fin: a.date_fin || null })) }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { setErreur(j.error || `Erreur ${r.status}`); return; }
+    await charger();
+  }
+  function gesteAct(ev, u, c, k, quoi) {
+    if (!peutEcrire) return;
+    ev.preventDefault(); ev.stopPropagation();
+    const e = etendue(u), larg = (zone.current?.getBoundingClientRect().width || 1) / Math.max(1, NB);
+    const s0 = spanAct(u, c, c.activites[k], k), x0 = ev.clientX;
+    let courant = null;
+    const mv = m => {
+      const dc = Math.round((m.clientX - x0) / larg);
+      if (!dc && !courant) return;
+      let de = s0.de, a = s0.a;
+      if (quoi === 'deplacer') { const d = Math.max(e.de - s0.de, Math.min(e.a - s0.a, dc)); de += d; a += d; }
+      if (quoi === 'debut') de = Math.max(e.de, Math.min(s0.a, s0.de + dc));
+      if (quoi === 'fin') a = Math.min(e.a, Math.max(s0.de, s0.a + dc));
+      courant = { ue: u.ue_num, cours: c.cours_code, k, de, a }; setGlisseAct(courant);
+    };
+    const up = async () => {
+      document.removeEventListener('pointermove', mv); document.removeEventListener('pointerup', up);
+      if (!courant) return;
+      const acts = c.activites.map((a, i) => (i === k ? { ...a, date_debut: semaines[courant.de].date_debut, date_fin: semaines[courant.a].date_fin || semaines[courant.a].date_debut } : a));
+      await ecrireActivites(u, c, acts);
+      setGlisseAct(null);
+    };
+    document.addEventListener('pointermove', mv); document.addEventListener('pointerup', up);
+  }
+
   const molette = e => { if (!e.ctrlKey) return; e.preventDefault(); const z = ['annee', 'couches', 'ue'], i = z.indexOf(zoom) + (e.deltaY < 0 ? 1 : -1); if (z[i] === 'ue' && !ueChoisie) return; if (z[i]) setZoom(z[i]); };
 
   return (
@@ -177,15 +248,17 @@ export default function LaboratoireTemporel() {
           <div className="min-w-[980px] relative">
             {/* Les mois, puis les semaines : cours numérotées, évaluations « É ». */}
             <Entete semaines={semaines} />
-            <div ref={zone} className="relative" style={{ height: pistes.n * (zoom === 'annee' ? 62 : hauteurCouches(ues) + 8) + 4 }}>
+            <div ref={zone} className="relative" style={{ height: hautDePiste(pistes.n) + 4 }}>
               <div className="absolute inset-0 grid pointer-events-none" style={{ gridTemplateColumns: `repeat(${NB}, minmax(0,1fr))` }}>
                 {semaines.map((s, i) => <div key={i} style={{ background: fondSemaine(s.type), boxShadow: stagesBloquants.some(x => i >= x.de && i <= x.a) ? 'inset 0 0 0 999px rgba(71,85,105,.08)' : undefined }} />)}
               </div>
               {ues.map(u => {
-                const e = etendue(u), p = pistes.de.get(u.ue_num) || 0, h = zoom === 'annee' ? 54 : hauteurCouches(ues);
+                const e = etendue(u), p = pistes.de.get(u.ue_num) || 0, h = hauteursPistes[p];
                 return (
                   <TuileUE key={u.ue_num} u={u} zoom={zoom} choisie={choix === u.ue_num} posee={e.posee} pendantStage={pendantStage(u)}
-                    style={{ left: `calc(${e.de / NB * 100}% + 1px)`, width: `calc(${(e.a - e.de + 1) / NB * 100}% - 2px)`, top: p * (h + 8), height: h }}
+                    style={{ left: `calc(${e.de / NB * 100}% + 1px)`, width: `calc(${(e.a - e.de + 1) / NB * 100}% - 2px)`, top: hautDePiste(p), height: h }}
+                    couches={zoom === 'couches' ? couchesDe(u) : null} span={e} peutEcrire={peutEcrire}
+                    onActivite={(ev, c, k, quoi) => gesteAct(ev, u, c, k, quoi)}
                     onDeplacer={ev => geste(ev, u, 'deplacer')} onDebut={ev => geste(ev, u, 'debut')} onFin={ev => geste(ev, u, 'fin')}
                     onOuvrir={() => {
                       /* LE DOUBLE-CLIC ZOOME (Charles, 10 octobre 2026) : l'année → les
@@ -222,7 +295,6 @@ const HACHURE = 'color-mix(in srgb, var(--c-attente, #B45309) 16%, white)';
 const FOND_STAGE = 'color-mix(in srgb, #64748B 16%, white)';
 const fondSemaine = t => (t === 'ev1' || t === 'ev2' ? 'color-mix(in srgb, var(--c-attente, #B45309) 13%, transparent)'
   : t === 'cours' ? 'transparent' : 'color-mix(in srgb, #64748B 9%, transparent)');
-const hauteurCouches = ues => 36 + 22 * Math.max(1, ...ues.map(u => (u.cours || []).length));
 
 function Entete({ semaines }) {
   const NB = semaines.length;
@@ -241,7 +313,7 @@ function Entete({ semaines }) {
 
 /* UNE TUILE PAR UE — la tuile de Lucie : blanche, liseré de la couleur de l'UE,
    texte à l'encre. Le stage est hachuré ; une UE sans dates, en pointillé. */
-function TuileUE({ u, zoom, choisie, posee, pendantStage, style, onDeplacer, onDebut, onFin, onOuvrir }) {
+function TuileUE({ u, zoom, choisie, posee, pendantStage, style, onDeplacer, onDebut, onFin, onOuvrir, couches, span, peutEcrire, onActivite }) {
   const teinte = teinteCours(`${u.ue_num}.1`);
   const dossier = (u.cours || []).reduce((t, c) => t + (Number(c.cours_per) || 0), 0);
   const remplies = arrondi((u.cours || []).reduce((t, c) => t + Math.min(Number(c.cours_per) || 0, sommeEtudiant(c)), 0));
@@ -269,22 +341,31 @@ function TuileUE({ u, zoom, choisie, posee, pendantStage, style, onDeplacer, onD
           {!u.stage && <span className="px-1.5 rounded-[5px] text-[10px] font-semibold text-white" style={{ background: remplies >= dossier && dossier ? 'var(--c-reussi)' : 'var(--c-attente)' }}>
             {remplies >= dossier && dossier ? 'grille complète' : `grille : ${remplies}/${dossier}`}</span>}
         </div>
-        {/* LES COUCHES : une ligne par cours, ses activités en tuiles. */}
-        {zoom === 'couches' && (
-          <div className="mt-1 space-y-[3px]">
-            {(u.cours || []).map(c => {
-              const s = arrondi(sommeEtudiant(c)), dp = Number(c.cours_per) || 0;
+        {/* LES COUCHES, DANS LE TEMPS : une ligne par cours, ses activités en barres
+            posées sur leurs semaines — on les glisse, on tire leurs bords. */}
+        {couches && (
+          <div className="mt-1">
+            {couches.map(({ c, lignes }) => {
+              const s = arrondi(sommeEtudiant(c)), dp = Number(c.cours_per) || 0, n = span.a - span.de + 1;
               return (
-                <div key={c.cours_code} className="flex items-center gap-1 h-[19px] min-w-0">
-                  <b className="flex-none w-[38px] text-[11px]">{c.cours_code}</b>
-                  <span className="flex-none text-[10.5px] tabular-nums w-[46px]" style={{ color: s >= dp ? 'var(--c-reussi)' : 'var(--c-attente)' }}>{s}/{dp}</span>
-                  <div className="flex gap-[3px] min-w-0 overflow-hidden">
-                    {(c.activites || []).map((a, i) => (
-                      <span key={i} className="flex-none px-1.5 rounded-[5px] text-[10.5px] truncate max-w-[11rem]" style={styleTuileCours(c.cours_code, { fond: 14 })}
-                        title={`${a.activite_nom || 'activité'} — ${arrondi(parEtudiant(a))} p. par étudiant${a.groupes > 1 ? `, ${a.groupes} groupes` : ''}`}>
-                        {a.activite_nom || 'activité'} · {arrondi(parEtudiant(a))} p.{a.groupes > 1 ? ` ×${a.groupes}` : ''}</span>))}
-                    {!(c.activites || []).length && <span className="text-[10.5px] text-slate-400">à découper</span>}
+                <div key={c.cours_code}>
+                  <div className="h-[15px] text-[10.5px] leading-[15px] flex gap-1.5">
+                    <b>{c.cours_code}</b><span className="tabular-nums" style={{ color: s >= dp ? 'var(--c-reussi)' : 'var(--c-attente)' }}>{s}/{dp} p.</span>
+                    {!(c.activites || []).length && <span className="text-slate-400">à découper — dans le verre</span>}
                   </div>
+                  {(lignes.length ? lignes : [[]]).map((l, li) => (
+                    <div key={li} className="relative h-[19px] -mx-2">
+                      {l.map(x => (
+                        <div key={x.k} onPointerDown={ev => onActivite(ev, c, x.k, 'deplacer')} onDoubleClick={ev => ev.stopPropagation()}
+                          className={`absolute top-[2px] h-[15px] rounded-[4px] px-1.5 text-[10px] leading-[15px] text-white truncate ${peutEcrire ? 'cursor-grab' : ''}`}
+                          style={{ left: `calc(${(x.de - span.de) / n * 100}% + 1px)`, width: `calc(${(x.fin - x.de + 1) / n * 100}% - 2px)`,
+                            background: x.act.activite_id && /valuation/i.test(x.act.activite_nom || '') ? '#B45309' : teinteCours(c.cours_code) }}
+                          title={`${c.cours_code} — ${x.act.activite_nom || 'activité'} · ${arrondi(parEtudiant(x.act))} p. par étudiant${x.act.groupes > 1 ? `, ${x.act.groupes} groupes` : ''}\nGlisser : le déplacer ; tirer ses bords : l’allonger`}>
+                          {peutEcrire && <span className="absolute left-0 top-0 bottom-0 w-1.5 cursor-ew-resize" onPointerDown={ev => onActivite(ev, c, x.k, 'debut')} />}
+                          {x.act.activite_nom || 'activité'} · {arrondi(parEtudiant(x.act))} p.{x.act.groupes > 1 ? ` ×${x.act.groupes}` : ''}
+                          {peutEcrire && <span className="absolute right-0 top-0 bottom-0 w-1.5 cursor-ew-resize" onPointerDown={ev => onActivite(ev, c, x.k, 'fin')} />}
+                        </div>))}
+                    </div>))}
                 </div>);
             })}
           </div>)}
@@ -331,7 +412,15 @@ function Verre({ u, types, annee, section, peutEcrire, onRetour, onAnnee, onEnre
   const barre = types.filter(t => (COURANTES.test(t.libelle || '') && !t.section) || ajoutees.includes(String(t.id)))
     .concat(types.filter(t => t.role === 'evaluation').slice(0, 1))
     .filter((t, i, l) => l.findIndex(x => x.id === t.id) === i);
-  const total = cours.reduce((t, c) => t + Math.max(Number(c.cours_per) || 0, sommeEtudiant(c)), 0);
+  /* LA BURETTE DE L'UE (Charles, 10 octobre 2026) : l'autonomie que le dossier
+     donne à l'unité, pleine au départ, qui se vide quand un cours en prend pour
+     contenir ce qui déborde. La capacité d'un cours, c'est ses périodes du
+     dossier plus l'autonomie qu'il a prise (grille_cours.autonomie_placee). */
+  const autonomieUE = Number((u.cours || []).find(c => c.ue_autonomie != null)?.ue_autonomie) || 0;
+  const autonomiePrise = cours.reduce((t, c) => t + (Number(c.autonomie_placee) || 0), 0);
+  const autonomieReste = arrondi(autonomieUE - autonomiePrise);
+  const capacite = c => (Number(c.cours_per) || 0) + (Number(c.autonomie_placee) || 0);
+  const total = cours.reduce((t, c) => t + Math.max(capacite(c), sommeEtudiant(c)), 0);
   const PX = Math.max(2.4, Math.min(5, 560 / Math.max(1, total)));
   const changer = (ci, f) => { setCours(cs => cs.map((c, i) => (i === ci ? f(c) : c))); setModifies(m => new Set(m).add(ci)); };
   const teinteCouche = (c, k) => { const base = teinteCours(c.cours_code); return k % 2 ? `color-mix(in srgb, ${base} 72%, white)` : base; };
@@ -344,7 +433,8 @@ function Verre({ u, types, annee, section, peutEcrire, onRetour, onAnnee, onEnre
         const r = await fetch('/api/grille/cours', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({
           annee_scolaire: annee, section, ue_num: u.ue_num, cours_code: c.cours_code,
           date_debut: c.date_debut || null, date_fin: c.date_fin || null, autonomie_placee: c.autonomie_placee || 0, evaluation_mode: c.evaluation_mode || 'examen',
-          activites: c.activites.map(a => ({ activite_id: a.activite_id, periodes: a.periodes, groupes: a.groupes, vu_etudiant: a.vu_etudiant !== 0 })) }) });
+          activites: c.activites.map(a => ({ activite_id: a.activite_id, periodes: a.periodes, groupes: a.groupes, vu_etudiant: a.vu_etudiant !== 0,
+            date_debut: a.date_debut || null, date_fin: a.date_fin || null })) }) });
         const j = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
         if (j.repli?.applique) await informer(`${c.cours_code} : un cours ne s’enregistre pas vide — il revient à son contenu du dossier, ${j.repli.periodes} périodes de matière.`);
@@ -354,12 +444,42 @@ function Verre({ u, types, annee, section, peutEcrire, onRetour, onAnnee, onEnre
     } catch (e) { await informer(`❌ ${e.message}`); } finally { setEnCours(false); }
   }
 
-  function deposer(ci, typeId) {
+  /* GLISSER UNE ACTIVITÉ POSE LES QUESTIONS DANS L'ORDRE (Charles, 10 octobre
+     2026) : réduit-elle la précédente ? de combien ? sinon, quelle place prend-
+     elle ? et si le verre déborde, prend-on de l'autonomie dans l'UE ? combien ? */
+  async function deposer(ci, typeId) {
     const t = types.find(x => String(x.id) === String(typeId));
     if (!t) return;
-    const g = estGroupes(t.libelle) ? 4 : 1;
-    changer(ci, c => ({ ...c, activites: [...c.activites, { activite_id: t.id, activite_nom: t.libelle, periodes: 4 * g, groupes: g, vu_etudiant: 1 }] }));
-    setChoix({ c: ci, k: cours[ci].activites.length });
+    const c = cours[ci], g = estGroupes(t.libelle) ? 4 : 1;
+    const cap = capacite(c), s = sommeEtudiant(c), libre = arrondi(cap - s);
+    const prev = c.activites[c.activites.length - 1], pPrev = prev ? arrondi(parEtudiant(prev)) : 0;
+    const titre = `${t.libelle} dans ${c.cours_code}`;
+    let reduire = false;
+    if (prev) {
+      reduire = await demander({ titre, message: `Cette activité réduit-elle la place de la précédente (« ${prev.activite_nom || 'activité'} », ${pPrev} p.) ?`,
+        confirmer: 'Oui, elle la réduit', annuler: 'Non, elle s’ajoute' });
+    }
+    const brut = await saisir({ titre, valeur: String(reduire ? Math.max(1, Math.round(pPrev / 2)) : Math.max(1, libre > 0 ? libre : 4)),
+      message: reduire ? `Quelle place prend-elle, en périodes par étudiant ? « ${prev.activite_nom || 'activité'} » en a ${pPrev}.`
+        : `Combien de périodes par étudiant prend-elle ? ${libre > 0 ? `Il reste ${libre} p. dans le cours.` : 'Le cours est déjà plein.'}` });
+    if (brut == null) return;
+    const x = arrondi(Number(String(brut).replace(',', '.')));
+    if (!(x > 0)) { await informer('Il faut un nombre de périodes plus grand que zéro.'); return; }
+    if (reduire && x >= pPrev) { await informer(`« ${prev.activite_nom || 'activité'} » n’a que ${pPrev} p. : la nouvelle activité ne peut pas prendre toute sa place — retirez plutôt la précédente.`); return; }
+    let prise = 0;
+    const deborde = arrondi(s + (reduire ? 0 : x) - cap);
+    if (deborde > 0) {
+      if (autonomieReste > 0 && await demander({ titre, message: `Le verre déborde de ${deborde} p. Prend-on de l’autonomie dans l’UE ? Il en reste ${autonomieReste} p. dans la burette.`,
+        confirmer: 'Oui, en prendre', annuler: 'Non' })) {
+        const y = await saisir({ titre, message: 'Combien de périodes d’autonomie ?', valeur: String(Math.min(deborde, autonomieReste)) });
+        if (y != null) prise = Math.max(0, Math.min(autonomieReste, arrondi(Number(String(y).replace(',', '.')) || 0)));
+      }
+    }
+    changer(ci, cc => ({ ...cc,
+      autonomie_placee: arrondi((Number(cc.autonomie_placee) || 0) + prise),
+      activites: [...cc.activites.map((a, i) => (reduire && i === cc.activites.length - 1 ? { ...a, periodes: (parEtudiant(a) - x) * (a.groupes || 1) } : a)),
+        { activite_id: t.id, activite_nom: t.libelle, periodes: x * g, groupes: g, vu_etudiant: 1 }] }));
+    setChoix({ c: ci, k: c.activites.length });
   }
   function tirer(ev, ci, k) {
     if (!peutEcrire) return;
@@ -395,7 +515,16 @@ function Verre({ u, types, annee, section, peutEcrire, onRetour, onAnnee, onEnre
           </select>
         </div>)}
       <div className="grid gap-3" style={{ gridTemplateColumns: 'minmax(0,1fr) 300px' }}>
-        <div className="carte p-4 overflow-x-auto flex gap-2" onDoubleClick={onAnnee} title="Double-clic : revenir à l’année">
+        <div className="carte p-4 overflow-x-auto flex gap-2 items-end" onDoubleClick={onAnnee} title="Double-clic : revenir à l’année">
+          {/* LA BURETTE : l'autonomie de l'UE, pleine au départ ; elle se vide quand un cours en prend. */}
+          <div className="flex-none flex flex-col items-center gap-1 mr-2" title={`Autonomie de l’UE : ${autonomieUE} p. au dossier, ${arrondi(autonomiePrise)} prise(s), ${autonomieReste} restante(s)`}>
+            <span className="text-[10.5px] text-slate-500 text-center leading-tight w-[64px]">autonomie<br />de l’UE</span>
+            <div className="relative w-[26px] rounded-b-[10px] border-2 border-t-0 overflow-hidden" style={{ height: Math.max(40, autonomieUE * PX), borderColor: '#16406A', background: '#fff' }}>
+              <div className="absolute left-0 right-0 bottom-0" style={{ height: `${autonomieUE ? Math.max(0, autonomieReste) / autonomieUE * 100 : 0}%`, background: 'color-mix(in srgb, var(--c-accent, #0E87B0) 55%, white)' }} />
+            </div>
+            <b className="text-[12px] tabular-nums" style={{ color: autonomieReste < 0 ? 'var(--c-refuse)' : '#1B2B4B' }}>{autonomieUE ? `${autonomieReste}/${autonomieUE}` : '0'}</b>
+            <span className="text-[10px] text-slate-400">{autonomieUE ? 'p. restantes' : 'aucune au dossier'}</span>
+          </div>
           {/* La graduation, tous les 10 périodes. */}
           <div className="relative w-8 flex-none" style={{ height: total * PX + 8 }}>
             {Array.from({ length: Math.floor(total / 10) + 1 }, (_, i) => (
@@ -404,10 +533,10 @@ function Verre({ u, types, annee, section, peutEcrire, onRetour, onAnnee, onEnre
           <div className="pr-[220px]">
             <div className="relative w-[440px] flex flex-col-reverse p-1 rounded-b-[26px] border-[3px] border-t-0" style={{ borderColor: '#16406A', background: '#EEF3F9' }}>
               {cours.map((c, ci) => {
-                const s = sommeEtudiant(c), dp = Number(c.cours_per) || 0, manque = arrondi(dp - s);
+                const s = sommeEtudiant(c), dp = Number(c.cours_per) || 0, aut = Number(c.autonomie_placee) || 0, manque = arrondi(dp + aut - s);
                 return (
                   <div key={c.cours_code} className="relative flex flex-col-reverse border-t-2 border-dashed border-slate-400"
-                    style={{ height: Math.max(dp, s) * PX, outline: cible === ci ? '3px solid #16406A' : undefined, outlineOffset: -3 }}
+                    style={{ height: Math.max(dp + aut, s) * PX, outline: cible === ci ? '3px solid #16406A' : undefined, outlineOffset: -3 }}
                     onDragOver={e => { if (peutEcrire) { e.preventDefault(); setCible(ci); } }} onDragLeave={() => setCible(null)}
                     onDrop={e => { e.preventDefault(); setCible(null); deposer(ci, e.dataTransfer.getData('text/plain')); }}>
                     {c.activites.map((a, k) => {
@@ -427,7 +556,7 @@ function Verre({ u, types, annee, section, peutEcrire, onRetour, onAnnee, onEnre
                       <b className="block text-[13px]">{c.cours_code}</b>
                       <span className="text-slate-600">{String(c.cours_nom || '').slice(0, 60)}</span><br />
                       <span className="font-semibold" style={{ color: manque === 0 ? 'var(--c-reussi)' : manque > 0 ? 'var(--c-attente)' : 'var(--c-refuse)' }}>
-                        {arrondi(s)} / {dp} périodes{manque > 0 ? ` — il en manque ${manque}` : manque < 0 ? ` — ${-manque} de trop` : ' — complet'}</span>
+                        {arrondi(s)} / {dp} p.{aut ? ` (+${aut} d’autonomie)` : ''}{manque > 0 ? ` — il en manque ${manque}` : manque < 0 ? ` — ${-manque} de trop` : ' — complet'}</span>
                     </div>
                   </div>);
               })}
@@ -452,6 +581,15 @@ function Verre({ u, types, annee, section, peutEcrire, onRetour, onAnnee, onEnre
                 <span>{act.groupes > 1 ? `blocs ${Array.from({ length: act.groupes }, (_, g) => lettre(g)).join(', ')}` : 'tout le bloc ensemble'}</span>
               </div></div>
             <div className="text-[12px] text-slate-500">Côté enseignant : {arrondi(Number(act.periodes) || 0)} période(s), tous groupes confondus.</div>
+            {(() => {
+              const c = cours[choix.c], reste = arrondi(capacite(c) - sommeEtudiant(c));
+              return peutEcrire && (<div className="flex flex-wrap gap-2">
+                <button className="bouton" disabled={reste <= 0} title="L’activité prend toute la place restante du cours"
+                  onClick={() => regler(a => ({ ...a, periodes: (parEtudiant(a) + reste) * (a.groupes || 1) }))}>Tout remplir{reste > 0 ? ` (+${reste} p.)` : ''}</button>
+                {Number(c.autonomie_placee) > 0 && <button className="bouton" title="Rendre à la burette l’autonomie prise par ce cours"
+                  onClick={() => changer(choix.c, cc => ({ ...cc, autonomie_placee: 0 }))}>Rendre {arrondi(Number(c.autonomie_placee))} p. d’autonomie</button>}
+              </div>);
+            })()}
             {peutEcrire && <button className="bouton bouton-detruire" onClick={() => { changer(choix.c, c => ({ ...c, activites: c.activites.filter((_, i) => i !== choix.k) })); setChoix(null); }}>Retirer cette couche</button>}
           </>)}
           <div className="text-[11.5px] text-slate-400 pt-1 border-t border-slate-100">Les disponibilités des enseignants viendront ici, saisies par le secrétariat ou la coordination (lot à venir).</div>
