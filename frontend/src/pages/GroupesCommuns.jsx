@@ -277,6 +277,70 @@ const NOMS_JOURS = ['', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Same
  * ou un auditoire assez grand ; un TP reste « à désigner » — un labo ne se
  * devine pas.
  */
+/**
+ * LA LIGNE DU TEMPS DE L'ANNÉE (Charles, 10 octobre 2026 : « un diagramme
+ * temporal avec des rectangles, qui montre sur l'année quand se déroulent les
+ * cours ou activités »). Une ligne par activité et par groupe, les semaines de
+ * cours en colonnes ; un rectangle couvre des semaines CONSÉCUTIVES où le groupe
+ * a cours. Couleur de l'UE ; contour pointillé pour ce qui n'est que proposé.
+ * Un clic sur un rectangle ouvre sa semaine dans la grille dessous.
+ */
+function LigneDuTemps({ sim, filtre, semaine, onSemaine }) {
+  const nb = sim.nb_semaines || 0;
+  const acts = (sim.activites || []).filter(filtre);
+  const parCle = new Map();
+  for (const x of sim.seances || []) {
+    if (!parCle.has(x.cle)) parCle.set(x.cle, new Map());
+    const m = parCle.get(x.cle);
+    m.set(x.semaine, { n: (m.get(x.semaine)?.n || 0) + 1, propose: x.etat === 'propose' || m.get(x.semaine)?.propose });
+  }
+  // Les semaines consécutives se fondent en un rectangle.
+  const blocs = cle => {
+    const m = parCle.get(cle) || new Map(), out = [];
+    for (const w of [...m.keys()].sort((a, b) => a - b)) {
+      const der = out[out.length - 1];
+      if (der && der.a === w - 1 && der.propose === !!m.get(w).propose) { der.a = w; der.n += m.get(w).n; }
+      else out.push({ de: w, a: w, n: m.get(w).n, propose: !!m.get(w).propose });
+    }
+    return out;
+  };
+  const mois = [];
+  (sim.semaines || []).forEach((w, i) => { const m = w.lundi.slice(0, 7); if (!mois.length || mois[mois.length - 1].m !== m) mois.push({ m, de: i }); });
+  const NOMS_MOIS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+  const col = `minmax(0,1fr)`;
+  const etiq = a => `${a.cours_code} ${a.tout_le_bloc && (!a.groupe || a.groupe === 'Tous' || a.groupe === 'Ts') ? '' : `· ${a.groupe}`}`;
+  return (
+    <details open className="border border-slate-200 rounded-carte">
+      <summary className="px-3 py-2 cursor-pointer text-[13px] font-semibold">Ligne du temps de l’année — {acts.length} activité(s), {nb} semaines de cours</summary>
+      <div className="overflow-x-auto px-3 pb-3">
+        <div className="min-w-[760px] text-[11px]">
+          {/* Les mois, puis les numéros de semaine. */}
+          <div className="grid" style={{ gridTemplateColumns: `13rem repeat(${nb}, ${col})` }}>
+            <div />
+            {mois.map((m, i) => (
+              <div key={m.m} className="text-slate-500 border-l border-slate-200 pl-1 truncate"
+                style={{ gridColumn: `${m.de + 2} / ${(mois[i + 1]?.de ?? nb) + 2}` }}>{NOMS_MOIS[Number(m.m.slice(5, 7)) - 1]}</div>))}
+            <div className="text-slate-400">semaine</div>
+            {Array.from({ length: nb }, (_, i) => (
+              <button key={i} onClick={() => onSemaine(i + 1)} className={`text-center tabular-nums ${semaine === i + 1 ? 'font-bold text-[#16406A]' : 'text-slate-400'}`}>{i + 1}</button>))}
+          </div>
+          {acts.map(a => (
+            <div key={a.cle} className="grid items-center border-t border-slate-100 h-[22px]" style={{ gridTemplateColumns: `13rem repeat(${nb}, ${col})` }}>
+              <div className="truncate pr-2" title={`${a.cours_code} ${a.activite || ''} — ${a.professeur || ''}`}>
+                <b>{etiq(a)}</b> <span className="text-slate-500">{String(a.activite || '').replace(/\s*\((TP|TH)\)\s*$/i, '')}</span></div>
+              {blocs(a.cle).map((b, i) => (
+                <button key={i} onClick={() => onSemaine(b.de)} title={`${a.cours_code} ${a.groupe || ''} — semaines ${b.de} à ${b.a} · ${b.n} séance(s)${b.propose ? ' · proposé' : ''}`}
+                  className="h-[14px] rounded-[4px] mx-px"
+                  style={{ gridColumn: `${b.de + 1} / ${b.a + 2}`, gridRow: 1, background: teinteCours(a.cours_code),
+                    ...(b.propose && sim.plan?.lignes?.n ? { outline: '1.5px dashed #64748B', outlineOffset: 1, opacity: 0.75 } : {}) }} />))}
+              <div style={{ gridColumn: `${semaine + 1} / ${semaine + 2}`, gridRow: 1 }} className="h-full bg-[#16406A]/10 pointer-events-none" />
+            </div>))}
+        </div>
+      </div>
+    </details>
+  );
+}
+
 /* L'ÉTAT D'UNE LIGNE DU PLAN : une pastille pleine pour ce qui est enregistré,
    un contour pour ce qui n'est encore que proposé. */
 function EtatPlan({ etat }) {
@@ -562,6 +626,7 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
               <IconAlertTriangle size={14} className="mt-0.5 flex-none" /><span><b>{r.cours_code}</b> {r.activite} · {r.groupe} — {r.manque} séance(s) sans place : {r.raison}{r.professeur ? ` (${r.professeur})` : ''}</span></div>)}
           </div>)}
         <LocauxActivites sim={sim} section={section} bloc={bloc} annee={annee} peutEcrire={peutEcrire} onEnregistre={simuler} />
+        <LigneDuTemps sim={sim} filtre={pourQui} semaine={semaine} onSemaine={setSemaine} />
         {/* LA RÉGULARITÉ SE LIT : un créneau fixe par groupe, ses semaines. */}
         <details className="border border-slate-200 rounded-carte">
           <summary className="px-3 py-2 cursor-pointer text-[13px] font-semibold">
