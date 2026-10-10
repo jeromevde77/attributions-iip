@@ -386,7 +386,7 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
           {!integree && (
             <label className={`flex items-start gap-2.5 px-3 py-2 rounded-xl border cursor-pointer
               ${unique ? 'border-iip-blue/40' : 'bg-slate-50 border-slate-200'}`}
-              style={unique ? { background: '#fff' } : undefined}>
+              style={unique ? { background: 'var(--blanc)' } : undefined}>
               <input type="checkbox" checked={unique} disabled={enCours}
                 onChange={e => basculerUnique(e.target.checked)} className="mt-0.5 w-4 h-4" />
               <span className="text-sm">

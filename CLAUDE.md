@@ -246,6 +246,19 @@ section ») : bouton *Cohortes* du laboratoire dès qu'une UE du bloc est dédou
 étudiant en cohorte 2, c'est le mettre en organisation 2 dans TOUTES les UE
 dédoublées de son bloc ; « moitié / moitié » ; compte rendu avant écriture. Le cas
 par cas reste dans la répartition de chaque UE, et se lit « mixte ».
+**LES GROUPES FONT FOI, ET LE BLOC VIENT DE LA SECTION** (3.1.266, Charles,
+10 octobre 2026). (1) En AESI l'organisation se décide COURS PAR COURS dans la
+répartition des groupes (`etudiant_cours_groupe`) : la simulation y prend les
+étudiants de chaque séance, la fenêtre des cohortes y lit « 1+2 » ; l'inscription
+à l'UE ne sert qu'à défaut. (2) **Une UE n'a de bloc que dans une section et une
+année** (« c'est la section et le schéma de capitalisation annuel qui déterminent
+le bloc ET le Q prévu ») : `lib/placement.js` (`placementsSection`, `uesDuBloc`,
+`orgsDuBloc`) lit `ue_niveau_section` (niveau + `quadri`, réglés dans le schéma ;
+FC admis), le référentiel à défaut — jamais `ue.ue_niv` en direct dans le
+laboratoire. (3) **Une organisation peut avoir sa classe** (`organisation_ue.bloc`,
+liste « Classe » de la fiche) : l'UE 77 de psychomotricité, passée de B2 à B1, se
+donne en 2026-2027 au Q2 en BA1 (org 1) ET en BA2 (org 2) ; chaque classe ne
+simule que ses organisations et leurs étudiants.
 
 **ÉVALUATION UNIQUE ≠ ÉPREUVE INTÉGRÉE** (2.12.289, Charles, 28 septembre 2026,
 UE 261 : « une seule évaluation ; la note doit aller aux deux cours »). Une unité

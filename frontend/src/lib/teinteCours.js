@@ -32,8 +32,8 @@ export function teinteCours(code) {
 export function styleTuileCours(code, { fond = 18 } = {}) {
   const c = teinteCours(code);
   return {
-    background: `color-mix(in srgb, ${c} ${fond}%, white)`,
+    background: `color-mix(in srgb, ${c} ${fond}%, var(--blanc))`,
     borderLeft: `4px solid ${c}`,
-    boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${c} 35%, white)`,
+    boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${c} 35%, var(--blanc))`,
   };
 }

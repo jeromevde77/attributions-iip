@@ -225,7 +225,7 @@ function ListeSeances({ profId, annee, dispositif, onOuvrir }) {
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {seances.map(s => (
-          <div key={s.id} style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 8, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}
+          <div key={s.id} style={{ background: 'var(--blanc)', border: '1px solid #E2E8F0', borderRadius: 8, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}
             onClick={() => onOuvrir(s.id)}>
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 600, color: 'var(--c-texte)', fontSize: 14 }}>
@@ -318,7 +318,7 @@ function GrilleSeance({ seanceId, referentiel, onBack }) {
           const rep = reponses[lib.critere_id] || {};
 
           return (
-            <div key={lib.id} style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 8, padding: 14 }}>
+            <div key={lib.id} style={{ background: 'var(--blanc)', border: '1px solid #E2E8F0', borderRadius: 8, padding: 14 }}>
               <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
                 <span style={{ background: 'var(--c-principal)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 6, whiteSpace: 'nowrap' }}>
                   {critere?.code}
@@ -485,7 +485,7 @@ function PlanDeveloppement({ profId, annee, referentiel }) {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {objectifs.map((obj, i) => (
-          <div key={obj.id} style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 10, padding: 16 }}>
+          <div key={obj.id} style={{ background: 'var(--blanc)', border: '1px solid #E2E8F0', borderRadius: 10, padding: 16 }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
               <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--c-principal)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, flexShrink: 0 }}>
                 {obj.numero}
@@ -530,7 +530,7 @@ function PlanDeveloppement({ profId, annee, referentiel }) {
 // ─── Composants utilitaires ───────────────────────────────────────────────────
 function Section({ titre, icon: Icon, couleur, children }) {
   return (
-    <div style={{ background: '#fff', border: `1px solid rgb(var(--gris-200))`, borderLeft: `3px solid ${couleur}`, borderRadius: 10, padding: 16, marginBottom: 14 }}>
+    <div style={{ background: 'var(--blanc)', border: `1px solid rgb(var(--gris-200))`, borderLeft: `3px solid ${couleur}`, borderRadius: 10, padding: 16, marginBottom: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
         <Icon size={17} style={{ color: couleur }} />
         <span style={{ fontWeight: 700, color: 'var(--c-texte)', fontSize: 14 }}>{titre}</span>
@@ -552,7 +552,7 @@ function Field({ label, children }) {
 function Btn({ onClick, icon: Icon, children, variant = 'secondary', disabled = false }) {
   const styles = {
     primary:   { background: 'var(--c-principal)', color: '#fff', border: 'none' },
-    secondary: { background: '#fff', color: 'var(--c-texte)', border: '1px solid #D1D5DB' },
+    secondary: { background: 'var(--blanc)', color: 'var(--c-texte)', border: '1px solid #D1D5DB' },
     accent:    { background: 'var(--c-accent)', color: '#fff', border: 'none' },
     danger:    { background: 'var(--c-refuse)', color: '#fff', border: 'none' },
   }[variant];

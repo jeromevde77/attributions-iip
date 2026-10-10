@@ -93,7 +93,7 @@ body {
    * qu'il doit être : le signe de ce qui se remplit.
    */
   background: var(--page-fond, #F8FAFC);
-  color: #1f2937;
+  color: rgb(var(--gris-800));
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -103,7 +103,7 @@ h1, h2, h3, .font-title { font-family: var(--d-police, 'Inter', 'Aptos', system-
 /* Grille type Excel */
 table.grid-excel { border-collapse: collapse; width: 100%; font-size: 0.875rem; }
 table.grid-excel th, table.grid-excel td {
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--c-filet, rgb(var(--gris-200)));
   padding: 0.4rem 0.6rem;
   text-align: left;
   white-space: nowrap;
@@ -115,8 +115,8 @@ table.grid-excel thead th {
   top: 0;
   font-weight: 600;
 }
-table.grid-excel tbody tr:nth-child(even) { background: #f8fafc; }
-table.grid-excel tbody tr:hover { background: #e8f4f8; }
+table.grid-excel tbody tr:nth-child(even) { background: rgb(var(--gris-50)); }
+table.grid-excel tbody tr:hover { background: rgb(var(--gris-100)); }
 table.grid-excel td.num { text-align: right; font-variant-numeric: tabular-nums; }
 
 /* Variante épurée (flat) : pas de fond alterné, lignes horizontales courtes
@@ -136,7 +136,7 @@ table.grid-excel-soft th, table.grid-excel-soft td {
 }
 /* Lignes horizontales courtes : bordure via box-shadow inset qui ne touche pas les bords */
 table.grid-excel-soft tbody tr {
-  box-shadow: inset 0 -1px 0 #f1f3f5;
+  box-shadow: inset 0 -1px 0 var(--c-filet, rgb(var(--gris-200)));
 }
 table.grid-excel-soft tbody tr:last-child { box-shadow: none; }
 /* Marge aux extrémités : première et dernière cellule un peu plus de padding */
@@ -147,10 +147,10 @@ table.grid-excel-soft thead th:last-child { padding-right: 1rem; }
 /* UNE BASCULE DE FAMILLE, dans un axe qui en porte deux : les pièces qu'on
    produit par personne, et les rapports du catalogue. Même dessin que les
    segments de la maison — le choix ouvert en marine, le reste en gris. */
-.seg-fam { display:inline-flex; border:1px solid #D8DCE4; border-radius:8px;
+.seg-fam { display:inline-flex; border:1px solid var(--c-filet, rgb(var(--gris-200))); border-radius:8px;
            overflow:hidden; }
-.seg-fam button { border:0; background:#fff; padding:0 12px; height:30px;
-                  font-size:12.5px; font-family:inherit; color:#6B7280;
+.seg-fam button { border:0; background:var(--blanc); padding:0 12px; height:30px;
+                  font-size:12.5px; font-family:inherit; color:rgb(var(--gris-500));
                   cursor:pointer; }
 .seg-fam button.on { background:var(--c-principal); color:#fff; font-weight:600; }
 
@@ -162,7 +162,7 @@ table.grid-excel-soft thead th:last-child { padding-right: 1rem; }
    filet entre eux : on lit « voici ce cours, et voici ce que ses colonnes
    disent » d'un seul mouvement. */
 .fusion-cours table.grid-excel-soft thead th {
-  background: #fff;
+  background: var(--blanc);
   position: static;
 }
 /* La ligne des plafonds : une valeur, pas une étiquette — donc ni graisse ni
@@ -170,7 +170,7 @@ table.grid-excel-soft thead th:last-child { padding-right: 1rem; }
 .fusion-cours table.grid-excel-soft thead tr.plafonds th {
   font-weight: 400;
   letter-spacing: 0;
-  color: #A8AEB9;
+  color: rgb(var(--gris-400));
   padding-top: 0;
   padding-bottom: .35rem;
   border-bottom: 1px solid #ECEEF0;
@@ -187,8 +187,8 @@ table.grid-excel-soft thead th:last-child { padding-right: 1rem; }
    Il héritait des 14 px du corps — « VAL. CONTR. ACTIVITÉ » pesait donc plus
    lourd que la donnée qu'il annonce. Onze pixels, l'étiquette de l'échelle. */
 table.grid-excel-soft thead th {
-  background: #fcfcfd;
-  color: #6b7280;
+  background: rgb(var(--gris-50));
+  color: rgb(var(--gris-500));
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -223,8 +223,8 @@ table.grid-excel th.num, table.grid-excel-soft th.num { text-align: right; font-
   padding: 1px 4px;
   transition: background .12s, border-color .12s;
 }
-.input-cell:hover { background: #fafafa; border-color: #dcdfe4; }
-.input-cell:focus { background: #e0f4f9; border-color: var(--c-accent); outline: none; }
+.input-cell:hover { background: rgb(var(--gris-50)); border-color: var(--c-filet, rgb(var(--gris-200))); }
+.input-cell:focus { background: rgb(var(--gris-100)); border-color: var(--c-accent); outline: none; }
 
 /* UNE LISTE DÉROULANTE DANS UNE CELLULE N'EST PAS UN BOUTON.
    Les « IIP », « R », « — » de la grille ne sont pas des badges : ce sont des
@@ -243,11 +243,11 @@ table.grid-excel-soft select {
   transition: background-color .12s, border-color .12s;
 }
 table.grid-excel-soft select:hover {
-  background-color: #fafafa;
-  border-color: #dcdfe4;
+  background-color: rgb(var(--gris-50));
+  border-color: var(--c-filet, rgb(var(--gris-200)));
 }
 table.grid-excel-soft select:focus {
-  background-color: #e0f4f9;
+  background-color: rgb(var(--gris-100));
   border-color: var(--c-accent);
   outline: none;
 }
@@ -271,19 +271,19 @@ table.grid-excel-soft select:focus {
    Professeurs : trois réponses à une question qui n'en a qu'une. Les badges
    lisent le réglage de la maison, posé sur la racine au démarrage — et le
    papier lit exactement le même. */
-.badge-iip   { background: #fff;
+.badge-iip   { background: var(--blanc);
                color: var(--c-principal, var(--c-principal)); }
-.badge-helb  { background: #fff;
+.badge-helb  { background: var(--blanc);
                color: var(--c-helb, var(--c-texte)); }
-.badge-ct    { background: #FFFFFF; color: var(--c-texte); }
-.badge-pp    { background: #FFFFFF; color: var(--c-texte); }
+.badge-ct    { background: var(--blanc); color: var(--c-texte); }
+.badge-pp    { background: var(--blanc); color: var(--c-texte); }
 .badge-z     { background: var(--c-principal); color: #ffffff; letter-spacing: 0.05em; }
-.badge-b     { background: #FFFFFF; color: var(--c-texte); }
-.badge-f     { background: #FFFFFF; color: var(--c-texte); }
-.badge-t     { background: #f0fdf4; color: var(--c-texte); border: 1px solid var(--c-reussi); }
-.badge-p     { background: #faf5ff; color: var(--c-texte); border: 1px solid var(--c-faveur); }
-.badge-o     { background: #fff7ed; color: var(--c-texte); border: 1px solid var(--c-attente); }
-.badge-cc    { background: #FFFFFF; color: var(--c-texte); }
+.badge-b     { background: var(--blanc); color: var(--c-texte); }
+.badge-f     { background: var(--blanc); color: var(--c-texte); }
+.badge-t     { background: rgb(var(--gris-100)); color: var(--c-texte); border: 1px solid var(--c-reussi); }
+.badge-p     { background: rgb(var(--gris-100)); color: var(--c-texte); border: 1px solid var(--c-faveur); }
+.badge-o     { background: rgb(var(--gris-100)); color: var(--c-texte); border: 1px solid var(--c-attente); }
+.badge-cc    { background: var(--blanc); color: var(--c-texte); }
 /* CC ET EXP SONT DEUX STATUTS, PAS UN STATUT ET SON ABSENCE.
    EXP se dessinait en gris bordé au milieu de badges teintés : il se lisait
    comme « rien », alors que c'est une situation aussi nette que CC. Deux
@@ -293,8 +293,8 @@ table.grid-excel-soft select:focus {
 /* PAS LE VIOLET (27 septembre 2026) : il ne dit que la faveur, et EXP en a été
    retiré par la règle des états. Un bleu pétrole : distinct du marine de CC,
    étranger aux états comme aux blocs. */
-.badge-exp   { background: #fff; color: var(--c-texte); }
-.badge-incomplete { background: #FFFFFF; color: var(--c-texte); }
+.badge-exp   { background: var(--blanc); color: var(--c-texte); }
+.badge-incomplete { background: var(--blanc); color: var(--c-texte); }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    RESPONSIVE MOBILE (iPhone / écrans ≤ 768px)
@@ -644,8 +644,8 @@ table.grid-excel-soft select:focus {
  * deux coins. Un écran n'a plus qu'à nommer l'objet. */
 .segments {
   display: inline-flex; align-items: stretch;
-  height: var(--d-controle-h, 36px); border: 1px solid #cbd5e1; border-radius: var(--d-rayon-champ, 8px);
-  background: #fff; overflow: hidden;
+  height: var(--d-controle-h, 36px); border: 1px solid var(--c-filet, rgb(var(--gris-200))); border-radius: var(--d-rayon-champ, 8px);
+  background: var(--blanc); overflow: hidden;
 }
 .segments > * {
   display: inline-flex; align-items: center; justify-content: center;
@@ -708,8 +708,8 @@ main:not(:has(> .gouttiere-rail)) {
  * deux coins. Un écran n'a plus qu'à nommer l'objet. */
 .segments {
   display: inline-flex; align-items: stretch;
-  height: var(--d-controle-h, 36px); border: 1px solid #cbd5e1; border-radius: var(--d-rayon-champ, 8px);
-  background: #fff; overflow: hidden;
+  height: var(--d-controle-h, 36px); border: 1px solid var(--c-filet, rgb(var(--gris-200))); border-radius: var(--d-rayon-champ, 8px);
+  background: var(--blanc); overflow: hidden;
 }
 .segments > * {
   display: inline-flex; align-items: center; justify-content: center;
@@ -998,10 +998,10 @@ select[multiple], select[size]:not([size="1"]) {
 .medaille-argent     { color: var(--c-texte); font-weight: 600; }
 .medaille-bronze     { color: var(--c-texte); font-weight: 600; }
 .medaille-depassement{ color: var(--c-texte); font-weight: 700; }
-.fond-or          { background: #fff; }
-.fond-argent      { background: #fff; }
-.fond-bronze      { background: #fff; }
-.fond-depassement { background: #fff; }
+.fond-or          { background: var(--blanc); }
+.fond-argent      { background: var(--blanc); }
+.fond-bronze      { background: var(--blanc); }
+.fond-depassement { background: var(--blanc); }
 
 /* ═══ LE BLANC EST RÉSERVÉ À CE QUI SE REMPLIT ════════════════════════════
  *
@@ -1053,8 +1053,8 @@ select[multiple], select[size]:not([size="1"]) {
 .bloc-etat[data-etat="disponible"] { --e: var(--c-disponible); }
 .bloc-etat[data-etat="surveiller"] { --e: var(--c-attente); }
 .bloc-etat[data-etat="corriger"]   { --e: var(--c-refuse); }
-.bloc-etat[data-etat="indisponible"] { --e: #C3CAD6; background: var(--c-fond_indispo, #F4F5F7); border-color: #E3E6EB;
-                                       border-left-color: #C3CAD6; color: #7A879E; }
+.bloc-etat[data-etat="indisponible"] { --e: #C3CAD6; background: var(--c-fond_indispo, #F4F5F7); border-color: var(--c-filet, rgb(var(--gris-200)));
+                                       border-left-color: rgb(var(--gris-300)); color: rgb(var(--gris-500)); }
 /* Neutre : un chiffre sans état. Le blanc est celui de la tuile. */
 .bloc-etat:not([data-etat]), .bloc-etat[data-etat="neutre"] { background: var(--c-fond_tuile, #fff); border-color: var(--c-filet, #D8DCE4); }
 /* Fort : le chiffre qui compte, sans état — liseré marine, fond blanc. */
@@ -1079,7 +1079,7 @@ select[multiple], select[size]:not([size="1"]) {
 .pastille-etat[data-etat="surveiller"] { --e: var(--c-attente); }
 .pastille-etat[data-etat="corriger"]   { --e: var(--c-refuse); }
 .pastille-etat[data-etat="indisponible"], .pastille-etat[data-etat="neutre"] {
-  background: #EEF0F3; color: #4B5568; }
+  background: rgb(var(--gris-100)); color: rgb(var(--gris-600)); }
 
 /* ── LE TEXTE D'UN DOCUMENT DU CORPUS ─────────────────────────────────────────
  * UNE classe, portée À LA FOIS par l'éditeur et par la fenêtre de lecture : ce
@@ -1091,7 +1091,7 @@ select[multiple], select[size]:not([size="1"]) {
 .texte-corpus > * + * { margin-top: 0.6em; }
 .texte-corpus h1 { font-size: 17px; font-weight: 700; color: var(--c-texte); margin-top: 1.2em; }
 .texte-corpus h2 { font-size: 15px; font-weight: 700; color: var(--c-texte); margin-top: 1.1em;
-                   padding-bottom: 2px; border-bottom: 1px solid #D8DCE4; }
+                   padding-bottom: 2px; border-bottom: 1px solid var(--c-filet, rgb(var(--gris-200))); }
 .texte-corpus h3 { font-size: 13px; font-weight: 700; color: var(--c-texte); margin-top: 0.9em; }
 .texte-corpus h4 { font-size: 13px; font-weight: 600; color: var(--c-texte); }
 .texte-corpus ul { list-style: disc; padding-left: 1.4em; }
@@ -1103,19 +1103,19 @@ select[multiple], select[size]:not([size="1"]) {
  * fond légèrement détaché. Marine et non ocre : « Art. 82 » ou « ce document
  * en un coup d'œil » ne sont pas des alertes, et le « ⚠ » du texte dit déjà
  * lesquels en sont. Si tout est ocre, plus rien ne signale. */
-.texte-corpus blockquote { border: 1px solid #D8DCE4; border-left: 3px solid var(--c-principal);
-                           border-radius: 8px; background: #fff; padding: 0.5em 0.9em; }
+.texte-corpus blockquote { border: 1px solid var(--c-filet, rgb(var(--gris-200))); border-left: 3px solid var(--c-principal);
+                           border-radius: 8px; background: var(--blanc); padding: 0.5em 0.9em; }
 .texte-corpus blockquote > p:first-child strong { color: var(--c-texte); }
-.texte-corpus hr { border: 0; border-top: 1px solid #D8DCE4; margin: 1em 0; }
+.texte-corpus hr { border: 0; border-top: 1px solid var(--c-filet, rgb(var(--gris-200))); margin: 1em 0; }
 /* Un tableau n'a que deux tons : l'en-tête, et la donnée blanche. */
 .texte-corpus table { border-collapse: collapse; width: 100%; margin: 0.6em 0; table-layout: auto; }
-.texte-corpus td, .texte-corpus th { border: 1px solid #D8DCE4; padding: 4px 8px;
-                                     vertical-align: top; background: #fff; }
-.texte-corpus th { background: #EEF1F6; font-weight: 600; text-align: left; }
+.texte-corpus td, .texte-corpus th { border: 1px solid var(--c-filet, rgb(var(--gris-200))); padding: 4px 8px;
+                                     vertical-align: top; background: var(--blanc); }
+.texte-corpus th { background: rgb(var(--gris-100)); font-weight: 600; text-align: left; }
 .texte-corpus td > p, .texte-corpus th > p { margin: 0; }
 /* Un tableau large défile dans son propre cadre, jamais la fenêtre entière. */
 .texte-corpus .tableWrapper, .texte-corpus-cadre { overflow-x: auto; }
-.texte-corpus .selectedCell { background: #EDF2F8; }
+.texte-corpus .selectedCell { background: rgb(var(--gris-100)); }
 .texte-corpus.ProseMirror { outline: none; min-height: 12rem; }
 
 /* ── LA PUCE D'UE — la frise du parcours dans la liste des étudiants ─────────
@@ -1127,7 +1127,7 @@ select[multiple], select[size]:not([size="1"]) {
   width: 27px; height: 17px; flex: none;
   font-size: 9px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1;
   color: var(--c-texte);
-  background: #fff;
+  background: var(--blanc);
   border: 1px solid rgb(var(--gris-200));
   border-left: 2.5px solid var(--e);
   border-radius: 0 4px 4px 0;
@@ -1137,8 +1137,8 @@ select[multiple], select[size]:not([size="1"]) {
 .puce-ue[data-c="f"] { --e: var(--c-faveur); }
 .puce-ue[data-c="i"] { --e: var(--c-disponible); }
 .puce-ue[data-c="a"] { --e: var(--c-attente); }
-.puce-ue[data-c="o"] { background: #fff; border-color: #D8DCE4; color: #7A879E; }
-.puce-ue[data-c="n"] { background: var(--c-fond_indispo, #F4F5F7); border-color: #EBEDF1; border-left-color: #DDE1E7; color: #B6BDC9; }
+.puce-ue[data-c="o"] { background: var(--blanc); border-color: var(--c-filet, rgb(var(--gris-200))); color: rgb(var(--gris-500)); }
+.puce-ue[data-c="n"] { background: var(--c-fond_indispo, #F4F5F7); border-color: var(--c-filet, rgb(var(--gris-200))); border-left-color: rgb(var(--gris-200)); color: rgb(var(--gris-400)); }
 /* ── LA GÉLULE DE BLOC (Charles, 27 septembre 2026 : « cette mise en forme,
  * je pensais l'utiliser pour les PAE ») — celle de la grille des
  * attributions : un cadre, le LISERÉ À LA COULEUR DU BLOC, le bloc nommé en
@@ -1147,7 +1147,7 @@ select[multiple], select[size]:not([size="1"]) {
 .gelule {
   --b: #D8DCE4;
   display: inline-flex; align-items: stretch; flex: none;
-  background: #fff; border: 1px solid #D8DCE4; border-left: 3px solid var(--b);
+  background: var(--blanc); border: 1px solid var(--c-filet, rgb(var(--gris-200))); border-left: 3px solid var(--b);
   border-radius: 0 6px 6px 0; overflow: hidden;
   font-size: 9.5px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1;
 }
@@ -1161,8 +1161,8 @@ select[multiple], select[size]:not([size="1"]) {
 .gelule > span[data-c="f"] { background: var(--c-faveur); color: #fff; }
 .gelule > span[data-c="i"] { background: var(--c-disponible); color: #fff; }
 .gelule > span[data-c="a"] { background: var(--c-attente); color: #fff; }
-.gelule > span[data-c="o"] { color: #7A879E; }
-.gelule > span[data-c="n"] { background: var(--c-fond_indispo, #F4F5F7); color: #B6BDC9; }
+.gelule > span[data-c="o"] { color: rgb(var(--gris-500)); }
+.gelule > span[data-c="n"] { background: var(--c-fond_indispo, #F4F5F7); color: rgb(var(--gris-400)); }
 
 /* L'épreuve intégrée n'a plus de cadre dans la frise (2.12.216) : elle se lit
    à sa place, au bout, séparée par l'espace qui sépare les blocs. */
@@ -1212,13 +1212,13 @@ select[multiple], select[size]:not([size="1"]) {
 .entete-plat {
   display: flex; align-items: center; gap: .5rem;
   height: 2rem; margin-bottom: .375rem;
-  border-bottom: 1px solid #D8DCE4;
+  border-bottom: 1px solid var(--c-filet, rgb(var(--gris-200)));
 }
 
 /* La ligne de l'UE cliquée sur le schéma, au dos (notes par année). Les
    cellules collantes portent leur propre fond blanc : on les teinte aussi. */
-tr.ligne-visee > td { background: #fff !important; }
-tr.ligne-visee > td:first-child { box-shadow: inset 0 0 0 1px #fff; }
+tr.ligne-visee > td { background: var(--blanc) !important; }
+tr.ligne-visee > td:first-child { box-shadow: inset 0 0 0 1px var(--blanc); }
 
 /* LIGNE EN LECTURE (3.1.20) — qui n'a pas le droit d'écrire voit la donnée,
    pas le contrôle : ni flèche de liste, ni cadre de champ. La ligne est
@@ -1233,7 +1233,7 @@ tr.ligne-lecture select, tr.ligne-lecture input.input-cell {
 .texte-due { font-family: inherit; font-size: 13px; line-height: 1.55; color: var(--c-texte, #16406A); }
 .texte-due p { margin: 0 0 0.4rem; }
 .texte-due ul { list-style: disc; padding-left: 1.4rem; margin: 0 0 0.4rem; }
-.texte-due blockquote { border: 1px solid #C9D3E1; border-radius: 8px; padding: 0.5rem 0.75rem; margin: 0.4rem 0; background: #fff; }
+.texte-due blockquote { border: 1px solid var(--c-filet, rgb(var(--gris-200))); border-radius: 8px; padding: 0.5rem 0.75rem; margin: 0.4rem 0; background: var(--blanc); }
 .texte-due hr { border: 0; border-top: 1px solid #C9A84C; margin: 0.6rem 0; }
 .texte-due u { text-underline-offset: 2px; }
 
@@ -1286,6 +1286,7 @@ button.objet-barre:hover { color: var(--menu-texte); }
    en `style` (fill, stroke, background) ; un attribut SVG `fill=` ne lit pas une
    variable : pour recharts, `couleursGraphique()` (lib/couleurs.js) rend les valeurs. */
 :root {
+  --blanc: #fff;
   --g-1: var(--c-serie_1, #19537E); --g-2: var(--c-serie_2, #05B7E6); --g-3: var(--c-serie_3, #F9B619);
   --g-4: var(--c-serie_4, #8E4F9A); --g-5: var(--c-serie_5, #4FA64A); --g-6: var(--c-serie_6, #D14F8A);
   --g-vide: var(--c-graphique_vide, #CBD5E1); --g-grille: var(--c-graphique_grille, #E8ECF2);
@@ -1354,3 +1355,27 @@ table.grid-excel-soft tbody tr:nth-child(even) { background-color: var(--d-zebre
 .lien-etape-fait { background: var(--c-reussi); }
 
 .reglage-vise { background: color-mix(in srgb, var(--c-attente) 16%, transparent); outline: 1px solid var(--c-attente); }
+
+/* LE THÈME SOMBRE (3.1.266, Charles : « un thème sombre, dans les teintes de gris foncé
+   pour les fonds, les tuiles… »). Les gris s'inversent : les fonds clairs deviennent
+   foncés, l'encre foncée devient claire, les filets suivent. Le « blanc » des fonds
+   devient un gris foncé ; le texte blanc des boutons et des pastilles reste blanc. */
+[data-gris="sombre"] {
+  --gris-50: 34 37 42; --gris-100: 40 44 50; --gris-200: 56 61 69; --gris-300: 78 84 94;
+  --gris-400: 120 128 140; --gris-500: 156 163 175; --gris-600: 186 192 202; --gris-700: 208 213 220;
+  --gris-800: 226 230 235; --gris-900: 238 241 245; --gris-950: 248 249 251;
+  --fond-clair: 31 34 39;
+  color-scheme: dark;
+}
+:root[data-gris="sombre"], :root[data-gris="sombre"][data-mode="clair"] {
+  --menu-actif: rgba(255, 255, 255, 0.08); --menu-actif-bord: rgba(255, 255, 255, 0.14);
+  --menu-survol: rgba(255, 255, 255, 0.06); --menu-icone: rgba(255, 255, 255, 0.62);
+  --menu-texte: var(--c-texte); --menu-texte-doux: rgba(255, 255, 255, 0.55);
+  --menu-ombre: 0 18px 45px -20px rgba(0, 0, 0, 0.6);
+}
+[data-gris="sombre"] select { color-scheme: dark; }
+
+/* LE BLANC DES FONDS (3.1.266) : une variable, blanche par défaut, gris foncé en sombre. */
+:root { --blanc: #fff; }
+[data-gris="sombre"] { --blanc: rgb(31 34 39); }
+[data-gris="sombre"] .logo-lucie text { fill: #FFFFFF; }

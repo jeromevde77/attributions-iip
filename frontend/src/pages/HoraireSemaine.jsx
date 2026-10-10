@@ -174,7 +174,7 @@ export default function HoraireSemaine() {
         <div className="inline-flex rounded-champ border border-slate-300 overflow-hidden">
           {[['classe', 'Classe'], ['professeur', 'Professeur'], ['local', 'Local']].map(([k, l]) => (
             <button key={k} type="button" onClick={() => choisirVue(k)}
-              className={`px-3 h-9 text-second ${vue === k ? 'bg[color:var(--c-principal,_#1B2B4B)] text-white' : 'bg-white text-slate-700'}`}>{l}</button>
+              className={`px-3 h-9 text-second ${vue === k ? 'bg-[color:var(--c-principal,_#1B2B4B)] text-white' : 'bg-white text-slate-700'}`}>{l}</button>
           ))}
         </div>
         <select className="controle min-w-[14rem]" value={cle} onChange={e => { setCle(e.target.value); setSel(null); }}>
@@ -260,7 +260,7 @@ export default function HoraireSemaine() {
                       left: `calc(${pl.col * 100 / pl.cols}% + 2px)`, width: `calc(${100 / pl.cols}% - 4px)` };
                   const c = s.annule ? '#9AA3B2' : teinte(s.cours_code);
                   const gr = s.sous_groupe || (s.groupe_nom && s.groupe_nom !== 'A' ? s.groupe_nom : null);
-                  const pastille = gr && <span className="flex-none inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-pastille bg-white text-mention font-bold text[color:var(--c-principal,_#1B2B4B)]"
+                  const pastille = gr && <span className="flex-none inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-pastille bg-white text-mention font-bold text-[color:var(--c-principal,_#1B2B4B)]"
                     style={{ border: `1.5px solid ${c}` }}>{gr}</span>;
                   const detail = `${s.cours_code} ${s.cours_nom || s.matiere || ''}\n${s.annule ? 'Annulée' : nomProf(s)}${gr ? ` · groupe ${gr}` : ''}\n${s.local_texte || 'local à préciser'} · ${lisible(deHm(debut))}–${lisible(deHm(fin))}`;
                   return (
@@ -271,17 +271,17 @@ export default function HoraireSemaine() {
                         ...(s.annule ? { borderLeft: `4px solid ${c}`, background: 'repeating-linear-gradient(45deg,#F4F5F7 0 6px,#fff 6px 12px)' } : styleTuileCours(s.cours_code)),
                         outline: s.conflits?.length ? '2px solid var(--c-refuse)' : 'none', outlineOffset: -2 }}>
                       {seul ? <>
-                        <div className={`font-semibold truncate flex items-center gap-1.5 ${s.annule ? 'line-through text-slate-400' : 'text[color:var(--c-principal,_#1B2B4B)]'}`}>
+                        <div className={`font-semibold truncate flex items-center gap-1.5 ${s.annule ? 'line-through text-slate-400' : 'text-[color:var(--c-principal,_#1B2B4B)]'}`}>
                           <span className="truncate">{s.cours_code} {s.cours_nom || s.matiere || ''}</span>{pastille}</div>
                         <div className="truncate text-slate-600">{s.annule ? 'Annulée' : nomProf(s)}</div>
                         <div className="truncate text-slate-500">{s.local_texte || 'local à préciser'} · {lisible(deHm(debut))}–{lisible(deHm(fin))}</div>
                       </> : pl.cols <= 2 ? <div className="flex flex-col justify-center gap-0.5 h-full min-w-0">
                         {/* Deux de front : la place du nom du cours. */}
-                        <span className={`flex items-center gap-1.5 min-w-0 ${s.annule ? 'line-through text-slate-400' : 'text[color:var(--c-principal,_#1B2B4B)]'}`}>
+                        <span className={`flex items-center gap-1.5 min-w-0 ${s.annule ? 'line-through text-slate-400' : 'text-[color:var(--c-principal,_#1B2B4B)]'}`}>
                           <span className="font-bold text-second truncate">{s.cours_code}</span>{pastille}</span>
                         <span className="truncate text-slate-600">{s.cours_nom || s.matiere || ''}</span></div>
                       : <div className="flex flex-col items-start justify-center gap-0.5 h-full">
-                        <span className={`font-bold text-second truncate max-w-full ${s.annule ? 'line-through text-slate-400' : 'text[color:var(--c-principal,_#1B2B4B)]'}`}>{s.cours_code}</span>{pastille}</div>}
+                        <span className={`font-bold text-second truncate max-w-full ${s.annule ? 'line-through text-slate-400' : 'text-[color:var(--c-principal,_#1B2B4B)]'}`}>{s.cours_code}</span>{pastille}</div>}
                       {peutEcrire && <div onPointerDown={ev => { ev.stopPropagation(); commencer(ev, { type: 'rallonger', seance: s, d }); }}
                         className="absolute left-0 right-0 bottom-0 h-1.5 cursor-ns-resize" />}
                     </div>
@@ -317,10 +317,10 @@ export default function HoraireSemaine() {
                   <div key={g.id} onPointerDown={ev => !fini && commencer(ev, { groupe: g, decalY: 0, long: duree })}
                     className={`rounded-r-champ px-2 py-1 text-xs ${fini ? 'opacity-50' : peutEcrire ? 'cursor-grab' : ''}`}
                     style={styleTuileCours(g.code_cours, { fond: 12 })}>
-                    <div className="font-semibold text[color:var(--c-principal,_#1B2B4B)] truncate">{g.code_cours} {g.cours_nom}{g.nom !== 'A' ? ` · gr. ${g.nom}` : ''}</div>
+                    <div className="font-semibold text-[color:var(--c-principal,_#1B2B4B)] truncate">{g.code_cours} {g.cours_nom}{g.nom !== 'A' ? ` · gr. ${g.nom}` : ''}</div>
                     <div className="text-slate-500 truncate">{[g.prof_nom, g.prof_prenom].filter(Boolean).join(' ') || 'professeur à attribuer'}</div>
                     <div className="text-slate-500 tabular-nums">
-                      {g.heures_posees} h posées sur {g.heures_attribuees} · <b className={fini ? 'text[color:var(--c-reussi,_#3E7D5E)]' : 'text[color:var(--c-principal,_#1B2B4B)]'}>{fini ? 'complet' : `reste ${g.reste} h`}</b>
+                      {g.heures_posees} h posées sur {g.heures_attribuees} · <b className={fini ? 'text-[color:var(--c-reussi,_#3E7D5E)]' : 'text-[color:var(--c-principal,_#1B2B4B)]'}>{fini ? 'complet' : `reste ${g.reste} h`}</b>
                       {g.prevu_semaine != null && <span> · prévu cette semaine {g.prevu_semaine} h, posé {g.pose_semaine} h</span>}
                     </div>
                   </div>

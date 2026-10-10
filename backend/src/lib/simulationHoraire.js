@@ -375,7 +375,7 @@ function demandes(c, annee) {
     const quadri = q === 'Q1' || (/Q1/.test(q) && !/Q2/.test(q)) ? 'Q1' : q === 'Q2' || (/Q2/.test(q) && !/Q1/.test(q)) ? 'Q2' : 'AN';
     out.push({ cle: `${l.code_cours}#${l.act}#${l.org}#${l.code || ''}`, ue_num: l.ue_num, cours_code: l.code_cours, cours_nom: l.cours_nom,
       activite_id: l.act, tp: !!(a && a.inclus),
-      activite: l.libelle || null, groupe, briques, tout_le_bloc: briques.length === toutes.length,
+      activite: l.libelle || null, groupe, code_groupe: l.code || null, briques, tout_le_bloc: briques.length === toutes.length,
       org: Number(l.org) || 1,
       professeur_id: l.professeur_id || null, professeur: l.prof_nom ? `${String(l.prof_nom).toUpperCase()} ${l.prof_prenom || ''}`.trim() : l.verre ? 'à attribuer' : null, source: l.verre ? 'verre' : 'attributions',
       periodes: l.periodes, minutes: l.periodes * MINUTES_PERIODE, quadri });
@@ -456,8 +456,9 @@ export function lignesDuPlan(section, bloc, annee) {
 export function simuler(section, bloc, annee, { mode = 'plan' } = {}) {
   const c = cohorte(section, bloc, annee);
   const { out: slots, nbSemaines, plages } = creneaux(section, annee);
-  const dem = demandes(c, annee);
-  const stages = stagesBloquants(c, annee);
+  // Seules les organisations qui se donnent dans CETTE classe (UE 77 : org 2 en BA2).
+  const dem = demandes(c, annee).filter(d => !c.orgs_ici?.[d.ue_num] || c.orgs_ici[d.ue_num].includes(d.org));
+  const stages = stagesBloquants(c, annee).filter(x => !c.orgs_ici?.[x.ue_num] || c.orgs_ici[x.ue_num].includes(x.org));
   const bloque = date => stages.some(x => date >= x.de && date <= x.fin && !x.orgs);
   /* LES UNITÉS D'OCCUPATION : une brique de TP × une organisation. Deux demandes
      d'organisations différentes ne se gênent pas ; une demande commune à toutes
@@ -471,9 +472,28 @@ export function simuler(section, bloc, annee, { mode = 'plan' } = {}) {
     && (!orgsVoulues || orgsVoulues.includes(insc.get(`${e.id}|${ue}`)))
     // Un groupe de TP ne compte que les étudiants rangés dans ses briques : sans brique, on ne sait pas.
     && (!briques || briques.includes(c.briques[e.id]))).map(e => e.id);
+  /* LES GROUPES FONT FOI (Charles, 10 octobre 2026 : « tous les étudiants ne sont
+     pas rattachés à l'orga 1 — regarde les groupes »). En AESI, l'organisation se
+     décide COURS PAR COURS dans la répartition des groupes (etudiant_cours_groupe) :
+     le groupe C de 333.1 est en orga 2, la moitié du A en 333.3 aussi. L'inscription
+     à l'UE n'en dit rien. Quand un cours a sa répartition, elle désigne exactement
+     les étudiants de chaque séance ; sinon, on retombe sur l'inscription. */
+  const grp = new Map();                        // « cours#activité » → [{ etudiant, org, code }]
+  const coursBloc = [...new Set(dem.map(d => d.cours_code))];
+  if (coursBloc.length) for (const r of db.prepare(`SELECT etudiant_id, cours_code, COALESCE(activite_id, 0) act, COALESCE(num_organisation, 1) org, groupe_code
+      FROM etudiant_cours_groupe WHERE annee_scolaire = ? AND cours_code IN (${coursBloc.map(() => '?').join(',')})`).all(annee, ...coursBloc)) {
+    const cle = `${r.cours_code}#${r.act}`;
+    if (!grp.has(cle)) grp.set(cle, []);
+    grp.get(cle).push(r);
+  }
+  const dansBloc = new Set(c.etudiants.map(e => e.id));
   for (const d of dem) {
     d.unites = d.briques.flatMap(b => (d.orgs || orgsBloc).map(o => `${b}|${o}`));
-    d.eleves = elevesDe(d.ue_num, d.orgs, d.tout_le_bloc ? null : d.briques);
+    const rep = grp.get(`${d.cours_code}#${d.activite_id}`) || grp.get(`${d.cours_code}#0`);
+    d.eleves = rep
+      ? [...new Set(rep.filter(r => r.org === d.org && (r.groupe_code || '') === (d.code_groupe || '') && dansBloc.has(r.etudiant_id)).map(r => r.etudiant_id))]
+      : elevesDe(d.ue_num, d.orgs, d.tout_le_bloc ? null : d.briques);
+    d.selon = rep ? 'groupes' : 'inscription';
   }
   for (const x of stages) x.eleves = new Set(x.orgs ? elevesDe(x.ue_num, x.orgs, null) : []);
   const bloqueD = (date, d) => stages.some(x => date >= x.de && date <= x.fin

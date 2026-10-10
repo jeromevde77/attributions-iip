@@ -234,7 +234,7 @@ function Leg({ fond = '#fff', lisere, point = false, contour = null }) {
 
 function Rep({ c, g = false }) {
   return (
-    <span className="relative inline-block align-[-2px] mx-1" style={{ width: 20, height: 12, borderRadius: 3, border: '1.5px solid #94A3B8', background: '#fff' }}>
+    <span className="relative inline-block align-[-2px] mx-1" style={{ width: 20, height: 12, borderRadius: 3, border: '1.5px solid #94A3B8', background: 'var(--blanc)' }}>
       <span className="absolute w-[7px] h-[7px] rounded-full" style={{ background: c, top: -4, [g ? 'left' : 'right']: -4, border: '1px solid #fff' }} />
     </span>
   );

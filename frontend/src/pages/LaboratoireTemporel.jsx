@@ -240,6 +240,12 @@ Les étudiants se répartissent ensuite entre les organisations (répartition de
     if (!r.ok) { await informer(`❌ ${j.error || `Erreur ${r.status}`}`); return; }
     setChoix(null); await charger();
   }
+  async function changerClasse(u, bloc) {
+    const r = await fetch('/api/grille/organisation/bloc', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ annee_scolaire: annee, section, ue_num: u.ue_num, num_organisation: u.num_organisation || 1, bloc }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { setErreur(j.error || `Erreur ${r.status}`); return; }
+    await charger();
+  }
   async function basculerStage(u) {
     const r = await fetch('/api/grille/ue', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ annee_scolaire: annee, section, ue_num: u.ue_num, num_organisation: u.num_organisation || 1, stage_bloquant: !u.stage_bloquant }) });
     if (!r.ok) { const j = await r.json().catch(() => ({})); setErreur(j.error || `Erreur ${r.status}`); return; }
@@ -520,7 +526,8 @@ Les étudiants se répartissent ensuite entre les organisations (répartition de
       {face === 'temps' && data && zoom !== 'ue' && ueChoisie && (
         <ResumeUE u={ueChoisie} semaines={semaines} peutEcrire={peutEcrire} pendantStage={pendantStage(ueChoisie)}
           onStage={() => basculerStage(ueChoisie)} onConges={() => basculerConges(ueChoisie)} onOuvrir={() => setZoom('ue')}
-          onDedoubler={() => dedoubler(ueChoisie)} onRetirerOrg={() => retirerOrganisation(ueChoisie)} />)}
+          onDedoubler={() => dedoubler(ueChoisie)} onRetirerOrg={() => retirerOrganisation(ueChoisie)}
+          blocs={blocs} onClasse={b => changerClasse(ueChoisie, b)} />)}
 
       {face === 'temps' && data && zoom === 'ue' && ueChoisie && (
         <Rangee ues={ues.filter(u => !u.stage)} rangee={rangee.includes(ueChoisie.cle) ? rangee : [...rangee, ueChoisie.cle]}
@@ -543,9 +550,9 @@ Les étudiants se répartissent ensuite entre les organisations (répartition de
    zébrées, je préfère de l'uni coloré »). */
 // Ce qui reste à remplir est VIDE : pas de couleur (Charles, 10 octobre 2026 : « quand le verre est vide, il n'y a pas de couleur dedans »).
 const HACHURE = '#fff';
-const FOND_STAGE = 'color-mix(in srgb, #64748B 16%, white)';
+const FOND_STAGE = 'color-mix(in srgb, #64748B 16%, var(--blanc))';
 const fondSemaine = t => (t === 'ev1' || t === 'ev2' ? 'color-mix(in srgb, var(--c-attente, #B45309) 13%, transparent)'
-  : t === 'cours' ? 'transparent' : 'color-mix(in srgb, #64748B 9%, transparent)');
+  : t === 'cours' ? 'transparent' : 'color-mix(in srgb, rgb(var(--gris-500)) 9%, transparent)');
 
 function Entete({ semaines }) {
   const NB = semaines.length;
@@ -578,16 +585,16 @@ function TuileUE({ u, zoom, choisie, posee, pendantStage, style, onDeplacer, onD
       style={{ ...style, borderLeft: `4px solid ${u.stage ? 'rgb(var(--gris-500))' : teinte}`, border: `1px ${posee ? 'solid' : 'dashed'} ${choisie ? 'var(--c-principal, #16406A)' : 'rgb(var(--gris-200))'}`,
         borderLeftWidth: 4, borderLeftStyle: 'solid', borderLeftColor: u.stage ? 'rgb(var(--gris-500))' : teinte,
         // La tuile est COLORÉE de son UE, pour se lire (Charles, 10 octobre 2026).
-        background: u.stage ? FOND_STAGE : `color-mix(in srgb, ${teinte} 16%, white)`,
+        background: u.stage ? FOND_STAGE : `color-mix(in srgb, ${teinte} 16%, var(--blanc))`,
         boxShadow: choisie ? '0 0 0 2px rgba(22,64,106,.25)' : undefined }}
       onPointerDown={onDeplacer} onDoubleClick={onOuvrir}
       title={`UE ${u.ue_num} — ${u.ue_nom}\n${dossier} périodes au dossier · ${remplies} posées dans la grille${posee ? '' : '\nDates à poser'}`}>
       {coupures.map(({ i }) => (
         <div key={`v${i}`} className="absolute top-0 bottom-0 z-0 pointer-events-none" title="Vacances : pas de cours"
-          style={{ left: `calc(${(i - span.de) / n * 100}% - 4px)`, width: `calc(${100 / n}%)`, background: 'color-mix(in srgb, #64748B 22%, #F6F8FB)', borderLeft: '1px solid #fff', borderRight: '1px solid #fff' }} />))}
-      <div className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize z-10 hover:bg[color:var(--c-principal,_#16406A)]/20" onPointerDown={onDebut} />
-      <div className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize z-10 hover:bg[color:var(--c-principal,_#16406A)]/20" onPointerDown={onFin} />
-      <div className="relative z-[1] px-2 py-1 text-second leading-tight text[color:var(--c-principal,_#1B2B4B)]">
+          style={{ left: `calc(${(i - span.de) / n * 100}% - 4px)`, width: `calc(${100 / n}%)`, background: 'color-mix(in srgb, rgb(var(--gris-500)) 22%, var(--blanc))', borderLeft: '1px solid var(--blanc)', borderRight: '1px solid var(--blanc)' }} />))}
+      <div className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize z-10 hover:bg-[color:var(--c-principal,_#16406A)]/20" onPointerDown={onDebut} />
+      <div className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize z-10 hover:bg-[color:var(--c-principal,_#16406A)]/20" onPointerDown={onFin} />
+      <div className="relative z-[1] px-2 py-1 text-second leading-tight text-[color:var(--c-principal,_#1B2B4B)]">
         <div className="flex items-center gap-1.5 min-w-0">
           <b className="flex-none">{nomUE(u)}</b>
           <span className="truncate text-slate-600">{u.ue_nom}</span>
@@ -612,10 +619,10 @@ function TuileUE({ u, zoom, choisie, posee, pendantStage, style, onDeplacer, onD
                     <b>{c.cours_code}</b><span className="tabular-nums" style={{ color: s >= dp ? 'var(--c-reussi)' : 'var(--c-attente)' }}>{s}/{dp} p.</span>
                     {!(c.activites || []).length && <span className="text-slate-400">à découper — dans le verre</span>}
                     {peutEcrire && (c.activites || []).length > 1 && <>
-                      <button className="ml-1 px-1.5 rounded-pastille border border-slate-300 bg-white text-mention leading-[13px] hover:border[color:var(--c-principal,_#16406A)]"
+                      <button className="ml-1 px-1.5 rounded-pastille border border-slate-300 bg-white text-mention leading-[13px] hover:border-[color:var(--c-principal,_#16406A)]"
                         onPointerDown={ev => ev.stopPropagation()} onDoubleClick={ev => ev.stopPropagation()} onClick={() => onArranger(c, 'suite')}
                         title="Enchaîner les activités dans l’ordre du verre, l’évaluation en dernier ; les activités cochées forment un bloc en parallèle">⇢ à la suite{(coches[`${u.cle}#${c.cours_code}`] || []).length > 1 ? ` (${(coches[`${u.cle}#${c.cours_code}`] || []).length} en parallèle)` : ''}</button>
-                      <button className="px-1.5 rounded-pastille border border-slate-300 bg-white text-mention leading-[13px] hover:border[color:var(--c-principal,_#16406A)]"
+                      <button className="px-1.5 rounded-pastille border border-slate-300 bg-white text-mention leading-[13px] hover:border-[color:var(--c-principal,_#16406A)]"
                         onPointerDown={ev => ev.stopPropagation()} onDoubleClick={ev => ev.stopPropagation()} onClick={() => onArranger(c, 'parallele')}
                         title="Toutes les activités sur toute la période de l’UE">⇉ en parallèle</button></>}
                   </div>
@@ -647,13 +654,22 @@ function TuileUE({ u, zoom, choisie, posee, pendantStage, style, onDeplacer, onD
 /** Le nom d'une UE à l'écran : « UE 336 », « UE 336 · org 2 » quand elle est dédoublée. */
 function nomUE(u) { return `${u.stage ? 'Stage' : 'UE'} ${u.ue_num}${u.nb_organisations > 1 ? ` · org ${u.num_organisation}` : ''}`; }
 
-function ResumeUE({ u, semaines, peutEcrire, pendantStage, onStage, onConges, onOuvrir, onDedoubler, onRetirerOrg }) {
+function ResumeUE({ u, semaines, peutEcrire, pendantStage, onStage, onConges, onOuvrir, onDedoubler, onRetirerOrg, blocs = [], onClasse }) {
   const dt = d => (d ? d.split('-').reverse().slice(0, 2).join('/') : '—');
   return (
     <div className="carte p-3 space-y-2">
       <div className="flex flex-wrap items-center gap-2">
         <b className="text-sm text-iip-blue">{nomUE(u)} — {u.ue_nom}</b>
         <span className="flex-1" />
+        {u.nb_organisations > 1 && (peutEcrire
+          ? <label className="text-second text-slate-600 flex items-center gap-1" title="La classe où cette organisation se donne. UE 77 : org 1 en BA1 pour les nouveaux, org 2 en BA2 pour ceux de l'an dernier. La simulation la place dans l'horaire de cette classe.">
+              Classe
+              <select className="controle" value={u.bloc_propre || ''} onChange={e => onClasse(e.target.value)}>
+                <option value="">{u.bloc_ue || '—'} (celle de l’UE)</option>
+                {[...new Set([...blocs, 'BA1', 'BA2', 'BA3'])].filter(b => b !== u.bloc_ue).sort().map(b => <option key={b} value={b}>{b}</option>)}
+              </select>
+            </label>
+          : u.bloc_propre && <span className="text-second text-slate-600">Classe {u.bloc_propre}</span>)}
         {peutEcrire && <button className="bouton" onClick={onDedoubler} title="Une organisation de plus, avec ses propres dates (deux demi-promotions)">Dédoubler</button>}
         {peutEcrire && u.nb_organisations > 1 && u.num_organisation === u.nb_organisations && <button className="bouton" onClick={onRetirerOrg}>Retirer l’org {u.num_organisation}</button>}
         {!u.stage && <button className="bouton bouton-fort" onClick={onOuvrir}>Ouvrir le verre de l’{nomUE(u)}</button>}
@@ -711,7 +727,7 @@ function Rangee({ ues, rangee, setRangee, actif, onChoisir, debut, setDebut }) {
               <div key={u.cle} draggable onDragStart={() => setPrise(idx)} onDragOver={e => e.preventDefault()}
                 onDrop={() => { if (prise != null && prise !== idx) deplacer(prise, idx); setPrise(null); }}
                 onClick={() => onChoisir(u.cle)}
-                className={`relative flex flex-col items-center gap-1 rounded-tuile p-1.5 cursor-pointer ${u.cle === actif ? 'bg[color:var(--c-principal,_#16406A)]/10 ring-2 ring[color:var(--c-principal,_#16406A)]/40' : 'hover:bg-slate-50'}`}>
+                className={`relative flex flex-col items-center gap-1 rounded-tuile p-1.5 cursor-pointer ${u.cle === actif ? 'bg-[color:var(--c-principal,_#16406A)]/10 ring-2 ring-[color:var(--c-principal,_#16406A)]/40' : 'hover:bg-slate-50'}`}>
                 <button className="absolute right-1 top-0.5 text-slate-400 hover:text-slate-700 text-sm" title="Retirer de la rangée"
                   onClick={ev => { ev.stopPropagation(); setRangee(rangee.filter(n => n !== u.cle)); }}>×</button>
                 {/* Les fonds alignés : le verre se pose au bas d'une hauteur commune. */}
@@ -736,7 +752,7 @@ function VerreMini({ u, px }) {
             {(c.activites || []).map((a, k) => (
               <div key={k} className="flex gap-px flex-none border-t border-white" style={{ height: parEtudiant(a) * px }}>
                 {Array.from({ length: Math.min(12, a.groupes || 1) }, (_, g) => (
-                  <div key={g} className="flex-1" style={{ background: k % 2 ? `color-mix(in srgb, ${teinteCours(c.cours_code)} 72%, white)` : teinteCours(c.cours_code) }} />))}
+                  <div key={g} className="flex-1" style={{ background: k % 2 ? `color-mix(in srgb, ${teinteCours(c.cours_code)} 72%, var(--blanc))` : teinteCours(c.cours_code) }} />))}
               </div>))}
             {manque > 0 && <div className="flex-none" style={{ height: manque * px, background: HACHURE }} />}
           </div>);
@@ -808,7 +824,7 @@ function Verre({ u, types, annee, section, peutEcrire, onRetour, onAnnee, onEnre
     });
     setModifies(m => new Set(m).add(ci));
   };
-  const teinteCouche = (c, k) => { const base = teinteCours(c.cours_code); return k % 2 ? `color-mix(in srgb, ${base} 72%, white)` : base; };
+  const teinteCouche = (c, k) => { const base = teinteCours(c.cours_code); return k % 2 ? `color-mix(in srgb, ${base} 72%, var(--blanc))` : base; };
 
   /* L'AUTONOMIE NE SE PERD PAS EN SILENCE (Charles, 10 octobre 2026). À
      l'enregistrement, s'il en reste dans la burette, on décide — dans l'UE, à qui
@@ -963,8 +979,8 @@ function Verre({ u, types, annee, section, peutEcrire, onRetour, onAnnee, onEnre
           {/* LA BURETTE : l'autonomie de l'UE, pleine au départ ; elle se vide quand un cours en prend. */}
           <div className="flex-none flex flex-col items-center gap-1 mr-2" title={`Autonomie de l’UE : ${autonomieUE} p. au dossier, ${arrondi(autonomiePrise)} prise(s), ${autonomieReste} restante(s)`}>
             <span className="text-mention text-slate-500 text-center leading-tight w-[64px]">autonomie<br />de l’UE</span>
-            <div className="relative w-[26px] rounded-b-tuile border-2 border-t-0 overflow-hidden" style={{ height: Math.max(40, autonomieUE * PX), borderColor: 'var(--c-principal, #16406A)', background: '#fff' }}>
-              <div className="absolute left-0 right-0 bottom-0" style={{ height: `${autonomieUE ? Math.max(0, autonomieReste) / autonomieUE * 100 : 0}%`, background: `color-mix(in srgb, ${teinteCours(`${u.ue_num}.1`)} 70%, white)` }} />
+            <div className="relative w-[26px] rounded-b-tuile border-2 border-t-0 overflow-hidden" style={{ height: Math.max(40, autonomieUE * PX), borderColor: 'var(--c-principal, #16406A)', background: 'var(--blanc)' }}>
+              <div className="absolute left-0 right-0 bottom-0" style={{ height: `${autonomieUE ? Math.max(0, autonomieReste) / autonomieUE * 100 : 0}%`, background: `color-mix(in srgb, ${teinteCours(`${u.ue_num}.1`)} 70%, var(--blanc))` }} />
             </div>
             <b className="text-second tabular-nums" style={{ color: autonomieReste < 0 ? 'var(--c-refuse)' : 'var(--c-principal, #1B2B4B)' }}>{autonomieUE ? `${autonomieReste}/${autonomieUE}` : '0'}</b>
             <span className="text-mention text-slate-400">{autonomieUE ? 'p. restantes' : 'aucune au dossier'}</span>
@@ -978,7 +994,7 @@ function Verre({ u, types, annee, section, peutEcrire, onRetour, onAnnee, onEnre
           <div className="flex items-end">
             {/* LE VERRE EST PLEIN JUSQU'AU BORD (Charles, 10 octobre 2026 : « moche ») : son
                 contenu épouse le fond arrondi, sans liseré ; les étiquettes vivent à côté. */}
-            <div className="relative w-[440px] flex flex-col-reverse overflow-hidden rounded-b-panneau border-[3px] border-t-0" style={{ borderColor: 'var(--c-principal, #16406A)', background: '#fff' }}>
+            <div className="relative w-[440px] flex flex-col-reverse overflow-hidden rounded-b-panneau border-[3px] border-t-0" style={{ borderColor: 'var(--c-principal, #16406A)', background: 'var(--blanc)' }}>
               {cours.map((c, ci) => {
                 const s = sommeEtudiant(c), dp = Number(c.cours_per) || 0, aut = Number(c.autonomie_placee) || 0, manque = arrondi(dp + aut - s);
                 return (
@@ -995,7 +1011,7 @@ function Verre({ u, types, annee, section, peutEcrire, onRetour, onAnnee, onEnre
                               style={{ background: col, boxShadow: on ? 'inset 0 0 0 2px #16406A' : undefined }} title={`${a.activite_nom || 'activité'} — ${arrondi(p)} p. par étudiant${a.groupes > 1 ? ` · groupe ${lettre(g)}` : ''}`}>
                               {a.groupes > 1 ? <span className="bg-white text-[#16253D] rounded-pastille px-1 text-mention">{lettre(g)}</span> : (p * PX > 13 ? `${a.activite_nom || 'activité'} · ${arrondi(p)} p.` : '')}
                             </div>))}
-                          {peutEcrire && <div className="absolute left-0 right-0 -top-[3px] h-[7px] cursor-ns-resize z-10 hover:bg[color:var(--c-principal,_#16406A)]/30" onPointerDown={e => tirer(e, ci, k)} title="Tirer : les périodes" />}
+                          {peutEcrire && <div className="absolute left-0 right-0 -top-[3px] h-[7px] cursor-ns-resize z-10 hover:bg-[color:var(--c-principal,_#16406A)]/30" onPointerDown={e => tirer(e, ci, k)} title="Tirer : les périodes" />}
                         </div>);
                     })}
                     {manque > 0 && <div className="flex-none flex items-center justify-center text-xs font-semibold" style={{ height: manque * PX, background: HACHURE, color: 'var(--c-attente)' }}>{manque * PX > 12 ? `à remplir · ${manque} p.` : ''}</div>}
@@ -1032,7 +1048,7 @@ function Verre({ u, types, annee, section, peutEcrire, onRetour, onAnnee, onEnre
             <div className="text-second text-slate-500">Groupes
               <div className="flex items-center gap-2 mt-1">
                 <button className="bouton !h-8" disabled={!peutEcrire || act.groupes <= 1} onClick={() => regler(a => ({ ...a, periodes: parEtudiant(a) * (a.groupes - 1), groupes: a.groupes - 1 }))}>−</button>
-                <b className="text-sm text[color:var(--c-principal,_#1B2B4B)] tabular-nums">{act.groupes}</b>
+                <b className="text-sm text-[color:var(--c-principal,_#1B2B4B)] tabular-nums">{act.groupes}</b>
                 <button className="bouton !h-8" disabled={!peutEcrire || act.groupes >= 30} onClick={() => regler(a => ({ ...a, periodes: parEtudiant(a) * (a.groupes + 1), groupes: a.groupes + 1 }))}>+</button>
                 <span>{act.groupes > 1 ? `blocs ${Array.from({ length: act.groupes }, (_, g) => lettre(g)).join(', ')}` : 'tout le bloc ensemble'}</span>
               </div></div>

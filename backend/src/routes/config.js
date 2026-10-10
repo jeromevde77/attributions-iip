@@ -44,7 +44,7 @@ r.get('/couleurs', authRequired, async (req, res) => {
 
 /* LE JEU DE GRIS (2.12.194) : « ardoise », le gris bleuté d'origine, ou
    « neutre ». Un choix fermé, pas une couleur libre. */
-const JEUX_GRIS = ['ardoise', 'neutre', 'apple'];
+const JEUX_GRIS = ['ardoise', 'neutre', 'apple', 'sombre'];
 // Depuis 2.12.198, une teinte libre aussi (#RRGGBB) : l'échelle des gris se
 // calcule à l'écran à partir d'elle (Charles : « pouvoir déterminer la couleur »).
 const grisValide = v => JEUX_GRIS.includes(v) || /^#[0-9a-fA-F]{6}$/.test(String(v || ''));

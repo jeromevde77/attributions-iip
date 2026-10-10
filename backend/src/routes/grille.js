@@ -23,6 +23,7 @@ import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { organisationsDe } from '../lib/groupesCommuns.js';
+import { placementsSection, uesDuBloc } from '../lib/placement.js';
 
 const r = Router();
 
@@ -133,6 +134,11 @@ export function migrerGrille(dbx) {
        sur toute la période de son unité. */
     if (!colsGA.includes('date_debut')) dbx.exec('ALTER TABLE grille_activite ADD COLUMN date_debut TEXT');
     if (!colsGA.includes('date_fin')) dbx.exec('ALTER TABLE grille_activite ADD COLUMN date_fin TEXT');
+    /* LA CLASSE D'UNE ORGANISATION (Charles, 10 octobre 2026 — UE 77 de psychomotricité :
+       passée de B2 à B1, elle se donne en 2026-2027 au Q2 en BA1 pour les nouveaux ET
+       en BA2 pour ceux de l'an dernier). Vide : le bloc que la section donne à l'UE. */
+    const colsOrg = dbx.prepare('PRAGMA table_info(organisation_ue)').all().map(c => c.name);
+    if (colsOrg.length && !colsOrg.includes('bloc')) dbx.exec('ALTER TABLE organisation_ue ADD COLUMN bloc TEXT');
     const colsOU = dbx.prepare('PRAGMA table_info(organisation_ue)').all().map(c => c.name);
     if (!colsOU.includes('stage_bloquant')) dbx.exec('ALTER TABLE organisation_ue ADD COLUMN stage_bloquant INTEGER NOT NULL DEFAULT 0');
     // Par défaut, pas de cours pendant les vacances ; une UE peut en décider autrement.
@@ -322,10 +328,13 @@ r.get('/', authRequired, (req, res) => {
   if (!section) return res.status(400).json({ error: 'section requise' });
 
   const semaines = semainesDe(annee);
+  // Les UE de la section — rattachées comprises —, au bloc et au Q prévus par la section.
+  const plac = placementsSection(section, annee);
   const ues = db.prepare(`
-    SELECT DISTINCT u.ue_num, u.ue_nom, u.ue_niv, u.ue_quad, u.ue_per_etudiants
-    FROM ue u WHERE u.section = ? AND u.annee_scolaire = ?
-    ORDER BY u.ue_num`).all(section, annee);
+    SELECT u.ue_num, MAX(u.ue_nom) ue_nom, MAX(u.ue_per_etudiants) ue_per_etudiants
+    FROM ue u WHERE u.annee_scolaire = ? AND u.ue_num IN (SELECT value FROM json_each(?))
+    GROUP BY u.ue_num ORDER BY u.ue_num`).all(annee, JSON.stringify(Object.keys(plac).map(Number)))
+    .map(u => ({ ...u, ue_niv: plac[u.ue_num]?.bloc || '', ue_quad: plac[u.ue_num]?.quad || '' }));
 
   // Une fiche par organisation : une UE dédoublée paraît deux fois, chacune avec ses dates.
   const sortie = ues.flatMap(u => organisationsDe(section, u.ue_num, annee).map((num, _, toutes) => {
@@ -398,7 +407,9 @@ r.get('/', authRequired, (req, res) => {
          de l'année : c'est ce qui sépare Q1 de Q2, et on ne la saisit pas une
          seconde fois. Une unité annuelle, ou dont le quadrimestre n'est pas
          renseigné, s'étale sur toutes les semaines de cours. */
-      const q = String(u.ue_quad ?? '').trim();
+      const q0 = String(u.ue_quad ?? '').trim().toUpperCase();
+      // « Q1 », « 1 », « Q1/Q2 » : un seul quadrimestre borne, deux ou AN laissent toute l'année.
+      const q = /1/.test(q0) && !/2/.test(q0) ? '1' : /2/.test(q0) && !/1/.test(q0) ? '2' : '';
       const toutes = semaines.filter(s => s.type === 'cours').map(s => s.semaine_num);
       let fenetre = toutes;
       if (toutes.length) {
@@ -413,6 +424,8 @@ r.get('/', authRequired, (req, res) => {
 
     return {
       ...u,
+      // La classe de CETTE organisation : la sienne si elle en a une, sinon celle de l'UE.
+      ue_niv: (o?.bloc || u.ue_niv || '').toUpperCase(), bloc_propre: o?.bloc || null, bloc_ue: u.ue_niv || '',
       num_organisation: num, nb_organisations: toutes.length, cle: toutes.length > 1 ? `${u.ue_num}#${num}` : String(u.ue_num),
       verre_repris: ov !== o,
       organisation_id: o?.id || null,
@@ -645,6 +658,21 @@ r.post('/organisation', authRequired, roleRequired('admin', 'editeur', 'coordina
   db.prepare('INSERT INTO organisation_ue (ue_num, section, annee_scolaire, num_organisation) VALUES (?,?,?,?)').run(ueNum, section, annee, n);
   res.json({ ok: true, num_organisation: n });
 });
+/* LA CLASSE D'UNE ORGANISATION : BA2 pour l'org 2 de l'UE 77, quand l'UE est en BA1.
+   Vide = le bloc que la section donne à l'UE (schéma de capitalisation). */
+r.put('/organisation/bloc', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
+  const b = req.body || {};
+  const annee = b.annee_scolaire || anneeDeTravail(req), section = String(b.section || '').trim(), ueNum = Number(b.ue_num), n = Number(b.num_organisation) || 1;
+  const bloc = String(b.bloc || '').toUpperCase().trim();
+  if (!section || !ueNum) return res.status(400).json({ error: 'section et ue_num requis' });
+  if (bloc && !/^(BA|BE)\d+$|^FC$/.test(bloc)) return res.status(400).json({ error: 'classe attendue : BA1, BA2, BA3…, BE1… ou FC' });
+  // L'organisation 1 naît au besoin ; une autre ne se crée que par « Dédoubler ».
+  const o = organisationDe(annee, section, ueNum, n === 1, n);
+  if (!o) return res.status(404).json({ error: `L’UE ${ueNum} n’a pas d’organisation ${n}.` });
+  db.prepare('UPDATE organisation_ue SET bloc = ? WHERE id = ?').run(bloc || null, o.id);
+  res.json({ ok: true, bloc: bloc || null });
+});
+
 /* RETIRER UNE ORGANISATION : seulement la dernière, et seulement si aucune
    attribution ni aucun étudiant n'y est rattaché — sinon on effacerait ce qui la fait vivre. */
 r.delete('/organisation', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
@@ -685,8 +713,11 @@ function organisationDeBase(annee, section) {
   const cours = semaines.filter(s => s.type === 'cours');
   const coupure = coupureQuadri(semaines);
   const fen = { '1': cours.filter(s => s.semaine_num <= coupure), '2': cours.filter(s => s.semaine_num > coupure), '': cours };
-  const ues = db.prepare(`SELECT ue_num, MAX(ue_nom) ue_nom, UPPER(COALESCE(MAX(ue_niv), '')) bloc, TRIM(COALESCE(MAX(ue_quad), '')) quad,
-      MAX(COALESCE(is_epreuve_integree, 0)) ei FROM ue WHERE annee_scolaire = ? AND section = ? GROUP BY ue_num ORDER BY ue_num`).all(annee, section);
+  // Bloc et quadrimestre prévus : ceux que la section donne à l'UE cette année.
+  const plac = placementsSection(section, annee);
+  const ues = db.prepare(`SELECT ue_num, MAX(ue_nom) ue_nom, MAX(COALESCE(is_epreuve_integree, 0)) ei FROM ue
+      WHERE annee_scolaire = ? AND ue_num IN (SELECT value FROM json_each(?)) GROUP BY ue_num ORDER BY ue_num`).all(annee, JSON.stringify(Object.keys(plac).map(Number)))
+    .map(u => ({ ...u, bloc: (plac[u.ue_num]?.bloc || '').toUpperCase(), quad: plac[u.ue_num]?.quad || '' }));
   // La ligne annuelle l'emporte quand elle existe (deux sources pour un même fait, CLAUDE.md).
   const eiAnnuelle = new Map(lire('SELECT ue_num, actif FROM ue_epreuve_integree WHERE annee_scolaire = ?', annee).map(x => [x.ue_num, !!x.actif]));
   for (const u of ues) u.ei = eiAnnuelle.has(u.ue_num) ? eiAnnuelle.get(u.ue_num) : !!u.ei;
@@ -775,8 +806,8 @@ r.post('/organisation-de-base', authRequired, roleRequired('admin', 'editeur', '
    Rien ne s'écrit sans le compte rendu d'abord. */
 function uesDedoublees(annee, section, bloc) {
   return db.prepare(`SELECT o.ue_num, GROUP_CONCAT(DISTINCT COALESCE(o.num_organisation, 1)) orgs FROM organisation_ue o
-    WHERE o.annee_scolaire = ? AND o.section = ? AND o.ue_num IN (SELECT ue_num FROM ue WHERE annee_scolaire = ? AND section = ? AND UPPER(COALESCE(ue_niv, '')) = UPPER(?))
-    GROUP BY o.ue_num HAVING COUNT(DISTINCT COALESCE(o.num_organisation, 1)) > 1 ORDER BY o.ue_num`).all(annee, section, annee, section, bloc)
+    WHERE o.annee_scolaire = ? AND o.section = ? AND o.ue_num IN (SELECT value FROM json_each(?))
+    GROUP BY o.ue_num HAVING COUNT(DISTINCT COALESCE(o.num_organisation, 1)) > 1 ORDER BY o.ue_num`).all(annee, section, JSON.stringify(uesDuBloc(section, bloc, annee)))
     .map(x => ({ ue_num: x.ue_num, orgs: String(x.orgs).split(',').map(Number).sort() }));
 }
 r.get('/cohortes', authRequired, (req, res) => {
@@ -788,10 +819,23 @@ r.get('/cohortes', authRequired, (req, res) => {
     FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
     WHERE i.annee_scolaire = ? AND i.ue_num IN (${nums.map(() => '?').join(',')}) AND COALESCE(e.actif, 1) = 1
     ORDER BY e.nom, e.prenom`).all(annee, ...nums) : [];
+  /* Les groupes font foi : là où les cours de l'UE ont leur répartition
+     (etudiant_cours_groupe), l'organisation de l'étudiant se LIT des groupes —
+     « 1+2 » quand elle change d'un cours à l'autre (AESI, UE 333). */
+  const parGroupes = new Map();                 // « etudiant|ue » → Set(org)
+  if (nums.length) for (const g of db.prepare(`SELECT g.etudiant_id, c.ue_num, COALESCE(g.num_organisation, 1) org FROM etudiant_cours_groupe g
+      JOIN (SELECT DISTINCT cours_code, ue_num FROM cours WHERE annee_scolaire = ?) c ON c.cours_code = g.cours_code
+      WHERE g.annee_scolaire = ? AND c.ue_num IN (${nums.map(() => '?').join(',')})`).all(annee, annee, ...nums)) {
+    const k = `${g.etudiant_id}|${g.ue_num}`;
+    if (!parGroupes.has(k)) parGroupes.set(k, new Set());
+    parGroupes.get(k).add(g.org);
+  }
+  for (const u of ues) u.par_groupes = [...parGroupes.keys()].some(k => k.endsWith(`|${u.ue_num}`));
   const parId = new Map();
   for (const l of lignes) {
     if (!parId.has(l.id)) parId.set(l.id, { id: l.id, nom: l.nom, prenom: l.prenom, orgs: {} });
-    parId.get(l.id).orgs[l.ue_num] = l.org;
+    const g = parGroupes.get(`${l.id}|${l.ue_num}`);
+    parId.get(l.id).orgs[l.ue_num] = g ? (g.size === 1 ? [...g][0] : [...g].sort().join('+')) : l.org;
   }
   res.json({ ues, etudiants: [...parId.values()] });
 });

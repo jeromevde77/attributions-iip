@@ -103,7 +103,7 @@ function ThTri({ champ, tri, onTri, className = '', children }) {
       title="Trier sur cette colonne">
       <span className="inline-flex items-center gap-1">
         {children}
-        <span className={`text-mention leading-none ${actif ? 'text[color:var(--c-principal,_#1B2B4B)]' : 'text-slate-300'}`}>
+        <span className={`text-mention leading-none ${actif ? 'text-[color:var(--c-principal,_#1B2B4B)]' : 'text-slate-300'}`}>
           {actif ? (tri.sens === 1 ? '▲' : '▼') : '▲'}
         </span>
       </span>
@@ -4280,7 +4280,7 @@ export default function Etudiants() {
            pâle et opaque, comme les bandeaux depuis 2.12.274. */
         <div className="sticky top-2 z-20 flex items-center justify-between gap-3 flex-wrap
                         px-4 py-2 rounded-xl shadow-pose"
-          style={{ background: '#fff', border: '1px solid #fff' }}>
+          style={{ background: 'var(--blanc)', border: '1px solid #fff' }}>
           {/* LE COMPTEUR DIT CE QU'ON VOIT, ET CE QU'ON NE VOIT PAS. La sélection
               survit aux filtres — c'est voulu —, mais « 204 sélectionnés » au
               milieu d'une liste filtrée à trente a été lu, à juste titre, comme

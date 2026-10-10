@@ -24,7 +24,7 @@ class ErrorBoundary extends Component {
     if (this.state.error) return (
       <div style={{ padding: '40px', fontFamily: 'monospace', background: '#fff0f0', minHeight: '100vh' }}>
         <h2 style={{ color: '#c00' }}>❌ Erreur JavaScript — merci de copier ce message</h2>
-        <pre style={{ background: '#fff', border: '1px solid #f00', padding: '16px', borderRadius: '4px', overflow: 'auto' }}>
+        <pre style={{ background: 'var(--blanc)', border: '1px solid #f00', padding: '16px', borderRadius: '4px', overflow: 'auto' }}>
           {this.state.error?.toString()}{'\n\n'}{this.state.error?.stack}
         </pre>
       </div>

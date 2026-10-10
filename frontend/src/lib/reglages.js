@@ -44,6 +44,16 @@ export function useReglagesVisuels() {
       setEtat(r.ok ? '✓ enregistré' : 'Refusé');
     }, 500);
   }
+  /** Plusieurs couleurs d'un coup (un jeu de couleurs) : un seul enregistrement. */
+  function changerCouleurs(jeu) {
+    if (!peutCouleurs) return;
+    const n = { ...couleurs, ...jeu }; setCouleurs(n); poserCouleurs(jeu);
+    clearTimeout(tC.current); setEtat('…');
+    tC.current = setTimeout(async () => {
+      const r = await fetch('/api/config/couleurs', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ couleurs: n, gris }) });
+      setEtat(r.ok ? '✓ enregistré' : 'Refusé');
+    }, 300);
+  }
   /** La couleur montrée pour une clé : réglée, sinon son défaut, sinon celle qu'elle suit (lue à l'écran). */
   function couleurDe(cle) {
     if (couleurs?.[cle]) return couleurs[cle];
@@ -58,5 +68,5 @@ export function useReglagesVisuels() {
     const v = getComputedStyle(document.documentElement).getPropertyValue(`--c-${suit}`).trim();
     return /^#[0-9a-fA-F]{6}$/.test(v) ? v : '#FFFFFF';
   }
-  return { design, catDesign, couleurs, catCouleurs, etat, peutFormes, peutCouleurs, changerForme, changerCouleur, couleurDe };
+  return { design, catDesign, couleurs, catCouleurs, etat, peutFormes, peutCouleurs, changerForme, changerCouleur, changerCouleurs, couleurDe };
 }

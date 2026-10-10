@@ -22,6 +22,7 @@
 
 import db from '../db/index.js';
 import { dispensesDeLUE } from './dispenses.js';
+import { uesDuBloc, orgsDuBloc } from './placement.js';
 
 export function migrerGroupesCommuns(base = db) {
   base.exec(`CREATE TABLE IF NOT EXISTS groupe_commun_reglage (
@@ -87,10 +88,11 @@ export const groupesDeLaGrille = n => Array.from({ length: Math.max(1, n) }, (_,
 
 /** Tout ce que l'écran montre d'une cohorte. */
 export function cohorte(section, bloc, annee) {
-  const ues = db.prepare(`SELECT DISTINCT u.ue_num, MAX(u.ue_nom) ue_nom FROM ue u
-      WHERE u.annee_scolaire = ? AND UPPER(COALESCE(u.ue_niv, '')) = UPPER(?)
-        AND (u.section = ? OR u.ue_num IN (SELECT ue_num FROM ue_section WHERE annee_scolaire = ? AND section_code = ?))
-      GROUP BY u.ue_num ORDER BY u.ue_num`).all(annee, bloc, section, annee, section);
+  // Le bloc d'une UE est celui que la SECTION lui donne cette année (schéma de capitalisation).
+  const duBloc = uesDuBloc(section, bloc, annee);
+  const ues = duBloc.length ? db.prepare(`SELECT u.ue_num, MAX(u.ue_nom) ue_nom FROM ue u
+      WHERE u.annee_scolaire = ? AND u.ue_num IN (${duBloc.map(() => "?").join(",")})
+      GROUP BY u.ue_num ORDER BY u.ue_num`).all(annee, ...duBloc) : [];
   const reglages = new Map(db.prepare(`SELECT * FROM groupe_commun_reglage WHERE annee_scolaire = ? AND section = ? AND bloc = ?`)
     .all(annee, section, bloc).map(r => [`${r.cours_code}#${r.activite_id}`, r]));
   const activites = [];
@@ -131,12 +133,16 @@ export function cohorte(section, bloc, annee) {
     }
   }
   const nums = ues.map(u => u.ue_num);
+  // Une UE dont seules certaines organisations vivent dans cette classe n'y amène que leurs étudiants.
+  const restreint = orgsDuBloc(section, bloc, annee);
   const etudiants = nums.length ? db.prepare(`SELECT e.id, e.nom, e.prenom, MIN(i.num_organisation) num_organisation,
-      GROUP_CONCAT(DISTINCT i.ue_num) ues
+      GROUP_CONCAT(DISTINCT i.ue_num || ':' || COALESCE(i.num_organisation, 1)) ues
     FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
     WHERE i.annee_scolaire = ? AND i.ue_num IN (${nums.map(() => '?').join(',')}) AND COALESCE(e.actif, 1) = 1
     GROUP BY e.id ORDER BY e.nom, e.prenom`).all(annee, ...nums)
-    .map(e => ({ ...e, ues: String(e.ues || '').split(',').map(Number) })) : [];
+    .map(e => ({ ...e, ues: [...new Set(String(e.ues || '').split(',').map(x => x.split(':').map(Number))
+      .filter(([u, o]) => !restreint.get(u) || restreint.get(u).includes(o)).map(([u]) => u))] }))
+    .filter(e => e.ues.length) : [];
   const dispenses = {};
   for (const n of nums) for (const [id, d] of dispensesDeLUE(n, annee)) {
     const o = (dispenses[id] ||= {});
@@ -144,7 +150,9 @@ export function cohorte(section, bloc, annee) {
   }
   const briques = Object.fromEntries(db.prepare(`SELECT etudiant_id, brique FROM groupe_commun_brique
     WHERE annee_scolaire = ? AND section = ? AND bloc = ?`).all(annee, section, bloc).map(x => [x.etudiant_id, x.brique]));
-  return { section, bloc, annee, ues, activites, etudiants, dispenses, briques,
+  // Les organisations de chaque UE qui se donnent DANS cette classe (null = toutes).
+  const orgsIci = Object.fromEntries([...restreint].filter(([, v]) => v));
+  return { section, bloc, annee, ues, activites, etudiants, dispenses, briques, orgs_ici: orgsIci,
     nb_briques: ppcm(activites.filter(a => a.inclus).map(a => a.nb_groupes)) };
 }
 

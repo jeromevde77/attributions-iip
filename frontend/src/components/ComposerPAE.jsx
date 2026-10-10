@@ -65,11 +65,11 @@ export function CasePAE({ x = {}, resultat, attente = null, anneau = null, titre
   } else if (x.inscrit && res === 'refuse') {
     style = { ...base, background: COUL.brique, color: '#fff' }; glyphe = '×'; dit = 'refusée cette année';
   } else if (x.inscrit) {
-    style = { ...base, border: `1.5px solid ${COUL.bleu}`, background: '#fff', color: COUL.bleu,
+    style = { ...base, border: `1.5px solid ${COUL.bleu}`, background: 'var(--blanc)', color: COUL.bleu,
       fontFamily: 'Georgia, serif', fontStyle: 'italic', fontWeight: 700 };
     glyphe = 'i'; dit = res === 'absent' ? 'inscrite cette année — absent' : 'inscrite cette année';
   } else {
-    style = { ...base, border: '1.5px solid #CBD2DC', background: '#fff' }; dit = 'pas prise';
+    style = { ...base, border: '1.5px solid #CBD2DC', background: 'var(--blanc)' }; dit = 'pas prise';
   }
   if (anneau) style = { ...style, boxShadow: `0 0 0 2px ${anneau}` , overflow: 'visible' };
   const echec = x.echec && !x.acquise ? x.echec : null;
@@ -541,7 +541,7 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
               ouverte, non prise ·
               <span className="inline-block w-3 h-3 rounded-pastille bg-[color:var(--c-principal)] ring-2 ring-[color:var(--c-refuse)] align-middle mx-1" />
               déjà réussie, non forcée{peutForcer ? ' (clic : forcer la réinscription)' : ''} ·
-              <span className="inline-grid place-items-center w-3 h-3 rounded-pastille bg[color:var(--c-principal,_#1B2B4B)] text-white align-middle mx-1"><IconLock size={8} stroke={2.5} /></span>
+              <span className="inline-grid place-items-center w-3 h-3 rounded-pastille bg-[color:var(--c-principal,_#1B2B4B)] text-white align-middle mx-1"><IconLock size={8} stroke={2.5} /></span>
               sous cadenas : suivie seulement si son prérequis est réussi
             </span>
           </div>
