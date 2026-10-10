@@ -125,6 +125,19 @@ export default function Budget() {
             bilan: l['Bilan'] || null, type: l['Type'] || null,
             tva_defaut: l['TVA'] != null ? Number(l['TVA']) : null,
           }));
+        /* LA COLONNE A DIT PLUS QUE LA LISTE (Charles, 10 octobre 2026) : le canevas emploie
+           des comptes absents de sa propre liste déroulante. On les prend aussi — numéro et
+           libellé tels qu'écrits ; charge pour les 6, produit pour les 7. */
+        const ongletBud = wb.SheetNames.find(n => /budget/i.test(n));
+        if (ongletBud) {
+          const connus = new Set(liste.map(c => c.reference));
+          for (const ligne of XLSX.utils.sheet_to_json(wb.Sheets[ongletBud], { header: 1, defval: null })) {
+            const m = /^(\d{6})\s+(.+)$/.exec(String(ligne?.[0] || '').trim());
+            if (!m || connus.has(m[1])) continue;
+            connus.add(m[1]);
+            liste.push({ reference: m[1], libelle: m[2].trim(), bilan: m[1][0] === '7' ? 'Produit' : m[1][0] === '6' ? 'Charge' : null, type: 'Cpte général', tva_defaut: null });
+          }
+        }
         if (liste.length) {
           const rep = await fetch('/api/budget/comptes', {
             method: 'PUT', headers: authHeaders(), body: JSON.stringify({ comptes: liste }),
