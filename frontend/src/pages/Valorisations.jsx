@@ -6,7 +6,7 @@ import {
   IconRubberStamp, IconUserPlus, IconUsersGroup, IconX,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
-import { BulleAide, Fenetre, RailLateral, OuvrirEditions } from '../components/ui.jsx';
+import { BulleAide, Fenetre, RailLateral, OuvrirEditions, Chevron as ChevronMaison } from '../components/ui.jsx';
 import SeanceValorisation from '../components/SeanceValorisation.jsx';
 import NotificationVA from '../components/NotificationVA.jsx';
 import { nomListe, parNom } from '../lib/nom.js';
@@ -425,7 +425,7 @@ function anneesProches() {
 function LigneEtudiant({ etudiant, annee, ouvert, onBasculer, onAjouterUE,
                          onSupprimer, onSupprimerLigne, onDocuments, onDossier,
                          onDeliberer = null, onChange, onErreur }) {
-  const Fleche = ouvert ? IconChevronDown : IconChevronRight;
+  const Fleche = props => <ChevronMaison ouvert={ouvert} {...props} />;
   return (
     <div className="carte overflow-hidden">
       <div className="flex items-center gap-2 px-3 py-2">
@@ -615,7 +615,7 @@ function UniteValorisee({ va, annee, onSupprimer, onDocuments, onDossier, onChan
   }
 
   const refuse = va.decision === 'refusee';
-  const Fleche = ouvert ? IconChevronDown : IconChevronRight;
+  const Fleche = props => <ChevronMaison ouvert={ouvert} {...props} />;
 
   return (
     <div className="border-b border-slate-100 last:border-0">

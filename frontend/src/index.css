@@ -1340,3 +1340,4 @@ table.grid-excel-soft tbody tr:nth-child(even) { background-color: var(--d-zebre
 .ligne-volet-ouverte .chevron-volet { transform: rotate(90deg); color: var(--c-principal); }
 .ligne-detail > .cellule-detail { background: var(--c-fond_volet, rgb(var(--gris-50))); padding: 8px 12px 10px var(--d-volet-retrait, 24px);
   border-bottom: var(--d-filet-h, 1px) solid var(--c-filet, rgb(var(--gris-100))); }
+.chevron-volet.chevron-ouvert { transform: rotate(90deg); color: var(--c-principal); }

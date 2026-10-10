@@ -9,6 +9,7 @@
  * serveur) : l'écran et le papier ne peuvent pas différer.
  */
 import { useEffect, useMemo, useState } from 'react';
+import { Chevron } from './ui.jsx';
 import { IconSend, IconRefresh, IconChevronDown, IconChevronRight } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { ouvrirApercu } from '../lib/apercu.js';
@@ -304,7 +305,7 @@ export default function RapportStatistique() {
                 <div key={S.section}>
                   <button type="button" onClick={() => setOuvertes(x => ({ ...x, [S.section]: !o }))}
                     className="w-full flex items-center gap-2 py-2 text-left text-sm">
-                    {o ? <IconChevronDown size={15} /> : <IconChevronRight size={15} />}
+                    <Chevron ouvert={o} size={15} />
                     <b>{S.section}</b><span className="text-slate-500">{S.ues.length} unité(s) · {eur(S.cout)} · {pc(S.statuts?.CC?.periodes, S.periodes)} CC</span>
                   </button>
                   {o && (

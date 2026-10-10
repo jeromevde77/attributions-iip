@@ -4,7 +4,7 @@ import {
   IconDeviceFloppy, IconPlus, IconTrash,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
-import { Fenetre } from '../components/ui.jsx';
+import { Fenetre, Chevron } from '../components/ui.jsx';
 
 /**
  * LA GRILLE D'ORGANISATION — LA COUCHE QUI MANQUAIT.
@@ -256,8 +256,7 @@ function LigneUE({ u, semaines, nbSem, coupure, ouverte, surOuvrir, surCours, vu
         <button onClick={surOuvrir}
           className="flex items-center gap-2 text-left px-3 py-1.5 text-second min-w-0"
           style={{ width: 230, flexShrink: 0 }}>
-          <IconChevronRight size={13}
-            className={`text-slate-400 flex-shrink-0 transition-transform ${ouverte ? 'rotate-90' : ''}`} />
+          <Chevron ouvert={ouverte} size={13} className="text-slate-400 flex-shrink-0" />
           <i style={{ background: teinte, width: 4, height: 15, borderRadius: 2, flexShrink: 0 }} />
           <span className="truncate"><b>UE {u.ue_num}</b> — {u.ue_nom}</span>
           <span className="ml-auto text-mention text-slate-400 flex-shrink-0">{u.per_total}p</span>

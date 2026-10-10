@@ -11,6 +11,7 @@
  * qui est à l'écran — le serveur le recompose, en paysage.
  */
 import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Chevron } from './ui.jsx';
 import { IconChevronRight, IconChevronDown, IconPrinter, IconColumns3 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { ouvrirApercu } from '../lib/apercu.js';
@@ -239,7 +240,7 @@ export default function GrilleInscrits({ data, passe, annee, section, onFiche, o
                   <button type="button" className={`ml-0.5 ${ouvertes.has(u.ue_num) ? 'text-iip-blue' : 'text-slate-400'}`}
                     title={ouvertes.has(u.ue_num) ? 'Refermer les cours' : 'Ouvrir les cours'}
                     onClick={ev => { ev.preventDefault(); setOuvertes(s => basculer(s, u.ue_num)); }}>
-                    {ouvertes.has(u.ue_num) ? <IconChevronDown size={13} /> : <IconChevronRight size={13} />}
+                    <Chevron ouvert={ouvertes.has(u.ue_num)} size={13} />
                   </button>
                 </label>))}
             </div>
@@ -281,7 +282,7 @@ export default function GrilleInscrits({ data, passe, annee, section, onFiche, o
                     <span className="inline-flex items-center gap-1">
                       <button type="button" onClick={() => setOuvertes(s => basculer(s, u.ue_num))} className="opacity-80 hover:opacity-100"
                         title={ouvertes.has(u.ue_num) ? 'Refermer les cours' : `Ouvrir les cours (${u.cours.length})`}>
-                        {ouvertes.has(u.ue_num) ? <IconChevronDown size={13} /> : <IconChevronRight size={13} />}</button>
+                        <Chevron ouvert={ouvertes.has(u.ue_num)} size={13} /></button>
                       <button type="button" onClick={() => trier(u.ue_num)} title={`${u.ue_nom} — trier par état`} className="hover:underline font-semibold text-second">
                         UE {u.ue_num}{tri.par === u.ue_num ? (tri.sens > 0 ? ' ▲' : ' ▼') : ''}</button>
                       <span className="text-mention font-medium opacity-85">{u.ei ? 'EI' : blocDe(u.bloc) || ''}</span>

@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState } from 'react';
+import { Chevron as ChevronMaison } from '../components/ui.jsx';
 import { createPortal } from 'react-dom';
 import { IconLock, IconEye, IconShieldCheck, IconTrash, IconChevronRight, IconChevronDown, IconCheck, IconArrowBackUp } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
@@ -280,7 +281,7 @@ function Gestes({ plafonds, onMessage }) {
               const lignes = g.gestes.filter(x => x.module === gr.cle);
               if (!lignes.length) return null;
               const ouvert = ouverts.has(gr.cle);
-              const Chevron = ouvert ? IconChevronDown : IconChevronRight;
+              const Chevron = props => <ChevronMaison ouvert={ouvert} {...props} />;
               const regles = lignes.reduce((n, x) => n + g.roles.filter(r => x.verdicts[r]?.reglage != null).length, 0);
               return (
                 <Fragment key={gr.cle}>

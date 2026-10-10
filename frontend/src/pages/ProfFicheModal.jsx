@@ -4,7 +4,7 @@ import { authHeaders } from '../lib/api.js';
 import { useState, useEffect, useRef } from 'react';
 import FonctionsPanel from '../components/FonctionsPanel.jsx';
 import ChampsAdresse, { ChoixPays } from '../components/ChampsAdresse.jsx';
-import { Fenetre } from '../components/ui.jsx';
+import { Fenetre, Chevron } from '../components/ui.jsx';
 import { api, getAnnee } from '../lib/api.js';
 import { eidStatus, eidReadAll, eidToProf, eidChamps } from '../lib/eid.js';
 import NominationsPanel from '../components/NominationsPanel.jsx';
@@ -46,7 +46,7 @@ function Section({ titre, sous, ouvert, onToggle, children, complet }) {
       <button type="button" onClick={onToggle}
         className="w-full flex items-center justify-between px-4 py-2.5 bg-iip-gold/5 hover:bg-iip-gold/10 transition text-left">
         <div className="flex items-center gap-2">
-          <IconChevronRight size={14} className={`text-iip-gold transition-transform ${ouvert ? 'rotate-90' : ''}`} />
+          <Chevron ouvert={ouvert} size={14} className="text-iip-gold" />
           <span className="font-semibold text-iip-gold text-sm">{titre}</span>
           {sous && <span className="text-xs text-gray-400">· {sous}</span>}
         </div>

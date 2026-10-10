@@ -22,7 +22,7 @@ const SeanceValorisation = lazy(() => import('./SeanceValorisation.jsx'));
 import EnvoiMailModal from './EnvoiMailModal.jsx';
 import { useEnvoiMail } from '../lib/envoiMail.js';
 import { api, authHeaders, getAnnee } from '../lib/api.js';
-import { Fenetre, GroupeFenetre, PieceFenetre } from './ui.jsx';
+import { Fenetre, GroupeFenetre, PieceFenetre, Chevron } from './ui.jsx';
 import SchemaCapitalisation from './SchemaCapitalisation.jsx';
 import InscritsPrevus from './InscritsPrevus.jsx';
 import { svgImprimable } from '../lib/svgImprimable.js';
@@ -2099,7 +2099,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
                       <input type="checkbox" checked={ues.has(u.ue_num)} onChange={() => basculerUE(u.ue_num)} className="w-3.5 h-3.5 accent-iip-blue" />
                       {u.cours?.length > 0 && (
                         <button onClick={() => setDeplie(d => bascule(d, u.ue_num))} className="text-slate-400 hover:text-slate-700">
-                          {deplie.has(u.ue_num) ? <IconChevronDown size={13} /> : <IconChevronRight size={13} />}
+                          <Chevron ouvert={deplie.has(u.ue_num)} size={13} />
                         </button>
                       )}
                       <span className="text-second text-slate-700 truncate flex-1"><b>{u.ue_num}</b> {u.ue_nom}</span>
