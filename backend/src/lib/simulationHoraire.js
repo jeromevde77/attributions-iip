@@ -399,6 +399,17 @@ export function simuler(section, bloc, annee, { mode = 'plan' } = {}) {
   const heuresDemandeesBloc = Math.round(dem.reduce((t, d) => t + d.minutes, 0) / 60);
   return {
     section, bloc, annee, mode, regles, presence, nb_briques: c.nb_briques, orphelines,
+    /* TOUTE L'ANNÉE, PAS SEULEMENT LES SEMAINES DE COURS (Charles, 10 octobre 2026 :
+       « il faut placer les stages, les examens, etc. ») : le calendrier entier
+       pour la ligne du temps, et les UE de stage du bloc avec leurs dates — celles
+       de Dates des UE (organisation_ue), la seule source de ces dates. */
+    calendrier: db.prepare(`SELECT date_debut, date_fin, type, label FROM annee_calendrier WHERE annee_scolaire = ? ORDER BY date_debut`).all(annee),
+    stages: c.ues.length ? db.prepare(`SELECT o.id, o.ue_num, o.num_organisation, o.date_debut, o.date_fin,
+        (SELECT ue_nom FROM ue WHERE ue_num = o.ue_num AND annee_scolaire = o.annee_scolaire LIMIT 1) ue_nom
+      FROM organisation_ue o
+      WHERE o.annee_scolaire = ? AND o.section = ? AND o.ue_num IN (${c.ues.map(() => '?').join(',')})
+        AND EXISTS (SELECT 1 FROM cours c WHERE c.ue_num = o.ue_num AND c.annee_scolaire = o.annee_scolaire AND COALESCE(c.is_stage, 0) = 1)
+      ORDER BY o.ue_num, o.num_organisation`).all(annee, section, ...c.ues.map(u => u.ue_num)) : [],
     plan: { lignes: db.prepare('SELECT COUNT(*) n, COALESCE(SUM(verrouille), 0) v FROM plan_creneau WHERE annee_scolaire = ? AND section = ? AND bloc = ?').get(annee, section, bloc) },
     // Pour la vue « un étudiant » : sa brique dit ses séances.
     // Et, pour les activités hors briques (séminaires…), son groupe dans la répartition.

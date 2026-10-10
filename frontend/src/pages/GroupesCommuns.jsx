@@ -285,56 +285,121 @@ const NOMS_JOURS = ['', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Same
  * a cours. Couleur de l'UE ; contour pointillé pour ce qui n'est que proposé.
  * Un clic sur un rectangle ouvre sa semaine dans la grille dessous.
  */
-function LigneDuTemps({ sim, filtre, semaine, onSemaine }) {
-  const nb = sim.nb_semaines || 0;
+function LigneDuTemps({ sim, filtre, semaine, onSemaine, peutEcrire, onRecharger }) {
+  /* TOUTE L'ANNÉE EN COLONNES (Charles, 10 octobre 2026 : « placer les stages,
+     les examens, etc. ») : les semaines de cours, d'évaluations et de vacances
+     du calendrier, une colonne chacune. Une semaine de cours garde son numéro. */
+  const cal = sim.calendrier?.length ? sim.calendrier : (sim.semaines || []).map(w => ({ date_debut: w.lundi, type: 'cours' }));
+  const nb = cal.length;
+  const colDe = new Map();                                     // n° de semaine de cours → colonne (1…)
+  const numDe = new Map();                                     // colonne → n° de semaine de cours
+  (sim.semaines || []).forEach(w => { const i = cal.findIndex(c => c.date_debut === w.lundi); if (i >= 0) { colDe.set(w.num, i + 1); numDe.set(i + 1, w.num); } });
   const acts = (sim.activites || []).filter(filtre);
   const parCle = new Map();
   for (const x of sim.seances || []) {
     if (!parCle.has(x.cle)) parCle.set(x.cle, new Map());
-    const m = parCle.get(x.cle);
-    m.set(x.semaine, { n: (m.get(x.semaine)?.n || 0) + 1, propose: x.etat === 'propose' || m.get(x.semaine)?.propose });
+    const m = parCle.get(x.cle), c = colDe.get(x.semaine);
+    if (c) m.set(c, { n: (m.get(c)?.n || 0) + 1, w: x.semaine, propose: x.etat === 'propose' || m.get(c)?.propose });
   }
-  // Les semaines consécutives se fondent en un rectangle.
+  // Les colonnes consécutives se fondent en un rectangle ; une semaine sans cours (vacances) ne le coupe pas.
   const blocs = cle => {
     const m = parCle.get(cle) || new Map(), out = [];
-    for (const w of [...m.keys()].sort((a, b) => a - b)) {
+    for (const c of [...m.keys()].sort((x, y) => x - y)) {
       const der = out[out.length - 1];
-      if (der && der.a === w - 1 && der.propose === !!m.get(w).propose) { der.a = w; der.n += m.get(w).n; }
-      else out.push({ de: w, a: w, n: m.get(w).n, propose: !!m.get(w).propose });
+      const entre = der ? cal.slice(der.a, c - 1).every(k => k.type !== 'cours') : false;
+      if (der && (der.a === c - 1 || entre) && der.propose === !!m.get(c).propose) { der.a = c; der.n += m.get(c).n; }
+      else out.push({ de: c, a: c, n: m.get(c).n, w: m.get(c).w, propose: !!m.get(c).propose });
     }
     return out;
   };
+  // Une période (stage) en colonnes : les semaines qui la recoupent.
+  const colonnesDe = (d, f) => {
+    const idx = cal.map((c, i) => ({ i: i + 1, d: c.date_debut, f: c.date_fin || c.date_debut })).filter(c => c.f >= d && c.d <= f).map(c => c.i);
+    return idx.length ? { de: idx[0], a: idx[idx.length - 1] } : null;
+  };
   const mois = [];
-  (sim.semaines || []).forEach((w, i) => { const m = w.lundi.slice(0, 7); if (!mois.length || mois[mois.length - 1].m !== m) mois.push({ m, de: i }); });
+  cal.forEach((w, i) => { const m = w.date_debut.slice(0, 7); if (!mois.length || mois[mois.length - 1].m !== m) mois.push({ m, de: i }); });
   const NOMS_MOIS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
-  const col = `minmax(0,1fr)`;
+  const gabarit = { gridTemplateColumns: `13rem repeat(${nb}, minmax(0,1fr))` };
+  const fond = t => (t === 'ev1' || t === 'ev2' ? 'color-mix(in srgb, var(--c-attente, #B45309) 14%, transparent)'
+    : t === 'cours' ? 'transparent' : 'repeating-linear-gradient(135deg, #EEF1F5 0 4px, transparent 4px 8px)');
   const etiq = a => `${a.cours_code} ${a.tout_le_bloc && (!a.groupe || a.groupe === 'Tous' || a.groupe === 'Ts') ? '' : `· ${a.groupe}`}`;
+  const [dates, setDates] = useState({});
+  const [msg, setMsg] = useState(null);
+  async function poserDates(o) {
+    const v = dates[o.id] || {};
+    const r = await fetch('/api/annuel/dates-ue', { method: 'PUT', headers: authHeaders(),
+      body: JSON.stringify({ lignes: [{ id: o.id, date_debut: v.d ?? o.date_debut, date_fin: v.f ?? o.date_fin }] }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || j.erreurs?.length) { setMsg(j.error || j.erreurs?.[0]?.message || `Erreur ${r.status}`); return; }
+    setMsg(j.en_attente ? j.message : null);
+    await onRecharger();
+  }
+  const ligneFond = (
+    <div className="grid absolute inset-0 pointer-events-none" style={gabarit}>
+      <div />
+      {cal.map((c, i) => <div key={i} style={{ background: fond(c.type), boxShadow: i + 1 === colDe.get(semaine) ? 'inset 0 0 0 999px rgba(22,64,106,.08)' : undefined }} />)}
+    </div>);
   return (
     <details open className="border border-slate-200 rounded-carte">
-      <summary className="px-3 py-2 cursor-pointer text-[13px] font-semibold">Ligne du temps de l’année — {acts.length} activité(s), {nb} semaines de cours</summary>
+      <summary className="px-3 py-2 cursor-pointer text-[13px] font-semibold">Ligne du temps de l’année — {acts.length} activité(s), {sim.stages?.length || 0} stage(s), {nb} semaines</summary>
       <div className="overflow-x-auto px-3 pb-3">
-        <div className="min-w-[760px] text-[11px]">
-          {/* Les mois, puis les numéros de semaine. */}
-          <div className="grid" style={{ gridTemplateColumns: `13rem repeat(${nb}, ${col})` }}>
+        <div className="min-w-[860px] text-[11px]">
+          {/* Les mois, les périodes du calendrier, puis les numéros des semaines de cours. */}
+          <div className="grid" style={gabarit}>
             <div />
             {mois.map((m, i) => (
               <div key={m.m} className="text-slate-500 border-l border-slate-200 pl-1 truncate"
                 style={{ gridColumn: `${m.de + 2} / ${(mois[i + 1]?.de ?? nb) + 2}` }}>{NOMS_MOIS[Number(m.m.slice(5, 7)) - 1]}</div>))}
-            <div className="text-slate-400">semaine</div>
-            {Array.from({ length: nb }, (_, i) => (
-              <button key={i} onClick={() => onSemaine(i + 1)} className={`text-center tabular-nums ${semaine === i + 1 ? 'font-bold text-[#16406A]' : 'text-slate-400'}`}>{i + 1}</button>))}
           </div>
+          <div className="grid relative" style={gabarit}>
+            {ligneFond}
+            <div className="text-slate-400">semaine</div>
+            {cal.map((c, i) => (
+              <button key={i} disabled={!numDe.get(i + 1)} onClick={() => onSemaine(numDe.get(i + 1))}
+                title={c.type === 'cours' ? `Semaine de cours ${numDe.get(i + 1)} — du ${c.date_debut.split('-').reverse().join('/')}` : (c.label || c.type)}
+                className={`relative text-center tabular-nums ${semaine === numDe.get(i + 1) ? 'font-bold text-[#16406A]' : 'text-slate-400'}`}>
+                {c.type === 'cours' ? numDe.get(i + 1) : c.type.startsWith('ev') ? 'É' : '·'}</button>))}
+          </div>
+          {/* LES STAGES : leurs dates sont celles de Dates des UE. */}
+          {(sim.stages || []).map(o => {
+            const p = o.date_debut && o.date_fin ? colonnesDe(o.date_debut, o.date_fin) : null;
+            return (
+              <div key={`st${o.id}`} className="grid items-center border-t border-slate-200 min-h-[26px] relative" style={gabarit}>
+                {ligneFond}
+                <div className="truncate pr-2 relative" title={o.ue_nom}><b>Stage {o.ue_num}</b>{o.num_organisation > 1 ? ` · org. ${o.num_organisation}` : ''} <span className="text-slate-500">{o.ue_nom}</span></div>
+                {p ? <div className="h-[16px] rounded-[4px] mx-px relative text-white text-[10px] px-1 truncate leading-[16px]"
+                    title={`Stage ${o.ue_num} — du ${o.date_debut.split('-').reverse().join('/')} au ${o.date_fin.split('-').reverse().join('/')}`}
+                    style={{ gridColumn: `${p.de + 1} / ${p.a + 2}`, gridRow: 1, background: 'repeating-linear-gradient(135deg, #475569 0 6px, #64748B 6px 12px)' }}>stage</div>
+                  : <div className="relative flex items-center gap-1 py-0.5" style={{ gridColumn: `2 / ${nb + 2}`, gridRow: 1 }}>
+                    <span style={{ color: 'var(--c-attente)' }}>dates du stage à poser</span>
+                    {peutEcrire && <>
+                      <input type="date" className="controle !h-[22px] !py-0 text-[11px]" value={dates[o.id]?.d ?? ''} onChange={e => setDates(x => ({ ...x, [o.id]: { ...x[o.id], d: e.target.value } }))} />
+                      <span>→</span>
+                      <input type="date" className="controle !h-[22px] !py-0 text-[11px]" value={dates[o.id]?.f ?? ''} onChange={e => setDates(x => ({ ...x, [o.id]: { ...x[o.id], f: e.target.value } }))} />
+                      <button className="bouton !h-[22px] !px-2 text-[11px]" disabled={!dates[o.id]?.d || !dates[o.id]?.f} onClick={() => poserDates(o)}>Poser</button>
+                    </>}
+                  </div>}
+              </div>);
+          })}
+          {msg && <div className="text-[11.5px] py-1" style={{ color: 'var(--c-attente)' }}>{msg}</div>}
           {acts.map(a => (
-            <div key={a.cle} className="grid items-center border-t border-slate-100 h-[22px]" style={{ gridTemplateColumns: `13rem repeat(${nb}, ${col})` }}>
-              <div className="truncate pr-2" title={`${a.cours_code} ${a.activite || ''} — ${a.professeur || ''}`}>
+            <div key={a.cle} className="grid items-center border-t border-slate-100 h-[22px] relative" style={gabarit}>
+              {ligneFond}
+              <div className="truncate pr-2 relative" title={`${a.cours_code} ${a.activite || ''} — ${a.professeur || ''}`}>
                 <b>{etiq(a)}</b> <span className="text-slate-500">{String(a.activite || '').replace(/\s*\((TP|TH)\)\s*$/i, '')}</span></div>
               {blocs(a.cle).map((b, i) => (
-                <button key={i} onClick={() => onSemaine(b.de)} title={`${a.cours_code} ${a.groupe || ''} — semaines ${b.de} à ${b.a} · ${b.n} séance(s)${b.propose ? ' · proposé' : ''}`}
-                  className="h-[14px] rounded-[4px] mx-px"
+                <button key={i} onClick={() => onSemaine(b.w)} title={`${a.cours_code} ${a.groupe || ''} — ${b.n} séance(s)${b.propose ? ' · proposé' : ''}`}
+                  className="h-[14px] rounded-[4px] mx-px relative"
                   style={{ gridColumn: `${b.de + 1} / ${b.a + 2}`, gridRow: 1, background: teinteCours(a.cours_code),
                     ...(b.propose && sim.plan?.lignes?.n ? { outline: '1.5px dashed #64748B', outlineOffset: 1, opacity: 0.75 } : {}) }} />))}
-              <div style={{ gridColumn: `${semaine + 1} / ${semaine + 2}`, gridRow: 1 }} className="h-full bg-[#16406A]/10 pointer-events-none" />
             </div>))}
+          {/* La légende des fonds. */}
+          <div className="flex items-center gap-4 pt-2 text-slate-500">
+            <span className="flex items-center gap-1"><i className="inline-block w-4 h-3 rounded-[3px]" style={{ background: fond('ev1') }} />évaluations</span>
+            <span className="flex items-center gap-1"><i className="inline-block w-4 h-3 rounded-[3px] border border-slate-200" style={{ background: fond('vacances') }} />vacances</span>
+            <span className="flex items-center gap-1"><i className="inline-block w-4 h-3 rounded-[3px]" style={{ background: 'repeating-linear-gradient(135deg, #475569 0 6px, #64748B 6px 12px)' }} />stage</span>
+          </div>
         </div>
       </div>
     </details>
@@ -626,7 +691,7 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
               <IconAlertTriangle size={14} className="mt-0.5 flex-none" /><span><b>{r.cours_code}</b> {r.activite} · {r.groupe} — {r.manque} séance(s) sans place : {r.raison}{r.professeur ? ` (${r.professeur})` : ''}</span></div>)}
           </div>)}
         <LocauxActivites sim={sim} section={section} bloc={bloc} annee={annee} peutEcrire={peutEcrire} onEnregistre={simuler} />
-        <LigneDuTemps sim={sim} filtre={pourQui} semaine={semaine} onSemaine={setSemaine} />
+        <LigneDuTemps sim={sim} filtre={pourQui} semaine={semaine} onSemaine={setSemaine} peutEcrire={peutEcrire} onRecharger={() => simuler(mode, true)} />
         {/* LA RÉGULARITÉ SE LIT : un créneau fixe par groupe, ses semaines. */}
         <details className="border border-slate-200 rounded-carte">
           <summary className="px-3 py-2 cursor-pointer text-[13px] font-semibold">
