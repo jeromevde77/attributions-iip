@@ -14,9 +14,10 @@ import { ouvrirApercu } from '../lib/apercu.js';
  * d'études dans laquelle chaque UE est placée relève de l'organisation et se
  * modifie ici, par section et par année scolaire.
  */
-export default function StructureSection({ annee }) {
+export default function StructureSection({ annee, sectionInitiale = '' }) {
   const [sections, setSections] = useState([]);
-  const [section, setSection] = useState('');
+  // Ouvert depuis le laboratoire temporel, il montre la section qu'on y regarde.
+  const [section, setSection] = useState(sectionInitiale);
   const [data, setData] = useState(null);
   const [message, setMessage] = useState(null);
   const [assistantOuvert, setAssistantOuvert] = useState(false);

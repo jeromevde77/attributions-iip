@@ -7,6 +7,7 @@ import { LOGO_IIP_BLANC_HTML } from '../services/assets/logo_iip_blanc.js';
 import { sectionRattachement } from './etudiants.js';
 import { identiteEtablissement } from './config.js';
 import { envelopperDocument } from '../lib/document.js';
+import { SIGNATURE_SOHET } from '../services/assets/signature_sohet.js';
 
 const r = Router();
 
@@ -472,12 +473,40 @@ export function composerTemplate(t, { prof_id, ue_num, section, annee, etudiant_
    (lib/document.js) : logo, identité complète, « Produit par… », collé au bas
    de CHAQUE page — et l'aperçu la rend alors en PDF serveur. Son en-tête reste
    le sien (entete: false). Les modèles de l'ancien éditeur ne changent pas. */
-const piedDeLAtelier = t => /^<!--atelier:/.test(String(t.contenu || '')) && /data-pied/.test(String(t.contenu || ''));
+const piedDeLAtelier = t => /^<!--atelier:/.test(String(t.contenu || '')) && /data-pied|data-signature-direction/.test(String(t.contenu || ''));
+/* LA SIGNATURE DU DIRECTEUR (Charles, 10 octobre 2026 : « un bloc signature avec
+   ma vraie signature et la bande fac-similé »). L'atelier n'écrit qu'un repère ;
+   la signature est posée ICI, à la composition, dans le bloc « cloture » que
+   reconnaît la protection (lib/protectionSignature.js) : le PDF, l'aperçu et le
+   courriel la traversent du fac-similé — elle ne sort jamais nue.
+   LE FAC-SIMILÉ SUIT LA PERSONNE : la signature enregistrée est celle de Charles
+   Sohet ; sous un autre nom, la place reste à signer à la main. */
+function poserSignatures(html) {
+  return String(html || '').replace(/<div data-signature-direction="true">[\s\S]*?<\/span><\/div>/g, bloc => {
+    const r = parseHtml(bloc);
+    const champ = k => r.querySelector(`[data-sig="${k}"]`)?.innerHTML || '';
+    const nom = champ('nom');
+    const sienne = /sohet/i.test(nom.replace(/<[^>]+>/g, ''));
+    return `<div class="cloture${sienne ? '' : ' sans-paraphe'}"><div class="paraphe"></div>
+      <div class="lieu">${champ('lieu')}</div>
+      <div class="legende"><div class="qualite">${champ('qual')}</div><div class="nom">${nom}</div></div></div>`;
+  });
+}
+const STYLE_SIGNATURE = `:root{--paraphe:url("${SIGNATURE_SOHET}")}
+  .cloture{display:grid;grid-template-columns:1fr auto;grid-template-rows:auto auto;column-gap:14mm;align-items:end;margin-top:6mm;page-break-inside:avoid}
+  .cloture .lieu{grid-column:1;grid-row:2;font-size:10pt;padding-bottom:1mm}
+  .cloture .paraphe{grid-column:2;grid-row:1;width:52mm;height:20mm;background-image:var(--paraphe);background-repeat:no-repeat;background-position:center bottom;background-size:contain}
+  .cloture.sans-paraphe .paraphe{background-image:none;border-bottom:0.3mm solid #94a3b8;height:16mm}
+  .cloture .legende{grid-column:2;grid-row:2;text-align:center;border-top:.4pt solid #94a3b8;padding-top:1mm;width:52mm;font-size:10pt}
+  .cloture.sans-paraphe .legende{border-top:none}
+  .cloture .nom{font-weight:700;color:#1B2B4B}`;
+
 function enveloppeLettres(t, docs) {
   let m = {};
   try { m = (typeof t.margins === 'string' ? JSON.parse(t.margins) : t.margins) || {}; } catch { m = {}; }
-  const corps = docs.map((d, i) => `${i ? '<div class="page-break"></div>' : ''}${d.headerHtml || ''}${d.html || ''}`).join('\n');
+  const corps = poserSignatures(docs.map((d, i) => `${i ? '<div class="page-break"></div>' : ''}${d.headerHtml || ''}${d.html || ''}`).join('\n'));
   return envelopperDocument({ html: corps, titre: t.nom, entete: false, orientation: t.format === 'A4L' ? 'paysage' : 'portrait',
+    styles: corps.includes('class="cloture') ? STYLE_SIGNATURE : '',
     margeHaut: Number(m.top) || 18, margeCote: Number(m.left) || 18 });
 }
 

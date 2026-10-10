@@ -35,6 +35,7 @@ export const MODELES = {
     lignes: [['Colonne 1', 'Colonne 2', 'Colonne 3'], ['', '', ''], ['', '', '']] } },
   logo: { lib: 'Logo', p: { largeur: 28 } },
   signature: { lib: 'Signature', p: { lieu: 'Fait à Bruxelles, le …', qual: 'Le Directeur', nom: '' } },
+  signatureDir: { lib: 'Signature du directeur', type: 'signature', p: { lieu: 'Fait à Bruxelles, le …', qual: 'Pour la Direction,<br>le Directeur', nom: '{{directeur.nom_prenom}}', scan: true } },
   filet: { lib: 'Ligne dorée', p: {} },
   pied: { lib: 'Bas de page', p: {} },
 };
@@ -49,6 +50,7 @@ const VIG = {
   tableau: '<div style="width:80%;display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#CBD5E1;border:1px solid #CBD5E1">' + '<div style="height:6px;background:#1B2B4B"></div>'.repeat(3) + '<div style="height:6px;background:#fff"></div>'.repeat(6) + '</div>',
   logo: '<div style="width:60%">' + LOGO + '</div>',
   signature: '<div style="width:80%;display:flex;justify-content:flex-end"><div style="width:50%;border-bottom:1px solid #94A3B8;height:16px"></div></div>',
+  signatureDir: '<div style="width:80%;display:flex;justify-content:flex-end;align-items:flex-end;gap:4px"><div style="width:18px;height:18px;border-radius:50%;border:1.5px solid #16406A;opacity:.7"></div><div style="width:46%;height:18px;border-bottom:1px solid #94A3B8;background:repeating-linear-gradient(90deg,transparent 0 3px,rgba(22,64,106,.25) 3px 4px)"></div></div>',
   filet: '<div style="width:80%;height:2px;background:#C9A84C"></div>',
   pied: '<div style="width:86%;border-top:1px solid #C9A84C;padding-top:3px"><div style="height:3px;width:70%;margin:auto;background:#AAB2BF"></div></div>',
 };
@@ -128,6 +130,7 @@ const CSS = `
 .atelier-lucie .bloc.sel .sep-w:hover{background:rgba(47,111,176,.18)}.atelier-lucie .apercu .sep-w{display:none}
 .atelier-lucie .signature{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;margin-top:8px}
 .atelier-lucie .signature .qual{text-align:center}.atelier-lucie .ligne-sig{width:190px;border-bottom:1px solid #94A3B8;height:46px;margin-bottom:4px}
+.atelier-lucie .ligne-sig.scan{height:auto;min-height:46px;border:1px dashed #94A3B8;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;color:#16406A;background:#F4F7FB;padding:4px}
 .atelier-lucie .filet-or{height:2px;background:#C9A84C;width:100%}
 .atelier-lucie .pied{margin-top:auto;padding-top:14px;width:100%}
 .atelier-lucie .pied .ligne{border-top:1px solid #C9A84C;padding-top:6px;text-align:center;font-size:8.5px;color:#4B5563;line-height:1.5}
@@ -193,7 +196,14 @@ export function exporterHtml(blocs) {
         break;
       }
       case 'logo': out.push(`<div style="width:${p.largeur || 28}%;margin:0 0 10px">{{etab.logo}}</div>`); break;
-      case 'signature': out.push(`<table style="${T};width:100%;border-collapse:collapse;margin-top:14px;font-size:9.5pt"><tr><td style="border:none;vertical-align:bottom">${v(p.lieu)}</td><td style="border:none;width:220px;text-align:center"><div style="border-bottom:1px solid #94A3B8;height:42px;margin-bottom:4px"></div>${v(p.qual)}<br><b>${v(p.nom)}</b></td></tr></table>`); break;
+      /* LA SIGNATURE SCANNÉE NE S'ÉCRIT JAMAIS DANS LE MODÈLE (Charles, 10 octobre
+         2026 : « un bloc signature avec ma vraie signature et la bande fac-similé »).
+         Le modèle porte un REPÈRE ; le serveur y pose le sceau et la signature en
+         composant la lettre, et toute sortie (PDF, aperçu, courriel) la traverse du
+         fac-similé (lib/protectionSignature.js). */
+      case 'signature': out.push(p.scan
+        ? `<div data-signature-direction="true"><span data-sig="lieu">${v(p.lieu)}</span><span data-sig="qual">${v(p.qual)}</span><span data-sig="nom">${v(p.nom)}</span></div>`
+        : `<table style="${T};width:100%;border-collapse:collapse;margin-top:14px;font-size:9.5pt"><tr><td style="border:none;vertical-align:bottom">${v(p.lieu)}</td><td style="border:none;width:220px;text-align:center"><div style="border-bottom:1px solid #94A3B8;height:42px;margin-bottom:4px"></div>${v(p.qual)}<br><b>${v(p.nom)}</b></td></tr></table>`); break;
       case 'filet': out.push('<div style="height:2px;background:#C9A84C;margin:6px 0 12px"></div>'); break;
       case 'pied': out.push(`<div data-pied="true"><p style="${T};border-top:1px solid #C9A84C;padding-top:5px;margin:18px 0 0;text-align:center;font-size:7pt;color:#4B5563;line-height:1.5">{{etab.etab_nom}} • {{etab.adresse}}</p></div>`); break;
       default:
@@ -208,7 +218,8 @@ export function monterAtelier(el, { structure = null, champs = {}, onChange = ()
     const st = document.createElement('style'); st.id = 'atelier-lucie-css'; st.textContent = CSS; document.head.appendChild(st);
   }
   let n = 0, blocs = [], sel = null, wagonSel = 0, histo = [], enApercu = false, derniereZone = null;
-  const nouveau = (type, p) => ({ id: ++n, type, p: clone(p || MODELES[type].p || {}) });
+  // Un élément tout prêt (« Signature du directeur ») est un élément d'un autre type, préréglé.
+  const nouveau = (type, p) => ({ id: ++n, type: MODELES[type]?.type || type, p: clone(p || MODELES[type].p || {}) });
   if (Array.isArray(structure) && structure.length) { blocs = structure.map(b => ({ ...clone(b), id: ++n })); }
   else blocs = [nouveau('entete'), nouveau('titre'), nouveau('texte'), nouveau('signature'), nouveau('pied')];
   const sortie = () => blocs.map(({ type, p }) => ({ type, p }));
@@ -257,7 +268,9 @@ export function monterAtelier(el, { structure = null, champs = {}, onChange = ()
         ? `<th contenteditable="${!enApercu}" data-cell="${i}-${j}">${c}</th>` : `<td contenteditable="${!enApercu}" data-cell="${i}-${j}">${c}</td>`)).join('')}</tr>`).join('')}</table></div>
         <div class="ajout-tab"><button data-act="lig">+ Ajouter une ligne</button><button data-act="col">+ Ajouter une colonne</button></div>`;
       case 'logo': return `<div class="logo">${LOGO}</div>`;
-      case 'signature': return `<div class="signature">${ed('lieu', p.lieu)}<div class="qual"><div class="ligne-sig"></div>${ed('qual', p.qual)}${ed('nom', p.nom || '…', '')}</div></div>`;
+      case 'signature': return `<div class="signature">${ed('lieu', p.lieu)}<div class="qual">${p.scan
+        ? '<div class="ligne-sig scan">signature scannée<br><small>posée à l’impression, avec la bande fac-similé</small></div>'
+        : '<div class="ligne-sig"></div>'}${ed('qual', p.qual)}${ed('nom', p.nom || '…', '')}</div></div>`;
       case 'filet': return '<div class="filet-or"></div>';
       case 'pied': return '<div class="pied"><div class="ligne">Institut Ilya Prigogine • adresse et coordonnées de l’établissement — le pied commun de Lucie</div></div>';
       default: return '';
@@ -321,6 +334,7 @@ export function monterAtelier(el, { structure = null, champs = {}, onChange = ()
         <label style="display:flex;gap:6px;align-items:center;white-space:nowrap"><input type="checkbox" data-zebre ${b.p.zebre ? 'checked' : ''}> Lignes alternées</label></div>
         <div class="groupe"><h4>Lignes et colonnes</h4><div class="rang"><button data-act="lig">+ Ligne</button><button data-act="col">+ Colonne</button><button class="danger" data-act="moinslig">− Ligne</button><button class="danger" data-act="moinscol">− Colonne</button></div></div>`;
     }
+    if (b.type === 'signature') h += `<div class="groupe"><h4>Signature</h4><label style="display:flex;gap:6px;align-items:center;white-space:nowrap"><input type="checkbox" data-scan ${b.p.scan ? 'checked' : ''}> Signature scannée du directeur, avec la bande fac-similé</label></div>`;
     if (['entete', 'pied'].includes(b.type)) h += '<p class="at-aide">Élément de la charte de l’Institut : il est le même sur toutes les pièces.</p>';
     if (['texte', 'titre', 'signature'].includes(b.type)) h += '<p class="at-aide">Cliquez dans le texte pour l’écrire ; « Donnée de Lucie » insère une donnée qui se remplit seule.</p>';
     h += '<div class="groupe" style="margin-left:auto"><div class="rang"><button data-act="dup">Dupliquer</button><button class="danger" data-act="suppr">Retirer</button></div></div>';
@@ -441,7 +455,10 @@ export function monterAtelier(el, { structure = null, champs = {}, onChange = ()
     const d = el.querySelector(`.bloc[data-id="${b.id}"]`); const tmp = document.createElement('div'); tmp.innerHTML = contenu(b);
     d.replaceChild(tmp.firstElementChild, d.firstElementChild); signaler();
   });
-  R.addEventListener('change', e => { if (e.target.hasAttribute('data-zebre')) { memoriser(); bloc(sel).p.zebre = e.target.checked; rendre(); signaler(); } });
+  R.addEventListener('change', e => {
+    if (e.target.hasAttribute('data-zebre')) { memoriser(); bloc(sel).p.zebre = e.target.checked; rendre(); signaler(); }
+    if (e.target.hasAttribute('data-scan')) { memoriser(); bloc(sel).p.scan = e.target.checked; rendre(); signaler(); }
+  });
 
   // Mise en forme du texte sélectionné (gras, taille, couleur, alignement).
   function restaurer() {

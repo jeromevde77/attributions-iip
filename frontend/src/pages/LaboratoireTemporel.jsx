@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { api, authHeaders, getAnnee } from '../lib/api.js';
 import { informer } from '../lib/dialogue.jsx';
 import { passeRole } from '../lib/droits.js';
 import { teinteCours, styleTuileCours } from '../lib/teinteCours.js';
 import { IconeLaboratoire } from '../components/IconeLaboratoire.jsx';
+import { IconSitemap } from '@tabler/icons-react';
+const StructureSection = lazy(() => import('./StructureSection.jsx'));
 
 /**
  * LE LABORATOIRE TEMPOREL DE LUCIE (Charles, 10 octobre 2026 : « on zoome pour
@@ -147,12 +149,21 @@ export default function LaboratoireTemporel() {
             <button key={k} disabled={k === 'ue' && !ueChoisie} onClick={() => setZoom(k)}
               className={`px-3 text-[12.5px] ${zoom === k ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'} disabled:opacity-40`}>{l}</button>))}
         </div>
-        <span className="text-[12px] text-slate-500">{zoom === 'ue' ? 'Glisser une activité dans un cours ; tirer le haut d’une couche.' : 'Ctrl + molette pour zoomer · glisser une tuile la déplace dans l’année, ses bords l’allongent · double-clic : son verre.'}</span>
+        {/* LE SCHÉMA DE CAPITALISATION S'OUVRE ICI (Charles, 10 octobre 2026) : la
+            suite des unités et leurs prérequis, à côté de leur place dans l'année. */}
+        <button className={`bouton ${zoom === 'schema' ? 'bouton-fort' : ''}`} onClick={() => setZoom(zoom === 'schema' ? 'annee' : 'schema')}>
+          <IconSitemap size={16} />Schéma de capitalisation</button>
+        <span className="text-[12px] text-slate-500">{zoom === 'schema' ? '' : zoom === 'ue' ? 'Glisser une activité dans un cours ; tirer le haut d’une couche.' : 'Ctrl + molette pour zoomer · glisser une tuile la déplace dans l’année, ses bords l’allongent · double-clic : son verre.'}</span>
       </div>
       {erreur && <div className="text-[12.5px]" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
       {!data && !erreur && <div className="text-[13px] text-slate-400">Chargement…</div>}
 
-      {data && zoom !== 'ue' && (
+      {zoom === 'schema' && (
+        <Suspense fallback={<div className="text-[13px] text-slate-400">Chargement…</div>}>
+          <StructureSection key={section} annee={annee} sectionInitiale={section} />
+        </Suspense>)}
+
+      {data && zoom !== 'ue' && zoom !== 'schema' && (
         <div className="carte p-3 overflow-x-auto" onWheel={molette}>
           <div className="min-w-[980px] relative">
             {/* Les mois, puis les semaines : cours numérotées, évaluations « É ». */}
@@ -173,7 +184,7 @@ export default function LaboratoireTemporel() {
           </div>
         </div>)}
 
-      {data && zoom !== 'ue' && ueChoisie && (
+      {data && zoom !== 'ue' && zoom !== 'schema' && ueChoisie && (
         <ResumeUE u={ueChoisie} semaines={semaines} peutEcrire={peutEcrire} pendantStage={pendantStage(ueChoisie)}
           onStage={() => basculerStage(ueChoisie)} onOuvrir={() => setZoom('ue')} />)}
 
@@ -191,9 +202,12 @@ export default function LaboratoireTemporel() {
   );
 }
 
-const HACHURE = 'repeating-linear-gradient(135deg, transparent 0 5px, color-mix(in srgb, var(--c-attente, #B45309) 28%, transparent) 5px 10px)';
+/* DE L'UNI COLORÉ, PAS DE HACHURES (Charles, 10 octobre 2026 : « pas de lignes
+   zébrées, je préfère de l'uni coloré »). */
+const HACHURE = 'color-mix(in srgb, var(--c-attente, #B45309) 16%, white)';
+const FOND_STAGE = 'color-mix(in srgb, #64748B 16%, white)';
 const fondSemaine = t => (t === 'ev1' || t === 'ev2' ? 'color-mix(in srgb, var(--c-attente, #B45309) 13%, transparent)'
-  : t === 'cours' ? 'transparent' : 'repeating-linear-gradient(135deg, #EEF1F5 0 4px, transparent 4px 8px)');
+  : t === 'cours' ? 'transparent' : 'color-mix(in srgb, #64748B 9%, transparent)');
 const hauteurCouches = ues => 36 + 22 * Math.max(1, ...ues.map(u => (u.cours || []).length));
 
 function Entete({ semaines }) {
@@ -221,7 +235,7 @@ function TuileUE({ u, zoom, choisie, posee, pendantStage, style, onDeplacer, onD
     <div className="absolute rounded-r-[10px] bg-white overflow-hidden select-none cursor-grab"
       style={{ ...style, borderLeft: `4px solid ${u.stage ? '#64748B' : teinte}`, border: `1px ${posee ? 'solid' : 'dashed'} ${choisie ? '#16406A' : '#D8DCE4'}`,
         borderLeftWidth: 4, borderLeftStyle: 'solid', borderLeftColor: u.stage ? '#64748B' : teinte,
-        background: u.stage ? 'repeating-linear-gradient(135deg, rgba(100,116,139,.12) 0 7px, #fff 7px 14px)' : '#fff',
+        background: u.stage ? FOND_STAGE : '#fff',
         boxShadow: choisie ? '0 0 0 2px rgba(22,64,106,.25)' : undefined }}
       onPointerDown={onDeplacer} onDoubleClick={onOuvrir}
       title={`UE ${u.ue_num} — ${u.ue_nom}\n${dossier} périodes au dossier · ${remplies} posées dans la grille${posee ? '' : '\nDates à poser'}`}>
