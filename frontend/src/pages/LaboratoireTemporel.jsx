@@ -588,7 +588,7 @@ function TuileUE({ u, zoom, choisie, posee, pendantStage, style, onDeplacer, onD
         background: u.stage ? FOND_STAGE : `color-mix(in srgb, ${teinte} 16%, var(--blanc))`,
         boxShadow: choisie ? '0 0 0 2px rgba(22,64,106,.25)' : undefined }}
       onPointerDown={onDeplacer} onDoubleClick={onOuvrir}
-      title={`UE ${u.ue_num} — ${u.ue_nom}\n${dossier} périodes au dossier · ${remplies} posées dans la grille${posee ? '' : '\nDates à poser'}`}>
+      title={`UE ${u.ue_num} — ${u.ue_nom}\n${u.nb_etudiants ?? '—'} étudiant(s)\n${dossier} périodes au dossier · ${remplies} posées dans la grille${posee ? '' : '\nDates à poser'}`}>
       {coupures.map(({ i }) => (
         <div key={`v${i}`} className="absolute top-0 bottom-0 z-0 pointer-events-none" title="Vacances : pas de cours"
           style={{ left: `calc(${(i - span.de) / n * 100}% - 4px)`, width: `calc(${100 / n}%)`, background: 'color-mix(in srgb, rgb(var(--gris-500)) 22%, var(--blanc))', borderLeft: '1px solid var(--blanc)', borderRight: '1px solid var(--blanc)' }} />))}
@@ -602,7 +602,7 @@ function TuileUE({ u, zoom, choisie, posee, pendantStage, style, onDeplacer, onD
           {pendantStage && <span className="flex-none px-1.5 rounded-pastille text-mention font-semibold text-white" style={{ background: 'var(--c-refuse)' }} title="Cette UE a cours pendant un stage bloquant">pendant le stage</span>}
         </div>
         <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-0.5">
-          <span>{u.ue_niv} · {dossier} p. · {(u.cours || []).length} cours</span>
+          <span>{u.ue_niv} · {dossier} p. · {(u.cours || []).length} cours · <b title={u.etudiants_selon === 'groupes' ? 'Compté dans la répartition des groupes' : 'Compté dans les inscriptions'}>{u.nb_etudiants ?? '—'} étudiant{u.nb_etudiants === 1 ? '' : 's'}</b></span>
           {!posee && <span className="px-1.5 rounded-pastille text-mention font-semibold text-white" style={{ background: 'var(--c-attente)' }}>dates à poser</span>}
           {!u.stage && <span className="px-1.5 rounded-pastille text-mention font-semibold text-white" style={{ background: remplies >= dossier && dossier ? 'var(--c-reussi)' : 'var(--c-attente)' }}>
             {remplies >= dossier && dossier ? 'grille complète' : `grille : ${remplies}/${dossier}`}</span>}
@@ -675,7 +675,7 @@ function ResumeUE({ u, semaines, peutEcrire, pendantStage, onStage, onConges, on
         {!u.stage && <button className="bouton bouton-fort" onClick={onOuvrir}>Ouvrir le verre de l’{nomUE(u)}</button>}
       </div>
       <div className="text-second text-slate-600">
-        {u.planifiee ? `Du ${dt(u.date_debut)} au ${dt(u.date_fin)}` : 'Dates à poser : glissez la tuile, ou tirez ses bords'} · {u.ue_niv} ·{' '}
+        {u.planifiee ? `Du ${dt(u.date_debut)} au ${dt(u.date_fin)}` : 'Dates à poser : glissez la tuile, ou tirez ses bords'} · {u.ue_niv} · <b>{u.nb_etudiants ?? '—'} étudiant{u.nb_etudiants === 1 ? '' : 's'}</b> ({u.etudiants_selon === 'groupes' ? 'selon les groupes' : 'selon les inscriptions'}) ·{' '}
         {(u.cours || []).map(c => `${c.cours_code} : ${arrondi(sommeEtudiant(c))}/${c.cours_per}`).join(' · ')}
       </div>
       {u.stage && (
@@ -733,6 +733,7 @@ function Rangee({ ues, rangee, setRangee, actif, onChoisir, debut, setDebut }) {
                 {/* Les fonds alignés : le verre se pose au bas d'une hauteur commune. */}
                 <div className="h-[156px] flex items-end justify-center"><VerreMini u={u} px={px} /></div>
                 <b className="text-second">{nomUE(u)}</b>
+                <span className="text-mention text-slate-600 tabular-nums">{u.nb_etudiants ?? '—'} étudiant{u.nb_etudiants === 1 ? '' : 's'}</span>
                 <span className="text-mention text-slate-500 text-center leading-tight line-clamp-2">{u.ue_nom}</span>
               </div>);
           })}
@@ -949,6 +950,7 @@ function Verre({ u, types, annee, section, peutEcrire, onRetour, onAnnee, onEnre
       <div className="flex flex-wrap items-center gap-2">
         <button className="bouton" onClick={onRetour}>← Les couches</button>
         <b className="text-sm text-iip-blue">{nomUE(u)}</b><span className="text-second text-slate-500 truncate">{u.ue_nom}</span>
+        <span className="text-second text-slate-600 flex-none"><b>{u.nb_etudiants ?? '—'}</b> étudiant{u.nb_etudiants === 1 ? '' : 's'}</span>
         <span className="flex-1" />
         {peutEcrire && <button className="bouton bouton-fort" disabled={(!modifies.size && !(autonomieReste > 0 && !(Number(u.autonomie_reservee) >= autonomieReste))) || enCours} onClick={enregistrer}>
           {enCours ? 'Enregistrement…' : modifies.size ? `Enregistrer (${modifies.size} cours)` : autonomieReste > 0 && !(Number(u.autonomie_reservee) >= autonomieReste) ? 'Décider de l’autonomie restante' : 'Enregistré'}</button>}
