@@ -46,6 +46,17 @@ export function requeteCourante() {
   return stockage.getStore()?.req || null;
 }
 
+/** LE GESTE EN COURS (3.1.270, l'« Annuler » général) : un numéro par requête qui
+ *  écrit, donné à la première écriture et lu par les déclencheurs (`lucie_geste()`).
+ *  Hors requête, ou pour une lecture, null : rien ne se trace. */
+let compteurGeste = 0;
+export function gesteCourant() {
+  const req = stockage.getStore()?.req;
+  if (!req || !/^(POST|PUT|PATCH|DELETE)$/.test(req.method || '')) return null;
+  if (!req._geste) req._geste = Date.now() * 1000 + (compteurGeste = (compteurGeste + 1) % 1000);
+  return req._geste;
+}
+
 /** L'utilisateur de la requête en cours, ou null hors requête (tâches, tests). */
 export function utilisateurCourant() {
   return stockage.getStore()?.req?.user || null;

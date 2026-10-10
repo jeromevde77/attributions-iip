@@ -48,6 +48,7 @@ import Login from './pages/Login.jsx';
 import MotDePasse from './pages/MotDePasse.jsx';
 import DemandeVA from './pages/DemandeVA.jsx';
 import RechercheLucie from './components/RechercheLucie.jsx';
+import AnnulerGestes from './components/AnnulerGestes.jsx';
 import { IconEtudiant } from './components/IconesLucie.jsx';
 import { useSousMenu } from './lib/sousMenu.js';
 import MonCompte from './components/MonCompte.jsx';
@@ -689,6 +690,7 @@ function ProtectedLayout({ children }) {
                 version et du compte, avec les autres choses qui ne dépendent
                 pas de là où l'on se trouve. */}
             <RechercheLucie />
+            <AnnulerGestes />
             {u?.role === 'admin' && (
               <button onClick={basculerMiseEnPage} aria-label="Mise en page" aria-pressed={mep.actif}
                 title={mep.actif ? 'Mise en page activée — glissez les menus et les blocs ; cliquer pour terminer' : 'Mise en page — ranger les menus et les pages en les glissant (administrateur)'}

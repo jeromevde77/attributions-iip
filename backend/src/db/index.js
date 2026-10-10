@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import 'dotenv/config';
-import { utilisateurCourant } from '../lib/contexteRequete.js';
+import { utilisateurCourant, gesteCourant } from '../lib/contexteRequete.js';
 
 /* L'AUTEUR D'UNE ÉCRITURE, LU PAR LES DÉCLENCHEURS DU JOURNAL DES
    MODIFICATIONS (lib/journalModifications.js) : la personne connectée, ou null
@@ -21,6 +21,7 @@ try {
   db.pragma('journal_mode = WAL');
   db.function('lucie_auteur', { deterministic: false }, auteurNom);
   db.function('lucie_auteur_id', { deterministic: false }, auteurId);
+  db.function('lucie_geste', { deterministic: false }, () => gesteCourant());
 } catch {
   const { DatabaseSync } = await import('node:sqlite');
   const inner = new DatabaseSync(DB_PATH);
@@ -28,6 +29,7 @@ try {
   inner.exec('PRAGMA journal_mode = WAL');
   inner.function('lucie_auteur', { deterministic: false }, auteurNom);
   inner.function('lucie_auteur_id', { deterministic: false }, auteurId);
+  inner.function('lucie_geste', { deterministic: false }, () => gesteCourant());
   function flatten(args) {
     if (args.length === 1 && args[0] && typeof args[0] === 'object' && !Array.isArray(args[0])) {
       return [args[0]];

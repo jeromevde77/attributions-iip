@@ -2143,6 +2143,21 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
 
 ### Écritures et garde-fous
 
+- **L'« ANNULER » GÉNÉRAL** (3.1.270, Charles, 10 octobre 2026 : « revenir en arrière
+  au moins sur 10 changements — les profs font souvent des erreurs »). Un geste = une
+  requête qui écrit ; des déclencheurs posés au démarrage sur toutes les tables
+  (`lib/annulation.js`, `poserDeclencheurs`, APRÈS toutes les migrations) recopient
+  la ligne d'avant et d'après dans `annulation_trace`, le numéro du geste venant de
+  `lucie_geste()` (contexte de la requête ; hors requête, rien). `annulation_geste` le
+  dit en mots ; 10 gestes gardés par personne. Bouton de la barre du haut
+  (`components/AnnulerGestes.jsx`) : on revient avant un geste, du plus récent à lui.
+  Tranché : chacun ses gestes, la direction ceux d'un autre avec motif ; **jamais les
+  actes officiels** (`OFFICIELS` : journaux en ajout seul, présences, procédures,
+  motivations, envois, textes publiés ; séance close, valorisation validée ou
+  notifiée) ; refus si la ligne a changé depuis, en nommant qui. Un import de plus de
+  20 000 lignes ne se garde pas. **Une table nouvelle est suivie au redémarrage
+  suivant** ; une table à colonne BLOB ou sans rowid ne l'est pas.
+
 - **Rien ne s'écrit sans qu'on ait vu ce qui sera écrit** : tout import et tout
   traitement en lot passe par une simulation.
 - **Un bouton caché n'est pas une protection** : une opération réservée au
