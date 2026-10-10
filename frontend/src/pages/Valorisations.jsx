@@ -2658,7 +2658,7 @@ const ETAPES_INSTRUIRE = ETAPES.filter(e => ['demande', 'recevabilite', 'avis'].
  * `ETAPES` est la seule table, partagée avec « Analyser en série » : deux
  * frises pour un même circuit finiraient par compter différemment.
  */
-const VERT = 'var(--c-texte)', BRIQUE = 'var(--c-refuse)', GRIS = '#CBD5E1';
+const VERT = 'var(--c-reussi)', BRIQUE = 'var(--c-refuse)', GRIS = 'rgb(var(--gris-300))';   // les couleurs des états (3.1.264)
 
 function etatEtape(d, cle) {
   if (cle === 'recevabilite' && d.recevable === 0) return 'refus';
@@ -2691,7 +2691,7 @@ export function FriseCircuit({ dossier, compact = false }) {
                 : e.etat === 'refus' ? BRIQUE : GRIS,
               /* Le liseré désigne le tour de qui. Il ne s'ajoute qu'à UNE
                  étape : deux repères ne repèrent plus rien. */
-              boxShadow: i === courante ? `0 0 0 1.5px ${VERT}55` : 'none',
+              boxShadow: i === courante ? '0 0 0 1.5px color-mix(in srgb, var(--c-reussi) 35%, transparent)' : 'none',
             }} />
         ))}
       </span>

@@ -1341,3 +1341,14 @@ table.grid-excel-soft tbody tr:nth-child(even) { background-color: var(--d-zebre
 .ligne-detail > .cellule-detail { background: var(--c-fond_volet, rgb(var(--gris-50))); padding: 8px 12px 10px var(--d-volet-retrait, 24px);
   border-bottom: var(--d-filet-h, 1px) solid var(--c-filet, rgb(var(--gris-100))); }
 .chevron-volet.chevron-ouvert { transform: rotate(90deg); color: var(--c-principal); }
+
+/* LES ÉTAPES (3.1.264) — pastille numérotée et trait, une seule fois pour toutes les frises. */
+.pastille-etape { width: var(--d-etape, 28px); height: var(--d-etape, 28px); border-radius: 999px; display: grid; place-items: center;
+  flex: none; font-size: calc(12px * var(--d-texte, 1)); font-weight: 700; background: var(--c-fond_tuile, #fff);
+  color: rgb(var(--gris-500)); border: 2px solid rgb(var(--gris-300)); }
+.pastille-etape[data-etat="fait"]    { background: var(--c-reussi); border-color: var(--c-reussi); color: #fff; }
+.pastille-etape[data-etat="courant"] { background: var(--c-principal); border-color: var(--c-principal); color: #fff; }
+.pastille-etape[data-etat="refus"]   { background: var(--c-refuse); border-color: var(--c-refuse); color: #fff; }
+.pastille-etape-choisie { box-shadow: 0 0 0 4px color-mix(in srgb, var(--c-principal) 20%, transparent); }
+.lien-etape { display: block; height: 2px; background: rgb(var(--gris-300)); }
+.lien-etape-fait { background: var(--c-reussi); }

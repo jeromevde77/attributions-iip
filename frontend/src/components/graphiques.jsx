@@ -1,4 +1,4 @@
-import { IconChevronRight } from '@tabler/icons-react';
+import { IconChevronRight, IconCheck, IconX } from '@tabler/icons-react';
 import { reglagesGraphique } from '../lib/design.js';
 
 /**
@@ -89,4 +89,19 @@ export function TrVolet({ cellules, ouvert, onBascule, detail, colonnes }) {
     </tr>
     {ouvert && <tr className="ligne-detail"><td colSpan={colonnes || cellules.length} className="cellule-detail">{detail}</td></tr>}
   </>);
+}
+
+/* LA PASTILLE D'ÉTAPE (3.1.264) : la pièce commune de toutes les frises d'étapes —
+   procédures, atelier de l'UE, circuit de valorisation. Faite : vert et coche ;
+   courante : principal ; à venir : blanche à bord gris ; refus : brique et croix.
+   Taille réglable (Formes et composants), couleurs des états. */
+export function PastilleEtape({ n, etat = 'avenir', choisie = false, title }) {
+  return (
+    <span className={`pastille-etape ${choisie ? 'pastille-etape-choisie' : ''}`} data-etat={etat} title={title}>
+      {etat === 'fait' ? <IconCheck size={15} stroke={3} /> : etat === 'refus' ? <IconX size={15} stroke={3} /> : n}
+    </span>);
+}
+/** Le trait qui relie deux étapes : plein quand l'étape d'avant est faite. */
+export function LienEtape({ fait, className = '' }) {
+  return <span aria-hidden="true" className={`lien-etape ${fait ? 'lien-etape-fait' : ''} ${className}`} />;
 }

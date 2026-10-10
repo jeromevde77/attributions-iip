@@ -15,6 +15,7 @@
 // (pages/ProceduresAnciennes.jsx).
 // ─────────────────────────────────────────────────────────────────────────────
 import { useContexteReponses } from '../lib/reponsesTypes.jsx';
+import { PastilleEtape, LienEtape } from '../components/graphiques.jsx';
 import { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react';
 import {
   IconListDetails, IconArchive, IconPlus, IconArrowLeft, IconCheck, IconSearch,
@@ -792,18 +793,11 @@ function Frise({ etapes, courante, selection, onChoisir }) {
         return (
           <li key={e.cle} className="flex-1 min-w-0 relative">
             {i > 0 && (
-              <span aria-hidden="true"
-                className={`absolute top-[13px] right-1/2 w-full h-[2px] ${etapes[i - 1].faite ? '' : 'bg-slate-300'}`}
-                style={etapes[i - 1].faite ? { background: 'var(--c-reussi)' } : undefined} />
+              <LienEtape fait={etapes[i - 1].faite} className="absolute top-[13px] right-1/2 w-full" />
             )}
             <button type="button" onClick={() => onChoisir(e.cle)}
               className="relative z-10 w-full flex flex-col items-center text-center px-1 group">
-              <span className={`w-[28px] h-[28px] rounded-full grid place-items-center text-second font-bold
-                                ${plein ? 'text-white' : 'bg-white text-slate-500 border-2 border-slate-300'}
-                                ${choisie ? 'ring-4 ring-iip-blue/20' : ''}`}
-                style={plein ? { background: faite ? 'var(--c-reussi)' : 'var(--c-principal)' } : undefined}>
-                {faite ? <IconCheck size={15} stroke={3} /> : i + 1}
-              </span>
+              <PastilleEtape n={i + 1} etat={faite ? 'fait' : estCourante ? 'courant' : 'avenir'} choisie={choisie} />
               <span className={`mt-1.5 text-second leading-tight ${choisie || estCourante ? 'font-semibold text-slate-800' : 'text-slate-500'} group-hover:underline`}>
                 {e.label}
               </span>
