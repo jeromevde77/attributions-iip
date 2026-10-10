@@ -47,7 +47,7 @@ export default function Assistant({ cle, params = {}, onFerme = null }) {
             )}
           </div>
         </div>
-        <div className="mt-2 h-1.5 rounded-full bg-slate-200 overflow-hidden">
+        <div className="jauge mt-2">
           <div className="h-full bg-iip-turquoise transition-all" style={{ width: pct + '%' }} />
         </div>
       </div>

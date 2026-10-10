@@ -10,7 +10,7 @@ import { authHeaders } from './api.js';
 export const DESIGN_MAISON = {
   rayon_champ: 8, rayon_carte: 14, rayon_fenetre: 22, rayon_panneau: 26, rayon_tuile: 10, tuile_lisere: 4,
   tuile_coins: 'droits', rayon_pastille: 4, tuile_chiffre: 17, tuile_espace: 10, tuile_compacte_chiffre: 13, controle_hauteur: 36, bouton_graisse: '600', onglet_trait: 2,
-  ombre: 'normale', voile: 32, titre_carte: 15, titre_graisse: '600', intertitre_taille: 11, intertitre_casse: 'majuscules', intertitre_espace: 60, intertitre_graisse: '600', tableau_densite: 'normale', tableau_zebre: 'non', tableau_filets: 'horizontaux', tableau_entete_taille: 11, graphique_rayon: 3, graphique_grille: 'pointille', graphique_legende: 'bas', voile_flou: 3, police: 'Inter', texte: 100, titre_ecran: 17,
+  ombre: 'normale', voile: 32, titre_carte: 15, titre_graisse: '600', intertitre_taille: 11, intertitre_casse: 'majuscules', intertitre_espace: 60, intertitre_graisse: '600', tableau_densite: 'normale', tableau_zebre: 'non', tableau_filets: 'horizontaux', tableau_entete_taille: 11, graphique_rayon: 3, anneau_epaisseur: 40, barre_hauteur: 12, jauge_hauteur: 6, jauge_forme: 'arrondis', volet_retrait: 24, graphique_grille: 'pointille', graphique_legende: 'bas', voile_flou: 3, police: 'Inter', texte: 100, titre_ecran: 17,
 };
 const POLICES = {
   Inter: "'Inter', 'Aptos', system-ui, Arial, sans-serif",
@@ -47,7 +47,8 @@ export function variablesDesign(v = {}) {
     '--d-zebre': d.tableau_zebre === 'oui' ? 'rgb(var(--gris-50))' : 'transparent',
     '--d-filet-v': d.tableau_filets === 'grille' ? '1px' : '0px', '--d-filet-h': d.tableau_filets === 'aucun' ? '0px' : '1px',
     '--d-entete-taille': `${d.tableau_entete_taille}px`,
-    '--d-graphique-rayon': `${d.graphique_rayon}px`, '--d-graphique-grille': d.graphique_grille, '--d-graphique-legende': d.graphique_legende,
+    '--d-graphique-rayon': `${d.graphique_rayon}px`, '--d-anneau': String(d.anneau_epaisseur), '--d-barre-h': `${d.barre_hauteur}px`,
+    '--d-jauge-h': `${d.jauge_hauteur}px`, '--d-jauge-rayon': d.jauge_forme === 'droits' ? '0px' : '999px', '--d-volet-retrait': `${d.volet_retrait}px`, '--d-graphique-grille': d.graphique_grille, '--d-graphique-legende': d.graphique_legende,
   };
 }
 export function poserDesign(v) {
@@ -69,5 +70,5 @@ export function reglagesGraphique() {
   const st = getComputedStyle(document.documentElement);
   const v = (n, r) => st.getPropertyValue(n).trim() || r;
   const rayon = Number(String(v('--d-graphique-rayon', '3')).replace('px', '')) || 0;
-  return { rayon: [rayon, rayon, 0, 0], grille: v('--d-graphique-grille', 'pointille'), legende: v('--d-graphique-legende', 'bas') };
+  return { rayon: [rayon, rayon, 0, 0], grille: v('--d-graphique-grille', 'pointille'), legende: v('--d-graphique-legende', 'bas'), anneau: Number(v('--d-anneau', '40')) || 40 };
 }

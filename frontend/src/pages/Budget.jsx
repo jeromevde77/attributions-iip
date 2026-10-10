@@ -575,7 +575,7 @@ function SyntheseBudget({ synthese, onOuvrir }) {
                 {eur(s.solde)}
               </td>
               <td className="px-3 py-2">
-                <div className="h-2 rounded-full bg-slate-200 overflow-hidden">
+                <div className="jauge">
                   <div className={`h-full ${s.taux > 100 ? 'bg-red-500' : s.taux > 80 ? 'bg-amber-500' : 'bg-emerald-500'}`}
                     style={{ width: Math.min(100, s.taux || 0) + '%' }} />
                 </div>

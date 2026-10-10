@@ -86,6 +86,7 @@ export const COULEURS_DEFAUT = {
   // LES TITRES ET LES TABLEAUX (3.1.260, Charles : « les tableaux, les titres… tous les visuels »).
   titre:          { groupe: 'composants', libelle: 'Titres (écran, carte, section)', valeur: null, suit: 'principal' },
   intertitre:     { groupe: 'composants', libelle: 'Intertitres (petites majuscules)', valeur: null, suit: 'texte à 55 %' },
+  fond_volet:     { groupe: 'composants', libelle: 'Tableau — détail d’une ligne dépliée', valeur: null, suit: 'gris le plus clair' },
   tableau_total:  { groupe: 'composants', libelle: 'Tableau — ligne de total', valeur: '#EDF2F8' },
   // LES GRAPHIQUES (3.1.254, Charles : « penser aux graphiques, à tout ce qui est
   // visible »). Six séries dans l'ordre où elles se présentent, la part vide, la
@@ -98,6 +99,7 @@ export const COULEURS_DEFAUT = {
   serie_6:   { groupe: 'graphiques', libelle: 'Série 6', valeur: '#D14F8A' },
   graphique_vide:      { groupe: 'graphiques', libelle: 'Part vide, sans réponse', valeur: '#CBD5E1' },
   graphique_grille:    { groupe: 'graphiques', libelle: 'Grille et axes', valeur: '#E8ECF2' },
+  graphique_piste:     { groupe: 'graphiques', libelle: 'Fond des jauges et des barres', valeur: '#EEF1F5' },
   graphique_reference: { groupe: 'graphiques', libelle: 'Ligne de référence (norme, seuil)', valeur: null, suit: 'refuse' },
 };
 

@@ -78,7 +78,7 @@ function ProgressBar({ pct: p }) {
   const w = Math.min(Math.max(p || 0, 0), 110);
   const { teinte } = tonDotation(p);
   return (
-    <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+    <div className="jauge w-full">
       <div className="h-2.5 rounded-full transition-all"
         style={{ width: `${w}%`, background: teinte }} />
     </div>

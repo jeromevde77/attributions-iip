@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { Anneau, Barres, Repartition, Jauge, TrVolet } from './graphiques.jsx';
+import { Etendue } from './statsUi.jsx';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, ResponsiveContainer } from 'recharts';
 import { IconPlus, IconSend, IconTrash } from '@tabler/icons-react';
 import { TuileEtat, PastilleEtat, Encadre, Fenetre, Tableau, TableauEntete, Th, Td, Tr, TrTotal, TrGroupe } from './ui.jsx';
@@ -53,6 +55,24 @@ const FAMILLES = [
         {g.legende !== 'aucune' && <Legend verticalAlign={g.legende === 'haut' ? 'top' : 'bottom'} iconSize={8} wrapperStyle={{ fontSize: 11 }} />}
         <Bar dataKey="a" name="Série 1" fill={G.series[0]} radius={g.rayon} /><Bar dataKey="b" name="Série 2" fill={G.series[1]} radius={g.rayon} /><Bar dataKey="c" name="Série 3" fill={G.series[2]} radius={g.rayon} />
       </BarChart></ResponsiveContainer></div>; } },
+  { nom: 'Anneau (diagramme rond)', role: 'Les parts d’un tout, avec leur pourcentage ; la part vide quand il n’y a rien.',
+    formes: [R('anneau_epaisseur', 'épaisseur')], couleurs: [R('serie_1', 'séries'), R('graphique_vide', 'part vide')],
+    specimen: () => <Anneau centre="588" parts={[{ nom: 'TIM', valeur: 312 }, { nom: 'Psychomotricité', valeur: 190 }, { nom: 'AeSI', valeur: 86 }]} taille={120} /> },
+  { nom: 'Barres horizontales', role: 'Des grandeurs à comparer, à l’échelle de la plus grande.',
+    formes: [R('barre_hauteur', 'hauteur'), R('rayon_pastille', 'rayon')], couleurs: [R('serie_1', 'série'), R('graphique_piste', 'fond')],
+    specimen: () => <Barres lignes={[{ nom: 'Belgique', valeur: 420 }, { nom: 'France', valeur: 61 }, { nom: 'Maroc', valeur: 38 }]} /> },
+  { nom: 'Répartition et jauge', role: 'Un tout coupé en états sur une ligne ; une part d’un objectif.',
+    formes: [R('jauge_hauteur', 'hauteur'), R('jauge_forme', 'bouts')], couleurs: [R('reussi', 'états…'), R('graphique_piste', 'fond')],
+    specimen: () => <div className="space-y-2"><Repartition className="w-full" parts={[{ nom: 'réussi', valeur: 38, couleur: 'var(--c-reussi)' }, { nom: 'ajourné', valeur: 12, couleur: 'var(--c-attente)' }, { nom: 'refusé', valeur: 3, couleur: 'var(--c-refuse)' }]} /><Jauge valeur={72} etat="disponible" /><Jauge valeur={104} etat="corriger" /></div> },
+  { nom: 'Étendue des notes', role: 'Du minimum au maximum, la médiane et la moyenne : la forme d’une distribution d’un coup d’œil.',
+    formes: [R('jauge_hauteur', 'hauteur')], couleurs: [R('principal', 'repères'), R('graphique_piste', 'fond')],
+    specimen: () => <div className="pt-2 pb-4"><Etendue d={{ min: 6, max: 18, mediane: 12, moyenne: 11.8 }} /></div> },
+  { nom: 'Tableau à volets', role: 'Une ligne qui se déplie : le chevron dans la première cellule, le détail dessous, sur toute la largeur.',
+    formes: [R('volet_retrait', 'retrait'), R('tableau_densite', 'densité')], couleurs: [R('fond_volet', 'détail'), R('fond_survol', 'survol')],
+    specimen: ({ volet, setVolet }) => <Tableau><thead><TableauEntete><Th>Étudiant</Th><Th align="droite">UE</Th></TableauEntete></thead><tbody>
+      <TrVolet cellules={['DUPONT Marie', '6']} ouvert={volet === 1} onBascule={() => setVolet(v => (v === 1 ? 0 : 1))} detail={<span className="text-second">246 · 248 · 249 · 254 · 257 · 260</span>} />
+      <TrVolet cellules={['MARTIN Paul', '5']} ouvert={volet === 2} onBascule={() => setVolet(v => (v === 2 ? 0 : 2))} detail={<span className="text-second">246 · 248 · 254 · 257 · 260</span>} />
+    </tbody></Tableau> },
   { nom: 'Agenda de la semaine', role: 'La base de l’école et ce qu’on y peint (enseignants, sections, cours, locaux).',
     formes: [R('rayon_champ', 'rayon')], couleurs: [R('reussi', 'libre'), R('attente', 'éventuellement'), R('refuse', 'jamais'), R('principal', 'base')],
     specimen: () => <div style={{ maxWidth: 300 }}><AgendaSemaine compact jours={[1, 2, 3]} base={[{ jour: 1, debut: '08:00', fin: '10:00' }, { jour: 2, debut: '08:00', fin: '10:00' }, { jour: 3, debut: '10:15', fin: '12:15' }]} valeur={(j) => (j === 2 ? 0 : j === 3 ? 2 : 1)} /></div> },
@@ -68,6 +88,7 @@ const FAMILLES = [
 
 export default function CatalogueVisuels() {
   const [fen, setFen] = useState(false);
+  const [volet, setVolet] = useState(1);
   const chip = (r, onglet) => <a key={r.cle} href={`/configuration?onglet=${onglet}`} className="pastille-etat" data-etat={onglet === 'design' ? 'neutre' : 'disponible'} title={`Régler : ${r.cle}`}>{r.lib}</a>;
   return (
     <div className="space-y-3">
@@ -77,7 +98,7 @@ export default function CatalogueVisuels() {
           <div key={f.nom} className="carte p-3 space-y-2 min-w-0">
             <h3 className="titre-carte">{f.nom}</h3>
             <p className="text-second text-slate-500">{f.role}</p>
-            <div className="py-2">{f.specimen({ ouvrir: () => setFen(true) })}</div>
+            <div className="py-2">{f.specimen({ ouvrir: () => setFen(true), volet, setVolet })}</div>
             <div className="flex flex-wrap gap-1 items-center"><span className="intertitre mr-1">Formes</span>{f.formes.map(r => chip(r, 'design'))}</div>
             <div className="flex flex-wrap gap-1 items-center"><span className="intertitre mr-1">Couleurs</span>{f.couleurs.map(r => chip(r, 'couleurs'))}</div>
           </div>))}

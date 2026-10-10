@@ -321,7 +321,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
               {avancement.total > 0 && (
                 <div className="flex flex-col items-end gap-1">
                   <div className="text-second text-slate-500"><b className="text-base text-iip-blue tabular-nums">{avancement.faites}</b> / {avancement.total} notes encodées</div>
-                  <div className="h-1.5 w-48 rounded-full bg-slate-200 overflow-hidden">
+                  <div className="jauge w-48">
                     <div className="h-full" style={{ width: `${(avancement.faites / avancement.total) * 100}%`, background: 'var(--c-principal, #19537E)' }} />
                   </div>
                 </div>)}

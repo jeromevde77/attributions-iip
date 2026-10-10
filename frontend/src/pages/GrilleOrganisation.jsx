@@ -704,7 +704,7 @@ function JaugeCours({ dp, lignes, auto, dispo, minutes, idEval = null }) {
 
       {/* LA BARRE. Vide, elle reste visible : un cours pas encore découpé doit
           se distinguer d'un cours absent. */}
-      <div className="flex h-3 w-full rounded-full overflow-hidden bg-slate-200/70">
+      <div className="jauge w-full">
         {segments.map(s => (
           <div key={s.cle} style={{ width: pct(s.valeur), background: s.teinte }}
             title={`${s.libelle} — ${s.valeur} p · ${enHeures(s.valeur, minutes)}`} />
