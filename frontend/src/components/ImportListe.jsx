@@ -178,7 +178,7 @@ export default function ImportListe({ annee, onClose, onImporte }) {
                   {' '}{codes.length} codes d'UE
                 </div>
                 <label className="text-xs flex items-center gap-2">
-                  <span className="font-semibold text-slate-500 uppercase tracking-wide">Année</span>
+                  <span className="intertitre">Année</span>
                   <input value={anneeImport} onChange={e => setAnneeImport(e.target.value)}
                     className="border border-slate-300 rounded-lg px-2 py-1 text-sm w-28" />
                 </label>

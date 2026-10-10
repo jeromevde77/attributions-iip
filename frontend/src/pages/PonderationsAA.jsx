@@ -110,7 +110,7 @@ export default function PonderationsAA() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Liste des UE */}
         <div className="border border-slate-200 rounded-xl overflow-hidden self-start">
-          <div className="px-3 py-2 bg-slate-50 border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500">
+          <div className="intertitre px-3 py-2 bg-slate-50 border-b border-slate-200">
             Unités d'enseignement
           </div>
           <div className="max-h-[60vh] overflow-y-auto divide-y divide-slate-100">

@@ -18,6 +18,7 @@ import {
 import { ouvrirApercu } from '../lib/apercu.js';
 import { demander, informer } from '../lib/dialogue.jsx';
 import { couleursGraphique } from '../lib/couleurs.js';
+import { reglagesGraphique } from '../lib/design.js';
 
 // ── Utilitaires ──────────────────────────────────────────────────────────────
 const fmt  = (v, d = 0) => (v == null ? '—' : Number(v).toLocaleString('fr-BE', { maximumFractionDigits: d }));
@@ -100,7 +101,7 @@ function ExtDotPanel({ annee }) {
 
   return (
     <div>
-      <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Répartition EXT / DOT</div>
+      <div className="intertitre mb-2">Répartition EXT / DOT</div>
       <div className="grid grid-cols-1 md:grid-cols-3 2xl:grid-cols-4 gap-3">
         {pots.map(([pot, v]) => {
           const pct = v.plafond > 0 ? Math.min(100, Math.round(v.consomme / v.plafond * 100)) : 0;
@@ -756,7 +757,7 @@ export default function Pilotage({ vue = 'tout' }) {
     return (
       <div>
         <div className="flex items-center justify-between mb-2">
-          <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+          <div className="intertitre">
             Dotation détaillée par section et UE · {anneeActive}{anneePrec ? ` · Δ% vs ${anneePrec}` : ''}
           </div>
           <div className="flex items-center gap-2">
@@ -782,7 +783,7 @@ export default function Pilotage({ vue = 'tout' }) {
                 {open && (
                   <div className="border-t border-gray-100 overflow-x-auto">
                     <table className="w-full text-sm">
-                      <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wider">
+                      <thead className="intertitre bg-gray-50">
                         <tr>
                           <th className="px-4 py-2 text-left">UE</th>
                           <th className="px-3 py-2 text-right">Périodes</th>
@@ -843,7 +844,7 @@ export default function Pilotage({ vue = 'tout' }) {
 
           {/* ── En-tête avec flip ── */}
           <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+            <div className="intertitre">
               {dotFace === 'recto'
                 ? `Dotation organique · Civile ${d.annee_civile}`
                 : 'Comparaison pluriannuelle'}
@@ -861,16 +862,16 @@ export default function Pilotage({ vue = 'tout' }) {
               {chartData.length > 1 ? (
                 <ResponsiveContainer width="100%" height={260}>
                   <BarChart data={chartData} barCategoryGap="30%">
-                    <CartesianGrid strokeDasharray="3 3" stroke={couleursGraphique().grille} />
+                    {reglagesGraphique().grille !== 'aucun' && <CartesianGrid strokeDasharray={reglagesGraphique().grille === 'plein' ? '0' : '3 3'} stroke={couleursGraphique().grille} />}
                     <XAxis dataKey="annee" tick={{ fontSize: 12 }} />
                     <YAxis tick={{ fontSize: 11 }} tickFormatter={v => fmt(v / 1000, 1) + 'k'} />
                     <Tooltip content={<ChartTip />} />
-                    <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
-                    <Bar dataKey="Dotation organique" fill={couleursGraphique().series[0]} radius={[3, 3, 0, 0]} />
-                    <Bar dataKey="Usage organique"    fill={couleursGraphique().series[1]} radius={[3, 3, 0, 0]} />
+                    {reglagesGraphique().legende !== 'aucune' && <Legend verticalAlign={reglagesGraphique().legende === 'haut' ? 'top' : 'bottom'} iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />}
+                    <Bar dataKey="Dotation organique" fill={couleursGraphique().series[0]} radius={reglagesGraphique().rayon} />
+                    <Bar dataKey="Usage organique"    fill={couleursGraphique().series[1]} radius={reglagesGraphique().rayon} />
                     {/* Les années où la direction a constaté un solde : ce
                         qu'elle déclare, à côté de ce que la base compte. */}
-                    <Bar dataKey="Usage constaté"     fill={couleursGraphique().series[2]} radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="Usage constaté"     fill={couleursGraphique().series[2]} radius={reglagesGraphique().rayon} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
@@ -894,7 +895,7 @@ export default function Pilotage({ vue = 'tout' }) {
                   { label: 'Taux',          value: <span className={trafficColor(d.pct_organique)}>{pct(d.pct_organique)}</span>, sub: <ProgressBar pct={d.pct_organique} />, taux: true },
                 ].map(({ label, value, sub, color, taux }) => (
                   <div key={label} className={`px-4 py-3 bg-white ${taux ? trafficBg(d.pct_organique) : ''}`}>
-                    <div className="text-mention uppercase tracking-wider text-gray-400 mb-0.5">{label}</div>
+                    <div className="intertitre mb-0.5">{label}</div>
                     <div className={`text-lg font-bold leading-tight ${color || 'text-iip-blue'}`}>{value}</div>
                     <div className="text-mention text-gray-400 mt-0.5">{sub}</div>
                   </div>
@@ -911,8 +912,7 @@ export default function Pilotage({ vue = 'tout' }) {
               {(d.usage_jan_juin > 0 || d.usage_sep_dec > 0
                 || d.usage_jan_juin_suivant > 0) && (
                 <div className="px-4 py-3 border-b border-gray-100">
-                  <div className="text-mention font-semibold text-gray-400 uppercase
-                                  tracking-wider mb-2">
+                  <div className="intertitre mb-2">
                     L'année civile en deux moitiés
                   </div>
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -992,7 +992,7 @@ export default function Pilotage({ vue = 'tout' }) {
                       <div className="text-mention text-amber-700">déclaré par la direction</div>
                     </div>
                     <div>
-                      <div className="text-mention uppercase tracking-wider text-gray-400 mb-0.5">
+                      <div className="intertitre mb-0.5">
                         Consommation qu'il implique
                       </div>
                       <div className="text-lg font-bold text-iip-blue leading-tight">
@@ -1003,7 +1003,7 @@ export default function Pilotage({ vue = 'tout' }) {
                       </div>
                     </div>
                     <div>
-                      <div className="text-mention uppercase tracking-wider text-gray-400 mb-0.5">
+                      <div className="intertitre mb-0.5">
                         Écart avec la base
                       </div>
                       <div className={`text-lg font-bold leading-tight ${
@@ -1028,7 +1028,7 @@ export default function Pilotage({ vue = 'tout' }) {
               {/* Enveloppes extérieures — 4 cartes sur une ligne */}
               {d.enveloppes.length > 0 && (
                 <div className="px-4 py-3 border-b border-gray-100">
-                  <div className="text-mention font-semibold text-gray-400 uppercase tracking-wider mb-2">Enveloppes extérieures</div>
+                  <div className="intertitre mb-2">Enveloppes extérieures</div>
                   <div className="grid grid-cols-4 gap-2">
                     {d.enveloppes.map(e => {
                       const dep = e.solde < 0;
@@ -1057,7 +1057,7 @@ export default function Pilotage({ vue = 'tout' }) {
               {/* Table dotation par section/UE */}
               <div className="px-4 pt-3 pb-2">
                 <div className="flex items-center justify-between mb-2">
-                  <div className="text-mention font-semibold text-gray-400 uppercase tracking-wider">
+                  <div className="intertitre">
                     Détail par section · {anneeActive}{anneePrec ? ` · Δ% vs ${anneePrec}` : ''}
                   </div>
                   <div className="flex items-center gap-2">
@@ -1094,7 +1094,7 @@ export default function Pilotage({ vue = 'tout' }) {
                           {open && (
                             <table className="w-full text-sm mb-1">
                               <thead>
-                                <tr className="text-mention text-gray-400 uppercase tracking-wider border-b border-gray-100">
+                                <tr className="intertitre border-b border-gray-100">
                                   <th className="pb-1 text-left pl-5 font-medium">UE</th>
                                   <th className="pb-1 text-right font-medium pr-2">Périodes</th>
                                   <th className="pb-1 text-right font-medium pr-2">% Dot.</th>
@@ -1143,7 +1143,7 @@ export default function Pilotage({ vue = 'tout' }) {
           <div className="space-y-3">
             <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-pose">
               <div className="flex items-center justify-between mb-1">
-                <div className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                <div className="intertitre">
                   Périodes-élèves pondérées (PEP) · Art. 3 A.Gt 22-11-2002
                 </div>
                 <span className="text-mention text-gray-400 bg-gray-100 px-2 py-0.5 rounded">
@@ -1156,7 +1156,7 @@ export default function Pilotage({ vue = 'tout' }) {
               </p>
               <ResponsiveContainer width="100%" height={240}>
                 <ComposedChart data={pepChartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={couleursGraphique().grille} />
+                  {reglagesGraphique().grille !== 'aucun' && <CartesianGrid strokeDasharray={reglagesGraphique().grille === 'plein' ? '0' : '3 3'} stroke={couleursGraphique().grille} />}
                   <XAxis dataKey="annee" tick={{ fontSize: 11 }} />
                   <YAxis yAxisId="pep" tick={{ fontSize: 10 }} tickFormatter={v => (v/1000).toFixed(0)+'k'}
                     label={{ value: 'PEP', angle: -90, position: 'insideLeft', fontSize: 10 }} />
@@ -1164,8 +1164,8 @@ export default function Pilotage({ vue = 'tout' }) {
                     tickFormatter={v => (v/1000).toFixed(1)+'k'}
                     label={{ value: 'Dot. B', angle: 90, position: 'insideRight', fontSize: 10 }} />
                   <Tooltip formatter={(v, n) => [v?.toLocaleString('fr-BE'), n]} />
-                  <Legend iconSize={8} wrapperStyle={{ fontSize: 11 }} />
-                  <Bar yAxisId="pep" dataKey="PEP"      fill={couleursGraphique().series[1]} radius={[3,3,0,0]} name="PEP (pér.-élèves)" />
+                  {reglagesGraphique().legende !== 'aucune' && <Legend verticalAlign={reglagesGraphique().legende === 'haut' ? 'top' : 'bottom'} iconSize={8} wrapperStyle={{ fontSize: 11 }} />}
+                  <Bar yAxisId="pep" dataKey="PEP"      fill={couleursGraphique().series[1]} radius={reglagesGraphique().rayon} name="PEP (pér.-élèves)" />
                   <Line yAxisId="pep" dataKey="PEP réf." stroke={couleursGraphique().reference} strokeWidth={2} dot={{ r: 3 }} strokeDasharray="4 2" name="PEP réf." />
                   <Line yAxisId="dot" dataKey="Dotation" stroke={couleursGraphique().series[0]} strokeWidth={2} dot={{ r: 3 }} name="Dotation org. (pér. B)" />
                 </ComposedChart>
@@ -1174,12 +1174,12 @@ export default function Pilotage({ vue = 'tout' }) {
 
             {/* Table PEP & calcul dotation */}
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <div className="px-4 py-2.5 border-b border-gray-100 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+              <div className="intertitre px-4 py-2.5 border-b border-gray-100">
                 Mécanisme d'ajustement de dotation
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wider">
+                  <thead className="intertitre bg-gray-50">
                     <tr>
                       <th className="px-3 py-2 text-left">Dotation</th>
                       <th className="px-3 py-2 text-right">PEP N-2 utilisée</th>
@@ -1365,7 +1365,7 @@ export default function Pilotage({ vue = 'tout' }) {
       {/* Dotations organiques */}
       <div className="bg-white rounded-xl border border-gray-200">
         <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-          <h3 className="font-semibold text-gray-700 text-sm">Dotations organiques par année civile</h3>
+          <h3 className="titre-carte">Dotations organiques par année civile</h3>
           <div className="flex gap-2">
             <input value={newYear} onChange={e => setNewYear(e.target.value)} placeholder="Ex: 2027"
               className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-24" />
@@ -1373,7 +1373,7 @@ export default function Pilotage({ vue = 'tout' }) {
           </div>
         </div>
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wider">
+          <thead className="intertitre bg-gray-50">
             <tr><th className="px-4 py-2 text-left">Année civile</th><th className="px-4 py-2 text-right">Dotation (pér. B)</th><th className="px-4 py-2 text-right">PEP</th><th className="px-4 py-2 text-right">PEP réf.</th><th className="px-4 py-2 text-right">PEP an. utilisée</th><th className="px-4 py-2 text-right">Usage historique</th><th className="px-4 py-2 text-right" title="Ce que la direction constate : le solde réellement resté à la fin de l’année. Il ne remplace pas le calcul, il le confronte.">Solde constaté</th><th className="px-4 py-2 text-left">Notes</th><th className="px-4 py-2" /></tr>
           </thead>
           <tbody>
@@ -1423,7 +1423,7 @@ export default function Pilotage({ vue = 'tout' }) {
       {/* Enveloppes extérieures */}
       <div className="bg-white rounded-xl border border-gray-200">
         <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-          <h3 className="font-semibold text-gray-700 text-sm">Enveloppes extérieures</h3>
+          <h3 className="titre-carte">Enveloppes extérieures</h3>
           <button onClick={() => setEditEnv({ id: null, code: 'QUAL', label: '', annee_civile: selYear || 2026, periodes_b: 0, usage_historique: '', notes: '' })} className="bg-iip-gold hover:bg-iip-amber text-white text-xs px-3 py-1.5 h-9 rounded">+ Ajouter</button>
         </div>
         {editEnv && !editEnv.id && (
@@ -1446,7 +1446,7 @@ export default function Pilotage({ vue = 'tout' }) {
           </div>
         )}
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wider">
+          <thead className="intertitre bg-gray-50">
             <tr><th className="px-4 py-2 text-left">Code</th><th className="px-4 py-2 text-left">Libellé</th><th className="px-4 py-2 text-right">Civile</th><th className="px-4 py-2 text-right">Allocation (B)</th><th className="px-4 py-2 text-right">Usage hist.</th><th className="px-4 py-2" /></tr>
           </thead>
           <tbody>
@@ -1486,7 +1486,7 @@ export default function Pilotage({ vue = 'tout' }) {
         <div className="bg-white rounded-xl border border-gray-200">
           <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between gap-4">
             <div>
-              <h3 className="font-semibold text-gray-700 text-sm">Attribution des enveloppes par UE</h3>
+              <h3 className="titre-carte">Attribution des enveloppes par UE</h3>
               <p className="text-xs text-gray-400 mt-0.5">Assigne chaque UE à une enveloppe (QUAL, CF, INCL, AESI, organique...)</p>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
@@ -1503,7 +1503,7 @@ export default function Pilotage({ vue = 'tout' }) {
             </div>
           </div>
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wider">
+            <thead className="intertitre bg-gray-50">
               <tr>
                 <th className="px-4 py-2 text-left">Section</th>
                 <th className="px-4 py-2 text-left">UE</th>

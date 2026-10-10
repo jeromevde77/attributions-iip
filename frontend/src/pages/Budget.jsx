@@ -266,7 +266,7 @@ export default function Budget() {
                (data.totaux.prevu_htva || 0) - (data.totaux.engage || 0) < 0 ? 'text-red-600' : 'text-emerald-700'],
             ].map(([lib, val, cls]) => (
               <div key={lib} className="border border-slate-200 rounded-xl px-3 py-2.5 bg-white">
-                <div className="text-mention uppercase tracking-wide text-slate-500 font-semibold">{lib}</div>
+                <div className="intertitre">{lib}</div>
                 <div className={`text-lg font-bold ${cls}`}>{eur(val)}</div>
               </div>
             ))}
@@ -416,7 +416,7 @@ function LigneForm({ form, setForm, comptes, onEnregistrer, onAnnuler }) {
     <div className="border border-iip-turquoise/40 rounded-xl p-4 bg-iip-turquoise/5 space-y-3">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <label className="text-xs md:col-span-2">
-          <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Compte général</span>
+          <span className="intertitre block mb-1">Compte général</span>
           <select value={form.compte_ref || ''} onChange={e => {
               const c = comptes.find(x => x.reference === e.target.value);
               setForm(f => ({ ...f, compte_ref: e.target.value,
@@ -430,7 +430,7 @@ function LigneForm({ form, setForm, comptes, onEnregistrer, onAnnuler }) {
           </select>
         </label>
         <label className="text-xs md:col-span-2">
-          <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
+          <span className="intertitre block mb-1">
             Détail de la prévision
           </span>
           <input value={form.details || ''} onChange={e => maj('details', e.target.value)}
@@ -438,26 +438,26 @@ function LigneForm({ form, setForm, comptes, onEnregistrer, onAnnuler }) {
             className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white" />
         </label>
         <label className="text-xs">
-          <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">À charge de</span>
+          <span className="intertitre block mb-1">À charge de</span>
           <input value={form.a_charge || ''} onChange={e => maj('a_charge', e.target.value)}
             placeholder="IIP, IIP / HELB Santé 50%…"
             className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white" />
         </label>
         <div className="grid grid-cols-3 gap-2">
           <label className="text-xs">
-            <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">P.U. HTVA</span>
+            <span className="intertitre block mb-1">P.U. HTVA</span>
             <input type="number" step="0.01" value={form.prix_unitaire ?? ''}
               onChange={e => maj('prix_unitaire', e.target.value)}
               className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white text-right" />
           </label>
           <label className="text-xs">
-            <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Qté</span>
+            <span className="intertitre block mb-1">Qté</span>
             <input type="number" step="0.5" value={form.quantite ?? ''}
               onChange={e => maj('quantite', e.target.value)}
               className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white text-right" />
           </label>
           <label className="text-xs">
-            <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">TVA</span>
+            <span className="intertitre block mb-1">TVA</span>
             <select value={form.taux_tva ?? 0.21} onChange={e => maj('taux_tva', Number(e.target.value))}
               className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white">
               {[0, 0.06, 0.12, 0.21].map(t => <option key={t} value={t}>{Math.round(t * 100)} %</option>)}
@@ -505,24 +505,24 @@ function DepenseForm({ ligne, onEnregistrer, onAnnuler }) {
         </div>
         <div className="grid grid-cols-2 gap-3">
           <label className="text-xs col-span-2">
-            <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Libellé</span>
+            <span className="intertitre block mb-1">Libellé</span>
             <input value={d.libelle} onChange={e => setD(x => ({ ...x, libelle: e.target.value }))}
               className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
           </label>
           <label className="text-xs">
-            <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Montant HTVA</span>
+            <span className="intertitre block mb-1">Montant HTVA</span>
             <input type="number" step="0.01" value={d.montant_htva}
               onChange={e => setD(x => ({ ...x, montant_htva: e.target.value }))}
               className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm text-right" />
           </label>
           <label className="text-xs">
-            <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Date</span>
+            <span className="intertitre block mb-1">Date</span>
             <input type="date" value={d.date_depense}
               onChange={e => setD(x => ({ ...x, date_depense: e.target.value }))}
               className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
           </label>
           <label className="text-xs col-span-2">
-            <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Pièce</span>
+            <span className="intertitre block mb-1">Pièce</span>
             <input value={d.piece} onChange={e => setD(x => ({ ...x, piece: e.target.value }))}
               placeholder="N° de facture ou de bon de commande"
               className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
@@ -551,7 +551,7 @@ function SyntheseBudget({ synthese, onOuvrir }) {
     <div className="border border-slate-200 rounded-xl overflow-hidden">
       <table className="w-full text-sm">
         <thead>
-          <tr className="bg-slate-50 text-mention uppercase tracking-wide text-slate-500 border-b border-slate-200">
+          <tr className="intertitre bg-slate-50 border-b border-slate-200">
             <th className="px-3 py-2 text-left">Section</th>
             <th className="px-3 py-2 text-right w-32">Prévu HTVA</th>
             <th className="px-3 py-2 text-right w-32">Engagé</th>

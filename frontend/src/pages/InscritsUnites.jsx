@@ -238,7 +238,7 @@ export default function InscritsUnites() {
 
         {choisies.map(u => (
           <div key={u.ue_num} className="space-y-1">
-            <h3 className="text-base font-medium text-iip-blue">UE {u.ue_num} — {u.ue_nom}
+            <h3 className="titre-carte">UE {u.ue_num} — {u.ue_nom}
               <span className="text-second text-slate-500 font-normal"> · {u.vues.length} étudiant(s)</span></h3>
             <div className="overflow-x-auto">
               <table className="text-sm tabular-nums">

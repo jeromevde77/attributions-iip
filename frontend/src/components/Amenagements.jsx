@@ -106,7 +106,7 @@ export default function Amenagements({ etudId, annee }) {
   };
   const champ = (nom, libelle, type = 'text') => (
     <label className="text-xs block">
-      <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">{libelle}</span>
+      <span className="intertitre block mb-1">{libelle}</span>
       <input type={type} defaultValue={d[nom] || ''} disabled={verrou(nom)}
         onBlur={e => e.target.value !== (d[nom] || '') && majDossier({ [nom]: e.target.value })}
         className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
@@ -277,7 +277,7 @@ export default function Amenagements({ etudId, annee }) {
     <div className="space-y-3">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h3 className="text-base font-semibold text-iip-blue">Aménagements raisonnables</h3>
+          <h3 className="titre-carte">Aménagements raisonnables</h3>
           <p className="text-second text-slate-500">Décret du 30 juin 2016 · année {annee}</p>
         </div>
         {d && <Badge ton={STATUTS[d.statut]?.ton || 'neutre'}>{STATUTS[d.statut]?.libelle}</Badge>}
@@ -326,7 +326,7 @@ export default function Amenagements({ etudId, annee }) {
                       mesures y étaient écrites — elles n'allaient alors ni aux
                       chargés de cours ni au Conseil. Une mesure se coche, ou
                       s'écrit dans « Autre ». */}
-                  <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Soins spécifiques <span className="normal-case font-normal text-slate-400">— confidentiel, non transmis aux chargés de cours (facultatif)</span></span>
+                  <span className="intertitre block mb-1">Soins spécifiques <span className="normal-case font-normal text-slate-400">— confidentiel, non transmis aux chargés de cours (facultatif)</span></span>
                   <textarea rows={2} defaultValue={d.soins_specifiques || ''} disabled={!!c?.a?.valide_le}
                     placeholder="Suivi logopédique, kinésithérapie, traitement… — une mesure se coche plus haut, ou s'écrit dans « Autre »"
                     onBlur={e => e.target.value !== (d.soins_specifiques || '') && majDossier({ soins_specifiques: e.target.value })}
@@ -342,7 +342,7 @@ export default function Amenagements({ etudId, annee }) {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                   <label className="text-xs block">
-                    <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Pièce produite</span>
+                    <span className="intertitre block mb-1">Pièce produite</span>
                     <select value={d.piece_type || ''} disabled={!!c?.a?.valide_le} onChange={e => majDossier({ piece_type: e.target.value })}
                       className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
                       <option value="">— à recevoir</option>
@@ -371,7 +371,7 @@ export default function Amenagements({ etudId, annee }) {
                   {champ('transmis_cde_le', 'Transmis au Conseil le', 'date')}
                 </div>
                 <label className="text-xs block">
-                  <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Difficultés entravant le parcours</span>
+                  <span className="intertitre block mb-1">Difficultés entravant le parcours</span>
                   <textarea defaultValue={d.besoins || ''} rows={2}
                     onBlur={e => e.target.value !== (d.besoins || '') && majDossier({ besoins: e.target.value })}
                     className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
@@ -438,7 +438,7 @@ export default function Amenagements({ etudId, annee }) {
                   {champ('conditions_particulieres', 'Conditions particulières')}
                 </div>
                 <label className="text-xs block">
-                  <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Motivation — obligatoire, art. 6 § 2</span>
+                  <span className="intertitre block mb-1">Motivation — obligatoire, art. 6 § 2</span>
                   <textarea defaultValue={d.cde_motivation || ''} rows={3}
                     onBlur={e => e.target.value !== (d.cde_motivation || '') && majDossier({ cde_motivation: e.target.value })}
                     className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
@@ -446,7 +446,7 @@ export default function Amenagements({ etudId, annee }) {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   {champ('notifie_le', 'Notifiée le', 'date')}
                   <label className="text-xs block">
-                    <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Mode de notification</span>
+                    <span className="intertitre block mb-1">Mode de notification</span>
                     <select value={d.notifie_par || ''} onChange={e => majDossier({ notifie_par: e.target.value })}
                       className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
                       <option value="">—</option>
@@ -464,7 +464,7 @@ export default function Amenagements({ etudId, annee }) {
                       {champ('recours_decision_le', 'Décision de la Commission le', 'date')}
                     </div>
                     <label className="text-xs block">
-                      <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Issue du recours</span>
+                      <span className="intertitre block mb-1">Issue du recours</span>
                       <textarea defaultValue={d.recours_issue || ''} rows={2}
                         onBlur={e => e.target.value !== (d.recours_issue || '') && majDossier({ recours_issue: e.target.value })}
                         className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
@@ -757,11 +757,11 @@ function ChoixMesures({ d, catalogue, verrou, onAjouter, onRetirer, onPreciser }
   const moments = [...new Set(catalogue.map(x => x.moment || 'Autres'))];
   return (
     <div>
-      <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Aménagements demandés</div>
+      <div className="intertitre mb-1.5">Aménagements demandés</div>
       <div className="grid gap-x-6 gap-y-1 md:grid-cols-2">
         {moments.map(mo => (
           <div key={mo}>
-            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mt-1">{mo}</div>
+            <div className="intertitre mt-1">{mo}</div>
             {catalogue.filter(x => (x.moment || 'Autres') === mo).map(x => {
               const m = parCode.get(x.code);
               return (

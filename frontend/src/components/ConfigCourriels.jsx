@@ -89,7 +89,7 @@ export default function ConfigCourriels() {
       <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div className="px-4 py-3 bg-iip-blue/5 border-b border-gray-200 flex items-center justify-between">
           <div>
-            <h2 className="font-semibold text-iip-blue flex items-center gap-2"><IconMail size={16} /> Envoi de documents par courriel</h2>
+            <h2 className="titre-carte flex items-center gap-2"><IconMail size={16} /> Envoi de documents par courriel</h2>
             <p className="text-xs text-gray-500 mt-0.5">
               Attestations, fiches d'attributions, décisions… envoyées à l'intéressé en PDF joint, depuis les aperçus et le centre d'impression.
             </p>
@@ -119,7 +119,7 @@ export default function ConfigCourriels() {
       {/* ── Expédition ── */}
       <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div className="px-4 py-3 bg-iip-blue/5 border-b border-gray-200">
-          <h2 className="font-semibold text-iip-blue">Expéditeur</h2>
+          <h2 className="titre-carte">Expéditeur</h2>
           <p className="text-xs text-gray-500 mt-0.5">Par où les courriels partent.</p>
         </div>
         <div className="p-4 flex flex-wrap gap-2">
@@ -257,7 +257,7 @@ export default function ConfigCourriels() {
       <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div className="px-4 py-3 bg-iip-blue/5 border-b border-gray-200 flex items-center justify-between">
           <div>
-            <h2 className="font-semibold text-iip-blue">Journal des envois</h2>
+            <h2 className="titre-carte">Journal des envois</h2>
             <p className="text-xs text-gray-500 mt-0.5">Les 100 derniers. Qui a reçu quoi, quand, et si c'est parti.</p>
           </div>
           <button onClick={chargerJournal} className="text-slate-400 hover:text-iip-blue p-1.5 rounded-lg" title="Rafraîchir"><IconRefresh size={16} /></button>

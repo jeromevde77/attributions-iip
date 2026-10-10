@@ -92,7 +92,7 @@ export default function AvisValorisationProf({ annee }) {
               {ouvert === x.id && (
                 <div className="mt-2 grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
                   <div>
-                    <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">Pièces déposées</div>
+                    <div className="intertitre mb-1">Pièces déposées</div>
                     {!x.fichiers.length ? <div className="text-second text-slate-500">Aucune pièce déposée.</div>
                       : x.fichiers.map(f => (
                         <button key={f.id} type="button" onClick={() => ouvrirPiece(f)}
@@ -101,7 +101,7 @@ export default function AvisValorisationProf({ annee }) {
                       ))}
                     {autres.length > 0 && (
                       <>
-                        <div className="text-xs uppercase tracking-wide text-slate-500 mt-3 mb-1">Les autres avis</div>
+                        <div className="intertitre mt-3 mb-1">Les autres avis</div>
                         {autres.map((a, k) => (
                           <div key={k} className="text-second mb-1.5">
                             <span className="inline-block text-xs font-semibold text-white rounded-full px-2 mr-1" style={{ background: TEINTE[a.sens] || '#94A3B8' }}>{LIB[a.sens] || a.sens}</span>
@@ -112,7 +112,7 @@ export default function AvisValorisationProf({ annee }) {
                     )}
                   </div>
                   <div>
-                    <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">Votre avis</div>
+                    <div className="intertitre mb-1">Votre avis</div>
                     {fige ? (
                       <div className="text-second">{x.mon_avis ? x.mon_avis.texte : 'Vous n’avez pas rendu d’avis sur cette demande.'}
                         <div className="text-xs text-slate-500 mt-1">Le Conseil a décidé : l’avis ne se modifie plus.</div></div>

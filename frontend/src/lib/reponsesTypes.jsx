@@ -255,7 +255,7 @@ function Panneau({ cible, rect, onFermer }) {
         )}
         {groupes.map(({ g, l }) => (
           <div key={g}>
-            <div className="px-3 pt-2 pb-1 text-mention uppercase tracking-[.08em] font-semibold text-slate-400">{g}</div>
+            <div className="intertitre px-3 pt-2 pb-1">{g}</div>
             {l.map(r => (
               <div key={r.id} className="group flex items-start gap-1 px-2">
                 <button type="button" onClick={() => { inserer(cible, remplir(r.texte)); onFermer(); }}

@@ -2247,7 +2247,7 @@ export default function Attributions() {
         <div className="space-y-4">
               {/* Vue */}
               <div>
-                <div className="text-mention font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Vue</div>
+                <div className="intertitre mb-1.5">Vue</div>
                 <div className="flex flex-col gap-1">
                   <button onClick={()=>setViewMode('ue')} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition ${viewMode==='ue'?'onglet-actif':'onglet-dormant'}`}><IconFolder size={16}/>Par section</button>
                   <button onClick={()=>setViewMode('flat')} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition ${viewMode==='flat'?'onglet-actif':'onglet-dormant'}`}><IconClipboardText size={16}/>Vue complète</button>
@@ -2261,9 +2261,7 @@ export default function Attributions() {
 
               {/* Filtres */}
               <details className="group/vol">
-                <summary className="cursor-pointer list-none select-none
-                  text-mention font-semibold uppercase tracking-wider text-gray-400 mb-1.5
-                  flex items-center gap-1.5 hover:text-gray-600">
+                <summary className="intertitre cursor-pointer list-none select-none mb-1.5 flex items-center gap-1.5 hover:text-gray-600">
                   <IconChevronRight size={12} className="transition-transform duration-150 shrink-0 group-open/vol:rotate-90" />
                   Filtres
                 </summary>
@@ -2299,9 +2297,7 @@ export default function Attributions() {
 
               {/* Actions */}
               <details className="group/vol">
-                <summary className="cursor-pointer list-none select-none
-                  text-mention font-semibold uppercase tracking-wider text-gray-400 mb-1.5
-                  flex items-center gap-1.5 hover:text-gray-600">
+                <summary className="intertitre cursor-pointer list-none select-none mb-1.5 flex items-center gap-1.5 hover:text-gray-600">
                   <IconChevronRight size={12} className="transition-transform duration-150 shrink-0 group-open/vol:rotate-90" />
                   Actions
                 </summary>

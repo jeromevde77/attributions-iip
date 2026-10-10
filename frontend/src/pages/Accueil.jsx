@@ -192,7 +192,7 @@ function MesTaches({ signal = 0 }) {
           séance, il vivait dans un procès-verbal que personne ne rouvre. */}
       {prochaine && (
         <div className="carte px-3 py-2 mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+          <span className="intertitre">
             Prochaine réunion
           </span>
           <span className="text-sm font-semibold text-iip-blue">
@@ -229,7 +229,7 @@ function MesTaches({ signal = 0 }) {
       })()}
 
       <div className="flex items-baseline gap-2 mb-1.5">
-        <h2 className="text-sm font-semibold text-iip-blue">Ce qui m’attend</h2>
+        <h2 className="titre-carte">Ce qui m’attend</h2>
         <span className="text-xs text-slate-400">
           {taches.length} tâche(s) — décidées en réunion
         </span>
@@ -260,8 +260,7 @@ function MesTaches({ signal = 0 }) {
                                        ${t.nouveau ? 'bg-iip-blue/5' : ''}`}>
               <PastilleNotif genre={genreDe(u)} />
               {t.nouveau && (
-                <span className="flex-none px-1.5 py-0.5 text-mention font-semibold uppercase
-                                 tracking-wider rounded-full bg-iip-blue text-white">
+                <span className="intertitre flex-none px-1.5 py-0.5 rounded-full bg-iip-blue text-white">
                   nouveau
                 </span>
               )}
@@ -323,7 +322,7 @@ function MesTaches({ signal = 0 }) {
       {!!informe.length && (
         <div className="mt-3">
           <div className="flex items-baseline gap-2 mb-1.5">
-            <h2 className="text-sm font-semibold text-iip-blue">Pour information</h2>
+            <h2 className="titre-carte">Pour information</h2>
             <span className="text-xs text-slate-400">
               {informe.length} tâche(s) confiée(s) à d’autres, dont on vous tient au courant
             </span>
@@ -337,8 +336,7 @@ function MesTaches({ signal = 0 }) {
                                            ${t.nouveau ? 'bg-iip-blue/5' : ''}`}>
                   <PastilleNotif genre={genreDe(u)} />
                   {t.nouveau && (
-                    <span className="flex-none px-1.5 py-0.5 text-mention font-semibold uppercase
-                                     tracking-wider rounded-full bg-iip-blue text-white">
+                    <span className="intertitre flex-none px-1.5 py-0.5 rounded-full bg-iip-blue text-white">
                       nouveau
                     </span>
                   )}
@@ -364,7 +362,7 @@ function MesTaches({ signal = 0 }) {
       {!!confiees.length && (
         <div className="mt-3">
           <div className="flex items-baseline gap-2 mb-1.5">
-            <h2 className="text-sm font-semibold text-iip-blue">Ce que j’ai confié</h2>
+            <h2 className="titre-carte">Ce que j’ai confié</h2>
             <span className="text-xs text-slate-400">
               {confiees.length} action(s) chez d’autres
             </span>
@@ -444,7 +442,7 @@ function DemandesAValider() {
   return (
     <div className="mb-5">
       <div className="flex items-baseline gap-2 mb-1.5">
-        <h2 className="text-sm font-semibold text-iip-blue">À valider</h2>
+        <h2 className="titre-carte">À valider</h2>
         <span className="text-xs text-slate-400">modifications proposées par les coordinations et par les enseignants (leur fiche)</span>
       </div>
       <button type="button" onClick={() => setOuvert(true)}
@@ -477,7 +475,7 @@ function TextesAConfirmer() {
   return (
     <div className="mb-5">
       <div className="flex items-baseline gap-2 mb-1.5">
-        <h2 className="text-sm font-semibold text-iip-blue">À confirmer</h2>
+        <h2 className="titre-carte">À confirmer</h2>
         <span className="text-xs text-slate-400">
           {attente.length} texte{attente.length > 1 ? 's' : ''} publié
           {attente.length > 1 ? 's' : ''} par la direction — prise de connaissance demandée
@@ -618,8 +616,7 @@ export default function Accueil() {
           onFermer={() => setFiltres(false)}>
           <div className="p-5 space-y-4">
             <div>
-              <div className="text-xs font-semibold text-slate-500 uppercase
-                              tracking-wide mb-1.5">Quels événements</div>
+              <div className="intertitre mb-1.5">Quels événements</div>
               <div className="carte divide-y divide-slate-100">
                 {[['tout', `Tout`, nbNonLus],
                   ['attribution', 'Attributions', nbAttr],
@@ -642,8 +639,7 @@ export default function Accueil() {
             </div>
 
             <div>
-              <div className="text-xs font-semibold text-slate-500 uppercase
-                              tracking-wide mb-1.5">Sur quelle durée</div>
+              <div className="intertitre mb-1.5">Sur quelle durée</div>
               <div className="segments w-full">
                 {[[7, '7 jours'], [30, '30 jours'], [90, '3 mois']].map(([v, lib]) => (
                   <button key={v} onClick={() => setJours(v)}
@@ -705,7 +701,7 @@ export default function Accueil() {
         {/* En-tête du fil */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <h2 className="text-lg font-semibold text-iip-blue">
+            <h2 className="titre-carte">
               {filtre === 'tout' ? 'Fil d\'activité' :
                filtre === 'attribution' ? 'Attributions' :
                filtre === 'recrutement' ? 'Recrutement' : filtre === 'notes' ? 'Notes' : 'Système'}
@@ -742,7 +738,7 @@ export default function Accueil() {
         <div className="space-y-6">
           {groupes.map(([groupe, gItems]) => (
             <div key={groupe}>
-              <div className="text-mention font-bold text-gray-400 uppercase tracking-widest mb-2">{groupe}</div>
+              <div className="intertitre mb-2">{groupe}</div>
               <TableauNotes items={gItems.filter(i => i.type === 'notes')} marquerLu={marquerLu} navigate={navigate} />
               <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-2 items-start">
                 {gItems.filter(i => i.type !== 'notes').map(item => {
@@ -766,7 +762,7 @@ export default function Accueil() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
                           <div>
-                            <span className="text-mention font-bold uppercase tracking-wide mr-2"
+                            <span className="intertitre mr-2"
                               style={{ color: cfg.color }}>{cfg.label}</span>
                             <span className={`text-sm font-medium ${item.lue ? 'text-gray-500' : 'text-gray-800'}`}>
                               {item.titre}

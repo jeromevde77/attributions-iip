@@ -367,7 +367,7 @@ ${j.granularite === 'cours' && !cotesCours ? `
             <div className="grid grid-cols-2 gap-3">
               <div className="text-xs">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="font-semibold text-slate-500 uppercase tracking-wide">
+                  <span className="intertitre">
                     Sections ({choisies.length})
                   </span>
                   <div className="flex gap-1.5">
@@ -389,7 +389,7 @@ ${j.granularite === 'cours' && !cotesCours ? `
                 </div>
               </div>
               <label className="text-xs">
-                <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Année</span>
+                <span className="intertitre block mb-1">Année</span>
                 <select value={annee} onChange={e => setAnnee(e.target.value)}
                   className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
                   {annees.map(a => <option key={a} value={a}>{a}</option>)}
@@ -398,7 +398,7 @@ ${j.granularite === 'cours' && !cotesCours ? `
             </div>
 
             <div>
-              <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Étendue</div>
+              <div className="intertitre mb-1.5">Étendue</div>
               <div className="flex gap-3 flex-wrap mb-2">
                 {[['toutes', 'Toutes les UE'], ['niveau', 'Par année d\u2019études'], ['ue', 'Une seule UE']].map(([v, l]) => (
                   <label key={v}
@@ -426,7 +426,7 @@ ${j.granularite === 'cours' && !cotesCours ? `
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Contenu des cases</div>
+                <div className="intertitre mb-1.5">Contenu des cases</div>
                 {[['annee', "Année de validation"], ['etat', "État de l'année choisie"],
                   ['note', 'Note sur 20']].map(([v, l]) => (
                   <label key={v} className="flex items-center gap-1.5 text-sm mb-1">
@@ -436,7 +436,7 @@ ${j.granularite === 'cours' && !cotesCours ? `
               </div>
               <div>
                 <label className="text-xs mr-4 inline-block align-top">
-              <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
+              <span className="intertitre block mb-1">
                 Orientation
               </span>
               <select value={orientation} onChange={e => setOrientation(e.target.value)}
@@ -445,7 +445,7 @@ ${j.granularite === 'cours' && !cotesCours ? `
                 <option value="portrait">Portrait</option>
               </select>
             </label>
-            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Colonnes</div>
+            <div className="intertitre mb-1.5">Colonnes</div>
                 {[['ue', 'Une par UE'], ['cours', 'Une par cours']].map(([v, l]) => (
                   <label key={v} className="flex items-center gap-1.5 text-sm mb-1">
                     <input type="radio" checked={granularite === v} onChange={() => setGranularite(v)} /> {l}
@@ -455,7 +455,7 @@ ${j.granularite === 'cours' && !cotesCours ? `
             </div>
 
             <div>
-              <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+              <div className="intertitre mb-1.5">
                 Enrichissements
               </div>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1">

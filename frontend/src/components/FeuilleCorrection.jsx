@@ -320,9 +320,7 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
                     </th>
                   </tr>
                   <tr>
-                    <th className="sticky left-0 z-30 bg-white text-left px-2 pb-1
-                                   text-mention font-bold uppercase tracking-wide
-                                   text-slate-500">Étudiant</th>
+                    <th className="intertitre sticky left-0 z-30 bg-white text-left px-2 pb-1">Étudiant</th>
                     {/* UN TRAIT PAR GROUPE, NON PAR COLONNE. Border sur chaque
                         case dessinait une grille de cahier : l'œil comptait des
                         traits au lieu de lire des notes. Seule la frontière

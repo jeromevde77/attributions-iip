@@ -316,7 +316,7 @@ function Rapport({ r }) {
   ];
   return (
     <div className="space-y-2">
-      <div className="text-xs uppercase tracking-wide text-slate-500">
+      <div className="intertitre">
         {r.simulation ? 'Simulation — rien n’a été écrit' : 'Import effectué'}
       </div>
       <div className="grid grid-cols-4 gap-2">

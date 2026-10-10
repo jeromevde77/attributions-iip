@@ -427,7 +427,7 @@ export default function Besoins({ annee: anneeProp }) {
 
             {detail.titres?.length > 0 && (
               <div>
-                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Titres visés</div>
+                <div className="intertitre mb-1.5">Titres visés</div>
                 <div className="flex flex-wrap gap-1.5">
                   {detail.titres.map(t => {
                     const p = PORTEE[t.portee] || PORTEE.requis;
@@ -440,7 +440,7 @@ export default function Besoins({ annee: anneeProp }) {
 
             {detail.acquis?.length > 0 && (
               <div>
-                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+                <div className="intertitre mb-1.5 flex items-center gap-1.5">
                   <IconSchool size={13} /> Acquis d'apprentissage du cours
                 </div>
                 <ul className="space-y-1">
@@ -610,7 +610,7 @@ function Kpi({ label, valeur, ton }) {
 function Champ({ label, children }) {
   return (
     <label className="block">
-      <span className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">{label}</span>
+      <span className="intertitre block mb-1">{label}</span>
       {children}
     </label>
   );

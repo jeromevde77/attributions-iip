@@ -227,7 +227,7 @@ export default function EditeurModelePiece({ cles, onBrouillon, onFermer }) {
         </div>
         <div className="w-[200px] border-l border-slate-200 overflow-auto p-2 text-second space-y-3">
           <div>
-            <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">Champs</div>
+            <div className="intertitre mb-1">Champs</div>
             <p className="text-xs text-slate-500 mb-1">Cliquez pour l’insérer au curseur.</p>
             {Object.entries(m.champs).map(([k, l]) => (
               <button key={k} onClick={() => inserer({ type: 'champ', attrs: { key: k, label: l } })}
@@ -236,7 +236,7 @@ export default function EditeurModelePiece({ cles, onBrouillon, onFermer }) {
               </button>))}
           </div>
           <div>
-            <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">Blocs</div>
+            <div className="intertitre mb-1">Blocs</div>
             <p className="text-xs text-slate-500 mb-1">
               <IconGripVertical size={11} className="inline -mt-0.5" /> Glissez un bloc pour le déplacer. Son contenu vient du calcul.</p>
             {Object.entries(m.blocs).map(([k, l]) => {
@@ -257,7 +257,7 @@ export default function EditeurModelePiece({ cles, onBrouillon, onFermer }) {
       {m.generique && (
         <div className="px-3 py-2 border-t border-slate-200 max-h-56 overflow-auto">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs uppercase tracking-wide text-slate-500">Phrases réécrites</span>
+            <span className="intertitre">Phrases réécrites</span>
             <span className="text-xs text-slate-500">— corrigées dans la pièce, ou saisies ici. Une phrase qui porte un nom ou une date ne vaut que pour cet exemple.</span>
             <span className="flex-1" />
             <button className="bouton text-xs py-0.5 inline-flex items-center gap-1"

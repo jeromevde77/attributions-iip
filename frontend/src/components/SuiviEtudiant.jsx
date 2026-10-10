@@ -102,7 +102,7 @@ export default function SuiviEtudiant({ etudId }) {
       {/* ── Écrire ── */}
       <div className="carte p-3 space-y-2">
         <div className="flex items-center gap-3">
-          <span className="text-xs uppercase tracking-wide text-slate-500">Ajouter au dossier</span>
+          <span className="intertitre">Ajouter au dossier</span>
           {['note', 'rapport'].map(t => (
             <label key={t} className="flex items-center gap-1.5 text-sm cursor-pointer">
               <input type="radio" name="type-suivi" checked={type === t} onChange={() => setType(t)} />

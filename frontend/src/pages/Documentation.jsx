@@ -507,7 +507,7 @@ function LireTexte({ cle, publie, natures, onClose, onChange, retirer: retirerDe
       {publie && d && (
         <div className="mt-4 carte p-3 space-y-2">
           <div className="flex items-baseline gap-2">
-            <span className="text-xs uppercase tracking-wide text-slate-500">À qui ce texte s’impose</span>
+            <span className="intertitre">À qui ce texte s’impose</span>
             {!roles && (
               <button className="text-second text-iip-blue underline ml-auto"
                 onClick={() => setRoles(new Set(d.destinataires || []))}>Modifier</button>
@@ -560,7 +560,7 @@ function LireTexte({ cle, publie, natures, onClose, onChange, retirer: retirerDe
             </div>
           ) : (
             <div className="carte p-3 space-y-2 mb-2">
-              <div className="text-xs uppercase tracking-wide text-slate-500">
+              <div className="intertitre">
                 Renommer — le texte, les versions et les confirmations ne changent pas
               </div>
               <input value={renomme.titre}
@@ -601,7 +601,7 @@ function LireTexte({ cle, publie, natures, onClose, onChange, retirer: retirerDe
               {/* UNE VERSION PUBLIÉE NE SE MODIFIE PLUS — on en publie une
                   autre, qu'on part de la précédente pour corriger. Le résumé
                   n'est pas une politesse : la version reste au dossier. */}
-              <div className="text-xs uppercase tracking-wide text-slate-500">
+              <div className="intertitre">
                 Version {(d?.version?.numero || 0) + 1} — partie de la version {d?.version?.numero}
               </div>
               <EditeurTexte valeur={nouvelle.contenu}
@@ -736,7 +736,7 @@ function DeposerTexte({ natures, onClose, onCree }) {
         <EditeurTexte valeur={contenu} onChange={setContenu} />
 
         <div className="carte p-3 space-y-2">
-          <div className="text-xs uppercase tracking-wide text-slate-500">
+          <div className="intertitre">
             À qui ce texte s’impose
           </div>
           <CasesRoles roles={roles} onBasculer={cle => setRoles(s0 => basculerDans(s0, cle))} />

@@ -1306,3 +1306,25 @@ button.objet-barre:hover { color: var(--menu-texte); }
 .bloc-etat.etat-surveiller { --e: var(--c-attente); border-left-color: var(--e); }
 .bloc-etat.etat-corriger   { --e: var(--c-refuse); border-left-color: var(--e); }
 .bloc-etat.etat-neutre     { background: var(--c-fond_tuile, #fff); border-color: var(--c-filet, #D8DCE4); }
+
+/* ═══ TITRES, INTERTITRES ET TABLEAUX — RÉGLABLES (3.1.260, Charles : « les tableaux,
+ * les titres… tous les visuels »). Formes dans Formes et composants (--d-*), couleurs
+ * dans Thèmes et couleurs (--c-titre, --c-intertitre, --c-tableau_total). ═══ */
+.titre-ecran { color: var(--c-titre, var(--menu-texte)); }
+.titre-carte { font-size: calc(var(--d-titre-carte, 15px) * var(--d-texte, 1)); font-weight: var(--d-titre-graisse, 600);
+               line-height: 1.3; color: var(--c-titre, var(--c-principal)); }
+.intertitre { font-size: calc(var(--d-intertitre-taille, 11px) * var(--d-texte, 1)); font-weight: var(--d-intertitre-graisse, 600);
+              text-transform: var(--d-intertitre-casse, uppercase); letter-spacing: var(--d-intertitre-espace, .06em);
+              color: var(--c-intertitre, rgb(var(--c-texte-rgb) / .55)); }
+.tab-entete { font-size: calc(var(--d-entete-taille, 11px) * var(--d-texte, 1)); text-transform: var(--d-intertitre-casse, uppercase);
+              letter-spacing: var(--d-intertitre-espace, .06em); color: var(--c-intertitre, var(--menu-texte-doux)); }
+.cellule { padding-top: var(--d-cellule-v, 6px); padding-bottom: var(--d-cellule-v, 6px);
+           border-left: var(--d-filet-v, 0px) solid var(--c-filet, rgb(var(--gris-200))); }
+.ligne-maison { border-bottom: var(--d-filet-h, 1px) solid var(--c-filet, rgb(var(--gris-100))); }
+.tableau-maison tbody .ligne-maison:nth-child(even) { background: var(--d-zebre, transparent); }
+.ligne-maison:hover { background: var(--c-fond_survol, rgb(var(--c-texte-rgb) / .04)); }
+.ligne-active { background: color-mix(in srgb, var(--c-principal) 6%, transparent); }
+.ligne-total { background: var(--c-tableau_total, #EDF2F8); border-top: 2px solid var(--c-filet, rgb(var(--gris-300))); }
+/* Les grilles de saisie suivent la densité et les filets. */
+table.grid-excel-soft th, table.grid-excel-soft td { padding-top: var(--d-cellule-v, 6px); padding-bottom: var(--d-cellule-v, 6px); }
+table.grid-excel-soft tbody tr:nth-child(even) { background-color: var(--d-zebre, var(--c-fond_ligne, transparent)); }

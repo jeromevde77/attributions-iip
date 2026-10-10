@@ -549,7 +549,7 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil, acti
              accès » était donc INEXPRIMABLE à l'écran, alors même que c'est le
              défaut du modèle. Trois boutons, dont un seul est actif. */
           <div className="absolute z-30 left-2 top-9 bg-white border border-slate-300 rounded-lg shadow-flottant p-2.5 w-64">
-            <div className="text-mention uppercase tracking-wide text-slate-500 mb-1.5">Périmètre</div>
+            <div className="intertitre mb-1.5">Périmètre</div>
 
             {[['toutes', 'Toutes les sections', 'y compris celles à venir'],
               ['choix',  'Ces sections',        'celles cochées ci-dessous'],

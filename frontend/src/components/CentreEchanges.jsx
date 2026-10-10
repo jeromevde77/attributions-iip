@@ -30,7 +30,7 @@ export default function CentreEchanges({ entrees = [], risques = [], onClose }) 
     if (!items.length) return null;
     return (
       <section className="mb-4 last:mb-0">
-        <div className="text-mention font-semibold uppercase tracking-[.12em] mb-1.5"
+        <div className="intertitre mb-1.5"
           style={{ color: risque ? 'var(--c-refuse)' : 'var(--c-disponible)' }}>{titre}</div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
           {items.map(it => (

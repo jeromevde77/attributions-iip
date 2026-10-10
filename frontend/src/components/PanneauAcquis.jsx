@@ -47,7 +47,7 @@ export default function PanneauAcquis({ colonnes, ueNum, titre = 'Acquis d’app
                       overflow-y-auto">
       <div className="sticky top-0 bg-slate-50 border-b border-slate-200 px-3 py-2
                       flex items-center justify-between gap-2">
-        <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
+        <span className="intertitre">
           {titre}
         </span>
         <button onClick={() => setOuvert(false)} title="Replier"

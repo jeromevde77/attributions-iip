@@ -198,7 +198,7 @@ export default function Classement({ annee: anneeProp }) {
         <>
           <div className="flex items-end gap-3 flex-wrap">
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Fonction</label>
+              <label className="intertitre block mb-1">Fonction</label>
               <select value={fonction} onChange={e => setFonction(e.target.value)}
                 className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm min-w-[260px]">
                 {fonctions.map(f => <option key={f} value={f}>{f}</option>)}
@@ -253,28 +253,28 @@ export default function Classement({ annee: anneeProp }) {
           {form && (
             <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/60 space-y-3">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <label className="text-xs"><span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Nom</span>
+                <label className="text-xs"><span className="intertitre block mb-1">Nom</span>
                   <input value={form.nom || ''} onChange={e => setForm(f => ({ ...f, nom: e.target.value }))}
                     className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" /></label>
-                <label className="text-xs"><span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Prénom</span>
+                <label className="text-xs"><span className="intertitre block mb-1">Prénom</span>
                   <input value={form.prenom || ''} onChange={e => setForm(f => ({ ...f, prenom: e.target.value }))}
                     className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" /></label>
-                <label className="text-xs"><span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Reçue le</span>
+                <label className="text-xs"><span className="intertitre block mb-1">Reçue le</span>
                   <input type="date" value={form.date_reception}
                     onChange={e => setForm(f => ({ ...f, date_reception: e.target.value }))}
                     className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" /></label>
-                <label className="text-xs"><span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Voie</span>
+                <label className="text-xs"><span className="intertitre block mb-1">Voie</span>
                   <select value={form.voie} onChange={e => setForm(f => ({ ...f, voie: e.target.value }))}
                     className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
                     <option value="recommandee">Lettre recommandée</option>
                     <option value="electronique">Voie électronique</option>
                   </select></label>
               </div>
-              <label className="text-xs block"><span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Fonction(s) visée(s)</span>
+              <label className="text-xs block"><span className="intertitre block mb-1">Fonction(s) visée(s)</span>
                 <input value={form.fonctions} onChange={e => setForm(f => ({ ...f, fonctions: e.target.value }))}
                   placeholder="ex. Professeur de cours techniques"
                   className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" /></label>
-              <label className="text-xs block"><span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Établissement(s)</span>
+              <label className="text-xs block"><span className="intertitre block mb-1">Établissement(s)</span>
                 <input value={form.etablissements || ''} onChange={e => setForm(f => ({ ...f, etablissements: e.target.value }))}
                   className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" /></label>
               <div className="flex gap-2">

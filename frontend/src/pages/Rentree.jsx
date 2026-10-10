@@ -206,7 +206,7 @@ export default function Rentree({ annee }) {
           ) : (
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-xs uppercase tracking-wide text-slate-400 border-b">
+                <tr className="intertitre border-b">
                   <th className="py-2 text-left w-28">Date</th>
                   <th className="py-2 text-left">Événement</th>
                   <th className="py-2 text-left w-32">Type</th>

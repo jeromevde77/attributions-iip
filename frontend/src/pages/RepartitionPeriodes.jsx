@@ -174,7 +174,7 @@ export default function RepartitionPeriodes() {
           </div>
           <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <div className="text-mention uppercase tracking-wide text-slate-500 font-semibold">
+              <div className="intertitre">
                 Janvier – juin {civile.annee_civile}
               </div>
               <div className="text-lg font-bold text-iip-blue">{nb(civile.janvier_juin.periodes)} pér.</div>
@@ -183,7 +183,7 @@ export default function RepartitionPeriodes() {
               </div>
             </div>
             <div>
-              <div className="text-mention uppercase tracking-wide text-slate-500 font-semibold">
+              <div className="intertitre">
                 Septembre – décembre {civile.annee_civile}
               </div>
               <div className="text-lg font-bold text-iip-blue">{nb(civile.septembre_decembre.periodes)} pér.</div>
@@ -192,7 +192,7 @@ export default function RepartitionPeriodes() {
               </div>
             </div>
             <div className="border-l border-slate-200 pl-4">
-              <div className="text-mention uppercase tracking-wide text-slate-500 font-semibold">
+              <div className="intertitre">
                 Dotation organique
               </div>
               <div className="text-xl font-bold text-iip-turquoise">{nb(civile.total)} pér.</div>
@@ -206,7 +206,7 @@ export default function RepartitionPeriodes() {
               et leur dépassement retombe sur lui. */}
           {civile.enveloppes?.length > 0 && (
             <div className="px-4 pb-3 -mt-1">
-              <div className="text-mention uppercase tracking-wide text-slate-500 font-semibold mb-1.5">
+              <div className="intertitre mb-1.5">
                 Enveloppes fermées — financées à part
               </div>
               <div className="flex flex-wrap gap-2">

@@ -188,7 +188,7 @@ export function BarreEdition({ editor, sobre = false, aplatirLogo = null }) {
             <Ligne icone={IconLayoutNavbar} onClick={() => c().insertContent({ type: 'enTeteBlock', content: [{ type: 'paragraph' }] }).run()}>En-tête répété sur chaque page</Ligne>
             <Ligne icone={IconLayoutBottombar} onClick={() => c().insertContent({ type: 'piedDePageBlock', content: [{ type: 'paragraph' }] }).run()}>Pied répété sur chaque page</Ligne>
             <div className="h-px bg-slate-100 my-1" />
-            <div className="px-2 py-1 text-xs uppercase tracking-wide text-slate-400">Interligne</div>
+            <div className="intertitre px-2 py-1">Interligne</div>
             <div className="flex gap-1 px-2 pb-1">
               {['1', '1.15', '1.5', '2'].map(v => (
                 <button key={v} type="button" onClick={() => c().setLineHeight(v).run()}

@@ -665,7 +665,7 @@ function UniteValorisee({ va, annee, onSupprimer, onDocuments, onDossier, onChan
 
             {form.decision === 'refusee' ? (
               <label className="block text-xs">
-                <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                <span className="intertitre block mb-1">
                   Motif du refus <span className="text-iip-texte">— obligatoire</span>
                 </span>
                 <textarea rows={3} value={form.motif_refus}
@@ -828,14 +828,14 @@ function UniteValorisee({ va, annee, onSupprimer, onDocuments, onDossier, onChan
 
             <div className="grid grid-cols-2 gap-3">
               <label className="block text-xs">
-                <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                <span className="intertitre block mb-1">
                   Date de décision du Conseil
                 </span>
                 <input type="date" value={form.decision_ce_date} className="controle w-full"
                   onChange={e => set('decision_ce_date', e.target.value)} />
               </label>
               <label className="block text-xs">
-                <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                <span className="intertitre block mb-1">
                   Remarque du Conseil
                 </span>
                 <input value={form.commentaire} className="controle w-full"
@@ -1117,8 +1117,7 @@ function ChoisirUnite({ annee, etudiant, onClose, onCree }) {
               {/* CELLES DE SON PROGRAMME SE SIGNALENT : ce sont les plus
                   probables, et elles arrivent déjà en tête de la liste. */}
               {u.au_pae && (
-                <span className="text-mention uppercase tracking-wider text-[color:var(--c-texte)]
-                                 flex-none">à son programme</span>
+                <span className="intertitre text-[color:var(--c-texte)] flex-none">à son programme</span>
               )}
               <span className="text-xs text-slate-400 flex-none w-24 text-right truncate">
                 {u.section || ''}
@@ -1393,7 +1392,7 @@ function ValoriserEnSerie({ annee, onClose, onCree }) {
 
         {/* 1 — L'UNITÉ. C'est elle qui convoque le conseil des études. */}
         <section className="py-2.5 border-b border-slate-100 last:border-b-0 space-y-2">
-          <div className="text-xs uppercase tracking-wide text-slate-500">
+          <div className="intertitre">
             1 · L'unité
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -1427,7 +1426,7 @@ function ValoriserEnSerie({ annee, onClose, onCree }) {
         {ueNum && (
           <section className="carte p-0 overflow-hidden">
             <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-200">
-              <span className="text-xs uppercase tracking-wide text-slate-500">
+              <span className="intertitre">
                 2 · Les étudiants
               </span>
               <span className="ml-auto text-second text-slate-500">
@@ -1586,7 +1585,7 @@ function ValoriserEnSerie({ annee, onClose, onCree }) {
         {/* 3 — LA DÉCISION, SAISIE UNE FOIS. */}
         {ueNum && (
           <section className="carte p-3 space-y-3">
-            <div className="text-xs uppercase tracking-wide text-slate-500">
+            <div className="intertitre">
               3 · La décision du conseil des études
             </div>
 
@@ -1913,7 +1912,7 @@ function FenetreDossier({ vid, onClose, onChange }) {
 
         {/* ÉTAPES 7, 8, 10 — LES GESTES ADMINISTRATIFS. */}
         <section className="py-2.5 border-b border-slate-100 last:border-b-0 space-y-2">
-          <div className="text-xs uppercase tracking-wide text-slate-500">
+          <div className="intertitre">
             7 · 8 · 10 — Notification, encodage, archivage
           </div>
           <div className="flex flex-wrap gap-2">
@@ -1996,7 +1995,7 @@ function EtapeDemande({ dossier, delai, onEnregistrer, enCours }) {
 
   return (
     <section className="py-2.5 border-b border-slate-100 last:border-b-0 space-y-2">
-      <div className="text-xs uppercase tracking-wide text-slate-500">
+      <div className="intertitre">
         2 — La demande : ce qui est demandé, et quand
       </div>
 
@@ -2085,7 +2084,7 @@ function EtapeRecevabilite({ dossier, onEnregistrer, enCours }) {
   return (
     <section className="py-2.5 border-b border-slate-100 last:border-b-0 space-y-2">
       <div className="flex items-center gap-2">
-        <span className="text-xs uppercase tracking-wide text-slate-500">
+        <span className="intertitre">
           3 — La recevabilité (coordination, 5 jours ouvrables)
         </span>
         {fait && (
@@ -2261,7 +2260,7 @@ function EtapeAvis({ dossier, onEnregistrer, enCours }) {
   return (
     <section className="py-2.5 border-b border-slate-100 last:border-b-0 space-y-2">
       <div className="flex items-center gap-2">
-        <span className="text-xs uppercase tracking-wide text-slate-500">
+        <span className="intertitre">
           4 — L'avis du chargé de cours (10 jours ouvrables)
         </span>
         {dossier.avis_le && (
@@ -2376,7 +2375,7 @@ function EtapeDecision({ dossier, bases, onEnregistrer, enCours }) {
   return (
     <section className="py-2.5 border-b border-slate-100 last:border-b-0 space-y-2">
       <div className="flex items-center gap-2">
-        <span className="text-xs uppercase tracking-wide text-slate-500">
+        <span className="intertitre">
           6 — La décision du Conseil des études
         </span>
         {dossier.decision_le && (
@@ -3124,7 +3123,7 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
             attend. La flèche entre deux étapes dit le sens de lecture. */}
         <section className="py-2.5 border-b border-slate-100 last:border-b-0 space-y-2">
           <div className="flex items-center gap-2">
-            <div className="text-xs uppercase tracking-wide text-slate-500">
+            <div className="intertitre">
               1 · L'étape du circuit
             </div>
             {reference.length > 0 && (
@@ -3465,7 +3464,7 @@ function AnalyserEnSerie({ annee, onClose, onChange }) {
         <section className="carte p-0 overflow-hidden">
           <div className="flex flex-wrap items-center gap-2 px-3 py-2
                           border-b border-slate-200">
-            <span className="text-xs uppercase tracking-wide text-slate-500">
+            <span className="intertitre">
               2 · Les demandes
             </span>
             <div className="relative">
@@ -3668,7 +3667,7 @@ function EtapeValidation({ dossier, peutValider, peutDevalider, manques,
     <section className={`carte p-3 space-y-2
       ${valide ? 'border-l-[3px] border-l-emerald-700' : ''}`}>
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-xs uppercase tracking-wide text-slate-500">
+        <span className="intertitre">
           6 bis — La validation par la direction
         </span>
         {valide && (
@@ -3769,7 +3768,7 @@ function EtapeTest({ dossier, onEnregistrer, enCours }) {
     return (
       <section className="carte p-3">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs uppercase tracking-wide text-slate-500">
+          <span className="intertitre">
             5 — Le test ou l'épreuve complémentaire
           </span>
           <span className="text-second text-slate-500">
@@ -3786,7 +3785,7 @@ function EtapeTest({ dossier, onEnregistrer, enCours }) {
   return (
     <section className="py-2.5 border-b border-slate-100 last:border-b-0 space-y-2">
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-xs uppercase tracking-wide text-slate-500">
+        <span className="intertitre">
           5 — Le test ou l'épreuve complémentaire
         </span>
         {dejaFait && dossier.test_par && (

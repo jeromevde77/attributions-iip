@@ -110,19 +110,19 @@ export default function ImportLieuxStage({ onClose, onFini }) {
       </>}>
       <div className="grid md:grid-cols-3 gap-3 mb-4">
         <label className="md:col-span-1">
-          <span className="block text-mention uppercase tracking-[.1em] text-slate-400 font-semibold mb-0.5">Classeur</span>
+          <span className="intertitre block mb-0.5">Classeur</span>
           <input type="file" accept=".xlsx,.xls,.csv" className="block w-full text-second"
             onChange={e => choisirFichier(e.target.files?.[0])} />
         </label>
         <label>
-          <span className="block text-mention uppercase tracking-[.1em] text-slate-400 font-semibold mb-0.5">Section</span>
+          <span className="intertitre block mb-0.5">Section</span>
           <select className="controle w-full bg-white" value={section} onChange={e => { setSection(e.target.value); setRapport(null); }}>
             <option value="">— choisir —</option>
             {sections.map(s => <option key={s.code} value={s.code}>{s.libelle || s.code}</option>)}
           </select>
         </label>
         <label>
-          <span className="block text-mention uppercase tracking-[.1em] text-slate-400 font-semibold mb-0.5">UE de stage concernées</span>
+          <span className="intertitre block mb-0.5">UE de stage concernées</span>
           <input className="controle w-full bg-white" value={ues} placeholder="77, 78, 79"
             onChange={e => { setUes(e.target.value); setRapport(null); }} />
         </label>

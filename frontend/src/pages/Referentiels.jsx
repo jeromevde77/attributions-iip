@@ -178,7 +178,7 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
         <div className="space-y-4">
           {!resultats && (<>
             <div>
-              <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+              <div className="intertitre mb-1">
                 Dossiers pédagogiques
               </div>
               <label className="flex items-center gap-3 border-2 border-dashed border-iip-turquoise/30 rounded-lg p-4 cursor-pointer hover:border-iip-turquoise/60 transition">
@@ -204,7 +204,7 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
             </div>
 
             <div>
-              <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+              <div className="intertitre mb-1">
                 Section cible <span className="text-gray-400 font-normal normal-case">(pour les UE qui n'existent pas encore)</span>
               </div>
               <select value={section} onChange={e => setSection(e.target.value)}
@@ -313,7 +313,7 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
                           const nbLies = carte.choix.filter(Boolean).length;
                           return (
                             <div className="pl-6 mt-1.5 ml-0.5 border-l-2 border-iip-turquoise/25 space-y-1 py-1">
-                              <div className="text-mention uppercase tracking-wide text-gray-400">
+                              <div className="intertitre">
                                 Correspondance des cours — {nbLies} rattaché(s), {coursDP.length - nbLies} à créer
                               </div>
                               {coursDP.map((c, ci) => (

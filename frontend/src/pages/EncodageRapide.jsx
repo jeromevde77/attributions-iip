@@ -386,7 +386,7 @@ export default function EncodageRapide() {
               <tr className="bg-slate-50">
                 <th className="sticky left-0 z-30 bg-slate-50 border-b border-r border-slate-200 px-2 py-2 w-8"></th>
                 <th className="sticky left-8 z-30 bg-slate-50 border-b border-r border-slate-200 px-3 py-2 text-left min-w-[190px]">
-                  <span className="text-xs uppercase tracking-wide text-slate-500">Étudiant</span>
+                  <span className="intertitre">Étudiant</span>
                 </th>
                 {data.ues.map((u, i) => (
                   <th key={u.ue_num}
@@ -546,7 +546,7 @@ function SyntheseAnnees({ synthese, recherche, onOuvrir }) {
           <thead className="sticky top-0 z-20">
             <tr className="bg-slate-50">
               <th className="sticky left-0 z-30 bg-slate-50 border-b border-r border-slate-200 px-3 py-2 text-left min-w-[210px]">
-                <span className="text-xs uppercase tracking-wide text-slate-500">Étudiant</span>
+                <span className="intertitre">Étudiant</span>
               </th>
               {synthese.annees.map(a => (
                 <th key={a} className="border-b border-slate-200 px-2 py-2 min-w-[86px]">
@@ -557,7 +557,7 @@ function SyntheseAnnees({ synthese, recherche, onOuvrir }) {
                 </th>
               ))}
               <th className="border-b border-l border-slate-200 px-2 py-2 w-20">
-                <span className="text-xs uppercase tracking-wide text-slate-500">Acquis</span>
+                <span className="intertitre">Acquis</span>
               </th>
             </tr>
           </thead>

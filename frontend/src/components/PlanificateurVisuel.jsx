@@ -457,7 +457,7 @@ export default function PlanificateurVisuel({ onClose }) {
         {/* En-tête */}
         <div className="border-b border-gray-200 p-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <h2 className="font-title text-lg text-iip-gold"><IconCalendar size={18} className="inline align-[-2px] mr-1" />Planificateur visuel d'UE</h2>
+            <h2 className="titre-carte"><IconCalendar size={18} className="inline align-[-2px] mr-1" />Planificateur visuel d'UE</h2>
             <select value={section} onChange={e => setSection(e.target.value)}
               className="border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
               <option value="">— Section —</option>
@@ -689,7 +689,7 @@ export default function PlanificateurVisuel({ onClose }) {
       {confirmOpen && (
         <div className="fixed inset-0 voile-fenetre flex items-center justify-center z-[60]" onClick={e => e.target === e.currentTarget && setConfirmOpen(false)}>
           <div className="bg-white rounded-xl shadow-dessus max-w-lg w-full p-6">
-            <h3 className="font-title text-lg text-iip-gold mb-2">Récapitulatif des opérations</h3>
+            <h3 className="titre-carte mb-2">Récapitulatif des opérations</h3>
             <p className="text-sm text-gray-600 mb-3">
               Pour l'UE {ueChoisie?.ue_num}, les opérations suivantes seront appliquées :
             </p>
@@ -739,7 +739,7 @@ export default function PlanificateurVisuel({ onClose }) {
       {evalASupprimer && (
         <div className="fixed inset-0 voile-fenetre flex items-center justify-center z-[58]" onClick={e => e.target === e.currentTarget && setEvalASupprimer(null)}>
           <div className="bg-white rounded-xl shadow-dessus w-full max-w-sm p-5">
-            <h3 className="font-title text-lg text-iip-gold mb-1">Supprimer {evalASupprimer.label} ?</h3>
+            <h3 className="titre-carte mb-1">Supprimer {evalASupprimer.label} ?</h3>
             <p className="text-sm text-gray-600 mb-4">
               Le cours étant dédoublé, le prof réunit les groupes pour cette évaluation.
               Elle sera retirée de la planification de ce groupe et l'autonomie correspondante
@@ -763,7 +763,7 @@ export default function PlanificateurVisuel({ onClose }) {
       {coupeBloc && (
         <div className="fixed inset-0 voile-fenetre flex items-center justify-center z-[58]" onClick={e => e.target === e.currentTarget && setCoupeBloc(null)}>
           <div className="bg-white rounded-xl shadow-dessus w-full max-w-sm p-5">
-            <h3 className="font-title text-lg text-iip-gold mb-1"><IconScissors size={14} className="inline align-[-2px] mr-1" />Scinder le bloc</h3>
+            <h3 className="titre-carte mb-1"><IconScissors size={14} className="inline align-[-2px] mr-1" />Scinder le bloc</h3>
             <p className="text-sm text-gray-600 mb-4">{coupeBloc.activite} · {coupeBloc.heures}h sur {coupeBloc.dureeSem} sem.</p>
             <div className="flex rounded border border-gray-300 overflow-hidden text-sm mb-3">
               <button onClick={() => setCoupeMode('heures')}

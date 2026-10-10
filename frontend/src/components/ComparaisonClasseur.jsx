@@ -130,7 +130,7 @@ export default function ComparaisonClasseur({ onClose }) {
 
         <div className="flex items-end gap-3 flex-wrap">
           <label className="text-xs">
-            <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
+            <span className="intertitre block mb-1">
               Année à comparer
             </span>
             <input value={annee} onChange={e => setAnnee(e.target.value)}
@@ -177,7 +177,7 @@ export default function ComparaisonClasseur({ onClose }) {
                 ['Non rapprochés', rapport.nb_inconnus + rapport.nb_ambigus, 'text-slate-600'],
               ].map(([l, v, ton]) => (
                 <div key={l} className="border border-slate-200 rounded-xl px-3 py-2">
-                  <div className="text-mention uppercase tracking-wide text-slate-500 font-semibold">{l}</div>
+                  <div className="intertitre">{l}</div>
                   <div className={`text-lg font-bold ${ton}`}>{v}</div>
                 </div>
               ))}

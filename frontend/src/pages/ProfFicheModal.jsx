@@ -459,7 +459,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
             <div className="flex-1 min-w-0">
               <div className="text-sm font-semibold text-iip-gold flex items-center gap-1.5">
                 <IconId size={15}/> Pré-remplir depuis la carte eID
-                <span className="text-mention font-normal text-gray-400 uppercase tracking-wide">optionnel</span>
+                <span className="intertitre font-normal">optionnel</span>
               </div>
               <p className="text-xs text-gray-500 mt-0.5">
                 Lit l'identité et l'adresse via l'app « eID Reader ». Les champs restent modifiables et rien n'est enregistré tant que vous ne validez pas.

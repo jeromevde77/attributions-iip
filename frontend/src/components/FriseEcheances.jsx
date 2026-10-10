@@ -112,8 +112,7 @@ export default function FriseEcheances({ taches = [], onOuvrir }) {
               <div key={`m${j.date}`} style={{ width: LARGEUR_JOUR }}
                 className="flex-none flex items-center">
                 {j.premierDuMois && (
-                  <span className="pl-1 font-semibold uppercase tracking-wide
-                                   text-slate-400 whitespace-nowrap">
+                  <span className="intertitre pl-1 whitespace-nowrap">
                     {MOIS[j.mois]}
                   </span>
                 )}

@@ -62,7 +62,7 @@ export default function ConventionsASigner() {
   return (
     <div className="mb-5">
       <div className="flex items-baseline gap-2 mb-1.5">
-        <h2 className="text-sm font-semibold text-iip-blue">À signer</h2>
+        <h2 className="titre-carte">À signer</h2>
         <span className="text-xs text-slate-400">
           {liste.length ? `${liste.length} convention${liste.length > 1 ? 's' : ''} préparée${liste.length > 1 ? 's' : ''} — votre accord est attendu` : ''}
         </span>

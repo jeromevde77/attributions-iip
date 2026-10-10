@@ -169,7 +169,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
       {/* ── CRÉDITS : la jauge ───────────────────────────────────────────── */}
       <div>
         <div className="flex items-baseline justify-between mb-1">
-          <span className="text-xs uppercase tracking-wide text-slate-500 font-semibold">
+          <span className="intertitre">
             Crédits de la section {ects.section || ''}
           </span>
           <span className="text-second text-slate-600">
@@ -196,7 +196,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
       {/* ── MOYENNE ──────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-end gap-6 border-t border-slate-200 pt-3">
         <div>
-          <div className="text-mention uppercase tracking-wide text-slate-500 font-semibold">
+          <div className="intertitre">
             Moyenne de l'année
           </div>
           <div className={`text-2xl font-bold leading-tight ${
@@ -207,7 +207,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
           <div className="text-xs text-slate-400">pondérée par les périodes du dossier pédagogique</div>
         </div>
         <div>
-          <div className="text-mention uppercase tracking-wide text-slate-500 font-semibold">
+          <div className="intertitre">
             Unités de l'année
           </div>
           <div className="text-base font-bold text-slate-700">
@@ -229,7 +229,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
 
       {/* ── LE PARCOURS, en badges ───────────────────────────────────────── */}
       <div className="border-t border-slate-200 pt-3">
-        <div className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-1.5">
+        <div className="intertitre mb-1.5">
           Programme de l'année
         </div>
         <div className="flex flex-wrap gap-1.5">
@@ -241,7 +241,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
 
         {!!bilan.anterieures.length && (
           <>
-            <div className="text-xs uppercase tracking-wide text-slate-500 font-semibold mt-3 mb-1.5">
+            <div className="intertitre mt-3 mb-1.5">
               Années antérieures
             </div>
             <div className="flex flex-wrap gap-1.5">
@@ -262,7 +262,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
 
       {/* ── L'UNITÉ EN DÉLIBÉRATION ──────────────────────────────────────── */}
       <div className="border-t border-slate-200 pt-3">
-        <div className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-1.5">
+        <div className="intertitre mb-1.5">
           UE {ueNum} — acquis d'apprentissage, par cours
         </div>
         <div className="border border-slate-200 rounded-xl divide-y divide-slate-100">
@@ -300,7 +300,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
 
       {/* ── LA DÉCISION ──────────────────────────────────────────────────── */}
       <div className="border-t border-slate-200 pt-3 space-y-2">
-        <div className="text-xs uppercase tracking-wide text-slate-500 font-semibold">
+        <div className="intertitre">
           Décision du Conseil des études
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -357,7 +357,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
           <div className="border border-slate-200 rounded-xl overflow-hidden">
             <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200
                             flex items-center justify-between gap-2">
-              <span className="text-xs uppercase tracking-wide text-slate-500 font-semibold">
+              <span className="intertitre">
                 Motivation — {nonMaitrises.length} acquis non maîtrisé(s)
               </span>
               {sansMotif > 0 && (
@@ -388,7 +388,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
                     <div className="mb-2 border border-slate-200 rounded-lg divide-y divide-slate-100">
                       {MOTIFS_ECHEC.map(g => (
                         <div key={g.cle} className="px-2.5 py-2">
-                          <div className="text-xs uppercase tracking-wide font-semibold mb-1"
+                          <div className="intertitre mb-1"
                             style={{ color: g.couleur }}>{g.libelle}</div>
                           <div className="space-y-1">
                             {g.motifs.map(m => {

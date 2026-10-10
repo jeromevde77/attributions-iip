@@ -197,8 +197,7 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
             ['Non évalués', donnees.nb_non_evalues],
             ['Seuil', `${donnees.seuil}/20`]].map(([l, v]) => (
             <div key={l} className="border border-slate-200 rounded-xl px-3 py-2">
-              <div className="text-mention uppercase tracking-wide text-slate-500
-                              font-semibold">{l}</div>
+              <div className="intertitre">{l}</div>
               <div className="text-base font-bold text-iip-blue">{v}</div>
             </div>
           ))}
@@ -212,8 +211,7 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
           </div>
         ) : (
           <div className="border border-slate-200 rounded-xl overflow-hidden">
-            <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200
-                            text-xs uppercase tracking-wide text-slate-500 font-semibold">
+            <div className="intertitre px-3 py-1.5 bg-slate-50 border-b border-slate-200">
               Acquis d'apprentissage non maîtrisés · motivation
             </div>
             <div className="divide-y divide-slate-100">
@@ -243,7 +241,7 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
                     <div className="mb-2 border border-slate-200 rounded-lg divide-y divide-slate-100">
                       {MOTIFS_ECHEC.map(g => (
                         <div key={g.cle} className="px-2.5 py-2">
-                          <div className="text-xs uppercase tracking-wide font-semibold mb-1"
+                          <div className="intertitre mb-1"
                             style={{ color: g.couleur }}>{g.libelle}</div>
                           <div className="space-y-1">
                             {g.motifs.map(m => {

@@ -279,7 +279,7 @@ export default function DatesUE({ annee, sansTitre = false }) {
       {/* Filtres et saisie groupée */}
       <div className="bg-white border border-slate-200 rounded-xl p-3 flex flex-wrap items-end gap-3">
         <div>
-          <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Section</label>
+          <label className="intertitre block mb-1">Section</label>
           <select value={section} onChange={e => setSection(e.target.value)}
                   className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm">
             <option value="">Toutes</option>
@@ -287,7 +287,7 @@ export default function DatesUE({ annee, sansTitre = false }) {
           </select>
         </div>
         <div>
-          <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Vue</label>
+          <label className="intertitre block mb-1">Vue</label>
           <div className="segments">
             {[['tableau', 'Tableau'], ['timeline', 'Ligne du temps']].map(([v, t]) => (
               <button key={v} onClick={() => setVue(v)}
@@ -300,7 +300,7 @@ export default function DatesUE({ annee, sansTitre = false }) {
           </div>
         </div>
         <div>
-          <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Affichage</label>
+          <label className="intertitre block mb-1">Affichage</label>
           <select value={affichage} onChange={e => setAffichage(e.target.value)}
                   className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm">
             <option value="section">Par section</option>
@@ -319,7 +319,7 @@ export default function DatesUE({ annee, sansTitre = false }) {
 
         <div className="flex items-end gap-2 border-l border-slate-200 pl-3">
           <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
+            <label className="intertitre block mb-1">
               Appliquer à la sélection ({selection.size})
             </label>
             <div className="flex gap-2">
@@ -374,7 +374,7 @@ export default function DatesUE({ annee, sansTitre = false }) {
                 if (item.type === 'groupe') {
                   return (
                     <tr key={`g-${idx}`} className="bg-slate-50/80">
-                      <td colSpan={9} className="px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-slate-500 border-y border-slate-200">
+                      <td colSpan={9} className="intertitre px-3 py-1.5 border-y border-slate-200">
                         {item.libelle}
                       </td>
                     </tr>

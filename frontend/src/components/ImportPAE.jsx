@@ -215,14 +215,14 @@ export default function ImportPAE({ annee, onClose, onImporte }) {
 
               <div className="grid grid-cols-2 gap-3">
                 <label className="text-xs">
-                  <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                  <span className="intertitre block mb-1">
                     Année des résultats
                   </span>
                   <input value={anneeRes} onChange={e => setAnneeRes(e.target.value)}
                     className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
                 </label>
                 <label className="text-xs">
-                  <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                  <span className="intertitre block mb-1">
                     Année du PAE
                   </span>
                   <input value={anneePae} onChange={e => setAnneePae(e.target.value)}
@@ -232,7 +232,7 @@ export default function ImportPAE({ annee, onClose, onImporte }) {
               </div>
 
               <div>
-                <div className="text-xs font-bold uppercase tracking-wide text-slate-500 mb-2">
+                <div className="intertitre mb-2">
                   Signification des valeurs rencontrées
                 </div>
                 <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 max-h-72 overflow-y-auto">

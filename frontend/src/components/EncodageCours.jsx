@@ -347,9 +347,7 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
                     <tr>
                       <th className="sticky left-0 bg-white text-left px-3 py-1.5
                                      border-b border-r border-slate-200 min-w-[180px]">Étudiant</th>
-                      <th className="px-2 py-1.5 border-b border-r border-slate-200
-                                     text-mention text-slate-500 font-semibold uppercase
-                                     tracking-wide w-24" title="Épreuve non présentée">
+                      <th className="intertitre px-2 py-1.5 border-b border-r border-slate-200 w-24" title="Épreuve non présentée">
                         Épreuve
                       </th>
                       {data.acquis.map(a => (

@@ -258,7 +258,7 @@ export default function MesCours() {
             )}
             {(miens.length > 0 || !aSection) && (
               <div className="space-y-1.5">
-                {aSection && <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Mes attributions</div>}
+                {aSection && <div className="intertitre">Mes attributions</div>}
                 {!cours.length && <p className="text-sm text-slate-400">Aucune attribution pour {annee}.</p>}
                 {parSection.map(g => (
                   <div key={g.section} className="space-y-1.5">
@@ -270,7 +270,7 @@ export default function MesCours() {
             )}
             {parUe.length > 0 && (
               <div className="space-y-2">
-                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <div className="intertitre">
                   Les cours de ma section <span className="normal-case font-normal">— en tant que coordination</span>
                 </div>
                 {parUe.map(g => (
@@ -648,7 +648,7 @@ export default function MesCours() {
                         <div className="mt-1 max-h-64 overflow-y-auto space-y-1.5 pr-1">
                           {MOTIFS_ECHEC.map(g => (
                             <div key={g.cle}>
-                              <div className="text-mention uppercase tracking-wide font-semibold text-slate-500">{g.libelle}</div>
+                              <div className="intertitre">{g.libelle}</div>
                               {g.motifs.map(m => {
                                 const actuel = String(justifs[actifEtu.id]?.[caseActive.k] ?? '');
                                 const pris = actuel.includes(m.texte);
@@ -679,7 +679,7 @@ export default function MesCours() {
                       </div>
                     </div>
                   )}
-                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ce que vous évaluez</div>
+                  <div className="intertitre">Ce que vous évaluez</div>
                   {cols.length > 1 && !pondere && (
                     <div data-etat="surveiller" className="bloc-etat px-2 py-1.5 text-xs">
                       La pondération de ce cours n'est pas encore réglée : les acquis pèsent autant l'un que l'autre

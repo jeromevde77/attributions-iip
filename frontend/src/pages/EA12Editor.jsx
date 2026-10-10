@@ -254,7 +254,7 @@ export default function EA12Editor() {
       <Section titre="3 · Cumul / Prestations / Transmission">
         <div className="grid grid-cols-2 gap-6">
           <div className="space-y-2">
-            <div className="text-xs font-medium text-gray-600 uppercase tracking-wide">Cumul</div>
+            <div className="intertitre">Cumul</div>
             <Chk label="Pas de cumul interne" checked={d.pas_cumul} onChange={v => set('pas_cumul', v)} />
             <div className="text-xs text-gray-500 mt-1">Prestations dans cet établissement :</div>
             <div className="pl-2 space-y-1">
@@ -266,7 +266,7 @@ export default function EA12Editor() {
             <Chk label="Cumul interne A2 (autre établ. FWB)" checked={d.cumul_a2} onChange={v => set('cumul_a2', v)} />
           </div>
           <div className="space-y-2">
-            <div className="text-xs font-medium text-gray-600 uppercase tracking-wide">Transmission tardive</div>
+            <div className="intertitre">Transmission tardive</div>
             <Chk label="Transmission tardive du document par la faute du MDP (Circ. 6930)" checked={d.transmission_tardive} onChange={v => set('transmission_tardive', v)} />
             <div className="mt-3">
               <div className="text-xs text-gray-600 mb-1">Nombre de jours de fonctionnement/semaine</div>
@@ -293,7 +293,7 @@ export default function EA12Editor() {
         <div className="grid grid-cols-2 gap-6 mt-2">
           {/* Mouvement */}
           <div>
-            <div className="text-xs font-medium text-gray-600 mb-1 uppercase tracking-wide">Type d'événement — Mouvement</div>
+            <div className="intertitre mb-1">Type d'événement — Mouvement</div>
             <div className="space-y-1">
               {MOUVEMENTS.filter(m => m !== 'Autres').map(t => (
                 <Radio key={t} name="type_ev" label={t} value={t} current={d.type_evenement} onChange={v => set('type_evenement', v)} />
@@ -306,7 +306,7 @@ export default function EA12Editor() {
           </div>
           {/* Justifications */}
           <div>
-            <div className="text-xs font-medium text-gray-600 mb-1 uppercase tracking-wide">Justification(s) — plusieurs possibles</div>
+            <div className="intertitre mb-1">Justification(s) — plusieurs possibles</div>
             <div className="space-y-1 max-h-64 overflow-auto pr-1">
               {JUSTIFICATIONS.filter(j => j !== 'Autres').map(j => (
                 <Chk key={j} label={j} checked={(d.justifs || []).includes(j)} onChange={() => toggleJustif(j)} />

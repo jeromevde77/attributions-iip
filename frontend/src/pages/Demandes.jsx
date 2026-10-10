@@ -143,7 +143,7 @@ export default function Demandes() {
                   ) : (
                     <table className="text-second">
                       <thead>
-                        <tr className="text-mention uppercase tracking-wide text-slate-400">
+                        <tr className="intertitre">
                           <th className="text-left pr-6 pb-1">Champ</th>
                           <th className="text-left pr-6 pb-1">Actuellement</th>
                           <th className="text-left pb-1">Demandé</th>

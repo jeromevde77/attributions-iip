@@ -116,19 +116,19 @@ export default function CalculateurAnciennete({ profId, estAdmin, peutEcrire, an
       {form && (
         <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/60 space-y-3">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <label className="text-xs"><span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Année</span>
+            <label className="text-xs"><span className="intertitre block mb-1">Année</span>
               <input value={form.annee_scolaire} onChange={e => setForm(f => ({ ...f, annee_scolaire: e.target.value }))}
                 placeholder="2026-2027" className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" /></label>
-            <label className="text-xs"><span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Code cours</span>
+            <label className="text-xs"><span className="intertitre block mb-1">Code cours</span>
               <input value={form.cours_code} onChange={e => setForm(f => ({ ...f, cours_code: e.target.value }))}
                 placeholder="246.1" className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" /></label>
-            <label className="text-xs"><span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Type</span>
+            <label className="text-xs"><span className="intertitre block mb-1">Type</span>
               <select value={form.type_cours} onChange={e => setForm(f => ({ ...f, type_cours: e.target.value }))}
                 className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
                 <option value="CT">CT (réf. 800 p)</option>
                 <option value="PP">PP (réf. 1000 p)</option>
               </select></label>
-            <label className="text-xs"><span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Périodes</span>
+            <label className="text-xs"><span className="intertitre block mb-1">Périodes</span>
               <input type="number" min="0" value={form.periodes} onChange={e => setForm(f => ({ ...f, periodes: e.target.value }))}
                 className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" /></label>
           </div>
@@ -157,7 +157,7 @@ export default function CalculateurAnciennete({ profId, estAdmin, peutEcrire, an
           </div>
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-slate-50/60 border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
+              <tr className="intertitre bg-slate-50/60 border-b border-slate-200">
                 <th className="px-3 py-2 text-left">Cours</th>
                 <th className="px-3 py-2 text-left w-16">Type</th>
                 <th className="px-3 py-2 text-right w-24">Périodes</th>
@@ -207,13 +207,13 @@ export default function CalculateurAnciennete({ profId, estAdmin, peutEcrire, an
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 p-4">
             <div className="border border-slate-200 rounded-xl p-3">
-              <div className="text-mention font-bold uppercase tracking-wide text-slate-400 mb-1">Ancienneté PO totale</div>
+              <div className="intertitre mb-1">Ancienneté PO totale</div>
               <div className="text-2xl font-bold text-iip-blue">{total_po} j</div>
               <div className="text-xs text-slate-400">= {Math.floor(total_po / 360)} an{Math.floor(total_po / 360) > 1 ? 's' : ''} + {total_po % 360} j</div>
             </div>
             {total_cours.map(tc => (
               <div key={tc.cours_code} className="border border-slate-200 rounded-xl p-3">
-                <div className="text-mention font-bold uppercase tracking-wide text-slate-400 mb-1">{tc.cours_code}</div>
+                <div className="intertitre mb-1">{tc.cours_code}</div>
                 <div className="text-2xl font-bold text-iip-blue">{tc.jours} j</div>
                 <div className="text-xs text-slate-400">{tc.cours_nom || ''}</div>
               </div>

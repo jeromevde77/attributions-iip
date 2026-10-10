@@ -193,9 +193,7 @@ export default function PassageAnnee({ annee, onClose, onTermine }) {
 
               {!!rapport.prets.length && (
                 <div className="border border-slate-200 rounded-xl overflow-hidden">
-                  <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200
-                                  text-xs uppercase tracking-wide text-slate-500 font-semibold
-                                  flex items-center justify-between">
+                  <div className="intertitre px-3 py-1.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
                     <span>Programmes à créer</span>
                     <span className="normal-case tracking-normal text-slate-400">
                       décochez pour écarter un dossier

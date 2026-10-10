@@ -264,7 +264,7 @@ export default function Recrutement() {
           postesFiltres.reduce((acc, p) => { (acc[p.section] ||= []).push(p); return acc; }, {})
         ).map(([sec, lignes]) => (
           <div key={sec} className="mb-6">
-            <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">{sec}</div>
+            <div className="intertitre mb-2">{sec}</div>
             <div className="grid gap-1.5">
               {lignes.map((p, i) => (
                 <button key={i} onClick={async () => {
@@ -369,7 +369,7 @@ function FichePoste({ poste, annee, onBack, grille }) {
             ['Référent', ue.et_ref],
           ].filter(([, v]) => v).map(([label, val]) => (
           <div key={label} className="bg-gray-50 rounded-lg px-3 py-2">
-            <div className="text-mention text-gray-400 uppercase tracking-wide">{label}</div>
+            <div className="intertitre">{label}</div>
             <div className="text-sm font-medium text-gray-800 mt-0.5">{val}</div>
           </div>
         ))}
@@ -378,7 +378,7 @@ function FichePoste({ poste, annee, onBack, grille }) {
         {/* Acquis d'apprentissage */}
         {aa.length > 0 && (
           <div className="mt-4">
-            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+            <div className="intertitre mb-2">
               Acquis d'apprentissage ({aa.length})
             </div>
             <ul className="space-y-1">
@@ -411,7 +411,7 @@ function FichePoste({ poste, annee, onBack, grille }) {
         {onglet === 'candidats' && (<>
       {/* Candidats */}
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-lg font-semibold text-iip-blue flex items-center gap-2">
+        <h2 className="titre-carte flex items-center gap-2">
           <IconUsersGroup size={20} /> Candidats ({candidats.length})
         </h2>
         <div className="flex items-center gap-2">
@@ -563,7 +563,7 @@ function FormulaireCandidatIA({ annee, ue_num, code_cours, section, onSaved, onC
 
       {/* Zone dépôt de documents par type */}
       <div>
-        <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Documents</div>
+        <div className="intertitre mb-2">Documents</div>
         <div className="grid grid-cols-2 gap-2">
           {Object.entries(TYPES_DOC).map(([type, { label, accept }]) => (
             <label key={type} className="cursor-pointer border border-dashed border-gray-300 rounded-lg px-3 py-2.5 hover:border-iip-turquoise hover:bg-white transition flex items-center gap-2">
@@ -1293,7 +1293,7 @@ function VueParallele({ postes, candidats, fonctions, annee, onRecharger }) {
 
         {/* ── Colonne gauche : Cours à pourvoir ── */}
         <div className="flex flex-col min-h-0">
-          <div className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">
+          <div className="intertitre mb-2">
             Cours à pourvoir ({postesFiltres.length})
           </div>
           <div className="flex-1 overflow-auto space-y-1.5 pr-1">
@@ -1344,7 +1344,7 @@ function VueParallele({ postes, candidats, fonctions, annee, onRecharger }) {
 
         {/* ── Colonne droite : Candidats ── */}
         <div className="flex flex-col min-h-0">
-          <div className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">
+          <div className="intertitre mb-2">
             Candidats ({candidatsFiltres.length}) — glisser vers un cours
           </div>
           <div className="flex-1 overflow-auto space-y-1.5 pl-1">
@@ -2118,7 +2118,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
 
           {/* ── Cadre 1 : Coordonnées ── */}
           <div className="border border-gray-200 rounded-xl p-4">
-            <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Coordonnées</div>
+            <div className="intertitre mb-3">Coordonnées</div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <div className="text-xs text-gray-500 mb-1">Prénom</div>
@@ -2145,7 +2145,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
 
           {/* ── Cadre 2 : Documents remis ── */}
           <div className="border border-gray-200 rounded-xl p-4">
-            <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Documents remis</div>
+            <div className="intertitre mb-3">Documents remis</div>
             <div className="grid grid-cols-2 gap-1.5 mb-3">
               {DOCS_REMIS_LIST.map(doc => {
                 const checked = !!f.docs_remis?.[doc.key];
@@ -2199,7 +2199,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
           {/* ── Cadre 3 : Diplômes et titres ── */}
           <div className="border border-gray-200 rounded-xl p-4">
             <div className="flex items-center justify-between mb-3">
-              <div className="text-xs font-bold text-gray-400 uppercase tracking-widest">Diplômes &amp; Titres</div>
+              <div className="intertitre">Diplômes &amp; Titres</div>
               <button type="button" onClick={() => setAjoutQual(true)}
                 className="text-xs bg-iip-blue text-white px-2.5 py-1 rounded-lg flex items-center gap-1 hover:opacity-90">
                 <IconPlus size={11} /> Ajouter
@@ -2233,7 +2233,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
 
           {/* ── Cadre 4 : Cours envisagés ── */}
           <div className="border border-gray-200 rounded-xl p-4">
-            <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
+            <div className="intertitre mb-3">
               Cours envisagés ({candidatures.length})
             </div>
             {candidatures.length > 0 && (
@@ -2307,7 +2307,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
             )}
             {/* Sélecteur */}
             <div className="border border-dashed border-gray-300 rounded-lg p-3 space-y-2 bg-gray-50/50">
-              <div className="text-mention font-semibold text-gray-400 uppercase tracking-wide">Ajouter un cours</div>
+              <div className="intertitre">Ajouter un cours</div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <div className="text-xs text-gray-500 mb-0.5">Section</div>
@@ -2516,7 +2516,7 @@ function ModalAjoutQualification({ onClose, onAjouter, onFermer }) {
 
                 {/* Ligne 1 : Niveau d'étude (pills horizontales) */}
                 <div className="mb-2">
-                  <div className="text-mention text-gray-400 mb-1 uppercase tracking-wide">Niveau (CFC)</div>
+                  <div className="intertitre mb-1">Niveau (CFC)</div>
                   <div className="flex flex-wrap gap-1">
                     {NIVEAUX_ETUDE.map(n => (
                       <button key={n.val} type="button"
@@ -2536,7 +2536,7 @@ function ModalAjoutQualification({ onClose, onAjouter, onFermer }) {
                 {l.niveau && (
                   <div className="mb-2 flex gap-2 items-start">
                     <div className="flex-1">
-                      <div className="text-mention text-gray-400 mb-1 uppercase tracking-wide">Diplôme</div>
+                      <div className="intertitre mb-1">Diplôme</div>
                       {dipListe.length > 0 ? (
                         <select value={l.diplome} onChange={e => majLigne(i, 'diplome', e.target.value)}
                           className="w-full text-xs border border-gray-300 rounded px-2 py-1.5 h-8">
@@ -2556,7 +2556,7 @@ function ModalAjoutQualification({ onClose, onAjouter, onFermer }) {
 
                 {/* Ligne 3 : Titre pédagogique (pills) */}
                 <div>
-                  <div className="text-mention text-gray-400 mb-1 uppercase tracking-wide">Titre pédagogique (optionnel)</div>
+                  <div className="intertitre mb-1">Titre pédagogique (optionnel)</div>
                   <div className="flex flex-wrap gap-1">
                     {TITRES_PEDA.map(t => (
                       <button key={t.val} type="button"
@@ -2724,7 +2724,7 @@ function ModalAnalyseCv({ onClose, onResultat, candidatExistant = null }) {
 
               {/* Coordonnées */}
               <div className="border border-gray-200 rounded-xl p-4">
-                <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Coordonnées</div>
+                <div className="intertitre mb-3">Coordonnées</div>
                 <div className="grid grid-cols-2 gap-3">
                   {[['prenom','Prénom'],['nom','Nom'],['email','E-mail'],['telephone','Téléphone']].map(([k,l]) => (
                     <div key={k}>
@@ -2748,7 +2748,7 @@ function ModalAnalyseCv({ onClose, onResultat, candidatExistant = null }) {
 
               {/* Diplômes détectés */}
               <div className="border border-gray-200 rounded-xl p-4">
-                <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
+                <div className="intertitre mb-3">
                   Diplômes & Titres détectés ({apercu.qualifications?.length || 0})
                 </div>
                 {apercu.qualifications?.length === 0 && (
@@ -3200,7 +3200,7 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
           {/* ── Introduction ── */}
           {section === 'intro' && (
             <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-pose">
-              <h2 className="text-base font-bold text-iip-blue mb-4">Introduction — à lire au candidat</h2>
+              <h2 className="titre-carte mb-4">Introduction — à lire au candidat</h2>
               {introTexte ? (
                 <div className="text-sm text-gray-700 leading-relaxed bg-iip-blue/5 border-l-4 border-iip-blue rounded-r-lg p-4 whitespace-pre-wrap">
                   {introTexte}
@@ -3338,7 +3338,7 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
               {/* Mot de conclusion */}
               {conclusionTexte && (
                 <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-pose">
-                  <h2 className="text-base font-bold text-iip-blue mb-4">Mot de fin — à lire au candidat</h2>
+                  <h2 className="titre-carte mb-4">Mot de fin — à lire au candidat</h2>
                   <div className="text-sm text-gray-700 leading-relaxed bg-iip-blue/5 border-l-4 border-iip-blue rounded-r-lg p-4 whitespace-pre-wrap">
                     {conclusionTexte}
                   </div>

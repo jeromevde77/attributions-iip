@@ -193,8 +193,7 @@ export default function SeanceValorisation({ ueNum, ueNom, annee, onClose }) {
           </p>
 
           <div className="grid grid-cols-2 gap-3">
-            <label className="text-xs"><span className="block font-semibold text-slate-500
-              uppercase tracking-wide mb-1">Date de la séance</span>
+            <label className="text-xs"><span className="intertitre block mb-1">Date de la séance</span>
               <input type="date" value={etat.champs.date_seance} className="controle w-full"
                 onChange={e => set('date_seance', e.target.value)} />
               {!etat.seance?.date_seance && etat.date_seance_proposee && (
@@ -210,16 +209,13 @@ export default function SeanceValorisation({ ueNum, ueNom, annee, onClose }) {
                   décision : à saisir, une date pour deux séances serait fausse.
                 </span>
               )}</label>
-            <label className="text-xs"><span className="block font-semibold text-slate-500
-              uppercase tracking-wide mb-1">Communication des résultats</span>
+            <label className="text-xs"><span className="intertitre block mb-1">Communication des résultats</span>
               <input type="date" value={etat.champs.communication_date} className="controle w-full"
                 onChange={e => set('communication_date', e.target.value)} /></label>
-            <label className="text-xs"><span className="block font-semibold text-slate-500
-              uppercase tracking-wide mb-1">Président de séance</span>
+            <label className="text-xs"><span className="intertitre block mb-1">Président de séance</span>
               <input value={etat.champs.president_nom} className="controle w-full"
                 onChange={e => set('president_nom', e.target.value)} /></label>
-            <label className="text-xs"><span className="block font-semibold text-slate-500
-              uppercase tracking-wide mb-1">Qualité du président</span>
+            <label className="text-xs"><span className="intertitre block mb-1">Qualité du président</span>
               <input value={etat.champs.president_titre} className="controle w-full"
                 onChange={e => set('president_titre', e.target.value)} /></label>
           </div>
@@ -242,7 +238,7 @@ export default function SeanceValorisation({ ueNum, ueNom, annee, onClose }) {
 
           <div>
             <div className="flex items-baseline justify-between mb-1.5">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+              <span className="intertitre">
                 Conseil des études — présences
               </span>
               {q && (

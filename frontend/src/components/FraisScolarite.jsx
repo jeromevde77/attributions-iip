@@ -75,7 +75,7 @@ export default function FraisScolarite({ etudId, annee }) {
           </div>
 
           <div className="text-right">
-            <div className="text-mention uppercase tracking-wide text-slate-500 font-semibold">
+            <div className="intertitre">
               Frais administratifs
             </div>
             <div className="text-2xl font-bold text-iip-blue leading-tight">
@@ -88,7 +88,7 @@ export default function FraisScolarite({ etudId, annee }) {
         <div className="pt-3 border-t border-slate-200 grid gap-3
                         sm:grid-cols-3 text-second">
           <div>
-            <div className="text-mention uppercase tracking-wide text-slate-500 font-semibold">
+            <div className="intertitre">
               Acompte à l'inscription
             </div>
             <div className="text-base font-bold text-slate-700">{eur(f.acompte)}</div>
@@ -97,7 +97,7 @@ export default function FraisScolarite({ etudId, annee }) {
             </div>
           </div>
           <div>
-            <div className="text-mention uppercase tracking-wide text-slate-500 font-semibold">
+            <div className="intertitre">
               Solde
             </div>
             <div className="text-base font-bold text-slate-700">{eur(f.solde)}</div>
@@ -108,7 +108,7 @@ export default function FraisScolarite({ etudId, annee }) {
             )}
           </div>
           <div>
-            <div className="text-mention uppercase tracking-wide text-slate-500 font-semibold">
+            <div className="intertitre">
               Total dû
             </div>
             <div className="text-base font-bold text-iip-blue">{eur(f.total)}</div>
@@ -138,7 +138,7 @@ export default function FraisScolarite({ etudId, annee }) {
             {detailOuvert && (
               <table className="w-full text-second">
                 <thead>
-                  <tr className="text-mention uppercase tracking-wide text-slate-400 border-b">
+                  <tr className="intertitre border-b">
                     <th className="py-1 text-left w-28">Date</th>
                     <th className="py-1 text-left">Nature</th>
                     <th className="py-1 text-left">Moyen</th>

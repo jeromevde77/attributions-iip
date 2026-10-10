@@ -1590,7 +1590,7 @@ ${methodologie}
         <div className="w-[240px] border-r border-slate-200 overflow-auto p-2 space-y-3 flex-shrink-0">
           {groupesTypes.map(g => (
             <div key={g.label}>
-              <div className="px-2 pb-1 text-mention font-semibold uppercase tracking-wider text-slate-400">
+              <div className="intertitre px-2 pb-1">
                 {g.label}
               </div>
               {g.items.map(it => (

@@ -943,7 +943,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
         <div className="flex-none px-0 py-1.5 border-b border-slate-100">
           <div className="flex items-start justify-between gap-3 flex-wrap">
           <div className="min-w-0">
-            <h3 className="text-base font-semibold text-iip-blue truncate">
+            <h3 className="titre-carte truncate">
               UE {data.ue_num} · {data.ue_nom}
               {data.epreuve_integree && (
                 <span className="ml-2 align-middle text-mention font-bold px-2 py-0.5 rounded-champ
@@ -1162,12 +1162,12 @@ function Presences({ seance, onValider, enCours, ueNum, annee }) {
             héritaient du gris de l'étiquette et se lisaient comme des champs
             vides. Elles arrivent posées à aujourd'hui et maintenant. */}
         <label className="flex-none">
-          <span className="block text-mention uppercase tracking-[.1em] text-slate-400 font-semibold mb-0.5">Date</span>
+          <span className="intertitre block mb-0.5">Date</span>
           <input type="date" value={date} onChange={e => setDate(e.target.value)}
             className="controle bg-white text-iip-texte tabular-nums" />
         </label>
         <label className="flex-none">
-          <span className="block text-mention uppercase tracking-[.1em] text-slate-400 font-semibold mb-0.5">Heure</span>
+          <span className="intertitre block mb-0.5">Heure</span>
           <input type="time" value={heure} onChange={e => setHeure(e.target.value)}
             className="controle bg-white text-iip-texte tabular-nums w-[7rem]" />
         </label>
@@ -1593,7 +1593,7 @@ function Mentions({ liste, session, enCours, onDecider, onFini, colonnesCours = 
           </thead>
           {groupes.map(g => (
             <tbody key={g.m}>
-              <tr className="tab-repere"><td colSpan={colonnes.length + 3} className="px-3 py-1 text-xs uppercase tracking-wide">
+              <tr className="tab-repere"><td colSpan={colonnes.length + 3} className="intertitre px-3 py-1">
                 {LIBELLE_MENTION[g.m]} · {g.gens.length}</td></tr>
               {g.gens.map(e => {
                 const pris = !ecartes.has(e.id), dec = decisionDe(e);
@@ -2429,7 +2429,7 @@ function Pilotage({ e, ue, onBord }) {
 
       {/* Les autres unités de l'année, en pastilles. */}
       <div>
-        <div className="text-mention font-bold uppercase tracking-wide text-slate-400 mb-1">
+        <div className="intertitre mb-1">
           Les autres unités de l'année
         </div>
         {!autres.length ? (
@@ -2491,7 +2491,7 @@ function Chiffre({ libelle, valeur, suffixe, ton }) {
       <div className={`text-base font-bold leading-none tabular-nums ${ton}`}>
         {valeur}<span className="text-mention font-normal opacity-70">{suffixe}</span>
       </div>
-      <div className="text-mention uppercase tracking-wide text-slate-400 mt-0.5">{libelle}</div>
+      <div className="intertitre mt-0.5">{libelle}</div>
     </div>
   );
 }

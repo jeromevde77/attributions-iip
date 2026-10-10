@@ -72,7 +72,7 @@ export default function ParametresEtablissement() {
   return (
     <div className="max-w-[1100px] space-y-6">
       <div>
-        <h2 className="font-semibold text-iip-gold">Paramètres de l'établissement</h2>
+        <h2 className="titre-carte">Paramètres de l'établissement</h2>
         <p className="text-sm text-gray-500 mt-1">
           Ces informations apparaissent sur les documents officiels (EA12…). Saisies une seule fois,
           elles se reportent automatiquement sur tous les documents générés.
@@ -91,7 +91,7 @@ export default function ParametresEtablissement() {
 
       {/* Identification de l'établissement */}
       <section className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
-        <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Identification de l'établissement</div>
+        <div className="intertitre">Identification de l'établissement</div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Champ label="Nom du Pouvoir Organisateur (PO)" value={f.po_nom} onChange={v => set('po_nom', v)} />
           <Champ label="Nom de l'établissement" value={f.etab_nom} onChange={v => set('etab_nom', v)} />
@@ -155,7 +155,7 @@ export default function ParametresEtablissement() {
 
       {/* Direction — le signataire des pièces */}
       <section className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
-        <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+        <div className="intertitre">
           Direction
           <span className="font-normal normal-case text-gray-400"> · nom porté sous la signature et le sceau des pièces officielles</span>
         </div>
@@ -166,7 +166,7 @@ export default function ParametresEtablissement() {
 
       {/* Gestionnaire du dossier */}
       <section className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
-        <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+        <div className="intertitre">
           Gestionnaire du dossier
           <span className="font-normal normal-case text-gray-400"> · personne joignable par l'Administration</span>
         </div>
@@ -183,7 +183,7 @@ export default function ParametresEtablissement() {
 
       {/* Mise en page des documents */}
       <section className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
-        <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+        <div className="intertitre">
           Mise en page des documents
           <span className="font-normal normal-case text-gray-400"> · en-tête et pied de page de tous les documents imprimés</span>
         </div>
@@ -303,7 +303,7 @@ export function ReglesDeliberation() {
 
   return (
     <section className="carte p-4 space-y-3 max-w-4xl">
-      <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+      <div className="intertitre">
         Délibération — ce que le Conseil ajourne
       </div>
       <p className="text-second text-slate-500">

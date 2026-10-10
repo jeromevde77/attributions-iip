@@ -439,7 +439,7 @@ function NouvelleConvention({ sections, annee: anneeDefaut, onClose, onCree }) {
 
           {/* LE PARTENAIRE */}
           <section className="space-y-2">
-            <h3 className="text-sm font-semibold text-iip-blue">
+            <h3 className="titre-carte">
               {famille === 'cadre_stage' ? 'L’institution d’accueil' : 'Le partenaire'}
             </h3>
             {famille === 'cadre_stage' ? (
@@ -476,7 +476,7 @@ function NouvelleConvention({ sections, annee: anneeDefaut, onClose, onCree }) {
 
           {famille === 'cadre_stage' && (
             <section className="space-y-2">
-              <h3 className="text-sm font-semibold text-iip-blue">Cursus concernés *</h3>
+              <h3 className="titre-carte">Cursus concernés *</h3>
               <div className="flex flex-wrap gap-2">
                 {sections.map(s => (
                   <label key={s.code} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-champ border cursor-pointer text-second ${cursus.has(s.code) ? 'border-iip-blue' : 'border-slate-200 text-slate-600'}`}>
@@ -491,7 +491,7 @@ function NouvelleConvention({ sections, annee: anneeDefaut, onClose, onCree }) {
 
           {famille === 'partenariat' && (
             <section className="space-y-3">
-              <h3 className="text-sm font-semibold text-iip-blue">L’activité</h3>
+              <h3 className="titre-carte">L’activité</h3>
               <Champ label="Objet — « … visant à »" requis>
                 <Zone v={d.objet} set={md('objet')} rows={2}
                   placeholder="permettre aux étudiants de l’Institut d’expérimenter…" />
@@ -810,7 +810,7 @@ function ModelesConvention({ onClose }) {
           </div>
           <aside className="space-y-4 text-second">
             <div>
-              <h3 className="font-semibold text-iip-blue mb-1">Champs du texte</h3>
+              <h3 className="titre-carte mb-1">Champs du texte</h3>
               <p className="text-slate-500 mb-1.5">Ils s’écrivent entre doubles accolades ; un champ inconnu est refusé à la publication.</p>
               <ul className="space-y-0.5">
                 {f.champs.map(c => (
@@ -820,7 +820,7 @@ function ModelesConvention({ onClose }) {
               </ul>
             </div>
             <div>
-              <h3 className="font-semibold text-iip-blue mb-1">Versions</h3>
+              <h3 className="titre-carte mb-1">Versions</h3>
               <ul className="space-y-1">
                 {f.versions.map(v => (
                   <li key={v.id}>

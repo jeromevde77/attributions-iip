@@ -276,7 +276,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
       <div className="text-sm whitespace-nowrap"><span className="font-semibold">{String(e.nom || '').toUpperCase()}</span>{' '}{e.prenom}
         {e.source_s2 === 'dossier' && (
           <span title="Ajourné d'après le dossier : aucune décision de première session n'a été enregistrée pour cette unité"
-            className="ml-1.5 text-mention uppercase tracking-wide font-bold text-white rounded px-1 py-px" style={{ background: 'var(--c-attente)' }}>dossier</span>)}
+            className="intertitre ml-1.5 text-white rounded px-1 py-px" style={{ background: 'var(--c-attente)' }}>dossier</span>)}
       </div>
       <div className="text-xs text-slate-400">{e.id_ecampus || ''}</div>
     </td>);
@@ -422,7 +422,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
             <table className="border-separate border-spacing-0 text-sm">
               <thead>
                 <tr>
-                  <th className="sticky left-0 z-20 bg-white text-left px-4 py-3 text-xs uppercase tracking-wide text-slate-500 font-semibold border-b border-slate-200 align-bottom">Étudiant</th>
+                  <th className="intertitre sticky left-0 z-20 bg-white text-left px-4 py-3 border-b border-slate-200 align-bottom">Étudiant</th>
                   {acquisUE.map((x, i) => (
                     <th key={x.aa_code} title={x.description || x.aa_code}
                       className={`px-2 pt-3 pb-2 w-24 border-b border-slate-200 align-bottom text-center ${i && acquisUE[i - 1].cours[0] !== x.cours[0] ? 'border-l border-l-slate-300' : 'border-l border-l-slate-100'}`}
@@ -479,7 +479,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
               className="text-sm border-separate border-spacing-0">
               <thead>
                 <tr>
-                  <th rowSpan={2} className="sticky left-0 z-20 bg-white text-left px-4 pb-2 align-bottom text-xs uppercase tracking-wide text-slate-500 font-semibold border-b border-slate-200">Étudiant</th>
+                  <th rowSpan={2} className="intertitre sticky left-0 z-20 bg-white text-left px-4 pb-2 align-bottom border-b border-slate-200">Étudiant</th>
                   {coursVus.map(c => (
                     <th key={c.cours_code} colSpan={c.acquis.length + 1}
                       className="px-3 pt-3 pb-1 text-left align-bottom border-l border-slate-200 font-normal"

@@ -162,7 +162,7 @@ function EditeurSignataires({ liste, setListe, palette, peutEcrire, rendu }) {
       </div>
       {/* Les tuiles disponibles : on les glisse, elles restent ici. */}
       <div className="space-y-2">
-        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Signataires disponibles</div>
+        <div className="intertitre">Signataires disponibles</div>
         {palette.map((x, i) => (
           <Tuile key={i} x={x} draggable={peutEcrire}
             onDragStart={e => e.dataTransfer.setData('text/plain', JSON.stringify({ de: 'palette', item: x }))}
@@ -349,7 +349,7 @@ export default function DiplomeEditeur({ assets = {} }) {
     <div className="space-y-3">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h2 className="font-title text-lg text-iip-blue">Modèle de diplôme</h2>
+          <h2 className="titre-carte">Modèle de diplôme</h2>
           <p className="text-xs text-gray-500">Une page identique pour toutes les sections. Ce qui change se remplit seul : les données de la section et de l'étudiant (champs <code>{'{{...}}'}</code>), le logo si co-diplomation, les signataires.</p>
         </div>
         <div className="flex items-center gap-2">

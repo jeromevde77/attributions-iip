@@ -83,6 +83,10 @@ export const COULEURS_DEFAUT = {
   bouton_sortir:   { groupe: 'composants', libelle: 'Bouton « produire une pièce »', valeur: null, suit: 'principal' },
   bouton_detruire: { groupe: 'composants', libelle: 'Bouton « détruire »', valeur: null, suit: 'refuse' },
   segment_actif:   { groupe: 'composants', libelle: 'Segment choisi (choix exclusif)', valeur: null, suit: 'principal' },
+  // LES TITRES ET LES TABLEAUX (3.1.260, Charles : « les tableaux, les titres… tous les visuels »).
+  titre:          { groupe: 'composants', libelle: 'Titres (écran, carte, section)', valeur: null, suit: 'principal' },
+  intertitre:     { groupe: 'composants', libelle: 'Intertitres (petites majuscules)', valeur: null, suit: 'texte à 55 %' },
+  tableau_total:  { groupe: 'composants', libelle: 'Tableau — ligne de total', valeur: '#EDF2F8' },
   // LES GRAPHIQUES (3.1.254, Charles : « penser aux graphiques, à tout ce qui est
   // visible »). Six séries dans l'ordre où elles se présentent, la part vide, la
   // grille, la ligne de référence. Défauts : les couleurs du logo, puis les états.
