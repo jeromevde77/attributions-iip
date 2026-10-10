@@ -40,6 +40,18 @@ venir :** les pièces d'une section d'un AUTRE établissement lisent son identit
 (`etablissementDeSection`), le filtre par établissement, le périmètre d'accès par
 établissement.
 
+**LA COMMUNICATION** (3.1.278-3.1.279, Charles, 10 octobre 2026 : « envoyer sur le
+tableau de bord de tous, d'une partie, d'une section… à terme, supprimer les courriels
+pour les infos » ; « les profs d'une UE » ; « quand c'est lu, un petit v vert »).
+Tableau de bord → *Communication* (`routes/communication.js`, `pages/Communication.jsx`,
+tables `communication` et `communication_destinataire` — prévues depuis l'échéancier,
+jamais servies). Groupes qui s'additionnent : tout le personnel de l'année, sections,
+enseignants d'une UE, rôles, personnes ; aperçu nommé avant l'envoi ; copie courriel
+facultative (redirigée sur la dev) ; ✓ vert quand c'est lu ; retrait (le registre garde
+tout). Direction, secrétariat : à tous ; coordination : ses sections. **Le ménage** :
+même choix de groupes, « Vider leurs tableaux de bord » pose `tableau_vide.vide_le` par
+compte ; les notifications d'avant quittent le fil, les messages et les vœux restent.
+
 **Établissement :** IIP — N° ECOT 5222132070, FASE 292, Campus Erasme,
 Route de Lennik 808, 1070 Anderlecht. Enseignement pour adultes (FWB).
 Sections : TIM (la plus grande), Psychomotricité, AeSI (soins infirmiers,
@@ -379,7 +391,11 @@ NAS Synology.
   fonctions déclarées par `db/index.js` (`lucie_auteur()`,
   `lucie_auteur_id()`). **Une correction en `node -e` qui écrit dans ces
   tables doit les déclarer**, sinon SQLite refuse (« no such function ») :
-  `d.function('lucie_auteur',()=>'Jérôme (ligne de commande)');d.function('lucie_auteur_id',()=>null);`.
+  `d.function('lucie_auteur',()=>'Jérôme (ligne de commande)');d.function('lucie_auteur_id',()=>null);d.function('lucie_geste',()=>null);`.
+  **Depuis 3.1.270, `lucie_geste` aussi** : les déclencheurs de l'« Annuler » général
+  sont posés sur toutes les tables, et sans elle TOUTE écriture en ligne de commande est
+  refusée (« no such function: lucie_geste »). Rendre `null` : une correction en ligne
+  de commande n'est pas un geste annulable depuis l'écran.
   Lecture dans *Qui a fait quoi*, registre « Fiches, PAE, notes ». Un
   `INSERT OR REPLACE` ne se journalise que comme un encodage (sans l'ancienne
   valeur) : préférer `ON CONFLICT … DO UPDATE`.

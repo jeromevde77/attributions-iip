@@ -5,7 +5,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import db from '../db/index.js';
 import { professeurDe } from '../middleware/auth.js';
-import { messagesRecus } from './communication.js';
+import { messagesRecus, videLe } from './communication.js';
 import { anneeActiveEnBase } from '../helpers/annee.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
 import { snapshotComplet } from '../lib/retention.js';
@@ -643,6 +643,18 @@ r.get('/feed', authRequired, (req, res) => {
       });
     }
   } catch (e) { console.error('[feed] vœux :', e.message); }
+
+  // LE MÉNAGE (3.1.279) : ce qui précède le « vidé le » de ce compte quitte son tableau de
+  // de bord — sauf les messages et les vœux, écrits pour lui.
+  const vide = videLe(u.id);
+  if (vide) {
+    const t = new Date(String(vide).replace(' ', 'T') + 'Z').getTime();
+    for (let k = items.length - 1; k >= 0; k--) {
+      const it = items[k];
+      if (it.type === 'communication' || it.type === 'anniversaire') continue;
+      if (new Date(it.date).getTime() < t) items.splice(k, 1);
+    }
+  }
 
   // Trier par date décroissante
   items.sort((a, b) => new Date(b.date) - new Date(a.date));

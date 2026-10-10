@@ -236,6 +236,33 @@ r.post('/:id/lu', authRequired, (req, res) => {
   res.json({ ok: true });
 });
 
+/* LE MÉNAGE DES TABLEAUX DE BORD (3.1.279, Charles, 10 octobre 2026 : « vider leurs
+   notifications, sinon ils vont se dire : oh là là, j'ai plein de retard — par personne,
+   par groupe »). On ne supprime rien : on pose, pour chaque compte, un « vidé le ».
+   Les notifications d'avant disparaissent de son tableau de bord ; les messages de la
+   Communication et les vœux restent — ils ont été écrits pour lui. Mêmes groupes, mêmes
+   droits que l'envoi. */
+try {
+  db.exec(`CREATE TABLE IF NOT EXISTS tableau_vide (utilisateur_id INTEGER PRIMARY KEY, vide_le TEXT NOT NULL, vide_par TEXT)`);
+} catch (e) { console.error('[migration] tableau_vide :', e.message); }
+
+r.post('/vider', authRequired, (req, res) => {
+  if (!peutEnvoyer(req.user)) return res.status(403).json({ error: 'Réservé.' });
+  const annee = String(req.body?.annee || anneeDeTravail(req));
+  const comptes = [...new Set(resoudre(req.body?.critere, req.user, annee).map(d => d.utilisateur_id).filter(Boolean))];
+  if (req.body?.simulation !== false) return res.json({ comptes: comptes.length });
+  const par = req.user?.nom || req.user?.email || null;
+  const ecrire = db.prepare(`INSERT INTO tableau_vide (utilisateur_id, vide_le, vide_par) VALUES (?, datetime('now'), ?)
+    ON CONFLICT(utilisateur_id) DO UPDATE SET vide_le = excluded.vide_le, vide_par = excluded.vide_par`);
+  db.transaction(() => { for (const id of comptes) ecrire.run(id, par); })();
+  res.json({ ok: true, comptes: comptes.length });
+});
+
+/** Le « vidé le » d'un compte, ou null. */
+export function videLe(userId) {
+  try { return db.prepare('SELECT vide_le FROM tableau_vide WHERE utilisateur_id = ?').get(userId)?.vide_le || null; } catch { return null; }
+}
+
 /** Les messages reçus, pour le tableau de bord. */
 export function messagesRecus(user) {
   const moi = professeurDe(user);

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { IconCheck, IconMail, IconSend, IconSpeakerphone, IconTrash, IconUser, IconUserOff, IconX } from '@tabler/icons-react';
+import { IconCheck, IconEraser, IconMail, IconSend, IconSpeakerphone, IconTrash, IconUser, IconUserOff, IconX } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { demander, informer } from '../lib/dialogue.jsx';
 import { Fenetre } from '../components/ui.jsx';
@@ -72,6 +72,16 @@ export default function Communication() {
     await informer(`✓ Envoyé à ${j.nb} personne(s). Le message est sur leur tableau de bord.`);
     setTitre(''); setTexte(''); setCrit({ tous: false, sections: [], ues: [], roles: [], professeurs: [], utilisateurs: [] }); setCourriel(false);
     chargerEnvois();
+  }
+  /* LE MÉNAGE (3.1.279) : mêmes groupes que l'envoi ; on dit combien de comptes, puis on vide. */
+  async function vider() {
+    const corps = { critere: crit, annee };
+    const sim = await fetch('/api/communication/vider', { method: 'POST', headers: authHeaders(), body: JSON.stringify(corps) }).then(r => r.json()).catch(() => ({}));
+    if (!sim.comptes) { await informer('Aucun compte Lucie parmi ces destinataires : rien à vider.'); return; }
+    if (!(await demander({ titre: 'Vider les tableaux de bord', message: `Les notifications reçues jusqu’à maintenant quittent le tableau de bord de ${sim.comptes} compte(s). Les messages de la Communication et les vœux restent. Rien n’est effacé de Lucie.`, confirmer: 'Vider' }))) return;
+    const r = await fetch('/api/communication/vider', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ ...corps, simulation: false }) });
+    const j = await r.json().catch(() => ({}));
+    await informer(r.ok ? `✓ ${j.comptes} tableau(x) de bord vidé(s).` : `❌ ${j.error || 'Impossible'}`);
   }
   async function ouvrir(id) {
     const r = await fetch(`/api/communication/${id}`, { headers: authHeaders() });
@@ -148,6 +158,9 @@ export default function Communication() {
                   {apercu.sans_compte > 0 && <> · <b>{apercu.sans_compte}</b> sans compte Lucie (le message les attendra{courriel ? ', le courriel les prévient' : ''})</>}
                   {' '}<button type="button" className="underline" onClick={() => setVoirListe(true)}>voir la liste</button></>}
           </span>
+          <button className="bouton" disabled={vide || !apercu?.nb} onClick={vider}
+            title="Pour ces mêmes personnes : retirer de leur tableau de bord les notifications reçues jusqu'ici (rappels, notes encodées…). Les messages et les vœux restent.">
+            <IconEraser size={15} className="inline -mt-0.5 mr-1" />Vider leurs tableaux de bord</button>
           <button className="bouton bouton-fort" disabled={enCours || !titre.trim() || !texte.trim() || !apercu?.nb} onClick={envoyer}>
             <IconSend size={15} className="inline -mt-0.5 mr-1" />{enCours ? 'Envoi…' : 'Envoyer'}</button>
         </div>
