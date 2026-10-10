@@ -4,6 +4,7 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
+import { AGENDA_HEURES } from '../lib/simulationHoraire.js';
 
 const r = Router();
 
@@ -118,34 +119,28 @@ r.get('/creneaux', authRequired, (req, res) => {
 
 // ─── DISPONIBILITÉS PROFS ────────────────────────────────────────────────────
 
-// GET /prerequis/disponibilites/:prof_id
+// GET /prerequis/disponibilites/:prof_id — l'agenda de l'enseignant, commun à toutes les sections
 r.get('/disponibilites/:prof_id', authRequired, (req, res) => {
-  const rows = db.prepare(`
-    SELECT pd.*, c.heure_debut, c.heure_fin, c.label AS creneau_label, c.ordre
-    FROM prof_disponibilite pd
-    JOIN creneau c ON c.id = pd.creneau_id
-    WHERE pd.professeur_id = ?
-    ORDER BY pd.quadrimestre, pd.jour, c.ordre
-  `).all(req.params.prof_id);
-  res.json(rows);
+  const rows = db.prepare('SELECT quadrimestre, jour, heure, valeur FROM prof_agenda WHERE professeur_id = ?').all(req.params.prof_id);
+  res.json({ heures: AGENDA_HEURES, cases: rows });
 });
 
-// PUT /prerequis/disponibilites/:prof_id — remplace toutes les dispos d'un prof/quadrimestre
-// Saisies par le secrétariat, la coordination ou la direction (Charles, 10 octobre 2026) — pas par chacun.
+// PUT /prerequis/disponibilites/:prof_id — remplace l'agenda d'un quadrimestre.
+// Saisi par le secrétariat, la coordination ou la direction (Charles, 10 octobre 2026) — pas par chacun.
 r.put('/disponibilites/:prof_id', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
-  const { quadrimestre, dispos } = req.body;
-  // dispos = [{ jour: 1, creneau_id: 1, disponible: 1 }, ...]
-  if (!quadrimestre || !Array.isArray(dispos))
-    return res.status(400).json({ error: 'quadrimestre et dispos[] requis' });
+  const { quadrimestre, cases } = req.body || {};
+  if (!['Q1', 'Q2'].includes(quadrimestre) || !Array.isArray(cases))
+    return res.status(400).json({ error: 'quadrimestre (Q1 ou Q2) et cases[] requis' });
   const profId = Number(req.params.prof_id);
-  const upsert = db.transaction(() => {
-    db.prepare('DELETE FROM prof_disponibilite WHERE professeur_id = ? AND quadrimestre = ?').run(profId, quadrimestre);
-    const ins = db.prepare(`INSERT INTO prof_disponibilite (professeur_id, quadrimestre, jour, creneau_id, disponible) VALUES (?,?,?,?,?)`);
-    for (const d of dispos) {
-      if (d.disponible) ins.run(profId, quadrimestre, d.jour, d.creneau_id, 1);
+  db.transaction(() => {
+    db.prepare('DELETE FROM prof_agenda WHERE professeur_id = ? AND quadrimestre = ?').run(profId, quadrimestre);
+    const ins = db.prepare('INSERT OR REPLACE INTO prof_agenda (professeur_id, quadrimestre, jour, heure, valeur) VALUES (?,?,?,?,?)');
+    // Le vert n'a pas besoin de ligne : seules l'orange et le rouge s'écrivent.
+    for (const c of cases) {
+      const v = Number(c.valeur), j = Number(c.jour);
+      if (j >= 1 && j <= 6 && AGENDA_HEURES.includes(c.heure) && (v === 0 || v === 2)) ins.run(profId, quadrimestre, j, c.heure, v);
     }
-  });
-  upsert();
+  })();
   res.json({ ok: true });
 });
 

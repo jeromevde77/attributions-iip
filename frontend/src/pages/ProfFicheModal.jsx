@@ -1,4 +1,5 @@
 import { ouvrirApercuPdf } from '../lib/apercu.js';
+import { MiniAgenda, LegendeDispo, suivant } from './DisponibilitesSection.jsx';
 import { authHeaders } from '../lib/api.js';
 import { useState, useEffect, useRef } from 'react';
 import FonctionsPanel from '../components/FonctionsPanel.jsx';
@@ -100,39 +101,26 @@ function OuiNon({ label, value, onChange }) {
 // Le samedi aussi : des sections y donnent cours (Charles, 10 octobre 2026).
 const JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
 
-function DispoGrid({ creneaux, dispoQ1, setDispoQ1, dispoQ2, setDispoQ2, profId }) {
+function DispoGrid({ dispoQ1, setDispoQ1, dispoQ2, setDispoQ2, profId }) {
   const [quadrimestre, setQ] = useState('Q1');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved]   = useState(false);
 
+  // L'agenda de l'enseignant, commun à toutes ses sections : { 'jour|heure': 0 | 2 } — absent = vert.
   const dispo = quadrimestre === 'Q1' ? dispoQ1 : dispoQ2;
   const setDispo = quadrimestre === 'Q1' ? setDispoQ1 : setDispoQ2;
 
-  function toggle(jour, creneauId) {
-    const key = `${jour}_${creneauId}`;
-    setDispo(prev => ({ ...prev, [key]: !prev[key] }));
+  function changer(jour, heure) {
+    const key = `${jour}|${heure}`;
+    setDispo(prev => { const n = { ...prev }, v = suivant(prev[key] ?? 1); if (v === 1) delete n[key]; else n[key] = v; return n; });
     setSaved(false);
   }
 
-  function toutCocher() {
-    const all = {};
-    for (let j = 1; j <= 6; j++)
-      for (const c of creneaux) all[`${j}_${c.id}`] = true;
-    setDispo(all); setSaved(false);
-  }
-
-  function toutDecocher() { setDispo({}); setSaved(false); }
-
   async function sauvegarder() {
     setSaving(true);
-    const dispos = [];
-    for (let jour = 1; jour <= 6; jour++) {
-      for (const c of creneaux) {
-        if (dispo[`${jour}_${c.id}`]) dispos.push({ jour, creneau_id: c.id, disponible: 1 });
-      }
-    }
+    const cases = Object.entries(dispo).map(([k, valeur]) => { const [jour, heure] = k.split('|'); return { jour: Number(jour), heure, valeur }; });
     await _fetch(`/api/prerequis/disponibilites/${profId}`, {
-      method: 'PUT', body: JSON.stringify({ quadrimestre, dispos }),
+      method: 'PUT', body: JSON.stringify({ quadrimestre, cases }),
     });
     setSaving(false); setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -140,67 +128,21 @@ function DispoGrid({ creneaux, dispoQ1, setDispoQ1, dispoQ2, setDispoQ2, profId 
 
   return (
     <div className="space-y-3">
-      {/* Sélecteur Q1/Q2 */}
-      <div className="flex items-center gap-3">
-        {['Q1', 'Q2'].map(q => (
-          <button key={q} onClick={() => setQ(q)}
-            className={`px-4 py-1.5 text-sm rounded-champ font-medium transition
-              ${quadrimestre === q ? 'bg-iip-mauve text-white' : 'border border-gray-300 text-gray-600 hover:border-iip-mauve'}`}>
-            {q}
-          </button>
-        ))}
-        <div className="flex gap-2 ml-auto">
-          <button onClick={toutCocher} className="text-xs text-gray-400 hover:text-iip-gold">Tout cocher</button>
-          <button onClick={toutDecocher} className="text-xs text-gray-400 hover:text-red-500">Tout décocher</button>
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="segments flex h-9">
+          {['Q1', 'Q2'].map(q => (
+            <button key={q} onClick={() => setQ(q)}
+              className={`px-4 text-[12.5px] ${quadrimestre === q ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'}`}>{q}</button>
+          ))}
         </div>
+        <LegendeDispo />
+        <span className="flex-1" />
+        <button onClick={() => { setDispo({}); setSaved(false); }} className="bouton !h-8">Tout vert</button>
+        <button onClick={sauvegarder} disabled={saving} className="bouton bouton-fort !h-8">
+          {saving ? 'Sauvegarde…' : saved ? '✓ Enregistré' : `Enregistrer ${quadrimestre}`}</button>
       </div>
-
-      {/* Grille jour × créneau */}
-      <div className="overflow-x-auto">
-        <table className="text-xs border-collapse w-full">
-          <thead>
-            <tr>
-              <th className="text-left px-2 py-1.5 h-9 text-gray-400 font-normal w-32">Créneau</th>
-              {JOURS.map(j => (
-                <th key={j} className="px-3 py-1.5 h-9 text-center text-gray-600 font-medium">{j}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {creneaux.map(c => (
-              <tr key={c.id} className="hover:bg-gray-50">
-                <td className="px-2 py-2 text-gray-500 font-mono text-[10px]">
-                  {c.heure_debut}–{c.heure_fin}
-                  <span className="ml-1 text-gray-400">{c.label}</span>
-                </td>
-                {[1,2,3,4,5,6].map(jour => {
-                  const key = `${jour}_${c.id}`;
-                  const actif = !!dispo[key];
-                  return (
-                    <td key={jour} className="px-3 py-2 text-center">
-                      <button onClick={() => toggle(jour, c.id)}
-                        className={`w-8 h-8 rounded-lg border-2 transition font-semibold
-                          ${actif
-                            ? 'bg-iip-gold/20 border-iip-gold text-iip-gold'
-                            : 'bg-white border-gray-200 text-gray-200 hover:border-gray-400'}`}>
-                        {actif ? '✓' : '·'}
-                      </button>
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="flex items-center gap-3">
-        <button onClick={sauvegarder} disabled={saving}
-          className="bg-iip-mauve text-white text-xs px-4 py-1.5 h-9 rounded hover:opacity-90 disabled:opacity-50">
-          {saving ? 'Sauvegarde…' : `Enregistrer les dispos ${quadrimestre}`}
-        </button>
-        {saved && <span className="text-xs text-green-500">✓ Sauvegardé</span>}
-      </div>
+      <p className="text-[12px] text-slate-500">Un clic fait tourner la case : vert disponible, orange éventuellement, rouge pas disponible. Cet agenda vaut pour toutes les sections où il enseigne.</p>
+      <MiniAgenda grand valeur={(j, h) => dispo[`${j}|${h}`] ?? 1} onCase={changer} />
     </div>
   );
 }
@@ -377,13 +319,13 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
     _fetch('/api/prerequis/creneaux').then(d => setCreneaux(Array.isArray(d) ? d : []));
     api.sections().then(d => setSectionsDispo(Array.isArray(d) ? d : [])).catch(() => {});
     if (prof?.id && !isNew) {
-      _fetch(`/api/prerequis/disponibilites/${prof.id}`).then(rows => {
-        if (!Array.isArray(rows)) return;
+      _fetch(`/api/prerequis/disponibilites/${prof.id}`).then(d => {
+        const rows = Array.isArray(d?.cases) ? d.cases : [];
         const q1 = {}, q2 = {};
         for (const r of rows) {
-          const key = `${r.jour}_${r.creneau_id}`;
-          if (r.quadrimestre === 'Q1') q1[key] = !!r.disponible;
-          if (r.quadrimestre === 'Q2') q2[key] = !!r.disponible;
+          const key = `${r.jour}|${r.heure}`;
+          if (r.quadrimestre === 'Q1') q1[key] = Number(r.valeur) || 0;
+          if (r.quadrimestre === 'Q2') q2[key] = Number(r.valeur) || 0;
         }
         setDispoQ1(q1); setDispoQ2(q2); setDispoLoaded(true);
       });

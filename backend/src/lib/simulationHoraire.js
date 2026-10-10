@@ -33,6 +33,14 @@ export const MINUTES_PERIODE = 50;
 const JOURS = ['', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
 
 export function migrerPlages(base = db) {
+  // L'AGENDA DE L'ENSEIGNANT (Charles, 10 octobre 2026 : « cela doit couvrir toutes
+  // les sections — Berte donne cours dans plusieurs sections ») : une grille par
+  // enseignant, commune à toutes les sections ; 2 orange, 0 rouge, absent = vert.
+  base.exec(`CREATE TABLE IF NOT EXISTS prof_agenda (
+    professeur_id INTEGER NOT NULL REFERENCES professeur(id) ON DELETE CASCADE,
+    quadrimestre TEXT NOT NULL, jour INTEGER NOT NULL, heure TEXT NOT NULL,
+    valeur INTEGER NOT NULL DEFAULT 1,
+    PRIMARY KEY (professeur_id, quadrimestre, jour, heure))`);
   base.exec(`CREATE TABLE IF NOT EXISTS horaire_plage (
     section TEXT NOT NULL, jour INTEGER NOT NULL, debut TEXT NOT NULL, fin TEXT NOT NULL,
     PRIMARY KEY (section, jour, debut));
@@ -107,20 +115,44 @@ export function synchroniserCreneaux(base = db) {
     }
   } catch { /* table creneau absente */ }
 }
-/** Les disponibilités saisies : prof → quadrimestre → Set(« jour|début »). */
+/** Les tranches de l'agenda de l'enseignant : deux heures, de 8 h à 22 h. */
+export const AGENDA_HEURES = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00'];
+const enMin = h => { const [a, b] = String(h).split(':').map(Number); return a * 60 + (b || 0); };
+/**
+ * L'agenda saisi : prof → quadrimestre → Map(« jour|heure » → valeur). TROIS
+ * VALEURS (Charles, 10 octobre 2026) : 1 disponible, 2 éventuellement, 0 pas
+ * disponible ; une tranche absente est verte. Commun à toutes les sections.
+ */
 export function disponibilites(profIds = null) {
   const m = new Map();
   try {
-    const rows = db.prepare(`SELECT pd.professeur_id, pd.quadrimestre, pd.jour, c.heure_debut FROM prof_disponibilite pd JOIN creneau c ON c.id = pd.creneau_id
-      WHERE pd.disponible = 1${profIds ? ` AND pd.professeur_id IN (${profIds.map(() => '?').join(',') || 'NULL'})` : ''}`).all(...(profIds || []));
+    const rows = db.prepare(`SELECT professeur_id, quadrimestre, jour, heure, valeur FROM prof_agenda
+      ${profIds ? `WHERE professeur_id IN (${profIds.map(() => '?').join(',') || 'NULL'})` : ''}`).all(...(profIds || []));
     for (const r of rows) {
       if (!m.has(r.professeur_id)) m.set(r.professeur_id, new Map());
       const q = m.get(r.professeur_id);
-      if (!q.has(r.quadrimestre)) q.set(r.quadrimestre, new Set());
-      q.get(r.quadrimestre).add(`${r.jour}|${r.heure_debut}`);
+      if (!q.has(r.quadrimestre)) q.set(r.quadrimestre, new Map());
+      q.get(r.quadrimestre).set(`${r.jour}|${r.heure}`, Number(r.valeur) || 0);
     }
   } catch { /* */ }
   return m;
+}
+/**
+ * Le niveau d'une séance pour un agenda : 2 disponible, 1 éventuellement, 0 non.
+ * Une séance qui chevauche deux tranches (10 h 15 – 12 h 15) prend la PLUS
+ * restrictive : à midi, l'enseignant n'est pas là, la séance non plus.
+ */
+export function niveauAgenda(agenda, jour, debut, fin) {
+  if (!agenda) return 2;
+  const d = enMin(debut), f = enMin(fin || debut) || d + 120;
+  let n = 2;
+  for (const h of AGENDA_HEURES) {
+    const a = enMin(h), z = a + 120;
+    if (z <= d || a >= f) continue;
+    const v = agenda.get(`${jour}|${h}`);
+    n = Math.min(n, v === 0 ? 0 : v === 2 ? 1 : 2);
+  }
+  return n;
 }
 export const plagesDe = section => db.prepare('SELECT jour, debut, fin FROM horaire_plage WHERE section = ? ORDER BY jour, debut').all(section);
 export function ecrirePlages(section, plages) {
@@ -333,12 +365,13 @@ export function simuler(section, bloc, annee, { mode = 'plan' } = {}) {
   }
   // L'enseignant doit être DISPONIBLE (saisie du secrétariat) — sans saisie pour ce quadrimestre, il l'est partout.
   const dispos = disponibilites();
-  const dispoProf = (s, d) => {
-    if (!d.professeur_id) return true;
-    const q = dispos.get(d.professeur_id); if (!q) return true;
-    const set = q.get(s.quadri) || q.get('AN'); if (!set) return true;
-    return set.has(`${s.jour}|${s.debut}`);
+  // 2 = disponible, 1 = éventuellement (permis, évité tant qu'il y a mieux), 0 = pas disponible.
+  const niveauProf = (s, d) => {
+    if (!d.professeur_id) return 2;
+    const q = dispos.get(d.professeur_id); if (!q) return 2;
+    return niveauAgenda(q.get(s.quadri) || q.get('AN'), s.jour, s.debut, s.fin);
   };
+  const dispoProf = (s, d) => niveauProf(s, d) > 0;
   const libreSansJours = (s, d) => !(d.briques.some(b => occB.get(k(s))?.has(b)) || (d.professeur_id && occP.get(k(s))?.has(d.professeur_id))) && dispoProf(s, d);
   // Les jours de présence de chaque brique, semaine par semaine.
   const regles = reglesDe(section);
@@ -450,8 +483,8 @@ export function simuler(section, bloc, annee, { mode = 'plan' } = {}) {
             else if (choisies.length) trous++;
           }
           if (!choisies.length) continue;
-          // Score : couvrir le plus, avec le moins de trous, regroupé si la section le veut, finir le plus tôt, le local préféré.
-          const score = [choisies.length, -trous, regles.regrouper ? choisies.filter(x => regroupe(x, d)).length : 0,
+          // Score : couvrir le plus, avec le moins de trous, le moins de cases « éventuellement », regroupé si la section le veut, finir le plus tôt, le local préféré.
+          const score = [choisies.length, -trous, -choisies.filter(x => niveauProf(x, d) === 1).length, regles.regrouper ? choisies.filter(x => regroupe(x, d)).length : 0,
             -choisies[choisies.length - 1].semaine, -rang];
           if (!meilleur || plusGrand(score, meilleur.score)) meilleur = { t, l, choisies, trous, score };
         }

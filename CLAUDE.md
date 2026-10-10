@@ -174,12 +174,19 @@ fait le chemin inverse ; « Verser le plan dans l'horaire » écrit `horaire_sea
 (source `plan`), ne remplace un horaire importé que sur demande et à partir d'une
 date (archive `horaire_seance_remplacee`, « Rétablir »). Le **grand nettoyage**
 sauvegarde d'abord (`labo_sauvegarde`, restaurable), vide, garde la structure.
-**Les disponibilités des enseignants** (3.1.241) : face « Les disponibilités »
-du laboratoire et fiche de l'enseignant, même table (`prof_disponibilite` ×
-`creneau`) ; les créneaux SUIVENT les plages des sections (samedi compris,
-`synchroniserCreneaux`) ; saisie réservée au secrétariat, à la coordination et à
-la direction ; sans saisie pour un quadrimestre, l'enseignant est disponible
-partout, sinon la simulation ne le place que sur ses cases.
+**L'AGENDA DE L'ENSEIGNANT EST COMMUN À TOUTES SES SECTIONS** (3.1.242,
+Charles, 10 octobre 2026 : « vert dispo, rouge pas dispo, orange éventuellement »,
+puis « cela doit couvrir toutes les sections, sinon tu vas te bloquer — Berte
+donne cours dans plusieurs sections »). La 3.1.241 suivait les plages de LA
+section : Psychomotricité, sans plages, n'avait aucune case, et une case saisie
+en TIM (10 h–12 h) ne répondait à rien dans une section qui commence à 10 h 15.
+Désormais une grille par ENSEIGNANT (`prof_agenda`) : six jours, tranches de deux
+heures de 8 h à 22 h, la même dans chaque section du laboratoire et dans sa fiche.
+Un clic fait tourner vert → orange → rouge ; seuls l'orange (2) et le rouge (0)
+s'écrivent, une tranche absente est verte. La simulation (`niveauAgenda`) lit les
+tranches que la séance CHEVAUCHE et retient la plus restrictive : rouge = jamais,
+orange = permis mais évité tant qu'il y a mieux. Saisie réservée au secrétariat,
+à la coordination et à la direction. `prof_disponibilite` n'est plus lue.
 
 **ÉVALUATION UNIQUE ≠ ÉPREUVE INTÉGRÉE** (2.12.289, Charles, 28 septembre 2026,
 UE 261 : « une seule évaluation ; la note doit aller aux deux cours »). Une unité
