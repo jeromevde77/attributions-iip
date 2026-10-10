@@ -2,7 +2,7 @@
 // Lucie — Module Étudiants : base étudiants, inscriptions, résultats et PAE
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { AGENDA_HEURES, migrerPlages, plagesDe, ecrirePlages, simuler as simulerAnnee, poserSimulation, ecrireLocaux, reglesDe, ecrireRegles, documentHoraire, adopterProposition, retoucherLigne, retirerLigne, verserPlan, retablirImportees } from '../lib/simulationHoraire.js';
+import { baseEcole, ecrireBase, toutesContraintes, ecrireContraintes, TYPES_CONTRAINTE, migrerPlages, plagesDe, ecrirePlages, simuler as simulerAnnee, poserSimulation, ecrireLocaux, reglesDe, ecrireRegles, documentHoraire, adopterProposition, retoucherLigne, retirerLigne, verserPlan, retablirImportees } from '../lib/simulationHoraire.js';
 import { migrerGroupesCommuns, cohorte as cohorteGC, proposerBriques, appliquerBriques } from '../lib/groupesCommuns.js';
 import { dispensesDeLUE } from '../lib/dispenses.js';
 import { paysDe, estUnPays } from '../lib/pays.js';
@@ -1616,18 +1616,51 @@ r.get('/disponibilites-section', authRequired, (req, res) => {
       WHERE a.annee_scolaire = ? AND (a.section = ? OR a.ue_num IN (SELECT ue_num FROM ue WHERE annee_scolaire = ? AND section = ?))
         AND COALESCE(a.periodes_attribuees, 0) > 0 AND COALESCE(a.type_cours, '') <> 'Z'
       GROUP BY p.id ORDER BY p.nom, p.prenom`).all(annee, section, annee, section);
-    // L'agenda est celui de l'ENSEIGNANT, commun à toutes ses sections : on dit
-    // donc aussi où il enseigne ailleurs — ce qu'on saisit ici vaut là aussi.
+    // L'agenda est celui de l'ENSEIGNANT, commun à toutes ses sections, posé sur la
+    // base de l'école : on dit donc aussi où il enseigne ailleurs.
     const ids = profs.map(x => x.id);
     const ailleurs = ids.length ? db.prepare(`SELECT a.professeur_id, GROUP_CONCAT(DISTINCT COALESCE(a.section, (SELECT section FROM ue WHERE ue_num = a.ue_num AND annee_scolaire = a.annee_scolaire LIMIT 1))) s
       FROM attribution a WHERE a.annee_scolaire = ? AND COALESCE(a.periodes_attribuees, 0) > 0 AND a.professeur_id IN (${ids.map(() => '?').join(',')})
       GROUP BY a.professeur_id`).all(annee, ...ids) : [];
     const secDe = new Map(ailleurs.map(x => [x.professeur_id, String(x.s || '').split(',').filter(y => y && y !== section).sort()]));
-    const saisies = ids.length ? db.prepare(`SELECT professeur_id, quadrimestre, jour, heure, valeur FROM prof_agenda
-      WHERE professeur_id IN (${ids.map(() => '?').join(',')})`).all(...ids) : [];
+    const set = new Set(ids.map(String));
+    const saisies = toutesContraintes().filter(c => c.type === 'prof' && set.has(c.cible)).map(c => ({ ...c, professeur_id: Number(c.cible) }));
     res.json({ profs: profs.map(x => ({ ...x, cours: String(x.cours || '').split(',').filter(Boolean).sort(), autres_sections: secDe.get(x.id) || [] })),
-      heures: AGENDA_HEURES, saisies });
+      base: baseEcole(), saisies });
   } catch (e) { console.error('[disponibilités]', e); res.status(500).json({ error: e.message }); }
+});
+/* LE PLANNING DE L'ÉCOLE (Charles, 10 octobre 2026) — voir lib/simulationHoraire.js.
+ * La base se règle par l'administration (direction, secrétariat) ; les contraintes
+ * se peignent aussi par la coordination, dans son périmètre pour une section ou un bloc. */
+r.get('/planning', authRequired, (req, res) => {
+  const regles = {};
+  for (const x of db.prepare('SELECT section, cle, valeur FROM horaire_regle').all()) (regles[x.section] ||= {})[x.cle] = x.valeur;
+  res.json({ base: baseEcole(), contraintes: toutesContraintes(), regles });
+});
+r.put('/planning/base', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  try { res.json({ base: ecrireBase(req.body?.cases), contraintes: toutesContraintes() }); }
+  catch (e) { res.status(400).json({ error: e.message }); }
+});
+r.put('/planning/contraintes', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
+  const { type, cible, quadrimestre = 'AN', cases } = req.body || {};
+  if (['section', 'bloc'].includes(type) && !sectionAutoriseeReq(req, String(cible || '').split('|')[0])) return res.status(403).json({ error: 'Section hors de votre périmètre' });
+  try { ecrireContraintes(type, cible, quadrimestre, cases, req.user?.email || null); res.json({ contraintes: toutesContraintes() }); }
+  catch (e) { res.status(400).json({ error: e.message }); }
+});
+/** Ce qu'on peut peindre pour une section : blocs, UE, cours, activités, enseignants ; et les locaux de l'école. */
+r.get('/planning/cibles', authRequired, (req, res) => {
+  const section = String(req.query.section || ''), annee = String(req.query.annee || anneeDeTravail(req));
+  const ues = section ? db.prepare(`SELECT ue_num, ue_nom, UPPER(COALESCE(ue_niv, '')) bloc FROM ue WHERE annee_scolaire = ? AND section = ? ORDER BY ue_num`).all(annee, section) : [];
+  const nums = ues.map(u => u.ue_num);
+  const cours = nums.length ? db.prepare(`SELECT cours_code, cours_nom, ue_num FROM cours WHERE annee_scolaire = ? AND ue_num IN (${nums.map(() => '?').join(',')}) ORDER BY ue_num, cours_code`).all(annee, ...nums) : [];
+  const activites = nums.length ? db.prepare(`SELECT DISTINCT a.code_cours cours_code, COALESCE(a.activite_id, 0) activite_id, COALESCE(t.libelle, 'Cours') libelle
+    FROM attribution a LEFT JOIN activite_type t ON t.id = a.activite_id
+    WHERE a.annee_scolaire = ? AND a.ue_num IN (${nums.map(() => '?').join(',')}) AND a.code_cours IS NOT NULL AND COALESCE(a.periodes_attribuees, 0) > 0
+    ORDER BY a.code_cours, libelle`).all(annee, ...nums) : [];
+  const profs = nums.length ? db.prepare(`SELECT DISTINCT p.id, p.nom, p.prenom FROM attribution a JOIN professeur p ON p.id = a.professeur_id
+    WHERE a.annee_scolaire = ? AND a.ue_num IN (${nums.map(() => '?').join(',')}) AND COALESCE(a.periodes_attribuees, 0) > 0 ORDER BY p.nom, p.prenom`).all(annee, ...nums) : [];
+  let locaux = []; try { locaux = db.prepare('SELECT nom, type, places FROM local ORDER BY nom').all(); } catch { locaux = []; }
+  res.json({ blocs: [...new Set(ues.map(u => u.bloc).filter(Boolean))].sort(), ues, cours, activites, profs, locaux, types: TYPES_CONTRAINTE });
 });
 r.get('/horaire-plages', authRequired, (req, res) => { const section = String(req.query.section || ''); res.json({ plages: plagesDe(section), regles: reglesDe(section) }); });
 r.put('/horaire-plages', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {

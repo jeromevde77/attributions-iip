@@ -5,10 +5,11 @@ import { passeRole } from '../lib/droits.js';
 import { teinteCours, styleTuileCours } from '../lib/teinteCours.js';
 import { IconeLaboratoire } from '../components/IconeLaboratoire.jsx';
 import { RailLateral } from '../components/ui.jsx';
-import { IconSitemap, IconPuzzle, IconCalendarWeek, IconTimeline, IconTrash, IconHistory, IconUserCheck } from '@tabler/icons-react';
+import { IconSitemap, IconPuzzle, IconCalendarWeek, IconTimeline, IconTrash, IconHistory, IconUserCheck, IconCalendarCog } from '@tabler/icons-react';
 const StructureSection = lazy(() => import('./StructureSection.jsx'));
 const GroupesCommuns = lazy(() => import('./GroupesCommuns.jsx'));
 const DisponibilitesSection = lazy(() => import('./DisponibilitesSection.jsx'));
+const PlanningEcole = lazy(() => import('./PlanningEcole.jsx'));
 const SimulationAnnee = lazy(() => import('./GroupesCommuns.jsx').then(m => ({ default: m.SimulationAnnee })));
 
 /**
@@ -380,7 +381,7 @@ export default function LaboratoireTemporel() {
         </>}
         <span className="text-[12px] text-slate-500">{face !== 'temps' ? '' : zoom === 'ue' ? 'Glisser une activité dans un cours ; tirer le haut d’une couche ; double-clic : revenir à l’année.' : (zoom === 'couches' ? 'Glisser une barre la déplace, ses bords l’allongent ; « à la suite » ou « en parallèle » arrangent un cours d’un clic · double-clic : le verre.' : 'Ctrl + molette ou double-clic pour zoomer · glisser une tuile la déplace dans l’année, ses bords l’allongent.')}</span>
       </div>
-      <RailLateral titre="Le laboratoire temporel" sections={[{ items: [['temps', 'Le temps', IconTimeline], ['groupes', 'Les groupes', IconPuzzle], ['semaine', 'La semaine', IconCalendarWeek], ['disponibilites', 'Les disponibilités', IconUserCheck], ['schema', 'Schéma de capitalisation', IconSitemap]]
+      <RailLateral titre="Le laboratoire temporel" sections={[{ items: [['temps', 'Le temps', IconTimeline], ['groupes', 'Les groupes', IconPuzzle], ['planning', 'Le planning', IconCalendarCog], ['semaine', 'La semaine', IconCalendarWeek], ['disponibilites', 'Les disponibilités', IconUserCheck], ['schema', 'Schéma de capitalisation', IconSitemap]]
         .map(([k, l, I]) => ({ key: `labo-${k}`, label: l, icon: I, actif: face === k,
           onClick: () => { setFace(k); if ((k === 'groupes' || k === 'semaine') && !bloc && blocs[0]) setBloc(blocs.includes('BA2') ? 'BA2' : blocs[0]); } })) }]} />
       {erreur && <div className="text-[12.5px]" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
@@ -392,9 +393,13 @@ export default function LaboratoireTemporel() {
         </Suspense>) : <p className="text-[13px] text-slate-500">Choisissez un bloc : les groupes se font bloc par bloc.</p>)}
       {face === 'semaine' && (bloc ? (
         <Suspense fallback={<div className="text-[13px] text-slate-400">Chargement…</div>}>
-          <SimulationAnnee key={`${section}-${bloc}`} section={section} bloc={bloc} annee={annee} peutEcrire={peutEcrire} />
+          <SimulationAnnee key={`${section}-${bloc}`} section={section} bloc={bloc} annee={annee} peutEcrire={peutEcrire} versPlanning={() => setFace('planning')} />
         </Suspense>) : <p className="text-[13px] text-slate-500">Choisissez un bloc : la semaine se compose bloc par bloc.</p>)}
 
+      {face === 'planning' && (
+        <Suspense fallback={<div className="text-[13px] text-slate-400">Chargement…</div>}>
+          <PlanningEcole key={section} section={section} annee={annee} peutEcrire={peutEcrire} />
+        </Suspense>)}
       {face === 'disponibilites' && (
         <Suspense fallback={<div className="text-[13px] text-slate-400">Chargement…</div>}>
           <DisponibilitesSection key={section} section={section} annee={annee} peutEcrire={peutEcrire} />

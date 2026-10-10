@@ -511,9 +511,8 @@ function LocauxActivites({ sim, section, bloc, annee, peutEcrire, onEnregistre }
   );
 }
 
-export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
+export function SimulationAnnee({ section, bloc, annee, peutEcrire, versPlanning = null }) {
   const [plages, setPlages] = useState(null);
-  const [texte, setTexte] = useState({});
   const [sim, setSim] = useState(null);
   const [enCours, setEnCours] = useState(false);
   const [semaine, setSemaine] = useState(1);
@@ -531,20 +530,9 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
   useEffect(() => {
     setSim(null);
     fetch(`/api/etudiants/horaire-plages?section=${encodeURIComponent(section)}`, { headers: authHeaders() }).then(r => r.json())
-      .then(j => { setPlages(j.plages || []); if (j.regles) setRegles(j.regles); const t = {}; for (let d = 1; d <= 6; d++) t[d] = (j.plages || []).filter(p => p.jour === d).map(p => `${p.debut}-${p.fin}`).join(', '); setTexte(t); })
+      .then(j => { setPlages(j.plages || []); if (j.regles) setRegles(j.regles); })
       .catch(() => setPlages([]));
   }, [section]);
-  async function enregistrerPlages() {
-    const liste = [];
-    for (const [j, v] of Object.entries(texte)) for (const m of String(v || '').split(',').map(x => x.trim()).filter(Boolean)) {
-      const r = /^(\d{1,2})[:h](\d{2})\s*-\s*(\d{1,2})[:h](\d{2})$/.exec(m);
-      if (r) liste.push({ jour: Number(j), debut: `${r[1].padStart(2, '0')}:${r[2]}`, fin: `${r[3].padStart(2, '0')}:${r[4]}` });
-    }
-    const r = await fetch('/api/etudiants/horaire-plages', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ section, plages: liste, regles }) });
-    const j = await r.json();
-    if (!r.ok) { setErreur(j.error); return; }
-    setPlages(j.plages); if (j.regles) setRegles(j.regles); setSim(null);
-  }
   /* LE PLAN ENREGISTRÉ (lot 1 du planificateur). « plan » : le plan tel
      qu'enregistré, et la proposition pour ce qui manque ; « recalcul » : seules
      les lignes verrouillées restent, tout le reste est proposé à nouveau. */
@@ -691,33 +679,13 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
       </div>
       {erreur && <div className="text-[12.5px]" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
 
-      <details className="text-[12.5px]">
-        <summary className="cursor-pointer text-slate-600">Plages horaires de {section} ({(plages || []).length} tranche(s) par semaine)</summary>
-        <div className="mt-2 grid gap-1.5 max-w-[640px]">
-          {[1, 2, 3, 4, 5, 6].map(d => (
-            <label key={d} className="flex items-center gap-2">
-              <span className="w-20">{NOMS_JOURS[d]}</span>
-              <input value={texte[d] || ''} disabled={!peutEcrire} onChange={e => setTexte(t => ({ ...t, [d]: e.target.value }))}
-                placeholder="aucune — ex. 15:30-17:30, 17:30-19:30" className="controle flex-1" data-reponses="non" />
-            </label>))}
-          {/* LES PRIORITÉS DE LA SECTION : des réglages, pas des constantes. */}
-          <div className="mt-2 pt-2 border-t border-slate-200 grid gap-1.5">
-            <b className="text-[12px] text-slate-600">Priorités de la simulation</b>
-            <label className="flex items-center gap-2">
-              <span>Un étudiant vient au plus</span>
-              <select className="controle !h-8" value={regles.jours_max} disabled={!peutEcrire} onChange={e => setRegles(r => ({ ...r, jours_max: Number(e.target.value) }))}>
-                {[3, 4, 5, 6].map(n => <option key={n} value={n}>{n}</option>)}
-              </select>
-              <span>jours par semaine</span>
-            </label>
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={!!regles.regrouper} disabled={!peutEcrire} onChange={e => setRegles(r => ({ ...r, regrouper: e.target.checked }))} />
-              Regrouper : à créneau égal, placer un cours un jour où ses étudiants viennent déjà
-            </label>
-          </div>
-          {peutEcrire && <div><button className="bouton" onClick={enregistrerPlages}>Enregistrer les plages et les priorités</button></div>}
-        </div>
-      </details>
+      {/* LES PLAGES ET LES PRIORITÉS SE RÈGLENT DANS « LE PLANNING » (Charles, 10 octobre
+          2026) : la base de l'école, puis ce qu'on peint pour la section, le bloc, l'UE,
+          le cours, l'enseignant ou le local. Ici, on les lit. */}
+      <div className="text-[12.5px] text-slate-600 flex flex-wrap items-center gap-2">
+        <span>{(plages || []).length} bloc(s) de cours par semaine pour {section} · un étudiant vient au plus {regles.jours_max} jours{regles.regrouper ? ' · regroupé' : ''}.</span>
+        {versPlanning && <button className="bouton !h-8" onClick={versPlanning}>Régler dans « Le planning »</button>}
+      </div>
 
       {sim && <>
         <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))' }}>

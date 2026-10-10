@@ -174,19 +174,29 @@ fait le chemin inverse ; « Verser le plan dans l'horaire » écrit `horaire_sea
 (source `plan`), ne remplace un horaire importé que sur demande et à partir d'une
 date (archive `horaire_seance_remplacee`, « Rétablir »). Le **grand nettoyage**
 sauvegarde d'abord (`labo_sauvegarde`, restaurable), vide, garde la structure.
-**L'AGENDA DE L'ENSEIGNANT EST COMMUN À TOUTES SES SECTIONS** (3.1.242,
-Charles, 10 octobre 2026 : « vert dispo, rouge pas dispo, orange éventuellement »,
-puis « cela doit couvrir toutes les sections, sinon tu vas te bloquer — Berte
-donne cours dans plusieurs sections »). La 3.1.241 suivait les plages de LA
-section : Psychomotricité, sans plages, n'avait aucune case, et une case saisie
-en TIM (10 h–12 h) ne répondait à rien dans une section qui commence à 10 h 15.
-Désormais une grille par ENSEIGNANT (`prof_agenda`) : six jours, tranches de deux
-heures de 8 h à 22 h, la même dans chaque section du laboratoire et dans sa fiche.
-Un clic fait tourner vert → orange → rouge ; seuls l'orange (2) et le rouge (0)
-s'écrivent, une tranche absente est verte. La simulation (`niveauAgenda`) lit les
-tranches que la séance CHEVAUCHE et retient la plus restrictive : rouge = jamais,
-orange = permis mais évité tant qu'il y a mieux. Saisie réservée au secrétariat,
-à la coordination et à la direction. `prof_disponibilite` n'est plus lue.
+**LE PLANNING DE L'ÉCOLE : UNE BASE, PUIS DES CONTRAINTES PEINTES** (3.1.243,
+Charles, 10 octobre 2026 : « un agenda des 7 jours ; on règle les blocs de cours,
+on définit la base ; puis on place les dispos des profs, des cours — TIM en
+soirée, 4 jours semaine —, mais on laisse la machine ou pas définir »). Face
+« Le planning » du laboratoire (`PlanningEcole.jsx`, dessin commun
+`components/AgendaSemaine.jsx`, à l'échelle du temps). **La base**
+(`planning_base`) est UNE pour toute l'école : les blocs de cours, jour par jour,
+lundi → dimanche, sans chevauchement (refusé par le serveur) ; réglée par la
+direction et le secrétariat. **Les contraintes** (`planning_contrainte`) se
+peignent sur la base pour un enseignant, un local, une section, un bloc, une UE,
+un cours ou une activité : 2 orange (évité tant qu'il y a mieux), 0 rouge
+(jamais), non peint = vert, au choix de la simulation ; « toute l'année » (AN) et
+le quadrimestre s'appliquent ensemble ; ce qu'un niveau au-dessus impose déjà se
+lit dans la case, grisé. `plagesDe(section)` = la base moins le rouge « année »
+de la section — l'Horaire de la semaine et la simulation en partent. **L'agenda
+de l'enseignant est COMMUN À TOUTES SES SECTIONS** (Charles : « Berte donne cours
+dans plusieurs sections ») : type `prof` de la même table, face « Les
+disponibilités » et fiche de l'enseignant ; saisi par le secrétariat, la
+coordination, la direction. La migration a repris les plages de TIM (base +
+rouge de section : 452 séances identiques avant et après) et l'agenda en
+tranches de 3.1.242 (`prof_agenda`, `prof_disponibilite` ne sont plus lues). Les
+priorités de section (jours au plus, regrouper) restent dans `horaire_regle`,
+réglées depuis la même face.
 
 **ÉVALUATION UNIQUE ≠ ÉPREUVE INTÉGRÉE** (2.12.289, Charles, 28 septembre 2026,
 UE 261 : « une seule évaluation ; la note doit aller aux deux cours »). Une unité
