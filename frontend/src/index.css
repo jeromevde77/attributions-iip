@@ -1379,3 +1379,35 @@ table.grid-excel-soft tbody tr:nth-child(even) { background-color: var(--d-zebre
 :root { --blanc: #fff; }
 [data-gris="sombre"] { --blanc: rgb(31 34 39); }
 [data-gris="sombre"] .logo-lucie text { fill: #FFFFFF; }
+
+/* LA FÊTE D'ANNIVERSAIRE (3.1.271) — calque derrière la carte d'un anniversaire du jour
+   (components/FeteAnniversaire.jsx). Discret : le texte reste au-dessus et lisible. */
+.fete-anniversaire { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 0; border-radius: inherit; }
+.fete-anniversaire ~ * { position: relative; z-index: 1; }
+.fete-bouquet { position: absolute; width: 0; height: 0; }
+.fete-bouquet i {
+  position: absolute; left: -2px; top: -2px; width: 4px; height: 4px; border-radius: 50%; opacity: 0;
+  animation: fete-eclat 3.3s ease-out infinite;
+}
+@keyframes fete-eclat {
+  0%   { transform: rotate(var(--angle)) translateX(0) scale(1); opacity: 0; }
+  8%   { opacity: .9; }
+  45%  { transform: rotate(var(--angle)) translateX(26px) scale(.9); opacity: .75; }
+  70%  { transform: rotate(var(--angle)) translateX(32px) translateY(6px) scale(.5); opacity: 0; }
+  100% { opacity: 0; }
+}
+.fete-confetti {
+  position: absolute; top: -10px; width: 5px; height: 8px; border-radius: 1px; opacity: .55;
+  animation: fete-chute linear infinite;
+}
+@keyframes fete-chute {
+  0%   { transform: translate(0, -10px) rotate(0deg); }
+  100% { transform: translate(var(--derive), 170px) rotate(var(--tour)); }
+}
+.fete-chapeau { position: absolute; bottom: 6px; opacity: .85; transform-origin: 50% 100%; animation: fete-dandine 2.4s ease-in-out infinite; }
+@keyframes fete-dandine { 0%, 100% { transform: rotate(-8deg); } 50% { transform: rotate(8deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .fete-bouquet i, .fete-confetti, .fete-chapeau { animation: none; }
+  .fete-confetti { display: none; }
+  .fete-bouquet i { opacity: .6; transform: rotate(var(--angle)) translateX(18px); }
+}
