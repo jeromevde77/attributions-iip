@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { api, authHeaders, getAnnee } from '../lib/api.js';
-import { demander, informer, saisir } from '../lib/dialogue.jsx';
+import { choisir, demander, informer, saisir } from '../lib/dialogue.jsx';
 import { passeRole } from '../lib/droits.js';
 import { teinteCours, styleTuileCours } from '../lib/teinteCours.js';
 import { IconeLaboratoire } from '../components/IconeLaboratoire.jsx';
@@ -63,6 +63,39 @@ export default function LaboratoireTemporel() {
   });
   const [choix, setChoix] = useState(null);           // n° de l'UE choisie
   const [glisse, setGlisse] = useState(null);         // { ue, de, a } pendant un geste
+  const [rev, setRev] = useState(0);                  // chaque relecture renouvelle le verre ouvert
+  /* LES VERRES CÔTE À CÔTE (Charles, 10 octobre 2026 : « mettre des verres l'un à
+     côté de l'autre, en carrousel, les changer d'ordre, comparer des UE »). */
+  const [rangee, setRangee] = useState([]);           // n° d'UE, dans l'ordre choisi
+  const [debutRangee, setDebutRangee] = useState(0);
+
+  /* REMPLIR LES VERRES DEPUIS LES ATTRIBUTIONS (Charles, 10 octobre 2026) : le
+     travail dans l'autre sens — ce qui est déjà attribué remplit les verres.
+     Compte rendu d'abord ; un cours déjà découpé n'est remplacé que sur demande. */
+  async function remplirDepuisAttributions(ueNums) {
+    const corps = { annee_scolaire: annee, section, ue_nums: ueNums };
+    const r0 = await fetch('/api/grille/depuis-attributions', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ ...corps, simulation: true }) });
+    const a = await r0.json().catch(() => ({}));
+    if (!r0.ok) { setErreur(a.error || `Erreur ${r0.status}`); return; }
+    if (!a.a_ecrire.length && !a.deja.length) { await informer(`Aucune attribution à reprendre${a.sans_attribution.length ? ` (UE ${a.sans_attribution.join(', ')} sans attribution)` : ''}.`); return; }
+    const resume = c => `${c.cours_code} : ${c.activites.map(x => `${x.activite_nom} ${x.par_etudiant} p.${x.groupes > 1 ? ` ×${x.groupes}` : ''}`).join(', ')}`;
+    let remplacer = false;
+    if (a.deja.length) {
+      const v = await choisir({ titre: 'Remplir les verres depuis les attributions',
+        message: `${a.a_ecrire.length} cours vide(s) à remplir. ${a.deja.length} cours sont déjà découpés dans un verre (${a.deja.map(c => c.cours_code).join(', ')}).`,
+        choix: [{ valeur: 'vides', libelle: 'Remplir seulement les cours vides', aide: 'Les verres déjà découpés restent tels quels.' },
+          { valeur: 'tout', libelle: 'Remplacer aussi les cours déjà découpés', aide: 'Leur découpage est remplacé par celui des attributions.' }] });
+      if (!v) return;
+      remplacer = v === 'tout';
+      if (!remplacer && !a.a_ecrire.length) return;
+    } else if (!(await demander({ titre: 'Remplir les verres depuis les attributions',
+      message: `${a.a_ecrire.length} cours à remplir :\n${a.a_ecrire.slice(0, 12).map(resume).join('\n')}${a.a_ecrire.length > 12 ? '\n…' : ''}`, confirmer: 'Remplir' }))) return;
+    const r = await fetch('/api/grille/depuis-attributions', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ ...corps, remplacer, simulation: false }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { setErreur(j.error || `Erreur ${r.status}`); return; }
+    await charger();
+    await informer(`✓ ${j.ecrit} cours rempli(s) depuis les attributions.`);
+  }
 
   useEffect(() => { api.sections().then(l => { const ls = Array.isArray(l) ? l : []; setSections(ls); if (!section && ls[0]) setSection(ls[0].code); }).catch(() => {}); }, []); // eslint-disable-line
   const charger = async () => {
@@ -72,7 +105,7 @@ export default function LaboratoireTemporel() {
       const r = await fetch(`/api/grille?section=${encodeURIComponent(section)}&annee=${encodeURIComponent(annee)}`, { headers: authHeaders() });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
-      setData(j); setErreur(null);
+      setData(j); setErreur(null); setRev(r => r + 1);
     } catch (e) { setErreur(e.message); }
     fetch(`/api/grille/activites?section=${encodeURIComponent(section)}`, { headers: authHeaders() }).then(r => r.json()).then(l => setTypes(Array.isArray(l) ? l : [])).catch(() => setTypes([]));
   };
@@ -301,6 +334,10 @@ export default function LaboratoireTemporel() {
             <button key={k} disabled={k === 'ue' && !ueChoisie} onClick={() => setZoom(k)}
               className={`px-3 text-[12.5px] ${zoom === k ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'} disabled:opacity-40`}>{l}</button>))}
         </div>}
+        {face === 'temps' && peutEcrire && data && (
+          <button className="bouton" onClick={() => remplirDepuisAttributions(zoom === 'ue' && ueChoisie ? [ueChoisie.ue_num] : ues.filter(u => !u.stage).map(u => u.ue_num))}
+            title="Les activités, groupes et périodes déjà attribués remplissent les verres">
+            {zoom === 'ue' && ueChoisie ? `Remplir le verre de l’UE ${ueChoisie.ue_num} depuis les attributions` : 'Remplir les verres depuis les attributions'}</button>)}
         <span className="text-[12px] text-slate-500">{face !== 'temps' ? '' : zoom === 'ue' ? 'Glisser une activité dans un cours ; tirer le haut d’une couche ; double-clic : revenir à l’année.' : (zoom === 'couches' ? 'Glisser une barre la déplace, ses bords l’allongent ; « à la suite » ou « en parallèle » arrangent un cours d’un clic · double-clic : le verre.' : 'Ctrl + molette ou double-clic pour zoomer · glisser une tuile la déplace dans l’année, ses bords l’allongent.')}</span>
       </div>
       <RailLateral titre="Le laboratoire temporel" sections={[{ items: [['temps', 'Le temps', IconTimeline], ['groupes', 'Les groupes', IconPuzzle], ['semaine', 'La semaine', IconCalendarWeek], ['schema', 'Schéma de capitalisation', IconSitemap]]
@@ -357,14 +394,17 @@ export default function LaboratoireTemporel() {
           onStage={() => basculerStage(ueChoisie)} onConges={() => basculerConges(ueChoisie)} onOuvrir={() => setZoom('ue')} />)}
 
       {face === 'temps' && data && zoom === 'ue' && ueChoisie && (
-        <Verre key={`${ueChoisie.ue_num}-${data.ues.indexOf(ueChoisie)}`} u={ueChoisie} types={types} annee={annee} section={section}
+        <Rangee ues={ues.filter(u => !u.stage)} rangee={rangee.includes(ueChoisie.ue_num) ? rangee : [...rangee, ueChoisie.ue_num]}
+          setRangee={setRangee} actif={ueChoisie.ue_num} onChoisir={n => setChoix(n)} debut={debutRangee} setDebut={setDebutRangee} />)}
+      {face === 'temps' && data && zoom === 'ue' && ueChoisie && (
+        <Verre key={`${ueChoisie.ue_num}-${rev}`} u={ueChoisie} types={types} annee={annee} section={section}
           peutEcrire={peutEcrire} onRetour={() => setZoom('couches')} onAnnee={() => setZoom('annee')} onEnregistre={charger} />)}
 
       {face === 'temps' && <div className="flex flex-wrap gap-4 text-[12px] text-slate-500">
         <span className="flex items-center gap-1.5"><i className="inline-block w-4 h-3 rounded-[3px]" style={{ background: fondSemaine('ev1') }} />évaluations</span>
         <span className="flex items-center gap-1.5"><i className="inline-block w-4 h-3 rounded-[3px] border border-slate-200" style={{ background: fondSemaine('vacances') }} />vacances</span>
         <span className="flex items-center gap-1.5"><i className="inline-block w-4 h-3 rounded-[3px] border border-dashed border-slate-400" />dates à poser</span>
-        <span className="flex items-center gap-1.5"><i className="inline-block w-4 h-3 rounded-[3px]" style={{ background: HACHURE }} />périodes encore à remplir</span>
+        <span className="flex items-center gap-1.5"><i className="inline-block w-4 h-3 rounded-[3px] border border-slate-300" style={{ background: HACHURE }} />périodes encore à remplir (le blanc du verre)</span>
       </div>}
     </div>
   );
@@ -372,7 +412,8 @@ export default function LaboratoireTemporel() {
 
 /* DE L'UNI COLORÉ, PAS DE HACHURES (Charles, 10 octobre 2026 : « pas de lignes
    zébrées, je préfère de l'uni coloré »). */
-const HACHURE = 'color-mix(in srgb, var(--c-attente, #B45309) 16%, white)';
+// Ce qui reste à remplir est VIDE : pas de couleur (Charles, 10 octobre 2026 : « quand le verre est vide, il n'y a pas de couleur dedans »).
+const HACHURE = '#fff';
 const FOND_STAGE = 'color-mix(in srgb, #64748B 16%, white)';
 const fondSemaine = t => (t === 'ev1' || t === 'ev2' ? 'color-mix(in srgb, var(--c-attente, #B45309) 13%, transparent)'
   : t === 'cours' ? 'transparent' : 'color-mix(in srgb, #64748B 9%, transparent)');
@@ -498,6 +539,74 @@ function ResumeUE({ u, semaines, peutEcrire, pendantStage, onStage, onConges, on
           Donner cours pendant les congés — la tuile n’est plus coupée aux vacances, et la simulation peut y placer des séances
         </label>)}
       {pendantStage && <div className="text-[12.5px]" style={{ color: 'var(--c-refuse)' }}>Cette UE a cours pendant un stage bloquant : la simulation n’y placera rien ces semaines-là.</div>}
+    </div>
+  );
+}
+
+/* LA RANGÉE DE VERRES : de petits verres à la MÊME échelle, pour comparer ; on en
+   ajoute, on en retire, on les glisse pour changer leur ordre, les flèches les
+   font défiler ; un clic ouvre le verre en grand, dessous. */
+const PAR_ECRAN = 5;
+function Rangee({ ues, rangee, setRangee, actif, onChoisir, debut, setDebut }) {
+  const [prise, setPrise] = useState(null);
+  const liste = rangee.map(n => ues.find(u => u.ue_num === n)).filter(Boolean);
+  const plein = u => (u.cours || []).reduce((t, c) => t + Math.max((Number(c.cours_per) || 0) + (Number(c.autonomie_placee) || 0), sommeEtudiant(c)), 0);
+  const max = Math.max(1, ...liste.map(plein));
+  const px = 150 / max;
+  const d = Math.max(0, Math.min(debut, Math.max(0, liste.length - PAR_ECRAN)));
+  const vus = liste.slice(d, d + PAR_ECRAN);
+  const deplacer = (de, vers) => { const l = [...rangee]; const [x] = l.splice(de, 1); l.splice(vers, 0, x); setRangee(l); };
+  return (
+    <div className="carte p-3">
+      <div className="flex items-center gap-2 mb-2 flex-wrap">
+        <b className="text-[13px] text-iip-blue">Verres côte à côte</b>
+        <span className="text-[12px] text-slate-500">même échelle pour comparer · glisser un verre change l’ordre · clic : l’ouvrir dessous</span>
+        <span className="flex-1" />
+        <select className="controle !h-8 text-[12.5px]" value="" onChange={e => { const n = Number(e.target.value); if (n) setRangee([...rangee, n]); }}>
+          <option value="">+ Ajouter une UE…</option>
+          {ues.filter(u => !rangee.includes(u.ue_num)).map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {String(u.ue_nom || '').slice(0, 40)}</option>)}
+        </select>
+        <button className="bouton !h-8" onClick={() => setRangee(ues.map(u => u.ue_num))}>Toutes les UE du bloc</button>
+      </div>
+      <div className="flex items-end gap-2">
+        <button className="bouton !h-8 !px-2 self-center" disabled={d <= 0} onClick={() => setDebut(d - 1)}>◀</button>
+        <div className="flex-1 grid gap-3" style={{ gridTemplateColumns: `repeat(${PAR_ECRAN}, minmax(0,1fr))` }}>
+          {vus.map((u, i) => {
+            const idx = d + i;
+            return (
+              <div key={u.ue_num} draggable onDragStart={() => setPrise(idx)} onDragOver={e => e.preventDefault()}
+                onDrop={() => { if (prise != null && prise !== idx) deplacer(prise, idx); setPrise(null); }}
+                onClick={() => onChoisir(u.ue_num)}
+                className={`relative flex flex-col items-center gap-1 rounded-[10px] p-1.5 cursor-pointer ${u.ue_num === actif ? 'bg-[#16406A]/10 ring-2 ring-[#16406A]/40' : 'hover:bg-slate-50'}`}>
+                <button className="absolute right-1 top-0.5 text-slate-400 hover:text-slate-700 text-[13px]" title="Retirer de la rangée"
+                  onClick={ev => { ev.stopPropagation(); setRangee(rangee.filter(n => n !== u.ue_num)); }}>×</button>
+                {/* Les fonds alignés : le verre se pose au bas d'une hauteur commune. */}
+                <div className="h-[156px] flex items-end justify-center"><VerreMini u={u} px={px} /></div>
+                <b className="text-[12px]">UE {u.ue_num}</b>
+                <span className="text-[10.5px] text-slate-500 text-center leading-tight line-clamp-2">{u.ue_nom}</span>
+              </div>);
+          })}
+        </div>
+        <button className="bouton !h-8 !px-2 self-center" disabled={d + PAR_ECRAN >= liste.length} onClick={() => setDebut(d + 1)}>▶</button>
+      </div>
+    </div>
+  );
+}
+function VerreMini({ u, px }) {
+  return (
+    <div className="w-[96px] flex flex-col-reverse p-[2px] rounded-b-[12px] border-2 border-t-0" style={{ borderColor: '#16406A', background: '#EEF3F9' }}>
+      {(u.cours || []).map(c => {
+        const dp = Number(c.cours_per) || 0, aut = Number(c.autonomie_placee) || 0, s = sommeEtudiant(c), manque = dp + aut - s;
+        return (
+          <div key={c.cours_code} className="flex flex-col-reverse border-t border-dashed border-slate-400" style={{ height: Math.max(dp + aut, s) * px }} title={`${c.cours_code} : ${arrondi(s)}/${dp} p.`}>
+            {(c.activites || []).map((a, k) => (
+              <div key={k} className="flex gap-px flex-none border-t border-white" style={{ height: parEtudiant(a) * px }}>
+                {Array.from({ length: Math.min(12, a.groupes || 1) }, (_, g) => (
+                  <div key={g} className="flex-1" style={{ background: k % 2 ? `color-mix(in srgb, ${teinteCours(c.cours_code)} 72%, white)` : teinteCours(c.cours_code) }} />))}
+              </div>))}
+            {manque > 0 && <div className="flex-none" style={{ height: manque * px, background: HACHURE }} />}
+          </div>);
+      })}
     </div>
   );
 }
@@ -661,7 +770,7 @@ function Verre({ u, types, annee, section, peutEcrire, onRetour, onAnnee, onEnre
           <div className="flex-none flex flex-col items-center gap-1 mr-2" title={`Autonomie de l’UE : ${autonomieUE} p. au dossier, ${arrondi(autonomiePrise)} prise(s), ${autonomieReste} restante(s)`}>
             <span className="text-[10.5px] text-slate-500 text-center leading-tight w-[64px]">autonomie<br />de l’UE</span>
             <div className="relative w-[26px] rounded-b-[10px] border-2 border-t-0 overflow-hidden" style={{ height: Math.max(40, autonomieUE * PX), borderColor: '#16406A', background: '#fff' }}>
-              <div className="absolute left-0 right-0 bottom-0" style={{ height: `${autonomieUE ? Math.max(0, autonomieReste) / autonomieUE * 100 : 0}%`, background: 'color-mix(in srgb, var(--c-accent, #0E87B0) 55%, white)' }} />
+              <div className="absolute left-0 right-0 bottom-0" style={{ height: `${autonomieUE ? Math.max(0, autonomieReste) / autonomieUE * 100 : 0}%`, background: `color-mix(in srgb, ${teinteCours(`${u.ue_num}.1`)} 70%, white)` }} />
             </div>
             <b className="text-[12px] tabular-nums" style={{ color: autonomieReste < 0 ? 'var(--c-refuse)' : '#1B2B4B' }}>{autonomieUE ? `${autonomieReste}/${autonomieUE}` : '0'}</b>
             <span className="text-[10px] text-slate-400">{autonomieUE ? 'p. restantes' : 'aucune au dossier'}</span>
@@ -672,8 +781,10 @@ function Verre({ u, types, annee, section, peutEcrire, onRetour, onAnnee, onEnre
             {Array.from({ length: Math.floor(total / 10) + 1 }, (_, i) => (
               <span key={i} className="absolute right-1 text-[10px] text-slate-400 tabular-nums" style={{ bottom: i * 10 * PX + 4, transform: 'translateY(50%)' }}>{i * 10}</span>))}
           </div>
-          <div className="pr-[220px]">
-            <div className="relative w-[440px] flex flex-col-reverse p-1 rounded-b-[26px] border-[3px] border-t-0" style={{ borderColor: '#16406A', background: '#EEF3F9' }}>
+          <div className="flex items-end">
+            {/* LE VERRE EST PLEIN JUSQU'AU BORD (Charles, 10 octobre 2026 : « moche ») : son
+                contenu épouse le fond arrondi, sans liseré ; les étiquettes vivent à côté. */}
+            <div className="relative w-[440px] flex flex-col-reverse overflow-hidden rounded-b-[26px] border-[3px] border-t-0" style={{ borderColor: '#16406A', background: '#fff' }}>
               {cours.map((c, ci) => {
                 const s = sommeEtudiant(c), dp = Number(c.cours_per) || 0, aut = Number(c.autonomie_placee) || 0, manque = arrondi(dp + aut - s);
                 return (
@@ -684,17 +795,26 @@ function Verre({ u, types, annee, section, peutEcrire, onRetour, onAnnee, onEnre
                     {c.activites.map((a, k) => {
                       const p = parEtudiant(a), col = teinteCouche(c, k), on = choix && choix.c === ci && choix.k === k;
                       return (
-                        <div key={k} className="relative flex-none flex gap-[3px] py-[2px] cursor-pointer" style={{ height: p * PX }} onClick={() => setChoix({ c: ci, k })}>
+                        <div key={k} className="relative flex-none flex gap-px border-t border-white cursor-pointer" style={{ height: p * PX }} onClick={() => setChoix({ c: ci, k })}>
                           {Array.from({ length: a.groupes }, (_, g) => (
-                            <div key={g} className="flex-1 min-w-0 rounded-[5px] flex items-center justify-center gap-1 overflow-hidden whitespace-nowrap text-white text-[11px] font-semibold"
-                              style={{ background: col, boxShadow: on ? '0 0 0 2px #16406A' : undefined }} title={`${a.activite_nom || 'activité'} — ${arrondi(p)} p. par étudiant${a.groupes > 1 ? ` · groupe ${lettre(g)}` : ''}`}>
+                            <div key={g} className="flex-1 min-w-0 flex items-center justify-center gap-1 overflow-hidden whitespace-nowrap text-white text-[11px] font-semibold"
+                              style={{ background: col, boxShadow: on ? 'inset 0 0 0 2px #16406A' : undefined }} title={`${a.activite_nom || 'activité'} — ${arrondi(p)} p. par étudiant${a.groupes > 1 ? ` · groupe ${lettre(g)}` : ''}`}>
                               {a.groupes > 1 ? <span className="bg-white text-[#16253D] rounded-[4px] px-1 text-[10px]">{lettre(g)}</span> : (p * PX > 13 ? `${a.activite_nom || 'activité'} · ${arrondi(p)} p.` : '')}
                             </div>))}
                           {peutEcrire && <div className="absolute left-0 right-0 -top-[3px] h-[7px] cursor-ns-resize z-10 hover:bg-[#16406A]/30" onPointerDown={e => tirer(e, ci, k)} title="Tirer : les périodes" />}
                         </div>);
                     })}
                     {manque > 0 && <div className="flex-none flex items-center justify-center text-[11px] font-semibold" style={{ height: manque * PX, background: HACHURE, color: 'var(--c-attente)' }}>{manque * PX > 12 ? `à remplir · ${manque} p.` : ''}</div>}
-                    <div className="absolute bottom-0 text-[12px] leading-tight w-[205px]" style={{ left: 'calc(100% + 14px)' }}>
+                  </div>);
+              })}
+            </div>
+            {/* Les étiquettes des cours, en face de leur couche. */}
+            <div className="flex flex-col-reverse w-[220px] pl-3 self-stretch justify-start">
+              {cours.map(c => {
+                const s = sommeEtudiant(c), dp = Number(c.cours_per) || 0, aut = Number(c.autonomie_placee) || 0, manque = arrondi(dp + aut - s);
+                return (
+                  <div key={c.cours_code} className="relative flex-none" style={{ height: Math.max(dp + aut, s) * PX }}>
+                    <div className="absolute bottom-0 left-0 text-[12px] leading-tight w-[205px]">
                       <b className="block text-[13px]">{c.cours_code}</b>
                       <span className="text-slate-600">{String(c.cours_nom || '').slice(0, 60)}</span><br />
                       <span className="font-semibold" style={{ color: manque === 0 ? 'var(--c-reussi)' : manque > 0 ? 'var(--c-attente)' : 'var(--c-refuse)' }}>

@@ -567,6 +567,77 @@ r.put('/cours', authRequired, roleRequired('admin', 'editeur', 'coordination'), 
   res.json({ ok: true, repli, controle: controlerUE(annee, section, ueNum) });
 });
 
+/**
+ * REMPLIR LES VERRES DEPUIS LES ATTRIBUTIONS (Charles, 10 octobre 2026 : « j'ai
+ * déjà les attributions : il faut que les verres puissent être remplis avec ce
+ * qui a déjà été créé »). Pour chaque cours de l'unité : ses activités, leur
+ * nombre de groupes (les codes de groupe distincts) et leurs périodes — côté
+ * enseignant, la somme de tous les groupes ; l'étudiant en vit le total divisé par
+ * les groupes. On lit l'organisation de la SECTION seulement (l'organisation 2 de
+ * la 282 est celle d'orthoptie), sans les lignes Z ni les remplacements (la ligne
+ * remplacée porte déjà les périodes du groupe). Un cours déjà découpé n'est
+ * remplacé que si on le demande ; rien ne s'écrit sans le compte rendu d'abord.
+ */
+function propositionDepuisAttributions(annee, section, ueNum) {
+  const o = organisationDe(annee, section, ueNum);
+  const org = o?.num_organisation || 1;
+  let matiere = null;
+  try { matiere = db.prepare(`SELECT id FROM activite_type WHERE section IS NULL AND (role IS NULL OR role <> 'evaluation') ORDER BY ordre, id LIMIT 1`).get()?.id ?? null; } catch { /* */ }
+  const lignes = db.prepare(`SELECT a.code_cours, a.activite_id, a.code, COALESCE(a.periodes_attribuees, 0) AS p, t.libelle
+    FROM attribution a LEFT JOIN activite_type t ON t.id = a.activite_id
+    WHERE a.annee_scolaire = ? AND a.ue_num = ? AND COALESCE(a.num_organisation, 1) = ?
+      AND (a.section = ? OR a.section IS NULL) AND a.code_cours IS NOT NULL
+      AND COALESCE(a.type_cours, '') <> 'Z' AND a.remplace_attribution_id IS NULL`).all(annee, ueNum, org, section);
+  const parCours = new Map();
+  for (const l of lignes) {
+    const act = l.activite_id || matiere;
+    if (!parCours.has(l.code_cours)) parCours.set(l.code_cours, new Map());
+    const m = parCours.get(l.code_cours);
+    if (!m.has(act)) m.set(act, { activite_id: act, activite_nom: l.libelle || 'Théorie', groupes: new Set(), periodes: 0 });
+    const x = m.get(act);
+    x.groupes.add(l.code || '');
+    x.periodes += Number(l.p) || 0;
+  }
+  return [...parCours.entries()].map(([cours_code, m]) => ({ cours_code,
+    activites: [...m.values()].filter(x => x.periodes > 0).map(x => ({ activite_id: x.activite_id, activite_nom: x.activite_nom,
+      groupes: Math.max(1, x.groupes.size), periodes: Math.round(x.periodes * 100) / 100,
+      par_etudiant: Math.round(x.periodes / Math.max(1, x.groupes.size) * 10) / 10 })) }))
+    .filter(c => c.activites.length);
+}
+
+r.post('/depuis-attributions', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
+  const b = req.body || {};
+  const annee = b.annee_scolaire || anneeDeTravail(req);
+  const section = String(b.section || '').trim();
+  const ues = (Array.isArray(b.ue_nums) ? b.ue_nums : [b.ue_num]).map(Number).filter(Boolean);
+  if (!section || !ues.length) return res.status(400).json({ error: 'section et unité(s) requises' });
+  const remplacer = !!b.remplacer, simulation = b.simulation !== false;
+  const rapport = { a_ecrire: [], deja: [], sans_attribution: [] };
+  for (const ueNum of ues) {
+    const prop = propositionDepuisAttributions(annee, section, ueNum);
+    if (!prop.length) { rapport.sans_attribution.push(ueNum); continue; }
+    const o = organisationDe(annee, section, ueNum);
+    for (const c of prop) {
+      const gc = o ? db.prepare('SELECT id FROM grille_cours WHERE organisation_id = ? AND cours_code = ?').get(o.id, c.cours_code) : null;
+      const n = gc ? db.prepare('SELECT COUNT(*) n FROM grille_activite WHERE grille_cours_id = ?').get(gc.id).n : 0;
+      (n && !remplacer ? rapport.deja : rapport.a_ecrire).push({ ue_num: ueNum, ...c });
+    }
+  }
+  if (simulation) return res.json(rapport);
+  db.transaction(() => {
+    for (const c of rapport.a_ecrire) {
+      const o = organisationDe(annee, section, c.ue_num, true);
+      db.prepare(`INSERT INTO grille_cours (organisation_id, cours_code) VALUES (?, ?)
+        ON CONFLICT(organisation_id, cours_code) DO NOTHING`).run(o.id, c.cours_code);
+      const gc = db.prepare('SELECT id FROM grille_cours WHERE organisation_id = ? AND cours_code = ?').get(o.id, c.cours_code);
+      db.prepare('DELETE FROM grille_activite WHERE grille_cours_id = ?').run(gc.id);
+      const ins = db.prepare('INSERT INTO grille_activite (grille_cours_id, activite_id, periodes, vu_etudiant, ordre, groupes) VALUES (?,?,?,1,?,?)');
+      c.activites.forEach((a, i) => ins.run(gc.id, a.activite_id, a.periodes, i, a.groupes));
+    }
+  })();
+  res.json({ ...rapport, ecrit: rapport.a_ecrire.length });
+});
+
 /** Les activités proposables : celles de la maison, plus celles de la section. */
 r.get('/activites', authRequired, (req, res) => {
   const section = String(req.query.section || '').trim();
