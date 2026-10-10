@@ -5,7 +5,7 @@ import { passeRole } from '../lib/droits.js';
 import { teinteCours, styleTuileCours } from '../lib/teinteCours.js';
 import { IconeLaboratoire } from '../components/IconeLaboratoire.jsx';
 import { RailLateral } from '../components/ui.jsx';
-import { IconSitemap, IconPuzzle, IconCalendarWeek, IconTimeline } from '@tabler/icons-react';
+import { IconSitemap, IconPuzzle, IconCalendarWeek, IconTimeline, IconTrash, IconHistory } from '@tabler/icons-react';
 const StructureSection = lazy(() => import('./StructureSection.jsx'));
 const GroupesCommuns = lazy(() => import('./GroupesCommuns.jsx'));
 const SimulationAnnee = lazy(() => import('./GroupesCommuns.jsx').then(m => ({ default: m.SimulationAnnee })));
@@ -72,6 +72,41 @@ export default function LaboratoireTemporel() {
   /* REMPLIR LES VERRES DEPUIS LES ATTRIBUTIONS (Charles, 10 octobre 2026) : le
      travail dans l'autre sens — ce qui est déjà attribué remplit les verres.
      Compte rendu d'abord ; un cours déjà découpé n'est remplacé que sur demande. */
+  /* LE GRAND NETTOYAGE (Charles, 10 octobre 2026) : sauvegarder, vider, puis
+     proposer de réimporter depuis les attributions. Une sauvegarde se restaure. */
+  async function grandNettoyage() {
+    const corps = { annee_scolaire: annee, section };
+    const r0 = await fetch('/api/grille/nettoyer', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ ...corps, simulation: true }) });
+    const a = await r0.json().catch(() => ({}));
+    if (!r0.ok) { setErreur(a.error || `Erreur ${r0.status}`); return; }
+    const k = a.compte || {};
+    const v = await choisir({ titre: `Grand nettoyage du laboratoire — ${section}`, ton: 'alerte',
+      message: `Tout le laboratoire de la section ${section} est d’abord SAUVEGARDÉ, puis vidé : ${k.verres} verre(s) de cours, ${k.couches} couche(s), ${k.plan} créneau(x) du plan, ${k.briques} étudiant(s) rangés en briques, les locaux des activités et les cases (stage bloquant, congés, autonomie de côté). La structure reste : les UE, les cours, les plages, les attributions.`,
+      choix: [{ valeur: 'garder', libelle: 'Nettoyer, en gardant les dates des UE', aide: `${k.ues_datees} UE ont des dates — Dates des UE et l’échéancier les lisent aussi.` },
+        { valeur: 'dates', libelle: 'Nettoyer aussi les dates des UE', aide: 'Toutes les UE repartent « dates à poser ».' }] });
+    if (!v) return;
+    const r = await fetch('/api/grille/nettoyer', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ ...corps, dates: v === 'dates', simulation: false }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { setErreur(j.error || `Erreur ${r.status}`); return; }
+    setChoix(null); setRangee([]); setZoom('annee');
+    await charger();
+    if (await demander({ titre: 'Laboratoire nettoyé', message: `✓ Le laboratoire est vide, et sauvegardé avant (sauvegarde n° ${j.sauvegarde_id}, restaurable). Réimporter maintenant les verres depuis les attributions ?`, confirmer: 'Réimporter', annuler: 'Plus tard' })) {
+      await remplirDepuisAttributions((data?.ues || []).filter(u => !u.stage).map(u => u.ue_num));
+    }
+  }
+  async function restaurerSauvegarde() {
+    const r0 = await fetch(`/api/grille/sauvegardes?section=${encodeURIComponent(section)}&annee=${encodeURIComponent(annee)}`, { headers: authHeaders() });
+    const l = await r0.json().catch(() => []);
+    if (!Array.isArray(l) || !l.length) { await informer('Aucune sauvegarde du laboratoire pour cette section et cette année.'); return; }
+    const id = await choisir({ titre: `Restaurer le laboratoire — ${section}`, message: 'L’état actuel est sauvegardé avant la restauration : elle se défait.',
+      choix: l.map(x => ({ valeur: x.id, libelle: `n° ${x.id} — ${String(x.cree_le).slice(0, 16).replace('T', ' ')}`, aide: `${x.motif || ''}${x.cree_par ? ` · ${x.cree_par}` : ''}` })) });
+    if (!id) return;
+    const r = await fetch(`/api/grille/sauvegardes/${id}/restaurer`, { method: 'POST', headers: authHeaders() });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { setErreur(j.error || `Erreur ${r.status}`); return; }
+    setChoix(null); setRangee([]); await charger();
+    await informer(`✓ Laboratoire restauré depuis la sauvegarde n° ${id}.`);
+  }
   async function remplirDepuisAttributions(ueNums) {
     const corps = { annee_scolaire: annee, section, ue_nums: ueNums };
     const r0 = await fetch('/api/grille/depuis-attributions', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ ...corps, simulation: true }) });
@@ -338,6 +373,10 @@ export default function LaboratoireTemporel() {
           <button className="bouton" onClick={() => remplirDepuisAttributions(zoom === 'ue' && ueChoisie ? [ueChoisie.ue_num] : ues.filter(u => !u.stage).map(u => u.ue_num))}
             title="Les activités, groupes et périodes déjà attribués remplissent les verres">
             {zoom === 'ue' && ueChoisie ? `Remplir le verre de l’UE ${ueChoisie.ue_num} depuis les attributions` : 'Remplir les verres depuis les attributions'}</button>)}
+        {face === 'temps' && peutEcrire && data && <>
+          <button className="bouton" onClick={restaurerSauvegarde} title="Revenir à une sauvegarde du laboratoire"><IconHistory size={15} />Sauvegardes</button>
+          <button className="bouton bouton-detruire" onClick={grandNettoyage} title="Sauvegarder, tout vider (la structure reste), puis réimporter depuis les attributions"><IconTrash size={15} />Grand nettoyage du labo</button>
+        </>}
         <span className="text-[12px] text-slate-500">{face !== 'temps' ? '' : zoom === 'ue' ? 'Glisser une activité dans un cours ; tirer le haut d’une couche ; double-clic : revenir à l’année.' : (zoom === 'couches' ? 'Glisser une barre la déplace, ses bords l’allongent ; « à la suite » ou « en parallèle » arrangent un cours d’un clic · double-clic : le verre.' : 'Ctrl + molette ou double-clic pour zoomer · glisser une tuile la déplace dans l’année, ses bords l’allongent.')}</span>
       </div>
       <RailLateral titre="Le laboratoire temporel" sections={[{ items: [['temps', 'Le temps', IconTimeline], ['groupes', 'Les groupes', IconPuzzle], ['semaine', 'La semaine', IconCalendarWeek], ['schema', 'Schéma de capitalisation', IconSitemap]]
