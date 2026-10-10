@@ -24,6 +24,7 @@ import { authRequired, roleRequired } from '../middleware/auth.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { organisationsDe } from '../lib/groupesCommuns.js';
 import { placementsSection, uesDuBloc } from '../lib/placement.js';
+import { marquerPrimo } from '../lib/primo.js';
 
 const r = Router();
 
@@ -837,7 +838,7 @@ r.get('/cohortes', authRequired, (req, res) => {
     const g = parGroupes.get(`${l.id}|${l.ue_num}`);
     parId.get(l.id).orgs[l.ue_num] = g ? (g.size === 1 ? [...g][0] : [...g].sort().join('+')) : l.org;
   }
-  res.json({ ues, etudiants: [...parId.values()] });
+  res.json({ ues, etudiants: marquerPrimo([...parId.values()], annee) });
 });
 r.put('/cohortes', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
   const b = req.body || {};

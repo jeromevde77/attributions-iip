@@ -140,7 +140,8 @@ r.put('/couleurs', authRequired,
    « c'est uniquement l'administrateur qui peut toucher »). */
 r.get('/design', authRequired, async (req, res) => {
   const { design, DESIGN_DEFAUT } = await import('../lib/design.js');
-  res.json({ design: design(), catalogue: DESIGN_DEFAUT });
+  let personnalise = null; try { personnalise = JSON.parse(LIRE_CONF('design_personnalise') || 'null'); } catch { personnalise = null; }
+  res.json({ design: design(), catalogue: DESIGN_DEFAUT, personnalise });
 });
 r.put('/design', authRequired, roleRequired('admin'), async (req, res) => {
   const { design, valide } = await import('../lib/design.js');
@@ -150,6 +151,10 @@ r.put('/design', authRequired, roleRequired('admin'), async (req, res) => {
   db.prepare(`INSERT INTO lucie_config (cle, valeur, description) VALUES (?,?,?)
               ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur`)
     .run('design', JSON.stringify(propre), 'Formes et composants : rayons, contrôles, tuiles, ombres, police');
+  /* LE THÈME « PERSONNALISÉ » (3.1.268, Charles : « dès que je modifie une chose, il
+     faut créer un thème : personnalisé »). Un geste à la main (et non le clic sur un
+     thème) le réécrit : on peut alors essayer « Arrondi » et revenir à SES réglages. */
+  if (req.body?.personnalise) ECRIRE_CONF('design_personnalise', JSON.stringify(propre));
   res.json({ design: design() });
 });
 

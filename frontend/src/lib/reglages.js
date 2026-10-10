@@ -34,7 +34,7 @@ export function useReglagesVisuels() {
     const n = { ...design, [cle]: v }; setDesign(n); poserDesign(n);
     clearTimeout(tD.current); setEtat('…');
     tD.current = setTimeout(async () => {
-      const r = await fetch('/api/config/design', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ design: n }) });
+      const r = await fetch('/api/config/design', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ design: n, personnalise: true }) });
       setEtat(r.ok ? '✓ enregistré' : 'Refusé');
     }, 500);
   }

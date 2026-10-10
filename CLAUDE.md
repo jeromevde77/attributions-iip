@@ -260,6 +260,14 @@ liste « Classe » de la fiche) : l'UE 77 de psychomotricité, passée de B2 à 
 donne en 2026-2027 au Q2 en BA1 (org 1) ET en BA2 (org 2) ; chaque classe ne
 simule que ses organisations et leurs étudiants.
 
+**LE PRIMO-INSCRIT A UNE DÉFINITION, ET UN BADGE** (3.1.268, Charles : « un filtre
+primo et un badge — utile dans toutes les fenêtres où il y a des étudiants ») :
+aucune inscription ni valorisation dans une année antérieure — `lib/primo.js`
+(`anciensAvant`, `marquerPrimo`), jamais une quatrième recopie. `BadgePrimo`
+(`ui.jsx`) le montre partout pareil ; filtre dans la répartition des groupes
+(UE 77 : 99 inscrits, 60 primo — les BA1 du nouveau système) et dans les cohortes.
+**À étendre** aux autres listes d'étudiants.
+
 **ÉVALUATION UNIQUE ≠ ÉPREUVE INTÉGRÉE** (2.12.289, Charles, 28 septembre 2026,
 UE 261 : « une seule évaluation ; la note doit aller aux deux cours »). Une unité
 peut être réglée, pour une année, en **évaluation unique**
@@ -1532,6 +1540,12 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
 > `BoutonAnnulerReglage` (`lib/annulerReglage.jsx`) : Formes et composants, Thèmes et
 > couleurs, boîte de propriétés du catalogue, mode mise en page. Un nouvel écran de
 > réglage le pose et relit par `useRelireReglages`.
+>
+> **LE THÈME « PERSONNALISÉ »** (3.1.268, Charles : « dès que je modifie une chose, il
+> faut créer un thème personnalisé »). Formes et composants montre le thème en vigueur
+> (sélecteur à segments) ; un geste à la main — curseur, liste, boîte de propriétés —
+> écrit aussi `design_personnalise`, le clic sur un thème ne l'écrase pas : on essaie
+> « Arrondi », on revient à « Personnalisé ».
 >
 > **LE CATALOGUE DES ÉLÉMENTS** (3.1.260, Charles : « tu n'as pas répertorié tous
 > les visuels — les tableaux, les titres… »). Configuration → *Catalogue des

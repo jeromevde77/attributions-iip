@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { IconLayoutGrid, IconAlertTriangle, IconChecks, IconLock } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import ImportTableauPlat from './ImportTableauPlat.jsx';
-import { Fenetre } from './ui.jsx';
+import { Fenetre, BadgePrimo } from './ui.jsx';
 import { demander } from '../lib/dialogue.jsx';
 import { peutGeste, passeRole } from '../lib/droits.js';
 
@@ -667,8 +667,7 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
                       <b>{(e.nom || '').toUpperCase()}</b> {e.prenom}
                       <span className="text-slate-400"> · {e.id_ecampus || '—'}</span>
                       {e.niveau && <span className="text-mention text-slate-500"> · {e.niveau}</span>}
-                      {e.primo && <span className="ml-1.5 text-mention font-bold px-1.5 py-0.5 rounded-full bg-blue-500 text-white align-middle"
-                        title="Nouvel inscrit : aucune trace dans une année antérieure">primo</span>}
+                      {e.primo && <BadgePrimo className="ml-1.5 align-middle" />}
                       {mode === 'valider' && (e.pae_confirme_le ? (
                         <span className="ml-1.5 text-mention font-bold px-1.5 py-0.5 rounded-full bg-emerald-500 text-white align-middle"
                           title={`Validé le ${e.pae_confirme_le}${e.pae_confirme_par ? ` par ${e.pae_confirme_par}` : ''}`}>

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { authHeaders } from '../lib/api.js';
 import { demander, informer } from '../lib/dialogue.jsx';
-import { Fenetre } from './ui.jsx';
+import { Fenetre, BadgePrimo } from './ui.jsx';
 
 /**
  * LES COHORTES D'UN BLOC (Charles, 10 octobre 2026 : en AESI, deux demi-promotions
@@ -16,6 +16,7 @@ export default function CohortesBloc({ section, bloc, annee, peutEcrire, onFerme
   const [erreur, setErreur] = useState(null);
   const [choix, setChoix] = useState({});            // etudiant → org choisie
   const [q, setQ] = useState('');
+  const [fPrimo, setFPrimo] = useState('');
   const [enCours, setEnCours] = useState(false);
 
   const charger = async () => {
@@ -31,7 +32,7 @@ export default function CohortesBloc({ section, bloc, annee, peutEcrire, onFerme
   const actuelle = e => { const v = [...new Set(Object.values(e.orgs))]; return v.length === 1 ? v[0] : null; };
   const cohorte = e => choix[e.id] ?? actuelle(e);
   const n = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-  const liste = (d?.etudiants || []).filter(e => !q.trim() || n(`${e.nom} ${e.prenom}`).includes(n(q)));
+  const liste = (d?.etudiants || []).filter(e => (!q.trim() || n(`${e.nom} ${e.prenom}`).includes(n(q))) && (!fPrimo || (fPrimo === 'primo') === !!e.primo));
   const compte = o => (d?.etudiants || []).filter(e => cohorte(e) === o).length;
   const mixtes = (d?.etudiants || []).filter(e => cohorte(e) === null).length;
 
@@ -73,6 +74,11 @@ export default function CohortesBloc({ section, bloc, annee, peutEcrire, onFerme
             {d.ues.some(u => u.par_groupes) && <span className="text-slate-500 w-full" title="La répartition des groupes de ces UE (Étudiants → Groupes) fait foi pour la simulation : l’organisation s’y lit cours par cours.">Réparties par les groupes : {d.ues.filter(u => u.par_groupes).map(u => u.ue_num).join(', ')} — l’organisation s’y lit cours par cours (« 1+2 » quand elle change d’un cours à l’autre).</span>}
             <span className="flex-1" />
             <input value={q} onChange={e => setQ(e.target.value)} placeholder="Chercher un étudiant…" className="controle w-56" data-reponses="non" />
+            <select value={fPrimo} onChange={e => setFPrimo(e.target.value)} className="controle" title="Primo : aucune inscription ni valorisation dans une année antérieure">
+              <option value="">Tous</option>
+              <option value="primo">Primo-inscrits ({(d.etudiants || []).filter(e => e.primo).length})</option>
+              <option value="anciens">Déjà inscrits avant ({(d.etudiants || []).filter(e => !e.primo).length})</option>
+            </select>
             {peutEcrire && orgs.length > 1 && <button className="bouton" onClick={moitie} title="La première moitié de la liste (ordre alphabétique) en cohorte 1, la seconde en cohorte 2">Moitié / moitié</button>}
           </div>
           <table className="w-full text-second">
@@ -82,7 +88,7 @@ export default function CohortesBloc({ section, bloc, annee, peutEcrire, onFerme
                 const c = cohorte(e), change = choix[e.id] != null && choix[e.id] !== actuelle(e);
                 return (
                   <tr key={e.id} className="border-t border-slate-100">
-                    <td className="px-2 py-1">{String(e.nom || '').toUpperCase()} {e.prenom}{change && <span className="ml-1 text-xs text-slate-500">(modifié)</span>}</td>
+                    <td className="px-2 py-1">{String(e.nom || '').toUpperCase()} {e.prenom}{e.primo && <BadgePrimo className="ml-1.5" />}{change && <span className="ml-1 text-xs text-slate-500">(modifié)</span>}</td>
                     <td className="px-2 py-1">
                       <div className="segments inline-flex h-7">
                         {orgs.map(o => <button key={o} disabled={!peutEcrire} onClick={() => setChoix(x => ({ ...x, [e.id]: o }))}

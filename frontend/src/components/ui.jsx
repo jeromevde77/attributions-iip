@@ -950,6 +950,12 @@ export function PastilleEtat({ etat = 'neutre', children, className = '', title 
   );
 }
 
+/** LE PRIMO-INSCRIT (3.1.268) : aucune trace dans une année antérieure — le serveur
+ *  en décide (`lib/primo.js`), l'écran ne fait que le montrer, partout de la même façon. */
+export function BadgePrimo({ className = '' }) {
+  return <PastilleEtat etat="disponible" className={`flex-none ${className}`} title="Primo-inscrit : aucune inscription ni valorisation dans une année antérieure">primo</PastilleEtat>;
+}
+
 /** Valeur numérique secondaire, en gris — un rapport, un rappel, une unité. */
 export function Mention({ children, ton = 'neutre', className = '' }) {
   const t = ton === 'danger' ? 'text-red-600 font-semibold'

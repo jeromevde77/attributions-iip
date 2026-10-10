@@ -27,30 +27,43 @@ export default function ReglageDesign() {
   const [cat, setCat] = useState(null);
   const [v, setV] = useState(null);
   const [etat, setEtat] = useState('');
+  const [perso, setPerso] = useState(null);           // le thème « Personnalisé » gardé par le serveur
   const minuterie = useRef(null);
 
   const lire = () => fetch('/api/config/design', { headers: authHeaders() }).then(r => r.json())
-      .then(j => { setCat(j.catalogue || {}); setV(j.design || DESIGN_MAISON); }).catch(() => setEtat('Lecture impossible'));
+      .then(j => { setCat(j.catalogue || {}); setV(j.design || DESIGN_MAISON); setPerso(j.personnalise || null); }).catch(() => setEtat('Lecture impossible'));
   useEffect(() => { lire(); }, []);
   useRelireReglages('design', lire, () => clearTimeout(minuterie.current));
 
-  function changer(n) {
+  /* Un geste à la main (curseur, liste) fait le thème « Personnalisé » ; le clic sur un
+     thème ne l'écrase pas — on essaie « Arrondi », on revient à ses propres réglages. */
+  function changer(n, manuel = false) {
     setV(n); poserDesign(n);
     if (!peut) return;
+    if (manuel) setPerso(n);
     clearTimeout(minuterie.current); setEtat('…');
     minuterie.current = setTimeout(async () => {
-      const r = await fetch('/api/config/design', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ design: n }) });
+      const r = await fetch('/api/config/design', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ design: n, personnalise: manuel }) });
       setEtat(r.ok ? '✓ enregistré' : 'Refusé : seul l’administrateur règle le design');
     }, 500);
   }
 
   if (!cat || !v) return <div className="text-sm text-slate-400">{etat || 'Chargement…'}</div>;
+  // Le thème en vigueur : celui dont toutes les valeurs coïncident ; sinon « Personnalisé ».
+  const pareil = t => Object.keys({ ...DESIGN_MAISON, ...cat }).every(k => String(v[k] ?? DESIGN_MAISON[k] ?? cat[k]?.valeur) === String(t[k] ?? DESIGN_MAISON[k] ?? cat[k]?.valeur));
+  const actif_ = Object.entries(THEMES).find(([, t]) => pareil({ ...DESIGN_MAISON, ...t }))?.[0] || 'Personnalisé';
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-second text-slate-600">Thèmes :</span>
-        {Object.entries(THEMES).map(([nom, t]) => (
-          <button key={nom} className="bouton" disabled={!peut} onClick={() => changer({ ...DESIGN_MAISON, ...t })}>{nom}</button>))}
+        <span className="text-second text-slate-600">Thème :</span>
+        <div className="segments" role="group" aria-label="Thème des formes">
+          {[...Object.entries(THEMES).map(([nom, t]) => [nom, { ...DESIGN_MAISON, ...t }]), ...((perso || actif_ === 'Personnalisé') ? [['Personnalisé', { ...DESIGN_MAISON, ...(perso || v) }]] : [])].map(([nom, val]) => {
+            const actif = nom === actif_;
+            return <button key={nom} type="button" disabled={!peut} aria-pressed={actif} onClick={() => changer(val)}
+              className={actif ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}
+              title={nom === 'Personnalisé' ? 'Vos propres réglages, gardés même quand vous essayez un autre thème' : undefined}>{nom}</button>;
+          })}
+        </div>
         <span className="flex-1" />
         <span className="text-second text-slate-500">{peut ? etat : 'Lecture seule : seul l’administrateur règle le design.'}</span>
         {peut && <BoutonAnnulerReglage quoi="design" />}
@@ -64,10 +77,10 @@ export default function ReglageDesign() {
                 <label key={k} className="flex items-center gap-2 text-second">
                   <span className="flex-1">{d.libelle}</span>
                   {d.type === 'choix'
-                    ? <select className="controle !h-8" value={v[k]} disabled={!peut} onChange={e => changer({ ...v, [k]: e.target.value })}>
+                    ? <select className="controle !h-8" value={v[k]} disabled={!peut} onChange={e => changer({ ...v, [k]: e.target.value }, true)}>
                         {d.choix.map(c => <option key={c} value={c}>{({ marquee: 'marquée', serree: 'serrée', aeree: 'aérée', pointille: 'pointillé', horizontaux: 'filets horizontaux', grille: 'grille complète', aucun: 'aucun' })[c] || c}</option>)}</select>
                     : <>
-                        <input type="range" min={d.min} max={d.max} step={1} value={v[k]} disabled={!peut} onChange={e => changer({ ...v, [k]: Number(e.target.value) })} className="w-28" />
+                        <input type="range" min={d.min} max={d.max} step={1} value={v[k]} disabled={!peut} onChange={e => changer({ ...v, [k]: Number(e.target.value) }, true)} className="w-28" />
                         <span className="w-12 text-right tabular-nums">{v[k]}{d.type === 'px' ? ' px' : ''}</span>
                       </>}
                 </label>))}
