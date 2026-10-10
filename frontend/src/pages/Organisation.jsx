@@ -19,6 +19,8 @@ import { authHeaders } from '../lib/api.js';
 const CentrePlanification = lazy(() => import('./CentrePlanification.jsx'));
 const RepartitionCours = lazy(() => import('./RepartitionCours.jsx'));
 const GroupesCommuns = lazy(() => import('./GroupesCommuns.jsx'));
+const LaboratoireTemporel = lazy(() => import('./LaboratoireTemporel.jsx'));
+import { IconeLaboratoire } from '../components/IconeLaboratoire.jsx';
 const HoraireSemaine = lazy(() => import('./HoraireSemaine.jsx'));
 const Effectifs = lazy(() => import('./Configuration.jsx').then(m => ({ default: m.OngletStatistiques })));
 
@@ -62,7 +64,7 @@ export default function Organisation({ ongletInitial }) {
          la DERNIÈRE rubrique — après Horaires et Effectifs —, loin de l'icône
          cliquée. L'ordre est celui du rail tel qu'il était ; seule l'unité porte
          ses trois étapes dessous. */
-      ordreRail={[['attributions', 'planifier', 'rentree', 'repartition', 'structure', 'unite',
+      ordreRail={[['attributions', 'planifier', 'laboratoire', 'rentree', 'repartition', 'structure', 'unite',
         'horaire-semaine', 'effectifs']]}
       sousMenus={[{ key: 'horaire-semaine', label: 'Horaires', icone: IconCalendarWeek, hote: 'horaire-semaine',
         enfants: [
@@ -93,6 +95,12 @@ export default function Organisation({ ongletInitial }) {
           rendu: <Suspense fallback={<div className="p-4 text-[13px] text-slate-400">Chargement…</div>}>
                    <CentrePlanification annee={annee}
                      ongletInitial={params.get('sous') || 'ue'} /></Suspense> },
+        /* LE LABORATOIRE TEMPOREL DE LUCIE (10 octobre 2026) : les UE posées sur
+           l'année en tuiles, leurs couches, et le verre de chacune — sur la
+           grille d'organisation et les dates des UE, sans rien doubler. */
+        { key: 'laboratoire', module: 'organisation', label: 'Le laboratoire temporel', icone: IconeLaboratoire,
+          rendu: <Suspense fallback={<div className="p-4 text-[13px] text-slate-400">Chargement…</div>}>
+                   <LaboratoireTemporel /></Suspense> },
         { key: 'rentree', module: 'organisation', label: 'Rentrée', icone: IconSchool, sansMarge: true,
           rendu: annee
             ? <Rentree annee={annee} />
