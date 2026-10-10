@@ -198,6 +198,21 @@ tranches de 3.1.242 (`prof_agenda`, `prof_disponibilite` ne sont plus lues). Les
 priorités de section (jours au plus, regrouper) restent dans `horaire_regle`,
 réglées depuis la même face.
 
+**UNE UE, UN STAGE PEUVENT AVOIR DEUX ORGANISATIONS — ET LE LABORATOIRE LES
+SÉPARE** (3.1.244-3.1.245, Charles, 10 octobre 2026 : « en AESI, une partie des
+étudiants va en stage de Toussaint à Noël (orga 1), l'autre de Carnaval à Pâques
+(orga 2) ; pendant que l'orga 1 est en stage, l'orga 2 a des UE »). Une fiche par
+organisation dans le laboratoire (`cle` = « 336#2 », « UE 336 · org 2 »), chacune
+avec ses dates (`organisation_ue`) ; son verre est celui de l'organisation 1 tant
+qu'on ne le découpe pas (`verre_repris`), recopié en entier à la première
+découpe. *Dédoubler* / *Retirer l'org* dans la fiche de l'UE (refusé si une
+attribution ou un étudiant y est rattaché). La simulation : chaque demande porte
+son organisation (attributions, ou verre de chaque organisation), ses dates et
+ses étudiants (`etudiant_inscription.num_organisation`) ; un stage bloquant d'une
+organisation n'arrête QUE la sienne ; occupation par brique × organisation et par
+étudiant (le cas par cas : un étudiant en orga 1 d'une UE, orga 2 d'une autre).
+Une UE en une seule organisation concerne tout le monde.
+
 **ÉVALUATION UNIQUE ≠ ÉPREUVE INTÉGRÉE** (2.12.289, Charles, 28 septembre 2026,
 UE 261 : « une seule évaluation ; la note doit aller aux deux cours »). Une unité
 peut être réglée, pour une année, en **évaluation unique**

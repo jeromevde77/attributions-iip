@@ -93,7 +93,7 @@ export default function LaboratoireTemporel() {
     setChoix(null); setRangee([]); setZoom('annee');
     await charger();
     if (await demander({ titre: 'Laboratoire nettoyé', message: `✓ Le laboratoire est vide, et sauvegardé avant (sauvegarde n° ${j.sauvegarde_id}, restaurable). Réimporter maintenant les verres depuis les attributions ?`, confirmer: 'Réimporter', annuler: 'Plus tard' })) {
-      await remplirDepuisAttributions((data?.ues || []).filter(u => !u.stage).map(u => u.ue_num));
+      await remplirDepuisAttributions([...new Set((data?.ues || []).filter(u => !u.stage).map(u => u.ue_num))]);
     }
   }
   async function restaurerSauvegarde() {
@@ -156,7 +156,7 @@ export default function LaboratoireTemporel() {
   // L'étendue d'une UE en colonnes : ses dates, sinon toute l'année de cours (à poser).
   const premiereCours = semaines.findIndex(s => s.type === 'cours'), derniereCours = semaines.map(s => s.type).lastIndexOf('cours');
   const etendue = u => {
-    if (glisse && glisse.ue === u.ue_num) return { de: glisse.de, a: glisse.a, posee: true };
+    if (glisse && glisse.ue === u.cle) return { de: glisse.de, a: glisse.a, posee: true };
     const de = indexDe(u.sem_debut), a = indexDe(u.sem_fin);
     return de >= 0 && a >= 0 ? { de, a, posee: true } : { de: Math.max(0, premiereCours), a: Math.max(0, derniereCours), posee: false };
   };
@@ -172,36 +172,55 @@ export default function LaboratoireTemporel() {
   };
   const pistes = useMemo(() => {
     const occupe = [], out = new Map();
-    for (const u of [...ues].sort((x, y) => x.ue_num - y.ue_num)) {
+    for (const u of [...ues].sort((x, y) => x.ue_num - y.ue_num || (x.num_organisation || 1) - (y.num_organisation || 1))) {
       const e = etendueEnregistree(u);
       let i = occupe.findIndex(l => l.every(x => x.a < e.de || x.de > e.a));
       if (i < 0) { i = occupe.length; occupe.push([]); }
-      occupe[i].push(e); out.set(u.ue_num, i);
+      occupe[i].push(e); out.set(u.cle, i);
     }
     return { n: occupe.length, de: out };
   }, [ues, semaines]); // eslint-disable-line
 
   async function poserDates(u, de, a) {
     const r = await fetch('/api/grille/ue', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({
-      annee_scolaire: annee, section, ue_num: u.ue_num, date_debut: semaines[de].date_debut, date_fin: semaines[a].date_fin || semaines[a].date_debut }) });
+      annee_scolaire: annee, section, ue_num: u.ue_num, num_organisation: u.num_organisation || 1, date_debut: semaines[de].date_debut, date_fin: semaines[a].date_fin || semaines[a].date_debut }) });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) { setErreur(j.error || `Erreur ${r.status}`); return; }
     await charger();
   }
   async function basculerConges(u) {
-    const r = await fetch('/api/grille/ue', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ annee_scolaire: annee, section, ue_num: u.ue_num, cours_pendant_conges: !u.cours_pendant_conges }) });
+    const r = await fetch('/api/grille/ue', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ annee_scolaire: annee, section, ue_num: u.ue_num, num_organisation: u.num_organisation || 1, cours_pendant_conges: !u.cours_pendant_conges }) });
     if (!r.ok) { const j = await r.json().catch(() => ({})); setErreur(j.error || `Erreur ${r.status}`); return; }
     await charger();
   }
+  /* DÉDOUBLER UNE UE (Charles, 10 octobre 2026 : AESI, une moitié en stage de
+     Toussaint à Noël, l'autre de Carnaval à Pâques ; pendant que l'une est en stage,
+     l'autre a des UE). L'organisation suivante paraît comme une tuile à part. */
+  async function dedoubler(u) {
+    if (!(await demander({ titre: `Dédoubler l’UE ${u.ue_num}`, message: `Une organisation de plus pour l’UE ${u.ue_num}, avec ses propres dates. Son verre reprend celui de l’organisation 1 tant qu’on ne le découpe pas autrement.
+
+Les étudiants se répartissent ensuite entre les organisations (répartition de l’UE, ou cohortes).`, confirmer: 'Dédoubler' }))) return;
+    const r = await fetch('/api/grille/organisation', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ annee_scolaire: annee, section, ue_num: u.ue_num }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { setErreur(j.error || `Erreur ${r.status}`); return; }
+    await charger(); setChoix(`${u.ue_num}#${j.num_organisation}`);
+  }
+  async function retirerOrganisation(u) {
+    if (!(await demander({ titre: `Retirer l’organisation ${u.num_organisation} de l’UE ${u.ue_num}`, message: 'Ses dates et son verre propre disparaissent. Refusé si une attribution ou un étudiant y est rattaché.', confirmer: 'Retirer' }))) return;
+    const r = await fetch('/api/grille/organisation', { method: 'DELETE', headers: authHeaders(), body: JSON.stringify({ annee_scolaire: annee, section, ue_num: u.ue_num, num_organisation: u.num_organisation }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { await informer(`❌ ${j.error || `Erreur ${r.status}`}`); return; }
+    setChoix(null); await charger();
+  }
   async function basculerStage(u) {
-    const r = await fetch('/api/grille/ue', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ annee_scolaire: annee, section, ue_num: u.ue_num, stage_bloquant: !u.stage_bloquant }) });
+    const r = await fetch('/api/grille/ue', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ annee_scolaire: annee, section, ue_num: u.ue_num, num_organisation: u.num_organisation || 1, stage_bloquant: !u.stage_bloquant }) });
     if (!r.ok) { const j = await r.json().catch(() => ({})); setErreur(j.error || `Erreur ${r.status}`); return; }
     await charger();
   }
 
   const zone = useRef(null);
   function geste(ev, u, quoi) {
-    if (!peutEcrire) { setChoix(u.ue_num); return; }
+    if (!peutEcrire) { setChoix(u.cle); return; }
     ev.preventDefault(); ev.stopPropagation();
     const larg = (zone.current?.getBoundingClientRect().width || 1) / Math.max(1, NB);
     const e0 = etendue(u), x0 = ev.clientX;
@@ -213,22 +232,23 @@ export default function LaboratoireTemporel() {
       if (quoi === 'deplacer') { const d = Math.max(-e0.de, Math.min(NB - 1 - e0.a, dc)); de += d; a += d; }
       if (quoi === 'debut') de = Math.max(0, Math.min(e0.a, e0.de + dc));
       if (quoi === 'fin') a = Math.min(NB - 1, Math.max(e0.de, e0.a + dc));
-      courant = { ue: u.ue_num, de, a }; setGlisse(courant);
+      courant = { ue: u.cle, de, a }; setGlisse(courant);
     };
     const up = async () => {
       document.removeEventListener('pointermove', mv); document.removeEventListener('pointerup', up);
-      if (!courant) { setChoix(u.ue_num); return; }
-      setChoix(u.ue_num);
+      if (!courant) { setChoix(u.cle); return; }
+      setChoix(u.cle);
       await poserDates(u, courant.de, courant.a);
       setGlisse(null);
     };
     document.addEventListener('pointermove', mv); document.addEventListener('pointerup', up);
   }
 
-  const ueChoisie = (data?.ues || []).find(u => u.ue_num === choix) || null;
-  const stagesBloquants = ues.filter(u => u.stage && u.stage_bloquant && etendue(u).posee).map(etendue);
+  const ueChoisie = (data?.ues || []).find(u => u.cle === choix) || null;
+  const stagesBloquants = ues.filter(u => u.stage && u.stage_bloquant && etendue(u).posee).map(u => ({ ...etendue(u), org: u.nb_organisations > 1 ? u.num_organisation : null }));
   // Seule une UE POSÉE peut tomber pendant le stage : sans dates, on ne sait pas.
-  const pendantStage = u => !u.stage && etendue(u).posee && stagesBloquants.some(s => etendue(u).de <= s.a && etendue(u).a >= s.de);
+  // Un stage d'une organisation ne gêne que la même organisation des UE dédoublées ; une UE commune est gênée par tous.
+  const pendantStage = u => !u.stage && etendue(u).posee && stagesBloquants.some(s => (!s.org || u.nb_organisations < 2 || s.org === u.num_organisation) && etendue(u).de <= s.a && etendue(u).a >= s.de);
 
   /* LES COUCHES DANS LE TEMPS (Charles, 10 octobre 2026 : « le contenu de la tuile
      est le reflet du verre, mais temporellement : l'évaluation à la fin, théorie
@@ -241,7 +261,7 @@ export default function LaboratoireTemporel() {
   const idxDate = d => { if (!d) return -1; const i = semaines.findIndex(x => d >= x.date_debut && d <= (x.date_fin || x.date_debut)); if (i >= 0) return i;
     let j = -1; semaines.forEach((x, n) => { if (x.date_debut <= d) j = n; }); return j; };
   const spanAct = (u, c, a, k) => {
-    if (glisseAct && glisseAct.ue === u.ue_num && glisseAct.cours === c.cours_code && glisseAct.k === k) return { de: glisseAct.de, a: glisseAct.a };
+    if (glisseAct && glisseAct.ue === u.cle && glisseAct.cours === c.cours_code && glisseAct.k === k) return { de: glisseAct.de, a: glisseAct.a };
     const e = etendue(u);
     const d = idxDate(a.date_debut), f = idxDate(a.date_fin);
     if (d >= 0 && f >= 0) return { de: Math.max(e.de, Math.min(d, e.a)), a: Math.max(e.de, Math.min(f, e.a)) };
@@ -263,12 +283,12 @@ export default function LaboratoireTemporel() {
   });
   const hauteurUE = u => (zoom === 'annee' ? 54 : 40 + couchesDe(u).reduce((t, x) => t + 15 + 19 * Math.max(1, x.lignes.length), 0));
   // Une piste fait la hauteur de sa plus haute tuile ; les suivantes s'empilent dessous.
-  const hauteursPistes = Array.from({ length: pistes.n }, (_, i) => Math.max(54, ...ues.filter(u => pistes.de.get(u.ue_num) === i).map(hauteurUE)));
+  const hauteursPistes = Array.from({ length: pistes.n }, (_, i) => Math.max(54, ...ues.filter(u => pistes.de.get(u.cle) === i).map(hauteurUE)));
   const hautDePiste = i => hauteursPistes.slice(0, i).reduce((t, h) => t + h + 8, 0);
 
   async function ecrireActivites(u, c, activites) {
     const r = await fetch('/api/grille/cours', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({
-      annee_scolaire: annee, section, ue_num: u.ue_num, cours_code: c.cours_code,
+      annee_scolaire: annee, section, ue_num: u.ue_num, num_organisation: u.num_organisation || 1, cours_code: c.cours_code,
       date_debut: c.date_debut || null, date_fin: c.date_fin || null, autonomie_placee: c.autonomie_placee || 0, evaluation_mode: c.evaluation_mode || 'examen',
       activites: activites.map(a => ({ activite_id: a.activite_id, periodes: a.periodes, groupes: a.groupes || 1, vu_etudiant: a.vu_etudiant !== 0,
         date_debut: a.date_debut || null, date_fin: a.date_fin || null })) }) });
@@ -286,7 +306,7 @@ export default function LaboratoireTemporel() {
      forment UN bloc en parallèle ; « à la suite » enchaîne les autres avant et
      après, ce bloc prenant la place de la première activité cochée. */
   const [coches, setCoches] = useState({});              // `${ue}#${cours}` → [k…]
-  const basculerCoche = (u, c, k) => setCoches(x => { const cle = `${u.ue_num}#${c.cours_code}`, l = new Set(x[cle] || []); l.has(k) ? l.delete(k) : l.add(k); return { ...x, [cle]: [...l] }; });
+  const basculerCoche = (u, c, k) => setCoches(x => { const cle = `${u.cle}#${c.cours_code}`, l = new Set(x[cle] || []); l.has(k) ? l.delete(k) : l.add(k); return { ...x, [cle]: [...l] }; });
   async function arranger(u, c, facon) {
     const e = etendue(u);
     const sem = semaines.map((x, i) => ({ x, i })).filter(({ x, i }) => i >= e.de && i <= e.a && (x.type === 'cours' || (u.cours_pendant_conges && x.type === 'vacances'))).map(({ i }) => i);
@@ -299,7 +319,7 @@ export default function LaboratoireTemporel() {
       const evals = c.activites.filter(estEval);
       const dispo = evals.length ? sem.slice(0, -1) : sem;
       // Les étapes : une activité seule, ou le bloc des activités cochées (en parallèle).
-      const cochees = new Set(coches[`${u.ue_num}#${c.cours_code}`] || []);
+      const cochees = new Set(coches[`${u.cle}#${c.cours_code}`] || []);
       const etapes = [];
       c.activites.forEach((a, k) => {
         if (estEval(a)) return;
@@ -339,7 +359,7 @@ export default function LaboratoireTemporel() {
       if (quoi === 'deplacer') { const d = Math.max(e.de - s0.de, Math.min(e.a - s0.a, dc)); de += d; a += d; }
       if (quoi === 'debut') de = Math.max(e.de, Math.min(s0.a, s0.de + dc));
       if (quoi === 'fin') a = Math.min(e.a, Math.max(s0.de, s0.a + dc));
-      courant = { ue: u.ue_num, cours: c.cours_code, k, de, a }; setGlisseAct(courant);
+      courant = { ue: u.cle, cours: c.cours_code, k, de, a }; setGlisseAct(courant);
     };
     const up = async () => {
       document.removeEventListener('pointermove', mv); document.removeEventListener('pointerup', up);
@@ -372,7 +392,7 @@ export default function LaboratoireTemporel() {
               className={`px-3 text-[12.5px] ${zoom === k ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'} disabled:opacity-40`}>{l}</button>))}
         </div>}
         {face === 'temps' && peutEcrire && data && (
-          <button className="bouton" onClick={() => remplirDepuisAttributions(zoom === 'ue' && ueChoisie ? [ueChoisie.ue_num] : ues.filter(u => !u.stage).map(u => u.ue_num))}
+          <button className="bouton" onClick={() => remplirDepuisAttributions(zoom === 'ue' && ueChoisie ? [ueChoisie.ue_num] : [...new Set(ues.filter(u => !u.stage).map(u => u.ue_num))])}
             title="Les activités, groupes et périodes déjà attribués remplissent les verres">
             {zoom === 'ue' && ueChoisie ? `Remplir le verre de l’UE ${ueChoisie.ue_num} depuis les attributions` : 'Remplir les verres depuis les attributions'}</button>)}
         {face === 'temps' && peutEcrire && data && <>
@@ -419,9 +439,9 @@ export default function LaboratoireTemporel() {
                 {semaines.map((s, i) => <div key={i} style={{ background: fondSemaine(s.type), boxShadow: stagesBloquants.some(x => i >= x.de && i <= x.a) ? 'inset 0 0 0 999px rgba(71,85,105,.08)' : undefined }} />)}
               </div>
               {ues.map(u => {
-                const e = etendue(u), p = pistes.de.get(u.ue_num) || 0, h = hauteursPistes[p];
+                const e = etendue(u), p = pistes.de.get(u.cle) || 0, h = hauteursPistes[p];
                 return (
-                  <TuileUE key={u.ue_num} u={u} zoom={zoom} choisie={choix === u.ue_num} posee={e.posee} pendantStage={pendantStage(u)}
+                  <TuileUE key={u.cle} u={u} zoom={zoom} choisie={choix === u.cle} posee={e.posee} pendantStage={pendantStage(u)}
                     style={{ left: `calc(${e.de / NB * 100}% + 1px)`, width: `calc(${(e.a - e.de + 1) / NB * 100}% - 2px)`, top: hautDePiste(p), height: h }}
                     couches={zoom === 'couches' ? couchesDe(u) : null} span={e} semaines={semaines} peutEcrire={peutEcrire}
                     onActivite={(ev, c, k, quoi) => gesteAct(ev, u, c, k, quoi)} onArranger={(c, f) => arranger(u, c, f)}
@@ -430,7 +450,7 @@ export default function LaboratoireTemporel() {
                     onOuvrir={() => {
                       /* LE DOUBLE-CLIC ZOOME (Charles, 10 octobre 2026) : l'année → les
                          couches → le verre ; dans le verre, il ramène à l'année. */
-                      setChoix(u.ue_num);
+                      setChoix(u.cle);
                       setZoom(z => (z === 'annee' ? 'couches' : u.stage ? 'annee' : 'ue'));
                     }} />);
               })}
@@ -453,19 +473,20 @@ export default function LaboratoireTemporel() {
           <div className="bloc-etat px-3 py-2 text-[12.5px]" data-etat="surveiller">
             <b>Autonomie de la section non dépensée : {total} p.</b>{cote > 0 ? ` — dont ${cote} mises de côté volontairement` : ''}. Toute l’autonomie doit être dépensée dans la section et dans l’année.
             <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-slate-600">
-              {lignes.map(x => <span key={x.u.ue_num} title={x.reservee ? `Mise de côté : ${x.u.autonomie_motif || ''}` : 'Pas encore décidée'}>UE {x.u.ue_num} : {x.reste} p.{x.reservee ? ' (de côté)' : ''}</span>)}
+              {lignes.map(x => <span key={x.u.cle} title={x.reservee ? `Mise de côté : ${x.u.autonomie_motif || ''}` : 'Pas encore décidée'}>{nomUE(x.u)} : {x.reste} p.{x.reservee ? ' (de côté)' : ''}</span>)}
             </div>
           </div>);
       })()}
       {face === 'temps' && data && zoom !== 'ue' && ueChoisie && (
         <ResumeUE u={ueChoisie} semaines={semaines} peutEcrire={peutEcrire} pendantStage={pendantStage(ueChoisie)}
-          onStage={() => basculerStage(ueChoisie)} onConges={() => basculerConges(ueChoisie)} onOuvrir={() => setZoom('ue')} />)}
+          onStage={() => basculerStage(ueChoisie)} onConges={() => basculerConges(ueChoisie)} onOuvrir={() => setZoom('ue')}
+          onDedoubler={() => dedoubler(ueChoisie)} onRetirerOrg={() => retirerOrganisation(ueChoisie)} />)}
 
       {face === 'temps' && data && zoom === 'ue' && ueChoisie && (
-        <Rangee ues={ues.filter(u => !u.stage)} rangee={rangee.includes(ueChoisie.ue_num) ? rangee : [...rangee, ueChoisie.ue_num]}
-          setRangee={setRangee} actif={ueChoisie.ue_num} onChoisir={n => setChoix(n)} debut={debutRangee} setDebut={setDebutRangee} />)}
+        <Rangee ues={ues.filter(u => !u.stage)} rangee={rangee.includes(ueChoisie.cle) ? rangee : [...rangee, ueChoisie.cle]}
+          setRangee={setRangee} actif={ueChoisie.cle} onChoisir={n => setChoix(n)} debut={debutRangee} setDebut={setDebutRangee} />)}
       {face === 'temps' && data && zoom === 'ue' && ueChoisie && (
-        <Verre key={`${ueChoisie.ue_num}-${rev}`} u={ueChoisie} types={types} annee={annee} section={section}
+        <Verre key={`${ueChoisie.cle}-${rev}`} u={ueChoisie} types={types} annee={annee} section={section}
           peutEcrire={peutEcrire} onRetour={() => setZoom('couches')} onAnnee={() => setZoom('annee')} onEnregistre={charger} />)}
 
       {face === 'temps' && <div className="flex flex-wrap gap-4 text-[12px] text-slate-500">
@@ -528,7 +549,7 @@ function TuileUE({ u, zoom, choisie, posee, pendantStage, style, onDeplacer, onD
       <div className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize z-10 hover:bg-[#16406A]/20" onPointerDown={onFin} />
       <div className="relative z-[1] px-2 py-1 text-[12px] leading-tight text-[#1B2B4B]">
         <div className="flex items-center gap-1.5 min-w-0">
-          <b className="flex-none">{u.stage ? 'Stage' : 'UE'} {u.ue_num}</b>
+          <b className="flex-none">{nomUE(u)}</b>
           <span className="truncate text-slate-600">{u.ue_nom}</span>
           {u.stage && u.stage_bloquant && <span className="flex-none px-1.5 rounded-[5px] text-[10px] font-semibold text-white" style={{ background: '#475569' }}>bloquant</span>}
           {pendantStage && <span className="flex-none px-1.5 rounded-[5px] text-[10px] font-semibold text-white" style={{ background: 'var(--c-refuse)' }} title="Cette UE a cours pendant un stage bloquant">pendant le stage</span>}
@@ -553,7 +574,7 @@ function TuileUE({ u, zoom, choisie, posee, pendantStage, style, onDeplacer, onD
                     {peutEcrire && (c.activites || []).length > 1 && <>
                       <button className="ml-1 px-1.5 rounded-[4px] border border-slate-300 bg-white text-[10px] leading-[13px] hover:border-[#16406A]"
                         onPointerDown={ev => ev.stopPropagation()} onDoubleClick={ev => ev.stopPropagation()} onClick={() => onArranger(c, 'suite')}
-                        title="Enchaîner les activités dans l’ordre du verre, l’évaluation en dernier ; les activités cochées forment un bloc en parallèle">⇢ à la suite{(coches[`${u.ue_num}#${c.cours_code}`] || []).length > 1 ? ` (${(coches[`${u.ue_num}#${c.cours_code}`] || []).length} en parallèle)` : ''}</button>
+                        title="Enchaîner les activités dans l’ordre du verre, l’évaluation en dernier ; les activités cochées forment un bloc en parallèle">⇢ à la suite{(coches[`${u.cle}#${c.cours_code}`] || []).length > 1 ? ` (${(coches[`${u.cle}#${c.cours_code}`] || []).length} en parallèle)` : ''}</button>
                       <button className="px-1.5 rounded-[4px] border border-slate-300 bg-white text-[10px] leading-[13px] hover:border-[#16406A]"
                         onPointerDown={ev => ev.stopPropagation()} onDoubleClick={ev => ev.stopPropagation()} onClick={() => onArranger(c, 'parallele')}
                         title="Toutes les activités sur toute la période de l’UE">⇉ en parallèle</button></>}
@@ -569,7 +590,7 @@ function TuileUE({ u, zoom, choisie, posee, pendantStage, style, onDeplacer, onD
                           {peutEcrire && <span className="absolute left-0 top-0 bottom-0 w-1.5 cursor-ew-resize" onPointerDown={ev => onActivite(ev, c, x.k, 'debut')} />}
                           {peutEcrire && (c.activites || []).length > 1 && (
                             <input type="checkbox" className="align-[-2px] mr-1 w-[11px] h-[11px] accent-white cursor-pointer" title="En parallèle : « à la suite » met les activités cochées ensemble"
-                              checked={(coches[`${u.ue_num}#${c.cours_code}`] || []).includes(x.k)}
+                              checked={(coches[`${u.cle}#${c.cours_code}`] || []).includes(x.k)}
                               onPointerDown={ev => ev.stopPropagation()} onDoubleClick={ev => ev.stopPropagation()} onChange={() => onCocher(c, x.k)} />)}
                           {x.act.activite_nom || 'activité'} · {arrondi(parEtudiant(x.act))} p.{x.act.groupes > 1 ? ` ×${x.act.groupes}` : ''}
                           {peutEcrire && <span className="absolute right-0 top-0 bottom-0 w-1.5 cursor-ew-resize" onPointerDown={ev => onActivite(ev, c, x.k, 'fin')} />}
@@ -583,14 +604,19 @@ function TuileUE({ u, zoom, choisie, posee, pendantStage, style, onDeplacer, onD
   );
 }
 
-function ResumeUE({ u, semaines, peutEcrire, pendantStage, onStage, onConges, onOuvrir }) {
+/** Le nom d'une UE à l'écran : « UE 336 », « UE 336 · org 2 » quand elle est dédoublée. */
+function nomUE(u) { return `${u.stage ? 'Stage' : 'UE'} ${u.ue_num}${u.nb_organisations > 1 ? ` · org ${u.num_organisation}` : ''}`; }
+
+function ResumeUE({ u, semaines, peutEcrire, pendantStage, onStage, onConges, onOuvrir, onDedoubler, onRetirerOrg }) {
   const dt = d => (d ? d.split('-').reverse().slice(0, 2).join('/') : '—');
   return (
     <div className="carte p-3 space-y-2">
       <div className="flex flex-wrap items-center gap-2">
-        <b className="text-[14px] text-iip-blue">{u.stage ? 'Stage' : 'UE'} {u.ue_num} — {u.ue_nom}</b>
+        <b className="text-[14px] text-iip-blue">{nomUE(u)} — {u.ue_nom}</b>
         <span className="flex-1" />
-        {!u.stage && <button className="bouton bouton-fort" onClick={onOuvrir}>Ouvrir le verre de l’UE {u.ue_num}</button>}
+        {peutEcrire && <button className="bouton" onClick={onDedoubler} title="Une organisation de plus, avec ses propres dates (deux demi-promotions)">Dédoubler</button>}
+        {peutEcrire && u.nb_organisations > 1 && u.num_organisation === u.nb_organisations && <button className="bouton" onClick={onRetirerOrg}>Retirer l’org {u.num_organisation}</button>}
+        {!u.stage && <button className="bouton bouton-fort" onClick={onOuvrir}>Ouvrir le verre de l’{nomUE(u)}</button>}
       </div>
       <div className="text-[12.5px] text-slate-600">
         {u.planifiee ? `Du ${dt(u.date_debut)} au ${dt(u.date_fin)}` : 'Dates à poser : glissez la tuile, ou tirez ses bords'} · {u.ue_niv} ·{' '}
@@ -617,7 +643,7 @@ function ResumeUE({ u, semaines, peutEcrire, pendantStage, onStage, onConges, on
 const PAR_ECRAN = 5;
 function Rangee({ ues, rangee, setRangee, actif, onChoisir, debut, setDebut }) {
   const [prise, setPrise] = useState(null);
-  const liste = rangee.map(n => ues.find(u => u.ue_num === n)).filter(Boolean);
+  const liste = rangee.map(n => ues.find(u => u.cle === n)).filter(Boolean);
   const plein = u => (u.cours || []).reduce((t, c) => t + Math.max((Number(c.cours_per) || 0) + (Number(c.autonomie_placee) || 0), sommeEtudiant(c)), 0);
   const max = Math.max(1, ...liste.map(plein));
   const px = 150 / max;
@@ -630,11 +656,11 @@ function Rangee({ ues, rangee, setRangee, actif, onChoisir, debut, setDebut }) {
         <b className="text-[13px] text-iip-blue">Verres côte à côte</b>
         <span className="text-[12px] text-slate-500">même échelle pour comparer · glisser un verre change l’ordre · clic : l’ouvrir dessous</span>
         <span className="flex-1" />
-        <select className="controle !h-8 text-[12.5px]" value="" onChange={e => { const n = Number(e.target.value); if (n) setRangee([...rangee, n]); }}>
+        <select className="controle !h-8 text-[12.5px]" value="" onChange={e => { const n = e.target.value; if (n) setRangee([...rangee, n]); }}>
           <option value="">+ Ajouter une UE…</option>
-          {ues.filter(u => !rangee.includes(u.ue_num)).map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {String(u.ue_nom || '').slice(0, 40)}</option>)}
+          {ues.filter(u => !rangee.includes(u.cle)).map(u => <option key={u.cle} value={u.cle}>{nomUE(u)} — {String(u.ue_nom || '').slice(0, 40)}</option>)}
         </select>
-        <button className="bouton !h-8" onClick={() => setRangee(ues.map(u => u.ue_num))}>Toutes les UE du bloc</button>
+        <button className="bouton !h-8" onClick={() => setRangee(ues.map(u => u.cle))}>Toutes les UE du bloc</button>
       </div>
       <div className="flex items-end gap-2">
         <button className="bouton !h-8 !px-2 self-center" disabled={d <= 0} onClick={() => setDebut(d - 1)}>◀</button>
@@ -642,15 +668,15 @@ function Rangee({ ues, rangee, setRangee, actif, onChoisir, debut, setDebut }) {
           {vus.map((u, i) => {
             const idx = d + i;
             return (
-              <div key={u.ue_num} draggable onDragStart={() => setPrise(idx)} onDragOver={e => e.preventDefault()}
+              <div key={u.cle} draggable onDragStart={() => setPrise(idx)} onDragOver={e => e.preventDefault()}
                 onDrop={() => { if (prise != null && prise !== idx) deplacer(prise, idx); setPrise(null); }}
-                onClick={() => onChoisir(u.ue_num)}
-                className={`relative flex flex-col items-center gap-1 rounded-[10px] p-1.5 cursor-pointer ${u.ue_num === actif ? 'bg-[#16406A]/10 ring-2 ring-[#16406A]/40' : 'hover:bg-slate-50'}`}>
+                onClick={() => onChoisir(u.cle)}
+                className={`relative flex flex-col items-center gap-1 rounded-[10px] p-1.5 cursor-pointer ${u.cle === actif ? 'bg-[#16406A]/10 ring-2 ring-[#16406A]/40' : 'hover:bg-slate-50'}`}>
                 <button className="absolute right-1 top-0.5 text-slate-400 hover:text-slate-700 text-[13px]" title="Retirer de la rangée"
-                  onClick={ev => { ev.stopPropagation(); setRangee(rangee.filter(n => n !== u.ue_num)); }}>×</button>
+                  onClick={ev => { ev.stopPropagation(); setRangee(rangee.filter(n => n !== u.cle)); }}>×</button>
                 {/* Les fonds alignés : le verre se pose au bas d'une hauteur commune. */}
                 <div className="h-[156px] flex items-end justify-center"><VerreMini u={u} px={px} /></div>
-                <b className="text-[12px]">UE {u.ue_num}</b>
+                <b className="text-[12px]">{nomUE(u)}</b>
                 <span className="text-[10.5px] text-slate-500 text-center leading-tight line-clamp-2">{u.ue_nom}</span>
               </div>);
           })}
@@ -760,7 +786,7 @@ function Verre({ u, types, annee, section, peutEcrire, onRetour, onAnnee, onEnre
   async function enregistrer() {
     let liste = cours, aEcrire = new Set(modifies), reserve = null;
     if (autonomieReste > 0) {
-      const v = await choisir({ titre: `UE ${u.ue_num} — autonomie non utilisée`,
+      const v = await choisir({ titre: `${nomUE(u)} — autonomie non utilisée`,
         message: `Vous n’avez pas utilisé toute l’autonomie de cette UE : il reste ${autonomieReste} p. dans la burette. Toute l’autonomie doit être dépensée. Que fait-on de ce reste ?`,
         choix: [
           { valeur: 'repartir', libelle: 'La répartir sur les activités de l’UE', aide: 'Chaque activité grandit au prorata de ses périodes.' },
@@ -803,14 +829,14 @@ function Verre({ u, types, annee, section, peutEcrire, onRetour, onAnnee, onEnre
     setEnCours(true);
     try {
       if (reserve) {
-        const r = await fetch('/api/grille/ue', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ annee_scolaire: annee, section, ue_num: u.ue_num, ...reserve }) });
+        const r = await fetch('/api/grille/ue', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ annee_scolaire: annee, section, ue_num: u.ue_num, num_organisation: u.num_organisation || 1, ...reserve }) });
         const j = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
       }
       for (const ci of aEcrire) {
         const c = liste[ci];
         const r = await fetch('/api/grille/cours', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({
-          annee_scolaire: annee, section, ue_num: u.ue_num, cours_code: c.cours_code,
+          annee_scolaire: annee, section, ue_num: u.ue_num, num_organisation: u.num_organisation || 1, cours_code: c.cours_code,
           date_debut: c.date_debut || null, date_fin: c.date_fin || null, autonomie_placee: c.autonomie_placee || 0, evaluation_mode: c.evaluation_mode || 'examen',
           activites: c.activites.map(a => ({ activite_id: a.activite_id, periodes: a.periodes, groupes: a.groupes, vu_etudiant: a.vu_etudiant !== 0,
             date_debut: a.date_debut || null, date_fin: a.date_fin || null })) }) });
@@ -866,7 +892,7 @@ function Verre({ u, types, annee, section, peutEcrire, onRetour, onAnnee, onEnre
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <button className="bouton" onClick={onRetour}>← Les couches</button>
-        <b className="text-[14px] text-iip-blue">UE {u.ue_num}</b><span className="text-[12.5px] text-slate-500 truncate">{u.ue_nom}</span>
+        <b className="text-[14px] text-iip-blue">{nomUE(u)}</b><span className="text-[12.5px] text-slate-500 truncate">{u.ue_nom}</span>
         <span className="flex-1" />
         {peutEcrire && <button className="bouton bouton-fort" disabled={(!modifies.size && !(autonomieReste > 0 && !(Number(u.autonomie_reservee) >= autonomieReste))) || enCours} onClick={enregistrer}>
           {enCours ? 'Enregistrement…' : modifies.size ? `Enregistrer (${modifies.size} cours)` : autonomieReste > 0 && !(Number(u.autonomie_reservee) >= autonomieReste) ? 'Décider de l’autonomie restante' : 'Enregistré'}</button>}

@@ -22,6 +22,7 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { anneeDeTravail } from '../helpers/annee.js';
+import { organisationsDe } from '../lib/groupesCommuns.js';
 
 const r = Router();
 
@@ -144,16 +145,18 @@ export function migrerGrille(dbx) {
 }
 
 /** L'organisation d'une unité : celle qui existe, ou celle qu'on ouvre. */
-function organisationDe(annee, section, ueNum, creer = false) {
-  let o = db.prepare(`SELECT * FROM organisation_ue
-    WHERE annee_scolaire = ? AND section = ? AND ue_num = ?
-    ORDER BY num_organisation LIMIT 1`).get(annee, section, ueNum);
+/* UNE UE EN PLUSIEURS ORGANISATIONS (Charles, 10 octobre 2026 : AESI, une moitié
+   en stage de Toussaint à Noël, l'autre de Carnaval à Pâques) : `org` désigne la
+   sienne ; sans `org`, la première, comme avant. */
+function organisationDe(annee, section, ueNum, creer = false, org = null) {
+  const lire = () => org
+    ? db.prepare(`SELECT * FROM organisation_ue WHERE annee_scolaire = ? AND section = ? AND ue_num = ? AND COALESCE(num_organisation, 1) = ?`).get(annee, section, ueNum, org)
+    : db.prepare(`SELECT * FROM organisation_ue WHERE annee_scolaire = ? AND section = ? AND ue_num = ? ORDER BY num_organisation LIMIT 1`).get(annee, section, ueNum);
+  let o = lire();
   if (!o && creer) {
     db.prepare(`INSERT INTO organisation_ue (ue_num, section, annee_scolaire, num_organisation)
-      VALUES (?,?,?,1)`).run(ueNum, section, annee);
-    o = db.prepare(`SELECT * FROM organisation_ue
-      WHERE annee_scolaire = ? AND section = ? AND ue_num = ?
-      ORDER BY num_organisation LIMIT 1`).get(annee, section, ueNum);
+      VALUES (?,?,?,?)`).run(ueNum, section, annee, org || 1);
+    o = lire();
   }
   return o || null;
 }
@@ -324,16 +327,20 @@ r.get('/', authRequired, (req, res) => {
     FROM ue u WHERE u.section = ? AND u.annee_scolaire = ?
     ORDER BY u.ue_num`).all(section, annee);
 
-  const sortie = ues.map(u => {
-    const o = organisationDe(annee, section, u.ue_num);
+  // Une fiche par organisation : une UE dédoublée paraît deux fois, chacune avec ses dates.
+  const sortie = ues.flatMap(u => organisationsDe(section, u.ue_num, annee).map((num, _, toutes) => {
+    const o = organisationDe(annee, section, u.ue_num, false, num);
+    // Le verre d'une organisation sans découpe propre est celui de la première (même UE, même contenu).
+    const propre = o && db.prepare('SELECT 1 FROM grille_cours WHERE organisation_id = ? LIMIT 1').get(o.id);
+    const ov = num > 1 && !propre ? organisationDe(annee, section, u.ue_num) : o;
 
     const cours = db.prepare(`
       SELECT cours_code, cours_nom, cours_per, ue_autonomie, ct_pp, COALESCE(is_stage, 0) AS is_stage
       FROM cours WHERE ue_num = ? AND annee_scolaire = ? AND cours_code IS NOT NULL
         AND (ct_pp IS NULL OR ct_pp <> 'Z')          -- Z : ni planifié, ni compté
       ORDER BY cours_code`).all(u.ue_num, annee).map(c => {
-      const gc = o ? db.prepare(`SELECT * FROM grille_cours
-        WHERE organisation_id = ? AND cours_code = ?`).get(o.id, c.cours_code) : null;
+      const gc = ov ? db.prepare(`SELECT * FROM grille_cours
+        WHERE organisation_id = ? AND cours_code = ?`).get(ov.id, c.cours_code) : null;
       const activites = gc ? db.prepare(`
         SELECT ga.*, at.libelle AS activite_nom, at.section AS activite_section
         FROM grille_activite ga LEFT JOIN activite_type at ON at.id = ga.activite_id
@@ -406,6 +413,8 @@ r.get('/', authRequired, (req, res) => {
 
     return {
       ...u,
+      num_organisation: num, nb_organisations: toutes.length, cle: toutes.length > 1 ? `${u.ue_num}#${num}` : String(u.ue_num),
+      verre_repris: ov !== o,
       organisation_id: o?.id || null,
       date_debut: o?.date_debut || null, date_fin: o?.date_fin || null,
       stage: cours.some(c => c.is_stage), stage_bloquant: !!o?.stage_bloquant, cours_pendant_conges: !!o?.cours_pendant_conges,
@@ -422,7 +431,7 @@ r.get('/', authRequired, (req, res) => {
       cours,
       controle: controlerUE(annee, section, u.ue_num),
     };
-  });
+  }));
 
   /* UNE PÉRIODE N'EST PAS UNE HEURE, ET LA DURÉE NE SE DEVINE PAS.
      Cinquante minutes chez nous, mais c'est un RÉGLAGE (`planning.periode_minutes`,
@@ -476,7 +485,7 @@ r.put('/ue', authRequired, roleRequired('admin', 'editeur', 'coordination'), (re
   const ueNum = Number(b.ue_num);
   if (!section || !ueNum) return res.status(400).json({ error: 'section et ue_num requis' });
 
-  const o = organisationDe(annee, section, ueNum, true);
+  const o = organisationDe(annee, section, ueNum, true, Number(b.num_organisation) || null);
   if (!o) return res.status(500).json({ error: "L'organisation de l'unité n'a pas pu être ouverte." });
 
   // Seuls les champs ENVOYÉS changent : cocher « stage bloquant » ne vide pas les dates.
@@ -514,7 +523,19 @@ r.put('/cours', authRequired, roleRequired('admin', 'editeur', 'coordination'), 
 
   let repli = { applique: false, periodes: 0 };
   db.transaction(() => {
-    const o = organisationDe(annee, section, ueNum, true);
+    const o = organisationDe(annee, section, ueNum, true, Number(b.num_organisation) || null);
+    /* LA PREMIÈRE DÉCOUPE PROPRE D'UNE ORGANISATION DÉDOUBLÉE : son verre était celui
+       de l'organisation 1 ; on le recopie d'abord en entier, sinon les autres cours
+       paraîtraient vides dès qu'on en retouche un. */
+    if ((o.num_organisation || 1) > 1 && !db.prepare('SELECT 1 FROM grille_cours WHERE organisation_id = ? LIMIT 1').get(o.id)) {
+      const p1 = organisationDe(annee, section, ueNum);
+      if (p1 && p1.id !== o.id) for (const g of db.prepare('SELECT * FROM grille_cours WHERE organisation_id = ?').all(p1.id)) {
+        const id = db.prepare('INSERT INTO grille_cours (organisation_id, cours_code, date_debut, date_fin, autonomie_placee, evaluation_mode) VALUES (?,?,?,?,?,?)')
+          .run(o.id, g.cours_code, null, null, g.autonomie_placee, g.evaluation_mode).lastInsertRowid;
+        for (const a of db.prepare('SELECT * FROM grille_activite WHERE grille_cours_id = ?').all(g.id))
+          db.prepare('INSERT INTO grille_activite (grille_cours_id, activite_id, periodes, vu_etudiant, ordre, groupes) VALUES (?,?,?,?,?,?)').run(id, a.activite_id, a.periodes, a.vu_etudiant, a.ordre, a.groupes);
+      }
+    }
     /* Le mode d'évaluation : 'examen' (le défaut) ou 'continue'. Toute autre
        valeur est ramenée au défaut — un mode inconnu écrit en base ferait
        disparaître la proposition sans que rien ne le dise. */
@@ -588,9 +609,7 @@ r.put('/cours', authRequired, roleRequired('admin', 'editeur', 'coordination'), 
  * remplacée porte déjà les périodes du groupe). Un cours déjà découpé n'est
  * remplacé que si on le demande ; rien ne s'écrit sans le compte rendu d'abord.
  */
-function propositionDepuisAttributions(annee, section, ueNum) {
-  const o = organisationDe(annee, section, ueNum);
-  const org = o?.num_organisation || 1;
+function propositionDepuisAttributions(annee, section, ueNum, org = 1) {
   let matiere = null;
   try { matiere = db.prepare(`SELECT id FROM activite_type WHERE section IS NULL AND (role IS NULL OR role <> 'evaluation') ORDER BY ordre, id LIMIT 1`).get()?.id ?? null; } catch { /* */ }
   const lignes = db.prepare(`SELECT a.code_cours, a.activite_id, a.code, COALESCE(a.periodes_attribuees, 0) AS p, t.libelle
@@ -615,6 +634,37 @@ function propositionDepuisAttributions(annee, section, ueNum) {
     .filter(c => c.activites.length);
 }
 
+/* DÉDOUBLER UNE UE : une organisation de plus, sans dates — on la pose ensuite dans
+   l'année. Son verre est celui de la première tant qu'on ne le découpe pas. */
+r.post('/organisation', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
+  const b = req.body || {};
+  const annee = b.annee_scolaire || anneeDeTravail(req), section = String(b.section || '').trim(), ueNum = Number(b.ue_num);
+  if (!section || !ueNum) return res.status(400).json({ error: 'section et ue_num requis' });
+  organisationDe(annee, section, ueNum, true);
+  const n = (db.prepare('SELECT MAX(COALESCE(num_organisation, 1)) m FROM organisation_ue WHERE annee_scolaire = ? AND section = ? AND ue_num = ?').get(annee, section, ueNum).m || 1) + 1;
+  db.prepare('INSERT INTO organisation_ue (ue_num, section, annee_scolaire, num_organisation) VALUES (?,?,?,?)').run(ueNum, section, annee, n);
+  res.json({ ok: true, num_organisation: n });
+});
+/* RETIRER UNE ORGANISATION : seulement la dernière, et seulement si aucune
+   attribution ni aucun étudiant n'y est rattaché — sinon on effacerait ce qui la fait vivre. */
+r.delete('/organisation', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
+  const b = req.body || {};
+  const annee = b.annee_scolaire || anneeDeTravail(req), section = String(b.section || '').trim(), ueNum = Number(b.ue_num), n = Number(b.num_organisation);
+  if (!section || !ueNum || !(n > 1)) return res.status(400).json({ error: 'section, ue_num et une organisation au-delà de la première' });
+  const max = db.prepare('SELECT MAX(COALESCE(num_organisation, 1)) m FROM organisation_ue WHERE annee_scolaire = ? AND section = ? AND ue_num = ?').get(annee, section, ueNum).m;
+  if (n !== max) return res.status(400).json({ error: `Seule la dernière organisation (${max}) se retire.` });
+  const attr = db.prepare('SELECT COUNT(*) n FROM attribution WHERE annee_scolaire = ? AND ue_num = ? AND COALESCE(num_organisation, 1) = ?').get(annee, ueNum, n).n;
+  const etu = db.prepare('SELECT COUNT(*) n FROM etudiant_inscription WHERE annee_scolaire = ? AND ue_num = ? AND num_organisation = ?').get(annee, ueNum, n).n;
+  if (attr || etu) return res.status(409).json({ error: `L’organisation ${n} porte ${attr} attribution(s) et ${etu} étudiant(s) : elle ne se retire pas.` });
+  const o = organisationDe(annee, section, ueNum, false, n);
+  db.transaction(() => {
+    db.prepare('DELETE FROM grille_activite WHERE grille_cours_id IN (SELECT id FROM grille_cours WHERE organisation_id = ?)').run(o.id);
+    db.prepare('DELETE FROM grille_cours WHERE organisation_id = ?').run(o.id);
+    db.prepare('DELETE FROM organisation_ue WHERE id = ?').run(o.id);
+  })();
+  res.json({ ok: true });
+});
+
 r.post('/depuis-attributions', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
   const b = req.body || {};
   const annee = b.annee_scolaire || anneeDeTravail(req);
@@ -624,19 +674,25 @@ r.post('/depuis-attributions', authRequired, roleRequired('admin', 'editeur', 'c
   const remplacer = !!b.remplacer, simulation = b.simulation !== false;
   const rapport = { a_ecrire: [], deja: [], sans_attribution: [] };
   for (const ueNum of ues) {
-    const prop = propositionDepuisAttributions(annee, section, ueNum);
-    if (!prop.length) { rapport.sans_attribution.push(ueNum); continue; }
-    const o = organisationDe(annee, section, ueNum);
-    for (const c of prop) {
-      const gc = o ? db.prepare('SELECT id FROM grille_cours WHERE organisation_id = ? AND cours_code = ?').get(o.id, c.cours_code) : null;
-      const n = gc ? db.prepare('SELECT COUNT(*) n FROM grille_activite WHERE grille_cours_id = ?').get(gc.id).n : 0;
-      (n && !remplacer ? rapport.deja : rapport.a_ecrire).push({ ue_num: ueNum, ...c });
+    // Chaque organisation se remplit de SES attributions.
+    let rien = true;
+    for (const org of organisationsDe(section, ueNum, annee)) {
+      const prop = propositionDepuisAttributions(annee, section, ueNum, org);
+      if (!prop.length) continue;
+      rien = false;
+      const o = organisationDe(annee, section, ueNum, false, org);
+      for (const c of prop) {
+        const gc = o ? db.prepare('SELECT id FROM grille_cours WHERE organisation_id = ? AND cours_code = ?').get(o.id, c.cours_code) : null;
+        const n = gc ? db.prepare('SELECT COUNT(*) n FROM grille_activite WHERE grille_cours_id = ?').get(gc.id).n : 0;
+        (n && !remplacer ? rapport.deja : rapport.a_ecrire).push({ ue_num: ueNum, num_organisation: org, ...c });
+      }
     }
+    if (rien) rapport.sans_attribution.push(ueNum);
   }
   if (simulation) return res.json(rapport);
   db.transaction(() => {
     for (const c of rapport.a_ecrire) {
-      const o = organisationDe(annee, section, c.ue_num, true);
+      const o = organisationDe(annee, section, c.ue_num, true, c.num_organisation || 1);
       db.prepare(`INSERT INTO grille_cours (organisation_id, cours_code) VALUES (?, ?)
         ON CONFLICT(organisation_id, cours_code) DO NOTHING`).run(o.id, c.cours_code);
       const gc = db.prepare('SELECT id FROM grille_cours WHERE organisation_id = ? AND cours_code = ?').get(o.id, c.cours_code);
