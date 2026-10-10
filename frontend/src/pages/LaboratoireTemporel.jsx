@@ -4,6 +4,7 @@ import { demander, informer, saisir } from '../lib/dialogue.jsx';
 import { passeRole } from '../lib/droits.js';
 import { teinteCours, styleTuileCours } from '../lib/teinteCours.js';
 import { IconeLaboratoire } from '../components/IconeLaboratoire.jsx';
+import { RailLateral } from '../components/ui.jsx';
 import { IconSitemap, IconPuzzle, IconCalendarWeek, IconTimeline } from '@tabler/icons-react';
 const StructureSection = lazy(() => import('./StructureSection.jsx'));
 const GroupesCommuns = lazy(() => import('./GroupesCommuns.jsx'));
@@ -50,8 +51,15 @@ export default function LaboratoireTemporel() {
      quatre faces sur la même section et le même bloc — le temps (l'année, les
      couches, le verre), les groupes (briques, plan des groupes), la semaine
      (simulation, plan enregistré) et le schéma de capitalisation. */
+  /* LES FACES SONT DANS LE RAIL (Charles, 10 octobre 2026 : « sous-menu rail »),
+     comme les étapes de l'unité : un clic sur l'une d'elles depuis un autre écran
+     est noté par l'axe (`lucie.outil`) et ouvre la bonne face. */
   const [face, setFace] = useState(() => {
-    try { const q = new URLSearchParams(window.location.search); return q.get('face') || (q.get('onglet') === 'groupes-communs' ? 'groupes' : 'temps'); } catch { return 'temps'; }
+    try {
+      const o = sessionStorage.getItem('lucie.outil');
+      if (o?.startsWith('labo-')) { sessionStorage.removeItem('lucie.outil'); return o.slice(5); }
+      const q = new URLSearchParams(window.location.search); return q.get('face') || (q.get('onglet') === 'groupes-communs' ? 'groupes' : 'temps');
+    } catch { return 'temps'; }
   });
   const [choix, setChoix] = useState(null);           // n° de l'UE choisie
   const [glisse, setGlisse] = useState(null);         // { ue, de, a } pendant un geste
@@ -295,12 +303,9 @@ export default function LaboratoireTemporel() {
         </div>}
         <span className="text-[12px] text-slate-500">{face !== 'temps' ? '' : zoom === 'ue' ? 'Glisser une activité dans un cours ; tirer le haut d’une couche ; double-clic : revenir à l’année.' : (zoom === 'couches' ? 'Glisser une barre la déplace, ses bords l’allongent ; « à la suite » ou « en parallèle » arrangent un cours d’un clic · double-clic : le verre.' : 'Ctrl + molette ou double-clic pour zoomer · glisser une tuile la déplace dans l’année, ses bords l’allongent.')}</span>
       </div>
-      {/* LES FACES DU LABORATOIRE : des onglets soulignés (on tourne une page du même objet). */}
-      <div className="flex gap-5 border-b border-slate-200">
-        {[['temps', 'Le temps', IconTimeline], ['groupes', 'Les groupes', IconPuzzle], ['semaine', 'La semaine', IconCalendarWeek], ['schema', 'Schéma de capitalisation', IconSitemap]].map(([k, l, I]) => (
-          <button key={k} onClick={() => { setFace(k); if ((k === 'groupes' || k === 'semaine') && !bloc && blocs[0]) setBloc(blocs.includes('BA2') ? 'BA2' : blocs[0]); }}
-            className={`${face === k ? 'onglet-page onglet-page-actif' : 'onglet-page'} inline-flex items-center gap-1.5`}><I size={15} />{l}</button>))}
-      </div>
+      <RailLateral titre="Le laboratoire temporel" sections={[{ items: [['temps', 'Le temps', IconTimeline], ['groupes', 'Les groupes', IconPuzzle], ['semaine', 'La semaine', IconCalendarWeek], ['schema', 'Schéma de capitalisation', IconSitemap]]
+        .map(([k, l, I]) => ({ key: `labo-${k}`, label: l, icon: I, actif: face === k,
+          onClick: () => { setFace(k); if ((k === 'groupes' || k === 'semaine') && !bloc && blocs[0]) setBloc(blocs.includes('BA2') ? 'BA2' : blocs[0]); } })) }]} />
       {erreur && <div className="text-[12.5px]" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
       {!data && !erreur && <div className="text-[13px] text-slate-400">Chargement…</div>}
 
