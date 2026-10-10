@@ -760,10 +760,20 @@ function Verre({ u, types, annee, section, peutEcrire, onRetour, onAnnee, onEnre
       if (!v) return;
       if (v === 'repartir') {
         const tot = cours.reduce((t, c) => t + sommeEtudiant(c), 0) || 1;
-        liste = recalerAutonomie(cours.map(c => ({ ...c, activites: c.activites.map(a => {
-          const p = parEtudiant(a), plus = Math.round(autonomieReste * p / tot * 2) / 2;
+        let donne = 0, plusGrande = null;
+        liste = cours.map((c, ci) => ({ ...c, activites: c.activites.map((a, k) => {
+          const p = parEtudiant(a), plus = Math.floor(autonomieReste * p / tot * 2) / 2;
+          donne += plus;
+          if (!plusGrande || p > plusGrande.p) plusGrande = { ci, k, p };
           return { ...a, periodes: (p + plus) * (a.groupes || 1) };
-        }) })));
+        }) }));
+        // Ce que les arrondis laissent va à la plus grande activité : la burette se vide exactement.
+        const solde = arrondi(autonomieReste - donne);
+        if (solde > 0 && plusGrande) {
+          const a = liste[plusGrande.ci].activites[plusGrande.k];
+          liste[plusGrande.ci].activites[plusGrande.k] = { ...a, periodes: (parEtudiant(a) + solde) * (a.groupes || 1) };
+        }
+        liste = recalerAutonomie(liste);
         cours.forEach((_, i) => aEcrire.add(i));
       } else if (v === 'activite') {
         const ci = cours.length === 1 ? 0 : await choisir({ titre: 'Dans quel cours ?', message: `L’activité prendra ${autonomieReste} p.`,
