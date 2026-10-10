@@ -127,6 +127,11 @@ export function migrerGrille(dbx) {
        pendant ses semaines : c'est une case sur l'unité, pas une règle. */
     const colsGA = dbx.prepare('PRAGMA table_info(grille_activite)').all().map(c => c.name);
     if (!colsGA.includes('groupes')) dbx.exec('ALTER TABLE grille_activite ADD COLUMN groupes INTEGER NOT NULL DEFAULT 1');
+    /* L'ACTIVITÉ A SES DATES (Charles, 10 octobre 2026 : « l'évaluation à la fin,
+       théorie et exercices en suivant ou en parallèle »). Sans dates, elle court
+       sur toute la période de son unité. */
+    if (!colsGA.includes('date_debut')) dbx.exec('ALTER TABLE grille_activite ADD COLUMN date_debut TEXT');
+    if (!colsGA.includes('date_fin')) dbx.exec('ALTER TABLE grille_activite ADD COLUMN date_fin TEXT');
     const colsOU = dbx.prepare('PRAGMA table_info(organisation_ue)').all().map(c => c.name);
     if (!colsOU.includes('stage_bloquant')) dbx.exec('ALTER TABLE organisation_ue ADD COLUMN stage_bloquant INTEGER NOT NULL DEFAULT 0');
   } catch (e) { console.error('[migration] grille :', e.message); }
@@ -544,11 +549,14 @@ r.put('/cours', authRequired, roleRequired('admin', 'editeur', 'coordination'), 
 
       db.prepare('DELETE FROM grille_activite WHERE grille_cours_id = ?').run(gc.id);
       const ins = db.prepare(`INSERT INTO grille_activite
-        (grille_cours_id, activite_id, periodes, vu_etudiant, ordre, groupes) VALUES (?,?,?,?,?,?)`);
+        (grille_cours_id, activite_id, periodes, vu_etudiant, ordre, groupes, date_debut, date_fin) VALUES (?,?,?,?,?,?,?,?)`);
+      const jour = d => (/^\d{4}-\d{2}-\d{2}$/.test(String(d || '')) ? String(d) : null);
       lignes.forEach((a, i) => {
+        const d = jour(a.date_debut), f = jour(a.date_fin);
         ins.run(gc.id, a.activite_id ? Number(a.activite_id) : null,
                 Number(a.periodes) || 0, a.vu_etudiant === false ? 0 : 1, i,
-                Math.max(1, Math.min(30, Math.round(Number(a.groupes) || 1))));
+                Math.max(1, Math.min(30, Math.round(Number(a.groupes) || 1))),
+                d, f && d && f < d ? d : f);
       });
     }
   })();
