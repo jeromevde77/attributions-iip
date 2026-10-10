@@ -95,13 +95,15 @@ const FAMILLES = [
 const LIB = { marquee: 'marquée', serree: 'serrée', aeree: 'aérée', pointille: 'pointillé', horizontaux: 'filets horizontaux', grille: 'grille complète' };
 
 /** Les réglages d'une famille, sous son spécimen. */
-function PanneauReglages({ f, rv }) {
+function PanneauReglages({ f, rv, cible }) {
   const formes = f.formes.filter(r => rv.catDesign[r.cle]);
   const couleurs = f.couleurs.filter(r => rv.catCouleurs[r.cle]);
   return (
-    <div className="space-y-2 pt-2 border-t border-slate-200">
+    <div className="space-y-2">
+      {formes.length > 0 && <div className="intertitre pt-1">Formes</div>}
       {formes.map(r => { const d = rv.catDesign[r.cle], v = rv.design?.[r.cle] ?? d.valeur; return (
-        <label key={r.cle} className="flex items-center gap-2 text-second">
+        <label key={r.cle} ref={el => { if (el && cible === r.cle) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }}
+          className={`flex items-center gap-2 text-second rounded-champ px-1 -mx-1 ${cible === r.cle ? 'reglage-vise' : ''}`}>
           <span className="flex-1">{d.libelle}</span>
           {d.type === 'choix'
             ? <select className="controle !h-8" value={v} disabled={!rv.peutFormes} onChange={e => rv.changerForme(r.cle, e.target.value)}>{d.choix.map(c => <option key={c} value={c}>{LIB[c] || c}</option>)}</select>
@@ -109,8 +111,10 @@ function PanneauReglages({ f, rv }) {
                 <span className="w-12 text-right tabular-nums">{v}{d.type === 'px' ? ' px' : ''}</span></>}
           {v !== d.valeur && rv.peutFormes && <button className="text-mention text-slate-400 hover:text-iip-blue" onClick={() => rv.changerForme(r.cle, d.valeur)} title="Valeur de la maison">défaut</button>}
         </label>); })}
+      {couleurs.length > 0 && <div className="intertitre pt-3">Couleurs</div>}
       {couleurs.map(r => { const d = rv.catCouleurs[r.cle], regle = !!rv.couleurs?.[r.cle] && rv.couleurs[r.cle] !== d.valeur; return (
-        <label key={r.cle} className="flex items-center gap-2 text-second">
+        <label key={r.cle} ref={el => { if (el && cible === r.cle) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }}
+          className={`flex items-center gap-2 text-second rounded-champ px-1 -mx-1 ${cible === r.cle ? 'reglage-vise' : ''}`}>
           <span className="flex-1">{d.libelle}{!regle && d.suit ? <span className="text-slate-400"> — suit {rv.catCouleurs[d.suit]?.libelle?.toLowerCase() || d.suit}</span> : null}</span>
           <input type="color" value={rv.couleurDe(r.cle)} disabled={!rv.peutCouleurs} onChange={e => rv.changerCouleur(r.cle, e.target.value.toUpperCase())} className="w-10 h-7 rounded-champ border border-slate-300 bg-white p-0.5" />
           {regle && rv.peutCouleurs && <button className="text-mention text-slate-400 hover:text-iip-blue" onClick={() => rv.changerCouleur(r.cle, d.valeur || null)}>défaut</button>}
@@ -122,25 +126,41 @@ function PanneauReglages({ f, rv }) {
 export default function CatalogueVisuels() {
   const rv = useReglagesVisuels();
   const [ouvert, setOuvert] = useState(null);
+  const [cible, setCible] = useState(null);   // le réglage visé par l'étiquette cliquée
   const [fen, setFen] = useState(false);
   const [volet, setVolet] = useState(1);
-  const chip = (r, onglet) => <a key={r.cle} href={`/configuration?onglet=${onglet}`} className="pastille-etat" data-etat={onglet === 'design' ? 'neutre' : 'disponible'} title={`Régler : ${r.cle}`}>{r.lib}</a>;
+  // UN CLIC RESTE SUR PLACE (Charles : « quand je clique sur les éléments, soit il va dans couleur, soit il quitte »).
+  // L'étiquette ouvre les réglages de sa famille, sous le spécimen, et y désigne le sien.
+  const chip = (r, onglet, f) => <button type="button" key={r.cle} onClick={() => { setOuvert(f.nom); setCible(r.cle); }}
+    className="pastille-etat cursor-pointer" data-etat={onglet === 'design' ? 'neutre' : 'disponible'} title="Régler ici">{r.lib}</button>;
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2"><span className="flex-1" /><span className="text-second text-slate-500">{rv.etat}</span></div>
-      <p className="text-sm text-slate-600 max-w-[900px]">Chaque élément visible de Lucie, dessiné par ses vrais composants. Les étiquettes grises mènent aux <b>formes</b> (Formes et composants), les bleues aux <b>couleurs</b> (Thèmes et couleurs). Un élément absent d’ici n’est pas un standard : il est dessiné à la main, et il est à ramener ici. <b>« Régler »</b> ouvre les réglages d’une famille sous son spécimen : le changement s’applique aussitôt à tout Lucie.</p>
+      <p className="text-sm text-slate-600 max-w-[900px]">Chaque élément visible de Lucie, dessiné par ses vrais composants. Cliquez sur un élément, ou sur une de ses étiquettes (grises : <b>formes</b> ; bleues : <b>couleurs</b>), pour ouvrir ses propriétés. Un élément absent d’ici n’est pas un standard : il est dessiné à la main, et il est à ramener ici. <b>« Régler »</b> ouvre les réglages d’une famille sous son spécimen : le changement s’applique aussitôt à tout Lucie.</p>
       <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 1fr))' }}>
         {FAMILLES.map(f => (
           <div key={f.nom} className="carte p-3 space-y-2 min-w-0">
             <div className="flex items-center gap-2"><h3 className="titre-carte flex-1">{f.nom}</h3>
-              <button className={`bouton bouton-compact ${ouvert === f.nom ? 'bouton-fort' : ''}`} onClick={() => setOuvert(o => (o === f.nom ? null : f.nom))}>{ouvert === f.nom ? 'Fermer' : 'Régler'}</button></div>
+              <button className="bouton bouton-compact" onClick={() => { setCible(null); setOuvert(f.nom); }}>Propriétés…</button></div>
             <p className="text-second text-slate-500">{f.role}</p>
-            <div className="py-2">{f.specimen({ ouvrir: () => setFen(true), volet, setVolet })}</div>
-            <div className="flex flex-wrap gap-1 items-center"><span className="intertitre mr-1">Formes</span>{f.formes.map(r => chip(r, 'design'))}</div>
-            <div className="flex flex-wrap gap-1 items-center"><span className="intertitre mr-1">Couleurs</span>{f.couleurs.map(r => chip(r, 'couleurs'))}</div>
-            {ouvert === f.nom && rv.design && rv.couleurs && <PanneauReglages f={f} rv={rv} />}
+            <div className="py-2 cursor-pointer rounded-champ hover:bg-[color:rgb(var(--gris-50))]" title="Cliquer pour régler"
+              onClick={() => { setCible(null); setOuvert(f.nom); }}>{f.specimen({ ouvrir: () => setFen(true), volet, setVolet })}</div>
+            <div className="flex flex-wrap gap-1 items-center"><span className="intertitre mr-1">Formes</span>{f.formes.map(r => chip(r, 'design', f))}</div>
+            <div className="flex flex-wrap gap-1 items-center"><span className="intertitre mr-1">Couleurs</span>{f.couleurs.map(r => chip(r, 'couleurs', f))}</div>
+
           </div>))}
       </div>
+      {/* LA BOÎTE DE PROPRIÉTÉS (Charles : « plutôt une boîte de dialogue qui change les
+          propriétés »). Le spécimen à gauche, en direct ; les propriétés à droite, la
+          propriété cliquée mise en évidence. Chaque changement vaut aussitôt pour tout Lucie. */}
+      {ouvert && (() => { const f = FAMILLES.find(x => x.nom === ouvert); return f && (
+        <Fenetre titre={`Propriétés — ${f.nom}`} sous={f.role} large="grande" onFermer={() => { setOuvert(null); setCible(null); }}
+          pied={<><span className="text-second text-slate-500">{rv.etat || 'Chaque changement s’applique aussitôt à tout Lucie et s’enregistre seul.'}</span><button className="bouton bouton-fort" onClick={() => { setOuvert(null); setCible(null); }}>Fermer</button></>}>
+          <div className="grid gap-5" style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)' }}>
+            <div className="min-w-0"><div className="intertitre mb-2">Aperçu</div><div className="carte p-3">{f.specimen({ ouvrir: () => setFen(true), volet, setVolet })}</div></div>
+            <div className="min-w-0">{rv.design && rv.couleurs ? <PanneauReglages f={f} rv={rv} cible={cible} /> : <span className="text-second text-slate-400">Chargement…</span>}</div>
+          </div>
+        </Fenetre>); })()}
       {fen && <Fenetre titre="Une fenêtre" sous="Bandeau, corps et pied réglables" onFermer={() => setFen(false)}
         pied={<><span className="text-second text-slate-500">Le pied ne défile jamais.</span><button className="bouton" onClick={() => setFen(false)}>Fermer</button><button className="bouton bouton-fort">Enregistrer</button></>}>
         <p className="text-sm">Le corps de la fenêtre.</p></Fenetre>}
