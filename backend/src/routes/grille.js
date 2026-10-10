@@ -648,6 +648,107 @@ r.post('/depuis-attributions', authRequired, roleRequired('admin', 'editeur', 'c
   res.json({ ...rapport, ecrit: rapport.a_ecrire.length });
 });
 
+/**
+ * LE GRAND NETTOYAGE DU LABORATOIRE (Charles, 10 octobre 2026 : « il vide tout, ne
+ * garde que la structure de la section ; puis on propose de réimporter depuis les
+ * attributions ; en même temps il sauve le labo »).
+ * Ce qui part : les verres et leurs couches (grille_cours, grille_activite), le plan
+ * enregistré (plan_creneau), les briques et leurs réglages, les locaux des
+ * activités, les cases stage bloquant, congés et autonomie mise de côté — et, sur
+ * demande seulement, les dates des UE (Dates des UE et l'échéancier les lisent).
+ * Ce qui reste : les UE, les cours (le dossier), les plages, les priorités, les
+ * attributions. TOUT EST SAUVEGARDÉ AVANT (labo_sauvegarde) et se restaure.
+ */
+function migrerSauvegardes() {
+  db.exec(`CREATE TABLE IF NOT EXISTS labo_sauvegarde (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, annee_scolaire TEXT NOT NULL, section TEXT NOT NULL,
+    motif TEXT, contenu TEXT NOT NULL, cree_par TEXT, cree_le TEXT DEFAULT (datetime('now')))`);
+}
+const lire = (sql, ...p) => { try { return db.prepare(sql).all(...p); } catch { return []; } };
+function instantane(annee, section) {
+  const orgs = lire('SELECT * FROM organisation_ue WHERE annee_scolaire = ? AND section = ?', annee, section);
+  const ids = orgs.map(o => o.id);
+  const gc = ids.length ? lire(`SELECT * FROM grille_cours WHERE organisation_id IN (${ids.map(() => '?').join(',')})`, ...ids) : [];
+  const gcIds = gc.map(x => x.id);
+  const ga = gcIds.length ? lire(`SELECT * FROM grille_activite WHERE grille_cours_id IN (${gcIds.map(() => '?').join(',')})`, ...gcIds) : [];
+  return { organisations: orgs, grille_cours: gc, grille_activite: ga,
+    plan_creneau: lire('SELECT * FROM plan_creneau WHERE annee_scolaire = ? AND section = ?', annee, section),
+    horaire_local_activite: lire('SELECT * FROM horaire_local_activite WHERE annee_scolaire = ? AND section = ?', annee, section),
+    groupe_commun_reglage: lire('SELECT * FROM groupe_commun_reglage WHERE annee_scolaire = ? AND section = ?', annee, section),
+    groupe_commun_brique: lire('SELECT * FROM groupe_commun_brique WHERE annee_scolaire = ? AND section = ?', annee, section) };
+}
+function sauvegarder(annee, section, motif, par) {
+  migrerSauvegardes();
+  const c = instantane(annee, section);
+  const id = db.prepare('INSERT INTO labo_sauvegarde (annee_scolaire, section, motif, contenu, cree_par) VALUES (?,?,?,?,?)')
+    .run(annee, section, motif, JSON.stringify(c), par).lastInsertRowid;
+  return { id, compte: { verres: c.grille_cours.length, couches: c.grille_activite.length, plan: c.plan_creneau.length, briques: c.groupe_commun_brique.length } };
+}
+function vider(annee, section, avecDates) {
+  const orgs = lire('SELECT id FROM organisation_ue WHERE annee_scolaire = ? AND section = ?', annee, section).map(o => o.id);
+  const run = (sql, ...p) => { try { return db.prepare(sql).run(...p).changes; } catch { return 0; } };
+  if (orgs.length) {
+    const ph = orgs.map(() => '?').join(',');
+    run(`DELETE FROM grille_activite WHERE grille_cours_id IN (SELECT id FROM grille_cours WHERE organisation_id IN (${ph}))`, ...orgs);
+    run(`DELETE FROM grille_cours WHERE organisation_id IN (${ph})`, ...orgs);
+    run(`UPDATE organisation_ue SET stage_bloquant = 0, cours_pendant_conges = 0, autonomie_reservee = 0, autonomie_motif = NULL${avecDates ? ', date_debut = NULL, date_fin = NULL' : ''} WHERE id IN (${ph})`, ...orgs);
+  }
+  for (const t of ['plan_creneau', 'horaire_local_activite', 'groupe_commun_reglage', 'groupe_commun_brique'])
+    run(`DELETE FROM ${t} WHERE annee_scolaire = ? AND section = ?`, annee, section);
+}
+function inserer(table, lignes) {
+  for (const l of lignes) {
+    const cols = Object.keys(l);
+    try { db.prepare(`INSERT OR REPLACE INTO ${table} (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`).run(...cols.map(k => l[k])); } catch { /* colonne disparue : on passe */ }
+  }
+}
+
+r.post('/nettoyer', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
+  const b = req.body || {};
+  const annee = b.annee_scolaire || anneeDeTravail(req), section = String(b.section || '').trim();
+  if (!section) return res.status(400).json({ error: 'section requise' });
+  const c = instantane(annee, section);
+  const compte = { verres: c.grille_cours.length, couches: c.grille_activite.length, plan: c.plan_creneau.length,
+    briques: c.groupe_commun_brique.length, ues_datees: c.organisations.filter(o => o.date_debut).length };
+  if (b.simulation !== false) return res.json({ compte });
+  let sauvegarde;
+  db.transaction(() => {
+    sauvegarde = sauvegarder(annee, section, 'avant le grand nettoyage', req.user?.email || null);
+    vider(annee, section, !!b.dates);
+  })();
+  res.json({ ok: true, compte, sauvegarde_id: sauvegarde.id });
+});
+
+r.get('/sauvegardes', authRequired, (req, res) => {
+  migrerSauvegardes();
+  const annee = req.query.annee || anneeDeTravail(req), section = String(req.query.section || '');
+  res.json(db.prepare(`SELECT id, motif, cree_par, cree_le, length(contenu) taille FROM labo_sauvegarde
+    WHERE annee_scolaire = ? AND section = ? ORDER BY id DESC LIMIT 30`).all(annee, section));
+});
+
+r.post('/sauvegardes/:id/restaurer', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
+  migrerSauvegardes();
+  const s0 = db.prepare('SELECT * FROM labo_sauvegarde WHERE id = ?').get(Number(req.params.id));
+  if (!s0) return res.status(404).json({ error: 'Sauvegarde introuvable' });
+  const c = JSON.parse(s0.contenu);
+  db.transaction(() => {
+    // L'état actuel est sauvé lui aussi : une restauration se défait.
+    sauvegarder(s0.annee_scolaire, s0.section, `avant la restauration du ${s0.cree_le}`, req.user?.email || null);
+    vider(s0.annee_scolaire, s0.section, true);
+    for (const o of c.organisations || []) {
+      try {
+        db.prepare(`UPDATE organisation_ue SET date_debut = ?, date_fin = ?, nb_semaines = ?, stage_bloquant = ?, cours_pendant_conges = ?,
+          autonomie_reservee = ?, autonomie_motif = ? WHERE id = ?`).run(o.date_debut, o.date_fin, o.nb_semaines, o.stage_bloquant || 0,
+          o.cours_pendant_conges || 0, o.autonomie_reservee || 0, o.autonomie_motif || null, o.id);
+      } catch { /* */ }
+    }
+    inserer('grille_cours', c.grille_cours || []); inserer('grille_activite', c.grille_activite || []);
+    inserer('plan_creneau', c.plan_creneau || []); inserer('horaire_local_activite', c.horaire_local_activite || []);
+    inserer('groupe_commun_reglage', c.groupe_commun_reglage || []); inserer('groupe_commun_brique', c.groupe_commun_brique || []);
+  })();
+  res.json({ ok: true });
+});
+
 /** Les activités proposables : celles de la maison, plus celles de la section. */
 r.get('/activites', authRequired, (req, res) => {
   const section = String(req.query.section || '').trim();
