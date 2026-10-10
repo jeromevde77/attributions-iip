@@ -5,7 +5,8 @@ import { useSearchParams } from 'react-router-dom';
 import { api, getAnnee, setAnnee as setAnneeActive, getUser } from '../lib/api.js';
 import { ORIGINE, chargerCouleurs, echelleGris, poser as poserCouleurs, poserGris, variables as variablesCouleurs } from '../lib/couleurs.js';
 import Audit from './Audit.jsx';
-import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette, IconArchive, IconAlertTriangle, IconShieldLock, IconDatabase, IconHierarchy, IconArrowsSplit, IconTool, IconSchool, IconStairsUp, IconCalculator, IconLinkOff, IconSend, IconMessageDots, IconId, IconFileDescription, IconKey, IconMailForward, IconUserSearch, IconCoin } from '@tabler/icons-react';
+import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette, IconArchive, IconAlertTriangle, IconShieldLock, IconDatabase, IconHierarchy, IconArrowsSplit, IconTool, IconSchool, IconStairsUp, IconCalculator, IconLinkOff, IconSend, IconMessageDots, IconId, IconFileDescription, IconKey, IconMailForward, IconUserSearch, IconCoin, IconShape } from '@tabler/icons-react';
+import ReglageDesign from '../components/ReglageDesign.jsx';
 import { PageHeader, RailLateral, TuileEtat, PastilleEtat, Encadre } from '../components/ui.jsx';
 import ApercuDocuments from '../components/ApercuDocuments.jsx';
 const Editeur = lazy(() => import('./Editeur.jsx'));
@@ -1127,6 +1128,7 @@ export default function Configuration() {
     // mettrais bien Apparence dans Système »).
     { label: 'Système', icon: IconAdjustments, items: [
       { key: 'couleurs', label: 'Thèmes et couleurs', icon: IconPalette },
+      { key: 'design', label: 'Formes et composants', icon: IconShape },
       { key: 'sauvegardes', label: 'Sauvegardes', icon: IconDatabase },
       { key: 'systeme', label: 'Traces et historique', icon: IconHistory },
       { key: 'registre-envois', label: 'Registre des envois', icon: IconMailForward },
@@ -1293,6 +1295,7 @@ export default function Configuration() {
       )}
 
       {tab === 'couleurs' && <ReglageCouleurs />}
+      {tab === 'design' && <ReglageDesign />}
 
       {/* ── Onglet Recrutement ── */}
       {tab === 'recrutement' && <ConfigRecrutement />}

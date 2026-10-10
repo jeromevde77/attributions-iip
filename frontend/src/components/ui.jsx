@@ -1152,7 +1152,7 @@ export function Fenetre({ icone: Ic, titre, sous, large = 'moyenne',
           fenêtre s'y trouvait enfermée. Le flou vit donc sur un calque frère du
           panneau, jamais sur son ancêtre. */}
       <div aria-hidden="true"
-        className="absolute inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px]" />
+        className="absolute inset-0 voile-fenetre" />
       {/* UNE FENÊTRE FAIT LA HAUTEUR DE CE QU'ELLE DIT — JUSQU'À 88 vh.
        *
        * Les grandes étaient figées à 88 vh parce qu'elles portaient des

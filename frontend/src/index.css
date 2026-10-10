@@ -76,8 +76,8 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--c-principal); 
 }
 
 body {
-  font-family: 'Inter', 'Aptos', system-ui, Arial, Helvetica, sans-serif;
-  font-size: var(--app-font-size);
+  font-family: var(--d-police, 'Inter', 'Aptos', system-ui, Arial, Helvetica, sans-serif);
+  font-size: calc(var(--app-font-size) * var(--d-texte, 1));
   line-height: 1.5;
   /* UN SEUL SOL, ET TOUT EST POSÉ DESSUS.
    *
@@ -98,7 +98,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-h1, h2, h3, .font-title { font-family: 'Inter', 'Aptos', system-ui, Arial, Helvetica, sans-serif; font-weight: 600; letter-spacing: -0.01em; }
+h1, h2, h3, .font-title { font-family: var(--d-police, 'Inter', 'Aptos', system-ui, Arial, Helvetica, sans-serif); font-weight: 600; letter-spacing: -0.01em; }
 
 /* Grille type Excel */
 table.grid-excel { border-collapse: collapse; width: 100%; font-size: 0.875rem; }
@@ -643,7 +643,7 @@ table.grid-excel-soft select:focus {
  * deux coins. Un écran n'a plus qu'à nommer l'objet. */
 .segments {
   display: inline-flex; align-items: stretch;
-  height: 36px; border: 1px solid #cbd5e1; border-radius: 8px;
+  height: var(--d-controle-h, 36px); border: 1px solid #cbd5e1; border-radius: var(--d-rayon-champ, 8px);
   background: #fff; overflow: hidden;
 }
 .segments > * {
@@ -651,9 +651,9 @@ table.grid-excel-soft select:focus {
   padding: 0 .75rem; font-size: 13px; line-height: 1;
   transition: background-color 150ms, color 150ms;
 }
-.segments > :first-child { border-radius: 7px 0 0 7px; }
-.segments > :last-child  { border-radius: 0 7px 7px 0; }
-.segments > :only-child  { border-radius: 7px; }
+.segments > :first-child { border-radius: calc(var(--d-rayon-champ, 8px) - 1px) 0 0 calc(var(--d-rayon-champ, 8px) - 1px); }
+.segments > :last-child  { border-radius: 0 calc(var(--d-rayon-champ, 8px) - 1px) calc(var(--d-rayon-champ, 8px) - 1px) 0; }
+.segments > :only-child  { border-radius: calc(var(--d-rayon-champ, 8px) - 1px); }
 
 /* LA PASTILLE DU COMPTE — deux lettres, la taille d'un contrôle.
    Le nom complet prenait un quart de la barre du haut et poussait le rôle et
@@ -707,7 +707,7 @@ main:not(:has(> .gouttiere-rail)) {
  * deux coins. Un écran n'a plus qu'à nommer l'objet. */
 .segments {
   display: inline-flex; align-items: stretch;
-  height: 36px; border: 1px solid #cbd5e1; border-radius: 8px;
+  height: var(--d-controle-h, 36px); border: 1px solid #cbd5e1; border-radius: var(--d-rayon-champ, 8px);
   background: #fff; overflow: hidden;
 }
 .segments > * {
@@ -715,9 +715,9 @@ main:not(:has(> .gouttiere-rail)) {
   padding: 0 .75rem; font-size: 13px; line-height: 1;
   transition: background-color 150ms, color 150ms;
 }
-.segments > :first-child { border-radius: 7px 0 0 7px; }
-.segments > :last-child  { border-radius: 0 7px 7px 0; }
-.segments > :only-child  { border-radius: 7px; }
+.segments > :first-child { border-radius: calc(var(--d-rayon-champ, 8px) - 1px) 0 0 calc(var(--d-rayon-champ, 8px) - 1px); }
+.segments > :last-child  { border-radius: 0 calc(var(--d-rayon-champ, 8px) - 1px) calc(var(--d-rayon-champ, 8px) - 1px) 0; }
+.segments > :only-child  { border-radius: calc(var(--d-rayon-champ, 8px) - 1px); }
 
 /* LA PASTILLE DU COMPTE — deux lettres, la taille d'un contrôle.
    Le nom complet prenait un quart de la barre du haut et poussait le rôle et
@@ -787,7 +787,7 @@ main:not(:has(> .gouttiere-rail)) {
  */
 .onglet-page {
   padding: .625rem 1rem; font-size: 13.5px; font-weight: 500;
-  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  border-bottom: var(--d-onglet-trait, 2px) solid transparent; margin-bottom: -1px;
   color: var(--menu-texte-doux);
   transition: color 150ms cubic-bezier(.32,.72,0,1),
               border-color 150ms cubic-bezier(.32,.72,0,1);
@@ -814,9 +814,9 @@ main:not(:has(> .gouttiere-rail)) {
  * d'une barre d'outils — et une seule suffit pour que tout s'aligne.
  */
 .controle {
-  height: 2.25rem; display: inline-flex; align-items: center; gap: .4rem;
+  height: var(--d-controle-h, 2.25rem); display: inline-flex; align-items: center; gap: .4rem;
   padding-inline: .7rem; font-size: 13px; line-height: 1;
-  border-radius: 8px; border: 1px solid var(--menu-bord);
+  border-radius: var(--d-rayon-champ, 8px); border: 1px solid var(--menu-bord);
   /* `background-color` et NON `background` : le raccourci remet l'image de fond
      à zéro, et c'est lui qui effaçait le chevron des listes déroulantes. */
   background-color: var(--champ-fond); color: var(--menu-texte);
@@ -912,9 +912,9 @@ select[multiple], select[size]:not([size="1"]) {
  * n'est pas un bouton, c'est une information.
  */
 .bouton {
-  height: 2.25rem; display: inline-flex; align-items: center; gap: .4rem;
-  padding-inline: .9rem; font-size: 13px; font-weight: 600; line-height: 1;
-  border-radius: 8px; border: 1px solid var(--menu-bord);
+  height: var(--d-controle-h, 2.25rem); display: inline-flex; align-items: center; gap: .4rem;
+  padding-inline: .9rem; font-size: 13px; font-weight: var(--d-bouton-graisse, 600); line-height: 1;
+  border-radius: var(--d-rayon-champ, 8px); border: 1px solid var(--menu-bord);
   background: var(--champ-fond); color: var(--menu-texte);
   white-space: nowrap; transition: background-color 150ms cubic-bezier(.32,.72,0,1),
                                    opacity 150ms cubic-bezier(.32,.72,0,1);
@@ -980,7 +980,7 @@ select[multiple], select[size]:not([size="1"]) {
   display: flex; align-items: baseline; gap: .55rem;
   margin: 0 0 .9rem; padding: 0;
   font-family: inherit;
-  font-size: 17px; font-weight: 600; line-height: 1.25;
+  font-size: var(--d-titre-ecran, 17px); font-weight: 600; line-height: 1.25;
   color: var(--menu-texte);
 }
 .titre-ecran .compte {
@@ -1019,7 +1019,7 @@ select[multiple], select[size]:not([size="1"]) {
 .carte {
   background: var(--tab-repere);
   border: 1px solid var(--menu-bord);
-  border-radius: 14px;
+  border-radius: var(--d-rayon-carte, 14px);
 }
 .carte-plate { background: var(--tab-repere); }
 
@@ -1043,8 +1043,8 @@ select[multiple], select[size]:not([size="1"]) {
      liseré. Le fond est blanc, le contour celui des filets. */
   background: #fff;
   border: 1px solid rgb(var(--gris-200));
-  border-left: 4px solid var(--e);
-  border-radius: 0 10px 10px 0;
+  border-left: var(--d-tuile-lisere, 4px) solid var(--e);
+  border-radius: var(--d-tuile-coin, 0px) var(--d-rayon-tuile, 10px) var(--d-rayon-tuile, 10px) var(--d-tuile-coin, 0px);
   color: var(--c-texte);
 }
 .bloc-etat[data-etat="reussi"]     { --e: var(--c-reussi); }
@@ -1066,7 +1066,7 @@ select[multiple], select[size]:not([size="1"]) {
   --e: #7A879E;
   display: inline-flex; align-items: center; gap: 3px;
   font-size: 10px; font-weight: 600; line-height: 1.5;
-  padding: 0 6px; border-radius: 4px; white-space: nowrap;
+  padding: 0 6px; border-radius: var(--d-rayon-pastille, 4px); white-space: nowrap;
   /* LA PASTILLE EST PLEINE (Charles, 29 septembre 2026) : la couleur réglée,
      texte blanc — aucun ton dérivé. */
   background: var(--e);
@@ -1235,3 +1235,12 @@ tr.ligne-lecture select, tr.ligne-lecture input.input-cell {
 .texte-due blockquote { border: 1px solid #C9D3E1; border-radius: 8px; padding: 0.5rem 0.75rem; margin: 0.4rem 0; background: #fff; }
 .texte-due hr { border: 0; border-top: 1px solid #C9A84C; margin: 0.6rem 0; }
 .texte-due u { text-underline-offset: 2px; }
+
+/* LE VOILE DES FENÊTRES — UN SEUL, ET RÉGLABLE (3.1.248, Configuration → Formes et
+   composants). Il vivait en deux copies (Fenetre, dialogue) ; l'opacité et le flou
+   se règlent, la teinte reste l'encre de la maison. */
+.voile-fenetre {
+  background: rgba(11, 21, 45, var(--d-voile, .32));
+  -webkit-backdrop-filter: blur(var(--d-voile-flou, 3px));
+  backdrop-filter: blur(var(--d-voile-flou, 3px));
+}

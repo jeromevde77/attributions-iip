@@ -128,7 +128,7 @@ function Dialogue({ d }) {
     <div role="alertdialog" aria-modal="true" aria-label={d.titre || TITRES[d.genre]}
       className="fixed inset-0 z-[90] flex items-start justify-center p-4 pt-[14vh]"
       onMouseDown={e => e.target === e.currentTarget && d.genre !== 'saisir' && annuler()}>
-      <div aria-hidden="true" className="absolute inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px]" />
+      <div aria-hidden="true" className="absolute inset-0 voile-fenetre" />
       {/* Le bloc signalé : blanc, liseré et icône dans la couleur, texte à l'encre. */}
       <div className="relative bg-white rounded-r-fenetre shadow-dessus w-[460px] max-w-full overflow-hidden
                       border-l-4" style={{ borderLeftColor: teinte }}>

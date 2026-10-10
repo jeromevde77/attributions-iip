@@ -11,6 +11,7 @@ import './index.css';
 import { chargerCouleurs } from './lib/couleurs.js';
 
 chargerCouleurs();
+import('./lib/design.js').then(m => m.chargerDesign()).catch(() => {});
 
 /* UNE MISE À JOUR PENDANT QU'ON TRAVAILLE NE DOIT PAS FINIR EN ERREUR
    (« Importing a module script failed », 3 octobre 2026). Chaque version

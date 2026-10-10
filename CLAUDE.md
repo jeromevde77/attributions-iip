@@ -1459,6 +1459,25 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
 - **On ne touche ni aux polices, ni aux icônes, ni aux tailles** (Charles) : ce
   chantier est celui des couleurs et des tuiles.
 
+### Les formes et les composants — RÉGLABLES, PAR L'ADMINISTRATEUR
+
+> **LUCIE DEVIENT PARAMÉTRABLE** (3.1.248, Charles, 10 octobre 2026 : « Lucie
+> devient mature, elle doit être paramétrable et non en dur ; il faut uniformiser ;
+> c'est l'administrateur qui règle »). Cette décision LÈVE la règle « on ne touche
+> ni aux polices, ni aux icônes, ni aux tailles », qui ne valait que pour le
+> chantier des couleurs. Configuration → *Formes et composants*
+> (`components/ReglageDesign.jsx`) : rayons, tuiles et pastilles, hauteur des
+> contrôles, graisse des boutons, trait d'onglet, ombres, voile des fenêtres,
+> police, échelle du texte, titre d'écran — thèmes Maison IIP, Arrondi, Anguleux,
+> Compact, Confort. Catalogue `backend/src/lib/design.js` (`lucie_config` « design »,
+> valeurs bornées ou listes fermées) ; `GET /api/config/design` ouvert,
+> `PUT` réservé à `admin`. L'écran pose des `--d-*` (`frontend/src/lib/design.js`),
+> lus par `index.css` et `tailwind.config.js` avec la valeur de la maison en
+> repli. **Toute nouvelle valeur de forme lit un `--d-*`, jamais un chiffre en
+> dur.** Les écrans qui dessinent encore leurs propres tuiles, boutons, onglets ou
+> pastilles (≈ 4 400 `text-[Npx]`, ~10 tuiles, `Btn`, `KpiCard`…) n'obéissent pas
+> encore : on les ramène au standard par lots — `docs/contexte/inventaire-design-2026-10-10.md`.
+
 ### Navigation
 
 - **Seul le menu principal est horizontal** : il dit dans quel métier on est.
