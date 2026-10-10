@@ -44,11 +44,11 @@ export default function RechercheLucie() {
     <>
       <button type="button" onClick={() => setOuvert(true)} aria-label="Rechercher dans Lucie"
         title="Où aller ? — rechercher un écran ou un outil (⌘K)"
-        className="w-8 h-8 grid place-items-center rounded-champ text-slate-400 hover:text-iip-blue hover:bg-slate-100 transition-colors duration-150">
+        className="objet-barre objet-barre-icone">
         <IconSearch size={16} />
       </button>
       {ouvert && createPortal(
-        <div className="fixed inset-0 z-[80] bg-[rgb(22_64_106/0.25)] backdrop-blur-[2px]" onMouseDown={() => setOuvert(false)}>
+        <div className="fixed inset-0 z-[80] voile-fenetre" onMouseDown={() => setOuvert(false)}>
           <div className="mx-auto mt-[12vh] w-[min(640px,92vw)] bg-white rounded-fenetre shadow-dessus overflow-hidden"
             onMouseDown={e => e.stopPropagation()}>
             <div className="flex items-center gap-2 px-4 border-b border-slate-200">

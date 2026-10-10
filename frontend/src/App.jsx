@@ -117,7 +117,7 @@ function BadgeVersion({ versionIsNew, versionDecalee, verServeurNum }) {
            la surface des menus. ET IL DIT LES DEUX MOITIÉS : compilé dans
            l'image du frontend, il ne parlait que de nginx ; le backend se
            déploie à part, et l'écart doit se voir sans qu'on le cherche. */
-        className={`relative pastille-version font-semibold text-xs inline-flex ${versionIsNew ? 'version-badge-new' : ''}
+        className={`relative objet-barre ${versionIsNew ? 'version-badge-new' : ''}
           ${versionDecalee ? 'ring-1 ring-[#B45309]' : ''}`}
         title={versionDecalee ? 'Écart de déploiement — cliquer pour le détail' : 'Version — cliquer pour le détail'}>
         v{versionNum}
@@ -207,7 +207,7 @@ function VoirCommePicker() {
      suffisent à dire qui est connecté — le nom complet reste dans l'info-bulle
      et dans la liste « voir comme ». */
   if (!estDirection(u) || u?.preview) {
-    return <span className="pastille-compte" title={u?.nom || u?.email}>{initialesDe(u)}</span>;
+    return <span className="objet-barre" title={u?.nom || u?.email}>{initialesDe(u)}</span>;
   }
   const ouvrir = () => {
     setOpen(o => !o);
@@ -217,7 +217,7 @@ function VoirCommePicker() {
   return (
     <div className="relative">
       <button onClick={ouvrir} title="Voir Lucie comme un autre profil"
-        className="pastille-compte hover:text-iip-blue flex items-center gap-1">
+        className="objet-barre">
         {initialesDe(u)} <span className="text-mention text-slate-400">▾</span>
       </button>
       {open && (
@@ -685,12 +685,11 @@ function ProtectedLayout({ children }) {
             <RechercheLucie />
             <button onClick={basculerMode} aria-label="Changer le mode d'affichage"
               title={mode === 'sombre' ? 'Menus en gris pâle' : 'Menus en marine'}
-              className="w-8 h-8 grid place-items-center rounded-champ text-slate-400
-                         hover:text-iip-blue hover:bg-slate-100 transition-colors duration-150">
+              className="objet-barre objet-barre-icone">
               {mode === 'sombre' ? <IconSun size={16} /> : <IconMoon size={16} />}
             </button>
             {import.meta.env.VITE_DEMO_MODE === 'true' && (
-              <span className="bg-orange-500 text-white font-bold px-2.5 py-0.5 rounded-md text-xs tracking-widest uppercase animate-pulse">
+              <span className="objet-barre objet-barre-etat" style={{ '--e': 'var(--c-attente, #E8890C)' }}>
                 DÉMO
               </span>
             )}
@@ -700,8 +699,7 @@ function ProtectedLayout({ children }) {
                 octobre 2026) : le bandeau rayé prenait une ligne à chaque écran
                 et poussait la barre. Orange plein, le mot et l'icône. */}
             {env === 'dev' && (
-              <span className="hidden md:inline-flex items-center gap-1.5 h-8 px-3 rounded-champ text-white font-bold text-xs tracking-[.08em]"
-                style={{ background: 'var(--c-attente, #E8890C)' }}
+              <span className="hidden md:inline-flex objet-barre objet-barre-etat" style={{ '--e': 'var(--c-attente, #E8890C)' }}
                 title="Version de développement — données de test">
                 <IconFlask size={16} stroke={2} /> DEV
               </span>
@@ -715,8 +713,7 @@ function ProtectedLayout({ children }) {
                 même hauteur, sur le même axe que le mode et la version. */}
             <span className="flex items-center gap-2">
               <VoirCommePicker />
-              <span className="text-xs text-iip-turquoise font-semibold uppercase tracking-wide
-                               hidden sm:inline" title={u?.role}>
+              <span className="objet-barre hidden sm:inline-flex" title={u?.role}>
                 {ROLE_COURT[u?.role] || u?.role}
               </span>
               {/* MON COMPTE — une icône, à côté de la porte de sortie.
@@ -725,14 +722,12 @@ function ProtectedLayout({ children }) {
                   dans un rail qui change à chaque clic. */}
               <button onClick={() => setCompteOuvert(true)}
                 title="Mon compte — vérification en deux temps" aria-label="Mon compte"
-                className="w-8 h-8 grid place-items-center rounded-champ text-slate-400
-                           hover:text-iip-blue hover:bg-slate-100 transition-colors duration-150">
+                className="objet-barre objet-barre-icone">
                 <IconShieldLock size={16} />
               </button>
               <button onClick={() => { oublierPlafonds(); api.logout(); navigate('/login'); }}
                 title="Se déconnecter" aria-label="Se déconnecter"
-                className="w-8 h-8 grid place-items-center rounded-champ text-slate-400
-                           hover:text-iip-blue hover:bg-slate-100 transition-colors duration-150">
+                className="objet-barre objet-barre-icone">
                 <IconLogout size={16} />
               </button>
             </span>

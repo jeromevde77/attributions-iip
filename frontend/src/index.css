@@ -1252,3 +1252,23 @@ tr.ligne-lecture select, tr.ligne-lecture input.input-cell {
 .segments { background: var(--c-fond_champ, #fff); border-color: var(--c-filet, #cbd5e1); }
 .segments > .bg-iip-blue { background-color: var(--c-segment_actif, var(--c-principal)) !important; }
 .segments > .bg-white { background-color: var(--c-fond_champ, #fff) !important; }
+
+/* ═══ LA BARRE DU HAUT : UN SEUL OBJET (3.1.251, Charles, 10 octobre 2026 : « tout
+ * n'est pas encore standardisé » — DEV, la version, le compte, le rôle et les icônes
+ * avaient cinq hauteurs, cinq rayons et quatre polices). Une forme, deux variantes :
+ * l'icône seule (transparente, grise, survol des menus) et l'état plein (DEV, DÉMO :
+ * une information d'état est une pastille pleine). Hauteur et rayon suivent les
+ * réglages des formes ; couleurs, ceux des menus. ═══ */
+.objet-barre {
+  display: inline-flex; align-items: center; justify-content: center; gap: .35rem;
+  height: calc(var(--d-controle-h, 36px) - 4px); min-width: calc(var(--d-controle-h, 36px) - 4px);
+  padding: 0 .6rem; border-radius: var(--d-rayon-champ, 8px);
+  font-size: 12px; font-weight: 600; letter-spacing: .02em; line-height: 1; white-space: nowrap;
+  color: var(--menu-texte); background: var(--menu-actif);
+  box-shadow: inset 0 0 0 1px var(--menu-actif-bord);
+  transition: background-color 150ms, color 150ms;
+}
+button.objet-barre:hover { color: var(--menu-texte); }
+.objet-barre-icone { padding: 0; background: transparent; box-shadow: none; color: var(--menu-icone); }
+.objet-barre-icone:hover { background: var(--menu-survol); color: var(--menu-texte); }
+.objet-barre-etat { background: var(--e); color: #fff; box-shadow: none; text-transform: uppercase; letter-spacing: .06em; }
