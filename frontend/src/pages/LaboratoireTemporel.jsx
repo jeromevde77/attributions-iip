@@ -73,17 +73,26 @@ export default function LaboratoireTemporel() {
     const de = indexDe(u.sem_debut), a = indexDe(u.sem_fin);
     return de >= 0 && a >= 0 ? { de, a, posee: true } : { de: Math.max(0, premiereCours), a: Math.max(0, derniereCours), posee: false };
   };
-  // Les pistes : une UE qui chevauche une autre passe dessous.
+  /* LES PISTES NE BOUGENT PAS SOUS LA MAIN (Charles, 10 octobre 2026 : « quand je
+     change la taille d'une tuile, elle bascule en bas ; on dirait un bug »). Elles
+     se rangeaient dans l'ordre des DATES : raccourcir une UE changeait son rang, et
+     la tuile sautait de piste. Elles se rangent désormais dans l'ordre du NUMÉRO
+     d'UE — chaque UE prend la première piste où elle ne chevauche personne —, et
+     elles se calculent sur les dates ENREGISTRÉES : pendant le geste, rien ne bouge. */
+  const etendueEnregistree = u => {
+    const de = indexDe(u.sem_debut), a = indexDe(u.sem_fin);
+    return de >= 0 && a >= 0 ? { de, a } : { de: Math.max(0, premiereCours), a: Math.max(0, derniereCours) };
+  };
   const pistes = useMemo(() => {
-    const fin = [], out = new Map();
-    for (const u of [...ues].sort((x, y) => etendue(x).de - etendue(y).de || etendue(y).a - etendue(x).a)) {
-      const e = etendue(u);
-      let i = fin.findIndex(f => f < e.de);
-      if (i < 0) { i = fin.length; fin.push(-1); }
-      fin[i] = e.a; out.set(u.ue_num, i);
+    const occupe = [], out = new Map();
+    for (const u of [...ues].sort((x, y) => x.ue_num - y.ue_num)) {
+      const e = etendueEnregistree(u);
+      let i = occupe.findIndex(l => l.every(x => x.a < e.de || x.de > e.a));
+      if (i < 0) { i = occupe.length; occupe.push([]); }
+      occupe[i].push(e); out.set(u.ue_num, i);
     }
-    return { n: fin.length, de: out };
-  }, [ues, glisse, semaines]); // eslint-disable-line
+    return { n: occupe.length, de: out };
+  }, [ues, semaines]); // eslint-disable-line
 
   async function poserDates(u, de, a) {
     const r = await fetch('/api/grille/ue', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({
@@ -153,7 +162,7 @@ export default function LaboratoireTemporel() {
             suite des unités et leurs prérequis, à côté de leur place dans l'année. */}
         <button className={`bouton ${zoom === 'schema' ? 'bouton-fort' : ''}`} onClick={() => setZoom(zoom === 'schema' ? 'annee' : 'schema')}>
           <IconSitemap size={16} />Schéma de capitalisation</button>
-        <span className="text-[12px] text-slate-500">{zoom === 'schema' ? '' : zoom === 'ue' ? 'Glisser une activité dans un cours ; tirer le haut d’une couche.' : 'Ctrl + molette pour zoomer · glisser une tuile la déplace dans l’année, ses bords l’allongent · double-clic : son verre.'}</span>
+        <span className="text-[12px] text-slate-500">{zoom === 'schema' ? '' : zoom === 'ue' ? 'Glisser une activité dans un cours ; tirer le haut d’une couche ; double-clic : revenir à l’année.' : 'Ctrl + molette ou double-clic pour zoomer · glisser une tuile la déplace dans l’année, ses bords l’allongent.'}</span>
       </div>
       {erreur && <div className="text-[12.5px]" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
       {!data && !erreur && <div className="text-[13px] text-slate-400">Chargement…</div>}
@@ -178,7 +187,12 @@ export default function LaboratoireTemporel() {
                   <TuileUE key={u.ue_num} u={u} zoom={zoom} choisie={choix === u.ue_num} posee={e.posee} pendantStage={pendantStage(u)}
                     style={{ left: `calc(${e.de / NB * 100}% + 1px)`, width: `calc(${(e.a - e.de + 1) / NB * 100}% - 2px)`, top: p * (h + 8), height: h }}
                     onDeplacer={ev => geste(ev, u, 'deplacer')} onDebut={ev => geste(ev, u, 'debut')} onFin={ev => geste(ev, u, 'fin')}
-                    onOuvrir={() => { setChoix(u.ue_num); setZoom('ue'); }} />);
+                    onOuvrir={() => {
+                      /* LE DOUBLE-CLIC ZOOME (Charles, 10 octobre 2026) : l'année → les
+                         couches → le verre ; dans le verre, il ramène à l'année. */
+                      setChoix(u.ue_num);
+                      setZoom(z => (z === 'annee' ? 'couches' : u.stage ? 'annee' : 'ue'));
+                    }} />);
               })}
             </div>
           </div>
@@ -190,7 +204,7 @@ export default function LaboratoireTemporel() {
 
       {data && zoom === 'ue' && ueChoisie && (
         <Verre key={`${ueChoisie.ue_num}-${data.ues.indexOf(ueChoisie)}`} u={ueChoisie} types={types} annee={annee} section={section}
-          peutEcrire={peutEcrire} onRetour={() => setZoom('couches')} onEnregistre={charger} />)}
+          peutEcrire={peutEcrire} onRetour={() => setZoom('couches')} onAnnee={() => setZoom('annee')} onEnregistre={charger} />)}
 
       <div className="flex flex-wrap gap-4 text-[12px] text-slate-500">
         <span className="flex items-center gap-1.5"><i className="inline-block w-4 h-3 rounded-[3px]" style={{ background: fondSemaine('ev1') }} />évaluations</span>
@@ -235,7 +249,8 @@ function TuileUE({ u, zoom, choisie, posee, pendantStage, style, onDeplacer, onD
     <div className="absolute rounded-r-[10px] bg-white overflow-hidden select-none cursor-grab"
       style={{ ...style, borderLeft: `4px solid ${u.stage ? '#64748B' : teinte}`, border: `1px ${posee ? 'solid' : 'dashed'} ${choisie ? '#16406A' : '#D8DCE4'}`,
         borderLeftWidth: 4, borderLeftStyle: 'solid', borderLeftColor: u.stage ? '#64748B' : teinte,
-        background: u.stage ? FOND_STAGE : '#fff',
+        // La tuile est COLORÉE de son UE, pour se lire (Charles, 10 octobre 2026).
+        background: u.stage ? FOND_STAGE : `color-mix(in srgb, ${teinte} 16%, white)`,
         boxShadow: choisie ? '0 0 0 2px rgba(22,64,106,.25)' : undefined }}
       onPointerDown={onDeplacer} onDoubleClick={onOuvrir}
       title={`UE ${u.ue_num} — ${u.ue_nom}\n${dossier} périodes au dossier · ${remplies} posées dans la grille${posee ? '' : '\nDates à poser'}`}>
@@ -302,7 +317,7 @@ function ResumeUE({ u, semaines, peutEcrire, pendantStage, onStage, onOuvrir }) 
 }
 
 /* LE VERRE — au dernier zoom seulement. On le remplit par glisser-déposer. */
-function Verre({ u, types, annee, section, peutEcrire, onRetour, onEnregistre }) {
+function Verre({ u, types, annee, section, peutEcrire, onRetour, onAnnee, onEnregistre }) {
   const [cours, setCours] = useState(() => (u.cours || []).map(c => ({ ...c, activites: (c.activites || []).map(a => ({ ...a, groupes: Math.max(1, Number(a.groupes) || 1) })) })));
   const [choix, setChoix] = useState(null);           // { c, k }
   const [modifies, setModifies] = useState(() => new Set());
@@ -380,7 +395,7 @@ function Verre({ u, types, annee, section, peutEcrire, onRetour, onEnregistre })
           </select>
         </div>)}
       <div className="grid gap-3" style={{ gridTemplateColumns: 'minmax(0,1fr) 300px' }}>
-        <div className="carte p-4 overflow-x-auto flex gap-2">
+        <div className="carte p-4 overflow-x-auto flex gap-2" onDoubleClick={onAnnee} title="Double-clic : revenir à l’année">
           {/* La graduation, tous les 10 périodes. */}
           <div className="relative w-8 flex-none" style={{ height: total * PX + 8 }}>
             {Array.from({ length: Math.floor(total / 10) + 1 }, (_, i) => (
