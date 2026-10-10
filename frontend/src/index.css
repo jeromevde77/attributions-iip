@@ -1272,3 +1272,12 @@ button.objet-barre:hover { color: var(--menu-texte); }
 .objet-barre-icone { padding: 0; background: transparent; box-shadow: none; color: var(--menu-icone); }
 .objet-barre-icone:hover { background: var(--menu-survol); color: var(--menu-texte); }
 .objet-barre-etat { background: var(--e); color: #fff; box-shadow: none; text-transform: uppercase; letter-spacing: .06em; }
+
+/* LES DEUX TAILLES DE LA TUILE (3.1.252) : grande (tableau de bord) et compacte
+   (liste, frise). Mêmes liseré, fond, contour ; seules les mesures changent. */
+.tuile-grande { padding: var(--d-tuile-pad-v, .5rem) var(--d-tuile-pad-h, .75rem); }
+.tuile-grande .tuile-chiffre { font-size: calc(var(--d-tuile-chiffre, 17px) * var(--d-texte, 1)); }
+.tuile-grande .tuile-libelle { font-size: calc(11px * var(--d-texte, 1)); }
+.tuile-compacte { display: inline-flex; align-items: baseline; gap: .4rem; padding: .2rem .55rem; }
+.tuile-compacte .tuile-chiffre { font-size: calc(var(--d-tuile-compacte-chiffre, 13px) * var(--d-texte, 1)); }
+.tuile-compacte .tuile-libelle { font-size: calc(11px * var(--d-texte, 1)); }

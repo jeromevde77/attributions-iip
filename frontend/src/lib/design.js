@@ -9,7 +9,7 @@ import { authHeaders } from './api.js';
  */
 export const DESIGN_MAISON = {
   rayon_champ: 8, rayon_carte: 14, rayon_fenetre: 22, rayon_panneau: 26, rayon_tuile: 10, tuile_lisere: 4,
-  tuile_coins: 'droits', rayon_pastille: 4, controle_hauteur: 36, bouton_graisse: '600', onglet_trait: 2,
+  tuile_coins: 'droits', rayon_pastille: 4, tuile_chiffre: 17, tuile_espace: 10, tuile_compacte_chiffre: 13, controle_hauteur: 36, bouton_graisse: '600', onglet_trait: 2,
   ombre: 'normale', voile: 32, voile_flou: 3, police: 'Inter', texte: 100, titre_ecran: 17,
 };
 const POLICES = {
@@ -31,7 +31,9 @@ export function variablesDesign(v = {}) {
     '--d-rayon-fenetre': `${d.rayon_fenetre}px`, '--d-rayon-panneau': `${d.rayon_panneau}px`,
     '--d-rayon-tuile': `${d.rayon_tuile}px`, '--d-tuile-lisere': `${d.tuile_lisere}px`,
     '--d-tuile-coin': d.tuile_coins === 'arrondis' ? `${d.rayon_tuile}px` : '0px',
-    '--d-rayon-pastille': `${d.rayon_pastille}px`, '--d-controle-h': `${d.controle_hauteur}px`,
+    '--d-rayon-pastille': `${d.rayon_pastille}px`, '--d-tuile-chiffre': `${d.tuile_chiffre}px`,
+    '--d-tuile-pad-v': `${Math.round(d.tuile_espace * 0.8)}px`, '--d-tuile-pad-h': `${Math.round(d.tuile_espace * 1.2)}px`,
+    '--d-tuile-compacte-chiffre': `${d.tuile_compacte_chiffre}px`, '--d-controle-h': `${d.controle_hauteur}px`,
     '--d-bouton-graisse': String(d.bouton_graisse), '--d-onglet-trait': `${d.onglet_trait}px`,
     '--d-ombre-pose': k ? `0 1px 2px rgba(11,21,45,${a(0.06)})` : 'none',
     '--d-ombre-flottant': k ? `0 20px 50px -18px rgba(11,21,45,${a(0.35)})` : 'none',

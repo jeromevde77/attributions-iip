@@ -901,22 +901,27 @@ export function IconeFaveur({ size = 13, className = '' }) {
  * | neutre | fort. Cliquable si `onClick` : elle devient alors un bouton.
  */
 export function TuileEtat({ etat = 'neutre', valeur, unite, libelle, precision, icone: Icone,
-                            onClick, actif = false, sousReserve = false, className = '', title }) {
+                            onClick, actif = false, sousReserve = false, className = '', title, taille = 'grande' }) {
+  // DEUX TAILLES, UN DESSIN (3.1.252, Charles : « deux types de tuiles — grande et
+  // compacte »). La grande pour un tableau de bord : chiffre, libellé dessous,
+  // précision. La compacte pour une liste ou une frise : chiffre et libellé sur une
+  // ligne, la précision au survol. Mesures réglables (Formes et composants).
   const Balise = onClick ? 'button' : 'div';
+  const compacte = taille === 'compacte';
   return (
-    <Balise type={onClick ? 'button' : undefined} onClick={onClick} title={title}
+    <Balise type={onClick ? 'button' : undefined} onClick={onClick} title={title || (compacte && precision) || undefined}
       data-etat={etat}
-      className={`bloc-etat ${sousReserve ? 'sous-reserve' : ''} relative text-left px-3 py-2 min-w-0
+      className={`bloc-etat ${compacte ? 'tuile-compacte' : 'tuile-grande'} ${sousReserve ? 'sous-reserve' : ''} relative text-left min-w-0
         ${onClick ? 'cursor-pointer hover:brightness-[.98] transition' : ''}
         ${actif ? 'ring-2 ring-offset-1 ring-iip-blue/30' : ''} ${className}`}>
-      {Icone && <Icone size={15} stroke={1.8} className="absolute right-2.5 top-2.5" style={{ color: 'var(--e)' }} />}
-      <div className="text-lg font-bold tabular-nums leading-tight">
+      {Icone && !compacte && <Icone size={15} stroke={1.8} className="absolute right-2.5 top-2.5" style={{ color: 'var(--e)' }} />}
+      <div className="tuile-chiffre font-bold tabular-nums leading-tight">
         {valeur}
         {unite && <span className="text-xs font-normal text-slate-500 ml-1">{unite}</span>}
         {etat === 'faveur' && <IconeFaveur className="ml-1.5 align-[-1px]" />}
       </div>
-      {libelle && <div className="text-xs text-slate-600">{libelle}</div>}
-      {precision && <div className="text-mention text-slate-400">{precision}</div>}
+      {libelle && <div className="tuile-libelle text-slate-600">{libelle}</div>}
+      {precision && !compacte && <div className="text-mention text-slate-400">{precision}</div>}
     </Balise>
   );
 }

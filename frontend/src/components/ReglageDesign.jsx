@@ -17,7 +17,7 @@ const THEMES = {
   'Maison IIP': {},
   'Arrondi': { rayon_champ: 12, rayon_carte: 20, rayon_fenetre: 28, rayon_tuile: 14, tuile_coins: 'arrondis', rayon_pastille: 10 },
   'Anguleux': { rayon_champ: 2, rayon_carte: 4, rayon_fenetre: 6, rayon_panneau: 6, rayon_tuile: 2, rayon_pastille: 2, ombre: 'douce' },
-  'Compact': { controle_hauteur: 30, texte: 92, titre_ecran: 15, rayon_champ: 6, rayon_carte: 10 },
+  'Compact': { controle_hauteur: 30, texte: 92, titre_ecran: 15, rayon_champ: 6, rayon_carte: 10, tuile_chiffre: 15, tuile_espace: 7 },
   'Confort': { controle_hauteur: 42, texte: 110, titre_ecran: 20 },
 };
 
@@ -84,6 +84,11 @@ export default function ReglageDesign() {
             <TuileEtat etat="reussi" valeur="42" libelle="Réussis" />
             <TuileEtat etat="surveiller" valeur="7" libelle="Ajournés" />
             <TuileEtat etat="corriger" valeur="3" libelle="Refusés" />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <TuileEtat taille="compacte" etat="reussi" valeur="42" libelle="réussis" />
+            <TuileEtat taille="compacte" etat="surveiller" valeur="7" libelle="ajournés" />
+            <TuileEtat taille="compacte" etat="neutre" valeur="88" libelle="inscrits" />
           </div>
           <div className="flex gap-2"><PastilleEtat etat="reussi">réussi</PastilleEtat><PastilleEtat etat="faveur">faveur</PastilleEtat><PastilleEtat etat="corriger">refusé</PastilleEtat></div>
           <Encadre etat="disponible" titre="Un encadré">Une phrase qui porte un état.</Encadre>

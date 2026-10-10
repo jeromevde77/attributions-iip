@@ -1397,6 +1397,10 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   et les replis d'`index.css` régénérés depuis lui). Les couleurs se relisent
   à la connexion : chargées sur l'écran de login, sans session, elles
   retombaient sur le repli jusqu'au rechargement.
+- **Deux tailles de tuile, pas une de plus** (3.1.252, Charles) : `taille="grande"`
+  (tableau de bord : chiffre, libellé dessous, précision) et `taille="compacte"`
+  (liste, frise : chiffre et libellé sur une ligne, précision au survol). Mesures
+  réglables dans Formes et composants.
 - **Composants** (`ui.jsx`) : `TuileEtat`, `Encadre`, `PastilleEtat`,
   `IconeFaveur`. Pour un SVG : `teintes(etat)`, lu dans `style`, jamais dans
   un attribut `fill=` où `var()` ne s'évalue pas.
