@@ -1477,6 +1477,16 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
 > dur.** Les écrans qui dessinent encore leurs propres tuiles, boutons, onglets ou
 > pastilles (≈ 4 400 `text-[Npx]`, ~10 tuiles, `Btn`, `KpiCard`…) n'obéissent pas
 > encore : on les ramène au standard par lots — `docs/contexte/inventaire-design-2026-10-10.md`.
+>
+> **ET CHAQUE ZONE A SA COULEUR** (3.1.250, Charles : « le fond, le fond des
+> tuiles… les fenêtres, les barres, les boutons — tout doit être standardisé et
+> paramétrable »). Thèmes et couleurs porte deux familles de plus : *Surfaces*
+> (menus, cartes, en-têtes, lignes, survol, tuiles, champs, filets, sous-menu) et
+> *Composants* (bandeau, texte, corps et pied des fenêtres ; boutons fort,
+> sortir, détruire ; segment choisi). Une zone sans réglage SUIT celle qu'indique
+> le catalogue (`valeur: null`, `suit`), donc rien ne change pour qui ne touche à
+> rien. Table des zones : `docs/contexte/inventaire-design-2026-10-10.md`. Une
+> nouvelle zone s'ajoute au catalogue, jamais en dur dans un écran.
 
 ### Navigation
 
