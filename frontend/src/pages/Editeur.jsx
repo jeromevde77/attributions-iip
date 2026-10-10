@@ -763,7 +763,9 @@ export default function Editeur() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ prof_id: profId || undefined, ue_num: ueNum || undefined, section: section || undefined, etudiant_id: etudiantId || undefined, annee }),
       });
-      const { html, headerHtml, footerHtml, nom: tnom } = await r.json();
+      const { html, headerHtml, footerHtml, nom: tnom, enveloppe } = await r.json();
+      // Modèle de l'atelier : l'enveloppe commune, pied de Lucie compris.
+      if (enveloppe) { setPreviewHtml(enveloppe); return; }
       const hasHeader = headerHtml && headerHtml.trim();
       const hasFooter = footerHtml && footerHtml.trim();
       const fullHtml = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>${tnom}</title>
