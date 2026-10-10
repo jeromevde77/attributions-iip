@@ -10,7 +10,7 @@ import {
   IconHome, IconBell, IconCheck, IconChevronRight,
   // Les trois icônes de calendrier ont disparu avec les trois entrées de
   // période : un réglage n'est pas un territoire, il vit dans une fenêtre.
-  IconUserPlus, IconClipboardList, IconSettings, IconRefresh, IconCake,
+  IconUserPlus, IconClipboardList, IconSettings, IconRefresh, IconCake, IconSpeakerphone,
   IconFilter, IconFileText, IconInfoCircle, IconClock, IconExclamationCircle, IconClipboardCheck, IconWriting } from '@tabler/icons-react';
 import { urgence } from '../lib/urgence.js';
 import { Fenetre } from '../components/ui.jsx';
@@ -46,6 +46,10 @@ const TYPE_CONFIG = {
   },
   systeme: {
     info: { label: 'Lucie',       color: 'var(--c-texte)', bg: 'rgb(var(--e-disponible-100))', icon: IconSettings },
+  },
+  // LES MESSAGES DE LA COMMUNICATION (3.1.278) : quelqu'un de l'école vous écrit.
+  communication: {
+    message: { label: 'Message', color: 'var(--c-principal)', bg: 'rgb(var(--e-principal-100))', icon: IconSpeakerphone },
   },
   anniversaire: {
     // La veille en teinte sourde, le jour même en ambre : l'un prépare,
@@ -796,6 +800,8 @@ export default function Accueil() {
                               Voir <IconChevronRight size={12} />
                             </button>
                           )}
+                          {item.type === 'communication' && item.lue && (
+                            <span className="text-xs flex items-center gap-1" style={{ color: 'var(--c-reussi)' }}><IconCheck size={13} stroke={2.5} /> Lu</span>)}
                           {!item.lue && (
                             <button onClick={() => marquerLu(item)}
                               className="text-xs text-gray-400 hover:text-green-600 flex items-center gap-1">

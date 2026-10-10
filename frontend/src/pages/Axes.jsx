@@ -5,7 +5,7 @@ import { Suspense, lazy } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   IconHome, IconChecklist, IconSend, IconLayoutDashboard, IconCalendarStats,
-  IconChartBar,
+  IconChartBar, IconSpeakerphone,
   IconCertificate, IconClipboardList, IconScale, IconShieldExclamation, IconDoorEnter,
   IconUserCheck, IconRoute, IconFileText, IconStairsUp, IconEyeCheck, IconArrowForwardUp, IconTablePlus, IconFolder, IconNotes, IconAccessible, IconTable,
 } from '@tabler/icons-react';
@@ -17,6 +17,7 @@ const Pilotage = lazy(() => import('./Pilotage.jsx'));
 import Etudiants from './Etudiants.jsx';
 import Deliberation from './Deliberation.jsx';
 import Echeancier from './Echeancier.jsx';
+const Communication = lazy(() => import('./Communication.jsx'));
 const SuiviEquipe = lazy(() => import('./SuiviEquipe.jsx'));
 
 const Listes = lazy(() => import('./Listes.jsx'));
@@ -72,6 +73,12 @@ export function AxeAccueil() {
         { key: 'suivi', module: 'reunions', label: 'Suivi d\u2019équipe', icone: IconChecklist,
           sansMarge: true, railPropre: true,
           rendu: <Suspense fallback={<Attente />}><SuiviEquipe /></Suspense> },
+        /* LA COMMUNICATION (3.1.278) : écrire au tableau de bord des autres — la direction,
+           le secrétariat et les coordinations (ces dernières, à leurs sections). */
+        ...(['admin', 'directeur', 'directeur_adjoint', 'secretariat', 'editeur', 'coordination'].includes(getUser()?.role) ? [{
+          key: 'communication', label: 'Communication', icone: IconSpeakerphone,
+          rendu: <Suspense fallback={<Attente />}><Communication /></Suspense>,
+        }] : []),
         ...(voitReporting ? [{
           key: 'reporting', label: 'Chiffres de l\u2019école', icone: IconChartBar,
           sansMarge: true, railPropre: true,
