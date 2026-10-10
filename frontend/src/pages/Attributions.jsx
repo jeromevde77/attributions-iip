@@ -3,7 +3,7 @@ import { couleurBloc } from '../lib/blocs.js';
 import { codeGroupe, suiteGroupes, trierCodes, rangCouleur } from '../lib/groupes.js';
 import { estDirection } from '../lib/modules.js';
 import { useDroits } from '../lib/droits.js';
-import { VoletRail, Fenetre, Chevron } from '../components/ui.jsx';
+import { VoletRail, Fenetre, Chevron, Encadre } from '../components/ui.jsx';
 import { createPortal } from 'react-dom';
 import { api, getAnnee, nomDoc, getUnite, setUnite as setUniteGlobal, perToH, hToPer } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
@@ -132,7 +132,7 @@ function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied 
           )}
 
           {error && (
-            <div className="bg-[#FBF1EE] border border-[color:var(--c-attente)] rounded-carte p-3 text-sm text-iip-texte">
+            <div className="bg-[color:color-mix(in_srgb,var(--c-attente)_9%,var(--blanc))] border border-[color:var(--c-attente)] rounded-carte p-3 text-sm text-iip-texte">
               {error}
               {conflict && isAdmin && (
                 <div className="mt-2">
@@ -1837,7 +1837,7 @@ export default function Attributions() {
       <div key={key} id={'cours-'+cg.code_cours} className="border-t border-gray-100">
         {/* Ouverte, la bande prend le fond de son en-tête : les deux ne font
             plus qu'un bloc, et c'est ce bloc qui dit « ce cours ». */}
-        <button onClick={()=>toggle(key)} className={`w-full flex items-center gap-2 pl-10 pr-4 py-2 transition text-left text-sm ${open ? 'bg-[#F4F6F8]' : 'hover:bg-gray-100/60'} ${isZCours ? 'opacity-70' : ''}`}>
+        <button onClick={()=>toggle(key)} className={`w-full flex items-center gap-2 pl-10 pr-4 py-2 transition text-left text-sm ${open ? 'bg-slate-50' : 'hover:bg-gray-100/60'} ${isZCours ? 'opacity-70' : ''}`}>
           <Chevron ouvert={open} size={14} className="text-gray-400" />
           <span className={`font-mono text-sm ${isZCours ? 'text-gray-400' : 'text-gray-500'}`}>{cg.code_cours}</span>
           <span className={`truncate ${isZCours ? 'text-gray-400 italic' : 'text-gray-700'}`}>{cg.nom_cours}</span>
@@ -2309,8 +2309,8 @@ export default function Attributions() {
                   {peutAdminAttr && <button onClick={()=>setShowCopierSection(true)} className="flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-sm font-medium px-3 py-2 rounded-lg"><IconClipboardText size={16}/>Copier section</button>}
                   <button onClick={()=>api.exportExcel()} className="flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-sm font-medium px-3 py-2 rounded-lg"><IconFileImport size={16}/>Export</button>
                   {isAdmin && <>
-                    {selected.size>0 && <button onClick={()=>openBulkModal('selection')} className="flex items-center gap-2 bg-white border border-[color:var(--c-attente)] text-iip-texte hover:bg-[#FBF1EE] text-sm font-medium px-3 py-2 rounded-champ"><IconTrash size={16}/>Sélection ({selected.size})</button>}
-                    <button onClick={()=>openBulkModal('filtered')} className="flex items-center gap-2 bg-white border border-[color:var(--c-attente)] text-iip-texte hover:bg-[#FBF1EE] text-sm font-medium px-3 py-2 rounded-champ"><IconTrash size={16}/>Suppr. filtre</button>
+                    {selected.size>0 && <button onClick={()=>openBulkModal('selection')} className="flex items-center gap-2 bg-white border border-[color:var(--c-attente)] text-iip-texte hover:bg-[color:color-mix(in_srgb,var(--c-attente)_9%,var(--blanc))] text-sm font-medium px-3 py-2 rounded-champ"><IconTrash size={16}/>Sélection ({selected.size})</button>}
+                    <button onClick={()=>openBulkModal('filtered')} className="flex items-center gap-2 bg-white border border-[color:var(--c-attente)] text-iip-texte hover:bg-[color:color-mix(in_srgb,var(--c-attente)_9%,var(--blanc))] text-sm font-medium px-3 py-2 rounded-champ"><IconTrash size={16}/>Suppr. filtre</button>
                     <button onClick={()=>openBulkModal('all')} className="flex items-center gap-2 bg-iip-danger hover:brightness-110 text-white text-sm font-medium px-3 py-2 rounded-lg"><IconTrash size={16}/>Tout supprimer</button>
                     <button onClick={reimportExcel} className="flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-sm font-medium px-3 py-2 rounded-lg"><IconRefresh size={16}/>Réimporter</button>
                   </>}
@@ -2743,25 +2743,26 @@ export default function Attributions() {
 
       {/* Bandeau : profs définitifs en perte de charge (ETP global, en bas) */}
       {pertesCharge.length > 0 && (
-        <div className="mt-4 bg-[#FBF1EE] border border-[color:var(--c-attente)] rounded-carte p-3">
-          <div className="flex items-center gap-2 text-iip-texte font-medium text-sm mb-1.5">
-            ⚠ {pertesCharge.length} engagement(s) à titre définitif en perte de charge
-          </div>
-          <p className="text-second text-iip-texte mb-2">
+        /* Un BANDEAU qui alerte : l'Encadre de la maison (liseré ocre, fond du thème), et
+           non une couleur écrite en dur — #FBF1EE restait clair en thème sombre et le texte
+           y devenait illisible (Charles, 10 octobre 2026). */
+        <Encadre etat="surveiller" className="mt-4" icone={IconAlertTriangle}
+          titre={`${pertesCharge.length} engagement(s) à titre définitif en perte de charge`}>
+          <p className="mb-2">
             L'équivalent ETP de l'engagement définitif n'est pas couvert. Cochez des attributions comme remise au travail (RT) dans la fiche du prof, ou attribuez-leur de nouveaux cours.
           </p>
           <div className="space-y-1">
             {pertesCharge.map(p => (
-              <div key={p.professeur_id} className="flex items-center justify-between bg-white rounded px-2.5 py-1.5 h-9 text-second">
-                <span className="text-gray-700"><strong>{p.prof}</strong></span>
-                <span className="text-iip-texte font-semibold whitespace-nowrap ml-2">
+              <div key={p.professeur_id} className="flex items-center justify-between border border-slate-200 rounded px-2.5 py-1.5 h-9 text-second">
+                <span className="text-slate-800"><strong>{p.prof}</strong></span>
+                <span className="text-slate-800 font-semibold whitespace-nowrap ml-2">
                   manque {p.etp_manque} ETP (~{p.equiv_periodes_ct} pér. CT)
-                  <span className="text-gray-400 font-normal"> · nommé {p.etp_nomme} / couvert {p.etp_couvert}</span>
+                  <span className="text-slate-500 font-normal"> · nommé {p.etp_nomme} / couvert {p.etp_couvert}</span>
                 </span>
               </div>
             ))}
           </div>
-        </div>
+        </Encadre>
       )}
       {statutFenetre && (
         <FenetreStatut etat={statutFenetre} onFermer={()=>setStatutFenetre(null)}

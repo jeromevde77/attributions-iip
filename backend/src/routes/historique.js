@@ -5,6 +5,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import db from '../db/index.js';
 import { professeurDe } from '../middleware/auth.js';
+import { messagesRecus, videLe } from './communication.js';
 import { anneeActiveEnBase } from '../helpers/annee.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
 import { snapshotComplet } from '../lib/retention.js';
@@ -617,6 +618,16 @@ r.get('/feed', authRequired, (req, res) => {
     }
   } catch (e) { console.error('[feed] anniversaires :', e.message); }
 
+  // LES MESSAGES DE LA COMMUNICATION (3.1.278) : sur le tableau de bord de chacun.
+  try {
+    for (const m of messagesRecus(u)) items.push({
+      id: `comm-${m.id}`, type: 'communication', action: 'message',
+      titre: m.titre, corps: m.corps_html, auteur: m.cree_par || 'Lucie',
+      date: new Date(String(m.envoye_le).replace(' ', 'T') + 'Z').toISOString(),
+      lue: !!m.lu_le, lu_le: m.lu_le, accuse: !!m.accuse_demande,
+    });
+  } catch (e) { console.error('[feed] communication :', e.message); }
+
   // Mes vœux reçus : une carte, la semaine qui suit l'anniversaire, sans pastille.
   try {
     const moi = professeurDe(u);
@@ -632,6 +643,18 @@ r.get('/feed', authRequired, (req, res) => {
       });
     }
   } catch (e) { console.error('[feed] vœux :', e.message); }
+
+  // LE MÉNAGE (3.1.279) : ce qui précède le « vidé le » de ce compte quitte son tableau de
+  // de bord — sauf les messages et les vœux, écrits pour lui.
+  const vide = videLe(u.id);
+  if (vide) {
+    const t = new Date(String(vide).replace(' ', 'T') + 'Z').getTime();
+    for (let k = items.length - 1; k >= 0; k--) {
+      const it = items[k];
+      if (it.type === 'communication' || it.type === 'anniversaire') continue;
+      if (new Date(it.date).getTime() < t) items.splice(k, 1);
+    }
+  }
 
   // Trier par date décroissante
   items.sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -654,6 +677,11 @@ r.post('/feed/:type/:id/lu', authRequired, (req, res) => {
         const lus = JSON.parse(n.lue_par || '[]');
         if (!lus.includes(uid)) { lus.push(uid); db.prepare('UPDATE lucie_notification SET lue_par = ? WHERE id = ?').run(JSON.stringify(lus), id); }
       }
+    } else if (type === 'comm') {
+      // Lu : c'est ce que l'auteur voit en ✓ vert dans son registre.
+      const moi = professeurDe(req.user);
+      db.prepare(`UPDATE communication_destinataire SET lu_le = COALESCE(lu_le, datetime('now'))
+        WHERE communication_id = ? AND (utilisateur_id = ? OR (? IS NOT NULL AND professeur_id = ?))`).run(Number(id), uid, moi, moi);
     } else if (type === 'cl') {
       const c = db.prepare('SELECT lue_par FROM lucie_changelog WHERE id = ?').get(id);
       if (c) {

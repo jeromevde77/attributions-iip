@@ -638,7 +638,7 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
             <table className="text-second border-collapse">
               <thead className="sticky top-0 z-10">
                 <tr className="tab-entete">
-                  <th className="sticky left-0 z-20 bg-[#EEF1F6] text-left px-3 py-1.5 min-w-[16rem]">
+                  <th className="sticky left-0 z-20 bg-slate-50 text-left px-3 py-1.5 min-w-[16rem]">
                     <label className="flex items-center gap-2">
                       <input type="checkbox" checked={lignes.length > 0 && lignes.every(e => coches.has(e.id))}
                         onChange={() => setCoches(c => {
