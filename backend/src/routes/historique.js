@@ -5,6 +5,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import db from '../db/index.js';
 import { professeurDe } from '../middleware/auth.js';
+import { anneeActiveEnBase } from '../helpers/annee.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
 import { snapshotComplet } from '../lib/retention.js';
 import { peut } from '../middleware/permissions.js';
@@ -560,23 +561,29 @@ r.get('/feed', authRequired, (req, res) => {
   // La veille et le jour même : la veille pour avoir le temps d'y penser, le
   // jour même pour ne pas l'oublier.
   //
-  // Réservé à qui a accès au module Personnel : une date de naissance est une
-  // donnée personnelle, et tous les comptes n'ont pas à la connaître.
+  /* VISIBLES PAR TOUS depuis 3.1.273 (Charles, 10 octobre 2026 : « oui, tout le
+     monde »), pour que chacun puisse souhaiter. Ce qui reste réservé à qui lit le
+     module Personnel : l'ÂGE (la date de naissance complète) et le lien vers la fiche. */
   try {
-    if (peut(u, 'personnel', 'lire')) {
+    const voitPersonnel = peut(u, 'personnel', 'lire');
+    {
       const aujourdhui = new Date();
       const demain = new Date(aujourdhui.getTime() + 86400000);
       const mmjj = d => String(d.getMonth() + 1).padStart(2, '0') + '-'
                       + String(d.getDate()).padStart(2, '0');
 
       // Les anniversaires parlent du personnel : ils suivent son module.
-      const fetes = !peut(u, 'personnel', 'lire') ? [] : db.prepare(`
+      const fetes = db.prepare(`
         SELECT id, nom, prenom, date_naissance,
                strftime('%m-%d', date_naissance) AS jour
         FROM professeur
         WHERE date_naissance IS NOT NULL AND date_naissance <> ''
           AND strftime('%m-%d', date_naissance) IN (?, ?)
-      `).all(mmjj(aujourdhui), mmjj(demain));
+          -- Les gens de la maison cette année : une attribution, ou un compte Lucie.
+          -- Sans cela, tout l'historique du personnel fêterait son anniversaire.
+          AND (id IN (SELECT professeur_id FROM attribution WHERE annee_scolaire = ?)
+               OR id IN (SELECT professeur_id FROM utilisateur WHERE professeur_id IS NOT NULL))
+      `).all(mmjj(aujourdhui), mmjj(demain), annee || anneeActiveEnBase() || '');
 
       for (const p of fetes) {
         const cestAujourdhui = p.jour === mmjj(aujourdhui);
@@ -594,7 +601,7 @@ r.get('/feed', authRequired, (req, res) => {
           titre: cestAujourdhui
             ? `Anniversaire de ${String(p.nom || '').toUpperCase()} ${p.prenom || ''}`.trim()
             : `Demain, anniversaire de ${String(p.nom || '').toUpperCase()} ${p.prenom || ''}`.trim(),
-          corps: age ? `${age} ans` : null,
+          corps: age && voitPersonnel ? `${age} ans` : null,
           auteur: 'Lucie',
           personne_id: p.id,
           ...(cestAujourdhui ? (() => {
@@ -604,7 +611,7 @@ r.get('/feed', authRequired, (req, res) => {
           // Daté du jour concerné, pour que le tri le place au bon endroit.
           date: (cestAujourdhui ? aujourdhui : demain).toISOString(),
           lue: false,
-          lien: `/personnel?prof=${p.id}`,
+          lien: voitPersonnel ? `/personnel?prof=${p.id}` : null,
         });
       }
     }
