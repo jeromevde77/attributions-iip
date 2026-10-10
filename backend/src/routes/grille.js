@@ -136,6 +136,10 @@ export function migrerGrille(dbx) {
     if (!colsOU.includes('stage_bloquant')) dbx.exec('ALTER TABLE organisation_ue ADD COLUMN stage_bloquant INTEGER NOT NULL DEFAULT 0');
     // Par défaut, pas de cours pendant les vacances ; une UE peut en décider autrement.
     if (!colsOU.includes('cours_pendant_conges')) dbx.exec('ALTER TABLE organisation_ue ADD COLUMN cours_pendant_conges INTEGER NOT NULL DEFAULT 0');
+    /* L'AUTONOMIE MISE DE CÔTÉ (Charles, 10 octobre 2026) : volontairement, avec un
+       motif ; elle reste rattachée à son UE et se lit au niveau de la section. */
+    if (!colsOU.includes('autonomie_reservee')) dbx.exec('ALTER TABLE organisation_ue ADD COLUMN autonomie_reservee REAL NOT NULL DEFAULT 0');
+    if (!colsOU.includes('autonomie_motif')) dbx.exec('ALTER TABLE organisation_ue ADD COLUMN autonomie_motif TEXT');
   } catch (e) { console.error('[migration] grille :', e.message); }
 }
 
@@ -405,6 +409,7 @@ r.get('/', authRequired, (req, res) => {
       organisation_id: o?.id || null,
       date_debut: o?.date_debut || null, date_fin: o?.date_fin || null,
       stage: cours.some(c => c.is_stage), stage_bloquant: !!o?.stage_bloquant, cours_pendant_conges: !!o?.cours_pendant_conges,
+      autonomie_reservee: Number(o?.autonomie_reservee) || 0, autonomie_motif: o?.autonomie_motif || null,
       nb_semaines: o?.nb_semaines ?? null,
       sem_debut: semDeb, sem_fin: semFin,
       // Vide, l'unité n'est pas encore posée dans l'année : c'est ce que la
@@ -483,6 +488,11 @@ r.put('/ue', authRequired, roleRequired('admin', 'editeur', 'coordination'), (re
   }
   if (a('stage_bloquant')) db.prepare('UPDATE organisation_ue SET stage_bloquant = ? WHERE id = ?').run(b.stage_bloquant ? 1 : 0, o.id);
   if (a('cours_pendant_conges')) db.prepare('UPDATE organisation_ue SET cours_pendant_conges = ? WHERE id = ?').run(b.cours_pendant_conges ? 1 : 0, o.id);
+  if (a('autonomie_reservee')) {
+    const v = Math.max(0, Number(b.autonomie_reservee) || 0), motif = String(b.autonomie_motif || '').trim();
+    if (v > 0 && !motif) return res.status(400).json({ error: 'Mettre de l’autonomie de côté demande un motif.' });
+    db.prepare('UPDATE organisation_ue SET autonomie_reservee = ?, autonomie_motif = ? WHERE id = ?').run(v, v > 0 ? motif : null, o.id);
+  }
 
   res.json({ ok: true, controle: controlerUE(annee, section, ueNum) });
 });
