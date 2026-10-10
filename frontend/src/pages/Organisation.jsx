@@ -5,7 +5,7 @@ import GardeAnnee from '../components/GardeAnnee.jsx';
 import { useSearchParams } from 'react-router-dom';
 import Axe from '../components/Axe.jsx';
 import {
-  IconLayoutGrid, IconSchool, IconSitemap, IconFileDescription, IconTimeline,
+  IconLayoutGrid, IconSchool, IconSitemap, IconFileDescription, IconTimeline, IconUserCheck,
   IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup, IconListDetails, IconCalendarEvent, IconPercentage, IconTable, IconCalendarWeek, IconChartBar, IconPuzzle,
 } from '@tabler/icons-react';
 import Attributions from './Attributions.jsx';
@@ -71,6 +71,7 @@ export default function Organisation({ ongletInitial }) {
           { key: 'labo-temps', label: 'Le temps', icone: IconTimeline },
           { key: 'labo-groupes', label: 'Les groupes', icone: IconPuzzle },
           { key: 'labo-semaine', label: 'La semaine', icone: IconCalendarWeek },
+          { key: 'labo-disponibilites', label: 'Les disponibilités', icone: IconUserCheck },
           { key: 'labo-schema', label: 'Schéma de capitalisation', icone: IconSitemap },
         ] }, { key: 'horaire-semaine', label: 'Horaires', icone: IconCalendarWeek, hote: 'horaire-semaine',
         enfants: [

@@ -59,6 +59,7 @@ export function migrerPlages(base = db) {
     for (let j = 1; j <= 5; j++) { ins.run('TIM', j, '15:30', '17:30'); ins.run('TIM', j, '17:30', '19:30'); }
     for (const [d, f] of [['08:00', '10:00'], ['10:00', '12:00'], ['12:00', '14:00'], ['14:00', '16:00']]) ins.run('TIM', 6, d, f);
   }
+  synchroniserCreneaux(base);
 }
 /*
  * LES PRIORITÉS DE LA SECTION (Charles, 9 octobre 2026 : « répartir 5 jours sur
@@ -86,6 +87,41 @@ export function ecrireRegles(section, regles, par = null) {
     if (regles.regrouper != null) ins.run(section, 'regrouper', regles.regrouper ? '1' : '0', par);
   })();
 }
+/*
+ * LES DISPONIBILITÉS DES ENSEIGNANTS (Charles, 10 octobre 2026 : « fais les
+ * disponibilités des profs » ; saisies par le secrétariat ou la coordination).
+ * La table existait (prof_disponibilite : enseignant × quadrimestre × jour ×
+ * créneau), avec cinq créneaux génériques qui ne collaient pas aux plages des
+ * sections. Les créneaux SUIVENT désormais les plages : chaque plage de section
+ * a son créneau (même début, même fin). Un enseignant sans aucune saisie pour un
+ * quadrimestre est disponible partout ; dès qu'il en a une, seuls ses créneaux
+ * cochés comptent.
+ */
+export function synchroniserCreneaux(base = db) {
+  try {
+    const existe = new Set(base.prepare('SELECT heure_debut || \'|\' || heure_fin AS k FROM creneau').all().map(x => x.k));
+    const ins = base.prepare('INSERT INTO creneau (heure_debut, heure_fin, ordre, label) VALUES (?,?,?,?)');
+    for (const p of base.prepare('SELECT DISTINCT debut, fin FROM horaire_plage ORDER BY debut, fin').all()) {
+      if (existe.has(`${p.debut}|${p.fin}`)) continue;
+      ins.run(p.debut, p.fin, Number(p.debut.replace(':', '')), `${p.debut}–${p.fin}`);
+    }
+  } catch { /* table creneau absente */ }
+}
+/** Les disponibilités saisies : prof → quadrimestre → Set(« jour|début »). */
+export function disponibilites(profIds = null) {
+  const m = new Map();
+  try {
+    const rows = db.prepare(`SELECT pd.professeur_id, pd.quadrimestre, pd.jour, c.heure_debut FROM prof_disponibilite pd JOIN creneau c ON c.id = pd.creneau_id
+      WHERE pd.disponible = 1${profIds ? ` AND pd.professeur_id IN (${profIds.map(() => '?').join(',') || 'NULL'})` : ''}`).all(...(profIds || []));
+    for (const r of rows) {
+      if (!m.has(r.professeur_id)) m.set(r.professeur_id, new Map());
+      const q = m.get(r.professeur_id);
+      if (!q.has(r.quadrimestre)) q.set(r.quadrimestre, new Set());
+      q.get(r.quadrimestre).add(`${r.jour}|${r.heure_debut}`);
+    }
+  } catch { /* */ }
+  return m;
+}
 export const plagesDe = section => db.prepare('SELECT jour, debut, fin FROM horaire_plage WHERE section = ? ORDER BY jour, debut').all(section);
 export function ecrirePlages(section, plages) {
   db.transaction(() => {
@@ -93,6 +129,7 @@ export function ecrirePlages(section, plages) {
     const ins = db.prepare('INSERT OR IGNORE INTO horaire_plage (section, jour, debut, fin) VALUES (?,?,?,?)');
     for (const p of plages) if (p.jour >= 1 && p.jour <= 7 && /^\d\d:\d\d$/.test(p.debut) && /^\d\d:\d\d$/.test(p.fin) && p.debut < p.fin) ins.run(section, p.jour, p.debut, p.fin);
   })();
+  synchroniserCreneaux();
 }
 /*
  * LES LOCAUX (Charles, 9 octobre 2026 : « fais les locaux »). Le référentiel
@@ -294,7 +331,15 @@ export function simuler(section, bloc, annee, { mode = 'plan' } = {}) {
       if (h.local_texte && !/distanciel|à distance|en ligne/i.test(h.local_texte)) marquer(occL, k(s), h.local_texte);
     }
   }
-  const libreSansJours = (s, d) => !(d.briques.some(b => occB.get(k(s))?.has(b)) || (d.professeur_id && occP.get(k(s))?.has(d.professeur_id)));
+  // L'enseignant doit être DISPONIBLE (saisie du secrétariat) — sans saisie pour ce quadrimestre, il l'est partout.
+  const dispos = disponibilites();
+  const dispoProf = (s, d) => {
+    if (!d.professeur_id) return true;
+    const q = dispos.get(d.professeur_id); if (!q) return true;
+    const set = q.get(s.quadri) || q.get('AN'); if (!set) return true;
+    return set.has(`${s.jour}|${s.debut}`);
+  };
+  const libreSansJours = (s, d) => !(d.briques.some(b => occB.get(k(s))?.has(b)) || (d.professeur_id && occP.get(k(s))?.has(d.professeur_id))) && dispoProf(s, d);
   // Les jours de présence de chaque brique, semaine par semaine.
   const regles = reglesDe(section);
   const joursB = new Map();
@@ -359,6 +404,7 @@ export function simuler(section, bloc, annee, { mode = 'plan' } = {}) {
       if (d.briques.some(b => occB.get(k(s))?.has(b))) conflits.push('étudiants');
       if (d.professeur_id && occP.get(k(s))?.has(d.professeur_id)) conflits.push('enseignant');
       if (l.local && occL.get(k(s))?.has(l.local)) conflits.push('local');
+      if (!dispoProf(s, d)) conflits.push('enseignant indisponible');
       ajouter(s, d, true, l.local, etat, { plan_id: l.id, conflits });
       posees.push(s);
     }
@@ -430,13 +476,16 @@ export function simuler(section, bloc, annee, { mode = 'plan' } = {}) {
     if (irreguliers) fixes.get(d.cle).irreguliers = irreguliers;
     if (place < besoin) {
       const conflitProf = d.professeur_id && possibles.some(s => !d.briques.some(b => occB.get(k(s))?.has(b)) && occP.get(k(s))?.has(d.professeur_id));
+      const indispo = d.professeur_id && possibles.some(s => !d.briques.some(b => occB.get(k(s))?.has(b)) && !dispoProf(s, d));
       const sansSalle = d.local_origine !== 'a_designer' && possibles.some(s => libre(s, d));
       const parJours = possibles.some(s => libreSansJours(s, d) && !dansLesJours(s, d));
       restes.push({ ...d, place, manque: besoin - place,
         raison: parJours && !possibles.some(s => libre(s, d)) ? `ses étudiants ont déjà leurs ${regles.jours_max} jours de présence les semaines où le créneau serait libre`
           : d.local_origine === 'aucun' ? `aucune classe ni auditoire de ${d.effectif} places au référentiel des locaux`
           : sansSalle ? 'ses locaux possibles sont tous occupés quand étudiants et enseignant sont libres'
-          : conflitProf ? 'l’enseignant est déjà occupé sur les créneaux où ses étudiants sont libres' : 'plus de créneau libre pour ces étudiants dans le quadrimestre' });
+          : conflitProf ? 'l’enseignant est déjà occupé sur les créneaux où ses étudiants sont libres'
+          : indispo ? `${d.professeur || 'l’enseignant'} n’est pas disponible sur les créneaux où ses étudiants sont libres`
+          : 'plus de créneau libre pour ces étudiants dans le quadrimestre' });
     }
   }
   // LES JOURS DE PRÉSENCE, brique par brique : le plus et la moyenne par semaine de cours.

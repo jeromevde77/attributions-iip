@@ -174,6 +174,12 @@ fait le chemin inverse ; « Verser le plan dans l'horaire » écrit `horaire_sea
 (source `plan`), ne remplace un horaire importé que sur demande et à partir d'une
 date (archive `horaire_seance_remplacee`, « Rétablir »). Le **grand nettoyage**
 sauvegarde d'abord (`labo_sauvegarde`, restaurable), vide, garde la structure.
+**Les disponibilités des enseignants** (3.1.241) : face « Les disponibilités »
+du laboratoire et fiche de l'enseignant, même table (`prof_disponibilite` ×
+`creneau`) ; les créneaux SUIVENT les plages des sections (samedi compris,
+`synchroniserCreneaux`) ; saisie réservée au secrétariat, à la coordination et à
+la direction ; sans saisie pour un quadrimestre, l'enseignant est disponible
+partout, sinon la simulation ne le place que sur ses cases.
 
 **ÉVALUATION UNIQUE ≠ ÉPREUVE INTÉGRÉE** (2.12.289, Charles, 28 septembre 2026,
 UE 261 : « une seule évaluation ; la note doit aller aux deux cours »). Une unité

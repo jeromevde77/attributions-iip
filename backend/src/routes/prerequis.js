@@ -131,7 +131,8 @@ r.get('/disponibilites/:prof_id', authRequired, (req, res) => {
 });
 
 // PUT /prerequis/disponibilites/:prof_id — remplace toutes les dispos d'un prof/quadrimestre
-r.put('/disponibilites/:prof_id', authRequired, (req, res) => {
+// Saisies par le secrétariat, la coordination ou la direction (Charles, 10 octobre 2026) — pas par chacun.
+r.put('/disponibilites/:prof_id', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
   const { quadrimestre, dispos } = req.body;
   // dispos = [{ jour: 1, creneau_id: 1, disponible: 1 }, ...]
   if (!quadrimestre || !Array.isArray(dispos))
