@@ -1,4 +1,5 @@
 import { ICONE_AXE } from './lib/iconesAxes.js';
+import { BoutonAnnulerReglage } from './lib/annulerReglage.jsx';
 import { useMiseEnPage, basculerMiseEnPage, changerMiseEnPage, deplacer, poigneeGlisser } from './lib/miseEnPage.js';
 import { useDroits } from './lib/droits.js';
 import { useState, useEffect, useRef, Component, Fragment } from 'react';
@@ -694,6 +695,7 @@ function ProtectedLayout({ children }) {
                 className={`objet-barre ${mep.actif ? 'objet-barre-etat' : 'objet-barre-icone'}`} style={mep.actif ? { '--e': 'var(--c-attente)' } : undefined}>
                 <IconLayoutDashboard size={16} />{mep.actif && ' Mise en page'}
               </button>)}
+            {u?.role === 'admin' && mep.actif && <BoutonAnnulerReglage quoi="mise_en_page" className="objet-barre objet-barre-icone" libelle="Annuler" />}
             <button onClick={basculerMode} aria-label="Changer le mode d'affichage"
               title={mode === 'sombre' ? 'Menus en gris pâle' : 'Menus en marine'}
               className="objet-barre objet-barre-icone">

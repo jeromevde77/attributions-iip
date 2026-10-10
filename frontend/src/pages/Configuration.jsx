@@ -3,6 +3,7 @@ import InscritsPrevus from '../components/InscritsPrevus.jsx';
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api, getAnnee, setAnnee as setAnneeActive, getUser } from '../lib/api.js';
+import { BoutonAnnulerReglage, useRelireReglages } from '../lib/annulerReglage.jsx';
 import { ORIGINE, chargerCouleurs, echelleGris, poser as poserCouleurs, poserGris, variables as variablesCouleurs } from '../lib/couleurs.js';
 import Audit from './Audit.jsx';
 import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette, IconArchive, IconAlertTriangle, IconShieldLock, IconDatabase, IconHierarchy, IconArrowsSplit, IconTool, IconSchool, IconStairsUp, IconCalculator, IconLinkOff, IconSend, IconMessageDots, IconId, IconFileDescription, IconKey, IconMailForward, IconUserSearch, IconCoin, IconShape, IconComponents } from '@tabler/icons-react';
@@ -2193,12 +2194,11 @@ function ReglageCouleurs() {
   const [etat, setEtat] = useState('');
   const peutRegler = ['admin', 'directeur', 'directeur_adjoint'].includes(getUser()?.role);
 
-  useEffect(() => {
-    fetch('/api/config/couleurs', { headers: authHeaders() })
+  const lire = () => fetch('/api/config/couleurs', { headers: authHeaders() })
       .then(r => r.json())
       .then(j => { setCatalogue(j.catalogue || {}); setValeurs(j.couleurs || {}); setGris(j.gris || 'ardoise'); })
       .catch(e => setEtat('Lecture impossible : ' + e.message));
-  }, []);
+  useEffect(() => { lire(); }, []);
 
   // UNE ZONE QUI SUIT (3.1.250) : sans valeur, elle prend celle qu'elle suit — on montre cette couleur-là.
   const v = cle => {
@@ -2249,6 +2249,8 @@ function ReglageCouleurs() {
     return () => clearTimeout(t);
   }, [valeurs, gris, touche, peutRegler]);
   const changer = f => { setTouche(true); f(); };
+  // Après « Annuler le dernier changement » : ce qu'on relit ne se réenregistre pas.
+  useRelireReglages('couleurs', () => { setTouche(false); lire(); setEtat(''); }, () => setTouche(false));
 
   // L'aperçu porte ses propres variables : il montre ce qui SERA, sans
   // toucher au reste de l'écran avant l'enregistrement.
@@ -2265,6 +2267,7 @@ function ReglageCouleurs() {
           partout — : on en choisit la nuance.
           {!peutRegler && <b> Réservé à la direction : vous pouvez regarder, pas enregistrer.</b>}
         </p>
+        {peutRegler && <div className="mt-2"><BoutonAnnulerReglage quoi="couleurs" /></div>}
       </div>
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -2388,6 +2391,7 @@ function ReglageCouleurs() {
         <span className="text-second text-slate-500">
           {etat || (peutRegler ? 'Chaque changement s’applique et s’enregistre aussitôt.' : 'Réservé à la direction : l’aperçu seul change.')}
         </span>
+        {peutRegler && <BoutonAnnulerReglage quoi="couleurs" />}
       </div>
     </div>
   );

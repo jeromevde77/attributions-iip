@@ -7,6 +7,7 @@ import { TuileEtat, PastilleEtat, Encadre, Fenetre, Tableau, TableauEntete, Th, 
 import AgendaSemaine from './AgendaSemaine.jsx';
 import { couleursGraphique } from '../lib/couleurs.js';
 import { reglagesGraphique } from '../lib/design.js';
+import { BoutonAnnulerReglage } from '../lib/annulerReglage.jsx';
 import { useReglagesVisuels } from '../lib/reglages.js';
 
 /**
@@ -194,7 +195,7 @@ export default function CatalogueVisuels() {
           propriété cliquée mise en évidence. Chaque changement vaut aussitôt pour tout Lucie. */}
       {ouvert && (() => { const f = FAMILLES.find(x => x.nom === ouvert); return f && (
         <Fenetre titre={`Propriétés — ${f.nom}`} sous={f.role} large="grande" onFermer={() => { setOuvert(null); setCible(null); }}
-          pied={<><span className="text-second text-slate-500">{rv.etat || 'Chaque changement s’applique aussitôt à tout Lucie et s’enregistre seul.'}</span><button className="bouton bouton-fort" onClick={() => { setOuvert(null); setCible(null); }}>Fermer</button></>}>
+          pied={<><span className="text-second text-slate-500 min-w-0 flex-1">{rv.etat || 'Chaque changement s’applique aussitôt à tout Lucie et s’enregistre seul.'}</span>{(rv.peutFormes || rv.peutCouleurs) && <BoutonAnnulerReglage quoi={['design', 'couleurs']} />}<button className="bouton bouton-fort" onClick={() => { setOuvert(null); setCible(null); }}>Fermer</button></>}>
           <div className="grid gap-5" style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)' }}>
             <div className="min-w-0"><div className="intertitre mb-2">Aperçu</div><div className="carte p-3">{f.specimen({ ouvrir: () => setFen(true), volet, setVolet })}</div></div>
             <div className="min-w-0">{rv.design && rv.couleurs ? <PanneauReglages f={f} rv={rv} cible={cible} /> : <span className="text-second text-slate-400">Chargement…</span>}</div>

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { BoutonAnnulerReglage, useRelireReglages } from '../lib/annulerReglage.jsx';
 import { authHeaders } from '../lib/api.js';
 import { passeRole } from '../lib/droits.js';
 import { DESIGN_MAISON, poserDesign } from '../lib/design.js';
@@ -28,10 +29,10 @@ export default function ReglageDesign() {
   const [etat, setEtat] = useState('');
   const minuterie = useRef(null);
 
-  useEffect(() => {
-    fetch('/api/config/design', { headers: authHeaders() }).then(r => r.json())
+  const lire = () => fetch('/api/config/design', { headers: authHeaders() }).then(r => r.json())
       .then(j => { setCat(j.catalogue || {}); setV(j.design || DESIGN_MAISON); }).catch(() => setEtat('Lecture impossible'));
-  }, []);
+  useEffect(() => { lire(); }, []);
+  useRelireReglages('design', lire, () => clearTimeout(minuterie.current));
 
   function changer(n) {
     setV(n); poserDesign(n);
@@ -52,6 +53,7 @@ export default function ReglageDesign() {
           <button key={nom} className="bouton" disabled={!peut} onClick={() => changer({ ...DESIGN_MAISON, ...t })}>{nom}</button>))}
         <span className="flex-1" />
         <span className="text-second text-slate-500">{peut ? etat : 'Lecture seule : seul l’administrateur règle le design.'}</span>
+        {peut && <BoutonAnnulerReglage quoi="design" />}
       </div>
       <div className="flex flex-wrap gap-4 items-start">
         <div className="flex-1 min-w-[420px] grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))' }}>

@@ -1522,6 +1522,17 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
 > rien. Table des zones : `docs/contexte/inventaire-design-2026-10-10.md`. Une
 > nouvelle zone s'ajoute au catalogue, jamais en dur dans un écran.
 >
+> **ON REVIENT EN ARRIÈRE** (3.1.267, Charles : « je viens de changer la taille des
+> boutons, je n'aime pas, je ne sais pas revenir en arrière — les profs font souvent
+> des erreurs »). Les réglages s'enregistrent sans bouton ; chaque écriture de
+> `design`, `couleurs` (+ `theme_gris`) et `mise_en_page` garde d'abord l'état qu'elle
+> remplace (`reglage_historique`, 50 pas ; les écritures d'une même personne à moins
+> de 20 s font UN pas — un curseur qu'on glisse). `POST /api/config/annuler` rétablit
+> le dernier, avec les droits de l'écriture qu'il annule. Un seul bouton,
+> `BoutonAnnulerReglage` (`lib/annulerReglage.jsx`) : Formes et composants, Thèmes et
+> couleurs, boîte de propriétés du catalogue, mode mise en page. Un nouvel écran de
+> réglage le pose et relit par `useRelireReglages`.
+>
 > **LE CATALOGUE DES ÉLÉMENTS** (3.1.260, Charles : « tu n'as pas répertorié tous
 > les visuels — les tableaux, les titres… »). Configuration → *Catalogue des
 > éléments* (`components/CatalogueVisuels.jsx`) : douze familles — titres, boutons,
