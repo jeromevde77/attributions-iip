@@ -1040,7 +1040,7 @@ function OngletRapports({ domaine, sansListe = false, rapportId = null }) {
         {/* L'AIDE SE LIT ICI, au moment où l'on règle l'année et la section —
             pas dans la liste, où elle noyait le nom des pièces. */}
         {choisi?.aide && (
-          <div className="px-3 py-2 border-b border-slate-200 bg-[#FCFCFD]">
+          <div className="px-3 py-2 border-b border-slate-200 bg-slate-50">
             <div className="text-sm font-medium">{choisi.libelle}</div>
             <div className="text-second text-slate-500 mt-0.5">{choisi.aide}</div>
           </div>

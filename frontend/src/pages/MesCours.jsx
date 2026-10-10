@@ -579,7 +579,7 @@ export default function MesCours() {
                                   className={`w-12 h-7 rounded-champ px-1 text-sm text-right tabular-nums outline-none
                                     border border-transparent hover:border-slate-200 focus:border-iip-blue focus:bg-white
                                     placeholder:text-slate-300
-                                    ${!ok ? 'text-iip-texte bg-[#FBEDEA] font-semibold'
+                                    ${!ok ? 'text-iip-texte bg-[color:color-mix(in_srgb,var(--c-attente)_9%,var(--blanc))] font-semibold'
                                       : MENTIONS.includes(t) ? 'font-semibold text-slate-500 text-center'
                                       : 'bg-transparent text-iip-blue font-semibold'}`} />
                                 {/* « /20 » : l'échelle se lit à côté de chaque NOTE (Charles) —

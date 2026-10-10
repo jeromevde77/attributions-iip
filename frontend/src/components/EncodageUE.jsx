@@ -272,7 +272,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
   };
 
   const ligneEtudiant = e => (
-    <td className="sticky left-0 z-10 bg-white group-focus-within:bg-[#F1F6FB] px-4 py-1.5 border-b border-slate-100 min-w-[240px]">
+    <td className="sticky left-0 z-10 bg-white group-focus-within:bg-slate-50 px-4 py-1.5 border-b border-slate-100 min-w-[240px]">
       <div className="text-sm whitespace-nowrap"><span className="font-semibold">{String(e.nom || '').toUpperCase()}</span>{' '}{e.prenom}
         {e.source_s2 === 'dossier' && (
           <span title="Ajourné d'après le dossier : aucune décision de première session n'a été enregistrée pour cette unité"
@@ -432,7 +432,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
                       {x.poids != null && <div className="text-mention text-slate-400 font-normal">{x.poids}</div>}
                     </th>))}
                   <th className="px-3 pb-2 border-b border-l border-slate-200 align-bottom text-xs font-bold">Acquis<br />en défaut</th>
-                  <th className="px-3 pb-2 border-b border-slate-200 align-bottom text-xs font-bold bg-[#F7F9FC]"
+                  <th className="px-3 pb-2 border-b border-slate-200 align-bottom text-xs font-bold bg-slate-50"
                     style={{ borderLeft: '2px solid var(--c-principal, #16406A)', borderTop: '4px solid var(--c-principal, #16406A)' }}>Note d'unité<div className="text-mention text-slate-400 font-normal">/20</div></th>
                   <th className="px-3 pb-2 border-b border-l border-slate-200 align-bottom text-left text-xs font-bold min-w-[150px]">Décision proposée</th>
                 </tr>
@@ -455,7 +455,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
                       <td className="px-3 text-center border-b border-l border-slate-100 text-second font-semibold" style={{ color: b.defaut.length ? 'var(--c-refuse)' : 'rgb(var(--gris-300))' }}>
                         {b.defaut.length ? `${b.defaut.length} · ${b.defaut.slice(0, 2).map(c => c.replace(/^AA/, '')).join(', ')}${b.defaut.length > 2 ? '…' : ''}` : '—'}
                       </td>
-                      <td className="px-3 text-center border-b border-slate-100 bg-[#F7F9FC]" style={{ borderLeft: '2px solid var(--c-principal, #16406A)' }}>
+                      <td className="px-3 text-center border-b border-slate-100 bg-slate-50" style={{ borderLeft: '2px solid var(--c-principal, #16406A)' }}>
                         <Pastille n={data.cotes?.[e.id]?.ue} ajourne={!!b.defaut.length} large
                           titre="Note de l’unité, calculée depuis les cours et leurs poids — elle ne se saisit pas" />
                       </td>
@@ -491,7 +491,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
                       </div>
                     </th>
                   ))}
-                  <th rowSpan={2} className="px-3 pb-2 align-bottom text-center bg-[#F7F9FC] border-b border-slate-200 min-w-[110px]"
+                  <th rowSpan={2} className="px-3 pb-2 align-bottom text-center bg-slate-50 border-b border-slate-200 min-w-[110px]"
                     style={{ borderLeft: '2px solid var(--c-principal, #16406A)', borderTop: '4px solid var(--c-principal, #16406A)' }}>
                     <div className="text-sm font-semibold">UE {ueNum}</div>
                     <div className="text-xs font-bold mt-2">Note d'unité</div>
@@ -517,7 +517,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
                 {etudiants.map((e, ligne) => {
                   const b = bilanUE(e);
                   return (
-                  <tr key={e.id} className="group focus-within:bg-[#F1F6FB]">
+                  <tr key={e.id} className="group focus-within:bg-slate-50">
                     {ligneEtudiant(e)}
                     {(() => { colonne = 0; return null; })()}
                     {coursVus.flatMap(c => {
@@ -560,7 +560,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
                       ];
                     })}
                     {/* LA NOTE DE L'UNITÉ — vue, jamais saisie ; un acquis sous 10 l'ajourne. */}
-                    <td className="px-2 py-1 border-b border-slate-100 text-center bg-[#F7F9FC]"
+                    <td className="px-2 py-1 border-b border-slate-100 text-center bg-slate-50"
                       style={{ borderLeft: '2px solid var(--c-principal, #16406A)' }}>
                       <Pastille n={data.cotes?.[e.id]?.ue} ajourne={!!b.defaut.length} large
                         titre={data.cotes?.[e.id]?.ue == null ? 'Non calculable : un cours est non acquis, ou tout n’est pas encodé'

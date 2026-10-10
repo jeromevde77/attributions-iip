@@ -932,7 +932,7 @@ export default function Editeur() {
               <button onClick={generer} disabled={generating} className="px-3 inline-flex items-center gap-1.5 text-sm font-medium text-[#16406A] hover:bg-slate-50"
                 title="Composer la pièce sur les données d'exemple choisies">
                 <IconEye size={15} /> {generating ? 'Composition…' : 'Aperçu'}</button>
-              <span className="w-px bg-[#16406A]/30 my-1.5" />
+              <span className="w-px bg-[color:var(--c-principal)]/30 my-1.5" />
               <button onClick={() => setShowExemple(v => !v)} className="px-2 text-[#16406A] hover:bg-slate-50"
                 title="Sur quelles données composer l'aperçu"><IconChevronDown size={13} /></button>
             </div>

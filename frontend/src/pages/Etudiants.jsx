@@ -1150,7 +1150,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
             « {nbHistorique === 0 ? 'années antérieures' : 'remonter encore'}
           </button>
           <button onClick={purgerAnnee} title="Effacer les résultats ou les inscriptions d'une année"
-            className="px-2 py-0.5 text-xs border border-[color:var(--c-attente)] text-iip-texte rounded-md hover:bg-[#F7E9E5]">Purger…</button>
+            className="px-2 py-0.5 text-xs border border-[color:var(--c-attente)] text-iip-texte rounded-md hover:bg-[color:color-mix(in_srgb,var(--c-attente)_9%,var(--blanc))]">Purger…</button>
         </div>
       </div>
 
@@ -1221,7 +1221,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                           onDrop={glisse ? ev => { ev.preventDefault(); deposer(a); } : undefined}
                           className={`px-0.5 py-0.5 text-center ${derniere
                             ? 'sticky right-0 z-10 bg-white shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.10)]'
-                            : ''} ${arrivees.has(`${a}|${u.ue_num}`) ? '!bg-[#EAF1FA]' : ''}`}>
+                            : ''} ${arrivees.has(`${a}|${u.ue_num}`) ? '!bg-slate-50' : ''}`}>
                           <button
                             draggable={peutEcrire && deplacable(cl)}
                             onDragStart={ev => {

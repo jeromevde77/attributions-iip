@@ -116,7 +116,7 @@ export default function GrilleOrganisation({ sansTitre = false } = {}) {
       <div className="carte overflow-hidden">
         {/* ── La barre ─────────────────────────────────────────── */}
         <div className="flex items-center gap-2.5 px-3 py-2.5 border-b border-slate-200
-                        bg-[#FCFCFD] flex-wrap">
+                        bg-slate-50 flex-wrap">
           <label className="flex items-center gap-2">
             <span className="text-second text-slate-500">Section</span>
             <select value={section} onChange={e => setSection(e.target.value)}
@@ -295,7 +295,7 @@ function LigneUE({ u, semaines, nbSem, coupure, ouverte, surOuvrir, surCours, vu
         const per = vus.reduce((t, a) => t + (Number(a.periodes) || 0), 0)
           || Number(c.cours_per) || 0;
         return (
-          <div key={c.cours_code} className="flex items-center border-t border-slate-100 bg-[#FCFCFD]">
+          <div key={c.cours_code} className="flex items-center border-t border-slate-100 bg-slate-50">
             <button onClick={() => surCours(c)}
               className="text-left px-3 py-1.5 text-xs min-w-0 hover:text-iip-blue"
               style={{ width: 230, flexShrink: 0, paddingLeft: 34 }}>
@@ -322,7 +322,7 @@ function LigneUE({ u, semaines, nbSem, coupure, ouverte, surOuvrir, surCours, vu
       {/* L'AUTONOMIE EST UNE LIGNE, PAS UNE COLONNE. Elle se répartit dans les
           cours ; la voir à part, c'est voir ce qui reste à placer. */}
       {ouverte && u.controle.autonomie.unite > 0 && (
-        <div className="flex items-center border-t border-slate-100 bg-[#FCFCFD]">
+        <div className="flex items-center border-t border-slate-100 bg-slate-50">
           <div className="px-3 py-1.5 text-xs" style={{ width: 230, flexShrink: 0, paddingLeft: 34 }}>
             <span className="text-[color:var(--c-texte)]">Autonomie</span>
             <span className="text-mention text-slate-400 block">
