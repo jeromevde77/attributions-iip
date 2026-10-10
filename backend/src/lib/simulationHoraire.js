@@ -36,6 +36,15 @@ export function migrerPlages(base = db) {
   base.exec(`CREATE TABLE IF NOT EXISTS horaire_plage (
     section TEXT NOT NULL, jour INTEGER NOT NULL, debut TEXT NOT NULL, fin TEXT NOT NULL,
     PRIMARY KEY (section, jour, debut));
+  CREATE TABLE IF NOT EXISTS plan_creneau (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    annee_scolaire TEXT NOT NULL, section TEXT NOT NULL, bloc TEXT NOT NULL,
+    cle TEXT NOT NULL, cours_code TEXT NOT NULL, activite_id INTEGER NOT NULL DEFAULT 0, groupe TEXT,
+    jour INTEGER NOT NULL, debut TEXT NOT NULL, fin TEXT NOT NULL, local TEXT,
+    semaines TEXT NOT NULL DEFAULT '[]',
+    verrouille INTEGER NOT NULL DEFAULT 0, source TEXT NOT NULL DEFAULT 'simulation',
+    maj_par TEXT, maj_le TEXT DEFAULT (datetime('now')));
+  CREATE INDEX IF NOT EXISTS idx_plan_creneau ON plan_creneau(annee_scolaire, section, bloc);
   CREATE TABLE IF NOT EXISTS horaire_regle (
     section TEXT NOT NULL, cle TEXT NOT NULL, valeur TEXT, maj_par TEXT, maj_le TEXT DEFAULT (datetime('now')),
     PRIMARY KEY (section, cle));
@@ -184,7 +193,25 @@ function demandes(c, annee) {
 }
 
 /** La simulation. Rend la capacité, les séances placées et ce qui reste. */
-export function simuler(section, bloc, annee) {
+/*
+ * LE PLAN ENREGISTRÉ (lot 1 du planificateur, Charles, 10 octobre 2026 : « par
+ * section entière, en créneaux fixes »). Une ligne de `plan_creneau` est un
+ * créneau fixe d'un groupe : jour, plage, local, et la liste de ses semaines.
+ * La simulation PROPOSE, on ADOPTE, on RETOUCHE ; une ligne retouchée à la main
+ * est VERROUILLÉE et la simulation suivante place le reste autour.
+ *   · mode « plan » (défaut) : tout le plan enregistré est posé tel quel, la
+ *     simulation ne propose que ce qui n'y est pas encore ;
+ *   · mode « recalcul » : seules les lignes verrouillées restent, tout le
+ *     reste est proposé à nouveau.
+ * Un conflit dans une ligne enregistrée (deux groupes, un enseignant, un local
+ * au même moment) se NOMME sur la séance, il ne s'empêche pas.
+ */
+export function lignesDuPlan(section, bloc, annee) {
+  return db.prepare(`SELECT * FROM plan_creneau WHERE annee_scolaire = ? AND section = ? AND bloc = ? ORDER BY verrouille DESC, id`)
+    .all(annee, section, bloc).map(l => { let w = []; try { w = JSON.parse(l.semaines || '[]'); } catch { w = []; } return { ...l, semaines: w }; });
+}
+
+export function simuler(section, bloc, annee, { mode = 'plan' } = {}) {
   const c = cohorte(section, bloc, annee);
   const { out: slots, nbSemaines, plages } = creneaux(section, annee);
   const dem = demandes(c, annee);
@@ -254,17 +281,42 @@ export function simuler(section, bloc, annee) {
   // Le plus contraint d'abord : tout le bloc (théorie), puis les groupes les plus longs.
   const ordre = [...dem].sort((x, y) => (y.tout_le_bloc - x.tout_le_bloc) || (y.minutes - x.minutes));
   const seances = [], restes = [], fixes = new Map();
-  const ajouter = (s, d, regulier, local) => {
+  const ajouter = (s, d, regulier, local, etat = 'propose', extra = {}) => {
     poser(s, d, local); seances.push({ ...s, cle: d.cle, cours_code: d.cours_code, cours_nom: d.cours_nom, activite_id: d.activite_id, activite: d.activite, groupe: d.groupe,
-      professeur: d.professeur, briques: d.briques, tout_le_bloc: d.tout_le_bloc, regulier, local: local || null });
+      professeur: d.professeur, briques: d.briques, tout_le_bloc: d.tout_le_bloc, regulier, local: local || null, etat, ...extra });
   };
+  // LE PLAN ENREGISTRÉ D'ABORD : ses lignes se posent telles quelles — les
+  // verrouillées toujours, les autres en mode « plan » seulement.
+  const parCle = new Map(dem.map(d => [d.cle, d]));
+  const dejaPlace = new Map(), orphelines = [];
+  for (const d of dem) fixes.set(d.cle, []);
+  for (const l of lignesDuPlan(section, bloc, annee).filter(x => x.verrouille || mode === 'plan')) {
+    const d = parCle.get(l.cle);
+    if (!d) { orphelines.push({ id: l.id, cours_code: l.cours_code, groupe: l.groupe, raison: 'plus d’attribution pour ce groupe' }); continue; }
+    const etat = l.verrouille ? 'verrouille' : 'plan';
+    const posees = [];
+    for (const w of l.semaines) {
+      const s = slots.find(x => x.semaine === w && x.jour === l.jour && x.debut === l.debut);
+      if (!s) continue;                                   // un férié tombé depuis : la séance n'existe plus ce jour-là
+      const conflits = [];
+      if (d.briques.some(b => occB.get(k(s))?.has(b))) conflits.push('étudiants');
+      if (d.professeur_id && occP.get(k(s))?.has(d.professeur_id)) conflits.push('enseignant');
+      if (l.local && occL.get(k(s))?.has(l.local)) conflits.push('local');
+      ajouter(s, d, true, l.local, etat, { plan_id: l.id, conflits });
+      posees.push(s);
+    }
+    dejaPlace.set(d.cle, (dejaPlace.get(d.cle) || 0) + posees.length);
+    if (posees.length) fixes.get(d.cle).push({ type: `${l.jour}|${l.debut}`, plan_id: l.id, etat, local: l.local || null, jour: l.jour, jour_nom: JOURS[l.jour],
+      debut: l.debut, fin: l.fin, de: posees[0].semaine, a: posees[posees.length - 1].semaine, seances: posees.length, trous: 0,
+      conflits: [...new Set(seances.filter(x => x.plan_id === l.id).flatMap(x => x.conflits))] });
+  }
   for (const d of ordre) {
     const possibles = slots.filter(s => d.quadri === 'AN' || s.quadri === d.quadri);
     const semaines = [...new Set(possibles.map(s => s.semaine))];
     const duree = possibles[0]?.minutes || 120;
     const besoin = Math.ceil(d.minutes / duree);
-    let place = 0;
-    fixes.set(d.cle, []);
+    let place = Math.min(besoin, dejaPlace.get(d.cle) || 0);
+    if (place >= besoin) continue;
     if (!semaines.length) { restes.push({ ...d, manque: besoin, raison: 'aucune semaine de cours dans son quadrimestre' }); continue; }
     // Les créneaux types (jour + début) et leurs occurrences, semaine par semaine.
     const types = new Map();
@@ -303,7 +355,7 @@ export function simuler(section, bloc, annee) {
       const [s0] = meilleur.choisies, sN = meilleur.choisies[meilleur.choisies.length - 1];
       meilleur.choisies.forEach(s => ajouter(s, d, true, meilleur.l));
       place += meilleur.choisies.length;
-      fixes.get(d.cle).push({ type: meilleur.t, local: meilleur.l || null, jour: s0.jour, jour_nom: JOURS[s0.jour], debut: s0.debut, fin: s0.fin,
+      fixes.get(d.cle).push({ type: meilleur.t, etat: 'propose', local: meilleur.l || null, jour: s0.jour, jour_nom: JOURS[s0.jour], debut: s0.debut, fin: s0.fin,
         de: s0.semaine, a: sN.semaine, seances: meilleur.choisies.length, trous: meilleur.trous });
     }
     // Ce qui reste : au mieux, n'importe quel créneau libre — signalé irrégulier.
@@ -346,7 +398,8 @@ export function simuler(section, bloc, annee) {
   } catch { /* table absente */ }
   const heuresDemandeesBloc = Math.round(dem.reduce((t, d) => t + d.minutes, 0) / 60);
   return {
-    section, bloc, annee, regles, presence, nb_briques: c.nb_briques,
+    section, bloc, annee, mode, regles, presence, nb_briques: c.nb_briques, orphelines,
+    plan: { lignes: db.prepare('SELECT COUNT(*) n, COALESCE(SUM(verrouille), 0) v FROM plan_creneau WHERE annee_scolaire = ? AND section = ? AND bloc = ?').get(annee, section, bloc) },
     // Pour la vue « un étudiant » : sa brique dit ses séances.
     // Et, pour les activités hors briques (séminaires…), son groupe dans la répartition.
     etudiants: (() => {
@@ -372,6 +425,69 @@ export function simuler(section, bloc, annee) {
   };
 }
 
+
+/**
+ * ADOPTER LA PROPOSITION. Ce que l'écran montre (même mode) s'enregistre : une
+ * ligne par série — même groupe, même jour, même plage, même local. On adopte
+ * tout, ou les seules activités cochées (`cles`). Les lignes VERROUILLÉES ne
+ * sont jamais touchées ; les autres lignes des activités adoptées sont
+ * remplacées. Rien ne s'écrit sans le compte rendu d'abord (`simulation`).
+ */
+export function adopterProposition(section, bloc, annee, { mode = 'plan', cles = null, simulation = true, par = null } = {}) {
+  const sim = simuler(section, bloc, annee, { mode });
+  const vise = x => !cles || cles.includes(x.cle);
+  const series = new Map();
+  for (const x of sim.seances.filter(y => y.etat === 'propose' && vise(y))) {
+    const k = `${x.cle}|${x.jour}|${x.debut}|${x.local || ''}`;
+    if (!series.has(k)) series.set(k, { x, semaines: [] });
+    series.get(k).semaines.push(x.semaine);
+  }
+  // En mode « plan », le plan enregistré est déjà posé : on n'ajoute que ce qui manque.
+  // En mode « recalcul », la proposition remplace les lignes non verrouillées.
+  const anciennes = mode === 'recalcul' ? lignesDuPlan(section, bloc, annee).filter(l => !l.verrouille && vise(l)) : [];
+  const rapport = { a_ecrire: series.size, seances: [...series.values()].reduce((t, v) => t + v.semaines.length, 0),
+    remplacees: anciennes.length, verrouillees: sim.plan.lignes.v, restes: sim.restes.length };
+  if (simulation) return rapport;
+  const ins = db.prepare(`INSERT INTO plan_creneau (annee_scolaire, section, bloc, cle, cours_code, activite_id, groupe, jour, debut, fin, local, semaines, verrouille, source, maj_par)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?, 0, 'simulation', ?)`);
+  db.transaction(() => {
+    const del = db.prepare('DELETE FROM plan_creneau WHERE id = ? AND verrouille = 0');
+    for (const l of anciennes) del.run(l.id);
+    for (const { x, semaines } of series.values())
+      ins.run(annee, section, bloc, x.cle, x.cours_code, x.activite_id || 0, x.groupe || null, x.jour, x.debut, x.fin, x.local || null,
+        JSON.stringify(semaines.sort((p, q) => p - q)), par);
+  })();
+  return rapport;
+}
+
+/**
+ * RETOUCHER UNE LIGNE DU PLAN : un autre jour, une autre plage, un autre local.
+ * Les SEMAINES restent les mêmes. Une ligne retouchée est verrouillée — c'est
+ * une décision prise à la main, la simulation ne la défera pas.
+ */
+export function retoucherLigne(id, { jour, debut, fin, local, verrouille }, par = null) {
+  const l = db.prepare('SELECT * FROM plan_creneau WHERE id = ?').get(id);
+  if (!l) throw Object.assign(new Error('Ligne du plan introuvable'), { status: 404 });
+  const champs = {};
+  if (jour != null) champs.jour = Number(jour);
+  if (debut) champs.debut = String(debut);
+  if (fin) champs.fin = String(fin);
+  if (local !== undefined) champs.local = local || null;
+  if (debut && !fin) {
+    const p = db.prepare('SELECT fin FROM horaire_plage WHERE section = ? AND jour = ? AND debut = ?').get(l.section, champs.jour ?? l.jour, debut);
+    if (p) champs.fin = p.fin;
+  }
+  const retouche = Object.keys(champs).length > 0;
+  champs.verrouille = verrouille != null ? (verrouille ? 1 : 0) : retouche ? 1 : l.verrouille;
+  if (retouche) champs.source = 'main';
+  const sets = Object.keys(champs).map(c => `${c} = @${c}`).join(', ');
+  db.prepare(`UPDATE plan_creneau SET ${sets}, maj_par = @par, maj_le = datetime('now') WHERE id = @id`).run({ ...champs, par, id });
+  return db.prepare('SELECT * FROM plan_creneau WHERE id = ?').get(id);
+}
+
+export function retirerLigne(id) {
+  return db.prepare('DELETE FROM plan_creneau WHERE id = ?').run(id).changes;
+}
 
 /**
  * L'HORAIRE D'UN GROUPE OU D'UN ÉTUDIANT, À IMPRIMER (Charles, 9 octobre 2026 :

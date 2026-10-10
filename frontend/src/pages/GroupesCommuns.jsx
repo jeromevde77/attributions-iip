@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { IconAlertTriangle, IconWand, IconDeviceFloppy, IconUsersGroup } from '@tabler/icons-react';
+import { IconAlertTriangle, IconWand, IconDeviceFloppy, IconUsersGroup, IconLock, IconLockOpen, IconTrash } from '@tabler/icons-react';
 import { api, authHeaders, getAnnee } from '../lib/api.js';
 import { demander, informer } from '../lib/dialogue.jsx';
 import { passeRole } from '../lib/droits.js';
@@ -277,6 +277,15 @@ const NOMS_JOURS = ['', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Same
  * ou un auditoire assez grand ; un TP reste « à désigner » — un labo ne se
  * devine pas.
  */
+/* L'ÉTAT D'UNE LIGNE DU PLAN : une pastille pleine pour ce qui est enregistré,
+   un contour pour ce qui n'est encore que proposé. */
+function EtatPlan({ etat }) {
+  if (etat === 'propose') return <span className="inline-flex items-center px-1.5 rounded-[5px] text-[10.5px] font-semibold border border-dashed border-slate-400 text-slate-600">proposé</span>;
+  return <span className="inline-flex items-center gap-0.5 px-1.5 rounded-[5px] text-[10.5px] font-semibold text-white"
+    style={{ background: etat === 'verrouille' ? 'var(--c-principal, #16406A)' : 'var(--c-reussi, #3E7D5E)' }}>
+    {etat === 'verrouille' && <IconLock size={10} />}{etat === 'verrouille' ? 'verrouillé' : 'enregistré'}</span>;
+}
+
 function LocauxActivites({ sim, section, bloc, annee, peutEcrire, onEnregistre }) {
   const acts = useMemo(() => {
     const m = new Map();
@@ -398,14 +407,46 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
     if (!r.ok) { setErreur(j.error); return; }
     setPlages(j.plages); if (j.regles) setRegles(j.regles); setSim(null);
   }
-  async function simuler() {
-    setEnCours(true); setErreur(null);
+  /* LE PLAN ENREGISTRÉ (lot 1 du planificateur). « plan » : le plan tel
+     qu'enregistré, et la proposition pour ce qui manque ; « recalcul » : seules
+     les lignes verrouillées restent, tout le reste est proposé à nouveau. */
+  const [mode, setMode] = useState('plan');
+  async function simuler(m = mode, garderSemaine = false) {
+    setEnCours(true); setErreur(null); setMode(m);
     try {
-      const r = await fetch(`/api/etudiants/repartition-cours/communs/simulation?section=${encodeURIComponent(section)}&bloc=${bloc}&annee=${encodeURIComponent(annee)}`, { headers: authHeaders() });
+      const r = await fetch(`/api/etudiants/repartition-cours/communs/simulation?section=${encodeURIComponent(section)}&bloc=${bloc}&annee=${encodeURIComponent(annee)}&mode=${m}`, { headers: authHeaders() });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
-      setSim(j); setSemaine(1);
+      setSim(j); if (!garderSemaine) setSemaine(1);
     } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
+  }
+  async function adopter(cles = null) {
+    const corps = { section, bloc, annee, mode, cles };
+    const r0 = await fetch('/api/etudiants/repartition-cours/communs/plan/adopter', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ ...corps, simulation: true }) });
+    const a = await r0.json();
+    if (!r0.ok) { setErreur(a.error || `Erreur ${r0.status}`); return; }
+    if (!a.a_ecrire) { await informer('Rien à adopter : toute la proposition est déjà dans le plan.'); return; }
+    if (!(await demander(`Enregistrer dans le plan ${a.a_ecrire} créneau(x) fixe(s), ${a.seances} séance(s) ?\n\n`
+      + (a.remplacees ? `${a.remplacees} ligne(s) du plan, non verrouillées, sont remplacées.\n` : '')
+      + (a.verrouillees ? `${a.verrouillees} ligne(s) verrouillées restent telles quelles.\n` : '')
+      + (a.restes ? `${a.restes} activité(s) n’ont pas toutes leurs séances : elles restent à placer.\n` : '')
+      + '\nRien ne part dans l’horaire de la semaine : le plan s’y versera à l’étape suivante.'))) return;
+    const r = await fetch('/api/etudiants/repartition-cours/communs/plan/adopter', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ ...corps, simulation: false }) });
+    const j = await r.json();
+    if (!r.ok) { setErreur(j.error || `Erreur ${r.status}`); return; }
+    await simuler('plan', true);
+  }
+  async function retoucher(id, modif) {
+    const r = await fetch(`/api/etudiants/repartition-cours/communs/plan/${id}`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify(modif) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { setErreur(j.error || `Erreur ${r.status}`); return; }
+    await simuler(mode, true);
+  }
+  async function retirer(id) {
+    if (!(await demander('Retirer ce créneau du plan ? Ses séances redeviennent à placer.'))) return;
+    const r = await fetch(`/api/etudiants/repartition-cours/communs/plan/${id}`, { method: 'DELETE', headers: authHeaders() });
+    if (!r.ok) { const j = await r.json().catch(() => ({})); setErreur(j.error || `Erreur ${r.status}`); return; }
+    await simuler(mode, true);
   }
   /* POSER DANS L'HORAIRE : un compte rendu d'abord, puis l'écriture. Les
      séances retouchées à la main dans l'horaire ne sont jamais remplacées. */
@@ -461,7 +502,13 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
         <b className="text-[13px]">Simulation de l’année — {section} · {bloc}</b>
         <span className="text-[12px] text-slate-500">Semaines de cours du calendrier, congés et fériés déduits ; périodes attribuées (50 min) ; une brique et un enseignant jamais à deux endroits à la fois. Rien ne s’écrit dans l’horaire.</span>
         <span className="flex-1" />
-        <button className={sim ? 'bouton' : 'bouton bouton-fort'} onClick={simuler} disabled={enCours || !plages?.length}>{enCours ? 'Simulation…' : sim ? 'Simuler à nouveau' : 'Simuler l’année'}</button>
+        {/* LES BOUTONS EN HAUT : lire le plan, recalculer autour de ce qui est verrouillé, adopter. */}
+        <button className={sim ? 'bouton' : 'bouton bouton-fort'} onClick={() => simuler('plan')} disabled={enCours || !plages?.length}
+          title="Le plan enregistré, et la proposition de Lucie pour ce qui n’y est pas encore">{enCours ? 'Calcul…' : sim ? 'Relire le plan' : 'Ouvrir le plan de l’année'}</button>
+        {sim && <button className="bouton" onClick={() => simuler('recalcul')} disabled={enCours}
+          title="Garder les seules lignes verrouillées, et tout proposer à nouveau autour">Recalculer autour du verrouillé</button>}
+        {sim && peutEcrire && sim.seances.some(x => x.etat === 'propose') && (
+          <button className="bouton bouton-fort" onClick={() => adopter(null)} disabled={enCours}>Adopter la proposition</button>)}
 
       </div>
       {erreur && <div className="text-[12.5px]" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
@@ -500,6 +547,8 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
             ...(sim.presence?.length ? [(() => { const p = briqueVue ? sim.presence.filter(x => x.brique === briqueVue) : sim.presence;
               const mx = Math.max(0, ...p.map(x => x.max)), my = p.length ? (p.reduce((t, x) => t + x.moyenne, 0) / p.length).toFixed(1).replace('.', ',') : '0';
               return [`${mx} j`, `de présence au plus par semaine (moyenne ${my}) — règle : ${sim.regles?.jours_max ?? 5}`, mx > (sim.regles?.jours_max ?? 5) ? 'corriger' : 'reussi']; })()] : []),
+            [`${sim.plan?.lignes?.n || 0}`, `créneau(x) dans le plan — ${sim.plan?.lignes?.v || 0} verrouillé(s)${sim.mode === 'recalcul' ? ' · recalcul en cours' : ''}`, sim.plan?.lignes?.n ? 'reussi' : 'neutre'],
+            [`${sim.seances.filter(x => x.etat === 'propose').length}`, 'séance(s) proposée(s), pas encore adoptée(s)', sim.seances.some(x => x.etat === 'propose') ? 'surveiller' : 'reussi'],
             [`${sim.heures_attribuees} h`, 'attribuées au bloc (hors stage et évaluations)', 'neutre'],
             [`${sim.actuel.heures} h`, `horaire actuel — ${sim.actuel.seances} séance(s)${sim.actuel.derniere ? `, jusqu’au ${sim.actuel.derniere.slice(8, 10)}/${sim.actuel.derniere.slice(5, 7)}` : ''}`, sim.actuel.heures < sim.heures_attribuees ? 'surveiller' : 'reussi'],
             [`${Math.round(sim.seances.reduce((t, x) => t + x.minutes, 0) / 60)} h`, `proposition de Lucie — ${sim.nb_seances} séance(s)`, sim.restes.length ? 'corriger' : 'reussi'],
@@ -521,7 +570,7 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
           <table className="w-full text-[12.5px]">
             <thead><tr className="tab-entete text-left">
               <th className="px-3 py-1">Cours</th><th className="px-3 py-1">Activité</th><th className="px-3 py-1">Groupe</th>
-              <th className="px-3 py-1">Créneau fixe</th><th className="px-3 py-1">Semaines</th><th className="px-3 py-1">Local</th><th className="px-3 py-1">Enseignant</th></tr></thead>
+              <th className="px-3 py-1">Créneau fixe</th><th className="px-3 py-1">Semaines</th><th className="px-3 py-1">Local</th><th className="px-3 py-1">Enseignant</th><th className="px-3 py-1">Plan</th></tr></thead>
             <tbody>
               {sim.activites.filter(pourQui).map(a => (
                 <tr key={a.cle} className="border-t border-slate-100 align-top">
@@ -535,6 +584,29 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
                   <td className="px-3 py-1 whitespace-nowrap">{(a.creneaux_fixes || []).map((f, i) => <div key={i}>{f.local
                     || <span style={{ color: 'var(--c-attente)' }}>à désigner</span>}</div>)}</td>
                   <td className="px-3 py-1 text-slate-600">{a.professeur || '—'}</td>
+                  <td className="px-3 py-1 whitespace-nowrap">
+                    {(a.creneaux_fixes || []).map((f, i) => (
+                      <div key={i} className="flex items-center gap-1 h-[22px]">
+                        <EtatPlan etat={f.etat} />
+                        {f.conflits?.length > 0 && <span className="text-[11px]" style={{ color: 'var(--c-refuse)' }} title="Une séance enregistrée tombe en même temps qu’une autre">conflit : {f.conflits.join(', ')}</span>}
+                        {peutEcrire && f.plan_id && <>
+                          <select className="controle !h-[22px] !py-0 text-[11.5px]" value={`${f.jour}|${f.debut}`} title="Changer de créneau : la ligne se verrouille"
+                            onChange={e => { const [j, d] = e.target.value.split('|'); retoucher(f.plan_id, { jour: Number(j), debut: d }); }}>
+                            {(plages || []).map(p => <option key={`${p.jour}|${p.debut}`} value={`${p.jour}|${p.debut}`}>{NOMS_JOURS[p.jour]} {p.debut}</option>)}
+                          </select>
+                          <select className="controle !h-[22px] !py-0 text-[11.5px] max-w-[8rem]" value={f.local || ''} title="Changer de local : la ligne se verrouille"
+                            onChange={e => retoucher(f.plan_id, { local: e.target.value || null })}>
+                            <option value="">— local —</option>
+                            {(sim.referentiel_locaux || []).map(l => <option key={l.nom} value={l.nom}>{l.nom}</option>)}
+                          </select>
+                          <button className="text-slate-500 hover:text-slate-800" title={f.etat === 'verrouille' ? 'Déverrouiller : la simulation pourra la déplacer' : 'Verrouiller : la simulation ne la déplacera plus'}
+                            onClick={() => retoucher(f.plan_id, { verrouille: f.etat !== 'verrouille' })}>{f.etat === 'verrouille' ? <IconLock size={14} /> : <IconLockOpen size={14} />}</button>
+                          <button className="text-slate-400 hover:text-[color:var(--c-refuse)]" title="Retirer du plan" onClick={() => retirer(f.plan_id)}><IconTrash size={14} /></button>
+                        </>}
+                      </div>))}
+                    {peutEcrire && (a.creneaux_fixes || []).some(f => f.etat === 'propose') && (
+                      <button className="bouton !h-[22px] !px-2 text-[11.5px] mt-0.5" onClick={() => adopter([a.cle])}>Adopter</button>)}
+                  </td>
                 </tr>))}
             </tbody>
           </table>
@@ -608,10 +680,12 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire }) {
                           {ici.map((s, i) => (
                             <div key={i} className="min-w-0 h-[46px] rounded-r px-1.5 py-1 text-[12px] leading-tight overflow-hidden text-[#1B2B4B] flex flex-col items-start justify-center gap-0.5"
                               title={`${s.cours_code} ${s.cours_nom || ''}\n${s.activite || ''} — groupe ${s.groupe}${s.professeur ? ` — ${s.professeur}` : ''}${s.local ? `\nLocal ${s.local}` : ''}\nBriques ${s.tout_le_bloc ? 'toutes' : s.briques.join(', ')}`}
-                              style={styleTuileCours(s.cours_code)}>
+                              style={{ ...styleTuileCours(s.cours_code),
+                                ...(s.etat === 'propose' && sim.plan?.lignes?.n ? { outline: '1.5px dashed #64748B', outlineOffset: -2 } : {}),
+                                ...(s.conflits?.length ? { outline: '2px solid var(--c-refuse)', outlineOffset: -2 } : {}) }}>
                               {/* Le numéro du cours, et le groupe dans sa pastille ; le nom quand il y a la place ; le reste au survol. */}
                               <span className="flex items-center gap-1.5 max-w-full min-w-0">
-                                <span className="font-bold truncate">{s.cours_code}</span>
+                                <span className="font-bold truncate">{s.cours_code}</span>{s.etat === 'verrouille' && <IconLock size={11} className="flex-none text-slate-500" />}
                                 {large && s.groupe !== 'Tous' && s.groupe !== 'Ts' && (
                                   <span className="flex-none inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-[5px] bg-white text-[10.5px] font-bold"
                                     style={{ border: `1.5px solid ${teinteCours(s.cours_code)}` }}>{s.groupe}</span>)}
