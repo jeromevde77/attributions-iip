@@ -1,71 +1,24 @@
 /**
- * L'AGENDA DES ENSEIGNANTS D'UNE SECTION (Charles, 10 octobre 2026 : « un mini
- * agenda de semaine — vert dispo, rouge pas dispo, orange éventuellement » ; puis :
- * « cela doit couvrir toutes les sections, sinon tu vas te bloquer — Berte donne
- * cours dans plusieurs sections »). Face du laboratoire temporel.
- * L'agenda appartient à l'ENSEIGNANT, pas à la section : une seule grille, six
- * jours, tranches de deux heures de 8 h à 22 h (table prof_agenda) — la même dans
- * chaque section et dans sa fiche. La simulation lit, pour chaque séance de
- * n'importe quelle section, les tranches qu'elle chevauche et retient la plus
- * restrictive. Tout est vert par défaut ; seuls l'orange et le rouge s'écrivent.
+ * L'AGENDA DES ENSEIGNANTS D'UNE SECTION — face « Les disponibilités » du
+ * laboratoire (Charles, 10 octobre 2026 : « vert dispo, rouge pas dispo, orange
+ * éventuellement » ; « cela doit couvrir toutes les sections — Berte donne cours
+ * dans plusieurs sections »). L'agenda appartient à l'ENSEIGNANT, pas à la
+ * section : il se peint sur la BASE de l'école (face « Le planning »), le même
+ * dans chaque section et dans sa fiche (planning_contrainte, type « prof »).
+ * Tout est vert par défaut ; seuls l'orange et le rouge s'écrivent.
  */
 import { useEffect, useMemo, useState } from 'react';
 import { authHeaders } from '../lib/api.js';
 import { informer } from '../lib/dialogue.jsx';
 
-const JOURS = ['', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'];
-export const AGENDA_HEURES = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00'];
-const finDe = h => `${String(Number(h.slice(0, 2)) + 2).padStart(2, '0')}:00`;
-
-export const DISPO = {
-  1: { nom: 'disponible', fond: 'var(--c-reussi)', signe: '' },
-  2: { nom: 'éventuellement', fond: 'var(--c-attente)', signe: '?' },
-  0: { nom: 'pas disponible', fond: 'var(--c-refuse)', signe: '✕' },
-};
-export const suivant = v => (v === 1 ? 2 : v === 2 ? 0 : 1);
-
-/** La grille : un clic fait tourner la case vert → orange → rouge → vert. */
-export function MiniAgenda({ valeur, onCase, desactive, grand }) {
-  const h = grand ? 28 : 20;
-  return (
-    <table className="w-full border-collapse" style={{ fontSize: grand ? 12 : 10.5 }}>
-      <thead><tr><th className="w-[46px]" />{[1, 2, 3, 4, 5, 6].map(j => <th key={j} className="font-semibold text-slate-500 pb-0.5">{JOURS[j]}</th>)}</tr></thead>
-      <tbody>
-        {AGENDA_HEURES.map(hr => (
-          <tr key={hr}>
-            <td className="text-slate-500 tabular-nums pr-1 whitespace-nowrap" title={`${hr}–${finDe(hr)}`}>{hr.replace(':00', ' h')}</td>
-            {[1, 2, 3, 4, 5, 6].map(j => {
-              const v = valeur(j, hr), st = DISPO[v];
-              return (
-                <td key={j} className="p-[1.5px]">
-                  <button type="button" disabled={desactive} onClick={() => onCase(j, hr)}
-                    className="w-full rounded-[4px] font-bold text-white"
-                    style={{ height: h, background: st.fond, opacity: v === 1 ? 0.85 : 1, cursor: desactive ? 'default' : 'pointer' }}
-                    title={`${JOURS[j]} ${hr}–${finDe(hr)} : ${st.nom}${desactive ? '' : ' — cliquer pour changer'}`}>{st.signe}</button>
-                </td>);
-            })}
-          </tr>))}
-      </tbody>
-    </table>
-  );
-}
-
-export function LegendeDispo() {
-  return (
-    <span className="inline-flex flex-wrap items-center gap-3 text-[11.5px] text-slate-600">
-      {[1, 2, 0].map(v => (
-        <span key={v} className="inline-flex items-center gap-1">
-          <span className="inline-block w-3.5 h-3.5 rounded-[3px]" style={{ background: DISPO[v].fond }} />{DISPO[v].nom}</span>))}
-    </span>
-  );
-}
+import AgendaSemaine, { DISPO, LegendeDispo, suivant } from '../components/AgendaSemaine.jsx';
 
 export default function DisponibilitesSection({ section, annee, peutEcrire }) {
   const [d, setD] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [quadri, setQuadri] = useState('Q1');
   const [q, setQ] = useState('');
-  const [modifs, setModifs] = useState({});         // prof → Map « jour|heure » → 0/2 (quadri courant)
+  const [modifs, setModifs] = useState({});         // prof → Map « jour|debut » → 0/2 (quadri courant)
   const [enCours, setEnCours] = useState(null);
 
   const charger = async () => {
@@ -79,11 +32,11 @@ export default function DisponibilitesSection({ section, annee, peutEcrire }) {
   useEffect(() => { setD(null); charger(); }, [section, annee]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setModifs({}); }, [quadri]);
 
-  const saisies = (pid, qd) => new Map((d?.saisies || []).filter(x => x.professeur_id === pid && x.quadrimestre === qd).map(x => [`${x.jour}|${x.heure}`, Number(x.valeur) || 0]));
+  const saisies = (pid, qd) => new Map((d?.saisies || []).filter(x => x.professeur_id === pid && x.quadrimestre === qd).map(x => [`${x.jour}|${x.debut}`, Number(x.valeur) || 0]));
   const actuel = pid => modifs[pid] || saisies(pid, quadri);
   // Chaque geste part de l'état le plus récent (m), jamais d'une copie d'avant le clic précédent.
-  const changer = (pid, j, h) => setModifs(m => {
-    const base = new Map(m[pid] || saisies(pid, quadri)), cle = `${j}|${h}`;
+  const changer = (pid, j, c) => setModifs(m => {
+    const base = new Map(m[pid] || saisies(pid, quadri)), cle = `${j}|${c.debut}`;
     const v = suivant(base.has(cle) ? base.get(cle) : 1);
     if (v === 1) base.delete(cle); else base.set(cle, v);
     return { ...m, [pid]: base };
@@ -92,7 +45,7 @@ export default function DisponibilitesSection({ section, annee, peutEcrire }) {
   async function enregistrer(p) {
     setEnCours(p.id);
     try {
-      const cases = [...actuel(p.id)].map(([c, valeur]) => { const [jour, heure] = c.split('|'); return { jour: Number(jour), heure, valeur }; });
+      const cases = [...actuel(p.id)].map(([c, valeur]) => { const [jour, debut] = c.split('|'); return { jour: Number(jour), debut, valeur }; });
       const r = await fetch(`/api/prerequis/disponibilites/${p.id}`, { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ quadrimestre: quadri, cases }) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
@@ -100,6 +53,8 @@ export default function DisponibilitesSection({ section, annee, peutEcrire }) {
     } catch (e) { await informer(`❌ ${e.message}`); } finally { setEnCours(null); }
   }
 
+  // Les jours où l'école a des blocs : un dimanche vide ne prend pas de place.
+  const joursBase = useMemo(() => [...new Set((d?.base || []).map(c => c.jour))].sort(), [d]);
   const n = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
   const profs = (d?.profs || []).filter(p => !q.trim() || n(`${p.nom} ${p.prenom} ${p.cours.join(' ')}`).includes(n(q)));
   const saisis = (d?.profs || []).filter(p => saisies(p.id, quadri).size).length;
@@ -119,7 +74,7 @@ export default function DisponibilitesSection({ section, annee, peutEcrire }) {
       </div>
       <div className="bloc-etat px-3 py-2 text-[12.5px]" data-etat="neutre">
         Cliquez sur une case pour la changer : <b>vert</b> disponible, <b>orange</b> éventuellement (la simulation l’évite tant qu’elle trouve mieux), <b>rouge</b> pas disponible.
-        L’agenda est celui de <b>l’enseignant</b>, commun à <b>toutes ses sections</b> et à sa fiche : une séance qui chevauche une tranche rouge n’est placée nulle part.
+        L’agenda est celui de <b>l’enseignant</b>, commun à <b>toutes ses sections</b> et à sa fiche, posé sur les blocs de l’école (face « Le planning »).
       </div>
       <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))' }}>
         {profs.map(p => {
@@ -138,7 +93,7 @@ export default function DisponibilitesSection({ section, annee, peutEcrire }) {
                       <span key={v} className="px-1.5 rounded-[5px] text-[10.5px] font-semibold text-white" style={{ background: DISPO[v].fond }} title={DISPO[v].nom}>{compte(v)}</span>))}</span>
                   : <span className="flex-none px-1.5 rounded-[5px] text-[10.5px] font-semibold text-white" style={{ background: 'var(--c-reussi)' }}>disponible partout</span>}
               </div>
-              <MiniAgenda desactive={!peutEcrire} valeur={(j, h) => m.get(`${j}|${h}`) ?? 1} onCase={(j, h) => changer(p.id, j, h)} />
+              <AgendaSemaine compact base={d.base} jours={joursBase} desactive={!peutEcrire} valeur={(j, c) => m.get(`${j}|${c.debut}`) ?? 1} onCase={(j, c) => changer(p.id, j, c)} />
               {peutEcrire && (
                 <div className="flex flex-wrap gap-2">
                   <button className="bouton !h-8" disabled={!m.size} onClick={() => setModifs(x => ({ ...x, [p.id]: new Map() }))} title="Tout remettre en vert">Tout vert</button>

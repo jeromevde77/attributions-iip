@@ -67,7 +67,138 @@ export function migrerPlages(base = db) {
     for (let j = 1; j <= 5; j++) { ins.run('TIM', j, '15:30', '17:30'); ins.run('TIM', j, '17:30', '19:30'); }
     for (const [d, f] of [['08:00', '10:00'], ['10:00', '12:00'], ['12:00', '14:00'], ['14:00', '16:00']]) ins.run('TIM', 6, d, f);
   }
+  migrerPlanning(base);
   synchroniserCreneaux(base);
+}
+
+/*
+ * LE PLANNING DE L'ÉCOLE (Charles, 10 octobre 2026 : « un agenda des 7 jours de
+ * la semaine ; on règle les blocs de cours — on définit la base ; puis on va
+ * placer pour les profs les dispos, pour les cours aussi : dire que TIM c'est en
+ * soirée ou 4 jours semaine, mais on laisse la machine ou pas définir »).
+ *   · LA BASE (`planning_base`) : une seule pour toute l'école — les blocs de
+ *     cours, jour par jour, du lundi au dimanche. Deux blocs d'un même jour ne
+ *     se chevauchent pas. La simulation, l'agenda des enseignants et la grille
+ *     de l'Horaire de la semaine en partent.
+ *   · LES CONTRAINTES (`planning_contrainte`) : peintes sur les cases de la base,
+ *     pour un enseignant, un local, une section, un bloc, une UE, un cours ou une
+ *     activité — 2 orange (éventuellement), 0 rouge (jamais) ; une case non
+ *     peinte est verte, au choix de la simulation. Par quadrimestre ou pour
+ *     l'année (« AN ») ; les deux s'appliquent.
+ * Les plages par section (`horaire_plage`) deviennent, à la migration, la base
+ * de l'école et des contraintes de section : TIM garde exactement ses plages.
+ */
+export const TYPES_CONTRAINTE = ['prof', 'local', 'section', 'bloc', 'ue', 'cours', 'activite'];
+const versMin = h => { const [a, b] = String(h).split(':').map(Number); return a * 60 + (b || 0); };
+export function migrerPlanning(base = db) {
+  base.exec(`CREATE TABLE IF NOT EXISTS planning_base (
+    jour INTEGER NOT NULL, debut TEXT NOT NULL, fin TEXT NOT NULL, PRIMARY KEY (jour, debut));
+  CREATE TABLE IF NOT EXISTS planning_contrainte (
+    type TEXT NOT NULL, cible TEXT NOT NULL, quadrimestre TEXT NOT NULL DEFAULT 'AN',
+    jour INTEGER NOT NULL, debut TEXT NOT NULL, valeur INTEGER NOT NULL,
+    maj_par TEXT, maj_le TEXT DEFAULT (datetime('now')),
+    PRIMARY KEY (type, cible, quadrimestre, jour, debut))`);
+  if (base.prepare('SELECT 1 FROM planning_base LIMIT 1').get()) return;
+  base.transaction(() => {
+    // 1. La base : les plages existantes, puis les blocs habituels de l'école du
+    //    lundi au vendredi, là où ils ne chevauchent rien.
+    const cases = new Map();
+    const ajouter = (j, d, f) => {
+      const l = cases.get(j) || [];
+      if (l.some(x => versMin(x.debut) < versMin(f) && versMin(d) < versMin(x.fin))) return;
+      l.push({ debut: d, fin: f }); cases.set(j, l);
+    };
+    const plages = base.prepare('SELECT section, jour, debut, fin FROM horaire_plage ORDER BY jour, debut').all();
+    for (const p of plages) ajouter(p.jour, p.debut, p.fin);
+    for (let j = 1; j <= 5; j++) for (const [d, f] of [['08:00', '10:00'], ['10:15', '12:15'], ['13:15', '15:15'], ['15:30', '17:30'], ['17:30', '19:30']]) ajouter(j, d, f);
+    const ins = base.prepare('INSERT OR IGNORE INTO planning_base (jour, debut, fin) VALUES (?,?,?)');
+    for (const [j, l] of cases) for (const x of l) ins.run(j, x.debut, x.fin);
+    // 2. Une section qui avait ses plages : tout le reste de la base lui est rouge.
+    const insC = base.prepare('INSERT OR IGNORE INTO planning_contrainte (type, cible, quadrimestre, jour, debut, valeur, maj_par) VALUES (?,?,?,?,?,?,?)');
+    const toutes = base.prepare('SELECT jour, debut FROM planning_base').all();
+    for (const sec of [...new Set(plages.map(p => p.section))]) {
+      const siennes = new Set(plages.filter(p => p.section === sec).map(p => `${p.jour}|${p.debut}`));
+      for (const c of toutes) if (!siennes.has(`${c.jour}|${c.debut}`)) insC.run('section', sec, 'AN', c.jour, c.debut, 0, 'reprise des plages');
+    }
+    // 3. L'agenda des enseignants (tranches de deux heures, 3.1.242) : chaque case
+    //    de la base prend la tranche la plus restrictive qu'elle chevauche.
+    try {
+      const lire = base.prepare('SELECT valeur FROM planning_contrainte WHERE type = ? AND cible = ? AND quadrimestre = ? AND jour = ? AND debut = ?');
+      const ecrire = base.prepare(`INSERT INTO planning_contrainte (type, cible, quadrimestre, jour, debut, valeur, maj_par) VALUES (?,?,?,?,?,?,'reprise de l''agenda')
+        ON CONFLICT(type, cible, quadrimestre, jour, debut) DO UPDATE SET valeur = excluded.valeur`);
+      for (const r of base.prepare('SELECT professeur_id, quadrimestre, jour, heure, valeur FROM prof_agenda').all()) {
+        const a = versMin(r.heure), z = a + 120;
+        for (const c of base.prepare('SELECT debut, fin FROM planning_base WHERE jour = ?').all(r.jour)) {
+          if (versMin(c.fin) <= a || versMin(c.debut) >= z) continue;
+          const cle = ['prof', String(r.professeur_id), r.quadrimestre, r.jour, c.debut];
+          const deja = lire.get(...cle);
+          ecrire.run(...cle, deja && (deja.valeur === 0 || r.valeur === 0) ? 0 : deja ? 2 : r.valeur);
+        }
+      }
+    } catch { /* table absente */ }
+  })();
+}
+export const baseEcole = () => db.prepare('SELECT jour, debut, fin FROM planning_base ORDER BY jour, debut').all();
+/** La base, réécrite. Refuse un chevauchement ; efface les contraintes posées sur une case disparue. */
+export function ecrireBase(cases) {
+  const propres = [];
+  for (const c of Array.isArray(cases) ? cases : []) {
+    const j = Number(c.jour);
+    if (!(j >= 1 && j <= 7) || !/^\d\d:\d\d$/.test(c.debut || '') || !/^\d\d:\d\d$/.test(c.fin || '') || c.debut >= c.fin) throw new Error(`Bloc invalide : ${c.debut || '?'}–${c.fin || '?'}`);
+    propres.push({ jour: j, debut: c.debut, fin: c.fin });
+  }
+  const NOMS = ['', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
+  for (let j = 1; j <= 7; j++) {
+    const l = propres.filter(x => x.jour === j).sort((a, b) => a.debut.localeCompare(b.debut));
+    for (let i = 1; i < l.length; i++) if (l[i].debut < l[i - 1].fin) throw new Error(`Deux blocs se chevauchent le ${NOMS[j]} : ${l[i - 1].debut}–${l[i - 1].fin} et ${l[i].debut}–${l[i].fin}`);
+  }
+  db.transaction(() => {
+    db.prepare('DELETE FROM planning_base').run();
+    const ins = db.prepare('INSERT INTO planning_base (jour, debut, fin) VALUES (?,?,?)');
+    for (const c of propres) ins.run(c.jour, c.debut, c.fin);
+    db.prepare('DELETE FROM planning_contrainte WHERE NOT EXISTS (SELECT 1 FROM planning_base b WHERE b.jour = planning_contrainte.jour AND b.debut = planning_contrainte.debut)').run();
+  })();
+  synchroniserCreneaux();
+  return baseEcole();
+}
+export const toutesContraintes = () => db.prepare('SELECT type, cible, quadrimestre, jour, debut, valeur FROM planning_contrainte').all();
+export function ecrireContraintes(type, cible, quadrimestre, cases, par = null) {
+  if (!TYPES_CONTRAINTE.includes(type)) throw new Error(`Type inconnu : ${type}`);
+  if (!cible) throw new Error('Cible manquante');
+  if (!['AN', 'Q1', 'Q2'].includes(quadrimestre)) throw new Error('Quadrimestre : AN, Q1 ou Q2');
+  const base = new Set(baseEcole().map(c => `${c.jour}|${c.debut}`));
+  db.transaction(() => {
+    db.prepare('DELETE FROM planning_contrainte WHERE type = ? AND cible = ? AND quadrimestre = ?').run(type, String(cible), quadrimestre);
+    const ins = db.prepare('INSERT OR REPLACE INTO planning_contrainte (type, cible, quadrimestre, jour, debut, valeur, maj_par) VALUES (?,?,?,?,?,?,?)');
+    // Le vert ne s'écrit pas : seuls l'orange (2) et le rouge (0), sur une case de la base.
+    for (const c of Array.isArray(cases) ? cases : []) {
+      const v = Number(c.valeur);
+      if ((v === 0 || v === 2) && base.has(`${Number(c.jour)}|${c.debut}`)) ins.run(type, String(cible), quadrimestre, Number(c.jour), c.debut, v, par);
+    }
+  })();
+}
+/** Les contraintes indexées : « type|cible » → quadri → Map(« jour|debut » → valeur). */
+export function indexContraintes() {
+  const m = new Map();
+  for (const r of toutesContraintes()) {
+    const k = `${r.type}|${r.cible}`;
+    if (!m.has(k)) m.set(k, new Map());
+    const q = m.get(k);
+    if (!q.has(r.quadrimestre)) q.set(r.quadrimestre, new Map());
+    q.get(r.quadrimestre).set(`${r.jour}|${r.debut}`, r.valeur);
+  }
+  return m;
+}
+/** Niveau d'une case pour une cible : 2 libre, 1 éventuellement, 0 jamais. L'année et le quadrimestre s'appliquent tous deux. */
+export function niveauCible(index, type, cible, s) {
+  const q = index.get(`${type}|${cible}`); if (!q) return 2;
+  let n = 2;
+  for (const qd of ['AN', s.quadri]) {
+    const v = q.get(qd)?.get(`${s.jour}|${s.debut}`);
+    if (v === 0) return 0;
+    if (v === 2) n = 1;
+  }
+  return n;
 }
 /*
  * LES PRIORITÉS DE LA SECTION (Charles, 9 octobre 2026 : « répartir 5 jours sur
@@ -109,52 +240,22 @@ export function synchroniserCreneaux(base = db) {
   try {
     const existe = new Set(base.prepare('SELECT heure_debut || \'|\' || heure_fin AS k FROM creneau').all().map(x => x.k));
     const ins = base.prepare('INSERT INTO creneau (heure_debut, heure_fin, ordre, label) VALUES (?,?,?,?)');
-    for (const p of base.prepare('SELECT DISTINCT debut, fin FROM horaire_plage ORDER BY debut, fin').all()) {
+    let lignes = [];
+    try { lignes = base.prepare('SELECT debut, fin FROM planning_base UNION SELECT debut, fin FROM horaire_plage ORDER BY 1, 2').all(); }
+    catch { lignes = base.prepare('SELECT DISTINCT debut, fin FROM horaire_plage ORDER BY debut, fin').all(); }
+    for (const p of lignes) {
       if (existe.has(`${p.debut}|${p.fin}`)) continue;
       ins.run(p.debut, p.fin, Number(p.debut.replace(':', '')), `${p.debut}–${p.fin}`);
     }
   } catch { /* table creneau absente */ }
 }
-/** Les tranches de l'agenda de l'enseignant : deux heures, de 8 h à 22 h. */
-export const AGENDA_HEURES = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00'];
-const enMin = h => { const [a, b] = String(h).split(':').map(Number); return a * 60 + (b || 0); };
-/**
- * L'agenda saisi : prof → quadrimestre → Map(« jour|heure » → valeur). TROIS
- * VALEURS (Charles, 10 octobre 2026) : 1 disponible, 2 éventuellement, 0 pas
- * disponible ; une tranche absente est verte. Commun à toutes les sections.
- */
-export function disponibilites(profIds = null) {
-  const m = new Map();
-  try {
-    const rows = db.prepare(`SELECT professeur_id, quadrimestre, jour, heure, valeur FROM prof_agenda
-      ${profIds ? `WHERE professeur_id IN (${profIds.map(() => '?').join(',') || 'NULL'})` : ''}`).all(...(profIds || []));
-    for (const r of rows) {
-      if (!m.has(r.professeur_id)) m.set(r.professeur_id, new Map());
-      const q = m.get(r.professeur_id);
-      if (!q.has(r.quadrimestre)) q.set(r.quadrimestre, new Map());
-      q.get(r.quadrimestre).set(`${r.jour}|${r.heure}`, Number(r.valeur) || 0);
-    }
-  } catch { /* */ }
-  return m;
-}
-/**
- * Le niveau d'une séance pour un agenda : 2 disponible, 1 éventuellement, 0 non.
- * Une séance qui chevauche deux tranches (10 h 15 – 12 h 15) prend la PLUS
- * restrictive : à midi, l'enseignant n'est pas là, la séance non plus.
- */
-export function niveauAgenda(agenda, jour, debut, fin) {
-  if (!agenda) return 2;
-  const d = enMin(debut), f = enMin(fin || debut) || d + 120;
-  let n = 2;
-  for (const h of AGENDA_HEURES) {
-    const a = enMin(h), z = a + 120;
-    if (z <= d || a >= f) continue;
-    const v = agenda.get(`${jour}|${h}`);
-    n = Math.min(n, v === 0 ? 0 : v === 2 ? 1 : 2);
-  }
-  return n;
-}
-export const plagesDe = section => db.prepare('SELECT jour, debut, fin FROM horaire_plage WHERE section = ? ORDER BY jour, debut').all(section);
+/** Les plages d'une section : la base de l'école, moins ce que la section a peint en rouge pour l'année. */
+export const plagesDe = section => {
+  const base = baseEcole();
+  if (!base.length) return db.prepare('SELECT jour, debut, fin FROM horaire_plage WHERE section = ? ORDER BY jour, debut').all(section);
+  const rouge = new Set(db.prepare("SELECT jour || '|' || debut k FROM planning_contrainte WHERE type = 'section' AND cible = ? AND quadrimestre = 'AN' AND valeur = 0").all(section).map(x => x.k));
+  return base.filter(c => !rouge.has(`${c.jour}|${c.debut}`));
+};
 export function ecrirePlages(section, plages) {
   db.transaction(() => {
     db.prepare('DELETE FROM horaire_plage WHERE section = ?').run(section);
@@ -363,15 +464,15 @@ export function simuler(section, bloc, annee, { mode = 'plan' } = {}) {
       if (h.local_texte && !/distanciel|à distance|en ligne/i.test(h.local_texte)) marquer(occL, k(s), h.local_texte);
     }
   }
-  // L'enseignant doit être DISPONIBLE (saisie du secrétariat) — sans saisie pour ce quadrimestre, il l'est partout.
-  const dispos = disponibilites();
-  // 2 = disponible, 1 = éventuellement (permis, évité tant qu'il y a mieux), 0 = pas disponible.
-  const niveauProf = (s, d) => {
-    if (!d.professeur_id) return 2;
-    const q = dispos.get(d.professeur_id); if (!q) return 2;
-    return niveauAgenda(q.get(s.quadri) || q.get('AN'), s.jour, s.debut, s.fin);
-  };
-  const dispoProf = (s, d) => niveauProf(s, d) > 0;
+  // LE PLANNING (Charles, 10 octobre 2026) : ce qu'on a peint sur la base, pour
+  // l'enseignant, la section, le bloc, l'UE, le cours, l'activité. Rouge partout où
+  // l'un d'eux l'est ; orange, permis mais évité tant qu'il y a mieux.
+  const idx = indexContraintes();
+  const niveauProf = (s, d) => d.professeur_id ? niveauCible(idx, 'prof', String(d.professeur_id), s) : 2;
+  const niveauCadre = (s, d) => Math.min(niveauCible(idx, 'section', section, s), niveauCible(idx, 'bloc', `${section}|${bloc}`, s),
+    niveauCible(idx, 'ue', String(d.ue_num), s), niveauCible(idx, 'cours', String(d.cours_code), s), niveauCible(idx, 'activite', `${d.cours_code}#${d.activite_id}`, s));
+  const niveauTout = (s, d) => Math.min(niveauProf(s, d), niveauCadre(s, d));
+  const dispoProf = (s, d) => niveauTout(s, d) > 0;
   const libreSansJours = (s, d) => !(d.briques.some(b => occB.get(k(s))?.has(b)) || (d.professeur_id && occP.get(k(s))?.has(d.professeur_id))) && dispoProf(s, d);
   // Les jours de présence de chaque brique, semaine par semaine.
   const regles = reglesDe(section);
@@ -381,7 +482,7 @@ export function simuler(section, bloc, annee, { mode = 'plan' } = {}) {
   const libre = (s, d) => libreSansJours(s, d) && dansLesJours(s, d);
   // Regroupé : tous les étudiants du groupe viennent déjà ce jour-là.
   const regroupe = (s, d) => d.briques.every(b => jours(s, b)?.has(s.jour));
-  const salleLibre = (s, l) => !l || !occL.get(k(s))?.has(l);
+  const salleLibre = (s, l) => !l || (!occL.get(k(s))?.has(l) && niveauCible(idx, 'local', l, s) > 0);
   // LES LOCAUX POSSIBLES de chaque demande, et son effectif.
   const referentiel = locauxDuReferentiel();
   const parNom = new Map(referentiel.map(l => [l.nom, l]));
@@ -484,7 +585,7 @@ export function simuler(section, bloc, annee, { mode = 'plan' } = {}) {
           }
           if (!choisies.length) continue;
           // Score : couvrir le plus, avec le moins de trous, le moins de cases « éventuellement », regroupé si la section le veut, finir le plus tôt, le local préféré.
-          const score = [choisies.length, -trous, -choisies.filter(x => niveauProf(x, d) === 1).length, regles.regrouper ? choisies.filter(x => regroupe(x, d)).length : 0,
+          const score = [choisies.length, -trous, -choisies.filter(x => niveauTout(x, d) === 1 || (l && niveauCible(idx, 'local', l, x) === 1)).length, regles.regrouper ? choisies.filter(x => regroupe(x, d)).length : 0,
             -choisies[choisies.length - 1].semaine, -rang];
           if (!meilleur || plusGrand(score, meilleur.score)) meilleur = { t, l, choisies, trous, score };
         }
@@ -509,7 +610,8 @@ export function simuler(section, bloc, annee, { mode = 'plan' } = {}) {
     if (irreguliers) fixes.get(d.cle).irreguliers = irreguliers;
     if (place < besoin) {
       const conflitProf = d.professeur_id && possibles.some(s => !d.briques.some(b => occB.get(k(s))?.has(b)) && occP.get(k(s))?.has(d.professeur_id));
-      const indispo = d.professeur_id && possibles.some(s => !d.briques.some(b => occB.get(k(s))?.has(b)) && !dispoProf(s, d));
+      const indispo = d.professeur_id && possibles.some(s => !d.briques.some(b => occB.get(k(s))?.has(b)) && niveauProf(s, d) === 0);
+      const cadre = possibles.length && possibles.every(s => niveauCadre(s, d) === 0);
       const sansSalle = d.local_origine !== 'a_designer' && possibles.some(s => libre(s, d));
       const parJours = possibles.some(s => libreSansJours(s, d) && !dansLesJours(s, d));
       restes.push({ ...d, place, manque: besoin - place,
@@ -518,6 +620,7 @@ export function simuler(section, bloc, annee, { mode = 'plan' } = {}) {
           : sansSalle ? 'ses locaux possibles sont tous occupés quand étudiants et enseignant sont libres'
           : conflitProf ? 'l’enseignant est déjà occupé sur les créneaux où ses étudiants sont libres'
           : indispo ? `${d.professeur || 'l’enseignant'} n’est pas disponible sur les créneaux où ses étudiants sont libres`
+          : cadre ? 'le planning (section, bloc, UE, cours ou activité) est rouge sur tous ses créneaux'
           : 'plus de créneau libre pour ces étudiants dans le quadrimestre' });
     }
   }

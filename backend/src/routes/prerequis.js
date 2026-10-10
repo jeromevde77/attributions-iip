@@ -4,7 +4,7 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
-import { AGENDA_HEURES } from '../lib/simulationHoraire.js';
+import { baseEcole, toutesContraintes, ecrireContraintes } from '../lib/simulationHoraire.js';
 
 const r = Router();
 
@@ -119,29 +119,20 @@ r.get('/creneaux', authRequired, (req, res) => {
 
 // ─── DISPONIBILITÉS PROFS ────────────────────────────────────────────────────
 
-// GET /prerequis/disponibilites/:prof_id — l'agenda de l'enseignant, commun à toutes les sections
+// GET /prerequis/disponibilites/:prof_id — l'agenda de l'enseignant, posé sur la base de l'école
 r.get('/disponibilites/:prof_id', authRequired, (req, res) => {
-  const rows = db.prepare('SELECT quadrimestre, jour, heure, valeur FROM prof_agenda WHERE professeur_id = ?').all(req.params.prof_id);
-  res.json({ heures: AGENDA_HEURES, cases: rows });
+  const cible = String(Number(req.params.prof_id));
+  res.json({ base: baseEcole(), cases: toutesContraintes().filter(c => c.type === 'prof' && c.cible === cible) });
 });
 
 // PUT /prerequis/disponibilites/:prof_id — remplace l'agenda d'un quadrimestre.
 // Saisi par le secrétariat, la coordination ou la direction (Charles, 10 octobre 2026) — pas par chacun.
 r.put('/disponibilites/:prof_id', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
   const { quadrimestre, cases } = req.body || {};
-  if (!['Q1', 'Q2'].includes(quadrimestre) || !Array.isArray(cases))
-    return res.status(400).json({ error: 'quadrimestre (Q1 ou Q2) et cases[] requis' });
-  const profId = Number(req.params.prof_id);
-  db.transaction(() => {
-    db.prepare('DELETE FROM prof_agenda WHERE professeur_id = ? AND quadrimestre = ?').run(profId, quadrimestre);
-    const ins = db.prepare('INSERT OR REPLACE INTO prof_agenda (professeur_id, quadrimestre, jour, heure, valeur) VALUES (?,?,?,?,?)');
-    // Le vert n'a pas besoin de ligne : seules l'orange et le rouge s'écrivent.
-    for (const c of cases) {
-      const v = Number(c.valeur), j = Number(c.jour);
-      if (j >= 1 && j <= 6 && AGENDA_HEURES.includes(c.heure) && (v === 0 || v === 2)) ins.run(profId, quadrimestre, j, c.heure, v);
-    }
-  })();
-  res.json({ ok: true });
+  if (!['AN', 'Q1', 'Q2'].includes(quadrimestre) || !Array.isArray(cases))
+    return res.status(400).json({ error: 'quadrimestre (AN, Q1 ou Q2) et cases[] requis' });
+  try { ecrireContraintes('prof', String(Number(req.params.prof_id)), quadrimestre, cases, req.user?.email || null); res.json({ ok: true }); }
+  catch (e) { res.status(400).json({ error: e.message }); }
 });
 
 // GET /prerequis/disponibilites — toutes les dispos (pour le planificateur)

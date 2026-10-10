@@ -1,5 +1,5 @@
 import { ouvrirApercuPdf } from '../lib/apercu.js';
-import { MiniAgenda, LegendeDispo, suivant } from './DisponibilitesSection.jsx';
+import AgendaSemaine, { LegendeDispo, suivant } from '../components/AgendaSemaine.jsx';
 import { authHeaders } from '../lib/api.js';
 import { useState, useEffect, useRef } from 'react';
 import FonctionsPanel from '../components/FonctionsPanel.jsx';
@@ -101,24 +101,24 @@ function OuiNon({ label, value, onChange }) {
 // Le samedi aussi : des sections y donnent cours (Charles, 10 octobre 2026).
 const JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
 
-function DispoGrid({ dispoQ1, setDispoQ1, dispoQ2, setDispoQ2, profId }) {
+function DispoGrid({ base, dispoQ1, setDispoQ1, dispoQ2, setDispoQ2, profId }) {
   const [quadrimestre, setQ] = useState('Q1');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved]   = useState(false);
 
-  // L'agenda de l'enseignant, commun à toutes ses sections : { 'jour|heure': 0 | 2 } — absent = vert.
+  // L'agenda de l'enseignant, commun à toutes ses sections : { 'jour|debut': 0 | 2 } — absent = vert.
   const dispo = quadrimestre === 'Q1' ? dispoQ1 : dispoQ2;
   const setDispo = quadrimestre === 'Q1' ? setDispoQ1 : setDispoQ2;
 
-  function changer(jour, heure) {
-    const key = `${jour}|${heure}`;
+  function changer(jour, c) {
+    const key = `${jour}|${c.debut}`;
     setDispo(prev => { const n = { ...prev }, v = suivant(prev[key] ?? 1); if (v === 1) delete n[key]; else n[key] = v; return n; });
     setSaved(false);
   }
 
   async function sauvegarder() {
     setSaving(true);
-    const cases = Object.entries(dispo).map(([k, valeur]) => { const [jour, heure] = k.split('|'); return { jour: Number(jour), heure, valeur }; });
+    const cases = Object.entries(dispo).map(([k, valeur]) => { const [jour, debut] = k.split('|'); return { jour: Number(jour), debut, valeur }; });
     await _fetch(`/api/prerequis/disponibilites/${profId}`, {
       method: 'PUT', body: JSON.stringify({ quadrimestre, cases }),
     });
@@ -141,8 +141,8 @@ function DispoGrid({ dispoQ1, setDispoQ1, dispoQ2, setDispoQ2, profId }) {
         <button onClick={sauvegarder} disabled={saving} className="bouton bouton-fort !h-8">
           {saving ? 'Sauvegarde…' : saved ? '✓ Enregistré' : `Enregistrer ${quadrimestre}`}</button>
       </div>
-      <p className="text-[12px] text-slate-500">Un clic fait tourner la case : vert disponible, orange éventuellement, rouge pas disponible. Cet agenda vaut pour toutes les sections où il enseigne.</p>
-      <MiniAgenda grand valeur={(j, h) => dispo[`${j}|${h}`] ?? 1} onCase={changer} />
+      <p className="text-[12px] text-slate-500">Un clic fait tourner la case : vert disponible, orange éventuellement, rouge pas disponible. Cet agenda, posé sur les blocs de l’école, vaut pour toutes les sections où il enseigne.</p>
+      <AgendaSemaine base={base} jours={[...new Set(base.map(c => c.jour))].sort()} valeur={(j, c) => dispo[`${j}|${c.debut}`] ?? 1} onCase={changer} />
     </div>
   );
 }
@@ -212,6 +212,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
   const [dispoQ1, setDispoQ1]           = useState({}); // { 'jour_creneauId': bool }
   const [dispoQ2, setDispoQ2]           = useState({});
   const [dispoLoaded, setDispoLoaded]   = useState(false);
+  const [baseEcole, setBaseEcole]       = useState([]);
   // Missions & coordinations (personnel d'établissement)
   const [missions, setMissions] = useState([]); // missions lues depuis personnel_mission
   const [sectionsDispo, setSectionsDispo] = useState([]);      // toutes les sections
@@ -321,9 +322,10 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
     if (prof?.id && !isNew) {
       _fetch(`/api/prerequis/disponibilites/${prof.id}`).then(d => {
         const rows = Array.isArray(d?.cases) ? d.cases : [];
+        setBaseEcole(Array.isArray(d?.base) ? d.base : []);
         const q1 = {}, q2 = {};
         for (const r of rows) {
-          const key = `${r.jour}|${r.heure}`;
+          const key = `${r.jour}|${r.debut}`;
           if (r.quadrimestre === 'Q1') q1[key] = Number(r.valeur) || 0;
           if (r.quadrimestre === 'Q2') q2[key] = Number(r.valeur) || 0;
         }
@@ -716,7 +718,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
           {!isNew && (
             <Section titre="8 · Disponibilités horaires" sous="Créneaux disponibles par quadrimestre"
               ouvert={open.dispos} onToggle={() => toggle('dispos')}>
-              <DispoGrid
+              <DispoGrid base={baseEcole}
                 creneaux={creneaux}
                 dispoQ1={dispoQ1} setDispoQ1={setDispoQ1}
                 dispoQ2={dispoQ2} setDispoQ2={setDispoQ2}
