@@ -2,7 +2,7 @@
 // Lucie — Module Étudiants : base étudiants, inscriptions, résultats et PAE
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { migrerPlages, plagesDe, ecrirePlages, simuler as simulerAnnee, poserSimulation, ecrireLocaux, reglesDe, ecrireRegles, documentHoraire } from '../lib/simulationHoraire.js';
+import { migrerPlages, plagesDe, ecrirePlages, simuler as simulerAnnee, poserSimulation, ecrireLocaux, reglesDe, ecrireRegles, documentHoraire, adopterProposition, retoucherLigne, retirerLigne } from '../lib/simulationHoraire.js';
 import { migrerGroupesCommuns, cohorte as cohorteGC, proposerBriques, appliquerBriques } from '../lib/groupesCommuns.js';
 import { dispensesDeLUE } from '../lib/dispenses.js';
 import { paysDe, estUnPays } from '../lib/pays.js';
@@ -1525,9 +1525,38 @@ r.get('/repartition-cours/communs/simulation', authRequired, (req, res) => {
     const section = String(req.query.section || ''), bloc = String(req.query.bloc || '').toUpperCase();
     if (!section || !bloc) return res.status(400).json({ error: 'section et bloc requis' });
     if (!sectionAutoriseeReq(req, section)) return res.status(403).json({ error: 'Section hors de votre périmètre' });
-    res.json(simulerAnnee(section, bloc, String(req.query.annee || anneeDeTravail(req))));
+    res.json(simulerAnnee(section, bloc, String(req.query.annee || anneeDeTravail(req)), { mode: req.query.mode === 'recalcul' ? 'recalcul' : 'plan' }));
   } catch (e) { console.error('[simulation]', e); res.status(500).json({ error: `La simulation a échoué : ${e.message}` }); }
 });
+// LE PLAN ENREGISTRÉ (lot 1 du planificateur) : adopter, retoucher, verrouiller, retirer.
+const ligneDuPlanPermise = (req, res) => {
+  const l = db.prepare('SELECT section FROM plan_creneau WHERE id = ?').get(Number(req.params.id));
+  if (!l) { res.status(404).json({ error: 'Ligne du plan introuvable' }); return false; }
+  if (!sectionAutoriseeReq(req, l.section)) { res.status(404).json({ error: 'Ligne du plan introuvable' }); return false; }
+  return true;
+};
+r.post('/repartition-cours/communs/plan/adopter', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
+  try {
+    const section = String(req.body?.section || ''), bloc = String(req.body?.bloc || '').toUpperCase();
+    if (!section || !bloc) return res.status(400).json({ error: 'section et bloc requis' });
+    if (!sectionAutoriseeReq(req, section)) return res.status(403).json({ error: 'Section hors de votre périmètre' });
+    res.json(adopterProposition(section, bloc, String(req.body?.annee || anneeDeTravail(req)), {
+      mode: req.body?.mode === 'recalcul' ? 'recalcul' : 'plan', cles: Array.isArray(req.body?.cles) ? req.body.cles.map(String) : null,
+      simulation: req.body?.simulation !== false, par: req.user?.email || null }));
+  } catch (e) { console.error('[plan adopter]', e); res.status(500).json({ error: `L'adoption a échoué : ${e.message}` }); }
+});
+r.put('/repartition-cours/communs/plan/:id', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
+  try {
+    if (!ligneDuPlanPermise(req, res)) return;
+    const b = req.body || {};
+    res.json(retoucherLigne(Number(req.params.id), { jour: b.jour, debut: b.debut, fin: b.fin, local: b.local, verrouille: b.verrouille }, req.user?.email || null));
+  } catch (e) { console.error('[plan retoucher]', e); res.status(e.status || 500).json({ error: e.message }); }
+});
+r.delete('/repartition-cours/communs/plan/:id', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
+  if (!ligneDuPlanPermise(req, res)) return;
+  res.json({ retirees: retirerLigne(Number(req.params.id)) });
+});
+
 // L'HORAIRE D'UN GROUPE OU D'UN ÉTUDIANT, à imprimer (catalogue : horaire_propose).
 r.post('/repartition-cours/communs/simulation/document', authRequired, (req, res) => {
   try {
