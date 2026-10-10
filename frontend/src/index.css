@@ -196,7 +196,8 @@ table.grid-excel-soft thead th {
   position: sticky;
   top: 0;
 }
-table.grid-excel-soft tbody tr:hover { background: #fafbfc; }
+table.grid-excel-soft tbody tr:hover { background: var(--c-fond_survol, #fafbfc); }
+table.grid-excel-soft tbody tr { background-color: var(--c-fond_ligne, transparent); }
 table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-nums; }
 /* L'EN-TÊTE D'UNE COLONNE CHIFFRÉE S'ALIGNE COMME SES CHIFFRES (2.12.217,
    Charles : « souci d'alignement dans attributions »). Seul td.num était à
@@ -499,12 +500,12 @@ table.grid-excel-soft select:focus {
    l'œil — la rubrique ouverte, une alerte. Tout le reste est gris.
    ───────────────────────────────────────────────────────────────────────── */
 :root, :root[data-mode="clair"] {
-  --menu-fond:        var(--c-fond_page, #FFFFFF);   /* le fond de la page : le rail s'y fond */
+  --menu-fond:        var(--c-fond_menus, var(--c-fond_page, #FFFFFF));   /* réglable ; sinon le fond de la page : le rail s'y fond */
   --page-fond:        var(--c-fond_page, #FFFFFF);   /* en clair, la page et les menus ont UN sol */
-  --menu-bord:        rgb(var(--c-texte-rgb) / 0.10);
+  --menu-bord:        var(--c-filet, rgb(var(--c-texte-rgb) / 0.10));
   --menu-texte:       var(--c-principal);
   --menu-texte-doux:  rgb(var(--c-texte-rgb) / 0.55);
-  --menu-survol:      rgb(var(--c-texte-rgb) / 0.06);
+  --menu-survol:      var(--c-fond_survol, rgb(var(--c-texte-rgb) / 0.06));
   --menu-actif:       rgba(255, 255, 255, 0.95);
   --menu-actif-bord:  rgb(var(--c-texte-rgb) / 0.12);
   --menu-filet:       rgb(var(--c-texte-rgb) / 0.10);
@@ -514,13 +515,13 @@ table.grid-excel-soft select:focus {
   /* LE SOUS-MENU DÉPLIÉ. Il vit DANS le rail, entre deux filets, et doit se
      distinguer des rubriques de l'axe sans crier : un bleu clair, qui se lit
      comme « second niveau » et non comme « alerte ». */
-  --menu-sous:        #3E7FB8;
-  --menu-sous-filet:  rgba(62, 127, 184, 0.34);
-  --menu-sous-actif:  rgba(62, 127, 184, 0.12);
+  --menu-sous:        var(--c-sous_menu, #3E7FB8);
+  --menu-sous-filet:  color-mix(in srgb, var(--menu-sous) 34%, transparent);
+  --menu-sous-actif:  color-mix(in srgb, var(--menu-sous) 12%, transparent);
   --menu-plateau:     rgb(var(--c-texte-rgb) / 0.06);   /* le fond du tiroir déplié */
-  --barre-fond:       var(--c-fond_page, #FFFFFF);   /* le fond de la page : la barre s'y fond aussi */
-  --champ-fond:       #FFFFFF;
-  --tab-repere:       var(--c-fond_page, #FFFFFF);   /* le fond de la page : le filet suffit à démarquer */
+  --barre-fond:       var(--c-fond_menus, var(--c-fond_page, #FFFFFF));   /* réglable ; sinon le fond de la page */
+  --champ-fond:       var(--c-fond_champ, #FFFFFF);
+  --tab-repere:       var(--c-fond_carte, var(--c-fond_page, #FFFFFF));   /* le fond de la page : le filet suffit à démarquer */
 }
 :root[data-mode="sombre"] {
   --menu-fond:        var(--c-menu_sombre);   /* le marine des MENUS en mode sombre */
@@ -929,15 +930,15 @@ select[multiple], select[size]:not([size="1"]) {
    une icône, et TOUJOURS LA MÊME pour ce qui sort une pièce — l'avion. Le
    libellé vit dans l'infobulle. */
 .bouton.bouton-icone { width: 2.25rem; padding-inline: 0; justify-content: center; border-radius: 10px; }
-.bouton-fort     { background: var(--c-principal); color: #fff; border-color: transparent; }
-.bouton-fort:hover:not(:disabled)     { background: var(--c-principal); }
+.bouton-fort     { background: var(--c-bouton_fort, var(--c-principal)); color: #fff; border-color: transparent; }
+.bouton-fort:hover:not(:disabled)     { background: var(--c-bouton_fort, var(--c-principal)); }
 /* SORTIR — FOND BLANC, MARINE (Charles, 27 septembre 2026 : « je n'aime pas
    ce bleu turquoise, on reste dans nos couleurs »). Le filet marine le
    distingue d'un bouton neutre sans lui donner un aplat. */
-.bouton-sortir   { background: #fff; color: var(--c-texte); border-color: var(--c-principal); }
-.bouton-sortir:hover:not(:disabled)   { background: #EEF1F6; }
-.bouton-detruire { background: var(--c-refuse); color: #fff; border-color: transparent; }
-.bouton-detruire:hover:not(:disabled) { background: var(--c-refuse); }
+.bouton-sortir   { background: var(--c-fond_champ, #fff); color: var(--c-texte); border-color: var(--c-bouton_sortir, var(--c-principal)); }
+.bouton-sortir:hover:not(:disabled)   { background: color-mix(in srgb, var(--c-bouton_sortir, var(--c-principal)) 8%, var(--c-fond_champ, #fff)); }
+.bouton-detruire { background: var(--c-bouton_detruire, var(--c-refuse)); color: #fff; border-color: transparent; }
+.bouton-detruire:hover:not(:disabled) { background: var(--c-bouton_detruire, var(--c-refuse)); }
 
 /* ═══ LES TABLEAUX — deux tons, pas cinq ══════════════════════════════════
  *
@@ -953,13 +954,13 @@ select[multiple], select[size]:not([size="1"]) {
  * la première. Seule la DONNÉE est blanche — et c'est ainsi qu'on la voit.
  */
 .tab-repere {
-  background: var(--tab-repere);
+  background: var(--c-fond_entete, var(--tab-repere));
   border-top: 1px solid var(--menu-bord);
   border-bottom: 1px solid var(--menu-bord);
   color: var(--menu-texte);
 }
 .tab-entete {
-  background: var(--tab-repere);
+  background: var(--c-fond_entete, var(--tab-repere));
   border-bottom: 1px solid var(--menu-bord);
   color: var(--menu-texte-doux);
   font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
@@ -1041,8 +1042,8 @@ select[multiple], select[size]:not([size="1"]) {
   /* PLUS DE FOND PÂLE (Charles, 29 septembre 2026 : « encore du pâle ; il
      y a trop de teintes partout »). La couleur ne se montre que PLEINE : le
      liseré. Le fond est blanc, le contour celui des filets. */
-  background: #fff;
-  border: 1px solid rgb(var(--gris-200));
+  background: var(--c-fond_tuile, #fff);
+  border: 1px solid var(--c-filet, rgb(var(--gris-200)));
   border-left: var(--d-tuile-lisere, 4px) solid var(--e);
   border-radius: var(--d-tuile-coin, 0px) var(--d-rayon-tuile, 10px) var(--d-rayon-tuile, 10px) var(--d-tuile-coin, 0px);
   color: var(--c-texte);
@@ -1055,9 +1056,9 @@ select[multiple], select[size]:not([size="1"]) {
 .bloc-etat[data-etat="indisponible"] { --e: #C3CAD6; background: var(--c-fond_indispo, #F4F5F7); border-color: #E3E6EB;
                                        border-left-color: #C3CAD6; color: #7A879E; }
 /* Neutre : un chiffre sans état. Le blanc est celui de la tuile. */
-.bloc-etat:not([data-etat]), .bloc-etat[data-etat="neutre"] { background: #fff; border-color: #D8DCE4; }
+.bloc-etat:not([data-etat]), .bloc-etat[data-etat="neutre"] { background: var(--c-fond_tuile, #fff); border-color: var(--c-filet, #D8DCE4); }
 /* Fort : le chiffre qui compte, sans état — liseré marine, fond blanc. */
-.bloc-etat[data-etat="fort"] { --e: var(--c-principal, var(--c-principal)); background: #fff; border-color: #D8DCE4; }
+.bloc-etat[data-etat="fort"] { --e: var(--c-principal, var(--c-principal)); background: var(--c-fond_tuile, #fff); border-color: var(--c-filet, #D8DCE4); }
 /* Une réserve est une nuance, pas un état : le trait, pas la couleur. */
 .bloc-etat.sous-reserve { border-style: dashed; border-left-style: solid; }
 
@@ -1244,3 +1245,39 @@ tr.ligne-lecture select, tr.ligne-lecture input.input-cell {
   -webkit-backdrop-filter: blur(var(--d-voile-flou, 3px));
   backdrop-filter: blur(var(--d-voile-flou, 3px));
 }
+
+/* LE SEGMENT CHOISI EST RÉGLABLE (3.1.250). Les écrans posent encore `bg-iip-blue
+   text-white` sur l'enfant actif ; la classe de la maison reprend la main sur la
+   couleur, une fois, pour tous. Les segments blancs suivent le fond des champs. */
+.segments { background: var(--c-fond_champ, #fff); border-color: var(--c-filet, #cbd5e1); }
+.segments > .bg-iip-blue { background-color: var(--c-segment_actif, var(--c-principal)) !important; }
+.segments > .bg-white { background-color: var(--c-fond_champ, #fff) !important; }
+
+/* ═══ LA BARRE DU HAUT : UN SEUL OBJET (3.1.251, Charles, 10 octobre 2026 : « tout
+ * n'est pas encore standardisé » — DEV, la version, le compte, le rôle et les icônes
+ * avaient cinq hauteurs, cinq rayons et quatre polices). Une forme, deux variantes :
+ * l'icône seule (transparente, grise, survol des menus) et l'état plein (DEV, DÉMO :
+ * une information d'état est une pastille pleine). Hauteur et rayon suivent les
+ * réglages des formes ; couleurs, ceux des menus. ═══ */
+.objet-barre {
+  display: inline-flex; align-items: center; justify-content: center; gap: .35rem;
+  height: calc(var(--d-controle-h, 36px) - 4px); min-width: calc(var(--d-controle-h, 36px) - 4px);
+  padding: 0 .6rem; border-radius: var(--d-rayon-champ, 8px);
+  font-size: 12px; font-weight: 600; letter-spacing: .02em; line-height: 1; white-space: nowrap;
+  color: var(--menu-texte); background: var(--menu-actif);
+  box-shadow: inset 0 0 0 1px var(--menu-actif-bord);
+  transition: background-color 150ms, color 150ms;
+}
+button.objet-barre:hover { color: var(--menu-texte); }
+.objet-barre-icone { padding: 0; background: transparent; box-shadow: none; color: var(--menu-icone); }
+.objet-barre-icone:hover { background: var(--menu-survol); color: var(--menu-texte); }
+.objet-barre-etat { background: var(--e); color: #fff; box-shadow: none; text-transform: uppercase; letter-spacing: .06em; }
+
+/* LES DEUX TAILLES DE LA TUILE (3.1.252) : grande (tableau de bord) et compacte
+   (liste, frise). Mêmes liseré, fond, contour ; seules les mesures changent. */
+.tuile-grande { padding: var(--d-tuile-pad-v, .5rem) var(--d-tuile-pad-h, .75rem); }
+.tuile-grande .tuile-chiffre { font-size: calc(var(--d-tuile-chiffre, 17px) * var(--d-texte, 1)); }
+.tuile-grande .tuile-libelle { font-size: calc(11px * var(--d-texte, 1)); }
+.tuile-compacte { display: inline-flex; align-items: baseline; gap: .4rem; padding: .2rem .55rem; }
+.tuile-compacte .tuile-chiffre { font-size: calc(var(--d-tuile-compacte-chiffre, 13px) * var(--d-texte, 1)); }
+.tuile-compacte .tuile-libelle { font-size: calc(11px * var(--d-texte, 1)); }

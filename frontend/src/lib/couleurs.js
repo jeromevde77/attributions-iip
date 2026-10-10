@@ -106,6 +106,8 @@ const echelleDe = (cle, valeur) => (ETATS_REGLES.includes(cle) ? echelleEtat(val
 
 export function poser(jeu, racine = document.documentElement) {
   for (const [cle, valeur] of Object.entries(jeu || {})) {
+    // Une zone sans valeur SUIT une autre (3.1.250) : on retire sa variable, le repli du CSS reprend.
+    if (valeur == null || valeur === '') { racine.style.removeProperty(`--c-${cle}`); racine.style.removeProperty(`--c-${cle}-rgb`); continue; }
     if (/^#[0-9a-fA-F]{6}$/.test(String(valeur))) {
       racine.style.setProperty(`--c-${cle}`, valeur);
       racine.style.setProperty(`--c-${cle}-rgb`, canaux(valeur).join(' '));

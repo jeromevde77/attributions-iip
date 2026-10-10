@@ -1397,6 +1397,10 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   et les replis d'`index.css` régénérés depuis lui). Les couleurs se relisent
   à la connexion : chargées sur l'écran de login, sans session, elles
   retombaient sur le repli jusqu'au rechargement.
+- **Deux tailles de tuile, pas une de plus** (3.1.252, Charles) : `taille="grande"`
+  (tableau de bord : chiffre, libellé dessous, précision) et `taille="compacte"`
+  (liste, frise : chiffre et libellé sur une ligne, précision au survol). Mesures
+  réglables dans Formes et composants.
 - **Composants** (`ui.jsx`) : `TuileEtat`, `Encadre`, `PastilleEtat`,
   `IconeFaveur`. Pour un SVG : `teintes(etat)`, lu dans `style`, jamais dans
   un attribut `fill=` où `var()` ne s'évalue pas.
@@ -1477,6 +1481,16 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
 > dur.** Les écrans qui dessinent encore leurs propres tuiles, boutons, onglets ou
 > pastilles (≈ 4 400 `text-[Npx]`, ~10 tuiles, `Btn`, `KpiCard`…) n'obéissent pas
 > encore : on les ramène au standard par lots — `docs/contexte/inventaire-design-2026-10-10.md`.
+>
+> **ET CHAQUE ZONE A SA COULEUR** (3.1.250, Charles : « le fond, le fond des
+> tuiles… les fenêtres, les barres, les boutons — tout doit être standardisé et
+> paramétrable »). Thèmes et couleurs porte deux familles de plus : *Surfaces*
+> (menus, cartes, en-têtes, lignes, survol, tuiles, champs, filets, sous-menu) et
+> *Composants* (bandeau, texte, corps et pied des fenêtres ; boutons fort,
+> sortir, détruire ; segment choisi). Une zone sans réglage SUIT celle qu'indique
+> le catalogue (`valeur: null`, `suit`), donc rien ne change pour qui ne touche à
+> rien. Table des zones : `docs/contexte/inventaire-design-2026-10-10.md`. Une
+> nouvelle zone s'ajoute au catalogue, jamais en dur dans un écran.
 
 ### Navigation
 

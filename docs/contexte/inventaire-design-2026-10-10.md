@@ -93,3 +93,31 @@ Thèmes possibles : Maison IIP, Arrondi, Anguleux, Compact. L'aperçu se fait av
 3. Migrer les doublons les plus utilisés : `KpiCard`, `Btn`, `Tabs`, `Badge`, `BoutonFenetre`, `Tuile` de `statsUi`.
 4. Factoriser le voile.
 5. Seulement ensuite, brancher les réglages.
+
+## Les zones de l'écran et leur réglage (3.1.250)
+
+Toutes se règlent dans Configuration → Thèmes et couleurs. Sans réglage, une zone **suit** celle qu'on indique : par défaut, l'écran ne change pas.
+
+| Groupe | Zone | Variable | Par défaut | Qui la lit |
+|---|---|---|---|---|
+| Fonds | Fond de la page | `--c-fond_page` | #FFFFFF | `body`, `--page-fond` |
+| Fonds | Pas encore atteignable | `--c-fond_indispo` | #F4F5F7 | `.bloc-etat[indisponible]`, frises |
+| Surfaces | Rail et barre du haut | `--c-fond_menus` | suit le fond de la page | `--menu-fond`, `--barre-fond` |
+| Surfaces | Cartes, listes, panneaux | `--c-fond_carte` | suit le fond de la page | `--tab-repere` (`.carte`) |
+| Surfaces | En-têtes de tableau, regroupements | `--c-fond_entete` | suit les cartes | `.tab-entete`, `.tab-repere` |
+| Surfaces | Lignes de tableau | `--c-fond_ligne` | #FFFFFF | `Tableau`, `.grid-excel-soft` |
+| Surfaces | Survol | `--c-fond_survol` | suit le texte à 6 % | `--menu-survol`, lignes de grille |
+| Surfaces | Tuiles et encadrés | `--c-fond_tuile` | #FFFFFF | `.bloc-etat` (TuileEtat, Encadre) |
+| Surfaces | Champs et boutons neutres | `--c-fond_champ` | #FFFFFF | `--champ-fond`, `.segments` |
+| Surfaces | Filets et contours | `--c-filet` | suit le texte à 10 % | `--menu-bord`, contours des tuiles, tableaux, pied des fenêtres |
+| Surfaces | Sous-menu déplié du rail | `--c-sous_menu` | #3E7FB8 | `--menu-sous` (filets dérivés) |
+| Composants | Fenêtre — bandeau | `--c-fenetre_bandeau` | suit le principal | `Fenetre` |
+| Composants | Fenêtre — texte du bandeau | `--c-fenetre_titre` | #FFFFFF | `Fenetre` |
+| Composants | Fenêtre — corps | `--c-fenetre_corps` | #FFFFFF | `Fenetre` |
+| Composants | Fenêtre — pied | `--c-fenetre_pied` | suit le corps | `Fenetre` (barre des boutons) |
+| Composants | Bouton principal | `--c-bouton_fort` | suit le principal | `.bouton-fort` |
+| Composants | Bouton « produire une pièce » | `--c-bouton_sortir` | suit le principal | `.bouton-sortir` |
+| Composants | Bouton « détruire » | `--c-bouton_detruire` | suit « à corriger » | `.bouton-detruire` |
+| Composants | Segment choisi | `--c-segment_actif` | suit le principal | `.segments > .bg-iip-blue` |
+
+Les formes (rayons, hauteurs, liseré, ombres, voile, police, texte) se règlent dans Configuration → Formes et composants.
