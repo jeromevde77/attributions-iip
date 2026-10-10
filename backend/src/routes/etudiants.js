@@ -2,7 +2,7 @@
 // Lucie — Module Étudiants : base étudiants, inscriptions, résultats et PAE
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { migrerPlages, plagesDe, ecrirePlages, simuler as simulerAnnee, poserSimulation, ecrireLocaux, reglesDe, ecrireRegles, documentHoraire, adopterProposition, retoucherLigne, retirerLigne, verserPlan, retablirImportees } from '../lib/simulationHoraire.js';
+import { AGENDA_HEURES, migrerPlages, plagesDe, ecrirePlages, simuler as simulerAnnee, poserSimulation, ecrireLocaux, reglesDe, ecrireRegles, documentHoraire, adopterProposition, retoucherLigne, retirerLigne, verserPlan, retablirImportees } from '../lib/simulationHoraire.js';
 import { migrerGroupesCommuns, cohorte as cohorteGC, proposerBriques, appliquerBriques } from '../lib/groupesCommuns.js';
 import { dispensesDeLUE } from '../lib/dispenses.js';
 import { paysDe, estUnPays } from '../lib/pays.js';
@@ -1616,12 +1616,17 @@ r.get('/disponibilites-section', authRequired, (req, res) => {
       WHERE a.annee_scolaire = ? AND (a.section = ? OR a.ue_num IN (SELECT ue_num FROM ue WHERE annee_scolaire = ? AND section = ?))
         AND COALESCE(a.periodes_attribuees, 0) > 0 AND COALESCE(a.type_cours, '') <> 'Z'
       GROUP BY p.id ORDER BY p.nom, p.prenom`).all(annee, section, annee, section);
-    const plages = plagesDe(section);
-    const creneaux = db.prepare('SELECT id, heure_debut, heure_fin FROM creneau').all();
+    // L'agenda est celui de l'ENSEIGNANT, commun à toutes ses sections : on dit
+    // donc aussi où il enseigne ailleurs — ce qu'on saisit ici vaut là aussi.
     const ids = profs.map(x => x.id);
-    const saisies = ids.length ? db.prepare(`SELECT professeur_id, quadrimestre, jour, creneau_id FROM prof_disponibilite
-      WHERE disponible = 1 AND professeur_id IN (${ids.map(() => '?').join(',')})`).all(...ids) : [];
-    res.json({ profs: profs.map(x => ({ ...x, cours: String(x.cours || '').split(',').filter(Boolean).sort() })), plages, creneaux, saisies });
+    const ailleurs = ids.length ? db.prepare(`SELECT a.professeur_id, GROUP_CONCAT(DISTINCT COALESCE(a.section, (SELECT section FROM ue WHERE ue_num = a.ue_num AND annee_scolaire = a.annee_scolaire LIMIT 1))) s
+      FROM attribution a WHERE a.annee_scolaire = ? AND COALESCE(a.periodes_attribuees, 0) > 0 AND a.professeur_id IN (${ids.map(() => '?').join(',')})
+      GROUP BY a.professeur_id`).all(annee, ...ids) : [];
+    const secDe = new Map(ailleurs.map(x => [x.professeur_id, String(x.s || '').split(',').filter(y => y && y !== section).sort()]));
+    const saisies = ids.length ? db.prepare(`SELECT professeur_id, quadrimestre, jour, heure, valeur FROM prof_agenda
+      WHERE professeur_id IN (${ids.map(() => '?').join(',')})`).all(...ids) : [];
+    res.json({ profs: profs.map(x => ({ ...x, cours: String(x.cours || '').split(',').filter(Boolean).sort(), autres_sections: secDe.get(x.id) || [] })),
+      heures: AGENDA_HEURES, saisies });
   } catch (e) { console.error('[disponibilités]', e); res.status(500).json({ error: e.message }); }
 });
 r.get('/horaire-plages', authRequired, (req, res) => { const section = String(req.query.section || ''); res.json({ plages: plagesDe(section), regles: reglesDe(section) }); });
