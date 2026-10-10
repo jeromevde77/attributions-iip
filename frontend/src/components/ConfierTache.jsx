@@ -201,7 +201,7 @@ export default function ConfierTache({ onClose, onCree }) {
         {/* ── QUOI ──────────────────────────────────────────── */}
         <div className="flex-1 min-w-0 p-5 space-y-3 overflow-auto">
           <label className="block text-xs">
-            <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
+            <span className="intertitre block mb-1">
               Quoi
             </span>
             <input autoFocus value={form.titre} className="controle w-full"
@@ -211,14 +211,14 @@ export default function ConfierTache({ onClose, onCree }) {
 
           <div className="grid grid-cols-2 gap-3">
             <label className="block text-xs">
-              <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
+              <span className="intertitre block mb-1">
                 Pour quand <span className="font-normal normal-case">(facultatif)</span>
               </span>
               <input type="date" value={form.echeance} className="controle w-full"
                 onChange={e => set('echeance', e.target.value)} />
             </label>
             <label className="block text-xs">
-              <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
+              <span className="intertitre block mb-1">
                 Priorité
               </span>
               <select value={form.priorite} className="controle w-full"
@@ -231,7 +231,7 @@ export default function ConfierTache({ onClose, onCree }) {
           </div>
 
           <label className="block text-xs">
-            <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
+            <span className="intertitre block mb-1">
               Précision <span className="font-normal normal-case">(facultatif)</span>
             </span>
             <textarea rows={6} value={form.detail}

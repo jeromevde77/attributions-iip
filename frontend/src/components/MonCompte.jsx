@@ -44,7 +44,7 @@ function CleALaMain({ secret }) {
   const groupes = (secret || '').match(/.{1,4}/g)?.join(' ') || '';
   return (
     <div>
-      <div className="text-xs uppercase tracking-[.13em] text-slate-400 mb-1">
+      <div className="intertitre mb-1">
         Ou saisir la clé à la main
       </div>
       <div className="flex items-center gap-2">
@@ -363,7 +363,7 @@ export default function MonCompte({ onFermer }) {
             <div className="flex-1 min-w-[220px] space-y-4">
               <CleALaMain secret={enrol.secret} />
               <div>
-                <div className="text-xs uppercase tracking-[.13em] text-slate-400 mb-1">
+                <div className="intertitre mb-1">
                   Code affiché
                 </div>
                 <input autoFocus value={code} inputMode="numeric" placeholder="••••••"

@@ -156,14 +156,14 @@ function Segments({ options, valeur, onChange, desactive = false }) {
 function Champ({ label, children, aide }) {
   return (
     <label className="block">
-      <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">{label}</span>
+      <span className="intertitre block mb-1">{label}</span>
       {children}
       {aide && <span className="block text-xs text-slate-400 mt-1">{aide}</span>}
     </label>
   );
 }
 function Intertitre({ children }) {
-  return <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">{children}</div>;
+  return <div className="intertitre mb-2">{children}</div>;
 }
 const CLS_TEXTE = 'w-full rounded-champ border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800';
 function Choix({ valeur, onChange, options, vide = '— choisir —', desactive }) {
@@ -197,7 +197,7 @@ function Bloc({ titre, children, actions }) {
   return (
     <section className="carte p-3">
       <div className="flex items-center justify-between gap-2 mb-2">
-        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{titre}</div>
+        <div className="intertitre">{titre}</div>
         {actions}
       </div>
       {children}
@@ -1063,7 +1063,7 @@ function FormulaireEtape({ dossier: d, cle, ref_, ue, peutInstruire, peutDecider
   return (
     <div>
       <div className="flex flex-wrap items-baseline gap-x-2 mb-1">
-        <h2 className="text-base font-semibold text-slate-800">{def.label}</h2>
+        <h2 className="titre-carte">{def.label}</h2>
         <span className="text-second text-slate-400">art. {def.art}{def.facultatif ? ' · facultatif' : ''}</span>
       </div>
       <div className="text-second text-slate-500 mb-3">

@@ -152,7 +152,7 @@ export default function RattacherPack({ onClose, onTermine }) {
 
         {rapport && (
           <div className="space-y-2">
-            <div className="text-xs uppercase tracking-wide text-slate-500">
+            <div className="intertitre">
               {rapport.etape === 'simulation' ? 'Simulation — rien n’a été écrit' : 'Effectué'}
             </div>
             <div className="grid grid-cols-4 gap-2">

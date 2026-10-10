@@ -92,7 +92,7 @@ function ZoneBase({ valeur, onChange }) {
         onDrop={e => { e.preventDefault();
           poser(e.dataTransfer.getData('text/plain'), false); }}
         className="rounded-xl border border-slate-200 bg-slate-50 p-2.5 space-y-2">
-        <div className="text-xs uppercase tracking-wide text-slate-400">
+        <div className="intertitre">
           Disponibles
         </div>
         {dispos.map(c => (

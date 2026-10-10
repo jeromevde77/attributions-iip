@@ -718,8 +718,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
         <div className="flex-1 min-w-0 flex flex-col pb-3 px-3 min-h-0"
           style={{ paddingTop: '0.5rem' }}>
           {volet.titre && (
-            <div className="px-1 pb-2 text-mention font-semibold uppercase tracking-wider
-                            flex-shrink-0"
+            <div className="intertitre px-1 pb-2 flex-shrink-0"
               style={{ color: 'var(--menu-texte-doux)' }}>{volet.titre}</div>
           )}
           <div ref={surNoeudVolet}
@@ -794,7 +793,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
 export function Tableau({ children, className = '', dense = false }) {
   return (
     <div style={{ background: 'var(--c-fond_ligne, #fff)', borderColor: 'var(--c-filet, rgb(var(--gris-200)))' }} className={`border rounded-xl overflow-x-auto ${className}`}>
-      <table className={`w-full ${dense ? 'text-second' : 'text-sm'}`}>{children}</table>
+      <table className={`tableau-maison w-full ${dense ? 'text-second' : 'text-sm'}`}>{children}</table>
     </div>
   );
 }
@@ -817,7 +816,7 @@ export function TableauEntete({ children, className = '' }) {
 export function Th({ children, align = 'gauche', largeur, className = '', ...props }) {
   const a = align === 'droite' ? 'text-right' : align === 'centre' ? 'text-center' : 'text-left';
   return (
-    <th className={`px-3 py-2 font-medium ${a} ${largeur || ''} ${className}`} {...props}>
+    <th className={`cellule px-3 font-medium ${a} ${largeur || ''} ${className}`} {...props}>
       {children}
     </th>
   );
@@ -832,13 +831,13 @@ export function Td({ children, align = 'gauche', ton = 'normal', className = '',
   const t = ton === 'secondaire' ? 'text-second text-slate-500'
     : ton === 'fort' ? 'text-sm font-semibold text-iip-blue'
     : 'text-sm text-slate-800';
-  return <td className={`px-3 py-1.5 ${a} ${t} ${className}`} {...props}>{children}</td>;
+  return <td className={`cellule px-3 ${a} ${t} ${className}`} {...props}>{children}</td>;
 }
 
 /** Ligne ordinaire, avec son survol et son filet. */
 export function Tr({ children, actif = false, className = '', ...props }) {
   return (
-    <tr className={`border-b border-slate-100 ${actif ? 'bg-iip-blue/5' : 'hover:bg-slate-50/60'}
+    <tr className={`ligne-maison ${actif ? 'ligne-active' : ''}
                     ${className}`} {...props}>
       {children}
     </tr>
@@ -857,7 +856,7 @@ export function TrGroupe({ children, className = '', ...props }) {
 /** Ligne de total : fond neutre, valeurs appuyées. */
 export function TrTotal({ children, className = '', ...props }) {
   return (
-    <tr className={`bg-slate-50 border-t-2 border-slate-300 font-semibold ${className}`} {...props}>
+    <tr className={`ligne-total font-semibold ${className}`} {...props}>
       {children}
     </tr>
   );
@@ -1222,7 +1221,7 @@ export function GroupeFenetre({ titre, ton = 'neutre', children }) {
   return (
     <section className="mb-4 last:mb-0">
       {titre && (
-        <div className="text-xs font-semibold uppercase tracking-[.13em] mb-2"
+        <div className="intertitre mb-2"
           style={{ color: ton === 'alerte' ? 'var(--c-refuse)' : 'var(--c-disponible)' }}>{titre}</div>
       )}
       <div className="space-y-1.5">{children}</div>

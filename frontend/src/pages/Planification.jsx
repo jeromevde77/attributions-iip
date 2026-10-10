@@ -585,7 +585,7 @@ function ModalImport({ annee, onImported, onClose }) {
               )}
               <div className="border border-gray-200 rounded-lg overflow-hidden max-h-64 overflow-y-auto">
                 <table className="w-full text-xs">
-                  <thead className="bg-gray-50 text-gray-500 uppercase tracking-wide sticky top-0">
+                  <thead className="intertitre bg-gray-50 sticky top-0">
                     <tr>
                       <th className="px-3 py-2 text-left">Section</th>
                       <th className="px-3 py-2 text-left">UE</th>

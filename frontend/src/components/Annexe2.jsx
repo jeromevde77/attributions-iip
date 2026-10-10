@@ -121,7 +121,7 @@ export default function Annexe2({ etudId, annee, onClose }) {
             {[['Inscrits', c.inscritsAnnee], ['Acquis cette année', c.acquisAnnee],
               ['Acquis au total', c.acquisTotal], ['Dispense', c.valorises]].map(([l, v]) => (
               <div key={l} className="border border-slate-200 rounded-xl px-3 py-2">
-                <div className="text-mention uppercase tracking-wide text-slate-500 font-semibold">{l}</div>
+                <div className="intertitre">{l}</div>
                 <div className="text-lg font-bold text-iip-blue">{v}</div>
               </div>
             ))}
@@ -136,7 +136,7 @@ export default function Annexe2({ etudId, annee, onClose }) {
         )}
 
         <label className="block text-xs">
-          <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
+          <span className="intertitre block mb-1">
             Raisons pour lesquelles les crédits n'ont pas été obtenus
           </span>
           <input value={motif} onChange={e => setMotif(e.target.value)}
@@ -148,7 +148,7 @@ export default function Annexe2({ etudId, annee, onClose }) {
         </label>
 
         <label className="block text-xs">
-          <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
+          <span className="intertitre block mb-1">
             Avis facultatif sur le déroulement des études
           </span>
           <textarea value={avis} onChange={e => setAvis(e.target.value)} rows={2}
@@ -156,7 +156,7 @@ export default function Annexe2({ etudId, annee, onClose }) {
         </label>
 
         <label className="block text-xs">
-          <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
+          <span className="intertitre block mb-1">
             Date du document
           </span>
           <input type="date" value={dateDoc} onChange={e => setDateDoc(e.target.value)}

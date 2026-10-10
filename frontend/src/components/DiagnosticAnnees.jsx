@@ -92,7 +92,7 @@ export default function DiagnosticAnnees({ annee, ueNum = null, onClose, onFini 
           ) : (
             <table className="w-full text-sm border border-slate-200 rounded-lg">
               <thead>
-                <tr className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                <tr className="intertitre bg-slate-50">
                   <th className="text-left px-3 py-2">Année</th>
                   <th className="text-left px-3 py-2">Unité</th>
                   <th className="text-right px-3 py-2">Notes</th>

@@ -884,7 +884,7 @@ export default function Editeur() {
             {showMargins && (
               <div className="absolute top-full right-0 mt-1 bg-white border border-slate-200 rounded-carte shadow-flottant p-3 z-50 w-64 space-y-3">
                 <div>
-                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Format</div>
+                  <div className="intertitre mb-1.5">Format</div>
                   <div className="segments flex">
                     {Object.entries(PAGE_FORMATS).map(([key, pf]) => (
                       <button key={key} onClick={() => setFormat(key)}
@@ -893,7 +893,7 @@ export default function Editeur() {
                   </div>
                 </div>
                 <div>
-                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Marges (mm)</div>
+                  <div className="intertitre mb-1.5">Marges (mm)</div>
                   <div className="grid grid-cols-2 gap-2">
                     {[['top', 'Haut'], ['bottom', 'Bas'], ['left', 'Gauche'], ['right', 'Droite']].map(([side, label]) => (
                       <label key={side} className="flex flex-col gap-0.5">
@@ -938,7 +938,7 @@ export default function Editeur() {
             </div>
             {showExemple && (
               <div className="absolute top-full right-0 mt-1 bg-white border border-slate-200 rounded-carte shadow-flottant p-3 z-50 w-80 space-y-2">
-                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">L’aperçu se compose sur…</div>
+                <div className="intertitre">L’aperçu se compose sur…</div>
                 <select value={section} onChange={e => setSection(e.target.value)} className="controle w-full">
                   <option value="">Section — aucune</option>
                   {sections.map(s => <option key={s.code} value={s.code}>{s.libelle || s.code}</option>)}
@@ -1013,7 +1013,7 @@ export default function Editeur() {
             <div className="flex-1 overflow-auto pb-2">
               {Object.entries(champsFiltres).map(([cat, champs]) => (
                 <div key={cat}>
-                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide px-3 pt-3 pb-1">{cat}</div>
+                  <div className="intertitre px-3 pt-3 pb-1">{cat}</div>
                   {champs.map(c => (
                     <button key={c.key} onClick={() => insererChamp(c)} title={`{{${c.key}}}`}
                       className="w-full text-left px-3 py-1 text-sm text-slate-700 hover:bg-slate-100 flex items-center gap-2">
@@ -1040,7 +1040,7 @@ export default function Editeur() {
               {boucleInfo.description && <p className="text-second text-slate-500 mb-3 leading-relaxed">{boucleInfo.description}</p>}
               {boucleInfo.champs.length > 0 ? (
                 <>
-                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Champs de cette liste</div>
+                  <div className="intertitre mb-1">Champs de cette liste</div>
                   {boucleInfo.champs.map(c => (
                     <button key={c.key} onClick={() => insererChamp(c)}
                       className="w-full text-left px-2 py-1 text-sm text-slate-700 hover:bg-slate-100 flex items-center gap-2 rounded-champ">

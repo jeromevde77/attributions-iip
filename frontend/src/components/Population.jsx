@@ -52,7 +52,7 @@ export default function Population({ annee }) {
       </div>
 
       <section>
-        <h2 className="text-base font-semibold text-iip-blue mb-1.5">Par section et par niveau</h2>
+        <h2 className="titre-carte mb-1.5">Par section et par niveau</h2>
         <div className="carte overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -80,7 +80,7 @@ export default function Population({ annee }) {
 
       <section>
         <div className="flex flex-wrap items-center gap-3 mb-1.5">
-          <h2 className="text-base font-semibold text-iip-blue">Par unité, face à l'effectif prévu</h2>
+          <h2 className="titre-carte">Par unité, face à l'effectif prévu</h2>
           <select value={section} onChange={e => setSection(e.target.value)} className="controle text-sm">
             <option value="">Toutes les sections</option>
             {sectionsUe.map(s0 => <option key={s0} value={s0}>{s0}</option>)}

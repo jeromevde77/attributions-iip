@@ -12,7 +12,7 @@ import { TuileEtat, PastilleEtat, Encadre } from './ui.jsx';
  * Des thèmes pour aller vite, puis chaque réglage à la main. L'aperçu emploie
  * les VRAIS composants : ce qu'on voit ici est ce que l'on verra partout.
  */
-const GROUPES = [['rayons', 'Rayons'], ['tuiles', 'Tuiles et pastilles'], ['controles', 'Boutons, champs, onglets'], ['elevations', 'Ombres et fenêtres'], ['texte', 'Texte']];
+const GROUPES = [['rayons', 'Rayons'], ['tuiles', 'Tuiles et pastilles'], ['controles', 'Boutons, champs, onglets'], ['titres', 'Titres et intertitres'], ['tableaux', 'Tableaux'], ['graphiques', 'Graphiques'], ['elevations', 'Ombres et fenêtres'], ['texte', 'Texte']];
 const THEMES = {
   'Maison IIP': {},
   'Arrondi': { rayon_champ: 12, rayon_carte: 20, rayon_fenetre: 28, rayon_tuile: 14, tuile_coins: 'arrondis', rayon_pastille: 10 },
@@ -63,7 +63,7 @@ export default function ReglageDesign() {
                   <span className="flex-1">{d.libelle}</span>
                   {d.type === 'choix'
                     ? <select className="controle !h-8" value={v[k]} disabled={!peut} onChange={e => changer({ ...v, [k]: e.target.value })}>
-                        {d.choix.map(c => <option key={c} value={c}>{c === 'marquee' ? 'marquée' : c}</option>)}</select>
+                        {d.choix.map(c => <option key={c} value={c}>{({ marquee: 'marquée', serree: 'serrée', aeree: 'aérée', pointille: 'pointillé', horizontaux: 'filets horizontaux', grille: 'grille complète', aucun: 'aucun' })[c] || c}</option>)}</select>
                     : <>
                         <input type="range" min={d.min} max={d.max} step={1} value={v[k]} disabled={!peut} onChange={e => changer({ ...v, [k]: Number(e.target.value) })} className="w-28" />
                         <span className="w-12 text-right tabular-nums">{v[k]}{d.type === 'px' ? ' px' : ''}</span>

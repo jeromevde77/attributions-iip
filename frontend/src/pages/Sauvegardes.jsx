@@ -127,7 +127,7 @@ export default function Sauvegardes() {
             Sauvegarde quotidienne
           </label>
           <label className="text-xs">
-            <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Heure</span>
+            <span className="intertitre block mb-1">Heure</span>
             <input type="time" value={config.heure} disabled={!config.active}
               onChange={e => enregistrerConfig({ heure: e.target.value })}
               className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm disabled:bg-slate-50" />
@@ -136,7 +136,7 @@ export default function Sauvegardes() {
             ['garder_hebdomadaires', 'Hebdomadaires'],
             ['garder_mensuelles', 'Mensuelles']].map(([k, l]) => (
             <label key={k} className="text-xs">
-              <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">{l}</span>
+              <span className="intertitre block mb-1">{l}</span>
               <input type="number" min="0" max="60" value={config[k]}
                 onChange={e => setConfig(c => ({ ...c, [k]: Number(e.target.value) }))}
                 onBlur={e => enregistrerConfig({ [k]: Number(e.target.value) })}

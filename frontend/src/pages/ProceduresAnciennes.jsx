@@ -52,7 +52,7 @@ function Ref({ text }) {
 function Section({ title, color = 'turquoise', children }) {
   const cls = { red:'border-red-500', green:'border-green-500',
     orange:'border-orange-500', turquoise:'border-iip-turquoise' };
-  return <div className={`border-l-4 pl-5 py-4 mb-5 ${cls[color]||cls.turquoise}`}><h3 className="font-bold text-base mb-3 text-iip-blue">{title}</h3>{children}</div>;
+  return <div className={`border-l-4 pl-5 py-4 mb-5 ${cls[color]||cls.turquoise}`}><h3 className="titre-carte mb-3">{title}</h3>{children}</div>;
 }
 function Q({ num, text, value, onChange, ref_ }) {
   return (
@@ -696,14 +696,14 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
       {/* ── 4 · ANALYSE AU FOND ── */}
       <Section title="4 · Analyse au fond (irrégularités invoquées)">
         <p className="text-sm text-gray-600 mb-4">Seules les irrégularités de <strong>procédure ou de droit</strong> peuvent fonder un recours. La Commission de recours peut annuler mais ne substitue pas sa note.</p>
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">A — Délibération</p>
+        <p className="intertitre mb-2">A — Délibération</p>
         <Q num="1" text="Le quorum était-il atteint ? (Président + min. 2 membres)" value={q.quorum} onChange={v => set('quorum', v)} ref_={is2526 ? 'Art. 14 ROI/RGE' : 'Art. 89 §1'} />
         <Q num="2" text="Conflit d'intérêt non déclaré parmi les membres du jury ?" value={q.conflitInteret} onChange={v => set('conflitInteret', v)} />
         <Q num="3" text="Justification de l'échec (AA non atteints) encodée et communiquée ?" value={q.motivJustif} onChange={v => set('motivJustif', v)} ref_={is2526 ? 'Art. 50 ROI/RGE' : 'Art. 71'} />
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 mt-3">B — Évaluation</p>
+        <p className="intertitre mb-2 mt-3">B — Évaluation</p>
         <Q num="4" text="DUE fournis dans les délais ?" value={q.dueDelai} onChange={v => set('dueDelai', v)} />
         <Q num="5" text="Visite des copies proposée dans les délais (J+1 après délibération) ?" value={q.visiteCopies} onChange={v => set('visiteCopies', v)} ref_={is2526 ? 'Art. 50 ROI/RGE' : 'Art. 71 §1'} />
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 mt-3">C — Post-délibération</p>
+        <p className="intertitre mb-2 mt-3">C — Post-délibération</p>
         <Q num="6" text="Résultats publiés dans les 2 jours ouvrables suivant la délibération ?" value={q.publiResultats} onChange={v => set('publiResultats', v)} ref_={is2526 ? 'Art. 63 ROI/RGE' : 'Art. 82'} />
       </Section>
 
@@ -1318,7 +1318,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
 
         {/* Procédure contradictoire — notification + contestation */}
         <div className="mt-5 pt-4 border-t border-gray-200">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Procédure contradictoire ({is2526F ? 'Art. 54 ROI/RGE' : 'Art. 74 RDE/ROI'})</p>
+          <p className="intertitre mb-3">Procédure contradictoire ({is2526F ? 'Art. 54 ROI/RGE' : 'Art. 74 RDE/ROI'})</p>
           <label className="block mb-3">
             <div className="text-xs font-semibold text-gray-600 mb-1">Date de notification à l'étudiant *</div>
             <input type="date" value={dateNotification} onChange={e => setDateNotification(e.target.value)}
@@ -1659,7 +1659,7 @@ export function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
       ) : (
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide border-b border-gray-200">
+            <thead className="intertitre bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="px-4 py-3 text-left">Type</th>
                 <th className="px-4 py-3 text-left">Étudiant</th>

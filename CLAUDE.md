@@ -1508,6 +1508,18 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
 > le catalogue (`valeur: null`, `suit`), donc rien ne change pour qui ne touche à
 > rien. Table des zones : `docs/contexte/inventaire-design-2026-10-10.md`. Une
 > nouvelle zone s'ajoute au catalogue, jamais en dur dans un écran.
+>
+> **LE CATALOGUE DES ÉLÉMENTS** (3.1.260, Charles : « tu n'as pas répertorié tous
+> les visuels — les tableaux, les titres… »). Configuration → *Catalogue des
+> éléments* (`components/CatalogueVisuels.jsx`) : douze familles — titres, boutons,
+> champs et segments, onglets, tuiles, encadrés, pastilles, tableaux, graphiques,
+> agenda, fenêtres, barre et rail —, chacune dessinée par ses VRAIS composants avec
+> les réglages qui la gouvernent. **Un élément absent du catalogue n'est pas un
+> standard.** Titres : `.titre-ecran`, `.titre-carte`, `.intertitre` (313
+> intertitres et 69 titres faits main y ont été ramenés). Tableaux : `Tableau`,
+> `Th`, `Td`, `Tr`, `TrTotal` (classes `.cellule`, `.ligne-maison`, `.ligne-total`)
+> suivent densité, alternance, filets et taille d'en-tête. Graphiques :
+> `reglagesGraphique()` (rayon, quadrillage, légende) et `couleursGraphique()`.
 
 ### Navigation
 

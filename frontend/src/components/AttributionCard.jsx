@@ -118,7 +118,7 @@ export default function AttributionCard({ row, selected, onToggleSelect, onChang
           <div className={`relative w-full rounded-t-2xl shadow-dessus p-4 max-h-[88vh] overflow-auto ${isHelb ? 'bg-pink-50 border-l-4 border-l-pink-500' : 'bg-white'}`}
                onClick={e => e.stopPropagation()}>
             <div className="w-12 h-1 bg-gray-300 rounded mx-auto mb-3"></div>
-            <h3 className="font-title text-lg text-iip-gold mb-1">{row.nom_cours || row.ue_nom}</h3>
+            <h3 className="titre-carte mb-1">{row.nom_cours || row.ue_nom}</h3>
             <p className="text-xs text-gray-500 mb-4">
               {row.section} · UE {row.ue_num} · {row.code_cours}
               {row.activite_nom && ` · ${row.activite_nom}`}

@@ -222,7 +222,7 @@ export default function ApercuDocuments({ onClose }) {
           <div className="flex-1 overflow-auto p-2">
             {groupes.map(([dom, docs]) => (
               <div key={dom} className="mb-2">
-                <div className="px-2 py-1 text-xs uppercase tracking-wide text-slate-500">{dom} · {docs.length}</div>
+                <div className="intertitre px-2 py-1">{dom} · {docs.length}</div>
                 {docs.map(d => (
                   <button key={d.id} onClick={() => choisir(d)}
                     className={`w-full text-left px-2.5 py-1.5 rounded-champ border text-sm ${choisi?.id === d.id ? 'border-iip-blue bg-white' : 'border-transparent hover:bg-slate-50'}`}>
@@ -231,7 +231,7 @@ export default function ApercuDocuments({ onClose }) {
               </div>))}
             {!!g?.a_l_ecran?.length && !filtre && (
               <div className="mb-2">
-                <div className="px-2 py-1 text-xs uppercase tracking-wide text-slate-500">Composées à l’écran · {g.a_l_ecran.length}</div>
+                <div className="intertitre px-2 py-1">Composées à l’écran · {g.a_l_ecran.length}</div>
                 <p className="px-2 pb-1 text-xs text-slate-500">Elles se dessinent dans le navigateur, sur l’écran qui les produit — l’aperçu s’y ouvre avant d’imprimer.</p>
                 {g.a_l_ecran.map(d => (
                   <button key={d.libelle} onClick={() => { onClose(); navigate(d.ecran); }}

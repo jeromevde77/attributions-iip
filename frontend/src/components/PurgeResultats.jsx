@@ -145,7 +145,7 @@ export default function PurgeResultats({ anneeCourante, onClose, onPurge }) {
               {/* Périmètre */}
               <div className="grid grid-cols-2 gap-3">
                 <label className="text-xs">
-                  <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Année</span>
+                  <span className="intertitre block mb-1">Année</span>
                   <select value={annee} onChange={e => setAnnee(e.target.value)}
                     className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
                     <option value="">—</option>
@@ -153,7 +153,7 @@ export default function PurgeResultats({ anneeCourante, onClose, onPurge }) {
                   </select>
                 </label>
                 <label className="text-xs">
-                  <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Section</span>
+                  <span className="intertitre block mb-1">Section</span>
                   <select value={section}
                     onChange={e => { setSection(e.target.value); setUeNum(''); setCoursCode(''); }}
                     className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
@@ -164,7 +164,7 @@ export default function PurgeResultats({ anneeCourante, onClose, onPurge }) {
               </div>
 
               <div>
-                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+                <div className="intertitre mb-1.5">
                   Étendue
                 </div>
                 <div className="flex gap-3 flex-wrap mb-2">
@@ -198,7 +198,7 @@ export default function PurgeResultats({ anneeCourante, onClose, onPurge }) {
 
               {/* Étudiants */}
               <div>
-                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+                <div className="intertitre mb-1.5">
                   Étudiants
                 </div>
                 <div className="flex gap-3 mb-2">
@@ -245,7 +245,7 @@ export default function PurgeResultats({ anneeCourante, onClose, onPurge }) {
 
               {/* Portée */}
               <div>
-                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+                <div className="intertitre mb-1.5">
                   Ce qui est supprimé
                 </div>
                 <div className="space-y-1.5">

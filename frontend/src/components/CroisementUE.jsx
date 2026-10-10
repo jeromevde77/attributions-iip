@@ -246,7 +246,7 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
           coche au jugé. */}
       {acquis.length > 0 && (
         <section className="rounded-carte border border-slate-200 px-3 py-2">
-          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Acquis d’apprentissage de l’unité</div>
+          <div className="intertitre mb-1">Acquis d’apprentissage de l’unité</div>
           <dl className="m-0 grid gap-x-4 gap-y-1 text-second" style={{ gridTemplateColumns: 'max-content 1fr' }}>
             {acquis.map(a => (
               <div key={a.aa_code} className="contents">

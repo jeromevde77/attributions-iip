@@ -588,7 +588,7 @@ export function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
                   <div key={g.k} className="flex mb-3">
                     <div className="w-[5px] rounded-full flex-none" style={{ background: g.k === 'EI' ? 'var(--c-epreuve, #C9A227)' : (couleurBloc(g.k) || 'rgb(var(--gris-300))') }} />
                     <div className="flex-1 min-w-0 pl-2.5">
-                      <div className="text-mention font-bold uppercase tracking-wider text-slate-500 pb-1">
+                      <div className="intertitre pb-1">
                         {g.k === 'EI' ? 'Épreuve intégrée' : g.k} · {g.ues.length} UE · {g.ues.reduce((t, u) => t + u.ects, 0)} ECTS</div>
                       {g.ues.map(u => {
                         const ouvert = ouverts.has(u.ue_num);
@@ -1433,7 +1433,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                     ) : (
                       <div className="flex items-center justify-between gap-3">
                         <div>
-                          <div className="text-mention uppercase tracking-wide text-slate-500 font-semibold">
+                          <div className="intertitre">
                             Note calculée
                           </div>
                           <div className="text-lg font-bold text-iip-blue leading-tight"
@@ -1938,7 +1938,7 @@ function Valorisations({ etudId, annee }) {
               pas — et une demande dont rien ne garde trace se réintroduit
               l'année suivante, sans qu'on sache qu'elle a déjà été examinée. */}
           <div className="flex items-center gap-4 text-sm">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+            <span className="intertitre">
               Décision du Conseil
             </span>
             {[['accordee', 'Accordée'], ['refusee', 'Refusée']].map(([val, lab]) => (
@@ -1958,7 +1958,7 @@ function Valorisations({ etudId, annee }) {
           {form.decision === 'refusee' ? (
             <>
               <label className="block text-xs">
-                <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                <span className="intertitre block mb-1">
                   Unité demandée
                 </span>
                 <select value={form.ue_num || ''} className="controle w-full"
@@ -1974,7 +1974,7 @@ function Valorisations({ etudId, annee }) {
               {/* UN REFUS SE MOTIVE. C'est une décision défavorable, et
                   « refusé » sans motif ne se défend pas devant un recours. */}
               <label className="block text-xs">
-                <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                <span className="intertitre block mb-1">
                   Motif du refus <span className="text-iip-texte">— obligatoire</span>
                 </span>
                 <textarea rows={3} value={form.motif_refus || ''}
@@ -1986,7 +1986,7 @@ function Valorisations({ etudId, annee }) {
           ) : (
           <>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <label className="text-xs col-span-2"><span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Type</span>
+            <label className="text-xs col-span-2"><span className="intertitre block mb-1">Type</span>
               <select value={form.type} onChange={e => setForm(f => {
                 const t = e.target.value;
                 // Passer en « complète » coche tout : c'est ce que le mot dit.
@@ -2000,7 +2000,7 @@ function Valorisations({ etudId, annee }) {
                 className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
                 {TYPES_VA.map(t => <option key={t.val} value={t.val}>{t.label}</option>)}
               </select></label>
-            <label className="text-xs"><span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Section</span>
+            <label className="text-xs"><span className="intertitre block mb-1">Section</span>
               <select value={sectionVA} onChange={e => setSectionVA(e.target.value)}
                 className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
                 <option value="">Toutes</option>
@@ -2008,7 +2008,7 @@ function Valorisations({ etudId, annee }) {
                   <option key={sx.code} value={sx.code}>{sx.libelle || sx.code}</option>
                 ))}
               </select></label>
-            <label className="text-xs col-span-2"><span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Unité d'enseignement</span>
+            <label className="text-xs col-span-2"><span className="intertitre block mb-1">Unité d'enseignement</span>
               <select value={form.ue_num || ''}
                 onChange={e => {
                   const n = e.target.value;
@@ -2029,7 +2029,7 @@ function Valorisations({ etudId, annee }) {
                 ★ déjà au programme de l'étudiant en {annee}
               </span></label>
             {form.type !== 'admission' && (
-              <label className="text-xs"><span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">%</span>
+              <label className="text-xs"><span className="intertitre block mb-1">%</span>
                 <input type="number" min="0" max="100" value={form.pourcentage}
                   onChange={e => setForm(f => ({ ...f, pourcentage: e.target.value }))}
                   className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" /></label>
@@ -2106,8 +2106,7 @@ function Valorisations({ etudId, annee }) {
 
                 return (
                 <div className="border border-slate-200 rounded-xl overflow-hidden">
-                  <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200
-                                  text-xs uppercase tracking-wide text-slate-500 font-semibold">
+                  <div className="intertitre px-3 py-1.5 bg-slate-50 border-b border-slate-200">
                     UE {form.ue_num} · {liste.length}{' '}
                     {form.cible === 'cours' ? 'cours' : "acquis d'apprentissage"}
                     {anterieur?.annee_source && (
@@ -2248,7 +2247,7 @@ function Valorisations({ etudId, annee }) {
             <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
               <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200
                               flex items-center justify-between">
-                <span className="text-xs uppercase tracking-wide text-slate-500 font-semibold">
+                <span className="intertitre">
                   Acquis d'apprentissage reconnus équivalents
                 </span>
                 <span className="text-xs text-slate-500">
@@ -2294,11 +2293,11 @@ function Valorisations({ etudId, annee }) {
           )}
 
           <div className="grid grid-cols-2 gap-3">
-            <label className="text-xs"><span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Date décision CE</span>
+            <label className="text-xs"><span className="intertitre block mb-1">Date décision CE</span>
               <input type="date" value={form.decision_ce_date || ''}
                 onChange={e => setForm(f => ({ ...f, decision_ce_date: e.target.value }))}
                 className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" /></label>
-            <label className="text-xs"><span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Commentaire</span>
+            <label className="text-xs"><span className="intertitre block mb-1">Commentaire</span>
               <input value={form.commentaire || ''}
                 onChange={e => setForm(f => ({ ...f, commentaire: e.target.value }))}
                 className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" /></label>
@@ -3014,7 +3013,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
               <div className="border-t border-slate-200 pt-4">
                 <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
                   <div>
-                    <h3 className="text-base font-semibold text-iip-blue">
+                    <h3 className="titre-carte">
                       Frais de scolarité
                     </h3>
                     <p className="text-second text-slate-500">
@@ -3279,7 +3278,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                   ) : (
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="text-xs uppercase tracking-wide text-slate-400 border-b">
+                        <tr className="intertitre border-b">
                           <th className="py-2 w-8"></th>
                           <th className="py-2 text-left">UE proposée</th>
                           <th className="py-2 text-left w-20">Niv.</th>
@@ -4482,9 +4481,7 @@ export default function Etudiants() {
                         question — où en est cette personne. */}
                     {e.sortie_statut === 'archive' && (
                       <span title={`Archivé le ${e.sortie_le || '?'} — hors des listes de travail`}
-                        className="ml-1.5 text-mention font-semibold uppercase tracking-wide
-                                   text-slate-600 bg-slate-100 border border-slate-300
-                                   rounded px-1.5 py-px">archivé</span>
+                        className="intertitre ml-1.5 bg-slate-100 border border-slate-300 rounded px-1.5 py-px">archivé</span>
                     )}
                     {e.sortie_statut === 'sorti' && (
                       <span title={`Sorti le ${e.sortie_le || '?'}${e.sortie_motif ? ` — ${e.sortie_motif}` : ''}`}

@@ -96,11 +96,11 @@ export default function ImportReleveStages({ onClose, onFini }) {
       </>}>
       <div className="grid md:grid-cols-2 gap-3 mb-4">
         <label>
-          <span className="block text-mention uppercase tracking-[.1em] text-slate-400 font-semibold mb-0.5">Relevé</span>
+          <span className="intertitre block mb-0.5">Relevé</span>
           <input type="file" accept=".xlsx,.xls" className="block w-full text-second" onChange={e => choisirFichier(e.target.files?.[0])} />
         </label>
         <label>
-          <span className="block text-mention uppercase tracking-[.1em] text-slate-400 font-semibold mb-0.5">Section</span>
+          <span className="intertitre block mb-0.5">Section</span>
           <select className="controle w-full bg-white" value={section} onChange={e => { setSection(e.target.value); setRapport(null); }}>
             <option value="">— choisir —</option>
             {sections.map(s => <option key={s.code} value={s.code}>{s.libelle || s.code}</option>)}

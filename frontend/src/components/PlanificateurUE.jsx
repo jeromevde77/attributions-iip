@@ -177,7 +177,7 @@ export default function PlanificateurUE({ items, annee, val, editer, modifs }) {
             {moisSegments.map((m, i) => (
               <div key={i}
                 style={{ width: `${m.jours / totalJours * 100}%` }}
-                className="text-mention font-bold uppercase tracking-wide text-slate-400 text-center py-1.5 border-l border-slate-100 first:border-l-0">
+                className="intertitre text-center py-1.5 border-l border-slate-100 first:border-l-0">
                 {m.nom}
               </div>
             ))}
@@ -207,7 +207,7 @@ export default function PlanificateurUE({ items, annee, val, editer, modifs }) {
           {items.map((item, idx) => {
             if (item.type === 'groupe') {
               return (
-                <div key={`g-${idx}`} className="px-3 py-1 bg-slate-50/80 border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500">
+                <div key={`g-${idx}`} className="intertitre px-3 py-1 bg-slate-50/80 border-b border-slate-200">
                   {item.libelle}
                 </div>
               );

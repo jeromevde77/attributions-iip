@@ -176,7 +176,7 @@ export default function AtelierUE({ faceInitiale = 'croisement', faces = FACES.m
   return (
     <div className="p-4 space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <h2 className="text-lg font-semibold text-iip-blue mr-auto min-w-0 flex-1 truncate" title={u ? `UE ${u.ue_num} — ${u.ue_nom}` : ''}>
+        <h2 className="titre-carte mr-auto min-w-0 flex-1 truncate" title={u ? `UE ${u.ue_num} — ${u.ue_nom}` : ''}>
           {u ? <>UE {u.ue_num} — {u.ue_nom}</> : 'Unité'}
         </h2>
         {liste.sections.length > 1 && (

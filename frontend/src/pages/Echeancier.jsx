@@ -325,7 +325,7 @@ export default function Echeancier() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-slate-50/60 border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
+                  <tr className="intertitre bg-slate-50/60 border-b border-slate-200">
                     <th className="px-3 py-2 text-left">Échéance</th>
                     <th className="px-3 py-2 text-left w-40">Zone</th>
                     <th className="px-3 py-2 text-left w-52">Règle de date</th>
@@ -404,7 +404,7 @@ export default function Echeancier() {
 function Info({ label, valeur }) {
   return (
     <div>
-      <div className="text-mention text-slate-400 uppercase tracking-wider">{label}</div>
+      <div className="intertitre">{label}</div>
       <div className="text-slate-800 mt-0.5">{valeur}</div>
     </div>
   );

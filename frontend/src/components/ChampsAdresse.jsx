@@ -30,7 +30,7 @@ const CLS = 'w-full border rounded-lg px-2 py-1.5 text-sm';
 function EtiquetteParDefaut({ label, children }) {
   return (
     <label className="text-xs block">
-      <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">{label}</span>
+      <span className="intertitre block mb-1">{label}</span>
       {children}
     </label>
   );

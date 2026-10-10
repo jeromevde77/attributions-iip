@@ -87,7 +87,7 @@ export default function ConventionStage({ stage, peutEcrire, onChange }) {
   return (
     <div className="pt-2 border-t border-slate-100">
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Convention</span>
+        <span className="intertitre">Convention</span>
         {active ? (
           <>
             <PastilleEtat etat={ETATS[active.etat].etat}>{ETATS[active.etat].libelle}</PastilleEtat>

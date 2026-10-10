@@ -75,7 +75,7 @@ export default function NouvelEtudiant({ onClose, onCree }) {
 
   const champ = (k, label) => (
     <label className="block text-xs">
-      <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">{label}</span>
+      <span className="intertitre block mb-1">{label}</span>
       <input value={form[k]} className="controle w-full" autoFocus={k === 'nom'}
         onChange={e => set(k, e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter' && pret && !doublons) creer(false); }} />

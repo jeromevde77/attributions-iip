@@ -5,7 +5,8 @@ import { useSearchParams } from 'react-router-dom';
 import { api, getAnnee, setAnnee as setAnneeActive, getUser } from '../lib/api.js';
 import { ORIGINE, chargerCouleurs, echelleGris, poser as poserCouleurs, poserGris, variables as variablesCouleurs } from '../lib/couleurs.js';
 import Audit from './Audit.jsx';
-import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette, IconArchive, IconAlertTriangle, IconShieldLock, IconDatabase, IconHierarchy, IconArrowsSplit, IconTool, IconSchool, IconStairsUp, IconCalculator, IconLinkOff, IconSend, IconMessageDots, IconId, IconFileDescription, IconKey, IconMailForward, IconUserSearch, IconCoin, IconShape } from '@tabler/icons-react';
+import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette, IconArchive, IconAlertTriangle, IconShieldLock, IconDatabase, IconHierarchy, IconArrowsSplit, IconTool, IconSchool, IconStairsUp, IconCalculator, IconLinkOff, IconSend, IconMessageDots, IconId, IconFileDescription, IconKey, IconMailForward, IconUserSearch, IconCoin, IconShape, IconComponents } from '@tabler/icons-react';
+import CatalogueVisuels from '../components/CatalogueVisuels.jsx';
 import ReglageDesign from '../components/ReglageDesign.jsx';
 import { PageHeader, RailLateral, TuileEtat, PastilleEtat, Encadre } from '../components/ui.jsx';
 import ApercuDocuments from '../components/ApercuDocuments.jsx';
@@ -251,7 +252,7 @@ function ChangelogView({ data }) {
     <div className="space-y-5">
       {days.map(day => (
         <div key={day}>
-          <h3 className="font-semibold text-iip-gold text-sm mb-2 pb-1 border-b border-gray-100">
+          <h3 className="titre-carte mb-2 pb-1 border-b border-gray-100">
             {new Date(day).toLocaleDateString('fr-BE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </h3>
           <ul className="space-y-1.5">
@@ -408,7 +409,7 @@ function GestionParametres({ groupes = null }) {
         return (
           <div key={groupe} className="carte overflow-hidden min-w-0">
             <div className="px-5 py-4 border-b border-gray-100">
-              <h3 className="font-semibold text-gray-800 flex items-center gap-2">{Icon && <Icon size={17} className="text-iip-turquoise" />}{meta.label}</h3>
+              <h3 className="titre-carte flex items-center gap-2">{Icon && <Icon size={17} className="text-iip-turquoise" />}{meta.label}</h3>
               <p className="text-xs text-gray-500 mt-0.5">{meta.desc}</p>
             </div>
             <div className="divide-y divide-gray-100">
@@ -673,7 +674,7 @@ function GestionPrerequis() {
           ) : (
             <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
+                <thead className="intertitre bg-gray-50">
                   <tr>
                     <th className="px-4 py-3 text-left">UE</th>
                     <th className="px-4 py-3 text-left">Dépend de (prérequis)</th>
@@ -780,7 +781,7 @@ function ConfigContrat() {
     <div className="max-w-none space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-bold text-iip-blue">Template du contrat de travail</h2>
+          <h2 className="titre-carte">Template du contrat de travail</h2>
           <p className="text-xs text-gray-500 mt-0.5">Éditez le HTML du contrat. Utilisez les variables <code className="bg-gray-100 px-1 rounded">{"{{variable}}"}</code> pour les données dynamiques.</p>
         </div>
         <div className="flex items-center gap-2">
@@ -865,7 +866,7 @@ function ConfigAttestation() {
       {/* UNE SECONDE RANGÉE D'ONGLETS SOUS CELLE DES DOCUMENTS, POUR DEUX
           BLOCS (2.12.177). Ils tiennent l'un sous l'autre : on lit la page
           d'un trait, et l'on ne se demande plus dans quel onglet on est. */}
-      <h2 className="text-lg font-semibold text-iip-blue">Configuration des attestations</h2>
+      <h2 className="titre-carte">Configuration des attestations</h2>
 
       {/* L'ÉTABLISSEMENT N'EST PLUS ICI (3 octobre 2026 : Identité fait foi).
           Nom, adresse, n° ECOT et FASE se règlent dans Établissement →
@@ -873,7 +874,7 @@ function ConfigAttestation() {
       <p className="text-second text-slate-500">Nom, adresse, n° ECOT, FASE et signataire : <b>Établissement → Identité</b>. L'attestation les lit de là.</p>
 
       {/* ── Sections & Diplômes ── */}
-      <h3 className="text-base font-semibold text-iip-blue pt-2">{ONGLETS_LOC[1].label}</h3>
+      <h3 className="titre-carte pt-2">{ONGLETS_LOC[1].label}</h3>
       {(
         <div className="space-y-3">
           <div className="text-xs text-gray-500 mb-2">Chaque section correspond à un diplôme délivrable. Renseignez le code Gouvernement exact.</div>
@@ -1129,6 +1130,7 @@ export default function Configuration() {
     { label: 'Système', icon: IconAdjustments, items: [
       { key: 'couleurs', label: 'Thèmes et couleurs', icon: IconPalette },
       { key: 'design', label: 'Formes et composants', icon: IconShape },
+      { key: 'catalogue', label: 'Catalogue des éléments', icon: IconComponents },
       { key: 'sauvegardes', label: 'Sauvegardes', icon: IconDatabase },
       { key: 'systeme', label: 'Traces et historique', icon: IconHistory },
       { key: 'registre-envois', label: 'Registre des envois', icon: IconMailForward },
@@ -1217,7 +1219,7 @@ export default function Configuration() {
           ici, et y renvoie. */}
       {tab === 'ref-ponderations' && (
         <div className="p-5 space-y-3 max-w-2xl">
-          <h2 className="text-lg font-semibold text-iip-blue">Les pondérations ont déménagé</h2>
+          <h2 className="titre-carte">Les pondérations ont déménagé</h2>
           <p className="text-sm text-slate-600">
             Les poids des cours et des acquis se règlent désormais par année, dans
             <b> Organisation → Pondérations</b> : la part de chaque cours dans l'UE, les liens entre acquis
@@ -1296,6 +1298,7 @@ export default function Configuration() {
 
       {tab === 'couleurs' && <ReglageCouleurs />}
       {tab === 'design' && <ReglageDesign />}
+      {tab === 'catalogue' && <CatalogueVisuels />}
 
       {/* ── Onglet Recrutement ── */}
       {tab === 'recrutement' && <ConfigRecrutement />}
@@ -1328,7 +1331,7 @@ export default function Configuration() {
       {/* ── Historique des modifications ── */}
       <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div className="px-4 py-3 bg-iip-gold/5 border-b border-gray-200">
-          <h2 className="font-semibold text-iip-gold">Historique des modifications</h2>
+          <h2 className="titre-carte">Historique des modifications</h2>
           <p className="text-xs text-gray-500 mt-0.5">
             Sauvegarde un snapshot complet de chaque attribution avant chaque modification.
             Permet de revenir en arrière en cas d'erreur.
@@ -1358,7 +1361,7 @@ export default function Configuration() {
       {/* ── Sauvegarde de la base ── */}
       <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div className="px-4 py-3 bg-iip-gold/5 border-b border-gray-200">
-          <h2 className="font-semibold text-iip-gold">Sauvegarde de la base de données</h2>
+          <h2 className="titre-carte">Sauvegarde de la base de données</h2>
           <p className="text-xs text-gray-500 mt-0.5">
             Télécharge une copie complète de la base SQLite (attributions, profs, historique, planning…).
           </p>
@@ -1517,7 +1520,7 @@ function PnccSection({ annee }) {
     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
       <div className="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
         <div>
-          <h3 className="font-semibold text-gray-800 text-sm">Postes PNCC — Personnel non chargé de cours</h3>
+          <h3 className="titre-carte">Postes PNCC — Personnel non chargé de cours</h3>
           <p className="text-xs text-gray-500 mt-0.5">
             Année {annee} · Total : <strong>{totalAll.toFixed(1)} ETP</strong>
             {totalSecEtu > 0 && <> · dont secrétariat étudiant : <strong className="text-sky-600">{totalSecEtu.toFixed(1)} ETP</strong> (proratisé par section)</>}
@@ -1686,7 +1689,7 @@ function OngletProcedures() {
   return (
     <div className="max-w-none bg-white rounded-lg border border-gray-200 p-5 space-y-4">
       <div>
-        <h2 className="font-semibold text-gray-800 text-base flex items-center gap-2">
+        <h2 className="titre-carte flex items-center gap-2">
           <IconGavel size={17} className="text-iip-turquoise" />
           Justifications types — Procédure de recours
         </h2>
@@ -1767,7 +1770,7 @@ const DEMENAGES = {
 function Demenage({ d }) {
   return (
     <div className="carte p-5 space-y-3 max-w-2xl">
-      <h2 className="text-base font-semibold text-iip-blue">Cet outil a déménagé</h2>
+      <h2 className="titre-carte">Cet outil a déménagé</h2>
       <p className="text-sm text-slate-600">Ce n'est pas un réglage : il vit désormais là où l'on s'en sert, dans <b>{d.ou}</b>.</p>
       <button type="button" className="bouton bouton-fort" onClick={d.aller}>Y aller</button>
     </div>
@@ -1869,7 +1872,7 @@ export function OngletStatistiques() {
     <div className="max-w-none space-y-4">
       {/* En-tête */}
       <div className="bg-white rounded-lg border border-gray-200 p-5">
-        <h2 className="font-semibold text-gray-800 text-base flex items-center gap-2 mb-1">
+        <h2 className="titre-carte flex items-center gap-2 mb-1">
           <IconChartBar size={17} className="text-iip-turquoise" />
           Effectifs estimés par section
         </h2>
@@ -1977,7 +1980,7 @@ export function OngletStatistiques() {
                 return (
                   <>
                     <tr key={`niv-${niv}`} className="bg-slate-100 border-t-2 border-slate-200">
-                      <td colSpan={2} className="px-4 py-1.5 text-xs font-bold text-slate-600 uppercase tracking-wide">
+                      <td colSpan={2} className="intertitre px-4 py-1.5">
                         {niv}
                       </td>
                       <td className="px-3 py-1.5 text-right text-xs font-bold text-iip-blue">
@@ -2057,7 +2060,7 @@ function ConfigRecrutement() {
     <div className="mb-8">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <h2 className="text-lg font-semibold text-iip-blue">{label}</h2>
+          <h2 className="titre-carte">{label}</h2>
           <p className="text-xs text-gray-400 mt-0.5">{desc}</p>
         </div>
         <button onClick={field.sauvegarder} disabled={field.saving || field.loading}
@@ -2327,7 +2330,7 @@ function ReglageCouleurs() {
         <div data-gris={/^#/.test(gris) ? undefined : gris}
           style={{ ...styleApercu, ...(echelleGris(gris) || {}), background: v('fond_page') }}
           className="rounded-carte border border-slate-200 p-4 space-y-4 xl:sticky xl:top-4">
-          <div className="text-xs uppercase tracking-wide text-slate-500 font-semibold">Aperçu</div>
+          <div className="intertitre">Aperçu</div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {[['reussi', '38', 'réussites'], ['faveur', '4', 'faveurs'], ['disponible', '66', 'inscrits'],
               ['surveiller', '12', 'ajournés'], ['corriger', '3', 'refus'], ['indisponible', '8', 'pas encore']]
@@ -2478,7 +2481,7 @@ export function ClotureReprise() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-iip-blue">
+      <h2 className="titre-carte">
         Clôturer une année reprise d'archives
       </h2>
 

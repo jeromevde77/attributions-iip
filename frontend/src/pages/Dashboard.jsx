@@ -5,6 +5,7 @@ import ActivityFeed from '../components/ActivityFeed.jsx';
 import { RailLateral, TuileEtat } from '../components/ui.jsx';
 import { IconChevronRight, IconLayoutDashboard, IconChartBar, IconBuildingCommunity, IconFileText, IconUsers } from '@tabler/icons-react';
 import { couleursGraphique } from '../lib/couleurs.js';
+import { reglagesGraphique } from '../lib/design.js';
 
 const TAB_ICONS = { apercu: IconChartBar, sections: IconBuildingCommunity, doc23: IconFileText, etp: IconUsers };
 
@@ -119,14 +120,14 @@ export default function Dashboard() {
       {/* ═══════════ Onglet Aperçu : graphe ═══════════ */}
       {tab === 'apercu' && (
         <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-pose">
-          <h2 className="font-title text-lg text-iip-gold mb-4">Répartition des périodes par section</h2>
+          <h2 className="titre-carte mb-4">Répartition des périodes par section</h2>
           <ResponsiveContainer width="100%" height={400}>
             <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke={couleursGraphique().grille} />
+              {reglagesGraphique().grille !== 'aucun' && <CartesianGrid strokeDasharray={reglagesGraphique().grille === 'plein' ? '0' : '3 3'} stroke={couleursGraphique().grille} />}
               <XAxis dataKey="section" tick={{ fontSize: 11 }} angle={-30} textAnchor="end" height={70} />
               <YAxis />
               <Tooltip />
-              <Legend />
+              {reglagesGraphique().legende !== 'aucune' && <Legend verticalAlign={reglagesGraphique().legende === 'haut' ? 'top' : 'bottom'} />}
               <Bar dataKey="IIP"  stackId="a" fill={couleursGraphique().iip} />
               <Bar dataKey="HELB" stackId="a" fill={couleursGraphique().helb} />
             </BarChart>
@@ -143,7 +144,7 @@ export default function Dashboard() {
           </div>
 
           <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-            <h2 className="font-title text-lg text-iip-gold p-3 border-b bg-iip-gold/5">Récapitulatif par section</h2>
+            <h2 className="titre-carte p-3 border-b bg-iip-gold/5">Récapitulatif par section</h2>
             <div className="overflow-auto">
               <table className="grid-excel-soft w-full">
                 <thead><tr>
@@ -197,7 +198,7 @@ export default function Dashboard() {
           </section>
 
           <section>
-            <h2 className="font-title text-lg text-iip-gold mb-2">Détail par section</h2>
+            <h2 className="titre-carte mb-2">Détail par section</h2>
             <div className="space-y-2">
               {sectionSummary.map(sec => {
                 const open = openSections[sec.section];
@@ -217,7 +218,7 @@ export default function Dashboard() {
                     {open && (
                       <div className="border-t border-gray-200 p-3 space-y-4">
                         <div>
-                          <h3 className="text-sm font-semibold text-gray-700 mb-1">Par niveau (bloc)</h3>
+                          <h3 className="titre-carte mb-1">Par niveau (bloc)</h3>
                           <div className="overflow-auto">
                             <table className="grid-excel-soft w-full text-sm">
                               <thead><tr>
@@ -243,7 +244,7 @@ export default function Dashboard() {
                         </div>
                         {detail.length > 0 && (
                           <div>
-                            <h3 className="text-sm font-semibold text-gray-700 mb-1">ETP par niveau</h3>
+                            <h3 className="titre-carte mb-1">ETP par niveau</h3>
                             <div className="overflow-auto">
                               <table className="grid-excel-soft w-full text-sm">
                                 <thead><tr>
@@ -266,7 +267,7 @@ export default function Dashboard() {
                         )}
                         {docs.length > 0 && (
                           <div>
-                            <h3 className="text-sm font-semibold text-gray-700 mb-1">Concordance UE (DOC 2-3)</h3>
+                            <h3 className="titre-carte mb-1">Concordance UE (DOC 2-3)</h3>
                             <div className="overflow-auto max-h-[40vh]">
                               <table className="grid-excel-soft w-full text-sm">
                                 <thead><tr>
@@ -307,7 +308,7 @@ export default function Dashboard() {
       {/* ═══════════ Onglet DOC 2-3 global ═══════════ */}
       {tab === 'doc23' && (
         <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-          <h2 className="font-title text-lg text-iip-gold p-3 border-b bg-iip-gold/5">
+          <h2 className="titre-carte p-3 border-b bg-iip-gold/5">
             Concordance DOC 2-3 — Vue globale
             <span className="ml-3 text-sm font-normal text-gray-500">
               Prévu : {n(totPerDoc2)} · Attribué : {n(totPerDP)}
@@ -351,7 +352,7 @@ export default function Dashboard() {
       {/* ═══════════ Onglet ETP ═══════════ */}
       {tab === 'etp' && (
         <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-          <h2 className="font-title text-lg text-iip-gold p-3 border-b bg-iip-gold/5">ETP par section et niveau</h2>
+          <h2 className="titre-carte p-3 border-b bg-iip-gold/5">ETP par section et niveau</h2>
           <div className="overflow-auto max-h-[65vh]">
             <table className="grid-excel-soft w-full">
               <thead><tr>

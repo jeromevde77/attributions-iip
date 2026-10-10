@@ -184,7 +184,7 @@ export default function GrilleOrganisation({ sansTitre = false } = {}) {
             <div style={{ minWidth: 820 }}>
 
               {/* Les mois, puis les quadrimestres — lus du calendrier. */}
-              <div className="flex text-mention uppercase tracking-wide text-slate-400 px-3 pt-2">
+              <div className="intertitre flex px-3 pt-2">
                 <div style={{ width: 230, flexShrink: 0 }} />
                 <div className="flex-1 grid" style={{ gridTemplateColumns: `repeat(${nbSem}, 1fr)` }}>
                   {semaines.map((s, i) => {
@@ -523,7 +523,7 @@ function FenetreCours({ etat, annee, section, periodeMinutes = 50,
 
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-xs uppercase tracking-wide text-slate-500">
+            <tr className="intertitre">
               <th className="text-left pb-1">Activité</th>
               <th className="text-right pb-1 w-24">Périodes</th>
               <th className="text-center pb-1 w-28">Vue étudiant</th>

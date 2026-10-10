@@ -81,8 +81,7 @@ export default function MenuActions({ libelle, Icone, ton = 'neutre', items, tit
             it.separateur ? (
               <div key={`s${i}`} className="my-1.5 border-t border-slate-100">
                 {it.titre && (
-                  <div className="text-mention uppercase tracking-wide text-slate-400
-                                  font-semibold px-3 pt-2 pb-0.5">{it.titre}</div>
+                  <div className="intertitre px-3 pt-2 pb-0.5">{it.titre}</div>
                 )}
               </div>
             ) : it.fichier ? (

@@ -217,26 +217,26 @@ export function Absences({ profId, peutEcrire }) {
         <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/60 space-y-3">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <label className="text-xs">
-              <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Type</span>
+              <span className="intertitre block mb-1">Type</span>
               <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}
                 className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
                 {TYPES_ABSENCE.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
             </label>
             <label className="text-xs">
-              <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Début</span>
+              <span className="intertitre block mb-1">Début</span>
               <input type="date" value={form.date_debut}
                 onChange={e => setForm(f => ({ ...f, date_debut: e.target.value }))}
                 className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
             </label>
             <label className="text-xs">
-              <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Fin</span>
+              <span className="intertitre block mb-1">Fin</span>
               <input type="date" value={form.date_fin || ''}
                 onChange={e => setForm(f => ({ ...f, date_fin: e.target.value }))}
                 className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
             </label>
             <label className="text-xs">
-              <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Code CAD / DI</span>
+              <span className="intertitre block mb-1">Code CAD / DI</span>
               <input value={form.code_cad || ''} placeholder="ex. CAD 12"
                 onChange={e => setForm(f => ({ ...f, code_cad: e.target.value }))}
                 className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
@@ -317,19 +317,19 @@ function EntretienForm({ entretien: e, onSave, onClose }) {
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
         <label className="text-xs">
-          <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Date tenue</span>
+          <span className="intertitre block mb-1">Date tenue</span>
           <input type="date" value={dat} onChange={e => setDat(e.target.value)}
             className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
         </label>
         <label className="text-xs">
-          <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Lieu</span>
+          <span className="intertitre block mb-1">Lieu</span>
           <input value={lieu} onChange={e => setLieu(e.target.value)}
             placeholder="bureau, salle…"
             className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
         </label>
       </div>
       <label className="text-xs block">
-        <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Notes et compte rendu</span>
+        <span className="intertitre block mb-1">Notes et compte rendu</span>
         <textarea rows={4} value={notes} onChange={e => setNotes(e.target.value)}
           placeholder="Points abordés, décisions, suites à donner…"
           className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" />
@@ -396,20 +396,20 @@ export function Entretiens({ profId, peutEcrire, estAdmin }) {
         <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/60 space-y-3">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <label className="text-xs">
-              <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Type</span>
+              <span className="intertitre block mb-1">Type</span>
               <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}
                 className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
                 {TYPES_ENTRETIEN.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
             </label>
             <label className="text-xs">
-              <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Date prévue</span>
+              <span className="intertitre block mb-1">Date prévue</span>
               <input type="date" value={form.date_prevue || ''}
                 onChange={e => setForm(f => ({ ...f, date_prevue: e.target.value }))}
                 className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
             </label>
             <label className="text-xs">
-              <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Mené par</span>
+              <span className="intertitre block mb-1">Mené par</span>
               <input value={form.mene_par || ''}
                 onChange={e => setForm(f => ({ ...f, mene_par: e.target.value }))}
                 className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
@@ -588,25 +588,25 @@ export function Journal({ profId, peutEcrire, estAdmin }) {
         <div className="border border-iip-turquoise/40 rounded-xl p-3 bg-iip-turquoise/5 space-y-2">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             <label className="text-xs">
-              <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Type</span>
+              <span className="intertitre block mb-1">Type</span>
               <select value={rdv.type} onChange={e => setRdv(r => ({ ...r, type: e.target.value }))}
                 className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white">
                 {TYPES_RDV.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
             </label>
             <label className="text-xs">
-              <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Date prévue</span>
+              <span className="intertitre block mb-1">Date prévue</span>
               <input type="date" value={rdv.date_prevue}
                 onChange={e => setRdv(r => ({ ...r, date_prevue: e.target.value }))}
                 className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white" />
             </label>
             <label className="text-xs">
-              <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Mené par</span>
+              <span className="intertitre block mb-1">Mené par</span>
               <input value={rdv.mene_par || ''} onChange={e => setRdv(r => ({ ...r, mene_par: e.target.value }))}
                 className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white" />
             </label>
             <label className="text-xs">
-              <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Lieu</span>
+              <span className="intertitre block mb-1">Lieu</span>
               <input value={rdv.lieu || ''} onChange={e => setRdv(r => ({ ...r, lieu: e.target.value }))}
                 className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white" />
             </label>

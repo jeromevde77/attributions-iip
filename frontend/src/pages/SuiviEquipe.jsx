@@ -381,7 +381,7 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
      séances précédentes signalé en orange, avec son compte ; chaque point
      numéroté dans une pastille marine, ses décisions nommées dessous. */
   const Etiquette = ({ children }) => (
-    <span className="block text-mention uppercase tracking-[.1em] text-slate-400 font-semibold mb-0.5">{children}</span>
+    <span className="intertitre block mb-0.5">{children}</span>
   );
   const nbPresents = participants.filter(p => p.present).length;
   return (
@@ -492,7 +492,7 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
 
         {/* LES PRÉSENCES, EN PASTILLES : un clic change l'état. */}
         <div className="flex flex-wrap items-center gap-1 mt-2 pt-2 border-t border-slate-100">
-          <span className="text-mention font-semibold uppercase tracking-[.1em] text-slate-400 mr-1">Présences · {nbPresents}</span>
+          <span className="intertitre mr-1">Présences · {nbPresents}</span>
           {participants.map((p, i) => ({ p, i })).sort((a, b) => parNom(a.p.nom, b.p.nom)).map(({ p, i }) => (
             <span key={p.id || p.cle || p.nom}
               className={`group inline-flex items-center gap-1 rounded-full pl-2 pr-1 h-6 text-second border
@@ -570,7 +570,7 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
                 ${p.confidentiel ? 'bg-red-50/40 border-red-200' : 'bg-white border-slate-200'}`} />
           )}
           <div className="ml-9 mt-2">
-            <span className="block text-mention uppercase tracking-[.1em] text-slate-400 font-semibold mb-0.5">Décisions</span>
+            <span className="intertitre block mb-0.5">Décisions</span>
             {p.id ? (
               <ListeTaches taches={(reunion.taches || []).filter(t => t.point_id === p.id)}
                 personnes={personnes} presents={presents} obligations={obligations} api={api}
@@ -587,7 +587,7 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
 
       {/* ── LA SUITE ── */}
       <div className="carte px-3 py-2 mb-2 flex flex-wrap items-center gap-1.5">
-        <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 mr-1">Prochaine séance</span>
+        <span className="intertitre mr-1">Prochaine séance</span>
         <input type="date" value={champs.prochaine_date} onChange={e => poser('prochaine_date', e.target.value)}
           onBlur={() => enregistrer()} className={champ} />
         <input type="time" value={champs.prochaine_heure} onChange={e => poser('prochaine_heure', e.target.value)}
@@ -1213,7 +1213,7 @@ function VueTaches({ taches, personnes, obligations, api, filtre, setFiltre,
       {groupes.map(([nom, liste]) => (
         <div key={nom || 'tout'} className="mb-3">
           {regrouper !== 'aucun' && (
-            <h2 className="text-sm font-semibold text-iip-blue mb-1.5 flex items-center gap-2">
+            <h2 className="titre-carte mb-1.5 flex items-center gap-2">
               {regrouper === 'personne' && <IconUser size={15} className="text-slate-400" />}
               {regrouper === 'echeance' && <IconClock size={15} className="text-slate-400" />}
               {regrouper === 'personne' ? nomListe(nom) : nom}

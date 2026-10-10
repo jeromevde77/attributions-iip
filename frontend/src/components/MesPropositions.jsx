@@ -57,7 +57,7 @@ export default function MesPropositions() {
       {aLire > 0 && (
         <div className="mb-5">
           <div className="flex items-baseline gap-2 mb-1.5">
-            <h2 className="text-sm font-semibold text-iip-blue">Propositions d'amélioration</h2>
+            <h2 className="titre-carte">Propositions d'amélioration</h2>
             <span className="text-xs text-slate-400">les auteurs vous ont répondu</span>
           </div>
           <button type="button" onClick={() => setFenetre(true)}
@@ -75,7 +75,7 @@ export default function MesPropositions() {
       {lignes.length > 0 && (
         <div className="mb-5">
           <div className="flex items-baseline gap-2 mb-1.5">
-            <h2 className="text-sm font-semibold text-iip-blue">Mes propositions</h2>
+            <h2 className="titre-carte">Mes propositions</h2>
             <span className="text-xs text-slate-400">
               {nbNouveaux
                 ? `${nbNouveaux} réponse${nbNouveaux > 1 ? 's' : ''} de la direction à lire`

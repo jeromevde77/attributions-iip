@@ -77,8 +77,7 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
                 .filter(([lib]) => !(lib === 'Droit spécifique' && !dis.soumis && !dis.exempte))
                 .map(([lib, v, note]) => (
                 <div key={lib}>
-                  <div className="text-mention uppercase tracking-wide text-slate-500
-                                  font-semibold">{lib}</div>
+                  <div className="intertitre">{lib}</div>
                   <div className="text-lg font-bold text-slate-700">{eur(v)}</div>
                   {note && (
                     <div className="text-xs text-emerald-700">{note}</div>
@@ -87,8 +86,7 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
               ))}
 
               <div className="ml-auto text-right">
-                <div className="text-mention uppercase tracking-wide text-slate-500
-                                font-semibold">Total</div>
+                <div className="intertitre">Total</div>
                 <div className="text-3xl font-bold text-iip-blue leading-tight">
                   {eur(f.total)}
                 </div>
@@ -141,7 +139,7 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
             <>
               <div className="flex items-end justify-between gap-4 flex-wrap">
                 <div>
-                  <div className="text-mention uppercase tracking-wide text-slate-500 font-semibold">
+                  <div className="intertitre">
                     Montant constaté
                   </div>
                   <div className={`text-2xl font-bold leading-tight ${di.exonere ? 'text-slate-400 line-through' : 'text-iip-blue'}`}>
@@ -207,7 +205,7 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
               {detailOuvert && (
                 <table className="w-full text-second">
                   <thead>
-                    <tr className="text-mention uppercase tracking-wide text-slate-400 border-b">
+                    <tr className="intertitre border-b">
                       <th className="py-1 text-left">UE</th>
                       <th className="py-1 text-left w-24">Niveau</th>
                       <th className="py-1 text-right w-20">Périodes</th>
@@ -287,7 +285,7 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
               {!dis.exempte && (
                 <div className="flex items-end gap-3 flex-wrap">
                   <label className="text-xs">
-                    <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                    <span className="intertitre block mb-1">
                       Périodes hebdomadaires
                     </span>
                     <input type="number" min="0" step="0.5" defaultValue={dis.periodes_hebdo || ''}
@@ -296,7 +294,7 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
                       className="w-28 border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
                   </label>
                   <div>
-                    <div className="text-mention uppercase tracking-wide text-slate-500 font-semibold">Montant</div>
+                    <div className="intertitre">Montant</div>
                     <div className="text-xl font-bold text-iip-blue leading-tight">
                       {eur(dis.montant_du)}
                     </div>

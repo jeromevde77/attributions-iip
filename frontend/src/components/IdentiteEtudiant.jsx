@@ -88,7 +88,7 @@ export default function IdentiteEtudiant({ etudId, onModifie }) {
     <fieldset disabled={!peut} className="space-y-4 min-w-0 border-0 p-0 m-0">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h3 className="text-base font-semibold text-iip-blue">Identité</h3>
+          <h3 className="titre-carte">Identité</h3>
           <p className="text-second text-slate-500">
             Ces données figurent sur la fiche d'inscription et les attestations.
           </p>
@@ -118,7 +118,7 @@ export default function IdentiteEtudiant({ etudId, onModifie }) {
             poser={(k, v) => setModifs(m => ({ ...m, [{ cp: 'cp', localite: 'localite', rue: 'adresse' }[k]]: v }))} />
         ) : (
           <label key={c.k} className="text-xs block">
-            <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
+            <span className="intertitre block mb-1">
               {c.l}{c.requis && <span className="text-red-500"> *</span>}
             </span>
             {c.type === 'pays' ? (
@@ -362,7 +362,7 @@ export function ComplementDossiers({ onTermine }) {
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-base font-semibold text-iip-blue">Compléter les dossiers</h3>
+        <h3 className="titre-carte">Compléter les dossiers</h3>
         <p className="text-second text-slate-500">
           Le rapprochement se fait sur le numéro national — le matricule change à chaque rentrée.
         </p>
@@ -459,7 +459,7 @@ export function ComplementDossiers({ onTermine }) {
               ['À compléter', rapport.modifications.length],
               ['Inconnus', rapport.nb_inconnus]].map(([l, v]) => (
               <div key={l} className="border border-slate-200 rounded-xl px-3 py-2">
-                <div className="text-mention uppercase tracking-wide text-slate-500 font-semibold">{l}</div>
+                <div className="intertitre">{l}</div>
                 <div className="text-lg font-bold text-iip-blue">{v}</div>
               </div>
             ))}

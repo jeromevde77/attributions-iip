@@ -2054,7 +2054,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
           </div>)}
         {seul && (
           <div className="px-3 py-2 border-b border-slate-200">
-            <div className="text-xs uppercase tracking-wide text-slate-500">Pour</div>
+            <div className="intertitre">Pour</div>
             <div className="text-base font-semibold text-iip-texte">{nomPropre(seul.nom, seul.prenom)}</div>
             <div className="text-second text-slate-500">{seul.id_ecampus || ''}{seul.section_rattachement ? ` · ${seul.section_rattachement}` : ''}</div>
             <button type="button" className="mt-1 text-second underline text-iip-blue" onClick={onRevenir}>revenir au périmètre</button>
@@ -2388,7 +2388,7 @@ function PiecesDeLEcran({ pieces, onChoisir }) {
   const p = pieces.find(x => x.cle === choisie) || pieces[0];
   return (
     <div className="mb-3 pb-3 border-b border-slate-200 flex flex-wrap items-center gap-x-4 gap-y-1.5">
-      <span className="text-second font-semibold text-slate-500 uppercase tracking-wide">De cet écran</span>
+      <span className="intertitre">De cet écran</span>
       {pieces.map(x => (
         <label key={x.cle} className="flex items-center gap-1.5 text-sm cursor-pointer" title={x.description || ''}>
           <input type="radio" name="piece-ecran" checked={p.cle === x.cle} onChange={() => setChoisie(x.cle)} className="accent-iip-blue" />

@@ -104,7 +104,7 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h3 className="text-base font-semibold text-iip-blue">Stages</h3>
+          <h3 className="titre-carte">Stages</h3>
           <p className="text-second text-slate-500">
             Le lieu et son adresse figurent au supplément au diplôme.
           </p>
@@ -366,7 +366,7 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
               <ChampsAdresse valeurs={{ cp: nouveauLieu.cp, localite: nouveauLieu.localite, rue: nouveauLieu.adresse }}
                 poser={(k, v) => setNouveauLieu(x => ({ ...x, [{ cp: 'cp', localite: 'localite', rue: 'adresse' }[k]]: v }))} />
               <label className="text-xs">
-                <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Pays</span>
+                <span className="intertitre block mb-1">Pays</span>
                 <ChoixPays value={nouveauLieu.pays} onChange={v => setNouveauLieu(x => ({ ...x, pays: v }))} />
               </label>
               {[['nom', 'Nom de l\u2019établissement'], ['service', 'Service ou département'],
@@ -374,7 +374,7 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
                 ['contact_nom', 'Personne de contact'], ['contact_email', 'Courriel'],
                 ['contact_tel', 'Téléphone'], ['agrement', 'Agrément']].map(([k, l]) => (
                 <label key={k} className="text-xs">
-                  <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">{l}</span>
+                  <span className="intertitre block mb-1">{l}</span>
                   <input value={nouveauLieu[k] || ''}
                     onChange={e => setNouveauLieu(v => ({ ...v, [k]: e.target.value }))}
                     className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
@@ -391,7 +391,7 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
 function Champ({ libelle, children }) {
   return (
     <label className="text-xs block">
-      <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">{libelle}</span>
+      <span className="intertitre block mb-1">{libelle}</span>
       {children}
     </label>
   );

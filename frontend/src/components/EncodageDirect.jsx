@@ -138,7 +138,7 @@ export default function EncodageDirect({ onClose, anneeDefaut, sectionDefaut }) 
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
           <label className="text-xs">
-            <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
+            <span className="intertitre block mb-1">
               Année <span className="text-red-500">*</span>
             </span>
             <select value={annee} onChange={e => setAnnee(e.target.value)}
@@ -149,7 +149,7 @@ export default function EncodageDirect({ onClose, anneeDefaut, sectionDefaut }) 
           </label>
 
           <label className="text-xs">
-            <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
+            <span className="intertitre block mb-1">
               Section <span className="text-red-500">*</span>
             </span>
             <select value={section} onChange={e => { setSection(e.target.value); setUeFiltre(''); }}
@@ -162,7 +162,7 @@ export default function EncodageDirect({ onClose, anneeDefaut, sectionDefaut }) 
           </label>
 
           <label className="text-xs">
-            <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
+            <span className="intertitre block mb-1">
               Unité
             </span>
             <select value={ueFiltre} onChange={e => setUeFiltre(e.target.value)}
@@ -176,7 +176,7 @@ export default function EncodageDirect({ onClose, anneeDefaut, sectionDefaut }) 
           </label>
 
           <label className="text-xs">
-            <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
+            <span className="intertitre block mb-1">
               Étudiant
             </span>
             <div className="relative">
@@ -202,9 +202,7 @@ export default function EncodageDirect({ onClose, anneeDefaut, sectionDefaut }) 
               <table className="w-full text-second border-collapse">
                 <thead className="sticky top-0 bg-slate-50 z-10">
                   <tr>
-                    <th className="text-left px-2 py-1.5 text-mention uppercase tracking-wide
-                                   text-slate-500 font-semibold border-b border-slate-200
-                                   sticky left-0 bg-slate-50">Étudiant</th>
+                    <th className="intertitre text-left px-2 py-1.5 border-b border-slate-200 sticky left-0 bg-slate-50">Étudiant</th>
                     {uesVues.map(u => (
                       <th key={u.ue_num} title={u.ue_nom}
                         className="px-1 py-1.5 border-b border-slate-200 min-w-[52px]">

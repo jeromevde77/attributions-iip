@@ -44,8 +44,7 @@ const EPREUVES = [['ecrit', 'Écrit'], ['oral', 'Oral'], ['pratique', 'Pratique'
 function Bloc({ titre, aide, children }) {
   return (
     <section className="mb-4">
-      <div className="px-3 py-1.5 bg-iip-blue text-white text-xs font-semibold
-                      uppercase tracking-wide rounded-t-lg">{titre}</div>
+      <div className="intertitre px-3 py-1.5 bg-iip-blue text-white rounded-t-lg">{titre}</div>
       <div className="border border-t-0 border-slate-200 rounded-b-lg p-3 bg-white">
         {aide && <p className="text-xs text-slate-500 mb-2">{aide}</p>}
         {children}
@@ -207,7 +206,7 @@ function Responsable({ c, d, lecture, onChange }) {
 function Su({ label, valeur }) {
   return (
     <div className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg">
-      <div className="text-mention uppercase tracking-wide text-slate-400">{label}</div>
+      <div className="intertitre">{label}</div>
       <div className="text-sm text-slate-700 font-medium">{valeur ?? '—'}</div>
     </div>
   );
@@ -733,7 +732,7 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
             className="text-second text-slate-500 hover:text-iip-blue flex items-center gap-1 mb-1">
             <IconArrowLeft size={13} /> Tous les descriptifs
           </button>
-          <h2 className="text-base font-semibold text-iip-blue truncate">
+          <h2 className="titre-carte truncate">
             UE {u.ue_num} — {u.ue_nom}
           </h2>
           </>}

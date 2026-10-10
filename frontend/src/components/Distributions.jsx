@@ -161,12 +161,10 @@ function Decisions({ stats, donnees, section, categorie }) {
           <thead className="tab-entete">
             <tr>
               <th className="px-2 pt-1.5 pb-0.5" />
-              <th className="px-2 pt-1.5 pb-0.5 text-left text-mention uppercase
-                             tracking-wide text-slate-500" colSpan={6}>
+              <th className="intertitre px-2 pt-1.5 pb-0.5 text-left" colSpan={6}>
                 Ce que le Conseil a décidé
               </th>
-              <th className="px-2 pt-1.5 pb-0.5 text-left text-mention uppercase
-                             tracking-wide text-slate-500 border-l border-slate-200"
+              <th className="intertitre px-2 pt-1.5 pb-0.5 text-left border-l border-slate-200"
                   colSpan={4}>
                 La forme des cotes d’unité
               </th>

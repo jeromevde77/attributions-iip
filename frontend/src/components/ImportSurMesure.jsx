@@ -206,7 +206,7 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
 
         {profils.length > 0 && (
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs uppercase tracking-wide text-slate-500 font-semibold">
+            <span className="intertitre">
               Profils
             </span>
             {profils.map(p => (
@@ -374,8 +374,7 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
                 ...(rapport.nb_crees ? [['À créer', rapport.nb_crees]] : []),
                 ['Sans correspondance', rapport.nb_inconnus]].map(([l, v]) => (
                 <div key={l} className="border border-slate-200 rounded-xl px-3 py-2">
-                  <div className="text-mention uppercase tracking-wide text-slate-500
-                                  font-semibold">{l}</div>
+                  <div className="intertitre">{l}</div>
                   <div className="text-lg font-bold text-iip-blue">{v}</div>
                 </div>
               ))}

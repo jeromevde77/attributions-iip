@@ -861,7 +861,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint =
             {/* Fonctions & missions */}
             {detail.missions?.length > 0 && (
               <div className="p-4 border-b border-gray-100">
-                <div className="text-mention font-bold text-gray-400 uppercase tracking-widest mb-2">Fonctions</div>
+                <div className="intertitre mb-2">Fonctions</div>
                 <div className="space-y-1.5">
                   {detail.missions.map((m, i) => (
                     <div key={i} className="text-xs">
@@ -2163,7 +2163,7 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
                 </span>
               )}
               {nouveau && (
-                <span className="bg-emerald-600 text-white text-mention font-bold px-1.5 py-0.5 rounded-champ uppercase tracking-wide flex-shrink-0">
+                <span className="intertitre bg-emerald-600 text-white px-1.5 py-0.5 rounded-champ flex-shrink-0">
                   NEW
                 </span>
               )}

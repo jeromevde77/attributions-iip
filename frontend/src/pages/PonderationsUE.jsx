@@ -61,7 +61,7 @@ function Zone({ lettre, titre, sous, children, droite }) {
         {/* La lettre de la zone porte le principal : l'or est celui de
             l'épreuve intégrée, et il ne dit que cela. */}
         <span className="w-[20px] h-[20px] rounded-full bg-iip-blue/10 text-iip-blue text-xs font-bold grid place-items-center flex-none">{lettre}</span>
-        <h3 className="text-base font-semibold text-iip-blue">{titre}</h3>
+        <h3 className="titre-carte">{titre}</h3>
         {sous && <span className="text-second text-slate-400">{sous}</span>}
         {droite && <span className="ml-auto">{droite}</span>}
       </div>
@@ -209,7 +209,7 @@ export default function PonderationsUE({ ueFixe = null }) {
     <div className={ueFixe ? 'space-y-3.5' : 'p-4 space-y-3.5'}>
       <div className="flex flex-wrap items-center gap-2">
         {!ueFixe && <>
-        <h2 className="text-lg font-semibold text-iip-blue mr-auto">Pondérations · {annee}</h2>
+        <h2 className="titre-carte mr-auto">Pondérations · {annee}</h2>
         <select value={section} onChange={e => setSection(e.target.value)} className="controle" aria-label="Section">
           {sections.map(s => <option key={s.code} value={s.code}>{s.libelle || s.code}</option>)}
         </select>
