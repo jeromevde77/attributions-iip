@@ -1829,7 +1829,7 @@ ${methodologie}
 
         {/* Bouton générer */}
         <button onClick={generer} disabled={loading}
-          className="bg-iip-blue hover:bg-iip-blue-dark disabled:opacity-40 text-white text-sm font-semibold px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">
+          className="bouton bouton-fort flex items-center gap-2">
           <IconBolt size={16} />
           {loading ? 'Chargement…' : (entite === 'rapport-section' ? 'Paramétrer & générer' : 'Générer')}
         </button>

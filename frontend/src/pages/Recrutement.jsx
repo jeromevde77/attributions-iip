@@ -708,7 +708,7 @@ function CarteCandidatPoste({ candidature: c, onChange, onEntretien }) {
           </button>
           {c.statut === 'retenu' && (
             <button onClick={attribuer}
-              className="text-xs bg-green-600 hover:bg-green-700 text-white rounded px-2 py-1 h-7 flex items-center gap-1 font-semibold flex-shrink-0">
+              className="bouton bouton-fort flex items-center gap-1 flex-shrink-0">
               <IconCheck size={12} /> Attribuer
             </button>
           )}
@@ -2697,7 +2697,7 @@ function ModalAnalyseCv({ onClose, onResultat, candidatExistant = null }) {
               {err && <div className="text-xs text-white bg-red-500 rounded px-3 py-2 mt-2">{err}</div>}
 
               <button onClick={analyser} disabled={!fichier || loading}
-                className="mt-3 w-full flex items-center justify-center gap-2 bg-iip-blue text-white py-2.5 rounded-xl font-medium text-sm hover:opacity-90 disabled:opacity-40 transition">
+                className="bouton bouton-fort mt-3 w-full flex items-center justify-center gap-2">
                 {loading ? (
                   <><span className="animate-spin">⏳</span> Lucie analyse le CV…</>
                 ) : (
@@ -3391,7 +3391,7 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
                         <div className="text-2xl font-bold text-iip-blue">{noteGlobale}<span className="text-sm font-normal text-gray-400">/5</span></div>
                       </div>
                       <button onClick={sauvegarder} disabled={saving}
-                        className="text-sm bg-iip-blue text-white px-5 py-2 rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center gap-1.5">
+                        className="bouton bouton-fort flex items-center gap-1.5">
                         <IconCheck size={14} /> Sauvegarder
                       </button>
                     </div>

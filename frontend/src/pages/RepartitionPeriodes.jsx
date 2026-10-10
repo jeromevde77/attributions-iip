@@ -139,7 +139,7 @@ export default function RepartitionPeriodes() {
           </p>
         </div>
         <button onClick={enregistrer} disabled={!nbModifs || enCours}
-          className="flex items-center gap-2 px-4 py-2 text-sm bg-iip-blue text-white font-semibold rounded-lg disabled:opacity-40">
+          className="bouton bouton-fort flex items-center gap-2">
           <IconDeviceFloppy size={16} />
           {enCours ? 'Enregistrement…' : nbModifs ? `Enregistrer (${nbModifs})` : 'Enregistrer'}
         </button>

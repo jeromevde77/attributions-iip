@@ -507,8 +507,7 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
               )}
             </p>
             <button onClick={produire} disabled={enCours || !nb || !nbPieces}
-              className="px-4 py-2 text-sm rounded-lg bg-iip-blue text-white
-                         font-semibold flex items-center gap-1.5 disabled:opacity-40">
+              className="bouton bouton-fort flex items-center gap-1.5">
               <IconCertificate size={15} /> Produire les pièces
             </button>
           </div>

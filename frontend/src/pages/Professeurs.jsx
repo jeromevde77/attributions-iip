@@ -451,7 +451,7 @@ function AccesLuciePanel({ profId, detail }) {
         </div>
       </div>
       <button onClick={creer} disabled={busy}
-        className="w-full flex items-center justify-center gap-1.5 bg-green-600 text-white text-sm px-3 py-2 rounded-lg disabled:opacity-40 hover:opacity-90">
+        className="bouton bouton-fort w-full flex items-center justify-center gap-1.5">
         <IconPlus size={15} /> Créer l'accès &amp; générer le mot de passe
       </button>
     </>
@@ -1078,11 +1078,11 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint =
           actionExtra={
             <>
               <button onClick={telechargerPdf} disabled={generatingPdf}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-medium hover:opacity-90 disabled:opacity-40">
+                className="bouton bouton-detruire flex items-center gap-1.5">
                 <IconDownload size={13}/> {generatingPdf ? '…' : 'Télécharger PDF'}
               </button>
               <button onClick={telechargerDocx} disabled={generatingContrat}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium hover:opacity-90 disabled:opacity-40">
+                className="bouton bouton-fort flex items-center gap-1.5">
                 <IconDownload size={13}/> {generatingContrat ? '…' : 'Télécharger .docx'}
               </button>
             </>
@@ -1258,7 +1258,7 @@ function DossiersRH({ profId, profNom }) {
           <div className="flex justify-end gap-2 mt-3">
             <button onClick={() => setNouveauType(null)} className="text-sm text-gray-500 px-3 py-1.5">Annuler</button>
             <button onClick={creerDossier} disabled={saving}
-              className="text-sm bg-iip-blue text-white px-4 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50">
+              className="bouton bouton-fort">
               {saving ? 'Création…' : 'Ouvrir le dossier'}
             </button>
           </div>
@@ -1378,7 +1378,7 @@ function DossiersRH({ profId, profNom }) {
                     <div className="flex justify-end gap-2">
                       <button onClick={() => setEtapeForm(null)} className="text-xs text-gray-500 px-3 py-1">Annuler</button>
                       <button onClick={ajouterEtape} disabled={!etapeForm.type_etape || saving}
-                        className="text-xs bg-iip-blue text-white px-3 py-1.5 rounded hover:opacity-90 disabled:opacity-50">
+                        className="bouton bouton-fort">
                         {saving ? 'Ajout…' : 'Ajouter l\'étape'}
                       </button>
                     </div>
@@ -2465,7 +2465,7 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
               )}
               {/* Coordonnées — la liste imprimable des emails, GSM et adresses */}
               <button onClick={imprimerCoordonnees}
-                className="bg-iip-blue hover:opacity-90 text-white text-sm px-3 py-1.5 h-9 rounded font-medium inline-flex items-center gap-1.5">
+                className="bouton bouton-fort inline-flex items-center gap-1.5">
                 <IconAddressBook size={15}/> Coordonnées ({selection.size})
               </button>
             </div>

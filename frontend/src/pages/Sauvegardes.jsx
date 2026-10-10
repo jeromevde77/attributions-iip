@@ -94,7 +94,7 @@ export default function Sauvegardes() {
           </p>
         </div>
         <button onClick={sauvegarder} disabled={enCours}
-          className="flex items-center gap-2 px-4 py-2 text-sm bg-iip-blue text-white font-semibold rounded-lg disabled:opacity-50">
+          className="bouton bouton-fort flex items-center gap-2">
           <IconDatabase size={16} /> {enCours ? 'Sauvegarde en cours…' : 'Sauvegarder maintenant'}
         </button>
       </div>

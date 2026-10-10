@@ -728,7 +728,7 @@ export default function PlanificateurVisuel({ onClose }) {
             <div className="flex justify-end gap-2">
               <button onClick={() => setConfirmOpen(false)} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
               <button onClick={enregistrer} disabled={saving}
-                className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-5 py-2 rounded font-medium disabled:opacity-50">
+                className="bouton bouton-fort">
                 {saving ? 'Création…' : 'Confirmer'}
               </button>
             </div>

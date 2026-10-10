@@ -333,7 +333,7 @@ export default function Disciplinaire() {
             <option value="">— Dossiers —</option>
             {dossiers.map(d => <option key={d.id} value={d.id}>{d.etudiant || 'Sans nom'} · {new Date(d.modifie_le).toLocaleDateString('fr-BE')}</option>)}
           </select>
-          <button onClick={nouveauDossier} className="flex items-center gap-1 bg-green-600 text-white text-sm px-3 py-1.5 rounded-lg hover:opacity-90"><IconPlus size={15} /> Nouveau</button>
+          <button onClick={nouveauDossier} className="bouton bouton-fort flex items-center gap-1"><IconPlus size={15} /> Nouveau</button>
           {caseId && <button onClick={supprimerDossier} className="text-gray-300 hover:text-red-500 p-1"><IconTrash size={16} /></button>}
           <select value={annee} onChange={e => setAn(e.target.value)} className={champ + ' w-44'}>{ANNEES.map(y => <option key={y.code} value={y.code}>{y.label}</option>)}</select>
         </div>

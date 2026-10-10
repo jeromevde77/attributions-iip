@@ -283,7 +283,7 @@ export default function Amenagements({ etudId, annee }) {
         {d && <Badge ton={STATUTS[d.statut]?.ton || 'neutre'}>{STATUTS[d.statut]?.libelle}</Badge>}
         {!d && peutAmenager() && (
           <button onClick={creerDossier}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-iip-blue text-white font-semibold rounded-lg">
+            className="bouton bouton-fort flex items-center gap-1.5">
             <IconPlus size={15} /> Ouvrir un dossier
           </button>
         )}

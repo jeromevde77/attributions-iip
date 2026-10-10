@@ -159,8 +159,7 @@ export default function PassageAnnee({ annee, onClose, onTermine }) {
             </select>
           </label>
           <button onClick={lancer} disabled={enCours || !section || !cible}
-            className="px-3 py-2 text-sm rounded-lg bg-iip-blue text-white font-semibold
-                       disabled:opacity-40">
+            className="bouton bouton-fort">
             {enCours ? 'Calcul…' : 'Voir qui est admissible'}
           </button>
         </div>

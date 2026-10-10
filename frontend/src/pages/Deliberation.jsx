@@ -382,8 +382,7 @@ export default function Deliberation() {
                   <span className="flex-1" />
                   <button onClick={forcerCloture}
                     disabled={enCours || !forcage.ues.size || (!forcage.s1 && !forcage.s2)}
-                    className="px-2.5 py-1 rounded-lg bg-amber-600 text-white font-semibold
-                               disabled:opacity-40">
+                    className="bouton">
                     Clôturer {forcage.ues.size * ((forcage.s1 ? 1 : 0) + (forcage.s2 ? 1 : 0))} séance(s)
                   </button>
                 </div>

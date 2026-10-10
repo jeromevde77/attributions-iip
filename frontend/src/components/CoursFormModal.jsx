@@ -166,7 +166,7 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
                 <input value={newCode} onChange={e => setNewCode(e.target.value)} placeholder="Nouveau code"
                   className="flex-1 border border-gray-300 rounded px-3 py-1.5 h-9 text-sm font-mono" />
                 <button type="button" onClick={forcerCode} disabled={saving}
-                  className="bg-iip-blue text-white text-sm px-3 py-1.5 h-9 rounded disabled:opacity-40">Forcer</button>
+                  className="bouton bouton-fort">Forcer</button>
                 <button type="button" onClick={() => setRenaming(false)} className="text-sm text-gray-500 px-2"><IconX size={16} /></button>
               </div>
             </div>

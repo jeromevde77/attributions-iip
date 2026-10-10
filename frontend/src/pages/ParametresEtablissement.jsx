@@ -241,7 +241,7 @@ export default function ParametresEtablissement() {
 
       <div className="flex items-center gap-3">
         <button onClick={save} disabled={saving}
-          className="px-4 py-2 bg-iip-gold text-white rounded-lg text-sm font-medium hover:bg-iip-amber disabled:opacity-50">
+          className="bouton bouton-fort">
           {saving ? 'Enregistrement…' : 'Enregistrer'}
         </button>
         {msg && <span className={`text-sm ${msg.startsWith('Erreur') ? 'text-red-600' : 'text-green-600'}`}>{msg}</span>}

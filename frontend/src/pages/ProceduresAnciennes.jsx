@@ -850,7 +850,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
 
         {/* Bouton génération */}
         <button onClick={ouvrirDecision}
-          className="w-full bg-iip-turquoise hover:opacity-90 text-white py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2">
+          className="bouton bouton-fort w-full flex items-center justify-center gap-2">
           <IconFileText size={18} /> Générer la décision motivée (Word / PDF)
         </button>
         <p className="text-xs text-gray-500 text-center mt-1">Document officiel à imprimer, signer et envoyer par recommandé à l'étudiant.</p>

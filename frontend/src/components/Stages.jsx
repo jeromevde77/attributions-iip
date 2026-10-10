@@ -111,7 +111,7 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
         </div>
         {peutEcrire && (
           <button onClick={creer}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-iip-blue text-white font-semibold rounded-lg">
+            className="bouton bouton-fort flex items-center gap-1.5">
             <IconPlus size={15} /> Ajouter un stage
           </button>
         )}

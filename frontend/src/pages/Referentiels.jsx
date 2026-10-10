@@ -1615,7 +1615,7 @@ function GestionActivites({ sections = [] }) {
             </select>
           </div>
           <button onClick={creer} disabled={!newLibelle.trim() || saving}
-            className="bg-iip-gold text-white text-sm px-4 py-1.5 h-9 rounded hover:bg-iip-amber disabled:opacity-50">
+            className="bouton bouton-fort">
             + Ajouter
           </button>
         </div>

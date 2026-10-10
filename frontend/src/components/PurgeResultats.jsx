@@ -304,7 +304,7 @@ export default function PurgeResultats({ anneeCourante, onClose, onPurge }) {
                   {enCours ? '…' : 'Calculer le périmètre'}
                 </button>
                 <button onClick={executer} disabled={!simulation || enCours}
-                  className="text-sm px-4 py-1.5 rounded-lg bg-red-600 text-white font-semibold disabled:opacity-40">
+                  className="bouton bouton-detruire">
                   Supprimer
                 </button>
               </div>

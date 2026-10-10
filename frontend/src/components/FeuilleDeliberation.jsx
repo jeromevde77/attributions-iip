@@ -1461,8 +1461,7 @@ function PleinDroit({ auto, onAppliquer, onPasser, enCours }) {
             Passer — les revoir un à un
           </button>
           <button disabled={enCours || !auto.reussites.length} onClick={onAppliquer}
-            className="px-4 py-2 text-sm rounded-lg bg-emerald-600 text-white
-                       font-semibold disabled:opacity-40">
+            className="bouton bouton-fort">
             Enregistrer ces {auto.reussites.length} réussites
           </button>
         </div>
@@ -1809,8 +1808,7 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
             La clôture sera refusée tant que les présences ne sont pas enregistrées.
           </span>
           <button onClick={onPresences}
-            className="flex-none px-3 py-1.5 text-second rounded-lg bg-amber-600
-                       text-white font-semibold">
+            className="bouton flex-none">
             Appel des présences
           </button>
         </div>

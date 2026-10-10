@@ -679,7 +679,7 @@ export function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
                                           <select className="border border-slate-300 rounded h-7 px-1.5 text-second bg-white" value={saisie.origine} onChange={ev => setSaisie({ ...saisie, origine: ev.target.value })}>
                                             {anterieures.map(x => <option key={x} value={x}>{x}</option>)}
                                           </select>
-                                          <button type="button" disabled={occupe} className="rounded bg-iip-blue text-white h-7 px-2 text-second font-semibold disabled:opacity-40"
+                                          <button type="button" disabled={occupe} className="bouton bouton-fort"
                                             onClick={() => reporter(u.ue_num, c.code, { note: saisie.note, annee_origine: saisie.origine })}>Reporter</button>
                                           <button type="button" className="underline text-slate-500" onClick={() => setSaisie(null)}>annuler</button>
                                         </>}

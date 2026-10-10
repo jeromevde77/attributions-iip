@@ -1369,7 +1369,7 @@ export default function Pilotage({ vue = 'tout' }) {
           <div className="flex gap-2">
             <input value={newYear} onChange={e => setNewYear(e.target.value)} placeholder="Ex: 2027"
               className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-24" />
-            <button onClick={addYear} disabled={saving || !newYear} className="bg-iip-gold hover:bg-iip-amber disabled:opacity-40 text-white text-xs px-3 py-1.5 h-9 rounded">Ajouter</button>
+            <button onClick={addYear} disabled={saving || !newYear} className="bouton bouton-fort">Ajouter</button>
           </div>
         </div>
         <table className="w-full text-sm">
@@ -1392,7 +1392,7 @@ export default function Pilotage({ vue = 'tout' }) {
                 <td className="px-4 py-2"><input type="number" step="0.01" value={editDot.solde_constate ?? ''} onChange={e => setEditDot({ ...editDot, solde_constate: e.target.value })} placeholder="ex. 5" title="Périodes restées inutilisées, telles que la direction les constate" className="bloc-etat etat-surveiller px-2 py-1.5 h-9 text-sm w-28 text-right" /></td>
                 <td className="px-4 py-2"><input value={editDot.notes || ''} onChange={e => setEditDot({ ...editDot, notes: e.target.value })} className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-full" /></td>
                 <td className="px-4 py-2 flex gap-1 justify-end">
-                  <button onClick={saveDotation} disabled={saving} className="bg-iip-gold text-white text-xs px-2 py-1 rounded"><IconCheck size={14} /></button>
+                  <button onClick={saveDotation} disabled={saving} className="bouton bouton-fort"><IconCheck size={14} /></button>
                   <button onClick={() => setEditDot(null)} className="text-gray-500 text-xs px-2 py-1 rounded border"><IconX size={14} /></button>
                 </td>
               </tr>
@@ -1439,7 +1439,7 @@ export default function Pilotage({ vue = 'tout' }) {
               <div><label className="block text-xs text-gray-500 mb-0.5">Périodes B</label>
                 <input type="number" value={editEnv.periodes_b} onChange={e => setEditEnv({ ...editEnv, periodes_b: e.target.value })} className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-full" /></div>
               <div className="flex gap-1">
-                <button onClick={saveEnv} disabled={saving} className="bg-iip-gold text-white text-xs px-3 py-1.5 h-9 rounded w-full">Créer</button>
+                <button onClick={saveEnv} disabled={saving} className="bouton bouton-fort w-full">Créer</button>
                 <button onClick={() => setEditEnv(null)} className="border text-gray-500 text-xs px-2 py-1.5 h-9 rounded"><IconX size={14} /></button>
               </div>
             </div>
@@ -1458,7 +1458,7 @@ export default function Pilotage({ vue = 'tout' }) {
                 <td className="px-4 py-2"><input type="number" value={editEnv.periodes_b} onChange={ev => setEditEnv({ ...editEnv, periodes_b: ev.target.value })} className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-24 text-right" /></td>
                 <td className="px-4 py-2"><input type="number" value={editEnv.usage_historique ?? ''} onChange={ev => setEditEnv({ ...editEnv, usage_historique: ev.target.value })} placeholder="calculé" className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-24 text-right" /></td>
                 <td className="px-4 py-2 flex gap-1 justify-end">
-                  <button onClick={saveEnv} disabled={saving} className="bg-iip-gold text-white text-xs px-2 py-1 rounded"><IconCheck size={14} /></button>
+                  <button onClick={saveEnv} disabled={saving} className="bouton bouton-fort"><IconCheck size={14} /></button>
                   <button onClick={() => setEditEnv(null)} className="text-gray-500 text-xs px-2 py-1 rounded border"><IconX size={14} /></button>
                 </td>
               </tr>

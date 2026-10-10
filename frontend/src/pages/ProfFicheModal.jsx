@@ -475,7 +475,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
               )}
             </div>
             <button type="button" onClick={importerEid} disabled={eidBusy}
-              className="flex-shrink-0 bg-iip-gold hover:bg-iip-amber disabled:opacity-40 text-white text-sm px-4 py-2 rounded font-medium">
+              className="bouton bouton-fort flex-shrink-0">
               {eidBusy ? 'Lecture…' : 'Lire la carte'}
             </button>
           </div>

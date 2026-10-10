@@ -355,7 +355,7 @@ export default function DiplomeEditeur({ assets = {} }) {
         <div className="flex items-center gap-2">
           <button onClick={apercu} className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"><IconEye size={16}/> Aperçu</button>
           {peutEcrire && <button onClick={restaurer} className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border border-gray-300 text-gray-500 hover:bg-gray-50"><IconRefresh size={16}/> Défaut</button>}
-          {peutEcrire && <button onClick={enregistrer} disabled={!dirty || busy} className="flex items-center gap-1.5 text-sm px-4 py-1.5 rounded-lg bg-iip-blue text-white disabled:opacity-40"><IconDeviceFloppy size={16}/> {busy ? '…' : 'Enregistrer'}</button>}
+          {peutEcrire && <button onClick={enregistrer} disabled={!dirty || busy} className="bouton bouton-fort flex items-center gap-1.5"><IconDeviceFloppy size={16}/> {busy ? '…' : 'Enregistrer'}</button>}
         </div>
       </div>
 

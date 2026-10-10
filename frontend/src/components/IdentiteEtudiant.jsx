@@ -94,8 +94,7 @@ export default function IdentiteEtudiant({ etudId, onModifie }) {
           </p>
         </div>
         {peut && <button onClick={enregistrer} disabled={!nbModifs || enCours}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-iip-blue text-white
-                     font-semibold rounded-lg disabled:opacity-40">
+          className="bouton bouton-fort flex items-center gap-1.5">
           <IconDeviceFloppy size={15} />
           {enCours ? 'Enregistrement…' : nbModifs ? `Enregistrer (${nbModifs})` : 'Enregistrer'}
         </button>}

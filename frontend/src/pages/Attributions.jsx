@@ -2234,7 +2234,7 @@ export default function Attributions() {
           <select value={filters.type_cours} onChange={e=>{const f={...filters,type_cours:e.target.value};setFilters(f);load(f);}} className="border border-gray-300 rounded px-2 py-1 text-sm"><option value="">—</option><option value="CT">CT</option><option value="PP">PP</option></select></div>
         <div className="flex-1"><label className="block text-xs text-gray-600 mb-0.5">Recherche libre</label>
           <input value={filters.q} onChange={e=>setFilters({...filters,q:e.target.value})} onKeyDown={e=>e.key==='Enter'&&applyFilters()} placeholder="UE, cours, professeur..." className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-full"/></div>
-        <button onClick={applyFilters} className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-1.5 h-9 rounded">Filtrer</button>
+        <button onClick={applyFilters} className="bouton bouton-fort">Filtrer</button>
         <button onClick={resetFilters} className="text-gray-600 hover:text-iip-orange text-sm px-2 py-1.5 h-9">Réinitialiser</button>
       </div>
 
@@ -2291,7 +2291,7 @@ export default function Attributions() {
                   <label className="block"><span className="block text-xs text-gray-600 mb-0.5">Recherche libre</span>
                     <input value={filters.q} onChange={e=>setFilters({...filters,q:e.target.value})} onKeyDown={e=>e.key==='Enter'&&applyFilters()} placeholder="UE, cours, professeur..." className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm"/></label>
                   <div className="flex gap-2 pt-1">
-                    <button onClick={applyFilters} className="flex-1 bg-iip-blue hover:bg-iip-blue-dark text-white text-sm py-1.5 h-9 rounded-lg">Filtrer</button>
+                    <button onClick={applyFilters} className="bouton bouton-fort flex-1">Filtrer</button>
                     <button onClick={resetFilters} className="text-gray-500 hover:text-iip-blue text-sm px-2">Réinitialiser</button>
                   </div>
                 </div>

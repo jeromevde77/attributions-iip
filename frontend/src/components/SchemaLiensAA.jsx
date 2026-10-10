@@ -686,8 +686,7 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
                     d'un coup, cours par cours. */}
                 {aEnregistrer.length > 1 && (
                   <button onClick={enregistrerTout} disabled={enCours}
-                    className="px-3 py-2 text-second rounded-lg bg-iip-blue text-white
-                               font-semibold disabled:opacity-40 flex items-center gap-1.5">
+                    className="bouton bouton-fort flex items-center gap-1.5">
                     <IconDeviceFloppy size={14} />
                     Enregistrer les {aEnregistrer.length} cours modifiés
                   </button>

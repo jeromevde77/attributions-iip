@@ -130,7 +130,7 @@ export default function Rentree({ annee }) {
                 <IconCheck size={16} /> Les échéances légales sont confirmées pour {annee}.
               </div>
               <button onClick={instancier}
-                className="px-3 py-1.5 text-sm bg-iip-blue text-white font-semibold rounded-lg">
+                className="bouton bouton-fort">
                 Générer les échéances de l'année
               </button>
             </div>
