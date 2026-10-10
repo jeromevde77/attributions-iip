@@ -389,6 +389,25 @@ export default function LaboratoireTemporel() {
           </div>
         </div>)}
 
+      {/* L'AUTONOMIE DE LA SECTION, POUR L'ANNÉE : ce qui n'est pas encore dépensé, UE
+          par UE, et ce qui a été mis de côté (avec son motif). Toute l'autonomie doit
+          être dépensée dans la section et dans l'année. */}
+      {face === 'temps' && data && zoom !== 'ue' && (() => {
+        const lignes = ues.filter(u => !u.stage).map(u => {
+          const aut = Number((u.cours || []).find(c => c.ue_autonomie != null)?.ue_autonomie) || 0;
+          const prise = (u.cours || []).reduce((t, c) => t + (Number(c.autonomie_placee) || 0), 0);
+          return { u, reste: arrondi(aut - prise), reservee: Number(u.autonomie_reservee) || 0 };
+        }).filter(x => x.reste > 0);
+        if (!lignes.length) return null;
+        const total = arrondi(lignes.reduce((t, x) => t + x.reste, 0)), cote = arrondi(lignes.reduce((t, x) => t + Math.min(x.reste, x.reservee), 0));
+        return (
+          <div className="bloc-etat px-3 py-2 text-[12.5px]" data-etat="surveiller">
+            <b>Autonomie de la section non dépensée : {total} p.</b>{cote > 0 ? ` — dont ${cote} mises de côté volontairement` : ''}. Toute l’autonomie doit être dépensée dans la section et dans l’année.
+            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-slate-600">
+              {lignes.map(x => <span key={x.u.ue_num} title={x.reservee ? `Mise de côté : ${x.u.autonomie_motif || ''}` : 'Pas encore décidée'}>UE {x.u.ue_num} : {x.reste} p.{x.reservee ? ' (de côté)' : ''}</span>)}
+            </div>
+          </div>);
+      })()}
       {face === 'temps' && data && zoom !== 'ue' && ueChoisie && (
         <ResumeUE u={ueChoisie} semaines={semaines} peutEcrire={peutEcrire} pendantStage={pendantStage(ueChoisie)}
           onStage={() => basculerStage(ueChoisie)} onConges={() => basculerConges(ueChoisie)} onOuvrir={() => setZoom('ue')} />)}
@@ -676,11 +695,61 @@ function Verre({ u, types, annee, section, peutEcrire, onRetour, onAnnee, onEnre
   };
   const teinteCouche = (c, k) => { const base = teinteCours(c.cours_code); return k % 2 ? `color-mix(in srgb, ${base} 72%, white)` : base; };
 
+  /* L'AUTONOMIE NE SE PERD PAS EN SILENCE (Charles, 10 octobre 2026). À
+     l'enregistrement, s'il en reste dans la burette, on décide — dans l'UE, à qui
+     elle appartient : la répartir sur ses activités, en faire une activité, ou la
+     mettre de côté volontairement, avec un motif. Le laboratoire montre ce qui est
+     mis de côté au niveau de la section. */
+  const recalerAutonomie = liste => {
+    let dispo = autonomieUE;
+    return liste.map(c => {
+      const besoin = Math.max(0, arrondi(sommeEtudiant(c) - (Number(c.cours_per) || 0)));
+      const prise = arrondi(Math.min(besoin, Math.max(0, dispo))); dispo -= prise;
+      return { ...c, autonomie_placee: prise };
+    });
+  };
   async function enregistrer() {
+    let liste = cours, aEcrire = new Set(modifies), reserve = null;
+    if (autonomieReste > 0) {
+      const v = await choisir({ titre: `UE ${u.ue_num} — autonomie non utilisée`,
+        message: `Vous n’avez pas utilisé toute l’autonomie de cette UE : il reste ${autonomieReste} p. dans la burette. Toute l’autonomie doit être dépensée. Que fait-on de ce reste ?`,
+        choix: [
+          { valeur: 'repartir', libelle: 'La répartir sur les activités de l’UE', aide: 'Chaque activité grandit au prorata de ses périodes.' },
+          { valeur: 'activite', libelle: 'En faire une activité de l’UE', aide: 'Une remédiation, par exemple, dans le cours de votre choix.' },
+          { valeur: 'reserver', libelle: 'La mettre de côté, volontairement', aide: 'Elle reste rattachée à l’UE ; le laboratoire la montre au niveau de la section. Un motif est demandé.' },
+        ] });
+      if (!v) return;
+      if (v === 'repartir') {
+        const tot = cours.reduce((t, c) => t + sommeEtudiant(c), 0) || 1;
+        liste = recalerAutonomie(cours.map(c => ({ ...c, activites: c.activites.map(a => {
+          const p = parEtudiant(a), plus = Math.round(autonomieReste * p / tot * 2) / 2;
+          return { ...a, periodes: (p + plus) * (a.groupes || 1) };
+        }) })));
+        cours.forEach((_, i) => aEcrire.add(i));
+      } else if (v === 'activite') {
+        const ci = cours.length === 1 ? 0 : await choisir({ titre: 'Dans quel cours ?', message: `L’activité prendra ${autonomieReste} p.`,
+          choix: cours.map((c, i) => ({ valeur: i, libelle: `${c.cours_code} — ${String(c.cours_nom || '').slice(0, 50)}` })) });
+        if (ci == null) return;
+        const t = types.find(x => /remédiation|remediation/i.test(x.libelle || '')) || types[0];
+        liste = recalerAutonomie(cours.map((c, i) => (i !== Number(ci) ? c : { ...c,
+          activites: [...c.activites, { activite_id: t?.id, activite_nom: t?.libelle || 'Remédiation', periodes: autonomieReste, groupes: 1, vu_etudiant: 1 }] })));
+        aEcrire.add(Number(ci));
+      } else {
+        const motif = await saisir({ titre: 'Mettre l’autonomie de côté', message: `Pourquoi met-on ${autonomieReste} p. d’autonomie de côté ?`, obligatoire: true, multiligne: true });
+        if (!motif) return;
+        reserve = { autonomie_reservee: autonomieReste, autonomie_motif: motif };
+      }
+      setCours(liste);
+    } else if (Number(u.autonomie_reservee) > 0) reserve = { autonomie_reservee: 0 };
     setEnCours(true);
     try {
-      for (const ci of modifies) {
-        const c = cours[ci];
+      if (reserve) {
+        const r = await fetch('/api/grille/ue', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ annee_scolaire: annee, section, ue_num: u.ue_num, ...reserve }) });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
+      }
+      for (const ci of aEcrire) {
+        const c = liste[ci];
         const r = await fetch('/api/grille/cours', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({
           annee_scolaire: annee, section, ue_num: u.ue_num, cours_code: c.cours_code,
           date_debut: c.date_debut || null, date_fin: c.date_fin || null, autonomie_placee: c.autonomie_placee || 0, evaluation_mode: c.evaluation_mode || 'examen',
@@ -740,8 +809,8 @@ function Verre({ u, types, annee, section, peutEcrire, onRetour, onAnnee, onEnre
         <button className="bouton" onClick={onRetour}>← Les couches</button>
         <b className="text-[14px] text-iip-blue">UE {u.ue_num}</b><span className="text-[12.5px] text-slate-500 truncate">{u.ue_nom}</span>
         <span className="flex-1" />
-        {peutEcrire && <button className="bouton bouton-fort" disabled={!modifies.size || enCours} onClick={enregistrer}>
-          {enCours ? 'Enregistrement…' : modifies.size ? `Enregistrer (${modifies.size} cours)` : 'Enregistré'}</button>}
+        {peutEcrire && <button className="bouton bouton-fort" disabled={(!modifies.size && !(autonomieReste > 0 && !(Number(u.autonomie_reservee) >= autonomieReste))) || enCours} onClick={enregistrer}>
+          {enCours ? 'Enregistrement…' : modifies.size ? `Enregistrer (${modifies.size} cours)` : autonomieReste > 0 && !(Number(u.autonomie_reservee) >= autonomieReste) ? 'Décider de l’autonomie restante' : 'Enregistré'}</button>}
       </div>
       {peutEcrire && (
         <div className="flex flex-wrap items-center gap-2">
