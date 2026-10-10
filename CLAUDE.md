@@ -23,6 +23,23 @@ l'application de gestion académique de l'Institut Ilya Prigogine (IIP).
 **Langue de travail : le français.** Style direct, exécutif. Les documents
 destinés à l'école expliquent **le travail, pas l'informatique**.
 
+**PLUSIEURS ÉTABLISSEMENTS** (3.1.253, Charles, 10 octobre 2026 : « HELB et IIP,
+ou deux établissements pour adultes comme l'EPFC ou Soralia, gérés par le même
+conseil d'administration ; chacun ses étudiants, ou un mélange comme ici »). La
+table `etablissement` n'est plus verrouillée sur une ligne : **l'IIP reste
+l'établissement 1** (les lecteurs `WHERE id = 1` / `LIMIT 1` le trouvent toujours),
+d'autres s'ajoutent dans Configuration → Identité. Chacun porte son logo, son logo
+blanc, sa signature et son cachet (data URL, contrôle des octets, 2 Mo, réservé à
+l'administrateur) ; chaque section y est rattachée (`section.etablissement_id`, 1
+par défaut). **Les images ne sont plus en dur** : `services/assets/*` exportent
+des liaisons vivantes que `lib/identite.js` remplace par celles de
+l'établissement 1 au démarrage et à chaque import ; `GET /api/etablissement/images`
+les sert à l'écran (`frontend/src/lib/identite.js`) — quatre écrans les
+embarquaient en texte (≈ 950 Ko retirés du code, Attestation 784 → 84 Ko). **À
+venir :** les pièces d'une section d'un AUTRE établissement lisent son identité
+(`etablissementDeSection`), le filtre par établissement, le périmètre d'accès par
+établissement.
+
 **Établissement :** IIP — N° ECOT 5222132070, FASE 292, Campus Erasme,
 Route de Lennik 808, 1070 Anderlecht. Enseignement pour adultes (FWB).
 Sections : TIM (la plus grande), Psychomotricité, AeSI (soins infirmiers,

@@ -16,7 +16,9 @@
 export const ETATS = [['fort', 'Marine', '#16406A'], ['reussi', 'Réussi', '#3E7D5E'], ['disponible', 'En cours', '#2F6FB0'],
   ['surveiller', 'Attention', '#B45309'], ['corriger', 'Problème', '#9D4A38'], ['faveur', 'Faveur', '#6B46C1'], ['neutre', 'Neutre', '#CBD5E1']];
 const coul = k => (ETATS.find(e => e[0] === k) || ETATS[6])[2];
-const LOGO = '<svg viewBox="0 0 220 60" xmlns="http://www.w3.org/2000/svg"><path d="M30 8a26 26 0 1 0 0 44" fill="none" stroke="#F9B619" stroke-width="5"/><path d="M38 12a20 20 0 1 0 0 36" fill="none" stroke="#05B7E6" stroke-width="4"/><text x="58" y="34" font-family="Arial" font-size="24" font-weight="700" fill="#19537E">institut</text><text x="58" y="50" font-family="Arial" font-size="12" fill="#F9B619">Ilya Prigogine</text></svg>';
+// Le logo de l'atelier : celui de l'établissement (3.1.253) ; ce dessin n'est qu'un repli.
+export function poserLogoAtelier(url) { if (url) LOGO = `<img src="${url}" alt="Logo" style="max-height:18mm;max-width:100%;display:block">`; }
+let LOGO = '<svg viewBox="0 0 220 60" xmlns="http://www.w3.org/2000/svg"><path d="M30 8a26 26 0 1 0 0 44" fill="none" stroke="#F9B619" stroke-width="5"/><path d="M38 12a20 20 0 1 0 0 36" fill="none" stroke="#05B7E6" stroke-width="4"/><text x="58" y="34" font-family="Arial" font-size="24" font-weight="700" fill="#19537E">institut</text><text x="58" y="50" font-family="Arial" font-size="12" fill="#F9B619">Ilya Prigogine</text></svg>';
 const COULEURS_TEXTE = [['Encre', '#1B2B4B'], ['Marine', '#16406A'], ['Or', '#A8862E'], ['Vert', '#3E7D5E'], ['Brique', '#9D4A38'], ['Violet', '#6B46C1'], ['Gris', '#64748B'], ['Noir', '#000000']];
 const FORME = { rayon: 10, coins: { tl: 0, tr: 1, br: 1, bl: 0 }, bande: 4, pos: 'gauche' };
 const clone = o => JSON.parse(JSON.stringify(o));
@@ -48,7 +50,7 @@ const VIG = {
   train: '<div style="display:flex;width:86%;height:26px;border:1px solid #D8DCE4;border-radius:5px;background:#fff;overflow:hidden">' + ['#16406A', '#2F6FB0', '#3E7D5E'].map(c => `<div style="flex:1;position:relative;border-left:1px solid #E6E9EE"><div style="position:absolute;left:3px;right:3px;bottom:0;height:3px;background:${c}"></div></div>`).join('') + '</div>',
   encadre: '<div style="width:84%;height:26px;border:1px solid #D8DCE4;border-left:3px solid #2F6FB0;border-radius:0 5px 5px 0;background:#fff"></div>',
   tableau: '<div style="width:80%;display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#CBD5E1;border:1px solid #CBD5E1">' + '<div style="height:6px;background:#1B2B4B"></div>'.repeat(3) + '<div style="height:6px;background:#fff"></div>'.repeat(6) + '</div>',
-  logo: '<div style="width:60%">' + LOGO + '</div>',
+  get logo() { return '<div style="width:60%">' + LOGO + '</div>'; },
   signature: '<div style="width:80%;display:flex;justify-content:flex-end"><div style="width:50%;border-bottom:1px solid #94A3B8;height:16px"></div></div>',
   signatureDir: '<div style="width:80%;display:flex;justify-content:flex-end;align-items:flex-end;gap:4px"><div style="width:18px;height:18px;border-radius:50%;border:1.5px solid #16406A;opacity:.7"></div><div style="width:46%;height:18px;border-bottom:1px solid #94A3B8;background:repeating-linear-gradient(90deg,transparent 0 3px,rgba(22,64,106,.25) 3px 4px)"></div></div>',
   filet: '<div style="width:80%;height:2px;background:#C9A84C"></div>',

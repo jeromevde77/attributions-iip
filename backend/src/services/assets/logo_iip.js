@@ -4,5 +4,12 @@
 // renvoie désormais le même logo que toutes les autres pièces (logo_iip_jpeg).
 import { LOGO_IIP_JPEG } from './logo_iip_jpeg.js';
 
-export const LOGO_IIP_B64 = LOGO_IIP_JPEG;
-export const LOGO_IIP_HTML = `<img src="${LOGO_IIP_JPEG}" alt="Institut Ilya Prigogine" style="height:60px;width:auto;display:block" />`;
+export let LOGO_IIP_B64 = LOGO_IIP_JPEG;
+export let LOGO_IIP_HTML = `<img src="${LOGO_IIP_JPEG}" alt="Institut Ilya Prigogine" style="height:60px;width:auto;display:block" />`;
+
+// RÉGLABLE (3.1.253) : recalculés quand le logo de l'établissement change.
+export function rafraichirLogo(v) {
+  if (!v) return;
+  LOGO_IIP_B64 = v;
+  LOGO_IIP_HTML = `<img src="${v}" alt="Logo de l'établissement" style="height:60px;width:auto;display:block" />`;
+}
