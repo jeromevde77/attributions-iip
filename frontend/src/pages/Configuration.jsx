@@ -2160,6 +2160,8 @@ const GROUPES_COULEURS = [
   ['etats', 'Les états', 'Ce que dit une tuile, une case, une pastille.'],
   ['blocs', 'Les repères', 'Les blocs d’études et l’épreuve intégrée : où l’on est, jamais un état.'],
   ['fonds', 'Les fonds', 'Le sol de la page et le gris de ce qui n’est pas encore atteignable.'],
+  ['surfaces', 'Les surfaces', 'Chaque zone de l’écran : menus, cartes, en-têtes, lignes, survol, tuiles, champs, filets. Sans réglage, elle suit celle qu’on indique.'],
+  ['composants', 'Les composants', 'Fenêtres (bandeau, corps, pied), boutons, segments.'],
   ['sens', 'Contrats et cours', 'Les deux employeurs et les deux natures de cours.'],
   ['identite', 'L’identité', 'Les couleurs du logo, pour mémoire et pour les thèmes : elles ne disent aucun état.'],
 ];
@@ -2178,13 +2180,27 @@ function ReglageCouleurs() {
       .catch(e => setEtat('Lecture impossible : ' + e.message));
   }, []);
 
-  const v = cle => (valeurs[cle] || catalogue[cle]?.valeur || '#000000');
+  // UNE ZONE QUI SUIT (3.1.250) : sans valeur, elle prend celle qu'elle suit — on montre cette couleur-là.
+  const v = cle => {
+    const d = catalogue[cle];
+    if (valeurs[cle]) return valeurs[cle];
+    if (d?.valeur) return d.valeur;
+    if (d?.suit && catalogue[d.suit]) return v(d.suit);
+    // « texte à 6 % » : le mélange du texte et du blanc, comme le fait le CSS.
+    const m = /^texte à (\d+)/.exec(d?.suit || '');
+    if (m) {
+      const k = Number(m[1]) / 100, t = v('texte').slice(1).match(/../g).map(x => parseInt(x, 16));
+      return '#' + t.map(c => Math.round(255 - (255 - c) * k).toString(16).padStart(2, '0')).join('').toUpperCase();
+    }
+    return '#FFFFFF';
+  };
+  const regle = cle => !!valeurs[cle] && valeurs[cle] !== catalogue[cle]?.valeur;
   function appliquerTheme(t) {
     const base = Object.fromEntries(Object.entries(catalogue).map(([k, d]) => [k, d.valeur]));
     changer(() => { setValeurs({ ...base, ...t.valeurs }); setGris(t.gris); });
   }
   const themeActif = THEMES.find(t => t.gris === gris && Object.entries(catalogue)
-    .every(([k, d]) => v(k).toUpperCase() === (t.valeurs[k] || d.valeur).toUpperCase()))?.cle;
+    .every(([k, d]) => String(valeurs[k] || d.valeur || '').toUpperCase() === String(t.valeurs[k] || d.valeur || '').toUpperCase()))?.cle;
 
   /* PAS DE BOUTON « ENREGISTRER » (Charles, 26 septembre 2026 : « si je
      change, je dois voir tout de suite ce que cela donne, et c'est sauvé »).
@@ -2294,10 +2310,10 @@ function ReglageCouleurs() {
                     <input type="color" value={v(cle)}
                       onChange={e => { const v = e.target.value; changer(() => setValeurs(x => ({ ...x, [cle]: v }))); }}
                       className="w-10 h-7 rounded-champ border border-slate-300 bg-white p-0.5" title={d.libelle} />
-                    <button onClick={() => changer(() => setValeurs(x => ({ ...x, [cle]: d.valeur })))}
-                      className={`text-xs w-10 text-left ${v(cle).toUpperCase() !== d.valeur.toUpperCase()
-                        ? 'text-slate-400 hover:text-iip-blue' : 'invisible'}`} title="Revenir à la couleur d’origine">
-                      défaut
+                    <button onClick={() => changer(() => setValeurs(x => ({ ...x, [cle]: d.valeur || null })))}
+                      className={`text-xs w-16 text-left ${regle(cle) ? 'text-slate-400 hover:text-iip-blue' : d.suit ? 'text-slate-400' : 'invisible'}`}
+                      disabled={!regle(cle)} title={d.suit ? `Sans réglage, suit : ${catalogue[d.suit]?.libelle || d.suit}` : 'Revenir à la couleur d’origine'}>
+                      {regle(cle) ? 'défaut' : d.suit ? 'suit' : 'défaut'}
                     </button>
                   </div>
                 ))}

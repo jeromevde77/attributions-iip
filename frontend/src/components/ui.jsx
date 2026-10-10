@@ -793,7 +793,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
 /** Cadre du tableau : bordure, arrondi, défilement horizontal. */
 export function Tableau({ children, className = '', dense = false }) {
   return (
-    <div className={`border border-slate-200 rounded-xl overflow-x-auto bg-white ${className}`}>
+    <div style={{ background: 'var(--c-fond_ligne, #fff)', borderColor: 'var(--c-filet, rgb(var(--gris-200)))' }} className={`border rounded-xl overflow-x-auto ${className}`}>
       <table className={`w-full ${dense ? 'text-second' : 'text-sm'}`}>{children}</table>
     </div>
   );
@@ -1139,12 +1139,12 @@ export function Fenetre({ icone: Ic, titre, sous, large = 'moyenne',
        * dont le contenu varie vraiment d'un onglet à l'autre demandent
        * `hauteurFixe` — c'est alors un choix, écrit, et non le défaut subi par
        * les autres. */}
-      <div className={`relative bg-white rounded-fenetre shadow-dessus overflow-hidden
+      <div style={{ background: 'var(--c-fenetre_corps, #fff)' }} className={`relative rounded-fenetre shadow-dessus overflow-hidden
                        flex flex-col max-w-full
                        ${hauteurFixe ? 'h-[88vh]' : 'max-h-[88vh]'}
                        ${largeurs[large] || largeurs.moyenne}`}>
-        <div className="flex items-center gap-3 px-5 py-3 text-white flex-shrink-0"
-          style={{ background: ton === 'alerte' ? 'var(--c-refuse)' : 'var(--c-principal)' }}>
+        <div className="flex items-center gap-3 px-5 py-3 flex-shrink-0"
+          style={{ background: ton === 'alerte' ? 'var(--c-refuse)' : 'var(--c-fenetre_bandeau, var(--c-principal))', color: 'var(--c-fenetre_titre, #fff)' }}>
           {Ic && <Ic size={18} className="flex-shrink-0"
             style={{ color: ton === 'alerte' ? 'var(--c-texte)' : 'var(--c-accent)' }} />}
           <div className="min-w-0 flex-1">
@@ -1198,7 +1198,8 @@ export function Fenetre({ icone: Ic, titre, sous, large = 'moyenne',
            * `<span className="flex-1" />` qui pousse « Fermer · Enregistrer » à
            * droite recevait aussi les 12 rem de la phrase, et dans une petite
            * fenêtre il envoyait les boutons à la ligne. */
-          <div className="flex-shrink-0 px-5 py-3 border-t border-slate-200
+          <div style={{ background: 'var(--c-fenetre_pied, var(--c-fenetre_corps, #fff))', borderColor: 'var(--c-filet, rgb(var(--gris-200)))' }}
+            className="flex-shrink-0 px-5 py-3 border-t
                           flex items-center gap-x-3 gap-y-2 flex-wrap
                           [&>button]:flex-none [&>span]:min-w-0
                           [&>span]:flex-1 [&>span]:basis-48

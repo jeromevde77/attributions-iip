@@ -61,12 +61,34 @@ export const COULEURS_DEFAUT = {
   // seul sol) et le gris de ce qui n'est pas encore atteignable.
   fond_page:    { groupe: 'fonds', libelle: 'Fond de la page', valeur: '#FFFFFF' },
   fond_indispo: { groupe: 'fonds', libelle: 'Pas encore atteignable', valeur: '#F4F5F7' },
+  // LES SURFACES ET LES COMPOSANTS (3.1.250, Charles, 10 octobre 2026 : « il faut
+  // pouvoir paramétrer le fond, le fond des tuiles… les fenêtres, les barres, les
+  // boutons — tout doit être standardisé et paramétrable »). Une zone, un réglage.
+  // `valeur: null` + `suit` : tant qu'on ne la règle pas, la zone SUIT une autre —
+  // un seul sol par défaut, et rien ne change pour qui ne touche à rien.
+  fond_menus:      { groupe: 'surfaces', libelle: 'Rail et barre du haut', valeur: null, suit: 'fond_page' },
+  fond_carte:      { groupe: 'surfaces', libelle: 'Cartes, listes, panneaux', valeur: null, suit: 'fond_page' },
+  fond_entete:     { groupe: 'surfaces', libelle: 'En-têtes de tableau, lignes de regroupement', valeur: null, suit: 'fond_carte' },
+  fond_ligne:      { groupe: 'surfaces', libelle: 'Lignes de tableau', valeur: '#FFFFFF' },
+  fond_survol:     { groupe: 'surfaces', libelle: 'Survol d’une ligne ou d’une entrée', valeur: null, suit: 'texte à 6 %' },
+  fond_tuile:      { groupe: 'surfaces', libelle: 'Tuiles et encadrés', valeur: '#FFFFFF' },
+  fond_champ:      { groupe: 'surfaces', libelle: 'Champs et boutons neutres', valeur: '#FFFFFF' },
+  filet:           { groupe: 'surfaces', libelle: 'Filets et contours', valeur: null, suit: 'texte à 10 %' },
+  sous_menu:       { groupe: 'surfaces', libelle: 'Sous-menu déplié du rail', valeur: '#3E7FB8' },
+  fenetre_bandeau: { groupe: 'composants', libelle: 'Fenêtre — bandeau de titre', valeur: null, suit: 'principal' },
+  fenetre_titre:   { groupe: 'composants', libelle: 'Fenêtre — texte du bandeau', valeur: '#FFFFFF' },
+  fenetre_corps:   { groupe: 'composants', libelle: 'Fenêtre — corps', valeur: '#FFFFFF' },
+  fenetre_pied:    { groupe: 'composants', libelle: 'Fenêtre — pied (barre des boutons)', valeur: null, suit: 'fenetre_corps' },
+  bouton_fort:     { groupe: 'composants', libelle: 'Bouton principal', valeur: null, suit: 'principal' },
+  bouton_sortir:   { groupe: 'composants', libelle: 'Bouton « produire une pièce »', valeur: null, suit: 'principal' },
+  bouton_detruire: { groupe: 'composants', libelle: 'Bouton « détruire »', valeur: null, suit: 'refuse' },
+  segment_actif:   { groupe: 'composants', libelle: 'Segment choisi (choix exclusif)', valeur: null, suit: 'principal' },
 };
 
 /** Les couleurs en vigueur : les défauts, écrasés par ce qui a été réglé. */
 export function couleurs() {
   const out = {};
-  for (const [cle, d] of Object.entries(COULEURS_DEFAUT)) out[cle] = d.valeur;
+  for (const [cle, d] of Object.entries(COULEURS_DEFAUT)) if (d.valeur) out[cle] = d.valeur;
   try {
     const row = db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'couleurs'").get();
     if (row?.valeur) {
@@ -77,7 +99,7 @@ export function couleurs() {
         // qu'on écrit sans vérifier dans un attribut `fill` ou `style` est une
         // porte ouverte. Seul le dièse suivi de six chiffres hexadécimaux
         // passe ; le reste retombe sur le défaut.
-        if (cle in out && /^#[0-9a-fA-F]{6}$/.test(String(v))) out[cle] = v;
+        if (cle in COULEURS_DEFAUT && /^#[0-9a-fA-F]{6}$/.test(String(v))) out[cle] = v;
       }
     }
   } catch { /* pas de réglage, pas de table : les défauts suffisent */ }
