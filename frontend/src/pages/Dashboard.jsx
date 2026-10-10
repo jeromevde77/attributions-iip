@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { api, getAnnee } from '../lib/api.js';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from 'recharts';
 import ActivityFeed from '../components/ActivityFeed.jsx';
-import { RailLateral, TuileEtat } from '../components/ui.jsx';
+import { RailLateral, TuileEtat, Chevron } from '../components/ui.jsx';
 import { IconChevronRight, IconLayoutDashboard, IconChartBar, IconBuildingCommunity, IconFileText, IconUsers } from '@tabler/icons-react';
 import { couleursGraphique } from '../lib/couleurs.js';
 import { reglagesGraphique } from '../lib/design.js';
@@ -208,7 +208,7 @@ export default function Dashboard() {
                   <div key={sec.section} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
                     <button onClick={() => toggleSection(sec.section)}
                       className="w-full flex items-center gap-3 px-4 py-3 hover:bg-iip-gold/5 transition text-left bg-iip-gold/5">
-                      <IconChevronRight size={18} className={`text-iip-gold transition-transform ${open ? 'rotate-90' : ''}`} />
+                      <Chevron ouvert={open} size={18} className="text-iip-gold" />
                       <span className="font-bold text-iip-gold text-lg">{sec.section}</span>
                       <div className="flex items-center gap-4 text-xs text-gray-500 ml-auto">
                         <span><b className="text-iip-gold">{n(sec.per)}</b> per.</span>

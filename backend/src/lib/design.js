@@ -44,6 +44,7 @@ export const DESIGN_DEFAUT = {
   jauge_hauteur:    { groupe: 'graphiques', libelle: 'Jauges — hauteur', type: 'px', min: 2, max: 16, valeur: 6 },
   jauge_forme:      { groupe: 'graphiques', libelle: 'Jauges — bouts', type: 'choix', choix: ['arrondis', 'droits'], valeur: 'arrondis' },
   volet_retrait:    { groupe: 'tableaux', libelle: 'Tableau à volets — retrait du détail', type: 'px', min: 0, max: 48, valeur: 24 },
+  etape_taille:     { groupe: 'graphiques', libelle: 'Frises — taille des pastilles d’étape', type: 'px', min: 18, max: 40, valeur: 28 },
   graphique_rayon:  { groupe: 'graphiques', libelle: 'Rayon des barres', type: 'px', min: 0, max: 8, valeur: 3 },
   graphique_grille: { groupe: 'graphiques', libelle: 'Quadrillage', type: 'choix', choix: ['pointille', 'plein', 'aucun'], valeur: 'pointille' },
   graphique_legende: { groupe: 'graphiques', libelle: 'Légende', type: 'choix', choix: ['bas', 'haut', 'aucune'], valeur: 'bas' },

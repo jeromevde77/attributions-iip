@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Anneau, Barres, Repartition, Jauge, TrVolet } from './graphiques.jsx';
+import { Anneau, Barres, Repartition, Jauge, TrVolet, PastilleEtape, LienEtape } from './graphiques.jsx';
 import { Etendue } from './statsUi.jsx';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, ResponsiveContainer } from 'recharts';
 import { IconPlus, IconSend, IconTrash } from '@tabler/icons-react';
@@ -74,6 +74,11 @@ const FAMILLES = [
       <TrVolet cellules={['DUPONT Marie', '6']} ouvert={volet === 1} onBascule={() => setVolet(v => (v === 1 ? 0 : 1))} detail={<span className="text-second">246 · 248 · 249 · 254 · 257 · 260</span>} />
       <TrVolet cellules={['MARTIN Paul', '5']} ouvert={volet === 2} onBascule={() => setVolet(v => (v === 2 ? 0 : 2))} detail={<span className="text-second">246 · 248 · 254 · 257 · 260</span>} />
     </tbody></Tableau> },
+  { nom: 'Frises d’étapes', role: 'Un circuit : étapes faites (vert, coche), courante (principal), à venir (blanche), refus (brique) ; le trait se remplit derrière ce qui est fait.',
+    formes: [R('etape_taille', 'taille')], couleurs: [R('reussi', 'faite'), R('principal', 'courante'), R('refuse', 'refus')],
+    specimen: () => <ol className="flex items-start m-0 p-0 list-none">{[['Demande', 'fait'], ['Recevabilité', 'fait'], ['Avis', 'courant'], ['Décision', 'avenir'], ['Validation', 'avenir']].map(([l, e], i, t) => (
+      <li key={l} className="flex-1 min-w-0 relative">{i > 0 && <LienEtape fait={t[i - 1][1] === 'fait'} className="absolute top-[13px] right-1/2 w-full" />}
+        <div className="relative z-10 flex flex-col items-center text-center"><PastilleEtape n={i + 1} etat={e} /><span className="mt-1 text-second">{l}</span></div></li>))}</ol> },
   { nom: 'Agenda de la semaine', role: 'La base de l’école et ce qu’on y peint (enseignants, sections, cours, locaux).',
     formes: [R('rayon_champ', 'rayon')], couleurs: [R('reussi', 'libre'), R('attente', 'éventuellement'), R('refuse', 'jamais'), R('principal', 'base')],
     specimen: () => <div style={{ maxWidth: 300 }}><AgendaSemaine compact jours={[1, 2, 3]} base={[{ jour: 1, debut: '08:00', fin: '10:00' }, { jour: 2, debut: '08:00', fin: '10:00' }, { jour: 3, debut: '10:15', fin: '12:15' }]} valeur={(j) => (j === 2 ? 0 : j === 3 ? 2 : 1)} /></div> },

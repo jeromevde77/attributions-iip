@@ -3,7 +3,7 @@ import { IconReportAnalytics, IconReportMoney } from '@tabler/icons-react';
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import { api, getAnnee, getUser, authHeaders } from '../lib/api.js';
 import { IconChartBar, IconHome, IconUsers, IconSettings, IconChevronRight, IconChevronDown, IconPrinter, IconRotateClockwise, IconCheck, IconX, IconTrash, IconCash, IconCalendar, IconArrowsLeftRight, IconScale, IconUsersGroup } from '@tabler/icons-react';
-import { PageHeader, Tabs, RailLateral, OuvrirEditions, TuileEtat } from '../components/ui.jsx';
+import { PageHeader, Tabs, RailLateral, OuvrirEditions, TuileEtat, Chevron } from '../components/ui.jsx';
 import Distributions from '../components/Distributions.jsx';
 import Population from '../components/Population.jsx';
 import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
@@ -436,7 +436,7 @@ function DotationComparaison({ civil }) {
                       onClick={() => toggleSec(sec.section)}>
                       <td className="px-3 py-2 font-bold text-iip-gold sticky left-0 z-10 overflow-hidden text-ellipsis whitespace-nowrap"
                         style={{background: si % 2 === 0 ? '#f9fafb' : 'white', width:colW.nom, maxWidth:colW.nom}}>
-                        <IconChevronRight size={14} className={`mr-2 transition-transform ${open ? 'rotate-90' : ''}`} />
+                        <Chevron ouvert={open} size={14} className="mr-2" />
                         {sec.section}
                       </td>
                       <td style={{width:colW.niv}}></td><td style={{width:colW.quad}}></td>

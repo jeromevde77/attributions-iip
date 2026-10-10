@@ -3,7 +3,7 @@ import { couleurBloc } from '../lib/blocs.js';
 import { codeGroupe, suiteGroupes, trierCodes, rangCouleur } from '../lib/groupes.js';
 import { estDirection } from '../lib/modules.js';
 import { useDroits } from '../lib/droits.js';
-import { VoletRail, Fenetre } from '../components/ui.jsx';
+import { VoletRail, Fenetre, Chevron } from '../components/ui.jsx';
 import { createPortal } from 'react-dom';
 import { api, getAnnee, nomDoc, getUnite, setUnite as setUniteGlobal, perToH, hToPer } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
@@ -1800,7 +1800,7 @@ export default function Attributions() {
       out.push(
         <tr key={voletKey} className="bg-iip-gold/5 border-y border-iip-gold/20 cursor-pointer hover:bg-iip-gold/10"
             onClick={()=>setOpenActs(s=>{const n=new Set(s);n.has(voletKey)?n.delete(voletKey):n.add(voletKey);return n;})}>
-          <td className="text-center"><IconChevronRight size={14} className={`inline-block text-gray-400 text-xs transition-transform ${ouvert?'rotate-90':''}`} /></td>
+          <td className="text-center"><Chevron ouvert={ouvert} size={14} className="text-gray-400 text-xs" /></td>
           <td colSpan={COLS_COURS.length - 1} className="px-2 py-1.5 h-9">
             <span className="inline-flex items-center gap-2">
               <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-iip-gold text-white text-xs font-bold">{lignes.length}</span>
@@ -1838,7 +1838,7 @@ export default function Attributions() {
         {/* Ouverte, la bande prend le fond de son en-tête : les deux ne font
             plus qu'un bloc, et c'est ce bloc qui dit « ce cours ». */}
         <button onClick={()=>toggle(key)} className={`w-full flex items-center gap-2 pl-10 pr-4 py-2 transition text-left text-sm ${open ? 'bg-[#F4F6F8]' : 'hover:bg-gray-100/60'} ${isZCours ? 'opacity-70' : ''}`}>
-          <IconChevronRight size={14} className={`text-gray-400 text-sm transition-transform ${open?'rotate-90':''}`} />
+          <Chevron ouvert={open} size={14} className="text-gray-400" />
           <span className={`font-mono text-sm ${isZCours ? 'text-gray-400' : 'text-gray-500'}`}>{cg.code_cours}</span>
           <span className={`truncate ${isZCours ? 'text-gray-400 italic' : 'text-gray-700'}`}>{cg.nom_cours}</span>
           {(() => {
@@ -1951,7 +1951,7 @@ export default function Attributions() {
         <div className={`w-full flex items-center pl-6 pr-3 py-1.5 transition relative ${activeUE === key ? (isHelb ? 'bg-pink-50 hover:bg-pink-100/70' : 'bg-iip-gold/5 hover:bg-iip-gold/10') : (isHelb ? 'hover:bg-pink-100/60' : 'hover:bg-gray-50')}`}>
           <div onClick={()=>{toggle(key); setActiveUE(key);}} role="button" className="grid items-center gap-2 flex-1 min-w-0 text-left cursor-pointer"
                   style={{ gridTemplateColumns: '16px 70px 200px 1fr auto' }}>
-            <IconChevronRight size={14} className={`text-iip-gold text-sm transition-transform ${open?'rotate-90':''}`} />
+            <Chevron ouvert={open} size={14} className="text-iip-gold" />
             <span className="font-semibold text-iip-gold text-sm whitespace-nowrap">UE {ue.ue_num}</span>
             {/* UN SEUL BADGE, COMPOSÉ DE TOUT (Charles, 27 septembre 2026 : « les
                 badges doivent devenir un seul, composé de tous ») — bloc ·
@@ -2150,7 +2150,7 @@ export default function Attributions() {
             par-dessus disait deux fois la même chose — et « bg-iip-gold/5 »
             n'était même pas doré, puisque ce nom-là vaut du marine. */}
         <button onClick={()=>toggle(key)} className={`w-full flex items-center gap-3 px-4 py-2.5 tab-repere hover:brightness-[.98] transition text-left border-0 ${open ? 'border-b border-slate-200' : ''}`}>
-          <IconChevronRight size={14} className={`transition-transform opacity-50 ${open?'rotate-90':''}`} />
+          <Chevron ouvert={open} size={14} className="opacity-50" />
           <span className="font-semibold text-sm">{sg.section}</span>
           <div className="flex items-center gap-3 text-sm text-gray-500 flex-shrink-0 ml-auto">
             <span>{sg.ues.length} UE</span>

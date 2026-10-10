@@ -9,7 +9,7 @@ import { createPortal } from 'react-dom';
 const DeliberationVA = lazy(() => import('./Valorisations.jsx').then(m => ({ default: m.DeliberationVA })));
 import { nomPropre } from '../lib/nom.js';
 import { couleurBloc } from '../lib/blocs.js';
-import { RailLateral } from '../components/ui.jsx';
+import { RailLateral, Chevron } from '../components/ui.jsx';
 import SuiviEtudiant from '../components/SuiviEtudiant.jsx';
 import NouvelEtudiant from '../components/NouvelEtudiant.jsx';
 import {
@@ -597,7 +597,7 @@ export function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
                             <div className="grid items-center gap-2 py-1 px-0.5 text-sm hover:bg-slate-50 cursor-pointer"
                               style={{ gridTemplateColumns: '14px 56px minmax(0,1fr) auto 56px 50px auto auto' }}
                               onClick={() => basculerVolet(u.ue_num)}>
-                              <IconChevronRight size={13} className={`text-slate-400 transition-transform ${ouvert ? 'rotate-90' : ''}`} />
+                              <Chevron ouvert={ouvert} size={13} className="text-slate-400" />
                               <b className="text-iip-texte tabular-nums">UE {u.ue_num}</b>
                               <span className="truncate">{u.ue_nom}</span>
                               <BadgeUE u={u} />
@@ -2601,7 +2601,7 @@ function MenuParcourir({ portee, onPortee, sections, ues, annees }) {
       <button type="button" onClick={() => setOuvert(o => !o)}
         title="Les dossiers que les flèches parcourent"
         className={`bouton bouton-compact inline-flex items-center gap-1 ${actifs ? 'border-[color:var(--c-principal)] text-iip-blue' : ''}`}>
-        Parcourir{actifs ? ` · ${actifs}` : ''} <IconChevronRight size={12} className={`transition ${ouvert ? 'rotate-90' : ''}`} />
+        Parcourir{actifs ? ` · ${actifs}` : ''} <Chevron ouvert={ouvert} size={12} className="transition" />
       </button>
       {ouvert && (
         <div className="absolute right-0 top-full mt-1 z-30 w-72 bg-white border border-slate-200 rounded-carte shadow-flottant p-3 space-y-2"

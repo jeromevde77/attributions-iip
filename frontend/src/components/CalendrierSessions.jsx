@@ -4,7 +4,7 @@ import {
   IconLock, IconWand, IconSearch, IconLayoutRows, IconColumns,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
-import { PageHeader, Fenetre } from './ui.jsx';
+import { PageHeader, Fenetre, Chevron } from './ui.jsx';
 
 /**
  * LE CALENDRIER DES SESSIONS — une section, une page, les deux sessions.
@@ -195,7 +195,7 @@ function VueCoteACote({
                     return n;
                   })} className="align-middle text-slate-400 hover:text-slate-700"
                     aria-label={ouvert ? 'Replier' : 'Déplier'}>
-                    {ouvert ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
+                    <Chevron ouvert={ouvert} size={14} />
                   </button>
                   <span className="font-medium ml-0.5">{u.ue_num}</span>{' '}
                   <span className="text-slate-500">{u.ue_nom}</span>
@@ -337,7 +337,7 @@ function BlocSession({
                     return n;
                   })} className="align-middle text-slate-400 hover:text-slate-700"
                     aria-label={ouvert ? 'Replier' : 'Déplier'}>
-                    {ouvert ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
+                    <Chevron ouvert={ouvert} size={14} />
                   </button>
                   <span className="font-medium ml-0.5">{u.ue_num}</span>{' '}
                   <span className="text-slate-500">{u.ue_nom}</span>

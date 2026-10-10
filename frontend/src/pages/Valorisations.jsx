@@ -6,7 +6,7 @@ import {
   IconRubberStamp, IconUserPlus, IconUsersGroup, IconX,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
-import { BulleAide, Fenetre, RailLateral, OuvrirEditions } from '../components/ui.jsx';
+import { BulleAide, Fenetre, RailLateral, OuvrirEditions, Chevron as ChevronMaison } from '../components/ui.jsx';
 import SeanceValorisation from '../components/SeanceValorisation.jsx';
 import NotificationVA from '../components/NotificationVA.jsx';
 import { nomListe, parNom } from '../lib/nom.js';
@@ -425,7 +425,7 @@ function anneesProches() {
 function LigneEtudiant({ etudiant, annee, ouvert, onBasculer, onAjouterUE,
                          onSupprimer, onSupprimerLigne, onDocuments, onDossier,
                          onDeliberer = null, onChange, onErreur }) {
-  const Fleche = ouvert ? IconChevronDown : IconChevronRight;
+  const Fleche = props => <ChevronMaison ouvert={ouvert} {...props} />;
   return (
     <div className="carte overflow-hidden">
       <div className="flex items-center gap-2 px-3 py-2">
@@ -615,7 +615,7 @@ function UniteValorisee({ va, annee, onSupprimer, onDocuments, onDossier, onChan
   }
 
   const refuse = va.decision === 'refusee';
-  const Fleche = ouvert ? IconChevronDown : IconChevronRight;
+  const Fleche = props => <ChevronMaison ouvert={ouvert} {...props} />;
 
   return (
     <div className="border-b border-slate-100 last:border-0">
@@ -2658,7 +2658,7 @@ const ETAPES_INSTRUIRE = ETAPES.filter(e => ['demande', 'recevabilite', 'avis'].
  * `ETAPES` est la seule table, partagée avec « Analyser en série » : deux
  * frises pour un même circuit finiraient par compter différemment.
  */
-const VERT = 'var(--c-texte)', BRIQUE = 'var(--c-refuse)', GRIS = '#CBD5E1';
+const VERT = 'var(--c-reussi)', BRIQUE = 'var(--c-refuse)', GRIS = 'rgb(var(--gris-300))';   // les couleurs des états (3.1.264)
 
 function etatEtape(d, cle) {
   if (cle === 'recevabilite' && d.recevable === 0) return 'refus';
@@ -2691,7 +2691,7 @@ export function FriseCircuit({ dossier, compact = false }) {
                 : e.etat === 'refus' ? BRIQUE : GRIS,
               /* Le liseré désigne le tour de qui. Il ne s'ajoute qu'à UNE
                  étape : deux repères ne repèrent plus rien. */
-              boxShadow: i === courante ? `0 0 0 1.5px ${VERT}55` : 'none',
+              boxShadow: i === courante ? '0 0 0 1.5px color-mix(in srgb, var(--c-reussi) 35%, transparent)' : 'none',
             }} />
         ))}
       </span>

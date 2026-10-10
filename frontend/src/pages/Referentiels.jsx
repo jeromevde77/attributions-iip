@@ -7,7 +7,7 @@ import GrilleSectionModal from '../components/GrilleSectionModal.jsx';
 import CompositionSection from '../components/CompositionSection.jsx';
 import ImportUEAssistant from '../components/ImportUEAssistant.jsx';
 import { IconX, IconPencil, IconTrash, IconPlus, IconCheck, IconLink, IconChevronRight, IconTarget, IconUpload, IconFileText, IconAlertTriangle, IconBooks } from '@tabler/icons-react';
-import { Fenetre, GroupeFenetre } from '../components/ui.jsx';
+import { Fenetre, GroupeFenetre, Chevron } from '../components/ui.jsx';
 import AcquisUE from '../components/AcquisUE.jsx';
 import { demander, informer } from '../lib/dialogue.jsx';
 
@@ -1099,7 +1099,7 @@ export default function Referentiels({ embedded = false }) {
                     <tr className="bg-iip-gold/5 border-t border-gray-200">
                       <td className="px-2 py-2 text-center">
                         <button onClick={() => toggle(secKey)} className="text-iip-gold font-bold">
-                          <IconChevronRight size={14} className={`inline-block transition-transform ${secOpen ? 'rotate-90' : ''}`} />
+                          <Chevron ouvert={secOpen} size={14} />
                         </button>
                       </td>
                       <td colSpan="7" className="px-2 py-2 cursor-pointer" onClick={() => toggle(secKey)}>
@@ -1148,7 +1148,7 @@ export default function Referentiels({ embedded = false }) {
                           }`}>
                             <td className={`px-2 py-1.5 text-center ${activeUE === ueKey ? (isHelb ? 'border-l-2 border-pink-400' : 'border-l-2 border-iip-gold/60') : ''}`}>
                               <button onClick={() => { toggle(ueKey); setActiveUE(ueKey); }} className="text-iip-gold">
-                                <IconChevronRight size={14} className={`inline-block text-sm transition-transform ${ueOpen ? 'rotate-90' : ''}`} />
+                                <Chevron ouvert={ueOpen} size={14} />
                               </button>
                             </td>
                             <td className="px-2 py-1.5 h-9 font-semibold text-iip-gold whitespace-nowrap cursor-pointer" onClick={() => { toggle(ueKey); setActiveUE(ueKey); }}>UE {ue.ue_num}</td>
@@ -1309,7 +1309,7 @@ export default function Referentiels({ embedded = false }) {
                       <tr className={`border-b border-gray-100 hover:bg-gray-50 ${isHelb ? 'bg-pink-50' : ''}`}>
                         <td className="px-3 py-1.5 h-9">
                           <button onClick={() => { toggle(ueKey); setActiveUE(ueKey); }} className="text-iip-gold">
-                            <IconChevronRight size={14} className={`inline-block text-sm transition-transform ${ueOpen ? 'rotate-90' : ''}`} />
+                            <Chevron ouvert={ueOpen} size={14} />
                           </button>
                         </td>
                         <td className="px-2 py-1.5 h-9 font-semibold text-iip-gold cursor-pointer" onClick={() => { toggle(ueKey); setActiveUE(ueKey); }}>{ue.ue_num}</td>

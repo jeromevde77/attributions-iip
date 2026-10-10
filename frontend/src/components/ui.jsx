@@ -1306,3 +1306,9 @@ export function OuvrirEditions({ titre, taille, disabled, sombre, ...contexte })
     </>
   );
 }
+
+/* LE CHEVRON D'UN VOLET (3.1.263) : un seul dessin pour toute ligne ou section qui se
+   déplie — il pivote d'un quart de tour à l'ouverture, gris fermé, principal ouvert. */
+export function Chevron({ ouvert = false, size = 14, className = '' }) {
+  return <IconChevronRight size={size} className={`chevron-volet inline-block ${ouvert ? 'chevron-ouvert' : ''} ${className}`} aria-hidden="true" />;
+}

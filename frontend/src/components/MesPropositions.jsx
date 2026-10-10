@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
+import { Chevron as ChevronMaison } from './ui.jsx';
 import { IconBulb, IconChevronDown, IconChevronRight } from '@tabler/icons-react';
 import { authHeaders, getUser } from '../lib/api.js';
 import FilSuggestion, { PastilleIdee, PastilleNouveau } from './FilSuggestion.jsx';
@@ -84,7 +85,7 @@ export default function MesPropositions() {
           </div>
           <div className="carte overflow-hidden">
             {lignes.map(s => {
-              const Chevron = ouvert === s.id ? IconChevronDown : IconChevronRight;
+              const Chevron = props => <ChevronMaison ouvert={ouvert === s.id} {...props} />;
               return (
                 <div key={s.id} className="border-t border-slate-100 first:border-t-0">
                   <button type="button" onClick={() => ouvrir(s.id)}

@@ -13,6 +13,7 @@
  * croisement : ceux de la DUE).
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { PastilleEtape } from '../components/graphiques.jsx';
 import { IconPercentage, IconTable, IconFileDescription, IconCheck, IconArrowRight } from '@tabler/icons-react';
 import { api, authHeaders, getAnnee } from '../lib/api.js';
 import { Fiche } from './DUE.jsx';
@@ -85,11 +86,7 @@ function Frise({ faces, ouvertes, face, onFace, et }) {
               title={ouverte ? undefined : 'Réglée par la direction ou le secrétariat'}
               className={`flex items-center gap-2.5 rounded-carte border px-3 py-2 text-left min-w-0 bg-white
                 ${actif ? 'border-iip-blue shadow-pose' : ouverte ? 'border-slate-200 hover:border-slate-400' : 'border-slate-200 opacity-60 cursor-default'}`}>
-              <span className={`w-7 h-7 rounded-full grid place-items-center text-second font-bold flex-none
-                ${fait ? 'text-white' : actif ? 'bg-iip-blue text-white' : 'border border-slate-300 text-slate-500'}`}
-                style={fait ? { background: 'var(--c-reussi, #3E7D5E)' } : undefined}>
-                {fait ? <IconCheck size={15} /> : n}
-              </span>
+              <PastilleEtape n={n} etat={fait ? 'fait' : actif ? 'courant' : 'avenir'} />
               <span className="min-w-0">
                 <span className={`block text-sm ${actif ? 'font-semibold text-iip-blue' : 'text-slate-700'}`}>{l}</span>
                 <span className="block text-xs text-slate-500 truncate">{et[k]?.detail || (ouverte ? '…' : 'réglée par la direction')}</span>
