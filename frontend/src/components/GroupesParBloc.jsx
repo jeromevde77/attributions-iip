@@ -37,7 +37,7 @@ export default function GroupesParBloc({ items, blocDeItem, estEpreuve, children
       .map(([cle, liste]) => ({
         cle, liste,
         titre: cle === 'EI' ? 'Épreuve intégrée' : cle === 'AUTRE' ? 'Sans bloc' : cle,
-        couleur: cle === 'EI' ? OR_EPREUVE : cle === 'AUTRE' ? '#CBD5E1' : (COULEUR_BLOC[cle] || 'var(--c-disponible)'),
+        couleur: cle === 'EI' ? OR_EPREUVE : cle === 'AUTRE' ? 'rgb(var(--gris-300))' : (COULEUR_BLOC[cle] || 'var(--c-disponible)'),
       }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items]);
@@ -59,7 +59,7 @@ export default function GroupesParBloc({ items, blocDeItem, estEpreuve, children
   return (
     <div className="space-y-3">
       <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${Math.min(groupes.length + 1, 6)}, minmax(0, 1fr))` }}>
-        {tuile('', (items || []).length, `Toutes les ${libelle.replace('(s)', 's')}`, '#CBD5E1')}
+        {tuile('', (items || []).length, `Toutes les ${libelle.replace('(s)', 's')}`, 'rgb(var(--gris-300))')}
         {groupes.map(g => tuile(g.cle, g.liste.length, g.titre, g.couleur))}
       </div>
       {visibles.map(g => (

@@ -176,7 +176,7 @@ export default function MesCours() {
       </div>
 
       {erreur && (
-        <div className="bg-red-50 border border-red-200 rounded-carte px-4 py-3 text-sm text-red-700 flex items-start gap-2 border-l-4 border-l-red-500">
+        <div className="bloc-etat etat-corriger px-4 py-3 text-sm text-red-700 flex items-start gap-2">
           <IconAlertTriangle size={16} className="flex-none mt-0.5" />{erreur}
         </div>
       )}
@@ -218,7 +218,7 @@ export default function MesCours() {
         }
         const carte = x => (
           <button key={x.cours_code} onClick={() => ouvrir(x.cours_code)}
-            style={{ borderLeftColor: couleurBloc(x.ue_niv) || '#D8DCE4' }}
+            style={{ borderLeftColor: couleurBloc(x.ue_niv) || 'rgb(var(--gris-200))' }}
             className="w-full text-left bg-white border border-slate-200 border-l-[5px] rounded-l-none rounded-r-carte px-3 py-2 hover:border-iip-turquoise flex items-center gap-3">
             <div className="min-w-0 flex-1">
               <div className="font-semibold text-iip-blue text-sm">{x.cours_code} · {x.cours_nom || ''}</div>

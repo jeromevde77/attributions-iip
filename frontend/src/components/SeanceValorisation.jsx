@@ -282,8 +282,7 @@ export default function SeanceValorisation({ ueNum, ueNom, annee, onClose }) {
               pied qu'une fois, à la fin. Le A4 et le pied répété se garantissent
               côté serveur, pas dans un onglet. */}
           {doc && (
-            <div className="flex items-center gap-2 text-second border border-slate-200
-                            rounded-carte px-3 py-2 border-l-[3px] border-l-[color:var(--c-epreuve)]">
+            <div className="bloc-etat etat-neutre flex items-center gap-2 text-second px-3 py-2 border-l-[color:var(--c-epreuve)]">
               <span className="flex-1">
                 L'onglet ouvert est un <b>aperçu</b>. Pour la pièce elle-même —
                 A4 garanti, pied de page sur chaque feuille — prends le PDF.

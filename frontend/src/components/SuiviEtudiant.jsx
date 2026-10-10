@@ -94,7 +94,7 @@ export default function SuiviEtudiant({ etudId }) {
       </div>
 
       {erreur && (
-        <div className="text-second text-red-700 bg-red-50 border border-red-200 rounded-carte px-3 py-2 flex items-start gap-1.5 border-l-4 border-l-red-500">
+        <div className="bloc-etat etat-corriger text-second text-red-700 px-3 py-2 flex items-start gap-1.5">
           <IconAlertTriangle size={14} className="flex-none mt-0.5" />{erreur}
         </div>
       )}

@@ -410,7 +410,7 @@ export default function AcquisUE({ ueNum, annee, estAdmin }) {
               <button onClick={charger} className="bouton">Annuler</button>
             </>
           )}
-          <span className={`text-second min-w-0 ${orphelin || !intro.trim() ? 'text-[#9d4a38]' : 'text-slate-500'}`}>
+          <span className={`text-second min-w-0 ${orphelin || !intro.trim() ? 'text[color:var(--c-refuse,_#9D4A38)]' : 'text-slate-500'}`}>
             {!intro.trim() ? 'La phrase qui introduit les acquis ne peut pas rester vide.'
               : orphelin ? 'Un chapeau est placé après le dernier acquis : il n’introduit rien. Déplacez-le ou retirez-le.'
               : modifie ? 'La mise en forme n’est pas encore enregistrée. Les codes ne changent pas : « Renuméroter » s’en charge ensuite.'

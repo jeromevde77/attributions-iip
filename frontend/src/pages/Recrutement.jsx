@@ -249,7 +249,7 @@ export default function Recrutement() {
           </h1>
         </div>
 
-        {err && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2 mb-4 border-l-4 border-l-red-500">{err}</div>}
+        {err && <div className="bloc-etat etat-corriger text-sm text-red-600 px-3 py-2 mb-4">{err}</div>}
 
         {loading && <div className="text-sm text-gray-400">Chargement…</div>}
 
@@ -708,7 +708,7 @@ function CarteCandidatPoste({ candidature: c, onChange, onEntretien }) {
           </button>
           {c.statut === 'retenu' && (
             <button onClick={attribuer}
-              className="text-xs bg-green-600 hover:bg-green-700 text-white rounded px-2 py-1 h-7 flex items-center gap-1 font-semibold flex-shrink-0">
+              className="bouton bouton-fort flex items-center gap-1 flex-shrink-0">
               <IconCheck size={12} /> Attribuer
             </button>
           )}
@@ -1170,7 +1170,7 @@ function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSav
           </div>
 
           {/* Appréciation réflexive */}
-          <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 shadow-pose border-l-4 border-l-teal-500">
+          <div className="bloc-etat etat-disponible p-4">
             <div className="flex items-center gap-2 mb-3">
               <div className="text-sm font-semibold text-teal-800">Appréciation du niveau réflexif</div>
               <div className="text-xs text-teal-600">Évaluation globale de la posture réflexive du candidat</div>
@@ -1284,7 +1284,7 @@ function VueParallele({ postes, candidats, fonctions, annee, onRecharger }) {
       </div>
 
       {feedback && (
-        <div className="text-sm bg-green-50 border border-green-200 text-green-700 rounded-lg px-3 py-2 mb-3 flex items-center gap-2 border-l-4 border-l-green-500">
+        <div className="bloc-etat etat-reussi text-sm text-green-700 px-3 py-2 mb-3 flex items-center gap-2">
           <IconCheck size={15} /> {feedback}
         </div>
       )}
@@ -2368,7 +2368,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
             const hasIndisp = jours.some(j => cr.some(c => dispo[`${j}_${c.key}`]));
             if (!hasIndisp && !dispo._remarque) return null;
             return (
-              <div className="border border-orange-200 bg-orange-50/40 rounded-xl p-4 border-l-4 border-l-orange-500">
+              <div className="bloc-etat etat-surveiller bg-orange-50/40 p-4">
                 <div className="text-xs font-bold text-orange-600 uppercase tracking-widest mb-2">Indisponibilités</div>
                 <div className="overflow-x-auto">
                   <table className="text-xs border-collapse">
@@ -2697,7 +2697,7 @@ function ModalAnalyseCv({ onClose, onResultat, candidatExistant = null }) {
               {err && <div className="text-xs text-white bg-red-500 rounded px-3 py-2 mt-2">{err}</div>}
 
               <button onClick={analyser} disabled={!fichier || loading}
-                className="mt-3 w-full flex items-center justify-center gap-2 bg-iip-blue text-white py-2.5 rounded-xl font-medium text-sm hover:opacity-90 disabled:opacity-40 transition">
+                className="bouton bouton-fort mt-3 w-full flex items-center justify-center gap-2">
                 {loading ? (
                   <><span className="animate-spin">⏳</span> Lucie analyse le CV…</>
                 ) : (
@@ -2715,7 +2715,7 @@ function ModalAnalyseCv({ onClose, onResultat, candidatExistant = null }) {
           {/* Prévisualisation et validation */}
           {apercu && (
             <div className="space-y-4">
-              <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2 border-l-4 border-l-green-500">
+              <div className="bloc-etat etat-reussi flex items-center gap-2 px-3 py-2">
                 <span className="text-green-600">✓</span>
                 <span className="text-sm text-green-700 font-medium">CV analysé — vérifiez et corrigez si besoin</span>
                 <button onClick={() => { setApercu(null); setAnalyse(null); }}
@@ -3353,7 +3353,7 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
                   className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:border-iip-turquoise" />
               </div>
 
-              <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 shadow-pose border-l-4 border-l-teal-500">
+              <div className="bloc-etat etat-disponible p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="text-sm font-semibold text-teal-800">Appréciation du niveau réflexif</div>
                 </div>
@@ -3391,7 +3391,7 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
                         <div className="text-2xl font-bold text-iip-blue">{noteGlobale}<span className="text-sm font-normal text-gray-400">/5</span></div>
                       </div>
                       <button onClick={sauvegarder} disabled={saving}
-                        className="text-sm bg-iip-blue text-white px-5 py-2 rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center gap-1.5">
+                        className="bouton bouton-fort flex items-center gap-1.5">
                         <IconCheck size={14} /> Sauvegarder
                       </button>
                     </div>

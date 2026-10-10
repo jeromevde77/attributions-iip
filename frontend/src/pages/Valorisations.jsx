@@ -3618,8 +3618,7 @@ function CeQuiResteAFaire({ annee, onOuvrir }) {
       {TUILES.map(([k, titre, aide]) => {
         const liste = j.paquets[k];
         return (
-          <div key={k} className="bg-white border border-slate-200 rounded-carte
-                                  border-l-[3px] border-l-amber-600 p-2.5">
+          <div key={k} className="bloc-etat etat-surveiller p-2.5">
             <div className="text-lg font-semibold text-iip-blue">{liste.length}</div>
             <div className="text-second text-slate-700">{titre}</div>
             <div className="text-xs text-slate-400">{aide}</div>

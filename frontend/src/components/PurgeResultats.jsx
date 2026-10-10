@@ -120,14 +120,14 @@ export default function PurgeResultats({ anneeCourante, onClose, onPurge }) {
       large="grande" ton="alerte" onFermer={onClose}>
       <div className="space-y-4">
           {erreur && (
-            <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-sm text-red-800 border-l-4 border-l-red-500">
+            <div className="bloc-etat etat-corriger px-3 py-2 text-sm text-red-800">
               {erreur}
             </div>
           )}
 
           {fait ? (
             <>
-              <div className="px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-900 border-l-4 border-l-emerald-500">
+              <div className="bloc-etat etat-reussi px-4 py-3 text-sm text-emerald-900">
                 <div className="font-semibold mb-1">Purge effectuée</div>
                 <ul className="text-second space-y-0.5">
                   {Object.entries(fait.supprime || {}).map(([k, v]) => (
@@ -275,7 +275,7 @@ export default function PurgeResultats({ anneeCourante, onClose, onPurge }) {
 
               {/* Simulation */}
               {simulation && (
-                <div className="px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 border-l-4 border-l-amber-500">
+                <div className="bloc-etat etat-surveiller px-4 py-3">
                   <div className="flex items-center gap-1.5 text-sm font-semibold text-amber-900 mb-1.5">
                     <IconAlertTriangle size={15} /> Ce qui sera supprimé
                   </div>
@@ -304,7 +304,7 @@ export default function PurgeResultats({ anneeCourante, onClose, onPurge }) {
                   {enCours ? '…' : 'Calculer le périmètre'}
                 </button>
                 <button onClick={executer} disabled={!simulation || enCours}
-                  className="text-sm px-4 py-1.5 rounded-lg bg-red-600 text-white font-semibold disabled:opacity-40">
+                  className="bouton bouton-detruire">
                   Supprimer
                 </button>
               </div>

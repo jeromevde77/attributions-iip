@@ -139,7 +139,7 @@ export default function RepartitionPeriodes() {
           </p>
         </div>
         <button onClick={enregistrer} disabled={!nbModifs || enCours}
-          className="flex items-center gap-2 px-4 py-2 text-sm bg-iip-blue text-white font-semibold rounded-lg disabled:opacity-40">
+          className="bouton bouton-fort flex items-center gap-2">
           <IconDeviceFloppy size={16} />
           {enCours ? 'Enregistrement…' : nbModifs ? `Enregistrer (${nbModifs})` : 'Enregistrer'}
         </button>
@@ -260,7 +260,7 @@ export default function RepartitionPeriodes() {
       )}
 
       {data?.anomalies?.length > 0 && (
-        <div className="px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 border-l-4 border-l-amber-500">
+        <div className="bloc-etat etat-surveiller px-4 py-3">
           <div className="flex items-center gap-1.5 text-sm font-semibold text-amber-900 mb-1.5">
             <IconAlertTriangle size={15} /> {data.anomalies.length} contrôle(s) à examiner
           </div>

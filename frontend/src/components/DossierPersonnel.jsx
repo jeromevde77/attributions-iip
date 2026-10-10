@@ -618,7 +618,7 @@ export function Journal({ profId, peutEcrire, estAdmin }) {
               <IconLock size={13} className="text-slate-400" /> Confidentiel
             </label>
             <button onClick={ajouterRdv} disabled={envoi || !rdv.date_prevue}
-              className="text-sm px-3 py-1.5 rounded-lg bg-iip-turquoise text-white font-semibold disabled:opacity-40">
+              className="bouton bouton-fort">
               Planifier
             </button>
           </div>

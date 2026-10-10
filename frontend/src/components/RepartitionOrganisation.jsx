@@ -85,7 +85,7 @@ export default function RepartitionOrganisation({ ueNum, ueNom, annee, onClose, 
       </>) : null}>
         <div className="space-y-3">
           {erreur && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 border-l-4 border-l-red-500">{erreur}</div>
+            <div className="bloc-etat etat-corriger p-3 text-sm text-red-700">{erreur}</div>
           )}
           {!data && !erreur && <p className="text-sm text-slate-400">Chargement…</p>}
 

@@ -206,7 +206,7 @@ export default function ConfigCourriels() {
         )}
         <div className="px-4 py-3 border-t border-gray-100 bg-slate-50 flex flex-wrap items-center gap-2">
           <button onClick={enregistrer} disabled={!!occupe}
-            className="flex items-center gap-1.5 px-4 py-1.5 text-sm bg-iip-blue text-white font-semibold rounded-lg disabled:opacity-40">
+            className="bouton bouton-fort flex items-center gap-1.5">
             {occupe === 'save' ? <IconLoader2 size={14} className="animate-spin" /> : <IconCheck size={14} />} Enregistrer
           </button>
           <button onClick={verifier} disabled={!!occupe || (cfg.mode === 'graph' ? !graphOk : !cfg.host)}
@@ -247,7 +247,7 @@ export default function ConfigCourriels() {
             placeholder="vide = envoi réel aux destinataires"
             className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm w-96" />
           <button onClick={enregistrer} disabled={!!occupe}
-            className="flex items-center gap-1.5 px-4 py-1.5 text-sm bg-iip-blue text-white font-semibold rounded-lg disabled:opacity-40">
+            className="bouton bouton-fort flex items-center gap-1.5">
             <IconCheck size={14} /> Enregistrer
           </button>
         </div>

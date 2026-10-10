@@ -80,7 +80,7 @@ function PurgeAnnee() {
           </>
         )}
         {etape === 2 && (
-          <div className="bg-red-50 border border-red-300 rounded-lg p-4 space-y-3 border-l-4 border-l-red-500">
+          <div className="bloc-etat etat-corriger p-4 space-y-3">
             <p className="text-sm font-semibold text-red-700">
               ⚠️ Confirmer la suppression de l'année <strong>{annee}</strong> ?
             </p>
@@ -91,7 +91,7 @@ function PurgeAnnee() {
             {err && <p className="text-xs text-white bg-red-500 rounded p-2">{err}</p>}
             <div className="flex gap-3">
               <button onClick={purger} disabled={loading}
-                className="px-4 py-1.5 h-9 bg-red-600 text-white text-sm rounded hover:bg-red-700 disabled:opacity-50">
+                className="bouton bouton-detruire">
                 {loading ? 'Suppression…' : `Oui, supprimer ${annee}`}
               </button>
               <button onClick={() => { setEtape(1); setErr(''); }}
@@ -102,7 +102,7 @@ function PurgeAnnee() {
           </div>
         )}
         {etape === 3 && result && (
-          <div className="bg-green-50 border border-green-300 rounded-lg p-4 space-y-2 border-l-4 border-l-green-500">
+          <div className="bloc-etat etat-reussi p-4 space-y-2">
             <p className="text-sm font-semibold text-green-700">✓ Année {annee} purgée</p>
             <div className="text-xs text-green-600 space-y-0.5">
               {Object.entries(result.details || result.supprime || {}).map(([t, n]) => (
@@ -159,7 +159,7 @@ function RegenererDonneesDev() {
           </>
         )}
         {etape === 2 && (
-          <div className="bg-amber-50 border border-amber-300 rounded-lg p-4 space-y-3 border-l-4 border-l-amber-500">
+          <div className="bloc-etat etat-surveiller p-4 space-y-3">
             <p className="text-sm font-semibold text-amber-700">
               Confirmer l'anonymisation de tous les professeurs et de tous les étudiants ?
             </p>
@@ -171,7 +171,7 @@ function RegenererDonneesDev() {
             {err && <p className="text-xs text-white bg-red-500 rounded p-2">{err}</p>}
             <div className="flex gap-3">
               <button onClick={regenerer} disabled={loading}
-                className="px-4 py-1.5 h-9 bg-amber-500 text-white text-sm rounded hover:bg-amber-600 disabled:opacity-50">
+                className="bouton">
                 {loading ? 'Régénération…' : 'Oui, régénérer'}
               </button>
               <button onClick={() => { setEtape(1); setErr(''); }}
@@ -182,7 +182,7 @@ function RegenererDonneesDev() {
           </div>
         )}
         {etape === 3 && stats && (
-          <div className="bg-green-50 border border-green-300 rounded-lg p-4 space-y-2 border-l-4 border-l-green-500">
+          <div className="bloc-etat etat-reussi p-4 space-y-2">
             <p className="text-sm font-semibold text-green-700">
               ✓ {stats.total} professeurs et {stats.etudiants ?? 0} étudiants anonymisés
             </p>
@@ -393,7 +393,7 @@ function GestionParametres({ groupes = null }) {
             : `${nbModifs} modification${nbModifs > 1 ? 's' : ''} non sauvegardée${nbModifs > 1 ? 's' : ''}`}
           {!saved && (
             <button onClick={sauvegarder} disabled={saving}
-              className="bg-iip-gold text-white text-xs px-4 py-1.5 h-9 rounded hover:bg-iip-amber disabled:opacity-50">
+              className="bouton bouton-fort">
               {saving ? 'Enregistrement…' : 'Enregistrer'}
             </button>
           )}
@@ -609,7 +609,7 @@ function GestionPrerequis() {
         {section && <span className="text-xs text-gray-400">{prereqs.length} prérequis définis</span>}
       </div>
 
-      <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-second text-amber-900 border-l-4 border-l-amber-500">
+      <div className="bloc-etat etat-surveiller px-3 py-2 text-second text-amber-900">
         Les prérequis constituent la bibliothèque : ils viennent du dossier pédagogique et
         valent pour <b>toutes les années</b>. Les modifier fait bouger les grilles de parcours
         et les PAE déjà établis. Réservé aux administrateurs.
@@ -657,7 +657,7 @@ function GestionPrerequis() {
                 </select>
               </div>
               <button onClick={ajouter} disabled={!newUe || !newPre || saving}
-                className="bg-iip-gold text-white text-sm px-4 py-1.5 h-9 rounded hover:bg-iip-amber disabled:opacity-50">
+                className="bouton bouton-fort">
                 + Ajouter
               </button>
             </div>
@@ -796,7 +796,7 @@ function ConfigContrat() {
       </div>
 
       {/* Variables disponibles */}
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 border-l-4 border-l-amber-500">
+      <div className="bloc-etat etat-surveiller p-3">
         <div className="text-xs font-bold text-amber-700 mb-2">Variables disponibles — cliquez pour insérer</div>
         <div className="flex flex-wrap gap-1.5">
           {VARS.map(({ v, desc }) => (
@@ -916,7 +916,7 @@ function ConfigAttestation() {
           ))}
           <div className="flex gap-2">
             <button onClick={ajouterSection}
-              className="flex items-center gap-1.5 text-sm bg-green-600 text-white px-3 py-1.5 rounded-lg hover:opacity-90">
+              className="bouton bouton-fort flex items-center gap-1.5">
               <IconPlus size={14}/> Ajouter une section
             </button>
             <button onClick={sauvegarderSections}
@@ -1372,7 +1372,7 @@ export default function Configuration() {
               {backupStatus && <div className="text-xs mt-1 text-gray-600">{backupStatus}</div>}
             </div>
             <button onClick={downloadBackup}
-              className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-2 rounded font-medium whitespace-nowrap">
+              className="bouton bouton-fort whitespace-nowrap">
               <IconDownload size={15} className="inline align-[-2px] mr-1" />Télécharger
             </button>
           </div>
@@ -1396,7 +1396,7 @@ export default function Configuration() {
                 onChange={e => { setRestoreFile(e.target.files?.[0] || null); setRestoreStatus(''); }}
                 className="text-sm text-gray-600 file:mr-3 file:py-1.5 h-9 file:px-3 file:rounded file:border-0 file:text-sm file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200" />
               <button onClick={restaurerBase} disabled={!restoreFile || restoring}
-                className="bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white text-sm px-4 py-2 rounded font-medium whitespace-nowrap">
+                className="bouton bouton-detruire whitespace-nowrap">
                 {restoring ? 'Restauration…' : '♻ Restaurer cette base'}
               </button>
             </div>
@@ -1587,7 +1587,7 @@ function PnccSection({ annee }) {
             <span className="text-xs text-gray-500">ETP</span>
           </div>
           <button onClick={ajouter} disabled={saving || !form.libelle_fonction.trim()}
-            className="h-9 px-3 bg-iip-turquoise text-white text-sm font-semibold rounded flex items-center gap-1.5 disabled:opacity-40">
+            className="bouton bouton-fort flex items-center gap-1.5">
             <IconPlus size={14} /> Ajouter
           </button>
         </div>
@@ -1727,7 +1727,7 @@ function OngletProcedures() {
             placeholder="Rédigez la nouvelle justification…"
             className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm resize-none" />
           <button onClick={ajouter} disabled={!nouveau.trim()}
-            className="flex-shrink-0 bg-iip-turquoise text-white px-3 py-2 rounded text-sm font-semibold flex items-center gap-1 disabled:opacity-40">
+            className="bouton bouton-fort flex-shrink-0 flex items-center gap-1">
             <IconPlus size={14} /> Ajouter
           </button>
         </div>
@@ -1925,7 +1925,7 @@ export function OngletStatistiques() {
                 className="border border-gray-300 rounded px-3 py-1.5 h-9 text-sm w-24" />
               <button onClick={appliquerTotal}
                 title="Répartir proportionnellement aux périodes de chaque UE"
-                className="h-9 px-3 bg-iip-turquoise text-white text-xs font-semibold rounded hover:opacity-90">
+                className="bouton bouton-fort">
                 Répartir
               </button>
               <button onClick={appliquerMemeEtudiantsPartout}

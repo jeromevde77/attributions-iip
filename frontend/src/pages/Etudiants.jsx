@@ -103,7 +103,7 @@ function ThTri({ champ, tri, onTri, className = '', children }) {
       title="Trier sur cette colonne">
       <span className="inline-flex items-center gap-1">
         {children}
-        <span className={`text-mention leading-none ${actif ? 'text-[#1B2B4B]' : 'text-slate-300'}`}>
+        <span className={`text-mention leading-none ${actif ? 'text[color:var(--c-principal,_#1B2B4B)]' : 'text-slate-300'}`}>
           {actif ? (tri.sens === 1 ? '▲' : '▼') : '▲'}
         </span>
       </span>
@@ -163,7 +163,7 @@ function FriseParcours({ ues, codes, ects = null }) {
     <div className="flex items-center gap-1.5">
       {groupes.map((g, gi) => (
         <span key={gi} className="gelule" title={g.b === 'EI' ? 'Épreuve intégrée' : g.b}
-          style={{ '--b': g.b === 'EI' ? 'var(--c-epreuve)' : (couleurBloc(g.b) || '#D8DCE4') }}>
+          style={{ '--b': g.b === 'EI' ? 'var(--c-epreuve)' : (couleurBloc(g.b) || 'rgb(var(--gris-200))') }}>
           {g.l.map(u => (
             <span key={u.ue_num} data-c={u.c}
               title={`UE ${u.ue_num} — ${u.ue_nom || ''} · ${SENS_PUCE[u.c] || ''}`}>
@@ -548,8 +548,8 @@ export function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
                 <span className="block text-base font-bold text-iip-texte">{nomPropre(e.nom, e.prenom)}</span>
                 <span className="block text-xs text-slate-500 tabular-nums">{e.id_ecampus || '—'}</span>
               </span>
-              <span className="inline-flex items-stretch bg-white border border-slate-200 border-l-[4px] rounded divide-x divide-slate-200"
-                style={{ borderLeftColor: couleurBloc(e.niveau) || '#D8DCE4' }}>
+              <span className="bloc-etat etat-neutre inline-flex items-stretch divide-x divide-slate-200"
+                style={{ borderLeftColor: couleurBloc(e.niveau) || 'rgb(var(--gris-200))' }}>
                 <Wagon v={e.section || '—'} l="section" fort />
                 <Wagon v={e.niveau_libelle || '—'} l="niveau" ligne="bleu" />
                 {/* AU-DELÀ DE 60 ECTS, ORANGE (Charles, 3 octobre 2026) : plus
@@ -586,7 +586,7 @@ export function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
                     ligne par UE, une bande à la couleur du bloc le long du groupe. */}
                 {blocs.map(g => (
                   <div key={g.k} className="flex mb-3">
-                    <div className="w-[5px] rounded-full flex-none" style={{ background: g.k === 'EI' ? '#C9A227' : (couleurBloc(g.k) || '#CBD5E1') }} />
+                    <div className="w-[5px] rounded-full flex-none" style={{ background: g.k === 'EI' ? 'var(--c-epreuve, #C9A227)' : (couleurBloc(g.k) || 'rgb(var(--gris-300))') }} />
                     <div className="flex-1 min-w-0 pl-2.5">
                       <div className="text-mention font-bold uppercase tracking-wider text-slate-500 pb-1">
                         {g.k === 'EI' ? 'Épreuve intégrée' : g.k} · {g.ues.length} UE · {g.ues.reduce((t, u) => t + u.ects, 0)} ECTS</div>
@@ -679,7 +679,7 @@ export function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
                                           <select className="border border-slate-300 rounded h-7 px-1.5 text-second bg-white" value={saisie.origine} onChange={ev => setSaisie({ ...saisie, origine: ev.target.value })}>
                                             {anterieures.map(x => <option key={x} value={x}>{x}</option>)}
                                           </select>
-                                          <button type="button" disabled={occupe} className="rounded bg-iip-blue text-white h-7 px-2 text-second font-semibold disabled:opacity-40"
+                                          <button type="button" disabled={occupe} className="bouton bouton-fort"
                                             onClick={() => reporter(u.ue_num, c.code, { note: saisie.note, annee_origine: saisie.origine })}>Reporter</button>
                                           <button type="button" className="underline text-slate-500" onClick={() => setSaisie(null)}>annuler</button>
                                         </>}
@@ -1191,7 +1191,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                     className={`border-t border-slate-100 ${ueFocus === u.ue_num ? 'ligne-visee' : ''}`}>
                     {/* Le BLOC se lit au liseré, la colonne « Niv. » disparaît. */}
                     <td className="px-2 py-0.5 sticky left-0 bg-white z-10 whitespace-nowrap max-w-[16rem] overflow-hidden text-ellipsis border-l-[3px]"
-                      style={{ borderLeftColor: couleurBloc(u.ue_niv) || '#D8DCE4' }}
+                      style={{ borderLeftColor: couleurBloc(u.ue_niv) || 'rgb(var(--gris-200))' }}
                       title={`UE ${u.ue_num} — ${u.ue_nom || ''}${u.ue_niv ? ' · ' + u.ue_niv : ''}`}>
                       <span className="font-semibold text-iip-blue">{u.ue_num}</span>
                       <span className="text-slate-600 ml-1.5 inline-block max-w-[13rem] truncate align-bottom">{u.ue_nom}</span>
@@ -1403,7 +1403,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                     ecrire('effacer');
                 }}
                 title="Supprime l'inscription et tout ce qui s'y rattache"
-                className="text-second px-2 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 border-l-4 border-l-red-500">
+                className="bloc-etat etat-corriger text-second px-2 py-1.5 text-red-600 hover:bg-red-50">
                 Supprimer l'inscription
               </button>
             </div>
@@ -1465,7 +1465,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
 
                 {/* Reports de note proposés : cours validés dans une UE échouée */}
                 {(detail.candidats_report || []).length > 0 && (
-                  <div className="mb-3 border border-sky-200 bg-sky-50 rounded-xl px-3 py-2.5 border-l-4 border-l-sky-500">
+                  <div className="bloc-etat etat-disponible mb-3 px-3 py-2.5">
                     <div className="text-second font-semibold text-sky-900 mb-1.5">
                       Report de note possible
                     </div>
@@ -3233,7 +3233,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                   })()}
 
                   {bloquees.length > 0 && (
-                    <div className="mb-3 px-3 py-2.5 rounded-xl bg-red-50 border border-red-200 border-l-4 border-l-red-500">
+                    <div className="bloc-etat etat-corriger mb-3 px-3 py-2.5">
                       <div className="flex items-start gap-2">
                         <IconAlertTriangle size={15} className="text-red-600 mt-0.5 flex-none" />
                         <div className="flex-1 text-second text-red-900">
@@ -3255,7 +3255,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                   )}
 
                   {residuelles.length > 0 && (
-                    <div className="mb-3 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200 border-l-4 border-l-amber-500">
+                    <div className="bloc-etat etat-surveiller mb-3 px-3 py-2.5">
                       <div className="flex items-start gap-2">
                         <IconAlertTriangle size={15} className="text-amber-600 mt-0.5 flex-none" />
                         <div className="flex-1 text-second text-amber-900">
@@ -4473,7 +4473,7 @@ export default function Etudiants() {
                         section: e.section_rattachement || null, niveau: e.niveau || null }])}
                       title={e.pae_valide ? `PAE validé le ${quandLocal(e.pae_valide.le)} par ${e.pae_valide.par || '—'} — ouvrir la revue`
                         : e.pae_confirme ? 'Programme confirmé, PAE pas encore validé — ouvrir la revue' : 'PAE pas encore validé — ouvrir la revue'}>
-                      <IconWritingSign size={15} style={{ color: e.pae_valide ? 'var(--c-reussi, #3E7D5E)' : '#CBD5E1' }} />
+                      <IconWritingSign size={15} style={{ color: e.pae_valide ? 'var(--c-reussi, #3E7D5E)' : 'rgb(var(--gris-300))' }} />
                     </button>
                   </td>
                   <td className="px-3 py-1 whitespace-nowrap">

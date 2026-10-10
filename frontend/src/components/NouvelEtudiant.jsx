@@ -100,7 +100,7 @@ export default function NouvelEtudiant({ onClose, onCree }) {
           <IconId size={17} /> Lire la carte d'identité
         </button>
         {carte && (
-          <div className="bg-white border border-slate-200 border-l-4 rounded-r-carte px-3 py-2 text-second" style={{ borderLeftColor: 'var(--c-reussi, #3E7D5E)' }}>
+          <div className="bloc-etat etat-neutre rounded-r-carte px-3 py-2 text-second" style={{ borderLeftColor: 'var(--c-reussi, #3E7D5E)' }}>
             Carte lue : {[fr(carte.date_naissance) && `né(e) le ${fr(carte.date_naissance)}`, carte.lieu_naissance && `à ${carte.lieu_naissance}`,
               carte.nationalite, carte.num_national && `RN ${carte.num_national}`, [carte.adresse, carte.cp, carte.localite].filter(Boolean).join(' ')]
               .filter(Boolean).join(' · ')} — enregistré avec la fiche.
@@ -114,7 +114,7 @@ export default function NouvelEtudiant({ onClose, onCree }) {
         {/* LE DOUBLON SE MONTRE, IL NE SE DEVINE PAS. Deux homonymes nés le
             même jour existent : le serveur signale, le secrétariat tranche. */}
         {doublons && (
-          <div className="bg-white border border-slate-200 border-l-4 rounded-r-carte overflow-hidden" style={{ borderLeftColor: 'var(--c-attente, #E8890C)' }}>
+          <div className="bloc-etat etat-neutre rounded-r-carte overflow-hidden" style={{ borderLeftColor: 'var(--c-attente, #E8890C)' }}>
             <div className="px-3 py-2 border-b border-slate-100 text-second">
               <b>Un dossier existe déjà pour cette personne.</b> Le recréer couperait son parcours en deux.
             </div>

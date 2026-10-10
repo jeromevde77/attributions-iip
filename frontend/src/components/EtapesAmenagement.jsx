@@ -43,13 +43,13 @@ export default function EtapesAmenagement({ d, circuit, onAller, etapeActive }) 
               style={e.fait ? { borderLeft: '4px solid var(--c-reussi, #3E7D5E)' } : undefined}>
               <div className="flex items-center gap-1.5">
                 <span className="w-4 h-4 rounded-full flex items-center justify-center text-mention font-bold flex-none text-white"
-                  style={{ background: e.fait ? 'var(--c-reussi, #3E7D5E)' : e.ouvert ? 'var(--c-principal, #16406A)' : '#94A3B8' }}>
+                  style={{ background: e.fait ? 'var(--c-reussi, #3E7D5E)' : e.ouvert ? 'var(--c-principal, #16406A)' : 'rgb(var(--gris-400))' }}>
                   {e.fait ? <IconCheck size={10} /> : !e.ouvert ? <IconLock size={9} /> : i + 1}
                 </span>
                 <span className="text-sm font-semibold text-iip-blue truncate">{e.titre}</span>
                 <span className="text-xs text-slate-500 truncate">· {e.sous}</span>
               </div>
-              <div className="text-xs truncate" style={{ color: e.fait ? 'var(--c-reussi, #3E7D5E)' : '#64748b' }}>{e.etat}</div>
+              <div className="text-xs truncate" style={{ color: e.fait ? 'var(--c-reussi, #3E7D5E)' : 'rgb(var(--gris-500))' }}>{e.etat}</div>
             </button>
             {i < etapes.length - 1 && (
               <div className="flex items-center px-0.5 text-slate-300 flex-none"><IconChevronRight size={14} /></div>

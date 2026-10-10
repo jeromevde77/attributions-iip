@@ -146,7 +146,7 @@ export default function ComparaisonClasseur({ onClose }) {
         </div>
 
         {erreur && (
-          <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-sm text-red-800 border-l-4 border-l-red-500">
+          <div className="bloc-etat etat-corriger px-3 py-2 text-sm text-red-800">
             {erreur}
           </div>
         )}

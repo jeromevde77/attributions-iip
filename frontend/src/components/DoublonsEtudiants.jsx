@@ -128,7 +128,7 @@ export default function DoublonsEtudiants() {
       {/* LA SIMULATION D'ABORD. Une fusion ne se défait pas : on montre ce qui
           sera déplacé avant de l'écrire. */}
       {apercu && (
-        <div className="px-4 py-3 rounded-xl bg-amber-50 border border-amber-300 space-y-2 border-l-4 border-l-amber-500">
+        <div className="bloc-etat etat-surveiller px-4 py-3 space-y-2">
           <div className="text-sm font-semibold text-amber-900">
             Simulation — {apercu.fusions} fusion(s), rien n'a été écrit
           </div>

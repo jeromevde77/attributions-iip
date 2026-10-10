@@ -1260,7 +1260,7 @@ function Presences({ seance, onValider, enCours, ueNum, annee }) {
           soit lui qui préside. Un procès-verbal signé du titulaire absent
           serait faux — d'où l'obligation de désigner. */}
       {membres.some(m => m.role === 'direction' && !m.present) && (
-        <div className="border border-amber-300 bg-amber-50 rounded-xl p-2.5 space-y-2 border-l-4 border-l-amber-500">
+        <div className="bloc-etat etat-surveiller p-2.5 space-y-2">
           <div className="text-sm font-semibold text-amber-900">
             Présidence à désigner
           </div>
@@ -1343,7 +1343,7 @@ function Reprise({ reprise, session, onAppliquer, onRetour, enCours }) {
   const sans = (reprise.etudiants || []).filter(l => l.statut === 'sans_decision');
   return (
     <div className="space-y-3 max-w-3xl mx-auto">
-      <div className="px-3 py-2 rounded-xl bg-sky-50 border border-sky-200 border-l-4 border-l-sky-500">
+      <div className="bloc-etat etat-disponible px-3 py-2">
         <div className="text-sm font-semibold text-sky-900">
           Reprendre la délibération encodée — session {session}
         </div>
@@ -1418,7 +1418,7 @@ function PleinDroit({ auto, onAppliquer, onPasser, enCours }) {
   if (!auto) return <div className="py-10 text-center text-sm text-slate-400">Calcul…</div>;
   return (
     <div className="space-y-3 max-w-2xl mx-auto">
-      <div className="px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200 border-l-4 border-l-emerald-500">
+      <div className="bloc-etat etat-reussi px-3 py-2">
         <div className="text-sm font-semibold text-emerald-900">
           Réussites de plein droit
         </div>
@@ -1461,8 +1461,7 @@ function PleinDroit({ auto, onAppliquer, onPasser, enCours }) {
             Passer — les revoir un à un
           </button>
           <button disabled={enCours || !auto.reussites.length} onClick={onAppliquer}
-            className="px-4 py-2 text-sm rounded-lg bg-emerald-600 text-white
-                       font-semibold disabled:opacity-40">
+            className="bouton bouton-fort">
             Enregistrer ces {auto.reussites.length} réussites
           </button>
         </div>
@@ -1554,7 +1553,7 @@ function Mentions({ liste, session, enCours, onDecider, onFini, colonnesCours = 
 
   return (
     <div className="space-y-3 max-w-5xl mx-auto">
-      <div className="px-3 py-2 rounded-xl bg-white border border-slate-200 border-l-4" style={{ borderLeftColor: 'var(--c-attente)' }}>
+      <div className="bloc-etat etat-neutre px-3 py-2" style={{ borderLeftColor: 'var(--c-attente)' }}>
         <div className="text-sm font-semibold text-iip-texte">PP, NP et CM — à décider en lot</div>
         <p className="text-second text-slate-600">
           Ces étudiants n'ont pas présenté une évaluation, n'ont rien produit, ou étaient
@@ -1809,8 +1808,7 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
             La clôture sera refusée tant que les présences ne sont pas enregistrées.
           </span>
           <button onClick={onPresences}
-            className="flex-none px-3 py-1.5 text-second rounded-lg bg-amber-600
-                       text-white font-semibold">
+            className="bouton flex-none">
             Appel des présences
           </button>
         </div>
@@ -3348,7 +3346,7 @@ const DECISION_TABLEAU = {
   refuse: { l: 'Refusé', c: 'var(--c-refuse)' },
   ajourne: { l: 'Ajourné', c: 'var(--c-attente)' },
   reussi: { l: 'Réussi', c: 'var(--c-reussi)' },
-  absent: { l: 'Absent', c: '#94A3B8' },
+  absent: { l: 'Absent', c: 'rgb(var(--gris-400))' },
 };
 function Case({ etat, cours, premier, decide = false }) {
   const bord = `border-b border-slate-100 ${premier ? 'border-l border-l-slate-200' : ''}`;
@@ -3429,7 +3427,7 @@ function VueLot({ liste, onAjourner, onOuvrir, enCours, session = 1 }) {
 
   return (
     <div className="space-y-3">
-      <div className="px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 border-l-4 border-l-amber-500">
+      <div className="bloc-etat etat-surveiller px-3 py-2">
         <div className="text-sm font-semibold text-amber-900">{verbe} un paquet</div>
         <p className="text-second text-amber-800">
           On ajourne <b>par cours</b> : cochez les étudiants, et décochez au besoin l'un

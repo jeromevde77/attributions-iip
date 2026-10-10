@@ -772,7 +772,7 @@ export default function Attestation() {
         </div>
         <div className="flex items-center gap-2">
           <button onClick={ajouterLigne}
-            className="flex items-center gap-1.5 bg-green-600 text-white text-sm px-3 py-1.5 rounded-lg hover:opacity-90">
+            className="bouton bouton-fort flex items-center gap-1.5">
             <IconPlus size={15}/> Ajouter une ligne
           </button>
           <button onClick={async () => {
@@ -788,7 +788,7 @@ export default function Attestation() {
                 {enregOk && <span className="text-xs text-green-600 font-medium">✓ Enregistré</span>}
                 {dirty && !enregOk && <span className="text-xs text-amber-600">● non enregistré</span>}
                 <button onClick={sauver} title="Enregistrer la liste"
-                  className="flex items-center gap-1.5 bg-iip-turquoise text-white text-sm px-3 py-1.5 rounded-lg hover:opacity-90">
+                  className="bouton bouton-fort flex items-center gap-1.5">
                   💾 Enregistrer
                 </button>
               </>}
@@ -808,7 +808,7 @@ export default function Attestation() {
           </div>
           <button onClick={genererBatch} disabled={generating}
             title="Un seul PDF (tous les documents à la suite)"
-            className="flex items-center gap-1.5 bg-iip-blue text-white text-sm px-4 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-40 font-medium">
+            className="bouton bouton-fort flex items-center gap-1.5">
             <IconDownload size={15}/> {generating ? 'Préparation…' : 'PDF unique'}
           </button>
           <button onClick={genererZip} disabled={generating}

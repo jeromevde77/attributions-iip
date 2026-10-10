@@ -258,7 +258,7 @@ export default function PonderationsUE({ ueFixe = null }) {
             </div>
 
             {liens.epreuve_integree ? (
-              <p className="text-second text-violet-800 bg-violet-50 border border-violet-200 rounded-champ px-2.5 py-1.5 border-l-4 border-l-violet-500">
+              <p className="bloc-etat etat-faveur text-second text-violet-800 px-2.5 py-1.5">
                 Épreuve intégrée : les acquis se pèsent pour l'unité, sans cours. Leur poids se règle au tracé (« Relier au tracé »).
               </p>
             ) : (
@@ -373,7 +373,7 @@ export default function PonderationsUE({ ueFixe = null }) {
                                         className="w-14 h-7 rounded-champ border-[1.5px] border-dashed border-slate-300 text-slate-400 hover:border-slate-400">+</button>
                                     )
                                   ) : (
-                                    <span className="font-bold tabular-nums" style={{ color: v ? t : '#cbd5e1' }}>{v ? fr(v) : '·'}</span>
+                                    <span className="font-bold tabular-nums" style={{ color: v ? t : 'rgb(var(--gris-300))' }}>{v ? fr(v) : '·'}</span>
                                   )}
                                 </td>
                               );

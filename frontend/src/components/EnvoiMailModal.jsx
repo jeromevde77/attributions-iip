@@ -144,26 +144,26 @@ export default function EnvoiMailModal({ pieces, typeDoc, apercu = true, sujet: 
         </>}>
         <div className="space-y-4">
           {etat?.redirection && (
-            <div className="flex items-start gap-2 text-second text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 border-l-4 border-l-amber-500">
+            <div className="bloc-etat etat-surveiller flex items-start gap-2 text-second text-amber-800 px-3 py-2">
               <IconAlertTriangle size={15} className="flex-shrink-0 mt-0.5" />
               <span>Redirection de test active : tous les courriels partiront vers <b>{etat.redirection}</b>, quel que soit le destinataire affiché.</span>
             </div>
           )}
           {etat?.actif && etat.pdf && !etat.smtp && (
-            <div className="flex items-start gap-2 text-second text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 border-l-4 border-l-amber-500">
+            <div className="bloc-etat etat-surveiller flex items-start gap-2 text-second text-amber-800 px-3 py-2">
               <IconAlertTriangle size={15} className="flex-shrink-0 mt-0.5" />
               <span>Le serveur n'a pas de configuration SMTP : les envois seront <b>simulés</b> et
                 consignés dans le journal, mais aucun courriel ne partira.</span>
             </div>
           )}
           {etat && !etat.actif && (
-            <div className="flex items-start gap-2 text-second text-red-800 bg-red-50 border border-red-200 rounded-lg px-3 py-2 border-l-4 border-l-red-500">
+            <div className="bloc-etat etat-corriger flex items-start gap-2 text-second text-red-800 px-3 py-2">
               <IconAlertTriangle size={15} className="flex-shrink-0 mt-0.5" />
               <span>L'envoi de documents par courriel est <b>désactivé</b> (Configuration → Courriels).</span>
             </div>
           )}
           {etat?.actif && !etat.pdf && (
-            <div className="flex items-start gap-2 text-second text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 border-l-4 border-l-amber-500">
+            <div className="bloc-etat etat-surveiller flex items-start gap-2 text-second text-amber-800 px-3 py-2">
               <IconAlertTriangle size={15} className="flex-shrink-0 mt-0.5" />
               <span>Ce serveur ne sait pas produire de PDF : les documents partiront
                 <b> dans le corps du courriel</b>.
@@ -272,7 +272,7 @@ export default function EnvoiMailModal({ pieces, typeDoc, apercu = true, sujet: 
                   </div>
                 )}
               </div>
-              {erreur && <div className="text-second text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 border-l-4 border-l-red-500">{erreur}</div>}
+              {erreur && <div className="bloc-etat etat-corriger text-second text-red-700 px-3 py-2">{erreur}</div>}
             </>
           )}
         </div>

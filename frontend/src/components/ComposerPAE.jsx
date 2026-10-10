@@ -541,7 +541,7 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
               ouverte, non prise ·
               <span className="inline-block w-3 h-3 rounded-pastille bg-[color:var(--c-principal)] ring-2 ring-[color:var(--c-refuse)] align-middle mx-1" />
               déjà réussie, non forcée{peutForcer ? ' (clic : forcer la réinscription)' : ''} ·
-              <span className="inline-grid place-items-center w-3 h-3 rounded-pastille bg-[#1B2B4B] text-white align-middle mx-1"><IconLock size={8} stroke={2.5} /></span>
+              <span className="inline-grid place-items-center w-3 h-3 rounded-pastille bg[color:var(--c-principal,_#1B2B4B)] text-white align-middle mx-1"><IconLock size={8} stroke={2.5} /></span>
               sous cadenas : suivie seulement si son prérequis est réussi
             </span>
           </div>

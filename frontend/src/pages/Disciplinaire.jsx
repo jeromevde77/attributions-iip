@@ -333,7 +333,7 @@ export default function Disciplinaire() {
             <option value="">— Dossiers —</option>
             {dossiers.map(d => <option key={d.id} value={d.id}>{d.etudiant || 'Sans nom'} · {new Date(d.modifie_le).toLocaleDateString('fr-BE')}</option>)}
           </select>
-          <button onClick={nouveauDossier} className="flex items-center gap-1 bg-green-600 text-white text-sm px-3 py-1.5 rounded-lg hover:opacity-90"><IconPlus size={15} /> Nouveau</button>
+          <button onClick={nouveauDossier} className="bouton bouton-fort flex items-center gap-1"><IconPlus size={15} /> Nouveau</button>
           {caseId && <button onClick={supprimerDossier} className="text-gray-300 hover:text-red-500 p-1"><IconTrash size={16} /></button>}
           <select value={annee} onChange={e => setAn(e.target.value)} className={champ + ' w-44'}>{ANNEES.map(y => <option key={y.code} value={y.code}>{y.label}</option>)}</select>
         </div>
@@ -379,7 +379,7 @@ export default function Disciplinaire() {
             <Q text="S'agit-il d'une fraude / d'un plagiat ?" art={r2627 ? 'Art. 72-75' : 'Art. 54-55'} value={tf.fraude ? 'oui' : qGrave === '' ? '' : 'non'} onChange={() => {}} />
             <div className="mt-3"><label className={lab}>Sanction envisagée</label>
               <select className={champ} value={sanction} onChange={e => setSanction(e.target.value)}>{SANCTIONS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}</select></div>
-            <div className="mt-3 text-sm bg-amber-50 border border-amber-200 rounded p-3 text-amber-900 border-l-4 border-l-amber-500"><strong>Recommandation :</strong> {recommandation()}</div>
+            <div className="bloc-etat etat-surveiller mt-3 text-sm p-3 text-amber-900"><strong>Recommandation :</strong> {recommandation()}</div>
           </div>
           <div className="bg-iip-blue/5 border border-iip-blue/20 rounded-xl p-4">
             <div className="flex items-center gap-2 text-iip-blue font-semibold text-sm mb-2"><IconScale size={16} /> Analyse RDE/ROI</div>

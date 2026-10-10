@@ -773,8 +773,7 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
           )}
           {!lecture && (
             <button onClick={enregistrer} disabled={enCours || !sale}
-              className="px-3 py-1.5 text-second rounded-lg bg-iip-blue text-white font-semibold
-                         flex items-center gap-1.5 disabled:opacity-40">
+              className="bouton bouton-fort flex items-center gap-1.5">
               <IconDeviceFloppy size={14} /> Enregistrer
             </button>
           )}
@@ -1071,8 +1070,7 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
       {vue === 'rediger' && !lecture && sale && (
         <div className="sticky bottom-3 flex justify-end">
           <button onClick={enregistrer} disabled={enCours}
-            className="px-4 py-2 text-sm rounded-lg bg-iip-blue text-white font-semibold
-                       shadow-flottant flex items-center gap-1.5">
+            className="bouton bouton-fort flex items-center gap-1.5">
             <IconDeviceFloppy size={15} /> Enregistrer les modifications
           </button>
         </div>

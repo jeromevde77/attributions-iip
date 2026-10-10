@@ -84,7 +84,7 @@ export default function DisponibilitesSection({ section, annee, peutEcrire }) {
             <div key={p.id} className="carte p-3 space-y-2 bg-white">
               <div className="flex items-start gap-2">
                 <div className="min-w-0 flex-1">
-                  <b className="text-sm text-[#1B2B4B]">{String(p.nom || '').toUpperCase()} {p.prenom}</b>
+                  <b className="text-sm text[color:var(--c-principal,_#1B2B4B)]">{String(p.nom || '').toUpperCase()} {p.prenom}</b>
                   <div className="text-xs text-slate-500 truncate" title={p.cours.join(', ')}>{p.cours.join(' · ')}</div>
                   {!!p.autres_sections?.length && <div className="text-xs text-slate-500">aussi en {p.autres_sections.join(', ')}</div>}
                 </div>

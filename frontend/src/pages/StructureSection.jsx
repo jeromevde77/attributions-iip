@@ -130,7 +130,7 @@ export default function StructureSection({ annee, sectionInitiale = '' }) {
       )}
 
       {data?.alertes?.length > 0 && (
-        <div className="border border-amber-200 bg-amber-50 rounded-xl px-4 py-3 border-l-4 border-l-amber-500">
+        <div className="bloc-etat etat-surveiller px-4 py-3">
           <div className="flex items-center gap-2 text-sm font-semibold text-amber-800 mb-1.5">
             <IconAlertTriangle size={15} /> Incohérences de progression
           </div>

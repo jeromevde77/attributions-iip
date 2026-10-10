@@ -110,8 +110,8 @@ export default function DemandeVA() {
     <div className="min-h-screen bg-slate-100">
       <Tete sous={d && etape !== 'identifier' ? `${nom} · ${d.etudiant.matricule || ''} · ${d.etudiant.section || ''} · ${d.annee}` : null} />
       <div className="max-w-[720px] mx-auto px-4 py-6 space-y-4">
-        {erreur && <div className="bg-white border border-slate-200 border-l-4 rounded-r-carte px-3 py-2 text-sm" style={{ borderLeftColor: 'var(--c-refuse, #9D4A38)' }}>{erreur}</div>}
-        {message && etape !== 'identifier' && <div className="bg-white border border-slate-200 border-l-4 rounded-r-carte px-3 py-2 text-sm" style={{ borderLeftColor: 'var(--c-attente, #E8890C)' }}>{message}</div>}
+        {erreur && <div className="bloc-etat etat-neutre rounded-r-carte px-3 py-2 text-sm" style={{ borderLeftColor: 'var(--c-refuse, #9D4A38)' }}>{erreur}</div>}
+        {message && etape !== 'identifier' && <div className="bloc-etat etat-neutre rounded-r-carte px-3 py-2 text-sm" style={{ borderLeftColor: 'var(--c-attente, #E8890C)' }}>{message}</div>}
 
         {etape === 'identifier' && (
           <form onSubmit={demanderLien} className="bg-white border border-slate-200 rounded-carte p-5 space-y-3">
@@ -122,7 +122,7 @@ export default function DemandeVA() {
               className="controle w-full text-base" />
             <button type="submit" disabled={occupe || !matricule.trim()} className="bouton bouton-fort w-full justify-center disabled:opacity-40">
               Recevoir mon lien d'accès</button>
-            {message && <div className="border border-slate-200 border-l-4 rounded-r-carte px-3 py-2 text-sm" style={{ borderLeftColor: 'var(--c-disponible, #2F6FB0)' }}>{message}</div>}
+            {message && <div className="bloc-etat etat-neutre rounded-r-carte px-3 py-2 text-sm" style={{ borderLeftColor: 'var(--c-disponible, #2F6FB0)' }}>{message}</div>}
             <p className="text-xs text-slate-500">Votre adresse a changé ? Adressez-vous au secrétariat : elle ne se modifie pas ici.
               Les données sont traitées par l'IIP pour l'examen de votre demande (RDE, art. 28 à 30), et à rien d'autre.</p>
           </form>

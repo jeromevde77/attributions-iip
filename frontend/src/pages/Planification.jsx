@@ -569,7 +569,7 @@ function ModalImport({ annee, onImported, onClose }) {
                 )}
               </div>
               {preview?.existants > 0 && (
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 space-y-2 border-l-4 border-l-orange-500">
+                <div className="bloc-etat etat-surveiller p-3 space-y-2">
                   <p className="text-xs font-medium text-orange-800">Des groupes existent déjà. Comment procéder ?</p>
                   <div className="flex flex-col gap-2">
                     <label className="flex items-center gap-2 cursor-pointer text-sm">
@@ -701,7 +701,7 @@ function ModalIA({ annee, section, onApplied, onClose }) {
                 </div>
               </label>
 
-              {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-3 border-l-4 border-l-red-500">{error}</p>}
+              {error && <p className="bloc-etat etat-corriger text-sm text-red-600 p-3">{error}</p>}
             </>
           )}
 
@@ -752,7 +752,7 @@ function ModalIA({ annee, section, onApplied, onClose }) {
                 </div>
               )}
 
-              {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-3 border-l-4 border-l-red-500">{error}</p>}
+              {error && <p className="bloc-etat etat-corriger text-sm text-red-600 p-3">{error}</p>}
             </>
           )}
 
@@ -1273,7 +1273,7 @@ function ModalReset({ annee, section, onReset, onClose }) {
           )}
 
           {etape === 'confirm' && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700 border-l-4 border-l-red-500">
+            <div className="bloc-etat etat-corriger p-4 text-sm text-red-700">
               <p className="font-medium mb-1">⚠ Confirmation requise</p>
               <p>{mode === 'tout'
                 ? `Tous les groupes et cellules de ${section} seront supprimés définitivement.`

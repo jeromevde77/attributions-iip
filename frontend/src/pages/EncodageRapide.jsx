@@ -530,7 +530,7 @@ function SyntheseAnnees({ synthese, recherche, onOuvrir }) {
 
   // Du rouge au vert selon la proportion d'UE acquises
   const teinte = (r, t) => {
-    if (!t) return { bg: 'transparent', fg: '#CBD5E1', bd: 'transparent' };
+    if (!t) return { bg: 'transparent', fg: 'rgb(var(--gris-300))', bd: 'transparent' };
     const p = r / t;
     if (p >= 0.999) return { bg: 'var(--c-reussi)', fg: '#FFFFFF', bd: 'var(--c-reussi)' };
     if (p >= 0.75)  return { bg: 'var(--c-reussi)', fg: '#FFFFFF', bd: 'var(--c-reussi)' };

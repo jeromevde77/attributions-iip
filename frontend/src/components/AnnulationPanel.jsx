@@ -70,7 +70,7 @@ export default function AnnulationPanel({ annee, onClose, onRestaure }) {
       )}>
         <div className="space-y-3">
           {historiqueInactif && (
-            <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800 border-l-4 border-l-amber-500">
+            <div className="bloc-etat etat-surveiller flex items-start gap-2 px-3 py-2.5 text-sm text-amber-800">
               <IconAlertTriangle size={15} className="mt-0.5 flex-none" />
               <span>
                 L'historique est <b>désactivé</b> : les modifications ne sont plus enregistrées et

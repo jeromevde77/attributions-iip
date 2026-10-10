@@ -140,7 +140,7 @@ export default function HoraireComparateur({ annee }) {
 
       {/* LA SIMULATION D'ABORD : ce qui sera lu, avant que rien ne soit écrit. */}
       {apercu && (
-        <div className="px-4 py-3 rounded-xl bg-amber-50 border border-amber-300 space-y-2 border-l-4 border-l-amber-500">
+        <div className="bloc-etat etat-surveiller px-4 py-3 space-y-2">
           <div className="text-sm font-semibold text-amber-900">
             {apercu.classe || 'Classe non reconnue'} — {apercu.seances} séance(s),
             {' '}{h1(apercu.heures)}, du {apercu.periode?.debut} au {apercu.periode?.fin}
@@ -301,7 +301,7 @@ export default function HoraireComparateur({ annee }) {
 
           {/* LA MOITIÉ QU'ON NE REGARDE JAMAIS : ce qui est payé et jamais posé. */}
           {!!comp.sans_seance.length && (
-            <div className="px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 border-l-4 border-l-rose-500">
+            <div className="bloc-etat etat-corriger px-4 py-3">
               <div className="text-sm font-semibold text-rose-900 flex items-center gap-1.5">
                 <IconAlertTriangle size={15} />
                 {comp.sans_seance.length} cours attribué(s) sans une seule séance à l'horaire
@@ -319,7 +319,7 @@ export default function HoraireComparateur({ annee }) {
           )}
 
           {(!!comp.collisions.professeur.length || !!comp.collisions.local.length) && (
-            <div className="px-4 py-3 rounded-xl bg-amber-50 border border-amber-300 border-l-4 border-l-amber-500">
+            <div className="bloc-etat etat-surveiller px-4 py-3">
               <div className="text-sm font-semibold text-amber-900 flex items-center gap-1.5">
                 <IconUsers size={15} /> Chevauchements
               </div>

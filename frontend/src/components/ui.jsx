@@ -738,7 +738,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
            qui est ce qu'on survole. */
         /* LA MÊME BULLE QUE LA BARRE DU HAUT (Charles, 3 octobre 2026 : « une
            uniformité entre rail et menu du haut ») : marine, texte blanc. */
-        <span style={{ top: survol.y, background: '#16406A',
+        <span style={{ top: survol.y, background: 'var(--c-principal, #16406A)',
                        left: volet ? 'calc(3.5rem + 10px)' : 'calc(100% + 10px)' }}
           className="pointer-events-none absolute -translate-y-1/2 z-50
                      px-2 py-0.5 rounded-champ shadow-flottant text-white font-medium
@@ -1248,7 +1248,7 @@ export function PieceFenetre({ icone: Ic, titre, sous, meta, ton = 'neutre',
         border transition-colors duration-150 ease-ios
         ${desactive ? 'opacity-45' : onClick ? 'hover:border-slate-400' : ''}
         ${actif ? 'bg-slate-50' : 'bg-white'}`}
-      style={{ borderColor: actif || teinte ? `rgb(var(--gris-200))` : '#e2e8f0' }}>
+      style={{ borderColor: actif || teinte ? `rgb(var(--gris-200))` : 'rgb(var(--gris-200))' }}>
       {Ic && <Ic size={17} className="flex-shrink-0"
         style={{ color: teinte || 'var(--c-texte)' }} />}
       <span className="min-w-0 flex-1">

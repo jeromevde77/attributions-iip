@@ -51,7 +51,7 @@ export default function AvisAmenagementProf({ annee }) {
   };
 
   return (
-    <div className="bg-white border border-slate-200 border-l-[4px] rounded-l-none rounded-r-carte"
+    <div className="bloc-etat etat-neutre rounded-l-none rounded-r-carte"
       style={{ borderLeftColor: aRendre ? 'var(--c-attente, #B45309)' : 'var(--c-reussi, #3E7D5E)' }}>
       <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-100">
         <IconAccessible size={16} className="text-slate-500" />
@@ -103,7 +103,7 @@ export default function AvisAmenagementProf({ annee }) {
                                 {SENS.map(([v, l, col]) => (
                                   <button key={v} type="button" onClick={() => setSaisie(o => ({ ...o, [m.id]: { ...s, sens: v } }))}
                                     className="px-2.5 py-1 text-second font-semibold border-r border-slate-200 last:border-r-0"
-                                    style={s.sens === v ? { background: col, color: '#fff' } : { color: '#475569' }}>{l}</button>
+                                    style={s.sens === v ? { background: col, color: '#fff' } : { color: 'rgb(var(--gris-600))' }}>{l}</button>
                                 ))}
                               </div>
                               {s.sens && s.sens !== 'realisable' && (

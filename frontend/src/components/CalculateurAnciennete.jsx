@@ -97,7 +97,7 @@ export default function CalculateurAnciennete({ profId, estAdmin, peutEcrire, an
           )}
           {estAdmin && (
             <button onClick={synchroniser}
-              className="text-sm px-2.5 py-1.5 rounded-lg bg-iip-blue text-white font-semibold flex items-center gap-1.5">
+              className="bouton bouton-fort flex items-center gap-1.5">
               <IconRefresh size={14} /> Synchroniser vers Classement
             </button>
           )}

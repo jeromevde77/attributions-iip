@@ -20,12 +20,12 @@ const REGISTRES = {
   procedures:   { label: 'Procédures',   teinte: 'var(--c-attente)' },
   comptes:      { label: 'Comptes',      teinte: 'var(--c-accent)' },
   dossiers:     { label: 'Dossiers',     teinte: 'var(--c-reussi)' },
-  documents:    { label: 'Documents',    teinte: '#6b7280' },
+  documents:    { label: 'Documents',    teinte: 'rgb(var(--gris-500))' },
   parcours:     { label: 'Parcours',     teinte: 'var(--c-disponible)' },
   envois:       { label: 'Envois',       teinte: 'var(--c-accent)' },
   pae:          { label: 'PAE',          teinte: 'var(--c-disponible)' },
   deliberation: { label: 'Délibération', teinte: 'var(--c-principal)' },
-  conventions:  { label: 'Conventions',  teinte: '#6b7280' },
+  conventions:  { label: 'Conventions',  teinte: 'rgb(var(--gris-500))' },
   presences:    { label: 'Présences',    teinte: 'var(--c-reussi)' },
   suivi:        { label: 'Suivi',        teinte: 'var(--c-attente)' },
   modifications: { label: 'Fiches, PAE, notes', teinte: 'var(--c-principal)' },
@@ -151,7 +151,7 @@ export default function Audit() {
             </thead>
             <tbody>
               {d.lignes.map((l, i) => {
-                const reg = REGISTRES[l.registre] || { label: l.registre, teinte: '#6b7280' };
+                const reg = REGISTRES[l.registre] || { label: l.registre, teinte: 'rgb(var(--gris-500))' };
                 return (
                   <tr key={i} className="border-b border-slate-100">
                     <td className="px-3 py-1 text-slate-500 whitespace-nowrap">

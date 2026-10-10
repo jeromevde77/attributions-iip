@@ -345,7 +345,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
             communication : les documents remis portent « NA ». */}
         {detail?.note_deliberee != null && detail.note_deliberee < SEUIL
           && decision === 'reussi' && (
-          <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-second text-amber-900 border-l-4 border-l-amber-500">
+          <div className="bloc-etat etat-surveiller px-3 py-2 text-second text-amber-900">
             Cote délibérée sous le seuil de {SEUIL}/20 avec une décision de réussite.
             C'est possible — le Conseil délibère — mais la décision devra être motivée,
             et une faveur porterait l'unité à exactement {SEUIL}.

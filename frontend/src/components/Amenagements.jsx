@@ -237,10 +237,10 @@ export default function Amenagements({ etudId, annee }) {
                     <div className="flex gap-1">
                       <button onClick={() => !m.accorde && majMesure(m, { accorde: true, motif_refus: null })}
                         className="px-2 py-0.5 text-second rounded-md border font-semibold"
-                        style={m.accorde ? { background: 'var(--c-reussi, #3E7D5E)', borderColor: 'var(--c-reussi, #3E7D5E)', color: '#fff' } : { borderColor: '#CBD5E1', color: '#475569' }}>Accordée</button>
+                        style={m.accorde ? { background: 'var(--c-reussi, #3E7D5E)', borderColor: 'var(--c-reussi, #3E7D5E)', color: '#fff' } : { borderColor: 'rgb(var(--gris-300))', color: 'rgb(var(--gris-600))' }}>Accordée</button>
                       <button onClick={() => m.accorde && setRefus({ mesure: m, motif: '' })}
                         className="px-2 py-0.5 text-second rounded-md border font-semibold"
-                        style={!m.accorde ? { background: 'var(--c-refuse, #9D4A38)', borderColor: 'var(--c-refuse, #9D4A38)', color: '#fff' } : { borderColor: '#CBD5E1', color: '#475569' }}>Refusée</button>
+                        style={!m.accorde ? { background: 'var(--c-refuse, #9D4A38)', borderColor: 'var(--c-refuse, #9D4A38)', color: '#fff' } : { borderColor: 'rgb(var(--gris-300))', color: 'rgb(var(--gris-600))' }}>Refusée</button>
                     </div>
                   </Td>
                 )}
@@ -283,7 +283,7 @@ export default function Amenagements({ etudId, annee }) {
         {d && <Badge ton={STATUTS[d.statut]?.ton || 'neutre'}>{STATUTS[d.statut]?.libelle}</Badge>}
         {!d && peutAmenager() && (
           <button onClick={creerDossier}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-iip-blue text-white font-semibold rounded-lg">
+            className="bouton bouton-fort flex items-center gap-1.5">
             <IconPlus size={15} /> Ouvrir un dossier
           </button>
         )}
@@ -299,7 +299,7 @@ export default function Amenagements({ etudId, annee }) {
 
       {/* La pièce vaut au-delà de l'année : une ligne, pas un bandeau. */}
       {data.piece_valide && (
-        <div className="flex items-start gap-1.5 text-second" style={{ color: data.piece_valide.perime ? 'var(--c-attente, #B45309)' : '#475569' }}>
+        <div className="flex items-start gap-1.5 text-second" style={{ color: data.piece_valide.perime ? 'var(--c-attente, #B45309)' : 'rgb(var(--gris-600))' }}>
           <IconShieldCheck size={14} className="mt-0.5 flex-none" />
           <span>Pièce au dossier ({data.piece_valide.annee_scolaire}) : {data.piece_valide.note}</span>
         </div>

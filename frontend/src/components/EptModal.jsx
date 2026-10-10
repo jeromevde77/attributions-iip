@@ -164,7 +164,7 @@ export default function EptModal({ section, ue_num, ue_nom, annee, onClose }) {
               </select>
             </div>
             <button onClick={ajouterLigne} disabled={saving || !form.professeur_id || !form.periodes}
-              className="bg-iip-blue hover:bg-iip-blue-dark text-white text-sm px-4 py-1.5 h-9 rounded disabled:opacity-50">
+              className="bouton bouton-fort">
               {saving ? 'Ajout...' : '＋ Ajouter'}
             </button>
           </div>

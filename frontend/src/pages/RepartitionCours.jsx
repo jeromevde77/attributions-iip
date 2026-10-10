@@ -475,7 +475,7 @@ export default function RepartitionCours() {
               <IconWand size={14} /> Proposer depuis la délibération
             </button>
             <button onClick={enregistrer} disabled={saving || !attente.size}
-              className="px-3 py-1.5 text-second font-semibold rounded-champ bg-iip-blue text-white disabled:opacity-40">
+              className="bouton bouton-fort">
               {saving ? 'Enregistrement…'
                 : attente.size ? `Enregistrer (${attente.size} changement${attente.size > 1 ? 's' : ''})`
                 : 'Enregistrer'}
@@ -485,7 +485,7 @@ export default function RepartitionCours() {
       </div>
 
       {erreur && (
-        <div className="bg-red-50 border border-red-200 rounded-champ px-3 py-2 text-sm text-red-700 border-l-4 border-l-red-500">{erreur}</div>
+        <div className="bloc-etat etat-corriger px-3 py-2 text-sm text-red-700">{erreur}</div>
       )}
 
       {apercu && (
@@ -497,7 +497,7 @@ export default function RepartitionCours() {
               {classeur.lignes.length} étudiants lus · {new Set(classeur.lignes.map(l => l.groupe)).size} groupes · appliqué à l'UE {ueNum}
             </span>
             <button onClick={appliquerClasseur} disabled={!apercu.poses.length}
-              className="ml-auto px-3 py-1 text-second font-semibold rounded-champ bg-iip-turquoise text-white disabled:opacity-40">
+              className="bouton bouton-fort ml-auto">
               Placer {apercu.poses.length} affectation{apercu.poses.length > 1 ? 's' : ''} dans la grille
             </button>
             <button onClick={() => setClasseur(null)} title="Fermer le classeur" className="text-slate-400 hover:text-slate-600">

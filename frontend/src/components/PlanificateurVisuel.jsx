@@ -13,8 +13,8 @@ const BASE_H_PAR_SEM = 2;
 // Couleur du type de semaine (calendrier promotion sociale)
 const SEM_STYLE = {
   cours:    { bg: '#ffffff',  label: '' },
-  vacances: { bg: '#f3f4f6',  label: 'Vac.' },
-  ferie:    { bg: '#f3f4f6',  label: 'Férié' },
+  vacances: { bg: 'rgb(var(--gris-100))',  label: 'Vac.' },
+  ferie:    { bg: 'rgb(var(--gris-100))',  label: 'Férié' },
   ev1:      { bg: 'rgb(var(--e-attente-100))',  label: 'EV1' },
   ev2:      { bg: 'rgb(var(--e-refuse-100))',  label: 'EV2' },
   stage:    { bg: 'rgb(var(--e-disponible-100))',  label: 'Stage' },
@@ -643,7 +643,7 @@ export default function PlanificateurVisuel({ onClose }) {
                         left: ev.debutSem * PX_SEM,
                         width: ev.dureeSem * PX_SEM - 2,
                         top: 6, bottom: 6,
-                        background: '#e5e7eb',
+                        background: 'rgb(var(--gris-200))',
                         border: '1.5px solid #9ca3af',
                         color: 'var(--c-texte)',
                         borderRadius: 6,
@@ -728,7 +728,7 @@ export default function PlanificateurVisuel({ onClose }) {
             <div className="flex justify-end gap-2">
               <button onClick={() => setConfirmOpen(false)} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
               <button onClick={enregistrer} disabled={saving}
-                className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-5 py-2 rounded font-medium disabled:opacity-50">
+                className="bouton bouton-fort">
                 {saving ? 'Création…' : 'Confirmer'}
               </button>
             </div>

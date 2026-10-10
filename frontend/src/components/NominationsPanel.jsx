@@ -274,7 +274,7 @@ export default function NominationsPanel({ profId }) {
           )}
           <div className="flex justify-end gap-2">
             <button type="button" onClick={() => setAdding(false)} className="text-sm text-gray-500 px-3 py-1.5 h-9">Annuler</button>
-            <button type="button" onClick={ajouter} className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-1.5 h-9 rounded font-medium">Ajouter</button>
+            <button type="button" onClick={ajouter} className="bouton bouton-fort">Ajouter</button>
           </div>
         </div>
       ) : (

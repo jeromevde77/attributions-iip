@@ -243,7 +243,7 @@ export default function AttributionCard({ row, selected, onToggleSelect, onChang
                 </button>
               )}
               <button onClick={save} disabled={saving}
-                      className="flex-1 bg-iip-gold hover:bg-iip-amber disabled:opacity-50 text-white text-sm py-2.5 rounded font-medium">
+                      className="bouton bouton-fort flex-1">
                 {saving ? '…' : 'Enregistrer'}
               </button>
             </div>
