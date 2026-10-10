@@ -453,7 +453,7 @@ function DotationComparaison({ civil }) {
                       <tr key={`${u.section}-${u.ue_num}`}
                         className={`border-t border-gray-100 text-xs hover:bg-gray-50/60`}>
                         <td className="px-3 py-1.5 h-9 sticky left-0 z-10 pl-8 overflow-hidden text-ellipsis whitespace-nowrap"
-                          style={{background:'white', width:colW.nom, maxWidth:colW.nom}}>
+                          style={{background:'var(--blanc)', width:colW.nom, maxWidth:colW.nom}}>
                           <span className="font-mono text-gray-400 mr-2">UE {u.ue_num}</span>
                           <span className="text-gray-600">{u.ue_nom}</span>
                         </td>

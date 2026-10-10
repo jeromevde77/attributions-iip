@@ -16,7 +16,11 @@ import { useReglagesVisuels } from '../lib/reglages.js';
  * Un élément qui n'est pas ici n'est pas un standard : il se dessine à la main, et
  * c'est à corriger. Une famille nouvelle s'ajoute ici le jour où elle naît.
  */
-const R = (cle, lib) => ({ cle, lib });
+const R = (cle, lib, toutes = null) => ({ cle, lib, toutes });
+// UNE ÉTIQUETTE PEUT NOMMER UNE FAMILLE ENTIÈRE (Charles : « tu ne proposes qu'une série ») :
+// les six séries, les cinq états — la boîte de propriétés les montre toutes.
+const SERIES = R('serie_1', 'séries', ['serie_1', 'serie_2', 'serie_3', 'serie_4', 'serie_5', 'serie_6']);
+const ETATS = R('reussi', 'états', ['reussi', 'faveur', 'disponible', 'attente', 'refuse']);
 const FAMILLES = [
   { nom: 'Titres', role: 'Le titre d’un écran (un seul), le titre d’une carte, l’intertitre en petites majuscules.',
     formes: [R('titre_ecran', 'titre d’écran'), R('titre_carte', 'titre de carte'), R('titre_graisse', 'graisse'), R('intertitre_taille', 'intertitre'), R('intertitre_casse', 'casse'), R('intertitre_espace', 'interlettrage')],
@@ -34,13 +38,13 @@ const FAMILLES = [
     specimen: () => <div className="flex gap-4 border-b border-slate-200"><span className="onglet-page onglet-page-actif">Actif</span><span className="onglet-page">Autre</span></div> },
   { nom: 'Tuiles', role: 'Un chiffre et son état. Deux tailles : la grande (tableau de bord), la compacte (liste, frise).',
     formes: [R('rayon_tuile', 'rayon'), R('tuile_lisere', 'liseré'), R('tuile_coins', 'coins'), R('tuile_chiffre', 'chiffre'), R('tuile_espace', 'marge'), R('tuile_compacte_chiffre', 'chiffre compact')],
-    couleurs: [R('fond_tuile', 'fond'), R('filet', 'contour'), R('reussi', 'états…')],
+    couleurs: [R('fond_tuile', 'fond'), R('filet', 'contour'), ETATS],
     specimen: () => <div className="space-y-2"><div className="grid grid-cols-3 gap-2"><TuileEtat etat="reussi" valeur="42" libelle="Réussis" /><TuileEtat etat="surveiller" valeur="7" libelle="Ajournés" /><TuileEtat etat="corriger" valeur="3" libelle="Refusés" /></div><div className="flex gap-2"><TuileEtat taille="compacte" etat="faveur" valeur="4" libelle="faveurs" /><TuileEtat taille="compacte" valeur="88" libelle="inscrits" /></div></div> },
   { nom: 'Encadrés', role: 'Une phrase qui porte un état — la même forme que la tuile.',
-    formes: [R('tuile_lisere', 'liseré'), R('rayon_tuile', 'rayon')], couleurs: [R('fond_tuile', 'fond'), R('attente', 'états…')],
+    formes: [R('tuile_lisere', 'liseré'), R('rayon_tuile', 'rayon')], couleurs: [R('fond_tuile', 'fond'), ETATS],
     specimen: () => <Encadre etat="surveiller" titre="Un encadré">Trois recevabilités restent à contrôler.</Encadre> },
   { nom: 'Pastilles', role: 'Un état en ligne, plein, texte blanc.',
-    formes: [R('rayon_pastille', 'rayon')], couleurs: [R('reussi', 'états…')],
+    formes: [R('rayon_pastille', 'rayon')], couleurs: [ETATS],
     specimen: () => <div className="flex gap-2"><PastilleEtat etat="reussi">réussi</PastilleEtat><PastilleEtat etat="faveur">faveur</PastilleEtat><PastilleEtat etat="surveiller">ajourné</PastilleEtat><PastilleEtat etat="corriger">refusé</PastilleEtat></div> },
   { nom: 'Tableaux', role: 'En-tête, lignes, regroupement, total (en premier, sous l’en-tête).',
     formes: [R('tableau_densite', 'densité'), R('tableau_zebre', 'alternance'), R('tableau_filets', 'filets'), R('tableau_entete_taille', 'en-tête'), R('rayon_carte', 'rayon')],
@@ -48,7 +52,7 @@ const FAMILLES = [
     specimen: () => <Tableau><thead><TableauEntete><Th>Section</Th><Th align="droite">Inscrits</Th></TableauEntete></thead><tbody><TrTotal><Td>Total</Td><Td align="droite">588</Td></TrTotal><TrGroupe><Td>Bacheliers</Td><Td /></TrGroupe><Tr><Td>TIM</Td><Td align="droite">312</Td></Tr><Tr><Td>Psychomotricité</Td><Td align="droite">190</Td></Tr><Tr><Td>AeSI</Td><Td align="droite">86</Td></Tr></tbody></Tableau> },
   { nom: 'Graphiques', role: 'Six séries dans l’ordre, la part vide, la grille, la référence.',
     formes: [R('graphique_rayon', 'rayon des barres'), R('graphique_grille', 'quadrillage'), R('graphique_legende', 'légende')],
-    couleurs: [R('serie_1', 'séries'), R('graphique_vide', 'part vide'), R('graphique_grille', 'grille'), R('graphique_reference', 'référence')],
+    couleurs: [SERIES, R('graphique_vide', 'part vide'), R('graphique_grille', 'grille'), R('graphique_reference', 'référence')],
     specimen: () => { const G = couleursGraphique(), g = reglagesGraphique(); const d = [{ n: 'BA1', a: 120, b: 80, c: 30 }, { n: 'BA2', a: 90, b: 70, c: 20 }, { n: 'BA3', a: 60, b: 50, c: 15 }];
       return <div style={{ height: 170 }}><ResponsiveContainer width="100%" height="100%"><BarChart data={d}>
         {g.grille !== 'aucun' && <CartesianGrid strokeDasharray={g.grille === 'plein' ? '0' : '3 3'} stroke={G.grille} />}
@@ -57,13 +61,13 @@ const FAMILLES = [
         <Bar dataKey="a" name="Série 1" fill={G.series[0]} radius={g.rayon} /><Bar dataKey="b" name="Série 2" fill={G.series[1]} radius={g.rayon} /><Bar dataKey="c" name="Série 3" fill={G.series[2]} radius={g.rayon} />
       </BarChart></ResponsiveContainer></div>; } },
   { nom: 'Anneau (diagramme rond)', role: 'Les parts d’un tout, avec leur pourcentage ; la part vide quand il n’y a rien.',
-    formes: [R('anneau_epaisseur', 'épaisseur')], couleurs: [R('serie_1', 'séries'), R('graphique_vide', 'part vide')],
+    formes: [R('anneau_epaisseur', 'épaisseur')], couleurs: [SERIES, R('graphique_vide', 'part vide')],
     specimen: () => <Anneau centre="588" parts={[{ nom: 'TIM', valeur: 312 }, { nom: 'Psychomotricité', valeur: 190 }, { nom: 'AeSI', valeur: 86 }]} taille={120} /> },
   { nom: 'Barres horizontales', role: 'Des grandeurs à comparer, à l’échelle de la plus grande.',
-    formes: [R('barre_hauteur', 'hauteur'), R('rayon_pastille', 'rayon')], couleurs: [R('serie_1', 'série'), R('graphique_piste', 'fond')],
+    formes: [R('barre_hauteur', 'hauteur'), R('rayon_pastille', 'rayon')], couleurs: [SERIES, R('graphique_piste', 'fond')],
     specimen: () => <Barres lignes={[{ nom: 'Belgique', valeur: 420 }, { nom: 'France', valeur: 61 }, { nom: 'Maroc', valeur: 38 }]} /> },
   { nom: 'Répartition et jauge', role: 'Un tout coupé en états sur une ligne ; une part d’un objectif.',
-    formes: [R('jauge_hauteur', 'hauteur'), R('jauge_forme', 'bouts')], couleurs: [R('reussi', 'états…'), R('graphique_piste', 'fond')],
+    formes: [R('jauge_hauteur', 'hauteur'), R('jauge_forme', 'bouts')], couleurs: [ETATS, R('graphique_piste', 'fond')],
     specimen: () => <div className="space-y-2"><Repartition className="w-full" parts={[{ nom: 'réussi', valeur: 38, couleur: 'var(--c-reussi)' }, { nom: 'ajourné', valeur: 12, couleur: 'var(--c-attente)' }, { nom: 'refusé', valeur: 3, couleur: 'var(--c-refuse)' }]} /><Jauge valeur={72} etat="disponible" /><Jauge valeur={104} etat="corriger" /></div> },
   { nom: 'Étendue des notes', role: 'Du minimum au maximum, la médiane et la moyenne : la forme d’une distribution d’un coup d’œil.',
     formes: [R('jauge_hauteur', 'hauteur')], couleurs: [R('principal', 'repères'), R('graphique_piste', 'fond')],
@@ -94,10 +98,44 @@ const FAMILLES = [
 
 const LIB = { marquee: 'marquée', serree: 'serrée', aeree: 'aérée', pointille: 'pointillé', horizontaux: 'filets horizontaux', grille: 'grille complète' };
 
+/* LES JEUX DE COULEURS (Charles : « prévois plutôt des jeux de couleurs ») : six séries
+   choisies ensemble, qui vont ensemble — un clic, puis on retouche une série si besoin. */
+export const JEUX_SERIES = [
+  ['Lucie (actuel)', ['#19537E', '#05B7E6', '#F9B619', '#8E4F9A', '#4FA64A', '#D14F8A']],
+  ['Uniforme', null],   // six nuances de la couleur principale de l'école, calculées
+  ['Sombre', ['#0F2A47', '#1F4E5F', '#3B3B58', '#4A3F35', '#24493A', '#5A2E3A']],
+  ['Argent', ['#3F4752', '#5B6573', '#7A8494', '#9AA3B1', '#BCC3CD', '#DCE0E6']],
+  ['Contrastée (daltoniens)', ['#0072B2', '#E69F00', '#009E73', '#CC79A7', '#56B4E9', '#D55E00']],
+  ['Douce', ['#4E79A7', '#A0CBE8', '#F28E2B', '#FFBE7D', '#59A14F', '#8CD17D']],
+  ['Bleus', ['#0B3D66', '#19537E', '#2F6FB0', '#5A93D1', '#8DB8E8', '#C3DBF5']],
+  ['Sobre', ['#16406A', '#6B7A90', '#9AA6B8', '#C3CAD6', '#0A8FBF', '#E0E5EC']],
+  ['Vive', ['#E6194B', '#3CB44B', '#FFE119', '#4363D8', '#F58231', '#911EB4']],
+];
+/** Six nuances d'une teinte : de la couleur elle-même vers le clair. */
+function camaieu(hex) {
+  const c = String(hex || '#16406A').slice(1).match(/../g).map(x => parseInt(x, 16));
+  return [0, 0.22, 0.4, 0.56, 0.7, 0.82].map(k => '#' + c.map(v => Math.round(v + (255 - v) * k).toString(16).padStart(2, '0')).join('').toUpperCase());
+}
+function JeuxSeries({ rv }) {
+  const actuel = [1, 2, 3, 4, 5, 6].map(i => String(rv.couleurDe(`serie_${i}`)).toUpperCase()).join();
+  return (
+    <div className="space-y-1.5">
+      <div className="intertitre pt-1">Jeux de couleurs</div>
+      <div className="grid gap-1.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))' }}>
+        {JEUX_SERIES.map(([nom, c0]) => { const c = c0 || camaieu(rv.couleurDe('principal')); const choisi = c.join() === actuel; return (
+          <button key={nom} type="button" disabled={!rv.peutCouleurs} onClick={() => rv.changerCouleurs(Object.fromEntries(c.map((x, i) => [`serie_${i + 1}`, x])))}
+            className={`flex flex-col gap-1 p-1.5 rounded-champ border text-left ${choisi ? 'border-[color:var(--c-principal)] ring-1 ring-[color:var(--c-principal)]' : 'border-slate-200 hover:border-slate-400'}`}>
+            <span className="flex h-4 rounded-pastille overflow-hidden">{c.map(x => <span key={x} className="flex-1" style={{ background: x }} />)}</span>
+            <span className="text-mention">{nom}{choisi ? ' ✓' : ''}</span>
+          </button>); })}
+      </div>
+    </div>);
+}
+
 /** Les réglages d'une famille, sous son spécimen. */
 function PanneauReglages({ f, rv, cible }) {
   const formes = f.formes.filter(r => rv.catDesign[r.cle]);
-  const couleurs = f.couleurs.filter(r => rv.catCouleurs[r.cle]);
+  const couleurs = f.couleurs.flatMap(r => (r.toutes ? r.toutes.map(c => ({ cle: c, vise: r.cle })) : [r])).filter(r => rv.catCouleurs[r.cle]);
   return (
     <div className="space-y-2">
       {formes.length > 0 && <div className="intertitre pt-1">Formes</div>}
@@ -111,10 +149,11 @@ function PanneauReglages({ f, rv, cible }) {
                 <span className="w-12 text-right tabular-nums">{v}{d.type === 'px' ? ' px' : ''}</span></>}
           {v !== d.valeur && rv.peutFormes && <button className="text-mention text-slate-400 hover:text-iip-blue" onClick={() => rv.changerForme(r.cle, d.valeur)} title="Valeur de la maison">défaut</button>}
         </label>); })}
+      {couleurs.some(r => r.cle === 'serie_1') && <JeuxSeries rv={rv} />}
       {couleurs.length > 0 && <div className="intertitre pt-3">Couleurs</div>}
       {couleurs.map(r => { const d = rv.catCouleurs[r.cle], regle = !!rv.couleurs?.[r.cle] && rv.couleurs[r.cle] !== d.valeur; return (
         <label key={r.cle} ref={el => { if (el && cible === r.cle) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }}
-          className={`flex items-center gap-2 text-second rounded-champ px-1 -mx-1 ${cible === r.cle ? 'reglage-vise' : ''}`}>
+          className={`flex items-center gap-2 text-second rounded-champ px-1 -mx-1 ${cible === r.cle || cible === r.vise ? 'reglage-vise' : ''}`}>
           <span className="flex-1">{d.libelle}{!regle && d.suit ? <span className="text-slate-400"> — suit {rv.catCouleurs[d.suit]?.libelle?.toLowerCase() || d.suit}</span> : null}</span>
           <input type="color" value={rv.couleurDe(r.cle)} disabled={!rv.peutCouleurs} onChange={e => rv.changerCouleur(r.cle, e.target.value.toUpperCase())} className="w-10 h-7 rounded-champ border border-slate-300 bg-white p-0.5" />
           {regle && rv.peutCouleurs && <button className="text-mention text-slate-400 hover:text-iip-blue" onClick={() => rv.changerCouleur(r.cle, d.valeur || null)}>défaut</button>}

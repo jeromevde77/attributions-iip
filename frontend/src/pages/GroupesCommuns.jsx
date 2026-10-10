@@ -367,7 +367,7 @@ function LigneDuTemps({ sim, filtre, semaine, onSemaine, peutEcrire, onRecharger
             {cal.map((c, i) => (
               <button key={i} disabled={!numDe.get(i + 1)} onClick={() => onSemaine(numDe.get(i + 1))}
                 title={c.type === 'cours' ? `Semaine de cours ${numDe.get(i + 1)} — du ${c.date_debut.split('-').reverse().join('/')}` : (c.label || c.type)}
-                className={`relative text-center tabular-nums ${semaine === numDe.get(i + 1) ? 'font-bold text[color:var(--c-principal,_#16406A)]' : 'text-slate-400'}`}>
+                className={`relative text-center tabular-nums ${semaine === numDe.get(i + 1) ? 'font-bold text-[color:var(--c-principal,_#16406A)]' : 'text-slate-400'}`}>
                 {c.type === 'cours' ? numDe.get(i + 1) : c.type.startsWith('ev') ? 'É' : '·'}</button>))}
           </div>
           {/* LES STAGES : leurs dates sont celles de Dates des UE. */}
@@ -834,7 +834,7 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire, versPlanning
                                 <span className="flex-none inline-flex items-center justify-center min-w-[20px] h-[20px] px-1 rounded-pastille bg-white text-xs font-bold border border-slate-400">{x.groupe_nom}</span>)}</div>
                             </div>))}
                           {ici.map((s, i) => (
-                            <div key={i} className="min-w-0 h-[46px] rounded-r px-1.5 py-1 text-second leading-tight overflow-hidden text[color:var(--c-principal,_#1B2B4B)] flex flex-col items-start justify-center gap-0.5"
+                            <div key={i} className="min-w-0 h-[46px] rounded-r px-1.5 py-1 text-second leading-tight overflow-hidden text-[color:var(--c-principal,_#1B2B4B)] flex flex-col items-start justify-center gap-0.5"
                               title={`${s.cours_code} ${s.cours_nom || ''}\n${s.activite || ''} — groupe ${s.groupe}${s.professeur ? ` — ${s.professeur}` : ''}${s.local ? `\nLocal ${s.local}` : ''}\nBriques ${s.tout_le_bloc ? 'toutes' : s.briques.join(', ')}`}
                               style={{ ...styleTuileCours(s.cours_code),
                                 ...(s.etat === 'propose' && sim.plan?.lignes?.n ? { outline: '1.5px dashed #64748B', outlineOffset: -2 } : {}),

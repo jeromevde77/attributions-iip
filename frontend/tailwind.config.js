@@ -56,8 +56,10 @@ export default {
       // pour le fond seulement : filets et textes gris ne changent pas.
       backgroundColor: Object.fromEntries(['slate', 'gray'].map(famille => [famille,
         Object.fromEntries([50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950].map(n => [n, n <= 100
-          ? 'rgb(255 255 255 / <alpha-value>)'
-          : `rgb(var(--gris-${n}) / <alpha-value>)`]))])),
+          ? 'rgb(var(--fond-clair, 255 255 255) / <alpha-value>)'
+          : `rgb(var(--gris-${n}) / <alpha-value>)`]))]).concat([
+        // LE BLANC DES FONDS SUIT LE THÈME (3.1.266, thème sombre) — le texte blanc, lui, reste blanc.
+        ['white', 'rgb(var(--fond-clair, 255 255 255) / <alpha-value>)']])),
       // LA COULEUR NE VA JAMAIS AU TEXTE (règle du modèle ; Charles, 29
       // septembre 2026 : « reste à ce qui est dans la configuration »). Pour
       // le TEXTE seulement, les familles d'état et d'accent donnent l'encre —

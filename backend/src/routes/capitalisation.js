@@ -17,6 +17,7 @@ import { anneeDeTravail, anneeActiveEnBase } from '../helpers/annee.js';
 import { authRequired, roleRequired, getUserSections} from '../middleware/auth.js';
 import { envelopperDocument } from '../lib/document.js';
 import { couleurs } from '../lib/couleurs.js';
+import { placementsSection } from '../lib/placement.js';
 
 const r = Router();
 
@@ -35,6 +36,8 @@ export function migrerCapitalisation(dbx) {
     CREATE INDEX IF NOT EXISTS idx_ue_niveau_section
       ON ue_niveau_section(section, annee_scolaire);
     `);
+    // Le quadrimestre PRÉVU de l'UE dans la section cette année (10 octobre 2026).
+    try { dbx.exec('ALTER TABLE ue_niveau_section ADD COLUMN quadri TEXT'); } catch { /* déjà là */ }
     console.log('[migration] ue_niveau_section créée');
   } catch (e) { console.error('[migration] ue_niveau_section :', e.message); }
 }
@@ -176,6 +179,8 @@ export function construireGraphe({ sections, annee, etat }) {
     ? colonneEI
     : (departDe[niveaux[n] || ''] || 0) + (profIntra[n] || 0);
 
+  // Le quadrimestre prévu, quand le schéma porte une seule section.
+  const quads = sections.length === 1 ? placementsSection(sections[0], annee || anneeRef) : {};
   const nodes = ues.map(u => {
     const n = u.ue_num;
     const niv = niveaux[n] || '';
@@ -183,6 +188,8 @@ export function construireGraphe({ sections, annee, etat }) {
       ue_num: n,
       ue_nom: u.ue_nom,
       ue_niv: niv,
+      quad: quads[n]?.quad || '',
+      quad_schema: !!quads[n]?.quad_schema,
       section: u.section,
       couche: colonneNoeud(n),
       ordre: profondeur[n] || 0,
@@ -310,28 +317,34 @@ r.post('/document', authRequired, (req, res) => {
 
 // ── Modifier l'année d'études d'une UE dans une section ─────────────────────
 r.put('/niveau', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
-  const { section, annee, ue_num, niveau } = req.body;
+  const { section, annee, ue_num } = req.body;
   if (!section || !annee || !ue_num) {
     return res.status(400).json({ error: 'section, annee et ue_num requis' });
   }
-  const val = (niveau || '').toUpperCase().trim();
-
-  if (!val) {
-    // Retour au niveau du référentiel UE
-    db.prepare('DELETE FROM ue_niveau_section WHERE section=? AND annee_scolaire=? AND ue_num=?')
-      .run(section, annee, Number(ue_num));
-    return res.json({ ok: true, niveau: null });
+  const num = Number(ue_num);
+  const actuel = db.prepare('SELECT niveau, quadri FROM ue_niveau_section WHERE section=? AND annee_scolaire=? AND ue_num=?').get(section, annee, num);
+  // Ce que la requête ne nomme pas reste tel quel : changer le Q ne touche pas au bloc.
+  let val = 'niveau' in req.body ? String(req.body.niveau || '').toUpperCase().trim() : (actuel?.niveau || '');
+  const quadri = 'quadri' in req.body ? String(req.body.quadri || '').toUpperCase().trim() : (actuel?.quadri || '');
+  if (quadri && !/^(Q1|Q2|AN)$/.test(quadri)) return res.status(400).json({ error: 'quadrimestre attendu : Q1, Q2 ou AN' });
+  if (val && !/^(BA|BE)\d+$|^FC$/.test(val)) {
+    return res.status(400).json({ error: 'niveau attendu : BA1, BA2, BA3…, BE1… ou FC' });
   }
-  if (!/^BA\d+$/.test(val)) {
-    return res.status(400).json({ error: 'niveau attendu au format BA1, BA2, BA3…' });
+  if (('niveau' in req.body && !val) || (!val && !quadri)) {
+    // Retour au référentiel UE — bloc et quadrimestre ensemble
+    db.prepare('DELETE FROM ue_niveau_section WHERE section=? AND annee_scolaire=? AND ue_num=?').run(section, annee, num);
+    return res.json({ ok: true, niveau: null, quadri: null });
   }
+  // Un quadrimestre posé sans bloc propre garde le bloc en vigueur.
+  if (!val) val = niveauxEffectifs([section], annee)[num] || '';
+  if (!val) return res.status(400).json({ error: 'cette UE n’a pas de bloc : placez-la d’abord dans une colonne' });
   db.prepare(`
-    INSERT INTO ue_niveau_section (section, annee_scolaire, ue_num, niveau, maj_le)
-    VALUES (?,?,?,?, datetime('now'))
+    INSERT INTO ue_niveau_section (section, annee_scolaire, ue_num, niveau, quadri, maj_le)
+    VALUES (?,?,?,?,?, datetime('now'))
     ON CONFLICT(section, annee_scolaire, ue_num) DO UPDATE SET
-      niveau = excluded.niveau, maj_le = datetime('now')
-  `).run(section, annee, Number(ue_num), val);
-  res.json({ ok: true, niveau: val });
+      niveau = excluded.niveau, quadri = excluded.quadri, maj_le = datetime('now')
+  `).run(section, annee, num, val, quadri || null);
+  res.json({ ok: true, niveau: val, quadri: quadri || null });
 });
 
 // ── Reprendre les niveaux de l'année précédente ─────────────────────────────
@@ -341,18 +354,18 @@ r.post('/reprendre', authRequired, roleRequired('admin', 'editeur'), (req, res) 
     return res.status(400).json({ error: 'section, annee et annee_source requises' });
   }
   const src = db.prepare(
-    'SELECT ue_num, niveau FROM ue_niveau_section WHERE section=? AND annee_scolaire=?'
+    'SELECT ue_num, niveau, quadri FROM ue_niveau_section WHERE section=? AND annee_scolaire=?'
   ).all(section, annee_source);
 
   const ins = db.prepare(`
-    INSERT INTO ue_niveau_section (section, annee_scolaire, ue_num, niveau, maj_le)
-    VALUES (?,?,?,?, datetime('now'))
+    INSERT INTO ue_niveau_section (section, annee_scolaire, ue_num, niveau, quadri, maj_le)
+    VALUES (?,?,?,?,?, datetime('now'))
     ON CONFLICT(section, annee_scolaire, ue_num) DO UPDATE SET
-      niveau = excluded.niveau, maj_le = datetime('now')
+      niveau = excluded.niveau, quadri = excluded.quadri, maj_le = datetime('now')
   `);
   let n = 0;
   db.transaction(() => {
-    for (const s of src) { ins.run(section, annee, s.ue_num, s.niveau); n++; }
+    for (const s of src) { ins.run(section, annee, s.ue_num, s.niveau, s.quadri || null); n++; }
   })();
   res.json({ ok: true, reprises: n });
 });

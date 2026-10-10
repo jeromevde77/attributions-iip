@@ -70,6 +70,17 @@ export default function StructureSection({ annee, sectionInitiale = '' }) {
     await charger();
   }
 
+  async function changerQuadri(ueNum, quadri) {
+    const rep = await fetch('/api/capitalisation/niveau', {
+      method: 'PUT', headers: authHeaders(),
+      body: JSON.stringify({ section, annee, ue_num: ueNum, quadri }),
+    });
+    const j = await rep.json();
+    if (!rep.ok) { setMessage({ type: 'err', texte: j.error || 'Erreur' }); return; }
+    setMessage({ type: 'ok', texte: `UE ${ueNum} prévue en ${j.quadri || 'quadrimestre du référentiel'} dans ${section}` });
+    await charger();
+  }
+
   async function reprendreAnDernier() {
     const [a1, a2] = annee.split('-').map(Number);
     const source = `${a1 - 1}-${a2 - 1}`;
@@ -147,6 +158,7 @@ export default function StructureSection({ annee, sectionInitiale = '' }) {
         data={data}
         mode="structure"
         onNiveau={changerNiveau}
+        onQuadri={changerQuadri}
         titre={`Structure — ${section}`}
       />
       </div>

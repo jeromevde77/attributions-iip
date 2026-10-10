@@ -76,7 +76,7 @@ function Cadeau({ x, y, taille = 8 }) {
 export const OR = { fill: '#FFFFFF', stroke: 'var(--c-epreuve)', text: 'var(--c-texte)', label: 'Épreuve intégrée' };
 
 export default function SchemaCapitalisation({
-  data, mode = 'etudiant', onNiveau = null, replie = false, titre = 'Schéma de capitalisation',
+  data, mode = 'etudiant', onNiveau = null, onQuadri = null, replie = false, titre = 'Schéma de capitalisation',
   onLien = null, onSupprimerLien = null, onNoeud = null,
   enteteDans = null,   // un nœud de la page où poser l'en-tête (la barre de la fiche)
 }) {
@@ -689,6 +689,18 @@ export default function SchemaCapitalisation({
                     className="text-second px-2.5 py-1 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50">
                     Valeur du référentiel
                   </button>
+                  {onQuadri && (() => {
+                    const q = data.nodes.find(x => x.ue_num === selection)?.quad || '';
+                    return <span className="flex items-center gap-1 ml-2 pl-3 border-l border-slate-200" title="Le quadrimestre PRÉVU dans cette section cette année ; les dates de l'organisation peuvent s'en écarter.">
+                      <span className="text-second text-slate-600">Quadrimestre prévu&nbsp;:</span>
+                      {['Q1', 'Q2', 'AN'].map(v => (
+                        <button key={v} onClick={() => { onQuadri(selection, v); setSelection(null); }}
+                          className={`text-second px-2.5 py-1 rounded-lg border transition ${q === v ? 'bg-iip-blue text-white border-iip-blue' : 'border-slate-300 hover:bg-iip-blue hover:text-white hover:border-iip-blue'}`}>
+                          {v}
+                        </button>
+                      ))}
+                    </span>;
+                  })()}
                   <button onClick={() => setSelection(null)}
                     className="text-second px-2 py-1 text-slate-400">Annuler</button>
                 </div>

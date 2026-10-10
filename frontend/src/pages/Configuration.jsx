@@ -2157,6 +2157,22 @@ const THEMES = [
                reussi: '#248A3D', faveur: '#8944AB', disponible: '#0071E3', attente: '#C93400', refuse: '#D70015',
                ba1: '#F9B619', ba2: '#05B7E6', ba3: '#3A3A3C', epreuve: '#C9A227',
                fond_page: '#F5F5F7', fond_indispo: '#E8E8ED' } },
+  /* LE THÈME SOMBRE (3.1.266, Charles : « un thème sombre, dans les teintes de gris foncé
+     pour les fonds, les tuiles… »). Des gris de trois profondeurs — la page, les panneaux,
+     ce qui se détache (tuiles, champs, fenêtres) —, un texte clair, le bleu de la maison
+     éclairci pour rester lisible, des états qui gardent leur sens. Les pièces imprimées,
+     elles, restent sur papier blanc. */
+  { cle: 'sombre', nom: 'Sombre', texte: 'Gris foncés, texte clair, bleu éclairci ; les états restent lisibles.', gris: 'sombre',
+    valeurs: { principal: '#5B9BD5', accent: '#3FC1E8', texte: '#E4E8EE', donnees: '#5B9BD5', menu_sombre: '#14161A',
+               iip: '#7FB3E6', helb: '#E07AA6', ct: '#6FA0DD', pp: '#4FB58E',
+               reussi: '#4FB06A', faveur: '#A879C9', disponible: '#5B9BE0', attente: '#F0A040', refuse: '#E66A62',
+               ba1: '#F9B619', ba2: '#05B7E6', ba3: '#7FB3E6', epreuve: '#D4AF37',
+               fond_page: '#17191C', fond_indispo: '#2A2E34', fond_menus: '#1B1E22', fond_carte: '#1B1E22', fond_entete: '#24282E',
+               fond_ligne: '#1F2226', fond_survol: '#2A2F36', fond_tuile: '#23272D', fond_champ: '#262A30', filet: '#353A42',
+               sous_menu: '#6FA8DC', fenetre_bandeau: '#2A3038', fenetre_titre: '#F2F4F7', fenetre_corps: '#202328',
+               titre: '#E9EDF2', intertitre: '#9AA3AF', tableau_total: '#2A3038', fond_volet: '#24282E',
+               serie_1: '#5B9BD5', serie_2: '#3FC1E8', serie_3: '#F9B619', serie_4: '#A879C9', serie_5: '#4FB06A', serie_6: '#E07AA6',
+               graphique_vide: '#3A4048', graphique_grille: '#33383F', graphique_piste: '#2E333A' } },
 ];
 const GROUPES_COULEURS = [
   ['ecran', 'L’écran', 'Tout ce qui n’est pas un état : le bouton principal, l’accent, le texte, les données, les menus sombres.'],

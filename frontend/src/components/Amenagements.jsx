@@ -142,7 +142,7 @@ export default function Amenagements({ etudId, annee }) {
         {/* ROUVRIR POUR CORRIGER, tant que le Conseil n'a pas tranché ; rouvrir la
             demande rouvre d'abord le rapport, qui en dépend (Charles, 8 octobre 2026). */}
         {v.peut !== false && !c?.decide && (
-          <button type="button" className="ml-auto bouton h-7 text-second" style={{ background: '#fff', color: 'var(--c-texte, #1B2B4B)' }}
+          <button type="button" className="ml-auto bouton h-7 text-second" style={{ background: 'var(--blanc)', color: 'var(--c-texte, #1B2B4B)' }}
             onClick={async () => {
               if (vol === 'a' && c?.b?.valide_le && !(await geste('valider-b', 'DELETE'))) return;
               await geste(route, 'DELETE');

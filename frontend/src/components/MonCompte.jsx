@@ -263,7 +263,7 @@ export default function MonCompte({ onFermer }) {
             <div className="flex items-start gap-3 px-3 py-2.5 rounded-carte border"
               style={{ borderColor: actif ? '#b7d5c4' : 'rgb(var(--gris-200))',
                        borderLeftWidth: 3, borderLeftColor: actif ? '#4a7c59' : 'rgb(var(--gris-300))',
-                       background: '#fff' }}>
+                       background: 'var(--blanc)' }}>
               <div className="min-w-0 flex-1">
                 <div className="text-sm text-slate-700 font-semibold">
                   {actif ? 'Active' : 'Inactive'}
@@ -302,13 +302,13 @@ export default function MonCompte({ onFermer }) {
             {mdpFait ? (
               <div className="px-3 py-2.5 rounded-carte border text-sm"
                 style={{ borderColor: '#b7d5c4', borderLeftWidth: 3, borderLeftColor: '#4a7c59',
-                         background: '#fff', color: '#2f5d43' }}>
+                         background: 'var(--blanc)', color: '#2f5d43' }}>
                 Mot de passe modifié. Il sera demandé à votre prochaine connexion.
               </div>
             ) : (
               <div className="flex items-start gap-3 px-3 py-2.5 rounded-carte border"
                 style={{ borderColor: 'rgb(var(--gris-200))', borderLeftWidth: 3, borderLeftColor: 'rgb(var(--gris-300))',
-                         background: '#fff' }}>
+                         background: 'var(--blanc)' }}>
                 <div className="min-w-0 flex-1 text-second text-slate-600 leading-relaxed">
                   Choisissez-le vous-même : personne d'autre n'a à le connaître.
                   Au moins {LONGUEUR_MIN} caractères.

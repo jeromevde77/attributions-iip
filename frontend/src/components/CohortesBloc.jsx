@@ -70,6 +70,7 @@ export default function CohortesBloc({ section, bloc, annee, peutEcrire, onFerme
             {orgs.map(o => <span key={o}><b>Cohorte {o}</b> : {compte(o)}</span>)}
             {mixtes > 0 && <span title="Organisation différente selon l’UE (répartition au cas par cas)"><b>Mixtes</b> : {mixtes}</span>}
             <span className="text-slate-500">UE dédoublées : {d.ues.map(u => u.ue_num).join(', ')}</span>
+            {d.ues.some(u => u.par_groupes) && <span className="text-slate-500 w-full" title="La répartition des groupes de ces UE (Étudiants → Groupes) fait foi pour la simulation : l’organisation s’y lit cours par cours.">Réparties par les groupes : {d.ues.filter(u => u.par_groupes).map(u => u.ue_num).join(', ')} — l’organisation s’y lit cours par cours (« 1+2 » quand elle change d’un cours à l’autre).</span>}
             <span className="flex-1" />
             <input value={q} onChange={e => setQ(e.target.value)} placeholder="Chercher un étudiant…" className="controle w-56" data-reponses="non" />
             {peutEcrire && orgs.length > 1 && <button className="bouton" onClick={moitie} title="La première moitié de la liste (ordre alphabétique) en cohorte 1, la seconde en cohorte 2">Moitié / moitié</button>}

@@ -20,6 +20,7 @@ import { piedDocument } from './parametres.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
 import { construireGraphe, niveauxEffectifs, rangNiveau } from './capitalisation.js';
+import { placementsSection } from '../lib/placement.js';
 import { etatsPAE, plafondBloc, rangBloc } from '../lib/pae.js';
 import { SIGNATURE_SOHET, SCEAU_IIP } from '../services/assets/signature_sohet.js';
 import { identiteEtablissement } from './config.js';
@@ -1650,7 +1651,10 @@ r.put('/planning/contraintes', authRequired, roleRequired('admin', 'editeur', 'c
 /** Ce qu'on peut peindre pour une section : blocs, UE, cours, activités, enseignants ; et les locaux de l'école. */
 r.get('/planning/cibles', authRequired, (req, res) => {
   const section = String(req.query.section || ''), annee = String(req.query.annee || anneeDeTravail(req));
-  const ues = section ? db.prepare(`SELECT ue_num, ue_nom, UPPER(COALESCE(ue_niv, '')) bloc FROM ue WHERE annee_scolaire = ? AND section = ? ORDER BY ue_num`).all(annee, section) : [];
+  // Le bloc que la section donne à l'UE cette année (schéma de capitalisation), rattachées comprises.
+  const plac = section ? placementsSection(section, annee) : {};
+  const ues = section ? db.prepare(`SELECT ue_num, MAX(ue_nom) ue_nom FROM ue WHERE annee_scolaire = ? AND ue_num IN (SELECT value FROM json_each(?)) GROUP BY ue_num ORDER BY ue_num`)
+    .all(annee, JSON.stringify(Object.keys(plac).map(Number))).map(u => ({ ...u, bloc: (plac[u.ue_num]?.bloc || '').toUpperCase() })) : [];
   const nums = ues.map(u => u.ue_num);
   const cours = nums.length ? db.prepare(`SELECT cours_code, cours_nom, ue_num FROM cours WHERE annee_scolaire = ? AND ue_num IN (${nums.map(() => '?').join(',')}) ORDER BY ue_num, cours_code`).all(annee, ...nums) : [];
   const activites = nums.length ? db.prepare(`SELECT DISTINCT a.code_cours cours_code, COALESCE(a.activite_id, 0) activite_id, COALESCE(t.libelle, 'Cours') libelle
