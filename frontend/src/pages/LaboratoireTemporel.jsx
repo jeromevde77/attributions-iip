@@ -203,6 +203,12 @@ export default function LaboratoireTemporel() {
      s'enchaînent dans l'ordre du verre, chacune sur une durée proportionnelle à ses
      périodes, l'évaluation sur la dernière semaine. En parallèle : toutes sur toute
      l'unité. On ajuste ensuite barre par barre. */
+  /* LES MÉLANGES (Charles, 10 octobre 2026 : « je dois faire des mixes : pouvoir
+     cocher et dire ce qui est en parallèle ») : les activités cochées d'un cours
+     forment UN bloc en parallèle ; « à la suite » enchaîne les autres avant et
+     après, ce bloc prenant la place de la première activité cochée. */
+  const [coches, setCoches] = useState({});              // `${ue}#${cours}` → [k…]
+  const basculerCoche = (u, c, k) => setCoches(x => { const cle = `${u.ue_num}#${c.cours_code}`, l = new Set(x[cle] || []); l.has(k) ? l.delete(k) : l.add(k); return { ...x, [cle]: [...l] }; });
   async function arranger(u, c, facon) {
     const e = etendue(u);
     const sem = semaines.map((x, i) => ({ x, i })).filter(({ x, i }) => i >= e.de && i <= e.a && (x.type === 'cours' || (u.cours_pendant_conges && x.type === 'vacances'))).map(({ i }) => i);
@@ -212,15 +218,27 @@ export default function LaboratoireTemporel() {
     if (facon === 'parallele') acts = c.activites.map(a => ({ ...a, date_debut: date(sem[0]), date_fin: date(sem[sem.length - 1], true) }));
     else {
       const estEval = a => evalId != null && Number(a.activite_id) === Number(evalId);
-      const evals = c.activites.filter(estEval), autres = c.activites.filter(a => !estEval(a));
+      const evals = c.activites.filter(estEval);
       const dispo = evals.length ? sem.slice(0, -1) : sem;
-      const tot = autres.reduce((t, a) => t + parEtudiant(a), 0) || 1;
+      // Les étapes : une activité seule, ou le bloc des activités cochées (en parallèle).
+      const cochees = new Set(coches[`${u.ue_num}#${c.cours_code}`] || []);
+      const etapes = [];
+      c.activites.forEach((a, k) => {
+        if (estEval(a)) return;
+        if (cochees.has(k)) {
+          const bloc = etapes.find(e => e.parallele);
+          if (bloc) bloc.membres.push(a); else etapes.push({ parallele: true, membres: [a] });
+        } else etapes.push({ membres: [a] });
+      });
+      // La durée d'une étape suit ses périodes ; un bloc parallèle, celles de sa plus longue activité.
+      const poids = e => Math.max(...e.membres.map(parEtudiant));
+      const tot = etapes.reduce((t, e) => t + poids(e), 0) || 1;
       let curseur = 0;
       const places = new Map();
-      autres.forEach((a, n) => {
-        const part = n === autres.length - 1 ? dispo.length - curseur : Math.max(1, Math.round(dispo.length * parEtudiant(a) / tot));
+      etapes.forEach((e, n) => {
+        const part = n === etapes.length - 1 ? dispo.length - curseur : Math.max(1, Math.round(dispo.length * poids(e) / tot));
         const de = Math.min(curseur, dispo.length - 1), fin = Math.min(dispo.length - 1, curseur + part - 1);
-        places.set(a, { de: dispo[de], fin: dispo[Math.max(de, fin)] }); curseur = fin + 1;
+        e.membres.forEach(a => places.set(a, { de: dispo[de], fin: dispo[Math.max(de, fin)] })); curseur = fin + 1;
       });
       acts = c.activites.map(a => {
         if (estEval(a)) return { ...a, date_debut: date(sem[sem.length - 1]), date_fin: date(sem[sem.length - 1], true) };
@@ -316,6 +334,7 @@ export default function LaboratoireTemporel() {
                     style={{ left: `calc(${e.de / NB * 100}% + 1px)`, width: `calc(${(e.a - e.de + 1) / NB * 100}% - 2px)`, top: hautDePiste(p), height: h }}
                     couches={zoom === 'couches' ? couchesDe(u) : null} span={e} semaines={semaines} peutEcrire={peutEcrire}
                     onActivite={(ev, c, k, quoi) => gesteAct(ev, u, c, k, quoi)} onArranger={(c, f) => arranger(u, c, f)}
+                    coches={coches} onCocher={(c, k) => basculerCoche(u, c, k)}
                     onDeplacer={ev => geste(ev, u, 'deplacer')} onDebut={ev => geste(ev, u, 'debut')} onFin={ev => geste(ev, u, 'fin')}
                     onOuvrir={() => {
                       /* LE DOUBLE-CLIC ZOOME (Charles, 10 octobre 2026) : l'année → les
@@ -370,7 +389,7 @@ function Entete({ semaines }) {
 
 /* UNE TUILE PAR UE — la tuile de Lucie : blanche, liseré de la couleur de l'UE,
    texte à l'encre. Le stage est hachuré ; une UE sans dates, en pointillé. */
-function TuileUE({ u, zoom, choisie, posee, pendantStage, style, onDeplacer, onDebut, onFin, onOuvrir, couches, span, semaines = [], peutEcrire, onActivite, onArranger }) {
+function TuileUE({ u, zoom, choisie, posee, pendantStage, style, onDeplacer, onDebut, onFin, onOuvrir, couches, span, semaines = [], peutEcrire, onActivite, onArranger, coches = {}, onCocher }) {
   /* LA TUILE SE COUPE AUX VACANCES (Charles, 10 octobre 2026) : pas de cours ces
      semaines-là, sauf si l'UE a décidé d'en donner (« faites sauter les congés »). */
   const n = span ? span.a - span.de + 1 : 1;
@@ -420,7 +439,7 @@ function TuileUE({ u, zoom, choisie, posee, pendantStage, style, onDeplacer, onD
                     {peutEcrire && (c.activites || []).length > 1 && <>
                       <button className="ml-1 px-1.5 rounded-[4px] border border-slate-300 bg-white text-[10px] leading-[13px] hover:border-[#16406A]"
                         onPointerDown={ev => ev.stopPropagation()} onDoubleClick={ev => ev.stopPropagation()} onClick={() => onArranger(c, 'suite')}
-                        title="Enchaîner les activités dans l’ordre du verre, l’évaluation en dernier">⇢ à la suite</button>
+                        title="Enchaîner les activités dans l’ordre du verre, l’évaluation en dernier ; les activités cochées forment un bloc en parallèle">⇢ à la suite{(coches[`${u.ue_num}#${c.cours_code}`] || []).length > 1 ? ` (${(coches[`${u.ue_num}#${c.cours_code}`] || []).length} en parallèle)` : ''}</button>
                       <button className="px-1.5 rounded-[4px] border border-slate-300 bg-white text-[10px] leading-[13px] hover:border-[#16406A]"
                         onPointerDown={ev => ev.stopPropagation()} onDoubleClick={ev => ev.stopPropagation()} onClick={() => onArranger(c, 'parallele')}
                         title="Toutes les activités sur toute la période de l’UE">⇉ en parallèle</button></>}
@@ -434,6 +453,10 @@ function TuileUE({ u, zoom, choisie, posee, pendantStage, style, onDeplacer, onD
                             background: x.act.activite_id && /valuation/i.test(x.act.activite_nom || '') ? '#B45309' : teinteCours(c.cours_code) }}
                           title={`${c.cours_code} — ${x.act.activite_nom || 'activité'} · ${arrondi(parEtudiant(x.act))} p. par étudiant${x.act.groupes > 1 ? `, ${x.act.groupes} groupes` : ''}\nGlisser : le déplacer ; tirer ses bords : l’allonger`}>
                           {peutEcrire && <span className="absolute left-0 top-0 bottom-0 w-1.5 cursor-ew-resize" onPointerDown={ev => onActivite(ev, c, x.k, 'debut')} />}
+                          {peutEcrire && (c.activites || []).length > 1 && (
+                            <input type="checkbox" className="align-[-2px] mr-1 w-[11px] h-[11px] accent-white cursor-pointer" title="En parallèle : « à la suite » met les activités cochées ensemble"
+                              checked={(coches[`${u.ue_num}#${c.cours_code}`] || []).includes(x.k)}
+                              onPointerDown={ev => ev.stopPropagation()} onDoubleClick={ev => ev.stopPropagation()} onChange={() => onCocher(c, x.k)} />)}
                           {x.act.activite_nom || 'activité'} · {arrondi(parEtudiant(x.act))} p.{x.act.groupes > 1 ? ` ×${x.act.groupes}` : ''}
                           {peutEcrire && <span className="absolute right-0 top-0 bottom-0 w-1.5 cursor-ew-resize" onPointerDown={ev => onActivite(ev, c, x.k, 'fin')} />}
                         </div>))}
@@ -519,6 +542,16 @@ function Verre({ u, types, annee, section, peutEcrire, onRetour, onAnnee, onEnre
       const autres = next.reduce((t, x, i) => t + (i === ci ? 0 : Number(x.autonomie_placee) || 0), 0);
       const besoin = Math.max(0, arrondi(sommeEtudiant(c) - (Number(c.cours_per) || 0)));
       const prise = arrondi(Math.min(besoin, Math.max(0, autonomieUE - autres)));
+      /* QUAND IL N'Y EN A PLUS, IL N'Y EN A PLUS (Charles, 10 octobre 2026) : un
+         geste qui ferait déborder le cours au-delà de la burette est refusé. Seul un
+         cours qui déborde déjà (enregistré ainsi) reste tel quel, signalé. */
+      const avantBesoin = Math.max(0, arrondi(sommeEtudiant(cs[ci]) - (Number(cs[ci].cours_per) || 0)));
+      if (besoin > prise && besoin > avantBesoin) {
+        const dispo = arrondi(Math.max(0, autonomieUE - autres));
+        setAvis(dispo > 0 ? `La burette de l’UE n’a que ${dispo} p. : ${c.cours_code} ne peut pas dépasser ${arrondi((Number(c.cours_per) || 0) + prise)} p.`
+          : `La burette de l’UE est vide : ${c.cours_code} ne peut pas dépasser ${arrondi((Number(c.cours_per) || 0) + prise)} p.`);
+        return cs;
+      }
       next[ci] = { ...c, autonomie_placee: prise };
       if (prise > avant) setAvis(`Attention : ${c.cours_code} dépasse son verre — je prends ${prise} p. d’autonomie dans la burette de l’UE.${besoin > prise ? ` Il en manque encore ${arrondi(besoin - prise)} : la burette est vide.` : ''}`);
       else if (prise < avant) setAvis(`${c.cours_code} redescend : ${arrondi(avant - prise)} p. d’autonomie retournent dans la burette.`);
@@ -608,6 +641,11 @@ function Verre({ u, types, annee, section, peutEcrire, onRetour, onAnnee, onEnre
             {types.filter(t => !barre.some(x => x.id === t.id)).map(t => <option key={t.id} value={t.id}>{t.libelle}</option>)}
           </select>
         </div>)}
+      {/* TOUTE L'AUTONOMIE DOIT ÊTRE DÉPENSÉE DANS L'UE (Charles, 10 octobre 2026). */}
+      {autonomieReste > 0 && (
+        <div className="bloc-etat px-3 py-2 text-[13px]" data-etat="surveiller">
+          Il reste <b>{autonomieReste} p.</b> d’autonomie dans la burette : toute l’autonomie de l’UE doit être dépensée — agrandissez une activité, ajoutez-en une, ou « Vider la burette dans cette activité ».
+        </div>)}
       {avis && (
         <div className="bloc-etat px-3 py-2 text-[13px] flex items-center gap-2" data-etat={/^Attention/.test(avis) ? 'surveiller' : 'neutre'}>
           <span className="flex-1">{avis}</span><button className="text-slate-400 hover:text-slate-700" onClick={() => setAvis(null)} title="Fermer">×</button>
@@ -622,6 +660,7 @@ function Verre({ u, types, annee, section, peutEcrire, onRetour, onAnnee, onEnre
             </div>
             <b className="text-[12px] tabular-nums" style={{ color: autonomieReste < 0 ? 'var(--c-refuse)' : '#1B2B4B' }}>{autonomieUE ? `${autonomieReste}/${autonomieUE}` : '0'}</b>
             <span className="text-[10px] text-slate-400">{autonomieUE ? 'p. restantes' : 'aucune au dossier'}</span>
+            {autonomieReste > 0 && <span className="text-[10.5px] font-semibold text-center leading-tight w-[70px]" style={{ color: 'var(--c-attente)' }}>à dépenser dans l’UE</span>}
           </div>
           {/* La graduation, tous les 10 périodes. */}
           <div className="relative w-8 flex-none" style={{ height: total * PX + 8 }}>
@@ -684,6 +723,9 @@ function Verre({ u, types, annee, section, peutEcrire, onRetour, onAnnee, onEnre
               return peutEcrire && (<div className="flex flex-wrap gap-2">
                 <button className="bouton" disabled={reste <= 0} title="L’activité prend toute la place restante du cours"
                   onClick={() => regler(a => ({ ...a, periodes: (parEtudiant(a) + reste) * (a.groupes || 1) }))}>Tout remplir{reste > 0 ? ` (+${reste} p.)` : ''}</button>
+                <button className="bouton" disabled={autonomieReste <= 0} title="L’activité prend tout ce qui reste d’autonomie dans la burette de l’UE"
+                  onClick={() => regler(a => ({ ...a, periodes: (parEtudiant(a) + Math.max(0, reste) + autonomieReste) * (a.groupes || 1) }))}>
+                  Vider la burette dans cette activité{autonomieReste > 0 ? ` (+${autonomieReste} p.)` : ''}</button>
 
               </div>);
             })()}
