@@ -1,3 +1,4 @@
+import ChoixRecherche from '../components/ChoixRecherche.jsx';
 import { useEffect, useMemo, useState } from 'react';
 import {
   IconPlus, IconTrash, IconUpload, IconCopy, IconAlertTriangle, IconCash,
@@ -426,17 +427,13 @@ function LigneForm({ form, setForm, comptes, sections = [], sectionCourante, onE
         </label>
         <label className="text-xs md:col-span-2">
           <span className="intertitre block mb-1">Compte général</span>
-          <select value={form.compte_ref || ''} onChange={e => {
-              const c = comptes.find(x => x.reference === e.target.value);
-              setForm(f => ({ ...f, compte_ref: e.target.value,
-                taux_tva: c?.tva_defaut != null ? c.tva_defaut : f.taux_tva }));
-            }}
-            className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white">
-            <option value="">— à préciser</option>
-            {comptes.map(c => (
-              <option key={c.reference} value={c.reference}>{c.reference} — {c.libelle}</option>
-            ))}
-          </select>
+          {/* Une liste qui se cherche (3.1.275) : « peti », « matériel », un numéro. */}
+          <ChoixRecherche valeur={form.compte_ref || ''} placeholder="Chercher un compte : « matériel », « peti », « 6124 »…"
+            options={comptes.map(c => ({ valeur: c.reference, libelle: c.libelle, detail: c.bilan || undefined }))}
+            onChange={v => {
+              const c = comptes.find(x => x.reference === v);
+              setForm(f => ({ ...f, compte_ref: v, taux_tva: c?.tva_defaut != null ? c.tva_defaut : f.taux_tva }));
+            }} />
         </label>
         <label className="text-xs md:col-span-2">
           <span className="intertitre block mb-1">
