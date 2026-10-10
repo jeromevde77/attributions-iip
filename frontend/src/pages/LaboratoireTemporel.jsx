@@ -5,7 +5,7 @@ import { passeRole } from '../lib/droits.js';
 import { teinteCours, styleTuileCours } from '../lib/teinteCours.js';
 import { IconeLaboratoire } from '../components/IconeLaboratoire.jsx';
 import { RailLateral } from '../components/ui.jsx';
-import { IconSitemap, IconPuzzle, IconCalendarWeek, IconTimeline, IconTrash, IconHistory, IconUserCheck, IconCalendarCog } from '@tabler/icons-react';
+import { IconSitemap, IconPuzzle, IconCalendarWeek, IconTimeline, IconTrash, IconHistory, IconUserCheck, IconCalendarCog, IconWand } from '@tabler/icons-react';
 const StructureSection = lazy(() => import('./StructureSection.jsx'));
 const GroupesCommuns = lazy(() => import('./GroupesCommuns.jsx'));
 const DisponibilitesSection = lazy(() => import('./DisponibilitesSection.jsx'));
@@ -198,6 +198,32 @@ export default function LaboratoireTemporel() {
   /* DÉDOUBLER UNE UE (Charles, 10 octobre 2026 : AESI, une moitié en stage de
      Toussaint à Noël, l'autre de Carnaval à Pâques ; pendant que l'une est en stage,
      l'autre a des UE). L'organisation suivante paraît comme une tuile à part. */
+  /* L'ORGANISATION DE BASE (Charles, 10 octobre 2026 : « tu as le schéma de
+     capitalisation, tu sais ce qui dépend de quoi ; donc tu sais faire une
+     organisation de base »). Lucie propose, on lit le compte rendu, on retouche. */
+  async function organisationDeBase() {
+    const corps = { annee_scolaire: annee, section };
+    const r0 = await fetch('/api/grille/organisation-de-base', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ ...corps, simulation: true }) });
+    const a = await r0.json().catch(() => ({}));
+    if (!r0.ok) { setErreur(a.error || `Erreur ${r0.status}`); return; }
+    if (!a.propositions?.length) { await informer('Aucune UE à organiser dans cette section.'); return; }
+    const dt = d => d.split('-').reverse().slice(0, 2).join('/');
+    const texte = a.propositions.slice(0, 18).map(p => `${p.bloc} · UE ${p.ue_num} : ${dt(p.date_debut)} → ${dt(p.date_fin)} (${p.raison})${p.actuel ? ' — déjà posée' : ''}`).join('\n')
+      + (a.propositions.length > 18 ? `\n… et ${a.propositions.length - 18} autre(s)` : '')
+      + (a.alertes.length ? `\n\nÀ regarder :\n${a.alertes.join('\n')}` : '')
+      + '\n\nSeule l’organisation 1 est proposée : celle d’une UE dédoublée se pose à la main.';
+    const choix = [];
+    if (a.a_ecrire && a.deja_posees) choix.push({ valeur: 'vides', libelle: `Poser seulement les ${a.a_ecrire} UE sans dates`, aide: 'Les dates déjà posées restent telles quelles.' });
+    if (!a.deja_posees) choix.push({ valeur: 'vides', libelle: `Poser les ${a.a_ecrire} UE`, aide: 'Vous les retoucherez ensuite en glissant les tuiles.' });
+    if (a.deja_posees) choix.push({ valeur: 'tout', libelle: `Tout remplacer (${a.propositions.length} UE)`, aide: 'Le laboratoire est sauvegardé d’abord : « Sauvegardes » le rétablit.' });
+    const v = await choisir({ titre: 'Organisation de base proposée par Lucie', message: texte, choix });
+    if (!v) return;
+    const r = await fetch('/api/grille/organisation-de-base', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ ...corps, remplacer: v === 'tout', simulation: false }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { setErreur(j.error || `Erreur ${r.status}`); return; }
+    await charger();
+    await informer(`✓ ${j.ecrit} UE posée(s) dans l’année.${j.sauvegarde ? ' Le laboratoire avait été sauvegardé avant.' : ''}`);
+  }
   async function dedoubler(u) {
     if (!(await demander({ titre: `Dédoubler l’UE ${u.ue_num}`, message: `Une organisation de plus pour l’UE ${u.ue_num}, avec ses propres dates. Son verre reprend celui de l’organisation 1 tant qu’on ne le découpe pas autrement.
 
@@ -405,6 +431,7 @@ Les étudiants se répartissent ensuite entre les organisations (répartition de
           return <button className="bouton" disabled={!b} onClick={() => setCohortes(b)} title={b ? `Placer les étudiants de ${b} dans les organisations de toutes les UE dédoublées` : 'Choisissez un bloc'}>Cohortes{b ? ` ${b}` : ''}</button>;
         })()}
         {face === 'temps' && peutEcrire && data && <>
+          <button className="bouton" onClick={organisationDeBase} title="Lucie propose les dates de chaque UE d’après le schéma de capitalisation (prérequis), le quadrimestre et l’épreuve intégrée"><IconWand size={15} />Organisation de base</button>
           <button className="bouton" onClick={restaurerSauvegarde} title="Revenir à une sauvegarde du laboratoire"><IconHistory size={15} />Sauvegardes</button>
           <button className="bouton bouton-detruire" onClick={grandNettoyage} title="Sauvegarder, tout vider (la structure reste), puis réimporter depuis les attributions"><IconTrash size={15} />Grand nettoyage du labo</button>
         </>}

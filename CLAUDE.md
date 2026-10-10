@@ -198,6 +198,18 @@ tranches de 3.1.242 (`prof_agenda`, `prof_disponibilite` ne sont plus lues). Les
 priorités de section (jours au plus, regrouper) restent dans `horaire_regle`,
 réglées depuis la même face.
 
+**L'ORGANISATION DE BASE SE DÉDUIT DU SCHÉMA DE CAPITALISATION** (3.1.247,
+Charles, 10 octobre 2026 : « tu sais quand les UE se donnent et ce qui dépend de
+quoi, donc tu sais faire une organisation de base »). Bouton *Organisation de
+base* du laboratoire (`POST /api/grille/organisation-de-base`, simulation
+d'abord) : le quadrimestre du dossier borne l'UE ; un prérequis du même bloc
+(`ue_prerequis`) se termine avant l'UE qui en dépend (la fenêtre se découpe en
+autant de tranches que la plus longue chaîne) ; une UE sans lien court sur toute
+sa fenêtre ; l'épreuve intégrée prend les quatre dernières semaines de cours ;
+seule l'organisation 1 est proposée. Ce qui ne tient pas (prérequis au Q2 pour
+une UE du Q1, boucle) se nomme. Les dates posées ne sont remplacées que sur
+demande, après une sauvegarde du laboratoire.
+
 **UNE UE, UN STAGE PEUVENT AVOIR DEUX ORGANISATIONS — ET LE LABORATOIRE LES
 SÉPARE** (3.1.244-3.1.245, Charles, 10 octobre 2026 : « en AESI, une partie des
 étudiants va en stage de Toussaint à Noël (orga 1), l'autre de Carnaval à Pâques

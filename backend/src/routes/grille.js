@@ -665,6 +665,108 @@ r.delete('/organisation', authRequired, roleRequired('admin', 'editeur', 'coordi
   res.json({ ok: true });
 });
 
+/* L'ORGANISATION DE BASE (Charles, 10 octobre 2026 : « comme tu as le schéma de
+   capitalisation, tu sais quand les UE se donnent et ce qui dépend de quoi ; donc
+   tu sais faire une organisation de base »). Lucie PROPOSE des dates pour chaque
+   UE de la section ; on retouche ensuite dans l'année. Les règles, dans l'ordre :
+     · le QUADRIMESTRE du dossier (`ue_quad`) borne l'UE ; sans quadrimestre, toute l'année ;
+     · un PRÉREQUIS du même bloc (schéma de capitalisation, `ue_prerequis`, légal
+       ou interne) se termine AVANT que l'UE qui en dépend commence : la fenêtre se
+       découpe en autant de tranches que la plus longue chaîne ;
+     · une UE sans lien avec aucune autre court sur toute sa fenêtre ;
+     · l'ÉPREUVE INTÉGRÉE se place en dernier, après tout le reste du bloc ;
+     · seule l'organisation 1 est proposée : celle d'une UE dédoublée dépend des
+       cohortes (stages alternés), elle se pose à la main.
+   Ce que la proposition ne peut pas tenir (un prérequis au Q2 pour une UE du Q1,
+   une boucle) se NOMME. Compte rendu d'abord ; des dates déjà posées ne sont
+   remplacées que sur demande, après une sauvegarde du laboratoire. */
+function organisationDeBase(annee, section) {
+  const semaines = semainesDe(annee);
+  const cours = semaines.filter(s => s.type === 'cours');
+  const coupure = coupureQuadri(semaines);
+  const fen = { '1': cours.filter(s => s.semaine_num <= coupure), '2': cours.filter(s => s.semaine_num > coupure), '': cours };
+  const ues = db.prepare(`SELECT ue_num, MAX(ue_nom) ue_nom, UPPER(COALESCE(MAX(ue_niv), '')) bloc, TRIM(COALESCE(MAX(ue_quad), '')) quad,
+      MAX(COALESCE(is_epreuve_integree, 0)) ei FROM ue WHERE annee_scolaire = ? AND section = ? GROUP BY ue_num ORDER BY ue_num`).all(annee, section);
+  // La ligne annuelle l'emporte quand elle existe (deux sources pour un même fait, CLAUDE.md).
+  const eiAnnuelle = new Map(lire('SELECT ue_num, actif FROM ue_epreuve_integree WHERE annee_scolaire = ?', annee).map(x => [x.ue_num, !!x.actif]));
+  for (const u of ues) u.ei = eiAnnuelle.has(u.ue_num) ? eiAnnuelle.get(u.ue_num) : !!u.ei;
+  const parNum = new Map(ues.map(u => [u.ue_num, u]));
+  const liens = lire('SELECT ue_num, prerequis_num FROM ue_prerequis WHERE section IS NULL OR section = ?', section)
+    .filter(l => parNum.has(l.ue_num) && parNum.has(l.prerequis_num) && parNum.get(l.ue_num).bloc === parNum.get(l.prerequis_num).bloc);
+  const avant = new Map(), apres = new Map();
+  for (const l of liens) {
+    if (!avant.has(l.ue_num)) avant.set(l.ue_num, new Set()); avant.get(l.ue_num).add(l.prerequis_num);
+    if (!apres.has(l.prerequis_num)) apres.set(l.prerequis_num, new Set()); apres.get(l.prerequis_num).add(l.ue_num);
+  }
+  const alertes = [];
+  const quadDe = u => (u.quad === '1' || u.quad === '2') ? u.quad : '';
+  const propositions = [];
+  for (const bloc of [...new Set(ues.map(u => u.bloc))]) {
+    const duBloc = ues.filter(u => u.bloc === bloc && !u.ei);
+    // La profondeur dans la chaîne, PAR FENÊTRE : un prérequis du Q1 ne retarde pas une UE du Q2.
+    const prof = new Map();
+    const calc = (n, vus = new Set()) => {
+      if (prof.has(n)) return prof.get(n);
+      if (vus.has(n)) { alertes.push(`Boucle de prérequis autour de l’UE ${n}`); return 0; }
+      vus.add(n);
+      const u = parNum.get(n);
+      const ps = [...(avant.get(n) || [])].map(p => parNum.get(p)).filter(p => p && !p.ei && quadDe(p) === quadDe(u));
+      const d = ps.length ? 1 + Math.max(...ps.map(p => calc(p.ue_num, vus))) : 0;
+      prof.set(n, d); return d;
+    };
+    duBloc.forEach(u => calc(u.ue_num));
+    for (const u of duBloc) for (const p of avant.get(u.ue_num) || []) {
+      const pu = parNum.get(p);
+      if (pu && quadDe(pu) === '2' && quadDe(u) === '1') alertes.push(`UE ${u.ue_num} (Q1) dépend de l’UE ${p}, donnée au Q2 : le dossier les place à l’envers`);
+    }
+    for (const q of ['1', '2', '']) {
+      const lot = duBloc.filter(u => quadDe(u) === q);
+      if (!lot.length) continue;
+      const w = fen[q]; if (!w.length) continue;
+      const etages = 1 + Math.max(0, ...lot.map(u => prof.get(u.ue_num) || 0));
+      for (const u of lot) {
+        const lie = (avant.get(u.ue_num)?.size || 0) + (apres.get(u.ue_num)?.size || 0) > 0;
+        let de = 0, fin = w.length - 1, raison = q ? `Q${q}` : 'toute l’année';
+        if (lie && etages > 1) {
+          const d = prof.get(u.ue_num) || 0;
+          de = Math.floor(d * w.length / etages); fin = Math.max(de, Math.floor((d + 1) * w.length / etages) - 1);
+          const ps = [...(avant.get(u.ue_num) || [])].filter(p => quadDe(parNum.get(p)) === q);
+          raison += ps.length ? ` · après l’UE ${ps.join(', ')}` : ` · avant l’UE ${[...(apres.get(u.ue_num) || [])].join(', ')}`;
+        }
+        propositions.push({ ue_num: u.ue_num, ue_nom: u.ue_nom, bloc, date_debut: w[de].date_debut, date_fin: w[fin].date_fin || w[fin].date_debut, raison });
+      }
+    }
+    // L'épreuve intégrée : les dernières semaines de cours, après tout le reste du bloc.
+    for (const u of ues.filter(x => x.bloc === bloc && x.ei)) {
+      const n = Math.min(4, cours.length), w = cours.slice(-n);
+      if (w.length) propositions.push({ ue_num: u.ue_num, ue_nom: u.ue_nom, bloc, date_debut: w[0].date_debut, date_fin: w[w.length - 1].date_fin || w[w.length - 1].date_debut, raison: 'épreuve intégrée · en dernier' });
+    }
+  }
+  for (const p of propositions) {
+    const o = organisationDe(annee, section, p.ue_num, false, 1);
+    p.actuel = o?.date_debut && o?.date_fin ? { de: o.date_debut, fin: o.date_fin } : null;
+  }
+  return { propositions, alertes: [...new Set(alertes)] };
+}
+r.post('/organisation-de-base', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
+  const b = req.body || {};
+  const annee = b.annee_scolaire || anneeDeTravail(req), section = String(b.section || '').trim();
+  if (!section) return res.status(400).json({ error: 'section requise' });
+  const { propositions, alertes } = organisationDeBase(annee, section);
+  const remplacer = !!b.remplacer;
+  const a_ecrire = propositions.filter(p => remplacer || !p.actuel);
+  if (b.simulation !== false) return res.json({ propositions, alertes, a_ecrire: a_ecrire.length, deja_posees: propositions.filter(p => p.actuel).length });
+  let sauvegarde = null;
+  if (remplacer && propositions.some(p => p.actuel)) sauvegarde = sauvegarder(annee, section, 'avant l’organisation de base', req.user?.email || null);
+  db.transaction(() => {
+    for (const p of a_ecrire) {
+      const o = organisationDe(annee, section, p.ue_num, true, 1);
+      db.prepare('UPDATE organisation_ue SET date_debut = ?, date_fin = ? WHERE id = ?').run(p.date_debut, p.date_fin, o.id);
+    }
+  })();
+  res.json({ ok: true, ecrit: a_ecrire.length, sauvegarde });
+});
+
 /* LES COHORTES (Charles, 10 octobre 2026 : « les deux selon la section » — des
    demi-promotions stables là où la section fonctionne ainsi, comme l'AESI ; le cas
    par cas ailleurs, par la répartition de chaque UE). Une cohorte = un numéro
