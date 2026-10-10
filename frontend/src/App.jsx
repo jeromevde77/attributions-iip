@@ -1,4 +1,5 @@
 import { ICONE_AXE } from './lib/iconesAxes.js';
+import { useMiseEnPage, basculerMiseEnPage, changerMiseEnPage, deplacer, poigneeGlisser } from './lib/miseEnPage.js';
 import { useDroits } from './lib/droits.js';
 import { useState, useEffect, useRef, Component, Fragment } from 'react';
 import { createPortal } from 'react-dom';
@@ -39,7 +40,7 @@ import {
   IconChartBar, IconCalendarStats, IconEdit, IconSettings, IconLogout, IconMenu2, IconX,
   IconChalkboard, IconChalkboardTeacher, IconReportAnalytics,
   IconHome, IconBell, IconLibrary, IconGavel, IconSun, IconMoon,
-  IconShieldLock, IconShieldCheck, IconFlask,
+  IconShieldLock, IconShieldCheck, IconFlask, IconLayoutDashboard,
 } from '@tabler/icons-react';
 
 import Login from './pages/Login.jsx';
@@ -516,6 +517,7 @@ function ProtectedLayout({ children }) {
      qu'une icône. Quatre ou cinq entrées tiennent avec leur nom — les autres
      rôles, qui en ont davantage, gardent les icônes et la bulle. */
   const nomsVisibles = u?.role === 'professeur';
+  const mep = useMiseEnPage();
   const nav = AXES
     .filter(([, , , module]) => !module || droitEffectif(u, module) !== 'rien')
     /* « MA FICHE » POUR UN PROFESSEUR (5 octobre 2026 : « en mode prof, je ne
@@ -523,7 +525,9 @@ function ProtectedLayout({ children }) {
        l'axe « Personnel » lui montrait une liste d'une ligne, sans dire que
        c'était lui. L'axe porte son nom et ouvre la fiche directement. */
     .map(([to, lbl, Icon]) => (to === '/professeurs' && u?.role === 'professeur'
-      ? [to, 'Ma fiche', Icon] : [to, lbl, Icon]));
+      ? [to, 'Ma fiche', Icon] : [to, lbl, Icon]))
+    // L'ORDRE DE LA BARRE SE RÈGLE EN GLISSANT (mode mise en page, 3.1.256).
+    .sort((a, b) => { const o = mep.conf.axes || []; const i = x => { const k = o.indexOf(x); return k < 0 ? 999 : k; }; return i(a[0]) - i(b[0]); });
 
   // LA PORTE DU PROFESSEUR : ses cours, ses étudiants, ses propositions de
   // notes — en tête de son menu, c'est pour cela qu'il se connecte. Visible
@@ -622,6 +626,7 @@ function ProtectedLayout({ children }) {
             {nav.map(([to, lbl, Icon]) => (
               <Fragment key={to}>
               <NavLink to={to} end={to === '/'} aria-label={lbl}
+                {...poigneeGlisser(mep.actif, 'axes', to, (de, vers) => changerMiseEnPage(c => ({ ...c, axes: deplacer(nav.map(n => n[0]), de, vers) })))}
                 onMouseEnter={e => { const b = e.currentTarget.getBoundingClientRect(); setBulleNav({ lbl, x: b.left + b.width / 2, y: b.bottom + 6 }); }}
                 onMouseLeave={() => setBulleNav(null)} onClick={() => setBulleNav(null)}
                 /* LA MÊME CASE QUE LE RAIL (Charles, 3 octobre 2026 : « même taille
@@ -683,6 +688,12 @@ function ProtectedLayout({ children }) {
                 version et du compte, avec les autres choses qui ne dépendent
                 pas de là où l'on se trouve. */}
             <RechercheLucie />
+            {u?.role === 'admin' && (
+              <button onClick={basculerMiseEnPage} aria-label="Mise en page" aria-pressed={mep.actif}
+                title={mep.actif ? 'Mise en page activée — glissez les menus et les blocs ; cliquer pour terminer' : 'Mise en page — ranger les menus et les pages en les glissant (administrateur)'}
+                className={`objet-barre ${mep.actif ? 'objet-barre-etat' : 'objet-barre-icone'}`} style={mep.actif ? { '--e': 'var(--c-attente)' } : undefined}>
+                <IconLayoutDashboard size={16} />{mep.actif && ' Mise en page'}
+              </button>)}
             <button onClick={basculerMode} aria-label="Changer le mode d'affichage"
               title={mode === 'sombre' ? 'Menus en gris pâle' : 'Menus en marine'}
               className="objet-barre objet-barre-icone">

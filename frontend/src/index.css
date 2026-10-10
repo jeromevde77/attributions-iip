@@ -1291,3 +1291,8 @@ button.objet-barre:hover { color: var(--menu-texte); }
   --g-vide: var(--c-graphique_vide, #CBD5E1); --g-grille: var(--c-graphique_grille, #E8ECF2);
   --g-ref: var(--c-graphique_reference, var(--c-refuse, #E0564F));
 }
+
+/* LE MODE MISE EN PAGE (3.1.256) : ce qui se range se dit — curseur de saisie, filet
+   pointillé ; la cible du dépôt s'éclaire. */
+[data-glissable="1"] { cursor: grab; outline: 1px dashed var(--c-attente, #F0922E); outline-offset: 2px; }
+[data-glissable="1"][data-survol="1"] { outline: 2px solid var(--c-attente, #F0922E); background: color-mix(in srgb, var(--c-attente, #F0922E) 12%, transparent); }

@@ -1511,6 +1511,17 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
 
 ### Navigation
 
+- **LE MODE MISE EN PAGE** (3.1.256, Charles, 10 octobre 2026 : « paramétrer en
+  glisser-déposer les pages principales — toutes les pages, mais juste l'admin »).
+  L'administrateur l'allume depuis la barre du haut (icône de mise en page) ; les
+  axes de la barre, les rubriques des rails et les blocs des pages se rangent alors
+  à la souris, sur les pages elles-mêmes, pour toute l'école (`lucie_config`
+  « mise_en_page », `GET/PUT /api/config/mise-en-page`, PUT réservé à `admin`).
+  `lib/miseEnPage.js` (registre, `poigneeGlisser`), `Axe` (ordre du rail réglé,
+  qui l'emporte sur `ordreRail`), `components/BlocsPage.jsx` (ordre, masqués,
+  demi-largeur). **Une page se rend rangeable en déclarant ses blocs dans
+  `BlocsPage`** — l'Accueil d'abord ; les autres pages suivent par lots.
+
 - **Seul le menu principal est horizontal** : il dit dans quel métier on est.
   Tout le reste vit dans le **rail latéral** — les rubriques de l'axe d'abord,
   puis les outils de l'écran ouvert, qui s'y inscrivent d'eux-mêmes.

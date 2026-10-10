@@ -557,7 +557,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
                    par-dessus — ni pastille blanche, ni ombre : seules les
                    icônes changent de couleur (marine pour la famille et au
                    survol, bleu pour la rubrique ouverte). */
-                <div key={it.key}
+                <div key={it.key} {...(it.poignee || {})}
                   className={`relative ${it.sous?.length > 0 ? `${epingle ? '' : 'w-9 mx-auto'} rounded-carte mb-0.5` : ''}`}
                   data-plateau={it.sous?.length > 0 ? '1' : undefined}
                   style={it.sous?.length > 0 ? { background: 'var(--menu-plateau)' } : undefined}>
