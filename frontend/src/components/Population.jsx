@@ -25,21 +25,21 @@ export default function Population({ annee }) {
   const ues = useMemo(() => (data?.par_ue || []).filter(u => !section || u.section === section), [data, section]);
   const sectionsUe = useMemo(() => [...new Set((data?.par_ue || []).map(u => u.section))], [data]);
 
-  if (erreur) return <div className="carte p-3 text-[13px] text-rose-700 flex gap-1.5"><IconAlertTriangle size={15} />{erreur}</div>;
-  if (!data) return <div className="text-[13px] text-slate-400 py-8">Comptage…</div>;
+  if (erreur) return <div className="carte p-3 text-sm text-rose-700 flex gap-1.5"><IconAlertTriangle size={15} />{erreur}</div>;
+  if (!data) return <div className="text-sm text-slate-400 py-8">Comptage…</div>;
 
   const niveaux = data.niveaux;
   const tuile = (n, lib, rail) => (
     <div className="rounded-carte border border-slate-200 bg-white px-3 py-2"
       style={{ borderLeftWidth: 3, borderLeftColor: rail || 'transparent' }}>
-      <div className="text-[17px] font-semibold tabular-nums">{n}</div>
-      <div className="text-[11px] text-slate-500">{lib}</div>
+      <div className="text-lg font-semibold tabular-nums">{n}</div>
+      <div className="text-xs text-slate-500">{lib}</div>
     </div>
   );
 
   return (
     <div className="space-y-5">
-      <p className="text-[13px] text-slate-600 max-w-3xl">
+      <p className="text-sm text-slate-600 max-w-3xl">
         Année {data.annee}. On compte les étudiants dont le <b>programme est confirmé</b>.
         La section est celle de l'étudiant, et le niveau celui de l'étudiant : un parcours mixte compte
         à son niveau principal, celui où il a le plus d'unités.
@@ -52,9 +52,9 @@ export default function Population({ annee }) {
       </div>
 
       <section>
-        <h2 className="text-[15px] font-semibold text-iip-blue mb-1.5">Par section et par niveau</h2>
+        <h2 className="text-base font-semibold text-iip-blue mb-1.5">Par section et par niveau</h2>
         <div className="carte overflow-x-auto">
-          <table className="w-full text-[13px]">
+          <table className="w-full text-sm">
             <thead>
               <tr className="tab-entete text-left">
                 <th className="px-3 py-1.5">Section</th>
@@ -80,14 +80,14 @@ export default function Population({ annee }) {
 
       <section>
         <div className="flex flex-wrap items-center gap-3 mb-1.5">
-          <h2 className="text-[15px] font-semibold text-iip-blue">Par unité, face à l'effectif prévu</h2>
-          <select value={section} onChange={e => setSection(e.target.value)} className="controle text-[13px]">
+          <h2 className="text-base font-semibold text-iip-blue">Par unité, face à l'effectif prévu</h2>
+          <select value={section} onChange={e => setSection(e.target.value)} className="controle text-sm">
             <option value="">Toutes les sections</option>
             {sectionsUe.map(s0 => <option key={s0} value={s0}>{s0}</option>)}
           </select>
         </div>
         <div className="carte overflow-x-auto">
-          <table className="w-full text-[13px]">
+          <table className="w-full text-sm">
             <thead>
               <tr className="tab-entete text-left">
                 <th className="px-3 py-1.5 w-40">Section de l'UE</th>
@@ -117,12 +117,12 @@ export default function Population({ annee }) {
           </table>
         </div>
         {ues.length > 0 && ues.filter(u => u.prevus != null).length < ues.length && (
-          <p className="text-[12px] text-iip-texte mt-1.5">
+          <p className="text-second text-iip-texte mt-1.5">
             {ues.length - ues.filter(u => u.prevus != null).length} unité(s) sur {ues.length} n'ont pas d'effectif prévu :
             l'écart ne se calcule pas pour elles. Il se saisit dans la planification de l'unité.
           </p>
         )}
-        <p className="text-[11px] text-slate-500 mt-1.5">
+        <p className="text-xs text-slate-500 mt-1.5">
           « Prévus » est l'effectif saisi pour la planification de l'unité. Une unité hors cursus accueille plusieurs sections : elle se lit à part.
         </p>
       </section>

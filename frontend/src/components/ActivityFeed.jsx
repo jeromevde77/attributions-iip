@@ -49,7 +49,7 @@ export default function ActivityFeed() {
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+    <div className="bg-white rounded-xl border border-gray-200 shadow-pose overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 bg-iip-gold/5 border-b border-gray-100">
         <button onClick={() => setOpen(o => !o)} className="flex items-center gap-2 text-left">
           {nonTraitees > 0 && (

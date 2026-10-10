@@ -198,7 +198,7 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
         )}
       </>}
       pied={<>
-        <span className="text-[11px] text-slate-500">
+        <span className="text-xs text-slate-500">
           Le point <b>•</b> marque la décision que le calcul propose. Les cotes de cours
           et d'unité sont calculées : elles ne se saisissent pas.
         </span>
@@ -213,7 +213,7 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
             <div className="segments">
               {[1, 2].map(s => (
                 <button key={s} onClick={() => { setChoisie(true); setSession(s); }}
-                  className={`px-2.5 py-1 text-[12px] ${session === s
+                  className={`px-2.5 py-1 text-second ${session === s
                     ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>
                   {s === 1 ? '1re' : '2e'} session
                 </button>
@@ -223,7 +223,7 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
               <IconSearch size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
               <input value={recherche} onChange={e => setRecherche(e.target.value)}
                 placeholder="Étudiant…"
-                className="pl-7 pr-2 py-1 text-[12px] border border-slate-300 rounded-lg w-36" />
+                className="pl-7 pr-2 py-1 text-second border border-slate-300 rounded-lg w-36" />
             </div>
         </div>
 
@@ -243,7 +243,7 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
 
         {erreur && (
           <div className="flex-none mx-5 mb-2 px-3 py-2 rounded-lg bg-red-50 border
-                          border-red-200 text-[12px] text-red-800 flex items-start gap-1.5">
+                          border-red-200 text-second text-red-800 flex items-start gap-1.5">
             <IconAlertTriangle size={14} className="flex-none mt-px" /> {erreur}
           </div>
         )}
@@ -253,7 +253,7 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
             dit : ce sont ces lignes-là qu'on cherche, et elles se comptent. */}
         {!!nbEcarts && (
           <div className="flex-none mx-5 mb-2 px-3 py-2 rounded-lg bg-amber-50 border
-                          border-amber-300 text-[12px] text-amber-900 flex items-center
+                          border-amber-300 text-second text-amber-900 flex items-center
                           justify-between gap-3">
             <span className="flex items-start gap-1.5">
               <IconAlertTriangle size={14} className="flex-none mt-px" />
@@ -285,7 +285,7 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
               </div>
             ) : (
               <table ref={grille} onKeyDown={ev => naviguerGrille(ev, grille.current)}
-                className="text-[12px] border-separate border-spacing-0">
+                className="text-second border-separate border-spacing-0">
                 <thead className="sticky top-0 z-20 bg-white">
                   <tr>
                     <th className="sticky left-0 z-30 bg-white text-left px-2 pb-1
@@ -304,7 +304,7 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
                         <div className="font-semibold text-iip-blue truncate max-w-[240px]">
                           {c.cours_nom || c.cours_code}
                         </div>
-                        <div className="text-[10px] text-slate-500 font-normal">
+                        <div className="text-mention text-slate-500 font-normal">
                           {c.cours_code}
                           {c.professeurs ? ` · ${c.professeurs}` : ''}
                         </div>
@@ -314,14 +314,14 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
                       className="px-2 py-1 border border-iip-blue/30 rounded-t-lg
                                  bg-iip-blue/10 align-bottom">
                       <div className="font-semibold text-iip-blue">Unité</div>
-                      <div className="text-[10px] text-slate-500 font-normal">
+                      <div className="text-mention text-slate-500 font-normal">
                         cote et décision
                       </div>
                     </th>
                   </tr>
                   <tr>
                     <th className="sticky left-0 z-30 bg-white text-left px-2 pb-1
-                                   text-[10px] font-bold uppercase tracking-wide
+                                   text-mention font-bold uppercase tracking-wide
                                    text-slate-500">Étudiant</th>
                     {/* UN TRAIT PAR GROUPE, NON PAR COLONNE. Border sur chaque
                         case dessinait une grille de cahier : l'œil comptait des
@@ -331,28 +331,28 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
                     {cours.flatMap(c => [
                       ...c.acquis.map((a, j) => (
                         <th key={`${c.cours_code}|${a.aa_code}`} title={a.description || ''}
-                          className={`px-1 pb-1 text-[10px] font-bold text-iip-blue
+                          className={`px-1 pb-1 text-mention font-bold text-iip-blue
                             ${j === 0 ? SEP : ''}`}>
                           {a.aa_code}
                         </th>
                       )),
                       <th key={`${c.cours_code}|cote`}
-                        className="px-1 pb-1 text-[10px] font-bold text-slate-600">
+                        className="px-1 pb-1 text-mention font-bold text-slate-600">
                         cote
                       </th>,
                       ...(session >= 2 ? [] : [
                         <th key={`${c.cours_code}|aj`} title="À représenter"
-                          className="px-1 pb-1 text-[10px] font-bold text-amber-700">
+                          className="px-1 pb-1 text-mention font-bold text-amber-700">
                           à repr.
                         </th>,
                       ]),
                     ])}
-                    <th className={`px-1 pb-1 bg-iip-blue/10 text-[10px] font-bold
+                    <th className={`px-1 pb-1 bg-iip-blue/10 text-mention font-bold
                                     text-iip-blue ${SEP_UE}`}>cote</th>
                     <th title="La cote telle qu'elle figurera sur les documents de l'étudiant"
-                      className="px-1 pb-1 bg-slate-50 text-[10px] font-bold
+                      className="px-1 pb-1 bg-slate-50 text-mention font-bold
                                  text-slate-600">à l'étudiant</th>
-                    <th className="px-1 pb-1 bg-iip-blue/10 text-[10px] font-bold
+                    <th className="px-1 pb-1 bg-iip-blue/10 text-mention font-bold
                                    text-iip-blue min-w-[210px]">
                       décision
                     </th>
@@ -372,7 +372,7 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
                           <span className="text-slate-500">{e.prenom}</span>
                           {ecart && (
                             <span title={`Le calcul propose « ${LIB[k.decision]} »`}
-                              className="ml-1.5 text-[10px] uppercase tracking-wide
+                              className="ml-1.5 text-mention uppercase tracking-wide
                                          text-amber-800 bg-amber-100 border border-amber-300
                                          rounded px-1 py-px">écart</span>
                           )}
@@ -466,14 +466,14 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
                                     onClick={() => poserDecision(e.id, d.cle, k.ue)}
                                     title={d.cle === k.decision
                                       ? 'Ce que le calcul propose' : undefined}
-                                    className={`px-1.5 py-0.5 text-[11px] font-semibold
+                                    className={`px-1.5 py-0.5 text-xs font-semibold
                                       rounded border ${actif ? `${d.c} text-white`
                                         : d.cle === k.decision
                                           ? 'bg-white border-slate-400 text-slate-700'
                                           : 'bg-white border-slate-200 text-slate-400'}`}>
                                     {d.l}
                                     {d.cle === k.decision && !actif && (
-                                      <span className="ml-0.5 text-[8px]">•</span>
+                                      <span className="ml-0.5 text-mention">•</span>
                                     )}
                                   </button>
                                 );
@@ -483,7 +483,7 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
                               title={k.faveur_ue
                                 ? 'Retirer la faveur accordée à l’unité'
                                 : 'Accorder l’unité en faveur — la cote monte au seuil'}
-                              className={`px-1.5 py-0.5 text-[11px] font-semibold rounded
+                              className={`px-1.5 py-0.5 text-xs font-semibold rounded
                                 border ${k.faveur_ue
                                   ? 'bg-violet-600 border-violet-700 text-white'
                                   : 'bg-white border-violet-300 text-violet-700'}`}>

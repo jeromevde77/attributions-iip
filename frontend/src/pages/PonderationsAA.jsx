@@ -110,28 +110,28 @@ export default function PonderationsAA() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Liste des UE */}
         <div className="border border-slate-200 rounded-xl overflow-hidden self-start">
-          <div className="px-3 py-2 bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wide text-slate-500">
+          <div className="px-3 py-2 bg-slate-50 border-b border-slate-200 text-xs font-bold uppercase tracking-wide text-slate-500">
             Unités d'enseignement
           </div>
           <div className="max-h-[60vh] overflow-y-auto divide-y divide-slate-100">
             {!ues.length ? (
-              <div className="px-3 py-6 text-[12px] text-slate-400 text-center">Aucune UE.</div>
+              <div className="px-3 py-6 text-second text-slate-400 text-center">Aucune UE.</div>
             ) : ues.map(u => (
               <button key={u.ue_num} onClick={() => ouvrirUE(u.ue_num)}
                 className={`w-full text-left px-3 py-2 hover:bg-slate-50 ${
                   ueActive === u.ue_num ? 'bg-iip-turquoise/5' : ''}`}>
                 <div className="flex items-center gap-2">
-                  <span className="font-medium text-iip-blue text-[13px]">{u.ue_num}</span>
-                  <span className="text-[12px] text-slate-600 truncate flex-1">{u.ue_nom}</span>
+                  <span className="font-medium text-iip-blue text-sm">{u.ue_num}</span>
+                  <span className="text-second text-slate-600 truncate flex-1">{u.ue_nom}</span>
                   {u.nb_aa === 0 ? (
-                    <span className="text-[10px] text-slate-400 flex-none">sans AA</span>
+                    <span className="text-mention text-slate-400 flex-none">sans AA</span>
                   ) : u.pret ? (
                     <IconCheck size={14} className="text-emerald-600 flex-none" />
                   ) : (
                     <IconAlertTriangle size={14} className="text-amber-500 flex-none" />
                   )}
                 </div>
-                <div className="text-[11px] text-slate-400">
+                <div className="text-xs text-slate-400">
                   {u.nb_cours} cours · {u.nb_aa} acquis
                 </div>
               </button>
@@ -152,11 +152,11 @@ export default function PonderationsAA() {
               {/* Poids de chaque cours dans l'UE — déduits des périodes */}
               <div className="border border-slate-200 rounded-xl overflow-hidden">
                 <div className="flex items-center justify-between gap-2 px-3 py-2 bg-iip-blue">
-                  <span className="text-[13px] font-semibold text-white">
+                  <span className="text-sm font-semibold text-white">
                     Poids des cours dans l'UE {ueActive}
                   </span>
                   <button onClick={() => setSchema(ueActive)}
-                    className="text-[11px] px-2 py-1 rounded-lg bg-white/15 text-white
+                    className="text-xs px-2 py-1 rounded-lg bg-white/15 text-white
                                font-semibold flex items-center gap-1.5 hover:bg-white/25">
                     <IconArrowsSplit size={13} /> Relier cours et acquis
                   </button>
@@ -165,19 +165,19 @@ export default function PonderationsAA() {
                   {structure.cours.map(co => (
                     <div key={co.cours_code}
                       className="px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200">
-                      <div className="text-[11px] text-slate-500 truncate max-w-[160px]" title={co.cours_nom}>
+                      <div className="text-xs text-slate-500 truncate max-w-[160px]" title={co.cours_nom}>
                         {co.cours_code}
                       </div>
-                      <div className="text-[13px] font-bold text-iip-blue">
+                      <div className="text-sm font-bold text-iip-blue">
                         {co.poids_cours_affiche != null ? co.poids_cours_affiche + ' %' : '—'}
-                        <span className="text-[10px] font-normal text-slate-400 ml-1.5">
+                        <span className="text-mention font-normal text-slate-400 ml-1.5">
                           {co.periodes} pér.
                         </span>
                       </div>
                     </div>
                   ))}
                 </div>
-                <p className="px-3 pb-2 text-[11px] text-slate-400">
+                <p className="px-3 pb-2 text-xs text-slate-400">
                   Poids = périodes du cours ÷ périodes de l'UE, autonomie exclue. Affiché arrondi
                   à l'unité ; le calcul conserve les décimales. Si un poids manque, ce sont les
                   périodes du référentiel des cours qu'il faut compléter.
@@ -192,17 +192,17 @@ export default function PonderationsAA() {
                     <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border-b border-slate-200">
                       <IconScale size={14} className="text-slate-400 flex-none" />
                       <div className="flex-1 min-w-0">
-                        <div className="text-[13px] font-semibold text-iip-blue truncate">
+                        <div className="text-sm font-semibold text-iip-blue truncate">
                           {co.cours_code} · {co.cours_nom}
                         </div>
-                        <div className="text-[11px] text-slate-500">
+                        <div className="text-xs text-slate-500">
                           {co.periodes} périodes · poids dans l'UE :{' '}
                           {co.poids_cours_affiche != null
                             ? <b className="text-slate-600">{co.poids_cours_affiche} %</b>
                             : <span className="text-amber-600">périodes manquantes</span>}
                         </div>
                       </div>
-                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-lg border flex-none ${
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-lg border flex-none ${
                         ok ? 'bg-emerald-500 text-white border-emerald-500'
                            : 'bg-amber-500 text-white border-amber-500'}`}>
                         {somme} / 100
@@ -210,7 +210,7 @@ export default function PonderationsAA() {
                     </div>
 
                     {!co.aas.length ? (
-                      <div className="px-3 py-3 text-[12px] text-slate-400">
+                      <div className="px-3 py-3 text-second text-slate-400">
                         Aucun acquis rattaché à ce cours au référentiel.
                         <button onClick={() => setSchema(ueActive)}
                           className="ml-2 text-iip-blue underline font-semibold">
@@ -222,7 +222,7 @@ export default function PonderationsAA() {
                         <div className="divide-y divide-slate-100">
                           {co.aas.map(aa => (
                             <div key={aa.aa_code} className="flex items-center gap-2 px-3 py-1.5">
-                              <div className="flex-1 text-[12px] text-slate-600 truncate"
+                              <div className="flex-1 text-second text-slate-600 truncate"
                                 title={aa.description || aa.aa_code}>
                                 <b className="text-slate-500">{aa.aa_code}</b> {aa.description || ''}
                               </div>
@@ -232,18 +232,18 @@ export default function PonderationsAA() {
                                   ...b,
                                   [co.cours_code]: { ...b[co.cours_code], [aa.aa_code]: e.target.value },
                                 }))}
-                                className="w-16 border border-slate-300 rounded-lg px-2 py-1 text-[12px] text-right" />
-                              <span className="text-[11px] text-slate-400 w-4">%</span>
+                                className="w-16 border border-slate-300 rounded-lg px-2 py-1 text-second text-right" />
+                              <span className="text-xs text-slate-400 w-4">%</span>
                             </div>
                           ))}
                         </div>
                         <div className="flex items-center justify-end gap-2 px-3 py-2 bg-slate-50 border-t border-slate-200">
                           <button onClick={() => repartir(co)}
-                            className="text-[12px] px-2.5 py-1 rounded-lg border border-slate-300 text-slate-600 hover:bg-white">
+                            className="text-second px-2.5 py-1 rounded-lg border border-slate-300 text-slate-600 hover:bg-white">
                             Répartir également
                           </button>
                           <button onClick={() => enregistrer(co)} disabled={!ok}
-                            className="text-[12px] px-3 py-1 rounded-lg bg-iip-blue text-white font-semibold disabled:opacity-40"
+                            className="text-second px-3 py-1 rounded-lg bg-iip-blue text-white font-semibold disabled:opacity-40"
                             title={ok ? '' : 'La somme doit valoir exactement 100'}>
                             Enregistrer
                           </button>
@@ -254,7 +254,7 @@ export default function PonderationsAA() {
                 );
               })}
 
-              <p className="text-[11px] text-slate-400 border-t pt-3">
+              <p className="text-xs text-slate-400 border-t pt-3">
                 Un même acquis peut figurer dans plusieurs cours : il y porte une pondération
                 propre et y est coté séparément. Le poids du cours, lui, vient de ses périodes
                 au dossier pédagogique et ne se saisit pas ici.

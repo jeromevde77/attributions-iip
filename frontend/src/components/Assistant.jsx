@@ -31,15 +31,15 @@ export default function Assistant({ cle, params = {}, onFerme = null }) {
       <div className="px-4 py-3 border-b border-slate-200 bg-slate-50">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
-            <div className="font-semibold text-iip-blue text-[15px]">{etat.titre}</div>
-            <div className="text-[12px] text-slate-500 mt-0.5">{etat.intro}</div>
+            <div className="font-semibold text-iip-blue text-base">{etat.titre}</div>
+            <div className="text-second text-slate-500 mt-0.5">{etat.intro}</div>
           </div>
           <div className="flex items-center gap-3">
-            <div className="text-[12px] font-semibold text-slate-600">
+            <div className="text-second font-semibold text-slate-600">
               {etat.faites}/{etat.total}
             </div>
             <button onClick={charger}
-              className="text-[12px] px-2.5 py-1 border border-slate-300 rounded-lg hover:bg-white">
+              className="text-second px-2.5 py-1 border border-slate-300 rounded-lg hover:bg-white">
               Actualiser
             </button>
             {onFerme && (
@@ -53,7 +53,7 @@ export default function Assistant({ cle, params = {}, onFerme = null }) {
       </div>
 
       {etat.termine && (
-        <div className="px-4 py-2.5 bg-emerald-50 border-b border-emerald-200 text-[13px] text-emerald-800 flex items-center gap-2 border-l-4 border-l-emerald-500">
+        <div className="px-4 py-2.5 bg-emerald-50 border-b border-emerald-200 text-sm text-emerald-800 flex items-center gap-2 border-l-4 border-l-emerald-500">
           <IconCheck size={15} /> Toutes les étapes sont faites — la section est opérationnelle.
         </div>
       )}
@@ -64,7 +64,7 @@ export default function Assistant({ cle, params = {}, onFerme = null }) {
           return (
             <li key={e.cle}
               className={`flex items-start gap-3 px-4 py-3 ${prochaine ? 'bg-sky-50/60 border-l-4 border-l-sky-500' : ''}`}>
-              <div className={`flex-none w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold mt-0.5
+              <div className={`flex-none w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold mt-0.5
                 ${e.fait ? 'bg-emerald-500 text-white'
                          : prochaine ? 'bg-iip-turquoise text-white'
                          : 'bg-slate-100 text-slate-400'}`}>
@@ -73,30 +73,30 @@ export default function Assistant({ cle, params = {}, onFerme = null }) {
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`text-[13px] font-medium ${e.fait ? 'text-slate-500' : 'text-slate-800'}`}>
+                  <span className={`text-sm font-medium ${e.fait ? 'text-slate-500' : 'text-slate-800'}`}>
                     {e.titre}
                   </span>
                   {e.valeur && (
-                    <span className="text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                    <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
                       {e.valeur}
                     </span>
                   )}
                   {prochaine && (
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-champ bg-iip-turquoise/15 text-iip-blue">
+                    <span className="text-mention font-bold px-1.5 py-0.5 rounded-champ bg-iip-turquoise/15 text-iip-blue">
                       À FAIRE MAINTENANT
                     </span>
                   )}
                 </div>
-                <div className="text-[12px] text-slate-500 mt-0.5">{e.aide}</div>
+                <div className="text-second text-slate-500 mt-0.5">{e.aide}</div>
                 {e.detail && (
-                  <div className="text-[11px] text-amber-700 mt-1 flex items-start gap-1">
+                  <div className="text-xs text-amber-700 mt-1 flex items-start gap-1">
                     <IconAlertTriangle size={12} className="mt-0.5 flex-none" /> {e.detail}
                   </div>
                 )}
               </div>
 
               <button onClick={() => navigate(e.cible)}
-                className={`flex-none flex items-center gap-1 text-[12px] px-2.5 py-1.5 rounded-lg border transition
+                className={`flex-none flex items-center gap-1 text-second px-2.5 py-1.5 rounded-lg border transition
                   ${prochaine
                     ? 'bg-iip-blue text-white border-iip-blue font-semibold'
                     : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
@@ -107,7 +107,7 @@ export default function Assistant({ cle, params = {}, onFerme = null }) {
         })}
       </ol>
 
-      <div className="px-4 py-2 bg-slate-50 border-t border-slate-200 text-[11px] text-slate-400">
+      <div className="px-4 py-2 bg-slate-50 border-t border-slate-200 text-xs text-slate-400">
         Chaque étape est vérifiée sur les données réelles : cet assistant sert aussi de
         diagnostic sur une section déjà en place.
       </div>

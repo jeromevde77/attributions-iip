@@ -5,7 +5,7 @@ import {
   IconTargetArrow, IconBriefcase, IconAlertTriangle, IconCheck, IconX,
   IconSend, IconEye, IconMailForward, IconRefresh, IconChevronRight, IconSchool, IconCertificate,
 } from '@tabler/icons-react';
-import { PageHeader, Fenetre, Encadre } from '../components/ui.jsx';
+import { PageHeader, Fenetre, Encadre, TuileEtat } from '../components/ui.jsx';
 import { authHeaders } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 
@@ -245,7 +245,7 @@ export default function Besoins({ annee: anneeProp }) {
                   <tr key={i} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60">
                     <td className="px-3 py-2.5">
                       <div className="font-medium text-slate-800">{b.cours_nom || b.code_cours}</div>
-                      <div className="text-[11px] text-slate-500">
+                      <div className="text-xs text-slate-500">
                         UE {b.ue_num}{b.ue_nom ? ` · ${b.ue_nom}` : ''} · {b.code_cours}
                         {b.type_cours ? ` · ${b.type_cours}` : ''}
                       </div>
@@ -254,19 +254,19 @@ export default function Besoins({ annee: anneeProp }) {
                     <td className="px-3 py-2.5 text-slate-600">{b.quadrimestre || '—'}</td>
                     <td className="px-3 py-2.5">
                       <span className="font-semibold text-iip-blue">{b.nb_groupes}</span>
-                      {b.groupes && <span className="text-[11px] text-slate-500 ml-1">({b.groupes})</span>}
+                      {b.groupes && <span className="text-xs text-slate-500 ml-1">({b.groupes})</span>}
                     </td>
                     <td className="px-3 py-2.5">
                       <div className="font-semibold text-iip-blue">{b.total_periodes} pér.</div>
-                      <div className="text-[11px] text-slate-500">{b.periodes_par_groupe} / groupe</div>
+                      <div className="text-xs text-slate-500">{b.periodes_par_groupe} / groupe</div>
                     </td>
                     <td className="px-3 py-2.5 text-right">
                       {b.offres_existantes > 0
-                        ? <span className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1 justify-end">
+                        ? <span className="text-xs text-emerald-700 font-semibold flex items-center gap-1 justify-end">
                             <IconCheck size={13} /> {b.offres_existantes} offre(s)
                           </span>
                         : <button onClick={() => preparerOffre(b)}
-                            className="text-[12px] px-2.5 py-1.5 rounded-lg bg-iip-blue text-white font-semibold flex items-center gap-1.5 ml-auto">
+                            className="text-second px-2.5 py-1.5 rounded-lg bg-iip-blue text-white font-semibold flex items-center gap-1.5 ml-auto">
                             <IconBriefcase size={14} /> Créer l'offre
                           </button>}
                     </td>
@@ -293,33 +293,33 @@ export default function Besoins({ annee: anneeProp }) {
                   <div className="flex-1 min-w-[200px]">
                     <button onClick={() => ouvrirOffre(o.id)} className="text-left">
                       <div className="font-medium text-slate-800">{o.intitule}</div>
-                      <div className="text-[11px] text-slate-500">
+                      <div className="text-xs text-slate-500">
                         {o.total_periodes ? `${o.total_periodes} pér.` : ''}
                         {o.nb_groupes ? ` · ${o.nb_groupes} groupe(s)` : ''}
                         {o.date_publication ? ` · publiée le ${fr(o.date_publication)}` : ''}
                       </div>
                     </button>
                   </div>
-                  <span className={`px-2 py-0.5 rounded-champ text-[11px] font-bold ${s.classe}`}>{s.label}</span>
+                  <span className={`px-2 py-0.5 rounded-champ text-xs font-bold ${s.classe}`}>{s.label}</span>
                   <button onClick={() => ouvrirApercu(o)}
-                    className="text-[12px] px-2.5 py-1.5 rounded-lg border border-slate-300 flex items-center gap-1">
+                    className="text-second px-2.5 py-1.5 rounded-lg border border-slate-300 flex items-center gap-1">
                     <IconEye size={14} /> Aperçu
                   </button>
                   {o.statut === 'publiee' && (
                     <button onClick={() => setEnvoi({ offre: o, destinataires: '' })}
-                      className="text-[12px] px-2.5 py-1.5 rounded-lg border border-slate-300 flex items-center gap-1">
+                      className="text-second px-2.5 py-1.5 rounded-lg border border-slate-300 flex items-center gap-1">
                       <IconMailForward size={14} /> Envoyer
                     </button>
                   )}
                   {o.statut === 'brouillon' && (
                     <button onClick={() => publier(o.id)}
-                      className="text-[12px] px-2.5 py-1.5 rounded-lg bg-iip-turquoise text-white font-semibold flex items-center gap-1.5">
+                      className="text-second px-2.5 py-1.5 rounded-lg bg-iip-turquoise text-white font-semibold flex items-center gap-1.5">
                       <IconSend size={14} /> Publier
                     </button>
                   )}
                   {o.statut === 'publiee' && (
                     <button onClick={() => navigate('/recrutement')}
-                      className="text-[12px] px-2.5 py-1.5 rounded-lg border border-slate-300 flex items-center gap-1">
+                      className="text-second px-2.5 py-1.5 rounded-lg border border-slate-300 flex items-center gap-1">
                       Recrutement <IconChevronRight size={13} />
                     </button>
                   )}
@@ -376,14 +376,14 @@ export default function Besoins({ annee: anneeProp }) {
               <input type="number" value={brouillon.nb_postes || ''}
                 onChange={e => setBrouillon(b => ({ ...b, nb_postes: e.target.value }))}
                 className="w-28 border border-slate-300 rounded-lg px-2.5 py-1.5" />
-              <span className="text-[11px] text-slate-500 ml-2">
+              <span className="text-xs text-slate-500 ml-2">
                 un seul professeur peut assurer plusieurs groupes
               </span>
             </Champ>
 
             <ChampsAppel valeur={brouillon} poser={(k, v) => setBrouillon(b => ({ ...b, [k]: v }))} />
 
-            <p className="text-[11px] text-slate-400">
+            <p className="text-xs text-slate-400">
               La date limite des candidatures ne se saisit pas : six jours ouvrables après la parution au Prigoginews.
             </p>
 
@@ -395,7 +395,7 @@ export default function Besoins({ annee: anneeProp }) {
       {detail && (
         <Modale titre={detail.intitule} onFermer={() => setDetail(null)}
           pied={detail.statut === 'brouillon' ? <>
-            <span className="text-[12px] text-slate-500 min-w-0">
+            <span className="text-second text-slate-500 min-w-0">
               {detail._modifie ? 'Modifications non enregistrées.'
                 : detail.manques?.length ? 'Complétez l’appel pour pouvoir le publier.' : ''}
             </span>
@@ -407,7 +407,7 @@ export default function Besoins({ annee: anneeProp }) {
           </> : null}>
           <div className="space-y-3 text-sm">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className={`px-2 py-0.5 rounded-champ text-[11px] font-bold
+              <span className={`px-2 py-0.5 rounded-champ text-xs font-bold
                 ${(STATUT_OFFRE[detail.statut] || STATUT_OFFRE.brouillon).classe}`}>
                 {(STATUT_OFFRE[detail.statut] || STATUT_OFFRE.brouillon).label}
               </span>
@@ -427,11 +427,11 @@ export default function Besoins({ annee: anneeProp }) {
 
             {detail.titres?.length > 0 && (
               <div>
-                <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Titres visés</div>
+                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Titres visés</div>
                 <div className="flex flex-wrap gap-1.5">
                   {detail.titres.map(t => {
                     const p = PORTEE[t.portee] || PORTEE.requis;
-                    return <span key={t.id} className={`px-2 py-1 rounded-lg text-[11px] font-medium ${p.classe}`}>
+                    return <span key={t.id} className={`px-2 py-1 rounded-lg text-xs font-medium ${p.classe}`}>
                       {t.libelle} <span className="opacity-60">· {p.label}</span></span>;
                   })}
                 </div>
@@ -440,13 +440,13 @@ export default function Besoins({ annee: anneeProp }) {
 
             {detail.acquis?.length > 0 && (
               <div>
-                <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
                   <IconSchool size={13} /> Acquis d'apprentissage du cours
                 </div>
                 <ul className="space-y-1">
                   {detail.acquis.map(a => (
-                    <li key={a.aa_code} className="text-[13px] text-slate-700 flex gap-2">
-                      <span className="text-[10px] font-bold text-iip-blue bg-iip-blue/8 px-1.5 py-0.5 rounded h-fit">
+                    <li key={a.aa_code} className="text-sm text-slate-700 flex gap-2">
+                      <span className="text-mention font-bold text-iip-blue bg-iip-blue/8 px-1.5 py-0.5 rounded h-fit">
                         {a.aa_code}
                       </span>
                       <span>{a.description}</span>
@@ -495,7 +495,7 @@ export default function Besoins({ annee: anneeProp }) {
               </>
             ) : (
               <>
-                <p className="text-[13px] text-slate-500">
+                <p className="text-sm text-slate-500">
                   Le document mis en page part tel que l'aperçu le montre. Adresses
                   séparées par des virgules ou des retours à la ligne.
                 </p>
@@ -503,7 +503,7 @@ export default function Besoins({ annee: anneeProp }) {
                   onChange={e => setEnvoi(v => ({ ...v, destinataires: e.target.value }))}
                   placeholder="forem@exemple.be, federation@exemple.be…"
                   className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" />
-                {envoi.erreur && <div className="text-[13px] text-red-700">{envoi.erreur}</div>}
+                {envoi.erreur && <div className="text-sm text-red-700">{envoi.erreur}</div>}
               </>
             )}
           </div>
@@ -568,11 +568,11 @@ function ChampsAppel({ valeur, poser }) {
           onChange={e => poser('description', e.target.value)} className={champ} />
         <div className="flex flex-wrap items-start gap-2 mt-1">
           {valeur.code_cours && (
-            <button type="button" className="text-[12px] underline text-iip-blue" onClick={reprendre}>
+            <button type="button" className="text-second underline text-iip-blue" onClick={reprendre}>
               Reprendre du dossier pédagogique
             </button>
           )}
-          {manque.length > 0 && <span className="text-[11.5px] text-amber-700">{manque.join(' ; ')}.</span>}
+          {manque.length > 0 && <span className="text-xs text-amber-700">{manque.join(' ; ')}.</span>}
         </div>
       </Champ>
       <Champ label="Profil du/de la candidat·e">
@@ -589,33 +589,28 @@ function ChampsAppel({ valeur, poser }) {
               return (
                 <button key={id} type="button" disabled={fixe} onClick={() => basculer(id)}
                   title={fixe ? 'Rattaché au cours dans le référentiel' : ''}
-                  className={`px-2 py-1 rounded-lg text-[11px] font-medium border ${pris
+                  className={`px-2 py-1 rounded-lg text-xs font-medium border ${pris
                     ? 'bg-iip-blue text-white border-iip-blue' : 'bg-white text-slate-600 border-slate-300'}`}>
                   {t.libelle}
                 </button>
               );
             })}
           </div>
-        ) : <p className="text-[12px] text-slate-500">Le référentiel des titres est vide.</p>}
+        ) : <p className="text-second text-slate-500">Le référentiel des titres est vide.</p>}
       </Champ>
     </div>
   );
 }
 
+// LE STANDARD (3.1.249) : la tuile de la maison.
 function Kpi({ label, valeur, ton }) {
-  const c = ton === 'alerte' ? 'border-l-red-500' : ton === 'bon' ? 'border-l-emerald-500' : 'border-l-iip-turquoise';
-  return (
-    <div className={`bg-white border border-slate-200 border-l-[3px] ${c} rounded-xl px-4 py-3`}>
-      <div className="text-2xl font-bold text-iip-blue leading-tight">{valeur}</div>
-      <div className="text-[11px] text-slate-500 uppercase tracking-wide font-semibold mt-0.5">{label}</div>
-    </div>
-  );
+  return <TuileEtat etat={ton === 'alerte' ? 'corriger' : ton === 'bon' ? 'reussi' : 'neutre'} valeur={valeur} libelle={label} />;
 }
 
 function Champ({ label, children }) {
   return (
     <label className="block">
-      <span className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1">{label}</span>
+      <span className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">{label}</span>
       {children}
     </label>
   );

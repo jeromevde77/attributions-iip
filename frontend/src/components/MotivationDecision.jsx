@@ -109,9 +109,9 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
     return (
       <Fenetre titre={`Motiver une décision · ${annee}`} large="petite" onFermer={onClose}>
           {!ues ? (
-            <p className="text-[13px] text-slate-400 py-4 text-center">Chargement…</p>
+            <p className="text-sm text-slate-400 py-4 text-center">Chargement…</p>
           ) : !ues.length ? (
-            <p className="text-[13px] text-slate-500 py-4 text-center border-2
+            <p className="text-sm text-slate-500 py-4 text-center border-2
                           border-dashed rounded-xl">
               Aucune unité en refus ou ajournement pour cet étudiant en {annee}.
             </p>
@@ -120,10 +120,10 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
               {ues.map(u => (
                 <button key={u.ue_num} onClick={() => setUeNum(u.ue_num)}
                   className="w-full flex items-center gap-2 px-3 py-2 text-left
-                             text-[13px] hover:bg-slate-50">
-                  <span className="font-mono text-[11px] text-slate-500 w-10">{u.ue_num}</span>
+                             text-sm hover:bg-slate-50">
+                  <span className="font-mono text-xs text-slate-500 w-10">{u.ue_num}</span>
                   <span className="flex-1 truncate">{u.ue_nom}</span>
-                  <span className={`text-[11px] font-semibold ${
+                  <span className={`text-xs font-semibold ${
                     u.resultat === 'refuse' ? 'text-red-700' : 'text-amber-700'}`}>
                     {u.resultat === 'refuse' ? 'Refus' : 'Ajournement'}
                   </span>
@@ -138,7 +138,7 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
   if (!donnees) {
     return (
       <Fenetre titre="Motivation d'une décision" large="petite" onFermer={onClose}>
-        <div className="text-[13px] text-slate-500">Chargement…</div>
+        <div className="text-sm text-slate-500">Chargement…</div>
       </Fenetre>
     );
   }
@@ -171,7 +171,7 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
         <div className="space-y-4">
 
         {message && (
-          <div className={`px-3 py-2 rounded-lg text-[13px] ${
+          <div className={`px-3 py-2 rounded-lg text-sm ${
             message.type === 'err' ? 'bg-red-500 border border-red-500 text-white'
               : 'bg-emerald-500 border border-emerald-500 text-white'}`}>
             {message.texte}
@@ -181,7 +181,7 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
         {/* Une décision non motivée est attaquable : on le dit avant, pas après. */}
         {sansMotif > 0 && (
           <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
-                          text-[12px] text-amber-900">
+                          text-second text-amber-900">
             <div className="flex items-center gap-1.5 font-semibold">
               <IconAlertTriangle size={14} />
               {sansMotif} acquis non maîtrisé(s) sans motivation
@@ -197,15 +197,15 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
             ['Non évalués', donnees.nb_non_evalues],
             ['Seuil', `${donnees.seuil}/20`]].map(([l, v]) => (
             <div key={l} className="border border-slate-200 rounded-xl px-3 py-2">
-              <div className="text-[10px] uppercase tracking-wide text-slate-500
+              <div className="text-mention uppercase tracking-wide text-slate-500
                               font-semibold">{l}</div>
-              <div className="text-[15px] font-bold text-iip-blue">{v}</div>
+              <div className="text-base font-bold text-iip-blue">{v}</div>
             </div>
           ))}
         </div>
 
         {!nonMaitrises.length ? (
-          <div className="py-6 text-center text-[13px] text-slate-500 border-2
+          <div className="py-6 text-center text-sm text-slate-500 border-2
                           border-dashed rounded-xl">
             Aucun acquis en échec pour cette unité. Une motivation de refus n'a
             pas lieu d'être — vérifiez la décision encodée.
@@ -213,16 +213,16 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
         ) : (
           <div className="border border-slate-200 rounded-xl overflow-hidden">
             <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200
-                            text-[11px] uppercase tracking-wide text-slate-500 font-semibold">
+                            text-xs uppercase tracking-wide text-slate-500 font-semibold">
               Acquis d'apprentissage non maîtrisés · motivation
             </div>
             <div className="divide-y divide-slate-100">
               {nonMaitrises.map(a => (
                 <div key={a.aa_code} className="px-3 py-2">
                   <div className="flex items-baseline gap-2 mb-1">
-                    <span className="font-mono text-[11px] text-slate-500">{a.aa_code}</span>
-                    <span className="text-[13px] flex-1">{a.description || a.cours_nom}</span>
-                    <span className="text-[12px] font-semibold text-red-700">
+                    <span className="font-mono text-xs text-slate-500">{a.aa_code}</span>
+                    <span className="text-sm flex-1">{a.description || a.cours_nom}</span>
+                    <span className="text-second font-semibold text-red-700">
                       {a.note}/20
                     </span>
                   </div>
@@ -233,7 +233,7 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
                       l'autre. */}
                   <button type="button"
                     onClick={() => setCatalogueOuvert(o => ({ ...o, [a.aa_code]: !o[a.aa_code] }))}
-                    className="text-[12px] text-iip-blue underline mb-1">
+                    className="text-second text-iip-blue underline mb-1">
                     {catalogueOuvert[a.aa_code] ? 'Masquer les motivations types' : 'Choisir des motivations types'}
                     {!!(coches[a.aa_code] || []).length &&
                       ` · ${(coches[a.aa_code] || []).length} cochée(s)`}
@@ -243,13 +243,13 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
                     <div className="mb-2 border border-slate-200 rounded-lg divide-y divide-slate-100">
                       {MOTIFS_ECHEC.map(g => (
                         <div key={g.cle} className="px-2.5 py-2">
-                          <div className="text-[11px] uppercase tracking-wide font-semibold mb-1"
+                          <div className="text-xs uppercase tracking-wide font-semibold mb-1"
                             style={{ color: g.couleur }}>{g.libelle}</div>
                           <div className="space-y-1">
                             {g.motifs.map(m => {
                               const pris = (coches[a.aa_code] || []).includes(m.cle);
                               return (
-                                <label key={m.cle} className="flex items-start gap-2 text-[12px] cursor-pointer">
+                                <label key={m.cle} className="flex items-start gap-2 text-second cursor-pointer">
                                   <input type="checkbox" checked={pris} className="mt-0.5"
                                     onChange={() => setCoches(c => {
                                       const act = c[a.aa_code] || [];
@@ -267,7 +267,7 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
                   )}
 
                   {!!(coches[a.aa_code] || []).length && !catalogueOuvert[a.aa_code] && (
-                    <div className="mb-1 text-[12px] text-slate-600 bg-slate-50
+                    <div className="mb-1 text-second text-slate-600 bg-slate-50
                                     border border-slate-200 rounded-lg px-2 py-1.5">
                       {(coches[a.aa_code] || []).map(texteDuMotif).filter(Boolean).join(' ')}
                     </div>
@@ -286,10 +286,10 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
                       title="Reprendre cet énoncé pour le compléter ou le corriger"
                       className="w-full text-left mb-1 px-2 py-1.5 rounded-lg border
                                  border-dashed border-slate-300 bg-slate-50 whitespace-pre-line
-                                 text-[12px] text-slate-400 italic hover:text-slate-600
+                                 text-second text-slate-400 italic hover:text-slate-600
                                  hover:border-slate-400">
                       {a.motif_propose}
-                      <span className="block mt-0.5 not-italic text-[10px] text-slate-400">
+                      <span className="block mt-0.5 not-italic text-mention text-slate-400">
                         {a.motif_source === 'enseignant' ? 'Rédigé par l’enseignant avec sa note' : 'Proposé'} — rien n'est enregistré. Cliquez pour le reprendre.
                       </span>
                     </button>
@@ -300,7 +300,7 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
                     placeholder={(coches[a.aa_code] || []).length
                       ? "Précisions propres à ce dossier — ce qui a été observé"
                       : "Motivation — ce qui n'est pas maîtrisé, et pourquoi"}
-                    className={`w-full border rounded-lg px-2 py-1.5 text-[12px]
+                    className={`w-full border rounded-lg px-2 py-1.5 text-second
                       ${(coches[a.aa_code] || []).length || (motifs[a.aa_code] || '').trim()
                         ? 'border-slate-300' : 'border-amber-300 bg-amber-50/50'}`} />
                 </div>
@@ -310,7 +310,7 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
         )}
 
         {donnees.nb_non_evalues > 0 && (
-          <p className="text-[12px] text-slate-500">
+          <p className="text-second text-slate-500">
             {donnees.nb_non_evalues} acquis non évalué(s) : ils ne figurent pas ci-dessus.
             Une absence d'évaluation n'est pas un échec et ne peut motiver un refus.
           </p>

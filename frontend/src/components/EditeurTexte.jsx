@@ -99,7 +99,7 @@ export default function EditeurTexte({ valeur, onChange, importer = true }) {
           <input ref={fichier} type="file" className="hidden"
             accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             onChange={e => { analyser(e.target.files?.[0]); e.target.value = ''; }} />
-          <span className="text-[12px] text-slate-500">
+          <span className="text-second text-slate-500">
             {analyse
               ? `« ${analyse.nom} » analysé — relisez et corrigez ci-dessous. Le fichier n’est pas conservé.`
               : 'Lucie en reprend le texte et la mise en forme ; vous corrigez ensuite ici.'}
@@ -108,12 +108,12 @@ export default function EditeurTexte({ valeur, onChange, importer = true }) {
       )}
 
       {erreur && (
-        <div className="carte p-2.5 text-[12px] text-rose-700 flex items-start gap-1.5">
+        <div className="carte p-2.5 text-second text-rose-700 flex items-start gap-1.5">
           <IconAlertTriangle size={14} className="mt-0.5 flex-none" />{erreur}
         </div>
       )}
       {analyse?.avertissements?.map((a, i) => (
-        <div key={i} className="carte p-2.5 text-[12px] text-slate-700 flex items-start gap-1.5"
+        <div key={i} className="carte p-2.5 text-second text-slate-700 flex items-start gap-1.5"
           style={{ borderLeftWidth: 3, borderLeftColor: 'var(--c-attente)' }}>
           <IconAlertTriangle size={14} className="mt-0.5 flex-none text-iip-texte" />{a}
         </div>

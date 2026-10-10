@@ -306,19 +306,19 @@ function AccesLuciePanel({ profId, detail }) {
           </div>
           <div className="flex items-center gap-1.5 flex-shrink-0">
             <button onClick={() => togglePerm(m.key, 'lire')}
-              className={`text-[10px] px-2 py-0.5 rounded border font-medium transition ${p.lire ? 'bg-iip-blue text-white border-iip-blue' : 'border-gray-300 text-gray-400 hover:border-iip-blue'}`}>
+              className={`text-mention px-2 py-0.5 rounded border font-medium transition ${p.lire ? 'bg-iip-blue text-white border-iip-blue' : 'border-gray-300 text-gray-400 hover:border-iip-blue'}`}>
               Lecture</button>
             <button onClick={() => togglePerm(m.key, 'ecrire')}
-              className={`text-[10px] px-2 py-0.5 rounded border font-medium transition ${p.ecrire ? 'bg-iip-turquoise text-white border-iip-turquoise' : 'border-gray-300 text-gray-400 hover:border-iip-turquoise'}`}>
+              className={`text-mention px-2 py-0.5 rounded border font-medium transition ${p.ecrire ? 'bg-iip-turquoise text-white border-iip-turquoise' : 'border-gray-300 text-gray-400 hover:border-iip-turquoise'}`}>
               Écriture</button>
             {hasScope && (
               <button onClick={() => togglePerm(m.key, 'voir_tout')}
-                className={`text-[10px] px-2 py-0.5 rounded border font-medium transition ${p.voir_tout ? 'bg-amber-500 text-white border-amber-500' : 'border-gray-300 text-gray-400 hover:border-amber-400'}`}
+                className={`text-mention px-2 py-0.5 rounded border font-medium transition ${p.voir_tout ? 'bg-amber-500 text-white border-amber-500' : 'border-gray-300 text-gray-400 hover:border-amber-400'}`}
                 title="Tout voir = toutes sections">Tout</button>
             )}
             {m.key === 'attributions' && (
               <button onClick={() => togglePerm(m.key, 'valider')}
-                className={`text-[10px] px-2 py-0.5 rounded border font-medium transition ${p.valider ? 'bg-green-600 text-white border-green-600' : 'border-gray-300 text-gray-400 hover:border-green-500'}`}
+                className={`text-mention px-2 py-0.5 rounded border font-medium transition ${p.valider ? 'bg-green-600 text-white border-green-600' : 'border-gray-300 text-gray-400 hover:border-green-500'}`}
                 title="Peut valider les attributions encodées par les coordinations (direction / direction adjointe)">Valider</button>
             )}
           </div>
@@ -353,11 +353,11 @@ function AccesLuciePanel({ profId, detail }) {
                 if (val === 0) { setToutes(0); setSections([]); }
                 if (val === 2) setToutes(0);   // on ouvre la liste, on n'enregistre rien encore
               }}
-              className={`w-full text-left mb-1 px-2 py-1 rounded-champ border text-[12px] ${
+              className={`w-full text-left mb-1 px-2 py-1 rounded-champ border text-second ${
                 actif ? 'border-iip-blue bg-slate-50 text-iip-blue'
                       : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}>
               {titre}
-              <span className="block text-[10px] text-slate-400 leading-tight">{aide}</span>
+              <span className="block text-mention text-slate-400 leading-tight">{aide}</span>
             </button>
           );
         })}
@@ -369,7 +369,7 @@ function AccesLuciePanel({ profId, detail }) {
               <button key={s.code} type="button"
                 onClick={() => setSections(v => v.includes(s.code)
                   ? v.filter(x => x !== s.code) : [...v, s.code])}
-                className={`text-[11px] px-2 py-0.5 rounded-champ border transition ${
+                className={`text-xs px-2 py-0.5 rounded-champ border transition ${
                   sections.includes(s.code)
                     ? 'bg-iip-blue text-white border-iip-blue'
                     : 'border-gray-200 text-gray-400 hover:border-iip-blue'}`}>
@@ -378,14 +378,14 @@ function AccesLuciePanel({ profId, detail }) {
             ))}
           </div>
           {!sections.length && (
-            <div className="mt-1.5 text-[10px] text-amber-700 leading-tight">
+            <div className="mt-1.5 text-mention text-amber-700 leading-tight">
               Aucune section : ce compte ne verra rien.
             </div>
           )}
         </div>
       )}
 
-      <p className="text-[11px] text-slate-500 mt-1.5">
+      <p className="text-xs text-slate-500 mt-1.5">
         Le périmètre vaut pour tous les modules à la fois, et pour TOUS LES
         RÔLES — un secrétariat de section, cela existe. La direction n'est pas
         cloisonnable&nbsp;: c'est elle qui répare les erreurs de paramétrage.
@@ -401,7 +401,7 @@ function AccesLuciePanel({ profId, detail }) {
           <div className="text-xs text-gray-500 mb-1">E-mail de connexion</div>
           <input type="email" value={emailCompte} onChange={e => setEmailCompte(e.target.value)} disabled={busy}
             className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white" />
-          {!(detail.adresse_mail || '').trim() && <div className="text-[11px] text-amber-700 mt-1">La fiche ne porte pas d'adresse : celle-ci est déduite du nom, à vérifier.</div>}
+          {!(detail.adresse_mail || '').trim() && <div className="text-xs text-amber-700 mt-1">La fiche ne porte pas d'adresse : celle-ci est déduite du nom, à vérifier.</div>}
         </div>
         <div>
           <div className="text-xs text-gray-500 mb-1">Rôle</div>
@@ -422,12 +422,12 @@ function AccesLuciePanel({ profId, detail }) {
               modification du profil dans Configuration. */}
           {(() => {
             const ref = profils.find(p => p.systeme && p.role === role);
-            if (!ref) return <p className="text-[11px] text-slate-500 mt-1.5">Ce rôle n'a pas de profil de référence : les cases ci-dessous valent telles quelles.</p>;
+            if (!ref) return <p className="text-xs text-slate-500 mt-1.5">Ce rôle n'a pas de profil de référence : les cases ci-dessous valent telles quelles.</p>;
             const base = ref.permissions || {};
             const ecarts = MODULES_ACCES.filter(m => ['lire', 'ecrire', 'voir_tout', 'valider']
               .some(k => (perms[m.key]?.[k] ?? false) !== (base[m.key]?.[k] ?? false)));
             return (
-              <p className="text-[11px] text-slate-500 mt-1.5">
+              <p className="text-xs text-slate-500 mt-1.5">
                 Cette fiche suit le profil <b className="text-slate-700">{ref.nom}</b> : modifié dans Configuration, il met ses droits à jour.{' '}
                 {ecarts.length
                   ? <>Propre à cette personne : <b className="text-slate-700">{ecarts.map(m => m.label).join(', ')}</b> —
@@ -465,7 +465,7 @@ function AccesLuciePanel({ profId, detail }) {
             className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white" />
           {(detail.adresse_mail || '').trim() && account.email !== (detail.adresse_mail || '').trim().toLowerCase() && (
             <button type="button" onClick={() => setEmailCompte((detail.adresse_mail || '').trim().toLowerCase())}
-              className="text-[11px] text-amber-700 mt-1 underline text-left">La fiche porte {detail.adresse_mail} — reprendre cette adresse</button>)}
+              className="text-xs text-amber-700 mt-1 underline text-left">La fiche porte {detail.adresse_mail} — reprendre cette adresse</button>)}
         </div>
         <div>
           <div className="text-xs text-gray-500 mb-1">Rôle</div>
@@ -485,7 +485,7 @@ function AccesLuciePanel({ profId, detail }) {
         <div className="space-y-1.5">
           {MODULES_ACCES.map(m => <ModuleRow key={m.key} m={m} />)}
         </div>
-        <div className="mt-2 text-[10px] text-gray-400 italic">
+        <div className="mt-2 text-mention text-gray-400 italic">
           "Tout voir" = accès à toutes les sections (sinon : sections autorisées seulement)
         </div>
       </div>
@@ -559,7 +559,7 @@ function AccesLuciePanel({ profId, detail }) {
       <div className="p-4 space-y-3">
         {err && <div className="text-xs text-white bg-red-500 border border-red-500 rounded px-3 py-2">{err}</div>}
         {lienRes && (
-          <div className="text-[12px] text-slate-600">
+          <div className="text-second text-slate-600">
             {lienRes.envoye ? `Lien envoyé à ${lienRes.email} (valable ${lienRes.duree}).`
               : <>Lien NON envoyé ({lienRes.raison}) — à transmettre : <span className="select-all break-all">{lienRes.lien}</span></>}
           </div>
@@ -759,7 +759,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint =
       /* Les initiales tiennent lieu d'icône : la fenêtre passe ses propriétés
          d'icône, qu'on ignore ici. */
       icone={() => (
-        <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-[12px] flex-shrink-0">
+        <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-second flex-shrink-0">
           {initiales}
         </div>
       )}
@@ -768,8 +768,8 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint =
         <span className="inline-flex items-center gap-3">
           {detail.adresse_mail && <span className="flex items-center gap-1"><IconMail size={11}/>{detail.adresse_mail}</span>}
           {detail.commune && <span className="flex items-center gap-1"><IconMapPin size={11}/>{detail.code_postal} {detail.commune}</span>}
-          {detail.capaes === 'x' && <span className="bg-green-500 text-green-200 text-[10px] px-1.5 rounded">CAPAES</span>}
-          {detail.statut && <span className="bg-white/20 text-white/90 text-[10px] px-1.5 rounded">{detail.statut}</span>}
+          {detail.capaes === 'x' && <span className="bg-green-500 text-green-200 text-mention px-1.5 rounded">CAPAES</span>}
+          {detail.statut && <span className="bg-white/20 text-white/90 text-mention px-1.5 rounded">{detail.statut}</span>}
         </span>
       }
       navigation={position && (onPrec || onSuiv) ? {
@@ -794,7 +794,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint =
               <div className="bg-white rounded-xl border border-gray-200 px-4 py-3 text-center">
                 <div className="text-xs text-gray-500 mb-0.5">Charge totale</div>
                 <div className="text-2xl font-bold text-iip-turquoise">{etpTotal.toFixed(4)}</div>
-                <div className="text-[10px] text-gray-400">ETP{heuresHELB > 0 ? ' — IIP + HELB' : ''}</div>
+                <div className="text-mention text-gray-400">ETP{heuresHELB > 0 ? ' — IIP + HELB' : ''}</div>
               </div>
 
               {/* Le DÉTAIL par type : les dénominateurs diffèrent — 800
@@ -803,17 +803,17 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint =
                   incluent l'autonomie, qui compte dans la charge. */}
               {detail?.detail_etp && (
                 <div className="bg-white rounded-xl border border-gray-200 px-3 py-2.5">
-                  <div className="text-[11px] text-gray-500 mb-1.5 text-center">
+                  <div className="text-xs text-gray-500 mb-1.5 text-center">
                     Détail — autonomie comprise
                   </div>
-                  <table className="w-full text-[12px]">
+                  <table className="w-full text-second">
                     <tbody>
                       {[['CT', detail.detail_etp.ct], ['PP', detail.detail_etp.pp]].map(
                         ([lib, d]) => (
                         <tr key={lib}>
                           <td className="text-gray-500">{lib}</td>
                           <td className="text-right font-semibold">{d.periodes}</td>
-                          <td className="text-right text-gray-400 text-[10px] px-1">
+                          <td className="text-right text-gray-400 text-mention px-1">
                             /{d.diviseur}
                           </td>
                           <td className="text-right font-bold text-iip-blue">
@@ -837,22 +837,22 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint =
               )}
 
               <div className="bg-white rounded-xl border border-gray-200 px-4 py-2.5 text-center">
-                <div className="text-[11px] text-gray-500 mb-0.5">Périodes IIP</div>
+                <div className="text-xs text-gray-500 mb-0.5">Périodes IIP</div>
                 <div className="text-xl font-bold text-iip-blue">{totalIIP}</div>
-                <div className="text-[10px] text-gray-400">
+                <div className="text-mention text-gray-400">
                   per. + aut. · {enHeures(totalIIP)} h
                 </div>
               </div>
 
               {heuresHELB > 0 && (
                 <div className="bg-white rounded-xl border border-gray-200 px-4 py-2.5 text-center">
-                  <div className="text-[11px] text-gray-500 mb-0.5">Heures HELB</div>
+                  <div className="text-xs text-gray-500 mb-0.5">Heures HELB</div>
                   <div className="text-xl font-bold text-purple-600">{heuresHELB} h</div>
                 </div>
               )}
 
               <div className="bg-white rounded-xl border border-gray-200 px-3 py-2 text-center">
-                <div className="text-[10px] text-gray-400">Ancienneté PO</div>
+                <div className="text-mention text-gray-400">Ancienneté PO</div>
                 <div className="text-base font-bold text-gray-700">{detail.anciennete_25_26_po ?? 0}</div>
               </div>
             </div>
@@ -860,12 +860,12 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint =
             {/* Fonctions & missions */}
             {detail.missions?.length > 0 && (
               <div className="p-4 border-b border-gray-100">
-                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Fonctions</div>
+                <div className="text-mention font-bold text-gray-400 uppercase tracking-widest mb-2">Fonctions</div>
                 <div className="space-y-1.5">
                   {detail.missions.map((m, i) => (
                     <div key={i} className="text-xs">
                       <div className="font-medium text-gray-700">{m.fonction}</div>
-                      {m.section && <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded mt-0.5 inline-block">{m.section}</span>}
+                      {m.section && <span className="text-mention bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded mt-0.5 inline-block">{m.section}</span>}
                     </div>
                   ))}
                 </div>
@@ -952,7 +952,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint =
                             {grouped.map((a, idx) => (
                               <tr key={idx} className="hover:bg-gray-50/80 group">
                                 <td className="py-2">
-                                  <span className={`inline-flex items-center justify-center px-1.5 h-5 rounded text-[10px] font-bold ${estHELB(a) ? 'badge-helb' : 'badge-iip'}`}>
+                                  <span className={`inline-flex items-center justify-center px-1.5 h-5 rounded text-mention font-bold ${estHELB(a) ? 'badge-helb' : 'badge-iip'}`}>
                                     {estHELB(a) ? 'HELB' : 'IIP'}
                                   </span>
                                 </td>
@@ -2143,7 +2143,7 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
               {/* UN MÊME RAYON POUR TOUT — une pastille pleinement ronde ici,
                   des coins de huit partout ailleurs : c'est le genre d'écart
                   qu'on ne sait pas nommer mais qu'on voit. */}
-              <span className="bg-orange-500 text-white border border-orange-500 rounded-champ px-2.5 py-0.5 text-[11px] font-bold">
+              <span className="bg-orange-500 text-white border border-orange-500 rounded-champ px-2.5 py-0.5 text-xs font-bold">
                 À désigner
               </span>
             </span>
@@ -2156,12 +2156,12 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
                 <span title={p.plafond_expert === 'au-dela'
                     ? `${Math.round(p.per_iip_annee)} périodes : au-delà du plafond avec dérogation (${p.plafond_valeurs?.derogation})`
                     : `${Math.round(p.per_iip_annee)} périodes : au-delà de ${p.plafond_valeurs?.plafond}, une dérogation ministérielle est nécessaire`}
-                  className={`text-white text-[10px] font-bold px-1.5 py-0.5 rounded-champ flex-shrink-0 ${p.plafond_expert === 'au-dela' ? 'bg-red-600' : 'bg-amber-600'}`}>
+                  className={`text-white text-mention font-bold px-1.5 py-0.5 rounded-champ flex-shrink-0 ${p.plafond_expert === 'au-dela' ? 'bg-red-600' : 'bg-amber-600'}`}>
                   {Math.round(p.per_iip_annee)} pér.
                 </span>
               )}
               {nouveau && (
-                <span className="bg-emerald-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-champ uppercase tracking-wide flex-shrink-0">
+                <span className="bg-emerald-600 text-white text-mention font-bold px-1.5 py-0.5 rounded-champ uppercase tracking-wide flex-shrink-0">
                   NEW
                 </span>
               )}
@@ -2174,12 +2174,12 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
             personne donne cours »). Les périodes, les heures HELB et
             l'ancienneté vivent sur la fiche. */}
         <td>
-          <div className="flex items-center gap-1.5 flex-wrap text-[12px]">
+          <div className="flex items-center gap-1.5 flex-wrap text-second">
             {statutsDe(p).filter(c => c !== 'MDP').map(c => (
               <span key={c} className="text-slate-700">{c === 'CC' ? 'Chargé de cours' : 'Expert'}</span>
             ))}
             {p.missions_libelles && p.missions_libelles.split(',').filter(Boolean).map((f, i) => (
-              <span key={i} className="text-slate-500 border border-slate-200 rounded-champ px-1.5 py-0.5 text-[11px]">{f.trim()}</span>
+              <span key={i} className="text-slate-500 border border-slate-200 rounded-champ px-1.5 py-0.5 text-xs">{f.trim()}</span>
             ))}
             {!statutsDe(p).length && !p.missions_libelles && <span className="text-slate-300">—</span>}
           </div>
@@ -2187,7 +2187,7 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
         <td>
           <div className="flex items-center gap-1">
             {String(p.contrats_annee || '').split(',').map(c => c.trim()).filter(c => c === 'IIP' || c === 'HELB').map(c => (
-              <span key={c} className="rounded-champ px-2 py-0.5 text-[11px] font-bold text-white"
+              <span key={c} className="rounded-champ px-2 py-0.5 text-xs font-bold text-white"
                 style={{ background: c === 'HELB' ? 'var(--c-helb)' : 'var(--c-principal)' }}
                 title={c === 'HELB' ? 'Attributions sous contrat HELB cette année' : 'Attributions sous contrat IIP cette année'}>{c}</span>
             ))}
@@ -2196,14 +2196,14 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
         <td>
           <div className="flex items-center gap-1 flex-wrap">
             {String(p.sections_annee || '').split(',').map(x => x.trim()).filter(Boolean).sort((a, b) => a.localeCompare(b, 'fr')).map(x => (
-              <span key={x} className="text-[11px] text-slate-600 border border-slate-200 rounded-champ px-1.5 py-0.5">{x}</span>
+              <span key={x} className="text-xs text-slate-600 border border-slate-200 rounded-champ px-1.5 py-0.5">{x}</span>
             ))}
           </div>
         </td>
         <td className="num tabular-nums" title={`IIP ${Number(p.etp_iip || 0).toLocaleString('fr-BE')} · HELB ${Number(p.etp_helb || 0).toLocaleString('fr-BE')} — CT/800 + PP/1000, comme Pilotage`}>
           <b>{(Number(p.etp_iip || 0) + Number(p.etp_helb || 0)).toLocaleString('fr-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</b>
           {statutsDe(p).includes('EXP') && Number(p.total_per_annee ?? 0) > 260 && (
-            <span data-etat={Number(p.total_per_annee) > 360 ? 'corriger' : 'surveiller'} className="pastille-etat ml-1.5 text-[10px] px-1.5 py-0.5"
+            <span data-etat={Number(p.total_per_annee) > 360 ? 'corriger' : 'surveiller'} className="pastille-etat ml-1.5 text-mention px-1.5 py-0.5"
               title={`Expert : ${p.total_per_annee} périodes à l'IIP cette année. Plafond de 260 périodes par an (tous établissements), 360 avec la dérogation A28.`}>
               {Number(p.total_per_annee) > 360 ? '> 360 p.' : '> 260 p.'}</span>
           )}
@@ -2216,20 +2216,20 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
             {ficheMenu === p.id && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setFicheMenu(null)} />
-                <div className="absolute z-50 bottom-full right-0 mb-1 bg-white border border-gray-200 rounded-lg shadow-xl py-1.5 px-1.5 w-40 flex flex-col gap-1" onClick={e => e.stopPropagation()}>
+                <div className="absolute z-50 bottom-full right-0 mb-1 bg-white border border-gray-200 rounded-lg shadow-dessus py-1.5 px-1.5 w-40 flex flex-col gap-1" onClick={e => e.stopPropagation()}>
                   <button onClick={() => { genererFicheAttributions(p.id, null); setFicheMenu(null); }}
                     className="text-left px-2 py-1.5 h-9 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-700 text-white">Global</span>
+                    <span className="text-mention font-bold px-1.5 py-0.5 rounded bg-gray-700 text-white">Global</span>
                     <span className="text-gray-600 text-xs">IIP + HELB</span>
                   </button>
                   <button onClick={() => { genererFicheAttributions(p.id, 'IIP'); setFicheMenu(null); }}
                     className="text-left px-2 py-1.5 h-9 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-iip-turquoise/10 text-iip-blue">IIP</span>
+                    <span className="text-mention font-bold px-1.5 py-0.5 rounded bg-iip-turquoise/10 text-iip-blue">IIP</span>
                     <span className="text-gray-600 text-xs">Contrat IIP</span>
                   </button>
                   <button onClick={() => { genererFicheAttributions(p.id, 'HELB'); setFicheMenu(null); }}
                     className="text-left px-2 py-1.5 h-9 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-500 text-white">HELB</span>
+                    <span className="text-mention font-bold px-1.5 py-0.5 rounded bg-purple-500 text-white">HELB</span>
                     <span className="text-gray-600 text-xs">Contrat HELB</span>
                   </button>
                 </div>
@@ -2293,7 +2293,7 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
           la rubrique ouverte est marquée dedans, et la porte de l'axe ramène à
           la liste. */}
       {vue !== 'membres' ? (
-        <Suspense fallback={<div className="p-8 text-slate-400 text-[13px]">Chargement…</div>}>
+        <Suspense fallback={<div className="p-8 text-slate-400 text-sm">Chargement…</div>}>
           {vue === 'besoins' && <Besoins />}
           {vue === 'classement' && <Classement />}
         </Suspense>
@@ -2411,16 +2411,16 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
                 {printSelMenu && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setPrintSelMenu(false)} />
-                    <div className="absolute z-50 top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl py-1.5 px-1.5 w-44 flex flex-col gap-1">
-                      <div className="text-[10px] text-gray-400 uppercase px-2 pt-0.5 pb-1">PDF combiné</div>
+                    <div className="absolute z-50 top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-dessus py-1.5 px-1.5 w-44 flex flex-col gap-1">
+                      <div className="text-mention text-gray-400 uppercase px-2 pt-0.5 pb-1">PDF combiné</div>
                       <button onClick={() => imprimerSelectionFiches('GLOBAL')} className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-700 text-white">Global</span><span className="text-gray-600 text-xs">IIP + HELB</span>
+                        <span className="text-mention font-bold px-1.5 py-0.5 rounded bg-gray-700 text-white">Global</span><span className="text-gray-600 text-xs">IIP + HELB</span>
                       </button>
                       <button onClick={() => imprimerSelectionFiches('IIP')} className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-iip-turquoise/10 text-iip-blue">IIP</span><span className="text-gray-600 text-xs">Contrat IIP</span>
+                        <span className="text-mention font-bold px-1.5 py-0.5 rounded bg-iip-turquoise/10 text-iip-blue">IIP</span><span className="text-gray-600 text-xs">Contrat IIP</span>
                       </button>
                       <button onClick={() => imprimerSelectionFiches('HELB')} className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-500 text-white">HELB</span><span className="text-gray-600 text-xs">Contrat HELB</span>
+                        <span className="text-mention font-bold px-1.5 py-0.5 rounded bg-purple-500 text-white">HELB</span><span className="text-gray-600 text-xs">Contrat HELB</span>
                       </button>
                     </div>
                   </>
@@ -2437,16 +2437,16 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
                 {zipMenu && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setZipMenu(false)} />
-                    <div className="absolute z-50 top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl py-1.5 px-1.5 w-48 flex flex-col gap-1">
-                      <div className="text-[10px] text-gray-400 uppercase px-2 pt-0.5 pb-1">1 fichier par prof</div>
+                    <div className="absolute z-50 top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-dessus py-1.5 px-1.5 w-48 flex flex-col gap-1">
+                      <div className="text-mention text-gray-400 uppercase px-2 pt-0.5 pb-1">1 fichier par prof</div>
                       <button onClick={() => exporterZip('GLOBAL')} className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-700 text-white">Global</span><span className="text-gray-600 text-xs">IIP + HELB</span>
+                        <span className="text-mention font-bold px-1.5 py-0.5 rounded bg-gray-700 text-white">Global</span><span className="text-gray-600 text-xs">IIP + HELB</span>
                       </button>
                       <button onClick={() => exporterZip('IIP')} className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-iip-turquoise/10 text-iip-blue">IIP</span><span className="text-gray-600 text-xs">Contrat IIP</span>
+                        <span className="text-mention font-bold px-1.5 py-0.5 rounded bg-iip-turquoise/10 text-iip-blue">IIP</span><span className="text-gray-600 text-xs">Contrat IIP</span>
                       </button>
                       <button onClick={() => exporterZip('HELB')} className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-500 text-white">HELB</span><span className="text-gray-600 text-xs">Contrat HELB</span>
+                        <span className="text-mention font-bold px-1.5 py-0.5 rounded bg-purple-500 text-white">HELB</span><span className="text-gray-600 text-xs">Contrat HELB</span>
                       </button>
                     </div>
                   </>
@@ -2584,7 +2584,7 @@ function AccesLot({ ids, onFermer }) {
     <Fenetre titre="Ouvrir l'accès à Lucie" large="grande" onFermer={onFermer}
       sous={fait ? 'Fait — les comptes sont créés' : `${ids.length} membre(s) coché(s) — rien n'est écrit avant de confirmer`}
       pied={<>
-        <span className="flex-1 min-w-0 text-[12px] text-slate-500">
+        <span className="flex-1 min-w-0 text-second text-slate-500">
           {fait ? `${r.resume.envoyes} lien(s) envoyé(s) sur ${n}.`
             : r ? `${r.resume.nouveaux} compte(s) « professeur » à créer${r.resume.renvois ? `, ${r.resume.renvois} lien(s) à renvoyer` : ''} ; chacun recevra le lien pour choisir son mot de passe (valable trois jours).` : ''}
         </span>
@@ -2592,17 +2592,17 @@ function AccesLot({ ids, onFermer }) {
         {!fait && <button className="bouton bouton-fort" disabled={enCours || !n} onClick={() => appeler(false)}>
           {enCours ? '…' : r?.resume?.nouveaux ? `Créer ${r.resume.nouveaux} compte(s) et envoyer ${n} lien(s)` : `Envoyer ${n} lien(s)`}</button>}
       </>}>
-      {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2 mb-2 text-[13px]">{erreur}</div>}
-      {!r ? <p className="text-[13px] text-slate-400">Vérification…</p> : (
-        <div className="space-y-2 text-[13px]">
-          <div className="text-[12.5px] text-slate-600">
+      {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2 mb-2 text-sm">{erreur}</div>}
+      {!r ? <p className="text-sm text-slate-400">Vérification…</p> : (
+        <div className="space-y-2 text-sm">
+          <div className="text-second text-slate-600">
             {r.resume.nouveaux} nouveau(x) · {r.resume.deja} déjà un compte · {r.resume.sans_adresse} sans adresse
             {r.resume.adresse_prise ? ` · ${r.resume.adresse_prise} adresse déjà prise` : ''}
           </div>
           {/* RENVOYER LE LIEN (5 octobre 2026) : un compte créé dont le premier
               lien s'est perdu — une faute dans l'adresse, un courriel égaré. */}
           {!fait && (r.resume.jamais_connectes > 0 || r.resume.renvois > 0) && (
-            <label className="flex items-center gap-2 text-[12.5px]">
+            <label className="flex items-center gap-2 text-second">
               <input type="checkbox" checked={renvoyer} disabled={enCours}
                 onChange={e => { setRenvoyer(e.target.checked); appeler(true, e.target.checked); }} />
               Renvoyer le lien à ceux qui ont déjà un compte mais ne se sont jamais connectés
@@ -2610,17 +2610,17 @@ function AccesLot({ ids, onFermer }) {
             </label>
           )}
           <div className="border border-slate-200 rounded-carte overflow-hidden">
-            <table className="w-full text-[12.5px]">
-              <thead><tr className="tab-entete text-left text-[10.5px] uppercase tracking-[.08em] text-slate-500">
+            <table className="w-full text-second">
+              <thead><tr className="tab-entete text-left text-mention uppercase tracking-[.08em] text-slate-500">
                 <th className="px-3 py-1.5">Membre</th><th className="px-3 py-1.5">Adresse</th><th className="px-3 py-1.5">Ce qui se passe</th></tr></thead>
               <tbody>
                 {r.lignes.map(l => (
                   <tr key={l.professeur_id} className="border-t border-slate-100 align-top">
                     <td className="px-3 py-1.5 font-semibold">{l.nom}</td>
-                    <td className="px-3 py-1.5">{l.email || '—'}{l.prive && <span className="ml-1 text-[11px] text-slate-500">(privée)</span>}</td>
+                    <td className="px-3 py-1.5">{l.email || '—'}{l.prive && <span className="ml-1 text-xs text-slate-500">(privée)</span>}</td>
                     <td className="px-3 py-1.5">
                       {fait && (l.etat === 'nouveau' || l.etat === 'renvoi')
-                        ? (l.envoye ? (l.etat === 'renvoi' ? 'Lien renvoyé' : 'Compte créé, lien envoyé') : <span>Compte créé — lien NON envoyé ({l.raison}) : <span className="select-all break-all text-[11px] text-slate-500">{l.lien}</span></span>)
+                        ? (l.envoye ? (l.etat === 'renvoi' ? 'Lien renvoyé' : 'Compte créé, lien envoyé') : <span>Compte créé — lien NON envoyé ({l.raison}) : <span className="select-all break-all text-xs text-slate-500">{l.lien}</span></span>)
                         : <span className={l.etat === 'nouveau' || l.etat === 'renvoi' ? '' : 'text-slate-500'}>{ETAT[l.etat]}{l.etat === 'deja' && l.role ? ` (${l.role}${l.actif ? '' : ', désactivé'}${l.jamais_connecte ? ', jamais connecté' : ''})` : ''}{l.etat === 'adresse_prise' && l.par ? ` : ${l.par}` : ''}</span>}
                     </td>
                   </tr>

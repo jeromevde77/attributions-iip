@@ -2,21 +2,17 @@ import { useEffect, useState, useMemo } from 'react';
 import { api, getAnnee } from '../lib/api.js';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from 'recharts';
 import ActivityFeed from '../components/ActivityFeed.jsx';
-import { RailLateral } from '../components/ui.jsx';
+import { RailLateral, TuileEtat } from '../components/ui.jsx';
 import { IconChevronRight, IconLayoutDashboard, IconChartBar, IconBuildingCommunity, IconFileText, IconUsers } from '@tabler/icons-react';
 
 const TAB_ICONS = { apercu: IconChartBar, sections: IconBuildingCommunity, doc23: IconFileText, etp: IconUsers };
 
 function n(v, d = 0) { return v == null ? '—' : Number(v).toLocaleString('fr-BE', { maximumFractionDigits: d }); }
 
-function Kpi({ label, value, sub, color = 'text-iip-gold' }) {
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-      <div className="text-xs uppercase tracking-wider text-gray-500">{label}</div>
-      <div className={`text-2xl md:text-3xl font-bold mt-1 ${color}`}>{value ?? '—'}</div>
-      {sub && <div className="text-xs text-gray-500 mt-1">{sub}</div>}
-    </div>
-  );
+// LE STANDARD (3.1.249) : la tuile de la maison ; la couleur devient un état.
+const etatDeCouleur = c => /emerald|green|reussi/.test(c || '') ? 'reussi' : /amber|orange|attente/.test(c || '') ? 'surveiller' : /red|danger|refuse/.test(c || '') ? 'corriger' : /violet|purple|faveur/.test(c || '') ? 'faveur' : 'neutre';
+function Kpi({ label, value, sub, color = '' }) {
+  return <TuileEtat etat={etatDeCouleur(color)} valeur={value ?? '—'} libelle={label} precision={sub} />;
 }
 
 export default function Dashboard() {
@@ -121,7 +117,7 @@ export default function Dashboard() {
 
       {/* ═══════════ Onglet Aperçu : graphe ═══════════ */}
       {tab === 'apercu' && (
-        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-pose">
           <h2 className="font-title text-lg text-iip-gold mb-4">Répartition des périodes par section</h2>
           <ResponsiveContainer width="100%" height={400}>
             <BarChart data={chartData}>

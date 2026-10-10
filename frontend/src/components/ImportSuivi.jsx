@@ -113,7 +113,7 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
       sous={`Pondérations, notes des deux sessions et décisions du jury · ${annee}`}
       large="moyenne" onFermer={onClose}
       pied={<>
-        <span className="text-[12px] text-slate-500">
+        <span className="text-second text-slate-500">
           {unites ? `${choisies.size} unité(s) · ${total} lignes` : ''}
         </span>
         <button onClick={onClose}
@@ -135,7 +135,7 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
         <div className="space-y-4">
           {erreur && (
             <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200
-                            text-[13px] text-red-900 flex items-start gap-1.5">
+                            text-sm text-red-900 flex items-start gap-1.5">
               <IconAlertTriangle size={14} className="mt-0.5 flex-none" /> {erreur}
             </div>
           )}
@@ -146,10 +146,10 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
             <input type="file" accept=".xlsm,.xlsx" className="hidden"
               onChange={e => ouvrir(e.target.files?.[0])} />
             <IconUpload size={22} className="mx-auto text-slate-400 mb-1.5" />
-            <span className="block text-[13px] font-semibold text-slate-700">
+            <span className="block text-sm font-semibold text-slate-700">
               {fichier ? fichier.name : 'Choisir le classeur de suivi'}
             </span>
-            <span className="block text-[12px] text-slate-500 mt-0.5">
+            <span className="block text-second text-slate-500 mt-0.5">
               Suivi_etudiants_&lt;section&gt;_&lt;année&gt;.xlsm — une feuille par unité
             </span>
           </label>
@@ -158,7 +158,7 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
           {unites && (
             <>
               <div className="border border-slate-200 rounded-xl overflow-hidden">
-                <div className="bg-slate-50 px-3 py-1.5 text-[11px] font-semibold
+                <div className="bg-slate-50 px-3 py-1.5 text-xs font-semibold
                                 text-slate-600 flex items-center justify-between">
                   <span>{unites.length} unité(s) dans le classeur</span>
                   <button
@@ -180,10 +180,10 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
                           return t;
                         })}
                         className="w-4 h-4 accent-iip-blue flex-none" />
-                      <span className="text-[13px] font-semibold text-slate-800 w-14">
+                      <span className="text-sm font-semibold text-slate-800 w-14">
                         UE {u.ue_num}
                       </span>
-                      <span className="flex-1 text-[12px] text-slate-500 tabular-nums">
+                      <span className="flex-1 text-second text-slate-500 tabular-nums">
                         {u.resume.cours} cours · {u.resume.acquis_declares} acquis ·{' '}
                         {u.resume.etudiants} étudiants ·{' '}
                         {u.resume.decides_s1} décidés en S1, {u.resume.decides_s2} en S2
@@ -204,7 +204,7 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
                   ['decisions', 'Décisions du jury'],
                   ['creer', 'Créer les étudiants inconnus'],
                   ['inscrire', 'Inscrire à l’unité ceux qui ne le sont pas']].map(([k, l]) => (
-                  <label key={k} className="flex items-center gap-1.5 text-[13px] text-slate-700">
+                  <label key={k} className="flex items-center gap-1.5 text-sm text-slate-700">
                     <input type="checkbox" checked={quoi[k]}
                       onChange={e => setQuoi(q => ({ ...q, [k]: e.target.checked }))}
                       className="w-4 h-4 accent-iip-blue" />
@@ -215,12 +215,12 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
               {/* ── LA MIGRATION D'UNE ANNÉE DÉJÀ DÉLIBÉRÉE ──────────────── */}
               <div className={`mx-1 px-3 py-2.5 rounded-xl border ${migration
                 ? 'border-violet-300 bg-violet-50' : 'border-slate-200'}`}>
-                <label className="flex items-start gap-2 text-[13px] text-slate-800">
+                <label className="flex items-start gap-2 text-sm text-slate-800">
                   <input type="checkbox" checked={migration} className="mt-0.5 w-4 h-4 accent-iip-blue"
                     onChange={e => setMigration(e.target.checked)} />
                   <span>
                     <b>Migration — l'année a déjà été délibérée</b>
-                    <span className="block text-[12px] text-slate-600">
+                    <span className="block text-second text-slate-600">
                       La décision ET la cote de l'unité sont reprises du classeur telles
                       quelles. Le moteur d'acquis n'est pas consulté : c'est ce qui permet
                       de reprendre une année entière sans la redélibérer.
@@ -229,7 +229,7 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
                 </label>
                 {migration && (
                   <div className="mt-2 pl-6 space-y-2">
-                    <p className="text-[12px] text-violet-900">
+                    <p className="text-second text-violet-900">
                       Le jury a délibéré au niveau de l'unité, pas des acquis. Lucie écrit
                       donc la cote du classeur sans la recalculer — un recalcul sur des
                       notes d'activité incomplètes produirait des cotes fausses. Les
@@ -237,14 +237,14 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
                       « reprise d'historique » : elles ne se confondent pas avec une
                       motivation prise en séance ici.
                     </p>
-                    <label className="block text-[12px] text-slate-700">
+                    <label className="block text-second text-slate-700">
                       Justification imposée là où le classeur n'en porte aucune
                       <textarea value={justifDefaut} onChange={e => setJustifDefaut(e.target.value)}
                         rows={2} placeholder="ex. Décision du jury de juin 2026 ; motivation non consignée au classeur, reprise d'historique du 09/09/2026."
                         className="mt-1 w-full px-2 py-1.5 border border-slate-300 rounded-lg
-                                   text-[12px]" />
+                                   text-second" />
                     </label>
-                    <p className="text-[12px] text-slate-500">
+                    <p className="text-second text-slate-500">
                       Laissez vide pour n'imposer aucune mention : le rapport dira alors
                       combien de décisions défavorables restent sans motif. Une décision
                       défavorable non motivée est attaquable — mais une motivation
@@ -265,24 +265,24 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
                 <div className="mx-1 rounded-xl border border-slate-200 overflow-hidden">
                   <div className="px-3 py-2 bg-slate-50 border-b border-slate-200
                                   flex items-center gap-2 flex-wrap">
-                    <span className="text-[13px] font-semibold text-iip-blue">
+                    <span className="text-sm font-semibold text-iip-blue">
                       Les séances — dates de délibération et de visite des copies
                     </span>
                     <span className="flex-1" />
-                    <label className="flex items-center gap-1.5 text-[12px] text-slate-700">
+                    <label className="flex items-center gap-1.5 text-second text-slate-700">
                       <input type="checkbox" checked={clore} className="w-4 h-4 accent-iip-blue"
                         onChange={e => setClore(e.target.checked)} />
                       Clôturer les séances
                     </label>
                   </div>
                   <div className="px-3 py-2 border-b border-slate-100 flex items-end gap-2 flex-wrap">
-                    <span className="text-[12px] text-slate-500 self-center">
+                    <span className="text-second text-slate-500 self-center">
                       Reporter sur toutes les unités cochées :
                     </span>
                     {[['date_seance', 'Délibération', 'date'],
                       ['visite_date', 'Visite des copies', 'date'],
                       ['session2_date', '2e session', 'date']].map(([k, lib, type]) => (
-                      <label key={k} className="text-[11px] text-slate-600">
+                      <label key={k} className="text-xs text-slate-600">
                         {lib}
                         <input type={type}
                           onChange={ev => {
@@ -297,7 +297,7 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
                             });
                           }}
                           className="block mt-0.5 px-2 py-1 border border-slate-300
-                                     rounded-lg text-[12px]" />
+                                     rounded-lg text-second" />
                       </label>
                     ))}
                   </div>
@@ -310,30 +310,30 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
                       });
                       return (
                         <div key={u.ue_num} className="px-3 py-1.5 flex items-center gap-2 flex-wrap">
-                          <span className="w-16 text-[12px] tabular-nums text-slate-500">
+                          <span className="w-16 text-second tabular-nums text-slate-500">
                             UE {u.ue_num}
                           </span>
                           {[['date_seance', 'délibération', 'date'],
                             ['heure_seance', 'heure', 'time'],
                             ['visite_date', 'visite', 'date'],
                             ['session2_date', '2e session', 'date']].map(([k, ph, type]) => (
-                            <label key={k} className="text-[11px] text-slate-500">
+                            <label key={k} className="text-xs text-slate-500">
                               {ph}
                               <input type={type} value={v[k] || ''}
                                 onChange={e => set(k, e.target.value)}
                                 className="block px-1.5 py-0.5 border border-slate-300
-                                           rounded text-[12px]" />
+                                           rounded text-second" />
                             </label>
                           ))}
                           <input value={v.visite_local || ''} placeholder="local de la visite"
                             onChange={e => set('visite_local', e.target.value)}
                             className="flex-1 min-w-[120px] px-2 py-1 border border-slate-300
-                                       rounded text-[12px]" />
+                                       rounded text-second" />
                         </div>
                       );
                     })}
                   </div>
-                  <div className="px-3 py-2 text-[11px] text-slate-500 bg-slate-50">
+                  <div className="px-3 py-2 text-xs text-slate-500 bg-slate-50">
                     Une unité laissée vide n'écrase rien : sa séance reste en l'état.
                     {clore && ' Clôturer fige l’acte et fait courir le délai de recours — '
                       + 'ne cochez que pour des séances réellement tenues.'}
@@ -343,7 +343,7 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
 
               {(quoi.creer || quoi.inscrire) && (
                 <div className="mx-1 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
-                                text-[12px] text-amber-900">
+                                text-second text-amber-900">
                   Le classeur devient une source d'inscription : chaque ligne inconnue
                   crée un dossier — matricule, nom, prénom — et l'inscrit à l'unité.
                   C'est ce qu'il faut sur une base vide ; ailleurs, une faute de frappe
@@ -352,7 +352,7 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
                   jamais créés — c'est un dossier existant qu'il faut choisir.
                 </div>
               )}
-              <p className="text-[12px] text-slate-500 px-1">
+              <p className="text-second text-slate-500 px-1">
                 Les notes du classeur sont exprimées dans l'échelle du poids de chaque acquis ;
                 elles sont ramenées sur 20. La décision du Conseil est reprise telle quelle —
                 rien n'est redélibéré. <b>La seconde session n'est lue que chez les ajournés, et
@@ -368,12 +368,12 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
           {rapport && (
             <div className={`rounded-xl border p-3 space-y-2
               ${applique ? 'bg-emerald-50 border-emerald-200' : 'bg-sky-50 border-sky-200'}`}>
-              <div className="text-[13px] font-semibold flex items-center gap-1.5
+              <div className="text-sm font-semibold flex items-center gap-1.5
                               text-slate-800">
                 {applique ? <IconCheck size={15} className="text-emerald-700" /> : null}
                 {applique ? 'Import effectué' : 'Simulation — rien n\'a été écrit'}
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[12px]">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-second">
                 {[['unités', rapport.total.unites], ['étudiants', rapport.total.rapproches],
                   ['dossiers créés', rapport.total.crees || 0],
                   ['inscriptions créées', rapport.total.inscrits || 0],
@@ -393,21 +393,21 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
                   ['non rapprochés', rapport.total.inconnus + rapport.total.hors_inscription
                     + rapport.total.collisions + (rapport.total.ambigus || 0)]].map(([l, n]) => (
                   <div key={l} className="bg-white/70 rounded-lg px-2 py-1.5">
-                    <div className="text-[17px] font-bold tabular-nums text-iip-blue">{n}</div>
-                    <div className="text-[11px] text-slate-600">{l}</div>
+                    <div className="text-lg font-bold tabular-nums text-iip-blue">{n}</div>
+                    <div className="text-xs text-slate-600">{l}</div>
                   </div>
                 ))}
               </div>
 
               {!!soucis.length && (
                 <div className="bg-white rounded-lg border border-amber-200 overflow-hidden">
-                  <div className="px-2.5 py-1.5 bg-amber-50 text-[11px] font-semibold
+                  <div className="px-2.5 py-1.5 bg-amber-50 text-xs font-semibold
                                   text-amber-900">
                     {soucis.length} ligne(s) qui ne seront pas importées
                   </div>
                   <div className="max-h-40 overflow-y-auto divide-y divide-slate-50">
                     {soucis.slice(0, 60).map((s, i) => (
-                      <div key={i} className="px-2.5 py-1 text-[12px] flex gap-2">
+                      <div key={i} className="px-2.5 py-1 text-second flex gap-2">
                         <span className="text-slate-400 w-12 flex-none">UE {s.ue}</span>
                         <span className={s.gravite === 'haute'
                           ? 'text-red-800 font-semibold' : 'text-slate-700'}>{s.t}</span>
@@ -420,7 +420,7 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
               {rapport.unites.some(u => u.acquis_retires?.length
                 || u.acquis_a_verifier?.length) && (
                 <div className="bg-white rounded-lg border border-slate-200 px-2.5 py-2
-                                text-[12px] space-y-1">
+                                text-second space-y-1">
                   {rapport.unites.filter(u => u.acquis_retires?.length).map(u => (
                     <div key={`r${u.ue_num}`} className="text-slate-600">
                       <b>UE {u.ue_num}</b> — {u.acquis_retires.length} acquis du gabarit
@@ -438,7 +438,7 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
               )}
 
               {rapport.unites.some(u => u.ignoree) && (
-                <p className="text-[12px] text-amber-900">
+                <p className="text-second text-amber-900">
                   Unités écartées :{' '}
                   {rapport.unites.filter(u => u.ignoree)
                     .map(u => `${u.ue_num} (${u.ignoree})`).join(' · ')}

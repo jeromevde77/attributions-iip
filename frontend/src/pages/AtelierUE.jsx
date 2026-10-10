@@ -85,14 +85,14 @@ function Frise({ faces, ouvertes, face, onFace, et }) {
               title={ouverte ? undefined : 'Réglée par la direction ou le secrétariat'}
               className={`flex items-center gap-2.5 rounded-carte border px-3 py-2 text-left min-w-0 bg-white
                 ${actif ? 'border-iip-blue shadow-pose' : ouverte ? 'border-slate-200 hover:border-slate-400' : 'border-slate-200 opacity-60 cursor-default'}`}>
-              <span className={`w-7 h-7 rounded-full grid place-items-center text-[12px] font-bold flex-none
+              <span className={`w-7 h-7 rounded-full grid place-items-center text-second font-bold flex-none
                 ${fait ? 'text-white' : actif ? 'bg-iip-blue text-white' : 'border border-slate-300 text-slate-500'}`}
                 style={fait ? { background: 'var(--c-reussi, #3E7D5E)' } : undefined}>
                 {fait ? <IconCheck size={15} /> : n}
               </span>
               <span className="min-w-0">
-                <span className={`block text-[13px] ${actif ? 'font-semibold text-iip-blue' : 'text-slate-700'}`}>{l}</span>
-                <span className="block text-[11px] text-slate-500 truncate">{et[k]?.detail || (ouverte ? '…' : 'réglée par la direction')}</span>
+                <span className={`block text-sm ${actif ? 'font-semibold text-iip-blue' : 'text-slate-700'}`}>{l}</span>
+                <span className="block text-xs text-slate-500 truncate">{et[k]?.detail || (ouverte ? '…' : 'réglée par la direction')}</span>
               </span>
             </button>
             {i < faces.length - 1 && <IconArrowRight size={16} className="text-slate-300 flex-none" />}
@@ -168,15 +168,15 @@ export default function AtelierUE({ faceInitiale = 'croisement', faces = FACES.m
     if (t.length) { setSection(t[0].section); setUe(t[0].ue_num); setNumero(''); }
   };
 
-  if (erreur) return <p className="p-4 text-[13px] text-red-700">{erreur}</p>;
-  if (!liste) return <p className="p-4 text-[13px] text-slate-400">Chargement…</p>;
-  if (!liste.ues.length) return <p className="p-4 text-[13px] text-slate-500">Aucune unité ne vous est ouverte cette année.</p>;
+  if (erreur) return <p className="p-4 text-sm text-red-700">{erreur}</p>;
+  if (!liste) return <p className="p-4 text-sm text-slate-400">Chargement…</p>;
+  if (!liste.ues.length) return <p className="p-4 text-sm text-slate-500">Aucune unité ne vous est ouverte cette année.</p>;
   const u = (liste.ues || []).find(x => x.ue_num === ue);
 
   return (
     <div className="p-4 space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <h2 className="text-[17px] font-semibold text-iip-blue mr-auto min-w-0 flex-1 truncate" title={u ? `UE ${u.ue_num} — ${u.ue_nom}` : ''}>
+        <h2 className="text-lg font-semibold text-iip-blue mr-auto min-w-0 flex-1 truncate" title={u ? `UE ${u.ue_num} — ${u.ue_nom}` : ''}>
           {u ? <>UE {u.ue_num} — {u.ue_nom}</> : 'Unité'}
         </h2>
         {liste.sections.length > 1 && (

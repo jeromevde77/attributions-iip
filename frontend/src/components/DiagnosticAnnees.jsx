@@ -65,19 +65,19 @@ export default function DiagnosticAnnees({ annee, ueNum = null, onClose, onFini 
         </button>
       </> : null}>
         <div className="space-y-3">
-          <p className="text-[12px] text-slate-500">
+          <p className="text-second text-slate-500">
             Ce que chaque année contient. L'année de travail est <b>{annee}</b> — c'est
             elle que voient les écrans de délibération.
           </p>
           {erreur && (
-            <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-[13px] text-red-800 border-l-4 border-l-red-500">
+            <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-sm text-red-800 border-l-4 border-l-red-500">
               {erreur}
             </div>
           )}
 
           {etat?.suspects > 0 && (
             <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-300
-                            text-[13px] text-amber-900 flex items-start gap-1.5">
+                            text-sm text-amber-900 flex items-start gap-1.5">
               <IconAlertTriangle size={15} className="flex-none mt-0.5" />
               <span>
                 {etat.suspects} unité(s) portent des notes dans une année où
@@ -88,11 +88,11 @@ export default function DiagnosticAnnees({ annee, ueNum = null, onClose, onFini 
           )}
 
           {!etat ? (
-            <div className="py-8 text-center text-[13px] text-slate-400">Lecture…</div>
+            <div className="py-8 text-center text-sm text-slate-400">Lecture…</div>
           ) : (
-            <table className="w-full text-[13px] border border-slate-200 rounded-lg">
+            <table className="w-full text-sm border border-slate-200 rounded-lg">
               <thead>
-                <tr className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
+                <tr className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                   <th className="text-left px-3 py-2">Année</th>
                   <th className="text-left px-3 py-2">Unité</th>
                   <th className="text-right px-3 py-2">Notes</th>
@@ -108,7 +108,7 @@ export default function DiagnosticAnnees({ annee, ueNum = null, onClose, onFini 
                     <td className="px-3 py-1.5 font-semibold">
                       {l.annee}
                       {l.annee === annee && (
-                        <span className="ml-1.5 text-[10px] text-emerald-700 font-semibold">
+                        <span className="ml-1.5 text-mention text-emerald-700 font-semibold">
                           (de travail)
                         </span>
                       )}
@@ -122,7 +122,7 @@ export default function DiagnosticAnnees({ annee, ueNum = null, onClose, onFini 
                     <td className="px-3 py-1.5 text-right">
                       {l.annee !== annee && l.notes > 0 && (
                         <button onClick={() => deplacer(l, true)} disabled={enCours}
-                          className="px-2 py-1 text-[12px] rounded-lg border border-iip-blue
+                          className="px-2 py-1 text-second rounded-lg border border-iip-blue
                                      text-iip-blue font-semibold disabled:opacity-40
                                      inline-flex items-center gap-1">
                           Ramener en {annee} <IconArrowRight size={12} />
@@ -139,26 +139,26 @@ export default function DiagnosticAnnees({ annee, ueNum = null, onClose, onFini 
               l'aveugle. */}
           {apercu && choix && (
             <div className="border border-iip-blue/40 rounded-xl p-4 space-y-2 bg-iip-blue/5">
-              <div className="text-[13px] font-semibold text-iip-blue">
+              <div className="text-sm font-semibold text-iip-blue">
                 UE {choix.ue_num} — {choix.annee} → {annee}
               </div>
-              <div className="text-[13px] text-slate-700">
+              <div className="text-sm text-slate-700">
                 {apercu.notes} note(s), {apercu.decisions} décision(s),
                 {' '}{apercu.ajustements} ajustement(s), {apercu.motivations} motivation(s)
                 seront déplacés.
               </div>
               {apercu.conflits > 0 && (
-                <div className="text-[12px] text-amber-800">
+                <div className="text-second text-amber-800">
                   {apercu.conflits} ligne(s) laissée(s) en place : l'année d'arrivée
                   porte déjà une valeur pour le même acquis. Rien n'est écrasé — à
                   vous de trancher.
                 </div>
               )}
               {apercu.nb_non_inscrits > 0 && (
-                <div className="text-[12px] text-amber-800">
+                <div className="text-second text-amber-800">
                   {apercu.nb_non_inscrits} étudiant(s) non inscrit(s) à cette unité en
                   {' '}{annee} : leurs lignes restent où elles sont.
-                  <div className="text-[12px] mt-0.5">
+                  <div className="text-second mt-0.5">
                     {apercu.non_inscrits.slice(0, 6).join(' · ')}
                   </div>
                 </div>

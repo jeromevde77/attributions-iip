@@ -52,7 +52,7 @@ export default function CompositionSection({ sectionCode, data, choix, onChoix, 
   const basculer = n => onChoix(s => { const x = new Set(s); x.has(n) ? x.delete(n) : x.add(n); return x; });
   const toutLeGroupe = (lst, oui) => onChoix(s => { const x = new Set(s); lst.filter(u => !principale(u)).forEach(u => (oui ? x.add(u.ue_num) : x.delete(u.ue_num))); return x; });
 
-  if (!data) return <p className="text-[13px] text-slate-400">Chargement des UE…</p>;
+  if (!data) return <p className="text-sm text-slate-400">Chargement des UE…</p>;
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -65,16 +65,16 @@ export default function CompositionSection({ sectionCode, data, choix, onChoix, 
             title={troncCommun.map(u => u.ue_num).join(', ')}>
             {tcCoche ? `Retirer le tronc commun (${troncCommun.length})` : `Cocher le tronc commun (${troncCommun.length} UE)`}</button>
         )}
-        <label className="flex items-center gap-1.5 text-[12px] text-slate-600 cursor-pointer">
+        <label className="flex items-center gap-1.5 text-second text-slate-600 cursor-pointer">
           <input type="checkbox" checked={seulesCochees} onChange={e => setSeulesCochees(e.target.checked)} /> seulement les UE comprises
         </label>
-        <span className="ml-auto text-[12px] text-slate-600"><b className="text-iip-texte">{retenues.length}</b> UE comprises · <b className="text-iip-texte">{ects}</b> ECTS</span>
+        <span className="ml-auto text-second text-slate-600"><b className="text-iip-texte">{retenues.length}</b> UE comprises · <b className="text-iip-texte">{ects}</b> ECTS</span>
       </div>
       {groupes.map(g => {
         const aelle = g.section === sectionCode;
         return (
           <div key={g.section} className="border border-slate-200 rounded-carte overflow-hidden">
-            <div className="tab-entete px-3 py-1.5 text-[12px] font-semibold text-slate-700 flex items-center gap-2">
+            <div className="tab-entete px-3 py-1.5 text-second font-semibold text-slate-700 flex items-center gap-2">
               {aelle ? `${g.section} — ses propres UE, comprises d'office` : `UE de ${g.section}`}
             </div>
             <div className="divide-y divide-slate-100">
@@ -82,7 +82,7 @@ export default function CompositionSection({ sectionCode, data, choix, onChoix, 
                 const tous = lst.every(coche);
                 return (
                   <div key={bloc} className="bg-white">
-                    <div className="px-3 pt-2 pb-1 flex items-center gap-2 text-[11px] font-semibold text-slate-500">
+                    <div className="px-3 pt-2 pb-1 flex items-center gap-2 text-xs font-semibold text-slate-500">
                       <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: couleurBloc(bloc) || '#D8DCE4' }} />
                       {bloc}
                       {!aelle && !lecture && (
@@ -95,12 +95,12 @@ export default function CompositionSection({ sectionCode, data, choix, onChoix, 
                         const c = coche(u);
                         return (
                           <label key={u.ue_num}
-                            className={`flex items-start gap-2 rounded-champ border px-2.5 py-1.5 text-[12.5px] ${aelle || lecture ? '' : 'cursor-pointer hover:border-slate-400'}`}
+                            className={`flex items-start gap-2 rounded-champ border px-2.5 py-1.5 text-second ${aelle || lecture ? '' : 'cursor-pointer hover:border-slate-400'}`}
                             style={{ borderColor: c ? 'var(--c-principal)' : '#E4E7EC' }}>
                             <input type="checkbox" className="mt-0.5" checked={c} disabled={aelle || lecture} onChange={() => basculer(u.ue_num)} />
                             <span className="min-w-0 flex-1">
                               <b className="text-iip-texte tabular-nums">{u.ue_num}</b> <span className="text-slate-700">{u.ue_nom}</span>
-                              <span className="block text-[11px] text-slate-500">
+                              <span className="block text-xs text-slate-500">
                                 {[u.ects ? `${u.ects} ECTS` : null, u.ue_per_total ? `${u.ue_per_total} pér.` : null].filter(Boolean).join(' · ')}
                                 {String(u.ue_tc).toLowerCase() === 'x' && <span className="ml-1.5 font-semibold text-slate-600">tronc commun</span>}
                                 {u.autres_sections?.filter(s => s !== g.section).length > 0 && (
@@ -118,7 +118,7 @@ export default function CompositionSection({ sectionCode, data, choix, onChoix, 
           </div>
         );
       })}
-      {!groupes.length && <p className="text-[13px] text-slate-500">Aucune UE ne correspond.</p>}
+      {!groupes.length && <p className="text-sm text-slate-500">Aucune UE ne correspond.</p>}
     </div>
   );
 }

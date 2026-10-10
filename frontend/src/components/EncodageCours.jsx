@@ -179,18 +179,18 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
       <div className="h-full -mx-5 flex flex-col">
         <div className="flex-none px-5 pb-3">
           <div className="flex items-center justify-end gap-2">
-            {enAttente > 0 && <span className="text-[12px] text-slate-400">enregistrement…</span>}
+            {enAttente > 0 && <span className="text-second text-slate-400">enregistrement…</span>}
             {/* Les acquis viennent d'un tableur : autant les y lire. */}
             <button onClick={() => setImporter(true)}
               title="Importer les acquis de ce cours depuis un classeur Excel"
-              className="px-2.5 py-1 text-[12px] rounded-lg border border-slate-300
+              className="px-2.5 py-1 text-second rounded-lg border border-slate-300
                          text-slate-600 flex items-center gap-1.5">
               <IconFileSpreadsheet size={14} /> Importer les acquis
             </button>
             <div className="segments">
               {[1, 2].map(s => (
                 <button key={s} onClick={() => setSession(s)}
-                  className={`px-3 py-1 text-[12px] font-semibold ${session === s
+                  className={`px-3 py-1 text-second font-semibold ${session === s
                     ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'}`}>
                   Session {s}
                 </button>
@@ -210,11 +210,11 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
         <div className="flex-1 overflow-y-auto p-5 space-y-3">
           {erreur && (
             <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200
-                            text-[13px] text-red-800">{erreur}</div>
+                            text-sm text-red-800">{erreur}</div>
           )}
 
           {propositions.length > 0 && (
-            <div className="px-3 py-2 rounded-lg bg-iip-turquoise/10 border border-iip-turquoise/40 text-[12.5px] text-iip-blue">
+            <div className="px-3 py-2 rounded-lg bg-iip-turquoise/10 border border-iip-turquoise/40 text-second text-iip-blue">
               <div className="flex items-center gap-2 flex-wrap">
                 <b>{propositions.length} note(s) proposée(s) par le professeur</b>
                 <span className="text-slate-500">(depuis « Mes cours »)</span>
@@ -222,7 +222,7 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
                   {repriseEnCours ? '…' : 'Reprendre les propositions'}
                 </button>
               </div>
-              {repriseFaite && <div className="text-[12px] text-emerald-800 mt-1">Reprises : {repriseFaite.a_poser} posée(s), {repriseFaite.remplacees} remplacée(s), {repriseFaite.identiques} déjà identique(s).</div>}
+              {repriseFaite && <div className="text-second text-emerald-800 mt-1">Reprises : {repriseFaite.a_poser} posée(s), {repriseFaite.remplacees} remplacée(s), {repriseFaite.identiques} déjà identique(s).</div>}
               <span className="block mt-0.5">
                 {Object.values(propositions.reduce((m, p) => {
                   const k = p.etudiant_id;
@@ -240,7 +240,7 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
             <Fenetre titre="Reprendre les propositions du professeur" large="grande" onFermer={() => setReprise(null)}
               sous={`${coursCode} · session ${reprise.session} · ${reprise.annee} — rien n'est écrit avant de confirmer`}
               pied={<>
-                <span className="flex-1 min-w-0 text-[12px] text-slate-500">
+                <span className="flex-1 min-w-0 text-second text-slate-500">
                   {reprise.a_poser + aRemplacer.size} note(s) seront écrites ; {reprise.identiques} déjà identique(s) seront pointées.
                 </span>
                 <button className="bouton" onClick={() => setReprise(null)}>Annuler</button>
@@ -248,18 +248,18 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
                   {repriseEnCours ? '…' : `Reprendre ${reprise.a_poser + aRemplacer.size} note(s)`}
                 </button>
               </>}>
-              <div className="space-y-3 text-[13px]">
+              <div className="space-y-3 text-sm">
                 <div className="grid grid-cols-4 gap-2">
-                  <div data-etat="disponible" className="bloc-etat px-3 py-2"><div className="text-[17px] font-bold">{reprise.a_poser}</div><div className="text-[11px] text-slate-500">cases vides, à poser</div></div>
-                  <div data-etat="reussi" className="bloc-etat px-3 py-2"><div className="text-[17px] font-bold">{reprise.identiques}</div><div className="text-[11px] text-slate-500">déjà identiques</div></div>
-                  <div data-etat="surveiller" className="bloc-etat px-3 py-2"><div className="text-[17px] font-bold">{reprise.differentes.length}</div><div className="text-[11px] text-slate-500">différentes de l'officiel</div></div>
-                  <div data-etat="neutre" className="bloc-etat px-3 py-2"><div className="text-[17px] font-bold">{reprise.ignorees.length}</div><div className="text-[11px] text-slate-500">non reprises</div></div>
+                  <div data-etat="disponible" className="bloc-etat px-3 py-2"><div className="text-lg font-bold">{reprise.a_poser}</div><div className="text-xs text-slate-500">cases vides, à poser</div></div>
+                  <div data-etat="reussi" className="bloc-etat px-3 py-2"><div className="text-lg font-bold">{reprise.identiques}</div><div className="text-xs text-slate-500">déjà identiques</div></div>
+                  <div data-etat="surveiller" className="bloc-etat px-3 py-2"><div className="text-lg font-bold">{reprise.differentes.length}</div><div className="text-xs text-slate-500">différentes de l'officiel</div></div>
+                  <div data-etat="neutre" className="bloc-etat px-3 py-2"><div className="text-lg font-bold">{reprise.ignorees.length}</div><div className="text-xs text-slate-500">non reprises</div></div>
                 </div>
                 {!!reprise.differentes.length && (
                   <div>
-                    <div className="text-[12px] font-semibold mb-1">Notes qui diffèrent — cochez celles à remplacer par la proposition</div>
-                    <table className="w-full text-[12px]">
-                      <thead className="tab-entete"><tr className="text-left text-[11px] text-slate-500"><th className="px-2 py-1 w-8"></th><th className="px-2 py-1">Étudiant</th><th className="px-2 py-1">Acquis</th><th className="px-2 py-1 text-right">Officiel</th><th className="px-2 py-1 text-right">Proposé</th></tr></thead>
+                    <div className="text-second font-semibold mb-1">Notes qui diffèrent — cochez celles à remplacer par la proposition</div>
+                    <table className="w-full text-second">
+                      <thead className="tab-entete"><tr className="text-left text-xs text-slate-500"><th className="px-2 py-1 w-8"></th><th className="px-2 py-1">Étudiant</th><th className="px-2 py-1">Acquis</th><th className="px-2 py-1 text-right">Officiel</th><th className="px-2 py-1 text-right">Proposé</th></tr></thead>
                       <tbody>{reprise.differentes.map(d => { const k = `${d.etudiant_id}|${d.aa_code}`; return (
                         <tr key={k} className="border-t border-slate-100">
                           <td className="px-2 py-1"><input type="checkbox" checked={aRemplacer.has(k)} onChange={() => setARemplacer(s0 => { const n = new Set(s0); n.has(k) ? n.delete(k) : n.add(k); return n; })} /></td>
@@ -270,7 +270,7 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
                   </div>
                 )}
                 {!!reprise.ignorees.length && (
-                  <div className="text-[12px] text-slate-500">
+                  <div className="text-second text-slate-500">
                     <b>Non reprises :</b> {reprise.ignorees.slice(0, 20).map(x => `${x.etudiant} ${x.aa_code || ''} (${x.raison})`).join(' · ')}{reprise.ignorees.length > 20 ? ` · et ${reprise.ignorees.length - 20} autres` : ''}
                   </div>
                 )}
@@ -284,7 +284,7 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
             /* L'unité est évaluée par une épreuve commune : encoder ici, cours
                par cours, n'aurait pas de sens — la note est celle de l'unité. */
             <div className="px-4 py-6 rounded-xl bg-violet-50 border border-violet-200
-                            text-[13px] text-violet-900 space-y-1">
+                            text-sm text-violet-900 space-y-1">
               <div className="font-semibold">Épreuve intégrée d'unité</div>
               <p>
                 Cette unité est évaluée par une épreuve commune à ses professeurs.
@@ -297,7 +297,7 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
             /* Le cas de vos UE actuelles : sans lien cours↔acquis, il n'y a
                rien à saisir, et le dire vaut mieux qu'une grille vide. */
             <div className="px-4 py-6 rounded-xl bg-amber-50 border border-amber-200
-                            text-[13px] text-amber-900 space-y-1">
+                            text-sm text-amber-900 space-y-1">
               <div className="font-semibold flex items-center gap-1.5">
                 <IconAlertTriangle size={16} /> Aucun acquis rattaché à ce cours
               </div>
@@ -308,13 +308,13 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
               </p>
               <div className="flex flex-wrap gap-2 mt-1">
                 <button onClick={() => setImporter(true)}
-                  className="px-3 py-1.5 text-[13px] rounded-lg bg-iip-blue
+                  className="px-3 py-1.5 text-sm rounded-lg bg-iip-blue
                              text-white font-semibold flex items-center gap-1.5">
                   <IconFileSpreadsheet size={14} /> Importer les acquis depuis Excel
                 </button>
                 {onParametrer && (
                   <button onClick={() => onParametrer(data.cours.ue_num)}
-                    className="px-3 py-1.5 text-[13px] rounded-lg border border-iip-blue
+                    className="px-3 py-1.5 text-sm rounded-lg border border-iip-blue
                                text-iip-blue font-semibold">
                     Les relier à la main
                   </button>
@@ -325,7 +325,7 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
             <>
               {data.sans_ponderation && (
                 <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
-                                text-[12px] text-amber-900">
+                                text-second text-amber-900">
                   Ces acquis n'ont pas de pondération dans ce cours : la note du cours
                   sera la moyenne simple de ses acquis.
                 </div>
@@ -336,19 +336,19 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
                   <IconSearch size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input value={recherche} onChange={e => setRecherche(e.target.value)}
                     placeholder="Filtrer un étudiant…"
-                    className="w-full border border-slate-300 rounded-lg pl-7 pr-2 py-1 text-[13px]" />
+                    className="w-full border border-slate-300 rounded-lg pl-7 pr-2 py-1 text-sm" />
                 </div>
               </div>
 
               <div className="overflow-x-auto">
                 <table ref={grille} onKeyDown={ev => naviguerGrille(ev, grille.current)}
-                  className="text-[12px] border-collapse">
+                  className="text-second border-collapse">
                   <thead>
                     <tr>
                       <th className="sticky left-0 bg-white text-left px-3 py-1.5
                                      border-b border-r border-slate-200 min-w-[180px]">Étudiant</th>
                       <th className="px-2 py-1.5 border-b border-r border-slate-200
-                                     text-[10px] text-slate-500 font-semibold uppercase
+                                     text-mention text-slate-500 font-semibold uppercase
                                      tracking-wide w-24" title="Épreuve non présentée">
                         Épreuve
                       </th>
@@ -356,10 +356,10 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
                         <th key={a.aa_code}
                           title={a.description || ''}
                           className="px-2 py-1.5 border-b border-slate-200 font-mono
-                                     text-[11px] text-slate-600 whitespace-nowrap">
+                                     text-xs text-slate-600 whitespace-nowrap">
                           {a.aa_code}
                           {a.poids != null && (
-                            <span className="block font-sans text-[10px] text-slate-400">
+                            <span className="block font-sans text-mention text-slate-400">
                               poids {Math.round(a.poids)}
                             </span>
                           )}
@@ -377,7 +377,7 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
                         <td className="sticky left-0 bg-white px-3 py-1
                                        border-b border-r border-slate-100">
                           <div className="font-semibold text-iip-blue truncate">{e.nom}</div>
-                          <div className="text-[11px] text-slate-500 truncate">{e.prenom}</div>
+                          <div className="text-xs text-slate-500 truncate">{e.prenom}</div>
                         </td>
                         {/* NP / PP : la raison d'un zéro, posée sur l'épreuve
                             entière et non sur un acquis. */}
@@ -391,7 +391,7 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
                                   title={m === 'NP'
                                     ? 'Note de présence — présent, rien qui vaille un point. Zéro, seconde session ouverte.'
                                     : "Pas présenté — absent à l'épreuve. Zéro ; le Conseil appréciera la justification."}
-                                  className={`px-1.5 py-0.5 text-[11px] font-bold
+                                  className={`px-1.5 py-0.5 text-xs font-bold
                                     ${actif
                                       ? (m === 'NP' ? 'bg-amber-500 text-white' : 'bg-red-600 text-white')
                                       : 'bg-white text-slate-400 hover:text-slate-600'}`}>
@@ -408,7 +408,7 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
                           return (
                             <td key={a.aa_code} className="px-1 py-1 border-b border-slate-100 text-center">
                               {men ? (
-                                <span className={`inline-block w-16 py-1 rounded-lg text-[12px]
+                                <span className={`inline-block w-16 py-1 rounded-lg text-second
                                   font-bold ${men === 'NP'
                                     ? 'bg-amber-500 text-white border border-amber-500'
                                     : 'bg-red-500 text-white border border-red-500'}`}>
@@ -423,7 +423,7 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
                                     const avant = v == null ? '' : String(v);
                                     if (brut !== avant) poser(e.id, a.aa_code, brut);
                                   }}
-                                  className={`w-16 border rounded-lg px-1.5 py-1 text-[13px]
+                                  className={`w-16 border rounded-lg px-1.5 py-1 text-sm
                                               text-center tabular-nums ${tonNote(v)}`} />
                               )}
                             </td>
@@ -435,7 +435,7 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
                 </table>
               </div>
 
-              <p className="text-[12px] text-slate-500">
+              <p className="text-second text-slate-500">
                 <b>NP</b> — note de présence : l'étudiant s'est présenté sans rien
                 produire qui vaille un point. <b>PP</b> — pas présenté à l'épreuve.
                 Les deux valent zéro sur tous les acquis du cours, à la différence

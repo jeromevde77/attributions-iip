@@ -117,7 +117,7 @@ function BadgeVersion({ versionIsNew, versionDecalee, verServeurNum }) {
            la surface des menus. ET IL DIT LES DEUX MOITIÉS : compilé dans
            l'image du frontend, il ne parlait que de nginx ; le backend se
            déploie à part, et l'écart doit se voir sans qu'on le cherche. */
-        className={`relative pastille-version font-semibold text-[11px] inline-flex ${versionIsNew ? 'version-badge-new' : ''}
+        className={`relative pastille-version font-semibold text-xs inline-flex ${versionIsNew ? 'version-badge-new' : ''}
           ${versionDecalee ? 'ring-1 ring-[#B45309]' : ''}`}
         title={versionDecalee ? 'Écart de déploiement — cliquer pour le détail' : 'Version — cliquer pour le détail'}>
         v{versionNum}
@@ -130,14 +130,14 @@ function BadgeVersion({ versionIsNew, versionDecalee, verServeurNum }) {
         )}
       </button>
       {ouvert && (
-        <div className="absolute right-0 top-full mt-1.5 z-50 w-64 bg-white border border-slate-200 rounded-carte shadow-flottant p-3 text-[12px] text-slate-600 space-y-1">
+        <div className="absolute right-0 top-full mt-1.5 z-50 w-64 bg-white border border-slate-200 rounded-carte shadow-flottant p-3 text-second text-slate-600 space-y-1">
           <div className="flex justify-between"><span>Écran</span><b className="text-iip-blue tabular-nums">v{versionNum}</b></div>
           <div className="flex justify-between"><span>Serveur</span><b className={`tabular-nums ${versionDecalee ? 'text-[#B45309]' : 'text-iip-blue'}`}>{verServeurNum ? `v${verServeurNum}` : '—'}</b></div>
           {shaOnly && <div className="flex justify-between"><span>Construction</span><span className="tabular-nums">{shaOnly}</span></div>}
           <div className="flex justify-between"><span>Construit le</span><span className="tabular-nums">{buildLabel}</span></div>
           <div className="flex justify-between border-t border-slate-100 pt-1"><span>Maintenant</span><BuildBadge /></div>
           {versionDecalee && (
-            <p className="text-[11px] text-[#B45309] pt-1 leading-snug">Une moitié n'a pas été remplacée : docker compose up -d --force-recreate.</p>
+            <p className="text-xs text-[#B45309] pt-1 leading-snug">Une moitié n'a pas été remplacée : docker compose up -d --force-recreate.</p>
           )}
         </div>
       )}
@@ -218,10 +218,10 @@ function VoirCommePicker() {
     <div className="relative">
       <button onClick={ouvrir} title="Voir Lucie comme un autre profil"
         className="pastille-compte hover:text-iip-blue flex items-center gap-1">
-        {initialesDe(u)} <span className="text-[10px] text-slate-400">▾</span>
+        {initialesDe(u)} <span className="text-mention text-slate-400">▾</span>
       </button>
       {open && (
-        <div className="absolute right-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-xl z-50 max-h-80 overflow-auto">
+        <div className="absolute right-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-dessus z-50 max-h-80 overflow-auto">
           <div className="px-3 py-2 text-xs text-gray-500 border-b flex items-center justify-between">
             <span>Voir comme…</span>
             <button onClick={() => setOpen(false)} className="text-gray-300 hover:text-gray-500">×</button>
@@ -231,7 +231,7 @@ function VoirCommePicker() {
             <button key={p.id} onClick={() => voir(p.id)}
               className="w-full text-left px-3 py-1.5 text-sm hover:bg-iip-turquoise/10 flex items-center justify-between">
               <span className="truncate">{p.nom_complet || p.email}</span>
-              <span className="text-[10px] text-gray-400 flex-shrink-0 ml-2">{p.role}</span>
+              <span className="text-mention text-gray-400 flex-shrink-0 ml-2">{p.role}</span>
             </button>
           ))}
           {!profils.length && !err && <div className="px-3 py-2 text-xs text-gray-400">Chargement…</div>}
@@ -630,7 +630,7 @@ function ProtectedLayout({ children }) {
                    garde la pastille du rail, élargie à son nom. */
                 data-case-rail={undefined}
                 className={({ isActive }) =>
-                `relative flex items-center gap-2 h-9 rounded-carte text-[13px] whitespace-nowrap flex-shrink-0
+                `relative flex items-center gap-2 h-9 rounded-carte text-sm whitespace-nowrap flex-shrink-0
                  transition-colors duration-150 ease-ios ${
                   isActive ? 'font-semibold ring-1 ring-inset px-3' : nomsVisibles ? 'px-3 case-barre' : 'w-9 justify-center case-barre'
                 }`
@@ -642,7 +642,7 @@ function ProtectedLayout({ children }) {
                 <span className="relative flex-shrink-0">
                   {Icon && <Icon size={19} stroke={1.8} style={{ color: location.pathname.startsWith(to) ? 'var(--menu-accent)' : 'var(--menu-icone)' }} />}
                   {to === '/accueil' && nbNotifs > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-iip-turquoise rounded-full text-[10px] text-white flex items-center justify-center font-bold">
+                    <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-iip-turquoise rounded-full text-mention text-white flex items-center justify-center font-bold">
                       {nbNotifs > 9 ? '9+' : nbNotifs}
                     </span>
                   )}
@@ -657,7 +657,7 @@ function ProtectedLayout({ children }) {
                   style={{ borderColor: '#16406A' }}>
                   {sousMenu.items.map(it => (
                     <button key={it.key} type="button" onClick={() => sousMenu.onChoisir?.(it.key)}
-                      className={`whitespace-nowrap px-2 py-1.5 rounded-champ text-[12px] transition-colors duration-150 ${
+                      className={`whitespace-nowrap px-2 py-1.5 rounded-champ text-second transition-colors duration-150 ${
                         it.actif ? 'font-semibold text-iip-texte bg-slate-100' : 'text-slate-500 hover:text-iip-texte hover:bg-slate-50'}`}>
                       {it.label}
                     </button>
@@ -670,7 +670,7 @@ function ProtectedLayout({ children }) {
           {/* La bulle du nom, rendue au-dessus de tout : posée dans la barre,
               elle passait sous le contenu de la page. */}
           {bulleNav && !location.pathname.startsWith(nav.find(([, l]) => l === bulleNav.lbl)?.[0] || '§') && createPortal(
-            <span className="pointer-events-none fixed z-[100] -translate-x-1/2 whitespace-nowrap rounded-champ text-white text-[11.5px] font-medium px-2 py-0.5 shadow-flottant"
+            <span className="pointer-events-none fixed z-[100] -translate-x-1/2 whitespace-nowrap rounded-champ text-white text-xs font-medium px-2 py-0.5 shadow-flottant"
               style={{ left: bulleNav.x, top: bulleNav.y, background: '#16406A' }}>{bulleNav.lbl}</span>, document.body)}
 
           {/* User info + version */}
@@ -690,7 +690,7 @@ function ProtectedLayout({ children }) {
               {mode === 'sombre' ? <IconSun size={16} /> : <IconMoon size={16} />}
             </button>
             {import.meta.env.VITE_DEMO_MODE === 'true' && (
-              <span className="bg-orange-500 text-white font-bold px-2.5 py-0.5 rounded-md text-[11px] tracking-widest uppercase animate-pulse">
+              <span className="bg-orange-500 text-white font-bold px-2.5 py-0.5 rounded-md text-xs tracking-widest uppercase animate-pulse">
                 DÉMO
               </span>
             )}
@@ -700,7 +700,7 @@ function ProtectedLayout({ children }) {
                 octobre 2026) : le bandeau rayé prenait une ligne à chaque écran
                 et poussait la barre. Orange plein, le mot et l'icône. */}
             {env === 'dev' && (
-              <span className="hidden md:inline-flex items-center gap-1.5 h-8 px-3 rounded-champ text-white font-bold text-[11px] tracking-[.08em]"
+              <span className="hidden md:inline-flex items-center gap-1.5 h-8 px-3 rounded-champ text-white font-bold text-xs tracking-[.08em]"
                 style={{ background: 'var(--c-attente, #E8890C)' }}
                 title="Version de développement — données de test">
                 <IconFlask size={16} stroke={2} /> DEV
@@ -715,7 +715,7 @@ function ProtectedLayout({ children }) {
                 même hauteur, sur le même axe que le mode et la version. */}
             <span className="flex items-center gap-2">
               <VoirCommePicker />
-              <span className="text-[11px] text-iip-turquoise font-semibold uppercase tracking-wide
+              <span className="text-xs text-iip-turquoise font-semibold uppercase tracking-wide
                                hidden sm:inline" title={u?.role}>
                 {ROLE_COURT[u?.role] || u?.role}
               </span>

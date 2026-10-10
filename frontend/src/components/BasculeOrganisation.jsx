@@ -30,8 +30,8 @@ function Bilan({ d, projetees, orgs }) {
   const deCours = code => l => (code ? l.code_cours === code : !d.cours.some(c => c.cours_code === l.code_cours));
   return (
     <div className="border border-slate-200 rounded-carte overflow-x-auto">
-      <table className="w-full text-[12px]">
-        <thead className="tab-entete"><tr className="text-left text-[11px] text-slate-500">
+      <table className="w-full text-second">
+        <thead className="tab-entete"><tr className="text-left text-xs text-slate-500">
           <th className="px-2 py-1">Cours</th><th className="px-2 py-1 text-right">Prévu au DP</th>
           {orgs.map(n => <th key={n} className="px-2 py-1 text-right">Org. {n}</th>)}
           <th className="px-2 py-1 text-right">Total</th></tr></thead>
@@ -164,7 +164,7 @@ export default function BasculeOrganisation({ ueNum, onClose, onFait }) {
       titre={`Répartir entre organisations — UE ${ueNum}`}
       sous={`${d?.ue_nom || ''} · ${annee} — rien n’est effacé ; rien ne s’écrit avant « Enregistrer »`}
       pied={<>
-        <span className="flex-1 min-w-0 text-[12px] text-slate-500">
+        <span className="flex-1 min-w-0 text-second text-slate-500">
           {!aChanger ? 'Recopiez des groupes vers l’organisation cible, ajustez les périodes (0 permis), ou cochez une ligne à déplacer.'
             : verifValide ? (verif.controles.length ? `${verif.controles.length} point(s) signalé(s) ci-dessus — vous pouvez enregistrer quand même.` : 'Tout tombe juste.')
               : `${aChanger} changement(s) en attente — vérifiez d’abord.`}
@@ -173,7 +173,7 @@ export default function BasculeOrganisation({ ueNum, onClose, onFait }) {
         <button className="bouton" disabled={!aChanger || !section || !cible || enCours} onClick={verifier}>Vérifier</button>
         <button className="bouton bouton-fort" disabled={!verifValide || enCours} onClick={enregistrer}>{enCours ? '…' : 'Enregistrer'}</button>
       </>}>
-      <div className="space-y-3 text-[13px]">
+      <div className="space-y-3 text-sm">
         {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2">{erreur}</div>}
         {fait && <div data-etat="reussi" className="bloc-etat px-3 py-2"><b>Enregistré :</b> {fait.creees} copie(s), {fait.modifiees} ligne(s) modifiée(s), {fait.deplacees} déplacée(s)
           {fait.organisation_ouverte ? ' — l’organisation a été ouverte : ses dates se posent dans « Organisations (Doc A) »' : ''}.</div>}
@@ -186,26 +186,26 @@ export default function BasculeOrganisation({ ueNum, onClose, onFait }) {
               </select>
               <span className="text-slate-600">n°</span>
               <input type="number" min="1" className="controle w-20" value={org} onChange={e => setOrg(e.target.value)} />
-              <span className="text-[12px] text-slate-500">
+              <span className="text-second text-slate-500">
                 Existantes : {d.organisations.map(o => `${o.num} (${o.sections.join(', ') || '—'})`).join(' · ') || 'aucune'}
               </span>
             </div>
             <Bilan d={d} projetees={projetees} orgs={orgs} />
             {verifValide && verif.controles.length > 0 && (
-              <div data-etat="surveiller" className="bloc-etat px-3 py-2 text-[12px]">
+              <div data-etat="surveiller" className="bloc-etat px-3 py-2 text-second">
                 {verif.controles.map((c, i) => <div key={i}>{c.texte}</div>)}
               </div>
             )}
             {verifValide && !verif.controles.length && (
-              <div data-etat="reussi" className="bloc-etat px-3 py-2 text-[12px]">Chaque cours tombe sur un multiple du DP dans chaque organisation, l’organisation {cible} a un groupe de chaque cours et sa part d’autonomie.</div>
+              <div data-etat="reussi" className="bloc-etat px-3 py-2 text-second">Chaque cours tombe sur un multiple du DP dans chaque organisation, l’organisation {cible} a un groupe de chaque cours et sa part d’autonomie.</div>
             )}
             {groupes.map(g => (
               <div key={`${g.num}|${g.section}`} className="border border-slate-200 rounded-carte overflow-x-auto">
-                <div className="tab-entete px-3 py-1.5 text-[12px] font-semibold text-slate-700">
+                <div className="tab-entete px-3 py-1.5 text-second font-semibold text-slate-700">
                   Organisation {g.num} — {g.section || 'sans section'} <span className="font-normal text-slate-500">· {g.lignes.length} ligne(s)</span>
                 </div>
-                <table className="w-full text-[12px]">
-                  <thead className="tab-entete"><tr className="text-left text-[11px] text-slate-500">
+                <table className="w-full text-second">
+                  <thead className="tab-entete"><tr className="text-left text-xs text-slate-500">
                     <th className="px-2 py-1 w-10" title="Déplacer la ligne vers l’organisation cible">Dépl.</th>
                     <th className="px-2 py-1">Cours</th><th className="px-2 py-1">Activité</th>
                     <th className="px-2 py-1">Enseignant</th><th className="px-2 py-1">Contrat</th>
@@ -217,7 +217,7 @@ export default function BasculeOrganisation({ ueNum, onClose, onFait }) {
                           <input type="checkbox" checked={deplace.has(l.id)} title="Déplacer vers l’organisation cible"
                             onChange={() => setDeplace(s => { const n = new Set(s); n.has(l.id) ? n.delete(l.id) : n.add(l.id); return n; })} />)}</td>
                         <td className="px-2 py-1 whitespace-nowrap"><b>{l.code_cours || '—'}</b> <span className="text-slate-500">{l.cours_nom || ''}</span>
-                          {l.copie && <span className="ml-1.5 text-[11px] text-slate-500 border border-slate-200 rounded-champ px-1">copie</span>}</td>
+                          {l.copie && <span className="ml-1.5 text-xs text-slate-500 border border-slate-200 rounded-champ px-1">copie</span>}</td>
                         <td className="px-2 py-1 text-slate-600">{l.activite_nom || l.type_cours || ''}{l.code && l.code !== 'Ts' ? ` · gr. ${l.code}` : l.num_groupe ? ` · gr. ${l.num_groupe}` : ''}</td>
                         <td className="px-2 py-1">{nomDe(l)}</td>
                         <td className="px-2 py-1 text-slate-500">{l.contrat_mdp || ''}</td>
@@ -227,7 +227,7 @@ export default function BasculeOrganisation({ ueNum, onClose, onFait }) {
                           {l.copie
                             ? <button className="text-slate-400 hover:text-slate-700" title="Retirer cette copie" onClick={() => setCopies(cs => cs.filter(c => c.cle !== l.cle))}><IconX size={14} /></button>
                             : cible && l.num_organisation !== cible && (
-                              <button className="bouton h-7 text-[11px]" title={`Recopier ce groupe dans ${section}, organisation ${cible}`} onClick={() => recopier(l)}>
+                              <button className="bouton h-7 text-xs" title={`Recopier ce groupe dans ${section}, organisation ${cible}`} onClick={() => recopier(l)}>
                                 <IconCopy size={13} /> en org. {cible}</button>)}
                         </td>
                       </tr>

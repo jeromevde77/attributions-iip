@@ -36,7 +36,7 @@ export default function PanneauAcquis({ colonnes, ueNum, titre = 'Acquis d’app
         className="flex-none w-9 border-r border-slate-200 bg-slate-50 hover:bg-slate-100
                    flex flex-col items-center gap-2 py-3 text-slate-500">
         <IconListDetails size={16} />
-        <span className="text-[10px] font-semibold tracking-wide"
+        <span className="text-mention font-semibold tracking-wide"
           style={{ writingMode: 'vertical-rl' }}>Acquis</span>
       </button>
     );
@@ -47,7 +47,7 @@ export default function PanneauAcquis({ colonnes, ueNum, titre = 'Acquis d’app
                       overflow-y-auto">
       <div className="sticky top-0 bg-slate-50 border-b border-slate-200 px-3 py-2
                       flex items-center justify-between gap-2">
-        <span className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
+        <span className="text-xs font-bold uppercase tracking-wide text-slate-500">
           {titre}
         </span>
         <button onClick={() => setOuvert(false)} title="Replier"
@@ -59,12 +59,12 @@ export default function PanneauAcquis({ colonnes, ueNum, titre = 'Acquis d’app
       <div className="divide-y divide-slate-200">
         {parCours.map(g => (
           <div key={g.cours_code} className="px-3 py-2">
-            <div className="text-[12px] font-semibold text-iip-blue leading-tight">
+            <div className="text-second font-semibold text-iip-blue leading-tight">
               {g.cours_nom || g.cours_code}
             </div>
-            <div className="text-[10px] text-slate-500 font-mono">{g.cours_code}</div>
+            <div className="text-mention text-slate-500 font-mono">{g.cours_code}</div>
             {g.professeurs && (
-              <div className="text-[10px] text-iip-blue/70 italic">{g.professeurs}</div>
+              <div className="text-mention text-iip-blue/70 italic">{g.professeurs}</div>
             )}
             <ul className="mt-1.5 space-y-1.5">
               {g.acquis.map((a, k) => {
@@ -72,17 +72,17 @@ export default function PanneauAcquis({ colonnes, ueNum, titre = 'Acquis d’app
                 const nouveau = ch && ch !== chapeaux[g.acquis[k - 1]?.aa_code];
                 return [nouveau && (
                   <li key={`${g.cours_code}|${a.aa_code}|ch`}
-                    className="text-[11px] italic text-slate-500 leading-snug pt-0.5">
+                    className="text-xs italic text-slate-500 leading-snug pt-0.5">
                     {ch}
                   </li>
                 ),
                 <li key={`${g.cours_code}|${a.aa_code}`} className="flex gap-1.5">
                   <span className="flex-none mt-px inline-block min-w-[34px] text-center
                                    px-1 py-px rounded bg-white border border-slate-300
-                                   text-[10px] font-bold text-slate-700">
+                                   text-mention font-bold text-slate-700">
                     {a.aa_code}
                   </span>
-                  <span className="text-[11px] text-slate-700 leading-snug">
+                  <span className="text-xs text-slate-700 leading-snug">
                     {a.description || <span className="text-slate-400 italic">
                       énoncé non renseigné — à compléter au référentiel</span>}
                     {a.poids != null && (

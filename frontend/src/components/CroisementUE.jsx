@@ -220,13 +220,13 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
     finally { setEnCours(false); }
   }
 
-  if (erreur && !d) return <p className="text-[13px] text-red-700">{erreur}</p>;
-  if (!d) return <p className="text-[13px] text-slate-400">Chargement…</p>;
+  if (erreur && !d) return <p className="text-sm text-red-700">{erreur}</p>;
+  if (!d) return <p className="text-sm text-slate-400">Chargement…</p>;
 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <p className="text-[12px] text-slate-600 m-0 mr-auto max-w-3xl">
+        <p className="text-second text-slate-600 m-0 mr-auto max-w-3xl">
           Pour chaque cours, cochez les acquis que sert chaque point de son programme. L’enregistrement
           en tire la pondération (étape 2) et le tableau des critères du descriptif (étape 3).
         </p>
@@ -235,10 +235,10 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
             <IconDeviceFloppy size={14} /> Enregistrer
           </button>)}
       </div>
-      {lecture && <p className="text-[12px] text-slate-500 m-0">Lecture seule{d.statut === 'validee' ? ' : le descriptif est validé' : ''}.</p>}
-      {erreur && <p className="text-[12px] flex items-start gap-1.5 m-0" style={{ color: 'var(--c-refuse)' }}><IconAlertTriangle size={14} className="mt-0.5 flex-none" />{erreur}</p>}
+      {lecture && <p className="text-second text-slate-500 m-0">Lecture seule{d.statut === 'validee' ? ' : le descriptif est validé' : ''}.</p>}
+      {erreur && <p className="text-second flex items-start gap-1.5 m-0" style={{ color: 'var(--c-refuse)' }}><IconAlertTriangle size={14} className="mt-0.5 flex-none" />{erreur}</p>}
       {message && (
-        <p className="text-[12px] text-slate-700 flex flex-wrap items-center gap-1.5 m-0"><IconCheck size={14} />{message}
+        <p className="text-second text-slate-700 flex flex-wrap items-center gap-1.5 m-0"><IconCheck size={14} />{message}
           {suivante && <button type="button" className="underline text-iip-blue ml-1" onClick={suivante}>Étape suivante →</button>}</p>)}
 
       {/* LA LÉGENDE DES ACQUIS (Charles, 8 octobre 2026 : « il faut la légende des AA…
@@ -246,8 +246,8 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
           coche au jugé. */}
       {acquis.length > 0 && (
         <section className="rounded-carte border border-slate-200 px-3 py-2">
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">Acquis d’apprentissage de l’unité</div>
-          <dl className="m-0 grid gap-x-4 gap-y-1 text-[12px]" style={{ gridTemplateColumns: 'max-content 1fr' }}>
+          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Acquis d’apprentissage de l’unité</div>
+          <dl className="m-0 grid gap-x-4 gap-y-1 text-second" style={{ gridTemplateColumns: 'max-content 1fr' }}>
             {acquis.map(a => (
               <div key={a.aa_code} className="contents">
                 <dt className="font-semibold text-iip-blue">{a.aa_code}</dt>
@@ -267,12 +267,12 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
         const aActuel = !!actuel[co] && Object.keys(actuel[co]).length > 0;
         return (
           <section key={co} className="rounded-carte border border-slate-200 overflow-hidden">
-            <div className="tab-entete px-3 py-1.5 text-[12px] font-semibold flex flex-wrap items-center gap-2">
+            <div className="tab-entete px-3 py-1.5 text-second font-semibold flex flex-wrap items-center gap-2">
               <span>{co} — {x.cours_nom || ''}</span>
               <span className="font-normal text-slate-500">{pts.length} point(s) du programme · {total} croix</span>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-[12px] border-collapse">
+              <table className="w-full text-second border-collapse">
                 <thead><tr className="tab-entete">
                   <th className="text-left px-3 py-1 font-semibold text-slate-600">Point du programme</th>
                   {acquis.map(a => (
@@ -331,7 +331,7 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
               </table>
             </div>
             {orph.length > 0 && (
-              <p className="text-[11px] text-slate-500 m-0 px-3 py-1.5 border-t border-slate-100">
+              <p className="text-xs text-slate-500 m-0 px-3 py-1.5 border-t border-slate-100">
                 {orph.length} point(s) coché(s) n’existent plus au programme (texte modifié) : leurs croix seront retirées à l’enregistrement.
               </p>)}
           </section>);

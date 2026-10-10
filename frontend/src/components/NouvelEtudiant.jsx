@@ -100,7 +100,7 @@ export default function NouvelEtudiant({ onClose, onCree }) {
           <IconId size={17} /> Lire la carte d'identité
         </button>
         {carte && (
-          <div className="bg-white border border-slate-200 border-l-4 rounded-r-carte px-3 py-2 text-[12.5px]" style={{ borderLeftColor: 'var(--c-reussi, #3E7D5E)' }}>
+          <div className="bg-white border border-slate-200 border-l-4 rounded-r-carte px-3 py-2 text-second" style={{ borderLeftColor: 'var(--c-reussi, #3E7D5E)' }}>
             Carte lue : {[fr(carte.date_naissance) && `né(e) le ${fr(carte.date_naissance)}`, carte.lieu_naissance && `à ${carte.lieu_naissance}`,
               carte.nationalite, carte.num_national && `RN ${carte.num_national}`, [carte.adresse, carte.cp, carte.localite].filter(Boolean).join(' ')]
               .filter(Boolean).join(' · ')} — enregistré avec la fiche.
@@ -115,32 +115,32 @@ export default function NouvelEtudiant({ onClose, onCree }) {
             même jour existent : le serveur signale, le secrétariat tranche. */}
         {doublons && (
           <div className="bg-white border border-slate-200 border-l-4 rounded-r-carte overflow-hidden" style={{ borderLeftColor: 'var(--c-attente, #E8890C)' }}>
-            <div className="px-3 py-2 border-b border-slate-100 text-[12px]">
+            <div className="px-3 py-2 border-b border-slate-100 text-second">
               <b>Un dossier existe déjà pour cette personne.</b> Le recréer couperait son parcours en deux.
             </div>
             <div className="divide-y divide-slate-100">
               {doublons.map(d => (
-                <div key={d.id} className="flex items-center gap-3 px-3 py-2 text-[13px]">
+                <div key={d.id} className="flex items-center gap-3 px-3 py-2 text-sm">
                   <span className="flex-1 min-w-0">
                     <b>{(d.nom || '').toUpperCase()} {d.prenom}</b>
-                    <span className="block text-[11px] text-slate-500">
+                    <span className="block text-xs text-slate-500">
                       {d.date_naissance || 'date de naissance inconnue'}{d.email_ecole ? ` · ${d.email_ecole}` : ''}
                     </span>
                   </span>
-                  <button onClick={() => { onCree?.(d.id); onClose?.(); }} className="bouton text-[12px] px-2.5 py-1">Ouvrir ce dossier</button>
+                  <button onClick={() => { onCree?.(d.id); onClose?.(); }} className="bouton text-second px-2.5 py-1">Ouvrir ce dossier</button>
                 </div>
               ))}
             </div>
             <div className="px-3 py-2 border-t border-slate-100">
-              <button onClick={() => creer(true)} disabled={enCours} className="text-[12px] text-iip-texte hover:underline">
+              <button onClick={() => creer(true)} disabled={enCours} className="text-second text-iip-texte hover:underline">
                 Ce n'est pas la même personne — créer quand même
               </button>
             </div>
           </div>
         )}
 
-        {erreur && <div className="text-[12px]" style={{ color: 'var(--c-refuse, #9D4A38)' }}>{erreur}</div>}
-        <p className="text-[11px] text-slate-400">
+        {erreur && <div className="text-second" style={{ color: 'var(--c-refuse, #9D4A38)' }}>{erreur}</div>}
+        <p className="text-xs text-slate-400">
           La fiche s'ouvre aussitôt : adresse, section et programme ({getAnnee()}) s'y complètent.
         </p>
       </div>

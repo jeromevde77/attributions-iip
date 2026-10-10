@@ -132,7 +132,7 @@ function DispoGrid({ base, dispoQ1, setDispoQ1, dispoQ2, setDispoQ2, profId }) {
         <div className="segments flex h-9">
           {['Q1', 'Q2'].map(q => (
             <button key={q} onClick={() => setQ(q)}
-              className={`px-4 text-[12.5px] ${quadrimestre === q ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'}`}>{q}</button>
+              className={`px-4 text-second ${quadrimestre === q ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'}`}>{q}</button>
           ))}
         </div>
         <LegendeDispo />
@@ -141,7 +141,7 @@ function DispoGrid({ base, dispoQ1, setDispoQ1, dispoQ2, setDispoQ2, profId }) {
         <button onClick={sauvegarder} disabled={saving} className="bouton bouton-fort !h-8">
           {saving ? 'Sauvegarde…' : saved ? '✓ Enregistré' : `Enregistrer ${quadrimestre}`}</button>
       </div>
-      <p className="text-[12px] text-slate-500">Un clic fait tourner la case : vert disponible, orange éventuellement, rouge pas disponible. Cet agenda, posé sur les blocs de l’école, vaut pour toutes les sections où il enseigne.</p>
+      <p className="text-second text-slate-500">Un clic fait tourner la case : vert disponible, orange éventuellement, rouge pas disponible. Cet agenda, posé sur les blocs de l’école, vaut pour toutes les sections où il enseigne.</p>
       <AgendaSemaine base={base} jours={[...new Set(base.map(c => c.jour))].sort()} valeur={(j, c) => dispo[`${j}|${c.debut}`] ?? 1} onCase={changer} />
     </div>
   );
@@ -406,7 +406,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
     return (
       <Fenetre titre="Fiche du personnel" sous="Chargement…" large="grande"
         onFermer={onClose}>
-        <div className="py-10 text-center text-[13px] text-slate-400">Chargement…</div>
+        <div className="py-10 text-center text-sm text-slate-400">Chargement…</div>
       </Fenetre>
     );
   }
@@ -444,7 +444,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
           className="bouton bouton-fort disabled:opacity-40">
           {saving ? 'Sauvegarde…' : isNew ? 'Créer la fiche' : 'Enregistrer'}
         </button>
-        <span className="text-[12px] text-slate-500 min-w-0">
+        <span className="text-second text-slate-500 min-w-0">
           {isNew ? 'La fiche est créée à la validation, pas avant.'
             : enregistreA && !touche ? <span className="text-emerald-700">✓ Enregistré à {enregistreA} — vous pouvez continuer ou passer à la fiche voisine.</span>
             : 'Les modifications ne sont enregistrées qu’à la validation.'}
@@ -459,7 +459,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
             <div className="flex-1 min-w-0">
               <div className="text-sm font-semibold text-iip-gold flex items-center gap-1.5">
                 <IconId size={15}/> Pré-remplir depuis la carte eID
-                <span className="text-[10px] font-normal text-gray-400 uppercase tracking-wide">optionnel</span>
+                <span className="text-mention font-normal text-gray-400 uppercase tracking-wide">optionnel</span>
               </div>
               <p className="text-xs text-gray-500 mt-0.5">
                 Lit l'identité et l'adresse via l'app « eID Reader ». Les champs restent modifiables et rien n'est enregistré tant que vous ne validez pas.
@@ -733,7 +733,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
               ouvert={open.nomination} onToggle={() => toggle('nomination')}>
               <div className="mb-3 flex gap-4 flex-wrap">
                 <label className="block">
-                  <span className="text-[11px] text-gray-500">Statut de nomination</span>
+                  <span className="text-xs text-gray-500">Statut de nomination</span>
                   <select value={form.statut_nomination || 'temporaire'} onChange={v => set('statut_nomination', v.target.value)}
                     className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm max-w-xs">
                     <option value="temporaire">Temporaire</option>
@@ -742,7 +742,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
                   </select>
                 </label>
                 <label className="block">
-                  <span className="text-[11px] text-gray-500">Statut HELB (contrat HE)</span>
+                  <span className="text-xs text-gray-500">Statut HELB (contrat HE)</span>
                   <select value={form.statut_helb || ''} onChange={v => set('statut_helb', v.target.value)}
                     className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm max-w-xs">
                     <option value="">— aucun —</option>

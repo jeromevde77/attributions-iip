@@ -89,7 +89,7 @@ export default function RattacherPack({ onClose, onTermine }) {
             </button>
           </>
         )}
-        <span className="text-[12px] text-slate-500 min-w-0">
+        <span className="text-second text-slate-500 min-w-0">
           {fait ? `Fait : ${rapport.nb_a_placer} étudiant(s) placé(s).`
             : !packs ? 'Choisissez le rapport Pack UF.'
               : !simule ? 'Vérifiez les sections, puis simulez : rien ne s’écrit avant.'
@@ -99,7 +99,7 @@ export default function RattacherPack({ onClose, onTermine }) {
       </>}>
       <div className="space-y-3">
         {erreur && (
-          <div className="carte p-3 text-[12px] text-rose-700 flex items-start gap-1.5">
+          <div className="carte p-3 text-second text-rose-700 flex items-start gap-1.5">
             <IconAlertTriangle size={14} className="mt-0.5 flex-none" />{erreur}
           </div>
         )}
@@ -111,12 +111,12 @@ export default function RattacherPack({ onClose, onTermine }) {
           </button>
           <input ref={entree} type="file" accept=".docx" className="hidden"
             onChange={e => { analyser(e.target.files?.[0]); e.target.value = ''; }} />
-          {fichier && <span className="text-[12px] text-slate-500">« {fichier.name} »</span>}
+          {fichier && <span className="text-second text-slate-500">« {fichier.name} »</span>}
         </div>
 
         {packs && (
           <div className="carte overflow-hidden">
-            <table className="w-full text-[13px]">
+            <table className="w-full text-sm">
               <thead>
                 <tr className="tab-entete text-left">
                   <th className="px-3 py-1.5">Pack eCampus</th>
@@ -129,18 +129,18 @@ export default function RattacherPack({ onClose, onTermine }) {
                   <tr key={p.libelle} className="border-t border-slate-100 bg-white">
                     <td className="px-3 py-1.5">
                       {p.libelle}
-                      <div className="text-[11px] text-slate-400">{p.unites.join(' · ')}</div>
+                      <div className="text-xs text-slate-400">{p.unites.join(' · ')}</div>
                     </td>
                     <td className="px-3 py-1.5 tabular-nums">{p.etudiants}</td>
                     <td className="px-3 py-1.5">
                       <select value={corresp[p.libelle] || ''} disabled={fait}
                         onChange={e => setCorresp(c => ({ ...c, [p.libelle]: e.target.value }))}
-                        className="controle text-[13px] w-full">
+                        className="controle text-sm w-full">
                         <option value="">— ne pas placer —</option>
                         {sections.map(s0 => <option key={s0.code} value={s0.code}>{s0.libelle || s0.code}</option>)}
                       </select>
                       {!p.section_proposee && !corresp[p.libelle] && (
-                        <div className="text-[11px] text-iip-texte mt-0.5">Lucie ne sait pas : à choisir.</div>
+                        <div className="text-xs text-iip-texte mt-0.5">Lucie ne sait pas : à choisir.</div>
                       )}
                     </td>
                   </tr>
@@ -152,7 +152,7 @@ export default function RattacherPack({ onClose, onTermine }) {
 
         {rapport && (
           <div className="space-y-2">
-            <div className="text-[11px] uppercase tracking-wide text-slate-500">
+            <div className="text-xs uppercase tracking-wide text-slate-500">
               {rapport.etape === 'simulation' ? 'Simulation — rien n’a été écrit' : 'Effectué'}
             </div>
             <div className="grid grid-cols-4 gap-2">
@@ -163,18 +163,18 @@ export default function RattacherPack({ onClose, onTermine }) {
               ].map(([n, lib, rail]) => (
                 <div key={lib} className="rounded-carte border border-slate-200 bg-white px-3 py-2"
                   style={{ borderLeftWidth: 3, borderLeftColor: rail || 'transparent' }}>
-                  <div className="text-[17px] font-semibold tabular-nums">{n}</div>
-                  <div className="text-[11px] text-slate-500">{lib}</div>
+                  <div className="text-lg font-semibold tabular-nums">{n}</div>
+                  <div className="text-xs text-slate-500">{lib}</div>
                 </div>
               ))}
             </div>
             {Object.keys(rapport.par_section).length > 0 && (
-              <div className="text-[12px] text-slate-600">
+              <div className="text-second text-slate-600">
                 {Object.entries(rapport.par_section).map(([c, n]) => `${libSection(c)} : ${n}`).join(' · ')}
               </div>
             )}
             {rapport.deja_autre.length > 0 && (
-              <details className="text-[12px]">
+              <details className="text-second">
                 <summary className="cursor-pointer text-slate-600">
                   Dans une autre section que celle du rapport ({rapport.deja_autre.length}) — non modifiés
                 </summary>
@@ -186,7 +186,7 @@ export default function RattacherPack({ onClose, onTermine }) {
               </details>
             )}
             {rapport.introuvables.length > 0 && (
-              <details className="text-[12px]">
+              <details className="text-second">
                 <summary className="cursor-pointer text-slate-600">
                   Introuvables dans Lucie ({rapport.introuvables.length}) — à créer d’abord
                 </summary>

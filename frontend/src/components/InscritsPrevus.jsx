@@ -82,7 +82,7 @@ export default function InscritsPrevus({ annee: anneeChoisie = null, onEnregistr
      encore inscrits »). Repliée par défaut ; enregistrer refait la pièce. */
   if (replie) return (
     <details className="px-3 py-2 border-b border-slate-200">
-      <summary className="cursor-pointer text-[13px] text-iip-blue">Inscrits prévus — une section ou une unité sans inscrit encodé</summary>
+      <summary className="cursor-pointer text-sm text-iip-blue">Inscrits prévus — une section ou une unité sans inscrit encodé</summary>
       {contenu()}
     </details>);
   return <div className="carte p-4 mt-4">{contenu()}</div>;
@@ -90,11 +90,11 @@ export default function InscritsPrevus({ annee: anneeChoisie = null, onEnregistr
   function contenu() { return (
     <div className="space-y-3 mt-2">
       <div>
-        <div className="text-[15px] font-medium text-iip-blue">Inscrits prévus — {annee}</div>
-        <p className="text-[12px] text-slate-500">Pour une section ou une unité qui n’a encore aucun inscrit encodé (Optique, par exemple).
+        <div className="text-base font-medium text-iip-blue">Inscrits prévus — {annee}</div>
+        <p className="text-second text-slate-500">Pour une section ou une unité qui n’a encore aucun inscrit encodé (Optique, par exemple).
           Ces chiffres ne servent qu’à la pièce « Rapport statistique », marqués « prévu » ; un inscrit réel l’emporte toujours.</p>
       </div>
-      <div className="flex flex-wrap items-center gap-2 text-[12px] text-slate-600">
+      <div className="flex flex-wrap items-center gap-2 text-second text-slate-600">
         <label className="bouton cursor-pointer">Déposer les pré-inscriptions (.xlsx)
           <input type="file" accept=".xlsx,.xls" className="sr-only" onChange={e => e.target.files?.[0] && lirePreinscriptions(e.target.files[0])} /></label>
         {pi && <span>{pi.fichier} — {Object.values(pi.parSection).reduce((a, b) => a + b, 0)} pré-inscription(s) complète(s)
@@ -105,12 +105,12 @@ export default function InscritsPrevus({ annee: anneeChoisie = null, onEnregistr
         {sections.map(s => <option key={s.code} value={s.code}>{s.libelle || s.code}</option>)}
       </select>
       {d && (
-        <table className="text-[13px] tabular-nums">
+        <table className="text-sm tabular-nums">
           <thead className="tab-entete"><tr><th className="text-left px-2 py-1.5">Unité</th><th className="text-right px-2">Inscrits réels</th><th className="text-right px-2">Prévus</th></tr></thead>
           <tbody>
             <tr className="border-b border-slate-200 font-medium"><td className="px-2 py-1">Section entière (étudiants)</td>
               <td className="px-2 text-right">{d.section_reel || '—'}</td><td className="px-2 text-right">{champ(0, d.section_reel)}</td>
-              {pi && <td className="px-2 text-[12px] text-slate-600 whitespace-nowrap">
+              {pi && <td className="px-2 text-second text-slate-600 whitespace-nowrap">
                 {pi.parSection[section] ? <>pré-inscrits : <b>{pi.parSection[section]}</b>
                   {!d.section_reel && String(valeurs[0] ?? '') !== String(pi.parSection[section]) && (
                     <button type="button" className="ml-2 underline text-iip-blue" onClick={() => setValeurs(v => ({ ...v, 0: String(pi.parSection[section]) }))}>reprendre</button>)}</>
@@ -123,7 +123,7 @@ export default function InscritsPrevus({ annee: anneeChoisie = null, onEnregistr
       {d && (
         <div className="flex items-center gap-3">
           <button type="button" className="bouton bouton-fort" onClick={enregistrer}>Enregistrer</button>
-          {etat && <span className="text-[12px] text-slate-600">{etat}</span>}
+          {etat && <span className="text-second text-slate-600">{etat}</span>}
         </div>)}
     </div>
   ); }

@@ -423,7 +423,7 @@ export default function RepartitionCours() {
     <div className="p-4 space-y-3">
       <div className="flex items-center gap-2 flex-wrap">
         <IconUsersGroup size={18} className="text-iip-turquoise" />
-        <span className="font-semibold text-iip-blue text-[15px]">Répartition des étudiants</span>
+        <span className="font-semibold text-iip-blue text-base">Répartition des étudiants</span>
         <select value={section} onChange={e => setSection(e.target.value)}
           className="border border-gray-300 rounded-champ px-3 py-1.5 text-sm bg-white">
           <option value="">— Choisir une section —</option>
@@ -444,7 +444,7 @@ export default function RepartitionCours() {
             <span className="inline-flex items-center gap-1">
               <button type="button" className="bouton px-2" disabled={i <= 0} onClick={() => aller(-1)}
                 title="UE précédente" aria-label="UE précédente"><IconChevronLeft size={16} /></button>
-              <span className="text-[12px] text-slate-500 tabular-nums">{i + 1} / {ues.length}</span>
+              <span className="text-second text-slate-500 tabular-nums">{i + 1} / {ues.length}</span>
               <button type="button" className="bouton px-2" disabled={i >= ues.length - 1} onClick={() => aller(1)}
                 title="UE suivante" aria-label="UE suivante"><IconChevronRight size={16} /></button>
             </span>);
@@ -461,21 +461,21 @@ export default function RepartitionCours() {
             ))}
           </select>
         )}
-        <span className="text-[11.5px] font-bold text-iip-blue bg-iip-light rounded-full px-3 py-1">{annee}</span>
+        <span className="text-xs font-bold text-iip-blue bg-iip-light rounded-full px-3 py-1">{annee}</span>
         {data && (
           <span className="ml-auto flex gap-2 flex-wrap">
             <label title="Un classeur Excel : « Groupe 1 », « Groupe 2 »… puis Nom, Prénom, Mail, Cours suivis"
-              className="px-3 py-1.5 text-[12.5px] font-semibold rounded-champ border border-slate-300 text-slate-600 inline-flex items-center gap-1.5 cursor-pointer hover:bg-slate-50">
+              className="px-3 py-1.5 text-second font-semibold rounded-champ border border-slate-300 text-slate-600 inline-flex items-center gap-1.5 cursor-pointer hover:bg-slate-50">
               <IconFileSpreadsheet size={14} /> Importer des groupes
               <input type="file" accept=".xlsx,.xls" className="hidden"
                 onChange={e => { chargerClasseur(e.target.files?.[0]); e.target.value = ''; }} />
             </label>
             <button onClick={proposer}
-              className="px-3 py-1.5 text-[12.5px] font-semibold rounded-champ border border-iip-turquoise text-iip-turquoise inline-flex items-center gap-1.5">
+              className="px-3 py-1.5 text-second font-semibold rounded-champ border border-iip-turquoise text-iip-turquoise inline-flex items-center gap-1.5">
               <IconWand size={14} /> Proposer depuis la délibération
             </button>
             <button onClick={enregistrer} disabled={saving || !attente.size}
-              className="px-3 py-1.5 text-[12.5px] font-semibold rounded-champ bg-iip-blue text-white disabled:opacity-40">
+              className="px-3 py-1.5 text-second font-semibold rounded-champ bg-iip-blue text-white disabled:opacity-40">
               {saving ? 'Enregistrement…'
                 : attente.size ? `Enregistrer (${attente.size} changement${attente.size > 1 ? 's' : ''})`
                 : 'Enregistrer'}
@@ -489,7 +489,7 @@ export default function RepartitionCours() {
       )}
 
       {apercu && (
-        <div className="border border-iip-turquoise/40 bg-iip-turquoise/5 rounded-carte px-3 py-2.5 text-[12.5px] space-y-1.5">
+        <div className="border border-iip-turquoise/40 bg-iip-turquoise/5 rounded-carte px-3 py-2.5 text-second space-y-1.5">
           <div className="flex items-center gap-2 flex-wrap">
             <IconFileSpreadsheet size={15} className="text-iip-turquoise" />
             <b className="text-iip-blue">{classeur.nom}</b>
@@ -497,7 +497,7 @@ export default function RepartitionCours() {
               {classeur.lignes.length} étudiants lus · {new Set(classeur.lignes.map(l => l.groupe)).size} groupes · appliqué à l'UE {ueNum}
             </span>
             <button onClick={appliquerClasseur} disabled={!apercu.poses.length}
-              className="ml-auto px-3 py-1 text-[12px] font-semibold rounded-champ bg-iip-turquoise text-white disabled:opacity-40">
+              className="ml-auto px-3 py-1 text-second font-semibold rounded-champ bg-iip-turquoise text-white disabled:opacity-40">
               Placer {apercu.poses.length} affectation{apercu.poses.length > 1 ? 's' : ''} dans la grille
             </button>
             <button onClick={() => setClasseur(null)} title="Fermer le classeur" className="text-slate-400 hover:text-slate-600">
@@ -538,7 +538,7 @@ export default function RepartitionCours() {
                 <b>{apercu.introuvables.length}</b> étudiant(s) du classeur ne sont pas inscrits à l'UE {ueNum} en {annee}
                 {' '}(PAE à compléter, ou nom/mail différent dans Lucie)
               </summary>
-              <div className="mt-1 columns-2 md:columns-3 text-[12px]">
+              <div className="mt-1 columns-2 md:columns-3 text-second">
                 {apercu.introuvables.map((l, i) => (
                   <div key={i}>{l.nom} {l.prenom} <span className="text-slate-400">· gr. {l.groupe}</span></div>
                 ))}
@@ -550,7 +550,7 @@ export default function RepartitionCours() {
               <summary className="cursor-pointer">
                 {apercu.horsClasseur.length} inscrit(s) de l'UE {ueNum} absent(s) du classeur
               </summary>
-              <div className="mt-1 columns-2 md:columns-3 text-[12px]">
+              <div className="mt-1 columns-2 md:columns-3 text-second">
                 {apercu.horsClasseur.map(e => <div key={e.id}>{e.nom} {e.prenom}</div>)}
               </div>
             </details>
@@ -567,7 +567,7 @@ export default function RepartitionCours() {
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="Rechercher un étudiant…"
             className="border border-gray-300 rounded-champ px-3 py-1.5 text-sm w-56" />
           {coches.size > 0 && (
-            <span className="text-[12.5px] font-semibold text-iip-blue bg-iip-turquoise/10 border border-iip-turquoise/40 rounded-champ px-3 py-1.5 inline-flex items-center gap-2">
+            <span className="text-second font-semibold text-iip-blue bg-iip-turquoise/10 border border-iip-turquoise/40 rounded-champ px-3 py-1.5 inline-flex items-center gap-2">
               {coches.size} coché(s) — cliquez l'en-tête d'un groupe pour les y placer
               <i className="not-italic font-normal text-slate-500">(la sélection reste : enchaînez 333.1·A, 333.2·B…)</i>
               <button onClick={() => setCoches(new Set())}
@@ -581,17 +581,17 @@ export default function RepartitionCours() {
             <div className="fixed inset-0 z-40" onClick={() => setRenum(null)} />
             <div className="fixed z-50 bg-white border border-slate-300 rounded-carte shadow-flottant p-2 w-72"
               style={{ top: renum.top, left: Math.min(renum.left, window.innerWidth - 300) }}>
-              <div className="px-1.5 pb-1.5 text-[11px] text-slate-500">Nommer les groupes de {renum.c.cours_code}, dans leur ordre :</div>
+              <div className="px-1.5 pb-1.5 text-xs text-slate-500">Nommer les groupes de {renum.c.cours_code}, dans leur ordre :</div>
               {MODES_GROUPES.map(([m, lib]) => (
                 <button key={m} type="button" onClick={() => renumeroter(renum.c, m)}
-                  className="block w-full text-left px-2 py-1.5 rounded-champ text-[12.5px] hover:bg-slate-50">{lib}</button>
+                  className="block w-full text-left px-2 py-1.5 rounded-champ text-second hover:bg-slate-50">{lib}</button>
               ))}
-              <div className="px-1.5 pt-1.5 text-[10.5px] text-slate-400">Avec A1, A2…, la lettre est l'organisation : Org 2 donne B1, B2.</div>
+              <div className="px-1.5 pt-1.5 text-mention text-slate-400">Avec A1, A2…, la lettre est l'organisation : Org 2 donne B1, B2.</div>
             </div>
           </>
         )}
         <div className="overflow-x-auto border border-slate-200 rounded-carte bg-white">
-          <table className="w-full text-[12.5px]" style={{ minWidth: 760 }}>
+          <table className="w-full text-second" style={{ minWidth: 760 }}>
             <thead>
               <tr>
                 <th rowSpan="2" className="text-left px-3 py-2 bg-slate-50 sticky left-0 z-[2] min-w-[240px] w-[280px] border-b border-slate-200">
@@ -612,18 +612,18 @@ export default function RepartitionCours() {
                     {/* CE SONT LES ACTIVITÉS QUI SE COUPENT EN GROUPES : la
                         théorie avec tous, le laboratoire en huit groupes. */}
                     {c.activite_libelle && (
-                      <span className="ml-1.5 text-[10.5px] font-bold px-1.5 py-0.5 rounded bg-violet-500 text-white">
+                      <span className="ml-1.5 text-mention font-bold px-1.5 py-0.5 rounded bg-violet-500 text-white">
                         {c.activite_libelle}
                       </span>
                     )}
-                    <span className="block text-[10px] font-normal text-slate-400">
+                    <span className="block text-mention font-normal text-slate-400">
                       {c.cours_per ? `${c.cours_per} pér.` : ''}
                       {c.sans_groupe ? ' · sans groupe'
                         : ` · ${c.groupes.length} groupes${c.plafond_groupe ? ` · plafond ${c.plafond_groupe}` : ''}`}
                     </span>
                     {/* HORS DU CARNET DE COTES (Charles, 8 octobre 2026) : de l'EPT, des
                         périodes de correction… — le titulaire ne la voit pas dans Mes cours. */}
-                    <label className={`mt-0.5 inline-flex items-center gap-1 text-[10.5px] font-normal ${c.hors_carnet ? 'text-slate-400' : 'text-slate-600'} ${peutRenommer ? 'cursor-pointer' : ''}`}
+                    <label className={`mt-0.5 inline-flex items-center gap-1 text-mention font-normal ${c.hors_carnet ? 'text-slate-400' : 'text-slate-600'} ${peutRenommer ? 'cursor-pointer' : ''}`}
                       title="Décoché : cette activité n'ouvre pas de carnet de cotes dans Mes cours (EPT, périodes de correction…)">
                       <input type="checkbox" className="w-3.5 h-3.5 accent-iip-blue" checked={!c.hors_carnet} disabled={!peutRenommer}
                         onChange={() => basculerCarnet(c)} />
@@ -634,7 +634,7 @@ export default function RepartitionCours() {
               </tr>
               <tr>
                 {(data.cours || []).map(c => c.sans_groupe ? (
-                  <th key={c.cle} className="px-2 py-1 bg-slate-50 border-b border-l border-dashed border-slate-200 text-[10.5px] text-emerald-700">
+                  <th key={c.cle} className="px-2 py-1 bg-slate-50 border-b border-l border-dashed border-slate-200 text-mention text-emerald-700">
                     Tous{c.groupes[0]?.professeurs ? <span className="block font-normal text-slate-400">{c.groupes[0].professeurs}</span> : null}
                   </th>
                 ) : c.groupes.map(g => (
@@ -646,7 +646,7 @@ export default function RepartitionCours() {
                     title={coches.size
                       ? `Placer les ${coches.size} coché(s) dans ${etiquette(g)} — ${c.cours_nom}${c.activite_libelle ? ` · ${c.activite_libelle}` : ''}`
                       : ''}
-                    className={`px-2 py-1 bg-slate-50 border-b border-l border-dashed border-slate-200 text-[10.5px] text-iip-turquoise-dark min-w-[92px]
+                    className={`px-2 py-1 bg-slate-50 border-b border-l border-dashed border-slate-200 text-mention text-iip-turquoise-dark min-w-[92px]
                       ${coches.size ? 'cursor-pointer hover:bg-iip-turquoise/15 select-none' : ''}`}>
                     {etiquette(g)}
                     {peutRenommer && !coches.size && g.groupe && (
@@ -655,7 +655,7 @@ export default function RepartitionCours() {
                         className="ml-1 align-middle text-slate-300 hover:text-iip-blue"><IconPencil size={12} /></button>
                     )}
                     {coches.size > 0 && (
-                      <span className="block text-[9.5px] font-bold text-iip-blue">⊕ placer {coches.size}</span>
+                      <span className="block text-mention font-bold text-iip-blue">⊕ placer {coches.size}</span>
                     )}
                     <span className="block font-normal text-slate-400">{g.professeurs || '—'}</span>
                   </th>
@@ -680,11 +680,11 @@ export default function RepartitionCours() {
                           {(e.nom || '').toUpperCase()} {e.prenom}
                         </span>
                         {e.num_organisation != null
-                          ? <span className="flex-none whitespace-nowrap text-[10px] font-bold px-2 py-0.5 rounded-full bg-iip-light text-iip-blue">Org {e.num_organisation}</span>
-                          : <span className="flex-none whitespace-nowrap text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-white">non réparti</span>}
+                          ? <span className="flex-none whitespace-nowrap text-mention font-bold px-2 py-0.5 rounded-full bg-iip-light text-iip-blue">Org {e.num_organisation}</span>
+                          : <span className="flex-none whitespace-nowrap text-mention font-bold px-2 py-0.5 rounded-full bg-amber-500 text-white">non réparti</span>}
                       </div>
                       {manque > 0 && (
-                        <span className="block text-[10px] text-iip-texte">
+                        <span className="block text-mention text-iip-texte">
                           <IconAlertTriangle size={10} className="inline -mt-0.5" /> {manque} cours sans groupe
                         </span>
                       )}
@@ -693,12 +693,12 @@ export default function RepartitionCours() {
                       (c.sans_groupe ? [null] : c.groupes).map((g, gi) => (
                         <td key={c.cle + (g ? cleGroupe(g) : '') + gi} className="text-center border-l border-dashed border-slate-100 bg-slate-50">
                           {gi === 0 && <span title={`${e.nom} ${e.prenom} est dispensé(e) de ce cours — ${dispense(e, c)}`}
-                            className="inline-block px-1 h-[15px] rounded bg-slate-300 text-white text-[9px] font-bold leading-[15px]">D</span>}
+                            className="inline-block px-1 h-[15px] rounded bg-slate-300 text-white text-mention font-bold leading-[15px]">D</span>}
                         </td>))
                     ) : c.sans_groupe ? (
                       <td key={c.cle} className="text-center border-l border-dashed border-slate-100">
                         <span title="Cours sans groupe : suivi par tous les inscrits"
-                          className="inline-block w-[15px] h-[15px] rounded bg-emerald-500 text-white text-[10px] leading-[15px]">✓</span>
+                          className="inline-block w-[15px] h-[15px] rounded bg-emerald-500 text-white text-mention leading-[15px]">✓</span>
                       </td>
                     ) : c.groupes.map(g => {
                       const a = affect.get(cle(e.id, c.cle));
@@ -709,7 +709,7 @@ export default function RepartitionCours() {
                           <button onClick={() => cliquerCase(e, c, g)}
                             title={`${e.nom} ${e.prenom} — ${c.cours_nom}${c.activite_libelle ? ` · ${c.activite_libelle}` : ''} — ${etiquette(g)}`}
                             className={`inline-block w-[15px] h-[15px] rounded border align-middle
-                              ${ici ? 'bg-iip-turquoise border-iip-turquoise text-white text-[10px] leading-[13px]'
+                              ${ici ? 'bg-iip-turquoise border-iip-turquoise text-white text-mention leading-[13px]'
                                 : 'bg-white border-slate-300 hover:border-iip-turquoise'}
                               ${ici && enAttente ? 'ring-2 ring-iip-turquoise/30' : ''}`}>
                             {ici ? '✓' : ''}
@@ -725,7 +725,7 @@ export default function RepartitionCours() {
               )}
             </tbody>
             <tfoot>
-              <tr className="bg-slate-50 border-t-2 border-slate-200 font-bold text-[11.5px] text-iip-blue">
+              <tr className="bg-slate-50 border-t-2 border-slate-200 font-bold text-xs text-iip-blue">
                 <td className="px-3 py-1.5 text-left sticky left-0 bg-slate-50">
                   Effectif par groupe
                   <span className="font-normal text-slate-400"> · {data.etudiants.length} inscrit{data.etudiants.length > 1 ? 's' : ''}</span>
@@ -748,7 +748,7 @@ export default function RepartitionCours() {
           </table>
         </div>
 
-        <p className="text-[11.5px] text-slate-400">
+        <p className="text-xs text-slate-400">
           Une case par cours — ou par activité du cours (théorie, laboratoire…) quand ce sont
           elles qui se coupent en groupes — et par étudiant ; recocher la même case la retire. Cocher hors de
           l'organisation de délibération demande confirmation. Rien ne s'écrit avant « Enregistrer ».

@@ -41,7 +41,7 @@ export default function NotificationVA({ etudId, annee, nom, onFait, compact = f
 
   return (
     <>
-      <button type="button" className={`bouton bouton-sortir flex items-center gap-1.5 ${compact ? 'text-[12px]' : ''}`} disabled={enCours}
+      <button type="button" className={`bouton bouton-sortir flex items-center gap-1.5 ${compact ? 'text-second' : ''}`} disabled={enCours}
         onClick={ouvrir} title="La lettre à l'étudiant : chaque décision validée et sa motivation par le Conseil">
         <IconSend size={14} /> {enCours ? 'Préparation…' : 'Notifier les décisions'}
       </button>
@@ -54,10 +54,10 @@ export default function NotificationVA({ etudId, annee, nom, onFait, compact = f
               onClick={() => ouvrirApercu({ html: piece.html, titre: piece.titre, nomFichier: piece.nom, typeDoc: 'valorisation_notification',
                 astuceImpression: 'A4 portrait', destinataire: { type: 'etudiant', id: etudId } })}>
               <IconPrinter size={14} /> Aperçu, imprimer</button>
-            <span className="text-[12px] text-slate-500 min-w-0">L’envoi enregistre la date de notification sur chaque dossier.</span>
+            <span className="text-second text-slate-500 min-w-0">L’envoi enregistre la date de notification sur chaque dossier.</span>
           </>}>
-          {erreur ? <div data-etat="corriger" className="bloc-etat px-3 py-2 text-[13px]">{erreur}</div> : (
-            <div className="text-[13px] space-y-2">
+          {erreur ? <div data-etat="corriger" className="bloc-etat px-3 py-2 text-sm">{erreur}</div> : (
+            <div className="text-sm space-y-2">
               <p>La pièce porte <b>{piece.ids.length}</b> décision(s) validée(s) par la direction, avec la motivation du Conseil des études.
                 L’avis des chargés de cours n’y figure pas.</p>
               {piece.en_cours?.length > 0 && <p className="text-slate-600">Encore à l’examen, et signalées comme telles : UE {piece.en_cours.join(', ')}.</p>}

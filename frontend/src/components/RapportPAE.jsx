@@ -359,7 +359,7 @@ ${j.granularite === 'cours' && !cotesCours ? `
         </>}>
           <div className="space-y-4">
             {erreur && (
-              <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-[13px] text-red-800 border-l-4 border-l-red-500">
+              <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-sm text-red-800 border-l-4 border-l-red-500">
                 {erreur}
               </div>
             )}
@@ -372,9 +372,9 @@ ${j.granularite === 'cours' && !cotesCours ? `
                   </span>
                   <div className="flex gap-1.5">
                     <button onClick={() => setChoisies(sections.map(s => s.code))}
-                      className="text-[11px] px-1.5 py-0.5 border border-slate-300 rounded">Toutes</button>
+                      className="text-xs px-1.5 py-0.5 border border-slate-300 rounded">Toutes</button>
                     <button onClick={() => setChoisies([])}
-                      className="text-[11px] px-1.5 py-0.5 border border-slate-300 rounded">Aucune</button>
+                      className="text-xs px-1.5 py-0.5 border border-slate-300 rounded">Aucune</button>
                   </div>
                 </div>
                 <div className="border border-slate-300 rounded-lg max-h-28 overflow-y-auto divide-y divide-slate-100">
@@ -383,7 +383,7 @@ ${j.granularite === 'cours' && !cotesCours ? `
                       <input type="checkbox" checked={choisies.includes(s.code)}
                         onChange={e => setChoisies(cs => e.target.checked
                           ? [...cs, s.code] : cs.filter(x => x !== s.code))} />
-                      <span className="text-[12px] text-slate-700">{s.libelle || s.code}</span>
+                      <span className="text-second text-slate-700">{s.libelle || s.code}</span>
                     </label>
                   ))}
                 </div>
@@ -398,11 +398,11 @@ ${j.granularite === 'cours' && !cotesCours ? `
             </div>
 
             <div>
-              <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Étendue</div>
+              <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Étendue</div>
               <div className="flex gap-3 flex-wrap mb-2">
                 {[['toutes', 'Toutes les UE'], ['niveau', 'Par année d\u2019études'], ['ue', 'Une seule UE']].map(([v, l]) => (
                   <label key={v}
-                    className={`flex items-center gap-1.5 text-[13px] ${v === 'ue' && choisies.length !== 1 ? 'opacity-40' : ''}`}
+                    className={`flex items-center gap-1.5 text-sm ${v === 'ue' && choisies.length !== 1 ? 'opacity-40' : ''}`}
                     title={v === 'ue' && choisies.length !== 1 ? 'Choisissez une seule section' : ''}>
                     <input type="radio" checked={etendue === v} onChange={() => setEtendue(v)}
                       disabled={v === 'ue' && choisies.length !== 1} /> {l}
@@ -426,10 +426,10 @@ ${j.granularite === 'cours' && !cotesCours ? `
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Contenu des cases</div>
+                <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Contenu des cases</div>
                 {[['annee', "Année de validation"], ['etat', "État de l'année choisie"],
                   ['note', 'Note sur 20']].map(([v, l]) => (
-                  <label key={v} className="flex items-center gap-1.5 text-[13px] mb-1">
+                  <label key={v} className="flex items-center gap-1.5 text-sm mb-1">
                     <input type="radio" checked={contenu === v} onChange={() => setContenu(v)} /> {l}
                   </label>
                 ))}
@@ -445,9 +445,9 @@ ${j.granularite === 'cours' && !cotesCours ? `
                 <option value="portrait">Portrait</option>
               </select>
             </label>
-            <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Colonnes</div>
+            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Colonnes</div>
                 {[['ue', 'Une par UE'], ['cours', 'Une par cours']].map(([v, l]) => (
-                  <label key={v} className="flex items-center gap-1.5 text-[13px] mb-1">
+                  <label key={v} className="flex items-center gap-1.5 text-sm mb-1">
                     <input type="radio" checked={granularite === v} onChange={() => setGranularite(v)} /> {l}
                   </label>
                 ))}
@@ -455,32 +455,32 @@ ${j.granularite === 'cours' && !cotesCours ? `
             </div>
 
             <div>
-              <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+              <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
                 Enrichissements
               </div>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                <label className="flex items-start gap-2 text-[13px]">
+                <label className="flex items-start gap-2 text-sm">
                   <input type="checkbox" checked={intitules} onChange={e => setIntitules(e.target.checked)} className="mt-0.5" />
                   <span>Intitulés en en-tête
-                    <span className="block text-[11px] text-slate-500">Sous le code, pour un document remis au jury</span>
+                    <span className="block text-xs text-slate-500">Sous le code, pour un document remis au jury</span>
                   </span>
                 </label>
-                <label className="flex items-start gap-2 text-[13px]">
+                <label className="flex items-start gap-2 text-sm">
                   <input type="checkbox" checked={synthese} onChange={e => setSynthese(e.target.checked)} className="mt-0.5" />
                   <span>Synthèse par étudiant
-                    <span className="block text-[11px] text-slate-500">UE acquises, ECTS cumulés, situation</span>
+                    <span className="block text-xs text-slate-500">UE acquises, ECTS cumulés, situation</span>
                   </span>
                 </label>
-                <label className="flex items-start gap-2 text-[13px]">
+                <label className="flex items-start gap-2 text-sm">
                   <input type="checkbox" checked={tauxUE} onChange={e => setTauxUE(e.target.checked)} className="mt-0.5" />
                   <span>Taux de réussite par UE
-                    <span className="block text-[11px] text-slate-500">En pied de tableau — désigne les UE qui font barrage</span>
+                    <span className="block text-xs text-slate-500">En pied de tableau — désigne les UE qui font barrage</span>
                   </span>
                 </label>
-                <label className="text-[13px]">
+                <label className="text-sm">
                   <span className="block mb-1">Étudiants retenus</span>
                   <select value={filtre} onChange={e => setFiltre(e.target.value)}
-                    className="w-full border border-slate-300 rounded-lg px-2 py-1 text-[12px]">
+                    className="w-full border border-slate-300 rounded-lg px-2 py-1 text-second">
                     <option value="tous">Tous</option>
                     <option value="echec">Avec au moins un échec</option>
                     <option value="diplomables">Diplômables — reste l'épreuve intégrée</option>
@@ -490,7 +490,7 @@ ${j.granularite === 'cours' && !cotesCours ? `
             </div>
 
             {granularite === 'cours' && (
-              <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-[12px] text-amber-900 border-l-4 border-l-amber-500">
+              <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-second text-amber-900 border-l-4 border-l-amber-500">
                 Les colonnes par cours ne portent de valeurs propres que si des résultats ont été
                 encodés à cette maille — par « Reconstruire l'historique » ou « Importer le classeur
                 PAE ». À défaut, chaque cours reprend la décision de son UE, en estompé.
@@ -498,14 +498,14 @@ ${j.granularite === 'cours' && !cotesCours ? `
             )}
 
             {choisies.length > 1 && (
-              <div className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-[12px] text-slate-700">
+              <div className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-second text-slate-700">
                 {choisies.length} sections retenues : un document par section. L'aperçu les présente
                 l'une après l'autre, chacune imprimable séparément ; l'export réunit les classeurs
                 dans une archive.
               </div>
             )}
 
-            <div className="px-3 py-2 rounded-lg bg-sky-50 border border-sky-200 text-[12px] text-sky-900 border-l-4 border-l-sky-500">
+            <div className="px-3 py-2 rounded-lg bg-sky-50 border border-sky-200 text-second text-sky-900 border-l-4 border-l-sky-500">
               Le classeur exporté reprend la forme de celui de la coordination : il peut être
               complété à la main, puis réimporté par « Importer le classeur PAE ». Choisissez
               alors des colonnes <b>par cours</b>, la maille de l'encodage.
@@ -532,7 +532,7 @@ function PreviewLite({ documents, onClose }) {
         <div className="flex items-center gap-2 flex-wrap">
           {documents.map((d, j) => (
             <button key={d.section} onClick={() => setI(j)}
-              className={`text-[12px] px-2.5 py-1 rounded-lg ${j === i
+              className={`text-second px-2.5 py-1 rounded-lg ${j === i
                 ? 'bg-white text-iip-blue font-semibold' : 'bg-white/15 text-white/80 hover:bg-white/25'}`}>
               {d.section}
             </button>
@@ -540,7 +540,7 @@ function PreviewLite({ documents, onClose }) {
         </div>
       )}
       pied={<>
-        <span className="text-[11px] text-slate-500">
+        <span className="text-xs text-slate-500">
           Paysage A4 conseillé.{documents.length > 1
             ? ` Section ${i + 1} sur ${documents.length} — imprimez-les séparément pour obtenir un PDF par section.`
             : ''}

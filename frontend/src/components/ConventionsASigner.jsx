@@ -62,15 +62,15 @@ export default function ConventionsASigner() {
   return (
     <div className="mb-5">
       <div className="flex items-baseline gap-2 mb-1.5">
-        <h2 className="text-[13px] font-semibold text-iip-blue">À signer</h2>
-        <span className="text-[11px] text-slate-400">
+        <h2 className="text-sm font-semibold text-iip-blue">À signer</h2>
+        <span className="text-xs text-slate-400">
           {liste.length ? `${liste.length} convention${liste.length > 1 ? 's' : ''} préparée${liste.length > 1 ? 's' : ''} — votre accord est attendu` : ''}
         </span>
       </div>
 
       {liste.length > 0 && (
         <div className="carte overflow-hidden">
-          <label className="tab-entete flex items-center gap-3 px-3 py-1.5 text-[11px] text-slate-500 cursor-pointer">
+          <label className="tab-entete flex items-center gap-3 px-3 py-1.5 text-xs text-slate-500 cursor-pointer">
             <input type="checkbox" checked={tout}
               onChange={() => setCoches(tout ? new Set() : new Set(liste.map(c => c.id)))} />
             <span>Tout cocher</span>
@@ -80,26 +80,26 @@ export default function ConventionsASigner() {
               <input type="checkbox" checked={coches.has(c.id)} onChange={() => basculer(c.id)}
                 aria-label={`Signer la convention ${c.id}`} />
               <button type="button" onClick={() => basculer(c.id)} className="flex-1 min-w-0 text-left">
-                <div className="text-[13px] text-slate-800 truncate">
+                <div className="text-sm text-slate-800 truncate">
                   <span className="font-semibold">{c.etud_nom ? nomEcran(c.etud_nom, c.etud_prenom)
                     : (c.origine === 'iip' && c.famille !== 'partenaire' ? `${({ cadre_stage: 'Convention-cadre de stage', partenariat: 'Convention de partenariat', etablissements: 'Convention entre établissements' })[c.famille] || 'Convention'} (modèle IIP)` : (c.objet || 'Convention'))}</span>
                   {c.lieu_nom ? <> · {c.lieu_nom}{c.lieu_localite ? ` (${c.lieu_localite})` : ''}</>
                     : c.partenaire_nom ? <> · {c.partenaire_nom}</> : null}
                 </div>
-                <div className="text-[11px] text-slate-400 truncate">
+                <div className="text-xs text-slate-400 truncate">
                   {[c.date_debut && `${frDate(c.date_debut)} → ${frDate(c.date_fin)}`,
                     c.section, c.annee_scolaire,
                     `déposée par ${c.depose_par_nom || '—'} le ${frDate(c.depose_le)}`].filter(Boolean).join(' · ')}
                 </div>
               </button>
-              <button type="button" className="text-[12px] text-iip-blue font-semibold flex items-center gap-1 flex-none"
+              <button type="button" className="text-second text-iip-blue font-semibold flex items-center gap-1 flex-none"
                 onClick={() => apercu(c.id)} title={c.fichier_nom}>
                 <IconFileText size={14} /> Aperçu
               </button>
             </div>
           ))}
           <div className="flex items-center gap-3 px-3 py-2.5 border-t border-slate-200">
-            <p className="flex-1 min-w-0 text-[12px] text-slate-600">
+            <p className="flex-1 min-w-0 text-second text-slate-600">
               {n
                 ? <>Signer apposera votre fac-similé protégé{directeur ? ` (${directeur})` : ''} en bas de la dernière page
                     de {n > 1 ? `ces ${n} conventions` : 'cette convention'}, et enregistrera votre accord en votre nom,
@@ -115,7 +115,7 @@ export default function ConventionsASigner() {
       )}
 
       {message && (
-        <div className={`mt-1.5 text-[12px] ${message.ok ? 'text-emerald-700' : 'text-red-700'}`}>{message.texte}</div>
+        <div className={`mt-1.5 text-second ${message.ok ? 'text-emerald-700' : 'text-red-700'}`}>{message.texte}</div>
       )}
     </div>
   );

@@ -187,7 +187,7 @@ export default function SuiviEquipe() {
                    « Secrétariat 15/09 » désignent la même chose sans jamais se
                    regrouper : l'historique d'un type de réunion devient
                    introuvable. La liste est courte et connue. */
-                <select value="" className="controle-fort controle px-3 text-[13px]
+                <select value="" className="controle-fort controle px-3 text-sm
                     bg-iip-blue text-white rounded-champ border-0"
                   onChange={e => e.target.value && nouvelleReunion(e.target.value)}>
                   <option value="">+ Nouvelle réunion…</option>
@@ -195,7 +195,7 @@ export default function SuiviEquipe() {
                 </select>
               } />
             {!reunions.length && (
-              <p className="text-[13px] text-slate-400">
+              <p className="text-sm text-slate-400">
                 Aucune réunion cette année. La première se crée d'un bouton : l'ordre du
                 jour, les présents et les tâches se remplissent ensuite, y compris pendant
                 la séance.
@@ -206,15 +206,15 @@ export default function SuiviEquipe() {
                 <button key={r.id} onClick={() => ouvrir(r.id)}
                   className="w-full text-left px-4 py-2.5 flex items-center gap-3
                              border-t border-slate-100 first:border-t-0 hover:bg-slate-50">
-                  <span className="text-[13px] text-slate-500 w-24 flex-none tabular-nums">
+                  <span className="text-sm text-slate-500 w-24 flex-none tabular-nums">
                     {fr(r.date_seance)}
                   </span>
                   <span className="flex-1 min-w-0">
-                    <span className="block text-[13px] font-semibold text-iip-blue truncate">
+                    <span className="block text-sm font-semibold text-iip-blue truncate">
                       {r.titre}
                     </span>
                     {(r.organisateur_nom || r.section || r.ues_libelle) && (
-                      <span className="block text-[11px] text-slate-400 truncate">
+                      <span className="block text-xs text-slate-400 truncate">
                         {[r.organisateur_nom && `Organisée par ${nomDepuisChaine(r.organisateur_nom)}`,
                           r.section, r.ues_libelle && `UE ${r.ues_libelle}`]
                           .filter(Boolean).join(' · ')}
@@ -222,7 +222,7 @@ export default function SuiviEquipe() {
                     )}
                     {/* QUI ÉTAIT LÀ : c'est ce qui distingue deux séances du même type. */}
                     {!!(r.presents?.length || r.excuses?.length) && (
-                      <span className="block text-[11.5px] text-slate-600 truncate"
+                      <span className="block text-xs text-slate-600 truncate"
                         title={[`Présents : ${(r.presents || []).map(nomDepuisChaine).join(', ') || '—'}`,
                           r.excuses?.length ? `Excusés : ${r.excuses.map(nomDepuisChaine).join(', ')}` : '']
                           .filter(Boolean).join('\n')}>
@@ -238,11 +238,11 @@ export default function SuiviEquipe() {
                     </span>
                   )}
                   {r.nb_ouvertes > 0 && (
-                    <span className="text-[11px] font-semibold text-amber-700">
+                    <span className="text-xs font-semibold text-amber-700">
                       {r.nb_ouvertes} ouverte(s)
                     </span>
                   )}
-                  <span className="text-[11px] text-slate-400">{r.nb_taches} tâche(s)</span>
+                  <span className="text-xs text-slate-400">{r.nb_taches} tâche(s)</span>
                 </button>
               ))}
             </div>
@@ -266,12 +266,12 @@ export default function SuiviEquipe() {
             </button>
             <button className="bouton" onClick={() => setRapportMois(null)}>Fermer</button>
           </>}>
-          <label className="text-[13px] text-slate-600 flex items-center gap-2">
+          <label className="text-sm text-slate-600 flex items-center gap-2">
             Mois
             <input type="month" value={rapportMois} onChange={e => setRapportMois(e.target.value)}
-              className="controle text-[13px]" />
+              className="controle text-sm" />
           </label>
-          <p className="text-[12px] text-slate-500 mt-2">
+          <p className="text-second text-slate-500 mt-2">
             Il part aussi, chaque 1er du mois, par courriel à la direction pour le mois écoulé
             (si l'envoi de courriels est configuré).
           </p>
@@ -372,7 +372,7 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
   }
 
   const horsPoints = (reunion.taches || []).filter(t => !t.point_id);
-  const champ = 'bg-white border border-slate-200 hover:border-slate-300 focus:border-iip-blue rounded-champ px-2 h-8 text-[13px]';
+  const champ = 'bg-white border border-slate-200 hover:border-slate-300 focus:border-iip-blue rounded-champ px-2 h-8 text-sm';
   const lignes = t => Math.min(12, Math.max(2, String(t || '').split('\n').length + 1));
 
   /* LA SÉANCE EN V3 (Charles, 3 octobre 2026 : « peu clair, pas V3, et
@@ -381,7 +381,7 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
      séances précédentes signalé en orange, avec son compte ; chaque point
      numéroté dans une pastille marine, ses décisions nommées dessous. */
   const Etiquette = ({ children }) => (
-    <span className="block text-[10.5px] uppercase tracking-[.1em] text-slate-400 font-semibold mb-0.5">{children}</span>
+    <span className="block text-mention uppercase tracking-[.1em] text-slate-400 font-semibold mb-0.5">{children}</span>
   );
   const nbPresents = participants.filter(p => p.present).length;
   return (
@@ -391,7 +391,7 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
           <IconChevronLeft size={16} /> Réunions
         </button>
         <div className="flex-1" />
-        <span className="text-[11.5px] text-slate-400">{enregistre ? 'Enregistré' : ''}</span>
+        <span className="text-xs text-slate-400">{enregistre ? 'Enregistré' : ''}</span>
         <button onClick={() => enregistrer()} className="bouton-fort controle px-3">Enregistrer</button>
         {/* L'AVION MÈNE AU CENTRE D'ÉDITION (2 octobre 2026), la pièce de cet écran en tête. */}
         <OuvrirEditions titre="Imprimer ou envoyer le procès-verbal — centre d'édition"
@@ -425,7 +425,7 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
       <div className="carte bg-white px-4 py-3 mb-3">
         <input value={champs.titre} onChange={e => poser('titre', e.target.value)} onBlur={() => enregistrer()}
           className="w-full bg-transparent border-0 border-b border-transparent hover:border-slate-200
-                     focus:border-iip-blue focus:outline-none px-0 h-8 text-[17px] font-semibold text-iip-blue" />
+                     focus:border-iip-blue focus:outline-none px-0 h-8 text-lg font-semibold text-iip-blue" />
         <div className="flex flex-wrap items-end gap-2.5 mt-1.5">
           <label><Etiquette>Type</Etiquette>
           <select value={champs.genre} title="Type de réunion"
@@ -447,13 +447,13 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
           <input value={champs.lieu} placeholder="Lieu" title="Lieu"
             onChange={e => poser('lieu', e.target.value)} onBlur={() => enregistrer()} className={`${champ} w-full`} /></label>
           <button onClick={() => setPlus(v => !v)}
-            className="text-[12px] text-slate-500 hover:text-iip-blue px-1.5 h-8">
+            className="text-second text-slate-500 hover:text-iip-blue px-1.5 h-8">
             {plus ? '▾' : '▸'} Organisateur, section, unités
           </button>
         </div>
         {plus && (
           <div className="flex flex-wrap items-start gap-2 mt-2 pt-2 border-t border-slate-100">
-            <label className="text-[11px] text-slate-500">
+            <label className="text-xs text-slate-500">
               Organisée par
               <select
                 value={champs.organisateur_user_id ? `u:${champs.organisateur_user_id}`
@@ -470,7 +470,7 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
                 ))}
               </select>
             </label>
-            <label className="text-[11px] text-slate-500">
+            <label className="text-xs text-slate-500">
               Section
               <select value={champs.section} onChange={e => { poser('section', e.target.value); setUes([]); }}
                 className={`block mt-0.5 ${champ} max-w-[14rem]`}>
@@ -478,11 +478,11 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
                 {(perimetre?.sections || []).map(s2 => <option key={s2} value={s2}>{s2}</option>)}
               </select>
             </label>
-            <label className="flex-1 min-w-[260px] text-[11px] text-slate-500">
+            <label className="flex-1 min-w-[260px] text-xs text-slate-500">
               Unités concernées <span className="text-slate-400">— facultatif</span>
               <select multiple value={ues.map(String)} size={3}
                 onChange={e => setUes([...e.target.selectedOptions].map(o => Number(o.value)))}
-                className="block w-full mt-0.5 bg-white border border-slate-200 rounded-champ px-2 py-1 text-[13px]">
+                className="block w-full mt-0.5 bg-white border border-slate-200 rounded-champ px-2 py-1 text-sm">
                 {(perimetre?.ues || []).filter(u => !champs.section || u.section === champs.section)
                   .map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom}</option>)}
               </select>
@@ -492,10 +492,10 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
 
         {/* LES PRÉSENCES, EN PASTILLES : un clic change l'état. */}
         <div className="flex flex-wrap items-center gap-1 mt-2 pt-2 border-t border-slate-100">
-          <span className="text-[10.5px] font-semibold uppercase tracking-[.1em] text-slate-400 mr-1">Présences · {nbPresents}</span>
+          <span className="text-mention font-semibold uppercase tracking-[.1em] text-slate-400 mr-1">Présences · {nbPresents}</span>
           {participants.map((p, i) => ({ p, i })).sort((a, b) => parNom(a.p.nom, b.p.nom)).map(({ p, i }) => (
             <span key={p.id || p.cle || p.nom}
-              className={`group inline-flex items-center gap-1 rounded-full pl-2 pr-1 h-6 text-[12px] border
+              className={`group inline-flex items-center gap-1 rounded-full pl-2 pr-1 h-6 text-second border
                 ${p.present ? 'border-transparent text-white font-semibold'
                   : p.excuse ? 'border-transparent text-white'
                   : 'bg-white border-slate-200 text-slate-400 line-through'}`}
@@ -517,11 +517,11 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
       {/* ── CE QUI RESTAIT OUVERT — replié : on l'ouvre en début de séance ── */}
       {!!reunion.reste?.length && (
         <details data-etat="surveiller" className="bloc-etat px-4 py-2.5 mb-3">
-          <summary className="cursor-pointer text-[13px] font-semibold text-iip-blue flex items-center gap-2">
+          <summary className="cursor-pointer text-sm font-semibold text-iip-blue flex items-center gap-2">
             Suivi des séances précédentes
-            <span className="text-[11px] font-bold text-white rounded-full px-2 h-5 inline-flex items-center"
+            <span className="text-xs font-bold text-white rounded-full px-2 h-5 inline-flex items-center"
               style={{ background: 'var(--c-attente)' }}>{reunion.reste.length} tâche(s) ouverte(s)</span>
-            <span className="ml-auto text-[11.5px] font-normal text-slate-400">déplier</span>
+            <span className="ml-auto text-xs font-normal text-slate-400">déplier</span>
           </summary>
           <div className="mt-1">
             <ListeTaches taches={reunion.reste} personnes={personnes} presents={presents}
@@ -535,13 +535,13 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
         <div key={p.id || `neuf-${i}`}
           className={`carte bg-white px-4 py-3 mb-3 ${p.confidentiel ? 'border-red-200' : ''}`}>
           <div className="flex items-center gap-2.5">
-            <span className="w-[26px] h-[26px] rounded-full grid place-items-center text-white text-[12px] font-bold tabular-nums flex-none"
+            <span className="w-[26px] h-[26px] rounded-full grid place-items-center text-white text-second font-bold tabular-nums flex-none"
               style={{ background: 'var(--c-principal)' }}>{i + 1}</span>
             <input value={p.intitule || ''} autoFocus={!p.intitule}
               onChange={e => poserPoint(i, 'intitule', e.target.value)} onBlur={() => enregistrer()}
               placeholder="Intitulé du point"
               className="flex-1 min-w-0 bg-transparent border-0 border-b border-transparent hover:border-slate-200
-                         focus:border-iip-blue focus:outline-none px-0 h-7 text-[14px] font-semibold text-slate-800" />
+                         focus:border-iip-blue focus:outline-none px-0 h-7 text-sm font-semibold text-slate-800" />
             {reunion.peut_confidentiel && !p.masque && (
               <button title={p.confidentiel ? 'Point confidentiel — cliquer pour le rendre ordinaire'
                 : 'Rendre ce point confidentiel (absent du PV diffusé)'}
@@ -558,7 +558,7 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
             </button>
           </div>
           {p.masque ? (
-            <p className="flex items-center gap-1.5 text-[12px] text-slate-500 pl-9 py-1">
+            <p className="flex items-center gap-1.5 text-second text-slate-500 pl-9 py-1">
               <IconLock size={13} className="flex-none" />
               Point confidentiel — notes réservées à la direction, à l'organisateur et aux participants.
             </p>
@@ -566,17 +566,17 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
             <textarea value={p.notes || ''} rows={lignes(p.notes)}
               onChange={e => poserPoint(i, 'notes', e.target.value)} onBlur={() => enregistrer()}
               placeholder="Ce qui s'est dit, ce qui a été tranché."
-              className={`block w-[calc(100%-2.25rem)] ml-9 mt-1.5 border rounded-champ px-2.5 py-1.5 text-[13px] resize-y
+              className={`block w-[calc(100%-2.25rem)] ml-9 mt-1.5 border rounded-champ px-2.5 py-1.5 text-sm resize-y
                 ${p.confidentiel ? 'bg-red-50/40 border-red-200' : 'bg-white border-slate-200'}`} />
           )}
           <div className="ml-9 mt-2">
-            <span className="block text-[10.5px] uppercase tracking-[.1em] text-slate-400 font-semibold mb-0.5">Décisions</span>
+            <span className="block text-mention uppercase tracking-[.1em] text-slate-400 font-semibold mb-0.5">Décisions</span>
             {p.id ? (
               <ListeTaches taches={(reunion.taches || []).filter(t => t.point_id === p.id)}
                 personnes={personnes} presents={presents} obligations={obligations} api={api}
                 onRecharger={onRecharger} reunionId={reunion.id} pointId={p.id} avecAjout simple />
             ) : (
-              <p className="text-[11px] text-slate-400">Enregistrement du point…</p>
+              <p className="text-xs text-slate-400">Enregistrement du point…</p>
             )}
           </div>
         </div>
@@ -587,7 +587,7 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
 
       {/* ── LA SUITE ── */}
       <div className="carte px-3 py-2 mb-2 flex flex-wrap items-center gap-1.5">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mr-1">Prochaine séance</span>
+        <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 mr-1">Prochaine séance</span>
         <input type="date" value={champs.prochaine_date} onChange={e => poser('prochaine_date', e.target.value)}
           onBlur={() => enregistrer()} className={champ} />
         <input type="time" value={champs.prochaine_heure} onChange={e => poser('prochaine_heure', e.target.value)}
@@ -601,7 +601,7 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
 
       {/* ── CE QUI SERT RAREMENT, REPLIÉ ── */}
       <details className="carte px-3 py-2 mb-2" open={horsPoints.length > 0}>
-        <summary className="cursor-pointer text-[12.5px] text-slate-600">
+        <summary className="cursor-pointer text-second text-slate-600">
           Décisions hors des points {horsPoints.length ? `(${horsPoints.length})` : ''}
         </summary>
         <div className="mt-1">
@@ -610,22 +610,22 @@ function DetailReunion({ reunion, personnes, obligations, types = [], perimetre,
         </div>
       </details>
       <details className="carte px-3 py-2 mb-2" open={!!champs.notes}>
-        <summary className="cursor-pointer text-[12.5px] text-slate-600">Notes générales</summary>
+        <summary className="cursor-pointer text-second text-slate-600">Notes générales</summary>
         <textarea value={champs.notes} rows={lignes(champs.notes)}
           onChange={e => poser('notes', e.target.value)} onBlur={() => enregistrer()}
           placeholder="Ce qui ne tient à aucun point."
-          className="w-full mt-1 bg-white border border-slate-200 rounded-champ px-2 py-1 text-[13px]" />
+          className="w-full mt-1 bg-white border border-slate-200 rounded-champ px-2 py-1 text-sm" />
       </details>
       {reunion.peut_confidentiel && (
         <details className="carte px-3 py-2 mb-2 border-red-200" open={!!champs.notes_confidentielles}>
-          <summary className="cursor-pointer text-[12.5px] text-[color:var(--brique)]">
+          <summary className="cursor-pointer text-second text-[color:var(--brique)]">
             <IconLock size={12} className="inline -mt-0.5" /> Notes confidentielles
             <span className="text-slate-400"> — absentes du PV diffusé</span>
           </summary>
           <textarea value={champs.notes_confidentielles} rows={lignes(champs.notes_confidentielles)}
             onChange={e => poser('notes_confidentielles', e.target.value)} onBlur={() => enregistrer()}
             placeholder="Ce qui ne sort pas de la salle."
-            className="w-full mt-1 bg-white border border-red-200 rounded-champ px-2 py-1 text-[13px]" />
+            className="w-full mt-1 bg-white border border-red-200 rounded-champ px-2 py-1 text-sm" />
         </details>
       )}
     </div>
@@ -648,7 +648,7 @@ function AjoutParticipant({ personnes, deja, onAjout }) {
       if (p) onAjout({ user_id: p.user_id || null, professeur_id: p.professeur_id || null,
                        nom: p.nom, present: 1 });
     }}
-      className="bg-white border border-dashed border-slate-300 rounded-full px-2 h-6 text-[12px]
+      className="bg-white border border-dashed border-slate-300 rounded-full px-2 h-6 text-second
                  text-slate-500">
       <option value="">+ quelqu'un…</option>
       {[...restants].sort((a, b) => parNom(a.nom, b.nom))
@@ -714,7 +714,7 @@ function ChoixResponsables({ personnes, presents = [], tache, onChange, informes
       {cles.map((cle, i) => (
         <span key={cle} title={informes ? 'Au courant, sans en répondre'
                               : i === 0 ? "Répond de l'action" : undefined}
-          className={`group/nom relative inline-flex items-center text-[12px] whitespace-nowrap
+          className={`group/nom relative inline-flex items-center text-second whitespace-nowrap
             ${!informes && i === 0 ? 'text-iip-blue font-semibold' : 'text-slate-600'}`}>
           {nomDeCle(cle)}
           {/* LA CROIX SE POSE PAR-DESSUS, ELLE NE PREND PAS DE PLACE : en
@@ -730,7 +730,7 @@ function ChoixResponsables({ personnes, presents = [], tache, onChange, informes
         </span>
       ))}
       <select value="" onChange={e => e.target.value && onChange([...cles, e.target.value])}
-        className={`bg-white border border-slate-300 rounded-champ px-1 h-6 text-[11px]
+        className={`bg-white border border-slate-300 rounded-champ px-1 h-6 text-xs
                    text-slate-500 max-w-[8rem] ${discret && cles.length ? 'opacity-0 group-hover:opacity-100 focus:opacity-100' : ''}`}>
         <option value="">{informes ? '+ au courant…' : cles.length ? '+ aussi…' : '— qui ? —'}</option>
         {!!dansLaSalle.length && (
@@ -784,7 +784,7 @@ function TitreModifiable({ tache, compact, onValider, enColonne }) {
           if (e.key === 'Escape') { setTexte(tache.titre || ''); setEdite(false); }
         }}
         className={`${enColonne ? 'w-full' : 'flex-1'} min-w-0 bg-white border border-iip-blue rounded-champ
-                   px-2 h-8 text-[13px]`} />
+                   px-2 h-8 text-sm`} />
     );
   }
   return (
@@ -796,13 +796,13 @@ function TitreModifiable({ tache, compact, onValider, enColonne }) {
        sa coupure. */
     <button onClick={() => setEdite(true)}
       title={enColonne ? `${tache.titre}\n— cliquer pour corriger l'intitulé` : "Corriger l'intitulé"}
-      className={`${enColonne ? 'block w-full line-clamp-2 break-words leading-snug' : 'flex-1 min-w-0 truncate'} text-left text-[13px]
+      className={`${enColonne ? 'block w-full line-clamp-2 break-words leading-snug' : 'flex-1 min-w-0 truncate'} text-left text-sm
         hover:underline decoration-dotted underline-offset-2
         ${tache.statut === 'fait' || tache.statut === 'abandonnee'
           ? 'text-slate-400 line-through' : 'text-slate-800'}`}>
       {tache.titre}
       {tache.reunion_date && compact && (
-        <span className="text-[11px] text-slate-400"> · décidée le {fr(tache.reunion_date)}</span>
+        <span className="text-xs text-slate-400"> · décidée le {fr(tache.reunion_date)}</span>
       )}
     </button>
   );
@@ -855,21 +855,21 @@ function ListeTaches({ taches, personnes, presents = [], obligations = [], api, 
                 <IconCheck size={12} />
               </button>
               <TitreModifiable tache={t} compact={compact} onValider={titre => majTache(t, { titre })} />
-              {t.statut === 'en_cours' && <span className="text-[10.5px] text-sky-700 flex-none">en cours</span>}
+              {t.statut === 'en_cours' && <span className="text-mention text-sky-700 flex-none">en cours</span>}
               <ChoixResponsables personnes={personnes} presents={presents} tache={t} discret
                 onChange={cles => majTache(t, { responsables: cles })} />
               <input type="date" value={t.echeance || ''} title="Pour quand"
                 onChange={e => majTache(t, { echeance: e.target.value || null })}
-                className={`bg-white border rounded-champ px-1 h-7 text-[12px] w-[8.2rem] flex-none
+                className={`bg-white border rounded-champ px-1 h-7 text-second w-[8.2rem] flex-none
                   ${enRetard(t) ? 'border-amber-500 text-amber-800' : t.echeance ? 'border-slate-200' : 'border-amber-300'}`} />
               <button onClick={() => deplier(t.id)} title="Obligation, personnes au courant, état"
-                className={`flex-none px-1.5 h-7 rounded-champ text-[13px] leading-none
+                className={`flex-none px-1.5 h-7 rounded-champ text-sm leading-none
                   ${deplies.has(t.id) ? 'bg-slate-200 text-slate-700' : 'text-slate-400 hover:bg-slate-100'}`}>⋯</button>
             </div>
             {deplies.has(t.id) && (
               <div className="pl-7 pb-1.5 flex flex-wrap items-center gap-2">
                 <select value={t.statut} onChange={e => majTache(t, { statut: e.target.value })}
-                  className="bg-white border border-slate-300 rounded-champ px-1.5 h-7 text-[12px]">
+                  className="bg-white border border-slate-300 rounded-champ px-1.5 h-7 text-second">
                   {STATUTS.map(([cle, lib]) => <option key={cle} value={cle}>{lib}</option>)}
                 </select>
                 <ChoixResponsables personnes={personnes} tache={t} informes
@@ -877,7 +877,7 @@ function ListeTaches({ taches, personnes, presents = [], obligations = [], api, 
                 {!!obligations.length && (
                   <select value={t.echeance_id || ''} title="Obligation servie par cette action"
                     onChange={e => majTache(t, { echeance_id: e.target.value ? Number(e.target.value) : null })}
-                    className="bg-white border border-slate-300 rounded-champ px-1.5 h-7 text-[12px] max-w-[16rem] text-slate-600">
+                    className="bg-white border border-slate-300 rounded-champ px-1.5 h-7 text-second max-w-[16rem] text-slate-600">
                     <option value="">— ne sert aucune obligation —</option>
                     {obligations.map(o => (
                       <option key={o.id} value={o.id}>{o.libelle}{o.base_legale ? ` · ${o.base_legale}` : ''}</option>
@@ -896,15 +896,15 @@ function ListeTaches({ taches, personnes, presents = [], obligations = [], api, 
               onKeyDown={e => e.key === 'Enter' && ajouter()}
               placeholder="Une décision : ce qu'il y a à faire…"
               className="flex-1 min-w-0 bg-transparent border border-transparent hover:border-slate-200
-                         focus:border-slate-300 focus:bg-white rounded-champ px-1.5 h-7 text-[13px]" />
+                         focus:border-slate-300 focus:bg-white rounded-champ px-1.5 h-7 text-sm" />
             {nouvelle.titre.trim() && (<>
               <ChoixResponsables personnes={personnes} presents={presents}
                 tache={{ responsables: nouvelle.responsables.map(c => ({ cle: c })) }}
                 onChange={cles => setNouvelle(n => ({ ...n, responsables: cles }))} />
               <input type="date" value={nouvelle.echeance} title="Pour quand"
                 onChange={e => setNouvelle(n => ({ ...n, echeance: e.target.value }))}
-                className="bg-white border border-slate-300 rounded-champ px-1 h-7 text-[12px] w-[8.2rem] flex-none" />
-              <button onClick={ajouter} className="bouton px-2.5 h-7 text-[12px] flex-none">Ajouter</button>
+                className="bg-white border border-slate-300 rounded-champ px-1 h-7 text-second w-[8.2rem] flex-none" />
+              <button onClick={ajouter} className="bouton px-2.5 h-7 text-second flex-none">Ajouter</button>
             </>)}
           </div>
         )}
@@ -922,7 +922,7 @@ function ListeTaches({ taches, personnes, presents = [], obligations = [], api, 
   return (
     <div className="carte overflow-hidden bg-white">
       {taches.length > 0 && (
-        <div className={`${GRILLE} tab-entete px-3 py-1.5 text-[10.5px] uppercase tracking-[.1em] text-slate-500 font-semibold`}>
+        <div className={`${GRILLE} tab-entete px-3 py-1.5 text-mention uppercase tracking-[.1em] text-slate-500 font-semibold`}>
           <span /><span>Tâche</span><span>Responsables</span><span>Échéance</span><span>Statut</span><span />
         </div>
       )}
@@ -952,7 +952,7 @@ function ListeTaches({ taches, personnes, presents = [], obligations = [], api, 
               <TitreModifiable tache={t} compact={compact} enColonne
                 onValider={titre => majTache(t, { titre })} />
               {informes.length > 0 && !deplies.has(t.id) && (
-                <div className="text-[11px] text-slate-400 truncate">Au courant : {informes.join(', ')}</div>
+                <div className="text-xs text-slate-400 truncate">Au courant : {informes.join(', ')}</div>
               )}
             </div>
 
@@ -962,22 +962,22 @@ function ListeTaches({ taches, personnes, presents = [], obligations = [], api, 
             {/* POUR QUAND — la couleur dit l'urgence : fraise, orange. */}
             <input type="date" value={t.echeance || ''} title="Pour quand"
               onChange={e => majTache(t, { echeance: e.target.value || null })}
-              className={`w-full rounded-full px-2.5 h-7 text-[12px] font-semibold tabular-nums border
+              className={`w-full rounded-full px-2.5 h-7 text-second font-semibold tabular-nums border
                 ${teinteDate ? 'text-white border-transparent' : t.echeance ? 'bg-white border-slate-300 text-iip-texte' : 'bg-white border-dashed border-slate-300 text-slate-400'}`}
               style={teinteDate ? { background: teinteDate } : undefined} />
 
             <select value={t.statut} onChange={e => majTache(t, { statut: e.target.value })}
-              className="w-full rounded-full px-2.5 h-7 text-[12px] font-semibold text-white border-0 cursor-pointer"
+              className="w-full rounded-full px-2.5 h-7 text-second font-semibold text-white border-0 cursor-pointer"
               style={{ background: teinteStatut }}>
               {STATUTS.map(([cle, lib]) => <option key={cle} value={cle} className="text-iip-texte bg-white">{lib}</option>)}
             </select>
 
             <button onClick={() => deplier(t.id)} title="Personnes au courant"
-              className={`w-7 h-7 rounded-champ text-[13px] leading-none
+              className={`w-7 h-7 rounded-champ text-sm leading-none
                 ${deplies.has(t.id) ? 'bg-slate-200 text-slate-700' : 'text-slate-400 hover:bg-slate-100'}`}>⋯</button>
           </div>
           {deplies.has(t.id) && (
-            <div className="px-3 pb-2 pl-[46px] flex items-center gap-2 text-[12px] text-slate-500">
+            <div className="px-3 pb-2 pl-[46px] flex items-center gap-2 text-second text-slate-500">
               Au courant :
               <ChoixResponsables personnes={personnes} tache={t} informes
                 onChange={cles => majTache(t, { informes: cles })} />
@@ -988,7 +988,7 @@ function ListeTaches({ taches, personnes, presents = [], obligations = [], api, 
       })}
 
       {!taches.length && !avecAjout && (
-        <div className="px-3 py-3 text-[13px] text-slate-400">Aucune tâche.</div>
+        <div className="px-3 py-3 text-sm text-slate-400">Aucune tâche.</div>
       )}
 
       {avecAjout && (
@@ -1003,13 +1003,13 @@ function ListeTaches({ taches, personnes, presents = [], obligations = [], api, 
             onKeyDown={e => e.key === 'Enter' && ajouter()}
             placeholder="Ce qu'il y a à faire…"
             className="flex-1 min-w-0 bg-white border border-slate-300 rounded-champ
-                       px-2 h-8 text-[13px]" />
+                       px-2 h-8 text-sm" />
           <ChoixResponsables personnes={personnes} presents={presents}
             tache={{ responsables: nouvelle.responsables.map(c => ({ cle: c })) }}
             onChange={cles => setNouvelle(n => ({ ...n, responsables: cles }))} />
           <input type="date" value={nouvelle.echeance} title="Pour quand"
             onChange={e => setNouvelle(n => ({ ...n, echeance: e.target.value }))}
-            className="bg-white border border-slate-300 rounded-champ px-1.5 h-8 text-[12px]" />
+            className="bg-white border border-slate-300 rounded-champ px-1.5 h-8 text-second" />
           {!!obligations.length && (
             /* RATTACHER À CE QUE LA CIRCULAIRE IMPOSE — facultatif : tout ne
                découle pas d'une obligation, mais quand c'est le cas, le lien
@@ -1021,7 +1021,7 @@ function ListeTaches({ taches, personnes, presents = [], obligations = [], api, 
                 setNouvelle(n => ({ ...n, echeance_id: e.target.value,
                   echeance: n.echeance || (o?.date_due || '') }));
               }}
-              className="bg-white border border-slate-300 rounded-champ px-1.5 h-8 text-[12px]
+              className="bg-white border border-slate-300 rounded-champ px-1.5 h-8 text-second
                          max-w-[12rem] text-slate-600">
               <option value="">— ne sert aucune obligation —</option>
               {obligations.map(o => (
@@ -1173,9 +1173,9 @@ function VueTaches({ taches, personnes, obligations, api, filtre, setFiltre,
         <div className="relative">
           <IconSearch size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input value={recherche} onChange={e => setRecherche(e.target.value)}
-            placeholder="Chercher une tâche…" className="controle controle-icone text-[13px] w-56" />
+            placeholder="Chercher une tâche…" className="controle controle-icone text-sm w-56" />
         </div>
-        <select value={qui} onChange={e => setQui(e.target.value)} className="controle text-[13px] max-w-[14rem]">
+        <select value={qui} onChange={e => setQui(e.target.value)} className="controle text-sm max-w-[14rem]">
           <option value="">Toutes les personnes</option>
           {[...personnes].sort((a, b) => parNom(a.nom, b.nom)).map(p => (
             <option key={p.cle} value={p.cle}>{nomListe(p.nom)}</option>
@@ -1184,42 +1184,42 @@ function VueTaches({ taches, personnes, obligations, api, filtre, setFiltre,
             {ROLES_CIBLES.map(([c, lib]) => <option key={c} value={`r:${c}`}>{lib}</option>)}
           </optgroup>
         </select>
-        <select value={section} onChange={e => setSection(e.target.value)} className="controle text-[13px]">
+        <select value={section} onChange={e => setSection(e.target.value)} className="controle text-sm">
           <option value="">Toutes les sections</option>
           {toutesSections.map(x => <option key={x} value={x}>{x}</option>)}
         </select>
-        <select value={regrouper} onChange={e => setRegrouper(e.target.value)} className="controle text-[13px]">
+        <select value={regrouper} onChange={e => setRegrouper(e.target.value)} className="controle text-sm">
           {REGROUPER.map(([c, lib]) => <option key={c} value={c}>{lib}</option>)}
         </select>
-        <label className="text-[12px] text-slate-500 flex items-center gap-1.5">
+        <label className="text-second text-slate-500 flex items-center gap-1.5">
           Trier par
-          <select value={trier} onChange={e => setTrier(e.target.value)} className="controle text-[13px]">
+          <select value={trier} onChange={e => setTrier(e.target.value)} className="controle text-sm">
             {TRIER.map(([c, lib]) => <option key={c} value={c}>{lib}</option>)}
           </select>
         </label>
         {filtresActifs && (
-          <button className="bouton controle px-2.5 text-[12px] flex items-center gap-1"
+          <button className="bouton controle px-2.5 text-second flex items-center gap-1"
             onClick={() => { setRecherche(''); setQui(''); setSection(''); }}>
             <IconX size={13} /> Effacer les filtres
           </button>
         )}
-        <span className="text-[12px] text-slate-500 ml-auto">{visibles.length} tâche(s)</span>
+        <span className="text-second text-slate-500 ml-auto">{visibles.length} tâche(s)</span>
       </div>
 
       {!groupes.length && (
-        <p className="text-[13px] text-slate-400">Rien à ce filtre.</p>
+        <p className="text-sm text-slate-400">Rien à ce filtre.</p>
       )}
 
       {groupes.map(([nom, liste]) => (
         <div key={nom || 'tout'} className="mb-3">
           {regrouper !== 'aucun' && (
-            <h2 className="text-[13px] font-semibold text-iip-blue mb-1.5 flex items-center gap-2">
+            <h2 className="text-sm font-semibold text-iip-blue mb-1.5 flex items-center gap-2">
               {regrouper === 'personne' && <IconUser size={15} className="text-slate-400" />}
               {regrouper === 'echeance' && <IconClock size={15} className="text-slate-400" />}
               {regrouper === 'personne' ? nomListe(nom) : nom}
               <span className="font-normal text-slate-400">— {liste.length} tâche(s)</span>
               {regrouper !== 'echeance' && liste.some(enRetard) && (
-                <span className="text-[11px] font-bold text-white rounded-full px-2 h-5 inline-flex items-center"
+                <span className="text-xs font-bold text-white rounded-full px-2 h-5 inline-flex items-center"
                   style={{ background: 'var(--c-refuse)' }}>
                   {liste.filter(enRetard).length} en retard
                 </span>

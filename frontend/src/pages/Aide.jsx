@@ -978,23 +978,23 @@ export function BoutonAide({ page }) {
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOuvert(false)} />
           <div className="absolute right-0 top-9 z-50 bg-white border border-slate-200 rounded-xl
-                          shadow-lg w-80 p-4">
+                          shadow-flottant w-80 p-4">
             <div className="flex items-center justify-between mb-2.5">
-              <span className="text-[13px] font-semibold text-iip-blue">{aide.titre}</span>
+              <span className="text-sm font-semibold text-iip-blue">{aide.titre}</span>
               <button onClick={() => setOuvert(false)} className="text-slate-400 hover:text-slate-600">
                 <IconX size={14} />
               </button>
             </div>
             <ul className="space-y-2">
               {aide.points.map((p, i) => (
-                <li key={i} className="text-[12px] text-slate-600 leading-relaxed pl-3 border-l-2
+                <li key={i} className="text-second text-slate-600 leading-relaxed pl-3 border-l-2
                                        border-slate-200">
                   {p}
                 </li>
               ))}
             </ul>
             <a href={`/aide#${aide.lien}`}
-              className="mt-3 block text-[12px] text-iip-turquoise hover:underline text-center">
+              className="mt-3 block text-second text-iip-turquoise hover:underline text-center">
               Voir le mode d'emploi complet
             </a>
           </div>
@@ -1052,10 +1052,10 @@ export default function Aide({ integre = false }) {
           className="bouton bouton-sortir controle">
           <IconFileTypePdf size={16} /> Guide illustré du secrétariat (PDF)
         </button>
-        <span className="text-[12px] text-slate-500">
+        <span className="text-second text-slate-500">
           Écran par écran, avec captures, sommaire et signets — 76 pages, à lire ou à imprimer.
         </span>
-        {erreurGuide && <span className="text-[12px] text-red-700">{erreurGuide}</span>}
+        {erreurGuide && <span className="text-second text-red-700">{erreurGuide}</span>}
       </div>
 
       <div className="relative max-w-md">
@@ -1086,29 +1086,29 @@ export default function Aide({ integre = false }) {
                   className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50">
                   <r.Icone size={18} stroke={1.6} className="text-slate-400 flex-none" />
                   <div className="flex-1 min-w-0">
-                    <div className="text-[13px] font-semibold text-iip-blue">{r.titre}</div>
-                    <div className="text-[12px] text-slate-500">{r.resume}</div>
+                    <div className="text-sm font-semibold text-iip-blue">{r.titre}</div>
+                    <div className="text-second text-slate-500">{r.resume}</div>
                   </div>
-                  <span className="text-slate-400 text-[13px]">{deployee ? '−' : '+'}</span>
+                  <span className="text-slate-400 text-sm">{deployee ? '−' : '+'}</span>
                 </button>
 
                 {deployee && (
                   <div className="border-t border-slate-100 divide-y divide-slate-100">
                     {r.points.map((p, i) => (
                       <div key={i} className="px-4 py-3">
-                        <div className="text-[13px] font-medium text-slate-800 mb-0.5">{p.titre}</div>
+                        <div className="text-sm font-medium text-slate-800 mb-0.5">{p.titre}</div>
                         {p.ou && (
-                          <p className="text-[12px] text-slate-500 mb-1">
+                          <p className="text-second text-slate-500 mb-1">
                             <span className="font-semibold text-slate-600">Où : </span>{p.ou}
                           </p>
                         )}
-                        <p className="text-[12px] text-slate-600 leading-relaxed">{p.texte}</p>
+                        <p className="text-second text-slate-600 leading-relaxed">{p.texte}</p>
                         {p.savoir?.length > 0 && (
                           <div className="mt-1.5">
-                            <div className="text-[11px] font-semibold text-slate-500">Ce qu’il faut savoir</div>
+                            <div className="text-xs font-semibold text-slate-500">Ce qu’il faut savoir</div>
                             <ul className="mt-0.5 space-y-1">
                               {p.savoir.map((s, k) => (
-                                <li key={k} className="text-[12px] text-slate-600 leading-relaxed pl-3
+                                <li key={k} className="text-second text-slate-600 leading-relaxed pl-3
                                                        border-l-2 border-slate-200">{s}</li>
                               ))}
                             </ul>
@@ -1124,7 +1124,7 @@ export default function Aide({ integre = false }) {
         </div>
       )}
 
-      <p className="text-[11px] text-slate-400 pt-2">
+      <p className="text-xs text-slate-400 pt-2">
         Les règles citées renvoient au décret du 16 avril 1991, au règlement des études et aux
         circulaires applicables ; en cas de divergence, ce sont ces textes qui font foi.
       </p>

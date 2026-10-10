@@ -32,14 +32,14 @@ function resteJours(iso) {
 
 function Pastille({ echeance }) {
   const { statut, date_due } = echeance;
-  if (statut === 'fait')       return <span className="px-2 py-0.5 rounded-champ text-[11px] font-bold bg-emerald-500 text-white">Fait</span>;
-  if (statut === 'sans_objet') return <span className="px-2 py-0.5 rounded-champ text-[11px] font-bold bg-slate-100 text-slate-500">Sans objet</span>;
-  if (statut === 'annule')     return <span className="px-2 py-0.5 rounded-champ text-[11px] font-bold bg-slate-100 text-slate-500">Annulé</span>;
+  if (statut === 'fait')       return <span className="px-2 py-0.5 rounded-champ text-xs font-bold bg-emerald-500 text-white">Fait</span>;
+  if (statut === 'sans_objet') return <span className="px-2 py-0.5 rounded-champ text-xs font-bold bg-slate-100 text-slate-500">Sans objet</span>;
+  if (statut === 'annule')     return <span className="px-2 py-0.5 rounded-champ text-xs font-bold bg-slate-100 text-slate-500">Annulé</span>;
   const n = resteJours(date_due);
-  if (n < 0)   return <span className="px-2 py-0.5 rounded-champ text-[11px] font-bold bg-red-500 text-white">En retard ({-n} j)</span>;
-  if (n === 0) return <span className="px-2 py-0.5 rounded-champ text-[11px] font-bold bg-amber-500 text-white">Aujourd'hui</span>;
-  if (n <= 7)  return <span className="px-2 py-0.5 rounded-champ text-[11px] font-bold bg-amber-500 text-white">J-{n}</span>;
-  return <span className="px-2 py-0.5 rounded-champ text-[11px] font-bold bg-slate-100 text-slate-600">J-{n}</span>;
+  if (n < 0)   return <span className="px-2 py-0.5 rounded-champ text-xs font-bold bg-red-500 text-white">En retard ({-n} j)</span>;
+  if (n === 0) return <span className="px-2 py-0.5 rounded-champ text-xs font-bold bg-amber-500 text-white">Aujourd'hui</span>;
+  if (n <= 7)  return <span className="px-2 py-0.5 rounded-champ text-xs font-bold bg-amber-500 text-white">J-{n}</span>;
+  return <span className="px-2 py-0.5 rounded-champ text-xs font-bold bg-slate-100 text-slate-600">J-{n}</span>;
 }
 
 export default function Echeancier() {
@@ -201,7 +201,7 @@ export default function Echeancier() {
         <div className="flex flex-wrap items-center gap-2">
           <select value={filtres.zone}
             onChange={e => setFiltres(f => ({ ...f, zone: e.target.value }))}
-            className="controle text-[13px]">
+            className="controle text-sm">
             <option value="">Toutes les zones ({c.total ?? 0})</option>
             {(data?.zones || []).filter(z => z.zone).map(z => (
               <option key={z.zone} value={z.zone}>
@@ -211,7 +211,7 @@ export default function Echeancier() {
           </select>
           <select value={filtres.statut}
             onChange={e => setFiltres(f => ({ ...f, statut: e.target.value }))}
-            className="controle text-[13px]">
+            className="controle text-sm">
             <option value="">Tous les statuts</option>
             <option value="en_retard">En retard ({c.en_retard ?? 0})</option>
             <option value="a_faire">À faire</option>
@@ -219,7 +219,7 @@ export default function Echeancier() {
           </select>
           <select value={filtres.responsable}
             onChange={e => setFiltres(f => ({ ...f, responsable: e.target.value }))}
-            className="controle text-[13px] max-w-[16rem]">
+            className="controle text-sm max-w-[16rem]">
             {/* LA LISTE N'EST PLUS TRONQUÉE À HUIT. Le rail ne pouvait pas en
                 porter davantage ; un menu, si — et le neuvième responsable
                 était invisible sans que rien ne le dise. */}
@@ -229,7 +229,7 @@ export default function Echeancier() {
             ))}
           </select>
           {(filtres.zone || filtres.statut || filtres.responsable) && (
-            <button className="bouton text-[12px] px-2.5 py-1"
+            <button className="bouton text-second px-2.5 py-1"
               onClick={() => setFiltres(f => ({
                 ...f, zone: '', statut: '', responsable: '' }))}>
               Tout afficher
@@ -250,7 +250,7 @@ export default function Echeancier() {
             )}
             {parMois.map(([cle, items]) => (
               <div key={cle}>
-                <div className="text-[11px] font-bold text-iip-blue uppercase tracking-widest mb-2">
+                <div className="text-xs font-bold text-iip-blue uppercase tracking-widest mb-2">
                   {MOIS[Number(cle.slice(5, 7)) - 1]} {cle.slice(0, 4)}
                 </div>
                 <div className="space-y-1.5">
@@ -266,25 +266,25 @@ export default function Echeancier() {
                       <div key={`${e.origine || 'ech'}-${e.id}`}
                         className={`bg-white border border-slate-200 border-l-[3px] ${bord} rounded-lg
                           px-3.5 py-2.5 flex items-center gap-3 ${e.statut === 'fait' ? 'opacity-60' : ''}`}>
-                        <div className="text-[13px] font-bold text-iip-blue w-12 flex-none">{jourMois(e.date_due)}</div>
+                        <div className="text-sm font-bold text-iip-blue w-12 flex-none">{jourMois(e.date_due)}</div>
                         <button onClick={() => setDetail(e)} className="flex-1 text-left min-w-0">
-                          <div className="text-[13px] font-medium text-slate-800 truncate">
+                          <div className="text-sm font-medium text-slate-800 truncate">
                             {e.libelle}{e.libelle_override ? ` — ${e.libelle_override}` : ''}
                           </div>
-                          <div className="text-[11px] text-slate-500 truncate">
+                          <div className="text-xs text-slate-500 truncate">
                             {ZONES[e.zone] || e.zone}
                             {e.responsable_nom || e.responsable_role ? ` · ${e.responsable_nom || e.responsable_role}` : ''}
                             {e.base_legale ? ` · ${e.base_legale}` : ''}
                           </div>
                         </button>
                         {e.origine === 'tache' && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-semibold flex-none"
+                          <span className="text-mention px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-semibold flex-none"
                                 title={e.reunion_titre ? `Décidé en séance : ${e.reunion_titre}` : 'Action de suivi'}>
                             suivi
                           </span>
                         )}
                         {e.genere_auto === 1 && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-iip-turquoise/12 text-iip-blue font-semibold flex-none">auto</span>
+                          <span className="text-mention px-1.5 py-0.5 rounded bg-iip-turquoise/12 text-iip-blue font-semibold flex-none">auto</span>
                         )}
                         <Pastille echeance={e} />
                         <button onClick={() => basculer(e)} title={e.statut === 'fait' ? 'Marquer à faire' : 'Marquer fait'}
@@ -315,17 +315,17 @@ export default function Echeancier() {
           <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
             <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center gap-2">
               <IconBooks size={16} className="text-iip-turquoise" />
-              <span className="text-[12px] font-bold text-iip-blue uppercase tracking-wide">
+              <span className="text-second font-bold text-iip-blue uppercase tracking-wide">
                 Référentiel légal des échéances
               </span>
-              <span className="text-[11px] text-slate-500 ml-2">
+              <span className="text-xs text-slate-500 ml-2">
                 {types.length} types — modifiable par l'administrateur à la lecture d'une circulaire
               </span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-slate-50/60 border-b border-slate-200 text-[11px] uppercase tracking-wide text-slate-500">
+                  <tr className="bg-slate-50/60 border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
                     <th className="px-3 py-2 text-left">Échéance</th>
                     <th className="px-3 py-2 text-left w-40">Zone</th>
                     <th className="px-3 py-2 text-left w-52">Règle de date</th>
@@ -340,15 +340,15 @@ export default function Echeancier() {
                       <td className="px-3 py-2">
                         <div className="font-medium text-slate-800">{t.libelle}</div>
                         {t.description && (
-                          <div className="text-[11px] text-slate-500 mt-0.5 line-clamp-2 max-w-xl">{t.description}</div>
+                          <div className="text-xs text-slate-500 mt-0.5 line-clamp-2 max-w-xl">{t.description}</div>
                         )}
                       </td>
                       <td className="px-3 py-2 text-slate-600">{ZONES[t.zone] || t.zone || '—'}</td>
                       <td className="px-3 py-2">
-                        <code className="text-[11px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-700">{t.regle_date}</code>
+                        <code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded text-slate-700">{t.regle_date}</code>
                       </td>
                       <td className="px-3 py-2 text-slate-600">{t.responsable_defaut || '—'}</td>
-                      <td className="px-3 py-2 text-[11px] text-slate-500">{t.base_legale || '—'}</td>
+                      <td className="px-3 py-2 text-xs text-slate-500">{t.base_legale || '—'}</td>
                       <td className="px-3 py-2 text-slate-600">{t.nb_instances}</td>
                     </tr>
                   ))}
@@ -391,7 +391,7 @@ export default function Echeancier() {
               {detail.base_legale && (
                 <div className="flex items-start gap-2 bg-slate-50 rounded-lg px-3 py-2.5">
                   <IconScale size={15} className="text-iip-turquoise mt-0.5 flex-none" />
-                  <span className="text-[12px] text-slate-600">{detail.base_legale}</span>
+                  <span className="text-second text-slate-600">{detail.base_legale}</span>
                 </div>
               )}
             </div>
@@ -404,7 +404,7 @@ export default function Echeancier() {
 function Info({ label, valeur }) {
   return (
     <div>
-      <div className="text-[10px] text-slate-400 uppercase tracking-wider">{label}</div>
+      <div className="text-mention text-slate-400 uppercase tracking-wider">{label}</div>
       <div className="text-slate-800 mt-0.5">{valeur}</div>
     </div>
   );
@@ -442,10 +442,10 @@ function ListeEcheances({ lignes, onBasculer, onDetail, mien }) {
                     <div className="text-slate-800">
                       {e.libelle}
                       {e.origine === 'tache' && (
-                        <span className="text-[10px] ml-2 px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-semibold">suivi</span>
+                        <span className="text-mention ml-2 px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 font-semibold">suivi</span>
                       )}
                     </div>
-                    {e.libelle_override && <div className="text-[11px] text-slate-500">{e.libelle_override}</div>}
+                    {e.libelle_override && <div className="text-xs text-slate-500">{e.libelle_override}</div>}
                   </button>
                 </td>
                 <td className="px-3 py-2 text-slate-600">{ZONES[e.zone] || e.zone || '—'}</td>

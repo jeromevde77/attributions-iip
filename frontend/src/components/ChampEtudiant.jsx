@@ -75,14 +75,14 @@ export default function ChampEtudiant({ options = null, onChoisir, onVider = nul
       {ouvert && mots.length > 0 && (
         <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-champ shadow-flottant max-h-72 overflow-auto">
           {propositions.length === 0
-            ? <div className="px-3 py-2 text-[12px] text-slate-500">Aucun étudiant ne contient « {texte} ».</div>
+            ? <div className="px-3 py-2 text-second text-slate-500">Aucun étudiant ne contient « {texte} ».</div>
             : propositions.map((e, k) => (
               <button key={e.id} type="button" onMouseDown={ev => { ev.preventDefault(); choisir(e); }} onMouseEnter={() => setActif(k)}
-                className={`w-full text-left px-3 py-1.5 text-[13px] flex items-baseline gap-2 ${k === actif ? 'bg-slate-100' : ''}`}>
+                className={`w-full text-left px-3 py-1.5 text-sm flex items-baseline gap-2 ${k === actif ? 'bg-slate-100' : ''}`}>
                 <span className="font-medium text-iip-blue">{nomAffiche(e)}</span>
-                <span className="text-[11px] text-slate-500 tabular-nums">{e.id_ecampus || e.matricule || ''}</span>
-                {(e.section || e.section_rattachement) && <span className="text-[11px] text-slate-400">{e.section || e.section_rattachement}</span>}
-                {detail && <span className="ml-auto text-[11px] text-slate-500">{detail(e)}</span>}
+                <span className="text-xs text-slate-500 tabular-nums">{e.id_ecampus || e.matricule || ''}</span>
+                {(e.section || e.section_rattachement) && <span className="text-xs text-slate-400">{e.section || e.section_rattachement}</span>}
+                {detail && <span className="ml-auto text-xs text-slate-500">{detail(e)}</span>}
               </button>))}
         </div>)}
     </div>

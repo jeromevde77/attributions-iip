@@ -148,7 +148,7 @@ function Cellule({ groupeId, semaineId, semaineType, value, onChange, warning })
           autoFocus
         />
       ) : (
-        <span className={special ? `font-bold text-[10px] ${special.text}` : 'text-gray-800 text-xs'}>
+        <span className={special ? `font-bold text-mention ${special.text}` : 'text-gray-800 text-xs'}>
           {display || <span className="text-gray-200">·</span>}
         </span>
       )}
@@ -172,16 +172,16 @@ function LigneGroupe({ groupe, semaines, cellules, onCellChange, onEditGroupe, w
       {/* Nom : badge UE + nom UE + groupe + prof */}
       <td className="sticky left-0 z-10 bg-white border border-gray-200 px-2 py-1 min-w-[260px] max-w-[260px]">
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="inline-flex items-center bg-iip-mauve/10 text-iip-mauve text-[10px] font-bold px-1.5 py-0.5 rounded">
+          <span className="inline-flex items-center bg-iip-mauve/10 text-iip-mauve text-mention font-bold px-1.5 py-0.5 rounded">
             UE {groupe.ue_num}
           </span>
           {groupe.ue_niv && (
-            <span className="text-[10px] font-bold px-1 py-0.5 rounded bg-gray-100 text-gray-600">
+            <span className="text-mention font-bold px-1 py-0.5 rounded bg-gray-100 text-gray-600">
               {groupe.ue_niv}
             </span>
           )}
           {groupe.ue_quad && (
-            <span className="text-[10px] font-medium px-1 py-0.5 rounded bg-gray-100 text-gray-500">
+            <span className="text-mention font-medium px-1 py-0.5 rounded bg-gray-100 text-gray-500">
               {String(groupe.ue_quad).replace(/\s/g,'').toUpperCase() === 'Q1Q2' ? 'Q1/Q2' : groupe.ue_quad}
             </span>
           )}
@@ -190,13 +190,13 @@ function LigneGroupe({ groupe, semaines, cellules, onCellChange, onEditGroupe, w
             {groupe.cours_nom || groupe.ue_nom || `UE ${groupe.ue_num}`}
           </span>
           {groupe.activite_nom && (
-            <span className="text-[10px] bg-iip-gold/10 text-iip-gold px-1.5 py-0.5 rounded font-medium">
+            <span className="text-mention bg-iip-gold/10 text-iip-gold px-1.5 py-0.5 rounded font-medium">
               {groupe.activite_nom}
             </span>
           )}
-          <span className="text-[10px] text-gray-400">· Gr.{groupe.nom}</span>
+          <span className="text-mention text-gray-400">· Gr.{groupe.nom}</span>
           {groupe.prof_nom && (
-            <span className="text-[10px] text-gray-500 ml-auto">
+            <span className="text-mention text-gray-500 ml-auto">
               {groupe.prof_nom} {groupe.prof_prenom?.[0] || ''}.
             </span>
           )}
@@ -208,8 +208,8 @@ function LigneGroupe({ groupe, semaines, cellules, onCellChange, onEditGroupe, w
       <td className={`sticky left-[260px] z-10 border border-gray-200 text-center text-xs w-24 font-mono
         ${over ? 'bg-red-500 text-white' : done ? 'bg-green-500 text-white' : 'bg-gray-50 text-gray-500'}`}
         style={nivBorderColor ? { borderLeft: `3px solid ${nivBorderColor}` } : {}}>
-        <div className="font-semibold text-[11px]">{Math.round(hPlanif * 10) / 10}h</div>
-        <div className="text-[10px] opacity-70">/{groupe.heures_attribuees}h · {pct}%</div>
+        <div className="font-semibold text-xs">{Math.round(hPlanif * 10) / 10}h</div>
+        <div className="text-mention opacity-70">/{groupe.heures_attribuees}h · {pct}%</div>
       </td>
       {/* Cellules */}
       {semaines.map(sem => (
@@ -224,7 +224,7 @@ function LigneGroupe({ groupe, semaines, cellules, onCellChange, onEditGroupe, w
         />
       ))}
       {/* PEP */}
-      <td className="border border-gray-200 text-center text-[10px] w-14 bg-iip-turquoise/5 text-iip-blue font-mono">
+      <td className="border border-gray-200 text-center text-mention w-14 bg-iip-turquoise/5 text-iip-blue font-mono">
         {groupe.nb_etudiants > 0
           ? Math.round(hPlanif * groupe.nb_etudiants * 1.2)
           : <span className="text-gray-300">—</span>}
@@ -272,7 +272,7 @@ function BlocSection({ section, groupes, semaines, cellules, onCellChange, onEdi
         {semaines.map(sem => {
           const hSem = groupes.reduce((s, g) => s + cellHeures(cellules[`${g.id}_${sem.id}`]), 0);
           return (
-            <td key={sem.id} className={`border border-gray-200 text-center text-[10px] w-10
+            <td key={sem.id} className={`border border-gray-200 text-center text-mention w-10
               ${TYPE_STYLE[sem.type]?.header || 'bg-gray-50'}
               ${hSem > 0 ? 'text-iip-gold font-semibold' : 'text-transparent'}`}
               style={{ backgroundColor: hSem > 0 ? '#E8EAEF' : undefined }}>
@@ -280,7 +280,7 @@ function BlocSection({ section, groupes, semaines, cellules, onCellChange, onEdi
             </td>
           );
         })}
-        <td className="border border-gray-200 text-center text-[10px] w-14 bg-iip-turquoise/5 text-iip-blue font-bold">
+        <td className="border border-gray-200 text-center text-mention w-14 bg-iip-turquoise/5 text-iip-blue font-bold">
           {Math.round(pepTotal)}
         </td>
       </tr>
@@ -310,7 +310,7 @@ function BlocSection({ section, groupes, semaines, cellules, onCellChange, onEdi
           // Ligne de total du niveau
           const ligneTotal = (
             <tr key={`total-${niv}`} className="select-none">
-              <td colSpan={2} className="sticky left-0 z-10 border border-gray-200 px-3 py-1 text-[10px] font-semibold"
+              <td colSpan={2} className="sticky left-0 z-10 border border-gray-200 px-3 py-1 text-mention font-semibold"
                 style={{ backgroundColor: col.hex || '#f9fafb', borderLeft: `3px solid ${borderColor}` }}>
                 <span style={{ color: borderColor }}>Σ {niv}</span>
                 <span className="ml-2 font-normal text-gray-400">
@@ -320,7 +320,7 @@ function BlocSection({ section, groupes, semaines, cellules, onCellChange, onEdi
               {semaines.map(sem => {
                 const hSem = grpsNiv.reduce((s, g) => s + cellHeures(cellules[`${g.id}_${sem.id}`]), 0);
                 return (
-                  <td key={sem.id} className="border border-gray-200 text-center text-[10px] w-10"
+                  <td key={sem.id} className="border border-gray-200 text-center text-mention w-10"
                     style={{ backgroundColor: col.hex || '#f9fafb', color: hSem > 0 ? borderColor : 'transparent', fontWeight: hSem > 0 ? 600 : 400 }}>
                     {hSem > 0 ? arrondir(hSem) : '·'}
                   </td>
@@ -412,7 +412,7 @@ function ModalGroupe({ initial, annee, profs, ues, onSave, onClose }) {
             <label className="block text-xs text-gray-500 mb-1">Heures attribuées (60 min)</label>
             <input type="number" step="0.5" value={heures} onChange={e => setHeures(e.target.value)} min="0"
               className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
-            {heures > 0 && <p className="text-[10px] text-gray-400 mt-0.5">= {hToPer(Number(heures))} périodes de 50 min</p>}
+            {heures > 0 && <p className="text-mention text-gray-400 mt-0.5">= {hToPer(Number(heures))} périodes de 50 min</p>}
           </div>
           <div>
             <label className="block text-xs text-gray-500 mb-1">Notes</label>
@@ -488,11 +488,11 @@ function PanelCalendrier({ semaines, onUpdate, onClose }) {
               return (
                 <button key={sem.id} onClick={() => setSelected(prev => { const n = new Set(prev); n.has(sem.id) ? n.delete(sem.id) : n.add(sem.id); return n; })}
                   className={`text-left p-2 rounded border-2 transition text-xs
-                    ${isSel ? 'border-iip-gold shadow-sm' : 'border-gray-200 hover:border-gray-400'}
+                    ${isSel ? 'border-iip-gold shadow-pose' : 'border-gray-200 hover:border-gray-400'}
                     ${style.header}`}>
                   <div className={`font-semibold ${style.text}`}>S{sem.semaine_num}</div>
-                  <div className="text-gray-500 text-[10px]">{fmtDate(sem.date_debut)}</div>
-                  {sem.label && <div className={`text-[10px] mt-0.5 ${style.text}`}>{sem.label}</div>}
+                  <div className="text-gray-500 text-mention">{fmtDate(sem.date_debut)}</div>
+                  {sem.label && <div className={`text-mention mt-0.5 ${style.text}`}>{sem.label}</div>}
                 </button>
               );
             })}
@@ -600,7 +600,7 @@ function ModalImport({ annee, onImported, onClose }) {
                       <tr key={i} className="hover:bg-gray-50">
                         <td className="px-3 py-1.5 h-9 font-medium text-iip-mauve">{g.section || '—'}</td>
                         <td className="px-3 py-1.5 h-9 text-gray-600">UE {g.ue_num} <span className="text-gray-400">{g.ue_nom?.slice(0,20)}</span></td>
-                        <td className="px-3 py-1.5 h-9 text-gray-500 text-[10px]">{g.code_cours || '—'}</td>
+                        <td className="px-3 py-1.5 h-9 text-gray-500 text-mention">{g.code_cours || '—'}</td>
                         <td className="px-3 py-1.5 h-9 text-center font-bold">{g.nom}</td>
                         <td className="px-3 py-1.5 h-9 text-right font-mono">{g.heures_attribuees}h</td>
                         <td className="px-3 py-1.5 h-9 text-gray-400 italic">{g.notes || ''}</td>
@@ -730,7 +730,7 @@ function ModalIA({ annee, section, onApplied, onClose }) {
                 <p className="text-xs font-medium text-gray-500 mb-2">Ordre de planification (prérequis respectés)</p>
                 <div className="flex flex-wrap gap-1">
                   {preview.meta.ue_ordre.map((n, i) => (
-                    <span key={n} className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
+                    <span key={n} className="text-mention bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
                       {i+1}. UE{n}
                     </span>
                   ))}
@@ -940,17 +940,17 @@ function StructureUE({ annee, section, groupes }) {
         onDragStart={() => onDragStart(u.ue_num)}
         onClick={() => setSelected(isSel ? null : u.ue_num)}
         className={`rounded-lg p-2 cursor-pointer border-2 transition select-none mb-1.5
-          ${isSel ? 'border-iip-mauve bg-iip-mauve/10 shadow-md' :
+          ${isSel ? 'border-iip-mauve bg-iip-mauve/10 shadow-flottant' :
             isPrereqOfSel ? `${col.border} ${col.bg}` :
             isDepOfSel ? 'border-orange-400 bg-orange-50' :
             'border-gray-200 hover:border-gray-400 bg-white'}`}>
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] font-bold text-iip-mauve">UE{u.ue_num}</span>
-          {saving === u.ue_num && <span className="text-[10px] text-gray-400"><IconDeviceFloppy size={12} className="inline" /></span>}
-          {nbPre > 0 && <span className="text-[10px] bg-iip-turquoise/10 text-iip-blue px-1 rounded">{nbPre}↑</span>}
-          {nbDep > 0 && <span className="text-[10px] bg-orange-500 text-white px-1 rounded">{nbDep}↓</span>}
+          <span className="text-mention font-bold text-iip-mauve">UE{u.ue_num}</span>
+          {saving === u.ue_num && <span className="text-mention text-gray-400"><IconDeviceFloppy size={12} className="inline" /></span>}
+          {nbPre > 0 && <span className="text-mention bg-iip-turquoise/10 text-iip-blue px-1 rounded">{nbPre}↑</span>}
+          {nbDep > 0 && <span className="text-mention bg-orange-500 text-white px-1 rounded">{nbDep}↓</span>}
         </div>
-        <p className="text-[10px] text-gray-600 leading-tight mt-0.5">{u.ue_nom?.slice(0, 40)}</p>
+        <p className="text-mention text-gray-600 leading-tight mt-0.5">{u.ue_nom?.slice(0, 40)}</p>
       </div>
     );
   }
@@ -990,7 +990,7 @@ function StructureUE({ annee, section, groupes }) {
                       className={`align-top p-2 border border-dashed transition min-w-[180px]
                         ${dragOverCell === cellKey ? 'border-iip-mauve bg-iip-mauve/5' : 'border-gray-200'}`}>
                       {list.map(u => <BadgeUE key={u.ue_num} u={u} />)}
-                      {list.length === 0 && <p className="text-[10px] text-gray-300 italic text-center py-2">—</p>}
+                      {list.length === 0 && <p className="text-mention text-gray-300 italic text-center py-2">—</p>}
                     </td>
                   );
                 })}
@@ -1006,7 +1006,7 @@ function StructureUE({ annee, section, groupes }) {
           <div className="mb-4">
             <p className="font-semibold text-sm text-gray-800">UE {selected}</p>
             <p className="text-xs text-gray-500">{selUE.ue_nom}</p>
-            <p className="text-[10px] text-gray-400 mt-1">{selUE.ue_niv} · {selUE.ue_quad}</p>
+            <p className="text-mention text-gray-400 mt-1">{selUE.ue_niv} · {selUE.ue_quad}</p>
           </div>
           <p className="text-xs font-medium text-gray-600 mb-2">Doit être précédée par :</p>
           <div className="space-y-1.5">
@@ -1017,7 +1017,7 @@ function StructureUE({ annee, section, groupes }) {
                   <input type="checkbox" checked={isChecked} onChange={() => togglePrereq(selected, u.ue_num)} className="mt-0.5 accent-iip-blue flex-shrink-0" />
                   <div>
                     <p className="text-xs font-medium text-gray-700">UE {u.ue_num}</p>
-                    <p className="text-[10px] text-gray-400">{u.ue_nom?.slice(0, 35)}</p>
+                    <p className="text-mention text-gray-400">{u.ue_nom?.slice(0, 35)}</p>
                   </div>
                 </label>
               );
@@ -1116,13 +1116,13 @@ function SeqCours({ annee, section, groupes }) {
     if (!g) return null;
     return (
       <div draggable onDragStart={() => onDragStart(groupe_id, from)}
-        className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2 cursor-grab shadow-sm hover:border-iip-mauve transition select-none">
+        className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2 cursor-grab shadow-pose hover:border-iip-mauve transition select-none">
         <span className="text-xs font-bold text-iip-mauve">UE{g.ue_num}</span>
         <span className="text-xs text-gray-600 truncate max-w-[150px]" title={g.cours_nom || g.ue_nom}>
           {g.cours_nom || g.ue_nom}
         </span>
-        {g.activite_nom && <span className="text-[10px] bg-iip-gold/10 text-iip-gold px-1 rounded">{g.activite_nom}</span>}
-        <span className="text-[10px] text-gray-400">Gr.{g.nom}</span>
+        {g.activite_nom && <span className="text-mention bg-iip-gold/10 text-iip-gold px-1 rounded">{g.activite_nom}</span>}
+        <span className="text-mention text-gray-400">Gr.{g.nom}</span>
       </div>
     );
   }
@@ -1136,8 +1136,8 @@ function SeqCours({ annee, section, groupes }) {
             className={`w-full text-left px-4 py-3 text-sm border-b transition
               ${ueSelectionnee === u.ue_num ? 'bg-iip-mauve text-white' : 'hover:bg-gray-100 text-gray-700'}`}>
             <p className="font-medium">UE {u.ue_num}</p>
-            <p className={`text-[10px] truncate ${ueSelectionnee === u.ue_num ? 'text-white/70' : 'text-gray-400'}`}>{u.ue_nom}</p>
-            <p className={`text-[10px] ${ueSelectionnee === u.ue_num ? 'text-white/70' : 'text-gray-400'}`}>{u.groupes.length} cours</p>
+            <p className={`text-mention truncate ${ueSelectionnee === u.ue_num ? 'text-white/70' : 'text-gray-400'}`}>{u.ue_nom}</p>
+            <p className={`text-mention ${ueSelectionnee === u.ue_num ? 'text-white/70' : 'text-gray-400'}`}>{u.groupes.length} cours</p>
           </button>
         ))}
       </div>
@@ -1201,7 +1201,7 @@ function SeqCours({ annee, section, groupes }) {
       {/* Footer sauvegarde */}
       <div className="absolute bottom-0 right-0 p-4">
         <button onClick={sauvegarder} disabled={saving}
-          className="bg-iip-mauve text-white text-sm px-5 py-2 rounded hover:opacity-90 disabled:opacity-50 shadow-lg">
+          className="bg-iip-mauve text-white text-sm px-5 py-2 rounded hover:opacity-90 disabled:opacity-50 shadow-flottant">
           {saving ? 'Sauvegarde…' : saved ? '✓ Sauvegardé' : 'Enregistrer'}
         </button>
       </div>
@@ -1406,7 +1406,7 @@ export default function Planification() {
         </select>
         <div className="flex-1" />
         {/* Légende */}
-        <div className="flex gap-1.5 items-center text-[10px]">
+        <div className="flex gap-1.5 items-center text-mention">
           <span className="px-1.5 py-0.5 rounded bg-orange-500 text-white font-bold">EV1 = 2h</span>
           <span className="px-1.5 py-0.5 rounded bg-red-500 text-white font-bold">EV2 = 0h</span>
           <span className="px-1.5 py-0.5 rounded bg-purple-500 text-white font-bold">VC = 1h</span>
@@ -1464,31 +1464,31 @@ export default function Planification() {
               {/* Mois */}
               <tr>
                 <th className="sticky left-0 z-30 bg-white border border-gray-300 w-[260px]"></th>
-                <th className="sticky left-[260px] z-30 bg-white border border-gray-300 w-24 text-center text-[10px] text-gray-400">Total</th>
+                <th className="sticky left-[260px] z-30 bg-white border border-gray-300 w-24 text-center text-mention text-gray-400">Total</th>
                 {semaines.map((sem, i) => {
                   const style = TYPE_STYLE[sem.type] || TYPE_STYLE.cours;
                   const mois = new Date(sem.date_debut + 'T12:00:00').toLocaleDateString('fr-BE', { month: 'short' });
                   const prev = i > 0 ? new Date(semaines[i-1].date_debut + 'T12:00:00').toLocaleDateString('fr-BE', { month: 'short' }) : null;
                   return (
-                    <th key={sem.id} className={`border border-gray-200 text-center w-10 text-[10px] font-medium ${style.header} ${style.text}`}
+                    <th key={sem.id} className={`border border-gray-200 text-center w-10 text-mention font-medium ${style.header} ${style.text}`}
                       title={`S${sem.semaine_num} · ${fmtDate(sem.date_debut)}${sem.label ? ' · '+sem.label : ''}`}>
                       {mois !== prev ? mois : ''}
                     </th>
                   );
                 })}
-                <th className="border border-gray-300 bg-iip-turquoise/5 text-iip-blue text-[10px] w-14 text-center">PEP</th>
+                <th className="border border-gray-300 bg-iip-turquoise/5 text-iip-blue text-mention w-14 text-center">PEP</th>
               </tr>
               {/* N° semaine + date */}
               <tr>
-                <th className="sticky left-0 z-30 bg-gray-50 border border-gray-300 text-left px-2 text-[10px] text-gray-400 font-normal">Attribution</th>
-                <th className="sticky left-[260px] z-30 bg-gray-50 border border-gray-300 text-center text-[10px] text-gray-400 font-normal">planif./attr.</th>
+                <th className="sticky left-0 z-30 bg-gray-50 border border-gray-300 text-left px-2 text-mention text-gray-400 font-normal">Attribution</th>
+                <th className="sticky left-[260px] z-30 bg-gray-50 border border-gray-300 text-center text-mention text-gray-400 font-normal">planif./attr.</th>
                 {semaines.map(sem => {
                   const style = TYPE_STYLE[sem.type] || TYPE_STYLE.cours;
                   return (
                     <th key={sem.id} className={`border border-gray-200 text-center w-10 ${style.header} ${style.text}`}
                       title={`${fmtDate(sem.date_debut)}–${fmtDate(sem.date_fin)}`}>
-                      <div className="text-[10px] font-mono font-semibold">{sem.semaine_num}</div>
-                      <div className="text-[8px] font-normal text-gray-400">{fmtDate(sem.date_debut)}</div>
+                      <div className="text-mention font-mono font-semibold">{sem.semaine_num}</div>
+                      <div className="text-mention font-normal text-gray-400">{fmtDate(sem.date_debut)}</div>
                     </th>
                   );
                 })}

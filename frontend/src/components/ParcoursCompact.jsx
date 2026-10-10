@@ -99,8 +99,8 @@ export default function ParcoursCompact({ etudId, annee, programme = new Set(), 
   }, [data]);
 
 
-  if (!data) return <p className="text-[12px] text-slate-400">Chargement du parcours…</p>;
-  if (!plan) return <p className="text-[12px] text-slate-500">Aucun schéma pour ce cursus.</p>;
+  if (!data) return <p className="text-second text-slate-400">Chargement du parcours…</p>;
+  if (!plan) return <p className="text-second text-slate-500">Aucun schéma pour ce cursus.</p>;
 
   // LA CHAÎNE DE L'UNITÉ SURVOLÉE : ses prérequis (en remontant) et ce qu'elle ouvre.
   const amont = new Set(), aval = new Set();
@@ -204,8 +204,8 @@ export default function ParcoursCompact({ etudId, annee, programme = new Set(), 
           );
         })}
       </svg>
-      <div className="min-h-[20px] mt-1 text-[12px] text-iip-texte">{etiquette || <span className="text-slate-400">Survolez une unité pour voir sa chaîne de prérequis.</span>}</div>
-      <div className="text-[11px] text-slate-500 leading-[1.9] mt-1">
+      <div className="min-h-[20px] mt-1 text-second text-iip-texte">{etiquette || <span className="text-slate-400">Survolez une unité pour voir sa chaîne de prérequis.</span>}</div>
+      <div className="text-xs text-slate-500 leading-[1.9] mt-1">
         <Leg fond="var(--c-reussi, #3E7D5E)" lisere="color-mix(in srgb, var(--c-reussi, #3E7D5E) 62%, #000)" /> réussie ·
         <Leg lisere="var(--c-reussi, #3E7D5E)" contour="var(--c-reussi, #3E7D5E)" /> acquise par VA ·
         <Leg fond="var(--c-faveur, #6B46C1)" lisere="color-mix(in srgb, var(--c-faveur, #6B46C1) 62%, #000)" /> faveur ·

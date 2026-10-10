@@ -129,15 +129,15 @@ export default function RegistreConventions({ action, onActionFin }) {
         sous="Le registre des conventions de l’Institut — préparées ici, signées par la direction, contresignées par le partenaire" />
 
       <div className="flex flex-wrap items-center gap-2">
-        <select value={annee} onChange={e => setAnnee(e.target.value)} className="controle text-[13px]" aria-label="Année académique">
+        <select value={annee} onChange={e => setAnnee(e.target.value)} className="controle text-sm" aria-label="Année académique">
           {anneesAutour(getAnnee()).map(a => <option key={a} value={a}>{a}</option>)}
           <option value="">Toutes les années</option>
         </select>
-        <select value={fFamille} onChange={e => setFFamille(e.target.value)} className="controle text-[13px]" aria-label="Famille">
+        <select value={fFamille} onChange={e => setFFamille(e.target.value)} className="controle text-sm" aria-label="Famille">
           <option value="">Toutes les familles</option>
           {FAMILLES_ORDRE.map(f => <option key={f} value={f}>{familles[f] || f}</option>)}
         </select>
-        <select value={fEtat} onChange={e => setFEtat(e.target.value)} className="controle text-[13px]" aria-label="État">
+        <select value={fEtat} onChange={e => setFEtat(e.target.value)} className="controle text-sm" aria-label="État">
           <option value="">Tous les états</option>
           <option value="deposee">Déposées — à signer</option>
           <option value="signee">Signées par l’IIP</option>
@@ -145,24 +145,24 @@ export default function RegistreConventions({ action, onActionFin }) {
           <option value="echue">Échues</option>
           <option value="retiree">Retirées</option>
         </select>
-        <select value={fSection} onChange={e => setFSection(e.target.value)} className="controle text-[13px]" aria-label="Section">
+        <select value={fSection} onChange={e => setFSection(e.target.value)} className="controle text-sm" aria-label="Section">
           <option value="">Toutes les sections</option>
           {sections.map(s => <option key={s.code} value={s.code}>{s.code}</option>)}
         </select>
         <input value={fTexte} onChange={e => setFTexte(e.target.value)} placeholder="Partenaire, objet, étudiant…"
-          className="controle text-[13px] w-56" aria-label="Rechercher un partenaire" />
-        <span className="text-[12px] text-slate-500">
+          className="controle text-sm w-56" aria-label="Rechercher un partenaire" />
+        <span className="text-second text-slate-500">
           {nb} convention{nb > 1 ? 's' : ''}{aSigner ? ` · ${aSigner} à signer` : ''}{echues ? ` · ${echues} échue${echues > 1 ? 's' : ''}` : ''}
         </span>
       </div>
 
-      {erreur && <div className="carte p-3 text-[13px] text-rose-700">{erreur}</div>}
+      {erreur && <div className="carte p-3 text-sm text-rose-700">{erreur}</div>}
       {message && (
-        <div className={`text-[12px] ${message.ok ? 'text-emerald-700' : 'text-red-700'}`}>{message.texte}</div>
+        <div className={`text-second ${message.ok ? 'text-emerald-700' : 'text-red-700'}`}>{message.texte}</div>
       )}
 
       {liste && !nb && !erreur && (
-        <p className="text-[13px] text-slate-400">
+        <p className="text-sm text-slate-400">
           Aucune convention{annee ? ` en ${annee}` : ''} pour ces critères. « Nouvelle convention » en compose une ;
           « Déposer un document du partenaire » range un PDF reçu.
         </p>
@@ -174,21 +174,21 @@ export default function RegistreConventions({ action, onActionFin }) {
           return (
             <div key={c.id} className="carte px-3 py-2 flex items-center gap-3 flex-wrap">
               <span className="flex-1 min-w-[260px]">
-                <span className="block text-[11px] text-slate-500">
+                <span className="block text-xs text-slate-500">
                   {familles[c.famille] || c.famille} · n° {c.id}{c.annee_scolaire ? ` · ${c.annee_scolaire}` : ''}
                   {c.origine === 'iip' ? ' · modèle IIP' : ' · document du partenaire'}
                 </span>
-                <span className="text-[13px] font-semibold text-iip-blue">{c.partenaire || '—'}</span>
+                <span className="text-sm font-semibold text-iip-blue">{c.partenaire || '—'}</span>
                 {c.famille === 'partenariat' && c.objet && (
-                  <span className="block text-[12px] text-slate-600 truncate max-w-[520px]" title={c.objet}>{c.objet}</span>
+                  <span className="block text-second text-slate-600 truncate max-w-[520px]" title={c.objet}>{c.objet}</span>
                 )}
-                <span className="block text-[12px] text-slate-600">
+                <span className="block text-second text-slate-600">
                   {[c.etud_nom ? nomEcran(c.etud_nom, c.etud_prenom) : null,
                     c.famille === 'partenaire' ? c.objet : null,
                     (c.sections_liste?.length ? c.sections_liste.join(', ') : c.section) || null]
                     .filter(Boolean).join(' · ')}
                 </span>
-                <span className="block text-[11px] text-slate-400">
+                <span className="block text-xs text-slate-400">
                   {[c.periode_debut && `du ${frDate(c.periode_debut)}`, c.periode_fin && `au ${frDate(c.periode_fin)}`,
                     c.tacite ? 'renouvelée tacitement' : null,
                     c.echeance ? `échéance ${frDate(c.echeance)}` : null,
@@ -202,7 +202,7 @@ export default function RegistreConventions({ action, onActionFin }) {
                   <PastilleEtat etat={E.etat}>{E.libelle}</PastilleEtat>
                   {c.echue && <PastilleEtat etat="surveiller">Échue</PastilleEtat>}
                 </span>
-                <span className="text-[11px] text-slate-500">
+                <span className="text-xs text-slate-500">
                   {c.etat === 'retiree' ? `le ${frDate(c.retire_le)} par ${c.retire_par || '—'}`
                     : c.contresigne_le ? `signée le ${frDate(c.signe_le)} par ${c.signe_par_nom} · contresignée reçue le ${frDate(c.contresigne_le)}`
                     : c.signe_le ? `le ${frDate(c.signe_le)} par ${c.signe_par_nom} · réf. ${c.reference}` : 'attend la griffe de la direction'}
@@ -210,32 +210,32 @@ export default function RegistreConventions({ action, onActionFin }) {
               </span>
 
               <span className="flex items-center gap-1.5 flex-none">
-                <button type="button" className="bouton text-[12px] px-2.5 py-1" title={c.fichier_nom}
+                <button type="button" className="bouton text-second px-2.5 py-1" title={c.fichier_nom}
                   onClick={() => ouvrir(c.id, 'original')}><IconFileText size={14} /> Original</button>
                 {c.a_signe && (
-                  <button type="button" className="bouton bouton-sortir text-[12px] px-2.5 py-1"
+                  <button type="button" className="bouton bouton-sortir text-second px-2.5 py-1"
                     onClick={() => ouvrir(c.id, 'signe')}><IconSignature size={14} /> Signée</button>
                 )}
                 {c.a_contresigne && (
-                  <button type="button" className="bouton text-[12px] px-2.5 py-1"
+                  <button type="button" className="bouton text-second px-2.5 py-1"
                     onClick={() => ouvrir(c.id, 'contresigne')}><IconFileCertificate size={14} /> Contresignée</button>
                 )}
                 {c.etat === 'signee' && (
-                  <label className="bouton text-[12px] px-2.5 py-1 cursor-pointer"
+                  <label className="bouton text-second px-2.5 py-1 cursor-pointer"
                     title="Déposer l’exemplaire revenu signé par le partenaire (PDF)">
                     <IconUpload size={14} /> Contresignée…
                     <input type="file" accept="application/pdf,.pdf" className="hidden"
                       onChange={e => { contresigne(c, e.target.files?.[0]); e.target.value = ''; }} />
                   </label>
                 )}
-                <button type="button" className="bouton text-[12px] px-2 py-1" title="Journal de la convention"
+                <button type="button" className="bouton text-second px-2 py-1" title="Journal de la convention"
                   aria-label="Journal" onClick={() => setJournal(c)}><IconHistory size={14} /></button>
                 {c.etat === 'deposee' && (
-                  <button type="button" className="bouton text-[12px] px-2 py-1" title="Supprimer (avant signature seulement)"
+                  <button type="button" className="bouton text-second px-2 py-1" title="Supprimer (avant signature seulement)"
                     aria-label="Supprimer" onClick={() => supprimer(c)}><IconTrash size={14} /></button>
                 )}
                 {direction && ['signee', 'contresignee'].includes(c.etat) && (
-                  <button type="button" className="bouton text-[12px] px-2 py-1" title="Retirer (motif écrit)"
+                  <button type="button" className="bouton text-second px-2 py-1" title="Retirer (motif écrit)"
                     aria-label="Retirer" onClick={() => setRetrait(c)}><IconArrowBackUp size={14} /></button>
                 )}
               </span>
@@ -267,18 +267,18 @@ export default function RegistreConventions({ action, onActionFin }) {
 function Champ({ label, requis, children, aide, large = false }) {
   return (
     <label className={`block ${large ? 'col-span-2' : ''}`}>
-      <span className="block text-[11px] text-slate-500 mb-0.5">{label}{requis ? ' *' : ''}</span>
+      <span className="block text-xs text-slate-500 mb-0.5">{label}{requis ? ' *' : ''}</span>
       {children}
-      {aide && <span className="block text-[11px] text-slate-400 mt-0.5">{aide}</span>}
+      {aide && <span className="block text-xs text-slate-400 mt-0.5">{aide}</span>}
     </label>
   );
 }
 const Texte = ({ v, set, ...p }) => (
-  <input value={v || ''} onChange={e => set(e.target.value)} className="controle text-[13px] w-full" {...p} />
+  <input value={v || ''} onChange={e => set(e.target.value)} className="controle text-sm w-full" {...p} />
 );
 const Zone = ({ v, set, rows = 3, ...p }) => (
   <textarea value={v || ''} onChange={e => set(e.target.value)} rows={rows}
-    className="w-full border border-slate-300 rounded-champ px-2.5 py-1.5 text-[13px]" {...p} />
+    className="w-full border border-slate-300 rounded-champ px-2.5 py-1.5 text-sm" {...p} />
 );
 
 function FichePartenaire({ p, set, avecSigle, avecPo, avecAdresse = true }) {
@@ -395,7 +395,7 @@ function NouvelleConvention({ sections, annee: anneeDefaut, onClose, onCree }) {
       titre={famille ? `Nouvelle convention — ${({ cadre_stage: 'convention-cadre de stage', partenariat: 'partenariat pédagogique', etablissements: 'convention entre établissements' })[famille]}` : 'Nouvelle convention'}
       sous={famille ? 'Le texte vient du modèle publié ; l’Institut (nom, adresse, signataire) vient de Configuration → Établissement.' : 'Quelle sorte de convention ?'}
       pied={famille ? (<>
-        <p className="flex-1 min-w-0 text-[12px] text-red-700">{erreur}</p>
+        <p className="flex-1 min-w-0 text-second text-red-700">{erreur}</p>
         <button type="button" className="bouton" onClick={() => { setFamille(null); setErreur(null); }}>Changer de famille</button>
         <button type="button" className="bouton" onClick={apercu}><IconEye size={15} /> Aperçu</button>
         <button type="button" className="bouton bouton-fort" disabled={enCours} onClick={composer}>
@@ -407,13 +407,13 @@ function NouvelleConvention({ sections, annee: anneeDefaut, onClose, onCree }) {
           {['cadre_stage', 'partenariat', 'etablissements'].map(f => (
             <button key={f} type="button" onClick={() => setFamille(f)}
               className="carte p-4 text-left hover:border-iip-blue">
-              <span className="block text-[15px] font-semibold text-iip-blue">
+              <span className="block text-base font-semibold text-iip-blue">
                 {({ cadre_stage: 'Convention-cadre de stage', partenariat: 'Partenariat pédagogique', etablissements: 'Convention entre établissements' })[f]}
               </span>
-              <span className="block text-[12px] text-slate-600 mt-1">{DESCRIPTIONS[f]}</span>
+              <span className="block text-second text-slate-600 mt-1">{DESCRIPTIONS[f]}</span>
             </button>
           ))}
-          <p className="col-span-3 text-[12px] text-slate-500">
+          <p className="col-span-3 text-second text-slate-500">
             Un PDF reçu du partenaire ne se compose pas : il se dépose (« Déposer un document du partenaire »).
           </p>
         </div>
@@ -421,37 +421,37 @@ function NouvelleConvention({ sections, annee: anneeDefaut, onClose, onCree }) {
         <div className="space-y-5">
           <div className="grid grid-cols-3 gap-3">
             <Champ label="Année académique" requis>
-              <select value={annee} onChange={e => setAnnee(e.target.value)} className="controle text-[13px] w-full">
+              <select value={annee} onChange={e => setAnnee(e.target.value)} className="controle text-sm w-full">
                 {anneesAutour(anneeDefaut).map(a => <option key={a} value={a}>{a}</option>)}
               </select>
             </Champ>
             {famille !== 'etablissements' && (
               <Champ label={famille === 'cadre_stage' ? 'Prend cours le' : 'Valable du'} requis>
-                <input type="date" value={debut} onChange={e => setDebut(e.target.value)} className="controle text-[13px] w-full" />
+                <input type="date" value={debut} onChange={e => setDebut(e.target.value)} className="controle text-sm w-full" />
               </Champ>
             )}
             {famille === 'partenariat' && (
               <Champ label="au" requis>
-                <input type="date" value={fin} onChange={e => setFin(e.target.value)} className="controle text-[13px] w-full" />
+                <input type="date" value={fin} onChange={e => setFin(e.target.value)} className="controle text-sm w-full" />
               </Champ>
             )}
           </div>
 
           {/* LE PARTENAIRE */}
           <section className="space-y-2">
-            <h3 className="text-[13px] font-semibold text-iip-blue">
+            <h3 className="text-sm font-semibold text-iip-blue">
               {famille === 'cadre_stage' ? 'L’institution d’accueil' : 'Le partenaire'}
             </h3>
             {famille === 'cadre_stage' ? (
               <Champ label="Lieu de stage" requis aide="Les lieux viennent du répertoire des stages ; un représentant complété ici y est enregistré.">
-                <select value={lieuId} onChange={e => choisirLieu(e.target.value)} className="controle text-[13px] w-full">
+                <select value={lieuId} onChange={e => choisirLieu(e.target.value)} className="controle text-sm w-full">
                   <option value="">— choisir un lieu —</option>
                   {lieux.map(l => <option key={l.id} value={l.id}>{l.nom}{l.localite ? ` (${l.localite})` : ''}</option>)}
                 </select>
               </Champ>
             ) : (
               <Champ label="Partenaire" aide="Un partenaire nouveau entre au répertoire en composant.">
-                <select value={partenaireId} onChange={e => choisirPartenaire(e.target.value)} className="controle text-[13px] w-full">
+                <select value={partenaireId} onChange={e => choisirPartenaire(e.target.value)} className="controle text-sm w-full">
                   <option value="">— nouveau partenaire —</option>
                   {partenaires.map(x => <option key={x.id} value={x.id}>{x.nom}</option>)}
                 </select>
@@ -460,7 +460,7 @@ function NouvelleConvention({ sections, annee: anneeDefaut, onClose, onCree }) {
             {(famille !== 'cadre_stage' || lieuId) && (
               <>
                 {famille === 'cadre_stage' && p._contact && !p.representant && (
-                  <p className="text-[12px] text-slate-600">
+                  <p className="text-second text-slate-600">
                     Le lieu n’a pas de représentant enregistré. Contact : {p._contact.nom}{p._contact.fonction ? `, ${p._contact.fonction}` : ''}.{' '}
                     <button type="button" className="text-iip-blue font-semibold"
                       onClick={() => setP(x => ({ ...x, representant: x._contact.nom, fonction: x._contact.fonction || '' }))}>
@@ -476,10 +476,10 @@ function NouvelleConvention({ sections, annee: anneeDefaut, onClose, onCree }) {
 
           {famille === 'cadre_stage' && (
             <section className="space-y-2">
-              <h3 className="text-[13px] font-semibold text-iip-blue">Cursus concernés *</h3>
+              <h3 className="text-sm font-semibold text-iip-blue">Cursus concernés *</h3>
               <div className="flex flex-wrap gap-2">
                 {sections.map(s => (
-                  <label key={s.code} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-champ border cursor-pointer text-[12px] ${cursus.has(s.code) ? 'border-iip-blue' : 'border-slate-200 text-slate-600'}`}>
+                  <label key={s.code} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-champ border cursor-pointer text-second ${cursus.has(s.code) ? 'border-iip-blue' : 'border-slate-200 text-slate-600'}`}>
                     <input type="checkbox" checked={cursus.has(s.code)} className="w-3.5 h-3.5"
                       onChange={() => setCursus(c => { const n = new Set(c); n.has(s.code) ? n.delete(s.code) : n.add(s.code); return n; })} />
                     {s.libelle && s.libelle !== s.code ? `${s.libelle}` : s.code}
@@ -491,14 +491,14 @@ function NouvelleConvention({ sections, annee: anneeDefaut, onClose, onCree }) {
 
           {famille === 'partenariat' && (
             <section className="space-y-3">
-              <h3 className="text-[13px] font-semibold text-iip-blue">L’activité</h3>
+              <h3 className="text-sm font-semibold text-iip-blue">L’activité</h3>
               <Champ label="Objet — « … visant à »" requis>
                 <Zone v={d.objet} set={md('objet')} rows={2}
                   placeholder="permettre aux étudiants de l’Institut d’expérimenter…" />
               </Champ>
               <div className="grid grid-cols-2 gap-3">
                 <Champ label="Section" requis>
-                  <select value={d.section || ''} onChange={e => choisirSection(e.target.value)} className="controle text-[13px] w-full">
+                  <select value={d.section || ''} onChange={e => choisirSection(e.target.value)} className="controle text-sm w-full">
                     <option value="">— choisir —</option>
                     {sections.map(s => <option key={s.code} value={s.code}>{s.code}</option>)}
                   </select>
@@ -508,7 +508,7 @@ function NouvelleConvention({ sections, annee: anneeDefaut, onClose, onCree }) {
                 </Champ>
                 <Champ label="Unité d’enseignement" requis large>
                   <select value={d.ue_num || ''} onChange={e => setD(x => ({ ...x, ue_num: e.target.value, cours: [] }))}
-                    className="controle text-[13px] w-full" disabled={!d.section}>
+                    className="controle text-sm w-full" disabled={!d.section}>
                     <option value="">{d.section ? (ues.length ? '— choisir —' : 'aucune unité pour cette section et cette année') : 'choisissez d’abord la section'}</option>
                     {ues.map(x => <option key={`${x.ue_num}`} value={x.ue_num}>{x.ue_num} — {x.ue_nom}</option>)}
                   </select>
@@ -518,19 +518,19 @@ function NouvelleConvention({ sections, annee: anneeDefaut, onClose, onCree }) {
                 <Champ label="Cours concernés" requis>
                   <div className="flex flex-wrap gap-2">
                     {coursDeLue.map(c => (
-                      <label key={c.cours_code} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-champ border cursor-pointer text-[12px] ${d.cours.includes(c.cours_code) ? 'border-iip-blue' : 'border-slate-200 text-slate-600'}`}>
+                      <label key={c.cours_code} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-champ border cursor-pointer text-second ${d.cours.includes(c.cours_code) ? 'border-iip-blue' : 'border-slate-200 text-slate-600'}`}>
                         <input type="checkbox" className="w-3.5 h-3.5" checked={d.cours.includes(c.cours_code)}
                           onChange={() => setD(x => ({ ...x, cours: x.cours.includes(c.cours_code) ? x.cours.filter(k => k !== c.cours_code) : [...x.cours, c.cours_code] }))} />
                         {c.cours_code} — {c.cours_nom}
                       </label>
                     ))}
-                    {!coursDeLue.length && <span className="text-[12px] text-slate-400">aucun cours au référentiel pour cette unité</span>}
+                    {!coursDeLue.length && <span className="text-second text-slate-400">aucun cours au référentiel pour cette unité</span>}
                   </div>
                 </Champ>
               )}
               <div className="grid grid-cols-2 gap-3">
                 <Champ label="Enseignant référent" requis>
-                  <select value={d.enseignant_id || ''} onChange={e => md('enseignant_id')(e.target.value)} className="controle text-[13px] w-full">
+                  <select value={d.enseignant_id || ''} onChange={e => md('enseignant_id')(e.target.value)} className="controle text-sm w-full">
                     <option value="">— choisir dans le personnel —</option>
                     {profs.map(x => <option key={x.id} value={x.id}>{nomEcran(x.nom, x.prenom)}</option>)}
                   </select>
@@ -540,14 +540,14 @@ function NouvelleConvention({ sections, annee: anneeDefaut, onClose, onCree }) {
               <Champ label="Dates des séances" requis>
                 <div className="flex flex-wrap items-center gap-2">
                   {[...d.seances].sort().map(s => (
-                    <span key={s} className="flex items-center gap-1 px-2 py-0.5 rounded-champ border border-slate-200 text-[12px]">
+                    <span key={s} className="flex items-center gap-1 px-2 py-0.5 rounded-champ border border-slate-200 text-second">
                       {frDate(s)}
                       <button type="button" aria-label={`Retirer le ${frDate(s)}`} onClick={() => md('seances')(d.seances.filter(x => x !== s))}>
                         <IconX size={12} />
                       </button>
                     </span>
                   ))}
-                  <input type="date" value={nouvelleDate} onChange={e => setNouvelleDate(e.target.value)} className="controle text-[13px]" />
+                  <input type="date" value={nouvelleDate} onChange={e => setNouvelleDate(e.target.value)} className="controle text-sm" />
                   <button type="button" className="bouton" disabled={!nouvelleDate}
                     onClick={() => { if (!d.seances.includes(nouvelleDate)) md('seances')([...d.seances, nouvelleDate]); setNouvelleDate(''); }}>
                     Ajouter
@@ -575,7 +575,7 @@ function NouvelleConvention({ sections, annee: anneeDefaut, onClose, onCree }) {
           )}
 
           {famille === 'etablissements' && (
-            <p className="text-[12px] text-slate-500">
+            <p className="text-second text-slate-500">
               Le texte de cette famille est fixe (articles 1 à 6) : seuls les parties et l’année académique changent.
             </p>
           )}
@@ -645,7 +645,7 @@ function DeposerPartenaire({ sections, annee: anneeDefaut, onClose, onCree }) {
       titre="Déposer un document du partenaire"
       sous="Un PDF reçu : il est rangé tel quel et part à la signature de la direction."
       pied={<>
-        <p className="flex-1 min-w-0 text-[12px] text-red-700">
+        <p className="flex-1 min-w-0 text-second text-red-700">
           {erreur || (!pret ? 'Choisissez le fichier, le partenaire et dites l’objet.' : '')}
         </p>
         <button type="button" className="bouton bouton-fort" disabled={!pret || enCours} onClick={deposer}>
@@ -654,17 +654,17 @@ function DeposerPartenaire({ sections, annee: anneeDefaut, onClose, onCree }) {
       </>}>
       <div className="space-y-3">
         <Champ label="Fichier (PDF, 15 Mo au plus)" requis>
-          <input ref={champ} type="file" accept="application/pdf,.pdf" className="text-[13px]"
+          <input ref={champ} type="file" accept="application/pdf,.pdf" className="text-sm"
             onChange={e => setFichier(e.target.files?.[0] || null)} />
         </Champ>
         <div className="grid grid-cols-2 gap-3">
           <Champ label="Nature" requis>
-            <select value={type} onChange={e => setType(e.target.value)} className="controle text-[13px] w-full">
+            <select value={type} onChange={e => setType(e.target.value)} className="controle text-sm w-full">
               {types.map(t => <option key={t.cle} value={t.cle}>{t.libelle}</option>)}
             </select>
           </Champ>
           <Champ label="Année académique" requis>
-            <select value={annee} onChange={e => setAnnee(e.target.value)} className="controle text-[13px] w-full">
+            <select value={annee} onChange={e => setAnnee(e.target.value)} className="controle text-sm w-full">
               {anneesAutour(anneeDefaut).map(a => <option key={a} value={a}>{a}</option>)}
             </select>
           </Champ>
@@ -675,7 +675,7 @@ function DeposerPartenaire({ sections, annee: anneeDefaut, onClose, onCree }) {
         </div>
         {sorte === 'lieu' ? (
           <Champ label="Lieu de stage" requis>
-            <select value={lieuId} onChange={e => setLieuId(e.target.value)} className="controle text-[13px] w-full">
+            <select value={lieuId} onChange={e => setLieuId(e.target.value)} className="controle text-sm w-full">
               <option value="">— choisir —</option>
               {lieux.map(l => <option key={l.id} value={l.id}>{l.nom}{l.localite ? ` (${l.localite})` : ''}</option>)}
             </select>
@@ -683,7 +683,7 @@ function DeposerPartenaire({ sections, annee: anneeDefaut, onClose, onCree }) {
         ) : (
           <div className="grid grid-cols-2 gap-3">
             <Champ label="Partenaire du répertoire">
-              <select value={partenaireId} onChange={e => setPartenaireId(e.target.value)} className="controle text-[13px] w-full">
+              <select value={partenaireId} onChange={e => setPartenaireId(e.target.value)} className="controle text-sm w-full">
                 <option value="">— nouveau partenaire —</option>
                 {partenaires.map(x => <option key={x.id} value={x.id}>{x.nom}</option>)}
               </select>
@@ -694,15 +694,15 @@ function DeposerPartenaire({ sections, annee: anneeDefaut, onClose, onCree }) {
         <Champ label="Objet" requis><Texte v={objet} set={setObjet} placeholder="Convention relative au tutorat" /></Champ>
         <div className="grid grid-cols-3 gap-3">
           <Champ label="Section" aide="Requise pour une coordination.">
-            <select value={section} onChange={e => setSection(e.target.value)} className="controle text-[13px] w-full">
+            <select value={section} onChange={e => setSection(e.target.value)} className="controle text-sm w-full">
               <option value="">— aucune —</option>
               {sections.map(s => <option key={s.code} value={s.code}>{s.code}</option>)}
             </select>
           </Champ>
-          <Champ label="Valable du"><input type="date" value={debut} onChange={e => setDebut(e.target.value)} className="controle text-[13px] w-full" /></Champ>
-          <Champ label="au" aide="Après cette date, elle est « échue »."><input type="date" value={fin} onChange={e => setFin(e.target.value)} className="controle text-[13px] w-full" /></Champ>
+          <Champ label="Valable du"><input type="date" value={debut} onChange={e => setDebut(e.target.value)} className="controle text-sm w-full" /></Champ>
+          <Champ label="au" aide="Après cette date, elle est « échue »."><input type="date" value={fin} onChange={e => setFin(e.target.value)} className="controle text-sm w-full" /></Champ>
         </div>
-        <label className="flex items-center gap-2 text-[13px]">
+        <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={tacite} onChange={e => setTacite(e.target.checked)} className="w-4 h-4" />
           Renouvelée tacitement chaque année (échéance au 31 août, sans date de fin)
         </label>
@@ -759,12 +759,12 @@ function ModelesConvention({ onClose }) {
       titre="Modèles de convention"
       sous="Les textes vivent dans Lucie : une version publiée ne se modifie plus, on publie la suivante en disant ce qui change."
       pied={edition ? (<>
-        <p className="flex-1 min-w-0 text-[12px] text-red-700">{erreur}</p>
+        <p className="flex-1 min-w-0 text-second text-red-700">{erreur}</p>
         <button type="button" className="bouton" onClick={() => { setEdition(null); setErreur(null); }}>Abandonner</button>
         <button type="button" className="bouton bouton-fort" disabled={enCours || (edition.note || '').trim().length < 5} onClick={publier}>
           {enCours ? 'Publication…' : `Publier la version ${(f?.courant?.version || 0) + 1}`}
         </button>
-      </>) : (erreur ? <p className="flex-1 text-[12px] text-red-700">{erreur}</p> : null)}>
+      </>) : (erreur ? <p className="flex-1 text-second text-red-700">{erreur}</p> : null)}>
       <div className="flex gap-4 border-b border-slate-200 mb-4">
         {(familles || []).map(x => (
           <button key={x.cle} type="button" onClick={() => { setOnglet(x.cle); setLue(null); setEdition(null); }}
@@ -788,7 +788,7 @@ function ModelesConvention({ onClose }) {
             ) : montre ? (
               <>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[12px] text-slate-500">
+                  <span className="text-second text-slate-500">
                     Version {montre.version} du {frDate(montre.publie_le)}{montre.publie_par ? ` · ${montre.publie_par}` : ''}
                     {lue && lue.id !== f.courant?.id ? ' — version ancienne' : ''}
                   </span>
@@ -802,19 +802,19 @@ function ModelesConvention({ onClose }) {
                   {lue && <button type="button" className="bouton" onClick={() => setLue(null)}>Revenir à la version en vigueur</button>}
                 </div>
                 {montre.note && (
-                  <div className="carte p-3 text-[12px] text-slate-600 whitespace-pre-line">{montre.note}</div>
+                  <div className="carte p-3 text-second text-slate-600 whitespace-pre-line">{montre.note}</div>
                 )}
                 <div className="texte-corpus carte p-4" dangerouslySetInnerHTML={{ __html: marquerJetons(montre.texte_html) }} />
               </>
-            ) : <p className="text-[13px] text-slate-400">Aucune version.</p>}
+            ) : <p className="text-sm text-slate-400">Aucune version.</p>}
           </div>
-          <aside className="space-y-4 text-[12px]">
+          <aside className="space-y-4 text-second">
             <div>
               <h3 className="font-semibold text-iip-blue mb-1">Champs du texte</h3>
               <p className="text-slate-500 mb-1.5">Ils s’écrivent entre doubles accolades ; un champ inconnu est refusé à la publication.</p>
               <ul className="space-y-0.5">
                 {f.champs.map(c => (
-                  <li key={c.cle}><code className="text-[11px]">{`{{${c.cle}}}`}</code>{c.requis ? ' *' : ''}
+                  <li key={c.cle}><code className="text-xs">{`{{${c.cle}}}`}</code>{c.requis ? ' *' : ''}
                     <span className="block text-slate-500">{c.libelle}</span></li>
                 ))}
               </ul>
@@ -852,12 +852,12 @@ function JournalConvention({ c, onClose }) {
       titre={`Journal — convention n° ${c.id}`} sous={`${c.partenaire || ''} · en ajout seul : rien ne s’y efface`}>
       <div className="space-y-1.5">
         {(lignes || []).map(l => (
-          <div key={l.id} className="text-[12px] border-b border-slate-100 pb-1.5">
+          <div key={l.id} className="text-second border-b border-slate-100 pb-1.5">
             <span className="text-slate-500">{frDate(l.horodatage)} {String(l.horodatage).slice(11, 16)} · {l.acteur_nom}</span>
             <span className="block"><b>{l.geste}</b> — {l.detail}</span>
           </div>
         ))}
-        {lignes && !lignes.length && <p className="text-[12px] text-slate-400">Aucune ligne.</p>}
+        {lignes && !lignes.length && <p className="text-second text-slate-400">Aucune ligne.</p>}
       </div>
     </Fenetre>
   );
@@ -876,11 +876,11 @@ function RetirerConvention({ c, onClose, onFait }) {
     <Fenetre icone={IconArrowBackUp} large="petite" onFermer={onClose}
       titre={`Retirer la convention n° ${c.id}`} sous={c.partenaire || ''}
       pied={<>
-        <p className="flex-1 min-w-0 text-[12px] text-red-700">{erreur || (motif.trim().length < 5 ? 'Le retrait se motive par écrit.' : '')}</p>
+        <p className="flex-1 min-w-0 text-second text-red-700">{erreur || (motif.trim().length < 5 ? 'Le retrait se motive par écrit.' : '')}</p>
         <button type="button" className="bouton bouton-detruire" disabled={motif.trim().length < 5} onClick={retirer}>Retirer</button>
       </>}>
       <Champ label="Motif" requis><Zone v={motif} set={setMotif} rows={3} /></Champ>
-      <p className="text-[12px] text-slate-500 mt-2">La convention signée reste lisible ; elle cesse de valoir. Le motif est conservé au journal.</p>
+      <p className="text-second text-slate-500 mt-2">La convention signée reste lisible ; elle cesse de valoir. Le motif est conservé au journal.</p>
     </Fenetre>
   );
 }

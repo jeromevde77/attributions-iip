@@ -97,12 +97,12 @@ export default function PresencesCours({ coursCode, annee }) {
           const complet = s.encodees >= n && n > 0;
           return (
             <button key={s.id} type="button" onClick={() => setSeanceId(s.id)}
-              className={`w-full text-left px-3 py-1.5 border-b border-slate-100 text-[12.5px] flex items-center gap-2
+              className={`w-full text-left px-3 py-1.5 border-b border-slate-100 text-second flex items-center gap-2
                 ${s.id === seanceId ? 'bg-white font-semibold' : 'hover:bg-white/60'} ${passe ? '' : 'text-slate-400'}`}>
               <span className="tabular-nums w-[92px]">{jourDe(s.date)} {fr(s.date)}</span>
               <span className="tabular-nums text-slate-500">{String(s.heure_debut).slice(0, 5)}–{String(s.heure_fin).slice(0, 5)}</span>
-              {s.sous_groupe && <span className="text-[11px] text-slate-400">gr. {s.sous_groupe}</span>}
-              <span className="ml-auto text-[11px]" style={{ color: s.annule ? 'var(--c-texte)' : complet ? 'var(--c-reussi)'
+              {s.sous_groupe && <span className="text-xs text-slate-400">gr. {s.sous_groupe}</span>}
+              <span className="ml-auto text-xs" style={{ color: s.annule ? 'var(--c-texte)' : complet ? 'var(--c-reussi)'
                 : passe ? 'var(--c-surveiller)' : 'var(--c-disponible)' }}>
                 {s.annule ? 'annulée' : complet ? '✓' : passe ? `${s.encodees}/${n}` : 'à venir'}</span>
             </button>
@@ -114,9 +114,9 @@ export default function PresencesCours({ coursCode, annee }) {
         <div className="carte">
           <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-slate-100">
             <div className="min-w-0 flex-1">
-              <div className="text-[13px] font-semibold">Séance du {jourDe(seance.date)} {fr(seance.date)} ·
+              <div className="text-sm font-semibold">Séance du {jourDe(seance.date)} {fr(seance.date)} ·
                 {' '}{String(seance.heure_debut).slice(0, 5)}–{String(seance.heure_fin).slice(0, 5)}</div>
-              <div className="text-[11.5px] text-slate-500">{seance.matiere || ''}{seance.sous_groupe ? ` · sous-groupe ${seance.sous_groupe}` : ''}</div>
+              <div className="text-xs text-slate-500">{seance.matiere || ''}{seance.sous_groupe ? ` · sous-groupe ${seance.sous_groupe}` : ''}</div>
             </div>
             {!future && !seance.annule && (
               <button type="button" className="bouton" onClick={tousPresents}>Tous présents</button>
@@ -125,7 +125,7 @@ export default function PresencesCours({ coursCode, annee }) {
               disabled={future || seance.annule || !modifiees.length || sansMotif.length > 0 || enCours}
               onClick={enregistrer}>Enregistrer</button>
           </div>
-          <div className="px-3 py-1 text-[11.5px] min-h-[1.5rem]" style={{ color: 'var(--c-surveiller)' }}>
+          <div className="px-3 py-1 text-xs min-h-[1.5rem]" style={{ color: 'var(--c-surveiller)' }}>
             {seance.annule ? 'Séance annulée : pas de présences.'
               : future ? "Cette séance n'a pas encore eu lieu."
                 : sansMotif.length ? `Choisissez le motif de ${sansMotif.length} absence(s) justifiée(s).`
@@ -133,7 +133,7 @@ export default function PresencesCours({ coursCode, annee }) {
                     : modifiees.length ? `${modifiees.length} changement(s) à enregistrer.` : ''}
             {erreur && <span style={{ color: 'var(--c-corriger)' }}> {erreur}</span>}
           </div>
-          <table className="w-full text-[12.5px]">
+          <table className="w-full text-second">
             <tbody>
               {data.etudiants.map(e => {
                 const v = saisie[e.id] || {};
@@ -141,14 +141,14 @@ export default function PresencesCours({ coursCode, annee }) {
                   <tr key={e.id} className="border-t border-slate-100 bg-white">
                     <td className="px-3 py-1.5">
                       <b>{(e.nom || '').toUpperCase()}</b> {e.prenom}
-                      {e.cep && <span className="ml-1.5 text-[10.5px] text-slate-400" title="Congé-éducation payé : ses présences partent sur une attestation">CEP</span>}
-                      {e.groupe && <span className="block text-[11px] text-slate-400">{e.groupe}</span>}
+                      {e.cep && <span className="ml-1.5 text-mention text-slate-400" title="Congé-éducation payé : ses présences partent sur une attestation">CEP</span>}
+                      {e.groupe && <span className="block text-xs text-slate-400">{e.groupe}</span>}
                     </td>
                     <td className="px-2 py-1.5 whitespace-nowrap">
                       {BOUTONS.map(([k, l, t, c]) => (
                         <button key={k} type="button" title={t} disabled={future || seance.annule}
                           onClick={() => poser(e.id, k)}
-                          className="w-8 h-7 mr-1 rounded-champ border text-[12px] font-semibold disabled:opacity-40"
+                          className="w-8 h-7 mr-1 rounded-champ border text-second font-semibold disabled:opacity-40"
                           style={v.statut === k ? { background: c, borderColor: c, color: '#fff' } : { borderColor: '#cbd5e1', color: 'var(--c-texte)' }}>
                           {l}</button>
                       ))}

@@ -188,14 +188,14 @@ export default function ImportHistorique({ onClose, onImporte }) {
       </>}>
         <div className="space-y-4">
           {erreur && (
-            <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-[13px] text-red-800 border-l-4 border-l-red-500">
+            <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-sm text-red-800 border-l-4 border-l-red-500">
               {erreur}
             </div>
           )}
 
           {etape === 'fichiers' && (
             <>
-              <div className="px-3 py-2.5 rounded-lg bg-sky-50 border border-sky-200 text-[12px] text-sky-900 border-l-4 border-l-sky-500">
+              <div className="px-3 py-2.5 rounded-lg bg-sky-50 border border-sky-200 text-second text-sky-900 border-l-4 border-l-sky-500">
                 eCampus réattribue un matricule à chaque rentrée : le même étudiant figure sous
                 <code className="mx-1 px-1 bg-white rounded">24-00174</code> puis
                 <code className="mx-1 px-1 bg-white rounded">25-00298</code>. Le rapprochement se fait
@@ -219,12 +219,12 @@ export default function ImportHistorique({ onClose, onImporte }) {
                   <div key={f.nom} className="px-3 py-2.5">
                     <div className="flex items-center gap-2 flex-wrap">
                       <IconFileSpreadsheet size={15} className="text-slate-400 flex-none" />
-                      <span className="text-[13px] text-slate-800 flex-1 truncate">{f.nom}</span>
+                      <span className="text-sm text-slate-800 flex-1 truncate">{f.nom}</span>
                       <input value={f.annee}
                         onChange={e => setFichiers(fs => fs.map((x, j) => j === i ? { ...x, annee: e.target.value } : x))}
-                        className="w-24 border border-slate-300 rounded-lg px-2 py-1 text-[12px] text-center" />
+                        className="w-24 border border-slate-300 rounded-lg px-2 py-1 text-second text-center" />
                     </div>
-                    <div className="text-[11px] text-slate-500 mt-0.5 ml-6">
+                    <div className="text-xs text-slate-500 mt-0.5 ml-6">
                       {f.section || 'section indéterminée'} · {f.ues} UE ·
                       {' '}{f.resultats.length} résultats ·
                       {' '}{f.notesCours.length} notes de cours ·
@@ -238,10 +238,10 @@ export default function ImportHistorique({ onClose, onImporte }) {
 
               {rapport && (
                 <div className="px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 border-l-4 border-l-amber-500">
-                  <div className="flex items-center gap-1.5 text-[13px] font-semibold text-amber-900 mb-1.5">
+                  <div className="flex items-center gap-1.5 text-sm font-semibold text-amber-900 mb-1.5">
                     <IconAlertTriangle size={15} /> Ce qui sera fait
                   </div>
-                  <ul className="text-[12px] text-amber-900 space-y-0.5">
+                  <ul className="text-second text-amber-900 space-y-0.5">
                     <li><b>{rapport.total.rapproches}</b> étudiant(s) rapproché(s) d'un dossier existant
                       — dont {rapport.methodes.numero_national} par numéro national,
                       {' '}{rapport.methodes.matricule} par matricule,
@@ -256,7 +256,7 @@ export default function ImportHistorique({ onClose, onImporte }) {
                     )}
                   </ul>
                   {rapport.doublons_pressentis?.length > 0 && (
-                    <div className="mt-2 text-[11px] text-amber-800">
+                    <div className="mt-2 text-xs text-amber-800">
                       Attention : {rapport.doublons_pressentis.length} numéro(s) national(aux) déjà
                       portés par plusieurs dossiers en base — à fusionner ensuite.
                     </div>
@@ -269,18 +269,18 @@ export default function ImportHistorique({ onClose, onImporte }) {
 
           {etape === 'fait' && rapport && (
             <>
-              <div className="px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-[13px] text-emerald-900 border-l-4 border-l-emerald-500">
+              <div className="px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-900 border-l-4 border-l-emerald-500">
                 <div className="font-semibold mb-1 flex items-center gap-1.5">
                   <IconCheck size={16} /> Historique reconstruit
                 </div>
-                <ul className="text-[12px] space-y-0.5">
+                <ul className="text-second space-y-0.5">
                   <li>{rapport.total.rapproches} étudiant(s) rapproché(s), {rapport.total.crees} créé(s)</li>
                   <li>{rapport.total.resultats} résultat(s) enregistré(s)</li>
                 </ul>
               </div>
               <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 max-h-56 overflow-y-auto">
                 {rapport.fichiers.map(f => (
-                  <div key={f.nom} className="px-3 py-2 text-[12px]">
+                  <div key={f.nom} className="px-3 py-2 text-second">
                     <div className="text-slate-800">{f.nom} <span className="text-slate-400">· {f.annee}</span></div>
                     <div className="text-slate-500">
                       {f.rapproches} rapproché(s), {f.crees} créé(s), {f.resultats} résultat(s),

@@ -106,19 +106,19 @@ export default function NominationsPanel({ profId }) {
                     ? <>UE {n.ue_num} {n.ue_nom ? `— ${n.ue_nom}` : ''}{n.cours_code ? ` · cours ${n.cours_code}` : ''}</>
                     : <>{n.cours_libre || 'Cours (UE absente)'}</>}
                 </div>
-                <div className="text-[11px] text-gray-500">
+                <div className="text-xs text-gray-500">
                   Code FWB <span className="font-mono">{n.code_fwb === 'INCONNU' ? 'Code inconnu' : n.code_fwb}</span> · {n.periodes} pér. · {n.type_charge}
                 </div>
               </div>
               <button type="button" onClick={() => setRtPour(n)} title="Remise au travail (UE non organisée)"
-                className="text-[11px] bg-amber-500 text-white px-2 py-1 rounded hover:bg-amber-500 whitespace-nowrap">
+                className="text-xs bg-amber-500 text-white px-2 py-1 rounded hover:bg-amber-500 whitespace-nowrap">
                 RT
               </button>
               <button type="button" onClick={() => supprimer(n.id)} className="text-gray-400 hover:text-red-500 text-sm"><IconTrash size={15} /></button>
             </div>
           ))}
           {/* Totaux par type */}
-          <div className="flex gap-3 text-[11px] text-gray-500 pt-1">
+          <div className="flex gap-3 text-xs text-gray-500 pt-1">
             {Object.entries(totalParType).map(([t, p]) => (
               <span key={t} className="bg-gray-100 rounded px-2 py-0.5">{t} : <strong>{Math.round(p*10)/10}</strong> pér.</span>
             ))}
@@ -135,7 +135,7 @@ export default function NominationsPanel({ profId }) {
               ? <span className="text-green-600 font-semibold text-sm">✓ couvert</span>
               : <span className="text-red-600 font-semibold text-sm">manque {bilan.etp_manque} ETP (~{Math.round(bilan.etp_manque*800)} pér. CT)</span>}
           </div>
-          <div className="text-[11px] text-gray-500 mt-1">
+          <div className="text-xs text-gray-500 mt-1">
             ETP nommé <strong>{bilan.etp_nomme}</strong> · couvert <strong>{bilan.etp_couvert}</strong>
             {bilan.etp_rt > 0 && <span> (dont RT {bilan.etp_rt})</span>}
             <span className="text-gray-400"> · CT/PP comptés en équivalent (CT/800, PP/1000)</span>
@@ -152,7 +152,7 @@ export default function NominationsPanel({ profId }) {
           <div className="flex items-center justify-between border border-gray-200 rounded-lg p-3">
             <div>
               <div className="text-sm font-medium text-gray-700">Congé</div>
-              <div className="text-[11px] text-gray-400">
+              <div className="text-xs text-gray-400">
                 {nbConge > 0 ? `${nbConge} ligne(s) en congé (remplacée)` : 'Met toutes ses heures en congé et crée les remplacements'}
               </div>
             </div>
@@ -176,15 +176,15 @@ export default function NominationsPanel({ profId }) {
         <div className="border border-gray-200 rounded-lg p-3 space-y-1.5">
           <div className="text-xs font-semibold text-gray-500 uppercase mb-1">Ses attributions · cocher la remise au travail</div>
           {attributions.map(a => (
-            <div key={a.id} className={`flex items-center gap-2 text-[12px] rounded px-2 py-1.5 ${a.en_conge ? 'opacity-50 bg-gray-100' : a.est_rt ? 'bg-orange-50 border border-red-300 border-l-4 border-l-orange-500' : 'bg-gray-50'}`}>
+            <div key={a.id} className={`flex items-center gap-2 text-second rounded px-2 py-1.5 ${a.en_conge ? 'opacity-50 bg-gray-100' : a.est_rt ? 'bg-orange-50 border border-red-300 border-l-4 border-l-orange-500' : 'bg-gray-50'}`}>
               <div className="flex-1 min-w-0">
                 <span className="font-medium text-gray-800">UE {a.ue_num} · {a.code_cours}</span>
                 <span className="text-gray-500"> — {a.cours_nom || ''}</span>
                 <span className="text-gray-400"> · {a.total} pér. ({a.type_cours})</span>
-                {a.remplace_attribution_id && <span className="text-[10px] text-iip-blue font-bold ml-1">remplacement</span>}
+                {a.remplace_attribution_id && <span className="text-mention text-iip-blue font-bold ml-1">remplacement</span>}
               </div>
-              {a.en_conge && <span className="text-[10px] px-1 rounded font-bold text-red-600 border border-red-500 shrink-0">C</span>}
-              {a.est_rt && <span className="text-[10px] px-1 rounded font-bold text-orange-600 border border-red-500 shrink-0">RT</span>}
+              {a.en_conge && <span className="text-mention px-1 rounded font-bold text-red-600 border border-red-500 shrink-0">C</span>}
+              {a.est_rt && <span className="text-mention px-1 rounded font-bold text-orange-600 border border-red-500 shrink-0">RT</span>}
               <label className="flex items-center gap-1 shrink-0 cursor-pointer">
                 <input type="checkbox" checked={!!a.est_rt} onChange={() => toggleRT(a)} disabled={!!a.remplace_attribution_id} />
                 <span className="text-gray-500">RT</span>
@@ -192,7 +192,7 @@ export default function NominationsPanel({ profId }) {
             </div>
           ))}
           {bilan && !bilan.couvert && (
-            <p className="text-[11px] text-amber-600 pt-1">
+            <p className="text-xs text-amber-600 pt-1">
               Cochez une attribution comme RT pour compenser la charge manquante, ou créez-en une nouvelle ci-dessous.
             </p>
           )}
@@ -202,28 +202,28 @@ export default function NominationsPanel({ profId }) {
       {/* Formulaire d'ajout */}
       {adding ? (
         <div className="border border-iip-gold/40 bg-iip-gold/5 rounded-lg p-3 space-y-2">
-          <label className="flex items-center gap-2 text-[12px] text-gray-600">
+          <label className="flex items-center gap-2 text-second text-gray-600">
             <input type="checkbox" checked={form.ueAbsente} onChange={e => setForm(f => ({ ...f, ueAbsente: e.target.checked }))} />
             UE absente de la base de données (ancienne UE — code inconnu)
           </label>
           {form.ueAbsente ? (
             <>
-              <div className="bg-amber-500 text-white text-[11px] rounded px-2 py-1.5 h-9">
+              <div className="bg-amber-500 text-white text-xs rounded px-2 py-1.5 h-9">
                 Code FWB : <strong>Code inconnu</strong> — saisissez librement le cours et le nombre de périodes.
               </div>
               <div className="grid grid-cols-3 gap-2">
                 <label className="block col-span-1">
-                  <span className="text-[11px] text-gray-500">Nom du cours</span>
+                  <span className="text-xs text-gray-500">Nom du cours</span>
                   <input value={form.cours_libre} onChange={e => setForm(f => ({ ...f, cours_libre: e.target.value }))}
                     className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm" placeholder="ex. Anatomie (ancienne UE)" />
                 </label>
                 <label className="block">
-                  <span className="text-[11px] text-gray-500">Périodes</span>
+                  <span className="text-xs text-gray-500">Périodes</span>
                   <input type="number" value={form.periodes} onChange={e => setForm(f => ({ ...f, periodes: e.target.value }))}
                     className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm" />
                 </label>
                 <label className="block">
-                  <span className="text-[11px] text-gray-500">Type</span>
+                  <span className="text-xs text-gray-500">Type</span>
                   <select value={form.type_charge} onChange={e => setForm(f => ({ ...f, type_charge: e.target.value }))}
                     className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm">
                     <option value="CT">CT</option><option value="PP">PP</option><option value="CG">CG</option>
@@ -235,7 +235,7 @@ export default function NominationsPanel({ profId }) {
             <>
               <div className="grid grid-cols-2 gap-2">
                 <label className="block">
-                  <span className="text-[11px] text-gray-500">UE</span>
+                  <span className="text-xs text-gray-500">UE</span>
                   <select value={form.ue_num} onChange={e => setForm(f => ({ ...f, ue_num: e.target.value, cours_code: '', code_fwb: '' }))}
                     className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm">
                     <option value="">— UE —</option>
@@ -243,7 +243,7 @@ export default function NominationsPanel({ profId }) {
                   </select>
                 </label>
                 <label className="block">
-                  <span className="text-[11px] text-gray-500">Cours (optionnel)</span>
+                  <span className="text-xs text-gray-500">Cours (optionnel)</span>
                   <select value={form.cours_code} onChange={e => setForm(f => ({ ...f, cours_code: e.target.value }))}
                     className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm">
                     <option value="">— toute l'UE —</option>
@@ -253,17 +253,17 @@ export default function NominationsPanel({ profId }) {
               </div>
               <div className="grid grid-cols-3 gap-2">
                 <label className="block">
-                  <span className="text-[11px] text-gray-500">Code FWB</span>
+                  <span className="text-xs text-gray-500">Code FWB</span>
                   <input value={form.code_fwb} onChange={e => setForm(f => ({ ...f, code_fwb: e.target.value }))}
                     className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm font-mono" placeholder="ex. 946201U34D1" />
                 </label>
                 <label className="block">
-                  <span className="text-[11px] text-gray-500">Périodes</span>
+                  <span className="text-xs text-gray-500">Périodes</span>
                   <input type="number" value={form.periodes} onChange={e => setForm(f => ({ ...f, periodes: e.target.value }))}
                     className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm" />
                 </label>
                 <label className="block">
-                  <span className="text-[11px] text-gray-500">Type</span>
+                  <span className="text-xs text-gray-500">Type</span>
                   <select value={form.type_charge} onChange={e => setForm(f => ({ ...f, type_charge: e.target.value }))}
                     className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm">
                     <option value="CT">CT</option><option value="PP">PP</option><option value="CG">CG</option>
@@ -338,7 +338,7 @@ function RTDialog({ nomination, profId, ues, annee, onClose, onSaved }) {
         </p>
         <div className="space-y-2">
           <label className="block">
-            <span className="text-[11px] text-gray-500">UE de remise au travail</span>
+            <span className="text-xs text-gray-500">UE de remise au travail</span>
             <select value={ueNum} onChange={e => { setUeNum(e.target.value); setCoursCode(''); }}
               className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm">
               <option value="">— UE —</option>
@@ -346,7 +346,7 @@ function RTDialog({ nomination, profId, ues, annee, onClose, onSaved }) {
             </select>
           </label>
           <label className="block">
-            <span className="text-[11px] text-gray-500">Cours</span>
+            <span className="text-xs text-gray-500">Cours</span>
             <select value={coursCode} onChange={e => setCoursCode(e.target.value)}
               className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm">
               <option value="">— cours —</option>
@@ -354,7 +354,7 @@ function RTDialog({ nomination, profId, ues, annee, onClose, onSaved }) {
             </select>
           </label>
           <label className="block">
-            <span className="text-[11px] text-gray-500">Affecter en</span>
+            <span className="text-xs text-gray-500">Affecter en</span>
             <div className="flex gap-2 mt-1">
               <button type="button" onClick={() => setMode('cours')}
                 className={`flex-1 text-sm px-3 py-1.5 rounded border ${mode==='cours' ? 'bg-iip-gold text-white border-iip-gold' : 'bg-white text-gray-600 border-gray-300'}`}>
@@ -367,7 +367,7 @@ function RTDialog({ nomination, profId, ues, annee, onClose, onSaved }) {
             </div>
           </label>
           <label className="block">
-            <span className="text-[11px] text-gray-500">Périodes {mode === 'autonomie' ? "d'autonomie" : 'de cours'} en RT</span>
+            <span className="text-xs text-gray-500">Périodes {mode === 'autonomie' ? "d'autonomie" : 'de cours'} en RT</span>
             <input type="number" value={periodes} onChange={e => setPeriodes(e.target.value)}
               className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm" />
           </label>

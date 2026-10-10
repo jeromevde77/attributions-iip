@@ -181,7 +181,7 @@ export default function CentreImpression({ annee, section = null, onClose }) {
     <Fenetre icone={IconPrinter} titre="Centre d'impression" large="grande" onFermer={onClose}
       sous={`Année ${annee} · les pièces de plusieurs unités en un seul document, chacune sur sa page.`}
       pied={<>
-          <span className="text-[12px] text-slate-500">
+          <span className="text-second text-slate-500">
             {choisies.size} unité(s) · {total ? 'après les 2 sessions'
               : (session === 1 ? '1re session' : '2e session')} ·
             {' '}{Object.values(choix).filter(Boolean).length} type(s) de pièce
@@ -200,29 +200,29 @@ export default function CentreImpression({ annee, section = null, onClose }) {
         <div className="space-y-4">
           {erreur && (
             <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
-                            text-[13px] text-amber-900 flex items-start gap-2">
+                            text-sm text-amber-900 flex items-start gap-2">
               <IconAlertTriangle size={15} className="mt-px shrink-0" /> {erreur}
             </div>
           )}
 
           {!etat ? (
-            <div className="py-8 text-center text-[13px] text-slate-400">Chargement…</div>
+            <div className="py-8 text-center text-sm text-slate-400">Chargement…</div>
           ) : (
             <>
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[12px] text-slate-500">Section :</span>
+                <span className="text-second text-slate-500">Section :</span>
                 <button onClick={() => setSec(null)}
-                  className={`px-2 py-1 rounded-lg border text-[12px] ${!sec
+                  className={`px-2 py-1 rounded-lg border text-second ${!sec
                     ? 'border-iip-blue text-iip-blue font-semibold'
                     : 'border-slate-300 text-slate-600'}`}>toutes</button>
                 {(etat.sections || []).map(x => (
                   <button key={x} onClick={() => setSec(x)}
-                    className={`px-2 py-1 rounded-lg border text-[12px] ${sec === x
+                    className={`px-2 py-1 rounded-lg border text-second ${sec === x
                       ? 'border-iip-blue text-iip-blue font-semibold'
                       : 'border-slate-300 text-slate-600'}`}>{x}</button>
                 ))}
                 <span className="mx-1 h-4 w-px bg-slate-200" />
-                <span className="text-[12px] text-slate-500">Lecture :</span>
+                <span className="text-second text-slate-500">Lecture :</span>
                 <div className="segments">
                   {[
                     { k: '1', l: '1re session', t: 'Tous les inscrits, décisions de juin' },
@@ -238,7 +238,7 @@ export default function CentreImpression({ annee, section = null, onClose }) {
                           if (x.k === 'T') { setTotal(true); setSession(2); }
                           else { setTotal(false); setSession(Number(x.k)); }
                         }}
-                        className={`px-2 py-1 text-[12px] ${actif
+                        className={`px-2 py-1 text-second ${actif
                           ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>
                         {x.l}
                       </button>
@@ -247,34 +247,34 @@ export default function CentreImpression({ annee, section = null, onClose }) {
                 </div>
                 <span className="flex-1" />
                 <button onClick={() => setChoisies(new Set(unites.map(u => u.ue_num)))}
-                  className="text-[12px] text-iip-blue underline">tout cocher</button>
+                  className="text-second text-iip-blue underline">tout cocher</button>
                 <button onClick={() => setChoisies(new Set())}
-                  className="text-[12px] text-slate-500 underline">tout décocher</button>
+                  className="text-second text-slate-500 underline">tout décocher</button>
               </div>
 
               <div className="border border-slate-200 rounded-xl divide-y divide-slate-100
                               max-h-[32vh] overflow-y-auto">
                 {!unites.length && (
-                  <div className="px-3 py-6 text-center text-[13px] text-slate-400">
+                  <div className="px-3 py-6 text-center text-sm text-slate-400">
                     Aucune unité pour cette année.
                   </div>
                 )}
                 {unites.map(u => (
                   <label key={u.ue_num}
-                    className="px-3 py-1.5 flex items-center gap-2 text-[13px]
+                    className="px-3 py-1.5 flex items-center gap-2 text-sm
                                cursor-pointer hover:bg-slate-50">
                     <input type="checkbox" checked={choisies.has(u.ue_num)}
                       onChange={() => basculer(u.ue_num)} />
                     <span className="w-16 tabular-nums text-slate-500">UE{u.ue_num}</span>
                     <span className="flex-1 truncate">{u.ue_nom}</span>
-                    <span className="text-[11px] text-slate-400 w-14">{u.section}</span>
+                    <span className="text-xs text-slate-400 w-14">{u.section}</span>
                     {/* Une séance ouverte produit des pièces sans date de
                         délibération : mieux vaut le voir avant d'imprimer. */}
-                    <span className={`text-[11px] w-24 text-right ${u.cloturee
+                    <span className={`text-xs w-24 text-right ${u.cloturee
                       ? 'text-emerald-700' : 'text-amber-700'}`}>
                       {u.cloturee ? `close · s${u.session}` : 'séance ouverte'}
                     </span>
-                    <span className="text-[12px] text-slate-500 w-44 text-right">
+                    <span className="text-second text-slate-500 w-44 text-right">
                       {u.reussites} réussi · {u.ajournements} ajourné · {u.refus} refusé
                       {u.sans_decision ? ` · ${u.sans_decision} sans décision` : ''}
                     </span>
@@ -284,11 +284,11 @@ export default function CentreImpression({ annee, section = null, onClose }) {
 
               <div>
                 <div className="flex items-center justify-between gap-2 mb-1.5">
-                  <div className="text-[13px] font-semibold text-iip-blue">
+                  <div className="text-sm font-semibold text-iip-blue">
                     Les pièces à sortir
                   </div>
                   <div className="flex items-center gap-2">
-                    <label className="flex items-center gap-1.5 text-[12px] text-slate-600
+                    <label className="flex items-center gap-1.5 text-second text-slate-600
                                       cursor-pointer"
                       title="Chaque étudiant reçoit ses pièces réunies, toutes unités confondues">
                       <input type="checkbox" checked={separer}
@@ -299,14 +299,14 @@ export default function CentreImpression({ annee, section = null, onClose }) {
                         className="w-3.5 h-3.5 accent-iip-blue" />
                       Un document par étudiant
                     </label>
-                    <span className="text-[12px] text-slate-500">Classement :</span>
+                    <span className="text-second text-slate-500">Classement :</span>
                     <div className="segments">
                       {[['unite', 'par unité'], ['pile', 'par pile']].map(([v, lib]) => (
                         <button key={v} onClick={() => setGroupement(v)}
                           title={v === 'unite'
                             ? 'Tout ce qui concerne une unité reste ensemble — pour classer'
                             : 'Toutes les attestations, puis tous les PV — pour plier et poster'}
-                          className={`px-2 py-1 text-[12px] ${groupement === v
+                          className={`px-2 py-1 text-second ${groupement === v
                             ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>
                           {lib}
                         </button>
@@ -322,10 +322,10 @@ export default function CentreImpression({ annee, section = null, onClose }) {
                       <input type="checkbox" checked={!!choix[p.cle]} className="mt-0.5"
                         onChange={e => setChoix(c => ({ ...c, [p.cle]: e.target.checked }))} />
                       <span>
-                        <span className="text-[13px] font-semibold text-slate-800">
+                        <span className="text-sm font-semibold text-slate-800">
                           {p.libelle}
                         </span>
-                        <span className="block text-[11px] text-slate-500">{p.aide}</span>
+                        <span className="block text-xs text-slate-500">{p.aide}</span>
                       </span>
                     </label>
                   ))}

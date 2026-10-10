@@ -202,7 +202,7 @@ export default function EA12Editor() {
         ] }]} />
     <div className="gouttiere-rail max-w-none mx-auto p-4 space-y-4 pb-12">
       <div>
-        <h1 className="text-[17px] font-semibold text-iip-blue">
+        <h1 className="text-lg font-semibold text-iip-blue">
           EA12 bis (Supérieur) — {apercu.prof_nom} {apercu.prof_prenom}
         </h1>
         <p className="text-xs text-gray-500">Année {ea12.annee_scolaire} · Doc n° {ea12.num_doc}</p>

@@ -65,7 +65,7 @@ export default function MenuActions({ libelle, Icone, ton = 'neutre', items, tit
     <div className="relative" ref={ref}>
       <button onClick={basculer} title={titre}
         className={`flex items-center border rounded-lg font-medium ${compact
-          ? 'gap-1 px-2 py-1 text-[12px]' : 'gap-2 px-3 py-2 text-sm'} ${tons[ton] || tons.neutre}`}>
+          ? 'gap-1 px-2 py-1 text-second' : 'gap-2 px-3 py-2 text-sm'} ${tons[ton] || tons.neutre}`}>
         {Icone && <Icone size={compact ? 13 : 15} />} {libelle}
         <IconChevronDown size={13} className={`transition-transform ${ouvert ? 'rotate-180' : ''}`} />
       </button>
@@ -76,12 +76,12 @@ export default function MenuActions({ libelle, Icone, ton = 'neutre', items, tit
         <div ref={panneau} style={compact && pos ? pos : undefined}
           className={`${compact && pos ? 'fixed max-h-[calc(100vh-1rem)] overflow-y-auto z-50'
             : 'absolute right-0 mt-1 z-40'} w-72 max-w-[calc(100vw-2rem)] bg-white border border-slate-200
-                        rounded-xl shadow-lg py-1.5`}>
+                        rounded-xl shadow-flottant py-1.5`}>
           {visibles.map((it, i) => (
             it.separateur ? (
               <div key={`s${i}`} className="my-1.5 border-t border-slate-100">
                 {it.titre && (
-                  <div className="text-[10px] uppercase tracking-wide text-slate-400
+                  <div className="text-mention uppercase tracking-wide text-slate-400
                                   font-semibold px-3 pt-2 pb-0.5">{it.titre}</div>
                 )}
               </div>
@@ -93,8 +93,8 @@ export default function MenuActions({ libelle, Icone, ton = 'neutre', items, tit
                             hover:bg-slate-50 ${it.desactive ? 'opacity-40 pointer-events-none' : ''}`}>
                 {it.Icone && <it.Icone size={15} className="mt-0.5 flex-none text-slate-400" />}
                 <span className="min-w-0">
-                  <span className="block text-[13px] text-slate-700">{it.libelle}</span>
-                  {it.aide && <span className="block text-[11px] text-slate-400">{it.aide}</span>}
+                  <span className="block text-sm text-slate-700">{it.libelle}</span>
+                  {it.aide && <span className="block text-xs text-slate-400">{it.aide}</span>}
                 </span>
                 <input type="file" accept={it.accept} className="hidden"
                   onChange={e => {
@@ -113,10 +113,10 @@ export default function MenuActions({ libelle, Icone, ton = 'neutre', items, tit
                     className={`mt-0.5 flex-none ${it.danger ? 'text-red-400' : 'text-slate-400'}`} />
                 )}
                 <span className="min-w-0">
-                  <span className={`block text-[13px] ${it.danger ? '' : 'text-slate-700'}`}>
+                  <span className={`block text-sm ${it.danger ? '' : 'text-slate-700'}`}>
                     {it.libelle}
                   </span>
-                  {it.aide && <span className="block text-[11px] text-slate-400">{it.aide}</span>}
+                  {it.aide && <span className="block text-xs text-slate-400">{it.aide}</span>}
                 </span>
               </button>
             )

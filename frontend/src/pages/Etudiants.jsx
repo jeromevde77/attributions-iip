@@ -78,16 +78,16 @@ function couleurNiveau(niv) {
 // Pastille d'année d'études, sur fond plein pour rester lisible.
 function BadgeUeNiveau({ niveau }) {
   const couleur = couleurNiveau(niveau);
-  if (!niveau) return <span className="text-[11px] text-slate-300">—</span>;
+  if (!niveau) return <span className="text-xs text-slate-300">—</span>;
   if (!couleur) {
     return (
-      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded border border-slate-200 text-slate-500">
+      <span className="text-mention font-semibold px-1.5 py-0.5 rounded border border-slate-200 text-slate-500">
         {niveau}
       </span>
     );
   }
   return (
-    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-white"
+    <span className="text-mention font-bold px-1.5 py-0.5 rounded text-white"
       style={{ backgroundColor: couleur }}>
       {niveau}
     </span>
@@ -103,7 +103,7 @@ function ThTri({ champ, tri, onTri, className = '', children }) {
       title="Trier sur cette colonne">
       <span className="inline-flex items-center gap-1">
         {children}
-        <span className={`text-[10px] leading-none ${actif ? 'text-[#1B2B4B]' : 'text-slate-300'}`}>
+        <span className={`text-mention leading-none ${actif ? 'text-[#1B2B4B]' : 'text-slate-300'}`}>
           {actif ? (tri.sens === 1 ? '▲' : '▼') : '▲'}
         </span>
       </span>
@@ -117,7 +117,7 @@ function BadgeNiveau({ niveau, libelle, className = '' }) {
     : niveau === 'BA3'          ? 'bg-violet-500 text-white border-violet-500'
     : 'bg-sky-500 text-white border-sky-500';
   return (
-    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${cls} ${className}`}>
+    <span className={`text-mention font-semibold px-1.5 py-0.5 rounded border ${cls} ${className}`}>
       {libelle}
     </span>
   );
@@ -173,7 +173,7 @@ function FriseParcours({ ues, codes, ects = null }) {
         </span>
       ))}
       {ects != null && (
-        <span className="text-[11px] text-slate-500 whitespace-nowrap tabular-nums ml-1"
+        <span className="text-xs text-slate-500 whitespace-nowrap tabular-nums ml-1"
           title={ects > 60 ? "Au-delà de 60 ECTS : plus qu'une année à temps plein" : 'Crédits des unités inscrites cette année'}>
           {/* Au-delà de 60, une pastille orange (3 octobre 2026). */}
           {ects > 60
@@ -418,9 +418,9 @@ export function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
   let blocCourant = null;
   const Tuile = ({ v, l, p, etat = 'fort' }) => (
     <div data-etat={etat} className="bloc-etat px-3 py-2">
-      <div className="text-[17px] font-bold leading-tight">{v}</div>
-      <div className="text-[12px]">{l}</div>
-      {p && <div className="text-[11px] text-slate-500">{p}</div>}
+      <div className="text-lg font-bold leading-tight">{v}</div>
+      <div className="text-second">{l}</div>
+      {p && <div className="text-xs text-slate-500">{p}</div>}
     </div>
   );
   // LES TROIS BOUTONS À HAUTEUR DU NOM, À DROITE (Charles, 2 octobre 2026) :
@@ -450,14 +450,14 @@ export function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
         <IconSend size={16} /></button>}>
       {/* LES FILTRES : on choisit la liasse avant de la parcourir. */}
       <div className="flex flex-wrap items-center gap-2 mb-3">
-        <select className="controle text-[13px]" value={annee} onChange={e => setAnnee(e.target.value)} title="Année du PAE">
+        <select className="controle text-sm" value={annee} onChange={e => setAnnee(e.target.value)} title="Année du PAE">
           {(annees.length ? annees : [annee]).map(a => <option key={a} value={a}>{a}</option>)}
         </select>
-        <select className="controle text-[13px]" value={fSection} onChange={e => setFSection(e.target.value)}>
+        <select className="controle text-sm" value={fSection} onChange={e => setFSection(e.target.value)}>
           <option value="">Toutes les sections</option>
           {sections.map(x => <option key={x} value={x}>{x}</option>)}
         </select>
-        <select className="controle text-[13px]" value={fNiveau} onChange={e => setFNiveau(e.target.value)}>
+        <select className="controle text-sm" value={fNiveau} onChange={e => setFNiveau(e.target.value)}>
           <option value="">Tous les blocs</option>
           <option value="BA1">BA1</option><option value="BA2">BA2</option><option value="BA3">BA3 / diplômant</option>
           <option value="MIXTE">Parcours mixte</option>
@@ -465,7 +465,7 @@ export function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
         <div className="segments">
           {[['', 'Tous'], ['reports', 'Avec reports'], ['verifier', 'À vérifier'], ['nonrevus', 'Pas encore validés'], ['sanspae', 'Sans PAE']].map(([v, l]) => (
             <button key={v || 'tous'} type="button" onClick={() => setFCritere(v)}
-              className={`px-2.5 py-1 text-[12px] ${fCritere === v ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>{l}</button>
+              className={`px-2.5 py-1 text-second ${fCritere === v ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>{l}</button>
           ))}
         </div>
         {/* ALLER DIRECTEMENT À UN ÉTUDIANT DE LA LISTE. */}
@@ -475,7 +475,7 @@ export function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
             introuvable. */}
         {/* LA LISTE AUSSI (Charles, 7 octobre 2026 : « le menu déroulant avec les
             noms, en plus de la zone de saisie ») : on parcourt ou on tape. */}
-        <select className="controle text-[13px] max-w-[14rem]" value={cur?.id || ''}
+        <select className="controle text-sm max-w-[14rem]" value={cur?.id || ''}
           onChange={e => { const k = liste.findIndex(x => x.id === Number(e.target.value)); if (k >= 0) setI(k); }}
           title="Choisir un étudiant de la liste filtrée">
           {liste.map((x, k) => <option key={x.id} value={x.id}>{k + 1}. {nomPropre(x.nom, x.prenom)}{synthese?.[x.id]?.revu ? ' ✓' : ''}{synthese?.[x.id] && !synthese[x.id].pae ? ' · sans PAE' : ''}</option>)}
@@ -489,13 +489,13 @@ export function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
           }} />
 
       </div>
-      {erreurSyn && <div data-etat="surveiller" className="bloc-etat px-3 py-2 text-[12.5px] mb-3">{erreurSyn}</div>}
-      {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2 text-[12.5px] mb-3">{erreur}</div>}
-      {!synthese && <p className="text-[13px] text-slate-400">Lecture de la liste…</p>}
-      {synthese && !liste.length && <p className="text-[13px] text-slate-500">Aucun étudiant de la liste ne correspond à ces filtres pour {annee}.</p>}
+      {erreurSyn && <div data-etat="surveiller" className="bloc-etat px-3 py-2 text-second mb-3">{erreurSyn}</div>}
+      {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2 text-second mb-3">{erreur}</div>}
+      {!synthese && <p className="text-sm text-slate-400">Lecture de la liste…</p>}
+      {synthese && !liste.length && <p className="text-sm text-slate-500">Aucun étudiant de la liste ne correspond à ces filtres pour {annee}.</p>}
       {synthese && liste.length > 0 && !etudiantPret && (
         <div className="flex items-center gap-3 mb-2 min-h-[44px]">
-          <span className="text-[13px] text-slate-400">{erreur ? '' : 'Chargement…'}</span>{navBoutons}
+          <span className="text-sm text-slate-400">{erreur ? '' : 'Chargement…'}</span>{navBoutons}
         </div>
       )}
       {/* L'ÉTUDIANT AFFICHÉ DOIT ÊTRE CELUI DE LA LISTE : validé sous le filtre
@@ -521,23 +521,23 @@ export function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
            puis ce qui est ACQUIS, au bout — ECTS réussis (vert), moyenne. */
         const Wagon = ({ v, l, ligne = null, fort = false, titre }) => (
           <span title={titre} className={`relative px-2.5 py-1 leading-tight ${fort ? 'font-bold text-iip-texte' : ''}`}>
-            <span className="block text-[13px] font-semibold text-iip-texte tabular-nums">{v}</span>
-            {l && <span className="block text-[10px] text-slate-500">{l}</span>}
+            <span className="block text-sm font-semibold text-iip-texte tabular-nums">{v}</span>
+            {l && <span className="block text-mention text-slate-500">{l}</span>}
             {ligne && <span className={`absolute left-1.5 right-1.5 bottom-0 h-[3px] rounded-full ${ligne === 'vert' ? 'bg-emerald-700' : ligne === 'orange' ? '' : 'bg-blue-700'}`}
               style={ligne === 'orange' ? { background: 'var(--c-attente, #E8890C)' } : undefined} />}
           </span>
         );
         const BadgeUE = ({ u }) => {
-          if (u.nature_totale) return <span className="text-[11px] font-semibold text-emerald-800 bg-white border-2 border-emerald-600 rounded px-1.5 py-px">{u.nature_totale}</span>;
+          if (u.nature_totale) return <span className="text-xs font-semibold text-emerald-800 bg-white border-2 border-emerald-600 rounded px-1.5 py-px">{u.nature_totale}</span>;
           const out = [];
-          if (u.reports) out.push(<span key="r" className="text-[11px] font-semibold text-white rounded px-1.5 py-px bg-emerald-700">{u.reports} report{u.reports > 1 ? 's' : ''}</span>);
-          if (u.va) out.push(<span key="v" className="text-[11px] font-semibold text-white rounded px-1.5 py-px bg-teal-800">{u.nature_partielle || 'VAP'}</span>);
-          if (u.deja) out.push(<span key="d" className="text-[11px] font-semibold text-white rounded px-1.5 py-px bg-amber-700">déjà acquise {String(u.deja).replace(/^20(\d\d)-20(\d\d)$/, '$1-$2')}</span>);
+          if (u.reports) out.push(<span key="r" className="text-xs font-semibold text-white rounded px-1.5 py-px bg-emerald-700">{u.reports} report{u.reports > 1 ? 's' : ''}</span>);
+          if (u.va) out.push(<span key="v" className="text-xs font-semibold text-white rounded px-1.5 py-px bg-teal-800">{u.nature_partielle || 'VAP'}</span>);
+          if (u.deja) out.push(<span key="d" className="text-xs font-semibold text-white rounded px-1.5 py-px bg-amber-700">déjà acquise {String(u.deja).replace(/^20(\d\d)-20(\d\d)$/, '$1-$2')}</span>);
           // Réussie cette année : verte, ou violette avec le cadeau quand c'est une faveur.
-          if (u.etat === 'reussie') out.push(<span key="ok" className="text-[11px] font-semibold text-white rounded px-1.5 py-px bg-emerald-700">réussie</span>);
-          if (u.etat === 'faveur') out.push(<span key="fv" className="text-[11px] font-semibold text-white rounded px-1.5 py-px bg-violet-700 inline-flex items-center gap-1"><IconGift size={11} stroke={2.2} />réussie par faveur</span>);
-          if (u.etat === 'reprendre') out.push(<span key="p" className="text-[11px] font-semibold text-white rounded px-1.5 py-px bg-amber-700">à reprendre</span>);
-          if (!out.length) out.push(<span key="a" className="text-[11px] font-semibold text-white rounded px-1.5 py-px bg-blue-700">au programme</span>);
+          if (u.etat === 'reussie') out.push(<span key="ok" className="text-xs font-semibold text-white rounded px-1.5 py-px bg-emerald-700">réussie</span>);
+          if (u.etat === 'faveur') out.push(<span key="fv" className="text-xs font-semibold text-white rounded px-1.5 py-px bg-violet-700 inline-flex items-center gap-1"><IconGift size={11} stroke={2.2} />réussie par faveur</span>);
+          if (u.etat === 'reprendre') out.push(<span key="p" className="text-xs font-semibold text-white rounded px-1.5 py-px bg-amber-700">à reprendre</span>);
+          if (!out.length) out.push(<span key="a" className="text-xs font-semibold text-white rounded px-1.5 py-px bg-blue-700">au programme</span>);
           return <span className="inline-flex gap-1 flex-wrap">{out}</span>;
         };
         return (
@@ -545,8 +545,8 @@ export function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
             <div className="flex flex-wrap items-center gap-3 mb-2 min-h-[44px]">
               {/* Le nom et le matricule dessous : la même hauteur que le train. */}
               <span className="leading-tight">
-                <span className="block text-[16px] font-bold text-iip-texte">{nomPropre(e.nom, e.prenom)}</span>
-                <span className="block text-[11px] text-slate-500 tabular-nums">{e.id_ecampus || '—'}</span>
+                <span className="block text-base font-bold text-iip-texte">{nomPropre(e.nom, e.prenom)}</span>
+                <span className="block text-xs text-slate-500 tabular-nums">{e.id_ecampus || '—'}</span>
               </span>
               <span className="inline-flex items-stretch bg-white border border-slate-200 border-l-[4px] rounded divide-x divide-slate-200"
                 style={{ borderLeftColor: couleurBloc(e.niveau) || '#D8DCE4' }}>
@@ -565,9 +565,9 @@ export function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
               {navBoutons}
             </div>
             {d.revu && (
-              <div className="mb-2 px-3 py-2 rounded-lg text-[13px] bg-emerald-700 text-white">
+              <div className="mb-2 px-3 py-2 rounded-lg text-sm bg-emerald-700 text-white">
                 <b>Ce PAE a été validé</b> le {quandLocal(d.revu.revu_le)} par {d.revu.revu_par || '—'}{d.revu.ects_confirme ? ` — ${d.revu.ects_confirme} ECTS, au-delà de 60, confirmés en connaissance de cause` : ''}.
-                <button type="button" disabled={!!enCours} className="ml-3 underline text-white/80 hover:text-white text-[12px]"
+                <button type="button" disabled={!!enCours} className="ml-3 underline text-white/80 hover:text-white text-second"
                   onClick={() => marquer(false)}>retirer la validation</button>
               </div>
             )}
@@ -575,56 +575,56 @@ export function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
                 (« à reprendre », « déjà acquise »), et le filtre trie dessus. */}
             <div className="grid gap-5 items-start lg:grid-cols-[minmax(0,1fr)_minmax(0,600px)] mt-2">
               <div>
-                <div className="flex items-center gap-3 text-[12px] mb-1.5">
+                <div className="flex items-center gap-3 text-second mb-1.5">
                   <span className="text-slate-500">{ch.cours_reportes} cours reporté(s) · {ch.cours_va} dispensé(s) par VA · {ch.cours_a_suivre} à suivre ({ch.periodes_a_suivre} pér.)</span>
                   <span className="flex-1" />
                   <button type="button" className="underline text-slate-500" onClick={() => setOuverts(new Set(d.ues.map(u => u.ue_num)))}>tout ouvrir</button>
                   <button type="button" className="underline text-slate-500" onClick={() => setOuverts(new Set())}>tout fermer</button>
                 </div>
-                {!d.ues.length && <div data-etat="surveiller" className="bloc-etat px-3 py-2 text-[13px]">Pas encore de PAE pour {annee} : ajoutez ses unités ci-dessous (« Ajouter une UE au PAE »), ou composez les PAE de la section (Inscriptions & PAE → Composer le PAE).</div>}
+                {!d.ues.length && <div data-etat="surveiller" className="bloc-etat px-3 py-2 text-sm">Pas encore de PAE pour {annee} : ajoutez ses unités ci-dessous (« Ajouter une UE au PAE »), ou composez les PAE de la section (Inscriptions & PAE → Composer le PAE).</div>}
                 {/* LES VOLETS, COMME DANS LES ATTRIBUTIONS : pas de cadres, une
                     ligne par UE, une bande à la couleur du bloc le long du groupe. */}
                 {blocs.map(g => (
                   <div key={g.k} className="flex mb-3">
                     <div className="w-[5px] rounded-full flex-none" style={{ background: g.k === 'EI' ? '#C9A227' : (couleurBloc(g.k) || '#CBD5E1') }} />
                     <div className="flex-1 min-w-0 pl-2.5">
-                      <div className="text-[10.5px] font-bold uppercase tracking-wider text-slate-500 pb-1">
+                      <div className="text-mention font-bold uppercase tracking-wider text-slate-500 pb-1">
                         {g.k === 'EI' ? 'Épreuve intégrée' : g.k} · {g.ues.length} UE · {g.ues.reduce((t, u) => t + u.ects, 0)} ECTS</div>
                       {g.ues.map(u => {
                         const ouvert = ouverts.has(u.ue_num);
                         return (
                           <div key={u.ue_num} className="border-b border-slate-100">
-                            <div className="grid items-center gap-2 py-1 px-0.5 text-[13px] hover:bg-slate-50 cursor-pointer"
+                            <div className="grid items-center gap-2 py-1 px-0.5 text-sm hover:bg-slate-50 cursor-pointer"
                               style={{ gridTemplateColumns: '14px 56px minmax(0,1fr) auto 56px 50px auto auto' }}
                               onClick={() => basculerVolet(u.ue_num)}>
                               <IconChevronRight size={13} className={`text-slate-400 transition-transform ${ouvert ? 'rotate-90' : ''}`} />
                               <b className="text-iip-texte tabular-nums">UE {u.ue_num}</b>
                               <span className="truncate">{u.ue_nom}</span>
                               <BadgeUE u={u} />
-                              <span className="text-[11px] text-slate-500 text-right">{u.cours.length} cours</span>
-                              <span className="text-[11px] text-slate-500 text-right">{u.ects} ECTS</span>
-                              {peutReporter && !u.nature_totale && anneesReprise.length > 0 ? <button type="button" className="text-[12px] underline text-teal-800 whitespace-nowrap"
+                              <span className="text-xs text-slate-500 text-right">{u.cours.length} cours</span>
+                              <span className="text-xs text-slate-500 text-right">{u.ects} ECTS</span>
+                              {peutReporter && !u.nature_totale && anneesReprise.length > 0 ? <button type="button" className="text-second underline text-teal-800 whitespace-nowrap"
                                 title="Une VA ou VAE de toute l'UE, accordée en 2024-2025 ou 2025-2026 sans dossier : tous ses cours sont dispensés à 10/20"
                                 onClick={ev => { ev.stopPropagation(); setSaisieUE({ ue: u.ue_num, nature: 'VA', origine: anneesReprise[0] }); }}>VA / VAE</button> : <span />}
-                              {peutModifier ? <button type="button" disabled={!!enCours} className="text-[11px] underline text-slate-400 hover:text-slate-600"
+                              {peutModifier ? <button type="button" disabled={!!enCours} className="text-xs underline text-slate-400 hover:text-slate-600"
                                 title="Retirer cette UE du PAE de l'année" onClick={ev => { ev.stopPropagation(); retirerUE(u.ue_num); }}>retirer</button> : <span />}
                             </div>
                             {saisieUE?.ue === u.ue_num && (
-                              <div className="flex flex-wrap items-center gap-2 pb-2 pl-6 text-[12px]">
+                              <div className="flex flex-wrap items-center gap-2 pb-2 pl-6 text-second">
                                 <span className="text-slate-600">L'UE entière, sans dossier :</span>
-                                <select className="border border-slate-300 rounded h-7 px-1.5 text-[12px] bg-white" value={saisieUE.nature} onChange={ev => setSaisieUE({ ...saisieUE, nature: ev.target.value })}>
+                                <select className="border border-slate-300 rounded h-7 px-1.5 text-second bg-white" value={saisieUE.nature} onChange={ev => setSaisieUE({ ...saisieUE, nature: ev.target.value })}>
                                   <option value="VA">VA</option><option value="VAE">VAE</option>
                                 </select>
-                                <select className="border border-slate-300 rounded h-7 px-1.5 text-[12px] bg-white" value={saisieUE.origine} onChange={ev => setSaisieUE({ ...saisieUE, origine: ev.target.value })}>
+                                <select className="border border-slate-300 rounded h-7 px-1.5 text-second bg-white" value={saisieUE.origine} onChange={ev => setSaisieUE({ ...saisieUE, origine: ev.target.value })}>
                                   {anneesReprise.map(x => <option key={x} value={x}>{x}</option>)}
                                 </select>
-                                <button type="button" disabled={enCours === `ue-${u.ue_num}`} className="rounded bg-teal-800 text-white h-7 px-2 text-[12px] font-semibold disabled:opacity-40"
+                                <button type="button" disabled={enCours === `ue-${u.ue_num}`} className="rounded bg-teal-800 text-white h-7 px-2 text-second font-semibold disabled:opacity-40"
                                   onClick={() => poserVAUE(u.ue_num, saisieUE.nature, saisieUE.origine)}>Poser · tous les cours à 10/20</button>
                                 <button type="button" className="underline text-slate-500" onClick={() => setSaisieUE(null)}>annuler</button>
                               </div>
                             )}
                             {ouvert && (
-                              <div className="grid gap-x-3 gap-y-1 pb-2 pl-6 text-[13px] items-center" style={{ gridTemplateColumns: '56px minmax(0,1fr) 46px minmax(0,300px)' }}>
+                              <div className="grid gap-x-3 gap-y-1 pb-2 pl-6 text-sm items-center" style={{ gridTemplateColumns: '56px minmax(0,1fr) 46px minmax(0,300px)' }}>
                                 {u.cours.map(c => {
                                   const occupe = enCours === `rep-${u.ue_num}-${c.code}`;
                                   const saisieIci = saisie && saisie.ue === u.ue_num && saisie.code === c.code;
@@ -635,8 +635,8 @@ export function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
                                     <Fragment key={c.code}>
                                       <span className="text-slate-500 tabular-nums">{c.code}</span>
                                       <span className={teinte}>{c.nom}</span>
-                                      <span className="text-[11px] text-slate-500 text-right tabular-nums">{c.per ? `${c.per} p.` : ''}</span>
-                                      <span className="text-[12px] flex flex-wrap items-center gap-1.5">
+                                      <span className="text-xs text-slate-500 text-right tabular-nums">{c.per ? `${c.per} p.` : ''}</span>
+                                      <span className="text-second flex flex-wrap items-center gap-1.5">
                                         {c.statut === 'report' && <>
                                           <span className={`rounded px-1.5 py-px text-white font-semibold ${vaReprise ? 'bg-teal-800' : 'bg-emerald-700'}`}
                                             title={vaReprise ? `${c.nature} reprise sans dossier${c.par ? ` — posée par ${c.par}` : ''}` : (c.par ? `Posé par ${c.par}` : '')}>
@@ -645,13 +645,13 @@ export function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
                                         </>}
                                         {c.statut === 'va' && <span className="rounded px-1.5 py-px bg-white border-2 border-emerald-600 text-emerald-800 font-semibold">{c.nature || 'VAP'}</span>}
                                         {c.statut === 'suivre' && saisieVAIci && <>
-                                          <select className="border border-slate-300 rounded h-7 px-1.5 text-[12px] bg-white" value={saisieVA.nature} onChange={ev => setSaisieVA({ ...saisieVA, nature: ev.target.value })}>
+                                          <select className="border border-slate-300 rounded h-7 px-1.5 text-second bg-white" value={saisieVA.nature} onChange={ev => setSaisieVA({ ...saisieVA, nature: ev.target.value })}>
                                             {[['VAP', 'VAP'], ['VAEP', 'VAEP'], ['DISPENSE', 'Dispense']].map(([x, l]) => <option key={x} value={x}>{l}</option>)}
                                           </select>
-                                          <select className="border border-slate-300 rounded h-7 px-1.5 text-[12px] bg-white" value={saisieVA.origine} onChange={ev => setSaisieVA({ ...saisieVA, origine: ev.target.value })}>
+                                          <select className="border border-slate-300 rounded h-7 px-1.5 text-second bg-white" value={saisieVA.origine} onChange={ev => setSaisieVA({ ...saisieVA, origine: ev.target.value })}>
                                             {anneesReprise.map(x => <option key={x} value={x}>{x}</option>)}
                                           </select>
-                                          <button type="button" disabled={occupe || !saisieVA.origine} className="rounded bg-teal-800 text-white h-7 px-2 text-[12px] font-semibold disabled:opacity-40"
+                                          <button type="button" disabled={occupe || !saisieVA.origine} className="rounded bg-teal-800 text-white h-7 px-2 text-second font-semibold disabled:opacity-40"
                                             onClick={() => reporter(u.ue_num, c.code, { nature: saisieVA.nature, annee_origine: saisieVA.origine }).then(() => setSaisieVA(null))}>Poser · 10/20</button>
                                           <button type="button" className="underline text-slate-500" onClick={() => setSaisieVA(null)}>annuler</button>
                                         </>}
@@ -659,7 +659,7 @@ export function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
                                           <span className="font-semibold text-blue-700">à suivre</span>
                                           {c.refuse && <span className="text-slate-400" title={c.refuse.motif || ''}>· report retiré</span>}
                                           {peutReporter && c.eligible && (
-                                            <button type="button" disabled={occupe} className="rounded border border-slate-300 bg-white h-7 px-2 text-[12px] font-medium hover:bg-slate-50 disabled:opacity-40"
+                                            <button type="button" disabled={occupe} className="rounded border border-slate-300 bg-white h-7 px-2 text-second font-medium hover:bg-slate-50 disabled:opacity-40"
                                               onClick={() => reporter(u.ue_num, c.code)}>Reporter {c.eligible.note != null ? `${c.eligible.note}/20` : ''} · {String(c.eligible.annee_origine || '').replace(/^20(\d\d)-20(\d\d)$/, '$1-$2')}</button>
                                           )}
                                           {peutReporter && (
@@ -674,12 +674,12 @@ export function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
                                           )}
                                         </>}
                                         {saisieIci && <>
-                                          <input className="border border-slate-300 rounded h-7 px-1.5 text-[12px] bg-white w-16" placeholder="/20" value={saisie.note} autoFocus
+                                          <input className="border border-slate-300 rounded h-7 px-1.5 text-second bg-white w-16" placeholder="/20" value={saisie.note} autoFocus
                                             onChange={ev => setSaisie({ ...saisie, note: ev.target.value })} />
-                                          <select className="border border-slate-300 rounded h-7 px-1.5 text-[12px] bg-white" value={saisie.origine} onChange={ev => setSaisie({ ...saisie, origine: ev.target.value })}>
+                                          <select className="border border-slate-300 rounded h-7 px-1.5 text-second bg-white" value={saisie.origine} onChange={ev => setSaisie({ ...saisie, origine: ev.target.value })}>
                                             {anterieures.map(x => <option key={x} value={x}>{x}</option>)}
                                           </select>
-                                          <button type="button" disabled={occupe} className="rounded bg-iip-blue text-white h-7 px-2 text-[12px] font-semibold disabled:opacity-40"
+                                          <button type="button" disabled={occupe} className="rounded bg-iip-blue text-white h-7 px-2 text-second font-semibold disabled:opacity-40"
                                             onClick={() => reporter(u.ue_num, c.code, { note: saisie.note, annee_origine: saisie.origine })}>Reporter</button>
                                           <button type="button" className="underline text-slate-500" onClick={() => setSaisie(null)}>annuler</button>
                                         </>}
@@ -687,7 +687,7 @@ export function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
                                     </Fragment>
                                   );
                                 })}
-                                {!u.cours.length && <span className="col-span-4 text-[12px] text-slate-400">Aucun cours encodé pour cette unité en {annee}.</span>}
+                                {!u.cours.length && <span className="col-span-4 text-second text-slate-400">Aucun cours encodé pour cette unité en {annee}.</span>}
                               </div>
                             )}
                           </div>
@@ -698,8 +698,8 @@ export function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
                 ))}
                 {peutModifier && d.autres.length > 0 && (
                   <div className="flex flex-wrap items-center gap-2 pl-4 mt-1">
-                    <span className="text-[12.5px] font-semibold">Ajouter une UE au PAE</span>
-                    <select className="controle text-[13px] min-w-0 flex-1" value={ajout} onChange={ev => setAjout(ev.target.value)}>
+                    <span className="text-second font-semibold">Ajouter une UE au PAE</span>
+                    <select className="controle text-sm min-w-0 flex-1" value={ajout} onChange={ev => setAjout(ev.target.value)}>
                       <option value="">— choisir dans le cursus —</option>
                       {d.autres.map(x => <option key={x.ue_num} value={x.ue_num}>
                         {x.niv || '—'} · UE {x.ue_num} — {x.ue_nom}{x.statut ? ` (${({ accessible: 'accessible', bloquee: 'bloquée', sous_reserve: 'sous réserve', en_attente: 'en attente' })[x.statut] || x.statut})` : ''}</option>)}
@@ -708,10 +708,10 @@ export function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
                       {enCours === 'pae' ? 'Enregistrement…' : 'Ajouter'}</button>
                   </div>
                 )}
-                {!peutReporter && <p className="text-[12px] text-slate-500 pl-4">Encoder un report est réservé à la direction, à la coordination et à l'administration des études.</p>}
+                {!peutReporter && <p className="text-second text-slate-500 pl-4">Encoder un report est réservé à la direction, à la coordination et à l'administration des études.</p>}
               </div>
               <div className="min-w-0 lg:sticky lg:top-0 lg:border-l lg:border-slate-200 lg:pl-4">
-                <div className="text-[13px] font-semibold mb-1">Parcours{peutModifier ? <span className="font-normal text-[11.5px] text-slate-500"> — cliquer une tuile pour l'ajouter au PAE ou l'en retirer</span> : null}</div>
+                <div className="text-sm font-semibold mb-1">Parcours{peutModifier ? <span className="font-normal text-xs text-slate-500"> — cliquer une tuile pour l'ajouter au PAE ou l'en retirer</span> : null}</div>
                 <ParcoursCompact etudId={cur.id} annee={annee} version={versionSchema}
                   programme={new Set(dansPAE)}
                   dispenses={new Set(d.ues.filter(u => u.reports || u.va).map(u => u.ue_num))}
@@ -826,7 +826,7 @@ function SchemaCapitalisation({ etudId, annee, onNoeud = null, programme = null,
     setChanger(false); setNouvelle(''); setArchiveVue(null); setRecharge(n => n + 1); onModifie?.();
   };
   const ligneChanger = (
-    <div className="flex items-center gap-2 flex-wrap text-[12.5px]">
+    <div className="flex items-center gap-2 flex-wrap text-second">
       {!changer ? (
         <button type="button" className="bouton bouton-compact" onClick={() => setChanger(true)}
           title="Faire passer l'étudiant dans une autre section — l'actuelle est archivée, rien n'est effacé">
@@ -834,7 +834,7 @@ function SchemaCapitalisation({ etudId, annee, onNoeud = null, programme = null,
       ) : (
         <>
           <span>Nouvelle section{courante ? ` (aujourd'hui : ${courante})` : ''} :</span>
-          <select className="controle text-[13px]" value={nouvelle} onChange={e => setNouvelle(e.target.value)}>
+          <select className="controle text-sm" value={nouvelle} onChange={e => setNouvelle(e.target.value)}>
             <option value="">— choisir —</option>
             {sectionsRef.filter(x => x.code !== courante).map(x => <option key={x.code} value={x.code}>{x.libelle && x.libelle !== x.code ? `${x.code} — ${x.libelle}` : x.code}</option>)}
           </select>
@@ -849,7 +849,7 @@ function SchemaCapitalisation({ etudId, annee, onNoeud = null, programme = null,
     <div className="mb-2 space-y-1">
       {noeudOutils ? createPortal(ligneChanger, noeudOutils) : ligneChanger}
       {archives.map(a => (
-        <div key={a.section} data-etat="neutre" className="bloc-etat px-3 py-1.5 text-[12.5px] flex items-center gap-3 flex-wrap">
+        <div key={a.section} data-etat="neutre" className="bloc-etat px-3 py-1.5 text-second flex items-center gap-3 flex-wrap">
           <span className="flex-1 min-w-0">
             <b>Cursus antérieur archivé : {a.section}</b>
             <span className="text-slate-500"> · {a.du === a.au ? court(a.du) : `${court(a.du)} → ${court(a.au)}`} · {a.reussies} unité{a.reussies > 1 ? 's' : ''} réussie{a.reussies > 1 ? 's' : ''}</span>
@@ -871,7 +871,7 @@ function SchemaCapitalisation({ etudId, annee, onNoeud = null, programme = null,
       ))}
       {archiveVue && (
         <div className="opacity-70 border border-dashed border-slate-300 rounded-carte p-2">
-          <div className="text-[11px] text-slate-500 mb-1">Cursus archivé — {archiveVue.section}, en lecture seule</div>
+          <div className="text-xs text-slate-500 mb-1">Cursus archivé — {archiveVue.section}, en lecture seule</div>
           <SchemaCapitalisationVue data={archiveVue.data} mode="etudiant" />
         </div>
       )}
@@ -1130,7 +1130,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
           petits boutons dans le titre. */}
       <div className="mb-4">
       <div className="entete-plat">
-        <span className="text-[13px] font-semibold text-iip-blue">Notes par année</span>
+        <span className="text-sm font-semibold text-iip-blue">Notes par année</span>
         <BulleAide titre="La grille des notes">
           Cliquez sur une case pour encoder.
           {peutEcrire && <> Glissez une case vers une autre année pour la déplacer ; Ctrl/⌘-clic en
@@ -1142,15 +1142,15 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
         <div className="ml-auto flex gap-1">
           {nbHistorique > 0 && (
             <button onClick={() => setNbHistorique(0)} title="Masquer les années antérieures vides"
-              className="px-2 py-0.5 text-[11px] border border-slate-300 rounded-md hover:bg-slate-50">» masquer</button>
+              className="px-2 py-0.5 text-xs border border-slate-300 rounded-md hover:bg-slate-50">» masquer</button>
           )}
           <button onClick={() => setNbHistorique(n => (n === 0 ? 5 : n + 3))}
             title="Afficher les années antérieures pour encoder l'historique"
-            className="px-2 py-0.5 text-[11px] border border-slate-300 rounded-md hover:bg-slate-50">
+            className="px-2 py-0.5 text-xs border border-slate-300 rounded-md hover:bg-slate-50">
             « {nbHistorique === 0 ? 'années antérieures' : 'remonter encore'}
           </button>
           <button onClick={purgerAnnee} title="Effacer les résultats ou les inscriptions d'une année"
-            className="px-2 py-0.5 text-[11px] border border-[color:var(--c-attente)] text-iip-texte rounded-md hover:bg-[#F7E9E5]">Purger…</button>
+            className="px-2 py-0.5 text-xs border border-[color:var(--c-attente)] text-iip-texte rounded-md hover:bg-[#F7E9E5]">Purger…</button>
         </div>
       </div>
 
@@ -1162,12 +1162,12 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
       {moities.map((liste, iT) => (
       <div key={iT} className="min-w-0">
       <div className="overflow-x-auto">
-          <table className="w-full text-[12px] border-collapse">
+          <table className="w-full text-second border-collapse">
             <thead>
               {/* LES ANNÉES SUR LA LIGNE DES BLOCS DU SCHÉMA (« les dates sur la
                   même ligne ») : en-tête sans fond, de la hauteur des intitulés
                   BA1, BA2… posés en tête du schéma. */}
-              <tr className="text-[10.5px] font-semibold text-slate-500">
+              <tr className="text-mention font-semibold text-slate-500">
                 <th className="px-2 py-1 text-left sticky left-0 bg-white z-10">UE</th>
                 {anneesAffichees.map((a, i) => {
                   const derniere = i === anneesAffichees.length - 1;
@@ -1195,17 +1195,17 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                       title={`UE ${u.ue_num} — ${u.ue_nom || ''}${u.ue_niv ? ' · ' + u.ue_niv : ''}`}>
                       <span className="font-semibold text-iip-blue">{u.ue_num}</span>
                       <span className="text-slate-600 ml-1.5 inline-block max-w-[13rem] truncate align-bottom">{u.ue_nom}</span>
-                      {verrou && <span className="ml-1.5 text-[11px]"
+                      {verrou && <span className="ml-1.5 text-xs"
                         title={'Exige : UE ' + ((u.prereq_chaine?.length ? u.prereq_chaine : u.prerequis) || []).join(', ')}><IconLock size={13} stroke={1.8} className="inline -mt-0.5 text-slate-400" /></span>}
-                      {u.suggeree && <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-violet-500 text-white border border-violet-500" title="Probablement acquise (inférence prérequis) — à confirmer">à confirmer</span>}
+                      {u.suggeree && <span className="ml-1.5 text-mention px-1 py-0.5 rounded bg-violet-500 text-white border border-violet-500" title="Probablement acquise (inférence prérequis) — à confirmer">à confirmer</span>}
                       {u.hors_referentiel && (
-                        <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-amber-500 text-white border border-amber-500"
+                        <span className="ml-1.5 text-mention px-1 py-0.5 rounded bg-amber-500 text-white border border-amber-500"
                           title="Cette unité appartient à une autre section, ou sa section est inconnue">
                           autre section
                         </span>
                       )}
                       {u.hors_millesime && (
-                        <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-slate-100 text-slate-500"
+                        <span className="ml-1.5 text-mention px-1 py-0.5 rounded bg-slate-100 text-slate-500"
                           title="Unité de la section, absente du programme de l'année en cours">
                           hors programme {annee}
                         </span>
@@ -1260,7 +1260,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                                 setPopover({ annee: a, ue_num: u.ue_num, verrou: true });
                               }
                             }}
-                            className={`w-11 h-[22px] text-[11px] font-semibold tabular-nums rounded-md border px-0.5 transition
+                            className={`w-11 h-[22px] text-xs font-semibold tabular-nums rounded-md border px-0.5 transition
                               ${kind ? kind.cls : 'border-transparent text-slate-300 hover:border-slate-200 hover:bg-slate-50'}
                               ${cl?.derogation ? 'ring-1 ring-amber-400' : ''}
                               ${choix.has(`${a}|${u.ue_num}`) ? 'ring-2 ring-[color:var(--c-disponible)] ring-offset-1' : ''}
@@ -1272,14 +1272,14 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                                  : kind.val === 'va' ? (cl.points != null ? 'VA ' + cl.points : 'VA')
                                  : kind.short)
                               : '·'}
-                            {aDetail(a, u.ue_num) && <span className="ml-0.5 align-super text-[8px]">●</span>}
+                            {aDetail(a, u.ue_num) && <span className="ml-0.5 align-super text-mention">●</span>}
                             {(() => {
                               if (!cl || cl.kind !== 'inscrit') return null;
                               const acquisSet = new Set(data.ues.filter(x => x.acquise).map(x => x.ue_num));
                               const nivMap = Object.fromEntries(data.ues.map(x => [x.ue_num, (x.ue_niv || '').toUpperCase()]));
                               const manquants = u.prerequis.filter(p => !acquisSet.has(p));
                               if (manquants.length && manquants.every(p => cell(a, p) && nivMap[p] === (u.ue_niv || '').toUpperCase()))
-                                return <span className="ml-0.5 text-[10px]" title={'Sous réserve — réussite UE ' + manquants.join(', ') + ' requise en cours d\'année'}>⏳</span>;
+                                return <span className="ml-0.5 text-mention" title={'Sous réserve — réussite UE ' + manquants.join(', ') + ' requise en cours d\'année'}>⏳</span>;
                               return null;
                             })()}
                           </button>
@@ -1308,7 +1308,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
           <Fenetre titre={`Déplacer ${n} case${n > 1 ? 's' : ''}`} sous={rp.etudiant}
             onFermer={() => setDepl(null)}
             pied={<>
-              {raison && <span className="text-[12px] text-slate-500 min-w-0 flex-1">{raison}</span>}
+              {raison && <span className="text-second text-slate-500 min-w-0 flex-1">{raison}</span>}
               <button className="bouton" onClick={() => setDepl(null)}>Annuler</button>
               <button className="bouton-fort" disabled={!!raison || depl.enCours} onClick={confirmerDeplacement}>
                 {depl.enCours ? 'Déplacement…' : 'Déplacer'}
@@ -1323,7 +1323,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                 </Encadre>
               )}
               {(rp.plan || []).length > 0 && (
-                <table className="w-full text-[12px]">
+                <table className="w-full text-second">
                   <thead><tr className="tab-entete text-left">
                     <th className="px-2 py-1">UE</th><th className="px-2 py-1">De</th><th className="px-2 py-1">Vers</th>
                     <th className="px-2 py-1">Résultat</th><th className="px-2 py-1">Ce qui suit</th>
@@ -1338,12 +1338,12 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                         <tr key={m.ue_num} className="border-t border-slate-100 align-top">
                           <td className="px-2 py-1 font-semibold text-iip-blue">{m.ue_num}</td>
                           <td className="px-2 py-1">{m.de}</td>
-                          <td className="px-2 py-1">{m.vers}{m.remplace && <span className="block text-[11px] text-slate-400">remplace une inscription vide</span>}</td>
+                          <td className="px-2 py-1">{m.vers}{m.remplace && <span className="block text-xs text-slate-400">remplace une inscription vide</span>}</td>
                           <td className="px-2 py-1">{m.resultat || 'inscrit'}{m.points != null ? ` · ${m.points}/20` : ''}</td>
                           <td className="px-2 py-1 text-slate-600">
                             {suit.length ? suit.join(' · ') : '—'}
-                            {m.seance_close && <span className="block text-[11px] text-iip-texte">délibération close en {m.de} : décision déjà notifiée</span>}
-                            {m.stage_reste > 0 && <span className="block text-[11px] text-slate-400">le stage reste en {m.de}</span>}
+                            {m.seance_close && <span className="block text-xs text-iip-texte">délibération close en {m.de} : décision déjà notifiée</span>}
+                            {m.stage_reste > 0 && <span className="block text-xs text-slate-400">le stage reste en {m.de}</span>}
                           </td>
                         </tr>
                       );
@@ -1352,12 +1352,12 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                 </table>
               )}
               <label className="block">
-                <span className="text-[12px] font-semibold text-iip-blue">Motif du déplacement</span>
+                <span className="text-second font-semibold text-iip-blue">Motif du déplacement</span>
                 <textarea value={depl.motif} rows={2} autoFocus
                   onChange={ev => { const v = ev.target.value; setDepl(d => ({ ...d, motif: v })); }}
                   placeholder="ex. import de l’historique rangé dans la mauvaise année"
-                  className="mt-1 w-full border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]" />
-                <span className="text-[11px] text-slate-400">Il est conservé avec votre nom, l’heure, et chaque case déplacée.</span>
+                  className="mt-1 w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
+                <span className="text-xs text-slate-400">Il est conservé avec votre nom, l’heure, et chaque case déplacée.</span>
               </label>
               {depl.erreur && <Encadre etat="corriger">{depl.erreur}</Encadre>}
             </div>
@@ -1372,12 +1372,12 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
           {/* DEUX FENÊTRES EN UNE : la largeur suit ce qu'on y fait — petite
               pour la poignée de boutons, moyenne pour la grille du détail. */}
             {popover.verrou && (
-              <div className="text-[11px] text-white bg-amber-500 border border-amber-500 rounded-lg px-2 py-1 mb-2">
+              <div className="text-xs text-white bg-amber-500 border border-amber-500 rounded-lg px-2 py-1 mb-2">
                 Dérogation — sera tracée comme telle
               </div>
             )}
             {popover.sousReserve && (
-              <div className="text-[11px] text-white bg-sky-500 border border-sky-500 rounded-lg px-2 py-1 mb-2">
+              <div className="text-xs text-white bg-sky-500 border border-sky-500 rounded-lg px-2 py-1 mb-2">
                 Inscription sous réserve — l'accès effectif dépend de la réussite de
                 l'UE {popover.sousReserve.join(', ')} en cours d'année (cas type : épreuve intégrée).
               </div>
@@ -1389,13 +1389,13 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
               {KINDS_CELLULE.map(k => (
                 <button key={k.val}
                   onClick={() => ecrire(k.val, { points: pts !== '' ? Number(pts) : undefined })}
-                  className={`text-[12px] px-2 py-1.5 rounded-lg border font-medium ${k.cls}`}>
+                  className={`text-second px-2 py-1.5 rounded-lg border font-medium ${k.cls}`}>
                   {k.label}
                 </button>
               ))}
               <button onClick={() => ecrire('effacer_resultat')}
                 title="L'inscription demeure ; sa note et ses acquis sont effacés"
-                className="text-[12px] px-2 py-1.5 rounded-lg border border-slate-200 text-slate-600">
+                className="text-second px-2 py-1.5 rounded-lg border border-slate-200 text-slate-600">
                 Effacer le résultat
               </button>
               <button onClick={async () => {
@@ -1403,13 +1403,13 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                     ecrire('effacer');
                 }}
                 title="Supprime l'inscription et tout ce qui s'y rattache"
-                className="text-[12px] px-2 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 border-l-4 border-l-red-500">
+                className="text-second px-2 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 border-l-4 border-l-red-500">
                 Supprimer l'inscription
               </button>
             </div>
 
             <button onClick={() => detailOuvert ? setDetailOuvert(false) : chargerDetail()}
-              className="mt-3 w-full text-[12px] px-2 py-1.5 rounded-lg border border-iip-blue/30 text-iip-blue hover:bg-iip-blue/5">
+              className="mt-3 w-full text-second px-2 py-1.5 rounded-lg border border-iip-blue/30 text-iip-blue hover:bg-iip-blue/5">
               {detailOuvert ? 'Masquer le détail' : 'Notes par cours & AA…'}
             </button>
 
@@ -1427,23 +1427,23 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                         ? 'bg-emerald-50 border-emerald-200'
                         : 'bg-red-50 border-red-200'}`}>
                     {detail.calcul.sur20 == null ? (
-                      <div className="text-[12px] text-slate-500">
+                      <div className="text-second text-slate-500">
                         Aucun acquis coté, ou pondérations non encodées pour cette UE.
                       </div>
                     ) : (
                       <div className="flex items-center justify-between gap-3">
                         <div>
-                          <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">
+                          <div className="text-mention uppercase tracking-wide text-slate-500 font-semibold">
                             Note calculée
                           </div>
-                          <div className="text-[19px] font-bold text-iip-blue leading-tight"
+                          <div className="text-lg font-bold text-iip-blue leading-tight"
                             title={detail.calcul.sur20_exact != null ? `Valeur exacte : ${detail.calcul.sur20_exact}` : ''}>
                             {detail.calcul.sur20} / 20
-                            <span className="text-[12px] font-normal text-slate-500 ml-2">
+                            <span className="text-second font-normal text-slate-500 ml-2">
                               {detail.calcul.pourcentage} %
                             </span>
                           </div>
-                          <div className="text-[11px] text-slate-500">
+                          <div className="text-xs text-slate-500">
                             {detail.calcul.evalues}/{detail.calcul.attendus} acquis cotés
                             {!detail.calcul.complet ? " — calcul partiel" : ''}
                           </div>
@@ -1455,7 +1455,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                             // seconde session et à un éventuel recours. Elle n'est
                             // simplement pas communiquée à l'étudiant.
                             { points: detail.calcul.sur20 })}
-                          className="flex-none text-[12px] px-2.5 py-1.5 rounded-lg bg-iip-blue text-white font-semibold">
+                          className="flex-none text-second px-2.5 py-1.5 rounded-lg bg-iip-blue text-white font-semibold">
                           Reporter sur l’UE
                         </button>
                       </div>
@@ -1466,24 +1466,24 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                 {/* Reports de note proposés : cours validés dans une UE échouée */}
                 {(detail.candidats_report || []).length > 0 && (
                   <div className="mb-3 border border-sky-200 bg-sky-50 rounded-xl px-3 py-2.5 border-l-4 border-l-sky-500">
-                    <div className="text-[12px] font-semibold text-sky-900 mb-1.5">
+                    <div className="text-second font-semibold text-sky-900 mb-1.5">
                       Report de note possible
                     </div>
                     <div className="space-y-1">
                       {detail.candidats_report.map(cd => (
                         <div key={cd.cours_code} className="flex items-center gap-2">
-                          <div className="flex-1 text-[11px] text-sky-900 truncate" title={cd.cours_nom}>
+                          <div className="flex-1 text-xs text-sky-900 truncate" title={cd.cours_nom}>
                             <b>{cd.cours_code}</b> {cd.cours_nom}
                             <span className="text-sky-700"> — {cd.note_affichee}/20 en {cd.annee_origine}</span>
                           </div>
                           <button onClick={() => poserReport(cd)}
-                            className="flex-none text-[11px] px-2 py-0.5 rounded-lg bg-sky-600 text-white font-semibold">
+                            className="flex-none text-xs px-2 py-0.5 rounded-lg bg-sky-600 text-white font-semibold">
                             Reporter
                           </button>
                         </div>
                       ))}
                     </div>
-                    <p className="text-[10px] text-sky-700 mt-1.5">
+                    <p className="text-mention text-sky-700 mt-1.5">
                       Cours validés alors que l'UE n'était pas réussie. Le report relève du Conseil des études.
                     </p>
                   </div>
@@ -1497,7 +1497,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                 {detail.decision && (detail.decision.s1 || detail.decision.s2
                   || detail.decision.finale || detail.decision.motivation) && (
                     <div className="mb-2 px-3 py-2 rounded-lg bg-slate-50 border
-                                    border-slate-200 text-[12px]">
+                                    border-slate-200 text-second">
                       <span className="font-semibold text-iip-blue">Décision</span>
                       {detail.decision.s1 && (
                         <span className="ml-2">1<sup>re</sup> session :
@@ -1525,15 +1525,15 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                   {(detail.structure || []).map(co => (
                     <div key={co.cours_code} className="border border-slate-200 rounded-lg overflow-hidden">
                       <div className="flex items-center gap-2 px-2 py-1.5 bg-slate-50">
-                        <div className="flex-1 text-[12px] text-slate-700 truncate" title={co.cours_nom}>
+                        <div className="flex-1 text-second text-slate-700 truncate" title={co.cours_nom}>
                           <b className="text-iip-blue">{co.cours_code}</b> {co.cours_nom}
                         </div>
-                        <span className="text-[10px] text-slate-400 flex-none"
+                        <span className="text-mention text-slate-400 flex-none"
                           title={`${co.periodes} périodes`}>
                           {co.poids_cours_affiche != null ? co.poids_cours_affiche + ' %' : '— %'}
                         </span>
                         {!co.complet && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500 text-white border border-amber-500 flex-none"
+                          <span className="text-mention px-1.5 py-0.5 rounded bg-amber-500 text-white border border-amber-500 flex-none"
                             title={`Somme des pondérations : ${co.somme_poids} au lieu de 100`}>
                             pondérations {co.somme_poids}
                           </span>
@@ -1545,22 +1545,22 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                           const rn = detail.reports.find(r0 => r0.cours_code === co.cours_code);
                           return (
                             <div className="px-3 py-2 flex items-center gap-2 bg-sky-50/60 border-l-4 border-l-sky-500">
-                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-600 text-white flex-none">
+                              <span className="text-mention font-bold px-1.5 py-0.5 rounded bg-sky-600 text-white flex-none">
                                 RN
                               </span>
-                              <div className="flex-1 text-[12px] text-sky-900">
+                              <div className="flex-1 text-second text-sky-900">
                                 Note reportée : <b>{Math.round(rn.note)}/20</b>
                                 {rn.annee_origine ? <span className="text-sky-700"> (validé en {rn.annee_origine})</span> : null}
                               </div>
                               <button onClick={() => retirerReport(co.cours_code)}
-                                className="flex-none text-[11px] px-2 py-0.5 rounded-lg border border-sky-300 text-sky-700 hover:bg-white">
+                                className="flex-none text-xs px-2 py-0.5 rounded-lg border border-sky-300 text-sky-700 hover:bg-white">
                                 Retirer
                               </button>
                             </div>
                           );
                         })()
                       ) : !co.aas.length ? (
-                        <div className="px-3 py-2 text-[11px] text-slate-400">
+                        <div className="px-3 py-2 text-xs text-slate-400">
                           Aucun acquis d’apprentissage rattaché à ce cours.
                         </div>
                       ) : (
@@ -1570,11 +1570,11 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                             const n = detail.notes[cle] || {};
                             return (
                               <div key={cle} className="flex items-center gap-2 py-0.5">
-                                <div className="flex-1 text-[11px] text-slate-600 truncate"
+                                <div className="flex-1 text-xs text-slate-600 truncate"
                                   title={aa.description || aa.aa_code}>
                                   <b className="text-slate-500">{aa.aa_code}</b> {aa.description || ''}
                                 </div>
-                                <span className="text-[10px] text-slate-400 flex-none w-9 text-right"
+                                <span className="text-mention text-slate-400 flex-none w-9 text-right"
                                   title="Pondération dans ce cours">
                                   {aa.poids != null ? aa.poids + '%' : '—'}
                                 </span>
@@ -1583,7 +1583,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                                     première et en seconde, pas seulement le
                                     résultat qui fait foi. */}
                                 {(detail.sessions?.s1?.[cle] || detail.sessions?.s2?.[cle]) && (
-                                  <span className="flex-none text-[10px] w-20 text-right">
+                                  <span className="flex-none text-mention w-20 text-right">
                                     <span className="text-slate-500" title="Première session">
                                       S1&nbsp;{detail.sessions.s1?.[cle]?.points ?? '—'}
                                     </span>
@@ -1601,8 +1601,8 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                                   onBlur={e => ecrireDetail(co.cours_code, aa.aa_code,
                                     e.target.value !== '' ? Number(e.target.value) : null,
                                     { va: n.va, non_evalue: n.non_evalue })}
-                                  className="w-14 border border-slate-200 rounded-lg px-1.5 py-0.5 text-[11px] text-right disabled:bg-slate-100" />
-                                <label className="flex items-center gap-1 text-[10px] text-slate-500 flex-none"
+                                  className="w-14 border border-slate-200 rounded-lg px-1.5 py-0.5 text-xs text-right disabled:bg-slate-100" />
+                                <label className="flex items-center gap-1 text-mention text-slate-500 flex-none"
                                   title="Dispensé : cet acquis sort du calcul, sans pénaliser l\u2019étudiant">
                                   <input type="checkbox" checked={!!n.non_evalue}
                                     onChange={e => ecrireDetail(co.cours_code, aa.aa_code,
@@ -1618,13 +1618,13 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                   ))}
 
                   {!(detail.structure || []).length && (
-                    <div className="text-[12px] text-slate-400 text-center py-2">
+                    <div className="text-second text-slate-400 text-center py-2">
                       Aucun cours au référentiel pour cette UE.
                     </div>
                   )}
                 </div>
 
-                <p className="text-[10px] text-slate-400 mt-2">
+                <p className="text-mention text-slate-400 mt-2">
                   Chaque acquis pèse par sa pondération dans son cours et par les périodes de ce
                   cours. Un acquis dispensé sort du calcul sans compter comme un zéro.
                 </p>
@@ -1872,7 +1872,7 @@ function Valorisations({ etudId, annee }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <p className="text-[12px] text-slate-500">
+        <p className="text-second text-slate-500">
           Valorisation des acquis — AGCF du 13-12-2024 · décisions du Conseil des études
         </p>
         <span className="ml-auto" />
@@ -1895,16 +1895,16 @@ function Valorisations({ etudId, annee }) {
       </div>
 
       {demande && (
-        <div className="border border-slate-200 rounded-xl p-3 mb-3 flex flex-wrap items-center gap-2 text-[13px]">
+        <div className="border border-slate-200 rounded-xl p-3 mb-3 flex flex-wrap items-center gap-2 text-sm">
           <select value={demande.ue_num} onChange={e => setDemande(x => ({ ...x, ue_num: e.target.value }))}
-            className="controle text-[13px] max-w-[26rem]">
+            className="controle text-sm max-w-[26rem]">
             <option value="">{unites ? '— l’unité demandée —' : 'Chargement…'}</option>
             {(unites?.unites || []).map(u => <option key={u.ue_num} value={u.ue_num}>{u.ue_num} — {u.ue_nom}</option>)}
           </select>
           <div className="segments">
             {[['va', 'VA — acquis formels'], ['vae', 'VAE — expérience']].map(([v, l]) => (
               <button key={v} type="button" onClick={() => setDemande(x => ({ ...x, porte: v }))}
-                className={`px-2.5 py-1 text-[12px] ${demande.porte === v ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>{l}</button>
+                className={`px-2.5 py-1 text-second ${demande.porte === v ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>{l}</button>
             ))}
           </div>
           <button className="bouton bouton-fort disabled:opacity-40" disabled={!demande.ue_num}
@@ -1917,8 +1917,8 @@ function Valorisations({ etudId, annee }) {
               setDemande(null); await charger();
             }}>Introduire</button>
           <button className="bouton" onClick={() => setDemande(null)}>Annuler</button>
-          <span className="text-[12px] text-slate-500 basis-full">La demande s'instruit ensuite dans la séance : dates, recevabilité, avis, décision.</span>
-          {demandeErr && <span className="text-[12px] basis-full" style={{ color: 'var(--c-refuse, #9D4A38)' }}>{demandeErr}</span>}
+          <span className="text-second text-slate-500 basis-full">La demande s'instruit ensuite dans la séance : dates, recevabilité, avis, décision.</span>
+          {demandeErr && <span className="text-second basis-full" style={{ color: 'var(--c-refuse, #9D4A38)' }}>{demandeErr}</span>}
         </div>
       )}
 
@@ -1937,7 +1937,7 @@ function Valorisations({ etudId, annee }) {
               refusée n'avait nulle part où s'écrire, donc elle ne s'écrivait
               pas — et une demande dont rien ne garde trace se réintroduit
               l'année suivante, sans qu'on sache qu'elle a déjà été examinée. */}
-          <div className="flex items-center gap-4 text-[13px]">
+          <div className="flex items-center gap-4 text-sm">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
               Décision du Conseil
             </span>
@@ -1949,7 +1949,7 @@ function Valorisations({ etudId, annee }) {
               </label>
             ))}
             {form.id && (
-              <span className="ml-auto text-[11px] text-slate-400">
+              <span className="ml-auto text-xs text-slate-400">
                 Correction d'une valorisation déjà encodée — les preuves déposées sont conservées.
               </span>
             )}
@@ -1979,7 +1979,7 @@ function Valorisations({ etudId, annee }) {
                 </span>
                 <textarea rows={3} value={form.motif_refus || ''}
                   placeholder="Ce que le Conseil a constaté : pièces insuffisantes, acquis non démontrés, formation sans rapport…"
-                  className="w-full border border-slate-300 rounded-champ px-2 py-1.5 text-[13px]"
+                  className="w-full border border-slate-300 rounded-champ px-2 py-1.5 text-sm"
                   onChange={e => setForm(f => ({ ...f, motif_refus: e.target.value }))} />
               </label>
             </>
@@ -2025,7 +2025,7 @@ function Valorisations({ etudId, annee }) {
                   </option>
                 ))}
               </select>
-              <span className="block text-[10px] text-slate-400 mt-1">
+              <span className="block text-mention text-slate-400 mt-1">
                 ★ déjà au programme de l'étudiant en {annee}
               </span></label>
             {form.type !== 'admission' && (
@@ -2046,11 +2046,11 @@ function Valorisations({ etudId, annee }) {
                     {cb === 'cours' ? 'Par cours' : "Par acquis d'apprentissage"}
                   </label>
                 ))}
-                <label className="flex items-center gap-1.5 text-[11px] text-slate-500 ml-auto">
+                <label className="flex items-center gap-1.5 text-xs text-slate-500 ml-auto">
                   Seuil de report
                   <input type="number" min="0" max="20" step="0.5" value={seuilReport}
                     onChange={e => setSeuilReport(Number(e.target.value))}
-                    className="w-14 border border-slate-300 rounded px-1.5 py-0.5 text-[11px]" />
+                    className="w-14 border border-slate-300 rounded px-1.5 py-0.5 text-xs" />
                   /20
                 </label>
               </div>
@@ -2065,12 +2065,12 @@ function Valorisations({ etudId, annee }) {
                   qu'il AURA — la liste doit venir de l'unité, et les notes
                   déjà obtenues s'y ajoutent quand elles existent. */}
               {!form.ue_num ? (
-                <div className="py-4 text-center text-[13px] text-slate-400
+                <div className="py-4 text-center text-sm text-slate-400
                                 border-2 border-dashed rounded-xl">
                   Choisissez d'abord l'unité d'enseignement.
                 </div>
               ) : !composantes ? (
-                <div className="py-4 text-center text-[13px] text-slate-400
+                <div className="py-4 text-center text-sm text-slate-400
                                 border-2 border-dashed rounded-xl">
                   Chargement des composantes de l'unité…
                 </div>
@@ -2096,7 +2096,7 @@ function Valorisations({ etudId, annee }) {
 
                 if (!liste.length) {
                   return (
-                    <div className="py-4 text-center text-[13px] text-amber-700
+                    <div className="py-4 text-center text-sm text-amber-700
                                     border-2 border-dashed border-amber-300 rounded-xl">
                       Cette unité ne porte aucun {form.cible === 'cours' ? 'cours'
                         : "acquis d'apprentissage"} au référentiel {annee}.
@@ -2107,7 +2107,7 @@ function Valorisations({ etudId, annee }) {
                 return (
                 <div className="border border-slate-200 rounded-xl overflow-hidden">
                   <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200
-                                  text-[11px] uppercase tracking-wide text-slate-500 font-semibold">
+                                  text-xs uppercase tracking-wide text-slate-500 font-semibold">
                     UE {form.ue_num} · {liste.length}{' '}
                     {form.cible === 'cours' ? 'cours' : "acquis d'apprentissage"}
                     {anterieur?.annee_source && (
@@ -2126,7 +2126,7 @@ function Valorisations({ etudId, annee }) {
                       const sousSeuil = note !== '' && Number(note) < seuilReport;
                       return (
                         <div key={code}
-                          className={`px-3 py-1.5 text-[12px]
+                          className={`px-3 py-1.5 text-second
                                       border-b border-slate-50 last:border-0
                                       ${actif ? 'bg-iip-blue/5' : ''}`}>
                         <div className="flex items-center gap-2">
@@ -2144,7 +2144,7 @@ function Valorisations({ etudId, annee }) {
                                 return { ...f, cible_detail: next.join(','), equivalences: eq };
                               });
                             }} />
-                          <span className="w-20 flex-none font-mono text-[11px] text-slate-500">
+                          <span className="w-20 flex-none font-mono text-xs text-slate-500">
                             {code}
                           </span>
                           <span className="flex-1 min-w-0 truncate" title={co.libelle}>
@@ -2165,7 +2165,7 @@ function Valorisations({ etudId, annee }) {
                               })}
                               title={co.deja_reporte ? 'Déjà reportée'
                                 : `Obtenue en ${co.annee_anterieure} — cliquer pour la reprendre`}
-                              className={`text-[11px] flex-none w-24 text-right
+                              className={`text-xs flex-none w-24 text-right
                                 ${co.deja_reporte ? 'text-slate-300'
                                   : co.note_anterieure >= seuilReport
                                     ? 'text-emerald-700 font-semibold hover:underline'
@@ -2175,7 +2175,7 @@ function Valorisations({ etudId, annee }) {
                               </span>{co.deja_reporte ? ' ✓' : ''}
                             </button>
                           ) : (
-                            <span className="text-[11px] text-slate-300 flex-none
+                            <span className="text-xs text-slate-300 flex-none
                                              w-24 text-right">—</span>
                           )}
 
@@ -2198,7 +2198,7 @@ function Valorisations({ etudId, annee }) {
                                 });
                               }}
                               className={`w-16 flex-none border rounded px-1.5 py-0.5
-                                          text-[12px] text-right ${sousSeuil
+                                          text-second text-right ${sousSeuil
                                             ? 'border-amber-400 bg-amber-50'
                                             : 'border-slate-300'}`} />
                           ) : <span className="w-16 flex-none" />}
@@ -2214,7 +2214,7 @@ function Valorisations({ etudId, annee }) {
                             onChange={e => setForm(f => ({ ...f,
                               equivalences: { ...(f.equivalences || {}), [code]: e.target.value } }))}
                             className="mt-1.5 ml-6 w-[calc(100%-1.5rem)] border border-slate-300
-                                       rounded-lg px-2 py-1 text-[12px]" />
+                                       rounded-lg px-2 py-1 text-second" />
                         )}
                         </div>
                       );
@@ -2223,7 +2223,7 @@ function Valorisations({ etudId, annee }) {
 
                   {Object.keys(form.notes || {}).length > 0 && (
                     <div className="px-3 py-1.5 bg-slate-50 border-t border-slate-200
-                                    text-[11px] text-slate-600">
+                                    text-xs text-slate-600">
                       {Object.keys(form.notes).length} note(s) à reporter
                       {Object.values(form.notes).some(n => Number(n) < seuilReport) && (
                         <span className="text-amber-700 font-semibold">
@@ -2248,10 +2248,10 @@ function Valorisations({ etudId, annee }) {
             <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
               <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200
                               flex items-center justify-between">
-                <span className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">
+                <span className="text-xs uppercase tracking-wide text-slate-500 font-semibold">
                   Acquis d'apprentissage reconnus équivalents
                 </span>
-                <span className="text-[11px] text-slate-500">
+                <span className="text-xs text-slate-500">
                   {Object.keys(form.equivalences || {}).length} / {composantes.aas.length}
                   {form.type === 'complete' && ' · dispense complète'}
                 </span>
@@ -2269,8 +2269,8 @@ function Valorisations({ etudId, annee }) {
                             else eq[a.aa_code] = composantes.texte_equivalence || '';
                             return { ...f, equivalences: eq };
                           })} />
-                        <span className="text-[12px] flex-1 min-w-0">
-                          <span className="font-mono text-[11px] text-slate-500 mr-1.5">
+                        <span className="text-second flex-1 min-w-0">
+                          <span className="font-mono text-xs text-slate-500 mr-1.5">
                             {a.aa_code}
                           </span>
                           {a.description || ''}
@@ -2282,7 +2282,7 @@ function Valorisations({ etudId, annee }) {
                           onChange={e => setForm(f => ({ ...f,
                             equivalences: { ...(f.equivalences || {}), [a.aa_code]: e.target.value } }))}
                           className="mt-1.5 ml-6 w-[calc(100%-1.5rem)] border border-slate-300
-                                     rounded-lg px-2 py-1 text-[12px]" />
+                                     rounded-lg px-2 py-1 text-second" />
                       )}
                     </div>
                   );
@@ -2319,7 +2319,7 @@ function Valorisations({ etudId, annee }) {
                       : "acquis d'apprentissage"} à dispenser.`
                   : null;
             return manque && (
-              <div className="text-[12px] text-amber-800">{manque}</div>
+              <div className="text-second text-amber-800">{manque}</div>
             );
           })()}
 
@@ -2348,11 +2348,11 @@ function Valorisations({ etudId, annee }) {
             <div key={v.id} className="flex items-center justify-between gap-3 border border-slate-200 rounded-xl px-4 py-2.5">
               <div>
                 <span className="font-medium text-iip-blue">{v.ue_num}</span>
-                <span className="text-slate-600 ml-1.5 text-[13px]">{v.ue_nom}</span>
+                <span className="text-slate-600 ml-1.5 text-sm">{v.ue_nom}</span>
                 {v.decision === 'refusee' && (
-                  <span className="ml-2 text-[11px] font-semibold text-iip-texte">refusée</span>
+                  <span className="ml-2 text-xs font-semibold text-iip-texte">refusée</span>
                 )}
-                <div className="text-[11px] text-slate-400 mt-0.5">
+                <div className="text-xs text-slate-400 mt-0.5">
                   {v.decision === 'refusee' ? 'Demande refusée' : (
                     <>
                       {TYPES_VA.find(t => t.val === v.type)?.label}
@@ -2363,7 +2363,7 @@ function Valorisations({ etudId, annee }) {
                   {v.decision_ce_date ? ` · CE du ${v.decision_ce_date}` : ''}
                 </div>
                 {v.decision === 'refusee' && v.motif_refus && (
-                  <div className="text-[12px] text-slate-600 mt-0.5">{v.motif_refus}</div>
+                  <div className="text-second text-slate-600 mt-0.5">{v.motif_refus}</div>
                 )}
 
                 {/* LES PREUVES. Une valorisation se décide sur pièces — un
@@ -2373,7 +2373,7 @@ function Valorisations({ etudId, annee }) {
                 <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
                   {(v.fichiers || []).map(f => (
                     <span key={f.id}
-                      className="inline-flex items-center gap-1 text-[11px] border
+                      className="inline-flex items-center gap-1 text-xs border
                                  border-slate-200 rounded-lg pl-2 pr-1 py-0.5 bg-white">
                       <button type="button" onClick={() => telecharger(f)}
                         className="hover:underline text-iip-blue max-w-[220px] truncate"
@@ -2396,10 +2396,10 @@ function Valorisations({ etudId, annee }) {
                   ))}
                   {estAdmin && <select value={nature} onChange={e => setNature(e.target.value)}
                     title="Nature de la pièce — elle donne son nom au fichier"
-                    className="text-[11px] border border-slate-300 rounded-lg px-1.5 py-0.5">
+                    className="text-xs border border-slate-300 rounded-lg px-1.5 py-0.5">
                     {natures.map(n => <option key={n.cle} value={n.cle}>{n.label}</option>)}
                   </select>}
-                  {estAdmin && <label className="inline-flex items-center gap-1 text-[11px] text-slate-500
+                  {estAdmin && <label className="inline-flex items-center gap-1 text-xs text-slate-500
                                     border border-dashed border-slate-300 rounded-lg px-2 py-0.5
                                     cursor-pointer hover:border-iip-blue hover:text-iip-blue">
                     <IconUpload size={12} /> Déposer une preuve
@@ -2433,7 +2433,7 @@ function Valorisations({ etudId, annee }) {
           annee={annee} onClose={() => setDocuments(null)} />
       )}
 
-      <p className="text-[11px] text-slate-400 mt-3">
+      <p className="text-xs text-slate-400 mt-3">
         Dispense complète : l'UE est acquise, l'apprenant n'est pas comptabilisé comme régulier pour cette UE (art. 4).
         Dispense partielle : dispense d'activités d'enseignement, l'apprenant reste comptabilisé (art. 3).
         Interdite pour les épreuves intégrées.
@@ -2465,18 +2465,18 @@ function DossierApprenant({ etudId }) {
 
   return (
     <div>
-      <p className="text-[12px] text-slate-500 mb-3">
+      <p className="text-second text-slate-500 mb-3">
         Dossier individuel de l'apprenant — {recues}/{pieces.length} pièces traitées
         <span className="text-slate-400"> · circulaire n° 9764 du 13/07/2026</span>
       </p>
       <div className="space-y-2">
         {pieces.map(p => (
           <div key={p.type} className="flex items-center justify-between gap-3 border border-slate-200 rounded-xl px-4 py-2.5">
-            <div className="text-[13px] text-slate-700">{p.libelle}</div>
+            <div className="text-sm text-slate-700">{p.libelle}</div>
             <div className="flex gap-1 flex-none">
               {STATUTS_PIECE.filter(s => peutPieces || p.statut === s.val).map(s => (
                 <button key={s.val} disabled={!peutPieces} onClick={() => setStatut(p.type, s.val)}
-                  className={`text-[11px] px-2 py-1 rounded-lg border transition ${
+                  className={`text-xs px-2 py-1 rounded-lg border transition ${
                     p.statut === s.val ? s.cls + ' font-semibold' : 'border-transparent text-slate-400 hover:bg-slate-50'}`}>
                   {s.label}
                 </button>
@@ -2560,7 +2560,7 @@ function SchemaRetournable({ recto, verso }) {
           : (
             <div>
               <div className="entete-plat">
-                <span className="flex-1 text-[13px] font-semibold text-iip-blue">
+                <span className="flex-1 text-sm font-semibold text-iip-blue">
                   Notes par année
                   {ue != null && <span className="ml-2 font-normal text-slate-500">· UE {ue}</span>}
                 </span>
@@ -2585,7 +2585,7 @@ function NavFiche({ position, onPrec, onSuiv }) {
         className="p-1 rounded-md border border-slate-300 bg-white text-slate-600 disabled:opacity-30">
         <IconChevronLeft size={14} />
       </button>
-      <span className="text-[12px] text-slate-600 tabular-nums min-w-[4.5rem] text-center">{n ? `${i} / ${n}` : '—'}</span>
+      <span className="text-second text-slate-600 tabular-nums min-w-[4.5rem] text-center">{n ? `${i} / ${n}` : '—'}</span>
       <button onClick={onSuiv} disabled={!n || i >= n} title="Dossier suivant (flèche droite)"
         className="p-1 rounded-md border border-slate-300 bg-white text-slate-600 disabled:opacity-30">
         <IconChevronRight size={14} />
@@ -2596,7 +2596,7 @@ function NavFiche({ position, onPrec, onSuiv }) {
 function MenuParcourir({ portee, onPortee, sections, ues, annees }) {
   const [ouvert, setOuvert] = useState(false);
   const actifs = [portee.section, portee.annee, portee.ue_num].filter(Boolean).length;
-  const champ = 'controle w-full border border-slate-300 rounded-champ bg-white text-[12px]';
+  const champ = 'controle w-full border border-slate-300 rounded-champ bg-white text-second';
   return (
     <div className="relative">
       <button type="button" onClick={() => setOuvert(o => !o)}
@@ -2607,7 +2607,7 @@ function MenuParcourir({ portee, onPortee, sections, ues, annees }) {
       {ouvert && (
         <div className="absolute right-0 top-full mt-1 z-30 w-72 bg-white border border-slate-200 rounded-carte shadow-flottant p-3 space-y-2"
           onMouseLeave={() => setOuvert(false)}>
-          <div className="text-[11px] text-slate-500">Les flèches ‹ › passent d'un dossier à l'autre parmi :</div>
+          <div className="text-xs text-slate-500">Les flèches ‹ › passent d'un dossier à l'autre parmi :</div>
           <select className={champ} value={portee.section}
             onChange={e => onPortee({ ...portee, section: e.target.value, ue_num: '' })}>
             <option value="">Toutes les sections</option>
@@ -3014,10 +3014,10 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
               <div className="border-t border-slate-200 pt-4">
                 <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
                   <div>
-                    <h3 className="text-[15px] font-semibold text-iip-blue">
+                    <h3 className="text-base font-semibold text-iip-blue">
                       Frais de scolarité
                     </h3>
-                    <p className="text-[12px] text-slate-500">
+                    <p className="text-second text-slate-500">
                       Document distinct du droit d'inscription : la Fédération
                       n'en connaît pas.
                     </p>
@@ -3041,7 +3041,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                              border-slate-300 text-slate-600 font-semibold rounded-lg">
                   <IconFileText size={14} /> Fiche d'inscription / reçu
                 </button>
-                <p className="text-[12px] text-slate-500 mt-1">
+                <p className="text-second text-slate-500 mt-1">
                   Récapitulatif du programme, des droits et de l'engagement signé.
                 </p>
               </div>
@@ -3114,14 +3114,14 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
               {/* LA FICHE EST LA VUE DU PARCOURS ET DES NOTES (Charles, 2 octobre
                   2026) : le PAE se travaille dans la revue. Il se résume ici en
                   une ligne, et le programme détaillé se déplie au besoin. */}
-              <div className="border-t border-slate-200 mt-4 pt-3 flex flex-wrap items-center gap-2 text-[13px]">
+              <div className="border-t border-slate-200 mt-4 pt-3 flex flex-wrap items-center gap-2 text-sm">
                 <b>PAE {annee}</b>
                 {paeValide
-                  ? <span className="text-[11px] font-semibold text-white rounded-full px-2 py-px" style={{ background: 'var(--c-reussi, #3E7D5E)' }}>
+                  ? <span className="text-xs font-semibold text-white rounded-full px-2 py-px" style={{ background: 'var(--c-reussi, #3E7D5E)' }}>
                       validé le {quandLocal(paeValide.revu_le)} par {paeValide.revu_par || '—'}</span>
-                  : <span className="text-[11px] font-semibold text-white rounded-full px-2 py-px bg-slate-400">pas encore validé</span>}
-                <span className="text-[12px] text-slate-500">{paeConfirme ? 'programme confirmé' : 'programme proposé'}</span>
-                <button type="button" className="text-[12px] underline text-iip-blue" onClick={() => setRevueFiche(true)}>ouvrir la revue</button>
+                  : <span className="text-xs font-semibold text-white rounded-full px-2 py-px bg-slate-400">pas encore validé</span>}
+                <span className="text-second text-slate-500">{paeConfirme ? 'programme confirmé' : 'programme proposé'}</span>
+                <button type="button" className="text-second underline text-iip-blue" onClick={() => setRevueFiche(true)}>ouvrir la revue</button>
               </div>
 
               {/* LE PROGRAMME NE SE MONTRE PLUS DANS LA FICHE (Charles, 2 octobre
@@ -3132,11 +3132,11 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                   confirmée : le dire évite de la lire comme un état de fait,
                   maintenant que schéma et programme sont sur la même page. */}
               {paeValide && (
-                <div className="mb-2 px-3 py-2 rounded-lg text-[13px] bg-emerald-700 text-white">
+                <div className="mb-2 px-3 py-2 rounded-lg text-sm bg-emerald-700 text-white">
                   <b>Ce PAE a été validé</b> le {quandLocal(paeValide.revu_le)} par {paeValide.revu_par || '—'} — revue des PAE.
                 </div>
               )}
-              <div className={`mb-3 px-3 py-2 rounded-lg text-[13px] border ${
+              <div className={`mb-3 px-3 py-2 rounded-lg text-sm border ${
                 paeConfirme
                   ? 'bg-emerald-500 border-emerald-500 text-white'
                   : 'bg-amber-500 border-amber-500 text-white'}`}>
@@ -3167,28 +3167,28 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                   u.inscrite && !u.deja_reussie && !u.accessible && !u.sous_reserve);
                 const ligneStatut = u =>
                   u.reinscriptible_ce
-                    ? <span className="text-[11px] text-amber-700 flex items-center gap-1"><IconAlertTriangle size={12} />
+                    ? <span className="text-xs text-amber-700 flex items-center gap-1"><IconAlertTriangle size={12} />
                         {u.va_complete ? 'Dispensée (VA complète)' : 'Réinscription — décision du Conseil des études'}</span>
                     : u.hors_bloc
-                      ? <span className="text-[11px] text-slate-500 flex items-center gap-1"
+                      ? <span className="text-xs text-slate-500 flex items-center gap-1"
                           title="Unité d'un bloc qui ne s'ouvre pas encore : le bloc précédent n'est pas acquis à la part requise des ECTS. Elle ne se propose pas, et l'ajouter demande confirmation">
                           {u.ue_niv || 'Bloc supérieur'} — le BA{u.plafond_bloc} n'est pas encore assez acquis</span>
                     : u.accessible
-                      ? <span className="text-[11px] font-semibold text-emerald-700 flex items-center gap-1"><IconCheck size={12} /> Accessible</span>
+                      ? <span className="text-xs font-semibold text-emerald-700 flex items-center gap-1"><IconCheck size={12} /> Accessible</span>
                       : u.sous_reserve || u.propose_sous_reserve
-                        ? <span className="text-[11px] text-sky-700 flex items-center gap-1"><IconClock size={12} /> Sous réserve — réussite UE {(u.prereq_manquants || []).join(', ')}</span>
+                        ? <span className="text-xs text-sky-700 flex items-center gap-1"><IconClock size={12} /> Sous réserve — réussite UE {(u.prereq_manquants || []).join(', ')}</span>
                         : u.avertissements?.length
-                          ? <span className="text-[11px] text-amber-700 flex items-center gap-1"
+                          ? <span className="text-xs text-amber-700 flex items-center gap-1"
                               title={u.avertissements.map(a => `UE ${a.ue_num}${a.motif ? ' — ' + a.motif : ''}`).join('\n')}>
                               <IconAlertTriangle size={12} />
                               Recommandé après {u.avertissements.map(a => a.ue_num).join(', ')}
                             </span>
                         : u.epreuve_integree
-                          ? <span className="text-[11px] text-red-600 flex items-center gap-1"
+                          ? <span className="text-xs text-red-600 flex items-center gap-1"
                               title={'Restent à acquérir : UE ' + (u.epreuve_restantes || []).join(', ')}>
                               <IconAlertTriangle size={12} /> Épreuve intégrée — {(u.epreuve_restantes || []).length} UE des années antérieures non acquise(s)
                             </span>
-                          : <span className="text-[11px] text-red-600 flex items-center gap-1"
+                          : <span className="text-xs text-red-600 flex items-center gap-1"
                               title={u.prereq_chaine?.length ? 'Chaîne complète : UE ' + u.prereq_chaine.join(', ') : ''}>
                               <IconAlertTriangle size={12} /> Exige {(u.prereq_chaine || u.prereq_manquants || []).join(', ')}
                             </span>;
@@ -3198,14 +3198,14 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                   <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
                     <div>
                       <div className="font-semibold text-iip-blue">Plan Annuel de l'Étudiant — {pae.annee}</div>
-                      <div className="text-[12px] text-slate-500 mt-0.5 flex items-center gap-2 flex-wrap">
+                      <div className="text-second text-slate-500 mt-0.5 flex items-center gap-2 flex-wrap">
                         <span>{retenues.length} UE retenue(s) · section {(pae.sections || []).join(', ') || '—'}</span>
                         {pae.niveau?.libelle && (
                           <BadgeNiveau niveau={pae.niveau.niveau} libelle={pae.niveau.libelle} />
                         )}
                         {(pae.sections_scores || []).length > 1 && (
                           <select value={sectionForcee} onChange={e => setSectionForcee(e.target.value)}
-                            className="border border-slate-300 rounded-lg px-1.5 py-0.5 text-[12px]">
+                            className="border border-slate-300 rounded-lg px-1.5 py-0.5 text-second">
                             <option value="">Section détectée</option>
                             {pae.sections_scores.map(s => (
                               <option key={s.section} value={s.section}>{s.section} ({s.n} UE)</option>
@@ -3223,7 +3223,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                     const retraits = pae.pae.filter(u => u.inscrite && !sel.has(u.ue_num)).map(u => u.ue_num);
                     if (!ajouts.length && !retraits.length) return null;
                     return (
-                      <div data-etat="surveiller" className="bloc-etat mb-3 px-3 py-2 text-[12px]">
+                      <div data-etat="surveiller" className="bloc-etat mb-3 px-3 py-2 text-second">
                         <b>Le schéma et la liste montrent le programme {paeConfirme ? 'modifié' : 'proposé'}, pas encore enregistré.</b>
                         {ajouts.length > 0 && <div>Coché, pas encore inscrit : UE {ajouts.join(', ')}</div>}
                         {retraits.length > 0 && <div>Inscrit, décoché : UE {retraits.join(', ')}</div>}
@@ -3236,12 +3236,12 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                     <div className="mb-3 px-3 py-2.5 rounded-xl bg-red-50 border border-red-200 border-l-4 border-l-red-500">
                       <div className="flex items-start gap-2">
                         <IconAlertTriangle size={15} className="text-red-600 mt-0.5 flex-none" />
-                        <div className="flex-1 text-[12px] text-red-900">
+                        <div className="flex-1 text-second text-red-900">
                           <b>{bloquees.length} inscription(s) impossible(s)</b> en {pae.annee} :
                           les prérequis ne sont pas acquis. {paeConfirme
                             ? 'Le PAE est confirmé avec elles : décochez-les puis enregistrez pour les retirer.'
                             : 'Elles ne sont pas reconduites ; enregistrer le PAE les retirera.'}
-                          <ul className="mt-1 space-y-0.5 text-[11px] text-red-800">
+                          <ul className="mt-1 space-y-0.5 text-xs text-red-800">
                             {bloquees.slice(0, 8).map(u => (
                               <li key={u.ue_num}>
                                 UE {u.ue_num} — exige {(u.prereq_chaine || u.prereq_manquants || []).join(', ') || '—'}
@@ -3258,12 +3258,12 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                     <div className="mb-3 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200 border-l-4 border-l-amber-500">
                       <div className="flex items-start gap-2">
                         <IconAlertTriangle size={15} className="text-amber-600 mt-0.5 flex-none" />
-                        <div className="flex-1 text-[12px] text-amber-900">
+                        <div className="flex-1 text-second text-amber-900">
                           <b>{residuelles.length} UE déjà réussie(s)</b> portent encore une inscription
                           en {pae.annee} — vestige d'un programme calculé avant l'encodage des résultats.
                           {paeConfirme ? 'Décochez-les puis enregistrez pour les retirer.'
                             : 'Elles ne sont plus proposées ; enregistrer le PAE les retirera.'}
-                          <div className="text-[11px] text-amber-700 mt-0.5">
+                          <div className="text-xs text-amber-700 mt-0.5">
                             UE {residuelles.map(u => u.ue_num).join(', ')}
                           </div>
                         </div>
@@ -3279,7 +3279,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                   ) : (
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="text-[11px] uppercase tracking-wide text-slate-400 border-b">
+                        <tr className="text-xs uppercase tracking-wide text-slate-400 border-b">
                           <th className="py-2 w-8"></th>
                           <th className="py-2 text-left">UE proposée</th>
                           <th className="py-2 text-left w-20">Niv.</th>
@@ -3296,8 +3296,8 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                             </td>
                             <td className="py-2">
                               <span className="font-medium text-iip-blue">{u.ue_num}</span>
-                              <span className="text-slate-600 ml-1.5 text-[13px]">{u.ue_nom}</span>
-                              {u.inscrite && <span className="ml-1.5 text-[10px] px-1 py-0.5 rounded bg-slate-100 text-slate-500">déjà inscrite</span>}
+                              <span className="text-slate-600 ml-1.5 text-sm">{u.ue_nom}</span>
+                              {u.inscrite && <span className="ml-1.5 text-mention px-1 py-0.5 rounded bg-slate-100 text-slate-500">déjà inscrite</span>}
                             </td>
                             <td className="py-2">
                               <BadgeUeNiveau niveau={u.ue_niv} />
@@ -3311,12 +3311,12 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
 
                   {acquises.length > 0 && (
                     <details className="mt-4 border border-emerald-200 bg-emerald-50/40 rounded-xl">
-                      <summary className="px-3 py-2 text-[13px] font-semibold text-emerald-900 cursor-pointer">
+                      <summary className="px-3 py-2 text-sm font-semibold text-emerald-900 cursor-pointer">
                         {acquises.length} UE déjà acquise(s)
                         <span className="font-normal text-emerald-700"> — hors programme</span>
                       </summary>
                       <div className="px-3 pb-2.5">
-                        <p className="text-[11px] text-emerald-800 mb-1.5">
+                        <p className="text-xs text-emerald-800 mb-1.5">
                           Réussies ou valorisées lors d'une année antérieure. Une réinscription
                           reste possible, mais suppose une décision favorable du Conseil des études.
                         </p>
@@ -3324,7 +3324,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                           {acquises.map(u => (
                             <button key={u.ue_num} onClick={() => basculerUE(u)}
                               title={`${u.ue_nom || ''} — cliquer pour réinscrire`}
-                              className="text-[11px] px-2 py-0.5 rounded-lg border border-emerald-500 bg-white text-iip-texte hover:bg-emerald-500 hover:text-white">
+                              className="text-xs px-2 py-0.5 rounded-lg border border-emerald-500 bg-white text-iip-texte hover:bg-emerald-500 hover:text-white">
                               {u.ue_num}
                               {u.va_complete ? ' · VA' : ''}
                             </button>
@@ -3341,12 +3341,12 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
 
                   {catalogueOuvert && (
                     <div className="mt-3 border border-slate-200 rounded-xl p-3 bg-slate-50/50">
-                      <p className="text-[11px] text-slate-500 mb-2">
+                      <p className="text-xs text-slate-500 mb-2">
                         UE organisées en {pae.annee} dans la ou les sections de l'étudiant, hors proposition.
                         Ajouter une UE dont les prérequis ne sont pas acquis demande une confirmation — la dérogation est tracée.
                       </p>
                       {!autres.length ? (
-                        <div className="text-[12px] text-slate-400 py-2 text-center">Toutes les UE organisées sont déjà retenues.</div>
+                        <div className="text-second text-slate-400 py-2 text-center">Toutes les UE organisées sont déjà retenues.</div>
                       ) : (
                         <table className="w-full text-sm">
                           <tbody>
@@ -3359,7 +3359,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                                 </td>
                                 <td className="py-1.5">
                                   <span className="font-medium text-iip-blue">{u.ue_num}</span>
-                                  <span className="text-slate-600 ml-1.5 text-[13px]">{u.ue_nom}</span>
+                                  <span className="text-slate-600 ml-1.5 text-sm">{u.ue_nom}</span>
                                 </td>
                                 <td className="py-1.5 w-16">
                                   <BadgeUeNiveau niveau={u.ue_niv} />
@@ -3373,7 +3373,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                     </div>
                   )}
 
-                  <p className="text-[11px] text-slate-400 mt-4 border-t pt-3">
+                  <p className="text-xs text-slate-400 mt-4 border-t pt-3">
                     Le PAE est établi en accord avec l'étudiant et validé par la direction.
                     « Enregistrer le PAE » inscrit les UE cochées ; décocher retire une inscription
                     uniquement si aucun résultat n'y est encodé.
@@ -4239,7 +4239,7 @@ export default function Etudiants() {
           Plus de 60 ECTS
         </label>
         {(section || fNiveau || fUE || fRatt || fPrimo || fDoublons || fPlus60 || fManque) && (
-          <button className="text-[12px] text-iip-blue underline self-center"
+          <button className="text-second text-iip-blue underline self-center"
             onClick={() => { setSection(''); setFNiveau(''); setFUE(''); setFRatt(''); setFPrimo(''); setFDoublons(false); setFPlus60(false); setFManque(''); }}>
             Tout effacer
           </button>
@@ -4257,7 +4257,7 @@ export default function Etudiants() {
             { k: 'tous', l: 'Tous', t: 'Tout le monde, quel que soit son statut' },
           ].map(x => (
             <button key={x.k} onClick={() => setStatut(x.k)} title={x.t}
-              className={`px-3 py-2 text-[13px] ${statut === x.k
+              className={`px-3 py-2 text-sm ${statut === x.k
                 ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>
               {x.l}
             </button>
@@ -4266,7 +4266,7 @@ export default function Etudiants() {
       </div>
 
       {erreurListe && (
-        <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-[13px]
+        <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-sm
                         text-red-800 mb-3">
           <b>La liste n'a pas pu être chargée.</b> {erreurListe}
         </div>
@@ -4289,13 +4289,13 @@ export default function Etudiants() {
               affichés parmi eux, et l'on permet de vider ou de ramener la
               sélection à ce qui est à l'écran : c'est sur la sélection entière
               qu'agissent Imprimer et Composer. */}
-          <span className="text-[13px] font-semibold text-iip-blue flex flex-wrap items-center gap-x-2">
+          <span className="text-sm font-semibold text-iip-blue flex flex-wrap items-center gap-x-2">
             {selEtudiants.size} étudiant(s) sélectionné(s)
             {(() => {
               const visibles = filtres.filter(e => selEtudiants.has(e.id)).length;
               if (visibles === selEtudiants.size) return null;
               return (
-                <span className="font-normal text-[12px] text-iip-texte">
+                <span className="font-normal text-second text-iip-texte">
                   dont {visibles} affiché(s) — {selEtudiants.size - visibles} caché(s) par les filtres
                   <button className="underline ml-2 text-iip-blue"
                     onClick={() => setSelEtudiants(new Set(filtres.filter(e => selEtudiants.has(e.id)).map(e => e.id)))}>
@@ -4304,7 +4304,7 @@ export default function Etudiants() {
                 </span>
               );
             })()}
-            <button className="underline font-normal text-[12px] text-slate-500"
+            <button className="underline font-normal text-second text-slate-500"
               onClick={() => setSelEtudiants(new Set())}>Tout désélectionner</button>
           </span>
           <div className="flex gap-2">
@@ -4389,9 +4389,9 @@ export default function Etudiants() {
                     onClick={e => e.stopPropagation()} />
                 </th>
                 <ThTri champ="nom"     tri={tri} onTri={trierPar} className="text-left">Étudiant</ThTri>
-                <th className="px-2 py-2.5 text-left w-12 text-[11px] font-semibold" title="Programme validé">PAE</th>
+                <th className="px-2 py-2.5 text-left w-12 text-xs font-semibold" title="Programme validé">PAE</th>
                 <ThTri champ="niveau"  tri={tri} onTri={trierPar} className="text-left w-28">Niveau</ThTri>
-                <th className="px-3 py-2.5 text-left text-[11px] font-semibold">Parcours <span className="font-normal text-slate-400">— dans l'ordre du cursus</span></th>
+                <th className="px-3 py-2.5 text-left text-xs font-semibold">Parcours <span className="font-normal text-slate-400">— dans l'ordre du cursus</span></th>
                 <th className="px-2 py-2.5 w-8"></th>
               </tr>
             </thead>
@@ -4427,10 +4427,10 @@ export default function Etudiants() {
                       <tr className="tab-repere">
                         <td colSpan={6} className="px-4 py-2">
                           <button onClick={basculer}
-                            className="flex items-center gap-1.5 text-[13px] font-semibold">
+                            className="flex items-center gap-1.5 text-sm font-semibold">
                             <span className="w-3 inline-block opacity-50">{ouverte ? '−' : '+'}</span>
                             {sec}
-                            <span className="font-normal text-[11px] text-slate-500">
+                            <span className="font-normal text-xs text-slate-500">
                               {filtreActif && totalParSection[sec] && totalParSection[sec] !== liste.length
                                 ? `${liste.length} sur ${totalParSection[sec]} étudiant(s) — filtrés`
                                 : `${liste.length} étudiant(s)`}
@@ -4454,11 +4454,11 @@ export default function Etudiants() {
                   <td className="px-3 py-1 h-10 whitespace-nowrap">
                     <span className="font-semibold text-iip-blue">{nomPropre(e.nom, '')}</span>
                     <span className="text-slate-700 ml-1">{nomPropre('', e.prenom)}</span>
-                    <span className="text-[11px] text-slate-400 ml-1.5 tabular-nums">{e.id_ecampus}</span>
-                    {e.primo && <span className="ml-1.5 text-[10px] font-semibold px-1.5 rounded bg-slate-100 text-slate-600"
+                    <span className="text-xs text-slate-400 ml-1.5 tabular-nums">{e.id_ecampus}</span>
+                    {e.primo && <span className="ml-1.5 text-mention font-semibold px-1.5 rounded bg-slate-100 text-slate-600"
                       title="Primo-arrivé : aucune trace avant l'année de travail">primo</span>}
                     {fManque && (e.manques || []).length > 0 && (
-                      <span className="ml-2 text-[11px] text-slate-500"
+                      <span className="ml-2 text-xs text-slate-500"
                         title="Ce qui manque à ce dossier — à compléter dans la fiche">
                         manque : {(e.manques || []).map(k => LIBELLE_MANQUE[k] || k).join(', ')}
                       </span>)}
@@ -4482,13 +4482,13 @@ export default function Etudiants() {
                         question — où en est cette personne. */}
                     {e.sortie_statut === 'archive' && (
                       <span title={`Archivé le ${e.sortie_le || '?'} — hors des listes de travail`}
-                        className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide
+                        className="ml-1.5 text-mention font-semibold uppercase tracking-wide
                                    text-slate-600 bg-slate-100 border border-slate-300
                                    rounded px-1.5 py-px">archivé</span>
                     )}
                     {e.sortie_statut === 'sorti' && (
                       <span title={`Sorti le ${e.sortie_le || '?'}${e.sortie_motif ? ` — ${e.sortie_motif}` : ''}`}
-                        className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide
+                        className="ml-1.5 text-mention font-semibold uppercase tracking-wide
                                    text-amber-800 bg-amber-50 border border-amber-200
                                    rounded px-1.5 py-px">sorti</span>
                     )}
@@ -4498,7 +4498,7 @@ export default function Etudiants() {
                         : `Épreuve intégrée réussie${
                         e.diplome_annee ? ` en ${e.diplome_annee}` : ''}${
                         e.diplome_ue ? ` (UE ${e.diplome_ue})` : ''} — diplôme acquis`}
-                        className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide
+                        className="ml-1.5 text-mention font-semibold uppercase tracking-wide
                                    text-emerald-800 bg-emerald-50 border border-emerald-200
                                    rounded px-1.5 py-px">
                         diplômé{e.diplome_annee ? ` ${e.diplome_annee.slice(-4)}` : ''}

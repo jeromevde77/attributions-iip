@@ -89,31 +89,31 @@ export default function LiensCoursAcquis({ ueNum, annee, onClose, onEnregistre }
         <div className="space-y-3">
           {erreur && (
             <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200
-                            text-[13px] text-red-800">{erreur}</div>
+                            text-sm text-red-800">{erreur}</div>
           )}
           {message && (
             <div className="px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200
-                            text-[13px] text-emerald-800">{message}</div>
+                            text-sm text-emerald-800">{message}</div>
           )}
 
           {!data ? (
             <div className="py-8 text-center text-slate-400 text-sm">Chargement…</div>
           ) : !data.cours.length ? (
             <div className="px-4 py-6 rounded-xl bg-amber-50 border border-amber-200
-                            text-[13px] text-amber-900">
+                            text-sm text-amber-900">
               Aucun cours au référentiel de cette unité pour {annee}. Les cours se
               déclarent dans le référentiel avant de pouvoir porter des acquis.
             </div>
           ) : !data.acquis.length ? (
             <div className="px-4 py-6 rounded-xl bg-amber-50 border border-amber-200
-                            text-[13px] text-amber-900">
+                            text-sm text-amber-900">
               Aucun acquis d'apprentissage au référentiel de cette unité.
             </div>
           ) : (
             <>
               {!!orphelins.length && (
                 <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
-                                text-[13px] text-amber-900 flex items-start gap-1.5">
+                                text-sm text-amber-900 flex items-start gap-1.5">
                   <IconAlertTriangle size={15} className="mt-0.5 flex-none" />
                   <span>
                     <b>{orphelins.length} acquis</b> ne sont évalués par aucun cours :
@@ -124,7 +124,7 @@ export default function LiensCoursAcquis({ ueNum, annee, onClose, onEnregistre }
               )}
 
               <div className="overflow-x-auto">
-                <table className="text-[12px] border-collapse">
+                <table className="text-second border-collapse">
                   <thead>
                     <tr>
                       <th className="sticky left-0 bg-white text-left px-3 py-1.5
@@ -134,8 +134,8 @@ export default function LiensCoursAcquis({ ueNum, annee, onClose, onEnregistre }
                       {data.cours.map(c => (
                         <th key={c.cours_code}
                           className="px-2 py-1.5 border-b border-slate-200 text-center min-w-[92px]">
-                          <div className="font-mono text-[11px] text-slate-600">{c.cours_code}</div>
-                          <div className="font-sans font-normal text-[10px] text-slate-400 truncate max-w-[92px]"
+                          <div className="font-mono text-xs text-slate-600">{c.cours_code}</div>
+                          <div className="font-sans font-normal text-mention text-slate-400 truncate max-w-[92px]"
                             title={c.cours_nom || ''}>{c.cours_nom || ''}</div>
                         </th>
                       ))}
@@ -148,8 +148,8 @@ export default function LiensCoursAcquis({ ueNum, annee, onClose, onEnregistre }
                         <tr key={a.aa_code} className={orphelin ? 'bg-amber-50/40' : ''}>
                           <td className="sticky left-0 bg-white px-3 py-1
                                          border-b border-r border-slate-100">
-                            <div className="font-mono text-[11px] text-slate-600">{a.aa_code}</div>
-                            <div className="text-[11px] text-slate-500 truncate max-w-[240px]"
+                            <div className="font-mono text-xs text-slate-600">{a.aa_code}</div>
+                            <div className="text-xs text-slate-500 truncate max-w-[240px]"
                               title={a.description || ''}>{a.description || ''}</div>
                           </td>
                           {data.cours.map(c => {
@@ -167,7 +167,7 @@ export default function LiensCoursAcquis({ ueNum, annee, onClose, onEnregistre }
                                   onChange={e => setPoids(m => ({ ...m, [cle]: e.target.value }))}
                                   placeholder="—"
                                   title="Poids de cet acquis dans ce cours, au demi-point — vide ou 0 : il n'y est pas évalué"
-                                  className={`w-16 border rounded-lg px-1.5 py-1 text-[13px]
+                                  className={`w-16 border rounded-lg px-1.5 py-1 text-sm
                                     text-center tabular-nums ${Number(v) > 0
                                       ? 'border-iip-blue/40 bg-iip-blue/5 font-semibold'
                                       : 'border-slate-200 text-slate-400'}`} />
@@ -188,12 +188,12 @@ export default function LiensCoursAcquis({ ueNum, annee, onClose, onEnregistre }
                         const et = etatCours(c.cours_code);
                         return (
                           <td key={c.cours_code} className="px-1 py-2 border-t border-slate-200 text-center">
-                            <div className={`text-[12px] font-bold tabular-nums ${et.ton}`}>{et.texte}</div>
+                            <div className={`text-second font-bold tabular-nums ${et.ton}`}>{et.texte}</div>
                             <button onClick={() => enregistrer(c.cours_code)}
                               disabled={enCours || !et.ok}
                               title={et.ok ? 'Enregistrer ce cours'
                                 : 'La somme doit valoir 10 avant enregistrement'}
-                              className="mt-1 px-2 py-0.5 text-[11px] rounded-lg border
+                              className="mt-1 px-2 py-0.5 text-xs rounded-lg border
                                          border-iip-blue text-iip-blue font-semibold
                                          disabled:opacity-40 disabled:border-slate-300
                                          disabled:text-slate-400">
@@ -207,7 +207,7 @@ export default function LiensCoursAcquis({ ueNum, annee, onClose, onEnregistre }
                 </table>
               </div>
 
-              <p className="text-[12px] text-slate-500">
+              <p className="text-second text-slate-500">
                 Une case vide ou à zéro signifie que ce cours n'évalue pas cet acquis.
                 Un même acquis peut être évalué par plusieurs cours : sa note globale
                 est alors la moyenne de ses évaluations, pondérée par ces poids.

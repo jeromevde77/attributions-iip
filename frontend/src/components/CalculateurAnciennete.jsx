@@ -74,7 +74,7 @@ export default function CalculateurAnciennete({ profId, estAdmin, peutEcrire, an
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <div className="font-semibold text-iip-blue">Ancienneté de service</div>
-          <div className="text-[12px] text-slate-500">Art. 29ter — CT : 800 p/an · PP : 1000 p/an · seuil 40 p · ≥ 50 % → 360 j · &lt; 50 % → 180 j</div>
+          <div className="text-second text-slate-500">Art. 29ter — CT : 800 p/an · PP : 1000 p/an · seuil 40 p · ≥ 50 % → 360 j · &lt; 50 % → 180 j</div>
         </div>
         <div className="flex gap-2 flex-wrap">
           {peutEcrire && (
@@ -147,17 +147,17 @@ export default function CalculateurAnciennete({ profId, estAdmin, peutEcrire, an
       {anneesFiltrees.map(a => (
         <div key={a.annee_scolaire} className="border border-slate-200 rounded-xl overflow-hidden bg-white">
           <div className="px-4 py-2 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-            <span className="font-semibold text-[13px] text-iip-blue">{a.annee_scolaire}</span>
-            <div className="flex gap-4 text-[12px] text-slate-500">
+            <span className="font-semibold text-sm text-iip-blue">{a.annee_scolaire}</span>
+            <div className="flex gap-4 text-second text-slate-500">
               <span>ETP : <b className="text-slate-700">{a.etp_total}</b></span>
               <span>Jours PO : <b className={a.jours_po >= 360 ? 'text-amber-700' : 'text-slate-700'}>{a.jours_po}</b>
-                {a.jours_po >= 360 && <span className="ml-1 text-[10px] bg-amber-500 text-white px-1 rounded">plafonné</span>}
+                {a.jours_po >= 360 && <span className="ml-1 text-mention bg-amber-500 text-white px-1 rounded">plafonné</span>}
               </span>
             </div>
           </div>
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-slate-50/60 border-b border-slate-200 text-[11px] uppercase tracking-wide text-slate-500">
+              <tr className="bg-slate-50/60 border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
                 <th className="px-3 py-2 text-left">Cours</th>
                 <th className="px-3 py-2 text-left w-16">Type</th>
                 <th className="px-3 py-2 text-right w-24">Périodes</th>
@@ -171,10 +171,10 @@ export default function CalculateurAnciennete({ profId, estAdmin, peutEcrire, an
                 <tr key={i} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60">
                   <td className="px-3 py-2">
                     <span className="font-medium text-slate-700">{l.cours_code}</span>
-                    {l.cours_nom && <span className="text-slate-400 text-[12px] ml-1.5">{l.cours_nom}</span>}
+                    {l.cours_nom && <span className="text-slate-400 text-second ml-1.5">{l.cours_nom}</span>}
                   </td>
                   <td className="px-3 py-2">
-                    <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">{l.type_cours}</span>
+                    <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">{l.type_cours}</span>
                   </td>
                   <td className="px-3 py-2 text-right font-medium">
                     {l.periodes}
@@ -202,27 +202,27 @@ export default function CalculateurAnciennete({ profId, estAdmin, peutEcrire, an
       {/* Récapitulatif global */}
       {!anneeFiltre && (
         <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-          <div className="px-4 py-2 bg-iip-blue/5 border-b border-slate-200 font-semibold text-[13px] text-iip-blue">
+          <div className="px-4 py-2 bg-iip-blue/5 border-b border-slate-200 font-semibold text-sm text-iip-blue">
             Totaux cumulés — toutes années
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 p-4">
             <div className="border border-slate-200 rounded-xl p-3">
-              <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1">Ancienneté PO totale</div>
+              <div className="text-mention font-bold uppercase tracking-wide text-slate-400 mb-1">Ancienneté PO totale</div>
               <div className="text-2xl font-bold text-iip-blue">{total_po} j</div>
-              <div className="text-[11px] text-slate-400">= {Math.floor(total_po / 360)} an{Math.floor(total_po / 360) > 1 ? 's' : ''} + {total_po % 360} j</div>
+              <div className="text-xs text-slate-400">= {Math.floor(total_po / 360)} an{Math.floor(total_po / 360) > 1 ? 's' : ''} + {total_po % 360} j</div>
             </div>
             {total_cours.map(tc => (
               <div key={tc.cours_code} className="border border-slate-200 rounded-xl p-3">
-                <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1">{tc.cours_code}</div>
+                <div className="text-mention font-bold uppercase tracking-wide text-slate-400 mb-1">{tc.cours_code}</div>
                 <div className="text-2xl font-bold text-iip-blue">{tc.jours} j</div>
-                <div className="text-[11px] text-slate-400">{tc.cours_nom || ''}</div>
+                <div className="text-xs text-slate-400">{tc.cours_nom || ''}</div>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      <p className="text-[11px] text-slate-400">
+      <p className="text-xs text-slate-400">
         Art. 29ter (D. 19-12-2002) · Ancienneté par cours (IIP) · CT = 800 p charge complète · PP = 1000 p ·
         &lt; 40 périodes → 0 jour · ≥ 50 % → 360 j · &lt; 50 % → 180 j · PO plafonné 360 j/an (art. 29bis §3).
         « Synchroniser vers Classement » pousse les totaux vers le registre art. 34.

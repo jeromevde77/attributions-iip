@@ -107,6 +107,8 @@ export default {
         xl:      'var(--d-rayon-carte, 14px)',   // les cartes
         '2xl':   'var(--d-rayon-carte, 14px)',
         '3xl':   'var(--d-rayon-fenetre, 22px)',
+        tuile:    'var(--d-rayon-tuile, 10px)',    // la tuile, côté opposé au liseré
+        pastille: 'var(--d-rayon-pastille, 4px)',  // pastilles, étiquettes, petites cases
         full:    '9999px', // les pastilles rondes, et elles seules
       },
       // ─── L'ÉCHELLE TYPOGRAPHIQUE ────────────────────────────────────────
@@ -129,7 +131,10 @@ export default {
       // l'écrire.
       fontSize: {
         // L'échelle se règle d'un seul coefficient (--d-texte), pour toutes les tailles nommées.
+        // Les deux degrés qui n'avaient pas de nom (3.1.249) : sans eux, 4 400 tailles s'écrivaient au pixel.
+        mention: ['calc(10px * var(--d-texte, 1))', '1.4'],
         xs:      ['calc(11px * var(--d-texte, 1))', '1.45'],
+        second:  ['calc(12px * var(--d-texte, 1))', '1.45'],
         sm:      ['calc(13px * var(--d-texte, 1))', '1.5'],
         base:    ['calc(15px * var(--d-texte, 1))', '1.55'],
         lg:      ['calc(17px * var(--d-texte, 1))', '1.35'],

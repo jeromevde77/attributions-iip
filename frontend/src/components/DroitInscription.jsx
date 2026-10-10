@@ -57,10 +57,10 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
         <div className="border-2 border-iip-blue/30 rounded-xl overflow-hidden">
           <div className="px-4 py-2.5 bg-iip-blue/5 border-b border-iip-blue/20
                           flex items-center justify-between gap-3 flex-wrap">
-            <span className="text-[13px] font-semibold text-iip-blue">
+            <span className="text-sm font-semibold text-iip-blue">
               Montant à payer
             </span>
-            <span className="text-[11px] text-slate-500">
+            <span className="text-xs text-slate-500">
               {f.periodes ?? '—'} périodes · {annee}
             </span>
           </div>
@@ -77,19 +77,19 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
                 .filter(([lib]) => !(lib === 'Droit spécifique' && !dis.soumis && !dis.exempte))
                 .map(([lib, v, note]) => (
                 <div key={lib}>
-                  <div className="text-[10px] uppercase tracking-wide text-slate-500
+                  <div className="text-mention uppercase tracking-wide text-slate-500
                                   font-semibold">{lib}</div>
-                  <div className="text-[17px] font-bold text-slate-700">{eur(v)}</div>
+                  <div className="text-lg font-bold text-slate-700">{eur(v)}</div>
                   {note && (
-                    <div className="text-[11px] text-emerald-700">{note}</div>
+                    <div className="text-xs text-emerald-700">{note}</div>
                   )}
                 </div>
               ))}
 
               <div className="ml-auto text-right">
-                <div className="text-[10px] uppercase tracking-wide text-slate-500
+                <div className="text-mention uppercase tracking-wide text-slate-500
                                 font-semibold">Total</div>
-                <div className="text-[30px] font-bold text-iip-blue leading-tight">
+                <div className="text-3xl font-bold text-iip-blue leading-tight">
                   {eur(f.total)}
                 </div>
               </div>
@@ -98,7 +98,7 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
             {/* L'acompte n'est pas un supplément : il s'impute sur le total
                 (art. 16 §3). Le dire évite qu'on l'additionne. */}
             <div className="mt-3 pt-3 border-t border-slate-200 flex flex-wrap
-                            items-center gap-x-6 gap-y-2 text-[12px]">
+                            items-center gap-x-6 gap-y-2 text-second">
               <span>
                 <span className="text-slate-500">Acompte à l'inscription :</span>{' '}
                 <b>{eur(f.acompte)}</b>
@@ -125,8 +125,8 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
       {/* ── Droit d'inscription ── */}
       <div className="border border-slate-200 rounded-xl overflow-hidden">
         <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3">
-          <span className="text-[13px] font-semibold text-iip-blue">Droit d'inscription</span>
-          <span className="text-[11px] text-slate-400">
+          <span className="text-sm font-semibold text-iip-blue">Droit d'inscription</span>
+          <span className="text-xs text-slate-400">
             Circulaire 9731 · {annee}
             {di.bareme.defaut ? ' · barème par défaut' : ''}
           </span>
@@ -134,27 +134,27 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
 
         <div className="p-4 space-y-3">
           {!di.detail.length ? (
-            <div className="text-[13px] text-slate-400">
+            <div className="text-sm text-slate-400">
               Aucune UE inscrite pour cette année — le droit d'inscription se calcule sur le programme.
             </div>
           ) : (
             <>
               <div className="flex items-end justify-between gap-4 flex-wrap">
                 <div>
-                  <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">
+                  <div className="text-mention uppercase tracking-wide text-slate-500 font-semibold">
                     Montant constaté
                   </div>
-                  <div className={`text-[26px] font-bold leading-tight ${di.exonere ? 'text-slate-400 line-through' : 'text-iip-blue'}`}>
+                  <div className={`text-2xl font-bold leading-tight ${di.exonere ? 'text-slate-400 line-through' : 'text-iip-blue'}`}>
                     {eur(di.montant_arrondi)}
                   </div>
                   {di.exonere && (
-                    <div className="text-[12px] text-emerald-700 font-semibold flex items-center gap-1 mt-0.5">
+                    <div className="text-second text-emerald-700 font-semibold flex items-center gap-1 mt-0.5">
                       <IconCheck size={13} /> Exonéré — montant dû : 0,00 €
                     </div>
                   )}
                 </div>
 
-                <div className="text-[12px] text-slate-600 text-right">
+                <div className="text-second text-slate-600 text-right">
                   <div>Forfait : <b>{eur(di.forfait)}</b></div>
                   <div>
                     Secondaire : {di.retenues.secondaire} pér. × {String(di.bareme.tarif_secondaire).replace('.', ',')} €
@@ -168,14 +168,14 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
               </div>
 
               {di.plafond_atteint && (
-                <div className="px-3 py-2 rounded-lg bg-sky-50 border border-sky-200 text-[12px] text-sky-900 border-l-4 border-l-sky-500">
+                <div className="px-3 py-2 rounded-lg bg-sky-50 border border-sky-200 text-second text-sky-900 border-l-4 border-l-sky-500">
                   Plafond de {di.bareme.plafond_periodes} périodes atteint : {di.periodes.total} périodes
                   au programme, dont {di.retenues.secondaire + di.retenues.superieur} facturées. Les
                   périodes du secondaire sont comptées en premier, conformément à la circulaire.
                 </div>
               )}
 
-              <label className="flex items-start gap-2 text-[13px]">
+              <label className="flex items-start gap-2 text-sm">
                 <input type="checkbox" checked={di.exonere} disabled={!peutEcrire || enregistrement}
                   onChange={e => enregistrer({
                     di_exonere: e.target.checked,
@@ -188,7 +188,7 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
               {di.exonere && (
                 <select value={di.motif || ''} disabled={!peutEcrire}
                   onChange={e => enregistrer({ di_exonere: true, di_motif: e.target.value })}
-                  className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]">
+                  className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
                   {motifs_di.map(m => <option key={m.code} value={m.code}>{m.libelle}</option>)}
                 </select>
               )}
@@ -200,14 +200,14 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
                 onPoser={(payeur, motif) => enregistrer({ di_tiers: payeur, di_tiers_motif: motif })} />
 
               <button onClick={() => setDetailOuvert(o => !o)}
-                className="text-[12px] text-slate-500 underline">
+                className="text-second text-slate-500 underline">
                 {detailOuvert ? 'Masquer le détail par UE' : `Détail des ${di.detail.length} UE`}
               </button>
 
               {detailOuvert && (
-                <table className="w-full text-[12px]">
+                <table className="w-full text-second">
                   <thead>
-                    <tr className="text-[10px] uppercase tracking-wide text-slate-400 border-b">
+                    <tr className="text-mention uppercase tracking-wide text-slate-400 border-b">
                       <th className="py-1 text-left">UE</th>
                       <th className="py-1 text-left w-24">Niveau</th>
                       <th className="py-1 text-right w-20">Périodes</th>
@@ -221,7 +221,7 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
                         <td className="py-1">
                           <b className="text-iip-blue">{d.ue_num}</b>
                           <span className="text-slate-600 ml-1.5">{d.ue_nom}</span>
-                          {d.dispensee && <span className="ml-1.5 text-[10px] text-violet-600">dispense complète</span>}
+                          {d.dispensee && <span className="ml-1.5 text-mention text-violet-600">dispense complète</span>}
                         </td>
                         <td className="py-1 text-slate-500">
                           {d.niveau === 'superieur' ? 'Supérieur' : 'Secondaire'}
@@ -231,10 +231,10 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
                             ? <span className="text-slate-400 line-through">{d.periodes_brutes}</span>
                             : d.periodes}
                           {!d.dispensee && d.periodes_facturees != null && d.periodes_facturees < d.periodes && (
-                            <span className="block text-[10px] text-sky-700">{d.periodes_facturees} facturée(s)</span>
+                            <span className="block text-mention text-sky-700">{d.periodes_facturees} facturée(s)</span>
                           )}
                         </td>
-                        <td className="py-1 text-right text-[11px] text-slate-500 whitespace-nowrap">{d.formule || ''}</td>
+                        <td className="py-1 text-right text-xs text-slate-500 whitespace-nowrap">{d.formule || ''}</td>
                         <td className="py-1 text-right">{d.dispensee ? '—' : eur(d.total ?? d.montant)}</td>
                       </tr>
                     ))}
@@ -243,7 +243,7 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
                     <tr className="border-t border-slate-300 font-semibold">
                       <td className="py-1" colSpan={2}>Droit constaté{di.exonere ? ' — exonéré' : ''}</td>
                       <td className="py-1 text-right">{di.periodes?.total}</td>
-                      <td className="py-1 text-right text-[11px] font-normal text-slate-500 whitespace-nowrap">
+                      <td className="py-1 text-right text-xs font-normal text-slate-500 whitespace-nowrap">
                         {eur(di.forfait)} + {di.retenues?.superieur || 0} × {eur(di.bareme?.tarif_superieur)}{(di.retenues?.secondaire || 0) ? ` + ${di.retenues.secondaire} × ${eur(di.bareme?.tarif_secondaire)}` : ''}</td>
                       <td className="py-1 text-right">{eur(di.montant_constate)}</td>
                     </tr>
@@ -258,17 +258,17 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
       {/* ── Droit d'inscription spécifique ── */}
       <div className="border border-slate-200 rounded-xl overflow-hidden">
         <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3">
-          <span className="text-[13px] font-semibold text-iip-blue">Droit d'inscription spécifique</span>
-          <span className="text-[11px] text-slate-400">A.E. 25-09-1991, art. 2, 4°</span>
+          <span className="text-sm font-semibold text-iip-blue">Droit d'inscription spécifique</span>
+          <span className="text-xs text-slate-400">A.E. 25-09-1991, art. 2, 4°</span>
         </div>
 
         <div className="p-4 space-y-3">
-          <p className="text-[12px] text-slate-500">
+          <p className="text-second text-slate-500">
             Dû par les étudiants de nationalité étrangère qui ne relèvent d'aucune des exemptions
             de l'article 1er — notamment les ressortissants de l'Union européenne, qui en sont exemptés.
           </p>
 
-          <label className="flex items-start gap-2 text-[13px]">
+          <label className="flex items-start gap-2 text-sm">
             <input type="checkbox" checked={dis.soumis || dis.exempte} disabled={!peutEcrire || enregistrement}
               onChange={e => enregistrer({ dis_soumis: e.target.checked, dis_motif_exemption: null })}
               className="mt-0.5" />
@@ -279,7 +279,7 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
             <>
               <select value={dis.motif_exemption || ''} disabled={!peutEcrire}
                 onChange={e => enregistrer({ dis_soumis: true, dis_motif_exemption: e.target.value || null })}
-                className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-[13px]">
+                className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
                 <option value="">Aucune exemption — droit dû</option>
                 {motifs_dis.map(m => <option key={m.code} value={m.code}>{m.libelle}</option>)}
               </select>
@@ -296,13 +296,13 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
                       className="w-28 border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
                   </label>
                   <div>
-                    <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">Montant</div>
-                    <div className="text-[20px] font-bold text-iip-blue leading-tight">
+                    <div className="text-mention uppercase tracking-wide text-slate-500 font-semibold">Montant</div>
+                    <div className="text-xl font-bold text-iip-blue leading-tight">
                       {eur(dis.montant_du)}
                     </div>
                   </div>
                   {dis.plafond_atteint && (
-                    <div className="text-[11px] text-white bg-sky-500 border border-sky-500 rounded-lg px-2 py-1">
+                    <div className="text-xs text-white bg-sky-500 border border-sky-500 rounded-lg px-2 py-1">
                       Plafonné à {eur(dis.plafond)}
                     </div>
                   )}
@@ -310,7 +310,7 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
               )}
 
               {dis.exempte && (
-                <div className="flex items-center gap-1.5 text-[13px] text-emerald-700 font-semibold">
+                <div className="flex items-center gap-1.5 text-sm text-emerald-700 font-semibold">
                   <IconCheck size={14} /> Exempté — aucun droit spécifique dû
                 </div>
               )}
@@ -319,7 +319,7 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
         </div>
       </div>
 
-      <p className="text-[11px] text-slate-400 flex items-start gap-1.5">
+      <p className="text-xs text-slate-400 flex items-start gap-1.5">
         <IconAlertTriangle size={13} className="mt-0.5 flex-none" />
         Le droit est payé avant le premier dixième de la durée de l'UE : à défaut, l'étudiant
         n'est pas régulier et n'est pas comptabilisé pour l'encadrement ni la dotation.
@@ -336,30 +336,30 @@ function TiersPayeur({ di, peutEcrire, onPoser }) {
   const [motif, setMotif] = useState(t?.source === 'fiche' ? (t.motif || '') : '');
   const coche = !!t;
   return (
-    <div className="border border-slate-200 rounded-lg p-2.5 space-y-2 text-[13px]">
+    <div className="border border-slate-200 rounded-lg p-2.5 space-y-2 text-sm">
       <label className="flex items-start gap-2">
         <input type="checkbox" checked={coche} disabled={!peutEcrire || t?.source === 'section'}
           onChange={e => onPoser(e.target.checked ? (payeur || 'HELB') : '', e.target.checked ? motif : '')} className="mt-0.5" />
         <span>Droits et frais <b>perçus par un tiers</b> — hors recettes de l’établissement</span>
       </label>
       {t?.source === 'section' && (
-        <p className="text-[12px] text-slate-600">Par défaut de la section : <b>{t.payeur}</b> — {t.motif}.
+        <p className="text-second text-slate-600">Par défaut de la section : <b>{t.payeur}</b> — {t.motif}.
           <span className="text-slate-400"> (Configuration → Coût des périodes ; une précision propre à l’étudiant se pose ci-dessous.)</span></p>)}
       {(coche || t?.source === 'section') && (
         <div className="flex flex-wrap items-end gap-2">
-          <label className="text-[12px]"><span className="block text-slate-500">Perçus par</span>
+          <label className="text-second"><span className="block text-slate-500">Perçus par</span>
             <select className="controle" value={payeur || (t?.source === 'section' ? '' : t?.payeur || '')} disabled={!peutEcrire}
               onChange={e => setPayeur(e.target.value)}>
               <option value="">{t?.source === 'section' ? `— comme la section (${t.payeur}) —` : '— choisir —'}</option>
               {PAYEURS.map(p => <option key={p} value={p}>{p}</option>)}
             </select></label>
-          <label className="text-[12px] flex-1 min-w-[14rem]"><span className="block text-slate-500">Raison (ce que dira la vérification)</span>
+          <label className="text-second flex-1 min-w-[14rem]"><span className="block text-slate-500">Raison (ce que dira la vérification)</span>
             <input className="controle w-full" value={motif} disabled={!peutEcrire} placeholder="ex. inscription HELB, convention de co-organisation"
               onChange={e => setMotif(e.target.value)} /></label>
           <button type="button" className="bouton" disabled={!peutEcrire || (!payeur && t?.source !== 'fiche')}
             onClick={() => onPoser(payeur, motif)}>Enregistrer</button>
         </div>)}
-      {t?.source === 'fiche' && <p className="text-[12px] text-slate-600">Perçus par <b>{t.payeur}</b>{t.motif ? ` — ${t.motif}` : ''}.</p>}
+      {t?.source === 'fiche' && <p className="text-second text-slate-600">Perçus par <b>{t.payeur}</b>{t.motif ? ` — ${t.motif}` : ''}.</p>}
     </div>
   );
 }

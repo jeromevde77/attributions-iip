@@ -1,3 +1,4 @@
+import { TuileEtat } from './ui.jsx';
 /**
  * LE VOCABULAIRE COMMUN DES ÉCRANS DE STATISTIQUES.
  *
@@ -71,20 +72,9 @@ export function BarreDecisions({ reussi = 0, ajourne = 0, refuse = 0, largeur = 
  * selon l'état — jamais de fond coloré : si tout est coloré, plus rien ne
  * signale.
  */
-export function Tuile({ libelle, valeur, unite, precision, ton, couleur }) {
-  const bord = couleur || (ton === 'fort' ? 'var(--c-iip, var(--c-principal))'
-    : ton === 'alerte' ? 'var(--c-attente, var(--c-attente))' : '#CBD5E1');
-  return (
-    <div className="carte px-3 py-2.5 flex-1 min-w-[132px]"
-      style={{ borderLeft: `3px solid ${bord}` }}>
-      <div className="text-[19px] font-bold text-iip-blue tabular-nums leading-tight">
-        {valeur}
-        {unite && <span className="text-[11px] font-normal text-slate-500 ml-1">{unite}</span>}
-      </div>
-      <div className="text-[11px] text-slate-600">{libelle}</div>
-      {precision && <div className="text-[10px] text-slate-400">{precision}</div>}
-    </div>
-  );
+// LE STANDARD (3.1.249) : la tuile de la maison, `TuileEtat` ; le ton devient l'état.
+export function Tuile({ libelle, valeur, unite, precision, ton }) {
+  return <div className="flex-1 min-w-[132px]"><TuileEtat etat={ton === 'fort' ? 'fort' : ton === 'alerte' ? 'surveiller' : 'neutre'} valeur={valeur} unite={unite} libelle={libelle} precision={precision} /></div>;
 }
 
 /** La barre d'étendue : min — médiane — max, pour voir la forme d'un coup. */

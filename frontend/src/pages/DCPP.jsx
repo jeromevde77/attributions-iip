@@ -4,6 +4,7 @@
  * Navigation interne : tableau de bord → auto-analyse → observation → PDCP
  */
 import { useEffect, useState, useCallback } from 'react';
+import { TuileEtat } from '../components/ui.jsx';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getAnnee } from '../lib/api.js';
 import {
@@ -47,13 +48,10 @@ function StatutBadge({ statut }) {
 }
 
 // ─── Carte KPI ────────────────────────────────────────────────────────────────
-function Kpi({ label, val, couleur = 'var(--c-principal)' }) {
-  return (
-    <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10, padding: '12px 16px', textAlign: 'center', minWidth: 90 }}>
-      <div style={{ fontSize: 24, fontWeight: 700, color: couleur }}>{val}</div>
-      <div style={{ fontSize: 11, color: '#64748B', marginTop: 2 }}>{label}</div>
-    </div>
-  );
+// LE STANDARD (3.1.249) : la tuile de la maison.
+const etatDeCouleur = c => /emerald|green|reussi/.test(c || '') ? 'reussi' : /amber|orange|attente/.test(c || '') ? 'surveiller' : /red|danger|refuse/.test(c || '') ? 'corriger' : /violet|purple|faveur/.test(c || '') ? 'faveur' : 'neutre';
+function Kpi({ label, val, couleur = '' }) {
+  return <TuileEtat etat={etatDeCouleur(couleur)} valeur={val} libelle={label} />;
 }
 
 // ─── Tableau de bord ─────────────────────────────────────────────────────────
@@ -194,7 +192,7 @@ function ListeSeances({ profId, annee, dispositif, onOuvrir }) {
                       </option>
                     ))}
                   </select>
-                : <span className="text-[12px] text-slate-400 italic">
+                : <span className="text-second text-slate-400 italic">
                     aucune unité pour {annee}
                   </span>}
             </Field>

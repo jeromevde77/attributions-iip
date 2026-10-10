@@ -40,18 +40,18 @@ export default function ImportPersonnelFwb({ onClose, onTermine }) {
   const champs = { matricule: 'Matricule', sexe: 'Sexe', date_naissance: 'Date de naissance', adresse_rue: 'Adresse',
     code_postal: 'Code postal', commune: 'Localité', tel_gsm: 'GSM', mail_prive: 'Courriel privé', adresse_mail: 'Courriel école' };
   const fichier = (lib, aide, set, val) => (
-    <label className="block text-[13px]">
+    <label className="block text-sm">
       <span className="font-semibold text-slate-700">{lib}</span>
-      <span className="block text-[12px] text-slate-500 mb-1">{aide}</span>
+      <span className="block text-second text-slate-500 mb-1">{aide}</span>
       <input type="file" accept=".xls,.xlsx,.csv" onChange={e => { set(e.target.files?.[0] || null); setRapport(null); }} />
-      {val && <span className="ml-2 text-[12px] text-slate-500">{val.name}</span>}
+      {val && <span className="ml-2 text-second text-slate-500">{val.name}</span>}
     </label>
   );
 
   return (
     <Fenetre titre="Compléter les fiches du personnel" large="moyenne" onFermer={onClose}
       pied={<>
-        <span className="text-[12px] text-slate-500 min-w-0">
+        <span className="text-second text-slate-500 min-w-0">
           {rapport?.ecrit ? 'Écrit.' : rapport ? 'Simulation : rien n’est encore écrit.' : 'Simulez d’abord : rien ne s’écrit sans que vous ayez vu ce qui le sera.'}
         </span>
         <button className="bouton" onClick={onClose}>Fermer</button>
@@ -60,21 +60,21 @@ export default function ImportPersonnelFwb({ onClose, onTermine }) {
           Compléter les fiches</button>
       </>}>
       <div className="space-y-4">
-        <p className="text-[13px] text-slate-600">
+        <p className="text-sm text-slate-600">
           Lucie complète ce qui est <b>vide</b> sur les fiches : matricule, sexe, date de naissance (lus du matricule),
           adresse, GSM, courriels. Une valeur déjà présente qui diffère du fichier est signalée, jamais remplacée.
           Les diplômes deviennent des titres de capacité pour qui n’en a aucun.
         </p>
         {fichier('Fichier des professeurs', 'Matricule, appellation, nom, prénom, adresse, CP, localité, téléphones, courriels (ex. PROFESSEURS_….xls).', setProfs, profs)}
         {fichier('Liste des diplômes (facultatif)', 'Id_Prof (matricule), nom, Dip1, Dip2, Dip3.', setDiplomes, diplomes)}
-        <label className="flex items-start gap-2 text-[13px]">
+        <label className="flex items-start gap-2 text-sm">
           <input type="checkbox" checked={foi} onChange={e => { setFoi(e.target.checked); setRapport(null); }} className="mt-0.5" />
           <span><b>Le fichier fait foi pour les coordonnées</b> — l’adresse, le GSM et le courriel privé du fichier remplacent ceux de Lucie
             quand ils diffèrent. Sinon, ils ne remplissent que les cases vides. Un courriel invalide (accent, espace) est toujours remplacé.</span>
         </label>
         {erreur && <Encadre etat="corriger">{erreur}</Encadre>}
         {rapport && (
-          <div className="space-y-3 text-[13px]">
+          <div className="space-y-3 text-sm">
             <Encadre etat={rapport.ecrit ? 'reussi' : 'neutre'}>
               <b>{rapport.retrouves}</b> personne(s) retrouvée(s) sur {rapport.lignes}
               {Object.keys(rapport.methodes).length ? ` (${Object.entries(rapport.methodes).map(([k, n]) => `${n} par ${k}`).join(', ')})` : ''}.
@@ -102,7 +102,7 @@ export default function ImportPersonnelFwb({ onClose, onTermine }) {
               </Encadre>
             )}
             {!!rapport.diplomes_sans_fiche.length && (
-              <p className="text-[12px] text-slate-500">Diplômes sans fiche correspondante : {rapport.diplomes_sans_fiche.join(', ')}.</p>
+              <p className="text-second text-slate-500">Diplômes sans fiche correspondante : {rapport.diplomes_sans_fiche.join(', ')}.</p>
             )}
           </div>
         )}

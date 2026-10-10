@@ -406,7 +406,7 @@ Les étudiants se répartissent ensuite entre les organisations (répartition de
       {/* LES BOUTONS EN HAUT. */}
       <div className="flex flex-wrap items-center gap-2">
         <IconeLaboratoire size={26} className="text-iip-blue" />
-        <b className="text-[15px] text-iip-blue mr-2">Le laboratoire temporel</b>
+        <b className="text-base text-iip-blue mr-2">Le laboratoire temporel</b>
         <select className="controle" value={section} onChange={e => setSection(e.target.value)}>
           {sections.map(s => <option key={s.code} value={s.code}>{s.libelle || s.code}</option>)}
         </select>
@@ -417,7 +417,7 @@ Les étudiants se répartissent ensuite entre les organisations (répartition de
         {face === 'temps' && <div className="segments flex h-9">
           {[['annee', 'L’année'], ['couches', 'Les couches'], ['ue', 'Une UE']].map(([k, l]) => (
             <button key={k} disabled={k === 'ue' && !ueChoisie} onClick={() => setZoom(k)}
-              className={`px-3 text-[12.5px] ${zoom === k ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'} disabled:opacity-40`}>{l}</button>))}
+              className={`px-3 text-second ${zoom === k ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'} disabled:opacity-40`}>{l}</button>))}
         </div>}
         {face === 'temps' && peutEcrire && data && (
           <button className="bouton" onClick={() => remplirDepuisAttributions(zoom === 'ue' && ueChoisie ? [ueChoisie.ue_num] : [...new Set(ues.filter(u => !u.stage).map(u => u.ue_num))])}
@@ -435,37 +435,37 @@ Les étudiants se répartissent ensuite entre les organisations (répartition de
           <button className="bouton" onClick={restaurerSauvegarde} title="Revenir à une sauvegarde du laboratoire"><IconHistory size={15} />Sauvegardes</button>
           <button className="bouton bouton-detruire" onClick={grandNettoyage} title="Sauvegarder, tout vider (la structure reste), puis réimporter depuis les attributions"><IconTrash size={15} />Grand nettoyage du labo</button>
         </>}
-        <span className="text-[12px] text-slate-500">{face !== 'temps' ? '' : zoom === 'ue' ? 'Glisser une activité dans un cours ; tirer le haut d’une couche ; double-clic : revenir à l’année.' : (zoom === 'couches' ? 'Glisser une barre la déplace, ses bords l’allongent ; « à la suite » ou « en parallèle » arrangent un cours d’un clic · double-clic : le verre.' : 'Ctrl + molette ou double-clic pour zoomer · glisser une tuile la déplace dans l’année, ses bords l’allongent.')}</span>
+        <span className="text-second text-slate-500">{face !== 'temps' ? '' : zoom === 'ue' ? 'Glisser une activité dans un cours ; tirer le haut d’une couche ; double-clic : revenir à l’année.' : (zoom === 'couches' ? 'Glisser une barre la déplace, ses bords l’allongent ; « à la suite » ou « en parallèle » arrangent un cours d’un clic · double-clic : le verre.' : 'Ctrl + molette ou double-clic pour zoomer · glisser une tuile la déplace dans l’année, ses bords l’allongent.')}</span>
       </div>
       <RailLateral titre="Le laboratoire temporel" sections={[{ items: [['temps', 'Le temps', IconTimeline], ['groupes', 'Les groupes', IconPuzzle], ['planning', 'Le planning', IconCalendarCog], ['semaine', 'La semaine', IconCalendarWeek], ['disponibilites', 'Les disponibilités', IconUserCheck], ['schema', 'Schéma de capitalisation', IconSitemap]]
         .map(([k, l, I]) => ({ key: `labo-${k}`, label: l, icon: I, actif: face === k,
           onClick: () => { setFace(k); if ((k === 'groupes' || k === 'semaine') && !bloc && blocs[0]) setBloc(blocs.includes('BA2') ? 'BA2' : blocs[0]); } })) }]} />
-      {erreur && <div className="text-[12.5px]" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
-      {!data && !erreur && <div className="text-[13px] text-slate-400">Chargement…</div>}
+      {erreur && <div className="text-second" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
+      {!data && !erreur && <div className="text-sm text-slate-400">Chargement…</div>}
 
       {face === 'groupes' && (bloc ? (
-        <Suspense fallback={<div className="text-[13px] text-slate-400">Chargement…</div>}>
+        <Suspense fallback={<div className="text-sm text-slate-400">Chargement…</div>}>
           <GroupesCommuns key={`${section}-${bloc}`} sectionImposee={section} blocImpose={bloc} dansLeLabo />
-        </Suspense>) : <p className="text-[13px] text-slate-500">Choisissez un bloc : les groupes se font bloc par bloc.</p>)}
+        </Suspense>) : <p className="text-sm text-slate-500">Choisissez un bloc : les groupes se font bloc par bloc.</p>)}
       {face === 'semaine' && (bloc ? (
-        <Suspense fallback={<div className="text-[13px] text-slate-400">Chargement…</div>}>
+        <Suspense fallback={<div className="text-sm text-slate-400">Chargement…</div>}>
           <SimulationAnnee key={`${section}-${bloc}`} section={section} bloc={bloc} annee={annee} peutEcrire={peutEcrire} versPlanning={() => setFace('planning')} />
-        </Suspense>) : <p className="text-[13px] text-slate-500">Choisissez un bloc : la semaine se compose bloc par bloc.</p>)}
+        </Suspense>) : <p className="text-sm text-slate-500">Choisissez un bloc : la semaine se compose bloc par bloc.</p>)}
 
       {cohortes && (
         <Suspense fallback={null}>
           <CohortesBloc section={section} bloc={cohortes} annee={annee} peutEcrire={peutEcrire} onFermer={() => setCohortes(false)} />
         </Suspense>)}
       {face === 'planning' && (
-        <Suspense fallback={<div className="text-[13px] text-slate-400">Chargement…</div>}>
+        <Suspense fallback={<div className="text-sm text-slate-400">Chargement…</div>}>
           <PlanningEcole key={section} section={section} annee={annee} peutEcrire={peutEcrire} />
         </Suspense>)}
       {face === 'disponibilites' && (
-        <Suspense fallback={<div className="text-[13px] text-slate-400">Chargement…</div>}>
+        <Suspense fallback={<div className="text-sm text-slate-400">Chargement…</div>}>
           <DisponibilitesSection key={section} section={section} annee={annee} peutEcrire={peutEcrire} />
         </Suspense>)}
       {face === 'schema' && (
-        <Suspense fallback={<div className="text-[13px] text-slate-400">Chargement…</div>}>
+        <Suspense fallback={<div className="text-sm text-slate-400">Chargement…</div>}>
           <StructureSection key={section} annee={annee} sectionInitiale={section} />
         </Suspense>)}
 
@@ -510,7 +510,7 @@ Les étudiants se répartissent ensuite entre les organisations (répartition de
         if (!lignes.length) return null;
         const total = arrondi(lignes.reduce((t, x) => t + x.reste, 0)), cote = arrondi(lignes.reduce((t, x) => t + Math.min(x.reste, x.reservee), 0));
         return (
-          <div className="bloc-etat px-3 py-2 text-[12.5px]" data-etat="surveiller">
+          <div className="bloc-etat px-3 py-2 text-second" data-etat="surveiller">
             <b>Autonomie de la section non dépensée : {total} p.</b>{cote > 0 ? ` — dont ${cote} mises de côté volontairement` : ''}. Toute l’autonomie doit être dépensée dans la section et dans l’année.
             <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-slate-600">
               {lignes.map(x => <span key={x.u.cle} title={x.reservee ? `Mise de côté : ${x.u.autonomie_motif || ''}` : 'Pas encore décidée'}>{nomUE(x.u)} : {x.reste} p.{x.reservee ? ' (de côté)' : ''}</span>)}
@@ -529,11 +529,11 @@ Les étudiants se répartissent ensuite entre les organisations (répartition de
         <Verre key={`${ueChoisie.cle}-${rev}`} u={ueChoisie} types={types} annee={annee} section={section}
           peutEcrire={peutEcrire} onRetour={() => setZoom('couches')} onAnnee={() => setZoom('annee')} onEnregistre={charger} />)}
 
-      {face === 'temps' && <div className="flex flex-wrap gap-4 text-[12px] text-slate-500">
-        <span className="flex items-center gap-1.5"><i className="inline-block w-4 h-3 rounded-[3px]" style={{ background: fondSemaine('ev1') }} />évaluations</span>
-        <span className="flex items-center gap-1.5"><i className="inline-block w-4 h-3 rounded-[3px] border border-slate-200" style={{ background: fondSemaine('vacances') }} />vacances</span>
-        <span className="flex items-center gap-1.5"><i className="inline-block w-4 h-3 rounded-[3px] border border-dashed border-slate-400" />dates à poser</span>
-        <span className="flex items-center gap-1.5"><i className="inline-block w-4 h-3 rounded-[3px] border border-slate-300" style={{ background: HACHURE }} />périodes encore à remplir (le blanc du verre)</span>
+      {face === 'temps' && <div className="flex flex-wrap gap-4 text-second text-slate-500">
+        <span className="flex items-center gap-1.5"><i className="inline-block w-4 h-3 rounded-pastille" style={{ background: fondSemaine('ev1') }} />évaluations</span>
+        <span className="flex items-center gap-1.5"><i className="inline-block w-4 h-3 rounded-pastille border border-slate-200" style={{ background: fondSemaine('vacances') }} />vacances</span>
+        <span className="flex items-center gap-1.5"><i className="inline-block w-4 h-3 rounded-pastille border border-dashed border-slate-400" />dates à poser</span>
+        <span className="flex items-center gap-1.5"><i className="inline-block w-4 h-3 rounded-pastille border border-slate-300" style={{ background: HACHURE }} />périodes encore à remplir (le blanc du verre)</span>
       </div>}
     </div>
   );
@@ -553,10 +553,10 @@ function Entete({ semaines }) {
   semaines.forEach((s, i) => { const m = String(s.date_debut).slice(0, 7); if (!mois.length || mois[mois.length - 1].m !== m) mois.push({ m, de: i }); });
   let n = 0;
   return (<>
-    <div className="grid text-[10.5px] text-slate-500" style={{ gridTemplateColumns: `repeat(${NB}, minmax(0,1fr))` }}>
+    <div className="grid text-mention text-slate-500" style={{ gridTemplateColumns: `repeat(${NB}, minmax(0,1fr))` }}>
       {mois.map((m, i) => <div key={m.m} className="border-l border-slate-200 pl-1 truncate" style={{ gridColumn: `${m.de + 1} / ${(mois[i + 1]?.de ?? NB) + 1}` }}>{NOMS_MOIS[Number(m.m.slice(5, 7)) - 1]}</div>)}
     </div>
-    <div className="grid text-[10.5px] text-slate-400 mb-1" style={{ gridTemplateColumns: `repeat(${NB}, minmax(0,1fr))` }}>
+    <div className="grid text-mention text-slate-400 mb-1" style={{ gridTemplateColumns: `repeat(${NB}, minmax(0,1fr))` }}>
       {semaines.map((s, i) => <div key={i} className="text-center tabular-nums" title={s.label || s.type}>{s.type === 'cours' ? ++n : String(s.type).startsWith('ev') ? 'É' : ''}</div>)}
     </div>
   </>);
@@ -574,7 +574,7 @@ function TuileUE({ u, zoom, choisie, posee, pendantStage, style, onDeplacer, onD
   const dossier = (u.cours || []).reduce((t, c) => t + (Number(c.cours_per) || 0), 0);
   const remplies = arrondi((u.cours || []).reduce((t, c) => t + Math.min(Number(c.cours_per) || 0, sommeEtudiant(c)), 0));
   return (
-    <div className="absolute rounded-r-[10px] bg-white overflow-hidden select-none cursor-grab"
+    <div className="absolute rounded-r-tuile bg-white overflow-hidden select-none cursor-grab"
       style={{ ...style, borderLeft: `4px solid ${u.stage ? '#64748B' : teinte}`, border: `1px ${posee ? 'solid' : 'dashed'} ${choisie ? '#16406A' : '#D8DCE4'}`,
         borderLeftWidth: 4, borderLeftStyle: 'solid', borderLeftColor: u.stage ? '#64748B' : teinte,
         // La tuile est COLORÉE de son UE, pour se lire (Charles, 10 octobre 2026).
@@ -587,17 +587,17 @@ function TuileUE({ u, zoom, choisie, posee, pendantStage, style, onDeplacer, onD
           style={{ left: `calc(${(i - span.de) / n * 100}% - 4px)`, width: `calc(${100 / n}%)`, background: 'color-mix(in srgb, #64748B 22%, #F6F8FB)', borderLeft: '1px solid #fff', borderRight: '1px solid #fff' }} />))}
       <div className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize z-10 hover:bg-[#16406A]/20" onPointerDown={onDebut} />
       <div className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize z-10 hover:bg-[#16406A]/20" onPointerDown={onFin} />
-      <div className="relative z-[1] px-2 py-1 text-[12px] leading-tight text-[#1B2B4B]">
+      <div className="relative z-[1] px-2 py-1 text-second leading-tight text-[#1B2B4B]">
         <div className="flex items-center gap-1.5 min-w-0">
           <b className="flex-none">{nomUE(u)}</b>
           <span className="truncate text-slate-600">{u.ue_nom}</span>
-          {u.stage && u.stage_bloquant && <span className="flex-none px-1.5 rounded-[5px] text-[10px] font-semibold text-white" style={{ background: '#475569' }}>bloquant</span>}
-          {pendantStage && <span className="flex-none px-1.5 rounded-[5px] text-[10px] font-semibold text-white" style={{ background: 'var(--c-refuse)' }} title="Cette UE a cours pendant un stage bloquant">pendant le stage</span>}
+          {u.stage && u.stage_bloquant && <span className="flex-none px-1.5 rounded-pastille text-mention font-semibold text-white" style={{ background: '#475569' }}>bloquant</span>}
+          {pendantStage && <span className="flex-none px-1.5 rounded-pastille text-mention font-semibold text-white" style={{ background: 'var(--c-refuse)' }} title="Cette UE a cours pendant un stage bloquant">pendant le stage</span>}
         </div>
-        <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mt-0.5">
+        <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-0.5">
           <span>{u.ue_niv} · {dossier} p. · {(u.cours || []).length} cours</span>
-          {!posee && <span className="px-1.5 rounded-[5px] text-[10px] font-semibold text-white" style={{ background: 'var(--c-attente)' }}>dates à poser</span>}
-          {!u.stage && <span className="px-1.5 rounded-[5px] text-[10px] font-semibold text-white" style={{ background: remplies >= dossier && dossier ? 'var(--c-reussi)' : 'var(--c-attente)' }}>
+          {!posee && <span className="px-1.5 rounded-pastille text-mention font-semibold text-white" style={{ background: 'var(--c-attente)' }}>dates à poser</span>}
+          {!u.stage && <span className="px-1.5 rounded-pastille text-mention font-semibold text-white" style={{ background: remplies >= dossier && dossier ? 'var(--c-reussi)' : 'var(--c-attente)' }}>
             {remplies >= dossier && dossier ? 'grille complète' : `grille : ${remplies}/${dossier}`}</span>}
         </div>
         {/* LES COUCHES, DANS LE TEMPS : une ligne par cours, ses activités en barres
@@ -608,14 +608,14 @@ function TuileUE({ u, zoom, choisie, posee, pendantStage, style, onDeplacer, onD
               const s = arrondi(sommeEtudiant(c)), dp = Number(c.cours_per) || 0, n = span.a - span.de + 1;
               return (
                 <div key={c.cours_code}>
-                  <div className="h-[15px] text-[10.5px] leading-[15px] flex gap-1.5">
+                  <div className="h-[15px] text-mention leading-[15px] flex gap-1.5">
                     <b>{c.cours_code}</b><span className="tabular-nums" style={{ color: s >= dp ? 'var(--c-reussi)' : 'var(--c-attente)' }}>{s}/{dp} p.</span>
                     {!(c.activites || []).length && <span className="text-slate-400">à découper — dans le verre</span>}
                     {peutEcrire && (c.activites || []).length > 1 && <>
-                      <button className="ml-1 px-1.5 rounded-[4px] border border-slate-300 bg-white text-[10px] leading-[13px] hover:border-[#16406A]"
+                      <button className="ml-1 px-1.5 rounded-pastille border border-slate-300 bg-white text-mention leading-[13px] hover:border-[#16406A]"
                         onPointerDown={ev => ev.stopPropagation()} onDoubleClick={ev => ev.stopPropagation()} onClick={() => onArranger(c, 'suite')}
                         title="Enchaîner les activités dans l’ordre du verre, l’évaluation en dernier ; les activités cochées forment un bloc en parallèle">⇢ à la suite{(coches[`${u.cle}#${c.cours_code}`] || []).length > 1 ? ` (${(coches[`${u.cle}#${c.cours_code}`] || []).length} en parallèle)` : ''}</button>
-                      <button className="px-1.5 rounded-[4px] border border-slate-300 bg-white text-[10px] leading-[13px] hover:border-[#16406A]"
+                      <button className="px-1.5 rounded-pastille border border-slate-300 bg-white text-mention leading-[13px] hover:border-[#16406A]"
                         onPointerDown={ev => ev.stopPropagation()} onDoubleClick={ev => ev.stopPropagation()} onClick={() => onArranger(c, 'parallele')}
                         title="Toutes les activités sur toute la période de l’UE">⇉ en parallèle</button></>}
                   </div>
@@ -623,7 +623,7 @@ function TuileUE({ u, zoom, choisie, posee, pendantStage, style, onDeplacer, onD
                     <div key={li} className="relative h-[19px] -mx-2">
                       {l.map(x => (
                         <div key={x.k} onPointerDown={ev => onActivite(ev, c, x.k, 'deplacer')} onDoubleClick={ev => ev.stopPropagation()}
-                          className={`absolute top-[2px] h-[15px] rounded-[4px] px-1.5 text-[10px] leading-[15px] text-white truncate ${peutEcrire ? 'cursor-grab' : ''}`}
+                          className={`absolute top-[2px] h-[15px] rounded-pastille px-1.5 text-mention leading-[15px] text-white truncate ${peutEcrire ? 'cursor-grab' : ''}`}
                           style={{ left: `calc(${(x.de - span.de) / n * 100}% + 1px)`, width: `calc(${(x.fin - x.de + 1) / n * 100}% - 2px)`,
                             background: x.act.activite_id && /valuation/i.test(x.act.activite_nom || '') ? '#B45309' : teinteCours(c.cours_code) }}
                           title={`${c.cours_code} — ${x.act.activite_nom || 'activité'} · ${arrondi(parEtudiant(x.act))} p. par étudiant${x.act.groupes > 1 ? `, ${x.act.groupes} groupes` : ''}\nGlisser : le déplacer ; tirer ses bords : l’allonger`}>
@@ -652,27 +652,27 @@ function ResumeUE({ u, semaines, peutEcrire, pendantStage, onStage, onConges, on
   return (
     <div className="carte p-3 space-y-2">
       <div className="flex flex-wrap items-center gap-2">
-        <b className="text-[14px] text-iip-blue">{nomUE(u)} — {u.ue_nom}</b>
+        <b className="text-sm text-iip-blue">{nomUE(u)} — {u.ue_nom}</b>
         <span className="flex-1" />
         {peutEcrire && <button className="bouton" onClick={onDedoubler} title="Une organisation de plus, avec ses propres dates (deux demi-promotions)">Dédoubler</button>}
         {peutEcrire && u.nb_organisations > 1 && u.num_organisation === u.nb_organisations && <button className="bouton" onClick={onRetirerOrg}>Retirer l’org {u.num_organisation}</button>}
         {!u.stage && <button className="bouton bouton-fort" onClick={onOuvrir}>Ouvrir le verre de l’{nomUE(u)}</button>}
       </div>
-      <div className="text-[12.5px] text-slate-600">
+      <div className="text-second text-slate-600">
         {u.planifiee ? `Du ${dt(u.date_debut)} au ${dt(u.date_fin)}` : 'Dates à poser : glissez la tuile, ou tirez ses bords'} · {u.ue_niv} ·{' '}
         {(u.cours || []).map(c => `${c.cours_code} : ${arrondi(sommeEtudiant(c))}/${c.cours_per}`).join(' · ')}
       </div>
       {u.stage && (
-        <label className="flex items-center gap-2 text-[13px]">
+        <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={!!u.stage_bloquant} disabled={!peutEcrire} onChange={onStage} />
           Stage bloquant : aucun cours du bloc pendant ses semaines
         </label>)}
       {!u.stage && (
-        <label className="flex items-center gap-2 text-[13px]">
+        <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={!!u.cours_pendant_conges} disabled={!peutEcrire} onChange={onConges} />
           Donner cours pendant les congés — la tuile n’est plus coupée aux vacances, et la simulation peut y placer des séances
         </label>)}
-      {pendantStage && <div className="text-[12.5px]" style={{ color: 'var(--c-refuse)' }}>Cette UE a cours pendant un stage bloquant : la simulation n’y placera rien ces semaines-là.</div>}
+      {pendantStage && <div className="text-second" style={{ color: 'var(--c-refuse)' }}>Cette UE a cours pendant un stage bloquant : la simulation n’y placera rien ces semaines-là.</div>}
     </div>
   );
 }
@@ -693,10 +693,10 @@ function Rangee({ ues, rangee, setRangee, actif, onChoisir, debut, setDebut }) {
   return (
     <div className="carte p-3">
       <div className="flex items-center gap-2 mb-2 flex-wrap">
-        <b className="text-[13px] text-iip-blue">Verres côte à côte</b>
-        <span className="text-[12px] text-slate-500">même échelle pour comparer · glisser un verre change l’ordre · clic : l’ouvrir dessous</span>
+        <b className="text-sm text-iip-blue">Verres côte à côte</b>
+        <span className="text-second text-slate-500">même échelle pour comparer · glisser un verre change l’ordre · clic : l’ouvrir dessous</span>
         <span className="flex-1" />
-        <select className="controle !h-8 text-[12.5px]" value="" onChange={e => { const n = e.target.value; if (n) setRangee([...rangee, n]); }}>
+        <select className="controle !h-8 text-second" value="" onChange={e => { const n = e.target.value; if (n) setRangee([...rangee, n]); }}>
           <option value="">+ Ajouter une UE…</option>
           {ues.filter(u => !rangee.includes(u.cle)).map(u => <option key={u.cle} value={u.cle}>{nomUE(u)} — {String(u.ue_nom || '').slice(0, 40)}</option>)}
         </select>
@@ -711,13 +711,13 @@ function Rangee({ ues, rangee, setRangee, actif, onChoisir, debut, setDebut }) {
               <div key={u.cle} draggable onDragStart={() => setPrise(idx)} onDragOver={e => e.preventDefault()}
                 onDrop={() => { if (prise != null && prise !== idx) deplacer(prise, idx); setPrise(null); }}
                 onClick={() => onChoisir(u.cle)}
-                className={`relative flex flex-col items-center gap-1 rounded-[10px] p-1.5 cursor-pointer ${u.cle === actif ? 'bg-[#16406A]/10 ring-2 ring-[#16406A]/40' : 'hover:bg-slate-50'}`}>
-                <button className="absolute right-1 top-0.5 text-slate-400 hover:text-slate-700 text-[13px]" title="Retirer de la rangée"
+                className={`relative flex flex-col items-center gap-1 rounded-tuile p-1.5 cursor-pointer ${u.cle === actif ? 'bg-[#16406A]/10 ring-2 ring-[#16406A]/40' : 'hover:bg-slate-50'}`}>
+                <button className="absolute right-1 top-0.5 text-slate-400 hover:text-slate-700 text-sm" title="Retirer de la rangée"
                   onClick={ev => { ev.stopPropagation(); setRangee(rangee.filter(n => n !== u.cle)); }}>×</button>
                 {/* Les fonds alignés : le verre se pose au bas d'une hauteur commune. */}
                 <div className="h-[156px] flex items-end justify-center"><VerreMini u={u} px={px} /></div>
-                <b className="text-[12px]">{nomUE(u)}</b>
-                <span className="text-[10.5px] text-slate-500 text-center leading-tight line-clamp-2">{u.ue_nom}</span>
+                <b className="text-second">{nomUE(u)}</b>
+                <span className="text-mention text-slate-500 text-center leading-tight line-clamp-2">{u.ue_nom}</span>
               </div>);
           })}
         </div>
@@ -728,7 +728,7 @@ function Rangee({ ues, rangee, setRangee, actif, onChoisir, debut, setDebut }) {
 }
 function VerreMini({ u, px }) {
   return (
-    <div className="w-[96px] flex flex-col-reverse p-[2px] rounded-b-[12px] border-2 border-t-0" style={{ borderColor: '#16406A', background: '#EEF3F9' }}>
+    <div className="w-[96px] flex flex-col-reverse p-[2px] rounded-b-carte border-2 border-t-0" style={{ borderColor: '#16406A', background: '#EEF3F9' }}>
       {(u.cours || []).map(c => {
         const dp = Number(c.cours_per) || 0, aut = Number(c.autonomie_placee) || 0, s = sommeEtudiant(c), manque = dp + aut - s;
         return (
@@ -932,53 +932,53 @@ function Verre({ u, types, annee, section, peutEcrire, onRetour, onAnnee, onEnre
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <button className="bouton" onClick={onRetour}>← Les couches</button>
-        <b className="text-[14px] text-iip-blue">{nomUE(u)}</b><span className="text-[12.5px] text-slate-500 truncate">{u.ue_nom}</span>
+        <b className="text-sm text-iip-blue">{nomUE(u)}</b><span className="text-second text-slate-500 truncate">{u.ue_nom}</span>
         <span className="flex-1" />
         {peutEcrire && <button className="bouton bouton-fort" disabled={(!modifies.size && !(autonomieReste > 0 && !(Number(u.autonomie_reservee) >= autonomieReste))) || enCours} onClick={enregistrer}>
           {enCours ? 'Enregistrement…' : modifies.size ? `Enregistrer (${modifies.size} cours)` : autonomieReste > 0 && !(Number(u.autonomie_reservee) >= autonomieReste) ? 'Décider de l’autonomie restante' : 'Enregistré'}</button>}
       </div>
       {peutEcrire && (
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[12px] text-slate-500 font-semibold">Glisser dans un cours :</span>
+          <span className="text-second text-slate-500 font-semibold">Glisser dans un cours :</span>
           {barre.map(t => (
             <span key={t.id} draggable onDragStart={e => e.dataTransfer.setData('text/plain', String(t.id))}
-              className="controle !h-8 inline-flex items-center gap-1.5 cursor-grab bg-white text-[12.5px]">
-              <i className="inline-block w-2.5 h-2.5 rounded-[3px]" style={{ background: t.role === 'evaluation' ? '#B45309' : estGroupes(t.libelle) ? '#2F6FB0' : '#16406A' }} />{t.libelle}</span>))}
-          <select className="controle !h-8 text-[12.5px] max-w-[16rem]" value="" onChange={e => e.target.value && setAjoutees(a => [...a, e.target.value])}>
+              className="controle !h-8 inline-flex items-center gap-1.5 cursor-grab bg-white text-second">
+              <i className="inline-block w-2.5 h-2.5 rounded-pastille" style={{ background: t.role === 'evaluation' ? '#B45309' : estGroupes(t.libelle) ? '#2F6FB0' : '#16406A' }} />{t.libelle}</span>))}
+          <select className="controle !h-8 text-second max-w-[16rem]" value="" onChange={e => e.target.value && setAjoutees(a => [...a, e.target.value])}>
             <option value="">Autre activité…</option>
             {types.filter(t => !barre.some(x => x.id === t.id)).map(t => <option key={t.id} value={t.id}>{t.libelle}</option>)}
           </select>
         </div>)}
       {/* TOUTE L'AUTONOMIE DOIT ÊTRE DÉPENSÉE DANS L'UE (Charles, 10 octobre 2026). */}
       {autonomieReste > 0 && (
-        <div className="bloc-etat px-3 py-2 text-[13px]" data-etat="surveiller">
+        <div className="bloc-etat px-3 py-2 text-sm" data-etat="surveiller">
           Il reste <b>{autonomieReste} p.</b> d’autonomie dans la burette : toute l’autonomie de l’UE doit être dépensée — agrandissez une activité, ajoutez-en une, ou « Vider la burette dans cette activité ».
         </div>)}
       {avis && (
-        <div className="bloc-etat px-3 py-2 text-[13px] flex items-center gap-2" data-etat={/^Attention/.test(avis) ? 'surveiller' : 'neutre'}>
+        <div className="bloc-etat px-3 py-2 text-sm flex items-center gap-2" data-etat={/^Attention/.test(avis) ? 'surveiller' : 'neutre'}>
           <span className="flex-1">{avis}</span><button className="text-slate-400 hover:text-slate-700" onClick={() => setAvis(null)} title="Fermer">×</button>
         </div>)}
       <div className="grid gap-3" style={{ gridTemplateColumns: 'minmax(0,1fr) 300px' }}>
         <div className="carte p-4 overflow-x-auto flex gap-2 items-end" onDoubleClick={onAnnee} title="Double-clic : revenir à l’année">
           {/* LA BURETTE : l'autonomie de l'UE, pleine au départ ; elle se vide quand un cours en prend. */}
           <div className="flex-none flex flex-col items-center gap-1 mr-2" title={`Autonomie de l’UE : ${autonomieUE} p. au dossier, ${arrondi(autonomiePrise)} prise(s), ${autonomieReste} restante(s)`}>
-            <span className="text-[10.5px] text-slate-500 text-center leading-tight w-[64px]">autonomie<br />de l’UE</span>
-            <div className="relative w-[26px] rounded-b-[10px] border-2 border-t-0 overflow-hidden" style={{ height: Math.max(40, autonomieUE * PX), borderColor: '#16406A', background: '#fff' }}>
+            <span className="text-mention text-slate-500 text-center leading-tight w-[64px]">autonomie<br />de l’UE</span>
+            <div className="relative w-[26px] rounded-b-tuile border-2 border-t-0 overflow-hidden" style={{ height: Math.max(40, autonomieUE * PX), borderColor: '#16406A', background: '#fff' }}>
               <div className="absolute left-0 right-0 bottom-0" style={{ height: `${autonomieUE ? Math.max(0, autonomieReste) / autonomieUE * 100 : 0}%`, background: `color-mix(in srgb, ${teinteCours(`${u.ue_num}.1`)} 70%, white)` }} />
             </div>
-            <b className="text-[12px] tabular-nums" style={{ color: autonomieReste < 0 ? 'var(--c-refuse)' : '#1B2B4B' }}>{autonomieUE ? `${autonomieReste}/${autonomieUE}` : '0'}</b>
-            <span className="text-[10px] text-slate-400">{autonomieUE ? 'p. restantes' : 'aucune au dossier'}</span>
-            {autonomieReste > 0 && <span className="text-[10.5px] font-semibold text-center leading-tight w-[70px]" style={{ color: 'var(--c-attente)' }}>à dépenser dans l’UE</span>}
+            <b className="text-second tabular-nums" style={{ color: autonomieReste < 0 ? 'var(--c-refuse)' : '#1B2B4B' }}>{autonomieUE ? `${autonomieReste}/${autonomieUE}` : '0'}</b>
+            <span className="text-mention text-slate-400">{autonomieUE ? 'p. restantes' : 'aucune au dossier'}</span>
+            {autonomieReste > 0 && <span className="text-mention font-semibold text-center leading-tight w-[70px]" style={{ color: 'var(--c-attente)' }}>à dépenser dans l’UE</span>}
           </div>
           {/* La graduation, tous les 10 périodes. */}
           <div className="relative w-8 flex-none" style={{ height: total * PX + 8 }}>
             {Array.from({ length: Math.floor(total / 10) + 1 }, (_, i) => (
-              <span key={i} className="absolute right-1 text-[10px] text-slate-400 tabular-nums" style={{ bottom: i * 10 * PX + 4, transform: 'translateY(50%)' }}>{i * 10}</span>))}
+              <span key={i} className="absolute right-1 text-mention text-slate-400 tabular-nums" style={{ bottom: i * 10 * PX + 4, transform: 'translateY(50%)' }}>{i * 10}</span>))}
           </div>
           <div className="flex items-end">
             {/* LE VERRE EST PLEIN JUSQU'AU BORD (Charles, 10 octobre 2026 : « moche ») : son
                 contenu épouse le fond arrondi, sans liseré ; les étiquettes vivent à côté. */}
-            <div className="relative w-[440px] flex flex-col-reverse overflow-hidden rounded-b-[26px] border-[3px] border-t-0" style={{ borderColor: '#16406A', background: '#fff' }}>
+            <div className="relative w-[440px] flex flex-col-reverse overflow-hidden rounded-b-panneau border-[3px] border-t-0" style={{ borderColor: '#16406A', background: '#fff' }}>
               {cours.map((c, ci) => {
                 const s = sommeEtudiant(c), dp = Number(c.cours_per) || 0, aut = Number(c.autonomie_placee) || 0, manque = arrondi(dp + aut - s);
                 return (
@@ -991,14 +991,14 @@ function Verre({ u, types, annee, section, peutEcrire, onRetour, onAnnee, onEnre
                       return (
                         <div key={k} className="relative flex-none flex gap-px border-t border-white cursor-pointer" style={{ height: p * PX }} onClick={() => setChoix({ c: ci, k })}>
                           {Array.from({ length: a.groupes }, (_, g) => (
-                            <div key={g} className="flex-1 min-w-0 flex items-center justify-center gap-1 overflow-hidden whitespace-nowrap text-white text-[11px] font-semibold"
+                            <div key={g} className="flex-1 min-w-0 flex items-center justify-center gap-1 overflow-hidden whitespace-nowrap text-white text-xs font-semibold"
                               style={{ background: col, boxShadow: on ? 'inset 0 0 0 2px #16406A' : undefined }} title={`${a.activite_nom || 'activité'} — ${arrondi(p)} p. par étudiant${a.groupes > 1 ? ` · groupe ${lettre(g)}` : ''}`}>
-                              {a.groupes > 1 ? <span className="bg-white text-[#16253D] rounded-[4px] px-1 text-[10px]">{lettre(g)}</span> : (p * PX > 13 ? `${a.activite_nom || 'activité'} · ${arrondi(p)} p.` : '')}
+                              {a.groupes > 1 ? <span className="bg-white text-[#16253D] rounded-pastille px-1 text-mention">{lettre(g)}</span> : (p * PX > 13 ? `${a.activite_nom || 'activité'} · ${arrondi(p)} p.` : '')}
                             </div>))}
                           {peutEcrire && <div className="absolute left-0 right-0 -top-[3px] h-[7px] cursor-ns-resize z-10 hover:bg-[#16406A]/30" onPointerDown={e => tirer(e, ci, k)} title="Tirer : les périodes" />}
                         </div>);
                     })}
-                    {manque > 0 && <div className="flex-none flex items-center justify-center text-[11px] font-semibold" style={{ height: manque * PX, background: HACHURE, color: 'var(--c-attente)' }}>{manque * PX > 12 ? `à remplir · ${manque} p.` : ''}</div>}
+                    {manque > 0 && <div className="flex-none flex items-center justify-center text-xs font-semibold" style={{ height: manque * PX, background: HACHURE, color: 'var(--c-attente)' }}>{manque * PX > 12 ? `à remplir · ${manque} p.` : ''}</div>}
                   </div>);
               })}
             </div>
@@ -1008,8 +1008,8 @@ function Verre({ u, types, annee, section, peutEcrire, onRetour, onAnnee, onEnre
                 const s = sommeEtudiant(c), dp = Number(c.cours_per) || 0, aut = Number(c.autonomie_placee) || 0, manque = arrondi(dp + aut - s);
                 return (
                   <div key={c.cours_code} className="relative flex-none" style={{ height: Math.max(dp + aut, s) * PX }}>
-                    <div className="absolute bottom-0 left-0 text-[12px] leading-tight w-[205px]">
-                      <b className="block text-[13px]">{c.cours_code}</b>
+                    <div className="absolute bottom-0 left-0 text-second leading-tight w-[205px]">
+                      <b className="block text-sm">{c.cours_code}</b>
                       <span className="text-slate-600">{String(c.cours_nom || '').slice(0, 60)}</span><br />
                       <span className="font-semibold" style={{ color: manque === 0 ? 'var(--c-reussi)' : manque > 0 ? 'var(--c-attente)' : 'var(--c-refuse)' }}>
                         {arrondi(s)} / {dp} p.{aut ? ` (+${aut} d’autonomie)` : ''}{manque > 0 ? ` — il en manque ${manque}` : manque < 0 ? ` — ${-manque} de trop` : ' — complet'}</span>
@@ -1019,24 +1019,24 @@ function Verre({ u, types, annee, section, peutEcrire, onRetour, onAnnee, onEnre
             </div>
           </div>
         </div>
-        <aside className="carte p-3 space-y-2 self-start text-[13px]">
+        <aside className="carte p-3 space-y-2 self-start text-sm">
           {!act ? <p className="text-slate-500">Cliquez une couche du verre pour la régler. Glissez une activité de la barre dans un cours pour en ajouter une.</p> : (<>
             <b className="text-iip-blue">{cours[choix.c].cours_code} — {act.activite_nom || 'activité'}</b>
-            <label className="grid gap-1 text-[12px] text-slate-500">Activité
+            <label className="grid gap-1 text-second text-slate-500">Activité
               <select className="controle w-full min-w-0" disabled={!peutEcrire} value={act.activite_id || ''} onChange={e => { const t = types.find(x => String(x.id) === e.target.value); regler(a => ({ ...a, activite_id: t?.id, activite_nom: t?.libelle })); }}>
                 {types.map(t => <option key={t.id} value={t.id}>{t.libelle}</option>)}
               </select></label>
-            <label className="grid gap-1 text-[12px] text-slate-500">Périodes par étudiant
+            <label className="grid gap-1 text-second text-slate-500">Périodes par étudiant
               <input type="number" min="1" className="controle" disabled={!peutEcrire} value={arrondi(parEtudiant(act))}
                 onChange={e => { const p = Math.max(1, Number(e.target.value) || 1); regler(a => ({ ...a, periodes: p * a.groupes })); }} /></label>
-            <div className="text-[12px] text-slate-500">Groupes
+            <div className="text-second text-slate-500">Groupes
               <div className="flex items-center gap-2 mt-1">
                 <button className="bouton !h-8" disabled={!peutEcrire || act.groupes <= 1} onClick={() => regler(a => ({ ...a, periodes: parEtudiant(a) * (a.groupes - 1), groupes: a.groupes - 1 }))}>−</button>
-                <b className="text-[14px] text-[#1B2B4B] tabular-nums">{act.groupes}</b>
+                <b className="text-sm text-[#1B2B4B] tabular-nums">{act.groupes}</b>
                 <button className="bouton !h-8" disabled={!peutEcrire || act.groupes >= 30} onClick={() => regler(a => ({ ...a, periodes: parEtudiant(a) * (a.groupes + 1), groupes: a.groupes + 1 }))}>+</button>
                 <span>{act.groupes > 1 ? `blocs ${Array.from({ length: act.groupes }, (_, g) => lettre(g)).join(', ')}` : 'tout le bloc ensemble'}</span>
               </div></div>
-            <div className="text-[12px] text-slate-500">Côté enseignant : {arrondi(Number(act.periodes) || 0)} période(s), tous groupes confondus.</div>
+            <div className="text-second text-slate-500">Côté enseignant : {arrondi(Number(act.periodes) || 0)} période(s), tous groupes confondus.</div>
             {(() => {
               const c = cours[choix.c], reste = arrondi(capacite(c) - sommeEtudiant(c));
               return peutEcrire && (<div className="flex flex-wrap gap-2">
@@ -1050,7 +1050,7 @@ function Verre({ u, types, annee, section, peutEcrire, onRetour, onAnnee, onEnre
             })()}
             {peutEcrire && <button className="bouton bouton-detruire" onClick={() => { changer(choix.c, c => ({ ...c, activites: c.activites.filter((_, i) => i !== choix.k) })); setChoix(null); }}>Retirer cette couche</button>}
           </>)}
-          <div className="text-[11.5px] text-slate-400 pt-1 border-t border-slate-100">Les disponibilités des enseignants se saisissent dans la face « Les disponibilités » du laboratoire ; la simulation en tient compte.</div>
+          <div className="text-xs text-slate-400 pt-1 border-t border-slate-100">Les disponibilités des enseignants se saisissent dans la face « Les disponibilités » du laboratoire ; la simulation en tient compte.</div>
         </aside>
       </div>
     </div>

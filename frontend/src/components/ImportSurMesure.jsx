@@ -172,13 +172,13 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
 
         {erreur && (
           <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200
-                          text-[13px] text-red-800">{erreur}</div>
+                          text-sm text-red-800">{erreur}</div>
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           {cible?.portee === 'annee' && (
             <div className="mb-3 px-3 py-2 rounded-lg bg-sky-50 border border-sky-200
-                            text-[12px] text-sky-900">
+                            text-second text-sky-900">
               Cette cible existe une fois par millésime : l'import portera sur
               l'année <b>{annee || '— non déterminée'}</b>.
               {!annee && " Fermez et choisissez d'abord une année de travail."}
@@ -191,13 +191,13 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
               className={`text-left px-3 py-2.5 rounded-xl border ${
                 cible.cle === c.cle ? 'border-iip-blue bg-iip-blue/5'
                                     : 'border-slate-200 hover:bg-slate-50'}`}>
-              <div className="text-[13px] font-semibold text-iip-blue">{c.libelle}</div>
-              <div className="text-[11px] text-slate-500">{c.description}</div>
+              <div className="text-sm font-semibold text-iip-blue">{c.libelle}</div>
+              <div className="text-xs text-slate-500">{c.description}</div>
             </button>
           ))}
         </div>
 
-        <label className="inline-flex items-center gap-2 px-3 py-2 text-[13px] border
+        <label className="inline-flex items-center gap-2 px-3 py-2 text-sm border
                           border-slate-300 rounded-lg cursor-pointer hover:bg-slate-50">
           <IconUpload size={15} /> Choisir un classeur
           <input type="file" accept=".xls,.xlsx,.xlsm,.csv" className="hidden"
@@ -206,14 +206,14 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
 
         {profils.length > 0 && (
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">
+            <span className="text-xs uppercase tracking-wide text-slate-500 font-semibold">
               Profils
             </span>
             {profils.map(p => (
               <span key={p.id} className="inline-flex items-center gap-1 border
                                           border-slate-300 rounded-lg overflow-hidden">
                 <button onClick={() => appliquerProfil(p)}
-                  className="px-2.5 py-1 text-[12px] hover:bg-slate-50">{p.nom}</button>
+                  className="px-2.5 py-1 text-second hover:bg-slate-50">{p.nom}</button>
                 <button onClick={() => supprimerProfil(p.id)} title="Supprimer"
                   className="px-1.5 py-1 text-slate-300 hover:text-red-500">
                   <IconTrash size={12} />
@@ -226,8 +226,8 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
         {entetes && (
           <div className="border border-slate-200 rounded-xl p-4 space-y-3">
             <div>
-              <span className="text-[13px] font-semibold text-iip-blue">Correspondances</span>
-              <p className="text-[12px] text-slate-500">
+              <span className="text-sm font-semibold text-iip-blue">Correspondances</span>
+              <p className="text-second text-slate-500">
                 {brut.length} ligne(s), {entetes.length} colonne(s). À gauche le champ de
                 Lucie, à droite la colonne du document.
               </p>
@@ -238,12 +238,12 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
                 Colonne qui identifie la ligne
               </span>
               <select value={cleChoisie} onChange={e => setCleChoisie(e.target.value)}
-                className="border border-amber-300 rounded-lg px-2 py-1 text-[12px] bg-white">
+                className="border border-amber-300 rounded-lg px-2 py-1 text-second bg-white">
                 {cible.cles.map(k => (
                   <option key={k.champ} value={k.champ}>{k.libelle}</option>
                 ))}
               </select>
-              <span className="block text-[11px] text-amber-800 mt-1">
+              <span className="block text-xs text-amber-800 mt-1">
                 C'est elle qui retrouve le dossier à compléter. Le numéro national est le
                 plus sûr : le matricule change à chaque rentrée.
               </span>
@@ -253,24 +253,24 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
                 première ligne peut être fausse sur la dixième. */}
             <div className="flex items-center justify-between gap-3 flex-wrap
                             px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200">
-              <span className="text-[12px] text-slate-500">
+              <span className="text-second text-slate-500">
                 Exemple pris sur la ligne <b className="text-slate-700">{ligne + 1}</b> sur {brut.length}
               </span>
               <div className="flex items-center gap-1">
                 <button type="button" onClick={() => setLigne(i => Math.max(0, i - 1))}
                   disabled={ligne === 0}
                   className="px-2 h-6 rounded border border-slate-300 text-slate-600
-                             text-[12px] disabled:opacity-40">◀</button>
+                             text-second disabled:opacity-40">◀</button>
                 <input type="number" min={1} max={brut.length} value={ligne + 1}
                   onChange={e => {
                     const v = Number(e.target.value);
                     if (Number.isFinite(v)) setLigne(Math.min(brut.length, Math.max(1, v)) - 1);
                   }}
-                  className="w-16 border border-slate-300 rounded px-1 py-0.5 text-[12px] text-center" />
+                  className="w-16 border border-slate-300 rounded px-1 py-0.5 text-second text-center" />
                 <button type="button" onClick={() => setLigne(i => Math.min(brut.length - 1, i + 1))}
                   disabled={ligne >= brut.length - 1}
                   className="px-2 h-6 rounded border border-slate-300 text-slate-600
-                             text-[12px] disabled:opacity-40">▶</button>
+                             text-second disabled:opacity-40">▶</button>
               </div>
             </div>
 
@@ -278,7 +278,7 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
               {cible.champs.map(ch => {
                 const estCle = ch.champ === cleChoisie;
                 return (
-                  <div key={ch.champ} className="flex items-center gap-2 text-[12px]">
+                  <div key={ch.champ} className="flex items-center gap-2 text-second">
                     <span className={`w-44 flex-none ${estCle
                       ? 'font-semibold text-amber-800' : 'text-slate-600'}`}>
                       {ch.libelle}{estCle && ' ★'}
@@ -286,7 +286,7 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
                     <IconArrowRight size={13} className="text-slate-300 flex-none" />
                     <select value={corresp[ch.champ] || ''}
                       onChange={e => setCorresp(m => ({ ...m, [ch.champ]: e.target.value || undefined }))}
-                      className={`flex-1 border rounded-lg px-2 py-1 text-[12px] ${
+                      className={`flex-1 border rounded-lg px-2 py-1 text-second ${
                         estCle && !corresp[ch.champ]
                           ? 'border-red-300 bg-red-50' : 'border-slate-300'}`}>
                       <option value="">— ne pas importer —</option>
@@ -294,7 +294,7 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
                     </select>
                     {/* Ce que la colonne choisie DONNE sur cette ligne : c'est
                         cela qu'on vérifie, pas l'intitulé de la colonne. */}
-                    <span className="w-40 flex-none truncate text-[12px]"
+                    <span className="w-40 flex-none truncate text-second"
                       title={corresp[ch.champ]
                         ? String(brut[ligne]?.[corresp[ch.champ]] ?? '')
                         : ''}>
@@ -314,7 +314,7 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
             </div>
 
             {corresp[cleChoisie] && (
-              <div className="text-[12px] text-slate-600 bg-slate-50 rounded-lg p-2.5">
+              <div className="text-second text-slate-600 bg-slate-50 rounded-lg p-2.5">
                 <b>Ligne {ligne + 1} telle qu'elle sera lue :</b>
                 <div className="mt-1 space-y-0.5">
                   {cible.champs.filter(ch => corresp[ch.champ]).map(ch => (
@@ -328,13 +328,13 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
             )}
 
             {cible.creation && (
-              <label className="flex items-center gap-2 text-[13px] text-slate-700
+              <label className="flex items-center gap-2 text-sm text-slate-700
                                 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200">
                 <input type="checkbox" checked={creer}
                   onChange={e => setCreer(e.target.checked)} />
                 <span>
                   <b>Créer les lignes sans correspondance</b>
-                  <span className="block text-[11px] text-amber-900">
+                  <span className="block text-xs text-amber-900">
                     Un dossier sera ouvert pour chaque ligne inconnue portant un
                     nom et un prénom. Simulez d'abord : une clé mal choisie crée
                     des doublons au lieu de compléter les dossiers existants.
@@ -343,10 +343,10 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
               </label>
             )}
 
-            <label className="flex items-center gap-2 text-[13px] text-slate-600">
+            <label className="flex items-center gap-2 text-sm text-slate-600">
               <input type="checkbox" checked={ecraser} onChange={e => setEcraser(e.target.checked)} />
               Écraser les valeurs déjà présentes
-              <span className="text-[11px] text-slate-400">
+              <span className="text-xs text-slate-400">
                 — par défaut, seuls les champs vides sont complétés
               </span>
             </label>
@@ -355,10 +355,10 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
               <span className="flex-1" />
               <input value={nomProfil} onChange={e => setNomProfil(e.target.value)}
                 placeholder="Nom du profil"
-                className="border border-slate-300 rounded-lg px-2 py-1.5 text-[12px] w-40" />
+                className="border border-slate-300 rounded-lg px-2 py-1.5 text-second w-40" />
               <button onClick={enregistrerProfil} disabled={!nomProfil.trim()}
                 title="Enregistrer ces correspondances pour tout l'établissement"
-                className="flex items-center gap-1.5 px-3 py-1.5 text-[13px] border
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm border
                            border-slate-300 text-slate-600 rounded-lg disabled:opacity-40">
                 <IconDeviceFloppy size={14} /> Enregistrer
               </button>
@@ -374,15 +374,15 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
                 ...(rapport.nb_crees ? [['À créer', rapport.nb_crees]] : []),
                 ['Sans correspondance', rapport.nb_inconnus]].map(([l, v]) => (
                 <div key={l} className="border border-slate-200 rounded-xl px-3 py-2">
-                  <div className="text-[10px] uppercase tracking-wide text-slate-500
+                  <div className="text-mention uppercase tracking-wide text-slate-500
                                   font-semibold">{l}</div>
-                  <div className="text-[17px] font-bold text-iip-blue">{v}</div>
+                  <div className="text-lg font-bold text-iip-blue">{v}</div>
                 </div>
               ))}
             </div>
 
             {Object.keys(rapport.champs || {}).length > 0 && (
-              <div className="text-[12px] text-slate-600">
+              <div className="text-second text-slate-600">
                 Champs complétés :{' '}
                 {Object.entries(rapport.champs).map(([k, n]) => `${k} (${n})`).join(', ')}
               </div>
@@ -390,7 +390,7 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
 
             {rapport.nb_illisibles > 0 && (
               <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
-                              text-[12px] text-amber-900">
+                              text-second text-amber-900">
                 <div className="flex items-center gap-1.5 font-semibold mb-1">
                   <IconAlertTriangle size={14} /> {rapport.nb_illisibles} valeur(s) illisible(s)
                 </div>
@@ -400,7 +400,7 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
 
             {rapport.nb_crees > 0 && (
               <div className="px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200
-                              text-[12px] text-emerald-900">
+                              text-second text-emerald-900">
                 <b>{rapport.nb_crees} dossier(s)</b> {rapport.simulation ? 'seraient créés' : 'créés'} :
                 {' '}{rapport.crees.slice(0, 12).map(c => c.libelle).join(' · ')}
                 {rapport.nb_crees > 12 && ` … et ${rapport.nb_crees - 12} autre(s)`}
@@ -409,14 +409,14 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
 
             {rapport.nb_inconnus > 0 && (
               <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
-                              text-[12px] text-amber-900">
+                              text-second text-amber-900">
                 {rapport.nb_inconnus} ligne(s) sans correspondance dans Lucie.
               </div>
             )}
 
             {!rapport.simulation && (
               <div className="px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200
-                              text-[13px] text-emerald-800">
+                              text-sm text-emerald-800">
                 {rapport.nb_modifications} dossier(s) complété(s).
               </div>
             )}
@@ -426,7 +426,7 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
               <div className="max-h-48 overflow-y-auto border border-slate-200 rounded-xl
                               divide-y divide-slate-100">
                 {rapport.modifications.map(m => (
-                  <div key={m.id} className="flex items-center gap-3 px-3 py-1.5 text-[12px]">
+                  <div key={m.id} className="flex items-center gap-3 px-3 py-1.5 text-second">
                     <span className="flex-1 truncate">{m.libelle}</span>
                     <span className="text-slate-500 flex-none">{m.champs.join(', ')}</span>
                   </div>

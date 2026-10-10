@@ -255,11 +255,11 @@ export default function DatesUE({ annee, sansTitre = false }) {
 
       {incoherentes > 0 && (
         <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-200 border-l-4 border-l-red-500">
-          <div className="text-[13px] font-semibold text-red-900 mb-1">
+          <div className="text-sm font-semibold text-red-900 mb-1">
             {incoherentes === 1 ? 'Une organisation a ses dates inversées'
                                 : `${incoherentes} organisations ont leurs dates inversées`}
           </div>
-          <div className="text-[12px] text-red-800 space-y-0.5">
+          <div className="text-second text-red-800 space-y-0.5">
             {lignesIncoherentes.slice(0, 8).map((l, i) => (
               <div key={i}>
                 <b>UE {l.ue_num}</b> {l.ue_nom ? '— ' + l.ue_nom : ''} :
@@ -269,7 +269,7 @@ export default function DatesUE({ annee, sansTitre = false }) {
             ))}
             {incoherentes > 8 && <div>… et {incoherentes - 8} autre(s)</div>}
           </div>
-          <div className="text-[11px] text-red-700 mt-1.5">
+          <div className="text-xs text-red-700 mt-1.5">
             La date de fin précède celle de début. Ces dates commandent les comptages
             au premier dixième : corrigez-les avant la transmission.
           </div>
@@ -279,7 +279,7 @@ export default function DatesUE({ annee, sansTitre = false }) {
       {/* Filtres et saisie groupée */}
       <div className="bg-white border border-slate-200 rounded-xl p-3 flex flex-wrap items-end gap-3">
         <div>
-          <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Section</label>
+          <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Section</label>
           <select value={section} onChange={e => setSection(e.target.value)}
                   className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm">
             <option value="">Toutes</option>
@@ -287,7 +287,7 @@ export default function DatesUE({ annee, sansTitre = false }) {
           </select>
         </div>
         <div>
-          <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Vue</label>
+          <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Vue</label>
           <div className="segments">
             {[['tableau', 'Tableau'], ['timeline', 'Ligne du temps']].map(([v, t]) => (
               <button key={v} onClick={() => setVue(v)}
@@ -300,7 +300,7 @@ export default function DatesUE({ annee, sansTitre = false }) {
           </div>
         </div>
         <div>
-          <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Affichage</label>
+          <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Affichage</label>
           <select value={affichage} onChange={e => setAffichage(e.target.value)}
                   className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm">
             <option value="section">Par section</option>
@@ -319,7 +319,7 @@ export default function DatesUE({ annee, sansTitre = false }) {
 
         <div className="flex items-end gap-2 border-l border-slate-200 pl-3">
           <div>
-            <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1">
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
               Appliquer à la sélection ({selection.size})
             </label>
             <div className="flex gap-2">
@@ -374,7 +374,7 @@ export default function DatesUE({ annee, sansTitre = false }) {
                 if (item.type === 'groupe') {
                   return (
                     <tr key={`g-${idx}`} className="bg-slate-50/80">
-                      <td colSpan={9} className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-500 border-y border-slate-200">
+                      <td colSpan={9} className="px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-slate-500 border-y border-slate-200">
                         {item.libelle}
                       </td>
                     </tr>
@@ -400,7 +400,7 @@ export default function DatesUE({ annee, sansTitre = false }) {
                     <td className="px-3 py-1.5">
                       <span className="font-semibold text-iip-blue">{l.ue_num}</span>
                       {l.is_epreuve_integree === 1 && (
-                        <span className="ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded bg-iip-turquoise/15 text-iip-blue">EI</span>
+                        <span className="ml-1.5 text-mention font-bold px-1.5 py-0.5 rounded bg-iip-turquoise/15 text-iip-blue">EI</span>
                       )}
                       <div className="text-xs text-slate-500 truncate max-w-[260px]">{l.ue_nom || '—'}</div>
                     </td>
@@ -462,10 +462,10 @@ export default function DatesUE({ annee, sansTitre = false }) {
                   <div className="flex-1">
                     <div className="text-sm text-slate-800">{j.libelle}</div>
                     {j.base_legale && (
-                      <div className="text-[11px] text-slate-400 mt-0.5">{j.base_legale}</div>
+                      <div className="text-xs text-slate-400 mt-0.5">{j.base_legale}</div>
                     )}
                   </div>
-                  <span className="text-[11px] px-2 py-0.5 rounded-champ bg-slate-100 text-slate-600 flex-none">
+                  <span className="text-xs px-2 py-0.5 rounded-champ bg-slate-100 text-slate-600 flex-none">
                     {j.responsable || '—'}
                   </span>
                 </div>

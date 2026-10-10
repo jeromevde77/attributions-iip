@@ -166,7 +166,7 @@ export default function EditeurModelePiece({ cles, onBrouillon, onFermer }) {
     setCle(c);
   }
 
-  if (!m) return <div className="p-4 text-[13px] text-slate-500">Chargement du modèle…</div>;
+  if (!m) return <div className="p-4 text-sm text-slate-500">Chargement du modèle…</div>;
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -176,8 +176,8 @@ export default function EditeurModelePiece({ cles, onBrouillon, onFermer }) {
           <select value={cle} onChange={e => changerDePiece(e.target.value)} className="controle" title="Modèle">
             {cles.map(c => <option key={c} value={c}>{c === cle ? m.libelle : c.replace(/_/g, ' ')}</option>)}
           </select>
-        ) : <span className="text-[13px] font-semibold text-iip-texte">{m.libelle}</span>}
-        <span className="text-[12px] text-slate-500">
+        ) : <span className="text-sm font-semibold text-iip-texte">{m.libelle}</span>}
+        <span className="text-second text-slate-500">
           {m.version ? `version ${m.version}${m.d_origine ? ' (origine)' : ''}` : 'modèle d’origine'}
         </span>
         <span className="flex-1" />
@@ -196,11 +196,11 @@ export default function EditeurModelePiece({ cles, onBrouillon, onFermer }) {
           <option value="">Taille de la charte (9 pt)</option>
           {m.tailles.map(t => <option key={t} value={t}>{t.replace('pt', ' pt')}</option>)}
         </select>
-        <span className="text-[11px] text-slate-500">La police et la taille valent pour le texte ; les blocs gardent celles de la charte.</span>
+        <span className="text-xs text-slate-500">La police et la taille valent pour le texte ; les blocs gardent celles de la charte.</span>
       </div>
 
       {m.generique && (
-        <div className="px-3 py-2 border-b border-slate-200 text-[12.5px] text-iip-texte flex items-start gap-2"
+        <div className="px-3 py-2 border-b border-slate-200 text-second text-iip-texte flex items-start gap-2"
           style={{ borderLeft: '4px solid var(--c-disponible)' }}>
           <IconPencil size={15} className="flex-none mt-0.5" style={{ color: 'var(--c-disponible)' }} />
           <span><b>Cliquez sur le texte de la pièce, à droite, pour le corriger</b> : chaque phrase se modifie sur place
@@ -208,7 +208,7 @@ export default function EditeurModelePiece({ cles, onBrouillon, onFermer }) {
             avant ou après le contenu calculé.</span>
         </div>)}
       {histo && (
-        <div className="px-3 py-2 border-b border-slate-200 max-h-48 overflow-auto text-[12px]">
+        <div className="px-3 py-2 border-b border-slate-200 max-h-48 overflow-auto text-second">
           {!m.historique.length && <div className="text-slate-500">Aucune modification : le modèle d’origine est en vigueur.</div>}
           {m.historique.map(h => (
             <div key={h.version} className="flex items-center gap-2 py-0.5">
@@ -216,7 +216,7 @@ export default function EditeurModelePiece({ cles, onBrouillon, onFermer }) {
               <span className="w-32 text-slate-500">{String(h.cree_le || '').slice(0, 16).replace('T', ' ')}</span>
               <span className="w-40 truncate">{h.cree_par}</span>
               <span className="flex-1 truncate text-slate-600">{h.origine ? 'Retour au modèle d’origine' : (h.commentaire || '—')}</span>
-              <button className="bouton text-[11px] py-0.5" onClick={() => reprendre(h.version)}>Reprendre</button>
+              <button className="bouton text-xs py-0.5" onClick={() => reprendre(h.version)}>Reprendre</button>
             </div>))}
         </div>)}
 
@@ -225,19 +225,19 @@ export default function EditeurModelePiece({ cles, onBrouillon, onFermer }) {
           <Toolbar editor={editor} sobre />
           <div className={`${m.generique ? 'modele-commun' : ''} flex-1 overflow-auto bg-white`}><EditorContent editor={editor} /></div>
         </div>
-        <div className="w-[200px] border-l border-slate-200 overflow-auto p-2 text-[12px] space-y-3">
+        <div className="w-[200px] border-l border-slate-200 overflow-auto p-2 text-second space-y-3">
           <div>
-            <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Champs</div>
-            <p className="text-[11px] text-slate-500 mb-1">Cliquez pour l’insérer au curseur.</p>
+            <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">Champs</div>
+            <p className="text-xs text-slate-500 mb-1">Cliquez pour l’insérer au curseur.</p>
             {Object.entries(m.champs).map(([k, l]) => (
               <button key={k} onClick={() => inserer({ type: 'champ', attrs: { key: k, label: l } })}
                 className="block w-full text-left px-1.5 py-1 rounded-champ hover:bg-slate-50" title={`{{${k}}}`}>
-                <span className="champ-tag text-[11px] border border-[var(--c-disponible)] rounded px-1">{l}</span>
+                <span className="champ-tag text-xs border border-[var(--c-disponible)] rounded px-1">{l}</span>
               </button>))}
           </div>
           <div>
-            <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Blocs</div>
-            <p className="text-[11px] text-slate-500 mb-1">
+            <div className="text-xs uppercase tracking-wide text-slate-500 mb-1">Blocs</div>
+            <p className="text-xs text-slate-500 mb-1">
               <IconGripVertical size={11} className="inline -mt-0.5" /> Glissez un bloc pour le déplacer. Son contenu vient du calcul.</p>
             {Object.entries(m.blocs).map(([k, l]) => {
               const oblig = m.obligatoires.blocs.includes(k);
@@ -257,13 +257,13 @@ export default function EditeurModelePiece({ cles, onBrouillon, onFermer }) {
       {m.generique && (
         <div className="px-3 py-2 border-t border-slate-200 max-h-56 overflow-auto">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-[11px] uppercase tracking-wide text-slate-500">Phrases réécrites</span>
-            <span className="text-[11px] text-slate-500">— corrigées dans la pièce, ou saisies ici. Une phrase qui porte un nom ou une date ne vaut que pour cet exemple.</span>
+            <span className="text-xs uppercase tracking-wide text-slate-500">Phrases réécrites</span>
+            <span className="text-xs text-slate-500">— corrigées dans la pièce, ou saisies ici. Une phrase qui porte un nom ou une date ne vaut que pour cet exemple.</span>
             <span className="flex-1" />
-            <button className="bouton text-[11px] py-0.5 inline-flex items-center gap-1"
+            <button className="bouton text-xs py-0.5 inline-flex items-center gap-1"
               onClick={() => { setRemp(l => [...l, { avant: '', apres: '' }]); setModifie(true); }}><IconPlus size={12} /> Ajouter</button>
           </div>
-          {!remp.length && <div className="text-[12px] text-slate-500">Aucune pour l’instant : cliquez sur une phrase de la pièce, à droite.</div>}
+          {!remp.length && <div className="text-second text-slate-500">Aucune pour l’instant : cliquez sur une phrase de la pièce, à droite.</div>}
           {remp.map((r, i) => (
             <div key={i} className="flex items-center gap-1.5 py-0.5">
               <input value={r.avant} data-reponses="non" placeholder="Texte de la pièce" className="controle flex-1 min-w-0"
@@ -277,7 +277,7 @@ export default function EditeurModelePiece({ cles, onBrouillon, onFermer }) {
         </div>)}
       <div className="px-3 py-2 border-t border-slate-200 space-y-2">
         {!!manques.length && (
-          <div className="text-[12px] flex items-start gap-1.5" style={{ color: 'var(--c-refuse)' }}>
+          <div className="text-second flex items-start gap-1.5" style={{ color: 'var(--c-refuse)' }}>
             <IconAlertTriangle size={14} className="flex-none mt-0.5" />
             <span>Ce modèle ne peut pas être enregistré : il manque {manques.join(', ')}.</span>
           </div>)}

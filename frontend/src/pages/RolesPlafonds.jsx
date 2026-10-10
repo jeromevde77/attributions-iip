@@ -76,14 +76,14 @@ function Constat() {
           </span>
           {!!d.lignes.length && (
             <button onClick={vider}
-              className="text-[11px] text-slate-500 hover:text-red-700 flex items-center gap-1">
+              className="text-xs text-slate-500 hover:text-red-700 flex items-center gap-1">
               <IconTrash size={13} /> Vider
             </button>
           )}
         </>} />
 
       {!d.lignes.length ? (
-        <div className="px-4 py-3 text-[12px] text-slate-500">
+        <div className="px-4 py-3 text-second text-slate-500">
           Rien à signaler : personne n’a encore touché à ce qui lui est fermé.
           {!strict && ' Laissez tourner quelques jours avant de passer en mode strict.'}
         </div>
@@ -93,22 +93,22 @@ function Constat() {
               sert à comprendre ; ce résumé sert à trancher. */}
           <div className="px-4 py-3 border-b border-slate-100 space-y-1.5">
             {d.par_personne.map(p => (
-              <div key={p.email} className="text-[12px] flex items-baseline gap-2 flex-wrap">
+              <div key={p.email} className="text-second flex items-baseline gap-2 flex-wrap">
                 <span className="font-medium">{p.email}</span>
-                <span className="text-slate-400 text-[11px]">{p.role}</span>
+                <span className="text-slate-400 text-xs">{p.role}</span>
                 <span className="text-slate-600">perdrait : {p.modules.join(', ')}</span>
-                <span className="text-slate-400 text-[11px]">({p.total} accès)</span>
+                <span className="text-slate-400 text-xs">({p.total} accès)</span>
               </div>
             ))}
           </div>
 
           <button onClick={() => setOuvert(!ouvert)}
-            className="w-full px-4 py-1.5 text-[11px] text-slate-500 hover:text-iip-blue text-left">
+            className="w-full px-4 py-1.5 text-xs text-slate-500 hover:text-iip-blue text-left">
             {ouvert ? '▾' : '▸'} Le détail, ligne à ligne ({d.lignes.length})
           </button>
 
           {ouvert && (
-            <table className="w-full text-[11px]">
+            <table className="w-full text-xs">
               <thead className="tab-entete">
                 <tr>
                   <th className="text-left px-3 py-1.5">Personne</th>
@@ -142,7 +142,7 @@ function Constat() {
         </>
       )}
 
-      <div className="px-4 py-2.5 text-[11px] text-slate-500 border-t border-slate-100">
+      <div className="px-4 py-2.5 text-xs text-slate-500 border-t border-slate-100">
         Chaque ligne est une question, pas une faute : <b>cette personne devrait-elle y avoir
         accès ?</b> Si oui, relevez son plafond ci-dessus. Si non, le contrôle fera son
         office dès le passage en mode strict.
@@ -249,7 +249,7 @@ function Gestes({ plafonds, onMessage }) {
     <div className="carte overflow-hidden">
       <TitreCarte titre="Les gestes"
         droite={
-          <button className="bouton controle text-[12px]"
+          <button className="bouton controle text-second"
             onClick={() => setOuverts(tousOuverts ? new Set() : new Set(g.groupes.map(x => x.cle)))}>
             {tousOuverts ? 'Tout replier' : 'Tout déplier'}
           </button>
@@ -263,14 +263,14 @@ function Gestes({ plafonds, onMessage }) {
       </TitreCarte>
 
       <div className="overflow-x-auto">
-        <table className="w-full table-fixed border-collapse text-[13px]">
+        <table className="w-full table-fixed border-collapse text-sm">
           <thead>
             <tr className="tab-entete">
               <th className="w-[230px] min-w-[230px] px-3 py-1.5 text-left sticky left-0 z-10"
                 style={{ background: 'var(--tab-repere)' }}>Module · geste</th>
               {g.roles.map(r => (
                 <th key={r} className="w-[80px] min-w-[80px] px-1 py-1.5 align-bottom font-normal">
-                  <div className="text-[10px] leading-tight normal-case tracking-normal">{nomRole(g, r)}</div>
+                  <div className="text-mention leading-tight normal-case tracking-normal">{nomRole(g, r)}</div>
                 </th>
               ))}
             </tr>
@@ -289,7 +289,7 @@ function Gestes({ plafonds, onMessage }) {
                       <span className="inline-flex items-center gap-1.5 font-semibold">
                         <Chevron size={14} className="text-slate-400" />
                         {gr.label}
-                        <span className="text-[11px] font-normal text-slate-500">
+                        <span className="text-xs font-normal text-slate-500">
                           {lignes.length} geste(s){regles ? ` · ${regles} réglé(s)` : ''}
                         </span>
                       </span>
@@ -320,7 +320,7 @@ function Gestes({ plafonds, onMessage }) {
                               className={`block w-full ${cliquable ? 'cursor-pointer hover:opacity-80' : 'cursor-default'}`}>
                               <Pastille def={def} occupe={enCours === cle} />
                               <span aria-hidden="true"
-                                className="flex items-center justify-center gap-1 h-[10px] mt-0.5 text-[9px] leading-none">
+                                className="flex items-center justify-center gap-1 h-[10px] mt-0.5 text-mention leading-none">
                                 {c.verrouille && <IconLock size={9} className="text-slate-400" />}
                                 {c.reglage != null && (
                                   <>
@@ -357,18 +357,18 @@ function Gestes({ plafonds, onMessage }) {
       const actuel = c.reglage ?? c.defaut;
       const choix = [['oui', 'Oui'], ['non', 'Non'], ...(menu.r === 'coordination' ? [['demande', 'Par demande — repart à valider']] : [])];
       return (
-        <div data-menu-geste className="fixed z-[80] w-[240px] bg-white border border-slate-200 rounded-carte shadow-flottant py-1.5 text-[13px]"
+        <div data-menu-geste className="fixed z-[80] w-[240px] bg-white border border-slate-200 rounded-carte shadow-flottant py-1.5 text-sm"
           style={{ top: menu.top, left: menu.left }}>
           <div className="px-3 pb-1.5 mb-1 border-b border-slate-100">
             <div className="font-semibold text-iip-blue truncate">{menu.x.label}</div>
-            <div className="text-[11.5px] text-slate-500">{nomRole(g, menu.r)}</div>
+            <div className="text-xs text-slate-500">{nomRole(g, menu.r)}</div>
           </div>
           {choix.map(([v, lib]) => (
             <button key={v} type="button" onClick={() => appliquer(menu.x, menu.r, v === c.defaut ? null : v)}
               className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-slate-50">
               <span className="w-4 flex-none">{actuel === v && <IconCheck size={14} className="text-iip-blue" />}</span>
               <span className="flex-1">{lib}</span>
-              {v === c.defaut && <span className="text-[10.5px] text-slate-400">défaut</span>}
+              {v === c.defaut && <span className="text-mention text-slate-400">défaut</span>}
             </button>
           ))}
           {c.reglage != null && (
@@ -379,7 +379,7 @@ function Gestes({ plafonds, onMessage }) {
             </button>
           )}
           {menu.x.verdicts[menu.r]?.note && (
-            <div className="px-3 pt-1.5 mt-1 border-t border-slate-100 text-[11px] text-slate-500">
+            <div className="px-3 pt-1.5 mt-1 border-t border-slate-100 text-xs text-slate-500">
               Condition contrôlée par la route : {menu.x.verdicts[menu.r].note}
             </div>
           )}
@@ -408,12 +408,12 @@ function JournalGestes({ lignes, g }) {
         s’efface : revenir au défaut s’y inscrit comme le reste.
       </TitreCarte>
       {!lignes.length ? (
-        <div className="px-4 py-3 text-[12px] text-slate-500">
+        <div className="px-4 py-3 text-second text-slate-500">
           Aucun réglage : tous les gestes suivent le défaut du code.
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-[12px]">
+          <table className="w-full text-second">
             <thead className="tab-entete">
               <tr>
                 <th className="text-left px-3 py-1.5 w-[130px]">Date</th>
@@ -512,7 +512,7 @@ export default function RolesPlafonds() {
   return (
     <div className="space-y-4">
       {message && (
-        <div className="bloc-etat px-4 py-2.5 text-[13px] flex items-start justify-between gap-3"
+        <div className="bloc-etat px-4 py-2.5 text-sm flex items-start justify-between gap-3"
           data-etat={message.type === 'err' ? 'corriger' : 'surveiller'}>
           <span>{message.texte}</span>
           <button onClick={() => setMessage(null)} className="text-slate-400">✕</button>
@@ -522,7 +522,7 @@ export default function RolesPlafonds() {
       <div className="carte overflow-hidden">
         <TitreCarte titre="Plafonds par rôle"
           droite={!nouveau && (
-            <button className="bouton controle text-[12px]"
+            <button className="bouton controle text-second"
               onClick={() => setNouveau({ libelle: '', modele: '' })}>
               + Nouveau rôle
             </button>
@@ -534,14 +534,14 @@ export default function RolesPlafonds() {
         {nouveau && (
           <div className="px-4 py-3 border-b border-slate-200 flex flex-wrap items-end gap-2">
             <div>
-              <label className="block text-[11px] text-slate-500 mb-0.5">Libellé du rôle</label>
+              <label className="block text-xs text-slate-500 mb-0.5">Libellé du rôle</label>
               <input value={nouveau.libelle} autoFocus
                 onChange={e => setNouveau(n0 => ({ ...n0, libelle: e.target.value }))}
                 placeholder="ex : Conseiller numérique"
                 className="controle min-w-[240px]" />
             </div>
             <div>
-              <label className="block text-[11px] text-slate-500 mb-0.5">Partir des plafonds de</label>
+              <label className="block text-xs text-slate-500 mb-0.5">Partir des plafonds de</label>
               <select value={nouveau.modele}
                 onChange={e => setNouveau(n0 => ({ ...n0, modele: e.target.value }))}
                 className="controle">
@@ -556,7 +556,7 @@ export default function RolesPlafonds() {
               Créer
             </button>
             <button className="bouton controle" onClick={() => setNouveau(null)}>Annuler</button>
-            <p className="w-full text-[11px] text-slate-500 m-0">
+            <p className="w-full text-xs text-slate-500 m-0">
               Le rôle naît avec ces plafonds ; réglez-les ensuite écran par écran dans la grille.
               Le périmètre de sections se pose sur la fiche de chaque personne.
             </p>
@@ -564,7 +564,7 @@ export default function RolesPlafonds() {
         )}
 
         <div className="overflow-x-auto">
-          <table className="w-full table-fixed border-collapse text-[13px]">
+          <table className="w-full table-fixed border-collapse text-sm">
             <thead>
               <tr className="tab-entete">
                 <th className={`${COL_PREMIERE} px-3 py-1.5 text-left align-bottom sticky left-0 z-10`}
@@ -590,7 +590,7 @@ export default function RolesPlafonds() {
                           </button>
                         )}
                       </div>
-                      <div className="text-[10px] text-slate-400 truncate">{role}</div>
+                      <div className="text-mention text-slate-400 truncate">{role}</div>
                     </td>
                     {MODULES_ACCES.map(m => {
                       const niveau = data.plafonds[role]?.[m.key] || 'rien';

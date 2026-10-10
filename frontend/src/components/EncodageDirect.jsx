@@ -109,10 +109,10 @@ export default function EncodageDirect({ onClose, anneeDefaut, sectionDefaut }) 
       sous="Saisissez la note sur 20 ; le résultat en découle au seuil de 10."
       large="grande" hauteurFixe onFermer={onClose}
       pied={donnees && etudiantsVus.length ? (<>
-        <span className="text-[11px] text-iip-turquoise flex items-center gap-1.5">
+        <span className="text-xs text-iip-turquoise flex items-center gap-1.5">
           VA = valorisation · ⚠ VA = valorisation ET résultat encodé, à trancher
         </span>
-        <span className="text-[12px] text-slate-500 flex items-center gap-1.5">
+        <span className="text-second text-slate-500 flex items-center gap-1.5">
           <IconAlertTriangle size={13} />
           {etudiantsVus.length} étudiant(s) · {uesVues.length} unité(s).
           Une note sous 10 vaut ajournement.
@@ -128,7 +128,7 @@ export default function EncodageDirect({ onClose, anneeDefaut, sectionDefaut }) 
           toute la hauteur de la fenêtre. */}
       <div className="h-full space-y-4 flex flex-col">
         {message && (
-          <div className={`px-3 py-2 rounded-lg text-[13px] ${
+          <div className={`px-3 py-2 rounded-lg text-sm ${
             message.type === 'err' ? 'bg-red-500 border border-red-500 text-white'
             : message.type === 'alerte' ? 'bg-amber-500 border border-amber-500 text-white'
             : 'bg-emerald-500 border border-emerald-500 text-white'}`}>
@@ -189,27 +189,27 @@ export default function EncodageDirect({ onClose, anneeDefaut, sectionDefaut }) 
         </div>
 
         {!donnees ? (
-          <div className="py-10 text-center text-[13px] text-slate-400">
+          <div className="py-10 text-center text-sm text-slate-400">
             {enCours ? 'Chargement…' : 'Choisissez une année et une section.'}
           </div>
         ) : !etudiantsVus.length ? (
-          <div className="py-10 text-center text-[13px] text-slate-400 border-2 border-dashed rounded-xl">
+          <div className="py-10 text-center text-sm text-slate-400 border-2 border-dashed rounded-xl">
             Aucun étudiant inscrit dans cette section pour {annee}.
           </div>
         ) : (
           <>
             <div className="flex-1 overflow-auto border border-slate-200 rounded-xl">
-              <table className="w-full text-[12px] border-collapse">
+              <table className="w-full text-second border-collapse">
                 <thead className="sticky top-0 bg-slate-50 z-10">
                   <tr>
-                    <th className="text-left px-2 py-1.5 text-[10px] uppercase tracking-wide
+                    <th className="text-left px-2 py-1.5 text-mention uppercase tracking-wide
                                    text-slate-500 font-semibold border-b border-slate-200
                                    sticky left-0 bg-slate-50">Étudiant</th>
                     {uesVues.map(u => (
                       <th key={u.ue_num} title={u.ue_nom}
                         className="px-1 py-1.5 border-b border-slate-200 min-w-[52px]">
-                        <div className="text-[11px] font-bold text-iip-blue">{u.ue_num}</div>
-                        <div className="text-[10px] text-slate-400 truncate max-w-[70px]">
+                        <div className="text-xs font-bold text-iip-blue">{u.ue_num}</div>
+                        <div className="text-mention text-slate-400 truncate max-w-[70px]">
                           {u.ue_nom}
                         </div>
                       </th>
@@ -241,7 +241,7 @@ export default function EncodageDirect({ onClose, anneeDefaut, sectionDefaut }) 
                                     ? ` — attention, un résultat « ${d.conflit} » est aussi encodé`
                                     : ''}`
                                 : undefined}
-                              className={`w-11 text-center border rounded px-1 py-0.5 text-[12px]
+                              className={`w-11 text-center border rounded px-1 py-0.5 text-second
                                 ${modifie ? 'border-amber-400 bg-amber-50'
                                   // La valorisation se distingue : la grille de
                                   // parcours l'affiche, cet écran l'ignorait.
@@ -251,7 +251,7 @@ export default function EncodageDirect({ onClose, anneeDefaut, sectionDefaut }) 
                                   : n >= 10 ? 'border-emerald-200 bg-emerald-50/50'
                                             : 'border-red-200 bg-red-50/50'}`} />
                             {va && (
-                              <div className="text-[8px] leading-none mt-0.5 text-iip-turquoise
+                              <div className="text-mention leading-none mt-0.5 text-iip-turquoise
                                               font-semibold">
                                 {d.conflit ? '⚠ VA' : 'VA'}
                               </div>

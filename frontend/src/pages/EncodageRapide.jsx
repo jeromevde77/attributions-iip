@@ -276,7 +276,7 @@ export default function EncodageRapide() {
                      text-iip-blue rounded-lg hover:bg-iip-blue/5 font-semibold">
           <IconPencil size={15} /> Encodage direct
         </button>
-        <div className="text-[12px] flex items-center gap-1.5 text-slate-400">
+        <div className="text-second flex items-center gap-1.5 text-slate-400">
           <IconDeviceFloppy size={14} />
           {etat === 'enregistrement' ? 'Enregistrement…'
             : etat === 'enregistre' ? <span className="text-emerald-600">Enregistré</span>
@@ -298,7 +298,7 @@ export default function EncodageRapide() {
         <div className="segments">
           {[['ue', 'Par UE'], ['annee', 'Par année']].map(([v, l]) => (
             <button key={v} onClick={() => setVue(v)}
-              className={`px-3 py-1.5 text-[13px] ${vue === v
+              className={`px-3 py-1.5 text-sm ${vue === v
                 ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>
               {l}
             </button>
@@ -314,35 +314,35 @@ export default function EncodageRapide() {
 
       {/* Actions groupées — délibération seulement */}
       <div className={`${vue === 'ue' ? 'flex' : 'hidden'} items-center gap-2 flex-wrap px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl`}>
-        <span className="text-[12px] text-slate-600">
+        <span className="text-second text-slate-600">
           {choisis.size ? <b>{choisis.size} étudiant(s) sélectionné(s)</b> : `Les ${filtres.length} étudiants affichés`}
         </span>
         <span className="text-slate-300">·</span>
         <select value={niveauLot} onChange={e => setNiveauLot(e.target.value)}
-          className="border border-slate-300 rounded-lg px-2 py-1 text-[12px]">
+          className="border border-slate-300 rounded-lg px-2 py-1 text-second">
           <option value="">Toutes les UE</option>
           {niveauxPresents.map(n => <option key={n} value={n}>UE de {n}</option>)}
         </select>
         <button onClick={() => appliquerLot('reussi')}
-          className="text-[12px] px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-semibold">
+          className="text-second px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-semibold">
           Tout réussi
         </button>
         <button onClick={() => appliquerLot('ajourne')}
-          className="text-[12px] px-2.5 py-1 rounded-lg border border-amber-300 text-amber-800">
+          className="text-second px-2.5 py-1 rounded-lg border border-amber-300 text-amber-800">
           Tout ajourné
         </button>
         <button onClick={() => appliquerLot('refuse')}
           title="Décision définitive, distincte de l'ajournement"
-          className="text-[12px] px-2.5 py-1 rounded-lg border border-red-300 text-red-700">
+          className="text-second px-2.5 py-1 rounded-lg border border-red-300 text-red-700">
           Tout refusé
         </button>
         <button onClick={() => appliquerLot(null)}
-          className="text-[12px] px-2.5 py-1 rounded-lg border border-slate-300 text-slate-600">
+          className="text-second px-2.5 py-1 rounded-lg border border-slate-300 text-slate-600">
           Effacer
         </button>
         {choisis.size > 0 && (
           <button onClick={() => setChoisis(new Set())}
-            className="text-[12px] px-2 py-1 text-slate-500">Désélectionner</button>
+            className="text-second px-2 py-1 text-slate-500">Désélectionner</button>
         )}
       </div>
 
@@ -353,7 +353,7 @@ export default function EncodageRapide() {
 
       {coherence && vue !== 'annee' && (
         <div className="mb-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-300
-                        text-[13px] text-amber-900">
+                        text-sm text-amber-900">
           <div className="flex items-center gap-1.5 font-semibold mb-1">
             <IconAlertTriangle size={15} />
             {coherence.nb_incoherents} note(s) sous 10 sans décision d'échec
@@ -361,7 +361,7 @@ export default function EncodageRapide() {
           Ces unités portent une note inférieure au seuil mais sont marquées
           réussies, ou sans décision — {coherence.etudiants_concernes} étudiant(s)
           concerné(s). La délibération n'a pas suivi les notes, ou reste à prendre.
-          <div className="mt-1.5 text-[12px] text-amber-800">
+          <div className="mt-1.5 text-second text-amber-800">
             {coherence.incoherents.slice(0, 8).map(i =>
               `${i.nom} ${i.prenom} — UE ${i.ue_num} (${i.points}/20)`).join(' · ')}
             {coherence.nb_incoherents > 8
@@ -386,7 +386,7 @@ export default function EncodageRapide() {
               <tr className="bg-slate-50">
                 <th className="sticky left-0 z-30 bg-slate-50 border-b border-r border-slate-200 px-2 py-2 w-8"></th>
                 <th className="sticky left-8 z-30 bg-slate-50 border-b border-r border-slate-200 px-3 py-2 text-left min-w-[190px]">
-                  <span className="text-[11px] uppercase tracking-wide text-slate-500">Étudiant</span>
+                  <span className="text-xs uppercase tracking-wide text-slate-500">Étudiant</span>
                 </th>
                 {data.ues.map((u, i) => (
                   <th key={u.ue_num}
@@ -401,8 +401,8 @@ export default function EncodageRapide() {
                     className={`border-b border-slate-200 px-1 py-2 w-14 cursor-pointer
                       hover:bg-slate-100 ${i > 0 && data.ues[i - 1].ue_niv !== u.ue_niv
                         ? 'border-l-2 border-l-iip-blue/30' : ''}`}>
-                    <div className="text-[12px] font-bold text-iip-blue">{u.ue_num}</div>
-                    <div className="text-[8.5px] font-semibold"
+                    <div className="text-second font-bold text-iip-blue">{u.ue_num}</div>
+                    <div className="text-mention font-semibold"
                       style={{ color: couleurNiveau(u.ue_niv) || 'var(--c-texte)' }}>
                       {u.ue_niv || '—'}
                     </div>
@@ -422,10 +422,10 @@ export default function EncodageRapide() {
                       })} />
                   </td>
                   <td className="sticky left-8 z-10 bg-white border-r border-b border-slate-100 px-3 py-1">
-                    <div className="text-[13px] text-slate-800 truncate max-w-[180px]">
+                    <div className="text-sm text-slate-800 truncate max-w-[180px]">
                       {nomPropre(e.nom, e.prenom)}
                     </div>
-                    <div className="text-[10px] text-slate-400">{e.id_ecampus}</div>
+                    <div className="text-mention text-slate-400">{e.id_ecampus}</div>
                   </td>
                   {data.ues.map((u, i) => {
                     const cle = e.id + '|' + u.ue_num;
@@ -453,7 +453,7 @@ export default function EncodageRapide() {
                                         : 'border-transparent text-slate-300 hover:border-slate-200 hover:bg-slate-50'}`}>
                           {val ? (
                             <span className="block">
-                              <span className="block text-[13px] font-bold">
+                              <span className="block text-sm font-bold">
                                 {vueCellule === 'delib'
                                   ? (SIGLE_DELIB[val] || val)
                                   : (notes[cle] != null ? notes[cle] : SIGLE[val])}
@@ -463,7 +463,7 @@ export default function EncodageRapide() {
                               {/* Les DEUX sessions quand elles existent : le
                                   marqueur ne disait que d'où venait la
                                   décision, pas ce qui s'est joué dans chacune. */}
-                              <span className="block text-[7.5px] font-medium opacity-70">
+                              <span className="block text-mention font-medium opacity-70">
                                 {sessions[cle]?.s1 && sessions[cle]?.s2
                                   ? `${LETTRE_SESSION[sessions[cle].s1] || '?'}·${LETTRE_SESSION[sessions[cle].s2] || '?'}`
                                   : sessions[cle]?.s2 ? 'S2'
@@ -472,10 +472,10 @@ export default function EncodageRapide() {
                             </span>
                           ) : ant ? (
                             <span className="block">
-                              <span className="block text-[12px] font-semibold">
+                              <span className="block text-second font-semibold">
                                 {ant.points != null ? ant.points : (SIGLE[ant.resultat] || '·')}
                               </span>
-                              <span className="block text-[7.5px] opacity-80">{millesime(ant.annee)}</span>
+                              <span className="block text-mention opacity-80">{millesime(ant.annee)}</span>
                             </span>
                           ) : '·'}
                         </button>
@@ -489,7 +489,7 @@ export default function EncodageRapide() {
         </div>
       )}
 
-      <p className={`text-[11px] text-slate-400 ${vue === 'ue' ? '' : 'hidden'}`}>
+      <p className={`text-xs text-slate-400 ${vue === 'ue' ? '' : 'hidden'}`}>
         La case porte la <b>note sur 20</b> lorsqu'elle est connue, sinon le symbole :
         <b className="text-emerald-700"> ✓</b> réussi · <b className="text-red-600">✕</b> refusé ·
         <b className="text-violet-600"> VA</b> valorisation — chaque case porte son millésime.
@@ -546,18 +546,18 @@ function SyntheseAnnees({ synthese, recherche, onOuvrir }) {
           <thead className="sticky top-0 z-20">
             <tr className="bg-slate-50">
               <th className="sticky left-0 z-30 bg-slate-50 border-b border-r border-slate-200 px-3 py-2 text-left min-w-[210px]">
-                <span className="text-[11px] uppercase tracking-wide text-slate-500">Étudiant</span>
+                <span className="text-xs uppercase tracking-wide text-slate-500">Étudiant</span>
               </th>
               {synthese.annees.map(a => (
                 <th key={a} className="border-b border-slate-200 px-2 py-2 min-w-[86px]">
-                  <div className="text-[12px] font-bold text-iip-blue">{a}</div>
+                  <div className="text-second font-bold text-iip-blue">{a}</div>
                   {a === synthese.annee_active && (
-                    <div className="text-[8px] text-iip-turquoise font-semibold">EN COURS</div>
+                    <div className="text-mention text-iip-turquoise font-semibold">EN COURS</div>
                   )}
                 </th>
               ))}
               <th className="border-b border-l border-slate-200 px-2 py-2 w-20">
-                <span className="text-[11px] uppercase tracking-wide text-slate-500">Acquis</span>
+                <span className="text-xs uppercase tracking-wide text-slate-500">Acquis</span>
               </th>
             </tr>
           </thead>
@@ -565,10 +565,10 @@ function SyntheseAnnees({ synthese, recherche, onOuvrir }) {
             {lignes.map(e => (
               <tr key={e.id} className="hover:bg-slate-50/60">
                 <td className="sticky left-0 z-10 bg-white border-r border-b border-slate-100 px-3 py-1.5">
-                  <div className="text-[13px] text-slate-800 truncate max-w-[200px]">
+                  <div className="text-sm text-slate-800 truncate max-w-[200px]">
                     {nomPropre(e.nom, e.prenom)}
                   </div>
-                  <div className="text-[10px] text-slate-400">{e.id_ecampus}</div>
+                  <div className="text-mention text-slate-400">{e.id_ecampus}</div>
                 </td>
 
                 {synthese.annees.map(a => {
@@ -589,10 +589,10 @@ function SyntheseAnnees({ synthese, recherche, onOuvrir }) {
                       <button onClick={() => onOuvrir(a)} title={`${a} — ${detail}`}
                         className="w-full rounded-md border py-1 leading-none transition hover:brightness-95"
                         style={{ background: t.bg, color: t.fg, borderColor: t.bd }}>
-                        <span className="block text-[13px] font-bold">
+                        <span className="block text-sm font-bold">
                           {k.reussies}/{k.tentees}
                         </span>
-                        <span className="block text-[8px] opacity-80">
+                        <span className="block text-mention opacity-80">
                           {k.en_cours ? `${k.en_cours} en cours` : k.moyenne != null ? `${k.moyenne}/20` : '\u00a0'}
                         </span>
                       </button>
@@ -601,8 +601,8 @@ function SyntheseAnnees({ synthese, recherche, onOuvrir }) {
                 })}
 
                 <td className="border-b border-l border-slate-100 px-2 py-1.5 text-center">
-                  <span className="text-[13px] font-bold text-iip-blue">{e.acquis}</span>
-                  <span className="text-[10px] text-slate-400">/{e.total}</span>
+                  <span className="text-sm font-bold text-iip-blue">{e.acquis}</span>
+                  <span className="text-mention text-slate-400">/{e.total}</span>
                 </td>
               </tr>
             ))}
@@ -610,7 +610,7 @@ function SyntheseAnnees({ synthese, recherche, onOuvrir }) {
         </table>
       </div>
 
-      <p className="text-[11px] text-slate-400 mt-2">
+      <p className="text-xs text-slate-400 mt-2">
         Chaque case donne les <b>UE réussies sur les UE au programme</b> de l'année, et sa couleur
         en traduit la proportion. Le détail apparaît au survol ; un clic ouvre l'année dans la vue
         de délibération.

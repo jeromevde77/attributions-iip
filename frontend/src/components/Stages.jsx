@@ -104,8 +104,8 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h3 className="text-[15px] font-semibold text-iip-blue">Stages</h3>
-          <p className="text-[12px] text-slate-500">
+          <h3 className="text-base font-semibold text-iip-blue">Stages</h3>
+          <p className="text-second text-slate-500">
             Le lieu et son adresse figurent au supplément au diplôme.
           </p>
         </div>
@@ -118,7 +118,7 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
       </div>
 
       {message && (
-        <div className={`px-3 py-2 rounded-lg text-[13px] flex items-start justify-between gap-2 ${
+        <div className={`px-3 py-2 rounded-lg text-sm flex items-start justify-between gap-2 ${
           message.type === 'rappel' ? 'bg-amber-500 border border-amber-500 text-white'
                                     : 'bg-red-500 border border-red-500 text-white'}`}>
           <span>{message.texte}</span>
@@ -127,7 +127,7 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
       )}
 
       {!stages.length ? (
-        <div className="py-8 text-center text-[13px] text-slate-400 border-2 border-dashed rounded-xl">
+        <div className="py-8 text-center text-sm text-slate-400 border-2 border-dashed rounded-xl">
           Aucun stage enregistré.
         </div>
       ) : (
@@ -136,7 +136,7 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
            nombre d'heures, le lieu et la note, puis on déroule ; et la somme totale
            pour vérifier le minimum de 600 h en TIM »). */
         <div className="border border-slate-200 rounded-carte overflow-hidden">
-          <div className="grid grid-cols-[6.5rem_minmax(0,1.3fr)_minmax(0,1.2fr)_4.5rem_3.5rem_5.5rem_2rem] gap-2 px-3 py-1.5 tab-entete text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          <div className="grid grid-cols-[6.5rem_minmax(0,1.3fr)_minmax(0,1.2fr)_4.5rem_3.5rem_5.5rem_2rem] gap-2 px-3 py-1.5 tab-entete text-xs font-semibold uppercase tracking-wide text-slate-500">
             <span>Période</span><span>Stage</span><span>Lieu</span><span className="text-right">Heures</span>
             <span className="text-right">Note</span><span>Statut</span><span />
           </div>
@@ -148,18 +148,18 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
             const min = Number(minimum.heures) || 0;
             const ok = !min || total >= min;
             return (
-              <div className="grid grid-cols-[6.5rem_minmax(0,1.3fr)_minmax(0,1.2fr)_4.5rem_3.5rem_5.5rem_2rem] gap-2 items-center px-3 py-2 border-b-2 border-slate-200 bg-white text-[13px]">
+              <div className="grid grid-cols-[6.5rem_minmax(0,1.3fr)_minmax(0,1.2fr)_4.5rem_3.5rem_5.5rem_2rem] gap-2 items-center px-3 py-2 border-b-2 border-slate-200 bg-white text-sm">
                 <span className="col-span-3 font-semibold text-slate-700">
                   Total · {stages.length} stage(s)
                   {min ? <span className="font-normal text-slate-500"> — minimum {minimum.section} : {min} h</span>
                     : minimum.section && <span className="font-normal text-slate-400"> — aucun minimum réglé pour {minimum.section}</span>}
                   {peutReglerMin && minimum.section && (
-                    <button type="button" className="ml-2 text-[11px] underline text-iip-blue font-normal" onClick={reglerMinimum}>régler</button>)}
+                    <button type="button" className="ml-2 text-xs underline text-iip-blue font-normal" onClick={reglerMinimum}>régler</button>)}
                 </span>
                 <span className="text-right tabular-nums font-bold">{total} h</span>
                 <span className="col-span-3">
                   {min > 0 && (
-                    <span className="inline-flex items-center rounded-full px-2 h-6 text-[11px] font-semibold text-white"
+                    <span className="inline-flex items-center rounded-full px-2 h-6 text-xs font-semibold text-white"
                       style={{ background: ok ? 'var(--c-reussi)' : 'var(--c-attente)' }}>
                       {ok ? 'minimum atteint' : `manque ${min - total} h`}</span>)}
                 </span>
@@ -169,20 +169,20 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
             <div key={s.id} className="border-t border-slate-100">
               <div role="button" tabIndex={0} onClick={() => setOuvert(o => (o === s.id ? null : s.id))}
                 onKeyDown={e => { if (e.key === 'Enter') setOuvert(o => (o === s.id ? null : s.id)); }}
-                className={`grid grid-cols-[6.5rem_minmax(0,1.3fr)_minmax(0,1.2fr)_4.5rem_3.5rem_5.5rem_2rem] gap-2 items-center px-3 py-2 text-[13px] cursor-pointer hover:bg-slate-50 ${ouvert === s.id ? 'bg-slate-50' : 'bg-white'}`}>
-                <span className="text-[12px] text-slate-600 tabular-nums leading-tight">
+                className={`grid grid-cols-[6.5rem_minmax(0,1.3fr)_minmax(0,1.2fr)_4.5rem_3.5rem_5.5rem_2rem] gap-2 items-center px-3 py-2 text-sm cursor-pointer hover:bg-slate-50 ${ouvert === s.id ? 'bg-slate-50' : 'bg-white'}`}>
+                <span className="text-second text-slate-600 tabular-nums leading-tight">
                   {s.date_debut ? <>{fr(s.date_debut)}<span className="block text-slate-400">→ {fr(s.date_fin)}</span>
                     {/* Une fin avant le début : une faute de frappe dans le relevé, à corriger. */}
                     {s.date_fin && s.date_fin < s.date_debut && (
-                      <span className="block text-[10px] font-semibold" style={{ color: 'var(--c-attente)' }}>fin avant début</span>)}</> : s.annee_scolaire}
+                      <span className="block text-mention font-semibold" style={{ color: 'var(--c-attente)' }}>fin avant début</span>)}</> : s.annee_scolaire}
                 </span>
                 <span className="min-w-0">
                   <span className="block truncate text-slate-800">{s.intitule || (s.ue_num ? `UE ${s.ue_num}` : '—')}</span>
-                  {s.domaine && <span className="block truncate text-[11px] text-slate-500">{s.domaine}</span>}
+                  {s.domaine && <span className="block truncate text-xs text-slate-500">{s.domaine}</span>}
                 </span>
                 <span className="min-w-0">
                   <span className="block truncate font-medium text-slate-800">{s.lieu_nom || <span className="text-slate-400 italic font-normal">lieu à préciser</span>}</span>
-                  {s.localite && <span className="block truncate text-[11px] text-slate-500">{s.localite}</span>}
+                  {s.localite && <span className="block truncate text-xs text-slate-500">{s.localite}</span>}
                 </span>
                 <span className="text-right tabular-nums font-semibold">{(s.heures_effectuees ?? s.heures_prevues) != null ? `${s.heures_effectuees ?? s.heures_prevues} h` : '—'}</span>
                 <span className="text-right tabular-nums">{s.note_tuteur ?? '—'}</span>
@@ -201,7 +201,7 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
                 <div className="border-t border-slate-100 p-4 space-y-3">
                   {!s.pret && (
                     <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
-                                    text-[12px] text-amber-900 flex items-start gap-1.5">
+                                    text-second text-amber-900 flex items-start gap-1.5">
                       <IconAlertTriangle size={14} className="mt-0.5 flex-none" />
                       <span>
                         Avant tout démarrage : {s.blocages.join(', ')}. Aucun stage ne peut
@@ -250,14 +250,14 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
                       </select>
                       {peutEcrire && (
                         <button onClick={() => setNouveauLieu({ pays: 'Belgique' })}
-                          className="text-[12px] px-2.5 py-1 border border-slate-300 rounded-lg
+                          className="text-second px-2.5 py-1 border border-slate-300 rounded-lg
                                      hover:bg-slate-50 whitespace-nowrap">
                           Nouveau lieu
                         </button>
                       )}
                     </div>
                     {s.lieu_nom && (
-                      <div className="text-[11px] text-slate-500 mt-1">
+                      <div className="text-xs text-slate-500 mt-1">
                         {[s.adresse, [s.cp, s.localite].filter(Boolean).join(' '), s.pays]
                           .filter(Boolean).join(', ')}
                         {!s.adresse && (
@@ -324,7 +324,7 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
                       onBlur={e => e.target.value !== (s.evaluation_tuteur || '')
                         && maj(s.id, { evaluation_tuteur: e.target.value })}
                       className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
-                    <p className="text-[11px] text-slate-500 mt-1">
+                    <p className="text-xs text-slate-500 mt-1">
                       L'évaluation du tuteur est l'un des éléments pris en compte par le Conseil
                       des études, qui reste seul habilité à sanctionner les études.
                     </p>
@@ -333,7 +333,7 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
                   {peutEcrire && (
                     <div className="flex justify-end">
                       <button onClick={() => supprimer(s.id)}
-                        className="flex items-center gap-1.5 text-[12px] text-slate-400 hover:text-red-600">
+                        className="flex items-center gap-1.5 text-second text-slate-400 hover:text-red-600">
                         <IconTrash size={14} /> Retirer ce stage
                       </button>
                     </div>
@@ -358,7 +358,7 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
             </button>
           </>}>
           <div className="space-y-3">
-            <p className="text-[12px] text-slate-500">
+            <p className="text-second text-slate-500">
               L'adresse complète figurera au supplément au diplôme de chaque étudiant accueilli.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

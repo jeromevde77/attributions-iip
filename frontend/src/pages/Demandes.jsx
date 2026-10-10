@@ -82,14 +82,14 @@ export default function Demandes() {
         <div className="segments">
           {[['en_attente', 'En attente'], ['validee', 'Validées'], ['refusee', 'Refusées']].map(([v, l]) => (
             <button key={v} onClick={() => setStatut(v)}
-              className={`px-3 py-1.5 text-[13px] ${statut === v
+              className={`px-3 py-1.5 text-sm ${statut === v
                 ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>
               {l}
             </button>
           ))}
         </div>
         {data?.en_attente > 0 && statut !== 'en_attente' && (
-          <span className="text-[12px] text-amber-700 flex items-center gap-1">
+          <span className="text-second text-amber-700 flex items-center gap-1">
             <IconClock size={13} /> {data.en_attente} en attente
           </span>
         )}
@@ -109,8 +109,8 @@ export default function Demandes() {
               <div key={d.id} className="border border-slate-200 rounded-xl overflow-hidden bg-white">
                 <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-start justify-between gap-3 flex-wrap">
                   <div>
-                    <div className="text-[13px] font-semibold text-iip-blue">{d.libelle}</div>
-                    <div className="text-[11px] text-slate-500">
+                    <div className="text-sm font-semibold text-iip-blue">{d.libelle}</div>
+                    <div className="text-xs text-slate-500">
                       {LIBELLE_TYPE[d.type] || d.type}
                       {d.section ? ` · ${d.section}` : ''}
                       {d.annee_scolaire ? ` · ${d.annee_scolaire}` : ''}
@@ -121,16 +121,16 @@ export default function Demandes() {
                   {d.statut === 'en_attente' ? (
                     <div className="flex gap-2">
                       <button onClick={() => decider(d.id, 'refuser')} disabled={enCours}
-                        className="flex items-center gap-1 text-[12px] px-2.5 py-1 rounded-lg border border-red-500 text-white hover:bg-red-500 disabled:opacity-50">
+                        className="flex items-center gap-1 text-second px-2.5 py-1 rounded-lg border border-red-500 text-white hover:bg-red-500 disabled:opacity-50">
                         <IconX size={13} /> Refuser
                       </button>
                       <button onClick={() => decider(d.id, 'valider')} disabled={enCours}
-                        className="flex items-center gap-1 text-[12px] px-3 py-1 rounded-lg bg-emerald-600 text-white font-semibold disabled:opacity-50">
+                        className="flex items-center gap-1 text-second px-3 py-1 rounded-lg bg-emerald-600 text-white font-semibold disabled:opacity-50">
                         <IconCheck size={13} /> Valider
                       </button>
                     </div>
                   ) : (
-                    <div className={`text-[12px] ${d.statut === 'validee' ? 'text-emerald-700' : 'text-red-700'}`}>
+                    <div className={`text-second ${d.statut === 'validee' ? 'text-emerald-700' : 'text-red-700'}`}>
                       {d.statut === 'validee' ? 'Validée' : 'Refusée'} par {d.decideur_nom || '—'}
                       {d.motif_refus && <span className="block text-slate-500">« {d.motif_refus} »</span>}
                     </div>
@@ -139,11 +139,11 @@ export default function Demandes() {
 
                 <div className="px-4 py-2.5">
                   {!diff.length ? (
-                    <div className="text-[12px] text-slate-400">Aucun écart détecté.</div>
+                    <div className="text-second text-slate-400">Aucun écart détecté.</div>
                   ) : (
-                    <table className="text-[12px]">
+                    <table className="text-second">
                       <thead>
-                        <tr className="text-[10px] uppercase tracking-wide text-slate-400">
+                        <tr className="text-mention uppercase tracking-wide text-slate-400">
                           <th className="text-left pr-6 pb-1">Champ</th>
                           <th className="text-left pr-6 pb-1">Actuellement</th>
                           <th className="text-left pb-1">Demandé</th>
@@ -167,7 +167,7 @@ export default function Demandes() {
         </div>
       )}
 
-      <p className="text-[11px] text-slate-400 flex items-start gap-1.5">
+      <p className="text-xs text-slate-400 flex items-start gap-1.5">
         <IconAlertTriangle size={13} className="mt-0.5 flex-none" />
         Tant qu'une demande n'est pas validée, la donnée officielle reste inchangée : la dotation
         et les documents se calculent sur les valeurs en vigueur, jamais sur une proposition.

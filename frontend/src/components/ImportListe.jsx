@@ -149,14 +149,14 @@ export default function ImportListe({ annee, onClose, onImporte }) {
       </>}>
         <div className="space-y-4">
           {erreur && (
-            <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-[13px] text-red-800 border-l-4 border-l-red-500">
+            <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-sm text-red-800 border-l-4 border-l-red-500">
               {erreur}
             </div>
           )}
 
           {etape === 'fichier' && (
             <>
-              <p className="text-[13px] text-slate-600">
+              <p className="text-sm text-slate-600">
                 Fichier <b>Liste_…&nbsp;.xls</b> exporté d'eCampus, onglet
                 « R_Etudiants_Excel_Inscriptions_ ».
               </p>
@@ -173,7 +173,7 @@ export default function ImportListe({ annee, onClose, onImporte }) {
           {etape === 'correspondance' && brut && (
             <>
               <div className="flex items-center justify-between gap-3 flex-wrap">
-                <div className="text-[13px] text-slate-600">
+                <div className="text-sm text-slate-600">
                   {brut.etudiants.length} étudiants · {brut.lignes.length} inscriptions ·
                   {' '}{codes.length} codes d'UE
                 </div>
@@ -184,7 +184,7 @@ export default function ImportListe({ annee, onClose, onImporte }) {
                 </label>
               </div>
 
-              <div className={`px-3 py-2 rounded-lg text-[12px] border ${
+              <div className={`px-3 py-2 rounded-lg text-second border ${
                 resolus === codes.length
                   ? 'bg-emerald-500 border-emerald-500 text-white'
                   : 'bg-amber-500 border-amber-500 text-white'}`}>
@@ -195,14 +195,14 @@ export default function ImportListe({ annee, onClose, onImporte }) {
               <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 max-h-80 overflow-y-auto">
                 {codes.map((c, i) => (
                   <div key={c.code} className="flex items-center gap-2 px-3 py-2">
-                    <code className="text-[12px] font-bold text-iip-blue bg-slate-100 px-1.5 py-0.5 rounded flex-none min-w-[62px] text-center">
+                    <code className="text-second font-bold text-iip-blue bg-slate-100 px-1.5 py-0.5 rounded flex-none min-w-[62px] text-center">
                       {c.code}
                     </code>
-                    <span className="text-[11px] text-slate-500 flex-1 truncate" title={c.libelle}>
+                    <span className="text-xs text-slate-500 flex-1 truncate" title={c.libelle}>
                       {c.libelle}
                     </span>
                     {c.origine === 'memorise' && (
-                      <span className="text-[10px] text-slate-400 flex-none">mémorisé</span>
+                      <span className="text-mention text-slate-400 flex-none">mémorisé</span>
                     )}
                     {c.origine === 'suggere' && (
                       <IconCheck size={13} className="text-emerald-600 flex-none" />
@@ -214,7 +214,7 @@ export default function ImportListe({ annee, onClose, onImporte }) {
                       onChange={e => setCodes(cs => cs.map((x, j) =>
                         j === i ? { ...x, ue_num: e.target.value ? Number(e.target.value) : null,
                                     origine: e.target.value ? 'manuel' : null } : x))}
-                      className="border border-slate-300 rounded-lg px-2 py-1 text-[12px] w-64 flex-none">
+                      className="border border-slate-300 rounded-lg px-2 py-1 text-second w-64 flex-none">
                       <option value="">— sans correspondance</option>
                       {ues.map(u => (
                         <option key={u.ue_num} value={u.ue_num}>
@@ -231,15 +231,15 @@ export default function ImportListe({ annee, onClose, onImporte }) {
 
           {etape === 'fait' && rapport && (
             <>
-              <div className="px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-[13px] text-emerald-900 border-l-4 border-l-emerald-500">
+              <div className="px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-900 border-l-4 border-l-emerald-500">
                 <div className="font-semibold mb-1">Import terminé — {rapport.annee}</div>
-                <ul className="text-[12px] space-y-0.5">
+                <ul className="text-second space-y-0.5">
                   <li>{rapport.etudiants} étudiant(s) créé(s) ou mis à jour</li>
                   <li>{rapport.inscriptions} inscription(s) avec leur groupe</li>
                   {rapport.ignorees > 0 && <li>{rapport.ignorees} ligne(s) ignorée(s), faute de correspondance</li>}
                 </ul>
               </div>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-xs text-slate-500">
                 La signalétique complète le dossier sans écraser ce qui existait : seuls les
                 champs vides de Lucie sont remplis.
               </p>

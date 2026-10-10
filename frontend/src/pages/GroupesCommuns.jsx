@@ -114,7 +114,7 @@ export default function GroupesCommuns({ sectionImposee = null, blocImpose = nul
           {sections.map(s => <option key={s.code} value={s.code}>{s.libelle || s.code}</option>)}
         </select>
         <div className="segments flex h-9">
-          {BLOCS.map(b => <button key={b} onClick={() => setBloc(b)} className={`px-3 text-[13px] ${bloc === b ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'}`}>{b}</button>)}
+          {BLOCS.map(b => <button key={b} onClick={() => setBloc(b)} className={`px-3 text-sm ${bloc === b ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'}`}>{b}</button>)}
         </div></>}
         <span className="flex-1" />
         {peutEcrire && c && <>
@@ -124,19 +124,19 @@ export default function GroupesCommuns({ sectionImposee = null, blocImpose = nul
             <IconUsersGroup size={15} /> Remplir les groupes…</button>
         </>}
       </div>
-      {erreur && <div className="text-[13px]" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
+      {erreur && <div className="text-sm" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
 
       {simu && (
         <div className="carte p-3 space-y-2" style={{ borderLeft: '4px solid var(--c-disponible)' }}>
           <div className="flex items-center gap-3 flex-wrap">
-            <b className="text-[13px]">Simulation</b>
-            <span className="text-[13px] text-slate-600">{simu.a_poser} placement(s) nouveaux · {simu.a_changer} changement(s) · {simu.inchanges} déjà en place</span>
+            <b className="text-sm">Simulation</b>
+            <span className="text-sm text-slate-600">{simu.a_poser} placement(s) nouveaux · {simu.a_changer} changement(s) · {simu.inchanges} déjà en place</span>
             <span className="flex-1" />
             <button className="bouton bouton-fort" onClick={appliquer} disabled={!simu.a_poser && !simu.a_changer}>Écrire ces groupes</button>
             <button className="bouton" onClick={() => setSimu(null)}>Fermer</button>
           </div>
-          {(simu.ecarts || []).map((x, i) => <div key={i} className="text-[12.5px] flex gap-1.5" style={{ color: 'var(--c-attente)' }}><IconAlertTriangle size={14} className="mt-0.5 flex-none" />{x}</div>)}
-          <div className="grid gap-x-6 gap-y-1 text-[12px]" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(320px,1fr))' }}>
+          {(simu.ecarts || []).map((x, i) => <div key={i} className="text-second flex gap-1.5" style={{ color: 'var(--c-attente)' }}><IconAlertTriangle size={14} className="mt-0.5 flex-none" />{x}</div>)}
+          <div className="grid gap-x-6 gap-y-1 text-second" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(320px,1fr))' }}>
             {simu.activites.map(a => <div key={a.libelle}><b>{a.libelle}</b> — {a.groupes.map(g => `${g.nom} : ${g.effectif}`).join(' · ')}</div>)}
           </div>
         </div>)}
@@ -144,10 +144,10 @@ export default function GroupesCommuns({ sectionImposee = null, blocImpose = nul
       {c && (
         <div className="carte overflow-hidden">
           <div className="px-3 py-2 border-b border-slate-200 flex items-center gap-3 flex-wrap">
-            <b className="text-[13px]">Activités à groupes — {section} · {bloc}</b>
-            <span className="text-[12.5px] text-slate-600">{c.etudiants.length} étudiant(s) · <b>{B} brique(s)</b> : le plus petit nombre qui convient à tous les découpages cochés</span>
+            <b className="text-sm">Activités à groupes — {section} · {bloc}</b>
+            <span className="text-second text-slate-600">{c.etudiants.length} étudiant(s) · <b>{B} brique(s)</b> : le plus petit nombre qui convient à tous les découpages cochés</span>
           </div>
-          <table className="w-full text-[12.5px]">
+          <table className="w-full text-second">
             <thead><tr className="tab-entete text-left">
               <th className="px-3 py-1.5">Dans les briques</th><th className="px-3 py-1.5">Cours · activité</th>
               <th className="px-3 py-1.5">Groupes en attribution</th><th className="px-3 py-1.5">Découpage (attributions)</th>
@@ -184,19 +184,19 @@ export default function GroupesCommuns({ sectionImposee = null, blocImpose = nul
 
       {c && (
         <div className="space-y-2">
-          <div className="text-[12.5px] text-slate-600">Glissez un étudiant d’une brique à l’autre : tous ses groupes suivent. Chaque brique dit, sous son numéro, dans quel groupe elle tombe pour chaque découpage.</div>
+          <div className="text-second text-slate-600">Glissez un étudiant d’une brique à l’autre : tous ses groupes suivent. Chaque brique dit, sous son numéro, dans quel groupe elle tombe pour chaque découpage.</div>
           {parBrique[0].length > 0 && (
             <div className="carte p-2" onDragOver={e => e.preventDefault()} onDrop={() => deposer(0)}>
-              <div className="text-[12px] font-semibold mb-1" style={{ color: 'var(--c-attente)' }}>Sans brique · {parBrique[0].length}</div>
+              <div className="text-second font-semibold mb-1" style={{ color: 'var(--c-attente)' }}>Sans brique · {parBrique[0].length}</div>
               <div className="flex flex-wrap gap-1">{parBrique[0].map(e => <Puce key={e.id} e={e} nom={nomCourt(e)} disp={c.dispenses[e.id]} onGlisse={setGlisse} ues={ueCourt} />)}</div>
             </div>)}
           <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(210px,1fr))' }}>
             {Array.from({ length: B }, (_, i) => i + 1).map(b => (
               <div key={b} className="carte p-2 min-h-[90px]" onDragOver={e => e.preventDefault()} onDrop={() => deposer(b)}>
                 <div className="flex items-baseline gap-2 mb-1">
-                  <b className="text-[13px]">Brique {b}</b><span className="text-[11.5px] text-slate-500">{parBrique[b].length} étudiant(s)</span>
+                  <b className="text-sm">Brique {b}</b><span className="text-xs text-slate-500">{parBrique[b].length} étudiant(s)</span>
                 </div>
-                <div className="text-[10.5px] text-slate-400 mb-1.5 leading-snug">
+                <div className="text-mention text-slate-400 mb-1.5 leading-snug">
                   {[...new Set(acts.filter(a => a.inclus && B % a.nb_groupes === 0).map(a => a.nb_groupes))].sort((x, y) => y - x)
                     .map(n => `${n} gr. → ${Math.floor((b - 1) / (B / n)) + 1}`).join(' · ')}
                 </div>
@@ -213,7 +213,7 @@ function Puce({ e, nom, disp, onGlisse, ues }) {
   return (
     <span draggable onDragStart={() => onGlisse(e.id)}
       title={`${nom}\nUE : ${e.ues.map(u => `${u} ${ues.get(u) || ''}`).join(' · ')}${e.num_organisation != null ? `\nOrganisation ${e.num_organisation}` : ''}${d ? `\nDispensé de ${d}` : ''}`}
-      className="text-[11.5px] px-1.5 py-0.5 rounded border border-slate-200 bg-white cursor-grab hover:border-[var(--c-disponible)] whitespace-nowrap">
+      className="text-xs px-1.5 py-0.5 rounded border border-slate-200 bg-white cursor-grab hover:border-[var(--c-disponible)] whitespace-nowrap">
       {nom}{d ? <span className="text-slate-400"> · D</span> : ''}
     </span>
   );
@@ -234,18 +234,18 @@ function PlanGroupes({ acts, B, peutEcrire, onEchanger }) {
   return (
     <div className="carte p-3 space-y-1.5 overflow-x-auto">
       <div className="flex items-baseline gap-2 flex-wrap">
-        <b className="text-[13px]">Plan des groupes</b>
-        <span className="text-[12px] text-slate-500">Les groupes alignés partagent les mêmes étudiants. Glissez une barre sur une autre de sa ligne pour les échanger, et lier ainsi un groupe à ceux des autres cours.</span>
+        <b className="text-sm">Plan des groupes</b>
+        <span className="text-second text-slate-500">Les groupes alignés partagent les mêmes étudiants. Glissez une barre sur une autre de sa ligne pour les échanger, et lier ainsi un groupe à ceux des autres cours.</span>
       </div>
       <div className="grid gap-y-1 min-w-[760px]" style={{ gridTemplateColumns: `minmax(220px, 260px) repeat(${B}, ${col})` }}>
         <div />
         {Array.from({ length: B }, (_, k) => (
-          <div key={k} className={`text-center text-[10px] ${survol && k + 1 >= survol[0] && k + 1 <= survol[1] ? 'text-[color:var(--c-disponible)] font-bold' : 'text-slate-400'}`}>{k + 1}</div>))}
+          <div key={k} className={`text-center text-mention ${survol && k + 1 >= survol[0] && k + 1 <= survol[1] ? 'text-[color:var(--c-disponible)] font-bold' : 'text-slate-400'}`}>{k + 1}</div>))}
         {acts.map(a => {
           const cle = `${a.cours_code}#${a.activite_id}`;
           const larg = B / a.nb_groupes;
           return [
-            <div key={cle + 'l'} className="text-[11.5px] pr-2 truncate self-center" title={`${a.cours_code} ${a.activite || ''}`}>
+            <div key={cle + 'l'} className="text-xs pr-2 truncate self-center" title={`${a.cours_code} ${a.activite || ''}`}>
               <b>{a.cours_code}</b> {a.activite || ''}</div>,
             ...a.groupes.map((g, i) => {
               const debut = i * larg + 1, fin = (i + 1) * larg;
@@ -257,7 +257,7 @@ function PlanGroupes({ acts, B, peutEcrire, onEchanger }) {
                   onDrop={() => { if (prise?.cle === cle && prise.i !== i) onEchanger(a, prise.i, i); setPrise(null); }}
                   onMouseEnter={() => setSurvol([debut, fin])} onMouseLeave={() => setSurvol(null)}
                   title={`${a.cours_code} · groupe ${g.groupe || ''} — briques ${debut} à ${fin}`}
-                  className={`mx-[1px] h-7 rounded-[6px] border text-[11.5px] font-semibold flex items-center justify-center select-none
+                  className={`mx-[1px] h-7 rounded-pastille border text-xs font-semibold flex items-center justify-center select-none
                     ${peutEcrire ? 'cursor-grab' : ''} ${eclaire ? 'bg-[color-mix(in_srgb,var(--c-disponible)_18%,white)] border-[var(--c-disponible)]' : 'bg-white border-slate-300'}
                     ${prise?.cle === cle && prise.i === i ? 'opacity-50' : ''}`}>
                   {g.groupe || `Org ${g.num_organisation}`}
@@ -351,9 +351,9 @@ function LigneDuTemps({ sim, filtre, semaine, onSemaine, peutEcrire, onRecharger
     </div>);
   return (
     <details open className="border border-slate-200 rounded-carte">
-      <summary className="px-3 py-2 cursor-pointer text-[13px] font-semibold">Ligne du temps de l’année — {acts.length} activité(s), {sim.stages?.length || 0} stage(s), {nb} semaines</summary>
+      <summary className="px-3 py-2 cursor-pointer text-sm font-semibold">Ligne du temps de l’année — {acts.length} activité(s), {sim.stages?.length || 0} stage(s), {nb} semaines</summary>
       <div className="overflow-x-auto px-3 pb-3">
-        <div className="min-w-[860px] text-[11px]">
+        <div className="min-w-[860px] text-xs">
           {/* Les mois, les périodes du calendrier, puis les numéros des semaines de cours. */}
           <div className="grid" style={gabarit}>
             <div />
@@ -377,21 +377,21 @@ function LigneDuTemps({ sim, filtre, semaine, onSemaine, peutEcrire, onRecharger
               <div key={`st${o.id}`} className="grid items-center border-t border-slate-200 min-h-[26px] relative" style={gabarit}>
                 {ligneFond}
                 <div className="truncate pr-2 relative" title={o.ue_nom}><b>Stage {o.ue_num}</b>{o.num_organisation > 1 ? ` · org. ${o.num_organisation}` : ''} <span className="text-slate-500">{o.ue_nom}</span></div>
-                {p ? <div className="h-[16px] rounded-[4px] mx-px relative text-white text-[10px] px-1 truncate leading-[16px]"
+                {p ? <div className="h-[16px] rounded-pastille mx-px relative text-white text-mention px-1 truncate leading-[16px]"
                     title={`Stage ${o.ue_num} — du ${o.date_debut.split('-').reverse().join('/')} au ${o.date_fin.split('-').reverse().join('/')}`}
                     style={{ gridColumn: `${p.de + 1} / ${p.a + 2}`, gridRow: 1, background: '#64748B' }}>stage</div>
                   : <div className="relative flex items-center gap-1 py-0.5" style={{ gridColumn: `2 / ${nb + 2}`, gridRow: 1 }}>
                     <span style={{ color: 'var(--c-attente)' }}>dates du stage à poser</span>
                     {peutEcrire && <>
-                      <input type="date" className="controle !h-[22px] !py-0 text-[11px]" value={dates[o.id]?.d ?? ''} onChange={e => setDates(x => ({ ...x, [o.id]: { ...x[o.id], d: e.target.value } }))} />
+                      <input type="date" className="controle !h-[22px] !py-0 text-xs" value={dates[o.id]?.d ?? ''} onChange={e => setDates(x => ({ ...x, [o.id]: { ...x[o.id], d: e.target.value } }))} />
                       <span>→</span>
-                      <input type="date" className="controle !h-[22px] !py-0 text-[11px]" value={dates[o.id]?.f ?? ''} onChange={e => setDates(x => ({ ...x, [o.id]: { ...x[o.id], f: e.target.value } }))} />
-                      <button className="bouton !h-[22px] !px-2 text-[11px]" disabled={!dates[o.id]?.d || !dates[o.id]?.f} onClick={() => poserDates(o)}>Poser</button>
+                      <input type="date" className="controle !h-[22px] !py-0 text-xs" value={dates[o.id]?.f ?? ''} onChange={e => setDates(x => ({ ...x, [o.id]: { ...x[o.id], f: e.target.value } }))} />
+                      <button className="bouton !h-[22px] !px-2 text-xs" disabled={!dates[o.id]?.d || !dates[o.id]?.f} onClick={() => poserDates(o)}>Poser</button>
                     </>}
                   </div>}
               </div>);
           })}
-          {msg && <div className="text-[11.5px] py-1" style={{ color: 'var(--c-attente)' }}>{msg}</div>}
+          {msg && <div className="text-xs py-1" style={{ color: 'var(--c-attente)' }}>{msg}</div>}
           {acts.map(a => (
             <div key={a.cle} className="grid items-center border-t border-slate-100 h-[22px] relative" style={gabarit}>
               {ligneFond}
@@ -399,15 +399,15 @@ function LigneDuTemps({ sim, filtre, semaine, onSemaine, peutEcrire, onRecharger
                 <b>{etiq(a)}</b> <span className="text-slate-500">{String(a.activite || '').replace(/\s*\((TP|TH)\)\s*$/i, '')}</span></div>
               {blocs(a.cle).map((b, i) => (
                 <button key={i} onClick={() => onSemaine(b.w)} title={`${a.cours_code} ${a.groupe || ''} — ${b.n} séance(s)${b.propose ? ' · proposé' : ''}`}
-                  className="h-[14px] rounded-[4px] mx-px relative"
+                  className="h-[14px] rounded-pastille mx-px relative"
                   style={{ gridColumn: `${b.de + 1} / ${b.a + 2}`, gridRow: 1, background: teinteCours(a.cours_code),
                     ...(b.propose && sim.plan?.lignes?.n ? { outline: '1.5px dashed #64748B', outlineOffset: 1, opacity: 0.75 } : {}) }} />))}
             </div>))}
           {/* La légende des fonds. */}
           <div className="flex items-center gap-4 pt-2 text-slate-500">
-            <span className="flex items-center gap-1"><i className="inline-block w-4 h-3 rounded-[3px]" style={{ background: fond('ev1') }} />évaluations</span>
-            <span className="flex items-center gap-1"><i className="inline-block w-4 h-3 rounded-[3px] border border-slate-200" style={{ background: fond('vacances') }} />vacances</span>
-            <span className="flex items-center gap-1"><i className="inline-block w-4 h-3 rounded-[3px]" style={{ background: '#64748B' }} />stage</span>
+            <span className="flex items-center gap-1"><i className="inline-block w-4 h-3 rounded-pastille" style={{ background: fond('ev1') }} />évaluations</span>
+            <span className="flex items-center gap-1"><i className="inline-block w-4 h-3 rounded-pastille border border-slate-200" style={{ background: fond('vacances') }} />vacances</span>
+            <span className="flex items-center gap-1"><i className="inline-block w-4 h-3 rounded-pastille" style={{ background: '#64748B' }} />stage</span>
           </div>
         </div>
       </div>
@@ -418,8 +418,8 @@ function LigneDuTemps({ sim, filtre, semaine, onSemaine, peutEcrire, onRecharger
 /* L'ÉTAT D'UNE LIGNE DU PLAN : une pastille pleine pour ce qui est enregistré,
    un contour pour ce qui n'est encore que proposé. */
 function EtatPlan({ etat }) {
-  if (etat === 'propose') return <span className="inline-flex items-center px-1.5 rounded-[5px] text-[10.5px] font-semibold border border-dashed border-slate-400 text-slate-600">proposé</span>;
-  return <span className="inline-flex items-center gap-0.5 px-1.5 rounded-[5px] text-[10.5px] font-semibold text-white"
+  if (etat === 'propose') return <span className="inline-flex items-center px-1.5 rounded-pastille text-mention font-semibold border border-dashed border-slate-400 text-slate-600">proposé</span>;
+  return <span className="inline-flex items-center gap-0.5 px-1.5 rounded-pastille text-mention font-semibold text-white"
     style={{ background: etat === 'verrouille' ? 'var(--c-principal, #16406A)' : 'var(--c-reussi, #3E7D5E)' }}>
     {etat === 'verrouille' && <IconLock size={10} />}{etat === 'verrouille' ? 'verrouillé' : 'enregistré'}</span>;
 }
@@ -456,18 +456,18 @@ function LocauxActivites({ sim, section, bloc, annee, peutEcrire, onEnregistre }
   }
   return (
     <details className="border border-slate-200 rounded-carte">
-      <summary className="px-3 py-2 cursor-pointer text-[13px] font-semibold">
+      <summary className="px-3 py-2 cursor-pointer text-sm font-semibold">
         Locaux des activités{aDesigner ? <span className="font-normal" style={{ color: 'var(--c-attente)' }}> — {aDesigner} activité(s) sans local désigné</span> : ''}
       </summary>
       {/* LES BOUTONS EN HAUT. */}
       <div className="px-3 py-2 flex items-center gap-2 flex-wrap border-b border-slate-100">
         {peutEcrire && <button className="bouton bouton-fort" disabled={!modifie || enCours} onClick={enregistrer}>
           {enCours ? 'Enregistrement…' : 'Enregistrer et simuler à nouveau'}</button>}
-        <span className="text-[12px] text-slate-500">Le premier local de la liste est le préféré. La simulation garde le même local toute l’année et n’en met jamais deux groupes en même temps.
+        <span className="text-second text-slate-500">Le premier local de la liste est le préféré. La simulation garde le même local toute l’année et n’en met jamais deux groupes en même temps.
           Sans choix, la théorie prend d’office une classe ou un auditoire assez grand ; un TP reste à désigner.</span>
-        {erreur && <span className="text-[12.5px]" style={{ color: 'var(--c-refuse)' }}>{erreur}</span>}
+        {erreur && <span className="text-second" style={{ color: 'var(--c-refuse)' }}>{erreur}</span>}
       </div>
-      <table className="w-full text-[12.5px]">
+      <table className="w-full text-second">
         <thead><tr className="tab-entete text-left">
           <th className="px-3 py-1">Cours</th><th className="px-3 py-1">Activité</th><th className="px-3 py-1">Étudiants / groupe</th>
           <th className="px-3 py-1">Locaux possibles</th></tr></thead>
@@ -487,7 +487,7 @@ function LocauxActivites({ sim, section, bloc, annee, peutEcrire, onEnregistre }
                         <span key={n} className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 border border-slate-300 bg-white"
                           title={`${parNom[n]?.type || ''}${parNom[n]?.places ? ` · ${parNom[n].places} places` : ''}${petit ? ' — trop petit pour ce groupe' : ''}`}
                           style={petit ? { borderColor: 'var(--c-attente)' } : undefined}>
-                          {i === 0 && l.length > 1 && <span className="text-[10px] text-slate-400">préféré</span>}
+                          {i === 0 && l.length > 1 && <span className="text-mention text-slate-400">préféré</span>}
                           {n}{petit && <IconAlertTriangle size={12} style={{ color: 'var(--c-attente)' }} />}
                           {peutEcrire && <button type="button" className="text-slate-400 hover:text-slate-700" title="Retirer"
                             onClick={() => setChoix(c => ({ ...c, [a.cle]: l.filter(x => x !== n) }))}>×</button>}
@@ -497,7 +497,7 @@ function LocauxActivites({ sim, section, bloc, annee, peutEcrire, onEnregistre }
                       : a.origine === 'aucun' ? <span style={{ color: 'var(--c-refuse)' }}>aucune salle assez grande au référentiel</span>
                       : <span style={{ color: 'var(--c-attente)' }}>à désigner</span>)}
                     {peutEcrire && (
-                      <select className="controle !h-7 text-[12px]" value="" onChange={e => { const n = e.target.value; if (n) setChoix(c => ({ ...c, [a.cle]: [...l, n] })); }}>
+                      <select className="controle !h-7 text-second" value="" onChange={e => { const n = e.target.value; if (n) setChoix(c => ({ ...c, [a.cle]: [...l, n] })); }}>
                         <option value="">+ local…</option>
                         {ref.filter(x => !l.includes(x.nom)).map(x => <option key={x.nom} value={x.nom}>{x.nom} — {x.type || '?'}{x.places ? ` · ${x.places} pl.` : ''}</option>)}
                       </select>)}
@@ -662,8 +662,8 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire, versPlanning
   return (
     <div className="carte p-3 space-y-3">
       <div className="flex items-center gap-3 flex-wrap">
-        <b className="text-[13px]">Simulation de l’année — {section} · {bloc}</b>
-        <span className="text-[12px] text-slate-500">Semaines de cours du calendrier, congés et fériés déduits ; périodes attribuées (50 min) ; une brique et un enseignant jamais à deux endroits à la fois. Rien ne s’écrit dans l’horaire.</span>
+        <b className="text-sm">Simulation de l’année — {section} · {bloc}</b>
+        <span className="text-second text-slate-500">Semaines de cours du calendrier, congés et fériés déduits ; périodes attribuées (50 min) ; une brique et un enseignant jamais à deux endroits à la fois. Rien ne s’écrit dans l’horaire.</span>
         <span className="flex-1" />
         {/* LES BOUTONS EN HAUT : lire le plan, recalculer autour de ce qui est verrouillé, adopter. */}
         <button className={sim ? 'bouton' : 'bouton bouton-fort'} onClick={() => simuler('plan')} disabled={enCours || !plages?.length}
@@ -677,12 +677,12 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire, versPlanning
           <button className="bouton" onClick={retablir} disabled={enCours} title="Remettre les séances importées qu’un versement avait remplacées">Rétablir l’horaire importé</button></>}
 
       </div>
-      {erreur && <div className="text-[12.5px]" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
+      {erreur && <div className="text-second" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
 
       {/* LES PLAGES ET LES PRIORITÉS SE RÈGLENT DANS « LE PLANNING » (Charles, 10 octobre
           2026) : la base de l'école, puis ce qu'on peint pour la section, le bloc, l'UE,
           le cours, l'enseignant ou le local. Ici, on les lit. */}
-      <div className="text-[12.5px] text-slate-600 flex flex-wrap items-center gap-2">
+      <div className="text-second text-slate-600 flex flex-wrap items-center gap-2">
         <span>{(plages || []).length} bloc(s) de cours par semaine pour {section} · un étudiant vient au plus {regles.jours_max} jours{regles.regrouper ? ' · regroupé' : ''}.</span>
         {versPlanning && <button className="bouton !h-8" onClick={versPlanning}>Régler dans « Le planning »</button>}
       </div>
@@ -700,11 +700,11 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire, versPlanning
             [`${Math.round(sim.seances.reduce((t, x) => t + x.minutes, 0) / 60)} h`, `proposition de Lucie — ${sim.nb_seances} séance(s)`, sim.restes.length ? 'corriger' : 'reussi'],
             [sim.restes.length ? `${sim.restes.reduce((t, r) => t + r.manque, 0)}` : '0', sim.restes.length ? 'séances sans place dans la proposition' : 'tout est placé', sim.restes.length ? 'corriger' : 'reussi']].map(([v, l, e]) => (
             <div key={l} className="bloc-etat px-3 py-2" data-etat={e}>
-              <div className="text-[17px] font-bold">{v}</div><div className="text-[11.5px] text-slate-500">{l}</div></div>))}
+              <div className="text-lg font-bold">{v}</div><div className="text-xs text-slate-500">{l}</div></div>))}
         </div>
         {/* CE QUE LA SIMULATION A LU DU LABORATOIRE : d'où vient chaque contrainte. */}
         {sim.liens && (
-          <div className="text-[12px] text-slate-600 flex flex-wrap gap-x-4 gap-y-1">
+          <div className="text-second text-slate-600 flex flex-wrap gap-x-4 gap-y-1">
             <span>Elle suit le laboratoire :</span>
             <span>dates de <b>{sim.liens.ues_datees}</b> UE</span>
             <span><b>{sim.liens.activites_datees}</b> activité(s) datée(s) dans les couches</span>
@@ -713,17 +713,17 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire, versPlanning
           </div>)}
         {sim.restes.length > 0 && (
           <div className="space-y-1">
-            {sim.restes.map(r => <div key={r.cle} className="text-[12.5px] flex gap-1.5" style={{ color: 'var(--c-refuse)' }}>
+            {sim.restes.map(r => <div key={r.cle} className="text-second flex gap-1.5" style={{ color: 'var(--c-refuse)' }}>
               <IconAlertTriangle size={14} className="mt-0.5 flex-none" /><span><b>{r.cours_code}</b> {r.activite} · {r.groupe} — {r.manque} séance(s) sans place : {r.raison}{r.professeur ? ` (${r.professeur})` : ''}</span></div>)}
           </div>)}
         <LocauxActivites sim={sim} section={section} bloc={bloc} annee={annee} peutEcrire={peutEcrire} onEnregistre={simuler} />
         <LigneDuTemps sim={sim} filtre={pourQui} semaine={semaine} onSemaine={setSemaine} peutEcrire={peutEcrire} onRecharger={() => simuler(mode, true)} />
         {/* LA RÉGULARITÉ SE LIT : un créneau fixe par groupe, ses semaines. */}
         <details className="border border-slate-200 rounded-carte">
-          <summary className="px-3 py-2 cursor-pointer text-[13px] font-semibold">
+          <summary className="px-3 py-2 cursor-pointer text-sm font-semibold">
             Créneaux fixes — {sim.activites.filter(a => a.creneaux_fixes?.length && !a.irreguliers).length} sur {sim.activites.length} activité(s) entièrement régulières
           </summary>
-          <table className="w-full text-[12.5px]">
+          <table className="w-full text-second">
             <thead><tr className="tab-entete text-left">
               <th className="px-3 py-1">Cours</th><th className="px-3 py-1">Activité</th><th className="px-3 py-1">Groupe</th>
               <th className="px-3 py-1">Créneau fixe</th><th className="px-3 py-1">Semaines</th><th className="px-3 py-1">Local</th><th className="px-3 py-1">Enseignant</th><th className="px-3 py-1">Plan</th></tr></thead>
@@ -744,13 +744,13 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire, versPlanning
                     {(a.creneaux_fixes || []).map((f, i) => (
                       <div key={i} className="flex items-center gap-1 h-[22px]">
                         <EtatPlan etat={f.etat} />
-                        {f.conflits?.length > 0 && <span className="text-[11px]" style={{ color: 'var(--c-refuse)' }} title="Une séance enregistrée tombe en même temps qu’une autre">conflit : {f.conflits.join(', ')}</span>}
+                        {f.conflits?.length > 0 && <span className="text-xs" style={{ color: 'var(--c-refuse)' }} title="Une séance enregistrée tombe en même temps qu’une autre">conflit : {f.conflits.join(', ')}</span>}
                         {peutEcrire && f.plan_id && <>
-                          <select className="controle !h-[22px] !py-0 text-[11.5px]" value={`${f.jour}|${f.debut}`} title="Changer de créneau : la ligne se verrouille"
+                          <select className="controle !h-[22px] !py-0 text-xs" value={`${f.jour}|${f.debut}`} title="Changer de créneau : la ligne se verrouille"
                             onChange={e => { const [j, d] = e.target.value.split('|'); retoucher(f.plan_id, { jour: Number(j), debut: d }); }}>
                             {(plages || []).map(p => <option key={`${p.jour}|${p.debut}`} value={`${p.jour}|${p.debut}`}>{NOMS_JOURS[p.jour]} {p.debut}</option>)}
                           </select>
-                          <select className="controle !h-[22px] !py-0 text-[11.5px] max-w-[8rem]" value={f.local || ''} title="Changer de local : la ligne se verrouille"
+                          <select className="controle !h-[22px] !py-0 text-xs max-w-[8rem]" value={f.local || ''} title="Changer de local : la ligne se verrouille"
                             onChange={e => retoucher(f.plan_id, { local: e.target.value || null })}>
                             <option value="">— local —</option>
                             {(sim.referentiel_locaux || []).map(l => <option key={l.nom} value={l.nom}>{l.nom}</option>)}
@@ -761,7 +761,7 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire, versPlanning
                         </>}
                       </div>))}
                     {peutEcrire && (a.creneaux_fixes || []).some(f => f.etat === 'propose') && (
-                      <button className="bouton !h-[22px] !px-2 text-[11.5px] mt-0.5" onClick={() => adopter([a.cle])}>Adopter</button>)}
+                      <button className="bouton !h-[22px] !px-2 text-xs mt-0.5" onClick={() => adopter([a.cle])}>Adopter</button>)}
                   </td>
                 </tr>))}
             </tbody>
@@ -773,7 +773,7 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire, versPlanning
             {Array.from({ length: sim.nb_semaines }, (_, i) => i + 1).map(w => <option key={w} value={w}>Semaine {w}</option>)}
           </select>
           <button className="bouton px-2" disabled={semaine >= sim.nb_semaines} onClick={() => setSemaine(s => s + 1)}>▶</button>
-          <span className="text-[12px] text-slate-500">{sim.semaines?.[semaine - 1] ? `semaine du ${sim.semaines[semaine - 1].lundi.split('-').reverse().join('/')}` : ''}</span>
+          <span className="text-second text-slate-500">{sim.semaines?.[semaine - 1] ? `semaine du ${sim.semaines[semaine - 1].lundi.split('-').reverse().join('/')}` : ''}</span>
           <span className="flex-1" />
           <select value={qui} onChange={e => setQui(e.target.value)} className="controle max-w-[16rem]" title="Ne montrer que l’horaire d’un groupe d’étudiants (brique) ou d’un étudiant">
             <option value="">Tout le bloc</option>
@@ -787,11 +787,11 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire, versPlanning
           <button className="bouton bouton-sortir" onClick={imprimerHoraire} title="La semaine type et les séances de l’année, pour la sélection">Imprimer l’horaire</button>
           <div className="segments flex h-8">
             {[['proposition', 'Proposition de Lucie'], ['actuel', 'Horaire actuel'], ['deux', 'Côte à côte']].map(([k, l]) => (
-              <button key={k} onClick={() => setVueSem(k)} className={`px-3 text-[12.5px] ${vueSem === k ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'}`}>{l}</button>))}
+              <button key={k} onClick={() => setVueSem(k)} className={`px-3 text-second ${vueSem === k ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'}`}>{l}</button>))}
           </div>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full table-fixed text-[11.5px] border-collapse min-w-[860px]">
+          <table className="w-full table-fixed text-xs border-collapse min-w-[860px]">
             <thead><tr className="tab-entete">
               <th className="px-2 py-1 w-24 text-left">Plage</th>
               {jours.map(j => <th key={j} className="px-2 py-1 text-left">{NOMS_JOURS[j]}{datesSemaine[j] ? <span className="font-normal text-slate-500"> {datesSemaine[j].slice(8, 10)}/{datesSemaine[j].slice(5, 7)}</span> : ''}</th>)}
@@ -825,16 +825,16 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire, versPlanning
                             Les séances en parallèle se partagent la LARGEUR, jamais la hauteur. */}
                         <div className="grid gap-[3px]" style={{ gridTemplateColumns: `repeat(${Math.max(1, Math.min(3, act.length + ici.length))}, minmax(0,1fr))` }}>
                           {act.map((x, i) => (
-                            <div key={`a${i}`} className="min-w-0 h-[46px] rounded px-1.5 py-1 border border-dashed text-[11px] leading-tight overflow-hidden text-slate-600"
+                            <div key={`a${i}`} className="min-w-0 h-[46px] rounded px-1.5 py-1 border border-dashed text-xs leading-tight overflow-hidden text-slate-600"
                               title={`Horaire actuel — ${x.cours_code || ''} ${x.cours_nom || x.matiere || ''} ${x.heure_debut}–${x.heure_fin}${x.groupe_nom ? ` · groupe ${x.groupe_nom}` : ''}${x.conflits?.length ? `\nConflit : ${x.conflits.join(', ')}` : ''}`}
                               style={{ borderColor: x.conflits?.length ? 'var(--c-refuse)' : '#94A3B8', background: '#F8FAFC' }}>
-                              <div className="text-[9.5px] text-slate-400">actuel</div>
+                              <div className="text-mention text-slate-400">actuel</div>
                               <div className="flex items-center gap-1"><span className="font-bold truncate">{x.cours_code || '—'}</span>
                               {x.groupe_nom && x.groupe_nom !== 'A' && (
-                                <span className="flex-none inline-flex items-center justify-center min-w-[20px] h-[20px] px-1 rounded-[6px] bg-white text-[11px] font-bold border border-slate-400">{x.groupe_nom}</span>)}</div>
+                                <span className="flex-none inline-flex items-center justify-center min-w-[20px] h-[20px] px-1 rounded-pastille bg-white text-xs font-bold border border-slate-400">{x.groupe_nom}</span>)}</div>
                             </div>))}
                           {ici.map((s, i) => (
-                            <div key={i} className="min-w-0 h-[46px] rounded-r px-1.5 py-1 text-[12px] leading-tight overflow-hidden text-[#1B2B4B] flex flex-col items-start justify-center gap-0.5"
+                            <div key={i} className="min-w-0 h-[46px] rounded-r px-1.5 py-1 text-second leading-tight overflow-hidden text-[#1B2B4B] flex flex-col items-start justify-center gap-0.5"
                               title={`${s.cours_code} ${s.cours_nom || ''}\n${s.activite || ''} — groupe ${s.groupe}${s.professeur ? ` — ${s.professeur}` : ''}${s.local ? `\nLocal ${s.local}` : ''}\nBriques ${s.tout_le_bloc ? 'toutes' : s.briques.join(', ')}`}
                               style={{ ...styleTuileCours(s.cours_code),
                                 ...(s.etat === 'propose' && sim.plan?.lignes?.n ? { outline: '1.5px dashed #64748B', outlineOffset: -2 } : {}),
@@ -843,12 +843,12 @@ export function SimulationAnnee({ section, bloc, annee, peutEcrire, versPlanning
                               <span className="flex items-center gap-1.5 max-w-full min-w-0">
                                 <span className="font-bold truncate">{s.cours_code}</span>{s.etat === 'verrouille' && <IconLock size={11} className="flex-none text-slate-500" />}
                                 {large && s.groupe !== 'Tous' && s.groupe !== 'Ts' && (
-                                  <span className="flex-none inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-[5px] bg-white text-[10.5px] font-bold"
+                                  <span className="flex-none inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-pastille bg-white text-mention font-bold"
                                     style={{ border: `1.5px solid ${teinteCours(s.cours_code)}` }}>{s.groupe}</span>)}
                               </span>
-                              {large ? <span className="text-[11px] text-slate-600 truncate max-w-full">{s.cours_nom || s.activite || ''}</span>
+                              {large ? <span className="text-xs text-slate-600 truncate max-w-full">{s.cours_nom || s.activite || ''}</span>
                                 : s.groupe !== 'Tous' && s.groupe !== 'Ts' && (
-                                <span className="flex-none inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-[5px] bg-white text-[10.5px] font-bold"
+                                <span className="flex-none inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-pastille bg-white text-mention font-bold"
                                   style={{ border: `1.5px solid ${teinteCours(s.cours_code)}` }}>{s.groupe}</span>)}
                             </div>))}
                         </div>

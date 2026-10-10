@@ -74,10 +74,10 @@ export default function GardeAnnee({ quoi = 'ces données' }) {
         <div className="px-5 pt-5 pb-3 flex items-start gap-3">
           <IconCalendarExclamation size={22} className="text-[color:var(--c-attente,var(--c-attente))] flex-none mt-0.5" />
           <div>
-            <h2 className="text-[15px] font-semibold text-iip-blue">
+            <h2 className="text-base font-semibold text-iip-blue">
               Vous n'êtes pas dans l'année en cours
             </h2>
-            <p className="text-[13px] text-slate-600 mt-1">
+            <p className="text-sm text-slate-600 mt-1">
               Vous vous apprêtez à modifier {quoi} de <b>{regardee}</b>, alors que
               l'année en cours est <b>{courante}</b>. Ce qui sera encodé ici ne comptera
               pas pour {courante}.
@@ -87,7 +87,7 @@ export default function GardeAnnee({ quoi = 'ces données' }) {
 
         <div className="px-5 pb-4 pl-[52px] space-y-2">
           <label className="block">
-            <span className="block text-[10.5px] uppercase tracking-[.1em] text-slate-400 font-semibold mb-0.5">Changer d'année</span>
+            <span className="block text-mention uppercase tracking-[.1em] text-slate-400 font-semibold mb-0.5">Changer d'année</span>
             <select value={choix || courante} onChange={e => setChoix(e.target.value)}
               className="controle w-full bg-white text-iip-texte">
               {(annees.length ? annees : [courante, regardee]).map(a => (
@@ -98,7 +98,7 @@ export default function GardeAnnee({ quoi = 'ces données' }) {
             </select>
           </label>
 
-          <p className="text-[11.5px] text-slate-500">
+          <p className="text-xs text-slate-500">
             Rester en {regardee} est légitime — on prépare l'année suivante, on corrige
             un encodage passé. L'avertissement ne reviendra pas pour cet écran tant que
             la session est ouverte.

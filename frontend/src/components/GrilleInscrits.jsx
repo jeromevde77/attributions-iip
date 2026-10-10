@@ -57,10 +57,10 @@ function Pastille({ k, sous, titre, petite, onClick, texte = null }) {
   return (
     <Balise type={onClick ? 'button' : undefined} title={titre || e.lib} onClick={onClick}
       className={`inline-flex items-center gap-1 rounded-md leading-none font-semibold whitespace-nowrap align-middle
-        ${petite ? 'h-[18px] px-1.5 text-[10px]' : 'h-[20px] px-1.5 text-[11px]'} ${e.c}
+        ${petite ? 'h-[18px] px-1.5 text-mention' : 'h-[20px] px-1.5 text-xs'} ${e.c}
         ${onClick ? 'cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-iip-blue/50' : ''}`}>
       {texte != null ? <span>{texte}</span> : k}
-      {sous != null && sous !== '' && <span className="text-[9.5px] font-normal opacity-85">{sous}</span>}
+      {sous != null && sous !== '' && <span className="text-mention font-normal opacity-85">{sous}</span>}
     </Balise>
   );
 }
@@ -192,15 +192,15 @@ export default function GrilleInscrits({ data, passe, annee, section, onFiche, o
       <div className="flex items-center gap-2 flex-wrap">
         <button type="button" className={`controle flex items-center gap-1.5 ${choix ? 'bg-slate-100' : ''}`} onClick={() => setChoix(x => !x)}>
           <IconColumns3 size={16} /> Colonnes
-          <span className="text-[11px] text-slate-500">{visibles.length}/{data.unites.length} UE</span>
+          <span className="text-xs text-slate-500">{visibles.length}/{data.unites.length} UE</span>
         </button>
-        <span className="text-[11px] text-slate-500 ml-1">Ne montrer que :</span>
+        <span className="text-xs text-slate-500 ml-1">Ne montrer que :</span>
         {ORDRE_ETAT.map(k => (
           <button key={k} type="button" onClick={() => setEtats(s => basculer(s, k))} title={ETATS[k].lib}
             className={`rounded-md ${etats.has(k) ? 'ring-2 ring-offset-1 ring-iip-blue' : 'opacity-70 hover:opacity-100'}`}>
             <Pastille k={k} petite />
           </button>))}
-        {etats.size > 0 && <button type="button" className="text-[12px] text-slate-500 underline" onClick={() => setEtats(new Set())}>tous</button>}
+        {etats.size > 0 && <button type="button" className="text-second text-slate-500 underline" onClick={() => setEtats(new Set())}>tous</button>}
         <select className="controle" value={String(tri.par)} onChange={e => setTri({ par: ['nom', 'etats'].includes(e.target.value) ? e.target.value : Number(e.target.value), sens: 1 })}>
           <option value="nom">Trier : ordre alphabétique</option>
           <option value="etats">Trier : par état, toutes les unités</option>
@@ -211,7 +211,7 @@ export default function GrilleInscrits({ data, passe, annee, section, onFiche, o
           <button type="button" className="controle flex items-center gap-1.5 text-amber-800 border-amber-600" onClick={() => retirerAcquises(aqVisibles)}
             title="Retirer du programme de l'année les unités déjà réussies ou valorisées (affichées)">
             Retirer les AQ ({aqVisibles.length})</button>)}
-        <span className="text-[13px] text-slate-600"><b>{lignes.length}</b> étudiant(s)</span>
+        <span className="text-sm text-slate-600"><b>{lignes.length}</b> étudiant(s)</span>
         <button type="button" className="bouton-sortir controle flex items-center gap-1.5" disabled={impression || !lignes.length} onClick={imprimer}
           title="Ce qui est affiché — colonnes, unités ouvertes, filtres et tri — en paysage">
           <IconPrinter size={16} /> {impression ? 'Préparation…' : 'Imprimer la grille'}
@@ -220,7 +220,7 @@ export default function GrilleInscrits({ data, passe, annee, section, onFiche, o
 
       {choix && (
         <div className="carte p-3 space-y-2">
-          <div className="flex items-center gap-2 flex-wrap text-[12px]">
+          <div className="flex items-center gap-2 flex-wrap text-second">
             <span className="text-slate-500 w-24">Identité</span>
             <span className="text-slate-400">Nom · Prénom</span>
             {IDENTITE.map(([k, lib]) => (
@@ -228,7 +228,7 @@ export default function GrilleInscrits({ data, passe, annee, section, onFiche, o
                 <input type="checkbox" checked={avec(k)} onChange={() => setIdCols(c => (c.includes(k) ? c.filter(x => x !== k) : IDENTITE.map(x => x[0]).filter(x => x === k || c.includes(x))))} /> {lib}
               </label>))}
           </div>
-          <div className="flex items-start gap-2 text-[12px]">
+          <div className="flex items-start gap-2 text-second">
             <span className="text-slate-500 w-24 pt-1">Unités</span>
             <div className="flex-1 flex flex-wrap gap-1.5">
               {data.unites.map(u => (
@@ -244,22 +244,22 @@ export default function GrilleInscrits({ data, passe, annee, section, onFiche, o
                 </label>))}
             </div>
             <div className="flex flex-col gap-1">
-              <button type="button" className="text-[12px] underline text-slate-500" onClick={() => setCachees(new Set())}>toutes</button>
-              <button type="button" className="text-[12px] underline text-slate-500" onClick={() => setCachees(new Set(data.unites.map(u => u.ue_num)))}>aucune</button>
-              <button type="button" className="text-[12px] underline text-slate-500" onClick={() => setOuvertes(new Set())}>tout refermer</button>
+              <button type="button" className="text-second underline text-slate-500" onClick={() => setCachees(new Set())}>toutes</button>
+              <button type="button" className="text-second underline text-slate-500" onClick={() => setCachees(new Set(data.unites.map(u => u.ue_num)))}>aucune</button>
+              <button type="button" className="text-second underline text-slate-500" onClick={() => setOuvertes(new Set())}>tout refermer</button>
             </div>
           </div>
         </div>)}
 
-      {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2 text-[13px]">{erreur}</div>}
+      {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2 text-sm">{erreur}</div>}
 
-      <div className="flex flex-wrap gap-3 text-[11px] text-slate-600">
+      <div className="flex flex-wrap gap-3 text-xs text-slate-600">
         {ORDRE_ETAT.map(k => <span key={k} className="inline-flex items-center gap-1"><Pastille k={k} petite /> {ETATS[k].lib}</span>)}
         <span>· bleu : report de note — la note, puis l’année d’origine · à côté du code : date de décision · ↻ reprise · +VA, +RP : autre dispense sur l’unité · n.i. : non inscrit · un clic sur RP, VA, VAP ou D ouvre la revue du PAE</span>
       </div>
 
       <div className="overflow-auto max-h-[72vh] border border-slate-200 rounded-carte">
-        <table className="text-[12px] tabular-nums border-separate border-spacing-0">
+        <table className="text-second tabular-nums border-separate border-spacing-0">
           {/* L'ENTÊTE EN TROIS ÉTAGES (Charles, 7 octobre 2026 : « plus joli —
               l'UE sur un fond à la couleur de son bloc, le nom en dessous, puis
               les cours »). Hauteurs fixes : l'entête reste collé en haut, étage
@@ -282,9 +282,9 @@ export default function GrilleInscrits({ data, passe, annee, section, onFiche, o
                       <button type="button" onClick={() => setOuvertes(s => basculer(s, u.ue_num))} className="opacity-80 hover:opacity-100"
                         title={ouvertes.has(u.ue_num) ? 'Refermer les cours' : `Ouvrir les cours (${u.cours.length})`}>
                         {ouvertes.has(u.ue_num) ? <IconChevronDown size={13} /> : <IconChevronRight size={13} />}</button>
-                      <button type="button" onClick={() => trier(u.ue_num)} title={`${u.ue_nom} — trier par état`} className="hover:underline font-semibold text-[12px]">
+                      <button type="button" onClick={() => trier(u.ue_num)} title={`${u.ue_nom} — trier par état`} className="hover:underline font-semibold text-second">
                         UE {u.ue_num}{tri.par === u.ue_num ? (tri.sens > 0 ? ' ▲' : ' ▼') : ''}</button>
-                      <span className="text-[9.5px] font-medium opacity-85">{u.ei ? 'EI' : blocDe(u.bloc) || ''}</span>
+                      <span className="text-mention font-medium opacity-85">{u.ei ? 'EI' : blocDe(u.bloc) || ''}</span>
                     </span>
                   </th>);
               })}
@@ -292,16 +292,16 @@ export default function GrilleInscrits({ data, passe, annee, section, onFiche, o
             <tr>
               {visibles.map(u => (
                 <th key={`${u.ue_num}-nom`} colSpan={1 + (ouvertes.has(u.ue_num) ? u.cours.length : 0)} title={u.ue_nom}
-                  className="sticky top-[28px] z-20 h-[34px] tab-entete px-1.5 border-l-2 border-white font-normal text-[10.5px] leading-tight text-iip-blue normal-case tracking-normal align-middle" style={{ textTransform: 'none', letterSpacing: 'normal' }}>
+                  className="sticky top-[28px] z-20 h-[34px] tab-entete px-1.5 border-l-2 border-white font-normal text-mention leading-tight text-iip-blue normal-case tracking-normal align-middle" style={{ textTransform: 'none', letterSpacing: 'normal' }}>
                   <div className={`line-clamp-2 ${ouvertes.has(u.ue_num) ? '' : 'max-w-[7.5rem] mx-auto'}`}>{u.ue_nom}</div></th>))}
             </tr>
             <tr>
               {visibles.map(u => [
-                <th key={`${u.ue_num}-e`} className="sticky top-[62px] z-20 h-[30px] bg-white px-1 border-b border-l-2 border-slate-200 font-normal text-[10px] text-slate-400 normal-case tracking-normal">
+                <th key={`${u.ue_num}-e`} className="sticky top-[62px] z-20 h-[30px] bg-white px-1 border-b border-l-2 border-slate-200 font-normal text-mention text-slate-400 normal-case tracking-normal">
                   unité</th>,
                 ...(ouvertes.has(u.ue_num) ? u.cours.map(c => (
                   <th key={`${u.ue_num}-${c.code}`} title={c.nom}
-                    className="sticky top-[62px] z-20 h-[30px] bg-white px-1 border-b border-slate-200 font-normal text-[10px] text-slate-600 max-w-[6.5rem] normal-case tracking-normal">
+                    className="sticky top-[62px] z-20 h-[30px] bg-white px-1 border-b border-slate-200 font-normal text-mention text-slate-600 max-w-[6.5rem] normal-case tracking-normal">
                     <div className="font-semibold text-iip-blue">{c.code}</div><div className="truncate">{c.nom}</div></th>)) : []),
               ])}
             </tr>
@@ -319,12 +319,12 @@ export default function GrilleInscrits({ data, passe, annee, section, onFiche, o
               return (
                 <tr key={cat.cle} className="tab-repere">
                   <td colSpan={nId} className="sticky left-0 z-10 tab-repere px-2 py-1 border-t border-slate-200 whitespace-nowrap">
-                    <span className="inline-flex items-center gap-1.5">{cat.k ? <Pastille k={cat.k} petite /> : null}<span className="text-[12px]">{cat.lib}</span>
+                    <span className="inline-flex items-center gap-1.5">{cat.k ? <Pastille k={cat.k} petite /> : null}<span className="text-second">{cat.lib}</span>
                       {/* « SOUCI DE NOMBRES » (Charles, 8 octobre 2026) : ce nombre compte les
                           étudiants qui ont AU MOINS UNE unité dans ce cas — un même étudiant
                           peut être nouveau dans une unité et en reprise dans une autre. Les
                           colonnes, elles, comptent par unité. On le dit. */}
-                      <span className="text-[11px] text-slate-500" title="Étudiants qui ont au moins une unité dans ce cas. Un même étudiant peut figurer sur deux lignes (nouveau dans une unité, en reprise dans une autre) : les lignes ne s'additionnent pas. Les colonnes comptent par unité.">
+                      <span className="text-xs text-slate-500" title="Étudiants qui ont au moins une unité dans ce cas. Un même étudiant peut figurer sur deux lignes (nouveau dans une unité, en reprise dans une autre) : les lignes ne s'additionnent pas. Les colonnes comptent par unité.">
                         · {etudiantsCat} étudiant(s) dans au moins une UE</span></span></td>
                   {visibles.map(u => [
                     <td key={u.ue_num} className="text-center border-t border-l border-slate-200 font-medium">{nUE(u) || ''}</td>,
@@ -350,7 +350,7 @@ export default function GrilleInscrits({ data, passe, annee, section, onFiche, o
               return (<Fragment key={id}>
               {nouveau && (
                 <tr><td colSpan={nId + visibles.reduce((s, u) => s + 1 + (ouvertes.has(u.ue_num) ? u.cours.length : 0), 0)}
-                  className="sticky left-0 bg-slate-50 px-2 py-1 border-b border-slate-200 text-[12px] font-medium text-iip-blue">
+                  className="sticky left-0 bg-slate-50 px-2 py-1 border-b border-slate-200 text-second font-medium text-iip-blue">
                   {g ? <span className="inline-flex items-center gap-1.5"><Pastille k={g} petite /> {ETATS[g].lib}</span> : 'Les autres — à suivre seulement'}
                   <span className="font-normal text-slate-500"> · {lignes.filter(x => gDe(x) === g).length} étudiant(s)</span></td></tr>)}
               <tr className="hover:bg-slate-50 group">
@@ -359,8 +359,8 @@ export default function GrilleInscrits({ data, passe, annee, section, onFiche, o
                 <td className="sticky left-[9rem] z-10 bg-white group-hover:bg-slate-50 px-2 border-b border-r border-slate-100 whitespace-nowrap">{e.prenom}</td>
                 {avec('matricule') && <td className="px-2 border-b border-slate-100 text-slate-500">{e.matricule}</td>}
                 {avec('bloc') && <td className="px-2 border-b border-slate-100">{e.bloc || ''}</td>}
-                {avec('profil') && <td className="px-2 border-b border-slate-100 text-[11px] text-slate-600">{e.nouveau ? 'nouveau' : ''}</td>}
-                {avec('sle') && <td className="px-2 border-b border-slate-100 text-[11px]">{e.sle ? 'SLE' : ''}</td>}
+                {avec('profil') && <td className="px-2 border-b border-slate-100 text-xs text-slate-600">{e.nouveau ? 'nouveau' : ''}</td>}
+                {avec('sle') && <td className="px-2 border-b border-slate-100 text-xs">{e.sle ? 'SLE' : ''}</td>}
                 {visibles.map(u => { const l = ligneDe(id, u.ue_num); return [
                   <td key={u.ue_num} className={`px-2 py-1 border-b border-l border-slate-100 text-center whitespace-nowrap ${etats.size && l && !etats.has(l.code) ? 'opacity-25' : ''}`}>
                     {l ? <span className="inline-flex items-center gap-1 whitespace-nowrap">
@@ -369,10 +369,10 @@ export default function GrilleInscrits({ data, passe, annee, section, onFiche, o
                         titre={`${ETATS[l.code]?.lib}${l.detail.length ? ' — ' + l.detail.join(' · ') : ''}${l.reprise ? ' · reprise' : ''}${VERS_REVUE.has(l.code) ? ' — clic : revue du PAE' : l.code === 'AQ' && l.inscrit && peutRetirer ? ' — clic : retirer du programme' : ''}`}
                         onClick={VERS_REVUE.has(l.code) && onRevue ? () => onRevue(id)
                           : l.code === 'AQ' && l.inscrit && peutRetirer ? () => retirerAcquises([{ id, ue: u.ue_num }]) : undefined} />
-                      {l.reprise && <span title="Reprise : déjà inscrit à cette unité une année précédente" className="text-[10px] font-semibold text-slate-500">↻</span>}
-                      {l.tags.filter(t => t !== 'VA ?').map(t => <span key={t} className="text-[10px] text-slate-500">+{t}</span>)}
-                      {l.tags.includes('VA ?') && <span title="Demande de VA en cours" className="text-[10px] text-amber-700">VA?</span>}
-                      {!l.inscrit && <span title="VA accordée sans inscription à l'unité cette année" className="text-[10px] text-amber-700">n.i.</span>}
+                      {l.reprise && <span title="Reprise : déjà inscrit à cette unité une année précédente" className="text-mention font-semibold text-slate-500">↻</span>}
+                      {l.tags.filter(t => t !== 'VA ?').map(t => <span key={t} className="text-mention text-slate-500">+{t}</span>)}
+                      {l.tags.includes('VA ?') && <span title="Demande de VA en cours" className="text-mention text-amber-700">VA?</span>}
+                      {!l.inscrit && <span title="VA accordée sans inscription à l'unité cette année" className="text-mention text-amber-700">n.i.</span>}
                     </span> : <span className="text-slate-300">·</span>}
                   </td>,
                   ...(ouvertes.has(u.ue_num) ? u.cours.map(c => { const k = l?.cellules?.[c.code]; return (

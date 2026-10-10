@@ -57,17 +57,17 @@ export default function MesPropositions() {
       {aLire > 0 && (
         <div className="mb-5">
           <div className="flex items-baseline gap-2 mb-1.5">
-            <h2 className="text-[13px] font-semibold text-iip-blue">Propositions d'amélioration</h2>
-            <span className="text-[11px] text-slate-400">les auteurs vous ont répondu</span>
+            <h2 className="text-sm font-semibold text-iip-blue">Propositions d'amélioration</h2>
+            <span className="text-xs text-slate-400">les auteurs vous ont répondu</span>
           </div>
           <button type="button" onClick={() => setFenetre(true)}
             className="carte w-full text-left px-3 py-2 flex items-center gap-3 hover:bg-slate-100">
             <IconBulb size={16} className="text-slate-400 flex-none" />
-            <span className="flex-1 text-[13px] text-slate-800">
+            <span className="flex-1 text-sm text-slate-800">
               {aLire} proposition{aLire > 1 ? 's' : ''} avec une réponse non lue
             </span>
             <PastilleNouveau />
-            <span className="text-[12px] text-iip-blue font-semibold">Ouvrir</span>
+            <span className="text-second text-iip-blue font-semibold">Ouvrir</span>
           </button>
         </div>
       )}
@@ -75,8 +75,8 @@ export default function MesPropositions() {
       {lignes.length > 0 && (
         <div className="mb-5">
           <div className="flex items-baseline gap-2 mb-1.5">
-            <h2 className="text-[13px] font-semibold text-iip-blue">Mes propositions</h2>
-            <span className="text-[11px] text-slate-400">
+            <h2 className="text-sm font-semibold text-iip-blue">Mes propositions</h2>
+            <span className="text-xs text-slate-400">
               {nbNouveaux
                 ? `${nbNouveaux} réponse${nbNouveaux > 1 ? 's' : ''} de la direction à lire`
                 : 'les réponses de la direction à vos idées'}
@@ -90,17 +90,17 @@ export default function MesPropositions() {
                   <button type="button" onClick={() => ouvrir(s.id)}
                     className="w-full text-left px-3 py-2 flex items-center gap-3 hover:bg-slate-100">
                     <Chevron size={14} className="text-slate-400 flex-none" />
-                    <span className="flex-1 min-w-0 text-[13px] text-slate-800 truncate">{s.titre}</span>
+                    <span className="flex-1 min-w-0 text-sm text-slate-800 truncate">{s.titre}</span>
                     {s.nouveau && !vus.has(s.id) && <PastilleNouveau />}
                     <PastilleIdee etat={s.etat} />
-                    <span className="text-[11px] text-slate-400 tabular-nums flex-none">
+                    <span className="text-xs text-slate-400 tabular-nums flex-none">
                       {jour(s.derniere_activite)}
                     </span>
                   </button>
                   {ouvert === s.id && (
                     <div className="px-3 pb-3 pl-9">
                       {s.detail && (
-                        <div className="text-[12px] text-slate-500 whitespace-pre-wrap mb-1">{s.detail}</div>
+                        <div className="text-second text-slate-500 whitespace-pre-wrap mb-1">{s.detail}</div>
                       )}
                       <FilSuggestion id={s.id} invite="Votre réponse à la direction" />
                     </div>

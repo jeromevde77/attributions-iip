@@ -66,11 +66,11 @@ export default function CentrePlanification({ annee, ongletInitial = 'ue' }) {
 
       <div className="flex-1 min-h-0">
         <Suspense fallback={
-          <div className="p-4 text-[13px] text-slate-400">Chargement…</div>}>
+          <div className="p-4 text-sm text-slate-400">Chargement…</div>}>
           {onglet === 'ue' && <GrilleOrganisation sansTitre />}
           {onglet === 'dates' && (annee
             ? <DatesUE annee={annee} sansTitre />
-            : <div className="p-4 text-[13px] text-slate-400">
+            : <div className="p-4 text-sm text-slate-400">
                 Chargement de l'année active…
               </div>)}
           {onglet === 'sessions' && <CalendrierSessions sansTitre />}

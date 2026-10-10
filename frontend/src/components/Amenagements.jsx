@@ -136,25 +136,25 @@ export default function Amenagements({ etudId, annee }) {
     const v = c?.[vol] || {};
     if (hors) return null;
     return v.valide_le ? (
-      <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg text-[13px] text-white" style={{ background: 'var(--c-reussi, #3E7D5E)' }}>
+      <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg text-sm text-white" style={{ background: 'var(--c-reussi, #3E7D5E)' }}>
         <b>{libelle} validé</b> le {quand(v.valide_le)} par {v.valide_par || '—'}.
         {suite && <span className="text-white/90">{suite}</span>}
         {/* ROUVRIR POUR CORRIGER, tant que le Conseil n'a pas tranché ; rouvrir la
             demande rouvre d'abord le rapport, qui en dépend (Charles, 8 octobre 2026). */}
         {v.peut !== false && !c?.decide && (
-          <button type="button" className="ml-auto bouton h-7 text-[12px]" style={{ background: '#fff', color: 'var(--c-texte, #1B2B4B)' }}
+          <button type="button" className="ml-auto bouton h-7 text-second" style={{ background: '#fff', color: 'var(--c-texte, #1B2B4B)' }}
             onClick={async () => {
               if (vol === 'a' && c?.b?.valide_le && !(await geste('valider-b', 'DELETE'))) return;
               await geste(route, 'DELETE');
             }}>Rouvrir pour corriger</button>)}
-        {c?.decide && <span className="ml-auto text-[12px] text-white/90">Le Conseil a décidé : le dossier ne se rouvre plus.</span>}
+        {c?.decide && <span className="ml-auto text-second text-white/90">Le Conseil a décidé : le dossier ne se rouvre plus.</span>}
       </div>
     ) : (
       <div className="flex flex-wrap items-center gap-2">
         {v.peut !== false && <button type="button" className="bouton font-semibold disabled:opacity-40" disabled={!!v.manques?.length}
           style={v.manques?.length ? undefined : { background: 'var(--c-reussi, #3E7D5E)', borderColor: 'var(--c-reussi, #3E7D5E)', color: '#fff' }}
           onClick={() => geste(route)}>✓ Valider {libelle.toLowerCase()}</button>}
-        <span className="text-[12px] text-slate-500 min-w-0">
+        <span className="text-second text-slate-500 min-w-0">
           {v.manques?.length ? `Il manque : ${v.manques.join(', ')}.` : 'Tout est complet.'}
         </span>
       </div>
@@ -164,10 +164,10 @@ export default function Amenagements({ etudId, annee }) {
   const tableMesures = (modeDecision) => (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <span className="text-[13px] font-semibold text-iip-blue">Mesures {modeDecision ? 'à trancher' : 'demandées'} ({d.mesures?.length || 0})</span>
+        <span className="text-sm font-semibold text-iip-blue">Mesures {modeDecision ? 'à trancher' : 'demandées'} ({d.mesures?.length || 0})</span>
         {!modeDecision && !c?.b?.valide_le && (
           <button onClick={() => setAjout({ nature: 'pedagogique', portee: 'toutes' })}
-            className="flex items-center gap-1.5 text-[12px] px-2.5 py-1 border border-slate-300 rounded-lg hover:bg-slate-50">
+            className="flex items-center gap-1.5 text-second px-2.5 py-1 border border-slate-300 rounded-lg hover:bg-slate-50">
             <IconPlus size={14} /> Ajouter une mesure
           </button>
         )}
@@ -202,7 +202,7 @@ export default function Amenagements({ etudId, annee }) {
         </div>
       )}
       {!d.mesures?.length ? (
-        <div className="py-5 text-center text-[13px] text-slate-400 border-2 border-dashed rounded-xl">
+        <div className="py-5 text-center text-sm text-slate-400 border-2 border-dashed rounded-xl">
           Aucune mesure. Un aménagement porte sur la manière d'accéder aux acquis d'apprentissage et de les évaluer, jamais sur les acquis eux-mêmes.
         </div>
       ) : (
@@ -220,14 +220,14 @@ export default function Amenagements({ etudId, annee }) {
                 <Td>
                   <span className={modeDecision && !m.accorde ? 'line-through text-slate-400' : ''}>{m.libelle}</span>
                   {modeDecision || c?.b?.valide_le
-                    ? (m.precisions && <span className="block text-[11px] text-slate-500">{m.precisions}</span>)
+                    ? (m.precisions && <span className="block text-xs text-slate-500">{m.precisions}</span>)
                     : <input defaultValue={m.precisions || ''} placeholder="précision (facultatif)"
                         onBlur={e => e.target.value !== (m.precisions || '') && majMesure(m, { precisions: e.target.value })}
-                        className="block mt-0.5 w-full border border-slate-200 rounded px-1.5 py-0.5 text-[12px]" />}
+                        className="block mt-0.5 w-full border border-slate-200 rounded px-1.5 py-0.5 text-second" />}
                   {modeDecision && !m.accorde && (
                     <textarea rows={2} defaultValue={m.motif_refus || ''} placeholder="Motif du refus — obligatoire"
                       onBlur={e => e.target.value.trim() && e.target.value !== (m.motif_refus || '') && majMesure(m, { accorde: false, motif_refus: e.target.value })}
-                      className="mt-1 w-full border border-slate-300 rounded-lg px-2 py-1 text-[12px]" />
+                      className="mt-1 w-full border border-slate-300 rounded-lg px-2 py-1 text-second" />
                   )}
                 </Td>
                 <Td><Badge ton={m.nature === 'materiel' ? 'info' : 'accent'}>{m.nature === 'materiel' ? 'Matériel' : 'Pédagogique'}</Badge></Td>
@@ -236,10 +236,10 @@ export default function Amenagements({ etudId, annee }) {
                   <Td>
                     <div className="flex gap-1">
                       <button onClick={() => !m.accorde && majMesure(m, { accorde: true, motif_refus: null })}
-                        className="px-2 py-0.5 text-[12px] rounded-md border font-semibold"
+                        className="px-2 py-0.5 text-second rounded-md border font-semibold"
                         style={m.accorde ? { background: 'var(--c-reussi, #3E7D5E)', borderColor: 'var(--c-reussi, #3E7D5E)', color: '#fff' } : { borderColor: '#CBD5E1', color: '#475569' }}>Accordée</button>
                       <button onClick={() => m.accorde && setRefus({ mesure: m, motif: '' })}
-                        className="px-2 py-0.5 text-[12px] rounded-md border font-semibold"
+                        className="px-2 py-0.5 text-second rounded-md border font-semibold"
                         style={!m.accorde ? { background: 'var(--c-refuse, #9D4A38)', borderColor: 'var(--c-refuse, #9D4A38)', color: '#fff' } : { borderColor: '#CBD5E1', color: '#475569' }}>Refusée</button>
                     </div>
                   </Td>
@@ -256,12 +256,12 @@ export default function Amenagements({ etudId, annee }) {
       )}
       {refus && modeDecision && (
         <div className="mt-2 border border-slate-300 rounded-xl p-3 space-y-2">
-          <div className="text-[13px] text-iip-blue font-semibold">Refuser « {refus.mesure.libelle} »</div>
+          <div className="text-sm text-iip-blue font-semibold">Refuser « {refus.mesure.libelle} »</div>
           <textarea rows={2} autoFocus value={refus.motif} onChange={e => setRefus(r0 => ({ ...r0, motif: e.target.value }))}
             placeholder="Motif du refus — il figure sur la décision notifiée à l'étudiant"
             className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
           <div className="flex items-center gap-2">
-            <span className="text-[12px] text-slate-500 flex-1 min-w-0">{!refus.motif.trim() && 'Un refus se motive (art. 6 § 2).'}</span>
+            <span className="text-second text-slate-500 flex-1 min-w-0">{!refus.motif.trim() && 'Un refus se motive (art. 6 § 2).'}</span>
             <button onClick={() => setRefus(null)} className="bouton">Annuler</button>
             <button disabled={!refus.motif.trim()} className="bouton bouton-fort"
               onClick={async () => { await majMesure(refus.mesure, { accorde: false, motif_refus: refus.motif }); setRefus(null); }}>Refuser la mesure</button>
@@ -277,8 +277,8 @@ export default function Amenagements({ etudId, annee }) {
     <div className="space-y-3">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h3 className="text-[15px] font-semibold text-iip-blue">Aménagements raisonnables</h3>
-          <p className="text-[12px] text-slate-500">Décret du 30 juin 2016 · année {annee}</p>
+          <h3 className="text-base font-semibold text-iip-blue">Aménagements raisonnables</h3>
+          <p className="text-second text-slate-500">Décret du 30 juin 2016 · année {annee}</p>
         </div>
         {d && <Badge ton={STATUTS[d.statut]?.ton || 'neutre'}>{STATUTS[d.statut]?.libelle}</Badge>}
         {!d && peutAmenager() && (
@@ -291,7 +291,7 @@ export default function Amenagements({ etudId, annee }) {
 
       {message && (
         <div data-etat={message.type === 'err' ? 'corriger' : message.type === 'rappel' ? 'surveiller' : 'reussi'}
-          className="bloc-etat px-3 py-2 text-[13px] flex items-start justify-between gap-2">
+          className="bloc-etat px-3 py-2 text-sm flex items-start justify-between gap-2">
           <span>{message.texte}</span>
           <button onClick={() => setMessage(null)} className="opacity-60">✕</button>
         </div>
@@ -299,14 +299,14 @@ export default function Amenagements({ etudId, annee }) {
 
       {/* La pièce vaut au-delà de l'année : une ligne, pas un bandeau. */}
       {data.piece_valide && (
-        <div className="flex items-start gap-1.5 text-[12px]" style={{ color: data.piece_valide.perime ? 'var(--c-attente, #B45309)' : '#475569' }}>
+        <div className="flex items-start gap-1.5 text-second" style={{ color: data.piece_valide.perime ? 'var(--c-attente, #B45309)' : '#475569' }}>
           <IconShieldCheck size={14} className="mt-0.5 flex-none" />
           <span>Pièce au dossier ({data.piece_valide.annee_scolaire}) : {data.piece_valide.note}</span>
         </div>
       )}
 
       {!d ? (
-        <div className="py-8 text-center text-[13px] text-slate-400 border-2 border-dashed rounded-xl">Aucun dossier pour {annee}.</div>
+        <div className="py-8 text-center text-sm text-slate-400 border-2 border-dashed rounded-xl">Aucun dossier pour {annee}.</div>
       ) : (
         <>
           <EtapesAmenagement d={d} circuit={c} etapeActive={etapeVue} onAller={k => ouverte(k) && setEtape(k)} />
@@ -376,7 +376,7 @@ export default function Amenagements({ etudId, annee }) {
                     onBlur={e => e.target.value !== (d.besoins || '') && majDossier({ besoins: e.target.value })}
                     className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
                 </label>
-                <p className="text-[12px] text-slate-500">Le rapport se valide par la personne de référence{d.personne_reference ? ` (${d.personne_reference})` : ''}, ou par la direction. Sa validation appelle les chargés de cours des unités concernées : ils rendent leur avis dans Mes cours.</p>
+                <p className="text-second text-slate-500">Le rapport se valide par la personne de référence{d.personne_reference ? ` (${d.personne_reference})` : ''}, ou par la direction. Sa validation appelle les chargés de cours des unités concernées : ils rendent leur avis dans Mes cours.</p>
                 {barreValidation('b', 'Le rapport', 'valider-b', 'Les chargés de cours sont appelés à rendre leur avis.')}
               </div>
             )}
@@ -384,30 +384,30 @@ export default function Amenagements({ etudId, annee }) {
             {/* ── LES AVIS DES CHARGÉS DE COURS ── */}
             {etapeVue === 'avis' && (
               <div className="space-y-2">
-                <p className="text-[12px] text-slate-500">
+                <p className="text-second text-slate-500">
                   Mesure par mesure, l'avis de chaque chargé de cours des unités concernées — rendu dans Mes cours. Il ne voit que les mesures demandées (secret professionnel, art. 5). Le Conseil peut trancher sans tous les avis.
                 </p>
                 {!(c?.charges || []).length ? (
-                  <p className="text-[13px] text-slate-500">Aucun chargé de cours attribué cette année aux unités concernées.</p>
+                  <p className="text-sm text-slate-500">Aucun chargé de cours attribué cette année aux unités concernées.</p>
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className="w-full text-[12.5px] border-collapse">
+                    <table className="w-full text-second border-collapse">
                       <thead><tr className="tab-entete text-left">
                         <th className="px-2 py-1.5">Mesure demandée</th>
-                        {c.charges.map(p => <th key={p.professeur_id} className="px-2 py-1.5">{p.nom}<div className="font-normal text-[11px] text-slate-500">UE {p.ues.join(', ')}</div></th>)}
+                        {c.charges.map(p => <th key={p.professeur_id} className="px-2 py-1.5">{p.nom}<div className="font-normal text-xs text-slate-500">UE {p.ues.join(', ')}</div></th>)}
                       </tr></thead>
                       <tbody>
                         {d.mesures.map(m => (
                           <tr key={m.id} className="border-b border-slate-100 align-top">
-                            <td className="px-2 py-1.5"><b>{m.libelle}</b>{m.precisions && <div className="text-[11px] text-slate-500">{m.precisions}</div>}</td>
+                            <td className="px-2 py-1.5"><b>{m.libelle}</b>{m.precisions && <div className="text-xs text-slate-500">{m.precisions}</div>}</td>
                             {c.charges.map(p => {
                               const a0 = c.avis.find(x => x.mesure_id === m.id && x.professeur_id === p.professeur_id);
                               return (
                                 <td key={p.professeur_id} className="px-2 py-1.5">
                                   {a0 ? <>
-                                    <span className="inline-block text-[11px] font-semibold text-white rounded-full px-2" style={{ background: SENS[a0.sens]?.[1] }}>{SENS[a0.sens]?.[0]}</span>
-                                    {a0.motif && <div className="text-[11.5px] mt-0.5">{a0.motif}</div>}
-                                  </> : <span className="inline-block text-[11px] font-semibold text-white rounded-full px-2 bg-slate-400">attendu</span>}
+                                    <span className="inline-block text-xs font-semibold text-white rounded-full px-2" style={{ background: SENS[a0.sens]?.[1] }}>{SENS[a0.sens]?.[0]}</span>
+                                    {a0.motif && <div className="text-xs mt-0.5">{a0.motif}</div>}
+                                  </> : <span className="inline-block text-xs font-semibold text-white rounded-full px-2 bg-slate-400">attendu</span>}
                                 </td>
                               );
                             })}
@@ -458,7 +458,7 @@ export default function Amenagements({ etudId, annee }) {
                 </div>
                 {(['partiel', 'refuse', 'recours'].includes(d.statut) || d.recours_le) && (
                   <div className="pt-2 border-t border-slate-100 space-y-3">
-                    <div className="text-[12px] font-semibold text-iip-blue">Recours devant la Commission de l'enseignement pour adultes inclusif</div>
+                    <div className="text-second font-semibold text-iip-blue">Recours devant la Commission de l'enseignement pour adultes inclusif</div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       {champ('recours_le', 'Recours introduit le', 'date')}
                       {champ('recours_decision_le', 'Décision de la Commission le', 'date')}
@@ -476,7 +476,7 @@ export default function Amenagements({ etudId, annee }) {
             )}
           </div>
 
-          <p className="text-[11px] text-slate-500">
+          <p className="text-xs text-slate-500">
             Les échanges relatifs à la situation de l'étudiant sont couverts par le secret professionnel. Seules les mesures sont montrées aux chargés de cours, à l'exclusion de la nature du handicap.
           </p>
         </>
@@ -571,7 +571,7 @@ function PiecesDossier({ d, etudId, onChange, setMessage }) {
 
   return (
     <div className="border border-slate-200 rounded-xl p-4 space-y-3">
-      <div className="text-[13px] font-semibold text-iip-blue">Pièces du dossier</div>
+      <div className="text-sm font-semibold text-iip-blue">Pièces du dossier</div>
       <div className="flex flex-wrap gap-2">
         {PIECES.map(([type, lib]) => (
           <button key={type} className="bouton bouton-sortir flex items-center gap-1.5"
@@ -592,7 +592,7 @@ function PiecesDossier({ d, etudId, onChange, setMessage }) {
           <IconUsers size={14} /> {enCours ? 'Préparation…' : 'Communiquer aux chargés de cours'}
         </button>
       </div>
-      <div className="text-[12px] text-slate-500">
+      <div className="text-second text-slate-500">
         {d.communique_le
           ? <>Mesures communiquées le <b>{String(d.communique_le).slice(0, 10).split('-').reverse().join('/')}</b>
               {d.communique_par && <> par <b>{d.communique_par}</b></>}
@@ -620,21 +620,21 @@ function DossiersAnterieurs({ dossiers, annee, etudId, setMessage }) {
   const toutesAvant = dossiers.every(x => String(x.annee_scolaire) < String(annee));
   return (
     <div className="space-y-2">
-      <div className="text-[13px] font-semibold text-iip-blue">
+      <div className="text-sm font-semibold text-iip-blue">
         {toutesAvant ? 'Années précédentes' : 'Autres années'} ({dossiers.length})
       </div>
       {dossiers.map(x => (
         <details key={x.id} className="border border-slate-200 rounded-xl">
-          <summary className="cursor-pointer px-4 py-2 flex items-center gap-3 flex-wrap text-[13px]">
+          <summary className="cursor-pointer px-4 py-2 flex items-center gap-3 flex-wrap text-sm">
             <b>{x.annee_scolaire}</b>
             <Badge ton={STATUTS[x.statut]?.ton || 'neutre'}>{STATUTS[x.statut]?.libelle || x.statut}</Badge>
-            <span className="text-slate-500 text-[12px]">
+            <span className="text-slate-500 text-second">
               demande du {jourFr(x.date_demande)} · décision du {jourFr(x.cde_date)}
               {' '}· {(x.mesures || []).filter(m => m.accorde).length} mesure(s) accordée(s)
             </span>
           </summary>
-          <div className="px-4 pb-3 space-y-2 text-[13px]">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-1 text-[12px] text-slate-600">
+          <div className="px-4 pb-3 space-y-2 text-sm">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-1 text-second text-slate-600">
               <div>Personne de référence : <b>{x.personne_reference || '—'}</b></div>
               <div>Notifiée le <b>{jourFr(x.notifie_le)}</b>{x.notifie_par && ` (${MODES_NOTIF[x.notifie_par] || x.notifie_par})`}</div>
               <div>Délai de mise en œuvre : <b>{x.delai_mise_oeuvre || '—'}</b></div>
@@ -643,7 +643,7 @@ function DossiersAnterieurs({ dossiers, annee, etudId, setMessage }) {
                 {x.recours_issue && <> — {x.recours_issue}</>}</div>}
             </div>
             {(x.mesures || []).length > 0 && (
-              <ul className="list-disc pl-5 text-[12px]">
+              <ul className="list-disc pl-5 text-second">
                 {x.mesures.map(m => (
                   <li key={m.id} className={m.accorde ? '' : 'text-slate-400'}>
                     <span className={m.accorde ? '' : 'line-through'}>{m.libelle}</span>
@@ -655,11 +655,11 @@ function DossiersAnterieurs({ dossiers, annee, etudId, setMessage }) {
               </ul>
             )}
             {x.cde_motivation && (
-              <div className="text-[12px] text-slate-600"><b>Motivation :</b> {x.cde_motivation}</div>
+              <div className="text-second text-slate-600"><b>Motivation :</b> {x.cde_motivation}</div>
             )}
             <div className="flex gap-2 pt-1">
               {PIECES.map(([type, lib]) => (
-                <button key={type} className="bouton bouton-sortir flex items-center gap-1.5 text-[12px]"
+                <button key={type} className="bouton bouton-sortir flex items-center gap-1.5 text-second"
                   onClick={() => produirePiece(x.id, type, etudId, setMessage)}>
                   <IconSend size={13} /> {lib}
                 </button>
@@ -707,10 +707,10 @@ function UesConcernees({ dossierId, annee, choisies, onChange }) {
     } finally { setEnCours(false); }
   }
 
-  if (!ues) return <div className="text-[12px] text-slate-400">Chargement des unités…</div>;
+  if (!ues) return <div className="text-second text-slate-400">Chargement des unités…</div>;
   if (!ues.length) {
     return (
-      <div className="text-[12px] text-slate-500 border border-slate-200 rounded-lg p-3">
+      <div className="text-second text-slate-500 border border-slate-200 rounded-lg p-3">
         Cet étudiant n'est inscrit à aucune unité en {annee} : son programme doit
         être établi avant de désigner les unités concernées.
       </div>
@@ -720,17 +720,17 @@ function UesConcernees({ dossierId, annee, choisies, onChange }) {
   return (
     <div className="border border-slate-200 rounded-lg p-3">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-[13px] font-semibold text-iip-blue">
+        <span className="text-sm font-semibold text-iip-blue">
           Unités concernées {sel.size > 0 && `(${sel.size})`}
         </span>
-        <span className="text-[11px] text-slate-400">
+        <span className="text-xs text-slate-400">
           {enCours ? 'Enregistrement…' : 'Aucune cochée = toutes'}
         </span>
       </div>
       <div className="max-h-40 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-x-3">
         {ues.map(u => (
           <label key={u.ue_num}
-            className="flex items-center gap-2 py-0.5 text-[12px] cursor-pointer">
+            className="flex items-center gap-2 py-0.5 text-second cursor-pointer">
             <input type="checkbox" checked={sel.has(u.ue_num)}
               onChange={() => {
                 const n = new Set(sel);
@@ -738,7 +738,7 @@ function UesConcernees({ dossierId, annee, choisies, onChange }) {
                 setSel(n);
                 enregistrer(n);
               }} />
-            <span className="font-mono text-[11px] text-slate-500 w-10 flex-none">
+            <span className="font-mono text-xs text-slate-500 w-10 flex-none">
               {u.ue_num}
             </span>
             <span className="truncate">{u.ue_nom}</span>
@@ -761,11 +761,11 @@ function ChoixMesures({ d, catalogue, verrou, onAjouter, onRetirer, onPreciser }
       <div className="grid gap-x-6 gap-y-1 md:grid-cols-2">
         {moments.map(mo => (
           <div key={mo}>
-            <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mt-1">{mo}</div>
+            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mt-1">{mo}</div>
             {catalogue.filter(x => (x.moment || 'Autres') === mo).map(x => {
               const m = parCode.get(x.code);
               return (
-                <div key={x.code} className="flex flex-wrap items-center gap-2 py-0.5 text-[13px]">
+                <div key={x.code} className="flex flex-wrap items-center gap-2 py-0.5 text-sm">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" checked={!!m} disabled={verrou}
                       onChange={() => (m ? onRetirer(m.id) : onAjouter({ code: x.code, libelle: x.libelle, nature: x.nature, portee: 'toutes' }))} />
@@ -774,7 +774,7 @@ function ChoixMesures({ d, catalogue, verrou, onAjouter, onRetirer, onPreciser }
                   {m && (
                     <input defaultValue={m.precisions || ''} disabled={verrou} placeholder="précision"
                       onBlur={e => e.target.value !== (m.precisions || '') && onPreciser(m, e.target.value)}
-                      className="border border-slate-200 rounded px-1.5 py-0.5 text-[12px] w-40" />
+                      className="border border-slate-200 rounded px-1.5 py-0.5 text-second w-40" />
                   )}
                 </div>
               );
@@ -782,7 +782,7 @@ function ChoixMesures({ d, catalogue, verrou, onAjouter, onRetirer, onPreciser }
           </div>
         ))}
       </div>
-      <div className="mt-2 text-[13px]">
+      <div className="mt-2 text-sm">
         {autres.map(m => (
           <div key={m.id} className="flex items-center gap-2 py-0.5">
             <input type="checkbox" checked disabled={verrou} onChange={() => onRetirer(m.id)} />
@@ -795,8 +795,8 @@ function ChoixMesures({ d, catalogue, verrou, onAjouter, onRetirer, onPreciser }
             <span className="text-slate-500">Autre :</span>
             <input value={autre} onChange={e => setAutre(e.target.value)} placeholder="décrire l'aménagement"
               onKeyDown={e => { if (e.key === 'Enter' && autre.trim()) { onAjouter({ code: 'AUTRE', libelle: autre.trim(), nature: 'pedagogique', portee: 'toutes' }); setAutre(''); } }}
-              className="border border-slate-300 rounded px-1.5 py-0.5 text-[12.5px] flex-1 max-w-md" />
-            <button type="button" disabled={!autre.trim()} className="bouton text-[12px] px-2 py-0.5 disabled:opacity-40"
+              className="border border-slate-300 rounded px-1.5 py-0.5 text-second flex-1 max-w-md" />
+            <button type="button" disabled={!autre.trim()} className="bouton text-second px-2 py-0.5 disabled:opacity-40"
               onClick={() => { onAjouter({ code: 'AUTRE', libelle: autre.trim(), nature: 'pedagogique', portee: 'toutes' }); setAutre(''); }}>Ajouter</button>
           </div>
         )}

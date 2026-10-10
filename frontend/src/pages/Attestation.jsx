@@ -705,9 +705,9 @@ export default function Attestation() {
         )}
         <td className="px-2 py-1 text-center">
           {l.mention
-            ? <span className={`text-[11px] font-bold px-2 py-0.5 rounded whitespace-nowrap ${mentionColorClass(l._calcPct)}`}>{l._calcPct}% — {l.mention}</span>
+            ? <span className={`text-xs font-bold px-2 py-0.5 rounded whitespace-nowrap ${mentionColorClass(l._calcPct)}`}>{l._calcPct}% — {l.mention}</span>
             : l._complet
-              ? <span className="text-[11px] font-bold px-2 py-0.5 rounded whitespace-nowrap text-white bg-red-500">{l._calcPct}% — Échec</span>
+              ? <span className="text-xs font-bold px-2 py-0.5 rounded whitespace-nowrap text-white bg-red-500">{l._calcPct}% — Échec</span>
               : <span className="text-gray-300" title="UE manquantes">—</span>}
         </td>
         <td className="px-2 py-1">
@@ -794,11 +794,11 @@ export default function Attestation() {
           </button>
           <div className="flex items-center gap-0.5 bg-gray-100 rounded-lg p-0.5">
             <button onClick={() => setDocType('attestation')}
-              className={`px-2.5 py-1 text-xs font-medium rounded-md ${docType==='attestation' ? 'bg-white text-iip-blue shadow-sm' : 'text-gray-500 hover:text-iip-blue'}`}>
+              className={`px-2.5 py-1 text-xs font-medium rounded-md ${docType==='attestation' ? 'bg-white text-iip-blue shadow-pose' : 'text-gray-500 hover:text-iip-blue'}`}>
               Attestation
             </button>
             <button onClick={() => setDocType('diplome')}
-              className={`px-2.5 py-1 text-xs font-medium rounded-md ${docType==='diplome' ? 'bg-white text-iip-blue shadow-sm' : 'text-gray-500 hover:text-iip-blue'}`}>
+              className={`px-2.5 py-1 text-xs font-medium rounded-md ${docType==='diplome' ? 'bg-white text-iip-blue shadow-pose' : 'text-gray-500 hover:text-iip-blue'}`}>
               Diplôme
             </button>
           </div>
@@ -847,12 +847,12 @@ export default function Attestation() {
                 ))}
                 {cfgActive.det.map(u => (
                   <th key={u.ue} onClick={() => trier('ue:' + u.ue)} className="px-1 py-2 font-semibold text-gray-500 w-14 text-center cursor-pointer select-none hover:text-iip-blue" title={u.nom}>
-                    UE{u.ue}{fleche('ue:' + u.ue)}<br/><span className="text-[10px] text-gray-400 font-normal">/20 · {u.periodes}p</span>
+                    UE{u.ue}{fleche('ue:' + u.ue)}<br/><span className="text-mention text-gray-400 font-normal">/20 · {u.periodes}p</span>
                   </th>
                 ))}
                 {cfgActive.intUe && (
                 <th onClick={() => trier('ue:' + cfgActive.intUe)} className="px-1 py-2 font-semibold text-amber-600 w-14 text-center cursor-pointer select-none hover:text-amber-700" title={cfgActive.intNom}>
-                  UE{cfgActive.intUe}{fleche('ue:' + cfgActive.intUe)}<br/><span className="text-[10px] text-amber-500 font-normal">/20 · 1/3</span>
+                  UE{cfgActive.intUe}{fleche('ue:' + cfgActive.intUe)}<br/><span className="text-mention text-amber-500 font-normal">/20 · 1/3</span>
                 </th>
                 )}
                 <th onClick={() => trier('mention')} className="px-2 py-2 font-semibold text-gray-500 w-32 text-center cursor-pointer select-none hover:text-iip-blue">Mention (auto){fleche('mention')}</th>
@@ -864,7 +864,7 @@ export default function Attestation() {
                 const complets = lignesAffichees.filter(l => l.nom && l._complet);
                 const autres   = lignesAffichees.filter(l => !(l.nom && l._complet));
                 const sec = (titre, n, cls) => (
-                  <tr key={'sec-' + titre}><td colSpan={NB_COLS} className={'px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide ' + cls}>{titre} — {n}</td></tr>
+                  <tr key={'sec-' + titre}><td colSpan={NB_COLS} className={'px-3 py-1.5 text-xs font-bold uppercase tracking-wide ' + cls}>{titre} — {n}</td></tr>
                 );
                 return (<>
                   {complets.length > 0 && sec('Dossiers complets (toutes les UE notées)', complets.length, 'bg-green-50 text-green-700')}
@@ -876,7 +876,7 @@ export default function Attestation() {
             </tbody>
           </table>
         </div>
-        <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 text-[11px] text-gray-500">
+        <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 text-xs text-gray-500">
           Notes sur /20 — {cfgActive.det.length} UE déterminantes (total {cfgActive.det.reduce((a, u) => a + (u.periodes || 0), 0)} périodes cours+autonomie, pondération 2/3){cfgActive.intUe ? ` + UE ${cfgActive.intUe} épreuve intégrée (1/3)` : ''}. Mention calculée automatiquement.
         </div>
       </div>

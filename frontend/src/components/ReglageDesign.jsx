@@ -43,23 +43,23 @@ export default function ReglageDesign() {
     }, 500);
   }
 
-  if (!cat || !v) return <div className="text-[13px] text-slate-400">{etat || 'Chargement…'}</div>;
+  if (!cat || !v) return <div className="text-sm text-slate-400">{etat || 'Chargement…'}</div>;
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[12.5px] text-slate-600">Thèmes :</span>
+        <span className="text-second text-slate-600">Thèmes :</span>
         {Object.entries(THEMES).map(([nom, t]) => (
           <button key={nom} className="bouton" disabled={!peut} onClick={() => changer({ ...DESIGN_MAISON, ...t })}>{nom}</button>))}
         <span className="flex-1" />
-        <span className="text-[12px] text-slate-500">{peut ? etat : 'Lecture seule : seul l’administrateur règle le design.'}</span>
+        <span className="text-second text-slate-500">{peut ? etat : 'Lecture seule : seul l’administrateur règle le design.'}</span>
       </div>
       <div className="flex flex-wrap gap-4 items-start">
         <div className="flex-1 min-w-[420px] grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))' }}>
           {GROUPES.map(([g, titre]) => (
             <div key={g} className="carte p-3 space-y-2">
-              <b className="text-[13px]">{titre}</b>
+              <b className="text-sm">{titre}</b>
               {Object.entries(cat).filter(([, d]) => d.groupe === g).map(([k, d]) => (
-                <label key={k} className="flex items-center gap-2 text-[12.5px]">
+                <label key={k} className="flex items-center gap-2 text-second">
                   <span className="flex-1">{d.libelle}</span>
                   {d.type === 'choix'
                     ? <select className="controle !h-8" value={v[k]} disabled={!peut} onChange={e => changer({ ...v, [k]: e.target.value })}>
@@ -72,7 +72,7 @@ export default function ReglageDesign() {
             </div>))}
         </div>
         <div className="w-[360px] flex-none carte p-3 space-y-3">
-          <b className="text-[13px]">Aperçu</b>
+          <b className="text-sm">Aperçu</b>
           <div className="titre-ecran" style={{ margin: 0 }}>Titre d’un écran</div>
           <div className="flex flex-wrap gap-2">
             <button className="bouton bouton-fort">Action principale</button>
@@ -88,10 +88,10 @@ export default function ReglageDesign() {
           <div className="flex gap-2"><PastilleEtat etat="reussi">réussi</PastilleEtat><PastilleEtat etat="faveur">faveur</PastilleEtat><PastilleEtat etat="corriger">refusé</PastilleEtat></div>
           <Encadre etat="disponible" titre="Un encadré">Une phrase qui porte un état.</Encadre>
           <div className="flex gap-4 border-b border-slate-200"><span className="onglet-page onglet-page-actif">Onglet actif</span><span className="onglet-page">Autre</span></div>
-          <div className="rounded-fenetre shadow-dessus bg-white p-3 text-[12.5px]">Une fenêtre, son rayon et son ombre.</div>
+          <div className="rounded-fenetre shadow-dessus bg-white p-3 text-second">Une fenêtre, son rayon et son ombre.</div>
         </div>
       </div>
-      <p className="text-[12px] text-slate-500">Ce qui suit les réglages : les composants de la maison (boutons, champs, segments, cartes, tuiles, pastilles, onglets, fenêtres) et l’échelle nommée du texte. Les écrans qui dessinent encore leurs propres tuiles ou boutons y viennent au fil des lots — inventaire dans les notes de conception.</p>
+      <p className="text-second text-slate-500">Ce qui suit les réglages : les composants de la maison (boutons, champs, segments, cartes, tuiles, pastilles, onglets, fenêtres) et l’échelle nommée du texte. Les écrans qui dessinent encore leurs propres tuiles ou boutons y viennent au fil des lots — inventaire dans les notes de conception.</p>
     </div>
   );
 }

@@ -202,7 +202,7 @@ export default function Users({ embedded = false }) {
           design à revoir »). L'explication complète reste au survol. */}
       {!embedded && <div className="flex items-center justify-between gap-4 flex-wrap">
         <h1 className="titre-ecran">Accès à Lucie</h1>
-        <p className="text-[12px] text-slate-500 min-w-0 flex-1 m-0"
+        <p className="text-second text-slate-500 min-w-0 flex-1 m-0"
           title="Un même droit modifiable à deux endroits, c'est deux endroits où l'on ne sait plus lequel a écrit en dernier. Ce que chaque rôle autorise au mieux se décide dans « Rôles et plafonds ». Seuls les comptes sans fiche — administrateur technique, prestataire extérieur — se règlent ici.">
           <b className="text-slate-700">Qui a accès, et à quoi.</b> Le maximum de chaque rôle est la grille
           au-dessus ; « réduit » marque une case que la fiche de la personne abaisse (onglet « Accès Lucie »).
@@ -220,7 +220,7 @@ export default function Users({ embedded = false }) {
             <button onClick={() => setShowForm(false)} className="bouton">Annuler</button>
             <button onClick={createUser} className="bouton bouton-fort">Créer</button>
           </>}>
-            <p className="text-[12px] text-slate-500 mb-4">
+            <p className="text-second text-slate-500 mb-4">
               Pour un administrateur technique ou un prestataire extérieur. Pour un membre du
               personnel, créez l'accès depuis sa fiche.
             </p>
@@ -269,7 +269,7 @@ export default function Users({ embedded = false }) {
       <MatriceAcces users={users} sectionsDispo={allSections} profils={profils}
         moiId={me?.id}
         action={
-          <button onClick={() => setShowForm(true)} className="bouton controle inline-flex items-center gap-1.5 px-3 text-[12px]">
+          <button onClick={() => setShowForm(true)} className="bouton controle inline-flex items-center gap-1.5 px-3 text-second">
             <IconPlus size={14} /> Compte sans fiche
           </button>
         }
@@ -308,20 +308,20 @@ export default function Users({ embedded = false }) {
           onFermer={() => setLienMdp(null)}
           pied={<BoutonFenetre onClick={() => setLienMdp(null)}>Fermer</BoutonFenetre>}>
 
-          {lienMdp.occupe && <div className="text-[13px] text-slate-500">Envoi du lien…</div>}
+          {lienMdp.occupe && <div className="text-sm text-slate-500">Envoi du lien…</div>}
 
           {lienMdp.erreur && (
             <GroupeFenetre titre="Échec" ton="alerte">
-              <div className="text-[13px] text-slate-700">{lienMdp.erreur}</div>
+              <div className="text-sm text-slate-700">{lienMdp.erreur}</div>
             </GroupeFenetre>
           )}
 
           {lienMdp.envoye && (
             <GroupeFenetre titre="Lien envoyé">
-              <div className="text-[13px] text-slate-700 leading-relaxed">
+              <div className="text-sm text-slate-700 leading-relaxed">
                 Un lien vient d’être envoyé à <b>{lienMdp.email}</b>. Il est valable{' '}
                 {lienMdp.duree || `${lienMdp.minutes} minutes`} et ne sert qu’une fois.
-                <div className="mt-2 text-[12px] text-slate-500">
+                <div className="mt-2 text-second text-slate-500">
                   Ce lien permet de CHOISIR un mot de passe ; il ne connecte pas. Si la
                   vérification en deux temps est active sur ce compte, elle restera demandée.
                 </div>
@@ -331,17 +331,17 @@ export default function Users({ embedded = false }) {
 
           {lienMdp.ok && !lienMdp.envoye && (
             <GroupeFenetre titre="Le courriel n’est pas parti" ton="alerte">
-              <div className="text-[13px] text-slate-700 leading-relaxed mb-2">
+              <div className="text-sm text-slate-700 leading-relaxed mb-2">
                 {lienMdp.raison}. Transmettez ce lien à <b>{lienMdp.email}</b> par un autre
                 moyen — il expire dans {lienMdp.duree || `${lienMdp.minutes} minutes`}, ne sert qu’une fois,
                 et ne connecte pas.
               </div>
-              <div className="p-2 rounded-champ border border-slate-300 bg-white text-[11.5px]
+              <div className="p-2 rounded-champ border border-slate-300 bg-white text-xs
                               break-all select-all font-mono">
                 {lienMdp.lien}
               </div>
               <button onClick={() => navigator.clipboard?.writeText(lienMdp.lien)}
-                className="mt-2 text-[12px] text-iip-blue hover:underline">
+                className="mt-2 text-second text-iip-blue hover:underline">
                 Copier le lien
               </button>
             </GroupeFenetre>
@@ -480,7 +480,7 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil, acti
         <div className="truncate" style={{ color: 'var(--c-texte)' }}>
           {nomDepuisChaine(u.nom_complet) || u.email}
         </div>
-        <div className="text-[10px] text-slate-400 truncate" title={u.email}>
+        <div className="text-mention text-slate-400 truncate" title={u.email}>
           {u.role} · {u.email}
         </div>
       </td>
@@ -515,7 +515,7 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil, acti
       <td className="border-b border-l border-slate-100 px-2 py-1.5">
         <select value={profilCourant(u)} disabled={u.id === moiId}
           onChange={e => onProfil(u, e.target.value)}
-          className="w-full border border-slate-200 rounded px-1.5 py-1 text-[11px] bg-white truncate">
+          className="w-full border border-slate-200 rounded px-1.5 py-1 text-xs bg-white truncate">
           <option value="">— personnalisé —</option>
           {(profils || []).map(p => <option key={p.id} value={p.id}>{p.nom}</option>)}
         </select>
@@ -532,7 +532,7 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil, acti
           onClick={() => reglableIci(u) && setPerimetreOuvert(perimetreOuvert === u.id ? null : u.id)}
           title={reglableIci(u) ? undefined
             : 'Se règle sur la fiche de la personne, onglet « Accès Lucie »'}
-          className={`text-[11px] text-left ${reglableIci(u)
+          className={`text-xs text-left ${reglableIci(u)
             ? 'hover:text-iip-blue underline decoration-dotted'
             : 'cursor-default'}`}>
           {u.perimetre_toutes
@@ -548,8 +548,8 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil, acti
              `sections: []` — le même état : elle se recochait aussitôt. « Aucun
              accès » était donc INEXPRIMABLE à l'écran, alors même que c'est le
              défaut du modèle. Trois boutons, dont un seul est actif. */
-          <div className="absolute z-30 left-2 top-9 bg-white border border-slate-300 rounded-lg shadow-lg p-2.5 w-64">
-            <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1.5">Périmètre</div>
+          <div className="absolute z-30 left-2 top-9 bg-white border border-slate-300 rounded-lg shadow-flottant p-2.5 w-64">
+            <div className="text-mention uppercase tracking-wide text-slate-500 mb-1.5">Périmètre</div>
 
             {[['toutes', 'Toutes les sections', 'y compris celles à venir'],
               ['choix',  'Ces sections',        'celles cochées ci-dessous'],
@@ -566,11 +566,11 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil, acti
                       // rien dire : on ouvre la liste, on n'enregistre rien.
                       if (cle === 'choix')  onModifie(u.id, { perimetre_toutes: 0 });
                     }}
-                    className={`w-full text-left mb-1 px-2 py-1 rounded-champ border text-[12px] ${
+                    className={`w-full text-left mb-1 px-2 py-1 rounded-champ border text-second ${
                       actif ? 'border-iip-blue bg-slate-50 text-iip-blue'
                             : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}>
                     {titre}
-                    <span className="block text-[10px] text-slate-400 leading-tight">{aide}</span>
+                    <span className="block text-mention text-slate-400 leading-tight">{aide}</span>
                   </button>
                 );
               })}
@@ -588,7 +588,7 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil, acti
                             ? (u.sections || []).filter(x => x !== sec.code)
                             : [...(u.sections || []), sec.code],
                         })}
-                        className={`text-[11px] px-1.5 py-0.5 rounded-champ border ${
+                        className={`text-xs px-1.5 py-0.5 rounded-champ border ${
                           dedans ? 'bg-iip-blue text-white border-iip-blue'
                                  : 'border-slate-200 text-slate-400 hover:border-iip-blue'}`}>
                         {sec.code}
@@ -597,7 +597,7 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil, acti
                   })}
                 </div>
                 {!(u.sections || []).length && (
-                  <div className="mt-1.5 text-[10px] text-amber-700 leading-tight">
+                  <div className="mt-1.5 text-mention text-amber-700 leading-tight">
                     Aucune section : ce compte ne voit rien.
                   </div>
                 )}
@@ -608,14 +608,14 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil, acti
                 serveur purge le périmètre et rouvre tout. L'écran le DIT,
                 plutôt que de laisser cocher des sections sans effet. */}
             {u.role !== 'coordination' && (
-              <div className="mt-1.5 text-[10px] text-slate-500 leading-tight">
+              <div className="mt-1.5 text-mention text-slate-500 leading-tight">
                 Seule une coordination se cloisonne ; les autres rôles voient
                 tout l’Institut.
               </div>
             )}
 
             <button onClick={() => setPerimetreOuvert(null)}
-              className="mt-2 w-full text-[11px] py-1 rounded border border-slate-300 text-slate-600">
+              className="mt-2 w-full text-xs py-1 rounded border border-slate-300 text-slate-600">
               Fermer
             </button>
           </div>
@@ -654,7 +654,7 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil, acti
         {!!u.mfa_actif && peutReinitMfa && u.id !== moiId && (
           <button onClick={() => onReinitMfa(u)}
             title="Réinitialiser — la personne en sera avisée par courriel"
-            className="ml-1.5 text-[10px] text-iip-blue hover:underline align-middle">
+            className="ml-1.5 text-mention text-iip-blue hover:underline align-middle">
             débloquer
           </button>
         )}
@@ -663,14 +663,14 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil, acti
       <td className="border-b border-l border-slate-100 px-2 py-1.5 whitespace-nowrap text-right">
         <button onClick={() => onMotDePasse(u)}
           title="Envoyer à cette personne un lien pour choisir son mot de passe"
-          className="text-[11px] text-iip-blue hover:underline mr-2">Envoyer le lien</button>
+          className="text-xs text-iip-blue hover:underline mr-2">Envoyer le lien</button>
         {u.id !== moiId && (
           <button onClick={() => onRetirer(u)} title="Retirer l'accès"
             className="text-slate-300 hover:text-red-500 align-middle">
             <IconTrash size={13} />
           </button>
         )}
-        <div className="text-[10px] text-slate-400">
+        <div className="text-mention text-slate-400">
           {u.last_login_at ? u.last_login_at.slice(0, 10) : 'jamais connecté'}
         </div>
       </td>
@@ -680,7 +680,7 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil, acti
   return (
     <div className="carte overflow-visible">
       <TitreCarte droite={action}
-        titre={<>Accès par personne <span className="text-[12px] font-normal text-slate-500">
+        titre={<>Accès par personne <span className="text-second font-normal text-slate-500">
           — {actifs.length} compte(s) actif(s)
           {tous.length > actifs.length && <> · {tous.length - actifs.length} désactivé(s)</>}
         </span></>}>
@@ -691,21 +691,21 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil, acti
       </TitreCarte>
 
       <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-slate-100">
-        <select className="controle text-[13px]" value={filtreRole} onChange={e => setFiltreRole(e.target.value)}>
+        <select className="controle text-sm" value={filtreRole} onChange={e => setFiltreRole(e.target.value)}>
           <option value="">Tous les rôles ({tousComptes.length})</option>
           {[...parRole].sort((a, b) => String(ROLE_LABEL[a[0]] || a[0]).localeCompare(String(ROLE_LABEL[b[0]] || b[0]), 'fr'))
             .map(([r, n]) => <option key={r} value={r}>{ROLE_LABEL[r] || r} ({n})</option>)}
         </select>
-        <input className="controle text-[13px] w-64" placeholder="Nom ou adresse…" value={filtreTexte}
+        <input className="controle text-sm w-64" placeholder="Nom ou adresse…" value={filtreTexte}
           onChange={e => setFiltreTexte(e.target.value)} />
         {(filtreRole || filtreTexte) && (
-          <button type="button" className="text-[12px] underline text-slate-500" onClick={() => { setFiltreRole(''); setFiltreTexte(''); }}>
+          <button type="button" className="text-second underline text-slate-500" onClick={() => { setFiltreRole(''); setFiltreTexte(''); }}>
             tout afficher</button>
         )}
-        {!tous.length && <span className="text-[12px] text-slate-500">Aucun compte ne correspond.</span>}
+        {!tous.length && <span className="text-second text-slate-500">Aucun compte ne correspond.</span>}
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full table-fixed border-collapse text-[13px]">
+        <table className="w-full table-fixed border-collapse text-sm">
           <thead>
             <tr className="tab-entete">
               <th className={`${COL_PREMIERE} sticky left-0 z-10 border-r border-slate-200 px-3 py-1.5 text-left align-bottom`}
@@ -724,7 +724,7 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil, acti
             {techniques.length > 0 && personnel.length > 0 && (
               <tr className="tab-repere">
                 <td colSpan={6 + MODULES_ACCES.length}
-                  className="px-3 py-1 text-[11px] font-semibold">
+                  className="px-3 py-1 text-xs font-semibold">
                   Membres du personnel — leurs accès se règlent sur leur fiche
                 </td>
               </tr>

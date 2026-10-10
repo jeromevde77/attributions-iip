@@ -42,15 +42,15 @@ export default function NotesDoubles() {
     } catch (e) { setMsg({ err: e.message }); } finally { setOccupe(false); }
   };
 
-  if (!ecarts) return <p className="text-[13px] text-slate-400">{msg?.err || 'Chargement…'}</p>;
+  if (!ecarts) return <p className="text-sm text-slate-400">{msg?.err || 'Chargement…'}</p>;
   return (
     <div className="space-y-3">
-      <p className="text-[13px] text-slate-600">Une même note d'épreuve existe sous deux formes avec deux valeurs : la grille d'unité (ancienne saisie)
+      <p className="text-sm text-slate-600">Une même note d'épreuve existe sous deux formes avec deux valeurs : la grille d'unité (ancienne saisie)
         et la forme que Lucie lit. Choisissez la bonne ; l'autre s'aligne. Rien ne change avant « Aligner ».</p>
-      {msg?.err && <p className="text-[13px]" style={{ color: 'var(--c-refuse, #9D4A38)' }}>{msg.err}</p>}
-      {msg?.ok && <p className="text-[13px] font-semibold" style={{ color: 'var(--c-reussi, #3E7D5E)' }}>{msg.ok}</p>}
-      {!groupes.length ? <p className="text-[13px] text-slate-500">Aucune note en double avec deux valeurs.</p> : (
-        <table className="w-full text-[13px]">
+      {msg?.err && <p className="text-sm" style={{ color: 'var(--c-refuse, #9D4A38)' }}>{msg.err}</p>}
+      {msg?.ok && <p className="text-sm font-semibold" style={{ color: 'var(--c-reussi, #3E7D5E)' }}>{msg.ok}</p>}
+      {!groupes.length ? <p className="text-sm text-slate-500">Aucune note en double avec deux valeurs.</p> : (
+        <table className="w-full text-sm">
           <thead><tr className="tab-entete">
             <th className="text-left px-2 py-1">Étudiant</th><th className="text-left px-2 py-1">UE · session</th>
             <th className="text-left px-2 py-1">Acquis</th><th className="text-center px-2 py-1">Grille d'unité</th>

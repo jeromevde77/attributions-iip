@@ -259,9 +259,9 @@ function ChangelogView({ data }) {
               const tag = commitTag(c.subject);
               return (
                 <li key={c.hash} className="flex items-start gap-2 text-sm">
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold flex-shrink-0 mt-0.5 ${tag.cls}`}>{tag.label}</span>
+                  <span className={`text-mention px-1.5 py-0.5 rounded font-semibold flex-shrink-0 mt-0.5 ${tag.cls}`}>{tag.label}</span>
                   <span className="text-gray-700 flex-1">{cleanSubject(c.subject)}</span>
-                  <code className="text-[10px] text-gray-300 font-mono flex-shrink-0 mt-0.5">{c.hash}</code>
+                  <code className="text-mention text-gray-300 font-mono flex-shrink-0 mt-0.5">{c.hash}</code>
                 </li>
               );
             })}
@@ -429,11 +429,11 @@ function GestionParametres({ groupes = null }) {
                       {t.type === 'texte' ? (
                         <textarea value={val} rows={6}
                           onChange={e => handleChange(p.cle, e.target.value)}
-                          className={`border rounded-champ px-3 py-2 text-[13px] w-full leading-relaxed bg-white
+                          className={`border rounded-champ px-3 py-2 text-sm w-full leading-relaxed bg-white
                             ${modified ? 'border-iip-gold ring-1 ring-iip-gold/30' : 'border-gray-300'}`} />
                       ) : t.type === 'booleen' ? (
                         <label className="flex items-center gap-2 cursor-pointer select-none">
-                          <span className={`text-[12px] ${val === '1' ? 'text-slate-700' : 'text-slate-400'}`}>
+                          <span className={`text-second ${val === '1' ? 'text-slate-700' : 'text-slate-400'}`}>
                             {val === '1' ? 'Oui' : 'Non'}
                           </span>
                           <input type="checkbox" checked={val === '1'}
@@ -468,7 +468,7 @@ function GestionParametres({ groupes = null }) {
       </div>
 
       {!groupes && (
-        <p className="text-[12px] text-slate-500">
+        <p className="text-second text-slate-500">
           Ces réglages valent pour toutes les sections.
         </p>
       )}
@@ -600,7 +600,7 @@ function GestionPrerequis() {
         <div className="segments h-9">
           {[['schema', 'Schéma'], ['liste', 'Liste']].map(([v, l]) => (
             <button key={v} onClick={() => setVue(v)}
-              className={`px-3 text-[13px] ${vue === v
+              className={`px-3 text-sm ${vue === v
                 ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>
               {l}
             </button>
@@ -609,14 +609,14 @@ function GestionPrerequis() {
         {section && <span className="text-xs text-gray-400">{prereqs.length} prérequis définis</span>}
       </div>
 
-      <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-[12px] text-amber-900 border-l-4 border-l-amber-500">
+      <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-second text-amber-900 border-l-4 border-l-amber-500">
         Les prérequis constituent la bibliothèque : ils viennent du dossier pédagogique et
         valent pour <b>toutes les années</b>. Les modifier fait bouger les grilles de parcours
         et les PAE déjà établis. Réservé aux administrateurs.
       </div>
 
       {msgLien && (
-        <div className={`px-3 py-2 rounded-lg text-[13px] flex items-center justify-between ${
+        <div className={`px-3 py-2 rounded-lg text-sm flex items-center justify-between ${
           msgLien.type === 'ok' ? 'bg-emerald-500 text-white border border-emerald-500'
                                 : 'bg-red-500 text-white border border-red-500'}`}>
           <span>{msgLien.texte}</span>
@@ -865,15 +865,15 @@ function ConfigAttestation() {
       {/* UNE SECONDE RANGÉE D'ONGLETS SOUS CELLE DES DOCUMENTS, POUR DEUX
           BLOCS (2.12.177). Ils tiennent l'un sous l'autre : on lit la page
           d'un trait, et l'on ne se demande plus dans quel onglet on est. */}
-      <h2 className="text-[17px] font-semibold text-iip-blue">Configuration des attestations</h2>
+      <h2 className="text-lg font-semibold text-iip-blue">Configuration des attestations</h2>
 
       {/* L'ÉTABLISSEMENT N'EST PLUS ICI (3 octobre 2026 : Identité fait foi).
           Nom, adresse, n° ECOT et FASE se règlent dans Établissement →
           Identité, le signataire aussi ; l'attestation les lit de là. */}
-      <p className="text-[12px] text-slate-500">Nom, adresse, n° ECOT, FASE et signataire : <b>Établissement → Identité</b>. L'attestation les lit de là.</p>
+      <p className="text-second text-slate-500">Nom, adresse, n° ECOT, FASE et signataire : <b>Établissement → Identité</b>. L'attestation les lit de là.</p>
 
       {/* ── Sections & Diplômes ── */}
-      <h3 className="text-[15px] font-semibold text-iip-blue pt-2">{ONGLETS_LOC[1].label}</h3>
+      <h3 className="text-base font-semibold text-iip-blue pt-2">{ONGLETS_LOC[1].label}</h3>
       {(
         <div className="space-y-3">
           <div className="text-xs text-gray-500 mb-2">Chaque section correspond à un diplôme délivrable. Renseignez le code Gouvernement exact.</div>
@@ -1217,8 +1217,8 @@ export default function Configuration() {
           ici, et y renvoie. */}
       {tab === 'ref-ponderations' && (
         <div className="p-5 space-y-3 max-w-2xl">
-          <h2 className="text-[17px] font-semibold text-iip-blue">Les pondérations ont déménagé</h2>
-          <p className="text-[13px] text-slate-600">
+          <h2 className="text-lg font-semibold text-iip-blue">Les pondérations ont déménagé</h2>
+          <p className="text-sm text-slate-600">
             Les poids des cours et des acquis se règlent désormais par année, dans
             <b> Organisation → Pondérations</b> : la part de chaque cours dans l'UE, les liens entre acquis
             et cours, et les dix points de chaque cours.
@@ -1319,7 +1319,7 @@ export default function Configuration() {
 
       {/* ── Onglet Attestation ── */}
       {tab === 'attestation' && <ConfigAttestation />}
-      {tab === 'diplome' && <Suspense fallback={<p className="text-[13px] text-slate-400">Chargement…</p>}><ModeleDiplome /></Suspense>}
+      {tab === 'diplome' && <Suspense fallback={<p className="text-sm text-slate-400">Chargement…</p>}><ModeleDiplome /></Suspense>}
 
       {/* ── Onglet Système ── */}
       {tab === 'systeme' && (loading ? <div className="p-8 text-center text-gray-400">Chargement…</div> : <div className="max-w-none space-y-6">
@@ -1402,13 +1402,13 @@ export default function Configuration() {
             </div>
             {restoreFile && <div className="text-xs text-gray-500">Fichier : {restoreFile.name} ({(restoreFile.size/1024/1024).toFixed(2)} Mo)</div>}
             {restoreStatus && <div className="text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded px-3 py-2 whitespace-pre-wrap">{restoreStatus}</div>}
-            <p className="text-[11px] text-red-600">
+            <p className="text-xs text-red-600">
               ⚠ Action irréversible sur les données actuelles. Un garde-fou vérifie la base restaurée et remet
               automatiquement l'ancienne en place si elle est illisible (le serveur ne redémarre alors pas).
             </p>
-            <details className="text-[11px] text-gray-500">
+            <details className="text-xs text-gray-500">
               <summary className="cursor-pointer hover:text-gray-700">🆘 Procédure d'urgence manuelle (si le serveur ne redémarre pas)</summary>
-              <div className="mt-2 bg-gray-900 text-gray-100 rounded p-3 font-mono text-[10px] leading-relaxed overflow-x-auto whitespace-pre">{`sudo -i
+              <div className="mt-2 bg-gray-900 text-gray-100 rounded p-3 font-mono text-mention leading-relaxed overflow-x-auto whitespace-pre">{`sudo -i
 # 1. Lister les backups auto (le plus récent = avant la dernière restauration)
 ls -lht /volume1/@docker/volumes/attributions-data-dev/_data/backups-auto/
 # 2. Arrêter le conteneur qui boucle
@@ -1767,8 +1767,8 @@ const DEMENAGES = {
 function Demenage({ d }) {
   return (
     <div className="carte p-5 space-y-3 max-w-2xl">
-      <h2 className="text-[15px] font-semibold text-iip-blue">Cet outil a déménagé</h2>
-      <p className="text-[13px] text-slate-600">Ce n'est pas un réglage : il vit désormais là où l'on s'en sert, dans <b>{d.ou}</b>.</p>
+      <h2 className="text-base font-semibold text-iip-blue">Cet outil a déménagé</h2>
+      <p className="text-sm text-slate-600">Ce n'est pas un réglage : il vit désormais là où l'on s'en sert, dans <b>{d.ou}</b>.</p>
       <button type="button" className="bouton bouton-fort" onClick={d.aller}>Y aller</button>
     </div>
   );
@@ -2223,7 +2223,7 @@ function ReglageCouleurs() {
     <div className="space-y-4">
       <div>
         {/* Le titre est déjà celui de l'onglet : un titre ne s'écrit qu'une fois. */}
-        <p className="text-[13px] text-slate-500 max-w-3xl">
+        <p className="text-sm text-slate-500 max-w-3xl">
           Un thème pose tout d’un coup ; chaque couleur se retouche ensuite, et s’applique
           aussitôt à toute l’application. Le sens ne change pas — le vert dit « réussi »
           partout — : on en choisit la nuance.
@@ -2237,10 +2237,10 @@ function ReglageCouleurs() {
             data-etat={themeActif === t.cle ? 'fort' : 'neutre'}
             className="bloc-etat text-left px-3 py-2.5 hover:brightness-[.98]">
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-[13px]">{t.nom}</span>
+              <span className="font-semibold text-sm">{t.nom}</span>
               {themeActif === t.cle && <span className="pastille-etat" data-etat="reussi">en cours</span>}
             </div>
-            <div className="text-[12px] text-slate-500">{t.texte}</div>
+            <div className="text-second text-slate-500">{t.texte}</div>
             <div className="flex gap-1 mt-2">
               {['reussi', 'faveur', 'disponible', 'attente', 'refuse'].map(k => (
                 <span key={k} className="w-5 h-3 rounded-sm"
@@ -2256,18 +2256,18 @@ function ReglageCouleurs() {
       <div className="grid gap-4 items-start xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div className="space-y-3">
           <div className="carte px-3 py-2 flex items-center gap-3">
-            <span className="flex-1 text-[13px] text-slate-800">
+            <span className="flex-1 text-sm text-slate-800">
               Les gris de l’interface
-              <span className="block text-[11px] text-slate-400">textes secondaires, filets, fonds de tableau — deux jeux prêts, ou votre teinte</span>
+              <span className="block text-xs text-slate-400">textes secondaires, filets, fonds de tableau — deux jeux prêts, ou votre teinte</span>
               <span className="flex gap-0.5 mt-1">
                 {Object.values(echelleGris(/^#/.test(gris) ? gris : (gris === 'neutre' ? '#6E727A' : '#64748B')) || {})
-                  .map((c, i) => <i key={i} className="w-4 h-2.5 rounded-[2px]" style={{ background: `rgb(${c})` }} />)}
+                  .map((c, i) => <i key={i} className="w-4 h-2.5 rounded-pastille" style={{ background: `rgb(${c})` }} />)}
               </span>
             </span>
             <div className="segments h-8">
               {[['ardoise', 'Ardoise'], ['neutre', 'Neutre'], ['apple', 'Apple']].map(([k, l]) => (
                 <button key={k} type="button" onClick={() => changer(() => setGris(k))}
-                  className={`px-3 text-[12px] ${gris === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>
+                  className={`px-3 text-second ${gris === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>
                   {l}
                 </button>
               ))}
@@ -2284,18 +2284,18 @@ function ReglageCouleurs() {
             return (
               <div key={g} className="carte overflow-hidden">
                 <div className="px-3 py-2 border-b border-slate-100">
-                  <div className="text-[13px] font-semibold text-iip-blue">{titre}</div>
-                  <div className="text-[11px] text-slate-400">{sous}</div>
+                  <div className="text-sm font-semibold text-iip-blue">{titre}</div>
+                  <div className="text-xs text-slate-400">{sous}</div>
                 </div>
                 {cles.map(([cle, d]) => (
                   <div key={cle} className="px-3 py-1.5 flex items-center gap-3 border-t border-slate-100 first:border-t-0">
-                    <span className="flex-1 text-[13px] text-slate-800">{d.libelle}</span>
-                    <span className="text-[11px] tabular-nums text-slate-400 w-16 text-right">{v(cle).toUpperCase()}</span>
+                    <span className="flex-1 text-sm text-slate-800">{d.libelle}</span>
+                    <span className="text-xs tabular-nums text-slate-400 w-16 text-right">{v(cle).toUpperCase()}</span>
                     <input type="color" value={v(cle)}
                       onChange={e => { const v = e.target.value; changer(() => setValeurs(x => ({ ...x, [cle]: v }))); }}
                       className="w-10 h-7 rounded-champ border border-slate-300 bg-white p-0.5" title={d.libelle} />
                     <button onClick={() => changer(() => setValeurs(x => ({ ...x, [cle]: d.valeur })))}
-                      className={`text-[11px] w-10 text-left ${v(cle).toUpperCase() !== d.valeur.toUpperCase()
+                      className={`text-xs w-10 text-left ${v(cle).toUpperCase() !== d.valeur.toUpperCase()
                         ? 'text-slate-400 hover:text-iip-blue' : 'invisible'}`} title="Revenir à la couleur d’origine">
                       défaut
                     </button>
@@ -2310,7 +2310,7 @@ function ReglageCouleurs() {
         <div data-gris={/^#/.test(gris) ? undefined : gris}
           style={{ ...styleApercu, ...(echelleGris(gris) || {}), background: v('fond_page') }}
           className="rounded-carte border border-slate-200 p-4 space-y-4 xl:sticky xl:top-4">
-          <div className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">Aperçu</div>
+          <div className="text-xs uppercase tracking-wide text-slate-500 font-semibold">Aperçu</div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {[['reussi', '38', 'réussites'], ['faveur', '4', 'faveurs'], ['disponible', '66', 'inscrits'],
               ['surveiller', '12', 'ajournés'], ['corriger', '3', 'refus'], ['indisponible', '8', 'pas encore']]
@@ -2324,7 +2324,7 @@ function ReglageCouleurs() {
             <PastilleEtat etat="corriger">refusé</PastilleEtat>
           </div>
           <div>
-            <div className="text-[11px] text-slate-500 mb-1">Frise du parcours</div>
+            <div className="text-xs text-slate-500 mb-1">Frise du parcours</div>
             <div className="flex gap-1">
               {[['BA1', 'ba1', puces.slice(0, 2)], ['BA2', 'ba2', puces.slice(2, 4)], ['BA3', 'ba3', puces.slice(4)]].map(([b, k, l]) => (
                 <span key={b} className="flex gap-[2px] pl-1 border-l-2" style={{ borderLeftColor: v(k) }}>
@@ -2339,7 +2339,7 @@ function ReglageCouleurs() {
           <div className="carte overflow-hidden">
             <div className="tab-entete px-3 py-1.5">Un tableau</div>
             {['ABDELLAOUI Kenza', 'ABDO Rama'].map(n => (
-              <div key={n} className="px-3 py-2 border-t border-slate-100 text-[13px] flex justify-between bg-white">
+              <div key={n} className="px-3 py-2 border-t border-slate-100 text-sm flex justify-between bg-white">
                 <span className="text-slate-800">{n}</span><span className="text-slate-400">texte secondaire</span>
               </div>
             ))}
@@ -2349,7 +2349,7 @@ function ReglageCouleurs() {
       </div>
 
       <div className="flex items-center gap-3">
-        <span className="text-[12px] text-slate-500">
+        <span className="text-second text-slate-500">
           {etat || (peutRegler ? 'Chaque changement s’applique et s’enregistre aussitôt.' : 'Réservé à la direction : l’aperçu seul change.')}
         </span>
       </div>
@@ -2393,10 +2393,10 @@ function AnneeDuReferentiel({ onglet }) {
   }
 
   return (
-    <label className="flex items-center gap-2 text-[11px] text-slate-500">
+    <label className="flex items-center gap-2 text-xs text-slate-500">
       Année de travail
       <select value={annee} onChange={e => changerAnnee(e.target.value)}
-        className="bg-white border border-slate-300 rounded-champ px-2 h-8 text-[13px] min-w-[8rem]">
+        className="bg-white border border-slate-300 rounded-champ px-2 h-8 text-sm min-w-[8rem]">
         {(annees.length ? annees : [annee]).map(a => (
           <option key={a} value={a}>{a}</option>
         ))}
@@ -2461,14 +2461,14 @@ export function ClotureReprise() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-[17px] font-semibold text-iip-blue">
+      <h2 className="text-lg font-semibold text-iip-blue">
         Clôturer une année reprise d'archives
       </h2>
 
       <div className="carte p-4 space-y-2">
         <div className="flex items-start gap-2">
           <IconAlertTriangle size={18} className="text-[color:var(--c-attente,var(--c-attente))] flex-none mt-0.5" />
-          <p className="text-[13px] text-slate-600">
+          <p className="text-sm text-slate-600">
             Cette opération écrit une motivation sur chaque acquis en défaut des
             décisions défavorables de l'année, et marque les séances comme
             <b> reconstituées d'archives</b>. Ce qu'elle écrit est enregistré sous la
@@ -2481,20 +2481,20 @@ export function ClotureReprise() {
       </div>
 
       <div className="carte p-4 space-y-3">
-        <label className="block text-[11px] text-slate-500">
+        <label className="block text-xs text-slate-500">
           Année à clôturer
           <select value={annee} onChange={e => { setAnnee(e.target.value); setPlan(null); setFait(null); }}
-            className="block w-64 mt-1 bg-white border border-slate-300 rounded-champ px-2 controle text-[13px]">
+            className="block w-64 mt-1 bg-white border border-slate-300 rounded-champ px-2 controle text-sm">
             <option value="">—</option>
             {annees.map(a => <option key={a} value={a}>{a}</option>)}
           </select>
         </label>
 
-        <label className="block text-[11px] text-slate-500">
+        <label className="block text-xs text-slate-500">
           Énoncé écrit là où aucune motivation n'existe
           <textarea value={motif} onChange={e => setMotif(e.target.value)} rows={2}
-            className="block w-full mt-1 bg-white border border-slate-300 rounded-champ px-2 py-1.5 text-[13px]" />
-          <span className="text-[10px] text-slate-400">
+            className="block w-full mt-1 bg-white border border-slate-300 rounded-champ px-2 py-1.5 text-sm" />
+          <span className="text-mention text-slate-400">
             Volontairement uniforme : une phrase individualisée laisserait croire à un
             examen individuel qui n'a pas eu lieu sous cette forme.
           </span>
@@ -2505,10 +2505,10 @@ export function ClotureReprise() {
         </button>
       </div>
 
-      {err && <div className="carte p-3 text-[13px] text-[color:var(--c-refuse,var(--c-refuse))]">{err}</div>}
+      {err && <div className="carte p-3 text-sm text-[color:var(--c-refuse,var(--c-refuse))]">{err}</div>}
 
       {fait && (
-        <div className="carte p-4 text-[13px]">
+        <div className="carte p-4 text-sm">
           <b>{fait.motivations}</b> motivation(s) écrite(s), <b>{fait.seances}</b> séance(s)
           clôturée(s) et marquée(s) comme reconstituée(s).
         </div>
@@ -2516,7 +2516,7 @@ export function ClotureReprise() {
 
       {plan && (
         <div className="carte p-4 space-y-3">
-          <div className="text-[13px]">
+          <div className="text-sm">
             <b>{plan.nb_motivations}</b> motivation(s) à écrire, sur <b>{plan.nb_dossiers}</b> dossier(s)
             d'unité et <b>{plan.nb_etudiants}</b> étudiant(s).
             {' '}<b>{plan.seances_a_clore.length}</b> séance(s) à clôturer.
@@ -2524,7 +2524,7 @@ export function ClotureReprise() {
           </div>
 
           {!!plan.unites_sans_referentiel?.length && (
-            <div className="text-[12px] text-[color:var(--c-attente,var(--c-attente))]">
+            <div className="text-second text-[color:var(--c-attente,var(--c-attente))]">
               {plan.unites_sans_referentiel.length} dossier(s) portent une décision défavorable
               sur une unité sans acquis au référentiel : rien ne peut y être écrit, et le dossier
               restera incomplet.
@@ -2539,12 +2539,12 @@ export function ClotureReprise() {
           {(plan.nb_motivations > 0 || plan.seances_a_clore.length > 0) && (
             <>
               {plan.nb_motivations === 0 && (
-                <div className="text-[12px] text-slate-500">
+                <div className="text-second text-slate-500">
                   Aucune motivation à écrire — il ne reste qu'à clôturer les séances.
                 </div>
               )}
               <div className={`max-h-72 overflow-auto${plan.nb_motivations ? '' : ' hidden'}`}>
-                <table className="w-full text-[12px]">
+                <table className="w-full text-second">
                   <thead className="tab-entete sticky top-0">
                     <tr><th className="text-left px-2 py-1">Étudiant</th>
                         <th className="text-left px-2 py-1">UE</th>
@@ -2564,10 +2564,10 @@ export function ClotureReprise() {
                 </table>
               </div>
 
-              <label className="block text-[11px] text-slate-500">
+              <label className="block text-xs text-slate-500">
                 Pour appliquer, retapez l'année : <b>{plan.annee}</b>
                 <input value={confirm} onChange={e => setConfirm(e.target.value)}
-                  className="block w-48 mt-1 bg-white border border-slate-300 rounded-champ px-2 controle text-[13px]" />
+                  className="block w-48 mt-1 bg-white border border-slate-300 rounded-champ px-2 controle text-sm" />
               </label>
 
               <button onClick={appliquer} disabled={confirm !== plan.annee || occupe}

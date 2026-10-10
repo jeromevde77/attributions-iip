@@ -1588,12 +1588,12 @@ ${methodologie}
         <div className="w-[240px] border-r border-slate-200 overflow-auto p-2 space-y-3 flex-shrink-0">
           {groupesTypes.map(g => (
             <div key={g.label}>
-              <div className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              <div className="px-2 pb-1 text-mention font-semibold uppercase tracking-wider text-slate-400">
                 {g.label}
               </div>
               {g.items.map(it => (
                 <button key={it.key} onClick={it.onClick}
-                  className={`w-full text-left px-2.5 py-1.5 rounded-lg text-[13px]
+                  className={`w-full text-left px-2.5 py-1.5 rounded-lg text-sm
                     flex items-center gap-2 border
                     ${it.actif ? 'border-iip-blue bg-iip-blue/5 font-medium'
                                : 'border-transparent hover:bg-slate-50'}`}>
@@ -1685,7 +1685,7 @@ ${methodologie}
                       </option>
                     ))}
                   </select>
-                : <span className="text-[12px] text-slate-400 italic">
+                : <span className="text-second text-slate-400 italic">
                     aucune unité pour cette année{filtres.section ? ' et cette section' : ''}
                   </span>
               }
@@ -1705,7 +1705,7 @@ ${methodologie}
                       </option>
                     ))}
                   </select>
-                : <span className="text-[12px] text-slate-400 italic">choisissez d'abord une UE</span>}
+                : <span className="text-second text-slate-400 italic">choisissez d'abord une UE</span>}
             </label>
           )}
           {def.filtres.includes('groupe') && filtres.cours_code && (
@@ -1815,11 +1815,11 @@ ${methodologie}
         {estRapport && (
           <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5">
             <button onClick={() => setOrientation('portrait')}
-              className={`px-2.5 py-1 text-xs rounded-md transition-colors ${orientation==='portrait'?'bg-white text-slate-800 shadow-sm font-medium':'text-slate-500'}`}>
+              className={`px-2.5 py-1 text-xs rounded-md transition-colors ${orientation==='portrait'?'bg-white text-slate-800 shadow-pose font-medium':'text-slate-500'}`}>
               Portrait
             </button>
             <button onClick={() => setOrientation('landscape')}
-              className={`px-2.5 py-1 text-xs rounded-md transition-colors ${orientation==='landscape'?'bg-white text-slate-800 shadow-sm font-medium':'text-slate-500'}`}>
+              className={`px-2.5 py-1 text-xs rounded-md transition-colors ${orientation==='landscape'?'bg-white text-slate-800 shadow-pose font-medium':'text-slate-500'}`}>
               Paysage
             </button>
           </div>
@@ -1936,7 +1936,7 @@ ${methodologie}
         {/* Aperçu rapport (en ligne, comme une feuille) */}
         {rows !== null && estRapport && apercuHtml && (
           <div className="p-5 flex justify-center">
-            <div className={`bg-white shadow-lg rounded-lg overflow-hidden border border-slate-200 ${orientation==='landscape' ? 'w-full max-w-[1100px]' : 'w-full max-w-[820px]'}`}>
+            <div className={`bg-white shadow-flottant rounded-lg overflow-hidden border border-slate-200 ${orientation==='landscape' ? 'w-full max-w-[1100px]' : 'w-full max-w-[820px]'}`}>
               <iframe aria-label="Aperçu" srcDoc={apercuHtml} className="w-full block" style={{ height: '78vh', border: 'none' }} />
             </div>
           </div>
@@ -1960,10 +1960,10 @@ ${methodologie}
                 2 octobre 2026 : « mettre cette barre au-dessus… plus simple »). */}
             {def.cols.length > 0 && (
               <div className="flex flex-wrap items-center gap-1 mb-2">
-                <span className="text-[11px] font-semibold text-slate-500 mr-1">Colonnes</span>
+                <span className="text-xs font-semibold text-slate-500 mr-1">Colonnes</span>
                 {def.cols.filter(colPermise).map(c => (
                   <button key={c.key} onClick={() => toggleCol(c.key)}
-                    className={`text-[11px] px-2 py-0.5 rounded border transition ${
+                    className={`text-xs px-2 py-0.5 rounded border transition ${
                       colsActives.has(c.key)
                         ? 'bg-iip-blue text-white border-iip-blue font-semibold'
                         : 'border-slate-300 text-slate-500 hover:border-iip-blue hover:text-iip-blue'
@@ -1972,9 +1972,9 @@ ${methodologie}
                   </button>
                 ))}
                 <button onClick={() => setColsActives(new Set(def.cols.filter(colPermise).map(c => c.key)))}
-                  className="text-[11px] text-slate-500 underline ml-1">tout</button>
+                  className="text-xs text-slate-500 underline ml-1">tout</button>
                 <button onClick={() => setColsActives(new Set(def.cols.filter(c => c.defaut).map(c => c.key)))}
-                  className="text-[11px] text-slate-500 underline">par défaut</button>
+                  className="text-xs text-slate-500 underline">par défaut</button>
               </div>
             )}
             <div className="bg-white rounded-lg border border-slate-200 overflow-auto">
@@ -2029,7 +2029,7 @@ ${methodologie}
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-xs font-medium text-gray-600">Section(s)</label>
-                  <div className="flex gap-2 text-[11px]">
+                  <div className="flex gap-2 text-xs">
                     <button onClick={()=>setFiltres(f=>({...f, sections: sections.map(s=> typeof s === 'string' ? s : (s.code ?? s.section ?? '')).filter(Boolean)}))}
                       className="text-iip-gold hover:underline">Toutes</button>
                     <button onClick={()=>setFiltres(f=>({...f, sections: []}))}
@@ -2052,7 +2052,7 @@ ${methodologie}
                     );
                   })}
                 </div>
-                <p className="text-[11px] text-gray-400 mt-1">Aucune cochée = toutes les sections.</p>
+                <p className="text-xs text-gray-400 mt-1">Aucune cochée = toutes les sections.</p>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Contrat</label>
@@ -2079,7 +2079,7 @@ ${methodologie}
                   <option value="">Par organisation <span>— détail des dédoublements</span></option>
                   <option value="fusion">Coordination (fusionnée) — organisations regroupées</option>
                 </select>
-                <p className="text-[11px] text-gray-400 mt-1">La vue coordination regroupe les organisations d'une UE : simplement les cours donnés, sans la mécanique de gestion.</p>
+                <p className="text-xs text-gray-400 mt-1">La vue coordination regroupe les organisations d'une UE : simplement les cours donnés, sans la mécanique de gestion.</p>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Niveau</label>
@@ -2239,11 +2239,11 @@ function HeuresContactView({ sections, annee }) {
                             </tr>,
                             ...u.cours.map((c, i) => (
                               <tr key={c.cours_code} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                                <td className="px-2 py-1 font-mono text-gray-400 text-[10px]">{c.cours_code}</td>
+                                <td className="px-2 py-1 font-mono text-gray-400 text-mention">{c.cours_code}</td>
                                 <td className="px-2 py-1 text-gray-700">{c.cours_nom}</td>
                                 <td className="px-2 py-1 text-center">
                                   {c.ct_pp && (
-                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${c.ct_pp === 'CT' ? 'bg-blue-500 text-white' : 'bg-green-500 text-white'}`}>{c.ct_pp}</span>
+                                    <span className={`text-mention font-bold px-1.5 py-0.5 rounded ${c.ct_pp === 'CT' ? 'bg-blue-500 text-white' : 'bg-green-500 text-white'}`}>{c.ct_pp}</span>
                                   )}
                                 </td>
                                 <td className="px-2 py-1 text-right font-bold text-gray-800">
@@ -2253,10 +2253,10 @@ function HeuresContactView({ sections, annee }) {
                             )),
                             u.total_heures_ue > 0 && (
                               <tr key={`tot-${u.ue_num}`} className="bg-blue-50">
-                                <td colSpan={3} className="px-2 py-0.5 text-right text-gray-400 italic text-[10px]">
+                                <td colSpan={3} className="px-2 py-0.5 text-right text-gray-400 italic text-mention">
                                   Sous-total UE {u.ue_num}
                                 </td>
-                                <td className="px-2 py-0.5 text-right text-gray-600 font-semibold text-[10px]">
+                                <td className="px-2 py-0.5 text-right text-gray-600 font-semibold text-mention">
                                   {u.total_heures_ue}h
                                 </td>
                               </tr>

@@ -33,7 +33,7 @@ const CASE = {
 function Bascule({ actif, onClick, children, titre }) {
   return (
     <button type="button" title={titre} onClick={onClick}
-      className={`controle text-[12px] ${actif ? 'bg-iip-blue text-white border-iip-blue' : ''}`}>
+      className={`controle text-second ${actif ? 'bg-iip-blue text-white border-iip-blue' : ''}`}>
       {children}
     </button>
   );
@@ -151,7 +151,7 @@ export default function InscritsUnites() {
             <button key={k} type="button" onClick={() => setVue(k)}
               className={vue === k ? 'bg-iip-blue text-white' : 'text-slate-600 hover:bg-slate-50'}>{lib}</button>))}
         </div>
-        <span className="text-[11px] text-slate-500 ml-2">Étudiants :</span>
+        <span className="text-xs text-slate-500 ml-2">Étudiants :</span>
         <Bascule actif={f.profil.has('nouveau')} onClick={() => basculer('profil', 'nouveau')}
           titre="Aucune inscription ni valorisation avant cette année">Nouveaux</Bascule>
         <Bascule actif={f.profil.has('reprise')} onClick={() => basculer('profil', 'reprise')}
@@ -161,7 +161,7 @@ export default function InscritsUnites() {
           <Bascule key={k} actif={f.partie.has(k)} onClick={() => basculer('partie', k)}>{k} · {lib}</Bascule>))}
         <Bascule actif={f.sle} onClick={() => setF(x => ({ ...x, sle: !x.sle }))} titre="Séjour limité aux études">SLE</Bascule>
         {filtresActifs.length > 0 && (
-          <button type="button" className="text-[12px] text-slate-500 underline"
+          <button type="button" className="text-second text-slate-500 underline"
             onClick={() => setF({ profil: new Set(), bloc: new Set(), partie: new Set(), sle: false })}>effacer les filtres</button>)}
         <div className="flex-1" />
         {data && vue === 'unites' && (
@@ -171,9 +171,9 @@ export default function InscritsUnites() {
           </button>)}
       </div>
 
-      {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2 text-[13px]">{erreur}</div>}
-      {!section && <p className="text-[13px] text-slate-500">Choisissez une section.</p>}
-      {section && !data && !erreur && <p className="text-[13px] text-slate-400">Chargement…</p>}
+      {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2 text-sm">{erreur}</div>}
+      {!section && <p className="text-sm text-slate-500">Choisissez une section.</p>}
+      {section && !data && !erreur && <p className="text-sm text-slate-400">Chargement…</p>}
 
       {data && vue === 'grille' && (
         <GrilleInscrits data={data} passe={passe} annee={annee} section={section} onFiche={setFiche} onRevue={setRevue} onChange={() => setRecharge(x => x + 1)} />)}
@@ -188,7 +188,7 @@ export default function InscritsUnites() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-[13px] tabular-nums">
+          <table className="w-full text-sm tabular-nums">
             <thead className="tab-entete"><tr>
               <th className="w-8 px-2 py-1.5">
                 <input type="checkbox" checked={unites.length > 0 && choix.size === unites.length}
@@ -233,33 +233,33 @@ export default function InscritsUnites() {
             </tfoot>
           </table>
         </div>
-        <p className="text-[11px] text-slate-500">Un étudiant inscrit dans plusieurs unités compte une fois dans les totaux « étudiants distincts ».
+        <p className="text-xs text-slate-500">Un étudiant inscrit dans plusieurs unités compte une fois dans les totaux « étudiants distincts ».
           Reprise : déjà inscrit à cette unité une année précédente, sans l'avoir réussie.</p>
 
         {choisies.map(u => (
           <div key={u.ue_num} className="space-y-1">
-            <h3 className="text-[15px] font-medium text-iip-blue">UE {u.ue_num} — {u.ue_nom}
-              <span className="text-[12px] text-slate-500 font-normal"> · {u.vues.length} étudiant(s)</span></h3>
+            <h3 className="text-base font-medium text-iip-blue">UE {u.ue_num} — {u.ue_nom}
+              <span className="text-second text-slate-500 font-normal"> · {u.vues.length} étudiant(s)</span></h3>
             <div className="overflow-x-auto">
-              <table className="text-[13px] tabular-nums">
+              <table className="text-sm tabular-nums">
                 <thead className="tab-entete"><tr>
                   <th className="text-left px-2 py-1.5 min-w-[14rem]">Étudiant</th><th className="px-2">Bloc</th>
                   <th className="text-left px-2">Profil</th><th className="px-2">Partie</th>
                   {u.cours.map(c => <th key={c.code} className="px-2 text-center max-w-[7rem]" title={c.nom}>
-                    <div className="font-medium">{c.code}</div><div className="text-[10px] font-normal text-slate-500 truncate">{c.nom}</div></th>)}
+                    <div className="font-medium">{c.code}</div><div className="text-mention font-normal text-slate-500 truncate">{c.nom}</div></th>)}
                   <th className="text-left px-2">Mention</th>
                 </tr></thead>
                 <tbody>
                   {u.vues.map(l => { const e = E[l.id] || {}; return (
                     <tr key={l.id} className="border-b border-slate-200">
                       <td className="px-2 py-1"><button type="button" className="text-left hover:underline" onClick={() => setFiche(l.id)}>{e.nom}</button>
-                        <span className="text-[11px] text-slate-400"> {e.matricule}</span></td>
+                        <span className="text-xs text-slate-400"> {e.matricule}</span></td>
                       <td className="px-2 text-center">{e.bloc || ''}</td>
-                      <td className="px-2 text-[12px]">{[e.nouveau && 'nouveau', l.reprise && 'reprise', e.sle && 'SLE'].filter(Boolean).join(', ')}</td>
+                      <td className="px-2 text-second">{[e.nouveau && 'nouveau', l.reprise && 'reprise', e.sle && 'SLE'].filter(Boolean).join(', ')}</td>
                       <td className={`px-2 text-center ${l.partie === 'C' ? 'text-amber-700 font-medium' : ''}`}>{l.partie}</td>
                       {u.cours.map(c => { const k = CASE[l.cours[c.code]]; return (
-                        <td key={c.code} className="px-2 text-center">{k && <span title={k.titre} className={`inline-block min-w-[1.5rem] px-1 rounded text-[11px] ${k.c}`}>{k.t}</span>}</td>); })}
-                      <td className="px-2 text-[12px] text-slate-600">{l.detail.join(' · ')}</td>
+                        <td key={c.code} className="px-2 text-center">{k && <span title={k.titre} className={`inline-block min-w-[1.5rem] px-1 rounded text-xs ${k.c}`}>{k.t}</span>}</td>); })}
+                      <td className="px-2 text-second text-slate-600">{l.detail.join(' · ')}</td>
                     </tr>); })}
                 </tbody>
                 <tfoot className="font-medium"><tr className="tab-repere">
@@ -271,7 +271,7 @@ export default function InscritsUnites() {
           </div>
         ))}
         {choisies.length > 0 && (
-          <p className="text-[11px] text-slate-500">● suit le cours · R report de note (dispensé, note reprise) · VA valorisé · D dispense complète · — unité déjà acquise, inscription à retirer.</p>)}
+          <p className="text-xs text-slate-500">● suit le cours · R report de note (dispensé, note reprise) · VA valorisé · D dispense complète · — unité déjà acquise, inscription à retirer.</p>)}
       </>)}
 
       {fiche && <FicheEtudiant id={fiche} annee={annee} onClose={() => setFiche(null)} />}

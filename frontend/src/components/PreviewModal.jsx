@@ -190,7 +190,7 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
           <div className="flex items-center justify-between gap-3 px-4 py-2.5 flex-shrink-0 border-b border-slate-200" style={{ background: 'var(--barre-fond, #F8FAFC)' }}>
             <div className="min-w-0">
               <div className="titre-ecran mb-0 truncate">{titre}</div>
-              <div className="text-[11px] text-slate-400 truncate">{[sousTitre, nomPdf].filter(Boolean).join(' · ')}</div>
+              <div className="text-xs text-slate-400 truncate">{[sousTitre, nomPdf].filter(Boolean).join(' · ')}</div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               <button onClick={() => window.open(pdfUrl, '_blank')} className="bouton-sortir controle px-3 flex items-center gap-1.5">
@@ -227,12 +227,12 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
                         border-b border-slate-200" style={{ background: 'var(--barre-fond, #F8FAFC)' }}>
           <div className="min-w-0">
             <div className="titre-ecran mb-0 truncate">{titre}</div>
-            <div className="text-[11px] text-slate-400 truncate">
+            <div className="text-xs text-slate-400 truncate">
               {[sousTitre, nomFichier].filter(Boolean).join(' · ')}
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            {astuceImpression && <span className="text-[11px] text-slate-400 hidden lg:inline">
+            {astuceImpression && <span className="text-xs text-slate-400 hidden lg:inline">
               {astuceImpression}
             </span>}
             {pdf && (
@@ -266,7 +266,7 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
         {feuille && <iframe src={feuille} title={nomFichier || titre}
           className="flex-1 w-full border-0 bg-gray-100" />}
         {composition && !feuille && (
-          <div className="px-4 py-1 text-[11px] text-slate-500 border-b border-slate-200">
+          <div className="px-4 py-1 text-xs text-slate-500 border-b border-slate-200">
             Mise en page A4 en cours — le pied se pose au bas de chaque feuille…</div>)}
         <iframe
           ref={iframeRef}

@@ -208,7 +208,7 @@ export default function ImportNotesUE({ ueNum, annee, onClose, onImporte }) {
 
   const Sel = ({ valeur, onChange }) => (
     <select value={valeur ?? -1} onChange={e => onChange(Number(e.target.value))}
-      className="w-full text-[12px] border border-slate-300 rounded px-1.5 py-1 bg-white">
+      className="w-full text-second border border-slate-300 rounded px-1.5 py-1 bg-white">
       <option value={-1}>— aucune —</option>
       {optionsColonnes.map(o => <option key={o.i} value={o.i}>{o.libelle}</option>)}
     </select>
@@ -238,14 +238,14 @@ export default function ImportNotesUE({ ueNum, annee, onClose, onImporte }) {
         <div className="space-y-3">
           {erreur && (
             <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200
-                            text-[12px] text-red-800 flex items-start gap-1.5">
+                            text-second text-red-800 flex items-start gap-1.5">
               <IconAlertTriangle size={14} className="mt-0.5 flex-none" /> {erreur}
             </div>
           )}
 
           {structure && !couples.length && (
             <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
-                            text-[12px] text-amber-900">
+                            text-second text-amber-900">
               Aucun acquis n'est rattaché aux cours de cette unité : reliez-les d'abord
               dans le paramétrage, sinon il n'y a nulle part où ranger les notes.
             </div>
@@ -255,10 +255,10 @@ export default function ImportNotesUE({ ueNum, annee, onClose, onImporte }) {
                             rounded-lg p-3.5 cursor-pointer hover:border-iip-turquoise/60">
             <IconUpload size={20} className="text-iip-turquoise flex-none" />
             <div className="min-w-0">
-              <div className="text-[13px] font-medium text-iip-blue truncate">
+              <div className="text-sm font-medium text-iip-blue truncate">
                 {classeur ? classeur.nom : 'Cliquer pour choisir le classeur'}
               </div>
-              <div className="text-[11px] text-slate-400">
+              <div className="text-xs text-slate-400">
                 Matricule, nom, prénom, puis une colonne par cote (.xlsx, .xlsm)
               </div>
             </div>
@@ -270,39 +270,39 @@ export default function ImportNotesUE({ ueNum, annee, onClose, onImporte }) {
             <>
               <div className="grid gap-2 sm:grid-cols-4">
                 <label className="block">
-                  <span className="block text-[11px] font-semibold text-slate-500 mb-0.5">Feuille</span>
+                  <span className="block text-xs font-semibold text-slate-500 mb-0.5">Feuille</span>
                   <select value={feuille}
                     onChange={e => {
                       setFeuille(e.target.value); setRapport(null);
                       ouvrirFeuille(classeur.wb, classeur.XLSX, e.target.value);
                     }}
-                    className="w-full text-[12px] border border-slate-300 rounded-lg px-2 py-1.5">
+                    className="w-full text-second border border-slate-300 rounded-lg px-2 py-1.5">
                     {classeur.feuilles.map(n => <option key={n} value={n}>{n}</option>)}
                   </select>
                 </label>
                 <label className="block">
-                  <span className="block text-[11px] font-semibold text-slate-500 mb-0.5">Ligne d'en-tête</span>
+                  <span className="block text-xs font-semibold text-slate-500 mb-0.5">Ligne d'en-tête</span>
                   <input type="number" min="1" value={ligneEntete + 1}
                     onChange={e => {
                       const r = Math.max(0, Number(e.target.value) - 1);
                       setLigneEntete(r); setRapport(null); proposer(matrice, r);
                     }}
-                    className="w-full text-[12px] border border-slate-300 rounded-lg px-2 py-1.5" />
+                    className="w-full text-second border border-slate-300 rounded-lg px-2 py-1.5" />
                 </label>
                 <label className="block">
-                  <span className="block text-[11px] font-semibold text-slate-500 mb-0.5">Session</span>
+                  <span className="block text-xs font-semibold text-slate-500 mb-0.5">Session</span>
                   <select value={session}
                     onChange={e => { setSession(Number(e.target.value)); setRapport(null); }}
-                    className="w-full text-[12px] border border-slate-300 rounded-lg px-2 py-1.5">
+                    className="w-full text-second border border-slate-300 rounded-lg px-2 py-1.5">
                     <option value={1}>1re session</option>
                     <option value={2}>2e session</option>
                   </select>
                 </label>
                 <label className="block">
-                  <span className="block text-[11px] font-semibold text-slate-500 mb-0.5">Barème</span>
+                  <span className="block text-xs font-semibold text-slate-500 mb-0.5">Barème</span>
                   <select value={bareme}
                     onChange={e => { setBareme(Number(e.target.value)); setRapport(null); }}
-                    className="w-full text-[12px] border border-slate-300 rounded-lg px-2 py-1.5">
+                    className="w-full text-second border border-slate-300 rounded-lg px-2 py-1.5">
                     <option value={20}>Sur 20</option>
                     <option value={100}>Sur 100 (÷ 5)</option>
                   </select>
@@ -312,7 +312,7 @@ export default function ImportNotesUE({ ueNum, annee, onClose, onImporte }) {
               <div className="grid gap-2 sm:grid-cols-3">
                 {[['matricule', 'Matricule'], ['nom', 'Nom'], ['prenom', 'Prénom']].map(([k, lib]) => (
                   <label key={k} className="block">
-                    <span className="block text-[11px] font-semibold text-slate-500 mb-0.5">{lib}</span>
+                    <span className="block text-xs font-semibold text-slate-500 mb-0.5">{lib}</span>
                     <Sel valeur={ident[k]} onChange={v => setIdent(x => ({ ...x, [k]: v }))} />
                   </label>
                 ))}
@@ -321,11 +321,11 @@ export default function ImportNotesUE({ ueNum, annee, onClose, onImporte }) {
               {/* ── LES COTES ATTENDUES, COURS PAR COURS ── */}
               <div className="border border-slate-200 rounded-lg overflow-hidden">
                 <div className="bg-slate-50 px-3 py-2 flex items-center justify-between gap-2">
-                  <span className="text-[12px] text-slate-600">
+                  <span className="text-second text-slate-600">
                     <b>{associees}</b> / {couples.length} cote(s) associée(s)
                   </span>
                   <button onClick={() => { proposer(matrice, ligneEntete); setRapport(null); }}
-                    className="text-[11px] px-2 py-1 rounded-lg border border-iip-gold/60
+                    className="text-xs px-2 py-1 rounded-lg border border-iip-gold/60
                                text-iip-blue hover:bg-amber-50 flex items-center gap-1">
                     <IconWand size={12} /> Reproposer
                   </button>
@@ -333,14 +333,14 @@ export default function ImportNotesUE({ ueNum, annee, onClose, onImporte }) {
                 <div className="divide-y divide-slate-100 max-h-64 overflow-y-auto">
                   {(structure?.cours || []).filter(c => c.acquis?.length).map(c => (
                     <div key={c.cours_code}>
-                      <div className="px-3 py-1 bg-iip-blue/5 text-[11px] font-semibold text-iip-blue">
+                      <div className="px-3 py-1 bg-iip-blue/5 text-xs font-semibold text-iip-blue">
                         {c.cours_code} · {c.cours_nom || ''}
                       </div>
                       {c.acquis.map(a => {
                         const cle = `${c.cours_code}|${a.aa_code}`;
                         return (
                           <div key={cle} className="px-3 py-1.5 flex items-center gap-2">
-                            <span className="text-[12px] w-28 flex-none text-slate-700"
+                            <span className="text-second w-28 flex-none text-slate-700"
                               title={a.description || ''}>
                               {a.aa_code}
                               {a.poids != null && <span className="text-slate-400"> · {a.poids}</span>}
@@ -372,19 +372,19 @@ export default function ImportNotesUE({ ueNum, annee, onClose, onImporte }) {
 
               {!!doublons.length && (
                 <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
-                                text-[12px] text-amber-900">
+                                text-second text-amber-900">
                   Une même colonne sert à plusieurs cotes. C'est légitime si un acquis reçoit
                   la même note dans deux cours — sinon, corrigez.
                 </div>
               )}
 
-              <label className="flex items-center gap-2 text-[12px] text-slate-700">
+              <label className="flex items-center gap-2 text-second text-slate-700">
                 <input type="checkbox" checked={arrondi} className="w-4 h-4 accent-iip-blue"
                   onChange={e => { setArrondi(e.target.checked); setRapport(null); }} />
                 Arrondir à l'unité
               </label>
 
-              <div className="text-[12px] text-slate-500">
+              <div className="text-second text-slate-500">
                 {lignes.length} ligne(s) d'étudiants lues,
                 {' '}{lignes.reduce((n, l) => n + l.notes.length, 0)} cote(s) au total.
               </div>
@@ -392,7 +392,7 @@ export default function ImportNotesUE({ ueNum, annee, onClose, onImporte }) {
           )}
 
           {rapport && (
-            <div className={`rounded-lg border p-3 text-[12px] space-y-1.5 ${rapport.simulation
+            <div className={`rounded-lg border p-3 text-second space-y-1.5 ${rapport.simulation
               ? 'bg-sky-500 border-sky-500 text-white'
               : 'bg-emerald-500 border-emerald-500 text-white'}`}>
               <div className="font-semibold flex items-center gap-1.5">

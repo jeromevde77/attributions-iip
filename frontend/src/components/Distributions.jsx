@@ -107,8 +107,8 @@ function Decisions({ stats, donnees, section, categorie }) {
     <div className="carte p-4 space-y-3">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <div className="text-[15px] font-semibold text-iip-blue">Décisions du Conseil</div>
-          <p className="text-[12px] text-slate-500">
+          <div className="text-base font-semibold text-iip-blue">Décisions du Conseil</div>
+          <p className="text-second text-slate-500">
             Ce que le Conseil a décidé, en regard des cotes. Le taux se calcule sur les
             dossiers décidés — un dossier sans décision n’est pas un échec.
           </p>
@@ -116,7 +116,7 @@ function Decisions({ stats, donnees, section, categorie }) {
         <div className="flex gap-1 flex-none">
           {[['par_section', 'Par section'], ['par_ue', 'Par unité']].map(([k, lib]) => (
             <button key={k} onClick={() => setVue(k)}
-              className={`px-2 py-1 text-[12px] rounded-lg border
+              className={`px-2 py-1 text-second rounded-lg border
                 ${vue === k ? 'border-iip-blue text-iip-blue font-semibold bg-iip-blue/5'
                             : 'border-slate-300 text-slate-600'}`}>
               {lib}
@@ -128,7 +128,7 @@ function Decisions({ stats, donnees, section, categorie }) {
       {/* CE BLOC NE SUIT PAS LE FILTRE DE CATÉGORIE, et il faut le dire :
           un chiffre qui ignore un filtre affiché est un chiffre faux. */}
       {categorie !== 'tout' && (
-        <div className="text-[11px] text-iip-texte">
+        <div className="text-xs text-iip-texte">
           Les décisions ne se filtrent pas par catégorie : ce bloc porte
           {section ? ` la section ${section}` : ' toutes les sections'}.
         </div>
@@ -147,7 +147,7 @@ function Decisions({ stats, donnees, section, categorie }) {
 
       {f && f.n > 2 && (
         <div className="space-y-1">
-          <div className="text-[11px] text-slate-500 tabular-nums">
+          <div className="text-xs text-slate-500 tabular-nums">
             Dispersion des taux sur {f.n} {vue === 'par_ue' ? 'unité(s)' : 'section(s)'} :
             de {nb(f.min)} % à {nb(f.max)} % · médiane <b className="text-iip-blue">
               {nb(f.mediane)} %</b> · moyenne {nb(f.moyenne)} %
@@ -157,15 +157,15 @@ function Decisions({ stats, donnees, section, categorie }) {
       )}
 
       <div className="overflow-x-auto">
-        <table className="w-full text-[12px]">
+        <table className="w-full text-second">
           <thead className="tab-entete">
             <tr>
               <th className="px-2 pt-1.5 pb-0.5" />
-              <th className="px-2 pt-1.5 pb-0.5 text-left text-[10px] uppercase
+              <th className="px-2 pt-1.5 pb-0.5 text-left text-mention uppercase
                              tracking-wide text-slate-500" colSpan={6}>
                 Ce que le Conseil a décidé
               </th>
-              <th className="px-2 pt-1.5 pb-0.5 text-left text-[10px] uppercase
+              <th className="px-2 pt-1.5 pb-0.5 text-left text-mention uppercase
                              tracking-wide text-slate-500 border-l border-slate-200"
                   colSpan={4}>
                 La forme des cotes d’unité
@@ -235,14 +235,14 @@ function Decisions({ stats, donnees, section, categorie }) {
 function Table({ lignes, max }) {
   if (!lignes?.length) {
     return (
-      <div className="text-[12px] text-slate-400 py-6 text-center">
+      <div className="text-second text-slate-400 py-6 text-center">
         Rien à montrer pour ce filtre.
       </div>
     );
   }
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-[12px]">
+      <table className="w-full text-second">
         <thead className="tab-entete">
           <tr>
             <th className="text-left px-2 py-1.5">Libellé</th>
@@ -309,9 +309,9 @@ function Famille({ famille, donnees }) {
   if (!ens || !ens.n) {
     return (
       <div className="carte p-4">
-        <div className="text-[15px] font-semibold text-iip-blue">{famille.titre}</div>
-        <p className="text-[12px] text-slate-500 mt-1">{famille.aide}</p>
-        <div className="text-[12px] text-slate-400 mt-3">
+        <div className="text-base font-semibold text-iip-blue">{famille.titre}</div>
+        <p className="text-second text-slate-500 mt-1">{famille.aide}</p>
+        <div className="text-second text-slate-400 mt-3">
           Aucune donnée pour cette année et ce filtre.
         </div>
       </div>
@@ -325,14 +325,14 @@ function Famille({ famille, donnees }) {
     <div className="carte p-4 space-y-3">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <div className="text-[15px] font-semibold text-iip-blue">{famille.titre}</div>
-          <p className="text-[12px] text-slate-500">{famille.aide}</p>
+          <div className="text-base font-semibold text-iip-blue">{famille.titre}</div>
+          <p className="text-second text-slate-500">{famille.aide}</p>
         </div>
         {famille.vues.length > 1 && (
           <div className="flex gap-1 flex-none">
             {famille.vues.map(([k, lib]) => (
               <button key={k} onClick={() => setVue(k)}
-                className={`px-2 py-1 text-[12px] rounded-lg border
+                className={`px-2 py-1 text-second rounded-lg border
                   ${vue === k ? 'border-iip-blue text-iip-blue font-semibold bg-iip-blue/5'
                               : 'border-slate-300 text-slate-600'}`}>
                 {lib}
@@ -436,17 +436,17 @@ export default function Distributions() {
           <option value="">Toutes les sections</option>
           {sections.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
-        {enCours && <span className="text-[12px] text-slate-400">Calcul…</span>}
+        {enCours && <span className="text-second text-slate-400">Calcul…</span>}
         <span className="flex-1" />
         {donnees?.ue_par_etudiant?.etudiants > 0 && (
-          <span className="text-[12px] text-slate-500">
+          <span className="text-second text-slate-500">
             {donnees.ue_par_etudiant.etudiants.toLocaleString('fr-BE')} étudiant(s) dans le périmètre
           </span>
         )}
       </div>
 
       {erreur && (
-        <div className="carte p-3 text-[13px] text-[color:var(--c-refuse,var(--c-refuse))]">{erreur}</div>
+        <div className="carte p-3 text-sm text-[color:var(--c-refuse,var(--c-refuse))]">{erreur}</div>
       )}
 
       {/* CE QUE LE FILTRE NE VOIT PAS. Un « bachelier » qui ignore en silence
@@ -456,7 +456,7 @@ export default function Distributions() {
         <div className="carte p-3 flex items-start gap-2">
           <IconAlertTriangle size={16}
             className="text-iip-texte flex-none mt-0.5" />
-          <div className="text-[12px] text-slate-600">
+          <div className="text-second text-slate-600">
             {nonQualifiees.length} section(s) n’ont pas de niveau au référentiel et ne sont
             donc comptées dans aucune catégorie : <b>{nonQualifiees.join(', ')}</b>.
             Renseignez leur niveau dans Configuration pour qu’elles entrent dans ce filtre.
@@ -465,7 +465,7 @@ export default function Distributions() {
       )}
 
       {!donnees && !enCours && !erreur && (
-        <div className="carte p-8 text-center text-[13px] text-slate-400">
+        <div className="carte p-8 text-center text-sm text-slate-400">
           <IconChartBar size={28} className="mx-auto mb-2 opacity-40" />
           Aucune donnée.
         </div>
@@ -480,7 +480,7 @@ export default function Distributions() {
       ))}
 
       {donnees && (
-        <p className="text-[11px] text-slate-400">
+        <p className="text-xs text-slate-400">
           Moyenne, médiane et mode se lisent ensemble : une moyenne seule ne dit pas si le
           groupe est homogène. Le trait marine marque la médiane, le trait ocre la moyenne ;
           quand ils s’écartent, la distribution est tirée par un bout. Un mode n’existe que

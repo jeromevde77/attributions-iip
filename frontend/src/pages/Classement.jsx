@@ -103,20 +103,20 @@ export default function Classement({ annee: anneeProp }) {
   const Groupe = ({ titre, sous, lignes, ton }) => (
     <div className="border border-slate-200 rounded-xl overflow-hidden bg-white mb-3">
       <div className={`px-4 py-2 border-b border-slate-200 flex items-baseline gap-2 ${ton}`}>
-        <span className="font-bold text-[13px]">{titre}</span>
-        <span className="text-[11px] opacity-70">{sous}</span>
-        <span className="ml-auto text-[11px] font-bold">{lignes.length}</span>
+        <span className="font-bold text-sm">{titre}</span>
+        <span className="text-xs opacity-70">{sous}</span>
+        <span className="ml-auto text-xs font-bold">{lignes.length}</span>
       </div>
       {lignes.length ? (
         <table className="w-full text-sm">
           <tbody>
             {lignes.map((l, i) => (
               <tr key={l.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60">
-                <td className="px-4 py-2 w-8 text-[11px] text-slate-400 font-bold">{i + 1}</td>
+                <td className="px-4 py-2 w-8 text-xs text-slate-400 font-bold">{i + 1}</td>
                 <td className="px-2 py-2">
                   <span className="font-medium text-slate-800">{nomPropre(l.nom, l.prenom)}</span>
                   {l.exclu_tp && (
-                    <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-champ bg-amber-500 text-white font-bold">
+                    <span className="ml-2 text-mention px-1.5 py-0.5 rounded-champ bg-amber-500 text-white font-bold">
                       définitif TP — demande écrite (15/04) manquante
                     </span>
                   )}
@@ -125,11 +125,11 @@ export default function Classement({ annee: anneeProp }) {
                   <input type="number" min="0" defaultValue={l.jours}
                     onBlur={e => Number(e.target.value) !== l.jours
                       && majLigne(l, { jours: Number(e.target.value) })}
-                    className="w-24 border border-slate-300 rounded-lg px-2 py-1 text-[13px] text-right" />
-                  <span className="text-[10px] text-slate-400 ml-1">j</span>
+                    className="w-24 border border-slate-300 rounded-lg px-2 py-1 text-sm text-right" />
+                  <span className="text-mention text-slate-400 ml-1">j</span>
                 </td>
                 <td className="px-2 py-2 w-32">
-                  <label className="flex items-center gap-1.5 text-[11px] text-slate-600">
+                  <label className="flex items-center gap-1.5 text-xs text-slate-600">
                     <input type="checkbox" checked={!!l.sur_deux_annees}
                       onChange={e => majLigne(l, { sur_deux_annees: e.target.checked ? 1 : 0 })} />
                     sur 2 années
@@ -139,7 +139,7 @@ export default function Classement({ annee: anneeProp }) {
                   <select value={l.statut_mdp || ''}
                     onChange={e => majLigne(l, { statut_mdp: e.target.value || null,
                       demande_tp_le: e.target.value === 'definitif_tp' ? l.demande_tp_le : null })}
-                    className="border border-slate-300 rounded-lg px-2 py-1 text-[12px] w-full">
+                    className="border border-slate-300 rounded-lg px-2 py-1 text-second w-full">
                     <option value="">Temporaire</option>
                     <option value="definitif_tp">Définitif temps partiel</option>
                     <option value="definitif">Définitif temps plein</option>
@@ -148,7 +148,7 @@ export default function Classement({ annee: anneeProp }) {
                     <input type="date" value={l.demande_tp_le || ''}
                       title="Date de la demande écrite (avant le 15 avril)"
                       onChange={e => majLigne(l, { statut_mdp: 'definitif_tp', demande_tp_le: e.target.value || null })}
-                      className="mt-1 border border-slate-300 rounded-lg px-2 py-0.5 text-[11px] w-full" />
+                      className="mt-1 border border-slate-300 rounded-lg px-2 py-0.5 text-xs w-full" />
                   )}
                 </td>
               </tr>
@@ -156,7 +156,7 @@ export default function Classement({ annee: anneeProp }) {
           </tbody>
         </table>
       ) : (
-        <div className="px-4 py-4 text-[13px] text-slate-400">Personne dans ce groupe.</div>
+        <div className="px-4 py-4 text-sm text-slate-400">Personne dans ce groupe.</div>
       )}
     </div>
   );
@@ -198,14 +198,14 @@ export default function Classement({ annee: anneeProp }) {
         <>
           <div className="flex items-end gap-3 flex-wrap">
             <div>
-              <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Fonction</label>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Fonction</label>
               <select value={fonction} onChange={e => setFonction(e.target.value)}
                 className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm min-w-[260px]">
                 {fonctions.map(f => <option key={f} value={f}>{f}</option>)}
               </select>
             </div>
             <button onClick={preremplir}
-              className="text-[12px] px-2.5 py-1.5 rounded-lg border border-slate-300 flex items-center gap-1.5">
+              className="text-second px-2.5 py-1.5 rounded-lg border border-slate-300 flex items-center gap-1.5">
               <IconWand size={14} /> Pré-remplir depuis l'ancienneté PO
             </button>
           </div>
@@ -218,7 +218,7 @@ export default function Classement({ annee: anneeProp }) {
                       lignes={data.groupe2} ton="bg-cyan-50 text-cyan-900" />
               <Groupe titre="Hors groupes" sous="conditions de l'art. 34 § 1er non réunies"
                       lignes={data.hors_groupes} ton="bg-slate-50 text-slate-600" />
-              <p className="text-[11px] text-slate-400">
+              <p className="text-xs text-slate-400">
                 {data.reference}. L'ancienneté s'entend par fonction au sein du PO ;
                 le pré-remplissage propose l'ancienneté PO globale comme point de
                 départ, à ajuster. À ancienneté égale, le statut ne fixe pas de
@@ -232,7 +232,7 @@ export default function Classement({ annee: anneeProp }) {
       {onglet === 'prioritaires' && prior && (
         <>
           <div className="flex items-center justify-between gap-3 flex-wrap">
-            <p className="text-[13px] text-slate-600 flex items-center gap-2">
+            <p className="text-sm text-slate-600 flex items-center gap-2">
               <IconMailOpened size={16} className="text-iip-turquoise" />
               Candidatures pour la rentrée {annee} — limite : <b>{fr(prior.date_limite)}</b>
               {prior.hors_delai > 0 && (
@@ -308,11 +308,11 @@ export default function Classement({ annee: anneeProp }) {
                       {c.prof_nom ? `${c.prof_nom} ${c.prof_prenom}` : `${c.nom || ''} ${c.prenom || ''}`}
                     </td>
                     <td className="px-3 py-2 text-slate-600">{c.fonctions}</td>
-                    <td className="px-3 py-2 text-slate-600 text-[12px]">
+                    <td className="px-3 py-2 text-slate-600 text-second">
                       {c.voie === 'electronique' ? 'Électronique' : 'Recommandée'}
                     </td>
                     <td className="px-3 py-2">
-                      <span className={`px-2 py-0.5 rounded-champ text-[11px] font-bold ${c.recevable
+                      <span className={`px-2 py-0.5 rounded-champ text-xs font-bold ${c.recevable
                         ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'}`}>
                         {c.recevable ? 'Recevable' : 'Hors délai'}
                       </span>
@@ -324,14 +324,14 @@ export default function Classement({ annee: anneeProp }) {
                   </tr>
                 ))}
                 {!prior.candidatures.length && (
-                  <tr><td colSpan={6} className="px-3 py-6 text-center text-slate-400 text-[13px]">
+                  <tr><td colSpan={6} className="px-3 py-6 text-center text-slate-400 text-sm">
                     Aucune candidature enregistrée pour {annee}.
                   </td></tr>
                 )}
               </tbody>
             </table>
           </div>
-          <p className="text-[11px] text-slate-400">
+          <p className="text-xs text-slate-400">
             Art. 34ter § 1er : candidature par lettre recommandée ou par voie
             électronique, auprès du président du pouvoir organisateur, copie au
             président de la Commission centrale de gestion des emplois, mentionnant

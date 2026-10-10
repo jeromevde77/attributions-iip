@@ -79,14 +79,14 @@ export default function SuiviEtudiant({ etudId }) {
     ? `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)} ${s.slice(11, 16)}` : s : '');
 
   if (refuse) return (
-    <div className="p-5 flex items-start gap-2 text-[13px] text-slate-600">
+    <div className="p-5 flex items-start gap-2 text-sm text-slate-600">
       <IconLock size={16} className="flex-none mt-0.5 text-slate-400" />{refuse}
     </div>
   );
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start gap-2 text-[12px] text-slate-500 bg-slate-50 border border-slate-200 rounded-carte px-3 py-2">
+      <div className="flex items-start gap-2 text-second text-slate-500 bg-slate-50 border border-slate-200 rounded-carte px-3 py-2">
         <IconLock size={14} className="flex-none mt-0.5 text-slate-400" />
         <span>Dossier <b>confidentiel</b> : visible des seuls enseignants de cet étudiant,
           de la coordination de sa section et de la direction. Chaque note est signée et datée ;
@@ -94,7 +94,7 @@ export default function SuiviEtudiant({ etudId }) {
       </div>
 
       {erreur && (
-        <div className="text-[12px] text-red-700 bg-red-50 border border-red-200 rounded-carte px-3 py-2 flex items-start gap-1.5 border-l-4 border-l-red-500">
+        <div className="text-second text-red-700 bg-red-50 border border-red-200 rounded-carte px-3 py-2 flex items-start gap-1.5 border-l-4 border-l-red-500">
           <IconAlertTriangle size={14} className="flex-none mt-0.5" />{erreur}
         </div>
       )}
@@ -102,14 +102,14 @@ export default function SuiviEtudiant({ etudId }) {
       {/* ── Écrire ── */}
       <div className="carte p-3 space-y-2">
         <div className="flex items-center gap-3">
-          <span className="text-[11px] uppercase tracking-wide text-slate-500">Ajouter au dossier</span>
+          <span className="text-xs uppercase tracking-wide text-slate-500">Ajouter au dossier</span>
           {['note', 'rapport'].map(t => (
-            <label key={t} className="flex items-center gap-1.5 text-[13px] cursor-pointer">
+            <label key={t} className="flex items-center gap-1.5 text-sm cursor-pointer">
               <input type="radio" name="type-suivi" checked={type === t} onChange={() => setType(t)} />
               {TYPES[t].libelle}
             </label>
           ))}
-          <label className="ml-auto bouton text-[12px] cursor-pointer">
+          <label className="ml-auto bouton text-second cursor-pointer">
             <IconPaperclip size={14} /> Joindre un document
             <input ref={fichierRef} type="file" className="hidden"
               onChange={e => joindre(e.target.files?.[0])} />
@@ -117,10 +117,10 @@ export default function SuiviEtudiant({ etudId }) {
         </div>
         <input value={titre} onChange={e => setTitre(e.target.value)}
           placeholder="Titre (facultatif) — ex : Entretien du 3 octobre"
-          className="controle text-[13px] w-full" />
+          className="controle text-sm w-full" />
         <textarea value={texte} onChange={e => setTexte(e.target.value)} rows={3}
           placeholder="La note — ce qui a été observé, dit, convenu…"
-          className="controle text-[13px] w-full font-[inherit]" />
+          className="controle text-sm w-full font-[inherit]" />
         <button onClick={ajouter} disabled={enCours || !texte.trim()}
           className="bouton bouton-fort disabled:opacity-40">
           {enCours ? 'Enregistrement…' : 'Enregistrer'}
@@ -137,11 +137,11 @@ export default function SuiviEtudiant({ etudId }) {
           {d.notes.map(n => (
             <div key={n.id} className="px-3 py-2.5 border-t border-slate-100 first:border-t-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${TYPES[n.type]?.cls || ''}`}>
+                <span className={`text-mention font-bold px-1.5 py-0.5 rounded ${TYPES[n.type]?.cls || ''}`}>
                   {TYPES[n.type]?.libelle || n.type}
                 </span>
-                {n.titre && <b className="text-[13px] text-iip-blue">{n.titre}</b>}
-                <span className="text-[11px] text-slate-400 ml-auto">
+                {n.titre && <b className="text-sm text-iip-blue">{n.titre}</b>}
+                <span className="text-xs text-slate-400 ml-auto">
                   {n.cree_par || '—'}{n.cree_par_role ? ` (${n.cree_par_role})` : ''} · {fr(n.cree_le)}
                 </span>
                 {n.nom_fichier && (
@@ -156,7 +156,7 @@ export default function SuiviEtudiant({ etudId }) {
                       a.href = url; a.download = n.nom_fichier; a.click();
                       URL.revokeObjectURL(url);
                     }}
-                    className="text-[12px] text-iip-blue inline-flex items-center gap-1">
+                    className="text-second text-iip-blue inline-flex items-center gap-1">
                     <IconDownload size={13} /> {n.nom_fichier}
                   </a>
                 )}
@@ -168,7 +168,7 @@ export default function SuiviEtudiant({ etudId }) {
                 )}
               </div>
               {n.texte && (
-                <p className="text-[13px] text-slate-700 whitespace-pre-wrap mt-1 mb-0">{n.texte}</p>
+                <p className="text-sm text-slate-700 whitespace-pre-wrap mt-1 mb-0">{n.texte}</p>
               )}
             </div>
           ))}

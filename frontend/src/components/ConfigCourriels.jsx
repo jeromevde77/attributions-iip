@@ -100,7 +100,7 @@ export default function ConfigCourriels() {
             <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${etat.actif ? 'translate-x-5' : 'translate-x-0.5'}`} />
           </button>
         </div>
-        <div className="px-4 py-3 text-[13px]">
+        <div className="px-4 py-3 text-sm">
           {etat.actif
             ? <span className="text-emerald-700 flex items-center gap-1.5"><IconCheck size={14} /> Fonction active — les boutons « Envoyer » sont visibles.</span>
             : <span className="text-slate-500">Fonction désactivée — aucun bouton « Envoyer » n'apparaît et le serveur refuse tout envoi.</span>}
@@ -128,14 +128,14 @@ export default function ConfigCourriels() {
             <button key={v} onClick={() => maj({ mode: v })}
               className={`text-left px-4 py-3 rounded-lg border-2 w-full md:w-[calc(50%-4px)] ${cfg.mode === v ? 'border-iip-turquoise bg-iip-turquoise/5' : 'border-slate-200 hover:border-slate-300'}`}>
               <div className="font-semibold text-sm text-slate-800">{l}</div>
-              <div className="text-[12px] text-slate-500 mt-0.5">{d}</div>
+              <div className="text-second text-slate-500 mt-0.5">{d}</div>
             </button>
           ))}
         </div>
 
         {cfg.mode === 'graph' ? (
           <div className="px-4 pb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2 text-[12px] text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 leading-relaxed">
+            <div className="md:col-span-2 text-second text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 leading-relaxed">
               <b>Dans le centre d'administration Entra</b> (entra.microsoft.com → Applications → Inscriptions d'applications) :
               <ol className="list-decimal ml-5 mt-1 space-y-0.5">
                 <li>Nouvelle inscription, nom « Lucie », comptes de cet annuaire uniquement. Copier l'<i>ID d'application (client)</i> et l'<i>ID de l'annuaire (tenant)</i>.</li>
@@ -145,38 +145,38 @@ export default function ConfigCourriels() {
               </ol>
             </div>
             <label className="block">
-              <span className="text-[12px] font-semibold text-slate-600">ID de l'annuaire (tenant)</span>
+              <span className="text-second font-semibold text-slate-600">ID de l'annuaire (tenant)</span>
               <input value={cfg.graph.tenant} onChange={e => majG({ tenant: e.target.value })} className={champ} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx ou institut-prigogine.be" autoComplete="off" />
             </label>
             <label className="block">
-              <span className="text-[12px] font-semibold text-slate-600">ID d'application (client)</span>
+              <span className="text-second font-semibold text-slate-600">ID d'application (client)</span>
               <input value={cfg.graph.client_id} onChange={e => majG({ client_id: e.target.value })} className={champ} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" autoComplete="off" />
             </label>
             <label className="block">
-              <span className="text-[12px] font-semibold text-slate-600">
+              <span className="text-second font-semibold text-slate-600">
                 Secret client {cfg.graph.secret_defini && <span className="font-normal text-slate-400">— défini, laisser vide pour le conserver</span>}
               </span>
               <input type="password" value={secret} onChange={e => setSecret(e.target.value)} className={champ}
                 placeholder={cfg.graph.secret_defini ? '••••••••' : 'valeur du secret'} autoComplete="new-password" />
             </label>
             <label className="block">
-              <span className="text-[12px] font-semibold text-slate-600">Boîte expéditrice</span>
+              <span className="text-second font-semibold text-slate-600">Boîte expéditrice</span>
               <input value={cfg.graph.expediteur} onChange={e => majG({ expediteur: e.target.value })} className={champ} placeholder="direction@institut-prigogine.be" autoComplete="off" />
-              <span className="text-[11px] text-slate-400">Une boîte du tenant (utilisateur ou boîte partagée). Les envois apparaissent dans ses éléments envoyés.</span>
+              <span className="text-xs text-slate-400">Une boîte du tenant (utilisateur ou boîte partagée). Les envois apparaissent dans ses éléments envoyés.</span>
             </label>
           </div>
         ) : (
         <div className="px-4 pb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
           <label className="block md:col-span-2">
-            <span className="text-[12px] font-semibold text-slate-600">Serveur</span>
+            <span className="text-second font-semibold text-slate-600">Serveur</span>
             <input value={cfg.host} onChange={e => maj({ host: e.target.value })} className={champ} placeholder="smtp.exemple.be" />
           </label>
           <label className="block">
-            <span className="text-[12px] font-semibold text-slate-600">Port</span>
+            <span className="text-second font-semibold text-slate-600">Port</span>
             <input type="number" value={cfg.port} onChange={e => maj({ port: e.target.value })} className={champ} />
           </label>
           <label className="block">
-            <span className="text-[12px] font-semibold text-slate-600">Sécurité</span>
+            <span className="text-second font-semibold text-slate-600">Sécurité</span>
             <select value={cfg.securite} onChange={e => maj({ securite: e.target.value })} className={champ}>
               <option value="starttls">STARTTLS (port 587)</option>
               <option value="ssl">SSL / TLS implicite (port 465)</option>
@@ -184,21 +184,21 @@ export default function ConfigCourriels() {
             </select>
           </label>
           <label className="block">
-            <span className="text-[12px] font-semibold text-slate-600">Utilisateur</span>
+            <span className="text-second font-semibold text-slate-600">Utilisateur</span>
             <input value={cfg.user} onChange={e => maj({ user: e.target.value })} className={champ} autoComplete="off" />
           </label>
           <label className="block">
-            <span className="text-[12px] font-semibold text-slate-600">
+            <span className="text-second font-semibold text-slate-600">
               Mot de passe {cfg.pass_defini && <span className="font-normal text-slate-400">— défini, laisser vide pour le conserver</span>}
             </span>
             <input type="password" value={pass} onChange={e => setPass(e.target.value)} className={champ}
               placeholder={cfg.pass_defini ? '••••••••' : 'mot de passe'} autoComplete="new-password" />
           </label>
           <label className="block md:col-span-2">
-            <span className="text-[12px] font-semibold text-slate-600">Expéditeur</span>
+            <span className="text-second font-semibold text-slate-600">Expéditeur</span>
             <input value={cfg.from} onChange={e => maj({ from: e.target.value })} className={champ} placeholder="Institut Ilya Prigogine <direction@institut-prigogine.be>" />
           </label>
-          <label className="flex items-center gap-2 text-[13px] text-slate-600 md:col-span-2">
+          <label className="flex items-center gap-2 text-sm text-slate-600 md:col-span-2">
             <input type="checkbox" checked={!!cfg.tolerer_certificat} onChange={e => maj({ tolerer_certificat: e.target.checked })} />
             Tolérer un certificat non vérifiable (relais interne auto-signé uniquement)
           </label>
@@ -213,10 +213,10 @@ export default function ConfigCourriels() {
             className="flex items-center gap-1.5 px-3.5 py-1.5 text-sm border border-iip-blue text-iip-blue font-semibold rounded-lg disabled:opacity-40">
             {occupe === 'verif' ? <IconLoader2 size={14} className="animate-spin" /> : <IconPlugConnected size={14} />} Vérifier la connexion
           </button>
-          {enregistre && <span className="text-[12px] text-emerald-700">Enregistré.</span>}
+          {enregistre && <span className="text-second text-emerald-700">Enregistré.</span>}
           {verif && (verif.ok
-            ? <span className="text-[12px] text-emerald-700 flex items-center gap-1"><IconCheck size={13} /> {verif.remarque || 'Connexion et authentification réussies.'}</span>
-            : <span className="text-[12px] text-red-700 flex items-center gap-1"><IconAlertTriangle size={13} /> {verif.erreur}</span>)}
+            ? <span className="text-second text-emerald-700 flex items-center gap-1"><IconCheck size={13} /> {verif.remarque || 'Connexion et authentification réussies.'}</span>
+            : <span className="text-second text-red-700 flex items-center gap-1"><IconAlertTriangle size={13} /> {verif.erreur}</span>)}
         </div>
         <div className="px-4 py-3 border-t border-gray-100 flex flex-wrap items-center gap-2">
           <input value={testTo} onChange={e => setTestTo(e.target.value)} placeholder="adresse pour le courriel d'essai"
@@ -226,10 +226,10 @@ export default function ConfigCourriels() {
             className="flex items-center gap-1.5 px-3.5 py-1.5 text-sm border border-iip-turquoise text-iip-turquoise font-semibold rounded-lg disabled:opacity-40">
             {occupe === 'test' ? <IconLoader2 size={14} className="animate-spin" /> : <IconSend size={14} />} Envoyer un essai
           </button>
-          {!etat.smtp && <span className="text-[12px] text-amber-700">Enregistrez d'abord une configuration complète (le bouton reste gris tant qu'aucun expéditeur n'est enregistré).</span>}
+          {!etat.smtp && <span className="text-second text-amber-700">Enregistrez d'abord une configuration complète (le bouton reste gris tant qu'aucun expéditeur n'est enregistré).</span>}
           {test && (test.ok
-            ? <span className="text-[12px] text-emerald-700">{test.simule ? 'Simulé (aucun serveur enregistré).' : 'Courriel d\'essai parti.'}</span>
-            : <span className="text-[12px] text-red-700">{test.erreur}</span>)}
+            ? <span className="text-second text-emerald-700">{test.simule ? 'Simulé (aucun serveur enregistré).' : 'Courriel d\'essai parti.'}</span>
+            : <span className="text-second text-red-700">{test.erreur}</span>)}
         </div>
       </section>
 
@@ -265,8 +265,8 @@ export default function ConfigCourriels() {
         {!journal.length ? (
           <div className="px-4 py-6 text-center text-sm text-slate-400">Aucun envoi consigné.</div>
         ) : (
-          <table className="w-full text-[13px]">
-            <thead className="bg-slate-50 text-[11px] uppercase text-slate-500">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-xs uppercase text-slate-500">
               <tr>
                 <th className="text-left px-3 py-1.5">Date</th>
                 <th className="text-left px-3 py-1.5">Destinataire</th>
@@ -280,7 +280,7 @@ export default function ConfigCourriels() {
               {journal.map(l => (
                 <tr key={l.id} className="border-t border-slate-100">
                   <td className="px-3 py-1.5 text-slate-500 whitespace-nowrap">{l.envoye_le}</td>
-                  <td className="px-3 py-1.5"><div className="font-medium">{l.destinataire_nom}</div><div className="text-[11px] text-slate-400">{l.email}</div></td>
+                  <td className="px-3 py-1.5"><div className="font-medium">{l.destinataire_nom}</div><div className="text-xs text-slate-400">{l.email}</div></td>
                   <td className="px-3 py-1.5">{l.sujet}</td>
                   <td className="px-3 py-1.5 text-slate-500">{l.nom_fichier || '—'}</td>
                   <td className="px-3 py-1.5 text-slate-500">{l.envoye_par}</td>

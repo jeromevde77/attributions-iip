@@ -172,7 +172,7 @@ export default function ImportSignaletique({ onClose, onTermine }) {
             </button>
           </>
         ) : null}
-        <span className="text-[12px] text-slate-500 min-w-0">
+        <span className="text-second text-slate-500 min-w-0">
           {fait ? `Fait : ${rapport.nb_crees} dossier(s) créé(s), ${rapport.nb_completes} complété(s).` : manque}
         </span>
         <button className="bouton ml-auto" onClick={onClose}>{fait ? 'Fermer' : 'Annuler'}</button>
@@ -180,7 +180,7 @@ export default function ImportSignaletique({ onClose, onTermine }) {
 
       <div className="space-y-3">
         {erreur && (
-          <div className="carte p-3 text-[12px] text-rose-700 flex items-start gap-1.5">
+          <div className="carte p-3 text-second text-rose-700 flex items-start gap-1.5">
             <IconAlertTriangle size={14} className="mt-0.5 flex-none" />{erreur}
           </div>
         )}
@@ -194,16 +194,16 @@ export default function ImportSignaletique({ onClose, onTermine }) {
             <input ref={entree} type="file" className="hidden" accept=".xls,.xlsx,.csv"
               onChange={e => { lire(e.target.files?.[0]); e.target.value = ''; }} />
           </div>
-          <label className="text-[12px] text-slate-600">
+          <label className="text-second text-slate-600">
             <span className="block mb-0.5">Section par défaut</span>
             <select value={section} onChange={e => setSection(e.target.value)} disabled={fait}
-              className="controle text-[13px] min-w-[16rem]">
+              className="controle text-sm min-w-[16rem]">
               <option value="">— aucune pour l’instant —</option>
               {sections.map(s0 => <option key={s0.code} value={s0.code}>{s0.libelle || s0.code}</option>)}
             </select>
           </label>
           {fichier && (
-            <span className="text-[12px] text-slate-500 pb-2">
+            <span className="text-second text-slate-500 pb-2">
               « {fichier.nom} » — {fichier.lignes.length} ligne(s)
             </span>
           )}
@@ -211,8 +211,8 @@ export default function ImportSignaletique({ onClose, onTermine }) {
 
         {fichier && !fait && fichier.feuilles?.length > 1 && (
           <div className="carte p-2.5 space-y-1.5">
-            <b className="text-[13px]">{fichier.feuilles.length} onglets lus — une section par onglet</b>
-            <p className="text-[12px] text-slate-500">
+            <b className="text-sm">{fichier.feuilles.length} onglets lus — une section par onglet</b>
+            <p className="text-second text-slate-500">
               Chaque onglet a reçu la section dont il porte le nom. Vérifiez-la ; la liste plus bas permet
               encore d’en changer étudiant par étudiant.
             </p>
@@ -220,10 +220,10 @@ export default function ImportSignaletique({ onClose, onTermine }) {
               {fichier.feuilles.map(fe => {
                 const code = parLigne[fe.debut] ?? '';
                 return (
-                  <label key={fe.nom} className="flex items-center gap-2 text-[13px]">
+                  <label key={fe.nom} className="flex items-center gap-2 text-sm">
                     <span className="w-40 truncate"><b>{fe.nom}</b> <span className="text-slate-400">· {fe.n}</span></span>
                     <select value={code} onChange={e => poserFeuille(fe, e.target.value)}
-                      className={`controle text-[13px] flex-1 ${code ? '' : 'border-[color:var(--c-attente)]'}`}>
+                      className={`controle text-sm flex-1 ${code ? '' : 'border-[color:var(--c-attente)]'}`}>
                       <option value="">— aucune section —</option>
                       {sections.map(s0 => <option key={s0.code} value={s0.code}>{s0.libelle || s0.code}</option>)}
                     </select>
@@ -236,8 +236,8 @@ export default function ImportSignaletique({ onClose, onTermine }) {
 
         {fichier && !fait && (
           <div className="carte p-2.5 space-y-2">
-            <div className="flex flex-wrap items-center gap-2 text-[12px]">
-              <b className="text-[13px]">Section de chaque étudiant</b>
+            <div className="flex flex-wrap items-center gap-2 text-second">
+              <b className="text-sm">Section de chaque étudiant</b>
               <span className="text-slate-500">
                 {compteParSection.map(([c, n]) => `${c ? libSection(c) : 'aucune'} : ${n}`).join(' · ')}
               </span>
@@ -247,12 +247,12 @@ export default function ImportSignaletique({ onClose, onTermine }) {
                 donne sa section. Ligne par ligne reste possible. */}
             <div className="flex flex-wrap items-center gap-2">
               <input value={filtre} onChange={e => setFiltre(e.target.value)}
-                placeholder="Filtrer — nom ou matricule" className="controle text-[13px] w-56" />
+                placeholder="Filtrer — nom ou matricule" className="controle text-sm w-56" />
               <button className="bouton" onClick={() => setCoches(c => {
                 const tous = lignesVues.every(x => c.has(x.i));
                 const n = new Set(c); for (const x of lignesVues) tous ? n.delete(x.i) : n.add(x.i); return n;
               })}>{lignesVues.length && lignesVues.every(x => coches.has(x.i)) ? 'Tout décocher' : 'Tout cocher'} ({lignesVues.length})</button>
-              <select value={aAppliquer} onChange={e => setAAppliquer(e.target.value)} className="controle text-[13px]">
+              <select value={aAppliquer} onChange={e => setAAppliquer(e.target.value)} className="controle text-sm">
                 <option value="">aucune section</option>
                 {sections.map(s0 => <option key={s0.code} value={s0.code}>{s0.libelle || s0.code}</option>)}
               </select>
@@ -261,7 +261,7 @@ export default function ImportSignaletique({ onClose, onTermine }) {
               </button>
             </div>
             <div className="max-h-64 overflow-auto rounded-champ border border-slate-200">
-              <table className="w-full text-[12px]">
+              <table className="w-full text-second">
                 <tbody>
                   {lignesVues.map(x => (
                     <tr key={x.i} className="border-t border-slate-100 first:border-t-0 bg-white">
@@ -273,7 +273,7 @@ export default function ImportSignaletique({ onClose, onTermine }) {
                       <td className="px-2 py-1">{x.nom || <em className="text-slate-400">sans nom</em>}</td>
                       <td className="px-2 py-1 text-slate-500 tabular-nums">{x.mat}</td>
                       <td className="px-2 py-1 w-56">
-                        <select value={sectionDe(x.i) || ''} className="controle h-7 text-[12px] w-full"
+                        <select value={sectionDe(x.i) || ''} className="controle h-7 text-second w-full"
                           onChange={e => setParLigne(p0 => ({ ...p0, [x.i]: e.target.value }))}>
                           <option value="">aucune</option>
                           {sections.map(s0 => <option key={s0.code} value={s0.code}>{s0.libelle || s0.code}</option>)}
@@ -284,14 +284,14 @@ export default function ImportSignaletique({ onClose, onTermine }) {
                 </tbody>
               </table>
             </div>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-xs text-slate-500">
               Sans section, un étudiant ne se range chez aucune coordination : seuls ceux qui voient toutes
               les sections le verront, sous « (sans section) », jusqu’à ce que ses inscriptions la donnent.
             </p>
           </div>
         )}
 
-        <div className="carte p-3 text-[12px] text-slate-600 space-y-1">
+        <div className="carte p-3 text-second text-slate-600 space-y-1">
           <div><b>Retrouvé</b> (numéro national, puis matricules, puis nom + prénom + date de
             naissance) : on complète les champs <b>vides</b> — rien n’est écrasé — et le
             matricule de l’année rejoint le dossier sans remplacer l’ancien.</div>
@@ -316,26 +316,26 @@ function Rapport({ r }) {
   ];
   return (
     <div className="space-y-2">
-      <div className="text-[11px] uppercase tracking-wide text-slate-500">
+      <div className="text-xs uppercase tracking-wide text-slate-500">
         {r.simulation ? 'Simulation — rien n’a été écrit' : 'Import effectué'}
       </div>
       <div className="grid grid-cols-4 gap-2">
         {tuiles.map(([n, lib, rail]) => (
           <div key={lib} className="rounded-carte border border-slate-200 bg-white px-3 py-2"
             style={{ borderLeftWidth: 3, borderLeftColor: rail || 'transparent' }}>
-            <div className="text-[17px] font-semibold tabular-nums">{n}</div>
-            <div className="text-[11px] text-slate-500">{lib}</div>
+            <div className="text-lg font-semibold tabular-nums">{n}</div>
+            <div className="text-xs text-slate-500">{lib}</div>
           </div>
         ))}
       </div>
       {[...r.ecartes, ...r.conflits].length > 0 && (
-        <div className="carte p-2.5 text-[12px]" style={{ borderLeftWidth: 3, borderLeftColor: 'var(--c-attente)' }}>
+        <div className="carte p-2.5 text-second" style={{ borderLeftWidth: 3, borderLeftColor: 'var(--c-attente)' }}>
           {r.ecartes.map(e => <div key={`e${e.ligne}`}>Ligne {e.ligne} — {e.qui} : {e.motif}</div>)}
           {r.conflits.map((c, i) => <div key={`c${i}`}>Ligne {c.ligne} — {c.qui} : {c.motif}</div>)}
         </div>
       )}
       {r.completes.length > 0 && (
-        <details className="text-[12px]">
+        <details className="text-second">
           <summary className="cursor-pointer text-slate-600">Dossiers {r.simulation ? 'à compléter' : 'complétés'} ({r.completes.length})</summary>
           <div className="mt-1 max-h-48 overflow-auto">
             {r.completes.map(c => <div key={c.ligne}>{c.qui} — {c.champs.join(', ') || 'matricule seul'}</div>)}
@@ -343,7 +343,7 @@ function Rapport({ r }) {
         </details>
       )}
       {r.crees.length > 0 && (
-        <details className="text-[12px]">
+        <details className="text-second">
           <summary className="cursor-pointer text-slate-600">Dossiers {r.simulation ? 'à créer' : 'créés'} ({r.crees.length})</summary>
           <div className="mt-1 max-h-48 overflow-auto">
             {r.crees.map(c => <div key={c.ligne}>{c.qui}{c.note ? ` — ${c.note}` : ''}</div>)}

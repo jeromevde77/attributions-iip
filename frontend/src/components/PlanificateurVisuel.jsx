@@ -453,7 +453,7 @@ export default function PlanificateurVisuel({ onClose }) {
 
   return (
     <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center z-50 p-4" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-[95vw] h-[90vh] flex flex-col">
+      <div className="bg-white rounded-xl shadow-dessus w-full max-w-[95vw] h-[90vh] flex flex-col">
         {/* En-tête */}
         <div className="border-b border-gray-200 p-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -522,10 +522,10 @@ export default function PlanificateurVisuel({ onClose }) {
                   const st = SEM_STYLE[s.type] || SEM_STYLE.cours;
                   return (
                     <div key={s.id} style={{ width: PX_SEM, background: st.bg }}
-                      className="border-r border-gray-100 text-center py-1 text-[10px] text-gray-500 flex-shrink-0"
+                      className="border-r border-gray-100 text-center py-1 text-mention text-gray-500 flex-shrink-0"
                       title={`Semaine ${s.semaine_num} — ${s.date_debut} (${s.type})${s.label ? ' · '+s.label : ''}`}>
                       <div className="font-semibold">{s.semaine_num}</div>
-                      {st.label && <div className="text-[8px] text-gray-400">{st.label}</div>}
+                      {st.label && <div className="text-mention text-gray-400">{st.label}</div>}
                     </div>
                   );
                 })}
@@ -539,7 +539,7 @@ export default function PlanificateurVisuel({ onClose }) {
                     <div className="text-sm font-medium text-gray-700 truncate">
                       {voie.groupe?.cours_nom || 'Cours'}
                     </div>
-                    <div className="text-[11px] text-gray-400 truncate">
+                    <div className="text-xs text-gray-400 truncate">
                       Groupe {voie.groupe?.nom}
                       {voie.groupe?.prof && ` · ${voie.groupe.prof}`}
                       {` · ${voie.groupe?.heures || 0}h`}
@@ -550,7 +550,7 @@ export default function PlanificateurVisuel({ onClose }) {
                       const hAuto = voie.blocs.filter(b => b.kind === 'autonomie').reduce((s, b) => s + (b.heures || 0), 0);
                       // 3h d'évaluation (EV1 2h + VC 1h) prises sur le cours étudiant
                       if (hCours > 0 && (hCours - 3) < 4 && hAuto < 4) {
-                        return <div className="text-[10px] text-amber-600 mt-0.5 leading-tight">
+                        return <div className="text-mention text-amber-600 mt-0.5 leading-tight">
                           ⚠ très peu d'heures de cours après l'évaluation — ajoutez de l'autonomie ou faites de l'évaluation continue
                         </div>;
                       }
@@ -596,7 +596,7 @@ export default function PlanificateurVisuel({ onClose }) {
                           borderRadius: 6,
                           cursor: 'grab',
                         }}
-                        className="flex items-center px-2 text-[11px] font-medium overflow-hidden select-none hover:brightness-95 transition group/bloc"
+                        className="flex items-center px-2 text-xs font-medium overflow-hidden select-none hover:brightness-95 transition group/bloc"
                         title={`${b.activite} · ${b.heures}h sur ${semCoursReelles} sem. de cours = ${hParSemaine}h/sem${depasseLimite ? ' ⚠ dépasse la dernière semaine de cours' : ''}${congesTraverses.length ? ` · ${congesTraverses.length} congé(s) traversé(s)` : ''}`}>
                         {/* Hachures sur les semaines de congé */}
                         {congesTraverses.map(off => (
@@ -617,13 +617,13 @@ export default function PlanificateurVisuel({ onClose }) {
                         ))}
                         <span className="truncate flex-1 relative z-10">{b.activite}</span>
                         {/* Calcul h/semaine bien visible */}
-                        <span className="text-[10px] font-bold ml-1 whitespace-nowrap relative z-10 bg-white/50 rounded px-1">
+                        <span className="text-mention font-bold ml-1 whitespace-nowrap relative z-10 bg-white/50 rounded px-1">
                           {hParSemaine}h/sem
                         </span>
                         {/* Bouton + : ouvre le menu d'actions */}
                         <button onMouseDown={e => { e.stopPropagation(); }}
                           onClick={e => { e.stopPropagation(); setMenuBloc(menuBloc?.id === b.id ? null : b); }}
-                          className="ml-1 w-4 h-4 flex items-center justify-center rounded-full bg-white/70 hover:bg-white text-gray-700 text-[11px] leading-none relative z-10 flex-shrink-0"
+                          className="ml-1 w-4 h-4 flex items-center justify-center rounded-full bg-white/70 hover:bg-white text-gray-700 text-xs leading-none relative z-10 flex-shrink-0"
                           title="Actions sur ce bloc">+</button>
                         {/* Poignée de redimensionnement */}
                         {/* Poignée gauche = début */}
@@ -650,7 +650,7 @@ export default function PlanificateurVisuel({ onClose }) {
                         cursor: ev.supprimable ? 'pointer' : 'default',
                       }}
                         onClick={() => ev.supprimable && setEvalASupprimer(ev)}
-                        className={`flex items-center justify-center text-[11px] font-bold select-none transition z-10 ${ev.supprimable ? 'hover:bg-gray-300' : ''}`}
+                        className={`flex items-center justify-center text-xs font-bold select-none transition z-10 ${ev.supprimable ? 'hover:bg-gray-300' : ''}`}
                         title={ev.supprimable
                           ? `${ev.label} — semaine ${semaines[ev.debutSem]?.semaine_num} · groupe dédoublé : cliquer pour supprimer (réunion des groupes)`
                           : `${ev.label} — semaine ${semaines[ev.debutSem]?.semaine_num} · non supprimable (cours non dédoublé / groupe A)`}>
@@ -660,7 +660,7 @@ export default function PlanificateurVisuel({ onClose }) {
                   </div>
                 </div>
               ))}
-              <div className="mt-4 flex items-center gap-4 text-[11px] text-gray-500 flex-wrap" style={{ paddingLeft: LABEL_W }}>
+              <div className="mt-4 flex items-center gap-4 text-xs text-gray-500 flex-wrap" style={{ paddingLeft: LABEL_W }}>
                 <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded" style={{background:'rgb(var(--e-disponible-100))',border:'1.5px solid var(--c-disponible)'}}/>Cours</span>
                 <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded" style={{background:'rgb(var(--e-attente-100))',border:'1.5px solid var(--c-attente)'}}/>Remédiation</span>
                 <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded" style={{background:'rgb(var(--e-faveur-100))',border:'1.5px solid var(--c-faveur)'}}/>Autonomie</span>
@@ -688,7 +688,7 @@ export default function PlanificateurVisuel({ onClose }) {
       {/* Confirmation */}
       {confirmOpen && (
         <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center z-[60]" onClick={e => e.target === e.currentTarget && setConfirmOpen(false)}>
-          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6">
+          <div className="bg-white rounded-xl shadow-dessus max-w-lg w-full p-6">
             <h3 className="font-title text-lg text-iip-gold mb-2">Récapitulatif des opérations</h3>
             <p className="text-sm text-gray-600 mb-3">
               Pour l'UE {ueChoisie?.ue_num}, les opérations suivantes seront appliquées :
@@ -715,7 +715,7 @@ export default function PlanificateurVisuel({ onClose }) {
                         <span className="font-semibold">−{r.autoRetiree} pér. d'autonomie</span>
                       </div>
                       {r.autoRetiree < r.demande && (
-                        <div className="text-[10px] text-amber-600">
+                        <div className="text-mention text-amber-600">
                           ⚠ autonomie insuffisante ({r.autoDispo} pér. dispo) — le DP reste intact, on ne retire que l'autonomie
                         </div>
                       )}
@@ -738,7 +738,7 @@ export default function PlanificateurVisuel({ onClose }) {
       {/* Confirmation suppression d'une évaluation */}
       {evalASupprimer && (
         <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center z-[58]" onClick={e => e.target === e.currentTarget && setEvalASupprimer(null)}>
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-5">
+          <div className="bg-white rounded-xl shadow-dessus w-full max-w-sm p-5">
             <h3 className="font-title text-lg text-iip-gold mb-1">Supprimer {evalASupprimer.label} ?</h3>
             <p className="text-sm text-gray-600 mb-4">
               Le cours étant dédoublé, le prof réunit les groupes pour cette évaluation.
@@ -762,7 +762,7 @@ export default function PlanificateurVisuel({ onClose }) {
       {/* Dialogue de scission d'un bloc */}
       {coupeBloc && (
         <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center z-[58]" onClick={e => e.target === e.currentTarget && setCoupeBloc(null)}>
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-5">
+          <div className="bg-white rounded-xl shadow-dessus w-full max-w-sm p-5">
             <h3 className="font-title text-lg text-iip-gold mb-1"><IconScissors size={14} className="inline align-[-2px] mr-1" />Scinder le bloc</h3>
             <p className="text-sm text-gray-600 mb-4">{coupeBloc.activite} · {coupeBloc.heures}h sur {coupeBloc.dureeSem} sem.</p>
             <div className="flex rounded border border-gray-300 overflow-hidden text-sm mb-3">
@@ -782,7 +782,7 @@ export default function PlanificateurVisuel({ onClose }) {
               <input type="number" min="1" autoFocus value={coupeVal} onChange={e => setCoupeVal(e.target.value)}
                 placeholder={coupeMode === 'heures' ? `max ${coupeBloc.heures}h` : `max ${coupeBloc.dureeSem - 1} sem.`}
                 className="w-full border border-gray-300 rounded px-3 py-2 text-sm mt-1" />
-              <span className="text-[11px] text-gray-400">
+              <span className="text-xs text-gray-400">
                 Le reste deviendra une activité (remédiation/évaluation), modifiable ensuite.
               </span>
             </label>
@@ -800,7 +800,7 @@ export default function PlanificateurVisuel({ onClose }) {
       {/* Menu contextuel d'un bloc */}
       {menuBloc && (
         <div className="fixed inset-0 z-[55]" onClick={() => setMenuBloc(null)}>
-          <div className="absolute bg-white rounded-lg shadow-2xl border border-gray-200 py-1 w-56 text-sm"
+          <div className="absolute bg-white rounded-lg shadow-dessus border border-gray-200 py-1 w-56 text-sm"
             style={{ left: '50%', top: '50%', transform: 'translate(-50%,-50%)' }}
             onClick={e => e.stopPropagation()}>
             <div className="px-3 py-2 border-b border-gray-100 text-xs text-gray-500 font-medium truncate">

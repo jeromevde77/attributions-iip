@@ -191,19 +191,19 @@ function MesTaches({ signal = 0 }) {
           séance, il vivait dans un procès-verbal que personne ne rouvre. */}
       {prochaine && (
         <div className="carte px-3 py-2 mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+          <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
             Prochaine réunion
           </span>
-          <span className="text-[13px] font-semibold text-iip-blue">
+          <span className="text-sm font-semibold text-iip-blue">
             {prochaine.titre}
           </span>
-          <span className="text-[13px] text-slate-600 tabular-nums">
+          <span className="text-sm text-slate-600 tabular-nums">
             {fr(prochaine.prochaine_date)}
             {prochaine.prochaine_heure ? ` à ${prochaine.prochaine_heure}` : ''}
             {prochaine.prochain_lieu ? ` · ${prochaine.prochain_lieu}` : ''}
           </span>
           {prochaine.prochaine_qui && (
-            <span className="text-[11px] text-slate-400">
+            <span className="text-xs text-slate-400">
               attendus : {prochaine.prochaine_qui}
             </span>
           )}
@@ -219,7 +219,7 @@ function MesTaches({ signal = 0 }) {
         }).length;
         return urgentes > 0 ? (
           <div className="mb-2 px-3 py-2 rounded-carte bg-red-50 border border-red-200
-                          text-[13px] text-red-800 font-semibold flex items-center gap-2">
+                          text-sm text-red-800 font-semibold flex items-center gap-2">
             <span className="w-6 h-6 flex-none grid place-items-center rounded-lg bg-red-500 text-white font-bold">!</span>
             Urgent — vous avez {urgentes} tâche{urgentes > 1 ? 's' : ''} importante{urgentes > 1 ? 's' : ''} à
             échéance immédiate ou dépassée.
@@ -228,8 +228,8 @@ function MesTaches({ signal = 0 }) {
       })()}
 
       <div className="flex items-baseline gap-2 mb-1.5">
-        <h2 className="text-[13px] font-semibold text-iip-blue">Ce qui m’attend</h2>
-        <span className="text-[11px] text-slate-400">
+        <h2 className="text-sm font-semibold text-iip-blue">Ce qui m’attend</h2>
+        <span className="text-xs text-slate-400">
           {taches.length} tâche(s) — décidées en réunion
         </span>
       </div>
@@ -259,26 +259,26 @@ function MesTaches({ signal = 0 }) {
                                        ${t.nouveau ? 'bg-iip-blue/5' : ''}`}>
               <PastilleNotif genre={genreDe(u)} />
               {t.nouveau && (
-                <span className="flex-none px-1.5 py-0.5 text-[9px] font-semibold uppercase
+                <span className="flex-none px-1.5 py-0.5 text-mention font-semibold uppercase
                                  tracking-wider rounded-full bg-iip-blue text-white">
                   nouveau
                 </span>
               )}
-              <span className="flex-1 min-w-0 text-[13px] text-slate-800 truncate">
+              <span className="flex-1 min-w-0 text-sm text-slate-800 truncate">
                 {t.titre}
               </span>
               {/* CE QUE L'ACTION SERT : l'obligation l'emporte sur la réunion.
                   Savoir qu'une tâche tient une échéance de la circulaire change
                   l'ordre dans lequel on la fait. */}
               {(t.obligation_libelle || t.reunion_date) && (
-                <span className="text-[11px] text-slate-400 hidden sm:inline truncate max-w-[18rem]">
+                <span className="text-xs text-slate-400 hidden sm:inline truncate max-w-[18rem]">
                   {t.obligation_libelle
                     ? `pour : ${t.obligation_libelle}${t.obligation_base ? ` — ${t.obligation_base}` : ''}`
                     : `décidée le ${fr(t.reunion_date)}`}
                 </span>
               )}
               {t.echeance && (
-                <span className={`text-[11px] font-semibold tabular-nums flex-none
+                <span className={`text-xs font-semibold tabular-nums flex-none
                   ${u.pastille}`}>
                   {u.mention ? `${u.mention} · ` : 'pour le '}{fr(t.echeance)}
                 </span>
@@ -289,14 +289,14 @@ function MesTaches({ signal = 0 }) {
               {t.pas_fait_le ? (
                 <button onClick={() => pointer(t, false)}
                   title={`Signalé « pas encore fait » le ${fr(t.pas_fait_le)} — cliquer pour retirer`}
-                  className="flex-none text-[10px] font-bold px-2 py-0.5 rounded-full
+                  className="flex-none text-mention font-bold px-2 py-0.5 rounded-full
                              bg-amber-100 text-amber-800 border border-amber-300">
                   pas encore fait
                 </button>
               ) : (u.niveau && u.niveau !== 'calme') ? (
                 <button onClick={() => pointer(t, true)}
                   title="Signaler que ce n'est pas encore fait — daté, signé, visible dans le suivi"
-                  className="flex-none text-[10px] font-semibold px-2 py-0.5 rounded-full
+                  className="flex-none text-mention font-semibold px-2 py-0.5 rounded-full
                              border border-slate-300 text-slate-500 hover:border-amber-400
                              hover:text-amber-800 hover:bg-amber-50 bg-white">
                   pas encore fait ?
@@ -322,8 +322,8 @@ function MesTaches({ signal = 0 }) {
       {!!informe.length && (
         <div className="mt-3">
           <div className="flex items-baseline gap-2 mb-1.5">
-            <h2 className="text-[13px] font-semibold text-iip-blue">Pour information</h2>
-            <span className="text-[11px] text-slate-400">
+            <h2 className="text-sm font-semibold text-iip-blue">Pour information</h2>
+            <span className="text-xs text-slate-400">
               {informe.length} tâche(s) confiée(s) à d’autres, dont on vous tient au courant
             </span>
           </div>
@@ -336,20 +336,20 @@ function MesTaches({ signal = 0 }) {
                                            ${t.nouveau ? 'bg-iip-blue/5' : ''}`}>
                   <PastilleNotif genre={genreDe(u)} />
                   {t.nouveau && (
-                    <span className="flex-none px-1.5 py-0.5 text-[9px] font-semibold uppercase
+                    <span className="flex-none px-1.5 py-0.5 text-mention font-semibold uppercase
                                      tracking-wider rounded-full bg-iip-blue text-white">
                       nouveau
                     </span>
                   )}
-                  <span className="flex-1 min-w-0 text-[13px] text-slate-800 truncate">
+                  <span className="flex-1 min-w-0 text-sm text-slate-800 truncate">
                     {t.titre}
                   </span>
-                  <span className="text-[11px] text-slate-500 truncate max-w-[14rem]">
+                  <span className="text-xs text-slate-500 truncate max-w-[14rem]">
                     {(t.responsables || []).map(x => x.nom || x.role).filter(Boolean).join(', ')
                       || t.responsable_nom || 'sans responsable'}
                   </span>
                   {t.echeance && (
-                    <span className={`text-[11px] font-semibold tabular-nums flex-none ${u.pastille}`}>
+                    <span className={`text-xs font-semibold tabular-nums flex-none ${u.pastille}`}>
                       {u.mention ? `${u.mention} · ` : 'pour le '}{fr(t.echeance)}
                     </span>
                   )}
@@ -363,8 +363,8 @@ function MesTaches({ signal = 0 }) {
       {!!confiees.length && (
         <div className="mt-3">
           <div className="flex items-baseline gap-2 mb-1.5">
-            <h2 className="text-[13px] font-semibold text-iip-blue">Ce que j’ai confié</h2>
-            <span className="text-[11px] text-slate-400">
+            <h2 className="text-sm font-semibold text-iip-blue">Ce que j’ai confié</h2>
+            <span className="text-xs text-slate-400">
               {confiees.length} action(s) chez d’autres
             </span>
           </div>
@@ -375,21 +375,21 @@ function MesTaches({ signal = 0 }) {
                 <div key={t.id} className={`px-3 py-2 flex items-center gap-3
                                            border-t border-slate-100 first:border-t-0`}>
                   <PastilleNotif genre={genreDe(u)} />
-                  <span className="flex-1 min-w-0 text-[13px] text-slate-800 truncate">
+                  <span className="flex-1 min-w-0 text-sm text-slate-800 truncate">
                     {t.titre}
                   </span>
                   {t.pas_fait_le && (
                     <span title={`Signalé par ${t.pas_fait_par || 'le responsable'}`}
-                      className="flex-none text-[10px] font-bold px-2 py-0.5 rounded-full
+                      className="flex-none text-mention font-bold px-2 py-0.5 rounded-full
                                  bg-amber-100 text-amber-800 border border-amber-300">
                       pas encore fait · {fr(t.pas_fait_le)}
                     </span>
                   )}
-                  <span className="text-[11px] text-slate-500 truncate max-w-[12rem]">
+                  <span className="text-xs text-slate-500 truncate max-w-[12rem]">
                     {t.responsable_nom || t.responsable_role || 'sans responsable'}
                   </span>
                   {t.echeance && (
-                    <span className={`text-[11px] font-semibold tabular-nums flex-none
+                    <span className={`text-xs font-semibold tabular-nums flex-none
                       ${u.pastille}`}>
                       {u.mention ? `${u.mention} · ` : 'pour le '}{fr(t.echeance)}
                     </span>
@@ -443,18 +443,18 @@ function DemandesAValider() {
   return (
     <div className="mb-5">
       <div className="flex items-baseline gap-2 mb-1.5">
-        <h2 className="text-[13px] font-semibold text-iip-blue">À valider</h2>
-        <span className="text-[11px] text-slate-400">modifications proposées par les coordinations et par les enseignants (leur fiche)</span>
+        <h2 className="text-sm font-semibold text-iip-blue">À valider</h2>
+        <span className="text-xs text-slate-400">modifications proposées par les coordinations et par les enseignants (leur fiche)</span>
       </div>
       <button type="button" onClick={() => setOuvert(true)}
         className="carte w-full text-left px-3 py-2 flex items-center gap-3 hover:bg-slate-100">
         <PastilleNotif genre="delai" />
-        <span className="flex-1 text-[13px] text-slate-800">{n} demande{n > 1 ? 's' : ''} en attente de décision</span>
-        <span className="text-[12px] text-iip-blue font-semibold">Ouvrir</span>
+        <span className="flex-1 text-sm text-slate-800">{n} demande{n > 1 ? 's' : ''} en attente de décision</span>
+        <span className="text-second text-iip-blue font-semibold">Ouvrir</span>
       </button>
       {ouvert && (
         <Fenetre titre="Demandes à valider" large="pleine" onFermer={() => { setOuvert(false); charger(); }}>
-          <Suspense fallback={<p className="text-[13px] text-slate-400">Chargement…</p>}><Demandes /></Suspense>
+          <Suspense fallback={<p className="text-sm text-slate-400">Chargement…</p>}><Demandes /></Suspense>
         </Fenetre>
       )}
     </div>
@@ -476,8 +476,8 @@ function TextesAConfirmer() {
   return (
     <div className="mb-5">
       <div className="flex items-baseline gap-2 mb-1.5">
-        <h2 className="text-[13px] font-semibold text-iip-blue">À confirmer</h2>
-        <span className="text-[11px] text-slate-400">
+        <h2 className="text-sm font-semibold text-iip-blue">À confirmer</h2>
+        <span className="text-xs text-slate-400">
           {attente.length} texte{attente.length > 1 ? 's' : ''} publié
           {attente.length > 1 ? 's' : ''} par la direction — prise de connaissance demandée
         </span>
@@ -491,13 +491,13 @@ function TextesAConfirmer() {
             {/* Un texte imposé avec signature : le genre est « délai » tant
                 qu'il attend — il ne devient jamais bleu tout seul. */}
             <PastilleNotif genre="delai" />
-            <span className="flex-1 min-w-0 text-[13px] text-slate-800 truncate">
+            <span className="flex-1 min-w-0 text-sm text-slate-800 truncate">
               {d.titre}
             </span>
             {/* LE NUMÉRO DE VERSION DIT POURQUOI ON REVIENT. Une personne qui a
                 déjà confirmé la v1 et voit reparaître le texte doit comprendre
                 qu'il a changé, pas croire à une erreur. */}
-            <span className="text-[11px] text-slate-400 tabular-nums flex-none">
+            <span className="text-xs text-slate-400 tabular-nums flex-none">
               {d.numero > 1 ? `version ${d.numero} · ` : ''}publié le {fr(d.publiee_le)}
             </span>
             {/* LA CASE OUVRE LE DOCUMENT, elle ne confirme pas : l'accusé de
@@ -629,9 +629,9 @@ export default function Accueil() {
                     className="flex items-center gap-2.5 px-3 py-2 cursor-pointer">
                     <input type="radio" name="filtre-accueil" checked={filtre === cle}
                       onChange={() => setFiltre(cle)} className="accent-iip-blue" />
-                    <span className="text-[13px] flex-1">{lib}</span>
+                    <span className="text-sm flex-1">{lib}</span>
                     {n > 0 && (
-                      <span className="text-[11px] text-slate-500 tabular-nums">
+                      <span className="text-xs text-slate-500 tabular-nums">
                         {n} non lu(s)
                       </span>
                     )}
@@ -646,7 +646,7 @@ export default function Accueil() {
               <div className="segments w-full">
                 {[[7, '7 jours'], [30, '30 jours'], [90, '3 mois']].map(([v, lib]) => (
                   <button key={v} onClick={() => setJours(v)}
-                    className={`flex-1 px-2 py-1.5 text-[12px] ${jours === v
+                    className={`flex-1 px-2 py-1.5 text-second ${jours === v
                       ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>
                     {lib}
                   </button>
@@ -737,7 +737,7 @@ export default function Accueil() {
         <div className="space-y-6">
           {groupes.map(([groupe, gItems]) => (
             <div key={groupe}>
-              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">{groupe}</div>
+              <div className="text-mention font-bold text-gray-400 uppercase tracking-widest mb-2">{groupe}</div>
               <TableauNotes items={gItems.filter(i => i.type === 'notes')} marquerLu={marquerLu} navigate={navigate} />
               <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-2 items-start">
                 {gItems.filter(i => i.type !== 'notes').map(item => {
@@ -748,7 +748,7 @@ export default function Accueil() {
                       className={`border rounded-xl p-3.5 flex items-start gap-3 transition ${
                         item.lue
                           ? 'border-gray-100 bg-white/60'
-                          : 'border-gray-200 bg-white shadow-sm'
+                          : 'border-gray-200 bg-white shadow-pose'
                       }`}>
 
                       {/* Icône colorée */}
@@ -761,13 +761,13 @@ export default function Accueil() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
                           <div>
-                            <span className="text-[10px] font-bold uppercase tracking-wide mr-2"
+                            <span className="text-mention font-bold uppercase tracking-wide mr-2"
                               style={{ color: cfg.color }}>{cfg.label}</span>
                             <span className={`text-sm font-medium ${item.lue ? 'text-gray-500' : 'text-gray-800'}`}>
                               {item.titre}
                             </span>
                           </div>
-                          <span className="text-[10px] text-gray-400 flex-shrink-0 mt-0.5">{timeAgo(item.date)}</span>
+                          <span className="text-mention text-gray-400 flex-shrink-0 mt-0.5">{timeAgo(item.date)}</span>
                         </div>
 
                         {item.detail && (
@@ -830,7 +830,7 @@ function TableauNotes({ items, marquerLu, navigate }) {
   let precedent = null;
   return (
     <div className="mb-3 border border-gray-200 rounded-carte overflow-hidden bg-white">
-      <table className="w-full text-[12px]">
+      <table className="w-full text-second">
         <thead>
           <tr className="tab-entete text-left">
             <th className="px-3 py-1.5 font-semibold">
@@ -851,7 +851,7 @@ function TableauNotes({ items, marquerLu, navigate }) {
             <td></td><td></td>
             <td className="px-3 py-1 text-right">
               {nonLus.length > 0 && (
-                <button type="button" className="text-[11px] text-gray-500 hover:text-iip-blue"
+                <button type="button" className="text-xs text-gray-500 hover:text-iip-blue"
                   onClick={async () => { for (const l of nonLus) await marquerLu(l); }}>tout lu</button>)}
             </td>
           </tr>
@@ -868,7 +868,7 @@ function TableauNotes({ items, marquerLu, navigate }) {
                       <span className={l.lue ? '' : 'font-medium'}>{l.cours}</span>
                     </span>)}
                 </td>
-                <td className="px-3 py-1.5">{l.auteur}{l.complet && <span className="ml-1.5 text-[10px] text-gray-400">complet</span>}</td>
+                <td className="px-3 py-1.5">{l.auteur}{l.complet && <span className="ml-1.5 text-mention text-gray-400">complet</span>}</td>
                 <td className="px-3 py-1.5 text-right tabular-nums">{l.notes}</td>
                 <td className="px-3 py-1.5 text-right tabular-nums">{l.etud}</td>
                 <td className="px-3 py-1.5 text-right text-gray-400 whitespace-nowrap">{timeAgo(l.date)}</td>

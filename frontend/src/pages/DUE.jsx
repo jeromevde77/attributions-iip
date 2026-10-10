@@ -44,10 +44,10 @@ const EPREUVES = [['ecrit', 'Écrit'], ['oral', 'Oral'], ['pratique', 'Pratique'
 function Bloc({ titre, aide, children }) {
   return (
     <section className="mb-4">
-      <div className="px-3 py-1.5 bg-iip-blue text-white text-[11px] font-semibold
+      <div className="px-3 py-1.5 bg-iip-blue text-white text-xs font-semibold
                       uppercase tracking-wide rounded-t-lg">{titre}</div>
       <div className="border border-t-0 border-slate-200 rounded-b-lg p-3 bg-white">
-        {aide && <p className="text-[11px] text-slate-500 mb-2">{aide}</p>}
+        {aide && <p className="text-xs text-slate-500 mb-2">{aide}</p>}
         {children}
       </div>
     </section>
@@ -75,19 +75,19 @@ function DuDossier({ texte, valeur, onChange, lecture,
     <div className="mt-2 border-t border-dashed border-slate-200 pt-2">
       <div className="flex items-center justify-between gap-2">
         <button onClick={() => setOuvert(o => !o)}
-          className="text-[11px] text-slate-500 hover:text-iip-blue flex items-center gap-1">
+          className="text-xs text-slate-500 hover:text-iip-blue flex items-center gap-1">
           <IconFileText size={12} />
           {ouvert ? 'Masquer' : 'Voir'} {libelle}
         </button>
         <button disabled={dejaLa}
           onClick={() => onChange(valeur ? `${valeur.trim()}\n\n${texte}` : texte)}
-          className="text-[11px] px-2 py-1 rounded-lg border border-iip-gold/60 text-iip-blue
+          className="text-xs px-2 py-1 rounded-lg border border-iip-gold/60 text-iip-blue
                      hover:bg-amber-50 disabled:opacity-40 disabled:hover:bg-transparent">
           {dejaLa ? 'déjà repris' : valeur ? 'Ajouter à la suite' : 'Reprendre ce texte'}
         </button>
       </div>
       {ouvert && (
-        <pre className="mt-2 p-2 bg-slate-50 border border-slate-200 rounded-lg text-[12px]
+        <pre className="mt-2 p-2 bg-slate-50 border border-slate-200 rounded-lg text-second
                         text-slate-600 whitespace-pre-wrap font-sans max-h-56 overflow-y-auto">
           {texte}
         </pre>
@@ -101,7 +101,7 @@ function DuDossier({ texte, valeur, onChange, lecture,
 function Repris({ actif }) {
   if (!actif) return null;
   return (
-    <p className="mt-1.5 text-[11px] text-slate-500 flex items-start gap-1">
+    <p className="mt-1.5 text-xs text-slate-500 flex items-start gap-1">
       <IconFileText size={12} className="mt-0.5 flex-none text-iip-gold" />
       Repris du dossier pédagogique. Adaptez-le à votre unité : tant que vous n'y
       touchez pas, il suivra les mises à jour du dossier.
@@ -112,13 +112,13 @@ function Repris({ actif }) {
 function Zone({ valeur, onChange, lignes = 4, lecture, placeholder }) {
   if (lecture) {
     return valeur
-      ? <div className="text-[13px] text-slate-700 whitespace-pre-wrap">{valeur}</div>
-      : <div className="text-[13px] text-slate-400 italic">non complété</div>;
+      ? <div className="text-sm text-slate-700 whitespace-pre-wrap">{valeur}</div>
+      : <div className="text-sm text-slate-400 italic">non complété</div>;
   }
   return (
     <textarea rows={lignes} value={valeur || ''} placeholder={placeholder}
       onChange={e => onChange(e.target.value)}
-      className="w-full text-[13px] border border-slate-300 rounded-lg px-2.5 py-2
+      className="w-full text-sm border border-slate-300 rounded-lg px-2.5 py-2
                  focus:outline-none focus:ring-2 focus:ring-iip-blue/30" />
   );
 }
@@ -126,12 +126,12 @@ function Zone({ valeur, onChange, lignes = 4, lecture, placeholder }) {
 function Champ({ label, valeur, onChange, lecture, placeholder }) {
   return (
     <label className="block">
-      <span className="block text-[11px] font-semibold text-slate-500 mb-0.5">{label}</span>
+      <span className="block text-xs font-semibold text-slate-500 mb-0.5">{label}</span>
       {lecture
-        ? <span className="text-[13px] text-slate-700">{valeur || '—'}</span>
+        ? <span className="text-sm text-slate-700">{valeur || '—'}</span>
         : <input value={valeur || ''} placeholder={placeholder}
           onChange={e => onChange(e.target.value)}
-          className="w-full text-[13px] border border-slate-300 rounded-lg px-2.5 py-1.5
+          className="w-full text-sm border border-slate-300 rounded-lg px-2.5 py-1.5
                      focus:outline-none focus:ring-2 focus:ring-iip-blue/30" />}
     </label>
   );
@@ -158,10 +158,10 @@ function Responsable({ c, d, lecture, onChange }) {
   if (lecture) {
     return (
       <div>
-        <span className="block text-[11px] font-semibold text-slate-500 mb-0.5">
+        <span className="block text-xs font-semibold text-slate-500 mb-0.5">
           Responsable de l'unité
         </span>
-        <span className="text-[13px] text-slate-700">{nom(choisi)}</span>
+        <span className="text-sm text-slate-700">{nom(choisi)}</span>
       </div>
     );
   }
@@ -169,10 +169,10 @@ function Responsable({ c, d, lecture, onChange }) {
   if (!liste.length) {
     return (
       <div>
-        <span className="block text-[11px] font-semibold text-slate-500 mb-0.5">
+        <span className="block text-xs font-semibold text-slate-500 mb-0.5">
           Responsable de l'unité
         </span>
-        <span className="text-[12px] text-amber-800">
+        <span className="text-second text-amber-800">
           Aucune attribution encodée : le responsable ne peut pas être choisi.
         </span>
       </div>
@@ -181,11 +181,11 @@ function Responsable({ c, d, lecture, onChange }) {
 
   return (
     <label className="block">
-      <span className="block text-[11px] font-semibold text-slate-500 mb-0.5">
+      <span className="block text-xs font-semibold text-slate-500 mb-0.5">
         Responsable de l'unité
       </span>
       <select value={String(choisi)} onChange={e => onChange(e.target.value)}
-        className="w-full text-[13px] border border-slate-300 rounded-lg px-2 py-1.5
+        className="w-full text-sm border border-slate-300 rounded-lg px-2 py-1.5
                    focus:outline-none focus:ring-2 focus:ring-iip-blue/30">
         {liste.map(e => (
           <option key={e.id} value={String(e.id)}>
@@ -193,7 +193,7 @@ function Responsable({ c, d, lecture, onChange }) {
           </option>
         ))}
       </select>
-      <span className="block text-[11px] text-slate-400 mt-0.5">
+      <span className="block text-xs text-slate-400 mt-0.5">
         {parDefaut
           ? 'Proposé : le titulaire qui porte le plus de périodes dans l’unité.'
           : 'Choisi manuellement parmi les titulaires de l’unité.'}
@@ -207,8 +207,8 @@ function Responsable({ c, d, lecture, onChange }) {
 function Su({ label, valeur }) {
   return (
     <div className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg">
-      <div className="text-[10px] uppercase tracking-wide text-slate-400">{label}</div>
-      <div className="text-[13px] text-slate-700 font-medium">{valeur ?? '—'}</div>
+      <div className="text-mention uppercase tracking-wide text-slate-400">{label}</div>
+      <div className="text-sm text-slate-700 font-medium">{valeur ?? '—'}</div>
     </div>
   );
 }
@@ -222,10 +222,10 @@ const estHtml = t => /<\/?(p|br|b|strong|i|em|u|ul|ol|li|span|h[1-4]|table|mark|
 const enHtml = t => (estHtml(t) ? t : String(t || '').split(/\n+/).filter(Boolean).map(l => `<p>${echapper(l)}</p>`).join(''));
 function Riche({ valeur, onChange, lecture }) {
   if (lecture) {
-    if (!valeur) return <div className="text-[13px] text-slate-400 italic">non complété</div>;
+    if (!valeur) return <div className="text-sm text-slate-400 italic">non complété</div>;
     return estHtml(valeur)
       ? <div className="texte-due" dangerouslySetInnerHTML={{ __html: valeur }} />
-      : <div className="text-[13px] text-slate-700 whitespace-pre-wrap">{valeur}</div>;
+      : <div className="text-sm text-slate-700 whitespace-pre-wrap">{valeur}</div>;
   }
   return (
     <div className="border border-slate-300 rounded-lg overflow-hidden bg-white">
@@ -335,7 +335,7 @@ function ProgrammeParCours({ blocs, cours, lecture, onChange }) {
     if (lecture && !String(blocs[k] || '').replace(/<[^>]+>/g, '').trim()) return null;
     return (
       <div key={k || '_'} className="rounded-lg border border-slate-200 overflow-hidden">
-        <div className="px-3 py-1.5 tab-entete text-[12px] font-semibold">{titre}</div>
+        <div className="px-3 py-1.5 tab-entete text-second font-semibold">{titre}</div>
         <div className={lecture ? 'px-3 py-2' : ''}>
           {lecture ? <div className="texte-due" dangerouslySetInnerHTML={{ __html: blocs[k] }} />
             : <EditeurDUE valeur={blocs[k] || ''} onChange={v => poser(k, v)} />}
@@ -355,13 +355,13 @@ function Situation({ d }) {
   const n = d.ue.ue_num;
   const lien = l => l.map(x => `UE ${x.ue_num}${x.ue_nom ? ` (${x.ue_nom})` : ''}${x.type === 'interne' ? ' — prérequis interne' : ''}`).join(', ');
   return (
-    <div className="space-y-2 text-[13px]">
+    <div className="space-y-2 text-sm">
       <p className="m-0">{S.prerequis?.length ? <>L'UE {n} <b>fait suite à</b> {lien(S.prerequis)}.</> : <>L'UE {n} n'a pas de prérequis dans la section.</>}</p>
       <p className="m-0">{S.suites?.length ? <>L'UE {n} <b>est prérequise à</b> {lien(S.suites)}.</> : <>L'UE {n} n'est prérequise à aucune autre unité.</>}</p>
       {S.schema && <>
         {/* Le dessin vient du serveur (lib/schemaSvg.js) : le même que la fiche de l'étudiant. */}
         <div className="inline-block border border-slate-200 rounded-lg p-1.5 bg-white max-w-full overflow-x-auto" dangerouslySetInnerHTML={{ __html: S.schema }} />
-        <p className="text-[11px] text-slate-500 m-0">En bleu plein, cette unité ; cerclées de bleu, ses prérequis et ses suites ; en bleu, les flèches qui la touchent ; pastille marine : unité déterminante. Les liens se règlent dans les référentiels (prérequis).</p>
+        <p className="text-xs text-slate-500 m-0">En bleu plein, cette unité ; cerclées de bleu, ses prérequis et ses suites ; en bleu, les flèches qui la touchent ; pastille marine : unité déterminante. Les liens se règlent dans les référentiels (prérequis).</p>
       </>}
     </div>);
 }
@@ -399,26 +399,26 @@ function Liste({ onOuvrir }) {
   return (
     <div className="p-4">
       <div className="flex items-center gap-3 flex-wrap mb-3">
-        <p className="text-[12px] text-slate-500 m-0 flex-1 min-w-[240px]">
+        <p className="text-second text-slate-500 m-0 flex-1 min-w-[240px]">
           {etat.peut_valider
             ? "Toutes les unités de l'année. Une DUE validée passe en lecture seule pour ses titulaires."
             : "Les unités de vos sections et celles où vous portez une attribution. Vous complétez le descriptif de vos unités tant qu'il n'est pas validé."}
         </p>
-        <label className="flex items-center gap-2 text-[12px] text-slate-500">
+        <label className="flex items-center gap-2 text-second text-slate-500">
           UE n°
           <input value={rechercheUE} autoFocus inputMode="numeric" placeholder="ex. 333" data-reponses="non"
             onChange={e => setRechercheUE(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && visibles.length === 1) onOuvrir(visibles[0].ue_num); }}
             className="controle w-28" />
-          {q && <span className="text-[12px] text-slate-600">
+          {q && <span className="text-second text-slate-600">
             {visibles.length === 1 ? <>UE {visibles[0].ue_num} — <b>{visibles[0].ue_nom}</b> · {visibles[0].section} <span className="text-slate-400">(Entrée pour ouvrir)</span></>
               : `${visibles.length} unité(s)`}</span>}
         </label>
         {(etat.sections || []).length > 1 && (
-          <label className="flex items-center gap-2 text-[12px] text-slate-500">
+          <label className="flex items-center gap-2 text-second text-slate-500">
             Section
             <select value={fSection} onChange={e => setFSection(e.target.value)}
-              className="border border-slate-300 rounded-lg px-2 py-1.5 text-[13px] bg-white">
+              className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white">
               <option value="">— Toutes —</option>
               {etat.sections.map(sx => <option key={sx} value={sx}>{sx}</option>)}
             </select>
@@ -429,28 +429,28 @@ function Liste({ onOuvrir }) {
         {visibles.map(u => (
           <button key={u.ue_num} onClick={() => onOuvrir(u.ue_num)}
             className="text-left px-3 py-2.5 rounded-xl border border-slate-200 bg-white
-                       hover:border-iip-blue/40 hover:shadow-sm transition">
+                       hover:border-iip-blue/40 hover:shadow-pose transition">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <div className="text-[13px] font-semibold text-iip-blue truncate">
+                <div className="text-sm font-semibold text-iip-blue truncate">
                   UE {u.ue_num} — {u.ue_nom}
                   {String(u.ue_tc || '').trim().toLowerCase() === 'x' && (
-                    <span className="ml-1.5 align-middle text-[9px] font-bold px-1.5 py-0.5
+                    <span className="ml-1.5 align-middle text-mention font-bold px-1.5 py-0.5
                                      rounded bg-iip-blue text-white">TC</span>
                   )}
                 </div>
-                <div className="text-[11px] text-slate-500">
+                <div className="text-xs text-slate-500">
                   {u.section}{u.ects ? ` · ${u.ects} ECTS` : ''}{u.ue_quad ? ` · ${u.ue_quad}` : ''}
                 </div>
               </div>
-              <span className={`flex-none text-[10px] px-2 py-0.5 rounded-champ font-semibold ${
+              <span className={`flex-none text-mention px-2 py-0.5 rounded-champ font-semibold ${
                 u.statut === 'validee'
                   ? 'bg-emerald-500 text-white border border-emerald-500'
                   : 'bg-amber-500 text-white border border-amber-500'}`}>
                 {u.statut === 'validee' ? 'validée' : 'en préparation'}
               </span>
             </div>
-            <div className="text-[11px] text-slate-400 mt-1">
+            <div className="text-xs text-slate-400 mt-1">
               {u.valide_le ? `Validée le ${u.valide_le}`
                 : u.maj_le ? `Modifiée le ${String(u.maj_le).slice(0, 10)}`
                   : 'Jamais complétée'}
@@ -502,7 +502,7 @@ function GrilleCriteres({ d, c, lecture, ueNum, onGrille, onMode }) {
   const idList = `points-${ueNum}`;
   return (
     <div className="mt-3 space-y-3">
-      <div className="flex flex-wrap items-center gap-3 text-[12px]">
+      <div className="flex flex-wrap items-center gap-3 text-second">
         <span className="font-semibold text-slate-600">L'unité est évaluée</span>
         {[[true, 'globalement — un tableau pour l’unité'], [false, 'par activité d’enseignement — un tableau par cours']].map(([v, l]) => (
           <label key={String(v)} className={`flex items-center gap-1.5 ${d.droits?.regler_mode ? 'cursor-pointer' : 'text-slate-500'}`}>
@@ -512,9 +512,9 @@ function GrilleCriteres({ d, c, lecture, ueNum, onGrille, onMode }) {
         ))}
         {!d.droits?.regler_mode && <span className="text-slate-400">— réglé par la coordination ou la direction</span>}
       </div>
-      {erreur && <p className="text-[12px]" style={{ color: 'var(--c-refuse)' }}>{erreur}</p>}
+      {erreur && <p className="text-second" style={{ color: 'var(--c-refuse)' }}>{erreur}</p>}
       {!lecture && !c.grille_criteres && d.grille_precedente && (
-        <p className="text-[12px] text-slate-600">Le tableau de {d.grille_precedente.annee} existe.{' '}
+        <p className="text-second text-slate-600">Le tableau de {d.grille_precedente.annee} existe.{' '}
           <button type="button" className="underline" onClick={() => onGrille(d.grille_precedente.grille)}>Le reprendre</button>, puis l'adapter.</p>
       )}
       <datalist id={idList}>{(d.points_programme || []).map((p, i) => <option key={i} value={p} />)}</datalist>
@@ -529,13 +529,13 @@ function GrilleCriteres({ d, c, lecture, ueNum, onGrille, onMode }) {
         };
         return (
           <div key={t.cle} className="border border-slate-200 rounded-carte overflow-x-auto">
-            <div className="tab-entete px-3 py-1.5 text-[12px] font-semibold text-slate-700">{t.titre}</div>
-            <table className="w-full text-[12px]">
-              <thead className="tab-entete"><tr className="text-left text-[11px] text-slate-500">
+            <div className="tab-entete px-3 py-1.5 text-second font-semibold text-slate-700">{t.titre}</div>
+            <table className="w-full text-second">
+              <thead className="tab-entete"><tr className="text-left text-xs text-slate-500">
                 <th className="px-2 py-1 w-[14%] align-top">Contexte (chapeau)</th>
                 <th className="px-2 py-1 w-[16%] align-top">Acquis d’apprentissage</th>
                 {COLONNES_CRIT.map(([k, l, def]) => <th key={k} className="px-2 py-1 align-top">{l}
-                  {def && <div className="font-normal italic normal-case text-[10px] text-slate-500 leading-snug">{def}</div>}</th>)}
+                  {def && <div className="font-normal italic normal-case text-mention text-slate-500 leading-snug">{def}</div>}</th>)}
                 {!lecture && <th className="w-8" />}
               </tr></thead>
               <tbody>
@@ -550,7 +550,7 @@ function GrilleCriteres({ d, c, lecture, ueNum, onGrille, onMode }) {
                       <td className="px-2 py-1">
                         {premier && (lecture
                           ? <span title={descr[l.aa_code]}><b>{l.aa_code}</b> <span className="text-slate-500">{descr[l.aa_code]}</span></span>
-                          : <select className="controle w-full h-auto py-1 text-[12px]" value={l.aa_code || ''}
+                          : <select className="controle w-full h-auto py-1 text-second" value={l.aa_code || ''}
                               onChange={e => maj(i, 'aa_code', e.target.value)}>
                               <option value="">— acquis —</option>
                               {acquis.map(a => <option key={a.aa_code} value={a.aa_code}>{a.aa_code} — {(a.description || '').slice(0, 60)}</option>)}
@@ -560,10 +560,10 @@ function GrilleCriteres({ d, c, lecture, ueNum, onGrille, onMode }) {
                         <td key={k} className="px-1 py-1">
                           {lecture ? <span className="whitespace-pre-line">{avecGras(l[k])}</span>
                             : <>
-                              <textarea rows={3} className="controle w-full h-auto py-1 text-[12px]" value={l[k] || ''} data-reponses="non"
+                              <textarea rows={3} className="controle w-full h-auto py-1 text-second" value={l[k] || ''} data-reponses="non"
                                 onChange={e => maj(i, k, e.target.value)} />
                               {k === 'point' && (d.points_programme || []).length > 0 && (
-                                <select className="w-full text-[11px] text-slate-500 border-0 bg-transparent" value=""
+                                <select className="w-full text-xs text-slate-500 border-0 bg-transparent" value=""
                                   onChange={e => e.target.value && maj(i, k, l[k] ? `${l[k]} ${e.target.value}` : e.target.value)}>
                                   <option value="">+ un point du programme…</option>
                                   {(d.points_programme || []).map((p, j) => <option key={j} value={p}>{p.slice(0, 90)}</option>)}
@@ -584,7 +584,7 @@ function GrilleCriteres({ d, c, lecture, ueNum, onGrille, onMode }) {
               </tbody>
             </table>
             {!lecture && (
-              <div className="px-2 py-1.5 border-t border-slate-100 flex flex-wrap items-center gap-2 text-[12px]">
+              <div className="px-2 py-1.5 border-t border-slate-100 flex flex-wrap items-center gap-2 text-second">
                 <span className="text-slate-500">Ajouter un acquis :</span>
                 {t.aa.some(a => !lignes.some(l => l.aa_code === a)) && (
                   <button type="button" className="bouton" title="Une ligne pour chaque acquis qui n'en a pas encore"
@@ -730,21 +730,21 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
         <div className="min-w-0">
           {!integree && <>
           <button onClick={onRetour}
-            className="text-[12px] text-slate-500 hover:text-iip-blue flex items-center gap-1 mb-1">
+            className="text-second text-slate-500 hover:text-iip-blue flex items-center gap-1 mb-1">
             <IconArrowLeft size={13} /> Tous les descriptifs
           </button>
-          <h2 className="text-[15px] font-semibold text-iip-blue truncate">
+          <h2 className="text-base font-semibold text-iip-blue truncate">
             UE {u.ue_num} — {u.ue_nom}
           </h2>
           </>}
           <div className="flex items-center gap-2 mt-1">
-            <span className={`text-[11px] px-2 py-0.5 rounded-champ font-semibold ${
+            <span className={`text-xs px-2 py-0.5 rounded-champ font-semibold ${
               d.statut === 'validee'
                 ? 'bg-emerald-500 text-white border border-emerald-500'
                 : 'bg-amber-500 text-white border border-amber-500'}`}>
               {d.statut === 'validee' ? `validée le ${d.valide_le || ''}` : 'en préparation'}
             </span>
-            <span className="text-[11px] text-slate-400 flex items-center gap-1">
+            <span className="text-xs text-slate-400 flex items-center gap-1">
               {lecture ? <><IconEye size={12} /> lecture seule</>
                 : <><IconPencil size={12} /> vous pouvez modifier</>}
             </span>
@@ -763,7 +763,7 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
             pieces={[{ cle: 'due', label: 'Document d’unité d’enseignement (DUE)', description: 'Tel qu’il est à l’écran', onClick: () => imprimer() }]} />
           {d.droits.valider && (
             <button onClick={basculerValidation} disabled={enCours}
-              className={`px-3 py-1.5 text-[12px] rounded-lg font-semibold flex items-center gap-1.5
+              className={`px-3 py-1.5 text-second rounded-lg font-semibold flex items-center gap-1.5
                 ${d.statut === 'validee'
       ? 'border border-amber-500 text-white bg-amber-500'
       : 'bg-emerald-600 text-white'}`}>
@@ -773,7 +773,7 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
           )}
           {!lecture && (
             <button onClick={enregistrer} disabled={enCours || !sale}
-              className="px-3 py-1.5 text-[12px] rounded-lg bg-iip-blue text-white font-semibold
+              className="px-3 py-1.5 text-second rounded-lg bg-iip-blue text-white font-semibold
                          flex items-center gap-1.5 disabled:opacity-40">
               <IconDeviceFloppy size={14} /> Enregistrer
             </button>
@@ -783,32 +783,32 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
 
       {erreur && (
         <div className="mb-3 px-3 py-2 rounded-lg bg-red-50 border border-red-200
-                        text-[12px] text-red-800 flex items-start gap-1.5">
+                        text-second text-red-800 flex items-start gap-1.5">
           <IconAlertTriangle size={14} className="mt-0.5 flex-none" /> {erreur}
         </div>
       )}
       {message && (
         <div className="mb-3 px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200
-                        text-[12px] text-emerald-800 flex items-start gap-1.5">
+                        text-second text-emerald-800 flex items-start gap-1.5">
           <IconCircleCheck size={14} className="mt-0.5 flex-none" /> {message}
         </div>
       )}
       {!lecture && !!manques.length && (
         <div className="mb-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
-                        text-[12px] text-amber-900">
+                        text-second text-amber-900">
           <b>Reste à compléter :</b> {manques.join(' · ')}.
         </div>
       )}
 
       {vue === 'apercu' ? (
         <div className="rounded-lg border border-slate-200 bg-slate-100 p-3">
-          {apercu.enCours && <p className="text-[13px] text-slate-500 m-0 p-6 text-center">Composition de la pièce…</p>}
-          {apercu.erreur && <p className="text-[13px] text-red-700 m-0 p-4">{apercu.erreur}</p>}
+          {apercu.enCours && <p className="text-sm text-slate-500 m-0 p-6 text-center">Composition de la pièce…</p>}
+          {apercu.erreur && <p className="text-sm text-red-700 m-0 p-4">{apercu.erreur}</p>}
           {apercu.url && !apercu.enCours && (
             <iframe title={`Aperçu du descriptif de l'UE ${ueNum}`} src={apercu.url}
               className="w-full bg-white rounded" style={{ height: 'calc(100vh - 220px)', minHeight: 500, border: 0 }} />)}
           {apercu.html && !apercu.enCours && apercu.raison && (
-            <p className="text-[12px] text-slate-600 m-0 mb-2">Le PDF n'a pas pu être composé ({apercu.raison}) : voici la pièce telle que le navigateur l'imprimerait.</p>)}
+            <p className="text-second text-slate-600 m-0 mb-2">Le PDF n'a pas pu être composé ({apercu.raison}) : voici la pièce telle que le navigateur l'imprimerait.</p>)}
           {apercu.html && !apercu.enCours && (
             <iframe title={`Aperçu du descriptif de l'UE ${ueNum}`} srcDoc={apercu.html} sandbox=""
               className="block mx-auto bg-white shadow" style={{ width: '210mm', maxWidth: '100%', height: 'calc(100vh - 220px)', minHeight: 500, border: 0 }} />)}
@@ -838,7 +838,7 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
             placeholder="Français" onChange={v => maj('langue_eval', v)} />
         </div>
         {!lecture && (
-          <label className="flex items-center gap-2 mt-2 text-[12px] text-slate-700">
+          <label className="flex items-center gap-2 mt-2 text-second text-slate-700">
             <input type="checkbox" checked={!!c.codiplomation} className="w-4 h-4 accent-iip-blue"
               onChange={e => maj('codiplomation', e.target.checked)} />
             Co-diplomation HELB
@@ -852,14 +852,14 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
 
       <Bloc titre="Titulaires" aide="Tirés des attributions de l'année.">
         {d.enseignants.length ? (
-          <ul className="text-[13px] text-slate-700 space-y-0.5">
+          <ul className="text-sm text-slate-700 space-y-0.5">
             {d.enseignants.map((e, i) => (
               <li key={i}>{(e.nom || '').toUpperCase()} {e.prenom}
                 {e.cours && <span className="text-slate-400"> — {e.cours}</span>}</li>
             ))}
           </ul>
         ) : (
-          <div className="text-[12px] text-amber-800">
+          <div className="text-second text-amber-800">
             Aucune attribution encodée pour cette unité : les titulaires manqueront au document.
           </div>
         )}
@@ -870,7 +870,7 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
         {d.acquis.length ? (
           /* Comme le dossier : la phrase de l'unité, puis chaque groupe sous
              son chapeau. */
-          <div className="text-[13px] text-slate-700 space-y-1">
+          <div className="text-sm text-slate-700 space-y-1">
             {d.introduction_acquis && <p className="font-semibold text-slate-800">{d.introduction_acquis}</p>}
             {d.acquis.map(a => (
               <div key={a.aa_code}>
@@ -883,14 +883,14 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
             ))}
           </div>
         ) : (
-          <div className="text-[12px] text-amber-800">
+          <div className="text-second text-amber-800">
             Aucun acquis encodé pour cette unité.
             {d.dp?.acquis && (
               <div className="mt-2 text-slate-600">
                 Le dossier pédagogique en énonce pourtant ; ils s'encodent dans le référentiel
                 des acquis, où ils serviront aussi à l'encodage et à la délibération :
                 <pre className="mt-1 p-2 bg-slate-50 border border-slate-200 rounded-lg
-                                text-[12px] whitespace-pre-wrap font-sans max-h-56
+                                text-second whitespace-pre-wrap font-sans max-h-56
                                 overflow-y-auto">{d.dp.acquis}</pre>
               </div>
             )}
@@ -899,9 +899,9 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
       </Bloc>
 
       <Bloc titre="Activités d'apprentissage">
-        <table className="w-full text-[12px]">
+        <table className="w-full text-second">
           <thead>
-            <tr className="text-left text-[11px] uppercase text-slate-400">
+            <tr className="text-left text-xs uppercase text-slate-400">
               <th className="pb-1">Code</th><th>Intitulé</th>
               <th className="text-right">Périodes</th><th className="text-right">Heures</th>
               <th className="pl-3">Acquis évalués</th>
@@ -949,7 +949,7 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
             return (
               <button key={k} disabled={lecture}
                 onClick={() => majSous('methodes', k, !on)}
-                className={`px-2.5 py-1 rounded-champ text-[12px] border ${on
+                className={`px-2.5 py-1 rounded-champ text-second border ${on
                   ? 'bg-iip-blue text-white border-iip-blue'
                   : 'bg-white text-slate-600 border-slate-300 hover:border-iip-blue/50'}`}>
                 {on && <IconCheck size={11} className="inline mr-1" />}{l}
@@ -965,7 +965,7 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
             méthodes d'apprentissage, c'est le contrat pédagogique ») — le même champ
             qu'avant (« criteres ») : ce qui y était écrit suit. */}
         <div className="mt-3">
-          <span className="block text-[11px] font-semibold text-slate-500 mb-1">Contrat pédagogique</span>
+          <span className="block text-xs font-semibold text-slate-500 mb-1">Contrat pédagogique</span>
           <Riche valeur={c.criteres} lecture={lecture} onChange={v => maj('criteres', v)} />
           <DuDossier texte={d.dp?.capacites} valeur={c.criteres} lecture={lecture}
             onChange={v => maj('criteres', v)}
@@ -975,9 +975,9 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
 
       <Bloc titre="Supports de cours"
         aide="Un support obligatoire doit être déposé sur eCampus, sauf ouvrage protégé.">
-        <table className="w-full text-[12px]">
+        <table className="w-full text-second">
           <thead>
-            <tr className="text-left text-[11px] uppercase text-slate-400">
+            <tr className="text-left text-xs uppercase text-slate-400">
               <th className="pb-1">Activité</th><th>Type de support</th>
               <th className="text-right">Obligatoire</th>
             </tr>
@@ -993,7 +993,7 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
                     {lecture ? (s.type || '—')
                       : <input value={s.type || ''} placeholder="Syllabus, PowerPoint, ouvrage…"
                         onChange={e => poser({ type: e.target.value })}
-                        className="w-full text-[12px] border border-slate-300 rounded px-2 py-1" />}
+                        className="w-full text-second border border-slate-300 rounded px-2 py-1" />}
                   </td>
                   <td className="text-right">
                     <input type="checkbox" disabled={lecture} checked={!!s.obligatoire}
@@ -1007,17 +1007,17 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
         </table>
       </Bloc>
 
-      {d.note_supports && <p className="-mt-2 mb-4 text-[12px] text-slate-600 italic">{d.note_supports}</p>}
+      {d.note_supports && <p className="-mt-2 mb-4 text-second text-slate-600 italic">{d.note_supports}</p>}
 
       <Bloc titre="Modalités d'évaluation">
         {['s1', 's2'].map(sess => (
           <div key={sess} className="mb-3 last:mb-0">
-            <div className="text-[11px] font-semibold text-slate-500 mb-1">
+            <div className="text-xs font-semibold text-slate-500 mb-1">
               {sess === 's1' ? 'Première session' : 'Seconde session'}
             </div>
-            <table className="w-full text-[12px]">
+            <table className="w-full text-second">
               <thead>
-                <tr className="text-[10px] uppercase text-slate-400">
+                <tr className="text-mention uppercase text-slate-400">
                   <th className="text-left pb-1">Activité</th>
                   {EPREUVES.map(([k, l]) => <th key={k} className="text-center">{l}</th>)}
                 </tr>
@@ -1048,11 +1048,11 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
           </div>
         ))}
         <div className="mt-2">
-          <span className="block text-[11px] font-semibold text-slate-500 mb-0.5">
+          <span className="block text-xs font-semibold text-slate-500 mb-0.5">
             Note générale de l'unité
           </span>
           <Riche valeur={c.note_ue} lecture={lecture} onChange={v => maj('note_ue', v)} />
-          {!c.note_ue && <p className="text-[11px] text-slate-500 mt-1">Laissée vide, la DUE reprend la règle usuelle : moyenne pondérée des acquis, mais unité non acquise dès qu'une note est sous 10/20, sauf décision du Conseil des études.</p>}
+          {!c.note_ue && <p className="text-xs text-slate-500 mt-1">Laissée vide, la DUE reprend la règle usuelle : moyenne pondérée des acquis, mais unité non acquise dès qu'une note est sous 10/20, sauf décision du Conseil des études.</p>}
         </div>
       </Bloc>
 
@@ -1071,8 +1071,8 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
       {vue === 'rediger' && !lecture && sale && (
         <div className="sticky bottom-3 flex justify-end">
           <button onClick={enregistrer} disabled={enCours}
-            className="px-4 py-2 text-[13px] rounded-lg bg-iip-blue text-white font-semibold
-                       shadow-lg flex items-center gap-1.5">
+            className="px-4 py-2 text-sm rounded-lg bg-iip-blue text-white font-semibold
+                       shadow-flottant flex items-center gap-1.5">
             <IconDeviceFloppy size={15} /> Enregistrer les modifications
           </button>
         </div>

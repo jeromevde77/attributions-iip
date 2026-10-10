@@ -101,10 +101,10 @@ export default function HoraireComparateur({ annee }) {
       <div className="px-4 py-3 rounded-xl bg-white border border-slate-200">
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div className="max-w-3xl">
-            <div className="text-[15px] font-semibold text-iip-blue flex items-center gap-1.5">
+            <div className="text-base font-semibold text-iip-blue flex items-center gap-1.5">
               <IconCalendarEvent size={16} /> L'horaire face aux attributions
             </div>
-            <p className="text-[12px] text-slate-600 mt-1">
+            <p className="text-second text-slate-600 mt-1">
               L'horaire est bâti par les coordinations, à partir des attributions.
               Lucie le relit et dit où il s'en écarte : un cours donné par un autre
               que son titulaire, une charge accordée mais non posée, un cours à
@@ -116,18 +116,18 @@ export default function HoraireComparateur({ annee }) {
             <input ref={fichierRef} type="file" accept=".pdf" className="hidden"
               onChange={e => e.target.files?.[0] && envoyer(e.target.files[0], true)} />
             <button onClick={() => fichierRef.current?.click()} disabled={enCours || !annee}
-              className="px-3 py-1.5 text-[13px] rounded-lg bg-iip-blue text-white
+              className="px-3 py-1.5 text-sm rounded-lg bg-iip-blue text-white
                          font-semibold flex items-center gap-1.5 disabled:opacity-40">
               <IconUpload size={15} /> Lire un emploi du temps
             </button>
             <button onClick={charger} disabled={enCours}
-              className="px-2.5 py-1.5 text-[12px] rounded-lg border border-slate-300
+              className="px-2.5 py-1.5 text-second rounded-lg border border-slate-300
                          text-slate-600 flex items-center gap-1.5 disabled:opacity-40">
               <IconRefresh size={14} /> Relire
             </button>
           </div>
         </div>
-        <p className="text-[11px] text-slate-400 mt-2">
+        <p className="text-xs text-slate-400 mt-2">
           Le PDF attendu est l'export « Emploi du temps » d'Index Éducation :
           une ligne par séance, colonnes jour / classe / cours / professeur / local.
         </p>
@@ -135,17 +135,17 @@ export default function HoraireComparateur({ annee }) {
 
       {erreur && (
         <div className="px-3 py-2 rounded-xl bg-rose-50 border border-rose-200
-                        text-[12px] text-rose-900">{erreur}</div>
+                        text-second text-rose-900">{erreur}</div>
       )}
 
       {/* LA SIMULATION D'ABORD : ce qui sera lu, avant que rien ne soit écrit. */}
       {apercu && (
         <div className="px-4 py-3 rounded-xl bg-amber-50 border border-amber-300 space-y-2 border-l-4 border-l-amber-500">
-          <div className="text-[13px] font-semibold text-amber-900">
+          <div className="text-sm font-semibold text-amber-900">
             {apercu.classe || 'Classe non reconnue'} — {apercu.seances} séance(s),
             {' '}{h1(apercu.heures)}, du {apercu.periode?.debut} au {apercu.periode?.fin}
           </div>
-          <div className="text-[12px] text-amber-900 space-y-0.5">
+          <div className="text-second text-amber-900 space-y-0.5">
             <div>{apercu.rapproches} séance(s) rattachée(s) à un professeur de Lucie.</div>
             {!!apercu.sans_code && (
               <div>{apercu.sans_code} séance(s) sans code de cours — elles seront gardées
@@ -162,15 +162,15 @@ export default function HoraireComparateur({ annee }) {
           <div className="flex items-center gap-2 pt-1">
             <button onClick={() => choisi.current && envoyer(choisi.current, false)}
               disabled={enCours}
-              className="px-3 py-2 text-[13px] rounded-lg bg-amber-600 text-white
+              className="px-3 py-2 text-sm rounded-lg bg-amber-600 text-white
                          font-semibold disabled:opacity-40">
               Enregistrer cet horaire
             </button>
             <button onClick={() => { setApercu(null); choisi.current = null; }}
-              className="px-3 py-2 text-[13px] rounded-lg border border-amber-500
+              className="px-3 py-2 text-sm rounded-lg border border-amber-500
                          text-amber-900">Annuler</button>
           </div>
-          <p className="text-[11px] text-amber-800">
+          <p className="text-xs text-amber-800">
             Enregistrer remplace l'horaire déjà connu pour cette classe et cette
             année : un horaire se corrige, deux versions superposées ne comparent plus rien.
           </p>
@@ -179,20 +179,20 @@ export default function HoraireComparateur({ annee }) {
 
       {!!lots.length && (
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[12px] text-slate-500">Classe :</span>
+          <span className="text-second text-slate-500">Classe :</span>
           <button onClick={() => setClasse('')}
-            className={`px-2.5 py-1 text-[12px] rounded-lg border ${!classe
+            className={`px-2.5 py-1 text-second rounded-lg border ${!classe
               ? 'bg-iip-blue text-white border-iip-blue font-semibold'
               : 'border-slate-300 text-slate-600'}`}>Toutes</button>
           {classes.map(c => (
             <button key={c} onClick={() => setClasse(c)}
-              className={`px-2.5 py-1 text-[12px] rounded-lg border ${classe === c
+              className={`px-2.5 py-1 text-second rounded-lg border ${classe === c
                 ? 'bg-iip-blue text-white border-iip-blue font-semibold'
                 : 'border-slate-300 text-slate-600'}`}>{c}</button>
           ))}
           <span className="flex-1" />
           {lots.map(l => (
-            <span key={l.id} className="text-[11px] text-slate-500 flex items-center gap-1">
+            <span key={l.id} className="text-xs text-slate-500 flex items-center gap-1">
               {l.classe} · {l.nb_seances} séances · {l.periode_debut} → {l.periode_fin}
               <button onClick={() => supprimer(l.id)} disabled={enCours}
                 title="Retirer cet horaire" className="text-slate-400 hover:text-rose-600">
@@ -204,7 +204,7 @@ export default function HoraireComparateur({ annee }) {
       )}
 
       {comp && !comp.lignes.length && !comp.sans_seance.length && (
-        <div className="px-4 py-8 text-center text-[13px] text-slate-500">
+        <div className="px-4 py-8 text-center text-sm text-slate-500">
           Aucun horaire lu pour {annee}. Chargez l'export d'une classe pour commencer.
         </div>
       )}
@@ -221,14 +221,14 @@ export default function HoraireComparateur({ annee }) {
               <div key={l} className={`px-3 py-2 rounded-xl border ${i === 3
                 && (comp.total.ecarts + comp.total.sans_seance)
                 ? 'bg-amber-50 border-amber-300' : 'bg-white border-slate-200'}`}>
-                <div className="text-[11px] text-slate-500">{l}</div>
-                <div className="text-[17px] font-bold text-iip-blue tabular-nums">{v}</div>
+                <div className="text-xs text-slate-500">{l}</div>
+                <div className="text-lg font-bold text-iip-blue tabular-nums">{v}</div>
               </div>
             ))}
           </div>
 
           <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-            <table className="w-full text-[12px]">
+            <table className="w-full text-second">
               <thead>
                 <tr className="bg-slate-50 text-slate-600 text-left">
                   <th className="px-3 py-2 font-semibold">Cours</th>
@@ -271,7 +271,7 @@ export default function HoraireComparateur({ annee }) {
                           </span>
                         ))}
                         {!!l.profs_attribues.length && !l.profs_horaire.every(p => p.attribue) && (
-                          <div className="text-[11px] text-slate-500">
+                          <div className="text-xs text-slate-500">
                             attribué à {l.profs_attribues.map(p => p.nom || 'À désigner').join(', ')}
                           </div>
                         )}
@@ -280,14 +280,14 @@ export default function HoraireComparateur({ annee }) {
                             c'est retenu pour les imports suivants. */}
                         {l.profs_horaire.filter(p => !p.id && p.nom).map(p => l.profs_attribues.filter(a => a.id).map(a => (
                           <button key={`${p.nom}-${a.id}`} type="button" onClick={() => memePersonne(p.nom, a)}
-                            className="block text-[11px] text-iip-blue underline mt-0.5">
+                            className="block text-xs text-iip-blue underline mt-0.5">
                             « {p.nom} » est {a.nom} — c'est la même personne
                           </button>
                         )))}
                       </td>
                       <td className="px-3 py-1.5">
                         <span className={`inline-flex items-center gap-1.5 px-2 py-0.5
-                                          rounded-lg border text-[11px] font-semibold ${v.c}`}>
+                                          rounded-lg border text-xs font-semibold ${v.c}`}>
                           <span className={`w-1.5 h-1.5 rounded-full ${v.pastille}`} />
                           {v.l}
                         </span>
@@ -302,11 +302,11 @@ export default function HoraireComparateur({ annee }) {
           {/* LA MOITIÉ QU'ON NE REGARDE JAMAIS : ce qui est payé et jamais posé. */}
           {!!comp.sans_seance.length && (
             <div className="px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 border-l-4 border-l-rose-500">
-              <div className="text-[13px] font-semibold text-rose-900 flex items-center gap-1.5">
+              <div className="text-sm font-semibold text-rose-900 flex items-center gap-1.5">
                 <IconAlertTriangle size={15} />
                 {comp.sans_seance.length} cours attribué(s) sans une seule séance à l'horaire
               </div>
-              <div className="mt-1 text-[12px] text-rose-900 space-y-0.5">
+              <div className="mt-1 text-second text-rose-900 space-y-0.5">
                 {comp.sans_seance.map(x => (
                   <div key={x.cours_code}>
                     <span className="font-mono font-bold">{x.cours_code}</span>
@@ -320,10 +320,10 @@ export default function HoraireComparateur({ annee }) {
 
           {(!!comp.collisions.professeur.length || !!comp.collisions.local.length) && (
             <div className="px-4 py-3 rounded-xl bg-amber-50 border border-amber-300 border-l-4 border-l-amber-500">
-              <div className="text-[13px] font-semibold text-amber-900 flex items-center gap-1.5">
+              <div className="text-sm font-semibold text-amber-900 flex items-center gap-1.5">
                 <IconUsers size={15} /> Chevauchements
               </div>
-              <div className="mt-1 text-[12px] text-amber-900 space-y-0.5">
+              <div className="mt-1 text-second text-amber-900 space-y-0.5">
                 {comp.collisions.professeur.map((x, i) => (
                   <div key={`p${i}`}>Professeur : {x}</div>
                 ))}
@@ -334,7 +334,7 @@ export default function HoraireComparateur({ annee }) {
 
           {(!!comp.profs_non_rapproches.length || !!comp.sans_code.length) && (
             <div className="px-4 py-3 rounded-xl bg-slate-50 border border-slate-200
-                            text-[12px] text-slate-600 space-y-1">
+                            text-second text-slate-600 space-y-1">
               {!!comp.profs_non_rapproches.length && (
                 <div>
                   <b>Professeurs de l'horaire absents de Lucie :</b>{' '}
@@ -353,7 +353,7 @@ export default function HoraireComparateur({ annee }) {
 
           {!comp.total.ecarts && !comp.total.sans_seance && (
             <div className="px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200
-                            text-[12px] text-emerald-900 flex items-center gap-1.5">
+                            text-second text-emerald-900 flex items-center gap-1.5">
               <IconCheck size={15} /> L'horaire dépense exactement ce que les
               attributions ont accordé, et par les bonnes personnes.
             </div>

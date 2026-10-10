@@ -144,26 +144,26 @@ export default function EnvoiMailModal({ pieces, typeDoc, apercu = true, sujet: 
         </>}>
         <div className="space-y-4">
           {etat?.redirection && (
-            <div className="flex items-start gap-2 text-[12px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 border-l-4 border-l-amber-500">
+            <div className="flex items-start gap-2 text-second text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 border-l-4 border-l-amber-500">
               <IconAlertTriangle size={15} className="flex-shrink-0 mt-0.5" />
               <span>Redirection de test active : tous les courriels partiront vers <b>{etat.redirection}</b>, quel que soit le destinataire affiché.</span>
             </div>
           )}
           {etat?.actif && etat.pdf && !etat.smtp && (
-            <div className="flex items-start gap-2 text-[12px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 border-l-4 border-l-amber-500">
+            <div className="flex items-start gap-2 text-second text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 border-l-4 border-l-amber-500">
               <IconAlertTriangle size={15} className="flex-shrink-0 mt-0.5" />
               <span>Le serveur n'a pas de configuration SMTP : les envois seront <b>simulés</b> et
                 consignés dans le journal, mais aucun courriel ne partira.</span>
             </div>
           )}
           {etat && !etat.actif && (
-            <div className="flex items-start gap-2 text-[12px] text-red-800 bg-red-50 border border-red-200 rounded-lg px-3 py-2 border-l-4 border-l-red-500">
+            <div className="flex items-start gap-2 text-second text-red-800 bg-red-50 border border-red-200 rounded-lg px-3 py-2 border-l-4 border-l-red-500">
               <IconAlertTriangle size={15} className="flex-shrink-0 mt-0.5" />
               <span>L'envoi de documents par courriel est <b>désactivé</b> (Configuration → Courriels).</span>
             </div>
           )}
           {etat?.actif && !etat.pdf && (
-            <div className="flex items-start gap-2 text-[12px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 border-l-4 border-l-amber-500">
+            <div className="flex items-start gap-2 text-second text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 border-l-4 border-l-amber-500">
               <IconAlertTriangle size={15} className="flex-shrink-0 mt-0.5" />
               <span>Ce serveur ne sait pas produire de PDF : les documents partiront
                 <b> dans le corps du courriel</b>.
@@ -176,13 +176,13 @@ export default function EnvoiMailModal({ pieces, typeDoc, apercu = true, sujet: 
           ) : (
             <>
               <label className="block">
-                <span className="text-[12px] font-semibold text-slate-600">Objet</span>
+                <span className="text-second font-semibold text-slate-600">Objet</span>
                 <input value={sujet} onChange={e => setSujet(e.target.value)}
                   className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm"
                   placeholder="Objet du courriel" />
               </label>
-              <div className="flex items-center gap-4 text-[13px]">
-                <span className="text-[12px] font-semibold text-slate-600">Le document part</span>
+              <div className="flex items-center gap-4 text-sm">
+                <span className="text-second font-semibold text-slate-600">Le document part</span>
                 <label className={`flex items-center gap-1.5 ${etat?.pdf ? 'cursor-pointer' : 'opacity-40'}`}>
                   <input type="radio" name="mode-envoi" checked={mode === 'pdf'}
                     disabled={!etat?.pdf} onChange={() => setMode('pdf')} />
@@ -195,18 +195,18 @@ export default function EnvoiMailModal({ pieces, typeDoc, apercu = true, sujet: 
                 </label>
               </div>
               <label className="block">
-                <span className="text-[12px] font-semibold text-slate-600">Message</span>
+                <span className="text-second font-semibold text-slate-600">Message</span>
                 <textarea value={message} onChange={e => setMessage(e.target.value)} rows={5}
                   className="mt-1 w-full border border-slate-300 rounded-lg px-3 py-1.5 text-sm font-[inherit]" />
               </label>
 
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-[12px] font-semibold text-slate-600">
+                  <span className="text-second font-semibold text-slate-600">
                     Destinataires — {retenues.length} / {lignes?.length ?? pieces.length}
                   </span>
                   {sansAdresse > 0 && (
-                    <span className="text-[11px] text-amber-700">
+                    <span className="text-xs text-amber-700">
                       {sansAdresse} sans adresse connue : à saisir ou à laisser de côté
                     </span>
                   )}
@@ -215,8 +215,8 @@ export default function EnvoiMailModal({ pieces, typeDoc, apercu = true, sujet: 
                   <div className="text-sm text-slate-400 py-4 text-center">Recherche des adresses…</div>
                 ) : (
                   <div className="border border-slate-200 rounded-lg overflow-hidden">
-                    <table className="w-full text-[13px]">
-                      <thead className="bg-slate-50 text-[11px] uppercase text-slate-500">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50 text-xs uppercase text-slate-500">
                         <tr>
                           <th className="w-8 px-2 py-1.5"></th>
                           <th className="text-left px-2 py-1.5">Personne</th>
@@ -234,7 +234,7 @@ export default function EnvoiMailModal({ pieces, typeDoc, apercu = true, sujet: 
                             </td>
                             <td className="px-2 py-1">
                               <div className="font-medium text-slate-800">{l.nom}</div>
-                              {l.nom_fichier && <div className="text-[11px] text-slate-400 truncate max-w-[260px]">{l.nom_fichier}</div>}
+                              {l.nom_fichier && <div className="text-xs text-slate-400 truncate max-w-[260px]">{l.nom_fichier}</div>}
                             </td>
                             <td className="px-2 py-1">
                               <div className="flex items-center gap-1.5">
@@ -242,7 +242,7 @@ export default function EnvoiMailModal({ pieces, typeDoc, apercu = true, sujet: 
                                   <select value={l.adresses.some(a => a.email === l.email) ? l.email : '__libre'}
                                     onChange={e => maj(l.idx, e.target.value === '__libre'
                                       ? { email: '' } : { email: e.target.value, coche: true })}
-                                    className="border border-slate-300 rounded-md px-1.5 py-1 text-[12px]">
+                                    className="border border-slate-300 rounded-md px-1.5 py-1 text-second">
                                     {l.adresses.map(a => <option key={a.email} value={a.email}>{a.libelle}</option>)}
                                     <option value="__libre">autre…</option>
                                   </select>
@@ -250,7 +250,7 @@ export default function EnvoiMailModal({ pieces, typeDoc, apercu = true, sujet: 
                                 <input value={l.email}
                                   onChange={e => maj(l.idx, { email: e.target.value, coche: !!e.target.value.trim() })}
                                   placeholder="adresse@…"
-                                  className={`flex-1 border rounded-md px-2 py-1 text-[12px] ${
+                                  className={`flex-1 border rounded-md px-2 py-1 text-second ${
                                     l.email ? 'border-slate-300' : 'border-amber-300'}`} />
                               </div>
                             </td>
@@ -272,7 +272,7 @@ export default function EnvoiMailModal({ pieces, typeDoc, apercu = true, sujet: 
                   </div>
                 )}
               </div>
-              {erreur && <div className="text-[12px] text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 border-l-4 border-l-red-500">{erreur}</div>}
+              {erreur && <div className="text-second text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2 border-l-4 border-l-red-500">{erreur}</div>}
             </>
           )}
         </div>
@@ -285,13 +285,13 @@ function Bilan({ resultat }) {
   const { envoyes, simules, echecs, resultats } = resultat;
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap gap-2 text-[12px]">
+      <div className="flex flex-wrap gap-2 text-second">
         {envoyes > 0 && <span className="px-2 py-1 rounded-md bg-emerald-500 text-white border border-emerald-500 flex items-center gap-1"><IconCheck size={13} /> {envoyes} envoyé{envoyes > 1 ? 's' : ''}</span>}
         {simules > 0 && <span className="px-2 py-1 rounded-md bg-amber-500 text-white border border-amber-500">{simules} simulé{simules > 1 ? 's' : ''} (SMTP absent)</span>}
         {echecs > 0 && <span className="px-2 py-1 rounded-md bg-red-500 text-white border border-red-500">{echecs} en échec</span>}
       </div>
       <div className="border border-slate-200 rounded-lg overflow-hidden">
-        <table className="w-full text-[13px]">
+        <table className="w-full text-sm">
           <tbody>
             {resultats.map((x, i) => (
               <tr key={i} className="border-t border-slate-100 first:border-t-0">
@@ -302,13 +302,13 @@ function Bilan({ resultat }) {
                 </td>
                 <td className="px-2 py-1 font-medium text-slate-800">{x.nom}</td>
                 <td className="px-2 py-1 text-slate-500">{x.email}</td>
-                <td className="px-2 py-1 text-[11px] text-red-700">{x.erreur || ''}</td>
+                <td className="px-2 py-1 text-xs text-red-700">{x.erreur || ''}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <p className="text-[11px] text-slate-500">L'envoi est consigné dans le journal des courriels.</p>
+      <p className="text-xs text-slate-500">L'envoi est consigné dans le journal des courriels.</p>
     </div>
   );
 }

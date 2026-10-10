@@ -62,7 +62,7 @@ export default function ChampsAdresse({ valeurs, poser, modifies = {}, Etiquette
     <Lbl key="cp" label="Code postal">
       <input type="text" value={valeurs.cp || ''} onChange={e => majCp(e.target.value)} className={cls('cp')} />
       {/^\d{4}$/.test(cp) && cps && !locs.length && (
-        <span className="block text-[10px] mt-0.5" style={{ color: 'var(--c-surveiller, #B45309)' }}>Code postal inconnu en Belgique</span>
+        <span className="block text-mention mt-0.5" style={{ color: 'var(--c-surveiller, #B45309)' }}>Code postal inconnu en Belgique</span>
       )}
     </Lbl>
   );

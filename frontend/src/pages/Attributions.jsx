@@ -137,7 +137,7 @@ function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied 
               {conflict && isAdmin && (
                 <div className="mt-2">
                   <button onClick={() => copier(true)} disabled={loading}
-                    className="bouton-detruire controle text-[12px] px-3 disabled:opacity-40">
+                    className="bouton-detruire controle text-second px-3 disabled:opacity-40">
                     ⚠️ Forcer — supprimer les {conflict.count} existantes et recopier
                   </button>
                 </div>
@@ -204,7 +204,7 @@ function FenetreStatut({ etat, onFermer, onGeneral, onException }) {
     <div className="flex flex-wrap gap-1.5">
       {CHOIX.map(s => (
         <button key={s} onClick={()=>setValeur(s)}
-          className={`px-3 py-1 rounded-champ text-[12px] font-semibold border
+          className={`px-3 py-1 rounded-champ text-second font-semibold border
             ${valeur === s ? 'border-iip-blue bg-iip-blue/10 text-iip-blue'
                            : 'border-slate-300 text-slate-600 hover:border-slate-400'}`}>
           {lib(s)}
@@ -224,11 +224,11 @@ function FenetreStatut({ etat, onFermer, onGeneral, onException }) {
           className="bouton bouton-fort disabled:opacity-40">
           {enCours ? 'Enregistrement…' : 'Enregistrer'}
         </button>
-        {!mode && <span className="text-[11px] text-slate-400">Choisissez d'abord ce que vous modifiez.</span>}
-        {erreur && <span className="text-[12px] text-rose-700">{erreur}</span>}
+        {!mode && <span className="text-xs text-slate-400">Choisissez d'abord ce que vous modifiez.</span>}
+        {erreur && <span className="text-second text-rose-700">{erreur}</span>}
         <button onClick={onFermer} className="bouton ml-auto">Annuler</button>
       </>}>
-      <div className="p-5 space-y-4 text-[13px]">
+      <div className="p-5 space-y-4 text-sm">
 
         {!statutMdp ? (
           <>
@@ -256,7 +256,7 @@ function FenetreStatut({ etat, onFermer, onGeneral, onException }) {
                   onChange={()=>{ setMode('general'); setValeur(statutMdp); }}/>
                 <span>
                   <b>Son statut général</b>
-                  <span className="block text-[11px] text-slate-500">
+                  <span className="block text-xs text-slate-500">
                     Vaut pour toutes ses charges — sauf celles qui portent une exception.
                   </span>
                 </span>
@@ -268,7 +268,7 @@ function FenetreStatut({ etat, onFermer, onGeneral, onException }) {
                   onChange={()=>{ setMode('exception'); setValeur(exception || statutMdp); }}/>
                 <span>
                   <b>Une exception pour cette attribution</b>
-                  <span className="block text-[11px] text-slate-500">
+                  <span className="block text-xs text-slate-500">
                     Cette ligne seule. Sa fiche et ses autres charges ne bougent pas.
                   </span>
                 </span>
@@ -281,7 +281,7 @@ function FenetreStatut({ etat, onFermer, onGeneral, onException }) {
                     onChange={()=>setMode('retirer')}/>
                   <span>
                     <b>Retirer l'exception</b>
-                    <span className="block text-[11px] text-slate-500">
+                    <span className="block text-xs text-slate-500">
                       Cette ligne reprend le statut général, et le suivra s'il change.
                     </span>
                   </span>
@@ -1454,19 +1454,19 @@ export default function Attributions() {
               <div className="flex items-center gap-1">
                 {verrous[row.id] && <span title={`Nomination définitive — ${verrous[row.id].periodes_nommees||''} pér. ${verrous[row.id].type_charge||''} · code FWB ${verrous[row.id].code_fwb||''} (attribution verrouillée)`} className="shrink-0 text-iip-blue"><IconLock size={13}/></span>}
                 {!verrous[row.id] && alertesCours[row.id] && <span title={`⚠ ${alertesCours[row.id].definitif} est engagé(e) à titre définitif sur ce cours (${alertesCours[row.id].periodes_nommees||''} pér. ${alertesCours[row.id].type_charge||''}, FWB ${alertesCours[row.id].code_fwb||''})`} className="shrink-0 cursor-help text-amber-600"><IconLockOpen size={13}/></span>}
-                {!!row.remplace_attribution_id && <span title="Ligne de remplacement (titulaire en congé)" className="shrink-0 text-[10px] text-iip-blue font-bold">R</span>}
-                {!!row.est_rt && <span title="Remise au travail (RT) — charge d'un définitif recasée ici" className="shrink-0 text-[10px] px-1 py-0 rounded font-bold text-iip-texte border border-[color:var(--c-attente)]">RT</span>}
-                {badge === 'EXT' && <span className="text-[10px] px-1 py-0 rounded font-bold bg-teal-500 text-white border border-teal-500 shrink-0" title="Couvert par l'enveloppe externe">EXT</span>}
-                {badge === 'DOT' && <span className="text-[10px] px-1 py-0 rounded font-bold bg-orange-500 text-white border border-orange-500 shrink-0" title="Dépasse le plafond → dotation organique">DOT</span>}
-                {badge === 'EXT+DOT' && <span className="text-[10px] px-1 py-0 rounded font-bold bg-purple-500 text-white border border-purple-500 shrink-0" title="Partiellement EXT, partiellement DOT">EXT+DOT</span>}
+                {!!row.remplace_attribution_id && <span title="Ligne de remplacement (titulaire en congé)" className="shrink-0 text-mention text-iip-blue font-bold">R</span>}
+                {!!row.est_rt && <span title="Remise au travail (RT) — charge d'un définitif recasée ici" className="shrink-0 text-mention px-1 py-0 rounded font-bold text-iip-texte border border-[color:var(--c-attente)]">RT</span>}
+                {badge === 'EXT' && <span className="text-mention px-1 py-0 rounded font-bold bg-teal-500 text-white border border-teal-500 shrink-0" title="Couvert par l'enveloppe externe">EXT</span>}
+                {badge === 'DOT' && <span className="text-mention px-1 py-0 rounded font-bold bg-orange-500 text-white border border-orange-500 shrink-0" title="Dépasse le plafond → dotation organique">DOT</span>}
+                {badge === 'EXT+DOT' && <span className="text-mention px-1 py-0 rounded font-bold bg-purple-500 text-white border border-purple-500 shrink-0" title="Partiellement EXT, partiellement DOT">EXT+DOT</span>}
                 <div className="flex-1 min-w-0">{select}</div>
                 {peutEcrireAttr && (!row.professeur || /désigner|designer/i.test(row.professeur || '')) && (
                   <button onClick={e=>{e.stopPropagation(); if(recrutMenu?.rowId===row.id){setRecrutMenu(null);}else{const r=e.currentTarget.getBoundingClientRect(); ouvrirRecrut(row, {top:r.bottom+4, right:window.innerWidth-r.right});}}} title="Piocher un candidat du recrutement (devient recruté et lié à ce groupe)" className="shrink-0 text-iip-turquoise hover:text-iip-blue"><IconBriefcase size={14}/></button>
                 )}
-                {peutEcrireAttr && <button onClick={e=>{e.stopPropagation(); toggleConge(row);}} title={row.en_conge ? 'En congé — cliquer pour réactiver' : 'Mettre en congé (crée une ligne de remplacement)'} className={`shrink-0 text-[10px] font-bold px-1 py-0.5 rounded border ${row.en_conge ? 'bg-transparent text-amber-700 border-amber-500' : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-amber-400 hover:text-amber-600'}`}>C</button>}
+                {peutEcrireAttr && <button onClick={e=>{e.stopPropagation(); toggleConge(row);}} title={row.en_conge ? 'En congé — cliquer pour réactiver' : 'Mettre en congé (crée une ligne de remplacement)'} className={`shrink-0 text-mention font-bold px-1 py-0.5 rounded border ${row.en_conge ? 'bg-transparent text-amber-700 border-amber-500' : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-amber-400 hover:text-amber-600'}`}>C</button>}
               </div>
 
-              {!verrous[row.id] && alertesCours[row.id] && <div className="text-[10px] text-amber-600 leading-tight mt-0.5">⚠ définitif : {alertesCours[row.id].definitif}</div>}
+              {!verrous[row.id] && alertesCours[row.id] && <div className="text-mention text-amber-600 leading-tight mt-0.5">⚠ définitif : {alertesCours[row.id].definitif}</div>}
             </td>;
           }
           // Colonne Activité : select éditable directement (sans passer par la fiche cours)
@@ -1499,7 +1499,7 @@ export default function Attributions() {
             return <td key={c.key} style={sty} className="text-center">
               <button onClick={e=>{e.stopPropagation(); saveCell(row.id,'helb_nature', nat==='CT'?'TP':'CT');}}
                 title={nat==='CT' ? 'Théorie (cliquer pour travaux pratiques)' : 'Travaux pratiques (cliquer pour théorie)'}
-                className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${nat==='TP' ? 'bg-cyan-500 text-white border-cyan-500' : 'bg-indigo-500 text-white border-indigo-500'}`}>
+                className={`text-mention font-bold px-1.5 py-0.5 rounded border ${nat==='TP' ? 'bg-cyan-500 text-white border-cyan-500' : 'bg-indigo-500 text-white border-indigo-500'}`}>
                 {nat==='TP' ? 'TP' : 'TH'}
               </button>
             </td>;
@@ -1694,7 +1694,7 @@ export default function Attributions() {
               <button
                 onClick={e => { e.stopPropagation(); saveCell(row.id, 'contrat_mdp', next); }}
                 title={`Payroll : ${v || '—'} (cliquer pour passer à ${next})`}
-                className={`badge-interactive text-[11px] font-bold px-2 py-0.5 rounded border bg-transparent ${
+                className={`badge-interactive text-xs font-bold px-2 py-0.5 rounded border bg-transparent ${
                   isHelbContrat
                     ? 'border-pink-500 text-pink-600'
                     : 'border-iip-blue text-iip-blue'
@@ -1704,7 +1704,7 @@ export default function Attributions() {
             </td>;
           }
           if (c.edit==='select') return <td key={c.key} style={sty}><select defaultValue={v??''} onClick={e=>e.stopPropagation()} className="w-full cursor-pointer" onChange={e=>{if(e.target.value!==(v??''))saveCell(row.id,c.key,e.target.value);}}>{c.options.map(([val,lbl])=><option key={val} value={val}>{lbl}</option>)}</select></td>;
-          if (c.edit==='prof') return <td key={c.key} style={sty}><div className="flex items-center gap-1">{verrous[row.id] && <span title={`Nomination définitive — ${verrous[row.id].periodes_nommees||''} pér. ${verrous[row.id].type_charge||''} · code FWB ${verrous[row.id].code_fwb||''} (attribution verrouillée)`} className="flex-shrink-0"><IconLock size={13} stroke={1.8} className="inline -mt-0.5 text-slate-400" /></span>}{!verrous[row.id] && alertesCours[row.id] && <span title={`⚠ ${alertesCours[row.id].definitif} est engagé(e) à titre définitif sur ce cours (${alertesCours[row.id].periodes_nommees||''} pér. ${alertesCours[row.id].type_charge||''}, FWB ${alertesCours[row.id].code_fwb||''})`} className="flex-shrink-0 cursor-help">🔓</span>}{row.remplace_attribution_id && <span title="Ligne de remplacement (titulaire en congé)" className="flex-shrink-0 text-[10px] text-iip-blue font-bold">R</span>}<select defaultValue={row.professeur_id??''} onClick={e=>e.stopPropagation()} className="w-full cursor-pointer" onChange={e=>{const nid=e.target.value?Number(e.target.value):null;if(nid!==row.professeur_id)saveCell(row.id,'professeur_id',nid);}}><option value="">— Aucun —</option>{professeurs.map(p=><option key={p.id} value={p.id}>{p.nom_prenom}</option>)}</select>{peutEcrireAttr && <button onClick={e=>{e.stopPropagation(); toggleConge(row);}} title={row.en_conge ? 'En congé — cliquer pour réactiver' : 'Mettre en congé (crée une ligne de remplacement)'} className={`flex-shrink-0 text-[10px] font-bold px-1 py-0.5 rounded border ${row.en_conge ? 'bg-transparent text-amber-700 border-amber-500' : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-amber-400 hover:text-amber-600'}`}>C</button>}</div>{!verrous[row.id] && alertesCours[row.id] && <div className="text-[10px] text-amber-600 leading-tight mt-0.5">⚠ définitif : {alertesCours[row.id].definitif}</div>}</td>;
+          if (c.edit==='prof') return <td key={c.key} style={sty}><div className="flex items-center gap-1">{verrous[row.id] && <span title={`Nomination définitive — ${verrous[row.id].periodes_nommees||''} pér. ${verrous[row.id].type_charge||''} · code FWB ${verrous[row.id].code_fwb||''} (attribution verrouillée)`} className="flex-shrink-0"><IconLock size={13} stroke={1.8} className="inline -mt-0.5 text-slate-400" /></span>}{!verrous[row.id] && alertesCours[row.id] && <span title={`⚠ ${alertesCours[row.id].definitif} est engagé(e) à titre définitif sur ce cours (${alertesCours[row.id].periodes_nommees||''} pér. ${alertesCours[row.id].type_charge||''}, FWB ${alertesCours[row.id].code_fwb||''})`} className="flex-shrink-0 cursor-help">🔓</span>}{row.remplace_attribution_id && <span title="Ligne de remplacement (titulaire en congé)" className="flex-shrink-0 text-mention text-iip-blue font-bold">R</span>}<select defaultValue={row.professeur_id??''} onClick={e=>e.stopPropagation()} className="w-full cursor-pointer" onChange={e=>{const nid=e.target.value?Number(e.target.value):null;if(nid!==row.professeur_id)saveCell(row.id,'professeur_id',nid);}}><option value="">— Aucun —</option>{professeurs.map(p=><option key={p.id} value={p.id}>{p.nom_prenom}</option>)}</select>{peutEcrireAttr && <button onClick={e=>{e.stopPropagation(); toggleConge(row);}} title={row.en_conge ? 'En congé — cliquer pour réactiver' : 'Mettre en congé (crée une ligne de remplacement)'} className={`flex-shrink-0 text-mention font-bold px-1 py-0.5 rounded border ${row.en_conge ? 'bg-transparent text-amber-700 border-amber-500' : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-amber-400 hover:text-amber-600'}`}>C</button>}</div>{!verrous[row.id] && alertesCours[row.id] && <div className="text-mention text-amber-600 leading-tight mt-0.5">⚠ définitif : {alertesCours[row.id].definitif}</div>}</td>;
           /* LE STATUT SE DEMANDE, IL NE SE DEVINE PAS.
              Une liste déroulante invisible posée sur le badge écrivait dans la
              fiche du MDP sans jamais le dire : on croyait corriger une ligne,
@@ -1736,7 +1736,7 @@ export default function Attributions() {
                       ? `Exception sur cette attribution — statut général du MDP : ${row.statut_mdp || 'non défini'}`
                       : 'Statut du membre du personnel — cliquer pour le modifier'}
                     className={`relative inline-flex items-center justify-center min-w-[2rem] h-5 px-1
-                                rounded-md text-[10px] font-bold leading-none ${badgeCls}
+                                rounded-md text-mention font-bold leading-none ${badgeCls}
                                 ${exception ? 'ring-1 ring-inset ring-[color:var(--c-attente)]' : ''}`}>
                     {displayVal}
                     {/* L'EXCEPTION SE VOIT. Un badge identique au statut général
@@ -1747,7 +1747,7 @@ export default function Attributions() {
                 ) : (
                   <button onClick={ouvrir} title="Aucun statut défini pour ce membre du personnel — cliquer pour le définir"
                     className="inline-flex items-center justify-center min-w-[2rem] h-5 px-1 rounded-md
-                               text-[10px] font-bold leading-none bg-amber-100 text-amber-800
+                               text-mention font-bold leading-none bg-amber-100 text-amber-800
                                ring-1 ring-inset ring-amber-500/40">?</button>
                 )}
               </div>
@@ -1803,11 +1803,11 @@ export default function Attributions() {
           <td className="text-center"><IconChevronRight size={14} className={`inline-block text-gray-400 text-xs transition-transform ${ouvert?'rotate-90':''}`} /></td>
           <td colSpan={COLS_COURS.length - 1} className="px-2 py-1.5 h-9">
             <span className="inline-flex items-center gap-2">
-              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-iip-gold text-white text-[11px] font-bold">{lignes.length}</span>
+              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-iip-gold text-white text-xs font-bold">{lignes.length}</span>
               <span className="text-sm font-medium text-gray-700">{nom}</span>
               <span className="text-xs text-gray-400">· {tPer}p sur {lignes.length} groupes</span>
-              {!memeProf && <span className="text-[10px] text-white bg-amber-500 px-1.5 py-0.5 rounded">profs différents</span>}
-              {!memePer && <span className="text-[10px] text-gray-400">périodes variables</span>}
+              {!memeProf && <span className="text-mention text-white bg-amber-500 px-1.5 py-0.5 rounded">profs différents</span>}
+              {!memePer && <span className="text-mention text-gray-400">périodes variables</span>}
             </span>
           </td>
         </tr>
@@ -1860,9 +1860,9 @@ export default function Attributions() {
                   const cc = ctrlUE?.cours?.find(x => x.code_cours === cg.code_cours);
                   if (!cc || !cc.dp) return null;
                   if (cc.est_multiple) {
-                    return <span className="text-[11px] px-1.5 py-0.5 rounded bg-green-500 text-white border border-green-500" title={`${cc.per} = ${cc.dp} × ${cc.multiple} (DP ${cc.dp})`}>×{cc.multiple}</span>;
+                    return <span className="text-xs px-1.5 py-0.5 rounded bg-green-500 text-white border border-green-500" title={`${cc.per} = ${cc.dp} × ${cc.multiple} (DP ${cc.dp})`}>×{cc.multiple}</span>;
                   }
-                  return <span className="text-[11px] px-1.5 py-0.5 rounded bg-orange-500 text-white border border-orange-500" title={`Pas un multiple du DP (${cc.dp}). Attendu : ${cc.attendu}`}>×{cc.ratio} ⚠</span>;
+                  return <span className="text-xs px-1.5 py-0.5 rounded bg-orange-500 text-white border border-orange-500" title={`Pas un multiple du DP (${cc.dp}). Attendu : ${cc.attendu}`}>×{cc.ratio} ⚠</span>;
                 })()}
                 <span className="text-sm text-gray-500">{cg.rows.length} attr.</span>
                 {/* « 159p sur 120 » dit d'un coup d'œil qu'on a dépassé — ce que
@@ -1938,8 +1938,8 @@ export default function Attributions() {
       <div key={key} className={`overflow-hidden transition-all ${
         activeUE === key
           ? (isHelb
-              ? 'border-2 border-pink-400 rounded-sm shadow-sm mb-0.5'
-              : 'border-2 border-iip-gold/60 rounded-sm shadow-sm mb-0.5')
+              ? 'border-2 border-pink-400 rounded-sm shadow-pose mb-0.5'
+              : 'border-2 border-iip-gold/60 rounded-sm shadow-pose mb-0.5')
           : (isHelb
               ? 'border-b border-gray-100 border-l-2 border-l-pink-400'
               /* LE TRONC COMMUN SE MARQUE À GAUCHE, COMME LA HELB (Charles, 27
@@ -1960,7 +1960,7 @@ export default function Attributions() {
                 quadrimestre et l'organisation restent cliquables. En gris : ce
                 sont des mentions, aucun ne signale un état. */}
             <span className="min-w-0 overflow-hidden" onClick={e=>e.stopPropagation()}>
-              <span className="relative inline-flex items-stretch whitespace-nowrap text-[11px] text-slate-600 bg-white border border-slate-200 border-l-[3px] rounded divide-x divide-slate-200"
+              <span className="relative inline-flex items-stretch whitespace-nowrap text-xs text-slate-600 bg-white border border-slate-200 border-l-[3px] rounded divide-x divide-slate-200"
                 style={{ borderLeftColor: couleurBloc(ue.bloc) || '#D8DCE4' }}>
                 {ue.bloc && <span className="px-1.5 py-0.5 font-semibold text-iip-blue">{ue.bloc}</span>}
                 <button disabled={!peutEcrireAttr} onClick={(e)=>{
@@ -1972,7 +1972,7 @@ export default function Attributions() {
                   className={`px-1.5 py-0.5 hover:bg-slate-50 ${(ue.quadri_org || ue.ue_quad) ? '' : 'text-slate-400 italic'}`}>
                   {ue.quadri_org || ue.ue_quad || 'Q ?'}
                   {ue.quadri_org && ue.quadri_org !== ue.ue_quad && (
-                    <span className="ml-0.5 text-[10px] opacity-60">*</span>
+                    <span className="ml-0.5 text-mention opacity-60">*</span>
                   )}
                 </button>
                 {org > 1 && viewMode!=='coord' && (
@@ -1991,7 +1991,7 @@ export default function Attributions() {
               </span>
                 {quadriMenu===key && createPortal(
                   <div style={{ position:'fixed', top: quadriMenuPos.top, left: quadriMenuPos.left, transform:'translateY(-100%)' }}
-                    className="z-[9999] bg-white border border-gray-200 rounded-lg shadow-xl py-1 w-28">
+                    className="z-[9999] bg-white border border-gray-200 rounded-lg shadow-dessus py-1 w-28">
                     {[['','—'],['Q1','Q1'],['Q2','Q2'],['Q1/Q2','Q1/Q2']].map(([val,lbl])=>(
                       <button key={val} onClick={()=>changeQuadri(ue, sec, org, val)}
                         className="w-full text-left px-3 py-1 text-sm hover:bg-iip-gold/10">{lbl}</button>
@@ -2000,7 +2000,7 @@ export default function Attributions() {
                 )}
                   {orgMenu===key && createPortal(
                   <div style={{ position:'fixed', top: orgMenuPos.top, left: orgMenuPos.left, transform:'translateY(-100%)' }}
-                    className="z-[9999] bg-white border border-gray-200 rounded-lg shadow-xl py-1 w-32">
+                    className="z-[9999] bg-white border border-gray-200 rounded-lg shadow-dessus py-1 w-32">
                     {[1,2,3,4].filter(n=>n!==org).map(n => (
                       <button key={n} onClick={()=>renumeroterOrg(ue, sec, org, n)}
                         className="w-full flex items-center gap-1.5 text-left px-3 py-1 text-sm hover:bg-amber-50">
@@ -2015,14 +2015,14 @@ export default function Attributions() {
               {ctrlPourUE(ue.ue_num, ue.num_organisation) && (() => {
                 const a = ctrlPourUE(ue.ue_num, ue.num_organisation);
                 if (a.ok) {
-                  return <span className="text-[10px] px-1.5 py-0.5 rounded text-white font-medium flex-shrink-0" style={{ background: 'var(--c-reussi, #3E7D5E)' }} title={`Autonomie ${a.aut_attribuee} dans l'intervalle [${a.min} ; ${a.max}]`}>✓ aut.</span>;
+                  return <span className="text-mention px-1.5 py-0.5 rounded text-white font-medium flex-shrink-0" style={{ background: 'var(--c-reussi, #3E7D5E)' }} title={`Autonomie ${a.aut_attribuee} dans l'intervalle [${a.min} ; ${a.max}]`}>✓ aut.</span>;
                 }
                 const msg = a.multiple_obligatoire
                   ? `Tous dédoublés ×${a.multiple_obligatoire} → autonomie doit être ${a.attendu} (actuel ${a.aut_attribuee})`
                   : a.depasse_max
                     ? `Autonomie ${a.aut_attribuee} > max ${a.max} → utiliser EPT ligne 96`
                     : `Autonomie ${a.aut_attribuee} hors intervalle [${a.min} ; ${a.max}]`;
-                return <span className="text-[10px] px-1.5 py-0.5 rounded text-white font-medium flex-shrink-0" style={{ background: 'var(--c-attente, #E8890C)' }} title={msg}>aut. {a.aut_attribuee}/[{a.min}–{a.max}]</span>;
+                return <span className="text-mention px-1.5 py-0.5 rounded text-white font-medium flex-shrink-0" style={{ background: 'var(--c-attente, #E8890C)' }} title={msg}>aut. {a.aut_attribuee}/[{a.min}–{a.max}]</span>;
               })()}
             </span>
             <span className="flex items-center gap-3 text-sm text-gray-500 flex-shrink-0 justify-end whitespace-nowrap">
@@ -2053,7 +2053,7 @@ export default function Attributions() {
                   title="Ajouter une attribution"
                   className="flex-shrink-0 ml-2 w-7 h-7 flex items-center justify-center rounded-full bg-iip-gold/10 hover:bg-iip-gold hover:text-white text-iip-gold font-bold transition">+</button>}
           {addMenuUE?.key===key && (
-            <div className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-xl py-1 w-64"
+            <div className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-dessus py-1 w-64"
               style={{top: menuPos.top, right: menuPos.right}}
               onClick={e=>e.stopPropagation()}>
               <div className="px-3 py-1.5 h-9 text-xs font-semibold text-gray-400 border-b border-gray-100">Ajouter dans l'UE {ue.ue_num}</div>
@@ -2119,7 +2119,7 @@ export default function Attributions() {
               if (!ctrl || !ctrl.message || ctrl.etat === 'ok') return null;
               const liseré = { sous: 'var(--c-attente, #E8890C)', 'dépassement': 'var(--c-refuse, #9D4A38)', cours: 'var(--c-attente, #E8890C)' }[ctrl.etat] || '#94A3B8';
               return (
-                <div className="mx-6 my-2 px-3 py-2 bg-white border border-slate-200 border-l-4 rounded-r-carte text-[12.5px] text-iip-texte"
+                <div className="mx-6 my-2 px-3 py-2 bg-white border border-slate-200 border-l-4 rounded-r-carte text-second text-iip-texte"
                   style={{ borderLeftColor: liseré }}>
                   <b className="mr-1">Autonomie</b>{ctrl.message}
                   <span className="text-slate-600 ml-2">· base {ctrl.ue_aut} · plancher {ctrl.min} · plafond {ctrl.max} · placé {ctrl.aut_attribuee}</span>
@@ -2205,7 +2205,7 @@ export default function Attributions() {
           dix-sept pixels, sous-titre sur la même ligne. */}
       <div className="hidden md:flex items-baseline gap-2.5 min-w-0 mb-2.5">
         <h1 className="titre-ecran flex-shrink-0 mb-0">Attributions</h1>
-        <p className="text-[13px] text-slate-400 truncate">
+        <p className="text-sm text-slate-400 truncate">
           <span className="mr-2 text-slate-300">·</span>
           {data.length} attribution{data.length > 1 ? 's' : ''} · {getAnnee()}
         </p>
@@ -2247,11 +2247,11 @@ export default function Attributions() {
         <div className="space-y-4">
               {/* Vue */}
               <div>
-                <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Vue</div>
+                <div className="text-mention font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Vue</div>
                 <div className="flex flex-col gap-1">
-                  <button onClick={()=>setViewMode('ue')} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] font-medium transition ${viewMode==='ue'?'onglet-actif':'onglet-dormant'}`}><IconFolder size={16}/>Par section</button>
-                  <button onClick={()=>setViewMode('flat')} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] font-medium transition ${viewMode==='flat'?'onglet-actif':'onglet-dormant'}`}><IconClipboardText size={16}/>Vue complète</button>
-                  <button onClick={()=>setViewMode('coord')} title="Vue simplifiée : UE et cours regroupés, sans organisation" className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] font-medium transition ${viewMode==='coord'?'onglet-actif':'onglet-dormant'}`}><IconUsersGroup size={16}/>Coordination</button>
+                  <button onClick={()=>setViewMode('ue')} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition ${viewMode==='ue'?'onglet-actif':'onglet-dormant'}`}><IconFolder size={16}/>Par section</button>
+                  <button onClick={()=>setViewMode('flat')} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition ${viewMode==='flat'?'onglet-actif':'onglet-dormant'}`}><IconClipboardText size={16}/>Vue complète</button>
+                  <button onClick={()=>setViewMode('coord')} title="Vue simplifiée : UE et cours regroupés, sans organisation" className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition ${viewMode==='coord'?'onglet-actif':'onglet-dormant'}`}><IconUsersGroup size={16}/>Coordination</button>
                 </div>
                 {viewMode!=='flat' && <div className="flex gap-3 mt-1.5 text-xs px-1">
                   <button onClick={expandAll} className="text-gray-500 hover:text-iip-turquoise">Tout déplier</button>
@@ -2262,7 +2262,7 @@ export default function Attributions() {
               {/* Filtres */}
               <details className="group/vol">
                 <summary className="cursor-pointer list-none select-none
-                  text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5
+                  text-mention font-semibold uppercase tracking-wider text-gray-400 mb-1.5
                   flex items-center gap-1.5 hover:text-gray-600">
                   <IconChevronRight size={12} className="transition-transform duration-150 shrink-0 group-open/vol:rotate-90" />
                   Filtres
@@ -2300,29 +2300,29 @@ export default function Attributions() {
               {/* Actions */}
               <details className="group/vol">
                 <summary className="cursor-pointer list-none select-none
-                  text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5
+                  text-mention font-semibold uppercase tracking-wider text-gray-400 mb-1.5
                   flex items-center gap-1.5 hover:text-gray-600">
                   <IconChevronRight size={12} className="transition-transform duration-150 shrink-0 group-open/vol:rotate-90" />
                   Actions
                 </summary>
                 <div className="flex flex-col gap-1.5">
-                  <button onClick={()=>{ const next = unite==='heures'?'periodes':'heures'; setUniteLocal(next); setUniteGlobal(next); window.dispatchEvent(new Event('unite-change')); }} title="Basculer périodes / heures" className="flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-[13px] font-medium px-3 py-2 rounded-lg"><IconClock size={16}/>{unite==='heures' ? 'Heures' : 'Périodes'}</button>
-                  {peutEcrireAttr && <button onClick={()=>setShowForm(true)} className="flex items-center gap-2 bg-iip-blue hover:bg-iip-blue-dark text-white text-[13px] font-medium px-3 py-2 rounded-lg"><IconPlus size={16}/>Nouveau</button>}
+                  <button onClick={()=>{ const next = unite==='heures'?'periodes':'heures'; setUniteLocal(next); setUniteGlobal(next); window.dispatchEvent(new Event('unite-change')); }} title="Basculer périodes / heures" className="flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-sm font-medium px-3 py-2 rounded-lg"><IconClock size={16}/>{unite==='heures' ? 'Heures' : 'Périodes'}</button>
+                  {peutEcrireAttr && <button onClick={()=>setShowForm(true)} className="flex items-center gap-2 bg-iip-blue hover:bg-iip-blue-dark text-white text-sm font-medium px-3 py-2 rounded-lg"><IconPlus size={16}/>Nouveau</button>}
                   {peutAdminAttr && <button onClick={()=>setShowAnnulation(true)} title="Annuler une modification récente"
-                    className="flex items-center gap-2 border border-gray-300 text-gray-600 hover:bg-gray-50 text-[13px] font-medium px-3 py-2 rounded-lg"><IconArrowBackUp size={16}/>Annuler</button>}
-                  {peutAdminAttr && <button onClick={()=>setShowCopierSection(true)} className="flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-[13px] font-medium px-3 py-2 rounded-lg"><IconClipboardText size={16}/>Copier section</button>}
-                  <button onClick={()=>api.exportExcel()} className="flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-[13px] font-medium px-3 py-2 rounded-lg"><IconFileImport size={16}/>Export</button>
+                    className="flex items-center gap-2 border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm font-medium px-3 py-2 rounded-lg"><IconArrowBackUp size={16}/>Annuler</button>}
+                  {peutAdminAttr && <button onClick={()=>setShowCopierSection(true)} className="flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-sm font-medium px-3 py-2 rounded-lg"><IconClipboardText size={16}/>Copier section</button>}
+                  <button onClick={()=>api.exportExcel()} className="flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-sm font-medium px-3 py-2 rounded-lg"><IconFileImport size={16}/>Export</button>
                   {isAdmin && <>
-                    {selected.size>0 && <button onClick={()=>openBulkModal('selection')} className="flex items-center gap-2 bg-white border border-[color:var(--c-attente)] text-iip-texte hover:bg-[#FBF1EE] text-[13px] font-medium px-3 py-2 rounded-champ"><IconTrash size={16}/>Sélection ({selected.size})</button>}
-                    <button onClick={()=>openBulkModal('filtered')} className="flex items-center gap-2 bg-white border border-[color:var(--c-attente)] text-iip-texte hover:bg-[#FBF1EE] text-[13px] font-medium px-3 py-2 rounded-champ"><IconTrash size={16}/>Suppr. filtre</button>
-                    <button onClick={()=>openBulkModal('all')} className="flex items-center gap-2 bg-iip-danger hover:brightness-110 text-white text-[13px] font-medium px-3 py-2 rounded-lg"><IconTrash size={16}/>Tout supprimer</button>
-                    <button onClick={reimportExcel} className="flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-[13px] font-medium px-3 py-2 rounded-lg"><IconRefresh size={16}/>Réimporter</button>
+                    {selected.size>0 && <button onClick={()=>openBulkModal('selection')} className="flex items-center gap-2 bg-white border border-[color:var(--c-attente)] text-iip-texte hover:bg-[#FBF1EE] text-sm font-medium px-3 py-2 rounded-champ"><IconTrash size={16}/>Sélection ({selected.size})</button>}
+                    <button onClick={()=>openBulkModal('filtered')} className="flex items-center gap-2 bg-white border border-[color:var(--c-attente)] text-iip-texte hover:bg-[#FBF1EE] text-sm font-medium px-3 py-2 rounded-champ"><IconTrash size={16}/>Suppr. filtre</button>
+                    <button onClick={()=>openBulkModal('all')} className="flex items-center gap-2 bg-iip-danger hover:brightness-110 text-white text-sm font-medium px-3 py-2 rounded-lg"><IconTrash size={16}/>Tout supprimer</button>
+                    <button onClick={reimportExcel} className="flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-sm font-medium px-3 py-2 rounded-lg"><IconRefresh size={16}/>Réimporter</button>
                   </>}
                 </div>
               </details>
 
               {/* Stats */}
-              <div className="text-[11px] text-gray-500 border-t border-gray-100 pt-3 leading-relaxed">
+              <div className="text-xs text-gray-500 border-t border-gray-100 pt-3 leading-relaxed">
                 <b>{data.length}</b> attr · {sectionGroups.length} sect · {totalUECount} UE · <b>{stats.total.toLocaleString('fr-BE')}</b> pér.<br/>
                 IIP <b className="text-iip-blue">{stats.iip.toLocaleString('fr-BE')}</b> · HELB <b className="text-iip-turquoise">{stats.helb.toLocaleString('fr-BE')}</b>
               </div>
@@ -2398,7 +2398,7 @@ export default function Attributions() {
       </div>
 
       {/* FAB mobile */}
-      {peutEcrireAttr && <button onClick={()=>setShowForm(true)} className="md:hidden fixed bottom-6 right-6 bg-iip-gold hover:bg-iip-amber text-white rounded-full w-14 h-14 shadow-2xl flex items-center justify-center text-3xl z-30">+</button>}
+      {peutEcrireAttr && <button onClick={()=>setShowForm(true)} className="md:hidden fixed bottom-6 right-6 bg-iip-gold hover:bg-iip-amber text-white rounded-full w-14 h-14 shadow-dessus flex items-center justify-center text-3xl z-30">+</button>}
 
       {/* Overlay pour fermer le menu + */}
       {addMenuUE && <div className="fixed inset-0 z-20" onClick={()=>setAddMenuUE(null)} />}
@@ -2701,7 +2701,7 @@ export default function Attributions() {
             </p>
             <p className="text-xs text-gray-500 mb-2">Une <b>copie de sauvegarde</b> de la base est créée automatiquement juste avant. Action <b>irréversible</b> sans restauration de cette copie.</p>
             <div className="border border-gray-200 rounded-lg overflow-auto mb-3 max-h-[40vh]" style={{minHeight:'80px'}}>
-              <table className="w-full text-[11px]">
+              <table className="w-full text-xs">
                 <thead className="bg-gray-50 sticky top-0"><tr>
                   <th className="text-left px-2 py-1 text-gray-500">UE</th>
                   <th className="text-left px-2 py-1 text-gray-500">Cours</th>
@@ -2751,12 +2751,12 @@ export default function Attributions() {
           <div className="flex items-center gap-2 text-iip-texte font-medium text-sm mb-1.5">
             ⚠ {pertesCharge.length} engagement(s) à titre définitif en perte de charge
           </div>
-          <p className="text-[12px] text-iip-texte mb-2">
+          <p className="text-second text-iip-texte mb-2">
             L'équivalent ETP de l'engagement définitif n'est pas couvert. Cochez des attributions comme remise au travail (RT) dans la fiche du prof, ou attribuez-leur de nouveaux cours.
           </p>
           <div className="space-y-1">
             {pertesCharge.map(p => (
-              <div key={p.professeur_id} className="flex items-center justify-between bg-white rounded px-2.5 py-1.5 h-9 text-[12px]">
+              <div key={p.professeur_id} className="flex items-center justify-between bg-white rounded px-2.5 py-1.5 h-9 text-second">
                 <span className="text-gray-700"><strong>{p.prof}</strong></span>
                 <span className="text-iip-texte font-semibold whitespace-nowrap ml-2">
                   manque {p.etp_manque} ETP (~{p.equiv_periodes_ct} pér. CT)
@@ -2789,7 +2789,7 @@ export default function Attributions() {
       {noteMenu && (
         <div className="fixed z-50 carte bg-white w-80 shadow-flottant"
           style={{top: noteMenu.top, right: noteMenu.right}} onClick={e=>e.stopPropagation()}>
-          <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 border-b
+          <div className="px-3 py-1.5 text-xs font-semibold text-slate-400 border-b
                           border-slate-200 flex items-center justify-between">
             <span>Note — {data.find(d=>d.id===noteMenu.rowId)?.code_cours || 'attribution'}</span>
             <button onClick={()=>setNoteMenu(null)} className="text-slate-300 hover:text-slate-500">×</button>
@@ -2798,7 +2798,7 @@ export default function Attributions() {
             <textarea rows={4} autoFocus value={noteMenu.texte}
               onChange={e=>setNoteMenu(m=>({ ...m, texte: e.target.value }))}
               placeholder="Ce qu'il faut savoir sur cette attribution : un accord, une réserve, ce qui reste à confirmer"
-              className="w-full border border-slate-300 rounded-champ px-2 py-1.5 text-[13px]"/>
+              className="w-full border border-slate-300 rounded-champ px-2 py-1.5 text-sm"/>
           </div>
           <div className="px-2.5 pb-2.5 flex items-center gap-2">
             <button onClick={async()=>{
@@ -2806,21 +2806,21 @@ export default function Attributions() {
                 await appliquerCellule(noteMenu.rowId, 'commentaire', t || null);
                 setNoteMenu(null);
               }}
-              className="bouton bouton-fort text-[12px] px-3 py-1">Enregistrer</button>
+              className="bouton bouton-fort text-second px-3 py-1">Enregistrer</button>
             {(data.find(d=>d.id===noteMenu.rowId)?.commentaire || '').trim() && (
               <button onClick={async()=>{
                   await appliquerCellule(noteMenu.rowId, 'commentaire', null);
                   setNoteMenu(null);
                 }}
-                className="text-[12px] text-iip-texte hover:underline">Effacer</button>
+                className="text-second text-iip-texte hover:underline">Effacer</button>
             )}
             <button onClick={()=>setNoteMenu(null)}
-              className="bouton text-[12px] px-3 py-1 ml-auto">Annuler</button>
+              className="bouton text-second px-3 py-1 ml-auto">Annuler</button>
           </div>
         </div>
       )}
       {recrutMenu && (
-        <div className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-xl w-64 max-h-72 overflow-auto"
+        <div className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-dessus w-64 max-h-72 overflow-auto"
           style={{top: recrutMenu.top, right: recrutMenu.right}} onClick={e=>e.stopPropagation()}>
           <div className="px-3 py-1.5 text-xs font-semibold text-gray-400 border-b flex items-center justify-between">
             <span>Candidats — {recrutMenu.row?.code_cours}</span>
@@ -2836,7 +2836,7 @@ export default function Attributions() {
             <button key={cd.id} onClick={()=>assignerCandidat(recrutMenu.row, cd.id)}
               className="w-full text-left px-3 py-1.5 text-sm hover:bg-green-50 flex items-center justify-between text-green-700 border-l-4 border-l-green-500">
               <span className="truncate">{(cd.nom || '').toUpperCase()} {cd.prenom}</span>
-              <span className="text-[10px] text-gray-400 flex-shrink-0 ml-2">{cd.statut||''}</span>
+              <span className="text-mention text-gray-400 flex-shrink-0 ml-2">{cd.statut||''}</span>
             </button>
           ))}
         </div>

@@ -204,7 +204,7 @@ export default function ApercuDocuments({ onClose }) {
   return (
     <Fenetre icone={IconFileText} titre="Galerie des pièces" large="pleine" onFermer={onClose}
       sous={`${g?.documents?.length || '…'} pièces, chacune sur un exemple de la base — choisissez l’étudiant, l’unité, la section… Rien ne s’enregistre.`}
-      pied={<><span className="text-[12px] text-slate-500">L’aperçu passe par la route qui produit la pièce : ce que vous voyez est ce qui sortira.</span>
+      pied={<><span className="text-second text-slate-500">L’aperçu passe par la route qui produit la pièce : ce que vous voyez est ce qui sortira.</span>
         <button onClick={onClose} className="bouton">Fermer</button></>}>
       <div className="flex -mx-5 -my-4 h-[calc(88vh-8rem)]">
         {edition && choisi?.modeles?.length ? (
@@ -222,21 +222,21 @@ export default function ApercuDocuments({ onClose }) {
           <div className="flex-1 overflow-auto p-2">
             {groupes.map(([dom, docs]) => (
               <div key={dom} className="mb-2">
-                <div className="px-2 py-1 text-[11px] uppercase tracking-wide text-slate-500">{dom} · {docs.length}</div>
+                <div className="px-2 py-1 text-xs uppercase tracking-wide text-slate-500">{dom} · {docs.length}</div>
                 {docs.map(d => (
                   <button key={d.id} onClick={() => choisir(d)}
-                    className={`w-full text-left px-2.5 py-1.5 rounded-champ border text-[13px] ${choisi?.id === d.id ? 'border-iip-blue bg-white' : 'border-transparent hover:bg-slate-50'}`}>
+                    className={`w-full text-left px-2.5 py-1.5 rounded-champ border text-sm ${choisi?.id === d.id ? 'border-iip-blue bg-white' : 'border-transparent hover:bg-slate-50'}`}>
                     {d.libelle}
                   </button>))}
               </div>))}
             {!!g?.a_l_ecran?.length && !filtre && (
               <div className="mb-2">
-                <div className="px-2 py-1 text-[11px] uppercase tracking-wide text-slate-500">Composées à l’écran · {g.a_l_ecran.length}</div>
-                <p className="px-2 pb-1 text-[11px] text-slate-500">Elles se dessinent dans le navigateur, sur l’écran qui les produit — l’aperçu s’y ouvre avant d’imprimer.</p>
+                <div className="px-2 py-1 text-xs uppercase tracking-wide text-slate-500">Composées à l’écran · {g.a_l_ecran.length}</div>
+                <p className="px-2 pb-1 text-xs text-slate-500">Elles se dessinent dans le navigateur, sur l’écran qui les produit — l’aperçu s’y ouvre avant d’imprimer.</p>
                 {g.a_l_ecran.map(d => (
                   <button key={d.libelle} onClick={() => { onClose(); navigate(d.ecran); }}
-                    className="w-full text-left px-2.5 py-1.5 rounded-champ text-[13px] hover:bg-slate-50 flex items-center gap-1.5">
-                    <span className="flex-1">{d.libelle} <span className="text-[11px] text-slate-400">({d.domaine})</span></span>
+                    className="w-full text-left px-2.5 py-1.5 rounded-champ text-sm hover:bg-slate-50 flex items-center gap-1.5">
+                    <span className="flex-1">{d.libelle} <span className="text-xs text-slate-400">({d.domaine})</span></span>
                     <IconArrowRight size={13} className="text-slate-400" />
                   </button>))}
               </div>)}
@@ -291,24 +291,24 @@ export default function ApercuDocuments({ onClose }) {
                 <IconExternalLink size={14} /> Ouvrir le PDF
               </a>)}
           </div>
-          {choisi?.note && <div className="px-3 py-1.5 text-[12px] text-slate-500 border-b border-slate-200">{choisi.note}</div>}
+          {choisi?.note && <div className="px-3 py-1.5 text-second text-slate-500 border-b border-slate-200">{choisi.note}</div>}
           {rendu?.specimen && (
-            <div className="px-3 py-1.5 text-[12px] border-b border-slate-200 flex items-start gap-1.5"
+            <div className="px-3 py-1.5 text-second border-b border-slate-200 flex items-start gap-1.5"
               style={{ borderLeft: '4px solid var(--c-attente)' }}>
               <IconAlertTriangle size={14} className="flex-none mt-0.5 text-amber-700" />
               <span><b>Spécimen — données factices.</b> L’exemple choisi ne permet pas de produire la pièce
                 ({rendu.specimen.replace(/\.$/, '')}) : elle est composée sur un dossier inventé, par la même fonction.</span>
             </div>)}
           {rendu?.erreur && (
-            <div className="m-3 px-3 py-2 rounded-champ border-l-4 border-amber-600 bg-white text-[13px] flex items-start gap-2">
+            <div className="m-3 px-3 py-2 rounded-champ border-l-4 border-amber-600 bg-white text-sm flex items-start gap-2">
               <IconAlertTriangle size={15} className="flex-none mt-0.5 text-amber-700" />
               <div>{rendu.erreur}
-                {!!rendu.manques?.length && <ul className="list-disc ml-5 mt-1 text-[12px] text-slate-600">
+                {!!rendu.manques?.length && <ul className="list-disc ml-5 mt-1 text-second text-slate-600">
                   {rendu.manques.slice(0, 8).map((m, i) => <li key={i}>{typeof m === 'string' ? m : (m.manques || []).join(' ; ') || JSON.stringify(m)}</li>)}</ul>}
               </div>
             </div>)}
           <div className="flex-1 min-h-0 bg-slate-100 relative">
-            {enCours && <div className="absolute top-2 right-3 text-[12px] text-slate-500">Rendu en cours…</div>}
+            {enCours && <div className="absolute top-2 right-3 text-second text-slate-500">Rendu en cours…</div>}
             {rendu?.html && feuille && <iframe aria-label="Aperçu PDF de la pièce" src={feuille} className="w-full h-full border-0" />}
             {rendu?.html && <iframe aria-label="Aperçu" srcDoc={rendu.html} className={`w-full h-full border-0 ${feuille ? 'hidden' : ''}`}
               onLoad={e => { if (edition && choisi?.modeles?.some(c => c.startsWith('piece_'))) rendreEditable(e.currentTarget); }} />}

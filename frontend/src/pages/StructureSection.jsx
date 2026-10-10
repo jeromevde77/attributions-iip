@@ -131,12 +131,12 @@ export default function StructureSection({ annee, sectionInitiale = '' }) {
 
       {data?.alertes?.length > 0 && (
         <div className="border border-amber-200 bg-amber-50 rounded-xl px-4 py-3 border-l-4 border-l-amber-500">
-          <div className="flex items-center gap-2 text-[13px] font-semibold text-amber-800 mb-1.5">
+          <div className="flex items-center gap-2 text-sm font-semibold text-amber-800 mb-1.5">
             <IconAlertTriangle size={15} /> Incohérences de progression
           </div>
           <ul className="space-y-1">
             {data.alertes.map((a, i) => (
-              <li key={i} className="text-[12px] text-amber-800">{a.message}</li>
+              <li key={i} className="text-second text-amber-800">{a.message}</li>
             ))}
           </ul>
         </div>
@@ -151,7 +151,7 @@ export default function StructureSection({ annee, sectionInitiale = '' }) {
       />
       </div>
 
-      <p className="text-[11px] text-slate-400 border-t pt-3">
+      <p className="text-xs text-slate-400 border-t pt-3">
         Les liens de prérequis relèvent du référentiel : ils se modifient dans
         Configuration → Prérequis UE, et valent pour toutes les années. Ici ne se règle
         que l'année d'études de chaque UE, propre à la section et à l'année scolaire.

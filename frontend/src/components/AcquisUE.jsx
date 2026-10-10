@@ -263,7 +263,7 @@ export default function AcquisUE({ ueNum, annee, estAdmin }) {
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-2 text-[12px] text-slate-500 flex-wrap">
+      <div className="flex items-center gap-2 text-second text-slate-500 flex-wrap">
         <IconTargetArrow size={15} className="text-iip-turquoise" />
         <span>{data.acquis.length} acquis</span>
         {data.non_rattaches > 0 && (
@@ -298,16 +298,16 @@ export default function AcquisUE({ ueNum, annee, estAdmin }) {
             <textarea value={intro} rows={1}
               onChange={e => { setIntro(e.target.value); setModifie(true); setMessage(null); }}
               aria-label="Phrase qui introduit les acquis de l'unité"
-              className="w-full text-[13px] font-semibold text-slate-800 border border-transparent hover:border-slate-200
+              className="w-full text-sm font-semibold text-slate-800 border border-transparent hover:border-slate-200
                          focus:border-slate-300 rounded-champ px-1.5 py-1 resize-none focus:outline-none" />
             {data.introduction_proposee && !modifie && (
-              <p className="text-[11px] text-slate-400 px-1.5 -mt-0.5">
+              <p className="text-xs text-slate-400 px-1.5 -mt-0.5">
                 Proposée depuis le dossier pédagogique — elle s'enregistre avec la mise en forme.
               </p>
             )}
           </div>
         ) : (
-          <p className="text-[13px] font-semibold text-slate-800">{intro}</p>
+          <p className="text-sm font-semibold text-slate-800">{intro}</p>
         )}
 
         {/* 2 et 3. Les chapeaux et les acquis, dans l'ordre */}
@@ -321,10 +321,10 @@ export default function AcquisUE({ ueNum, annee, estAdmin }) {
                 <input value={p.texte} onChange={e => ecrireChapeau(p.id, e.target.value)}
                   placeholder="face à… · en disposant de… · à partir de…"
                   aria-label="Chapeau"
-                  className="flex-1 min-w-0 text-[13px] italic text-slate-600 border border-transparent hover:border-slate-200
+                  className="flex-1 min-w-0 text-sm italic text-slate-600 border border-transparent hover:border-slate-200
                              focus:border-slate-300 rounded-champ px-1.5 py-0.5 focus:outline-none" />
               ) : (
-                <p className="flex-1 text-[13px] italic text-slate-600">{p.texte}</p>
+                <p className="flex-1 text-sm italic text-slate-600">{p.texte}</p>
               )}
               {peutCorriger && (
                 <button onClick={() => oterChapeau(p.id)} aria-label="Retirer ce chapeau"
@@ -337,7 +337,7 @@ export default function AcquisUE({ ueNum, annee, estAdmin }) {
               <div key={p.id}
                 className={`flex items-start gap-2 pl-6 py-0.5 rounded-champ hover:bg-slate-50/70 ${glisse === p.id ? 'opacity-40' : ''}`}>
                 {poignee(i, p.id)}
-                <span className="text-[11px] text-slate-400 tabular-nums w-5 text-right flex-none mt-0.5">{numeros[p.code]}.</span>
+                <span className="text-xs text-slate-400 tabular-nums w-5 text-right flex-none mt-0.5">{numeros[p.code]}.</span>
                 {edition?.code === a.aa_code ? (
                   <div className="flex-1 min-w-0 space-y-1.5">
                     <input value={edition.nouveau_code} autoFocus aria-label="Code de l'acquis"
@@ -345,7 +345,7 @@ export default function AcquisUE({ ueNum, annee, estAdmin }) {
                       className="controle w-32" />
                     <textarea value={edition.description} rows={2} aria-label="Libellé de l'acquis"
                       onChange={e => setEdition(x => ({ ...x, description: e.target.value }))}
-                      className="w-full text-[13px] border border-slate-300 rounded-champ px-2 py-1" />
+                      className="w-full text-sm border border-slate-300 rounded-champ px-2 py-1" />
                     <div className="flex gap-1.5">
                       <button onClick={enregistrerEdition} className="bouton bouton-fort"><IconCheck size={13} /> Enregistrer</button>
                       <button onClick={() => setEdition(null)} className="bouton"><IconX size={13} /> Annuler</button>
@@ -353,8 +353,8 @@ export default function AcquisUE({ ueNum, annee, estAdmin }) {
                   </div>
                 ) : (
                   <div className="flex-1 min-w-0">
-                    <div className="text-[13px] text-slate-800 leading-snug flex items-start gap-1.5">
-                      <span className="text-[11px] font-bold text-iip-blue bg-iip-blue/8 px-1.5 py-0.5 rounded flex-none">{a.aa_code}</span>
+                    <div className="text-sm text-slate-800 leading-snug flex items-start gap-1.5">
+                      <span className="text-xs font-bold text-iip-blue bg-iip-blue/8 px-1.5 py-0.5 rounded flex-none">{a.aa_code}</span>
                       <span className="flex-1">{a.description}</span>
                       {peutCorriger && (
                         <>
@@ -363,7 +363,7 @@ export default function AcquisUE({ ueNum, annee, estAdmin }) {
                             <IconPencil size={14} /></button>
                           <button onClick={() => enChapeau(a)}
                             title="Ce n'est pas un acquis mais une phrase d'introduction : en faire un chapeau"
-                            className="text-slate-300 hover:text-iip-blue flex-none text-[11px] font-semibold italic leading-none mt-0.5">
+                            className="text-slate-300 hover:text-iip-blue flex-none text-xs font-semibold italic leading-none mt-0.5">
                             ¶</button>
                           <button onClick={() => supprimer(a)}
                             title="Supprimer cet acquis — s'il est déjà évalué, Lucie dit d'abord ce qui serait emporté"
@@ -381,7 +381,7 @@ export default function AcquisUE({ ueNum, annee, estAdmin }) {
                           disabled={enCours === a.aa_code || !data.cours.length}
                           onChange={e => rattacher(a.aa_code, e.target.value)}
                           aria-label={`Cours de rattachement de ${a.aa_code}`}
-                          className="text-[12px] border border-slate-200 rounded-champ px-2 py-0.5 max-w-[320px]">
+                          className="text-second border border-slate-200 rounded-champ px-2 py-0.5 max-w-[320px]">
                           <option value="">— non rattaché —</option>
                           {data.cours.map(c => (
                             <option key={c.cours_code} value={c.cours_code}>
@@ -410,7 +410,7 @@ export default function AcquisUE({ ueNum, annee, estAdmin }) {
               <button onClick={charger} className="bouton">Annuler</button>
             </>
           )}
-          <span className={`text-[12px] min-w-0 ${orphelin || !intro.trim() ? 'text-[#9d4a38]' : 'text-slate-500'}`}>
+          <span className={`text-second min-w-0 ${orphelin || !intro.trim() ? 'text-[#9d4a38]' : 'text-slate-500'}`}>
             {!intro.trim() ? 'La phrase qui introduit les acquis ne peut pas rester vide.'
               : orphelin ? 'Un chapeau est placé après le dernier acquis : il n’introduit rien. Déplacez-le ou retirez-le.'
               : modifie ? 'La mise en forme n’est pas encore enregistrée. Les codes ne changent pas : « Renuméroter » s’en charge ensuite.'
@@ -420,19 +420,19 @@ export default function AcquisUE({ ueNum, annee, estAdmin }) {
       )}
 
       {data.epreuve_integree && (
-        <p className="text-[11px] text-white bg-violet-500 border border-violet-500 rounded px-2 py-1.5">
+        <p className="text-xs text-white bg-violet-500 border border-violet-500 rounded px-2 py-1.5">
           Épreuve intégrée : les acquis ne se rattachent pas aux cours. Leur <b>pondération
           dans l'unité</b> se règle dans Délibération → « Paramétrer ».
         </p>
       )}
       {!data.cours.length && !data.epreuve_integree && (
-        <p className="text-[11px] text-amber-700">
+        <p className="text-xs text-amber-700">
           Aucun cours n'est encodé pour cette UE : le rattachement sera possible une
           fois les cours créés.
         </p>
       )}
       {!peutCorriger && (
-        <p className="text-[11px] text-slate-400">
+        <p className="text-xs text-slate-400">
           Le code, le libellé et la mise en forme des acquis proviennent du dossier pédagogique
           et ne sont modifiables que par la direction ; le rattachement à un cours reste ouvert.
         </p>

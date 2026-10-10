@@ -107,7 +107,7 @@ export default function GrilleOrganisation({ sansTitre = false } = {}) {
           l'écran s'annonçait deux fois, à deux endroits, sous deux noms. */}
       <div className={`${sansTitre ? 'hidden' : 'hidden md:flex'} items-baseline gap-2.5 min-w-0 mb-2.5`}>
         <h1 className="titre-ecran flex-shrink-0 mb-0">Grille d'organisation</h1>
-        <p className="text-[13px] text-slate-400 truncate">
+        <p className="text-sm text-slate-400 truncate">
           <span className="mr-2 text-slate-300">·</span>
           Ce qu'on fait des unités cette année — avant d'attribuer
         </p>
@@ -118,13 +118,13 @@ export default function GrilleOrganisation({ sansTitre = false } = {}) {
         <div className="flex items-center gap-2.5 px-3 py-2.5 border-b border-slate-200
                         bg-[#FCFCFD] flex-wrap">
           <label className="flex items-center gap-2">
-            <span className="text-[12px] text-slate-500">Section</span>
+            <span className="text-second text-slate-500">Section</span>
             <select value={section} onChange={e => setSection(e.target.value)}
               className="controle">
               {sections.map(s => <option key={s.code} value={s.code}>{s.libelle || s.code}</option>)}
             </select>
           </label>
-          <span className="text-[12px] text-slate-400">{annee}</span>
+          <span className="text-second text-slate-400">{annee}</span>
 
           {/* UNE SEULE GRILLE, DEUX LECTURES. Ce qui est confié au professeur
               et ce que vit l'étudiant coïncident presque toujours — presque :
@@ -139,7 +139,7 @@ export default function GrilleOrganisation({ sansTitre = false } = {}) {
             </button>
           </span>
 
-          <span className="ml-auto text-[12px] text-slate-500">
+          <span className="ml-auto text-second text-slate-500">
             {data ? `${data.ues.length} unités · ${semaines.length} semaines` : ''}
           </span>
         </div>
@@ -149,7 +149,7 @@ export default function GrilleOrganisation({ sansTitre = false } = {}) {
           <div className="px-3 py-2 space-y-1.5 border-b border-slate-200">
             {anomalies.map(u => (
               <div key={u.ue_num}
-                className="carte px-3 py-2 border-l-[3px] border-l-[color:var(--c-refuse)] text-[12px]">
+                className="carte px-3 py-2 border-l-[3px] border-l-[color:var(--c-refuse)] text-second">
                 <IconAlertTriangle size={13} className="inline align-[-2px] mr-1.5 text-iip-texte" />
                 <b>UE {u.ue_num}</b> — la règle des multiples n'est pas respectée.
                 {u.controle.anomalies.map(a => (
@@ -166,7 +166,7 @@ export default function GrilleOrganisation({ sansTitre = false } = {}) {
               </div>
             ))}
             {aPoser.length > 0 && (
-              <div className="carte px-3 py-2 border-l-[3px] border-l-[color:var(--c-attente)] text-[12px]">
+              <div className="carte px-3 py-2 border-l-[3px] border-l-[color:var(--c-attente)] text-second">
                 <b>{aPoser.length} unité(s) sans dates</b> — elles ne sont pas encore
                 posées dans l'année : {aPoser.slice(0, 6).map(u => `UE ${u.ue_num}`).join(', ')}
                 {aPoser.length > 6 ? '…' : ''}. Elles se complètent ici.
@@ -175,8 +175,8 @@ export default function GrilleOrganisation({ sansTitre = false } = {}) {
           </div>
         )}
 
-        {erreur && <div className="px-3 py-2 text-[13px] text-rose-700">{erreur}</div>}
-        {charge && <div className="px-3 py-6 text-[13px] text-slate-400">Chargement…</div>}
+        {erreur && <div className="px-3 py-2 text-sm text-rose-700">{erreur}</div>}
+        {charge && <div className="px-3 py-6 text-sm text-slate-400">Chargement…</div>}
 
         {/* ── La frise ─────────────────────────────────────────── */}
         {data && !charge && (
@@ -184,7 +184,7 @@ export default function GrilleOrganisation({ sansTitre = false } = {}) {
             <div style={{ minWidth: 820 }}>
 
               {/* Les mois, puis les quadrimestres — lus du calendrier. */}
-              <div className="flex text-[10px] uppercase tracking-wide text-slate-400 px-3 pt-2">
+              <div className="flex text-mention uppercase tracking-wide text-slate-400 px-3 pt-2">
                 <div style={{ width: 230, flexShrink: 0 }} />
                 <div className="flex-1 grid" style={{ gridTemplateColumns: `repeat(${nbSem}, 1fr)` }}>
                   {semaines.map((s, i) => {
@@ -203,10 +203,10 @@ export default function GrilleOrganisation({ sansTitre = false } = {}) {
                 <div style={{ width: 230, flexShrink: 0 }} />
                 <div className="flex-1 grid gap-0.5"
                   style={{ gridTemplateColumns: `repeat(${nbSem}, 1fr)` }}>
-                  <div className="text-[9px] font-bold tracking-wider text-white text-center
+                  <div className="text-mention font-bold tracking-wider text-white text-center
                                   rounded-sm bg-[color:var(--c-disponible)]"
                     style={{ gridColumn: `1 / ${Math.max(2, coupure + 1)}` }}>Q1</div>
-                  <div className="text-[9px] font-bold tracking-wider text-white text-center
+                  <div className="text-mention font-bold tracking-wider text-white text-center
                                   rounded-sm bg-[color:var(--c-disponible)]"
                     style={{ gridColumn: `${Math.max(2, coupure + 1)} / ${nbSem + 1}` }}>Q2</div>
                 </div>
@@ -254,13 +254,13 @@ function LigneUE({ u, semaines, nbSem, coupure, ouverte, surOuvrir, surCours, vu
     <>
       <div className="flex items-center border-t border-slate-100 hover:bg-slate-50/60">
         <button onClick={surOuvrir}
-          className="flex items-center gap-2 text-left px-3 py-1.5 text-[12.5px] min-w-0"
+          className="flex items-center gap-2 text-left px-3 py-1.5 text-second min-w-0"
           style={{ width: 230, flexShrink: 0 }}>
           <IconChevronRight size={13}
             className={`text-slate-400 flex-shrink-0 transition-transform ${ouverte ? 'rotate-90' : ''}`} />
           <i style={{ background: teinte, width: 4, height: 15, borderRadius: 2, flexShrink: 0 }} />
           <span className="truncate"><b>UE {u.ue_num}</b> — {u.ue_nom}</span>
-          <span className="ml-auto text-[10px] text-slate-400 flex-shrink-0">{u.per_total}p</span>
+          <span className="ml-auto text-mention text-slate-400 flex-shrink-0">{u.per_total}p</span>
         </button>
         <div className="flex-1 grid items-center relative" style={{
           gridTemplateColumns: `repeat(${nbSem}, 1fr)`, height: 30 }}>
@@ -284,7 +284,7 @@ function LigneUE({ u, semaines, nbSem, coupure, ouverte, surOuvrir, surCours, vu
                   backgroundImage: `repeating-linear-gradient(45deg, ${teinte} 0 3px,`
                     + ` transparent 3px 6px)` }} />
               <span style={{ gridRow: 1, gridColumn: `${deb} / ${nbSem + 1}`, zIndex: 2 }}
-                className="text-[10px] text-iip-texte pl-1 self-start">sans dates — à poser</span>
+                className="text-mention text-iip-texte pl-1 self-start">sans dates — à poser</span>
             </>
           )}
         </div>
@@ -298,10 +298,10 @@ function LigneUE({ u, semaines, nbSem, coupure, ouverte, surOuvrir, surCours, vu
         return (
           <div key={c.cours_code} className="flex items-center border-t border-slate-100 bg-[#FCFCFD]">
             <button onClick={() => surCours(c)}
-              className="text-left px-3 py-1.5 text-[11.5px] min-w-0 hover:text-iip-blue"
+              className="text-left px-3 py-1.5 text-xs min-w-0 hover:text-iip-blue"
               style={{ width: 230, flexShrink: 0, paddingLeft: 34 }}>
               <span className="truncate block">{c.cours_code} — {c.cours_nom}</span>
-              <span className="text-[10px] text-slate-400">
+              <span className="text-mention text-slate-400">
                 {per}p{c.activites?.length ? ` · ${c.activites.length} activité(s)` : ' · à découper'}
               </span>
             </button>
@@ -324,9 +324,9 @@ function LigneUE({ u, semaines, nbSem, coupure, ouverte, surOuvrir, surCours, vu
           cours ; la voir à part, c'est voir ce qui reste à placer. */}
       {ouverte && u.controle.autonomie.unite > 0 && (
         <div className="flex items-center border-t border-slate-100 bg-[#FCFCFD]">
-          <div className="px-3 py-1.5 text-[11.5px]" style={{ width: 230, flexShrink: 0, paddingLeft: 34 }}>
+          <div className="px-3 py-1.5 text-xs" style={{ width: 230, flexShrink: 0, paddingLeft: 34 }}>
             <span className="text-[color:var(--c-texte)]">Autonomie</span>
-            <span className="text-[10px] text-slate-400 block">
+            <span className="text-mention text-slate-400 block">
               {u.controle.autonomie.placee} placée sur {u.controle.autonomie.unite}
               {u.controle.autonomie.restante > 0
                 ? ` · ${u.controle.autonomie.restante} à placer` : ' · tout est placé'}
@@ -485,23 +485,23 @@ function FenetreCours({ etat, annee, section, periodeMinutes = 50,
           {enCours ? 'Enregistrement…' : 'Enregistrer'}
         </button>
         {dp > 0 && total === 0
-          ? <span className="text-[12px] text-iip-texte">
+          ? <span className="text-second text-iip-texte">
               Sans activité, le cours revient à son contenu du dossier
               — <b>{dp} périodes</b>. On ne supprime pas un cours.
             </span>
           : dp > 0 && (manque
-          ? <span className="text-[12px] text-iip-texte">
+          ? <span className="text-second text-iip-texte">
               Cours {total} pér. — il manque {manque} pour un multiple de {dp}.
               {Number(auto) > 0 && <span className="text-slate-500">
                 {' '}(autonomie {auto} comptée à part)</span>}
             </span>
-          : <span className="text-[12px] text-[color:var(--c-texte)]">
+          : <span className="text-second text-[color:var(--c-texte)]">
               <IconCheck size={13} className="inline align-[-2px] mr-1" />
               Cours {total} pér. — multiple de {dp} respecté.
               {Number(auto) > 0 && <span className="text-slate-500">
                 {' '}(autonomie {auto} comptée à part)</span>}
             </span>)}
-        {err && <span className="text-[12px] text-rose-700">{err}</span>}
+        {err && <span className="text-second text-rose-700">{err}</span>}
         <button onClick={onFermer} className="bouton ml-auto">Annuler</button>
       </>}>
       <div className="p-5 space-y-4 overflow-auto">
@@ -521,9 +521,9 @@ function FenetreCours({ etat, annee, section, periodeMinutes = 50,
         <JaugeCours dp={dp} lignes={lignesEffectives} auto={Number(auto) || 0}
           dispo={dispo} minutes={periodeMinutes} idEval={idEval} />
 
-        <table className="w-full text-[13px]">
+        <table className="w-full text-sm">
           <thead>
-            <tr className="text-[11px] uppercase tracking-wide text-slate-500">
+            <tr className="text-xs uppercase tracking-wide text-slate-500">
               <th className="text-left pb-1">Activité</th>
               <th className="text-right pb-1 w-24">Périodes</th>
               <th className="text-center pb-1 w-28">Vue étudiant</th>
@@ -569,7 +569,7 @@ function FenetreCours({ etat, annee, section, periodeMinutes = 50,
         </table>
 
         <button onClick={() => setLignes(ls => [...ls, { activite_id: null, periodes: 0, vu_etudiant: true }])}
-          className="text-[12px] text-iip-blue hover:underline">
+          className="text-second text-iip-blue hover:underline">
           <IconPlus size={14} className="inline align-[-2px] mr-1" />Ajouter une activité
         </button>
 
@@ -579,7 +579,7 @@ function FenetreCours({ etat, annee, section, periodeMinutes = 50,
             aucune puisqu'elle se fait pendant le cours. */}
         <div className="carte px-3 py-2.5">
           <div className="flex items-baseline gap-2 flex-wrap">
-            <b className="text-[12.5px]">Évaluation de ce cours</b>
+            <b className="text-second">Évaluation de ce cours</b>
             <span className="seg-fam ml-auto">
               <button className={modeEval === 'examen' ? 'on' : ''}
                 onClick={() => basculerEval('examen')}>
@@ -591,7 +591,7 @@ function FenetreCours({ etat, annee, section, periodeMinutes = 50,
               </button>
             </span>
           </div>
-          <p className="text-[11.5px] text-slate-500 mt-1">
+          <p className="text-xs text-slate-500 mt-1">
             {modeEval === 'examen'
               ? `L'examen, sa correction en classe et la visite des copies sont proposés
                  ci-dessus comme une activité : ses périodes comptent dans le total, se
@@ -604,9 +604,9 @@ function FenetreCours({ etat, annee, section, periodeMinutes = 50,
         {/* L'AUTONOMIE SE FAIT GLISSER VERS LE COURS. Ce qui reste non placé est
             signalé, jamais réparti d'office. */}
         <div className="carte px-3 py-2.5">
-          <div className="flex items-baseline gap-2 text-[12.5px]">
+          <div className="flex items-baseline gap-2 text-second">
             <b>Autonomie posée sur ce cours</b>
-            <span className="text-slate-500 text-[11.5px]">
+            <span className="text-slate-500 text-xs">
               unité : {ue.controle.autonomie.unite} · restante ailleurs : {restanteUE}
             </span>
             <span className="ml-auto text-[color:var(--c-texte)] font-semibold">{auto}</span>
@@ -615,13 +615,13 @@ function FenetreCours({ etat, annee, section, periodeMinutes = 50,
             value={auto} onChange={e => setAuto(Number(e.target.value))}
             className="w-full accent-[color:var(--c-faveur)] mt-1.5" />
           {restanteUE < 0 && (
-            <div className="text-[11.5px] text-iip-texte mt-1">
+            <div className="text-xs text-iip-texte mt-1">
               Vous placez plus d'autonomie que l'unité n'en porte.
             </div>
           )}
         </div>
 
-        <p className="text-[11px] text-slate-400">
+        <p className="text-xs text-slate-400">
           Une activité est un sous-cours : elle n'apparaît ni sur le contrat de
           travail, ni sur les documents officiels. C'est un choix pédagogique, et
           il peut différer d'un professeur à l'autre — cette grille le propose.
@@ -689,13 +689,13 @@ function JaugeCours({ dp, lignes, auto, dispo, minutes, idEval = null }) {
 
   return (
     <div className="carte px-3 py-2.5">
-      <div className="flex items-baseline gap-2 text-[12.5px] mb-2">
+      <div className="flex items-baseline gap-2 text-second mb-2">
         <b>Périodes du cours</b>
-        <span className="text-slate-500 text-[11.5px]">
+        <span className="text-slate-500 text-xs">
           dossier pédagogique : <b className="text-slate-700">{dp || '—'}</b>
           {dp ? ` p · ${enHeures(dp, minutes)}` : ''}
         </span>
-        <span className="ml-auto text-[12.5px]">
+        <span className="ml-auto text-second">
           <b className={total === dp ? 'text-[color:var(--c-texte)]'
             : (total > (dp || 0) ? 'text-iip-texte' : 'text-slate-700')}>{total}</b>
           <span className="text-slate-500"> p · {enHeures(total, minutes)} organisés</span>
@@ -720,7 +720,7 @@ function JaugeCours({ dp, lignes, auto, dispo, minutes, idEval = null }) {
       )}
 
       {segments.length > 0 && (
-        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-2 text-[11px] text-slate-500">
+        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-2 text-xs text-slate-500">
           {segments.map(s => (
             <span key={s.cle} className="inline-flex items-center gap-1">
               <i className="inline-block w-2 h-2 rounded-full" style={{ background: s.teinte }} />

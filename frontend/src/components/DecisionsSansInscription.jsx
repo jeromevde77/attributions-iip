@@ -53,10 +53,10 @@ export default function DecisionsSansInscription() {
   const bascule = id => setExclus(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
   return (
-    <div className="space-y-3 text-[13px]">
+    <div className="space-y-3 text-sm">
       <div>
-        <div className="text-[15px] font-semibold text-iip-blue">Décisions sans inscription</div>
-        <p className="text-slate-500 text-[12px]">
+        <div className="text-base font-semibold text-iip-blue">Décisions sans inscription</div>
+        <p className="text-slate-500 text-second">
           Des décisions du Conseil dont l'inscription a été supprimée ensuite (suppression d'une année sur la fiche,
           purge). Elles ne comptent nulle part : ni dans le parcours, ni dans les crédits, ni pour le bloc atteint — et
           l'étudiant peut se lire « primo ». La réparation recrée l'inscription avec le résultat et la cote de la session
@@ -77,8 +77,8 @@ export default function DecisionsSansInscription() {
           {!lignes.length && <p className="text-slate-500">Toutes les décisions ont leur inscription.</p>}
           {!!lignes.length && (
             <div className="border border-slate-200 rounded-carte overflow-x-auto">
-              <table className="w-full text-[12px]">
-                <thead className="tab-entete"><tr className="text-left text-[11px] text-slate-500">
+              <table className="w-full text-second">
+                <thead className="tab-entete"><tr className="text-left text-xs text-slate-500">
                   <th className="px-2 py-1.5 w-8"></th><th className="px-2 py-1.5">Étudiant</th>
                   <th className="px-2 py-1.5">Inscriptions à recréer</th></tr></thead>
                 <tbody>
@@ -87,8 +87,8 @@ export default function DecisionsSansInscription() {
                       <td className="px-2 py-1">{!l.doublon && <input type="checkbox" checked={!exclus.has(l.etudiant_id)} onChange={() => bascule(l.etudiant_id)} aria-label="Réparer ce dossier" />}</td>
                       <td className="px-2 py-1 whitespace-nowrap">
                         <b>{(l.nom || '').toUpperCase()}</b> {l.prenom} <span className="text-slate-400">· {l.id_ecampus || 'sans matricule'}</span>
-                        {l.primo_a_tort && !l.doublon && <span className="block text-[11px] text-slate-500">lu « primo » à tort</span>}
-                        {l.doublon && <span className="block text-[11px] text-iip-texte">doublon probable de {l.doublon.map(d => `${d.prenom || ''} (${d.id_ecampus})`).join(', ')} — à fusionner dans « Dossiers dédoublés »</span>}
+                        {l.primo_a_tort && !l.doublon && <span className="block text-xs text-slate-500">lu « primo » à tort</span>}
+                        {l.doublon && <span className="block text-xs text-iip-texte">doublon probable de {l.doublon.map(d => `${d.prenom || ''} (${d.id_ecampus})`).join(', ')} — à fusionner dans « Dossiers dédoublés »</span>}
                       </td>
                       <td className="px-2 py-1 tabular-nums">
                         {l.unites.map(u => (
@@ -105,7 +105,7 @@ export default function DecisionsSansInscription() {
           )}
           {!!aRecreer && (
             <div className="flex items-center gap-3 flex-wrap">
-              {!direction ? <span className="text-slate-500 text-[12px]">La réparation est un geste de direction.</span>
+              {!direction ? <span className="text-slate-500 text-second">La réparation est un geste de direction.</span>
                 : !confirmer ? <button className="bouton bouton-fort" disabled={enCours} onClick={() => setConfirmer(true)}>Recréer {aRecreer} inscription(s)</button>
                 : <div data-etat="surveiller" className="bloc-etat px-3 py-2 flex items-center gap-3 flex-wrap">
                     <span>Recréer {aRecreer} inscription(s) pour {retenus.length} étudiant(s), avec le résultat et la cote de leur décision ? Aucune décision ne change.</span>

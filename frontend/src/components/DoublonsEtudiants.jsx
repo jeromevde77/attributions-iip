@@ -76,10 +76,10 @@ export default function DoublonsEtudiants() {
       <div className="px-4 py-3 rounded-xl bg-white border border-slate-200">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="text-[15px] font-semibold text-iip-blue flex items-center gap-1.5">
+            <div className="text-base font-semibold text-iip-blue flex items-center gap-1.5">
               <IconUsers size={16} /> Dossiers dédoublés
             </div>
-            <p className="text-[12px] text-slate-600 mt-1 max-w-3xl">
+            <p className="text-second text-slate-600 mt-1 max-w-3xl">
               Le matricule change d'une année à l'autre : le même étudiant importé
               sur deux années s'est retrouvé avec deux dossiers. Son parcours est
               alors coupé en deux — une unité acquise l'an dernier ne se valorise
@@ -89,7 +89,7 @@ export default function DoublonsEtudiants() {
             </p>
           </div>
           <button onClick={charger} disabled={enCours}
-            className="flex-none px-2.5 py-1.5 text-[12px] rounded-lg border border-slate-300
+            className="flex-none px-2.5 py-1.5 text-second rounded-lg border border-slate-300
                        text-slate-600 flex items-center gap-1.5 disabled:opacity-40">
             <IconRefresh size={14} /> Relire
           </button>
@@ -98,11 +98,11 @@ export default function DoublonsEtudiants() {
 
       {erreur && (
         <div className="px-3 py-2 rounded-xl bg-rose-50 border border-rose-200
-                        text-[12px] text-rose-900">{erreur}</div>
+                        text-second text-rose-900">{erreur}</div>
       )}
       {fait && (
         <div className="px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200
-                        text-[12px] text-emerald-900 flex items-center gap-1.5">
+                        text-second text-emerald-900 flex items-center gap-1.5">
           <IconCheck size={14} /> {fait}
         </div>
       )}
@@ -110,14 +110,14 @@ export default function DoublonsEtudiants() {
       {data && (
         <div className="px-4 py-3 rounded-xl bg-slate-50 border border-slate-200
                         flex items-center justify-between gap-3 flex-wrap">
-          <div className="text-[13px] text-slate-700">
+          <div className="text-sm text-slate-700">
             <b>{data.total}</b> groupe(s) de dossiers portant le même nom, soit{' '}
             <b>{data.dossiers}</b> dossiers — dont <b>{data.surs}</b> sans
             contradiction de date de naissance.
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => lot(true)} disabled={enCours || !data.surs}
-              className="px-3 py-1.5 text-[12px] rounded-lg border border-iip-blue
+              className="px-3 py-1.5 text-second rounded-lg border border-iip-blue
                          text-iip-blue font-semibold disabled:opacity-40">
               Simuler la fusion des {data.surs} groupes sûrs
             </button>
@@ -129,18 +129,18 @@ export default function DoublonsEtudiants() {
           sera déplacé avant de l'écrire. */}
       {apercu && (
         <div className="px-4 py-3 rounded-xl bg-amber-50 border border-amber-300 space-y-2 border-l-4 border-l-amber-500">
-          <div className="text-[13px] font-semibold text-amber-900">
+          <div className="text-sm font-semibold text-amber-900">
             Simulation — {apercu.fusions} fusion(s), rien n'a été écrit
           </div>
           {!!apercu.nb_ecartes && (
-            <div className="text-[12px] text-amber-900">
+            <div className="text-second text-amber-900">
               <b>{apercu.nb_ecartes} groupe(s) écarté(s)</b>, à traiter à la main :
               <ul className="list-disc ml-5 mt-0.5">
                 {apercu.ecartes.map((x, i) => <li key={i}>{x}</li>)}
               </ul>
             </div>
           )}
-          <div className="max-h-64 overflow-y-auto text-[12px] text-amber-900
+          <div className="max-h-64 overflow-y-auto text-second text-amber-900
                           divide-y divide-amber-200">
             {(apercu.detail || []).map((d, i) => (
               <div key={i} className="py-1">
@@ -154,12 +154,12 @@ export default function DoublonsEtudiants() {
           </div>
           <div className="flex items-center gap-2 pt-1">
             <button onClick={() => lot(false)} disabled={enCours}
-              className="px-3 py-2 text-[13px] rounded-lg bg-amber-600 text-white
+              className="px-3 py-2 text-sm rounded-lg bg-amber-600 text-white
                          font-semibold flex items-center gap-1.5 disabled:opacity-40">
               <IconArrowMerge size={15} /> Appliquer les {apercu.fusions} fusions
             </button>
             <button onClick={() => setApercu(null)} disabled={enCours}
-              className="px-3 py-2 text-[13px] rounded-lg border border-amber-500
+              className="px-3 py-2 text-sm rounded-lg border border-amber-500
                          text-amber-900">
               Annuler
             </button>
@@ -172,9 +172,9 @@ export default function DoublonsEtudiants() {
           <div key={g.cle} className={`px-3 py-2.5 rounded-xl border
             ${g.sur ? 'bg-white border-slate-200' : 'bg-rose-50/60 border-rose-200'}`}>
             <div className="flex items-center gap-2">
-              <span className="text-[13px] font-semibold text-iip-blue">{g.cle}</span>
+              <span className="text-sm font-semibold text-iip-blue">{g.cle}</span>
               {!g.sur && (
-                <span className="text-[11px] text-rose-800 flex items-center gap-1">
+                <span className="text-xs text-rose-800 flex items-center gap-1">
                   <IconAlertTriangle size={13} />
                   dates de naissance différentes ({g.naissances.join(' / ')}) —
                   peut-être deux personnes
@@ -184,7 +184,7 @@ export default function DoublonsEtudiants() {
             <div className="mt-1.5 grid gap-1.5 md:grid-cols-2">
               {g.dossiers.map(d => (
                 <div key={d.id} className="px-2.5 py-2 rounded-lg bg-slate-50
-                                           border border-slate-200 text-[12px]">
+                                           border border-slate-200 text-second">
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-mono font-bold text-slate-700">
                       #{d.id} · {d.matricules.join(' / ') || 'sans matricule'}
@@ -218,7 +218,7 @@ export default function DoublonsEtudiants() {
           </div>
         ))}
         {data && !data.total && (
-          <div className="px-4 py-6 text-center text-[13px] text-slate-500">
+          <div className="px-4 py-6 text-center text-sm text-slate-500">
             Aucun dossier dédoublé. Rien à réparer.
           </div>
         )}

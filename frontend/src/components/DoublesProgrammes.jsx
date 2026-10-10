@@ -49,10 +49,10 @@ export default function DoublesProgrammes() {
   const bascule = id => setExclus(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
   return (
-    <div className="space-y-3 text-[13px]">
+    <div className="space-y-3 text-sm">
       <div>
-        <div className="text-[15px] font-semibold text-iip-blue">Programmes sur deux sections — {annee}</div>
-        <p className="text-slate-500 text-[12px]">
+        <div className="text-base font-semibold text-iip-blue">Programmes sur deux sections — {annee}</div>
+        <p className="text-slate-500 text-second">
           Les étudiants inscrits cette année dans les unités de deux sections. Lucie garde la section du dossier
           (rattachement, sinon années antérieures, sinon la première inscrite) et propose de retirer le reste.
           Une inscription qui porte un résultat, une note ou un report n'est jamais retirée.
@@ -70,8 +70,8 @@ export default function DoublesProgrammes() {
           {!lignes.length && <p className="text-slate-500">Aucun étudiant n'est inscrit dans deux sections cette année.</p>}
           {!!lignes.length && (
             <div className="border border-slate-200 rounded-carte overflow-hidden">
-              <table className="w-full text-[12px]">
-                <thead className="tab-entete"><tr className="text-left text-[11px] text-slate-500">
+              <table className="w-full text-second">
+                <thead className="tab-entete"><tr className="text-left text-xs text-slate-500">
                   <th className="px-2 py-1.5 w-8"></th><th className="px-2 py-1.5">Étudiant</th><th className="px-2 py-1.5">Garder</th>
                   <th className="px-2 py-1.5">Retirer</th><th className="px-2 py-1.5">Ne pas toucher</th></tr></thead>
                 <tbody>
@@ -91,7 +91,7 @@ export default function DoublesProgrammes() {
           )}
           {!!aRetirer && (
             <div className="flex items-center gap-3 flex-wrap">
-              {!direction ? <span className="text-slate-500 text-[12px]">La réparation est un geste de direction.</span>
+              {!direction ? <span className="text-slate-500 text-second">La réparation est un geste de direction.</span>
                 : !confirmer ? <button className="bouton bouton-detruire" disabled={enCours} onClick={() => setConfirmer(true)}>Retirer {aRetirer} inscription(s)</button>
                 : <div data-etat="corriger" className="bloc-etat px-3 py-2 flex items-center gap-3 flex-wrap">
                     <span>Retirer {aRetirer} inscription(s) pour {tranchees.filter(l => !exclus.has(l.etudiant_id)).length} étudiant(s) ? Les inscriptions qui portent un résultat, une note ou un report restent.</span>

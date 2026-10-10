@@ -135,15 +135,15 @@ function Dialogue({ d }) {
         <div className="flex gap-3 px-5 pt-5 pb-4">
           <Ic size={22} className="flex-none mt-0.5" style={{ color: teinte }} />
           <div className="min-w-0 flex-1">
-            <div className="text-[15px] font-semibold text-iip-texte">{d.titre || TITRES[d.genre]}</div>
+            <div className="text-base font-semibold text-iip-texte">{d.titre || TITRES[d.genre]}</div>
             {d.message && (
-              <div className="mt-1.5 text-[13px] text-slate-700 whitespace-pre-line break-words leading-relaxed
+              <div className="mt-1.5 text-sm text-slate-700 whitespace-pre-line break-words leading-relaxed
                               max-h-[50vh] overflow-y-auto">{d.message}</div>
             )}
             {d.genre === 'saisir' && (d.multiligne
               ? <textarea ref={refChamp} rows={4} value={valeur} onChange={e => setValeur(e.target.value)}
                   placeholder={d.indice || ''}
-                  className="mt-3 w-full border border-slate-300 rounded-champ px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-iip-blue/30" />
+                  className="mt-3 w-full border border-slate-300 rounded-champ px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-iip-blue/30" />
               : <input ref={refChamp} value={valeur} onChange={e => setValeur(e.target.value)}
                   placeholder={d.indice || ''} type={d.type || 'text'}
                   className="controle mt-3 w-full" />)}

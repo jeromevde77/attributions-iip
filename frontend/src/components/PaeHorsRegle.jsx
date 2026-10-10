@@ -34,7 +34,7 @@ export default function PaeHorsRegle() {
   }
 
   if (erreur) return <Encadre etat="corriger">{erreur}</Encadre>;
-  if (!d) return <p className="text-[13px] text-slate-400">Contrôle des PAE de {annee}…</p>;
+  if (!d) return <p className="text-sm text-slate-400">Contrôle des PAE de {annee}…</p>;
 
   const parSection = new Map();
   for (const l of d.hors) { const s = l.section || '—'; if (!parSection.has(s)) parSection.set(s, []); parSection.get(s).push(l); }
@@ -42,7 +42,7 @@ export default function PaeHorsRegle() {
   return (
     <div className="space-y-3">
       <div className="flex items-start gap-3">
-        <p className="text-[13px] text-slate-600 flex-1">
+        <p className="text-sm text-slate-600 flex-1">
           Les inscriptions de {annee} dont le prérequis légal n’est pas acquis. Trois cas sont permis : le prérequis
           suivi la même année dans le même bloc, le prérequis ajourné l’an dernier (cadenas), une dérogation motivée.
           Le reste est à régulariser, dossier par dossier.
@@ -60,8 +60,8 @@ export default function PaeHorsRegle() {
       </div>
       {!d.hors.length ? <Encadre etat="reussi">Aucune inscription hors règle pour {annee}.</Encadre> : (
         <div className="border border-slate-200 rounded-carte overflow-hidden">
-          <table className="w-full text-[12.5px]">
-            <thead><tr className="tab-entete text-left text-[10.5px] uppercase tracking-[.08em] text-slate-500">
+          <table className="w-full text-second">
+            <thead><tr className="tab-entete text-left text-mention uppercase tracking-[.08em] text-slate-500">
               <th className="px-3 py-1.5">Étudiant</th><th className="px-3 py-1.5">UE inscrite</th>
               <th className="px-3 py-1.5">Prérequis légal</th><th className="px-3 py-1.5">Constat et action</th></tr></thead>
             <tbody>
@@ -70,13 +70,13 @@ export default function PaeHorsRegle() {
                 ...ls.map((l, i) => (
                   <tr key={`${sec}-${i}`} className="border-t border-slate-100 align-top">
                     <td className="px-3 py-1.5"><b>{String(l.nom || '').toUpperCase()}</b> {prenomSeul(l.prenom)}
-                      <div className="text-[11px] text-slate-400">{l.matricule || 'sans matricule'}</div></td>
-                    <td className="px-3 py-1.5"><b>UE {l.ue_num}</b> · {l.niv_ue}<div className="text-[11px] text-slate-500">{l.nom_ue}</div></td>
-                    <td className="px-3 py-1.5"><b>UE {l.prerequis_num}</b> · {l.niv_pre}<div className="text-[11px] text-slate-500">{l.nom_pre}</div>
-                      <div className="text-[11px] text-slate-400">Historique : {l.historique || 'aucun'}</div></td>
+                      <div className="text-xs text-slate-400">{l.matricule || 'sans matricule'}</div></td>
+                    <td className="px-3 py-1.5"><b>UE {l.ue_num}</b> · {l.niv_ue}<div className="text-xs text-slate-500">{l.nom_ue}</div></td>
+                    <td className="px-3 py-1.5"><b>UE {l.prerequis_num}</b> · {l.niv_pre}<div className="text-xs text-slate-500">{l.nom_pre}</div>
+                      <div className="text-xs text-slate-400">Historique : {l.historique || 'aucun'}</div></td>
                     <td className="px-3 py-1.5">
                       <div className="font-semibold pl-2 border-l-4" style={{ borderColor: l.gravite === 'corriger' ? 'var(--c-refuse)' : 'var(--c-attente)' }}>{l.constat}</div>
-                      <div className="text-[12px] text-slate-600 pl-3 mt-0.5">{l.action}</div>
+                      <div className="text-second text-slate-600 pl-3 mt-0.5">{l.action}</div>
                     </td>
                   </tr>
                 )),

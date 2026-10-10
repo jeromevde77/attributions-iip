@@ -60,9 +60,9 @@ function Zone({ lettre, titre, sous, children, droite }) {
       <div className="flex items-baseline gap-2.5 flex-wrap">
         {/* La lettre de la zone porte le principal : l'or est celui de
             l'épreuve intégrée, et il ne dit que cela. */}
-        <span className="w-[20px] h-[20px] rounded-full bg-iip-blue/10 text-iip-blue text-[11px] font-bold grid place-items-center flex-none">{lettre}</span>
-        <h3 className="text-[15px] font-semibold text-iip-blue">{titre}</h3>
-        {sous && <span className="text-[12px] text-slate-400">{sous}</span>}
+        <span className="w-[20px] h-[20px] rounded-full bg-iip-blue/10 text-iip-blue text-xs font-bold grid place-items-center flex-none">{lettre}</span>
+        <h3 className="text-base font-semibold text-iip-blue">{titre}</h3>
+        {sous && <span className="text-second text-slate-400">{sous}</span>}
         {droite && <span className="ml-auto">{droite}</span>}
       </div>
       {children}
@@ -209,7 +209,7 @@ export default function PonderationsUE({ ueFixe = null }) {
     <div className={ueFixe ? 'space-y-3.5' : 'p-4 space-y-3.5'}>
       <div className="flex flex-wrap items-center gap-2">
         {!ueFixe && <>
-        <h2 className="text-[17px] font-semibold text-iip-blue mr-auto">Pondérations · {annee}</h2>
+        <h2 className="text-lg font-semibold text-iip-blue mr-auto">Pondérations · {annee}</h2>
         <select value={section} onChange={e => setSection(e.target.value)} className="controle" aria-label="Section">
           {sections.map(s => <option key={s.code} value={s.code}>{s.libelle || s.code}</option>)}
         </select>
@@ -230,15 +230,15 @@ export default function PonderationsUE({ ueFixe = null }) {
       </div>
 
       {passee && (
-        <p className="text-[12px] text-slate-600 flex items-center gap-1.5">
+        <p className="text-second text-slate-600 flex items-center gap-1.5">
           <IconLock size={14} className="text-slate-400" />
           {annee} est une année reprise des classeurs, dont les délibérations sont tenues : ses poids se lisent ici, ils ne se modifient pas.
         </p>
       )}
-      {erreur && <div className="carte p-2.5 text-[12px] text-iip-texte flex items-start gap-1.5"><IconAlertTriangle size={14} className="mt-0.5 flex-none" />{erreur}</div>}
-      {message && <div className="text-[12px] text-iip-texte flex items-center gap-1.5"><IconCheck size={14} />{message}</div>}
+      {erreur && <div className="carte p-2.5 text-second text-iip-texte flex items-start gap-1.5"><IconAlertTriangle size={14} className="mt-0.5 flex-none" />{erreur}</div>}
+      {message && <div className="text-second text-iip-texte flex items-center gap-1.5"><IconCheck size={14} />{message}</div>}
 
-      {!ueFixe && !ues.length && section && <p className="text-[13px] text-slate-400">Aucune unité pour {section} en {annee}.</p>}
+      {!ueFixe && !ues.length && section && <p className="text-sm text-slate-400">Aucune unité pour {section} en {annee}.</p>}
       {ue && structure && liens && (
         <>
           {/* ── A ─────────────────────────────────────────────────────── */}
@@ -258,12 +258,12 @@ export default function PonderationsUE({ ueFixe = null }) {
             </div>
 
             {liens.epreuve_integree ? (
-              <p className="text-[12px] text-violet-800 bg-violet-50 border border-violet-200 rounded-champ px-2.5 py-1.5 border-l-4 border-l-violet-500">
+              <p className="text-second text-violet-800 bg-violet-50 border border-violet-200 rounded-champ px-2.5 py-1.5 border-l-4 border-l-violet-500">
                 Épreuve intégrée : les acquis se pèsent pour l'unité, sans cours. Leur poids se règle au tracé (« Relier au tracé »).
               </p>
             ) : (
               <>
-                <div className="flex flex-wrap items-center gap-2 text-[12px]">
+                <div className="flex flex-wrap items-center gap-2 text-second">
                   <span className="inline-flex rounded-champ border border-slate-300 overflow-hidden" role="group" aria-label="Base du poids des cours">
                     {[['periodes', 'Poids = périodes du DP'], ['saisi', 'Poids saisis (exception)']].map(([v, l], i) => (
                       <button key={v} disabled={!peutRegler} onClick={() => setBase(v)}
@@ -289,7 +289,7 @@ export default function PonderationsUE({ ueFixe = null }) {
                     const p = base === 'saisi' ? Number(poidsSaisis[c.cours_code]) || 0 : poidsCoursDe[c.cours_code] || 0;
                     return (
                       <div key={c.cours_code} style={{ width: `${p}%`, background: `rgb(var(--e-donnees-${[600, 400, 300, 500, 700][i % 5]}))`, color: [1, 2].includes(i % 5) ? 'var(--c-texte)' : '#fff' }}
-                        className="flex items-center px-2 text-[12px] font-semibold whitespace-nowrap overflow-hidden min-w-0">
+                        className="flex items-center px-2 text-second font-semibold whitespace-nowrap overflow-hidden min-w-0">
                         {c.cours_code} · {fr(p, 0)} %
                       </div>
                     );
@@ -297,15 +297,15 @@ export default function PonderationsUE({ ueFixe = null }) {
                 </div>
                 <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                   {cours.map(c => (
-                    <div key={c.cours_code} className="text-[12px] text-slate-600 min-w-0">
+                    <div key={c.cours_code} className="text-second text-slate-600 min-w-0">
                       <div><b className="text-slate-800">{c.cours_code}</b> · {c.cours_per ?? '—'} périodes{c.ct_pp ? ` · ${c.ct_pp}` : ''}</div>
                       <div className="truncate" title={c.cours_nom}>{c.cours_nom}</div>
                       <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                         {!evalue(c)
-                          ? <span className="text-[11px] font-semibold px-1.5 rounded-full border border-slate-300 text-slate-500">{c.non_evalue ? 'pas évalué' : 'activité Z'}</span>
-                          : <span className={`text-[11px] font-semibold px-1.5 rounded-full border ${coursJuste(c.cours_code) ? 'border-emerald-300 text-emerald-700' : 'border-amber-300 text-amber-700'}`}>{fr(somme(c.cours_code))} / 10</span>}
+                          ? <span className="text-xs font-semibold px-1.5 rounded-full border border-slate-300 text-slate-500">{c.non_evalue ? 'pas évalué' : 'activité Z'}</span>
+                          : <span className={`text-xs font-semibold px-1.5 rounded-full border ${coursJuste(c.cours_code) ? 'border-emerald-300 text-emerald-700' : 'border-amber-300 text-amber-700'}`}>{fr(somme(c.cours_code))} / 10</span>}
                         {base === 'saisi' && evalue(c) && (
-                          <label className="flex items-center gap-1 text-[11px]">
+                          <label className="flex items-center gap-1 text-xs">
                             <input type="number" min="0" max="100" step="1" value={poidsSaisis[c.cours_code] ?? ''} disabled={!peutRegler}
                               onChange={e => setPoidsSaisis(p => ({ ...p, [c.cours_code]: e.target.value === '' ? '' : Number(e.target.value) }))}
                               className="w-14 border border-slate-300 rounded-champ px-1.5 py-0.5 text-right tabular-nums" aria-label={`Poids de ${c.cours_code}, en pour cent`} /> %
@@ -324,7 +324,7 @@ export default function PonderationsUE({ ueFixe = null }) {
               {/* ── B ─────────────────────────────────────────────────── */}
               <Zone lettre="B" titre="Qui évalue quel acquis" sous="le poids dans le cours, sur 10 · clic sur un acquis : ses liens">
                 <div className="overflow-x-auto rounded-champ border border-slate-200 bg-white">
-                  <table className="w-full border-separate border-spacing-0 text-[12px]" style={{ minWidth: 260 + coursEval.length * 86 }}>
+                  <table className="w-full border-separate border-spacing-0 text-second" style={{ minWidth: 260 + coursEval.length * 86 }}>
                     <thead>
                       <tr>
                         <th className="tab-entete sticky left-0 z-10 text-left px-2.5 py-2 min-w-[240px]">Acquis · poids réel dans l'UE</th>
@@ -351,7 +351,7 @@ export default function PonderationsUE({ ueFixe = null }) {
                                 <div className="h-1.5 flex-1 rounded bg-slate-100 overflow-hidden">
                                   <div className="h-full rounded" style={{ width: `${Math.min(100, reel * 2)}%`, background: t }} />
                                 </div>
-                                <span className="text-[11px] text-slate-500 tabular-nums whitespace-nowrap">
+                                <span className="text-xs text-slate-500 tabular-nums whitespace-nowrap">
                                   {fr(reel)} % · {coursEval.filter(c => brouillon[c.cours_code]?.[a.aa_code]).length} cours
                                 </span>
                               </div>
@@ -389,7 +389,7 @@ export default function PonderationsUE({ ueFixe = null }) {
                           <td key={c.cours_code} className="tab-entete px-1.5 py-1.5 text-center">
                             <div className={`font-bold tabular-nums ${coursJuste(c.cours_code) ? 'text-slate-700' : 'text-amber-700'}`}>{fr(somme(c.cours_code))} / 10</div>
                             {peutRegler && modifie(c.cours_code) && (
-                              <button className="text-[11px] font-semibold text-iip-blue underline disabled:text-slate-400 disabled:no-underline"
+                              <button className="text-xs font-semibold text-iip-blue underline disabled:text-slate-400 disabled:no-underline"
                                 disabled={!coursJuste(c.cours_code)} onClick={() => enregistrerCours(c.cours_code)}
                                 title={coursJuste(c.cours_code) ? '' : 'Dix points, par pas de 0,5, avant d’enregistrer'}>Enregistrer</button>
                             )}
@@ -399,7 +399,7 @@ export default function PonderationsUE({ ueFixe = null }) {
                     </tfoot>
                   </table>
                 </div>
-                <p className="text-[11px] text-slate-400">
+                <p className="text-xs text-slate-400">
                   Avec beaucoup de cours, le tableau défile vers la droite ; la colonne des acquis reste en place.
                   Une case pointillée relie l'acquis au cours ; mettre 0 le délie.
                 </p>
@@ -416,7 +416,7 @@ export default function PonderationsUE({ ueFixe = null }) {
                 </div>
                 {coursC && evalue(coursC) && (
                   <div className="space-y-2">
-                    <div className="flex justify-between gap-2 flex-wrap text-[12px]">
+                    <div className="flex justify-between gap-2 flex-wrap text-second">
                       <b className="text-iip-blue">{coursC.cours_code} · {coursC.cours_nom}</b>
                       <span className="text-slate-400 tabular-nums">{coursC.cours_per ?? '—'} périodes · {fr(poidsCoursDe[coursC.cours_code], 0)} % de l'UE</span>
                     </div>
@@ -425,23 +425,23 @@ export default function PonderationsUE({ ueFixe = null }) {
                       const t = teinte(a.aa_code);
                       return (
                         <div key={a.aa_code} className="grid grid-cols-[72px_1fr_76px] gap-2 items-center">
-                          <span className="font-bold text-[12px] text-slate-800">{a.aa_code}</span>
+                          <span className="font-bold text-second text-slate-800">{a.aa_code}</span>
                           <div className="h-5 rounded bg-slate-100 overflow-hidden"><div className="h-full rounded" style={{ width: `${v * 10}%`, background: t }} /></div>
                           {peutRegler ? (
                             <input type="number" min="0" max="10" step="0.5" value={v || ''} placeholder="0"
                               onChange={e => poser(coursC.cours_code, a.aa_code, e.target.value)}
                               aria-label={`Points de ${a.aa_code} dans ${coursC.cours_code}`}
-                              className="w-full border border-slate-300 rounded-champ px-1.5 py-0.5 text-right tabular-nums text-[12px]" />
-                          ) : <span className="text-right font-bold tabular-nums text-[12px]">{fr(v)} <span className="font-normal text-slate-400">/ 10</span></span>}
+                              className="w-full border border-slate-300 rounded-champ px-1.5 py-0.5 text-right tabular-nums text-second" />
+                          ) : <span className="text-right font-bold tabular-nums text-second">{fr(v)} <span className="font-normal text-slate-400">/ 10</span></span>}
                         </div>
                       );
                     })}
                     <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 flex-wrap">
-                      <span className="text-[12px] tabular-nums">Total : <b>{fr(somme(coursC.cours_code))} / 10</b>
+                      <span className="text-second tabular-nums">Total : <b>{fr(somme(coursC.cours_code))} / 10</b>
                         {pasJuste(coursC.cours_code) && <span className="text-amber-700"> · par pas de 0,5</span>}</span>
                       {coursJuste(coursC.cours_code)
-                        ? <span className="text-[11px] font-semibold px-1.5 rounded-full border border-emerald-300 text-iip-texte">réparti</span>
-                        : <span className="text-[11px] font-semibold px-1.5 rounded-full border border-amber-300 text-amber-700">
+                        ? <span className="text-xs font-semibold px-1.5 rounded-full border border-emerald-300 text-iip-texte">réparti</span>
+                        : <span className="text-xs font-semibold px-1.5 rounded-full border border-amber-300 text-amber-700">
                             {somme(coursC.cours_code) > 10 ? `dépasse de ${fr(somme(coursC.cours_code) - 10)}` : `manque ${fr(10 - somme(coursC.cours_code))}`} point</span>}
                       {peutRegler && modifie(coursC.cours_code) && (
                         <button className="bouton bouton-fort" disabled={!coursJuste(coursC.cours_code)}

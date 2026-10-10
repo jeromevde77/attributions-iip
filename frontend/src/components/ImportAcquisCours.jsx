@@ -108,7 +108,7 @@ export default function ImportAcquisCours({ coursCode, coursNom, annee, onClose,
     <Fenetre icone={IconFileSpreadsheet} titre={`Importer les acquis — ${coursCode}`}
       sous={`${coursNom || ''} · ${annee}`} large="moyenne" onFermer={onClose}
       pied={<>
-        <span className="text-[11px] text-slate-500">
+        <span className="text-xs text-slate-500">
           Rien ne s'écrit tant que la simulation n'a pas été lue.
         </span>
         <button onClick={onClose} className="bouton">
@@ -126,13 +126,13 @@ export default function ImportAcquisCours({ coursCode, coursNom, annee, onClose,
         </button>
       </>}>
         <div className="space-y-3">
-          <p className="text-[12px] text-slate-500">
+          <p className="text-second text-slate-500">
             L'acquis est créé dans l'unité s'il n'y est
             pas, puis relié à ce cours avec son poids.
           </p>
           {erreur && (
             <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200
-                            text-[13px] text-red-800 flex items-start gap-1.5">
+                            text-sm text-red-800 flex items-start gap-1.5">
               <IconAlertTriangle size={14} className="mt-0.5 flex-none" /> {erreur}
             </div>
           )}
@@ -140,7 +140,7 @@ export default function ImportAcquisCours({ coursCode, coursNom, annee, onClose,
           <label className="flex items-center gap-3 px-3 py-3 rounded-xl border-2
                             border-dashed border-slate-300 cursor-pointer hover:border-iip-blue">
             <IconFileSpreadsheet size={20} className="text-slate-400 flex-none" />
-            <span className="flex-1 text-[13px] text-slate-600">
+            <span className="flex-1 text-sm text-slate-600">
               {brut.length
                 ? <>{brut.length} ligne(s) lue(s) · {entetes.length} colonne(s) —
                     cliquez pour changer de fichier</>
@@ -157,10 +157,10 @@ export default function ImportAcquisCours({ coursCode, coursNom, annee, onClose,
               <div className="border border-slate-200 rounded-xl overflow-hidden">
                 <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200
                                 flex items-center justify-between gap-2">
-                  <span className="text-[12px] font-semibold text-iip-blue">
+                  <span className="text-second font-semibold text-iip-blue">
                     Correspondance des colonnes
                   </span>
-                  <span className="flex items-center gap-1 text-[11px] text-slate-500">
+                  <span className="flex items-center gap-1 text-xs text-slate-500">
                     exemple : ligne
                     <button disabled={ligne <= 0} onClick={() => setLigne(l => l - 1)}
                       className="px-1.5 rounded border border-slate-300 disabled:opacity-30">‹</button>
@@ -174,20 +174,20 @@ export default function ImportAcquisCours({ coursCode, coursNom, annee, onClose,
                   {CHAMPS.map(c => (
                     <div key={c.cle} className="px-3 py-2 flex items-center gap-3">
                       <span className="w-44 flex-none">
-                        <span className="text-[13px] font-semibold text-slate-800">
+                        <span className="text-sm font-semibold text-slate-800">
                           {c.libelle}
                           {c.requis && <span className="text-red-600"> *</span>}
                         </span>
-                        <span className="block text-[11px] text-slate-500">{c.aide}</span>
+                        <span className="block text-xs text-slate-500">{c.aide}</span>
                       </span>
                       <select value={corresp[c.cle] || ''}
                         onChange={e => setCorresp(m => ({ ...m, [c.cle]: e.target.value || undefined }))}
-                        className={`flex-1 border rounded-lg px-2 py-1.5 text-[12px]
+                        className={`flex-1 border rounded-lg px-2 py-1.5 text-second
                           ${c.requis && !corresp[c.cle] ? 'border-red-400' : 'border-slate-300'}`}>
                         <option value="">— aucune colonne —</option>
                         {entetes.map(h => <option key={h} value={h}>{h}</option>)}
                       </select>
-                      <span className="w-44 flex-none text-[12px] text-slate-600 truncate"
+                      <span className="w-44 flex-none text-second text-slate-600 truncate"
                         title={String(ex[corresp[c.cle]] ?? '')}>
                         {corresp[c.cle]
                           ? (ex[corresp[c.cle]] == null || ex[corresp[c.cle]] === ''
@@ -206,10 +206,10 @@ export default function ImportAcquisCours({ coursCode, coursNom, annee, onClose,
                   onChange={e => setRemplacer(e.target.checked)}
                   className="mt-0.5 w-4 h-4 accent-iip-blue" />
                 <span>
-                  <span className="text-[13px] font-semibold text-slate-800">
+                  <span className="text-sm font-semibold text-slate-800">
                     Le fichier fait foi
                   </span>
-                  <span className="block text-[12px] text-slate-500">
+                  <span className="block text-second text-slate-500">
                     Les acquis que ce cours évalue et qui ne figurent pas dans le fichier
                     en sont détachés. L'acquis lui-même n'est jamais supprimé — un autre
                     cours peut l'évaluer.
@@ -219,7 +219,7 @@ export default function ImportAcquisCours({ coursCode, coursNom, annee, onClose,
 
               {rapport && (
                 <div className="border border-slate-200 rounded-xl overflow-hidden">
-                  <div className={`px-3 py-2 border-b text-[13px] ${rapport.simulation
+                  <div className={`px-3 py-2 border-b text-sm ${rapport.simulation
                     ? 'bg-sky-500 border-sky-500 text-white'
                     : 'bg-emerald-500 border-emerald-500 text-white'}`}>
                     <b>{rapport.simulation ? 'Simulation' : 'Import effectué'}</b> —
@@ -232,7 +232,7 @@ export default function ImportAcquisCours({ coursCode, coursNom, annee, onClose,
                   </div>
                   <div className="max-h-56 overflow-y-auto divide-y divide-slate-100">
                     {rapport.rapport.map(r => (
-                      <div key={r.ligne} className="px-3 py-1 flex items-baseline gap-2 text-[12px]">
+                      <div key={r.ligne} className="px-3 py-1 flex items-baseline gap-2 text-second">
                         <span className="w-8 flex-none text-slate-400 tabular-nums">{r.ligne}</span>
                         <span className="w-24 flex-none font-mono font-semibold text-slate-700">
                           {r.aa_code || '—'}
@@ -241,7 +241,7 @@ export default function ImportAcquisCours({ coursCode, coursNom, annee, onClose,
                       </div>
                     ))}
                     {!!rapport.delies?.length && (
-                      <div className="px-3 py-1.5 text-[12px] text-amber-800 bg-amber-50 border-l-4 border-l-amber-500">
+                      <div className="px-3 py-1.5 text-second text-amber-800 bg-amber-50 border-l-4 border-l-amber-500">
                         Détachés de ce cours : {rapport.delies.join(', ')}
                       </div>
                     )}

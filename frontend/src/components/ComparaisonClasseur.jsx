@@ -137,7 +137,7 @@ export default function ComparaisonClasseur({ onClose }) {
               placeholder="2025-2026"
               className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm w-36" />
           </label>
-          <label className="inline-flex items-center gap-2 px-3 py-2 text-[13px] border
+          <label className="inline-flex items-center gap-2 px-3 py-2 text-sm border
                             border-slate-300 rounded-lg cursor-pointer hover:bg-slate-50">
             <IconUpload size={15} /> {enCours ? 'Lecture…' : 'Choisir le classeur'}
             <input type="file" accept=".xls,.xlsx,.xlsm,.csv" className="hidden"
@@ -146,13 +146,13 @@ export default function ComparaisonClasseur({ onClose }) {
         </div>
 
         {erreur && (
-          <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-[13px] text-red-800 border-l-4 border-l-red-500">
+          <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-sm text-red-800 border-l-4 border-l-red-500">
             {erreur}
           </div>
         )}
 
         {resume && (
-          <div className="text-[12px] text-slate-600 bg-slate-50 rounded-lg p-2.5">
+          <div className="text-second text-slate-600 bg-slate-50 rounded-lg p-2.5">
             Feuille <b>{resume.feuille}</b> · {resume.colonnes} colonne(s) pour {annee} ·{' '}
             {resume.etudiants} étudiant(s) porteurs d'au moins un résultat.
             <div className="mt-1">
@@ -177,15 +177,15 @@ export default function ComparaisonClasseur({ onClose }) {
                 ['Non rapprochés', rapport.nb_inconnus + rapport.nb_ambigus, 'text-slate-600'],
               ].map(([l, v, ton]) => (
                 <div key={l} className="border border-slate-200 rounded-xl px-3 py-2">
-                  <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">{l}</div>
-                  <div className={`text-[17px] font-bold ${ton}`}>{v}</div>
+                  <div className="text-mention uppercase tracking-wide text-slate-500 font-semibold">{l}</div>
+                  <div className={`text-lg font-bold ${ton}`}>{v}</div>
                 </div>
               ))}
             </div>
 
             {rapport.nb_divergents > 0 && (
               <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
-                              text-[12px] text-amber-900 flex items-start gap-1.5">
+                              text-second text-amber-900 flex items-start gap-1.5">
                 <IconAlertTriangle size={14} className="mt-0.5 flex-none" />
                 <span>
                   {rapport.nb_divergents} résultat(s) diffèrent entre le classeur et la base.
@@ -200,7 +200,7 @@ export default function ComparaisonClasseur({ onClose }) {
                 ['absents', 'Absents du classeur', rapport.nb_absents],
                 ['inconnus', 'Non rapprochés', rapport.nb_inconnus]].map(([k, l, n]) => (
                 <button key={k} onClick={() => setVue(k)}
-                  className={`px-3 py-1.5 text-[12px] font-semibold border-b-2 -mb-px ${
+                  className={`px-3 py-1.5 text-second font-semibold border-b-2 -mb-px ${
                     vue === k ? 'border-iip-blue text-iip-blue'
                               : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
                   {l} ({n})
@@ -210,7 +210,7 @@ export default function ComparaisonClasseur({ onClose }) {
 
             <div className="max-h-80 overflow-y-auto">
               {!listes[vue].length ? (
-                <div className="py-8 text-center text-[13px] text-slate-400">
+                <div className="py-8 text-center text-sm text-slate-400">
                   Rien dans cette catégorie.
                 </div>
               ) : vue === 'inconnus' ? (
@@ -247,7 +247,7 @@ export default function ComparaisonClasseur({ onClose }) {
               )}
             </div>
 
-            <p className="text-[11px] text-slate-500">
+            <p className="text-xs text-slate-500">
               Aucune écriture n'a eu lieu. Ce tableau sert à décider, pas à importer.
             </p>
           </>

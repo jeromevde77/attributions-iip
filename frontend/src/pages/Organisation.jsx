@@ -100,14 +100,14 @@ export default function Organisation({ ongletInitial }) {
          * AVANT d'attribuer, et c'est l'ordre du travail de rentrée. */
         { key: 'planifier', module: 'planification', label: 'Planification', icone: IconCalendarStats,
           sansMarge: true, railPropre: true,
-          rendu: <Suspense fallback={<div className="p-4 text-[13px] text-slate-400">Chargement…</div>}>
+          rendu: <Suspense fallback={<div className="p-4 text-sm text-slate-400">Chargement…</div>}>
                    <CentrePlanification annee={annee}
                      ongletInitial={params.get('sous') || 'ue'} /></Suspense> },
         /* LE LABORATOIRE TEMPOREL DE LUCIE (10 octobre 2026) : les UE posées sur
            l'année en tuiles, leurs couches, et le verre de chacune — sur la
            grille d'organisation et les dates des UE, sans rien doubler. */
         { key: 'laboratoire', module: 'organisation', label: 'Le laboratoire temporel', icone: IconeLaboratoire,
-          rendu: <Suspense fallback={<div className="p-4 text-[13px] text-slate-400">Chargement…</div>}>
+          rendu: <Suspense fallback={<div className="p-4 text-sm text-slate-400">Chargement…</div>}>
                    <LaboratoireTemporel /></Suspense> },
         { key: 'rentree', module: 'organisation', label: 'Rentrée', icone: IconSchool, sansMarge: true,
           rendu: annee
@@ -119,7 +119,7 @@ export default function Organisation({ ongletInitial }) {
            « c'est le tableau qui va croiser les attributions et les PAE. » */
         { key: 'repartition', module: 'organisation', label: 'Répartition des étudiants', icone: IconUsersGroup,
           sansMarge: true,
-          rendu: <Suspense fallback={<div className="p-4 text-[13px] text-slate-400">Chargement…</div>}>
+          rendu: <Suspense fallback={<div className="p-4 text-sm text-slate-400">Chargement…</div>}>
                    <RepartitionCours /></Suspense> },
         /* LES GROUPES COMMUNS (9 octobre 2026) : les TP d'un bloc coupés en
            briques, pour que les groupes de tous les cours s'emboîtent à l'horaire. */
@@ -135,7 +135,7 @@ export default function Organisation({ ongletInitial }) {
            une fois. Les anciennes adresses (?onglet=ponderations, ?onglet=due, /due)
            mènent ici, sur la bonne face. */
         { key: 'unite', module: 'organisation', label: 'Unité : croiser, pondérer, décrire', icone: IconListDetails, sansMarge: true,
-          rendu: <Suspense fallback={<div className="p-4 text-[13px] text-slate-400">Chargement…</div>}>
+          rendu: <Suspense fallback={<div className="p-4 text-sm text-slate-400">Chargement…</div>}>
                    <AtelierUE faceInitiale={faceUnite} /></Suspense> },
         /* UN SEUL CENTRE HORAIRE (Charles, 29 septembre 2026 : « les deux
            premières icônes doivent devenir un seul centre horaire ; la
@@ -154,7 +154,7 @@ export default function Organisation({ ongletInitial }) {
            2 octobre 2026) : ils quittent Configuration pour l'axe de ce qu'on
            organise. */
         { key: 'effectifs', module: 'organisation', label: 'Effectifs et postes PNCC', icone: IconChartBar,
-          rendu: <Suspense fallback={<div className="p-4 text-[13px] text-slate-400">Chargement…</div>}>
+          rendu: <Suspense fallback={<div className="p-4 text-sm text-slate-400">Chargement…</div>}>
                    <Effectifs /></Suspense> },
         { key: 'locaux', label: 'Locaux', icone: IconBuilding, futur: true,
           description: "Les locaux quitteront Configuration pour rejoindre le travail d'organisation." },
@@ -182,7 +182,7 @@ function CentreHoraire({ annee }) {
       ] }]} />
       {face === 'composer' ? (
         <div className="p-4">
-          <Suspense fallback={<div className="text-[13px] text-slate-400">Chargement…</div>}>
+          <Suspense fallback={<div className="text-sm text-slate-400">Chargement…</div>}>
             <HoraireSemaine />
           </Suspense>
         </div>

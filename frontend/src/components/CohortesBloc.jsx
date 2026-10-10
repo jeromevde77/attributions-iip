@@ -58,15 +58,15 @@ export default function CohortesBloc({ section, bloc, annee, peutEcrire, onFerme
   return (
     <Fenetre titre={`Cohortes de ${section} · ${bloc}`} sous="Une cohorte = une organisation dans toutes les UE dédoublées du bloc" large="grande" onFermer={onFermer}
       pied={peutEcrire && <div className="flex items-center gap-2 w-full">
-        <span className="text-[12px] text-slate-500 min-w-0 flex-1">{modifie ? `${Object.keys(choix).length} étudiant(s) modifié(s), non enregistré(s)` : 'Cliquez sur un numéro pour placer l’étudiant.'}</span>
+        <span className="text-second text-slate-500 min-w-0 flex-1">{modifie ? `${Object.keys(choix).length} étudiant(s) modifié(s), non enregistré(s)` : 'Cliquez sur un numéro pour placer l’étudiant.'}</span>
         {modifie && <button className="bouton" onClick={() => setChoix({})} disabled={enCours}>Annuler</button>}
         <button className="bouton bouton-fort" disabled={!modifie || enCours} onClick={enregistrer}>{enCours ? 'Enregistrement…' : 'Enregistrer'}</button>
       </div>}>
-      {erreur && <div className="text-[12.5px] mb-2" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
-      {!d ? <div className="text-[13px] text-slate-400">Chargement…</div> : !d.ues.length
-        ? <p className="text-[13px] text-slate-600">Aucune UE dédoublée dans {bloc} : dédoublez d’abord une UE (fiche de l’UE, « Dédoubler »).</p>
+      {erreur && <div className="text-second mb-2" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
+      {!d ? <div className="text-sm text-slate-400">Chargement…</div> : !d.ues.length
+        ? <p className="text-sm text-slate-600">Aucune UE dédoublée dans {bloc} : dédoublez d’abord une UE (fiche de l’UE, « Dédoubler »).</p>
         : <div className="space-y-3">
-          <div className="flex flex-wrap items-center gap-3 text-[12.5px]">
+          <div className="flex flex-wrap items-center gap-3 text-second">
             {orgs.map(o => <span key={o}><b>Cohorte {o}</b> : {compte(o)}</span>)}
             {mixtes > 0 && <span title="Organisation différente selon l’UE (répartition au cas par cas)"><b>Mixtes</b> : {mixtes}</span>}
             <span className="text-slate-500">UE dédoublées : {d.ues.map(u => u.ue_num).join(', ')}</span>
@@ -74,22 +74,22 @@ export default function CohortesBloc({ section, bloc, annee, peutEcrire, onFerme
             <input value={q} onChange={e => setQ(e.target.value)} placeholder="Chercher un étudiant…" className="controle w-56" data-reponses="non" />
             {peutEcrire && orgs.length > 1 && <button className="bouton" onClick={moitie} title="La première moitié de la liste (ordre alphabétique) en cohorte 1, la seconde en cohorte 2">Moitié / moitié</button>}
           </div>
-          <table className="w-full text-[12.5px]">
+          <table className="w-full text-second">
             <thead><tr className="tab-entete"><th className="text-left px-2 py-1.5">Étudiant</th><th className="text-left px-2 py-1.5">Cohorte</th><th className="text-left px-2 py-1.5">Par UE</th></tr></thead>
             <tbody>
               {liste.map(e => {
                 const c = cohorte(e), change = choix[e.id] != null && choix[e.id] !== actuelle(e);
                 return (
                   <tr key={e.id} className="border-t border-slate-100">
-                    <td className="px-2 py-1">{String(e.nom || '').toUpperCase()} {e.prenom}{change && <span className="ml-1 text-[11px] text-slate-500">(modifié)</span>}</td>
+                    <td className="px-2 py-1">{String(e.nom || '').toUpperCase()} {e.prenom}{change && <span className="ml-1 text-xs text-slate-500">(modifié)</span>}</td>
                     <td className="px-2 py-1">
                       <div className="segments inline-flex h-7">
                         {orgs.map(o => <button key={o} disabled={!peutEcrire} onClick={() => setChoix(x => ({ ...x, [e.id]: o }))}
-                          className={`px-3 text-[12px] ${c === o ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'}`}>{o}</button>)}
+                          className={`px-3 text-second ${c === o ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'}`}>{o}</button>)}
                       </div>
-                      {c === null && <span className="ml-2 text-[11px] text-slate-500">mixte</span>}
+                      {c === null && <span className="ml-2 text-xs text-slate-500">mixte</span>}
                     </td>
-                    <td className="px-2 py-1 text-[11.5px] text-slate-500">{d.ues.map(u => `${u.ue_num} : ${e.orgs[u.ue_num] ?? '—'}`).join(' · ')}</td>
+                    <td className="px-2 py-1 text-xs text-slate-500">{d.ues.map(u => `${u.ue_num} : ${e.orgs[u.ue_num] ?? '—'}`).join(' · ')}</td>
                   </tr>);
               })}
             </tbody>
