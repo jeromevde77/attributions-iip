@@ -17,6 +17,7 @@ import {
 } from 'recharts';
 import { ouvrirApercu } from '../lib/apercu.js';
 import { demander, informer } from '../lib/dialogue.jsx';
+import { couleursGraphique } from '../lib/couleurs.js';
 
 // ── Utilitaires ──────────────────────────────────────────────────────────────
 const fmt  = (v, d = 0) => (v == null ? '—' : Number(v).toLocaleString('fr-BE', { maximumFractionDigits: d }));
@@ -860,16 +861,16 @@ export default function Pilotage({ vue = 'tout' }) {
               {chartData.length > 1 ? (
                 <ResponsiveContainer width="100%" height={260}>
                   <BarChart data={chartData} barCategoryGap="30%">
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <CartesianGrid strokeDasharray="3 3" stroke={couleursGraphique().grille} />
                     <XAxis dataKey="annee" tick={{ fontSize: 12 }} />
                     <YAxis tick={{ fontSize: 11 }} tickFormatter={v => fmt(v / 1000, 1) + 'k'} />
                     <Tooltip content={<ChartTip />} />
                     <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
-                    <Bar dataKey="Dotation organique" fill="var(--c-principal)" radius={[3, 3, 0, 0]} />
-                    <Bar dataKey="Usage organique"    fill="rgb(var(--e-donnees-500))" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="Dotation organique" fill={couleursGraphique().series[0]} radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="Usage organique"    fill={couleursGraphique().series[1]} radius={[3, 3, 0, 0]} />
                     {/* Les années où la direction a constaté un solde : ce
                         qu'elle déclare, à côté de ce que la base compte. */}
-                    <Bar dataKey="Usage constaté"     fill="rgb(var(--e-donnees-300))" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="Usage constaté"     fill={couleursGraphique().series[2]} radius={[3, 3, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
@@ -1155,7 +1156,7 @@ export default function Pilotage({ vue = 'tout' }) {
               </p>
               <ResponsiveContainer width="100%" height={240}>
                 <ComposedChart data={pepChartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <CartesianGrid strokeDasharray="3 3" stroke={couleursGraphique().grille} />
                   <XAxis dataKey="annee" tick={{ fontSize: 11 }} />
                   <YAxis yAxisId="pep" tick={{ fontSize: 10 }} tickFormatter={v => (v/1000).toFixed(0)+'k'}
                     label={{ value: 'PEP', angle: -90, position: 'insideLeft', fontSize: 10 }} />
@@ -1164,9 +1165,9 @@ export default function Pilotage({ vue = 'tout' }) {
                     label={{ value: 'Dot. B', angle: 90, position: 'insideRight', fontSize: 10 }} />
                   <Tooltip formatter={(v, n) => [v?.toLocaleString('fr-BE'), n]} />
                   <Legend iconSize={8} wrapperStyle={{ fontSize: 11 }} />
-                  <Bar yAxisId="pep" dataKey="PEP"      fill="#6b7fff" radius={[3,3,0,0]} name="PEP (pér.-élèves)" />
-                  <Line yAxisId="pep" dataKey="PEP réf." stroke="#ef4444" strokeWidth={2} dot={{ r: 3 }} strokeDasharray="4 2" name="PEP réf." />
-                  <Line yAxisId="dot" dataKey="Dotation" stroke="var(--c-principal)" strokeWidth={2} dot={{ r: 3 }} name="Dotation org. (pér. B)" />
+                  <Bar yAxisId="pep" dataKey="PEP"      fill={couleursGraphique().series[1]} radius={[3,3,0,0]} name="PEP (pér.-élèves)" />
+                  <Line yAxisId="pep" dataKey="PEP réf." stroke={couleursGraphique().reference} strokeWidth={2} dot={{ r: 3 }} strokeDasharray="4 2" name="PEP réf." />
+                  <Line yAxisId="dot" dataKey="Dotation" stroke={couleursGraphique().series[0]} strokeWidth={2} dot={{ r: 3 }} name="Dotation org. (pér. B)" />
                 </ComposedChart>
               </ResponsiveContainer>
             </div>

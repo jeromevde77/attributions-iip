@@ -2162,6 +2162,7 @@ const GROUPES_COULEURS = [
   ['fonds', 'Les fonds', 'Le sol de la page et le gris de ce qui n’est pas encore atteignable.'],
   ['surfaces', 'Les surfaces', 'Chaque zone de l’écran : menus, cartes, en-têtes, lignes, survol, tuiles, champs, filets. Sans réglage, elle suit celle qu’on indique.'],
   ['composants', 'Les composants', 'Fenêtres (bandeau, corps, pied), boutons, segments.'],
+  ['graphiques', 'Les graphiques', 'Les séries dans l’ordre où elles se présentent, la part vide, la grille, la ligne de référence.'],
   ['sens', 'Contrats et cours', 'Les deux employeurs et les deux natures de cours.'],
   ['identite', 'L’identité', 'Les couleurs du logo, pour mémoire et pour les thèmes : elles ne disent aucun état.'],
 ];
