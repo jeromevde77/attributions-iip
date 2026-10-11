@@ -46,8 +46,18 @@ export function placementsSection(section, annee, cohorte = 1) {
    `organisation_ue.bloc` vide : la classe de l'UE. */
 function blocsOrganisations(section, annee) {
   try {
-    return db.prepare(`SELECT ue_num, COALESCE(num_organisation, 1) org, UPPER(COALESCE(bloc, '')) bloc FROM organisation_ue
-      WHERE annee_scolaire = ? AND section = ?`).all(annee, section);
+    /* La cohorte qu'elle sert d'abord (3.1.281) : sa classe est celle de l'UE dans le schéma
+       de cette cohorte ; sinon une classe posée à la main ; sinon celle de l'UE. */
+    const parCohorte = new Map();
+    return db.prepare(`SELECT ue_num, COALESCE(num_organisation, 1) org, UPPER(COALESCE(bloc, '')) bloc, COALESCE(cohorte, 1) cohorte FROM organisation_ue
+      WHERE annee_scolaire = ? AND section = ?`).all(annee, section).map(o => {
+        if (o.cohorte > 1) {
+          if (!parCohorte.has(o.cohorte)) parCohorte.set(o.cohorte, placementsSection(section, annee, o.cohorte));
+          const b = parCohorte.get(o.cohorte)[o.ue_num]?.bloc;
+          if (b) return { ...o, bloc: String(b).toUpperCase() };
+        }
+        return o;
+      });
   } catch { return []; }
 }
 

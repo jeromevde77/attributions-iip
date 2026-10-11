@@ -371,10 +371,18 @@ r.post('/cohortes', authRequired, roleRequired('admin', 'editeur'), (req, res) =
   const section = String(b.section || '').trim();
   if (!section) return res.status(400).json({ error: 'section requise' });
   const numero = Math.max(1, ...cohortesDe(section).map(c => c.numero)) + 1;
-  db.prepare('INSERT INTO cohorte (section, numero, nom, rentree, annee_entree, cree_par) VALUES (?,?,?,?,?,?)')
-    .run(section, numero, String(b.nom || '').trim() || `Cohorte ${numero}`, String(b.rentree || '').trim() || null,
-      String(b.annee_entree || '').trim() || null, req.user?.nom || req.user?.email || null);
-  res.json({ ok: true, numero, cohortes: cohortesDe(section) });
+  /* ELLE NAÎT COPIE DE LA COHORTE 1 (Charles, 11 octobre 2026) : on part du schéma complet
+     de l'année, puis on retire ou on décale. */
+  const annee = String(b.annee || b.annee_entree || '').trim();
+  const copie = annee ? Object.values(placementsSection(section, annee, 1)).filter(p => p.bloc) : [];
+  db.transaction(() => {
+    db.prepare('INSERT INTO cohorte (section, numero, nom, rentree, annee_entree, cree_par) VALUES (?,?,?,?,?,?)')
+      .run(section, numero, String(b.nom || '').trim() || `Cohorte ${numero}`, String(b.rentree || '').trim() || null,
+        String(b.annee_entree || '').trim() || null, req.user?.nom || req.user?.email || null);
+    const ins = db.prepare(`INSERT OR IGNORE INTO ue_niveau_cohorte (section, cohorte, annee_scolaire, ue_num, niveau, quadri) VALUES (?,?,?,?,?,?)`);
+    for (const p of copie) ins.run(section, numero, annee, p.ue_num, String(p.bloc).toUpperCase(), /^(Q1|Q2|AN)$/.test(p.quad || '') ? p.quad : null);
+  })();
+  res.json({ ok: true, numero, copiees: copie.length, cohortes: cohortesDe(section) });
 });
 r.put('/cohortes/:numero', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const b = req.body || {}, section = String(b.section || '').trim(), numero = Number(req.params.numero);

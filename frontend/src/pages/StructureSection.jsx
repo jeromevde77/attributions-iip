@@ -93,8 +93,8 @@ export default function StructureSection({ annee, sectionInitiale = '' }) {
   }
 
   async function nouvelleCohorte() {
-    if (!(await demander({ titre: 'Nouvelle cohorte', message: `Une cohorte de plus pour ${section} : son propre schéma, année par année (rentrée décalée, transition…). Elle commence vide : on y ajoute les UE qu'elle suit cette année.`, confirmer: 'Créer' }))) return;
-    const r0 = await fetch('/api/capitalisation/cohortes', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ section, annee_entree: annee }) });
+    if (!(await demander({ titre: 'Nouvelle cohorte', message: `Une cohorte de plus pour ${section} : son propre schéma, année par année (rentrée décalée, transition, demi-promotion…). Elle naît copie du schéma de la cohorte 1 pour ${annee} : on retire ou on décale ensuite.`, confirmer: 'Créer' }))) return;
+    const r0 = await fetch('/api/capitalisation/cohortes', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ section, annee, annee_entree: annee }) });
     const j = await r0.json();
     if (!r0.ok) { setMessage({ type: 'err', texte: j.error || 'Erreur' }); return; }
     setCohorte(j.numero);

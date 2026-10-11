@@ -45,6 +45,13 @@ export default function LaboratoireTemporel() {
   const peutEcrire = passeRole(['admin', 'editeur', 'coordination']);
   const [sections, setSections] = useState([]);
   const [section, setSection] = useState(() => { try { return localStorage.getItem('lucie.labo.section') || ''; } catch { return ''; } });
+  // Les cohortes de la section (3.1.281) : chaque organisation en sert une.
+  const [listeCohortes, setListeCohortes] = useState([]);
+  useEffect(() => {
+    if (!section) return;
+    fetch(`/api/capitalisation/cohortes?section=${encodeURIComponent(section)}`, { headers: authHeaders() })
+      .then(r => r.json()).then(l => setListeCohortes(Array.isArray(l) ? l : [])).catch(() => setListeCohortes([]));
+  }, [section]);
   const [bloc, setBloc] = useState('');
   const [data, setData] = useState(null);
   const [types, setTypes] = useState([]);
@@ -240,6 +247,12 @@ Les étudiants se répartissent ensuite entre les organisations (répartition de
     if (!r.ok) { await informer(`❌ ${j.error || `Erreur ${r.status}`}`); return; }
     setChoix(null); await charger();
   }
+  async function changerCohorte(u, cohorte) {
+    const r = await fetch('/api/grille/organisation/cohorte', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ annee_scolaire: annee, section, ue_num: u.ue_num, num_organisation: u.num_organisation || 1, cohorte }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { setErreur(j.error || `Erreur ${r.status}`); return; }
+    await charger();
+  }
   async function changerClasse(u, bloc) {
     const r = await fetch('/api/grille/organisation/bloc', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ annee_scolaire: annee, section, ue_num: u.ue_num, num_organisation: u.num_organisation || 1, bloc }) });
     const j = await r.json().catch(() => ({}));
@@ -432,9 +445,10 @@ Les étudiants se répartissent ensuite entre les organisations (répartition de
         {face === 'temps' && data && (() => {
           // LES COHORTES : dès qu'une UE du bloc est dédoublée. Sans bloc choisi, celui des UE dédoublées s'il n'y en a qu'un.
           const bl = [...new Set((data.ues || []).filter(u => u.nb_organisations > 1).map(u => String(u.ue_niv || '').toUpperCase()).filter(Boolean))];
-          if (!bl.length) return null;
+          // Dès qu'une UE est dédoublée OU que la section a plus d'une cohorte (3.1.281).
+          if (!bl.length && listeCohortes.length < 2) return null;
           const b = bloc || (bl.length === 1 ? bl[0] : '');
-          return <button className="bouton" disabled={!b} onClick={() => setCohortes(b)} title={b ? `Placer les étudiants de ${b} dans les organisations de toutes les UE dédoublées` : 'Choisissez un bloc'}>Cohortes{b ? ` ${b}` : ''}</button>;
+          return <button className="bouton" disabled={!b} onClick={() => setCohortes(b)} title={b ? `La cohorte de chaque étudiant de ${b}, et son organisation dans les UE dédoublées` : 'Choisissez un bloc'}>Cohortes{b ? ` ${b}` : ''}</button>;
         })()}
         {face === 'temps' && peutEcrire && data && <>
           <button className="bouton" onClick={organisationDeBase} title="Lucie propose les dates de chaque UE d’après le schéma de capitalisation (prérequis), le quadrimestre et l’épreuve intégrée"><IconWand size={15} />Organisation de base</button>
@@ -527,7 +541,7 @@ Les étudiants se répartissent ensuite entre les organisations (répartition de
         <ResumeUE u={ueChoisie} semaines={semaines} peutEcrire={peutEcrire} pendantStage={pendantStage(ueChoisie)}
           onStage={() => basculerStage(ueChoisie)} onConges={() => basculerConges(ueChoisie)} onOuvrir={() => setZoom('ue')}
           onDedoubler={() => dedoubler(ueChoisie)} onRetirerOrg={() => retirerOrganisation(ueChoisie)}
-          blocs={blocs} onClasse={b => changerClasse(ueChoisie, b)} />)}
+          cohortes={listeCohortes} onCohorte={c => changerCohorte(ueChoisie, c)} />)}
 
       {face === 'temps' && data && zoom === 'ue' && ueChoisie && (
         <Rangee ues={ues.filter(u => !u.stage)} rangee={rangee.includes(ueChoisie.cle) ? rangee : [...rangee, ueChoisie.cle]}
@@ -654,22 +668,23 @@ function TuileUE({ u, zoom, choisie, posee, pendantStage, style, onDeplacer, onD
 /** Le nom d'une UE à l'écran : « UE 336 », « UE 336 · org 2 » quand elle est dédoublée. */
 function nomUE(u) { return `${u.stage ? 'Stage' : 'UE'} ${u.ue_num}${u.nb_organisations > 1 ? ` · org ${u.num_organisation}` : ''}`; }
 
-function ResumeUE({ u, semaines, peutEcrire, pendantStage, onStage, onConges, onOuvrir, onDedoubler, onRetirerOrg, blocs = [], onClasse }) {
+function ResumeUE({ u, semaines, peutEcrire, pendantStage, onStage, onConges, onOuvrir, onDedoubler, onRetirerOrg, cohortes = [], onCohorte }) {
   const dt = d => (d ? d.split('-').reverse().slice(0, 2).join('/') : '—');
   return (
     <div className="carte p-3 space-y-2">
       <div className="flex flex-wrap items-center gap-2">
         <b className="text-sm text-iip-blue">{nomUE(u)} — {u.ue_nom}</b>
         <span className="flex-1" />
-        {u.nb_organisations > 1 && (peutEcrire
-          ? <label className="text-second text-slate-600 flex items-center gap-1" title="La classe où cette organisation se donne. UE 77 : org 1 en BA1 pour les nouveaux, org 2 en BA2 pour ceux de l'an dernier. La simulation la place dans l'horaire de cette classe.">
-              Classe
-              <select className="controle" value={u.bloc_propre || ''} onChange={e => onClasse(e.target.value)}>
-                <option value="">{u.bloc_ue || '—'} (celle de l’UE)</option>
-                {[...new Set([...blocs, 'BA1', 'BA2', 'BA3'])].filter(b => b !== u.bloc_ue).sort().map(b => <option key={b} value={b}>{b}</option>)}
+        {/* LA COHORTE QU'ELLE SERT (3.1.281) : sa classe se déduit du schéma de cette cohorte. */}
+        {(u.nb_organisations > 1 || cohortes.length > 1) && (peutEcrire
+          ? <label className="text-second text-slate-600 flex items-center gap-1" title="La cohorte que cette organisation sert. Sa classe (bloc) se lit dans le schéma de capitalisation de cette cohorte.">
+              Cohorte
+              <select className="controle" value={u.cohorte || 1} onChange={e => onCohorte(Number(e.target.value))}>
+                {cohortes.map(c => <option key={c.numero} value={c.numero}>{c.nom}</option>)}
               </select>
             </label>
-          : u.bloc_propre && <span className="text-second text-slate-600">Classe {u.bloc_propre}</span>)}
+          : <span className="text-second text-slate-600">{cohortes.find(c => c.numero === (u.cohorte || 1))?.nom || `Cohorte ${u.cohorte || 1}`}</span>)}
+        {u.hors_schema && <span className="text-second" style={{ color: 'var(--c-attente)' }} title="Ajoutez l'UE au schéma de cette cohorte (Schéma de capitalisation).">UE absente du schéma de cette cohorte</span>}
         {peutEcrire && <button className="bouton" onClick={onDedoubler} title="Une organisation de plus, avec ses propres dates (deux demi-promotions)">Dédoubler</button>}
         {peutEcrire && u.nb_organisations > 1 && u.num_organisation === u.nb_organisations && <button className="bouton" onClick={onRetirerOrg}>Retirer l’org {u.num_organisation}</button>}
         {!u.stage && <button className="bouton bouton-fort" onClick={onOuvrir}>Ouvrir le verre de l’{nomUE(u)}</button>}

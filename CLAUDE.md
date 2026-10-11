@@ -294,6 +294,15 @@ chaque organisation d'UE sert une cohorte (la classe s'en déduit), chaque étud
 appartient à une cohorte (son organisation s'en déduit), les « cohortes » AESI de 3.1.246
 s'y fondent ; lot 3 — le laboratoire, la simulation et l'organisation de base par
 cohorte, une cohorte de janvier sur deux années.
+**Lot 2 (3.1.281, tranché le 11 octobre 2026)** : une nouvelle cohorte NAÎT COPIE du
+schéma de la cohorte 1 de l'année ; chaque organisation d'UE sert une cohorte
+(`organisation_ue.cohorte`, vide = 1 ; sélecteur « Cohorte » de la fiche du laboratoire)
+et sa classe se lit dans le schéma de cette cohorte (la classe posée à la main de 3.1.266
+ne sert plus que de repli) ; chaque étudiant a sa cohorte PAR SECTION ET PAR ANNÉE
+(`etudiant_cohorte`, il peut en changer l'année suivante) — fenêtre *Cohortes* du
+laboratoire, qui passe l'étudiant dans l'organisation qui sert sa cohorte dans chaque UE
+dédoublée (les groupes gardent le dernier mot). L'AESI : DEUX COHORTES (Toussaint–Noël,
+Carnaval–Pâques), pas deux organisations d'une seule.
 
 **ÉVALUATION UNIQUE ≠ ÉPREUVE INTÉGRÉE** (2.12.289, Charles, 28 septembre 2026,
 UE 261 : « une seule évaluation ; la note doit aller aux deux cours »). Une unité
