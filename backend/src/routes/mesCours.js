@@ -163,13 +163,13 @@ function etudiantsDuCours(profId, coursCode, annee) {
    * inscrits de l'unité. On réunit, sans doublon. */
   const repartis = db.prepare(`
     SELECT g.etudiant_id, g.num_organisation, g.groupe_code, COALESCE(g.activite_id, 0) AS activite_id,
-           e.nom, e.prenom, e.id_ecampus
+           e.nom, e.prenom, e.id_ecampus, e.email_ecole
     FROM etudiant_cours_groupe g JOIN etudiant e ON e.id = g.etudiant_id
     WHERE g.annee_scolaire = ? AND g.cours_code = ? AND e.actif = 1
     ORDER BY e.nom, e.prenom
   `).all(annee, coursCode);
   const inscrits = () => db.prepare(`
-    SELECT e.id, e.nom, e.prenom, e.id_ecampus
+    SELECT e.id, e.nom, e.prenom, e.id_ecampus, e.email_ecole
     FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
     WHERE i.annee_scolaire = ? AND i.ue_num = ? AND e.actif = 1
     ORDER BY e.nom, e.prenom
@@ -185,7 +185,7 @@ function etudiantsDuCours(profId, coursCode, annee) {
       repartition = true;
       lot = deLActivite
         .filter(x => (x.num_organisation ?? 1) === a.org && String(x.groupe_code || '') === String(a.groupe || ''))
-        .map(x => ({ id: x.etudiant_id, nom: x.nom, prenom: x.prenom, id_ecampus: x.id_ecampus,
+        .map(x => ({ id: x.etudiant_id, nom: x.nom, prenom: x.prenom, id_ecampus: x.id_ecampus, email_ecole: x.email_ecole,
           groupe: `${prefixe}Org ${x.num_organisation ?? 1}${x.groupe_code ? ` · Gr. ${x.groupe_code}` : ''}` }));
     } else {
       lot = inscrits().map(x => ({ ...x, groupe: a.activite_libelle ? `${a.activite_libelle} · tous` : '' }));
