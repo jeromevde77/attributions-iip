@@ -88,6 +88,22 @@ function oublierEssais(jeton) {
 }
 
 /** La charge utile « user » de la réponse, écrite une seule fois. */
+/* LE PRÉNOM QUAND L'IDENTITÉ NE DIT PAS OÙ COUPER (Charles, 11 octobre 2026 : « Bonjour
+ * Sohet ! »). « Charles Sohet », sans capitales, se lisait selon la convention « NOM Prénom ».
+ * L'adresse de l'école s'écrit « prénom.nom@… » : le mot de l'identité qui ouvre l'adresse
+ * est le prénom. Sinon, la règle commune (`prenomSeul`). */
+function prenomDuCompte(user) {
+  const plat = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const mots = String(user?.nom_complet || '').trim().split(/\s+/).filter(Boolean);
+  const local = plat(String(user?.email || '').split('@')[0]).split(/[._-]/)[0];
+  const sansCapitales = !mots.some(m => m.length > 1 && m === m.toUpperCase() && /[A-ZÀ-Ý]/.test(m));
+  if (sansCapitales && local && mots.length > 1) {
+    const m = mots.find(x => plat(x) === local);
+    if (m) return m.charAt(0).toLocaleUpperCase('fr') + m.slice(1);
+  }
+  return prenomSeul(user?.nom_complet);
+}
+
 function profilPublic(user) {
   /* LE PRÉNOM SE CALCULE ICI, PAS À L'ÉCRAN. L'accueil le devinait en prenant
    * le premier mot de l'identité — ce qui donne le NOM de famille dès qu'elle
@@ -95,7 +111,7 @@ function profilPublic(user) {
    * existe déjà dans `lib/nom.js` ; une seconde, côté écran, aurait fini par
    * dire autre chose. */
   return { id: user.id, email: user.email, role: user.role, nom: user.nom_complet,
-    prenom: prenomSeul(user.nom_complet) || null,
+    prenom: prenomDuCompte(user) || null,
     acces_recrutement: user.acces_recrutement ? 1 : 0, peut_valider: peutValiderAttributions(user),
     // LE LIEN À LA FICHE PROFESSEUR. Le menu montre « Mes cours » à tout compte
     // relié à une fiche — une coordination qui enseigne — et ce champ ne
