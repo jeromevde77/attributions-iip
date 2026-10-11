@@ -1,3 +1,4 @@
+import TuileQuiEstLa from '../components/TuileQuiEstLa.jsx';
 import MessagesRecus from '../components/MessagesRecus.jsx';
 import TuileNouveautes from '../components/TuileNouveautes.jsx';
 import VoeuAnniversaire from '../components/VoeuAnniversaire.jsx';
@@ -705,6 +706,7 @@ export default function Accueil() {
         <div className="mb-4"><MessagesRecus /></div>
         <BlocsPage page="accueil" blocs={[
           { cle: 'nouveautes', titre: 'Quoi de neuf dans Lucie', rendu: <TuileNouveautes /> },
+          { cle: 'quiestla', titre: 'Qui est là ?', rendu: <TuileQuiEstLa /> },
           { cle: 'conventions', titre: 'Conventions à signer', rendu: <ConventionsASigner /> },
           { cle: 'textes', titre: 'Textes à confirmer', rendu: <TextesAConfirmer /> },
           { cle: 'demandes', titre: 'Demandes à valider', rendu: <DemandesAValider /> },

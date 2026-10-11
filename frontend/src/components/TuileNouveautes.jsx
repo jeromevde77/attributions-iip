@@ -29,7 +29,8 @@ export default function TuileNouveautes() {
       const t = await fetch(`/nouveautes/${EDITION}.html`).then(r => r.text()).catch(() => '');
       const d = new DOMParser().parseFromString(t, 'text/html');
       const styles = [...d.querySelectorAll('style')].map(s => s.textContent).join('\n')
-        .replace(/body\s*\{[^}]*\}/, '');                       // le fond de la page seule n'entre pas dans Lucie
+        .replace(/body\s*\{[^}]*\}/, '')                        // le fond de la page seule n'entre pas dans Lucie
+        + '.guide .filtres{position:static}';             // dans une fenêtre, la barre collée laissait le texte passer au-dessus
       setHtml(`<style>${styles}</style>${d.querySelector('.guide')?.outerHTML || '<p>Guide introuvable.</p>'}`);
     }
   }
