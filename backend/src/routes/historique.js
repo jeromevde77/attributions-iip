@@ -618,13 +618,16 @@ r.get('/feed', authRequired, (req, res) => {
     }
   } catch (e) { console.error('[feed] anniversaires :', e.message); }
 
-  // LES MESSAGES DE LA COMMUNICATION (3.1.278) : sur le tableau de bord de chacun.
-  try {
+  // LES MESSAGES DE LA COMMUNICATION (3.1.278) : sur le tableau de bord de chacun. Depuis 3.1.286
+  // ils ont leur propre bloc (MessagesRecus) ; le fil ne les reprend plus, sauf demande (?messages=1).
+  if (req.query.messages === '1') try {
     for (const m of messagesRecus(u)) items.push({
       id: `comm-${m.id}`, type: 'communication', action: 'message',
       titre: m.titre, corps: m.corps_html, auteur: m.cree_par || 'Lucie',
       date: new Date(String(m.envoye_le).replace(' ', 'T') + 'Z').toISOString(),
-      lue: !!m.lu_le, lu_le: m.lu_le, accuse: !!m.accuse_demande,
+      // Un accusé demandé et pas encore donné : le message reste « non lu » jusqu'à l'accusé.
+      lue: m.accuse_demande ? !!m.accuse_le : !!m.lu_le, lu_le: m.lu_le, accuse: !!m.accuse_demande, accuse_le: m.accuse_le,
+      importance: m.importance || 'info', icone: m.icone || null, jusquau: m.jusquau || null,
     });
   } catch (e) { console.error('[feed] communication :', e.message); }
 
@@ -666,7 +669,9 @@ r.get('/feed', authRequired, (req, res) => {
   // Trier par date décroissante
   items.sort((a, b) => new Date(b.date) - new Date(a.date));
   // Les cartes discrètes (les vœux reçus) ne comptent pas dans la pastille : on n'est pas dérangé.
-  const nbNonLus = items.filter(i => !i.lue && !i.discret).length;
+  let nbNonLus = items.filter(i => !i.lue && !i.discret).length;
+  // Les messages non lus comptent dans la pastille, même hors du fil.
+  if (req.query.messages !== '1') { try { nbNonLus += messagesRecus(u).filter(m => (m.accuse_demande ? !m.accuse_le : !m.lu_le)).length; } catch { /* sans messages */ } }
 
   res.json({ items, nbNonLus });
 });

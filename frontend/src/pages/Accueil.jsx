@@ -1,3 +1,4 @@
+import MessagesRecus from '../components/MessagesRecus.jsx';
 import TuileNouveautes from '../components/TuileNouveautes.jsx';
 import VoeuAnniversaire from '../components/VoeuAnniversaire.jsx';
 import FeteAnniversaire from '../components/FeteAnniversaire.jsx';
@@ -699,6 +700,9 @@ export default function Accueil() {
         {/* LES BLOCS DE L'ACCUEIL SE RANGENT (mode mise en page, 3.1.256) : l'administrateur
             les glisse, les masque, les met en demi-largeur ; l'ordre par défaut reste
             « ce qui m'attend avant ce qui s'est passé ». */}
+        {/* LES MESSAGES TOUJOURS EN HAUT (Charles, 11 octobre 2026 : « c'est la priorité que l'info
+            passe ») : hors de la mise en page, ils ne se déplacent ni ne se masquent. */}
+        <div className="mb-4"><MessagesRecus /></div>
         <BlocsPage page="accueil" blocs={[
           { cle: 'nouveautes', titre: 'Quoi de neuf dans Lucie', rendu: <TuileNouveautes /> },
           { cle: 'conventions', titre: 'Conventions à signer', rendu: <ConventionsASigner /> },

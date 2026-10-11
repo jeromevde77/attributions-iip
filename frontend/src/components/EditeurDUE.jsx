@@ -15,9 +15,11 @@ import { Color, TextStyle } from '@tiptap/extension-text-style';
 import { IconArrowBackUp, IconArrowForwardUp, IconBold, IconItalic, IconUnderline, IconList,
   IconSquare, IconSeparatorHorizontal, IconDropletOff } from '@tabler/icons-react';
 
+/* EN VALEURS FIXES : le filtre du serveur (assainirDUE) n'admet que ces cinq teintes écrites
+   ainsi ; une couleur notée « var(--…) » y était retirée sans bruit à l'enregistrement. */
 export const COULEURS_DUE = [
-  ['var(--c-iip_bleu, #19537E)', 'Bleu IIP'], ['#05B7E6', 'Bleu clair IIP'], ['#F9B619', 'Or IIP'],
-  ['var(--c-reussi, #3E7D5E)', 'Vert'], ['#D2335C', 'Fraise'],
+  ['#19537E', 'Bleu IIP'], ['#05B7E6', 'Bleu clair IIP'], ['#F9B619', 'Or IIP'],
+  ['#3E7D5E', 'Vert'], ['#D2335C', 'Fraise'],
 ];
 
 function Bouton({ actif, onClick, titre, children }) {

@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { IconCheck, IconEraser, IconMail, IconSend, IconSpeakerphone, IconTrash, IconUser, IconUserOff, IconX } from '@tabler/icons-react';
+import { IconCheck, IconChecks, IconEraser, IconMail, IconSend, IconSpeakerphone, IconTrash, IconUser, IconUserOff, IconX } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { demander, informer } from '../lib/dialogue.jsx';
 import { Fenetre } from '../components/ui.jsx';
 import ChoixRecherche from '../components/ChoixRecherche.jsx';
+import EditeurDUE from '../components/EditeurDUE.jsx';
+import { ICONES_MESSAGE, IMPORTANCES_MESSAGE } from '../lib/messages.js';
 
 /**
  * LA COMMUNICATION (3.1.278, Charles, 10 octobre 2026 : « envoyer des notifications sur le
@@ -32,6 +34,10 @@ export default function Communication() {
   const [texte, setTexte] = useState('');
   const [crit, setCrit] = useState({ tous: false, sections: [], ues: [], roles: [], professeurs: [], utilisateurs: [] });
   const [courriel, setCourriel] = useState(false);
+  const [importance, setImportance] = useState('info');
+  const [icone, setIcone] = useState('porte-voix');
+  const [accuse, setAccuse] = useState(false);
+  const [jusquau, setJusquau] = useState('');
   const [apercu, setApercu] = useState(null);
   const [voirListe, setVoirListe] = useState(false);
   const [envois, setEnvois] = useState([]);
@@ -62,15 +68,16 @@ export default function Communication() {
   const nomPers = v => (c?.personnes || []).find(p => (p.professeur_id ? `p${p.professeur_id}` : `u${p.utilisateur_id}`) === v)?.nom || v;
 
   async function envoyer() {
-    if (!titre.trim() || !texte.trim() || !apercu?.nb) return;
-    if (!(await demander({ titre: 'Envoyer le message', message: `« ${titre} » à ${apercu.nb} personne(s) — ${apercu.resume}.${courriel ? '\n\nUne copie part aussi par courriel.' : ''}`, confirmer: 'Envoyer' }))) return;
+    if (!titre.trim() || !String(texte).replace(/<[^>]+>/g, '').trim() || !apercu?.nb) return;
+    if (!(await demander({ titre: 'Envoyer le message', message: `« ${titre} » (${IMPORTANCES_MESSAGE[importance].libelle.toLowerCase()}) à ${apercu.nb} personne(s) — ${apercu.resume}.${accuse ? '\n\nUn accusé de lecture est demandé.' : ''}${courriel ? '\n\nUne copie part aussi par courriel.' : ''}`, confirmer: 'Envoyer' }))) return;
     setEnCours(true);
-    const r = await fetch('/api/communication', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ titre, texte, critere: crit, canal_email: courriel, annee }) });
+    const r = await fetch('/api/communication', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ titre, html: texte, critere: crit, canal_email: courriel, annee, importance, icone, accuse_demande: accuse, jusquau: jusquau || null }) });
     const j = await r.json().catch(() => ({}));
     setEnCours(false);
     if (!r.ok) { await informer(`❌ ${j.error || 'Envoi impossible'}`); return; }
     await informer(`✓ Envoyé à ${j.nb} personne(s). Le message est sur leur tableau de bord.`);
     setTitre(''); setTexte(''); setCrit({ tous: false, sections: [], ues: [], roles: [], professeurs: [], utilisateurs: [] }); setCourriel(false);
+    setImportance('info'); setIcone('porte-voix'); setAccuse(false); setJusquau('');
     chargerEnvois();
   }
   /* LE MÉNAGE (3.1.279) : mêmes groupes que l'envoi ; on dit combien de comptes, puis on vide. */
@@ -108,11 +115,42 @@ export default function Communication() {
           <span className="intertitre block mb-1">Titre</span>
           <input value={titre} onChange={e => setTitre(e.target.value)} maxLength={200} className="controle w-full" placeholder="Ex. : Rentrée des enseignants — lundi 12 octobre" data-reponses="non" />
         </label>
-        <label className="block">
+        <div>
           <span className="intertitre block mb-1">Message</span>
-          <textarea value={texte} onChange={e => setTexte(e.target.value)} rows={7} data-reponses="communication"
-            className="w-full border border-slate-300 rounded-champ px-3 py-2 text-sm" placeholder="Une ligne vide sépare deux paragraphes." />
-        </label>
+          {/* L'éditeur de la DUE : votre mise en page arrive telle quelle (3.1.286). */}
+          <div className="border border-slate-300 rounded-champ overflow-hidden" style={{ background: 'var(--blanc)' }}>
+            <EditeurDUE valeur={texte} onChange={setTexte} />
+          </div>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2">
+          <div>
+            <span className="intertitre block mb-1">Importance — la couleur de la carte</span>
+            <div className="flex flex-wrap gap-1.5">
+              {Object.entries(IMPORTANCES_MESSAGE).map(([k, v]) => (
+                <button key={k} type="button" aria-pressed={importance === k} onClick={() => setImportance(k)}
+                  className={`px-2.5 py-1 rounded-pastille text-second border ${importance === k ? 'text-white font-semibold' : 'text-slate-600'}`}
+                  style={importance === k ? { background: v.couleur, borderColor: v.couleur } : { borderColor: v.couleur }}>{v.libelle}</button>))}
+            </div>
+          </div>
+          <div>
+            <span className="intertitre block mb-1">Icône</span>
+            <div className="flex flex-wrap gap-1">
+              {Object.entries(ICONES_MESSAGE).map(([k, { Icone, libelle }]) => (
+                <button key={k} type="button" title={libelle} aria-label={libelle} aria-pressed={icone === k} onClick={() => setIcone(k)}
+                  className={`w-8 h-8 grid place-items-center rounded-champ border ${icone === k ? 'border-[color:var(--c-principal)] bg-slate-100' : 'border-slate-200'}`}>
+                  <Icone size={17} style={{ color: icone === k ? IMPORTANCES_MESSAGE[importance].couleur : undefined }} />
+                </button>))}
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+          <label className="flex items-center gap-2"><input type="checkbox" checked={accuse} onChange={e => setAccuse(e.target.checked)} />
+            Demander un accusé de lecture (« J’en ai pris connaissance »)</label>
+          <label className="flex items-center gap-2">Afficher jusqu’au
+            <input type="date" value={jusquau} onChange={e => setJusquau(e.target.value)} className="controle !h-8" />
+            <span className="text-second text-slate-500">(vide : 60 jours)</span></label>
+        </div>
 
         <div className="space-y-2">
           <span className="intertitre block">Destinataires — les groupes s’additionnent</span>
@@ -161,7 +199,7 @@ export default function Communication() {
           <button className="bouton" disabled={vide || !apercu?.nb} onClick={vider}
             title="Pour les comptes existants parmi ces personnes : retirer de leur tableau de bord les notifications reçues jusqu'ici. Les messages et les vœux restent. Un compte créé plus tard arrive d'office sur un tableau de bord propre.">
             <IconEraser size={15} className="inline -mt-0.5 mr-1" />Vider leurs tableaux de bord</button>
-          <button className="bouton bouton-fort" disabled={enCours || !titre.trim() || !texte.trim() || !apercu?.nb} onClick={envoyer}>
+          <button className="bouton bouton-fort" disabled={enCours || !titre.trim() || !String(texte).replace(/<[^>]+>/g, '').trim() || !apercu?.nb} onClick={envoyer}>
             <IconSend size={15} className="inline -mt-0.5 mr-1" />{enCours ? 'Envoi…' : 'Envoyer'}</button>
         </div>
       </div>
@@ -177,8 +215,10 @@ export default function Communication() {
                     <span className={`text-sm font-medium ${m.retire_le ? 'line-through text-slate-400' : ''}`}>{m.titre}</span>
                     <span className="block text-mention text-slate-500">{heure(m.envoye_le)} · {m.cree_par} · {m.resume_cible}{m.canal_email ? ' · copie courriel' : ''}{m.retire_le ? ` · retiré par ${m.retire_par}` : ''}</span>
                   </span>
+                  <span className="w-1.5 self-stretch rounded-full flex-none" style={{ background: IMPORTANCES_MESSAGE[m.importance || 'info']?.couleur }} title={IMPORTANCES_MESSAGE[m.importance || 'info']?.libelle} />
                   <span className="text-second tabular-nums whitespace-nowrap flex items-center gap-1" style={{ color: m.lus === m.nb ? VERT : undefined }}>
                     <IconCheck size={14} style={{ color: VERT }} /> {m.lus}/{m.nb} lu{m.lus > 1 ? 's' : ''}
+                    {m.accuse_demande ? <> · <IconChecks size={14} style={{ color: VERT }} /> {m.accuses} confirmé{m.accuses > 1 ? 's' : ''}</> : null}
                   </span>
                 </button>))}
             </div>}
@@ -200,17 +240,18 @@ export default function Communication() {
       {detail && (
         <Fenetre titre={detail.titre} sous={`${heure(detail.envoye_le)} · ${detail.cree_par} · ${detail.resume_cible || ''}`} large="grande" onFermer={() => setDetail(null)}
           pied={<>
-            <span className="text-second text-slate-500 min-w-0 flex-1">{detail.destinataires.filter(d => d.lu_le).length} sur {detail.destinataires.length} ont lu.</span>
+            <span className="text-second text-slate-500 min-w-0 flex-1">{detail.destinataires.filter(d => d.lu_le).length} sur {detail.destinataires.length} ont lu{detail.accuse_demande ? ` ; ${detail.destinataires.filter(d => d.accuse_le).length} ont confirmé` : ''}.</span>
             {!detail.retire_le && <button className="bouton bouton-detruire" onClick={() => retirer(detail)}><IconTrash size={14} className="inline -mt-0.5 mr-1" />Retirer</button>}
             <button className="bouton bouton-fort" onClick={() => setDetail(null)}>Fermer</button></>}>
-          <div className="texte-corpus text-sm mb-4 border-l-2 border-slate-200 pl-3" dangerouslySetInnerHTML={{ __html: detail.corps_html }} />
+          <div className="texte-due mb-4 border-l-2 border-slate-200 pl-3" dangerouslySetInnerHTML={{ __html: detail.corps_html }} />
           <ul className="text-sm divide-y divide-slate-100">
             {detail.destinataires.map(d => (
               <li key={d.id} className="py-1.5 flex items-center gap-2">
-                {d.lu_le ? <IconCheck size={16} stroke={2.5} style={{ color: VERT }} title="Lu" /> : <span className="w-4" />}
+                {d.accuse_le ? <IconChecks size={16} stroke={2.5} style={{ color: VERT }} title="Confirmé" />
+                  : d.lu_le ? <IconCheck size={16} stroke={2.5} style={{ color: VERT }} title="Lu" /> : <span className="w-4" />}
                 <span className="flex-1">{d.nom}</span>
                 <span className="text-mention text-slate-400">
-                  {d.lu_le ? `lu le ${heure(d.lu_le)}` : d.compte ? 'pas encore lu' : 'sans compte Lucie'}
+                  {d.accuse_le ? `confirmé le ${heure(d.accuse_le)}` : d.lu_le ? `lu le ${heure(d.lu_le)}${detail.accuse_demande ? ' · pas encore confirmé' : ''}` : d.compte ? 'pas encore lu' : 'sans compte Lucie'}
                   {d.email_envoye_le ? ' · courriel parti' : d.email_erreur ? ' · courriel en échec' : ''}
                 </span>
               </li>))}

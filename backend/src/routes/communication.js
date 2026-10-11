@@ -27,8 +27,15 @@ import db from '../db/index.js';
 import { authRequired, getUserSections, professeurDe } from '../middleware/auth.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { envoyerEmail, templateNotif } from '../services/mailer.js';
+import { assainirDUE } from './due.js';
 
 const r = Router();
+/* L'IMPORTANCE DIT LA COULEUR DE LA CARTE (3.1.286, Charles, 11 octobre 2026 : « des accusés
+   de lecture si besoin, une icône, choisir la couleur de la tuile, importance »). Quatre
+   niveaux, pris dans les états de Lucie — pas une couleur libre : un violet ou un rose
+   choisis au hasard ne voudraient rien dire au lecteur. */
+export const IMPORTANCES = { info: 'Information', important: 'Important', urgent: 'Urgent', positif: 'Bonne nouvelle' };
+export const ICONES = ['porte-voix', 'info', 'calendrier', 'examen', 'document', 'alerte', 'fete', 'reunion', 'horaire', 'lucie'];
 const ENVOYEURS = ['admin', 'directeur', 'directeur_adjoint', 'secretariat', 'editeur', 'coordination'];
 const ROLES = { professeur: 'Enseignants (comptes)', coordination: 'Coordinations', secretariat: 'Secrétariat',
   directeur_adjoint: 'Direction adjointe', directeur: 'Direction', consultation: 'Consultation' };
@@ -43,9 +50,13 @@ try {
       id INTEGER PRIMARY KEY AUTOINCREMENT, communication_id INTEGER NOT NULL REFERENCES communication(id) ON DELETE CASCADE,
       professeur_id INTEGER, utilisateur_id INTEGER, email_cible TEXT, email_envoye_le TEXT, email_erreur TEXT, lu_le TEXT);`);
   const cols = db.prepare('PRAGMA table_info(communication)').all().map(c => c.name);
-  for (const [c, t] of [['cree_par_id', 'INTEGER'], ['retire_le', 'TEXT'], ['retire_par', 'TEXT'], ['resume_cible', 'TEXT']]) {
+  for (const [c, t] of [['cree_par_id', 'INTEGER'], ['retire_le', 'TEXT'], ['retire_par', 'TEXT'], ['resume_cible', 'TEXT'],
+    // 3.1.286 : l'importance (la couleur de la carte), l'icône, la fin d'affichage.
+    ['importance', "TEXT NOT NULL DEFAULT 'info'"], ['icone', 'TEXT'], ['jusquau', 'TEXT']]) {
     if (!cols.includes(c)) db.exec(`ALTER TABLE communication ADD COLUMN ${c} ${t}`);
   }
+  const colsD = db.prepare('PRAGMA table_info(communication_destinataire)').all().map(c => c.name);
+  if (!colsD.includes('accuse_le')) db.exec('ALTER TABLE communication_destinataire ADD COLUMN accuse_le TEXT');
 } catch (e) { console.error('[migration] communication :', e.message); }
 
 const echapper = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -163,17 +174,25 @@ r.post('/', authRequired, async (req, res) => {
   if (!peutEnvoyer(req.user)) return res.status(403).json({ error: 'Envoi réservé.' });
   const b = req.body || {};
   const titre = String(b.titre || '').trim().slice(0, 200);
-  const texte = String(b.texte || '').trim();
+  /* LA MISE EN PAGE DE L'AUTEUR SE GARDE (Charles, 11 octobre 2026 : « le message ne respecte
+     pas ma mise en page ; des petits outils d'édition comme dans la DUE »). Le même éditeur,
+     le même filtre que la DUE : gras, italique, souligné, puces, cadre, ligne, couleurs de la
+     maison — rien d'autre n'entre en base. Un texte simple reste accepté (paragraphes). */
+  const corpsHtml = b.html ? assainirDUE(b.html) : enHtml(b.texte);
+  const texte = corpsHtml.replace(/<[^>]+>/g, '').trim();
   if (!titre || !texte) return res.status(400).json({ error: 'Un titre et un texte, au moins.' });
   const annee = String(b.annee || anneeDeTravail(req));
   const dest = resoudre(b.critere, req.user, annee);
   if (!dest.length) return res.status(400).json({ error: 'Personne ne correspond à ces destinataires.' });
   const parNom = req.user?.nom || req.user?.email || null;
+  const importance = IMPORTANCES[b.importance] ? b.importance : 'info';
+  const icone = ICONES.includes(b.icone) ? b.icone : null;
+  const jusquau = /^\d{4}-\d{2}-\d{2}$/.test(String(b.jusquau || '')) ? b.jusquau : null;
   const id = db.transaction(() => {
     const info = db.prepare(`INSERT INTO communication (titre, corps_html, canal_inapp, canal_email, accuse_demande, critere_json, annee_scolaire,
-        statut, cree_par, cree_par_id, envoye_le, resume_cible) VALUES (?,?,1,?,?,?,?, 'envoye', ?, ?, datetime('now'), ?)`)
-      .run(titre, enHtml(texte), b.canal_email ? 1 : 0, b.accuse_demande ? 1 : 0, JSON.stringify(b.critere || {}), annee,
-        parNom, req.user?.id ?? null, resumeCritere(b.critere || {}, annee));
+        statut, cree_par, cree_par_id, envoye_le, resume_cible, importance, icone, jusquau) VALUES (?,?,1,?,?,?,?, 'envoye', ?, ?, datetime('now'), ?, ?, ?, ?)`)
+      .run(titre, corpsHtml, b.canal_email ? 1 : 0, b.accuse_demande ? 1 : 0, JSON.stringify(b.critere || {}), annee,
+        parNom, req.user?.id ?? null, resumeCritere(b.critere || {}, annee), importance, icone, jusquau);
     const cid = Number(info.lastInsertRowid);
     const ins = db.prepare('INSERT INTO communication_destinataire (communication_id, professeur_id, utilisateur_id, email_cible) VALUES (?,?,?,?)');
     for (const d of dest) ins.run(cid, d.professeur_id, d.utilisateur_id, b.canal_email ? d.email : null);
@@ -183,7 +202,7 @@ r.post('/', authRequired, async (req, res) => {
 
   // La copie par courriel part après la réponse : l'écran n'attend pas cinquante envois.
   if (b.canal_email) {
-    const html = templateNotif({ titre, corps: `${enHtml(texte)}<p style="color:#6b7280;font-size:12px">Envoyé par ${echapper(parNom || 'Lucie')} — à retrouver sur votre tableau de bord Lucie.</p>`, lien: '/accueil' });
+    const html = templateNotif({ titre, corps: `${corpsHtml}<p style="color:#6b7280;font-size:12px">Envoyé par ${echapper(parNom || 'Lucie')} — à retrouver sur votre tableau de bord Lucie.</p>`, lien: '/accueil' });
     for (const d of db.prepare('SELECT id, email_cible FROM communication_destinataire WHERE communication_id = ? AND email_cible IS NOT NULL').all(id)) {
       try {
         await envoyerEmail({ to: d.email_cible, subject: titre, html });
@@ -199,9 +218,16 @@ r.get('/envoyes', authRequired, (req, res) => {
   const tous = getUserSections(req.user) === null;
   const l = db.prepare(`SELECT c.id, c.titre, c.cree_par, c.envoye_le, c.retire_le, c.retire_par, c.canal_email, c.accuse_demande, c.resume_cible,
       (SELECT COUNT(*) FROM communication_destinataire d WHERE d.communication_id = c.id) nb,
-      (SELECT COUNT(*) FROM communication_destinataire d WHERE d.communication_id = c.id AND d.lu_le IS NOT NULL) lus
+      (SELECT COUNT(*) FROM communication_destinataire d WHERE d.communication_id = c.id AND d.lu_le IS NOT NULL) lus,
+      (SELECT COUNT(*) FROM communication_destinataire d WHERE d.communication_id = c.id AND d.accuse_le IS NOT NULL) accuses,
+      c.importance, c.icone, c.jusquau
     FROM communication c WHERE c.statut = 'envoye' ${tous ? '' : 'AND c.cree_par_id = ?'} ORDER BY c.id DESC LIMIT 200`).all(...(tous ? [] : [req.user.id]));
   res.json(l);
+});
+
+/** Mes messages reçus (3.1.286) : le bloc « Messages » du tableau de bord. Ouvert à tous. */
+r.get('/recus', authRequired, (req, res) => {
+  res.json(messagesRecus(req.user));
 });
 
 r.get('/:id', authRequired, (req, res) => {
@@ -212,7 +238,7 @@ r.get('/:id', authRequired, (req, res) => {
   const dest = db.prepare(`SELECT d.*, p.nom, p.prenom, u.nom_complet, u.email FROM communication_destinataire d
       LEFT JOIN professeur p ON p.id = d.professeur_id LEFT JOIN utilisateur u ON u.id = d.utilisateur_id
       WHERE d.communication_id = ?`).all(c.id)
-    .map(d => ({ id: d.id, nom: d.nom ? nomDe(d) : (d.nom_complet || d.email), compte: !!d.utilisateur_id, lu_le: d.lu_le,
+    .map(d => ({ id: d.id, nom: d.nom ? nomDe(d) : (d.nom_complet || d.email), compte: !!d.utilisateur_id, lu_le: d.lu_le, accuse_le: d.accuse_le,
       email: d.email_cible, email_envoye_le: d.email_envoye_le, email_erreur: d.email_erreur }))
     .sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
   res.json({ ...c, destinataires: dest });
@@ -263,12 +289,23 @@ export function videLe(userId) {
   try { return db.prepare('SELECT vide_le FROM tableau_vide WHERE utilisateur_id = ?').get(userId)?.vide_le || null; } catch { return null; }
 }
 
+/** « J'en ai pris connaissance » : l'accusé de lecture, quand l'auteur l'a demandé. Il vaut lecture. */
+r.post('/:id/accuse', authRequired, (req, res) => {
+  const moi = professeurDe(req.user);
+  db.prepare(`UPDATE communication_destinataire SET accuse_le = COALESCE(accuse_le, datetime('now')), lu_le = COALESCE(lu_le, datetime('now'))
+    WHERE communication_id = ? AND (utilisateur_id = ? OR (? IS NOT NULL AND professeur_id = ?))`).run(Number(req.params.id), req.user.id, moi, moi);
+  res.json({ ok: true });
+});
+
 /** Les messages reçus, pour le tableau de bord. */
 export function messagesRecus(user) {
   const moi = professeurDe(user);
-  return db.prepare(`SELECT c.id, c.titre, c.corps_html, c.cree_par, c.envoye_le, c.accuse_demande, MAX(d.lu_le) lu_le
+  return db.prepare(`SELECT c.id, c.titre, c.corps_html, c.cree_par, c.envoye_le, c.accuse_demande, c.importance, c.icone, c.jusquau,
+        MAX(d.lu_le) lu_le, MAX(d.accuse_le) accuse_le
       FROM communication_destinataire d JOIN communication c ON c.id = d.communication_id
       WHERE c.statut = 'envoye' AND c.retire_le IS NULL AND c.envoye_le >= datetime('now', '-60 days')
+        -- Passée la date de fin d'affichage, le message quitte le tableau de bord (il reste au registre).
+        AND (c.jusquau IS NULL OR c.jusquau >= date('now'))
         AND (d.utilisateur_id = ? OR (? IS NOT NULL AND d.professeur_id = ?))
       GROUP BY c.id ORDER BY c.id DESC`).all(user.id, moi, moi);
 }
