@@ -16,7 +16,16 @@ export default function BlocsPage({ page, blocs }) {
   const mep = useMiseEnPage();
   const r = mep.conf.pages?.[page] || {};
   const ordre = r.ordre || [];
-  const rang = c => { const i = ordre.indexOf(c); return i < 0 ? 1000 + blocs.findIndex(b => b.cle === c) : i; };
+  /* UN BLOC NOUVEAU PREND LA PLACE OÙ IL EST DÉCLARÉ (3.1.286) : rangé après tout le reste, la
+     tuile « Quoi de neuf » tombait sous le fil d'activité, faute de figurer dans un ordre enregistré
+     avant elle. Il se place juste avant le premier bloc rangé qui le suit dans la déclaration. */
+  const rang = c => {
+    const i = ordre.indexOf(c);
+    if (i >= 0) return i;
+    const d = blocs.findIndex(b => b.cle === c);
+    const suivant = blocs.slice(d + 1).map(b => ordre.indexOf(b.cle)).find(x => x >= 0);
+    return (suivant ?? ordre.length) - 0.5 + d / 1000;
+  };
   const ranges = [...blocs].sort((a, b) => rang(a.cle) - rang(b.cle));
   const masques = new Set(r.masques || []), demis = new Set(r.demis || []);
   const maj = f => changerMiseEnPage(c => ({ ...c, pages: { ...(c.pages || {}), [page]: f({ ordre: ranges.map(b => b.cle), masques: [...masques], demis: [...demis], ...(c.pages?.[page] || {}) }) } }));

@@ -690,7 +690,7 @@ const para = t => String(t || '').split(/\n+/).filter(Boolean)
 /* LE FILTRE DE LA DUE (Charles, 8 octobre 2026 : « pas trop de choix ») : gras,
    italique, souligné, puces, cadre, ligne, et cinq couleurs — rien d'autre. */
 const COULEURS_DUE = ['#19537E', '#05B7E6', '#F9B619', '#3E7D5E', '#D2335C'];
-function assainirDUE(html) {
+export function assainirDUE(html) {
   return sanitizeHtml(String(html || ''), {
     allowedTags: ['p', 'br', 'hr', 'blockquote', 'strong', 'b', 'em', 'i', 'u', 'span', 'ul', 'li'],
     allowedAttributes: { span: ['style'] },

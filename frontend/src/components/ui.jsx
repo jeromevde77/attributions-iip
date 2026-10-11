@@ -561,8 +561,11 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
                   className={`relative ${it.sous?.length > 0 ? `${epingle ? '' : 'w-9 mx-auto'} rounded-carte mb-0.5` : ''}`}
                   data-plateau={it.sous?.length > 0 ? '1' : undefined}
                   style={it.sous?.length > 0 ? { background: 'var(--menu-plateau)' } : undefined}>
-                <button key={it.key} onClick={it.onClick} aria-label={it.label}
-                  onMouseEnter={e => !epingle && surviser(e, it.label)}
+                <button key={it.key} onClick={it.bloque ? undefined : it.onClick} aria-label={it.label}
+                  disabled={it.bloque || undefined}
+                  /* « BIENTÔT » (Charles, 11 octobre 2026) : une fonction pas encore en service se
+                     voit grisée, badge « soon » ; bloquée, elle ne s'ouvre pas du tout. */
+                  onMouseEnter={e => !epingle && surviser(e, it.bientot ? `${it.label} — bientôt${it.bloque ? ' (pas encore en service)' : ' (version temporaire)'}` : it.label)}
                   onMouseLeave={() => setSurvol(null)}
                   /* UNE CASE CARRÉE, ET TOUTES DE LA MÊME TAILLE.
                      Les entrées étaient des boutons pleine largeur alignés en
@@ -589,6 +592,9 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
                     : { color: 'var(--menu-texte-doux)' }}
                   onFocus={undefined}
                   data-case-rail={epingle ? undefined : '1'}>
+                  {it.bientot && (
+                    <span aria-hidden="true" className="absolute -top-1 -right-1 z-[1] px-1 rounded-pastille text-[8px] font-bold leading-[12px] text-white"
+                      style={{ background: 'var(--c-attente)' }}>soon</span>)}
                   {/* CELLE-CI A OUVERT QUELQUE CHOSE.
                       Un rail de trois pixels collé au bord de la tuile a été
                       essayé : vu à l'écran, il barre le côté gauche et écrase
@@ -609,7 +615,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
                     /* L'ACCENT VA À LA RUBRIQUE ACTIVE, ET À ELLE SEULE.
                        Le donner aussi à celle qui « porte » le tiroir peignait
                        une icône au hasard — la dernière de l'axe. */
-                    <Ic size={19} stroke={1.8} className="flex-shrink-0"
+                    <Ic size={19} stroke={1.8} className={`flex-shrink-0 ${it.bientot ? 'opacity-40' : ''}`}
                       style={it.sous?.length > 0 ? { color: 'var(--ic, var(--menu-icone))' }
                         : it.actif ? { color: 'var(--menu-accent)' }
                         : { color: it.couleur || 'var(--menu-icone)' }} />
@@ -630,7 +636,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
                       les PAE de l'année suivante » ne tient pas en deux cent
                       quarante pixels, et débordait du rail. */}
                   <span className={`text-left leading-tight min-w-0 flex-1
-                    break-words ${reveal}`}>
+                    break-words ${reveal} ${it.bientot ? 'opacity-50' : ''}`}>
                     {it.label}
                   </span>
                 </button>

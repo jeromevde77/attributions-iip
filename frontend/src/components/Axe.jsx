@@ -150,6 +150,7 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial,
       // volet ajouté sans icône reste utilisable.
       icon: o.icone || icone,
       actif: actif === o.key,
+      bientot: !!o.bientot, bloque: !!o.bloque,
       onClick: () => setActif(o.key),
   });
 

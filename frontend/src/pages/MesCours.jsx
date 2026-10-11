@@ -8,7 +8,7 @@ import { authHeaders, getAnnee } from '../lib/api.js';
 import { MOTIFS_ECHEC } from '../components/motifsEchec.js';
 import PresencesCours from '../components/PresencesCours.jsx';
 import IndicateursNotes from '../components/IndicateursNotes.jsx';
-import { OuvrirEditions, RailLateral } from '../components/ui.jsx';
+import { OuvrirEditions, RailLateral, Encadre } from '../components/ui.jsx';
 import AvisValorisationProf from '../components/AvisValorisationProf.jsx';
 import AvisAmenagementProf from '../components/AvisAmenagementProf.jsx';
 import AtelierUE from './AtelierUE.jsx';
@@ -160,7 +160,8 @@ export default function MesCours() {
         ...(ouvert && !vueDue ? [
           { key: 'notes', label: 'Notes du cours', icon: IconPencil, actif: face === 'notes', onClick: () => setFace('notes') },
           { key: 'indicateurs', label: 'Indicateurs', icon: IconChartHistogram, actif: face === 'indicateurs', onClick: () => setFace('indicateurs') },
-          { key: 'presences', label: 'Présences', icon: IconUserCheck, actif: face === 'presences', onClick: () => setFace('presences') },
+          // PAS ENCORE EN SERVICE (Charles, 11 octobre 2026) : grisé, badge « soon », bloqué.
+          { key: 'presences', label: 'Présences', icon: IconUserCheck, actif: false, bientot: true, bloque: true, onClick: () => {} },
         ] : []),
       ] }]} />
     {vueDue ? <div className="gouttiere-rail"><AtelierUE faces={['croisement', 'descriptif']} face={faceDue} onFace={setFaceDue} railPropre={false} /></div> : (
@@ -430,11 +431,17 @@ export default function MesCours() {
                 présences séance par séance — celles-ci partent sur les
                 attestations du congé-éducation payé. */}
             <div className="flex items-center gap-1 border-b border-slate-200">
-              {[['notes', 'Notes'], ['indicateurs', 'Indicateurs'], ['presences', 'Présences']].map(([k, l]) => (
+              {[['notes', 'Notes'], ['indicateurs', 'Indicateurs']].map(([k, l]) => (
                 <button key={k} type="button" onClick={() => setFace(k)}
                   className={`onglet-page ${face === k ? 'onglet-page-actif' : ''}`}>{l}</button>
               ))}
+              {/* Les présences : pas encore en service (Charles, 11 octobre 2026). */}
+              <span className="onglet-page opacity-50 cursor-not-allowed inline-flex items-center gap-1" title="Bientôt : la prise des présences n’est pas encore en service">
+                Présences <span className="px-1 rounded-pastille text-[9px] font-bold text-white" style={{ background: 'var(--c-attente)' }}>soon</span>
+              </span>
             </div>
+            {/* LES LISTES : VERSION TEMPORAIRE (Charles, 11 octobre 2026). */}
+            <Encadre etat="surveiller" titre="Liste temporaire">Les listes d’étudiants ne sont pas encore validées par les coordinations : des groupes doivent encore être encodés et certains étudiants retirés. Ce sera fait dans les prochains jours.</Encadre>
             {feuille && (
               <div className="flex flex-wrap items-center gap-2">
                 {groupesDispo.length > 0 && (
@@ -452,7 +459,7 @@ export default function MesCours() {
                     description: 'Avec une colonne de signature', onClick: () => imprimerGroupes() }]} />
               </div>
             )}
-            {face === 'presences' && <PresencesCours coursCode={ouvert} annee={annee} />}
+            {face === 'presences' && <Encadre etat="neutre" titre="Bientôt">La prise des présences n’est pas encore en service.</Encadre>}
             {/* LES INDICATEURS DU COURS (8 octobre 2026) : sur les étudiants affichés
                 (le groupe choisi), notes tapées comprises. */}
             {face === 'indicateurs' && feuille && (
