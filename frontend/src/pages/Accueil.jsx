@@ -1,3 +1,4 @@
+import TuileNouveautes from '../components/TuileNouveautes.jsx';
 import VoeuAnniversaire from '../components/VoeuAnniversaire.jsx';
 import FeteAnniversaire from '../components/FeteAnniversaire.jsx';
 import { ICONE_AXE } from '../lib/iconesAxes.js';
@@ -699,6 +700,7 @@ export default function Accueil() {
             les glisse, les masque, les met en demi-largeur ; l'ordre par défaut reste
             « ce qui m'attend avant ce qui s'est passé ». */}
         <BlocsPage page="accueil" blocs={[
+          { cle: 'nouveautes', titre: 'Quoi de neuf dans Lucie', rendu: <TuileNouveautes /> },
           { cle: 'conventions', titre: 'Conventions à signer', rendu: <ConventionsASigner /> },
           { cle: 'textes', titre: 'Textes à confirmer', rendu: <TextesAConfirmer /> },
           { cle: 'demandes', titre: 'Demandes à valider', rendu: <DemandesAValider /> },

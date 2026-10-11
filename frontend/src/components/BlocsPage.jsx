@@ -1,5 +1,6 @@
 import { IconEye, IconEyeOff, IconGripVertical, IconColumns1, IconColumns2 } from '@tabler/icons-react';
-import { useMiseEnPage, changerMiseEnPage, deplacer, poigneeGlisser } from '../lib/miseEnPage.js';
+import { useMiseEnPage, changerMiseEnPage, deplacer, poigneeGlisser, basculerMiseEnPage } from '../lib/miseEnPage.js';
+import { getUser } from '../lib/api.js';
 
 /**
  * LES BLOCS D'UNE PAGE, RANGÉS PAR L'ADMINISTRATEUR (3.1.256, Charles, 10 octobre
@@ -36,6 +37,14 @@ export default function BlocsPage({ page, blocs }) {
             </div>)}
           {b.rendu}
         </div>))}
+      {/* UN BLOC MASQUÉ NE DOIT PAS SE FAIRE OUBLIER (Charles, 11 octobre 2026 : « tableau de bord
+          vide ! » — le fil et les tâches avaient été masqués). L'administrateur, seul à pouvoir
+          les réafficher, le lit ici. */}
+      {!mep.actif && getUser()?.role === 'admin' && blocs.some(b => masques.has(b.cle)) && (
+        <p className="lg:col-span-2 text-second text-slate-500">
+          {blocs.filter(b => masques.has(b.cle)).length} bloc(s) masqué(s) par la mise en page : {blocs.filter(b => masques.has(b.cle)).map(b => b.titre || b.cle).join(', ')}.{' '}
+          <button type="button" className="underline" onClick={basculerMiseEnPage}>Mise en page</button> pour les réafficher.
+        </p>)}
     </div>
   );
 }
