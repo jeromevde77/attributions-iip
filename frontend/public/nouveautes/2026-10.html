@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lucie, quoi de neuf</title>
+<style>body { margin: 0; padding: 1.5rem 1rem; background: #F6F8FB; font-family: system-ui, sans-serif; }
+/* Le guide des nouveautés, dans Lucie (tuile du tableau de bord) ou seul. Tout est limité à
+   .guide ; les couleurs suivent le thème de Lucie, avec la charte en repli. */
+.guide { --papier: var(--blanc, #fff); --encre: var(--c-texte, #16263A); --doux: rgb(var(--gris-500, 91 107 127)); --filet: rgb(var(--gris-200, 220 227 236));
+  --marine: var(--c-principal, #16406A); --or: var(--c-iip_or, #C98A0B); --cyan: var(--c-accent, #0B8DB3); --vert: var(--c-reussi, #2F7D57); --ocre: var(--c-attente, #B45309);
+  color: var(--encre); font-size: 15px; line-height: 1.6; }
+.guide * { box-sizing: border-box; }
+.guide .page { max-width: 46rem; margin: 0 auto; }
+.guide header h1 { font-size: 1.9rem; line-height: 1.15; font-weight: 700; color: var(--marine); margin: 0 0 .5rem; text-wrap: balance; }
+.guide header p { color: var(--doux); margin: 0 0 .25rem; }
+.guide .versions { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; margin: .75rem 0 0; font-size: .85rem; color: var(--doux); }
+.guide .versions b { color: var(--encre); font-variant-numeric: tabular-nums; }
+.guide .jours { margin-top: 1.25rem; display: grid; gap: .8rem; }
+.guide .jour { background: var(--papier); border: 1px solid var(--filet); border-radius: 10px; padding: .8rem 1rem; }
+.guide .jour h2 { margin: 0 0 .35rem; font-size: 1.05rem; color: var(--marine); }
+.guide .jour ul { margin: 0; padding-left: 1.2rem; list-style: disc; }
+.guide .jour li { margin: .15rem 0; }
+.guide .jour .n { color: var(--doux); font-size: .8rem; font-weight: 400; }
+.guide .filtres { position: sticky; top: 0; z-index: 2; background: var(--papier); padding-block: .7rem; margin-top: 1.25rem; border-bottom: 1px solid var(--filet); display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+.guide .filtres span { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--doux); margin-right: .25rem; }
+.guide .filtres button { font-weight: 600; font-size: .85rem; color: var(--encre); background: var(--papier); border: 1px solid var(--filet); border-radius: 999px; padding: .25rem .75rem; cursor: pointer; }
+.guide .filtres button[aria-pressed="true"] { background: var(--marine); border-color: var(--marine); color: #fff; }
+.guide main h2 { font-size: 1.25rem; font-weight: 700; color: var(--marine); margin: 2rem 0 .2rem; }
+.guide h2 + .intro { color: var(--doux); margin: 0 0 .75rem; }
+.guide .nouveau { border-top: 1px solid var(--filet); padding-block: 1rem; }
+.guide .nouveau h3 { font-weight: 700; font-size: 1rem; margin: 0 0 .3rem; }
+.guide .nouveau p { margin: .3rem 0; }
+.guide .nouveau ol { list-style: decimal; } .guide .nouveau ul { list-style: disc; }
+.guide .nouveau ol, .guide .nouveau ul { margin: .35rem 0; padding-left: 1.3rem; }
+.guide .ou { display: inline-block; font-size: .85rem; color: var(--doux); }
+.guide .ou b { color: var(--encre); font-weight: 600; }
+.guide .etiquettes { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .5rem; }
+.guide .etiquette { font-size: .72rem; font-weight: 600; padding: .05rem .5rem; border-radius: 4px; border: 1px solid var(--filet); color: var(--doux); }
+.guide .prod { border-color: var(--vert); color: var(--vert); } .guide .dev { border-color: var(--ocre); color: var(--ocre); }
+.guide .astuce { border-left: 3px solid var(--or); padding: .15rem 0 .15rem .75rem; margin: .5rem 0; }
+.guide .avenir { margin-top: 2rem; padding: 1rem 1.1rem; background: var(--papier); border: 1px solid var(--filet); border-radius: 10px; }
+.guide .avenir h2 { margin-top: 0; } .guide .avenir ul { list-style: disc; padding-left: 1.2rem; }
+.guide footer { margin-top: 2rem; font-size: .85rem; color: var(--doux); }
+</style></head>
+<body><div class="guide"><div class="page">
+<header>
+  <h1>Lucie, quoi de neuf</h1>
+  <p>Tout ce qui a changé dans Lucie depuis le jeudi 8 octobre 2026 : d'abord la liste jour par jour, puis le guide rangé par public, qui dit où trouver chaque nouveauté et comment s'en servir.</p>
+  <div class="versions">
+    <span>Version décrite : <b>3.1.283</b>, en production (www.lucie-iip.be)</span>
+  </div>
+</header>
+
+
+<section class="jours" aria-label="Jour par jour">
+  <div class="jour">
+    <h2>Jeudi 8 octobre <span class="n">· 3.1.130 à 3.1.175</span></h2>
+    <ul>
+      <li><b>Mes cours</b> : onglet Indicateurs (moyenne, médiane, histogramme, notes à 8-9) ; reprise automatique des notes dans l'encodage officiel ; notification « Notes complètes » au secrétariat.</li>
+      <li><b>Encodage des notes d'une unité</b> refondu : cases sans cadre, échec en brique, notes de cours et d'unité en pastille.</li>
+      <li><b>L'unité en trois étapes</b> : croiser acquis × programme, pondérer, décrire (DUE). La DUE au style Lucie, rédigée par la coordination, visible dans Mes cours.</li>
+      <li><b>Rapport statistique</b> devenu un outil de Gestion : tuiles, coût complet poste par poste, coût moyen brut (106 € la période du supérieur), ETP par section, sexe et nationalités.</li>
+      <li><b>Supplément au diplôme</b> (Europass), ses huit rubriques, avec micro-texte de sécurité.</li>
+      <li><b>Stages</b> : import du relevé des stages effectués ; fiche étudiant en tableau à volets, total en tête.</li>
+      <li>Inscrits prévus justes (tronc commun Optométrie–Orthoptie), import des orthoptistes de la HELB, droits perçus par la HELB à zéro pour l'IIP.</li>
+    </ul>
+  </div>
+  <div class="jour">
+    <h2>Vendredi 9 octobre <span class="n">· 3.1.176 à 3.1.227</span></h2>
+    <ul>
+      <li><b>Délibération</b> : les PP, NP et CM pré-délibérés d'abord, dans un tableau qui se retourne ; le NA garde sa note (« NA 9 ») ; synthèse des décisions ; la file de revue ne reprend que ce qui reste à décider.</li>
+      <li><b>Pièces de délibération</b> : motivations d'ajournement et de refus signées et protégées, aussi en première session ; PV anonymisé par matricule ; ajournés par cours pour les chargés de cours ; nombre de pages constaté.</li>
+      <li><b>Valorisation</b> : envoi par étudiant (chacun reçoit sa propre attestation) ; notification signée.</li>
+      <li><b>Galerie des pièces</b> : « Modifier le modèle » — le texte de chaque pièce se corrige sur place ; aperçu en PDF avec le pied sur chaque feuille.</li>
+      <li><b>L'atelier de Lucie</b> : composer un modèle de lettre en glissant des éléments, ruban façon Word, lettres individuelles avec les données de l'étudiant, signature du directeur.</li>
+      <li><b>Groupes communs et simulation de l'année</b> : les TP d'un bloc coupés en briques ; Lucie propose un horaire régulier, avec ses locaux et les priorités de la section, en alternative à l'horaire actuel.</li>
+      <li>Étudiants : filtre « dossier incomplet » ; dispenses lues partout de la même façon.</li>
+    </ul>
+  </div>
+  <div class="jour">
+    <h2>Samedi 10 octobre <span class="n">· 3.1.228 à 3.1.271</span></h2>
+    <ul>
+      <li><b>Le laboratoire temporel</b> : l'année en tuiles, les couches, le verre ; remplir depuis les attributions ; plan enregistré, versé dans l'horaire ; grand nettoyage avec sauvegarde.</li>
+      <li><b>Disponibilités</b> des enseignants (vert, orange, rouge), communes à toutes leurs sections ; <b>planning de l'école</b> (base et contraintes peintes).</li>
+      <li>UE et stages <b>en deux organisations</b> ; organisation de base proposée par Lucie ; bloc et quadrimestre lus dans le schéma de la section ; les groupes font foi.</li>
+      <li><b>Apparence réglable</b> : formes et composants, toutes les zones et couleurs, catalogue des éléments, thème sombre ; mode mise en page ; plusieurs établissements avec leurs logos.</li>
+      <li><b>« Annuler »</b> : le dernier réglage, puis tous vos gestes (bouton ↶, 10 derniers).</li>
+      <li>Badge et filtre <b>primo</b> ; nombre d'étudiants au laboratoire ; <b>fête d'anniversaire</b> et vœux.</li>
+      <li>Budget : section modifiable, « Autres », compte cherché en tapant.</li>
+    </ul>
+  </div>
+  <div class="jour">
+    <h2>Dimanche 11 octobre <span class="n">· 3.1.272 à 3.1.283</span></h2>
+    <ul>
+      <li><b>Communication</b> : messages au tableau de bord par groupes, ✓ vert à la lecture, registre, retrait ; ménage des tableaux de bord.</li>
+      <li>Anniversaires visibles par tout le personnel ; budget : référentiel des comptes corrigé.</li>
+      <li>Thème sombre : les derniers bandeaux clairs corrigés.</li>
+      <li>Un compte neuf arrive sur un tableau de bord propre ; la tuile <b>« Quoi de neuf dans Lucie ? »</b> sur le tableau de bord.</li>
+      <li><b>Cohortes</b> : plusieurs cohortes par section, chacune son schéma ; organisations et étudiants rattachés à une cohorte.</li>
+    </ul>
+  </div>
+</section>
+
+<nav class="filtres" aria-label="Filtrer par public">
+  <span>Pour</span>
+  <button type="button" data-public="tous" aria-pressed="true">Tout voir</button>
+  <button type="button" data-public="ens" aria-pressed="false">Enseignants</button>
+  <button type="button" data-public="sec" aria-pressed="false">Secrétariat</button>
+  <button type="button" data-public="coo" aria-pressed="false">Coordinations</button>
+  <button type="button" data-public="dir" aria-pressed="false">Direction</button>
+</nav>
+
+<main>
+<h2>Pour tout le monde</h2>
+<p class="intro">Ce que chacun voit dès qu'il ouvre Lucie.</p>
+
+<article class="nouveau" data-pour="ens sec coo dir">
+  <h3>Revenir en arrière : le bouton ↶</h3>
+  <span class="ou">Où : <b>barre du haut</b>, à côté de la loupe de recherche.</span>
+  <p>Il liste vos 10 derniers enregistrements, dits en mots, avec l'heure. « Revenir avant ce geste » défait ce geste et ceux qui ont suivi, du plus récent au plus ancien.</p>
+  <ul>
+    <li>Un clic compte pour un seul geste, même s'il a modifié trente lignes.</li>
+    <li>Lucie refuse si quelqu'un a modifié la même chose depuis, et dit qui. Rien n'est alors changé.</li>
+    <li>Les actes officiels ne s'annulent jamais ici : séance close, valorisation validée ou notifiée, présences, recours, courriels envoyés, textes publiés. Ils se reprennent par leur procédure.</li>
+  </ul>
+  <div class="etiquettes"><span class="etiquette prod">En production</span></div>
+</article>
+
+<article class="nouveau" data-pour="ens sec coo dir">
+  <h3>Les messages de l'école, sur votre tableau de bord</h3>
+  <span class="ou">Où : <b>Tableau de bord</b>, carte « Message ».</span>
+  <p>La direction, le secrétariat et les coordinations peuvent vous écrire directement dans Lucie. Le message attend sur votre tableau de bord ; une copie par courriel peut l'accompagner.</p>
+  <p>Cliquez « Marquer comme lu » : la carte affiche alors un ✓ Lu vert, et l'auteur sait que vous l'avez lu.</p>
+  <div class="etiquettes"><span class="etiquette prod">En production</span></div>
+</article>
+
+<article class="nouveau" data-pour="ens sec coo dir">
+  <h3>Les anniversaires, et les vœux</h3>
+  <span class="ou">Où : <b>Tableau de bord</b>, le jour même.</span>
+  <p>Le jour d'un anniversaire, la carte se met en fête. Tout le personnel de l'année la voit désormais. L'âge reste réservé à qui gère le personnel.</p>
+  <ol>
+    <li>Cliquez <b>♡ Souhaiter</b> : un vœu d'un clic.</li>
+    <li>Si vous voulez, ajoutez <b>Un petit mot</b> de 100 caractères au plus.</li>
+  </ol>
+  <p>La personne fêtée reçoit une seule carte, « Vous avez reçu … vœux pour votre anniversaire ! », avec vos noms et vos mots. Cette carte ne s'ajoute pas au compteur des notifications : elle ne dérange pas.</p>
+  <div class="etiquettes"><span class="etiquette prod">En production</span></div>
+</article>
+
+<article class="nouveau" data-pour="ens sec coo dir">
+  <h3>Les longues listes se cherchent en tapant</h3>
+  <p>Là où une liste déroulante était trop longue, on tape un mot, un morceau de mot ou un numéro, dans n'importe quel ordre et sans accents. La liste se réduit. ↑ ↓ pour choisir, Entrée pour valider. Premier endroit : le compte général du budget.</p>
+  <div class="etiquettes"><span class="etiquette prod">En production</span></div>
+</article>
+
+<h2>Notes et délibération</h2>
+<p class="intro">Jeudi et vendredi.</p>
+
+<article class="nouveau" data-pour="ens sec coo dir">
+  <h3>Mes cours : les indicateurs de mes notes</h3>
+  <span class="ou">Où : <b>Mes cours → Indicateurs</b>.</span>
+  <p>Pour un cours : moyenne, médiane, écart type, réussites et échecs, notes à 8 ou 9, mentions PP, NP et CM comptées une à une, et un histogramme de 0 à 20. Quand toutes vos notes sont posées, le secrétariat reçoit « Notes complètes » ; vos notes passent d'elles-mêmes dans l'encodage officiel.</p>
+  <div class="etiquettes"><span class="etiquette prod">En production</span></div>
+</article>
+
+<article class="nouveau" data-pour="sec coo dir">
+  <h3>Délibérer : les absents d'abord, puis le reste</h3>
+  <span class="ou">Où : <b>Étudiants → Délibération</b>.</span>
+  <ul>
+    <li>Après les réussites de plein droit, une étape classe les <b>PP, NP et CM</b> (pas présenté, rien produit, certificat médical), chacun avec sa justification, dans un tableau qui se retourne : par cours, ou par acquis.</li>
+    <li>Un acquis ajourné affiche « NA » <b>avec la cote qu'il valait</b> (NA 9) : le Conseil voit d'un coup d'œil ce qui s'est joué.</li>
+    <li>La pastille de l'unité prend la couleur de la décision proposée, et la synthèse des décisions se lit acquis par acquis.</li>
+    <li>La file de revue ne reprend que ce qui reste à décider.</li>
+  </ul>
+  <div class="etiquettes"><span class="etiquette prod">En production</span></div>
+</article>
+
+<h2>Pièces et documents</h2>
+
+<article class="nouveau" data-pour="sec coo dir">
+  <h3>Corriger le texte d'une pièce, sur la pièce</h3>
+  <span class="ou">Où : <b>Éditions → Galerie → Modifier le modèle</b> ; <b>l'atelier de Lucie</b>.</span>
+  <p>Chaque phrase de l'aperçu se corrige sur place et vaut pour les sorties suivantes : attestations, procès-verbaux, motivations, pièces de valorisation, d'aménagement et de procédure. L'atelier compose des lettres en glissant des éléments tout faits (en-tête, tuiles, tableau, signature du directeur), avec les données de l'étudiant.</p>
+  <div class="etiquettes"><span class="etiquette prod">En production</span></div>
+</article>
+
+<article class="nouveau" data-pour="sec dir">
+  <h3>Les nouvelles pièces</h3>
+  <ul>
+    <li><b>Supplément au diplôme</b> (Europass) : Étudiants → Diplômes et titres.</li>
+    <li><b>Procès-verbal anonymisé</b>, par matricule, et <b>ajournés par cours</b> pour les chargés de cours : Éditions → Délibération.</li>
+    <li>Motivations d'ajournement et de refus <b>signées et protégées</b>, aussi en première session.</li>
+    <li>Valorisation : <b>envoi par étudiant</b> — chacun reçoit sa propre attestation, jamais le procès-verbal.</li>
+  </ul>
+  <div class="etiquettes"><span class="etiquette prod">En production</span></div>
+</article>
+
+<article class="nouveau" data-pour="coo dir">
+  <h3>L'unité en trois étapes : croiser, pondérer, décrire</h3>
+  <span class="ou">Où : <b>Organisation → Pondération, croisement et DUE</b> ; <b>Mes cours → Descriptifs de mes unités</b>.</span>
+  <p>Une frise numérotée dit où en est l'unité. Le croisement des acquis et du programme est pré-rempli. La DUE se rédige au style Lucie (contrat pédagogique, critères en tableau, programme par activité) ; la coordination rédige, les enseignants la lisent dans Mes cours.</p>
+  <div class="etiquettes"><span class="etiquette prod">En production</span></div>
+</article>
+
+<article class="nouveau" data-pour="dir">
+  <h3>Le rapport statistique, en outil</h3>
+  <span class="ou">Où : <b>Gestion</b> (et Chiffres de l'école), en tête du rail.</span>
+  <p>Tuiles, coût complet poste par poste, coût moyen brut pondéré par niveau à côté du coût détaillé, ETP par section, personnes par sexe et nationalité. Puis impression ou envoi.</p>
+  <div class="etiquettes"><span class="etiquette prod">En production</span></div>
+</article>
+
+<h2>Organiser l'année</h2>
+<p class="intro">Pour le secrétariat et les coordinations qui préparent les horaires et les groupes.</p>
+
+<article class="nouveau" data-pour="sec coo dir">
+  <h3>Les disponibilités des enseignants, dans un agenda</h3>
+  <span class="ou">Où : <b>Organisation → Le laboratoire temporel → Les disponibilités</b>, ou la fiche de l'enseignant.</span>
+  <p>Une semaine type où l'on peint chaque créneau : vert, disponible ; orange, possible mais à éviter ; rouge, jamais. L'agenda d'un enseignant vaut pour <b>toutes ses sections</b> : celui qui enseigne en TIM et en psychomotricité n'a qu'un agenda.</p>
+  <div class="etiquettes"><span class="etiquette prod">En production</span></div>
+</article>
+
+<article class="nouveau" data-pour="sec coo dir">
+  <h3>Le planning de l'école : une base, puis des contraintes</h3>
+  <span class="ou">Où : <b>Le laboratoire temporel → Le planning</b>.</span>
+  <ol>
+    <li><b>La base</b> : les blocs de cours de l'école, jour par jour, du lundi au dimanche. Elle est une pour toute l'école.</li>
+    <li><b>Les contraintes</b> : on peint ensuite, pour une section, un bloc, une UE, un cours, une activité, un enseignant ou un local, ce qui est à éviter (orange) ou interdit (rouge). Par exemple, TIM en soirée.</li>
+  </ol>
+  <p>Ce qui n'est pas peint reste au choix de la simulation.</p>
+  <div class="etiquettes"><span class="etiquette prod">En production</span></div>
+</article>
+
+<article class="nouveau" data-pour="sec coo dir">
+  <h3>Une UE, un stage en deux organisations</h3>
+  <span class="ou">Où : <b>Le laboratoire temporel</b>, fiche de l'UE : <b>Dédoubler</b>, <b>Retirer l'org</b>.</span>
+  <p>Quand une partie des étudiants suit une UE ou un stage à un autre moment (en AESI, le stage de Toussaint à Noël pour les uns, de Carnaval à Pâques pour les autres), chaque organisation a sa tuile, ses dates et ses étudiants. Un stage n'arrête que les étudiants de son organisation.</p>
+  <p>Le nombre d'étudiants de chaque UE et de chaque organisation s'affiche sur la tuile, la fiche et le verre.</p>
+  <div class="etiquettes"><span class="etiquette prod">En production</span></div>
+</article>
+
+<article class="nouveau" data-pour="sec coo dir">
+  <h3>Le laboratoire temporel et la simulation de l'année</h3>
+  <span class="ou">Où : <b>Organisation → Le laboratoire temporel</b> (erlenmeyer et horloge), quatre faces en sous-menu.</span>
+  <ul>
+    <li><b>Le temps</b> : l'année en tuiles qu'on glisse ; un double-clic zoome sur les cours et leurs activités, puis sur le verre de l'UE.</li>
+    <li><b>Les groupes</b> : les TP d'un bloc coupés en briques communes.</li>
+    <li><b>La semaine</b> : Lucie propose un horaire régulier (le même créneau chaque semaine, les locaux, les jours de présence), à comparer avec l'horaire actuel ; on l'adopte, on le retouche.</li>
+    <li>« Remplir les verres depuis les attributions » et « Grand nettoyage du labo » (sauvegarde d'abord).</li>
+  </ul>
+  <p>« Poser dans l'horaire » n'existe encore que sur la dev.</p>
+  <div class="etiquettes"><span class="etiquette prod">En production</span></div>
+</article>
+
+<article class="nouveau" data-pour="sec coo dir">
+  <h3>L'organisation de base, proposée par Lucie</h3>
+  <span class="ou">Où : <b>Le laboratoire temporel → Organisation de base</b>.</span>
+  <p>Lucie propose les dates de chaque UE à partir du schéma de capitalisation : le quadrimestre prévu, les prérequis (une UE commence après celle dont elle dépend) et l'épreuve intégrée en fin d'année. Elle montre d'abord ce qu'elle ferait, et sauvegarde le laboratoire avant d'écrire.</p>
+  <div class="etiquettes"><span class="etiquette prod">En production</span></div>
+</article>
+
+<article class="nouveau" data-pour="sec coo dir">
+  <h3>Le bloc et le quadrimestre viennent de la section</h3>
+  <span class="ou">Où : <b>Organisation → Schéma de capitalisation</b> ; cliquez une UE.</span>
+  <p>Une UE n'a de bloc que dans une section et une année : l'UE 95 est en BA1 chez les bacheliers et en FC chez Restart. On règle donc dans le schéma de chaque section le bloc, et désormais aussi le <b>quadrimestre prévu</b> (Q1, Q2 ou AN). Le laboratoire lit ces réglages. Les dates restent libres.</p>
+  <div class="etiquettes"><span class="etiquette prod">En production</span></div>
+</article>
+
+<article class="nouveau" data-pour="sec coo dir">
+  <h3>Les groupes font foi, et les primo-inscrits se repèrent</h3>
+  <span class="ou">Où : <b>Étudiants → répartition des groupes</b> ; fenêtre <b>Cohortes</b> du laboratoire.</span>
+  <p>Quand un cours a sa répartition par groupes, c'est elle que Lucie suit pour savoir qui est dans quelle organisation, cours par cours.</p>
+  <p>Un badge <b>primo</b> signale les étudiants inscrits pour la première fois, et un filtre ne montre qu'eux. Par exemple : filtrer les primo de l'UE 77, cocher la case du haut (elle ne coche que ce qui est affiché), puis cliquer l'en-tête du groupe voulu.</p>
+  <div class="etiquettes"><span class="etiquette prod">En production</span></div>
+</article>
+
+<article class="nouveau" data-pour="sec coo dir">
+  <h3>Les cohortes : plusieurs chemins dans une même section</h3>
+  <span class="ou">Où : <b>Schéma de capitalisation</b> (sélecteur de cohortes) ; fiche d'organisation et fenêtre <b>Cohortes</b> du laboratoire.</span>
+  <p>Les prérequis officiels sont les mêmes pour tous, mais une section peut faire vivre plusieurs cohortes la même année : la rentrée de septembre, une transition (les BA2 de psychomotricité qui n'ont pas eu l'UE 77 en BA1), demain une rentrée de janvier.</p>
+  <ol>
+    <li><b>+ Cohorte</b> dans le schéma : la nouvelle cohorte naît copie du schéma de la cohorte 1 ; on retire ou on décale ensuite. Double-clic sur son nom pour la nommer.</li>
+    <li>Dans la fiche d'une organisation, on choisit la <b>cohorte</b> qu'elle sert : sa classe se déduit du schéma de cette cohorte.</li>
+    <li>Dans la fenêtre <b>Cohortes</b>, chaque étudiant reçoit sa cohorte pour l'année. Il passe alors dans l'organisation qui la sert, dans chaque UE dédoublée.</li>
+  </ol>
+  <div class="etiquettes"><span class="etiquette prod">En production</span></div>
+</article>
+
+<h2>Écrire à l'équipe</h2>
+<p class="intro">Pour la direction, le secrétariat et les coordinations. Une coordination écrit aux personnes de ses sections.</p>
+
+<article class="nouveau" data-pour="sec coo dir">
+  <h3>L'onglet Communication</h3>
+  <span class="ou">Où : <b>Tableau de bord → Communication</b> (le porte-voix).</span>
+  <ol>
+    <li>Un titre et un message ; une ligne vide sépare deux paragraphes.</li>
+    <li>Les destinataires, en groupes qui s'additionnent : tout le personnel de l'année, une ou plusieurs <b>sections</b>, les <b>enseignants d'une UE</b>, des <b>rôles</b>, des <b>personnes</b>.</li>
+    <li>Lucie dit combien de personnes recevront le message, et combien n'ont pas encore de compte. « Voir la liste » les nomme.</li>
+    <li>Cochez « copie par courriel » si vous le voulez, puis envoyez.</li>
+  </ol>
+  <p>Dans « Messages envoyés », chaque envoi indique combien l'ont lu. Un clic montre la liste, avec un ✓ vert devant chaque lecture. « Retirer » enlève un message envoyé par erreur des tableaux de bord ; il reste au registre.</p>
+  <div class="etiquettes"><span class="etiquette prod">En production</span></div>
+</article>
+
+<article class="nouveau" data-pour="sec coo dir">
+  <h3>Le ménage des tableaux de bord</h3>
+  <span class="ou">Où : <b>Communication → Vider leurs tableaux de bord</b>.</span>
+  <p>Avec les mêmes groupes, on retire d'un coup les notifications reçues jusqu'ici (rappels, notes encodées…) du tableau de bord des personnes choisies. Les messages et les vœux restent. Rien n'est effacé de Lucie.</p>
+  <p class="astuce">Videz d'abord, envoyez ensuite : vos destinataires découvrent un tableau de bord propre, avec votre message en tête.</p>
+  <div class="etiquettes"><span class="etiquette prod">En production</span></div>
+</article>
+
+<h2>Gestion</h2>
+
+<article class="nouveau" data-pour="sec coo dir">
+  <h3>Le budget</h3>
+  <span class="ou">Où : <b>Gestion → Budget</b>.</span>
+  <ul>
+    <li>La <b>section</b> d'une prévision se corrige dans son formulaire, et ses dépenses la suivent. Le choix <b>Autres</b> accueille ce qui ne relève d'aucune section.</li>
+    <li>Le <b>compte général</b> se cherche en tapant (« matériel », « 6124 »).</li>
+    <li>Les 8 comptes que le canevas employait hors de sa liste sont ajoutés ; les 13 comptes HELB sortent de la liste de choix.</li>
+  </ul>
+  <div class="etiquettes"><span class="etiquette prod">En production</span></div>
+</article>
+
+<h2>Régler Lucie</h2>
+<p class="intro">Réservé à la direction, et pour l'apparence, à l'administrateur.</p>
+
+<article class="nouveau" data-pour="dir">
+  <h3>L'apparence se règle, sans rien d'écrit en dur</h3>
+  <span class="ou">Où : <b>Configuration → Formes et composants</b> ; <b>Thèmes et couleurs</b> ; <b>Catalogue des éléments</b>.</span>
+  <ul>
+    <li><b>Formes et composants</b> : rayons, tuiles (grande et compacte), boutons, champs, titres, tableaux, graphiques, fenêtres. Thèmes Maison IIP, Arrondi, Anguleux, Compact, Confort. Dès qu'on touche un curseur, <b>Personnalisé</b> s'allume et garde vos réglages : on peut essayer un autre thème et y revenir.</li>
+    <li><b>Thèmes et couleurs</b> : chaque zone de l'écran a sa couleur, et les graphiques ont leurs jeux. Un thème <b>Sombre</b> complet est disponible.</li>
+    <li><b>Catalogue des éléments</b> : tous les composants de Lucie, chacun avec sa boîte de propriétés. Chaque changement vaut aussitôt pour tout Lucie.</li>
+    <li><b>↶ Annuler le dernier changement</b> sur ces trois écrans : on recule d'un réglage, puis d'un autre.</li>
+  </ul>
+  <div class="etiquettes"><span class="etiquette prod">En production</span></div>
+</article>
+
+<article class="nouveau" data-pour="dir">
+  <h3>Ranger les pages à la souris</h3>
+  <span class="ou">Où : <b>barre du haut</b>, l'icône de mise en page (administrateur).</span>
+  <p>Mode allumé, on glisse les axes de la barre du haut, les rubriques du rail et, pour l'instant sur l'Accueil seulement, les blocs de la page : ordre, masquer, demi-largeur. Ce qu'on range vaut pour toute l'école. Un bouton « Annuler » accompagne le mode.</p>
+  <div class="etiquettes"><span class="etiquette prod">En production</span></div>
+</article>
+
+<article class="nouveau" data-pour="dir">
+  <h3>Plusieurs établissements</h3>
+  <span class="ou">Où : <b>Configuration → Identité</b>.</span>
+  <p>Lucie peut porter plusieurs établissements gérés par le même conseil d'administration, avec des étudiants séparés ou partagés. Chacun a son logo couleur, son logo blanc, sa signature et son cachet, importés depuis l'écran. Chaque section est rattachée à son établissement.</p>
+  <div class="etiquettes"><span class="etiquette prod">En production</span></div>
+</article>
+
+<article class="nouveau" data-pour="dir">
+  <h3>Annuler le geste de quelqu'un d'autre</h3>
+  <span class="ou">Où : <b>↶</b> de la barre du haut → <b>Toute l'équipe</b>.</span>
+  <p>La direction voit les gestes de l'équipe et peut en annuler un, avec un motif écrit, gardé avec l'annulation.</p>
+  <div class="etiquettes"><span class="etiquette prod">En production</span></div>
+</article>
+
+<section class="avenir">
+  <h2>Ce qui vient ensuite</h2>
+  <ul>
+    <li>Les cohortes dans le laboratoire et la simulation : chaque cohorte organisée séparément, et la rentrée de janvier sur deux années.</li>
+    <li>Le badge primo dans toutes les listes d'étudiants.</li>
+    <li>Les blocs rangeables sur d'autres pages que l'Accueil.</li>
+    <li>L'horaire de chacun au secrétariat (ouvert du lundi au vendredi, de 7h30 à 17h30).</li>
+    <li>La circulaire de rentrée en version 2 : délais d'encodage, visite des copies et seconde session alignés ; Lundi de Pentecôte au 17 mai 2027.</li>
+  </ul>
+</section>
+</main>
+
+<footer>Institut Ilya Prigogine · Lucie · guide arrêté le 11 octobre 2026, versions 3.1.130 à 3.1.283. Une question, une idée : « Proposer une amélioration », sur chaque écran de Lucie.</footer>
+</div>
+
+</div></body></html>
