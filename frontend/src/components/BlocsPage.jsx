@@ -34,7 +34,8 @@ export default function BlocsPage({ page, blocs }) {
   return (
     <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
       {ranges.filter(b => mep.actif || !masques.has(b.cle)).map(b => (
-        <div key={b.cle} className={`min-w-0 ${demis.has(b.cle) ? '' : 'lg:col-span-2'} ${mep.actif && masques.has(b.cle) ? 'opacity-40' : ''}`}
+        // Un bloc qui n'a rien à montrer ne garde pas sa place : vide, il laissait un trou (11 octobre 2026).
+        <div key={b.cle} className={`min-w-0 empty:hidden ${demis.has(b.cle) ? '' : 'lg:col-span-2'} ${mep.actif && masques.has(b.cle) ? 'opacity-40' : ''}`}
           {...poigneeGlisser(mep.actif, `page:${page}`, b.cle, ranger)}>
           {mep.actif && (
             <div className="flex items-center gap-2 mb-1 px-2 py-1 rounded-champ text-xs" style={{ background: 'color-mix(in srgb, var(--c-attente) 14%, transparent)' }}>

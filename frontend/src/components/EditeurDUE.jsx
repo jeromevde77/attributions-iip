@@ -8,7 +8,7 @@
  * Rien d'autre — le serveur filtre d'ailleurs ce qui dépasserait
  * (routes/due.js, assainirDUE).
  */
-import { useEffect } from 'react';
+import { memo, useEffect } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { Color, TextStyle } from '@tiptap/extension-text-style';
@@ -30,7 +30,7 @@ function Bouton({ actif, onClick, titre, children }) {
     </button>);
 }
 
-export default function EditeurDUE({ valeur, onChange }) {
+function EditeurDUE({ valeur, onChange }) {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ heading: false, codeBlock: false, code: false, strike: false,
@@ -41,11 +41,21 @@ export default function EditeurDUE({ valeur, onChange }) {
     editorProps: { attributes: { class: 'texte-due px-4 py-3 min-h-[6rem] outline-none' } },
     onUpdate: ({ editor: e }) => onChange?.(e.getHTML()),
   });
+  /* « » ET « <p></p> » SONT LE MÊME TEXTE VIDE (Charles, 11 octobre 2026 : « dès que je mets une
+     lettre dans le titre, elle passe dans le corps du texte »). Les confondre rechargeait
+     l'éditeur à chaque rendu de la page — chaque lettre tapée ailleurs — et il prenait le curseur. */
   useEffect(() => {
-    if (editor && valeur !== undefined && valeur !== editor.getHTML()) editor.commands.setContent(valeur || '', { emitUpdate: false });
+    if (!editor || valeur === undefined) return;
+    const vide = h => !h || h === '<p></p>';
+    if (vide(valeur) && editor.isEmpty) return;
+    if (valeur !== editor.getHTML()) editor.commands.setContent(valeur || '', { emitUpdate: false });
   }, [valeur, editor]);
   if (!editor) return null;
-  const c = editor.chain().focus();
+  /* LA CHAÎNE SE CRÉE AU CLIC, PAS À L'AFFICHAGE : créée à chaque rendu, elle portait déjà
+     « focus » et l'éditeur reprenait le curseur dès que la page se redessinait — chaque lettre
+     tapée dans un autre champ (le titre d'un message) partait dans le corps. */
+  const chaine = () => editor.chain().focus();
+  const c = new Proxy({}, { get: (_, k) => (...a) => chaine()[k](...a) });
   return (
     <div>
       <div className="flex flex-wrap items-center gap-0.5 px-2 py-1 border-b border-slate-200 bg-slate-50">
@@ -70,3 +80,6 @@ export default function EditeurDUE({ valeur, onChange }) {
       <EditorContent editor={editor} />
     </div>);
 }
+
+/* Mémorisé : un écran qui se redessine (une lettre tapée ailleurs) ne redessine pas l'éditeur. */
+export default memo(EditeurDUE);
