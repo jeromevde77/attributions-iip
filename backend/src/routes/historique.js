@@ -646,9 +646,16 @@ r.get('/feed', authRequired, (req, res) => {
 
   // LE MÉNAGE (3.1.279) : ce qui précède le « vidé le » de ce compte quitte son tableau de
   // de bord — sauf les messages et les vœux, écrits pour lui.
-  const vide = videLe(u.id);
+  /* UN COMPTE NEUF ARRIVE SUR UN TABLEAU DE BORD PROPRE (3.1.282, Charles, 11 octobre 2026 :
+     « il fallait le faire pour les profs qui n'ont pas encore d'accès, pas pour tout le
+     monde »). Ce qui précède la création du compte ne s'y affiche pas — sans que personne
+     ait à vider quoi que ce soit. */
+  let creeLe = null;
+  try { creeLe = db.prepare('SELECT created_at FROM utilisateur WHERE id = ?').get(u.id)?.created_at || null; } catch { creeLe = null; }
+  const seuils = [videLe(u.id), creeLe].filter(Boolean).map(x => new Date(String(x).replace(' ', 'T') + (String(x).includes('Z') || String(x).includes('+') ? '' : 'Z')).getTime()).filter(x => !isNaN(x));
+  const vide = seuils.length ? Math.max(...seuils) : null;
   if (vide) {
-    const t = new Date(String(vide).replace(' ', 'T') + 'Z').getTime();
+    const t = vide;
     for (let k = items.length - 1; k >= 0; k--) {
       const it = items[k];
       if (it.type === 'communication' || it.type === 'anniversaire') continue;

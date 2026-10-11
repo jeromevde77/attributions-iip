@@ -78,7 +78,7 @@ export default function Communication() {
     const corps = { critere: crit, annee };
     const sim = await fetch('/api/communication/vider', { method: 'POST', headers: authHeaders(), body: JSON.stringify(corps) }).then(r => r.json()).catch(() => ({}));
     if (!sim.comptes) { await informer('Aucun compte Lucie parmi ces destinataires : rien à vider.'); return; }
-    if (!(await demander({ titre: 'Vider les tableaux de bord', message: `Les notifications reçues jusqu’à maintenant quittent le tableau de bord de ${sim.comptes} compte(s). Les messages de la Communication et les vœux restent. Rien n’est effacé de Lucie.`, confirmer: 'Vider' }))) return;
+    if (!(await demander({ titre: 'Vider les tableaux de bord', message: `Les notifications reçues jusqu’à maintenant quittent le tableau de bord de ${sim.comptes} compte(s) existant(s) — vous compris si vous êtes dans ces groupes. Les messages de la Communication et les vœux restent. Rien n’est effacé de Lucie, et le bouton ↶ défait ce ménage.\n\nInutile pour les enseignants qui n’ont pas encore de compte : un compte neuf arrive d’office sur un tableau de bord propre.`, confirmer: 'Vider' }))) return;
     const r = await fetch('/api/communication/vider', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ ...corps, simulation: false }) });
     const j = await r.json().catch(() => ({}));
     await informer(r.ok ? `✓ ${j.comptes} tableau(x) de bord vidé(s).` : `❌ ${j.error || 'Impossible'}`);
@@ -159,7 +159,7 @@ export default function Communication() {
                   {' '}<button type="button" className="underline" onClick={() => setVoirListe(true)}>voir la liste</button></>}
           </span>
           <button className="bouton" disabled={vide || !apercu?.nb} onClick={vider}
-            title="Pour ces mêmes personnes : retirer de leur tableau de bord les notifications reçues jusqu'ici (rappels, notes encodées…). Les messages et les vœux restent.">
+            title="Pour les comptes existants parmi ces personnes : retirer de leur tableau de bord les notifications reçues jusqu'ici. Les messages et les vœux restent. Un compte créé plus tard arrive d'office sur un tableau de bord propre.">
             <IconEraser size={15} className="inline -mt-0.5 mr-1" />Vider leurs tableaux de bord</button>
           <button className="bouton bouton-fort" disabled={enCours || !titre.trim() || !texte.trim() || !apercu?.nb} onClick={envoyer}>
             <IconSend size={15} className="inline -mt-0.5 mr-1" />{enCours ? 'Envoi…' : 'Envoyer'}</button>

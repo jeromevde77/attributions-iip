@@ -76,7 +76,7 @@ function Cadeau({ x, y, taille = 8 }) {
 export const OR = { fill: '#FFFFFF', stroke: 'var(--c-epreuve)', text: 'var(--c-texte)', label: 'Épreuve intégrée' };
 
 export default function SchemaCapitalisation({
-  data, mode = 'etudiant', onNiveau = null, onQuadri = null, replie = false, titre = 'Schéma de capitalisation',
+  data, mode = 'etudiant', onNiveau = null, onQuadri = null, libelleRetour = 'Valeur du référentiel', replie = false, titre = 'Schéma de capitalisation',
   onLien = null, onSupprimerLien = null, onNoeud = null,
   enteteDans = null,   // un nœud de la page où poser l'en-tête (la barre de la fiche)
 }) {
@@ -687,7 +687,7 @@ export default function SchemaCapitalisation({
                   ))}
                   <button onClick={() => { onNiveau(selection, ''); setSelection(null); }}
                     className="text-second px-2.5 py-1 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50">
-                    Valeur du référentiel
+                    {libelleRetour}
                   </button>
                   {onQuadri && (() => {
                     const q = data.nodes.find(x => x.ue_num === selection)?.quad || '';

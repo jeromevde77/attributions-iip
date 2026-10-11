@@ -22,7 +22,8 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { anneeDeTravail } from '../helpers/annee.js';
-import { organisationsDe } from '../lib/groupesCommuns.js';
+import { organisationsDe, cohorte as cohorteBloc } from '../lib/groupesCommuns.js';
+import { cohortesDe } from './capitalisation.js';
 import { placementsSection, uesDuBloc } from '../lib/placement.js';
 import { marquerPrimo } from '../lib/primo.js';
 
@@ -140,6 +141,9 @@ export function migrerGrille(dbx) {
        en BA2 pour ceux de l'an dernier). Vide : le bloc que la section donne à l'UE. */
     const colsOrg = dbx.prepare('PRAGMA table_info(organisation_ue)').all().map(c => c.name);
     if (colsOrg.length && !colsOrg.includes('bloc')) dbx.exec('ALTER TABLE organisation_ue ADD COLUMN bloc TEXT');
+    /* LA COHORTE QU'UNE ORGANISATION SERT (3.1.281) : sa classe se déduit alors du schéma de
+       cette cohorte. Vide : la cohorte 1. */
+    if (colsOrg.length && !colsOrg.includes('cohorte')) dbx.exec('ALTER TABLE organisation_ue ADD COLUMN cohorte INTEGER');
     const colsOU = dbx.prepare('PRAGMA table_info(organisation_ue)').all().map(c => c.name);
     if (!colsOU.includes('stage_bloquant')) dbx.exec('ALTER TABLE organisation_ue ADD COLUMN stage_bloquant INTEGER NOT NULL DEFAULT 0');
     // Par défaut, pas de cours pendant les vacances ; une UE peut en décider autrement.
@@ -441,7 +445,10 @@ r.get('/', authRequired, (req, res) => {
       ...u,
       nb_etudiants: nbEtudiants, etudiants_selon: repartie ? 'groupes' : 'inscriptions',
       // La classe de CETTE organisation : la sienne si elle en a une, sinon celle de l'UE.
-      ue_niv: (o?.bloc || u.ue_niv || '').toUpperCase(), bloc_propre: o?.bloc || null, bloc_ue: u.ue_niv || '',
+      // Sa cohorte d'abord (le schéma de cette cohorte), puis une classe posée à la main, puis celle de l'UE.
+      ue_niv: ((Number(o?.cohorte) > 1 ? placementsSection(section, annee, o.cohorte)[u.ue_num]?.bloc : null) || o?.bloc || u.ue_niv || '').toUpperCase(),
+      bloc_propre: o?.bloc || null, bloc_ue: u.ue_niv || '', cohorte: Number(o?.cohorte) || 1,
+      hors_schema: Number(o?.cohorte) > 1 && !placementsSection(section, annee, o.cohorte)[u.ue_num],
       num_organisation: num, nb_organisations: toutes.length, cle: toutes.length > 1 ? `${u.ue_num}#${num}` : String(u.ue_num),
       verre_repris: ov !== o,
       organisation_id: o?.id || null,
@@ -689,6 +696,19 @@ r.put('/organisation/bloc', authRequired, roleRequired('admin', 'editeur', 'coor
   res.json({ ok: true, bloc: bloc || null });
 });
 
+/* LA COHORTE D'UNE ORGANISATION (3.1.281). */
+r.put('/organisation/cohorte', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
+  const b = req.body || {};
+  const annee = b.annee_scolaire || anneeDeTravail(req), section = String(b.section || '').trim(), ueNum = Number(b.ue_num), n = Number(b.num_organisation) || 1;
+  const coh = Math.max(1, Number(b.cohorte) || 1);
+  if (!section || !ueNum) return res.status(400).json({ error: 'section et ue_num requis' });
+  const o = organisationDe(annee, section, ueNum, n === 1, n);
+  if (!o) return res.status(404).json({ error: `L’UE ${ueNum} n’a pas d’organisation ${n}.` });
+  db.prepare('UPDATE organisation_ue SET cohorte = ? WHERE id = ?').run(coh > 1 ? coh : null, o.id);
+  const place = coh > 1 ? placementsSection(section, annee, coh)[ueNum] : null;
+  res.json({ ok: true, cohorte: coh, hors_schema: coh > 1 && !place, bloc: place?.bloc || null });
+});
+
 /* RETIRER UNE ORGANISATION : seulement la dernière, et seulement si aucune
    attribution ni aucun étudiant n'y est rattaché — sinon on effacerait ce qui la fait vivre. */
 r.delete('/organisation', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
@@ -814,31 +834,55 @@ r.post('/organisation-de-base', authRequired, roleRequired('admin', 'editeur', '
   res.json({ ok: true, ecrit: a_ecrire.length, sauvegarde });
 });
 
-/* LES COHORTES (Charles, 10 octobre 2026 : « les deux selon la section » — des
-   demi-promotions stables là où la section fonctionne ainsi, comme l'AESI ; le cas
-   par cas ailleurs, par la répartition de chaque UE). Une cohorte = un numéro
-   d'organisation : placer un étudiant dans la cohorte 2, c'est le mettre en
-   organisation 2 dans TOUTES les UE dédoublées de son bloc (celles qui en ont une 2).
-   Rien ne s'écrit sans le compte rendu d'abord. */
+/* LES UE DÉDOUBLÉES D'UN BLOC : celles qui ont plus d'une organisation. Depuis 3.1.281, une
+   cohorte n'est plus un numéro d'organisation (3.1.246) : c'est une cohorte de la section
+   (`cohorte`), et chaque organisation dit laquelle elle sert (`organisation_ue.cohorte`). */
 function uesDedoublees(annee, section, bloc) {
   return db.prepare(`SELECT o.ue_num, GROUP_CONCAT(DISTINCT COALESCE(o.num_organisation, 1)) orgs FROM organisation_ue o
     WHERE o.annee_scolaire = ? AND o.section = ? AND o.ue_num IN (SELECT value FROM json_each(?))
     GROUP BY o.ue_num HAVING COUNT(DISTINCT COALESCE(o.num_organisation, 1)) > 1 ORDER BY o.ue_num`).all(annee, section, JSON.stringify(uesDuBloc(section, bloc, annee)))
     .map(x => ({ ue_num: x.ue_num, orgs: String(x.orgs).split(',').map(Number).sort() }));
 }
+/* LA COHORTE DE CHAQUE ÉTUDIANT (3.1.281, Charles, 11 octobre 2026 : « par section, elle
+   peut changer d'une année à l'autre » ; « l'AESI : deux cohortes »). Elle s'écrit par
+   section ET par année (`etudiant_cohorte`, l'historique reste), et ses conséquences
+   suivent : dans chaque UE dédoublée, l'étudiant passe dans l'organisation qui sert sa
+   cohorte (`organisation_ue.cohorte`, vide = cohorte 1). La répartition par groupes,
+   cours par cours, garde le dernier mot là où elle existe. Compte rendu d'abord. */
+try {
+  db.exec(`CREATE TABLE IF NOT EXISTS etudiant_cohorte (
+    etudiant_id INTEGER NOT NULL, section TEXT NOT NULL, annee_scolaire TEXT NOT NULL, cohorte INTEGER NOT NULL DEFAULT 1,
+    maj_le TEXT DEFAULT (datetime('now')), maj_par TEXT, PRIMARY KEY (etudiant_id, section, annee_scolaire))`);
+} catch (e) { console.error('[migration] etudiant_cohorte :', e.message); }
+
+/** Organisation qui sert une cohorte dans une UE : { "ue#cohorte": org }. */
+function orgsParCohorte(annee, section, ueNums) {
+  const m = {};
+  if (!ueNums.length) return m;
+  for (const o of db.prepare(`SELECT ue_num, COALESCE(num_organisation, 1) org, COALESCE(cohorte, 1) cohorte FROM organisation_ue
+      WHERE annee_scolaire = ? AND section = ? AND ue_num IN (${ueNums.map(() => '?').join(',')}) ORDER BY org`).all(annee, section, ...ueNums)) {
+    const k = `${o.ue_num}#${o.cohorte}`;
+    if (!(k in m)) m[k] = o.org;
+  }
+  return m;
+}
+
 r.get('/cohortes', authRequired, (req, res) => {
   const annee = req.query.annee || anneeDeTravail(req), section = String(req.query.section || ''), bloc = String(req.query.bloc || '');
   if (!section || !bloc) return res.status(400).json({ error: 'section et bloc requis' });
   const ues = uesDedoublees(annee, section, bloc);
   const nums = ues.map(u => u.ue_num);
-  const lignes = nums.length ? db.prepare(`SELECT e.id, e.nom, e.prenom, i.ue_num, COALESCE(i.num_organisation, 1) org
-    FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
-    WHERE i.annee_scolaire = ? AND i.ue_num IN (${nums.map(() => '?').join(',')}) AND COALESCE(e.actif, 1) = 1
-    ORDER BY e.nom, e.prenom`).all(annee, ...nums) : [];
-  /* Les groupes font foi : là où les cours de l'UE ont leur répartition
-     (etudiant_cours_groupe), l'organisation de l'étudiant se LIT des groupes —
-     « 1+2 » quand elle change d'un cours à l'autre (AESI, UE 333). */
-  const parGroupes = new Map();                 // « etudiant|ue » → Set(org)
+  const parCoh = orgsParCohorte(annee, section, nums);
+  for (const u of ues) u.cohortes = Object.fromEntries(Object.entries(parCoh).filter(([k]) => k.startsWith(`${u.ue_num}#`)).map(([k, o]) => [k.split('#')[1], o]));
+  // Les étudiants du bloc (la cohorte du laboratoire), avec leur organisation par UE dédoublée.
+  const base = cohorteBloc(section, bloc, annee).etudiants;
+  const ids = base.map(e => e.id);
+  const insc = new Map();
+  if (ids.length && nums.length) for (const l of db.prepare(`SELECT etudiant_id, ue_num, COALESCE(num_organisation, 1) org FROM etudiant_inscription
+      WHERE annee_scolaire = ? AND ue_num IN (${nums.map(() => '?').join(',')})`).all(annee, ...nums)) insc.set(`${l.etudiant_id}|${l.ue_num}`, l.org);
+  /* Les groupes font foi : là où les cours de l'UE ont leur répartition, l'organisation se
+     LIT des groupes — « 1+2 » quand elle change d'un cours à l'autre (AESI, UE 333). */
+  const parGroupes = new Map();
   if (nums.length) for (const g of db.prepare(`SELECT g.etudiant_id, c.ue_num, COALESCE(g.num_organisation, 1) org FROM etudiant_cours_groupe g
       JOIN (SELECT DISTINCT cours_code, ue_num FROM cours WHERE annee_scolaire = ?) c ON c.cours_code = g.cours_code
       WHERE g.annee_scolaire = ? AND c.ue_num IN (${nums.map(() => '?').join(',')})`).all(annee, annee, ...nums)) {
@@ -847,35 +891,51 @@ r.get('/cohortes', authRequired, (req, res) => {
     parGroupes.get(k).add(g.org);
   }
   for (const u of ues) u.par_groupes = [...parGroupes.keys()].some(k => k.endsWith(`|${u.ue_num}`));
-  const parId = new Map();
-  for (const l of lignes) {
-    if (!parId.has(l.id)) parId.set(l.id, { id: l.id, nom: l.nom, prenom: l.prenom, orgs: {} });
-    const g = parGroupes.get(`${l.id}|${l.ue_num}`);
-    parId.get(l.id).orgs[l.ue_num] = g ? (g.size === 1 ? [...g][0] : [...g].sort().join('+')) : l.org;
-  }
-  res.json({ ues, etudiants: marquerPrimo([...parId.values()], annee) });
+  const cohDe = new Map(db.prepare('SELECT etudiant_id, cohorte FROM etudiant_cohorte WHERE section = ? AND annee_scolaire = ?').all(section, annee).map(x => [x.etudiant_id, x.cohorte]));
+  const etudiants = base.map(e => {
+    const orgs = {};
+    for (const n of nums) {
+      const g = parGroupes.get(`${e.id}|${n}`);
+      if (g) orgs[n] = g.size === 1 ? [...g][0] : [...g].sort().join('+');
+      else if (insc.has(`${e.id}|${n}`)) orgs[n] = insc.get(`${e.id}|${n}`);
+    }
+    return { id: e.id, nom: e.nom, prenom: e.prenom, cohorte: cohDe.get(e.id) || 1, orgs };
+  });
+  res.json({ cohortes: cohortesDe(section), ues, etudiants: marquerPrimo(etudiants, annee) });
 });
 r.put('/cohortes', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
   const b = req.body || {};
   const annee = b.annee_scolaire || anneeDeTravail(req), section = String(b.section || ''), bloc = String(b.bloc || '');
   const aff = Array.isArray(b.affectations) ? b.affectations : [];
   if (!section || !bloc || !aff.length) return res.status(400).json({ error: 'section, bloc et affectations requis' });
+  const valides = new Set(cohortesDe(section).map(c => c.numero));
   const ues = uesDedoublees(annee, section, bloc);
+  const parCoh = orgsParCohorte(annee, section, ues.map(u => u.ue_num));
+  const lireCoh = db.prepare('SELECT cohorte FROM etudiant_cohorte WHERE etudiant_id = ? AND section = ? AND annee_scolaire = ?');
   const lire = db.prepare('SELECT COALESCE(num_organisation, 1) org FROM etudiant_inscription WHERE etudiant_id = ? AND ue_num = ? AND annee_scolaire = ?');
-  const maj = db.prepare('UPDATE etudiant_inscription SET num_organisation = ? WHERE etudiant_id = ? AND ue_num = ? AND annee_scolaire = ?');
-  const changements = [];
+  const cohortesChangees = [], changements = [], sansOrg = new Set();
   for (const x of aff) {
-    const eid = Number(x.etudiant_id), org = Number(x.org);
-    if (!Number.isInteger(eid) || !(org >= 1)) continue;
+    const eid = Number(x.etudiant_id), coh = Number(x.cohorte);
+    if (!Number.isInteger(eid) || !valides.has(coh)) continue;
+    if ((lireCoh.get(eid, section, annee)?.cohorte || 1) !== coh) cohortesChangees.push({ eid, coh });
     for (const u of ues) {
-      if (!u.orgs.includes(org)) continue;                  // cette UE n'a pas d'organisation de ce numéro
+      const org = parCoh[`${u.ue_num}#${coh}`];
+      if (!org) { sansOrg.add(u.ue_num); continue; }               // aucune organisation ne sert cette cohorte ici
       const cur = lire.get(eid, u.ue_num, annee);
       if (cur && cur.org !== org) changements.push({ etudiant_id: eid, ue_num: u.ue_num, de: cur.org, vers: org });
     }
   }
-  if (b.simulation !== false) return res.json({ changements: changements.length, etudiants: new Set(changements.map(c => c.etudiant_id)).size });
-  db.transaction(() => { for (const c of changements) maj.run(c.vers, c.etudiant_id, c.ue_num, annee); })();
-  res.json({ ok: true, changements: changements.length });
+  const rapport = { etudiants: cohortesChangees.length, changements: changements.length, ue_sans_organisation: [...sansOrg] };
+  if (b.simulation !== false) return res.json(rapport);
+  const par = req.user?.nom || req.user?.email || null;
+  const ecrireCoh = db.prepare(`INSERT INTO etudiant_cohorte (etudiant_id, section, annee_scolaire, cohorte, maj_par) VALUES (?,?,?,?,?)
+    ON CONFLICT(etudiant_id, section, annee_scolaire) DO UPDATE SET cohorte = excluded.cohorte, maj_le = datetime('now'), maj_par = excluded.maj_par`);
+  const maj = db.prepare('UPDATE etudiant_inscription SET num_organisation = ? WHERE etudiant_id = ? AND ue_num = ? AND annee_scolaire = ?');
+  db.transaction(() => {
+    for (const c of cohortesChangees) ecrireCoh.run(c.eid, section, annee, c.coh, par);
+    for (const c of changements) maj.run(c.vers, c.etudiant_id, c.ue_num, annee);
+  })();
+  res.json({ ok: true, ...rapport });
 });
 
 r.post('/depuis-attributions', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
