@@ -12,9 +12,21 @@
  * Le quadrimestre n'est qu'un prévu : les dates de l'organisation l'emportent.
  */
 import db from '../db/index.js';
-import { niveauxEffectifs } from '../routes/capitalisation.js';
+import { niveauxEffectifs, schemaCohorte } from '../routes/capitalisation.js';
 
-export function placementsSection(section, annee) {
+export function placementsSection(section, annee, cohorte = 1) {
+  /* UNE AUTRE COHORTE (3.1.280) : ses seules UE de l'année, à ses niveaux et quadrimestres ;
+     le quadrimestre du référentiel à défaut. */
+  if (Number(cohorte) > 1) {
+    const sc = schemaCohorte(section, cohorte, annee);
+    const nums = Object.keys(sc).map(Number);
+    const out = {};
+    if (!nums.length) return out;
+    const ref = new Map(db.prepare(`SELECT ue_num, TRIM(COALESCE(MAX(ue_quad), '')) quad FROM ue WHERE annee_scolaire = ? AND ue_num IN (${nums.map(() => '?').join(',')}) GROUP BY ue_num`)
+      .all(annee, ...nums).map(x => [x.ue_num, x.quad]));
+    for (const n of nums) out[n] = { ue_num: n, bloc: sc[n].niveau, quad: sc[n].quadri || ref.get(n) || '', quad_schema: !!sc[n].quadri, cohorte: Number(cohorte) };
+    return out;
+  }
   const niveaux = niveauxEffectifs([section], annee);
   const out = {};
   const refs = db.prepare(`SELECT ue_num, section, TRIM(COALESCE(ue_quad, '')) quad FROM ue WHERE annee_scolaire = ?

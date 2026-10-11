@@ -280,6 +280,21 @@ aucune inscription ni valorisation dans une année antérieure — `lib/primo.js
 (UE 77 : 99 inscrits, 60 primo — les BA1 du nouveau système) et dans les cohortes.
 **À étendre** aux autres listes d'étudiants.
 
+**LES COHORTES — LOT 1 : LEUR SCHÉMA** (3.1.280, Charles, 10-11 octobre 2026 : « si deux
+organisations, on peut avoir deux schémas… une rentrée décalée… les prérequis officiels
+sont les mêmes mais décalés dans les niveaux » ; nom : « Cohorte 1, 2, 3 »). Une section
+peut faire vivre plusieurs cohortes ; chacune a son schéma de capitalisation ANNUEL. La
+cohorte 1 est celle de toujours (`ue_niveau_section`) ; les suivantes (`cohorte`,
+`ue_niveau_cohorte`) ne portent que les UE qu'elles suivent cette année-là, à leurs
+blocs et quadrimestres (l'UE 77 : cohorte 1 en BA1 au Q2, « Transition BA2 » en BA2 au
+Q2). Écran : sélecteur de cohortes du schéma (double-clic pour nommer, « + Cohorte »,
+« Ajouter une UE à cette cohorte », « Retirer de la cohorte »). `placementsSection(section,
+annee, cohorte)` et `construireGraphe({ cohorte })` les lisent. **À venir** : lot 2 —
+chaque organisation d'UE sert une cohorte (la classe s'en déduit), chaque étudiant
+appartient à une cohorte (son organisation s'en déduit), les « cohortes » AESI de 3.1.246
+s'y fondent ; lot 3 — le laboratoire, la simulation et l'organisation de base par
+cohorte, une cohorte de janvier sur deux années.
+
 **ÉVALUATION UNIQUE ≠ ÉPREUVE INTÉGRÉE** (2.12.289, Charles, 28 septembre 2026,
 UE 261 : « une seule évaluation ; la note doit aller aux deux cours »). Une unité
 peut être réglée, pour une année, en **évaluation unique**

@@ -40,6 +40,46 @@ export function migrerCapitalisation(dbx) {
     try { dbx.exec('ALTER TABLE ue_niveau_section ADD COLUMN quadri TEXT'); } catch { /* déjà là */ }
     console.log('[migration] ue_niveau_section créée');
   } catch (e) { console.error('[migration] ue_niveau_section :', e.message); }
+  /* LES COHORTES (3.1.280, Charles, 10 octobre 2026). Une section peut faire vivre
+     plusieurs cohortes la même année — « Cohorte 1, 2, 3 » : la rentrée de septembre,
+     la transition (les BA2 de psychomotricité qui n'ont pas eu l'UE 77 en BA1), demain
+     une rentrée de janvier dont une partie seulement s'organise cette année. Les
+     prérequis officiels sont les mêmes ; c'est le CHEMIN qui diffère : chaque cohorte a
+     son schéma de capitalisation, année par année (bloc et quadrimestre de chaque UE).
+     La cohorte 1 est celle de toujours — son schéma reste `ue_niveau_section` ; les
+     suivantes écrivent le leur dans `ue_niveau_cohorte`, et n'y portent QUE les UE
+     qu'elles suivent cette année-là. */
+  try {
+    dbx.exec(`
+    CREATE TABLE IF NOT EXISTS cohorte (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, section TEXT NOT NULL, numero INTEGER NOT NULL,
+      nom TEXT, rentree TEXT, annee_entree TEXT, cree_le TEXT DEFAULT (datetime('now')), cree_par TEXT,
+      UNIQUE(section, numero));
+    CREATE TABLE IF NOT EXISTS ue_niveau_cohorte (
+      section TEXT NOT NULL, cohorte INTEGER NOT NULL, annee_scolaire TEXT NOT NULL, ue_num INTEGER NOT NULL,
+      niveau TEXT NOT NULL, quadri TEXT, maj_le TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (section, cohorte, annee_scolaire, ue_num));
+    `);
+  } catch (e) { console.error('[migration] cohortes :', e.message); }
+}
+
+/** Les UE d'une cohorte (≥ 2) une année : { ue_num: { niveau, quadri } }. */
+export function schemaCohorte(section, cohorte, annee) {
+  const m = {};
+  try {
+    for (const r0 of db.prepare('SELECT ue_num, niveau, quadri FROM ue_niveau_cohorte WHERE section = ? AND cohorte = ? AND annee_scolaire = ?').all(section, Number(cohorte), annee)) {
+      m[r0.ue_num] = { niveau: String(r0.niveau || '').toUpperCase(), quadri: r0.quadri || '' };
+    }
+  } catch { /* table pas encore là */ }
+  return m;
+}
+
+/** Les cohortes d'une section ; la 1 existe toujours. */
+export function cohortesDe(section) {
+  let l = [];
+  try { l = db.prepare('SELECT * FROM cohorte WHERE section = ? ORDER BY numero').all(section); } catch { l = []; }
+  if (!l.some(c => c.numero === 1)) l.unshift({ id: null, section, numero: 1, nom: 'Cohorte 1', rentree: 'septembre', annee_entree: null });
+  return l.map(c => ({ ...c, nom: c.nom || `Cohorte ${c.numero}` }));
 }
 
 // Niveau effectif d'une UE dans une section : surcharge si elle existe,
@@ -84,11 +124,11 @@ export function rangNiveau(v) {
 
 // Construit le graphe d'une section : nœuds (UE), arêtes (prérequis),
 // colonnes (niveaux). `etat` permet d'y superposer la situation d'un étudiant.
-export function construireGraphe({ sections, annee, etat }) {
+export function construireGraphe({ sections, annee, etat, cohorte = 1 }) {
   const ph = sections.map(() => '?').join(',');
   const anneeRef = anneeActiveEnBase() || annee;
 
-  const ues = db.prepare(`
+  let ues = db.prepare(`
     SELECT ue_num, MIN(ue_nom) AS ue_nom, MIN(section) AS section,
            MAX(COALESCE(is_epreuve_integree, 0)) AS is_epreuve_integree,
            -- Une UE DÉTERMINANTE pèse double dans la mention du diplôme
@@ -100,10 +140,13 @@ export function construireGraphe({ sections, annee, etat }) {
       OR ue_num IN (SELECT ue_num FROM ue_section WHERE annee_scolaire IN (?, ?) AND section_code IN (${ph})))
     GROUP BY ue_num
   `).all(anneeRef, ...sections, anneeRef, annee || anneeRef, ...sections);
+  // Une cohorte au-delà de la première ne porte que SES UE de l'année, à SES niveaux.
+  const autre = Number(cohorte) > 1 && sections.length === 1 ? schemaCohorte(sections[0], cohorte, annee || anneeRef) : null;
+  if (autre) ues = ues.filter(u => autre[u.ue_num]);
   if (!ues.length) return { nodes: [], edges: [], colonnes: [] };
 
   const ueSet = new Set(ues.map(u => u.ue_num));
-  const niveaux = niveauxEffectifs(sections, annee);
+  const niveaux = autre ? Object.fromEntries(Object.entries(autre).map(([k, v]) => [k, v.niveau])) : niveauxEffectifs(sections, annee);
 
   const edges = db.prepare("SELECT ue_num, prerequis_num, COALESCE(type,'legal') AS type, motif FROM ue_prerequis").all()
     .filter(p => ueSet.has(p.ue_num) && ueSet.has(p.prerequis_num))
@@ -180,7 +223,7 @@ export function construireGraphe({ sections, annee, etat }) {
     : (departDe[niveaux[n] || ''] || 0) + (profIntra[n] || 0);
 
   // Le quadrimestre prévu, quand le schéma porte une seule section.
-  const quads = sections.length === 1 ? placementsSection(sections[0], annee || anneeRef) : {};
+  const quads = sections.length === 1 ? placementsSection(sections[0], annee || anneeRef, cohorte) : {};
   const nodes = ues.map(u => {
     const n = u.ue_num;
     const niv = niveaux[n] || '';
@@ -230,7 +273,8 @@ r.get('/structure', authRequired, (req, res) => {
   const { section, annee } = req.query;
   if (!section || !annee) return res.status(400).json({ error: 'section et annee requises' });
 
-  const g = construireGraphe({ sections: [section], annee });
+  const cohorte = Math.max(1, Number(req.query.cohorte) || 1);
+  const g = construireGraphe({ sections: [section], annee, cohorte });
 
   // Cohérence : une UE ne doit pas dépendre d'une UE placée dans une année
   // ultérieure. On signale les incohérences sans les corriger d'autorité.
@@ -255,7 +299,7 @@ r.get('/structure', authRequired, (req, res) => {
     const c = chiffres.get(n.ue_num, annee, section) || {};
     n.ects = c.ects ?? null; n.per_etudiants = c.per ?? null;
   }
-  res.json({ ...g, section, annee, alertes });
+  res.json({ ...g, section, annee, cohorte, cohortes: cohortesDe(section), alertes });
 });
 
 // ── LA PIÈCE IMPRIMÉE DU SCHÉMA (3.1.35, Charles, 4 octobre 2026) ──────────
@@ -316,12 +360,75 @@ r.post('/document', authRequired, (req, res) => {
 });
 
 // ── Modifier l'année d'études d'une UE dans une section ─────────────────────
+// ── LES COHORTES (3.1.280) ─────────────────────────────────────────────────
+r.get('/cohortes', authRequired, (req, res) => {
+  const section = String(req.query.section || '');
+  if (!section) return res.status(400).json({ error: 'section requise' });
+  res.json(cohortesDe(section));
+});
+r.post('/cohortes', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const b = req.body || {};
+  const section = String(b.section || '').trim();
+  if (!section) return res.status(400).json({ error: 'section requise' });
+  const numero = Math.max(1, ...cohortesDe(section).map(c => c.numero)) + 1;
+  db.prepare('INSERT INTO cohorte (section, numero, nom, rentree, annee_entree, cree_par) VALUES (?,?,?,?,?,?)')
+    .run(section, numero, String(b.nom || '').trim() || `Cohorte ${numero}`, String(b.rentree || '').trim() || null,
+      String(b.annee_entree || '').trim() || null, req.user?.nom || req.user?.email || null);
+  res.json({ ok: true, numero, cohortes: cohortesDe(section) });
+});
+r.put('/cohortes/:numero', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const b = req.body || {}, section = String(b.section || '').trim(), numero = Number(req.params.numero);
+  if (!section || !numero) return res.status(400).json({ error: 'section et numéro requis' });
+  // La cohorte 1 n'a pas de ligne tant qu'on ne la nomme pas : on la crée au besoin.
+  db.prepare(`INSERT INTO cohorte (section, numero, nom, rentree, annee_entree) VALUES (?,?,?,?,?)
+    ON CONFLICT(section, numero) DO UPDATE SET nom = excluded.nom, rentree = excluded.rentree, annee_entree = excluded.annee_entree`)
+    .run(section, numero, String(b.nom || '').trim() || `Cohorte ${numero}`, String(b.rentree || '').trim() || null, String(b.annee_entree || '').trim() || null);
+  res.json({ ok: true, cohortes: cohortesDe(section) });
+});
+r.delete('/cohortes/:numero', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const section = String(req.query.section || req.body?.section || '').trim(), numero = Number(req.params.numero);
+  if (!section || !(numero > 1)) return res.status(400).json({ error: 'La cohorte 1 ne se supprime pas.' });
+  const n = db.prepare('SELECT COUNT(*) n FROM ue_niveau_cohorte WHERE section = ? AND cohorte = ?').get(section, numero).n;
+  db.transaction(() => {
+    db.prepare('DELETE FROM ue_niveau_cohorte WHERE section = ? AND cohorte = ?').run(section, numero);
+    db.prepare('DELETE FROM cohorte WHERE section = ? AND numero = ?').run(section, numero);
+  })();
+  res.json({ ok: true, ue_retirees: n, cohortes: cohortesDe(section) });
+});
+/** Ajouter une UE au schéma d'une cohorte (≥ 2), au bloc qu'elle a dans la cohorte 1 par défaut. */
+r.post('/cohorte-ue', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const b = req.body || {}, section = String(b.section || ''), annee = String(b.annee || ''), cohorte = Number(b.cohorte), num = Number(b.ue_num);
+  if (!section || !annee || !(cohorte > 1) || !num) return res.status(400).json({ error: 'section, annee, cohorte (≥ 2) et ue_num requis' });
+  const niveau = String(b.niveau || niveauxEffectifs([section], annee)[num] || 'BA1').toUpperCase();
+  db.prepare(`INSERT INTO ue_niveau_cohorte (section, cohorte, annee_scolaire, ue_num, niveau) VALUES (?,?,?,?,?)
+    ON CONFLICT(section, cohorte, annee_scolaire, ue_num) DO NOTHING`).run(section, cohorte, annee, num, niveau);
+  res.json({ ok: true, niveau });
+});
+
 r.put('/niveau', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const { section, annee, ue_num } = req.body;
   if (!section || !annee || !ue_num) {
     return res.status(400).json({ error: 'section, annee et ue_num requis' });
   }
   const num = Number(ue_num);
+  /* Le schéma d'une cohorte au-delà de la première : ses lignes à elle. Un niveau vide
+     RETIRE l'UE de la cohorte cette année. */
+  const coh = Number(req.body.cohorte) || 1;
+  if (coh > 1) {
+    const actu = db.prepare('SELECT niveau, quadri FROM ue_niveau_cohorte WHERE section=? AND cohorte=? AND annee_scolaire=? AND ue_num=?').get(section, coh, annee, num);
+    if ('niveau' in req.body && !String(req.body.niveau || '').trim()) {
+      db.prepare('DELETE FROM ue_niveau_cohorte WHERE section=? AND cohorte=? AND annee_scolaire=? AND ue_num=?').run(section, coh, annee, num);
+      return res.json({ ok: true, retiree: true });
+    }
+    const niv = String('niveau' in req.body ? req.body.niveau : (actu?.niveau || '')).toUpperCase().trim();
+    const q = String('quadri' in req.body ? (req.body.quadri || '') : (actu?.quadri || '')).toUpperCase().trim();
+    if (!/^(BA|BE)\d+$|^FC$/.test(niv)) return res.status(400).json({ error: 'niveau attendu : BA1, BA2, BA3…, BE1… ou FC' });
+    if (q && !/^(Q1|Q2|AN)$/.test(q)) return res.status(400).json({ error: 'quadrimestre attendu : Q1, Q2 ou AN' });
+    db.prepare(`INSERT INTO ue_niveau_cohorte (section, cohorte, annee_scolaire, ue_num, niveau, quadri) VALUES (?,?,?,?,?,?)
+      ON CONFLICT(section, cohorte, annee_scolaire, ue_num) DO UPDATE SET niveau = excluded.niveau, quadri = excluded.quadri, maj_le = datetime('now')`)
+      .run(section, coh, annee, num, niv, q || null);
+    return res.json({ ok: true, niveau: niv, quadri: q || null });
+  }
   const actuel = db.prepare('SELECT niveau, quadri FROM ue_niveau_section WHERE section=? AND annee_scolaire=? AND ue_num=?').get(section, annee, num);
   // Ce que la requête ne nomme pas reste tel quel : changer le Q ne touche pas au bloc.
   let val = 'niveau' in req.body ? String(req.body.niveau || '').toUpperCase().trim() : (actuel?.niveau || '');
