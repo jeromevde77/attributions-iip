@@ -19,7 +19,7 @@ import { authHeaders } from '../lib/api.js';
  * des écrans que l'équipe n'a pas. À relire et à renuméroter à chaque mise en
  * production qui change un geste.
  */
-const VERSION_DECRITE = '3.1.21';
+const VERSION_DECRITE = '3.1.283';
 
 /* Un point : { titre, ou?, texte, savoir?: [] }.
    ou     — le chemin, avec les libellés de l'écran ;
@@ -70,6 +70,21 @@ const RUBRIQUES = [
     id: 'demarrage', titre: 'Pour commencer', Icone: IconChevronRight,
     resume: "L'année de travail, le menu, la recherche, l'avion et les idées.",
     points: [
+      { titre: "Revenir en arrière : le bouton ↶",
+        ou: "Barre du haut, à côté de la loupe.",
+        texte: "Vos 10 derniers enregistrements, dits en mots, avec l'heure. « Revenir avant ce geste » défait ce "
+             + "geste et ceux qui ont suivi, du plus récent au plus ancien. Un clic compte pour un seul geste, même "
+             + "s'il a modifié trente lignes.",
+        savoir: [
+          "Lucie refuse si quelqu'un a modifié la même chose depuis, et dit qui : rien n'est alors changé.",
+          "Les actes officiels ne s'annulent jamais ici (séance close, valorisation validée ou notifiée, présences, recours, courriels envoyés, textes publiés) : ils se reprennent par leur procédure.",
+          "La direction voit aussi « Toute l'équipe » et peut annuler le geste d'un autre, avec un motif écrit.",
+        ] },
+      { titre: "Les longues listes se cherchent",
+        texte: "Là où une liste est longue (le compte général du budget, les UE et les personnes de la "
+             + "Communication…), on tape un mot, un morceau de mot ou un numéro, dans n'importe quel ordre et "
+             + "sans accents : la liste se réduit. ↑ ↓ pour choisir, Entrée pour valider, Échap pour refermer.",
+        savoir: [] },
       { titre: "L'année de travail",
         ou: "En haut de l'écran, le sélecteur d'année.",
         texte: "Il fixe l'année sur laquelle porte tout ce que vous voyez. Changer d'année change tous les écrans. "
@@ -165,6 +180,46 @@ const RUBRIQUES = [
     id: 'accueil', titre: 'Tableau de bord', Icone: IconHome,
     resume: "Ce qui m'attend, ce que l'équipe doit faire, les chiffres de l'école.",
     points: [
+      { titre: "Quoi de neuf dans Lucie ?",
+        ou: "Tableau de bord, la tuile en tête.",
+        texte: "Les nouveautés récentes, rangées par public : où les trouver, comment s'en servir. La tuile porte "
+             + "« Nouveau » tant que vous ne l'avez pas ouverte ; le guide s'ouvre sur votre public (enseignants, "
+             + "secrétariat, coordinations), les autres restent à un clic.",
+        savoir: [] },
+      { titre: "Les messages de l'école",
+        ou: "Tableau de bord, carte « Message ».",
+        texte: "La direction, le secrétariat et les coordinations vous écrivent directement dans Lucie ; une copie "
+             + "par courriel peut l'accompagner. « Marquer comme lu » : la carte affiche ✓ Lu en vert, et l'auteur "
+             + "sait que vous l'avez lu.",
+        savoir: [
+          "Un compte créé aujourd'hui arrive sur un tableau de bord propre : les notifications antérieures ne s'y affichent pas, les messages et les vœux si.",
+        ] },
+      { titre: "Écrire à l'équipe — Communication",
+        ou: "Tableau de bord → Communication (direction, secrétariat, coordinations).",
+        texte: "Un titre, un message (une ligne vide sépare deux paragraphes), puis les destinataires en groupes qui "
+             + "s'additionnent : tout le personnel de l'année, des sections, les enseignants d'une UE, des rôles, des "
+             + "personnes. Lucie dit combien de personnes recevront le message, et combien n'ont pas encore de "
+             + "compte ; « voir la liste » les nomme. « Copie par courriel » si vous le voulez, puis « Envoyer ».",
+        savoir: [
+          "« Messages envoyés » : combien l'ont lu ; un clic montre la liste, ✓ vert devant chaque lecture. « Retirer » enlève un message envoyé par erreur des tableaux de bord ; il reste au registre.",
+          "« Vider leurs tableaux de bord » : pour les comptes existants parmi ces groupes (vous compris si vous y êtes), les notifications reçues jusqu'ici disparaissent. Les messages et les vœux restent ; le bouton ↶ défait ce ménage.",
+          "Une coordination écrit aux personnes de ses sections seulement.",
+        ] },
+      { titre: "Les anniversaires et les vœux",
+        ou: "Tableau de bord, le jour même.",
+        texte: "La carte d'un anniversaire du jour se met en fête. « ♡ Souhaiter » : un vœu d'un clic ; « Un petit "
+             + "mot » : 100 caractères au plus. La personne fêtée reçoit une seule carte, « Vous avez reçu … vœux », "
+             + "avec les noms et les mots, sans pastille de notification.",
+        savoir: [
+          "Tout le personnel de l'année voit les anniversaires ; l'âge reste réservé à qui gère le personnel.",
+        ] },
+      { titre: "Ranger le tableau de bord (administrateur)",
+        ou: "Barre du haut, l'icône de mise en page.",
+        texte: "Mode allumé, chaque bloc porte une petite barre : la poignée pour le déplacer, l'œil pour le masquer "
+             + "ou le réafficher, la demi-largeur. Ce qu'on range vaut pour toute l'école.",
+        savoir: [
+          "Un bloc masqué est signalé à l'administrateur au bas de l'accueil (« 2 bloc(s) masqué(s)… »), avec un lien vers la mise en page.",
+        ] },
       { titre: "Ce qui m'attend",
         ou: "Tableau de bord → Ce qui m'attend.",
         texte: "Ce que VOUS devez faire, avant le fil de ce qui s'est passé. Les blocs n'apparaissent que s'il y a "
@@ -754,6 +809,43 @@ const RUBRIQUES = [
     id: 'organisation', titre: 'Organisation', Icone: IconBooks,
     resume: "Attributions, planification, horaires, effectifs.",
     points: [
+      { titre: "Le laboratoire temporel",
+        ou: "Organisation → Le laboratoire temporel (erlenmeyer et horloge) ; ses faces en sous-menu du rail.",
+        texte: "Le temps (l'année en tuiles qu'on glisse ; double-clic pour zoomer sur les cours, puis sur le verre "
+             + "de l'UE) · les groupes (les TP d'un bloc en briques communes) · la semaine (Lucie propose un horaire "
+             + "régulier, avec locaux et jours de présence, à comparer avec l'horaire actuel) · les disponibilités · "
+             + "le planning · le schéma de capitalisation.",
+        savoir: [
+          "Chaque tuile dit le nombre d'étudiants de l'UE ou de l'organisation (selon les groupes quand ils existent, sinon les inscriptions).",
+          "« Organisation de base » : Lucie propose les dates d'après le quadrimestre prévu, les prérequis et l'épreuve intégrée ; elle montre d'abord, et sauvegarde avant d'écrire.",
+          "« Remplir les verres depuis les attributions », « Grand nettoyage du labo » (sauvegarde d'abord, restaurable).",
+        ] },
+      { titre: "Disponibilités et planning de l'école",
+        ou: "Le laboratoire temporel → Les disponibilités · Le planning ; fiche de l'enseignant.",
+        texte: "Les disponibilités : une semaine type où l'on peint chaque créneau — vert disponible, orange à "
+             + "éviter, rouge jamais ; l'agenda d'un enseignant vaut pour toutes ses sections. Le planning : d'abord "
+             + "la base (les blocs de cours de l'école, jour par jour), puis des contraintes peintes pour une "
+             + "section, un bloc, une UE, un cours, une activité, un enseignant ou un local.",
+        savoir: [
+          "Ce qui n'est pas peint reste au choix de la simulation.",
+        ] },
+      { titre: "Une UE en deux organisations, et les cohortes",
+        ou: "Le laboratoire → fiche de l'UE (Dédoubler, Retirer l'org, Cohorte) ; Schéma de capitalisation (sélecteur de cohortes) ; fenêtre Cohortes.",
+        texte: "Une UE ou un stage peut se donner deux fois (AESI : stage de Toussaint à Noël ou de Carnaval à "
+             + "Pâques ; UE 77 : en BA1 pour les nouveaux, en BA2 pour la transition). Chaque organisation a ses "
+             + "dates et ses étudiants, et sert une COHORTE de la section. Chaque cohorte a son schéma de "
+             + "capitalisation de l'année : la classe de l'organisation s'en déduit.",
+        savoir: [
+          "« + Cohorte » dans le schéma : elle naît copie du schéma de la cohorte 1 ; on retire ou on décale ensuite. Double-clic pour la nommer.",
+          "Fenêtre Cohortes : chaque étudiant reçoit sa cohorte pour l'année (il peut en changer l'année suivante) et passe dans l'organisation qui la sert. Les groupes, cours par cours, gardent le dernier mot.",
+          "Badge « primo » et filtre : pour placer d'un coup les primo-inscrits.",
+        ] },
+      { titre: "Le bloc et le quadrimestre viennent de la section",
+        ou: "Organisation → Schéma de capitalisation ; cliquez une UE.",
+        texte: "Une UE n'a de bloc que dans une section et une année (l'UE 95 : BA1 chez les bacheliers, FC chez "
+             + "Restart). Le schéma de chaque section règle le bloc et le quadrimestre prévu (Q1, Q2, AN) ; le "
+             + "laboratoire les lit. Les dates restent libres.",
+        savoir: [] },
       { titre: "Attributions",
         ou: "Organisation → Attributions.",
         texte: "Qui donne quoi, avec quelles périodes, par section et par UE. Trois vues : « Par section », « Vue "
@@ -806,6 +898,14 @@ const RUBRIQUES = [
     id: 'gestion', titre: 'Gestion', Icone: IconChartBar,
     resume: "Dotation, budget, répartition des périodes.",
     points: [
+      { titre: "Le budget",
+        ou: "Gestion → Budget.",
+        texte: "La section d'une prévision se corrige dans son formulaire (ses dépenses la suivent) ; « Autres » "
+             + "accueille ce qui ne relève d'aucune section. Le compte général se cherche en tapant (« matériel », "
+             + "« 6124 »).",
+        savoir: [
+          "L'import du canevas prend aussi les comptes utilisés dans la colonne A hors de sa liste ; les comptes HELB ne sont plus proposés.",
+        ] },
       { titre: "Les écrans",
         ou: "Gestion → rail (écran « Pilotage des dotations »).",
         texte: "Dotation · Budget · Répartition des périodes · Configuration, avec le choix de l'année civile dans "
@@ -856,6 +956,23 @@ const RUBRIQUES = [
     id: 'config', titre: 'Configuration (direction)', Icone: IconSettings,
     resume: "Établissement, enseignement, documents et envois, accès, système.",
     points: [
+      { titre: "Régler l'apparence (administrateur)",
+        ou: "Configuration → Formes et composants · Thèmes et couleurs · Catalogue des éléments.",
+        texte: "Formes et composants : rayons, tuiles (grande et compacte), boutons, champs, titres, tableaux, "
+             + "graphiques, fenêtres ; thèmes Maison IIP, Arrondi, Anguleux, Compact, Confort — et « Personnalisé », "
+             + "qui s'allume dès qu'on touche un curseur et garde vos réglages. Thèmes et couleurs : chaque zone de "
+             + "l'écran, les jeux de couleurs des graphiques, un thème Sombre. Catalogue : chaque composant avec sa "
+             + "boîte de propriétés.",
+        savoir: [
+          "« ↶ Annuler le dernier changement » sur ces trois écrans ; on recule réglage par réglage.",
+          "Chaque changement vaut aussitôt pour toute l'école.",
+        ] },
+      { titre: "Plusieurs établissements",
+        ou: "Configuration → Identité.",
+        texte: "Plusieurs établissements gérés par le même conseil d'administration, aux étudiants séparés ou "
+             + "partagés. Chacun a son logo couleur, son logo blanc, sa signature et son cachet ; chaque section "
+             + "est rattachée à son établissement.",
+        savoir: [] },
       { titre: "Les cinq familles",
         ou: "Configuration (barre du haut, direction) → rail : la famille ouverte se déplie en plateau, avec une icône par rubrique.",
         texte: "Établissement : Identité · Années et calendrier. Enseignement : Unités et cours · Prérequis d'UE · "
