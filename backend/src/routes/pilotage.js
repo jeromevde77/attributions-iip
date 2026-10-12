@@ -13,8 +13,16 @@ const POT = `COALESCE(u.pot_code,
        WHEN u.ue_code_fwb LIKE '980303%' THEN 'INCL'
        ELSE 'organique' END)`;
 
+/* UNE LIGNE EN CONGÉ NE COÛTE RIEN (12 octobre 2026, Charles : « un prof en congé ne compte pas
+ * dans la dotation ; il est remplacé — sinon on paierait deux fois »). La vue v_attribution_complete
+ * l'écartait déjà ; le Pilotage, qui recalcule sur la table brute, ne le faisait pas : le titulaire
+ * en congé et son remplaçant étaient comptés tous deux. Toute formule de coût d'ici commence donc
+ * par ce garde. */
+const HORS_CONGE = `COALESCE(a.en_conge, 0) = 1`;
+
 // Coût dotation Q1 (périodes B pondérées, IIP uniquement)
-const CQ1 = `CASE WHEN COALESCE(a.quadrimestre_attribue, u.ue_quad)='Q1' THEN
+const CQ1 = `CASE WHEN ${HORS_CONGE} THEN 0
+     WHEN COALESCE(a.quadrimestre_attribue, u.ue_quad)='Q1' THEN
        CASE WHEN u.ue_niveau='SUP' THEN a.total_attribue_professeur*1.5
             WHEN u.ue_niveau='DS'  THEN a.total_attribue_professeur*1.25
             ELSE 0 END
@@ -25,7 +33,8 @@ const CQ1 = `CASE WHEN COALESCE(a.quadrimestre_attribue, u.ue_quad)='Q1' THEN
      ELSE 0 END`;
 
 // Coût dotation Q2
-const CQ2 = `CASE WHEN COALESCE(a.quadrimestre_attribue, u.ue_quad)='Q2' THEN
+const CQ2 = `CASE WHEN ${HORS_CONGE} THEN 0
+     WHEN COALESCE(a.quadrimestre_attribue, u.ue_quad)='Q2' THEN
        CASE WHEN u.ue_niveau='SUP' THEN a.total_attribue_professeur*1.5
             WHEN u.ue_niveau='DS'  THEN a.total_attribue_professeur*1.25
             ELSE 0 END
@@ -81,7 +90,8 @@ function usageEnveloppe(anneeCivile) {
   return db.prepare(`
     SELECT ${POT} AS pot,
       ROUND(SUM(
-        CASE WHEN u.ue_niveau='SUP' THEN a.total_attribue_professeur * 1.5
+        CASE WHEN ${HORS_CONGE} THEN 0
+             WHEN u.ue_niveau='SUP' THEN a.total_attribue_professeur * 1.5
              WHEN u.ue_niveau='DS'  THEN a.total_attribue_professeur * 1.25
              ELSE a.total_attribue_professeur END
       ), 2) AS periodes_b
@@ -892,10 +902,12 @@ r.get('/dotation-comparaison', authRequired, (req, res) => {
   const mode = req.query.mode === 'civil' ? 'civil' : 'scolaire';
 
   // Coûts bruts Q1/Q2 (sans pondération) — total_attribue_professeur = périodes + autonomie
-  const RQ1 = `CASE WHEN COALESCE(a.quadrimestre_attribue, u.ue_quad) IN ('Q1','Q1/Q2')
+  const RQ1 = `CASE WHEN ${HORS_CONGE} THEN 0
+    WHEN COALESCE(a.quadrimestre_attribue, u.ue_quad) IN ('Q1','Q1/Q2')
     THEN a.total_attribue_professeur * CASE WHEN COALESCE(a.quadrimestre_attribue, u.ue_quad)='Q1/Q2' THEN 0.4 ELSE 1 END
     ELSE 0 END`;
-  const RQ2 = `CASE WHEN COALESCE(a.quadrimestre_attribue, u.ue_quad) IN ('Q2','Q1/Q2')
+  const RQ2 = `CASE WHEN ${HORS_CONGE} THEN 0
+    WHEN COALESCE(a.quadrimestre_attribue, u.ue_quad) IN ('Q2','Q1/Q2')
     THEN a.total_attribue_professeur * CASE WHEN COALESCE(a.quadrimestre_attribue, u.ue_quad)='Q1/Q2' THEN 0.6 ELSE 1 END
     ELSE 0 END`;
 
@@ -1070,6 +1082,7 @@ r.get('/ext-dot', authRequired, (req, res) => {
     LEFT JOIN professeur p ON p.id = a.professeur_id
     WHERE a.annee_scolaire = ?
       AND u.pot_code IN (${POTS_EXT.map(()=>'?').join(',')})
+      AND COALESCE(a.en_conge, 0) = 0
       AND (a.type_cours IS NULL OR a.type_cours != 'Z')
       AND (a.coordination_encadrement IS NULL OR a.coordination_encadrement NOT IN ('95','96','97','98','99'))
     ORDER BY u.pot_code, a.ue_num, a.id
