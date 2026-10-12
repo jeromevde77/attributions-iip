@@ -114,17 +114,28 @@ function Maintenant({ d }) {
 function HorairesEquipe({ d, recharger }) {
   const [personnes, setPersonnes] = useState([]);
   const [qui, setQui] = useState('');
+  const [fait, setFait] = useState(null);   // la personne qu'on vient d'enregistrer : on enchaîne sur la suivante
   useEffect(() => { fetch('/api/equipe/personnes', { headers: authHeaders() }).then(r => r.json()).then(setPersonnes).catch(() => {}); }, []);
   return (
     <div className="space-y-4">
       <label className="text-second block">Personne
         <select className="controle block" value={qui} onChange={e => setQui(e.target.value)}>
           <option value="">— choisir —</option>{personnes.map(p => <option key={p.id} value={p.id}>{p.nom} ({p.role})</option>)}</select></label>
-      {qui ? <Moi key={qui} d={d} recharger={recharger} utilisateur={Number(qui)} /> : <p className="text-sm text-slate-500">Choisissez une personne pour régler son horaire de la semaine.</p>}
+      {fait && !qui && <p className="text-sm" style={{ color: 'var(--c-reussi)' }}>✓ Horaire de {fait} enregistré. Choisissez la personne suivante.</p>}
+      {qui ? <Moi key={qui} d={d} recharger={recharger} utilisateur={Number(qui)}
+        apresEnregistrement={() => { setFait(personnes.find(p => String(p.id) === String(qui))?.nom || 'cette personne'); setQui(''); }} />
+        : !fait && <p className="text-sm text-slate-500">Choisissez une personne pour régler son horaire de la semaine.</p>}
     </div>);
 }
 
-function Moi({ d, recharger, utilisateur = null }) {
+/* Les lieux de la maison (Charles, 12 octobre 2026 : « pour le lieu, une liste déroulante »).
+   Un lieu déjà enregistré hors de la liste reste affiché, pour ne rien perdre. */
+const LIEUX = ['Secrétariat', 'Direction', 'Accueil', 'Coordination', 'Bureau', 'Salle des professeurs', 'Télétravail', 'Extérieur'];
+const minutes = h => { const [a, b] = String(h || '').split(':').map(Number); return Number.isFinite(a) ? a * 60 + (b || 0) : null; };
+const duree = p => { const a = minutes(p.debut), b = minutes(p.fin); return a != null && b != null && b > a ? b - a : 0; };
+const enHeures = m => `${Math.floor(m / 60)} h${m % 60 ? ` ${String(m % 60).padStart(2, '0')}` : ''}`;
+
+function Moi({ d, recharger, utilisateur = null, apresEnregistrement = null }) {
   const [plages, setPlages] = useState(null);
   const [tel, setTel] = useState(d.moi.telephone || '');
   useEffect(() => { fetch(`/api/equipe/horaire${utilisateur ? `?utilisateur=${utilisateur}` : ''}`, { headers: authHeaders() }).then(r => r.json()).then(setPlages).catch(() => setPlages([])); }, [utilisateur]);
@@ -134,9 +145,11 @@ function Moi({ d, recharger, utilisateur = null }) {
     if (!utilisateur) await fetch('/api/equipe/telephone', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ telephone: tel }) });
     const r = await fetch('/api/equipe/horaire', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ plages, ...(utilisateur ? { utilisateur } : {}) }) });
     const j = await r.json().catch(() => ({}));
-    await informer(r.ok ? `✓ Enregistré : ${j.plages} plage(s) d’horaire.` : `❌ ${j.error || 'Erreur'}`);
     recharger();
+    if (r.ok && apresEnregistrement) return apresEnregistrement();
+    await informer(r.ok ? `✓ Enregistré : ${j.plages} plage(s) d’horaire.` : `❌ ${j.error || 'Erreur'}`);
   }
+  const total = plages.reduce((s, p) => s + duree(p), 0);
   return (
     <div className="space-y-4">
       {!utilisateur && <label className="block">
@@ -152,13 +165,18 @@ function Moi({ d, recharger, utilisateur = null }) {
               <td className="pr-2 py-1"><select className="controle !h-8" value={p.jour} onChange={e => maj(i, 'jour', Number(e.target.value))}>{JOURS.map((j, k) => <option key={j} value={k + 1}>{j}</option>)}</select></td>
               <td className="pr-2"><input type="time" className="controle !h-8" value={p.debut} onChange={e => maj(i, 'debut', e.target.value)} /></td>
               <td className="pr-2"><input type="time" className="controle !h-8" value={p.fin} onChange={e => maj(i, 'fin', e.target.value)} /></td>
-              <td className="pr-2"><input className="controle !h-8 w-40" value={p.lieu || ''} placeholder="Lieu (secrétariat…)" onChange={e => maj(i, 'lieu', e.target.value)} data-reponses="non" /></td>
+              <td className="pr-2"><select className="controle !h-8 w-44" value={p.lieu || ''} onChange={e => maj(i, 'lieu', e.target.value)}>
+                <option value="">— lieu —</option>
+                {p.lieu && !LIEUX.includes(p.lieu) && <option value={p.lieu}>{p.lieu}</option>}
+                {LIEUX.map(l => <option key={l} value={l}>{l}</option>)}</select></td>
+              <td className="pr-3 text-slate-500 italic whitespace-nowrap tabular-nums">{duree(p) ? enHeures(duree(p)) : 'fin avant début'}</td>
               <td><button type="button" className="text-slate-400 hover:text-red-600" aria-label="Retirer" onClick={() => setPlages(l => l.filter((_, j) => j !== i))}><IconTrash size={15} /></button></td>
             </tr>))}</tbody>
         </table>
-        <button type="button" className="bouton mt-2" onClick={() => setPlages(l => [...l, { jour: 1, debut: '08:00', fin: '16:00', lieu: '' }])}><IconPlus size={14} className="inline -mt-0.5 mr-1" />Ajouter une plage</button>
+        {plages.length > 0 && <p className="text-sm text-slate-500 italic mt-1">Total de la semaine : {enHeures(total)}</p>}
+        <button type="button" className="bouton mt-2" onClick={() => setPlages(l => { const der = l[l.length - 1]; return [...l, der ? { ...der, jour: der.jour % 7 + 1 } : { jour: 1, debut: '08:00', fin: '16:00', lieu: '' }]; })}><IconPlus size={14} className="inline -mt-0.5 mr-1" />Ajouter une plage</button>
       </div>
-      <button className="bouton bouton-fort" onClick={enregistrer}>Enregistrer</button>
+      <button className="bouton bouton-fort" onClick={enregistrer}>{apresEnregistrement ? 'Enregistrer et passer à une autre personne' : 'Enregistrer'}</button>
     </div>);
 }
 
