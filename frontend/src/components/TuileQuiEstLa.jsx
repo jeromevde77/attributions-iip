@@ -101,24 +101,9 @@ function Maintenant({ d }) {
   return (
     <div className="space-y-4">
       <section>
-        <div className="intertitre mb-1.5">De permanence aujourd’hui</div>
-        {!d.permanences.length ? <p className="text-sm text-slate-500">Aucune permanence prévue aujourd’hui.</p>
-          : <ul className="divide-y divide-slate-100">{d.permanences.map(p => (
-              <li key={p.id} className="py-2 flex items-center gap-3">
-                <span className="min-w-0 flex-1"><b className="text-sm">{p.nom}</b>
-                  <span className="block text-second text-slate-500">{p.debut}–{p.fin}{p.habituelle ? ' · permanence habituelle' : ''}{p.en_cours ? ' · en ce moment' : ''}{p.note ? ` · ${p.note}` : ''}</span>
-                  {p.secours.map((x, k) => (
-                    <span key={x.id} className="mt-1 flex items-center gap-2 text-second">
-                      <span className="text-slate-500">Si pas de réponse — secours {k + 1} :</span> <b>{x.nom}</b>
-                      {x.telephone ? <a href={telLien(x.telephone)} className="underline" title={`Appeler ${x.nom}`}><IconPhone size={13} className="inline -mt-0.5" /> {x.telephone}</a>
-                        : <span style={{ color: FRAISE }}>pas de numéro affiché</span>}
-                    </span>))}</span>
-                <Appeler p={p} /></li>))}</ul>}
-      </section>
-      <section>
         <div className="intertitre mb-1.5">La journée de l’équipe</div>
-        {!d.journee?.length ? <p className="text-sm text-slate-500">Personne n’a d’horaire aujourd’hui ni ne s’est signalé.</p>
-          : <FriseJournee journee={d.journee} heure={d.heure} />}
+        {!d.journee?.length && !d.permanences.length ? <p className="text-sm text-slate-500">Personne n’a d’horaire ni de permanence aujourd’hui.</p>
+          : <FriseJournee journee={d.journee || []} permanences={d.permanences} heure={d.heure} />}
       </section>
     </div>);
 }
@@ -128,15 +113,17 @@ function Maintenant({ d }) {
    quand on peut la trouver, le gris hachuré sa pause, le trait marine l'heure qu'il est. Un « J'arrive »
    hors horaire se dessine aussi ; après « Je pars », le reste de la journée s'éteint. */
 const enMin = h => { const [a, b] = String(h || '').split(':').map(Number); return a * 60 + (b || 0); };
-function FriseJournee({ journee, heure }) {
+function FriseJournee({ journee, permanences = [], heure }) {
   const maintenant = enMin(heure);
-  const bornes = journee.flatMap(p => [...p.plages.flatMap(h => [enMin(h.debut), enMin(h.fin)]), ...p.pointages.map(x => enMin(x.heure))]);
+  const bornes = [...journee.flatMap(p => [...p.plages.flatMap(h => [enMin(h.debut), enMin(h.fin)]), ...p.pointages.map(x => enMin(x.heure))]),
+    ...permanences.flatMap(p => [enMin(p.debut), enMin(p.fin)])];
   const debut = Math.floor(Math.min(7 * 60, maintenant, ...bornes) / 60) * 60;
   const fin = Math.ceil(Math.max(19 * 60, maintenant, ...bornes) / 60) * 60;
   const pct = m => `${((Math.min(fin, Math.max(debut, m)) - debut) / (fin - debut)) * 100}%`;
   const larg = (a, b) => `${((Math.min(fin, b) - Math.max(debut, a)) / (fin - debut)) * 100}%`;
   const heures = []; for (let h = debut; h <= fin; h += 60) heures.push(h);
   const VERT = 'var(--c-reussi)';
+  const OR = 'var(--c-iip_or, #F9B619)';   // la permanence : l'or du logo, sans pause (Charles)
   const HACHURE = 'repeating-linear-gradient(135deg, rgb(var(--gris-300)) 0 3px, transparent 3px 6px)';
   const etat = p => {
     const ici = p.plages.find(h => h.debut <= heure && heure < h.fin);
@@ -194,9 +181,32 @@ function FriseJournee({ journee, heure }) {
             </span>
           </div>);
       })}
+      {/* LA PERMANENCE EN DERNIER (Charles : « en jaune or IIP, sans pause, après — que l'on voie que
+          c'est une permanence ») : sa ligne porte ses secours, chacun avec son numéro. */}
+      {permanences.map(p => (
+        <div key={p.id} className="flex items-center gap-3 py-1.5 border-t border-slate-100">
+          <span className="w-52 flex-none min-w-0">
+            <b className="text-sm">{p.nom}</b> <span className="text-second text-slate-500">de permanence</span>
+            <span className="block text-second text-slate-500">{p.debut}–{p.fin}{p.en_cours ? ' · en ce moment' : ''}{p.note ? ` · ${p.note}` : ''}</span>
+            {p.secours.map((x, k) => (
+              <span key={x.id} className="block text-second">
+                <span className="text-slate-500">secours {k + 1} :</span> <b>{x.nom}</b>{' '}
+                {x.telephone ? <a href={telLien(x.telephone)} className="underline whitespace-nowrap" title={`Appeler ${x.nom}`}><IconPhone size={12} className="inline -mt-0.5" /> {x.telephone}</a>
+                  : <span style={{ color: FRAISE }}>pas de numéro affiché</span>}
+              </span>))}
+          </span>
+          <div className={`relative flex-1 h-5 rounded bg-slate-100 overflow-hidden ${p.en_cours || enMin(p.debut) > maintenant ? '' : 'opacity-60'}`}>
+            {heures.slice(1, -1).map(h => <span key={h} className="absolute top-0 bottom-0 w-px bg-white/70" style={{ left: pct(h) }} />)}
+            <span className="absolute top-1 bottom-1 rounded-sm" style={{ left: pct(enMin(p.debut)), width: larg(enMin(p.debut), enMin(p.fin)), background: OR }}
+              title={`De permanence ${p.debut}–${p.fin}`} />
+            <span className="absolute top-0 bottom-0 w-0.5" style={{ left: pct(maintenant), background: 'var(--c-principal)' }} title={`Il est ${heure}`} />
+          </div>
+          <span className="w-36 flex-none flex justify-end">{p.en_cours ? <Appeler p={p} /> : null}</span>
+        </div>))}
       <p className="text-mention text-slate-400 pt-1 flex flex-wrap gap-x-4">
         <span><span className="inline-block w-3 h-2 rounded-sm align-middle mr-1" style={{ background: VERT }} />disponible</span>
         <span><span className="inline-block w-3 h-2 align-middle mr-1" style={{ backgroundImage: HACHURE }} />pause</span>
+        {permanences.length > 0 && <span><span className="inline-block w-3 h-2 rounded-sm align-middle mr-1" style={{ background: OR }} />permanence</span>}
         <span><span className="inline-block w-0.5 h-3 align-middle mr-1" style={{ background: 'var(--c-principal)' }} />maintenant ({heure})</span>
       </p>
     </div>);
