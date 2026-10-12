@@ -7,6 +7,7 @@ import { IconChartHistogram, IconBooks, IconChevronLeft, IconAlertTriangle, Icon
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { MOTIFS_ECHEC } from '../components/motifsEchec.js';
 import PresencesCours from '../components/PresencesCours.jsx';
+import MaListe from '../components/MaListe.jsx';
 import IndicateursNotes from '../components/IndicateursNotes.jsx';
 import { OuvrirEditions, RailLateral, Encadre } from '../components/ui.jsx';
 import AvisValorisationProf from '../components/AvisValorisationProf.jsx';
@@ -454,9 +455,8 @@ export default function MesCours() {
                   </div>
                 )}
                 <span className="ml-auto" />
-                <OuvrirEditions disabled={!!impression} titre="Imprimer ou envoyer les listes — centre d'édition"
-                  pieces={[{ cle: 'listes-cours', label: groupesDispo.length && !groupeVu ? 'Listes du cours — une feuille par groupe' : 'Liste des étudiants affichés',
-                    description: 'Avec une colonne de signature', onClick: () => imprimerGroupes() }]} />
+                <MaListe cours={ouvert} groupe={groupeVu} occupe={!!impression} onImprimer={imprimerGroupes}
+                  etudiants={groupeVu ? feuille.etudiants.filter(e => groupesDe(e).includes(groupeVu)) : feuille.etudiants} />
               </div>
             )}
             {face === 'presences' && <Encadre etat="neutre" titre="Bientôt">La prise des présences n’est pas encore en service.</Encadre>}
