@@ -15,12 +15,22 @@ const JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dim
 // « Pas ocre… fraise » (Charles) : ce qui empêche de joindre quelqu'un prend le rouge du réglage « à corriger ».
 const FRAISE = 'var(--c-refuse)';
 const telLien = t => `tel:${String(t || '').replace(/[^\d+]/g, '')}`;
+/* Un numéro belge se lit par groupes : « +32 2 560 29 59 », « +32 475 12 34 56 ». Le reste tel quel. */
+export function telAffiche(t) {
+  const brut = String(t || '').trim();
+  let n = brut.replace(/[^\d+]/g, '');
+  if (n.startsWith('+32')) n = n.slice(3); else if (n.startsWith('0032')) n = n.slice(4); else if (/^0\d{8,9}$/.test(n)) n = n.slice(1); else return brut;
+  if (/^4\d{8}$/.test(n)) return `+32 ${n.slice(0, 3)} ${n.slice(3, 5)} ${n.slice(5, 7)} ${n.slice(7)}`;
+  if (/^[23]\d{7}$/.test(n)) return `+32 ${n[0]} ${n.slice(1, 4)} ${n.slice(4, 6)} ${n.slice(6)}`;
+  if (/^\d{8}$/.test(n)) return `+32 ${n.slice(0, 2)} ${n.slice(2, 4)} ${n.slice(4, 6)} ${n.slice(6)}`;
+  return brut;
+}
 
 function Appeler({ p }) {
   if (!p.telephone) return <span className="text-mention text-slate-400">pas de numéro affiché</span>;
   return (
     <a href={telLien(p.telephone)} className="bouton bouton-fort inline-flex items-center gap-1.5 whitespace-nowrap" title={`Appeler ${p.nom}`}>
-      <IconPhone size={15} /> {p.telephone}
+      <IconPhone size={15} /> {telAffiche(p.telephone)}
     </a>);
 }
 
@@ -72,6 +82,8 @@ export function BoutonUrgence() {
 }
 
 function FenetreQuiEstLa({ d, face, setFace, recharger, onFermer }) {
+  const [quiEquipe, setQuiEquipe] = useState('');   // un clic sur un nom de la frise ouvre son horaire
+  const modifier = d.peut_gerer ? (id, versFace = 'equipe') => { setQuiEquipe(id ? String(id) : ''); setFace(versFace); } : null;
   async function pointer(etat) {
     await fetch('/api/equipe/pointer', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ etat }) });
     recharger();
@@ -90,20 +102,20 @@ function FenetreQuiEstLa({ d, face, setFace, recharger, onFermer }) {
         {[['maintenant', 'Maintenant'], ['moi', 'Mon horaire et mon numéro'], ...(d.peut_gerer ? [['equipe', 'Horaires de l’équipe'], ['permanences', 'Permanences']] : [])].map(([k, l]) => (
           <button key={k} type="button" onClick={() => setFace(k)} className={`onglet-page ${face === k ? 'onglet-page-actif' : ''}`}>{l}</button>))}
       </div>
-      {face === 'maintenant' && <Maintenant d={d} />}
+      {face === 'maintenant' && <Maintenant d={d} modifier={modifier} />}
       {face === 'moi' && <Moi d={d} recharger={recharger} />}
-      {face === 'equipe' && <HorairesEquipe d={d} recharger={recharger} />}
+      {face === 'equipe' && <HorairesEquipe key={quiEquipe} d={d} recharger={recharger} quiInitial={quiEquipe} />}
       {face === 'permanences' && <Permanences recharger={recharger} />}
     </Fenetre>);
 }
 
-function Maintenant({ d }) {
+function Maintenant({ d, modifier }) {
   return (
     <div className="space-y-4">
       <section>
         <div className="intertitre mb-1.5">La journée de l’équipe</div>
         {!d.journee?.length && !d.permanences.length ? <p className="text-sm text-slate-500">Personne n’a d’horaire ni de permanence aujourd’hui.</p>
-          : <FriseJournee journee={d.journee || []} permanences={d.permanences} heure={d.heure} />}
+          : <FriseJournee journee={d.journee || []} permanences={d.permanences} heure={d.heure} modifier={modifier} />}
       </section>
     </div>);
 }
@@ -113,7 +125,11 @@ function Maintenant({ d }) {
    quand on peut la trouver, le gris hachuré sa pause, le trait marine l'heure qu'il est. Un « J'arrive »
    hors horaire se dessine aussi ; après « Je pars », le reste de la journée s'éteint. */
 const enMin = h => { const [a, b] = String(h || '').split(':').map(Number); return a * 60 + (b || 0); };
-function FriseJournee({ journee, permanences = [], heure }) {
+function FriseJournee({ journee, permanences = [], heure, modifier = null }) {
+  // Le nom : un lien vers son horaire et son numéro, pour qui peut les régler.
+  const Nom = ({ p, versFace }) => (modifier
+    ? <button type="button" className="text-sm font-bold hover:underline text-left" title="Modifier son horaire et son numéro" onClick={() => modifier(p.id, versFace)}>{p.nom}</button>
+    : <b className="text-sm">{p.nom}</b>);
   const maintenant = enMin(heure);
   const bornes = [...journee.flatMap(p => [...p.plages.flatMap(h => [enMin(h.debut), enMin(h.fin)]), ...p.pointages.map(x => enMin(x.heure))]),
     ...permanences.flatMap(p => [enMin(p.debut), enMin(p.fin)])];
@@ -143,7 +159,7 @@ function FriseJournee({ journee, permanences = [], heure }) {
         <div className="relative flex-1 h-4 text-mention text-slate-400 tabular-nums">
           {heures.map(h => <span key={h} className="absolute -translate-x-1/2" style={{ left: pct(h) }}>{h / 60}h</span>)}
         </div>
-        <span className="w-36 flex-none" />
+        <span className="w-44 flex-none" />
       </div>
       {journee.map(p => {
         const parti = p.etat === 'parti' ? enMin(p.pointages[p.pointages.length - 1]?.heure) : null;
@@ -154,7 +170,7 @@ function FriseJournee({ journee, permanences = [], heure }) {
         return (
           <div key={p.id} className="flex items-center gap-3 py-1.5 border-t border-slate-100">
             <span className="w-52 flex-none min-w-0">
-              <b className="text-sm">{p.nom}</b> <span className="text-second text-slate-500">{p.role}</span>
+              <Nom p={p} /> <span className="text-second text-slate-500">{p.role}</span>
               <span className="block text-second text-slate-500 truncate" title={etat(p)}>{etat(p)}</span>
               {injoignable && <span className="block text-second" style={{ color: FRAISE }}>aucun numéro affiché : injoignable</span>}
             </span>
@@ -173,7 +189,7 @@ function FriseJournee({ journee, permanences = [], heure }) {
                 <span className="absolute top-0 bottom-0 bg-slate-200/90" style={{ left: pct(parti), right: 0 }} title={`Parti à ${p.pointages[p.pointages.length - 1].heure}`} />)}
               <span className="absolute top-0 bottom-0 w-0.5" style={{ left: pct(maintenant), background: 'var(--c-principal)' }} title={`Il est ${heure}`} />
             </div>
-            <span className="w-36 flex-none flex justify-end">
+            <span className="w-44 flex-none flex justify-end">
               {p.etat === 'la' ? <Appeler p={p} /> : p.etat === 'pause' ? <span className="text-mention text-slate-500">en pause</span> : null}
             </span>
           </div>);
@@ -183,12 +199,12 @@ function FriseJournee({ journee, permanences = [], heure }) {
       {permanences.map(p => (
         <div key={p.id} className="flex items-center gap-3 py-1.5 border-t border-slate-100">
           <span className="w-52 flex-none min-w-0">
-            <b className="text-sm">{p.nom}</b> <span className="text-second text-slate-500">de permanence</span>
+            <Nom p={p} versFace="permanences" /> <span className="text-second text-slate-500">de permanence</span>
             <span className="block text-second text-slate-500">{p.debut}–{p.fin}{p.en_cours ? ' · en ce moment' : ''}{p.note ? ` · ${p.note}` : ''}</span>
             {p.secours.map((x, k) => (
               <span key={x.id} className="block text-second">
                 <span className="text-slate-500">secours {k + 1} :</span> <b>{x.nom}</b>{' '}
-                {x.telephone ? <a href={telLien(x.telephone)} className="underline whitespace-nowrap" title={`Appeler ${x.nom}`}><IconPhone size={12} className="inline -mt-0.5" /> {x.telephone}</a>
+                {x.telephone ? <a href={telLien(x.telephone)} className="underline whitespace-nowrap" title={`Appeler ${x.nom}`}><IconPhone size={12} className="inline -mt-0.5" /> {telAffiche(x.telephone)}</a>
                   : <span style={{ color: FRAISE }}>pas de numéro affiché</span>}
               </span>))}
           </span>
@@ -198,7 +214,7 @@ function FriseJournee({ journee, permanences = [], heure }) {
               title={`De permanence ${p.debut}–${p.fin}`} />
             <span className="absolute top-0 bottom-0 w-0.5" style={{ left: pct(maintenant), background: 'var(--c-principal)' }} title={`Il est ${heure}`} />
           </div>
-          <span className="w-36 flex-none flex justify-end">{p.en_cours ? <Appeler p={p} /> : null}</span>
+          <span className="w-44 flex-none flex justify-end">{p.en_cours ? <Appeler p={p} /> : null}</span>
         </div>))}
       <p className="text-mention text-slate-400 pt-1 flex flex-wrap gap-x-4">
         <span><span className="inline-block w-3 h-2 rounded-sm align-middle mr-1" style={{ background: VERT }} />disponible</span>
@@ -230,9 +246,9 @@ function PauseMidiEquipe() {
     </div>);
 }
 
-function HorairesEquipe({ d, recharger }) {
+function HorairesEquipe({ d, recharger, quiInitial = '' }) {
   const [personnes, setPersonnes] = useState([]);
-  const [qui, setQui] = useState('');
+  const [qui, setQui] = useState(quiInitial);
   const [fait, setFait] = useState(null);   // la personne qu'on vient d'enregistrer : on enchaîne sur la suivante
   useEffect(() => { fetch('/api/equipe/personnes', { headers: authHeaders() }).then(r => r.json()).then(setPersonnes).catch(() => {}); }, []);
   return (
@@ -266,12 +282,13 @@ const enHeures = m => `${Math.floor(m / 60)} h${m % 60 ? ` ${String(m % 60).padS
 
 function Moi({ d, recharger, utilisateur = null, apresEnregistrement = null, aTelephone = false }) {
   const [plages, setPlages] = useState(null);
-  const [tel, setTel] = useState(d.moi.telephone || '');
+  const [tel, setTel] = useState(utilisateur ? '' : (d.moi.telephone || ''));
+  useEffect(() => { if (utilisateur) fetch(`/api/equipe/telephone?utilisateur=${utilisateur}`, { headers: authHeaders() }).then(r => r.json()).then(j => setTel(j.telephone || '')).catch(() => {}); }, [utilisateur]);
   useEffect(() => { fetch(`/api/equipe/horaire${utilisateur ? `?utilisateur=${utilisateur}` : ''}`, { headers: authHeaders() }).then(r => r.json()).then(setPlages).catch(() => setPlages([])); }, [utilisateur]);
   if (!plages) return <div className="text-sm text-slate-400">Chargement…</div>;
   const maj = (i, k, v) => setPlages(l => l.map((p, j) => (j === i ? { ...p, [k]: v } : p)));
   async function enregistrer() {
-    if (!utilisateur) await fetch('/api/equipe/telephone', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ telephone: tel }) });
+    await fetch('/api/equipe/telephone', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ telephone: tel, ...(utilisateur ? { utilisateur } : {}) }) });
     const r = await fetch('/api/equipe/horaire', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ plages, ...(utilisateur ? { utilisateur } : {}) }) });
     const j = await r.json().catch(() => ({}));
     recharger();
@@ -279,11 +296,11 @@ function Moi({ d, recharger, utilisateur = null, apresEnregistrement = null, aTe
     await informer(r.ok ? `✓ Enregistré : ${j.plages} plage(s) d’horaire.` : `❌ ${j.error || 'Erreur'}`);
   }
   const total = plages.reduce((s, p) => s + duree(p), 0);
-  const sansNumero = plages.some(p => p.lieu === LIEU_AGENDA) && !(utilisateur ? aTelephone : tel.trim());
+  const sansNumero = plages.some(p => p.lieu === LIEU_AGENDA) && !tel.trim();
   return (
     <div className="space-y-4">
-      {!utilisateur && <label className="block">
-        <span className="intertitre block mb-1">Le numéro que j’accepte d’afficher</span>
+      {<label className="block">
+        <span className="intertitre block mb-1">{utilisateur ? 'Son numéro affiché' : 'Le numéro que j’accepte d’afficher'}</span>
         <input value={tel} onChange={e => setTel(e.target.value)} placeholder="Ex. : 02 560 29 60 ou GSM de service" className="controle w-72" data-reponses="non" />
         <span className="block text-second text-slate-500 mt-1">Il ne s’affiche que dans « Qui est là ? », quand vous êtes présent ou de permanence. Vide : aucun numéro.</span>
       </label>}
@@ -309,7 +326,7 @@ function Moi({ d, recharger, utilisateur = null, apresEnregistrement = null, aTe
         {plages.length > 0 && <p className="text-sm text-slate-500 italic mt-1">Total de la semaine : {enHeures(total)}, pauses déduites</p>}
         {plages.some(p => !p.pause_debut && avecPauseMidi(p).pause_debut) && (
           <button type="button" className="bouton mt-2 mr-2" onClick={() => setPlages(l => l.map(p => (p.pause_debut ? p : avecPauseMidi(p))))}>Ajouter la pause de midi (12 h 00 – 12 h 30) aux plages qui passent midi</button>)}
-        {sansNumero && <p className="text-sm mt-1" style={{ color: FRAISE }}>« Selon l’agenda » sans numéro affiché : personne ne pourra {utilisateur ? 'la' : 'vous'} joindre. {utilisateur ? 'Elle doit indiquer son numéro dans « Mon horaire et mon numéro ».' : 'Indiquez un numéro ci-dessus.'}</p>}
+        {sansNumero && <p className="text-sm mt-1" style={{ color: FRAISE }}>« Selon l’agenda » sans numéro affiché : personne ne pourra {utilisateur ? 'la' : 'vous'} joindre. Indiquez un numéro ci-dessus.</p>}
         <button type="button" className="bouton mt-2" onClick={() => setPlages(l => { const der = l[l.length - 1]; return [...l, der ? { ...der, jour: der.jour % 7 + 1 } : avecPauseMidi({ jour: 1, debut: '08:00', fin: '16:00', lieu: '' })]; })}><IconPlus size={14} className="inline -mt-0.5 mr-1" />Ajouter une plage</button>
       </div>
       <button className="bouton bouton-fort" onClick={enregistrer}>{apresEnregistrement ? 'Enregistrer et passer à une autre personne' : 'Enregistrer'}</button>

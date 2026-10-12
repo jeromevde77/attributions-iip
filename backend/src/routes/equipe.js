@@ -180,9 +180,17 @@ r.post('/horaire/pause-midi', authRequired, (req, res) => {
 });
 
 /** Le numéro que j'accepte d'afficher (vide : aucun). */
+/* LE NUMÉRO D'UN AUTRE (12 octobre 2026, Charles : « je ne sais pas modifier ») : la direction et le
+ * secrétariat le saisissent aussi, depuis Horaires de l'équipe — attendre que chacun le fasse
+ * laissait la frise pleine de « pas de numéro affiché », secours compris. */
+r.get('/telephone', authRequired, (req, res) => {
+  const uid = req.query.utilisateur && GERER.includes(req.user.role) ? Number(req.query.utilisateur) : req.user.id;
+  res.json({ telephone: db.prepare('SELECT telephone_affiche t FROM utilisateur WHERE id = ?').get(uid)?.t || '' });
+});
 r.put('/telephone', authRequired, (req, res) => {
+  const uid = req.body?.utilisateur && GERER.includes(req.user.role) ? Number(req.body.utilisateur) : req.user.id;
   const t = String(req.body?.telephone || '').replace(/[^\d+ ./()-]/g, '').trim().slice(0, 30);
-  db.prepare('UPDATE utilisateur SET telephone_affiche = ? WHERE id = ?').run(t || null, req.user.id);
+  db.prepare('UPDATE utilisateur SET telephone_affiche = ? WHERE id = ?').run(t || null, uid);
   res.json({ ok: true, telephone: t || null });
 });
 
