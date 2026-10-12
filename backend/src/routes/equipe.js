@@ -46,6 +46,10 @@ try {
       id INTEGER PRIMARY KEY AUTOINCREMENT, jours TEXT NOT NULL, debut TEXT NOT NULL, fin TEXT NOT NULL,   -- jours : « 1,2,3,4,5 »
       utilisateur_id INTEGER NOT NULL, secours1_id INTEGER, secours2_id INTEGER, note TEXT,
       cree_par TEXT, cree_le TEXT DEFAULT (datetime('now')))`);
+  // LA PAUSE DE MIDI (12 octobre 2026, Charles : « de 12 h 00 à 12 h 30 ») : dans la plage, pas à côté.
+  const ch = db.prepare('PRAGMA table_info(equipe_horaire)').all().map(c => c.name);
+  if (!ch.includes('pause_debut')) db.exec('ALTER TABLE equipe_horaire ADD COLUMN pause_debut TEXT');
+  if (!ch.includes('pause_fin')) db.exec('ALTER TABLE equipe_horaire ADD COLUMN pause_fin TEXT');
   const cp = db.prepare('PRAGMA table_info(equipe_permanence)').all().map(c => c.name);
   if (!cp.includes('secours1_id')) db.exec('ALTER TABLE equipe_permanence ADD COLUMN secours1_id INTEGER');
   if (!cp.includes('secours2_id')) db.exec('ALTER TABLE equipe_permanence ADD COLUMN secours2_id INTEGER');
@@ -74,21 +78,27 @@ r.get('/maintenant', authRequired, (req, res) => {
   // Le dernier pointage du jour, par personne.
   const pointes = new Map();
   for (const p of db.prepare('SELECT utilisateur_id, etat, heure FROM equipe_pointage WHERE jour = ? ORDER BY id').all(m.date)) pointes.set(p.utilisateur_id, p);
-  const horaires = db.prepare('SELECT utilisateur_id, debut, fin, lieu FROM equipe_horaire WHERE jour = ? ORDER BY debut').all(m.jour);
+  const horaires = db.prepare('SELECT utilisateur_id, debut, fin, lieu, pause_debut, pause_fin FROM equipe_horaire WHERE jour = ? ORDER BY debut').all(m.jour);
+  const enPause = h => h.pause_debut && h.pause_fin && h.pause_debut <= m.heure && m.heure < h.pause_fin;
   const prevuDe = new Map();
   for (const h of horaires) { if (!prevuDe.has(h.utilisateur_id)) prevuDe.set(h.utilisateur_id, []); prevuDe.get(h.utilisateur_id).push(h); }
   const ids = new Set([...pointes.keys(), ...prevuDe.keys()]);
-  const presents = [], attendus = [];
+  const presents = [], attendus = [], journee = [];
   for (const id of ids) {
     const u = comptes.get(id); if (!u) continue;
     const p = pointes.get(id), plages = prevuDe.get(id) || [];
     const dansPlage = plages.find(h => h.debut <= m.heure && m.heure < h.fin);
     const ensuite = plages.find(h => h.debut > m.heure);
+    // La journée de chacun, pour la frise : ses plages, sa pause, son pointage.
+    const tousPointages = db.prepare('SELECT etat, heure FROM equipe_pointage WHERE jour = ? AND utilisateur_id = ? ORDER BY id').all(m.date, id);
+    journee.push({ ...personne(u), plages: plages.map(h => ({ debut: h.debut, fin: h.fin, lieu: h.lieu, pause_debut: h.pause_debut, pause_fin: h.pause_fin })),
+      pointages: tousPointages, en_pause: !!(dansPlage && enPause(dansPlage) && p?.etat !== 'parti'),
+      etat: p?.etat === 'parti' ? 'parti' : (p?.etat === 'la' || dansPlage) ? (dansPlage && enPause(dansPlage) ? 'pause' : 'la') : ensuite ? 'attendu' : 'fini' });
     if (p) {
       if (p.etat === 'la') presents.push({ ...personne(u), source: 'pointage', depuis: p.heure, jusqu: dansPlage?.fin || null, lieu: dansPlage?.lieu || null });
       // « Je pars » : absent pour le reste du jour, quoi que dise l'horaire.
     } else if (dansPlage) {
-      presents.push({ ...personne(u), source: 'horaire', depuis: dansPlage.debut, jusqu: dansPlage.fin, lieu: dansPlage.lieu || null });
+      presents.push({ ...personne(u), source: 'horaire', depuis: dansPlage.debut, jusqu: dansPlage.fin, lieu: dansPlage.lieu || null, en_pause: !!enPause(dansPlage) });
     } else if (ensuite) {
       attendus.push({ ...personne(u), a: ensuite.debut });
     }
@@ -108,7 +118,9 @@ r.get('/maintenant', authRequired, (req, res) => {
       en_cours: p.debut <= m.heure && m.heure < p.fin,
       secours: [p.secours1_id, p.secours2_id].map(qui).filter(Boolean) }));
   const moiP = pointes.get(req.user.id);
-  res.json({ ...m, presents, attendus, permanences: perm,
+  const rang = { la: 0, pause: 1, attendu: 2, fini: 3, parti: 4 };
+  journee.sort((a, b) => rang[a.etat] - rang[b.etat] || a.nom.localeCompare(b.nom, 'fr'));
+  res.json({ ...m, presents, attendus, journee, permanences: perm,
     moi: { etat: moiP?.etat || null, depuis: moiP?.heure || null, a_un_horaire: db.prepare('SELECT 1 FROM equipe_horaire WHERE utilisateur_id = ? LIMIT 1').get(req.user.id) ? true : false,
       telephone: comptes.get(req.user.id)?.telephone_affiche || '' },
     peut_gerer: GERER.includes(req.user.role) });
@@ -125,17 +137,20 @@ r.post('/pointer', authRequired, (req, res) => {
 /** Mon horaire de la semaine (ou celui d'un autre, pour la direction et le secrétariat). */
 r.get('/horaire', authRequired, (req, res) => {
   const uid = req.query.utilisateur && GERER.includes(req.user.role) ? Number(req.query.utilisateur) : req.user.id;
-  res.json(db.prepare('SELECT jour, debut, fin, lieu FROM equipe_horaire WHERE utilisateur_id = ? ORDER BY jour, debut').all(uid));
+  res.json(db.prepare('SELECT jour, debut, fin, lieu, pause_debut, pause_fin FROM equipe_horaire WHERE utilisateur_id = ? ORDER BY jour, debut').all(uid));
 });
 r.put('/horaire', authRequired, (req, res) => {
   const uid = req.body?.utilisateur && GERER.includes(req.user.role) ? Number(req.body.utilisateur) : req.user.id;
   const plages = (Array.isArray(req.body?.plages) ? req.body.plages : [])
-    .map(p => ({ jour: Number(p.jour), debut: hhmm(p.debut), fin: hhmm(p.fin), lieu: String(p.lieu || '').trim().slice(0, 60) || null }))
-    .filter(p => p.jour >= 1 && p.jour <= 7 && p.debut && p.fin && p.debut < p.fin);
+    .map(p => ({ jour: Number(p.jour), debut: hhmm(p.debut), fin: hhmm(p.fin), lieu: String(p.lieu || '').trim().slice(0, 60) || null,
+      pause_debut: hhmm(p.pause_debut), pause_fin: hhmm(p.pause_fin) }))
+    .filter(p => p.jour >= 1 && p.jour <= 7 && p.debut && p.fin && p.debut < p.fin)
+    // Une pause ne vaut que dans sa plage, et dans le bon sens ; sinon, pas de pause.
+    .map(p => (p.pause_debut && p.pause_fin && p.debut <= p.pause_debut && p.pause_debut < p.pause_fin && p.pause_fin <= p.fin ? p : { ...p, pause_debut: null, pause_fin: null }));
   db.transaction(() => {
     db.prepare('DELETE FROM equipe_horaire WHERE utilisateur_id = ?').run(uid);
-    const ins = db.prepare('INSERT INTO equipe_horaire (utilisateur_id, jour, debut, fin, lieu) VALUES (?,?,?,?,?)');
-    for (const p of plages) ins.run(uid, p.jour, p.debut, p.fin, p.lieu);
+    const ins = db.prepare('INSERT INTO equipe_horaire (utilisateur_id, jour, debut, fin, lieu, pause_debut, pause_fin) VALUES (?,?,?,?,?,?,?)');
+    for (const p of plages) ins.run(uid, p.jour, p.debut, p.fin, p.lieu, p.pause_debut, p.pause_fin);
   })();
   res.json({ ok: true, plages: plages.length });
 });
