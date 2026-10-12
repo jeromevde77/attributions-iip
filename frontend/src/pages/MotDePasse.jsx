@@ -15,6 +15,42 @@ import { api } from '../lib/api.js';
  * politesse qu'on ne rattrape pas — et la personne ne sait alors pas si c'est
  * son mot de passe ou le lien qui posait problème.
  */
+/* LES PIÈCES DE L'ÉCRAN VIVENT HORS DU COMPOSANT (12 octobre 2026, signalé par un enseignant à sa
+   première connexion : « à chaque lettre tapée dans la répétition du mot de passe, le curseur
+   revient dans le premier champ »). Définies DANS la page, elles étaient recréées à chaque
+   frappe : React reconstruisait tout le formulaire, et le premier champ (autoFocus) reprenait
+   le curseur. */
+const Cadre = ({ children }) => (
+  <div style={{
+    minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center',
+    background:'var(--c-principal)', padding:'24px', fontFamily:"'Segoe UI',sans-serif",
+  }}>
+    <div style={{
+      width:'100%', maxWidth:'420px', background:'rgba(255,255,255,.04)',
+      border:'1px solid rgba(0,170,204,.18)', borderRadius:'16px', padding:'32px 28px',
+    }}>{children}</div>
+  </div>
+);
+const Titre = ({ children }) => (
+  <div style={{ color:'white', fontSize:'15px', fontWeight:600, marginBottom:'6px' }}>{children}</div>
+);
+const Texte = ({ children }) => (
+  <div style={{ fontSize:'12.5px', color:'rgba(255,255,255,.5)', lineHeight:1.55,
+                marginBottom:'20px' }}>{children}</div>
+);
+const champ = {
+  width:'100%', padding:'12px 14px', background:'rgba(255,255,255,.06)',
+  border:'1px solid rgba(255,255,255,.12)', borderRadius:'8px',
+  color:'white', fontSize:'14px', outline:'none', boxSizing:'border-box',
+};
+const Bouton = ({ children, ...p }) => (
+  <button {...p} style={{
+    width:'100%', padding:'13px', background: p.disabled ? 'rgba(0,170,204,.35)' : 'var(--c-accent)',
+    border:'none', borderRadius:'8px', color:'white', fontSize:'14px', fontWeight:600,
+    cursor: p.disabled ? 'not-allowed' : 'pointer',
+  }}>{children}</button>
+);
+
 export default function MotDePasse() {
   const navigate = useNavigate();
   const jeton = new URLSearchParams(window.location.search).get('jeton') || '';
@@ -50,36 +86,7 @@ export default function MotDePasse() {
     finally { setOccupe(false); }
   }
 
-  const Cadre = ({ children }) => (
-    <div style={{
-      minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center',
-      background:'var(--c-principal)', padding:'24px', fontFamily:"'Segoe UI',sans-serif",
-    }}>
-      <div style={{
-        width:'100%', maxWidth:'420px', background:'rgba(255,255,255,.04)',
-        border:'1px solid rgba(0,170,204,.18)', borderRadius:'16px', padding:'32px 28px',
-      }}>{children}</div>
-    </div>
-  );
-  const Titre = ({ children }) => (
-    <div style={{ color:'white', fontSize:'15px', fontWeight:600, marginBottom:'6px' }}>{children}</div>
-  );
-  const Texte = ({ children }) => (
-    <div style={{ fontSize:'12.5px', color:'rgba(255,255,255,.5)', lineHeight:1.55,
-                  marginBottom:'20px' }}>{children}</div>
-  );
-  const champ = {
-    width:'100%', padding:'12px 14px', background:'rgba(255,255,255,.06)',
-    border:'1px solid rgba(255,255,255,.12)', borderRadius:'8px',
-    color:'white', fontSize:'14px', outline:'none', boxSizing:'border-box',
-  };
-  const Bouton = ({ children, ...p }) => (
-    <button {...p} style={{
-      width:'100%', padding:'13px', background: p.disabled ? 'rgba(0,170,204,.35)' : 'var(--c-accent)',
-      border:'none', borderRadius:'8px', color:'white', fontSize:'14px', fontWeight:600,
-      cursor: p.disabled ? 'not-allowed' : 'pointer',
-    }}>{children}</button>
-  );
+
 
   if (etat === 'verification') {
     return <Cadre><Texte>Vérification du lien…</Texte></Cadre>;

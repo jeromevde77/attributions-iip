@@ -2057,6 +2057,8 @@ function ConfigRecrutement() {
   const intro      = useConfigField('entretien_intro');
   const conclusion = useConfigField('entretien_conclusion');
 
+  /* APPELÉE, PAS MONTÉE (12 octobre 2026) : en composant défini ici, elle était recréée à chaque
+     frappe et la zone de texte perdait le curseur à chaque lettre. */
   const Bloc = ({ label, desc, field }) => (
     <div className="mb-8">
       <div className="flex items-center justify-between mb-3">
@@ -2091,17 +2093,9 @@ function ConfigRecrutement() {
 
   return (
     <div className="max-w-none">
-      <Bloc
-        label="Introduction d'entretien"
-        desc="Texte lu au candidat en début d'entretien — établissement, qui vous êtes, déroulement."
-        field={intro}
-      />
+      {Bloc({ label: "Introduction d'entretien", desc: "Texte lu au candidat en début d'entretien — établissement, qui vous êtes, déroulement.", field: intro })}
       <div className="border-t border-gray-100 mb-8" />
-      <Bloc
-        label="Mot de fin d'entretien"
-        desc="Texte lu en fin d'entretien — suite de la procédure, délais, remerciements."
-        field={conclusion}
-      />
+      {Bloc({ label: "Mot de fin d'entretien", desc: "Texte lu en fin d'entretien — suite de la procédure, délais, remerciements.", field: conclusion })}
     </div>
   );
 }
