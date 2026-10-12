@@ -2223,6 +2223,49 @@ r.get('/doc23', authRequired, (req, res) => {
 //   4. Si non trouvée → POST (création, section requise)
 //   5. Pour chaque cours du tableau 7.1 → création si absent (par nom exact)
 // Retourne { action, ue_num, ue, cours_crees, cours_existants, parsed }
+/* LE DOSSIER RÉVISÉ REMPLACE LES COURS (12 octobre 2026, Charles — UE 244, soins de plaies : « le
+ * nouveau dossier, applicable dès l'an dernier, a deux cours », là où Lucie en portait quatre, ceux
+ * de l'ancien dossier 823808U34S1). L'import savait rattacher ou créer ; il ne retirait rien, et
+ * les deux cours du dossier se seraient ajoutés aux quatre anciens. Avec ?remplacer=1, les cours
+ * du dossier prennent la place : ceux qu'on rattache reçoivent aussi le NOM du dossier, et les
+ * cours restants de l'unité se retirent — SEULEMENT si rien de vivant n'y est accroché pour
+ * l'année (attribution, note, groupe peuplé, horaire…). Sinon rien ne s'écrit, et la réponse
+ * nomme ce qui bloque. La structure (groupes vides, grille, pondérations, répartitions) part
+ * avec le cours ; un acquis rattaché au cours retiré en est détaché, il reste à l'unité. */
+const STRUCTURE_DU_COURS = new Set(['cours', 'groupe', 'grille_cours', 'aa_ponderation', 'cours_ponderation',
+  'repartition_periodes', 'cours_titre', 'groupe_commun_reglage', 'aa']);
+function tablesDesCours() {
+  const out = [];
+  for (const { name } of db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all()) {
+    const cols = db.prepare(`PRAGMA table_info("${name}")`).all().map(c => c.name);
+    const col = cols.find(c => c === 'cours_code' || c === 'code_cours');
+    if (col) out.push({ table: name, col, annee: cols.includes('annee_scolaire') });
+  }
+  return out;
+}
+function cequiBloque(code, annee) {
+  const raisons = [];
+  for (const t of tablesDesCours()) {
+    if (STRUCTURE_DU_COURS.has(t.table) || !t.annee) continue;
+    const n = db.prepare(`SELECT COUNT(*) n FROM "${t.table}" WHERE "${t.col}" = ? AND annee_scolaire = ?`).get(code, annee).n;
+    if (n) raisons.push(`${n} ligne(s) dans ${t.table}`);
+  }
+  // Un groupe compte s'il a un professeur ou des étudiants.
+  const g = db.prepare(`SELECT COUNT(*) n FROM groupe WHERE code_cours = ? AND annee_scolaire = ?
+    AND (professeur_id IS NOT NULL OR COALESCE(nb_etudiants, 0) > 0)`).get(code, annee).n;
+  if (g) raisons.push(`${g} groupe(s) avec un professeur ou des étudiants`);
+  return raisons;
+}
+function retirerCours(code, annee) {
+  for (const t of tablesDesCours()) {
+    if (!STRUCTURE_DU_COURS.has(t.table) || t.table === 'aa' || !t.annee) continue;
+    db.prepare(`DELETE FROM "${t.table}" WHERE "${t.col}" = ? AND annee_scolaire = ?`).run(code, annee);
+  }
+  // Plus aucune année ne porte ce cours : ses acquis s'en détachent (ils restent à l'unité).
+  if (!db.prepare('SELECT 1 FROM cours WHERE cours_code = ? LIMIT 1').get(code))
+    db.prepare('UPDATE aa SET cours_code = NULL WHERE cours_code = ?').run(code);
+}
+
 r.post('/import-dp', authRequired, roleRequired('admin', 'editeur'), async (req, res) => {
   try {
     // Lire le body brut (le frontend envoie le .docx en multipart/form-data)
@@ -2319,7 +2362,10 @@ r.post('/import-dp', authRequired, roleRequired('admin', 'editeur'), async (req,
          WHERE ue_num = ? AND annee_scolaire = ? ORDER BY cours_code`)
         .all(existing.ue_num, annee) : [];
       const parNom = new Map(coursUE.map(c => [normNomCours(c.cours_nom), c.cours_code]));
+      // Ce que chaque cours existant porterait, s'il fallait le retirer (l'écran l'annonce avant).
+      const bloquesSiRetire = Object.fromEntries(coursUE.map(c => [c.cours_code, cequiBloque(c.cours_code, annee)]));
       return res.json({
+        bloques_si_retire: bloquesSiRetire,
         action: existing ? 'updated' : 'created',
         ue_num: existing?.ue_num || '(nouveau)',
         annee,
@@ -2334,6 +2380,23 @@ r.post('/import-dp', authRequired, roleRequired('admin', 'editeur'), async (req,
       });
     }
     let ueNum, action;
+
+    const remplacer = req.query.remplacer === '1' && !!existing;
+    let carteRemplacement = null;
+    if (remplacer) {
+      let carte = [];
+      try { carte = JSON.parse(String(req.query.cours_map || '[]')); } catch { carte = []; }
+      const actuels = db.prepare('SELECT cours_code, cours_nom FROM cours WHERE ue_num = ? AND annee_scolaire = ?').all(existing.ue_num, annee);
+      const gardes = new Set(carte.filter(Boolean).map(String));
+      const aRetirer = actuels.filter(c => !gardes.has(c.cours_code));
+      const bloques = aRetirer.map(c => ({ code: c.cours_code, nom: c.cours_nom, raisons: cequiBloque(c.cours_code, annee) }))
+        .filter(b => b.raisons.length);
+      if (bloques.length) return res.status(409).json({
+        error: `Remplacement refusé : ${bloques.map(b => `${b.code} ${b.nom} (${b.raisons.join(', ')})`).join(' ; ')}. Rien n'a été écrit.`,
+        bloques,
+      });
+      carteRemplacement = aRetirer;
+    }
 
     const fieldsToUpdate = {
       ue_nom:           ueData.ue_nom        || undefined,
@@ -2429,6 +2492,7 @@ r.post('/import-dp', authRequired, roleRequired('admin', 'editeur'), async (req,
           continue;
         }
         lier.run({ ct_pp: c.classement || null, ...perDe(c), code: decision, annee });
+        if (remplacer) db.prepare('UPDATE cours SET cours_nom = ? WHERE cours_code = ? AND annee_scolaire = ?').run(c.nom, decision, annee);
         coursLies.push({ code: decision, nom: c.nom });
         continue;
       }
@@ -2448,6 +2512,12 @@ r.post('/import-dp', authRequired, roleRequired('admin', 'editeur'), async (req,
         VALUES (@code, @ue_num, @annee, @nom, @ct_pp, @cours_per, @per_etudiant, @section)`)
         .run({ code, ue_num: ueNum, annee, nom: c.nom, ct_pp: c.classement || null, ...perDe(c), section: coursSection || null });
       coursCrees.push({ code, nom: c.nom });
+    }
+
+    // Le dossier remplace : les cours que la feuille n'a pas gardés se retirent (contrôlés plus haut).
+    const coursRetires = [];
+    if (carteRemplacement) {
+      for (const c of carteRemplacement) { retirerCours(c.cours_code, annee); coursRetires.push({ code: c.cours_code, nom: c.cours_nom }); }
     }
 
     // ── Acquis d'apprentissage extraits du dossier ──────────────────────────
@@ -2476,7 +2546,7 @@ r.post('/import-dp', authRequired, roleRequired('admin', 'editeur'), async (req,
     res.json({ ok: true, action, ue_num: ueNum, annee,
                code_depuis_nom: codeDepuisNom,
                cours_crees: coursCrees, cours_existants: coursExistants,
-               cours_lies: coursLies,
+               cours_lies: coursLies, cours_retires: coursRetires,
                aa_crees: aaCrees, aa_mis_a_jour: aaExistants,
                parsed: { ue: ueData, cours: coursData, acquis: acquisData } });
   } catch (err) {

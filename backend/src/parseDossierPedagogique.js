@@ -267,6 +267,49 @@ export function pdfEnTexte(buffer, { layout = true } = {}) {
   });
 }
 
+/* LE PDF SCANNÉ (12 octobre 2026 — dossier 823808U34S2, soins de plaies : « Lucie ne veut pas
+ * l'importer »). Onze pages d'IMAGES, pas une lettre de texte : pdftotext rendait du vide, et
+ * l'import répondait « code introuvable » sur un dossier parfaitement lisible à l'œil. Quand
+ * un PDF ne porte pas de texte, on le fait LIRE : pdftoppm le met en images (300 dpi), tesseract
+ * (français, mise en page automatique — c'est elle qui garde les colonnes du tableau de
+ * l'horaire) en tire le texte. La réponse dit que le texte vient d'une lecture optique : un
+ * chiffre mal lu est possible, et c'est à l'écran qu'on le vérifie. */
+import { mkdtemp, writeFile, readdir, rm } from 'fs/promises';
+import { tmpdir } from 'os';
+import { join } from 'path';
+
+const executer = (cmd, args, opts = {}) => new Promise((resolve, reject) => {
+  execFile(cmd, args, { maxBuffer: 20 * 1024 * 1024, encoding: 'utf8', timeout: 120000, ...opts },
+    (err, stdout) => (err ? reject(err) : resolve(stdout)));
+});
+
+export async function pdfParOcr(buffer) {
+  const dossier = await mkdtemp(join(tmpdir(), 'lucie-ocr-'));
+  try {
+    await writeFile(join(dossier, 'dp.pdf'), buffer);
+    await executer('pdftoppm', ['-r', '300', '-png', join(dossier, 'dp.pdf'), join(dossier, 'pg')]);
+    const pages = (await readdir(dossier)).filter(f => /^pg-\d+\.png$/.test(f)).sort();
+    const textes = [];
+    for (const f of pages) {
+      textes.push(await executer('tesseract', [join(dossier, f), 'stdout', '-l', 'fra', '--psm', '3', '-c', 'preserve_interword_spaces=1']));
+    }
+    return textes.join('\f');
+  } catch (e) {
+    throw new Error(e.code === 'ENOENT'
+      ? "Ce PDF est un scan (des images, sans texte) et l'outil de lecture optique est absent du serveur (paquet tesseract-ocr-fra)."
+      : `Ce PDF est un scan et sa lecture optique a échoué : ${e.message}`);
+  } finally {
+    await rm(dossier, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
+/** Le texte d'un PDF : celui qu'il porte, sinon celui qu'on lit sur ses images. */
+export async function pdfEnTexteOuOcr(buffer) {
+  const t = await pdfEnTexte(buffer).catch(() => '');
+  if (t.replace(/\s/g, '').length >= 200) return { texte: t, ocr: false };
+  return { texte: await pdfParOcr(buffer), ocr: true };
+}
+
 // Le texte extrait charrie l'en-tête ministériel, les pieds de page et les
 // puces converties en « i ». On le nettoie avant de chercher quoi que ce soit.
 const ENTETE_MINISTERE =
@@ -352,6 +395,7 @@ function texteAvecSousSections(sections, prefixe) {
 }
 
 function parseDPTexte(brut) {
+  if (/Document\s*8\s*bis|doc\s*8\s*bis/i.test(brut)) return parseDP8bis(brut);
   const texte = nettoyer(brut);
   const sections = decouperEnSections(texte);
   const lignes = texte.split('\n').map(l => l.trim());
@@ -359,10 +403,10 @@ function parseDPTexte(brut) {
   // « CODE : » ou « CODE N : » selon les dossiers — celui des sciences
   // fondamentales écrit le second, et l'import le refusait pour cela seul.
   const codeMatch = texte.match(
-    /CODE\s*(?:N[°ºo]?)?\s*:\s*([\dA-Z][\dA-Z\s]*U\s*\d+\s*D\s*\d+)/i)
+    /CODE\s*(?:N[°ºo]?)?\s*:\s*([\dA-Z][\dA-Z\s]*U\s*\d+\s*[A-Z]\s*\d+)/i)
     // Dernier recours : le code a une forme trop reconnaissable pour qu'on
     // renonce sur un simple écart de libellé.
-    || texte.match(/\b(\d{6}\s*U\s*\d+\s*D\s*\d+)\b/);
+    || texte.match(/\b(\d{6}\s*U\s*\d+\s*[A-Z]\s*\d+)\b/);
   const codeFwb = codeMatch ? codeMatch[1].replace(/\s+/g, ' ').trim() : '';
   const domaineMatch = texte.match(/CODE DU DOMAINE DE FORMATION\s*:\s*(\d+)/i);
 
@@ -482,10 +526,133 @@ function parseDPTexte(brut) {
   };
 }
 
+/* LE DOCUMENT 8 BIS — LE DOSSIER D'UNE UNITÉ « SANS CRÉDITS ASSOCIÉS » (formation continuée,
+ * 12 octobre 2026 : 823808U34S2, infirmier relais en soins de plaies). Un autre gabarit que le
+ * dossier de 2011 : trois pages de formulaire — code « CODE DE L'U.E. (2) », intitulé en
+ * minuscules sous « UNITE D'ENSEIGNEMENT », horaire minimum au point 8 —, puis les textes en
+ * ANNEXES : 1 finalités, 2 capacités préalables, 3 acquis, 4 programme. Pas d'ECTS : c'est ce que
+ * « sans crédits » veut dire. Souvent scanné : l'OCR perd les puces des acquis, on les retrouve
+ * au sens — un acquis commence par « de » ou « d' », un sous-point par « o ». */
+function parseDP8bis(brut) {
+  const lignesBrutes = String(brut).replace(/\r/g, '').replace(/\f/g, '\n').split('\n');
+  const texte = lignesBrutes.join('\n');
+  const lignes = lignesBrutes.map(l => l.trim());
+
+  const codeMatch = texte.match(/CODE DE L.U\.?\s*E\.?\s*(?:\(\d\))?\s*:\s*(\d{6}\s*U\s*\d+\s*[A-Z]\s*\d+)/i)
+    || texte.match(/\b(\d{6}\s*U\s*\d+\s*[A-Z]\s*\d+)\b/);
+  const domaineMatch = texte.match(/CODE DU DOMAINE DE FORMATION\s*(?:\(\d\))?\s*:\s*(\d+)/i);
+
+  // L'intitulé : la ligne (ou les deux) sous « UNITE D'ENSEIGNEMENT », jusqu'au code.
+  let ueNom = '';
+  const iUE = lignes.findIndex(l => /^UNIT[EÉ] D.ENSEIGNEMENT\s*$/i.test(l));
+  if (iUE >= 0) {
+    const morceaux = [];
+    for (let j = iUE + 1; j < Math.min(iUE + 5, lignes.length); j++) {
+      if (!lignes[j]) { if (morceaux.length) break; continue; }
+      if (/^CODE\b/i.test(lignes[j])) break;
+      morceaux.push(lignes[j]);
+    }
+    ueNom = morceaux.join(' ').replace(/\s+/g, ' ').trim();
+  }
+
+  // L'horaire minimum : « Sciences biomédicales   CT.   B   12 » (le scan rend « C.T. » ou « CT. »).
+  const cours = [];
+  const i8 = lignes.findIndex(l => /^8\.\s*Horaire minimum/i.test(l));
+  const i9 = lignes.findIndex((l, k) => k > i8 && /^9\.\s/.test(l));
+  for (const l of lignes.slice(i8 >= 0 ? i8 : 0, i9 > i8 ? i9 : undefined)) {
+    const m = l.replace(/[|_]/g, ' ').match(/^(.*?\S)\s{2,}(C\.?\s*T|P\.?\s*P|C\.?\s*G)\.?\s+([A-Z])\s+(\d+)\s*$/i);
+    if (m && !/autonomie|total/i.test(m[1])) {
+      cours.push({ nom: m[1].replace(/\s+/g, ' ').trim(), classement: m[2].replace(/[.\s]/g, '').toUpperCase(), codeU: m[3].toUpperCase(), periodes: parseInt(m[4], 10) });
+    }
+  }
+  const autMatch = texte.match(/Part d.autonomie\s+(?:[A-Z]\s+)?(\d+)/i);
+  const totMatch = texte.match(/Total des p[ée]riodes\s+(\d+)/i);
+
+  // Les annexes, découpées sur « ANNEXE n », sans les mentions de formulaire.
+  const annexes = {};
+  let cur = null;
+  for (const l of lignes) {
+    const m = l.match(/^ANNEXE\s+(\d+)\s*$/i);
+    if (m) { cur = m[1]; annexes[cur] = []; continue; }
+    if (!cur) continue;
+    if (/^\(?Date de la signature\)?$|^Document\s*8\s*bis|^Page\s+\d+\s+sur/i.test(l)) continue;
+    annexes[cur].push(l);
+  }
+  const corps = n => (annexes[n] || []).filter((l, i) => !(i < 3 && l && l === l.toUpperCase() && /[A-Z]/.test(l))).join('\n').trim();
+
+  // Les acquis (annexe 3), jusqu'au degré de maîtrise.
+  const a3 = corps('3');
+  const coupe = a3.search(/pour (la d[ée]termination du|d[ée]terminer le) degr[ée] de ma[îi]trise/i);
+  const blocAcquis = coupe >= 0 ? a3.slice(0, coupe) : a3;
+  const detMaitrise = coupe >= 0 ? a3.slice(coupe).trim() : '';
+  const acquis = [];
+  let chapeau = [], ouvert = false;
+  for (const brute of blocAcquis.split('\n')) {
+    const l = brute.trim(); if (!l) continue;
+    const sans = l.replace(/^[+•*v✓➢>\-–]\s*/, '');
+    const sous = /^o\s+/.test(l);
+    // La phrase d'introduction court jusqu'à son « : » — « …à partir d'une ou plusieurs études / de cas : ».
+    if (!ouvert && chapeau.length && !/:\s*$/.test(chapeau[chapeau.length - 1])) { chapeau.push(l); continue; }
+    if (!sous && /^(de |d['’]|à |a )/i.test(sans) && (sans !== l || !ouvert || /[;.:]\s*$/.test(acquis[acquis.length - 1]?.description || ''))) {
+      acquis.push({ description: sans, chapeau: acquis.length ? null : chapeau.join(' ').replace(/\s+/g, ' ').trim() || null });
+      ouvert = true; continue;
+    }
+    if (!ouvert) { chapeau.push(l); continue; }
+    const der = acquis[acquis.length - 1];
+    der.description += sous ? ` ${l.replace(/^o\s+/, '— ')}` : ` ${l}`;
+  }
+  acquis.forEach((a, i) => { a.num = i + 1; a.description = a.description.replace(/\s+/g, ' ').replace(/[;.]\s*$/, '').trim(); });
+
+  return {
+    ue: {
+      ue_nom: ueNom,
+      ue_code_fwb: codeMatch ? codeMatch[1].replace(/\s+/g, '').toUpperCase() : '',
+      ue_niveau: /sup[ée]rieur de type (court|long)/i.test(texte) ? 'SUP' : /secondaire/i.test(texte) ? 'DS' : '',
+      ects: null,
+      ue_aut: autMatch ? parseInt(autMatch[1], 10) : null,
+      ue_per_etudiants: totMatch ? parseInt(totMatch[1], 10) : null,
+      code_domaine: domaineMatch ? domaineMatch[1] : '',
+      ue_det: [
+        ['Finalités', corps('1')],
+        ['Capacités préalables', corps('2')],
+        ["Acquis d'apprentissage", blocAcquis.trim()],
+        ['Degré de maîtrise', detMaitrise],
+        ['Programme', corps('4')],
+      ].filter(([, v]) => v).map(([t, v]) => `## ${t}\n${paragraphes8bis(v)}`).join('\n\n'),
+    },
+    cours,
+    acquis,
+  };
+}
+
+/* Les textes d'annexe, en paragraphes et en puces. Le scan rend les puces en « + », « • », « v »,
+ * « Y” », « o »… : toutes deviennent « – ». Une ligne finie (« . », « : », « ; ») suivie d'une
+ * majuscule ou d'une puce ouvre une nouvelle ligne ; le reste se recolle à la précédente. */
+function paragraphes8bis(bloc) {
+  const PUCE = /^(?:[+•*✓➢>\-–][\s_]*|[vVYŸ]["”’]?[\s_]+|o\s+)(?=\S)/;
+  const out = [];
+  for (const brute of String(bloc || '').split('\n')) {
+    let l = brute.trim().replace(/\s*\|\s*$/, '');
+    if (l.length <= 2) continue;                          // le bruit du scan : « + », « LU », « x », « | »
+    const puce = PUCE.test(l);
+    if (puce) l = `– ${l.replace(PUCE, '')}`;
+    const prec = out[out.length - 1];
+    // Une puce que le scan a perdue : après « ; », « : » ou « , », une ligne qui commence comme un
+    // élément de liste (« de… », « d'… », « le niveau… ») en ouvre un nouveau.
+    const element = (/[;:]\s*$/.test(prec || '') && /^(de |d['’]|le |la |les |l['’])/i.test(l))
+      || /^le niveau d/i.test(l);                         // les critères du degré de maîtrise
+    if (!prec || puce || element || (/[.:;]\s*$/.test(prec) && /^[A-ZÀ-Ý«(]/.test(l))) out.push(puce || !element ? l : `– ${l}`);
+    else out[out.length - 1] = `${prec} ${l}`;
+  }
+  return out.map(l => l.replace(/\s+/g, ' ').trim()).join('\n');
+}
+
 export async function parseDossierPedagogique(buffer) {
   // %PDF en tête : dossier publié par la Fédération. PK : un .docx.
+  // Un PDF sans texte (un scan) passe par la lecture optique ; la réponse le dit.
   if (buffer.slice(0, 4).toString('latin1') === '%PDF') {
-    return parseDPTexte(await pdfEnTexte(buffer));
+    const { texte, ocr } = await pdfEnTexteOuOcr(buffer);
+    return { ...parseDPTexte(texte), ocr };
   }
   const zip = await JSZip.loadAsync(buffer);
   const xmlFile = zip.file('word/document.xml');

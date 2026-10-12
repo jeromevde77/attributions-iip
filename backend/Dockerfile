@@ -3,6 +3,8 @@ WORKDIR /app
 
 # poppler-utils fournit pdftotext : les dossiers pédagogiques publiés par la
 # Fédération circulent en PDF, et c'est par lui qu'on en extrait le texte.
+# tesseract-ocr (+ fra) LIT LES SCANS (12 octobre 2026) : un dossier scanné n'a pas de texte, pdftoppm
+# le met en images et tesseract en tire le texte (parseDossierPedagogique.js, pdfParOcr).
 #
 # Bibliothèques système requises pour que Chromium (téléchargé par Puppeteer à l'installation
 # des dépendances npm) puisse démarrer en mode headless dans le conteneur — le paquet Debian
@@ -20,7 +22,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2 \
     libpangocairo-1.0-0 libpango-1.0-0 libcairo2 libgtk-3-0 libx11-xcb1 \
     libxshmfence1 \
-    poppler-utils \
+    poppler-utils tesseract-ocr tesseract-ocr-fra \
     && rm -rf /var/lib/apt/lists/*
 
 COPY package.json ./

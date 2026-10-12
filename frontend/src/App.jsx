@@ -49,6 +49,7 @@ import MotDePasse from './pages/MotDePasse.jsx';
 import DemandeVA from './pages/DemandeVA.jsx';
 import RechercheLucie from './components/RechercheLucie.jsx';
 import AnnulerGestes from './components/AnnulerGestes.jsx';
+import { BoutonUrgence } from './components/TuileQuiEstLa.jsx';
 import { IconEtudiant } from './components/IconesLucie.jsx';
 import { useSousMenu } from './lib/sousMenu.js';
 import MonCompte from './components/MonCompte.jsx';
@@ -689,6 +690,7 @@ function ProtectedLayout({ children }) {
                 barre du haut, qui est le seul point fixe — à côté de la
                 version et du compte, avec les autres choses qui ne dépendent
                 pas de là où l'on se trouve. */}
+            <BoutonUrgence />
             <RechercheLucie />
             <AnnulerGestes />
             {u?.role === 'admin' && (
