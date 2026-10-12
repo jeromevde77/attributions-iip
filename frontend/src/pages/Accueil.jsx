@@ -703,10 +703,12 @@ export default function Accueil() {
             « ce qui m'attend avant ce qui s'est passé ». */}
         {/* LES MESSAGES TOUJOURS EN HAUT (Charles, 11 octobre 2026 : « c'est la priorité que l'info
             passe ») : hors de la mise en page, ils ne se déplacent ni ne se masquent. */}
-        <div className="mb-4"><MessagesRecus /></div>
+        <div className="mb-4 space-y-2"><MessagesRecus />
+          {/* QUI EST LÀ ? TOUJOURS VISIBLE, POUR TOUS (Charles, 12 octobre 2026 : « tout le monde doit
+              pouvoir voir qui est là, en cas d'urgence ») : hors de la mise en page, comme les messages. */}
+          <TuileQuiEstLa /></div>
         <BlocsPage page="accueil" blocs={[
           { cle: 'nouveautes', titre: 'Quoi de neuf dans Lucie', rendu: <TuileNouveautes /> },
-          { cle: 'quiestla', titre: 'Qui est là ?', rendu: <TuileQuiEstLa /> },
           { cle: 'conventions', titre: 'Conventions à signer', rendu: <ConventionsASigner /> },
           { cle: 'textes', titre: 'Textes à confirmer', rendu: <TextesAConfirmer /> },
           { cle: 'demandes', titre: 'Demandes à valider', rendu: <DemandesAValider /> },
