@@ -190,6 +190,7 @@ r.get('/', authRequired, (req, res) => {
            ROUND(SUM(COALESCE(autonomie_attribuee, 0)), 1) AS autonomie
     FROM attribution
     WHERE annee_scolaire = ? AND ue_num IN (${listeUe.join(',')})
+      AND COALESCE(en_conge, 0) = 0   -- en congé : remplacé, il ne compte pas (sinon payé deux fois)
       AND COALESCE(contrat_mdp, 'IIP') = 'IIP'
     GROUP BY ue_num, num_organisation, code_cours
   `).all(annee);
@@ -202,6 +203,7 @@ r.get('/', authRequired, (req, res) => {
                    + COALESCE(autonomie_attribuee, 0)), 1) AS periodes
     FROM attribution
     WHERE annee_scolaire = ? AND ue_num IN (${listeUe.join(',')})
+      AND COALESCE(en_conge, 0) = 0   -- en congé : remplacé, il ne compte pas (sinon payé deux fois)
       AND contrat_mdp = 'HELB'
     GROUP BY ue_num, num_organisation
   `).all(annee);
@@ -226,6 +228,7 @@ r.get('/', authRequired, (req, res) => {
            MAX(COALESCE(quadrimestre_attribue, '')) AS quadri
     FROM attribution
     WHERE annee_scolaire = ? AND ue_num IN (${listeUe.join(',')})
+      AND COALESCE(en_conge, 0) = 0   -- en congé : remplacé, il ne compte pas (sinon payé deux fois)
       AND COALESCE(contrat_mdp, 'IIP') = 'IIP'
     GROUP BY ue_num, num_organisation
   `).all(annee).map(x => [`${x.ue_num}|${x.num_organisation}`, x]));

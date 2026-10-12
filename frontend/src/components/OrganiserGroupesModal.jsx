@@ -17,6 +17,16 @@ function nbGroupesActuels(cours) {
   return Math.max(1, new Set(rows.map(r => r.code || 'Ts')).size);
 }
 
+/* LES LETTRES DES GROUPES SE CHANGENT ICI (12 octobre 2026, Charles : « j'aimerais pouvoir changer
+   les lettres ; si ça respecte l'ordre, je dois pouvoir »). Chaque attribution porte sa lettre
+   (`attribution.code`) ; une même lettre peut revenir (deux profs sur un même groupe). La seule
+   règle : les lettres d'un cours se SUIVENT depuis A — A, B, C, D, sans trou. */
+const LETTRES = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+function lettresEnDefaut(codes) {
+  const l = [...new Set(codes.filter(c => c && c !== 'Ts'))].sort();
+  return l.some((c, i) => c !== LETTRES[i]) ? l : null;
+}
+
 const MODE_CFG = {
   ts:      { label: 'Ts',      desc: 'Tous ensemble · 1 prof',    icon: IconUser,        bg: 'var(--c-reussi)', color: '#FFFFFF', border: 'var(--c-reussi)' },
   split:   { label: 'Split',   desc: 'Ts partagé entre N profs',  icon: IconArrowsSplit, bg: 'var(--c-disponible)', color: '#FFFFFF', border: 'var(--c-disponible)' },
@@ -28,6 +38,7 @@ export default function OrganiserGroupesModal({ portee, section, ues, onClose, o
   const [expanded, setExpanded] = useState(() => new Set(peu ? ues.map(u => `${u.ue_num}/${u.num_organisation||1}`) : []));
   const [creerOrga2, setCreerOrga2] = useState(new Set());
   const [busy, setBusy] = useState(false);
+  const [lettres, setLettres] = useState({});   // id d'attribution → nouvelle lettre
   const [etat, setEtat] = useState(() => {
     const init = {};
     for (const ue of ues) {
@@ -48,7 +59,12 @@ export default function OrganiserGroupesModal({ portee, section, ues, onClose, o
   const setNb   = (k, cc, nb)   => setEtat(e => ({ ...e, [k]: { ...e[k], [cc]: { ...e[k][cc], nb } } }));
   const blocCouleur = b => { const n = parseInt((b||'').match(/\d+/)?.[0]||'0'); return ['#6b7280','var(--c-attente)','var(--c-disponible)','var(--c-texte)','var(--c-faveur)'][n]||'#6b7280'; };
 
-  const nbChanges = ues.reduce((acc, ue) => {
+  // Les cours dont on a changé une lettre, et ceux où l'ordre n'est pas respecté.
+  const coursTouches = ues.flatMap(ue => ue.cours.filter(c => (c.rows || []).some(r => lettres[r.id] && lettres[r.id] !== r.code)));
+  const enDefaut = coursTouches.map(c => ({ c, l: lettresEnDefaut((c.rows || []).map(r => lettres[r.id] || r.code)) })).filter(x => x.l);
+  const nbLettres = Object.entries(lettres).filter(([id, v]) => ues.some(ue => ue.cours.some(c => (c.rows || []).some(r => String(r.id) === id && r.code !== v)))).length;
+
+  const nbChanges = nbLettres + ues.reduce((acc, ue) => {
     const k = keyOf(ue);
     return acc + ue.cours.filter(c => {
       const e = etat[k]?.[c.code_cours];
@@ -70,6 +86,17 @@ export default function OrganiserGroupesModal({ portee, section, ues, onClose, o
           const e = etat[k]?.[c.code_cours];
           return e && (e.mode !== modeActuel(c) || (e.mode !== 'ts' && e.nb !== nbGroupesActuels(c)));
         });
+        // Les lettres d'abord, pour les cours dont on ne change pas l'organisation (sinon les lignes sont refaites).
+        for (const c of ue.cours) {
+          const e = etat[k]?.[c.code_cours];
+          const refait = e && (e.mode !== modeActuel(c) || (e.mode !== 'ts' && e.nb !== nbGroupesActuels(c)));
+          if (refait) continue;
+          for (const r of c.rows || []) {
+            if (lettres[r.id] && lettres[r.id] !== r.code) {
+              try { await api.updateAttribution(r.id, { code: lettres[r.id] }); ok++; } catch (er) { errs.push(`UE ${ue.ue_num}, ${c.code_cours} : ${er.message}`); }
+            }
+          }
+        }
         if (!change) continue;
         try {
           await api.organiserGroupesUE(ue.ue_num, {
@@ -90,11 +117,13 @@ export default function OrganiserGroupesModal({ portee, section, ues, onClose, o
     <Fenetre icone={IconUsersGroup} large="grande" onFermer={onClose}
       titre={`Organiser — ${portee === 'section' ? `section ${section}` : `UE ${ues[0]?.ue_num}`}`}
       pied={<>
-        <span className="text-xs text-amber-600">
-          {nbChanges > 0 ? `${nbChanges} modification${nbChanges > 1 ? 's' : ''} en attente` : ''}
+        <span className="text-xs min-w-0 flex-1">
+          {enDefaut.length > 0
+            ? <span style={{ color: 'var(--c-refuse)' }}>Les lettres doivent se suivre depuis A : {enDefaut.map(x => `${x.c.code_cours} (${x.l.join(', ')})`).join(' · ')}</span>
+            : <span className="text-amber-600">{nbChanges > 0 ? `${nbChanges} modification${nbChanges > 1 ? 's' : ''} en attente` : ''}</span>}
         </span>
         <button onClick={onClose} className="bouton">Annuler</button>
-        <button onClick={appliquer} disabled={busy}
+        <button onClick={appliquer} disabled={busy || enDefaut.length > 0}
           className="bouton bouton-fort">
           {busy ? 'Application…' : `Appliquer${nbChanges > 0 ? ` (${nbChanges})` : ''}`}
         </button>
@@ -204,7 +233,12 @@ export default function OrganiserGroupesModal({ portee, section, ues, onClose, o
                               <div className="flex flex-wrap gap-1 ml-auto">
                                 {rows.map((r, i) => (
                                   <span key={i} className="text-mention bg-gray-100 rounded px-1.5 py-0.5 text-gray-600 flex items-center gap-0.5">
-                                    {r.code && r.code !== 'Ts' && <b>{r.code}</b>}
+                                    {r.code && r.code !== 'Ts' && (
+                                      <select value={lettres[r.id] || r.code} title="Changer la lettre de ce groupe"
+                                        onChange={ev => setLettres(m => ({ ...m, [r.id]: ev.target.value }))}
+                                        className={`font-bold bg-transparent border rounded px-0.5 text-mention cursor-pointer ${lettres[r.id] && lettres[r.id] !== r.code ? 'border-amber-400' : 'border-transparent hover:border-gray-300'}`}>
+                                        {LETTRES.map(x => <option key={x} value={x}>{x}</option>)}
+                                      </select>)}
                                     {r.split_groupe === 'O' && <span className="text-blue-400">↔</span>}
                                     {(r.prof_nom || r.prof_prenom)
                                       ? `${(r.prof_nom||'').toUpperCase()} ${r.prof_prenom||''}`.trim()
