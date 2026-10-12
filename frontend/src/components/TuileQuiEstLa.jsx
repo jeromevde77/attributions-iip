@@ -131,8 +131,14 @@ function Maintenant({ d, modifier }) {
 const enMin = h => { const [a, b] = String(h || '').split(':').map(Number); return a * 60 + (b || 0); };
 function FriseJournee({ journee, permanences = [], heure, modifier = null }) {
   // Le nom : un lien vers son horaire et son numéro, pour qui peut les régler.
+  // Un crayon VISIBLE à côté du nom (Charles : « je ne sais toujours pas changer les horaires ») :
+  // un nom cliquable sans signe ne se devine pas.
   const Nom = ({ p, versFace }) => (modifier
-    ? <button type="button" className="text-sm font-bold hover:underline text-left" title="Modifier son horaire et son numéro" onClick={() => modifier(p.id, versFace)}>{p.nom}</button>
+    ? <span className="inline-flex items-center gap-1">
+        <button type="button" className="text-sm font-bold hover:underline text-left" onClick={() => modifier(p.id, versFace)}>{p.nom}</button>
+        <button type="button" className="text-slate-400 hover:text-slate-700" aria-label={versFace === 'permanences' ? 'Modifier la permanence' : 'Modifier son horaire et son numéro'}
+          title={versFace === 'permanences' ? 'Modifier la permanence' : 'Modifier son horaire et son numéro'} onClick={() => modifier(p.id, versFace)}><IconPencil size={14} /></button>
+      </span>
     : <b className="text-sm">{p.nom}</b>);
   const maintenant = enMin(heure);
   const bornes = [...journee.flatMap(p => [...p.plages.flatMap(h => [enMin(h.debut), enMin(h.fin)]), ...p.pointages.map(x => enMin(x.heure))]),
@@ -259,7 +265,12 @@ function HorairesEquipe({ d, recharger, quiInitial = '' }) {
     <div className="space-y-4">
       <label className="text-second block">Personne
         <select className="controle block" value={qui} onChange={e => setQui(e.target.value)}>
-          <option value="">— choisir —</option>{personnes.map(p => <option key={p.id} value={p.id}>{p.nom} ({p.role})</option>)}</select></label>
+          <option value="">— choisir —</option>{personnes.map(p => <option key={p.id} value={p.id}>{p.nom} ({p.role})</option>)}
+          {/* Ouverte depuis la frise, la personne peut ne pas être du personnel (un enseignant) : elle reste nommée. */}
+          {qui && personnes.length > 0 && !personnes.some(p => String(p.id) === String(qui)) && (() => {
+            const j = (d.journee || []).find(p => String(p.id) === String(qui));
+            return <option value={qui}>{j ? `${j.nom} (${j.role})` : `Compte ${qui}`}</option>;
+          })()}</select></label>
       {!qui && <PauseMidiEquipe />}
       {fait && !qui && <p className="text-sm" style={{ color: 'var(--c-reussi)' }}>✓ Horaire de {fait} enregistré. Choisissez la personne suivante.</p>}
       {qui ? <Moi key={qui} d={d} recharger={recharger} utilisateur={Number(qui)} aTelephone={!!personnes.find(p => String(p.id) === String(qui))?.a_telephone}
