@@ -39,6 +39,16 @@ try {
       utilisateur_id INTEGER NOT NULL, note TEXT, cree_par TEXT, cree_le TEXT DEFAULT (datetime('now')));
     CREATE INDEX IF NOT EXISTS idx_equipe_permanence ON equipe_permanence(date);
   `);
+  // LA PERMANENCE HABITUELLE (12 octobre 2026, Charles : « je suis de permanence tous les jours de
+  // 9 h à 19 h 30 ; au cas où je ne réponds pas, un backup 1 et 2 ») : sans date, des jours de la
+  // semaine, jusqu'à ce qu'on la retire. Une permanence datée, ce jour-là, l'emporte sur elle.
+  db.exec(`CREATE TABLE IF NOT EXISTS equipe_permanence_habituelle (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, jours TEXT NOT NULL, debut TEXT NOT NULL, fin TEXT NOT NULL,   -- jours : « 1,2,3,4,5 »
+      utilisateur_id INTEGER NOT NULL, secours1_id INTEGER, secours2_id INTEGER, note TEXT,
+      cree_par TEXT, cree_le TEXT DEFAULT (datetime('now')))`);
+  const cp = db.prepare('PRAGMA table_info(equipe_permanence)').all().map(c => c.name);
+  if (!cp.includes('secours1_id')) db.exec('ALTER TABLE equipe_permanence ADD COLUMN secours1_id INTEGER');
+  if (!cp.includes('secours2_id')) db.exec('ALTER TABLE equipe_permanence ADD COLUMN secours2_id INTEGER');
   const cols = db.prepare('PRAGMA table_info(utilisateur)').all().map(c => c.name);
   if (!cols.includes('telephone_affiche')) db.exec('ALTER TABLE utilisateur ADD COLUMN telephone_affiche TEXT');
 } catch (e) { console.error('[migration] équipe :', e.message); }
@@ -85,9 +95,18 @@ r.get('/maintenant', authRequired, (req, res) => {
   }
   presents.sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
   attendus.sort((a, b) => a.a.localeCompare(b.a));
-  const perm = db.prepare('SELECT * FROM equipe_permanence WHERE date = ? ORDER BY debut').all(m.date)
-    .map(p => ({ id: p.id, debut: p.debut, fin: p.fin, note: p.note, en_cours: p.debut <= m.heure && m.heure < p.fin,
-      ...(comptes.get(p.utilisateur_id) ? personne(comptes.get(p.utilisateur_id)) : { nom: '—', telephone: null }) }));
+  // Les permanences du jour : les datées, puis les habituelles du jour de la semaine qu'aucune datée ne recouvre.
+  const datees = db.prepare('SELECT * FROM equipe_permanence WHERE date = ? ORDER BY debut').all(m.date);
+  const habituelles = db.prepare('SELECT * FROM equipe_permanence_habituelle ORDER BY debut').all()
+    .filter(h => String(h.jours).split(',').map(Number).includes(m.jour))
+    .filter(h => !datees.some(p => p.debut < h.fin && h.debut < p.fin));
+  const qui = id => (comptes.get(id) ? personne(comptes.get(id)) : null);
+  const perm = [...datees.map(p => ({ ...p, habituelle: false })), ...habituelles.map(h => ({ ...h, habituelle: true }))]
+    .sort((a, b) => a.debut.localeCompare(b.debut))
+    .map(p => ({ ...(qui(p.utilisateur_id) || { nom: '—', telephone: null }),
+      id: `${p.habituelle ? 'h' : 'd'}${p.id}`, debut: p.debut, fin: p.fin, note: p.note, habituelle: p.habituelle,
+      en_cours: p.debut <= m.heure && m.heure < p.fin,
+      secours: [p.secours1_id, p.secours2_id].map(qui).filter(Boolean) }));
   const moiP = pointes.get(req.user.id);
   res.json({ ...m, presents, attendus, permanences: perm,
     moi: { etat: moiP?.etat || null, depuis: moiP?.heure || null, a_un_horaire: db.prepare('SELECT 1 FROM equipe_horaire WHERE utilisateur_id = ? LIMIT 1').get(req.user.id) ? true : false,
@@ -133,7 +152,8 @@ r.get('/permanences', authRequired, (req, res) => {
   const m = maintenant();
   const l = db.prepare(`SELECT p.*, u.nom_complet, u.email FROM equipe_permanence p LEFT JOIN utilisateur u ON u.id = p.utilisateur_id
     WHERE p.date >= ? ORDER BY p.date, p.debut LIMIT 200`).all(m.date);
-  res.json(l.map(p => ({ id: p.id, date: p.date, debut: p.debut, fin: p.fin, note: p.note, utilisateur_id: p.utilisateur_id, nom: p.nom_complet || p.email || '—' })));
+  res.json(l.map(p => ({ id: p.id, date: p.date, debut: p.debut, fin: p.fin, note: p.note, utilisateur_id: p.utilisateur_id, nom: p.nom_complet || p.email || '—',
+    secours1: nomCompte(p.secours1_id), secours2: nomCompte(p.secours2_id) })));
 });
 r.post('/permanences', authRequired, (req, res) => {
   if (!GERER.includes(req.user.role)) return res.status(403).json({ error: 'Le tour de rôle se tient par la direction et le secrétariat.' });
@@ -142,14 +162,38 @@ r.post('/permanences', authRequired, (req, res) => {
   if (!date || !hhmm(b.debut) || !hhmm(b.fin) || !(b.debut < b.fin) || !Number(b.utilisateur_id)) return res.status(400).json({ error: 'Date, heures et personne requises.' });
   // Une même permanence sur plusieurs semaines : « répéter » n fois, de semaine en semaine.
   const fois = Math.min(52, Math.max(1, Number(b.repeter) || 1));
-  const ins = db.prepare('INSERT INTO equipe_permanence (date, debut, fin, utilisateur_id, note, cree_par) VALUES (?,?,?,?,?,?)');
+  const ins = db.prepare('INSERT INTO equipe_permanence (date, debut, fin, utilisateur_id, note, cree_par, secours1_id, secours2_id) VALUES (?,?,?,?,?,?,?,?)');
   db.transaction(() => {
     for (let k = 0; k < fois; k++) {
       const d = new Date(`${date}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + 7 * k);
-      ins.run(d.toISOString().slice(0, 10), b.debut, b.fin, Number(b.utilisateur_id), String(b.note || '').trim().slice(0, 120) || null, req.user?.nom || req.user?.email || null);
+      ins.run(d.toISOString().slice(0, 10), b.debut, b.fin, Number(b.utilisateur_id), String(b.note || '').trim().slice(0, 120) || null, req.user?.nom || req.user?.email || null,
+        Number(b.secours1_id) || null, Number(b.secours2_id) || null);
     }
   })();
   res.json({ ok: true, ajoutees: fois });
+});
+/** Les permanences habituelles, sans date. */
+const nomCompte = id => { const u = id ? db.prepare('SELECT nom_complet, email FROM utilisateur WHERE id = ?').get(id) : null; return u ? nomDe(u) : null; };
+r.get('/permanences/habituelles', authRequired, (req, res) => {
+  res.json(db.prepare('SELECT * FROM equipe_permanence_habituelle ORDER BY debut, id').all().map(h => ({
+    id: h.id, jours: String(h.jours).split(',').map(Number), debut: h.debut, fin: h.fin, note: h.note,
+    utilisateur_id: h.utilisateur_id, nom: nomCompte(h.utilisateur_id) || '—',
+    secours1: nomCompte(h.secours1_id), secours2: nomCompte(h.secours2_id) })));
+});
+r.post('/permanences/habituelles', authRequired, (req, res) => {
+  if (!GERER.includes(req.user.role)) return res.status(403).json({ error: 'Les permanences se tiennent par la direction et le secrétariat.' });
+  const b = req.body || {};
+  const jours = [...new Set((Array.isArray(b.jours) ? b.jours : []).map(Number).filter(j => j >= 1 && j <= 7))].sort();
+  if (!jours.length || !hhmm(b.debut) || !hhmm(b.fin) || !(b.debut < b.fin) || !Number(b.utilisateur_id)) return res.status(400).json({ error: 'Jours, heures et personne requis.' });
+  const s1 = Number(b.secours1_id) || null, s2 = Number(b.secours2_id) || null;
+  db.prepare('INSERT INTO equipe_permanence_habituelle (jours, debut, fin, utilisateur_id, secours1_id, secours2_id, note, cree_par) VALUES (?,?,?,?,?,?,?,?)')
+    .run(jours.join(','), b.debut, b.fin, Number(b.utilisateur_id), s1, s2, String(b.note || '').trim().slice(0, 120) || null, req.user?.nom || req.user?.email || null);
+  res.json({ ok: true });
+});
+r.delete('/permanences/habituelles/:id', authRequired, (req, res) => {
+  if (!GERER.includes(req.user.role)) return res.status(403).json({ error: 'Réservé.' });
+  db.prepare('DELETE FROM equipe_permanence_habituelle WHERE id = ?').run(Number(req.params.id));
+  res.json({ ok: true });
 });
 r.delete('/permanences/:id', authRequired, (req, res) => {
   if (!GERER.includes(req.user.role)) return res.status(403).json({ error: 'Réservé.' });
@@ -158,8 +202,8 @@ r.delete('/permanences/:id', authRequired, (req, res) => {
 });
 /** Les personnes qu'on peut mettre de permanence : les comptes actifs hors enseignants. */
 r.get('/personnes', authRequired, (req, res) => {
-  res.json(db.prepare(`SELECT id, nom_complet, email, role FROM utilisateur WHERE COALESCE(actif, 1) = 1 AND role <> 'professeur' ORDER BY nom_complet`).all()
-    .map(u => ({ id: u.id, nom: nomDe(u), role: ROLES[u.role] || u.role })));
+  res.json(db.prepare(`SELECT id, nom_complet, email, role, telephone_affiche FROM utilisateur WHERE COALESCE(actif, 1) = 1 AND role <> 'professeur' ORDER BY nom_complet`).all()
+    .map(u => ({ id: u.id, nom: nomDe(u), role: ROLES[u.role] || u.role, a_telephone: !!u.telephone_affiche })));
 });
 
 export default r;
