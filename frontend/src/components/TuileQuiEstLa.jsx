@@ -53,6 +53,24 @@ export default function TuileQuiEstLa() {
   </>);
 }
 
+/* LE BOUTON D'URGENCE (12 octobre 2026, Charles : « dans le menu principal, un bouton orange avec
+   téléphone d'urgence ; il mène vers les contacts d'urgence et la permanence »). Sur tous les écrans,
+   pour tout le monde : la fenêtre « Qui est là ? », ouverte sur « Maintenant ». */
+export function BoutonUrgence() {
+  const [d, setD] = useState(null);
+  const [ouvert, setOuvert] = useState(false);
+  const [face, setFace] = useState('maintenant');
+  const charger = () => fetch('/api/equipe/maintenant', { headers: authHeaders() }).then(r => (r.ok ? r.json() : null)).then(setD).catch(() => {});
+  return (<>
+    <button type="button" onClick={async () => { setFace('maintenant'); await charger(); setOuvert(true); }}
+      className="objet-barre objet-barre-etat" style={{ '--e': 'var(--c-attente)' }}
+      title="Urgence : qui est là, qui est de permanence, et l’appeler">
+      <IconPhone size={16} /> Urgence
+    </button>
+    {ouvert && d && <FenetreQuiEstLa d={d} face={face} setFace={setFace} recharger={charger} onFermer={() => setOuvert(false)} />}
+  </>);
+}
+
 function FenetreQuiEstLa({ d, face, setFace, recharger, onFermer }) {
   async function pointer(etat) {
     await fetch('/api/equipe/pointer', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ etat }) });
