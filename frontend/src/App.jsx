@@ -302,6 +302,7 @@ function ProtectedLayout({ children }) {
   const [env, setEnv] = useState(null);
   const [versionIsNew, setVersionIsNew] = useState(false);
   const [nbNotifs, setNbNotifs] = useState(0);
+  const [detailNotifs, setDetailNotifs] = useState({ fil: 0, messages: 0 });
   /* LA VERSION DU SERVEUR, DEMANDÉE UNE FOIS AU CHARGEMENT.
      Ce badge est compilé dans l'image du frontend : il n'a jamais parlé que de
      nginx. Les deux moitiés se déploient séparément et se sont déjà retrouvées
@@ -331,7 +332,7 @@ function ProtectedLayout({ children }) {
       if (!tok) return;
       fetch(`/api/historique/feed?jours=30`, { headers: { Authorization: `Bearer ${tok}` } })
         .then(r => r.ok ? r.json() : { nbNonLus: 0 })
-        .then(d => setNbNotifs(d.nbNonLus || 0))
+        .then(d => { setNbNotifs(d.nbNonLus || 0); setDetailNotifs({ fil: d.nbFil || 0, messages: d.nbMessages || 0 }); })
         .catch(() => {});
     };
     chargerNotifs();
@@ -650,7 +651,9 @@ function ProtectedLayout({ children }) {
                 <span className="relative flex-shrink-0">
                   {Icon && <Icon size={19} stroke={1.8} style={{ color: location.pathname.startsWith(to) ? 'var(--menu-accent)' : 'var(--menu-icone)' }} />}
                   {to === '/accueil' && nbNotifs > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-iip-turquoise rounded-full text-mention text-white flex items-center justify-center font-bold">
+                    <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-iip-turquoise rounded-full text-mention text-white flex items-center justify-center font-bold"
+                      title={[detailNotifs.messages ? `${detailNotifs.messages} message${detailNotifs.messages > 1 ? 's' : ''} à lire, en tête du tableau de bord` : '',
+                        detailNotifs.fil ? `${detailNotifs.fil} notification${detailNotifs.fil > 1 ? 's' : ''} non lue${detailNotifs.fil > 1 ? 's' : ''} dans le fil d'activité (« Tout marquer comme lu » pour les effacer)` : ''].filter(Boolean).join(' · ')}>
                       {nbNotifs > 9 ? '9+' : nbNotifs}
                     </span>
                   )}

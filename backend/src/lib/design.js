@@ -16,16 +16,23 @@ import db from '../db/index.js';
 
 export const DESIGN_DEFAUT = {
   rayon_champ:    { groupe: 'rayons', libelle: 'Champs et boutons', type: 'px', min: 0, max: 18, valeur: 8 },
+  coins_champ:    { groupe: 'rayons', libelle: '— coins arrondis', type: 'coins', valeur: 'hg,hd,bd,bg' },
   rayon_carte:    { groupe: 'rayons', libelle: 'Cartes et tableaux', type: 'px', min: 0, max: 28, valeur: 14 },
+  coins_carte:    { groupe: 'rayons', libelle: '— coins arrondis', type: 'coins', valeur: 'hg,hd,bd,bg' },
   rayon_fenetre:  { groupe: 'rayons', libelle: 'Fenêtres', type: 'px', min: 0, max: 32, valeur: 22 },
+  coins_fenetre:  { groupe: 'rayons', libelle: '— coins arrondis', type: 'coins', valeur: 'hg,hd,bd,bg' },
   rayon_panneau:  { groupe: 'rayons', libelle: 'Panneaux flottants (rail)', type: 'px', min: 0, max: 32, valeur: 26 },
+  coins_panneau:  { groupe: 'rayons', libelle: '— coins arrondis', type: 'coins', valeur: 'hg,hd,bd,bg' },
   rayon_tuile:    { groupe: 'tuiles', libelle: 'Rayon de la tuile', type: 'px', min: 0, max: 20, valeur: 10 },
   tuile_lisere:   { groupe: 'tuiles', libelle: 'Épaisseur du liseré d’état', type: 'px', min: 0, max: 10, valeur: 4 },
-  tuile_coins:    { groupe: 'tuiles', libelle: 'Coins côté liseré', type: 'choix', choix: ['droits', 'arrondis'], valeur: 'droits' },
+  // Les coins arrondis, un par un (12 octobre 2026, Charles : « choisir les coins à arrondir ») :
+  // hg haut gauche, hd haut droit, bd bas droit, bg bas gauche. « droits » / « arrondis » d'avant se relisent.
+  tuile_coins:    { groupe: 'tuiles', libelle: 'Coins arrondis de la tuile', type: 'coins', valeur: 'hd,bd' },
   tuile_chiffre:  { groupe: 'tuiles', libelle: 'Grande tuile — taille du chiffre', type: 'px', min: 13, max: 32, valeur: 17 },
   tuile_espace:   { groupe: 'tuiles', libelle: 'Grande tuile — marge intérieure', type: 'px', min: 4, max: 20, valeur: 10 },
   tuile_compacte_chiffre: { groupe: 'tuiles', libelle: 'Tuile compacte — taille du chiffre', type: 'px', min: 10, max: 18, valeur: 13 },
   rayon_pastille: { groupe: 'tuiles', libelle: 'Rayon des pastilles d’état', type: 'px', min: 0, max: 12, valeur: 4 },
+  coins_pastille: { groupe: 'tuiles', libelle: '— coins arrondis', type: 'coins', valeur: 'hg,hd,bd,bg' },
   controle_hauteur: { groupe: 'controles', libelle: 'Hauteur des boutons et des champs', type: 'px', min: 28, max: 48, valeur: 36 },
   bouton_graisse: { groupe: 'controles', libelle: 'Graisse des boutons', type: 'choix', choix: ['500', '600', '700'], valeur: '600' },
   onglet_trait:   { groupe: 'controles', libelle: 'Trait de l’onglet actif', type: 'px', min: 1, max: 4, valeur: 2 },
@@ -56,10 +63,20 @@ export const DESIGN_DEFAUT = {
   titre_ecran:    { groupe: 'texte', libelle: 'Titre d’un écran', type: 'px', min: 14, max: 26, valeur: 17 },
 };
 
+export const COINS = ['hg', 'hd', 'bd', 'bg'];
+export function normaliserCoins(v) {
+  const t = String(v ?? '');
+  if (t === 'droits') return 'hd,bd';
+  if (t === 'arrondis') return COINS.join(',');
+  const l = t.split(',').map(x => x.trim()).filter(x => COINS.includes(x));
+  return COINS.filter(c => l.includes(c)).join(',');
+}
+
 /** Une valeur passe si elle est dans les bornes ou dans la liste fermée — sinon on garde celle de la maison. */
 export function valide(cle, v) {
   const d = DESIGN_DEFAUT[cle]; if (!d) return undefined;
   if (d.type === 'choix') return d.choix.includes(String(v)) ? String(v) : undefined;
+  if (d.type === 'coins') return normaliserCoins(v);
   const n = Number(v);
   return Number.isFinite(n) && n >= d.min && n <= d.max ? n : undefined;
 }

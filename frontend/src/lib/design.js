@@ -9,7 +9,7 @@ import { authHeaders } from './api.js';
  */
 export const DESIGN_MAISON = {
   rayon_champ: 8, rayon_carte: 14, rayon_fenetre: 22, rayon_panneau: 26, rayon_tuile: 10, tuile_lisere: 4,
-  tuile_coins: 'droits', rayon_pastille: 4, tuile_chiffre: 17, tuile_espace: 10, tuile_compacte_chiffre: 13, controle_hauteur: 36, bouton_graisse: '600', onglet_trait: 2,
+  tuile_coins: 'hd,bd', coins_champ: 'hg,hd,bd,bg', coins_carte: 'hg,hd,bd,bg', coins_fenetre: 'hg,hd,bd,bg', coins_panneau: 'hg,hd,bd,bg', coins_pastille: 'hg,hd,bd,bg', rayon_pastille: 4, tuile_chiffre: 17, tuile_espace: 10, tuile_compacte_chiffre: 13, controle_hauteur: 36, bouton_graisse: '600', onglet_trait: 2,
   ombre: 'normale', voile: 32, titre_carte: 15, titre_graisse: '600', intertitre_taille: 11, intertitre_casse: 'majuscules', intertitre_espace: 60, intertitre_graisse: '600', tableau_densite: 'normale', tableau_zebre: 'non', tableau_filets: 'horizontaux', tableau_entete_taille: 11, graphique_rayon: 3, anneau_epaisseur: 40, etape_taille: 28, barre_hauteur: 12, jauge_hauteur: 6, jauge_forme: 'arrondis', volet_retrait: 24, graphique_grille: 'pointille', graphique_legende: 'bas', voile_flou: 3, police: 'Inter', texte: 100, titre_ecran: 17,
 };
 const POLICES = {
@@ -22,6 +22,16 @@ const POLICES = {
 const OMBRES = { aucune: 0, douce: 0.5, normale: 1, marquee: 1.6 };
 
 /** Les variables CSS d'un jeu de réglages (servent aussi à l'aperçu). */
+/* Les coins arrondis de la tuile, un par un : hg, hd, bd, bg. Les anciens « droits » (les deux coins de
+   droite) et « arrondis » (les quatre) se relisent. */
+export const COINS = ['hg', 'hd', 'bd', 'bg'];
+export function coinsDe(v) {
+  const t = String(v ?? '');
+  if (t === 'droits') return ['hd', 'bd'];
+  if (t === 'arrondis') return [...COINS];
+  return t.split(',').map(x => x.trim()).filter(x => COINS.includes(x));
+}
+
 export function variablesDesign(v = {}) {
   const d = { ...DESIGN_MAISON, ...v };
   const k = OMBRES[d.ombre] ?? 1;
@@ -30,7 +40,11 @@ export function variablesDesign(v = {}) {
     '--d-rayon-champ': `${d.rayon_champ}px`, '--d-rayon-carte': `${d.rayon_carte}px`,
     '--d-rayon-fenetre': `${d.rayon_fenetre}px`, '--d-rayon-panneau': `${d.rayon_panneau}px`,
     '--d-rayon-tuile': `${d.rayon_tuile}px`, '--d-tuile-lisere': `${d.tuile_lisere}px`,
-    '--d-tuile-coin': d.tuile_coins === 'arrondis' ? `${d.rayon_tuile}px` : '0px',
+    ...Object.fromEntries(COINS.map(c => [`--d-tuile-r-${c}`, coinsDe(d.tuile_coins).includes(c) ? `${d.rayon_tuile}px` : '0px'])),
+    // LA FORME DE CHAQUE FAMILLE, COIN PAR COIN (12 octobre 2026, Charles : « choisir les coins à arrondir —
+    // pour tout ! ») : « hg hd bd bg », lue par les classes de la maison et les rounded-* complets.
+    ...Object.fromEntries([['champ', 'coins_champ'], ['carte', 'coins_carte'], ['fenetre', 'coins_fenetre'], ['panneau', 'coins_panneau'], ['pastille', 'coins_pastille'], ['tuile', 'tuile_coins']]
+      .map(([f, k]) => [`--d-forme-${f}`, COINS.map(c => (coinsDe(d[k]).includes(c) ? `${d[`rayon_${f}`]}px` : '0px')).join(' ')])),
     '--d-rayon-pastille': `${d.rayon_pastille}px`, '--d-tuile-chiffre': `${d.tuile_chiffre}px`,
     '--d-tuile-pad-v': `${Math.round(d.tuile_espace * 0.8)}px`, '--d-tuile-pad-h': `${Math.round(d.tuile_espace * 1.2)}px`,
     '--d-tuile-compacte-chiffre': `${d.tuile_compacte_chiffre}px`, '--d-controle-h': `${d.controle_hauteur}px`,
