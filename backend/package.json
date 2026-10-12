@@ -1,7 +1,5 @@
 {
   "name": "attributions-backend",
-  "author": "Charles Sohet",
-  "license": "UNLICENSED",
   "version": "0.1.0",
   "description": "Backend Node.js pour la gestion des attributions professeurs IIP",
   "type": "module",
