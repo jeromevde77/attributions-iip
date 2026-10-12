@@ -205,6 +205,7 @@ r.get('/permanences', authRequired, (req, res) => {
   const l = db.prepare(`SELECT p.*, u.nom_complet, u.email FROM equipe_permanence p LEFT JOIN utilisateur u ON u.id = p.utilisateur_id
     WHERE p.date >= ? ORDER BY p.date, p.debut LIMIT 200`).all(m.date);
   res.json(l.map(p => ({ id: p.id, date: p.date, debut: p.debut, fin: p.fin, note: p.note, utilisateur_id: p.utilisateur_id, nom: (p.nom_complet || p.email) ? nomDe(p) : '—',
+    secours1_id: p.secours1_id, secours2_id: p.secours2_id,
     secours1: nomCompte(p.secours1_id), secours2: nomCompte(p.secours2_id) })));
 });
 r.post('/permanences', authRequired, (req, res) => {
@@ -229,7 +230,7 @@ const nomCompte = id => { const u = id ? db.prepare('SELECT nom_complet, email F
 r.get('/permanences/habituelles', authRequired, (req, res) => {
   res.json(db.prepare('SELECT * FROM equipe_permanence_habituelle ORDER BY debut, id').all().map(h => ({
     id: h.id, jours: String(h.jours).split(',').map(Number), debut: h.debut, fin: h.fin, note: h.note,
-    utilisateur_id: h.utilisateur_id, nom: nomCompte(h.utilisateur_id) || '—',
+    utilisateur_id: h.utilisateur_id, secours1_id: h.secours1_id, secours2_id: h.secours2_id, nom: nomCompte(h.utilisateur_id) || '—',
     secours1: nomCompte(h.secours1_id), secours2: nomCompte(h.secours2_id) })));
 });
 r.post('/permanences/habituelles', authRequired, (req, res) => {
@@ -240,6 +241,30 @@ r.post('/permanences/habituelles', authRequired, (req, res) => {
   const s1 = Number(b.secours1_id) || null, s2 = Number(b.secours2_id) || null;
   db.prepare('INSERT INTO equipe_permanence_habituelle (jours, debut, fin, utilisateur_id, secours1_id, secours2_id, note, cree_par) VALUES (?,?,?,?,?,?,?,?)')
     .run(jours.join(','), b.debut, b.fin, Number(b.utilisateur_id), s1, s2, String(b.note || '').trim().slice(0, 120) || null, req.user?.nom || req.user?.email || null);
+  res.json({ ok: true });
+});
+/* MODIFIER UNE PERMANENCE (12 octobre 2026, Charles : « je ne sais toujours pas changer les
+ * horaires ») : il fallait la supprimer et la recréer. Mêmes contrôles qu'à l'ajout. */
+r.put('/permanences/habituelles/:id', authRequired, (req, res) => {
+  if (!GERER.includes(req.user.role)) return res.status(403).json({ error: 'Les permanences se tiennent par la direction et le secrétariat.' });
+  const b = req.body || {};
+  const jours = [...new Set((Array.isArray(b.jours) ? b.jours : []).map(Number).filter(j => j >= 1 && j <= 7))].sort();
+  if (!jours.length || !hhmm(b.debut) || !hhmm(b.fin) || !(b.debut < b.fin) || !Number(b.utilisateur_id)) return res.status(400).json({ error: 'Jours, heures et personne requis.' });
+  const n = db.prepare('UPDATE equipe_permanence_habituelle SET jours = ?, debut = ?, fin = ?, utilisateur_id = ?, secours1_id = ?, secours2_id = ?, note = ? WHERE id = ?')
+    .run(jours.join(','), b.debut, b.fin, Number(b.utilisateur_id), Number(b.secours1_id) || null, Number(b.secours2_id) || null,
+      String(b.note || '').trim().slice(0, 120) || null, Number(req.params.id)).changes;
+  if (!n) return res.status(404).json({ error: 'Permanence introuvable.' });
+  res.json({ ok: true });
+});
+r.put('/permanences/:id', authRequired, (req, res) => {
+  if (!GERER.includes(req.user.role)) return res.status(403).json({ error: 'Réservé.' });
+  const b = req.body || {};
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(String(b.date || '')) ? b.date : null;
+  if (!date || !hhmm(b.debut) || !hhmm(b.fin) || !(b.debut < b.fin) || !Number(b.utilisateur_id)) return res.status(400).json({ error: 'Date, heures et personne requises.' });
+  const n = db.prepare('UPDATE equipe_permanence SET date = ?, debut = ?, fin = ?, utilisateur_id = ?, secours1_id = ?, secours2_id = ?, note = ? WHERE id = ?')
+    .run(date, b.debut, b.fin, Number(b.utilisateur_id), Number(b.secours1_id) || null, Number(b.secours2_id) || null,
+      String(b.note || '').trim().slice(0, 120) || null, Number(req.params.id)).changes;
+  if (!n) return res.status(404).json({ error: 'Permanence introuvable.' });
   res.json({ ok: true });
 });
 r.delete('/permanences/habituelles/:id', authRequired, (req, res) => {

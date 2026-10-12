@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { IconLifebuoy, IconChevronRight, IconPhone, IconPlus, IconTrash, IconDoorEnter, IconDoorExit } from '@tabler/icons-react';
+import { IconLifebuoy, IconChevronRight, IconPhone, IconPlus, IconTrash, IconPencil, IconDoorEnter, IconDoorExit } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { Fenetre } from './ui.jsx';
 import { demander, informer } from '../lib/dialogue.jsx';
@@ -357,6 +357,7 @@ function Permanences({ recharger }) {
   const [h, setH] = useState(null);
   const [personnes, setPersonnes] = useState([]);
   const [mode, setMode] = useState('habituelle');
+  const [edition, setEdition] = useState(null);   // { id, habituelle } : la permanence qu'on modifie
   const [f, setF] = useState({ date: new Date().toISOString().slice(0, 10), jours: [1, 2, 3, 4, 5], debut: '09:00', fin: '19:30', utilisateur_id: '', secours1_id: '', secours2_id: '', note: '', repeter: 1 });
   const lire = () => {
     fetch('/api/equipe/permanences', { headers: authHeaders() }).then(r => r.json()).then(setL).catch(() => setL([]));
@@ -364,11 +365,19 @@ function Permanences({ recharger }) {
   };
   useEffect(() => { lire(); fetch('/api/equipe/personnes', { headers: authHeaders() }).then(r => r.json()).then(setPersonnes).catch(() => {}); }, []);
   const basculerJour = j => setF(x => ({ ...x, jours: x.jours.includes(j) ? x.jours.filter(k => k !== j) : [...x.jours, j].sort() }));
+  function editer(p, habituelle) {
+    setMode(habituelle ? 'habituelle' : 'datee');
+    setEdition({ id: p.id, habituelle });
+    setF(x => ({ ...x, ...(habituelle ? { jours: p.jours } : { date: p.date }), debut: p.debut, fin: p.fin,
+      utilisateur_id: String(p.utilisateur_id || ''), secours1_id: String(p.secours1_id || ''), secours2_id: String(p.secours2_id || ''), note: p.note || '', repeter: 1 }));
+  }
   async function ajouter() {
-    const url = mode === 'habituelle' ? '/api/equipe/permanences/habituelles' : '/api/equipe/permanences';
-    const r = await fetch(url, { method: 'POST', headers: authHeaders(), body: JSON.stringify(f) });
+    const base = mode === 'habituelle' ? '/api/equipe/permanences/habituelles' : '/api/equipe/permanences';
+    const url = edition ? `${base}/${edition.id}` : base;
+    const r = await fetch(url, { method: edition ? 'PUT' : 'POST', headers: authHeaders(), body: JSON.stringify(f) });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) { await informer(`❌ ${j.error || 'Erreur'}`); return; }
+    setEdition(null);
     setF(x => ({ ...x, utilisateur_id: '', secours1_id: '', secours2_id: '', note: '' }));
     lire(); recharger();
   }
@@ -384,7 +393,7 @@ function Permanences({ recharger }) {
       <div className="space-y-2">
         <div className="segments">
           {[['habituelle', 'Habituelle (sans date)'], ['datee', 'À une date']].map(([k, t]) => (
-            <button key={k} type="button" aria-pressed={mode === k} className={mode === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'} onClick={() => setMode(k)}>{t}</button>))}
+            <button key={k} type="button" aria-pressed={mode === k} disabled={!!edition && mode !== k} className={mode === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'} onClick={() => setMode(k)}>{t}</button>))}
         </div>
         <div className="flex flex-wrap items-end gap-2">
           {mode === 'habituelle'
@@ -402,7 +411,12 @@ function Permanences({ recharger }) {
           <ChoixPersonne libelle="Secours 1" valeur={f.secours1_id} personnes={personnes.filter(p => String(p.id) !== String(f.utilisateur_id))} onChange={v => setF({ ...f, secours1_id: v })} vide="— aucun —" />
           <ChoixPersonne libelle="Secours 2" valeur={f.secours2_id} personnes={personnes.filter(p => ![f.utilisateur_id, f.secours1_id].map(String).includes(String(p.id)))} onChange={v => setF({ ...f, secours2_id: v })} vide="— aucun —" />
           <label className="text-second flex flex-col gap-0.5">Note<input className="controle block w-40" value={f.note} placeholder="cours du soir…" onChange={e => setF({ ...f, note: e.target.value })} data-reponses="non" /></label>
-          <button className="bouton bouton-fort" disabled={!pret} onClick={ajouter}><IconPlus size={14} className="inline -mt-0.5 mr-1" />Ajouter</button>
+          {edition
+            ? <>
+                <button className="bouton bouton-fort" disabled={!pret} onClick={ajouter}>Enregistrer la modification</button>
+                <button className="bouton" onClick={() => { setEdition(null); setF(x => ({ ...x, utilisateur_id: '', secours1_id: '', secours2_id: '', note: '' })); }}>Annuler</button>
+              </>
+            : <button className="bouton bouton-fort" disabled={!pret} onClick={ajouter}><IconPlus size={14} className="inline -mt-0.5 mr-1" />Ajouter</button>}
         </div>
       </div>
 
@@ -414,6 +428,7 @@ function Permanences({ recharger }) {
                 <span className="w-44">{nomsJours(p.jours)}</span>
                 <span className="tabular-nums w-28">{p.debut}–{p.fin}</span>
                 <span className="flex-1 min-w-0">{p.nom}{secoursTexte(p) ? <span className="text-slate-500"> · {secoursTexte(p)}</span> : null}{p.note ? <span className="text-slate-500"> · {p.note}</span> : null}</span>
+                <button type="button" className="text-slate-400 hover:text-slate-700" aria-label="Modifier" title="Modifier" onClick={() => editer(p, true)}><IconPencil size={15} /></button>
                 <button type="button" className="text-slate-400 hover:text-red-600" aria-label="Retirer" onClick={() => retirer(p, true)}><IconTrash size={15} /></button>
               </li>))}</ul>}
       </section>
@@ -426,6 +441,7 @@ function Permanences({ recharger }) {
                 <span className="tabular-nums w-24">{p.date.split('-').reverse().join('/')}</span>
                 <span className="tabular-nums w-28">{p.debut}–{p.fin}</span>
                 <span className="flex-1 min-w-0">{p.nom}{secoursTexte(p) ? <span className="text-slate-500"> · {secoursTexte(p)}</span> : null}{p.note ? <span className="text-slate-500"> · {p.note}</span> : null}</span>
+                <button type="button" className="text-slate-400 hover:text-slate-700" aria-label="Modifier" title="Modifier" onClick={() => editer(p, false)}><IconPencil size={15} /></button>
                 <button type="button" className="text-slate-400 hover:text-red-600" aria-label="Retirer" onClick={() => retirer(p, false)}><IconTrash size={15} /></button>
               </li>))}</ul>}
       </section>
