@@ -51,6 +51,16 @@ try {
   const ch = db.prepare('PRAGMA table_info(equipe_horaire)').all().map(c => c.name);
   if (!ch.includes('pause_debut')) db.exec('ALTER TABLE equipe_horaire ADD COLUMN pause_debut TEXT');
   if (!ch.includes('pause_fin')) db.exec('ALTER TABLE equipe_horaire ADD COLUMN pause_fin TEXT');
+  // « Il faut le faire pour tous » (Charles, 12 octobre 2026) : une fois, les plages déjà saisies qui
+  // passent midi sans pause reçoivent 12 h 00 – 12 h 30. Une pause posée n'est jamais touchée ; la
+  // marque empêche de la remettre à qui l'aurait retirée ensuite.
+  db.exec('CREATE TABLE IF NOT EXISTS equipe_migration (cle TEXT PRIMARY KEY, le TEXT DEFAULT (datetime(\'now\')))');
+  if (!db.prepare("SELECT 1 FROM equipe_migration WHERE cle = 'pause_midi_pour_tous'").get()) {
+    db.transaction(() => {
+      db.prepare("UPDATE equipe_horaire SET pause_debut = '12:00', pause_fin = '12:30' WHERE pause_debut IS NULL AND debut <= '12:00' AND fin >= '12:30'").run();
+      db.prepare("INSERT INTO equipe_migration (cle) VALUES ('pause_midi_pour_tous')").run();
+    })();
+  }
   const cp = db.prepare('PRAGMA table_info(equipe_permanence)').all().map(c => c.name);
   if (!cp.includes('secours1_id')) db.exec('ALTER TABLE equipe_permanence ADD COLUMN secours1_id INTEGER');
   if (!cp.includes('secours2_id')) db.exec('ALTER TABLE equipe_permanence ADD COLUMN secours2_id INTEGER');
@@ -152,6 +162,21 @@ r.put('/horaire', authRequired, (req, res) => {
     for (const p of plages) ins.run(uid, p.jour, p.debut, p.fin, p.lieu, p.pause_debut, p.pause_fin);
   })();
   res.json({ ok: true, plages: plages.length });
+});
+
+/* LA PAUSE DE MIDI POUR TOUTE L'ÉQUIPE (12 octobre 2026, Charles : « et… les autres ? ») : les
+ * horaires saisis avant la pause n'en portent pas. Les plages qui passent midi SANS pause reçoivent
+ * 12 h 00 – 12 h 30 ; une pause déjà posée n'est jamais touchée. ?simuler=1 compte sans écrire. */
+r.post('/horaire/pause-midi', authRequired, (req, res) => {
+  if (!GERER.includes(req.user.role)) return res.status(403).json({ error: 'Réservé à la direction et au secrétariat.' });
+  const cibles = db.prepare(`SELECT h.id, h.utilisateur_id, u.nom_complet, u.email FROM equipe_horaire h JOIN utilisateur u ON u.id = h.utilisateur_id
+    WHERE h.pause_debut IS NULL AND h.debut <= '12:00' AND h.fin >= '12:30'`).all();
+  const personnes = [...new Set(cibles.map(c => nomDe(c)))].sort((a, b) => a.localeCompare(b, 'fr'));
+  if (req.query.simuler !== '1') {
+    const maj = db.prepare("UPDATE equipe_horaire SET pause_debut = '12:00', pause_fin = '12:30' WHERE id = ?");
+    db.transaction(() => { for (const c of cibles) maj.run(c.id); })();
+  }
+  res.json({ ok: true, plages: cibles.length, personnes, simule: req.query.simuler === '1' });
 });
 
 /** Le numéro que j'accepte d'afficher (vide : aucun). */

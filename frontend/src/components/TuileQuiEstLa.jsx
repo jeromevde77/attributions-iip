@@ -124,7 +124,6 @@ function FriseJournee({ journee, permanences = [], heure }) {
   const heures = []; for (let h = debut; h <= fin; h += 60) heures.push(h);
   const VERT = 'var(--c-reussi)';
   const OR = 'var(--c-iip_or, #F9B619)';   // la permanence : l'or du logo, sans pause (Charles)
-  const HACHURE = 'repeating-linear-gradient(135deg, rgb(var(--gris-300)) 0 3px, transparent 3px 6px)';
   const etat = p => {
     const ici = p.plages.find(h => h.debut <= heure && heure < h.fin);
     const lieu = ici?.lieu === LIEU_AGENDA ? 'selon son agenda — joindre par téléphone' : ici?.lieu;
@@ -161,14 +160,12 @@ function FriseJournee({ journee, permanences = [], heure }) {
             </span>
             <div className={`relative flex-1 h-5 rounded bg-slate-100 overflow-hidden ${p.etat === 'parti' || p.etat === 'fini' ? 'opacity-60' : ''}`}>
               {heures.slice(1, -1).map(h => <span key={h} className="absolute top-0 bottom-0 w-px bg-white/70" style={{ left: pct(h) }} />)}
-              {p.plages.map((h, k) => (
-                <span key={k}>
-                  <span className="absolute top-1 bottom-1 rounded-sm" style={{ left: pct(enMin(h.debut)), width: larg(enMin(h.debut), enMin(h.fin)), background: VERT }}
-                    title={`${h.debut}–${h.fin}${h.lieu ? ` · ${h.lieu}` : ''}`} />
-                  {h.pause_debut && h.pause_fin && (
-                    <span className="absolute top-0 bottom-0 bg-white" style={{ left: pct(enMin(h.pause_debut)), width: larg(enMin(h.pause_debut), enMin(h.pause_fin)), backgroundImage: HACHURE }}
-                      title={`Pause ${h.pause_debut}–${h.pause_fin}`} />)}
-                </span>))}
+              {/* La pause est un TROU entre deux barres (Charles : « deux lignes, pas ce truc moche »). */}
+              {p.plages.flatMap((h, k) => (h.pause_debut && h.pause_fin
+                ? [[h.debut, h.pause_debut, `${h.debut}–${h.pause_debut}`], [h.pause_fin, h.fin, `${h.pause_fin}–${h.fin} (pause ${h.pause_debut}–${h.pause_fin})`]]
+                : [[h.debut, h.fin, `${h.debut}–${h.fin}`]]).map(([a, b, t], j) => (
+                  <span key={`${k}-${j}`} className="absolute top-1 bottom-1 rounded-sm" style={{ left: pct(enMin(a)), width: larg(enMin(a), enMin(b)), background: VERT }}
+                    title={`${t}${h.lieu ? ` · ${h.lieu}` : ''}`} />)))}
               {horsHoraire && (
                 <span className="absolute top-1 bottom-1 rounded-sm" style={{ left: pct(enMin(arrivee.heure)), width: larg(enMin(arrivee.heure), parti ?? maintenant), background: VERT, opacity: 0.6 }}
                   title={`Arrivé à ${arrivee.heure}, hors horaire`} />)}
@@ -205,7 +202,7 @@ function FriseJournee({ journee, permanences = [], heure }) {
         </div>))}
       <p className="text-mention text-slate-400 pt-1 flex flex-wrap gap-x-4">
         <span><span className="inline-block w-3 h-2 rounded-sm align-middle mr-1" style={{ background: VERT }} />disponible</span>
-        <span><span className="inline-block w-3 h-2 align-middle mr-1" style={{ backgroundImage: HACHURE }} />pause</span>
+        <span>le blanc entre deux barres : la pause</span>
         {permanences.length > 0 && <span><span className="inline-block w-3 h-2 rounded-sm align-middle mr-1" style={{ background: OR }} />permanence</span>}
         <span><span className="inline-block w-0.5 h-3 align-middle mr-1" style={{ background: 'var(--c-principal)' }} />maintenant ({heure})</span>
       </p>
@@ -215,6 +212,24 @@ function FriseJournee({ journee, permanences = [], heure }) {
 /* L'HORAIRE DE L'ÉQUIPE (12 octobre 2026, Charles : « où est-ce que je définis cet horaire pour mon
    équipe ? ») : la direction et le secrétariat règlent l'horaire de chacun. Le numéro, lui, reste
    à chacun — on n'affiche pas le téléphone d'un autre à sa place. */
+function PauseMidiEquipe() {
+  const [n, setN] = useState(null);
+  const appel = simuler => fetch(`/api/equipe/horaire/pause-midi${simuler ? '?simuler=1' : ''}`, { method: 'POST', headers: authHeaders() }).then(r => r.json());
+  useEffect(() => { appel(true).then(setN).catch(() => {}); }, []);
+  if (!n?.plages) return null;
+  async function poser() {
+    if (!(await demander({ titre: 'Pause de midi pour toute l’équipe', message: `${n.plages} plage(s) qui passent midi sans pause recevront 12 h 00 – 12 h 30 : ${n.personnes.join(', ')}. Les pauses déjà posées ne changent pas.`, confirmer: 'Ajouter la pause' }))) return;
+    const r = await appel(false);
+    await informer(`✓ Pause de midi ajoutée à ${r.plages} plage(s).`);
+    setN(null);
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-sm">
+      <span className="text-slate-500">{n.plages} plage(s) passent midi sans pause ({n.personnes.length} personne{n.personnes.length > 1 ? 's' : ''}).</span>
+      <button type="button" className="bouton" onClick={poser}>Ajouter la pause de midi (12 h 00 – 12 h 30) à toute l’équipe</button>
+    </div>);
+}
+
 function HorairesEquipe({ d, recharger }) {
   const [personnes, setPersonnes] = useState([]);
   const [qui, setQui] = useState('');
@@ -225,6 +240,7 @@ function HorairesEquipe({ d, recharger }) {
       <label className="text-second block">Personne
         <select className="controle block" value={qui} onChange={e => setQui(e.target.value)}>
           <option value="">— choisir —</option>{personnes.map(p => <option key={p.id} value={p.id}>{p.nom} ({p.role})</option>)}</select></label>
+      {!qui && <PauseMidiEquipe />}
       {fait && !qui && <p className="text-sm" style={{ color: 'var(--c-reussi)' }}>✓ Horaire de {fait} enregistré. Choisissez la personne suivante.</p>}
       {qui ? <Moi key={qui} d={d} recharger={recharger} utilisateur={Number(qui)} aTelephone={!!personnes.find(p => String(p.id) === String(qui))?.a_telephone}
         apresEnregistrement={() => { setFait(personnes.find(p => String(p.id) === String(qui))?.nom || 'cette personne'); setQui(''); }} />
