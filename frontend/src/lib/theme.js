@@ -48,6 +48,8 @@ export function basculerMode() {
   try { localStorage.setItem(CLE, mode); } catch { /* navigation privée */ }
   poser(mode);
   for (const f of abonnes) f(mode);
+  // Le mode sombre est aussi le THÈME sombre (12 octobre 2026) : on repose les couleurs.
+  import('./couleurs.js').then(m => m.chargerCouleurs()).catch(() => {});
 }
 
 export function useMode() {

@@ -1,3 +1,4 @@
+import { modeActuel } from './theme.js';
 import { authHeaders } from './api.js';
 
 /**
@@ -130,15 +131,35 @@ export function variables(jeu) {
   return out;
 }
 
+/* LE THÈME SOMBRE (3.1.266) — ses valeurs vivent ici, une seule fois : Configuration les propose à
+ * l'école, et le bouton lune de la barre du haut les pose POUR SOI (12 octobre 2026, Charles :
+ * « quand je clique sur nuit, je veux le mode sombre »). Le choix est personnel, gardé dans ce
+ * navigateur (lib/theme.js) ; les couleurs de l'école ne changent pas. */
+export const COULEURS_SOMBRE = { principal: '#5B9BD5', accent: '#3FC1E8', texte: '#E4E8EE', donnees: '#5B9BD5', menu_sombre: '#14161A',
+               iip: '#7FB3E6', helb: '#E07AA6', ct: '#6FA0DD', pp: '#4FB58E',
+               reussi: '#4FB06A', faveur: '#A879C9', disponible: '#5B9BE0', attente: '#F0A040', refuse: '#E66A62',
+               ba1: '#F9B619', ba2: '#05B7E6', ba3: '#7FB3E6', epreuve: '#D4AF37',
+               fond_page: '#17191C', fond_indispo: '#2A2E34', fond_menus: '#1B1E22', fond_carte: '#1B1E22', fond_entete: '#24282E',
+               fond_ligne: '#1F2226', fond_survol: '#2A2F36', fond_tuile: '#23272D', fond_champ: '#262A30', filet: '#353A42',
+               sous_menu: '#6FA8DC', fenetre_bandeau: '#2A3038', fenetre_titre: '#F2F4F7', fenetre_corps: '#202328',
+               titre: '#E9EDF2', intertitre: '#9AA3AF', tableau_total: '#2A3038', fond_volet: '#24282E',
+               serie_1: '#5B9BD5', serie_2: '#3FC1E8', serie_3: '#F9B619', serie_4: '#A879C9', serie_5: '#4FB06A', serie_6: '#E07AA6',
+               graphique_vide: '#3A4048', graphique_grille: '#33383F', graphique_piste: '#2E333A' };
+
 /** À l'ouverture de l'application, et après chaque réglage. */
 export async function chargerCouleurs() {
+  // Repartir propre : ce que le thème sombre avait posé et que l'école ne règle pas doit s'effacer.
+  poser(Object.fromEntries(Object.keys(COULEURS_SOMBRE).map(k => [k, null])));
   poser(DEFAUT);
+  if (modeActuel() === 'sombre') { poser(COULEURS_SOMBRE); poserGris('sombre'); }   // tout de suite, sans attendre le serveur
   try {
     const rep = await fetch('/api/config/couleurs', { headers: authHeaders() });
     if (!rep.ok) return DEFAUT;
     const j = await rep.json();
     poser(j.couleurs);
     poserGris(j.gris);
+    // La nuit, pour soi : le thème sombre par-dessus les couleurs de l'école.
+    if (modeActuel() === 'sombre') { poser(COULEURS_SOMBRE); poserGris('sombre'); }
     return j.couleurs;
   } catch {
     // Hors ligne ou session expirée : les défauts tiennent l'écran debout.
