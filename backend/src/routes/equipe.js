@@ -153,20 +153,45 @@ r.get('/horaire', authRequired, (req, res) => {
   const uid = req.query.utilisateur && GERER.includes(req.user.role) ? Number(req.query.utilisateur) : req.user.id;
   res.json(db.prepare('SELECT jour, debut, fin, lieu, pause_debut, pause_fin FROM equipe_horaire WHERE utilisateur_id = ? ORDER BY jour, debut').all(uid));
 });
-r.put('/horaire', authRequired, (req, res) => {
-  const uid = req.body?.utilisateur && GERER.includes(req.user.role) ? Number(req.body.utilisateur) : req.user.id;
-  const plages = (Array.isArray(req.body?.plages) ? req.body.plages : [])
+// Les plages reçues, nettoyées : jour 1-7, heures valides, une pause seulement dans sa plage.
+function nettoyerPlages(liste) {
+  return (Array.isArray(liste) ? liste : [])
     .map(p => ({ jour: Number(p.jour), debut: hhmm(p.debut), fin: hhmm(p.fin), lieu: String(p.lieu || '').trim().slice(0, 60) || null,
       pause_debut: hhmm(p.pause_debut), pause_fin: hhmm(p.pause_fin) }))
     .filter(p => p.jour >= 1 && p.jour <= 7 && p.debut && p.fin && p.debut < p.fin)
     // Une pause ne vaut que dans sa plage, et dans le bon sens ; sinon, pas de pause.
     .map(p => (p.pause_debut && p.pause_fin && p.debut <= p.pause_debut && p.pause_debut < p.pause_fin && p.pause_fin <= p.fin ? p : { ...p, pause_debut: null, pause_fin: null }));
-  db.transaction(() => {
-    db.prepare('DELETE FROM equipe_horaire WHERE utilisateur_id = ?').run(uid);
-    const ins = db.prepare('INSERT INTO equipe_horaire (utilisateur_id, jour, debut, fin, lieu, pause_debut, pause_fin) VALUES (?,?,?,?,?,?,?)');
-    for (const p of plages) ins.run(uid, p.jour, p.debut, p.fin, p.lieu, p.pause_debut, p.pause_fin);
-  })();
+}
+function ecrireHoraire(uid, plages) {
+  db.prepare('DELETE FROM equipe_horaire WHERE utilisateur_id = ?').run(uid);
+  const ins = db.prepare('INSERT INTO equipe_horaire (utilisateur_id, jour, debut, fin, lieu, pause_debut, pause_fin) VALUES (?,?,?,?,?,?,?)');
+  for (const p of plages) ins.run(uid, p.jour, p.debut, p.fin, p.lieu, p.pause_debut, p.pause_fin);
+}
+r.put('/horaire', authRequired, (req, res) => {
+  const uid = req.body?.utilisateur && GERER.includes(req.user.role) ? Number(req.body.utilisateur) : req.user.id;
+  const plages = nettoyerPlages(req.body?.plages);
+  db.transaction(() => ecrireHoraire(uid, plages))();
   res.json({ ok: true, plages: plages.length });
+});
+
+/* LA SEMAINE DE L'ÉQUIPE (12 octobre 2026, Charles : « une fenêtre de paramètre pour la semaine,
+ * car c'est mon équipe ») : tous les horaires d'un coup, lus et écrits ensemble. On écrit les
+ * seules personnes envoyées (celles qu'on a modifiées), en une transaction. */
+r.get('/horaires', authRequired, (req, res) => {
+  if (!GERER.includes(req.user.role)) return res.status(403).json({ error: 'Réservé à la direction et au secrétariat.' });
+  const comptes = db.prepare(`SELECT id, nom_complet, email, role FROM utilisateur WHERE COALESCE(actif, 1) = 1
+    AND (role <> 'professeur' OR id IN (SELECT utilisateur_id FROM equipe_horaire))`).all();
+  const plages = db.prepare('SELECT utilisateur_id, jour, debut, fin, lieu, pause_debut, pause_fin FROM equipe_horaire ORDER BY jour, debut').all();
+  res.json(comptes.map(u => ({ id: u.id, nom: nomDe(u), role: ROLES[u.role] || u.role,
+    plages: plages.filter(p => p.utilisateur_id === u.id).map(({ utilisateur_id, ...p }) => p) }))
+    .sort((a, b) => a.nom.localeCompare(b.nom, 'fr')));
+});
+r.put('/horaires', authRequired, (req, res) => {
+  if (!GERER.includes(req.user.role)) return res.status(403).json({ error: 'Réservé à la direction et au secrétariat.' });
+  const lot = (Array.isArray(req.body?.personnes) ? req.body.personnes : []).filter(x => Number(x.utilisateur));
+  let n = 0;
+  db.transaction(() => { for (const x of lot) { const pl = nettoyerPlages(x.plages); ecrireHoraire(Number(x.utilisateur), pl); n += pl.length; } })();
+  res.json({ ok: true, personnes: lot.length, plages: n });
 });
 
 /* LA PAUSE DE MIDI POUR TOUTE L'ÉQUIPE (12 octobre 2026, Charles : « et… les autres ? ») : les

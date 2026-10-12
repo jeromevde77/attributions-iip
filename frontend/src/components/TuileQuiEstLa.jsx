@@ -16,6 +16,12 @@ const JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dim
 const FRAISE = 'var(--c-refuse)';
 const telLien = t => `tel:${String(t || '').replace(/[^\d+]/g, '')}`;
 /* Un numéro belge se lit par groupes : « +32 2 560 29 59 », « +32 475 12 34 56 ». Le reste tel quel. */
+/** Un numéro belge qu'on ne sait pas découper est incomplet ou faux (« +325602960 » : un chiffre manque). */
+export const telDouteux = t => {
+  const n = String(t || '').replace(/[^\d+]/g, '');
+  const m = n.match(/^(?:\+32|0032|0)(\d*)$/);
+  return !!m && !/^(4\d{8}|\d{8})$/.test(m[1]);
+};
 export function telAffiche(t) {
   const brut = String(t || '').trim();
   let n = brut.replace(/[^\d+]/g, '');
@@ -29,7 +35,7 @@ export function telAffiche(t) {
 function Appeler({ p }) {
   if (!p.telephone) return <span className="text-mention text-slate-400">pas de numéro affiché</span>;
   return (
-    <a href={telLien(p.telephone)} className="bouton bouton-fort inline-flex items-center gap-1.5 whitespace-nowrap" title={`Appeler ${p.nom}`}>
+    <a href={telLien(p.telephone)} className="bouton bouton-fort inline-flex items-center justify-center gap-1.5 whitespace-nowrap w-full tabular-nums" title={`Appeler ${p.nom}`}>
       <IconPhone size={15} /> {telAffiche(p.telephone)}
     </a>);
 }
@@ -260,9 +266,17 @@ function HorairesEquipe({ d, recharger, quiInitial = '' }) {
   const [personnes, setPersonnes] = useState([]);
   const [qui, setQui] = useState(quiInitial);
   const [fait, setFait] = useState(null);   // la personne qu'on vient d'enregistrer : on enchaîne sur la suivante
+  const [vue, setVue] = useState(quiInitial ? 'personne' : 'semaine');
   useEffect(() => { fetch('/api/equipe/personnes', { headers: authHeaders() }).then(r => r.json()).then(setPersonnes).catch(() => {}); }, []);
+  const choixVue = (
+    <div className="segments">
+      {[['semaine', 'La semaine de l’équipe'], ['personne', 'Une personne (numéro, plusieurs plages)']].map(([k, t]) => (
+        <button key={k} type="button" aria-pressed={vue === k} className={vue === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'} onClick={() => setVue(k)}>{t}</button>))}
+    </div>);
+  if (vue === 'semaine') return <div className="space-y-4">{choixVue}<SemaineEquipe recharger={recharger} ouvrir={id => { setQui(String(id)); setVue('personne'); }} /></div>;
   return (
     <div className="space-y-4">
+      {choixVue}
       <label className="text-second block">Personne
         <select className="controle block" value={qui} onChange={e => setQui(e.target.value)}>
           <option value="">— choisir —</option>{personnes.map(p => <option key={p.id} value={p.id}>{p.nom} ({p.role})</option>)}
@@ -276,6 +290,85 @@ function HorairesEquipe({ d, recharger, quiInitial = '' }) {
       {qui ? <Moi key={qui} d={d} recharger={recharger} utilisateur={Number(qui)} aTelephone={!!personnes.find(p => String(p.id) === String(qui))?.a_telephone}
         apresEnregistrement={() => { setFait(personnes.find(p => String(p.id) === String(qui))?.nom || 'cette personne'); setQui(''); }} />
         : !fait && <p className="text-sm text-slate-500">Choisissez une personne pour régler son horaire de la semaine.</p>}
+    </div>);
+}
+
+/* LA SEMAINE DE L'ÉQUIPE (12 octobre 2026, Charles : « une fenêtre de paramètre pour la semaine, car
+   c'est mon équipe »). Une ligne par personne, une colonne par jour : début, fin, pause de midi. Le
+   lieu et le total en bout de ligne ; « lun → sem. » recopie le lundi sur mardi–vendredi. Un jour à
+   plusieurs plages se règle dans la fiche de la personne (lien). Seules les lignes modifiées partent. */
+function SemaineEquipe({ recharger, ouvrir }) {
+  const [lignes, setLignes] = useState(null);
+  const [sales, setSales] = useState(() => new Set());
+  const lire = () => fetch('/api/equipe/horaires', { headers: authHeaders() }).then(r => r.json()).then(l => { setLignes(Array.isArray(l) ? l : []); setSales(new Set()); }).catch(() => setLignes([]));
+  useEffect(() => { lire(); }, []);
+  if (!lignes) return <div className="text-sm text-slate-400">Chargement…</div>;
+  const changer = (id, f) => { setLignes(l => l.map(x => (x.id === id ? { ...x, plages: f(x.plages) } : x))); setSales(s => new Set(s).add(id)); };
+  const duJour = (x, j) => x.plages.filter(p => p.jour === j);
+  const lieuDe = x => { const ls = [...new Set(x.plages.map(p => p.lieu || ''))]; return ls.length === 1 ? ls[0] : (ls.length ? '*' : ''); };
+  const modele = x => x.plages[0] || { debut: '08:00', fin: '16:30', lieu: lieuDe(x) === '*' ? '' : lieuDe(x), pause_debut: '12:00', pause_fin: '12:30' };
+  const majJour = (x, j, champ, v) => changer(x.id, pl => pl.map(p => (p.jour === j ? { ...p, [champ]: v } : p)));
+  const ajouterJour = (x, j) => changer(x.id, pl => [...pl, avecPauseMidi({ ...modele(x), jour: j })].sort((a, b) => a.jour - b.jour || a.debut.localeCompare(b.debut)));
+  const retirerJour = (x, j) => changer(x.id, pl => pl.filter(p => p.jour !== j));
+  const basculerPause = (x, j, oui) => changer(x.id, pl => pl.map(p => (p.jour === j ? (oui ? avecPauseMidi({ ...p, pause_debut: null }) : { ...p, pause_debut: null, pause_fin: null }) : p)));
+  const recopierLundi = x => { const l = duJour(x, 1); if (!l.length) return; changer(x.id, pl => [...pl.filter(p => p.jour === 1 || p.jour > 5), ...[2, 3, 4, 5].flatMap(j => l.map(p => ({ ...p, jour: j })))].sort((a, b) => a.jour - b.jour || a.debut.localeCompare(b.debut))); };
+  async function enregistrer() {
+    const personnes = lignes.filter(x => sales.has(x.id)).map(x => ({ utilisateur: x.id, plages: x.plages }));
+    const r = await fetch('/api/equipe/horaires', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ personnes }) });
+    const j = await r.json().catch(() => ({}));
+    await informer(r.ok ? `✓ Semaine enregistrée : ${j.personnes} personne(s), ${j.plages} plage(s).` : `❌ ${j.error || 'Erreur'}`);
+    if (r.ok) { lire(); recharger(); }
+  }
+  return (
+    <div className="space-y-3">
+      <div className="overflow-x-auto">
+        <table className="text-sm">
+          <thead><tr className="text-second text-slate-500">
+            <th className="text-left font-normal pr-3 pb-1">Personne</th>
+            {JOURS.map(j => <th key={j} className="font-normal px-1 pb-1">{j.slice(0, 3)}</th>)}
+            <th className="text-left font-normal px-2 pb-1">Lieu</th><th className="text-right font-normal pl-2 pb-1">Semaine</th>
+          </tr></thead>
+          <tbody>{lignes.map(x => {
+            const total = x.plages.reduce((t, p) => t + duree(p), 0);
+            return (
+              <tr key={x.id} className={`border-t border-slate-100 align-top ${sales.has(x.id) ? 'bg-slate-50' : ''}`}>
+                <td className="pr-3 py-1.5 whitespace-nowrap">
+                  <button type="button" className="font-bold hover:underline text-left" title="Ouvrir sa fiche (numéro, plusieurs plages)" onClick={() => ouvrir(x.id)}>{x.nom}</button>
+                  <span className="block text-mention text-slate-500">{x.role}</span>
+                  {duJour(x, 1).length > 0 && <button type="button" className="text-mention text-slate-500 hover:text-slate-800 underline" title="Recopier le lundi sur mardi, mercredi, jeudi et vendredi" onClick={() => recopierLundi(x)}>lundi → toute la semaine</button>}</td>
+                {[1, 2, 3, 4, 5, 6, 7].map(j => {
+                  const pl = duJour(x, j);
+                  return (
+                    <td key={j} className="px-1 py-1.5">
+                      {pl.length === 0 && <button type="button" className="w-full text-slate-400 hover:text-slate-700 text-center text-base" title="Ajouter ce jour" onClick={() => ajouterJour(x, j)}>+</button>}
+                      {pl.length === 1 && (
+                        <div className="flex flex-col gap-0.5 w-[5.6rem]">
+                          <input type="time" className="controle !h-7 !px-1 text-xs" value={pl[0].debut} onChange={e => majJour(x, j, 'debut', e.target.value)} />
+                          <input type="time" className="controle !h-7 !px-1 text-xs" value={pl[0].fin} onChange={e => majJour(x, j, 'fin', e.target.value)} />
+                          <span className="flex items-center justify-between text-mention text-slate-500">
+                            <label className="flex items-center gap-1" title="Pause de midi 12 h 00 – 12 h 30">
+                              <input type="checkbox" checked={!!pl[0].pause_debut} onChange={e => basculerPause(x, j, e.target.checked)} />pause</label>
+                            <button type="button" className="text-slate-400 hover:text-red-600" aria-label="Retirer ce jour" onClick={() => retirerJour(x, j)}>×</button>
+                          </span>
+                        </div>)}
+                      {pl.length > 1 && <button type="button" className="text-second text-slate-500 underline" onClick={() => ouvrir(x.id)}>{pl.length} plages</button>}
+                    </td>);
+                })}
+                <td className="px-2 py-1.5">
+                  <select className="controle !h-8 w-40" value={lieuDe(x) === '*' ? '*' : lieuDe(x)} onChange={e => changer(x.id, pl => pl.map(p => ({ ...p, lieu: e.target.value })))}>
+                    <option value="">— lieu —</option>
+                    {lieuDe(x) === '*' && <option value="*" disabled>plusieurs lieux</option>}
+                    {lieuDe(x) && lieuDe(x) !== '*' && !LIEUX.includes(lieuDe(x)) && <option value={lieuDe(x)}>{lieuDe(x)}</option>}
+                    {LIEUX.map(l => <option key={l} value={l}>{l}</option>)}</select></td>
+                <td className="pl-2 py-1.5 text-right text-slate-500 italic whitespace-nowrap tabular-nums">{total ? enHeures(total) : '—'}</td>
+              </tr>);
+          })}</tbody>
+        </table>
+      </div>
+      <div className="flex items-center gap-3">
+        <button className="bouton bouton-fort" disabled={!sales.size} onClick={enregistrer}>Enregistrer la semaine</button>
+        <span className="text-second text-slate-500">{sales.size ? `${sales.size} personne(s) modifiée(s)` : 'Aucune modification'}</span>
+      </div>
     </div>);
 }
 
@@ -317,6 +410,7 @@ function Moi({ d, recharger, utilisateur = null, apresEnregistrement = null, aTe
       {<label className="block">
         <span className="intertitre block mb-1">{utilisateur ? 'Son numéro affiché' : 'Le numéro que j’accepte d’afficher'}</span>
         <input value={tel} onChange={e => setTel(e.target.value)} placeholder="Ex. : 02 560 29 60 ou GSM de service" className="controle w-72" data-reponses="non" />
+        {telDouteux(tel) && <span className="block text-second mt-1" style={{ color: FRAISE }}>Ce numéro semble incomplet : un fixe belge a 9 chiffres (02 560 29 60), un GSM 10 (0475 12 34 56).</span>}
         <span className="block text-second text-slate-500 mt-1">Il ne s’affiche que dans « Qui est là ? », quand vous êtes présent ou de permanence. Vide : aucun numéro.</span>
       </label>}
       <div>
