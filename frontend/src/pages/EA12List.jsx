@@ -36,7 +36,7 @@ export default function EA12List() {
       ) : (
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-gray-500 text-left text-xs">
+            <thead className="tab-entete text-left">
               <tr>
                 <th className="px-4 py-2">Professeur</th><th className="px-4 py-2">Année</th>
                 <th className="px-4 py-2">Variante</th><th className="px-4 py-2">Statut</th>

@@ -472,7 +472,7 @@ function EffectifsImportModal({ annee, onClose, onSaved }) {
         {preview && preview.length > 0 && (
           <div className="border border-gray-200 rounded-lg overflow-auto mb-3 flex-1" style={{ minHeight: '80px' }}>
             <table className="w-full text-second">
-              <thead className="bg-gray-50 sticky top-0"><tr><th className="text-left px-3 py-1.5 h-9 text-gray-500">N° UE</th><th className="text-right px-3 py-1.5 h-9 text-gray-500">Nb étudiants</th></tr></thead>
+              <thead className="tab-entete sticky top-0"><tr><th className="text-left px-3 py-1.5 h-9 text-gray-500">N° UE</th><th className="text-right px-3 py-1.5 h-9 text-gray-500">Nb étudiants</th></tr></thead>
               <tbody>
                 {preview.map((e, i) => (
                   <tr key={i} className="border-t border-gray-100"><td className="px-3 py-1 text-gray-700">{e.ue_num}</td><td className="px-3 py-1 text-right text-gray-700">{e.nb_etudiants}</td></tr>

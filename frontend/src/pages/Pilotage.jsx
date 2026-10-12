@@ -783,7 +783,7 @@ export default function Pilotage({ vue = 'tout' }) {
                 {open && (
                   <div className="border-t border-gray-100 overflow-x-auto">
                     <table className="w-full text-sm">
-                      <thead className="intertitre bg-gray-50">
+                      <thead className="tab-entete intertitre">
                         <tr>
                           <th className="px-4 py-2 text-left">UE</th>
                           <th className="px-3 py-2 text-right">Périodes</th>
@@ -1179,7 +1179,7 @@ export default function Pilotage({ vue = 'tout' }) {
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="intertitre bg-gray-50">
+                  <thead className="tab-entete intertitre">
                     <tr>
                       <th className="px-3 py-2 text-left">Dotation</th>
                       <th className="px-3 py-2 text-right">PEP N-2 utilisée</th>
@@ -1373,7 +1373,7 @@ export default function Pilotage({ vue = 'tout' }) {
           </div>
         </div>
         <table className="w-full text-sm">
-          <thead className="intertitre bg-gray-50">
+          <thead className="tab-entete intertitre">
             <tr><th className="px-4 py-2 text-left">Année civile</th><th className="px-4 py-2 text-right">Dotation (pér. B)</th><th className="px-4 py-2 text-right">PEP</th><th className="px-4 py-2 text-right">PEP réf.</th><th className="px-4 py-2 text-right">PEP an. utilisée</th><th className="px-4 py-2 text-right">Usage historique</th><th className="px-4 py-2 text-right" title="Ce que la direction constate : le solde réellement resté à la fin de l’année. Il ne remplace pas le calcul, il le confronte.">Solde constaté</th><th className="px-4 py-2 text-left">Notes</th><th className="px-4 py-2" /></tr>
           </thead>
           <tbody>
@@ -1446,7 +1446,7 @@ export default function Pilotage({ vue = 'tout' }) {
           </div>
         )}
         <table className="w-full text-sm">
-          <thead className="intertitre bg-gray-50">
+          <thead className="tab-entete intertitre">
             <tr><th className="px-4 py-2 text-left">Code</th><th className="px-4 py-2 text-left">Libellé</th><th className="px-4 py-2 text-right">Civile</th><th className="px-4 py-2 text-right">Allocation (B)</th><th className="px-4 py-2 text-right">Usage hist.</th><th className="px-4 py-2" /></tr>
           </thead>
           <tbody>
@@ -1503,7 +1503,7 @@ export default function Pilotage({ vue = 'tout' }) {
             </div>
           </div>
           <table className="w-full text-sm">
-            <thead className="intertitre bg-gray-50">
+            <thead className="tab-entete intertitre">
               <tr>
                 <th className="px-4 py-2 text-left">Section</th>
                 <th className="px-4 py-2 text-left">UE</th>

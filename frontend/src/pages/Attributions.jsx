@@ -2698,7 +2698,7 @@ export default function Attributions() {
             <p className="text-xs text-gray-500 mb-2">Une <b>copie de sauvegarde</b> de la base est créée automatiquement juste avant. Action <b>irréversible</b> sans restauration de cette copie.</p>
             <div className="border border-gray-200 rounded-lg overflow-auto mb-3 max-h-[40vh]" style={{minHeight:'80px'}}>
               <table className="w-full text-xs">
-                <thead className="bg-gray-50 sticky top-0"><tr>
+                <thead className="tab-entete sticky top-0"><tr>
                   <th className="text-left px-2 py-1 text-gray-500">UE</th>
                   <th className="text-left px-2 py-1 text-gray-500">Cours</th>
                   <th className="text-left px-2 py-1 text-gray-500">Prof</th>

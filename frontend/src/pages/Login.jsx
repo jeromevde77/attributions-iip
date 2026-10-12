@@ -235,6 +235,10 @@ export default function Login() {
                 letterSpacing:'2px', fontFamily:"'Segoe UI',sans-serif", margin:0,
               }}>v{info.version}</p>
             )}
+            {/* L'auteur de Lucie (12 octobre 2026, Charles : « un copyright à mon nom, c'est mon code »). */}
+            <p style={{ color:'rgba(255,255,255,.35)', fontSize:'10px', letterSpacing:'1px', fontFamily:"'Segoe UI',sans-serif", margin:'2px 0 0' }}>
+              © 2026 Charles Sohet — tous droits réservés
+            </p>
             {isDev && (
               <div style={{
                 marginTop:'8px',

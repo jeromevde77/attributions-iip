@@ -216,7 +216,7 @@ export default function EnvoiMailModal({ pieces, typeDoc, apercu = true, sujet: 
                 ) : (
                   <div className="border border-slate-200 rounded-lg overflow-hidden">
                     <table className="w-full text-sm">
-                      <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                      <thead className="tab-entete">
                         <tr>
                           <th className="w-8 px-2 py-1.5"></th>
                           <th className="text-left px-2 py-1.5">Personne</th>
