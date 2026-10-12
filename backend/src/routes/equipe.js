@@ -15,6 +15,7 @@
 //     besoin de savoir qui appeler.
 // Heures et jours se comptent à BRUXELLES, pas à l'heure du serveur.
 // ─────────────────────────────────────────────────────────────────────────────
+import { nomEcranDuCompte } from '../lib/nom.js';
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired } from '../middleware/auth.js';
@@ -65,10 +66,8 @@ function maintenant() {
   return { date, heure: h.slice(0, 5), jour: j === 0 ? 7 : j };
 }
 const hhmm = v => (/^\d{2}:\d{2}$/.test(String(v || '')) ? v : null);
-const nomDe = u => {
-  const n = String(u.nom_complet || u.email || '').trim();
-  return n;
-};
+// « NOM Prénom » partout, quelle que soit la façon dont le compte a été saisi (lib/nom.js).
+const nomDe = u => nomEcranDuCompte(u.nom_complet, u.email);
 const personne = u => ({ id: u.id, nom: nomDe(u), role: ROLES[u.role] || u.role, telephone: u.telephone_affiche || null });
 
 /** Ce que la tuile montre : qui est là maintenant, et la permanence du jour. */
@@ -167,7 +166,7 @@ r.get('/permanences', authRequired, (req, res) => {
   const m = maintenant();
   const l = db.prepare(`SELECT p.*, u.nom_complet, u.email FROM equipe_permanence p LEFT JOIN utilisateur u ON u.id = p.utilisateur_id
     WHERE p.date >= ? ORDER BY p.date, p.debut LIMIT 200`).all(m.date);
-  res.json(l.map(p => ({ id: p.id, date: p.date, debut: p.debut, fin: p.fin, note: p.note, utilisateur_id: p.utilisateur_id, nom: p.nom_complet || p.email || '—',
+  res.json(l.map(p => ({ id: p.id, date: p.date, debut: p.debut, fin: p.fin, note: p.note, utilisateur_id: p.utilisateur_id, nom: (p.nom_complet || p.email) ? nomDe(p) : '—',
     secours1: nomCompte(p.secours1_id), secours2: nomCompte(p.secours2_id) })));
 });
 r.post('/permanences', authRequired, (req, res) => {

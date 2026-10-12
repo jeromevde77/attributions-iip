@@ -122,3 +122,27 @@ export function prenomSeul(brut) {
   // Un seul prénom à l'écran : « Marie-Claire Anne » se salue « Marie-Claire ».
   return prenom.split(/\s+/)[0] || '';
 }
+
+/**
+ * « NOM Prénom » POUR UN COMPTE (12 octobre 2026, Charles, « Qui est là ? » : « pourquoi les noms
+ * ne s'écrivent pas de la même manière ? »). Les comptes portent leur identité telle qu'on l'a
+ * tapée : « AEVALIOTIS Mati », mais aussi « Nicolas Vandecauter ». Sans capitales, rien ne dit où
+ * est le nom — sauf l'adresse de l'école, « prénom.nom@… » : le mot qui l'ouvre est le prénom.
+ * À défaut, la règle commune (`separerNomPrenom`).
+ */
+export function nomEcranDuCompte(nomComplet, email) {
+  const plat = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const mots = String(nomComplet || '').trim().split(/\s+/).filter(Boolean);
+  if (!mots.length) return String(email || '').trim();
+  const sansCapitales = !mots.some(m => m.length > 1 && m === m.toUpperCase() && /[A-ZÀ-Ý]/.test(m));
+  const local = plat(String(email || '').split('@')[0]).split(/[._-]/)[0];
+  if (sansCapitales && local && mots.length > 1) {
+    const i = mots.findIndex(m => plat(m) === local || plat(m).split(/[-'’]/)[0] === local);   // « Marie-Claire » ↔ marie.…
+    if (i >= 0) {
+      const nom = mots.filter((_, k) => k !== i).join(' ').toLocaleUpperCase('fr');
+      return `${nom} ${capitaliserMots(mots[i])}`;
+    }
+  }
+  const { nom, prenom } = separerNomPrenom(nomComplet);
+  return [nom, prenom].filter(Boolean).join(' ');
+}
