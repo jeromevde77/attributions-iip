@@ -301,13 +301,16 @@ r.post('/:id/accuse', authRequired, (req, res) => {
 export function messagesRecus(user) {
   const moi = professeurDe(user);
   return db.prepare(`SELECT c.id, c.titre, c.corps_html, c.cree_par, c.envoye_le, c.accuse_demande, c.importance, c.icone, c.jusquau,
-        MAX(d.lu_le) lu_le, MAX(d.accuse_le) accuse_le
+        -- Son propre message compte comme lu (12 octobre 2026, Charles : « je ne comprends pas la
+        -- notif » — c'était son message à tous) : l'auteur le voit, il n'en est pas notifié.
+        CASE WHEN c.cree_par_id = ? THEN COALESCE(MAX(d.lu_le), c.envoye_le) ELSE MAX(d.lu_le) END lu_le,
+        CASE WHEN c.cree_par_id = ? THEN COALESCE(MAX(d.accuse_le), c.envoye_le) ELSE MAX(d.accuse_le) END accuse_le
       FROM communication_destinataire d JOIN communication c ON c.id = d.communication_id
       WHERE c.statut = 'envoye' AND c.retire_le IS NULL AND c.envoye_le >= datetime('now', '-60 days')
         -- Passée la date de fin d'affichage, le message quitte le tableau de bord (il reste au registre).
         AND (c.jusquau IS NULL OR c.jusquau >= date('now'))
         AND (d.utilisateur_id = ? OR (? IS NOT NULL AND d.professeur_id = ?))
-      GROUP BY c.id ORDER BY c.id DESC`).all(user.id, moi, moi);
+      GROUP BY c.id ORDER BY c.id DESC`).all(user.id, user.id, user.id, moi, moi);
 }
 
 export default r;

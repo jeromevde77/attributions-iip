@@ -669,11 +669,13 @@ r.get('/feed', authRequired, (req, res) => {
   // Trier par date décroissante
   items.sort((a, b) => new Date(b.date) - new Date(a.date));
   // Les cartes discrètes (les vœux reçus) ne comptent pas dans la pastille : on n'est pas dérangé.
-  let nbNonLus = items.filter(i => !i.lue && !i.discret).length;
+  const nbFil = items.filter(i => !i.lue && !i.discret).length;
   // Les messages non lus comptent dans la pastille, même hors du fil.
-  if (req.query.messages !== '1') { try { nbNonLus += messagesRecus(u).filter(m => (m.accuse_demande ? !m.accuse_le : !m.lu_le)).length; } catch { /* sans messages */ } }
-
-  res.json({ items, nbNonLus });
+  let nbMessages = 0;
+  if (req.query.messages !== '1') { try { nbMessages = messagesRecus(u).filter(m => (m.accuse_demande ? !m.accuse_le : !m.lu_le)).length; } catch { /* sans messages */ } }
+  // Le détail part avec le total (12 octobre 2026, Charles : « je ne comprends pas la notif ») :
+  // la pastille dit au survol ce qu'elle compte.
+  res.json({ items, nbNonLus: nbFil + nbMessages, nbFil, nbMessages });
 });
 
 // Marquer un item du feed comme lu
