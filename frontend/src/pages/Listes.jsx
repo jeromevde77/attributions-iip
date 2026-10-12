@@ -1981,7 +1981,7 @@ ${methodologie}
             )}
             <div className="bg-white rounded-lg border border-slate-200 overflow-auto">
               <table className="w-full text-sm border-collapse">
-                <thead className="sticky top-0 bg-slate-50 z-10">
+                <thead className="tab-entete sticky top-0 z-10">
                   <tr>
                     {colsVisibles.map(c => (
                       <th key={c.key} className="text-left px-3 py-2 text-xs font-semibold text-slate-600 border-b border-slate-200 whitespace-nowrap">{c.label}</th>

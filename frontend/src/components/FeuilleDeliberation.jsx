@@ -2132,7 +2132,7 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
         {(regarde.aa || regarde.cours) && (
           <div id="a-justifier" className="border border-slate-200 rounded-carte overflow-x-auto">
             <table className="w-full border-collapse text-xs table-fixed">
-              <thead className="bg-slate-50 normal-case tracking-normal">
+              <thead className="tab-entete normal-case">
                 <tr className="align-middle">
                   <th className="text-left px-2.5 py-1 font-semibold text-slate-600 w-[24%]">Acquis</th>
                   {cours.map(c => (

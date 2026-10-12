@@ -100,7 +100,7 @@ export default function Annees({ embedded = false }) {
       <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         {loading ? <div className="p-8 text-center text-gray-400">Chargement…</div> : (
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
+            <thead className="tab-entete">
               <tr>
                 <th className="text-left px-4 py-2">Année</th>
                 <th className="text-left px-4 py-2">Libellé</th>

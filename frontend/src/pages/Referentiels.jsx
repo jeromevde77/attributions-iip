@@ -472,7 +472,7 @@ function EffectifsImportModal({ annee, onClose, onSaved }) {
         {preview && preview.length > 0 && (
           <div className="border border-gray-200 rounded-lg overflow-auto mb-3 flex-1" style={{ minHeight: '80px' }}>
             <table className="w-full text-second">
-              <thead className="bg-gray-50 sticky top-0"><tr><th className="text-left px-3 py-1.5 h-9 text-gray-500">N° UE</th><th className="text-right px-3 py-1.5 h-9 text-gray-500">Nb étudiants</th></tr></thead>
+              <thead className="tab-entete sticky top-0"><tr><th className="text-left px-3 py-1.5 h-9 text-gray-500">N° UE</th><th className="text-right px-3 py-1.5 h-9 text-gray-500">Nb étudiants</th></tr></thead>
               <tbody>
                 {preview.map((e, i) => (
                   <tr key={i} className="border-t border-gray-100"><td className="px-3 py-1 text-gray-700">{e.ue_num}</td><td className="px-3 py-1 text-right text-gray-700">{e.nb_etudiants}</td></tr>
@@ -1061,7 +1061,7 @@ export default function Referentiels({ embedded = false }) {
         <div className="bg-white rounded-lg border border-gray-200 overflow-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 text-gray-500 border-b border-gray-200">
+              <tr className="tab-entete">
                 <th className="text-left px-3 py-2">Code</th>
                 <th className="text-left px-3 py-2">Libellé</th>
                 <th className="text-center px-3 py-2">Niveau</th>
@@ -1081,7 +1081,7 @@ export default function Referentiels({ embedded = false }) {
                 const nbUe = grp ? grp.ues.length : 0;
                 const nbCours = grp ? grp.ues.reduce((n, u) => n + u.cours.length, 0) : 0;
                 return (
-                  <tr key={s.code} className="border-b border-gray-100 hover:bg-gray-50">
+                  <tr key={s.code} className="ligne-maison">
                     <td className="px-3 py-2 font-semibold text-iip-gold">{s.code}</td>
                     <td className="px-3 py-2 text-gray-700">{s.libelle && s.libelle !== s.code ? s.libelle : <span className="text-gray-300">—</span>}</td>
                     <td className="px-3 py-2 text-center">{s.niveau ? <span className="text-xs bg-iip-gold/10 text-iip-gold px-1.5 py-0.5 rounded">{s.niveau}</span> : <span className="text-gray-300">—</span>}</td>
@@ -1113,7 +1113,7 @@ export default function Referentiels({ embedded = false }) {
         <div className="bg-white rounded-lg border border-gray-200 overflow-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 text-sm text-gray-500 border-b border-gray-200">
+              <tr className="tab-entete">
                 <th className="w-8"></th>
                 <th className="text-left px-2 py-2">N° UE</th>
                 <th className="text-center px-2 py-2">Bloc</th>
@@ -1141,7 +1141,7 @@ export default function Referentiels({ embedded = false }) {
                 return (
                   <Fragment key={sg.section}>
                     {/* Bandeau de section (ligne de regroupement) */}
-                    <tr className="bg-iip-gold/5 border-t border-gray-200">
+                    <tr className="tab-repere">
                       <td className="px-2 py-2 text-center">
                         <button onClick={() => toggle(secKey)} className="text-iip-gold font-bold">
                           <Chevron ouvert={secOpen} size={14} />
@@ -1189,7 +1189,7 @@ export default function Referentiels({ embedded = false }) {
                               ? (isHelb
                                   ? `bg-pink-50 border-t-2 border-pink-400 ${ueOpen ? '' : 'border-b-2'}`
                                   : `bg-iip-gold/5 border-t-2 border-iip-gold/60 ${ueOpen ? '' : 'border-b-2'}`)
-                              : (isHelb ? 'bg-pink-50 hover:bg-pink-100/60 border-b border-gray-100 border-l-2 border-l-pink-400' : 'hover:bg-gray-50 border-b border-gray-100')
+                              : (isHelb ? 'bg-pink-50 hover:bg-pink-100/60 border-b border-gray-100 border-l-2 border-l-pink-400' : 'ligne-maison border-b border-gray-100')
                           }`}>
                             <td className={`px-2 py-1.5 text-center ${activeUE === ueKey ? (isHelb ? 'border-l-2 border-pink-400' : 'border-l-2 border-iip-gold/60') : ''}`}>
                               <button onClick={() => { toggle(ueKey); setActiveUE(ueKey); }} className="text-iip-gold">
@@ -1231,7 +1231,7 @@ export default function Referentiels({ embedded = false }) {
                             <tr className={
                               activeUE === ueKey
                                 ? (isHelb ? 'bg-pink-50/60' : 'bg-iip-gold/5')
-                                : (isHelb ? 'bg-pink-50/40' : 'bg-gray-50/50')
+                                : (isHelb ? 'bg-pink-50/40' : '')
                             }>
                               <td colSpan="14" className={`px-8 py-2 ${activeUE === ueKey ? (isHelb ? 'border-b-2 border-l-2 border-r-2 border-pink-400' : 'border-b-2 border-l-2 border-r-2 border-iip-gold/60') : ''}`}>
                                 <table className="w-full text-sm">
@@ -1327,7 +1327,7 @@ export default function Referentiels({ embedded = false }) {
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-iip-gold/5 text-xs text-gray-600 border-b border-gray-200">
+                <tr className="tab-entete">
                   <th className="text-left px-3 py-2 w-8"></th>
                   <th className="text-left px-2 py-2">N° UE</th>
                   <th className="text-left px-2 py-2">Section(s)</th>
@@ -1351,7 +1351,7 @@ export default function Referentiels({ embedded = false }) {
                   const isHelb = ue.et_ref === 'HELB';
                   return (
                     <Fragment key={ueKey}>
-                      <tr className={`border-b border-gray-100 hover:bg-gray-50 ${isHelb ? 'bg-pink-50' : ''}`}>
+                      <tr className={`ligne-maison ${isHelb ? 'bg-pink-50' : ''}`}>
                         <td className="px-3 py-1.5 h-9">
                           <button onClick={() => { toggle(ueKey); setActiveUE(ueKey); }} className="text-iip-gold">
                             <Chevron ouvert={ueOpen} size={14} />
@@ -1378,7 +1378,7 @@ export default function Referentiels({ embedded = false }) {
                         </td>
                       </tr>
                       {ueOpen && (
-                        <tr className={isHelb ? 'bg-pink-50/40' : 'bg-gray-50/50'}>
+                        <tr className={isHelb ? 'bg-pink-50/40' : ''}>
                           <td colSpan="14" className="px-6 py-2">
                             <table className="w-full text-sm">
                               <thead><tr className="text-gray-500 text-xs">

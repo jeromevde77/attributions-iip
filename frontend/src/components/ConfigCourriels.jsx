@@ -266,7 +266,7 @@ export default function ConfigCourriels() {
           <div className="px-4 py-6 text-center text-sm text-slate-400">Aucun envoi consigné.</div>
         ) : (
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+            <thead className="tab-entete">
               <tr>
                 <th className="text-left px-3 py-1.5">Date</th>
                 <th className="text-left px-3 py-1.5">Destinataire</th>

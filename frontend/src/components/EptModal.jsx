@@ -90,7 +90,7 @@ export default function EptModal({ section, ue_num, ue_nom, annee, onClose }) {
             <div className="text-gray-400 text-sm text-center py-4 italic">Aucune ligne EPT pour cette UE</div>
           ) : (
             <table className="w-full text-sm border-collapse mb-4">
-              <thead className="bg-gray-50 text-xs text-gray-500">
+              <thead className="tab-entete">
                 <tr>
                   <th className="px-3 py-2 text-left">Code</th>
                   <th className="px-3 py-2 text-left">Professeur</th>

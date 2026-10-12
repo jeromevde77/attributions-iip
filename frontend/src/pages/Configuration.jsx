@@ -675,7 +675,7 @@ function GestionPrerequis() {
           ) : (
             <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
               <table className="w-full text-sm">
-                <thead className="intertitre bg-gray-50">
+                <thead className="tab-entete intertitre">
                   <tr>
                     <th className="px-4 py-3 text-left">UE</th>
                     <th className="px-4 py-3 text-left">Dépend de (prérequis)</th>

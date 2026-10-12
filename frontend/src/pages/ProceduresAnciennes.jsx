@@ -1659,7 +1659,7 @@ export function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
       ) : (
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="intertitre bg-gray-50 border-b border-gray-200">
+            <thead className="tab-entete intertitre">
               <tr>
                 <th className="px-4 py-3 text-left">Type</th>
                 <th className="px-4 py-3 text-left">Étudiant</th>

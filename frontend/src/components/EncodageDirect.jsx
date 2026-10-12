@@ -200,7 +200,7 @@ export default function EncodageDirect({ onClose, anneeDefaut, sectionDefaut }) 
           <>
             <div className="flex-1 overflow-auto border border-slate-200 rounded-xl">
               <table className="w-full text-second border-collapse">
-                <thead className="sticky top-0 bg-slate-50 z-10">
+                <thead className="tab-entete sticky top-0 z-10">
                   <tr>
                     <th className="intertitre text-left px-2 py-1.5 border-b border-slate-200 sticky left-0 bg-slate-50">Étudiant</th>
                     {uesVues.map(u => (
