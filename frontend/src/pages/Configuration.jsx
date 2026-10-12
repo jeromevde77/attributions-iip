@@ -592,7 +592,7 @@ function GestionPrerequis() {
   }
 
   return (
-    <div className={`space-y-4 ${vue === 'schema' ? 'max-w-none' : 'max-w-3xl'}`}>
+    <div className={`space-y-4 ${vue === 'schema' ? 'max-w-none' : ''}`}>
       <div className="flex items-center gap-3 flex-wrap">
         <select value={section} onChange={e => setSection(e.target.value)}
           className="border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
@@ -1219,7 +1219,7 @@ export default function Configuration() {
           vivent dans Organisation. L'entrée reste un temps, pour qui la cherche
           ici, et y renvoie. */}
       {tab === 'ref-ponderations' && (
-        <div className="p-5 space-y-3 max-w-2xl">
+        <div className="p-5 space-y-3">
           <h2 className="titre-carte">Les pondérations ont déménagé</h2>
           <p className="text-sm text-slate-600">
             Les poids des cours et des acquis se règlent désormais par année, dans
@@ -1770,7 +1770,7 @@ const DEMENAGES = {
 };
 function Demenage({ d }) {
   return (
-    <div className="carte p-5 space-y-3 max-w-2xl">
+    <div className="carte p-5 space-y-3">
       <h2 className="titre-carte">Cet outil a déménagé</h2>
       <p className="text-sm text-slate-600">Ce n'est pas un réglage : il vit désormais là où l'on s'en sert, dans <b>{d.ou}</b>.</p>
       <button type="button" className="bouton bouton-fort" onClick={d.aller}>Y aller</button>

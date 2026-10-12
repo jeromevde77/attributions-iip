@@ -543,7 +543,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
   const steps = ['Dossier & UE', 'Qualification', 'Recevabilité', 'Analyse au fond', 'Décision'];
 
   return (
-    <div className="max-w-[1100px] space-y-6">
+    <div className=" space-y-6">
 
       {/* Indicateur autosave */}
       {autosaved && (
@@ -1176,7 +1176,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
   const limiteNotif = dateFaits ? addJoursCalendrier(dateFaits, 3) : null;
 
   return (
-    <div className="max-w-[1100px] space-y-6">
+    <div className=" space-y-6">
 
       {/* L'indicateur « Brouillon sauvegardé » a été retiré : il avait été
           recopié de l'outil Recours, mais CET outil n'a aucune sauvegarde

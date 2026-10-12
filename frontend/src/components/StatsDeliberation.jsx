@@ -151,7 +151,7 @@ export default function StatsDeliberation({ annee }) {
   return (
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div className="max-w-3xl">
+        <div className="">
           <div className="text-base font-semibold text-iip-blue">
             Résultats de la délibération — {annee}
           </div>

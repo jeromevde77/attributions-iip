@@ -86,7 +86,7 @@ export default function Annees({ embedded = false }) {
   }
 
   return (
-    <div className={embedded ? 'space-y-4' : 'p-4 md:p-6 max-w-2xl mx-auto space-y-4'}>
+    <div className={embedded ? 'space-y-4' : 'p-4 md:p-6 space-y-4'}>
       <div className="flex items-center justify-between">
         {!embedded && <h1 className="titre-ecran">Années scolaires</h1>}
         {embedded && <div className="text-sm text-gray-500">Gestion des années scolaires</div>}

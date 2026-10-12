@@ -125,7 +125,7 @@ export default function ControleDecisions() {
       {fait != null && <div data-etat="reussi" className="bloc-etat px-3 py-2"><b>{fait} note(s) corrigée(s).</b> Elles sont au journal ci-dessous ; la liste est recalculée.</div>}
       {!r ? <p className="text-slate-400">Calcul de chaque décision de {annee}…</p> : (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 max-w-3xl">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <TuileEtat etat="neutre" valeur={r.controlees} libelle="Décisions contrôlées" precision={r.incalculables ? `${r.incalculables} sans calcul possible` : null} />
             <TuileEtat etat={ecarts.length ? 'surveiller' : 'reussi'} valeur={ecarts.length} libelle="Cotes à corriger" />
             <TuileEtat etat="neutre" valeur={retenus.length} libelle="Cochées" />
@@ -144,7 +144,7 @@ export default function ControleDecisions() {
 
           {!!retenus.length && (
             !direction ? <p className="text-slate-500 text-second">La correction est un geste de direction.</p> : (
-              <div className="space-y-2 max-w-3xl">
+              <div className="space-y-2">
                 <label className="block text-second text-slate-600">Motif de la correction (écrit au journal de chaque décision)
                   <textarea className="controle w-full h-auto py-1.5 mt-1" rows={2} value={motif} onChange={e => setMotif(e.target.value)}
                     placeholder="Ex. : la note enregistrée était celle de l'écran avant le réglage de l'évaluation unique ; alignée sur le calcul du procès-verbal." />

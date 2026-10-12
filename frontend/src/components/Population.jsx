@@ -45,7 +45,7 @@ export default function Population({ annee }) {
         à son niveau principal, celui où il a le plus d'unités.
       </p>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-w-2xl">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
         {tuile(data.total, 'étudiants au programme confirmé', 'var(--c-principal)')}
         {tuile(data.en_attente, 'programmes encore à confirmer', data.en_attente ? 'var(--c-attente)' : null)}
         {tuile(data.parcours_mixtes, 'en parcours mixte', null)}

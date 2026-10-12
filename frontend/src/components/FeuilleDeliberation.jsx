@@ -1342,7 +1342,7 @@ function Reprise({ reprise, session, onAppliquer, onRetour, enCours }) {
   const divergents = (reprise.etudiants || []).filter(l => l.statut === 'divergent');
   const sans = (reprise.etudiants || []).filter(l => l.statut === 'sans_decision');
   return (
-    <div className="space-y-3 max-w-3xl mx-auto">
+    <div className="space-y-3">
       <div className="bloc-etat etat-disponible px-3 py-2">
         <div className="text-sm font-semibold text-sky-900">
           Reprendre la délibération encodée — session {session}
@@ -1417,7 +1417,7 @@ function Reprise({ reprise, session, onAppliquer, onRetour, enCours }) {
 function PleinDroit({ auto, onAppliquer, onPasser, enCours }) {
   if (!auto) return <div className="py-10 text-center text-sm text-slate-400">Calcul…</div>;
   return (
-    <div className="space-y-3 max-w-2xl mx-auto">
+    <div className="space-y-3">
       <div className="bloc-etat etat-reussi px-3 py-2">
         <div className="text-sm font-semibold text-emerald-900">
           Réussites de plein droit
@@ -1552,7 +1552,7 @@ function Mentions({ liste, session, enCours, onDecider, onFini, colonnesCours = 
   const manqueMotif = presentes.some(m => (motifs[m] || '').trim().length < 5);
 
   return (
-    <div className="space-y-3 max-w-5xl mx-auto">
+    <div className="space-y-3">
       <div className="bloc-etat etat-neutre px-3 py-2" style={{ borderLeftColor: 'var(--c-attente)' }}>
         <div className="text-sm font-semibold text-iip-texte">PP, NP et CM — à décider en lot</div>
         <p className="text-second text-slate-600">

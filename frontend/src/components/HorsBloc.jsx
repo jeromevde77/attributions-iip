@@ -67,7 +67,7 @@ export default function HorsBloc() {
         {fait.confirmations_retirees ? ` ${fait.confirmations_retirees} confirmation(s) retirée(s) : ces PAE sont à confirmer à nouveau.` : ''} La liste est recalculée.</div>}
       {!r ? <p className="text-slate-400">Recherche…</p> : (
         <>
-          <div className="grid grid-cols-3 gap-2 max-w-xl">
+          <div className="grid grid-cols-3 gap-2">
             <TuileEtat etat={tranchees.length ? 'corriger' : 'neutre'} valeur={tranchees.length} libelle="Étudiants à réparer" />
             <TuileEtat etat="neutre" valeur={aRetirer} libelle="Inscriptions à retirer" />
             <TuileEtat etat={ambigus.length ? 'surveiller' : 'neutre'} valeur={ambigus.length} libelle="À trancher à la main" />

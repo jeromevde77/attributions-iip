@@ -102,7 +102,7 @@ export default function RegistreEnvois() {
       {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2">{erreur}</div>}
       {!lignes ? <p className="text-slate-400">Chargement…</p> : (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 max-w-3xl">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <TuileEtat etat="neutre" valeur={lots.length} libelle="Envois (lots)" />
             <TuileEtat etat="neutre" valeur={total} libelle="Courriels" />
             <TuileEtat etat={echecs ? 'corriger' : 'neutre'} valeur={echecs} libelle="En échec" />

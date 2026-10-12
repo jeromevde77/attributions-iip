@@ -61,7 +61,7 @@ export default function RegistreAmenagements() {
     <div className="space-y-3">
       {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2 text-sm">{erreur}</div>}
       {data && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 max-w-3xl">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
           <TuileEtat etat="neutre" valeur={lignes.length} libelle={`Dossiers ${annee}`} />
           <TuileEtat etat={n(l => l.a_faire === 'décision du Conseil à rendre') ? 'surveiller' : 'neutre'}
             valeur={n(l => l.a_faire === 'décision du Conseil à rendre')} libelle="Décisions à rendre" />
