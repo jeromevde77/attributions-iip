@@ -703,21 +703,41 @@ r.patch('/sections/:code/code', authRequired, roleRequired('admin'), (req, res) 
     if (collision) return res.status(409).json({ error: `La section "${nouveau}" existe déjà.` });
   }
 
+  /* TOUTES LES COLONNES DE SECTION, ET LA CLÉ ÉTRANGÈRE (12 octobre 2026, « Soins_plaies » →
+   * « Soins de plaie » : « FOREIGN KEY constraint failed »). Deux défauts l'un sous l'autre :
+   * attribution.section référence section(code), et l'on changeait la section D'ABORD — la contrainte
+   * tombait ; et la liste des tables à propager était écrite à la main (cinq), quand QUARANTE-TROIS
+   * colonnes portent un code de section (horaires, organisation des UE, schémas, cohortes, étudiants,
+   * budget, stages…) : réussi, le renommage aurait laissé tout cela sur l'ancien nom, en silence.
+   * Les colonnes se DÉCOUVRENT (nom de colonne ou clé étrangère vers section), la contrainte attend
+   * la fin de la transaction, et la réponse dit ce qui a été réécrit. */
+  const NOMS = new Set(['section', 'section_code', 'code_section', 'section_rattachement', 'section_cible', 'section_origine']);
+  const colonnes = [];
+  for (const { name } of db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name <> 'section'").all()) {
+    const fk = new Set(db.prepare(`SELECT "from" AS c FROM pragma_foreign_key_list(?) WHERE "table" = 'section'`).all(name).map(x => x.c));
+    for (const c of db.prepare('SELECT name FROM pragma_table_info(?)').all(name).map(x => x.name)) {
+      if (NOMS.has(c.toLowerCase()) || fk.has(c)) colonnes.push({ table: name, col: c });
+    }
+  }
+  const reecrit = {};
   const tx = db.transaction(() => {
-    // 1) La table section (clé primaire). Si seul la casse change, SQLite
-    //    considère 'RESTART' = 'Restart' pour une PK TEXT ? Non, la PK est
-    //    sensible à la casse par défaut (BINARY), donc UPDATE direct OK.
+    db.pragma('defer_foreign_keys = ON');   // la clé étrangère se vérifie à la fin, quand tout est cohérent
     db.prepare('UPDATE section SET code = ? WHERE code = ?').run(nouveau, ancien);
-    // 2) Propager dans toutes les tables qui référencent le code en texte,
-    //    en attrapant toutes les variantes de casse de l'ancien code.
-    db.prepare('UPDATE attribution SET section = ? WHERE UPPER(section) = UPPER(?)').run(nouveau, ancien);
-    db.prepare('UPDATE cours SET section = ? WHERE UPPER(section) = UPPER(?)').run(nouveau, ancien);
-    db.prepare('UPDATE ue SET section = ? WHERE UPPER(section) = UPPER(?)').run(nouveau, ancien);
-    db.prepare('UPDATE ue_section SET section_code = ? WHERE UPPER(section_code) = UPPER(?)').run(nouveau, ancien);
-    db.prepare('UPDATE utilisateur_section SET section_code = ? WHERE UPPER(section_code) = UPPER(?)').run(nouveau, ancien);
+    for (const { table, col } of colonnes) {
+      const n = db.prepare(`UPDATE "${table}" SET "${col}" = ? WHERE UPPER("${col}") = UPPER(?)`).run(nouveau, ancien).changes;
+      if (n) reecrit[`${table}.${col}`] = n;
+    }
+    // Les contraintes du planning désignent une section par (type, cible) — « TIM », « TIM|BA1 ».
+    try {
+      const a = db.prepare("UPDATE planning_contrainte SET cible = ? WHERE type = 'section' AND UPPER(cible) = UPPER(?)").run(nouveau, ancien).changes;
+      const b = db.prepare("UPDATE planning_contrainte SET cible = ? || substr(cible, length(?) + 1) WHERE type = 'bloc' AND UPPER(cible) LIKE UPPER(?) || '|%'").run(nouveau, ancien, ancien).changes;
+      if (a + b) reecrit['planning_contrainte.cible'] = a + b;
+    } catch { /* table absente */ }
   });
-  tx();
-  res.json({ ok: true, ancien, nouveau });
+  try { tx(); } catch (e) {
+    return res.status(409).json({ error: `Renommage refusé, rien n'a été écrit : ${e.message}` });
+  }
+  res.json({ ok: true, ancien, nouveau, reecrit });
 });
 
 
