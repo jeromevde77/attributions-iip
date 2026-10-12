@@ -67,11 +67,12 @@ function FenetreQuiEstLa({ d, face, setFace, recharger, onFermer }) {
         <button className="bouton bouton-fort" onClick={onFermer}>Fermer</button>
       </>}>
       <div className="flex items-center gap-1 border-b border-slate-200 mb-3">
-        {[['maintenant', 'Maintenant'], ['moi', 'Mon horaire et mon numéro'], ...(d.peut_gerer ? [['permanences', 'Permanences']] : [])].map(([k, l]) => (
+        {[['maintenant', 'Maintenant'], ['moi', 'Mon horaire et mon numéro'], ...(d.peut_gerer ? [['equipe', 'Horaires de l’équipe'], ['permanences', 'Permanences']] : [])].map(([k, l]) => (
           <button key={k} type="button" onClick={() => setFace(k)} className={`onglet-page ${face === k ? 'onglet-page-actif' : ''}`}>{l}</button>))}
       </div>
       {face === 'maintenant' && <Maintenant d={d} />}
       {face === 'moi' && <Moi d={d} recharger={recharger} />}
+      {face === 'equipe' && <HorairesEquipe d={d} recharger={recharger} />}
       {face === 'permanences' && <Permanences recharger={recharger} />}
     </Fenetre>);
 }
@@ -107,28 +108,44 @@ function Maintenant({ d }) {
     </div>);
 }
 
-function Moi({ d, recharger }) {
+/* L'HORAIRE DE L'ÉQUIPE (12 octobre 2026, Charles : « où est-ce que je définis cet horaire pour mon
+   équipe ? ») : la direction et le secrétariat règlent l'horaire de chacun. Le numéro, lui, reste
+   à chacun — on n'affiche pas le téléphone d'un autre à sa place. */
+function HorairesEquipe({ d, recharger }) {
+  const [personnes, setPersonnes] = useState([]);
+  const [qui, setQui] = useState('');
+  useEffect(() => { fetch('/api/equipe/personnes', { headers: authHeaders() }).then(r => r.json()).then(setPersonnes).catch(() => {}); }, []);
+  return (
+    <div className="space-y-4">
+      <label className="text-second block">Personne
+        <select className="controle block" value={qui} onChange={e => setQui(e.target.value)}>
+          <option value="">— choisir —</option>{personnes.map(p => <option key={p.id} value={p.id}>{p.nom} ({p.role})</option>)}</select></label>
+      {qui ? <Moi key={qui} d={d} recharger={recharger} utilisateur={Number(qui)} /> : <p className="text-sm text-slate-500">Choisissez une personne pour régler son horaire de la semaine.</p>}
+    </div>);
+}
+
+function Moi({ d, recharger, utilisateur = null }) {
   const [plages, setPlages] = useState(null);
   const [tel, setTel] = useState(d.moi.telephone || '');
-  useEffect(() => { fetch('/api/equipe/horaire', { headers: authHeaders() }).then(r => r.json()).then(setPlages).catch(() => setPlages([])); }, []);
+  useEffect(() => { fetch(`/api/equipe/horaire${utilisateur ? `?utilisateur=${utilisateur}` : ''}`, { headers: authHeaders() }).then(r => r.json()).then(setPlages).catch(() => setPlages([])); }, [utilisateur]);
   if (!plages) return <div className="text-sm text-slate-400">Chargement…</div>;
   const maj = (i, k, v) => setPlages(l => l.map((p, j) => (j === i ? { ...p, [k]: v } : p)));
   async function enregistrer() {
-    await fetch('/api/equipe/telephone', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ telephone: tel }) });
-    const r = await fetch('/api/equipe/horaire', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ plages }) });
+    if (!utilisateur) await fetch('/api/equipe/telephone', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ telephone: tel }) });
+    const r = await fetch('/api/equipe/horaire', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ plages, ...(utilisateur ? { utilisateur } : {}) }) });
     const j = await r.json().catch(() => ({}));
     await informer(r.ok ? `✓ Enregistré : ${j.plages} plage(s) d’horaire.` : `❌ ${j.error || 'Erreur'}`);
     recharger();
   }
   return (
     <div className="space-y-4">
-      <label className="block">
+      {!utilisateur && <label className="block">
         <span className="intertitre block mb-1">Le numéro que j’accepte d’afficher</span>
         <input value={tel} onChange={e => setTel(e.target.value)} placeholder="Ex. : 02 560 29 60 ou GSM de service" className="controle w-72" data-reponses="non" />
         <span className="block text-second text-slate-500 mt-1">Il ne s’affiche que dans « Qui est là ? », quand vous êtes présent ou de permanence. Vide : aucun numéro.</span>
-      </label>
+      </label>}
       <div>
-        <span className="intertitre block mb-1">Mon horaire de la semaine</span>
+        <span className="intertitre block mb-1">{utilisateur ? 'Son horaire de la semaine' : 'Mon horaire de la semaine'}</span>
         <table className="text-sm">
           <tbody>{plages.map((p, i) => (
             <tr key={i}>

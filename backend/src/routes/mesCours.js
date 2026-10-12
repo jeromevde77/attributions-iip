@@ -294,6 +294,17 @@ function dossierVA(vid) {
       FROM etudiant_valorisation v JOIN etudiant e ON e.id = v.etudiant_id WHERE v.id = ?`).get(vid);
 }
 
+/* CE QUI A ÉTÉ SOUMIS AUX ENSEIGNANTS AVANT LEUR ARRIVÉE NE LES ATTEND PAS (Charles, 12 octobre 2026 :
+   « les aménagements raisonnables et les VA encodés avant ce jour ne doivent plus être visibles pour
+   les profs ; tout ce qui se fait à partir d'aujourd'hui et qui les concerne, si »). Une date de
+   départ (`lucie_config` « mes_cours_depuis », 12 octobre 2026 par défaut) : une demande d'avis
+   posée avant elle ne paraît plus dans Mes cours. Rien n'est effacé ; le dossier reste entier. */
+function depuisMesCours() {
+  try { return db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'mes_cours_depuis'").get()?.valeur || '2026-10-12'; }
+  catch { return '2026-10-12'; }
+}
+const avantDepart = date => !!date && String(date).slice(0, 10) < depuisMesCours();
+
 r.get('/valorisations', authRequired, (req, res) => {
   const pid = profDe(req);
   if (!pid) return res.json({ dossiers: [], sans_dossier_professeur: true });
@@ -304,6 +315,7 @@ r.get('/valorisations', authRequired, (req, res) => {
   for (const id of ids) {
     const v = dossierVA(id);
     if (!v || !profConcerne(v, pid)) continue;
+    if (avantDepart(v.recevabilite_le)) continue;          // soumis avant la date de départ
     const avis = db.prepare('SELECT professeur_id, auteur, sens, texte, rendu_le FROM valorisation_avis WHERE valorisation_id = ? ORDER BY rendu_le').all(id);
     const mien = avis.find(a => a.professeur_id === pid) || null;
     dossiers.push({
@@ -369,7 +381,7 @@ r.get('/amenagements', authRequired, (req, res) => {
   const pid = profDe(req);
   if (!pid) return res.json({ dossiers: [] });
   const annee = req.query.annee || anneeDeTravail(req);
-  const dossiers = arDuProf(pid, annee).map(({ d, ues }) => {
+  const dossiers = arDuProf(pid, annee).filter(({ d }) => !avantDepart(d.avis_demande_le || d.valide_b_le)).map(({ d, ues }) => {
     const mesures = d.mesures.filter(m => !m.ue_num || ues.includes(m.ue_num));
     const avis = db.prepare('SELECT mesure_id, professeur_id, auteur, sens, motif, rendu_le FROM amenagement_avis WHERE dossier_id = ?').all(d.id);
     return {
