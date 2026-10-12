@@ -71,11 +71,15 @@ export function BoutonUrgence() {
   const [ouvert, setOuvert] = useState(false);
   const [face, setFace] = useState('maintenant');
   const charger = () => fetch('/api/equipe/maintenant', { headers: authHeaders() }).then(r => (r.ok ? r.json() : null)).then(setD).catch(() => {});
+  // Relu chaque minute : le bouton change de lui-même à l'ouverture et à la fermeture du secrétariat.
+  useEffect(() => { charger(); const t = setInterval(charger, 60000); return () => clearInterval(t); }, []);
+  // Secrétariat ouvert : « Contact now », vert. Sinon — la permanence : « Urgence », orange.
+  const ouvertSec = !!d?.secretariat_ouvert;
   return (<>
     <button type="button" onClick={async () => { setFace('maintenant'); await charger(); setOuvert(true); }}
-      className="objet-barre objet-barre-etat" style={{ '--e': 'var(--c-attente)' }}
-      title="Urgence : qui est là, qui est de permanence, et l’appeler">
-      <IconPhone size={16} /> Urgence
+      className="objet-barre objet-barre-etat" style={{ '--e': ouvertSec ? 'var(--c-reussi)' : 'var(--c-attente)' }}
+      title={ouvertSec ? 'Le secrétariat est ouvert : qui est là, et l’appeler' : 'Urgence : qui est de permanence, et l’appeler'}>
+      <IconPhone size={16} /> {ouvertSec ? 'Contact now' : 'Urgence'}
     </button>
     {ouvert && d && <FenetreQuiEstLa d={d} face={face} setFace={setFace} recharger={charger} onFermer={() => setOuvert(false)} />}
   </>);

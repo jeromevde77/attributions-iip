@@ -129,7 +129,12 @@ r.get('/maintenant', authRequired, (req, res) => {
   const moiP = pointes.get(req.user.id);
   const rang = { la: 0, pause: 1, attendu: 2, fini: 3, parti: 4 };
   journee.sort((a, b) => rang[a.etat] - rang[b.etat] || a.nom.localeCompare(b.nom, 'fr'));
-  res.json({ ...m, presents, attendus, journee, permanences: perm,
+  /* LE SECRÉTARIAT EST-IL OUVERT ? (12 octobre 2026, Charles : « Contact now pendant les heures
+   * d'ouverture du secrétariat, Urgence pendant la permanence ») — il l'est quand quelqu'un du
+   * secrétariat est là, selon la frise, et pas en pause : les heures ne s'écrivent pas en dur. */
+  const SECRETARIAT = new Set(['secretariat', 'editeur']);
+  const secretariatOuvert = journee.some(p => p.etat === 'la' && SECRETARIAT.has(comptes.get(p.id)?.role));
+  res.json({ ...m, presents, attendus, journee, permanences: perm, secretariat_ouvert: secretariatOuvert,
     moi: { etat: moiP?.etat || null, depuis: moiP?.heure || null, a_un_horaire: db.prepare('SELECT 1 FROM equipe_horaire WHERE utilisateur_id = ? LIMIT 1').get(req.user.id) ? true : false,
       telephone: comptes.get(req.user.id)?.telephone_affiche || '' },
     peut_gerer: GERER.includes(req.user.role) });
