@@ -68,7 +68,7 @@ export default function DecisionsSansInscription() {
       {fait && <div data-etat="reussi" className="bloc-etat px-3 py-2"><b>{fait.recreees} inscription(s) recréée(s) pour {fait.etudiants} étudiant(s).</b> La liste est recalculée.</div>}
       {!r ? <p className="text-slate-400">Recherche…</p> : (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 max-w-3xl">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <TuileEtat etat={reparables.length ? 'corriger' : 'neutre'} valeur={reparables.length} libelle="Étudiants à réparer" />
             <TuileEtat etat="neutre" valeur={aRecreer} libelle="Inscriptions à recréer" />
             <TuileEtat etat={primos ? 'surveiller' : 'neutre'} valeur={primos} libelle="Lus « primo » à tort" />

@@ -70,7 +70,7 @@ export default function OngletCep({ etudId, annee }) {
   const regions = refs.regions || {};
 
   const formulaire = edition && (
-    <div className="carte p-3 space-y-2 max-w-xl">
+    <div className="carte p-3 space-y-2">
       <label className="block text-second text-slate-600">Région du lieu de travail — celle du siège où l'étudiant est occupé
         <select className="controle w-full mt-0.5" value={edition.region}
           onChange={e => setEdition({ ...edition, region: e.target.value })}>

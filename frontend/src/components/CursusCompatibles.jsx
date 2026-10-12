@@ -25,7 +25,7 @@ export default function CursusCompatibles() {
   };
   const nom = c => sections.find(x => x.code === c)?.libelle || c;
   return (
-    <div className="space-y-3 text-sm max-w-2xl">
+    <div className="space-y-3 text-sm">
       <div>
         <div className="text-base font-semibold text-iip-blue">Cursus compatibles</div>
         <p className="text-slate-500 text-second">

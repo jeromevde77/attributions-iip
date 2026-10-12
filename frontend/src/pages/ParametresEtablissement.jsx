@@ -70,7 +70,7 @@ export default function ParametresEtablissement() {
   if (loading) return <div className="p-8 text-center text-gray-400">Chargement…</div>;
 
   return (
-    <div className="max-w-[1100px] space-y-6">
+    <div className=" space-y-6">
       <div>
         <h2 className="titre-carte">Paramètres de l'établissement</h2>
         <p className="text-sm text-gray-500 mt-1">
@@ -302,7 +302,7 @@ export function ReglesDeliberation() {
   );
 
   return (
-    <section className="carte p-4 space-y-3 max-w-4xl">
+    <section className="carte p-4 space-y-3">
       <div className="intertitre">
         Délibération — ce que le Conseil ajourne
       </div>

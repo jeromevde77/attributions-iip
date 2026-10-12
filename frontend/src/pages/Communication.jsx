@@ -104,7 +104,7 @@ export default function Communication() {
   if (c.erreur || c.error) return <div className="p-5 text-sm text-slate-500">{c.error || 'L’envoi de messages est réservé à la direction, au secrétariat et aux coordinations.'}</div>;
 
   return (
-    <div className="space-y-5 max-w-5xl">
+    <div className="space-y-5">
       <div>
         <h2 className="titre-ecran mb-0 flex items-center gap-2"><IconSpeakerphone size={20} /> Communication</h2>
         <p className="text-sm text-slate-500">Un message sur le tableau de bord des personnes choisies ; le courriel n’est qu’une copie, si vous la cochez.{!c.toutes_sections && ' Vous écrivez aux personnes de vos sections.'}</p>

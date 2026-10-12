@@ -100,7 +100,7 @@ export default function HoraireComparateur({ annee }) {
     <div className="p-4 space-y-4">
       <div className="px-4 py-3 rounded-xl bg-white border border-slate-200">
         <div className="flex items-start justify-between gap-3 flex-wrap">
-          <div className="max-w-3xl">
+          <div className="">
             <div className="text-base font-semibold text-iip-blue flex items-center gap-1.5">
               <IconCalendarEvent size={16} /> L'horaire face aux attributions
             </div>

@@ -1155,7 +1155,7 @@ export default function Aide({ integre = false }) {
 
   return (
     // Intégré à Documentation, le cadre porte déjà la marge de page.
-    <div className={`${integre ? '' : 'p-5 '}space-y-4 max-w-[1100px]`}>
+    <div className={`${integre ? '' : 'p-5 '}space-y-4`}>
       <div>
         <h2 className="titre-ecran mb-0">Mode d’emploi de Lucie</h2>
         <p className="text-sm text-slate-500">

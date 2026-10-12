@@ -1428,7 +1428,7 @@ function MaFiche() {
   }, [id]);
   if (!id) {
     return (
-      <div className="p-6 max-w-xl">
+      <div className="p-6">
         <Encadre etat="surveiller">Votre compte Lucie n'est pas encore relié à votre fiche du personnel.
           Signalez-le au secrétariat, qui fera le lien.</Encadre>
       </div>

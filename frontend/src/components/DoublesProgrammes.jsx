@@ -62,7 +62,7 @@ export default function DoublesProgrammes() {
       {fait != null && <div data-etat="reussi" className="bloc-etat px-3 py-2"><b>{fait} inscription(s) retirée(s).</b> La liste ci-dessous est recalculée.</div>}
       {!r ? <p className="text-slate-400">Recherche…</p> : (
         <>
-          <div className="grid grid-cols-3 gap-2 max-w-xl">
+          <div className="grid grid-cols-3 gap-2">
             <TuileEtat etat="corriger" valeur={tranchees.length} libelle="Étudiants à réparer" />
             <TuileEtat etat="neutre" valeur={aRetirer} libelle="Inscriptions à retirer" />
             <TuileEtat etat="surveiller" valeur={ambigus.length} libelle="À trancher à la main" />

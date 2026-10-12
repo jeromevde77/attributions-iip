@@ -179,7 +179,7 @@ export default function InscritsUnites() {
         <GrilleInscrits data={data} passe={passe} annee={annee} section={section} onFiche={setFiche} onRevue={setRevue} onChange={() => setRecharge(x => x + 1)} />)}
 
       {data && vue === 'unites' && (<>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 max-w-4xl">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
           <TuileEtat etat="fort" valeur={tous.size} libelle={`Étudiants — ${section}`} precision={`${annee}${filtresActifs.length ? ' · filtré' : ''}`} />
           <TuileEtat etat="neutre" valeur={nNouveaux(tous)} libelle="Nouveaux" precision="première année à l'IIP" />
           <TuileEtat etat="neutre" valeur={nReprises(unites)} libelle="Reprennent une unité" />
