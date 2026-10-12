@@ -260,6 +260,18 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
                             n'a pas été lu dans la pièce : ça se dit au moment
                             de l'import, pas six mois plus tard devant une
                             unité dont personne ne sait d'où elle sort. */}
+                        {/* LU SUR UN SCAN (12 octobre 2026, 823808U34S2) : le texte vient d'une lecture
+                            optique — un chiffre mal lu est possible, et il se vérifie ici, avant l'import. */}
+                        {x.data.parsed?.ocr && (() => {
+                          const duNom = (String(x.fichier).match(/\d{6}\s*U\s*\d+\s*[A-Z]\s*\d+/i) || [''])[0].replace(/\s+/g, '').toUpperCase();
+                          const lu = String(x.data.parsed?.ue?.ue_code_fwb || '').replace(/\s+/g, '').toUpperCase();
+                          return (
+                            <div className="text-xs mt-0.5 pl-6">
+                              <span className="text-iip-texte">Document <b>scanné</b>, lu par reconnaissance de caractères : vérifiez le code, les cours et les périodes.</span>
+                              {duNom && lu && duNom !== lu && (
+                                <span className="block" style={{ color: 'var(--c-refuse)' }}>Le code lu ({lu}) ne correspond pas au nom du fichier ({duNom}).</span>)}
+                            </div>);
+                        })()}
                         {x.data.code_depuis_nom && (
                           <div className="text-xs text-iip-texte mt-0.5">
                             Code FWB repris du <b>nom du fichier</b> — le document ne le porte pas.
