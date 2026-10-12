@@ -1,3 +1,4 @@
+import ChoixCoins from './ChoixCoins.jsx';
 import { useEffect, useRef, useState } from 'react';
 import { BoutonAnnulerReglage, useRelireReglages } from '../lib/annulerReglage.jsx';
 import { authHeaders } from '../lib/api.js';
@@ -16,7 +17,7 @@ import { TuileEtat, PastilleEtat, Encadre } from './ui.jsx';
 const GROUPES = [['rayons', 'Rayons'], ['tuiles', 'Tuiles et pastilles'], ['controles', 'Boutons, champs, onglets'], ['titres', 'Titres et intertitres'], ['tableaux', 'Tableaux'], ['graphiques', 'Graphiques'], ['elevations', 'Ombres et fenêtres'], ['texte', 'Texte']];
 const THEMES = {
   'Maison IIP': {},
-  'Arrondi': { rayon_champ: 12, rayon_carte: 20, rayon_fenetre: 28, rayon_tuile: 14, tuile_coins: 'arrondis', rayon_pastille: 10 },
+  'Arrondi': { rayon_champ: 12, rayon_carte: 20, rayon_fenetre: 28, rayon_tuile: 14, tuile_coins: 'hg,hd,bd,bg', rayon_pastille: 10 },
   'Anguleux': { rayon_champ: 2, rayon_carte: 4, rayon_fenetre: 6, rayon_panneau: 6, rayon_tuile: 2, rayon_pastille: 2, ombre: 'douce' },
   'Compact': { controle_hauteur: 30, texte: 92, titre_ecran: 15, rayon_champ: 6, rayon_carte: 10, tuile_chiffre: 15, tuile_espace: 7 },
   'Confort': { controle_hauteur: 42, texte: 110, titre_ecran: 20 },
@@ -76,7 +77,9 @@ export default function ReglageDesign() {
               {Object.entries(cat).filter(([, d]) => d.groupe === g).map(([k, d]) => (
                 <label key={k} className="flex items-center gap-2 text-second">
                   <span className="flex-1">{d.libelle}</span>
-                  {d.type === 'choix'
+                  {d.type === 'coins'
+                    ? <ChoixCoins valeur={v[k]} disabled={!peut} onChange={x => changer({ ...v, [k]: x }, true)} />
+                    : d.type === 'choix'
                     ? <select className="controle !h-8" value={v[k]} disabled={!peut} onChange={e => changer({ ...v, [k]: e.target.value }, true)}>
                         {d.choix.map(c => <option key={c} value={c}>{({ marquee: 'marquée', serree: 'serrée', aeree: 'aérée', pointille: 'pointillé', horizontaux: 'filets horizontaux', grille: 'grille complète', aucun: 'aucun' })[c] || c}</option>)}</select>
                     : <>
