@@ -46,6 +46,18 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
      chaque dossier visant une UE existante : la liste de ses cours et, cours
      du dossier par cours du dossier, la décision — rattacher ou créer. */
   const [mappes, setMappes] = useState({});   // fichier → { cours: [], choix: [code|''] }
+  // Le dossier révisé remplace les cours de l'unité (12 octobre 2026, UE 244) : fichier → vrai.
+  const [remplace, setRemplace] = useState({});
+  function basculerRemplacement(fichier, oui) {
+    setRemplace(r => ({ ...r, [fichier]: oui }));
+    if (!oui) return;
+    // Les cours du dossier prennent, dans l'ordre, les codes des cours existants non encore rattachés.
+    setMappes(m => {
+      const c0 = m[fichier]; if (!c0) return m;
+      const libres = c0.cours.map(k => k.cours_code).filter(code => !c0.choix.includes(code));
+      return { ...m, [fichier]: { ...c0, choix: c0.choix.map(v => v || libres.shift() || '') } };
+    });
+  }
 
   // La correspondance proposée arrive avec l'analyse (dossiers reconnus).
   useEffect(() => {
@@ -106,6 +118,7 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
       + `&fichier=${encodeURIComponent(fichier.name || '')}`
       + (cibles[fichier.name] ? `&ue_num=${cibles[fichier.name]}` : '')
       + (!apercu && carte?.choix ? `&cours_map=${encodeURIComponent(JSON.stringify(carte.choix))}` : '')
+      + (!apercu && remplace[fichier.name] ? '&remplacer=1' : '')
       + (apercu ? '&preview=1' : ''), {
       method: 'POST',
       headers: { 'Content-Type': 'application/octet-stream',
@@ -352,6 +365,26 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
                                   </select>
                                 </div>
                               ))}
+                              <label className="flex items-center gap-1.5 pl-1 pt-1 text-xs">
+                                <input type="checkbox" checked={!!remplace[x.fichier]} onChange={e => basculerRemplacement(x.fichier, e.target.checked)} />
+                                <span>Le dossier <b>remplace</b> les cours de l’unité (dossier révisé) : les cours rattachés prennent le nom du dossier, les autres sont retirés</span>
+                              </label>
+                              {remplace[x.fichier] && (() => {
+                                const retires = carte.cours.filter(k => !carte.choix.includes(k.cours_code));
+                                if (!retires.length) return <div className="pl-6 text-xs text-gray-500">Aucun cours à retirer.</div>;
+                                return (
+                                  <div className="pl-6 text-xs space-y-0.5">
+                                    <div className="text-gray-500">Seront retirés pour {annee} :</div>
+                                    {retires.map(k => {
+                                      const bloque = x.data.bloques_si_retire?.[k.cours_code] || [];
+                                      return (
+                                        <div key={k.cours_code}>
+                                          {k.cours_code} — {k.cours_nom}
+                                          {bloque.length > 0 && <span style={{ color: 'var(--c-refuse)' }}> · impossible : {bloque.join(', ')}</span>}
+                                        </div>);
+                                    })}
+                                  </div>);
+                              })()}
                             </div>
                           );
                         })()}
