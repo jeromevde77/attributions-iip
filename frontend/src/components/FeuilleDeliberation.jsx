@@ -237,12 +237,27 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
     });
   }, [data, recherche, ordre, groupe]);
 
+  /** Un ajourné dont un acquis est en échec sans être ajourné — la clôture le refuserait. */
+  const aRevoir = e => e.resultat === 'ajourne' && Number(session) < 2 && (e.acquis || []).some(a =>
+    !a.na && !a.faveur && a.note_calculee != null && a.note_calculee < (data?.seuil ?? 10));
+
+  /** Revoir un ensemble choisi : les ajournés, ou toute l'unité, dans l'ordre alphabétique. */
+  function revoir(filtre) {
+    const l = (data?.etudiants || []).filter(filtre).filter(e => !groupe || (e.groupes || []).includes(groupe))
+      .sort((a, b) => `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`));
+    setOrdre(l.map(e => e.id)); setIdx(0);
+  }
+
   /** Figer l'ordre au moment où la revue commence. */
   function figerOrdre(source) {
     /* LA FILE NE REPREND QUE CE QUI RESTE À DÉCIDER (Charles, 9 octobre 2026 :
        « j'ai fait les deux étapes et il me reste 75 »). Les réussites de plein
        droit et les décisions prises en lot ne repassent pas en revue. */
-    const depart = (source || data?.etudiants || []).filter(e => !e.resultat);
+    /* … ET CE QUI RESTE À REVOIR (13 octobre 2026, Charles : « dans la 333, tu me proposes ceux qui
+       réussissent puis plus rien »). La décision s'enregistre désormais avec l'ajournement : la file des
+       seuls « sans décision » se vidait, alors que Bah et Simo, ajournés, gardaient un acquis en échec
+       non ajourné. Ceux-là y reviennent. */
+    const depart = (source || data?.etudiants || []).filter(e => !e.resultat || aRevoir(e));
     const filtre = groupe ? depart.filter(e => (e.groupes || []).includes(groupe)) : depart;
     /* LES CAS SEMBLABLES ENSEMBLE (Charles, 9 octobre 2026). Après les réussites
        de plein droit et les PP, la file s'ouvre sur les FAVEURS ENVISAGEABLES —
@@ -874,8 +889,17 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
             <div className="py-10 text-center text-sm text-slate-400 border-2
                             border-dashed rounded-xl">
               {(data?.etudiants || []).length
-                ? <>Tous les étudiants ont une décision. <button type="button" className="underline text-iip-blue"
-                    onClick={() => setEtape('cloture')}>Passer à la clôture</button> — ou cherchez un nom pour revenir sur une décision.</>
+                ? <span className="inline-flex flex-col items-center gap-3">
+                    <span>Tous les étudiants ont une décision.</span>
+                    <span className="flex flex-wrap justify-center gap-2">
+                      <button type="button" className="bouton" onClick={() => revoir(e => e.resultat === 'ajourne')}>
+                        Revoir les ajournés ({(data?.etudiants || []).filter(e => e.resultat === 'ajourne').length})</button>
+                      <button type="button" className="bouton" onClick={() => revoir(() => true)}>
+                        Revoir toute l'unité ({(data?.etudiants || []).length})</button>
+                      <button type="button" className="bouton bouton-fort" onClick={() => setEtape('cloture')}>Passer à la clôture</button>
+                    </span>
+                    <span className="text-second">ou cherchez un nom pour revenir sur une décision</span>
+                  </span>
                 : <>Aucun étudiant inscrit à cette unité pour {annee}.</>}
             </div>
           ) : lot ? (
@@ -2433,7 +2457,8 @@ function MotifEnLigne({ a, onMotif, onReporter, seul, enCours }) {
   if (!ecrire && (a.motif || proposition)) {
     return (
       <div className="space-y-0.5">
-        <div className={`text-xs leading-snug ${a.motif ? 'text-slate-800' : 'text-slate-500 italic'}`}>
+        {/* Un justificatif par chargé de cours, l'un sous l'autre : les retours à la ligne comptent. */}
+        <div className={`text-xs leading-snug whitespace-pre-line ${a.motif ? 'text-slate-800' : 'text-slate-500 italic'}`}>
           {a.motif ? texte : proposition}
         </div>
         <div className="flex items-center gap-2 text-mention">

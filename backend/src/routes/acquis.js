@@ -3796,7 +3796,9 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
     const parAA = {};
     for (const l of db.prepare(`
       SELECT p.aa_code, p.cours_code, p.justification, (SELECT MIN(c.cours_nom) FROM cours c
-        WHERE c.cours_code = p.cours_code AND c.annee_scolaire = p.annee_scolaire) AS cours_nom
+        WHERE c.cours_code = p.cours_code AND c.annee_scolaire = p.annee_scolaire) AS cours_nom,
+        (SELECT pr.nom || ' ' || pr.prenom FROM professeur pr
+          WHERE LOWER(pr.adresse_mail) = LOWER(p.propose_par) LIMIT 1) AS prof
       FROM note_proposee p
       WHERE p.etudiant_id = ? AND p.annee_scolaire = ? AND p.aa_code <> ''
         AND p.justification IS NOT NULL AND TRIM(p.justification) <> ''
@@ -3811,17 +3813,22 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
     const cle = t => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
       .replace(/\s+/g, ' ').replace(/[\s.;,:!]+$/, '').trim();
     for (const [code, l] of Object.entries(parAA)) {
+      /* TOUS LES CHARGÉS DE COURS, L'UN SOUS L'AUTRE (Charles, 13 octobre 2026 : « si un AA est
+         partagé dans plusieurs cours, tu dois lister les justificatifs de tous les profs pour le même
+         AA »). Chaque texte dit de quel cours et de qui il vient ; un texte identique ne s'écrit qu'une
+         fois, avec tous ceux qui l'ont posé. Un acquis d'un seul cours garde son texte nu. */
       const groupes = new Map();
       for (const x of l) {
         const k = cle(x.justification);
-        const g = groupes.get(k) || { texte: x.justification.trim(), cours: [] };
-        const nomC = x.cours_nom || x.cours_code;
-        if (!g.cours.includes(nomC)) g.cours.push(nomC);
+        const g = groupes.get(k) || { texte: x.justification.trim(), auteurs: [] };
+        const qui = `${x.cours_code}${x.prof ? ` (${String(x.prof).trim()})` : ''}`;
+        if (!g.auteurs.includes(qui)) g.auteurs.push(qui);
         groupes.set(k, g);
       }
       const gs = [...groupes.values()];
-      justifEns[code] = gs.length === 1 ? gs[0].texte
-        : gs.map(g => `${g.cours.join(', ')} : ${g.texte}`).join('\n');
+      const plusieursCours = new Set(l.map(x => x.cours_code)).size > 1;
+      justifEns[code] = !plusieursCours && gs.length === 1 ? gs[0].texte
+        : gs.map(g => `${g.auteurs.join(', ')} : ${g.texte}`).join('\n');
     }
   } catch { /* table ou colonne absente */ }
   const integree = estEpreuveIntegree(ueNum, annee);
