@@ -2102,8 +2102,11 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
   const minuteurs = useRef({});
   const clicCours = c => {
     clearTimeout(minuteurs.current[c.cours_code]);
-    if (c.ajourne_directement) { onAjuster('cours', c.cours_code, null); return; }
-    minuteurs.current[c.cours_code] = setTimeout(() => onAjuster('cours', c.cours_code, 'ajourne', 'echec'), 240);
+    // Le clic attend toujours : sur un cours déjà ajourné aussi, un double-clic doit pouvoir le
+    // passer « au cours entier » au lieu d'être pris pour un « lever » puis un « ajourner ».
+    minuteurs.current[c.cours_code] = setTimeout(() => (c.ajourne_directement
+      ? onAjuster('cours', c.cours_code, null)
+      : onAjuster('cours', c.cours_code, 'ajourne', 'echec')), 260);
   };
   const doubleCours = c => {
     clearTimeout(minuteurs.current[c.cours_code]);
@@ -2148,12 +2151,16 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
   // Avant la décision, LE CHIFFRE d'abord, « NA » en petit ; une fois la décision
   // enregistrée, seulement NA (Charles, 9 octobre 2026).
   const enregistree = !!e.resultat;
-  const sousNA = n => (n == null || enregistree) ? 'NA'
+  // LA NOTE RESTE VISIBLE, DÉCISION ENREGISTRÉE OU NON (13 octobre 2026, Charles : « on ne voit pas
+  // les notes ») : la décision s'enregistre désormais avec l'ajournement, et la règle « seulement NA
+  // une fois enregistrée » effaçait toutes les notes dès le premier clic.
+  const sousNA = n => n == null ? 'NA'
     : <>{fmt(n)}<span className="ml-1 text-mention font-normal opacity-90">NA</span></>;
   const note = (v, { na = false } = {}) => {
     if (na) {
       const n = v?.mention ? null : (v?.note_brute ?? v?.note ?? null);
-      return rect('var(--c-refuse)', v?.mention ? (enregistree ? 'NA' : <>{v.mention}<span className="ml-1 text-mention font-normal opacity-90">NA</span></>) : sousNA(n),
+      // Ajourné en session 1 : ORANGE, nos couleurs (Charles) ; en session 2, ce qui reste en défaut est refusé : fraise.
+      return rect(sansAjournement ? 'var(--c-refuse)' : 'var(--c-attente)', v?.mention ? <>{v.mention}<span className="ml-1 text-mention font-normal opacity-90">NA</span></> : sousNA(n),
         n != null ? `Non acquis — à représenter · cote calculée ${fmt(n)}/20` : 'Non acquis — à représenter');
     }
     if (!v) return <span className="text-slate-300">·</span>;
@@ -2201,8 +2208,12 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
                 <tr className="align-middle">
                   <th className="text-left px-2.5 py-1 font-semibold text-slate-600 w-[24%]">Acquis</th>
                   {cours.map(c => (
-                    <th key={c.cours_code} className="w-[112px] px-1.5 py-1 text-center font-normal align-middle"
-                      title={[c.cours_nom, c.professeurs, c.poids_cours_affiche != null ? `${c.poids_cours_affiche} %` : null].filter(Boolean).join(' · ')}>
+                    <th key={c.cours_code} className={`w-[112px] px-1.5 py-1 text-center font-normal align-middle ${peutCliquerNote ? 'cursor-pointer select-none hover:bg-amber-50' : ''}`}
+                      style={c.ajourne_directement ? { boxShadow: 'inset 0 -3px 0 var(--c-attente)' } : undefined}
+                      onClick={peutCliquerNote ? () => clicCours(c) : undefined}
+                      onDoubleClick={peutCliquerNote ? () => doubleCours(c) : undefined}
+                      title={[c.cours_nom, c.professeurs, c.poids_cours_affiche != null ? `${c.poids_cours_affiche} %` : null,
+                        peutCliquerNote ? (c.ajourne_directement ? 'clic : lever l’ajournement' : 'clic : ajourner les acquis en échec · double-clic : tout le cours') : null].filter(Boolean).join(' · ')}>
                       <div className="text-slate-700 truncate"><b className="font-semibold">{c.cours_code}</b>
                         {c.poids_cours_affiche != null && <span className="text-slate-400"> · {c.poids_cours_affiche} %</span>}</div>
                       {c.cours_nom && <div className="text-mention text-slate-500 leading-tight line-clamp-2">{c.cours_nom}</div>}
@@ -2277,7 +2288,11 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
                   {cours.map(c => (
                     <td key={c.cours_code} className={`px-1.5 py-1.5 text-center whitespace-nowrap ${!regarde.cours ? 'opacity-60' : ''}`}>
                       <span className="relative inline-flex align-middle">
-                      {note(c, { na: c.na })}
+                      {peutCliquerNote ? (
+                        <button type="button" disabled={enCours} className="rounded hover:ring-2 hover:ring-amber-400 select-none"
+                          title={c.ajourne_directement ? 'Clic : lever l’ajournement du cours' : 'Clic : ajourner les acquis en échec · double-clic : tout le cours'}
+                          onClick={() => clicCours(c)} onDoubleClick={() => doubleCours(c)}>{note(c, { na: c.na })}</button>
+                      ) : note(c, { na: c.na })}
 
                       {bouton(!!c.ajourne_directement,
                         c.ajourne_directement ? "Lever l'ajournement du cours" : 'Ajourner : un clic = les acquis en échec, double-clic = tout le cours',
