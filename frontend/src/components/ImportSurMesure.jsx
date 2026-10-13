@@ -56,13 +56,28 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
   const reduire = s => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .toLowerCase().replace(/[^a-z]/g, '');
 
+  /* L'ONGLET SE CHOISIT (13 octobre 2026) : seul le premier était lu, en silence. Un
+     classeur « AESI » rangé derrière l'export eCampus montrait 49 colonnes qui n'étaient
+     pas celles qu'on avait préparées, sans rien qui dise d'où elles venaient. */
+  const [classeur, setClasseur] = useState(null);
+  const [onglet, setOnglet] = useState('');
+
   async function lire(fichier) {
     setErreur(null); setRapport(null);
     try {
       const XLSX = await import('xlsx');
       const wb = XLSX.read(await fichier.arrayBuffer(), { type: 'array', cellDates: true });
-      const lignes = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: null });
-      if (!lignes.length) throw new Error('Ce classeur ne contient aucune ligne.');
+      setClasseur(wb);
+      lireOnglet(wb, wb.SheetNames[0], XLSX);
+    } catch (e) { setErreur(e.message); }
+  }
+
+  async function lireOnglet(wb, nom, XLSX0) {
+    setErreur(null); setRapport(null); setOnglet(nom);
+    try {
+      const XLSX = XLSX0 || await import('xlsx');
+      const lignes = XLSX.utils.sheet_to_json(wb.Sheets[nom], { defval: null });
+      if (!lignes.length) throw new Error(`L'onglet « ${nom} » ne contient aucune ligne.`);
 
       const cols = Object.keys(lignes[0]);
       setEntetes(cols); setBrut(lignes); setLigne(0);
@@ -203,6 +218,20 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
           <input type="file" accept=".xls,.xlsx,.xlsm,.csv" className="hidden"
             onChange={e => e.target.files[0] && lire(e.target.files[0])} />
         </label>
+
+        {classeur && (
+          <label className="flex items-center gap-2 text-sm text-slate-600 flex-wrap">
+            <span>Onglet lu :</span>
+            <select value={onglet} onChange={e => lireOnglet(classeur, e.target.value)}
+              className="controle border border-slate-300 rounded-lg px-2">
+              {classeur.SheetNames.map(n => <option key={n} value={n}>{n}</option>)}
+            </select>
+            {classeur.SheetNames.length > 1 && (
+              <span className="text-second text-slate-500">
+                Ce classeur a {classeur.SheetNames.length} onglets — vérifiez que c'est le bon.
+              </span>)}
+          </label>
+        )}
 
         {profils.length > 0 && (
           <div className="flex items-center gap-2 flex-wrap">
