@@ -8946,6 +8946,7 @@ r.post('/deliberation/ue/:ueNum/ajourner-lot', authRequired,
   };
   // « Tous les acquis du cours » (défaut) ou « seulement ceux en échec ».
   const mode = req.body?.mode === 'echec' ? 'echec' : 'tous';
+  const toutPour = new Set((Array.isArray(req.body?.tout_pour) ? req.body.tout_pour : []).map(Number));
 
   if (!ids.length) return res.status(400).json({ error: 'aucun étudiant sélectionné' });
 
@@ -8995,8 +8996,10 @@ r.post('/deliberation/ue/:ueNum/ajourner-lot', authRequired,
 
       // LES COURS EN DÉFAUT de cet étudiant-là — ou ceux que le Conseil a
       // retenus, quand il en a choisi.
+      // L'ABSENT TOTAL (13 octobre 2026) : rien présenté nulle part — chaque cours
+      // tombe, y compris celui qui n'a aucune note et qu'aucun filtre n'aurait retenu.
       const enDefaut = (d.cours || [])
-        .filter(c => !c.faveur && (c.na || ['PP', 'NP', 'CM'].includes(c.mention)
+        .filter(c => !c.faveur && (toutPour.has(Number(id)) || c.na || ['PP', 'NP', 'CM'].includes(c.mention)
           || (c.note != null && c.note < SEUIL_UE)))
         .map(c => c.cours_code);
       const choisis = coursParEtudiant && Array.isArray(coursParEtudiant[id])

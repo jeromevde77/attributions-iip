@@ -579,7 +579,8 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
                                cours_par_etudiant: coursParEtudiant || undefined,
                                decision_par_etudiant: parEtudiant?.decisions || undefined,
                                motif_par_etudiant: parEtudiant?.motifs || undefined,
-                               motif_par_mention: parEtudiant?.parMention || undefined, mode }),
+                               motif_par_mention: parEtudiant?.parMention || undefined,
+                               tout_pour: parEtudiant?.tout || undefined, mode }),
       });
       const j = await rep.json();
       if (!rep.ok) { setErreur(j.detail || j.error); return null; }
@@ -1568,14 +1569,27 @@ function mentionsDe(e) {
   for (const a of e.acquis || []) if (MENTIONS_LOT.includes(a.mention)) m.add(a.mention);
   return MENTIONS_LOT.filter(x => m.has(x));
 }
-/** À pré-délibérer : une mention, une décision proposée défavorable, rien de décidé. */
+/* L'ABSENT TOTAL (Charles, 13 octobre 2026 : « il faut les PP et NP totaux — ceux qui ont zéro, NP,
+   PP dans tous les cours ; ceux-là on les fait d'un coup, ajournés pour TOUT ou refusés ») : chaque
+   évaluation est un 0, une mention (PP, NP, CM) ou rien. Ils entrent dans le lot MÊME DÉCIDÉS — dans
+   l'UE 333 tout était décidé, et l'étape se sautait d'elle-même : « puis plus rien ». */
+function absentTotal(e) {
+  const evals = (e.acquis || []).flatMap(a => a.evaluations || []);
+  return evals.every(v => MENTIONS_LOT.includes(v.mention) || v.note == null || Number(v.note) === 0);
+}
+/** À pré-délibérer : l'absent total, toujours ; une mention avec une décision défavorable proposée, tant que rien n'est décidé. */
 function aMentionADecider(e) {
-  return !e.resultat && !e.ue?.de_plein_droit && mentionsDe(e).length > 0
+  if (e.ue?.de_plein_droit) return false;
+  if (absentTotal(e)) return true;
+  return !e.resultat && mentionsDe(e).length > 0
     && ['ajourne', 'refuse'].includes(e.ue?.decision_proposee);
 }
 
 function Mentions({ liste, session, enCours, onDecider, onFini, colonnesCours = [], colonnesAcquis = [] }) {
-  const [ecartes, setEcartes] = useState(() => new Set());
+  // Un étudiant déjà décidé arrive DÉCOCHÉ : on ne réécrit pas une décision par mégarde.
+  const [ecartes, setEcartes] = useState(() => new Set(liste.filter(e => e.resultat).map(e => e.id)));
+  // LA DÉCISION DU LOT (13 octobre 2026) : celle que la mention appelle, ou la même pour tous.
+  const [choixLot, setChoixLot] = useState('mention');   // 'mention' | 'ajourne' | 'refuse'
   /* LE TABLEAU SE RETOURNE (Charles, 9 octobre 2026) : au recto les COURS — on
      voit qui est en échec partout ; au verso les ACQUIS de l'unité. Une case dit
      la mention (PP, NP, CM) ou la cote, en rouge sous le seuil. */
@@ -1599,8 +1613,12 @@ function Mentions({ liste, session, enCours, onDecider, onFini, colonnesCours = 
   const [motifs, setMotifs] = useState(MOTIF_MENTION);
   const [mode, setMode] = useState('tous');       // 'tous' | 'echec'
   const [apercu, setApercu] = useState(null);
-  const decisionDe = e => (session >= 2 || e.ue?.decision_proposee === 'refuse') ? 'refuse' : 'ajourne';
-  const groupes = MENTIONS_LOT.map(m => ({ m, gens: liste.filter(e => mentionsDe(e)[0] === m) }))
+  const decisionDe = e => session >= 2 ? 'refuse'
+    : choixLot !== 'mention' ? choixLot
+    : (e.ue?.decision_proposee === 'refuse' ? 'refuse' : 'ajourne');
+  // Les zéros partout, sans mention, forment leur propre groupe : ils n'avaient nulle part où aller.
+  const groupes = [...MENTIONS_LOT.map(m => ({ m, gens: liste.filter(e => mentionsDe(e)[0] === m) })),
+    { m: 'ZERO', gens: liste.filter(e => !mentionsDe(e).length) }]
     .filter(g => g.gens.length);
   const retenus = liste.filter(e => !ecartes.has(e.id));
   const nbRefus = retenus.filter(e => decisionDe(e) === 'refuse').length;
@@ -1608,6 +1626,8 @@ function Mentions({ liste, session, enCours, onDecider, onFini, colonnesCours = 
   const corps = () => ({
     decisions: Object.fromEntries(retenus.map(e => [e.id, decisionDe(e)])),
     parMention: motifs,
+    // L'absent total représente TOUT : chaque cours, même sans note (« ajournés pour TOUT »).
+    tout: retenus.filter(absentTotal).map(e => e.id),
   });
   // Les mentions effectivement présentes, et « autre » dès qu'un acquis échoue sans mention.
   const presentes = [...MENTIONS_LOT.filter(m => liste.some(e => mentionsDe(e).includes(m))),
@@ -1626,7 +1646,9 @@ function Mentions({ liste, session, enCours, onDecider, onFini, colonnesCours = 
           couverts par un certificat médical. La décision proposée est celle du règlement :
           {session >= 2 ? ' en seconde session, tous sont refusés.'
             : ' PP refusé ; NP et CM ajournés — ils représentent en seconde session.'}
-          {' '}Décochez ceux que le Conseil veut examiner un par un.
+          {' '}Ceux qui n'ont rien présenté nulle part — zéro, PP, NP ou aucune note dans
+          tous les cours — y figurent même déjà décidés, décochés : cochez-les pour les
+          ajourner pour tout ou les refuser d'un coup. Décochez ceux que le Conseil veut examiner un par un.
         </p>
       </div>
 
@@ -1660,7 +1682,7 @@ function Mentions({ liste, session, enCours, onDecider, onFini, colonnesCours = 
           {groupes.map(g => (
             <tbody key={g.m}>
               <tr className="tab-repere"><td colSpan={colonnes.length + 3} className="intertitre px-3 py-1">
-                {LIBELLE_MENTION[g.m]} · {g.gens.length}</td></tr>
+                {(LIBELLE_MENTION[g.m] || 'Zéro partout, ou aucune note')} · {g.gens.length}</td></tr>
               {g.gens.map(e => {
                 const pris = !ecartes.has(e.id), dec = decisionDe(e);
                 return (
@@ -1672,6 +1694,7 @@ function Mentions({ liste, session, enCours, onDecider, onFini, colonnesCours = 
                       {pris && <span className="inline-block px-2 rounded-full text-white text-xs font-semibold"
                         style={{ background: dec === 'refuse' ? 'var(--c-refuse)' : 'var(--c-attente)' }}>
                         {dec === 'refuse' ? 'Refusé' : 'Ajourné'}</span>}
+                      {!pris && e.resultat && <span className="text-xs text-slate-500">déjà : {({ ajourne: 'ajourné', refuse: 'refusé', reussi: 'réussi', absent: 'absent' })[e.resultat] || e.resultat}</span>}
                     </td>
                   </tr>
                 );
@@ -1696,6 +1719,17 @@ function Mentions({ liste, session, enCours, onDecider, onFini, colonnesCours = 
       {/* LA QUESTION DU CONSEIL, POSÉE UNE FOIS POUR LE LOT (Charles, 9 octobre
           2026) : un cours ajourné se représente-t-il entier, ou pour ses seuls
           acquis en échec ? */}
+      {session < 2 && (
+        <div className="flex flex-wrap items-center gap-2 text-second text-slate-600">
+          <span>Décision du lot :</span>
+          <div className="segments">
+            {[['mention', 'selon la mention'], ['ajourne', 'tous ajournés pour tout'], ['refuse', 'tous refusés']].map(([k, l]) => (
+              <button key={k} type="button" onClick={() => setChoixLot(k)}
+                className={choixLot === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>{l}</button>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-2 text-second text-slate-600">
         <span>Dans un cours ajourné, l'étudiant représente :</span>
         <div className="segments">
