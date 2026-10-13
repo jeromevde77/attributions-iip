@@ -2218,8 +2218,9 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
     const etat = etatCours(c);
     return (
       <button type="button" disabled={enCours} onClick={ev => { ev.stopPropagation(); cycleCours(c); }}
-        title={['Ajourner les acquis en échec de ce cours', 'Ajourner tous les acquis du cours', 'Annuler l’ajournement du cours'][etat]}
-        className="inline-flex items-center gap-1 h-[22px] px-1.5 rounded-pastille border text-mention font-semibold select-none"
+        title={(c.aas_a_representer ? `Seuls ${c.aas_a_representer.join(', ')} à représenter. ` : '')
+          + ['Ajourner les acquis en échec de ce cours', 'Ajourner tous les acquis du cours', 'Annuler l’ajournement du cours'][etat]}
+        className="inline-flex items-center justify-center gap-1 h-[22px] w-[84px] px-1.5 rounded-pastille border text-mention font-semibold select-none"
         style={etat ? { background: 'var(--c-attente)', borderColor: 'var(--c-attente)', color: '#fff' }
           : { background: '#fff', borderColor: 'rgb(var(--gris-300))', color: 'rgb(var(--gris-500))' }}>
         <IconRotateClockwise size={12} style={{ transform: `rotate(${etat * 120}deg)`, transition: 'transform .25s ease' }} />
@@ -2257,7 +2258,7 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
      celles des réglages : réussi, à surveiller, à corriger. */
   const rect = (fond, texte, titre) => (
     <span title={titre || undefined} style={{ background: fond }}
-      className="inline-flex items-center justify-center min-w-[40px] h-[22px] px-1.5 rounded-pastille text-white font-semibold tabular-nums">{texte}</span>
+      className="inline-flex items-center justify-center min-w-[62px] h-[22px] px-1.5 rounded-pastille text-white font-semibold tabular-nums">{texte}</span>
   );
   /* LE NA GARDE SA NOTE (Charles, 9 octobre 2026 : « je ne sais pas dire si
      l'échec est profond »). Ajourné, l'acquis ou le cours n'a plus de cote
@@ -2405,7 +2406,10 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
 
                       </span>
                       {peutCliquerNote && <div className="mt-1">{badgeCours(c)}</div>}
-                      {c.aas_a_representer && (
+                      {/* RIEN NE BOUGE AU CLIC (Charles, 13 octobre 2026 : « la ligne descend… avec
+                          100 étudiants, tout changement peut générer une erreur ») : la liste des
+                          acquis rouverts passe dans la bulle du badge, qui garde une largeur fixe. */}
+                      {c.aas_a_representer && !peutCliquerNote && (
                         <div className="mt-0.5 text-mention leading-tight text-slate-500 whitespace-normal"
                           title="Le Conseil n'a rouvert que ces acquis du cours">
                           seuls {c.aas_a_representer.join(', ')}
