@@ -291,10 +291,47 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
    * ajourne souvent tout. Le faire tuile par tuile sur six cours, c'est six
    * allers-retours pendant lesquels la fiche se reconstruit à mesure.
    */
-  async function ajusterLot(portee, codes, action) {
+  /* LA DÉCISION S'ENREGISTRE AVEC L'AJOURNEMENT (13 octobre 2026, UE 333, Bah). Elle ne s'écrivait
+     qu'au passage à l'étudiant suivant : ajourné dans un cours le 9, Bah n'avait de décision « ajourné »
+     que le 13 — et manquait entre-temps à la liste des ajournés et à la seconde session, qui la lisent.
+     Le choix du Conseil (decisions[…]) l'emporte ; à défaut, la décision que le calcul propose. */
+  async function enregistrerDecision(etudJ) {
+    const decision = decisions[etud.id] || etudJ?.ue?.decision_proposee;
+    if (!decision) return;
+    try {
+      const rep = await fetch('/api/acquis/decision', {
+        method: 'PUT', headers: authHeaders(),
+        body: JSON.stringify({ etudiant_id: etud.id, annee_scolaire: annee, ue_num: ueNum, session,
+          resultat: decision, points: etudJ?.ue?.note ?? null }),
+      });
+      if (rep.ok) setData(d => ({ ...d, etudiants: d.etudiants.map(x => x.id === etud.id
+        ? { ...x, resultat: decision, points: etudJ?.ue?.note ?? null } : x) }));
+    } catch { /* la décision s'écrira au passage au suivant */ }
+  }
+
+  /* UN ACQUIS DANS UN COURS, D'UN CLIC SUR SA NOTE (13 octobre 2026) : l'ajoute à l'ajournement de
+     ce cours, ou l'en retire. */
+  async function ajusterAACours(coursCode, aaCode, oui) {
+    if (!etud) return;
+    setEnCours(true); setErreur(null);
+    try {
+      const rep = await fetch('/api/acquis/deliberation/ajustement/aa-cours', {
+        method: 'PUT', headers: authHeaders(),
+        body: JSON.stringify({ etudiant_id: etud.id, annee_scolaire: annee, ue_num: ueNum, session,
+          cours_code: coursCode, aa_code: aaCode, oui }),
+      });
+      const j = await rep.json();
+      if (!rep.ok) { setErreur(j.error); return; }
+      setData(d => ({ ...d, etudiants: d.etudiants.map(x => x.id === etud.id ? { ...x, ...j } : x) }));
+      await enregistrerDecision(j);
+    } catch (e) { setErreur(e.message); }
+    finally { setEnCours(false); }
+  }
+
+  async function ajusterLot(portee, codes, action, modeForce = null) {
     if (!etud || !codes.length) return;
-    const mode = portee === 'cours' && action === 'ajourne' ? await porteeAjournement(codes) : 'tous';
-    if (!mode) return;
+    // Un clic : les acquis en échec ; tout le cours se demande par un double-clic (13 octobre 2026).
+    const mode = modeForce || (portee === 'cours' && action === 'ajourne' ? 'echec' : 'tous');
     setEnCours(true); setErreur(null);
     try {
       const rep = await fetch('/api/acquis/deliberation/ajustement/lot', {
@@ -308,6 +345,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
       if (!rep.ok) { setErreur(j.error); return; }
       setData(d => ({ ...d,
         etudiants: d.etudiants.map(x => x.id === etud.id ? { ...x, ...j } : x) }));
+      await enregistrerDecision(j);
     } catch (e) { setErreur(e.message); }
     finally { setEnCours(false); }
   }
@@ -337,10 +375,11 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
   }
 
   /** Poser ou retirer un ajustement. Le serveur renvoie l'étudiant recalculé. */
-  async function ajuster(portee, code, action) {
+  async function ajuster(portee, code, action, modeForce = null) {
     if (!etud) return;
-    const mode = portee === 'cours' && action === 'ajourne' ? await porteeAjournement([code]) : 'tous';
-    if (!mode) return;
+    // LE CLIC DIT LA PORTÉE (Charles, 13 octobre 2026) : un clic ajourne les acquis en échec du
+    // cours, un double-clic le cours entier. La question qui s'ouvrait à chaque fois disparaît.
+    const mode = modeForce || (portee === 'cours' && action === 'ajourne' ? 'echec' : 'tous');
     setEnCours(true); setErreur(null);
     try {
       const rep = await fetch('/api/acquis/deliberation/ajustement', {
@@ -354,6 +393,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
       if (!rep.ok) { setErreur(j.error); return; }
       setData(d => ({ ...d,
         etudiants: d.etudiants.map(x => x.id === etud.id ? { ...x, ...j } : x) }));
+      if (action === 'ajourne' || action == null) await enregistrerDecision(j);
     } catch (e) { setErreur(e.message); }
     finally { setEnCours(false); }
   }
@@ -846,7 +886,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
               onOuvrir={e => { setIdx(liste.indexOf(e)); setTableau(false); }} />
           ) : etud ? (
             <>
-              <Fiche e={etud} data={data} onAjuster={ajuster} onLot={ajusterLot}
+              <Fiche e={etud} data={data} onAjuster={ajuster} onLot={ajusterLot} onAACours={ajusterAACours}
                 onMotif={poserMotif} session={session}
                 enCours={enCours} onBord={() => setBord(etud)}
                 decision={decisions[etud.id] || etud.ue?.decision_proposee || null}
@@ -2043,7 +2083,7 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
  *   · dessous, LA BANDE DE DÉCISION : la note d'unité, puis les choix du
  *     Conseil. Le calcul et les gestes n'ont pas changé : seule la mise en page.
  */
-function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
+function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
   decision, onDecision, onAnnuler, session, navigation = null }) {
   const ue = e.ue || {};
   const acquis = e.acquis || [];
@@ -2055,6 +2095,31 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
   const sansAjournement = data.session >= 2;
   const aJust = aJustifier(acquis, cours, decision);
   const aJustCodes = new Set(aJust.map(a => a.aa_code));
+
+  /* UN CLIC, UN DOUBLE-CLIC (13 octobre 2026). Le clic attend un instant : s'il devient double,
+     c'est le cours entier qui tombe ; sinon, ses seuls acquis en échec. Sur un cours déjà ajourné,
+     le clic lève l'ajournement. */
+  const minuteurs = useRef({});
+  const clicCours = c => {
+    clearTimeout(minuteurs.current[c.cours_code]);
+    if (c.ajourne_directement) { onAjuster('cours', c.cours_code, null); return; }
+    minuteurs.current[c.cours_code] = setTimeout(() => onAjuster('cours', c.cours_code, 'ajourne', 'echec'), 240);
+  };
+  const doubleCours = c => {
+    clearTimeout(minuteurs.current[c.cours_code]);
+    onAjuster('cours', c.cours_code, 'ajourne', 'tous');
+  };
+  /* Un clic sur une note : cet acquis, dans ce cours, à représenter ou non. */
+  const peutCliquerNote = !sansAjournement && !lectureSeule() && !!onAACours;
+  const aaTombeDans = (a, c) => !!caseDe(a, c.cours_code)?.ajourne;
+
+  /* L'ACQUIS OUBLIÉ (13 octobre 2026, Bah) : l'unité est ajournée, un acquis est sous le seuil,
+     et rien ne le fait représenter. En session 2, sa note ne compterait pas. */
+  const oublies = (!sansAjournement && decision === 'ajourne')
+    ? acquis.filter(a => !a.na && !a.faveur && a.note_calculee != null && a.note_calculee < (seuil ?? 10))
+    : [];
+  const coursDesOublies = [...new Set(oublies.flatMap(a => (a.evaluations || [])
+    .filter(v => !v.ajourne && (v.note == null || v.note < (seuil ?? 10))).map(v => v.cours_code)))];
 
   /** Le pinceau : ajouter ces énoncés à tous les autres acquis à justifier. */
   function reporter(cles) {
@@ -2100,8 +2165,8 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
     return rect('var(--c-reussi)', fmt(v.note));
   };
 
-  const bouton = (actif, titre, onClick) => !sansAjournement && (
-    <button disabled={enCours} onClick={onClick} title={titre}
+  const bouton = (actif, titre, onClick, onDouble = null) => !sansAjournement && (
+    <button disabled={enCours} onClick={onClick} onDoubleClick={onDouble || undefined} title={titre}
       className={`absolute left-full top-1/2 -translate-y-1/2 ml-1 w-4 h-4 rounded-full inline-flex items-center justify-center border
         ${actif ? 'bg-amber-500 border-amber-600 text-white' : 'bg-white border-slate-300 text-slate-400 hover:border-amber-500 hover:text-amber-600'}`}>
       <IconRepeat size={9} />
@@ -2172,7 +2237,13 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
                               réussi, restait peinte en échec. Elle ne tombe qu'avec son cours,
                               ou quand l'acquis lui-même est ajourné — et seulement là où ce
                               cours l'évalue : une case vide reste vide. */}
-                          {note(caseDe(a, c.cours_code), { na: !!caseDe(a, c.cours_code) && (!!caseDe(a, c.cours_code).ajourne || !!a.ajourne_directement) })}
+                          {peutCliquerNote && caseDe(a, c.cours_code) ? (
+                            <button type="button" disabled={enCours} className="rounded hover:ring-2 hover:ring-amber-400"
+                              title={aaTombeDans(a, c) ? `Retirer ${a.aa_code} de l'ajournement du cours ${c.cours_code}` : `Ajourner ${a.aa_code} dans le cours ${c.cours_code}`}
+                              onClick={() => onAACours(c.cours_code, a.aa_code, !aaTombeDans(a, c))}>
+                              {note(caseDe(a, c.cours_code), { na: !!caseDe(a, c.cours_code).ajourne || !!a.ajourne_directement })}
+                            </button>
+                          ) : note(caseDe(a, c.cours_code), { na: !!caseDe(a, c.cours_code) && (!!caseDe(a, c.cours_code).ajourne || !!a.ajourne_directement) })}
                         </td>
                       ))}
                       <td className="px-2 py-1 text-center bg-iip-blue/10 whitespace-nowrap">
@@ -2208,8 +2279,9 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
                       <span className="relative inline-flex align-middle">
                       {note(c, { na: c.na })}
 
-                      {bouton(!!c.ajourne_directement, c.ajourne_directement ? "Lever l'ajournement du cours" : 'Ajourner ce cours — à représenter',
-                        () => onAjuster('cours', c.cours_code, c.ajourne_directement ? null : 'ajourne'))}
+                      {bouton(!!c.ajourne_directement,
+                        c.ajourne_directement ? "Lever l'ajournement du cours" : 'Ajourner : un clic = les acquis en échec, double-clic = tout le cours',
+                        () => clicCours(c), () => doubleCours(c))}
                       </span>
                       {c.aas_a_representer && (
                         <div className="mt-0.5 text-mention leading-tight text-slate-500 whitespace-normal"
@@ -2230,6 +2302,20 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
 
         {/* Ce que la décision emporte, et ce que la faveur coûterait : dans la
             fiche, lu avant de cliquer. */}
+        {oublies.length > 0 && (
+          <div className="bloc-etat px-3 py-2 flex items-center gap-3" data-etat="corriger">
+            <IconAlertTriangle size={16} className="flex-none" style={{ color: 'var(--c-refuse)' }} />
+            <span className="flex-1 text-sm">
+              <b>{oublies.map(a => `${a.aa_code} à ${a.note_calculee}/20`).join(', ')} : en échec et non ajourné{oublies.length > 1 ? 's' : ''}.</b>{' '}
+              L'unité est ajournée, mais {oublies.length > 1 ? 'ces acquis ne seraient pas représentés' : 'cet acquis ne serait pas représenté'} en seconde session ; la clôture le refusera.
+            </span>
+            {!lectureSeule() && coursDesOublies.length > 0 && (
+              <button className="bouton bouton-fort" disabled={enCours}
+                onClick={() => onLot('cours', coursDesOublies, 'ajourne', 'echec')}>
+                Ajourner aussi ({coursDesOublies.join(', ')})
+              </button>)}
+          </div>
+        )}
         {!lectureSeule() && <DecisionGenerale cours={cours} enCours={enCours} onLot={onLot}
           onDecision={onDecision} decision={decision} />}
         <AideDecision ue={ue} />

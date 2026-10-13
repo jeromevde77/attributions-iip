@@ -6351,6 +6351,54 @@ export function motivationsEnseignants(ueNum, annee, session = 1, org = null) {
   return sortie;
 }
 
+/* LES AJOURNEMENTS QUI NE TIENNENT PAS ENSEMBLE (13 octobre 2026, UE 333, Bah : « il n'était pas
+ * noté ajourné dans un cours et il a quand même reçu une seconde session ; il n'était pas sur les
+ * listes des ajournés »). Deux défauts, que la clôture de session 1 refuse désormais en les nommant :
+ *  · un étudiant AJOURNÉ dont un acquis est sous le seuil SANS être ajourné (ni par son cours, ni
+ *    lui-même) ni couvert par une faveur : il ne serait pas représenté en seconde session, et sa
+ *    note de septembre n'y compterait pas — il serait refusé quoi qu'il fasse ;
+ *  · des cours ou des acquis ajournés SANS décision « ajourné » enregistrée : l'étudiant manque
+ *    alors à la liste des ajournés et à la seconde session, qui lisent la décision.
+ * Rend [{ etudiant_id, nom, prenom, decision, oublies: [{aa_code, note}], sans_decision }]. */
+export function incoherencesAjournement(ueNum, annee, org = null) {
+  const orgSql = org == null ? ''
+    : (Number(org) > 0 ? ` AND i.num_organisation = ${Number(org)}` : ' AND i.num_organisation IS NULL');
+  const seuil = reglesDeliberation().seuil_aa ?? 10;
+  const KO = ['PP', 'NP', 'CM'];
+  const sortie = [];
+  const gens = db.prepare(`SELECT e.id, e.nom, e.prenom FROM etudiant_inscription i
+    JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.annee_scolaire = ? AND i.ue_num = ?${orgSql} ORDER BY e.nom, e.prenom`).all(annee, Number(ueNum));
+  for (const e of gens) {
+    const dec = db.prepare(`SELECT resultat FROM deliberation_resultat
+      WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND session = 1`).get(e.id, annee, Number(ueNum))?.resultat || null;
+    const ajust = db.prepare(`SELECT COUNT(*) n FROM deliberation_ajustement
+      WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND session = 1 AND action = 'ajourne'`).get(e.id, annee, Number(ueNum)).n;
+    const sansDecision = ajust > 0 && dec !== 'ajourne';
+    let oublies = [];
+    if (dec === 'ajourne') {
+      const d = delibererUE(e.id, Number(ueNum), annee, 1);
+      oublies = (d.acquis || []).filter(a => !a.na && !a.faveur && (
+        (a.note_calculee != null && a.note_calculee < seuil)
+        || (a.evaluations || []).some(v => !v.ajourne && KO.includes(v.mention))))
+        .map(a => ({ aa_code: a.aa_code, note: a.note_calculee,
+          cours: (a.evaluations || []).filter(v => !v.ajourne && (v.note == null || v.note < seuil || KO.includes(v.mention))).map(v => v.cours_code) }));
+    }
+    if (oublies.length || sansDecision) {
+      sortie.push({ etudiant_id: e.id, nom: e.nom, prenom: e.prenom, decision: dec, oublies, sans_decision: sansDecision });
+    }
+  }
+  return sortie;
+}
+
+/** La même vérification, lisible depuis l'écran avant de clore. */
+r.get('/deliberation/ue/:ueNum/incoherences', authRequired, (req, res) => {
+  const annee = req.query.annee || anneeDeTravail(req);
+  const org = req.query.org != null ? Math.max(0, Number(req.query.org) || 0) : null;
+  try { res.json({ incoherences: incoherencesAjournement(Number(req.params.ueNum), annee, org > 0 ? org : null) }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 export function motivationsProposees(ueNum, annee, session = 1, org = null) {
   const sortie = [];
   // Par organisation, seuls SES étudiants entrent dans le compte : la clôture
@@ -6516,6 +6564,22 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
     // pas mieux qu'une case vide — c'est même exactement ce qu'un recours
     // attaque. La clôture est le moment où la décision s'arrête : c'est là
     // qu'on demande, une fois, en nommant les dossiers.
+    // LA SESSION 1 NE SE CLÔT PAS SUR DES AJOURNEMENTS QUI NE TIENNENT PAS ENSEMBLE (13 octobre
+    // 2026, Bah, UE 333) : un acquis en échec non ajourné chez un ajourné, ou des cours ajournés sans
+    // décision « ajourné ». Rien ne se force ici : chaque cas se règle sur la fiche de l'étudiant.
+    if (session === 1) {
+      const inco = incoherencesAjournement(ueNum, annee, orgMot);
+      if (inco.length) {
+        const nom = x => `${String(x.nom || '').toUpperCase()} ${x.prenom || ''}`.trim();
+        return res.status(409).json({
+          error: `${inco.length} étudiant(s) dont les ajournements ne tiennent pas ensemble : la séance reste ouverte.`,
+          detail: inco.map(x => x.sans_decision
+            ? `${nom(x)} : cours ou acquis ajournés, mais aucune décision « ajourné » enregistrée`
+            : `${nom(x)} : ${x.oublies.map(o => `${o.aa_code} à ${o.note ?? '—'}/20`).join(', ')} en échec et non ajourné — il ne serait pas représenté en seconde session`).join(' · '),
+          incoherences: inco,
+        });
+      }
+    }
     const restes = motivationsProposees(ueNum, annee, session, orgMot);
     if (restes.length && !req.body?.motivations_proposees_acceptees) {
       return res.status(409).json({
@@ -9028,6 +9092,53 @@ r.put('/deliberation/ajustement/lot', authRequired,
   })();
 
   res.json(avecAide(Number(etudiant_id), Number(ue_num), annee_scolaire, ses));
+});
+
+/* UN ACQUIS DANS UN COURS, D'UN CLIC (13 octobre 2026, Charles : « je clique sur la note pour
+ * l'ajourner »). Ajoute ou retire CET acquis de l'ajournement de CE cours : un cours non ajourné le
+ * devient, sur ce seul acquis ; un cours ajourné « en entier » se réduit aux autres acquis quand on
+ * en retire un ; le dernier acquis retiré lève l'ajournement du cours. Le reste — la décision, les
+ * justifications — suit comme pour tout ajournement. */
+r.put('/deliberation/ajustement/aa-cours', authRequired,
+      gesteRequis('deliberation.faveur'), (req, res) => {
+  const { etudiant_id, annee_scolaire, ue_num, cours_code, aa_code } = req.body || {};
+  const oui = req.body?.oui === true;
+  const ses = Number(req.body?.session) === 2 ? 2 : 1;
+  if (!etudiant_id || !annee_scolaire || !ue_num || !cours_code || !aa_code) {
+    return res.status(400).json({ error: 'étudiant, année, unité, cours et acquis requis' });
+  }
+  const et = Number(etudiant_id), ue = Number(ue_num), par = req.user?.email || null;
+  const d = delibererUE(et, ue, annee_scolaire, ses);
+  const duCours = [...new Set((d.acquis || []).filter(a => (a.evaluations || []).some(v => v.cours_code === cours_code)).map(a => a.aa_code))];
+  if (!duCours.includes(aa_code)) return res.status(400).json({ error: `${aa_code} n'est pas évalué dans le cours ${cours_code}` });
+  const ajourne = !!db.prepare(`SELECT 1 FROM deliberation_ajustement WHERE etudiant_id = ? AND annee_scolaire = ?
+      AND ue_num = ? AND session = ? AND portee = 'cours' AND code = ? AND action = 'ajourne'`).get(et, annee_scolaire, ue, ses, cours_code);
+  const partiels = db.prepare(`SELECT aa_code FROM deliberation_ajourne_aa WHERE etudiant_id = ? AND annee_scolaire = ?
+      AND ue_num = ? AND session = ? AND cours_code = ?`).all(et, annee_scolaire, ue, ses, cours_code).map(x => x.aa_code);
+  // Ce qui tombe aujourd'hui dans ce cours : rien, tout le cours, ou la liste partielle.
+  let actuels = !ajourne ? [] : (partiels.length ? partiels : duCours);
+  actuels = oui ? [...new Set([...actuels, aa_code])] : actuels.filter(x => x !== aa_code);
+  db.transaction(() => {
+    db.prepare(`DELETE FROM deliberation_ajourne_aa WHERE etudiant_id = ? AND annee_scolaire = ?
+        AND ue_num = ? AND session = ? AND cours_code = ?`).run(et, annee_scolaire, ue, ses, cours_code);
+    if (!actuels.length) {
+      db.prepare(`DELETE FROM deliberation_ajustement WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
+          AND session = ? AND portee = 'cours' AND code = ?`).run(et, annee_scolaire, ue, ses, cours_code);
+      return;
+    }
+    db.prepare(`INSERT INTO deliberation_ajustement (etudiant_id, annee_scolaire, ue_num, session, portee, code, action, maj_par)
+        VALUES (?,?,?,?,'cours',?,'ajourne',?)
+        ON CONFLICT(etudiant_id, annee_scolaire, ue_num, session, portee, code)
+        DO UPDATE SET action = 'ajourne', maj_le = CURRENT_TIMESTAMP, maj_par = excluded.maj_par`)
+      .run(et, annee_scolaire, ue, ses, cours_code, par);
+    // Tous les acquis du cours : le cours se représente entier, sans liste.
+    if (actuels.length < duCours.length) {
+      const ins = db.prepare(`INSERT OR IGNORE INTO deliberation_ajourne_aa
+          (etudiant_id, annee_scolaire, ue_num, session, cours_code, aa_code, maj_par) VALUES (?,?,?,?,?,?,?)`);
+      for (const aa of actuels) ins.run(et, annee_scolaire, ue, ses, cours_code, aa, par);
+    }
+  })();
+  res.json(avecAide(et, ue, annee_scolaire, ses));
 });
 
 r.put('/deliberation/ajustement', authRequired,
