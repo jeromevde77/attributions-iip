@@ -299,7 +299,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
    */
   const decisionRetenue = etud ? (decisions[etud.id] || etud.ue?.decision_proposee || null) : null;
   const aMotiver = etud && decisionRetenue !== 'reussi'
-    ? aJustifier(etud.acquis, etud.cours, decisionRetenue).filter(a => !a.motif)
+    ? aJustifier(etud.acquis, etud.cours, decisionRetenue).filter(a => !a.motif && !a.motif_propose)
     : [];
 
   /**
@@ -2188,7 +2188,9 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
   const cours = e.cours || [];
   const caseDe = (a, coursCode) => (a.evaluations || []).find(v => v.cours_code === coursCode) || null;
   const regarde = e.ue?.regarde || { aa: true, cours: true };
-  const decidee = decision === 'ajourne' || decision === 'refuse';
+  const decidee = decision === 'ajourne' || decision === 'refuse' || decision === 'absent';
+  // ABSENT, C'EST NA PARTOUT (Charles, 13 octobre 2026) : aucune cote ne reste acquise.
+  const absent = decision === 'absent';
   const seuil = data.seuil;
   const sansAjournement = data.session >= 2;
   const aJust = aJustifier(acquis, cours, decision);
@@ -2269,9 +2271,12 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
   // LA NOTE RESTE VISIBLE, DÉCISION ENREGISTRÉE OU NON (13 octobre 2026, Charles : « on ne voit pas
   // les notes ») : la décision s'enregistre désormais avec l'ajournement, et la règle « seulement NA
   // une fois enregistrée » effaçait toutes les notes dès le premier clic.
+  // NOTES ENTIÈRES DANS LA MATRICE (Charles, 13 octobre 2026 : « il y a des virgules ! ») : arrondi à l'unité.
+  const ent = n => n == null ? n : Math.round(Number(n));
   const sousNA = n => n == null ? 'NA'
-    : <>{fmt(n)}<span className="ml-1 text-mention font-normal opacity-90">NA</span></>;
-  const note = (v, { na = false } = {}) => {
+    : <>{fmt(ent(n))}<span className="ml-1 text-mention font-normal opacity-90">NA</span></>;
+  const note = (v, { na = false, aaNA = false } = {}) => {
+    if (absent && v && (v.mention || v.note != null || v.note_brute != null)) na = true;
     if (na) {
       const n = v?.mention ? null : (v?.note_brute ?? v?.note ?? null);
       // Ajourné en session 1 : ORANGE, nos couleurs (Charles) ; en session 2, ce qui reste en défaut est refusé : fraise.
@@ -2282,9 +2287,13 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
     if (v.mention) return rect(v.mention === 'PP' ? 'var(--c-refuse)' : 'var(--c-attente)', v.mention,
       v.mention === 'NP' ? 'Note de présence' : v.mention === 'PP' ? 'Pas présenté' : '');
     if (v.note == null) return <span className="text-slate-300">·</span>;
-    if (v.note < seuil) return rect('var(--c-refuse)', decidee ? sousNA(v.note) : fmt(v.note), decidee ? `Cote calculée : ${fmt(v.note)}/20 — non acquis` : '');
-    if (v.note === seuil) return rect('var(--c-attente)', fmt(v.note), 'Au seuil, tout juste');
-    return rect('var(--c-reussi)', fmt(v.note));
+    const n = ent(v.note);
+    // L'ACQUIS EST AJOURNÉ AU GLOBAL (par un autre cours) : son échec ici fait partie du même
+    // ajournement — orange, pas une alerte par cours (« les profs se sont peut-être mis d'accord »).
+    if (n < seuil) return rect(aaNA && !sansAjournement ? 'var(--c-attente)' : 'var(--c-refuse)', decidee || aaNA ? sousNA(v.note) : fmt(n),
+      aaNA ? `Cote ${fmt(v.note)}/20 — l'acquis est ajourné au global` : decidee ? `Cote calculée : ${fmt(v.note)}/20 — non acquis` : `Cote ${fmt(v.note)}/20`);
+    if (n === seuil) return rect('var(--c-attente)', fmt(n), `Au seuil, tout juste · cote ${fmt(v.note)}/20`);
+    return rect('var(--c-reussi)', fmt(n), Number(v.note) !== n ? `Cote ${fmt(v.note)}/20` : undefined);
   };
 
   const bouton = (actif, titre, onClick, onDouble = null) => !sansAjournement && (
@@ -2339,8 +2348,16 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
                   {aJust.length > 0 && (
                     <th className="text-left px-2.5 py-1 font-semibold text-slate-600">
                       Motivation de l'échec
-                      <span className="font-normal text-slate-400"> · {aJust.filter(a => !a.motif).length
-                        ? `${aJust.filter(a => !a.motif).length} à écrire` : 'toutes écrites'}</span>
+                      <span className="font-normal text-slate-400"> · {aJust.filter(a => !a.motif && !a.motif_propose).length
+                        ? `${aJust.filter(a => !a.motif && !a.motif_propose).length} à écrire`
+                        : aJust.some(a => !a.motif) ? 'proposées par Lucie, confirmées à la clôture' : 'toutes écrites'}</span>
+                      {/* UNE MOTIVATION POUR TOUS (Charles, 13 octobre 2026 : « si c'est la même raison et que
+                          cela n'a pas été encodé par les profs, on gagne du temps ») : elle va aux acquis qui
+                          n'ont aucun motif retenu — jamais par-dessus un enseignant ou le Conseil. */}
+                      {!lectureSeule() && aJust.some(a => !a.motif) && (
+                        <MotifPourTous enCours={enCours} nb={aJust.filter(a => !a.motif).length}
+                          onPoser={t => onMotif(Object.fromEntries(aJust.filter(a => !a.motif).map(a => [a.aa_code, t])))} />
+                      )}
                     </th>
                   )}
                 </tr>
@@ -2366,9 +2383,9 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
                             <button type="button" disabled={enCours} className="rounded hover:ring-2 hover:ring-amber-400"
                               title={aaTombeDans(a, c) ? `Retirer ${a.aa_code} de l'ajournement du cours ${c.cours_code}` : `Ajourner ${a.aa_code} dans le cours ${c.cours_code}`}
                               onClick={() => onAACours(c.cours_code, a.aa_code, !aaTombeDans(a, c))}>
-                              {note(caseDe(a, c.cours_code), { na: !!caseDe(a, c.cours_code).ajourne || !!a.ajourne_directement })}
+                              {note(caseDe(a, c.cours_code), { na: !!caseDe(a, c.cours_code).ajourne || !!a.ajourne_directement, aaNA: !!a.na })}
                             </button>
-                          ) : note(caseDe(a, c.cours_code), { na: !!caseDe(a, c.cours_code) && (!!caseDe(a, c.cours_code).ajourne || !!a.ajourne_directement) })}
+                          ) : note(caseDe(a, c.cours_code), { na: !!caseDe(a, c.cours_code) && (!!caseDe(a, c.cours_code).ajourne || !!a.ajourne_directement), aaNA: !!a.na })}
                         </td>
                       ))}
                       <td className="px-2 py-1 text-center bg-iip-blue/10 whitespace-nowrap">
@@ -2507,6 +2524,20 @@ function Thermometre({ pc, ueNum, onBord }) {
    en ajouter, la précision propre, le pinceau — la même mécanique que
    l'ancien bloc « À justifier », resserrée à une cellule. Sa provenance se lit
    à côté : l'enseignant (c'est le motif délibéré), le Conseil, ou Lucie. */
+function MotifPourTous({ nb, onPoser, enCours }) {
+  const [texte, setTexte] = useState('');
+  return (
+    <div className="mt-1 flex items-start gap-1.5 normal-case tracking-normal font-normal">
+      <textarea rows={1} value={texte} onChange={ev => setTexte(ev.target.value)} data-reponses="deliberation.motif"
+        placeholder="Une motivation pour tous les acquis sans justification…" spellCheck
+        className="flex-1 min-w-0 border border-slate-300 rounded-lg px-2 py-1 text-xs text-slate-800 bg-white" />
+      <button type="button" className="bouton bouton-compact flex-none" disabled={enCours || texte.trim().length < 5}
+        onClick={() => { onPoser(texte.trim()); setTexte(''); }}>
+        Mettre partout ({nb})</button>
+    </div>
+  );
+}
+
 function MotifEnLigne({ a, onMotif, onReporter, seul, enCours }) {
   const depart = decomposerMotif(a.motif || '');
   const [cles, setCles] = useState(depart.cles);
