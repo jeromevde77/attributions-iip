@@ -6374,7 +6374,10 @@ export function incoherencesAjournement(ueNum, annee, org = null) {
       WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND session = 1`).get(e.id, annee, Number(ueNum))?.resultat || null;
     const ajust = db.prepare(`SELECT COUNT(*) n FROM deliberation_ajustement
       WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND session = 1 AND action = 'ajourne'`).get(e.id, annee, Number(ueNum)).n;
-    const sansDecision = ajust > 0 && dec !== 'ajourne';
+    // Une décision « refusé » ou « absent » est une décision : un abandon peut porter des cours ajournés
+    // sans que rien manque (UE 333 : seize refusés de session 1). Seuls comptent l'absence de décision
+    // et une réussite qui garderait des ajournements.
+    const sansDecision = ajust > 0 && !['ajourne', 'refuse', 'absent'].includes(dec);
     let oublies = [];
     if (dec === 'ajourne') {
       const d = delibererUE(e.id, Number(ueNum), annee, 1);
