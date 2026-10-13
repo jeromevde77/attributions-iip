@@ -2345,8 +2345,10 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
                   ))}
                   <th className="w-[84px] px-2 py-1 text-center font-semibold text-slate-700 bg-iip-blue/10"
                     title="La note consolidée de l'acquis : c'est elle qui fait foi">Acquis</th>
-                  {aJust.length > 0 && (
-                    <th className="text-left px-2.5 py-1 font-semibold text-slate-600">
+                  {/* LE TABLEAU GARDE SA LARGEUR (Charles, 13 octobre 2026 : « si j'ajourne, le tableau se
+                      réduit ») : la colonne des motivations est toujours là, vide tant qu'il n'y a pas d'échec. */}
+                  <th className="text-left px-2.5 py-1 font-semibold text-slate-600 w-[32%]">
+                  {aJust.length > 0 && (<>
                       Motivation de l'échec
                       <span className="font-normal text-slate-400"> · {aJust.filter(a => !a.motif && !a.motif_propose).length
                         ? `${aJust.filter(a => !a.motif && !a.motif_propose).length} à écrire`
@@ -2358,8 +2360,8 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
                         <MotifPourTous enCours={enCours} nb={aJust.filter(a => !a.motif).length}
                           onPoser={t => onMotif(Object.fromEntries(aJust.filter(a => !a.motif).map(a => [a.aa_code, t])))} />
                       )}
-                    </th>
-                  )}
+                  </>)}
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -2396,7 +2398,7 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
                           () => onAjuster('aa', a.aa_code, a.ajourne_directement ? null : 'ajourne'))}
                         </span>
                       </td>
-                      {aJust.length > 0 && (
+                      {(
                         <td className="px-2 py-1">
                           {enCause && (
                             <MotifEnLigne a={a} enCours={enCours} seul={aJust.length < 2}
@@ -2434,8 +2436,8 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
                     </td>
                   ))}
                   <td className="bg-iip-blue/10" />
-                  {aJust.length > 0 && <td className="px-2.5 py-1.5 text-mention text-slate-400">
-                    Ce texte est celui de l'annexe 8 (ajournement) ou 9 (refus).</td>}
+                  <td className="px-2.5 py-1.5 text-mention text-slate-400">
+                    {aJust.length > 0 && "Ce texte est celui de l'annexe 8 (ajournement) ou 9 (refus)."}</td>
                 </tr>
                 )}
               </tbody>
