@@ -6959,7 +6959,12 @@ export function documentAjournesParCours(ueNum, annee, session = 1) {
   for (const e of ajournes) {
     const d = delibererUE(e.id, ueNum, annee, session);
     for (const c of d.cours) {
-      if (!aRepasser(c)) continue;
+      // LE COURS AUSSI, DÈS QU'UN ACQUIS Y EST EN ÉCHEC (13 octobre 2026, Charles, UE 333, Bah : « il
+      // faut qu'il soit dans la liste des étudiants ajournés dans le cours »). Le cours 333.3 avait une
+      // note de 12 et un acquis à 8 : il n'était ni ajourné ni sous 10, et Bah manquait à sa liste.
+      const acquisEnEchecIci = (d.acquis || []).some(a => !a.faveur && (a.evaluations || []).some(v => v.cours_code === c.cours_code
+        && (['PP', 'NP', 'CM'].includes(v.mention) || (v.note != null && Number(v.note) < SEUIL_UE))));
+      if (!aRepasser(c) && !acquisEnEchecIci) continue;
       // Les SEULS acquis à représenter, quand le Conseil n'a pas rouvert tout le
       // cours (9 octobre 2026) — la même règle que la fiche et l'annexe 8.
       // Un cours simplement raté, sans ajustement du Conseil : ses acquis en
