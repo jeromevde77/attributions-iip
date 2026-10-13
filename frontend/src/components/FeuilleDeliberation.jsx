@@ -1483,7 +1483,9 @@ function PleinDroit({ auto, onAppliquer, onPasser, enCours }) {
                 <b className="text-iip-blue">{r.nom}</b> {r.prenom}
               </span>
               {r.deja_decide && <span className="text-xs text-slate-400">déjà décidé</span>}
-              <span className="font-bold tabular-nums text-emerald-700 w-14 text-right">
+              {/* Réussi : la note en VERT, la couleur « réussi » du réglage (Charles, 13 octobre 2026).
+                  text-emerald-700 tombait sur l'encre marine de l'échelle. */}
+              <span className="font-bold tabular-nums w-14 text-right" style={{ color: 'var(--c-reussi)' }}>
                 {fmt(r.note)}/20
               </span>
             </div>
