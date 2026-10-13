@@ -92,6 +92,9 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
   // calcul propose. Le calcul propose ; le Conseil décide.
   const [decisions, setDecisions] = useState({});   // etudiant_id → resultat
   const [etape, setEtape] = useState('presences');   // presences | auto | fiche | cloture
+  // Les PP, NP et CM se décident en séries, chacune avec sa justification.
+  const [seriesFaites, setSeriesFaites] = useState(0);
+  const [dernierLot, setDernierLot] = useState(0);
   const [documents, setDocuments] = useState(false); // le centre d'impression
   const [auto, setAuto] = useState(null);           // les réussites de plein droit
   const [reprise, setReprise] = useState(null);     // la délibération venue du classeur
@@ -871,7 +874,8 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
               onPasser={() => { figerOrdre(); setIdx(0);
                 setEtape((data?.etudiants || []).some(aMentionADecider) ? 'mentions' : 'fiche'); }} />
           ) : etape === 'mentions' ? (
-            <Mentions liste={(data?.etudiants || []).filter(aMentionADecider)} session={session}
+            <Mentions key={seriesFaites} faits={seriesFaites ? dernierLot : 0} liste={(data?.etudiants || []).filter(aMentionADecider)} session={session}
+              onSerie={async n => { await charger(); setDernierLot(n); setSeriesFaites(x => x + 1); }}
               colonnesCours={data?.colonnes_cours || []} colonnesAcquis={data?.colonnes_acquis || []}
               enCours={enCours} onDecider={ajournerLot}
               onFini={async decides => {
@@ -1558,10 +1562,12 @@ const MOTIF_MENTION = {
   CM: "Absent aux évaluations de l'unité pour raison médicale (certificat médical).",
   autre: 'Les réponses sont soit inexistantes, soit très partielles ou incomplètes.',
   cours: "Acquis à représenter avec l'ensemble du cours ajourné.",
+  absent: "L'étudiant n'a pas présenté son évaluation ou a demandé une note de présence.",
 };
 const LIBELLE_MOTIF = { PP: 'Pas présenté (PP)', NP: 'Rien produit (NP)', CM: 'Certificat médical (CM)',
   autre: 'Autres acquis en échec (sans mention)',
-  cours: 'Acquis réussis repassés avec leur cours (« tous les acquis du cours »)' };
+  cours: 'Acquis réussis repassés avec leur cours (« tous les acquis du cours »)',
+  absent: 'PP ou NP partout — tous ses acquis' };
 /** Les mentions d'un étudiant — sur ses cours, à défaut sur ses acquis. */
 function mentionsDe(e) {
   const m = new Set();
@@ -1575,7 +1581,16 @@ function mentionsDe(e) {
    l'UE 333 tout était décidé, et l'étape se sautait d'elle-même : « puis plus rien ». */
 function absentTotal(e) {
   const evals = (e.acquis || []).flatMap(a => a.evaluations || []);
-  return evals.every(v => MENTIONS_LOT.includes(v.mention) || v.note == null || Number(v.note) === 0);
+  const rien = v => MENTIONS_LOT.includes(v.mention) || v.note == null || Number(v.note) === 0;
+  // Au moins une trace (mention ou zéro) : des notes pas encore encodées ne sont pas une absence.
+  return evals.length > 0 && evals.every(rien)
+    && evals.some(v => MENTIONS_LOT.includes(v.mention) || (v.note != null && Number(v.note) === 0));
+}
+/* PP ET NP PARTOUT (Charles, 13 octobre 2026) : une seule phrase pour tous ses acquis. */
+function absentPPNP(e) {
+  const evals = (e.acquis || []).flatMap(a => a.evaluations || []);
+  return absentTotal(e) && evals.some(v => ['PP', 'NP'].includes(v.mention))
+    && evals.every(v => ['PP', 'NP'].includes(v.mention) || v.note == null);
 }
 /** À pré-délibérer : l'absent total, toujours ; une mention avec une décision défavorable proposée, tant que rien n'est décidé. */
 function aMentionADecider(e) {
@@ -1585,7 +1600,7 @@ function aMentionADecider(e) {
     && ['ajourne', 'refuse'].includes(e.ue?.decision_proposee);
 }
 
-function Mentions({ liste, session, enCours, onDecider, onFini, colonnesCours = [], colonnesAcquis = [] }) {
+function Mentions({ liste, session, enCours, onDecider, onFini, onSerie, faits = 0, colonnesCours = [], colonnesAcquis = [] }) {
   // Un étudiant déjà décidé arrive DÉCOCHÉ : on ne réécrit pas une décision par mégarde.
   const [ecartes, setEcartes] = useState(() => new Set(liste.filter(e => e.resultat).map(e => e.id)));
   // LA DÉCISION DU LOT (13 octobre 2026) : celle que la mention appelle, ou la même pour tous.
@@ -1628,13 +1643,27 @@ function Mentions({ liste, session, enCours, onDecider, onFini, colonnesCours = 
     parMention: motifs,
     // L'absent total représente TOUT : chaque cours, même sans note (« ajournés pour TOUT »).
     tout: retenus.filter(absentTotal).map(e => e.id),
+    motifs: Object.fromEntries(retenus.filter(absentPPNP).map(e => [e.id, motifs.absent])),
   });
   // Les mentions effectivement présentes, et « autre » dès qu'un acquis échoue sans mention.
-  const presentes = [...MENTIONS_LOT.filter(m => liste.some(e => mentionsDe(e).includes(m))),
-    ...(liste.some(e => (e.acquis || []).some(a => !a.mention && !(a.evaluations || []).some(v => v.mention)
+  const autres = retenus.filter(e => !absentPPNP(e));
+  const presentes = [...(retenus.some(absentPPNP) ? ['absent'] : []),
+    ...MENTIONS_LOT.filter(m => autres.some(e => mentionsDe(e).includes(m))),
+    ...(autres.some(e => (e.acquis || []).some(a => !a.mention && !(a.evaluations || []).some(v => v.mention)
       && (a.na || (a.note_calculee ?? a.note) != null && (a.note_calculee ?? a.note) < 10))) ? ['autre'] : []),
     ...(mode === 'tous' ? ['cours'] : [])];
   const bascule = id => setEcartes(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  // TOUT COCHER, TOUT DÉCOCHER — la liste entière ou un groupe (13 octobre 2026) : une série
+  // d'absents se décide avec sa justification, puis la suivante avec la sienne.
+  const cocherTous = (gens, oui) => setEcartes(s => {
+    const n = new Set(s); for (const e of gens) oui ? n.delete(e.id) : n.add(e.id); return n; });
+  const caseTous = gens => {
+    const nb = gens.filter(e => !ecartes.has(e.id)).length;
+    return <input type="checkbox" checked={nb === gens.length && nb > 0}
+      ref={el => { if (el) el.indeterminate = nb > 0 && nb < gens.length; }}
+      onChange={() => cocherTous(gens, nb < gens.length)}
+      title={nb < gens.length ? 'Tout cocher' : 'Tout décocher'} />;
+  };
   const manqueMotif = presentes.some(m => (motifs[m] || '').trim().length < 5);
 
   return (
@@ -1664,7 +1693,7 @@ function Mentions({ liste, session, enCours, onDecider, onFini, colonnesCours = 
         <table className="w-full text-second">
           <thead>
             <tr className="tab-entete text-left">
-              <th className="px-3 py-1.5 w-8"></th>
+              <th className="px-3 py-1.5 w-8">{caseTous(liste)}</th>
               <th className="px-3 py-1.5">Étudiant</th>
               {colonnes.map(c => (
                 <th key={c.code} className="px-2 py-1.5 text-center whitespace-nowrap" title={c.titre || ''}>{c.code}</th>))}
@@ -1681,8 +1710,10 @@ function Mentions({ liste, session, enCours, onDecider, onFini, colonnesCours = 
           </thead>
           {groupes.map(g => (
             <tbody key={g.m}>
-              <tr className="tab-repere"><td colSpan={colonnes.length + 3} className="intertitre px-3 py-1">
-                {(LIBELLE_MENTION[g.m] || 'Zéro partout, ou aucune note')} · {g.gens.length}</td></tr>
+              <tr className="tab-repere">
+                <td className="px-3 py-1">{caseTous(g.gens)}</td>
+                <td colSpan={colonnes.length + 2} className="intertitre px-3 py-1">
+                {(LIBELLE_MENTION[g.m] || 'Zéro partout')} · {g.gens.length}</td></tr>
               {g.gens.map(e => {
                 const pris = !ecartes.has(e.id), dec = decisionDe(e);
                 return (
@@ -1749,16 +1780,17 @@ function Mentions({ liste, session, enCours, onDecider, onFini, colonnesCours = 
 
       <div className="flex items-center justify-between gap-3">
         <span className="text-second text-slate-500 min-w-0">
+          {faits > 0 && <b className="text-iip-texte">{faits} décidé(s) — cochez la série suivante, ou passez à la revue. </b>}
           {manqueMotif ? 'Chaque mention demande sa justification.'
             : !retenus.length ? 'Personne n’est retenu : tous passeront dans la revue.' : ''}
         </span>
         <div className="flex gap-2">
-          <button type="button" className="bouton" onClick={onFini}>Passer — les revoir un à un</button>
+          <button type="button" className="bouton" onClick={() => onFini(faits ? [1] : [])}>{faits ? 'Terminer — passer à la revue' : 'Passer — les revoir un à un'}</button>
           <button type="button" className="bouton" disabled={enCours || manqueMotif || !retenus.length}
             onClick={async () => setApercu(await onDecider(retenus.map(e => e.id), '', true, null, corps(), mode))}>
             Simuler</button>
           <button type="button" className="bouton bouton-fort" disabled={enCours || manqueMotif || !retenus.length}
-            onClick={async () => { const j = await onDecider(retenus.map(e => e.id), '', false, null, corps(), mode); if (j) onFini(retenus.map(e => e.id)); }}>
+            onClick={async () => { const j = await onDecider(retenus.map(e => e.id), '', false, null, corps(), mode); if (j) { setApercu(null); onSerie?.(retenus.length); } }}>
             {enCours ? 'Enregistrement…' : `Décider ces ${retenus.length}`}
           </button>
         </div>

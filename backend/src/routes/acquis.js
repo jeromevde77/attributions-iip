@@ -9048,7 +9048,8 @@ r.post('/deliberation/ue/:ueNum/ajourner-lot', authRequired,
       }
       // Chaque acquis à représenter porte sa justification (RDE art. 88 §3).
       for (const code of aas) {
-        const texte = motifAcquis(d, code, justification);
+        // Une phrase donnée pour CET étudiant (PP ou NP partout) vaut pour tous ses acquis.
+        const texte = String(motifParEtudiant[id] || '').trim() || motifAcquis(d, code, justification);
         if (texte) poserMotif.run(id, annee, ueNum, code, texte, par);
       }
 
