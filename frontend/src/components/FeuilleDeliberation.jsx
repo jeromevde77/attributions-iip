@@ -875,7 +875,13 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
                 setEtape((data?.etudiants || []).some(aMentionADecider) ? 'mentions' : 'fiche'); }} />
           ) : etape === 'mentions' ? (
             <Mentions key={seriesFaites} faits={seriesFaites ? dernierLot : 0} liste={(data?.etudiants || []).filter(aMentionADecider)} session={session}
-              onSerie={async n => { await charger(); setDernierLot(n); setSeriesFaites(x => x + 1); }}
+              onSerie={async n => {
+                const frais = await charger();
+                // PLUS PERSONNE À DÉCIDER DANS LE LOT : on passe à la revue sans attendre un clic
+                // (Charles, 13 octobre 2026 : « j'ai fait, pourquoi tu ne passes pas à la suite ? »).
+                if (frais && frais.filter(aMentionADecider).every(e => e.resultat)) {
+                  figerOrdre(frais); setIdx(0); setEtape('fiche'); return; }
+                setDernierLot(n); setSeriesFaites(x => x + 1); }}
               colonnesCours={data?.colonnes_cours || []} colonnesAcquis={data?.colonnes_acquis || []}
               enCours={enCours} onDecider={ajournerLot}
               onFini={async decides => {
