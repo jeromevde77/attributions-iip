@@ -2,7 +2,7 @@ import { choisir } from '../lib/dialogue.jsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { nomPropre } from '../lib/nom.js';
 import {
-  IconX, IconSearch, IconAlertTriangle, IconChevronLeft, IconChevronRight,
+  IconX, IconSearch, IconAlertTriangle, IconRotateClockwise, IconChevronLeft, IconChevronRight,
   IconArrowUp, IconRepeat, IconList, IconFileText, IconMessage, IconBrush, IconGift,
   IconRotate, IconBan, IconTable, IconLock,
 } from '@tabler/icons-react';
@@ -2096,21 +2096,37 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
   const aJust = aJustifier(acquis, cours, decision);
   const aJustCodes = new Set(aJust.map(a => a.aa_code));
 
-  /* UN CLIC, UN DOUBLE-CLIC (13 octobre 2026). Le clic attend un instant : s'il devient double,
-     c'est le cours entier qui tombe ; sinon, ses seuls acquis en échec. Sur un cours déjà ajourné,
-     le clic lève l'ajournement. */
-  const minuteurs = useRef({});
-  const clicCours = c => {
-    clearTimeout(minuteurs.current[c.cours_code]);
-    // Le clic attend toujours : sur un cours déjà ajourné aussi, un double-clic doit pouvoir le
-    // passer « au cours entier » au lieu d'être pris pour un « lever » puis un « ajourner ».
-    minuteurs.current[c.cours_code] = setTimeout(() => (c.ajourne_directement
-      ? onAjuster('cours', c.cours_code, null)
-      : onAjuster('cours', c.cours_code, 'ajourne', 'echec')), 260);
+  /* LE BADGE QUI TOURNE (Charles, 13 octobre 2026 : « je clique une fois, il ajourne ; deux fois, il
+     ajourne TOUS les AA du cours ; une troisième fois, il annule et revient à la situation initiale »).
+     Un cran par clic : rien → les acquis en échec → tout le cours → rien. Un cours sans acquis réussi
+     n'a qu'un cran d'ajournement : tout. L'état se lit du serveur (cours ajourné, liste partielle). */
+  const etatCours = c => (!c.ajourne_directement ? 0 : (c.aas_a_representer?.length ? 1 : 2));
+  const koDans = (c) => {
+    const evals = acquis.flatMap(a => (a.evaluations || []).filter(v => v.cours_code === c.cours_code)
+      .map(v => ({ ...v, faveur: a.faveur })));
+    const ko = v => !v.faveur && (['PP', 'NP', 'CM'].includes(v.mention) || v.note == null || Number(v.note) < (seuil ?? 10));
+    return { echecs: evals.some(ko), reussis: evals.some(v => !ko(v)) };
   };
-  const doubleCours = c => {
-    clearTimeout(minuteurs.current[c.cours_code]);
-    onAjuster('cours', c.cours_code, 'ajourne', 'tous');
+  const cycleCours = c => {
+    const etat = etatCours(c);
+    if (etat === 0) {
+      const k = koDans(c);
+      onAjuster('cours', c.cours_code, 'ajourne', k.echecs && k.reussis ? 'echec' : 'tous');
+    } else if (etat === 1) onAjuster('cours', c.cours_code, 'ajourne', 'tous');
+    else onAjuster('cours', c.cours_code, null);
+  };
+  const LIBELLE_ETAT = ['ajourner', 'échecs', 'tout'];
+  const badgeCours = c => {
+    const etat = etatCours(c);
+    return (
+      <button type="button" disabled={enCours} onClick={ev => { ev.stopPropagation(); cycleCours(c); }}
+        title={['Ajourner les acquis en échec de ce cours', 'Ajourner tous les acquis du cours', 'Annuler l’ajournement du cours'][etat]}
+        className="inline-flex items-center gap-1 h-[22px] px-1.5 rounded-pastille border text-mention font-semibold select-none"
+        style={etat ? { background: 'var(--c-attente)', borderColor: 'var(--c-attente)', color: '#fff' }
+          : { background: '#fff', borderColor: 'rgb(var(--gris-300))', color: 'rgb(var(--gris-500))' }}>
+        <IconRotateClockwise size={12} style={{ transform: `rotate(${etat * 120}deg)`, transition: 'transform .25s ease' }} />
+        {LIBELLE_ETAT[etat]}
+      </button>);
   };
   /* Un clic sur une note : cet acquis, dans ce cours, à représenter ou non. */
   const peutCliquerNote = !sansAjournement && !lectureSeule() && !!onAACours;
@@ -2210,10 +2226,9 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
                   {cours.map(c => (
                     <th key={c.cours_code} className={`w-[112px] px-1.5 py-1 text-center font-normal align-middle ${peutCliquerNote ? 'cursor-pointer select-none hover:bg-amber-50' : ''}`}
                       style={c.ajourne_directement ? { boxShadow: 'inset 0 -3px 0 var(--c-attente)' } : undefined}
-                      onClick={peutCliquerNote ? () => clicCours(c) : undefined}
-                      onDoubleClick={peutCliquerNote ? () => doubleCours(c) : undefined}
+                      onClick={peutCliquerNote ? () => cycleCours(c) : undefined}
                       title={[c.cours_nom, c.professeurs, c.poids_cours_affiche != null ? `${c.poids_cours_affiche} %` : null,
-                        peutCliquerNote ? (c.ajourne_directement ? 'clic : lever l’ajournement' : 'clic : ajourner les acquis en échec · double-clic : tout le cours') : null].filter(Boolean).join(' · ')}>
+                        peutCliquerNote ? 'clic : ajourner les échecs → tout le cours → annuler' : null].filter(Boolean).join(' · ')}>
                       <div className="text-slate-700 truncate"><b className="font-semibold">{c.cours_code}</b>
                         {c.poids_cours_affiche != null && <span className="text-slate-400"> · {c.poids_cours_affiche} %</span>}</div>
                       {c.cours_nom && <div className="text-mention text-slate-500 leading-tight line-clamp-2">{c.cours_nom}</div>}
@@ -2288,16 +2303,10 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
                   {cours.map(c => (
                     <td key={c.cours_code} className={`px-1.5 py-1.5 text-center whitespace-nowrap ${!regarde.cours ? 'opacity-60' : ''}`}>
                       <span className="relative inline-flex align-middle">
-                      {peutCliquerNote ? (
-                        <button type="button" disabled={enCours} className="rounded hover:ring-2 hover:ring-amber-400 select-none"
-                          title={c.ajourne_directement ? 'Clic : lever l’ajournement du cours' : 'Clic : ajourner les acquis en échec · double-clic : tout le cours'}
-                          onClick={() => clicCours(c)} onDoubleClick={() => doubleCours(c)}>{note(c, { na: c.na })}</button>
-                      ) : note(c, { na: c.na })}
+                      {note(c, { na: c.na })}
 
-                      {bouton(!!c.ajourne_directement,
-                        c.ajourne_directement ? "Lever l'ajournement du cours" : 'Ajourner : un clic = les acquis en échec, double-clic = tout le cours',
-                        () => clicCours(c), () => doubleCours(c))}
                       </span>
+                      {peutCliquerNote && <div className="mt-1">{badgeCours(c)}</div>}
                       {c.aas_a_representer && (
                         <div className="mt-0.5 text-mention leading-tight text-slate-500 whitespace-normal"
                           title="Le Conseil n'a rouvert que ces acquis du cours">
