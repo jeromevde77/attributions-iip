@@ -409,7 +409,7 @@ export function syntheseCout(d) {
   const m2 = n => (n || 0).toFixed(2).replace('.', ',');
   const eur = n => `${Math.round(n || 0).toLocaleString('fr-BE')} €`;
   const morceaux = d.missions.flatMap(m => {
-    const base = { fonction: m.fonction || '(sans libellé)', portee: m.portee, personne: `${m.nom}|${m.prenom}` };
+    const base = { fonction: m.fonction || '(sans libellé)', portee: m.portee, pncc: !!m.pncc, personne: `${m.nom}|${m.prenom}` };
     if (m.mode === 'periodes_b') return [{ ...base, helb: false, mode: m.mode, etp: m.etp, cout: m.cout,
       cle: `${m.periodes_b}|${m.cout_b}`, formule: e => `${e1(e)} ETP × ${n0(m.periodes_b)} pér. B × ${m2(m.cout_b)} €` }];
     if (m.mode === 'annuel') return [{ ...base, helb: false, mode: m.mode, etp: m.etp, cout: m.cout,
@@ -423,10 +423,10 @@ export function syntheseCout(d) {
   for (const x of morceaux) {
     const k = `${x.fonction}|${x.helb}|${x.mode}|${x.cle}`;
     let g = groupes.find(y => y.k === k);
-    if (!g) groupes.push(g = { k, fonction: x.fonction, helb: x.helb, mode: x.mode, f: x.formule, etp: 0, cout: 0, per: 0, coutP: 0, code: x.code || null, personnes: new Set(), portees: new Set() });
+    if (!g) groupes.push(g = { k, fonction: x.fonction, pncc: x.pncc, helb: x.helb, mode: x.mode, f: x.formule, etp: 0, cout: 0, per: 0, coutP: 0, code: x.code || null, personnes: new Set(), portees: new Set() });
     g.etp += x.etp || 0; g.cout += x.cout || 0; g.per += x.per || 0; g.coutP += x.coutP || 0; g.personnes.add(x.personne); if (x.portee) g.portees.add(x.portee);
   }
-  const fonctions = groupes.map(g => ({ fonction: g.fonction, helb: g.helb, mode: g.mode, etp: g.etp, cout: g.cout,
+  const fonctions = groupes.map(g => ({ fonction: g.fonction, pncc: !!g.pncc, helb: g.helb, mode: g.mode, etp: g.etp, cout: g.cout,
     periodes_coord: g.per, cout_periodes: g.coutP, code: g.code, personnes: g.personnes.size, portees: [...g.portees],
     calcul: g.mode === 'periodes' ? (g.per ? `${n0(g.per)} pér. de coordination (${g.code || ''}) × la période de leur unité *` : null)
       : g.mode === 'sans_etp' || !g.etp ? null : g.f(g.etp) }));
