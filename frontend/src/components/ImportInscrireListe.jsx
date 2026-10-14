@@ -146,6 +146,11 @@ export default function ImportInscrireListe({ annee, onClose, onTermine }) {
               {rapport.deja > 0 && <span><b>{rapport.deja}</b> déjà inscrite(s)</span>}
               {rapport.ignores.length > 0 && <span><b>{rapport.ignores.length}</b> ignorée(s)</span>}
             </div>
+            {rapport.a_trancher?.length > 0 && (
+              <div className="bloc-etat px-3 py-2 text-second" data-etat="surveiller">
+                <b>{rapport.a_trancher.length} étudiant(s) d'une autre section</b> — ni rattachés ni inscrits (cochez « Rattacher aussi les retrouvés » pour forcer) :
+                <ul className="mt-1 list-disc pl-5">{rapport.a_trancher.slice(0, 12).map((x, i) => <li key={i}>{x.nom} · {x.actuelle}</li>)}</ul>
+              </div>)}
             {rapport.ecarts.length > 0 && (
               <div className="bloc-etat px-3 py-2 text-second" data-etat="surveiller">
                 <b>{rapport.ecarts.length} inscription(s) hors des règles du PAE</b> — elles s'inscrivent et restent tracées :

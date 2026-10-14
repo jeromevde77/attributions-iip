@@ -5421,18 +5421,31 @@ r.post('/inscrire-liste', authRequired, gesteRequis('etudiants.import'), (req, r
         rapport.retrouves++;
         // On complète sans écraser : la section si elle manque, le registre national s'il manque.
         const avant = db.prepare('SELECT section_rattachement, rn_norm FROM etudiant WHERE id = ?').get(id);
-        // Rattacher aussi les retrouvés, sur demande expresse : on remet une liste dans SA section.
-        if (section_rattachement && (!avant?.section_rattachement
-          || (remplacer_rattachement && avant.section_rattachement !== section_rattachement))) {
-          rapport.completes++; d.rattachement = `${avant?.section_rattachement || 'aucun'} → ${section_rattachement}`;
-          if (!simulation) db.prepare('UPDATE etudiant SET section_rattachement = ? WHERE id = ?').run(section_rattachement, id);
+        /* UNE SECTION DÉDUITE N'EST PAS UNE CASE VIDE (14 octobre 2026, ABDO Rama : étudiante de TIM sans
+           rattachement posé, passée en Optique parce qu'elle figurait sur la liste des opticiens). Sans
+           rattachement posé, on ne pose la section choisie que si la déduction la donne déjà (ou ne donne
+           rien) ; sinon l'étudiant est nommé « à trancher » et rien ne change. */
+        const actuelle = avant?.section_rattachement || sectionRattachement(id, annee).section || null;
+        const cible = section_rattachement;
+        if (cible && actuelle !== cible) {
+          const pose = avant?.section_rattachement ? remplacer_rattachement : (!actuelle || remplacer_rattachement);
+          if (pose) {
+            rapport.completes++; d.rattachement = `${actuelle || 'aucun'} → ${cible}`;
+            if (!simulation) db.prepare('UPDATE etudiant SET section_rattachement = ? WHERE id = ?').run(cible, id);
+          } else {
+            (rapport.a_trancher ||= []).push({ nom: d.nom, actuelle, cible });
+            d.rattachement = `reste ${actuelle} (à trancher — non inscrit)`;
+            d.aTrancher = true;
+          }
+        } else if (cible && !avant?.section_rattachement && actuelle === cible && !simulation) {
+          db.prepare('UPDATE etudiant SET section_rattachement = ? WHERE id = ?').run(cible, id);
         }
         if (!simulation) {
           if (rn && !avant?.rn_norm) db.prepare("UPDATE etudiant SET rn_norm = ?, num_national = COALESCE(NULLIF(num_national, ''), ?) WHERE id = ?").run(rn, rnForme(rn), id);
         }
       }
       if (id && !simulation) for (const m of mats) alias.run(id, m, annee);
-      if (nums.length && (id || simulation)) {
+      if (nums.length && (id || simulation) && !d.aTrancher) {
         if (id) {
           const b = ecrireProgramme({ etudId: id, annee, ajouter: nums, origine: orig, par: qui, mode: 'signaler', simulation: !!simulation });
           rapport.inscriptions += b.ajoutees.length; rapport.deja += nums.length - b.ajoutees.length;
