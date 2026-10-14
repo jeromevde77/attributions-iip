@@ -1,4 +1,5 @@
 import { readFileSync } from 'fs';
+import { rubriquesDuTexte, texteDesRubriques } from '../lib/texteDossier.js';
 import { plafondsExpert } from '../lib/tauxExperts.js';
 import { gunzipSync } from 'zlib';
 import { codeGroupe, modeGroupes } from '../lib/groupes.js';
@@ -110,6 +111,24 @@ r.get('/ue', authRequired, (req, res) => {
   }
   sql += ' ORDER BY ue_num';
   res.json(db.prepare(sql).all(...params));
+});
+
+/* LE DOSSIER PÉDAGOGIQUE, RUBRIQUE PAR RUBRIQUE (3.1.356, Charles : « la fenêtre UE comprend toutes
+ * les parties du dossier, éditables, déjà mises en page »). On reçoit les rubriques retouchées ; le
+ * texte entier se recompose dans l'ordre du dossier. La version lue à l'import reste dans
+ * `ue_dp_origine`. Réservé à la direction : c'est la bibliothèque, le référentiel légal. */
+r.put('/ue/:num/dossier', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'), (req, res) => {
+  const annee = req.body?.annee || anneeDeTravail(req);
+  const ue = db.prepare('SELECT ue_dp, ue_dp_origine FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(req.params.num, annee);
+  if (!ue) return res.status(404).json({ error: 'UE introuvable pour cette année' });
+  const recues = req.body?.rubriques;
+  if (!recues || typeof recues !== 'object') return res.status(400).json({ error: 'rubriques attendues' });
+  const actuelles = rubriquesDuTexte(ue.ue_dp || '');
+  for (const [k, v] of Object.entries(recues)) actuelles[k] = String(v ?? '').slice(0, 60000);
+  const texte = texteDesRubriques(actuelles);
+  db.prepare(`UPDATE ue SET ue_dp = ?, ue_dp_origine = COALESCE(ue_dp_origine, ?), ue_dp_maj_par = ?, ue_dp_maj_le = datetime('now')
+    WHERE ue_num = ? AND annee_scolaire = ?`).run(texte, ue.ue_dp || null, req.user?.nom || req.user?.email || null, req.params.num, annee);
+  res.json({ ok: true, ue_dp: texte });
 });
 
 r.get('/ue/:num', authRequired, (req, res) => {
@@ -2427,6 +2446,8 @@ r.post('/import-dp', authRequired, roleRequired('admin', 'editeur'), async (req,
       ue_code_fwb:      ueData.ue_code_fwb    || undefined,
       // Le texte du dossier va dans ue_dp : ue_det est la case « déterminante ».
       ue_dp:            ueData.ue_det         || undefined,
+      // Le texte lu devient aussi la version de référence : une retouche ultérieure se mesure à elle.
+      ue_dp_origine:    ueData.ue_det         || undefined,
     };
     // Supprimer les undefined
     for (const k of Object.keys(fieldsToUpdate)) if (fieldsToUpdate[k] === undefined) delete fieldsToUpdate[k];
@@ -2459,8 +2480,8 @@ r.post('/import-dp', authRequired, roleRequired('admin', 'editeur'), async (req,
       // Générer un numéro UE : max existant + 1
       const maxRow = db.prepare('SELECT MAX(ue_num) AS m FROM ue WHERE annee_scolaire = ?').get(annee);
       ueNum = (maxRow?.m || 0) + 1;
-      db.prepare(`INSERT INTO ue (ue_num, annee_scolaire, ue_nom, section, ue_niveau, ects, ue_aut, ue_per_etudiants, ue_code_fwb, ue_dp)
-        VALUES (@ue_num, @annee, @ue_nom, @section, @ue_niveau, @ects, @ue_aut, @ue_per_etudiants, @ue_code_fwb, @ue_dp)`)
+      db.prepare(`INSERT INTO ue (ue_num, annee_scolaire, ue_nom, section, ue_niveau, ects, ue_aut, ue_per_etudiants, ue_code_fwb, ue_dp, ue_dp_origine)
+        VALUES (@ue_num, @annee, @ue_nom, @section, @ue_niveau, @ects, @ue_aut, @ue_per_etudiants, @ue_code_fwb, @ue_dp, @ue_dp)`)
         .run({
           ue_num: ueNum, annee, section,
           ue_nom: ueData.ue_nom || '', ue_niveau: ueData.ue_niveau || null,

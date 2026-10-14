@@ -1811,6 +1811,12 @@ try {
       db.prepare("UPDATE ue SET ue_det = NULL WHERE length(ue_det) > 5").run();
       console.log(`[migration] Table ue : colonne ue_dp ajoutée, ${n} dossier(s) pédagogique(s) déplacé(s) depuis ue_det`);
     }
+    /* LA VERSION DU DOSSIER RESTE À CÔTÉ DE CE QU'ON RETOUCHE (3.1.356, fiche d'UE en quatre onglets) :
+     * `ue_dp` est le texte en vigueur, éditable ; `ue_dp_origine`, celui que l'import a lu. Une rubrique
+     * dont le texte diffère de l'origine se dit « modifiée dans Lucie ». */
+    for (const c of ['ue_dp_origine', 'ue_dp_maj_par', 'ue_dp_maj_le']) {
+      if (!db.prepare('PRAGMA table_info(ue)').all().some(x => x.name === c)) db.exec(`ALTER TABLE ue ADD COLUMN ${c} TEXT`);
+    }
 
     // Table dotation_civile : dotation organique par année civile
     db.exec(`

@@ -280,7 +280,10 @@ export function lireProgramme(texte, cours) {
      points séparés par « ; ») se coupe à chaque point-virgule. */
   const lignesLues = brutTexte.split('\n')
     .flatMap(x => (x.length > 250 && (x.match(/;/g) || []).length >= 2 ? x.split(/(?<=;)\s+/) : [x]));
-  for (const brut of lignesLues) {
+  for (const brut0 of lignesLues) {
+    /* L'INTERTITRE « ### » DE L'IMPORT (3.1.356) : l'intitulé d'un cours, ou un sous-titre du
+       dossier. On le lit comme une ligne sans marque — la recherche du cours fait le reste. */
+    const brut = String(brut0).replace(/^###\s+/, '');
     let l = brut.replace(/^[\s•\-–*]+/, '').trim();
     if (l.length < 3) continue;
     /* UNE PUCE LUE DANS LE DOSSIER (14 octobre 2026, UE 333) : l'import écrit « - » et deux espaces
