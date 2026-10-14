@@ -1,3 +1,4 @@
+import TexteDossierPedagogique from '../components/TexteDossierPedagogique.jsx';
 import { MODES_GROUPES } from '../lib/groupes.js';
 import { useEffect, useRef, useState, Fragment } from 'react';
 import { estDirection } from '../lib/modules.js';
@@ -885,6 +886,9 @@ function UEModal({ ue, sections, onClose, onSaved, navigation = null }) {
           <div className="border-l border-slate-200 pl-6 min-w-0">
             <GroupeFenetre titre="Acquis d'apprentissage">
               <AcquisUE ueNum={form.ue_num} annee={ue?.annee_scolaire} estAdmin={isAdmin} />
+            </GroupeFenetre>
+            <GroupeFenetre titre="Dossier pédagogique importé">
+              <TexteDossierPedagogique ueNum={form.ue_num} annee={ue?.annee_scolaire} />
             </GroupeFenetre>
           </div>
         </div>
