@@ -362,8 +362,10 @@ function Famille({ famille, donnees }) {
   );
 }
 
-export default function Distributions() {
-  const [annee, setAnnee] = useState(getAnnee());
+// `annee` imposée (Gestion, 14 octobre 2026) : l'écran suit le sélecteur de la page et cache le sien.
+export default function Distributions({ annee: anneeImposee = null } = {}) {
+  const [anneeLocale, setAnnee] = useState(getAnnee());
+  const annee = anneeImposee || anneeLocale;
   const [annees, setAnnees] = useState([]);
   const [categorie, setCategorie] = useState('tout');
   const [section, setSection] = useState('');
@@ -420,10 +422,10 @@ export default function Distributions() {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 flex-wrap">
-        <select value={annee} onChange={e => setAnnee(e.target.value)}
+        {!anneeImposee && <select value={annee} onChange={e => setAnnee(e.target.value)}
           className="controle">
           {(annees.length ? annees : [annee]).map(a => <option key={a} value={a}>{a}</option>)}
-        </select>
+        </select>}
         <select value={categorie} onChange={e => setCategorie(e.target.value)}
           className="controle"
           title="Le niveau vient du référentiel de la section">

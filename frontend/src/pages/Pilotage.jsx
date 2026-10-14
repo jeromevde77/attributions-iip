@@ -514,7 +514,17 @@ import StatsDeliberation from '../components/StatsDeliberation.jsx';
 
 export default function Pilotage({ vue = 'tout' }) {
   const [centreImpression, setCentreImpression] = useState(false);
-  const anneeActive = getAnnee();
+  /* L'ANNÉE SE CHOISIT SUR CHAQUE PAGE DE GESTION (Charles, 14 octobre 2026 : « je dois pouvoir
+     traiter les années une par une, dans un sélecteur, pour chaque page »). Un sélecteur, en tête de
+     page, que suivent toutes les faces à l'année scolaire ; la dotation et le budget gardent l'année
+     civile, qui est la leur. L'année de travail de la barre du haut reste le point de départ. */
+  const [anneeActive, setAnneeActive] = useState(getAnnee());
+  const [anneesScolaires, setAnneesScolaires] = useState([]);
+  useEffect(() => {
+    fetch('/api/annees', { headers: authHeaders() }).then(r => (r.ok ? r.json() : []))
+      .then(l => setAnneesScolaires((Array.isArray(l) ? l : []).map(a => a.code || a).filter(Boolean).sort().reverse()))
+      .catch(() => {});
+  }, []);
   // L'écran ouvre sur ce que sa vue sait montrer : « Dotation » n'existe pas
   // dans le reporting, et y atterrir donnerait une page vide.
   const [tab, setTab]               = useState(() => (vue === 'reporting' ? 'etp'
@@ -1640,11 +1650,25 @@ export default function Pilotage({ vue = 'tout' }) {
       />
 
       <div className="gouttiere-rail px-3 md:px-6 py-4 space-y-5">
-        {vue === 'gestion' && rubriqueActive && rubriqueActive.faces.length > 1 && (
-          <div className="segments">
-            {rubriqueActive.faces.map(([k, l]) => (
-              <button key={k} type="button" onClick={() => setTab(k)}
-                className={tab === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>{l}</button>))}
+        {vue === 'gestion' && rubriqueActive && (
+          <div className="flex items-center gap-3 flex-wrap">
+            {rubriqueActive.faces.length > 1 && (
+              <div className="segments">
+                {rubriqueActive.faces.map(([k, l]) => (
+                  <button key={k} type="button" onClick={() => setTab(k)}
+                    className={tab === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>{l}</button>))}
+              </div>)}
+            <span className="flex-1" />
+            {tab === 'synthese' && <span className="text-second text-slate-500">année civile {selYear} : dans le rail</span>}
+            {['budget', 'dotation'].includes(tab)
+              ? <span className="text-second text-slate-500">{tab === 'budget' ? 'Année civile : dans la page' : 'Toutes les années civiles'}</span>
+              : (
+                <label className="flex items-center gap-2 text-second text-slate-600">
+                  Année scolaire
+                  <select value={anneeActive} onChange={e => setAnneeActive(e.target.value)} className="controle">
+                    {[...new Set([anneeActive, ...anneesScolaires])].map(a => <option key={a} value={a}>{a}</option>)}
+                  </select>
+                </label>)}
           </div>)}
         {/* UN TITRE NE PROMET QUE CE QUE L'ÉCRAN MONTRE.
             « Pilotage des dotations · Enveloppes extérieures · Comparaison
@@ -1668,11 +1692,11 @@ export default function Pilotage({ vue = 'tout' }) {
         {tab === 'population-ecole' ? (
           <PopulationEcole annee={anneeActive} />
         ) : tab === 'rapport' ? (
-          <RapportStatistique />
+          <RapportStatistique annee={vue === 'gestion' ? anneeActive : null} />
         ) : tab === 'repartition' ? (
-          <RepartitionPeriodes />
+          <RepartitionPeriodes annee={vue === 'gestion' ? anneeActive : null} />
         ) : tab === 'distributions' ? (
-          <Distributions />
+          <Distributions annee={vue === 'gestion' ? anneeActive : null} />
         ) : tab === 'population' ? (
           <Population annee={anneeActive} />
         ) : tab === 'budget' ? (

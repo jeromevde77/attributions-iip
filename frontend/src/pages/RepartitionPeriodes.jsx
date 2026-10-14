@@ -17,8 +17,9 @@ import { authHeaders, getAnnee } from '../lib/api.js';
 const nb = n => (n == null || n === '' ? '—'
   : Number(n).toLocaleString('fr-BE', { maximumFractionDigits: 1 }));
 
-export default function RepartitionPeriodes() {
-  const [annee, setAnnee] = useState(getAnnee());
+export default function RepartitionPeriodes({ annee: anneeImposee = null } = {}) {
+  const [anneeLocale, setAnnee] = useState(getAnnee());
+  const annee = anneeImposee || anneeLocale;
   const [annees, setAnnees] = useState([]);
   const [sections, setSections] = useState([]);
   const [section, setSection] = useState('');
@@ -155,10 +156,10 @@ export default function RepartitionPeriodes() {
       )}
 
       <div className="flex gap-2 flex-wrap items-center">
-        <select value={annee} onChange={e => setAnnee(e.target.value)}
+        {!anneeImposee && <select value={annee} onChange={e => setAnnee(e.target.value)}
           className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm font-semibold text-iip-blue">
           {(annees.length ? annees : [annee]).map(a => <option key={a} value={a}>{a}</option>)}
-        </select>
+        </select>}
         <select value={section} onChange={e => setSection(e.target.value)}
           className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
           <option value="">Toutes les sections</option>
