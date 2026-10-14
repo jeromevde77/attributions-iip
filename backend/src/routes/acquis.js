@@ -4003,6 +4003,7 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
 
   const parCoursAA = {}, parAA = {}, mentionDe = {};
   const rang = { '': 0, s1: 1, s2: 2 };
+  const rangDe = {};   // la session de la note retenue, par clé
   const meilleur = {}, formeUE = {};
   for (const l of brutes) {
     let parts = String(l.code).split('|');
@@ -4026,6 +4027,7 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
     if (meilleur[cle] === rang[ses] && deUE && formeUE[cle] === false) continue;
     meilleur[cle] = rang[ses];
     formeUE[cle] = deUE;
+    rangDe[cle] = rang[ses];
     if (parts.length === 2) {
       parCoursAA[cle] = l.points;
       mentionDe[cle] = l.mention || null;
@@ -4042,12 +4044,20 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
     const aa = k.split('|').pop();
     if (uniqueAA[aa] == null && v != null) { uniqueAA[aa] = v; uniqueMention[aa] = mentionDe[k] || null; }
   }
+  /* LA NOTE DE SEPTEMBRE L'EMPORTE, MÊME SANS COURS (14 octobre 2026, Hanna Wisam, UE 307) : juin
+     portait des notes par cours (PP, 0), septembre des notes de l'épreuve sans cours (16). La note
+     par cours passait toujours devant — l'unité a été arrêtée réussie à 0 point, et le diplôme l'a
+     lue. À session différente, la plus récente gagne ; à session égale, la note par cours. */
+  const sansCoursPlusRecente = (cours, aa) => parAA[aa] != null
+    && (rangDe[aa] ?? 0) > (rangDe[`${cours}|${aa}`] ?? -1);
   const noteDe = (cours, aa) => {
+    if (sansCoursPlusRecente(cours, aa)) return Number(parAA[aa]);
     const v = parCoursAA[`${cours}|${aa}`] ?? (unique ? uniqueAA[aa] : undefined);
     return v != null ? Number(v) : (parAA[aa] != null ? Number(parAA[aa]) : null);
   };
   // NP ou PP : la raison du zéro, qui suit la note jusqu'à la feuille.
-  const mentionAA = (cours, aa) => mentionDe[`${cours}|${aa}`] || (unique && parCoursAA[`${cours}|${aa}`] == null ? uniqueMention[aa] : null) || mentionDe[aa] || null;
+  const mentionAA = (cours, aa) => (sansCoursPlusRecente(cours, aa) ? mentionDe[aa] || null
+    : mentionDe[`${cours}|${aa}`] || (unique && parCoursAA[`${cours}|${aa}`] == null ? uniqueMention[aa] : null) || mentionDe[aa] || null);
 
   // Les ajustements sont ceux de LA session délibérée : ce que le Conseil a
   // ajourné en juin ne pèse plus sur la décision de septembre, il en est la
