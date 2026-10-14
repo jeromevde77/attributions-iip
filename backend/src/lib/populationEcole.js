@@ -80,7 +80,45 @@ try {
     db.transaction(() => { for (const l of REPRISE_EVOLUTION) ins.run(...l); })();
     console.log(`[migration] inscrits_reference : ${REPRISE_EVOLUTION.length} lignes reprises`);
   }
+  // LE CHIFFRE SE CORRIGE, ET L'ORIGINAL RESTE (Charles, 14 octobre 2026 : « je veux pouvoir éditer
+  // ces données ; si c'est le cas, on mettrait en italique, pour raison scientifique »). La valeur
+  // de la source est gardée à côté ; tout changement s'écrit au journal, en ajout seul.
+  const cols = db.prepare('PRAGMA table_info(inscrits_reference)').all().map(c => c.name);
+  if (!cols.includes('total_origine')) {
+    db.exec('ALTER TABLE inscrits_reference ADD COLUMN total_origine INTEGER');
+    db.exec('ALTER TABLE inscrits_reference ADD COLUMN modifie_par TEXT');
+    db.exec('ALTER TABLE inscrits_reference ADD COLUMN modifie_le TEXT');
+    db.exec('UPDATE inscrits_reference SET total_origine = total');
+  }
+  db.exec(`CREATE TABLE IF NOT EXISTS inscrits_reference_journal (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, annee_scolaire TEXT NOT NULL, section TEXT NOT NULL,
+    avant INTEGER, apres INTEGER, motif TEXT, fait_par TEXT, fait_le TEXT DEFAULT CURRENT_TIMESTAMP)`);
 } catch (e) { console.error('[migration] inscrits_reference :', e.message); }
+
+/** Corriger (ou ajouter) un chiffre de référence. `total` vide efface une case ajoutée à la main. */
+export function corrigerReference({ annee, section, total, motif }, par) {
+  if (!/^\d{4}-\d{4}$/.test(String(annee || ''))) throw Object.assign(new Error('Année scolaire attendue.'), { status: 400 });
+  const sec = String(section || '').trim();
+  if (!sec) throw Object.assign(new Error('Section attendue.'), { status: 400 });
+  const vide = total === '' || total == null;
+  const n = vide ? null : Number(total);
+  if (!vide && (!Number.isInteger(n) || n < 0)) throw Object.assign(new Error('Un nombre entier d’inscrits, zéro ou plus.'), { status: 400 });
+  const avant = db.prepare('SELECT * FROM inscrits_reference WHERE annee_scolaire = ? AND section = ?').get(annee, sec);
+  db.transaction(() => {
+    if (vide) {
+      if (avant && avant.total_origine != null) throw Object.assign(new Error('Un chiffre de la source ne s’efface pas : corrigez-le.'), { status: 400 });
+      db.prepare('DELETE FROM inscrits_reference WHERE annee_scolaire = ? AND section = ?').run(annee, sec);
+    } else if (avant) {
+      db.prepare(`UPDATE inscrits_reference SET total = ?, modifie_par = ?, modifie_le = CURRENT_TIMESTAMP
+        WHERE annee_scolaire = ? AND section = ?`).run(n, par, annee, sec);
+    } else {
+      db.prepare(`INSERT INTO inscrits_reference (annee_scolaire, section, total, total_origine, source, modifie_par, modifie_le)
+        VALUES (?, ?, ?, NULL, 'ajouté dans Lucie', ?, CURRENT_TIMESTAMP)`).run(annee, sec, n, par);
+    }
+    db.prepare(`INSERT INTO inscrits_reference_journal (annee_scolaire, section, avant, apres, motif, fait_par)
+      VALUES (?, ?, ?, ?, ?, ?)`).run(annee, sec, avant?.total ?? null, n, String(motif || '').trim() || null, par);
+  })();
+}
 
 const RANG_NIV = { BA1: 1, BA2: 2, BA3: 3 };
 function niveauPrincipal(n) {
@@ -171,6 +209,9 @@ export function donneesPopulation(annee, { sections: perim = null, ref = new Dat
       return { annee: a, source: 'reference', total: rs.reduce((t, r) => t + r.total, 0),
         primo: null, ba1: rs.some(r => r.ba1 != null) ? ba1 : null,
         par_section: Object.fromEntries(rs.map(r => [r.section, r.total])),
+        // Ce qui n'est plus le chiffre de la source : en italique à l'écran.
+        modifies: Object.fromEntries(rs.filter(r => r.total_origine == null || r.total !== r.total_origine)
+          .map(r => [r.section, { origine: r.total_origine, par: r.modifie_par, le: r.modifie_le }])),
         notes: rs.filter(r => r.note).map(r => `${r.section} : ${r.note}`) };
     }
     const ls = inscrits(a).filter(l => voit(l.section));

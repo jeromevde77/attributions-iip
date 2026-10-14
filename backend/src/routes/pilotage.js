@@ -1,4 +1,4 @@
-import { donneesPopulation, inscrits } from '../lib/populationEcole.js';
+import { donneesPopulation, inscrits, corrigerReference } from '../lib/populationEcole.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { sectionRattachement } from './etudiants.js';
 import { Router } from 'express';
@@ -248,10 +248,17 @@ r.get('/totaux', authRequired, (req, res) => {
 // GET /civil — résumé de toutes les années civiles (organique + enveloppes)
 // GESTION → POPULATION (3.1.334) : qui sont nos étudiants — voir lib/populationEcole.js.
 // Le périmètre de section s'applique : une coordination ne lit que ses sections.
+// Corriger un chiffre de référence des années passées : la direction (3.1.340).
+r.put('/inscrits-reference', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'), (req, res) => {
+  try { corrigerReference(req.body || {}, req.user?.email || req.user?.nom || null); res.json({ ok: true }); }
+  catch (e) { res.status(e.status || 500).json({ error: e.message }); }
+});
+
 r.get('/population-ecole', authRequired, (req, res) => {
   try {
     const annee = req.query.annee || anneeDeTravail(req);
-    res.json(donneesPopulation(annee, { sections: getUserSections(req.user) }));
+    res.json({ ...donneesPopulation(annee, { sections: getUserSections(req.user) }),
+      peut_corriger: ['admin', 'directeur', 'directeur_adjoint'].includes(req.user?.role) });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
