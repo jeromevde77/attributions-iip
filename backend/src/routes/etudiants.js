@@ -5353,7 +5353,12 @@ r.post('/import-helb', authRequired, roleRequired('admin', 'directeur', 'directe
   const capit = x => t(x).toLowerCase().replace(/(^|[-'’\s])([\p{L}])/gu, (_, a, c) => a + c.toLocaleUpperCase('fr'));
   const iso = d => { const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(t(d)); return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : t(d) || null; };
   const rnForme = d => { const x = t(d).replace(/\D/g, ''); return x.length === 11 ? `${x.slice(0, 6)} ${x.slice(6, 9)}-${x.slice(9)}` : (t(d) || null); };
-  const cleMail = l => Object.keys(l).find(k => /mail/i.test(k));
+  // L'ADRESSE DE L'ÉCOLE, PAS LA PRIVÉE (14 octobre 2026) : l'export « cursus sans les cours » porte
+  // « Courriel » ET « Mail privé » ; prendre la première colonne qui contient « mail » était un pari.
+  const cleMail = l => ('email' in l ? 'email' : Object.keys(l).find(k => /mail/i.test(k) && !/priv|perso/i.test(k)));
+  const cleMailPrive = l => Object.keys(l).find(k => /mail/i.test(k) && /priv|perso/i.test(k));
+  // Le registre national : « et_lib_regnat » (avis d'inscription) ou « Reg. Nat. » (export cursus).
+  const rnDe = l => l.et_lib_regnat || l['reg._nat.'] || l.reg_nat || l.registre_national || '';
 
   const sectionExiste = !!db.prepare('SELECT 1 FROM section WHERE code = ?').get(SECTION_HELB);
   const tc = db.prepare(`SELECT DISTINCT u.ue_num, u.ue_nom, u.section FROM ue u
@@ -5376,10 +5381,11 @@ r.post('/import-helb', authRequired, roleRequired('admin', 'directeur', 'directe
     const donnees = {
       nom, prenom, matricule_helb: mat || null, date_naissance: iso(l.naiss_date),
       lieu_naissance: t(l.naiss_lieu) || null, nationalite: t(l.nat_lib) || null,
-      num_national: rnForme(l.et_lib_regnat), rn_norm: t(l.et_lib_regnat).replace(/\D/g, '') || null,
+      num_national: rnForme(rnDe(l)), rn_norm: t(rnDe(l)).replace(/\D/g, '') || null,
       titre: t(l.sexe).toUpperCase() === 'F' ? 'Madame' : t(l.sexe).toUpperCase() === 'M' ? 'Monsieur' : null,
       adresse: t(l.dom_rue) || null, cp: t(l.dom_cp) || null, localite: t(l.dom_loc) || null,
       gsm: t(l.gsm) || null, email_ecole: email,
+      email_perso: cleMailPrive(l) ? t(l[cleMailPrive(l)]).toLowerCase() || null : null,
     };
     let trouve = mat ? parMatricule.get(mat) : null;
     let methode = trouve ? 'matricule HELB' : null;
@@ -5420,7 +5426,7 @@ r.post('/import-helb', authRequired, roleRequired('admin', 'directeur', 'directe
   }
 
   const cols = ['nom', 'prenom', 'matricule_helb', 'date_naissance', 'lieu_naissance', 'nationalite',
-    'num_national', 'rn_norm', 'titre', 'adresse', 'cp', 'localite', 'gsm', 'email_ecole'];
+    'num_national', 'rn_norm', 'titre', 'adresse', 'cp', 'localite', 'gsm', 'email_ecole', 'email_perso'];
   const ins = db.prepare(`INSERT INTO etudiant (${cols.join(', ')}, actif, section_rattachement, rattachement_par, rattachement_le)
     VALUES (${cols.map(() => '?').join(', ')}, 1, ?, ?, datetime('now'))`);
   // Compléter : on n'écrase jamais ce qui est déjà écrit dans Lucie.
