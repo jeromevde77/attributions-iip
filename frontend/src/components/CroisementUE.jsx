@@ -25,7 +25,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { IconCheck, IconDeviceFloppy, IconAlertTriangle, IconPlus } from '@tabler/icons-react';
-import { api, authHeaders, getAnnee } from '../lib/api.js';
+import { api, authHeaders, getAnnee, getUser } from '../lib/api.js';
 import { useDroits } from '../lib/droits.js';
 import { blocsDepuisPoints, lireProgramme } from '../pages/DUE.jsx';
 
@@ -38,9 +38,17 @@ const echap = t => String(t || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').
 function pointsDuBloc(html) {
   if (!html) return [];
   const doc = new DOMParser().parseFromString(`<div>${html}</div>`, 'text/html');
-  let el = [...doc.querySelectorAll('li')];
+  /* UN POINT, C'EST LA PUCE PRINCIPALE AVEC SES SOUS-PUCES (14 octobre 2026, UE 333) : « définir les
+     notions suivantes : » ne se comprend qu'avec ce qu'elle énumère. On ne prend que les puces de
+     premier niveau, leur texte et celui de leurs sous-puces mis bout à bout ; une sous-puce n'est
+     pas un point à croiser à part. */
+  const texteDe = e => {
+    const ps = [...e.querySelectorAll('p')];
+    return ps.length ? ps.map(p => p.textContent.trim()).filter(Boolean).join(' ') : e.textContent;
+  };
+  let el = [...doc.querySelectorAll('li')].filter(li => !li.parentElement?.closest('li'));
   if (!el.length) el = [...doc.querySelectorAll('p')];
-  return [...new Set(el.map(e => norm(e.textContent)).filter(t => t.length > 3))];
+  return [...new Set(el.map(e => norm(texteDe(e))).filter(t => t.length > 3))];
 }
 
 /** Dix points répartis au prorata des croix, par pas de 0,5, somme exacte. */
@@ -83,7 +91,8 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
   const cours = (d?.cours || []).filter(x => String(x.ct_pp || '').toUpperCase() !== 'Z');
   const acquis = d?.acquis || [];
   const lecture = !d?.droits?.ecrire;
-  const peutPonderer = passe('admin', 'editeur') && annee >= ANNEE_POINTS;
+  // LA DIRECTION FIXE, LA COORDINATION PROPOSE (14 octobre 2026) : seule la direction écrit les poids.
+  const peutPonderer = ['admin', 'directeur', 'directeur_adjoint'].includes(getUser()?.role) && annee >= ANNEE_POINTS;
 
   // TOUS LES POINTS, D'OFFICE. Le descriptif d'abord ; un cours qu'il laisse vide
   // reprend ceux du dossier pédagogique ; une unité d'un seul cours prend tout le
@@ -210,12 +219,14 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
           ponderes += 1;
         }
       }
+      // La direction a fixé (ou confirmé) les pondérations : l'étape de la DUE est franchie.
+      if (peutPonderer) await fetch(`/api/due/${ueNum}/ponderations-fixees`, { method: 'POST', headers: authHeaders() }).catch(() => {});
       await charger();
       onEnregistre?.();
       setMessage(['Croisement enregistré',
         ajoutees || retirees ? `tableau des critères : ${ajoutees} ligne(s) ajoutée(s)${retirees ? `, ${retirees} retirée(s)` : ''}` : null,
         peutPonderer ? (ponderes ? `pondération ${annee} mise à jour pour ${ponderes} cours` : 'pondération déjà conforme')
-          : 'la pondération proposée sera reprise par la direction ou le secrétariat'].filter(Boolean).join(' — ') + '.');
+          : 'la pondération proposée sera fixée par la direction'].filter(Boolean).join(' — ') + '.');
     } catch (e) { setErreur(e.message); }
     finally { setEnCours(false); }
   }

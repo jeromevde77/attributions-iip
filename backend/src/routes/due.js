@@ -55,6 +55,14 @@ export function migrerDUE(dbx) {
         PRIMARY KEY (ue_num, annee_scolaire)
       );
     `);
+    /* LE CIRCUIT DE LA DUE EN TROIS ÉTAPES (Charles, 14 octobre 2026) : RÉDACTION (le rédacteur la
+       soumet à la direction), PONDÉRATIONS (la coordination les propose par le croisement, la
+       direction les fixe), VALIDATION (la direction, qui gèle la DUE et ses pondérations). Chaque
+       étape garde qui et quand ; l'avancement se lit de ces traces. */
+    const cols = dbx.prepare('PRAGMA table_info(due)').all().map(c => c.name);
+    for (const c of ['soumis_le', 'soumis_par', 'ponderation_fixee_le', 'ponderation_fixee_par']) {
+      if (!cols.includes(c)) dbx.exec(`ALTER TABLE due ADD COLUMN ${c} TEXT`);
+    }
     console.log('[migration] due créée');
     seedParametresDUE(dbx);
   } catch (e) { console.error('[migration] due :', e.message); }
@@ -158,7 +166,14 @@ function pointsDesBlocs(blocs) {
   const out = [];
   for (const [k, h] of Object.entries(blocs)) {
     if (k === '_intro') continue;
-    const lis = [...String(h || '').matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)].map(m => txt(m[1]));
+    // Les puces de PREMIER niveau, avec le texte de leurs sous-puces (14 octobre 2026) : une
+    // expression « <li>…</li> » s'arrêtait au premier « </li> » d'une sous-puce.
+    const lis = [];
+    { const src = String(h || ''); let prof = 0, debut = -1;
+      for (const m of src.matchAll(/<(\/?)li\b[^>]*>/gi)) {
+        if (!m[1]) { if (prof === 0) debut = m.index + m[0].length; prof++; }
+        else if (prof > 0) { prof--; if (prof === 0 && debut >= 0) { lis.push(txt(src.slice(debut, m.index))); debut = -1; } }
+      } }
     const items = lis.length ? lis : [...String(h || '').matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)].map(m => txt(m[1]));
     out.push(...items.filter(t => t.length > 3));
   }
@@ -416,7 +431,27 @@ function lireDUE(ueNum, annee) {
     statut: l?.statut || 'preparation',
     maj_le: l?.maj_le || null, maj_par: l?.maj_par || null,
     valide_le: l?.valide_le || null, valide_par: l?.valide_par || null,
+    soumis_le: l?.soumis_le || null, soumis_par: l?.soumis_par || null,
+    ponderation_fixee_le: l?.ponderation_fixee_le || null, ponderation_fixee_par: l?.ponderation_fixee_par || null,
   };
+}
+
+/** Les trois étapes, lues des traces : fait, courant, à venir. */
+export function etapesDUE(d) {
+  const valide = d.statut === 'validee';
+  const croise = !!(d.contenu?.croisement && Object.values(d.contenu.croisement).some(pts => Object.keys(pts || {}).length));
+  const redac = !!d.soumis_le || valide;
+  const pond = !!d.ponderation_fixee_le;
+  const date = v => (v ? String(v).slice(0, 10).split('-').reverse().join('/') : '');
+  return [
+    { cle: 'redaction', libelle: 'Rédaction', etat: redac ? 'fait' : 'courant',
+      detail: d.soumis_le ? `soumise le ${date(d.soumis_le)}${d.soumis_par ? ` par ${d.soumis_par}` : ''}` : 'en cours de rédaction' },
+    { cle: 'ponderations', libelle: 'Pondérations', etat: pond ? 'fait' : (croise || redac) ? 'courant' : 'avenir',
+      detail: pond ? `fixées le ${date(d.ponderation_fixee_le)}${d.ponderation_fixee_par ? ` par ${d.ponderation_fixee_par}` : ''}`
+        : croise ? 'proposées par le croisement — à fixer par la direction' : 'à proposer par le croisement' },
+    { cle: 'validation', libelle: 'Validation', etat: valide ? 'fait' : (redac && pond) ? 'courant' : 'avenir',
+      detail: valide ? `validée le ${date(d.valide_le)}${d.valide_par ? ` par ${d.valide_par}` : ''}` : 'par la direction' },
+  ];
 }
 
 // ── Les unités auxquelles j'ai accès ─────────────────────────────────────────
@@ -472,8 +507,9 @@ r.get('/', authRequired, (req, res) => {
 
   const etats = {};
   for (const d of db.prepare(
-    'SELECT ue_num, statut, maj_le, valide_le FROM due WHERE annee_scolaire = ?').all(annee)) {
-    etats[d.ue_num] = d;
+    'SELECT * FROM due WHERE annee_scolaire = ?').all(annee)) {
+    let contenu = {}; try { contenu = JSON.parse(d.contenu || '{}'); } catch { /* */ }
+    etats[d.ue_num] = { ...d, etapes: etapesDUE({ ...d, contenu }) };
   }
 
   res.json({
@@ -484,6 +520,7 @@ r.get('/', authRequired, (req, res) => {
       statut: etats[u.ue_num]?.statut || 'preparation',
       maj_le: etats[u.ue_num]?.maj_le || null,
       valide_le: etats[u.ue_num]?.valide_le || null,
+      etapes: etats[u.ue_num]?.etapes || etapesDUE({ statut: 'preparation', contenu: {} }),
     })),
   });
 });
@@ -521,7 +558,10 @@ r.get('/:ueNum', authRequired, (req, res) => {
       ? d.contenu.points.filter(p => (p.type || 'point') === 'point').map(p => p.texte).filter(Boolean)
       : pointsDuProgramme(String(d.contenu?.programme || auto.dp?.programme || '').replace(/<[^>]+>/g, '\n')),
     grille_precedente,
-    droits: { ...droits, ecrire: droits.ecrire && d.statut !== 'validee',
+    etapes: etapesDUE(d),
+    droits: { ...droits, soumettre: droits.ecrire && d.statut !== 'validee',
+      fixer_ponderations: NIVEAU_DIRECTION.includes(req.user?.role) && d.statut !== 'validee',
+      ecrire: droits.ecrire && d.statut !== 'validee',
       regler_mode: peutReglerMode(req.user, ueNum, annee) && (d.statut !== 'validee' || droits.valider) },
   });
 });
@@ -600,6 +640,58 @@ r.put('/:ueNum/mode-evaluation', authRequired, (req, res) => {
   res.json({ ok: true, evaluation_unique: unique });
 });
 
+// SOUMETTRE À LA DIRECTION (14 octobre 2026) : le rédacteur — titulaire ou coordination — dit que
+// la DUE est rédigée. Elle reste modifiable jusqu'à la validation ; la soumission garde qui et quand.
+r.post('/:ueNum/soumettre', authRequired, (req, res) => {
+  const annee = anneeDeTravail(req);
+  const ueNum = Number(req.params.ueNum);
+  const droits = droitsSurLUE(req.user, ueNum, annee);
+  if (!droits.ecrire) return res.status(403).json({ error: 'Seul un rédacteur de cette unité soumet sa DUE.' });
+  const d = lireDUE(ueNum, annee);
+  if (d.statut === 'validee') return res.status(409).json({ error: 'Cette DUE est déjà validée.' });
+  const retirer = !!req.body?.retirer;
+  const qui = req.user.nom || req.user.email;
+  db.prepare(`INSERT INTO due (ue_num, annee_scolaire, contenu, statut, soumis_le, soumis_par)
+    VALUES (?, ?, '{}', 'preparation', ?, ?)
+    ON CONFLICT(ue_num, annee_scolaire) DO UPDATE SET soumis_le = excluded.soumis_le, soumis_par = excluded.soumis_par`)
+    .run(ueNum, annee, retirer ? null : new Date().toISOString().slice(0, 19).replace('T', ' '), retirer ? null : qui);
+  const n = lireDUE(ueNum, annee);
+  res.json({ ok: true, ...n, etapes: etapesDUE(n) });
+});
+
+/** Les pondérations de l'unité viennent d'être fixées par la direction (routes/acquis.js). */
+export function marquerPonderationFixee(ueNum, annee, qui) {
+  try {
+    db.prepare(`INSERT INTO due (ue_num, annee_scolaire, contenu, statut, ponderation_fixee_le, ponderation_fixee_par)
+      VALUES (?, ?, '{}', 'preparation', datetime('now'), ?)
+      ON CONFLICT(ue_num, annee_scolaire) DO UPDATE SET ponderation_fixee_le = excluded.ponderation_fixee_le,
+        ponderation_fixee_par = excluded.ponderation_fixee_par`).run(Number(ueNum), annee, qui);
+  } catch (e) { console.error('[due] pondération fixée :', e.message); }
+}
+// L'état de la DUE, léger — pour l'avertissement de la délibération.
+r.get('/:ueNum/etat', authRequired, (req, res) => {
+  const annee = req.query.annee || anneeDeTravail(req);
+  const d = lireDUE(Number(req.params.ueNum), annee);
+  res.json({ annee, statut: d.statut, etapes: etapesDUE(d),
+    bloquant_des: String(getParam('due_validee_avant_cloture_des', '') || '').trim() || null });
+});
+
+// La direction confirme des pondérations déjà conformes au croisement : l'étape est franchie.
+r.post('/:ueNum/ponderations-fixees', authRequired, (req, res) => {
+  const annee = anneeDeTravail(req);
+  const ueNum = Number(req.params.ueNum);
+  if (!NIVEAU_DIRECTION.includes(req.user?.role)) return res.status(403).json({ error: 'Les pondérations se fixent par la direction.' });
+  if (dueValidee(ueNum, annee)) return res.status(409).json({ error: 'DUE validée : pondérations gelées.' });
+  marquerPonderationFixee(ueNum, annee, req.user.nom || req.user.email);
+  res.json({ ok: true });
+});
+
+/** Une DUE validée gèle ses pondérations. */
+export function dueValidee(ueNum, annee) {
+  try { return db.prepare('SELECT statut FROM due WHERE ue_num = ? AND annee_scolaire = ?').get(Number(ueNum), annee)?.statut === 'validee'; }
+  catch { return false; }
+}
+
 // La validation fige. La réouverture la défait — les deux sont réservées à la
 // direction, et l'une comme l'autre laissent la trace de qui a agi.
 r.post('/:ueNum/valider', authRequired, (req, res) => {
@@ -610,6 +702,14 @@ r.post('/:ueNum/valider', authRequired, (req, res) => {
   }
   const rouvrir = !!req.body?.rouvrir;
   const qui = req.user.nom || req.user.email;
+  /* ON NE VALIDE PAS CE QUI N'EST PAS FAIT : la DUE soumise par son rédacteur, et les pondérations
+     fixées. La validation gèle les deux (Charles, 14 octobre 2026). */
+  if (!rouvrir) {
+    const d = lireDUE(ueNum, annee);
+    const manque = [!d.soumis_le && 'la DUE n’a pas été soumise par son rédacteur',
+      !d.ponderation_fixee_le && 'les pondérations n’ont pas été fixées'].filter(Boolean);
+    if (manque.length) return res.status(409).json({ error: `Pas encore : ${manque.join(' ; ')}.` });
+  }
 
   db.prepare(`
     INSERT INTO due (ue_num, annee_scolaire, contenu, statut, valide_le, valide_par)
@@ -678,6 +778,8 @@ export function seedParametresDUE(dbx) {
       .run(NOTE_SUPPORTS_DEFAUT, NOTE_SUPPORTS_ANCIENNE);
     ins.run('due_note_evaluation', NOTE_UE_DEFAUT,
       "DUE — règle d'évaluation par défaut (modifiable par UE)", 'due');
+    ins.run('due_validee_avant_cloture_des', '',
+      "DUE — à partir de cette date (AAAA-MM-JJ), une délibération (2026-2027 et après) ne se clôt que sur une UE dont la DUE est validée ; vide : on avertit seulement", 'due');
   } catch (e) { console.error('[migration] parametres DUE :', e.message); }
 }
 
@@ -987,7 +1089,7 @@ const STYLE_DUE = `<style>
   table.doc.crit td, table.doc.crit th { vertical-align: top; font-size: 10pt; }
   table.doc.crit tr { break-inside: avoid; }
   table.doc.crit th .def { font-weight: 400; font-style: italic; font-size: 7pt; color: #4b5563; margin-top: 0.5mm; }
-  .riche p { margin: 0 0 1.5mm; } .riche ul, .riche ol { margin: 0 0 1.5mm; padding-left: 5mm; list-style: disc; }
+  .riche p { margin: 0 0 1.5mm; } .riche ul, .riche ol { margin: 0 0 1.5mm; padding-left: 5mm; list-style: disc; } .riche ul ul { margin: 0.5mm 0; list-style: circle; } .riche ul ul ul { list-style: square; }
   .riche blockquote { border: 0.25mm solid #C9D3E1; border-radius: 1.5mm; padding: 1.5mm 2.5mm; margin: 1.5mm 0; }
   .riche hr { border: 0; border-top: 0.3mm solid #C9A84C; margin: 2mm 0; }
   /* PAS DE TABLEAU DANS UN TABLEAU (Charles, 8 octobre 2026) : un bloc qui porte un

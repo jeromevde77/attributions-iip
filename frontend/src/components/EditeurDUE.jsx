@@ -13,7 +13,7 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { Color, TextStyle } from '@tiptap/extension-text-style';
 import { IconArrowBackUp, IconArrowForwardUp, IconBold, IconItalic, IconUnderline, IconList,
-  IconSquare, IconSeparatorHorizontal, IconDropletOff } from '@tabler/icons-react';
+  IconSquare, IconSeparatorHorizontal, IconDropletOff, IconIndentIncrease, IconIndentDecrease } from '@tabler/icons-react';
 
 /* EN VALEURS FIXES : le filtre du serveur (assainirDUE) n'admet que ces cinq teintes écrites
    ainsi ; une couleur notée « var(--…) » y était retirée sans bruit à l'enregistrement. */
@@ -67,6 +67,10 @@ function EditeurDUE({ valeur, onChange }) {
         <Bouton titre="Souligné" actif={editor.isActive('underline')} onClick={() => c.toggleUnderline().run()}><IconUnderline size={16} /></Bouton>
         <span className="w-px h-5 bg-slate-200 mx-1" />
         <Bouton titre="Puces" actif={editor.isActive('bulletList')} onClick={() => c.toggleBulletList().run()}><IconList size={16} /></Bouton>
+        {/* LES SOUS-PUCES (Charles, 14 octobre 2026) : décaler une puce d'un cran à droite en fait
+            une sous-puce du point au-dessus ; à gauche, elle remonte. Tab et Maj+Tab font de même. */}
+        <Bouton titre="Sous-puce — décaler à droite (Tab)" onClick={() => c.sinkListItem('listItem').run()}><IconIndentIncrease size={16} /></Bouton>
+        <Bouton titre="Remonter d'un niveau — décaler à gauche (Maj+Tab)" onClick={() => c.liftListItem('listItem').run()}><IconIndentDecrease size={16} /></Bouton>
         <Bouton titre="Cadre" actif={editor.isActive('blockquote')} onClick={() => c.toggleBlockquote().run()}><IconSquare size={16} /></Bouton>
         <Bouton titre="Ligne de séparation" onClick={() => c.setHorizontalRule().run()}><IconSeparatorHorizontal size={16} /></Bouton>
         <span className="w-px h-5 bg-slate-200 mx-1" />
