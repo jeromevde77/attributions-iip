@@ -1,3 +1,4 @@
+import { TuileEtat } from './ui.jsx';
 import { useEffect, useMemo, useState } from 'react';
 import { IconAlertTriangle } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
@@ -29,13 +30,9 @@ export default function Population({ annee }) {
   if (!data) return <div className="text-sm text-slate-400 py-8">Comptage…</div>;
 
   const niveaux = data.niveaux;
-  const tuile = (n, lib, rail) => (
-    <div className="rounded-carte border border-slate-200 bg-white px-3 py-2"
-      style={{ borderLeftWidth: 3, borderLeftColor: rail || 'transparent' }}>
-      <div className="text-lg font-semibold tabular-nums">{n}</div>
-      <div className="text-xs text-slate-500">{lib}</div>
-    </div>
-  );
+  // LA TUILE COMMUNE (14 octobre 2026) : celle-ci était dessinée à la main — liseré transparent, coins
+  // hors standard. Une seule tuile pour tout Lucie.
+  const tuile = (n, lib, etat) => <TuileEtat etat={etat || 'neutre'} valeur={n} libelle={lib} />;
 
   return (
     <div className="space-y-5">
@@ -46,8 +43,8 @@ export default function Population({ annee }) {
       </p>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-        {tuile(data.total, 'étudiants au programme confirmé', 'var(--c-principal)')}
-        {tuile(data.en_attente, 'programmes encore à confirmer', data.en_attente ? 'var(--c-attente)' : null)}
+        {tuile(data.total, 'étudiants au programme confirmé', 'fort')}
+        {tuile(data.en_attente, 'programmes encore à confirmer', data.en_attente ? 'surveiller' : null)}
         {tuile(data.parcours_mixtes, 'en parcours mixte', null)}
       </div>
 
