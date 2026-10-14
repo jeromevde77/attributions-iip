@@ -25,7 +25,7 @@ import { identiteEtablissement } from './config.js';
 import { calculerMention, reglesMention } from '../lib/mention.js';
 import { TITRES_ACCES } from '../lib/profilEtudiant.js';
 import { LOGO_EUROPASS } from '../lib/logoEuropass.js';
-import { presidenceConseil } from './acquis.js';
+import { presidenceConseil, delibererUE } from './acquis.js';
 import { composerModele, declarerModele, blocModele } from '../lib/modelesPieces.js';
 
 const r = Router();
@@ -329,6 +329,38 @@ function coteArretee(etudId, ueNum) {
              source: 'dossier' };
   }
 
+  /* UNE UNITÉ RÉUSSIE DONT LES NOTES SONT ENCODÉES, MAIS DONT LA COTE N'A JAMAIS ÉTÉ ÉCRITE
+     (14 octobre 2026 : 57 en 2025-2026, toutes avec leurs notes) : la cote se calcule des notes, avec le
+     moteur de la délibération — et la pièce le signale, elle n'a pas été arrêtée. */
+  const r0 = db.prepare(`SELECT annee_scolaire FROM etudiant_inscription
+    WHERE etudiant_id = ? AND ue_num = ? AND resultat = 'reussi' ORDER BY annee_scolaire DESC LIMIT 1`).get(etudId, ueNum);
+  if (r0) {
+    const s2 = db.prepare(`SELECT 1 FROM etudiant_note_detail WHERE etudiant_id = ? AND ue_num = ? AND annee_scolaire = ?
+      AND code LIKE 's2|%' AND points IS NOT NULL LIMIT 1`).get(etudId, ueNum, r0.annee_scolaire);
+    try {
+      const d = delibererUE(etudId, ueNum, r0.annee_scolaire, s2 ? 2 : 1);
+      const n = d?.ue?.note ?? d?.ue?.note_calculee;
+      if (n != null && Number.isFinite(Number(n)) && Number(n) > 0) {
+        return { cote: Number(n), annee: r0.annee_scolaire, session: null, source: 'calculee' };
+      }
+    } catch { /* données incomplètes : on passe */ }
+  }
+
+  /* UNE VALORISATION TOTALE VAUT SON POURCENTAGE (Charles, 14 octobre 2026, Hanna Wisam : « la 284
+     a une VA à 10 »). L'unité acquise par valorisation était comptée comme acquise, mais sans cote :
+     la mention se calculait sans elle. Le pourcentage arrêté par le Conseil — 50 % par la règle
+     (RDE art. 29 §3 et 30) — se lit sur vingt : 10/20. */
+  const va = db.prepare(`
+    SELECT pourcentage, annee_scolaire FROM etudiant_valorisation
+    WHERE etudiant_id = ? AND ue_num = ? AND type = 'complete' AND COALESCE(decision, 'accordee') = 'accordee'
+      AND pourcentage IS NOT NULL
+    ORDER BY annee_scolaire DESC LIMIT 1
+  `).get(etudId, ueNum);
+  if (va) {
+    return { cote: Math.round(Number(va.pourcentage) / 5 * 100) / 100, annee: va.annee_scolaire, session: null,
+             source: 'valorisation' };
+  }
+
   return { cote: null, annee: null, session: null, source: null };
 }
 
@@ -423,6 +455,11 @@ export function dossierDiplomation(section, annee) {
           + `(${m.manquantes.join(', ')}) : la mention est calculée sur le reste`);
       }
       if (m.sans_epreuve) reserves.push("l'épreuve intégrée n'a pas de cote");
+    }
+    const calculees = [...lignes, ...(cEI ? [cEI] : [])].filter(x => x.source === 'calculee').map(x => x.ue_num);
+    if (calculees.length) {
+      reserves.push(`cote recalculée des notes, jamais arrêtée (${calculees.join(', ')}) — `
+        + 'à écrire par Délibération → Contrôles → Contrôle des notes de décision');
     }
     const ouvertes = [...lignes, ...(cEI ? [cEI] : [])]
       .filter(x => x.close === false).map(x => x.ue_num);
@@ -889,7 +926,9 @@ function supplementDiplome(d, ctx) {
         AND COALESCE(decision, 'accordee') = 'accordee' LIMIT 1`).get(d.id, num);
     if (!r?.a && !va) return null;
     const c = coteArretee(d.id, num);
-    return { num, ...infoUE(num), annee: c.annee || r?.a, cote: c.cote, va: !!va && c.cote == null };
+    // Le supplément le dit : une unité acquise par valorisation ne porte pas de note chiffrée.
+    const parVA = !!va && (c.cote == null || c.source === 'valorisation');
+    return { num, ...infoUE(num), annee: c.annee || r?.a, cote: parVA ? null : c.cote, va: parVA };
   }).filter(Boolean);
   const credits = reussies.reduce((t, u) => t + (Number(u.ects) || 0), 0);
   const totalCredits = Number(ds.total_ects) || requises.reduce((t, n) => t + (Number(infoUE(n).ects) || 0), 0);
