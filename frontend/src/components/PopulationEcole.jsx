@@ -74,7 +74,6 @@ export default function PopulationEcole({ annee: anneeProp }) {
     <div className="space-y-4">
       {/* Toute l'école, ou une section : tout l'écran suit. */}
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-second text-slate-600">Voir :</span>
         <div className="segments">
           {[['', 'Toute l’école'], ...d.sections.map(s => [s.section, NOM_SECTION(s.section)])].map(([k, l]) => (
             <button key={k || 'tout'} type="button" onClick={() => setSection(k)}
