@@ -1516,7 +1516,36 @@ function controlerDecisions(annee) {
     if (d.resultat === 'reussi' && calc < SEUIL_UE && !faveur) { aTrancher.push(ligne); continue; }
     if (stockee == null || Math.abs(stockee - calc) >= 0.005) ecarts.push(ligne);
   }
-  return { annee, decisions: decisions.length, controlees, incalculables, ecarts, a_trancher: aTrancher };
+  /* LES RÉUSSITES DU DOSSIER SANS DÉCISION DE SÉANCE NI COTE (14 octobre 2026 : 57 unités en
+     2025-2026, toutes avec leurs notes) : marquées « réussi » au dossier, sans cote écrite — le diplôme
+     n'avait rien à lire. Elles entrent au contrôle sous la source « dossier » (session 0) : la
+     correction écrit la cote calculée au dossier, motif et journal compris. */
+  const dossier = db.prepare(`
+    SELECT i.etudiant_id, i.ue_num, e.nom, e.prenom, e.id_ecampus,
+           (SELECT u.ue_nom FROM ue u WHERE u.ue_num = i.ue_num AND u.ue_nom IS NOT NULL
+             ORDER BY (u.annee_scolaire = @annee) DESC, u.annee_scolaire DESC LIMIT 1) AS ue_nom,
+           (SELECT u.section FROM ue u WHERE u.ue_num = i.ue_num
+             ORDER BY (u.annee_scolaire = @annee) DESC, u.annee_scolaire DESC LIMIT 1) AS section,
+           EXISTS (SELECT 1 FROM etudiant_note_detail n WHERE n.etudiant_id = i.etudiant_id AND n.ue_num = i.ue_num
+             AND n.annee_scolaire = i.annee_scolaire AND n.code LIKE 's2|%' AND n.points IS NOT NULL) AS a_s2
+    FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.annee_scolaire = @annee AND i.resultat = 'reussi' AND i.points IS NULL
+      AND NOT EXISTS (SELECT 1 FROM deliberation_resultat d WHERE d.etudiant_id = i.etudiant_id
+        AND d.annee_scolaire = i.annee_scolaire AND d.ue_num = i.ue_num AND d.resultat IS NOT NULL AND d.resultat != '')
+      AND EXISTS (SELECT 1 FROM etudiant_note_detail n WHERE n.etudiant_id = i.etudiant_id AND n.ue_num = i.ue_num
+        AND n.annee_scolaire = i.annee_scolaire AND n.points IS NOT NULL)
+  `).all({ annee });
+  for (const d of dossier) {
+    let calc = null;
+    try { calc = delibererUE(d.etudiant_id, d.ue_num, annee, d.a_s2 ? 2 : 1)?.ue?.note_calculee ?? null; } catch { calc = null; }
+    if (calc == null || !Number.isFinite(Number(calc))) { incalculables++; continue; }
+    controlees++;
+    const ligne = { etudiant_id: d.etudiant_id, nom: d.nom, prenom: d.prenom, matricule: d.id_ecampus,
+      ue_num: d.ue_num, ue_nom: d.ue_nom, section: d.section, session: 0, resultat: 'reussi',
+      enregistree: null, calculee: Number(calc), faveur: false, source: 'dossier', decide_le: null, decide_par: null };
+    if (Number(calc) < SEUIL_UE) aTrancher.push(ligne); else ecarts.push(ligne);
+  }
+  return { annee, decisions: decisions.length + dossier.length, controlees, incalculables, ecarts, a_trancher: aTrancher };
 }
 
 r.get('/controle-decisions', authRequired, roleRequired(...DIRECTION_DECISION), (req, res) => {
@@ -1560,8 +1589,10 @@ r.post('/controle-decisions/corriger', authRequired, roleRequired(...DIRECTION_D
   db.transaction(() => {
     for (const l of lignes) {
       const x = parCle.get(cle(l));
-      maj.run(x.calculee, x.etudiant_id, annee, x.ue_num, x.session);
       journal.run(x.etudiant_id, annee, x.ue_num, x.session, x.resultat, x.enregistree, x.calculee, m, qui);
+      // Une réussite du DOSSIER (session 0) n'a pas de décision de séance : la cote va au dossier.
+      if (x.session === 0) { majInsc.run(x.calculee, x.etudiant_id, annee, x.ue_num); n++; continue; }
+      maj.run(x.calculee, x.etudiant_id, annee, x.ue_num, x.session);
       // Le dossier porte le résultat de la session la plus avancée : on le
       // relit, comme la route de décision.
       const f = fin.get(x.etudiant_id, annee, x.ue_num);

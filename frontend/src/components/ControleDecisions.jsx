@@ -18,7 +18,8 @@ import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import { TuileEtat } from './ui.jsx';
 
 const RESULTAT = { reussi: 'Réussi', ajourne: 'Ajourné', refuse: 'Refusé' };
-const SOURCE = { seance: 'séance Lucie', reprise: 'reprise d’archives', sans_seance: 'import (pas de séance)' };
+const SOURCE = { seance: 'séance Lucie', reprise: 'reprise d’archives', sans_seance: 'import (pas de séance)',
+  dossier: 'réussi au dossier, sans cote' };
 const cote = v => (v == null ? '—' : Number(v).toLocaleString('fr-BE', { maximumFractionDigits: 2 }));
 const fr = d => (d ? String(d).slice(0, 10).split('-').reverse().join('/') : '—');
 const anneesAutour = a => {
@@ -52,7 +53,8 @@ export default function ControleDecisions() {
       setR(j);
       // Coché d'office : ce qu'une séance tenue dans Lucie a décidé. Le reste
       // porte la note du classeur, qui fait foi.
-      setCoches(new Set(j.ecarts.filter(l => l.source === 'seance').map(cle)));
+      // Une réussite du dossier SANS cote : rien n'est remplacé, la cote calculée comble un vide — cochée aussi.
+      setCoches(new Set(j.ecarts.filter(l => l.source === 'seance' || l.source === 'dossier').map(cle)));
       const jr = await fetch(`/api/acquis/controle-decisions/journal?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() });
       setJournal(jr.ok ? await jr.json() : []);
     } catch (e) { setErreur(e.message); }
@@ -86,7 +88,7 @@ export default function ControleDecisions() {
       <td className="px-2 py-1 whitespace-nowrap"><b>{(l.nom || '').toUpperCase()}</b> {l.prenom} <span className="text-slate-400">· {l.matricule || '—'}</span></td>
       <td className="px-2 py-1"><span className="tabular-nums">UE {l.ue_num}</span> <span className="text-slate-500">{l.ue_nom || ''}</span>
         {l.section && <span className="text-slate-400"> · {l.section}</span>}</td>
-      <td className="px-2 py-1 whitespace-nowrap">{RESULTAT[l.resultat] || l.resultat}{l.session === 2 ? <span className="text-slate-400"> · S2</span> : ''}
+      <td className="px-2 py-1 whitespace-nowrap">{RESULTAT[l.resultat] || l.resultat}{l.session === 2 ? <span className="text-slate-400"> · S2</span> : l.session === 0 ? <span className="text-slate-400"> · dossier</span> : ''}
         {l.faveur && <span className="text-slate-400"> · faveur</span>}</td>
       <td className="px-2 py-1 text-right tabular-nums">{cote(l.enregistree)}</td>
       <td className="px-2 py-1 text-right tabular-nums font-semibold">{cote(l.calculee)}</td>

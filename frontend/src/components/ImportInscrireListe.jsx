@@ -31,6 +31,7 @@ export default function ImportInscrireListe({ annee, onClose, onTermine }) {
   const [cochees, setCochees] = useState(new Set());
   const [rattachement, setRattachement] = useState('');
   const [creer, setCreer] = useState(true);
+  const [remplacer, setRemplacer] = useState(false);
   const [rapport, setRapport] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(false);
@@ -69,6 +70,7 @@ export default function ImportInscrireListe({ annee, onClose, onTermine }) {
     try {
       const r = await fetch('/api/etudiants/inscrire-liste', { method: 'POST', headers: authHeaders(), body: JSON.stringify({
         annee, lignes, ues: [...cochees], creer, section_rattachement: rattachement || null, simulation,
+        remplacer_rattachement: remplacer,
         origine: `liste ${nomFichier}` }) });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error);
@@ -107,7 +109,7 @@ export default function ImportInscrireListe({ annee, onClose, onTermine }) {
               {sections.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </label>
-          <label className="text-second text-slate-600">Rattacher les étudiants créés à
+          <label className="text-second text-slate-600">Section de rattachement (les créés ; les retrouvés si cochée ci-dessous)
             <select value={rattachement} onChange={e => setRattachement(e.target.value)} className="controle w-full mt-1">
               <option value="">—</option>
               {sections.map(s => <option key={s} value={s}>{s}</option>)}
@@ -126,6 +128,10 @@ export default function ImportInscrireListe({ annee, onClose, onTermine }) {
           </div>)}
 
         <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={remplacer} onChange={e => setRemplacer(e.target.checked)} disabled={!rattachement} />
+          Rattacher aussi les étudiants retrouvés à cette section <span className="text-second text-slate-500">— remplace leur rattachement actuel (pour un double cursus : la section PRINCIPALE)</span>
+        </label>
+        <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={creer} onChange={e => setCreer(e.target.checked)} />
           Créer les étudiants absents de Lucie <span className="text-second text-slate-500">— simulez d'abord : la recherche passe par le registre national, le matricule, puis nom, prénom et naissance</span>
         </label>
@@ -135,6 +141,7 @@ export default function ImportInscrireListe({ annee, onClose, onTermine }) {
             <div className="flex flex-wrap gap-3 text-sm">
               <span><b>{rapport.retrouves}</b> retrouvé(s)</span>
               <span><b>{rapport.crees}</b> {rapport.simulation ? 'à créer' : 'créé(s)'}</span>
+              {rapport.completes > 0 && <span><b>{rapport.completes}</b> rattachement(s) {rapport.simulation ? 'à poser' : 'posé(s)'}</span>}
               <span><b>{rapport.inscriptions}</b> inscription(s) {rapport.simulation ? 'à poser' : 'posée(s)'}</span>
               {rapport.deja > 0 && <span><b>{rapport.deja}</b> déjà inscrite(s)</span>}
               {rapport.ignores.length > 0 && <span><b>{rapport.ignores.length}</b> ignorée(s)</span>}
@@ -150,7 +157,7 @@ export default function ImportInscrireListe({ annee, onClose, onTermine }) {
               {rapport.details.map((d, i) => (
                 <div key={i} className="px-3 py-1 text-second flex gap-2">
                   <span className="flex-1 truncate">{d.nom}</span>
-                  <span className="text-slate-500">{d.action}{d.methode ? ` (${d.methode})` : ''}</span>
+                  <span className="text-slate-500">{d.action}{d.methode ? ` (${d.methode})` : ''}{d.rattachement ? ` · ${d.rattachement}` : ''}</span>
                   {d.ajoutees && <span className="text-slate-500">+{d.ajoutees.length} UE</span>}
                 </div>))}
             </div>

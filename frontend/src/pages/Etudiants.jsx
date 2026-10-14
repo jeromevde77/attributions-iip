@@ -3903,9 +3903,16 @@ export default function Etudiants() {
       const s = e.section_rattachement || '(sans section)';
       if (!par.has(s)) par.set(s, []);
       par.get(s).push(e);
+      /* LE SECOND CURSUS (14 octobre 2026) : un cursus compatible actif — l'Optique d'un étudiant
+         d'Optométrie — le fait paraître aussi sous sa section, avec sa frise. Même fiche au clic. */
+      for (const s2 of Object.keys(frises?.secondaires?.[e.id] || {})) {
+        if (s2 === s) continue;
+        if (!par.has(s2)) par.set(s2, []);
+        par.get(s2).push({ ...e, _second: s2 });
+      }
     }
     return [...par.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-  }, [filtres]);
+  }, [filtres, frises]);
 
   // Le rail marine des autres pages de Lucie, plutôt que des boutons alignés
   // ou des menus déroulants : replié en 64 px, déployé au survol.
@@ -4443,7 +4450,7 @@ export default function Etudiants() {
                       </tr>
                     )}
                     {ouverte && liste.map(e => (
-                <tr key={e.id} onClick={() => setSelId(e.id)}
+                <tr key={`${e.id}-${e._second || ''}`} onClick={() => setSelId(e.id)}
                   className={`border-b border-slate-100 last:border-0 cursor-pointer
                     ${selEtudiants.has(e.id) ? 'bg-[color:var(--c-principal)]/[0.04]' : 'hover:bg-slate-50/60'}`}>
                   <td className="px-3 py-1" onClick={ev => ev.stopPropagation()}>
@@ -4458,6 +4465,8 @@ export default function Etudiants() {
                     <span className="font-semibold text-iip-blue">{nomPropre(e.nom, '')}</span>
                     <span className="text-slate-700 ml-1">{nomPropre('', e.prenom)}</span>
                     <span className="text-xs text-slate-400 ml-1.5 tabular-nums">{e.id_ecampus}</span>
+                    {e._second && <span className="ml-1.5 text-mention font-semibold px-1.5 rounded bg-slate-100 text-slate-600"
+                      title={`Second cursus : rattaché à ${e.section_rattachement}, suit aussi ${e._second}`}>2e cursus · {e.section_rattachement}</span>}
                     {e.primo && <span className="ml-1.5 text-mention font-semibold px-1.5 rounded bg-slate-100 text-slate-600"
                       title="Primo-arrivé : aucune trace avant l'année de travail">primo</span>}
                     {fManque && (e.manques || []).length > 0 && (
@@ -4510,7 +4519,9 @@ export default function Etudiants() {
                       est dans le filtre, perte de place ») : les lignes sont déjà
                       rangées par section, sous son volet. */}
                   <td className="px-3 py-1">
-                    <FriseParcours ues={frises?.sections?.[frises?.etats?.[e.id]?.s]} codes={frises?.etats?.[e.id]?.c} ects={frises?.etats?.[e.id]?.ects ?? null} />
+                    {e._second
+                      ? <FriseParcours ues={frises?.sections?.[e._second]} codes={frises?.secondaires?.[e.id]?.[e._second]?.c} ects={frises?.secondaires?.[e.id]?.[e._second]?.ects ?? null} />
+                      : <FriseParcours ues={frises?.sections?.[frises?.etats?.[e.id]?.s]} codes={frises?.etats?.[e.id]?.c} ects={frises?.etats?.[e.id]?.ects ?? null} />}
                   </td>
                   <td className="px-2 py-1 text-slate-300"><IconChevronRight size={16} /></td>
                 </tr>
