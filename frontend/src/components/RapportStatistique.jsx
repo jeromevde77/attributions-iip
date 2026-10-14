@@ -107,8 +107,9 @@ function Personnes({ d }) {
     </Carte>);
 }
 
-export default function RapportStatistique() {
-  const [annee, setAnnee] = useState(getAnnee());
+export default function RapportStatistique({ annee: anneeImposee = null } = {}) {
+  const [anneeLocale, setAnnee] = useState(getAnnee());
+  const annee = anneeImposee || anneeLocale;
   const [annees, setAnnees] = useState([]);
   const [d, setD] = useState(null);
   const [erreur, setErreur] = useState(null);
@@ -153,9 +154,9 @@ export default function RapportStatistique() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <select value={annee} onChange={e => setAnnee(e.target.value)} className="controle" title="Année académique">
+        {!anneeImposee && <select value={annee} onChange={e => setAnnee(e.target.value)} className="controle" title="Année académique">
           {[...new Set([annee, ...annees])].map(a => <option key={a}>{a}</option>)}
-        </select>
+        </select>}
         <button type="button" className="bouton controle inline-flex items-center gap-1.5" onClick={() => setTour(t => t + 1)} disabled={enCours}>
           <IconRefresh size={15} /> {enCours ? 'Calcul…' : 'Recalculer'}</button>
         <span className="flex-1" />

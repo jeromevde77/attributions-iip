@@ -514,7 +514,17 @@ import StatsDeliberation from '../components/StatsDeliberation.jsx';
 
 export default function Pilotage({ vue = 'tout' }) {
   const [centreImpression, setCentreImpression] = useState(false);
-  const anneeActive = getAnnee();
+  /* L'ANNÉE SE CHOISIT SUR CHAQUE PAGE DE GESTION (Charles, 14 octobre 2026 : « je dois pouvoir
+     traiter les années une par une, dans un sélecteur, pour chaque page »). Un sélecteur, en tête de
+     page, que suivent toutes les faces à l'année scolaire ; la dotation et le budget gardent l'année
+     civile, qui est la leur. L'année de travail de la barre du haut reste le point de départ. */
+  const [anneeActive, setAnneeActive] = useState(getAnnee());
+  const [anneesScolaires, setAnneesScolaires] = useState([]);
+  useEffect(() => {
+    fetch('/api/annees', { headers: authHeaders() }).then(r => (r.ok ? r.json() : []))
+      .then(l => setAnneesScolaires((Array.isArray(l) ? l : []).map(a => a.code || a).filter(Boolean).sort().reverse()))
+      .catch(() => {});
+  }, []);
   // L'écran ouvre sur ce que sa vue sait montrer : « Dotation » n'existe pas
   // dans le reporting, et y atterrir donnerait une page vide.
   const [tab, setTab]               = useState(() => (vue === 'reporting' ? 'etp'
@@ -1245,8 +1255,22 @@ export default function Pilotage({ vue = 'tout' }) {
     const toggle = (s) => setEtpOpen(prev => { const n = new Set(prev); n.has(s) ? n.delete(s) : n.add(s); return n; });
     const f = (x) => (x || 0).toFixed(2);
     const f3 = (x) => (x || 0).toFixed(3);
+    // LE RATIO ETP PAR ÉTUDIANT (14 octobre 2026) : cours, administratif (direction comprise), total.
+    const R = etpData.ratios || {};
+    const nEtu = R.inscrits || 0;
+    const etpCours = t.etp_total || 0, etpAdmin = R.etp_admin || 0;
+    const ratio = e => (nEtu ? (e / nEtu).toFixed(3).replace('.', ',') : '—');
+    const pour = e => (e ? `1 ETP pour ${Math.round(nEtu / e).toLocaleString('fr-BE')} étudiants` : '');
+    const parSec = s => R.inscrits_par_section?.[s] || 0;
     return (
       <div>
+        <div className="flex flex-wrap gap-3 mb-4">
+          <div className="flex-1 min-w-[170px]"><TuileEtat valeur={ratio(etpCours)} libelle="ETP de cours par étudiant" precision={`${f(etpCours)} ETP · ${pour(etpCours)}`} /></div>
+          <div className="flex-1 min-w-[170px]"><TuileEtat valeur={ratio(etpAdmin)} libelle="ETP administratif par étudiant"
+            precision={`${f(etpAdmin)} ETP — ${(R.admin || []).map(a => `${a.fonction} ${String(a.etp).replace('.', ',')}`).join(', ') || 'aucune fonction d’établissement encodée'}`} /></div>
+          <div className="flex-1 min-w-[170px]"><TuileEtat etat="fort" valeur={ratio(etpCours + etpAdmin)} libelle="ETP par étudiant, tout le monde compris" precision={`${f(etpCours + etpAdmin)} ETP · ${pour(etpCours + etpAdmin)}`} /></div>
+          <div className="flex-1 min-w-[140px]"><TuileEtat valeur={nEtu.toLocaleString('fr-BE')} libelle="étudiants inscrits" precision="hors archivés, chacun une fois" /></div>
+        </div>
         <div className="mb-4 bg-iip-gold/5 border border-iip-gold/30 rounded-lg p-3 text-second text-gray-700">
           <b>Répartition ETP</b> — équivalents temps plein par section et UE, année {etpData.annee}.
           <span className="block mt-1 text-gray-500">
@@ -1264,10 +1288,25 @@ export default function Pilotage({ vue = 'tout' }) {
               <th className="text-right px-3 py-2 text-iip-mauve">ETP HELB</th>
               <th className="text-right px-3 py-2">ETP total</th>
               <th className="text-right px-3 py-2">% total</th>
+              <th className="text-right px-3 py-2">Inscrits</th>
+              <th className="text-right px-3 py-2" title="ETP de cours de la section ÷ ses inscrits">ETP / étudiant</th>
               <th className="px-3 py-2 w-8"></th>
             </tr>
           </thead>
           <tbody>
+            {/* Le total d'abord, sous l'en-tête. */}
+            <tr className="border-b-2 border-gray-300 font-bold bg-gray-50">
+              <td className="px-3 py-2">TOTAL</td>
+              <td className="px-3 py-2 text-right text-gray-600">{f(t.etp_ct)}</td>
+              <td className="px-3 py-2 text-right text-gray-600">{f(t.etp_pp)}</td>
+              <td className="px-3 py-2 text-right text-iip-gold">{f(t.etp_iip)}</td>
+              <td className="px-3 py-2 text-right text-iip-mauve">{f(t.etp_helb)}</td>
+              <td className="px-3 py-2 text-right">{f(t.etp_total)}</td>
+              <td className="px-3 py-2 text-right">100 %</td>
+              <td className="px-3 py-2 text-right tabular-nums">{nEtu}</td>
+              <td className="px-3 py-2 text-right tabular-nums">{ratio(etpCours)}</td>
+              <td></td>
+            </tr>
             {secs.map(s => (
               <Fragment key={s.section}>
                 <tr className="border-t border-gray-100 hover:bg-gray-50 cursor-pointer" onClick={() => toggle(s.section)}>
@@ -1278,6 +1317,8 @@ export default function Pilotage({ vue = 'tout' }) {
                   <td className="px-3 py-2 text-right font-semibold text-iip-mauve">{f(s.etp_helb)}</td>
                   <td className="px-3 py-2 text-right font-bold text-gray-800">{f(s.etp_total)}</td>
                   <td className="px-3 py-2 text-right text-gray-500">{t.etp_total ? (s.etp_total / t.etp_total * 100).toFixed(1) + ' %' : '—'}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{parSec(s.section) || '—'}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{parSec(s.section) ? (s.etp_total / parSec(s.section)).toFixed(3).replace('.', ',') : '—'}</td>
                   <td className="px-3 py-2 text-right text-gray-400">{etpOpen.has(s.section) ? '▾' : '▸'}</td>
                 </tr>
                 {etpOpen.has(s.section) && s.ues.map(u => (
@@ -1289,21 +1330,12 @@ export default function Pilotage({ vue = 'tout' }) {
                     <td className="px-3 py-1 text-right text-iip-mauve">{f3(u.etp_helb)}</td>
                     <td className="px-3 py-1 text-right text-gray-600">{f3(u.etp_total)}</td>
                     <td className="px-3 py-1 text-right text-gray-300">{t.etp_total ? (u.etp_total / t.etp_total * 100).toFixed(1) + ' %' : ''}</td>
-                    <td></td>
+                    <td></td><td></td><td></td>
                   </tr>
                 ))}
               </Fragment>
             ))}
-            <tr className="border-t-2 border-gray-300 font-bold bg-gray-50">
-              <td className="px-3 py-2">TOTAL</td>
-              <td className="px-3 py-2 text-right text-gray-600">{f(t.etp_ct)}</td>
-              <td className="px-3 py-2 text-right text-gray-600">{f(t.etp_pp)}</td>
-              <td className="px-3 py-2 text-right text-iip-gold">{f(t.etp_iip)}</td>
-              <td className="px-3 py-2 text-right text-iip-mauve">{f(t.etp_helb)}</td>
-              <td className="px-3 py-2 text-right">{f(t.etp_total)}</td>
-              <td className="px-3 py-2 text-right">100 %</td>
-              <td></td>
-            </tr>
+
           </tbody>
         </table>
       </div>
@@ -1640,11 +1672,25 @@ export default function Pilotage({ vue = 'tout' }) {
       />
 
       <div className="gouttiere-rail px-3 md:px-6 py-4 space-y-5">
-        {vue === 'gestion' && rubriqueActive && rubriqueActive.faces.length > 1 && (
-          <div className="segments">
-            {rubriqueActive.faces.map(([k, l]) => (
-              <button key={k} type="button" onClick={() => setTab(k)}
-                className={tab === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>{l}</button>))}
+        {vue === 'gestion' && rubriqueActive && (
+          <div className="flex items-center gap-3 flex-wrap">
+            {rubriqueActive.faces.length > 1 && (
+              <div className="segments">
+                {rubriqueActive.faces.map(([k, l]) => (
+                  <button key={k} type="button" onClick={() => setTab(k)}
+                    className={tab === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>{l}</button>))}
+              </div>)}
+            <span className="flex-1" />
+            {tab === 'synthese' && <span className="text-second text-slate-500">année civile {selYear} : dans le rail</span>}
+            {['budget', 'dotation'].includes(tab)
+              ? <span className="text-second text-slate-500">{tab === 'budget' ? 'Année civile : dans la page' : 'Toutes les années civiles'}</span>
+              : (
+                <label className="flex items-center gap-2 text-second text-slate-600">
+                  Année scolaire
+                  <select value={anneeActive} onChange={e => setAnneeActive(e.target.value)} className="controle">
+                    {[...new Set([anneeActive, ...anneesScolaires])].map(a => <option key={a} value={a}>{a}</option>)}
+                  </select>
+                </label>)}
           </div>)}
         {/* UN TITRE NE PROMET QUE CE QUE L'ÉCRAN MONTRE.
             « Pilotage des dotations · Enveloppes extérieures · Comparaison
@@ -1668,11 +1714,11 @@ export default function Pilotage({ vue = 'tout' }) {
         {tab === 'population-ecole' ? (
           <PopulationEcole annee={anneeActive} />
         ) : tab === 'rapport' ? (
-          <RapportStatistique />
+          <RapportStatistique annee={vue === 'gestion' ? anneeActive : null} />
         ) : tab === 'repartition' ? (
-          <RepartitionPeriodes />
+          <RepartitionPeriodes annee={vue === 'gestion' ? anneeActive : null} />
         ) : tab === 'distributions' ? (
-          <Distributions />
+          <Distributions annee={vue === 'gestion' ? anneeActive : null} />
         ) : tab === 'population' ? (
           <Population annee={anneeActive} />
         ) : tab === 'budget' ? (
