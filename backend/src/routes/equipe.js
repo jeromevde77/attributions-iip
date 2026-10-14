@@ -21,7 +21,12 @@ import db from '../db/index.js';
 import { authRequired } from '../middleware/auth.js';
 
 const r = Router();
-const GERER = ['admin', 'directeur', 'directeur_adjoint', 'secretariat', 'editeur'];
+// LA DIRECTION ET LA DIRECTION ADJOINTE SEULES (Charles, 14 octobre 2026 : « seules la direction et la
+// direction adjointe peuvent avoir les autres parties de cette fenêtre ; tout le monde voit juste
+// Maintenant »). Horaires, numéros et permanences — y compris les siens — se règlent par elles.
+const GERER = ['admin', 'directeur', 'directeur_adjoint'];
+const reserve = (req, res) => (GERER.includes(req.user.role) ? false
+  : (res.status(403).json({ error: 'Réservé à la direction et à la direction adjointe.' }), true));
 const ROLES = { admin: 'Direction', directeur: 'Direction', directeur_adjoint: 'Direction adjointe', secretariat: 'Secrétariat',
   editeur: 'Secrétariat', coordination: 'Coordination', professeur: 'Enseignant', consultation: 'Consultation' };
 
@@ -82,7 +87,17 @@ const personne = u => ({ id: u.id, nom: nomDe(u), role: ROLES[u.role] || u.role,
 
 /** Ce que la tuile montre : qui est là maintenant, et la permanence du jour. */
 r.get('/maintenant', authRequired, (req, res) => {
-  const m = maintenant();
+  /* UN AUTRE JOUR DE LA SEMAINE (Charles, 14 octobre 2026 : « la même vue, mais pour chaque jour de
+   * la semaine ») : `?date=AAAA-MM-JJ` lit la frise de ce jour-là. Hors aujourd'hui, il n'y a pas de
+   * « maintenant » : un jour à venir se lit tout entier « attendu », un jour passé « fini ». */
+  const auj = maintenant();
+  let m = auj, autreJour = false;
+  const dq = String(req.query.date || '');
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dq) && dq !== auj.date) {
+    const j = new Date(`${dq}T12:00:00Z`).getUTCDay();
+    m = { date: dq, heure: dq > auj.date ? '00:00' : '23:59', jour: j === 0 ? 7 : j };
+    autreJour = true;
+  }
   const comptes = new Map(db.prepare('SELECT id, nom_complet, email, role, telephone_affiche FROM utilisateur WHERE COALESCE(actif, 1) = 1').all().map(u => [u.id, u]));
   // Le dernier pointage du jour, par personne.
   const pointes = new Map();
@@ -133,8 +148,8 @@ r.get('/maintenant', authRequired, (req, res) => {
    * d'ouverture du secrétariat, Urgence pendant la permanence ») — il l'est quand quelqu'un du
    * secrétariat est là, selon la frise, et pas en pause : les heures ne s'écrivent pas en dur. */
   const SECRETARIAT = new Set(['secretariat', 'editeur']);
-  const secretariatOuvert = journee.some(p => p.etat === 'la' && SECRETARIAT.has(comptes.get(p.id)?.role));
-  res.json({ ...m, presents, attendus, journee, permanences: perm, secretariat_ouvert: secretariatOuvert,
+  const secretariatOuvert = !autreJour && journee.some(p => p.etat === 'la' && SECRETARIAT.has(comptes.get(p.id)?.role));
+  res.json({ ...m, autre_jour: autreJour, aujourdhui: auj.date, presents, attendus, journee, permanences: perm, secretariat_ouvert: secretariatOuvert,
     moi: { etat: moiP?.etat || null, depuis: moiP?.heure || null, a_un_horaire: db.prepare('SELECT 1 FROM equipe_horaire WHERE utilisateur_id = ? LIMIT 1').get(req.user.id) ? true : false,
       telephone: comptes.get(req.user.id)?.telephone_affiche || '' },
     peut_gerer: GERER.includes(req.user.role) });
@@ -150,6 +165,7 @@ r.post('/pointer', authRequired, (req, res) => {
 
 /** Mon horaire de la semaine (ou celui d'un autre, pour la direction et le secrétariat). */
 r.get('/horaire', authRequired, (req, res) => {
+  if (reserve(req, res)) return;
   const uid = req.query.utilisateur && GERER.includes(req.user.role) ? Number(req.query.utilisateur) : req.user.id;
   res.json(db.prepare('SELECT jour, debut, fin, lieu, pause_debut, pause_fin FROM equipe_horaire WHERE utilisateur_id = ? ORDER BY jour, debut').all(uid));
 });
@@ -168,6 +184,7 @@ function ecrireHoraire(uid, plages) {
   for (const p of plages) ins.run(uid, p.jour, p.debut, p.fin, p.lieu, p.pause_debut, p.pause_fin);
 }
 r.put('/horaire', authRequired, (req, res) => {
+  if (reserve(req, res)) return;
   const uid = req.body?.utilisateur && GERER.includes(req.user.role) ? Number(req.body.utilisateur) : req.user.id;
   const plages = nettoyerPlages(req.body?.plages);
   db.transaction(() => ecrireHoraire(uid, plages))();
@@ -178,7 +195,7 @@ r.put('/horaire', authRequired, (req, res) => {
  * car c'est mon équipe ») : tous les horaires d'un coup, lus et écrits ensemble. On écrit les
  * seules personnes envoyées (celles qu'on a modifiées), en une transaction. */
 r.get('/horaires', authRequired, (req, res) => {
-  if (!GERER.includes(req.user.role)) return res.status(403).json({ error: 'Réservé à la direction et au secrétariat.' });
+  if (!GERER.includes(req.user.role)) return res.status(403).json({ error: 'Réservé à la direction et à la direction adjointe.' });
   const comptes = db.prepare(`SELECT id, nom_complet, email, role FROM utilisateur WHERE COALESCE(actif, 1) = 1
     AND (role <> 'professeur' OR id IN (SELECT utilisateur_id FROM equipe_horaire))`).all();
   const plages = db.prepare('SELECT utilisateur_id, jour, debut, fin, lieu, pause_debut, pause_fin FROM equipe_horaire ORDER BY jour, debut').all();
@@ -187,7 +204,7 @@ r.get('/horaires', authRequired, (req, res) => {
     .sort((a, b) => a.nom.localeCompare(b.nom, 'fr')));
 });
 r.put('/horaires', authRequired, (req, res) => {
-  if (!GERER.includes(req.user.role)) return res.status(403).json({ error: 'Réservé à la direction et au secrétariat.' });
+  if (!GERER.includes(req.user.role)) return res.status(403).json({ error: 'Réservé à la direction et à la direction adjointe.' });
   const lot = (Array.isArray(req.body?.personnes) ? req.body.personnes : []).filter(x => Number(x.utilisateur));
   let n = 0;
   db.transaction(() => { for (const x of lot) { const pl = nettoyerPlages(x.plages); ecrireHoraire(Number(x.utilisateur), pl); n += pl.length; } })();
@@ -198,7 +215,7 @@ r.put('/horaires', authRequired, (req, res) => {
  * horaires saisis avant la pause n'en portent pas. Les plages qui passent midi SANS pause reçoivent
  * 12 h 00 – 12 h 30 ; une pause déjà posée n'est jamais touchée. ?simuler=1 compte sans écrire. */
 r.post('/horaire/pause-midi', authRequired, (req, res) => {
-  if (!GERER.includes(req.user.role)) return res.status(403).json({ error: 'Réservé à la direction et au secrétariat.' });
+  if (!GERER.includes(req.user.role)) return res.status(403).json({ error: 'Réservé à la direction et à la direction adjointe.' });
   const cibles = db.prepare(`SELECT h.id, h.utilisateur_id, u.nom_complet, u.email FROM equipe_horaire h JOIN utilisateur u ON u.id = h.utilisateur_id
     WHERE h.pause_debut IS NULL AND h.debut <= '12:00' AND h.fin >= '12:30'`).all();
   const personnes = [...new Set(cibles.map(c => nomDe(c)))].sort((a, b) => a.localeCompare(b, 'fr'));
@@ -214,10 +231,12 @@ r.post('/horaire/pause-midi', authRequired, (req, res) => {
  * secrétariat le saisissent aussi, depuis Horaires de l'équipe — attendre que chacun le fasse
  * laissait la frise pleine de « pas de numéro affiché », secours compris. */
 r.get('/telephone', authRequired, (req, res) => {
+  if (reserve(req, res)) return;
   const uid = req.query.utilisateur && GERER.includes(req.user.role) ? Number(req.query.utilisateur) : req.user.id;
   res.json({ telephone: db.prepare('SELECT telephone_affiche t FROM utilisateur WHERE id = ?').get(uid)?.t || '' });
 });
 r.put('/telephone', authRequired, (req, res) => {
+  if (reserve(req, res)) return;
   const uid = req.body?.utilisateur && GERER.includes(req.user.role) ? Number(req.body.utilisateur) : req.user.id;
   const t = String(req.body?.telephone || '').replace(/[^\d+ ./()-]/g, '').trim().slice(0, 30);
   db.prepare('UPDATE utilisateur SET telephone_affiche = ? WHERE id = ?').run(t || null, uid);
@@ -234,7 +253,7 @@ r.get('/permanences', authRequired, (req, res) => {
     secours1: nomCompte(p.secours1_id), secours2: nomCompte(p.secours2_id) })));
 });
 r.post('/permanences', authRequired, (req, res) => {
-  if (!GERER.includes(req.user.role)) return res.status(403).json({ error: 'Le tour de rôle se tient par la direction et le secrétariat.' });
+  if (!GERER.includes(req.user.role)) return res.status(403).json({ error: 'Le tour de rôle se tient par la direction et la direction adjointe.' });
   const b = req.body || {};
   const date = /^\d{4}-\d{2}-\d{2}$/.test(String(b.date || '')) ? b.date : null;
   if (!date || !hhmm(b.debut) || !hhmm(b.fin) || !(b.debut < b.fin) || !Number(b.utilisateur_id)) return res.status(400).json({ error: 'Date, heures et personne requises.' });

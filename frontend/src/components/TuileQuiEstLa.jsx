@@ -109,23 +109,58 @@ function FenetreQuiEstLa({ d, face, setFace, recharger, onFermer }) {
         <button className="bouton bouton-fort" onClick={onFermer}>Fermer</button>
       </>}>
       <div className="flex items-center gap-1 border-b border-slate-200 mb-3">
-        {[['maintenant', 'Maintenant'], ['moi', 'Mon horaire et mon numéro'], ...(d.peut_gerer ? [['equipe', 'Horaires de l’équipe'], ['permanences', 'Permanences']] : [])].map(([k, l]) => (
+        {/* Les autres faces : la direction et la direction adjointe seules (14 octobre 2026). */}
+        {d.peut_gerer && [['maintenant', 'Maintenant'], ['moi', 'Mon horaire et mon numéro'], ['equipe', 'Horaires de l’équipe'], ['permanences', 'Permanences']].map(([k, l]) => (
           <button key={k} type="button" onClick={() => setFace(k)} className={`onglet-page ${face === k ? 'onglet-page-actif' : ''}`}>{l}</button>))}
       </div>
-      {face === 'maintenant' && <Maintenant d={d} modifier={modifier} />}
-      {face === 'moi' && <Moi d={d} recharger={recharger} />}
-      {face === 'equipe' && <HorairesEquipe key={quiEquipe} d={d} recharger={recharger} quiInitial={quiEquipe} />}
-      {face === 'permanences' && <Permanences recharger={recharger} />}
+      {(face === 'maintenant' || !d.peut_gerer) && <Maintenant d={d} modifier={modifier} />}
+      {face === 'moi' && d.peut_gerer && <Moi d={d} recharger={recharger} />}
+      {face === 'equipe' && d.peut_gerer && <HorairesEquipe key={quiEquipe} d={d} recharger={recharger} quiInitial={quiEquipe} />}
+      {face === 'permanences' && d.peut_gerer && <Permanences recharger={recharger} />}
     </Fenetre>);
 }
 
+/* CHAQUE JOUR DE LA SEMAINE (Charles, 14 octobre 2026 : « la même vue, mais pour chaque jour de la
+   semaine »). Aujourd'hui d'abord ; un clic sur un autre jour lit sa frise, les flèches changent de
+   semaine. Hors aujourd'hui, pas de trait « maintenant » : on lit le prévu. */
+const isoDe = dt => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+const dateDe = iso => { const [a, m, j] = iso.split('-').map(Number); return new Date(a, m - 1, j); };
+function lundiDe(iso) { const dt = dateDe(iso); const j = dt.getDay() || 7; dt.setDate(dt.getDate() - j + 1); return dt; }
 function Maintenant({ d, modifier }) {
+  const [jour, setJour] = useState(d.date);
+  const [autre, setAutre] = useState(null);
+  useEffect(() => {
+    if (jour === d.date) { setAutre(null); return; }
+    let vivant = true;
+    fetch(`/api/equipe/maintenant?date=${jour}`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : null)).then(j => { if (vivant) setAutre(j); }).catch(() => {});
+    return () => { vivant = false; };
+  }, [jour, d.date]);
+  const v = jour === d.date ? d : (autre?.date === jour ? autre : null);
+  const lundi = lundiDe(jour);
+  const semaine = Array.from({ length: 7 }, (_, k) => { const x = new Date(lundi); x.setDate(lundi.getDate() + k); return isoDe(x); });
+  const decaler = n => { const x = dateDe(jour); x.setDate(x.getDate() + n); setJour(isoDe(x)); };
+  const libelleJour = iso => `${JOURS[(dateDe(iso).getDay() || 7) - 1].toLowerCase()} ${iso.split('-').reverse().slice(0, 2).join('/')}`;
   return (
     <div className="space-y-4">
       <section>
-        <div className="intertitre mb-1.5">La journée de l’équipe</div>
-        {!d.journee?.length && !d.permanences.length ? <p className="text-sm text-slate-500">Personne n’a d’horaire ni de permanence aujourd’hui.</p>
-          : <FriseJournee journee={d.journee || []} permanences={d.permanences} heure={d.heure} modifier={modifier} />}
+        <div className="flex items-center gap-2 flex-wrap mb-2">
+          <div className="intertitre">La journée de l’équipe{jour !== d.date ? ` · ${libelleJour(jour)}` : ''}</div>
+          <span className="flex-1" />
+          <button type="button" className="bouton bouton-compact" onClick={() => decaler(-7)} title="Semaine précédente" aria-label="Semaine précédente">‹</button>
+          <div className="segments">
+            {semaine.map((iso, k) => (
+              <button key={iso} type="button" onClick={() => setJour(iso)} title={libelleJour(iso) + (iso === d.date ? ' — aujourd’hui' : '')}
+                className={jour === iso ? 'bg-iip-blue text-white font-semibold' : iso === d.date ? 'text-iip-blue font-semibold hover:bg-slate-50' : 'text-slate-600 hover:bg-slate-50'}>
+                {JOURS_COURTS[k]} {Number(iso.slice(8))}
+              </button>))}
+          </div>
+          <button type="button" className="bouton bouton-compact" onClick={() => decaler(7)} title="Semaine suivante" aria-label="Semaine suivante">›</button>
+          {jour !== d.date && <button type="button" className="bouton bouton-compact" onClick={() => setJour(d.date)}>Aujourd’hui</button>}
+        </div>
+        {!v ? <p className="text-sm text-slate-500">Chargement…</p>
+          : !v.journee?.length && !v.permanences.length ? <p className="text-sm text-slate-500">Personne n’a d’horaire ni de permanence {jour === d.date ? 'aujourd’hui' : 'ce jour-là'}.</p>
+          : <FriseJournee journee={v.journee || []} permanences={v.permanences} heure={v.heure} modifier={modifier} autreJour={!!v.autre_jour} />}
       </section>
     </div>);
 }
@@ -135,7 +170,7 @@ function Maintenant({ d, modifier }) {
    quand on peut la trouver, le gris hachuré sa pause, le trait marine l'heure qu'il est. Un « J'arrive »
    hors horaire se dessine aussi ; après « Je pars », le reste de la journée s'éteint. */
 const enMin = h => { const [a, b] = String(h || '').split(':').map(Number); return a * 60 + (b || 0); };
-function FriseJournee({ journee, permanences = [], heure, modifier = null }) {
+function FriseJournee({ journee, permanences = [], heure, modifier = null, autreJour = false }) {
   // Le nom : un lien vers son horaire et son numéro, pour qui peut les régler.
   // Un crayon VISIBLE à côté du nom (Charles : « je ne sais toujours pas changer les horaires ») :
   // un nom cliquable sans signe ne se devine pas.
@@ -149,14 +184,17 @@ function FriseJournee({ journee, permanences = [], heure, modifier = null }) {
   const maintenant = enMin(heure);
   const bornes = [...journee.flatMap(p => [...p.plages.flatMap(h => [enMin(h.debut), enMin(h.fin)]), ...p.pointages.map(x => enMin(x.heure))]),
     ...permanences.flatMap(p => [enMin(p.debut), enMin(p.fin)])];
-  const debut = Math.floor(Math.min(7 * 60, maintenant, ...bornes) / 60) * 60;
-  const fin = Math.ceil(Math.max(19 * 60, maintenant, ...bornes) / 60) * 60;
+  const ici = autreJour ? [] : [maintenant];
+  const debut = Math.floor(Math.min(7 * 60, ...ici, ...bornes) / 60) * 60;
+  const fin = Math.ceil(Math.max(19 * 60, ...ici, ...bornes) / 60) * 60;
   const pct = m => `${((Math.min(fin, Math.max(debut, m)) - debut) / (fin - debut)) * 100}%`;
   const larg = (a, b) => `${((Math.min(fin, b) - Math.max(debut, a)) / (fin - debut)) * 100}%`;
   const heures = []; for (let h = debut; h <= fin; h += 60) heures.push(h);
   const VERT = 'var(--c-reussi)';
   const OR = 'var(--c-iip_or, #F9B619)';   // la permanence : l'or du logo, sans pause (Charles)
   const etat = p => {
+    // Un autre jour : ses plages, pas un état du moment.
+    if (autreJour) return p.plages.map(h => `${h.debut}–${h.fin}${h.lieu ? ` · ${h.lieu === LIEU_AGENDA ? 'selon son agenda' : h.lieu}` : ''}`).join(' · ');
     const ici = p.plages.find(h => h.debut <= heure && heure < h.fin);
     const lieu = ici?.lieu === LIEU_AGENDA ? 'selon son agenda — joindre par téléphone' : ici?.lieu;
     const pause = p.plages.find(h => h.pause_debut && h.pause_debut <= heure && heure < h.pause_fin);
@@ -190,7 +228,7 @@ function FriseJournee({ journee, permanences = [], heure, modifier = null }) {
               <span className="block text-second text-slate-500 truncate" title={etat(p)}>{etat(p)}</span>
               {injoignable && <span className="block text-second" style={{ color: FRAISE }}>aucun numéro affiché : injoignable</span>}
             </span>
-            <div className={`relative flex-1 h-5 rounded bg-slate-100 overflow-hidden ${p.etat === 'parti' || p.etat === 'fini' ? 'opacity-60' : ''}`}>
+            <div className={`relative flex-1 h-5 rounded bg-slate-100 overflow-hidden ${!autreJour && (p.etat === 'parti' || p.etat === 'fini') ? 'opacity-60' : ''}`}>
               {heures.slice(1, -1).map(h => <span key={h} className="absolute top-0 bottom-0 w-px bg-white/70" style={{ left: pct(h) }} />)}
               {/* La pause est un TROU entre deux barres (Charles : « deux lignes, pas ce truc moche »). */}
               {p.plages.flatMap((h, k) => (h.pause_debut && h.pause_fin
@@ -203,10 +241,11 @@ function FriseJournee({ journee, permanences = [], heure, modifier = null }) {
                   title={`Arrivé à ${arrivee.heure}, hors horaire`} />)}
               {parti != null && (
                 <span className="absolute top-0 bottom-0 bg-slate-200/90" style={{ left: pct(parti), right: 0 }} title={`Parti à ${p.pointages[p.pointages.length - 1].heure}`} />)}
-              <span className="absolute top-0 bottom-0 w-0.5" style={{ left: pct(maintenant), background: 'var(--c-principal)' }} title={`Il est ${heure}`} />
+              {!autreJour && <span className="absolute top-0 bottom-0 w-0.5" style={{ left: pct(maintenant), background: 'var(--c-principal)' }} title={`Il est ${heure}`} />}
             </div>
             <span className="w-44 flex-none flex justify-end">
-              {p.etat === 'la' ? <Appeler p={p} /> : p.etat === 'pause' ? <span className="text-mention text-slate-500">en pause</span> : null}
+              {autreJour ? (p.telephone ? <Appeler p={p} /> : null)
+                : p.etat === 'la' ? <Appeler p={p} /> : p.etat === 'pause' ? <span className="text-mention text-slate-500">en pause</span> : null}
             </span>
           </div>);
       })}
@@ -216,7 +255,7 @@ function FriseJournee({ journee, permanences = [], heure, modifier = null }) {
         <div key={p.id} className="flex items-center gap-3 py-1.5 border-t border-slate-100">
           <span className="w-52 flex-none min-w-0">
             <Nom p={p} versFace="permanences" /> <span className="text-second text-slate-500">de permanence</span>
-            <span className="block text-second text-slate-500">{p.debut}–{p.fin}{p.en_cours ? ' · en ce moment' : ''}{p.note ? ` · ${p.note}` : ''}</span>
+            <span className="block text-second text-slate-500">{p.debut}–{p.fin}{p.en_cours && !autreJour ? ' · en ce moment' : ''}{p.note ? ` · ${p.note}` : ''}</span>
             {p.secours.map((x, k) => (
               <span key={x.id} className="block text-second">
                 <span className="text-slate-500">secours {k + 1} :</span> <b>{x.nom}</b>{' '}
@@ -224,19 +263,19 @@ function FriseJournee({ journee, permanences = [], heure, modifier = null }) {
                   : <span style={{ color: FRAISE }}>pas de numéro affiché</span>}
               </span>))}
           </span>
-          <div className={`relative flex-1 h-5 rounded bg-slate-100 overflow-hidden ${p.en_cours || enMin(p.debut) > maintenant ? '' : 'opacity-60'}`}>
+          <div className={`relative flex-1 h-5 rounded bg-slate-100 overflow-hidden ${autreJour || p.en_cours || enMin(p.debut) > maintenant ? '' : 'opacity-60'}`}>
             {heures.slice(1, -1).map(h => <span key={h} className="absolute top-0 bottom-0 w-px bg-white/70" style={{ left: pct(h) }} />)}
             <span className="absolute top-1 bottom-1 rounded-sm" style={{ left: pct(enMin(p.debut)), width: larg(enMin(p.debut), enMin(p.fin)), background: OR }}
               title={`De permanence ${p.debut}–${p.fin}`} />
-            <span className="absolute top-0 bottom-0 w-0.5" style={{ left: pct(maintenant), background: 'var(--c-principal)' }} title={`Il est ${heure}`} />
+            {!autreJour && <span className="absolute top-0 bottom-0 w-0.5" style={{ left: pct(maintenant), background: 'var(--c-principal)' }} title={`Il est ${heure}`} />}
           </div>
-          <span className="w-44 flex-none flex justify-end">{p.en_cours ? <Appeler p={p} /> : null}</span>
+          <span className="w-44 flex-none flex justify-end">{p.en_cours || (autreJour && p.telephone) ? <Appeler p={p} /> : null}</span>
         </div>))}
       <p className="text-mention text-slate-400 pt-1 flex flex-wrap gap-x-4">
         <span><span className="inline-block w-3 h-2 rounded-sm align-middle mr-1" style={{ background: VERT }} />disponible</span>
         <span>le blanc entre deux barres : la pause</span>
         {permanences.length > 0 && <span><span className="inline-block w-3 h-2 rounded-sm align-middle mr-1" style={{ background: OR }} />permanence</span>}
-        <span><span className="inline-block w-0.5 h-3 align-middle mr-1" style={{ background: 'var(--c-principal)' }} />maintenant ({heure})</span>
+        {!autreJour && <span><span className="inline-block w-0.5 h-3 align-middle mr-1" style={{ background: 'var(--c-principal)' }} />maintenant ({heure})</span>}
       </p>
     </div>);
 }
