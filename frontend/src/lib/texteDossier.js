@@ -64,3 +64,40 @@ export function rubriquesDuTexte(texte) {
   }
   return Object.fromEntries(Object.entries(out).map(([k, v]) => [k, v.join('\n').trim()]));
 }
+
+/* LES DOSSIERS IMPORTÉS AVANT 3.1.356 SONT À PLAT (Charles, 14 octobre 2026 : « tu ne mets pas de
+ * structure ni de mise en page ») : ni puces ni intertitres, seulement des lignes. On les structure à
+ * l'ouverture, par ce que le texte laisse voir — l'intitulé d'un cours ou un sous-titre connu devient
+ * un intertitre ; ce qui suit une phrase finissant par « : » devient une liste, jusqu'au prochain
+ * intertitre ou à la prochaine phrase en « : ». Les sous-puces ne se devinent pas : un réimport du
+ * Word les rend. Un texte qui porte déjà des marques n'est pas touché. */
+const SOUS_TITRES = /^(finalit[ée]s g[ée]n[ée]rales|finalit[ée]s particuli[èe]res|capacit[ée]s|titres? (pouvant en )?ten(ant|ir) lieu)\s*:?$/i;
+export function structurerAPlat(texte, intitulesCours = []) {
+  const t = String(texte || '');
+  if (!t.trim() || /^###\s/m.test(t)) return t;
+  const norme = x => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const cours = new Set(intitulesCours.map(norme).filter(Boolean));
+  // Déjà ses puces (programme importé en 3.1.342) : il ne lui manque que ses intertitres.
+  if (/^( *)- /m.test(t)) {
+    return t.split('\n').map(l => (!/^\s*- /.test(l) && (cours.has(norme(l)) || SOUS_TITRES.test(l.trim()))
+      ? `### ${l.trim().replace(/\s*:$/, '')}` : l)).join('\n');
+  }
+  const out = []; let liste = false; let sous = false;
+  for (const brut of t.split('\n')) {
+    const l = brut.trim();
+    if (!l) { liste = false; sous = false; continue; }
+    // Les sous-points d'un point en « : » — jusqu'à celui qui ferme par « ; » ou « . ».
+    if (sous) { out.push(`  - ${l}`); if (/[;.]$/.test(l)) sous = false; continue; }
+    // Un intertitre (un cours, « Finalités générales ») ouvre une liste : ses points suivent.
+    if (cours.has(norme(l)) || SOUS_TITRES.test(l)) { out.push(`### ${l.replace(/\s*:$/, '')}`); liste = true; sous = false; continue; }
+    // Un point en « : » au milieu d'une liste : c'est une puce, et ce qui suit, ses sous-puces.
+    if (/:$/.test(l) && liste && /^- /.test(out[out.length - 1] || '')) { out.push(`- ${l}`); sous = true; continue; }
+    if (/:$/.test(l)) { out.push(l); liste = true; continue; }
+    // Une ligne en « , » qui ne suit pas une puce est une phrase de contexte (« en vue de…, ») ;
+    // après une puce, c'est la suite de l'énumération.
+    const precedente = out[out.length - 1] || '';
+    if (liste && !(/,$/.test(l) && !/^- /.test(precedente))) { out.push(`- ${l}`); continue; }
+    out.push(l);
+  }
+  return out.join('\n');
+}

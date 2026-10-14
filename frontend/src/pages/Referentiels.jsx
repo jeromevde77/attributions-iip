@@ -1,5 +1,5 @@
 import EditeurRubrique from '../components/EditeurRubrique.jsx';
-import { rubriquesDuTexte } from '../lib/texteDossier.js';
+import { rubriquesDuTexte, structurerAPlat } from '../lib/texteDossier.js';
 import { MODES_GROUPES } from '../lib/groupes.js';
 import { useEffect, useMemo, useRef, useState, Fragment } from 'react';
 import { estDirection } from '../lib/modules.js';
@@ -682,10 +682,21 @@ function UEModal({ ue, sections, onClose, onSaved, navigation = null }) {
   useEffect(() => {
     if (isNew || !ue?.ue_num || !ue?.annee_scolaire) return;
     fetch(`/api/ref/ue/${ue.ue_num}?annee=${encodeURIComponent(ue.annee_scolaire)}`, { headers: authHeaders() })
-      .then(r => (r.ok ? r.json() : null)).then(j => { setDossier(j); setRubriques(rubriquesDuTexte(j?.ue_dp || '')); })
+      .then(r => (r.ok ? r.json() : null)).then(j => {
+        setDossier(j);
+        // Un dossier importé à plat (avant 3.1.356) se structure à l'ouverture ; il ne s'enregistre ainsi
+        // que si on enregistre la fiche après l'avoir retouché.
+        const intitules = (j?.cours || []).map(c => c.cours_nom);
+        setRubriques(Object.fromEntries(Object.entries(rubriquesDuTexte(j?.ue_dp || ''))
+          .map(([k, v]) => [k, structurerAPlat(v, intitules)])));
+      })
       .catch(() => setDossier({}));
   }, [isNew, ue?.ue_num, ue?.annee_scolaire]);
-  const origines = useMemo(() => rubriquesDuTexte(dossier?.ue_dp_origine || dossier?.ue_dp || ''), [dossier]);
+  const origines = useMemo(() => {
+    const intitules = (dossier?.cours || []).map(c => c.cours_nom);
+    return Object.fromEntries(Object.entries(rubriquesDuTexte(dossier?.ue_dp_origine || dossier?.ue_dp || ''))
+      .map(([k, v]) => [k, structurerAPlat(v, intitules)]));
+  }, [dossier]);
   const poserRubrique = (k, v) => { setRubriques(r => ({ ...r, [k]: v })); setRubriquesTouchees(t => ({ ...t, [k]: v })); };
   function toggleSection(code) {
     setSelSections(s => { const n = new Set(s); n.has(code) ? n.delete(code) : n.add(code); return n; });
@@ -907,10 +918,14 @@ function UEModal({ ue, sections, onClose, onSaved, navigation = null }) {
         const rub = (k, titre) => <EditeurRubrique key={k} titre={titre} texte={rubriques[k] || ''} origine={origines[k] ?? null}
           lecture={!isAdmin} onChange={v => poserRubrique(k, v)} />;
         const cours = (dossier?.cours || []).filter(c => String(c.ct_pp || '').toUpperCase() !== 'Z');
-        const totCours = cours.reduce((t, c) => t + (Number(c.cours_per) || 0), 0);
+        // L'ACTIVITÉ Z (développement professionnel) : des périodes ÉTUDIANT, hors cours, mais au dossier.
+        const coursZ = (dossier?.cours || []).filter(c => String(c.ct_pp || '').toUpperCase() === 'Z');
+        const perZ = coursZ.reduce((t, c) => t + (Number(c.per_etudiant ?? c.cours_per) || 0), 0) || Number(dossier?.ue_per_z || form.ue_per_z) || 0;
+        const aut = Number(dossier?.ue_aut ?? form.ue_aut) || 0;
+        const totCours = cours.reduce((t, c) => t + (Number(c.cours_per) || 0), 0) + aut;   // le dossier : cours + autonomie
         return (<>
           <div className="flex items-center gap-1 border-b border-slate-200 mb-4 -mt-1">
-            {[['fiche', 'Fiche'], ['contenu', 'Contenu'], ['programme', 'Programme'], ['organisation', 'Organisation']].map(([k, l]) => (
+            {[['fiche', 'Fiche'], ['contenu', 'Contenu'], ['acquis', 'Acquis'], ['programme', 'Programme'], ['organisation', 'Organisation']].map(([k, l]) => (
               <button key={k} type="button" onClick={() => setOnglet(k)} className={`onglet-page ${onglet === k ? 'onglet-page-actif' : ''}`}>{l}</button>))}
             <span className="flex-1" />
             {dossier && !dossier.ue_dp && <span className="text-second text-slate-500">Aucun dossier pédagogique importé pour {ue?.annee_scolaire}.</span>}
@@ -927,9 +942,10 @@ function UEModal({ ue, sections, onClose, onSaved, navigation = null }) {
                     <tr className="tab-repere font-semibold"><td className="px-2 py-1">Total des périodes</td><td></td><td className="px-2 py-1 text-right tabular-nums">{dossier?.ue_per_etudiants ?? form.ue_per_etudiants ?? '—'}</td></tr>
                     {cours.map(c => (
                       <tr key={c.cours_code} className="border-t border-slate-100"><td className="px-2 py-1">{c.cours_nom}</td><td className="px-2 py-1">{c.ct_pp || '—'}</td><td className="px-2 py-1 text-right tabular-nums">{c.cours_per ?? '—'}</td></tr>))}
-                    <tr className="border-t border-slate-100"><td className="px-2 py-1">Total périodes de cours</td><td></td><td className="px-2 py-1 text-right tabular-nums">{totCours || '—'}</td></tr>
-                    <tr className="border-t border-slate-100"><td className="px-2 py-1">7.2 Part d'autonomie</td><td>P</td><td className="px-2 py-1 text-right tabular-nums">{dossier?.ue_aut ?? form.ue_aut ?? '—'}</td></tr>
-                    {(dossier?.ue_per_z || form.ue_per_z) ? <tr className="border-t border-slate-100"><td className="px-2 py-1">7.3 Développement professionnel</td><td>Z</td><td className="px-2 py-1 text-right tabular-nums">{dossier?.ue_per_z ?? form.ue_per_z}</td></tr> : null}
+                    <tr className="border-t border-slate-100"><td className="px-2 py-1">7.2 Part d'autonomie</td><td className="px-2 py-1">P</td><td className="px-2 py-1 text-right tabular-nums">{aut || '—'}</td></tr>
+                    <tr className="border-t border-slate-200 font-semibold"><td className="px-2 py-1">Total périodes de cours</td><td></td><td className="px-2 py-1 text-right tabular-nums">{totCours || '—'}</td></tr>
+                    {(coursZ.length > 0 || perZ > 0) && (
+                      <tr className="border-t border-slate-100"><td className="px-2 py-1">7.3 {coursZ[0]?.cours_nom || 'Activités de développement professionnel'}</td><td className="px-2 py-1">Z</td><td className="px-2 py-1 text-right tabular-nums">{perZ || '—'}</td></tr>)}
                   </tbody>
                 </table>
                 <p className="text-mention text-slate-400 mt-1">Les cours se règlent dans Unités et cours ; les périodes du dossier y sont reprises à l'import.</p>
@@ -939,9 +955,22 @@ function UEModal({ ue, sections, onClose, onSaved, navigation = null }) {
           {onglet === 'contenu' && (<div>
             {rub('Finalités', '1. Finalités de l’unité')}
             {rub('Capacités préalables', '2. Capacités préalables requises')}
-            {rub("Acquis d'apprentissage", '3. Acquis d’apprentissage')}
-            {rub('Degré de maîtrise', 'Degré de maîtrise')}
           </div>)}
+          {/* LES ACQUIS ONT LEUR ONGLET (Charles, 14 octobre 2026 : « un onglet spécial pour les AA, entre
+              contenu et programme ») : le texte du dossier et le degré de maîtrise à gauche, les acquis
+              encodés dans Lucie (AA333.1…) à droite. */}
+          {onglet === 'acquis' && (
+            <div className="grid grid-cols-[3fr_2fr] gap-6 items-start">
+              <div className="min-w-0">
+                {rub("Acquis d'apprentissage", '3. Acquis d’apprentissage — le dossier')}
+                {rub('Degré de maîtrise', 'Degré de maîtrise')}
+              </div>
+              <div className="border-l border-slate-200 pl-6 min-w-0">
+                <GroupeFenetre titre="Acquis encodés dans Lucie">
+                  <AcquisUE ueNum={form.ue_num} annee={ue?.annee_scolaire} estAdmin={isAdmin} />
+                </GroupeFenetre>
+              </div>
+            </div>)}
           {onglet === 'programme' && (
             <div className="grid grid-cols-[3fr_2fr] gap-6 items-start">
               <div className="min-w-0">{rub('Programme', '4. Programme — par activité d’enseignement')}</div>
