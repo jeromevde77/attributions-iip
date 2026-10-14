@@ -92,6 +92,9 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
   // calcul propose. Le calcul propose ; le Conseil décide.
   const [decisions, setDecisions] = useState({});   // etudiant_id → resultat
   const [etape, setEtape] = useState('presences');   // presences | auto | fiche | cloture
+  // Les PP, NP et CM se décident en séries, chacune avec sa justification.
+  const [seriesFaites, setSeriesFaites] = useState(0);
+  const [dernierLot, setDernierLot] = useState(0);
   const [documents, setDocuments] = useState(false); // le centre d'impression
   const [auto, setAuto] = useState(null);           // les réussites de plein droit
   const [reprise, setReprise] = useState(null);     // la délibération venue du classeur
@@ -237,12 +240,27 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
     });
   }, [data, recherche, ordre, groupe]);
 
+  /** Un ajourné dont un acquis est en échec sans être ajourné — la clôture le refuserait. */
+  const aRevoir = e => e.resultat === 'ajourne' && Number(session) < 2 && (e.acquis || []).some(a =>
+    !a.na && !a.faveur && a.note_calculee != null && a.note_calculee < (data?.seuil ?? 10));
+
+  /** Revoir un ensemble choisi : les ajournés, ou toute l'unité, dans l'ordre alphabétique. */
+  function revoir(filtre) {
+    const l = (data?.etudiants || []).filter(filtre).filter(e => !groupe || (e.groupes || []).includes(groupe))
+      .sort((a, b) => `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`));
+    setOrdre(l.map(e => e.id)); setIdx(0);
+  }
+
   /** Figer l'ordre au moment où la revue commence. */
   function figerOrdre(source) {
     /* LA FILE NE REPREND QUE CE QUI RESTE À DÉCIDER (Charles, 9 octobre 2026 :
        « j'ai fait les deux étapes et il me reste 75 »). Les réussites de plein
        droit et les décisions prises en lot ne repassent pas en revue. */
-    const depart = (source || data?.etudiants || []).filter(e => !e.resultat);
+    /* … ET CE QUI RESTE À REVOIR (13 octobre 2026, Charles : « dans la 333, tu me proposes ceux qui
+       réussissent puis plus rien »). La décision s'enregistre désormais avec l'ajournement : la file des
+       seuls « sans décision » se vidait, alors que Bah et Simo, ajournés, gardaient un acquis en échec
+       non ajourné. Ceux-là y reviennent. */
+    const depart = (source || data?.etudiants || []).filter(e => !e.resultat || aRevoir(e));
     const filtre = groupe ? depart.filter(e => (e.groupes || []).includes(groupe)) : depart;
     /* LES CAS SEMBLABLES ENSEMBLE (Charles, 9 octobre 2026). Après les réussites
        de plein droit et les PP, la file s'ouvre sur les FAVEURS ENVISAGEABLES —
@@ -281,7 +299,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
    */
   const decisionRetenue = etud ? (decisions[etud.id] || etud.ue?.decision_proposee || null) : null;
   const aMotiver = etud && decisionRetenue !== 'reussi'
-    ? aJustifier(etud.acquis, etud.cours, decisionRetenue).filter(a => !a.motif)
+    ? aJustifier(etud.acquis, etud.cours, decisionRetenue).filter(a => !a.motif && !a.motif_propose)
     : [];
 
   /**
@@ -564,7 +582,8 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
                                cours_par_etudiant: coursParEtudiant || undefined,
                                decision_par_etudiant: parEtudiant?.decisions || undefined,
                                motif_par_etudiant: parEtudiant?.motifs || undefined,
-                               motif_par_mention: parEtudiant?.parMention || undefined, mode }),
+                               motif_par_mention: parEtudiant?.parMention || undefined,
+                               tout_pour: parEtudiant?.tout || undefined, mode }),
       });
       const j = await rep.json();
       if (!rep.ok) { setErreur(j.detail || j.error); return null; }
@@ -855,7 +874,14 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
               onPasser={() => { figerOrdre(); setIdx(0);
                 setEtape((data?.etudiants || []).some(aMentionADecider) ? 'mentions' : 'fiche'); }} />
           ) : etape === 'mentions' ? (
-            <Mentions liste={(data?.etudiants || []).filter(aMentionADecider)} session={session}
+            <Mentions key={seriesFaites} faits={seriesFaites ? dernierLot : 0} liste={(data?.etudiants || []).filter(aMentionADecider)} session={session}
+              onSerie={async n => {
+                const frais = await charger();
+                // PLUS PERSONNE À DÉCIDER DANS LE LOT : on passe à la revue sans attendre un clic
+                // (Charles, 13 octobre 2026 : « j'ai fait, pourquoi tu ne passes pas à la suite ? »).
+                if (frais && frais.filter(aMentionADecider).every(e => e.resultat)) {
+                  figerOrdre(frais); setIdx(0); setEtape('fiche'); return; }
+                setDernierLot(n); setSeriesFaites(x => x + 1); }}
               colonnesCours={data?.colonnes_cours || []} colonnesAcquis={data?.colonnes_acquis || []}
               enCours={enCours} onDecider={ajournerLot}
               onFini={async decides => {
@@ -874,8 +900,17 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
             <div className="py-10 text-center text-sm text-slate-400 border-2
                             border-dashed rounded-xl">
               {(data?.etudiants || []).length
-                ? <>Tous les étudiants ont une décision. <button type="button" className="underline text-iip-blue"
-                    onClick={() => setEtape('cloture')}>Passer à la clôture</button> — ou cherchez un nom pour revenir sur une décision.</>
+                ? <span className="inline-flex flex-col items-center gap-3">
+                    <span>Tous les étudiants ont une décision.</span>
+                    <span className="flex flex-wrap justify-center gap-2">
+                      <button type="button" className="bouton" onClick={() => revoir(e => e.resultat === 'ajourne')}>
+                        Revoir les ajournés ({(data?.etudiants || []).filter(e => e.resultat === 'ajourne').length})</button>
+                      <button type="button" className="bouton" onClick={() => revoir(() => true)}>
+                        Revoir toute l'unité ({(data?.etudiants || []).length})</button>
+                      <button type="button" className="bouton bouton-fort" onClick={() => setEtape('cloture')}>Passer à la clôture</button>
+                    </span>
+                    <span className="text-second">ou cherchez un nom pour revenir sur une décision</span>
+                  </span>
                 : <>Aucun étudiant inscrit à cette unité pour {annee}.</>}
             </div>
           ) : lot ? (
@@ -1483,7 +1518,9 @@ function PleinDroit({ auto, onAppliquer, onPasser, enCours }) {
                 <b className="text-iip-blue">{r.nom}</b> {r.prenom}
               </span>
               {r.deja_decide && <span className="text-xs text-slate-400">déjà décidé</span>}
-              <span className="font-bold tabular-nums text-emerald-700 w-14 text-right">
+              {/* Réussi : la note en VERT, la couleur « réussi » du réglage (Charles, 13 octobre 2026).
+                  text-emerald-700 tombait sur l'encre marine de l'échelle. */}
+              <span className="font-bold tabular-nums w-14 text-right" style={{ color: 'var(--c-reussi)' }}>
                 {fmt(r.note)}/20
               </span>
             </div>
@@ -1531,10 +1568,12 @@ const MOTIF_MENTION = {
   CM: "Absent aux évaluations de l'unité pour raison médicale (certificat médical).",
   autre: 'Les réponses sont soit inexistantes, soit très partielles ou incomplètes.',
   cours: "Acquis à représenter avec l'ensemble du cours ajourné.",
+  absent: "L'étudiant n'a pas présenté son évaluation ou a demandé une note de présence.",
 };
 const LIBELLE_MOTIF = { PP: 'Pas présenté (PP)', NP: 'Rien produit (NP)', CM: 'Certificat médical (CM)',
   autre: 'Autres acquis en échec (sans mention)',
-  cours: 'Acquis réussis repassés avec leur cours (« tous les acquis du cours »)' };
+  cours: 'Acquis réussis repassés avec leur cours (« tous les acquis du cours »)',
+  absent: 'PP ou NP partout — tous ses acquis' };
 /** Les mentions d'un étudiant — sur ses cours, à défaut sur ses acquis. */
 function mentionsDe(e) {
   const m = new Set();
@@ -1542,14 +1581,36 @@ function mentionsDe(e) {
   for (const a of e.acquis || []) if (MENTIONS_LOT.includes(a.mention)) m.add(a.mention);
   return MENTIONS_LOT.filter(x => m.has(x));
 }
-/** À pré-délibérer : une mention, une décision proposée défavorable, rien de décidé. */
+/* L'ABSENT TOTAL (Charles, 13 octobre 2026 : « il faut les PP et NP totaux — ceux qui ont zéro, NP,
+   PP dans tous les cours ; ceux-là on les fait d'un coup, ajournés pour TOUT ou refusés ») : chaque
+   évaluation est un 0, une mention (PP, NP, CM) ou rien. Ils entrent dans le lot MÊME DÉCIDÉS — dans
+   l'UE 333 tout était décidé, et l'étape se sautait d'elle-même : « puis plus rien ». */
+function absentTotal(e) {
+  const evals = (e.acquis || []).flatMap(a => a.evaluations || []);
+  const rien = v => MENTIONS_LOT.includes(v.mention) || v.note == null || Number(v.note) === 0;
+  // Au moins une trace (mention ou zéro) : des notes pas encore encodées ne sont pas une absence.
+  return evals.length > 0 && evals.every(rien)
+    && evals.some(v => MENTIONS_LOT.includes(v.mention) || (v.note != null && Number(v.note) === 0));
+}
+/* PP ET NP PARTOUT (Charles, 13 octobre 2026) : une seule phrase pour tous ses acquis. */
+function absentPPNP(e) {
+  const evals = (e.acquis || []).flatMap(a => a.evaluations || []);
+  return absentTotal(e) && evals.some(v => ['PP', 'NP'].includes(v.mention))
+    && evals.every(v => ['PP', 'NP'].includes(v.mention) || v.note == null);
+}
+/** À pré-délibérer : l'absent total, toujours ; une mention avec une décision défavorable proposée, tant que rien n'est décidé. */
 function aMentionADecider(e) {
-  return !e.resultat && !e.ue?.de_plein_droit && mentionsDe(e).length > 0
+  if (e.ue?.de_plein_droit) return false;
+  if (absentTotal(e)) return true;
+  return !e.resultat && mentionsDe(e).length > 0
     && ['ajourne', 'refuse'].includes(e.ue?.decision_proposee);
 }
 
-function Mentions({ liste, session, enCours, onDecider, onFini, colonnesCours = [], colonnesAcquis = [] }) {
-  const [ecartes, setEcartes] = useState(() => new Set());
+function Mentions({ liste, session, enCours, onDecider, onFini, onSerie, faits = 0, colonnesCours = [], colonnesAcquis = [] }) {
+  // Un étudiant déjà décidé arrive DÉCOCHÉ : on ne réécrit pas une décision par mégarde.
+  const [ecartes, setEcartes] = useState(() => new Set(liste.filter(e => e.resultat).map(e => e.id)));
+  // LA DÉCISION DU LOT (13 octobre 2026) : celle que la mention appelle, ou la même pour tous.
+  const [choixLot, setChoixLot] = useState('mention');   // 'mention' | 'ajourne' | 'refuse'
   /* LE TABLEAU SE RETOURNE (Charles, 9 octobre 2026) : au recto les COURS — on
      voit qui est en échec partout ; au verso les ACQUIS de l'unité. Une case dit
      la mention (PP, NP, CM) ou la cote, en rouge sous le seuil. */
@@ -1573,8 +1634,12 @@ function Mentions({ liste, session, enCours, onDecider, onFini, colonnesCours = 
   const [motifs, setMotifs] = useState(MOTIF_MENTION);
   const [mode, setMode] = useState('tous');       // 'tous' | 'echec'
   const [apercu, setApercu] = useState(null);
-  const decisionDe = e => (session >= 2 || e.ue?.decision_proposee === 'refuse') ? 'refuse' : 'ajourne';
-  const groupes = MENTIONS_LOT.map(m => ({ m, gens: liste.filter(e => mentionsDe(e)[0] === m) }))
+  const decisionDe = e => session >= 2 ? 'refuse'
+    : choixLot !== 'mention' ? choixLot
+    : (e.ue?.decision_proposee === 'refuse' ? 'refuse' : 'ajourne');
+  // Les zéros partout, sans mention, forment leur propre groupe : ils n'avaient nulle part où aller.
+  const groupes = [...MENTIONS_LOT.map(m => ({ m, gens: liste.filter(e => mentionsDe(e)[0] === m) })),
+    { m: 'ZERO', gens: liste.filter(e => !mentionsDe(e).length) }]
     .filter(g => g.gens.length);
   const retenus = liste.filter(e => !ecartes.has(e.id));
   const nbRefus = retenus.filter(e => decisionDe(e) === 'refuse').length;
@@ -1582,13 +1647,29 @@ function Mentions({ liste, session, enCours, onDecider, onFini, colonnesCours = 
   const corps = () => ({
     decisions: Object.fromEntries(retenus.map(e => [e.id, decisionDe(e)])),
     parMention: motifs,
+    // L'absent total représente TOUT : chaque cours, même sans note (« ajournés pour TOUT »).
+    tout: retenus.filter(absentTotal).map(e => e.id),
+    motifs: Object.fromEntries(retenus.filter(absentPPNP).map(e => [e.id, motifs.absent])),
   });
   // Les mentions effectivement présentes, et « autre » dès qu'un acquis échoue sans mention.
-  const presentes = [...MENTIONS_LOT.filter(m => liste.some(e => mentionsDe(e).includes(m))),
-    ...(liste.some(e => (e.acquis || []).some(a => !a.mention && !(a.evaluations || []).some(v => v.mention)
+  const autres = retenus.filter(e => !absentPPNP(e));
+  const presentes = [...(retenus.some(absentPPNP) ? ['absent'] : []),
+    ...MENTIONS_LOT.filter(m => autres.some(e => mentionsDe(e).includes(m))),
+    ...(autres.some(e => (e.acquis || []).some(a => !a.mention && !(a.evaluations || []).some(v => v.mention)
       && (a.na || (a.note_calculee ?? a.note) != null && (a.note_calculee ?? a.note) < 10))) ? ['autre'] : []),
     ...(mode === 'tous' ? ['cours'] : [])];
   const bascule = id => setEcartes(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  // TOUT COCHER, TOUT DÉCOCHER — la liste entière ou un groupe (13 octobre 2026) : une série
+  // d'absents se décide avec sa justification, puis la suivante avec la sienne.
+  const cocherTous = (gens, oui) => setEcartes(s => {
+    const n = new Set(s); for (const e of gens) oui ? n.delete(e.id) : n.add(e.id); return n; });
+  const caseTous = gens => {
+    const nb = gens.filter(e => !ecartes.has(e.id)).length;
+    return <input type="checkbox" checked={nb === gens.length && nb > 0}
+      ref={el => { if (el) el.indeterminate = nb > 0 && nb < gens.length; }}
+      onChange={() => cocherTous(gens, nb < gens.length)}
+      title={nb < gens.length ? 'Tout cocher' : 'Tout décocher'} />;
+  };
   const manqueMotif = presentes.some(m => (motifs[m] || '').trim().length < 5);
 
   return (
@@ -1600,7 +1681,9 @@ function Mentions({ liste, session, enCours, onDecider, onFini, colonnesCours = 
           couverts par un certificat médical. La décision proposée est celle du règlement :
           {session >= 2 ? ' en seconde session, tous sont refusés.'
             : ' PP refusé ; NP et CM ajournés — ils représentent en seconde session.'}
-          {' '}Décochez ceux que le Conseil veut examiner un par un.
+          {' '}Ceux qui n'ont rien présenté nulle part — zéro, PP, NP ou aucune note dans
+          tous les cours — y figurent même déjà décidés, décochés : cochez-les pour les
+          ajourner pour tout ou les refuser d'un coup. Décochez ceux que le Conseil veut examiner un par un.
         </p>
       </div>
 
@@ -1616,7 +1699,7 @@ function Mentions({ liste, session, enCours, onDecider, onFini, colonnesCours = 
         <table className="w-full text-second">
           <thead>
             <tr className="tab-entete text-left">
-              <th className="px-3 py-1.5 w-8"></th>
+              <th className="px-3 py-1.5 w-8">{caseTous(liste)}</th>
               <th className="px-3 py-1.5">Étudiant</th>
               {colonnes.map(c => (
                 <th key={c.code} className="px-2 py-1.5 text-center whitespace-nowrap" title={c.titre || ''}>{c.code}</th>))}
@@ -1633,8 +1716,10 @@ function Mentions({ liste, session, enCours, onDecider, onFini, colonnesCours = 
           </thead>
           {groupes.map(g => (
             <tbody key={g.m}>
-              <tr className="tab-repere"><td colSpan={colonnes.length + 3} className="intertitre px-3 py-1">
-                {LIBELLE_MENTION[g.m]} · {g.gens.length}</td></tr>
+              <tr className="tab-repere">
+                <td className="px-3 py-1">{caseTous(g.gens)}</td>
+                <td colSpan={colonnes.length + 2} className="intertitre px-3 py-1">
+                {(LIBELLE_MENTION[g.m] || 'Zéro partout')} · {g.gens.length}</td></tr>
               {g.gens.map(e => {
                 const pris = !ecartes.has(e.id), dec = decisionDe(e);
                 return (
@@ -1646,6 +1731,7 @@ function Mentions({ liste, session, enCours, onDecider, onFini, colonnesCours = 
                       {pris && <span className="inline-block px-2 rounded-full text-white text-xs font-semibold"
                         style={{ background: dec === 'refuse' ? 'var(--c-refuse)' : 'var(--c-attente)' }}>
                         {dec === 'refuse' ? 'Refusé' : 'Ajourné'}</span>}
+                      {!pris && e.resultat && <span className="text-xs text-slate-500">déjà : {({ ajourne: 'ajourné', refuse: 'refusé', reussi: 'réussi', absent: 'absent' })[e.resultat] || e.resultat}</span>}
                     </td>
                   </tr>
                 );
@@ -1670,6 +1756,17 @@ function Mentions({ liste, session, enCours, onDecider, onFini, colonnesCours = 
       {/* LA QUESTION DU CONSEIL, POSÉE UNE FOIS POUR LE LOT (Charles, 9 octobre
           2026) : un cours ajourné se représente-t-il entier, ou pour ses seuls
           acquis en échec ? */}
+      {session < 2 && (
+        <div className="flex flex-wrap items-center gap-2 text-second text-slate-600">
+          <span>Décision du lot :</span>
+          <div className="segments">
+            {[['mention', 'selon la mention'], ['ajourne', 'tous ajournés pour tout'], ['refuse', 'tous refusés']].map(([k, l]) => (
+              <button key={k} type="button" onClick={() => setChoixLot(k)}
+                className={choixLot === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>{l}</button>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-2 text-second text-slate-600">
         <span>Dans un cours ajourné, l'étudiant représente :</span>
         <div className="segments">
@@ -1689,16 +1786,17 @@ function Mentions({ liste, session, enCours, onDecider, onFini, colonnesCours = 
 
       <div className="flex items-center justify-between gap-3">
         <span className="text-second text-slate-500 min-w-0">
+          {faits > 0 && <b className="text-iip-texte">{faits} décidé(s) — cochez la série suivante, ou passez à la revue. </b>}
           {manqueMotif ? 'Chaque mention demande sa justification.'
             : !retenus.length ? 'Personne n’est retenu : tous passeront dans la revue.' : ''}
         </span>
         <div className="flex gap-2">
-          <button type="button" className="bouton" onClick={onFini}>Passer — les revoir un à un</button>
+          <button type="button" className="bouton" onClick={() => onFini(faits ? [1] : [])}>{faits ? 'Terminer — passer à la revue' : 'Passer — les revoir un à un'}</button>
           <button type="button" className="bouton" disabled={enCours || manqueMotif || !retenus.length}
             onClick={async () => setApercu(await onDecider(retenus.map(e => e.id), '', true, null, corps(), mode))}>
             Simuler</button>
           <button type="button" className="bouton bouton-fort" disabled={enCours || manqueMotif || !retenus.length}
-            onClick={async () => { const j = await onDecider(retenus.map(e => e.id), '', false, null, corps(), mode); if (j) onFini(retenus.map(e => e.id)); }}>
+            onClick={async () => { const j = await onDecider(retenus.map(e => e.id), '', false, null, corps(), mode); if (j) { setApercu(null); onSerie?.(retenus.length); } }}>
             {enCours ? 'Enregistrement…' : `Décider ces ${retenus.length}`}
           </button>
         </div>
@@ -2090,7 +2188,9 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
   const cours = e.cours || [];
   const caseDe = (a, coursCode) => (a.evaluations || []).find(v => v.cours_code === coursCode) || null;
   const regarde = e.ue?.regarde || { aa: true, cours: true };
-  const decidee = decision === 'ajourne' || decision === 'refuse';
+  const decidee = decision === 'ajourne' || decision === 'refuse' || decision === 'absent';
+  // ABSENT, C'EST NA PARTOUT (Charles, 13 octobre 2026) : aucune cote ne reste acquise.
+  const absent = decision === 'absent';
   const seuil = data.seuil;
   const sansAjournement = data.session >= 2;
   const aJust = aJustifier(acquis, cours, decision);
@@ -2120,8 +2220,9 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
     const etat = etatCours(c);
     return (
       <button type="button" disabled={enCours} onClick={ev => { ev.stopPropagation(); cycleCours(c); }}
-        title={['Ajourner les acquis en échec de ce cours', 'Ajourner tous les acquis du cours', 'Annuler l’ajournement du cours'][etat]}
-        className="inline-flex items-center gap-1 h-[22px] px-1.5 rounded-pastille border text-mention font-semibold select-none"
+        title={(c.aas_a_representer ? `Seuls ${c.aas_a_representer.join(', ')} à représenter. ` : '')
+          + ['Ajourner les acquis en échec de ce cours', 'Ajourner tous les acquis du cours', 'Annuler l’ajournement du cours'][etat]}
+        className="inline-flex items-center justify-center gap-1 h-[22px] w-[84px] px-1.5 rounded-pastille border text-mention font-semibold select-none"
         style={etat ? { background: 'var(--c-attente)', borderColor: 'var(--c-attente)', color: '#fff' }
           : { background: '#fff', borderColor: 'rgb(var(--gris-300))', color: 'rgb(var(--gris-500))' }}>
         <IconRotateClockwise size={12} style={{ transform: `rotate(${etat * 120}deg)`, transition: 'transform .25s ease' }} />
@@ -2159,7 +2260,7 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
      celles des réglages : réussi, à surveiller, à corriger. */
   const rect = (fond, texte, titre) => (
     <span title={titre || undefined} style={{ background: fond }}
-      className="inline-flex items-center justify-center min-w-[40px] h-[22px] px-1.5 rounded-pastille text-white font-semibold tabular-nums">{texte}</span>
+      className="inline-flex items-center justify-center min-w-[62px] h-[22px] px-1.5 rounded-pastille text-white font-semibold tabular-nums">{texte}</span>
   );
   /* LE NA GARDE SA NOTE (Charles, 9 octobre 2026 : « je ne sais pas dire si
      l'échec est profond »). Ajourné, l'acquis ou le cours n'a plus de cote
@@ -2170,9 +2271,12 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
   // LA NOTE RESTE VISIBLE, DÉCISION ENREGISTRÉE OU NON (13 octobre 2026, Charles : « on ne voit pas
   // les notes ») : la décision s'enregistre désormais avec l'ajournement, et la règle « seulement NA
   // une fois enregistrée » effaçait toutes les notes dès le premier clic.
+  // NOTES ENTIÈRES DANS LA MATRICE (Charles, 13 octobre 2026 : « il y a des virgules ! ») : arrondi à l'unité.
+  const ent = n => n == null ? n : Math.round(Number(n));
   const sousNA = n => n == null ? 'NA'
-    : <>{fmt(n)}<span className="ml-1 text-mention font-normal opacity-90">NA</span></>;
-  const note = (v, { na = false } = {}) => {
+    : <>{fmt(ent(n))}<span className="ml-1 text-mention font-normal opacity-90">NA</span></>;
+  const note = (v, { na = false, aaNA = false } = {}) => {
+    if (absent && v && (v.mention || v.note != null || v.note_brute != null)) na = true;
     if (na) {
       const n = v?.mention ? null : (v?.note_brute ?? v?.note ?? null);
       // Ajourné en session 1 : ORANGE, nos couleurs (Charles) ; en session 2, ce qui reste en défaut est refusé : fraise.
@@ -2183,9 +2287,13 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
     if (v.mention) return rect(v.mention === 'PP' ? 'var(--c-refuse)' : 'var(--c-attente)', v.mention,
       v.mention === 'NP' ? 'Note de présence' : v.mention === 'PP' ? 'Pas présenté' : '');
     if (v.note == null) return <span className="text-slate-300">·</span>;
-    if (v.note < seuil) return rect('var(--c-refuse)', decidee ? sousNA(v.note) : fmt(v.note), decidee ? `Cote calculée : ${fmt(v.note)}/20 — non acquis` : '');
-    if (v.note === seuil) return rect('var(--c-attente)', fmt(v.note), 'Au seuil, tout juste');
-    return rect('var(--c-reussi)', fmt(v.note));
+    const n = ent(v.note);
+    // L'ACQUIS EST AJOURNÉ AU GLOBAL (par un autre cours) : son échec ici fait partie du même
+    // ajournement — orange, pas une alerte par cours (« les profs se sont peut-être mis d'accord »).
+    if (n < seuil) return rect(aaNA && !sansAjournement ? 'var(--c-attente)' : 'var(--c-refuse)', decidee || aaNA ? sousNA(v.note) : fmt(n),
+      aaNA ? `Cote ${fmt(v.note)}/20 — l'acquis est ajourné au global` : decidee ? `Cote calculée : ${fmt(v.note)}/20 — non acquis` : `Cote ${fmt(v.note)}/20`);
+    if (n === seuil) return rect('var(--c-attente)', fmt(n), `Au seuil, tout juste · cote ${fmt(v.note)}/20`);
+    return rect('var(--c-reussi)', fmt(n), Number(v.note) !== n ? `Cote ${fmt(v.note)}/20` : undefined);
   };
 
   const bouton = (actif, titre, onClick, onDouble = null) => !sansAjournement && (
@@ -2237,13 +2345,23 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
                   ))}
                   <th className="w-[84px] px-2 py-1 text-center font-semibold text-slate-700 bg-iip-blue/10"
                     title="La note consolidée de l'acquis : c'est elle qui fait foi">Acquis</th>
-                  {aJust.length > 0 && (
-                    <th className="text-left px-2.5 py-1 font-semibold text-slate-600">
+                  {/* LE TABLEAU GARDE SA LARGEUR (Charles, 13 octobre 2026 : « si j'ajourne, le tableau se
+                      réduit ») : la colonne des motivations est toujours là, vide tant qu'il n'y a pas d'échec. */}
+                  <th className="text-left px-2.5 py-1 font-semibold text-slate-600 w-[32%]">
+                  {aJust.length > 0 && (<>
                       Motivation de l'échec
-                      <span className="font-normal text-slate-400"> · {aJust.filter(a => !a.motif).length
-                        ? `${aJust.filter(a => !a.motif).length} à écrire` : 'toutes écrites'}</span>
-                    </th>
-                  )}
+                      <span className="font-normal text-slate-400"> · {aJust.filter(a => !a.motif && !a.motif_propose).length
+                        ? `${aJust.filter(a => !a.motif && !a.motif_propose).length} à écrire`
+                        : aJust.some(a => !a.motif) ? 'proposées par Lucie, confirmées à la clôture' : 'toutes écrites'}</span>
+                      {/* UNE MOTIVATION POUR TOUS (Charles, 13 octobre 2026 : « si c'est la même raison et que
+                          cela n'a pas été encodé par les profs, on gagne du temps ») : elle va aux acquis qui
+                          n'ont aucun motif retenu — jamais par-dessus un enseignant ou le Conseil. */}
+                      {!lectureSeule() && aJust.some(a => !a.motif) && (
+                        <MotifPourTous enCours={enCours} nb={aJust.filter(a => !a.motif).length}
+                          onPoser={t => onMotif(Object.fromEntries(aJust.filter(a => !a.motif).map(a => [a.aa_code, t])))} />
+                      )}
+                  </>)}
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -2267,9 +2385,9 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
                             <button type="button" disabled={enCours} className="rounded hover:ring-2 hover:ring-amber-400"
                               title={aaTombeDans(a, c) ? `Retirer ${a.aa_code} de l'ajournement du cours ${c.cours_code}` : `Ajourner ${a.aa_code} dans le cours ${c.cours_code}`}
                               onClick={() => onAACours(c.cours_code, a.aa_code, !aaTombeDans(a, c))}>
-                              {note(caseDe(a, c.cours_code), { na: !!caseDe(a, c.cours_code).ajourne || !!a.ajourne_directement })}
+                              {note(caseDe(a, c.cours_code), { na: !!caseDe(a, c.cours_code).ajourne || !!a.ajourne_directement, aaNA: !!a.na })}
                             </button>
-                          ) : note(caseDe(a, c.cours_code), { na: !!caseDe(a, c.cours_code) && (!!caseDe(a, c.cours_code).ajourne || !!a.ajourne_directement) })}
+                          ) : note(caseDe(a, c.cours_code), { na: !!caseDe(a, c.cours_code) && (!!caseDe(a, c.cours_code).ajourne || !!a.ajourne_directement), aaNA: !!a.na })}
                         </td>
                       ))}
                       <td className="px-2 py-1 text-center bg-iip-blue/10 whitespace-nowrap">
@@ -2280,7 +2398,7 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
                           () => onAjuster('aa', a.aa_code, a.ajourne_directement ? null : 'ajourne'))}
                         </span>
                       </td>
-                      {aJust.length > 0 && (
+                      {(
                         <td className="px-2 py-1">
                           {enCause && (
                             <MotifEnLigne a={a} enCours={enCours} seul={aJust.length < 2}
@@ -2307,7 +2425,10 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
 
                       </span>
                       {peutCliquerNote && <div className="mt-1">{badgeCours(c)}</div>}
-                      {c.aas_a_representer && (
+                      {/* RIEN NE BOUGE AU CLIC (Charles, 13 octobre 2026 : « la ligne descend… avec
+                          100 étudiants, tout changement peut générer une erreur ») : la liste des
+                          acquis rouverts passe dans la bulle du badge, qui garde une largeur fixe. */}
+                      {c.aas_a_representer && !peutCliquerNote && (
                         <div className="mt-0.5 text-mention leading-tight text-slate-500 whitespace-normal"
                           title="Le Conseil n'a rouvert que ces acquis du cours">
                           seuls {c.aas_a_representer.join(', ')}
@@ -2315,8 +2436,8 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
                     </td>
                   ))}
                   <td className="bg-iip-blue/10" />
-                  {aJust.length > 0 && <td className="px-2.5 py-1.5 text-mention text-slate-400">
-                    Ce texte est celui de l'annexe 8 (ajournement) ou 9 (refus).</td>}
+                  <td className="px-2.5 py-1.5 text-mention text-slate-400">
+                    {aJust.length > 0 && "Ce texte est celui de l'annexe 8 (ajournement) ou 9 (refus)."}</td>
                 </tr>
                 )}
               </tbody>
@@ -2405,6 +2526,20 @@ function Thermometre({ pc, ueNum, onBord }) {
    en ajouter, la précision propre, le pinceau — la même mécanique que
    l'ancien bloc « À justifier », resserrée à une cellule. Sa provenance se lit
    à côté : l'enseignant (c'est le motif délibéré), le Conseil, ou Lucie. */
+function MotifPourTous({ nb, onPoser, enCours }) {
+  const [texte, setTexte] = useState('');
+  return (
+    <div className="mt-1 flex items-start gap-1.5 normal-case tracking-normal font-normal">
+      <textarea rows={1} value={texte} onChange={ev => setTexte(ev.target.value)} data-reponses="deliberation.motif"
+        placeholder="Une motivation pour tous les acquis sans justification…" spellCheck
+        className="flex-1 min-w-0 border border-slate-300 rounded-lg px-2 py-1 text-xs text-slate-800 bg-white" />
+      <button type="button" className="bouton bouton-compact flex-none" disabled={enCours || texte.trim().length < 5}
+        onClick={() => { onPoser(texte.trim()); setTexte(''); }}>
+        Mettre partout ({nb})</button>
+    </div>
+  );
+}
+
 function MotifEnLigne({ a, onMotif, onReporter, seul, enCours }) {
   const depart = decomposerMotif(a.motif || '');
   const [cles, setCles] = useState(depart.cles);
@@ -2431,7 +2566,8 @@ function MotifEnLigne({ a, onMotif, onReporter, seul, enCours }) {
   if (!ecrire && (a.motif || proposition)) {
     return (
       <div className="space-y-0.5">
-        <div className={`text-xs leading-snug ${a.motif ? 'text-slate-800' : 'text-slate-500 italic'}`}>
+        {/* Un justificatif par chargé de cours, l'un sous l'autre : les retours à la ligne comptent. */}
+        <div className={`text-xs leading-snug whitespace-pre-line ${a.motif ? 'text-slate-800' : 'text-slate-500 italic'}`}>
           {a.motif ? texte : proposition}
         </div>
         <div className="flex items-center gap-2 text-mention">

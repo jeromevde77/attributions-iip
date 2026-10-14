@@ -6,11 +6,12 @@ import { api, getAnnee, setAnnee as setAnneeActive, getUser } from '../lib/api.j
 import { BoutonAnnulerReglage, useRelireReglages } from '../lib/annulerReglage.jsx';
 import { ORIGINE, COULEURS_SOMBRE, chargerCouleurs, echelleGris, poser as poserCouleurs, poserGris, variables as variablesCouleurs } from '../lib/couleurs.js';
 import Audit from './Audit.jsx';
-import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette, IconArchive, IconAlertTriangle, IconShieldLock, IconDatabase, IconHierarchy, IconArrowsSplit, IconTool, IconSchool, IconStairsUp, IconCalculator, IconLinkOff, IconSend, IconMessageDots, IconId, IconFileDescription, IconKey, IconMailForward, IconUserSearch, IconCoin, IconShape, IconComponents } from '@tabler/icons-react';
+import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette, IconArchive, IconAlertTriangle, IconShieldLock, IconDatabase, IconHierarchy, IconArrowsSplit, IconTool, IconSchool, IconStairsUp, IconCalculator, IconLinkOff, IconSend, IconMessageDots, IconId, IconFileDescription, IconKey, IconMailForward, IconUserSearch, IconCoin, IconShape, IconComponents, IconArrowsExchange } from '@tabler/icons-react';
 import CatalogueVisuels from '../components/CatalogueVisuels.jsx';
 import ReglageDesign from '../components/ReglageDesign.jsx';
 import { PageHeader, RailLateral, TuileEtat, PastilleEtat, Encadre } from '../components/ui.jsx';
 import ApercuDocuments from '../components/ApercuDocuments.jsx';
+const RegistreTransferts = lazy(() => import('../components/RegistreTransferts.jsx'));
 const Editeur = lazy(() => import('./Editeur.jsx'));
 const ReponsesTypesConfig = lazy(() => import('./ReponsesTypesConfig.jsx'));
 const CursusCompatibles = lazy(() => import('../components/CursusCompatibles.jsx'));
@@ -1133,6 +1134,8 @@ export default function Configuration() {
       { key: 'design', label: 'Formes et composants', icon: IconShape },
       { key: 'catalogue', label: 'Catalogue des éléments', icon: IconComponents },
       { key: 'sauvegardes', label: 'Sauvegardes', icon: IconDatabase },
+      // Les portes qui ont fait entrer le passé (3.1.332) : fermées par année, par l'administrateur.
+      { key: 'transferts', label: 'Transferts', icon: IconArrowsExchange },
       { key: 'systeme', label: 'Traces et historique', icon: IconHistory },
       { key: 'registre-envois', label: 'Registre des envois', icon: IconMailForward },
       { key: 'audit', label: 'Qui a fait quoi', icon: IconUserSearch },
@@ -1161,7 +1164,7 @@ export default function Configuration() {
   // refuse de toute façon : un onglet visible qui rend un 403 se lit « Lucie
   // est cassée », pas « ce n'est pas pour vous ».
   const groupesVisibles = CONF_GROUPES.map(g => ({ ...g,
-    items: g.items.filter(t => t.key !== 'audit' || getUser()?.role === 'admin') }));
+    items: g.items.filter(t => !['audit', 'transferts'].includes(t.key) || getUser()?.role === 'admin') }));
   const porte = t => t.key === tab || (t.faces || []).some(([k]) => k === tab);
   const groupeActif = groupesVisibles.find(g => g.items.some(porte)) || groupesVisibles[0];
   const ongletActif = groupeActif.items.find(porte);
@@ -1237,6 +1240,8 @@ export default function Configuration() {
       {tab === 'due' && <GestionParametres groupes={['due']} />}
       {tab === 'securite' && <GestionParametres groupes={['securite']} />}
       {tab === 'couts' && <><GestionParametres groupes={['couts']} /><InscritsPrevus /></>}
+
+      {tab === 'transferts' && <Suspense fallback={null}><RegistreTransferts /></Suspense>}
 
       {/* ── Onglet Clôture d'une année reprise d'archives ── */}
       {false && tab === 'reprise' && <ClotureReprise />}

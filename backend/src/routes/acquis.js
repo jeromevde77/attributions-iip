@@ -40,6 +40,7 @@ import { capacitePdf, rendrePdf, compterPages } from '../services/pdf.js';
 import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 import { piedDocument } from './parametres.js';
 import { motifPropose } from '../lib/motifPropose.js';
+import { garderTransfert, porteFermee, refusPorte } from '../lib/transferts.js';
 import { migrerReprise, simulerReprise, appliquerReprise, forcerCloture,
          MOTIF_REPRISE, MENTION_REPRISE } from '../lib/repriseHistorique.js';
 
@@ -3796,7 +3797,9 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
     const parAA = {};
     for (const l of db.prepare(`
       SELECT p.aa_code, p.cours_code, p.justification, (SELECT MIN(c.cours_nom) FROM cours c
-        WHERE c.cours_code = p.cours_code AND c.annee_scolaire = p.annee_scolaire) AS cours_nom
+        WHERE c.cours_code = p.cours_code AND c.annee_scolaire = p.annee_scolaire) AS cours_nom,
+        (SELECT pr.nom || ' ' || pr.prenom FROM professeur pr
+          WHERE LOWER(pr.adresse_mail) = LOWER(p.propose_par) LIMIT 1) AS prof
       FROM note_proposee p
       WHERE p.etudiant_id = ? AND p.annee_scolaire = ? AND p.aa_code <> ''
         AND p.justification IS NOT NULL AND TRIM(p.justification) <> ''
@@ -3811,17 +3814,22 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
     const cle = t => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
       .replace(/\s+/g, ' ').replace(/[\s.;,:!]+$/, '').trim();
     for (const [code, l] of Object.entries(parAA)) {
+      /* TOUS LES CHARGÉS DE COURS, L'UN SOUS L'AUTRE (Charles, 13 octobre 2026 : « si un AA est
+         partagé dans plusieurs cours, tu dois lister les justificatifs de tous les profs pour le même
+         AA »). Chaque texte dit de quel cours et de qui il vient ; un texte identique ne s'écrit qu'une
+         fois, avec tous ceux qui l'ont posé. Un acquis d'un seul cours garde son texte nu. */
       const groupes = new Map();
       for (const x of l) {
         const k = cle(x.justification);
-        const g = groupes.get(k) || { texte: x.justification.trim(), cours: [] };
-        const nomC = x.cours_nom || x.cours_code;
-        if (!g.cours.includes(nomC)) g.cours.push(nomC);
+        const g = groupes.get(k) || { texte: x.justification.trim(), auteurs: [] };
+        const qui = `${x.cours_code}${x.prof ? ` (${String(x.prof).trim()})` : ''}`;
+        if (!g.auteurs.includes(qui)) g.auteurs.push(qui);
         groupes.set(k, g);
       }
       const gs = [...groupes.values()];
-      justifEns[code] = gs.length === 1 ? gs[0].texte
-        : gs.map(g => `${g.cours.join(', ')} : ${g.texte}`).join('\n');
+      const plusieursCours = new Set(l.map(x => x.cours_code)).size > 1;
+      justifEns[code] = !plusieursCours && gs.length === 1 ? gs[0].texte
+        : gs.map(g => `${g.auteurs.join(', ')} : ${g.texte}`).join('\n');
     }
   } catch { /* table ou colonne absente */ }
   const integree = estEpreuveIntegree(ueNum, annee);
@@ -8506,7 +8514,7 @@ function repriseDepuisImport(ueNum, annee, session) {
   return lignes;
 }
 
-r.get('/deliberation/ue/:ueNum/reprise-import', authRequired, (req, res) => {
+r.get('/deliberation/ue/:ueNum/reprise-import', authRequired, garderTransfert('reprise_decisions'), (req, res) => {
   const ueNum = Number(req.params.ueNum);
   const annee = req.query.annee || anneeDeTravail(req);
   const etat = sessionDeLUE(ueNum, annee);
@@ -8527,7 +8535,7 @@ r.get('/deliberation/ue/:ueNum/reprise-import', authRequired, (req, res) => {
   });
 });
 
-r.post('/deliberation/ue/:ueNum/reprise-import', authRequired,
+r.post('/deliberation/ue/:ueNum/reprise-import', authRequired, garderTransfert('reprise_decisions'),
        roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
   const ueNum = Number(req.params.ueNum);
   const annee = req.body?.annee || anneeDeTravail(req);
@@ -8661,7 +8669,7 @@ function unitesRepriseSection(annee, section, sessionDemandee) {
   });
 }
 
-r.get('/deliberation/reprise-lot', authRequired, (req, res) => {
+r.get('/deliberation/reprise-lot', authRequired, garderTransfert('reprise_decisions'), (req, res) => {
   const annee = req.query.annee || anneeDeTravail(req);
   const section = req.query.section || null;
   const session = req.query.session ? (Number(req.query.session) === 2 ? 2 : 1) : null;
@@ -8684,7 +8692,7 @@ r.get('/deliberation/reprise-lot', authRequired, (req, res) => {
   });
 });
 
-r.post('/deliberation/reprise-lot', authRequired,
+r.post('/deliberation/reprise-lot', authRequired, garderTransfert('reprise_decisions'),
        roleRequired('admin', 'directeur', 'directeur_adjoint'), (req, res) => {
   const annee = req.body?.annee || anneeDeTravail(req);
   const session = Number(req.body?.session) === 2 ? 2 : 1;
@@ -8939,6 +8947,7 @@ r.post('/deliberation/ue/:ueNum/ajourner-lot', authRequired,
   };
   // « Tous les acquis du cours » (défaut) ou « seulement ceux en échec ».
   const mode = req.body?.mode === 'echec' ? 'echec' : 'tous';
+  const toutPour = new Set((Array.isArray(req.body?.tout_pour) ? req.body.tout_pour : []).map(Number));
 
   if (!ids.length) return res.status(400).json({ error: 'aucun étudiant sélectionné' });
 
@@ -8988,8 +8997,10 @@ r.post('/deliberation/ue/:ueNum/ajourner-lot', authRequired,
 
       // LES COURS EN DÉFAUT de cet étudiant-là — ou ceux que le Conseil a
       // retenus, quand il en a choisi.
+      // L'ABSENT TOTAL (13 octobre 2026) : rien présenté nulle part — chaque cours
+      // tombe, y compris celui qui n'a aucune note et qu'aucun filtre n'aurait retenu.
       const enDefaut = (d.cours || [])
-        .filter(c => !c.faveur && (c.na || ['PP', 'NP', 'CM'].includes(c.mention)
+        .filter(c => !c.faveur && (toutPour.has(Number(id)) || c.na || ['PP', 'NP', 'CM'].includes(c.mention)
           || (c.note != null && c.note < SEUIL_UE)))
         .map(c => c.cours_code);
       const choisis = coursParEtudiant && Array.isArray(coursParEtudiant[id])
@@ -9038,7 +9049,8 @@ r.post('/deliberation/ue/:ueNum/ajourner-lot', authRequired,
       }
       // Chaque acquis à représenter porte sa justification (RDE art. 88 §3).
       for (const code of aas) {
-        const texte = motifAcquis(d, code, justification);
+        // Une phrase donnée pour CET étudiant (PP ou NP partout) vaut pour tous ses acquis.
+        const texte = String(motifParEtudiant[id] || '').trim() || motifAcquis(d, code, justification);
         if (texte) poserMotif.run(id, annee, ueNum, code, texte, par);
       }
 
@@ -9288,14 +9300,14 @@ export function avecAide(etudId, ueNum, annee, session = 1) {
 // s'appliquer — « rien ne s'écrit sans qu'on ait vu ce qui sera écrit » — et
 // l'application ne se déclenche que si l'appelant a nommé l'année ET confirmé.
 
-r.get('/reprise/:annee/simulation', authRequired,
+r.get('/reprise/:annee/simulation', authRequired, garderTransfert('cloture_reprise'),
   roleRequired('admin', 'directeur', 'directeur_adjoint'), (req, res) => {
     try {
       res.json(simulerReprise(req.params.annee, { motif: req.query.motif }));
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
-r.post('/reprise/:annee', authRequired,
+r.post('/reprise/:annee', authRequired, garderTransfert('cloture_reprise'),
   roleRequired('admin', 'directeur', 'directeur_adjoint'), (req, res) => {
     const annee = req.params.annee;
     // LA CONFIRMATION PORTE L'ANNÉE. Un « oui » seul se clique ; retaper

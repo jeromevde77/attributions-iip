@@ -56,13 +56,31 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
   const reduire = s => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .toLowerCase().replace(/[^a-z]/g, '');
 
+  /* L'ONGLET SE CHOISIT (13 octobre 2026) : seul le premier était lu, en silence. Un
+     classeur « AESI » rangé derrière l'export eCampus montrait 49 colonnes qui n'étaient
+     pas celles qu'on avait préparées, sans rien qui dise d'où elles venaient. */
+  const [classeur, setClasseur] = useState(null);
+  const [onglet, setOnglet] = useState('');
+
   async function lire(fichier) {
     setErreur(null); setRapport(null);
     try {
       const XLSX = await import('xlsx');
       const wb = XLSX.read(await fichier.arrayBuffer(), { type: 'array', cellDates: true });
-      const lignes = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: null });
-      if (!lignes.length) throw new Error('Ce classeur ne contient aucune ligne.');
+      setClasseur(wb);
+      // PLUSIEURS ONGLETS : on demande lequel AVANT de lire (Charles, 13 octobre 2026 — l'export
+      // eCampus rangé en premier imposait ses 49 colonnes). Un seul : on le lit.
+      if (wb.SheetNames.length > 1) { setOnglet(''); setEntetes(null); setBrut(null); setCorresp({}); return; }
+      lireOnglet(wb, wb.SheetNames[0], XLSX);
+    } catch (e) { setErreur(e.message); }
+  }
+
+  async function lireOnglet(wb, nom, XLSX0) {
+    setErreur(null); setRapport(null); setOnglet(nom);
+    try {
+      const XLSX = XLSX0 || await import('xlsx');
+      const lignes = XLSX.utils.sheet_to_json(wb.Sheets[nom], { defval: null });
+      if (!lignes.length) throw new Error(`L'onglet « ${nom} » ne contient aucune ligne.`);
 
       const cols = Object.keys(lignes[0]);
       setEntetes(cols); setBrut(lignes); setLigne(0);
@@ -204,6 +222,33 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
             onChange={e => e.target.files[0] && lire(e.target.files[0])} />
         </label>
 
+        {classeur && classeur.SheetNames.length > 1 && !onglet && (
+          <div className="space-y-2">
+            <div className="text-sm font-semibold text-iip-blue">
+              Ce classeur a {classeur.SheetNames.length} onglets — lequel importer ?</div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {classeur.SheetNames.map(n => {
+                const ws = classeur.Sheets[n];
+                const ref = ws?.['!ref'];
+                let lignes = 0, cols = [];
+                try {
+                  const r = ref ? ref.match(/([A-Z]+)(\d+):([A-Z]+)(\d+)/) : null;
+                  if (r) lignes = Math.max(0, Number(r[4]) - Number(r[2]));
+                  cols = Object.keys(ws).filter(k => /^[A-Z]+1$/.test(k)).map(k => String(ws[k].v ?? ''))
+                    .filter(Boolean);
+                } catch { /* rien */ }
+                return (
+                  <button key={n} type="button" onClick={() => lireOnglet(classeur, n)}
+                    className="text-left border border-slate-300 rounded-lg px-3 py-2 hover:border-iip-blue">
+                    <div className="font-semibold text-iip-texte">{n}</div>
+                    <div className="text-second text-slate-500">{lignes} ligne(s) · {cols.length} colonne(s)</div>
+                    <div className="text-mention text-slate-400 truncate">{cols.slice(0, 8).join(' · ')}{cols.length > 8 ? ' …' : ''}</div>
+                  </button>);
+              })}
+            </div>
+          </div>
+        )}
+
         {profils.length > 0 && (
           <div className="flex items-center gap-2 flex-wrap">
             <span className="intertitre">
@@ -227,6 +272,11 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
           <div className="border border-slate-200 rounded-xl p-4 space-y-3">
             <div>
               <span className="text-sm font-semibold text-iip-blue">Correspondances</span>
+              {classeur && classeur.SheetNames.length > 1 && (
+                <span className="ml-2 text-second text-slate-600">· onglet <b>« {onglet} »</b>{' '}
+                  <button type="button" className="text-iip-blue underline"
+                    onClick={() => { setOnglet(''); setEntetes(null); setBrut(null); setCorresp({}); }}>changer d'onglet</button>
+                </span>)}
               <p className="text-second text-slate-500">
                 {brut.length} ligne(s), {entetes.length} colonne(s). À gauche le champ de
                 Lucie, à droite la colonne du document.

@@ -1,3 +1,4 @@
+import { useTransfertsFermes } from '../lib/transferts.js';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { IconLayoutGrid, IconAlertTriangle, IconChecks, IconLock } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
@@ -119,6 +120,7 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
   const [fPrimo, setFPrimo] = useState(false);    // nouveaux inscrits seulement
   const [attRes, setAttRes] = useState(new Map()); // `${id}|${ue}` → { resultat, points }
   const [importHisto, setImportHisto] = useState(false);
+  const transfertsFermes = useTransfertsFermes(annee);
   // Des unités d'une AUTRE section que celle du dossier : il faut le vouloir.
   const [autreConfirme, setAutreConfirme] = useState(false);
   const [motifLot, setMotifLot] = useState('');   // motif des dérogations du lot
@@ -502,10 +504,10 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
                 ? 'Une note ≥ 10 pose la réussite, < 10 le refus ; vidée, elle efface.'
                 : 'Un clic : réussi (vert) → refusé (rouge) → effacé. Sur une case vide, il inscrit aussi.'}
             </span>
-            <button className="bouton ml-auto" onClick={() => setImportHisto(true)}
+            {!transfertsFermes.classeur_suivi && <button className="bouton ml-auto" onClick={() => setImportHisto(true)}
               title="Reprendre un tableau Excel — une ligne par étudiant, unité et décision — pour cette année">
               Importer un historique (Excel)…
-            </button>
+            </button>}
           </div>
         )}
 
