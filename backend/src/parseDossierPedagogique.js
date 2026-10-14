@@ -82,14 +82,16 @@ function parseDP(xmlStr, numXml = null) {
     || fullText.match(/([\d]{2}\s*[\d]{2}\s*[\d]{2}\s*U\d+\s*[A-Z]\d+)/i);
   if (codeMatch) codeFwb = codeMatch[1].replace(/\s+/g, ' ').trim().toUpperCase();
 
-  // INTITULE UE
+  // INTITULE UE — LES ACCENTS NE FONT PAS ÉCHOUER LA RECHERCHE (14 octobre 2026, UE 333 :
+  // « UNITÉ D'ENSEIGNEMENT », « DOSSIER PÉDAGOGIQUE » n'étaient pas reconnus, l'intitulé sortait vide).
+  const sansAccent = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   let ueNom = '';
   for (let i = 0; i < blocks.length; i++) {
-    if (/DOSSIER PEDAGOGIQUE|UNITE D.ENSEIGNEMENT/i.test(blocks[i].text || '')) {
+    if (/DOSSIER PEDAGOGIQUE|UNITE D.ENSEIGNEMENT/i.test(sansAccent(blocks[i].text))) {
       for (let j = i + 1; j < Math.min(i + 10, blocks.length); j++) {
         const c = (blocks[j].text || '').trim();
         if (c.length > 5 && c === c.toUpperCase()
-          && !/ENSEIGNEMENT|MINISTERE|ADMINISTRATION|COMMUNAUTE|DOMAINE|CODE|DOCUMENT|SUPERIEUR|PROMOTION|DOSSIER/i.test(c)) {
+          && !/ENSEIGNEMENT|MINISTERE|ADMINISTRATION|COMMUNAUTE|DOMAINE|CODE|DOCUMENT|SUPERIEUR|PROMOTION|DOSSIER/i.test(sansAccent(c))) {
           ueNom = c.split(' ').map(w =>
             w.length > 2 ? w[0].toUpperCase() + w.slice(1).toLowerCase() : w.toLowerCase()
           ).join(' ');
@@ -101,9 +103,14 @@ function parseDP(xmlStr, numXml = null) {
   }
 
   // NIVEAU
+  // Le niveau se lit dans l'EN-TÊTE (« ENSEIGNEMENT supérieur de type court »), accents ôtés : lu
+  // dans tout le texte, « secondaire » d'un titre tenant lieu faisait passer l'UE 333 au secondaire.
   let ueNiveau = '';
-  if (/SUPERIEUR DE TYPE COURT|SUPERIEUR DE TYPE LONG/i.test(fullText)) ueNiveau = 'SUP';
-  else if (/SECONDAIRE/i.test(fullText)) ueNiveau = 'DS';
+  const entete = sansAccent(blocks.filter(b => b.type === 'p').slice(0, 20).map(b => b.text).join('\n'));
+  if (/SUPERIEUR DE TYPE (COURT|LONG)/i.test(entete)) ueNiveau = 'SUP';
+  else if (/SECONDAIRE/i.test(entete)) ueNiveau = 'DS';
+  else if (/SUPERIEUR DE TYPE (COURT|LONG)/i.test(sansAccent(fullText))) ueNiveau = 'SUP';
+  else if (/SECONDAIRE/i.test(sansAccent(fullText))) ueNiveau = 'DS';
 
   // CODE DOMAINE
   const domaineMatch = fullText.match(/CODE DU DOMAINE DE FORMATION\s*:\s*(\d+)/i);
@@ -151,26 +158,48 @@ function parseDP(xmlStr, numXml = null) {
   const detFinalites = extractSection(titre('FINALIT[EÉ]S DE L.UNIT[EÉ]( DE FORMATION)?'), titre('CAPACIT[EÉ]S PR[EÉ]ALABLES( REQUISES)?'));
   const detCapacites = extractSection(titre('CAPACIT[EÉ]S PR[EÉ]ALABLES( REQUISES)?'), titre('ACQUIS D.APPRENTISSAGE'));
   const detAcquis    = extractSection(titre('ACQUIS D.APPRENTISSAGE'), titre('PROGRAMME'));
-  // LE PROGRAMME GARDE SES PUCES : « - » pour un point, deux espaces de plus par sous-niveau. Le
-  // niveau se lit aux retraits successifs ; une ligne qui n'est pas une puce (titre de cours,
-  // phrase de contexte) remet la pile à zéro.
-  const detProgramme = (() => {
-    const fin = /CONSTITUTION DES GROUPES|CHARGE.S. DE COURS/i;
-    const debut = titre('PROGRAMME');
-    const ps = blocks.filter(b => b.type === 'p');
+  /* TOUTES LES RUBRIQUES GARDENT LEUR STRUCTURE (14 octobre 2026). « - » pour une puce, deux espaces
+     de plus par sous-niveau (le niveau se lit aux retraits successifs) ; « ### » pour un intertitre :
+     un paragraphe NUMÉROTÉ, court, sans ponctuation finale — l'intitulé d'un cours au programme,
+     « Finalités générales », « Capacités ». Une ligne ordinaire remet la pile des puces à zéro. */
+  const ps = blocks.filter(b => b.type === 'p');
+  const structurer = (debut, fin) => {
     const i0 = ps.findIndex(b => debut.test(b.text));
-    if (i0 < 0) return extractSection(titre('PROGRAMME'), fin);
+    if (i0 < 0) return '';
     const out = []; let pile = [];
     for (const b of ps.slice(i0 + 1)) {
       if (fin.test(b.text)) break;
-      if (!b.puce) { pile = []; out.push(b.text); continue; }
-      const x = b.retrait;
-      while (pile.length && x < pile[pile.length - 1] - 200) pile.pop();
-      if (!pile.length || x > pile[pile.length - 1] + 200) pile.push(x);
-      out.push(`${'  '.repeat(pile.length - 1)}- ${b.text}`);
+      if (b.puce) {
+        const x = b.retrait;
+        while (pile.length && x < pile[pile.length - 1] - 200) pile.pop();
+        if (!pile.length || x > pile[pile.length - 1] + 200) pile.push(x);
+        out.push(`${'  '.repeat(pile.length - 1)}- ${b.text}`);
+        continue;
+      }
+      pile = [];
+      out.push(b.numero && b.text.length < 90 && !/[;.,:]$/.test(b.text) ? `### ${b.text}` : b.text);
     }
     return out.join('\n').trim();
-  })();
+  };
+  const T = {
+    fin: titre('FINALIT[EÉ]S DE L.UNIT[EÉ]( DE FORMATION| D.ENSEIGNEMENT)?'),
+    cap: titre('CAPACIT[EÉ]S PR[EÉ]ALABLES( REQUISES)?'),
+    acq: titre('ACQUIS D.APPRENTISSAGE'),
+    prog: titre('PROGRAMME'),
+    grp: /^\s*(?:\d+(?:\.\d+)*\.?\s*)?CONSTITUTION DES GROUPES/i,
+    chg: /^\s*(?:\d+(?:\.\d+)*\.?\s*)?CHARGE.S. DE COURS/i,
+    hor: /^\s*(?:\d+(?:\.\d+)*\.?\s*)?HORAIRE MINIMUM/i,
+  };
+  const degre = /pour (la d[ée]termination du|d[ée]terminer le) degr[ée] de ma[îi]trise/i;
+  const sFinalites = structurer(T.fin, T.cap);
+  const sCapacites = structurer(T.cap, T.acq);
+  const sAcquisTout = structurer(T.acq, T.prog);
+  const iDeg = sAcquisTout.search(degre);
+  const sAcquis = (iDeg > 0 ? sAcquisTout.slice(0, iDeg) : sAcquisTout).trim();
+  const sDegre = iDeg > 0 ? sAcquisTout.slice(iDeg).trim() : '';
+  const detProgramme = structurer(T.prog, /CONSTITUTION DES GROUPES|CHARGE.S. DE COURS/i) || extractSection(titre('PROGRAMME'), /CONSTITUTION DES GROUPES|CHARGE.S. DE COURS/i);
+  const sGroupes = structurer({ test: l => T.grp.test(l) }, T.chg);
+  const sCharges = structurer({ test: l => T.chg.test(l) }, T.hor);
 
   // ── ACQUIS D'APPRENTISSAGE : découpage du bloc en acquis individuels ──
   // Structure FWB habituelle :
@@ -261,10 +290,13 @@ function parseDP(xmlStr, numXml = null) {
       ue_per_etudiants: totalPeriodes,
       code_domaine:     codeDomaine,
       ue_det: [
-        detFinalites && `## Finalités\n${detFinalites}`,
-        detCapacites && `## Capacités préalables\n${detCapacites}`,
-        detAcquis    && `## Acquis d'apprentissage\n${detAcquis}`,
-        detProgramme && `## Programme\n${detProgramme}`,
+        (sFinalites || detFinalites) && `## Finalités\n${sFinalites || detFinalites}`,
+        (sCapacites || detCapacites) && `## Capacités préalables\n${sCapacites || detCapacites}`,
+        (sAcquis || detAcquis)       && `## Acquis d'apprentissage\n${sAcquis || detAcquis}`,
+        sDegre                       && `## Degré de maîtrise\n${sDegre}`,
+        detProgramme                 && `## Programme\n${detProgramme}`,
+        sGroupes                     && `## Constitution des groupes\n${sGroupes}`,
+        sCharges                     && `## Chargés de cours\n${sCharges}`,
       ].filter(Boolean).join('\n\n'),
     },
     cours,

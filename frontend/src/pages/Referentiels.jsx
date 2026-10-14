@@ -1,8 +1,9 @@
-import TexteDossierPedagogique from '../components/TexteDossierPedagogique.jsx';
+import EditeurRubrique from '../components/EditeurRubrique.jsx';
+import { rubriquesDuTexte } from '../lib/texteDossier.js';
 import { MODES_GROUPES } from '../lib/groupes.js';
-import { useEffect, useRef, useState, Fragment } from 'react';
+import { useEffect, useMemo, useRef, useState, Fragment } from 'react';
 import { estDirection } from '../lib/modules.js';
-import { api, getAnnee, getUser } from '../lib/api.js';
+import { api, authHeaders, getAnnee, getUser } from '../lib/api.js';
 import CoursFormModal from '../components/CoursFormModal.jsx';
 import GrilleSectionModal from '../components/GrilleSectionModal.jsx';
 import CompositionSection from '../components/CompositionSection.jsx';
@@ -670,6 +671,22 @@ function UEModal({ ue, sections, onClose, onSaved, navigation = null }) {
   // Multi-sections : ensemble des codes de sections cochées
   const [selSections, setSelSections] = useState(new Set(ue?._sections ? [...ue._sections] : (ue?.section ? [ue.section] : [])));
   function set(k, v) { setForm(f => ({ ...f, [k]: v })); }
+  /* LA FICHE EN QUATRE ONGLETS (3.1.356, Charles : « la fenêtre UE comprend toutes les parties du
+     dossier pédagogique, éditables, déjà mises en page » — proposition B) : Fiche · Contenu ·
+     Programme · Organisation. Le texte du dossier se charge à part ; seules les rubriques touchées
+     partent à l'enregistrement. */
+  const [onglet, setOnglet] = useState('fiche');
+  const [dossier, setDossier] = useState(null);
+  const [rubriques, setRubriques] = useState({});
+  const [rubriquesTouchees, setRubriquesTouchees] = useState({});
+  useEffect(() => {
+    if (isNew || !ue?.ue_num || !ue?.annee_scolaire) return;
+    fetch(`/api/ref/ue/${ue.ue_num}?annee=${encodeURIComponent(ue.annee_scolaire)}`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : null)).then(j => { setDossier(j); setRubriques(rubriquesDuTexte(j?.ue_dp || '')); })
+      .catch(() => setDossier({}));
+  }, [isNew, ue?.ue_num, ue?.annee_scolaire]);
+  const origines = useMemo(() => rubriquesDuTexte(dossier?.ue_dp_origine || dossier?.ue_dp || ''), [dossier]);
+  const poserRubrique = (k, v) => { setRubriques(r => ({ ...r, [k]: v })); setRubriquesTouchees(t => ({ ...t, [k]: v })); };
   function toggleSection(code) {
     setSelSections(s => { const n = new Set(s); n.has(code) ? n.delete(code) : n.add(code); return n; });
   }
@@ -716,6 +733,12 @@ function UEModal({ ue, sections, onClose, onSaved, navigation = null }) {
       const apres = selSections;
       for (const code of apres) if (!avant.has(code)) await api.rattacherUE(form.ue_num, code);
       for (const code of avant) if (!apres.has(code)) await api.detacherUE(form.ue_num, code).catch(() => {});
+      // Les rubriques du dossier retouchées partent avec la fiche (direction seulement : la bibliothèque).
+      if (!isNew && isAdmin && Object.keys(rubriquesTouchees).length) {
+        const r = await fetch(`/api/ref/ue/${form.ue_num}/dossier`, { method: 'PUT', headers: authHeaders(),
+          body: JSON.stringify({ annee: ue?.annee_scolaire, rubriques: rubriquesTouchees }) });
+        if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'dossier pédagogique non enregistré');
+      }
       onSaved();
     } catch (e) { informer('Erreur : ' + e.message); }
     finally { setSaving(false); }
@@ -880,19 +903,60 @@ function UEModal({ ue, sections, onClose, onSaved, navigation = null }) {
         </button>
         <button type="button" onClick={onClose} className="bouton ml-auto">Annuler</button>
       </>}>
-      {avecAcquis ? (
-        <div className="grid grid-cols-[3fr_2fr] gap-6 items-start">
-          {fiche}
-          <div className="border-l border-slate-200 pl-6 min-w-0">
-            <GroupeFenetre titre="Acquis d'apprentissage">
-              <AcquisUE ueNum={form.ue_num} annee={ue?.annee_scolaire} estAdmin={isAdmin} />
-            </GroupeFenetre>
-            <GroupeFenetre titre="Dossier pédagogique importé">
-              <TexteDossierPedagogique ueNum={form.ue_num} annee={ue?.annee_scolaire} />
-            </GroupeFenetre>
+      {avecAcquis ? (() => {
+        const rub = (k, titre) => <EditeurRubrique key={k} titre={titre} texte={rubriques[k] || ''} origine={origines[k] ?? null}
+          lecture={!isAdmin} onChange={v => poserRubrique(k, v)} />;
+        const cours = (dossier?.cours || []).filter(c => String(c.ct_pp || '').toUpperCase() !== 'Z');
+        const totCours = cours.reduce((t, c) => t + (Number(c.cours_per) || 0), 0);
+        return (<>
+          <div className="flex items-center gap-1 border-b border-slate-200 mb-4 -mt-1">
+            {[['fiche', 'Fiche'], ['contenu', 'Contenu'], ['programme', 'Programme'], ['organisation', 'Organisation']].map(([k, l]) => (
+              <button key={k} type="button" onClick={() => setOnglet(k)} className={`onglet-page ${onglet === k ? 'onglet-page-actif' : ''}`}>{l}</button>))}
+            <span className="flex-1" />
+            {dossier && !dossier.ue_dp && <span className="text-second text-slate-500">Aucun dossier pédagogique importé pour {ue?.annee_scolaire}.</span>}
+            {Object.keys(rubriquesTouchees).length > 0 && <span className="text-second" style={{ color: 'var(--c-attente)' }}>{Object.keys(rubriquesTouchees).length} rubrique(s) modifiée(s) — à enregistrer</span>}
           </div>
-        </div>
-      ) : fiche}
+          {/* La fiche reste montée (cachée) : le bouton Enregistrer du pied la soumet. */}
+          <div className={onglet === 'fiche' ? 'grid grid-cols-[3fr_2fr] gap-6 items-start' : 'hidden'}>
+            {fiche}
+            <div className="border-l border-slate-200 pl-6 min-w-0">
+              <GroupeFenetre titre="7. Horaire minimum">
+                <table className="w-full text-second">
+                  <thead><tr className="tab-entete text-left"><th className="px-2 py-1">Activité d'enseignement</th><th className="px-2 py-1">Classement</th><th className="px-2 py-1 text-right">Périodes</th></tr></thead>
+                  <tbody>
+                    <tr className="tab-repere font-semibold"><td className="px-2 py-1">Total des périodes</td><td></td><td className="px-2 py-1 text-right tabular-nums">{dossier?.ue_per_etudiants ?? form.ue_per_etudiants ?? '—'}</td></tr>
+                    {cours.map(c => (
+                      <tr key={c.cours_code} className="border-t border-slate-100"><td className="px-2 py-1">{c.cours_nom}</td><td className="px-2 py-1">{c.ct_pp || '—'}</td><td className="px-2 py-1 text-right tabular-nums">{c.cours_per ?? '—'}</td></tr>))}
+                    <tr className="border-t border-slate-100"><td className="px-2 py-1">Total périodes de cours</td><td></td><td className="px-2 py-1 text-right tabular-nums">{totCours || '—'}</td></tr>
+                    <tr className="border-t border-slate-100"><td className="px-2 py-1">7.2 Part d'autonomie</td><td>P</td><td className="px-2 py-1 text-right tabular-nums">{dossier?.ue_aut ?? form.ue_aut ?? '—'}</td></tr>
+                    {(dossier?.ue_per_z || form.ue_per_z) ? <tr className="border-t border-slate-100"><td className="px-2 py-1">7.3 Développement professionnel</td><td>Z</td><td className="px-2 py-1 text-right tabular-nums">{dossier?.ue_per_z ?? form.ue_per_z}</td></tr> : null}
+                  </tbody>
+                </table>
+                <p className="text-mention text-slate-400 mt-1">Les cours se règlent dans Unités et cours ; les périodes du dossier y sont reprises à l'import.</p>
+              </GroupeFenetre>
+            </div>
+          </div>
+          {onglet === 'contenu' && (<div>
+            {rub('Finalités', '1. Finalités de l’unité')}
+            {rub('Capacités préalables', '2. Capacités préalables requises')}
+            {rub("Acquis d'apprentissage", '3. Acquis d’apprentissage')}
+            {rub('Degré de maîtrise', 'Degré de maîtrise')}
+          </div>)}
+          {onglet === 'programme' && (
+            <div className="grid grid-cols-[3fr_2fr] gap-6 items-start">
+              <div className="min-w-0">{rub('Programme', '4. Programme — par activité d’enseignement')}</div>
+              <div className="border-l border-slate-200 pl-6 min-w-0">
+                <GroupeFenetre titre="Acquis d'apprentissage encodés">
+                  <AcquisUE ueNum={form.ue_num} annee={ue?.annee_scolaire} estAdmin={isAdmin} />
+                </GroupeFenetre>
+              </div>
+            </div>)}
+          {onglet === 'organisation' && (<div>
+            {rub('Constitution des groupes', '5. Constitution des groupes ou regroupement')}
+            {rub('Chargés de cours', '6. Chargé(s) de cours')}
+          </div>)}
+        </>);
+      })() : fiche}
     </Fenetre>
   );
 }

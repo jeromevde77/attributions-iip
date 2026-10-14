@@ -139,7 +139,7 @@ function RatiosEtp({ Y, d, sections }) {
         <Tuile valeur={k0(n)} libelle="étudiants inscrits" precision="hors archivés" />
       </div>
       {barres.length > 0 && (
-        <div style={{ width: '100%', height: Math.max(220, barres.length * 40 + 60) }}>
+        <div style={{ width: '100%', height: Math.max(200, barres.length * 30 + 60) }}>
           <ResponsiveContainer>
             <BarChart data={barres} layout="vertical" margin={{ left: 20, right: 40 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--g-grille, #E5E7EB)" horizontal={false} />
@@ -147,8 +147,9 @@ function RatiosEtp({ Y, d, sections }) {
               <YAxis type="category" dataKey="section" width={130} tick={{ fontSize: 11 }} />
               <Tooltip formatter={(v, nom) => [r1(v), nom]} labelFormatter={(l, p) => `${l} · ${p?.[0]?.payload?.inscrits ?? ''} inscrits`} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Bar dataKey="cours" name="étudiants par ETP de cours" fill="var(--g-1)" label={{ position: 'right', fontSize: 10, formatter: r1 }} />
-              <Bar dataKey="total" name="étudiants par ETP, part administrative comprise" fill="var(--g-2)" label={{ position: 'right', fontSize: 10, formatter: r1 }} />
+              {/* LE RATIO SIMPLE, ET LUI SEUL (Charles, 14 octobre 2026 : « le simple ratio du nombre
+                  d'étudiants par ETP dans la section ; on compare juste ce ratio »). */}
+              <Bar dataKey="cours" name="étudiants par ETP" fill="var(--g-1)" label={{ position: 'right', fontSize: 10, formatter: r1 }} />
             </BarChart>
           </ResponsiveContainer>
         </div>)}

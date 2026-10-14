@@ -35,6 +35,7 @@ import { teintesSchema } from '../lib/schemaSvg.js';
 import sanitizeHtml from 'sanitize-html';
 import { assainir } from '../lib/texteCorpus.js';
 import { gesteAutorise } from '../lib/gestes.js';
+import { texteVersHtml } from '../lib/texteDossier.js';
 
 const r = Router();
 
@@ -154,7 +155,7 @@ function estCoordinationDe(user, ueNum, annee) {
 /** Les points du programme du dossier pédagogique, un par ligne : ce qu'on
  *  propose dans la colonne « Point du programme ». */
 function pointsDuProgramme(programme) {
-  return String(programme || '').split('\n').map(l => l.replace(/^[\s•\-–*]+/, '').trim())
+  return String(programme || '').split('\n').filter(l => !/^###\s/.test(l)).map(l => l.replace(/^[\s•\-–*]+/, '').trim())
     .filter(l => l.length > 3).slice(0, 200);
 }
 
@@ -219,13 +220,17 @@ function sectionsDuDP(ueDet) {
   const coupe = parts['degré de maîtrise'] ? -1
     : acquisBrut.search(/pour (la d[ée]termination du|d[ée]terminer le) degr[ée] de ma[îi]trise/i);
   const fin = couperFinalites(parts['finalités']);
+  /* LES RUBRIQUES ARRIVENT MISES EN PAGE (3.1.350) : les puces et intertitres lus du dossier
+     deviennent du HTML — la DUE les reprend tels quels, au lieu d'un texte à plat. Le programme
+     reste en lignes marquées : la DUE le range elle-même par cours. */
+  const mis = t => (t && /^( *)- |^###\s/m.test(t) ? texteVersHtml(t) : t);
   const dp = {
-    finalites: fin.particulieres,
-    finalites_generales: fin.generales,
-    capacites: parts['capacités préalables'] || null,
-    acquis: (coupe > 0 ? acquisBrut.slice(0, coupe) : acquisBrut).trim() || null,
-    degre_maitrise: parts['degré de maîtrise']
-      || (coupe > 0 ? acquisBrut.slice(coupe).trim() : null),
+    finalites: mis(fin.particulieres),
+    finalites_generales: mis(fin.generales),
+    capacites: mis(parts['capacités préalables'] || null),
+    acquis: mis((coupe > 0 ? acquisBrut.slice(0, coupe) : acquisBrut).trim() || null),
+    degre_maitrise: mis(parts['degré de maîtrise']
+      || (coupe > 0 ? acquisBrut.slice(coupe).trim() : null)),
     programme: parts['programme'] || null,
   };
   return Object.values(dp).some(Boolean) ? dp : null;
@@ -335,7 +340,8 @@ function cecDe(section) {
  *  écrit d'un tenant — générales, puis particulières. On coupe au titre
  *  « particulières » ; sans lui, tout reste aux particulières. */
 function couperFinalites(t) {
-  const txt = String(t || '').trim();
+  // Les intertitres « ### » de l'import (3.1.350) ne sont qu'une marque : la coupe se fait sur le texte.
+  const txt = String(t || '').replace(/^###\s+/gm, '').trim();
   if (!txt) return { generales: null, particulieres: null };
   const i = txt.search(/finalit[ée]s?\s+particuli[èe]res?/i);
   if (i < 0) return { generales: null, particulieres: txt };
