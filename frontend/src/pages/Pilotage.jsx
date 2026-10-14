@@ -6,6 +6,7 @@ import { IconChartBar, IconHome, IconUsers, IconSettings, IconChevronRight, Icon
 import { PageHeader, Tabs, RailLateral, OuvrirEditions, TuileEtat, Chevron } from '../components/ui.jsx';
 import Distributions from '../components/Distributions.jsx';
 import Population from '../components/Population.jsx';
+import PopulationEcole from '../components/PopulationEcole.jsx';
 import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
 import Budget from './Budget.jsx';
 import RapportStatistique from '../components/RapportStatistique.jsx';
@@ -515,7 +516,7 @@ export default function Pilotage({ vue = 'tout' }) {
   const anneeActive = getAnnee();
   // L'écran ouvre sur ce que sa vue sait montrer : « Dotation » n'existe pas
   // dans le reporting, et y atterrir donnerait une page vide.
-  const [tab, setTab]               = useState(vue === 'reporting' ? 'etp' : 'synthese');
+  const [tab, setTab]               = useState(vue === 'reporting' ? 'etp' : 'population-ecole');
   const [etpData, setEtpData]       = useState(null);
   // Dotation détaillée par section/UE (table fidèle maquette v3)
   const [dotEffic, setDotEffic]     = useState(null);   // efficience année active
@@ -1541,13 +1542,34 @@ export default function Pilotage({ vue = 'tout' }) {
     </div>
   );
 
+  /* GESTION EN QUATRE RUBRIQUES (Charles, 14 octobre 2026 : « centraliser les données de
+     pilotage » — Population, Résultats, Dotation, Finances, dans cet ordre). Chaque rubrique
+     ouvre ses faces dans le rail ; rien n'est recalculé, les écrans existants y sont rangés. */
+  const coord = getUser()?.role === 'coordination';
+  const rubrique = (key, label, icon, faces) => {
+    const f = faces.filter(Boolean);
+    return { key, label, icon, actif: f.some(x => x[0] === tab), onClick: () => { if (!f.some(x => x[0] === tab)) setTab(f[0][0]); },
+      sous: f.length > 1 && f.some(x => x[0] === tab) ? f.map(([k, l, ic]) => ({ key: k, label: l, icon: ic, actif: tab === k, onClick: () => setTab(k) })) : undefined };
+  };
+  const railGestion = [
+    rubrique('g-population', 'Population', IconUsersGroup, [
+      ['population-ecole', 'Qui sont nos étudiants', IconUsersGroup], ['population', 'Places par unité', IconUsers]]),
+    rubrique('g-resultats', 'Résultats', IconScale, [
+      ['deliberation', 'Décisions et taux de réussite', IconScale], ['distributions', 'Distributions des cotes', IconChartBar]]),
+    rubrique('g-dotation', 'Dotation', IconHome, [
+      ['synthese', 'Dotation', IconHome], ['etp', 'ETP', IconUsers], ['dotation', 'Comparaison', IconArrowsLeftRight],
+      !coord && ['repartition', 'Répartition des périodes', IconCalendar], ['config', 'Configuration', IconSettings]]),
+    rubrique('g-finances', 'Finances', IconReportMoney, [
+      !coord && ['rapport', 'Coûts des formations', IconReportMoney], ['budget', 'Budget', IconCash]]),
+  ];
+
   // ── Rendu ──────────────────────────────────────────────────────────────────
   return (
     <div className="relative" style={{ minHeight: 'calc(100vh - 64px)' }}>
       <RailLateral impression="pilotage"
 
         icon={ICONE_AXE.gestion}
-        titre="Pilotage"
+        titre={vue === 'gestion' ? 'Gestion' : 'Pilotage'}
         extra={
           /* BLANC SUR BLANC. Ce sélecteur était écrit pour le rail marine :
              texte blanc, fond blanc à 10 %, filet blanc. En mode clair il
@@ -1566,7 +1588,7 @@ export default function Pilotage({ vue = 'tout' }) {
            Le même écran servait les deux, et c'est pour cela qu'on ne pouvait
            pas ouvrir l'un sans l'autre. « vue » le scinde : « reporting » ne
            montre que ce qui se consulte, « gestion » que ce qui engage. */
-        sections={[{ items: [
+        sections={[{ items: vue === 'gestion' ? railGestion : [
           /* LE RAPPORT STATISTIQUE, EN TÊTE (Charles, 8 octobre 2026 : « super
              important ») — coûts, recettes et personnes, dans les deux vues. */
           ...(getUser()?.role === 'coordination' ? [] : [
@@ -1613,7 +1635,10 @@ export default function Pilotage({ vue = 'tout' }) {
             pluriannuelle » coiffait aussi les résultats de délibération et les
             distributions de cotes : on annonçait de l'argent et des périodes
             au-dessus de chiffres d'étudiants. */}
-        {tab === 'rapport' ? (
+        {tab === 'population-ecole' ? (
+          <PageHeader icon={IconUsersGroup} titre="Population"
+            sous="Qui sont nos étudiants : sections, sexe, âge, domicile, nationalité, nouveaux et diplômants, sur cinq ans" />
+        ) : tab === 'rapport' ? (
           <PageHeader icon={IconReportMoney} titre="Rapport statistique"
             sous="Coûts et recettes des formations, enseignants et personnes — à lire ici ; la pièce mise en page s’imprime ou s’envoie" />
         ) : ['deliberation', 'distributions', 'population'].includes(tab) ? (
@@ -1624,7 +1649,9 @@ export default function Pilotage({ vue = 'tout' }) {
             sous={`Année civile ${selYear} · Enveloppes extérieures · Comparaison pluriannuelle`} />
         )}
 
-        {tab === 'rapport' ? (
+        {tab === 'population-ecole' ? (
+          <PopulationEcole annee={anneeActive} />
+        ) : tab === 'rapport' ? (
           <RapportStatistique />
         ) : tab === 'repartition' ? (
           <RepartitionPeriodes />

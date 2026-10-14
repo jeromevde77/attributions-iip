@@ -178,7 +178,7 @@ export function donneesChiffresCles(annee, ref = new Date()) {
    les profs »). Une ligne par membre attribué cette année ; sa charge est la
    somme de ses attributions, au barème de Pilotage (CT/800 + PP/1000), lue
    dans la même vue que la synthèse de charge. ─── */
-const regionDuCp = cp => {
+export const regionDuCp = cp => {
   const n = Number(String(cp || '').replace(/\D/g, ''));
   if (!n || String(cp).replace(/\D/g, '').length !== 4) return null;
   if (n >= 1000 && n <= 1299) return 'bruxelles';

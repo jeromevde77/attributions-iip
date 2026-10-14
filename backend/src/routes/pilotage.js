@@ -1,3 +1,5 @@
+import { anneeDeTravail } from '../helpers/annee.js';
+import { donneesPopulation } from '../lib/populationEcole.js';
 import { sectionRattachement } from './etudiants.js';
 import { Router } from 'express';
 import db from '../db/index.js';
@@ -244,6 +246,15 @@ r.get('/totaux', authRequired, (req, res) => {
 // ── Nouvelles routes : pilotage par ANNÉE CIVILE ──────────────────────────────
 
 // GET /civil — résumé de toutes les années civiles (organique + enveloppes)
+// GESTION → POPULATION (3.1.334) : qui sont nos étudiants — voir lib/populationEcole.js.
+// Le périmètre de section s'applique : une coordination ne lit que ses sections.
+r.get('/population-ecole', authRequired, (req, res) => {
+  try {
+    const annee = req.query.annee || anneeDeTravail(req);
+    res.json(donneesPopulation(annee, { sections: getUserSections(req.user) }));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 r.get('/civil', authRequired, (req, res) => {
   const years = db.prepare('SELECT * FROM dotation_civile ORDER BY annee_civile').all();
   if (!years.length) return res.json([]);
