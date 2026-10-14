@@ -1,5 +1,5 @@
+import { donneesPopulation, inscrits } from '../lib/populationEcole.js';
 import { anneeDeTravail } from '../helpers/annee.js';
-import { donneesPopulation } from '../lib/populationEcole.js';
 import { sectionRattachement } from './etudiants.js';
 import { Router } from 'express';
 import db from '../db/index.js';
@@ -806,8 +806,32 @@ export function calculerEtp(annee) {
 r.get('/etp', authRequired, (req, res) => {
   const { annee } = req.query;
   if (!annee) return res.status(400).json({ error: 'annee requise' });
-  res.json(calculerEtp(annee));
+  res.json({ ...calculerEtp(annee), ratios: ratiosEtp(annee) });
 });
+
+/* LE RATIO ETP PAR ÉTUDIANT (Charles, 14 octobre 2026 : « le ratio ETP/étudiant — cours, puis
+ * admin, direction comprise, puis total, tout le monde compris »). Les ETP de cours sont ceux de ce
+ * calcul ; les ETP administratifs, les fonctions d'ÉTABLISSEMENT de l'année (direction, direction
+ * adjointe, secrétariat — personnel_mission) ; les coordinations sont des attributions, déjà
+ * comptées dans les cours. L'étudiant est l'inscrit de Population (hors archivés) ; par section,
+ * un étudiant de deux sections compte dans chacune, l'école le compte une fois. */
+function ratiosEtp(annee) {
+  const lignes = inscrits(annee);
+  const parSection = {};
+  for (const l of lignes) (parSection[l.section || '(sans section)'] ||= new Set()).add(l.id);
+  let admin = [];
+  try {
+    admin = db.prepare(`SELECT pm.fonction, COALESCE(SUM(COALESCE(pm.etp, 0) + COALESCE(pm.etp_helb, 0)), 0) AS etp, COUNT(*) AS n
+      FROM personnel_mission pm JOIN fonction_type ft ON ft.libelle = pm.fonction
+      WHERE pm.annee_scolaire = ? AND ft.portee = 'etablissement' GROUP BY pm.fonction ORDER BY ft.ordre`).all(annee);
+  } catch { admin = []; }
+  return {
+    inscrits: new Set(lignes.map(l => l.id)).size,
+    inscrits_par_section: Object.fromEntries(Object.entries(parSection).map(([s, set]) => [s, set.size])),
+    etp_admin: admin.reduce((t, a) => t + a.etp, 0),
+    admin,
+  };
+}
 
 // ── CRUD poste_pncc ──────────────────────────────────────────────────────────
 r.get('/pncc', authRequired, (req, res) => {

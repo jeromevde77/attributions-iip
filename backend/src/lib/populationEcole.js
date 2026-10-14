@@ -91,7 +91,7 @@ function niveauPrincipal(n) {
 }
 
 /** Les inscrits d'une année, avec leur section (rattachement, sinon l'unité — hors cursus exclu). */
-function inscrits(annee) {
+export function inscrits(annee) {
   return db.prepare(`
     SELECT DISTINCT i.etudiant_id AS id,
            COALESCE(e.section_rattachement, (SELECT u.section FROM ue u WHERE u.ue_num = i.ue_num
