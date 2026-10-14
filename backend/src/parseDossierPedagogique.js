@@ -10,13 +10,51 @@ function nodeText(node) {
   return node.querySelectorAll('w\\:t').map(n => n.text).join('').trim();
 }
 
-function parseDP(xmlStr) {
+/* LES PUCES ET LEURS NIVEAUX (Charles, 14 octobre 2026 : « l'import est parcellaire et, pour les
+ * points de programme, ne prend pas les sous-puces » — UE 333). Le texte d'un paragraphe ne dit pas
+ * s'il est une puce, ni à quel niveau : c'est la numérotation de Word (numbering.xml) et le retrait
+ * qui le disent. On lit les deux : le FORMAT du niveau (puce, ou numéro — un numéro est un titre :
+ * « PROGRAMME », l'intitulé d'un cours) et le RETRAIT effectif (celui du paragraphe, sinon celui du
+ * niveau). Le niveau d'une puce se déduit des retraits successifs, pas du seul « ilvl » : les
+ * rédacteurs font des sous-puces avec une autre liste au niveau 0, plus en retrait. */
+// Par expressions, et non par le lecteur HTML : il compare les noms de balise en minuscules, et
+// « w:pPr », « w:numId », « w:abstractNum » n'y étaient jamais trouvés.
+const attr = (xml, balise, nom) => {
+  const m = new RegExp(`<${balise}\\b[^>]*\\b${nom}="([^"]*)"`).exec(xml);
+  return m ? m[1] : null;
+};
+function lireNumerotation(numXml) {
+  const abs = {}, nums = {};
+  if (!numXml) return { abs, nums };
+  for (const a of numXml.matchAll(/<w:abstractNum\b[^>]*w:abstractNumId="(\d+)"[^>]*>([\s\S]*?)<\/w:abstractNum>/g)) {
+    const niveaux = {};
+    for (const l of a[2].matchAll(/<w:lvl\b[^>]*w:ilvl="(\d+)"[^>]*>([\s\S]*?)<\/w:lvl>/g)) {
+      niveaux[l[1]] = { fmt: attr(l[2], 'w:numFmt', 'w:val'),
+        gauche: Number(attr(l[2], 'w:ind', 'w:left') ?? attr(l[2], 'w:ind', 'w:start') ?? 0) };
+    }
+    abs[a[1]] = niveaux;
+  }
+  for (const n of numXml.matchAll(/<w:num\b[^>]*w:numId="(\d+)"[^>]*>([\s\S]*?)<\/w:num>/g)) {
+    nums[n[1]] = attr(n[2], 'w:abstractNumId', 'w:val');
+  }
+  return { abs, nums };
+}
+
+function parseDP(xmlStr, numXml = null) {
   const dom = parseHtml(xmlStr, { lowerCaseTagName: false });
   const blocks = [];
+  const NUM = lireNumerotation(numXml);
 
   for (const p of dom.querySelectorAll('w\\:p')) {
     const txt = nodeText(p).replace(/\s+/g, ' ').trim();
-    if (txt) blocks.push({ type: 'p', text: txt });
+    if (!txt) continue;
+    const pPr = (/<w:pPr>([\s\S]*?)<\/w:pPr>/.exec(p.toString()) || [])[1] || '';
+    const numId = attr(pPr, 'w:numId', 'w:val');
+    const ilvl = attr(pPr, 'w:ilvl', 'w:val') || '0';
+    const niv = numId && numId !== '0' ? NUM.abs[NUM.nums[numId]]?.[ilvl] : null;
+    const gaucheP = attr(pPr, 'w:ind', 'w:left') ?? attr(pPr, 'w:ind', 'w:start');
+    const retrait = gaucheP != null ? Number(gaucheP) : (niv?.gauche ?? 0);
+    blocks.push({ type: 'p', text: txt, puce: niv?.fmt === 'bullet', numero: !!niv && niv.fmt !== 'bullet', retrait });
   }
   for (const tr of dom.querySelectorAll('w\\:tr')) {
     const cells = tr.querySelectorAll('w\\:tc').map(tc =>
@@ -113,7 +151,26 @@ function parseDP(xmlStr) {
   const detFinalites = extractSection(titre('FINALIT[EÉ]S DE L.UNIT[EÉ]( DE FORMATION)?'), titre('CAPACIT[EÉ]S PR[EÉ]ALABLES( REQUISES)?'));
   const detCapacites = extractSection(titre('CAPACIT[EÉ]S PR[EÉ]ALABLES( REQUISES)?'), titre('ACQUIS D.APPRENTISSAGE'));
   const detAcquis    = extractSection(titre('ACQUIS D.APPRENTISSAGE'), titre('PROGRAMME'));
-  const detProgramme = extractSection(titre('PROGRAMME'),             /CONSTITUTION DES GROUPES|CHARGE.S. DE COURS/i);
+  // LE PROGRAMME GARDE SES PUCES : « - » pour un point, deux espaces de plus par sous-niveau. Le
+  // niveau se lit aux retraits successifs ; une ligne qui n'est pas une puce (titre de cours,
+  // phrase de contexte) remet la pile à zéro.
+  const detProgramme = (() => {
+    const fin = /CONSTITUTION DES GROUPES|CHARGE.S. DE COURS/i;
+    const debut = titre('PROGRAMME');
+    const ps = blocks.filter(b => b.type === 'p');
+    const i0 = ps.findIndex(b => debut.test(b.text));
+    if (i0 < 0) return extractSection(titre('PROGRAMME'), fin);
+    const out = []; let pile = [];
+    for (const b of ps.slice(i0 + 1)) {
+      if (fin.test(b.text)) break;
+      if (!b.puce) { pile = []; out.push(b.text); continue; }
+      const x = b.retrait;
+      while (pile.length && x < pile[pile.length - 1] - 200) pile.pop();
+      if (!pile.length || x > pile[pile.length - 1] + 200) pile.push(x);
+      out.push(`${'  '.repeat(pile.length - 1)}- ${b.text}`);
+    }
+    return out.join('\n').trim();
+  })();
 
   // ── ACQUIS D'APPRENTISSAGE : découpage du bloc en acquis individuels ──
   // Structure FWB habituelle :
@@ -658,7 +715,8 @@ export async function parseDossierPedagogique(buffer) {
   const xmlFile = zip.file('word/document.xml');
   if (!xmlFile) throw new Error('document.xml introuvable dans le .docx');
   const xmlStr = await xmlFile.async('string');
-  return parseDP(xmlStr);
+  const numXml = zip.file('word/numbering.xml') ? await zip.file('word/numbering.xml').async('string') : null;
+  return parseDP(xmlStr, numXml);
 }
 
 export { parseDPTexte };

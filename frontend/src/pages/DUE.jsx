@@ -1,3 +1,4 @@
+import { demander } from '../lib/dialogue.jsx';
 import { useEffect, useMemo, useState } from 'react';
 import { OuvrirEditions } from '../components/ui.jsx';
 import {
@@ -281,6 +282,11 @@ export function lireProgramme(texte, cours) {
   for (const brut of lignesLues) {
     let l = brut.replace(/^[\s•\-–*]+/, '').trim();
     if (l.length < 3) continue;
+    /* UNE PUCE LUE DANS LE DOSSIER (14 octobre 2026, UE 333) : l'import écrit « - » et deux espaces
+       par sous-niveau. Une puce est un POINT, à son niveau — jamais un chapeau, même si elle finit
+       par « , » ou « : » (« à l'égard du matériel, » est une sous-puce, pas une phrase de contexte). */
+    const puce = /^( *)- /.exec(brut);
+    if (puce && courant) { out.push({ type: 'point', niveau: Math.floor(puce[1].length / 2), texte: l, cours: [courant] }); continue; }
     // Un intitulé collé après le dernier « : ; , . » de la ligne : la ligne s'arrête là.
     const m = /^(.*[:;,.])\s*([^:;,.]{4,})$/.exec(l);
     const queue = m && coursDe(m[2]);
@@ -314,14 +320,23 @@ export function lireProgramme(texte, cours) {
 const echap = t => String(t || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 export function blocsDepuisPoints(points, cours) {
   const codes = new Set(cours.map(x => x.cours_code));
+  const ul = noeuds => `<ul>${noeuds.map(x => `<li><p>${echap(x.texte)}</p>${x.enfants?.length ? ul(x.enfants) : ''}</li>`).join('')}</ul>`;
   const html = items => {
-    let h = ''; let liste = [];
-    const vider = () => { if (liste.length) { h += `<ul>${liste.join('')}</ul>`; liste = []; } };
+    let h = '';
+    // Les sous-puces s'emboîtent : une liste dans le dernier point du niveau au-dessus.
+    const arbre = [];
     for (const p of items) {
-      if (p.type === 'point') liste.push(`<li><p>${echap(p.texte)}</p></li>`);
-      else { vider(); h += p.type === 'chapeau' ? `<p><em>${echap(p.texte)}</em></p>` : `<p>${echap(p.texte)}</p>`; }
+      if (p.type === 'point') {
+        let niv = arbre; const n = Math.max(0, p.niveau || 0);
+        for (let k = 0; k < n && niv.length; k++) niv = (niv[niv.length - 1].enfants ||= []);
+        niv.push({ texte: p.texte });
+      } else {
+        if (arbre.length) { h += ul(arbre); arbre.length = 0; }
+        h += p.type === 'chapeau' ? `<p><em>${echap(p.texte)}</em></p>` : `<p>${echap(p.texte)}</p>`;
+      }
     }
-    vider(); return h;
+    if (arbre.length) h += ul(arbre);
+    return h;
   };
   const premier = p => ((p.cours || [])[0] && codes.has(p.cours[0]) ? p.cours[0] : '');
   const out = { _intro: html(points.filter(p => p.type === 'intro' || !premier(p))) };
@@ -937,6 +952,14 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
         <ProgrammeParCours cours={d.cours || []} lecture={lecture}
           blocs={c.programme_blocs ?? blocsDepuisPoints(c.points ?? lireProgramme(c.programme || d.dp?.programme || (d.points_programme || []).join('\n'), d.cours || []), d.cours || [])}
           onChange={v => maj('programme_blocs', v)} />
+        {/* REPRENDRE DU DOSSIER (14 octobre 2026, UE 333) : un programme composé d'après une lecture
+            ancienne du dossier — puces à plat — ne se répare pas en réimportant le dossier, puisqu'il
+            est enregistré. Le geste le remplace par ce que dit le dossier, après confirmation. */}
+        {!lecture && d.dp?.programme && (
+          <button type="button" className="bouton mt-2" onClick={async () => {
+            if (!(await demander('Remplacer le programme de cette DUE par celui du dossier pédagogique (puces et sous-puces comprises) ? Ce que vous y aviez rédigé sera remplacé.'))) return;
+            maj('programme_blocs', blocsDepuisPoints(lireProgramme(d.dp.programme, d.cours || []), d.cours || []));
+          }}>Reprendre le programme du dossier pédagogique</button>)}
       </Bloc>
 
       <Bloc titre="Méthodes d'apprentissage">
