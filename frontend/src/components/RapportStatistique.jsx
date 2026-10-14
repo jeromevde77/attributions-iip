@@ -118,25 +118,47 @@ const inscritsDe = (sections, sec) => sections.find(S => S.section === sec)?.ins
 const totalInscrits = (d, sections) => d?.humains?.ensemble?.etudiants?.n || sections.reduce((t, S) => t + (S.inscrits || 0), 0);
 const r1 = n => (n == null || !Number.isFinite(n) ? '—' : n.toFixed(1).replace('.', ','));
 const parEtp = (etu, etp) => (etp ? etu / etp : null);
-function RatiosEtp({ Y, d, sections }) {
-  const n = totalInscrits(d, sections);
-  const cours = Y.etp_total.total || 0;
-  const admin = (Y.fonctions || []).filter(g => g.pncc).reduce((t, g) => t + (g.etp || 0), 0);
-  const detailAdmin = (Y.fonctions || []).filter(g => g.pncc && g.etp).map(g => `${g.fonction} ${e2(g.etp)}`).join(', ');
-  const soit = e => (e && n ? `soit ${(e / n).toFixed(3).replace('.', ',')} ETP par étudiant` : '');
-  const barres = Y.etp.filter(E => inscritsDe(sections, E.section) && E.total).map(E => {
-    const i = inscritsDe(sections, E.section);
-    const partAdmin = n ? admin * i / n : 0;
-    return { section: E.section.replace(/_/g, ' '), cours: +(i / E.total).toFixed(1),
-      total: +(i / (E.total + partAdmin)).toFixed(1), inscrits: i };
-  }).sort((a, b) => b.cours - a.cours);
+/* À ARMES ÉGALES (Charles, 14 octobre 2026 : « Orthoptie et soins de plaies n'ont aucun sens ») : les
+   ETP d'une UE se partagent entre les sections de ses étudiants (le tronc commun), et l'étudiant compte
+   au prorata des périodes qu'il suit — un ETE vaut un temps plein d'étudiant. Le calcul est au serveur
+   (GET /api/pilotage/ratios). Quatre lectures, et le détail empilé — en ETP pour cent ETE, la seule
+   grandeur qui s'additionne (« il manque la coordination, les admins… » ; « les deux »). */
+const VUES_RATIO = [['cours', 'Cours'], ['coord', 'Coordination'], ['admin', 'Administration'], ['tout', 'Tout compris'], ['empile', 'Détail empilé']];
+const etpVue = (o, v) => (v === 'cours' ? o.etp_cours : v === 'coord' ? o.etp_coord : v === 'admin' ? o.etp_admin : o.etp_cours + o.etp_coord + o.etp_admin);
+function RatiosEtp({ annee }) {
+  const [R, setR] = useState(null);
+  const [vue, setVue] = useState('tout');
+  useEffect(() => {
+    let vivant = true; setR(null);
+    fetch(`/api/pilotage/ratios?annee=${encodeURIComponent(annee)}`, { headers: authHeaders({ 'X-Annee': annee }) })
+      .then(r => (r.ok ? r.json() : null)).then(j => { if (vivant) setR(j); }).catch(() => {});
+    return () => { vivant = false; };
+  }, [annee]);
+  if (!R) return <div className="text-second text-slate-500">Calcul des ratios…</div>;
+  const L = (R.sections || []).filter(o => o.ete > 0);
+  const som = k => L.reduce((t, o) => t + (o[k] || 0), 0);
+  const ete = som('ete'), cours = som('etp_cours'), coord = som('etp_coord'), admin = R.etp_admin || 0;
+  const n = L.reduce((t, o) => t + o.inscrits, 0);
+  const detailAdmin = (R.admin || []).filter(a => a.etp).map(a => `${a.fonction} ${e2(a.etp)}`).join(', ');
+  const barres = L.map(o => ({ section: o.section.replace(/_/g, ' '), inscrits: o.inscrits, ete: o.ete,
+    valeur: +(parEtp(o.ete, etpVue(o, vue)) || 0).toFixed(1),
+    cours: +(100 * o.etp_cours / o.ete).toFixed(2), coord: +(100 * o.etp_coord / o.ete).toFixed(2), admin: +(100 * o.etp_admin / o.ete).toFixed(2) }))
+    .filter(b => vue === 'empile' || b.valeur > 0)
+    .sort((a, b) => (vue === 'empile' ? (b.cours + b.coord + b.admin) - (a.cours + a.coord + a.admin) : b.valeur - a.valeur));
+  const nomVue = VUES_RATIO.find(([k]) => k === vue)[1].toLowerCase();
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-3">
-        <Tuile valeur={r1(parEtp(n, cours))} libelle="étudiants par ETP de cours" precision={`${e2(cours)} ETP · ${soit(cours)}`} />
-        <Tuile valeur={r1(parEtp(n, admin))} libelle="étudiants par ETP administratif" precision={`${e2(admin)} ETP${detailAdmin ? ` — ${detailAdmin}` : ' — aucune fonction d’établissement encodée'}`} />
-        <Tuile ton="fort" valeur={r1(parEtp(n, cours + admin))} libelle="étudiants par ETP, tout compris" precision={`${e2(cours + admin)} ETP · ${soit(cours + admin)}`} />
-        <Tuile valeur={k0(n)} libelle="étudiants inscrits" precision="hors archivés" />
+        <Tuile valeur={r1(parEtp(ete, cours))} libelle="ETE par ETP de cours" precision={`${e2(cours)} ETP`} />
+        <Tuile valeur={r1(parEtp(ete, coord))} libelle="ETE par ETP de coordination" precision={`${e2(coord)} ETP`} />
+        <Tuile valeur={r1(parEtp(ete, admin))} libelle="ETE par ETP administratif" precision={`${e2(admin)} ETP${detailAdmin ? ` — ${detailAdmin}` : ''}`} />
+        <Tuile ton="fort" valeur={r1(parEtp(ete, cours + coord + admin))} libelle="ETE par ETP, tout compris" precision={`${e2(cours + coord + admin)} ETP`} />
+        <Tuile valeur={r1(ete)} libelle="étudiants équivalents temps plein" precision={`${k0(n)} étudiants · 1 ETE = ${k0(R.periodes_temps_plein)} périodes suivies`} />
+      </div>
+      <div className="segments w-fit">
+        {VUES_RATIO.map(([k, l]) => (
+          <button key={k} type="button" onClick={() => setVue(k)}
+            className={`px-3 py-1 text-second ${vue === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>{l}</button>))}
       </div>
       {barres.length > 0 && (
         <div style={{ width: '100%', height: Math.max(200, barres.length * 30 + 60) }}>
@@ -145,14 +167,21 @@ function RatiosEtp({ Y, d, sections }) {
               <CartesianGrid strokeDasharray="3 3" stroke="var(--g-grille, #E5E7EB)" horizontal={false} />
               <XAxis type="number" tick={{ fontSize: 11 }} />
               <YAxis type="category" dataKey="section" width={130} tick={{ fontSize: 11 }} />
-              <Tooltip formatter={(v, nom) => [r1(v), nom]} labelFormatter={(l, p) => `${l} · ${p?.[0]?.payload?.inscrits ?? ''} inscrits`} />
+              <Tooltip formatter={(v, nom) => [r1(v), nom]} labelFormatter={(l, p) => { const x = p?.[0]?.payload; return x ? `${l} · ${x.inscrits} étudiants · ${r1(x.ete)} ETE` : l; }} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
-              {/* LE RATIO SIMPLE, ET LUI SEUL (Charles, 14 octobre 2026 : « le simple ratio du nombre
-                  d'étudiants par ETP dans la section ; on compare juste ce ratio »). */}
-              <Bar dataKey="cours" name="étudiants par ETP" fill="var(--g-1)" label={{ position: 'right', fontSize: 10, formatter: r1 }} />
+              {vue === 'empile' ? [
+                <Bar key="c" dataKey="cours" stackId="e" name="cours" fill="var(--g-1)" />,
+                <Bar key="o" dataKey="coord" stackId="e" name="coordination" fill="var(--g-2)" />,
+                <Bar key="a" dataKey="admin" stackId="e" name="administration" fill="var(--g-3)" />,
+              ] : <Bar dataKey="valeur" name={`ETE par ETP — ${nomVue}`} fill="var(--g-1)" label={{ position: 'right', fontSize: 10, formatter: r1 }} />}
             </BarChart>
           </ResponsiveContainer>
         </div>)}
+      <div className="text-second text-slate-500">
+        {vue === 'empile' ? 'ETP pour cent étudiants équivalents temps plein : plus la barre est longue, plus la section coûte en personnel par étudiant. '
+          : 'Combien d’étudiants équivalents temps plein un ETP porte : plus la barre est longue, plus la section est efficiente. '}
+        Les ETP d'une UE suivie par plusieurs sections (tronc commun) se partagent au prorata de leurs inscrits ; l'administration, au prorata des ETE.
+      </div>
     </div>);
 }
 
@@ -272,16 +301,15 @@ export default function RapportStatistique({ annee: anneeImposee = null } = {}) 
         <Personnes d={d} />
 
         <Carte titre="Les ETP par section" sous="Périodes CT ÷ 800 + PP ÷ 1 000, comme Pilotage — hors congés et activités Z ; le tronc commun réparti au prorata des étudiants.">
-          <RatiosEtp Y={Y} d={d} sections={sections} />
+          <RatiosEtp annee={annee} />
           <div className="overflow-x-auto">
           <table className="text-sm min-w-full">
-            <thead className="tab-entete"><tr><Th>Section</Th><Th n>ETP total</Th><Th n>dont CC</Th><Th n>dont EXP</Th><Th n>% CC</Th><Th n>Inscrits</Th><Th n>Étudiants / ETP</Th><Th>Répartition</Th>
+            <thead className="tab-entete"><tr><Th>Section</Th><Th n>ETP total</Th><Th n>dont CC</Th><Th n>dont EXP</Th><Th n>% CC</Th><Th n>Inscrits</Th><Th>Répartition</Th>
               {Y.etp_total.autre > 0 && <Th n>Sans statut</Th>}</tr></thead>
             <tbody>{Y.etp.map(E => (
               <tr key={E.section} className="border-b border-slate-100">
                 <Td>{E.section}</Td><Td n b>{e2(E.total)}</Td><Td n>{e2(E.cc)}</Td><Td n>{e2(E.exp)}</Td><Td n>{pc(E.cc, E.total)}</Td>
                 <Td n>{k0(inscritsDe(sections, E.section))}</Td>
-                <Td n>{r1(parEtp(inscritsDe(sections, E.section), E.total))}</Td>
                 <Td><div className="flex h-2.5 w-40 rounded overflow-hidden bg-slate-100">
                   <div style={{ width: pc(E.cc, E.total), background: 'var(--g-1)' }} /><div style={{ width: pc(E.exp, E.total), background: 'var(--g-2)' }} /></div></Td>
                 {Y.etp_total.autre > 0 && <Td n>{e2(E.autre)}</Td>}
@@ -289,7 +317,7 @@ export default function RapportStatistique({ annee: anneeImposee = null } = {}) 
             <tfoot><tr className="font-semibold bg-slate-50"><Td>Ensemble</Td><Td n>{e2(Y.etp_total.total)}</Td><Td n>{e2(Y.etp_total.cc)}</Td><Td n>{e2(Y.etp_total.exp)}</Td>
               <Td n>{pc(Y.etp_total.cc, Y.etp_total.total)}</Td>
               <Td n>{k0(totalInscrits(d, sections))}</Td>
-              <Td n>{r1(parEtp(totalInscrits(d, sections), Y.etp_total.total))}</Td><Td><span className="text-xs text-slate-500 font-normal">
+<Td><span className="text-xs text-slate-500 font-normal">
                 <span className="inline-block w-2 h-2 rounded-sm mr-1" style={{ background: 'var(--g-1)' }} />CC
                 <span className="inline-block w-2 h-2 rounded-sm ml-3 mr-1" style={{ background: 'var(--g-2)' }} />EXP</span></Td>
               {Y.etp_total.autre > 0 && <Td n>{e2(Y.etp_total.autre)}</Td>}</tr></tfoot>
