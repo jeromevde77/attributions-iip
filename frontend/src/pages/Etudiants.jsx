@@ -1,3 +1,4 @@
+import ImportInscrireListe from '../components/ImportInscrireListe.jsx';
 import { useTransfertsFermes } from '../lib/transferts.js';
 import { ICONE_AXE } from '../lib/iconesAxes.js';
 import { poserSelectionEtudiants } from '../lib/selectionEtudiants.js';
@@ -3527,6 +3528,7 @@ export default function Etudiants() {
   const [importHELB, setImportHELB] = useState(false);
   const [rattacherPack, setRattacherPack] = useState(false);
   const [importSuivi, setImportSuivi] = useState(false);
+  const [inscrireListe, setInscrireListe] = useState(false);
   const [tri, setTri] = useState({ champ: 'nom', sens: 1 });
 
 
@@ -4571,6 +4573,9 @@ export default function Etudiants() {
           onTermine={charger} />
       )}
 
+      {inscrireListe && (
+        <ImportInscrireListe annee={annee} onClose={() => setInscrireListe(false)} onTermine={charger} />
+      )}
       {importSurMesure && (
         <ImportSurMesure onClose={() => setImportSurMesure(false)} onTermine={charger} annee={annee} />
       )}
@@ -4655,6 +4660,11 @@ export default function Etudiants() {
               quoi: 'Voir ce qui diffère entre un fichier et la base, sans rien écrire.',
               attend: "n'importe quel classeur d'étudiants",
               onClick: () => setComparaison(true) },
+            /* INSCRIRE UNE LISTE (14 octobre 2026, double cursus Optométrie + Opticien). */
+            { cle: 'inscrire-liste', ok: peutImporter, titre: 'Inscrire une liste à des unités',
+              quoi: 'Une liste d’étudiants (nom, matricule, NISS…) : les retrouver, créer les absents, les inscrire aux unités cochées.',
+              attend: 'une liste nominative (.xlsx)',
+              onClick: () => setInscrireListe(true) },
             { cle: 'sur-mesure', ok: peutImporter, titre: 'Importateur sur mesure',
               quoi: 'Un fichier dont la forme n’entre dans aucune des cases ci-dessus.',
               attend: 'un classeur dont vous désignez les colonnes',

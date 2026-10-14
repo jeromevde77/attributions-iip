@@ -5343,6 +5343,89 @@ for (const c of ['matricule_helb', 'rattachement_par', 'rattachement_le', 'rn_no
 }
 try { db.exec('CREATE INDEX IF NOT EXISTS idx_etudiant_mat_helb ON etudiant(matricule_helb)'); } catch { /* */ }
 
+/* INSCRIRE UNE LISTE À DES UNITÉS (Charles, 14 octobre 2026 : « ces étudiants suivent un double
+ * cursus, Optométrie et Opticien »). On dépose une liste — nom, prénom, matricule, NISS, coordonnées —,
+ * on choisit des unités ; Lucie retrouve chaque étudiant (registre national, matricule ou matricule
+ * initial, puis nom + prénom + naissance : la règle commune), ouvre les absents s'il le faut (rattachés
+ * à la section choisie, jamais sans section), et les inscrit PAR LA PORTE DU PAE (`ecrireProgramme`,
+ * mode « signaler » : ce qui enfreint une règle s'inscrit et se nomme). Simulation d'abord. */
+r.post('/inscrire-liste', authRequired, gesteRequis('etudiants.import'), (req, res) => {
+  const { annee, ues, section_rattachement, creer = false, simulation = true, origine } = req.body || {};
+  const lignes = Array.isArray(req.body?.lignes) ? req.body.lignes : [];
+  const nums = [...new Set((Array.isArray(ues) ? ues : []).map(Number).filter(Boolean))];
+  if (!annee || !lignes.length) return res.status(400).json({ error: 'année et lignes requises' });
+  if (creer && !section_rattachement) return res.status(400).json({ error: 'Choisissez la section de rattachement des étudiants à créer.' });
+  const t = v => String(v ?? '').trim();
+  const rnForme = d => { const x = t(d).replace(/\D/g, ''); return x.length === 11 ? `${x.slice(0, 6)} ${x.slice(6, 9)}-${x.slice(9)}` : (t(d) || null); };
+  const qui = req.user?.nom || req.user?.email || null;
+  const orig = t(origine) || 'liste déposée';
+  const rapport = { simulation: !!simulation, lignes: lignes.length, retrouves: 0, crees: 0, completes: 0,
+    ignores: [], inscriptions: 0, deja: 0, ecarts: [], details: [] };
+  const insEtu = db.prepare(`INSERT INTO etudiant (nom, prenom, titre, sexe, lieu_naissance, date_naissance, adresse, cp, localite,
+    email_perso, email_ecole, gsm, num_national, rn_norm, id_ecampus, section_rattachement, actif)
+    VALUES (@nom, @prenom, @titre, @sexe, @lieu_naissance, @date_naissance, @adresse, @cp, @localite,
+    @email_perso, @email_ecole, @gsm, @num_national, @rn_norm, @id_ecampus, @section_rattachement, 1)`);
+  const alias = db.prepare("INSERT OR IGNORE INTO etudiant_matricule (etudiant_id, id_ecampus, annee, source) VALUES (?, ?, ?, 'liste déposée')");
+  const vus = new Set();
+  const faire = () => {
+    for (const [i, l] of lignes.entries()) {
+      const nom = t(l.nom).toLocaleUpperCase('fr').replace(/\s+/g, ' ');
+      const prenom = t(l.prenom).replace(/\s+/g, ' ');
+      if (!nom || !prenom) { rapport.ignores.push({ ligne: i + 1, raison: 'nom ou prénom absent' }); continue; }
+      const dn = normDate(l.date_naissance) || null;
+      const rn = t(l.num_national).replace(/\D/g, '');
+      const mats = [t(l.matricule), t(l.matricule_initial)].filter(Boolean);
+      let trouve = null;
+      for (const m of mats.length ? mats : [null]) {
+        trouve = rapprocher({ num_national: rn, id_ecampus: m, nom, prenom, date_naissance: dn });
+        if (trouve) break;
+      }
+      const cle = rn || mats[0] || `${nom}|${prenom}|${dn}`;
+      if (vus.has(cle)) { rapport.ignores.push({ ligne: i + 1, raison: 'en double dans la liste' }); continue; }
+      vus.add(cle);
+      let id = trouve?.id || null;
+      const d = { nom: `${nom} ${prenom}`, methode: trouve?.methode || null, action: trouve ? 'retrouvé' : 'absent' };
+      if (!id) {
+        if (!creer) { rapport.ignores.push({ ligne: i + 1, raison: 'absent de Lucie', nom: d.nom }); continue; }
+        rapport.crees++; d.action = 'créé';
+        if (!simulation) {
+          id = Number(insEtu.run({ nom, prenom, titre: t(l.titre) || null, sexe: (t(l.sexe).toUpperCase()[0] || null),
+            lieu_naissance: t(l.lieu_naissance) || null, date_naissance: dn, adresse: t(l.adresse) || null,
+            cp: t(l.cp) || null, localite: t(l.localite) || null, email_perso: t(l.email_perso).toLowerCase() || null,
+            email_ecole: t(l.email_ecole).toLowerCase() || null, gsm: t(l.gsm) || null,
+            num_national: rn ? rnForme(rn) : null, rn_norm: rn || null, id_ecampus: mats[0] || null,
+            section_rattachement }).lastInsertRowid);
+        }
+      } else {
+        rapport.retrouves++;
+        // On complète sans écraser : la section si elle manque, le registre national s'il manque.
+        if (!simulation) {
+          const avant = db.prepare('SELECT section_rattachement, rn_norm FROM etudiant WHERE id = ?').get(id);
+          if (section_rattachement && !avant?.section_rattachement) {
+            db.prepare('UPDATE etudiant SET section_rattachement = ? WHERE id = ?').run(section_rattachement, id); rapport.completes++;
+          }
+          if (rn && !avant?.rn_norm) db.prepare("UPDATE etudiant SET rn_norm = ?, num_national = COALESCE(NULLIF(num_national, ''), ?) WHERE id = ?").run(rn, rnForme(rn), id);
+        }
+      }
+      if (id && !simulation) for (const m of mats) alias.run(id, m, annee);
+      if (nums.length && (id || simulation)) {
+        if (id) {
+          const b = ecrireProgramme({ etudId: id, annee, ajouter: nums, origine: orig, par: qui, mode: 'signaler', simulation: !!simulation });
+          rapport.inscriptions += b.ajoutees.length; rapport.deja += nums.length - b.ajoutees.length;
+          for (const x of b.ecarts) rapport.ecarts.push({ nom: d.nom, ue_num: x.ue_num, regles: x.regles.map(r0 => r0.libelle || r0.regle) });
+          d.ajoutees = b.ajoutees;
+        } else { rapport.inscriptions += nums.length; d.ajoutees = nums; }
+      }
+      rapport.details.push(d);
+    }
+  };
+  try {
+    if (simulation) faire(); else db.transaction(faire)();
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+  if (!simulation) console.log(`[inscrire-liste] ${rapport.retrouves} retrouvé(s), ${rapport.crees} créé(s), ${rapport.inscriptions} inscription(s) — ${orig} (${qui})`);
+  res.json(rapport);
+});
+
 r.post('/import-helb', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
   const { lignes, annee, simulation = true, exclus = [] } = req.body || {};
   if (!annee) return res.status(400).json({ error: 'annee requise' });

@@ -108,46 +108,47 @@ function Personnes({ d }) {
     </Carte>);
 }
 
-/* LE RATIO ETP PAR ÉTUDIANT (Charles, 14 octobre 2026 : « cours, puis admin — direction comprise —,
-   puis total, tout le monde compris » ; « en barres, pour comparer chaque section »). Les ETP de
-   cours sont ceux de cette carte ; les ETP administratifs, les fonctions d'établissement (emplois
-   PNCC : direction, direction adjointe, secrétariat). Par section, l'administratif se répartit au
-   prorata des inscrits — c'est le nombre de dossiers qui fait le travail —, donc il pèse le même
-   poids par étudiant partout : ce qui distingue les sections, ce sont les cours. */
+/* ÉTUDIANTS PAR ETP (Charles, 14 octobre 2026 : « cours, puis admin — direction comprise —, puis
+   total » ; « en barres, pour comparer chaque section » ; « c'est étudiant/ETP ! »). Les ETP de cours
+   sont ceux de cette carte ; les ETP administratifs, les fonctions d'établissement (emplois PNCC :
+   direction, direction adjointe, secrétariat), répartis entre les sections au prorata des inscrits —
+   c'est le nombre de dossiers qui fait le travail. Plus le chiffre est grand, plus un ETP porte
+   d'étudiants. */
 const inscritsDe = (sections, sec) => sections.find(S => S.section === sec)?.inscrits || 0;
 const totalInscrits = (d, sections) => d?.humains?.ensemble?.etudiants?.n || sections.reduce((t, S) => t + (S.inscrits || 0), 0);
-const r3 = n => (n == null || !Number.isFinite(n) ? '—' : n.toFixed(3).replace('.', ','));
+const r1 = n => (n == null || !Number.isFinite(n) ? '—' : n.toFixed(1).replace('.', ','));
+const parEtp = (etu, etp) => (etp ? etu / etp : null);
 function RatiosEtp({ Y, d, sections }) {
   const n = totalInscrits(d, sections);
   const cours = Y.etp_total.total || 0;
   const admin = (Y.fonctions || []).filter(g => g.pncc).reduce((t, g) => t + (g.etp || 0), 0);
   const detailAdmin = (Y.fonctions || []).filter(g => g.pncc && g.etp).map(g => `${g.fonction} ${e2(g.etp)}`).join(', ');
-  const pour = e => (e ? `1 ETP pour ${Math.round(n / e).toLocaleString('fr-BE')} étudiants` : '');
-  const adminParEtu = n ? admin / n : 0;
-  const barres = Y.etp.filter(E => inscritsDe(sections, E.section)).map(E => {
+  const soit = e => (e && n ? `soit ${(e / n).toFixed(3).replace('.', ',')} ETP par étudiant` : '');
+  const barres = Y.etp.filter(E => inscritsDe(sections, E.section) && E.total).map(E => {
     const i = inscritsDe(sections, E.section);
-    return { section: E.section.replace(/_/g, ' '), cours: +(E.total / i).toFixed(4), admin: +adminParEtu.toFixed(4), inscrits: i };
-  }).sort((a, b) => (b.cours + b.admin) - (a.cours + a.admin));
+    const partAdmin = n ? admin * i / n : 0;
+    return { section: E.section.replace(/_/g, ' '), cours: +(i / E.total).toFixed(1),
+      total: +(i / (E.total + partAdmin)).toFixed(1), inscrits: i };
+  }).sort((a, b) => b.cours - a.cours);
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-3">
-        <Tuile valeur={r3(n ? cours / n : null)} libelle="ETP de cours par étudiant" precision={`${e2(cours)} ETP · ${pour(cours)}`} />
-        <Tuile valeur={r3(n ? admin / n : null)} libelle="ETP administratif par étudiant" precision={`${e2(admin)} ETP${detailAdmin ? ` — ${detailAdmin}` : ' — aucune fonction d’établissement encodée'}`} />
-        <Tuile ton="fort" valeur={r3(n ? (cours + admin) / n : null)} libelle="ETP par étudiant, tout compris" precision={`${e2(cours + admin)} ETP · ${pour(cours + admin)}`} />
+        <Tuile valeur={r1(parEtp(n, cours))} libelle="étudiants par ETP de cours" precision={`${e2(cours)} ETP · ${soit(cours)}`} />
+        <Tuile valeur={r1(parEtp(n, admin))} libelle="étudiants par ETP administratif" precision={`${e2(admin)} ETP${detailAdmin ? ` — ${detailAdmin}` : ' — aucune fonction d’établissement encodée'}`} />
+        <Tuile ton="fort" valeur={r1(parEtp(n, cours + admin))} libelle="étudiants par ETP, tout compris" precision={`${e2(cours + admin)} ETP · ${soit(cours + admin)}`} />
         <Tuile valeur={k0(n)} libelle="étudiants inscrits" precision="hors archivés" />
       </div>
       {barres.length > 0 && (
-        <div style={{ width: '100%', height: Math.max(220, barres.length * 34 + 60) }}>
+        <div style={{ width: '100%', height: Math.max(220, barres.length * 40 + 60) }}>
           <ResponsiveContainer>
-            <BarChart data={barres} layout="vertical" margin={{ left: 20, right: 30 }}>
+            <BarChart data={barres} layout="vertical" margin={{ left: 20, right: 40 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--g-grille, #E5E7EB)" horizontal={false} />
-              <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={v => String(v).replace('.', ',')} />
+              <XAxis type="number" tick={{ fontSize: 11 }} />
               <YAxis type="category" dataKey="section" width={130} tick={{ fontSize: 11 }} />
-              <Tooltip formatter={(v, nom) => [r3(v), nom]} labelFormatter={(l, p) => `${l} · ${p?.[0]?.payload?.inscrits ?? ''} inscrits`} />
+              <Tooltip formatter={(v, nom) => [r1(v), nom]} labelFormatter={(l, p) => `${l} · ${p?.[0]?.payload?.inscrits ?? ''} inscrits`} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Bar dataKey="cours" name="ETP de cours / étudiant" stackId="e" fill="var(--g-1)" />
-              <Bar dataKey="admin" name="ETP administratif / étudiant" stackId="e" fill="var(--g-2)"
-                label={{ position: 'right', fontSize: 10, formatter: () => '' }} />
+              <Bar dataKey="cours" name="étudiants par ETP de cours" fill="var(--g-1)" label={{ position: 'right', fontSize: 10, formatter: r1 }} />
+              <Bar dataKey="total" name="étudiants par ETP, part administrative comprise" fill="var(--g-2)" label={{ position: 'right', fontSize: 10, formatter: r1 }} />
             </BarChart>
           </ResponsiveContainer>
         </div>)}
@@ -273,13 +274,13 @@ export default function RapportStatistique({ annee: anneeImposee = null } = {}) 
           <RatiosEtp Y={Y} d={d} sections={sections} />
           <div className="overflow-x-auto">
           <table className="text-sm min-w-full">
-            <thead className="tab-entete"><tr><Th>Section</Th><Th n>ETP total</Th><Th n>dont CC</Th><Th n>dont EXP</Th><Th n>% CC</Th><Th n>Inscrits</Th><Th n>ETP / étudiant</Th><Th>Répartition</Th>
+            <thead className="tab-entete"><tr><Th>Section</Th><Th n>ETP total</Th><Th n>dont CC</Th><Th n>dont EXP</Th><Th n>% CC</Th><Th n>Inscrits</Th><Th n>Étudiants / ETP</Th><Th>Répartition</Th>
               {Y.etp_total.autre > 0 && <Th n>Sans statut</Th>}</tr></thead>
             <tbody>{Y.etp.map(E => (
               <tr key={E.section} className="border-b border-slate-100">
                 <Td>{E.section}</Td><Td n b>{e2(E.total)}</Td><Td n>{e2(E.cc)}</Td><Td n>{e2(E.exp)}</Td><Td n>{pc(E.cc, E.total)}</Td>
                 <Td n>{k0(inscritsDe(sections, E.section))}</Td>
-                <Td n>{inscritsDe(sections, E.section) ? (E.total / inscritsDe(sections, E.section)).toFixed(3).replace('.', ',') : '—'}</Td>
+                <Td n>{r1(parEtp(inscritsDe(sections, E.section), E.total))}</Td>
                 <Td><div className="flex h-2.5 w-40 rounded overflow-hidden bg-slate-100">
                   <div style={{ width: pc(E.cc, E.total), background: 'var(--g-1)' }} /><div style={{ width: pc(E.exp, E.total), background: 'var(--g-2)' }} /></div></Td>
                 {Y.etp_total.autre > 0 && <Td n>{e2(E.autre)}</Td>}
@@ -287,7 +288,7 @@ export default function RapportStatistique({ annee: anneeImposee = null } = {}) 
             <tfoot><tr className="font-semibold bg-slate-50"><Td>Ensemble</Td><Td n>{e2(Y.etp_total.total)}</Td><Td n>{e2(Y.etp_total.cc)}</Td><Td n>{e2(Y.etp_total.exp)}</Td>
               <Td n>{pc(Y.etp_total.cc, Y.etp_total.total)}</Td>
               <Td n>{k0(totalInscrits(d, sections))}</Td>
-              <Td n>{totalInscrits(d, sections) ? (Y.etp_total.total / totalInscrits(d, sections)).toFixed(3).replace('.', ',') : '—'}</Td><Td><span className="text-xs text-slate-500 font-normal">
+              <Td n>{r1(parEtp(totalInscrits(d, sections), Y.etp_total.total))}</Td><Td><span className="text-xs text-slate-500 font-normal">
                 <span className="inline-block w-2 h-2 rounded-sm mr-1" style={{ background: 'var(--g-1)' }} />CC
                 <span className="inline-block w-2 h-2 rounded-sm ml-3 mr-1" style={{ background: 'var(--g-2)' }} />EXP</span></Td>
               {Y.etp_total.autre > 0 && <Td n>{e2(Y.etp_total.autre)}</Td>}</tr></tfoot>
