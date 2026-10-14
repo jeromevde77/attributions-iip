@@ -513,7 +513,9 @@ function ProtectedLayout({ children }) {
        référentiels — des livres —, ce qui rend le presse-papiers au PAE, qui
        est littéralement une liste à cocher. */
     ['/organisation',  'Organisation',    ICONE_AXE.organisation, 'attributions'],
-    ['/gestion',       'Gestion',         ICONE_AXE.gestion,  'dotation'],
+    // GESTION OUVERTE, PAR RUBRIQUE (14 octobre 2026) : qui lit les statistiques y entre ; la dotation
+    // et les finances ne s'y montrent qu'à qui en a le droit.
+    ['/gestion',       'Gestion',         ICONE_AXE.gestion,  ['pilotage', 'dotation']],
   ];
 
   /* UN PROFESSEUR LIT LE NOM DE CHAQUE ENTRÉE (5 octobre 2026 : « je ne vois pas
@@ -523,7 +525,7 @@ function ProtectedLayout({ children }) {
   const nomsVisibles = u?.role === 'professeur';
   const mep = useMiseEnPage();
   const nav = AXES
-    .filter(([, , , module]) => !module || droitEffectif(u, module) !== 'rien')
+    .filter(([, , , module]) => !module || [].concat(module).some(m => droitEffectif(u, m) !== 'rien'))
     /* « MA FICHE » POUR UN PROFESSEUR (5 octobre 2026 : « en mode prof, je ne
        vois pas ma fiche »). Le serveur ne lui rend que sa propre fiche (soiSeul) ;
        l'axe « Personnel » lui montrait une liste d'une ligne, sans dire que

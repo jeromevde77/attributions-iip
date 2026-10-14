@@ -79,11 +79,8 @@ export function AxeAccueil() {
           key: 'communication', label: 'Communication', icone: IconSpeakerphone,
           rendu: <Suspense fallback={<Attente />}><Communication /></Suspense>,
         }] : []),
-        ...(voitReporting ? [{
-          key: 'reporting', label: 'Chiffres de l\u2019école', icone: IconChartBar,
-          sansMarge: true, railPropre: true,
-          rendu: <Suspense fallback={<Attente />}><Pilotage vue="reporting" /></Suspense>,
-        }] : []),
+        /* « CHIFFRES DE L'ÉCOLE » A REJOINT GESTION (14 octobre 2026, Charles : « il doit être
+           intégré ») : Population et Résultats pour tous ceux qui lisent les statistiques. */
       ]}
     />
   );

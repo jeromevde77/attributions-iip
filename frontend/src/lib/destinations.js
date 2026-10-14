@@ -46,7 +46,8 @@ export const DESTINATIONS = [
   { label: 'Effectifs et postes PNCC', axe: 'Organisation', chemin: '/organisation?onglet=effectifs', mots: 'effectifs statistiques pncc postes' },
   // Gestion
   { label: 'Gestion — dotation, budget, répartition des périodes', axe: 'Gestion', chemin: '/gestion', mots: 'gestion dotation budget repartition periodes document 2' },
-  { label: 'Chiffres de l’école — ETP, comparaison, résultats', axe: 'Accueil', chemin: '/accueil?onglet=reporting', mots: 'chiffres etp charge comparaison resultats distributions population reelle efficience' },
+  { label: 'Population — qui sont nos étudiants', axe: 'Gestion', chemin: '/gestion?onglet=population-ecole', mots: 'chiffres population sexe age domicile nationalite nouveaux primo diplomants sections evolution aeqes' },
+  { label: 'Résultats — décisions, taux de réussite, distributions', axe: 'Gestion', chemin: '/gestion?onglet=deliberation', mots: 'chiffres resultats taux reussite distributions cotes etp comparaison efficience' },
   // Documentation
   { label: 'Documentation et circulaires', axe: 'Documentation', chemin: '/documentation', mots: 'documentation aide circulaire reglement rde mode emploi' },
   { label: 'Conventions — registre, modèles, dépôt', axe: 'Documentation', chemin: '/documentation?vue=conventions', mots: 'convention stage cadre partenariat partenaire etablissement crea signer contresignee modele registre' },
