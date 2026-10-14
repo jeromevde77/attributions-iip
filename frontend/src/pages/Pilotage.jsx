@@ -1,11 +1,13 @@
 import { ICONE_AXE } from '../lib/iconesAxes.js';
-import { IconReportAnalytics, IconReportMoney } from '@tabler/icons-react';
+import { IconReportAnalytics, IconReportMoney, IconChartInfographic, IconSchool, IconBuildingBank, IconCoin } from '@tabler/icons-react';
+import { droitEffectif } from '../lib/modules.js';
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import { api, getAnnee, getUser, authHeaders } from '../lib/api.js';
 import { IconChartBar, IconHome, IconUsers, IconSettings, IconChevronRight, IconChevronDown, IconPrinter, IconRotateClockwise, IconCheck, IconX, IconTrash, IconCash, IconCalendar, IconArrowsLeftRight, IconScale, IconUsersGroup } from '@tabler/icons-react';
 import { PageHeader, Tabs, RailLateral, OuvrirEditions, TuileEtat, Chevron } from '../components/ui.jsx';
 import Distributions from '../components/Distributions.jsx';
 import Population from '../components/Population.jsx';
+import PopulationEcole from '../components/PopulationEcole.jsx';
 import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
 import Budget from './Budget.jsx';
 import RapportStatistique from '../components/RapportStatistique.jsx';
@@ -515,7 +517,8 @@ export default function Pilotage({ vue = 'tout' }) {
   const anneeActive = getAnnee();
   // L'écran ouvre sur ce que sa vue sait montrer : « Dotation » n'existe pas
   // dans le reporting, et y atterrir donnerait une page vide.
-  const [tab, setTab]               = useState(vue === 'reporting' ? 'etp' : 'synthese');
+  const [tab, setTab]               = useState(() => (vue === 'reporting' ? 'etp'
+    : new URLSearchParams(window.location.search).get('onglet') || 'population-ecole'));
   const [etpData, setEtpData]       = useState(null);
   // Dotation détaillée par section/UE (table fidèle maquette v3)
   const [dotEffic, setDotEffic]     = useState(null);   // efficience année active
@@ -1541,13 +1544,42 @@ export default function Pilotage({ vue = 'tout' }) {
     </div>
   );
 
+  /* GESTION : « DONNÉES DE L'ÉTABLISSEMENT » (Charles, 14 octobre 2026 : « centraliser les données
+     de pilotage » ; « tout mettre dans le rail dans un sous-menu Données de l'établissement »).
+     Une entrée de rail, qui se déplie en quatre rubriques — Population, Résultats, Dotation,
+     Finances —, chacune son icône ; les faces d'une rubrique se choisissent en tête de l'écran.
+     GESTION EST OUVERTE PAR RUBRIQUE : qui lit les statistiques y entre ; la dotation, la
+     répartition et le budget ne se montrent qu'à qui en a le droit. Rien n'est recalculé. */
+  const u = getUser();
+  const lit = m => droitEffectif(u, m) !== 'rien';
+  const coord = u?.role === 'coordination';
+  const RUBRIQUES = [
+    { key: 'g-population', label: 'Population', icon: IconUsersGroup, faces: [
+      ['population-ecole', 'Qui sont nos étudiants'], ['population', 'Places par unité']] },
+    { key: 'g-resultats', label: 'Résultats', icon: IconSchool, faces: [
+      ['deliberation', 'Décisions et taux de réussite'], ['distributions', 'Distributions des cotes']] },
+    { key: 'g-dotation', label: 'Dotation', icon: IconBuildingBank, faces: [
+      lit('dotation') && ['synthese', 'Dotation'], ['etp', 'ETP'], ['dotation', 'Comparaison'],
+      !coord && lit('repartition') && ['repartition', 'Répartition des périodes'],
+      lit('dotation') && ['config', 'Configuration']] },
+    { key: 'g-finances', label: 'Finances', icon: IconCoin, faces: [
+      !coord && ['rapport', 'Coûts des formations'], lit('budget') && ['budget', 'Budget']] },
+  ].map(r => ({ ...r, faces: r.faces.filter(Boolean) })).filter(r => r.faces.length);
+  const rubriqueActive = RUBRIQUES.find(r => r.faces.some(f => f[0] === tab)) || null;
+  const railGestion = [{
+    key: 'donnees', label: 'Données de l’établissement', icon: IconChartInfographic, actif: !!rubriqueActive,
+    onClick: () => { if (!rubriqueActive) setTab(RUBRIQUES[0].faces[0][0]); },
+    sous: RUBRIQUES.map(r => ({ key: r.key, label: r.label, icon: r.icon, actif: r === rubriqueActive,
+      onClick: () => { if (r !== rubriqueActive) setTab(r.faces[0][0]); } })),
+  }];
+
   // ── Rendu ──────────────────────────────────────────────────────────────────
   return (
     <div className="relative" style={{ minHeight: 'calc(100vh - 64px)' }}>
       <RailLateral impression="pilotage"
 
         icon={ICONE_AXE.gestion}
-        titre="Pilotage"
+        titre={vue === 'gestion' ? 'Gestion' : 'Pilotage'}
         extra={
           /* BLANC SUR BLANC. Ce sélecteur était écrit pour le rail marine :
              texte blanc, fond blanc à 10 %, filet blanc. En mode clair il
@@ -1566,7 +1598,7 @@ export default function Pilotage({ vue = 'tout' }) {
            Le même écran servait les deux, et c'est pour cela qu'on ne pouvait
            pas ouvrir l'un sans l'autre. « vue » le scinde : « reporting » ne
            montre que ce qui se consulte, « gestion » que ce qui engage. */
-        sections={[{ items: [
+        sections={[{ items: vue === 'gestion' ? railGestion : [
           /* LE RAPPORT STATISTIQUE, EN TÊTE (Charles, 8 octobre 2026 : « super
              important ») — coûts, recettes et personnes, dans les deux vues. */
           ...(getUser()?.role === 'coordination' ? [] : [
@@ -1608,12 +1640,21 @@ export default function Pilotage({ vue = 'tout' }) {
       />
 
       <div className="gouttiere-rail px-3 md:px-6 py-4 space-y-5">
+        {vue === 'gestion' && rubriqueActive && rubriqueActive.faces.length > 1 && (
+          <div className="segments">
+            {rubriqueActive.faces.map(([k, l]) => (
+              <button key={k} type="button" onClick={() => setTab(k)}
+                className={tab === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>{l}</button>))}
+          </div>)}
         {/* UN TITRE NE PROMET QUE CE QUE L'ÉCRAN MONTRE.
             « Pilotage des dotations · Enveloppes extérieures · Comparaison
             pluriannuelle » coiffait aussi les résultats de délibération et les
             distributions de cotes : on annonçait de l'argent et des périodes
             au-dessus de chiffres d'étudiants. */}
-        {tab === 'rapport' ? (
+        {tab === 'population-ecole' ? (
+          <PageHeader icon={IconUsersGroup} titre="Population"
+            sous="Qui sont nos étudiants : sections, sexe, âge, domicile, nationalité, nouveaux et diplômants, sur cinq ans" />
+        ) : tab === 'rapport' ? (
           <PageHeader icon={IconReportMoney} titre="Rapport statistique"
             sous="Coûts et recettes des formations, enseignants et personnes — à lire ici ; la pièce mise en page s’imprime ou s’envoie" />
         ) : ['deliberation', 'distributions', 'population'].includes(tab) ? (
@@ -1624,7 +1665,9 @@ export default function Pilotage({ vue = 'tout' }) {
             sous={`Année civile ${selYear} · Enveloppes extérieures · Comparaison pluriannuelle`} />
         )}
 
-        {tab === 'rapport' ? (
+        {tab === 'population-ecole' ? (
+          <PopulationEcole annee={anneeActive} />
+        ) : tab === 'rapport' ? (
           <RapportStatistique />
         ) : tab === 'repartition' ? (
           <RepartitionPeriodes />

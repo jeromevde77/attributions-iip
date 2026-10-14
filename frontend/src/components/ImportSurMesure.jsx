@@ -88,9 +88,15 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
       // Proposition de départ : on rapproche les noms réduits à leurs lettres,
       // accents transposés. Elle ne fait que dégrossir, tout reste corrigeable.
       const propose = {};
+      // LES NOMS QUE PORTENT NOS FICHIERS (14 octobre 2026 : « il ne trouve pas les correspondances »
+      // sur l'export HELB — « Courriel », « Mail privé », « Reg. Nat. »). Une proposition, rien de plus.
+      const SYN = { email_ecole: ['courriel', 'emailecole', 'mailecole'], email_perso: ['mailprive', 'emailperso', 'courrielprive', 'internet'],
+        num_national: ['regnat', 'registrenational', 'nnational', 'numeronational'], gsm: ['gsmetud', 'telephone', 'tel'],
+        cp: ['codepostal'], localite: ['loc', 'commune'], prenom: ['preetud'], nom: ['nometud'], date_naissance: ['datnais', 'naissance'] };
       for (const c of (cible?.champs || [])) {
         const cible2 = reduire(c.champ.replace(/_/g, ''));
         const t = cols.find(col => reduire(col) === cible2)
+          || cols.find(col => (SYN[c.champ] || []).includes(reduire(col)))
           || cols.find(col => reduire(col).includes(cible2) && cible2.length > 3);
         if (t && !Object.values(propose).includes(t)) propose[c.champ] = t;
       }

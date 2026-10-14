@@ -35,6 +35,8 @@ export const CIBLES = [
       { champ: 'num_national', libelle: 'Numéro national', normaliser: 'chiffres' },
       { champ: 'email_ecole', libelle: 'Courriel école', normaliser: 'minuscules' },
       { champ: 'id_ecampus', libelle: 'Matricule eCampus', normaliser: 'texte' },
+      // Les listes de la HELB (orthoptie) portent leur matricule, pas celui d'eCampus (14 octobre 2026).
+      { champ: 'matricule_helb', libelle: 'Matricule HELB', normaliser: 'texte' },
     ],
     champs: [
       { champ: 'nom', libelle: 'Nom' },
@@ -50,6 +52,7 @@ export const CIBLES = [
       { champ: 'diplome_max', libelle: 'Plus haut diplôme', convertir: reconnaitreDiplomeMax },
       { champ: 'num_national', libelle: 'Numéro national' },
       { champ: 'id_ecampus', libelle: 'Matricule eCampus' },
+      { champ: 'matricule_helb', libelle: 'Matricule HELB' },
       { champ: 'adresse', libelle: 'Adresse' },
       { champ: 'cp', libelle: 'Code postal' },
       { champ: 'localite', libelle: 'Localité' },

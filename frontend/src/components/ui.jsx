@@ -181,7 +181,7 @@ export function RailLateral({ icon: HeaderIcon, titre, sousTitre, extra,
   // La signature sert de comparaison : sans elle, chaque rendu de l'écran
   // réinscrirait un tableau neuf et le rail se redessinerait sans fin.
   const signature = JSON.stringify(sections.map(sec => [sec.label,
-    (sec.items || []).map(i => [i.key, i.label, !!i.actif, i.couleur || ''])]));
+    (sec.items || []).map(i => [i.key, i.label, !!i.actif, i.couleur || '', (i.sous || []).map(x => [x.key, !!x.actif])])]));
   useEffect(() => {
     if (!inscrire) return undefined;
     inscrire(sections);
