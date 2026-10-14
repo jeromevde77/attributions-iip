@@ -158,7 +158,14 @@ function pointsDesBlocs(blocs) {
   const out = [];
   for (const [k, h] of Object.entries(blocs)) {
     if (k === '_intro') continue;
-    const lis = [...String(h || '').matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)].map(m => txt(m[1]));
+    // Les puces de PREMIER niveau, avec le texte de leurs sous-puces (14 octobre 2026) : une
+    // expression « <li>…</li> » s'arrêtait au premier « </li> » d'une sous-puce.
+    const lis = [];
+    { const src = String(h || ''); let prof = 0, debut = -1;
+      for (const m of src.matchAll(/<(\/?)li\b[^>]*>/gi)) {
+        if (!m[1]) { if (prof === 0) debut = m.index + m[0].length; prof++; }
+        else if (prof > 0) { prof--; if (prof === 0 && debut >= 0) { lis.push(txt(src.slice(debut, m.index))); debut = -1; } }
+      } }
     const items = lis.length ? lis : [...String(h || '').matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)].map(m => txt(m[1]));
     out.push(...items.filter(t => t.length > 3));
   }

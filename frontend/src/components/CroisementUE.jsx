@@ -38,9 +38,17 @@ const echap = t => String(t || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').
 function pointsDuBloc(html) {
   if (!html) return [];
   const doc = new DOMParser().parseFromString(`<div>${html}</div>`, 'text/html');
-  let el = [...doc.querySelectorAll('li')];
+  /* UN POINT, C'EST LA PUCE PRINCIPALE AVEC SES SOUS-PUCES (14 octobre 2026, UE 333) : « définir les
+     notions suivantes : » ne se comprend qu'avec ce qu'elle énumère. On ne prend que les puces de
+     premier niveau, leur texte et celui de leurs sous-puces mis bout à bout ; une sous-puce n'est
+     pas un point à croiser à part. */
+  const texteDe = e => {
+    const ps = [...e.querySelectorAll('p')];
+    return ps.length ? ps.map(p => p.textContent.trim()).filter(Boolean).join(' ') : e.textContent;
+  };
+  let el = [...doc.querySelectorAll('li')].filter(li => !li.parentElement?.closest('li'));
   if (!el.length) el = [...doc.querySelectorAll('p')];
-  return [...new Set(el.map(e => norm(e.textContent)).filter(t => t.length > 3))];
+  return [...new Set(el.map(e => norm(texteDe(e))).filter(t => t.length > 3))];
 }
 
 /** Dix points répartis au prorata des croix, par pas de 0,5, somme exacte. */
