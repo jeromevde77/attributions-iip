@@ -38,7 +38,7 @@ import { envelopper, unitesReussies, pageAttestation, frDate } from './attestati
 import { enteteDocument, stylesEntete, BANDE_PIED_MM, piedGabaritPdf } from '../lib/document.js';
 import { capacitePdf, rendrePdf, compterPages } from '../services/pdf.js';
 import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
-import { piedDocument } from './parametres.js';
+import { piedDocument, getParam } from './parametres.js';
 import { motifPropose } from '../lib/motifPropose.js';
 import { marquerPonderationFixee, dueValidee } from './due.js';
 import { garderTransfert, porteFermee, refusPorte } from '../lib/transferts.js';
@@ -6604,6 +6604,16 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
     // LA SESSION 1 NE SE CLÔT PAS SUR DES AJOURNEMENTS QUI NE TIENNENT PAS ENSEMBLE (13 octobre
     // 2026, Bah, UE 333) : un acquis en échec non ajourné chez un ajourné, ou des cours ajournés sans
     // décision « ajourné ». Rien ne se force ici : chaque cas se règle sur la fiche de l'étudiant.
+    /* LA DUE VALIDÉE AVANT LA CLÔTURE (Charles, 14 octobre 2026) : à partir de la date réglée dans
+       Configuration → DUE (vide : on avertit seulement), une séance de 2026-2027 ou après ne se clôt
+       pas sur une unité dont la DUE — et donc les pondérations — n'est pas validée. */
+    {
+      const des = String(getParam('due_validee_avant_cloture_des', '') || '').trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(des) && annee >= '2026-2027'
+        && new Date().toISOString().slice(0, 10) >= des && !dueValidee(ueNum, annee)) {
+        return res.status(409).json({ error: `La DUE de l'UE ${ueNum} n'est pas validée : depuis le ${des.split('-').reverse().join('/')}, la séance ne se clôt que sur une unité dont la DUE et les pondérations sont validées.` });
+      }
+    }
     if (session === 1) {
       const inco = incoherencesAjournement(ueNum, annee, orgMot);
       if (inco.length) {

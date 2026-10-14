@@ -166,6 +166,15 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
    * décisions. Si oui, l'écran le dit — c'est la seule façon que Jérôme ait
    * de savoir qu'il n'a pas à repasser trois cents fiches en revue.
    */
+  // LA DUE DE L'UNITÉ (14 octobre 2026) : non validée, la délibération l'annonce ; à partir de la
+  // date réglée dans Configuration → DUE, la clôture la refuse.
+  const [dueEtat, setDueEtat] = useState(null);
+  useEffect(() => {
+    if (!ueNum || !annee || annee < '2026-2027') return;
+    fetch(`/api/due/${ueNum}/etat?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : null)).then(setDueEtat).catch(() => {});
+  }, [ueNum, annee]);
+
   async function chargerReprise() {
     try {
       const rep = await fetch(
@@ -852,6 +861,17 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
               <button onClick={() => setEtape('reprise')} className="bouton bouton-compact flex-none">
                 Reprendre l'encodage
               </button>
+            </div>
+          )}
+
+          {dueEtat && dueEtat.statut !== 'validee' && etape !== 'cloture' && (
+            <div data-etat="surveiller" className="bloc-etat px-3 py-1 flex items-center gap-3 text-second">
+              <span className="flex-1 min-w-0">
+                <b>DUE non validée</b> · {(dueEtat.etapes || []).filter(x => x.etat !== 'fait').map(x => `${x.libelle.toLowerCase()} : ${x.detail}`).join(' · ')}
+                {dueEtat.bloquant_des
+                  ? ` — à partir du ${dueEtat.bloquant_des.split('-').reverse().join('/')}, la séance ne se clôturera pas sans elle.`
+                  : ' — les pondérations ne sont pas encore figées.'}
+              </span>
             </div>
           )}
 

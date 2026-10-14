@@ -668,6 +668,14 @@ export function marquerPonderationFixee(ueNum, annee, qui) {
         ponderation_fixee_par = excluded.ponderation_fixee_par`).run(Number(ueNum), annee, qui);
   } catch (e) { console.error('[due] pondération fixée :', e.message); }
 }
+// L'état de la DUE, léger — pour l'avertissement de la délibération.
+r.get('/:ueNum/etat', authRequired, (req, res) => {
+  const annee = req.query.annee || anneeDeTravail(req);
+  const d = lireDUE(Number(req.params.ueNum), annee);
+  res.json({ annee, statut: d.statut, etapes: etapesDUE(d),
+    bloquant_des: String(getParam('due_validee_avant_cloture_des', '') || '').trim() || null });
+});
+
 // La direction confirme des pondérations déjà conformes au croisement : l'étape est franchie.
 r.post('/:ueNum/ponderations-fixees', authRequired, (req, res) => {
   const annee = anneeDeTravail(req);
@@ -770,6 +778,8 @@ export function seedParametresDUE(dbx) {
       .run(NOTE_SUPPORTS_DEFAUT, NOTE_SUPPORTS_ANCIENNE);
     ins.run('due_note_evaluation', NOTE_UE_DEFAUT,
       "DUE — règle d'évaluation par défaut (modifiable par UE)", 'due');
+    ins.run('due_validee_avant_cloture_des', '',
+      "DUE — à partir de cette date (AAAA-MM-JJ), une délibération (2026-2027 et après) ne se clôt que sur une UE dont la DUE est validée ; vide : on avertit seulement", 'due');
   } catch (e) { console.error('[migration] parametres DUE :', e.message); }
 }
 
