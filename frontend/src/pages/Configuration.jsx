@@ -1108,8 +1108,10 @@ export default function Configuration() {
          anciennes clés restent valables (?onglet=attestation y mène). */
       // LA GALERIE EN PREMIER (Charles, 9 octobre 2026) : on part d'une pièce
       // qui existe, on la corrige ; écrire un modèle vierge est l'exception.
-      { key: 'apercu', label: 'Modèles de pièces', icon: IconEdit,
-        faces: [['apercu', 'Galerie des pièces'], ['editeur', 'L’atelier de Lucie']] },
+      // L'ATELIER D'ABORD (Charles, 14 octobre 2026 : « quand je clique dans Documents et envois, je veux
+      // d'abord l'atelier ») ; la galerie reste la seconde face.
+      { key: 'editeur', label: 'Modèles de pièces', icon: IconEdit,
+        faces: [['editeur', 'L’atelier de Lucie'], ['apercu', 'Galerie des pièces']] },
       { key: 'contrat', label: 'Pièces officielles', icon: IconAward,
         faces: [['contrat', 'Contrat'], ['attestation', 'Attestation'], ['diplome', 'Diplôme'], ['recrutement', 'Recrutement']] },
       { key: 'due', label: "Descriptifs d'UE", icon: IconFileDescription },
