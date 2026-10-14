@@ -4,7 +4,8 @@ import { droitEffectif } from '../lib/modules.js';
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import { api, getAnnee, getUser, authHeaders } from '../lib/api.js';
 import { IconChartBar, IconHome, IconUsers, IconSettings, IconChevronRight, IconChevronDown, IconPrinter, IconRotateClockwise, IconCheck, IconX, IconTrash, IconCash, IconCalendar, IconArrowsLeftRight, IconScale, IconUsersGroup } from '@tabler/icons-react';
-import { PageHeader, Tabs, RailLateral, OuvrirEditions, TuileEtat, Chevron } from '../components/ui.jsx';
+import { PageHeader, Tabs, RailLateral, OuvrirEditions, TuileEtat, Chevron, Fenetre } from '../components/ui.jsx';
+import { createPortal } from 'react-dom';
 import Distributions from '../components/Distributions.jsx';
 import Population from '../components/Population.jsx';
 import PopulationEcole from '../components/PopulationEcole.jsx';
@@ -538,6 +539,10 @@ export default function Pilotage({ vue = 'tout' }) {
   const [dotFace, setDotFace]       = useState('recto');    // carte flip : 'recto' (KPIs) | 'verso' (pluriannuel)
   const anneePrec = (() => { const p = (anneeActive||'').split('-'); return p.length === 2 ? `${+p[0]-1}-${p[0]}` : ''; })();
   const [etpOpen, setEtpOpen]       = useState(new Set());
+  // IMPRIMER DES PARTIES DE LA GESTION (Charles, 14 octobre 2026) : le choix, puis l'aperçu composé.
+  const [choixImpression, setChoixImpression] = useState(null);   // Set des faces cochées, fenêtre ouverte
+  const [facesImprimees, setFacesImprimees] = useState(null);     // faces de l'aperçu
+  const imprime = k => !!facesImprimees?.includes(k);
   const [civil, setCivil]           = useState([]);
   const [selYear, setSelYear]       = useState(null);
   const [loading, setLoading]       = useState(true);
@@ -576,22 +581,22 @@ export default function Pilotage({ vue = 'tout' }) {
 
   // Charger la répartition ETP (IIP/HELB par section et UE) quand on ouvre l'onglet
   useEffect(() => {
-    if (tab !== 'etp') return;
+    if (tab !== 'etp' && !imprime('etp')) return;
     const tok = localStorage.getItem('token');
     fetch(`/api/pilotage/etp?annee=${encodeURIComponent(anneeActive)}`, { headers: { Authorization: `Bearer ${tok}` } })
       .then(r => r.json()).then(setEtpData).catch(console.error);
-  }, [tab, anneeActive]);
+  }, [tab, anneeActive, facesImprimees]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   // Charger la dotation détaillée (section→UE + Δ% vs année précédente) sur l'onglet Dotation
   useEffect(() => {
-    if (tab !== 'synthese') return;
+    if (tab !== 'synthese' && !imprime('synthese')) return;
     const tok = localStorage.getItem('token');
     const h = { headers: { Authorization: `Bearer ${tok}` } };
     fetch(`/api/pilotage/efficience?annee=${encodeURIComponent(anneeActive)}`, h).then(r => r.json()).then(setDotEffic).catch(() => {});
     fetch(`/api/pilotage/etp?annee=${encodeURIComponent(anneeActive)}`, h).then(r => r.json()).then(setDotNiv).catch(() => {});
     if (anneePrec) fetch(`/api/pilotage/efficience?annee=${encodeURIComponent(anneePrec)}`, h).then(r => r.json()).then(setDotEfficPrev).catch(() => setDotEfficPrev(null));
     else setDotEfficPrev(null);
-  }, [tab, anneeActive]);
+  }, [tab, anneeActive, facesImprimees]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   // Charger les UEs avec pot pour la config
   useEffect(() => {
@@ -1606,6 +1611,29 @@ export default function Pilotage({ vue = 'tout' }) {
       onClick: () => { if (r !== rubriqueActive) setTab(r.faces[0][0]); } })),
   }];
 
+  /* UNE FACE, OÙ QU'ELLE S'AFFICHE — à l'écran comme dans l'aperçu d'impression : un seul rendu, deux
+     usages, l'écran et le papier ne peuvent pas différer. */
+  const renduFace = k => (
+    k === 'population-ecole' ? <PopulationEcole annee={anneeActive} />
+    : k === 'rapport' ? <RapportStatistique annee={anneeActive} />
+    : k === 'repartition' ? <RepartitionPeriodes annee={anneeActive} />
+    : k === 'distributions' ? <Distributions annee={anneeActive} />
+    : k === 'population' ? <Population annee={anneeActive} />
+    : k === 'budget' ? <Budget />
+    : k === 'synthese' ? renderSynthese()
+    : k === 'etp' ? (etpData ? renderETP() : <div className="text-gray-400 py-4">Chargement…</div>)
+    : k === 'dotation' ? <DotationComparaison civil={civil} />
+    : k === 'deliberation' ? <StatsDeliberation annee={anneeActive} />
+    : null);
+  // Ce qui s'imprime : toutes les faces sauf la configuration, qui règle et ne rapporte rien.
+  const IMPRIMABLES = RUBRIQUES.map(r => ({ ...r, faces: r.faces.filter(([k]) => k !== 'config') })).filter(r => r.faces.length);
+  const libelleFace = k => { for (const r of IMPRIMABLES) { const f = r.faces.find(([x]) => x === k); if (f) return `${r.label} — ${f[1]}`; } return k; };
+  useEffect(() => {
+    if (!facesImprimees) return undefined;
+    document.body.classList.add('impression-gestion');
+    return () => document.body.classList.remove('impression-gestion');
+  }, [facesImprimees]);
+
   // ── Rendu ──────────────────────────────────────────────────────────────────
   return (
     <div className="relative" style={{ minHeight: 'calc(100vh - 64px)' }}>
@@ -1672,6 +1700,62 @@ export default function Pilotage({ vue = 'tout' }) {
         ] }]}
       />
 
+      {choixImpression && (
+        <Fenetre icone={IconPrinter} titre="Imprimer des parties de la Gestion" large="moyenne" onFermer={() => setChoixImpression(null)}
+          sous={`Année scolaire ${anneeActive} — cochez les parties ; elles se suivent dans une seule pièce, chacune sur sa page`}
+          pied={<>
+            <span className="text-second text-slate-500 flex-1 min-w-0">{choixImpression.size ? `${choixImpression.size} partie(s)` : 'Cochez au moins une partie.'}</span>
+            <button type="button" className="bouton bouton-fort" disabled={!choixImpression.size}
+              onClick={() => { const ordre = IMPRIMABLES.flatMap(r => r.faces.map(([k]) => k)).filter(k => choixImpression.has(k)); setFacesImprimees(ordre); setChoixImpression(null); }}>
+              Composer l'aperçu</button>
+          </>}>
+          <div className="space-y-4">
+            {IMPRIMABLES.map(r => {
+              const toutes = r.faces.every(([k]) => choixImpression.has(k));
+              return (
+                <div key={r.key}>
+                  <label className="flex items-center gap-2 intertitre cursor-pointer">
+                    <input type="checkbox" checked={toutes} onChange={() => setChoixImpression(c => { const n = new Set(c); r.faces.forEach(([k]) => (toutes ? n.delete(k) : n.add(k))); return n; })} />
+                    {r.label}
+                  </label>
+                  <div className="pl-6 space-y-1 mt-1">
+                    {r.faces.map(([k, l]) => (
+                      <label key={k} className="flex items-center gap-2 text-sm cursor-pointer">
+                        <input type="checkbox" checked={choixImpression.has(k)} onChange={() => setChoixImpression(c => { const n = new Set(c); n.has(k) ? n.delete(k) : n.add(k); return n; })} />
+                        {l}
+                      </label>))}
+                  </div>
+                </div>);
+            })}
+            <div className="flex gap-2">
+              <button type="button" className="bouton" onClick={() => setChoixImpression(new Set(IMPRIMABLES.flatMap(r => r.faces.map(([k]) => k))))}>Tout cocher</button>
+              <button type="button" className="bouton" onClick={() => setChoixImpression(new Set())}>Tout décocher</button>
+            </div>
+          </div>
+        </Fenetre>)}
+      {facesImprimees && createPortal(
+        <div className="zone-impression fixed inset-0 z-[300] overflow-auto" style={{ background: 'var(--page-fond, #fff)' }}>
+          <div className="sans-impression sticky top-0 z-10 flex items-center gap-3 px-6 py-3 border-b border-slate-200" style={{ background: 'var(--page-fond, #fff)' }}>
+            <IconPrinter size={18} className="text-slate-500" />
+            <span className="font-semibold flex-1 min-w-0">Aperçu — {facesImprimees.length} partie(s) · année scolaire {anneeActive}</span>
+            <span className="text-second text-slate-500">Attendez que les graphiques soient chargés, puis imprimez (A4 paysage conseillé).</span>
+            <button type="button" className="bouton bouton-fort inline-flex items-center gap-1.5" onClick={() => window.print()}><IconPrinter size={15} /> Imprimer</button>
+            <button type="button" className="bouton inline-flex items-center gap-1.5" onClick={() => setFacesImprimees(null)}><IconX size={15} /> Fermer</button>
+          </div>
+          <div className="max-w-[1150px] mx-auto px-6 py-5 space-y-6">
+            <div className="border-b-2 pb-2" style={{ borderColor: '#C9A84C' }}>
+              <div className="text-mention uppercase tracking-wide text-slate-500">Institut Ilya Prigogine · Gestion — données de l'établissement</div>
+              <div className="titre-ecran">{facesImprimees.length === 1 ? libelleFace(facesImprimees[0]) : 'Données de l’établissement'} · {anneeActive}</div>
+              <div className="text-second text-slate-500">Produit par {getUser()?.nom || '—'} le {new Date().toLocaleDateString('fr-BE')} à {new Date().toLocaleTimeString('fr-BE', { hour: '2-digit', minute: '2-digit' })}</div>
+            </div>
+            {facesImprimees.map((k, i) => (
+              <section key={k} className="partie-impression space-y-3" style={{ breakBefore: i ? 'page' : 'auto' }}>
+                <div className="titre-carte border-b border-slate-200 pb-1">{libelleFace(k)}</div>
+                {renduFace(k)}
+              </section>))}
+          </div>
+        </div>, document.body)}
+
       <div className="gouttiere-rail px-3 md:px-6 py-4 space-y-5">
         {vue === 'gestion' && rubriqueActive && (
           <div className="flex items-center gap-3 flex-wrap">
@@ -1682,6 +1766,9 @@ export default function Pilotage({ vue = 'tout' }) {
                     className={tab === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>{l}</button>))}
               </div>)}
             <span className="flex-1" />
+            <button type="button" className="bouton bouton-sortir controle inline-flex items-center gap-1.5"
+              onClick={() => setChoixImpression(new Set([tab].filter(k => k !== 'config')))}>
+              <IconPrinter size={15} /> Imprimer des parties…</button>
             {tab === 'synthese' && <span className="text-second text-slate-500">année civile {selYear} : dans le rail</span>}
             {['budget', 'dotation'].includes(tab)
               ? <span className="text-second text-slate-500">{tab === 'budget' ? 'Année civile : dans la page' : 'Toutes les années civiles'}</span>
