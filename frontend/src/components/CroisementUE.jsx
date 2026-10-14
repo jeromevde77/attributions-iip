@@ -25,7 +25,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { IconCheck, IconDeviceFloppy, IconAlertTriangle, IconPlus } from '@tabler/icons-react';
-import { api, authHeaders, getAnnee } from '../lib/api.js';
+import { api, authHeaders, getAnnee, getUser } from '../lib/api.js';
 import { useDroits } from '../lib/droits.js';
 import { blocsDepuisPoints, lireProgramme } from '../pages/DUE.jsx';
 
@@ -91,7 +91,8 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
   const cours = (d?.cours || []).filter(x => String(x.ct_pp || '').toUpperCase() !== 'Z');
   const acquis = d?.acquis || [];
   const lecture = !d?.droits?.ecrire;
-  const peutPonderer = passe('admin', 'editeur') && annee >= ANNEE_POINTS;
+  // LA DIRECTION FIXE, LA COORDINATION PROPOSE (14 octobre 2026) : seule la direction écrit les poids.
+  const peutPonderer = ['admin', 'directeur', 'directeur_adjoint'].includes(getUser()?.role) && annee >= ANNEE_POINTS;
 
   // TOUS LES POINTS, D'OFFICE. Le descriptif d'abord ; un cours qu'il laisse vide
   // reprend ceux du dossier pédagogique ; une unité d'un seul cours prend tout le
@@ -218,12 +219,14 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
           ponderes += 1;
         }
       }
+      // La direction a fixé (ou confirmé) les pondérations : l'étape de la DUE est franchie.
+      if (peutPonderer) await fetch(`/api/due/${ueNum}/ponderations-fixees`, { method: 'POST', headers: authHeaders() }).catch(() => {});
       await charger();
       onEnregistre?.();
       setMessage(['Croisement enregistré',
         ajoutees || retirees ? `tableau des critères : ${ajoutees} ligne(s) ajoutée(s)${retirees ? `, ${retirees} retirée(s)` : ''}` : null,
         peutPonderer ? (ponderes ? `pondération ${annee} mise à jour pour ${ponderes} cours` : 'pondération déjà conforme')
-          : 'la pondération proposée sera reprise par la direction ou le secrétariat'].filter(Boolean).join(' — ') + '.');
+          : 'la pondération proposée sera fixée par la direction'].filter(Boolean).join(' — ') + '.');
     } catch (e) { setErreur(e.message); }
     finally { setEnCours(false); }
   }

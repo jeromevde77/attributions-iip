@@ -105,3 +105,21 @@ export function PastilleEtape({ n, etat = 'avenir', choisie = false, title }) {
 export function LienEtape({ fait, className = '' }) {
   return <span aria-hidden="true" className={`lien-etape ${fait ? 'lien-etape-fait' : ''} ${className}`} />;
 }
+
+/** LA FRISE D'ÉTAPES, PRÊTE À POSER (14 octobre 2026) : `etapes` = [{ libelle, etat, detail }],
+ *  etat ∈ fait | courant | avenir | refus. Le libellé sous la pastille, le détail au survol (ou
+ *  dessous, hors mode compact). Le dessin est celui du catalogue des éléments. */
+export function FriseEtapes({ etapes = [], compacte = false }) {
+  return (
+    <ol className="flex items-start m-0 p-0 list-none w-full">
+      {etapes.map((e, i) => (
+        <li key={e.cle || e.libelle} className="flex-1 min-w-0 relative" title={e.detail || undefined}>
+          {i > 0 && <LienEtape fait={etapes[i - 1].etat === 'fait'} className="absolute top-[13px] right-1/2 w-full" />}
+          <div className="relative z-10 flex flex-col items-center text-center px-1">
+            <PastilleEtape n={i + 1} etat={e.etat} />
+            <span className={`mt-1 ${compacte ? 'text-mention' : 'text-second font-semibold'}`}>{e.libelle}</span>
+            {!compacte && e.detail && <span className="text-mention text-slate-500 leading-tight">{e.detail}</span>}
+          </div>
+        </li>))}
+    </ol>);
+}

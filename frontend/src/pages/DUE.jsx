@@ -1,3 +1,4 @@
+import { FriseEtapes } from '../components/graphiques.jsx';
 import { demander } from '../lib/dialogue.jsx';
 import { useEffect, useMemo, useState } from 'react';
 import { OuvrirEditions } from '../components/ui.jsx';
@@ -457,13 +458,9 @@ function Liste({ onOuvrir }) {
                   {u.section}{u.ects ? ` · ${u.ects} ECTS` : ''}{u.ue_quad ? ` · ${u.ue_quad}` : ''}
                 </div>
               </div>
-              <span className={`flex-none text-mention px-2 py-0.5 rounded-champ font-semibold ${
-                u.statut === 'validee'
-                  ? 'bg-emerald-500 text-white border border-emerald-500'
-                  : 'bg-amber-500 text-white border border-amber-500'}`}>
-                {u.statut === 'validee' ? 'validée' : 'en préparation'}
-              </span>
             </div>
+            {/* L'AVANCEMENT, D'UN COUP D'ŒIL : rédaction · pondérations · validation. */}
+            {u.etapes && <div className="mt-2"><FriseEtapes etapes={u.etapes} compacte /></div>}
             <div className="text-xs text-slate-400 mt-1">
               {u.valide_le ? `Validée le ${u.valide_le}`
                 : u.maj_le ? `Modifiée le ${String(u.maj_le).slice(0, 10)}`
@@ -705,6 +702,20 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
     finally { setEnCours(false); }
   }
 
+  async function soumettre() {
+    setEnCours(true); setErreur(null); setMessage(null);
+    try {
+      const retirer = !!d.soumis_le;
+      const r = await fetch(`/api/due/${ueNum}/soumettre`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ retirer }) });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error);
+      const n = await api.dueLire(ueNum);
+      setD(n); setC(n.contenu || {}); setSale(false);
+      setMessage(retirer ? 'Soumission retirée : la DUE est de nouveau en rédaction.' : 'DUE soumise à la direction. Elle reste modifiable jusqu’à la validation.');
+    } catch (e) { setErreur(e.message); }
+    finally { setEnCours(false); }
+  }
+
   async function imprimer() {
     try {
       const j = await api.dueDocument(ueNum);
@@ -751,6 +762,7 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
             UE {u.ue_num} — {u.ue_nom}
           </h2>
           </>}
+          {d.etapes && <div className="my-2 max-w-xl"><FriseEtapes etapes={d.etapes} /></div>}
           <div className="flex items-center gap-2 mt-1">
             <span className={`text-xs px-2 py-0.5 rounded-champ font-semibold ${
               d.statut === 'validee'
@@ -775,6 +787,12 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
           </div>
           <OuvrirEditions titre="Imprimer ou envoyer le DUE — centre d'édition"
             pieces={[{ cle: 'due', label: 'Document d’unité d’enseignement (DUE)', description: 'Tel qu’il est à l’écran', onClick: () => imprimer() }]} />
+          {/* SOUMETTRE À LA DIRECTION : le rédacteur dit « c'est rédigé » (14 octobre 2026). */}
+          {d.droits.soumettre && (
+            <button type="button" className="bouton" disabled={enCours} onClick={soumettre}
+              title={d.soumis_le ? 'La DUE reste modifiable ; retirer la soumission la remet en rédaction' : 'Dire à la direction que la DUE est rédigée'}>
+              {d.soumis_le ? 'Retirer la soumission' : 'Soumettre à la direction'}
+            </button>)}
           {d.droits.valider && (
             <button onClick={basculerValidation} disabled={enCours}
               className={`px-3 py-1.5 text-second rounded-lg font-semibold flex items-center gap-1.5

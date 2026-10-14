@@ -40,6 +40,7 @@ import { capacitePdf, rendrePdf, compterPages } from '../services/pdf.js';
 import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 import { piedDocument } from './parametres.js';
 import { motifPropose } from '../lib/motifPropose.js';
+import { marquerPonderationFixee, dueValidee } from './due.js';
 import { garderTransfert, porteFermee, refusPorte } from '../lib/transferts.js';
 import { migrerReprise, simulerReprise, appliquerReprise, forcerCloture,
          MOTIF_REPRISE, MENTION_REPRISE } from '../lib/repriseHistorique.js';
@@ -2438,7 +2439,7 @@ r.get('/ue/:ueNum/structure', authRequired, (req, res) => {
  * saisi est une EXCEPTION, posée pour une UE et une année, et qu'on peut
  * retirer — on revient alors aux périodes. Les poids saisis se donnent en
  * pour cent, entiers, et totalisent 100. */
-r.put('/ue/:ueNum/poids-cours', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+r.put('/ue/:ueNum/poids-cours', authRequired, fixerPonderation(req => req.params.ueNum), (req, res) => {
   const ueNum = Number(req.params.ueNum);
   const annee = req.body?.annee || anneeDeTravail(req);
   const { mode, poids } = req.body || {};
@@ -2470,13 +2471,38 @@ r.put('/ue/:ueNum/poids-cours', authRequired, roleRequired('admin', 'editeur'), 
   res.json({ ok: true, mode, poids: Object.fromEntries(cours.map((c, i) => [c, valeurs[i]])) });
 });
 
+/* LA COORDINATION PROPOSE, LA DIRECTION FIXE (Charles, 14 octobre 2026). Les pondérations — poids
+ * des cours, points des acquis — se posent par la direction et la direction adjointe ; la
+ * coordination et les titulaires les PROPOSENT par le croisement de la DUE. Une DUE validée les
+ * GÈLE. Une écriture réussie marque l'étape « Pondérations » de la DUE (qui, quand). */
+function fixerPonderation(ueDe) {
+  return (req, res, next) => {
+    if (!['admin', 'directeur', 'directeur_adjoint'].includes(req.user?.role)) {
+      return res.status(403).json({ error: 'Les pondérations se fixent par la direction ; la coordination les propose par le croisement de la DUE.' });
+    }
+    const ue = Number(ueDe(req)), annee = req.body?.annee || anneeDeTravail(req);
+    if (ue && dueValidee(ue, annee)) {
+      return res.status(409).json({ error: `La DUE de l'UE ${ue} est validée : ses pondérations sont gelées. Rouvrez-la d'abord.` });
+    }
+    const envoyer = res.json.bind(res);
+    res.json = corps => {
+      if (ue && res.statusCode < 400 && corps?.ok !== false && req.body?.simulation !== true
+        && !(req.path.endsWith('/reprendre') && req.body?.simulation !== false)) {
+        marquerPonderationFixee(ue, annee, req.user?.nom || req.user?.email || null);
+      }
+      return envoyer(corps);
+    };
+    next();
+  };
+}
+
 /* REPRENDRE L'ANNÉE PRÉCÉDENTE. Les points des acquis d'une année se
  * recopient sur l'année réglée, pour les cours qui existent dans les deux —
  * c'est ainsi qu'une année s'ouvre. Un poids de cours SAISI ne se reprend que
  * s'il a été posé à partir de 2026-2027 : avant, c'étaient ceux des
  * classeurs, et les périodes du dossier font foi. Simulation d'abord ; la
  * reprise remplace ce que l'année réglée portait pour cette UE. */
-r.post('/ue/:ueNum/reprendre', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+r.post('/ue/:ueNum/reprendre', authRequired, fixerPonderation(req => req.params.ueNum), (req, res) => {
   const ueNum = Number(req.params.ueNum);
   const annee = req.body?.annee || anneeDeTravail(req);
   const source = req.body?.source;
@@ -2540,7 +2566,7 @@ r.put('/ue/:ueNum/cours/:code/evaluation', authRequired, roleRequired('admin', '
   res.json({ ok: true, cours_code: code, annee, non_evalue: !!non, delies: non ? liens : 0 });
 });
 
-r.put('/ponderations', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+r.put('/ponderations', authRequired, fixerPonderation(req => req.body?.ue_num), (req, res) => {
   const { ue_num, cours_code, ponderations } = req.body;
   if (!ue_num || !cours_code || !Array.isArray(ponderations)) {
     return res.status(400).json({ error: 'ue_num, cours_code et ponderations requis' });
@@ -2637,7 +2663,7 @@ r.put('/ponderations', authRequired, roleRequired('admin', 'editeur'), (req, res
 });
 
 // ── Répartition égale, pour amorcer ─────────────────────────────────────────
-r.post('/ponderations/repartir', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+r.post('/ponderations/repartir', authRequired, fixerPonderation(req => req.body?.ue_num), (req, res) => {
   const { ue_num, cours_code } = req.body;
   if (!ue_num || !cours_code) return res.status(400).json({ error: 'ue_num et cours_code requis' });
   const annee = req.body.annee || anneeDeTravail(req);
