@@ -1,3 +1,4 @@
+import { useTransfertsFermes } from '../lib/transferts.js';
 import { ICONE_AXE } from '../lib/iconesAxes.js';
 import { poserSelectionEtudiants } from '../lib/selectionEtudiants.js';
 import { useDroits, passeRole, peutGeste, ecritModule } from '../lib/droits.js';
@@ -3421,6 +3422,7 @@ const MANQUES = [
 const LIBELLE_MANQUE = Object.fromEntries(MANQUES.map(([k, l]) => [k, l.replace(' reconnue (à corriger)', ' à corriger')]));
 
 export default function Etudiants() {
+  const transfertsFermes = useTransfertsFermes(getAnnee());
   /**
    * Export Excel de la section : signalétique et résultats, réimportables.
    *
@@ -4618,11 +4620,11 @@ export default function Etudiants() {
               quoi: 'Créer ou compléter les dossiers depuis la liste officielle.',
               attend: "l'export eCampus (.xlsx)",
               onClick: () => setImportListe(true) },
-            { cle: 'pae', ok: peutImporter, titre: 'Classeur PAE',
+            { cle: 'pae', ok: peutImporter && !transfertsFermes.pae_classeur, titre: 'Classeur PAE',
               quoi: 'Reprendre les programmes annuels déjà composés ailleurs.',
               attend: 'un classeur PAE (.xlsx)',
               onClick: () => setImportPAE(true) },
-            { cle: 'suivi', ok: peutReprendre, titre: 'Classeur de suivi',
+            { cle: 'suivi', ok: peutReprendre && !transfertsFermes.classeur_suivi, titre: 'Classeur de suivi',
               quoi: 'Pondérations, notes et décisions des deux sessions d’une année.',
               attend: 'Suivi_etudiants_XXX.xlsm',
               onClick: () => setImportSuivi(true) },
@@ -4633,7 +4635,7 @@ export default function Etudiants() {
             /* LA REPRISE PAR TABLEAU PLAT vivait dans une barre de boutons de
                la délibération (Charles, 3 octobre 2026 : « ce menu n'était que
                pour moi, il peut partir si on a les liens dans Importer »). */
-            { cle: 'tableau-plat', ok: peutReprendre, titre: 'Reprendre une année depuis un tableau plat',
+            { cle: 'tableau-plat', ok: peutReprendre && !transfertsFermes.classeur_suivi, titre: 'Reprendre une année depuis un tableau plat',
               quoi: 'Une année déjà délibérée : une ligne par étudiant, unité et session, dates du jury comprises.',
               attend: 'un tableau plat, une ligne par décision',
               onClick: () => setTableauPlat(true) },

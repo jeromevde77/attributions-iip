@@ -17,6 +17,7 @@
 
 import { Router } from 'express';
 import db from '../db/index.js';
+import { porteFermee, refusPorte } from '../lib/transferts.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 
 const r = Router();
@@ -131,6 +132,9 @@ r.post('/', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   if (!Array.isArray(fichiers) || !fichiers.length) {
     return res.status(400).json({ error: 'fichiers requis' });
   }
+  // Une année dont le transfert est fermé ne reçoit plus rien (Configuration → Transferts).
+  const ferme = fichiers.find(f => f?.annee && porteFermee('historique', f.annee));
+  if (ferme) return refusPorte(res, 'historique', ferme.annee);
 
   const rapport = {
     simulation, fichiers: [],

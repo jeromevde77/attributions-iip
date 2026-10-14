@@ -1,3 +1,4 @@
+import { useTransfertsFermes } from '../lib/transferts.js';
 import { lazy, useEffect, useState } from 'react';
 import OutilsAFaces from '../components/OutilsAFaces.jsx';
 const ControleDecisions = lazy(() => import('../components/ControleDecisions.jsx'));
@@ -43,6 +44,7 @@ import { informer } from '../lib/dialogue.jsx';
  */
 export default function Deliberation() {
   const annee = getAnnee();
+  const transfertsFermes = useTransfertsFermes(annee);
   const [plan, setPlan] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [section, setSection] = useState(null);
@@ -249,7 +251,7 @@ export default function Deliberation() {
           faces={[
             { cle: 'notes-doubles', label: 'Notes en double', rendu: <NotesDoubles /> },
             { cle: 'controle-decisions', label: 'Contrôle des notes de décision', rendu: <ControleDecisions /> },
-            { cle: 'reprise', label: 'Clôturer une année reprise', rendu: <ClotureReprise /> },
+            ...(transfertsFermes.cloture_reprise ? [] : [{ cle: 'reprise', label: 'Clôturer une année reprise', rendu: <ClotureReprise /> }]),
           ]} />
       )}
       <div className="flex items-start justify-between gap-3 flex-wrap">

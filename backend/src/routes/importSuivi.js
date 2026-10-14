@@ -24,6 +24,7 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
 import { anneeDeTravail } from '../helpers/annee.js';
+import { garderTransfert } from '../lib/transferts.js';
 
 const r = Router();
 
@@ -113,7 +114,7 @@ function chercheur(annee, ueNum) {
  * `unites` vient de lireClasseur() : par unité, ses pondérations, ses cours et
  * ses étudiants avec leurs notes des deux sessions.
  */
-r.post('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'),
+r.post('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'), garderTransfert('classeur_suivi'),
        (req, res) => {
   const {
     unites, annee, simulation = true,

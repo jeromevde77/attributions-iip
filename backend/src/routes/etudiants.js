@@ -16,6 +16,7 @@ import { htmlListeCoordonnees } from '../services/liste_coordonnees.js';
 
 import { sectionDuDossier as sectionDeLInscription } from '../lib/sectionDossier.js';
 import db from '../db/index.js';
+import { garderTransfert } from '../lib/transferts.js';
 import { piedDocument } from './parametres.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
@@ -6639,7 +6640,8 @@ r.post('/:id/pae-auto', authRequired, roleRequired('admin', 'editeur'), (req, re
 
 // ── Import du classeur de PAE (résultats par cours + PAE de l'année suivante)
 // Le frontend a déjà résolu la légende : il envoie des entrées normalisées.
-r.post('/import-pae', authRequired, gesteRequis('etudiants.import'), (req, res) => {
+r.post('/import-pae', authRequired, gesteRequis('etudiants.import'),
+  garderTransfert('pae_classeur', req => req.body?.annee_pae || req.body?.annee_resultats), (req, res) => {
   const { annee_resultats, annee_pae, resultats, pae, commentaires } = req.body;
   if (!annee_resultats || !Array.isArray(resultats)) {
     return res.status(400).json({ error: 'annee_resultats et resultats requis' });

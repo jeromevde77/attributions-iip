@@ -40,6 +40,7 @@ import { capacitePdf, rendrePdf, compterPages } from '../services/pdf.js';
 import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 import { piedDocument } from './parametres.js';
 import { motifPropose } from '../lib/motifPropose.js';
+import { garderTransfert, porteFermee, refusPorte } from '../lib/transferts.js';
 import { migrerReprise, simulerReprise, appliquerReprise, forcerCloture,
          MOTIF_REPRISE, MENTION_REPRISE } from '../lib/repriseHistorique.js';
 
@@ -8513,7 +8514,7 @@ function repriseDepuisImport(ueNum, annee, session) {
   return lignes;
 }
 
-r.get('/deliberation/ue/:ueNum/reprise-import', authRequired, (req, res) => {
+r.get('/deliberation/ue/:ueNum/reprise-import', authRequired, garderTransfert('reprise_decisions'), (req, res) => {
   const ueNum = Number(req.params.ueNum);
   const annee = req.query.annee || anneeDeTravail(req);
   const etat = sessionDeLUE(ueNum, annee);
@@ -8534,7 +8535,7 @@ r.get('/deliberation/ue/:ueNum/reprise-import', authRequired, (req, res) => {
   });
 });
 
-r.post('/deliberation/ue/:ueNum/reprise-import', authRequired,
+r.post('/deliberation/ue/:ueNum/reprise-import', authRequired, garderTransfert('reprise_decisions'),
        roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
   const ueNum = Number(req.params.ueNum);
   const annee = req.body?.annee || anneeDeTravail(req);
@@ -8668,7 +8669,7 @@ function unitesRepriseSection(annee, section, sessionDemandee) {
   });
 }
 
-r.get('/deliberation/reprise-lot', authRequired, (req, res) => {
+r.get('/deliberation/reprise-lot', authRequired, garderTransfert('reprise_decisions'), (req, res) => {
   const annee = req.query.annee || anneeDeTravail(req);
   const section = req.query.section || null;
   const session = req.query.session ? (Number(req.query.session) === 2 ? 2 : 1) : null;
@@ -8691,7 +8692,7 @@ r.get('/deliberation/reprise-lot', authRequired, (req, res) => {
   });
 });
 
-r.post('/deliberation/reprise-lot', authRequired,
+r.post('/deliberation/reprise-lot', authRequired, garderTransfert('reprise_decisions'),
        roleRequired('admin', 'directeur', 'directeur_adjoint'), (req, res) => {
   const annee = req.body?.annee || anneeDeTravail(req);
   const session = Number(req.body?.session) === 2 ? 2 : 1;
@@ -9299,14 +9300,14 @@ export function avecAide(etudId, ueNum, annee, session = 1) {
 // s'appliquer — « rien ne s'écrit sans qu'on ait vu ce qui sera écrit » — et
 // l'application ne se déclenche que si l'appelant a nommé l'année ET confirmé.
 
-r.get('/reprise/:annee/simulation', authRequired,
+r.get('/reprise/:annee/simulation', authRequired, garderTransfert('cloture_reprise'),
   roleRequired('admin', 'directeur', 'directeur_adjoint'), (req, res) => {
     try {
       res.json(simulerReprise(req.params.annee, { motif: req.query.motif }));
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
-r.post('/reprise/:annee', authRequired,
+r.post('/reprise/:annee', authRequired, garderTransfert('cloture_reprise'),
   roleRequired('admin', 'directeur', 'directeur_adjoint'), (req, res) => {
     const annee = req.params.annee;
     // LA CONFIRMATION PORTE L'ANNÉE. Un « oui » seul se clique ; retaper
