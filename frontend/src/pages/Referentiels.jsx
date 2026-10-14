@@ -918,7 +918,11 @@ function UEModal({ ue, sections, onClose, onSaved, navigation = null }) {
         const rub = (k, titre) => <EditeurRubrique key={k} titre={titre} texte={rubriques[k] || ''} origine={origines[k] ?? null}
           lecture={!isAdmin} onChange={v => poserRubrique(k, v)} />;
         const cours = (dossier?.cours || []).filter(c => String(c.ct_pp || '').toUpperCase() !== 'Z');
-        const totCours = cours.reduce((t, c) => t + (Number(c.cours_per) || 0), 0);
+        // L'ACTIVITÉ Z (développement professionnel) : des périodes ÉTUDIANT, hors cours, mais au dossier.
+        const coursZ = (dossier?.cours || []).filter(c => String(c.ct_pp || '').toUpperCase() === 'Z');
+        const perZ = coursZ.reduce((t, c) => t + (Number(c.per_etudiant ?? c.cours_per) || 0), 0) || Number(dossier?.ue_per_z || form.ue_per_z) || 0;
+        const aut = Number(dossier?.ue_aut ?? form.ue_aut) || 0;
+        const totCours = cours.reduce((t, c) => t + (Number(c.cours_per) || 0), 0) + aut;   // le dossier : cours + autonomie
         return (<>
           <div className="flex items-center gap-1 border-b border-slate-200 mb-4 -mt-1">
             {[['fiche', 'Fiche'], ['contenu', 'Contenu'], ['acquis', 'Acquis'], ['programme', 'Programme'], ['organisation', 'Organisation']].map(([k, l]) => (
@@ -938,9 +942,10 @@ function UEModal({ ue, sections, onClose, onSaved, navigation = null }) {
                     <tr className="tab-repere font-semibold"><td className="px-2 py-1">Total des périodes</td><td></td><td className="px-2 py-1 text-right tabular-nums">{dossier?.ue_per_etudiants ?? form.ue_per_etudiants ?? '—'}</td></tr>
                     {cours.map(c => (
                       <tr key={c.cours_code} className="border-t border-slate-100"><td className="px-2 py-1">{c.cours_nom}</td><td className="px-2 py-1">{c.ct_pp || '—'}</td><td className="px-2 py-1 text-right tabular-nums">{c.cours_per ?? '—'}</td></tr>))}
-                    <tr className="border-t border-slate-100"><td className="px-2 py-1">Total périodes de cours</td><td></td><td className="px-2 py-1 text-right tabular-nums">{totCours || '—'}</td></tr>
-                    <tr className="border-t border-slate-100"><td className="px-2 py-1">7.2 Part d'autonomie</td><td>P</td><td className="px-2 py-1 text-right tabular-nums">{dossier?.ue_aut ?? form.ue_aut ?? '—'}</td></tr>
-                    {(dossier?.ue_per_z || form.ue_per_z) ? <tr className="border-t border-slate-100"><td className="px-2 py-1">7.3 Développement professionnel</td><td>Z</td><td className="px-2 py-1 text-right tabular-nums">{dossier?.ue_per_z ?? form.ue_per_z}</td></tr> : null}
+                    <tr className="border-t border-slate-100"><td className="px-2 py-1">7.2 Part d'autonomie</td><td className="px-2 py-1">P</td><td className="px-2 py-1 text-right tabular-nums">{aut || '—'}</td></tr>
+                    <tr className="border-t border-slate-200 font-semibold"><td className="px-2 py-1">Total périodes de cours</td><td></td><td className="px-2 py-1 text-right tabular-nums">{totCours || '—'}</td></tr>
+                    {(coursZ.length > 0 || perZ > 0) && (
+                      <tr className="border-t border-slate-100"><td className="px-2 py-1">7.3 {coursZ[0]?.cours_nom || 'Activités de développement professionnel'}</td><td className="px-2 py-1">Z</td><td className="px-2 py-1 text-right tabular-nums">{perZ || '—'}</td></tr>)}
                   </tbody>
                 </table>
                 <p className="text-mention text-slate-400 mt-1">Les cours se règlent dans Unités et cours ; les périodes du dossier y sont reprises à l'import.</p>
