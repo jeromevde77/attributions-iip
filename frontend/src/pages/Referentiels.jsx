@@ -1,5 +1,5 @@
 import EditeurRubrique from '../components/EditeurRubrique.jsx';
-import { rubriquesDuTexte } from '../lib/texteDossier.js';
+import { rubriquesDuTexte, structurerAPlat } from '../lib/texteDossier.js';
 import { MODES_GROUPES } from '../lib/groupes.js';
 import { useEffect, useMemo, useRef, useState, Fragment } from 'react';
 import { estDirection } from '../lib/modules.js';
@@ -682,10 +682,21 @@ function UEModal({ ue, sections, onClose, onSaved, navigation = null }) {
   useEffect(() => {
     if (isNew || !ue?.ue_num || !ue?.annee_scolaire) return;
     fetch(`/api/ref/ue/${ue.ue_num}?annee=${encodeURIComponent(ue.annee_scolaire)}`, { headers: authHeaders() })
-      .then(r => (r.ok ? r.json() : null)).then(j => { setDossier(j); setRubriques(rubriquesDuTexte(j?.ue_dp || '')); })
+      .then(r => (r.ok ? r.json() : null)).then(j => {
+        setDossier(j);
+        // Un dossier importé à plat (avant 3.1.356) se structure à l'ouverture ; il ne s'enregistre ainsi
+        // que si on enregistre la fiche après l'avoir retouché.
+        const intitules = (j?.cours || []).map(c => c.cours_nom);
+        setRubriques(Object.fromEntries(Object.entries(rubriquesDuTexte(j?.ue_dp || ''))
+          .map(([k, v]) => [k, structurerAPlat(v, intitules)])));
+      })
       .catch(() => setDossier({}));
   }, [isNew, ue?.ue_num, ue?.annee_scolaire]);
-  const origines = useMemo(() => rubriquesDuTexte(dossier?.ue_dp_origine || dossier?.ue_dp || ''), [dossier]);
+  const origines = useMemo(() => {
+    const intitules = (dossier?.cours || []).map(c => c.cours_nom);
+    return Object.fromEntries(Object.entries(rubriquesDuTexte(dossier?.ue_dp_origine || dossier?.ue_dp || ''))
+      .map(([k, v]) => [k, structurerAPlat(v, intitules)]));
+  }, [dossier]);
   const poserRubrique = (k, v) => { setRubriques(r => ({ ...r, [k]: v })); setRubriquesTouchees(t => ({ ...t, [k]: v })); };
   function toggleSection(code) {
     setSelSections(s => { const n = new Set(s); n.has(code) ? n.delete(code) : n.add(code); return n; });
@@ -910,7 +921,7 @@ function UEModal({ ue, sections, onClose, onSaved, navigation = null }) {
         const totCours = cours.reduce((t, c) => t + (Number(c.cours_per) || 0), 0);
         return (<>
           <div className="flex items-center gap-1 border-b border-slate-200 mb-4 -mt-1">
-            {[['fiche', 'Fiche'], ['contenu', 'Contenu'], ['programme', 'Programme'], ['organisation', 'Organisation']].map(([k, l]) => (
+            {[['fiche', 'Fiche'], ['contenu', 'Contenu'], ['acquis', 'Acquis'], ['programme', 'Programme'], ['organisation', 'Organisation']].map(([k, l]) => (
               <button key={k} type="button" onClick={() => setOnglet(k)} className={`onglet-page ${onglet === k ? 'onglet-page-actif' : ''}`}>{l}</button>))}
             <span className="flex-1" />
             {dossier && !dossier.ue_dp && <span className="text-second text-slate-500">Aucun dossier pédagogique importé pour {ue?.annee_scolaire}.</span>}
@@ -939,9 +950,22 @@ function UEModal({ ue, sections, onClose, onSaved, navigation = null }) {
           {onglet === 'contenu' && (<div>
             {rub('Finalités', '1. Finalités de l’unité')}
             {rub('Capacités préalables', '2. Capacités préalables requises')}
-            {rub("Acquis d'apprentissage", '3. Acquis d’apprentissage')}
-            {rub('Degré de maîtrise', 'Degré de maîtrise')}
           </div>)}
+          {/* LES ACQUIS ONT LEUR ONGLET (Charles, 14 octobre 2026 : « un onglet spécial pour les AA, entre
+              contenu et programme ») : le texte du dossier et le degré de maîtrise à gauche, les acquis
+              encodés dans Lucie (AA333.1…) à droite. */}
+          {onglet === 'acquis' && (
+            <div className="grid grid-cols-[3fr_2fr] gap-6 items-start">
+              <div className="min-w-0">
+                {rub("Acquis d'apprentissage", '3. Acquis d’apprentissage — le dossier')}
+                {rub('Degré de maîtrise', 'Degré de maîtrise')}
+              </div>
+              <div className="border-l border-slate-200 pl-6 min-w-0">
+                <GroupeFenetre titre="Acquis encodés dans Lucie">
+                  <AcquisUE ueNum={form.ue_num} annee={ue?.annee_scolaire} estAdmin={isAdmin} />
+                </GroupeFenetre>
+              </div>
+            </div>)}
           {onglet === 'programme' && (
             <div className="grid grid-cols-[3fr_2fr] gap-6 items-start">
               <div className="min-w-0">{rub('Programme', '4. Programme — par activité d’enseignement')}</div>
