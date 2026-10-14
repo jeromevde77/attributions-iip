@@ -319,8 +319,10 @@ function ValorisationParEtudiant({ annee, dossiers, nomUE }) {
   const etudiants = useMemo(() => {
     const m = new Map();
     for (const d of dossiers) {
-      if (!m.has(d.etudiant_id)) m.set(d.etudiant_id, { id: d.etudiant_id, nom: d.nom, prenom: d.prenom, unites: [] });
+      if (!m.has(d.etudiant_id)) m.set(d.etudiant_id, { id: d.etudiant_id, nom: d.nom, prenom: d.prenom, unites: [], sections: new Set() });
       m.get(d.etudiant_id).unites.push(d);
+      const sec = d.section || nomUE?.get(d.ue_num)?.section || null;
+      if (sec) m.get(d.etudiant_id).sections.add(sec);
     }
     const n = s0 => String(s0 || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
     return [...m.values()]
@@ -330,6 +332,18 @@ function ValorisationParEtudiant({ annee, dossiers, nomUE }) {
   useEffect(() => { setProduits(null); }, [annee, coches, choix]);
 
   const tous = etudiants.length > 0 && etudiants.every(e => coches.has(e.id));
+  /* COCHER UNE SECTION D'UN COUP (Charles, 14 octobre 2026 : « pour envoyer en série ») : un bouton
+     par section — tous ses étudiants cochés, ou décochés s'ils l'étaient déjà. La liste reste entière. */
+  const parSection = useMemo(() => {
+    const m = new Map();
+    for (const e of etudiants) for (const sx of e.sections) { if (!m.has(sx)) m.set(sx, []); m.get(sx).push(e.id); }
+    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0], 'fr'));
+  }, [etudiants]);
+  const basculerSection = ids => setCoches(s => {
+    const n = new Set(s); const tousLa = ids.every(id => n.has(id));
+    for (const id of ids) tousLa ? n.delete(id) : n.add(id);
+    return n;
+  });
   const basculer = id => setCoches(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const etat = d => d.decision === 'refusee' ? 'refusée'
     : !d.decision_le ? 'à décider' : !d.valide_le ? 'non validée'
@@ -414,6 +428,19 @@ function ValorisationParEtudiant({ annee, dossiers, nomUE }) {
               Envoyer à chacun ({produits.length})</button>)}
         </>}
       </div>
+      {parSection.length > 1 && (
+        <div className="flex flex-wrap items-center gap-1.5 text-second">
+          <span className="text-slate-500">Cocher une section :</span>
+          {parSection.map(([sx, ids]) => {
+            const tousLa = ids.every(id => coches.has(id));
+            return (
+              <button key={sx} type="button" onClick={() => basculerSection(ids)}
+                className={`px-2.5 py-0.5 rounded-pastille border ${tousLa ? 'bg-iip-blue text-white border-iip-blue' : 'border-slate-300 text-slate-700 hover:bg-slate-50'}`}
+                title={tousLa ? `Décocher les ${ids.length} étudiants de ${sx}` : `Cocher les ${ids.length} étudiants de ${sx}`}>
+                {sx.replace(/_/g, ' ')} · {ids.length}
+              </button>);
+          })}
+        </div>)}
       {avis.length > 0 && (
         <div className="bloc-etat etat-neutre px-3 py-2 text-second text-slate-700"
           style={{ borderLeftColor: 'var(--c-attente)' }}>
