@@ -111,7 +111,7 @@ export default function PopulationEcole({ annee: anneeProp }) {
       </div>
 
       {d.evolution.length > 1 && (
-        <Carte titre="L'évolution des inscrits" sous={`Par section, sur ${d.evolution.length} années — l'AEQES demande les inscrits par section sur cinq ans.`}>
+        <Carte titre="L'évolution des inscrits" sous={`Par section, sur ${d.evolution.length} années. Les années passées se lisent dans les chiffres de référence de la direction (Lucie n'en a qu'une partie) ; les autres, dans les inscriptions de Lucie.`}>
           <div style={{ width: '100%', height: 300 }}>
             <ResponsiveContainer>
               <BarChart data={d.evolution.map(a => ({ annee: a.annee, ...(section ? { [section]: a.par_section[section] || 0 } : a.par_section) }))}>
@@ -129,13 +129,16 @@ export default function PopulationEcole({ annee: anneeProp }) {
             <div className="overflow-x-auto">
               <table className="w-full text-second">
                 <thead><tr className="tab-entete">
-                  <th className="px-2 py-1 text-left">Année</th><th className="px-2 py-1 text-right">Inscrits</th><th className="px-2 py-1 text-right">Nouveaux</th>
+                  <th className="px-2 py-1 text-left">Année</th><th className="px-2 py-1 text-left">Source</th><th className="px-2 py-1 text-right">Inscrits</th>
+                  <th className="px-2 py-1 text-right" title="Chiffres de référence : les inscrits en BA1. Lucie : les nouveaux étudiants (aucune inscription avant).">BA1 / nouveaux</th>
                   {sectionsEvo.map(s => <th key={s} className="px-2 py-1 text-right">{NOM_SECTION(s)}</th>)}
                 </tr></thead>
                 <tbody>{d.evolution.map(a => (
                   <tr key={a.annee} className="border-t border-slate-100">
-                    <td className="px-2 py-1">{a.annee}</td><td className="px-2 py-1 text-right tabular-nums font-semibold">{k0(a.total)}</td>
-                    <td className="px-2 py-1 text-right tabular-nums">{k0(a.primo)}</td>
+                    <td className="px-2 py-1">{a.annee}</td>
+                    <td className="px-2 py-1 text-slate-500" title={(a.notes || []).join(' · ')}>{a.source === 'reference' ? 'référence' : 'Lucie'}{a.notes?.length ? ' *' : ''}</td>
+                    <td className="px-2 py-1 text-right tabular-nums font-semibold">{k0(a.total)}</td>
+                    <td className="px-2 py-1 text-right tabular-nums">{a.source === 'reference' ? (a.ba1 != null ? k0(a.ba1) : '—') : k0(a.primo)}</td>
                     {sectionsEvo.map(s => <td key={s} className="px-2 py-1 text-right tabular-nums">{a.par_section[s] ? k0(a.par_section[s]) : '—'}</td>)}
                   </tr>))}</tbody>
               </table>
