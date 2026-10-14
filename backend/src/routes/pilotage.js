@@ -1,6 +1,7 @@
 import { donneesPopulation, inscrits, corrigerReference } from '../lib/populationEcole.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { sectionRattachement } from './etudiants.js';
+import { getParamNum } from './parametres.js';
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired, getUserSections} from '../middleware/auth.js';
@@ -816,6 +817,12 @@ r.get('/etp', authRequired, (req, res) => {
   res.json({ ...calculerEtp(annee), ratios: ratiosEtp(annee) });
 });
 
+// GET /ratios?annee= — les seuls ratios étudiants par ETP (Gestion → Dotation, graphe par section).
+r.get('/ratios', authRequired, (req, res) => {
+  const annee = req.query.annee || anneeDeTravail(req);
+  res.json(ratiosEtp(annee));
+});
+
 /* LE RATIO ETP PAR ÉTUDIANT (Charles, 14 octobre 2026 : « le ratio ETP/étudiant — cours, puis
  * admin, direction comprise, puis total, tout le monde compris »). Les ETP de cours sont ceux de ce
  * calcul ; les ETP administratifs, les fonctions d'ÉTABLISSEMENT de l'année (direction, direction
@@ -832,12 +839,98 @@ function ratiosEtp(annee) {
       FROM personnel_mission pm JOIN fonction_type ft ON ft.libelle = pm.fonction
       WHERE pm.annee_scolaire = ? AND ft.portee = 'etablissement' GROUP BY pm.fonction ORDER BY ft.ordre`).all(annee);
   } catch { admin = []; }
+  const etpAdmin = admin.reduce((t, a) => t + a.etp, 0);
+  let sections = [];
+  try { sections = ratiosParSection(annee, etpAdmin); } catch (e) { console.error('[ratios ETP]', e.message); }
   return {
     inscrits: new Set(lignes.map(l => l.id)).size,
     inscrits_par_section: Object.fromEntries(Object.entries(parSection).map(([s, set]) => [s, set.size])),
-    etp_admin: admin.reduce((t, a) => t + a.etp, 0),
+    etp_admin: etpAdmin,
     admin,
+    periodes_temps_plein: periodesTempsPlein(),
+    sections,
   };
+}
+
+/* LE RATIO PAR SECTION SE CALCULE À ARMES ÉGALES (Charles, 14 octobre 2026 : « Orthoptie et soins de
+ * plaies n'ont aucun sens — soins de plaies, c'est 48 périodes pour 30 étudiants ; l'orthoptie utilise
+ * proportionnellement, pour le tronc commun, les heures d'opto »). Deux corrections :
+ *  1. LES ETP D'UNE UE SE PARTAGENT entre les sections de ses étudiants, au prorata de leurs inscrits —
+ *     le tronc commun optométrie / orthoptie, mais aussi toute UE suivie par plusieurs sections. Une UE
+ *     sans inscrit garde ses ETP dans la section de ses attributions.
+ *  2. L'ÉTUDIANT COMPTE AU PRORATA DES PÉRIODES QU'IL SUIT : un équivalent temps plein étudiant (ETE)
+ *     vaut `ratio.periodes_temps_plein` périodes étudiant (750 par défaut, ≈ 60 crédits), réglable.
+ * La coordination (lignes d'attribution COCUR, COSTA, COTFE… et missions de section payées en ETP) se
+ * lit à part des cours ; l'administration (fonctions d'établissement) se partage au prorata des ETE. */
+const CODES_COORD = ['COSEC', 'COCUR', 'COSTA', 'COTFE', 'CREF', 'COQUAL', 'COINCL', 'COPEDA'];
+function periodesTempsPlein() {
+  try {
+    db.prepare(`INSERT OR IGNORE INTO parametre (cle, valeur, label, section, groupe) VALUES (?,?,?,?,?)`)
+      .run('ratio.periodes_temps_plein', '750', "Périodes étudiant d'un temps plein — ratio étudiants par ETP (≈ 60 crédits)", null, 'couts');
+  } catch { /* */ }
+  return getParamNum('ratio.periodes_temps_plein', 750) || 750;
+}
+function ratiosParSection(annee, etpAdmin) {
+  const ref = periodesTempsPlein();
+  const etpDe = l => (String(l.type_cours || '').toUpperCase() === 'PP' ? (l.per || 0) / 1000 : (l.per || 0) / 800);
+  // Les attributions, comme calculerEtp : toutes organisations, IIP et HELB.
+  const att = db.prepare(`
+    SELECT COALESCE(NULLIF(v.section,''), (SELECT u.section FROM ue u WHERE u.ue_num = v.ue_num AND u.annee_scolaire = v.annee_scolaire LIMIT 1)) AS section,
+      v.ue_num, v.type_cours, v.coordination_encadrement AS ce, v.professeur_id, SUM(v.total_attribue_professeur) AS per
+    FROM v_attribution_complete v WHERE v.annee_scolaire = ?
+    GROUP BY 1, v.ue_num, v.type_cours, v.coordination_encadrement, v.professeur_id`).all(annee);
+  // Les inscriptions, et la section de chaque étudiant DANS CETTE UE : son rattachement si l'UE est de
+  // sa section (tronc commun compris, ue_section), sinon la section de l'UE (le second cursus).
+  const secsUE = new Map();
+  for (const u of db.prepare('SELECT ue_num, section FROM ue WHERE annee_scolaire = ?').all(annee)) (secsUE.get(u.ue_num) || secsUE.set(u.ue_num, new Set()).get(u.ue_num)).add(u.section);
+  try { for (const u of db.prepare('SELECT ue_num, section_code FROM ue_section WHERE annee_scolaire = ?').all(annee)) (secsUE.get(u.ue_num) || secsUE.set(u.ue_num, new Set()).get(u.ue_num)).add(u.section_code); } catch { /* */ }
+  const perUE = new Map(db.prepare('SELECT ue_num, MAX(COALESCE(ue_per_etudiants, 0)) AS p FROM ue WHERE annee_scolaire = ? GROUP BY ue_num').all(annee).map(x => [x.ue_num, x.p]));
+  const ins = db.prepare(`SELECT DISTINCT i.etudiant_id AS id, i.ue_num, e.section_rattachement AS ratt FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+     WHERE i.annee_scolaire = ? AND COALESCE(e.sortie_statut, '') <> 'archive'`).all(annee);
+  const S = {};
+  const sec = s => (S[s] ||= { section: s, ids: new Set(), periodes: 0, etp_cours: 0, etp_coord: 0, etp_cours_attribue: 0 });
+  const inscritsUE = new Map();                       // ue → Map(section → n)
+  for (const x of ins) {
+    const ss = secsUE.get(x.ue_num) || new Set();
+    const s = x.ratt && ss.has(x.ratt) ? x.ratt : ([...ss][0] || x.ratt);
+    if (!s) continue;
+    const o = sec(s); o.ids.add(x.id); o.periodes += perUE.get(x.ue_num) || 0;
+    const m = inscritsUE.get(x.ue_num) || inscritsUE.set(x.ue_num, new Map()).get(x.ue_num);
+    m.set(s, (m.get(s) || 0) + 1);
+  }
+  // Les cours : partagés au prorata des inscrits de l'UE. La coordination : dans sa section.
+  const coursUE = new Map(); const coordAtt = new Set();
+  for (const l of att) {
+    if (!l.section) continue;
+    if (CODES_COORD.includes(String(l.ce || '').toUpperCase())) { sec(l.section).etp_coord += etpDe(l); coordAtt.add(`${l.professeur_id}|${String(l.ce).toUpperCase()}`); continue; }
+    sec(l.section).etp_cours_attribue += etpDe(l);
+    const c = coursUE.get(l.ue_num) || coursUE.set(l.ue_num, { etp: 0, secs: new Map() }).get(l.ue_num);
+    c.etp += etpDe(l); c.secs.set(l.section, (c.secs.get(l.section) || 0) + etpDe(l));
+  }
+  for (const [ue, c] of coursUE) {
+    const m = inscritsUE.get(ue); const n = m ? [...m.values()].reduce((a, b) => a + b, 0) : 0;
+    if (n) for (const [s, k] of m) sec(s).etp_cours += c.etp * k / n;
+    else for (const [s, e] of c.secs) sec(s).etp_cours += e;
+  }
+  // Les missions de section payées en ETP (pas par des lignes d'attribution déjà lues ci-dessus).
+  try {
+    const CODE = [[/cursus/i, 'COCUR'], [/stage/i, 'COSTA'], [/tfe|fin d.[ée]tudes/i, 'COTFE'], [/section/i, 'COSEC'],
+      [/qualit/i, 'COQUAL'], [/inclusi/i, 'COINCL'], [/r[ée]f[ée]rent/i, 'CREF'], [/p[ée]dagog/i, 'COPEDA']];
+    for (const m of db.prepare(`SELECT pm.fonction, pm.section_code, pm.professeur_id, COALESCE(pm.etp, 0) + COALESCE(pm.etp_helb, 0) AS etp
+        FROM personnel_mission pm JOIN fonction_type ft ON ft.libelle = pm.fonction
+        WHERE pm.annee_scolaire = ? AND ft.portee = 'section'`).all(annee)) {
+      if (!m.etp || !m.section_code) continue;
+      const code = CODE.find(([re]) => re.test(m.fonction || ''))?.[1];
+      if (code && coordAtt.has(`${m.professeur_id}|${code}`)) continue;
+      sec(m.section_code).etp_coord += m.etp;
+    }
+  } catch { /* */ }
+  const r3 = x => Math.round(x * 1000) / 1000;
+  const liste = Object.values(S).map(o => ({ section: o.section, inscrits: o.ids.size, periodes: Math.round(o.periodes),
+    ete: r3(o.periodes / ref), etp_cours: r3(o.etp_cours), etp_cours_attribue: r3(o.etp_cours_attribue), etp_coord: r3(o.etp_coord) }));
+  const eteTotal = liste.reduce((t, o) => t + o.ete, 0);
+  for (const o of liste) o.etp_admin = r3(eteTotal ? etpAdmin * o.ete / eteTotal : 0);
+  return liste.filter(o => o.inscrits || o.etp_cours || o.etp_coord).sort((a, b) => a.section.localeCompare(b.section, 'fr'));
 }
 
 // ── CRUD poste_pncc ──────────────────────────────────────────────────────────
