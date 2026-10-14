@@ -987,7 +987,7 @@ const STYLE_DUE = `<style>
   table.doc.crit td, table.doc.crit th { vertical-align: top; font-size: 10pt; }
   table.doc.crit tr { break-inside: avoid; }
   table.doc.crit th .def { font-weight: 400; font-style: italic; font-size: 7pt; color: #4b5563; margin-top: 0.5mm; }
-  .riche p { margin: 0 0 1.5mm; } .riche ul, .riche ol { margin: 0 0 1.5mm; padding-left: 5mm; list-style: disc; }
+  .riche p { margin: 0 0 1.5mm; } .riche ul, .riche ol { margin: 0 0 1.5mm; padding-left: 5mm; list-style: disc; } .riche ul ul { margin: 0.5mm 0; list-style: circle; } .riche ul ul ul { list-style: square; }
   .riche blockquote { border: 0.25mm solid #C9D3E1; border-radius: 1.5mm; padding: 1.5mm 2.5mm; margin: 1.5mm 0; }
   .riche hr { border: 0; border-top: 0.3mm solid #C9A84C; margin: 2mm 0; }
   /* PAS DE TABLEAU DANS UN TABLEAU (Charles, 8 octobre 2026) : un bloc qui porte un
