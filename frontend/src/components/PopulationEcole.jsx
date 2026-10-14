@@ -11,6 +11,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, Cart
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { Anneau, Barres, SERIES } from './graphiques.jsx';
 import { TuileEtat } from './ui.jsx';
+import { saisir, informer } from '../lib/dialogue.jsx';
 
 const k0 = n => Math.round(n || 0).toLocaleString('fr-BE');
 const pc = (k, n) => (n ? `${Math.round((k / n) * 100)} %` : '—');
@@ -29,13 +30,31 @@ export default function PopulationEcole({ annee: anneeProp }) {
   const [d, setD] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [section, setSection] = useState('');   // '' = toute l'école
+  const [tour, setTour] = useState(0);
+
+  /* CORRIGER UN CHIFFRE DE RÉFÉRENCE (14 octobre 2026) : la direction clique une case d'une année
+     de référence ; la valeur d'origine reste en base, la case corrigée s'écrit en italique. */
+  async function corriger(annee, sec, actuel, info) {
+    const v = await saisir({ message: `${NOM_SECTION(sec)} · ${annee} — nombre d'inscrits`
+      + (info?.origine != null ? ` (source : ${info.origine})` : '') + '. Vide : retirer une case ajoutée.',
+      valeur: actuel == null ? '' : String(actuel) });
+    if (v == null) return;
+    const motif = String(v).trim() === String(actuel ?? '') ? null
+      : await saisir({ message: 'Pourquoi ce chiffre change-t-il ? (gardé au journal)' });
+    if (motif == null && String(v).trim() !== String(actuel ?? '')) return;
+    const r = await fetch('/api/pilotage/inscrits-reference', { method: 'PUT', headers: authHeaders(),
+      body: JSON.stringify({ annee, section: sec, total: String(v).trim(), motif }) });
+    const j = await r.json();
+    if (!r.ok) { await informer(j.error || 'Correction refusée.'); return; }
+    setTour(t => t + 1);
+  }
 
   useEffect(() => {
-    setD(null); setErreur(null);
+    setErreur(null);
     fetch(`/api/pilotage/population-ecole?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() })
       .then(async r => { const j = await r.json(); if (!r.ok) throw new Error(j.error); setD(j); })
       .catch(e => setErreur(e.message));
-  }, [annee]);
+  }, [annee, tour]);
 
   if (erreur) return <div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">{erreur}</div>;
   if (!d) return <div className="text-slate-400 py-12 text-center">Chargement…</div>;
@@ -139,9 +158,23 @@ export default function PopulationEcole({ annee: anneeProp }) {
                     <td className="px-2 py-1 text-slate-500" title={(a.notes || []).join(' · ')}>{a.source === 'reference' ? 'référence' : 'Lucie'}{a.notes?.length ? ' *' : ''}</td>
                     <td className="px-2 py-1 text-right tabular-nums font-semibold">{k0(a.total)}</td>
                     <td className="px-2 py-1 text-right tabular-nums">{a.source === 'reference' ? (a.ba1 != null ? k0(a.ba1) : '—') : k0(a.primo)}</td>
-                    {sectionsEvo.map(s => <td key={s} className="px-2 py-1 text-right tabular-nums">{a.par_section[s] ? k0(a.par_section[s]) : '—'}</td>)}
+                    {sectionsEvo.map(s => {
+                      const m = a.modifies?.[s];
+                      const txt = a.par_section[s] != null ? k0(a.par_section[s]) : '—';
+                      const titre = m ? `Corrigé${m.par ? ` par ${m.par}` : ''}${m.le ? ` le ${m.le.slice(0, 10).split('-').reverse().join('/')}` : ''} — ${m.origine != null ? `source : ${m.origine}` : 'absent de la source'}` : undefined;
+                      return (
+                        <td key={s} className={`px-2 py-1 text-right tabular-nums ${m ? 'italic' : ''}`} title={titre}>
+                          {a.source === 'reference' && d.peut_corriger
+                            ? <button type="button" className="hover:underline" onClick={() => corriger(a.annee, s, a.par_section[s], m)}>{txt}</button>
+                            : txt}
+                        </td>);
+                    })}
                   </tr>))}</tbody>
               </table>
+              <p className="text-mention text-slate-400 pt-1">
+                <i>En italique</i> : un chiffre de référence corrigé dans Lucie — la valeur de la source reste au survol et au journal.
+                {d.peut_corriger && ' Un clic sur un chiffre d’une année de référence le corrige.'}
+              </p>
             </div>)}
         </Carte>)}
     </div>);
