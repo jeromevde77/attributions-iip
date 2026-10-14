@@ -1287,7 +1287,7 @@ r.get('/frises', authRequired, (req, res) => {
     return (graphes[sec] = { nodes });
   };
 
-  const sections = {}, etats = {};
+  const sections = {}, etats = {}, secondaires = {};
   const cacheFaits = new Map();
   for (const e of db.prepare('SELECT id FROM etudiant WHERE actif = 1').all()) {
     const sec = sectionRattachement(e.id, annee).section;
@@ -1312,8 +1312,29 @@ r.get('/frises', authRequired, (req, res) => {
       if (st === 'accessible' || st === 'sous_reserve') return 'o';
       return 'n';
     }).join(''), ects: [...inscrites].reduce((t, u) => t + (ectsUE.get(u) || 0), 0) };
+    /* LE SECOND CURSUS (Charles, 14 octobre 2026 : « les opto restent en opto, et ont un second
+       parcours en optique, lié ») : un cursus compatible actif paraît AUSSI dans la liste, sous sa
+       section, avec sa propre frise — même étudiant, même fiche. */
+    for (const sec2 of actifs.filter(x => x !== sec && (!autorisees || autorisees.includes(x)))) {
+      const g2 = graphe(sec2);
+      if (!g2) continue;
+      const aSec2 = new Set(g2.nodes.map(n => n.ue_num));
+      if (![...inscrites].some(u => aSec2.has(u)) && !g2.nodes.some(n => faits.etats.get(n.ue_num)?.statut === 'acquise')) continue;
+      if (!sections[sec2]) {
+        sections[sec2] = g2.nodes.map(n => ({ ue_num: n.ue_num, ue_nom: n.ue_nom, bloc: n.ue_niv || '', ei: !!n.epreuve_integree }));
+      }
+      (secondaires[e.id] ||= {})[sec2] = { s: sec2, c: g2.nodes.map(n => {
+        const u = n.ue_num;
+        const st = faits.etats.get(u)?.statut || 'bloquee';
+        if (st === 'acquise') return faveurs.has(`${e.id}|${u}|${reussiesAn.get(`${e.id}|${u}`)}`) ? 'f' : 'r';
+        if (inscrites.has(u)) return 'i';
+        if (st === 'en_attente') return 'a';
+        if (st === 'accessible' || st === 'sous_reserve') return 'o';
+        return 'n';
+      }).join(''), ects: [...inscrites].filter(u => aSec2.has(u)).reduce((t, u) => t + (ectsUE.get(u) || 0), 0) };
+    }
   }
-  res.json({ annee, sections, etats });
+  res.json({ annee, sections, etats, secondaires });
 });
 
 /* ── Coordonnées d'une sélection ──────────────────────────────────────────
@@ -5350,7 +5371,7 @@ try { db.exec('CREATE INDEX IF NOT EXISTS idx_etudiant_mat_helb ON etudiant(matr
  * à la section choisie, jamais sans section), et les inscrit PAR LA PORTE DU PAE (`ecrireProgramme`,
  * mode « signaler » : ce qui enfreint une règle s'inscrit et se nomme). Simulation d'abord. */
 r.post('/inscrire-liste', authRequired, gesteRequis('etudiants.import'), (req, res) => {
-  const { annee, ues, section_rattachement, creer = false, simulation = true, origine } = req.body || {};
+  const { annee, ues, section_rattachement, creer = false, simulation = true, origine, remplacer_rattachement = false } = req.body || {};
   const lignes = Array.isArray(req.body?.lignes) ? req.body.lignes : [];
   const nums = [...new Set((Array.isArray(ues) ? ues : []).map(Number).filter(Boolean))];
   if (!annee || !lignes.length) return res.status(400).json({ error: 'année et lignes requises' });
@@ -5399,11 +5420,14 @@ r.post('/inscrire-liste', authRequired, gesteRequis('etudiants.import'), (req, r
       } else {
         rapport.retrouves++;
         // On complète sans écraser : la section si elle manque, le registre national s'il manque.
+        const avant = db.prepare('SELECT section_rattachement, rn_norm FROM etudiant WHERE id = ?').get(id);
+        // Rattacher aussi les retrouvés, sur demande expresse : on remet une liste dans SA section.
+        if (section_rattachement && (!avant?.section_rattachement
+          || (remplacer_rattachement && avant.section_rattachement !== section_rattachement))) {
+          rapport.completes++; d.rattachement = `${avant?.section_rattachement || 'aucun'} → ${section_rattachement}`;
+          if (!simulation) db.prepare('UPDATE etudiant SET section_rattachement = ? WHERE id = ?').run(section_rattachement, id);
+        }
         if (!simulation) {
-          const avant = db.prepare('SELECT section_rattachement, rn_norm FROM etudiant WHERE id = ?').get(id);
-          if (section_rattachement && !avant?.section_rattachement) {
-            db.prepare('UPDATE etudiant SET section_rattachement = ? WHERE id = ?').run(section_rattachement, id); rapport.completes++;
-          }
           if (rn && !avant?.rn_norm) db.prepare("UPDATE etudiant SET rn_norm = ?, num_national = COALESCE(NULLIF(num_national, ''), ?) WHERE id = ?").run(rn, rnForme(rn), id);
         }
       }
