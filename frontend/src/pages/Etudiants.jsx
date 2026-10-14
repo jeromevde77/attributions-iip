@@ -3767,7 +3767,10 @@ export default function Etudiants() {
     fetch(`/api/etudiants/frises?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() })
       .then(r => (r.ok ? r.json() : null)).then(j => { if (vivant) setFrises(j); }).catch(() => {});
     return () => { vivant = false; };
-  }, [annee]);
+    /* RELUES AVEC LA LISTE (14 octobre 2026) : après un import qui change des rattachements, la
+       liste se regroupait mais les frises restaient celles d'avant — une frise d'Optique sous
+       Optométrie. Elles suivent désormais chaque rechargement de la liste. */
+  }, [annee, etudiants]);
 
   // Les UE proposées suivent la section et l'année choisies : proposer les
   // quatre-vingts unités de l'établissement ne servirait personne.

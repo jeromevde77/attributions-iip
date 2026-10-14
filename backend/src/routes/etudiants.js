@@ -1331,7 +1331,7 @@ r.get('/frises', authRequired, (req, res) => {
         if (st === 'en_attente') return 'a';
         if (st === 'accessible' || st === 'sous_reserve') return 'o';
         return 'n';
-      }).join(''), ects: [...inscrites].filter(u => aSec2.has(u)).reduce((t, u) => t + (ectsUE.get(u) || 0), 0) };
+      }).join(''), ects: [...inscrites].filter(u => aSec2.has(u)).reduce((t, u) => t + (ectsUE.get(u) || 0), 0) || null };   // le secondaire n'a pas d'ECTS : rien plutôt que « 0 »
     }
   }
   res.json({ annee, sections, etats, secondaires });
