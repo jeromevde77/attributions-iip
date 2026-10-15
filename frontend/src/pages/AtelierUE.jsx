@@ -13,9 +13,9 @@
  * croisement : ceux de la DUE).
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { PastilleEtape } from '../components/graphiques.jsx';
-import { IconPercentage, IconTable, IconFileDescription, IconCheck, IconArrowRight } from '@tabler/icons-react';
-import { api, authHeaders, getAnnee } from '../lib/api.js';
+import { PastilleEtape, LienEtape } from '../components/graphiques.jsx';
+import { IconPercentage, IconTable, IconFileDescription, IconCheck, IconArrowRight, IconLock } from '@tabler/icons-react';
+import { api, authHeaders, getAnnee, getUser } from '../lib/api.js';
 import { Fiche } from './DUE.jsx';
 import { RailLateral } from '../components/ui.jsx';
 import PonderationsUE from './PonderationsUE.jsx';
@@ -73,26 +73,42 @@ function etats(due, liens) {
   return o;
 }
 
+/* LA LIGNE DE PROGRESSION, EN TROIS BOULES (3.1.383, Charles, 15 octobre 2026 : « la ligne de progression en
+   3 parties, comme prévu dans notre mise en page, avec les boules ; bloquer l'étape 2 tant que 1 n'est pas
+   faite »). Les pastilles et le trait de la maison (graphiques.jsx) ; une étape s'ouvre quand celle d'avant
+   est faite — « sans objet » (épreuve intégrée, aucun cours évalué) vaut faite. */
+export const etapeFaite = e => e === 'fait' || e === 'neutre';
+export function verrouDe(k, et) {
+  if (k === 'ponderation' && !etapeFaite(et.croisement?.etat)) return "Terminez d'abord l'étape 1 : chaque cours croisé, chaque acquis servi.";
+  if (k === 'descriptif' && !etapeFaite(et.croisement?.etat)) return "Terminez d'abord l'étape 1 : le croisement.";
+  if (k === 'descriptif' && et.ponderation && !etapeFaite(et.ponderation.etat)) return "Terminez d'abord l'étape 2 : la pondération conforme au croisement.";
+  return null;
+}
+/* LA DIRECTION PASSE (Charles, 15 octobre 2026 : « en tant que directeur, je dois pouvoir sauter les étapes
+   sans pour autant les valider — sinon je ne sais pas voir ce qu'il y a partout »). Le cadenas reste
+   affiché, l'étape s'ouvre quand même ; rien n'est coché pour autant. */
+const passeLesVerrous = () => ['admin', 'directeur', 'directeur_adjoint'].includes(getUser()?.role);
 function Frise({ faces, ouvertes, face, onFace, et }) {
   return (
-    <ol className="m-0 p-0 list-none flex flex-wrap items-stretch gap-2" aria-label="Étapes">
+    <ol className="m-0 p-0 list-none flex items-start w-full max-w-4xl" aria-label="Étapes">
       {faces.map(([k, l, , n], i) => {
-        const e = et[k]?.etat; const actif = face === k; const fait = e === 'fait';
-        // Une étape que cet écran n'ouvre pas reste dans la frise : le circuit se lit en entier.
+        const e = et[k]?.etat; const actif = face === k; const fait = etapeFaite(e);
         const ouverte = ouvertes.includes(k);
+        const verrou = verrouDe(k, et);
+        const libre = ouverte && (!verrou || passeLesVerrous());
         return (
-          <li key={k} className="flex items-center gap-2 min-w-0">
-            <button type="button" onClick={() => onFace(k)} aria-current={actif ? 'step' : undefined} disabled={!ouverte}
-              title={ouverte ? undefined : 'Réglée par la direction ou le secrétariat'}
-              className={`flex items-center gap-2.5 rounded-carte border px-3 py-2 text-left min-w-0 bg-white
-                ${actif ? 'border-iip-blue shadow-pose' : ouverte ? 'border-slate-200 hover:border-slate-400' : 'border-slate-200 opacity-60 cursor-default'}`}>
-              <PastilleEtape n={n} etat={fait ? 'fait' : actif ? 'courant' : 'avenir'} />
-              <span className="min-w-0">
-                <span className={`block text-sm ${actif ? 'font-semibold text-iip-blue' : 'text-slate-700'}`}>{l}</span>
-                <span className="block text-xs text-slate-500 truncate">{et[k]?.detail || (ouverte ? '…' : 'réglée par la direction')}</span>
+          <li key={k} className="flex-1 min-w-0 relative">
+            {i > 0 && <LienEtape fait={etapeFaite(et[faces[i - 1][0]]?.etat)} className="absolute top-[13px] right-1/2 w-full" />}
+            <button type="button" onClick={() => libre && onFace(k)} aria-current={actif ? 'step' : undefined} disabled={!libre}
+              title={!ouverte ? 'Réglée par la direction' : verrou || undefined}
+              className={`relative z-10 w-full flex flex-col items-center text-center px-2 ${libre ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}>
+              <PastilleEtape n={n} etat={fait ? 'fait' : actif ? 'courant' : 'avenir'} choisie={actif} />
+              <span className={`mt-1 text-second ${actif ? 'font-semibold text-iip-blue' : 'text-slate-700'}`}>{l}</span>
+              <span className="text-mention text-slate-500 leading-tight">
+                {verrou && !fait ? <span className="inline-flex items-center gap-1"><IconLock size={11} /> {k === 'descriptif' && etapeFaite(et.croisement?.etat) ? 'après l’étape 2' : 'après l’étape 1'}</span>
+                  : et[k]?.detail || (ouverte ? '…' : 'réglée par la direction')}
               </span>
             </button>
-            {i < faces.length - 1 && <IconArrowRight size={16} className="text-slate-300 flex-none" />}
           </li>);
       })}
     </ol>);
@@ -191,11 +207,16 @@ export default function AtelierUE({ faceInitiale = 'croisement', faces = FACES.m
 
       {railPropre && (
         <RailLateral titre="Unité" sections={[{ items: ouvertes.map(([k, l, I, n]) => (
-          { key: `face-${k}`, label: `${n}. ${l}`, icon: I, actif: face === k, onClick: () => setFace(k) })) }]} />)}
+          { key: `face-${k}`, label: `${n}. ${l}${verrouDe(k, suivi) ? ' (verrouillée)' : ''}`, icon: I, actif: face === k, onClick: () => setFace(k) })) }]} />)}
 
+      {ue && verrouDe(face, suivi) && (
+        <div className="bloc-etat px-3 py-2 text-sm flex items-center gap-2" data-etat="surveiller">
+          <IconLock size={15} /> {verrouDe(face, suivi)}{passeLesVerrous() ? ' Vous la consultez en tant que direction : rien n’est validé pour autant.' : ''}
+          <button type="button" className="bouton ml-auto" onClick={() => setFace('croisement')}>Aller à l'étape 1</button>
+        </div>)}
       {ue && face === 'croisement' && <CroisementUE key={ue} ueNum={ue} onEnregistre={() => lireSuivi(ue)}
         suivante={ouvertes.find(f => f[3] === 2) ? () => setFace('ponderation') : ouvertes.find(f => f[3] === 3) ? () => setFace('descriptif') : null} />}
-      {ue && face === 'ponderation' && faces.includes('ponderation') && <PonderationsUE key={ue} ueFixe={ue} />}
-      {ue && face === 'descriptif' && <Fiche key={ue} ueNum={ue} integree />}
+      {ue && face === 'ponderation' && faces.includes('ponderation') && (!verrouDe('ponderation', suivi) || passeLesVerrous()) && <PonderationsUE key={ue} ueFixe={ue} />}
+      {ue && face === 'descriptif' && (!verrouDe('descriptif', suivi) || passeLesVerrous()) && <Fiche key={ue} ueNum={ue} integree />}
     </div>);
 }

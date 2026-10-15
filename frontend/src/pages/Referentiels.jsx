@@ -1003,7 +1003,9 @@ function UEModal({ ue, sections, onClose, onSaved, navigation = null }) {
               </div>
             </div>)}
           {onglet === 'programme' && (
-            <div className="grid grid-cols-[3fr_2fr] gap-6 items-start">
+            /* LES ACQUIS N'ONT QU'UN ONGLET (Charles, 15 octobre 2026 : « je vois les AA dans AA et dans
+               programme, cela ne va pas ») : le Programme prend toute la largeur. */
+            <div>
               <div className="min-w-0">
                 {/* COURS PAR COURS (15 octobre 2026) : un éditeur par cours, que les DUE reprennent. */}
                 {(() => {
@@ -1031,11 +1033,6 @@ function UEModal({ ue, sections, onClose, onSaved, navigation = null }) {
                     })}
                   </>);
                 })()}
-              </div>
-              <div className="border-l border-slate-200 pl-6 min-w-0">
-                <GroupeFenetre titre="Acquis d'apprentissage encodés">
-                  <AcquisUE ueNum={form.ue_num} annee={ue?.annee_scolaire} estAdmin={isAdmin} />
-                </GroupeFenetre>
               </div>
             </div>)}
           {onglet === 'organisation' && (<div>
