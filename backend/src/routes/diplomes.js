@@ -1349,6 +1349,14 @@ r.post('/pieces', authRequired,
     }
     const { html: modeleSigneSansLogo, pose } = poserSignatures(modele, blocSignatures(sig.liste, jetonsSig), sig.propre);
     const modeleSigne = poserLogos(modeleSigneSansLogo, await logosDe(sec.code));
+    /* LE LOGO DES DEUX ÉCOLES MANQUE (15 octobre 2026, diplômes de TIM) : sans image de co-diplomation
+       importée, le diplôme d'une section co-diplômée sort avec le seul logo de l'IIP — et rien ne le
+       disait. */
+    if (coDiplomee(sec.code)) {
+      let co = ''; try { co = db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'diplome_logo_helb'").get()?.valeur || ''; } catch { /* */ }
+      if (!co) manques.push(`Logo de co-diplomation (IIP + HELB) absent : les diplômes de ${sec.libelle || sec.code} portent le seul logo de l'IIP. `
+        + 'Importez-le dans Configuration → Documents et envois → Pièces officielles → Diplôme.');
+    }
     if (!pose) {
       manques.push(`Signataires de ${sec.libelle || sec.code} : le modèle de diplôme n’a ni `
         + 'emplacement {{signatures}} ni bloc de signatures reconnaissable — la liste réglée '
