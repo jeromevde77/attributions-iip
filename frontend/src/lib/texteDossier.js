@@ -124,3 +124,31 @@ export function rubriquesDuDossier(texte, intitulesCours = []) {
   const brutes = separerDegre(rubriquesDuTexte(texte));
   return Object.fromEntries(Object.entries(brutes).map(([k, v]) => [k, structurerAPlat(v, intitulesCours)]));
 }
+
+/* LE PROGRAMME, COURS PAR COURS (Charles, 15 octobre 2026 : « je veux que tu scindes par cours… ce sera
+ * plus simple, car les DUE vont importer depuis cet endroit »). Le texte reste UN texte (la rubrique
+ * « Programme », un « ### » par cours) ; l'écran le découpe en une introduction commune et un bloc par
+ * cours, et le recompose à chaque frappe. Chaque cours de l'UE a son bloc, même vide ; un intertitre
+ * qui ne nomme aucun cours garde le sien. */
+const normeCours = x => String(x || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+export function decouperProgramme(texte, intitulesCours = []) {
+  const blocs = []; const pre = [];
+  let cur = null;
+  for (const l of String(texte || '').split('\n')) {
+    const m = /^###\s+(.*)$/.exec(l.trim());
+    if (m) { cur = { nom: m[1].trim(), lignes: [] }; blocs.push(cur); continue; }
+    (cur ? cur.lignes : pre).push(l);
+  }
+  const cours = blocs.map(b => ({ nom: b.nom, texte: b.lignes.join('\n').trim() }));
+  // Un intertitre du dossier qui nomme un cours à peu près (« Pratique des écrits » pour « Pratique des
+  // écrits - Psychomotricité ») vaut ce cours : on ne lui ajoute pas un second bloc vide.
+  const proche = (a, b) => { const x = normeCours(a), y = normeCours(b); return x && y && (x === y || x.includes(y) || y.includes(x)); };
+  for (const n of intitulesCours) if (n && !cours.some(c => proche(c.nom, n))) cours.push({ nom: n, texte: '' });
+  return { preambule: pre.join('\n').trim(), cours };
+}
+export function recomposerProgramme(preambule, cours) {
+  const parts = [];
+  if (String(preambule || '').trim()) parts.push(String(preambule).trim());
+  for (const c of cours) if (String(c.texte || '').trim()) parts.push(`### ${c.nom}\n${String(c.texte).trim()}`);
+  return parts.join('\n');
+}

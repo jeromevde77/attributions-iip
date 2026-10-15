@@ -1,5 +1,5 @@
 import EditeurRubrique from '../components/EditeurRubrique.jsx';
-import { rubriquesDuDossier } from '../lib/texteDossier.js';
+import { rubriquesDuDossier, decouperProgramme, recomposerProgramme } from '../lib/texteDossier.js';
 import { MODES_GROUPES } from '../lib/groupes.js';
 import { useEffect, useMemo, useRef, useState, Fragment } from 'react';
 import { estDirection } from '../lib/modules.js';
@@ -696,6 +696,12 @@ function UEModal({ ue, sections, onClose, onSaved, navigation = null }) {
     return rubriquesDuDossier(dossier?.ue_dp_origine || dossier?.ue_dp || '', intitules);
   }, [dossier]);
   const poserRubrique = (k, v) => { setRubriques(r => ({ ...r, [k]: v })); setRubriquesTouchees(t => ({ ...t, [k]: v })); };
+  // Le programme se réécrit À PARTIR DU TEXTE COURANT : l'éditeur d'un cours garde sa première fonction.
+  const poserProgramme = fn => setRubriques(r => {
+    const v = fn(r['Programme'] || '');
+    setRubriquesTouchees(t => ({ ...t, Programme: v }));
+    return { ...r, Programme: v };
+  });
   function toggleSection(code) {
     setSelSections(s => { const n = new Set(s); n.has(code) ? n.delete(code) : n.add(code); return n; });
   }
@@ -971,7 +977,34 @@ function UEModal({ ue, sections, onClose, onSaved, navigation = null }) {
             </div>)}
           {onglet === 'programme' && (
             <div className="grid grid-cols-[3fr_2fr] gap-6 items-start">
-              <div className="min-w-0">{rub('Programme', '4. Programme — par activité d’enseignement')}</div>
+              <div className="min-w-0">
+                {/* COURS PAR COURS (15 octobre 2026) : un éditeur par cours, que les DUE reprennent. */}
+                {(() => {
+                  const noms = cours.map(c => c.cours_nom).filter(Boolean);
+                  const D = decouperProgramme(rubriques['Programme'] || '', noms);
+                  const O = decouperProgramme(origines['Programme'] ?? '', noms);
+                  const ecrire = (quoi, v) => poserProgramme(t => {
+                    const d = decouperProgramme(t, noms);
+                    return quoi === null ? recomposerProgramme(v, d.cours)
+                      : recomposerProgramme(d.preambule, d.cours.map(x => (x.nom === quoi ? { ...x, texte: v } : x)));
+                  });
+                  const origineDe = nom => (origines['Programme'] == null ? null : (O.cours.find(c => c.nom === nom)?.texte ?? ''));
+                  const infoCours = nom => cours.find(c => String(c.cours_nom || '').trim() === nom);
+                  return (<>
+                    <div className="intertitre mb-2">4. Programme — par activité d’enseignement</div>
+                    <EditeurRubrique key="prog-intro" titre="Introduction commune à tous les cours" texte={D.preambule}
+                      origine={origines['Programme'] == null ? null : O.preambule} lecture={!isAdmin}
+                      onChange={v => ecrire(null, v)} />
+                    {D.cours.map(c => {
+                      const ic = infoCours(c.nom);
+                      return (
+                        <EditeurRubrique key={`prog-${c.nom}`} texte={c.texte} origine={origineDe(c.nom)} lecture={!isAdmin}
+                          titre={`${c.nom}${ic ? ` · ${ic.ct_pp || ''} ${ic.cours_per ? `${ic.cours_per} p.` : ''}` : ' · intertitre du dossier'}`}
+                          onChange={v => ecrire(c.nom, v)} />);
+                    })}
+                  </>);
+                })()}
+              </div>
               <div className="border-l border-slate-200 pl-6 min-w-0">
                 <GroupeFenetre titre="Acquis d'apprentissage encodés">
                   <AcquisUE ueNum={form.ue_num} annee={ue?.annee_scolaire} estAdmin={isAdmin} />
