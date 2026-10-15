@@ -13,6 +13,45 @@ import { passeRole } from '../lib/droits.js';
 
 const ECRIT = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat', 'coordination'];
 
+/* LE JURY (3.1.378) : promoteur, copromoteur, lecteur, auditeur, président. Un nom importé que Lucie n'a
+   pas reconnu reste en texte, en ocre, avec la liste pour le rattacher à une personne du personnel. */
+const ROLES = [['promoteur', 'Promoteur'], ['copromoteur', 'Copromoteur'], ['lecteur', 'Lecteur'], ['auditeur', 'Auditeur'], ['president', 'Président du jury']];
+function Jury({ membres, profs, peutEcrire, onChange }) {
+  const [ajout, setAjout] = useState('');
+  const poser = liste => onChange(liste.map(m => ({ role: m.role, professeur_id: m.professeur_id || null, nom_libre: m.professeur_id ? null : m.nom_libre })));
+  const nomProf = p => `${String(p.nom || '').toUpperCase()} ${p.prenom || ''}`.trim();
+  return (
+    <div>
+      <div className="text-second text-slate-600 mb-1">Jury</div>
+      <div className="space-y-1.5">
+        {ROLES.map(([role, libelle]) => membres.map((m, i) => ({ m, i })).filter(x => x.m.role === role).map(({ m, i }) => (
+          <div key={i} className="flex items-center gap-2 text-sm">
+            <span className="w-36 shrink-0 text-slate-500">{libelle}</span>
+            {m.nom_libre && !m.professeur_id && <span className="text-mention px-2 py-0.5 rounded-pastille text-white" style={{ background: 'var(--c-attente)' }} title="Nom importé, non reconnu dans le personnel">« {m.nom_libre} »</span>}
+            <select className="controle flex-1 min-w-0" value={m.professeur_id || ''} disabled={!peutEcrire}
+              onChange={e => poser(membres.map((x, j) => (j === i ? { ...x, professeur_id: e.target.value ? Number(e.target.value) : null } : x)))}>
+              <option value="">{m.nom_libre ? '— rattacher à… —' : '— choisir —'}</option>
+              {profs.map(p => <option key={p.id} value={p.id}>{nomProf(p)}</option>)}
+            </select>
+            {peutEcrire && <button type="button" className="bouton" title="Retirer" onClick={() => poser(membres.filter((_, j) => j !== i))}><IconTrash size={14} /></button>}
+          </div>)))}
+        {!membres.length && <div className="text-second text-slate-400">Aucun membre encodé.</div>}
+        {peutEcrire && (
+          <div className="flex items-center gap-2">
+            <select className="controle" value={ajout} onChange={e => setAjout(e.target.value)}>
+              <option value="">+ ajouter au jury…</option>
+              {ROLES.map(([r, l]) => <option key={r} value={r}>{l}</option>)}
+            </select>
+            {ajout && (
+              <select className="controle flex-1 min-w-0" value="" onChange={e => { if (!e.target.value) return; poser([...membres, { role: ajout, professeur_id: Number(e.target.value) }]); setAjout(''); }}>
+                <option value="">— choisir la personne —</option>
+                {profs.map(p => <option key={p.id} value={p.id}>{nomProf(p)}</option>)}
+              </select>)}
+          </div>)}
+      </div>
+    </div>);
+}
+
 function Ligne({ t, profs, peutEcrire, onEnregistre, onSupprime }) {
   const [v, setV] = useState(t);
   useEffect(() => setV(t), [t]);
@@ -45,22 +84,19 @@ function Ligne({ t, profs, peutEcrire, onEnregistre, onSupprime }) {
           <ChoixUnite value={v.ue_num || ''} annee={v.annee_scolaire} disabled={!peutEcrire} className="w-full mt-1" vide="— aucune unité —"
             onChange={n => { setV(x => ({ ...x, ue_num: n })); onEnregistre(t.id, { ue_num: n }); }} />
         </label>
-        <label className="text-second text-slate-600">Promoteur
-          <select className="controle w-full mt-1" value={v.promoteur_id || ''} disabled={!peutEcrire}
-            onChange={e => { const n = e.target.value ? Number(e.target.value) : null; setV(x => ({ ...x, promoteur_id: n })); onEnregistre(t.id, { promoteur_id: n }); }}>
-            <option value="">— à désigner —</option>
-            {profs.map(p => <option key={p.id} value={p.id}>{String(p.nom || '').toUpperCase()} {p.prenom || ''}</option>)}
-          </select>
-        </label>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-3 gap-2 sm:col-span-2">
           <label className="text-second text-slate-600">Dépôt
             <input type="date" className="controle w-full mt-1" {...champ('date_depot')} onChange={e => { setV(x => ({ ...x, date_depot: e.target.value })); garder('date_depot', e.target.value); }} />
           </label>
           <label className="text-second text-slate-600">Défense
             <input type="date" className="controle w-full mt-1" {...champ('date_defense')} onChange={e => { setV(x => ({ ...x, date_defense: e.target.value })); garder('date_defense', e.target.value); }} />
           </label>
+          <label className="text-second text-slate-600">Heure
+            <input className="controle w-full mt-1" placeholder="9h30" {...champ('heure_defense')} />
+          </label>
         </div>
       </div>
+      <Jury membres={t.membres || []} profs={profs} peutEcrire={peutEcrire} onChange={m => onEnregistre(t.id, { membres: m })} />
       <label className="block text-second text-slate-600">Remarques
         <textarea rows={2} className="controle w-full mt-1 h-auto py-2 text-sm" {...champ('remarques')} />
       </label>
