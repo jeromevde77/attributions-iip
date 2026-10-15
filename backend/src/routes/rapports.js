@@ -25,7 +25,7 @@ import { decisionDeSession, structureUE } from './acquis.js';
 import { calculerEtp } from './pilotage.js';
 import { MOTIFS_DI } from './droitInscription.js';
 import { donneesChiffresCles, donneesPersonnel, TRANCHES_ETP } from '../lib/chiffresCles.js';
-import { donneesCout, syntheseCout } from '../lib/coutFormation.js';
+import { financesFormations, donneesCout, syntheseCout } from '../lib/coutFormation.js';
 import { getParamNum } from './parametres.js';
 import { TITRES_ACCES, DIPLOMES_MAX } from '../lib/profilEtudiant.js';
 import { couleurs } from '../lib/couleurs.js';
@@ -2474,6 +2474,15 @@ r.get('/catalogue', authRequired, (req, res) => {
    être une feuille mise en page mais un outil… avec ensuite un print ou envoi »).
    Les données de la pièce, en JSON, pour la feuille de Pilotage — sans les noms
    des membres du personnel (les fonctions se lisent regroupées). */
+// CE QUE COÛTE ET RAPPORTE CHAQUE FORMATION (3.1.385) : salarial, véritable (fonds propres + budget), recettes.
+r.get('/cout-formations/finances', authRequired, (req, res) => {
+  try {
+    const annee = String(req.query.annee || anneeDeTravail(req));
+    const civile = Number(req.query.civile) || Number(String(annee).slice(0, 4));
+    res.json(financesFormations(annee, civile));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 r.get('/cout-formations/donnees', authRequired, (req, res) => {
   try {
     const annee = String(req.query.annee || anneeDeTravail(req));

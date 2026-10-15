@@ -76,10 +76,12 @@ export function donneesCout(annee) {
            CASE WHEN v.statut_mdp IN ('CC', 'EXP') THEN v.statut_mdp ELSE 'AUTRE' END AS statut,
            COALESCE((SELECT CASE WHEN upper(p.sexe) IN ('F', 'M', 'X') THEN upper(p.sexe) END
              FROM professeur p WHERE p.id = v.professeur_id), 'NR') AS sexe,
+           -- PAYÉE SUR FONDS PROPRES (3.1.385) : l'école paie ; sinon la FWB.
+           COALESCE((SELECT a.fonds_propres FROM attribution a WHERE a.id = v.id), 0) AS fp,
            SUM(v.total_attribue_professeur) AS periodes
       FROM v_attribution_complete v
      WHERE v.annee_scolaire = ? AND COALESCE(v.en_conge, 0) = 0 AND COALESCE(v.total_attribue_professeur, 0) > 0
-     GROUP BY v.section, v.ue_num, v.niveau, v.contrat_mdp, type, type_deduit, statut, sexe`).all(annee);
+     GROUP BY v.section, v.ue_num, v.niveau, v.contrat_mdp, type, type_deduit, statut, sexe, fp`).all(annee);
   /* UNE UNITÉ PARTAGÉE SE RÉPARTIT ENTRE SES SECTIONS AU PRORATA DE LEURS
      ÉTUDIANTS (Charles, 7 octobre 2026 : « comment distingues-tu opto d'ortho ?
      par étudiant ? »). Les attributions du tronc commun portent toutes la
@@ -143,10 +145,11 @@ export function donneesCout(annee) {
     N.cout_detaille += cout;
     const sec = l.section || '(sans section)';
     const S = parSection.get(sec) || { section: sec, per_ct: 0, per_pp: 0, cout_ct: 0, cout_pp: 0, cout: 0,
-      cout_iip: 0, cout_helb: 0, periodes: 0, ues: new Map(), statuts: nouveauxStatuts(), sexes: nouveauxSexes() };
+      cout_iip: 0, cout_helb: 0, cout_fp: 0, periodes: 0, ues: new Map(), statuts: nouveauxStatuts(), sexes: nouveauxSexes() };
     const k = type === 'PP' ? 'pp' : 'ct';
     S['per_' + k] += l.periodes; S['cout_' + k] += cout; S.cout += cout; S.periodes += l.periodes;
     if (l.contrat === 'HELB') S.cout_helb += cout; else S.cout_iip += cout;
+    if (l.fp) S.cout_fp += cout;
     const U = S.ues.get(l.ue_num) || { ue_num: l.ue_num, ue_nom: l.ue_nom, niveau: niv, periodes: 0, cout: 0, part: l.part || null, etudiants_part: l.etudiants_part || null,
       per_ct: 0, per_pp: 0, cout_ct: 0, cout_pp: 0, tarif_ct: niv ? T[niv].CT : 0, tarif_pp: niv ? T[niv].PP : 0,
       statuts: nouveauxStatuts(), sexes: nouveauxSexes() };
@@ -487,4 +490,63 @@ export function coutMoyenBrut(d) {
   return { lignes, sans_niveau: sansNiveau, a_regler: lignes.filter(l => !l.taux).map(l => l.libelle),
     total: { periodes: lignes.reduce((a, l) => a + l.periodes, 0), montant: somme('montant'),
       montant_iip: somme('montant_iip'), montant_helb: somme('montant_helb'), cout_detaille: somme('cout_detaille') } };
+}
+
+/* CE QUE COÛTE ET RAPPORTE CHAQUE FORMATION (3.1.385, Charles, 15 octobre 2026 : « distinguer le coût
+ * salarial et le coût véritable avec les budgets, et ce que la formation rapporte — les salaires, sauf
+ * ceux payés sur fonds propres, sont payés par la FWB et ne nous coûtent pas »).
+ *  - COÛT SALARIAL : les périodes au barème (le coût des cours de donneesCout), dont FWB, HELB et fonds
+ *    propres (case sur l'attribution).
+ *  - COÛT VÉRITABLE : ce que l'école paie — les lignes sur fonds propres, plus le budget de la section :
+ *    le PRÉVISIONNEL (lignes de charges non refusées de l'année civile) et le RÉALISÉ (dépenses encodées).
+ *    Les lignes des services (Direction, Secrétariat, « À répartir »…) se partagent entre les sections au
+ *    prorata des inscrits, et se lisent à part.
+ *  - CE QUE LA FORMATION RAPPORTE : DI et frais administratifs dus (le DIS repart à la FWB), plus les
+ *    lignes « Produit » du budget. */
+export function financesFormations(annee, anneeCivile) {
+  const d = donneesCout(annee);
+  const secs = d.sections.filter(S => S.section && S.section !== '(sans section)');
+  const codes = new Set(secs.map(S => S.section));
+  let lignes = [], depenses = [];
+  try {
+    lignes = db.prepare(`SELECT l.section, COALESCE(c.bilan, 'Charge') AS bilan, l.prix_unitaire * l.quantite AS htva
+      FROM budget_ligne l LEFT JOIN budget_compte c ON c.reference = l.compte_ref
+      WHERE l.annee_civile = ? AND l.statut <> 'refuse'`).all(anneeCivile);
+    depenses = db.prepare('SELECT section, montant_htva AS htva FROM budget_depense WHERE annee_civile = ?').all(anneeCivile);
+  } catch { /* budget absent */ }
+  const par = () => ({ charges: 0, produits: 0, realise: 0 });
+  const propre = new Map(), communs = new Map();
+  for (const l of lignes) {
+    const m = codes.has(l.section) ? propre : communs;
+    const x = m.get(l.section) || par(); m.set(l.section, x);
+    if (/produit/i.test(l.bilan)) x.produits += l.htva || 0; else x.charges += l.htva || 0;
+  }
+  for (const l of depenses) {
+    const m = codes.has(l.section) ? propre : communs;
+    const x = m.get(l.section) || par(); m.set(l.section, x); x.realise += l.htva || 0;
+  }
+  const tc = [...communs.values()].reduce((t, x) => ({ charges: t.charges + x.charges, produits: t.produits + x.produits, realise: t.realise + x.realise }), par());
+  const base = secs.reduce((t, S) => t + (S.inscrits || 0), 0);
+  const out = secs.map(S => {
+    const q = base ? (S.inscrits || 0) / base : 0;
+    const p = propre.get(S.section) || par();
+    const R = S.recettes || {};
+    const fp = S.cout_fp || 0, helb = S.cout_helb || 0;
+    const r = {
+      section: S.section, inscrits: S.inscrits || 0,
+      cout_salarial: S.cout || 0, cout_fwb: Math.max(0, (S.cout || 0) - fp - helb), cout_helb: helb, cout_fp: fp,
+      budget_charges: p.charges, communs_charges: tc.charges * q, budget_produits: p.produits, communs_produits: tc.produits * q,
+      realise: p.realise, communs_realise: tc.realise * q,
+      di_frais: (R.di || 0) + (R.frais || 0), verse: R.verse || 0,
+    };
+    r.cout_veritable_prevu = r.cout_fp + r.budget_charges + r.communs_charges;
+    r.cout_veritable_realise = r.cout_fp + r.realise + r.communs_realise;
+    r.rapporte = r.di_frais + r.budget_produits + r.communs_produits;
+    r.solde_prevu = r.rapporte - r.cout_veritable_prevu;
+    r.solde_realise = r.rapporte - r.cout_veritable_realise;
+    return r;
+  }).sort((a, b) => a.section.localeCompare(b.section, 'fr'));
+  const total = Object.fromEntries(Object.keys(out[0] || {}).filter(k => k !== 'section').map(k => [k, out.reduce((t, r) => t + (r[k] || 0), 0)]));
+  return { annee, annee_civile: anneeCivile, sections: out, total,
+    communs: [...communs.entries()].map(([service, x]) => ({ service, ...x })).sort((a, b) => b.charges - a.charges) };
 }
