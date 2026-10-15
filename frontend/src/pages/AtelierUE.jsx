@@ -44,8 +44,12 @@ function etats(due, liens) {
       : coursCroises === cours.length && (due.acquis || []).every(a => aaCroises.has(a.aa_code))
         ? { etat: 'fait', detail: `${cours.length} cours, tous les acquis` }
         : { etat: 'en_cours', detail: `${coursCroises} / ${cours.length} cours · ${aaCroises.size} / ${(due.acquis || []).length} acquis` };
-    o.descriptif = due.statut === 'validee' ? { etat: 'fait', detail: `validé${due.valide_le ? ` le ${due.valide_le}` : ''}` }
-      : Object.keys(due.contenu || {}).length ? { etat: 'en_cours', detail: 'en préparation' } : { etat: 'a_faire', detail: 'pas commencé' };
+    // Le circuit de la DUE (rédaction, soumission, validation) se lit ICI : la fiche n'affiche plus sa frise.
+    const circuit = Object.fromEntries((due.etapes || []).map(e => [e.cle, e]));
+    o.descriptif = due.statut === 'validee' ? { etat: 'fait', detail: circuit.validation?.detail || 'validée' }
+      : due.soumis_le ? { etat: 'en_cours', detail: `${circuit.redaction?.detail || 'soumise'} — à valider par la direction` }
+        : Object.keys(due.contenu || {}).length ? { etat: 'en_cours', detail: 'en rédaction' } : { etat: 'a_faire', detail: 'pas commencée' };
+    o.ponderation_fixee = circuit.ponderations?.etat === 'fait' ? circuit.ponderations.detail : null;
   }
   /* LA PONDÉRATION DÉCOULE DU CROISEMENT : elle est faite quand les poids
      enregistrés sont ceux que donnent les croix, cours par cours — et non quand
@@ -67,7 +71,7 @@ function etats(due, liens) {
     o.ponderation = liens.epreuve_integree ? { etat: 'neutre', detail: 'épreuve intégrée : au tracé' }
       : !ev.length ? { etat: 'neutre', detail: 'aucun cours évalué' }
         : o.croisement?.etat === 'a_faire' ? { etat: 'a_faire', detail: 'attend le croisement (étape 1)' }
-          : ok === ev.length ? { etat: 'fait', detail: `${ev.length} cours, conformes au croisement` }
+          : ok === ev.length ? { etat: 'fait', detail: o.ponderation_fixee ? `conforme · ${o.ponderation_fixee}` : `${ev.length} cours conformes — à fixer par la direction` }
             : { etat: ok ? 'en_cours' : 'a_faire', detail: `${ok} / ${ev.length} cours conformes au croisement` };
   }
   return o;

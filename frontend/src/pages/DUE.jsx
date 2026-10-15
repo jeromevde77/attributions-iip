@@ -765,7 +765,9 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
             UE {u.ue_num} — {u.ue_nom}
           </h2>
           </>}
-          {d.etapes && <div className="my-2 max-w-xl"><FriseEtapes etapes={d.etapes} /></div>}
+          {/* UNE SEULE FRISE (Charles, 15 octobre 2026 : « c'est en double ») : dans l'atelier de l'UE, son
+              circuit (rédaction, pondérations, validation) se lit dans la frise de l'atelier. */}
+          {d.etapes && !integree && <div className="my-2 max-w-xl"><FriseEtapes etapes={d.etapes} /></div>}
           <div className="flex items-center gap-2 mt-1">
             <span className={`text-xs px-2 py-0.5 rounded-champ font-semibold ${
               d.statut === 'validee'
