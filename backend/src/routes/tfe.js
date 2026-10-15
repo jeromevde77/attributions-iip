@@ -90,7 +90,8 @@ r.get('/etudiant/:id', authRequired, (req, res) => {
   if (!permis(req, etudId)) return res.status(404).json({ error: 'Étudiant introuvable' });
   const liste = db.prepare(`
     SELECT t.*,
-      (SELECT ue_nom FROM ue u WHERE u.ue_num = t.ue_num ORDER BY (u.annee_scolaire = t.annee_scolaire) DESC, u.annee_scolaire DESC LIMIT 1) AS ue_nom,
+      /* Le serveur refuse l'alias extérieur dans le ORDER BY d'une sous-requête (15 octobre 2026 : l'onglet restait vide). */
+      (SELECT ue_nom FROM ue u WHERE u.ue_num = t.ue_num ORDER BY u.annee_scolaire DESC LIMIT 1) AS ue_nom,
       (SELECT UPPER(p.nom) || ' ' || COALESCE(p.prenom, '') FROM professeur p WHERE p.id = t.promoteur_id) AS promoteur
     FROM tfe t WHERE t.etudiant_id = ? ORDER BY t.annee_scolaire DESC, t.id DESC`).all(etudId);
   for (const t of liste) t.membres = membresDe.all(t.id);
@@ -243,7 +244,8 @@ r.post('/import', authRequired, roleRequired('admin', 'directeur', 'directeur_ad
       const rolesNouveaux = new Set(membres.map(m => m.role));
       const fusion = [...deja.filter(m => !rolesNouveaux.has(m.role)), ...membres];
       const change = (titre && titre !== ex.titre) || (propre(l.date_defense) && propre(l.date_defense) !== ex.date_defense)
-        || (propre(l.heure) && propre(l.heure) !== ex.heure_defense) || membres.length;
+        || (propre(l.heure) && propre(l.heure) !== ex.heure_defense)
+        || membres.some(m => !deja.some(x => x.role === m.role && (m.professeur_id ? x.professeur_id === m.professeur_id : x.nom_libre === m.nom_libre)));
       if (!change) { rapport.inchanges++; rapport.details.push({ ...d, action: 'inchangé' }); return; }
       rapport.completes++; rapport.details.push({ ...d, action: 'complété' });
       if (simulation) return;
