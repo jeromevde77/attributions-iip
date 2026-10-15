@@ -34,11 +34,16 @@ const nouvelId = () => `ch-${++numeroPiece}`;
 
 /** La liste des pièces à partir des acquis : un chapeau devant le premier
  *  acquis de chaque groupe, une ligne par paragraphe. */
-function versPieces(acquis) {
+/* LA PHRASE DE L'UNITÉ N'EST PAS UN CHAPEAU (Charles, 15 octobre 2026 : « doublé ») : l'import l'avait
+   aussi posée en chapeau du premier acquis ; elle ne s'affiche qu'une fois, en tête. */
+const memeTexte = (a, b) => String(a || '').replace(/[’']/g, "'").replace(/\s+/g, ' ').trim().toLowerCase()
+  === String(b || '').replace(/[’']/g, "'").replace(/\s+/g, ' ').trim().toLowerCase();
+function versPieces(acquis, intro = '') {
   const pieces = [];
   for (const a of acquis) {
     if (a.chapeau) {
       for (const l of String(a.chapeau).split('\n').map(x => x.trim()).filter(Boolean)) {
+        if (memeTexte(l, intro) || /^pour atteindre le seuil de r[ée]ussite/i.test(l)) continue;
         pieces.push({ type: 'chapeau', id: nouvelId(), texte: l });
       }
     }
@@ -92,7 +97,7 @@ export default function AcquisUE({ ueNum, annee, estAdmin }) {
       if (!rep.ok) throw new Error('chargement impossible');
       const j = await rep.json();
       setData(j);
-      setPieces(versPieces(j.acquis));
+      setPieces(versPieces(j.acquis, j.introduction));
       setIntro(j.introduction || '');
       setModifie(false);
     } catch (e) { setErreur(e.message); }
