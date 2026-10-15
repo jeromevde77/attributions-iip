@@ -135,6 +135,17 @@ function epreuveIntegreeDe(unites) {
  * s'étale sur plusieurs millésimes, et l'étudiant qui a fini cette année a
  * réussi le gros de ses unités les années précédentes.
  */
+/* LES ECTS D'UNE SECTION (15 octobre 2026, diplômes de TIM à 192 crédits) : on additionnait le MAXIMUM
+   de chaque UE sur toutes les années — or les UE 256 et 263 ont échangé leurs crédits (20 et 8, puis 8 et
+   20) : 20 + 20. Chaque UE compte désormais les crédits de son millésime le plus récent ; et le diplôme
+   préfère le total de la fiche de section, qui est le chiffre approuvé. */
+function ectsDesUnites(ues) {
+  if (!ues?.length) return null;
+  return db.prepare(`SELECT SUM(n) AS t FROM (SELECT u.ue_num, (SELECT x.ects FROM ue x WHERE x.ue_num = u.ue_num AND x.ects IS NOT NULL
+      ORDER BY x.annee_scolaire DESC LIMIT 1) AS n FROM (SELECT DISTINCT ue_num FROM ue WHERE ue_num IN (${ues.map(() => '?').join(',')})) u)`)
+    .get(...ues)?.t || null;
+}
+
 /* LES DONNÉES DE SECTION DU DIPLÔME — UNE FONCTION, DEUX LECTEURS (le diplôme
  * produit et l'aperçu de l'éditeur). Elles vivaient à deux endroits : la table
  * des sections (où le « grade » ne dit que « Bachelier ») et Configuration →
@@ -201,9 +212,9 @@ r.get('/candidats', authRequired, (req, res) => {
     ORDER BY e.nom, e.prenom
   `).all(...requises);
 
-  const ects = Object.fromEntries(db.prepare(
-    `SELECT ue_num, MAX(ects) AS n FROM ue WHERE ue_num IN (${marques}) GROUP BY ue_num`)
-    .all(...requises).map(x => [x.ue_num, Number(x.n) || 0]));
+  // Les crédits de chaque UE : ceux de son millésime le plus récent, jamais le maximum (voir ectsDesUnites).
+  const ects = Object.fromEntries(requises.map(u => [u, Number(db.prepare(
+    'SELECT ects FROM ue WHERE ue_num = ? AND ects IS NOT NULL ORDER BY annee_scolaire DESC LIMIT 1').get(u)?.ects) || 0]));
 
   const reussiesDe = db.prepare(`
     SELECT DISTINCT ue_num, MAX(annee_scolaire) AS derniere
@@ -1297,10 +1308,7 @@ r.post('/pieces', authRequired,
 
   if (veut.includes('diplome')) {
     const modele = await modeleDiplome();
-    const ectsTotal = dossier.requises.length
-      ? db.prepare(`SELECT SUM(n) AS t FROM (SELECT ue_num, MAX(ects) AS n FROM ue
-          WHERE ue_num IN (${dossier.requises.map(() => '?').join(',')})
-          GROUP BY ue_num)`).get(...dossier.requises)?.t : null;
+    const ectsTotal = ectsDesUnites(dossier.requises);
 
     const sig = await signatairesDe(sec.code);
     const ds = donneesSectionDiplome(sec.code);
@@ -1372,7 +1380,7 @@ r.post('/pieces', authRequired,
         intitule_section: ds.intitule_section, code_section: ds.code_section,
         domaine: ds.domaine, grade_academique: ds.grade_academique,
         type_enseignement: ds.type_enseignement,
-        total_ects: ectsTotal || ds.total_ects, duree_annees: ds.duree_annees,
+        total_ects: ds.total_ects || ectsTotal, duree_annees: ds.duree_annees,
         date_deliberation: dateLongue(dateDelib),
         ville_etab: ident.ville, directeur: ident.directeur,
         president_jury: jetonsSig.president_jury,
@@ -1400,8 +1408,7 @@ r.post('/pieces', authRequired,
       .filter(x => x.nom && x.nom !== ident.directeur)
       .map(x => ({ ...x, qualite: x.qualite.charAt(0).toLocaleLowerCase('fr') + x.qualite.slice(1) }));
     // Les ECTS : la fiche, à défaut la somme des unités de la section — le calcul du diplôme.
-    const ectsP = dossier.requises.length ? db.prepare(`SELECT SUM(n) AS t FROM (SELECT ue_num, MAX(ects) AS n FROM ue
-        WHERE ue_num IN (${dossier.requises.map(() => '?').join(',')}) GROUP BY ue_num)`).get(...dossier.requises)?.t : null;
+    const ectsP = ectsDesUnites(dossier.requises);
     ctx.ds = { ...dsP, total_ects: dsP.total_ects || ectsP || '' };
     if (!dsP.total_periodes) manques.push(`Attestation provisoire : le nombre de périodes de ${sec.libelle || sec.code} manque à la fiche de section (Configuration → Attestation → Sections & diplômes).`);
     if (!dsP.code_section) manques.push(`Attestation provisoire : le code de la section ${sec.libelle || sec.code} manque.`);
