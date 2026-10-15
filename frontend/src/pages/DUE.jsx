@@ -43,14 +43,14 @@ const EPREUVES = [['ecrit', 'Écrit'], ['oral', 'Oral'], ['pratique', 'Pratique'
 
 // ── Briques d'écriture ───────────────────────────────────────────────────────
 
+/* UN INTERTITRE ET UN FILET (3.1.387, Charles, 15 octobre 2026 : « trop de cadres, je me perds » ; et le
+   bandeau marine cachait son titre — `.intertitre` impose sa couleur, marine sur marine). */
 function Bloc({ titre, aide, children }) {
   return (
-    <section className="mb-4">
-      <div className="intertitre px-3 py-1.5 bg-iip-blue text-white rounded-t-lg">{titre}</div>
-      <div className="border border-t-0 border-slate-200 rounded-b-lg p-3 bg-white">
-        {aide && <p className="text-xs text-slate-500 mb-2">{aide}</p>}
-        {children}
-      </div>
+    <section className="my-6">
+      <div className="intertitre pb-1 mb-2 border-b border-slate-200">{titre}</div>
+      {aide && <p className="text-xs text-slate-500 mb-2">{aide}</p>}
+      {children}
     </section>
   );
 }
@@ -352,9 +352,10 @@ function ProgrammeParCours({ blocs, cours, lecture, onChange }) {
   const bloc = (k, titre) => {
     if (lecture && !String(blocs[k] || '').replace(/<[^>]+>/g, '').trim()) return null;
     return (
-      <div key={k || '_'} className="rounded-lg border border-slate-200 overflow-hidden">
-        <div className="px-3 py-1.5 tab-entete text-second font-semibold">{titre}</div>
-        <div className={lecture ? 'px-3 py-2' : ''}>
+      <div key={k || '_'}>
+        {/* Un titre de cours, pas un cadre de plus (3.1.387). Le seul cadre est celui du champ où l'on écrit. */}
+        <div className="text-sm font-semibold text-iip-blue mb-1">{titre}</div>
+        <div>
           {lecture ? <div className="texte-due" dangerouslySetInnerHTML={{ __html: blocs[k] }} />
             : <EditeurDUE valeur={blocs[k] || ''} onChange={v => poser(k, v)} />}
         </div>
@@ -542,39 +543,41 @@ function GrilleCriteres({ d, c, lecture, ueNum, onGrille, onMode }) {
           poser(t.cle, n);
         };
         return (
-          <div key={t.cle} className="border border-slate-200 rounded-carte overflow-x-auto">
-            <div className="tab-entete px-3 py-1.5 text-second font-semibold text-slate-700">{t.titre}</div>
+          <div key={t.cle} className="overflow-x-auto">
+            {/* L'ACQUIS SUR TOUTE LA LARGEUR (3.1.387, Charles : « mets l'AA sur la largeur totale au-dessus, sinon
+                pas clair ») : une ligne d'acquis — code, énoncé, contexte en petit —, ses critères dessous. */}
+            <div className="text-sm font-semibold text-iip-blue mt-4 mb-1">{t.titre}</div>
             <table className="w-full text-second">
-              <thead className="tab-entete"><tr className="text-left text-xs text-slate-500">
-                <th className="px-2 py-1 w-[14%] align-top">Contexte (chapeau)</th>
-                <th className="px-2 py-1 w-[16%] align-top">Acquis d’apprentissage</th>
-                {COLONNES_CRIT.map(([k, l, def]) => <th key={k} className="px-2 py-1 align-top">{l}
+              <thead><tr className="text-left text-xs text-slate-500 border-b border-slate-200">
+                {COLONNES_CRIT.map(([k, l, def]) => <th key={k} className={`px-2 py-1 align-top ${k === 'point' ? 'w-1/2' : ''}`}>{l}
                   {def && <div className="font-normal italic normal-case text-mention text-slate-500 leading-snug">{def}</div>}</th>)}
-                {!lecture && <th className="w-8" />}
+                {!lecture && <th className="w-10" />}
               </tr></thead>
               <tbody>
                 {!lignes.length && (
-                  <tr><td colSpan={5} className="px-2 py-2 text-slate-400">Aucune ligne. {!lecture && 'Ajoutez un acquis ci-dessous, ou tous d’un coup.'}</td></tr>
+                  <tr><td colSpan={3} className="px-2 py-2 text-slate-400">Aucune ligne. {!lecture && 'Ajoutez un acquis ci-dessous, ou tous d’un coup.'}</td></tr>
                 )}
                 {lignes.map((l, i) => {
                   const premier = i === 0 || lignes[i - 1].aa_code !== l.aa_code;
-                  return (
-                    <tr key={i} className={`bg-white align-top ${premier ? 'border-t border-slate-200' : ''}`}>
-                      <td className="px-2 py-1 text-slate-600 whitespace-pre-line">{premier ? contexte[l.aa_code] || '' : ''}</td>
-                      <td className="px-2 py-1">
-                        {premier && (lecture
-                          ? <span title={descr[l.aa_code]}><b>{l.aa_code}</b> <span className="text-slate-500">{descr[l.aa_code]}</span></span>
-                          : <select className="controle w-full h-auto py-1 text-second" value={l.aa_code || ''}
-                              onChange={e => maj(i, 'aa_code', e.target.value)}>
-                              <option value="">— acquis —</option>
-                              {acquis.map(a => <option key={a.aa_code} value={a.aa_code}>{a.aa_code} — {(a.description || '').slice(0, 60)}</option>)}
-                            </select>)}
-                      </td>
+                  return [
+                    premier && (
+                      <tr key={`aa${i}`} className="border-t border-slate-200" style={{ background: 'var(--s-entete, #F3F6FA)' }}>
+                        <td colSpan={lecture ? 2 : 3} className="px-2 py-1.5">
+                          {lecture || l.aa_code
+                            ? <><b className="text-iip-blue mr-1.5">{l.aa_code || '—'}</b>{descr[l.aa_code]}</>
+                            : <select className="controle h-auto py-1 text-second" value="" onChange={e => maj(i, 'aa_code', e.target.value)}>
+                                <option value="">— choisir l'acquis —</option>
+                                {acquis.map(a => <option key={a.aa_code} value={a.aa_code}>{a.aa_code} — {(a.description || '').slice(0, 80)}</option>)}
+                              </select>}
+                          {contexte[l.aa_code] && <span className="block text-xs italic text-slate-500 mt-0.5 whitespace-pre-line">{contexte[l.aa_code]}</span>}
+                        </td>
+                      </tr>),
+                    <tr key={i} className="align-top border-t border-slate-100">
                       {COLONNES_CRIT.map(([k]) => (
                         <td key={k} className="px-1 py-1">
                           {lecture ? <span className="whitespace-pre-line">{avecGras(l[k])}</span>
                             : <>
-                              <textarea rows={3} className="controle w-full h-auto py-1 text-second" value={l[k] || ''} data-reponses="non"
+                              <textarea rows={2} className="controle w-full h-auto py-1 text-second" value={l[k] || ''} data-reponses="non"
                                 onChange={e => maj(i, k, e.target.value)} />
                               {k === 'point' && (d.points_programme || []).length > 0 && (
                                 <select className="w-full text-xs text-slate-500 border-0 bg-transparent" value=""
@@ -587,18 +590,18 @@ function GrilleCriteres({ d, c, lecture, ueNum, onGrille, onMode }) {
                       ))}
                       {!lecture && (
                         <td className="px-1 py-1 whitespace-nowrap">
-                          <button type="button" className="text-slate-400 hover:text-slate-700" title="Un point de plus pour cet acquis" onClick={() => ajouter(l.aa_code)}>+</button>
+                          <button type="button" className="text-slate-400 hover:text-slate-700" title="Un critère de plus pour cet acquis" onClick={() => ajouter(l.aa_code)}>+</button>
                           <button type="button" className="ml-1.5 text-slate-400 hover:text-slate-700" title="Retirer cette ligne"
                             onClick={() => poser(t.cle, lignes.filter((_, j) => j !== i))}>×</button>
                         </td>
                       )}
-                    </tr>
-                  );
+                    </tr>,
+                  ];
                 })}
               </tbody>
             </table>
             {!lecture && (
-              <div className="px-2 py-1.5 border-t border-slate-100 flex flex-wrap items-center gap-2 text-second">
+              <div className="px-2 py-1.5 flex flex-wrap items-center gap-2 text-second">
                 <span className="text-slate-500">Ajouter un acquis :</span>
                 {t.aa.some(a => !lignes.some(l => l.aa_code === a)) && (
                   <button type="button" className="bouton" title="Une ligne pour chaque acquis qui n'en a pas encore"
@@ -765,7 +768,9 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
             UE {u.ue_num} — {u.ue_nom}
           </h2>
           </>}
-          {d.etapes && <div className="my-2 max-w-xl"><FriseEtapes etapes={d.etapes} /></div>}
+          {/* UNE SEULE FRISE (Charles, 15 octobre 2026 : « c'est en double ») : dans l'atelier de l'UE, son
+              circuit (rédaction, pondérations, validation) se lit dans la frise de l'atelier. */}
+          {d.etapes && !integree && <div className="my-2 max-w-xl"><FriseEtapes etapes={d.etapes} /></div>}
           <div className="flex items-center gap-2 mt-1">
             <span className={`text-xs px-2 py-0.5 rounded-champ font-semibold ${
               d.statut === 'validee'
@@ -833,6 +838,29 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
           <b>Reste à compléter :</b> {manques.join(' · ')}.
         </div>
       )}
+      {/* METTRE À JOUR DEPUIS LE DOSSIER PÉDAGOGIQUE (3.1.387, Charles, 15 octobre 2026 : « mets à jour sur base
+          de ce qui est dans la nouvelle partie dossier pédagogique ») : finalités, degré de maîtrise et
+          programme repris de la fiche d'UE, tels qu'ils y sont mis en page. Un programme enregistré d'après
+          l'ancienne lecture du Word (« ¨ », « ♦ ») se signale. */}
+      {!lecture && d.dp && vue !== 'apercu' && (() => {
+        const vieux = /[¨♦§•]/.test(String(c.programme_blocs ? Object.values(c.programme_blocs).join(' ') : ''));
+        return (
+          <div className="bloc-etat mb-3 px-3 py-2 text-second flex flex-wrap items-center gap-3" data-etat={vieux ? 'surveiller' : 'neutre'}>
+            <span className="flex-1 min-w-0">{vieux
+              ? <><b>Le programme de cette DUE vient de l'ancien import Word.</b> Reprenez le dossier pédagogique tel que la fiche d'UE le met en page.</>
+              : <>Finalités, degré de maîtrise et programme peuvent être repris du <b>dossier pédagogique</b> de la fiche d'UE.</>}</span>
+            <button type="button" className={vieux ? 'bouton bouton-fort' : 'bouton'} onClick={async () => {
+              if (!(await demander('Remplacer les finalités, le degré de maîtrise et le programme de cette DUE par ceux du dossier pédagogique ? Ce que vous y aviez rédigé sera remplacé (il reste à enregistrer).'))) return;
+              setC(x => {
+                const n = { ...x };
+                for (const k of ['finalites', 'finalites_generales', 'degre_maitrise']) if (d.dp[k]) n[k] = d.dp[k];
+                if (d.dp.programme) { n.programme_blocs = blocsDepuisPoints(lireProgramme(d.dp.programme, d.cours || []), d.cours || []); delete n.points; delete n.programme; }
+                return n;
+              });
+              setSale(true);
+            }}>Mettre à jour depuis le dossier pédagogique</button>
+          </div>);
+      })()}
 
       {vue === 'apercu' ? (
         <div className="rounded-lg border border-slate-200 bg-slate-100 p-3">

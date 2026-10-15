@@ -123,11 +123,11 @@ const parEtp = (etu, etp) => (etp ? etu / etp : null);
    au prorata des périodes qu'il suit — un ETE vaut un temps plein d'étudiant. Le calcul est au serveur
    (GET /api/pilotage/ratios). Quatre lectures, et le détail empilé — en ETP pour cent ETE, la seule
    grandeur qui s'additionne (« il manque la coordination, les admins… » ; « les deux »). */
-const VUES_RATIO = [['cours', 'Cours'], ['coord', 'Coordination'], ['admin', 'Administration'], ['tout', 'Tout compris'], ['empile', 'Détail empilé']];
+const VUES_RATIO = [['groupe', 'Taille des groupes'], ['cours', 'Cours'], ['coord', 'Coordination'], ['admin', 'Administration'], ['tout', 'Tout compris'], ['empile', 'Détail empilé']];
 const etpVue = (o, v) => (v === 'cours' ? o.etp_cours : v === 'coord' ? o.etp_coord : v === 'admin' ? o.etp_admin : o.etp_cours + o.etp_coord + o.etp_admin);
 function RatiosEtp({ annee }) {
   const [R, setR] = useState(null);
-  const [vue, setVue] = useState('tout');
+  const [vue, setVue] = useState('groupe');
   useEffect(() => {
     let vivant = true; setR(null);
     fetch(`/api/pilotage/ratios?annee=${encodeURIComponent(annee)}`, { headers: authHeaders({ 'X-Annee': annee }) })
@@ -141,18 +141,20 @@ function RatiosEtp({ annee }) {
   const n = L.reduce((t, o) => t + o.inscrits, 0);
   const detailAdmin = (R.admin || []).filter(a => a.etp).map(a => `${a.fonction} ${e2(a.etp)}`).join(', ');
   const barres = L.map(o => ({ section: o.section.replace(/_/g, ' '), inscrits: o.inscrits, ete: o.ete,
-    valeur: +(parEtp(o.ete, etpVue(o, vue)) || 0).toFixed(1),
+    valeur: vue === 'groupe' ? (o.groupe_moyen || 0) : +(parEtp(o.ete, etpVue(o, vue)) || 0).toFixed(1),
     cours: +(100 * o.etp_cours / o.ete).toFixed(2), coord: +(100 * o.etp_coord / o.ete).toFixed(2), admin: +(100 * o.etp_admin / o.ete).toFixed(2) }))
     .filter(b => vue === 'empile' || b.valeur > 0)
     .sort((a, b) => (vue === 'empile' ? (b.cours + b.coord + b.admin) - (a.cours + a.coord + a.admin) : b.valeur - a.valeur));
   const nomVue = VUES_RATIO.find(([k]) => k === vue)[1].toLowerCase();
+  const perEtu = L.reduce((t, o) => t + (o.periodes || 0), 0), perProf = L.reduce((t, o) => t + (o.per_cours || 0), 0);
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-3">
+        <Tuile ton="fort" valeur={perProf ? r1(perEtu / perProf) : '—'} libelle="étudiants devant un enseignant" precision="taille moyenne du groupe : périodes suivies ÷ périodes données" />
         <Tuile valeur={r1(parEtp(ete, cours))} libelle="ETE par ETP de cours" precision={`${e2(cours)} ETP`} />
         <Tuile valeur={r1(parEtp(ete, coord))} libelle="ETE par ETP de coordination" precision={`${e2(coord)} ETP`} />
         <Tuile valeur={r1(parEtp(ete, admin))} libelle="ETE par ETP administratif" precision={`${e2(admin)} ETP${detailAdmin ? ` — ${detailAdmin}` : ''}`} />
-        <Tuile ton="fort" valeur={r1(parEtp(ete, cours + coord + admin))} libelle="ETE par ETP, tout compris" precision={`${e2(cours + coord + admin)} ETP`} />
+        <Tuile valeur={r1(parEtp(ete, cours + coord + admin))} libelle="ETE par ETP, tout compris" precision={`${e2(cours + coord + admin)} ETP`} />
         <Tuile valeur={r1(ete)} libelle="étudiants équivalents temps plein" precision={`${k0(n)} étudiants · 1 ETE = ${k0(R.periodes_temps_plein)} périodes suivies`} />
       </div>
       <div className="segments w-fit">
@@ -173,15 +175,83 @@ function RatiosEtp({ annee }) {
                 <Bar key="c" dataKey="cours" stackId="e" name="cours" fill="var(--g-1)" />,
                 <Bar key="o" dataKey="coord" stackId="e" name="coordination" fill="var(--g-2)" />,
                 <Bar key="a" dataKey="admin" stackId="e" name="administration" fill="var(--g-3)" />,
-              ] : <Bar dataKey="valeur" name={`ETE par ETP — ${nomVue}`} fill="var(--g-1)" label={{ position: 'right', fontSize: 10, formatter: r1 }} />}
+              ] : <Bar dataKey="valeur" name={vue === 'groupe' ? 'étudiants devant un enseignant (moyenne)' : `ETE par ETP — ${nomVue}`} fill="var(--g-1)" label={{ position: 'right', fontSize: 10, formatter: r1 }} />}
             </BarChart>
           </ResponsiveContainer>
         </div>)}
       <div className="text-second text-slate-500">
-        {vue === 'empile' ? 'ETP pour cent étudiants équivalents temps plein : plus la barre est longue, plus la section coûte en personnel par étudiant. '
+        {vue === 'groupe' ? 'Combien d’étudiants un enseignant a devant lui, en moyenne sur toutes ses heures : périodes suivies par les étudiants ÷ périodes données. '
+          : vue === 'empile' ? 'ETP pour cent étudiants équivalents temps plein : plus la barre est longue, plus la section coûte en personnel par étudiant. '
           : 'Combien d’étudiants équivalents temps plein un ETP porte : plus la barre est longue, plus la section est efficiente. '}
         Les ETP d'une UE suivie par plusieurs sections (tronc commun) se partagent au prorata de leurs inscrits ; l'administration, au prorata des ETE.
       </div>
+    </div>);
+}
+
+/* CE QUE COÛTE ET RAPPORTE CHAQUE FORMATION (3.1.385, Charles, 15 octobre 2026) : le coût salarial (les
+   périodes au barème — payées par la FWB, la HELB, ou sur fonds propres), le coût VÉRITABLE pour l'école
+   (fonds propres + budget : prévu, puis réalisé l'année civile suivante), et ce que la formation rapporte
+   (DI et frais, produits du budget). Les lignes des services se partagent au prorata des inscrits. */
+function FinancesFormations({ annee }) {
+  const [civile, setCivile] = useState(Number(String(annee).slice(0, 4)));
+  const [f, setF] = useState(null);
+  const [mode, setMode] = useState('prevu');
+  useEffect(() => { setCivile(Number(String(annee).slice(0, 4))); }, [annee]);
+  useEffect(() => {
+    let vivant = true; setF(null);
+    fetch(`/api/rapports/cout-formations/finances?annee=${encodeURIComponent(annee)}&civile=${civile}`, { headers: authHeaders({ 'X-Annee': annee }) })
+      .then(r => (r.ok ? r.json() : null)).then(j => { if (vivant) setF(j); }).catch(() => {});
+    return () => { vivant = false; };
+  }, [annee, civile]);
+  if (!f) return <div className="text-second text-slate-500">Calcul…</div>;
+  const T = f.total || {};
+  const cv = r => (mode === 'prevu' ? r.cout_veritable_prevu : r.cout_veritable_realise);
+  const so = r => (mode === 'prevu' ? r.solde_prevu : r.solde_realise);
+  const signe = v => <span style={{ color: v < 0 ? 'var(--c-refuse)' : v > 0 ? 'var(--c-reussi)' : undefined }}>{eur(v)}</span>;
+  const an0 = Number(String(annee).slice(0, 4));
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-3">
+        <Tuile valeur={keur(T.cout_salarial)} libelle="coût salarial" precision={`${keur(T.cout_fwb)} payés par la FWB · ${keur(T.cout_helb)} par la HELB`} />
+        <Tuile ton="fort" valeur={keur(cv(T))} libelle={`coût véritable — ${mode === 'prevu' ? 'prévu' : 'réalisé'}`} precision={`${keur(T.cout_fp)} sur fonds propres · budget ${f.annee_civile}`} />
+        <Tuile valeur={keur(T.rapporte)} libelle="ce que les formations rapportent" precision={`${keur(T.di_frais)} DI et frais · ${keur((T.budget_produits || 0) + (T.communs_produits || 0))} produits du budget`} />
+        <Tuile valeur={keur(so(T))} libelle="solde pour l'école" precision="ce que rapportent les formations − leur coût véritable" />
+      </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="segments w-fit">
+          {[['prevu', 'Prévisionnel'], ['realise', 'Réalisé']].map(([k, l]) => (
+            <button key={k} type="button" onClick={() => setMode(k)} className={`px-3 py-1 text-second ${mode === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>{l}</button>))}
+        </div>
+        <label className="text-second text-slate-600">Budget de l'année civile
+          <select className="controle ml-2" value={civile} onChange={e => setCivile(Number(e.target.value))}>
+            {[an0 - 1, an0, an0 + 1].map(a => <option key={a} value={a}>{a}</option>)}
+          </select>
+        </label>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="text-sm min-w-full">
+          <thead className="tab-entete"><tr><Th>Section</Th><Th n>Inscrits</Th><Th n>Coût salarial</Th><Th n>dont FWB</Th><Th n>dont HELB</Th><Th n>Fonds propres</Th>
+            <Th n>{mode === 'prevu' ? 'Budget prévu' : 'Dépensé'}</Th><Th n>Services (part)</Th><Th n>Coût véritable</Th><Th n>DI et frais</Th><Th n>Produits</Th><Th n>Rapporte</Th><Th n>Solde</Th></tr></thead>
+          <tbody>
+            <tr className="font-semibold bg-slate-50 border-b border-slate-300"><Td>Ensemble</Td><Td n>{k0(T.inscrits)}</Td><Td n>{eur(T.cout_salarial)}</Td><Td n>{eur(T.cout_fwb)}</Td><Td n>{eur(T.cout_helb)}</Td><Td n>{eur(T.cout_fp)}</Td>
+              <Td n>{eur(mode === 'prevu' ? T.budget_charges : T.realise)}</Td><Td n>{eur(mode === 'prevu' ? T.communs_charges : T.communs_realise)}</Td><Td n>{eur(cv(T))}</Td>
+              <Td n>{eur(T.di_frais)}</Td><Td n>{eur((T.budget_produits || 0) + (T.communs_produits || 0))}</Td><Td n>{eur(T.rapporte)}</Td><Td n>{signe(so(T))}</Td></tr>
+            {f.sections.map(r => (
+              <tr key={r.section} className="border-b border-slate-100"><Td>{r.section}</Td><Td n>{k0(r.inscrits)}</Td><Td n>{eur(r.cout_salarial)}</Td><Td n>{eur(r.cout_fwb)}</Td><Td n>{eur(r.cout_helb)}</Td><Td n>{eur(r.cout_fp)}</Td>
+                <Td n>{eur(mode === 'prevu' ? r.budget_charges : r.realise)}</Td><Td n>{eur(mode === 'prevu' ? r.communs_charges : r.communs_realise)}</Td><Td n b>{eur(cv(r))}</Td>
+                <Td n>{eur(r.di_frais)}</Td><Td n>{eur(r.budget_produits + r.communs_produits)}</Td><Td n b>{eur(r.rapporte)}</Td><Td n b>{signe(so(r))}</Td></tr>))}
+          </tbody>
+        </table>
+      </div>
+      {f.communs.length > 0 && (
+        <p className="text-second text-slate-500 m-0">
+          <b>Services répartis au prorata des inscrits</b> ({f.annee_civile}) : {f.communs.map(c => `${c.service} ${keur(c.charges)} de charges${c.produits ? `, ${keur(c.produits)} de produits` : ''}`).join(' · ')}.
+          Une ligne du budget qui appartient à une formation se range sous la section, pas sous un service.
+        </p>)}
+      <p className="text-second text-slate-500 m-0">
+        Le coût salarial est le prix des périodes au barème ; la FWB les paie, sauf les attributions cochées « payée sur fonds propres ».
+        Le coût véritable est ce que l'école débourse : fonds propres et budget. Le réalisé se lit des dépenses encodées dans Budget.
+      </p>
     </div>);
 }
 
@@ -322,6 +392,10 @@ export default function RapportStatistique({ annee: anneeImposee = null } = {}) 
                 <span className="inline-block w-2 h-2 rounded-sm ml-3 mr-1" style={{ background: 'var(--g-2)' }} />EXP</span></Td>
               {Y.etp_total.autre > 0 && <Td n>{e2(Y.etp_total.autre)}</Td>}</tr></tfoot>
           </table></div>
+        </Carte>
+
+        <Carte titre="Ce que coûte et rapporte chaque formation" sous="Coût salarial (payé par la FWB, la HELB ou sur fonds propres), coût véritable pour l'école, recettes et solde.">
+          <FinancesFormations annee={annee} />
         </Carte>
 
         <Carte titre="Section par section" sous="Coût des cours, part des fonctions au prorata des inscrits, coût complet et par étudiant.">

@@ -428,6 +428,7 @@ r.get('/', authRequired, withSectionScope, (req, res) => {
            cg.cours_ev1            AS grille_ev1,
            cg.cours_vc1            AS grille_vc1,
            att.activite_id         AS activite_id,
+           COALESCE(att.fonds_propres, 0) AS fonds_propres,
            act.libelle             AS activite_nom
     FROM v_attribution_complete a
     LEFT JOIN v_cours_conformite co
@@ -1082,7 +1083,8 @@ r.get('/charge/:profId', authRequired, soiSeul(), withSectionScope, (req, res) =
 });
 
 r.get('/:id', authRequired, withSectionScope, (req, res) => {
-  const row = db.prepare('SELECT * FROM v_attribution_complete WHERE id = ?').get(req.params.id);
+  const row = db.prepare(`SELECT v.*, (SELECT COALESCE(a.fonds_propres, 0) FROM attribution a WHERE a.id = v.id) AS fonds_propres
+    FROM v_attribution_complete v WHERE v.id = ?`).get(req.params.id);
   if (!row) return res.status(404).json({ error: 'Attribution introuvable' });
   // LIRE PAR IDENTIFIANT CONTOURNAIT TOUT. La liste filtrait, celle-ci non :
   // n'importe quelle attribution de n'importe quelle section se lisait en
@@ -1180,6 +1182,8 @@ r.post('/', authRequired, gesteRequis('attributions.modifier'), (req, res) => {
   db.prepare(`INSERT INTO modification_log (attribution_id, utilisateur_id, action) VALUES (?,?,?)`).run(
     result.lastInsertRowid, req.user.id, 'create'
   );
+  // PAYÉE SUR FONDS PROPRES (3.1.385) : l'école paie, pas la FWB.
+  if (a.fonds_propres) { try { db.prepare('UPDATE attribution SET fonds_propres = 1 WHERE id = ?').run(result.lastInsertRowid); } catch { /* colonne absente */ } }
   saveSnapshot(result.lastInsertRowid, 'create', req.user);
   res.status(201).json({ id: result.lastInsertRowid });
 });
@@ -1203,7 +1207,9 @@ r.patch('/:id', authRequired, gesteRequis('attributions.modifier'), (req, res) =
     'activite_id', 'titre_rtf',
     'professeur_id','cours_ept_ad','coordination_encadrement',
     'modification_attribution','commentaire','commentaire_2','statut_exception',
-    'per_etudiant_total_dp','periodes_attribuees','autonomie_attribuee','helb_nature'
+    'per_etudiant_total_dp','periodes_attribuees','autonomie_attribuee','helb_nature',
+    // PAYÉE SUR FONDS PROPRES (3.1.385, Charles, 15 octobre 2026) : sinon la FWB paie, et la ligne ne coûte rien à l'école.
+    'fonds_propres'
   ];
   const updates = [];
   const params = { id: req.params.id, uid: req.user.id };

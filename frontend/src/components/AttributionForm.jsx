@@ -40,6 +40,7 @@ export default function AttributionForm({ onClose, onCreated, editRow = null }) 
     coordination_encadrement: editRow.coordination_encadrement || 'Cours',
     quadrimestre_attribue: editRow.quadrimestre_attribue || '',
     commentaire: editRow.commentaire || '',
+    fonds_propres: !!editRow.fonds_propres,
     periodes_attribuees: editRow.periodes_attribuees ?? 0,
     autonomie_attribuee: editRow.autonomie_attribuee ?? 0,
     per_etudiant_total_dp: editRow.per_etudiant_total_dp ?? 0
@@ -61,6 +62,7 @@ export default function AttributionForm({ onClose, onCreated, editRow = null }) 
     coordination_encadrement: 'Cours',
     quadrimestre_attribue: '',
     commentaire: '',
+    fonds_propres: false,
     periodes_attribuees: 0,
     autonomie_attribuee: 0,
     per_etudiant_total_dp: 0
@@ -121,7 +123,8 @@ export default function AttributionForm({ onClose, onCreated, editRow = null }) 
         nb_groupes: Number(form.nb_groupes),
         periodes_attribuees: Number(form.periodes_attribuees),
         autonomie_attribuee: Number(form.autonomie_attribuee),
-        per_etudiant_total_dp: Number(form.per_etudiant_total_dp)
+        per_etudiant_total_dp: Number(form.per_etudiant_total_dp),
+        fonds_propres: form.fonds_propres ? 1 : 0
       };
       if (isEdit) {
         await api.updateAttribution(editRow.id, payload);
@@ -335,6 +338,13 @@ export default function AttributionForm({ onClose, onCreated, editRow = null }) 
               </div>
             </div>
           </fieldset>
+
+          {/* PAYÉE SUR FONDS PROPRES (3.1.385) : par défaut, la FWB paie les périodes ; cochée, la ligne
+              coûte à l'école et entre dans le coût véritable de la formation (Gestion → Finances). */}
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input type="checkbox" checked={!!form.fonds_propres} onChange={e => set('fonds_propres', e.target.checked)} />
+            Payée sur fonds propres <span className="text-xs text-gray-500">— sinon par la FWB : la ligne ne coûte rien à l'école</span>
+          </label>
 
           {/* Commentaire */}
           <div>
