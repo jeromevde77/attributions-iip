@@ -1,4 +1,5 @@
 import ImportInscrireListe from '../components/ImportInscrireListe.jsx';
+import ImportTfe from '../components/ImportTfe.jsx';
 import { useTransfertsFermes } from '../lib/transferts.js';
 import { ICONE_AXE } from '../lib/iconesAxes.js';
 import { poserSelectionEtudiants } from '../lib/selectionEtudiants.js';
@@ -3537,6 +3538,7 @@ export default function Etudiants() {
   const [rattacherPack, setRattacherPack] = useState(false);
   const [importSuivi, setImportSuivi] = useState(false);
   const [inscrireListe, setInscrireListe] = useState(false);
+  const [importTfe, setImportTfe] = useState(false);
   const [tri, setTri] = useState({ champ: 'nom', sens: 1 });
 
 
@@ -4598,6 +4600,7 @@ export default function Etudiants() {
       {inscrireListe && (
         <ImportInscrireListe annee={annee} onClose={() => setInscrireListe(false)} onTermine={charger} />
       )}
+      {importTfe && <ImportTfe annee="2025-2026" onClose={() => setImportTfe(false)} />}
       {importSurMesure && (
         <ImportSurMesure onClose={() => setImportSurMesure(false)} onTermine={charger} annee={annee} />
       )}
@@ -4687,6 +4690,11 @@ export default function Etudiants() {
               quoi: 'Une liste d’étudiants (nom, matricule, NISS…) : les retrouver, créer les absents, les inscrire aux unités cochées.',
               attend: 'une liste nominative (.xlsx)',
               onClick: () => setInscrireListe(true) },
+            /* LES TFE (15 octobre 2026) : listes, tableaux avec promoteur, plannings de défense en Word. */
+            { cle: 'tfe', ok: peutImporter, titre: 'Importer des TFE',
+              quoi: 'Titres, jurys et défenses : une liste (nom, titre), un tableau avec promoteur, ou le planning de défense en Word.',
+              attend: 'un ou plusieurs fichiers (.xlsx, .ods, .docx)',
+              onClick: () => setImportTfe(true) },
             { cle: 'sur-mesure', ok: peutImporter, titre: 'Importateur sur mesure',
               quoi: 'Un fichier dont la forme n’entre dans aucune des cases ci-dessus.',
               attend: 'un classeur dont vous désignez les colonnes',
