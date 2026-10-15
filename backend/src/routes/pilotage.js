@@ -2,6 +2,7 @@ import { donneesPopulation, inscrits, corrigerReference } from '../lib/populatio
 import { anneeDeTravail } from '../helpers/annee.js';
 import { sectionRattachement } from './etudiants.js';
 import { getParamNum } from './parametres.js';
+import { donneesPersonnel } from '../lib/chiffresCles.js';
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired, getUserSections} from '../middleware/auth.js';
@@ -261,6 +262,16 @@ r.get('/population-ecole', authRequired, (req, res) => {
     res.json({ ...donneesPopulation(annee, { sections: getUserSections(req.user) }),
       peut_corriger: ['admin', 'directeur', 'directeur_adjoint'].includes(req.user?.role) });
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+/* GESTION → POPULATION → LE PERSONNEL (3.1.376, Charles, 15 octobre 2026 : « je n'ai plus les statistiques
+   liées aux enseignants : sexe, âge… »). Les chiffres de la pièce « Statistiques du personnel »
+   (donneesPersonnel), servis à l'écran. Des agrégats, mais sur le personnel de toute l'école : la
+   coordination n'y entre pas. */
+r.get('/population-personnel', authRequired, (req, res) => {
+  if (req.user?.role === 'coordination') return res.status(403).json({ error: 'Réservé à la direction et au secrétariat.' });
+  try { res.json(donneesPersonnel(req.query.annee || anneeDeTravail(req))); }
+  catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 r.get('/civil', authRequired, (req, res) => {

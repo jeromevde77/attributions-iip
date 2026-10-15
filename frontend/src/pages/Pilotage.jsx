@@ -9,6 +9,7 @@ import { createPortal } from 'react-dom';
 import Distributions from '../components/Distributions.jsx';
 import Population from '../components/Population.jsx';
 import PopulationEcole from '../components/PopulationEcole.jsx';
+import PersonnelEcole from '../components/PersonnelEcole.jsx';
 import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
 import Budget from './Budget.jsx';
 import RapportStatistique from '../components/RapportStatistique.jsx';
@@ -1593,7 +1594,7 @@ export default function Pilotage({ vue = 'tout' }) {
   const coord = u?.role === 'coordination';
   const RUBRIQUES = [
     { key: 'g-population', label: 'Population', icon: IconUsersGroup, faces: [
-      ['population-ecole', 'Qui sont nos étudiants'], ['population', 'Places par unité']] },
+      ['population-ecole', 'Qui sont nos étudiants'], !coord && ['personnel-ecole', 'Notre personnel'], ['population', 'Places par unité']] },
     { key: 'g-resultats', label: 'Résultats', icon: IconSchool, faces: [
       ['deliberation', 'Décisions et taux de réussite'], ['distributions', 'Distributions des cotes']] },
     { key: 'g-dotation', label: 'Dotation', icon: IconBuildingBank, faces: [
@@ -1615,6 +1616,7 @@ export default function Pilotage({ vue = 'tout' }) {
      usages, l'écran et le papier ne peuvent pas différer. */
   const renduFace = k => (
     k === 'population-ecole' ? <PopulationEcole annee={anneeActive} />
+    : k === 'personnel-ecole' ? <PersonnelEcole annee={anneeActive} />
     : k === 'rapport' ? <RapportStatistique annee={anneeActive} />
     : k === 'repartition' ? <RepartitionPeriodes annee={anneeActive} />
     : k === 'distributions' ? <Distributions annee={anneeActive} />
@@ -1658,7 +1660,7 @@ table { width: 100% !important; font-size: 8.5pt !important; } th, td { white-sp
 thead { display: table-header-group; }
 .overflow-x-auto, .overflow-y-auto, .overflow-auto { overflow: visible !important; } [class*="max-h-"] { max-height: none !important; }
 .partie-impression + .partie-impression { break-before: page; }</style></head>
-<body class="impression-gestion"><div class="zone-impression-pdf">${clone.outerHTML}</div></body></html>`;
+<body class="impression-gestion"><div class="zone-impression">${clone.outerHTML}</div></body></html>`;
       const nom = `Gestion_${String(anneeActive).replace(/\W/g, '')}_${facesImprimees.length === 1 ? facesImprimees[0] : 'parties'}`;
       const r = await fetch('/api/impression/pdf', { method: 'POST', headers: authHeaders(),
         body: JSON.stringify({ html, nom, orientation: 'paysage', pagination: 'toujours' }) });
@@ -1830,7 +1832,10 @@ thead { display: table-header-group; }
             pluriannuelle » coiffait aussi les résultats de délibération et les
             distributions de cotes : on annonçait de l'argent et des périodes
             au-dessus de chiffres d'étudiants. */}
-        {tab === 'population-ecole' ? (
+        {tab === 'personnel-ecole' ? (
+          <PageHeader icon={IconUsersGroup} titre="Population"
+            sous="Notre personnel : sections, sexe, âge, statut, charge, domicile, nationalité" />
+        ) : tab === 'population-ecole' ? (
           <PageHeader icon={IconUsersGroup} titre="Population"
             sous="Qui sont nos étudiants : sections, sexe, âge, domicile, nationalité, nouveaux et diplômants, sur cinq ans" />
         ) : tab === 'rapport' ? (
@@ -1846,6 +1851,8 @@ thead { display: table-header-group; }
 
         {tab === 'population-ecole' ? (
           <PopulationEcole annee={anneeActive} />
+        ) : tab === 'personnel-ecole' ? (
+          <PersonnelEcole annee={anneeActive} />
         ) : tab === 'rapport' ? (
           <RapportStatistique annee={vue === 'gestion' ? anneeActive : null} />
         ) : tab === 'repartition' ? (
