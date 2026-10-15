@@ -70,7 +70,7 @@ import tfeRoutes, { migrerTfe } from './routes/tfe.js';
 import conventionsRoutes, { migrerConventions } from './routes/conventions.js';
 import attestationsRoutes, { migrerAttestations } from './routes/attestations.js';
 import dueRoutes, { migrerDUE } from './routes/due.js';
-import diplomesRoutes from './routes/diplomes.js';
+import diplomesRoutes, { migrerSectionDiplome } from './routes/diplomes.js';
 import annexe2Routes from './routes/annexe2.js';
 import annexe1Routes from './routes/annexe1.js';
 import sleRoutes, { migrerSLE } from './routes/sle.js';
@@ -2949,6 +2949,7 @@ try { migrerAmenagements(db); } catch (e) { console.error('[migration] aménagem
 try { migrerCep(db); } catch (e) { console.error('[migration] congé-éducation :', e.message); }
 try { migrerStages(db); } catch (e) { console.error('[migration] stages :', e.message); }
 try { migrerTfe(db); } catch (e) { console.error('[migration] tfe :', e.message); }
+try { migrerSectionDiplome(db); } catch (e) { console.error('[migration] données du titre :', e.message); }
 try { migrerConventions(db); } catch (e) { console.error('[migration] conventions :', e.message); }
 try { migrerAttestations(db); } catch (e) { console.error('[migration] attestations :', e.message); }
 try { migrerDUE(db); } catch (e) { console.error('[migration] due :', e.message); }

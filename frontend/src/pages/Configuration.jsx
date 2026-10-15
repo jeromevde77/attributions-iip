@@ -877,7 +877,13 @@ function ConfigAttestation() {
 
       {/* ── Sections & Diplômes ── */}
       <h3 className="titre-carte pt-2">{ONGLETS_LOC[1].label}</h3>
-      {(
+      {/* PLUS ICI (3.1.374, Charles, 15 octobre 2026) : les données du titre vivent sur la section. Ce qui
+          était encodé ici y a été recopié ; cette liste ne sert plus que de repli, et ne se modifie plus. */}
+      <div className="bloc-etat px-3 py-2 text-sm" data-etat="disponible">
+        Intitulé, titre, grade, date d'approbation du dossier, durée, ECTS et périodes se règlent désormais dans la
+        <b> fiche de chaque section</b> (Organisation → la section → « Diplôme et attestation de section »). Ce qui était encodé ici y a été repris.
+      </div>
+      {false && (
         <div className="space-y-3">
           <div className="text-xs text-gray-500 mb-2">Chaque section correspond à un diplôme délivrable. Renseignez le code Gouvernement exact.</div>
           {sections.map((s, i) => (

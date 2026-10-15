@@ -506,6 +506,9 @@ function SectionModal({ section, onClose, onSaved, annee, isAdmin }) {
     type_enseignement: section?.type_enseignement || '',
     titre_externe: !!section?.titre_externe,
     numerotation_groupes: section?.numerotation_groupes || 'lettres',
+    dip_intitule_section: section?.dip_intitule_section || '', dip_intitule_diplome: section?.dip_intitule_diplome || '',
+    dip_grade: section?.dip_grade || '', dip_date_approbation: section?.dip_date_approbation || '',
+    dip_duree_annees: section?.dip_duree_annees || '', dip_ects: section?.dip_ects || '', dip_periodes: section?.dip_periodes || '',
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -543,6 +546,8 @@ function SectionModal({ section, onClose, onSaved, annee, isAdmin }) {
         type_enseignement: form.type_enseignement.trim() || null,
         titre_externe: form.titre_externe ? 1 : 0,
         numerotation_groupes: form.numerotation_groupes || 'lettres',
+        ...Object.fromEntries(['dip_intitule_section', 'dip_intitule_diplome', 'dip_grade', 'dip_date_approbation',
+          'dip_duree_annees', 'dip_ects', 'dip_periodes'].map(k => [k, String(form[k] || '').trim() || null])),
       };
       if (isNew) {
         await api.createSection({ code: form.code.trim(), ...payload });
@@ -621,6 +626,28 @@ function SectionModal({ section, onClose, onSaved, annee, isAdmin }) {
               <input value={form.type_enseignement} onChange={e => set('type_enseignement', e.target.value)} placeholder="Enseignement supérieur de type court" className="controle w-full" /></label>
             <p className="text-xs text-slate-500 mt-1.5">Elles figurent sur l'attestation de réussite de chaque unité de la section ; une unité peut les redéfinir si elle fait exception.</p>
           </GroupeFenetre>
+          {/* LES DONNÉES DU DIPLÔME, SUR LA SECTION (Charles, 15 octobre 2026) : elles vivaient dans
+              Configuration → Attestation → Sections & Diplômes, où personne ne les trouvait. */}
+          {!form.titre_externe && (
+          <GroupeFenetre titre="Diplôme et attestation de section">
+            <label className="block"><span className={lbl}>Intitulé de la section (sur le diplôme)</span>
+              <input value={form.dip_intitule_section} onChange={e => set('dip_intitule_section', e.target.value)} placeholder="BACHELIER EN OPTOMÉTRIE" className="controle w-full" /></label>
+            <label className="block mt-3"><span className={lbl}>Intitulé du titre délivré</span>
+              <input value={form.dip_intitule_diplome} onChange={e => set('dip_intitule_diplome', e.target.value)} placeholder="Bachelier en optométrie" className="controle w-full" /></label>
+            <label className="block mt-3"><span className={lbl}>Grade académique</span>
+              <input value={form.dip_grade} onChange={e => set('dip_grade', e.target.value)} placeholder="Bachelier" className="controle w-full" /></label>
+            <div className="grid grid-cols-2 gap-3 mt-3">
+              <label className="block"><span className={lbl}>Dossier approuvé le</span>
+                <input value={form.dip_date_approbation} onChange={e => set('dip_date_approbation', e.target.value)} placeholder="12 juillet 2023" className="controle w-full" /></label>
+              <label className="block"><span className={lbl}>Durée (années)</span>
+                <input value={form.dip_duree_annees} onChange={e => set('dip_duree_annees', e.target.value)} placeholder="3" className="controle w-full" /></label>
+              <label className="block"><span className={lbl}>Total ECTS</span>
+                <input value={form.dip_ects} onChange={e => set('dip_ects', e.target.value)} placeholder="180" className="controle w-full" /></label>
+              <label className="block"><span className={lbl}>Total périodes</span>
+                <input value={form.dip_periodes} onChange={e => set('dip_periodes', e.target.value)} placeholder="2500" className="controle w-full" /></label>
+            </div>
+            <p className="text-xs text-slate-500 mt-1.5">Ce que portent le diplôme, l'attestation de section et l'attestation provisoire. Le total ECTS est le chiffre approuvé : il l'emporte sur la somme des unités.</p>
+          </GroupeFenetre>)}
           <GroupeFenetre titre="Titre">
             {/* LE TITRE DÉLIVRÉ AILLEURS (30 septembre 2026, Orthoptie). */}
             <label className="flex items-start gap-2 text-sm text-slate-700 cursor-pointer">
