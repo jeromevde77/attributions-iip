@@ -1628,6 +1628,49 @@ export default function Pilotage({ vue = 'tout' }) {
   // Ce qui s'imprime : toutes les faces sauf la configuration, qui règle et ne rapporte rien.
   const IMPRIMABLES = RUBRIQUES.map(r => ({ ...r, faces: r.faces.filter(([k]) => k !== 'config') })).filter(r => r.faces.length);
   const libelleFace = k => { for (const r of IMPRIMABLES) { const f = r.faces.find(([x]) => x === k); if (f) return `${r.label} — ${f[1]}`; } return k; };
+  /* LE PDF DU SERVEUR (Charles, 15 octobre 2026 : « le bas de page ne se met pas ») : l'impression du
+     navigateur ne pose pas de pied sur chaque feuille (Safari ignore les marges de page). On envoie au
+     serveur la page TELLE QU'ELLE EST DESSINÉE — son HTML, les feuilles de style de Lucie et les réglages
+     de couleurs posés sur la racine — et il la rend en A4 paysage avec le pied de la maison et le numéro
+     de page, comme toutes les pièces. */
+  const [pdfGestion, setPdfGestion] = useState(false);
+  async function pdfDeLAperçu() {
+    const zone = document.querySelector('.zone-impression .page-impression');
+    if (!zone) return;
+    setPdfGestion(true);
+    try {
+      let css = '';
+      for (const f of document.styleSheets) {
+        try { css += [...f.cssRules].map(r => r.cssText).join('\n'); } catch { /* feuille d'une autre origine */ }
+      }
+      const liens = [...document.querySelectorAll('link[rel="stylesheet"]')].filter(l => !l.href.startsWith(location.origin))
+        .map(l => `<link rel="stylesheet" href="${l.href}">`).join('');
+      const racine = document.documentElement;
+      const attrs = [...racine.attributes].filter(a => a.name !== 'class' || a.value).map(a => `${a.name}="${String(a.value).replace(/"/g, '&quot;')}"`).join(' ');
+      const clone = zone.cloneNode(true);
+      clone.querySelectorAll('.sans-impression, button, select').forEach(n => { if (n.tagName === 'SELECT') { const t = document.createElement('span'); t.textContent = n.options[n.selectedIndex]?.text || ''; n.replaceWith(t); } else if (n.classList.contains('sans-impression')) n.remove(); });
+      const html = `<!doctype html><html ${attrs}><head><meta charset="utf-8">${liens}<style>${css}</style>
+<style>@page { size: A4 landscape; } body { background: #fff !important; margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.page-impression { width: 1000px !important; margin: 0 auto !important; padding: 0 !important; }
+.carte, .carte-plate, .bloc-etat, .recharts-wrapper, svg, tr, li, img, section section, [class*="rounded-carte"], .grid > * { break-inside: avoid; }
+table { width: 100% !important; font-size: 8.5pt !important; } th, td { white-space: normal !important; padding: 3px 4px !important; }
+.titre-carte, .intertitre, .titre-ecran, h2, h3, h4 { break-after: avoid; }
+thead { display: table-header-group; }
+.overflow-x-auto, .overflow-y-auto, .overflow-auto { overflow: visible !important; } [class*="max-h-"] { max-height: none !important; }
+.partie-impression + .partie-impression { break-before: page; }</style></head>
+<body class="impression-gestion"><div class="zone-impression-pdf">${clone.outerHTML}</div></body></html>`;
+      const nom = `Gestion_${String(anneeActive).replace(/\W/g, '')}_${facesImprimees.length === 1 ? facesImprimees[0] : 'parties'}`;
+      const r = await fetch('/api/impression/pdf', { method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ html, nom, orientation: 'paysage', pagination: 'toujours' }) });
+      if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || `Erreur ${r.status}`); }
+      const url = URL.createObjectURL(await r.blob());
+      const a = document.createElement('a'); a.href = url; a.download = `${nom}.pdf`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+    } catch (e) { informer(`Le PDF n'a pas pu être produit : ${e.message}`); }
+    finally { setPdfGestion(false); }
+  }
+
   useEffect(() => {
     if (!facesImprimees) return undefined;
     document.body.classList.add('impression-gestion');
@@ -1738,8 +1781,10 @@ export default function Pilotage({ vue = 'tout' }) {
           <div className="sans-impression sticky top-0 z-10 flex items-center gap-3 px-6 py-3 border-b border-slate-200" style={{ background: 'var(--page-fond, #fff)' }}>
             <IconPrinter size={18} className="text-slate-500" />
             <span className="font-semibold flex-1 min-w-0">Aperçu — {facesImprimees.length} partie(s) · année scolaire {anneeActive}</span>
-            <span className="text-second text-slate-500">Attendez que les graphiques soient chargés, puis imprimez (A4 paysage conseillé).</span>
-            <button type="button" className="bouton bouton-fort inline-flex items-center gap-1.5" onClick={() => window.print()}><IconPrinter size={15} /> Imprimer</button>
+            <span className="text-second text-slate-500">Attendez que les graphiques soient chargés, puis « PDF » : A4 paysage, bas de page et numéro sur chaque feuille.</span>
+            <button type="button" className="bouton bouton-fort inline-flex items-center gap-1.5" disabled={pdfGestion} onClick={pdfDeLAperçu}>
+              <IconPrinter size={15} /> {pdfGestion ? 'PDF en cours…' : 'PDF'}</button>
+            <button type="button" className="bouton inline-flex items-center gap-1.5" onClick={() => window.print()} title="Impression du navigateur, sans bas de page garanti">Imprimer (navigateur)</button>
             <button type="button" className="bouton inline-flex items-center gap-1.5" onClick={() => setFacesImprimees(null)}><IconX size={15} /> Fermer</button>
           </div>
           <div className="page-impression mx-auto px-0 py-5 space-y-6">

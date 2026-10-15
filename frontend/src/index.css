@@ -1443,22 +1443,22 @@ table.grid-excel-soft tbody tr:nth-child(even) { background-color: var(--d-zebre
    tableau se répète, et chaque feuille porte son pied et son numéro. */
 .zone-impression .page-impression { width: 1000px; max-width: none; }
 @media print {
-  body.impression-gestion > #root { display: none !important; }
+  /* Tout ce qui n'est pas l'aperçu — l'application ET ce qu'elle pose à côté (le rail, les bulles). */
+  body.impression-gestion > :not(.zone-impression) { display: none !important; }
   body.impression-gestion { background: #fff !important; }
   body.impression-gestion .zone-impression { position: static !important; overflow: visible !important; inset: auto !important;
     page: gestion; background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body.impression-gestion .zone-impression .sans-impression { display: none !important; }
   body.impression-gestion .zone-impression .page-impression { padding: 0 !important; margin: 0 !important; }
   body.impression-gestion .zone-impression .partie-impression { break-inside: auto; }
-  body.impression-gestion .zone-impression :is(.carte, .carte-plate, .bloc-etat, .recharts-wrapper, svg, tr, li, img, .tuile-etat) { break-inside: avoid; }
+  body.impression-gestion .zone-impression :is(.carte, .carte-plate, .bloc-etat, .recharts-wrapper, svg, tr, li, img, .tuile-etat, section section, [class*="rounded-carte"], .grid > *) { break-inside: avoid; }
+  body.impression-gestion .zone-impression table { width: 100% !important; font-size: 8.5pt !important; }
+  body.impression-gestion .zone-impression :is(th, td) { white-space: normal !important; padding: 3px 4px !important; }
   body.impression-gestion .zone-impression :is(.titre-carte, .intertitre, .titre-ecran, h2, h3, h4) { break-after: avoid; }
   body.impression-gestion .zone-impression thead { display: table-header-group; }
   body.impression-gestion .zone-impression :is(.overflow-x-auto, .overflow-y-auto, .overflow-auto) { overflow: visible !important; }
   body.impression-gestion .zone-impression [class*="max-h-"] { max-height: none !important; }
   body.impression-gestion .zone-impression .shadow-pose, body.impression-gestion .zone-impression .shadow-flottant { box-shadow: none !important; }
 }
-@page gestion {
-  size: A4 landscape; margin: 10mm 12mm 14mm 12mm;
-  @bottom-left { content: "Institut Ilya Prigogine — Gestion, données de l'établissement"; font: 7.5pt system-ui, sans-serif; color: #3F4652; }
-  @bottom-right { content: "page " counter(page) " / " counter(pages); font: 7.5pt system-ui, sans-serif; color: #3F4652; }
-}
+@page gestion { size: A4 landscape; margin: 10mm 12mm; }
+
