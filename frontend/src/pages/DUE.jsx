@@ -923,9 +923,12 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
               <div className="mt-2 text-slate-600">
                 Le dossier pédagogique en énonce pourtant ; ils s'encodent dans le référentiel
                 des acquis, où ils serviront aussi à l'encodage et à la délibération :
-                <pre className="mt-1 p-2 bg-slate-50 border border-slate-200 rounded-lg
+                {/* Mis en page comme dans la fiche d'UE (3.1.382). */}
+                {/<[a-z]/i.test(d.dp.acquis)
+                  ? <div className="texte-dossier mt-1 p-2 border border-slate-200 rounded-lg text-second max-h-56 overflow-y-auto" dangerouslySetInnerHTML={{ __html: d.dp.acquis }} />
+                  : <pre className="mt-1 p-2 bg-slate-50 border border-slate-200 rounded-lg
                                 text-second whitespace-pre-wrap font-sans max-h-56
-                                overflow-y-auto">{d.dp.acquis}</pre>
+                                overflow-y-auto">{d.dp.acquis}</pre>}
               </div>
             )}
           </div>

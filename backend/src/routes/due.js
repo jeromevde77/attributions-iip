@@ -35,7 +35,7 @@ import { teintesSchema } from '../lib/schemaSvg.js';
 import sanitizeHtml from 'sanitize-html';
 import { assainir } from '../lib/texteCorpus.js';
 import { gesteAutorise } from '../lib/gestes.js';
-import { texteVersHtml } from '../lib/texteDossier.js';
+import { texteVersHtml, rubriquesDuDossier, texteDesRubriques } from '../lib/texteDossier.js';
 
 const r = Router();
 
@@ -201,8 +201,13 @@ const enHeures = per => (per == null ? null : Math.round(Number(per) / 1.2));
  * la fin des acquis, après la phrase « Pour la détermination du degré de
  * maîtrise… ». On coupe donc là.
  */
-function sectionsDuDP(ueDet) {
-  if (!ueDet) return null;
+function sectionsDuDP(ueDetBrut, intitulesCours = []) {
+  if (!ueDetBrut) return null;
+  /* LE LIEN AVEC LA FICHE D'UE (3.1.382, Charles, 15 octobre 2026 : « fais le lien avec l'onglet DUE et
+     ce que nous venons de créer ») : le dossier est d'abord structuré comme la fiche le montre — puces et
+     intertitres retrouvés dans un dossier importé à plat, degré de maîtrise rendu à sa rubrique. Un
+     dossier corrigé dans la fiche passe tel quel. */
+  const ueDet = /^##\s/m.test(String(ueDetBrut)) ? texteDesRubriques(rubriquesDuDossier(ueDetBrut, intitulesCours)) : ueDetBrut;
   const parts = {};
   let titre = null, corps = [];
   const poser = () => { if (titre) parts[titre] = corps.join('\n').trim(); };
@@ -408,7 +413,7 @@ function partieAutomatique(ueNum, annee) {
     // un dossier pédagogique ne change pas d'une année à l'autre.
     dp: sectionsDuDP(ue.ue_dp || (String(ue.ue_det || '').length > 5 ? ue.ue_det : null)
       || db.prepare(`SELECT ue_dp FROM ue WHERE ue_num = ? AND length(ue_dp) > 5
-           ORDER BY annee_scolaire DESC LIMIT 1`).get(ueNum)?.ue_dp || null),
+           ORDER BY annee_scolaire DESC LIMIT 1`).get(ueNum)?.ue_dp || null, cours.map(c => c.cours_nom).filter(Boolean)),
     ue: {
       ue_num: ue.ue_num, ue_nom: ue.ue_nom, ue_code_fwb: ue.ue_code_fwb,
       section: ue.section, ects: ue.ects, niveau: ue.ue_niveau, niv: ue.ue_niv,
