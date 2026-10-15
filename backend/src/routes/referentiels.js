@@ -688,7 +688,10 @@ r.patch('/sections/:code', authRequired, roleRequired('admin', 'editeur'), (req,
   // Le domaine et le type d'enseignement figurent sur les attestations de
   // réussite : ils relèvent de la section, non de chaque unité.
   const allowed = ['libelle', 'niveau', 'type_horaire', 'responsable', 'code_fwb',
-                   'domaine', 'type_enseignement', 'numerotation_groupes'];
+                   'domaine', 'type_enseignement', 'numerotation_groupes',
+                   // Les données du titre (3.1.374) : intitulé, titre, grade, approbation, durée, ECTS, périodes.
+                   'dip_intitule_section', 'dip_intitule_diplome', 'dip_grade', 'dip_date_approbation',
+                   'dip_duree_annees', 'dip_ects', 'dip_periodes'];
   const updates = []; const params = { code: req.params.code };
   for (const k of allowed) if (k in req.body) { updates.push(`${k} = @${k}`); params[k] = req.body[k] || null; }
   // LE TITRE DÉLIVRÉ AILLEURS (30 septembre 2026, Orthoptie) : la diplomation de

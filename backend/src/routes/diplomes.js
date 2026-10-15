@@ -154,28 +154,55 @@ function ectsDesUnites(ues) {
  * lisait pas. La fiche d'attestation fait foi ; la table sert de repli. La
  * fiche se reconnaît par sa section Lucie, sinon par son code FWB. */
 const sansAccents = v => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
-export function donneesSectionDiplome(code) {
-  const sec = db.prepare(`SELECT code, libelle, niveau, code_fwb, domaine, type_enseignement
-    FROM section WHERE code = ?`).get(code) || { code };
+/* LES DONNÉES DU TITRE VIVENT SUR LA SECTION (3.1.374, Charles, 15 octobre 2026 : « mettre les infos
+ * liées aux sections directement dans la section »). Intitulé, titre, grade, date d'approbation du
+ * dossier, durée, ECTS, périodes : colonnes `dip_*` de la table section, réglées dans la fiche de la
+ * section. La fiche d'attestation (Configuration → Attestation → Sections & Diplômes) n'est plus qu'un
+ * repli ; la migration y a repris ce qui était encodé. */
+export const CHAMPS_DIPLOME_SECTION = ['dip_intitule_section', 'dip_intitule_diplome', 'dip_grade', 'dip_date_approbation',
+  'dip_duree_annees', 'dip_ects', 'dip_periodes'];
+function ficheAttestation(sec) {
   let fiches = [];
   try { fiches = JSON.parse(db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'attestation_sections'").get()?.valeur || '[]') || []; } catch { fiches = []; }
-  const f = fiches.find(x => x.ue_section && x.ue_section === sec.code)
+  return fiches.find(x => x.ue_section && x.ue_section === sec.code)
     || fiches.find(x => sec.code_fwb && x.code === sec.code_fwb)
     || fiches.find(x => sansAccents(x.section).endsWith(sansAccents(sec.libelle || sec.code)))
     || {};
+}
+export function migrerSectionDiplome(dbx) {
+  for (const c of CHAMPS_DIPLOME_SECTION) { try { dbx.exec(`ALTER TABLE section ADD COLUMN ${c} TEXT`); } catch { /* déjà là */ } }
+  try {
+    const maj = dbx.prepare(`UPDATE section SET dip_intitule_section = COALESCE(dip_intitule_section, @a), dip_intitule_diplome = COALESCE(dip_intitule_diplome, @b),
+      dip_grade = COALESCE(dip_grade, @c), dip_date_approbation = COALESCE(dip_date_approbation, @d), dip_duree_annees = COALESCE(dip_duree_annees, @e),
+      dip_ects = COALESCE(dip_ects, @f), dip_periodes = COALESCE(dip_periodes, @g) WHERE code = @code`);
+    const v = x => (x == null || String(x).trim() === '' || x === 0 ? null : String(x).trim());
+    for (const sec of dbx.prepare('SELECT code, libelle, code_fwb FROM section').all()) {
+      const f = ficheAttestation(sec);
+      if (!f.code && !f.section) continue;
+      maj.run({ code: sec.code, a: v(f.section), b: v(f.diplome), c: v(f.grade_academique), d: v(f.date_approbation),
+        e: v(f.duree_annees), f: v(f.ects), g: v(f.periodes) });
+    }
+  } catch (e) { console.error('[migration] données du titre :', e.message); }
+}
+export function donneesSectionDiplome(code) {
+  let sec;
+  try { sec = db.prepare('SELECT * FROM section WHERE code = ?').get(code); } catch { sec = null; }
+  sec = sec || { code };
+  const f = ficheAttestation(sec);
+  const d = k => (sec[k] != null && String(sec[k]).trim() !== '' ? String(sec[k]).trim() : null);
   return {
     code: sec.code, libelle: sec.libelle,
-    intitule_section: f.section || sec.libelle,
-    grade_academique: f.grade_academique || f.diplome || sec.niveau || '',
-    code_section: f.code || sec.code_fwb || '',
-    domaine: f.domaine || sec.domaine || '',
-    date_approbation: f.date_approbation || '',
-    duree_annees: f.duree_annees || '',
-    total_ects: f.ects || '',
-    total_periodes: f.periodes || '',
-    intitule_diplome: f.diplome || f.grade_academique || f.section || sec.libelle || '',
+    intitule_section: d('dip_intitule_section') || f.section || sec.libelle,
+    grade_academique: d('dip_grade') || f.grade_academique || d('dip_intitule_diplome') || f.diplome || sec.niveau || '',
+    code_section: sec.code_fwb || f.code || '',
+    domaine: sec.domaine || f.domaine || '',
+    date_approbation: d('dip_date_approbation') || f.date_approbation || '',
+    duree_annees: d('dip_duree_annees') || f.duree_annees || '',
+    total_ects: d('dip_ects') || f.ects || '',
+    total_periodes: d('dip_periodes') || f.periodes || '',
+    intitule_diplome: d('dip_intitule_diplome') || f.diplome || d('dip_grade') || f.grade_academique || d('dip_intitule_section') || f.section || sec.libelle || '',
     type_enseignement: sec.type_enseignement || '',
-    fiche_trouvee: !!f.code,
+    fiche_trouvee: !!(d('dip_intitule_section') || d('dip_date_approbation') || f.code),
   };
 }
 r.get('/donnees-section', authRequired, (req, res) => {

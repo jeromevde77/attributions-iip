@@ -67,7 +67,7 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
       const r = await fetch('/api/impression/pdf', { method: 'POST', headers: authHeaders(),
         body: JSON.stringify({ html: htmlAffiche, nom: nomFichier || titre, orientation: pdf?.orientation || 'portrait',
           ...(pdf?.marge_basse ? { marge_basse: pdf.marge_basse } : {}),
-          ...(pdf?.pied === false ? { pied: false, pagination: 'jamais' } : {}) }) });
+          ...(pdf?.pied === false ? { pied: false, pagination: 'jamais', ...(pdf?.page_css ? { page_css: true } : {}) } : {}) }) });
       if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || `Erreur ${r.status}`); }
       const url = URL.createObjectURL(await r.blob());
       const a = document.createElement('a');
@@ -125,7 +125,7 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
       const r = await fetch('/api/impression/pdf', { method: 'POST', headers: authHeaders(),
         body: JSON.stringify({ html: htmlAffiche, nom: nomFichier || titre, orientation: 'paysage',
           ...(pdf?.marge_basse ? { marge_basse: pdf.marge_basse } : {}),
-          ...(pdf?.pied === false ? { pied: false, pagination: 'jamais' } : {}) }) });
+          ...(pdf?.pied === false ? { pied: false, pagination: 'jamais', ...(pdf?.page_css ? { page_css: true } : {}) } : {}) }) });
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `Erreur ${r.status}`);
       const url = URL.createObjectURL(await r.blob());
       if (w) w.location.href = url; else window.open(url, '_blank');
