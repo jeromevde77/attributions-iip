@@ -588,13 +588,6 @@ r.get('/feed', authRequired, (req, res) => {
 
       for (const p of fetes) {
         const cestAujourdhui = p.jour === mmjj(aujourdhui);
-        const age = (() => {
-          const n = new Date(p.date_naissance + 'T00:00:00Z');
-          if (isNaN(n)) return null;
-          const ref = cestAujourdhui ? aujourdhui : demain;
-          return ref.getFullYear() - n.getUTCFullYear();
-        })();
-
         items.push({
           id: `anniv-${p.id}-${cestAujourdhui ? 'j' : 'v'}`,
           type: 'anniversaire',
@@ -602,7 +595,8 @@ r.get('/feed', authRequired, (req, res) => {
           titre: cestAujourdhui
             ? `Anniversaire de ${String(p.nom || '').toUpperCase()} ${p.prenom || ''}`.trim()
             : `Demain, anniversaire de ${String(p.nom || '').toUpperCase()} ${p.prenom || ''}`.trim(),
-          corps: age && voitPersonnel ? `${age} ans` : null,
+          // L'ÂGE NE SE MONTRE PAS (Charles, 15 octobre 2026 : « il est demandé de ne pas mettre l'âge »).
+          corps: null,
           auteur: 'Lucie',
           personne_id: p.id,
           ...(cestAujourdhui ? (() => {

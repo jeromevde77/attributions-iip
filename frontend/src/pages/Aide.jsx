@@ -211,7 +211,7 @@ const RUBRIQUES = [
              + "mot » : 100 caractères au plus. La personne fêtée reçoit une seule carte, « Vous avez reçu … vœux », "
              + "avec les noms et les mots, sans pastille de notification.",
         savoir: [
-          "Tout le personnel de l'année voit les anniversaires ; l'âge reste réservé à qui gère le personnel.",
+          "Tout le personnel de l'année voit les anniversaires ; l'âge n'est jamais affiché.",
         ] },
       { titre: "Ranger le tableau de bord (administrateur)",
         ou: "Barre du haut, l'icône de mise en page.",
