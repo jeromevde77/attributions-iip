@@ -1742,7 +1742,7 @@ export default function Pilotage({ vue = 'tout' }) {
             <button type="button" className="bouton bouton-fort inline-flex items-center gap-1.5" onClick={() => window.print()}><IconPrinter size={15} /> Imprimer</button>
             <button type="button" className="bouton inline-flex items-center gap-1.5" onClick={() => setFacesImprimees(null)}><IconX size={15} /> Fermer</button>
           </div>
-          <div className="max-w-[1150px] mx-auto px-6 py-5 space-y-6">
+          <div className="page-impression mx-auto px-0 py-5 space-y-6">
             <div className="border-b-2 pb-2" style={{ borderColor: '#C9A84C' }}>
               <div className="text-mention uppercase tracking-wide text-slate-500">Institut Ilya Prigogine · Gestion — données de l'établissement</div>
               <div className="titre-ecran">{facesImprimees.length === 1 ? libelleFace(facesImprimees[0]) : 'Données de l’établissement'} · {anneeActive}</div>
