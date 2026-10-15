@@ -1435,12 +1435,30 @@ table.grid-excel-soft tbody tr:nth-child(even) { background-color: var(--d-zebre
   .fete-bouquet i { opacity: .6; transform: rotate(var(--angle)) translateX(18px); }
 }
 
-/* IMPRIMER DES PARTIES DE LA GESTION (3.1.364) : l'aperçu est posé à côté de l'application ; à
-   l'impression, seule la zone de l'aperçu sort, sans sa barre. */
+/* IMPRIMER DES PARTIES DE LA GESTION (3.1.364, repris en 3.1.371 — Charles, 15 octobre 2026 : « il
+   ne respecte pas les pages… pas de bas de page, choses coupées »). L'aperçu est posé à côté de
+   l'application et dessiné à la largeur utile d'une A4 paysage (`.page-impression`, 1000 px) : les
+   graphiques se mesurent une fois, à l'écran, à la taille du papier. À l'impression, seule sa zone
+   sort ; un bloc (tuile, carte, graphique, ligne) ne se coupe pas entre deux pages, l'en-tête d'un
+   tableau se répète, et chaque feuille porte son pied et son numéro. */
+.zone-impression .page-impression { width: 1000px; max-width: none; }
 @media print {
   body.impression-gestion > #root { display: none !important; }
-  body.impression-gestion .zone-impression { position: static !important; overflow: visible !important; inset: auto !important; page: gestion; }
+  body.impression-gestion { background: #fff !important; }
+  body.impression-gestion .zone-impression { position: static !important; overflow: visible !important; inset: auto !important;
+    page: gestion; background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body.impression-gestion .zone-impression .sans-impression { display: none !important; }
+  body.impression-gestion .zone-impression .page-impression { padding: 0 !important; margin: 0 !important; }
   body.impression-gestion .zone-impression .partie-impression { break-inside: auto; }
+  body.impression-gestion .zone-impression :is(.carte, .carte-plate, .bloc-etat, .recharts-wrapper, svg, tr, li, img, .tuile-etat) { break-inside: avoid; }
+  body.impression-gestion .zone-impression :is(.titre-carte, .intertitre, .titre-ecran, h2, h3, h4) { break-after: avoid; }
+  body.impression-gestion .zone-impression thead { display: table-header-group; }
+  body.impression-gestion .zone-impression :is(.overflow-x-auto, .overflow-y-auto, .overflow-auto) { overflow: visible !important; }
+  body.impression-gestion .zone-impression [class*="max-h-"] { max-height: none !important; }
+  body.impression-gestion .zone-impression .shadow-pose, body.impression-gestion .zone-impression .shadow-flottant { box-shadow: none !important; }
 }
-@page gestion { size: A4 landscape; margin: 12mm; }
+@page gestion {
+  size: A4 landscape; margin: 10mm 12mm 14mm 12mm;
+  @bottom-left { content: "Institut Ilya Prigogine — Gestion, données de l'établissement"; font: 7.5pt system-ui, sans-serif; color: #3F4652; }
+  @bottom-right { content: "page " counter(page) " / " counter(pages); font: 7.5pt system-ui, sans-serif; color: #3F4652; }
+}
