@@ -25,6 +25,7 @@ import ParcoursCompact from '../components/ParcoursCompact.jsx';
 import ReportsOffice from '../components/ReportsOffice.jsx';
 import Amenagements from '../components/Amenagements.jsx';
 import Stages from '../components/Stages.jsx';
+import Tfe from '../components/Tfe.jsx';
 import IdentiteEtudiant, { ComplementDossiers } from '../components/IdentiteEtudiant.jsx';
 // LE CENTRE CENTRAL. Les boutons restent où on les cherche — là où l'on
 // travaille — mais mènent désormais au même endroit.
@@ -2947,6 +2948,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
             ['va', 'Valorisation'],
             ['finances', 'Finances'],
             ['stages', 'Stages'],
+            ['tfe', 'TFE'],
             ['amenagements', 'Aménagements'],
             ['cep', 'Congé-éducation'],
             // L'ONGLET SLE N'EXISTE QUE POUR UN ÉTUDIANT EN SÉJOUR LIMITÉ AUX
@@ -3073,6 +3075,12 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
           {onglet === 'stages' && (
             <div className="p-5">
               <Stages etudId={id} annee={annee} />
+            </div>
+          )}
+
+          {onglet === 'tfe' && (
+            <div className="p-5">
+              <Tfe etudId={id} annee={annee} />
             </div>
           )}
 
