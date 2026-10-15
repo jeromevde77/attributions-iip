@@ -66,6 +66,7 @@ import effectifsPrevusRoutes, { migrerEffectifsPrevus } from './routes/effectifs
 import cepRoutes from './routes/cep.js';
 import { migrerCep } from './lib/cep.js';
 import stagesRoutes, { migrerStages } from './routes/stages.js';
+import tfeRoutes, { migrerTfe } from './routes/tfe.js';
 import conventionsRoutes, { migrerConventions } from './routes/conventions.js';
 import attestationsRoutes, { migrerAttestations } from './routes/attestations.js';
 import dueRoutes, { migrerDUE } from './routes/due.js';
@@ -2947,6 +2948,7 @@ try { migrerRepartition(db); } catch (e) { console.error('[migration] répartiti
 try { migrerAmenagements(db); } catch (e) { console.error('[migration] aménagements :', e.message); }
 try { migrerCep(db); } catch (e) { console.error('[migration] congé-éducation :', e.message); }
 try { migrerStages(db); } catch (e) { console.error('[migration] stages :', e.message); }
+try { migrerTfe(db); } catch (e) { console.error('[migration] tfe :', e.message); }
 try { migrerConventions(db); } catch (e) { console.error('[migration] conventions :', e.message); }
 try { migrerAttestations(db); } catch (e) { console.error('[migration] attestations :', e.message); }
 try { migrerDUE(db); } catch (e) { console.error('[migration] due :', e.message); }
@@ -3137,6 +3139,7 @@ try { migrerEffectifsPrevus(); } catch (e) { console.error('[migration] effectif
 app.use('/api/effectifs-prevus', effectifsPrevusRoutes);
 app.use('/api/cep', cepRoutes);
 app.use('/api/stages', garderModule('stages'), stagesRoutes);
+app.use('/api/tfe', garderModule('etudiants'), tfeRoutes);
 app.use('/api/conventions', garderModule('stages'), conventionsRoutes);
 app.use('/api/attestations', garderModule('attestations'), attestationsRoutes);
 app.use('/api/annexe2', garderModule('annexe2'), annexe2Routes);

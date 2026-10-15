@@ -212,11 +212,15 @@ export function decrireUnite(ueNum, anneeRef, resultat = {}, { etudiant_id = nul
   const i = { ue_num: ueNum, annee_scolaire: anneeRef,
               points: resultat.points ?? null };
   {
-    // Le référentiel de l'année de l'inscription, à défaut le plus récent.
+    /* Le référentiel de l'année de l'inscription ; à défaut, LE PLUS PROCHE — la première année qui
+       suit, puis la plus récente avant (15 octobre 2026, LEROY Hélène : une réussite de 2021-2022,
+       année sans référentiel dans Lucie, prenait celui de 2026-2027 — UE 65 à 100 périodes au lieu de
+       80, UE 76 à 20 au lieu de 120). */
     const ue = db.prepare(`
       SELECT * FROM ue WHERE ue_num = ?
-      ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1
-    `).get(i.ue_num, i.annee_scolaire) || {};
+      ORDER BY (annee_scolaire = ?) DESC, (annee_scolaire > ?) DESC,
+               CASE WHEN annee_scolaire > ? THEN annee_scolaire END ASC, annee_scolaire DESC LIMIT 1
+    `).get(i.ue_num, i.annee_scolaire, i.annee_scolaire, i.annee_scolaire) || {};
 
     // Domaine et type d'enseignement : ceux de l'UE s'ils sont renseignés,
     // sinon ceux de sa section. LA SECTION EST CELLE DU DOSSIER (30 septembre
@@ -228,11 +232,18 @@ export function decrireUnite(ueNum, anneeRef, resultat = {}, { etudiant_id = nul
           .get(secCode)
       : null;
 
-    const cours = db.prepare(`
+    // Les cours du MÊME millésime que le référentiel retenu ; à défaut, le plus proche aussi.
+    let cours = db.prepare(`
+      SELECT cours_nom, cours_per FROM cours
+      WHERE ue_num = ? AND cours_code IS NOT NULL AND annee_scolaire = ?
+      ORDER BY cours_code
+    `).all(i.ue_num, ue.annee_scolaire || i.annee_scolaire);
+    if (!cours.length) cours = db.prepare(`
       SELECT cours_nom, cours_per FROM cours
       WHERE ue_num = ? AND cours_code IS NOT NULL
-      ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC, cours_code
-    `).all(i.ue_num, i.annee_scolaire);
+      ORDER BY (annee_scolaire = ?) DESC, (annee_scolaire > ?) DESC,
+               CASE WHEN annee_scolaire > ? THEN annee_scolaire END ASC, annee_scolaire DESC, cours_code
+    `).all(i.ue_num, i.annee_scolaire, i.annee_scolaire, i.annee_scolaire);
 
     // Un même cours peut figurer sous plusieurs millésimes : on n'en garde qu'un.
     const vus = new Set();
