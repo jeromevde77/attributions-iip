@@ -50,6 +50,24 @@ function pointsDuBloc(html) {
   if (!el.length) el = [...doc.querySelectorAll('p')];
   return [...new Set(el.map(e => norm(texteDe(e))).filter(t => t.length > 3))];
 }
+/* LES PUCES TELLES QUE LE DOSSIER LES DONNE (3.1.383, Charles, 15 octobre 2026 : « que les puces soient
+   les bonnes ») : la clé d'un point reste son texte entier (les croix déjà posées tiennent), mais il
+   s'affiche comme dans le dossier — la puce principale, ses sous-puces dessous. */
+function structureDuBloc(html) {
+  const m = {};
+  if (!html) return m;
+  const doc = new DOMParser().parseFromString(`<div>${html}</div>`, 'text/html');
+  for (const li of [...doc.querySelectorAll('li')].filter(x => !x.parentElement?.closest('li'))) {
+    const tout = norm([...li.querySelectorAll('p')].map(p => p.textContent.trim()).filter(Boolean).join(' ') || li.textContent);
+    const propre = li.querySelector(':scope > p')?.textContent || '';
+    const sous = [...li.querySelectorAll(':scope > ul > li, :scope > ol > li')].map(x => ({
+      texte: norm(x.querySelector(':scope > p')?.textContent || x.textContent),
+      sous: [...x.querySelectorAll(':scope > ul > li')].map(y => norm(y.textContent)),
+    }));
+    m[tout] = { principal: norm(propre) || tout, sous };
+  }
+  return m;
+}
 
 /** Dix points répartis au prorata des croix, par pas de 0,5, somme exacte. */
 export function proposer(comptes) {
@@ -108,11 +126,18 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
   const pointsDe = useMemo(() => {
     const m = {};
     for (const x of cours) {
-      let p = pointsDuBloc(blocsDUE[x.cours_code]);
-      if (!p.length) p = pointsDuBloc(blocsDP[x.cours_code]);
+      /* LE DOSSIER PÉDAGOGIQUE D'ABORD (3.1.383) : le programme de la fiche d'UE, cours par cours, avec
+         ses puces. Le descriptif ne sert qu'au cours que le dossier ne détaille pas. */
+      let p = pointsDuBloc(blocsDP[x.cours_code]);
+      if (!p.length) p = pointsDuBloc(blocsDUE[x.cours_code]);
       if (!p.length && cours.length === 1) p = pointsDuBloc(blocsDP._intro).filter(t => !/[,:]$/.test(t));
       m[x.cours_code] = p;
     }
+    return m;
+  }, [cours, blocsDUE, blocsDP]);
+  const structure = useMemo(() => {
+    const m = {};
+    for (const x of cours) m[x.cours_code] = { ...structureDuBloc(blocsDUE[x.cours_code]), ...structureDuBloc(blocsDP[x.cours_code]) };
     return m;
   }, [cours, blocsDUE, blocsDP]);
   const points = co => [...(pointsDe[co] || []), ...(ajouts[co] || []).filter(t => !(pointsDe[co] || []).includes(t))];
@@ -298,7 +323,19 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
                     </td></tr>)}
                   {pts.map(pt => (
                     <tr key={pt} className="border-t border-slate-100 bg-white">
-                      <td className="px-3 py-1 text-slate-800">{pt}</td>
+                      <td className="px-3 py-1 text-slate-800">
+                        {(() => {
+                          const st = structure[co]?.[pt];
+                          if (!st || !st.sous.length) return pt;
+                          return (<>
+                            {st.principal}
+                            <ul className="list-[circle] pl-5 mt-0.5 mb-0 text-slate-600">
+                              {st.sous.map((y, i) => <li key={i}>{y.texte}
+                                {y.sous.length > 0 && <ul className="list-[square] pl-5 m-0">{y.sous.map((z, j) => <li key={j}>{z}</li>)}</ul>}</li>)}
+                            </ul>
+                          </>);
+                        })()}
+                      </td>
                       {acquis.map(a => {
                         const on = coche(co, pt, a.aa_code);
                         return (
