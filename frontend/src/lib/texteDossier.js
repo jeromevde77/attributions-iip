@@ -101,3 +101,26 @@ export function structurerAPlat(texte, intitulesCours = []) {
   }
   return out.join('\n');
 }
+
+/* LE DEGRÉ DE MAÎTRISE RANGÉ DANS LES ACQUIS (Charles, 15 octobre 2026 : « degré de maîtrise au mauvais
+ * endroit »). Les dossiers importés avant 3.1.356 n'avaient pas de rubrique « Degré de maîtrise » : sa
+ * phrase (« Pour la détermination du degré de maîtrise, il sera tenu compte… ») et ses critères
+ * suivaient les acquis. On les rend à leur rubrique à l'ouverture, quand elle est vide. */
+const DEBUT_DEGRE = /^\s*(-\s+)?pour la d[ée]termination du degr[ée] de ma[iî]trise/i;
+export function separerDegre(rub) {
+  const A = "Acquis d'apprentissage", D = 'Degré de maîtrise';
+  const lignes = String(rub[A] || '').split('\n');
+  const i = lignes.findIndex(l => DEBUT_DEGRE.test(l));
+  if (i < 0 || String(rub[D] || '').trim()) return rub;
+  const degre = lignes.slice(i).filter(l => l.trim()).map((l, k) => {
+    const t = l.replace(/^\s*-\s+/, '').trim();
+    return k === 0 ? t : `- ${t}`;
+  });
+  return { ...rub, [A]: lignes.slice(0, i).join('\n').trimEnd(), [D]: degre.join('\n') };
+}
+
+/** Les rubriques d'un dossier, prêtes pour l'écran : structurées, le degré de maîtrise à sa place. */
+export function rubriquesDuDossier(texte, intitulesCours = []) {
+  const brutes = separerDegre(rubriquesDuTexte(texte));
+  return Object.fromEntries(Object.entries(brutes).map(([k, v]) => [k, structurerAPlat(v, intitulesCours)]));
+}

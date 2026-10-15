@@ -1,5 +1,5 @@
 import EditeurRubrique from '../components/EditeurRubrique.jsx';
-import { rubriquesDuTexte, structurerAPlat } from '../lib/texteDossier.js';
+import { rubriquesDuDossier } from '../lib/texteDossier.js';
 import { MODES_GROUPES } from '../lib/groupes.js';
 import { useEffect, useMemo, useRef, useState, Fragment } from 'react';
 import { estDirection } from '../lib/modules.js';
@@ -687,15 +687,13 @@ function UEModal({ ue, sections, onClose, onSaved, navigation = null }) {
         // Un dossier importé à plat (avant 3.1.356) se structure à l'ouverture ; il ne s'enregistre ainsi
         // que si on enregistre la fiche après l'avoir retouché.
         const intitules = (j?.cours || []).map(c => c.cours_nom);
-        setRubriques(Object.fromEntries(Object.entries(rubriquesDuTexte(j?.ue_dp || ''))
-          .map(([k, v]) => [k, structurerAPlat(v, intitules)])));
+        setRubriques(rubriquesDuDossier(j?.ue_dp || '', intitules));
       })
       .catch(() => setDossier({}));
   }, [isNew, ue?.ue_num, ue?.annee_scolaire]);
   const origines = useMemo(() => {
     const intitules = (dossier?.cours || []).map(c => c.cours_nom);
-    return Object.fromEntries(Object.entries(rubriquesDuTexte(dossier?.ue_dp_origine || dossier?.ue_dp || ''))
-      .map(([k, v]) => [k, structurerAPlat(v, intitules)]));
+    return rubriquesDuDossier(dossier?.ue_dp_origine || dossier?.ue_dp || '', intitules);
   }, [dossier]);
   const poserRubrique = (k, v) => { setRubriques(r => ({ ...r, [k]: v })); setRubriquesTouchees(t => ({ ...t, [k]: v })); };
   function toggleSection(code) {
