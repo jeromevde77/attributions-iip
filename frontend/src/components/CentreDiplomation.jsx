@@ -48,8 +48,11 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
   const [veut, setVeut] = useState({ diplome: true, attestation: true, liste: false, pv: false });
   /* LE BAS DE PAGE DU DIPLÔME (7 octobre 2026) : le papier actuel le porte,
      pré-imprimé — décoché par défaut ; le papier à venir ne l'aura plus. */
-  const [piedDiplome, setPiedDiplome] = useState(() => { try { return localStorage.getItem('diplome.pied') === '1'; } catch { return false; } });
-  useEffect(() => { try { localStorage.setItem('diplome.pied', piedDiplome ? '1' : '0'); } catch { /* */ } }, [piedDiplome]);
+  /* LE BAS DE PAGE NE SE RETIENT PLUS (Charles, 15 octobre 2026 : « le pied de page est présent alors
+     que je ne le veux pas — on a du papier spécial ») : la case se souvenait d'un essai, et tous les
+     diplômes suivants sortaient avec. Décochée à chaque ouverture ; on la coche pour le papier sans pied. */
+  const [piedDiplome, setPiedDiplome] = useState(false);
+  useEffect(() => { try { localStorage.removeItem('diplome.pied'); } catch { /* */ } }, []);
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState(null);
   // Ce qui a été produit, en attente d'être vu, imprimé, tiré en PDF ou envoyé.
