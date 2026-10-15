@@ -477,6 +477,9 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
         <PreviewModal html={apercu.html} titre={apercu.titre}
           sousTitre={`${section} · ${annee} · ${apercu.nb} pièce(s)`}
           nomFichier={apercu.nom} envoiPossible={false}
+          /* LE DIPLÔME SANS PIED, MÊME DEPUIS L'APERÇU (Charles, 15 octobre 2026) : une pièce en paysage
+             s'imprime par le PDF du serveur, qui posait le pied de Lucie faute qu'on lui dise le contraire. */
+          pdf={apercu.paysage ? { orientation: 'paysage', pied: false, page_css: true } : undefined}
           astuceImpression={apercu.paysage
             ? "⊞ « Paysage », marges « Aucune », sur le papier à diplôme" : null}
           onClose={() => setApercu(null)} />
