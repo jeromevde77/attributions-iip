@@ -1660,7 +1660,7 @@ table { width: 100% !important; font-size: 8.5pt !important; } th, td { white-sp
 thead { display: table-header-group; }
 .overflow-x-auto, .overflow-y-auto, .overflow-auto { overflow: visible !important; } [class*="max-h-"] { max-height: none !important; }
 .partie-impression + .partie-impression { break-before: page; }</style></head>
-<body class="impression-gestion"><div class="zone-impression-pdf">${clone.outerHTML}</div></body></html>`;
+<body class="impression-gestion"><div class="zone-impression">${clone.outerHTML}</div></body></html>`;
       const nom = `Gestion_${String(anneeActive).replace(/\W/g, '')}_${facesImprimees.length === 1 ? facesImprimees[0] : 'parties'}`;
       const r = await fetch('/api/impression/pdf', { method: 'POST', headers: authHeaders(),
         body: JSON.stringify({ html, nom, orientation: 'paysage', pagination: 'toujours' }) });
