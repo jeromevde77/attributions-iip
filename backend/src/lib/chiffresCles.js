@@ -245,6 +245,9 @@ export function donneesPersonnel(annee, ref = new Date()) {
     r.enseignant = liste.filter(x => x.statut !== 'ADM').length;
     r.capaes = liste.filter(x => String(x.capaes || '').trim() && !/^(non|0|n)$/i.test(String(x.capaes).trim())).length;
     r.avec_titres = liste.filter(x => x.nb_titres > 0).length;
+    // L'ÂGE DU PERSONNEL, EN TRANCHES À LUI (15 octobre 2026) : « moins de 25 ans » ne dit rien d'une équipe.
+    r.a35 = 0; r.a45 = 0; r.a55 = 0; r.p55 = 0;
+    for (const x of liste) { const a = age(x.date_naissance, ref); if (a == null) continue; r[a < 35 ? 'a35' : a < 45 ? 'a45' : a < 55 ? 'a55' : 'p55']++; }
     r.bruxelles = 0; r.wallonie = 0; r.flandre = 0; r.domicile_inconnu = 0;
     for (const x of liste) { const g = regionDuCp(x.code_postal); if (g) r[g]++; else r.domicile_inconnu++; }
     for (const [k, , min, max] of TRANCHES_ETP) {
