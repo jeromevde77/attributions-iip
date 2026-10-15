@@ -174,9 +174,10 @@ export function trouverEtudiant(l, etus) {
   if (!prenom) {
     // « ABDELLAOUI Kenza » : les mots en capitales sont le nom ; « Golfinopoulos N » : l'initiale suit.
     const mots = String(l.nom || '').trim().split(/\s+/);
-    const caps = mots.filter(w => w.length > 1 && w === w.toUpperCase() && /[A-Z]/.test(w));
+    // Une initiale (« W. », « E. ») n'est pas un nom en capitales.
+    const caps = mots.filter(w => w.replace(/[.,]/g, '').length > 1 && w === w.toUpperCase() && /[A-Z]/.test(w));
     if (caps.length && caps.length < mots.length) { nom = norme(caps.join(' ')); prenom = norme(mots.filter(w => !caps.includes(w)).join(' ')); }
-    else if (mots.length > 1 && /^[A-Za-zÀ-ÿ]\.?$/.test(mots.at(-1))) { nom = norme(mots.slice(0, -1).join(' ')); prenom = norme(mots.at(-1)); }
+    else if (mots.length > 1 && /^[A-Za-zÀ-ÿ]\.?,?$/.test(mots.at(-1))) { nom = norme(mots.slice(0, -1).join(' ')); prenom = norme(mots.at(-1)); }
   }
   if (!nom) return { erreur: 'nom absent' };
   let c = etus.filter(e => e.n === nom);
@@ -187,7 +188,10 @@ export function trouverEtudiant(l, etus) {
     if (f.length) c = f;
   } else if (prenom && c.length === 1) {
     const p1 = prenom.split(' ')[0];
-    if (!(c[0].p === prenom || c[0].p.startsWith(p1) || p1.startsWith(c[0].p.split(' ')[0]) || (p1.length === 1 && c[0].p[0] === p1))) c = [];
+    // Un prénom proche (« Myriam » pour « Miriam ») : même initiale et une seule personne de ce nom.
+    const proche = (a, b) => a[0] === b[0] && Math.abs(a.length - b.length) <= 2 && [...a].filter((x, i) => b[i] === x).length >= Math.min(a.length, b.length) - 2;
+    if (!(c[0].p === prenom || c[0].p.startsWith(p1) || p1.startsWith(c[0].p.split(' ')[0]) || (p1.length === 1 && c[0].p[0] === p1)
+      || (p1.length > 2 && proche(p1, c[0].p.split(' ')[0])))) c = [];
   }
   if (c.length > 1 && l.section) { const ns = norme(l.section); const f = c.filter(e => norme(e.s).startsWith(ns)); if (f.length) c = f; }
   if (c.length > 1) { const f = c.filter(e => e.actif); if (f.length === 1) c = f; }
