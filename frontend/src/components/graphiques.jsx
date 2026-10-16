@@ -12,6 +12,14 @@ import { reglagesGraphique } from '../lib/design.js';
  */
 const pc = (v, t) => (t ? `${Math.round((v / t) * 100)} %` : '—');
 export const SERIES = ['var(--g-1)', 'var(--g-2)', 'var(--g-3)', 'var(--g-4)', 'var(--g-5)', 'var(--g-6)'];
+/* AU-DELÀ DE SIX SÉRIES, PAS DEUX FOIS LA MÊME COULEUR (Charles, 16 octobre 2026 : « attention, couleurs
+   identiques » — TIM et Soins plaies, Orthoptie et ATNUP). Les six teintes du réglage, puis les mêmes
+   assombries, puis éclaircies : dix-huit séries distinctes, toujours tirées de la palette. */
+export function couleurSerie(i) {
+  const base = SERIES[i % SERIES.length];
+  const tour = Math.floor(i / SERIES.length) % 3;
+  return tour === 0 ? base : tour === 1 ? `color-mix(in srgb, ${base} 58%, #0B1B2E)` : `color-mix(in srgb, ${base} 50%, #FFFFFF)`;
+}
 
 /** L'anneau : les parts d'un tout, la légende avec les pourcentages. */
 export function Anneau({ parts, total, centre, taille = 144, legende = true }) {
@@ -26,7 +34,7 @@ export function Anneau({ parts, total, centre, taille = 144, legende = true }) {
     if (a1 - a0 >= Math.PI * 2 - 1e-6) return `M ${pt(R, a0)} A ${R} ${R} 0 1 1 ${pt(R, a0 + Math.PI)} A ${R} ${R} 0 1 1 ${pt(R, a0)} M ${pt(r, a0)} A ${r} ${r} 0 1 0 ${pt(r, a0 + Math.PI)} A ${r} ${r} 0 1 0 ${pt(r, a0)} Z`;
     return `M ${pt(R, a0)} A ${R} ${R} 0 ${grand} 1 ${pt(R, a1)} L ${pt(r, a1)} A ${r} ${r} 0 ${grand} 0 ${pt(r, a0)} Z`;
   };
-  const vis = parts.filter(p => p.valeur > 0).map((p, i) => ({ ...p, couleur: p.couleur || SERIES[i % SERIES.length] }));
+  const vis = parts.filter(p => p.valeur > 0).map((p, i) => ({ ...p, couleur: p.couleur || couleurSerie(i) }));
   return (
     <div className="flex items-center gap-5 flex-wrap">
       <svg viewBox="0 0 140 140" style={{ width: taille, height: taille }} className="flex-none" role="img" aria-label={vis.map(p => `${p.nom} ${pc(p.valeur, t)}`).join(', ')}>
@@ -64,7 +72,7 @@ export function Repartition({ parts, className = 'w-28', title }) {
   const t = parts.reduce((a, p) => a + (p.valeur || 0), 0) || 1;
   return (
     <div className={`jauge ${className}`} title={title || parts.map(p => `${p.valeur} ${p.nom}`).join(' · ')}>
-      {parts.map((p, i) => (p.valeur ? <div key={p.nom} style={{ width: `${(p.valeur / t) * 100}%`, background: p.couleur || SERIES[i % SERIES.length] }} /> : null))}
+      {parts.map((p, i) => (p.valeur ? <div key={p.nom} style={{ width: `${(p.valeur / t) * 100}%`, background: p.couleur || couleurSerie(i) }} /> : null))}
     </div>);
 }
 
