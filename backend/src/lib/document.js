@@ -29,7 +29,9 @@ import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 // BANDE_PIED_MM  hauteur totale réservée, du bord bas de la page
 // MARGE_SOUS_PIED_MM  ce qui sépare le pied du bord de la feuille
 
-export const BANDE_PIED_MM = 24;        // ~2,4 cm : logo, filet, deux lignes
+/* LE LOGO SOUS LE FILET (3.1.398, Charles, 16 octobre 2026 : « si on mettait le logo en dessous de la ligne pour
+   gagner en place partout ? ») : il s'aligne à gauche de l'adresse au lieu de la surmonter — 6 mm de gagnés. */
+export const BANDE_PIED_MM = 18;        // ~1,8 cm : filet, puis logo et lignes côte à côte
 export const MARGE_SOUS_PIED_MM = 8;    // le pied ne colle pas au bord
 
 // Hauteur du bloc lui-même, une fois retirée la marge sous lui.
@@ -92,10 +94,10 @@ export function reglesDePage({ haut = 18, cote = 18,
  * bordé, qui ne porte plus que le texte.
  */
 export function piedBalisage(logo = null) {
-  return `<div class="pied-lucie">`
-    + (logo ? `<img class="pied-logo" src="${logo}" alt="">` : '')
-    + `<div class="pied-filet"><div class="pied-txt">${piedDocument()}</div></div>`
-    + `</div>`;
+  return `<div class="pied-lucie"><div class="pied-filet">`
+    + `<div class="pied-logo-case">${logo ? `<img class="pied-logo" src="${logo}" alt="">` : ''}</div>`
+    + `<div class="pied-txt">${piedDocument()}</div><div class="pied-logo-case"></div>`
+    + `</div></div>`;
 }
 
 export function piedStyles(hauteur = HAUTEUR_PIED_MM, margeHaut = 18, orientation = 'portrait', bas = BANDE_PIED_MM) {
@@ -138,11 +140,10 @@ export function piedStyles(hauteur = HAUTEUR_PIED_MM, margeHaut = 18, orientatio
   table.feuille > thead { display: table-header-group; }
   table.feuille > tfoot { display: table-footer-group; }
   table.feuille > thead > tr > td { padding-bottom: 3mm; }
-  .pied-lucie { height: ${hauteur}mm; padding-top: 2mm; }
-  .pied-lucie .pied-logo { height: ${Math.max(5, hauteur - 10)}mm; width: auto;
-                           display: block; margin: 0 0 1.2mm; opacity: .9; }
-  .pied-lucie .pied-filet { border-top: 0.5pt solid #C9A84C; padding-top: 1.5mm;
-                            text-align: center; }
+  .pied-lucie { height: ${hauteur}mm; padding-top: 1.5mm; }
+  .pied-lucie .pied-filet { border-top: 0.5pt solid #C9A84C; padding-top: 1.2mm; text-align: center;
+                            display: grid; grid-template-columns: 24mm 1fr 24mm; align-items: start; }
+  .pied-lucie .pied-logo { height: 6.5mm; width: auto; display: block; opacity: .9; }
   .pied-lucie .pied-txt { font-size: 6pt; color: #3F4652; line-height: 1.3; }  /* anthracite */
   /* À l'écran, la position fixe collerait le pied au bas de la FENÊTRE, non de
      la page. On simule donc la feuille : hauteur d'une A4 et pied repoussé en
@@ -534,12 +535,14 @@ export function piedGabaritPdf(logo, texte, numeroter = false) {
   const T = String(texte || '').trim();
   return '<div style="width:100%;font-family:Arial,Helvetica,sans-serif;'
        + 'padding:0 15mm;margin:0;">'
-       + (logo ? `<img src="${logo}" style="height:7mm;display:block;margin:0 0 1mm;opacity:.9">` : '')
-       + '<div style="border-top:0.5pt solid #C9A84C;padding-top:1.2mm;text-align:center">'
+       // Le logo SOUS le filet, à gauche de l'adresse (3.1.398) ; une case vide à droite garde le texte centré.
+       + '<div style="border-top:0.5pt solid #C9A84C;padding-top:1.2mm;text-align:center;display:flex;align-items:flex-start">'
+       + `<div style="width:24mm;flex:none;text-align:left">${logo ? `<img src="${logo}" style="height:6.5mm;display:block;opacity:.9">` : ''}</div>`
+       + '<div style="flex:1;min-width:0">'
        // Le numéro prend la place que piedDocument() lui réserve : à droite,
        // sur la ligne de l'adresse, en anthracite comme le reste.
        + `<div style="font-size:6pt;color:#3F4652;line-height:1.3">${numeroter
             ? T.replace(/<span class="pied-page"([^>]*)><\/span>/, '<span class="pied-page"$1><span class="pageNumber"></span> / <span class="totalPages"></span></span>')
             : T}</div>`
-       + '</div></div>';
+       + '</div><div style="width:24mm;flex:none"></div></div></div>';
 }
