@@ -854,6 +854,7 @@ function ratiosEtp(annee) {
   const etpAdmin = admin.reduce((t, a) => t + a.etp, 0);
   let sections = [];
   try { sections = ratiosParSection(annee, etpAdmin); } catch (e) { console.error('[ratios ETP]', e.message); }
+  const tronc = troncsCommuns;
   return {
     inscrits: new Set(lignes.map(l => l.id)).size,
     inscrits_par_section: Object.fromEntries(Object.entries(parSection).map(([s, set]) => [s, set.size])),
@@ -861,6 +862,7 @@ function ratiosEtp(annee) {
     admin,
     periodes_temps_plein: periodesTempsPlein(),
     sections,
+    troncs_communs: tronc,
   };
 }
 
@@ -902,6 +904,7 @@ function detailSection(o, annee) {
   return { ues, blocs: Object.values(blocs).map(B => ({ bloc: B.bloc, inscrits: B.ids.size, etp: r3(B.etp) }))
     .sort((a, b) => String(a.bloc).localeCompare(String(b.bloc), 'fr', { numeric: true })) };
 }
+let troncsCommuns = [];   // le dernier calcul : les blocs d'UE partagées, pour l'écran
 function ratiosParSection(annee, etpAdmin) {
   const ref = periodesTempsPlein();
   const etpDe = l => (String(l.type_cours || '').toUpperCase() === 'PP' ? (l.per || 0) / 1000 : (l.per || 0) / 800);
@@ -941,11 +944,39 @@ function ratiosParSection(annee, etpAdmin) {
     c.etp += etpDe(l); c.secs.set(l.section, (c.secs.get(l.section) || 0) + etpDe(l));
     c.per += l.per || 0; c.persecs.set(l.section, (c.persecs.get(l.section) || 0) + (l.per || 0));
   }
+  /* LE TRONC COMMUN SE COMPTE ENSEMBLE, PUIS SE RÉPARTIT (3.1.395, Charles, 16 octobre 2026 : « tu dois faire
+     un calcul pour les étudiants du tronc commun — Orthoptie et Opto —, puis répartir proportionnellement au
+     nombre d'inscrits »). Les UE suivies par plusieurs sections forment un bloc par groupe de sections : ses
+     ETP s'additionnent, ses étudiants se comptent une fois par section, et chaque section reçoit la part de
+     ces ETP qui revient à SES étudiants du bloc. Orthoptie, qui ne suit que le tronc commun, a donc
+     exactement le ratio du tronc commun. Une UE d'une seule section reste à sa section. */
+  const groupes = new Map();   // clé « secA|secB » → { ues: [], etp, per }
   for (const [ue, c] of coursUE) {
     const m = inscritsUE.get(ue); const n = m ? [...m.values()].reduce((a, b) => a + b, 0) : 0;
-    if (n) for (const [s, k] of m) { sec(s).etp_cours += c.etp * k / n; sec(s).per_cours += c.per * k / n; ueDe(s, ue).etp += c.etp * k / n; }
+    if (m && m.size > 1) {
+      const cle = [...m.keys()].sort().join('|');
+      const g = groupes.get(cle) || groupes.set(cle, { ues: [], etp: 0, per: 0 }).get(cle);
+      g.ues.push(ue); g.etp += c.etp; g.per += c.per;
+      continue;
+    }
+    if (n) for (const [s] of m) { sec(s).etp_cours += c.etp; sec(s).per_cours += c.per; ueDe(s, ue).etp += c.etp; }
     else { for (const [s, e] of c.secs) { sec(s).etp_cours += e; ueDe(s, ue).etp += e; } for (const [s, p] of c.persecs) sec(s).per_cours += p; }
   }
+  const tronc = [];
+  for (const [cle, g] of groupes) {
+    const secsG = cle.split('|');
+    const parSec = Object.fromEntries(secsG.map(s => [s, new Set(g.ues.flatMap(u => [...(S[s]?.ues.get(u)?.ids || [])]))]));
+    const total = secsG.reduce((t, s) => t + parSec[s].size, 0);
+    if (!total) continue;
+    for (const s of secsG) {
+      const q = parSec[s].size / total;
+      sec(s).etp_cours += g.etp * q; sec(s).per_cours += g.per * q;
+      for (const u of g.ues) ueDe(s, u).etp += (coursUE.get(u)?.etp || 0) * q;
+    }
+    tronc.push({ sections: secsG, ues: g.ues.sort((a, b) => a - b), etudiants: total, par_section: Object.fromEntries(secsG.map(s => [s, parSec[s].size])),
+      etp: Math.round(g.etp * 1000) / 1000 });
+  }
+  troncsCommuns = tronc;
   // Les missions de section payées en ETP (pas par des lignes d'attribution déjà lues ci-dessus).
   try {
     const CODE = [[/cursus/i, 'COCUR'], [/stage/i, 'COSTA'], [/tfe|fin d.[ée]tudes/i, 'COTFE'], [/section/i, 'COSEC'],
