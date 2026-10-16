@@ -1708,11 +1708,29 @@ export default function Pilotage({ vue = 'tout' }) {
       const clone = zone.cloneNode(true);
       clone.querySelectorAll('.exclu-impression').forEach(n => n.remove());
       clone.querySelectorAll('.sans-impression, button, select').forEach(n => { if (n.tagName === 'SELECT') { const t = document.createElement('span'); t.textContent = n.options[n.selectedIndex]?.text || ''; n.replaceWith(t); } else if (n.classList.contains('sans-impression')) n.remove(); });
+      /* CE QUI SERT À MANIPULER L'ÉCRAN NE S'IMPRIME PAS (Charles, 16 octobre 2026 : « ça ne va pas, la première
+         page » — elle ne portait que « Recalculer », « Imprimer ou envoyer » et une rubrique repliée). Les
+         boutons d'action, les champs et les rubriques repliées sortent ; les sélecteurs à segments gardent le
+         seul choix actif, qui dit ce que montre la page. */
+      clone.querySelectorAll('.segments').forEach(g => {
+        const actif = [...g.querySelectorAll('button')].find(b => /bg-iip-blue/.test(b.className));
+        const t = document.createElement('div'); t.className = 'text-second font-semibold'; t.textContent = actif?.textContent?.trim() || '';
+        g.replaceWith(t);
+      });
+      // Une barre d'outils vidée de ses boutons ne laisse pas de trou — seuls ces parents-là, jamais une barre de graphique.
+      const parents = new Set();
+      clone.querySelectorAll('button, input, textarea, details:not([open])').forEach(n => { if (n.parentElement) parents.add(n.parentElement); n.remove(); });
+      for (let p of parents) { while (p && p !== clone && !p.textContent.trim() && !p.children.length) { const up = p.parentElement; p.remove(); p = up; } }
       const html = `<!doctype html><html ${attrs}><head><meta charset="utf-8">${liens}<style>${css}</style>
 <style>@page { size: A4 landscape; } body { background: #fff !important; margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .page-impression { width: 1000px !important; margin: 0 auto !important; padding: 0 !important; }
 .carte, .carte-plate, .bloc-etat, .recharts-wrapper, svg, tr, li, img, section section, [class*="rounded-carte"], .grid > * { break-inside: avoid; }
 table { width: 100% !important; font-size: 8.5pt !important; } th, td { white-space: normal !important; padding: 3px 4px !important; }
+/* UN TABLEAU QUI TIENT SUR UNE PAGE NE SE COUPE PAS (Charles, 16 octobre 2026 : « sois malin ») : s'il ne tient pas
+   sous le graphique, il passe en entier à la page suivante ; seul un tableau plus long qu'une page se coupe. */
+table, .overflow-x-auto, .overflow-auto, .recharts-responsive-container { break-inside: avoid; page-break-inside: avoid; }
+/* La marge basse est celle du pied de la maison (le serveur la réserve) : la page nommée de l'aperçu n'en impose pas d'autre. */
+.zone-impression { page: auto !important; }
 .titre-carte, .intertitre, .titre-ecran, h2, h3, h4 { break-after: avoid; }
 thead { display: table-header-group; }
 .overflow-x-auto, .overflow-y-auto, .overflow-auto { overflow: visible !important; } [class*="max-h-"] { max-height: none !important; }
