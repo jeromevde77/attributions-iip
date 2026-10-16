@@ -129,13 +129,25 @@ function niveauPrincipal(n) {
 }
 
 /** Les inscrits d'une année, avec leur section (rattachement, sinon l'unité — hors cursus exclu). */
+/* LE SECOND CURSUS COMPTE AUSSI (3.1.390, Charles, 16 octobre 2026 : « tu ne les comptes pas » — Optique
+   « — » en 2026-2027 pour 59 opticiens). Une inscription compte dans la section de rattachement quand l'UE
+   en fait partie (tronc commun compris, ou UE hors cursus) ; sinon dans la section de l'UE — l'opticien
+   rattaché à Optométrie compte donc dans les deux. L'école le compte toujours une fois. */
 export function inscrits(annee) {
   return db.prepare(`
-    SELECT DISTINCT i.etudiant_id AS id,
-           COALESCE(e.section_rattachement, (SELECT u.section FROM ue u WHERE u.ue_num = i.ue_num
-             AND u.annee_scolaire = i.annee_scolaire AND COALESCE(u.hors_cursus, 0) = 0 LIMIT 1)) AS section
-      FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
-     WHERE i.annee_scolaire = ? AND COALESCE(e.sortie_statut, '') <> 'archive'`).all(annee);
+    SELECT DISTINCT x.id, x.section FROM (
+      SELECT i.etudiant_id AS id,
+        CASE WHEN e.section_rattachement IS NOT NULL AND (
+               EXISTS (SELECT 1 FROM ue u WHERE u.ue_num = i.ue_num AND u.annee_scolaire = i.annee_scolaire
+                        AND (u.section = e.section_rattachement OR COALESCE(u.hors_cursus, 0) = 1))
+            OR EXISTS (SELECT 1 FROM ue_section us WHERE us.ue_num = i.ue_num AND us.annee_scolaire = i.annee_scolaire
+                        AND us.section_code = e.section_rattachement)
+            OR NOT EXISTS (SELECT 1 FROM ue u WHERE u.ue_num = i.ue_num AND u.annee_scolaire = i.annee_scolaire AND u.section IS NOT NULL))
+          THEN e.section_rattachement
+          ELSE COALESCE((SELECT u.section FROM ue u WHERE u.ue_num = i.ue_num AND u.annee_scolaire = i.annee_scolaire
+                 AND COALESCE(u.hors_cursus, 0) = 0 LIMIT 1), e.section_rattachement) END AS section
+        FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+       WHERE i.annee_scolaire = ? AND COALESCE(e.sortie_statut, '') <> 'archive') x`).all(annee);
 }
 // Un étudiant inscrit dans deux sections compte dans chacune ; l'ensemble le compte une fois.
 const premiereSection = lignes => {
