@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { Anneau, Barres, SERIES } from './graphiques.jsx';
 import { TuileEtat } from './ui.jsx';
+import { RatiosEtp } from './RapportStatistique.jsx';
 
 const k0 = n => Math.round(n || 0).toLocaleString('fr-BE');
 const e2 = n => (n || 0).toFixed(2).replace('.', ',');
@@ -64,6 +65,13 @@ export default function PersonnelEcole({ annee: anneeProp }) {
         <div className="flex-1 min-w-[150px]"><TuileEtat valeur={v.age_moyen != null ? `${Math.round(v.age_moyen)} ans` : '—'} libelle="âge moyen" precision={`${k0(v.p55)} de 55 ans et plus`} /></div>
         <div className="flex-1 min-w-[150px]"><TuileEtat valeur={k0(v.definitif)} libelle="définitifs" precision={`${k0(v.temporaire)} temporaire(s)`} /></div>
       </div>
+
+      {/* LE RATIO ÉTUDIANTS PAR ETP, ICI AUSSI (Charles, 16 octobre 2026 : « je ne le vois nulle part ») :
+          profs, profs + coordination, tout le personnel ; secrétariat et direction pour l'école. */}
+      {!section && (
+        <Carte titre="Étudiants par ETP" sous="Étudiants équivalents temps plein pour un ETP : profs, profs + coordination, tout le personnel — par section ; secrétariat et direction pour l'école.">
+          <RatiosEtp annee={d.annee} />
+        </Carte>)}
 
       {!section && (
         <Carte titre="Le personnel par section" sous="Un membre qui enseigne dans deux sections compte dans chacune ; le total de l'école le compte une fois.">
