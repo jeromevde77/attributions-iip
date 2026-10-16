@@ -1636,6 +1636,20 @@ export default function Pilotage({ vue = 'tout' }) {
      de couleurs posés sur la racine — et il la rend en A4 paysage avec le pied de la maison et le numéro
      de page, comme toutes les pièces. */
   const [pdfGestion, setPdfGestion] = useState(false);
+  /* CHOISIR LES BLOCS (3.1.388, Charles, 16 octobre 2026 : « je veux pouvoir retirer cela du PDF… être plus
+     précis sur ce que je choisis d'imprimer »). Mode allumé, un clic sur une carte ou une tuile de l'aperçu
+     la retire (grisée) ; un second clic la remet. Ce qui est retiré ne sort ni en PDF ni à l'impression. */
+  const [choisirBlocs, setChoisirBlocs] = useState(false);
+  const [nbRetires, setNbRetires] = useState(0);
+  const BLOCS_IMPRIMABLES = '.carte, .bloc-etat';
+  function basculerBloc(e) {
+    if (!choisirBlocs) return;
+    const b = e.target.closest(BLOCS_IMPRIMABLES);
+    if (!b || !e.currentTarget.contains(b)) return;
+    e.preventDefault(); e.stopPropagation();
+    b.classList.toggle('exclu-impression');
+    setNbRetires(e.currentTarget.querySelectorAll('.exclu-impression').length);
+  }
   async function pdfDeLAperçu() {
     const zone = document.querySelector('.zone-impression .page-impression');
     if (!zone) return;
@@ -1650,6 +1664,7 @@ export default function Pilotage({ vue = 'tout' }) {
       const racine = document.documentElement;
       const attrs = [...racine.attributes].filter(a => a.name !== 'class' || a.value).map(a => `${a.name}="${String(a.value).replace(/"/g, '&quot;')}"`).join(' ');
       const clone = zone.cloneNode(true);
+      clone.querySelectorAll('.exclu-impression').forEach(n => n.remove());
       clone.querySelectorAll('.sans-impression, button, select').forEach(n => { if (n.tagName === 'SELECT') { const t = document.createElement('span'); t.textContent = n.options[n.selectedIndex]?.text || ''; n.replaceWith(t); } else if (n.classList.contains('sans-impression')) n.remove(); });
       const html = `<!doctype html><html ${attrs}><head><meta charset="utf-8">${liens}<style>${css}</style>
 <style>@page { size: A4 landscape; } body { background: #fff !important; margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -1751,7 +1766,7 @@ thead { display: table-header-group; }
           pied={<>
             <span className="text-second text-slate-500 flex-1 min-w-0">{choixImpression.size ? `${choixImpression.size} partie(s)` : 'Cochez au moins une partie.'}</span>
             <button type="button" className="bouton bouton-fort" disabled={!choixImpression.size}
-              onClick={() => { const ordre = IMPRIMABLES.flatMap(r => r.faces.map(([k]) => k)).filter(k => choixImpression.has(k)); setFacesImprimees(ordre); setChoixImpression(null); }}>
+              onClick={() => { const ordre = IMPRIMABLES.flatMap(r => r.faces.map(([k]) => k)).filter(k => choixImpression.has(k)); setFacesImprimees(ordre); setChoixImpression(null); setChoisirBlocs(false); setNbRetires(0); }}>
               Composer l'aperçu</button>
           </>}>
           <div className="space-y-4">
@@ -1784,12 +1799,17 @@ thead { display: table-header-group; }
             <IconPrinter size={18} className="text-slate-500" />
             <span className="font-semibold flex-1 min-w-0">Aperçu — {facesImprimees.length} partie(s) · année scolaire {anneeActive}</span>
             <span className="text-second text-slate-500">Attendez que les graphiques soient chargés, puis « PDF » : A4 paysage, bas de page et numéro sur chaque feuille.</span>
+            <button type="button" className={`bouton inline-flex items-center gap-1.5 ${choisirBlocs ? 'bouton-fort' : ''}`} onClick={() => setChoisirBlocs(v => !v)}
+              title="Un clic sur une carte ou une tuile la retire de l'impression ; un second clic la remet">
+              {choisirBlocs ? 'Terminer le choix' : 'Choisir les blocs'}{nbRetires ? ` · ${nbRetires} retiré(s)` : ''}</button>
             <button type="button" className="bouton bouton-fort inline-flex items-center gap-1.5" disabled={pdfGestion} onClick={pdfDeLAperçu}>
               <IconPrinter size={15} /> {pdfGestion ? 'PDF en cours…' : 'PDF'}</button>
             <button type="button" className="bouton inline-flex items-center gap-1.5" onClick={() => window.print()} title="Impression du navigateur, sans bas de page garanti">Imprimer (navigateur)</button>
             <button type="button" className="bouton inline-flex items-center gap-1.5" onClick={() => setFacesImprimees(null)}><IconX size={15} /> Fermer</button>
           </div>
-          <div className="page-impression mx-auto px-0 py-5 space-y-6">
+          {choisirBlocs && <div className="sans-impression bloc-etat mx-auto my-2 px-3 py-2 text-second" style={{ width: 1000 }} data-etat="disponible">
+            <b>Choix des blocs</b> : cliquez une carte ou une tuile pour la retirer de l'impression — elle se grise ; recliquez pour la remettre. « Terminer le choix » quand c'est prêt.</div>}
+          <div className={`page-impression mx-auto px-0 py-5 space-y-6 ${choisirBlocs ? 'choix-blocs' : ''}`} onClickCapture={basculerBloc}>
             <div className="border-b-2 pb-2" style={{ borderColor: '#C9A84C' }}>
               <div className="text-mention uppercase tracking-wide text-slate-500">Institut Ilya Prigogine · Gestion — données de l'établissement</div>
               <div className="titre-ecran">{facesImprimees.length === 1 ? libelleFace(facesImprimees[0]) : 'Données de l’établissement'} · {anneeActive}</div>

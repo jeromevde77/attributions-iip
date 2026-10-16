@@ -1461,4 +1461,9 @@ table.grid-excel-soft tbody tr:nth-child(even) { background-color: var(--d-zebre
   body.impression-gestion .zone-impression .shadow-pose, body.impression-gestion .zone-impression .shadow-flottant { box-shadow: none !important; }
 }
 @page gestion { size: A4 landscape; margin: 10mm 12mm; }
+/* Choisir les blocs à imprimer (3.1.388) : un bloc retiré se grise à l'écran et ne sort pas. */
+.zone-impression .choix-blocs :is(.carte, .bloc-etat) { cursor: pointer; outline: 1px dashed transparent; outline-offset: 3px; }
+.zone-impression .choix-blocs :is(.carte, .bloc-etat):hover { outline-color: #94A3B8; }
+.zone-impression .exclu-impression { opacity: .25; outline: 1px dashed #B45309 !important; outline-offset: 3px; }
+@media print { body.impression-gestion .zone-impression .exclu-impression { display: none !important; } }
 
