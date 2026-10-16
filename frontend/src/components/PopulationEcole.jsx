@@ -9,7 +9,7 @@
 import { useEffect, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { authHeaders, getAnnee } from '../lib/api.js';
-import { Anneau, Barres, SERIES } from './graphiques.jsx';
+import { Anneau, Barres, SERIES, couleurSerie } from './graphiques.jsx';
 import { TuileEtat } from './ui.jsx';
 import { saisir, informer } from '../lib/dialogue.jsx';
 
@@ -92,7 +92,7 @@ export default function PopulationEcole({ annee: anneeProp }) {
 
       {!section && (
         <Carte titre="Les inscrits par section" sous="Un étudiant inscrit dans deux sections compte dans chacune ; le total de l'école le compte une fois.">
-          <Barres format={k0} lignes={d.sections.map((s, i) => ({ nom: NOM_SECTION(s.section), valeur: s.n, couleur: SERIES[i % SERIES.length] }))} />
+          <Barres format={k0} lignes={d.sections.map((s, i) => ({ nom: NOM_SECTION(s.section), valeur: s.n, couleur: couleurSerie(i) }))} />
         </Carte>)}
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -139,7 +139,7 @@ export default function PopulationEcole({ annee: anneeProp }) {
                 <Tooltip />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
                 {(section ? [section] : sectionsEvo).map((s, i) => (
-                  <Bar key={s} dataKey={s} name={NOM_SECTION(s)} stackId="a" fill={SERIES[i % SERIES.length]} />))}
+                  <Bar key={s} dataKey={s} name={NOM_SECTION(s)} stackId="a" fill={couleurSerie(i)} />))}
               </BarChart>
             </ResponsiveContainer>
           </div>

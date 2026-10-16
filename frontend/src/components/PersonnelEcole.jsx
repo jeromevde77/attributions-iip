@@ -7,7 +7,7 @@
  */
 import { useEffect, useState } from 'react';
 import { authHeaders, getAnnee } from '../lib/api.js';
-import { Anneau, Barres, SERIES } from './graphiques.jsx';
+import { Anneau, Barres, couleurSerie } from './graphiques.jsx';
 import { TuileEtat } from './ui.jsx';
 import { RatiosEtp } from './RapportStatistique.jsx';
 
@@ -75,7 +75,7 @@ export default function PersonnelEcole({ annee: anneeProp }) {
 
       {!section && (
         <Carte titre="Le personnel par section" sous="Un membre qui enseigne dans deux sections compte dans chacune ; le total de l'école le compte une fois.">
-          <Barres format={n => k0(n)} lignes={d.sections.map((s, i) => ({ nom: `${NOM(s.section)} · ${e2(s.etp_section)} ETP`, valeur: s.n, couleur: SERIES[i % SERIES.length] }))} />
+          <Barres format={n => k0(n)} lignes={d.sections.map((s, i) => ({ nom: `${NOM(s.section)} · ${e2(s.etp_section)} ETP`, valeur: s.n, couleur: couleurSerie(i) }))} />
         </Carte>)}
 
       <div className="grid gap-4 lg:grid-cols-2">

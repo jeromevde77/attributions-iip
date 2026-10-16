@@ -176,7 +176,7 @@ export function RatiosEtp({ annee }) {
      réparties au prorata, ces fonctions donneraient le même chiffre à chaque section. */
   const etpDe = re => (R.admin || []).filter(a => re.test(a.fonction || '')).reduce((t, a) => t + (a.etp || 0), 0);
   const direction = etpDe(/direct/i), secretariat = etpDe(/secr[ée]t/i);
-  const barres = L.map(o => ({ section: o.section.replace(/_/g, ' '), inscrits: o.inscrits, ete: o.ete,
+  const barres = L.map(o => ({ section: o.section.replace(/_/g, ' '), inscrits: o.inscrits, ete: o.ete, etp: etpVue(o, vue), groupe: o.groupe_moyen,
     valeur: vue === 'groupe' ? (o.groupe_moyen || 0) : +(parEtp(o.ete, etpVue(o, vue)) || 0).toFixed(1),
     cours: +(100 * o.etp_cours / o.ete).toFixed(2), coord: +(100 * o.etp_coord / o.ete).toFixed(2), admin: +(100 * o.etp_admin / o.ete).toFixed(2) }))
     .filter(b => vue === 'empile' || b.valeur > 0)
@@ -206,7 +206,20 @@ export function RatiosEtp({ annee }) {
               <CartesianGrid strokeDasharray="3 3" stroke="var(--g-grille, #E5E7EB)" horizontal={false} />
               <XAxis type="number" tick={{ fontSize: 11 }} />
               <YAxis type="category" dataKey="section" width={130} tick={{ fontSize: 11 }} />
-              <Tooltip formatter={(v, nom) => [r1(v), nom]} labelFormatter={(l, p) => { const x = p?.[0]?.payload; return x ? `${l} · ${x.inscrits} étudiants · ${r1(x.ete)} ETE` : l; }} />
+              {/* UNE BULLE QUI DIT CE QU'ELLE CALCULE (Charles, 16 octobre 2026 : « ça veut dire quoi ? »). */}
+              <Tooltip content={({ active, payload }) => {
+                const x = active && payload?.[0]?.payload; if (!x) return null;
+                return (
+                  <div className="bg-white border border-slate-200 rounded-champ shadow-flottant px-3 py-2 text-second max-w-xs">
+                    <div className="font-semibold mb-1">{x.section}</div>
+                    {vue === 'groupe'
+                      ? <div>En moyenne <b>{r1(x.groupe)} étudiants</b> devant un enseignant, sur toutes ses heures.</div>
+                      : <>
+                        <div><b>{k0(x.inscrits)} étudiants</b> pour <b>{e2(x.etp)} ETP</b> ({nomVue}) : <b>{r1(x.etp ? x.inscrits / x.etp : null)} étudiants par ETP</b>.</div>
+                        <div className="text-slate-500 mt-1">La barre compte en temps plein : {k0(x.inscrits)} étudiants valent {r1(x.ete)} temps pleins (certains ne suivent qu'une partie d'année), soit {r1(x.valeur)} par ETP.</div>
+                      </>}
+                  </div>);
+              }} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
               {<Bar dataKey="valeur" name={vue === 'groupe' ? 'étudiants devant un enseignant (moyenne)' : `étudiants par ETP — ${nomVue}`} fill="var(--g-1)" label={{ position: 'right', fontSize: 10, formatter: r1 }} />}
             </BarChart>

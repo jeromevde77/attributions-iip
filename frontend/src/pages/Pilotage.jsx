@@ -1653,14 +1653,20 @@ export default function Pilotage({ vue = 'tout' }) {
       const nomPartie = partie.querySelector(':scope > .titre-carte')?.textContent?.trim() || '';
       const vus = new Set();
       const cartes = [...partie.querySelectorAll('.carte')].filter(c => !c.parentElement.closest('.carte'));
-      const tuiles = [...partie.querySelectorAll('.bloc-etat')].filter(t => !t.closest('.carte') && !t.closest('.sans-impression'))
-        .map(t => t.closest('.flex.flex-wrap') || t).filter(r => !vus.has(r) && vus.add(r));
+      // CHAQUE TUILE SA CASE (Charles, 16 octobre 2026 : « tu ne me permets toujours pas de choisir les tuiles »).
+      const tuiles = [...partie.querySelectorAll('.bloc-etat')].filter(t => !t.closest('.sans-impression'))
+        .map(t => t.closest('.flex-1') && t.closest('.flex-1').querySelectorAll('.bloc-etat').length === 1 ? t.closest('.flex-1') : t)
+        .filter(r => !vus.has(r) && vus.add(r));
       for (const el of [...tuiles, ...cartes].sort((a, b) => (a.compareDocumentPosition(b) & 4 ? -1 : 1))) {
         el.dataset.bloc = String(++n);
+        const t = el.classList.contains('carte') ? null : (el.classList.contains('bloc-etat') ? el : el.querySelector('.bloc-etat'));
+        // Une tuile se nomme par son chiffre et son libellé (« 854 inscrits »), pas par toute sa précision.
+        const nomTuile = t ? [...t.querySelectorAll('div, span')].map(x => x.childElementCount ? '' : x.textContent.trim()).filter(Boolean).slice(0, 2).join(' ') : '';
         const titre = el.classList.contains('carte')
           ? (el.querySelector('.titre-carte, .text-base.font-semibold')?.textContent || el.textContent).trim().slice(0, 70)
-          : `Chiffres clés (${el.querySelectorAll('.bloc-etat').length || 1} tuile(s))`;
-        out.push({ id: el.dataset.bloc, partie: nomPartie, titre, exclu: el.classList.contains('exclu-impression') });
+          : `Tuile · ${(nomTuile || el.textContent.trim()).slice(0, 60)}`;
+        // Une tuile DANS une carte se range sous elle, en retrait.
+        out.push({ id: el.dataset.bloc, partie: nomPartie, titre, dans: !el.classList.contains('carte') && !!el.closest('.carte'), exclu: el.classList.contains('exclu-impression') });
       }
     }
     setElements(out);
@@ -1679,7 +1685,7 @@ export default function Pilotage({ vue = 'tout' }) {
   const BLOCS_IMPRIMABLES = '.carte, .bloc-etat';
   function basculerBloc(e) {
     if (!choisirBlocs) return;
-    const b = e.target.closest(BLOCS_IMPRIMABLES);
+    const b = e.target.closest('.bloc-etat') || e.target.closest(BLOCS_IMPRIMABLES);
     if (!b || !e.currentTarget.contains(b)) return;
     e.preventDefault(); e.stopPropagation();
     b.classList.toggle('exclu-impression');
@@ -1856,7 +1862,7 @@ thead { display: table-header-group; }
                 <div key={p} className="mb-2">
                   <div className="intertitre mb-1">{p}</div>
                   {elements.filter(x => x.partie === p).map(x => (
-                    <label key={x.id} className={`flex items-start gap-2 py-0.5 cursor-pointer ${x.exclu ? 'text-slate-400 line-through' : ''}`}>
+                    <label key={x.id} className={`flex items-start gap-2 py-0.5 cursor-pointer ${x.dans ? 'pl-5 text-xs' : ''} ${x.exclu ? 'text-slate-400 line-through' : ''}`}>
                       <input type="checkbox" className="mt-0.5" checked={!x.exclu} onChange={e => cocherElement(x.id, e.target.checked)} />
                       <span className="min-w-0">{x.titre}</span>
                     </label>))}
