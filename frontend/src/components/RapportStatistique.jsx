@@ -159,6 +159,8 @@ function DetailFormations({ L }) {
 export function RatiosEtp({ annee }) {
   const [R, setR] = useState(null);
   const [vue, setVue] = useState('cours');
+  // ÉTUDIANTS OU TEMPS PLEINS (3.1.395) : le ratio de Charles compte les étudiants ; les temps pleins corrigent les formations courtes.
+  const [unite, setUnite] = useState('etudiants');
   useEffect(() => {
     let vivant = true; setR(null);
     fetch(`/api/pilotage/ratios?annee=${encodeURIComponent(annee)}`, { headers: authHeaders({ 'X-Annee': annee }) })
@@ -177,7 +179,7 @@ export function RatiosEtp({ annee }) {
   const etpDe = re => (R.admin || []).filter(a => re.test(a.fonction || '')).reduce((t, a) => t + (a.etp || 0), 0);
   const direction = etpDe(/direct/i), secretariat = etpDe(/secr[ée]t/i);
   const barres = L.map(o => ({ section: o.section.replace(/_/g, ' '), inscrits: o.inscrits, ete: o.ete, etp: etpVue(o, vue), groupe: o.groupe_moyen,
-    valeur: vue === 'groupe' ? (o.groupe_moyen || 0) : +(parEtp(o.ete, etpVue(o, vue)) || 0).toFixed(1),
+    valeur: vue === 'groupe' ? (o.groupe_moyen || 0) : +(parEtp(unite === 'etudiants' ? o.inscrits : o.ete, etpVue(o, vue)) || 0).toFixed(1),
     cours: +(100 * o.etp_cours / o.ete).toFixed(2), coord: +(100 * o.etp_coord / o.ete).toFixed(2), admin: +(100 * o.etp_admin / o.ete).toFixed(2) }))
     .filter(b => vue === 'empile' || b.valeur > 0)
     .sort((a, b) => (vue === 'empile' ? (b.cours + b.coord + b.admin) - (a.cours + a.coord + a.admin) : b.valeur - a.valeur));
@@ -199,6 +201,17 @@ export function RatiosEtp({ annee }) {
           <button key={k} type="button" onClick={() => setVue(k)}
             className={`px-3 py-1 text-second ${vue === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>{l}</button>))}
       </div>
+      {vue !== 'groupe' && (
+        <div className="segments w-fit">
+          {[['etudiants', 'Compter les étudiants'], ['ete', 'Compter en temps plein']].map(([k, l]) => (
+            <button key={k} type="button" onClick={() => setUnite(k)} className={`px-3 py-1 text-second ${unite === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>{l}</button>))}
+        </div>)}
+      {(R.troncs_communs || []).filter(t => t.sections.length > 1 && t.ues.length > 2).map(t => (
+        <div key={t.sections.join('|')} className="bloc-etat px-3 py-2 text-second" data-etat="disponible">
+          <b>Tronc commun {t.sections.join(' + ')}</b> (UE {t.ues.join(', ')}) : {k0(t.etudiants)} étudiants
+          ({t.sections.map(x => `${x} ${k0(t.par_section[x])}`).join(', ')}) pour {e2(t.etp)} ETP de cours — <b>{r1(t.etudiants / t.etp)} étudiants par ETP</b>.
+          Ces ETP se répartissent entre les sections au prorata de leurs étudiants du tronc commun.
+        </div>))}
       {barres.length > 0 && (
         <div style={{ width: '100%', height: Math.max(200, barres.length * 30 + 60) }}>
           <ResponsiveContainer>
@@ -216,12 +229,12 @@ export function RatiosEtp({ annee }) {
                       ? <div>En moyenne <b>{r1(x.groupe)} étudiants</b> devant un enseignant, sur toutes ses heures.</div>
                       : <>
                         <div><b>{k0(x.inscrits)} étudiants</b> pour <b>{e2(x.etp)} ETP</b> ({nomVue}) : <b>{r1(x.etp ? x.inscrits / x.etp : null)} étudiants par ETP</b>.</div>
-                        <div className="text-slate-500 mt-1">La barre compte en temps plein : {k0(x.inscrits)} étudiants valent {r1(x.ete)} temps pleins (certains ne suivent qu'une partie d'année), soit {r1(x.valeur)} par ETP.</div>
+                        <div className="text-slate-500 mt-1">En temps plein : {k0(x.inscrits)} étudiants valent {r1(x.ete)} temps pleins (certains ne suivent qu'une partie d'année), soit {r1(x.etp ? x.ete / x.etp : null)} par ETP.</div>
                       </>}
                   </div>);
               }} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
-              {<Bar dataKey="valeur" name={vue === 'groupe' ? 'étudiants devant un enseignant (moyenne)' : `étudiants par ETP — ${nomVue}`} fill="var(--g-1)" label={{ position: 'right', fontSize: 10, formatter: r1 }} />}
+              {<Bar dataKey="valeur" name={vue === 'groupe' ? 'étudiants devant un enseignant (moyenne)' : `${unite === 'etudiants' ? 'étudiants' : 'temps pleins'} par ETP — ${nomVue}`} fill="var(--g-1)" label={{ position: 'right', fontSize: 10, formatter: r1 }} />}
             </BarChart>
           </ResponsiveContainer>
         </div>)}
