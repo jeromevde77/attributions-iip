@@ -168,10 +168,31 @@ export function RatiosEtp({ annee }) {
     return () => { vivant = false; };
   }, [annee]);
   if (!R) return <div className="text-second text-slate-500">Calcul des ratios…</div>;
-  const L = (R.sections || []).filter(o => o.ete > 0);
-  const som = k => L.reduce((t, o) => t + (o[k] || 0), 0);
+  /* « COURS EN COMMUN ORTHOPTIE / OPTOMÉTRIE » (Charles, 16 octobre 2026 : « on ne met pas Orthoptie, on met
+     les cours en commun ») : une section dont toutes les UE sont celles d'un tronc commun n'est pas une
+     formation à part ici — sa ligne devient celle des cours en commun (tous leurs étudiants, tous leurs ETP). */
+  const L = (() => {
+    const base = (R.sections || []).filter(o => o.ete > 0);
+    const out = [];
+    const remplacees = new Set();
+    for (const t of R.troncs_communs || []) {
+      if (t.sections.length < 2 || t.ues.length < 3) continue;
+      for (const o of base) {
+        if (!t.sections.includes(o.section) || remplacees.has(o.section)) continue;
+        if (!(o.ues || []).length || !(o.ues || []).every(u => t.ues.includes(u.ue_num))) continue;
+        remplacees.add(o.section);
+        const autres = t.sections.filter(x => x !== o.section);
+        out.push({ ...o, section: `Cours en commun ${[o.section, ...autres].join(' / ')}`, inscrits: t.etudiants, etp_cours: t.etp,
+          ete: o.etp_cours ? o.ete * t.etp / o.etp_cours : o.ete, blocs: [], ues: [], commun: true });
+      }
+    }
+    return [...base.filter(o => !remplacees.has(o.section)), ...out];
+  })();
+  // Les totaux de l'école se font sur les sections réelles : la ligne des cours en commun recompterait des étudiants.
+  const som = k => (R.sections || []).filter(o => o.ete > 0).reduce((t, o) => t + (o[k] || 0), 0);
   const ete = som('ete'), cours = som('etp_cours'), coord = som('etp_coord'), admin = R.etp_admin || 0;
-  const n = L.reduce((t, o) => t + o.inscrits, 0);
+  const reelles = (R.sections || []).filter(o => o.ete > 0);
+  const n = reelles.reduce((t, o) => t + o.inscrits, 0);
   const detailAdmin = (R.admin || []).filter(a => a.etp).map(a => `${a.fonction} ${e2(a.etp)}`).join(', ');
   /* DIRECTION ET SECRÉTARIAT NE SE LISENT PAS PAREIL (Charles, 16 octobre 2026) : le secrétariat gère les
      dossiers — combien d'étudiants par secrétaire ; la direction, l'établissement. Pour l'école seulement :
@@ -184,7 +205,7 @@ export function RatiosEtp({ annee }) {
     .filter(b => vue === 'empile' || b.valeur > 0)
     .sort((a, b) => (vue === 'empile' ? (b.cours + b.coord + b.admin) - (a.cours + a.coord + a.admin) : b.valeur - a.valeur));
   const nomVue = VUES_RATIO.find(([k]) => k === vue)[1].toLowerCase();
-  const perEtu = L.reduce((t, o) => t + (o.periodes || 0), 0), perProf = L.reduce((t, o) => t + (o.per_cours || 0), 0);
+  const perEtu = reelles.reduce((t, o) => t + (o.periodes || 0), 0), perProf = reelles.reduce((t, o) => t + (o.per_cours || 0), 0);
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-3">
