@@ -1453,6 +1453,7 @@ table.grid-excel-soft tbody tr:nth-child(even) { background-color: var(--d-zebre
   body.impression-gestion .zone-impression .partie-impression { break-inside: auto; }
   body.impression-gestion .zone-impression :is(.carte, .carte-plate, .bloc-etat, .recharts-wrapper, svg, tr, li, img, .tuile-etat, section section, [class*="rounded-carte"], .grid > *) { break-inside: avoid; }
   body.impression-gestion .zone-impression table { width: 100% !important; font-size: 8.5pt !important; }
+  body.impression-gestion .zone-impression :is(table, .overflow-x-auto, .overflow-auto, .recharts-responsive-container) { break-inside: avoid; }
   body.impression-gestion .zone-impression :is(th, td) { white-space: normal !important; padding: 3px 4px !important; }
   body.impression-gestion .zone-impression :is(.titre-carte, .intertitre, .titre-ecran, h2, h3, h4) { break-after: avoid; }
   body.impression-gestion .zone-impression thead { display: table-header-group; }

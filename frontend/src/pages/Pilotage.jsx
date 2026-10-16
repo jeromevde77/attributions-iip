@@ -1713,6 +1713,11 @@ export default function Pilotage({ vue = 'tout' }) {
 .page-impression { width: 1000px !important; margin: 0 auto !important; padding: 0 !important; }
 .carte, .carte-plate, .bloc-etat, .recharts-wrapper, svg, tr, li, img, section section, [class*="rounded-carte"], .grid > * { break-inside: avoid; }
 table { width: 100% !important; font-size: 8.5pt !important; } th, td { white-space: normal !important; padding: 3px 4px !important; }
+/* UN TABLEAU QUI TIENT SUR UNE PAGE NE SE COUPE PAS (Charles, 16 octobre 2026 : « sois malin ») : s'il ne tient pas
+   sous le graphique, il passe en entier à la page suivante ; seul un tableau plus long qu'une page se coupe. */
+table, .overflow-x-auto, .overflow-auto, .recharts-responsive-container { break-inside: avoid; page-break-inside: avoid; }
+/* La marge basse est celle du pied de la maison (le serveur la réserve) : la page nommée de l'aperçu n'en impose pas d'autre. */
+.zone-impression { page: auto !important; }
 .titre-carte, .intertitre, .titre-ecran, h2, h3, h4 { break-after: avoid; }
 thead { display: table-header-group; }
 .overflow-x-auto, .overflow-y-auto, .overflow-auto { overflow: visible !important; } [class*="max-h-"] { max-height: none !important; }
