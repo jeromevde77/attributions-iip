@@ -2,6 +2,7 @@ import { donneesPopulation, inscrits, corrigerReference } from '../lib/populatio
 import { anneeDeTravail } from '../helpers/annee.js';
 import { sectionRattachement } from './etudiants.js';
 import { getParamNum } from './parametres.js';
+import { placementsSection } from '../lib/placement.js';
 import { donneesPersonnel } from '../lib/chiffresCles.js';
 import { Router } from 'express';
 import db from '../db/index.js';
@@ -881,6 +882,26 @@ function periodesTempsPlein() {
   } catch { /* */ }
   return getParamNum('ratio.periodes_temps_plein', 750) || 750;
 }
+/* LE DÉTAIL D'UNE FORMATION (3.1.392, Charles, 16 octobre 2026 : « savoir quelle formation coûte peu et
+   laquelle coûte cher en encadrement — le nombre d'étudiants ÷ les ETP, puis BA1, BA2, BA3, puis UE par UE »).
+   Le bloc d'une UE est celui du schéma de la section (lib/placement.js), jamais ue_niv en direct. Un
+   étudiant compte dans chaque bloc où il suit une UE. */
+function detailSection(o, annee) {
+  let place = {};
+  try { place = placementsSection(o.section, annee); } catch { place = {}; }
+  const noms = new Map(db.prepare('SELECT ue_num, MAX(ue_nom) n FROM ue WHERE annee_scolaire = ? GROUP BY ue_num').all(annee).map(x => [x.ue_num, x.n]));
+  const r3 = x => Math.round(x * 1000) / 1000;
+  const ues = [...o.ues.entries()].map(([u, x]) => ({ ue_num: u, ue_nom: noms.get(u) || '', bloc: place[u]?.bloc || '—', inscrits: x.ids.size, etp: r3(x.etp) }))
+    .filter(x => x.inscrits || x.etp).sort((a, b) => String(a.bloc).localeCompare(String(b.bloc), 'fr', { numeric: true }) || a.ue_num - b.ue_num);
+  const blocs = {};
+  for (const [u, x] of o.ues) {
+    const b = place[u]?.bloc || '—';
+    const B = blocs[b] ||= { bloc: b, ids: new Set(), etp: 0 };
+    x.ids.forEach(i => B.ids.add(i)); B.etp += x.etp;
+  }
+  return { ues, blocs: Object.values(blocs).map(B => ({ bloc: B.bloc, inscrits: B.ids.size, etp: r3(B.etp) }))
+    .sort((a, b) => String(a.bloc).localeCompare(String(b.bloc), 'fr', { numeric: true })) };
+}
 function ratiosParSection(annee, etpAdmin) {
   const ref = periodesTempsPlein();
   const etpDe = l => (String(l.type_cours || '').toUpperCase() === 'PP' ? (l.per || 0) / 1000 : (l.per || 0) / 800);
@@ -899,13 +920,14 @@ function ratiosParSection(annee, etpAdmin) {
   const ins = db.prepare(`SELECT DISTINCT i.etudiant_id AS id, i.ue_num, e.section_rattachement AS ratt FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
      WHERE i.annee_scolaire = ? AND COALESCE(e.sortie_statut, '') <> 'archive'`).all(annee);
   const S = {};
-  const sec = s => (S[s] ||= { section: s, ids: new Set(), periodes: 0, etp_cours: 0, etp_coord: 0, etp_cours_attribue: 0, per_cours: 0 });
+  const sec = s => (S[s] ||= { section: s, ids: new Set(), periodes: 0, etp_cours: 0, etp_coord: 0, etp_cours_attribue: 0, per_cours: 0, ues: new Map() });
+  const ueDe = (s, u) => { const o = sec(s); return o.ues.get(u) || o.ues.set(u, { ids: new Set(), etp: 0 }).get(u); };
   const inscritsUE = new Map();                       // ue → Map(section → n)
   for (const x of ins) {
     const ss = secsUE.get(x.ue_num) || new Set();
     const s = x.ratt && ss.has(x.ratt) ? x.ratt : ([...ss][0] || x.ratt);
     if (!s) continue;
-    const o = sec(s); o.ids.add(x.id); o.periodes += perUE.get(x.ue_num) || 0;
+    const o = sec(s); o.ids.add(x.id); o.periodes += perUE.get(x.ue_num) || 0; ueDe(s, x.ue_num).ids.add(x.id);
     const m = inscritsUE.get(x.ue_num) || inscritsUE.set(x.ue_num, new Map()).get(x.ue_num);
     m.set(s, (m.get(s) || 0) + 1);
   }
@@ -921,8 +943,8 @@ function ratiosParSection(annee, etpAdmin) {
   }
   for (const [ue, c] of coursUE) {
     const m = inscritsUE.get(ue); const n = m ? [...m.values()].reduce((a, b) => a + b, 0) : 0;
-    if (n) for (const [s, k] of m) { sec(s).etp_cours += c.etp * k / n; sec(s).per_cours += c.per * k / n; }
-    else { for (const [s, e] of c.secs) sec(s).etp_cours += e; for (const [s, p] of c.persecs) sec(s).per_cours += p; }
+    if (n) for (const [s, k] of m) { sec(s).etp_cours += c.etp * k / n; sec(s).per_cours += c.per * k / n; ueDe(s, ue).etp += c.etp * k / n; }
+    else { for (const [s, e] of c.secs) { sec(s).etp_cours += e; ueDe(s, ue).etp += e; } for (const [s, p] of c.persecs) sec(s).per_cours += p; }
   }
   // Les missions de section payées en ETP (pas par des lignes d'attribution déjà lues ci-dessus).
   try {
@@ -943,7 +965,8 @@ function ratiosParSection(annee, etpAdmin) {
     /* LA TAILLE MOYENNE DU GROUPE (3.1.385, Charles : « le nombre d'étudiants moyen que chaque prof a devant
        lui ») : périodes suivies par les étudiants ÷ périodes données par les enseignants. Une heure devant
        quarante pèse plus qu'une heure devant huit. */
-    per_cours: Math.round(o.per_cours), groupe_moyen: o.per_cours ? Math.round(o.periodes / o.per_cours * 10) / 10 : null }));
+    per_cours: Math.round(o.per_cours), groupe_moyen: o.per_cours ? Math.round(o.periodes / o.per_cours * 10) / 10 : null,
+    ...detailSection(o, annee) }));
   const eteTotal = liste.reduce((t, o) => t + o.ete, 0);
   for (const o of liste) o.etp_admin = r3(eteTotal ? etpAdmin * o.ete / eteTotal : 0);
   return liste.filter(o => o.inscrits || o.etp_cours || o.etp_coord).sort((a, b) => a.section.localeCompare(b.section, 'fr'));

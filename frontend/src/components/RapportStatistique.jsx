@@ -124,8 +124,38 @@ const parEtp = (etu, etp) => (etp ? etu / etp : null);
    (GET /api/pilotage/ratios). Quatre lectures, et le détail empilé — en ETP pour cent ETE, la seule
    grandeur qui s'additionne (« il manque la coordination, les admins… » ; « les deux »). */
 /* TROIS LECTURES CUMULÉES (Charles, 16 octobre 2026 : « profs, profs + coordination, et profs + coordination + admin, donc tout le personnel »). */
-const VUES_RATIO = [['cours', 'Profs'], ['coord', 'Profs + coordination'], ['tout', 'Tout le personnel'], ['groupe', 'Taille des groupes'], ['empile', 'Détail empilé']];
+const VUES_RATIO = [['cours', 'Profs'], ['coord', 'Profs + coordination'], ['tout', 'Tout le personnel'], ['groupe', 'Taille des groupes']];
 const etpVue = (o, v) => (v === 'cours' ? o.etp_cours : v === 'coord' ? o.etp_cours + o.etp_coord : o.etp_cours + o.etp_coord + o.etp_admin);
+/* QUELLE FORMATION COÛTE PEU, LAQUELLE COÛTE CHER EN ENCADREMENT (3.1.392, Charles, 16 octobre 2026 : « le
+   nombre d'étudiants de la formation ÷ ses ETP, puis BA1, BA2, BA3, puis UE par UE »). Un tableau qui se
+   déplie : la formation, ses blocs, ses UE — étudiants, ETP de cours, étudiants par ETP. À côté, la même
+   chose en équivalents temps plein, qui corrige les formations courtes. */
+function DetailFormations({ L }) {
+  const [ouv, setOuv] = useState({});
+  const bascule = k => setOuv(o => ({ ...o, [k]: !o[k] }));
+  const ratio = (n, e) => (e ? r1(n / e) : '—');
+  const lignes = [...L].sort((a, b) => (b.etp_cours ? b.inscrits / b.etp_cours : 0) - (a.etp_cours ? a.inscrits / a.etp_cours : 0));
+  return (
+    <div className="overflow-x-auto">
+      <table className="text-sm min-w-full">
+        <thead className="tab-entete"><tr><Th>Formation · bloc · UE</Th><Th n>Étudiants</Th><Th n>ETP de cours</Th><Th n>Étudiants par ETP</Th><Th n>ETE par ETP</Th></tr></thead>
+        <tbody>{lignes.map(o => [
+          <tr key={o.section} className="border-b border-slate-200 cursor-pointer font-semibold" onClick={() => bascule(o.section)}>
+            <Td><Chevron ouvert={!!ouv[o.section]} /> {o.section.replace(/_/g, ' ')}</Td><Td n>{k0(o.inscrits)}</Td><Td n>{e2(o.etp_cours)}</Td>
+            <Td n b>{ratio(o.inscrits, o.etp_cours)}</Td><Td n className="text-slate-500 font-normal">{ratio(o.ete, o.etp_cours)}</Td></tr>,
+          ...(ouv[o.section] ? (o.blocs || []).map(B => [
+            <tr key={`${o.section}|${B.bloc}`} className="border-b border-slate-100 cursor-pointer" onClick={() => bascule(`${o.section}|${B.bloc}`)}>
+              <Td className="pl-8"><Chevron ouvert={!!ouv[`${o.section}|${B.bloc}`]} /> {B.bloc === '—' ? 'sans bloc' : B.bloc}</Td><Td n>{k0(B.inscrits)}</Td><Td n>{e2(B.etp)}</Td><Td n b>{ratio(B.inscrits, B.etp)}</Td><Td n /></tr>,
+            ...(ouv[`${o.section}|${B.bloc}`] ? (o.ues || []).filter(u => u.bloc === B.bloc).map(u => (
+              <tr key={`${o.section}|${u.ue_num}`} className="border-b border-slate-100 text-slate-600">
+                <Td className="pl-16">UE {u.ue_num} — {u.ue_nom}</Td><Td n>{k0(u.inscrits)}</Td><Td n>{e2(u.etp)}</Td><Td n>{ratio(u.inscrits, u.etp)}</Td><Td n /></tr>)) : []),
+          ]).flat() : []),
+        ])}</tbody>
+      </table>
+      <p className="text-second text-slate-500 m-0 mt-1">Classé de la formation qui encadre le plus d'étudiants par ETP à celle qui en encadre le moins. Un étudiant compte dans chaque bloc où il suit une UE ; l'ETP d'un bloc est la somme de celui de ses UE. « ETE par ETP » compte chaque étudiant au prorata des périodes qu'il suit — c'est elle qui compare justement une formation courte à un bachelier.</p>
+    </div>);
+}
+
 export function RatiosEtp({ annee }) {
   const [R, setR] = useState(null);
   const [vue, setVue] = useState('cours');
@@ -178,20 +208,16 @@ export function RatiosEtp({ annee }) {
               <YAxis type="category" dataKey="section" width={130} tick={{ fontSize: 11 }} />
               <Tooltip formatter={(v, nom) => [r1(v), nom]} labelFormatter={(l, p) => { const x = p?.[0]?.payload; return x ? `${l} · ${x.inscrits} étudiants · ${r1(x.ete)} ETE` : l; }} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
-              {vue === 'empile' ? [
-                <Bar key="c" dataKey="cours" stackId="e" name="cours" fill="var(--g-1)" />,
-                <Bar key="o" dataKey="coord" stackId="e" name="coordination" fill="var(--g-2)" />,
-                <Bar key="a" dataKey="admin" stackId="e" name="administration" fill="var(--g-3)" />,
-              ] : <Bar dataKey="valeur" name={vue === 'groupe' ? 'étudiants devant un enseignant (moyenne)' : `étudiants par ETP — ${nomVue}`} fill="var(--g-1)" label={{ position: 'right', fontSize: 10, formatter: r1 }} />}
+              {<Bar dataKey="valeur" name={vue === 'groupe' ? 'étudiants devant un enseignant (moyenne)' : `étudiants par ETP — ${nomVue}`} fill="var(--g-1)" label={{ position: 'right', fontSize: 10, formatter: r1 }} />}
             </BarChart>
           </ResponsiveContainer>
         </div>)}
       <div className="text-second text-slate-500">
         {vue === 'groupe' ? 'Combien d’étudiants un enseignant a devant lui, en moyenne sur toutes ses heures : périodes suivies par les étudiants ÷ périodes données. '
-          : vue === 'empile' ? 'ETP pour cent étudiants équivalents temps plein : plus la barre est longue, plus la section coûte en personnel par étudiant. '
-          : 'Combien d’étudiants équivalents temps plein un ETP porte : plus la barre est longue, plus la section est efficiente. '}
-        Les ETP d'une UE suivie par plusieurs sections (tronc commun) se partagent au prorata de leurs inscrits ; l'administration, au prorata des ETE.
+          : 'Combien d’étudiants équivalents temps plein un ETP porte : plus la barre est longue, moins la formation coûte en encadrement. '}
+        Les ETP d'une UE suivie par plusieurs sections (tronc commun) se partagent au prorata de leurs inscrits.
       </div>
+      <DetailFormations L={L} />
     </div>);
 }
 
