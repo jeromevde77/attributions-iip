@@ -1641,6 +1641,41 @@ export default function Pilotage({ vue = 'tout' }) {
      la retire (grisée) ; un second clic la remet. Ce qui est retiré ne sort ni en PDF ni à l'impression. */
   const [choisirBlocs, setChoisirBlocs] = useState(false);
   const [nbRetires, setNbRetires] = useState(0);
+  /* LA LISTE DES ÉLÉMENTS, À COCHER (Charles, 16 octobre 2026 : « j'aimerais pouvoir cocher chaque item —
+     graphique sexe, graphique âge, tableau… »). Recensée dans l'aperçu une fois les parties dessinées :
+     chaque carte (par son titre) et chaque rangée de tuiles. Décocher retire l'élément de l'impression. */
+  const [elements, setElements] = useState([]);
+  function recenser() {
+    const zone = document.querySelector('.zone-impression .page-impression');
+    if (!zone) return;
+    const out = []; let n = 0;
+    for (const partie of zone.querySelectorAll('.partie-impression')) {
+      const nomPartie = partie.querySelector(':scope > .titre-carte')?.textContent?.trim() || '';
+      const vus = new Set();
+      const cartes = [...partie.querySelectorAll('.carte')].filter(c => !c.parentElement.closest('.carte'));
+      const tuiles = [...partie.querySelectorAll('.bloc-etat')].filter(t => !t.closest('.carte') && !t.closest('.sans-impression'))
+        .map(t => t.closest('.flex.flex-wrap') || t).filter(r => !vus.has(r) && vus.add(r));
+      for (const el of [...tuiles, ...cartes].sort((a, b) => (a.compareDocumentPosition(b) & 4 ? -1 : 1))) {
+        el.dataset.bloc = String(++n);
+        const titre = el.classList.contains('carte')
+          ? (el.querySelector('.titre-carte, .text-base.font-semibold')?.textContent || el.textContent).trim().slice(0, 70)
+          : `Chiffres clés (${el.querySelectorAll('.bloc-etat').length || 1} tuile(s))`;
+        out.push({ id: el.dataset.bloc, partie: nomPartie, titre, exclu: el.classList.contains('exclu-impression') });
+      }
+    }
+    setElements(out);
+    setNbRetires(out.filter(x => x.exclu).length);
+  }
+  function cocherElement(id, garder) {
+    const el = document.querySelector(`.zone-impression [data-bloc="${id}"]`);
+    if (el) el.classList.toggle('exclu-impression', !garder);
+    setElements(l => { const m = l.map(x => (x.id === id ? { ...x, exclu: !garder } : x)); setNbRetires(m.filter(x => x.exclu).length); return m; });
+  }
+  useEffect(() => {
+    if (!facesImprimees) { setElements([]); return undefined; }
+    const t1 = setTimeout(recenser, 1500), t2 = setTimeout(recenser, 4000);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [facesImprimees]);   // eslint-disable-line react-hooks/exhaustive-deps
   const BLOCS_IMPRIMABLES = '.carte, .bloc-etat';
   function basculerBloc(e) {
     if (!choisirBlocs) return;
@@ -1649,6 +1684,7 @@ export default function Pilotage({ vue = 'tout' }) {
     e.preventDefault(); e.stopPropagation();
     b.classList.toggle('exclu-impression');
     setNbRetires(e.currentTarget.querySelectorAll('.exclu-impression').length);
+    setElements(l => l.map(x => (x.id === b.dataset.bloc ? { ...x, exclu: b.classList.contains('exclu-impression') } : x)));
   }
   async function pdfDeLAperçu() {
     const zone = document.querySelector('.zone-impression .page-impression');
@@ -1807,6 +1843,25 @@ thead { display: table-header-group; }
             <button type="button" className="bouton inline-flex items-center gap-1.5" onClick={() => window.print()} title="Impression du navigateur, sans bas de page garanti">Imprimer (navigateur)</button>
             <button type="button" className="bouton inline-flex items-center gap-1.5" onClick={() => setFacesImprimees(null)}><IconX size={15} /> Fermer</button>
           </div>
+          {elements.length > 0 && (
+            <aside className="sans-impression fixed right-4 top-20 z-20 w-72 max-h-[75vh] overflow-y-auto rounded-carte border border-slate-200 shadow-flottant p-3 text-second"
+              style={{ background: 'var(--page-fond, #fff)' }}>
+              <div className="flex items-center gap-2 mb-2">
+                <b className="flex-1">Éléments à imprimer</b>
+                <button type="button" className="text-iip-blue underline" onClick={() => elements.forEach(x => cocherElement(x.id, true))}>tous</button>
+                <button type="button" className="text-iip-blue underline" onClick={() => elements.forEach(x => cocherElement(x.id, false))}>aucun</button>
+                <button type="button" className="text-slate-500 underline" title="Relire l'aperçu (si une partie a fini de se charger)" onClick={recenser}>relire</button>
+              </div>
+              {[...new Set(elements.map(x => x.partie))].map(p => (
+                <div key={p} className="mb-2">
+                  <div className="intertitre mb-1">{p}</div>
+                  {elements.filter(x => x.partie === p).map(x => (
+                    <label key={x.id} className={`flex items-start gap-2 py-0.5 cursor-pointer ${x.exclu ? 'text-slate-400 line-through' : ''}`}>
+                      <input type="checkbox" className="mt-0.5" checked={!x.exclu} onChange={e => cocherElement(x.id, e.target.checked)} />
+                      <span className="min-w-0">{x.titre}</span>
+                    </label>))}
+                </div>))}
+            </aside>)}
           {choisirBlocs && <div className="sans-impression bloc-etat mx-auto my-2 px-3 py-2 text-second" style={{ width: 1000 }} data-etat="disponible">
             <b>Choix des blocs</b> : cliquez une carte ou une tuile pour la retirer de l'impression — elle se grise ; recliquez pour la remettre. « Terminer le choix » quand c'est prêt.</div>}
           <div className={`page-impression mx-auto px-0 py-5 space-y-6 ${choisirBlocs ? 'choix-blocs' : ''}`} onClickCapture={basculerBloc}>
