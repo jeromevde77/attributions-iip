@@ -614,6 +614,17 @@ poids du cours, lignes 17+ poids des acquis.
   propositions de Lucie. La clôture l'écrit au dossier (`decision_motivation`,
   `source = 'enseignant'`) : une note retouchée ensuite ne change plus le motif
   d'une décision notifiée.
+- **La seconde session se propose dans *Mes cours*** (3.1.400, Charles, 22 octobre
+  2026, UE 333 : « les professeurs ne savent pas encoder les points de la seconde
+  session, ce n'est pas prévu »). `note_proposee` porte une `session` (clé
+  `(etudiant, année, cours, acquis, session)`) : avant, une seule case par acquis
+  pour l'année, et noter septembre voulait dire écraser juin. La feuille s'ouvre
+  d'office sur la 2ᵉ session dès la clôture de la séance de juin (`sessionDeLUE`) ;
+  elle ne montre que les ajournés de CE cours, sur leurs seuls acquis rouverts —
+  `aRepresenterParCours()` (`routes/acquis.js`), la règle de la liste imprimée des
+  ajournés par cours, désormais commune. Chaque proposition entre dans SA session
+  (`s1|` ou `s2|`), jamais dans une séance close ; une session close se lit, elle
+  ne se propose plus. Le justificatif de septembre motive le refus de septembre.
 
 **La valorisation des acquis a sa séance.** Le procès-verbal d'annexe 4 et les
 attestations qui en découlent (annexe 15 pour le supérieur, 14 pour le

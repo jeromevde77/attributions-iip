@@ -78,6 +78,12 @@ export default function MesCours() {
      partent avec l'enregistrement. */
   const [groupeVu, setGroupeVu] = useState('');
   const [impression, setImpression] = useState(null);
+  /* LA SECONDE SESSION (22 octobre 2026, Charles, UE 333 : « les professeurs ne
+     savent pas encoder les points de la seconde session, ce n'est pas prévu »).
+     La feuille porte la session qu'elle montre ; le serveur ouvre d'office la
+     seconde dès que la séance de juin est close, et ne montre alors que les
+     ajournés de ce cours, sur leurs seuls acquis à représenter. */
+  const [session, setSession] = useState(null);   // null : celle que le serveur choisit
 
   useEffect(() => {
     fetch(`/api/mes-cours?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() })
@@ -93,18 +99,20 @@ export default function MesCours() {
 
   // Le lien d'une notification « notes complètes » ouvre le cours : /mes-cours?cours=CODE.
   useEffect(() => {
-    const c = new URLSearchParams(window.location.search).get('cours');
-    if (c) ouvrir(c);
+    const q = new URLSearchParams(window.location.search);
+    const c = q.get('cours');
+    if (c) ouvrir(c, q.get('session') === '2' ? 2 : null);
   }, []);   // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function ouvrir(code) {
+  async function ouvrir(code, ses = null) {
     setOuvert(code); setFeuille(null); setNotes({}); setJustifs({}); setFait(null); setErreur(null); setGroupeVu('');
+    setSession(ses); setCaseActive(null);
     try {
-      const r = await fetch(`/api/mes-cours/${encodeURIComponent(code)}/etudiants?annee=${encodeURIComponent(annee)}`,
+      const r = await fetch(`/api/mes-cours/${encodeURIComponent(code)}/etudiants?annee=${encodeURIComponent(annee)}${ses ? `&session=${ses}` : ''}`,
         { headers: authHeaders() });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || 'Erreur');
-      setFeuille(j);
+      setFeuille(j); setSession(j.session || 1);
       const cols = colonnes(j);
       setNotes(Object.fromEntries(j.etudiants.map(e => [e.id,
         Object.fromEntries(cols.map(c => [c, (e.notes || {})[c] ?? '']))])));
@@ -116,18 +124,21 @@ export default function MesCours() {
     setEnCours(true); setErreur(null); setFait(null);
     try {
       const lignes = [];
+      const ouverts = new Map((feuille?.etudiants || []).map(e => [String(e.id), e.aa_ouverts || null]));
       for (const [id, par] of Object.entries(notes)) {
         for (const [aa, n] of Object.entries(par)) {
+          // En seconde session, seuls les acquis rouverts partent.
+          if (ouverts.get(id) && !ouverts.get(id).includes(aa)) continue;
           lignes.push({ etudiant_id: Number(id), aa_code: aa, note: n, justification: justifs[id]?.[aa] || '' });
         }
       }
       const r = await fetch(`/api/mes-cours/${encodeURIComponent(ouvert)}/notes`, {
         method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ annee, notes: lignes }),
+        body: JSON.stringify({ annee, session: feuille?.session || 1, notes: lignes }),
       });
       const j = await r.json();
       if (!r.ok) throw new Error([j.error, (j.manquants || []).slice(0, 6).map(m => `${m.nom} (${m.aa_code})`).join(', ')].filter(Boolean).join(' — ') || 'Erreur');
-      setFait(`${j.proposees} note(s) enregistrée(s)${j.reprise?.ecrites ? ` — ${j.reprise.ecrites} entrée(s) dans l'encodage officiel` : ''}${j.reprise?.differentes ? ` ; ${j.reprise.differentes} diffèrent d'une note déjà officielle : la coordination tranche` : ''}.`);
+      setFait(`${j.proposees} note(s) ${j.session === 2 ? 'de seconde session ' : ''}enregistrée(s)${j.reprise?.ecrites ? ` — ${j.reprise.ecrites} entrée(s) dans l'encodage officiel` : ''}${j.reprise?.differentes ? ` ; ${j.reprise.differentes} diffèrent d'une note déjà officielle : la coordination tranche` : ''}.`);
     } catch (e) { setErreur(e.message); }
     finally { setEnCours(false); }
   }
@@ -291,9 +302,13 @@ export default function MesCours() {
       {ouvert && (() => {
         const cols = colonnes(feuille);
         const nEtu = feuille?.etudiants?.length || 0;
+        const seconde = feuille?.session === 2;
+        const lecture = !!feuille?.lecture_seule;
+        // En seconde session, une case n'est ouverte que si l'acquis est à représenter.
+        const ouverte = (e, k) => !seconde || !e.aa_ouverts || e.aa_ouverts.includes(k);
         const saisies = feuille ? feuille.etudiants.reduce((t, e) =>
-          t + cols.filter(k => String(notes[e.id]?.[k] ?? '').trim() !== '').length, 0) : 0;
-        const total = nEtu * cols.length;
+          t + cols.filter(k => ouverte(e, k) && String(notes[e.id]?.[k] ?? '').trim() !== '').length, 0) : 0;
+        const total = feuille ? feuille.etudiants.reduce((t, e) => t + cols.filter(k => ouverte(e, k)).length, 0) : 0;
         /* DES ENTIERS DE 0 À 20, OU PP, NP, CM (Charles, 26 septembre 2026). */
         const MENTIONS = ['PP', 'NP', 'CM'];
         const valeurOk = v => { const t = String(v ?? '').trim().toUpperCase();
@@ -312,7 +327,7 @@ export default function MesCours() {
         const sousSeuil = v => /^\d{1,2}$/.test(String(v ?? '').trim()) && Number(v) < 10;
         const manquants = feuille ? feuille.etudiants.flatMap((e, r) => e.report || e.dispense ? [] : cols
           .map((k, ci) => ({ e, k, r, ci }))
-          .filter(x => x.k !== '' && sousSeuil(notes[e.id]?.[x.k]) && !String(justifs[e.id]?.[x.k] ?? '').trim())) : [];
+          .filter(x => x.k !== '' && ouverte(e, x.k) && sousSeuil(notes[e.id]?.[x.k]) && !String(justifs[e.id]?.[x.k] ?? '').trim())) : [];
         const allerA = x => { const el = document.querySelector(`[data-case="${x.r}:${x.ci}"]`); if (el) el.focus(); };
         const actifEtu = caseActive ? feuille?.etudiants.find(e => e.id === caseActive.id) : null;
         const actifSous = caseActive && caseActive.k !== '' && sousSeuil(notes[caseActive.id]?.[caseActive.k]);
@@ -323,11 +338,12 @@ export default function MesCours() {
         const deplacer = (ev, r, k) => {
           const d = { ArrowUp: [-1, 0], ArrowDown: [1, 0], Enter: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[ev.key];
           if (!d) return;
-          // Une ligne reportée n'a pas de case : on la saute.
+          // Une ligne reportée n'a pas de case, ni un acquis fermé en seconde
+          // session : on les saute.
           let cible = null;
           for (let pas = 1; pas < 200 && !cible; pas++) {
             cible = document.querySelector(`[data-case="${r + d[0] * pas}:${k + d[1] * (d[0] ? 1 : pas)}"]`);
-            if (!d[0]) break;
+            if (!d[0] && pas >= cols.length) break;
           }
           if (cible) { ev.preventDefault(); cible.focus(); cible.select?.(); }
         };
@@ -349,7 +365,11 @@ export default function MesCours() {
         const partDe = k => Math.round(((poidsDe[k] ?? 1) / sommePoids) * 100);
         // Un cours REPORTÉ se lit dans ses notes d'origine, pas dans la saisie.
         const reportDe = id => feuille?.etudiants?.find(x => x.id === id)?.report || null;
-        const valeurDe = (id, k) => { const rp = reportDe(id); return rp ? (rp.notes?.[k] ?? '') : (notes[id]?.[k] ?? ''); };
+        const valeurDe = (id, k) => { const rp = reportDe(id); if (rp) return rp.notes?.[k] ?? '';
+          const e = feuille?.etudiants?.find(x => x.id === id);
+          // Seconde session : un acquis non représenté garde la note proposée en juin.
+          if (e && !ouverte(e, k)) return e.notes_s1?.[k] ?? '';
+          return notes[id]?.[k] ?? ''; };
         const noteCours = id => {
           let s = 0, p = 0, mentions = 0;
           for (const k of cols) {
@@ -445,6 +465,15 @@ export default function MesCours() {
             <Encadre etat="surveiller" titre="Liste temporaire">Les listes d’étudiants ne sont pas encore validées par les coordinations : des groupes doivent encore être encodés et certains étudiants retirés. Ce sera fait dans les prochains jours.</Encadre>
             {feuille && (
               <div className="flex flex-wrap items-center gap-2">
+                {/* LA SESSION, À CÔTÉ DES GROUPES : elle ne paraît que s'il y a le choix. */}
+                {feuille.sessions?.seconde_possible && (
+                  <div className="segments">
+                    {[[1, '1ʳᵉ session'], [2, '2ᵉ session']].map(([n, l]) => (
+                      <button key={n} type="button" onClick={() => n !== session && ouvrir(ouvert, n)}
+                        className={`px-2.5 py-1 text-second ${session === n ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>{l}</button>
+                    ))}
+                  </div>
+                )}
                 {groupesDispo.length > 0 && (
                   <div className="segments">
                     {[['', `Tous (${feuille.etudiants.length})`], ...groupesDispo.map(g => [g,
@@ -459,6 +488,26 @@ export default function MesCours() {
                   etudiants={groupeVu ? feuille.etudiants.filter(e => groupesDe(e).includes(groupeVu)) : feuille.etudiants} />
               </div>
             )}
+            {/* CE QUE LA FEUILLE MONTRE, DIT AVANT D'Y ÉCRIRE. */}
+            {feuille && seconde && (
+              <Encadre etat="neutre" titre="Seconde session">
+                Seuls les étudiants ajournés qui représentent ce cours paraissent ici, et pour chacun
+                seulement les acquis à représenter. Les autres acquis gardent, en gris, la note proposée
+                en première session. Une note sous 10 se justifie, comme en juin.
+              </Encadre>
+            )}
+            {feuille && !seconde && feuille.sessions?.seconde_attend && (
+              <p className="text-second text-slate-500 m-0">
+                La seconde session de cette unité s’ouvrira ici à {feuille.sessions.seconde_attend}.
+              </p>
+            )}
+            {feuille && lecture && (
+              <Encadre etat="surveiller" titre="Séance close">
+                La délibération de {seconde ? 'seconde' : 'première'} session de cette unité est close :
+                les notes se lisent, elles ne se proposent plus.
+                {!seconde && feuille.sessions?.seconde_possible ? ' Les notes des ajournés se saisissent dans « 2ᵉ session ».' : ''}
+              </Encadre>
+            )}
             {face === 'presences' && <Encadre etat="neutre" titre="Bientôt">La prise des présences n’est pas encore en service.</Encadre>}
             {/* LES INDICATEURS DU COURS (8 octobre 2026) : sur les étudiants affichés
                 (le groupe choisi), notes tapées comprises. */}
@@ -466,7 +515,7 @@ export default function MesCours() {
               <IndicateursNotes etudiants={vus} tous={feuille.etudiants} cols={cols}
                 nomCol={(k, i) => (k ? `${nomAA(null, i)} · ${k}` : 'Note du cours')}
                 valeurDe={valeurDe} noteCours={noteCours} groupesDispo={groupeVu ? [] : groupesDispo} groupesDe={groupesDe}
-                coursCode={ouvert} annee={annee} ueNum={feuille.ue_num} />)}
+                coursCode={ouvert} annee={annee} ueNum={feuille.ue_num} session={feuille.session || 1} />)}
             {fait && <p className="text-sm m-0" style={{ color: 'var(--c-reussi)' }}>✓ {fait}</p>}
             {!feuille && !erreur && <p className="text-sm text-slate-400">Chargement…</p>}
 
@@ -477,22 +526,22 @@ export default function MesCours() {
                     <span className="min-w-0 flex-1">
                       {caseActive ? <>Dans la case active :</> : <>Cliquez une case, puis :</>}
                     </span>
-                    <button type="button" disabled={!caseActive} onMouseDown={ev => ev.preventDefault()}
+                    <button type="button" disabled={lecture || !caseActive} onMouseDown={ev => ev.preventDefault()}
                       onClick={() => poserMention('PP')} className="bouton h-7 px-2.5 disabled:opacity-40"
                       title="Pas présenté">PP · pas présenté</button>
-                    <button type="button" disabled={!caseActive} onMouseDown={ev => ev.preventDefault()}
+                    <button type="button" disabled={lecture || !caseActive} onMouseDown={ev => ev.preventDefault()}
                       onClick={() => poserMention('NP')} className="bouton h-7 px-2.5 disabled:opacity-40"
                       title="Note de présence">NP · note de présence</button>
-                    <button type="button" disabled={!caseActive} onMouseDown={ev => ev.preventDefault()}
+                    <button type="button" disabled={lecture || !caseActive} onMouseDown={ev => ev.preventDefault()}
                       onClick={() => poserMention('CM')} className="bouton h-7 px-2.5 disabled:opacity-40"
                       title="Certificat médical">CM · certificat médical</button>
-                    <button type="button" disabled={!caseActive} onMouseDown={ev => ev.preventDefault()}
+                    <button type="button" disabled={lecture || !caseActive} onMouseDown={ev => ev.preventDefault()}
                       onClick={() => poserMention('')} className="bouton h-7 px-2.5 disabled:opacity-40">Effacer</button>
                     {/* ENREGISTRER À CÔTÉ DES MENTIONS (Charles, 27 septembre 2026) : en
                         haut, là où l'on travaille, et non au bas d'une liste qu'il
                         faut dérouler. Un seul mot : c'est ce que fait le bouton. */}
-                    <button type="button" onClick={enregistrer} disabled={enCours || !!invalides || manquants.length > 0}
-                      title={invalides ? `${invalides} case(s) à corriger : un nombre entier de 0 à 20, PP, NP ou CM`
+                    <button type="button" onClick={enregistrer} disabled={lecture || enCours || !!invalides || manquants.length > 0}
+                      title={lecture ? 'Séance close : les notes ne se proposent plus' : invalides ? `${invalides} case(s) à corriger : un nombre entier de 0 à 20, PP, NP ou CM`
                         : manquants.length ? `${manquants.length} note(s) sous 10 sans justificatif`
                         : 'Vos notes entrent dans l’encodage officiel dès l’enregistrement ; une note qui diffère d’une note déjà officielle attend la coordination'}
                       className="bouton bouton-fort h-7 px-3 disabled:opacity-40">
@@ -567,12 +616,25 @@ export default function MesCours() {
                                 </td>
                               );
                             }
+                            /* SECONDE SESSION : un acquis réussi en juin ne se représente
+                               pas. La note proposée alors se lit, grise ; pas de case. */
+                            if (!ouverte(e, k)) {
+                              const v1 = e.notes_s1?.[k];
+                              return (
+                                <td key={k} className="py-0.5 px-1 text-center whitespace-nowrap"
+                                  title="Acquis non représenté en seconde session : la note de première session reste">
+                                  <span className="inline-block w-12 text-right text-sm tabular-nums text-slate-400">{v1 ?? '·'}</span>
+                                  <span className={`ml-0.5 text-mention text-slate-400 ${v1 != null && !MENTIONS.includes(String(v1)) ? '' : 'invisible'}`}>/20</span>
+                                  <span className="ml-0.5 inline-block w-[13px]" />
+                                </td>
+                              );
+                            }
                             const v = notes[e.id]?.[k] ?? '';
                             const ok = valeurOk(v);
                             const t = String(v).trim().toUpperCase();
                             return (
                               <td key={k} className="py-0.5 px-1 text-center whitespace-nowrap">
-                                <input value={v} data-case={`${r}:${ci}`} inputMode="numeric" maxLength={2}
+                                <input value={v} data-case={`${r}:${ci}`} inputMode="numeric" maxLength={2} readOnly={lecture}
                                   onKeyDown={ev => deplacer(ev, r, ci)}
                                   onFocus={ev => { ev.target.select(); setCaseActive({ id: e.id, k, r, ci }); }}
                                   onChange={ev => { const val = ev.target.value.toUpperCase();
@@ -628,7 +690,8 @@ export default function MesCours() {
                       ))}
                       {!feuille.etudiants.length && (
                         <tr><td colSpan={4 + cols.length} className="py-4 text-center text-slate-400">
-                          Aucun étudiant — la répartition de ce cours ne vous en attribue pas encore.
+                          {seconde ? 'Aucun étudiant ajourné ne représente ce cours en seconde session.'
+                            : 'Aucun étudiant — la répartition de ce cours ne vous en attribue pas encore.'}
                         </td></tr>
                       )}
                     </tbody>

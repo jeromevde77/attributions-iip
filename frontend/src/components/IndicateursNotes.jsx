@@ -67,7 +67,7 @@ function Diagramme({ s }) {
 }
 
 export default function IndicateursNotes({ etudiants, cols, nomCol, valeurDe, noteCours, groupesDispo = [], groupesDe = () => [], tous = etudiants,
-                                          coursCode = null, annee = null, ueNum = null }) {
+                                          coursCode = null, annee = null, ueNum = null, session = 1 }) {
   const choix = [...(cols.length > 1 ? [['__cours', 'Note du cours (moyenne pondérée des acquis)']] : []), ...cols.map((k, i) => [k, nomCol(k, i)]),
     ...(coursCode ? [['__ue', `Note de l’unité${ueNum ? ` (UE ${ueNum})` : ''} — tous les inscrits`]] : [])];
   const [col, setCol] = useState(choix[0]?.[0]);
@@ -77,9 +77,9 @@ export default function IndicateursNotes({ etudiants, cols, nomCol, valeurDe, no
   useEffect(() => {
     if (col !== '__ue' || !coursCode) return;
     setUe(null);
-    fetch(`/api/mes-cours/${encodeURIComponent(coursCode)}/stats-ue?annee=${encodeURIComponent(annee || '')}`, { headers: authHeaders() })
+    fetch(`/api/mes-cours/${encodeURIComponent(coursCode)}/stats-ue?annee=${encodeURIComponent(annee || '')}&session=${session}`, { headers: authHeaders() })
       .then(r => r.json()).then(j => setUe(j.error ? { erreur: j.error } : j)).catch(e => setUe({ erreur: e.message }));
-  }, [col, coursCode, annee]);
+  }, [col, coursCode, annee, session]);
   const lire = (e, k) => {
     if (k === '__cours') {
       const c = noteCours(e.id);
