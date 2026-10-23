@@ -13,6 +13,7 @@ import { envelopperDocument, piedGabaritPdf, BANDE_PIED_MM } from '../lib/docume
 import { capacitePdf, rendrePdf } from '../services/pdf.js';
 import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 import { piedDocument } from './parametres.js';
+import { aRepresenterParCours } from './acquis.js';
 
 /**
  * MES COURS — la porte du professeur (25 septembre 2026).
@@ -90,6 +91,51 @@ const r = Router();
     // La reprise dans l'encodage officiel laisse sa trace sur la proposition.
     for (const [c, t] of [['reprise_le', 'TEXT'], ['reprise_par', 'TEXT']]) {
       if (!db.prepare('PRAGMA table_info(note_proposee)').all().some(x => x.name === c)) db.exec(`ALTER TABLE note_proposee ADD COLUMN ${c} ${t}`);
+    }
+    /* LA SESSION ENTRE DANS LA CLÉ (22 octobre 2026, Charles, UE 333 : « les
+     * professeurs ne savent pas encoder les points de la seconde session, ce
+     * n'est pas prévu »). Une seule case par étudiant et par acquis pour toute
+     * l'année : pour noter la seconde session, il fallait écraser la première. La table se
+     * rebâtit (une contrainte UNIQUE ne se modifie pas) ; tout ce qui existe
+     * devient session 1, les identifiants sont gardés, et une colonne que ce
+     * code ne connaît pas est recopiée telle quelle. */
+    const avant = db.prepare('PRAGMA table_info(note_proposee)').all();
+    if (!avant.some(c => c.name === 'session')) {
+      const connues = ['id', 'etudiant_id', 'annee_scolaire', 'cours_code', 'aa_code', 'note', 'propose_par',
+        'propose_le', 'mention', 'justification', 'reprise_le', 'reprise_par'];
+      const autres = avant.filter(c => !connues.includes(c.name));
+      const copiees = avant.map(c => c.name);
+      /* Le renommage ne doit pas dépendre du reste du schéma : sans le mode
+         ancien, SQLite revalide TOUTES les vues, et une seule vue cassée ailleurs
+         ferait échouer la migration — Mes cours entier tomberait, faute de la
+         colonne. La table rebâtie n'a ni vue ni déclencheur à suivre (ceux de
+         l'« Annuler » se reposent au démarrage). */
+      db.pragma('legacy_alter_table = ON');
+      try { db.transaction(() => {
+        db.exec(`
+          ALTER TABLE note_proposee RENAME TO note_proposee_v2;
+          CREATE TABLE note_proposee (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            etudiant_id    INTEGER NOT NULL,
+            annee_scolaire TEXT NOT NULL,
+            cours_code     TEXT NOT NULL,
+            aa_code        TEXT NOT NULL DEFAULT '',
+            session        INTEGER NOT NULL DEFAULT 1,
+            note           REAL,
+            propose_par    TEXT,
+            propose_le     TEXT,
+            mention        TEXT,
+            justification  TEXT,
+            reprise_le     TEXT,
+            reprise_par    TEXT${autres.map(c => `,\n            ${c.name} ${c.type || ''}`).join('')},
+            UNIQUE(etudiant_id, annee_scolaire, cours_code, aa_code, session)
+          );
+          INSERT INTO note_proposee (${copiees.join(', ')}, session)
+            SELECT ${copiees.join(', ')}, 1 FROM note_proposee_v2;
+          DROP TABLE note_proposee_v2;
+        `);
+      })(); } finally { db.pragma('legacy_alter_table = OFF'); }
+      console.log('[migration] note_proposee : la session entre dans la clé');
     }
   } catch (e) { console.error('[migration] note_proposee :', e.message); }
 })();
@@ -280,6 +326,86 @@ function accesCours(req, coursCode, annee) {
   return { miennes: [], ueNum: c.ue_num, etudiants, repartition: groupes.size > 0, portee: 'coordination' };
 }
 
+/* LA SÉANCE QUI COMPTE, ÉTUDIANT PAR ÉTUDIANT (23 octobre 2026, Charles, UE 333 :
+ * « je ne vois pas où introduire la seconde session »). La première version
+ * ouvrait la seconde session pour l'UNITÉ entière — toutes les décisions de première session
+ * encodées, toutes les séances closes. Or l'UE 333 délibère PAR ORGANISATION :
+ * tant qu'une organisation n'a pas tenu sa séance, aucune n'ouvrait la sienne,
+ * et l'écran ne disait même pas pourquoi. Un étudiant suit désormais la séance
+ * de SON organisation (`etudiant_inscription.num_organisation`) ; sans séance
+ * par organisation, c'est la séance de l'unité. */
+function clotures(ueNum, annee) {
+  let seances = [];
+  try {
+    seances = db.prepare(`SELECT session, num_organisation AS org, cloturee FROM deliberation_seance
+      WHERE ue_num = ? AND annee_scolaire = ?`).all(ueNum, annee);
+  } catch { seances = []; }
+  const orgDe = new Map();
+  try {
+    for (const x of db.prepare(`SELECT etudiant_id, num_organisation FROM etudiant_inscription
+        WHERE ue_num = ? AND annee_scolaire = ?`).all(ueNum, annee)) orgDe.set(x.etudiant_id, Number(x.num_organisation) || 0);
+  } catch { /* colonne absente : l'unité entière */ }
+  return (session, etudiantId) => {
+    const s = seances.filter(x => x.session === session);
+    const parOrg = s.filter(x => x.org > 0);
+    if (parOrg.length) {
+      const o = orgDe.get(etudiantId) || 0;
+      // Sans organisation, l'étudiant attend que toutes les séances soient closes.
+      if (o > 0) return !!parOrg.find(x => x.org === o)?.cloturee;
+      return parOrg.every(x => x.cloturee);
+    }
+    // La ligne « unité entière » ne compte que s'il n'y a pas de séance par organisation.
+    return !!s.find(x => x.org === 0)?.cloturee;
+  };
+}
+
+/* LA FEUILLE DE SECONDE SESSION : les seuls ajournés qui représentent CE cours,
+ * et pour chacun les seuls acquis rouverts — la règle de la liste imprimée des
+ * ajournés par cours (`aRepresenterParCours`), pour que la feuille et la liste
+ * nomment les mêmes étudiants. Restreinte aux étudiants de l'enseignant, et à
+ * ceux dont la séance de première session est close. Un cours sans acquis rattachés garde sa
+ * note de cours (clé ''). */
+function etatSeconde(d, coursCode, annee, acquis, close) {
+  let liste = [];
+  try { liste = aRepresenterParCours(d.ueNum, annee, 1)[coursCode] || []; } catch (e) { console.error('[seconde session]', e.message); }
+  const tous = acquis.length ? acquis.map(a => a.aa_code) : [''];
+  const miens = new Set(d.etudiants.map(e => e.id));
+  const ajournes = liste.filter(x => miens.has(x.id));
+  const ouverts = new Map(ajournes.filter(x => close(1, x.id)).map(x => [x.id, (x.aas || []).filter(a => tous.includes(a))]));
+  return {
+    ajournes: ajournes.length,
+    en_attente: ajournes.length - ouverts.size,
+    etudiants: d.etudiants.filter(e => ouverts.has(e.id)).map(e => ({ ...e,
+      aa_ouverts: ouverts.get(e.id).length ? ouverts.get(e.id) : tous,
+      clos: close(2, e.id) })),
+  };
+}
+
+/* LES DEUX SESSIONS D'UN COURS. Une session close ne se propose plus : la note
+ * n'entrerait nulle part, et l'enseignant croirait l'avoir donnée. Et quand la
+ * seconde n'est pas ouverte, l'écran dit POURQUOI — c'est l'absence de toute
+ * phrase qui a fait chercher le bouton. */
+function sessionsDuCours(d, coursCode, annee, acquis) {
+  const close = clotures(d.ueNum, annee);
+  const sec = etatSeconde(d, coursCode, annee, acquis, close);
+  const possible = sec.etudiants.length > 0;
+  const raison = possible ? null
+    : sec.en_attente > 0
+      ? `${sec.en_attente} étudiant(s) ajourné(s) dans ce cours : la seconde session s'ouvrira ici à la clôture de la séance de première session de leur organisation.`
+      : d.etudiants.length && d.etudiants.every(e => close(1, e.id))
+        ? "Aucun de vos étudiants n'a été ajourné dans ce cours en première session : il n'y a pas de note de seconde session à encoder."
+        : "La seconde session s'ouvrira ici, pour les étudiants ajournés, à la clôture de la séance de première session.";
+  return {
+    close, seconde: sec,
+    public: {
+      seconde_possible: possible,
+      seconde_raison: raison,
+      // Les ajournés dont l'organisation n'a pas encore clos sa séance de première session.
+      seconde_en_attente: possible ? sec.en_attente : 0,
+    },
+  };
+}
+
 // ── Mes cours de l'année ─────────────────────────────────────────────────────
 /* ══ LES AVIS DE VALORISATION, DANS L'ESPACE DU CHARGÉ DE COURS ══════════════
  * (Charles, 2 octobre 2026.) Le chargé de cours attribué aux cours visés voit
@@ -464,10 +590,22 @@ r.get('/:coursCode/etudiants', authRequired, (req, res) => {
   if (!d) return res.status(403).json({ error: "Ce cours n'est ni dans vos attributions, ni dans votre section." });
 
   const acquis = acquisDuCours(req.params.coursCode, d.ueNum, annee);
-  const props = {}, justifs = {};
+  const etat = sessionsDuCours(d, req.params.coursCode, annee, acquis);
+  const sessions = etat.public;
+  // Sans demande explicite, la feuille s'ouvre sur la session en cours : la
+  // seconde dès qu'elle est ouverte — c'est elle que l'enseignant vient remplir.
+  const session = req.query.session ? (Number(req.query.session) === 2 ? 2 : 1)
+    : (sessions.seconde_possible ? 2 : 1);
+  if (session === 2 && !sessions.seconde_possible) return res.status(409).json({ error: sessions.seconde_raison });
+  // En seconde session, la feuille ne porte que les ajournés de ce cours ; en
+  // première, chaque ligne dit si la séance de l'étudiant est close.
+  d.etudiants = session === 2 ? etat.seconde.etudiants
+    : d.etudiants.map(e => ({ ...e, clos: etat.close(1, e.id) }));
+  const props = {}, justifs = {}, propsS1 = {};
   for (const x of db.prepare(`
-    SELECT etudiant_id, aa_code, note, mention, justification FROM note_proposee
-    WHERE annee_scolaire = ? AND cours_code = ?`).all(annee, req.params.coursCode)) {
+    SELECT etudiant_id, aa_code, note, mention, justification, session FROM note_proposee
+    WHERE annee_scolaire = ? AND cours_code = ? AND session <= ?`).all(annee, req.params.coursCode, session)) {
+    if (x.session !== session) { (propsS1[x.etudiant_id] ||= {})[x.aa_code || ''] = x.mention || x.note; continue; }
     (props[x.etudiant_id] ||= {})[x.aa_code || ''] = x.mention || x.note;
     if (x.justification) (justifs[x.etudiant_id] ||= {})[x.aa_code || ''] = x.justification;
   }
@@ -511,12 +649,16 @@ r.get('/:coursCode/etudiants', authRequired, (req, res) => {
   res.json({
     annee, cours_code: req.params.coursCode, ue_num: d.ueNum,
     repartition: d.repartition, portee: d.portee,
+    session, sessions,
+    lecture_seule: d.etudiants.length > 0 && d.etudiants.every(e => e.clos),
     enseignants: enseignantsParCours(annee).get(req.params.coursCode) || [],
     // La feuille du professeur note PAR ACQUIS ; sans AA rattachés au cours,
     // elle retombe sur une note de cours (clé '').
     acquis,
     etudiants: d.etudiants.map(e => ({ ...e,
       notes: props[e.id] || {}, note: (props[e.id] || {})[''] ?? null,
+      // Seconde session : les acquis rouverts, et la proposition de première session à côté.
+      ...(session === 2 ? { aa_ouverts: e.aa_ouverts, notes_s1: propsS1[e.id] || {} } : {}),
       justifications: justifs[e.id] || {},
       report: reportes[e.id] || null,
       /* DISPENSÉ DE CE COURS PAR VALORISATION (Charles, 9 octobre 2026, cas
@@ -587,9 +729,23 @@ r.post('/:coursCode/notes', authRequired, (req, res) => {
   const d = accesCours(req, req.params.coursCode, annee);
   if (!d) return res.status(403).json({ error: "Ce cours n'est ni dans vos attributions, ni dans votre section." });
 
-  const permis = new Set(d.etudiants.map(e => e.id));
+  const session = Number(req.body?.session) === 2 ? 2 : 1;
+  const acquisCours = acquisDuCours(req.params.coursCode, d.ueNum, annee);
   // Les acquis admis pour ce cours — plus la clé '' (note de cours).
-  const aaPermis = new Set(['', ...acquisDuCours(req.params.coursCode, d.ueNum, annee).map(a => a.aa_code)]);
+  const aaPermis = new Set(['', ...acquisCours.map(a => a.aa_code)]);
+  const etat = sessionsDuCours(d, req.params.coursCode, annee, acquisCours);
+  if (session === 2 && !etat.public.seconde_possible) return res.status(409).json({ error: etat.public.seconde_raison });
+  /* En seconde session : les seuls ajournés de ce cours, sur leurs seuls acquis
+     rouverts — un acquis réussi en première session ne se réévalue pas. Dans l'une comme
+     dans l'autre, un étudiant dont la séance est close ne reçoit plus rien. */
+  d.etudiants = session === 2 ? etat.seconde.etudiants
+    : d.etudiants.map(e => ({ ...e, clos: etat.close(1, e.id) }));
+  if (d.etudiants.length && d.etudiants.every(e => e.clos)) {
+    return res.status(409).json({ error: `La séance de ${session === 2 ? 'seconde' : 'première'} session est close : ses notes ne se proposent plus.`
+      + (session === 1 && etat.public.seconde_possible ? ' Les notes des ajournés se saisissent dans « 2ᵉ session ».' : '') });
+  }
+  const permis = new Set(d.etudiants.filter(e => !e.clos).map(e => e.id));
+  const ouvertsDe = new Map(session === 2 ? d.etudiants.map(e => [e.id, new Set(e.aa_ouverts)]) : []);
   // PP pas présenté · NP note de présence · CM certificat médical (2.12.215).
   const MENTIONS = ['PP', 'NP', 'CM'];
   const notes = (Array.isArray(req.body?.notes) ? req.body.notes : [])
@@ -601,6 +757,7 @@ r.post('/:coursCode/notes', authRequired, (req, res) => {
         justification: String(x?.justification ?? '').trim() || null };
     })
     .filter(x => permis.has(x.etudiant_id) && aaPermis.has(x.aa_code)
+      && (session === 1 || ouvertsDe.get(x.etudiant_id)?.has(x.aa_code))
       // DES ENTIERS, DE 0 À 20 (Charles, 26 septembre 2026) : ni décimale, ni
       // valeur hors de l'échelle ; le serveur le refuse comme l'écran.
       && (x.mention || x.note === null || (Number.isInteger(x.note) && x.note >= 0 && x.note <= 20)));
@@ -618,32 +775,32 @@ r.post('/:coursCode/notes', authRequired, (req, res) => {
   }
 
   const poser = db.prepare(`
-    INSERT INTO note_proposee (etudiant_id, annee_scolaire, cours_code, aa_code, note, mention, justification, propose_par, propose_le)
-    VALUES (?,?,?,?,?,?,?,?,datetime('now'))
-    ON CONFLICT(etudiant_id, annee_scolaire, cours_code, aa_code) DO UPDATE SET
+    INSERT INTO note_proposee (etudiant_id, annee_scolaire, cours_code, aa_code, session, note, mention, justification, propose_par, propose_le)
+    VALUES (?,?,?,?,?,?,?,?,?,datetime('now'))
+    ON CONFLICT(etudiant_id, annee_scolaire, cours_code, aa_code, session) DO UPDATE SET
       note = excluded.note, mention = excluded.mention, justification = excluded.justification,
       propose_par = excluded.propose_par, propose_le = datetime('now'),
       -- une proposition MODIFIÉE redevient en attente de reprise
       reprise_le = CASE WHEN note_proposee.note IS excluded.note AND note_proposee.mention IS excluded.mention THEN note_proposee.reprise_le END,
       reprise_par = CASE WHEN note_proposee.note IS excluded.note AND note_proposee.mention IS excluded.mention THEN note_proposee.reprise_par END`);
   const oter = db.prepare(
-    'DELETE FROM note_proposee WHERE etudiant_id = ? AND annee_scolaire = ? AND cours_code = ? AND aa_code = ?');
+    'DELETE FROM note_proposee WHERE etudiant_id = ? AND annee_scolaire = ? AND cours_code = ? AND aa_code = ? AND session = ?');
   let n = 0;
   db.transaction(() => {
     for (const x of notes) {
-      if (x.note === null && !x.mention) { n += oter.run(x.etudiant_id, annee, req.params.coursCode, x.aa_code).changes; }
-      else { poser.run(x.etudiant_id, annee, req.params.coursCode, x.aa_code, x.note, x.mention,
+      if (x.note === null && !x.mention) { n += oter.run(x.etudiant_id, annee, req.params.coursCode, x.aa_code, session).changes; }
+      else { poser.run(x.etudiant_id, annee, req.params.coursCode, x.aa_code, session, x.note, x.mention,
         x.note != null && x.note < 10 ? x.justification : null, req.user?.email || null); n++; }
     }
   })();
   let complet = false, reprise = null;
   try { reprise = repriseAutomatique(req.params.coursCode, annee, req.user?.email || 'reprise automatique'); } catch (e) { console.error('[reprise auto]', e.message); }
-  try { complet = signalerSiComplet(req, d, req.params.coursCode, annee, aaPermis); } catch (e) { console.error('[notes complètes]', e.message); }
+  try { complet = signalerSiComplet(req, d, req.params.coursCode, annee, aaPermis, session); } catch (e) { console.error('[notes complètes]', e.message); }
   if (!complet) {
-    try { signalerEncodage(req.params.coursCode, annee, req.user?.email || null, d.etudiants.length, nomDuProf(req.user?.email, req.user)); }
+    try { signalerEncodage(req.params.coursCode, annee, req.user?.email || null, d.etudiants.length, nomDuProf(req.user?.email, req.user), session); }
     catch (e) { console.error('[notes encodées]', e.message); }
   }
-  res.json({ ok: true, proposees: n, complet, reprise });
+  res.json({ ok: true, session, proposees: n, complet, reprise });
 });
 
 /* LE SECRÉTARIAT EST PRÉVENU QUAND UN COURS EST COMPLET (Charles, 8 octobre 2026 :
@@ -653,7 +810,7 @@ r.post('/:coursCode/notes', authRequired, (req, res) => {
  * du cours — ou la note de cours, si le cours n'a pas d'acquis. Une fois par
  * enseignant, cours et année ; si le cours redevient incomplet, la marque tombe
  * et la complétion suivante prévient de nouveau. */
-function signalerSiComplet(req, d, coursCode, annee, aaPermis) {
+function signalerSiComplet(req, d, coursCode, annee, aaPermis, session = 1) {
   db.exec(`CREATE TABLE IF NOT EXISTS notes_cours_completes (
     annee_scolaire TEXT NOT NULL, cours_code TEXT NOT NULL, propose_par TEXT NOT NULL,
     complet_le TEXT DEFAULT (datetime('now')), PRIMARY KEY (annee_scolaire, cours_code, propose_par))`);
@@ -666,25 +823,28 @@ function signalerSiComplet(req, d, coursCode, annee, aaPermis) {
   const etus = d.etudiants.filter(e => { try { return !reporte.get(e.id, annee, coursCode) && !dispenseDuCours(dispCours, e.id, coursCode); } catch { return true; } });
   if (!etus.length) return false;
   const poses = new Set(db.prepare(`SELECT etudiant_id || '|' || aa_code k FROM note_proposee
-      WHERE annee_scolaire = ? AND cours_code = ? AND (note IS NOT NULL OR mention IS NOT NULL)`).all(annee, coursCode).map(x => x.k));
-  const complet = etus.every(e => cles.every(a => poses.has(`${e.id}|${a}`)));
-  const deja = db.prepare('SELECT 1 FROM notes_cours_completes WHERE annee_scolaire = ? AND cours_code = ? AND propose_par = ?').get(annee, coursCode, qui);
+      WHERE annee_scolaire = ? AND cours_code = ? AND session = ? AND (note IS NOT NULL OR mention IS NOT NULL)`).all(annee, coursCode, session).map(x => x.k));
+  // En seconde session, chaque ajourné n'a que ses acquis rouverts à remplir.
+  const complet = etus.every(e => (session === 2 && e.aa_ouverts ? e.aa_ouverts : cles).every(a => poses.has(`${e.id}|${a}`)));
+  // La marque de la seconde session vit à côté de celle de première session, sous « code|s2 ».
+  const cleCours = session === 2 ? `${coursCode}|s2` : coursCode;
+  const deja = db.prepare('SELECT 1 FROM notes_cours_completes WHERE annee_scolaire = ? AND cours_code = ? AND propose_par = ?').get(annee, cleCours, qui);
   if (!complet) {
-    if (deja) db.prepare('DELETE FROM notes_cours_completes WHERE annee_scolaire = ? AND cours_code = ? AND propose_par = ?').run(annee, coursCode, qui);
+    if (deja) db.prepare('DELETE FROM notes_cours_completes WHERE annee_scolaire = ? AND cours_code = ? AND propose_par = ?').run(annee, cleCours, qui);
     return false;
   }
   if (deja) return true;
-  db.prepare('INSERT INTO notes_cours_completes (annee_scolaire, cours_code, propose_par) VALUES (?,?,?)').run(annee, coursCode, qui);
+  db.prepare('INSERT INTO notes_cours_completes (annee_scolaire, cours_code, propose_par) VALUES (?,?,?)').run(annee, cleCours, qui);
   const c = db.prepare('SELECT cours_nom, ue_num FROM cours WHERE cours_code = ? ORDER BY (annee_scolaire = ?) DESC LIMIT 1').get(coursCode, annee) || {};
   const p = db.prepare(`SELECT p.nom, p.prenom FROM professeur p JOIN utilisateur u ON u.professeur_id = p.id WHERE u.id = ?`).get(req.user?.id)
     || { nom: req.user?.nom || qui, prenom: '' };
   const nomProf = `${String(p.nom || '').toUpperCase()} ${p.prenom || ''}`.trim();
-  const titre = `Notes complètes — ${c.cours_nom || coursCode} (${coursCode}${c.ue_num ? `, UE ${c.ue_num}` : ''})`;
+  const titre = `Notes ${session === 2 ? 'de 2ᵉ session ' : ''}complètes — ${c.cours_nom || coursCode} (${coursCode}${c.ue_num ? `, UE ${c.ue_num}` : ''})`;
   const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
   const corps = `<strong>${esc(nomProf)}</strong> a encodé toutes les notes de ses ${etus.length} étudiant(s)`
-    + `${acquis.length ? `, ${acquis.length} acquis chacun` : ''} — ${annee}. À reprendre dans l'encodage officiel (Mes cours → « Reprendre les propositions »).`;
+    + `${session === 2 ? ' ajourné(s), sur leurs acquis à représenter' : acquis.length ? `, ${acquis.length} acquis chacun` : ''} — ${annee}. À reprendre dans l'encodage officiel (Mes cours → « Reprendre les propositions »).`;
   const ins = db.prepare(`INSERT INTO lucie_notification (type, titre, corps, lien, cible_role, cree_par) VALUES ('notes_completes', ?, ?, ?, ?, ?)`);
-  for (const role of ROLES_PREVENUS) ins.run(titre, corps, `/mes-cours?cours=${encodeURIComponent(coursCode)}`, role, nomProf || qui);
+  for (const role of ROLES_PREVENUS) ins.run(titre, corps, `/mes-cours?cours=${encodeURIComponent(coursCode)}${session === 2 ? '&session=2' : ''}`, role, nomProf || qui);
   return true;
 }
 
@@ -701,17 +861,18 @@ const ROLES_PREVENUS = ['secretariat', 'editeur', 'directeur_adjoint'];
  * notification par cours et par professeur et par jour, mise à jour au fil des
  * enregistrements, plutôt que dix lignes pour dix clics. La complétude garde la
  * sienne. */
-export function signalerEncodage(coursCode, annee, proposePar, totalEtudiants, nomProf) {
+export function signalerEncodage(coursCode, annee, proposePar, totalEtudiants, nomProf, session = 1) {
   const c = db.prepare('SELECT cours_nom, ue_num FROM cours WHERE cours_code = ? ORDER BY (annee_scolaire = ?) DESC LIMIT 1').get(coursCode, annee) || {};
   const n = db.prepare(`SELECT count(DISTINCT etudiant_id) n, count(*) notes, max(propose_le) le FROM note_proposee
-      WHERE annee_scolaire = ? AND cours_code = ? AND propose_par = ? AND (note IS NOT NULL OR mention IS NOT NULL)`).get(annee, coursCode, proposePar);
+      WHERE annee_scolaire = ? AND cours_code = ? AND propose_par = ? AND session = ? AND (note IS NOT NULL OR mention IS NOT NULL)`).get(annee, coursCode, proposePar, session);
   if (!n?.notes) return false;
-  const titre = `Notes encodées — ${c.cours_nom || coursCode} (${coursCode}${c.ue_num ? `, UE ${c.ue_num}` : ''})`;
+  const titre = `Notes ${session === 2 ? 'de 2ᵉ session ' : ''}encodées — ${c.cours_nom || coursCode} (${coursCode}${c.ue_num ? `, UE ${c.ue_num}` : ''})`;
   const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
   const avancement = totalEtudiants ? `${n.n} / ${totalEtudiants} étudiants` : `${n.n} étudiant(s)`;
   const corps = `<strong>${esc(nomProf)}</strong> a encodé ${n.notes} note(s) — ${avancement} — ${annee}.`
     + ` Elles passent dans l'encodage officiel (Mes cours).`;
-  const lien = `/mes-cours?cours=${encodeURIComponent(coursCode)}`;
+  // Une notification par session : celle de la seconde ne recouvre pas celle de la première.
+  const lien = `/mes-cours?cours=${encodeURIComponent(coursCode)}${session === 2 ? '&session=2' : ''}`;
   const existe = db.prepare(`SELECT id FROM lucie_notification WHERE type = 'notes_encodees' AND lien = ? AND cree_par = ?
       AND cible_role = ? AND date(cree_le) = date('now')`);
   const maj = db.prepare(`UPDATE lucie_notification SET titre = ?, corps = ?, cree_le = datetime('now'), lue_par = '[]' WHERE id = ?`);
@@ -763,8 +924,8 @@ r.get('/:coursCode/propositions', authRequired, roleRequired(...PEUT_INSTRUIRE),
   const lignes = db.prepare(`
     SELECT p.etudiant_id, p.aa_code, p.note, p.mention, p.justification, p.propose_par, p.propose_le, e.nom, e.prenom
     FROM note_proposee p JOIN etudiant e ON e.id = p.etudiant_id
-    WHERE p.annee_scolaire = ? AND p.cours_code = ?
-    ORDER BY e.nom, e.prenom, p.aa_code`).all(annee, req.params.coursCode);
+    WHERE p.annee_scolaire = ? AND p.cours_code = ? AND p.session = ?
+    ORDER BY e.nom, e.prenom, p.aa_code`).all(annee, req.params.coursCode, Number(req.query.session) === 2 ? 2 : 1);
   res.json({ annee, cours_code: req.params.coursCode, propositions: lignes });
 });
 
@@ -780,13 +941,18 @@ r.get('/:coursCode/propositions', authRequired, roleRequired(...PEUT_INSTRUIRE),
  * Chaque note reprise porte son origine (`proposition:<qui>`), et la
  * proposition sa date de reprise et son auteur. */
 /** L'ANALYSE D'UNE REPRISE — une seule règle pour le bouton et pour la reprise
- *  automatique. `etudiantsPermis` (Set) restreint, `session` dit où écrire. */
+ *  automatique. `etudiantsPermis` (Set) restreint ; `session` choisit les
+ *  propositions de CETTE session et dit où les écrire (22 octobre 2026 : une
+ *  proposition de première session ne va jamais en seconde, ni l'inverse).
+ *  En enseignement pour adultes, la seconde session suit la délibération de
+ *  CHAQUE unité, à n'importe quel moment de l'année : aucune date n'entre ici,
+ *  seule la clôture de la séance compte. */
 function analyserReprise(coursCode, annee, session, remplacer = new Set(), { etudiantsPermis = null, enAttente = false, suivreProposition = false } = {}) {
   const ue = db.prepare('SELECT ue_num FROM cours WHERE cours_code = ? AND annee_scolaire = ? LIMIT 1').get(coursCode, annee)?.ue_num
     ?? db.prepare('SELECT ue_num FROM cours WHERE cours_code = ? ORDER BY annee_scolaire DESC LIMIT 1').get(coursCode)?.ue_num;
   if (ue == null) return null;
   const props = db.prepare(`SELECT p.*, e.nom, e.prenom FROM note_proposee p JOIN etudiant e ON e.id = p.etudiant_id
-    WHERE p.annee_scolaire = ? AND p.cours_code = ? ${enAttente ? 'AND p.reprise_le IS NULL' : ''} ORDER BY e.nom, e.prenom, p.aa_code`).all(annee, coursCode)
+    WHERE p.annee_scolaire = ? AND p.cours_code = ? AND p.session = ? ${enAttente ? 'AND p.reprise_le IS NULL' : ''} ORDER BY e.nom, e.prenom, p.aa_code`).all(annee, coursCode, session)
     .filter(p => !etudiantsPermis || etudiantsPermis.has(p.etudiant_id));
   const lire = db.prepare(`SELECT points, mention, origine FROM etudiant_note_detail
     WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND type = 'aa' AND code = ?`);
@@ -840,25 +1006,34 @@ function appliquerReprise(an, annee, coursCode, qui, origine = null) {
  * l'enseignant enregistre dans Mes cours entre dans l'encodage officiel :
  *   · seulement dans une case officielle VIDE (ou identique, simplement pointée) ;
  *     une case qui DIFFÈRE attend la coordination (« Reprendre les propositions ») ;
- *   · jamais dans une séance close : la première session close, on écrit en
- *     seconde, et pour les seuls ajournés de l'unité ; la seconde close, rien ;
+ *   · jamais dans une séance close : chaque proposition va dans SA session
+ *     (22 octobre 2026) — celles de première session tant que leur séance n'est pas close,
+ *     celles de seconde session, pour les seuls ajournés, tant que la seconde ne l'est
+ *     pas. Jusque-là, une note retapée après la clôture de la première séance partait
+ *     en seconde session : la seule façon de noter la seconde était d'écraser la première ;
  *   · CM, note de cours sans acquis, cours reporté : comme au bouton, nommés, non repris.
  * Chaque note porte son origine `proposition:auto:<qui>`. */
 export function repriseAutomatique(coursCode, annee, qui = 'reprise automatique') {
   const ue = db.prepare('SELECT ue_num FROM cours WHERE cours_code = ? ORDER BY (annee_scolaire = ?) DESC LIMIT 1').get(coursCode, annee)?.ue_num;
   if (ue == null) return null;
-  const close = ses => !!db.prepare(`SELECT 1 FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ? AND session = ? AND cloturee = 1`).get(ue, annee, ses);
-  let session = 1, permis = null;
-  if (close(1)) {
-    if (close(2)) return { session: null, ecrites: 0 };
-    session = 2;
-    permis = new Set(db.prepare(`SELECT etudiant_id FROM etudiant_inscription WHERE ue_num = ? AND annee_scolaire = ? AND resultat = 'ajourne'`)
-      .all(ue, annee).map(x => x.etudiant_id));
+  // La séance qui compte est celle de l'organisation de chaque étudiant.
+  const close = clotures(ue, annee);
+  const inscrits = db.prepare(`SELECT etudiant_id, resultat FROM etudiant_inscription WHERE ue_num = ? AND annee_scolaire = ?`).all(ue, annee);
+  const bilan = { session: null, ecrites: 0, identiques: 0, differentes: 0 };
+  for (const session of [1, 2]) {
+    const permis = new Set(inscrits.filter(x => session === 1 ? !close(1, x.etudiant_id)
+      : x.resultat === 'ajourne' && close(1, x.etudiant_id) && !close(2, x.etudiant_id)).map(x => x.etudiant_id));
+    if (!permis.size) continue;
+    const an = analyserReprise(coursCode, annee, session, new Set(), { etudiantsPermis: permis, enAttente: true, suivreProposition: true });
+    if (!an) continue;
+    bilan.session = session;
+    bilan.differentes += an.r0.differentes.length;
+    if (!an.faire.length) continue;
+    appliquerReprise(an, annee, coursCode, qui, `proposition:auto:${qui}`);
+    bilan.ecrites += an.r0.a_poser.length + an.r0.remplacees;
+    bilan.identiques += an.r0.identiques;
   }
-  const an = analyserReprise(coursCode, annee, session, new Set(), { etudiantsPermis: permis, enAttente: true, suivreProposition: true });
-  if (!an || !an.faire.length) return { session, ecrites: 0, differentes: an?.r0.differentes.length || 0 };
-  appliquerReprise(an, annee, coursCode, qui, `proposition:auto:${qui}`);
-  return { session, ecrites: an.r0.a_poser.length + an.r0.remplacees, identiques: an.r0.identiques, differentes: an.r0.differentes.length };
+  return bilan;
 }
 
 /** Les propositions en attente, reprises au démarrage (celles d'avant la reprise
@@ -909,7 +1084,7 @@ r.get('/:coursCode/stats-ue', authRequired, async (req, res) => {
   const inscrits = new Set(etus.map(x => x.id));
   const lignesM = db.prepare(`SELECT p.etudiant_id, p.cours_code, p.mention FROM note_proposee p
       JOIN cours c ON c.cours_code = p.cours_code AND c.annee_scolaire = p.annee_scolaire
-      WHERE p.annee_scolaire = ? AND c.ue_num = ? AND p.mention IN ('PP', 'NP', 'CM')`).all(annee, ue)
+      WHERE p.annee_scolaire = ? AND c.ue_num = ? AND p.session = ? AND p.mention IN ('PP', 'NP', 'CM')`).all(annee, ue, session)
     .filter(x => inscrits.has(x.etudiant_id));
   const compter = l => Object.fromEntries(['PP', 'NP', 'CM'].map(m => [m, new Set(l.filter(x => x.mention === m).map(x => x.etudiant_id)).size]));
   const mentions = compter(lignesM);

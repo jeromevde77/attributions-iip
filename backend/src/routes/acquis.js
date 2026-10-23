@@ -3853,15 +3853,22 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
   try {
     const parAA = {};
     for (const l of db.prepare(`
-      SELECT p.aa_code, p.cours_code, p.justification, (SELECT MIN(c.cours_nom) FROM cours c
+      SELECT p.aa_code, p.cours_code, p.justification, p.session, (SELECT MIN(c.cours_nom) FROM cours c
         WHERE c.cours_code = p.cours_code AND c.annee_scolaire = p.annee_scolaire) AS cours_nom,
         (SELECT pr.nom || ' ' || pr.prenom FROM professeur pr
           WHERE LOWER(pr.adresse_mail) = LOWER(p.propose_par) LIMIT 1) AS prof
       FROM note_proposee p
       WHERE p.etudiant_id = ? AND p.annee_scolaire = ? AND p.aa_code <> ''
         AND p.justification IS NOT NULL AND TRIM(p.justification) <> ''
-        AND p.cours_code IN (SELECT cours_code FROM cours WHERE ue_num = ? AND annee_scolaire = ?)`)
-      .all(Number(etudId), annee, Number(ueNum), annee)) {
+        AND p.session <= ?
+        AND p.cours_code IN (SELECT cours_code FROM cours WHERE ue_num = ? AND annee_scolaire = ?)
+      ORDER BY p.session DESC`)
+      .all(Number(etudId), annee, Number(session) === 2 ? 2 : 1, Number(ueNum), annee)) {
+      /* LA JUSTIFICATION DE LA SESSION DÉLIBÉRÉE (22 octobre 2026) : en seconde
+         session, celle que l'enseignant a écrite pour elle ; celle de première session
+         ne vaut que pour un cours où rien n'a été proposé en seconde. */
+      const deja = parAA[l.aa_code] || [];
+      if (deja.some(x => x.cours_code === l.cours_code && x.session > l.session)) continue;
       (parAA[l.aa_code] ||= []).push(l);
     }
     /* LES JUSTIFICATIONS S'ADDITIONNENT, SANS SE RÉPÉTER (Charles, 27
@@ -6976,33 +6983,14 @@ const STYLE_LISTES = `<style>
 </style>`;
 
 /**
- * LES LISTES D'AJOURNÉS, COURS PAR COURS.
- *
- * Le procès-verbal dit l'unité ; le professeur, lui, a besoin de savoir qui il
- * réinterroge dans SON cours. On tirait cette liste à la main du PV, en
- * recopiant les noms — et c'est là que l'on oublie quelqu'un.
- *
- * Une liste par cours, dans l'ordre des cours de l'unité, chacune sur sa page.
- * Un cours sans ajourné n'est PAS omis : il porte la mention « Néant ». Une
- * liste absente laisse croire qu'on l'a oubliée ; une liste vide dit que le
- * cours n'a personne à revoir, et c'est une information.
+ * QUI REPRÉSENTE QUOI, COURS PAR COURS — après la session `session`.
+ * Une seule règle pour la liste imprimée des ajournés et pour la feuille de
+ * seconde session de Mes cours (22 octobre 2026, UE 333 : « les professeurs ne
+ * savent pas encoder les points de la seconde session ») : deux copies de cette
+ * règle finiraient par ne plus nommer les mêmes étudiants.
+ * Rend { cours_code → [{ id, nom, prenom, id_ecampus, aas: [aa_code…] }] }.
  */
-export function documentAjournesParCours(ueNum, annee, session = 1) {
-  const ident = identiteEtablissement();
-  const ue = db.prepare(`
-    SELECT ue_nom, ue_niv FROM ue WHERE ue_num = ?
-    ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1
-  `).get(ueNum, annee) || {};
-  // Un cours qui ne s'évalue pas (activité Z, développement professionnel) n'a
-  // personne à représenter : il n'a pas de liste.
-  const cours = db.prepare(`
-    SELECT cours_code, cours_nom FROM cours
-    WHERE ue_num = ? AND annee_scolaire = ?
-      AND COALESCE(non_evalue, 0) = 0 AND UPPER(COALESCE(ct_pp, '')) <> 'Z'
-    ORDER BY cours_num, cours_code
-  `).all(ueNum, annee);
-  const profs = profsParCours(ueNum, annee);
-
+export function aRepresenterParCours(ueNum, annee, session = 1) {
   // Les ajournés de la session : ceux dont le Conseil a arrêté « ajourné »,
   // et pour chacun les cours qu'il doit représenter.
   //
@@ -7069,6 +7057,39 @@ export function documentAjournesParCours(ueNum, annee, session = 1) {
       });
     }
   }
+
+  return parCours;
+}
+
+/**
+ * LES LISTES D'AJOURNÉS, COURS PAR COURS.
+ *
+ * Le procès-verbal dit l'unité ; le professeur, lui, a besoin de savoir qui il
+ * réinterroge dans SON cours. On tirait cette liste à la main du PV, en
+ * recopiant les noms — et c'est là que l'on oublie quelqu'un.
+ *
+ * Une liste par cours, dans l'ordre des cours de l'unité, chacune sur sa page.
+ * Un cours sans ajourné n'est PAS omis : il porte la mention « Néant ». Une
+ * liste absente laisse croire qu'on l'a oubliée ; une liste vide dit que le
+ * cours n'a personne à revoir, et c'est une information.
+ */
+export function documentAjournesParCours(ueNum, annee, session = 1) {
+  const ident = identiteEtablissement();
+  const ue = db.prepare(`
+    SELECT ue_nom, ue_niv FROM ue WHERE ue_num = ?
+    ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1
+  `).get(ueNum, annee) || {};
+  // Un cours qui ne s'évalue pas (activité Z, développement professionnel) n'a
+  // personne à représenter : il n'a pas de liste.
+  const cours = db.prepare(`
+    SELECT cours_code, cours_nom FROM cours
+    WHERE ue_num = ? AND annee_scolaire = ?
+      AND COALESCE(non_evalue, 0) = 0 AND UPPER(COALESCE(ct_pp, '')) <> 'Z'
+    ORDER BY cours_num, cours_code
+  `).all(ueNum, annee);
+  const profs = profsParCours(ueNum, annee);
+
+  const parCours = aRepresenterParCours(ueNum, annee, session);
 
   const esc0 = t => String(t ?? '').replace(/[&<>"]/g,
     x => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[x]));

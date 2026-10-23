@@ -200,6 +200,29 @@ function initialesDe(u) {
   return lettres.toLocaleUpperCase('fr');
 }
 
+/* LA BARRE SE REPLIE SUR UN ÉCRAN TACTILE OU ÉTROIT (Charles, 23 octobre 2026,
+ * sur iPad : « menu sur iPhone iPad pas utilisable »). Les rubriques n'y étaient
+ * que des icônes dont le nom ne paraissait qu'AU SURVOL — qui n'existe pas au
+ * doigt —, et sous 1280 px la barre débordait : le badge DEV recouvrait les
+ * icônes, la porte de sortie sortait de l'écran. Tactile ou étroit, on passe au
+ * menu déroulant, qui NOMME chaque rubrique. Un écran tactile se reconnaît à ce
+ * qu'aucun pointeur ne peut survoler (`hover: none`), quelle que soit sa taille. */
+const REQUETE_COMPACTE = '(hover: none), (max-width: 1279px)';
+// Sur un téléphone, les objets de droite passent sur une seconde ligne.
+const REQUETE_ETROITE = '(max-width: 639px)';
+function useBarreCompacte(requete = REQUETE_COMPACTE) {
+  const lire = () => typeof window !== 'undefined' && !!window.matchMedia?.(requete).matches;
+  const [compacte, setCompacte] = useState(lire);
+  useEffect(() => {
+    const m = window.matchMedia?.(requete);
+    if (!m) return undefined;
+    const f = () => setCompacte(m.matches);
+    m.addEventListener?.('change', f);
+    return () => m.removeEventListener?.('change', f);
+  }, [requete]);
+  return compacte;
+}
+
 function VoirCommePicker() {
   const [open, setOpen] = useState(false);
   const [profils, setProfils] = useState([]);
@@ -523,6 +546,8 @@ function ProtectedLayout({ children }) {
      qu'une icône. Quatre ou cinq entrées tiennent avec leur nom — les autres
      rôles, qui en ont davantage, gardent les icônes et la bulle. */
   const nomsVisibles = u?.role === 'professeur';
+  const compacte = useBarreCompacte();
+  const etroite = useBarreCompacte(REQUETE_ETROITE);
   const mep = useMiseEnPage();
   const nav = AXES
     .filter(([, , , module]) => !module || [].concat(module).some(m => droitEffectif(u, m) !== 'rien'))
@@ -571,14 +596,15 @@ function ProtectedLayout({ children }) {
           point fixe, et c'est elle. Elle suit en revanche le mode des menus,
           sans quoi l'on retomberait sur deux espaces qui ne se parlent pas. */}
       <header ref={refBarre} className="barre-haut px-3 md:px-6 py-3 sticky top-0 z-40">
-        <div className="flex items-center justify-between gap-3">
+        <div className={`flex items-center justify-between ${compacte ? 'gap-2' : 'gap-3'} ${etroite ? 'flex-wrap gap-y-2' : ''}`}>
           {/* Burger mobile */}
+          {compacte && (
           <button
             onClick={() => setMenuOpen(o => !o)}
-            className="md:hidden text-gray-700 hover:text-iip-turquoise p-1"
-            aria-label="Menu">
-            {menuOpen ? <IconX size={24} /> : <IconMenu2 size={24} />}
-          </button>
+            className="objet-barre objet-barre-icone"
+            aria-label="Menu" aria-expanded={menuOpen}>
+            {menuOpen ? <IconX size={20} /> : <IconMenu2 size={20} />}
+          </button>)}
 
           <div className="flex-none">
             <svg className="logo-lucie" width="90" height="28" viewBox="0 0 140 44"
@@ -625,7 +651,8 @@ function ProtectedLayout({ children }) {
             {annees.length === 0 && <option value={anneeActive}>{anneeActive}</option>}
           </select>
           {/* Nav desktop */}
-          <nav className="hidden md:flex items-center gap-0.5 flex-1 min-w-0 ml-2">
+          {compacte ? <span className="flex-1 min-w-0" /> : (
+          <nav className="flex items-center gap-0.5 flex-1 min-w-0 ml-2 overflow-x-auto">
             {/* DES ICÔNES, ET LE NOM DE LA RUBRIQUE OUVERTE (Charles, 3 octobre
                 2026 : « le menu du dessus devient trop large ; si on passe sur
                 l'icône, le nom apparaît en bulle en dessous »). */}
@@ -679,7 +706,7 @@ function ProtectedLayout({ children }) {
               )}
               </Fragment>
             ))}
-          </nav>
+          </nav>)}
           {/* La bulle du nom, rendue au-dessus de tout : posée dans la barre,
               elle passait sous le contenu de la page. */}
           {bulleNav && !location.pathname.startsWith(nav.find(([, l]) => l === bulleNav.lbl)?.[0] || '§') && createPortal(
@@ -687,7 +714,7 @@ function ProtectedLayout({ children }) {
               style={{ left: bulleNav.x, top: bulleNav.y, background: '#16406A' }}>{bulleNav.lbl}</span>, document.body)}
 
           {/* User info + version */}
-          <div className="flex items-center gap-3 text-sm flex-shrink-0">
+          <div className={`flex items-center ${compacte ? 'gap-1.5' : 'gap-3'} text-sm ${etroite ? 'w-full overflow-x-auto [&>*]:flex-shrink-0' : 'flex-shrink-0'}`}>
             {/* LE MODE EST UN RÉGLAGE DE L'APPLICATION, PAS DE L'ÉCRAN.
                 Il vivait en pied de rail : un réglage qui vaut pour toute
                 Lucie, rangé dans un objet qui change à chaque écran, et
@@ -705,11 +732,12 @@ function ProtectedLayout({ children }) {
                 <IconLayoutDashboard size={16} />{mep.actif && ' Mise en page'}
               </button>)}
             {u?.role === 'admin' && mep.actif && <BoutonAnnulerReglage quoi="mise_en_page" className="objet-barre objet-barre-icone" libelle="Annuler" />}
+            {!compacte && (
             <button onClick={basculerMode} aria-label="Changer le mode d'affichage"
               title={mode === 'sombre' ? 'Menus en gris pâle' : 'Menus en marine'}
               className="objet-barre objet-barre-icone">
               {mode === 'sombre' ? <IconSun size={16} /> : <IconMoon size={16} />}
-            </button>
+            </button>)}
             {import.meta.env.VITE_DEMO_MODE === 'true' && (
               <span className="objet-barre objet-barre-etat" style={{ '--e': 'var(--c-attente, #E8890C)' }}>
                 DÉMO
@@ -720,8 +748,8 @@ function ProtectedLayout({ children }) {
             {/* LA DEV SE DIT À CÔTÉ DE LA VERSION, PAS EN BANDEAU (Charles, 3
                 octobre 2026) : le bandeau rayé prenait une ligne à chaque écran
                 et poussait la barre. Orange plein, le mot et l'icône. */}
-            {env === 'dev' && (
-              <span className="hidden md:inline-flex objet-barre objet-barre-etat" style={{ '--e': 'var(--c-attente, #E8890C)' }}
+            {env === 'dev' && !compacte && (
+              <span className="inline-flex objet-barre objet-barre-etat" style={{ '--e': 'var(--c-attente, #E8890C)' }}
                 title="Version de développement — données de test">
                 <IconFlask size={16} stroke={2} /> DEV
               </span>
@@ -735,7 +763,7 @@ function ProtectedLayout({ children }) {
                 même hauteur, sur le même axe que le mode et la version. */}
             <span className="flex items-center gap-2">
               <VoirCommePicker />
-              <span className="objet-barre hidden sm:inline-flex" title={u?.role}>
+              <span className={`objet-barre ${compacte ? 'hidden' : 'inline-flex'}`} title={u?.role}>
                 {ROLE_COURT[u?.role] || u?.role}
               </span>
               {/* MON COMPTE — une icône, à côté de la porte de sortie.
@@ -757,18 +785,40 @@ function ProtectedLayout({ children }) {
         </div>
 
         {/* Menu mobile déroulant */}
-        {menuOpen && (
-          <nav className="md:hidden mt-3 pb-2 border-t border-gray-100 pt-2 flex flex-col gap-1">
-            <div className="text-xs text-gray-500 px-3 py-1">{u?.nom || u?.email} · <span className="text-iip-turquoise">{u?.role}</span></div>
+        {compacte && menuOpen && (
+          <nav className="mt-3 pb-2 border-t border-gray-100 pt-2 flex flex-col gap-1 max-h-[70vh] overflow-y-auto">
+            <div className="text-xs text-gray-500 px-3 py-1 flex flex-wrap items-center gap-2">
+              <span>{u?.nom || u?.email} · <span className="text-iip-turquoise">{ROLE_COURT[u?.role] || u?.role}</span></span>
+              {env === 'dev' && <span className="objet-barre objet-barre-etat" style={{ '--e': 'var(--c-attente, #E8890C)' }}><IconFlask size={14} stroke={2} /> DEV</span>}
+              <button onClick={basculerMode} className="objet-barre ml-auto">
+                {mode === 'sombre' ? <IconSun size={14} /> : <IconMoon size={14} />} {mode === 'sombre' ? 'Menus clairs' : 'Menus marine'}
+              </button>
+            </div>
             {nav.map(([to, lbl, Icon]) => (
-              <NavLink key={to} to={to} end={to === '/'} onClick={() => setMenuOpen(false)} className={({ isActive }) =>
-                `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium ${
+              <Fragment key={to}>
+              <NavLink to={to} end={to === '/'} onClick={() => setMenuOpen(false)} className={({ isActive }) =>
+                `flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium ${
                   isActive ? 'onglet-actif' : 'onglet-dormant'
                 }`
               }>
                 {Icon && <Icon size={18} stroke={1.8} />}
                 <span>{lbl}</span>
+                {to === '/accueil' && nbNotifs > 0 && (
+                  <span className="ml-auto px-1.5 rounded-full bg-iip-turquoise text-mention text-white font-bold">{nbNotifs > 9 ? '9+' : nbNotifs}</span>)}
               </NavLink>
+              {/* Les faces de l'écran ouvert, sous sa rubrique — elles vivaient
+                  dans la barre, à droite de l'icône. */}
+              {sousMenu?.items?.length > 1 && location.pathname.startsWith(to) && (
+                <div className="flex flex-wrap gap-1 pl-10 pb-1">
+                  {sousMenu.items.map(it => (
+                    <button key={it.key} type="button" onClick={() => { sousMenu.onChoisir?.(it.key); setMenuOpen(false); }}
+                      className={`px-2.5 py-1.5 rounded-champ text-second ${it.actif ? 'font-semibold text-iip-texte bg-slate-100' : 'text-slate-600'}`}>
+                      {it.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              </Fragment>
             ))}
           </nav>
         )}

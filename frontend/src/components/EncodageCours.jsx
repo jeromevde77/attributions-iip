@@ -71,12 +71,13 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
      est une note de cours, on ne remplit donc rien à sa place. */
   const [propositions, setPropositions] = useState([]);
   useEffect(() => {
-    fetch(`/api/mes-cours/${encodeURIComponent(coursCode)}/propositions?annee=${encodeURIComponent(annee)}`,
+    // Les propositions de LA session encodée : première et seconde session ne se mêlent pas.
+    fetch(`/api/mes-cours/${encodeURIComponent(coursCode)}/propositions?annee=${encodeURIComponent(annee)}&session=${session}`,
       { headers: authHeaders() })
       .then(r => (r.ok ? r.json() : { propositions: [] }))
       .then(j => setPropositions(j.propositions || []))
       .catch(() => setPropositions([]));
-  }, [coursCode, annee]);
+  }, [coursCode, annee, session]);
 
   /* REPRENDRE LES PROPOSITIONS (28 septembre 2026) : ce que le professeur a
      proposé dans « Mes cours » entre dans l'encodage officiel en un geste,

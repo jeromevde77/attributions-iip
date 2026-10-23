@@ -614,6 +614,26 @@ poids du cours, lignes 17+ poids des acquis.
   propositions de Lucie. La clôture l'écrit au dossier (`decision_motivation`,
   `source = 'enseignant'`) : une note retouchée ensuite ne change plus le motif
   d'une décision notifiée.
+- **La seconde session se propose dans *Mes cours*** (3.1.400, Charles, 22 octobre
+  2026, UE 333 : « les professeurs ne savent pas encoder les points de la seconde
+  session, ce n'est pas prévu »). `note_proposee` porte une `session` (clé
+  `(etudiant, année, cours, acquis, session)`) : avant, une seule case par acquis
+  pour l'année, et noter la seconde session voulait dire écraser la première. La feuille s'ouvre
+  d'office sur la 2ᵉ session dès la clôture de la séance de première session ;
+  **en enseignement pour adultes, la seconde session suit la délibération de
+  CHAQUE UE, à tout moment de l'année — jamais « juin / septembre »** (Charles,
+  23 octobre 2026) ;
+  elle ne montre que les ajournés de CE cours, sur leurs seuls acquis rouverts —
+  `aRepresenterParCours()` (`routes/acquis.js`), la règle de la liste imprimée des
+  ajournés par cours, désormais commune. Chaque proposition entre dans SA session
+  (`s1|` ou `s2|`), jamais dans une séance close ; une session close se lit, elle
+  ne se propose plus. Le justificatif de seconde session motive le refus de seconde session.
+  **Par organisation** (3.1.401, Charles, 23 octobre 2026 : « je ne vois pas où
+  introduire la seconde session ») : 3.1.400 attendait que TOUTE l'unité soit
+  décidée et close — l'UE 333 délibère par organisation, la seconde ne s'ouvrait
+  donc jamais, sans un mot. Chaque étudiant suit la séance de SON organisation
+  (`clotures()`, `routes/mesCours.js`), et l'écran dit toujours pourquoi la 2ᵉ
+  session n'est pas là.
 
 **La valorisation des acquis a sa séance.** Le procès-verbal d'annexe 4 et les
 attestations qui en découlent (annexe 15 pour le supérieur, 14 pour le
@@ -1612,6 +1632,15 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   demi-largeur). **Une page se rend rangeable en déclarant ses blocs dans
   `BlocsPage`** — l'Accueil d'abord ; les autres pages suivent par lots.
 
+- **AU DOIGT, PAS DE SURVOL** (3.1.403, Charles, 23 octobre 2026, sur iPad :
+  « menu sur iPhone iPad pas utilisable »). Les rubriques de la barre n'étaient
+  que des icônes nommées AU SURVOL, qui n'existe pas au doigt, et sous 1280 px la
+  barre débordait. Écran tactile (`hover: none`) ou plus étroit que 1280 px : la
+  barre se replie en menu déroulant qui NOMME chaque rubrique et porte les faces
+  de l'écran ouvert, le mode des menus et le badge DEV ; sur téléphone (< 640 px)
+  les objets de droite passent sur une seconde ligne (`useBarreCompacte`,
+  `App.jsx`). **Toute information donnée seulement au survol est perdue sur
+  tablette** — le rail latéral a le même défaut, à reprendre.
 - **Seul le menu principal est horizontal** : il dit dans quel métier on est.
   Tout le reste vit dans le **rail latéral** — les rubriques de l'axe d'abord,
   puis les outils de l'écran ouvert, qui s'y inscrivent d'eux-mêmes.
