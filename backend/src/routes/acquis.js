@@ -3865,8 +3865,8 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
       ORDER BY p.session DESC`)
       .all(Number(etudId), annee, Number(session) === 2 ? 2 : 1, Number(ueNum), annee)) {
       /* LA JUSTIFICATION DE LA SESSION DÉLIBÉRÉE (22 octobre 2026) : en seconde
-         session, celle que l'enseignant a écrite en septembre ; celle de juin ne
-         vaut que pour un cours où rien n'a été proposé en septembre. */
+         session, celle que l'enseignant a écrite pour elle ; celle de première session
+         ne vaut que pour un cours où rien n'a été proposé en seconde. */
       const deja = parAA[l.aa_code] || [];
       if (deja.some(x => x.cours_code === l.cours_code && x.session > l.session)) continue;
       (parAA[l.aa_code] ||= []).push(l);

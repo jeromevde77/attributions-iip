@@ -618,13 +618,16 @@ poids du cours, lignes 17+ poids des acquis.
   2026, UE 333 : « les professeurs ne savent pas encoder les points de la seconde
   session, ce n'est pas prévu »). `note_proposee` porte une `session` (clé
   `(etudiant, année, cours, acquis, session)`) : avant, une seule case par acquis
-  pour l'année, et noter septembre voulait dire écraser juin. La feuille s'ouvre
-  d'office sur la 2ᵉ session dès la clôture de la séance de juin (`sessionDeLUE`) ;
+  pour l'année, et noter la seconde session voulait dire écraser la première. La feuille s'ouvre
+  d'office sur la 2ᵉ session dès la clôture de la séance de première session ;
+  **en enseignement pour adultes, la seconde session suit la délibération de
+  CHAQUE UE, à tout moment de l'année — jamais « juin / septembre »** (Charles,
+  23 octobre 2026) ;
   elle ne montre que les ajournés de CE cours, sur leurs seuls acquis rouverts —
   `aRepresenterParCours()` (`routes/acquis.js`), la règle de la liste imprimée des
   ajournés par cours, désormais commune. Chaque proposition entre dans SA session
   (`s1|` ou `s2|`), jamais dans une séance close ; une session close se lit, elle
-  ne se propose plus. Le justificatif de septembre motive le refus de septembre.
+  ne se propose plus. Le justificatif de seconde session motive le refus de seconde session.
   **Par organisation** (3.1.401, Charles, 23 octobre 2026 : « je ne vois pas où
   introduire la seconde session ») : 3.1.400 attendait que TOUTE l'unité soit
   décidée et close — l'UE 333 délibère par organisation, la seconde ne s'ouvrait

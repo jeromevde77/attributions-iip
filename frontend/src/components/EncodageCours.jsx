@@ -71,7 +71,7 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
      est une note de cours, on ne remplit donc rien à sa place. */
   const [propositions, setPropositions] = useState([]);
   useEffect(() => {
-    // Les propositions de LA session encodée : juin et septembre ne se mêlent pas.
+    // Les propositions de LA session encodée : première et seconde session ne se mêlent pas.
     fetch(`/api/mes-cours/${encodeURIComponent(coursCode)}/propositions?annee=${encodeURIComponent(annee)}&session=${session}`,
       { headers: authHeaders() })
       .then(r => (r.ok ? r.json() : { propositions: [] }))

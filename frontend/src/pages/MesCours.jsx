@@ -81,7 +81,8 @@ export default function MesCours() {
   /* LA SECONDE SESSION (22 octobre 2026, Charles, UE 333 : « les professeurs ne
      savent pas encoder les points de la seconde session, ce n'est pas prévu »).
      La feuille porte la session qu'elle montre ; le serveur ouvre d'office la
-     seconde dès que la séance de juin est close, et ne montre alors que les
+     seconde dès que la séance de première session est close (la seconde session
+     suit la délibération de chaque UE, à tout moment de l'année), et ne montre alors que les
      ajournés de ce cours, sur leurs seuls acquis à représenter. */
   const [session, setSession] = useState(null);   // null : celle que le serveur choisit
 
@@ -370,7 +371,7 @@ export default function MesCours() {
         const reportDe = id => feuille?.etudiants?.find(x => x.id === id)?.report || null;
         const valeurDe = (id, k) => { const rp = reportDe(id); if (rp) return rp.notes?.[k] ?? '';
           const e = feuille?.etudiants?.find(x => x.id === id);
-          // Seconde session : un acquis non représenté garde la note proposée en juin.
+          // Seconde session : un acquis non représenté garde la note proposée en première session.
           if (e && !ouverte(e, k)) return e.notes_s1?.[k] ?? '';
           return notes[id]?.[k] ?? ''; };
         const noteCours = id => {
@@ -496,7 +497,7 @@ export default function MesCours() {
               <Encadre etat="neutre" titre="Seconde session">
                 Seuls les étudiants ajournés qui représentent ce cours paraissent ici, et pour chacun
                 seulement les acquis à représenter. Les autres acquis gardent, en gris, la note proposée
-                en première session. Une note sous 10 se justifie, comme en juin.
+                en première session. Une note sous 10 se justifie, comme en première session.
                 {feuille.sessions?.seconde_en_attente > 0 && ` ${feuille.sessions.seconde_en_attente} autre(s) ajourné(s) paraîtront à la clôture de la séance de première session de leur organisation.`}
               </Encadre>
             )}
@@ -620,7 +621,7 @@ export default function MesCours() {
                                 </td>
                               );
                             }
-                            /* SECONDE SESSION : un acquis réussi en juin ne se représente
+                            /* SECONDE SESSION : un acquis réussi en première session ne se représente
                                pas. La note proposée alors se lit, grise ; pas de case. */
                             if (!ouverte(e, k)) {
                               const v1 = e.notes_s1?.[k];

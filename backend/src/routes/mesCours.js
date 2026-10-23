@@ -95,7 +95,7 @@ const r = Router();
     /* LA SESSION ENTRE DANS LA CLÉ (22 octobre 2026, Charles, UE 333 : « les
      * professeurs ne savent pas encoder les points de la seconde session, ce
      * n'est pas prévu »). Une seule case par étudiant et par acquis pour toute
-     * l'année : pour noter septembre, il fallait écraser juin. La table se
+     * l'année : pour noter la seconde session, il fallait écraser la première. La table se
      * rebâtit (une contrainte UNIQUE ne se modifie pas) ; tout ce qui existe
      * devient session 1, les identifiants sont gardés, et une colonne que ce
      * code ne connaît pas est recopiée telle quelle. */
@@ -328,7 +328,7 @@ function accesCours(req, coursCode, annee) {
 
 /* LA SÉANCE QUI COMPTE, ÉTUDIANT PAR ÉTUDIANT (23 octobre 2026, Charles, UE 333 :
  * « je ne vois pas où introduire la seconde session »). La première version
- * ouvrait la seconde session pour l'UNITÉ entière — toutes les décisions de juin
+ * ouvrait la seconde session pour l'UNITÉ entière — toutes les décisions de première session
  * encodées, toutes les séances closes. Or l'UE 333 délibère PAR ORGANISATION :
  * tant qu'une organisation n'a pas tenu sa séance, aucune n'ouvrait la sienne,
  * et l'écran ne disait même pas pourquoi. Un étudiant suit désormais la séance
@@ -363,7 +363,7 @@ function clotures(ueNum, annee) {
  * et pour chacun les seuls acquis rouverts — la règle de la liste imprimée des
  * ajournés par cours (`aRepresenterParCours`), pour que la feuille et la liste
  * nomment les mêmes étudiants. Restreinte aux étudiants de l'enseignant, et à
- * ceux dont la séance de juin est close. Un cours sans acquis rattachés garde sa
+ * ceux dont la séance de première session est close. Un cours sans acquis rattachés garde sa
  * note de cours (clé ''). */
 function etatSeconde(d, coursCode, annee, acquis, close) {
   let liste = [];
@@ -400,7 +400,7 @@ function sessionsDuCours(d, coursCode, annee, acquis) {
     public: {
       seconde_possible: possible,
       seconde_raison: raison,
-      // Les ajournés dont l'organisation n'a pas encore clos sa séance de juin.
+      // Les ajournés dont l'organisation n'a pas encore clos sa séance de première session.
       seconde_en_attente: possible ? sec.en_attente : 0,
     },
   };
@@ -657,7 +657,7 @@ r.get('/:coursCode/etudiants', authRequired, (req, res) => {
     acquis,
     etudiants: d.etudiants.map(e => ({ ...e,
       notes: props[e.id] || {}, note: (props[e.id] || {})[''] ?? null,
-      // Seconde session : les acquis rouverts, et la proposition de juin à côté.
+      // Seconde session : les acquis rouverts, et la proposition de première session à côté.
       ...(session === 2 ? { aa_ouverts: e.aa_ouverts, notes_s1: propsS1[e.id] || {} } : {}),
       justifications: justifs[e.id] || {},
       report: reportes[e.id] || null,
@@ -736,7 +736,7 @@ r.post('/:coursCode/notes', authRequired, (req, res) => {
   const etat = sessionsDuCours(d, req.params.coursCode, annee, acquisCours);
   if (session === 2 && !etat.public.seconde_possible) return res.status(409).json({ error: etat.public.seconde_raison });
   /* En seconde session : les seuls ajournés de ce cours, sur leurs seuls acquis
-     rouverts — un acquis réussi en juin ne se réévalue pas. Dans l'une comme
+     rouverts — un acquis réussi en première session ne se réévalue pas. Dans l'une comme
      dans l'autre, un étudiant dont la séance est close ne reçoit plus rien. */
   d.etudiants = session === 2 ? etat.seconde.etudiants
     : d.etudiants.map(e => ({ ...e, clos: etat.close(1, e.id) }));
@@ -826,7 +826,7 @@ function signalerSiComplet(req, d, coursCode, annee, aaPermis, session = 1) {
       WHERE annee_scolaire = ? AND cours_code = ? AND session = ? AND (note IS NOT NULL OR mention IS NOT NULL)`).all(annee, coursCode, session).map(x => x.k));
   // En seconde session, chaque ajourné n'a que ses acquis rouverts à remplir.
   const complet = etus.every(e => (session === 2 && e.aa_ouverts ? e.aa_ouverts : cles).every(a => poses.has(`${e.id}|${a}`)));
-  // La marque de la seconde session vit à côté de celle de juin, sous « code|s2 ».
+  // La marque de la seconde session vit à côté de celle de première session, sous « code|s2 ».
   const cleCours = session === 2 ? `${coursCode}|s2` : coursCode;
   const deja = db.prepare('SELECT 1 FROM notes_cours_completes WHERE annee_scolaire = ? AND cours_code = ? AND propose_par = ?').get(annee, cleCours, qui);
   if (!complet) {
@@ -871,7 +871,7 @@ export function signalerEncodage(coursCode, annee, proposePar, totalEtudiants, n
   const avancement = totalEtudiants ? `${n.n} / ${totalEtudiants} étudiants` : `${n.n} étudiant(s)`;
   const corps = `<strong>${esc(nomProf)}</strong> a encodé ${n.notes} note(s) — ${avancement} — ${annee}.`
     + ` Elles passent dans l'encodage officiel (Mes cours).`;
-  // Une notification par session : celle de septembre ne recouvre pas celle de juin.
+  // Une notification par session : celle de la seconde ne recouvre pas celle de la première.
   const lien = `/mes-cours?cours=${encodeURIComponent(coursCode)}${session === 2 ? '&session=2' : ''}`;
   const existe = db.prepare(`SELECT id FROM lucie_notification WHERE type = 'notes_encodees' AND lien = ? AND cree_par = ?
       AND cible_role = ? AND date(cree_le) = date('now')`);
@@ -943,7 +943,10 @@ r.get('/:coursCode/propositions', authRequired, roleRequired(...PEUT_INSTRUIRE),
 /** L'ANALYSE D'UNE REPRISE — une seule règle pour le bouton et pour la reprise
  *  automatique. `etudiantsPermis` (Set) restreint ; `session` choisit les
  *  propositions de CETTE session et dit où les écrire (22 octobre 2026 : une
- *  proposition de juin ne va jamais en septembre, ni l'inverse). */
+ *  proposition de première session ne va jamais en seconde, ni l'inverse).
+ *  En enseignement pour adultes, la seconde session suit la délibération de
+ *  CHAQUE unité, à n'importe quel moment de l'année : aucune date n'entre ici,
+ *  seule la clôture de la séance compte. */
 function analyserReprise(coursCode, annee, session, remplacer = new Set(), { etudiantsPermis = null, enAttente = false, suivreProposition = false } = {}) {
   const ue = db.prepare('SELECT ue_num FROM cours WHERE cours_code = ? AND annee_scolaire = ? LIMIT 1').get(coursCode, annee)?.ue_num
     ?? db.prepare('SELECT ue_num FROM cours WHERE cours_code = ? ORDER BY annee_scolaire DESC LIMIT 1').get(coursCode)?.ue_num;
@@ -1004,10 +1007,10 @@ function appliquerReprise(an, annee, coursCode, qui, origine = null) {
  *   · seulement dans une case officielle VIDE (ou identique, simplement pointée) ;
  *     une case qui DIFFÈRE attend la coordination (« Reprendre les propositions ») ;
  *   · jamais dans une séance close : chaque proposition va dans SA session
- *     (22 octobre 2026) — celles de juin tant que la première n'est pas close,
- *     celles de septembre, pour les seuls ajournés, tant que la seconde ne l'est
- *     pas. Jusque-là, une note retapée après la clôture de juin partait en
- *     seconde session : la seule façon de noter septembre était d'écraser juin ;
+ *     (22 octobre 2026) — celles de première session tant que leur séance n'est pas close,
+ *     celles de seconde session, pour les seuls ajournés, tant que la seconde ne l'est
+ *     pas. Jusque-là, une note retapée après la clôture de la première séance partait
+ *     en seconde session : la seule façon de noter la seconde était d'écraser la première ;
  *   · CM, note de cours sans acquis, cours reporté : comme au bouton, nommés, non repris.
  * Chaque note porte son origine `proposition:auto:<qui>`. */
 export function repriseAutomatique(coursCode, annee, qui = 'reprise automatique') {
