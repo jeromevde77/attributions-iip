@@ -125,7 +125,10 @@ export default function MesCours() {
     try {
       const lignes = [];
       const ouverts = new Map((feuille?.etudiants || []).map(e => [String(e.id), e.aa_ouverts || null]));
+      // Un étudiant dont la séance est close ne reçoit plus rien.
+      const clos = new Set((feuille?.etudiants || []).filter(e => e.clos).map(e => String(e.id)));
       for (const [id, par] of Object.entries(notes)) {
+        if (clos.has(id)) continue;
         for (const [aa, n] of Object.entries(par)) {
           // En seconde session, seuls les acquis rouverts partent.
           if (ouverts.get(id) && !ouverts.get(id).includes(aa)) continue;
@@ -494,12 +497,13 @@ export default function MesCours() {
                 Seuls les étudiants ajournés qui représentent ce cours paraissent ici, et pour chacun
                 seulement les acquis à représenter. Les autres acquis gardent, en gris, la note proposée
                 en première session. Une note sous 10 se justifie, comme en juin.
+                {feuille.sessions?.seconde_en_attente > 0 && ` ${feuille.sessions.seconde_en_attente} autre(s) ajourné(s) paraîtront à la clôture de la séance de première session de leur organisation.`}
               </Encadre>
             )}
-            {feuille && !seconde && feuille.sessions?.seconde_attend && (
-              <p className="text-second text-slate-500 m-0">
-                La seconde session de cette unité s’ouvrira ici à {feuille.sessions.seconde_attend}.
-              </p>
+            {/* POURQUOI IL N'Y A PAS DE SECONDE SESSION, dit en clair (23 octobre
+                2026 : « je ne vois pas où introduire la seconde session »). */}
+            {feuille && !seconde && feuille.sessions?.seconde_raison && (
+              <p className="text-second text-slate-500 m-0">2ᵉ session : {feuille.sessions.seconde_raison}</p>
             )}
             {feuille && lecture && (
               <Encadre etat="surveiller" titre="Séance close">
@@ -634,12 +638,13 @@ export default function MesCours() {
                             const t = String(v).trim().toUpperCase();
                             return (
                               <td key={k} className="py-0.5 px-1 text-center whitespace-nowrap">
-                                <input value={v} data-case={`${r}:${ci}`} inputMode="numeric" maxLength={2} readOnly={lecture}
+                                <input value={v} data-case={`${r}:${ci}`} inputMode="numeric" maxLength={2} readOnly={lecture || !!e.clos}
                                   onKeyDown={ev => deplacer(ev, r, ci)}
                                   onFocus={ev => { ev.target.select(); setCaseActive({ id: e.id, k, r, ci }); }}
                                   onChange={ev => { const val = ev.target.value.toUpperCase();
                                     if (saisieAdmise(val)) setNotes(n => ({ ...n, [e.id]: { ...n[e.id], [k]: val } })); }}
-                                  title={t === 'PP' ? 'Pas présenté' : t === 'NP' ? 'Note de présence' : t === 'CM' ? 'Certificat médical' : undefined}
+                                  title={e.clos ? 'Séance close pour cet étudiant : la note se lit, elle ne se propose plus'
+                                    : t === 'PP' ? 'Pas présenté' : t === 'NP' ? 'Note de présence' : t === 'CM' ? 'Certificat médical' : undefined}
                                   placeholder="·"
                                   /* SANS CASE (Charles, 26 septembre 2026 : « la case est-elle
                                      utile ? c'est moche ») : la grille est une feuille, pas un

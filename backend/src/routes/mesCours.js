@@ -13,7 +13,7 @@ import { envelopperDocument, piedGabaritPdf, BANDE_PIED_MM } from '../lib/docume
 import { capacitePdf, rendrePdf } from '../services/pdf.js';
 import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 import { piedDocument } from './parametres.js';
-import { sessionDeLUE, sessionCloturee, aRepresenterParCours } from './acquis.js';
+import { aRepresenterParCours } from './acquis.js';
 
 /**
  * MES COURS — la porte du professeur (25 septembre 2026).
@@ -326,35 +326,84 @@ function accesCours(req, coursCode, annee) {
   return { miennes: [], ueNum: c.ue_num, etudiants, repartition: groupes.size > 0, portee: 'coordination' };
 }
 
-/* LES DEUX SESSIONS D'UN COURS, telles que la délibération les voit (22 octobre
- * 2026, UE 333). La seconde s'ouvre à la CLÔTURE de la séance de juin, s'il y a
- * des ajournés — `sessionDeLUE`, la règle de toute la délibération, et non une
- * seconde règle écrite ici. Une session close ne se propose plus : la note
- * n'entrerait nulle part, et l'enseignant croirait l'avoir donnée. */
-function sessionsDuCours(ueNum, annee) {
-  let e = null; try { e = sessionDeLUE(ueNum, annee); } catch { e = null; }
-  let s2Close = false; try { s2Close = sessionCloturee(ueNum, annee, 2); } catch { s2Close = false; }
-  return {
-    premiere_close: !!e?.s1?.cloturee,
-    seconde_possible: !!e?.seconde_possible,
-    seconde_close: !!e?.seconde_possible && s2Close,
-    // Ce qui manque pour l'ouvrir, dit à l'écran plutôt qu'à deviner.
-    seconde_attend: e?.seconde_attend || null,
+/* LA SÉANCE QUI COMPTE, ÉTUDIANT PAR ÉTUDIANT (23 octobre 2026, Charles, UE 333 :
+ * « je ne vois pas où introduire la seconde session »). La première version
+ * ouvrait la seconde session pour l'UNITÉ entière — toutes les décisions de juin
+ * encodées, toutes les séances closes. Or l'UE 333 délibère PAR ORGANISATION :
+ * tant qu'une organisation n'a pas tenu sa séance, aucune n'ouvrait la sienne,
+ * et l'écran ne disait même pas pourquoi. Un étudiant suit désormais la séance
+ * de SON organisation (`etudiant_inscription.num_organisation`) ; sans séance
+ * par organisation, c'est la séance de l'unité. */
+function clotures(ueNum, annee) {
+  let seances = [];
+  try {
+    seances = db.prepare(`SELECT session, num_organisation AS org, cloturee FROM deliberation_seance
+      WHERE ue_num = ? AND annee_scolaire = ?`).all(ueNum, annee);
+  } catch { seances = []; }
+  const orgDe = new Map();
+  try {
+    for (const x of db.prepare(`SELECT etudiant_id, num_organisation FROM etudiant_inscription
+        WHERE ue_num = ? AND annee_scolaire = ?`).all(ueNum, annee)) orgDe.set(x.etudiant_id, Number(x.num_organisation) || 0);
+  } catch { /* colonne absente : l'unité entière */ }
+  return (session, etudiantId) => {
+    const s = seances.filter(x => x.session === session);
+    const parOrg = s.filter(x => x.org > 0);
+    if (parOrg.length) {
+      const o = orgDe.get(etudiantId) || 0;
+      // Sans organisation, l'étudiant attend que toutes les séances soient closes.
+      if (o > 0) return !!parOrg.find(x => x.org === o)?.cloturee;
+      return parOrg.every(x => x.cloturee);
+    }
+    // La ligne « unité entière » ne compte que s'il n'y a pas de séance par organisation.
+    return !!s.find(x => x.org === 0)?.cloturee;
   };
 }
 
 /* LA FEUILLE DE SECONDE SESSION : les seuls ajournés qui représentent CE cours,
  * et pour chacun les seuls acquis rouverts — la règle de la liste imprimée des
  * ajournés par cours (`aRepresenterParCours`), pour que la feuille et la liste
- * nomment les mêmes étudiants. Restreinte aux étudiants de l'enseignant. Un
- * cours sans acquis rattachés garde sa note de cours (clé ''). */
-function etudiantsSeconde(d, coursCode, annee, acquis) {
+ * nomment les mêmes étudiants. Restreinte aux étudiants de l'enseignant, et à
+ * ceux dont la séance de juin est close. Un cours sans acquis rattachés garde sa
+ * note de cours (clé ''). */
+function etatSeconde(d, coursCode, annee, acquis, close) {
   let liste = [];
   try { liste = aRepresenterParCours(d.ueNum, annee, 1)[coursCode] || []; } catch (e) { console.error('[seconde session]', e.message); }
   const tous = acquis.length ? acquis.map(a => a.aa_code) : [''];
-  const ouverts = new Map(liste.map(x => [x.id, (x.aas || []).filter(a => tous.includes(a))]));
-  return d.etudiants.filter(e => ouverts.has(e.id))
-    .map(e => ({ ...e, aa_ouverts: ouverts.get(e.id).length ? ouverts.get(e.id) : tous }));
+  const miens = new Set(d.etudiants.map(e => e.id));
+  const ajournes = liste.filter(x => miens.has(x.id));
+  const ouverts = new Map(ajournes.filter(x => close(1, x.id)).map(x => [x.id, (x.aas || []).filter(a => tous.includes(a))]));
+  return {
+    ajournes: ajournes.length,
+    en_attente: ajournes.length - ouverts.size,
+    etudiants: d.etudiants.filter(e => ouverts.has(e.id)).map(e => ({ ...e,
+      aa_ouverts: ouverts.get(e.id).length ? ouverts.get(e.id) : tous,
+      clos: close(2, e.id) })),
+  };
+}
+
+/* LES DEUX SESSIONS D'UN COURS. Une session close ne se propose plus : la note
+ * n'entrerait nulle part, et l'enseignant croirait l'avoir donnée. Et quand la
+ * seconde n'est pas ouverte, l'écran dit POURQUOI — c'est l'absence de toute
+ * phrase qui a fait chercher le bouton. */
+function sessionsDuCours(d, coursCode, annee, acquis) {
+  const close = clotures(d.ueNum, annee);
+  const sec = etatSeconde(d, coursCode, annee, acquis, close);
+  const possible = sec.etudiants.length > 0;
+  const raison = possible ? null
+    : sec.en_attente > 0
+      ? `${sec.en_attente} étudiant(s) ajourné(s) dans ce cours : la seconde session s'ouvrira ici à la clôture de la séance de première session de leur organisation.`
+      : d.etudiants.length && d.etudiants.every(e => close(1, e.id))
+        ? "Aucun de vos étudiants n'a été ajourné dans ce cours en première session : il n'y a pas de note de seconde session à encoder."
+        : "La seconde session s'ouvrira ici, pour les étudiants ajournés, à la clôture de la séance de première session.";
+  return {
+    close, seconde: sec,
+    public: {
+      seconde_possible: possible,
+      seconde_raison: raison,
+      // Les ajournés dont l'organisation n'a pas encore clos sa séance de juin.
+      seconde_en_attente: possible ? sec.en_attente : 0,
+    },
+  };
 }
 
 // ── Mes cours de l'année ─────────────────────────────────────────────────────
@@ -541,18 +590,17 @@ r.get('/:coursCode/etudiants', authRequired, (req, res) => {
   if (!d) return res.status(403).json({ error: "Ce cours n'est ni dans vos attributions, ni dans votre section." });
 
   const acquis = acquisDuCours(req.params.coursCode, d.ueNum, annee);
-  const sessions = sessionsDuCours(d.ueNum, annee);
+  const etat = sessionsDuCours(d, req.params.coursCode, annee, acquis);
+  const sessions = etat.public;
   // Sans demande explicite, la feuille s'ouvre sur la session en cours : la
   // seconde dès qu'elle est ouverte — c'est elle que l'enseignant vient remplir.
   const session = req.query.session ? (Number(req.query.session) === 2 ? 2 : 1)
     : (sessions.seconde_possible ? 2 : 1);
-  if (session === 2 && !sessions.seconde_possible) {
-    return res.status(409).json({ error: sessions.seconde_attend
-      ? `La seconde session de cette unité s'ouvre à ${sessions.seconde_attend}.`
-      : "Cette unité n'a pas de seconde session : aucun étudiant n'y a été ajourné." });
-  }
-  // En seconde session, la feuille ne porte que les ajournés de ce cours.
-  if (session === 2) d.etudiants = etudiantsSeconde(d, req.params.coursCode, annee, acquis);
+  if (session === 2 && !sessions.seconde_possible) return res.status(409).json({ error: sessions.seconde_raison });
+  // En seconde session, la feuille ne porte que les ajournés de ce cours ; en
+  // première, chaque ligne dit si la séance de l'étudiant est close.
+  d.etudiants = session === 2 ? etat.seconde.etudiants
+    : d.etudiants.map(e => ({ ...e, clos: etat.close(1, e.id) }));
   const props = {}, justifs = {}, propsS1 = {};
   for (const x of db.prepare(`
     SELECT etudiant_id, aa_code, note, mention, justification, session FROM note_proposee
@@ -602,7 +650,7 @@ r.get('/:coursCode/etudiants', authRequired, (req, res) => {
     annee, cours_code: req.params.coursCode, ue_num: d.ueNum,
     repartition: d.repartition, portee: d.portee,
     session, sessions,
-    lecture_seule: session === 1 ? sessions.premiere_close : sessions.seconde_close,
+    lecture_seule: d.etudiants.length > 0 && d.etudiants.every(e => e.clos),
     enseignants: enseignantsParCours(annee).get(req.params.coursCode) || [],
     // La feuille du professeur note PAR ACQUIS ; sans AA rattachés au cours,
     // elle retombe sur une note de cours (clé '').
@@ -682,23 +730,21 @@ r.post('/:coursCode/notes', authRequired, (req, res) => {
   if (!d) return res.status(403).json({ error: "Ce cours n'est ni dans vos attributions, ni dans votre section." });
 
   const session = Number(req.body?.session) === 2 ? 2 : 1;
-  const sessions = sessionsDuCours(d.ueNum, annee);
-  if (session === 1 && sessions.premiere_close) {
-    return res.status(409).json({ error: "La séance de première session de cette unité est close : ses notes ne se proposent plus."
-      + (sessions.seconde_possible ? ' Les notes des ajournés se saisissent dans « 2ᵉ session ».' : '') });
-  }
-  if (session === 2 && (!sessions.seconde_possible || sessions.seconde_close)) {
-    return res.status(409).json({ error: sessions.seconde_close
-      ? 'La séance de seconde session de cette unité est close : ses notes ne se proposent plus.'
-      : "La seconde session de cette unité n'est pas ouverte." });
-  }
   const acquisCours = acquisDuCours(req.params.coursCode, d.ueNum, annee);
   // Les acquis admis pour ce cours — plus la clé '' (note de cours).
   const aaPermis = new Set(['', ...acquisCours.map(a => a.aa_code)]);
+  const etat = sessionsDuCours(d, req.params.coursCode, annee, acquisCours);
+  if (session === 2 && !etat.public.seconde_possible) return res.status(409).json({ error: etat.public.seconde_raison });
   /* En seconde session : les seuls ajournés de ce cours, sur leurs seuls acquis
-     rouverts — un acquis réussi en juin ne se réévalue pas. */
-  if (session === 2) d.etudiants = etudiantsSeconde(d, req.params.coursCode, annee, acquisCours);
-  const permis = new Set(d.etudiants.map(e => e.id));
+     rouverts — un acquis réussi en juin ne se réévalue pas. Dans l'une comme
+     dans l'autre, un étudiant dont la séance est close ne reçoit plus rien. */
+  d.etudiants = session === 2 ? etat.seconde.etudiants
+    : d.etudiants.map(e => ({ ...e, clos: etat.close(1, e.id) }));
+  if (d.etudiants.length && d.etudiants.every(e => e.clos)) {
+    return res.status(409).json({ error: `La séance de ${session === 2 ? 'seconde' : 'première'} session est close : ses notes ne se proposent plus.`
+      + (session === 1 && etat.public.seconde_possible ? ' Les notes des ajournés se saisissent dans « 2ᵉ session ».' : '') });
+  }
+  const permis = new Set(d.etudiants.filter(e => !e.clos).map(e => e.id));
   const ouvertsDe = new Map(session === 2 ? d.etudiants.map(e => [e.id, new Set(e.aa_ouverts)]) : []);
   // PP pas présenté · NP note de présence · CM certificat médical (2.12.215).
   const MENTIONS = ['PP', 'NP', 'CM'];
@@ -967,17 +1013,14 @@ function appliquerReprise(an, annee, coursCode, qui, origine = null) {
 export function repriseAutomatique(coursCode, annee, qui = 'reprise automatique') {
   const ue = db.prepare('SELECT ue_num FROM cours WHERE cours_code = ? ORDER BY (annee_scolaire = ?) DESC LIMIT 1').get(coursCode, annee)?.ue_num;
   if (ue == null) return null;
-  // Une session est close quand toutes ses séances le sont (délibération par organisation).
-  const close = ses => sessionCloturee(ue, annee, ses);
+  // La séance qui compte est celle de l'organisation de chaque étudiant.
+  const close = clotures(ue, annee);
+  const inscrits = db.prepare(`SELECT etudiant_id, resultat FROM etudiant_inscription WHERE ue_num = ? AND annee_scolaire = ?`).all(ue, annee);
   const bilan = { session: null, ecrites: 0, identiques: 0, differentes: 0 };
   for (const session of [1, 2]) {
-    if (close(session)) continue;
-    let permis = null;
-    if (session === 2) {
-      if (!close(1)) continue;      // la seconde n'est pas encore ouverte
-      permis = new Set(db.prepare(`SELECT etudiant_id FROM etudiant_inscription WHERE ue_num = ? AND annee_scolaire = ? AND resultat = 'ajourne'`)
-        .all(ue, annee).map(x => x.etudiant_id));
-    }
+    const permis = new Set(inscrits.filter(x => session === 1 ? !close(1, x.etudiant_id)
+      : x.resultat === 'ajourne' && close(1, x.etudiant_id) && !close(2, x.etudiant_id)).map(x => x.etudiant_id));
+    if (!permis.size) continue;
     const an = analyserReprise(coursCode, annee, session, new Set(), { etudiantsPermis: permis, enAttente: true, suivreProposition: true });
     if (!an) continue;
     bilan.session = session;

@@ -625,6 +625,12 @@ poids du cours, lignes 17+ poids des acquis.
   ajournés par cours, désormais commune. Chaque proposition entre dans SA session
   (`s1|` ou `s2|`), jamais dans une séance close ; une session close se lit, elle
   ne se propose plus. Le justificatif de septembre motive le refus de septembre.
+  **Par organisation** (3.1.401, Charles, 23 octobre 2026 : « je ne vois pas où
+  introduire la seconde session ») : 3.1.400 attendait que TOUTE l'unité soit
+  décidée et close — l'UE 333 délibère par organisation, la seconde ne s'ouvrait
+  donc jamais, sans un mot. Chaque étudiant suit la séance de SON organisation
+  (`clotures()`, `routes/mesCours.js`), et l'écran dit toujours pourquoi la 2ᵉ
+  session n'est pas là.
 
 **La valorisation des acquis a sa séance.** Le procès-verbal d'annexe 4 et les
 attestations qui en découlent (annexe 15 pour le supérieur, 14 pour le
