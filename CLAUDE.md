@@ -1632,6 +1632,15 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
   demi-largeur). **Une page se rend rangeable en déclarant ses blocs dans
   `BlocsPage`** — l'Accueil d'abord ; les autres pages suivent par lots.
 
+- **AU DOIGT, PAS DE SURVOL** (3.1.403, Charles, 23 octobre 2026, sur iPad :
+  « menu sur iPhone iPad pas utilisable »). Les rubriques de la barre n'étaient
+  que des icônes nommées AU SURVOL, qui n'existe pas au doigt, et sous 1280 px la
+  barre débordait. Écran tactile (`hover: none`) ou plus étroit que 1280 px : la
+  barre se replie en menu déroulant qui NOMME chaque rubrique et porte les faces
+  de l'écran ouvert, le mode des menus et le badge DEV ; sur téléphone (< 640 px)
+  les objets de droite passent sur une seconde ligne (`useBarreCompacte`,
+  `App.jsx`). **Toute information donnée seulement au survol est perdue sur
+  tablette** — le rail latéral a le même défaut, à reprendre.
 - **Seul le menu principal est horizontal** : il dit dans quel métier on est.
   Tout le reste vit dans le **rail latéral** — les rubriques de l'axe d'abord,
   puis les outils de l'écran ouvert, qui s'y inscrivent d'eux-mêmes.
