@@ -1439,7 +1439,7 @@ gabarit du guide du secrétariat ; 17 pages depuis 3.1.421 : retard P*, dispense
 QR code (PDF)*, servi par `GET /api/documentation/guide/presence-qr` (liste FERMÉE de guides,
 `backend/assets/guides/`). Banc :
 `backend/test/presenceQr.mjs`. **À venir :** la phase pilote (un professeur, un cours) ; la
-coordination dans le suivi (ses sections) ; le registre CEP dans le rail.
+coordination dans le suivi (ses sections — faite en 3.1.419) ; le registre CEP (fait en 3.1.426 : Suivi des présences → Congé-éducation).
 
 **RECOURS ET DISCIPLINE, REFONDUS SUR LE RDE 2026-2027** (3.1.x, Charles,
 3 octobre 2026 : « pas de liens avec les étudiants ni les membres des UE…
