@@ -46,6 +46,7 @@ import { migrerReprise, simulerReprise, appliquerReprise, forcerCloture,
          MOTIF_REPRISE, MENTION_REPRISE } from '../lib/repriseHistorique.js';
 
 import { noteVerrouillee, MESSAGE_CLOSE } from '../lib/gardeNotes.js';
+import { uesValorisees } from '../lib/valorisation.js';
 const r = Router();
 
 export function migrerSessions(dbx) {
@@ -9402,10 +9403,11 @@ export function parcoursComplet(etudId, annee) {
       WHERE etudiant_id = ? AND action = 'faveur'`).all(etudId).map(r => r.ue_num));
   const ins = db.prepare(`SELECT ue_num, annee_scolaire, resultat FROM etudiant_inscription
       WHERE etudiant_id = ? ORDER BY annee_scolaire`).all(etudId);
+  const vaUE = uesValorisees(etudId);   // dispense complète = acquise (3.1.438)
   const unites = Object.entries(niv).map(([n, bloc]) => {
     const ue = Number(n);
     const lignes = ins.filter(x => x.ue_num === ue);
-    const acquise = lignes.some(x => ['reussi', 'valorise', 'capitalise'].includes(x.resultat));
+    const acquise = lignes.some(x => ['reussi', 'valorise', 'capitalise'].includes(x.resultat)) || vaUE.ues.has(ue);
     const cetteAnnee = lignes.find(x => x.annee_scolaire === annee);
     const etat = acquise ? (faveurs.has(ue) ? 'faveur' : 'reussi')
       : cetteAnnee ? (cetteAnnee.resultat === 'ajourne' ? 'ajourne' : cetteAnnee.resultat === 'refuse' ? 'refuse' : 'en_cours')

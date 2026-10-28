@@ -18,6 +18,7 @@ import { envelopperDocument } from '../lib/document.js';
 import { SIGNATURE_SOHET, SCEAU_IIP } from '../services/assets/signature_sohet.js';
 import { identiteEtablissement } from './config.js';
 import { sleEnregistre, motifPropose } from './sle.js';
+import { uesValorisees } from '../lib/valorisation.js';
 
 const r = express.Router();
 
@@ -111,6 +112,18 @@ export function bilanCredits(etudiantId, annee) {
     }
     if (acquis(l.resultat)) acquisTotal += e;
     if (l.resultat === 'valorise') valorises += e;
+  }
+  /* LES UE DISPENSÉES PAR VALORISATION (3.1.438) : lues des dossiers, pas d'un résultat
+     « valorise » que personne n'écrivait. Acquises, et comptées comme valorisées — sans
+     doubler une inscription de la même année déjà réussie. */
+  const va = uesValorisees(etudiantId);
+  const ectsDe = db.prepare(`SELECT ects, section FROM ue WHERE ue_num = ? AND ects IS NOT NULL ORDER BY annee_scolaire DESC LIMIT 1`);
+  for (const k of va.parAnnee) {
+    const [an, u] = k.split('|'); const ue = Number(u);
+    if (lignes.some(l => l.ue_num === ue && l.annee_scolaire === an && acquis(l.resultat))) continue;
+    const e = Number(ectsDe.get(ue)?.ects) || 0;
+    acquisTotal += e; valorises += e;
+    if (an === annee) acquisAnnee += e;
   }
 
   return { inscritsAnnee, acquisAnnee, acquisTotal, valorises, sansEcts,

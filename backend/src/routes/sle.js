@@ -18,6 +18,7 @@
 import express from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
+import { uesValorisees } from '../lib/valorisation.js';
 
 const r = express.Router();
 export const ROLES_ANNEXES = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'];
@@ -58,7 +59,8 @@ export function motifPropose(etudiantId, annee) {
     FROM etudiant_inscription i WHERE i.etudiant_id = ? AND i.annee_scolaire = ? ORDER BY i.ue_num`).all(annee, etudiantId, annee);
   if (!l.length) return null;
   const acquis = x => ['reussi', 'valorise', 'capitalise'].includes(x);
-  const non = l.filter(x => !acquis(x.resultat));
+  const va = uesValorisees(etudiantId);   // une UE dispensée en entier est acquise (3.1.438)
+  const non = l.filter(x => !acquis(x.resultat) && !va.parAnnee.has(`${annee}|${x.ue_num}`));
   if (!non.length) return 'Sans objet : tous les crédits inscrits ont été obtenus.';
   const sansDecision = non.filter(x => !x.resultat);
   if (sansDecision.length === non.length) return null;   // l'année n'est pas délibérée : rien à constater

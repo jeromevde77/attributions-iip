@@ -178,6 +178,13 @@ existait sans écran : « reste à payer » était faux pour tous. Fiche → Fin
 s'encode en négatif), au nom de la personne connectée. **Un versement ne s'efface pas** : `DELETE` exige un
 motif et pose `annule_le/annule_par/annule_motif` ; il sort des totaux et reste lisible, barré.
 
+**UNE UE DISPENSÉE EN ENTIER EST ACQUISE — ÇA SE LIT DU DOSSIER DE VA** (3.1.438). Les crédits de l'annexe 2,
+l'état du parcours (schéma) et le motif de l'annexe 2 attendaient un résultat `'valorise'` sur
+l'inscription, qu'aucune route n'écrivait : zéro crédit valorisé, partout, en silence. Plutôt qu'un second
+endroit pour le même fait, `uesValorisees()` (`lib/valorisation.js`) lit les valorisations COMPLÈTES
+retenues (`vaRetenue` : décidées, ou d'une année reprise), non archivées. Les statistiques de délibération
+ne les comptent pas : une VA n'est pas une délibération.
+
 **UNE CHOSE, UNE PORTE — DEUXIÈME RELEVÉ** (3.1.428, Charles, 28 octobre 2026 : « vérifier qu'il n'y a
 pas pour une chose deux entrées possibles »). Deux déclencheurs de garde : **`garde_seance_presences`**
 (une séance qui porte des présences ne se supprime pas — elle s'annule ; réimports et versements du plan
@@ -1574,8 +1581,8 @@ sont côte à côte, l'écart venant de la méthode, pas des périodes.
 
 **Chantiers de conformité ouverts, dans l'ordre :** geler les décisions à la
 clôture et historiser par ajout ; figer et horodater le PV ; bloc de signatures
-nominatif ; date d'affichage et mode de publication en champs propres ; écrire
-`'valorise'` dans le parcours ; raccorder la mention au PV.
+nominatif ; date d'affichage et mode de publication en champs propres ; lire la VA dans le parcours (fait en
+3.1.438, sans écrire `'valorise'`) ; raccorder la mention au PV.
 
 ---
 

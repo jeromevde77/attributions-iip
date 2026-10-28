@@ -555,3 +555,20 @@ export function pourcentageDe({ decision, type }) {
   if (type === 'admission') return null;
   return POURCENTAGE_DISPENSE;
 }
+
+/**
+ * LES UNITÉS ACQUISES PAR VALORISATION, LUES DES DOSSIERS (3.1.438). Plusieurs calculs
+ * (crédits de l'annexe 2, état du parcours, motif de l'annexe 2) attendaient un résultat
+ * « valorise » sur l'inscription, qu'aucune route n'écrivait : une UE dispensée en entier
+ * n'y comptait donc ni comme acquise ni comme valorisée. L'état se DÉDUIT : une
+ * valorisation COMPLÈTE retenue (décidée, ou d'une année reprise) rend l'unité acquise.
+ * Rend { parAnnee: Set("année|ue"), ues: Set(ue) }.
+ */
+export function uesValorisees(etudId) {
+  let rows = [];
+  try {
+    rows = db.prepare(`SELECT annee_scolaire, ue_num FROM etudiant_valorisation
+      WHERE etudiant_id = ? AND type = 'complete' AND ue_num > 0 AND archive_le IS NULL AND ${vaRetenue()}`).all(Number(etudId));
+  } catch { rows = []; }
+  return { parAnnee: new Set(rows.map(r => `${r.annee_scolaire}|${r.ue_num}`)), ues: new Set(rows.map(r => Number(r.ue_num))) };
+}
