@@ -94,8 +94,10 @@ signalées) ; jalons = 1/10 et 5/10 entre première et dernière séance, séanc
 garde qui et quand, badge pointillé ; revenir au calcul efface la marque. **Pilotage → Gestion →
 Présences** (`components/PilotagePresences.jsx`, `GET /api/presences-ue/pilotage`) : tuiles, alertes
 (présences non encodées, > 20 % d'irréguliers au 1/10, 1/10 passé sans séance), comptage des
-réguliers au 1/10 par section (hors cursus à part), une ligne par UE qui ouvre son module. **Pas
-encore branché** : la dotation compte toujours les inscriptions, pas les réguliers au 1/10.
+réguliers au 1/10 par section (hors cursus à part), une ligne par UE qui ouvre son module. **La PEP
+estimée** (3.1.441, Charles : « à côté ») : réguliers au 1/10 × périodes de l'UE (professeur, autonomie
+comprise, hors Z — `periodesDI`, à défaut la somme des cours), par UE, par section et en tuile ; la PEP
+officielle reste celle d'eProm (saisie dans la dotation civile), l'estimée s'y compare.
 **Couleurs** : `var(--c-corriger)` et `var(--c-surveiller)` N'EXISTENT PAS (les états sont
 `--c-refuse` et `--c-attente`) — onze écrans de présence les employaient et peignaient en noir ou en
 transparent ; corrigé partout en 3.1.424.

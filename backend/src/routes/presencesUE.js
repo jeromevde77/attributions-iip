@@ -14,6 +14,7 @@ import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { ecrirePresences, MOTIFS_JUSTIFIES, STATUTS_PRESENCE } from '../lib/cep.js';
+import { periodesDI } from '../lib/periodesUE.js';
 import { migrerRegularite, presencesDeLUE, marquerRegularite, uesAvecHoraire, JALONS, SEUIL_REGULARITE } from '../lib/regularite.js';
 
 try { migrerRegularite(); } catch (e) { console.error('[migration] régularité :', e.message); }
@@ -76,6 +77,11 @@ r.get('/pilotage', authRequired, EDITEUR, (req, res) => {
     const aujourdhui = new Date().toISOString().slice(0, 10);
     const horsCursus = new Set();
     try { for (const u of db.prepare('SELECT DISTINCT ue_num FROM ue WHERE annee_scolaire = ? AND COALESCE(hors_cursus, 0) = 1').all(annee)) horsCursus.add(u.ue_num); } catch { /* colonne absente */ }
+    /* LA PEP ESTIMÉE (3.1.441, Charles : « à côté », la PEP officielle reste celle d'eProm) :
+       réguliers au 1er dixième × périodes de l'UE (périodes professeur du dossier, autonomie
+       comprise, hors Z — celles du droit d'inscription). Une ESTIMATION, nommée comme telle. */
+    const ueRef = db.prepare(`SELECT ue_tot_prf AS tot_prf, ue_per_cours AS per_cours, ue_aut AS aut FROM ue
+      WHERE ue_num = ? ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1`);
     const ues = uesAvecHoraire(annee).map(u => {
       const x = presencesDeLUE(u.ue_num, annee);
       const L = x.g.lignes;
@@ -87,14 +93,19 @@ r.get('/pilotage', authRequired, EDITEUR, (req, res) => {
         seances: u.seances, seances_tenues: x.g.seances.filter(s => !s.annule && s.date <= aujourdhui).length,
         taux_presence: du ? Math.round((pj / du) * 1000) / 10 : null, non_encodees: nonEnc,
         jalons: x.jalons, au10: compte(10), au50: compte(50) };
+    }).map(u => {
+      // Sans total au référentiel, la somme des périodes de ses cours (hors Z, rangées ailleurs).
+      const periodes = periodesDI(ueRef.get(u.ue_num, annee) || {})
+        || Number(db.prepare(`SELECT SUM(COALESCE(cours_per, 0)) n FROM cours WHERE ue_num = ? AND annee_scolaire = ?`).get(u.ue_num, annee)?.n) || 0;
+      return { ...u, periodes, pep_estimee: u.au10.atteint && periodes ? u.au10.R * periodes : null };
     });
     // Le comptage au 1/10 par section : une UE hors cursus est un groupe mixte, elle se compte à part.
     const parSection = {};
     for (const u of ues) {
       if (!u.au10.atteint) continue;
       const cle = u.hors_cursus ? 'Hors cursus (groupes mixtes)' : (String(u.sections || '').split(',')[0] || 'Sans section');
-      const s = (parSection[cle] ||= { section: cle, ues: 0, reguliers: 0, irreguliers: 0 });
-      s.ues++; s.reguliers += u.au10.R; s.irreguliers += u.au10.IR;
+      const s = (parSection[cle] ||= { section: cle, ues: 0, reguliers: 0, irreguliers: 0, pep_estimee: 0 });
+      s.ues++; s.reguliers += u.au10.R; s.irreguliers += u.au10.IR; s.pep_estimee += u.pep_estimee || 0;
     }
     const alertes = [];
     for (const u of ues) {
