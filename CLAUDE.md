@@ -168,6 +168,9 @@ prénom + date de naissance) complète sans jamais remplacer une valeur par un v
 matricule (`etudiant_matricule`). Les portes HELB, signalétique, inscription de liste et classeur de suivi
 passaient déjà par `rapprocher()`. Et **`rn_norm` se calcule par déclencheur** à chaque écriture du numéro
 national (`etudiant_rn_norm_*`), plus un rattrapage des fiches d'avant au démarrage.
+**Un professeur, une fiche** (3.1.436) : `professeurExistant()` (`lib/professeurUnique.js`, casse,
+accents, espaces et traits d'union ignorés) sert la création d'une fiche (409 qui nomme la fiche existante)
+et les trois recherches du recrutement — `UNIQUE(nom, prenom)` laissait passer « Dupont » à côté de « DUPONT ».
 
 **UNE CHOSE, UNE PORTE — DEUXIÈME RELEVÉ** (3.1.428, Charles, 28 octobre 2026 : « vérifier qu'il n'y a
 pas pour une chose deux entrées possibles »). Deux déclencheurs de garde : **`garde_seance_presences`**

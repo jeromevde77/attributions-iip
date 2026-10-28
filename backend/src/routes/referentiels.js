@@ -16,6 +16,7 @@ import { gesteRequis } from '../lib/gestes.js';
 import { htmlListeCoordonnees } from '../services/liste_coordonnees.js';
 import { composerFicheAttributions } from '../lib/pieceFicheAttributions.js';
 
+import { professeurExistant } from '../lib/professeurUnique.js';
 const r = Router();
 
 /**
@@ -1299,6 +1300,9 @@ r.post('/professeurs', authRequired, gesteRequis('personnel.fiche'), (req, res) 
   const { nom, prenom, adresse_mail, mail_prive, statut, adresse_rue, code_postal,
           commune, capaes, anciennete_25_26_po } = req.body;
   if (!nom || !prenom) return res.status(400).json({ error: 'Nom et prénom requis' });
+  // La même personne écrite autrement (casse, accents) est la même fiche (3.1.436).
+  const deja = professeurExistant(nom, prenom);
+  if (deja) return res.status(409).json({ error: `Une fiche existe déjà : ${String(deja.nom).toUpperCase()} ${deja.prenom}.`, id: deja.id });
   try {
     const result = db.prepare(`
       INSERT INTO professeur (nom, prenom, adresse_mail, mail_prive, statut,
