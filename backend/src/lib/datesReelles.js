@@ -66,3 +66,48 @@ export function comparerDatesUE(annee, { section = null, perimetre = null } = {}
     };
   });
 }
+
+const proche = (dates, cible) => {
+  let d = dates[0];
+  for (const x of dates) if (Math.abs(jour(x) - cible) < Math.abs(jour(d) - cible)) d = x;
+  return d;
+};
+
+/**
+ * UN JALON DE L'UE DANS L'HORAIRE RÉEL : `pct` % de l'écart entre la première et
+ * la dernière séance, puis la séance la plus proche (la plus tôt à égalité) —
+ * la méthode de la vérificatrice, celle de `premierDixieme()` de la grille.
+ */
+export function jalonDesSeances(dates, pct) {
+  const d = [...new Set(dates.map(x => String(x).slice(0, 10)))].sort();
+  if (!d.length) return null;
+  return proche(d, jour(d[0]) + (jour(d[d.length - 1]) - jour(d[0])) * pct / 100);
+}
+
+/**
+ * LE PREMIER DIXIÈME D'UNE UE — UNE SEULE RÈGLE POUR TOUT LUCIE (Charles,
+ * 28 octobre 2026 : les frais, le droit d'inscription et l'échéancier « aussi »).
+ * L'horaire réel d'abord : 1/10 entre la première et la dernière séance, séance la
+ * plus proche. À défaut — pas de séance, ou une UE en plusieurs organisations, que
+ * l'horaire ne sépare pas —, les dates de l'organisation (`numOrganisation`, sinon
+ * la plus tôt). Rend { date, source: 'horaire' | 'dates' } ou null.
+ */
+export function premierDixiemeUE(ueNum, annee, { section = null, numOrganisation = null, pct = 10 } = {}) {
+  const ue = Number(ueNum);
+  const orgs = db.prepare(`SELECT num_organisation, date_debut, date_fin FROM organisation_ue
+    WHERE ue_num = ? AND annee_scolaire = ? ${section ? 'AND section = ?' : ''}`).all(...(section ? [ue, annee, section] : [ue, annee]));
+  // Plusieurs organisations : l'horaire ne dit pas à laquelle appartient une séance.
+  if (new Set(orgs.map(o => o.num_organisation)).size <= 1) {
+    const dates = db.prepare(`SELECT s.date FROM horaire_seance s
+      WHERE s.annee_scolaire = ? AND COALESCE(s.annule, 0) = 0 ${section ? 'AND (s.section IS NULL OR s.section = ?)' : ''}
+        AND (s.ue_num = ? OR s.cours_code IN (SELECT cours_code FROM cours WHERE ue_num = ? AND annee_scolaire = ?))`)
+      .all(...(section ? [annee, section] : [annee]), ue, ue, annee).map(x => x.date);
+    const d = jalonDesSeances(dates, pct);
+    if (d) return { date: d, source: 'horaire' };
+  }
+  const o = orgs.filter(x => x.date_debut && x.date_fin && x.date_fin >= x.date_debut)
+    .sort((a, b) => ((a.num_organisation === numOrganisation) ? -1 : 0) - ((b.num_organisation === numOrganisation) ? -1 : 0)
+      || String(a.date_debut).localeCompare(String(b.date_debut)))[0];
+  if (!o) return null;
+  return { date: iso(jour(o.date_debut) + (jour(o.date_fin) - jour(o.date_debut)) * pct / 100), source: 'dates' };
+}

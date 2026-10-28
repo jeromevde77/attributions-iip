@@ -24,6 +24,7 @@ import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { getParam } from './parametres.js';
 import { sectionRattachement } from './etudiants.js';
+import { premierDixiemeUE } from '../lib/datesReelles.js';
 
 /**
  * QUI PERÇOIT LES DROITS DE CET ÉTUDIANT. La fiche d'abord (di_tiers, avec sa
@@ -160,7 +161,7 @@ export function calculerDI(etudId, annee) {
   const datesUe = Object.fromEntries(orgs.map(o => [o.ue_num, o]));
 
   const lignes = db.prepare(`
-    SELECT i.ue_num, i.dispense_complete, i.annee_scolaire,
+    SELECT i.ue_num, i.dispense_complete, i.annee_scolaire, i.num_organisation,
            (SELECT ue_tot_prf FROM ue x
              WHERE x.ue_num = i.ue_num AND x.annee_scolaire = i.annee_scolaire LIMIT 1) AS tot_annee,
            (SELECT ue_per_etudiants FROM ue x
@@ -203,7 +204,7 @@ export function calculerDI(etudId, annee) {
     const dispensee = !!l.dispense_complete || vaCompletes.has(l.ue_num);
     const sup = String(niveau).toUpperCase().startsWith('SUP');
     return {
-      ue_num: l.ue_num, ue_nom: r0.ue_nom || null,
+      ue_num: l.ue_num, ue_nom: r0.ue_nom || null, num_organisation: l.num_organisation ?? null,
       periodes: dispensee ? 0 : periodes,
       periodes_brutes: periodes,
       periodes_etudiant: dispensee ? 0 : perEtud,
@@ -216,22 +217,18 @@ export function calculerDI(etudId, annee) {
   // par l'UE dont le PREMIER DIXIÈME est le plus proche du début de l'année, et
   // en cas d'égalité par celle qui se termine en premier. Ce n'est donc pas
   // « la première UE du PAE » au sens de l'ordre d'encodage.
-  const premierDixieme = (ue) => {
-    const o = datesUe[ue];
-    if (!o?.date_debut || !o?.date_fin) return null;
-    const d = new Date(o.date_debut + 'T00:00:00Z'), f = new Date(o.date_fin + 'T00:00:00Z');
-    if (isNaN(d) || isNaN(f) || f < d) return null;
-    return new Date(d.getTime() + (f - d) / 10);
-  };
+  // Le premier dixième, une seule règle pour Lucie (lib/datesReelles.js) : l'horaire
+  // réel, séance la plus proche ; à défaut, les dates de l'organisation de l'étudiant.
+  const premierDixieme = (ue, org) => premierDixiemeUE(ue, annee, { numOrganisation: org })?.date || null;
 
   const candidats = detail.filter(d => !d.dispensee).map(d => ({
     ue_num: d.ue_num,
-    dixieme: premierDixieme(d.ue_num),
+    dixieme: premierDixieme(d.ue_num, d.num_organisation),
     fin: datesUe[d.ue_num]?.date_fin || null,
   }));
 
   const avecDates = candidats.filter(c0 => c0.dixieme);
-  avecDates.sort((a, b) => (a.dixieme - b.dixieme)
+  avecDates.sort((a, b) => String(a.dixieme).localeCompare(String(b.dixieme))
     || String(a.fin || '9999').localeCompare(String(b.fin || '9999'))
     || (a.ue_num - b.ue_num));
 

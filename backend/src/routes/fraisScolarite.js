@@ -25,6 +25,7 @@ import { piedDocument, getParam } from './parametres.js';
 import { sectionRattachement } from './etudiants.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { calculerDI, calculerDIS } from './droitInscription.js';
+import { premierDixiemeUE } from '../lib/datesReelles.js';
 
 const r = Router();
 
@@ -131,18 +132,13 @@ export function calculerFrais(etudId, annee) {
   // UE si celui-ci tombe plus tôt (art. 17 §2).
   const a1 = Number(String(annee).slice(0, 4));
   const premierOctobre = `${a1}-10-01`;
-  const dixiemes = db.prepare(`
-    SELECT MIN(date_debut) AS d, MIN(date_fin) AS f FROM organisation_ue
-    WHERE annee_scolaire = ? AND ue_num IN (${di.detail.map(x => x.ue_num).join(',') || '0'})
-      AND date_debut IS NOT NULL AND date_fin IS NOT NULL
-  `).get(annee);
+  // Le premier dixième de CHAQUE UE (horaire réel, séance la plus proche ; à défaut
+  // les dates de son organisation — `premierDixiemeUE`), et le plus tôt d'entre eux.
+  // On prenait le plus petit début et la plus petite fin de deux UE différentes.
   let echeanceSolde = premierOctobre;
-  if (dixiemes?.d && dixiemes?.f) {
-    const d = new Date(dixiemes.d + 'T00:00:00Z'), f = new Date(dixiemes.f + 'T00:00:00Z');
-    if (!isNaN(d) && !isNaN(f) && f >= d) {
-      const dx = new Date(d.getTime() + (f - d) / 10).toISOString().slice(0, 10);
-      if (dx < echeanceSolde) echeanceSolde = dx;
-    }
+  for (const x of di.detail) {
+    const dx = premierDixiemeUE(x.ue_num, annee, { numOrganisation: x.num_organisation ?? null })?.date;
+    if (dx && dx < echeanceSolde) echeanceSolde = dx;
   }
 
   return {

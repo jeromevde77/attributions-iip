@@ -237,6 +237,23 @@ console.log('\nLe retard (P*)');
   db.prepare('DELETE FROM presence WHERE etudiant_id = ?').run(BETA);
 }
 
+console.log('\nLe premier dixième de l’UE (une règle pour tout Lucie)');
+{
+  const R = await import('../src/lib/datesReelles.js');
+  t('jalon : 1/10 tombe sur la séance la plus proche', R.jalonDesSeances(['2026-09-14', '2026-09-18', '2026-09-30', '2026-10-28'], 10) === '2026-09-18');
+  t('jalon : à égalité, la plus tôt', R.jalonDesSeances(['2026-09-01', '2026-09-03', '2026-09-05', '2026-10-01'], 10) === '2026-09-03');
+  db.exec(`CREATE TABLE IF NOT EXISTS organisation_ue (id INTEGER PRIMARY KEY AUTOINCREMENT, ue_num INTEGER, section TEXT,
+    annee_scolaire TEXT, num_organisation INTEGER DEFAULT 1, date_debut TEXT, date_fin TEXT)`);
+  db.prepare("INSERT INTO organisation_ue (ue_num, section, annee_scolaire, num_organisation, date_debut, date_fin) VALUES (333, 'AESI', ?, 1, '2026-09-01', '2026-12-31')").run(A);
+  const x = R.premierDixiemeUE(333, A);
+  t('avec séances : l’horaire réel', x?.source === 'horaire' && x.date === '2026-10-28', x);
+  db.prepare("INSERT INTO organisation_ue (ue_num, section, annee_scolaire, num_organisation, date_debut, date_fin) VALUES (333, 'AESI', ?, 2, '2027-02-01', '2027-05-01')").run(A);
+  const y = R.premierDixiemeUE(333, A, { numOrganisation: 2 });
+  t('deux organisations : les dates de la sienne', y?.source === 'dates' && y.date === '2027-02-10', y);
+  db.exec('DELETE FROM organisation_ue');
+  t('ni séance ni dates : rien', R.premierDixiemeUE(999, A) === null);
+}
+
 console.log('\nSans secret');
 {
   const avant = process.env.JWT_SECRET, env = process.env.NODE_ENV;
