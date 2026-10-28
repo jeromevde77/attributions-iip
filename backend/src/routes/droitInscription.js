@@ -208,6 +208,7 @@ export function calculerDI(etudId, annee) {
       periodes: dispensee ? 0 : periodes,
       periodes_brutes: periodes,
       periodes_etudiant: dispensee ? 0 : perEtud,
+      periodes_etudiant_brutes: perEtud,   // pour le forfait VA, dû dès la demande, dispense ou non
       niveau: sup ? 'superieur' : 'secondaire',
       dispensee,
     };

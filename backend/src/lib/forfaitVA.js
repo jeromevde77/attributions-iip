@@ -3,17 +3,19 @@
  * « si demande de VA, prévoir un forfait financier par UE — cela prend bien deux
  * heures de travail d'analyse »).
  *
- * LA RÈGLE (réglages de Configuration → Coût des périodes) :
- *   - VA et VAE : `va.forfait_ue` (30 €) par UE demandée, dû DÈS LA DEMANDE, quelle
- *     que soit la décision — c'est l'examen du dossier qui est payé ;
- *   - admission : `va.forfait_admission` (50 €) d'office, par demande ;
- *   - si l'étudiant est inscrit à au moins une UE de l'année :
- *       frais d'inscription (FI) inférieurs au forfait VA/VAE → il paie le forfait
- *       (on ajoute la différence) ; FI supérieurs → on ajoute `va.supplement_ue`
- *       (15 €) par UE demandée ;
- *   - non inscrit : le forfait entier.
- *   La comparaison se fait AU TOTAL des demandes de l'année (lecture retenue ; à
- *   confirmer par Charles).
+ * LA RÈGLE, UE PAR UE (Charles, 28 octobre 2026 ; réglages de Configuration → Coût des
+ * périodes) — chaque demande VA ou VAE se juge contre les frais d'inscription de SON unité :
+ *   - unité à laquelle l'étudiant n'est pas inscrit : `va.forfait_ue` (30 €) ;
+ *   - inscrit, frais d'inscription de l'unité inférieurs au forfait : ils sont portés au
+ *     forfait — on ajoute la différence ;
+ *   - inscrit, frais de l'unité égaux ou supérieurs : `va.supplement_ue` (15 €).
+ *   L'admission : `va.forfait_admission` (50 €) d'office, par demande.
+ * Dû DÈS LA DEMANDE, quelle que soit la décision : c'est l'examen du dossier qui est payé.
+ * Frais d'inscription d'une unité = son droit d'inscription (forfait de la circulaire compris
+ * si c'est elle qui le porte) + ses frais administratifs variables (périodes étudiant ×
+ * tarif) ; la partie fixe (150 €) ne se rattache à aucune unité. Une unité dispensée par la
+ * valorisation se compte à ses périodes d'avant la dispense : le forfait ne bouge pas
+ * quand le Conseil décide.
  * Une demande se dispense du forfait, une à une, avec un motif (`va_forfait_exoneration`).
  * FI = droit d'inscription + droit spécifique + frais administratifs, hors forfait.
  */
@@ -50,22 +52,27 @@ export function demandesVA(etudId, annee) {
     exoneree: !!r.exo_motif }));
 }
 
-/** Le forfait dû. `fi` : les frais d'inscription de l'année (hors forfait) ; `inscrit` : au moins une UE. */
-export function forfaitVA(etudId, annee, { fi = 0, inscrit = false } = {}) {
+/** Le forfait dû. `fiParUE` : Map ue_num → frais d'inscription de l'unité (unités inscrites seulement). */
+export function forfaitVA(etudId, annee, { fiParUE = new Map() } = {}) {
   const d = demandesVA(etudId, annee);
   const parUE = nombre('va.forfait_ue', 30), supp = nombre('va.supplement_ue', 15), adm = nombre('va.forfait_admission', 50);
-  const ues = d.filter(x => x.nature !== 'admission' && !x.exoneree);
-  const admissions = d.filter(x => x.nature === 'admission' && !x.exoneree);
-  const F = ues.length * parUE;
-  let du_ue = 0, regle = null;
-  if (ues.length) {
-    if (!inscrit) { du_ue = F; regle = `${ues.length} UE × ${parUE} € (pas encore inscrit : le forfait entier)`; }
-    else if (fi < F) { du_ue = F - fi; regle = `frais d’inscription (${fi} €) inférieurs au forfait (${F} €) : l’étudiant paie le forfait, soit ${arrondi(F - fi)} € de plus`; }
-    else { du_ue = ues.length * supp; regle = `frais d’inscription (${fi} €) supérieurs au forfait (${F} €) : ${ues.length} UE × ${supp} €`; }
+  const e2 = n => arrondi(n).toFixed(2).replace('.', ',');
+  for (const x of d) {
+    if (x.exoneree) { x.du = 0; x.calcul = `dispensée : ${x.exo_motif}`; continue; }
+    if (x.nature === 'admission') { x.du = adm; x.calcul = `admission : ${e2(adm)} €`; continue; }
+    const fi = fiParUE.get(Number(x.ue_num));
+    if (fi == null) { x.du = parUE; x.calcul = `pas inscrit à l’UE : forfait de ${e2(parUE)} €`; }
+    else if (fi < parUE) { x.du = arrondi(parUE - fi); x.fi = arrondi(fi); x.calcul = `frais de l’UE ${e2(fi)} € < ${e2(parUE)} € : portés au forfait, ${e2(parUE - fi)} € de plus`; }
+    else { x.du = supp; x.fi = arrondi(fi); x.calcul = `frais de l’UE ${e2(fi)} € ≥ ${e2(parUE)} € : ${e2(supp)} €`; }
   }
-  const du_adm = admissions.length * adm;
-  return { demandes: d, par_ue: parUE, supplement_ue: supp, forfait_admission: adm, n_ue: ues.length, n_admission: admissions.length,
-    forfait_brut: F, fi: arrondi(fi), inscrit, du_ue: arrondi(du_ue), du_admission: arrondi(du_adm), du: arrondi(du_ue + du_adm), regle };
+  const actives = d.filter(x => !x.exoneree);
+  const du_ue = arrondi(actives.filter(x => x.nature !== 'admission').reduce((t, x) => t + x.du, 0));
+  const du_adm = arrondi(actives.filter(x => x.nature === 'admission').reduce((t, x) => t + x.du, 0));
+  const n_ue = actives.filter(x => x.nature !== 'admission').length;
+  const n_admission = actives.length - n_ue;
+  const regle = n_ue ? `${n_ue} UE demandée(s), calculées UE par UE` : null;
+  return { demandes: d, par_ue: parUE, supplement_ue: supp, forfait_admission: adm, n_ue, n_admission,
+    du_ue, du_admission: du_adm, du: arrondi(du_ue + du_adm), regle };
 }
 
 export function exonererForfait(valorisationId, motif, par) {

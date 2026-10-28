@@ -127,8 +127,12 @@ aucune liste de section. (2) **Forfait de valorisation** (`lib/forfaitVA.js`, pa
 et VAE par UE demandée : non inscrit → 30 € × UE ; inscrit dont les frais d'inscription sont sous ce
 montant → ils sont portés à ce montant (on ajoute la différence) ; sinon 15 € par UE. L'admission :
 50 € d'office. Lu par `calculerFrais` (ligne de la note de frais), l'accusé de réception du portail
-VA, et dispensable par demande avec motif (`va_forfait_exoneration`, Frais de l'étudiant). Le seuil
-se compare AU TOTAL des frais d'inscription de l'année, pas UE par UE (non tranché par Charles).
+VA, et dispensable par demande avec motif (`va_forfait_exoneration`, Frais de l'étudiant). **UE PAR UE**
+(3.1.431, tranché par Charles) : chaque demande se compare aux frais d'inscription de SON unité —
+droit d'inscription de l'UE (forfait de la circulaire compris si elle le porte) + ses frais variables
+(périodes étudiant × tarif), hors partie fixe ; une UE dispensée se compte à ses périodes d'avant la
+dispense. **Un candidat non inscrit paie aussi les 150 € de frais fixes** (Charles : « oui, voir dans le
+RDE » — le texte du RDE, dans le corpus de la prod, n'a pas pu être relu depuis la session).
 
 **UNE CHOSE, UNE PORTE — DEUXIÈME RELEVÉ** (3.1.428, Charles, 28 octobre 2026 : « vérifier qu'il n'y a
 pas pour une chose deux entrées possibles »). Deux déclencheurs de garde : **`garde_seance_presences`**

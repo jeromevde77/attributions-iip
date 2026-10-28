@@ -151,13 +151,14 @@ export default function FraisScolarite({ etudId, annee }) {
               <span className="text-sm font-semibold text-iip-blue">Analyse des demandes de valorisation</span>
               <span className="text-sm font-bold">{eur(f.forfait_va.du)}</span>
             </div>
-            {f.forfait_va.regle && <div className="text-xs text-slate-500">{f.forfait_va.regle}</div>}
-            {f.forfait_va.n_admission > 0 && <div className="text-xs text-slate-500">{f.forfait_va.n_admission} demande(s) d’admission × {eur(f.forfait_va.forfait_admission)}</div>}
+            <div className="text-xs text-slate-500">Chaque demande se compare aux frais d’inscription de SON unité : non inscrit,
+              {` ${eur(f.forfait_va.par_ue)}`} ; frais de l’unité plus bas, portés à ce montant ; sinon {eur(f.forfait_va.supplement_ue)}. Admission : {eur(f.forfait_va.forfait_admission)}.</div>
             <table className="w-full text-second">
               <tbody>{f.forfait_va.demandes.map(d => (
                 <tr key={d.id} className="border-b border-slate-100 last:border-0">
                   <td className="py-1">{d.nature === 'admission' ? 'Admission' : `${d.nature} · UE ${d.ue_num}${d.ue_nom ? ` — ${d.ue_nom}` : ''}`}</td>
-                  <td className="py-1 text-slate-500">{d.exoneree ? `dispensée du forfait : ${d.exo_motif}` : 'forfait dû'}</td>
+                  <td className="py-1 text-slate-500">{d.exoneree ? `dispensée du forfait : ${d.exo_motif}` : d.calcul}</td>
+                  <td className="py-1 text-right font-semibold whitespace-nowrap">{d.exoneree ? '—' : eur(d.du)}</td>
                   <td className="py-1 text-right">
                     {droits.passe('admin', 'editeur') && (d.exoneree
                       ? <button type="button" className="bouton h-7 px-2" onClick={() => exonerer(d, null)}>Rétablir</button>

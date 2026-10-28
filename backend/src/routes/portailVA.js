@@ -346,7 +346,7 @@ r.post('/terminer', etudiantConnecte, async (req, res) => {
   try { forfait = calculerFrais(e.id, annee)?.forfait_va || null; } catch { forfait = null; }
   const eur = n => `${(Number(n) || 0).toFixed(2).replace('.', ',')} €`;
   const phraseForfait = forfait?.du ? `<p>L’analyse d’une demande de valorisation demande un travail d’examen du dossier : des frais
-    d’analyse de <b>${eur(forfait.du)}</b> s’ajoutent à vos frais de l’année (${esc(forfait.regle || '')}${forfait.n_admission ? `${forfait.regle ? ' ; ' : ''}${forfait.n_admission} demande(s) d’admission` : ''}).
+    d’analyse de <b>${eur(forfait.du)}</b> s’ajoutent à vos frais de l’année (${esc(forfait.demandes.filter(x => !x.exoneree).map(x => `${x.nature === 'admission' ? 'admission' : `UE ${x.ue_num}`} : ${x.calcul}`).join(' ; '))}).
     Ils sont dus dès la demande, quelle que soit la décision.</p>` : '';
   if (adresse) {
     const html = templateNotif({
@@ -360,7 +360,7 @@ r.post('/terminer', etudiantConnecte, async (req, res) => {
     });
     await envoyerEmail({ to: adresse, subject: `Institut Ilya Prigogine — accusé de réception ${reference}`, html }).catch(() => {});
   }
-  res.json({ ok: true, reference, quand, demandes: d, forfait: forfait ? { du: forfait.du, regle: forfait.regle } : null });
+  res.json({ ok: true, reference, quand, demandes: d, forfait: forfait ? { du: forfait.du, regle: forfait.demandes.filter(x => !x.exoneree).map(x => `${x.nature === 'admission' ? 'admission' : `UE ${x.ue_num}`} : ${x.calcul}`).join(' ; ') } : null });
 });
 
 export default r;

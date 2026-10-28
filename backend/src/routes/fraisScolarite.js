@@ -145,7 +145,11 @@ export function calculerFrais(etudId, annee) {
 
   /* LE FORFAIT D'ANALYSE DES DEMANDES DE VALORISATION (lib/forfaitVA.js) : comparé aux
      frais d'inscription ci-dessus, puis ajouté au total. */
-  const va = forfaitVA(etudId, annee, { fi: total, inscrit: di.detail.length > 0 });
+  // Les frais d'inscription de CHAQUE unité (Charles : « UE par UE ») — hors partie fixe.
+  const fiParUE = new Map(di.detail.map(d => [Number(d.ue_num), arrondi(
+    (di.exonere ? 0 : (d.dispensee ? (d.periodes_brutes || 0) * (d.tarif || 0) : (d.total || 0)))
+    + (sansFrais ? 0 : (d.periodes_etudiant_brutes ?? d.periodes_etudiant ?? 0) * b.par_periode))]));
+  const va = forfaitVA(etudId, annee, { fiParUE });
   const totalAvecVA = arrondi(total + va.du);
   return {
     annee, bareme: b,
@@ -327,7 +331,7 @@ r.get('/etudiant/:id/document', authRequired, (req, res) => {
         <td style="text-align:right">${eur(f.frais_fixes)}</td></tr>
     <tr><td>Frais administratifs — ${f.sans_frais ? `aucun : la section ${esc(f.section || '')} n'en perçoit pas` : `${f.periodes} période(s) à ${String(f.bareme.par_periode).replace('.', ',')} €`}</td>
         <td style="text-align:right">${eur(f.frais_variables)}</td></tr>
-    ${f.forfait_va?.du ? `<tr><td>Analyse des demandes de valorisation — ${f.forfait_va.n_ue ? `${f.forfait_va.n_ue} UE (${esc(f.forfait_va.regle || '')})` : ''}${f.forfait_va.n_ue && f.forfait_va.n_admission ? ' ; ' : ''}${f.forfait_va.n_admission ? `${f.forfait_va.n_admission} demande(s) d'admission × ${eur(f.forfait_va.forfait_admission)}` : ''}</td>
+    ${f.forfait_va?.du ? `<tr><td>Analyse des demandes de valorisation — ${f.forfait_va.demandes.filter(x => !x.exoneree).map(x => esc(`${x.nature === 'admission' ? 'admission' : `UE ${x.ue_num}`} (${x.calcul})`)).join(' ; ')}</td>
         <td style="text-align:right">${eur(f.forfait_va.du)}</td></tr>` : ''}
     <tr class="tot"><td style="text-align:right">TOTAL DÛ</td>
         <td style="text-align:right">${eur(f.total)}</td></tr>
