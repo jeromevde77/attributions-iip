@@ -19,6 +19,8 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { porteFermee, refusPorte } from '../lib/transferts.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
+import { gesteRequis } from '../lib/gestes.js';
+import { fusionner } from './doublonsEtudiants.js';
 
 const r = Router();
 
@@ -326,51 +328,19 @@ r.post('/', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
 });
 
 // ── Fusion de deux dossiers d'un même étudiant ─────────────────────────────
-r.post('/fusionner', authRequired, roleRequired('admin'), (req, res) => {
-  const { garder, supprimer } = req.body;
+/* DEUX PORTES POUR UNE FUSION, C'EN ÉTAIT UNE DE TROP (3.1.428). Celle-ci ne
+   déplaçait que trois tables puis supprimait le dossier : présences, procédures,
+   ajustements de délibération et le reste partaient par la cascade. Elle délègue
+   désormais à la fusion des doublons, qui porte tout le dossier. */
+r.post('/fusionner', authRequired, gesteRequis('etudiants.fusion'), (req, res) => {
+  const { garder, supprimer, simulation = false } = req.body || {};
   if (!garder || !supprimer || garder === supprimer) {
     return res.status(400).json({ error: 'garder et supprimer requis, et distincts' });
   }
-  const g = Number(garder), s = Number(supprimer);
-
-  let inscriptions = 0, notes = 0, valorisations = 0;
-  db.transaction(() => {
-    // Les inscriptions du dossier supprimé rejoignent celui conservé,
-    // sans écraser une année déjà renseignée.
-    for (const i of db.prepare('SELECT * FROM etudiant_inscription WHERE etudiant_id = ?').all(s)) {
-      const existe = db.prepare(
-        'SELECT id FROM etudiant_inscription WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=?'
-      ).get(g, i.annee_scolaire, i.ue_num);
-      if (existe) {
-        db.prepare(`UPDATE etudiant_inscription SET
-          resultat = COALESCE(resultat, ?), points = COALESCE(points, ?) WHERE id = ?`)
-          .run(i.resultat, i.points, existe.id);
-      } else {
-        db.prepare(`INSERT INTO etudiant_inscription
-          (etudiant_id, annee_scolaire, ue_num, resultat, points, groupe, date_inscription)
-          VALUES (?,?,?,?,?,?,?)`)
-          .run(g, i.annee_scolaire, i.ue_num, i.resultat, i.points, i.groupe, i.date_inscription);
-        inscriptions++;
-      }
-    }
-    for (const t of ['etudiant_note_detail', 'etudiant_valorisation', 'etudiant_piece']) {
-      try { db.prepare(`UPDATE OR IGNORE ${t} SET etudiant_id = ? WHERE etudiant_id = ?`).run(g, s); } catch {}
-    }
-    db.prepare('UPDATE OR IGNORE etudiant_matricule SET etudiant_id = ? WHERE etudiant_id = ?').run(g, s);
-    // Compléter les champs vides du dossier conservé
-    db.prepare(`
-      UPDATE etudiant SET
-        num_national   = COALESCE(num_national,   (SELECT num_national   FROM etudiant WHERE id = ?)),
-        rn_norm        = COALESCE(rn_norm,        (SELECT rn_norm        FROM etudiant WHERE id = ?)),
-        date_naissance = COALESCE(date_naissance, (SELECT date_naissance FROM etudiant WHERE id = ?)),
-        adresse        = COALESCE(adresse,        (SELECT adresse        FROM etudiant WHERE id = ?)),
-        localite       = COALESCE(localite,       (SELECT localite       FROM etudiant WHERE id = ?))
-      WHERE id = ?
-    `).run(s, s, s, s, s, g);
-    db.prepare('DELETE FROM etudiant WHERE id = ?').run(s);
-  })();
-
-  res.json({ ok: true, garde: g, supprime: s, inscriptions });
+  try {
+    res.json({ ok: true, simulation, garde: Number(garder), supprime: Number(supprimer),
+      ...fusionner(Number(garder), Number(supprimer), { simulation }) });
+  } catch (e) { res.status(400).json({ error: e.message }); }
 });
 
 // ── Comparaison classeur ↔ base, sans rien écrire ───────────────────────────

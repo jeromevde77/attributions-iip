@@ -478,6 +478,13 @@ export function migrerEtudiants(dbx) {
       // déduction dans chaque requête — et la déduction reste la référence.
       ajouter('etat', "TEXT NOT NULL DEFAULT 'introduite'");
     }
+    /* UN DOSSIER VALIDÉ NE SE SUPPRIME PAS, PAR QUELQUE PORTE QUE CE SOIT
+       (3.1.428). Les routes de la valorisation le refusaient déjà ; la grille du
+       parcours, la purge d'une année et l'effacement de résultats, non — et le
+       journal partait avec la ligne. La direction retire d'abord la validation. */
+    dbx.exec(`CREATE TRIGGER IF NOT EXISTS garde_va_validee BEFORE DELETE ON etudiant_valorisation
+      WHEN OLD.valide_le IS NOT NULL
+      BEGIN SELECT RAISE(ABORT, 'Ce dossier de valorisation est validé : il ne se supprime pas. La direction retire d''abord la validation.'); END`);
   } catch (e) { console.error('[migration] valorisation/circuit :', e.message); }
 
   /* LE JOURNAL — CE QUI PROTÈGE CONTRE CE QU'ON A VÉCU.
@@ -7569,6 +7576,27 @@ r.put('/:id/grille', authRequired, roleRequired('admin', 'editeur'), (req, res) 
         AND portee = 'ue' AND action = 'faveur'`).run(etudId, annee, ueN);
     } catch { /* table absente */ }
   };
+  /* UNE VALORISATION DU CIRCUIT NE S'EFFACE PAS DEPUIS LE PARCOURS (3.1.428).
+     Chaque choix posé sur la case — sauf « effacer le résultat » — supprimait
+     la valorisation de l'unité, et son journal partait avec elle (ON DELETE
+     CASCADE) : une décision validée, notifiée, disparaissait d'un clic, sans
+     trace. Depuis 2026-2027, ou dès qu'un dossier est validé ou notifié, la
+     grille refuse et renvoie vers l'écran Valorisation. */
+  let vaCircuit = null;
+  if (kind !== 'effacer_resultat') {
+    try {
+      vaCircuit = db.prepare(`SELECT id FROM etudiant_valorisation
+        WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=?
+          AND (annee_scolaire >= ? OR valide_le IS NOT NULL OR notifie_le IS NOT NULL)`)
+        .get(etudId, annee, ueN, ANNEE_CIRCUIT_VA);
+    } catch { /* colonnes absentes sur une base non migrée */ }
+    // S'inscrire à l'UE n'efface rien : une demande de VA et l'inscription coexistent.
+    if (vaCircuit && kind !== 'inscrit') {
+      return res.status(409).json({ error: `Une valorisation est instruite pour l'UE ${ueN} en ${annee} `
+        + "(demande du circuit, ou dossier validé ou notifié). Elle se corrige ou se retire dans l'écran "
+        + 'Valorisation des acquis : la grille du parcours ne l’efface pas.' });
+    }
+  }
   if (kind === 'faveur') {
     let session = 1;
     try {
@@ -7600,7 +7628,7 @@ r.put('/:id/grille', authRequired, roleRequired('admin', 'editeur'), (req, res) 
      L'étudiante refusée par le Conseil se retrouvait avec deux décisions pour
      la même unité, et le procès-verbal imprimait les deux : « Refus », puis
      « Réussite ». Une pièce signée qui se contredit elle-même. */
-  const delVa = () => db.prepare(
+  const delVa = () => vaCircuit ? null : db.prepare(
     'DELETE FROM etudiant_valorisation WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=?'
   ).run(etudId, annee, ueN);
 
@@ -9896,6 +9924,8 @@ r.post('/valorisations/lot', authRequired, gesteRequis('valorisation.instruire')
         decision_ce_date || null, commentaire || null,
         decision, refus ? String(req.body.motif_refus).trim() : null);
       if (equivalences.length) ecrireEquivalences(info.lastInsertRowid, equivalences);
+      // Chaque dossier du lot porte sa ligne de journal (3.1.428) : il naissait sans trace.
+      journaliser(info.lastInsertRowid, 'introduction', req, `créé en série (UE ${ue_num}, ${ids.length} dossier(s))`);
       crees.push({ etudiant_id: id, valorisation_id: info.lastInsertRowid });
     }
     return crees;
@@ -9924,6 +9954,15 @@ r.post('/:id/valorisations', authRequired, gesteRequis('valorisation.instruire')
       error: `L'unité ${ue_num} n'existe pas dans le référentiel.` });
   }
   if (!unitePermise(req, res, Number(ue_num))) return;
+  /* UNE UNITÉ, UNE DÉCISION (3.1.428). Le lot refusait déjà le doublon ; cette
+     porte-ci, non : deux décisions sur une même unité bloquent ensuite
+     l'impression du PV sans que personne sache pourquoi. */
+  const deja = db.prepare(`SELECT id FROM etudiant_valorisation WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? LIMIT 1`)
+    .get(Number(req.params.id), annee_scolaire, Number(ue_num));
+  if (deja) {
+    return res.status(409).json({ error: `Un dossier de valorisation existe déjà pour l'UE ${ue_num} en ${annee_scolaire} : `
+      + 'corrigez-le plutôt que d’en ouvrir un second.', valorisation_id: deja.id });
+  }
 
   // UN REFUS NE PORTE NI DISPENSE NI POURCENTAGE. Le procès-verbal lit
   // l'absence de pourcentage comme un refus : lui en laisser un le ferait
@@ -9948,6 +9987,7 @@ r.post('/:id/valorisations', authRequired, gesteRequis('valorisation.instruire')
   if (!refus && Array.isArray(req.body.equivalences)) {
     ecrireEquivalences(info.lastInsertRowid, req.body.equivalences);
   }
+  journaliser(info.lastInsertRowid, 'introduction', req, `créé depuis la fiche (UE ${ue_num})`);
   res.json({ ok: true, id: info.lastInsertRowid });
 });
 

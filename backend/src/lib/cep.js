@@ -92,6 +92,15 @@ export function migrerCep(base = db) {
       base.exec(`ALTER TABLE ${t} ADD COLUMN source TEXT NOT NULL DEFAULT 'manuel'`);
     }
   }
+  /* UNE SÉANCE QUI PORTE DES PRÉSENCES NE SE SUPPRIME PAS (3.1.428). La présence
+     tombait avec elle (ON DELETE CASCADE) : un réimport d'horaire, un lot retiré,
+     un plan versé effaçaient en silence des présences déjà encodées — et avec elles
+     les attestations d'assiduité et la régularité. Les portes d'écriture épargnent
+     ces séances ; ce déclencheur rattrape celle qu'on aurait oubliée. Une séance
+     qui n'a pas eu lieu s'ANNULE (annule = 1), elle ne s'efface pas. */
+  try { base.exec(`CREATE TRIGGER IF NOT EXISTS garde_seance_presences BEFORE DELETE ON horaire_seance
+    WHEN EXISTS (SELECT 1 FROM presence WHERE seance_id = OLD.id)
+    BEGIN SELECT RAISE(ABORT, 'Cette séance porte des présences encodées : elle ne se supprime pas, elle s''annule.'); END`); } catch { /* horaire_seance pas encore créée : posé au démarrage suivant */ }
   /* LE RETARD (Charles, 28 octobre 2026 : « on peut, avec un * ») : un présent
      arrivé en retard reste PRÉSENT — ses heures comptent — et la grille l'écrit
      « P* ». Une marque sur la présence, pas un cinquième statut. */

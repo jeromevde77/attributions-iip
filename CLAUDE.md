@@ -130,6 +130,16 @@ montant → ils sont portés à ce montant (on ajoute la différence) ; sinon 15
 VA, et dispensable par demande avec motif (`va_forfait_exoneration`, Frais de l'étudiant). Le seuil
 se compare AU TOTAL des frais d'inscription de l'année, pas UE par UE (non tranché par Charles).
 
+**UNE CHOSE, UNE PORTE — DEUXIÈME RELEVÉ** (3.1.428, Charles, 28 octobre 2026 : « vérifier qu'il n'y a
+pas pour une chose deux entrées possibles »). Deux déclencheurs de garde : **`garde_seance_presences`**
+(une séance qui porte des présences ne se supprime pas — elle s'annule ; réimports et versements du plan
+l'épargnent) et **`garde_va_validee`** (un dossier de VA validé ne se supprime par aucune porte). La grille
+du parcours ne touche plus une VA du circuit ; la fiche refuse un second dossier de VA sur une unité ;
+`PUT /acquis/reports` copie les notes comme le report d'office et ne lève un refus qu'avec un motif ; une
+seule fusion d'étudiants, une seule `copier-section`, une seule règle de section des dossiers. Ce qui
+reste (création d'étudiant, notes après clôture, programmes hors `ecrireProgramme()`, dates d'UE) :
+`docs/contexte/audit-boucles-2026-10-28.md`, deuxième relevé.
+
 **Établissement :** IIP — N° ECOT 5222132070, FASE 292, Campus Erasme,
 Route de Lennik 808, 1070 Anderlecht. Enseignement pour adultes (FWB).
 Sections : TIM (la plus grande), Psychomotricité, AeSI (soins infirmiers,

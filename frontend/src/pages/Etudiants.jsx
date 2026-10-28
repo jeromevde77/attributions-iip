@@ -944,14 +944,24 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
     if (rep.ok) { setDetail(await rep.json()); setDetailOuvert(true); }
   }
 
-  async function poserReport(cand) {
-    await fetch('/api/acquis/reports', {
+  async function poserReport(cand, motif) {
+    const rep = await fetch('/api/acquis/reports', {
       method: 'PUT', headers: authHeaders(),
       body: JSON.stringify({
         etudiant_id: etudId, annee_scolaire: popover.annee, ue_num: popover.ue_num,
-        cours_code: cand.cours_code, note: cand.note, annee_origine: cand.annee_origine,
+        cours_code: cand.cours_code, note: cand.note, annee_origine: cand.annee_origine, motif,
       }),
     });
+    if (!rep.ok) {
+      const j = await rep.json().catch(() => ({}));
+      // Un report refusé par le Conseil ne se repose qu'avec un motif écrit.
+      if (j.motif_requis && !motif) {
+        const m = await saisir(`${j.error}\n\nMotif :`);
+        if (m && m.trim()) return poserReport(cand, m.trim());
+        return;
+      }
+      informer(j.error || 'Le report n’a pas été posé.');
+    }
     await chargerDetail();
   }
 

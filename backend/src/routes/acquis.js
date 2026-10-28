@@ -2309,6 +2309,20 @@ r.put('/reports', authRequired, roleRequired('admin', 'editeur'), (req, res) => 
      pour 146 cas éligibles). Et `aa_code` étant NULL pour un report de cours,
      l'unicité ne joue pas : on cherche donc la ligne, puis on écrit. */
   const cle = [Number(etudiant_id), annee_scolaire, Number(ue_num), cours_code];
+  /* DEUX PORTES POUR UN MÊME REPORT, ET ELLES NE FAISAIENT PAS LA MÊME CHOSE
+     (3.1.428). Le report d'office copie les notes des acquis ; celle-ci
+     n'écrivait que la ligne de report — la délibération ne trouvait alors
+     aucune note — et repassait en « accordé » un report que le Conseil avait
+     refusé, sans un mot. Un refus ne se renverse plus qu'avec un motif, et un
+     cours éligible reçoit ses notes comme d'office. */
+  const ancien = db.prepare(`SELECT statut FROM etudiant_report_note
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND cible = 'cours'
+      AND cours_code = ? AND aa_code IS NULL`).get(...cle);
+  const motif = String(req.body?.motif || '').trim();
+  if (ancien && ancien.statut !== 'accorde' && !motif) {
+    return res.status(409).json({ error: 'Le report de ce cours a été refusé : le reposer demande un motif écrit.',
+      motif_requis: true });
+  }
   const ligne = db.prepare(`SELECT id FROM etudiant_report_note
     WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND cible = 'cours'
       AND cours_code = ? AND aa_code IS NULL`).get(...cle);
@@ -2323,7 +2337,26 @@ r.put('/reports', authRequired, roleRequired('admin', 'editeur'), (req, res) => 
       VALUES (?,?,?, 'cours', ?, NULL, ?, ?, 'accorde', ?, datetime('now'), ?)`)
       .run(...cle, Number(note), annee_origine || null, decision_ce || null, req.user?.nom || req.user?.email || null);
   }
-  res.json({ ok: true });
+  if (motif && ancien && ancien.statut !== 'accorde') {
+    db.prepare(`UPDATE etudiant_report_note SET decision_ce = ? WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
+      AND cible = 'cours' AND cours_code = ? AND aa_code IS NULL`).run(`refus levé : ${motif}`, ...cle);
+  }
+  // Les notes des acquis, comme le report d'office — sans écraser une note encodée.
+  let notes = 0;
+  try {
+    const c = reportsEligibles(cle[0], cle[2], annee_scolaire, { ...reglesDeliberation(), base_s2: 'cours' }).cours
+      .find(x => x.cours_code === cours_code);
+    if (c) {
+      const ins = db.prepare(`INSERT INTO etudiant_note_detail
+        (etudiant_id, annee_scolaire, ue_num, type, code, cours_code, points, origine)
+        VALUES (?,?,?, 'aa', ?,?,?,?) ON CONFLICT(etudiant_id, annee_scolaire, ue_num, type, code) DO NOTHING`);
+      for (const a of c.aas || []) {
+        notes += ins.run(cle[0], annee_scolaire, cle[2], `s1|${cours_code}|${a.aa_code}`, cours_code,
+          a.note, `report:${c.annee_origine || annee_origine || ''}`).changes;
+      }
+    }
+  } catch (e) { console.error('[reports] notes :', e.message); }
+  res.json({ ok: true, notes });
 });
 
 /* LE RATTRAPAGE : poser d'office les reports des PAE déjà composés. Rien ne

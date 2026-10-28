@@ -33,3 +33,35 @@ métier rompues. Les preuves (fichier:ligne) valent pour la version 3.1.423.
 9. Questions à trancher (Charles) : cote d'un ajourné à moyenne > 10 ; périodes Z sur les
    pièces ; note d'attribution par une coordination ; 1er dixième (vérificatrice ou RGE) ;
    transfert d'autonomie entre UE ; voies de recours des aménagements ; procédure PO.
+
+## Deuxième relevé : une chose, deux portes (3.1.427-3.1.428)
+
+Demande de Charles : « vérifier qu'il n'y a pas pour une chose deux entrées possibles ». Fermé :
+- **Grille du parcours** : chaque choix effaçait la valorisation de l'unité et son journal ; refus
+  désormais sur un dossier du circuit (≥ 2026-2027) ou validé/notifié (« inscrit » coexiste).
+- **Séances d'horaire** : la présence tombait avec la séance (cascade). Déclencheur
+  `garde_seance_presences` ; réimport, retrait d'un lot, versement du plan et import CSV
+  épargnent les séances qui portent des présences (et le réimport ne les double pas) ;
+  `DELETE /horaire/seance/:id` demande d'annuler plutôt.
+- **Valorisation validée** : déclencheur `garde_va_validee` — aucune porte ne la supprime.
+- **Création de VA** : la fiche refuse un second dossier sur la même unité ; fiche et lot
+  écrivent la ligne « introduction » du journal.
+- **Report de notes** : `PUT /acquis/reports` copie les notes des acquis comme le report
+  d'office, et ne renverse un refus qu'avec un motif.
+- **Fusion d'étudiants** : `/import-historique/fusionner` délègue à la fusion des doublons.
+- **Section d'un dossier de procédure** : la règle commune (`lib/sectionDossier.js`).
+- **`copier-section`** déclarée deux fois : une seule route (colonnes de travail, périmètre,
+  écrasement admin dans la transaction). **`creer-depuis-cours`** pose le périmètre.
+
+Restent, plus lourds — à décider :
+1. **Créer un étudiant** : six portes (fiche, imports eCampus/Excel/HELB/historique, portail) ;
+   `POST` ne pose pas `rn_norm`, `/import-excel` peut écraser une adresse par NULL. À unifier
+   dans `trouverOuCreerEtudiant()` sur `rapprocher()`.
+2. **Notes après clôture** : plusieurs portes écrivent une note sans regarder si la séance est
+   close (acquis.js — encodage direct, import des notes —, grille/detail du parcours).
+3. **Programmes hors `ecrireProgramme()`** : /matrice, /pae-resultats, /encodage-direct, la grille,
+   /grille/deplacer ; `/doubles-programmes` garde la confirmation du PAE ; `/repartition` et
+   `/grille/cohortes` écrivent tous deux `num_organisation`.
+4. **Dates de l'UE** : `PUT /grille/ue` et `/organisation-de-base` passent outre la demande de la
+   coordination et le périmètre que respecte `PUT /annuel/dates-ue`.
+5. **Professeurs** : `UNIQUE(nom, prenom)` sensible à la casse (« Dupont » ≠ « DUPONT »).
