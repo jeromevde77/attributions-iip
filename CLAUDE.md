@@ -1367,7 +1367,10 @@ téléphone lié, consommée par lui), journal en ajout seul, réglages (directi
 (`seuil_absence_pct`, 10 % par défaut, réglable), UE par UE, calculées comme la grille
 (`lib/alertesAbsences.js`) ; « Prévenir l'étudiant » montre l'avis (séances manquées, taux,
 mention du congé-éducation) puis l'envoie à l'adresse d'école — **jamais d'envoi
-automatique** —, journalisé `avis_absence`. Fiche RGPD : `docs/rgpd-presences-qr.md`. Banc :
+automatique** —, journalisé `avis_absence`. Fiche RGPD : `docs/rgpd-presences-qr.md`. **Le mode d'emploi illustré** (3.1.413,
+gabarit du guide du secrétariat, 13 pages) : Documentation → Mode d'emploi → *La présence par
+QR code (PDF)*, servi par `GET /api/documentation/guide/presence-qr` (liste FERMÉE de guides,
+`backend/assets/guides/`). Banc :
 `backend/test/presenceQr.mjs`. **À venir :** la phase pilote (un professeur, un cours) ; la
 coordination dans le suivi (ses sections) ; le registre CEP dans le rail.
 

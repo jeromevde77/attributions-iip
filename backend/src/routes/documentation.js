@@ -236,13 +236,21 @@ function concerne(doc, user) {
  * compose hors de Lucie, page par page. Servi par le serveur et non comme un
  * fichier public, pour qu'il ne s'ouvre qu'à ceux qui ont un compte. Deux
  * segments : `/:cle` ne l'avale pas. */
-const GUIDE_SECRETARIAT = path.join(path.dirname(fileURLToPath(import.meta.url)),
-  '../../assets/guides/Lucie_mode_emploi_secretariat.pdf');
-r.get('/guide/secretariat', authRequired, (req, res) => {
-  if (!fs.existsSync(GUIDE_SECRETARIAT)) return res.status(404).json({ error: 'Guide introuvable sur le serveur' });
+/* Plusieurs guides, une seule porte : la liste est FERMÉE — le nom demandé
+ * choisit un fichier connu, jamais un chemin. */
+const DOSSIER_GUIDES = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../assets/guides');
+const GUIDES = {
+  secretariat: 'Lucie_mode_emploi_secretariat.pdf',
+  // La présence par QR code (Charles, 28 octobre 2026) : professeur, étudiant, secrétariat.
+  'presence-qr': 'Lucie_mode_emploi_presence_QR.pdf',
+};
+r.get('/guide/:nom', authRequired, (req, res) => {
+  const fichier = GUIDES[req.params.nom];
+  const chemin = fichier && path.join(DOSSIER_GUIDES, fichier);
+  if (!chemin || !fs.existsSync(chemin)) return res.status(404).json({ error: 'Guide introuvable sur le serveur' });
   res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', 'inline; filename="Lucie_mode_emploi_secretariat.pdf"');
-  res.sendFile(GUIDE_SECRETARIAT);
+  res.setHeader('Content-Disposition', `inline; filename="${fichier}"`);
+  res.sendFile(chemin);
 });
 
 // ── CE QUI M'ATTEND — la lecture « par personne » du tableau de bord ────────

@@ -1127,10 +1127,10 @@ const texteDuPoint = p => [p.titre, p.ou, p.texte, ...(p.savoir || [])].filter(B
 /* LE GUIDE ILLUSTRÉ (PDF, captures de la version de test) — servi derrière la
  * connexion. L'onglet s'ouvre AVANT d'attendre le fichier : ouvert après, le
  * navigateur le prend pour une fenêtre surgissante et le bloque en silence. */
-async function ouvrirGuide(setErreur) {
+async function ouvrirGuide(setErreur, nom = 'secretariat') {
   const onglet = window.open('', '_blank');
   try {
-    const rep = await fetch('/api/documentation/guide/secretariat', { headers: authHeaders() });
+    const rep = await fetch(`/api/documentation/guide/${nom}`, { headers: authHeaders() });
     if (!rep.ok) throw new Error((await rep.json().catch(() => ({}))).error || `Erreur ${rep.status}`);
     const url = URL.createObjectURL(await rep.blob());
     if (onglet) onglet.location = url; else window.location = url;
@@ -1171,6 +1171,13 @@ export default function Aide({ integre = false }) {
         </button>
         <span className="text-second text-slate-500">
           Écran par écran, avec captures, sommaire et signets — 76 pages, à lire ou à imprimer.
+        </span>
+        <button onClick={() => { setErreurGuide(null); ouvrirGuide(setErreurGuide, 'presence-qr'); }}
+          className="bouton bouton-sortir controle">
+          <IconFileTypePdf size={16} /> La présence par QR code (PDF)
+        </button>
+        <span className="text-second text-slate-500">
+          Professeur, étudiant, secrétariat : le QR en classe, la grille de présence, le suivi des absences.
         </span>
         {erreurGuide && <span className="text-second text-red-700">{erreurGuide}</span>}
       </div>
