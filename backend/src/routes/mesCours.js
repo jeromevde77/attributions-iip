@@ -147,7 +147,7 @@ const r = Router();
 /* Les acquis évalués par CE cours — la pondération seule en tient le compte,
  * comme pour la DUE. Sans lignes de pondération : repli sur le rattachement
  * direct aa.cours_code, puis, à défaut, la note de cours. */
-function acquisDuCours(coursCode, ueNum, annee) {
+export function acquisDuCours(coursCode, ueNum, annee) {
   try {
     const lies = db.prepare(`
       SELECT p.aa_code, COALESCE(a.description, '') AS description,
@@ -226,7 +226,7 @@ function coursDesSections(sections, annee) {
 }
 /** Qui peut ouvrir ce cours, et avec quels étudiants : ses attributions
  *  d'abord ; à défaut, la coordination de la section. `null` : personne. */
-function accesCours(req, coursCode, annee) {
+export function accesCours(req, coursCode, annee) {
   const profId = profDe(req);
   const mien = profId ? etudiantsDuCours(profId, coursCode, annee) : null;
   if (mien) return { ...mien, portee: 'attribution' };

@@ -3177,6 +3177,8 @@ app.use('/api/planification-ia', garderModule('planification-ia'), planifIARoute
 app.use('/api/locaux', garderModule('locaux'), locauxRoutes);
 app.use('/api/apercu', garderModule('apercu'), apercuRoutes);
 app.use('/api/perimetre', garderModule('perimetre'), perimetreRoutes);
+// Le carnet de cotes, AVANT les routes paramétriques de Mes cours (« /:coursCode/… »).
+app.use('/api/mes-cours/carnet', garderModule('mes-cours'), (await import('./routes/carnet.js')).default);
 app.use('/api/mes-cours', garderModule('mes-cours'), mesCoursRoutes);
 // LES PROPOSITIONS EN ATTENTE ENTRENT DANS L'ENCODAGE (reprise automatique, 8 octobre 2026) —
 // celles d'avant ce choix, une fois au démarrage ; ensuite, à chaque enregistrement.

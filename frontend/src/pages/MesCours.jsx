@@ -3,7 +3,7 @@ import { ouvrirApercu } from '../lib/apercu.js';
 import { IconChalkboard } from '@tabler/icons-react';
 import { couleurBloc, rangBloc } from '../lib/blocs.js';
 import { useEffect, useState } from 'react';
-import { IconChartHistogram, IconBooks, IconChevronLeft, IconAlertTriangle, IconMessageCircle, IconPrinter, IconCertificate, IconAccessible, IconPencil, IconUserCheck, IconFileDescription, IconTable, IconFileText } from '@tabler/icons-react';
+import { IconChartHistogram, IconBooks, IconChevronLeft, IconAlertTriangle, IconMessageCircle, IconPrinter, IconCertificate, IconAccessible, IconPencil, IconUserCheck, IconFileDescription, IconTable, IconFileText, IconNotebook } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { MOTIFS_ECHEC } from '../components/motifsEchec.js';
 import PresencesCours from '../components/PresencesCours.jsx';
@@ -11,6 +11,8 @@ import MaJournee from '../components/MaJournee.jsx';
 import GrillePresence from '../components/GrillePresence.jsx';
 import MaListe from '../components/MaListe.jsx';
 import IndicateursNotes from '../components/IndicateursNotes.jsx';
+import CarnetCotes from '../components/CarnetCotes.jsx';
+import { demander, informer } from '../lib/dialogue.jsx';
 import { OuvrirEditions, RailLateral, Encadre } from '../components/ui.jsx';
 import AvisValorisationProf from '../components/AvisValorisationProf.jsx';
 import AvisAmenagementProf from '../components/AvisAmenagementProf.jsx';
@@ -70,7 +72,7 @@ export default function MesCours() {
      unités où il porte une attribution. */
   const [vueDue, setVueDue] = useState(false);
   const [faceDue, setFaceDue] = useState('croisement');
-  const [face, setFace] = useState('notes');          // notes | presences | indicateurs
+  const [face, setFace] = useState('notes');          // notes | carnet | presences | indicateurs
   /* LA SÉANCE CHOISIE DANS « MA JOURNÉE » (28 octobre 2026) : un clic y ouvre le
      cours sur la bonne face. Si elle est d'une autre année que celle affichée,
      on change d'année d'abord, puis on ouvre. */
@@ -166,6 +168,48 @@ export default function MesCours() {
     finally { setEnCours(false); }
   }
 
+  /* DU CARNET À LA FEUILLE : on REMPLIT les cases, on n'enregistre rien. Le
+     professeur relit, justifie ce qui est sous 10, puis « Enregistrer » — la
+     porte des notes reste la même, avec ses contrôles. */
+  async function reprendreDuCarnet(props, ses) {
+    if (!feuille) return;
+    if ((feuille.session || 1) !== ses) {
+      informer(`Le carnet affiche la ${ses === 2 ? 'seconde' : 'première'} session, la feuille ouverte l’autre : ouvrez la même session des deux côtés.`);
+      return;
+    }
+    if (feuille.lecture_seule) { informer('La séance est close : la feuille ne se modifie plus.'); return; }
+    const cols = colonnes(feuille);
+    const candidats = [];
+    for (const e of feuille.etudiants) {
+      if (e.clos || e.report || e.dispense) continue;
+      for (const k of cols) {
+        if (e.aa_ouverts && !e.aa_ouverts.includes(k)) continue;
+        const v = props[e.id]?.[k];
+        if (v == null) continue;
+        const actuel = notes[e.id]?.[k] ?? '';
+        if (String(actuel) === String(v)) continue;
+        candidats.push({ id: e.id, k, v, actuel });
+      }
+    }
+    if (!candidats.length) { informer('Rien à reprendre : la feuille porte déjà les propositions du carnet, ou aucune évaluation rattachée n’est notée.'); return; }
+    const differentes = candidats.filter(x => String(x.actuel).trim() !== '').length;
+    const ecraser = differentes ? await demander({ titre: 'Remplacer des notes déjà tapées ?',
+      message: `${differentes} case(s) de la feuille portent déjà une autre note. Les remplacer par la proposition du carnet ?
+
+« Cases vides seulement » ne remplit que les cases vides.`,
+      confirmer: 'Remplacer', annuler: 'Cases vides seulement' }) : true;
+    const retenus = candidats.filter(x => ecraser || String(x.actuel).trim() === '');
+    setNotes(prev => {
+      const n = { ...prev };
+      for (const x of retenus) n[x.id] = { ...(n[x.id] || {}), [x.k]: x.v };
+      return n;
+    });
+    setFace('notes');
+    setFait(null);
+    informer({ titre: 'Feuille remplie depuis le carnet', ton: 'reussi',
+      message: `${retenus.length} case(s) remplie(s). Rien n’est encore enregistré : relisez, justifiez les notes sous 10, puis « Enregistrer ».` });
+  }
+
   const c = (cours || []).find(x => x.cours_code === ouvert);
 
   return (
@@ -194,6 +238,7 @@ export default function MesCours() {
         ] : []),
         ...(ouvert && !vueDue ? [
           { key: 'notes', label: 'Notes du cours', icon: IconPencil, actif: face === 'notes', onClick: () => setFace('notes') },
+          { key: 'carnet', label: 'Carnet de cotes — tests, travaux', icon: IconNotebook, actif: face === 'carnet', onClick: () => setFace('carnet') },
           { key: 'indicateurs', label: 'Indicateurs', icon: IconChartHistogram, actif: face === 'indicateurs', onClick: () => setFace('indicateurs') },
           // PAS ENCORE EN SERVICE (Charles, 11 octobre 2026) : grisé, badge « soon », bloqué.
           // EN SERVICE DEPUIS « MA JOURNÉE » (28 octobre 2026) — bloquée depuis le 11 octobre.
@@ -480,7 +525,7 @@ export default function MesCours() {
                 attestations du congé-éducation payé. */}
             <div className="flex items-center gap-1 border-b border-slate-200">
               {/* LES PRÉSENCES EN SERVICE (28 octobre 2026) — bloquées depuis le 11 octobre. */}
-              {[['notes', 'Notes'], ['presences', 'Présences'], ['indicateurs', 'Indicateurs']].map(([k, l]) => (
+              {[['notes', 'Notes'], ['carnet', 'Carnet'], ['presences', 'Présences'], ['indicateurs', 'Indicateurs']].map(([k, l]) => (
                 <button key={k} type="button" onClick={() => setFace(k)}
                   className={`onglet-page ${face === k ? 'onglet-page-actif' : ''}`}>{l}</button>
               ))}
@@ -532,6 +577,11 @@ export default function MesCours() {
                 les notes se lisent, elles ne se proposent plus.
                 {!seconde && feuille.sessions?.seconde_possible ? ' Les notes des ajournés se saisissent dans « 2ᵉ session ».' : ''}
               </Encadre>
+            )}
+            {/* LE CARNET DE COTES (28 octobre 2026) : les tests et travaux, et la proposition par acquis. */}
+            {face === 'carnet' && feuille && (
+              <CarnetCotes key={ouvert} coursCode={ouvert} annee={annee} groupe={groupeVu}
+                sessionFeuille={feuille.session || 1} onReprendre={reprendreDuCarnet} />
             )}
             {face === 'presences' && feuille && (
               <GrillePresence coursCode={ouvert} ueNum={feuille.ue_num} annee={annee} grilleUE={!!feuille.grille_ue} />

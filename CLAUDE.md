@@ -52,6 +52,22 @@ tout). Direction, secrétariat : à tous ; coordination : ses sections. **Le mé
 même choix de groupes, « Vider leurs tableaux de bord » pose `tableau_vide.vide_le` par
 compte ; les notifications d'avant quittent le fil, les messages et les vœux restent.
 
+**LE CARNET DE COTES** (3.1.422, Charles, 28 octobre 2026 : « rendre Lucie intéressante pour
+les profs — gagner du temps, encoder des notes, des tests par exemple »). Mes cours → onglet
+*Carnet* (`components/CarnetCotes.jsx`, `routes/carnet.js` monté sur `/api/mes-cours/carnet` AVANT
+les routes paramétriques de Mes cours, métier `lib/carnet.js`, tables `carnet_evaluation`,
+`carnet_evaluation_aa`, `carnet_note`). Une colonne par évaluation (intitulé, date, sur, poids,
+session), des points à deux décimales ou PP · NP · CM, coller une colonne d'Excel (dans l'ordre, ou
+matricule/nom + note), export Excel, « Reprendre l'an dernier » (la STRUCTURE, jamais les notes).
+**Rattacher une évaluation à des acquis reste un choix, évaluation par évaluation** (question non
+tranchée par Charles : on ne force rien) : rattachée, elle nourrit une PROPOSITION par acquis
+(moyenne pondérée poids d'évaluation × poids du lien, sur 20, vide et mentions hors dénominateur,
+arrondi à l'unité) ; sinon elle reste un repère. « Reprendre dans la feuille de notes » REMPLIT les
+cases (demande avant d'écraser une note déjà tapée) et n'enregistre rien : la porte reste
+`POST /mes-cours/:cours/notes`, avec justificatif sous 10. Le carnet d'un cours est commun à ceux
+qui y ont accès (`accesCours`) ; chaque évaluation et chaque note gardent leur auteur. Banc :
+`backend/test/carnet.mjs`.
+
 **Établissement :** IIP — N° ECOT 5222132070, FASE 292, Campus Erasme,
 Route de Lennik 808, 1070 Anderlecht. Enseignement pour adultes (FWB).
 Sections : TIM (la plus grande), Psychomotricité, AeSI (soins infirmiers,

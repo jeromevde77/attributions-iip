@@ -75,6 +75,9 @@ les axes ; le rail latéral porte les rubriques de l'axe et les outils de l'écr
   les téléphones liés (Étudiants → Suivi des présences), et sort la
   **grille de présence** par cours ou par UE au centre d'impression. Fiche RGPD :
   [`docs/rgpd-presences-qr.md`](docs/rgpd-presences-qr.md).
+- **Carnet de cotes** (Mes cours → Carnet) : les tests, interrogations et travaux du
+  professeur, collés depuis Excel s'il le faut ; rattachés à des acquis, ils proposent la
+  note par acquis, reprise d'un clic dans la feuille de notes (rien ne s'enregistre d'office).
 - **Dates des UE face à l'horaire réel** (Organisation → Planification → Dates
   des UE → *Comparer à l'horaire réel*) : dates d'ouverture et de fermeture contre
   première et dernière séance, les deux premiers dixièmes (dates de l'UE et
