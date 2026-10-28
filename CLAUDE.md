@@ -35,10 +35,19 @@ par défaut). **Les images ne sont plus en dur** : `services/assets/*` exportent
 des liaisons vivantes que `lib/identite.js` remplace par celles de
 l'établissement 1 au démarrage et à chaque import ; `GET /api/etablissement/images`
 les sert à l'écran (`frontend/src/lib/identite.js`) — quatre écrans les
-embarquaient en texte (≈ 950 Ko retirés du code, Attestation 784 → 84 Ko). **À
-venir :** les pièces d'une section d'un AUTRE établissement lisent son identité
-(`etablissementDeSection`), le filtre par établissement, le périmètre d'accès par
-établissement.
+embarquaient en texte (≈ 950 Ko retirés du code, Attestation 784 → 84 Ko).
+**Une pièce porte l'identité de l'établissement de SA section** (3.1.443, Charles : un second
+établissement aura une section cette année). Le contexte de la requête (`lib/contexteRequete.js`)
+porte l'« établissement courant », déduit à la première lecture (`fournirDeduction`, dans
+`lib/identite.js`) : section nommée, sinon étudiant (`section_rattachement`), sinon UE →
+`etablissementDeSection`. Les pièces n'importent plus les constantes d'images : `logoCourant()`,
+`logoHtmlCourant()`, `logoBlancCourant()`, `signatureCourante()`, `cachetCourant()` ; et
+`identiteEtablissement()` (`routes/config.js`) comme `piedDocument()` lisent la fiche de cet
+établissement (nom, adresse, ECOT, FASE, signataire). Tant qu'il n'existe qu'un établissement, rien
+n'est cherché : l'IIP. **À régler à l'écran pour le second** : sa fiche complète (nom, adresse,
+ECOT, signataire) et ses quatre images dans Configuration → Identité, et ses sections rattachées —
+une image absente retombe sur celle de l'IIP. **À venir :** le filtre par établissement, le
+périmètre d'accès par établissement.
 
 **LA COMMUNICATION** (3.1.278-3.1.279, Charles, 10 octobre 2026 : « envoyer sur le
 tableau de bord de tous, d'une partie, d'une section… à terme, supprimer les courriels

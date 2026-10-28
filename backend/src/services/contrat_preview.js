@@ -4,9 +4,8 @@
  * Si absent, utilise le template par défaut intégré.
  */
 
-import { LOGO_IIP_JPEG } from './assets/logo_iip_jpeg.js';
-import { SIGNATURE_SOHET } from './assets/signature_sohet.js';
 import { piedDocument } from '../routes/parametres.js';
+import { logoCourant, signatureCourante } from '../lib/identite.js';
 
 const JOURS_FR = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
 const MOIS_FR  = ['janvier','février','mars','avril','mai','juin',
@@ -285,7 +284,7 @@ export function genererApercu({ etab, prof, attributions, annee, date_contrat, r
 
   // Pied de page identique à celui de l'attestation (logo + filet doré + coordonnées)
   const piedPage = piedDocument();
-  const signatureRep = /sohet/i.test(rep) ? `<img src="${SIGNATURE_SOHET}" alt="signature">` : '';
+  const signatureRep = /sohet/i.test(rep) ? `<img src="${signatureCourante()}" alt="signature">` : '';
 
   const phraseETP = estETP
     ? `Ces emplois constituent un <strong>temps plein</strong> pour l'année académique <strong>${annee||''}</strong>.`
@@ -311,7 +310,7 @@ export function genererApercu({ etab, prof, attributions, annee, date_contrat, r
       : '',
     '{{matricule}}':      prof.matricule ? `Matricule : ${prof.matricule}` : '',
     '{{cours_liste}}':    coursListeHtml,
-    '{{logo_iip}}':       LOGO_IIP_JPEG,
+    '{{logo_iip}}':       logoCourant(),
     '{{signature_representant}}': signatureRep,
     '{{pied_page}}':      piedPage,
     '{{total_periodes}}': String(total),

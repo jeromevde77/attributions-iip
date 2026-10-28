@@ -8,6 +8,7 @@ import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { gesteRequis } from '../lib/gestes.js';
 import { capacitePdf } from '../services/pdf.js';
+import { etablissementCourant } from '../lib/contexteRequete.js';
 
 const r = Router();
 
@@ -26,7 +27,9 @@ export function getParamNum(cle, fallback = 0) {
 // dans Configuration > Mise en page, à partir des champs de l'établissement.
 export function piedDocument() {
   let etab = {};
-  try { etab = db.prepare('SELECT * FROM etablissement WHERE id = 1').get() || {}; } catch {}
+  // L'établissement de la pièce en cours (3.1.443) — l'IIP à défaut.
+  try { etab = db.prepare('SELECT * FROM etablissement WHERE id = ?').get(etablissementCourant())
+    || db.prepare('SELECT * FROM etablissement WHERE id = 1').get() || {}; } catch {}
   const on = (cle) => getParam(cle, '1') === '1';
   const ligne1 = [
     on('miseenpage.pied_etab_nom')       ? etab.etab_nom : null,

@@ -2,14 +2,12 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { parse as parseHtml } from 'node-html-parser';
-import { LOGO_IIP_HTML } from '../services/assets/logo_iip.js';
-import { LOGO_IIP_BLANC_HTML } from '../services/assets/logo_iip_blanc.js';
 import { sectionRattachement } from './etudiants.js';
 import { identiteEtablissement } from './config.js';
 import { separerNomPrenom } from '../lib/nom.js';
 import { calculerFrais } from './fraisScolarite.js';
 import { envelopperDocument } from '../lib/document.js';
-import { SIGNATURE_SOHET } from '../services/assets/signature_sohet.js';
+import { logoBlancHtmlCourant, logoHtmlCourant, signatureCourante } from '../lib/identite.js';
 
 const r = Router();
 
@@ -365,10 +363,10 @@ export function composerTemplate(t, { prof_id, ue_num, section, annee, etudiant_
     Object.entries(u).forEach(([k,v]) => { vars[`ue.${k}`] = v ?? ''; });
   }
   // Logo IIP
-  vars['etab.logo']        = LOGO_IIP_HTML;
-  vars['etab.logo_sm']     = LOGO_IIP_HTML.replace('height:60px', 'height:40px');
-  vars['etab.logo_blanc']  = LOGO_IIP_BLANC_HTML;
-  vars['etab.logo_blanc_sm'] = LOGO_IIP_BLANC_HTML.replace('height:60px', 'height:40px');
+  vars['etab.logo']        = logoHtmlCourant();
+  vars['etab.logo_sm']     = logoHtmlCourant().replace('height:60px', 'height:40px');
+  vars['etab.logo_blanc']  = logoBlancHtmlCourant();
+  vars['etab.logo_blanc_sm'] = logoBlancHtmlCourant().replace('height:60px', 'height:40px');
   const now = new Date();
   vars['sys.annee']    = ctx.annee;
   vars['sys.date_iso'] = now.toISOString().split('T')[0];
@@ -523,7 +521,7 @@ function poserSignatures(html) {
   });
 }
 // Une fonction, pas une constante : la signature importée (3.1.253) se lit à chaque pièce.
-const STYLE_SIGNATURE = () => `:root{--paraphe:url("${SIGNATURE_SOHET}")}
+const STYLE_SIGNATURE = () => `:root{--paraphe:url("${signatureCourante()}")}
   .cloture{display:grid;grid-template-columns:1fr auto;grid-template-rows:auto auto;column-gap:14mm;align-items:end;margin-top:6mm;page-break-inside:avoid}
   .cloture .lieu{grid-column:1;grid-row:2;font-size:10pt;padding-bottom:1mm}
   .cloture .paraphe{grid-column:2;grid-row:1;width:52mm;height:20mm;background-image:var(--paraphe);background-repeat:no-repeat;background-position:center bottom;background-size:contain}

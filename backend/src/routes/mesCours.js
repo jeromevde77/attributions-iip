@@ -11,13 +11,13 @@ import { DECIDE } from '../lib/circuitAR.js';
 import { ecrirePresences, minutesDe, STATUTS_PRESENCE, MOTIFS_JUSTIFIES } from '../lib/cep.js';
 import { envelopperDocument, piedGabaritPdf, BANDE_PIED_MM } from '../lib/document.js';
 import { capacitePdf, rendrePdf } from '../services/pdf.js';
-import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 import { piedDocument } from './parametres.js';
 import { aRepresenterParCours } from './acquis.js';
 import { attributionsDe, etudiantsDuCours } from '../lib/etudiantsCours.js';
 import { donneesGrille, htmlGrille, excelGrille, premierDixieme, grillePermise, seancesDeLUE, grilleUE, dispensesUE } from '../lib/grillePresence.js';
 import { archiverDocument } from '../services/document-archive.js';
 import { lireSeance, qrDeLaSeance, compteurSeance, seancesACompleter, fenetreSeance, aujourdhuiBruxelles, migrerPresenceQr, modeEssai } from '../lib/presenceQr.js';
+import { logoCourant } from '../lib/identite.js';
 
 /**
  * MES COURS — la porte du professeur (25 septembre 2026).
@@ -537,7 +537,7 @@ async function repondreGrille(req, res, g, { titre, sous, ligne, ue = false, cou
   if (!cap.disponible) return res.json({ html, nom: fichier });
   try {
     const pdf = await rendrePdf(html, { pagination: 'si-plusieurs', orientation: 'paysage',
-      pied: avecNum => piedGabaritPdf(LOGO_IIP_JPEG, piedDocument(), avecNum),
+      pied: avecNum => piedGabaritPdf(logoCourant(), piedDocument(), avecNum),
       marges: { top: '12mm', right: '12mm', bottom: `${BANDE_PIED_MM}mm`, left: '12mm' } });
     archiverDocument({ type_doc: ue ? 'grille_presence_ue' : 'grille_presence_cours', annee_scolaire: annee,
       nom_fichier: `${fichier}.pdf`, pdf, genere_par: req.user?.email || req.user?.nom || null });
@@ -775,7 +775,7 @@ tr{break-inside:avoid}`,
   if (!cap.disponible) return res.json({ html });
   try {
     const pdf = await rendrePdf(html, { pagination: 'si-plusieurs', orientation: 'portrait',
-      pied: avecNum => piedGabaritPdf(LOGO_IIP_JPEG, piedDocument(), avecNum),
+      pied: avecNum => piedGabaritPdf(logoCourant(), piedDocument(), avecNum),
       marges: { top: '12mm', right: '15mm', bottom: `${BANDE_PIED_MM}mm`, left: '15mm' } });
     const fichier = `Liste_${code}${demande ? `_${demande}` : ''}`.replace(/[^A-Za-z0-9_.-]+/g, '_');
     res.setHeader('Content-Type', 'application/pdf');

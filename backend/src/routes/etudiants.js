@@ -10,7 +10,6 @@ import { Router } from 'express';
 import multer from 'multer';
 import { existsSync, mkdirSync, unlinkSync } from 'fs';
 import { join } from 'path';
-import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 import { piedBalisage, piedStyles, reglesDePage, envelopperDocument } from '../lib/document.js';
 import { htmlListeCoordonnees } from '../services/liste_coordonnees.js';
 
@@ -24,7 +23,6 @@ import { construireGraphe, niveauxEffectifs, rangNiveau } from './capitalisation
 import { placementsSection } from '../lib/placement.js';
 import { marquerPrimo } from '../lib/primo.js';
 import { etatsPAE, plafondBloc, rangBloc } from '../lib/pae.js';
-import { SIGNATURE_SOHET, SCEAU_IIP } from '../services/assets/signature_sohet.js';
 import { identiteEtablissement } from './config.js';
 import { structureUE, calculerNoteUE, coursValidesAnterieurs, poserReportsDOffice } from './acquis.js';
 import {
@@ -48,6 +46,7 @@ import { composerNotificationVA } from '../lib/pieceNotificationVA.js';
 
 import { noteVerrouillee, MESSAGE_CLOSE } from '../lib/gardeNotes.js';
 import { trouverOuCreerEtudiant } from '../lib/etudiantUnique.js';
+import { cachetCourant, logoCourant, signatureCourante } from '../lib/identite.js';
 const r = Router();
 
 // Intitulé, niveau et section d'une UE, indépendamment de l'année.
@@ -2067,7 +2066,7 @@ r.get('/rapport', authRequired, (req, res) => {
 </table>
 <div class="legende"><b>C</b> réussite · <b>R</b> refusé · <b>A</b> absent · <b>VA</b> valorisation des acquis · <b>•</b> inscrit (non délibéré) · survolez une case pour les points</div>
 
-${piedBalisage(LOGO_IIP_JPEG)}
+${piedBalisage(logoCourant())}
 </body></html>`;
 
   res.json({ html, nom: 'parcours_' + section + '_' + annee + '.html' });
@@ -3738,7 +3737,7 @@ export function documentParcours(etudId, annee) {
 
   const html = envelopperDocument({
     html: corps, titre: '', orientation: 'paysage',
-    margeHaut: 10, margeCote: 10, logo: LOGO_IIP_JPEG,
+    margeHaut: 10, margeCote: 10, logo: logoCourant(),
     styles: `
 .fp{font-size:8pt;color:#1B2B4B}
 .entete{display:flex;justify-content:space-between;align-items:flex-end;
@@ -4015,7 +4014,7 @@ table.ues td.ei{border-left:1mm solid #C9A227}
 .fleches{font-size:7.2pt;color:#334155;line-height:1.45;margin-top:2mm;border-left:.6mm solid #C9A84C;padding-left:2.5mm}
 /* LA SIGNATURE : le bloc des attestations, tel quel — la protection fac-similé
    (lib/protectionSignature.js) le reconnaît et le filigrane au PDF, à l'aperçu et à l'envoi. */
-:root{--sceau:url("${SCEAU_IIP}");--paraphe:url("${SIGNATURE_SOHET}")}
+:root{--sceau:url("${cachetCourant()}");--paraphe:url("${signatureCourante()}")}
 .cloture{display:grid;grid-template-columns:auto 1fr auto;grid-template-rows:auto auto;column-gap:14mm;align-items:end;margin-top:8mm;page-break-inside:avoid;break-inside:avoid}
 .cloture .lieu{grid-column:2;grid-row:2;font-size:8.5pt;color:#334;text-align:center;padding-bottom:1mm}
 .cloture .sceau,.cloture .paraphe{grid-row:1;height:20mm;background-repeat:no-repeat;background-position:center bottom;background-size:contain}

@@ -18,7 +18,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { Router } from 'express';
-import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 import { piedBalisage, piedStyles, reglesDePage } from '../lib/document.js';
 import db from '../db/index.js';
 import { piedDocument, getParam } from './parametres.js';
@@ -27,6 +26,7 @@ import { authRequired, roleRequired } from '../middleware/auth.js';
 import { calculerDI, calculerDIS } from './droitInscription.js';
 import { premierDixiemeUE } from '../lib/datesReelles.js';
 import { forfaitVA, migrerForfaitVA, exonererForfait } from '../lib/forfaitVA.js';
+import { logoCourant } from '../lib/identite.js';
 
 const r = Router();
 
@@ -400,7 +400,7 @@ ${f.paiements.length ? `
   ${new Date().toLocaleDateString('fr-BE')}
 </div>
 
-${piedBalisage(LOGO_IIP_JPEG)}
+${piedBalisage(logoCourant())}
 </body></html>`;
 
   res.json({ html, titre: `Frais de scolarité — ${e.nom} ${e.prenom}` });

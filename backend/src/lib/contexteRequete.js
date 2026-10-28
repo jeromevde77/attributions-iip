@@ -85,3 +85,26 @@ export function mentionProduction() {
   const qui = u?.nom || u?.email || null;
   return qui ? `Produit par ${qui} ${horo}` : `Produit ${horo}`;
 }
+
+/* L'ÉTABLISSEMENT DE LA PIÈCE EN COURS (3.1.443, Charles, 28 octobre 2026 : un second
+ * établissement aura des sections dans Lucie cette année). Une pièce d'une section rattachée à
+ * un autre établissement porte SON identité — nom, adresse, matricule, logo, signature, cachet.
+ * La route qui sait de quelle section parle la pièce le pose ; tout le reste (en-tête, pied,
+ * images) le lit. Hors requête, ou s'il n'est pas posé : l'établissement 1, l'IIP. */
+export function poserEtablissementCourant(id) {
+  const s = stockage.getStore();
+  if (s) s.etablissement = Number(id) || 1;
+}
+/* À défaut d'avoir été posé, il se DÉDUIT de ce que la requête désigne (section, étudiant, UE) :
+ * une règle qu'il faudrait poser route par route serait oubliée sur la pièce qui compte. La
+ * déduction est fournie par lib/identite.js (qui connaît la base), et retenue pour la requête. */
+let deduction = null;
+export function fournirDeduction(fn) { deduction = fn; }
+export function etablissementCourant() {
+  const s = stockage.getStore();
+  if (!s) return 1;
+  if (s.etablissement == null) {
+    try { s.etablissement = (deduction && s.req && deduction(s.req)) || 1; } catch { s.etablissement = 1; }
+  }
+  return s.etablissement;
+}

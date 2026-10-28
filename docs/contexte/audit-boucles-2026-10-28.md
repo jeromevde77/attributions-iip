@@ -21,7 +21,7 @@ métier rompues. Les preuves (fichier:ligne) valent pour la version 3.1.423.
 3. Frais de scolarité : saisie des versements sans écran (`POST/DELETE /api/frais-scolarite/paiement`),
    barèmes non réglables à l'écran.
 4. Valorisation → parcours : aucune route n'écrit `resultat = 'valorise'` (annexe 2, statistiques à zéro).
-5. Pièces d'un autre établissement : `etablissementDeSection` jamais appelée.
+5. ~~Pièces d'un autre établissement : `etablissementDeSection` jamais appelée.~~ Fait en 3.1.443.
 6. Motifs par défaut des acquis (`/api/acquis/motifs-defaut`) sans écran.
 7. Ménage : ~20 routes sans appelant (attestations/candidats|lot|pdf, ref/personnel-etablissement,
    horaire/seances, grille/calendrier, planification/synthese, impression/valeurs|destinataires,
@@ -84,8 +84,8 @@ Restent, plus lourds — à décider :
 1. **Dotation / PEP** : Lucie ne calcule pas les périodes-élèves (saisies d'après eProm, Menus 7 et 5.5).
    Pour y brancher les réguliers au 1er dixième, il faut la formule : réguliers × périodes de l'UE
    (lesquelles : professeur, étudiant ?) et la pondération du Menu 5.5.
-2. **Pièces d'un autre établissement** (`etablissementDeSection`) : utile seulement quand une section
-   d'un second établissement existera dans Lucie.
+2. ~~**Pièces d'un autre établissement**~~ — fait en 3.1.443 (Charles : une section cette année) :
+   l'établissement se déduit de la section, de l'étudiant ou de l'UE de la requête.
 3. **Démarche qualité AEQES** : un module à concevoir (registre des actions dans l'échéancier,
    indicateurs, inscrits sur cinq ans).
 4. **Routes sans appelant** (~20) : à retirer après vérification qu'aucun script ni `lucie-ops` ne s'en sert.

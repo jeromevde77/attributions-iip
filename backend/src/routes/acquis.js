@@ -28,7 +28,6 @@ import { nomPropre, nomPropreDepuisChaine, separerNomPrenom } from '../lib/nom.j
 import { anneeDeTravail, anneeActiveEnBase } from '../helpers/annee.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
 import { gesteRequis } from '../lib/gestes.js';
-import { SIGNATURE_SOHET, SCEAU_IIP } from '../services/assets/signature_sohet.js';
 import { identiteEtablissement } from './config.js';
 import { composerModele, declarerModele, blocModele } from '../lib/modelesPieces.js';
 // Les trois pièces de la délibération — attestation de réussite, motivation
@@ -37,7 +36,6 @@ import { composerModele, declarerModele, blocModele } from '../lib/modelesPieces
 import { envelopper, unitesReussies, pageAttestation, frDate } from './attestations.js';
 import { enteteDocument, stylesEntete, BANDE_PIED_MM, piedGabaritPdf } from '../lib/document.js';
 import { capacitePdf, rendrePdf, compterPages } from '../services/pdf.js';
-import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 import { piedDocument, getParam } from './parametres.js';
 import { motifPropose } from '../lib/motifPropose.js';
 import { marquerPonderationFixee, dueValidee } from './due.js';
@@ -47,6 +45,7 @@ import { migrerReprise, simulerReprise, appliquerReprise, forcerCloture,
 
 import { noteVerrouillee, MESSAGE_CLOSE } from '../lib/gardeNotes.js';
 import { uesValorisees } from '../lib/valorisation.js';
+import { logoCourant } from '../lib/identite.js';
 const r = Router();
 
 export function migrerSessions(dbx) {
@@ -8252,7 +8251,7 @@ export async function numeroterPagesPV(corps, style = '') {
     if ((await capacitePdf()).disponible) {
       n = compterPages(await rendrePdf(envelopper(style + corps.split(PH_PAGES_PV).join('……'), 'PV'), {
         marges: { top: '12mm', right: '15mm', bottom: `${BANDE_PIED_MM}mm`, left: '15mm' },
-        pied: avecNum => piedGabaritPdf(LOGO_IIP_JPEG, piedDocument(), avecNum),
+        pied: avecNum => piedGabaritPdf(logoCourant(), piedDocument(), avecNum),
         pagination: 'si-plusieurs',
       }));
     }

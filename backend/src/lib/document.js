@@ -18,7 +18,7 @@
 import { piedDocument } from '../routes/parametres.js';
 import { identiteEtablissement } from '../routes/config.js';
 import db from '../db/index.js';
-import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
+import { logoCourant } from './identite.js';
 
 // ── RÈGLE UNIQUE DU PIED DE PAGE ─────────────────────────────────────────────
 // Une seule réserve, pour TOUS les documents, comme le pied d'un Word : les
@@ -318,7 +318,7 @@ export function enteteDocument({ titre, sous = null, mention = null,
   if (compact) return `<div class="doc-entete">
     <div class="doc-cf">COMMUNAUTÉ FRANÇAISE DE BELGIQUE — ENSEIGNEMENT POUR ADULTES</div>
     <div class="doc-ligne">
-      <img class="doc-ligne-logo" src="${LOGO_IIP_JPEG}" alt="Institut Ilya Prigogine">
+      <img class="doc-ligne-logo" src="${logoCourant()}" alt="Institut Ilya Prigogine">
       <div>
         <div class="doc-ident-n">${esc(etab.nom || 'Institut Ilya Prigogine')}</div>
         ${etab.adresse ? `<div class="doc-ident-a">${esc(etab.adresse)}</div>` : ''}
@@ -396,7 +396,7 @@ export function envelopperDocument({ html, titre, orientation = 'portrait',
   const pied = avecPied ? piedDocument() : '';
   const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
 
-  const marque = logo === undefined ? LOGO_IIP_JPEG : logo;
+  const marque = logo === undefined ? logoCourant() : logo;
   const piedHtml = avecPied && pied ? piedBalisage(marque || null) : '';
   // `entete` porte ce que la pièce veut annoncer ; passé à `false`, on n'en
   // met pas — le diplôme et le corps de courriel restent hors standard.

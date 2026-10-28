@@ -110,6 +110,7 @@ import dcppRoutes          from './routes/dcpp.js';
 import dossiersRoutes      from './routes/dossiers.js';
 import recrutementRoutes   from './routes/recrutement.js';
 import aaRoutes            from './routes/aa.js';
+import { logoCourant } from './lib/identite.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -3212,10 +3213,9 @@ const _logoPath = _jn(_dn(_fup(import.meta.url)), 'src/services/assets/logo_iip.
 /* Le logo sur FOND BLANC, celui de toutes les pièces : le PNG d'origine est
    opaque, sur fond noir (27 septembre 2026). */
 app.get('/api/logo-iip', async (_req, res) => {
-  const { LOGO_IIP_JPEG } = await import('./services/assets/logo_iip_jpeg.js');
   res.setHeader('Content-Type', 'image/jpeg');
   res.setHeader('Cache-Control', 'public, max-age=86400');
-  res.end(Buffer.from(LOGO_IIP_JPEG.split(',')[1], 'base64'));
+  res.end(Buffer.from(logoCourant().split(',')[1], 'base64'));
 });
 const _logoBlanc = _jn(_dn(_fup(import.meta.url)), 'src/services/assets/logo_iip_blanc.png');
 app.get('/api/logo-iip-blanc', (_req, res) => {

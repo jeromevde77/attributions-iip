@@ -23,8 +23,8 @@ import multer from 'multer';
 import { mkdirSync, existsSync } from 'fs';
 import { join, resolve } from 'path';
 import { createHash } from 'crypto';
-import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 import { genererContratPdf as genererPdfDepuisHtml } from '../services/contrat_pdf.js';
+import { logoCourant } from '../lib/identite.js';
 
 const DATA_DIR = process.env.DATA_DIR || '/app/data';
 
@@ -145,7 +145,7 @@ function genererDepuisTemplate(slug, vars) {
 
 function wrapHtml(html, titre, pied) {
   const footerHtml = pied
-    ? `<img class="logo" src="${LOGO_IIP_JPEG}" alt="Institut Ilya Prigogine"><div class="txt">${pied}</div>`
+    ? `<img class="logo" src="${logoCourant()}" alt="Institut Ilya Prigogine"><div class="txt">${pied}</div>`
     : '';
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>${titre}</title>
 <style>

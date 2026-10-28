@@ -50,8 +50,6 @@ import { authRequired, roleRequired, getUserSections, NIVEAU_DIRECTION } from '.
 import { identiteEtablissement } from './config.js';
 import { piedDocument } from './parametres.js';
 import { signatureFiligranee } from '../services/filigrane.js';
-import { SIGNATURE_SOHET } from '../services/assets/signature_sohet.js';
-import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 import { capacitePdf, rendrePdf } from '../services/pdf.js';
 import { envelopperDocument, piedGabaritPdf, BANDE_PIED_MM } from '../lib/document.js';
 import { gesteRequis, gesteAutorise } from '../lib/gestes.js';
@@ -60,6 +58,7 @@ import {
   FAMILLES, CHAMPS, REQUIS, LIBELLE_CHAMP, SEMENCES, MARQUE_CACHET, STYLES_CONVENTION,
   jetonsInconnus, remplirModele, blocSignatures,
 } from '../lib/modelesConvention.js';
+import { logoCourant, signatureCourante } from '../lib/identite.js';
 
 const r = Router();
 const DATA_DIR = process.env.DATA_DIR || '/app/data';
@@ -239,7 +238,7 @@ function prenomNom(identite) {
  * donc pas de signature — jamais celle d'un autre.
  */
 function parapheDuSignataire(directeur) {
-  return /sohet/i.test(directeur || '') ? SIGNATURE_SOHET : null;
+  return /sohet/i.test(directeur || '') ? signatureCourante() : null;
 }
 
 // ── Lectures ───────────────────────────────────────────────────────────────
@@ -602,7 +601,7 @@ function preparerComposition(b, req) {
 
 const OPTIONS_PDF = () => ({
   pagination: 'si-plusieurs',
-  pied: avecNum => piedGabaritPdf(LOGO_IIP_JPEG, piedDocument(), avecNum),
+  pied: avecNum => piedGabaritPdf(logoCourant(), piedDocument(), avecNum),
   marges: { top: '12mm', right: '15mm', bottom: `${BANDE_PIED_MM}mm`, left: '15mm' },
 });
 
