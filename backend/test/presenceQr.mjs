@@ -218,6 +218,25 @@ console.log('\nMode essai');
   process.env.NODE_ENV = env;
 }
 
+console.log('\nLe retard (P*)');
+{
+  const s = { date: '2026-10-28', heure_debut: '10:00' };
+  t('réglage 0 : jamais en retard d’office', !Q.enRetard(s, H('09:19:00')));
+  Q.ecrireReglagesPresenceQr({ retard_apres_min: 10 });
+  t('10:05 avec 10 min : à l’heure', !Q.enRetard(s, H('09:05:00')));
+  t('10:11 avec 10 min : en retard', Q.enRetard(s, H('09:11:00')));
+  t('retard borné (241 refusé)', Q.ecrireReglagesPresenceQr({ retard_apres_min: 241 }).erreur === 'borne');
+  Q.ecrireReglagesPresenceQr({ retard_apres_min: 0 });
+  const { ecrirePresences } = await import('../src/lib/cep.js');
+  ecrirePresences([{ seance_id: seance, etudiant_id: BETA, statut: 'present', retard: true }], 'banc');
+  t('présent en retard : statut présent, marque posée', db.prepare('SELECT statut, retard FROM presence WHERE seance_id = ? AND etudiant_id = ?').get(seance, BETA)?.retard === 1);
+  ecrirePresences([{ seance_id: seance, etudiant_id: BETA, statut: 'present', retard: false }], 'banc');
+  t('retirer le retard s’écrit (journal)', db.prepare('SELECT COUNT(*) n FROM presence_journal WHERE seance_id = ? AND etudiant_id = ?').get(seance, BETA).n === 2);
+  ecrirePresences([{ seance_id: seance, etudiant_id: BETA, statut: 'absent', retard: true }], 'banc');
+  t('un absent n’est jamais « en retard »', db.prepare('SELECT retard FROM presence WHERE seance_id = ? AND etudiant_id = ?').get(seance, BETA)?.retard === 0);
+  db.prepare('DELETE FROM presence WHERE etudiant_id = ?').run(BETA);
+}
+
 console.log('\nSans secret');
 {
   const avant = process.env.JWT_SECRET, env = process.env.NODE_ENV;

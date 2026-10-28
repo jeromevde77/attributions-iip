@@ -242,6 +242,7 @@ const CHAMPS = [
   ['validite_s', 'Un QR scanné reste valable', 'secondes (marge réseau)'],
   ['avant_min', 'Le scan s’ouvre', 'minutes avant le début du cours'],
   ['apres_min', 'et se ferme', 'minutes après le début'],
+  ['retard_apres_min', 'Un scan est marqué « en retard » (P*) au-delà de', 'minutes après le début — 0 : jamais d’office'],
   ['appairages_semaine', 'Téléphones qu’un étudiant peut lier par semaine', ''],
   ['seuil_absence_pct', 'Signaler un étudiant au-delà de', '% d’absences sans justificatif'],
   ['seuil_global_pct', 'et au-delà de', '% (second seuil, ci-dessous)'],

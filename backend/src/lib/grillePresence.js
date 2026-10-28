@@ -52,13 +52,13 @@ export function donneesGrille({ seances, etudiants, du = null, au = null, dixiem
   if (ids.length) {
     for (let i = 0; i < ids.length; i += 500) {
       const lot = ids.slice(i, i + 500);
-      for (const p of db.prepare(`SELECT seance_id, etudiant_id, statut, motif FROM presence
+      for (const p of db.prepare(`SELECT seance_id, etudiant_id, statut, motif, retard FROM presence
           WHERE seance_id IN (${lot.map(() => '?').join(',')})`).all(...lot)) pres.set(`${p.seance_id}|${p.etudiant_id}`, p);
     }
   }
   const tenue = x => !x.annule && x.date <= aujourdhui;
   const lignes = etus.map(e => {
-    const t = { present: 0, justifie: 0, absent: 0, non_encodees: 0, par_cours: {} };
+    const t = { present: 0, justifie: 0, absent: 0, non_encodees: 0, retards: 0, par_cours: {} };
     const disp = dispensesParEtudiant?.get(e.id);
     const cases = s.map(x => {
       const p = pres.get(`${x.id}|${e.id}`);
@@ -68,12 +68,14 @@ export function donneesGrille({ seances, etudiants, du = null, au = null, dixiem
         const m = minutesDe(x);
         const c = (t.par_cours[x.cours_code || ''] ||= { present: 0, du: 0 });
         c.du += m;
-        if (p?.statut === 'present') { t.present += m; c.present += m; }
+        if (p?.statut === 'present') { t.present += m; c.present += m; if (p.retard) t.retards++; }
         else if (p?.statut === 'justifie') t.justifie += m;
         else if (p?.statut === 'absent') t.absent += m;
         else t.non_encodees++;
       }
-      return { code: x.annule ? '' : (p ? CODES[p.statut] || '' : ''), statut: p?.statut || null, motif: p?.motif || null };
+      // Un retard reste une présence : « P* », compté dans les heures présentes.
+      return { code: x.annule ? '' : (p ? (CODES[p.statut] || '') + (p.statut === 'present' && p.retard ? '*' : '') : ''),
+        statut: p?.statut || null, motif: p?.motif || null, retard: !!(p?.statut === 'present' && p.retard) };
     });
     // Les heures dues : toutes les séances tenues où l'étudiant est concerné,
     // encodées ou non — le total de l'UE est la somme de ses cours.
@@ -157,7 +159,7 @@ export function pieceGrille(g, { titre, sous, ligne = null, ue = false, cours = 
   }
   const notes = g.motifs.length ? `<div class="notes"><b>Absences justifiées</b><ul>${g.motifs.map(m =>
     `<li>${esc(m.etudiant)} — ${fr(m.date)} ${esc(String(m.heure || '').slice(0, 5))}${ue ? ` (${esc(m.cours)})` : ''} : ${esc(m.motif)}</li>`).join('')}</ul></div>` : '';
-  const legende = `<div class="legende">P présent · A absent · J absence justifiée (motif ci-dessous) · — non concerné (autre sous-groupe) · D dispensé (valorisation ou report : hors heures dues) · case vide : non encodé · colonne grisée : séance annulée.
+  const legende = `<div class="legende">P présent · P* présent, arrivé en retard (compté présent) · A absent · J absence justifiée (motif ci-dessous) · — non concerné (autre sous-groupe) · D dispensé (valorisation ou report : hors heures dues) · case vide : non encodé · colonne grisée : séance annulée.
     Heures : séances tenues jusqu’à aujourd’hui. Absences injustifiées : sur les heures dues ; signalées au-delà de 10 % (seuil du congé-éducation payé).</div>`;
   return {
     corps: (g.dixieme ? `<div class="dixieme"><b>${esc(phraseDixieme(g.dixieme))}</b></div>` : '') + blocs.join('') + recap + legende + notes, titre, orientation: 'paysage', margeCote: 12, margeHaut: 12,

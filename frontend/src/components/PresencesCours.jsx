@@ -16,6 +16,8 @@ const JOURS = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'];
 const jourDe = d => JOURS[new Date(d + 'T12:00:00').getDay()];
 const BOUTONS = [
   ['present', 'P', 'Présent', 'var(--c-reussi)'],
+  // Le retard : présent (ses heures comptent), marqué « P* » dans la grille.
+  ['retard', 'P*', 'Présent, arrivé en retard', 'var(--c-reussi)'],
   ['absent', 'A', 'Absent', 'var(--c-corriger)'],
   ['justifie', 'J', 'Absence justifiée', 'var(--c-surveiller)'],
   ['non_concerne', '—', 'Non concerné (autre sous-groupe)', 'var(--c-disponible)'],
@@ -52,7 +54,8 @@ export default function PresencesCours({ coursCode, annee, seanceInitiale = null
   useEffect(() => {
     if (!data || !seance) return;
     const enreg = data.presences[seance.id] || {};
-    setSaisie(Object.fromEntries(data.etudiants.map(e => [e.id, enreg[e.id] ? { statut: enreg[e.id].statut, motif: enreg[e.id].motif } : { statut: null, motif: null }])));
+    setSaisie(Object.fromEntries(data.etudiants.map(e => [e.id, enreg[e.id]
+      ? { statut: enreg[e.id].statut, motif: enreg[e.id].motif, retard: !!enreg[e.id].retard } : { statut: null, motif: null, retard: false }])));
     setFait(null);
   }, [data, seanceId]);   // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -61,14 +64,21 @@ export default function PresencesCours({ coursCode, annee, seanceInitiale = null
     if (!data || !seance) return [];
     const enreg = data.presences[seance.id] || {};
     return data.etudiants.filter(e => (saisie[e.id]?.statut || null) !== (enreg[e.id]?.statut || null)
-      || (saisie[e.id]?.motif || null) !== (enreg[e.id]?.motif || null));
+      || (saisie[e.id]?.motif || null) !== (enreg[e.id]?.motif || null)
+      || !!saisie[e.id]?.retard !== !!enreg[e.id]?.retard);
   }, [data, seance, saisie]);
   const sansMotif = data ? data.etudiants.filter(e => saisie[e.id]?.statut === 'justifie' && !saisie[e.id]?.motif) : [];
 
-  const poser = (id, statut) => setSaisie(s => ({ ...s, [id]: { statut: s[id]?.statut === statut ? null : statut,
-    motif: statut === 'justifie' ? s[id]?.motif || null : null } }));
+  const choisi = (v, k) => (k === 'retard' ? v.statut === 'present' && !!v.retard
+    : k === 'present' ? v.statut === 'present' && !v.retard : v.statut === k);
+  const poser = (id, k) => setSaisie(s => {
+    const v = s[id] || {};
+    if (choisi(v, k)) return { ...s, [id]: { statut: null, motif: null, retard: false } };
+    const statut = k === 'retard' ? 'present' : k;
+    return { ...s, [id]: { statut, motif: statut === 'justifie' ? v.motif || null : null, retard: k === 'retard' } };
+  });
   const tousPresents = () => setSaisie(s => Object.fromEntries(Object.entries(s).map(([k, v]) =>
-    [k, v.statut ? v : { statut: 'present', motif: null }])));
+    [k, v.statut ? v : { statut: 'present', motif: null, retard: false }])));
   const enregistrer = async () => {
     setEnCours(true); setErreur(null);
     try {
@@ -150,7 +160,7 @@ export default function PresencesCours({ coursCode, annee, seanceInitiale = null
                         <button key={k} type="button" title={t} disabled={future || seance.annule}
                           onClick={() => poser(e.id, k)}
                           className="w-8 h-7 mr-1 rounded-champ border text-second font-semibold disabled:opacity-40"
-                          style={v.statut === k ? { background: c, borderColor: c, color: '#fff' } : { borderColor: 'rgb(var(--gris-300))', color: 'var(--c-texte)' }}>
+                          style={choisi(v, k) ? { background: c, borderColor: c, color: '#fff' } : { borderColor: 'rgb(var(--gris-300))', color: 'var(--c-texte)' }}>
                           {l}</button>
                       ))}
                     </td>

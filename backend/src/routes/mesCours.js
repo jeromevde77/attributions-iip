@@ -1206,9 +1206,9 @@ r.get('/:coursCode/presences', authRequired, (req, res) => {
   const ids = seances.map(x => x.id);
   const pres = {};
   if (ids.length) {
-    for (const p of db.prepare(`SELECT seance_id, etudiant_id, statut, motif, encode_par, encode_le FROM presence
+    for (const p of db.prepare(`SELECT seance_id, etudiant_id, statut, motif, retard, encode_par, encode_le FROM presence
         WHERE seance_id IN (${ids.map(() => '?').join(',')})`).all(...ids)) {
-      (pres[p.seance_id] ||= {})[p.etudiant_id] = { statut: p.statut, motif: p.motif, par: p.encode_par, le: p.encode_le };
+      (pres[p.seance_id] ||= {})[p.etudiant_id] = { statut: p.statut, motif: p.motif, retard: !!p.retard, par: p.encode_par, le: p.encode_le };
     }
   }
   let cep = new Set();
@@ -1237,7 +1237,7 @@ r.post('/:coursCode/presences/:seanceId', authRequired, (req, res) => {
   }
   const miens = new Set(d.etudiants.map(e => e.id));
   const lignes = (req.body?.presences || []).map(p => ({ seance_id: s.id, etudiant_id: Number(p.etudiant_id),
-    statut: p.statut || null, motif: p.motif || null }));
+    statut: p.statut || null, motif: p.motif || null, retard: !!p.retard }));
   const etrangers = lignes.filter(l => !miens.has(l.etudiant_id));
   if (etrangers.length) return res.status(400).json({ error: `${etrangers.length} étudiant(s) hors de la liste de ce cours.` });
   const out = ecrirePresences(lignes, req.user?.email || req.user?.nom || null);

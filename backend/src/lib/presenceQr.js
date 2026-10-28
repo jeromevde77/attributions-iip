@@ -32,6 +32,9 @@ export const REGLAGES_DEFAUT = {
   avant_min: 10,           // la fenêtre s'ouvre … minutes avant le début
   apres_min: 20,           // … et se ferme … minutes après le début
   appairages_semaine: 1,   // au-delà : le secrétariat
+  // LE RETARD AU SCAN (Charles, 28 octobre 2026 : « P* ») : un scan plus de … minutes
+  // après le début marque « en retard ». 0 = jamais d'office (choix de l'école).
+  retard_apres_min: 0,
   seuil_absence_pct: 10,   // au-delà, l'étudiant est signalé (10 % : seuil du congé-éducation payé)
   // LE SEUIL GLOBAL (Charles, 28 octobre 2026 : « il faut aussi le seuil de 40 % ») :
   // TOUTES les absences, justifiées ou non, sur les heures tenues.
@@ -48,7 +51,7 @@ export const REGLAGES_DEFAUT = {
   // des deux ; ce qui fait foi, c'est que ça colle avec le compte dans Lucie »).
   domaines: ['institut-prigogine.be', 'helb-prigogine.be'],
 };
-const BORNES = { rotation_s: [5, 120], validite_s: [10, 300], avant_min: [0, 120], apres_min: [0, 240], appairages_semaine: [1, 10], seuil_absence_pct: [1, 100], seuil_global_pct: [1, 100] };
+const BORNES = { rotation_s: [5, 120], validite_s: [10, 300], avant_min: [0, 120], apres_min: [0, 240], appairages_semaine: [1, 10], retard_apres_min: [0, 240], seuil_absence_pct: [1, 100], seuil_global_pct: [1, 100] };
 const TICKET_S = 15 * 60;
 const CODE_MIN = 10;
 const CODE_ESSAIS = 5;
@@ -283,7 +286,7 @@ function seanceDuTicket(ticket, maintenant) {
   if (!v.ok) return refus(v.erreur === 'expire' ? 'ticket_expire' : v.erreur, v.erreur === 'expire' ? MESSAGES.ticket : MESSAGES[v.erreur]);
   const s = lireSeance(v.seanceId);
   if (!s) return refus('seance_inconnue', 'Cette séance n’existe plus dans l’horaire.');
-  return { ok: true, seance: s };
+  return { ok: true, seance: s, scanne: new Date(v.t * 1000) };
 }
 
 // ── 1. Le scan ────────────────────────────────────────────────────────────
@@ -315,8 +318,16 @@ export function scanner(jetonBrut, appareilBrut, maintenant = new Date()) {
     seance: libelleSeance(s), domaines: r.domaines };
 }
 
+/** LE RETARD AU SCAN : scanné plus de `retard_apres_min` minutes après le début
+ *  (0 = jamais marqué d'office ; le professeur peut toujours le poser à la main). */
+export function enRetard(s, scanne, r = reglagesPresenceQr()) {
+  if (!(r.retard_apres_min > 0)) return false;
+  const b = bruxelles(scanne);
+  return absolu(b.jour, b.min) > absolu(s.date, hm(s.heure_debut)) + r.retard_apres_min;
+}
+
 /** Pose la présence d'un appareil appairé — un appareil n'enregistre que SON étudiant. */
-function enregistrer(s, app, maintenant) {
+function enregistrer(s, app, maintenant, scanne = maintenant) {
   const e = db.prepare('SELECT id, nom, prenom FROM etudiant WHERE id = ?').get(app.etudiant_id);
   if (!attendusDeLaSeance(s).some(x => x.id === app.etudiant_id)) {
     journaliser('scan_refuse', { etudiant_id: app.etudiant_id, seance_id: s.id, appareil_id: app.id, raison: 'non inscrit' });
@@ -327,9 +338,11 @@ function enregistrer(s, app, maintenant) {
   if (avant?.statut === 'present') {
     return { ok: true, enregistre: true, deja: true, message: `Votre présence était déjà enregistrée – ${libelleSeance(s)}.`, etudiant: nomDe(e) };
   }
-  const w = ecrirePresences([{ seance_id: s.id, etudiant_id: app.etudiant_id, statut: 'present' }], `${nomDe(e)} (QR)`, 'qr');
+  const retard = enRetard(s, scanne);
+  const w = ecrirePresences([{ seance_id: s.id, etudiant_id: app.etudiant_id, statut: 'present', retard }], `${nomDe(e)} (QR)`, 'qr');
   if (w.erreur) return refus('ecriture', w.erreur);
-  return { ok: true, enregistre: true, message: `Présence enregistrée – ${libelleSeance(s)}.`, etudiant: nomDe(e) };
+  return { ok: true, enregistre: true, retard,
+    message: `Présence enregistrée${retard ? ' (arrivée en retard)' : ''} – ${libelleSeance(s)}.`, etudiant: nomDe(e) };
 }
 
 // ── 2. Le code par courriel ───────────────────────────────────────────────
@@ -362,7 +375,7 @@ function controlerAppairage(ticket, email, appareilBrut, maintenant) {
     journaliser('scan_refuse', { etudiant_id: x.etudiant.id, seance_id: t.seance.id, raison: 'non inscrit' });
     return refus('non_inscrit', `Vous n’êtes pas inscrit(e) à cette séance (${libelleSeance(t.seance)}). Voyez votre enseignant.`);
   }
-  return { ok: true, r, seance: t.seance, etudiant: x.etudiant, adresse: x.adresse, app };
+  return { ok: true, r, seance: t.seance, scanne: t.scanne, etudiant: x.etudiant, adresse: x.adresse, app };
 }
 
 /**
@@ -445,7 +458,7 @@ export function validerCode({ ticket, email, code, appareilBrut, userAgent, main
   })();
   /* LA PRÉSENCE VAUT POUR L'INSTANT DU SCAN, pas pour celui du code : le ticket
      n'a été délivré que si le QR était valable et la fenêtre ouverte. */
-  const p = enregistrer(seance, appareil, maintenant);
+  const p = enregistrer(seance, appareil, maintenant, c.scanne);
   return { ...p, appareil: jetonBrut, expire: jetonBrut ? finAnnee(seance.annee_scolaire) : null };
 }
 
@@ -545,7 +558,7 @@ export function autoriserAppareil(etudiantId, par, motif) {
 
 const NOMS_REGLAGES = { rotation_s: 'Durée d’un QR (secondes)', validite_s: 'Validité d’un QR scanné (secondes)',
   avant_min: 'Ouverture avant le cours (minutes)', apres_min: 'Fermeture après le début (minutes)',
-  appairages_semaine: 'Téléphones par semaine', seuil_absence_pct: 'Seuil d’absences injustifiées (%)',
+  appairages_semaine: 'Téléphones par semaine', retard_apres_min: 'Retard au-delà de (minutes après le début, 0 = jamais)', seuil_absence_pct: 'Seuil d’absences injustifiées (%)',
   seuil_global_pct: 'Seuil de toutes les absences (%)' };
 
 /** Écrit les réglages (bornés, domaines vérifiés) et rend ceux qui s'appliquent désormais. */
