@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { authHeaders } from '../lib/api.js';
+import { useDroits } from '../lib/droits.js';
+import { saisir, informer } from '../lib/dialogue.jsx';
 
 /**
  * Frais de scolarité — RDE, titre V, art. 16 à 20.
@@ -21,10 +23,12 @@ export default function FraisScolarite({ etudId, annee }) {
   const [erreur, setErreur] = useState(null);
   const [detailOuvert, setDetailOuvert] = useState(false);
 
+  const [recharge, setRecharge] = useState(0);
+  const droits = useDroits();
   useEffect(() => {
     let vivant = true;
     (async () => {
-      setF(null); setErreur(null);
+      setErreur(null);
       const rep = await fetch(`/api/frais-scolarite/etudiant/${etudId}?annee=${annee}`,
         { headers: authHeaders() });
       if (!vivant) return;
@@ -32,9 +36,23 @@ export default function FraisScolarite({ etudId, annee }) {
       else setErreur((await rep.json().catch(() => ({}))).error || 'Calcul indisponible.');
     })();
     return () => { vivant = false; };
-  }, [etudId, annee]);
+  }, [etudId, annee, recharge]);
 
   const eur = n => (n ?? 0).toFixed(2).replace('.', ',') + ' €';
+  async function exonerer(d, motifDonne) {
+    let motif = null;
+    if (motifDonne !== null) {
+      // Une boîte annulée rend null : on n'envoie rien (null, côté serveur, retirerait la dispense).
+      motif = await saisir({ titre: 'Dispenser cette demande du forfait', obligatoire: true,
+        message: 'Pourquoi cette demande ne paie-t-elle pas le forfait d’analyse ?' });
+      if (!String(motif || '').trim()) return;
+    }
+    const rep = await fetch(`/api/frais-scolarite/va-exoneration/${d.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ motif }) });
+    const j = await rep.json().catch(() => ({}));
+    if (!rep.ok) { informer(`❌ ${j.error || 'Refusé'}`); return; }
+    setRecharge(x => x + 1);
+  }
   const num = n => String(n ?? 0).replace('.', ',');
 
   if (erreur) return <div className="text-sm text-slate-400">{erreur}</div>;
@@ -123,6 +141,31 @@ export default function FraisScolarite({ etudId, annee }) {
           <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
                           text-second text-amber-900">
             L'acompte n'est pas entièrement versé : {eur(f.verse)} sur {eur(f.acompte)}.
+          </div>
+        )}
+
+        {/* LE FORFAIT D'ANALYSE DES DEMANDES DE VALORISATION (28 octobre 2026). */}
+        {f.forfait_va?.demandes?.length > 0 && (
+          <div className="border-t border-slate-200 pt-3 space-y-1.5">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-sm font-semibold text-iip-blue">Analyse des demandes de valorisation</span>
+              <span className="text-sm font-bold">{eur(f.forfait_va.du)}</span>
+            </div>
+            {f.forfait_va.regle && <div className="text-xs text-slate-500">{f.forfait_va.regle}</div>}
+            {f.forfait_va.n_admission > 0 && <div className="text-xs text-slate-500">{f.forfait_va.n_admission} demande(s) d’admission × {eur(f.forfait_va.forfait_admission)}</div>}
+            <table className="w-full text-second">
+              <tbody>{f.forfait_va.demandes.map(d => (
+                <tr key={d.id} className="border-b border-slate-100 last:border-0">
+                  <td className="py-1">{d.nature === 'admission' ? 'Admission' : `${d.nature} · UE ${d.ue_num}${d.ue_nom ? ` — ${d.ue_nom}` : ''}`}</td>
+                  <td className="py-1 text-slate-500">{d.exoneree ? `dispensée du forfait : ${d.exo_motif}` : 'forfait dû'}</td>
+                  <td className="py-1 text-right">
+                    {droits.passe('admin', 'editeur') && (d.exoneree
+                      ? <button type="button" className="bouton h-7 px-2" onClick={() => exonerer(d, null)}>Rétablir</button>
+                      : <button type="button" className="bouton h-7 px-2" onClick={() => exonerer(d)}>Dispenser…</button>)}
+                  </td>
+                </tr>))}
+              </tbody>
+            </table>
           </div>
         )}
 

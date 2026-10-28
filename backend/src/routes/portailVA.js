@@ -32,6 +32,7 @@ import { mkdirSync, unlinkSync, openSync, readSync, closeSync } from 'fs';
 import { join } from 'path';
 import db from '../db/index.js';
 import { envoyerEmail, templateNotif } from '../services/mailer.js';
+import { calculerFrais } from './fraisScolarite.js';
 import { uniteValorisable, journaliser, rafraichirEtat, controleDelai } from '../lib/valorisation.js';
 import { sectionRattachement, nommerPreuve, nomLibre, NATURES_PREUVE } from './etudiants.js';
 
@@ -340,6 +341,13 @@ r.post('/terminer', etudiantConnecte, async (req, res) => {
   const quand = new Date().toLocaleString('fr-BE', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Europe/Brussels' });
   const lignes = d.map(x => `<li><b>UE ${x.ue_num}</b> ${esc(x.ue_nom || '')} — ${x.porte === 'vae' ? 'VAE' : 'VA'} — ${x.pieces.length} pièce(s)</li>`).join('');
   const adresse = e.email_ecole || e.email_perso;
+  /* LE FORFAIT D'ANALYSE (28 octobre 2026) : annoncé dans l'accusé de réception. */
+  let forfait = null;
+  try { forfait = calculerFrais(e.id, annee)?.forfait_va || null; } catch { forfait = null; }
+  const eur = n => `${(Number(n) || 0).toFixed(2).replace('.', ',')} €`;
+  const phraseForfait = forfait?.du ? `<p>L’analyse d’une demande de valorisation demande un travail d’examen du dossier : des frais
+    d’analyse de <b>${eur(forfait.du)}</b> s’ajoutent à vos frais de l’année (${esc(forfait.regle || '')}${forfait.n_admission ? `${forfait.regle ? ' ; ' : ''}${forfait.n_admission} demande(s) d’admission` : ''}).
+    Ils sont dus dès la demande, quelle que soit la décision.</p>` : '';
   if (adresse) {
     const html = templateNotif({
       titre: `Accusé de réception — ${reference}`,
@@ -347,11 +355,12 @@ r.post('/terminer', etudiantConnecte, async (req, res) => {
         <p>Votre demande de valorisation des acquis est enregistrée (${esc(quand)}) :</p><ul>${lignes}</ul>
         <p>La suite se fait à l'école : le secrétariat vérifie que le dossier est complet et dans les délais, les chargés de cours
         rendent leur avis, le Conseil des études décide. La décision vous est notifiée par écrit.</p>
+        ${phraseForfait}
         <p>Tant que le secrétariat n'a pas examiné une unité, vous pouvez la compléter en redemandant un lien avec votre matricule.</p>`,
     });
     await envoyerEmail({ to: adresse, subject: `Institut Ilya Prigogine — accusé de réception ${reference}`, html }).catch(() => {});
   }
-  res.json({ ok: true, reference, quand, demandes: d });
+  res.json({ ok: true, reference, quand, demandes: d, forfait: forfait ? { du: forfait.du, regle: forfait.regle } : null });
 });
 
 export default r;

@@ -14,9 +14,11 @@ import { eidReadAll, eidToProf } from '../lib/eid.js';
  * moyen d'entrer dans Lucie. Une fonction sans porte est une fonction qui
  * n'existe pas.
  *
- * ON NE DEMANDE QUE L'IDENTITÉ. Le programme se compose dans l'onglet Parcours,
- * où l'écran est fait pour cela ; empiler ici un choix d'unités donnerait un
- * troisième endroit où inscrire quelqu'un — et nous en avons déjà deux de trop.
+ * L'IDENTITÉ, ET UNE SECTION (Charles, 28 octobre 2026 : « soit lui attribuer une section,
+ * soit l'inscrire à au moins une UE »). La première UE, facultative, passe par la porte
+ * unique du programme (`ecrireProgramme`, côté serveur) : ce n'est pas un troisième
+ * endroit où inscrire, c'est la même porte, appelée d'ici. Le reste du programme se
+ * compose dans l'onglet Parcours.
  *
  * LE DOUBLON EST LE VRAI RISQUE. On ne trouve pas quelqu'un dans la liste, on
  * le recrée, et son parcours se coupe en deux — c'est précisément ce que nous
@@ -36,9 +38,24 @@ export default function NouvelEtudiant({ onClose, onCree }) {
   const [doublons, setDoublons] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(false);
+  // UNE SECTION OU UNE UE (Charles, 28 octobre 2026) : sans l'un ni l'autre, le dossier se perd.
+  const [sections, setSections] = useState([]);
+  const [ues, setUes] = useState([]);
+  const [section, setSection] = useState('');
+  const [ue, setUe] = useState('');
+  const annee = getAnnee();
+  useEffect(() => {
+    fetch('/api/ref/sections', { headers: authHeaders() }).then(r => (r.ok ? r.json() : [])).then(l => setSections(Array.isArray(l) ? l : [])).catch(() => {});
+  }, []);
+  useEffect(() => {
+    setUe('');
+    if (!section) { setUes([]); return; }
+    fetch(`/api/ref/ue?annee=${encodeURIComponent(annee)}&section=${encodeURIComponent(section)}`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : [])).then(l => setUes(Array.isArray(l) ? l : [])).catch(() => setUes([]));
+  }, [section, annee]);
 
   const set = (k, v) => { setForm(f => ({ ...f, [k]: v })); setDoublons(null); };
-  const pret = form.nom.trim() && form.prenom.trim();
+  const pret = form.nom.trim() && form.prenom.trim() && (section || ue);
 
   async function lireCarte() {
     setEnCours(true); setErreur(null);
@@ -62,7 +79,8 @@ export default function NouvelEtudiant({ onClose, onCree }) {
     if (!pret) return;
     setEnCours(true); setErreur(null);
     try {
-      const corps = { ...(carte || {}), nom: form.nom, prenom: form.prenom, forcer };
+      const corps = { ...(carte || {}), nom: form.nom, prenom: form.prenom, forcer,
+        section_rattachement: section || null, ...(ue ? { annee, ue_nums: [Number(ue)] } : {}) };
       const rep = await fetch('/api/etudiants', { method: 'POST', headers: authHeaders(), body: JSON.stringify(corps) });
       const j = await rep.json();
       if (rep.status === 409) { setDoublons(j.candidats || []); return; }
@@ -110,6 +128,18 @@ export default function NouvelEtudiant({ onClose, onCree }) {
           {champ('nom', 'Nom')}
           {champ('prenom', 'Prénom')}
         </div>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="block text-xs"><span className="intertitre block mb-1">Section</span>
+            <select className="controle w-full" value={section} onChange={e => { setSection(e.target.value); setDoublons(null); }}>
+              <option value="">— choisir —</option>
+              {sections.map(s => <option key={s.code} value={s.code}>{s.libelle ? `${s.code} — ${s.libelle}` : s.code}</option>)}
+            </select></label>
+          <label className="block text-xs"><span className="intertitre block mb-1">Première UE ({annee}, facultatif)</span>
+            <select className="controle w-full" value={ue} disabled={!section} onChange={e => setUe(e.target.value)}>
+              <option value="">{section ? '— aucune pour l’instant —' : 'choisir d’abord la section'}</option>
+              {ues.map(u => <option key={`${u.ue_num}-${u.section}`} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom}</option>)}
+            </select></label>
+        </div>
 
         {/* LE DOUBLON SE MONTRE, IL NE SE DEVINE PAS. Deux homonymes nés le
             même jour existent : le serveur signale, le secrétariat tranche. */}
@@ -141,7 +171,8 @@ export default function NouvelEtudiant({ onClose, onCree }) {
 
         {erreur && <div className="text-second" style={{ color: 'var(--c-refuse, #9D4A38)' }}>{erreur}</div>}
         <p className="text-xs text-slate-400">
-          La fiche s'ouvre aussitôt : adresse, section et programme ({getAnnee()}) s'y complètent.
+          La section est obligatoire : sans elle, le dossier n’apparaîtrait dans aucune liste. La fiche s'ouvre aussitôt :
+          adresse et programme ({annee}) s'y complètent ; une UE choisie ici entre au programme par la même porte que l’onglet Parcours.
         </p>
       </div>
     </Fenetre>

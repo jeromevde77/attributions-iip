@@ -203,6 +203,9 @@ export default function DemandeVA() {
             {accuse.demandes.map(x => (
               <div key={x.id} className="text-sm border border-slate-200 rounded-champ px-2.5 py-1.5"><b>UE {x.ue_num}</b> {x.ue_nom} · {x.porte === 'vae' ? 'VAE' : 'VA'} · {x.pieces.length} pièce(s)</div>
             ))}
+            {accuse.forfait?.du > 0 && (
+              <p className="text-sm text-slate-700">Frais d’analyse de la demande : <b>{accuse.forfait.du.toFixed(2).replace('.', ',')} €</b>
+                {accuse.forfait.regle ? ` (${accuse.forfait.regle})` : ''} — dus dès la demande, quelle que soit la décision.</p>)}
             <p className="text-second text-slate-600">La suite se fait à l'école : le secrétariat vérifie que le dossier est complet et dans les délais,
               les chargés de cours rendent leur avis, le Conseil des études décide. La décision vous est notifiée par écrit.</p>
             <button type="button" className="bouton" onClick={() => { setEtape('demande'); charger(); }}>Revenir à ma demande</button>

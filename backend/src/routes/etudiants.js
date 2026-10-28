@@ -10951,6 +10951,23 @@ r.post('/completer', authRequired, roleRequired('admin', 'directeur', 'directeur
 r.post('/', authRequired, gesteRequis('etudiants.creer'), (req, res) => {
   const { nom, prenom, annee, ue_nums, ...rest } = req.body;
   if (!nom || !prenom) return res.status(400).json({ error: 'nom et prenom requis' });
+  /* UNE SECTION OU UNE UE (Charles, 28 octobre 2026 : « quand on crée un étudiant, soit lui
+     attribuer une section, soit l'inscrire à au moins une UE »). Un dossier sans l'un ni
+     l'autre n'apparaît dans aucune liste de section, aucun périmètre : il se perd. */
+  const sectionDonnee = String(rest.section_rattachement || '').trim();
+  const ues = Array.isArray(ue_nums) ? ue_nums.map(Number).filter(n => Number.isInteger(n) && n > 0) : [];
+  if (!sectionDonnee && !(annee && ues.length)) {
+    return res.status(400).json({ error: 'Choisissez la section de l’étudiant, ou inscrivez-le à au moins une UE.' });
+  }
+  if (sectionDonnee) {
+    const connue = db.prepare('SELECT 1 FROM section WHERE code = ?').get(sectionDonnee)
+      || db.prepare('SELECT 1 FROM ue WHERE section = ? LIMIT 1').get(sectionDonnee);
+    if (!connue) return res.status(400).json({ error: `Section inconnue : ${sectionDonnee}.` });
+  }
+  if (ues.length) {
+    const inconnues = ues.filter(n => !db.prepare('SELECT 1 FROM ue WHERE ue_num = ? AND annee_scolaire = ? LIMIT 1').get(n, annee));
+    if (inconnues.length) return res.status(400).json({ error: `UE inconnue(s) en ${annee} : ${inconnues.join(', ')}.` });
+  }
 
   if (!rest.forcer) {
     const nn = String(rest.num_national || '').replace(/\D/g, '');
@@ -10983,7 +11000,7 @@ r.post('/', authRequired, gesteRequis('etudiants.creer'), (req, res) => {
   `).run(nom.trim(), prenom.trim(), rest.email_ecole||null, rest.email_perso||null,
          rest.date_naissance||null, rest.num_national||null, rest.gsm||null,
          rest.adresse||null, rest.localite||null, rest.cp||null, rest.titre||null,
-         rest.section_rattachement||null);
+         sectionDonnee || null);
 
   const id = Number(info.lastInsertRowid);
   // Ce que la carte d'identité apporte en plus (3 octobre 2026).
@@ -10996,8 +11013,8 @@ r.post('/', authRequired, gesteRequis('etudiants.creer'), (req, res) => {
   // Par la porte unique (mode « signaler ») : l'écran n'en envoie pas, mais
   // la route les accepte — elles ne passent plus sans être jugées.
   let aRegulariser = 0;
-  if (annee && Array.isArray(ue_nums) && ue_nums.length) {
-    aRegulariser = ecrireProgramme({ etudId: id, annee, ajouter: ue_nums, origine: 'création du dossier',
+  if (annee && ues.length) {
+    aRegulariser = ecrireProgramme({ etudId: id, annee, ajouter: ues, origine: 'création du dossier',
       par: req.user?.email || req.user?.nom || null, mode: 'signaler' }).ecarts.length;
   }
 

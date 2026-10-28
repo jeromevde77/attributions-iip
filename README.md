@@ -83,6 +83,10 @@ les axes ; le rail latéral porte les rubriques de l'axe et les outils de l'écr
 - **Carnet de cotes** (Mes cours → Carnet) : les tests, interrogations et travaux du
   professeur, collés depuis Excel s'il le faut ; rattachés à des acquis, ils proposent la
   note par acquis, reprise d'un clic dans la feuille de notes (rien ne s'enregistre d'office).
+- **Forfait de valorisation** : 30 € par UE demandée en VA ou VAE (ou complément des frais
+  d'inscription jusqu'à ce montant, sinon 15 € par UE), 50 € pour une admission ; sur la note de
+  frais et l'accusé de réception, dispensable avec motif. Montants dans Configuration → Coût des périodes.
+- **Créer un étudiant** exige une section de rattachement ou une première UE.
 - **Mon horaire dans mon agenda** (Mes cours) : un lien d'abonnement personnel ; l'agenda du
   téléphone suit l'horaire de Lucie, changements et annulations compris.
 - **Dates des UE face à l'horaire réel** (Organisation → Planification → Dates

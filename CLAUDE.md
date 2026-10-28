@@ -119,6 +119,17 @@ vérifier que tous les liens soient bien pensés »). Relevé complet et liste d
 `docs/contexte/audit-boucles-2026-10-28.md`. Règle qui en sort : **une donnée écrite que personne
 ne relit est une boucle ouverte** — avant d'ajouter une table ou une trace, dire quel écran la lit.
 
+**UN ÉTUDIANT NAÎT RATTACHÉ, ET UNE DEMANDE DE VA A SON PRIX** (3.1.427, Charles, 28 octobre 2026).
+(1) `POST /api/etudiants` refuse un dossier sans section de rattachement NI première UE (année +
+`ue_nums`, inscrites par `ecrireProgramme()`) : un étudiant sans l'un ni l'autre n'apparaît dans
+aucune liste de section. (2) **Forfait de valorisation** (`lib/forfaitVA.js`, paramètres `couts` :
+`va.forfait_ue` 30 €, `va.supplement_ue` 15 €, `va.forfait_admission` 50 €), dû dès la demande, VA
+et VAE par UE demandée : non inscrit → 30 € × UE ; inscrit dont les frais d'inscription sont sous ce
+montant → ils sont portés à ce montant (on ajoute la différence) ; sinon 15 € par UE. L'admission :
+50 € d'office. Lu par `calculerFrais` (ligne de la note de frais), l'accusé de réception du portail
+VA, et dispensable par demande avec motif (`va_forfait_exoneration`, Frais de l'étudiant). Le seuil
+se compare AU TOTAL des frais d'inscription de l'année, pas UE par UE (non tranché par Charles).
+
 **Établissement :** IIP — N° ECOT 5222132070, FASE 292, Campus Erasme,
 Route de Lennik 808, 1070 Anderlecht. Enseignement pour adultes (FWB).
 Sections : TIM (la plus grande), Psychomotricité, AeSI (soins infirmiers,

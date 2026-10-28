@@ -26,6 +26,7 @@ import { sectionRattachement } from './etudiants.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { calculerDI, calculerDIS } from './droitInscription.js';
 import { premierDixiemeUE } from '../lib/datesReelles.js';
+import { forfaitVA, migrerForfaitVA, exonererForfait } from '../lib/forfaitVA.js';
 
 const r = Router();
 
@@ -88,6 +89,7 @@ const arrondi = n => Math.round((Number(n) || 0) * 100) / 100;
    à cela »). Un réglage, pas une règle en dur : Configuration → Coût des
    périodes. Le droit d'inscription, lui, reste dû. */
 export function semerSectionsSansFrais(dbx = db) {
+  try { migrerForfaitVA(dbx); } catch (e) { console.error('[migration] forfait VA :', e.message); }
   dbx.prepare(`INSERT OR IGNORE INTO parametre (cle, valeur, label, section, groupe) VALUES (?,?,?,?,?)`)
     .run('frais.sections_sans_frais', 'AeSI', "Sections sans frais d'inscription complémentaires (codes séparés par des virgules)", null, 'couts');
 }
@@ -141,8 +143,14 @@ export function calculerFrais(etudId, annee) {
     if (dx && dx < echeanceSolde) echeanceSolde = dx;
   }
 
+  /* LE FORFAIT D'ANALYSE DES DEMANDES DE VALORISATION (lib/forfaitVA.js) : comparé aux
+     frais d'inscription ci-dessus, puis ajouté au total. */
+  const va = forfaitVA(etudId, annee, { fi: total, inscrit: di.detail.length > 0 });
+  const totalAvecVA = arrondi(total + va.du);
   return {
     annee, bareme: b,
+    forfait_va: va,
+    total_hors_va: total,
     periodes,
     droit_inscription: droit,
     droit_specifique: droitSpecifique,
@@ -150,13 +158,13 @@ export function calculerFrais(etudId, annee) {
     sans_frais: sansFrais, section: sec,
     frais_variables: fraisVariables,
     frais_administratifs: fraisAdmin,
-    total,
+    total: totalAvecVA,
     acompte,
     solde,
     echeance_solde: echeanceSolde,
     paiements,
     verse,
-    restant: arrondi(total - verse),
+    restant: arrondi(totalAvecVA - verse),
     acompte_verse: verse >= acompte,
     exonere_di: di.exonere,
     tiers: di.tiers,   // droits perçus par un tiers : hors recettes de l'établissement
@@ -193,6 +201,15 @@ r.post('/paiement', authRequired, roleRequired('admin', 'editeur', 'secretariat'
 r.delete('/paiement/:id', authRequired, roleRequired('admin', 'editeur', 'secretariat'), (req, res) => {
   db.prepare('DELETE FROM frais_paiement WHERE id = ?').run(Number(req.params.id));
   res.json({ ok: true });
+});
+
+/* DISPENSER UNE DEMANDE DU FORFAIT VA : un motif écrit, au nom de la personne connectée.
+   motif null : la dispense est retirée. */
+r.put('/va-exoneration/:valorisationId', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const x = exonererForfait(req.params.valorisationId, req.body?.motif === null ? null : req.body?.motif,
+    req.user?.nom_complet || req.user?.email || null);
+  if (x.erreur) return res.status(400).json({ error: x.erreur });
+  res.json(x);
 });
 
 // ── Barème ──────────────────────────────────────────────────────────────────
@@ -310,6 +327,8 @@ r.get('/etudiant/:id/document', authRequired, (req, res) => {
         <td style="text-align:right">${eur(f.frais_fixes)}</td></tr>
     <tr><td>Frais administratifs — ${f.sans_frais ? `aucun : la section ${esc(f.section || '')} n'en perçoit pas` : `${f.periodes} période(s) à ${String(f.bareme.par_periode).replace('.', ',')} €`}</td>
         <td style="text-align:right">${eur(f.frais_variables)}</td></tr>
+    ${f.forfait_va?.du ? `<tr><td>Analyse des demandes de valorisation — ${f.forfait_va.n_ue ? `${f.forfait_va.n_ue} UE (${esc(f.forfait_va.regle || '')})` : ''}${f.forfait_va.n_ue && f.forfait_va.n_admission ? ' ; ' : ''}${f.forfait_va.n_admission ? `${f.forfait_va.n_admission} demande(s) d'admission × ${eur(f.forfait_va.forfait_admission)}` : ''}</td>
+        <td style="text-align:right">${eur(f.forfait_va.du)}</td></tr>` : ''}
     <tr class="tot"><td style="text-align:right">TOTAL DÛ</td>
         <td style="text-align:right">${eur(f.total)}</td></tr>
   </tbody>
