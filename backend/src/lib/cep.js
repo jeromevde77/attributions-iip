@@ -140,7 +140,7 @@ function estEpreuveIntegree(ueNum, annee, caseRef) {
    est complète, ses cours si elle est partielle par cours (une dispense par
    acquis ne se traduit pas en heures : le cours reste suivi) — et les cours
    reportés d'office d'une année précédente. */
-function dispenses(etudId, ueNum, annee) {
+export function dispenses(etudId, ueNum, annee) {
   const cours = new Set();
   let complete = false;
   try {

@@ -19,9 +19,9 @@
 import ExcelJS from 'exceljs';
 import db from '../db/index.js';
 import { envelopperDocument } from './document.js';
-import { minutesDe, MOTIFS_JUSTIFIES } from './cep.js';
+import { minutesDe, MOTIFS_JUSTIFIES, dispenses } from './cep.js';
 
-export const CODES = { present: 'P', absent: 'A', justifie: 'J', non_concerne: '—' };
+export const CODES = { present: 'P', absent: 'A', justifie: 'J', non_concerne: '—', dispense: 'D' };
 const PAR_PAGE = 20;            // séances par feuille, en paysage
 const SEUIL_CEP = 0.10;
 
@@ -36,7 +36,14 @@ const nomDe = e => `${String(e.nom || '').toLocaleUpperCase('fr')} ${e.prenom ||
  * heure_debut, heure_fin, minutes, cours_code, annule, sous_groupe) ;
  * `etudiants` : { id, nom, prenom, id_ecampus }. `du` / `au` bornent la période.
  */
-export function donneesGrille({ seances, etudiants, du = null, au = null, dixieme = null, aujourdhui = new Date().toISOString().slice(0, 10) }) {
+/** Les dispenses de chaque étudiant pour une UE (valorisation accordée, report d'office) :
+ *  `Map(etudiant_id → { complete, cours: Set })`. RGE du supérieur, art. 6 : l'assiduité se
+ *  compte sur les activités « dont il n'est pas dispensé ». */
+export function dispensesUE(etudiants, ueNum, annee) {
+  return new Map(etudiants.map(e => [e.id, dispenses(e.id, ueNum, annee)]));
+}
+
+export function donneesGrille({ seances, etudiants, du = null, au = null, dixieme = null, dispensesParEtudiant = null, aujourdhui = new Date().toISOString().slice(0, 10) }) {
   const s = seances.filter(x => (!du || x.date >= du) && (!au || x.date <= au))
     .sort((a, b) => `${a.date} ${a.heure_debut}`.localeCompare(`${b.date} ${b.heure_debut}`));
   const etus = [...etudiants].sort((a, b) => nomDe(a).localeCompare(nomDe(b), 'fr'));
@@ -52,8 +59,11 @@ export function donneesGrille({ seances, etudiants, du = null, au = null, dixiem
   const tenue = x => !x.annule && x.date <= aujourdhui;
   const lignes = etus.map(e => {
     const t = { present: 0, justifie: 0, absent: 0, non_encodees: 0, par_cours: {} };
+    const disp = dispensesParEtudiant?.get(e.id);
     const cases = s.map(x => {
       const p = pres.get(`${x.id}|${e.id}`);
+      // Une activité dont l'étudiant est dispensé ne lui est pas due : « D », hors compte.
+      if (disp && (disp.complete || disp.cours.has(x.cours_code))) return { code: x.annule ? '' : CODES.dispense, statut: 'dispense', motif: null };
       if (tenue(x) && p?.statut !== 'non_concerne') {
         const m = minutesDe(x);
         const c = (t.par_cours[x.cours_code || ''] ||= { present: 0, du: 0 });
@@ -147,7 +157,7 @@ export function pieceGrille(g, { titre, sous, ligne = null, ue = false, cours = 
   }
   const notes = g.motifs.length ? `<div class="notes"><b>Absences justifiées</b><ul>${g.motifs.map(m =>
     `<li>${esc(m.etudiant)} — ${fr(m.date)} ${esc(String(m.heure || '').slice(0, 5))}${ue ? ` (${esc(m.cours)})` : ''} : ${esc(m.motif)}</li>`).join('')}</ul></div>` : '';
-  const legende = `<div class="legende">P présent · A absent · J absence justifiée (motif ci-dessous) · — non concerné (autre sous-groupe) · case vide : non encodé · colonne grisée : séance annulée.
+  const legende = `<div class="legende">P présent · A absent · J absence justifiée (motif ci-dessous) · — non concerné (autre sous-groupe) · D dispensé (valorisation ou report : hors heures dues) · case vide : non encodé · colonne grisée : séance annulée.
     Heures : séances tenues jusqu’à aujourd’hui. Absences injustifiées : sur les heures dues ; signalées au-delà de 10 % (seuil du congé-éducation payé).</div>`;
   return {
     corps: (g.dixieme ? `<div class="dixieme"><b>${esc(phraseDixieme(g.dixieme))}</b></div>` : '') + blocs.join('') + recap + legende + notes, titre, orientation: 'paysage', margeCote: 12, margeHaut: 12,
@@ -163,6 +173,7 @@ export function pieceGrille(g, { titre, sous, ligne = null, ue = false, cours = 
 .grille td.absent{color:#9D4A38;font-weight:700}
 .grille td.justifie{color:#B45309;font-weight:700}
 .grille td.present{color:#3E7D5E;font-weight:700}
+.grille td.dispense{color:#94a3b8;background:#F7F8FA}
 .grille .tot{white-space:nowrap;font-weight:600}
 .grille .alerte{color:#9D4A38}
 .grille tr.pied td{background:#F7F8FA;font-weight:600}
@@ -251,7 +262,7 @@ export function grilleUE(ueNum, annee, { du = null, au = null } = {}) {
   const { coursUE, seances } = seancesDeLUE(ueNum, annee);
   const etudiants = inscritsDeLUE(ueNum, annee);
   const ueNom = db.prepare('SELECT MIN(ue_nom) n FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ueNum, annee)?.n || '';
-  const g = donneesGrille({ seances, etudiants, du, au, dixieme: premierDixieme(seances) });
+  const g = donneesGrille({ seances, etudiants, du, au, dixieme: premierDixieme(seances), dispensesParEtudiant: dispensesUE(etudiants, ueNum, annee) });
   return { g, opts: { titre: `Grille de présence — UE ${ueNum}${ueNom ? ` · ${ueNom}` : ''}`,
     sous: `${coursUE.length} cours · ${etudiants.length} inscrits · ${annee}`, ligne: periodeLigne(du, au), ue: true,
     cours: Object.fromEntries(coursUE.map(c => [c.cours_code, c.nom])) },
@@ -266,7 +277,7 @@ export function grilleCours(coursCode, annee, { du = null, au = null } = {}) {
   const { seances: toutes } = seancesDeLUE(c.ue_num, annee);
   const seances = toutes.filter(x => x.cours_code === coursCode);
   const etudiants = inscritsDeLUE(c.ue_num, annee);
-  const g = donneesGrille({ seances, etudiants, du, au, dixieme: premierDixieme(toutes) });
+  const g = donneesGrille({ seances, etudiants, du, au, dixieme: premierDixieme(toutes), dispensesParEtudiant: dispensesUE(etudiants, c.ue_num, annee) });
   return { ueNum: c.ue_num, g, opts: { titre: `Grille de présence — ${coursCode}${c.cours_nom ? ` · ${c.cours_nom}` : ''}`,
     sous: `UE ${c.ue_num} · ${etudiants.length} inscrits · ${annee}`, ligne: periodeLigne(du, au) },
     nom: `Presences_${coursCode}_${annee}` };

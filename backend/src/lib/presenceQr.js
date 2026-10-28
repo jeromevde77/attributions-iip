@@ -25,7 +25,7 @@ import db from '../db/index.js';
 import { ecrirePresences } from './cep.js';
 import { etudiantsDuCours } from './etudiantsCours.js';
 
-export const MENTION_PROPOSEE = 'Au-delà de quatre dixièmes des activités d’enseignement, la condition d’assiduité prévue par le décret du 16 avril 1991 organisant l’enseignement de promotion sociale et par le règlement des études peut ne plus être remplie. Prenez contact avec le secrétariat.';
+export const MENTION_PROPOSEE = 'Selon l’article 6 du règlement général des études de l’enseignement supérieur de promotion sociale (arrêté du Gouvernement de la Communauté française du 2 septembre 2015), l’étudiant satisfait à la condition d’assiduité s’il ne s’absente pas, sans motif valable, de plus de quatre dixièmes des activités d’enseignement dont il n’est pas dispensé ; à défaut, il ne peut être considéré comme étudiant régulier (article 5). La validité d’un motif d’absence est appréciée par la direction : prenez contact avec le secrétariat.';
 export const REGLAGES_DEFAUT = {
   rotation_s: 15,          // le QR change toutes les…
   validite_s: 30,          // un QR scanné reste valable… (marge réseau)
@@ -36,13 +36,13 @@ export const REGLAGES_DEFAUT = {
   // LE SEUIL GLOBAL (Charles, 28 octobre 2026 : « il faut aussi le seuil de 40 % ») :
   // TOUTES les absences, justifiées ou non, sur les heures tenues.
   seuil_global_pct: 40,
-  // SUR QUOI SE COMPTE-T-IL ? « toutes » (justifiées comprises — premier choix de
-  // Charles) ou « injustifiees » (« sans motif valable », la formule des ROI qui
-  // reprennent le décret de 1991 : quatre dixièmes au supérieur). À trancher sur
-  // le texte consolidé du décret ; réglable par la direction.
-  seuil_global_base: 'toutes',
-  // Sa mention : une PROPOSITION de Lucie, prudente, à vérifier et à remplacer par
-  // l'article exact (décret du 16 avril 1991, règlement des études).
+  // SUR QUOI SE COMPTE-T-IL ? Le RGE du supérieur de promotion sociale (A.Gt du
+  // 2 septembre 2015, art. 6 § 1er, mis à jour le 13 juin 2024) : « sans motif
+  // valable, plus de quatre dixièmes des activités d'enseignement dont il n'est
+  // pas dispensé » — donc les absences INJUSTIFIÉES, hors dispenses (la grille sort
+  // les activités dispensées des heures dues). « toutes » reste possible.
+  seuil_global_base: 'injustifiees',
+  // Sa mention : les articles 5 et 6 du RGE, cités ; la direction peut la réécrire.
   mention_seuil_global: MENTION_PROPOSEE,
   // LES DEUX DOMAINES DE L'ÉCOLE (Charles : « les deux, car on a des étudiants
   // des deux ; ce qui fait foi, c'est que ça colle avec le compte dans Lucie »).

@@ -15,7 +15,7 @@ import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 import { piedDocument } from './parametres.js';
 import { aRepresenterParCours } from './acquis.js';
 import { attributionsDe, etudiantsDuCours } from '../lib/etudiantsCours.js';
-import { donneesGrille, htmlGrille, excelGrille, premierDixieme, grillePermise, seancesDeLUE, grilleUE } from '../lib/grillePresence.js';
+import { donneesGrille, htmlGrille, excelGrille, premierDixieme, grillePermise, seancesDeLUE, grilleUE, dispensesUE } from '../lib/grillePresence.js';
 import { archiverDocument } from '../services/document-archive.js';
 import { lireSeance, qrDeLaSeance, compteurSeance, seancesACompleter, fenetreSeance, aujourdhuiBruxelles, migrerPresenceQr, modeEssai } from '../lib/presenceQr.js';
 
@@ -565,7 +565,7 @@ r.get('/:coursCode/grille-presences', authRequired, async (req, res) => {
   const p = periode(req.query);
   // Le premier dixième est celui de l'UE, pas du cours : il se calcule sur toutes ses séances.
   const g = donneesGrille({ seances: seancesDuCours(req, d, code, annee), etudiants: d.etudiants, du: p.du, au: p.au,
-    dixieme: premierDixieme(seancesDeLUE(d.ueNum, annee).seances) });
+    dixieme: premierDixieme(seancesDeLUE(d.ueNum, annee).seances), dispensesParEtudiant: dispensesUE(d.etudiants, d.ueNum, annee) });
   const profs = enseignantsParCours(annee).get(code) || [];
   await repondreGrille(req, res, g, { titre: `Grille de présence — ${code}${nom ? ` · ${nom}` : ''}`,
     sous: `UE ${d.ueNum}${profs.length ? ` · ${profs.join(', ')}` : ''} · ${annee}`, ligne: p.ligne,

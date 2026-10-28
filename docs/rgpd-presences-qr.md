@@ -1,6 +1,6 @@
 # Fiche de traitement — la présence par QR code
 
-*Institut Ilya Prigogine — Lucie, version 3.1.414 (octobre 2026). À relire par la
+*Institut Ilya Prigogine — Lucie, version 3.1.416 (octobre 2026). À relire par la
 personne chargée de la protection des données avant l'ouverture à tous les cours.*
 
 ## 1. Ce que fait le traitement
@@ -54,8 +54,8 @@ disparaît au redémarrage du serveur.
   téléphone ou autoriser un nouveau téléphone, toujours avec un motif écrit,
   au nom de la personne connectée.
 - **La vérificatrice** (FWB) : la grille de présence qu'on lui remet.
-- **L'étudiant** au-delà d'un seuil d'absences (10 % sans justificatif, 40 % toutes
-  absences confondues, réglables) peut recevoir, à son adresse d'école,
+- **L'étudiant** au-delà d'un seuil d'absences (10 % sans justificatif — congé-éducation ;
+  40 % sans motif valable — condition d'assiduité, RGE du supérieur art. 6 ; réglables) peut recevoir, à son adresse d'école,
   un avis listant ses absences injustifiées : le secrétariat le lit avant de
   l'envoyer, rien ne part automatiquement, chaque envoi est journalisé.
 
