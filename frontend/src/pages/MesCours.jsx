@@ -3,7 +3,7 @@ import { ouvrirApercu } from '../lib/apercu.js';
 import { IconChalkboard } from '@tabler/icons-react';
 import { couleurBloc, rangBloc } from '../lib/blocs.js';
 import { useEffect, useState } from 'react';
-import { IconChartHistogram, IconBooks, IconChevronLeft, IconAlertTriangle, IconMessageCircle, IconPrinter, IconCertificate, IconAccessible, IconPencil, IconUserCheck, IconFileDescription, IconTable, IconFileText, IconNotebook } from '@tabler/icons-react';
+import { IconChartHistogram, IconBooks, IconChevronLeft, IconAlertTriangle, IconMessageCircle, IconPrinter, IconCertificate, IconAccessible, IconPencil, IconUserCheck, IconFileDescription, IconTable, IconFileText, IconNotebook, IconCalendarShare } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { MOTIFS_ECHEC } from '../components/motifsEchec.js';
 import PresencesCours from '../components/PresencesCours.jsx';
@@ -12,6 +12,7 @@ import GrillePresence from '../components/GrillePresence.jsx';
 import MaListe from '../components/MaListe.jsx';
 import IndicateursNotes from '../components/IndicateursNotes.jsx';
 import CarnetCotes from '../components/CarnetCotes.jsx';
+import AgendaAbonnement from '../components/AgendaAbonnement.jsx';
 import { demander, informer } from '../lib/dialogue.jsx';
 import { OuvrirEditions, RailLateral, Encadre } from '../components/ui.jsx';
 import AvisValorisationProf from '../components/AvisValorisationProf.jsx';
@@ -72,6 +73,7 @@ export default function MesCours() {
      unités où il porte une attribution. */
   const [vueDue, setVueDue] = useState(false);
   const [faceDue, setFaceDue] = useState('croisement');
+  const [agenda, setAgenda] = useState(false);       // mon horaire dans mon agenda
   const [face, setFace] = useState('notes');          // notes | carnet | presences | indicateurs
   /* LA SÉANCE CHOISIE DANS « MA JOURNÉE » (28 octobre 2026) : un clic y ouvre le
      cours sur la bonne face. Si elle est d'une autre année que celle affichée,
@@ -222,6 +224,7 @@ export default function MesCours() {
     {/* LE RAIL DE MES COURS (Charles, 2 octobre 2026 : « le rail n'est pas
         visible dans Mes cours ») : la liste, les avis à rendre, et — un cours
         ouvert — ses deux faces. */}
+    {agenda && <AgendaAbonnement onFermer={() => setAgenda(false)} />}
     <RailLateral icon={ICONE_AXE.mesCours} titre="Mes cours" sousTitre={annee}
       sections={[{ items: [
         { key: 'liste', label: 'Mes cours', icon: IconBooks, actif: !ouvert && !vueDue,
@@ -230,6 +233,7 @@ export default function MesCours() {
           onClick: () => { setVueDue(true); setOuvert(null); setFeuille(null); } },
         { key: 'avis-va', label: 'Avis de valorisation', icon: IconCertificate,
           onClick: () => { setVueDue(false); setOuvert(null); setFeuille(null); setTimeout(() => allerA('avis-va'), 50); } },
+        { key: 'agenda', label: 'Mon horaire dans mon agenda', icon: IconCalendarShare, onClick: () => setAgenda(true) },
         { key: 'avis-ar', label: 'Aménagements raisonnables', icon: IconAccessible,
           onClick: () => { setVueDue(false); setOuvert(null); setFeuille(null); setTimeout(() => allerA('avis-ar'), 50); } },
         ...(vueDue ? [

@@ -3092,6 +3092,8 @@ app.use('/api/portail-va', (await import('./routes/portailVA.js')).default);
 // LA PRÉSENCE PAR QR (28 octobre 2026) : publique, l'étudiant n'a pas de compte ;
 // son appareil appairé l'identifie (lib/presenceQr.js).
 app.use('/api/presence-qr', (await import('./routes/presenceQr.js')).default);
+// Mon horaire dans mon agenda : le flux .ics est public (le jeton fait foi), le reste demande la session.
+app.use('/api/agenda', (await import('./routes/agenda.js')).default);
 // Le suivi côté secrétariat : téléphones liés, journal, réglages (lot 4).
 app.use('/api/presence-qr-suivi', (await import('./routes/presenceQrSuivi.js')).default);
 app.use('/api/notes-doubles', (await import('./routes/notesDoubles.js')).default);

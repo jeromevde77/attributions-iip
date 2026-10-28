@@ -68,6 +68,18 @@ cases (demande avant d'écraser une note déjà tapée) et n'enregistre rien : l
 qui y ont accès (`accesCours`) ; chaque évaluation et chaque note gardent leur auteur. Banc :
 `backend/test/carnet.mjs`.
 
+**MON HORAIRE DANS MON AGENDA** (3.1.423, Charles, 28 octobre 2026). Mes cours → rail → *Mon
+horaire dans mon agenda* (`components/AgendaAbonnement.jsx`, `routes/agenda.js`, `lib/agendaIcs.js`,
+table `agenda_lien`) : un lien d'abonnement iCalendar que l'agenda du téléphone (iPhone, Google,
+Outlook) relit seul — séance déplacée ou annulée (`STATUS:CANCELLED`) suivie, fuseau
+Europe/Brussels. **Un agenda ne se connecte pas** : `GET /api/agenda/flux/<jeton>.ics` est PUBLIC, le
+jeton fait foi ; la base n'en garde que l'empreinte (SHA-256), le lien ne s'affiche qu'à sa création ;
+« Nouveau lien » révoque l'ancien (404, comme un jeton faux). Le flux ne porte que des cours, des
+heures et des locaux. Séances : celles qui nomment le professeur, plus celles de ses cours attribués
+dont l'horaire ne nomme personne (règle de Mes cours), de 60 jours en arrière à la fin de l'horaire.
+L'adresse vient de `LUCIE_URL` (dev → dev.lucie-iip.be). **À venir** : le même lien pour les
+étudiants (ils n'ont pas de compte — passer par le téléphone lié de la présence QR ?).
+
 **Établissement :** IIP — N° ECOT 5222132070, FASE 292, Campus Erasme,
 Route de Lennik 808, 1070 Anderlecht. Enseignement pour adultes (FWB).
 Sections : TIM (la plus grande), Psychomotricité, AeSI (soins infirmiers,
