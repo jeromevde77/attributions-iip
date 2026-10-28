@@ -71,7 +71,8 @@ les axes ; le rail latéral porte les rubriques de l'axe et les outils de l'écr
 - Aménagements, frais de scolarité, droit d'inscription, valorisations.
 - **Présence par QR code** : le professeur projette un QR qui change toutes les
   15 secondes, les étudiants le scannent ; la présence s'enregistre avec l'heure.
-  Le secrétariat suit les téléphones liés (Étudiants → Présence par QR) et sort la
+  Le secrétariat suit les absences au-delà du seuil (avis à l'étudiant sur clic) et
+  les téléphones liés (Étudiants → Suivi des présences), et sort la
   **grille de présence** par cours ou par UE au centre d'impression. Fiche RGPD :
   [`docs/rgpd-presences-qr.md`](docs/rgpd-presences-qr.md).
 

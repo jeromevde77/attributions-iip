@@ -1,0 +1,98 @@
+/**
+ * LES ABSENCES AU-DELÀ DU SEUIL (Charles, 28 octobre 2026 : « possibilité
+ * d'alerte pour qui en a besoin — l'étudiant dépasse le seuil —, ou mail à
+ * l'étudiant : vous ne vous êtes pas présenté au cours de … »).
+ *
+ * Le calcul est celui de la grille de présence (`grilleUE`) : absences
+ * injustifiées sur les heures dues des séances tenues. Le seuil est un réglage
+ * de la présence par QR (`seuil_absence_pct`, 10 % par défaut — celui du
+ * congé-éducation payé). Le mail à l'étudiant ne part JAMAIS seul : le
+ * secrétariat en voit le texte, puis l'envoie ; chaque envoi s'écrit au
+ * journal de la présence par QR, au nom de la personne connectée.
+ */
+import db from '../db/index.js';
+import { grilleUE } from './grillePresence.js';
+import { reglagesPresenceQr, journaliserPresenceQr } from './presenceQr.js';
+
+const fr = d => String(d || '').slice(0, 10).split('-').reverse().join('/');
+const heures = m => { const x = Math.round(m); return `${Math.floor(x / 60)}h${String(x % 60).padStart(2, '0')}`; };
+
+/** Les UE de l'année qui ont des séances à l'horaire. */
+function uesAvecSeances(annee) {
+  return db.prepare(`SELECT DISTINCT COALESCE(s.ue_num, c.ue_num) AS ue FROM horaire_seance s
+    LEFT JOIN cours c ON c.cours_code = s.cours_code AND c.annee_scolaire = s.annee_scolaire
+    WHERE s.annee_scolaire = ? AND COALESCE(s.ue_num, c.ue_num) IS NOT NULL ORDER BY ue`).all(annee).map(x => x.ue);
+}
+
+/** Le détail d'un étudiant dans la grille d'une UE : ses absences injustifiées. */
+function absencesDe(g, ligne) {
+  return ligne.cases.map((c, i) => (c.statut === 'absent'
+    ? { date: g.seances[i].date, heure: String(g.seances[i].heure_debut || '').slice(0, 5), cours: g.seances[i].cours_code } : null)).filter(Boolean);
+}
+
+/**
+ * Les étudiants au-delà du seuil, UE par UE, du plus haut taux au plus bas.
+ * `perimetre` : null = toutes les sections, sinon la liste permise.
+ */
+export function alertesAbsences(annee, { seuil = null, perimetre = null } = {}) {
+  const s = seuil ?? reglagesPresenceQr().seuil_absence_pct;
+  const derniers = new Map(db.prepare(`SELECT etudiant_id, raison, MAX(le) AS le FROM presence_qr_journal
+    WHERE type = 'avis_absence' GROUP BY etudiant_id, raison`).all().map(x => [`${x.etudiant_id}|${String(x.raison || '').split(' ')[1]}`, x.le]));
+  const sortie = [];
+  for (const ue of uesAvecSeances(annee)) {
+    if (perimetre) {
+      const secs = db.prepare('SELECT DISTINCT section FROM ue WHERE ue_num = ? AND section IS NOT NULL').all(ue).map(x => x.section);
+      if (!secs.some(x => perimetre.includes(x))) continue;
+    }
+    const x = grilleUE(ue, annee);
+    const ueNom = db.prepare('SELECT MIN(ue_nom) n FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ue, annee)?.n || '';
+    for (const l of x.g.lignes) {
+      if (!l.du || l.taux_injustifie * 100 <= s) continue;
+      sortie.push({
+        etudiant_id: l.etudiant.id, nom: l.etudiant.nom, prenom: l.etudiant.prenom, id_ecampus: l.etudiant.id_ecampus,
+        ue_num: ue, ue_nom: ueNom, taux: Math.round(l.taux_injustifie * 1000) / 10,
+        absent_min: l.absent, du_min: l.du, absences: absencesDe(x.g, l).length,
+        prevenu_le: derniers.get(`${l.etudiant.id}|${ue}`) || null,
+      });
+    }
+  }
+  return { seuil: s, alertes: sortie.sort((a, b) => b.taux - a.taux) };
+}
+
+/** Le mail à l'étudiant, à relire avant l'envoi. */
+export function avisAbsence(etudiantId, ueNum, annee) {
+  const e = db.prepare('SELECT id, nom, prenom, email_ecole FROM etudiant WHERE id = ?').get(Number(etudiantId));
+  if (!e) return { erreur: 'introuvable', message: 'Étudiant introuvable.' };
+  const x = grilleUE(Number(ueNum), annee);
+  const l = x.g.lignes.find(y => y.etudiant.id === e.id);
+  if (!l) return { erreur: 'introuvable', message: 'Cet étudiant n’est pas inscrit à cette unité.' };
+  const abs = absencesDe(x.g, l);
+  if (!abs.length) return { erreur: 'rien', message: 'Aucune absence injustifiée à signaler.' };
+  if (!e.email_ecole) return { erreur: 'adresse', message: 'Cet étudiant n’a pas d’adresse d’école : l’avis ne peut pas partir.' };
+  const ueNom = db.prepare('SELECT MIN(ue_nom) n FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(Number(ueNum), annee)?.n || '';
+  const taux = Math.round(l.taux_injustifie * 1000) / 10;
+  const subject = `Vos absences — UE ${ueNum}${ueNom ? ` ${ueNom}` : ''}`;
+  const lignes = abs.map(a => `– ${fr(a.date)} à ${a.heure} (${a.cours})`);
+  const text = [
+    `Bonjour ${e.prenom || ''},`, '',
+    `Selon le registre des présences, vous avez été absent(e) sans justificatif aux séances suivantes de l'unité d'enseignement ${ueNum}${ueNom ? ` « ${ueNom} »` : ''} :`,
+    ...lignes, '',
+    `Cela représente ${String(taux).replace('.', ',')} % des heures de cours tenues à ce jour (${heures(l.absent)} sur ${heures(l.du)}).`,
+    'Si vous bénéficiez du congé-éducation payé, plus de 10 % d’absences injustifiées peut en suspendre le droit.', '',
+    'Si l’une de ces absences était justifiée, transmettez le justificatif au secrétariat : la présence sera corrigée.', '',
+    'Le secrétariat de l’Institut Ilya Prigogine',
+  ].join('\n');
+  const esc = v => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const html = text.split('\n').map(t => (t ? `<p style="margin:0 0 6px">${esc(t)}</p>` : '<p style="margin:0 0 6px">&nbsp;</p>')).join('');
+  return { ok: true, to: e.email_ecole, subject, text, html, etudiant: e, taux };
+}
+
+/** Envoie l'avis (après lecture) et l'écrit au journal. `envoyer` : le service de courriel. */
+export async function envoyerAvisAbsence(etudiantId, ueNum, annee, par, envoyer) {
+  const a = avisAbsence(etudiantId, ueNum, annee);
+  if (!a.ok) return a;
+  const r = await envoyer({ to: a.to, subject: a.subject, html: a.html, text: a.text });
+  if (r && r.ok === false) return { erreur: 'envoi', message: `Le mail n’est pas parti : ${r.erreur || 'erreur du service de courriel'}.` };
+  journaliserPresenceQr('avis_absence', { etudiant_id: a.etudiant.id, raison: `UE ${ueNum} — ${String(a.taux).replace('.', ',')} %`, par });
+  return { ok: true, to: a.to };
+}

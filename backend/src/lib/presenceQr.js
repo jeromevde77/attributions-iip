@@ -31,11 +31,12 @@ export const REGLAGES_DEFAUT = {
   avant_min: 10,           // la fenêtre s'ouvre … minutes avant le début
   apres_min: 20,           // … et se ferme … minutes après le début
   appairages_semaine: 1,   // au-delà : le secrétariat
+  seuil_absence_pct: 10,   // au-delà, l'étudiant est signalé (10 % : seuil du congé-éducation payé)
   // LES DEUX DOMAINES DE L'ÉCOLE (Charles : « les deux, car on a des étudiants
   // des deux ; ce qui fait foi, c'est que ça colle avec le compte dans Lucie »).
   domaines: ['institut-prigogine.be', 'helb-prigogine.be'],
 };
-const BORNES = { rotation_s: [5, 120], validite_s: [10, 300], avant_min: [0, 120], apres_min: [0, 240], appairages_semaine: [1, 10] };
+const BORNES = { rotation_s: [5, 120], validite_s: [10, 300], avant_min: [0, 120], apres_min: [0, 240], appairages_semaine: [1, 10], seuil_absence_pct: [1, 100] };
 const TICKET_S = 15 * 60;
 const CODE_MIN = 10;
 const CODE_ESSAIS = 5;
@@ -487,7 +488,10 @@ export const TYPES_JOURNAL = {
   appairage_refuse: 'Lien refusé',
   code_refuse: 'Code refusé',
   scan_refuse: 'Scan refusé',
+  avis_absence: 'Avis d’absences envoyé à l’étudiant',
 };
+/** Le journal, pour les modules voisins (l'avis d'absences). */
+export const journaliserPresenceQr = (type, detail) => journaliser(type, detail);
 
 /** Les téléphones liés, du plus récent au plus ancien ; `q` filtre sur le nom, le matricule ou l'adresse. */
 export function suiviAppareils({ q = '', tous = false } = {}, maintenant = new Date()) {
@@ -527,7 +531,7 @@ export function autoriserAppareil(etudiantId, par, motif) {
 
 const NOMS_REGLAGES = { rotation_s: 'Durée d’un QR (secondes)', validite_s: 'Validité d’un QR scanné (secondes)',
   avant_min: 'Ouverture avant le cours (minutes)', apres_min: 'Fermeture après le début (minutes)',
-  appairages_semaine: 'Téléphones par semaine' };
+  appairages_semaine: 'Téléphones par semaine', seuil_absence_pct: 'Seuil d’absences injustifiées (%)' };
 
 /** Écrit les réglages (bornés, domaines vérifiés) et rend ceux qui s'appliquent désormais. */
 export function ecrireReglagesPresenceQr(entree = {}) {

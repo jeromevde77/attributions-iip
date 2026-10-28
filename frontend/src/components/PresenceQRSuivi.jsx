@@ -12,16 +12,17 @@
  * Serveur : `routes/presenceQrSuivi.js`, métier dans `lib/presenceQr.js`.
  */
 import { useEffect, useState } from 'react';
-import { IconQrcode, IconSearch, IconDeviceMobileOff, IconDeviceMobilePlus } from '@tabler/icons-react';
+import { IconQrcode, IconSearch, IconDeviceMobileOff, IconDeviceMobilePlus, IconMailForward } from '@tabler/icons-react';
 import OutilsAFaces from './OutilsAFaces.jsx';
 import { PastilleEtat } from './ui.jsx';
-import { authHeaders } from '../lib/api.js';
-import { saisir, informer } from '../lib/dialogue.jsx';
+import { authHeaders, getAnnee } from '../lib/api.js';
+import { saisir, informer, demander } from '../lib/dialogue.jsx';
 import { useDroits } from '../lib/droits.js';
 
 const API = '/api/presence-qr-suivi';
 const fr = d => (d ? new Date(String(d).replace(' ', 'T') + 'Z').toLocaleString('fr-BE', { dateStyle: 'short', timeStyle: 'short' }) : '—');
 const nom = x => `${String(x.nom || '').toUpperCase()} ${x.prenom || ''}`.trim();
+const hm = m => { const x = Math.round(m || 0); return `${Math.floor(x / 60)}h${String(x % 60).padStart(2, '0')}`; };
 async function appel(chemin, options = {}) {
   const r = await fetch(API + chemin, { ...options, headers: authHeaders() });
   const j = await r.json().catch(() => ({}));
@@ -159,12 +160,80 @@ function Journal() {
   );
 }
 
+/* LES ABSENCES AU-DELÀ DU SEUIL : qui, dans quelle UE, combien ; l'avis à
+   l'étudiant se lit avant de partir, et rien ne part sans ce clic. */
+function Absences() {
+  const [d, setD] = useState(null);
+  const [erreur, setErreur] = useState(null);
+  const [filtre, setFiltre] = useState('');
+  const annee = getAnnee();
+  const charger = () => appel(`/alertes?annee=${encodeURIComponent(annee)}`).then(j => { setD(j); setErreur(null); }).catch(e => setErreur(e.message));
+  useEffect(() => { charger(); }, []); // eslint-disable-line
+  const prevenir = async a => {
+    try {
+      const m = await appel(`/alertes/avis?etudiant=${a.etudiant_id}&ue=${a.ue_num}&annee=${encodeURIComponent(annee)}`);
+      const ok = await demander({ titre: `Prévenir ${nom(a)} ?`, confirmer: 'Envoyer',
+        message: `À : ${m.to}\nObjet : ${m.subject}\n\n${m.text}` });
+      if (!ok) return;
+      await appel('/alertes/avis', { method: 'POST', body: JSON.stringify({ etudiant: a.etudiant_id, ue: a.ue_num, annee }) });
+      informer(`✓ Avis envoyé à ${m.to}.`); charger();
+    } catch (e) { informer(`❌ ${e.message}`); }
+  };
+  const n = filtre.trim().toLowerCase();
+  const liste = (d?.alertes || []).filter(a => !n || `${a.nom} ${a.prenom} ${a.id_ecampus || ''} ${a.ue_num} ${a.ue_nom}`.toLowerCase().includes(n));
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative">
+          <IconSearch size={15} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input value={filtre} onChange={e => setFiltre(e.target.value)} placeholder="Nom, matricule ou UE"
+            className="controle controle-icone border border-slate-300 rounded-champ bg-white w-72" />
+        </div>
+        {d && <span className="text-second text-slate-500">Seuil : <b>{d.seuil} %</b> d’absences injustifiées sur les heures tenues ({annee}) — réglable dans Réglages.</span>}
+        {d && <span className="text-second text-slate-500 ml-auto">{liste.length} situation(s)</span>}
+      </div>
+      {erreur && <p className="text-sm" style={{ color: 'var(--c-corriger)' }}>{erreur}</p>}
+      {!d && !erreur && <p className="text-sm text-slate-400">Calcul des présences de toutes les unités…</p>}
+      {d && !liste.length && <p className="text-sm text-slate-500">Aucun étudiant au-delà du seuil{n ? ' pour cette recherche' : ''}.</p>}
+      {!!liste.length && (
+        <div className="overflow-auto">
+          <table className="w-full text-sm">
+            <thead><tr className="tab-entete text-left">
+              <th className="px-2 py-1.5">Étudiant</th><th className="px-2 py-1.5">Unité</th>
+              <th className="px-2 py-1.5 text-right">Absences injustifiées</th><th className="px-2 py-1.5 text-right">Heures</th>
+              <th className="px-2 py-1.5">Prévenu</th><th className="px-2 py-1.5" />
+            </tr></thead>
+            <tbody>
+              {liste.map(a => (
+                <tr key={`${a.etudiant_id}-${a.ue_num}`} className="border-b border-slate-100 align-top">
+                  <td className="px-2 py-1.5"><b>{String(a.nom || '').toUpperCase()}</b> {a.prenom}
+                    <div className="text-second text-slate-500">{a.id_ecampus || ''}</div></td>
+                  <td className="px-2 py-1.5">UE {a.ue_num}<div className="text-second text-slate-500">{a.ue_nom}</div></td>
+                  <td className="px-2 py-1.5 text-right"><PastilleEtat etat={a.taux > 2 * d.seuil ? 'corriger' : 'surveiller'}>{String(a.taux).replace('.', ',')} %</PastilleEtat>
+                    <div className="text-second text-slate-500">{a.absences} séance(s)</div></td>
+                  <td className="px-2 py-1.5 text-right tabular-nums whitespace-nowrap">{hm(a.absent_min)} / {hm(a.du_min)}</td>
+                  <td className="px-2 py-1.5 whitespace-nowrap">{a.prevenu_le ? fr(a.prevenu_le) : '—'}</td>
+                  <td className="px-2 py-1.5 text-right">
+                    <button type="button" className="bouton bouton-sortir" onClick={() => prevenir(a)} title="Lire l’avis, puis l’envoyer à l’adresse d’école">
+                      <IconMailForward size={15} /> Prévenir l’étudiant</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const CHAMPS = [
   ['rotation_s', 'Le QR change toutes les', 'secondes'],
   ['validite_s', 'Un QR scanné reste valable', 'secondes (marge réseau)'],
   ['avant_min', 'Le scan s’ouvre', 'minutes avant le début du cours'],
   ['apres_min', 'et se ferme', 'minutes après le début'],
   ['appairages_semaine', 'Téléphones qu’un étudiant peut lier par semaine', ''],
+  ['seuil_absence_pct', 'Signaler un étudiant au-delà de', '% d’absences injustifiées'],
 ];
 
 function Reglages() {
@@ -217,12 +286,13 @@ function Reglages() {
   );
 }
 
-export default function PresenceQRSuivi({ faceInitiale = 'telephones', onFermer }) {
+export default function PresenceQRSuivi({ faceInitiale = 'absences', onFermer }) {
   return (
-    <OutilsAFaces icone={IconQrcode} titre="Présence par QR"
-      sous="Les téléphones liés, le journal, les réglages"
+    <OutilsAFaces icone={IconQrcode} titre="Suivi des présences"
+      sous="Les absences au-delà du seuil, les téléphones liés au QR, le journal, les réglages"
       faceInitiale={faceInitiale} onFermer={onFermer}
       faces={[
+        { cle: 'absences', label: 'Absences au-delà du seuil', rendu: <Absences /> },
         { cle: 'telephones', label: 'Téléphones liés', rendu: <Telephones /> },
         { cle: 'journal', label: 'Journal', rendu: <Journal /> },
         { cle: 'reglages', label: 'Réglages', rendu: <Reglages /> },

@@ -1362,9 +1362,14 @@ téléphones liés* (`PresenceQRSuivi.jsx`, `routes/presenceQrSuivi.js`) — té
 désactiver (motif), **autoriser un nouveau téléphone** (motif ; vaut pour le PROCHAIN
 téléphone lié, consommée par lui), journal en ajout seul, réglages (direction ; `lucie_config`
 « presence_qr », bornés). Mode essai sur la dev seulement (`NODE_ENV=development`).
-Fiche RGPD : `docs/rgpd-presences-qr.md`. Banc : `backend/test/presenceQr.mjs`. **À venir :**
-la phase pilote (un professeur, un cours), puis les alertes d'absences ; le registre CEP
-dans le rail.
+**Les absences au-delà du seuil (3.1.412)** : première face de la même fenêtre, rebaptisée
+*Suivi des présences* — les étudiants dont les absences injustifiées dépassent le seuil
+(`seuil_absence_pct`, 10 % par défaut, réglable), UE par UE, calculées comme la grille
+(`lib/alertesAbsences.js`) ; « Prévenir l'étudiant » montre l'avis (séances manquées, taux,
+mention du congé-éducation) puis l'envoie à l'adresse d'école — **jamais d'envoi
+automatique** —, journalisé `avis_absence`. Fiche RGPD : `docs/rgpd-presences-qr.md`. Banc :
+`backend/test/presenceQr.mjs`. **À venir :** la phase pilote (un professeur, un cours) ; la
+coordination dans le suivi (ses sections) ; le registre CEP dans le rail.
 
 **RECOURS ET DISCIPLINE, REFONDUS SUR LE RDE 2026-2027** (3.1.x, Charles,
 3 octobre 2026 : « pas de liens avec les étudiants ni les membres des UE…
