@@ -32,11 +32,17 @@ export const REGLAGES_DEFAUT = {
   apres_min: 20,           // … et se ferme … minutes après le début
   appairages_semaine: 1,   // au-delà : le secrétariat
   seuil_absence_pct: 10,   // au-delà, l'étudiant est signalé (10 % : seuil du congé-éducation payé)
+  // LE SEUIL GLOBAL (Charles, 28 octobre 2026 : « il faut aussi le seuil de 40 % ») :
+  // TOUTES les absences, justifiées ou non, sur les heures tenues.
+  seuil_global_pct: 40,
+  // Sa mention réglementaire, rédigée par la direction (RGE / ROI) — Lucie n'en
+  // invente pas : vide, l'avis s'en passe et l'écran dit qu'elle manque.
+  mention_seuil_global: '',
   // LES DEUX DOMAINES DE L'ÉCOLE (Charles : « les deux, car on a des étudiants
   // des deux ; ce qui fait foi, c'est que ça colle avec le compte dans Lucie »).
   domaines: ['institut-prigogine.be', 'helb-prigogine.be'],
 };
-const BORNES = { rotation_s: [5, 120], validite_s: [10, 300], avant_min: [0, 120], apres_min: [0, 240], appairages_semaine: [1, 10], seuil_absence_pct: [1, 100] };
+const BORNES = { rotation_s: [5, 120], validite_s: [10, 300], avant_min: [0, 120], apres_min: [0, 240], appairages_semaine: [1, 10], seuil_absence_pct: [1, 100], seuil_global_pct: [1, 100] };
 const TICKET_S = 15 * 60;
 const CODE_MIN = 10;
 const CODE_ESSAIS = 5;
@@ -93,6 +99,7 @@ export function reglagesPresenceQr() {
     const v = Number(lu[k]);
     if (Number.isFinite(v)) r[k] = Math.min(maxi, Math.max(mini, Math.round(v)));
   }
+  if (typeof lu.mention_seuil_global === 'string') r.mention_seuil_global = lu.mention_seuil_global.slice(0, 800);
   if (Array.isArray(lu.domaines)) {
     const d = lu.domaines.map(x => String(x).trim().toLowerCase().replace(/^@/, '')).filter(x => /^[a-z0-9.-]+\.[a-z]{2,}$/.test(x));
     if (d.length) r.domaines = d;
@@ -531,7 +538,8 @@ export function autoriserAppareil(etudiantId, par, motif) {
 
 const NOMS_REGLAGES = { rotation_s: 'Durée d’un QR (secondes)', validite_s: 'Validité d’un QR scanné (secondes)',
   avant_min: 'Ouverture avant le cours (minutes)', apres_min: 'Fermeture après le début (minutes)',
-  appairages_semaine: 'Téléphones par semaine', seuil_absence_pct: 'Seuil d’absences injustifiées (%)' };
+  appairages_semaine: 'Téléphones par semaine', seuil_absence_pct: 'Seuil d’absences injustifiées (%)',
+  seuil_global_pct: 'Seuil de toutes les absences (%)' };
 
 /** Écrit les réglages (bornés, domaines vérifiés) et rend ceux qui s'appliquent désormais. */
 export function ecrireReglagesPresenceQr(entree = {}) {
@@ -541,6 +549,11 @@ export function ecrireReglagesPresenceQr(entree = {}) {
     const n = Number(entree[k]);
     if (!Number.isFinite(n) || n < mini || n > maxi) return { erreur: 'borne', message: `${NOMS_REGLAGES[k] || k} : entre ${mini} et ${maxi}.` };
     v[k] = Math.round(n);
+  }
+  if (entree.mention_seuil_global !== undefined) {
+    const m = String(entree.mention_seuil_global || '').trim();
+    if (m.length > 800) return { erreur: 'mention', message: 'La mention réglementaire tient en 800 caractères au plus.' };
+    v.mention_seuil_global = m;
   }
   if (entree.domaines !== undefined) {
     const brut = Array.isArray(entree.domaines) ? entree.domaines : String(entree.domaines || '').split(/[\s,;]+/);

@@ -173,7 +173,7 @@ function Absences() {
     try {
       const m = await appel(`/alertes/avis?etudiant=${a.etudiant_id}&ue=${a.ue_num}&annee=${encodeURIComponent(annee)}`);
       const ok = await demander({ titre: `Prévenir ${nom(a)} ?`, confirmer: 'Envoyer',
-        message: `À : ${m.to}\nObjet : ${m.subject}\n\n${m.text}` });
+        message: `${m.mention_manquante ? 'La mention réglementaire du seuil global n’est pas rédigée (Réglages) : l’avis partira sans elle.\n\n' : ''}À : ${m.to}\nObjet : ${m.subject}\n\n${m.text}` });
       if (!ok) return;
       await appel('/alertes/avis', { method: 'POST', body: JSON.stringify({ etudiant: a.etudiant_id, ue: a.ue_num, annee }) });
       informer(`✓ Avis envoyé à ${m.to}.`); charger();
@@ -189,10 +189,14 @@ function Absences() {
           <input value={filtre} onChange={e => setFiltre(e.target.value)} placeholder="Nom, matricule ou UE"
             className="controle controle-icone border border-slate-300 rounded-champ bg-white w-72" />
         </div>
-        {d && <span className="text-second text-slate-500">Seuil : <b>{d.seuil} %</b> d’absences injustifiées sur les heures tenues ({annee}) — réglable dans Réglages.</span>}
+        {d && <span className="text-second text-slate-500">Seuils : <b>{d.seuil} %</b> d’absences sans justificatif, <b>{d.seuil_global} %</b> de toutes les absences — sur les heures tenues ({annee}), réglables dans Réglages.</span>}
         {d && <span className="text-second text-slate-500 ml-auto">{liste.length} situation(s)</span>}
       </div>
       {erreur && <p className="text-sm" style={{ color: 'var(--c-corriger)' }}>{erreur}</p>}
+      {d && !d.mention_global && d.alertes.some(a => a.depasse_global) && (
+        <p className="text-sm" style={{ color: 'var(--c-surveiller)' }}>
+          La mention réglementaire du seuil de {d.seuil_global} % n’est pas encore rédigée (Réglages, par la direction) : les avis partent sans elle.</p>
+      )}
       {!d && !erreur && <p className="text-sm text-slate-400">Calcul des présences de toutes les unités…</p>}
       {d && !liste.length && <p className="text-sm text-slate-500">Aucun étudiant au-delà du seuil{n ? ' pour cette recherche' : ''}.</p>}
       {!!liste.length && (
@@ -200,7 +204,7 @@ function Absences() {
           <table className="w-full text-sm">
             <thead><tr className="tab-entete text-left">
               <th className="px-2 py-1.5">Étudiant</th><th className="px-2 py-1.5">Unité</th>
-              <th className="px-2 py-1.5 text-right">Absences injustifiées</th><th className="px-2 py-1.5 text-right">Heures</th>
+              <th className="px-2 py-1.5 text-right">Sans justificatif</th><th className="px-2 py-1.5 text-right">Toutes absences</th><th className="px-2 py-1.5 text-right">Heures</th>
               <th className="px-2 py-1.5">Prévenu</th><th className="px-2 py-1.5" />
             </tr></thead>
             <tbody>
@@ -209,9 +213,15 @@ function Absences() {
                   <td className="px-2 py-1.5"><b>{String(a.nom || '').toUpperCase()}</b> {a.prenom}
                     <div className="text-second text-slate-500">{a.id_ecampus || ''}</div></td>
                   <td className="px-2 py-1.5">UE {a.ue_num}<div className="text-second text-slate-500">{a.ue_nom}</div></td>
-                  <td className="px-2 py-1.5 text-right"><PastilleEtat etat={a.taux > 2 * d.seuil ? 'corriger' : 'surveiller'}>{String(a.taux).replace('.', ',')} %</PastilleEtat>
+                  <td className="px-2 py-1.5 text-right">
+                    {a.taux > d.seuil ? <PastilleEtat etat="surveiller">{String(a.taux).replace('.', ',')} %</PastilleEtat>
+                      : <span className="tabular-nums">{String(a.taux).replace('.', ',')} %</span>}
                     <div className="text-second text-slate-500">{a.absences} séance(s)</div></td>
-                  <td className="px-2 py-1.5 text-right tabular-nums whitespace-nowrap">{hm(a.absent_min)} / {hm(a.du_min)}</td>
+                  <td className="px-2 py-1.5 text-right">
+                    {a.depasse_global ? <PastilleEtat etat="corriger">{String(a.taux_total).replace('.', ',')} %</PastilleEtat>
+                      : <span className="tabular-nums">{String(a.taux_total).replace('.', ',')} %</span>}
+                    {a.depasse_global && <div className="text-second" style={{ color: 'var(--c-corriger)' }}>au-delà de {d.seuil_global} %</div>}</td>
+                  <td className="px-2 py-1.5 text-right tabular-nums whitespace-nowrap">{hm(a.absent_min + (a.justifie_min || 0))} / {hm(a.du_min)}</td>
                   <td className="px-2 py-1.5 whitespace-nowrap">{a.prevenu_le ? fr(a.prevenu_le) : '—'}</td>
                   <td className="px-2 py-1.5 text-right">
                     <button type="button" className="bouton bouton-sortir" onClick={() => prevenir(a)} title="Lire l’avis, puis l’envoyer à l’adresse d’école">
@@ -233,7 +243,8 @@ const CHAMPS = [
   ['avant_min', 'Le scan s’ouvre', 'minutes avant le début du cours'],
   ['apres_min', 'et se ferme', 'minutes après le début'],
   ['appairages_semaine', 'Téléphones qu’un étudiant peut lier par semaine', ''],
-  ['seuil_absence_pct', 'Signaler un étudiant au-delà de', '% d’absences injustifiées'],
+  ['seuil_absence_pct', 'Signaler un étudiant au-delà de', '% d’absences sans justificatif'],
+  ['seuil_global_pct', 'et au-delà de', '% de toutes les absences (justifiées ou non)'],
 ];
 
 function Reglages() {
@@ -272,6 +283,13 @@ function Reglages() {
             <span className="text-second text-slate-400">(défaut {d.defauts[k]} · de {d.bornes[k][0]} à {d.bornes[k][1]})</span>
           </label>
         ))}
+        <label className="flex flex-wrap items-start gap-2 text-sm">
+          <span className="w-80 pt-1.5">Mention réglementaire au-delà du seuil de toutes les absences
+            <span className="block text-second text-slate-400">Reprise telle quelle dans l’avis à l’étudiant (RGE / ROI). Vide : l’avis s’en passe.</span></span>
+          <textarea rows={3} maxLength={800} value={v.mention_seuil_global ?? ''} disabled={!modifiable} data-reponses="mention-seuil-absences"
+            onChange={e => setV(x => ({ ...x, mention_seuil_global: e.target.value }))}
+            className="flex-1 min-w-[16rem] border border-slate-300 rounded-champ bg-white px-2 py-1.5" />
+        </label>
         <label className="flex flex-wrap items-center gap-2 text-sm">
           <span className="w-80">Adresses d’école acceptées (domaines)</span>
           <input value={v.domaines ?? ''} disabled={!modifiable} onChange={e => setV(x => ({ ...x, domaines: e.target.value }))}

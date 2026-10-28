@@ -1367,7 +1367,7 @@ téléphone lié, consommée par lui), journal en ajout seul, réglages (directi
 (`seuil_absence_pct`, 10 % par défaut, réglable), UE par UE, calculées comme la grille
 (`lib/alertesAbsences.js`) ; « Prévenir l'étudiant » montre l'avis (séances manquées, taux,
 mention du congé-éducation) puis l'envoie à l'adresse d'école — **jamais d'envoi
-automatique** —, journalisé `avis_absence`. Fiche RGPD : `docs/rgpd-presences-qr.md`. **Le mode d'emploi illustré** (3.1.413,
+automatique** —, journalisé `avis_absence`. **Et le seuil de 40 % (3.1.414, Charles : « toutes les absences », justifiées ou non)** : `seuil_global_pct` (40 par défaut), colonne « Toutes absences » en rouge au-delà ; l'avis liste alors aussi les absences justifiées et cite la **mention réglementaire** `mention_seuil_global`, RÉDIGÉE PAR LA DIRECTION dans Réglages — Lucie n'en écrit aucune (aucun texte connu dans le dépôt) ; vide, l'avis s'en passe et l'écran le signale. Fiche RGPD : `docs/rgpd-presences-qr.md`. **Le mode d'emploi illustré** (3.1.413,
 gabarit du guide du secrétariat, 13 pages) : Documentation → Mode d'emploi → *La présence par
 QR code (PDF)*, servi par `GET /api/documentation/guide/presence-qr` (liste FERMÉE de guides,
 `backend/assets/guides/`). Banc :

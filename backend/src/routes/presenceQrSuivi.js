@@ -65,7 +65,7 @@ r.get('/alertes', authRequired, EDITEUR, (req, res) => {
 r.get('/alertes/avis', authRequired, EDITEUR, (req, res) => {
   const a = avisAbsence(req.query.etudiant, req.query.ue, String(req.query.annee || anneeDeTravail(req)));
   if (a.erreur) return res.status(a.erreur === 'introuvable' ? 404 : 400).json({ error: a.message });
-  res.json({ to: a.to, subject: a.subject, text: a.text });
+  res.json({ to: a.to, subject: a.subject, text: a.text, mention_manquante: a.mention_manquante });
 });
 
 r.post('/alertes/avis', authRequired, EDITEUR, async (req, res) => {
