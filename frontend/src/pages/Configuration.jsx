@@ -844,7 +844,9 @@ function ConfigAttestation() {
   useEffect(() => {
     setEtab({});
     af('/api/config/attestation_sections').then(d => { try { setSections(JSON.parse(d.valeur)); } catch { setSections([]); } });
-    af('/api/referentiels/ue-sections').then(d => setUeSections(Array.isArray(d) ? d : [])).catch(() => {});
+    // La route vit sous /api/ref (referentiels.js) : /api/referentiels n'existe pas, et la
+    // liste restait vide sans un mot (relevé de l'audit du 28 octobre 2026).
+    af('/api/ref/ue-sections').then(d => setUeSections(Array.isArray(d) ? d : [])).catch(() => {});
   }, []);
 
   const sauvegarderSections = async () => {

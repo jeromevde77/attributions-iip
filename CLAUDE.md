@@ -114,6 +114,11 @@ professeur ne voit que totaux et textes) ; nominatif, un QCM corrigé se verse d
 du jj/mm », un point par bonne réponse, une fois). Les questions ne changent plus après la première
 réponse. Banc : `test/presenceQr.mjs` (94 ok).
 
+**LA BOUCLE BOUCLÉE** (3.1.426, Charles, 28 octobre 2026 : « on arrive à maturation ; il faut
+vérifier que tous les liens soient bien pensés »). Relevé complet et liste de ce qui reste ouvert :
+`docs/contexte/audit-boucles-2026-10-28.md`. Règle qui en sort : **une donnée écrite que personne
+ne relit est une boucle ouverte** — avant d'ajouter une table ou une trace, dire quel écran la lit.
+
 **Établissement :** IIP — N° ECOT 5222132070, FASE 292, Campus Erasme,
 Route de Lennik 808, 1070 Anderlecht. Enseignement pour adultes (FWB).
 Sections : TIM (la plus grande), Psychomotricité, AeSI (soins infirmiers,

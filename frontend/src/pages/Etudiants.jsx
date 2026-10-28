@@ -3106,6 +3106,16 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
 
           {onglet === 'parcours' && (
             <div>
+              {/* LE COMMENTAIRE DU CONSEIL DES ÉTUDES (audit du 28 octobre 2026) : importé avec
+                  les résultats, il n'était lu nulle part. */}
+              {data.commentaires_ce?.length > 0 && (
+                <div className="px-5 pt-3 space-y-1.5">
+                  {data.commentaires_ce.map(c => (
+                    <div key={c.annee_scolaire} className="bloc-etat px-3 py-2 text-second" data-etat="neutre">
+                      <b>Commentaire du Conseil des études — {c.annee_scolaire}</b>
+                      <div className="whitespace-pre-line text-slate-700 mt-0.5">{c.texte}</div>
+                    </div>))}
+                </div>)}
 
               {/* L'ordre de lecture : le SCHÉMA d'abord — la vue d'ensemble du
                   parcours —, puis le programme proposé, et les NOTES en

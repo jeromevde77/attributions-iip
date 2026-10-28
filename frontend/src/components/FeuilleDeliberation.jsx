@@ -757,6 +757,8 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
               onReprendre={() => setCorrection(true)} />
           )}
 
+          <ReouverturesSeance ueNum={ueNum} annee={annee} session={session} cloturee={!!seance?.seance?.cloturee} />
+
           {correction && (
             <CorrectionAdministrative ueNum={ueNum} annee={annee} session={session}
               org={org ?? 0} seance={seance} onFerme={() => setCorrection(false)}
@@ -3833,6 +3835,24 @@ function VueLot({ liste, onAjourner, onOuvrir, enCours, session = 1 }) {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** LES RÉOUVERTURES DE LA SÉANCE : le motif écrit, qui et quand (audit du 28 octobre 2026). */
+function ReouverturesSeance({ ueNum, annee, session, cloturee }) {
+  const [l, setL] = useState([]);
+  useEffect(() => {
+    if (!ueNum || !annee) return;
+    fetch(`/api/acquis/deliberation/ue/${ueNum}/reouvertures?annee=${encodeURIComponent(annee)}&session=${session || 1}`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : [])).then(x => setL(Array.isArray(x) ? x : [])).catch(() => setL([]));
+  }, [ueNum, annee, session, cloturee]);
+  if (!l.length) return null;
+  const fr = d => (d ? new Date(String(d).replace(' ', 'T') + 'Z').toLocaleString('fr-BE', { dateStyle: 'short', timeStyle: 'short' }) : '—');
+  return (
+    <div className="bloc-etat px-3 py-2 text-second" data-etat="surveiller">
+      <b>{l.length === 1 ? 'Séance rouverte une fois' : `Séance rouverte ${l.length} fois`}</b>
+      {l.map((x, i) => <div key={i} className="text-slate-700">{fr(x.le)} — {x.par || '—'} : {x.motif || 'motif non noté'}</div>)}
     </div>
   );
 }

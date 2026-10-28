@@ -623,7 +623,35 @@ export default function CalendrierSessions({ sansTitre = false } = {}) {
                 className="w-full px-2 py-1.5 text-sm border border-slate-300 rounded-lg" />
           </Fenetre>
         )}
+        <CorrectionsApresCloture annee={annee} />
       </div>
     </div>
+  );
+}
+
+/** LES CORRECTIONS APRÈS CLÔTURE, RELUES (audit du 28 octobre 2026) : elles s'écrivaient
+ *  « pour qu'elles se lisent », et aucun écran ne les lisait. Avant, après, motif, qui. */
+function CorrectionsApresCloture({ annee }) {
+  const [l, setL] = useState([]);
+  useEffect(() => {
+    fetch(`/api/calendrier/corrections?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : [])).then(x => setL(Array.isArray(x) ? x : [])).catch(() => setL([]));
+  }, [annee]);
+  if (!l.length) return null;
+  const lire = j => { try { return Object.entries(JSON.parse(j || '{}')).map(([k, v]) => `${k.replace(/_/g, ' ')} : ${v ?? '—'}`).join(', '); } catch { return ''; } };
+  const fr = d => (d ? new Date(String(d).replace(' ', 'T') + 'Z').toLocaleString('fr-BE', { dateStyle: 'short', timeStyle: 'short' }) : '—');
+  return (
+    <details className="carte px-3 py-2 mt-4">
+      <summary className="cursor-pointer text-sm font-semibold">Corrections après clôture ({l.length})</summary>
+      <table className="w-full text-second mt-2">
+        <thead><tr className="tab-entete text-left"><th className="px-2 py-1">Le</th><th className="px-2 py-1">UE</th><th className="px-2 py-1">Avant</th>
+          <th className="px-2 py-1">Après</th><th className="px-2 py-1">Motif</th><th className="px-2 py-1">Par</th></tr></thead>
+        <tbody>{l.map(x => (
+          <tr key={x.id} className="border-t border-slate-100 align-top"><td className="px-2 py-1 whitespace-nowrap">{fr(x.le)}</td>
+            <td className="px-2 py-1">UE {x.ue_num} · S{x.session}</td><td className="px-2 py-1">{lire(x.avant)}</td>
+            <td className="px-2 py-1">{lire(x.apres)}</td><td className="px-2 py-1">{x.motif}</td><td className="px-2 py-1">{x.par}</td></tr>))}
+        </tbody>
+      </table>
+    </details>
   );
 }

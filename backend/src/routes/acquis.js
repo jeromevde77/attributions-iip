@@ -6823,6 +6823,18 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
  *
  * GET compte ; POST assemble tout en UN document, chaque pièce sur sa page.
  */
+/* LES RÉOUVERTURES D'UNE SÉANCE, RELUES (audit du 28 octobre 2026). Le motif était
+   exigé et écrit (« conservé au dossier ») mais aucun écran ne le relisait : le voici,
+   dans la feuille de délibération, avec qui et quand. */
+r.get('/deliberation/ue/:ueNum/reouvertures', authRequired, (req, res) => {
+  try {
+    const session = Number(req.query.session) === 2 ? 2 : 1;
+    res.json(db.prepare(`SELECT motif, le, par FROM deliberation_reouverture
+      WHERE ue_num = ? AND annee_scolaire = ? AND session = ? ORDER BY le DESC, id DESC`)
+      .all(Number(req.params.ueNum), String(req.query.annee || ''), session));
+  } catch { res.json([]); }   // table absente : aucune réouverture
+});
+
 r.get('/deliberation/ue/:ueNum/documents', authRequired, (req, res) => {
   const ueNum = Number(req.params.ueNum);
   const annee = req.query.annee || anneeDeTravail(req);

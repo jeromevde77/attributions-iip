@@ -6267,7 +6267,12 @@ r.get('/:id', authRequired, (req, res) => {
     return res.status(403).json({ error: 'Cet étudiant est hors de votre périmètre' });
   }
 
-  res.json({ ...etudiant, inscriptions, niveau: niveauEtudiant(etudiant.id, anneeAct) });
+  /* LE COMMENTAIRE DU CONSEIL DES ÉTUDES, importé avec les résultats, ne se lisait nulle
+     part (audit du 28 octobre 2026) : il paraît désormais dans le parcours de la fiche. */
+  let commentaires_ce = [];
+  try { commentaires_ce = db.prepare(`SELECT annee_scolaire, texte, maj_le FROM etudiant_commentaire_ce
+    WHERE etudiant_id = ? AND TRIM(COALESCE(texte, '')) != '' ORDER BY annee_scolaire DESC`).all(etudiant.id); } catch { /* table absente */ }
+  res.json({ ...etudiant, inscriptions, niveau: niveauEtudiant(etudiant.id, anneeAct), commentaires_ce });
 });
 
 // ── Encoder un résultat ───────────────────────────────────────────────────────

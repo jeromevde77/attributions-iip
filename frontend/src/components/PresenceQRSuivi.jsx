@@ -22,6 +22,7 @@ import { authHeaders, getAnnee } from '../lib/api.js';
 import { saisir, informer, demander } from '../lib/dialogue.jsx';
 import { useDroits } from '../lib/droits.js';
 import PresencesUE from './PresencesUE.jsx';
+import RegistreCep from './RegistreCep.jsx';
 
 const API = '/api/presence-qr-suivi';
 const fr = d => (d ? new Date(String(d).replace(' ', 'T') + 'Z').toLocaleString('fr-BE', { dateStyle: 'short', timeStyle: 'short' }) : '—');
@@ -336,6 +337,8 @@ export default function PresenceQRSuivi({ faceInitiale = null, onFermer }) {
         // LE MODULE DES PRÉSENCES PAR UE (28 octobre 2026) : le tableau, les corrections, la régularité.
         ...(agit ? [{ cle: 'ue', label: 'Par UE', rendu: <PresencesUE /> }] : []),
         { cle: 'absences', label: 'Absences au-delà du seuil', rendu: <Absences /> },
+        // LE REGISTRE DU CONGÉ-ÉDUCATION (audit du 28 octobre 2026) : la route existait, l'écran manquait.
+        ...(agit ? [{ cle: 'cep', label: 'Congé-éducation', rendu: <RegistreCep /> }] : []),
         { cle: 'telephones', label: 'Téléphones liés', rendu: <Telephones /> },
         { cle: 'journal', label: 'Journal', rendu: <Journal /> },
         ...(agit ? [{ cle: 'reglages', label: 'Réglages', rendu: <Reglages /> }] : []),
