@@ -154,6 +154,12 @@ PAE). Les années reprises restent encodables. « Doubles programmes » retire p
 (la confirmation du PAE tombe). Restent voulus : `/repartition` et `/grille/cohortes` écrivent tous deux
 `num_organisation` (le cas par cas et la cohorte) ; `/import-suivi/deplacer` est un outil de réparation.
 
+**LES DATES D'UNE UE ONT UNE RÈGLE, QUELLE QUE SOIT LA PORTE** (3.1.434). « Dates des UE »
+(`PUT /annuel/dates-ue`) posait le périmètre de section, refusait une fin avant le début et faisait de
+la saisie d'une coordination une DEMANDE (`deposerDemande`, type `date_ue`) ; le laboratoire
+(`PUT /grille/ue`, `POST /grille/organisation-de-base`) écrivait directement. Mêmes trois règles
+désormais ; l'écran dit « transmise pour validation » et la tuile reste où elle était.
+
 **UNE CHOSE, UNE PORTE — DEUXIÈME RELEVÉ** (3.1.428, Charles, 28 octobre 2026 : « vérifier qu'il n'y a
 pas pour une chose deux entrées possibles »). Deux déclencheurs de garde : **`garde_seance_presences`**
 (une séance qui porte des présences ne se supprime pas — elle s'annule ; réimports et versements du plan

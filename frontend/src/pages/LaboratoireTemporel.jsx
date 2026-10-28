@@ -196,6 +196,8 @@ export default function LaboratoireTemporel() {
     const j = await r.json().catch(() => ({}));
     if (!r.ok) { setErreur(j.error || `Erreur ${r.status}`); return; }
     await charger();
+    // La coordination propose : la tuile reste où elle était tant que la direction n'a pas validé.
+    if (j.en_attente) await informer(j.message);
   }
   async function basculerConges(u) {
     const r = await fetch('/api/grille/ue', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ annee_scolaire: annee, section, ue_num: u.ue_num, num_organisation: u.num_organisation || 1, cours_pendant_conges: !u.cours_pendant_conges }) });
@@ -229,7 +231,8 @@ export default function LaboratoireTemporel() {
     const j = await r.json().catch(() => ({}));
     if (!r.ok) { setErreur(j.error || `Erreur ${r.status}`); return; }
     await charger();
-    await informer(`✓ ${j.ecrit} UE posée(s) dans l’année.${j.sauvegarde ? ' Le laboratoire avait été sauvegardé avant.' : ''}`);
+    await informer(j.en_attente ? j.message
+      : `✓ ${j.ecrit} UE posée(s) dans l’année.${j.sauvegarde ? ' Le laboratoire avait été sauvegardé avant.' : ''}`);
   }
   async function dedoubler(u) {
     if (!(await demander({ titre: `Dédoubler l’UE ${u.ue_num}`, message: `Une organisation de plus pour l’UE ${u.ue_num}, avec ses propres dates. Son verre reprend celui de l’organisation 1 tant qu’on ne le découpe pas autrement.
