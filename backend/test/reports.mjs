@@ -10,6 +10,12 @@ process.env.JWT_SECRET = 'change-me-in-prod';
 const M = await import('../src/db/index.js');
 const db = M.default;
 M.runSchema();
+// La table des années naît dans server.js ; la migration des pondérations la lit.
+db.exec('CREATE TABLE IF NOT EXISTS annee_scolaire (code TEXT PRIMARY KEY)');
+// Colonnes que server.js ajoute au démarrage, et que le calcul lit.
+for (const c of ['non_evalue INTEGER NOT NULL DEFAULT 0', 'ct_pp TEXT', 'is_stage INTEGER NOT NULL DEFAULT 0']) {
+  try { db.exec(`ALTER TABLE cours ADD COLUMN ${c}`); } catch { /* déjà là */ }
+}
 const A = await import('../src/routes/acquis.js');
 A.migrerAA(db); A.migrerSessions(db);
 
@@ -50,14 +56,15 @@ db.exec(`
            (900, 'AA900.3', 3, 'C2', 'Troisième acquis'),
            (900, 'AA900.4', 4, 'C2', 'Quatrième acquis');
 `);
-for (const [cc, aa] of [['C1','AA900.1'],['C1','AA900.2'],['C2','AA900.3'],['C2','AA900.4']]) {
-  db.prepare(`INSERT OR REPLACE INTO aa_ponderation (ue_num, cours_code, aa_code, poids)
-              VALUES (?,?,?,50)`).run(900, cc, aa);
+// Les poids ont une année (2.12.179) : le banc les pose pour les deux années qu'il lit.
+for (const an of ['2025-2026', '2026-2027']) {
+  for (const [cc, aa] of [['C1','AA900.1'],['C1','AA900.2'],['C2','AA900.3'],['C2','AA900.4']]) {
+    db.prepare(`INSERT OR REPLACE INTO aa_ponderation (annee_scolaire, ue_num, cours_code, aa_code, poids)
+                VALUES (?,?,?,?,50)`).run(an, 900, cc, aa);
+  }
+  for (const cc of ['C1', 'C2']) db.prepare(`INSERT OR REPLACE INTO cours_ponderation (annee_scolaire, ue_num, cours_code, poids)
+              VALUES (?,?,?,50)`).run(an, 900, cc);
 }
-db.prepare(`INSERT OR REPLACE INTO cours_ponderation (ue_num, cours_code, poids)
-            VALUES (?,?,50)`).run(900, 'C1');
-db.prepare(`INSERT OR REPLACE INTO cours_ponderation (ue_num, cours_code, poids)
-            VALUES (?,?,50)`).run(900, 'C2');
 
 const poser = (etud, notes, { resultat = 'ajourne', an = '2025-2026' } = {}) => {
   db.prepare(`INSERT OR REPLACE INTO etudiant_inscription

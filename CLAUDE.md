@@ -187,6 +187,10 @@ ne les comptent pas : une VA n'est pas une délibération.
 **Le motif par défaut d'un acquis a son écran** (3.1.439) : Référentiels → fiche de l'UE → onglet des
 acquis, bloc « Motif proposé en cas d'échec » (`components/MotifsDefautUE.jsx`, `GET/PUT
 /api/acquis/motifs-defaut`). Lu par la proposition de motivation de la délibération ; jamais écrit d'office.
+**Ménage** (3.1.440) : sept fichiers que rien n'importait sont retirés (`TexteDossierPedagogique`,
+remplacé par la fiche de l'UE en quatre onglets ; `CentreImpression`, `CentreDocumentsUE`, `LiensCoursAcquis`,
+`PonderationsAA`, `lib/routage.js`, `lib/lireSuivi.js`). Le banc `test/reports.mjs` lisait encore des poids
+sans année : remis d'aplomb. Les trois bancs passent (`carnet`, `presenceQr`, `reports`).
 
 **UNE CHOSE, UNE PORTE — DEUXIÈME RELEVÉ** (3.1.428, Charles, 28 octobre 2026 : « vérifier qu'il n'y a
 pas pour une chose deux entrées possibles »). Deux déclencheurs de garde : **`garde_seance_presences`**

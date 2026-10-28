@@ -65,3 +65,27 @@ Restent, plus lourds — à décider :
 4. **Dates de l'UE** : `PUT /grille/ue` et `/organisation-de-base` passent outre la demande de la
    coordination et le périmètre que respecte `PUT /annuel/dates-ue`.
 5. **Professeurs** : `UNIQUE(nom, prenom)` sensible à la casse (« Dupont » ≠ « DUPONT »).
+
+## Troisième passe (3.1.432 → 3.1.440) — fermé
+
+- Notes d'une séance close : `lib/gardeNotes.js` (déclencheurs qui ignorent, écrans qui refusent en 409).
+- Routes de résultats (matrice, encodage direct, résultats du PAE, grille) : `refusResultat()` — ni
+  délibération close rejugée, ni inscription créée hors du PAE pour l'année de travail.
+- Doubles programmes par `ecrireProgramme()`.
+- Dates d'UE du laboratoire : périmètre, fin après début, demande de la coordination.
+- Création d'étudiant : `trouverOuCreerEtudiant()` pour la liste et l'Excel eCampus ; `rn_norm` par déclencheur.
+- Professeurs : `professeurExistant()`, casse et accents ignorés.
+- Versements : saisie dans Finances ; annulation motivée, jamais d'effacement.
+- VA dans le parcours : `uesValorisees()` (crédits de l'annexe 2, schéma, motif) au lieu d'un `'valorise'`.
+- Motif par défaut d'un acquis : son écran, dans la fiche de l'UE.
+- Ménage : sept fichiers jamais importés retirés ; banc `reports.mjs` remis d'aplomb (15/15).
+
+## Restent — à décider par Charles
+1. **Dotation / PEP** : Lucie ne calcule pas les périodes-élèves (saisies d'après eProm, Menus 7 et 5.5).
+   Pour y brancher les réguliers au 1er dixième, il faut la formule : réguliers × périodes de l'UE
+   (lesquelles : professeur, étudiant ?) et la pondération du Menu 5.5.
+2. **Pièces d'un autre établissement** (`etablissementDeSection`) : utile seulement quand une section
+   d'un second établissement existera dans Lucie.
+3. **Démarche qualité AEQES** : un module à concevoir (registre des actions dans l'échéancier,
+   indicateurs, inscrits sur cinq ans).
+4. **Routes sans appelant** (~20) : à retirer après vérification qu'aucun script ni `lucie-ops` ne s'en sert.
