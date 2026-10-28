@@ -47,6 +47,7 @@ import { TITRES_ACCES, DIPLOMES_MAX } from '../lib/profilEtudiant.js';
 import { composerNotificationVA } from '../lib/pieceNotificationVA.js';
 
 import { noteVerrouillee, MESSAGE_CLOSE } from '../lib/gardeNotes.js';
+import { trouverOuCreerEtudiant } from '../lib/etudiantUnique.js';
 const r = Router();
 
 // Intitulé, niveau et section d'une UE, indépendamment de l'année.
@@ -2158,28 +2159,11 @@ r.post('/import-liste', authRequired, roleRequired('admin', 'editeur'), (req, re
     return res.status(400).json({ error: 'annee et etudiants requis' });
   }
 
-  const upEtud = db.prepare(`
-    INSERT INTO etudiant (id_ecampus, nom, prenom, email_ecole, email_perso,
-      date_naissance, num_national, gsm, adresse, localite, cp, titre,
-      lieu_naissance)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
-    ON CONFLICT(id_ecampus) DO UPDATE SET
-      nom = excluded.nom, prenom = excluded.prenom,
-      email_ecole   = COALESCE(excluded.email_ecole,   etudiant.email_ecole),
-      email_perso   = COALESCE(excluded.email_perso,   etudiant.email_perso),
-      date_naissance= COALESCE(excluded.date_naissance,etudiant.date_naissance),
-      num_national  = COALESCE(excluded.num_national,  etudiant.num_national),
-      gsm           = COALESCE(excluded.gsm,           etudiant.gsm),
-      adresse       = COALESCE(excluded.adresse,       etudiant.adresse),
-      localite      = COALESCE(excluded.localite,      etudiant.localite),
-      cp            = COALESCE(excluded.cp,            etudiant.cp),
-      titre         = COALESCE(excluded.titre,         etudiant.titre),
-      -- Les classeurs eCampus portent LieuNais, mais l'import ne le reprenait
-      -- pas : la donnée existait dans vos fichiers et n'entrait jamais en base,
-      -- d'où le lieu de naissance vide sur les attestations.
-      lieu_naissance= COALESCE(excluded.lieu_naissance, etudiant.lieu_naissance)
-  `);
-  const trouver = db.prepare('SELECT id FROM etudiant WHERE id_ecampus = ?');
+  /* UN ÉTUDIANT, UN DOSSIER (3.1.435) : on cherchait le seul matricule DE L'ANNÉE — un
+     étudiant revenu avec un nouveau matricule devenait un second dossier. La recherche est
+     celle de toutes les portes (`trouverOuCreerEtudiant`, sur `rapprocher()`), et la fiche
+     se complète sans qu'aucune valeur soit remplacée par un vide. */
+  const idDe = new Map();   // matricule de la liste → dossier
   const upInsc = db.prepare(`
     INSERT INTO etudiant_inscription (etudiant_id, annee_scolaire, ue_num, groupe, date_inscription)
     VALUES (?,?,?,?,?)
@@ -2190,17 +2174,14 @@ r.post('/import-liste', authRequired, roleRequired('admin', 'editeur'), (req, re
   const dateJour = new Date().toISOString().slice(0, 10);
   let nEtud = 0, nInsc = 0, sansCode = 0;
 
+  let nCrees = 0;
   db.transaction(() => {
     for (const e of etudiants) {
-      // UN MATRICULE ABSENT EST NULL, NON UNE CHAÎNE VIDE. La chaîne vide est
-      // une valeur : deux étudiants sans matricule entraient en conflit sur
-      // l'unicité, et le second ÉCRASAIT le premier — deux personnes réduites
-      // à une fiche, sans un mot. SQLite, lui, autorise plusieurs NULL.
-      upEtud.run(String(e.id_ecampus || '').trim() || null, e.nom || '', e.prenom || '',
-        e.email_ecole || null, e.email_perso || null, e.date_naissance || null,
-        e.num_national || null, e.gsm || null, e.adresse || null,
-        e.localite || null, e.cp || null, e.titre || null,
-        e.lieu_naissance || null);
+      // Un matricule absent reste NULL (jamais une chaîne vide, qui ferait collision).
+      const t = trouverOuCreerEtudiant({ ...e, id_ecampus: String(e.id_ecampus || '').trim() || null },
+        { annee, source: 'liste eCampus' });
+      if (e.id_ecampus) idDe.set(String(e.id_ecampus).trim(), t.id);
+      if (t.cree) nCrees++;
       nEtud++;
     }
   })();
@@ -2213,7 +2194,9 @@ r.post('/import-liste', authRequired, roleRequired('admin', 'editeur'), (req, re
   const parEtud = new Map();
   for (const i of (inscriptions || [])) {
     if (i.ue_num == null) { sansCode++; continue; }
-    const e = trouver.get(String(i.id_ecampus || '').trim());
+    const mi = String(i.id_ecampus || '').trim();
+    const e = idDe.has(mi) ? { id: idDe.get(mi) } : (mi ? db.prepare('SELECT id FROM etudiant WHERE id_ecampus = ?').get(mi)
+      || db.prepare('SELECT etudiant_id AS id FROM etudiant_matricule WHERE id_ecampus = ?').get(mi) : null);
     if (!e) { sansCode++; continue; }
     if (!parEtud.has(e.id)) parEtud.set(e.id, []);
     parEtud.get(e.id).push(i);
@@ -2227,7 +2210,7 @@ r.post('/import-liste', authRequired, roleRequired('admin', 'editeur'), (req, re
     for (const i of lignes) { upInsc.run(id, annee, Number(i.ue_num), i.groupe || null, dateJour); nInsc++; }
   }
 
-  res.json({ ok: true, annee, etudiants: nEtud, inscriptions: nInsc, ignorees: sansCode,
+  res.json({ ok: true, annee, etudiants: nEtud, etudiants_crees: nCrees, inscriptions: nInsc, ignorees: sansCode,
     a_regulariser: aRegulariser.length, a_regulariser_liste: aRegulariser.slice(0, 200) });
 });
 
@@ -11389,23 +11372,16 @@ r.post('/import-excel', authRequired, gesteRequis('etudiants.import'), async (re
   }
 
   try {
-    const insEtud = db.prepare(`
-      INSERT INTO etudiant (id_ecampus,nom,prenom,email_ecole,email_perso,
-        date_naissance,num_national,gsm,adresse,localite,cp,titre)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
-      ON CONFLICT(id_ecampus) DO UPDATE SET
-        nom=excluded.nom, prenom=excluded.prenom,
-        email_ecole=excluded.email_ecole, email_perso=excluded.email_perso
-    `);
-
+    /* UN ÉTUDIANT, UN DOSSIER (3.1.435) : même recherche que toutes les portes, et un
+       dossier existant se COMPLÈTE — l'import écrasait ses adresses par un vide. */
+    const idDe = new Map();
     let etudiants_crees=0, inscriptions_creees=0;
     const tx = db.transaction(() => {
       for (const e of etudiantsData) {
-        const r = insEtud.run(e.id_ecampus||null, e.nom||'', e.prenom||'',
-          e.email_ecole||null, e.email_perso||null, e.date_naissance||null,
-          e.num_national||null, e.gsm||null, e.adresse||null,
-          e.localite||null, e.cp||null, e.titre||null);
-        if (r.changes) etudiants_crees++;
+        const t = trouverOuCreerEtudiant({ ...e, id_ecampus: String(e.id_ecampus || '').trim() || null },
+          { annee, source: 'Excel eCampus' });
+        if (e.id_ecampus) idDe.set(String(e.id_ecampus).trim(), t.id);
+        if (t.cree) etudiants_crees++;
       }
     });
     tx();
@@ -11415,7 +11391,9 @@ r.post('/import-excel', authRequired, gesteRequis('etudiants.import'), async (re
     const parEtud = new Map();
     for (const i of inscriptionsData) {
       if (!i.ue_num || isNaN(Number(i.ue_num))) continue;
-      const e = trouver.get(i.id_ecampus);
+      const mi = String(i.id_ecampus || '').trim();
+      const e = idDe.has(mi) ? { id: idDe.get(mi) } : trouver.get(mi)
+        || db.prepare('SELECT etudiant_id AS id FROM etudiant_matricule WHERE id_ecampus = ?').get(mi);
       if (!e) continue;
       if (!parEtud.has(e.id)) parEtud.set(e.id, []);
       parEtud.get(e.id).push(i);

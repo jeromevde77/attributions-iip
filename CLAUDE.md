@@ -160,6 +160,15 @@ la saisie d'une coordination une DEMANDE (`deposerDemande`, type `date_ue`) ; le
 (`PUT /grille/ue`, `POST /grille/organisation-de-base`) écrivait directement. Mêmes trois règles
 désormais ; l'écran dit « transmise pour validation » et la tuile reste où elle était.
 
+**UN ÉTUDIANT, UN DOSSIER, QUELLE QUE SOIT LA PORTE** (3.1.435). L'import de la liste eCampus et l'import
+Excel ne cherchaient que le matricule DE L'ANNÉE (un étudiant revenu avec un nouveau matricule devenait un
+second dossier) et l'Excel écrasait les adresses par un vide. `trouverOuCreerEtudiant()`
+(`lib/etudiantUnique.js`, sur `rapprocher()` : numéro national, tous les matricules connus, puis nom +
+prénom + date de naissance) complète sans jamais remplacer une valeur par un vide et rattache le nouveau
+matricule (`etudiant_matricule`). Les portes HELB, signalétique, inscription de liste et classeur de suivi
+passaient déjà par `rapprocher()`. Et **`rn_norm` se calcule par déclencheur** à chaque écriture du numéro
+national (`etudiant_rn_norm_*`), plus un rattrapage des fiches d'avant au démarrage.
+
 **UNE CHOSE, UNE PORTE — DEUXIÈME RELEVÉ** (3.1.428, Charles, 28 octobre 2026 : « vérifier qu'il n'y a
 pas pour une chose deux entrées possibles »). Deux déclencheurs de garde : **`garde_seance_presences`**
 (une séance qui porte des présences ne se supprime pas — elle s'annule ; réimports et versements du plan
