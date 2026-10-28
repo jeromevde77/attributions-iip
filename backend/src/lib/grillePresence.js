@@ -105,7 +105,15 @@ export function phraseDixieme(dx) {
 }
 
 /** Le PDF (HTML de l'enveloppe commune). `cours` : { code → nom } pour le récapitulatif de l'UE. */
-export function htmlGrille(g, { titre, sous, ligne = null, ue = false, cours = {} }) {
+export function htmlGrille(g, opts) {
+  const d = pieceGrille(g, opts);
+  return envelopperDocument({ html: d.corps, titre: d.titre, orientation: d.orientation,
+    margeCote: d.margeCote, margeHaut: d.margeHaut, entete: d.entete, styles: d.styles });
+}
+
+/** Le corps de la pièce et ses styles, sans l'enveloppe : Mes cours et le
+ *  centre d'impression (`routes/rapports.js`) les enveloppent chacun. */
+export function pieceGrille(g, { titre, sous, ligne = null, ue = false, cours = {} }) {
   const blocs = [];
   for (let i = 0; i < Math.max(1, g.seances.length); i += PAR_PAGE) {
     const tranche = g.seances.slice(i, i + PAR_PAGE);
@@ -141,8 +149,8 @@ export function htmlGrille(g, { titre, sous, ligne = null, ue = false, cours = {
     `<li>${esc(m.etudiant)} — ${fr(m.date)} ${esc(String(m.heure || '').slice(0, 5))}${ue ? ` (${esc(m.cours)})` : ''} : ${esc(m.motif)}</li>`).join('')}</ul></div>` : '';
   const legende = `<div class="legende">P présent · A absent · J absence justifiée (motif ci-dessous) · — non concerné (autre sous-groupe) · case vide : non encodé · colonne grisée : séance annulée.
     Heures : séances tenues jusqu’à aujourd’hui. Absences injustifiées : sur les heures dues ; signalées au-delà de 10 % (seuil du congé-éducation payé).</div>`;
-  return envelopperDocument({
-    html: (g.dixieme ? `<div class="dixieme"><b>${esc(phraseDixieme(g.dixieme))}</b></div>` : '') + blocs.join('') + recap + legende + notes, titre, orientation: 'paysage', margeCote: 12, margeHaut: 12,
+  return {
+    corps: (g.dixieme ? `<div class="dixieme"><b>${esc(phraseDixieme(g.dixieme))}</b></div>` : '') + blocs.join('') + recap + legende + notes, titre, orientation: 'paysage', margeCote: 12, margeHaut: 12,
     entete: { titre, sous, ligne },
     styles: `
 .grille{border-collapse:collapse;width:100%;font-size:7.5pt;table-layout:auto}
@@ -166,7 +174,7 @@ export function htmlGrille(g, { titre, sous, ligne = null, ue = false, cours = {
 .saut{break-before:page;page-break-before:always}
 .legende{font-size:7pt;color:#64748b;margin-top:3mm}
 .notes{font-size:7.5pt;margin-top:3mm}.notes ul{margin:1mm 0 0 4mm;padding:0}`,
-  });
+  };
 }
 
 /** Le classeur Excel : la grille, le récapitulatif (UE), les motifs. */
@@ -203,4 +211,63 @@ export async function excelGrille(g, { titre, ue = false, cours = {} }) {
   for (const x of g.motifs) m.addRow([x.etudiant, fr(x.date), String(x.heure || '').slice(0, 5), x.cours || '', x.motif]);
   m.getRow(1).font = { bold: true };
   return wb.xlsx.writeBuffer();
+}
+
+// ── LA GRILLE HORS DE MES COURS : le centre d'impression ──────────────────
+/* Le secrétariat n'entre pas dans Mes cours, et c'est lui qui répond à la
+ * vérificatrice (Charles, 28 octobre 2026). Le centre d'impression sort donc la
+ * même grille, par UE ou par cours, avec les mêmes données et la même règle
+ * d'accès que Mes cours : direction, secrétariat, coordination de la section. */
+export const ROLES_GRILLE = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat', 'coordination'];
+
+/** `perimetre` : null = toutes les sections, sinon la liste de celles permises. */
+export function grillePermise(role, perimetre, ueNum) {
+  if (!ROLES_GRILLE.includes(role)) return false;
+  if (!perimetre) return true;
+  return db.prepare('SELECT DISTINCT section FROM ue WHERE ue_num = ? AND section IS NOT NULL').all(ueNum)
+    .some(x => perimetre.includes(x.section));
+}
+
+/** Les cours de l'UE et toutes leurs séances de l'année. */
+export function seancesDeLUE(ueNum, annee) {
+  const coursUE = db.prepare('SELECT cours_code, MIN(cours_nom) AS nom FROM cours WHERE ue_num = ? AND annee_scolaire = ? GROUP BY cours_code').all(ueNum, annee);
+  const codes = coursUE.map(c => c.cours_code);
+  const seances = db.prepare(`SELECT id, date, heure_debut, heure_fin, minutes, cours_code, sous_groupe, COALESCE(annule, 0) AS annule
+    FROM horaire_seance WHERE annee_scolaire = ? AND (ue_num = ?${codes.length ? ` OR cours_code IN (${codes.map(() => '?').join(',')})` : ''})`).all(annee, ueNum, ...codes);
+  return { coursUE, seances };
+}
+
+/** Les inscrits actifs de l'UE pour l'année. */
+export function inscritsDeLUE(ueNum, annee) {
+  return db.prepare(`SELECT DISTINCT e.id, e.nom, e.prenom, e.id_ecampus FROM etudiant_inscription i
+    JOIN etudiant e ON e.id = i.etudiant_id WHERE i.annee_scolaire = ? AND i.ue_num = ? AND e.actif = 1`).all(annee, ueNum);
+}
+
+const periodeLigne = (du, au) => (du || au
+  ? `Période : ${du ? fr(du) : 'début'} – ${au ? fr(au) : 'aujourd’hui'}` : 'Toute l’année');
+
+/** La grille de toute l'UE : ses inscrits, toutes les séances de tous ses cours. */
+export function grilleUE(ueNum, annee, { du = null, au = null } = {}) {
+  const { coursUE, seances } = seancesDeLUE(ueNum, annee);
+  const etudiants = inscritsDeLUE(ueNum, annee);
+  const ueNom = db.prepare('SELECT MIN(ue_nom) n FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ueNum, annee)?.n || '';
+  const g = donneesGrille({ seances, etudiants, du, au, dixieme: premierDixieme(seances) });
+  return { g, opts: { titre: `Grille de présence — UE ${ueNum}${ueNom ? ` · ${ueNom}` : ''}`,
+    sous: `${coursUE.length} cours · ${etudiants.length} inscrits · ${annee}`, ligne: periodeLigne(du, au), ue: true,
+    cours: Object.fromEntries(coursUE.map(c => [c.cours_code, c.nom])) },
+    nom: `Presences_UE${ueNum}_${annee}` };
+}
+
+/** La grille d'un cours, vue de l'établissement : toutes ses séances de l'année
+ *  et les inscrits de son UE (un sous-groupe se lit « — » quand il est encodé). */
+export function grilleCours(coursCode, annee, { du = null, au = null } = {}) {
+  const c = db.prepare('SELECT ue_num, cours_nom FROM cours WHERE cours_code = ? ORDER BY (annee_scolaire = ?) DESC LIMIT 1').get(coursCode, annee);
+  if (!c) return null;
+  const { seances: toutes } = seancesDeLUE(c.ue_num, annee);
+  const seances = toutes.filter(x => x.cours_code === coursCode);
+  const etudiants = inscritsDeLUE(c.ue_num, annee);
+  const g = donneesGrille({ seances, etudiants, du, au, dixieme: premierDixieme(toutes) });
+  return { ueNum: c.ue_num, g, opts: { titre: `Grille de présence — ${coursCode}${c.cours_nom ? ` · ${c.cours_nom}` : ''}`,
+    sous: `UE ${c.ue_num} · ${etudiants.length} inscrits · ${annee}`, ligne: periodeLigne(du, au) },
+    nom: `Presences_${coursCode}_${annee}` };
 }

@@ -15,7 +15,7 @@ import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 import { piedDocument } from './parametres.js';
 import { aRepresenterParCours } from './acquis.js';
 import { attributionsDe, etudiantsDuCours } from '../lib/etudiantsCours.js';
-import { donneesGrille, htmlGrille, excelGrille, premierDixieme } from '../lib/grillePresence.js';
+import { donneesGrille, htmlGrille, excelGrille, premierDixieme, grillePermise, seancesDeLUE, grilleUE } from '../lib/grillePresence.js';
 import { archiverDocument } from '../services/document-archive.js';
 import { lireSeance, qrDeLaSeance, compteurSeance, seancesACompleter, fenetreSeance, aujourdhuiBruxelles, migrerPresenceQr, modeEssai } from '../lib/presenceQr.js';
 
@@ -513,27 +513,15 @@ r.get('/', authRequired, (req, res) => {
  * dans le centre d'impression, et c'est l'appartenance du cours qui l'autorise.
  * ?format=html : l'aperçu commun ; xlsx : le classeur ; sinon le PDF, archivé.
  * ?du=&au= bornent la période (toute l'année par défaut). */
-const ROLES_GRILLE_UE = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat', 'coordination'];
 const dateOk = v => (/^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? String(v) : null);
 const periode = q => {
   const du = dateOk(q.du), au = dateOk(q.au);
   return { du, au, ligne: du || au ? `Période : ${du ? du.split('-').reverse().join('/') : 'début'} – ${au ? au.split('-').reverse().join('/') : 'aujourd’hui'}` : 'Toute l’année' };
 };
-/** La grille de l'UE est-elle permise ? Direction, secrétariat, et la coordination de SA section. */
+/** La grille de l'UE est-elle permise ? Direction, secrétariat, et la coordination de SA section
+ *  — la même règle que le centre d'impression (`grillePermise`, lib/grillePresence.js). */
 function grilleUEPermise(req, ueNum) {
-  if (!ROLES_GRILLE_UE.includes(req.user?.role)) return false;
-  const perim = getUserSections(req.user);
-  if (!perim) return true;
-  return db.prepare('SELECT DISTINCT section FROM ue WHERE ue_num = ? AND section IS NOT NULL').all(ueNum)
-    .some(x => perim.includes(x.section));
-}
-/** Toutes les séances de l'UE, tous ses cours : la grille de l'UE, et son premier dixième. */
-function seancesDeLUE(ueNum, annee) {
-  const coursUE = db.prepare('SELECT cours_code, MIN(cours_nom) AS nom FROM cours WHERE ue_num = ? AND annee_scolaire = ? GROUP BY cours_code').all(ueNum, annee);
-  const codes = coursUE.map(c => c.cours_code);
-  const seances = db.prepare(`SELECT id, date, heure_debut, heure_fin, minutes, cours_code, sous_groupe, COALESCE(annule, 0) AS annule
-    FROM horaire_seance WHERE annee_scolaire = ? AND (ue_num = ?${codes.length ? ` OR cours_code IN (${codes.map(() => '?').join(',')})` : ''})`).all(annee, ueNum, ...codes);
-  return { coursUE, seances };
+  return grillePermise(req.user?.role, getUserSections(req.user), ueNum);
 }
 async function repondreGrille(req, res, g, { titre, sous, ligne, ue = false, cours = {}, nom, annee }) {
   const fichier = nom.replace(/[^A-Za-z0-9_.-]+/g, '_');
@@ -563,15 +551,9 @@ r.get('/ue/:ueNum/grille-presences', authRequired, async (req, res) => {
   const ueNum = Number(req.params.ueNum);
   const annee = String(req.query.annee || anneeDeTravail(req));
   if (!grilleUEPermise(req, ueNum)) return res.status(403).json({ error: 'La grille de l’UE se sort au secrétariat, à la direction ou par la coordination de la section.' });
-  const { coursUE, seances } = seancesDeLUE(ueNum, annee);
-  const etudiants = db.prepare(`SELECT DISTINCT e.id, e.nom, e.prenom, e.id_ecampus FROM etudiant_inscription i
-    JOIN etudiant e ON e.id = i.etudiant_id WHERE i.annee_scolaire = ? AND i.ue_num = ? AND e.actif = 1`).all(annee, ueNum);
-  const ueNom = db.prepare('SELECT MIN(ue_nom) n FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ueNum, annee)?.n || '';
   const p = periode(req.query);
-  const g = donneesGrille({ seances, etudiants, du: p.du, au: p.au, dixieme: premierDixieme(seances) });
-  await repondreGrille(req, res, g, { titre: `Grille de présence — UE ${ueNum}${ueNom ? ` · ${ueNom}` : ''}`,
-    sous: `${coursUE.length} cours · ${etudiants.length} inscrits · ${annee}`, ligne: p.ligne, ue: true,
-    cours: Object.fromEntries(coursUE.map(c => [c.cours_code, c.nom])), nom: `Presences_UE${ueNum}_${annee}`, annee });
+  const x = grilleUE(ueNum, annee, { du: p.du, au: p.au });
+  await repondreGrille(req, res, x.g, { ...x.opts, nom: x.nom, annee });
 });
 
 r.get('/:coursCode/grille-presences', authRequired, async (req, res) => {

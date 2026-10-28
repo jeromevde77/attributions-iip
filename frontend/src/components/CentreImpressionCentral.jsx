@@ -625,6 +625,9 @@ function OngletRapports({ domaine, sansListe = false, rapportId = null }) {
      inscriptions — on projette la rentrée, on simule l'ouverture d'une
      section. Laissé vide, le champ ne change rien. */
   const [etudiants, setEtudiants] = useState('');
+  // LA PÉRIODE (grille de présence) : vide, toute l'année.
+  const [du, setDu] = useState('');
+  const [au, setAu] = useState('');
   const [ues, setUes] = useState([]);
   const [coursUe, setCoursUe] = useState([]);
   const [apercu, setApercu] = useState(null);
@@ -791,6 +794,7 @@ function OngletRapports({ domaine, sansListe = false, rapportId = null }) {
     ...(r.params.includes('portee')
       ? { portee: { ...portee, section: section || null } } : {}),
     ...(r.params.includes('etudiants') && etudiants ? { etudiants: Number(etudiants) } : {}),
+    ...(r.params.includes('periode') ? { du: du || null, au: au || null } : {}),
   });
 
   /*
@@ -821,7 +825,14 @@ function OngletRapports({ domaine, sansListe = false, rapportId = null }) {
   // Changer de section ou de session refait la pièce : un aperçu qui ne suit
   // pas ses paramètres ment sur ce qui s'imprimera.
   useEffect(() => { if (choisi) voir(choisi); // eslint-disable-next-line
-  }, [section, session, annee, portee, etudiants]);
+  }, [section, session, annee, portee, etudiants, du, au]);
+  /* UNE PIÈCE QUI NE DESCEND PAS À TOUS LES NIVEAUX (la grille de présence :
+     une unité ou un cours) ne doit pas rester sur « Tout l'établissement » :
+     le menu ne le proposerait pas, et la portée choisie ne se verrait nulle part. */
+  useEffect(() => {
+    const n = choisi?.portees;
+    if (n?.length && !n.includes(portee.niveau)) setPortee(p => ({ ...p, niveau: n[0] }));
+  }, [choisi]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function telecharger() {
     if (!choisi) return;
@@ -837,7 +848,9 @@ function OngletRapports({ domaine, sansListe = false, rapportId = null }) {
       }
       const url = URL.createObjectURL(await rep.blob());
       const a = document.createElement('a');
-      a.href = url; a.download = `${choisi.id}.xlsx`;
+      // Le nom que le serveur donne au classeur (« Presences_UE333_2026-2027 »), sinon celui du rapport.
+      const nomServeur = /filename="([^"]+)"/.exec(rep.headers.get('Content-Disposition') || '')?.[1];
+      a.href = url; a.download = nomServeur || `${choisi.id}.xlsx`;
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 30000);
     } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
@@ -1027,6 +1040,15 @@ function OngletRapports({ domaine, sansListe = false, rapportId = null }) {
                 className="w-20 px-2 py-1 text-second border border-slate-300 rounded" />
             </label>
           )}
+          {choisi?.params?.includes('periode') && (
+            <label className="flex items-center gap-1.5 text-second text-slate-500"
+              title="Vide : toute l'année">
+              du <input type="date" value={du} onChange={e => setDu(e.target.value)}
+                className="px-2 py-1 text-second border border-slate-300 rounded" />
+              au <input type="date" value={au} onChange={e => setAu(e.target.value)}
+                className="px-2 py-1 text-second border border-slate-300 rounded" />
+            </label>
+          )}
           {choisi?.params?.includes('session') && (
             <select value={session}
               onChange={e => { setSession(Number(e.target.value)); setApercu(null); }}
@@ -1036,7 +1058,8 @@ function OngletRapports({ domaine, sansListe = false, rapportId = null }) {
             </select>
           )}
           <span className="flex-1" />
-          {apercu && (
+          {/* Une pièce mise en page n'a pas de lignes à compter : rien à dire. */}
+          {apercu && apercu.nb != null && (
             <span className="text-second text-slate-500">
               {apercu.nb} ligne(s){apercu.tronque ? ' · 50 premières affichées' : ''}
             </span>
@@ -1049,7 +1072,7 @@ function OngletRapports({ domaine, sansListe = false, rapportId = null }) {
           </button>
           {/* Une pièce mise en page ne sort pas en tableur : elle n'a pas de
               lignes à retrier, elle a une forme. */}
-          {!choisi?.piece && (
+          {(!choisi?.piece || choisi?.tableur) && (
             <button onClick={telecharger} disabled={!choisi || enCours}
               className="controle">
               <IconDownload size={14} /> Tableur

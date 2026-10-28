@@ -30,6 +30,7 @@ import { getParamNum } from './parametres.js';
 import { TITRES_ACCES, DIPLOMES_MAX } from '../lib/profilEtudiant.js';
 import { couleurs } from '../lib/couleurs.js';
 import { controlePrerequisPae, corpsControlePae, prenomSeul, STYLES_CONTROLE_PAE } from '../lib/controlePae.js';
+import { ROLES_GRILLE, grillePermise, grilleUE, grilleCours, pieceGrille, excelGrille } from '../lib/grillePresence.js';
 
 const r = Router();
 
@@ -2431,6 +2432,35 @@ export const RAPPORTS = [
        WHERE u.annee_scolaire = ? AND (? IS NULL OR u.section = ?)
        ORDER BY u.section, u.ue_num`).all(p.annee, p.section, p.section),
   },
+  /* LA GRILLE DE PRÉSENCE, AU CENTRE D'IMPRESSION (Charles, 28 octobre 2026 :
+     le secrétariat répond à la vérificatrice et n'entre pas dans Mes cours).
+     La même pièce que Mes cours — `lib/grillePresence.js` — par UE (toutes les
+     séances de tous ses cours, le récapitulatif des heures, le premier dixième)
+     ou par cours, sur l'année ou une période ; PDF paysage ou Excel. Une grille
+     par unité : la vérificatrice contrôle UNE unité, et deux grilles collées
+     feraient lire un récapitulatif pour l'autre. */
+  {
+    id: 'grille-presences', domaine: 'etudiants', params: ['annee', 'portee', 'periode'],
+    libelle: 'Grille de présence',
+    aide: "Étudiants en lignes, séances en colonnes (P, A, J, —) : une unité entière avec le récapitulatif des heures par cours et le premier dixième, ou un cours. Toute l'année, ou du … au ….",
+    portees: ['ue', 'cours'],
+    roles: ROLES_GRILLE,
+    tableur: true,
+    colonnes: [],
+    lignes: () => [],
+    document: (p) => {
+      const x = grilleDePortee(p);
+      const d = pieceGrille(x.g, x.opts);
+      return { corps: d.corps, titre: d.titre, orientation: 'paysage', styles: d.styles, entete: d.entete,
+        margeCote: d.margeCote, margeHaut: d.margeHaut, nom: x.nom };
+    },
+    xlsx: async (p) => {
+      const x = grilleDePortee(p);
+      return { nom: x.nom, buffer: await excelGrille(x.g, { titre: `${x.opts.titre} — ${x.opts.sous} — ${x.opts.ligne}`,
+        ue: !!x.opts.ue, cours: x.opts.cours || {} }) };
+    },
+  },
+
   {
     id: 'organisation-locaux', domaine: 'organisation', params: [],
     libelle: 'Locaux de l’Institut',
@@ -2457,15 +2487,38 @@ export const RAPPORTS = [
   },
 ];
 
+/** La grille demandée par la portée du centre : une unité, ou un cours d'une unité. */
+function grilleDePortee(p) {
+  const refus = (m, status = 400) => Object.assign(new Error(m), { status });
+  const po = p.portee || {};
+  const periode = { du: p.du, au: p.au };
+  // « Tous les cours de l'unité » : c'est la grille de l'unité.
+  if (po.niveau === 'cours' && po.code_cours) {
+    const x = grilleCours(po.code_cours, p.annee, periode);
+    if (!x) throw refus('Ce cours est inconnu pour cette année.', 404);
+    if (!grillePermise(p.role, p.perimetre, x.ueNum)) throw refus('Ce cours n’est pas dans votre périmètre.', 403);
+    return x;
+  }
+  const ues = po.ue_nums?.length ? po.ue_nums : (po.ue_num ? [po.ue_num] : []);
+  if (!ues.length) throw refus('Choisissez une unité.');
+  if (ues.length > 1) throw refus('Une grille par unité : choisissez une seule unité.');
+  if (!grillePermise(p.role, p.perimetre, ues[0])) throw refus('Cette unité n’est pas dans votre périmètre.', 403);
+  return grilleUE(ues[0], p.annee, periode);
+}
+
+/** Un rapport réservé (`roles`) ne s'ouvre qu'à ces rôles : pas de droit, pas de pièce. */
+const rapportPermis = (def, user) => !def.roles || def.roles.includes(user?.role);
+
 r.get('/catalogue', authRequired, (req, res) => {
   res.json({
     // « piece » dit à l'écran que ce rapport est une MISE EN PAGE et non un
     // tableau : le bouton « Tableur » n'a rien à y proposer, et un bouton qui
     // ne fait rien est pire qu'un bouton absent.
-    rapports: RAPPORTS.map(({ id, domaine, libelle, aide, params, colonnes,
-                             document, portees }) => ({
+    rapports: RAPPORTS.filter(d => rapportPermis(d, req.user)).map(({ id, domaine, libelle, aide, params, colonnes,
+                             document, portees, tableur }) => ({
       id, domaine, libelle, aide, params, colonnes: colonnes.length,
-      piece: !!document, portees: portees || null,
+      // `tableur` : une pièce mise en page qui sort AUSSI en Excel (la grille de présence).
+      piece: !!document, tableur: !!tableur, portees: portees || null,
     })),
   });
 });
@@ -2852,7 +2905,7 @@ r.post('/mise-en-page', authRequired, (req, res) => {
 
 r.post('/:id/document', authRequired, (req, res) => {
   const def = RAPPORTS.find(x => x.id === req.params.id);
-  if (!def) return res.status(404).json({ error: 'rapport inconnu' });
+  if (!def || !rapportPermis(def, req.user)) return res.status(404).json({ error: 'rapport inconnu' });
   try {
     const p = parametres(req, def);
 
@@ -2870,6 +2923,8 @@ r.post('/:id/document', authRequired, (req, res) => {
           orientation: d.orientation || 'portrait',
           styles: d.styles || STYLE_RAPPORT,
           entete: d.entete || { titre: d.titre },
+          ...(d.margeCote ? { margeCote: d.margeCote } : {}),
+          ...(d.margeHaut ? { margeHaut: d.margeHaut } : {}),
         }),
         nom: d.nom, titre: d.titre,
       });
@@ -2997,14 +3052,21 @@ r.post('/:id/document', authRequired, (req, res) => {
       titre: def.libelle,
       nb: lignes.length,
     });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
 });
 
 r.post('/:id/xlsx', authRequired, async (req, res) => {
   const def = RAPPORTS.find(x => x.id === req.params.id);
-  if (!def) return res.status(404).json({ error: 'rapport inconnu' });
+  if (!def || !rapportPermis(def, req.user)) return res.status(404).json({ error: 'rapport inconnu' });
   try {
     const p = parametres(req, def);
+    // UN CLASSEUR QUI A SA FORME : la grille de présence a ses trois onglets.
+    if (def.xlsx) {
+      const x = await def.xlsx(p);
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="${String(x.nom).replace(/[^A-Za-z0-9_.-]+/g, '_')}.xlsx"`);
+      return res.end(Buffer.from(x.buffer));
+    }
     const lignes = def.lignes(p);
 
     const wb = new ExcelJS.Workbook();
@@ -3041,7 +3103,7 @@ r.post('/:id/xlsx', authRequired, async (req, res) => {
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${nom}"`);
     res.send(Buffer.from(buf));
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
 });
 
 /** Les paramètres attendus, avec le périmètre de l'utilisateur toujours appliqué. */
@@ -3094,6 +3156,12 @@ function parametres(req, def) {
     // p.section : les deux disent la même chose, autant ne pas les séparer.
     if (!p.section && p.portee.section) p.section = p.portee.section;
   }
+  // LA PÉRIODE : deux dates, ou rien (toute l'année).
+  if (def.params.includes('periode')) {
+    const date = v => (/^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? String(v) : null);
+    p.du = date(req.body?.du); p.au = date(req.body?.au);
+  }
+  p.role = req.user?.role || null;
   p.perimetre = getUserSections(req.user);
   return p;
 }
