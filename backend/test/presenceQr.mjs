@@ -173,6 +173,23 @@ console.log('\nCompteur et séances à compléter');
   t('fenêtre fermée : BETA à compléter', l.length === 1 && l[0].manquants.length === 1 && l[0].manquants[0].id === BETA, l);
 }
 
+console.log('\nMode essai');
+{
+  const env = process.env.NODE_ENV;
+  const loin = H('15:00:00');                 // 16:00 à Bruxelles : fenêtre fermée
+  t('hors développement : la fenêtre s’applique', Q.scanner(Q.jetonQr(seance, sec(loin)), null, loin).erreur === 'hors_fenetre');
+  process.env.NODE_ENV = 'production';
+  t('production : pas de mode essai', !Q.modeEssai() && Q.scanner(Q.jetonQr(seance, sec(loin)), null, loin).erreur === 'hors_fenetre');
+  t('production : pas de QR un autre jour', Q.qrDeLaSeance(Q.lireSeance(seance), null, new Date('2026-11-02T10:00:00Z')).erreur === 'pas_aujourdhui');
+  process.env.NODE_ENV = 'development';
+  t('développement : la fenêtre est ignorée', Q.scanner(Q.jetonQr(seance, sec(loin)), null, loin).ok);
+  const autreJour = new Date('2026-11-02T10:00:00Z');
+  const x = Q.qrDeLaSeance(Q.lireSeance(seance), null, autreJour);
+  t('développement : QR un autre jour, marqué « essai »', x.ok && x.essai, x);
+  t('développement : le jeton reste vérifié', Q.scanner(Q.jetonQr(seance, sec(loin) - 60), null, loin).erreur === 'qr_expire');
+  process.env.NODE_ENV = env;
+}
+
 console.log('\nSans secret');
 {
   const avant = process.env.JWT_SECRET, env = process.env.NODE_ENV;

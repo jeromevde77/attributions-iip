@@ -81,6 +81,10 @@ export default function MaJournee({ onAgir }) {
         <IconCalendarEvent size={18} className="text-iip-blue" />
         <h2 className="titre-carte m-0">Ma journée</h2>
         <span className="text-second text-slate-600 first-letter:uppercase">{long(data.jour)}</span>
+        {data.essai && (
+          <span className="objet-barre objet-barre-etat" style={{ '--e': 'var(--c-attente, #E8890C)' }}
+            title="Sur la dev seulement : le QR se projette pour n’importe quelle séance, la date et la fenêtre de scan sont ignorées">mode essai</span>
+        )}
         <span className="ml-auto segments">
           <button type="button" className="px-2 py-1" title="Jour précédent" onClick={() => setJour(decaler(data.jour, -1))}><IconChevronLeft size={15} /></button>
           <button type="button" className={`px-2.5 py-1 text-second ${estAujourdhui ? 'font-semibold' : ''}`} onClick={() => setJour(null)}>Aujourd’hui</button>
@@ -135,7 +139,7 @@ export default function MaJournee({ onAgir }) {
             {s.annule ? <span className="text-slate-500"> · séance annulée</span>
               : <span className="text-slate-500"> · présences {s.presences.encodees} / {s.presences.attendus}</span>}
           </span>
-          {estAujourdhui && !s.annule && (
+          {(estAujourdhui || data.essai) && !s.annule && (
             <button type="button" onClick={() => setProjetee(s)} className={`bouton ${s.fenetre?.ouverte ? 'bouton-fort' : ''}`}
               title={s.fenetre?.ouverte ? 'Le scan est ouvert maintenant' : `Scan ouvert de ${s.fenetre?.ouvre} à ${s.fenetre?.ferme}`}>
               <IconQrcode size={16} /> Afficher le QR</button>
@@ -217,7 +221,12 @@ export function ProjectionQR({ seance, onFermer }) {
         <span className="text-5xl font-bold tabular-nums text-iip-texte">{compteur?.presents ?? '–'} / {compteur?.attendus ?? '–'}</span>
         <span className="text-xl text-slate-600">présents</span>
       </div>
-      {f && (
+      {etat?.essai && (
+        <div className="text-base font-semibold" style={{ color: 'var(--c-surveiller)' }}>
+          Mode essai (dev) : la date et la fenêtre de scan sont ignorées
+        </div>
+      )}
+      {f && !etat?.essai && (
         <div className="text-base" style={{ color: f.ouverte ? 'var(--c-reussi)' : 'var(--c-surveiller)' }}>
           {f.ouverte ? `Scan ouvert jusqu’à ${f.ferme}` : f.avant ? `Le scan s’ouvrira à ${f.ouvre}` : `Scan fermé depuis ${f.ferme} — les présences se complètent depuis votre tableau de bord`}
         </div>

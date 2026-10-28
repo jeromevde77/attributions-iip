@@ -15,7 +15,7 @@ import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 import { piedDocument } from './parametres.js';
 import { aRepresenterParCours } from './acquis.js';
 import { attributionsDe, etudiantsDuCours } from '../lib/etudiantsCours.js';
-import { lireSeance, qrDeLaSeance, compteurSeance, seancesACompleter, fenetreSeance, aujourdhuiBruxelles, migrerPresenceQr } from '../lib/presenceQr.js';
+import { lireSeance, qrDeLaSeance, compteurSeance, seancesACompleter, fenetreSeance, aujourdhuiBruxelles, migrerPresenceQr, modeEssai } from '../lib/presenceQr.js';
 
 /**
  * MES COURS — la porte du professeur (25 septembre 2026).
@@ -549,7 +549,7 @@ r.get('/journee', authRequired, (req, res) => {
     }
   }
   out.sort((x, y) => String(x.heure_debut).localeCompare(String(y.heure_debut)));
-  res.json({ jour, aujourdhui, seances: out });
+  res.json({ jour, aujourdhui, seances: out, essai: modeEssai() });
 });
 
 /* LE TABLEAU DE BORD DEMANDE CE QU'IL EN EST DES ABSENTS (Charles : « une fenêtre

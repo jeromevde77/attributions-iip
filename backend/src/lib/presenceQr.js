@@ -115,6 +115,13 @@ function cle() {
 }
 export const secretDisponible = () => !!cle();
 
+/* LE MODE ESSAI (Charles, 28 octobre 2026 : « fais un mode essai ») : sur la
+   DEV seulement, le QR se projette pour n'importe quelle séance, quel que soit
+   le jour, et la fenêtre de scan est ignorée — pour essayer sans attendre
+   qu'un cours commence. Verrouillé par NODE_ENV, comme la restauration de
+   sauvegarde : en production, ni l'écran ni une requête ne l'allument. */
+export const modeEssai = () => process.env.NODE_ENV === 'development';
+
 const signature = (k, texte) => crypto.createHmac('sha256', k).update(texte).digest('base64url');
 
 function signer(type, seanceId, secondes) {
@@ -283,7 +290,7 @@ export function scanner(jetonBrut, appareilBrut, maintenant = new Date()) {
   if (!s) return refus('seance_inconnue', 'Cette séance n’existe plus dans l’horaire.');
   if (s.annule) return refus('seance_annulee', 'Cette séance a été annulée.');
   const f = fenetreSeance(s, maintenant, r);
-  if (!f.ouverte) {
+  if (!f.ouverte && !modeEssai()) {
     journaliser('scan_refuse', { etudiant_id: app?.etudiant_id, seance_id: s.id, appareil_id: app?.id, raison: 'hors fenêtre' });
     return refus('hors_fenetre', `La présence pour ${libelleSeance(s)} se prend entre ${f.ouvre} et ${f.ferme}.`
       + (f.apres ? ' Voyez votre enseignant : il peut la noter à la main.' : ''));
@@ -427,11 +434,11 @@ export function validerCode({ ticket, email, code, appareilBrut, userAgent, main
 export function qrDeLaSeance(s, user, maintenant = new Date()) {
   const r = reglagesPresenceQr();
   if (s.annule) return refus('seance_annulee', 'Cette séance a été annulée.');
-  if (s.date !== aujourdhuiBruxelles(maintenant)) return refus('pas_aujourdhui', 'Le QR ne se projette que le jour de la séance.');
+  if (s.date !== aujourdhuiBruxelles(maintenant) && !modeEssai()) return refus('pas_aujourdhui', 'Le QR ne se projette que le jour de la séance.');
   const jeton = jetonQr(s.id, Math.floor(maintenant.getTime() / 1000));
   db.prepare(`INSERT INTO presence_qr_seance (seance_id, ouvert_par_id, ouvert_par) VALUES (?, ?, ?)
     ON CONFLICT(seance_id) DO NOTHING`).run(s.id, user?.id ?? null, user?.nom || user?.email || null);
-  return { ok: true, jeton, rotation_s: r.rotation_s, fenetre: fenetreSeance(s, maintenant, r) };
+  return { ok: true, jeton, rotation_s: r.rotation_s, fenetre: fenetreSeance(s, maintenant, r), essai: modeEssai() };
 }
 
 /** « X / Y présents », et qui l'est — le compteur de l'écran projeté. */
