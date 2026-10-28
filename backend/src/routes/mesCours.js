@@ -14,6 +14,8 @@ import { capacitePdf, rendrePdf } from '../services/pdf.js';
 import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 import { piedDocument } from './parametres.js';
 import { aRepresenterParCours } from './acquis.js';
+import { attributionsDe, etudiantsDuCours } from '../lib/etudiantsCours.js';
+import { lireSeance, qrDeLaSeance, compteurSeance, seancesACompleter, fenetreSeance, aujourdhuiBruxelles, migrerPresenceQr } from '../lib/presenceQr.js';
 
 /**
  * MES COURS — la porte du professeur (25 septembre 2026).
@@ -167,87 +169,6 @@ function profDe(req) {
   } catch { return null; }
 }
 
-// Les lignes d'attribution du professeur pour l'année : cours, organisation,
-// lettre de groupe — c'est à ce titre qu'il voit et propose.
-function attributionsDe(profId, annee) {
-  return db.prepare(`
-    SELECT DISTINCT a.code_cours, a.ue_num,
-           COALESCE(a.num_organisation, 1) AS org, a.code AS groupe,
-           COALESCE(a.activite_id, 0) AS activite_id,
-           (SELECT t.libelle FROM activite_type t WHERE t.id = a.activite_id) AS activite_libelle,
-           (SELECT c.cours_nom FROM cours c WHERE c.cours_code = a.code_cours
-             ORDER BY (c.annee_scolaire = ?) DESC LIMIT 1) AS cours_nom,
-           (SELECT x.ue_nom FROM ue x WHERE x.ue_num = a.ue_num AND x.ue_nom IS NOT NULL
-             ORDER BY x.annee_scolaire DESC LIMIT 1) AS ue_nom,
-           a.section,
-           -- Le bloc de l'unité DANS la section de l'attribution : un même
-           -- numéro vit sous plusieurs sections (l'UE 95).
-           (SELECT x.ue_niv FROM ue x WHERE x.ue_num = a.ue_num AND x.ue_niv IS NOT NULL
-             AND (a.section IS NULL OR x.section = a.section)
-             ORDER BY (x.annee_scolaire = ?) DESC, x.annee_scolaire DESC LIMIT 1) AS ue_niv
-    FROM attribution a
-    WHERE a.professeur_id = ? AND a.annee_scolaire = ? AND a.code_cours IS NOT NULL
-      -- Les activités retirées du carnet de cotes (Répartition des étudiants) :
-      -- de l'EPT, des périodes de correction… ne font pas un carnet.
-      AND NOT EXISTS (SELECT 1 FROM carnet_exclusion x WHERE x.annee_scolaire = a.annee_scolaire
-            AND x.cours_code = a.code_cours AND x.activite_id = COALESCE(a.activite_id, 0))
-    ORDER BY a.ue_num, a.code_cours, org, groupe
-  `).all(annee, annee, profId, annee);
-}
-
-/* Les étudiants du professeur pour UN cours : ceux de ses groupes quand la
- * répartition du cours existe, tous les inscrits de l'unité sinon. */
-function etudiantsDuCours(profId, coursCode, annee) {
-  const miennes = attributionsDe(profId, annee).filter(a => a.code_cours === coursCode);
-  if (!miennes.length) return null;   // pas son cours
-  const ueNum = miennes[0].ue_num;
-
-  /* PAR ACTIVITÉ. Un professeur porte une ou plusieurs lignes d'attribution
-   * — « labo, groupe 3 », « théorie » — et chacune désigne ses étudiants :
-   * ceux que la répartition a placés dans CE groupe de CETTE activité ; et
-   * si l'activité n'est pas répartie (la théorie, suivie par tous), tous les
-   * inscrits de l'unité. On réunit, sans doublon. */
-  const repartis = db.prepare(`
-    SELECT g.etudiant_id, g.num_organisation, g.groupe_code, COALESCE(g.activite_id, 0) AS activite_id,
-           e.nom, e.prenom, e.id_ecampus, e.email_ecole
-    FROM etudiant_cours_groupe g JOIN etudiant e ON e.id = g.etudiant_id
-    WHERE g.annee_scolaire = ? AND g.cours_code = ? AND e.actif = 1
-    ORDER BY e.nom, e.prenom
-  `).all(annee, coursCode);
-  const inscrits = () => db.prepare(`
-    SELECT e.id, e.nom, e.prenom, e.id_ecampus, e.email_ecole
-    FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
-    WHERE i.annee_scolaire = ? AND i.ue_num = ? AND e.actif = 1
-    ORDER BY e.nom, e.prenom
-  `).all(annee, ueNum);
-
-  const parId = new Map();
-  let repartition = false;
-  for (const a of miennes) {
-    const deLActivite = repartis.filter(x => x.activite_id === a.activite_id);
-    const prefixe = a.activite_libelle ? `${a.activite_libelle} · ` : '';
-    let lot;
-    if (deLActivite.length) {
-      repartition = true;
-      lot = deLActivite
-        .filter(x => (x.num_organisation ?? 1) === a.org && String(x.groupe_code || '') === String(a.groupe || ''))
-        .map(x => ({ id: x.etudiant_id, nom: x.nom, prenom: x.prenom, id_ecampus: x.id_ecampus, email_ecole: x.email_ecole,
-          groupe: `${prefixe}Org ${x.num_organisation ?? 1}${x.groupe_code ? ` · Gr. ${x.groupe_code}` : ''}` }));
-    } else {
-      lot = inscrits().map(x => ({ ...x, groupe: a.activite_libelle ? `${a.activite_libelle} · tous` : '' }));
-    }
-    for (const e of lot) {
-      const deja = parId.get(e.id);
-      if (!deja) parId.set(e.id, e);
-      else if (e.groupe && !deja.groupe.split(' + ').includes(e.groupe)) {
-        deja.groupe = deja.groupe ? `${deja.groupe} + ${e.groupe}` : e.groupe;
-      }
-    }
-  }
-  const etudiants = [...parId.values()].sort((x, y) =>
-    `${x.nom} ${x.prenom}`.localeCompare(`${y.nom} ${y.prenom}`, 'fr'));
-  return { miennes, ueNum, etudiants, repartition };
-}
 
 /* LA COORDINATION VOIT TOUS LES COURS DE SA SECTION (Charles, 26 septembre
  * 2026 : « comme elle a un rôle de coordination, elle doit pouvoir encoder les
@@ -581,6 +502,62 @@ r.get('/', authRequired, (req, res) => {
   for (const c of [...cours, ...section]) c.enseignants = ens.get(c.cours_code) || [];
   res.json({ annee, cours: [...cours, ...section],
     sections_coordination: coordination ? (secs === null ? 'toutes' : secs) : null });
+});
+
+// ── LA PRÉSENCE PAR QR, CÔTÉ ENSEIGNANT (28 octobre 2026) ──────────────────
+/* « LA CHOSE LA PLUS SIMPLE POSSIBLE POUR LE PROF » (Charles) : il n'a pas à
+ * chercher sa séance — Lucie lui propose celles du jour, celle dont la fenêtre
+ * est ouverte en tête. Les droits sont ceux des présences manuelles : le
+ * professeur pour SES séances, la coordination et la direction pour celles du cours. */
+try { migrerPresenceQr(); } catch (e) { console.error('[migration] présence QR :', e.message); }
+
+function seanceAccessible(req, coursCode, seanceId) {
+  const s = lireSeance(seanceId);
+  if (!s || s.cours_code !== coursCode) return null;
+  const d = accesCours(req, coursCode, s.annee_scolaire);
+  if (!d) return null;
+  return seancesDuCours(req, d, coursCode, s.annee_scolaire).some(x => x.id === s.id) ? s : null;
+}
+
+r.get('/qr/seances-du-jour', authRequired, (req, res) => {
+  const annee = req.query.annee || anneeDeTravail(req);
+  const jour = aujourdhuiBruxelles();
+  const profId = profDe(req);
+  const codes = [...new Set((profId ? attributionsDe(profId, annee) : []).map(a => a.code_cours))];
+  const out = [];
+  for (const code of codes) {
+    const d = accesCours(req, code, annee);
+    if (!d) continue;
+    for (const s of seancesDuCours(req, d, code, annee).filter(x => x.date === jour && !x.annule)) {
+      const f = fenetreSeance({ ...s }, new Date());
+      out.push({ id: s.id, cours_code: code, matiere: s.matiere, heure_debut: s.heure_debut, heure_fin: s.heure_fin,
+        sous_groupe: s.sous_groupe, fenetre: f });
+    }
+  }
+  out.sort((a, b) => (b.fenetre.ouverte - a.fenetre.ouverte) || String(a.heure_debut).localeCompare(String(b.heure_debut)));
+  res.json({ jour, seances: out });
+});
+
+/* LE TABLEAU DE BORD DEMANDE CE QU'IL EN EST DES ABSENTS (Charles : « une fenêtre
+ * dans Lucie qui dit au prof : les étudiants suivants n'ont pas noté leur
+ * présence — présents, absents ou autre »). Les séances qu'il a projetées, la
+ * fenêtre fermée ; il complète par la route des présences, une fois qu'il a vu. */
+r.get('/qr/a-completer', authRequired, (req, res) => {
+  res.json({ seances: seancesACompleter(req.user?.id) });
+});
+
+r.get('/:coursCode/qr/:seanceId', authRequired, (req, res) => {
+  const s = seanceAccessible(req, req.params.coursCode, req.params.seanceId);
+  if (!s) return res.status(404).json({ error: 'Séance introuvable dans vos séances de ce cours.' });
+  const x = qrDeLaSeance(s, req.user);
+  if (x.erreur) return res.status(409).json({ ...x, error: x.message });
+  res.json({ ...x, compteur: compteurSeance(s) });
+});
+
+r.get('/:coursCode/qr/:seanceId/compteur', authRequired, (req, res) => {
+  const s = seanceAccessible(req, req.params.coursCode, req.params.seanceId);
+  if (!s) return res.status(404).json({ error: 'Séance introuvable dans vos séances de ce cours.' });
+  res.json(compteurSeance(s));
 });
 
 // ── La feuille d'un cours : mes étudiants et mes propositions ────────────────

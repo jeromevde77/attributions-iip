@@ -3089,6 +3089,9 @@ app.use((req, res, next) => {
 // LA PORTE DES ÉTUDIANTS (VA en ligne, 3 octobre 2026) : publique, avec son
 // propre jeton — aucune route du personnel ne l'accepte.
 app.use('/api/portail-va', (await import('./routes/portailVA.js')).default);
+// LA PRÉSENCE PAR QR (28 octobre 2026) : publique, l'étudiant n'a pas de compte ;
+// son appareil appairé l'identifie (lib/presenceQr.js).
+app.use('/api/presence-qr', (await import('./routes/presenceQr.js')).default);
 app.use('/api/notes-doubles', (await import('./routes/notesDoubles.js')).default);
 app.use('/api/auth',         garderModule('auth'), authRoutes);
 app.use('/api/mfa',          garderModule('mfa'), mfaRoutes);

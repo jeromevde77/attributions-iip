@@ -83,6 +83,15 @@ export function migrerCep(base = db) {
       avant TEXT, apres TEXT, motif TEXT,
       par TEXT, le TEXT DEFAULT (datetime('now')));
   `);
+  /* LA SOURCE D'UNE PRÉSENCE (28 octobre 2026, prise par QR code) : « manuel »
+     quand quelqu'un la pose à l'écran, « qr » quand l'étudiant scanne. Une
+     présence corrigée à la main redevient « manuel » : c'est celui qui corrige
+     qui en répond. */
+  for (const t of ['presence', 'presence_journal']) {
+    if (!base.prepare(`PRAGMA table_info(${t})`).all().some(c => c.name === 'source')) {
+      base.exec(`ALTER TABLE ${t} ADD COLUMN source TEXT NOT NULL DEFAULT 'manuel'`);
+    }
+  }
 }
 
 const hm = t => { const [h, m] = String(t || '0:0').split(':').map(Number); return h * 60 + (m || 0); };
@@ -361,9 +370,10 @@ export const heures = min => {
  * secrétariat. Chaque changement laisse sa ligne au journal ; une absence
  * justifiée exige un motif de la liste fermée.
  * `lignes` : [{ seance_id, etudiant_id, statut, motif }]. Rend { ecrites } ou
- * { erreur }.
+ * { erreur }. `source` : 'manuel' (un écran) ou 'qr' (le scan de l'étudiant).
  */
-export function ecrirePresences(lignes, par) {
+export function ecrirePresences(lignes, par, source = 'manuel') {
+  if (!['manuel', 'qr'].includes(source)) return { erreur: `source inconnue : ${source}` };
   for (const l of lignes) {
     if (!STATUTS_PRESENCE[l.statut] && l.statut !== null) return { erreur: `statut inconnu : ${l.statut}` };
     if (l.statut === 'justifie' && !MOTIFS_JUSTIFIES[l.motif]) {
@@ -371,22 +381,22 @@ export function ecrirePresences(lignes, par) {
     }
   }
   const lire = db.prepare('SELECT statut, motif FROM presence WHERE seance_id = ? AND etudiant_id = ?');
-  const poser = db.prepare(`INSERT INTO presence (seance_id, etudiant_id, statut, motif, encode_par, encode_le)
-      VALUES (?, ?, ?, ?, ?, datetime('now'))
+  const poser = db.prepare(`INSERT INTO presence (seance_id, etudiant_id, statut, motif, encode_par, encode_le, source)
+      VALUES (?, ?, ?, ?, ?, datetime('now'), ?)
       ON CONFLICT (seance_id, etudiant_id) DO UPDATE SET statut = excluded.statut, motif = excluded.motif,
-        encode_par = excluded.encode_par, encode_le = excluded.encode_le`);
+        encode_par = excluded.encode_par, encode_le = excluded.encode_le, source = excluded.source`);
   const effacer = db.prepare('DELETE FROM presence WHERE seance_id = ? AND etudiant_id = ?');
-  const journal = db.prepare(`INSERT INTO presence_journal (seance_id, etudiant_id, avant, apres, motif, par)
-      VALUES (?, ?, ?, ?, ?, ?)`);
+  const journal = db.prepare(`INSERT INTO presence_journal (seance_id, etudiant_id, avant, apres, motif, par, source)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`);
   let ecrites = 0;
   db.transaction(() => {
     for (const l of lignes) {
       const avant = lire.get(l.seance_id, l.etudiant_id);
       const motif = l.statut === 'justifie' ? l.motif : null;
       if ((avant?.statut || null) === (l.statut || null) && (avant?.motif || null) === motif) continue;
-      if (l.statut) poser.run(l.seance_id, l.etudiant_id, l.statut, motif, par);
+      if (l.statut) poser.run(l.seance_id, l.etudiant_id, l.statut, motif, par, source);
       else effacer.run(l.seance_id, l.etudiant_id);
-      journal.run(l.seance_id, l.etudiant_id, avant?.statut || null, l.statut || null, motif, par);
+      journal.run(l.seance_id, l.etudiant_id, avant?.statut || null, l.statut || null, motif, par, source);
       ecrites++;
     }
   })();
