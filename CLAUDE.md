@@ -1622,6 +1622,17 @@ seul registre, deux lentilles (l'Accueil montre *les miennes*, la Qualité
 **Ce qui n'est pas rattrapable :** ce qui n'est pas consigné en 2026-2027 ne
 sera pas récupérable en 2028. Détail dans `docs/contexte/qualite-aeqes.html`.
 
+**LE PLAN D'ACTION EST DANS LUCIE** (3.1.442, Charles, 28 octobre 2026 : « plan d'action » d'abord).
+Gestion → *Qualité* → *Plan d'action* (`components/PlanActionQualite.jsx`, `routes/qualite.js` sur
+`/api/qualite`). La table `action` (prévue par l'échéancier, jamais servie) devient le registre : critère du
+référentiel institutionnel (stratégie-gouvernance-qualité, pilotage des programmes, formation et parcours),
+périmètre (institution ou section), responsable (compte ou nom libre), échéance, priorité, indicateur et cible,
+origine. **L'avancement ne se tape pas** : il se pose par un POINT DE SUIVI (`action_suivi`, en ajout seul —
+texte, avancement, statut, qui, quand) ; abandonner se motive ; une action ne se supprime pas. La coordination
+pose et suit les actions de SES sections ; une action d'institution reste à la direction. **À venir** : la
+pièce « plan d'action » (version publique, et état de réalisation avec ses preuves), les actions à l'Accueil
+de leur responsable, les indicateurs chiffrés (inscrits sur cinq ans, ETP).
+
 ---
 
 ## 6. Design — la façon de faire

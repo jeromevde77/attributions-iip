@@ -3097,6 +3097,8 @@ app.use('/api/agenda', (await import('./routes/agenda.js')).default);
 // Le suivi côté secrétariat : téléphones liés, journal, réglages (lot 4).
 app.use('/api/presence-qr-suivi', (await import('./routes/presenceQrSuivi.js')).default);
 app.use('/api/presences-ue', (await import('./routes/presencesUE.js')).default);
+// La démarche qualité : le plan d'action AEQES (3.1.442).
+app.use('/api/qualite', (await import('./routes/qualite.js')).default);
 app.use('/api/notes-doubles', (await import('./routes/notesDoubles.js')).default);
 app.use('/api/auth',         garderModule('auth'), authRoutes);
 app.use('/api/mfa',          garderModule('mfa'), mfaRoutes);

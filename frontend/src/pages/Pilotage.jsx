@@ -1,5 +1,5 @@
 import { ICONE_AXE } from '../lib/iconesAxes.js';
-import { IconReportAnalytics, IconReportMoney, IconChartInfographic, IconSchool, IconBuildingBank, IconCoin } from '@tabler/icons-react';
+import { IconReportAnalytics, IconReportMoney, IconChartInfographic, IconSchool, IconBuildingBank, IconCoin, IconRosette } from '@tabler/icons-react';
 import { droitEffectif } from '../lib/modules.js';
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import { api, getAnnee, getUser, authHeaders } from '../lib/api.js';
@@ -9,6 +9,7 @@ import { createPortal } from 'react-dom';
 import Distributions from '../components/Distributions.jsx';
 import Population from '../components/Population.jsx';
 import PilotagePresences from '../components/PilotagePresences.jsx';
+import PlanActionQualite from '../components/PlanActionQualite.jsx';
 import PopulationEcole from '../components/PopulationEcole.jsx';
 import PersonnelEcole from '../components/PersonnelEcole.jsx';
 import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
@@ -1606,6 +1607,10 @@ export default function Pilotage({ vue = 'tout' }) {
       lit('dotation') && ['synthese', 'Dotation'], ['etp', 'ETP'], ['dotation', 'Comparaison'],
       !coord && lit('repartition') && ['repartition', 'Répartition des périodes'],
       lit('dotation') && ['config', 'Configuration']] },
+    /* LA DÉMARCHE QUALITÉ (3.1.442) : le plan d'action AEQES, tenu dans Lucie dès 2026-2027 —
+       rien ne se rattrape en 2028. La coordination y pose les actions de ses sections. */
+    { key: 'g-qualite', label: 'Qualité', icon: IconRosette, faces: [
+      ['qualite', 'Plan d’action']] },
     { key: 'g-finances', label: 'Finances', icon: IconCoin, faces: [
       !coord && ['rapport', 'Coûts des formations'], lit('budget') && ['budget', 'Budget']] },
   ].map(r => ({ ...r, faces: r.faces.filter(Boolean) })).filter(r => r.faces.length);
@@ -1967,6 +1972,8 @@ thead { display: table-header-group; }
           <Population annee={anneeActive} />
         ) : tab === 'presences-ue' ? (
           <PilotagePresences annee={anneeActive} />
+        ) : tab === 'qualite' ? (
+          <PlanActionQualite />
         ) : tab === 'budget' ? (
           <Budget />
         ) : loading ? (
