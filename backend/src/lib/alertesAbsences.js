@@ -12,7 +12,7 @@
  */
 import db from '../db/index.js';
 import { grilleUE } from './grillePresence.js';
-import { reglagesPresenceQr, journaliserPresenceQr } from './presenceQr.js';
+import { reglagesPresenceQr, journaliserPresenceQr, MENTION_PROPOSEE } from './presenceQr.js';
 
 const fr = d => String(d || '').slice(0, 10).split('-').reverse().join('/');
 const heures = m => { const x = Math.round(m); return `${Math.floor(x / 60)}h${String(x % 60).padStart(2, '0')}`; };
@@ -30,8 +30,9 @@ function absencesDe(g, ligne, { justifiees = false } = {}) {
     ? { date: g.seances[i].date, heure: String(g.seances[i].heure_debut || '').slice(0, 5), cours: g.seances[i].cours_code,
         justifiee: c.statut === 'justifie' } : null)).filter(Boolean);
 }
-/** Toutes les absences, justifiées ou non, sur les heures dues. */
-const tauxTotal = l => (l.du ? (l.absent + l.justifie) / l.du : 0);
+/** Le taux du seuil global : toutes les absences, ou les seules sans motif valable (réglage). */
+const tauxTotal = (l, base = reglagesPresenceQr().seuil_global_base) =>
+  (l.du ? (base === 'injustifiees' ? l.absent : l.absent + l.justifie) / l.du : 0);
 
 /**
  * Les étudiants au-delà du seuil, UE par UE, du plus haut taux au plus bas.
@@ -52,7 +53,7 @@ export function alertesAbsences(annee, { seuil = null, seuilGlobal = null, perim
     const x = grilleUE(ue, annee);
     const ueNom = db.prepare('SELECT MIN(ue_nom) n FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ue, annee)?.n || '';
     for (const l of x.g.lignes) {
-      const total = tauxTotal(l);
+      const total = tauxTotal(l, reg.seuil_global_base);
       if (!l.du || (l.taux_injustifie * 100 <= s && total * 100 <= sg)) continue;
       sortie.push({
         etudiant_id: l.etudiant.id, nom: l.etudiant.nom, prenom: l.etudiant.prenom, id_ecampus: l.etudiant.id_ecampus,
@@ -63,7 +64,8 @@ export function alertesAbsences(annee, { seuil = null, seuilGlobal = null, perim
       });
     }
   }
-  return { seuil: s, seuil_global: sg, mention_global: !!reg.mention_seuil_global,
+  return { seuil: s, seuil_global: sg, base_globale: reg.seuil_global_base, mention_global: !!reg.mention_seuil_global,
+    mention_proposee: reg.mention_seuil_global === MENTION_PROPOSEE,
     alertes: sortie.sort((a, b) => (b.depasse_global - a.depasse_global) || (b.taux_total - a.taux_total) || (b.taux - a.taux)) };
 }
 
@@ -75,9 +77,10 @@ export function avisAbsence(etudiantId, ueNum, annee) {
   const l = x.g.lignes.find(y => y.etudiant.id === e.id);
   if (!l) return { erreur: 'introuvable', message: 'Cet étudiant n’est pas inscrit à cette unité.' };
   const reg = reglagesPresenceQr();
-  const total = tauxTotal(l);
+  const total = tauxTotal(l, reg.seuil_global_base);
   const global = total * 100 > reg.seuil_global_pct;
-  const abs = absencesDe(x.g, l, { justifiees: global });
+  const toutes = reg.seuil_global_base !== 'injustifiees';
+  const abs = absencesDe(x.g, l, { justifiees: global && toutes });
   if (!abs.length) return { erreur: 'rien', message: 'Aucune absence à signaler.' };
   if (!e.email_ecole) return { erreur: 'adresse', message: 'Cet étudiant n’a pas d’adresse d’école : l’avis ne peut pas partir.' };
   const ueNom = db.prepare('SELECT MIN(ue_nom) n FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(Number(ueNum), annee)?.n || '';
@@ -87,13 +90,15 @@ export function avisAbsence(etudiantId, ueNum, annee) {
   const lignes = abs.map(a => `– ${fr(a.date)} à ${a.heure} (${a.cours})${a.justifiee ? ' — absence justifiée' : ''}`);
   const text = [
     `Bonjour ${e.prenom || ''},`, '',
-    global
+    global && toutes
       ? `Selon le registre des présences, vous avez été absent(e) aux séances suivantes de l'unité d'enseignement ${ueNum}${ueNom ? ` « ${ueNom} »` : ''} :`
       : `Selon le registre des présences, vous avez été absent(e) sans justificatif aux séances suivantes de l'unité d'enseignement ${ueNum}${ueNom ? ` « ${ueNom} »` : ''} :`,
     ...lignes, '',
-    ...(global ? [`Toutes absences confondues, justifiées ou non, vous avez manqué ${pc(total)} % des heures de cours tenues à ce jour (${heures(l.absent + l.justifie)} sur ${heures(l.du)}), au-delà du seuil de ${reg.seuil_global_pct} %.`,
+    ...(global ? [toutes
+      ? `Toutes absences confondues, justifiées ou non, vous avez manqué ${pc(total)} % des heures de cours tenues à ce jour (${heures(l.absent + l.justifie)} sur ${heures(l.du)}), au-delà du seuil de ${reg.seuil_global_pct} %.`
+      : `Vos absences sans motif valable atteignent ${pc(total)} % des heures de cours tenues à ce jour (${heures(l.absent)} sur ${heures(l.du)}), au-delà du seuil de ${reg.seuil_global_pct} %.`,
       ...(reg.mention_seuil_global ? [reg.mention_seuil_global] : [])] : []),
-    ...(l.absent ? [`Les absences sans justificatif représentent ${String(taux).replace('.', ',')} % des heures tenues (${heures(l.absent)} sur ${heures(l.du)}).`,
+    ...(l.absent && !(global && !toutes) ? [`Les absences sans justificatif représentent ${String(taux).replace('.', ',')} % des heures tenues (${heures(l.absent)} sur ${heures(l.du)}).`,
       'Si vous bénéficiez du congé-éducation payé, plus de 10 % d’absences injustifiées peut en suspendre le droit.'] : []), '',
     'Si une absence sans justificatif était en réalité justifiée, transmettez le justificatif au secrétariat : la présence sera corrigée.', '',
     'Le secrétariat de l’Institut Ilya Prigogine',

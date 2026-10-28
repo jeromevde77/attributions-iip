@@ -25,6 +25,7 @@ import db from '../db/index.js';
 import { ecrirePresences } from './cep.js';
 import { etudiantsDuCours } from './etudiantsCours.js';
 
+export const MENTION_PROPOSEE = 'Au-delà de quatre dixièmes des activités d’enseignement, la condition d’assiduité prévue par le décret du 16 avril 1991 organisant l’enseignement de promotion sociale et par le règlement des études peut ne plus être remplie. Prenez contact avec le secrétariat.';
 export const REGLAGES_DEFAUT = {
   rotation_s: 15,          // le QR change toutes les…
   validite_s: 30,          // un QR scanné reste valable… (marge réseau)
@@ -35,9 +36,14 @@ export const REGLAGES_DEFAUT = {
   // LE SEUIL GLOBAL (Charles, 28 octobre 2026 : « il faut aussi le seuil de 40 % ») :
   // TOUTES les absences, justifiées ou non, sur les heures tenues.
   seuil_global_pct: 40,
-  // Sa mention réglementaire, rédigée par la direction (RGE / ROI) — Lucie n'en
-  // invente pas : vide, l'avis s'en passe et l'écran dit qu'elle manque.
-  mention_seuil_global: '',
+  // SUR QUOI SE COMPTE-T-IL ? « toutes » (justifiées comprises — premier choix de
+  // Charles) ou « injustifiees » (« sans motif valable », la formule des ROI qui
+  // reprennent le décret de 1991 : quatre dixièmes au supérieur). À trancher sur
+  // le texte consolidé du décret ; réglable par la direction.
+  seuil_global_base: 'toutes',
+  // Sa mention : une PROPOSITION de Lucie, prudente, à vérifier et à remplacer par
+  // l'article exact (décret du 16 avril 1991, règlement des études).
+  mention_seuil_global: MENTION_PROPOSEE,
   // LES DEUX DOMAINES DE L'ÉCOLE (Charles : « les deux, car on a des étudiants
   // des deux ; ce qui fait foi, c'est que ça colle avec le compte dans Lucie »).
   domaines: ['institut-prigogine.be', 'helb-prigogine.be'],
@@ -100,6 +106,7 @@ export function reglagesPresenceQr() {
     if (Number.isFinite(v)) r[k] = Math.min(maxi, Math.max(mini, Math.round(v)));
   }
   if (typeof lu.mention_seuil_global === 'string') r.mention_seuil_global = lu.mention_seuil_global.slice(0, 800);
+  if (lu.seuil_global_base === 'injustifiees' || lu.seuil_global_base === 'toutes') r.seuil_global_base = lu.seuil_global_base;
   if (Array.isArray(lu.domaines)) {
     const d = lu.domaines.map(x => String(x).trim().toLowerCase().replace(/^@/, '')).filter(x => /^[a-z0-9.-]+\.[a-z]{2,}$/.test(x));
     if (d.length) r.domaines = d;
@@ -549,6 +556,10 @@ export function ecrireReglagesPresenceQr(entree = {}) {
     const n = Number(entree[k]);
     if (!Number.isFinite(n) || n < mini || n > maxi) return { erreur: 'borne', message: `${NOMS_REGLAGES[k] || k} : entre ${mini} et ${maxi}.` };
     v[k] = Math.round(n);
+  }
+  if (entree.seuil_global_base !== undefined) {
+    if (!['toutes', 'injustifiees'].includes(entree.seuil_global_base)) return { erreur: 'base', message: 'Base du seuil global : toutes les absences, ou les absences sans motif valable.' };
+    v.seuil_global_base = entree.seuil_global_base;
   }
   if (entree.mention_seuil_global !== undefined) {
     const m = String(entree.mention_seuil_global || '').trim();

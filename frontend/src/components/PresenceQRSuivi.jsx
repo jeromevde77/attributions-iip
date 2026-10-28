@@ -189,10 +189,14 @@ function Absences() {
           <input value={filtre} onChange={e => setFiltre(e.target.value)} placeholder="Nom, matricule ou UE"
             className="controle controle-icone border border-slate-300 rounded-champ bg-white w-72" />
         </div>
-        {d && <span className="text-second text-slate-500">Seuils : <b>{d.seuil} %</b> d’absences sans justificatif, <b>{d.seuil_global} %</b> de toutes les absences — sur les heures tenues ({annee}), réglables dans Réglages.</span>}
+        {d && <span className="text-second text-slate-500">Seuils : <b>{d.seuil} %</b> d’absences sans justificatif, <b>{d.seuil_global} %</b> {d.base_globale === 'injustifiees' ? 'd’absences sans motif valable (condition d’assiduité)' : 'de toutes les absences'} — sur les heures tenues ({annee}), réglables dans Réglages.</span>}
         {d && <span className="text-second text-slate-500 ml-auto">{liste.length} situation(s)</span>}
       </div>
       {erreur && <p className="text-sm" style={{ color: 'var(--c-corriger)' }}>{erreur}</p>}
+      {d && d.mention_proposee && d.alertes.some(a => a.depasse_global) && (
+        <p className="text-sm" style={{ color: 'var(--c-surveiller)' }}>
+          La mention du seuil de {d.seuil_global} % est le texte proposé par Lucie : à vérifier sur le décret et le règlement des études (Réglages, par la direction).</p>
+      )}
       {d && !d.mention_global && d.alertes.some(a => a.depasse_global) && (
         <p className="text-sm" style={{ color: 'var(--c-surveiller)' }}>
           La mention réglementaire du seuil de {d.seuil_global} % n’est pas encore rédigée (Réglages, par la direction) : les avis partent sans elle.</p>
@@ -204,7 +208,7 @@ function Absences() {
           <table className="w-full text-sm">
             <thead><tr className="tab-entete text-left">
               <th className="px-2 py-1.5">Étudiant</th><th className="px-2 py-1.5">Unité</th>
-              <th className="px-2 py-1.5 text-right">Sans justificatif</th><th className="px-2 py-1.5 text-right">Toutes absences</th><th className="px-2 py-1.5 text-right">Heures</th>
+              <th className="px-2 py-1.5 text-right">Sans justificatif</th><th className="px-2 py-1.5 text-right">{d?.base_globale === 'injustifiees' ? `Seuil de ${d?.seuil_global} %` : 'Toutes absences'}</th><th className="px-2 py-1.5 text-right">Heures</th>
               <th className="px-2 py-1.5">Prévenu</th><th className="px-2 py-1.5" />
             </tr></thead>
             <tbody>
@@ -244,7 +248,7 @@ const CHAMPS = [
   ['apres_min', 'et se ferme', 'minutes après le début'],
   ['appairages_semaine', 'Téléphones qu’un étudiant peut lier par semaine', ''],
   ['seuil_absence_pct', 'Signaler un étudiant au-delà de', '% d’absences sans justificatif'],
-  ['seuil_global_pct', 'et au-delà de', '% de toutes les absences (justifiées ou non)'],
+  ['seuil_global_pct', 'et au-delà de', '% (second seuil, ci-dessous)'],
 ];
 
 function Reglages() {
@@ -283,8 +287,17 @@ function Reglages() {
             <span className="text-second text-slate-400">(défaut {d.defauts[k]} · de {d.bornes[k][0]} à {d.bornes[k][1]})</span>
           </label>
         ))}
+        <label className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="w-80">Le second seuil se compte sur</span>
+          <select value={v.seuil_global_base || 'toutes'} disabled={!modifiable}
+            onChange={e => setV(x => ({ ...x, seuil_global_base: e.target.value }))}
+            className="controle border border-slate-300 rounded-champ bg-white">
+            <option value="toutes">toutes les absences (justifiées comprises)</option>
+            <option value="injustifiees">les absences sans motif valable</option>
+          </select>
+        </label>
         <label className="flex flex-wrap items-start gap-2 text-sm">
-          <span className="w-80 pt-1.5">Mention réglementaire au-delà du seuil de toutes les absences
+          <span className="w-80 pt-1.5">Mention réglementaire au-delà du second seuil
             <span className="block text-second text-slate-400">Reprise telle quelle dans l’avis à l’étudiant (RGE / ROI). Vide : l’avis s’en passe.</span></span>
           <textarea rows={3} maxLength={800} value={v.mention_seuil_global ?? ''} disabled={!modifiable} data-reponses="mention-seuil-absences"
             onChange={e => setV(x => ({ ...x, mention_seuil_global: e.target.value }))}
