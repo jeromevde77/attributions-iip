@@ -21,6 +21,7 @@ import { PastilleEtat } from './ui.jsx';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { saisir, informer, demander } from '../lib/dialogue.jsx';
 import { useDroits } from '../lib/droits.js';
+import PresencesUE from './PresencesUE.jsx';
 
 const API = '/api/presence-qr-suivi';
 const fr = d => (d ? new Date(String(d).replace(' ', 'T') + 'Z').toLocaleString('fr-BE', { dateStyle: 'short', timeStyle: 'short' }) : '—');
@@ -76,7 +77,7 @@ function Telephones() {
         </label>
         {liste && <span className="text-second text-slate-500 ml-auto">{liste.length} téléphone(s)</span>}
       </div>
-      {erreur && <p className="text-sm" style={{ color: 'var(--c-corriger)' }}>{erreur}</p>}
+      {erreur && <p className="text-sm" style={{ color: 'var(--c-refuse)' }}>{erreur}</p>}
       {liste && !liste.length && (
         <p className="text-sm text-slate-500">Aucun téléphone lié{q ? ' pour cette recherche' : ''}. Un téléphone se lie la première fois qu’un étudiant scanne le QR en classe.</p>
       )}
@@ -136,7 +137,7 @@ function Journal() {
         </select>
         <span className="text-second text-slate-500">Le journal ne se modifie ni ne s’efface : il garde chaque geste et chaque refus.</span>
       </div>
-      {erreur && <p className="text-sm" style={{ color: 'var(--c-corriger)' }}>{erreur}</p>}
+      {erreur && <p className="text-sm" style={{ color: 'var(--c-refuse)' }}>{erreur}</p>}
       {d && !d.journal.length && <p className="text-sm text-slate-500">Rien au journal pour l’instant.</p>}
       {!!d?.journal.length && (
         <div className="overflow-auto">
@@ -199,9 +200,9 @@ function Absences() {
         {d && <span className="text-second text-slate-500">Seuils : <b>{d.seuil} %</b> d’absences sans justificatif, <b>{d.seuil_global} %</b> {d.base_globale === 'injustifiees' ? 'd’absences sans motif valable (condition d’assiduité, RGE art. 6)' : 'de toutes les absences'} — sur les heures tenues ({annee}), {agit ? 'réglables dans Réglages' : 'réglés par la direction'}.</span>}
         {d && <span className="text-second text-slate-500 ml-auto">{liste.length} situation(s)</span>}
       </div>
-      {erreur && <p className="text-sm" style={{ color: 'var(--c-corriger)' }}>{erreur}</p>}
+      {erreur && <p className="text-sm" style={{ color: 'var(--c-refuse)' }}>{erreur}</p>}
       {d && !d.mention_global && d.alertes.some(a => a.depasse_global) && (
-        <p className="text-sm" style={{ color: 'var(--c-surveiller)' }}>
+        <p className="text-sm" style={{ color: 'var(--c-attente)' }}>
           La mention réglementaire du seuil de {d.seuil_global} % n’est pas encore rédigée (Réglages, par la direction) : les avis partent sans elle.</p>
       )}
       {!d && !erreur && <p className="text-sm text-slate-400">Calcul des présences de toutes les unités…</p>}
@@ -227,7 +228,7 @@ function Absences() {
                   <td className="px-2 py-1.5 text-right">
                     {a.depasse_global ? <PastilleEtat etat="corriger">{String(a.taux_total).replace('.', ',')} %</PastilleEtat>
                       : <span className="tabular-nums">{String(a.taux_total).replace('.', ',')} %</span>}
-                    {a.depasse_global && <div className="text-second" style={{ color: 'var(--c-corriger)' }}>au-delà de {d.seuil_global} %</div>}</td>
+                    {a.depasse_global && <div className="text-second" style={{ color: 'var(--c-refuse)' }}>au-delà de {d.seuil_global} %</div>}</td>
                   <td className="px-2 py-1.5 text-right tabular-nums whitespace-nowrap">{hm(a.absent_min + (a.justifie_min || 0))} / {hm(a.du_min)}</td>
                   <td className="px-2 py-1.5 whitespace-nowrap">{a.prevenu_le ? fr(a.prevenu_le) : '—'}</td>
                   <td className="px-2 py-1.5 text-right">
@@ -279,7 +280,7 @@ function Reglages() {
   return (
     <div className="space-y-4 max-w-5xl">
       {!d.secret && (
-        <p className="text-sm" style={{ color: 'var(--c-corriger)' }}>
+        <p className="text-sm" style={{ color: 'var(--c-refuse)' }}>
           La clé qui signe les QR n’est pas posée sur ce serveur : la présence par QR est indisponible. À régler par le technicien (variable PRESENCE_QR_SECRET, ou JWT_SECRET).
         </p>
       )}
@@ -318,20 +319,22 @@ function Reglages() {
       </div>
       {modifiable
         ? <div className="flex items-center gap-3"><button type="button" className="bouton bouton-fort" onClick={enregistrer}>Enregistrer</button>
-            {message && <span className="text-sm" style={message.ko ? { color: 'var(--c-corriger)' } : undefined}>{message.t}</span>}</div>
+            {message && <span className="text-sm" style={message.ko ? { color: 'var(--c-refuse)' } : undefined}>{message.t}</span>}</div>
         : <p className="text-second text-slate-500">Ces réglages se changent à la direction.</p>}
     </div>
   );
 }
 
-export default function PresenceQRSuivi({ faceInitiale = 'absences', onFermer }) {
+export default function PresenceQRSuivi({ faceInitiale = null, onFermer }) {
   const agit = useDroits().passe('admin', 'editeur');
   return (
     <OutilsAFaces icone={IconQrcode} titre="Suivi des présences"
-      sous={agit ? 'Les absences au-delà du seuil, les téléphones liés au QR, le journal, les réglages'
+      sous={agit ? 'Les présences par UE et la régularité, les absences au-delà du seuil, les téléphones liés au QR, le journal, les réglages'
         : 'Les absences au-delà du seuil, les téléphones liés au QR et le journal — étudiants de vos sections'}
-      faceInitiale={faceInitiale} onFermer={onFermer}
+      faceInitiale={faceInitiale || (agit ? 'ue' : 'absences')} onFermer={onFermer}
       faces={[
+        // LE MODULE DES PRÉSENCES PAR UE (28 octobre 2026) : le tableau, les corrections, la régularité.
+        ...(agit ? [{ cle: 'ue', label: 'Par UE', rendu: <PresencesUE /> }] : []),
         { cle: 'absences', label: 'Absences au-delà du seuil', rendu: <Absences /> },
         { cle: 'telephones', label: 'Téléphones liés', rendu: <Telephones /> },
         { cle: 'journal', label: 'Journal', rendu: <Journal /> },

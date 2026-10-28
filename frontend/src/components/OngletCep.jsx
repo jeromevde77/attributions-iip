@@ -156,7 +156,7 @@ export default function OngletCep({ etudId, annee }) {
                   <tr key={u.ue_num} className="border-t border-slate-100 bg-white align-top">
                     <td className="px-3 py-1.5"><b>UE {u.ue_num}</b> <span className="text-slate-500">{u.ue_nom}</span>
                       {u.exclue && <div className="text-xs text-slate-400">{u.exclue}</div>}
-                      {!u.exclue && !u.nb_seances && <div className="text-xs" style={{ color: 'var(--c-surveiller)' }}>
+                      {!u.exclue && !u.nb_seances && <div className="text-xs" style={{ color: 'var(--c-attente)' }}>
                         Pas d'horaire dans Lucie (Organisation → Horaires)</div>}
                     </td>
                     {u.exclue ? <td colSpan={5} /> : <>
@@ -168,10 +168,10 @@ export default function OngletCep({ etudId, annee }) {
                           <div key={p.num} className="text-second">
                             <b>{p.num}</b> · {fr(p.du)} – {fr(p.au)}{p.terminee ? '' : ' (en cours)'} ·
                             présent {h(p.presence)} · justifié {h(p.justifiees)} ·{' '}
-                            <span style={p.taux_injustifie > 0.1 ? { color: 'var(--c-corriger)', fontWeight: 600 } : {}}>
+                            <span style={p.taux_injustifie > 0.1 ? { color: 'var(--c-refuse)', fontWeight: 600 } : {}}>
                               injustifié {h(p.injustifiees)} ({pct(p.taux_injustifie)})</span>
                             {p.non_encodees.length > 0 && (
-                              <span className="block text-xs" style={{ color: 'var(--c-surveiller)' }}>
+                              <span className="block text-xs" style={{ color: 'var(--c-attente)' }}>
                                 <IconAlertTriangle size={11} className="inline -mt-0.5" /> {p.non_encodees.length} séance(s) passée(s)
                                 sans présences — Mes cours → Présences</span>
                             )}

@@ -103,7 +103,7 @@ export default function MaJournee({ onAgir }) {
             </div>
           ))}
           {estAujourdhui && maintenant > debut && maintenant < fin && (
-            <div className="absolute top-0 bottom-0 w-0.5 z-10" style={{ left: pct(maintenant), background: 'var(--c-corriger)' }} title="Maintenant" />
+            <div className="absolute top-0 bottom-0 w-0.5 z-10" style={{ left: pct(maintenant), background: 'var(--c-refuse)' }} title="Maintenant" />
           )}
           {seances.map(x => (
             <button key={x.id} type="button" onClick={() => setChoisie(x.id)} data-etat={etat(x)}
@@ -215,19 +215,19 @@ export function ProjectionQR({ seance, onFermer }) {
         <div className="text-2xl font-bold text-iip-texte">{seance.cours_code}{seance.matiere ? ` · ${seance.matiere}` : ''}</div>
         <div className="text-lg text-slate-600">{hm(seance.heure_debut)}–{hm(seance.heure_fin)} · scannez pour noter votre présence</div>
       </div>
-      {erreur && <div className="text-lg" style={{ color: 'var(--c-corriger)' }}>{erreur}</div>}
+      {erreur && <div className="text-lg" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
       <canvas ref={toile} className={etat?.jeton ? '' : 'invisible'} />
       <div className="flex items-baseline gap-3">
         <span className="text-5xl font-bold tabular-nums text-iip-texte">{compteur?.presents ?? '–'} / {compteur?.attendus ?? '–'}</span>
         <span className="text-xl text-slate-600">présents</span>
       </div>
       {etat?.essai && (
-        <div className="text-base font-semibold" style={{ color: 'var(--c-surveiller)' }}>
+        <div className="text-base font-semibold" style={{ color: 'var(--c-attente)' }}>
           Mode essai (dev) : la date et la fenêtre de scan sont ignorées
         </div>
       )}
       {f && !etat?.essai && (
-        <div className="text-base" style={{ color: f.ouverte ? 'var(--c-reussi)' : 'var(--c-surveiller)' }}>
+        <div className="text-base" style={{ color: f.ouverte ? 'var(--c-reussi)' : 'var(--c-attente)' }}>
           {f.ouverte ? `Scan ouvert jusqu’à ${f.ferme}` : f.avant ? `Le scan s’ouvrira à ${f.ouvre}` : `Scan fermé depuis ${f.ferme} — les présences se complètent depuis votre tableau de bord`}
         </div>
       )}

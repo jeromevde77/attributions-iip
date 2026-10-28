@@ -149,10 +149,10 @@ export default function CarnetCotes({ coursCode, annee, groupe = '', sessionFeui
           Enregistrer{sales.length ? ` (${sales.length})` : ''}</button>
       </div>
       <div className="text-second min-h-[1.2rem]">
-        {invalides.length ? <span style={{ color: 'var(--c-corriger)' }}>{invalides.length} case(s) invalide(s) : des points (12,5) jusqu’au maximum, ou PP · NP · CM.</span>
+        {invalides.length ? <span style={{ color: 'var(--c-refuse)' }}>{invalides.length} case(s) invalide(s) : des points (12,5) jusqu’au maximum, ou PP · NP · CM.</span>
           : fait ? <span style={{ color: 'var(--c-reussi)' }}>✓ {fait}</span>
-            : sales.length ? <span style={{ color: 'var(--c-surveiller)' }}>{sales.length} changement(s) à enregistrer.</span> : null}
-        {erreur && <span style={{ color: 'var(--c-corriger)' }}> {erreur}</span>}
+            : sales.length ? <span style={{ color: 'var(--c-attente)' }}>{sales.length} changement(s) à enregistrer.</span> : null}
+        {erreur && <span style={{ color: 'var(--c-refuse)' }}> {erreur}</span>}
       </div>
 
       {!evals.length ? (
@@ -198,7 +198,7 @@ export default function CarnetCotes({ coursCode, annee, groupe = '', sessionFeui
                       <td key={ev.id} className="px-1 py-0.5 text-center">
                         <input value={v} onChange={x => poser(ev.id, e.id, x.target.value)} inputMode="decimal"
                           className="w-[4.2rem] h-7 text-center border rounded-champ"
-                          style={{ borderColor: !ok ? 'var(--c-corriger)' : sale ? 'var(--c-surveiller)' : 'rgb(var(--gris-300))' }} />
+                          style={{ borderColor: !ok ? 'var(--c-refuse)' : sale ? 'var(--c-attente)' : 'rgb(var(--gris-300))' }} />
                       </td>
                     );
                   })}
@@ -207,7 +207,7 @@ export default function CarnetCotes({ coursCode, annee, groupe = '', sessionFeui
                     const p = e.propositions?.[session]?.[k];
                     return <td key={k || 'c'} className="px-2 text-right tabular-nums font-semibold"
                       title={p ? `${nb(p.sur20)} /20 sur ${p.nb} évaluation(s)` : 'Aucune évaluation notée rattachée'}
-                      style={{ color: p && p.note < 10 ? 'var(--c-corriger)' : undefined }}>{p ? p.note : '—'}</td>;
+                      style={{ color: p && p.note < 10 ? 'var(--c-refuse)' : undefined }}>{p ? p.note : '—'}</td>;
                   })}
                 </tr>
               ))}
@@ -255,7 +255,7 @@ function FicheEvaluation({ fiche, acquis, base, annee, onFermer, onFait }) {
   return (
     <Fenetre titre={f.id ? `Évaluation — ${fiche.intitule}` : 'Nouvelle évaluation'} large="petite" onFermer={onFermer}
       pied={<>
-        <span className="text-second min-w-0 flex-1" style={{ color: 'var(--c-corriger)' }}>{erreur}</span>
+        <span className="text-second min-w-0 flex-1" style={{ color: 'var(--c-refuse)' }}>{erreur}</span>
         {f.id && <button type="button" className="bouton bouton-detruire" onClick={supprimer}><IconTrash size={15} /> Supprimer</button>}
         <button type="button" className="bouton bouton-fort" disabled={!String(f.intitule || '').trim()} onClick={enregistrer}>Enregistrer</button>
       </>}>

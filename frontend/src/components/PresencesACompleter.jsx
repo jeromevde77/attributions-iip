@@ -91,7 +91,7 @@ export default function PresencesACompleter() {
             </button>
           </>}>
           <div className="space-y-4">
-            {erreur && <p className="text-sm m-0" style={{ color: 'var(--c-corriger)' }}>{erreur}</p>}
+            {erreur && <p className="text-sm m-0" style={{ color: 'var(--c-refuse)' }}>{erreur}</p>}
             {data.seances.map(s => (
               <div key={s.seance_id}>
                 <div className="flex items-baseline gap-2 mb-1">

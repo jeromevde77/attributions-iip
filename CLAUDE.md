@@ -80,6 +80,26 @@ dont l'horaire ne nomme personne (règle de Mes cours), de 60 jours en arrière 
 L'adresse vient de `LUCIE_URL` (dev → dev.lucie-iip.be). **À venir** : le même lien pour les
 étudiants (ils n'ont pas de compte — passer par le téléphone lié de la présence QR ?).
 
+**LES PRÉSENCES PAR UE ET LA RÉGULARITÉ** (3.1.424, Charles, 28 octobre 2026 : « un module admin
+qui permet de choisir une UE, de voir les données en tableau, de savoir les changer ; une colonne
+pour la régularité — R sur fond vert, sinon IR ; en cliquant on inverse le badge »). Étudiants →
+*Suivi des présences* → face **Par UE** (`components/PresencesUE.jsx`, `routes/presencesUE.js` sur
+`/api/presences-ue`, `lib/regularite.js`) — direction et secrétariat. Grille de l'UE (inscrits ×
+séances de tous ses cours), case changée d'un clic (P, P*, A, J + motif, —, effacer) par
+`ecrirePresences()`. **Deux colonnes de régularité, juste après la séance du 1er dixième et celle du
+5e** (« la régularité est admin, pour la vérification ») : R si présences + absences justifiées
+≥ 60 % des heures dues ET encodées jusqu'au jalon inclus (dispensés hors compte, non encodées
+signalées) ; jalons = 1/10 et 5/10 entre première et dernière séance, séance la plus proche.
+**Inverser = un clic, sans motif** (« si je change, cela doit être léger ») ; `regularite_marque`
+garde qui et quand, badge pointillé ; revenir au calcul efface la marque. **Pilotage → Gestion →
+Présences** (`components/PilotagePresences.jsx`, `GET /api/presences-ue/pilotage`) : tuiles, alertes
+(présences non encodées, > 20 % d'irréguliers au 1/10, 1/10 passé sans séance), comptage des
+réguliers au 1/10 par section (hors cursus à part), une ligne par UE qui ouvre son module. **Pas
+encore branché** : la dotation compte toujours les inscriptions, pas les réguliers au 1/10.
+**Couleurs** : `var(--c-corriger)` et `var(--c-surveiller)` N'EXISTENT PAS (les états sont
+`--c-refuse` et `--c-attente`) — onze écrans de présence les employaient et peignaient en noir ou en
+transparent ; corrigé partout en 3.1.424.
+
 **Établissement :** IIP — N° ECOT 5222132070, FASE 292, Campus Erasme,
 Route de Lennik 808, 1070 Anderlecht. Enseignement pour adultes (FWB).
 Sections : TIM (la plus grande), Psychomotricité, AeSI (soins infirmiers,

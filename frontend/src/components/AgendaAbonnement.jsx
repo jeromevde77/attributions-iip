@@ -43,7 +43,7 @@ export default function AgendaAbonnement({ onFermer }) {
     <Fenetre icone={IconCalendarShare} titre="Mon horaire dans mon agenda" large="moyenne" onFermer={onFermer}
       sous="L’horaire de Lucie dans l’agenda de votre téléphone ; il suit les changements de lui-même"
       pied={<>
-        <span className="text-second min-w-0 flex-1" style={{ color: 'var(--c-corriger)' }}>{erreur}</span>
+        <span className="text-second min-w-0 flex-1" style={{ color: 'var(--c-refuse)' }}>{erreur}</span>
         {etat?.lien && <button type="button" className="bouton bouton-detruire" onClick={revoquer}>Désactiver le lien</button>}
         {etat?.professeur && <button type="button" className="bouton bouton-fort" onClick={creer}>
           {etat?.lien ? <><IconRefresh size={15} /> Nouveau lien</> : 'Créer mon lien'}</button>}

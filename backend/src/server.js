@@ -3096,6 +3096,7 @@ app.use('/api/presence-qr', (await import('./routes/presenceQr.js')).default);
 app.use('/api/agenda', (await import('./routes/agenda.js')).default);
 // Le suivi côté secrétariat : téléphones liés, journal, réglages (lot 4).
 app.use('/api/presence-qr-suivi', (await import('./routes/presenceQrSuivi.js')).default);
+app.use('/api/presences-ue', (await import('./routes/presencesUE.js')).default);
 app.use('/api/notes-doubles', (await import('./routes/notesDoubles.js')).default);
 app.use('/api/auth',         garderModule('auth'), authRoutes);
 app.use('/api/mfa',          garderModule('mfa'), mfaRoutes);

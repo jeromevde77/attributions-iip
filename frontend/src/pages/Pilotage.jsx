@@ -3,11 +3,12 @@ import { IconReportAnalytics, IconReportMoney, IconChartInfographic, IconSchool,
 import { droitEffectif } from '../lib/modules.js';
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import { api, getAnnee, getUser, authHeaders } from '../lib/api.js';
-import { IconChartBar, IconHome, IconUsers, IconSettings, IconChevronRight, IconChevronDown, IconPrinter, IconRotateClockwise, IconCheck, IconX, IconTrash, IconCash, IconCalendar, IconArrowsLeftRight, IconScale, IconUsersGroup } from '@tabler/icons-react';
+import { IconChartBar, IconHome, IconUsers, IconSettings, IconChevronRight, IconChevronDown, IconPrinter, IconRotateClockwise, IconCheck, IconX, IconTrash, IconCash, IconCalendar, IconArrowsLeftRight, IconScale, IconUsersGroup, IconUserCheck } from '@tabler/icons-react';
 import { PageHeader, Tabs, RailLateral, OuvrirEditions, TuileEtat, Chevron, Fenetre } from '../components/ui.jsx';
 import { createPortal } from 'react-dom';
 import Distributions from '../components/Distributions.jsx';
 import Population from '../components/Population.jsx';
+import PilotagePresences from '../components/PilotagePresences.jsx';
 import PopulationEcole from '../components/PopulationEcole.jsx';
 import PersonnelEcole from '../components/PersonnelEcole.jsx';
 import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
@@ -1595,6 +1596,10 @@ export default function Pilotage({ vue = 'tout' }) {
   const RUBRIQUES = [
     { key: 'g-population', label: 'Population', icon: IconUsersGroup, faces: [
       ['population-ecole', 'Qui sont nos étudiants'], !coord && ['personnel-ecole', 'Notre personnel'], ['population', 'Places par unité']] },
+    /* LES PRÉSENCES (28 octobre 2026) : par UE, le comptage au 1er dixième, les alertes —
+       direction et secrétariat (la route le garde ; la coordination n'y passe pas). */
+    { key: 'g-presences', label: 'Présences', icon: IconUserCheck, faces: [
+      !coord && ['presences-ue', 'Présences par UE']] },
     { key: 'g-resultats', label: 'Résultats', icon: IconSchool, faces: [
       ['deliberation', 'Décisions et taux de réussite'], ['distributions', 'Distributions des cotes']] },
     { key: 'g-dotation', label: 'Dotation', icon: IconBuildingBank, faces: [
@@ -1960,6 +1965,8 @@ thead { display: table-header-group; }
           <Distributions annee={vue === 'gestion' ? anneeActive : null} />
         ) : tab === 'population' ? (
           <Population annee={anneeActive} />
+        ) : tab === 'presences-ue' ? (
+          <PilotagePresences annee={anneeActive} />
         ) : tab === 'budget' ? (
           <Budget />
         ) : loading ? (

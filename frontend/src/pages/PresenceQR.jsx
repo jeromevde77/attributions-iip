@@ -104,7 +104,7 @@ export default function PresenceQR() {
             <input type="email" inputMode="email" autoComplete="email" required value={email}
               onChange={e => setEmail(e.target.value)} className={champ}
               placeholder={domaines.length ? `prenom.nom@${domaines[0]}` : 'Adresse d’école'} />
-            {erreur && <p className="text-sm m-0" style={{ color: 'var(--c-corriger)' }}>{erreur}</p>}
+            {erreur && <p className="text-sm m-0" style={{ color: 'var(--c-refuse)' }}>{erreur}</p>}
             <button type="submit" disabled={occupe || !email.trim()} className={bouton}>
               {occupe ? 'Envoi…' : 'Recevoir mon code'}
             </button>
@@ -119,7 +119,7 @@ export default function PresenceQR() {
             <input inputMode="numeric" autoComplete="one-time-code" maxLength={6} required value={code}
               onChange={e => setCode(e.target.value.replace(/\D/g, ''))}
               className={`${champ} text-center text-2xl tracking-[0.4em] font-semibold`} placeholder="••••••" />
-            {erreur && <p className="text-sm m-0" style={{ color: 'var(--c-corriger)' }}>{erreur}</p>}
+            {erreur && <p className="text-sm m-0" style={{ color: 'var(--c-refuse)' }}>{erreur}</p>}
             <button type="submit" disabled={occupe || code.length !== 6} className={bouton}>
               {occupe ? 'Vérification…' : 'Valider et enregistrer ma présence'}
             </button>

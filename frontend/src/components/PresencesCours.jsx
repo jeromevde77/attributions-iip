@@ -18,8 +18,8 @@ const BOUTONS = [
   ['present', 'P', 'Présent', 'var(--c-reussi)'],
   // Le retard : présent (ses heures comptent), marqué « P* » dans la grille.
   ['retard', 'P*', 'Présent, arrivé en retard', 'var(--c-reussi)'],
-  ['absent', 'A', 'Absent', 'var(--c-corriger)'],
-  ['justifie', 'J', 'Absence justifiée', 'var(--c-surveiller)'],
+  ['absent', 'A', 'Absent', 'var(--c-refuse)'],
+  ['justifie', 'J', 'Absence justifiée', 'var(--c-attente)'],
   ['non_concerne', '—', 'Non concerné (autre sous-groupe)', 'var(--c-disponible)'],
 ];
 
@@ -114,7 +114,7 @@ export default function PresencesCours({ coursCode, annee, seanceInitiale = null
               <span className="tabular-nums text-slate-500">{String(s.heure_debut).slice(0, 5)}–{String(s.heure_fin).slice(0, 5)}</span>
               {s.sous_groupe && <span className="text-xs text-slate-400">gr. {s.sous_groupe}</span>}
               <span className="ml-auto text-xs" style={{ color: s.annule ? 'var(--c-texte)' : complet ? 'var(--c-reussi)'
-                : passe ? 'var(--c-surveiller)' : 'var(--c-disponible)' }}>
+                : passe ? 'var(--c-attente)' : 'var(--c-disponible)' }}>
                 {s.annule ? 'annulée' : complet ? '✓' : passe ? `${s.encodees}/${n}` : 'à venir'}</span>
             </button>
           );
@@ -136,13 +136,13 @@ export default function PresencesCours({ coursCode, annee, seanceInitiale = null
               disabled={future || seance.annule || !modifiees.length || sansMotif.length > 0 || enCours}
               onClick={enregistrer}>Enregistrer</button>
           </div>
-          <div className="px-3 py-1 text-xs min-h-[1.5rem]" style={{ color: 'var(--c-surveiller)' }}>
+          <div className="px-3 py-1 text-xs min-h-[1.5rem]" style={{ color: 'var(--c-attente)' }}>
             {seance.annule ? 'Séance annulée : pas de présences.'
               : future ? "Cette séance n'a pas encore eu lieu."
                 : sansMotif.length ? `Choisissez le motif de ${sansMotif.length} absence(s) justifiée(s).`
                   : fait ? <span style={{ color: 'var(--c-reussi)' }}>✓ {fait}</span>
                     : modifiees.length ? `${modifiees.length} changement(s) à enregistrer.` : ''}
-            {erreur && <span style={{ color: 'var(--c-corriger)' }}> {erreur}</span>}
+            {erreur && <span style={{ color: 'var(--c-refuse)' }}> {erreur}</span>}
           </div>
           <table className="w-full text-second">
             <tbody>

@@ -65,7 +65,7 @@ export default function GrillePresence({ coursCode, ueNum, annee, grilleUE = fal
         <button type="button" className="bouton" disabled={!!occupe} onClick={() => excel(true)} title={`L'UE ${ueNum}, en Excel`}>
           <IconFileSpreadsheet size={16} /> Excel UE</button>
       </>}
-      {erreur && <span className="basis-full text-second" style={{ color: 'var(--c-corriger)' }}>{erreur}</span>}
+      {erreur && <span className="basis-full text-second" style={{ color: 'var(--c-refuse)' }}>{erreur}</span>}
     </div>
   );
 }
