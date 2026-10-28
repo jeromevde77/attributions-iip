@@ -1351,8 +1351,20 @@ Mes cours → Présences**, séance par séance (`presence`, journal en ajout se
 (`MOTIFS_JUSTIFIES`), jamais un texte libre ; une séance à venir ne s'encode
 pas. **La grille de présence** (3.1.408, Charles, 28 octobre 2026 : « par cours puis par UE, la vérificatrice demande les présences dans l'UE ») : Mes cours → Présences, étudiants en lignes, séances en colonnes (P, A, J, — non concerné), PDF paysage ou Excel, toute l'année ou une période ; la grille de l'UE (toutes les séances de tous ses cours) porte le récapitulatif des heures par cours et les motifs des absences justifiées en note — réservée au secrétariat, à la direction et à la coordination (`lib/grillePresence.js`). **Le secrétariat la sort au centre d'impression** (3.1.410 : il n'entre pas dans Mes cours) — Étudiants → Listes et rapports → *Grille de présence*, rapport `grille-presences` de `routes/rapports.js`, portée une unité ou un cours, période du/au, Imprimer (PDF paysage) ou Tableur (le classeur à trois onglets) ; même pièce et même règle d'accès que Mes cours (`grillePermise`, `grilleUE`, `grilleCours`). Un rapport du catalogue peut désormais déclarer `roles` (absent du catalogue pour les autres, 404 sur ses routes), `tableur` (une pièce mise en page qui sort aussi en Excel) et `xlsx(p)` (son propre classeur). **Le premier dixième de l'UE** (3.1.409, Charles : « le premier dixième de ces dates, pas 10 % des cours » — c'est la méthode de la VÉRIFICATRICE, sans référence écrite connue ; un ancien arrêté (Gallilex 17780) le définissait par les périodes effectivement organisées : ne pas citer de base légale sur la pièce) se lit dans le CALENDRIER : 1/10 de l'écart entre la première et la dernière date de séance de l'UE (tous ses cours, annulées exclues) ; si ce jour n'a pas de cours, la séance réelle la plus proche, la plus tôt en cas d'égalité (`premierDixieme`). Annoncé en tête de la grille et marqué d'un liseré or sur sa colonne, cours comme UE. Les autres calculs de Lucie (`droitInscription.js`, `fraisScolarite.js`, échéancier) partent encore des dates d'`organisation_ue`, sans « séance la plus proche » — à aligner. **L'assiduité ne sort pas tant qu'une séance passée n'a pas ses
 présences** : une heure ni présente ni absente ne s'atteste pas. Code :
-`lib/cep.js`, `lib/piecesCep.js`, `routes/cep.js`. **À venir :** le QR code
-projeté en classe pour l'émargement ; le registre CEP dans le rail.
+`lib/cep.js`, `lib/piecesCep.js`, `routes/cep.js`. **La présence par QR code** (3.1.404 → 3.1.411, Charles, 28 octobre
+2026 : « la chose la plus simple possible pour le prof ») : Mes cours → *Ma journée* →
+*Afficher le QR* (jeton HMAC renouvelé toutes les 15 s, fenêtre −10/+20 min, compteur) ;
+l'étudiant scanne, la première fois adresse d'école + code à six chiffres, ensuite le
+téléphone est reconnu (cookie httpOnly, la base ne garde que l'empreinte) ; présence
+écrite par `ecrirePresences(…, 'qr')` ; le tableau de bord du professeur demande les
+absents d'une séance projetée. **Lot 4 (3.1.411)** : Étudiants → *Présence par QR —
+téléphones liés* (`PresenceQRSuivi.jsx`, `routes/presenceQrSuivi.js`) — téléphones liés,
+désactiver (motif), **autoriser un nouveau téléphone** (motif ; vaut pour le PROCHAIN
+téléphone lié, consommée par lui), journal en ajout seul, réglages (direction ; `lucie_config`
+« presence_qr », bornés). Mode essai sur la dev seulement (`NODE_ENV=development`).
+Fiche RGPD : `docs/rgpd-presences-qr.md`. Banc : `backend/test/presenceQr.mjs`. **À venir :**
+la phase pilote (un professeur, un cours), puis les alertes d'absences ; le registre CEP
+dans le rail.
 
 **RECOURS ET DISCIPLINE, REFONDUS SUR LE RDE 2026-2027** (3.1.x, Charles,
 3 octobre 2026 : « pas de liens avec les étudiants ni les membres des UE…

@@ -360,8 +360,13 @@ export async function demanderCode({ ticket, email, appareilBrut, envoyer, maint
   const { r, etudiant } = c;
   const semaine = sqlDate(new Date(maintenant.getTime() - 7 * 86400e3));
   const deja = db.prepare('SELECT COUNT(*) n FROM presence_appareil WHERE etudiant_id = ? AND cree_le > ?').get(etudiant.id, semaine).n;
+  // LE SECRÉTARIAT LÈVE LA LIMITE, UNE FOIS : une autorisation (journal en ajout
+  // seul, `autoriserAppareil`) vaut pour le PROCHAIN téléphone lié — elle est
+  // consommée par l'appairage qui la suit.
+  const autorise = !!db.prepare(`SELECT 1 FROM presence_qr_journal WHERE type = 'autorisation' AND etudiant_id = ?
+    AND id > COALESCE((SELECT MAX(id) FROM presence_qr_journal WHERE type = 'appairage' AND etudiant_id = ?), 0)`).get(etudiant.id, etudiant.id);
   // Un appareil DÉJÀ lié à cet étudiant ne compte pas : il n'appaire rien de neuf.
-  if (!c.app && deja >= r.appairages_semaine) {
+  if (!c.app && deja >= r.appairages_semaine && !autorise) {
     journaliser('appairage_refuse', { etudiant_id: etudiant.id, seance_id: c.seance.id, raison: 'limite hebdomadaire' });
     return refus('limite_appairage', `Vous avez déjà lié un téléphone cette semaine. Pour en changer, adressez-vous au secrétariat.`);
   }
@@ -468,3 +473,88 @@ export function seancesACompleter(userId, maintenant = new Date()) {
   }
   return out;
 }
+
+// ── Le suivi, côté secrétariat (lot 4) ──────────────────────────────────────
+/* Ce que le secrétariat doit pouvoir faire sans ligne de commande : voir quel
+ * téléphone est lié à quel étudiant, en désactiver un (motivé), lever la limite
+ * d'un changement par semaine, et lire le journal. Rien ne s'efface : une
+ * révocation et une autorisation s'écrivent au journal, avec leur auteur. */
+export const TYPES_JOURNAL = {
+  appairage: 'Téléphone lié',
+  desactivation: 'Ancien téléphone désactivé (nouveau lien)',
+  revocation: 'Téléphone désactivé par le secrétariat',
+  autorisation: 'Nouveau téléphone autorisé par le secrétariat',
+  appairage_refuse: 'Lien refusé',
+  code_refuse: 'Code refusé',
+  scan_refuse: 'Scan refusé',
+};
+
+/** Les téléphones liés, du plus récent au plus ancien ; `q` filtre sur le nom, le matricule ou l'adresse. */
+export function suiviAppareils({ q = '', tous = false } = {}, maintenant = new Date()) {
+  const lignes = db.prepare(`SELECT a.id, a.etudiant_id, a.appareil, a.annee_scolaire, a.cree_le, a.expire_le, a.dernier_usage_le,
+      a.revoque_le, a.revoque_par, a.revoque_motif, e.nom, e.prenom, e.id_ecampus, e.email_ecole,
+      (SELECT COUNT(*) FROM presence p WHERE p.etudiant_id = a.etudiant_id AND p.source = 'qr') AS scans
+    FROM presence_appareil a JOIN etudiant e ON e.id = a.etudiant_id
+    ORDER BY COALESCE(a.dernier_usage_le, a.cree_le) DESC`).all();
+  const maint = sqlDate(maintenant);
+  const etat = a => (a.revoque_le ? 'desactive' : a.expire_le < maint ? 'expire' : 'actif');
+  const n = String(q || '').trim().toLowerCase();
+  return lignes.map(a => ({ ...a, etat: etat(a) }))
+    .filter(a => tous || a.etat === 'actif' || (a.revoque_le && a.revoque_le > sqlDate(new Date(maintenant.getTime() - 30 * 86400e3))))
+    .filter(a => !n || `${a.nom} ${a.prenom} ${a.id_ecampus || ''} ${a.email_ecole || ''}`.toLowerCase().includes(n));
+}
+
+/** Le journal, du plus récent ; `etudiant_id` et `type` le restreignent. */
+export function journalSuivi({ etudiant_id = null, type = null, limite = 300 } = {}) {
+  const w = []; const v = [];
+  if (etudiant_id) { w.push('j.etudiant_id = ?'); v.push(Number(etudiant_id)); }
+  if (type && TYPES_JOURNAL[type]) { w.push('j.type = ?'); v.push(type); }
+  return db.prepare(`SELECT j.*, e.nom, e.prenom, e.id_ecampus,
+      (SELECT COALESCE(s.cours_code, '') || ' · ' || s.date || ' ' || substr(s.heure_debut, 1, 5) FROM horaire_seance s WHERE s.id = j.seance_id) AS seance
+    FROM presence_qr_journal j LEFT JOIN etudiant e ON e.id = j.etudiant_id
+    ${w.length ? `WHERE ${w.join(' AND ')}` : ''} ORDER BY j.id DESC LIMIT ?`).all(...v, Math.min(1000, Math.max(1, Number(limite) || 300)))
+    .map(x => ({ ...x, libelle: TYPES_JOURNAL[x.type] || x.type }));
+}
+
+/** Lever la limite hebdomadaire pour UN nouveau téléphone (le prochain lié). Motivé, journalisé. */
+export function autoriserAppareil(etudiantId, par, motif) {
+  const e = db.prepare('SELECT id FROM etudiant WHERE id = ?').get(Number(etudiantId));
+  if (!e) return { erreur: 'introuvable', message: 'Étudiant introuvable.' };
+  if (String(motif || '').trim().length < 3) return { erreur: 'motif', message: 'Une autorisation se motive.' };
+  journaliser('autorisation', { etudiant_id: e.id, raison: String(motif).trim(), par });
+  return { ok: true };
+}
+
+const NOMS_REGLAGES = { rotation_s: 'Durée d’un QR (secondes)', validite_s: 'Validité d’un QR scanné (secondes)',
+  avant_min: 'Ouverture avant le cours (minutes)', apres_min: 'Fermeture après le début (minutes)',
+  appairages_semaine: 'Téléphones par semaine' };
+
+/** Écrit les réglages (bornés, domaines vérifiés) et rend ceux qui s'appliquent désormais. */
+export function ecrireReglagesPresenceQr(entree = {}) {
+  const v = {};
+  for (const [k, [mini, maxi]] of Object.entries(BORNES)) {
+    if (entree[k] === undefined || entree[k] === null || entree[k] === '') continue;
+    const n = Number(entree[k]);
+    if (!Number.isFinite(n) || n < mini || n > maxi) return { erreur: 'borne', message: `${NOMS_REGLAGES[k] || k} : entre ${mini} et ${maxi}.` };
+    v[k] = Math.round(n);
+  }
+  if (entree.domaines !== undefined) {
+    const brut = Array.isArray(entree.domaines) ? entree.domaines : String(entree.domaines || '').split(/[\s,;]+/);
+    const d = brut.map(x => String(x).trim().toLowerCase().replace(/^@/, '')).filter(Boolean);
+    const faux = d.filter(x => !/^[a-z0-9.-]+\.[a-z]{2,}$/.test(x));
+    if (!d.length) return { erreur: 'domaines', message: 'Au moins un domaine d’adresse d’école.' };
+    if (faux.length) return { erreur: 'domaines', message: `Domaine non valable : ${faux.join(', ')}.` };
+    v.domaines = [...new Set(d)];
+  }
+  if ((v.validite_s ?? reglagesPresenceQr().validite_s) < (v.rotation_s ?? reglagesPresenceQr().rotation_s)) {
+    return { erreur: 'validite', message: 'Un QR doit rester valable au moins le temps de sa rotation.' };
+  }
+  let lu = {};
+  try { lu = JSON.parse(db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'presence_qr'").get()?.valeur || '{}'); } catch { lu = {}; }
+  const valeur = JSON.stringify({ ...lu, ...v });
+  db.prepare(`INSERT INTO lucie_config (cle, valeur) VALUES ('presence_qr', ?)
+    ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur`).run(valeur);
+  return { ok: true, reglages: reglagesPresenceQr() };
+}
+
+export const BORNES_REGLAGES = BORNES;

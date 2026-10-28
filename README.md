@@ -69,6 +69,11 @@ les axes ; le rail latéral porte les rubriques de l'axe et les outils de l'écr
   composition des programmes sur les résultats, parcours individuels imprimables.
 - Détection et fusion des dossiers en double.
 - Aménagements, frais de scolarité, droit d'inscription, valorisations.
+- **Présence par QR code** : le professeur projette un QR qui change toutes les
+  15 secondes, les étudiants le scannent ; la présence s'enregistre avec l'heure.
+  Le secrétariat suit les téléphones liés (Étudiants → Présence par QR) et sort la
+  **grille de présence** par cours ou par UE au centre d'impression. Fiche RGPD :
+  [`docs/rgpd-presences-qr.md`](docs/rgpd-presences-qr.md).
 
 ### Pièces produites
 
@@ -142,6 +147,9 @@ illisible. **La route refuse de s'exécuter hors développement.**
 - Rôles : `admin`, `directeur`, `directeur_adjoint`, `editeur`, `secretariat`,
   `consultation` — avec **périmètre par section**.
 - Journal des modifications.
+- Présence par QR : QR signé par une clé du serveur (`PRESENCE_QR_SECRET`, ou
+  dérivée de `JWT_SECRET`) ; la base ne garde que l'empreinte de l'identifiant du
+  téléphone, aucune position, aucune adresse IP.
 - **Aucun secret dans le dépôt ni dans un document.** Les jetons vivent dans
   l'environnement du conteneur ou dans les secrets GitHub.
 

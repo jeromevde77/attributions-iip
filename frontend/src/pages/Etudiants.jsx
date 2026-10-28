@@ -18,6 +18,7 @@ import NouvelEtudiant from '../components/NouvelEtudiant.jsx';
 import {
   IconAddressBook, IconListSearch, IconAlertTriangle, IconEyeCheck, IconTablePlus, IconArrowForwardUp, IconArchive, IconDoorExit, IconSchool, IconArrowBackUp, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconSend, IconWritingSign, IconWritingSignOff, IconX,
   IconChecks, IconLock, IconGift,
+  IconQrcode,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
@@ -34,6 +35,7 @@ import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
 import OutilsAFaces from '../components/OutilsAFaces.jsx';
 const DoublonsEtudiants = lazy(() => import('../components/DoublonsEtudiants.jsx'));
 const DoublesProgrammes = lazy(() => import('../components/DoublesProgrammes.jsx'));
+const PresenceQRSuivi = lazy(() => import('../components/PresenceQRSuivi.jsx'));
 const HorsBloc = lazy(() => import('../components/HorsBloc.jsx'));
 const PaeHorsRegle = lazy(() => import('../components/PaeHorsRegle.jsx'));
 const DecisionsSansInscription = lazy(() => import('../components/DecisionsSansInscription.jsx'));
@@ -3514,6 +3516,7 @@ export default function Etudiants() {
   const [nouvel, setNouvel] = useState(false);
   // Les contrôles des dossiers, venus de Configuration (lot 4) : la face ouverte.
   const [controles, setControles] = useState(null);
+  const [suiviQR, setSuiviQR] = useState(false);
   const [rapportPAE, setRapportPAE] = useState(false);
   const [importListe, setImportListe] = useState(false);
   const [importHisto, setImportHisto] = useState(false);
@@ -4109,6 +4112,10 @@ export default function Etudiants() {
           try { f = sessionStorage.getItem('lucie.outil.face') || f; sessionStorage.removeItem('lucie.outil.face'); } catch { /* */ }
           setControles(f);
         } },
+      /* LA PRÉSENCE PAR QR, CÔTÉ SECRÉTARIAT (lot 4, 28 octobre 2026) : les
+         téléphones liés, le journal, les réglages. Direction et secrétariat. */
+      ...(droitsRail.passe('admin', 'editeur') ? [{ key: 'presence-qr', label: 'Présence par QR — téléphones liés',
+        icon: IconQrcode, onClick: () => setSuiviQR(true) }] : []),
     ] },
     // LE REGISTRE DES VALORISATIONS A QUITTÉ CE RAIL. Il y figurait en même
     // temps que l'onglet « Valorisation des acquis » de l'axe : deux portes
@@ -4559,6 +4566,10 @@ export default function Etudiants() {
             { cle: 'decisions-sans-inscription', label: 'Décisions sans inscription', rendu: <DecisionsSansInscription /> },
             { cle: 'nationalites', label: 'Nationalités', rendu: <NationalitesNormaliser /> },
           ]} />
+      )}
+
+      {suiviQR && (
+        <Suspense fallback={null}><PresenceQRSuivi onFermer={() => setSuiviQR(false)} /></Suspense>
       )}
 
       {nouvel && (

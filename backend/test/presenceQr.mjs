@@ -173,6 +173,34 @@ console.log('\nCompteur et séances à compléter');
   t('fenêtre fermée : BETA à compléter', l.length === 1 && l[0].manquants.length === 1 && l[0].manquants[0].id === BETA, l);
 }
 
+console.log('\nSuivi du secrétariat (lot 4)');
+{
+  t('réglage hors bornes refusé', Q.ecrireReglagesPresenceQr({ rotation_s: 3 }).erreur === 'borne');
+  t('validité plus courte que la rotation refusée', Q.ecrireReglagesPresenceQr({ rotation_s: 60, validite_s: 30 }).erreur === 'validite');
+  t('domaine non valable refusé', Q.ecrireReglagesPresenceQr({ domaines: 'institut-prigogine.be, pas un domaine' }).erreur === 'domaines');
+  const w = Q.ecrireReglagesPresenceQr({ rotation_s: 20, domaines: '@Institut-Prigogine.be helb-prigogine.be' });
+  t('réglages écrits et relus', w.ok && Q.reglagesPresenceQr().rotation_s === 20 && Q.reglagesPresenceQr().domaines.join() === 'institut-prigogine.be,helb-prigogine.be', w);
+  Q.ecrireReglagesPresenceQr({ rotation_s: 15, validite_s: 30 });
+  const j8 = new Date('2026-11-05T09:02:00Z');
+  const liste = Q.suiviAppareils({ tous: true }, j8).filter(a => a.etudiant_id === ALPHA);
+  t('suivi : ALPHA a un téléphone actif et un désactivé', liste.filter(a => a.etat === 'actif').length === 1 && liste.some(a => a.etat === 'desactive'), liste.map(a => a.etat));
+  t('suivi : recherche par nom', Q.suiviAppareils({ q: 'alpha', tous: true }, j8).every(a => a.etudiant_id === ALPHA));
+  const actif = liste.find(a => a.etat === 'actif');
+  t('désactiver sans motif : refusé', Q.revoquerAppareil(actif.id, 'Secrétariat', '').erreur === 'motif');
+  t('désactiver avec motif', Q.revoquerAppareil(actif.id, 'Secrétariat', 'téléphone perdu').ok);
+  const s2 = db.prepare("SELECT id FROM horaire_seance WHERE date = '2026-11-05'").get().id;
+  const tk = () => Q.scanner(Q.jetonQr(s2, sec(j8)), null, j8).ticket;
+  t('téléphone perdu le jour même : limite de la semaine', (await Q.demanderCode({ ticket: tk(), email: 'alpha@institut-prigogine.be', envoyer, maintenant: j8 })).erreur === 'limite_appairage');
+  t('autoriser sans motif : refusé', Q.autoriserAppareil(ALPHA, 'Secrétariat', ' ').erreur === 'motif');
+  t('autorisation du secrétariat', Q.autoriserAppareil(ALPHA, 'Secrétariat', 'nouveau téléphone, ancien perdu').ok);
+  { const y = await Q.demanderCode({ ticket: tk(), email: 'alpha@institut-prigogine.be', envoyer, maintenant: j8 }); t('après l’autorisation : un code de plus permis', y.ok, y); }
+  const v2 = Q.validerCode({ ticket: tk(), email: 'alpha@institut-prigogine.be', code: codes.at(-1).code, maintenant: j8 });
+  t('le nouveau téléphone est lié', v2.ok && v2.appareil, v2);
+  t('l’autorisation est consommée : pas un troisième', (await Q.demanderCode({ ticket: tk(), email: 'alpha@institut-prigogine.be', envoyer, maintenant: j8 })).erreur === 'limite_appairage');
+  const jl = Q.journalSuivi({ etudiant_id: ALPHA });
+  t('journal : révocation et autorisation nommées, avec leur auteur', jl.some(x => x.type === 'revocation' && x.par === 'Secrétariat') && jl.some(x => x.type === 'autorisation' && x.libelle.startsWith('Nouveau téléphone')));
+}
+
 console.log('\nMode essai');
 {
   const env = process.env.NODE_ENV;
