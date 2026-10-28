@@ -21,10 +21,11 @@ const BOUTONS = [
   ['non_concerne', '—', 'Non concerné (autre sous-groupe)', 'var(--c-disponible)'],
 ];
 
-export default function PresencesCours({ coursCode, annee }) {
+export default function PresencesCours({ coursCode, annee, seanceInitiale = null }) {
   const [data, setData] = useState(null);
   const [erreur, setErreur] = useState(null);
-  const [seanceId, setSeanceId] = useState(null);
+  // La séance choisie dans « Ma journée », sinon la dernière passée.
+  const [seanceId, setSeanceId] = useState(seanceInitiale);
   const [saisie, setSaisie] = useState({});      // etudiant_id → { statut, motif }
   const [fait, setFait] = useState(null);
   const [enCours, setEnCours] = useState(false);

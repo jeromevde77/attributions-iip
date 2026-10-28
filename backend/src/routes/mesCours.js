@@ -519,24 +519,37 @@ function seanceAccessible(req, coursCode, seanceId) {
   return seancesDuCours(req, d, coursCode, s.annee_scolaire).some(x => x.id === s.id) ? s : null;
 }
 
-r.get('/qr/seances-du-jour', authRequired, (req, res) => {
-  const jour = aujourdhuiBruxelles();
+/* MA JOURNÉE (Charles, 28 octobre 2026 : « un aperçu de ses cours du jour sous la
+ * forme d'un mini calendrier ; s'il clique dessus, il peut prendre les présences,
+ * encoder une note, avoir la liste des étudiants »). Les séances du professeur
+ * pour une date (aujourd'hui par défaut), avec ce qu'il faut pour agir dessus :
+ * la fenêtre du QR, et où en sont les présences. */
+r.get('/journee', authRequired, (req, res) => {
+  const aujourdhui = aujourdhuiBruxelles();
+  const jour = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.date || '')) ? String(req.query.date) : aujourdhui;
   const profId = profDe(req);
   /* L'ANNÉE EST CELLE DES SÉANCES DU JOUR, pas celle que Mes cours affiche : un
      professeur qui relit l'an passé doit quand même trouver le QR de ce matin. */
   const annees = db.prepare('SELECT DISTINCT annee_scolaire a FROM horaire_seance WHERE date = ?').all(jour).map(x => x.a);
+  const encodees = db.prepare('SELECT COUNT(*) n FROM presence WHERE seance_id = ?');
   const out = [];
-  for (const annee of annees) for (const code of [...new Set((profId ? attributionsDe(profId, annee) : []).map(a => a.code_cours))]) {
-    const d = accesCours(req, code, annee);
-    if (!d) continue;
-    for (const s of seancesDuCours(req, d, code, annee).filter(x => x.date === jour && !x.annule)) {
-      const f = fenetreSeance({ ...s }, new Date());
-      out.push({ id: s.id, cours_code: code, matiere: s.matiere, heure_debut: s.heure_debut, heure_fin: s.heure_fin,
-        sous_groupe: s.sous_groupe, fenetre: f });
+  for (const annee of annees) {
+    const attrs = profId ? attributionsDe(profId, annee) : [];
+    for (const code of [...new Set(attrs.map(a => a.code_cours))]) {
+      const d = accesCours(req, code, annee);
+      if (!d) continue;
+      const a = attrs.find(x => x.code_cours === code);
+      for (const s of seancesDuCours(req, d, code, annee).filter(x => x.date === jour)) {
+        out.push({ id: s.id, annee, cours_code: code, cours_nom: a?.cours_nom || '', ue_num: a?.ue_num ?? null,
+          matiere: s.matiere, heure_debut: s.heure_debut, heure_fin: s.heure_fin, local: s.local_texte || '',
+          sous_groupe: s.sous_groupe, annule: !!s.annule,
+          fenetre: jour === aujourdhui ? fenetreSeance({ ...s }, new Date()) : null,
+          presences: { encodees: encodees.get(s.id).n, attendus: d.etudiants.length } });
+      }
     }
   }
-  out.sort((a, b) => (b.fenetre.ouverte - a.fenetre.ouverte) || String(a.heure_debut).localeCompare(String(b.heure_debut)));
-  res.json({ jour, seances: out });
+  out.sort((x, y) => String(x.heure_debut).localeCompare(String(y.heure_debut)));
+  res.json({ jour, aujourdhui, seances: out });
 });
 
 /* LE TABLEAU DE BORD DEMANDE CE QU'IL EN EST DES ABSENTS (Charles : « une fenêtre
@@ -1104,7 +1117,7 @@ r.post('/:coursCode/reprendre', authRequired, roleRequired(...PEUT_INSTRUIRE), (
  * cours. Une séance à venir ne s'encode pas : on n'atteste pas une présence qui
  * n'a pas encore eu lieu. */
 function seancesDuCours(req, d, coursCode, annee) {
-  const toutes = db.prepare(`SELECT id, date, heure_debut, heure_fin, minutes, sous_groupe, matiere,
+  const toutes = db.prepare(`SELECT id, date, heure_debut, heure_fin, minutes, sous_groupe, matiere, local_texte,
       professeur_id, COALESCE(annule, 0) AS annule
     FROM horaire_seance WHERE annee_scolaire = ? AND cours_code = ?
     ORDER BY date, heure_debut`).all(annee, coursCode);

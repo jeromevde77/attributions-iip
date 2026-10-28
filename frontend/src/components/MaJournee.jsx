@@ -1,62 +1,158 @@
 /**
- * LA PRÉSENCE PAR QR, CÔTÉ PROFESSEUR (28 octobre 2026).
+ * MA JOURNÉE — EN TÊTE DE MES COURS (Charles, 28 octobre 2026 : « un aperçu de
+ * ses cours du jour sous la forme d'un mini calendrier ; s'il clique dessus, il
+ * peut prendre les présences, encoder une note, avoir accès à la liste des
+ * étudiants »).
  *
- * « La chose la plus simple possible pour le prof » (Charles) : il n'a pas à
- * chercher sa séance. Les séances du jour paraissent en tête de Mes cours,
- * celle dont la fenêtre est ouverte d'abord, avec UN bouton. Le bouton ouvre
- * le QR en plein écran, à projeter : il change toutes les 15 s, et le
- * compteur « X / Y présents » se met à jour tout seul.
+ * La journée à l'échelle du temps : une séance de deux heures est deux fois
+ * plus large qu'une d'une heure, et un trait dit « maintenant ». Un clic sur une
+ * séance montre ce qu'on peut y faire — le QR, les présences, les notes, la
+ * liste. Sur un téléphone, la frise devient une liste : trop étroite, elle ne
+ * se lirait plus.
  *
- * LE PLEIN ÉCRAN N'EST PAS UNE FENÊTRE (`Fenetre`) : c'est ce que voit la
+ * LE QR EN PLEIN ÉCRAN N'EST PAS UNE FENÊTRE (`Fenetre`) : c'est ce que voit la
  * classe, sans voile ni cadre, et le navigateur peut le passer en plein écran.
+ * Il change toutes les 15 s ; le compteur « X / Y présents » suit tout seul.
  */
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import QRCode from 'qrcode';
-import { IconQrcode, IconX, IconMaximize } from '@tabler/icons-react';
+import { IconQrcode, IconX, IconMaximize, IconChevronLeft, IconChevronRight, IconCalendarEvent,
+  IconUserCheck, IconPencil, IconUsers } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 
 const hm = t => String(t || '').slice(0, 5);
+const min = t => { const [h, m] = String(t || '0:0').split(':').map(Number); return (h || 0) * 60 + (m || 0); };
+const decaler = (jour, n) => { const d = new Date(`${jour}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+const long = jour => new Date(`${jour}T12:00:00Z`).toLocaleDateString('fr-BE', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
+const maintenantMin = () => { const p = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Brussels', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date()); return Number(p[0].value) * 60 + Number(p[2].value); };
 
-export default function PresenceQRSeances() {
-  const [seances, setSeances] = useState([]);
-  const [ouverte, setOuverte] = useState(null);
+/* Les séances qui se chevauchent prennent chacune leur rang. */
+function enRangs(seances) {
+  const fins = [];
+  return seances.map(s => {
+    let r = fins.findIndex(f => f <= min(s.heure_debut));
+    if (r < 0) { r = fins.length; fins.push(0); }
+    fins[r] = min(s.heure_fin || s.heure_debut) || min(s.heure_debut) + 60;
+    return { ...s, rang: r };
+  });
+}
+
+export default function MaJournee({ onAgir }) {
+  const [data, setData] = useState(null);
+  const [jour, setJour] = useState(null);           // null : aujourd'hui (le serveur le dit)
+  const [choisie, setChoisie] = useState(null);     // id de séance
+  const [projetee, setProjetee] = useState(null);
+  const [maintenant, setMaintenant] = useState(maintenantMin());
+
   useEffect(() => {
     let vivant = true;
-    const lire = () => fetch('/api/mes-cours/qr/seances-du-jour', { headers: authHeaders() })
-      .then(r => (r.ok ? r.json() : { seances: [] }))
-      .then(j => { if (vivant) setSeances(j.seances || []); })
+    const lire = () => fetch(`/api/mes-cours/journee${jour ? `?date=${jour}` : ''}`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => {
+        if (!vivant || !j) return;
+        setData(j); setMaintenant(maintenantMin());
+        // Par défaut, la séance en cours, sinon la prochaine du jour.
+        setChoisie(c => (j.seances.some(s => s.id === c) ? c
+          : (j.seances.find(s => s.fenetre?.ouverte) || (j.jour === j.aujourdhui
+            ? j.seances.find(s => min(s.heure_fin) >= maintenantMin()) : null))?.id ?? null));
+      })
       .catch(() => {});
     lire();
-    // La fenêtre s'ouvre et se ferme avec l'heure : on relit chaque minute.
+    // Les fenêtres s'ouvrent et se ferment avec l'heure : on relit chaque minute.
     const id = setInterval(lire, 60e3);
     return () => { vivant = false; clearInterval(id); };
-  }, []);
-  if (!seances.length) return null;
+  }, [jour]);
+
+  if (!data) return null;
+  const seances = enRangs(data.seances);
+  const estAujourdhui = data.jour === data.aujourdhui;
+  const debut = Math.min(8 * 60, ...seances.map(s => min(s.heure_debut))) - 30;
+  const fin = Math.max(18 * 60, ...seances.map(s => min(s.heure_fin || s.heure_debut))) + 30;
+  const pct = m => `${((m - debut) / (fin - debut)) * 100}%`;
+  const heures = []; for (let h = Math.ceil(debut / 60); h * 60 <= fin; h++) heures.push(h);
+  const rangs = Math.max(1, ...seances.map(s => s.rang + 1));
+  const s = seances.find(x => x.id === choisie) || null;
+  const etat = x => (x.annule ? 'indisponible' : x.fenetre?.ouverte ? 'disponible' : 'neutre');
+
   return (
-    <div className="carte px-3 py-2.5">
-      <div className="flex items-center gap-2 mb-1.5">
-        <IconQrcode size={18} className="text-iip-blue" />
-        <h2 className="titre-carte m-0">Présences du jour</h2>
-        <span className="text-second text-slate-500">les étudiants scannent le QR avec leur téléphone</span>
+    <div className="carte px-3 py-2.5 space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <IconCalendarEvent size={18} className="text-iip-blue" />
+        <h2 className="titre-carte m-0">Ma journée</h2>
+        <span className="text-second text-slate-600 first-letter:uppercase">{long(data.jour)}</span>
+        <span className="ml-auto segments">
+          <button type="button" className="px-2 py-1" title="Jour précédent" onClick={() => setJour(decaler(data.jour, -1))}><IconChevronLeft size={15} /></button>
+          <button type="button" className={`px-2.5 py-1 text-second ${estAujourdhui ? 'font-semibold' : ''}`} onClick={() => setJour(null)}>Aujourd’hui</button>
+          <button type="button" className="px-2 py-1" title="Jour suivant" onClick={() => setJour(decaler(data.jour, 1))}><IconChevronRight size={15} /></button>
+        </span>
       </div>
-      <div className="flex flex-wrap gap-2">
-        {seances.map(s => (
-          <button key={s.id} type="button" onClick={() => setOuverte(s)}
-            className={`bouton text-left ${s.fenetre?.ouverte ? 'bouton-fort' : ''}`} style={{ height: 'auto', paddingBlock: '6px' }}
-            title={s.fenetre?.ouverte ? 'Le scan est ouvert maintenant' : `Scan ouvert de ${s.fenetre?.ouvre} à ${s.fenetre?.ferme}`}>
-            <span className="font-semibold">Afficher le QR</span>
-            <span className="block text-second">{s.cours_code}{s.matiere ? ` · ${s.matiere}` : ''} · {hm(s.heure_debut)}–{hm(s.heure_fin)}
-              {s.sous_groupe ? ` · gr. ${s.sous_groupe}` : ''}</span>
-          </button>
-        ))}
-      </div>
-      {ouverte && <ProjectionQR seance={ouverte} onFermer={() => setOuverte(null)} />}
+
+      {!seances.length && <p className="text-second text-slate-500 m-0">Aucune séance de vos cours dans l’horaire ce jour-là.</p>}
+
+      {/* LA FRISE, sur un écran assez large. */}
+      {seances.length > 0 && (
+        <div className="hidden sm:block relative" style={{ height: 18 + rangs * 50 }}>
+          {heures.map(h => (
+            <div key={h} className="absolute top-0 bottom-0 border-l border-slate-100" style={{ left: pct(h * 60) }}>
+              <span className="absolute -top-0.5 left-1 text-mention text-slate-400 tabular-nums">{h} h</span>
+            </div>
+          ))}
+          {estAujourdhui && maintenant > debut && maintenant < fin && (
+            <div className="absolute top-0 bottom-0 w-0.5 z-10" style={{ left: pct(maintenant), background: 'var(--c-corriger)' }} title="Maintenant" />
+          )}
+          {seances.map(x => (
+            <button key={x.id} type="button" onClick={() => setChoisie(x.id)} data-etat={etat(x)}
+              className={`bloc-etat absolute text-left px-2 py-1 overflow-hidden ${x.id === choisie ? 'ring-2 ring-iip-blue' : ''}`}
+              style={{ left: pct(min(x.heure_debut)), width: `calc(${pct(min(x.heure_fin || x.heure_debut) + (x.heure_fin ? 0 : 60))} - ${pct(min(x.heure_debut))} - 3px)`,
+                top: 18 + x.rang * 50, height: 46 }}
+              title={`${x.cours_code} ${x.cours_nom}${x.matiere ? ` · ${x.matiere}` : ''} — ${hm(x.heure_debut)}–${hm(x.heure_fin)}${x.local ? ` · ${x.local}` : ''}`}>
+              <div className={`text-second font-semibold truncate ${x.annule ? 'line-through text-slate-400' : ''}`}>{x.cours_code} · {x.cours_nom || x.matiere}</div>
+              <div className="text-mention text-slate-500 truncate">{hm(x.heure_debut)}–{hm(x.heure_fin)}{x.local ? ` · ${x.local}` : ''}{x.sous_groupe ? ` · gr. ${x.sous_groupe}` : ''}</div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* LA LISTE, sur un téléphone. */}
+      {seances.length > 0 && (
+        <div className="sm:hidden space-y-1.5">
+          {seances.map(x => (
+            <button key={x.id} type="button" onClick={() => setChoisie(x.id)} data-etat={etat(x)}
+              className={`bloc-etat w-full text-left px-3 py-2 ${x.id === choisie ? 'ring-2 ring-iip-blue' : ''}`}>
+              <div className={`text-sm font-semibold ${x.annule ? 'line-through text-slate-400' : ''}`}>{hm(x.heure_debut)}–{hm(x.heure_fin)} · {x.cours_code} · {x.cours_nom || x.matiere}</div>
+              {(x.local || x.sous_groupe) && <div className="text-second text-slate-500">{x.local}{x.sous_groupe ? ` · gr. ${x.sous_groupe}` : ''}</div>}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* CE QU'ON PEUT FAIRE DE LA SÉANCE CHOISIE. */}
+      {s && (
+        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
+          <span className="text-second min-w-0 mr-auto">
+            <b>{s.cours_code}</b> {s.cours_nom}{s.matiere ? ` · ${s.matiere}` : ''} · {hm(s.heure_debut)}–{hm(s.heure_fin)}
+            {s.annule ? <span className="text-slate-500"> · séance annulée</span>
+              : <span className="text-slate-500"> · présences {s.presences.encodees} / {s.presences.attendus}</span>}
+          </span>
+          {estAujourdhui && !s.annule && (
+            <button type="button" onClick={() => setProjetee(s)} className={`bouton ${s.fenetre?.ouverte ? 'bouton-fort' : ''}`}
+              title={s.fenetre?.ouverte ? 'Le scan est ouvert maintenant' : `Scan ouvert de ${s.fenetre?.ouvre} à ${s.fenetre?.ferme}`}>
+              <IconQrcode size={16} /> Afficher le QR</button>
+          )}
+          {!s.annule && (
+            <button type="button" className="bouton" onClick={() => onAgir?.('presences', s)}><IconUserCheck size={16} /> Présences</button>
+          )}
+          <button type="button" className="bouton" onClick={() => onAgir?.('notes', s)}><IconPencil size={16} /> Notes</button>
+          <button type="button" className="bouton" onClick={() => onAgir?.('liste', s)}><IconUsers size={16} /> Étudiants</button>
+        </div>
+      )}
+      {projetee && <ProjectionQR seance={projetee} onFermer={() => setProjetee(null)} />}
     </div>
   );
 }
 
-function ProjectionQR({ seance, onFermer }) {
+export function ProjectionQR({ seance, onFermer }) {
   const toile = useRef(null);
   const boite = useRef(null);
   const [etat, setEtat] = useState(null);       // { jeton, rotation_s, fenetre, compteur }

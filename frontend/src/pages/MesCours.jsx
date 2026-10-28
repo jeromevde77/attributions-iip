@@ -7,7 +7,7 @@ import { IconChartHistogram, IconBooks, IconChevronLeft, IconAlertTriangle, Icon
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { MOTIFS_ECHEC } from '../components/motifsEchec.js';
 import PresencesCours from '../components/PresencesCours.jsx';
-import PresenceQRSeances from '../components/PresenceQRSeances.jsx';
+import MaJournee from '../components/MaJournee.jsx';
 import MaListe from '../components/MaListe.jsx';
 import IndicateursNotes from '../components/IndicateursNotes.jsx';
 import { OuvrirEditions, RailLateral, Encadre } from '../components/ui.jsx';
@@ -69,7 +69,24 @@ export default function MesCours() {
      unités où il porte une attribution. */
   const [vueDue, setVueDue] = useState(false);
   const [faceDue, setFaceDue] = useState('croisement');
-  const [face, setFace] = useState('notes');          // notes | presences
+  const [face, setFace] = useState('notes');          // notes | presences | indicateurs
+  /* LA SÉANCE CHOISIE DANS « MA JOURNÉE » (28 octobre 2026) : un clic y ouvre le
+     cours sur la bonne face. Si elle est d'une autre année que celle affichée,
+     on change d'année d'abord, puis on ouvre. */
+  const [seanceChoisie, setSeanceChoisie] = useState(null);
+  const [aOuvrir, setAOuvrir] = useState(null);       // { action, seance } en attente du changement d'année
+  const agir = (action, s) => {
+    if (s.annee && s.annee !== annee) { setAOuvrir({ action, seance: s }); setAnnee(s.annee); return; }
+    setSeanceChoisie(action === 'presences' ? s.id : null);
+    setFace(action === 'presences' ? 'presences' : 'notes');
+    ouvrir(s.cours_code);
+  };
+  useEffect(() => {
+    if (!aOuvrir || aOuvrir.seance.annee !== annee) return;
+    const { action, seance } = aOuvrir;
+    setAOuvrir(null);
+    agir(action, seance);
+  }, [annee, aOuvrir]);   // eslint-disable-line react-hooks/exhaustive-deps
   const [caseActive, setCaseActive] = useState(null);   // { id, k, r, ci } — la case que visent PP et NP
   /* LE GROUPE QU'ON A DEVANT SOI (1er octobre 2026, UE 333 AESI : « il ne
      semble pas faire Mes cours par groupes »). Un professeur qui porte les
@@ -178,7 +195,8 @@ export default function MesCours() {
           { key: 'notes', label: 'Notes du cours', icon: IconPencil, actif: face === 'notes', onClick: () => setFace('notes') },
           { key: 'indicateurs', label: 'Indicateurs', icon: IconChartHistogram, actif: face === 'indicateurs', onClick: () => setFace('indicateurs') },
           // PAS ENCORE EN SERVICE (Charles, 11 octobre 2026) : grisé, badge « soon », bloqué.
-          { key: 'presences', label: 'Présences', icon: IconUserCheck, actif: false, bientot: true, bloque: true, onClick: () => {} },
+          // EN SERVICE DEPUIS « MA JOURNÉE » (28 octobre 2026) — bloquée depuis le 11 octobre.
+          { key: 'presences', label: 'Présences', icon: IconUserCheck, actif: face === 'presences', onClick: () => setFace('presences') },
         ] : []),
       ] }]} />
     {vueDue ? <div className="gouttiere-rail"><AtelierUE faces={['croisement', 'descriptif']} face={faceDue} onFace={setFaceDue} railPropre={false} /></div> : (
@@ -200,7 +218,7 @@ export default function MesCours() {
       )}
 
       {/* LES PRÉSENCES DU JOUR, EN TÊTE : le QR de la séance en cours, sans rien chercher. */}
-      {!ouvert && <PresenceQRSeances />}
+      {!ouvert && <MaJournee onAgir={agir} />}
 
       {/* LES AVIS DE VALORISATION ATTENDUS, au-dessus des cours : c'est un délai. */}
       {!ouvert && <div id="avis-va"><AvisValorisationProf annee={annee} /></div>}
@@ -460,14 +478,11 @@ export default function MesCours() {
                 présences séance par séance — celles-ci partent sur les
                 attestations du congé-éducation payé. */}
             <div className="flex items-center gap-1 border-b border-slate-200">
-              {[['notes', 'Notes'], ['indicateurs', 'Indicateurs']].map(([k, l]) => (
+              {/* LES PRÉSENCES EN SERVICE (28 octobre 2026) — bloquées depuis le 11 octobre. */}
+              {[['notes', 'Notes'], ['presences', 'Présences'], ['indicateurs', 'Indicateurs']].map(([k, l]) => (
                 <button key={k} type="button" onClick={() => setFace(k)}
                   className={`onglet-page ${face === k ? 'onglet-page-actif' : ''}`}>{l}</button>
               ))}
-              {/* Les présences : pas encore en service (Charles, 11 octobre 2026). */}
-              <span className="onglet-page opacity-50 cursor-not-allowed inline-flex items-center gap-1" title="Bientôt : la prise des présences n’est pas encore en service">
-                Présences <span className="px-1 rounded-pastille text-[9px] font-bold text-white" style={{ background: 'var(--c-attente)' }}>soon</span>
-              </span>
             </div>
             {/* LES LISTES : VERSION TEMPORAIRE (Charles, 11 octobre 2026). */}
             <Encadre etat="surveiller" titre="Liste temporaire">Les listes d’étudiants ne sont pas encore validées par les coordinations : des groupes doivent encore être encodés et certains étudiants retirés. Ce sera fait dans les prochains jours.</Encadre>
@@ -497,7 +512,7 @@ export default function MesCours() {
               </div>
             )}
             {/* CE QUE LA FEUILLE MONTRE, DIT AVANT D'Y ÉCRIRE. */}
-            {feuille && seconde && (
+            {face === 'notes' && feuille && seconde && (
               <Encadre etat="neutre" titre="Seconde session">
                 Seuls les étudiants ajournés qui représentent ce cours paraissent ici, et pour chacun
                 seulement les acquis à représenter. Les autres acquis gardent, en gris, la note proposée
@@ -507,17 +522,17 @@ export default function MesCours() {
             )}
             {/* POURQUOI IL N'Y A PAS DE SECONDE SESSION, dit en clair (23 octobre
                 2026 : « je ne vois pas où introduire la seconde session »). */}
-            {feuille && !seconde && feuille.sessions?.seconde_raison && (
+            {face === 'notes' && feuille && !seconde && feuille.sessions?.seconde_raison && (
               <p className="text-second text-slate-500 m-0">2ᵉ session : {feuille.sessions.seconde_raison}</p>
             )}
-            {feuille && lecture && (
+            {face === 'notes' && feuille && lecture && (
               <Encadre etat="surveiller" titre="Séance close">
                 La délibération de {seconde ? 'seconde' : 'première'} session de cette unité est close :
                 les notes se lisent, elles ne se proposent plus.
                 {!seconde && feuille.sessions?.seconde_possible ? ' Les notes des ajournés se saisissent dans « 2ᵉ session ».' : ''}
               </Encadre>
             )}
-            {face === 'presences' && <Encadre etat="neutre" titre="Bientôt">La prise des présences n’est pas encore en service.</Encadre>}
+            {face === 'presences' && <PresencesCours key={`${ouvert}|${seanceChoisie || ''}`} coursCode={ouvert} annee={annee} seanceInitiale={seanceChoisie} />}
             {/* LES INDICATEURS DU COURS (8 octobre 2026) : sur les étudiants affichés
                 (le groupe choisi), notes tapées comprises. */}
             {face === 'indicateurs' && feuille && (
