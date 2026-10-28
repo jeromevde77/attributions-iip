@@ -1669,7 +1669,13 @@ function Valorisations({ etudId, annee }) {
   // Lucie ne peut pas deviner ce qu'un fichier contient. Un menu, une seconde,
   // et le nom se construit seul.
   const [natures, setNatures] = useState([]);
-  const [nature, setNature] = useState('CI');
+  /* DÉPOSER UNE PIÈCE, EN DEUX TEMPS (3.1.430, Charles : « je ne comprends pas ce
+     que vient faire carte d'identité dans VA »). La liste des natures restait posée
+     sur chaque carte, « Carte d'identité » présélectionnée : elle se lisait comme
+     une donnée du dossier. On clique d'abord « Déposer une pièce », on dit laquelle,
+     puis on choisit le fichier — la nature sert à nommer le fichier. */
+  const [depot, setDepot] = useState(null);   // { vid, nature } | null
+  const nature = depot?.nature || '';
   useEffect(() => {
     fetch('/api/etudiants/valorisations/natures', { headers: authHeaders() })
       .then(r => r.json()).then(j => Array.isArray(j) && setNatures(j)).catch(() => {});
@@ -1909,19 +1915,29 @@ function Valorisations({ etudId, annee }) {
                       )}
                     </span>
                   ))}
-                  {estAdmin && <select value={nature} onChange={e => setNature(e.target.value)}
-                    title="Nature de la pièce — elle donne son nom au fichier"
-                    className="text-xs border border-slate-300 rounded-lg px-1.5 py-0.5">
-                    {natures.map(n => <option key={n.cle} value={n.cle}>{n.label}</option>)}
-                  </select>}
-                  {estAdmin && <label className="inline-flex items-center gap-1 text-xs text-slate-500
-                                    border border-dashed border-slate-300 rounded-lg px-2 py-0.5
-                                    cursor-pointer hover:border-iip-blue hover:text-iip-blue">
-                    <IconUpload size={12} /> Déposer une preuve
-                    <input type="file" className="hidden"
-                      accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.heic,.tif,.tiff,.doc,.docx,.odt,.xls,.xlsx,.ods,.txt,.eml"
-                      onChange={e => { deposer(v.id, e.target.files?.[0]); e.target.value = ''; }} />
-                  </label>}
+                  {estAdmin && depot?.vid !== v.id && (
+                    <button type="button" onClick={() => setDepot({ vid: v.id, nature: '' })}
+                      className="inline-flex items-center gap-1 text-xs text-slate-500 border border-dashed border-slate-300
+                                 rounded-lg px-2 py-0.5 hover:border-iip-blue hover:text-iip-blue">
+                      <IconUpload size={12} /> Déposer une pièce justificative
+                    </button>)}
+                  {estAdmin && depot?.vid === v.id && (
+                    <span className="inline-flex flex-wrap items-center gap-1.5 text-xs">
+                      <select value={depot.nature} autoFocus onChange={e => setDepot(d => ({ ...d, nature: e.target.value }))}
+                        className="text-xs border border-slate-300 rounded-lg px-1.5 py-0.5">
+                        <option value="">— quelle pièce ? —</option>
+                        {natures.map(n => <option key={n.cle} value={n.cle}>{n.label}</option>)}
+                      </select>
+                      {depot.nature && (
+                        <label className="inline-flex items-center gap-1 text-slate-600 border border-slate-300 rounded-lg px-2 py-0.5
+                                          cursor-pointer hover:border-iip-blue hover:text-iip-blue">
+                          <IconUpload size={12} /> Choisir le fichier
+                          <input type="file" className="hidden"
+                            accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.heic,.tif,.tiff,.doc,.docx,.odt,.xls,.xlsx,.ods,.txt,.eml"
+                            onChange={async e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) { await deposer(v.id, f); setDepot(null); } }} />
+                        </label>)}
+                      <button type="button" className="text-slate-400 hover:text-slate-600" onClick={() => setDepot(null)}>annuler</button>
+                    </span>)}
                 </div>
               </div>
               <div className="flex items-center gap-2 flex-none">

@@ -149,6 +149,10 @@ reste (création d'étudiant, notes après clôture, programmes hors `ecrireProg
 décider ») ; « Introduire une demande » offre les trois portes de la matrice (AD par section), date de
 réception du jour, et dit quand un dossier existe déjà. L'ancien formulaire de décision de la fiche (jamais
 ouvert, mais qui écrivait encore par `POST /:id/valorisations`) est retiré.
+**Une pièce justificative se dépose en deux temps** (3.1.430, Charles : « je ne comprends pas ce que vient
+faire carte d'identité dans VA ») : la liste des natures, posée seule sur chaque carte avec « Carte
+d'identité » présélectionnée, se lisait comme une donnée du dossier. « Déposer une pièce justificative »
+→ « quelle pièce ? » (sans défaut) → « Choisir le fichier ». La nature ne sert qu'à NOMMER le fichier.
 
 **Établissement :** IIP — N° ECOT 5222132070, FASE 292, Campus Erasme,
 Route de Lennik 808, 1070 Anderlecht. Enseignement pour adultes (FWB).
