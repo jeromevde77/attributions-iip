@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   IconCalendarEvent, IconDeviceFloppy, IconCopy, IconHistory, IconPlus,
-  IconAlertTriangle, IconCheck, IconEye, IconRefresh, IconX,
+  IconAlertTriangle, IconCheck, IconEye, IconRefresh, IconX, IconCalendarCheck,
 } from '@tabler/icons-react';
 import { Btn, KpiCard, Fenetre } from './ui.jsx';
 import { authHeaders } from '../lib/api.js';
 import PlanificateurUE from './PlanificateurUE.jsx';
+import ComparerHoraire from './ComparerHoraire.jsx';
 import { demander, informer } from '../lib/dialogue.jsx';
 
 /**
@@ -30,6 +31,7 @@ export default function DatesUE({ annee, sansTitre = false }) {
   const [message, setMessage] = useState(null);
   const [jalonsPour, setJalonsPour] = useState(null); // { organisation, jalons }
   const [groupe, setGroupe] = useState({ date_debut: '', date_fin: '' });
+  const [comparer, setComparer] = useState(false);   // dates de l'UE face à l'horaire réel
 
   async function charger() {
     setChargement(true);
@@ -216,6 +218,9 @@ export default function DatesUE({ annee, sansTitre = false }) {
           </Btn>
           <Btn variant="secondary" icon={IconHistory} onClick={reprendreAnneePrecedente}>
             Reprendre l'an dernier
+          </Btn>
+          <Btn variant="secondary" icon={IconCalendarCheck} onClick={() => setComparer(true)}>
+            Comparer à l'horaire réel
           </Btn>
           <Btn variant="secondary" icon={IconRefresh} onClick={charger}>
             Actualiser
@@ -472,6 +477,9 @@ export default function DatesUE({ annee, sansTitre = false }) {
               ))}
             </div>
         </Fenetre>
+      )}
+      {comparer && (
+        <ComparerHoraire annee={annee} section={section} onFermer={() => setComparer(false)} onAligne={charger} />
       )}
     </div>
   );
