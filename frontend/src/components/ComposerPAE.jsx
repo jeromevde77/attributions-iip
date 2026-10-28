@@ -264,6 +264,8 @@ export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial
       if (!r.ok) { setErreur(j.error || 'Refusé.'); return; }
       await charger(); onTermine?.();
       setBilan({ fait: true, resultats: true, ecrits: j.ecrits, effaces: j.effaces });
+      // Ce que le serveur n'a pas écrit, et pourquoi (séance close, UE hors programme).
+      if (j.refus?.length) setErreur(`${j.refus.length} résultat(s) non écrit(s) : ${j.refus.map(x => x.pourquoi).join(' · ')}`);
     } catch (e) { setErreur(e.message); }
     finally { setEnCours(false); }
   }

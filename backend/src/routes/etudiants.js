@@ -945,6 +945,30 @@ export function controlerAjouts(etudId, annee, ajouts, programmeFinal, faits = n
   return ecarts;
 }
 
+/**
+ * LES ROUTES DE RÉSULTATS NE COMPOSENT PAS ET NE REJUGENT PAS (3.1.433). La matrice,
+ * l'encodage direct, les résultats du PAE et la grille du parcours consignent des FAITS
+ * — c'est leur rôle pour les années reprises. Mais elles créaient l'inscription au
+ * passage, hors de `ecrireProgramme()`, et réécrivaient sans un mot le résultat d'une
+ * délibération close. Deux refus, nommés :
+ *   - l'unité dont la séance est close (hors séance de reprise) : le résultat est celui
+ *     du Conseil, il ne change qu'en rouvrant la séance ;
+ *   - pour l'année de travail et les suivantes, une unité absente du programme : elle
+ *     s'inscrit d'abord par le PAE, qui juge les règles.
+ * Rend la raison du refus, ou null.
+ */
+export function refusResultat(req, etudId, annee, ueNum) {
+  if (noteVerrouillee(etudId, annee, ueNum, 's1|') || noteVerrouillee(etudId, annee, ueNum, 's2|')) {
+    return `UE ${ueNum} : la délibération est close — le résultat est celui du Conseil (rouvrir la séance pour le changer).`;
+  }
+  const courante = anneeDeTravail(req);
+  if (courante && annee >= courante && !db.prepare(`SELECT 1 FROM etudiant_inscription
+      WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`).get(Number(etudId), annee, Number(ueNum))) {
+    return `UE ${ueNum} : pas au programme de ${annee} — l'inscription passe d'abord par le PAE.`;
+  }
+  return null;
+}
+
 export function ecrireProgramme({ etudId, annee, ajouter = [], retirer = [], origine, par = null,
   motifs = {}, mode = 'strict', exclus = [], forcerRetrait = false, simulation = false, dateInscription = null }) {
   const existantes = db.prepare(`SELECT ue_num, resultat FROM etudiant_inscription
@@ -5789,13 +5813,16 @@ r.post('/doubles-programmes', authRequired,
 
   let retirees = 0;
   if (!simulation) {
-    const del = db.prepare('DELETE FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND resultat IS NULL');
-    db.transaction(() => {
-      for (const l of lignes) {
-        if (l.ambigu || exclusSet.has(l.etudiant_id)) continue;
-        for (const x of l.retirer) retirees += del.run(l.etudiant_id, annee, x.ue_num).changes;
-      }
-    })();
+    /* PAR LA PORTE DU PAE (3.1.433) : un DELETE direct laissait au programme sa
+       confirmation alors qu'il venait de changer. `ecrireProgramme()` retire, garde ce
+       qui porte résultat, note ou report, et retire la confirmation. */
+    const par = req.user?.email || req.user?.nom || null;
+    for (const l of lignes) {
+      if (l.ambigu || exclusSet.has(l.etudiant_id) || !l.retirer.length) continue;
+      const b = ecrireProgramme({ etudId: l.etudiant_id, annee, retirer: l.retirer.map(x => x.ue_num),
+        origine: 'doubles programmes', par });
+      retirees += b.retirees.length;
+    }
     console.log(`[doubles-programmes] ${retirees} inscription(s) retirée(s) par ${req.user?.email || '?'} (${annee})`);
   }
   res.json({ ok: true, simulation: !!simulation, annee, lignes,
@@ -5930,8 +5957,11 @@ r.post('/pae-resultats', authRequired,
     UPDATE etudiant_inscription SET resultat = NULL, points = NULL
     WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`);
   let ecrits = 0, effaces = 0;
+  const refus = [];
   db.transaction(() => {
     for (const x of lignes) {
+      const pourquoi = refusResultat(req, x.etudiant_id, annee, x.ue_num);
+      if (pourquoi) { refus.push({ etudiant_id: x.etudiant_id, ue_num: x.ue_num, pourquoi }); continue; }
       if (x.resultat === null && x.points === null) {
         effaces += effacer.run(x.etudiant_id, annee, x.ue_num).changes;
       } else {
@@ -5940,7 +5970,7 @@ r.post('/pae-resultats', authRequired,
       }
     }
   })();
-  res.json({ ok: true, ecrits, effaces });
+  res.json({ ok: true, ecrits, effaces, refus });
 });
 
 // POST /pae-lot : retiré le 28 septembre 2026 — aucun écran ne l'appelait,
@@ -5966,6 +5996,8 @@ r.post('/encodage-direct', authRequired,
   const refuses = [];
   db.transaction(() => {
     for (const e of entrees) {
+      const pourquoi = refusResultat(req, e.etudiant_id, annee, e.ue_num);
+      if (pourquoi) { refuses.push({ etudiant_id: e.etudiant_id, ue_num: e.ue_num, pourquoi }); continue; }
       let points = null;
       if (e.points != null && e.points !== '') {
         points = Number(String(e.points).replace(',', '.'));
@@ -6031,8 +6063,11 @@ r.post('/matrice', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
   };
 
   let n = 0;
+  const refus = [];
   db.transaction(() => {
     for (const ch of changements) {
+      const pourquoi = refusResultat(req, ch.etudiant_id, annee, ch.ue_num);
+      if (pourquoi) { refus.push({ etudiant_id: Number(ch.etudiant_id), ue_num: Number(ch.ue_num), pourquoi }); continue; }
       const session = ch.session === 2 ? 2 : ch.session === 1 ? 1 : null;
 
       if (!session) {
@@ -6070,7 +6105,7 @@ r.post('/matrice', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
     }
   })();
 
-  res.json({ ok: true, enregistres: n });
+  res.json({ ok: true, enregistres: n, refus });
 });
 
 // ── Périmètre disponible pour la purge : UE et cours d'une section ──────────
@@ -7599,6 +7634,8 @@ r.put('/:id/grille', authRequired, roleRequired('admin', 'editeur'), (req, res) 
     }
   }
   if (kind === 'faveur') {
+    { const pourquoi = refusResultat(req, etudId, annee, ueN);
+      if (pourquoi) return res.status(409).json({ error: pourquoi }); }
     let session = 1;
     try {
       session = db.prepare(`SELECT MAX(session) s FROM deliberation_resultat WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`)
@@ -7716,6 +7753,8 @@ r.put('/:id/grille', authRequired, roleRequired('admin', 'editeur'), (req, res) 
   }
   // inscrit / reussi / ajourne / absent → etudiant_inscription. La marque de
   // réinscription forcée n'est pas touchée : ré-encoder un résultat l'effaçait.
+  { const pourquoi = refusResultat(req, etudId, annee, ueN);
+    if (pourquoi) return res.status(409).json({ error: pourquoi }); }
   delVa();
   db.prepare(`
     INSERT INTO etudiant_inscription (etudiant_id, annee_scolaire, ue_num, resultat, points)

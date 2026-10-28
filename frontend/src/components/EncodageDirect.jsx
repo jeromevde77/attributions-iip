@@ -90,7 +90,7 @@ export default function EncodageDirect({ onClose, anneeDefaut, sectionDefaut }) 
         type: j.nb_refuses ? 'alerte' : 'ok',
         texte: j.nb_refuses
           ? `${j.enregistres} note(s) enregistrée(s). ${j.nb_refuses} refusée(s) : `
-            + `une note doit être comprise entre 0 et 20.`
+            + [...new Set(j.refuses.map(x => x.pourquoi || 'une note doit être comprise entre 0 et 20'))].join(' · ')
           : `${j.enregistres} note(s) enregistrée(s).`,
       });
       await charger();

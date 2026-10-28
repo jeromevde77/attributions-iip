@@ -145,6 +145,15 @@ de rouvrir la séance. **Le déclencheur ne se pose que si les colonnes qu'il li
 déclencheur se compile à son premier déclenchement : une colonne absente ferait échouer TOUTE écriture
 de note. L'import des notes nomme les étudiants écartés (`seance_close`).
 
+**LES ROUTES DE RÉSULTATS NE COMPOSENT PAS ET NE REJUGENT PAS** (3.1.433). La matrice (Encodage rapide),
+l'encodage direct, les résultats du PAE et la grille du parcours (résultats et faveur) consignent des
+faits — mais créaient l'inscription au passage et réécrivaient une délibération close. `refusResultat()`
+(`routes/etudiants.js`) : refus nommé pour une UE dont la séance est close (hors reprise), et, pour
+l'année de travail et les suivantes, pour une UE absente du programme (elle s'inscrit d'abord par le
+PAE). Les années reprises restent encodables. « Doubles programmes » retire par `ecrireProgramme()`
+(la confirmation du PAE tombe). Restent voulus : `/repartition` et `/grille/cohortes` écrivent tous deux
+`num_organisation` (le cas par cas et la cohorte) ; `/import-suivi/deplacer` est un outil de réparation.
+
 **UNE CHOSE, UNE PORTE — DEUXIÈME RELEVÉ** (3.1.428, Charles, 28 octobre 2026 : « vérifier qu'il n'y a
 pas pour une chose deux entrées possibles »). Deux déclencheurs de garde : **`garde_seance_presences`**
 (une séance qui porte des présences ne se supprime pas — elle s'annule ; réimports et versements du plan

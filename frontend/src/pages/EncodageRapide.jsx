@@ -6,7 +6,7 @@ import {
 import { authHeaders } from '../lib/api.js';
 import FeuilleDeliberation from '../components/FeuilleDeliberation.jsx';
 import EncodageDirect from '../components/EncodageDirect.jsx';
-import { demander } from '../lib/dialogue.jsx';
+import { demander, informer } from '../lib/dialogue.jsx';
 
 /**
  * Encodage rapide des résultats — étudiants en lignes, UE en colonnes.
@@ -173,6 +173,9 @@ export default function EncodageRapide() {
       });
       setEtat(rep.ok ? 'enregistre' : 'pret');
       if (rep.ok) setTimeout(() => setEtat('pret'), 1600);
+      // Ce que le serveur a écarté (séance close, UE hors programme) se dit, sinon la case ment.
+      const j = await rep.json().catch(() => ({}));
+      if (j.refus?.length) informer(`${j.refus.length} case(s) non enregistrée(s) :\n${j.refus.map(x => x.pourquoi).join('\n')}`);
     }, 700);
   }
 
