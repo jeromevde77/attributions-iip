@@ -100,6 +100,20 @@ encore branché** : la dotation compte toujours les inscriptions, pas les régul
 `--c-refuse` et `--c-attente`) — onze écrans de présence les employaient et peignaient en noir ou en
 transparent ; corrigé partout en 3.1.424.
 
+**LE TICKET DE SORTIE** (3.1.425, Charles, 28 octobre 2026). Mes cours → Ma journée → séance →
+*Ticket de sortie* (`components/TicketSortie.jsx`, `routes/ticketSortie.js` sur
+`/api/mes-cours/ticket` AVANT les routes paramétriques, métier `lib/ticketSortie.js`, tables
+`ticket_sortie`, `ticket_reponse`). Jusqu'à 4 questions (échelle 1-5, réponse courte, QCM avec bonne
+réponse facultative ; deux proposées d'office), un QR projeté qui tourne comme celui de la présence
+(jetons signés `x`, puis `y` = 20 min pour répondre, `signerJeton`), ouvert le jour de la séance
+jusqu'à une heure après la fin ou jusqu'à « Fermer ». L'étudiant répond depuis le TÉLÉPHONE DÉJÀ LIÉ
+(cookie de la présence, routes `/api/presence-qr/ticket/*`, même page `/presence/<jeton>`) ; un
+téléphone non lié est renvoyé vers le QR de présence ; une réponse par étudiant, inscrits de la
+séance seulement ; la bonne réponse ne sort jamais vers le téléphone. **Anonyme par défaut** (le
+professeur ne voit que totaux et textes) ; nominatif, un QCM corrigé se verse dans le carnet (« Ticket
+du jj/mm », un point par bonne réponse, une fois). Les questions ne changent plus après la première
+réponse. Banc : `test/presenceQr.mjs` (94 ok).
+
 **Établissement :** IIP — N° ECOT 5222132070, FASE 292, Campus Erasme,
 Route de Lennik 808, 1070 Anderlecht. Enseignement pour adultes (FWB).
 Sections : TIM (la plus grande), Psychomotricité, AeSI (soins infirmiers,

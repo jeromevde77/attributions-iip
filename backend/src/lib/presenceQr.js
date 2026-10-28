@@ -165,6 +165,8 @@ export function verifierSigne(jeton, type, dureeS, maintenantS = Math.floor(Date
 }
 
 export const jetonQr = (seanceId, maintenantS = Math.floor(Date.now() / 1000)) => signer('q', seanceId, maintenantS);
+/** La même signature pour d'autres jetons (le ticket de sortie : « x », « y ») — un préfixe ne vaut jamais pour un autre. */
+export const signerJeton = (type, id, maintenantS = Math.floor(Date.now() / 1000)) => signer(type, id, maintenantS);
 
 // ── L'heure de Bruxelles ──────────────────────────────────────────────────
 /* Le serveur tourne en UTC ; l'horaire est écrit à l'heure de Bruxelles. Les

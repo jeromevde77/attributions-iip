@@ -75,6 +75,8 @@ les axes ; le rail latéral porte les rubriques de l'axe et les outils de l'écr
   les téléphones liés (Étudiants → Suivi des présences), et sort la
   **grille de présence** par cours ou par UE au centre d'impression. Fiche RGPD :
   [`docs/rgpd-presences-qr.md`](docs/rgpd-presences-qr.md).
+- **Ticket de sortie** (Mes cours → Ma journée) : deux ou trois questions en fin de séance par QR,
+  réponses au téléphone déjà lié, anonymes par défaut ; un QCM nominatif se verse au carnet.
 - **Présences par UE et régularité** (Étudiants → Suivi des présences → Par UE) : la grille de
   l'UE, corrigeable d'un clic, la régularité (R/IR) au 1er et au 5e dixième ; dans Gestion →
   Présences, le tableau par UE, le comptage au 1er dixième par section et les alertes.

@@ -254,6 +254,42 @@ console.log('\nLe premier dixième de l’UE (une règle pour tout Lucie)');
   t('ni séance ni dates : rien', R.premierDixiemeUE(999, A) === null);
 }
 
+console.log('\nLe ticket de sortie');
+{
+  const T = await import('../src/lib/ticketSortie.js');
+  T.migrerTicket(db);
+  const s = Q.lireSeance(seance);
+  // Un téléphone neuf, lié à BETA (ceux des sections précédentes ont été désactivés).
+  const telBeta = 'b'.repeat(43);
+  db.prepare(`INSERT INTO presence_appareil (etudiant_id, jeton_hash, appareil, annee_scolaire, cree_le, expire_le)
+    VALUES (?, ?, 'essai', ?, datetime('now'), '2027-09-15 00:00:00')`).run(BETA, (await import('node:crypto')).createHash('sha256').update(telBeta).digest('hex'), A);
+  t('questions : un type inconnu refusé', T.poserTicket(s, { questions: [{ type: 'x', texte: 'a' }] }, 'banc').erreur === 'questions');
+  t('QCM : la bonne réponse doit être dans la liste', T.poserTicket(s, { questions: [{ type: 'choix', texte: 'Q', options: ['a', 'b'], bonne: 5 }] }, 'banc').erreur === 'questions');
+  const p = T.poserTicket(s, { questions: [{ type: 'echelle', texte: 'Compris ?' }, { type: 'choix', texte: '2+2', options: ['3', '4'], bonne: 1 }, { type: 'texte', texte: 'Flou ?' }], anonyme: true }, 'banc');
+  t('ticket posé', p.ok, p);
+  const tk = T.ticketDeLaSeance(seance);
+  const fin = H('11:30:00');                         // 12:30 à Bruxelles : ouvert (fin 12:00 + 60 min)
+  const qr = T.qrDuTicket(tk, fin);
+  t('QR du ticket', qr.ok && qr.jeton.startsWith('x.'));
+  t('un QR de ticket ne vaut pas QR de présence', Q.scanner(qr.jeton, null, fin).erreur === 'qr_invalide');
+  t('un QR de présence ne vaut pas ticket', T.ouvrirTicket(Q.jetonQr(seance, sec(fin)), telBeta, fin).erreur === 'qr_invalide');
+  t('téléphone non lié : refus expliqué', T.ouvrirTicket(qr.jeton, null, fin).erreur === 'appareil_absent');
+  const o = T.ouvrirTicket(qr.jeton, telBeta, fin);
+  t('téléphone lié : les questions', o.ok && o.questions.length === 3 && o.ticket.startsWith('y.'), o);
+  t('la bonne réponse ne sort pas', o.questions[1].bonne === undefined);
+  t('réponse vide refusée', T.repondreTicket(o.ticket, telBeta, [null, null, ''], fin).erreur === 'vide');
+  t('réponse enregistrée', T.repondreTicket(o.ticket, telBeta, [4, 1, 'les fractions'], fin).ok);
+  t('une seule réponse par étudiant', T.repondreTicket(o.ticket, telBeta, [2, 0, 'x'], fin).deja === true);
+  t('rouvrir : « déjà répondu »', T.ouvrirTicket(T.qrDuTicket(tk, fin).jeton, telBeta, fin).deja === true);
+  const r = T.resultatsTicket(T.ticketDeLaSeance(seance));
+  t('résultats : moyenne et réussite du QCM', r.questions[0].moyenne === 4 && r.questions[1].reussite === 100, r.questions);
+  t('anonyme : aucun nom', !r.par_etudiant && !r.questions[2].textes[0].nom);
+  t('recomposer après une réponse : refusé', T.poserTicket(s, { questions: [{ type: 'texte', texte: 'Autre' }] }, 'banc').erreur === 'repondu');
+  t('après fin + 60 min : fermé', T.qrDuTicket(tk, H('12:05:00')).erreur === 'ferme');
+  T.fermerTicket(tk);
+  t('fermé à la main : plus de QR', T.qrDuTicket(T.ticketDeLaSeance(seance), fin).erreur === 'ferme');
+}
+
 console.log('\nSans secret');
 {
   const avant = process.env.JWT_SECRET, env = process.env.NODE_ENV;

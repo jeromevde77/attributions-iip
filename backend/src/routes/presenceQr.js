@@ -8,11 +8,12 @@
  */
 import { Router } from 'express';
 import { scanner, demanderCode, validerCode, migrerPresenceQr } from '../lib/presenceQr.js';
+import { ouvrirTicket, repondreTicket, migrerTicket } from '../lib/ticketSortie.js';
 import { migrerCep } from '../lib/cep.js';
 import { envoyerEmail } from '../services/mailer.js';
 
 const r = Router();
-try { migrerCep(); migrerPresenceQr(); } catch (e) { console.error('[migration] présence QR :', e.message); }
+try { migrerCep(); migrerPresenceQr(); migrerTicket(); } catch (e) { console.error('[migration] présence QR :', e.message); }
 
 const COOKIE = 'lucie_presence';
 
@@ -20,7 +21,7 @@ const COOKIE = 'lucie_presence';
    des robots sans garder d'adresse IP en base (RGPD). Un redémarrage remet les
    compteurs à zéro — les limites qui comptent (codes, essais, appairages) sont
    en base, par étudiant. */
-const LIMITES = { scan: 40, code: 6, valider: 15 };     // par IP et par 15 minutes
+const LIMITES = { scan: 40, code: 6, valider: 15, ticket: 40 };     // par IP et par 15 minutes
 const compteurs = new Map();
 function ipDe(req) {
   // Derrière Caddy puis nginx : l'adresse du visiteur est l'avant-dernière entrée.
@@ -57,7 +58,7 @@ function poserCookie(req, res, jeton, expire) {
 }
 
 // Un refus est une réponse 4xx qui porte son message ; `error` pour les écrans existants.
-const STATUT = { qr_expire: 410, ticket_expire: 410, hors_fenetre: 409, non_inscrit: 403, appareil_autre: 409,
+const STATUT = { qr_expire: 410, ticket_expire: 410, appareil_absent: 409, ferme: 409, vide: 400, hors_fenetre: 409, non_inscrit: 403, appareil_autre: 409,
   limite_appairage: 429, trop_de_codes: 429, secret: 503, courriel: 502 };
 function repondre(res, x) {
   if (x?.erreur) return res.status(STATUT[x.erreur] || 400).json({ ...x, error: x.message });
@@ -84,6 +85,17 @@ r.post('/valider', limiter('valider'), (req, res) => {
     if (x?.appareil) poserCookie(req, res, x.appareil, x.expire);
     repondre(res, x);
   } catch (e) { console.error('[presence-qr] valider :', e.message); res.status(500).json({ error: 'Erreur du serveur.' }); }
+});
+
+/* LE TICKET DE SORTIE, CÔTÉ ÉTUDIANT : le QR projeté (« x ») ouvre les questions, la
+   réponse porte la preuve du scan (« y »). Le téléphone doit être déjà lié. */
+r.post('/ticket/ouvrir', limiter('ticket'), (req, res) => {
+  try { repondre(res, ouvrirTicket(req.body?.jeton, lireCookie(req))); }
+  catch (e) { console.error('[presence-qr] ticket :', e.message); res.status(500).json({ error: 'Erreur du serveur.' }); }
+});
+r.post('/ticket/repondre', limiter('ticket'), (req, res) => {
+  try { repondre(res, repondreTicket(req.body?.ticket, lireCookie(req), req.body?.reponses)); }
+  catch (e) { console.error('[presence-qr] ticket :', e.message); res.status(500).json({ error: 'Erreur du serveur.' }); }
 });
 
 export default r;

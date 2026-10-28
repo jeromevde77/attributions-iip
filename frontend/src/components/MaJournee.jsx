@@ -17,7 +17,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import QRCode from 'qrcode';
-import { IconQrcode, IconX, IconMaximize, IconChevronLeft, IconChevronRight, IconCalendarEvent,
+import TicketSortie from './TicketSortie.jsx';
+import { IconTicket, IconQrcode, IconX, IconMaximize, IconChevronLeft, IconChevronRight, IconCalendarEvent,
   IconUserCheck, IconPencil, IconUsers } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 
@@ -43,6 +44,7 @@ export default function MaJournee({ onAgir }) {
   const [jour, setJour] = useState(null);           // null : aujourd'hui (le serveur le dit)
   const [choisie, setChoisie] = useState(null);     // id de séance
   const [projetee, setProjetee] = useState(null);
+  const [ticket, setTicket] = useState(null);      // le ticket de sortie de la séance
   const [maintenant, setMaintenant] = useState(maintenantMin());
 
   useEffect(() => {
@@ -147,11 +149,17 @@ export default function MaJournee({ onAgir }) {
           {!s.annule && (
             <button type="button" className="bouton" onClick={() => onAgir?.('presences', s)}><IconUserCheck size={16} /> Présences</button>
           )}
+          {/* LE TICKET DE SORTIE (28 octobre 2026) : deux ou trois questions en fin de séance, par le même QR. */}
+          {!s.annule && (
+            <button type="button" className="bouton" onClick={() => setTicket(s)} title="Deux ou trois questions en fin de séance, par QR">
+              <IconTicket size={16} /> Ticket de sortie</button>
+          )}
           <button type="button" className="bouton" onClick={() => onAgir?.('notes', s)}><IconPencil size={16} /> Notes</button>
           <button type="button" className="bouton" onClick={() => onAgir?.('liste', s)}><IconUsers size={16} /> Étudiants</button>
         </div>
       )}
       {projetee && <ProjectionQR seance={projetee} onFermer={() => setProjetee(null)} />}
+      {ticket && <TicketSortie seance={ticket} onFermer={() => setTicket(null)} />}
     </div>
   );
 }
