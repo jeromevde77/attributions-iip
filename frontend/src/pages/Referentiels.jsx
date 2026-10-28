@@ -11,6 +11,7 @@ import ImportUEAssistant from '../components/ImportUEAssistant.jsx';
 import { IconX, IconPencil, IconTrash, IconPlus, IconCheck, IconLink, IconChevronRight, IconTarget, IconUpload, IconFileText, IconAlertTriangle, IconBooks } from '@tabler/icons-react';
 import { Fenetre, GroupeFenetre, Chevron } from '../components/ui.jsx';
 import AcquisUE from '../components/AcquisUE.jsx';
+import MotifsDefautUE from '../components/MotifsDefautUE.jsx';
 import { demander, informer } from '../lib/dialogue.jsx';
 
 // Même normalisation que le serveur : accents, casse et ponctuation ne font
@@ -999,6 +1000,9 @@ function UEModal({ ue, sections, onClose, onSaved, navigation = null }) {
               <div className="border-l border-slate-200 pl-6 min-w-0">
                 <GroupeFenetre titre="Acquis encodés dans Lucie">
                   <AcquisUE ueNum={form.ue_num} annee={ue?.annee_scolaire} estAdmin={isAdmin} />
+                </GroupeFenetre>
+                <GroupeFenetre titre="Motif proposé en cas d’échec, par acquis">
+                  <MotifsDefautUE ueNum={form.ue_num} />
                 </GroupeFenetre>
               </div>
             </div>)}

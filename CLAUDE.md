@@ -184,6 +184,9 @@ l'inscription, qu'aucune route n'écrivait : zéro crédit valorisé, partout, e
 endroit pour le même fait, `uesValorisees()` (`lib/valorisation.js`) lit les valorisations COMPLÈTES
 retenues (`vaRetenue` : décidées, ou d'une année reprise), non archivées. Les statistiques de délibération
 ne les comptent pas : une VA n'est pas une délibération.
+**Le motif par défaut d'un acquis a son écran** (3.1.439) : Référentiels → fiche de l'UE → onglet des
+acquis, bloc « Motif proposé en cas d'échec » (`components/MotifsDefautUE.jsx`, `GET/PUT
+/api/acquis/motifs-defaut`). Lu par la proposition de motivation de la délibération ; jamais écrit d'office.
 
 **UNE CHOSE, UNE PORTE — DEUXIÈME RELEVÉ** (3.1.428, Charles, 28 octobre 2026 : « vérifier qu'il n'y a
 pas pour une chose deux entrées possibles »). Deux déclencheurs de garde : **`garde_seance_presences`**
