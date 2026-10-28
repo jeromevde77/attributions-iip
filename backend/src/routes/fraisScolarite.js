@@ -69,6 +69,11 @@ export function migrerFraisScolarite(dbx) {
       ON frais_paiement(etudiant_id, annee_scolaire);
     `);
     console.log('[migration] frais de scolarité : barème et paiements');
+    /* UN VERSEMENT NE S'EFFACE PAS, IL S'ANNULE (3.1.437) : c'est de l'argent. La route
+       supprimait la ligne sans trace ; elle garde désormais qui, quand et pourquoi. */
+    for (const c of ['annule_le TEXT', 'annule_par TEXT', 'annule_motif TEXT']) {
+      try { db.exec(`ALTER TABLE frais_paiement ADD COLUMN ${c}`); } catch { /* déjà là */ }
+    }
   } catch (e) { console.error('[migration] frais scolarité :', e.message); }
 }
 
@@ -124,10 +129,12 @@ export function calculerFrais(etudId, annee) {
   const acompte = arrondi(droit + droitSpecifique + fixes);
   const solde = arrondi(total - acompte);          // = 0,25 € × périodes
 
-  const paiements = db.prepare(`
+  const tousPaiements = db.prepare(`
     SELECT * FROM frais_paiement WHERE etudiant_id = ? AND annee_scolaire = ?
     ORDER BY date_paiement, id
   `).all(etudId, annee);
+  const paiements = tousPaiements.filter(p => !p.annule_le);
+  const paiementsAnnules = tousPaiements.filter(p => p.annule_le);
   const verse = arrondi(paiements.reduce((s, p) => s + Number(p.montant || 0), 0));
 
   // Échéance du solde : le 1er octobre, ou le premier dixième de la première
@@ -167,6 +174,7 @@ export function calculerFrais(etudId, annee) {
     solde,
     echeance_solde: echeanceSolde,
     paiements,
+    paiements_annules: paiementsAnnules,
     verse,
     restant: arrondi(totalAvecVA - verse),
     acompte_verse: verse >= acompte,
@@ -191,20 +199,28 @@ r.post('/paiement', authRequired, roleRequired('admin', 'editeur', 'secretariat'
   if (!etudiant_id || !annee_scolaire || montant == null) {
     return res.status(400).json({ error: 'etudiant_id, annee_scolaire et montant requis' });
   }
+  const m = Number(String(montant).replace(',', '.'));
+  // Un remboursement s'encode en négatif ; zéro ou un texte ne sont pas des versements.
+  if (!Number.isFinite(m) || m === 0) return res.status(400).json({ error: 'Montant attendu : un nombre différent de zéro.' });
+  if (m < 0 && nature !== 'remboursement') return res.status(400).json({ error: 'Un montant négatif ne s’encode que comme remboursement.' });
   const info = db.prepare(`
     INSERT INTO frais_paiement
       (etudiant_id, annee_scolaire, date_paiement, montant, nature, moyen, remarque, encode_par)
     VALUES (?,?,?,?,?,?,?,?)
   `).run(Number(etudiant_id), annee_scolaire,
          date_paiement || new Date().toISOString().slice(0, 10),
-         Number(montant), nature || 'acompte', moyen || null, remarque || null,
-         req.user?.email || null);
+         m, nature || 'acompte', moyen || null, remarque || null,
+         req.user?.nom || req.user?.email || null);
   res.json({ ok: true, id: Number(info.lastInsertRowid) });
 });
 
 r.delete('/paiement/:id', authRequired, roleRequired('admin', 'editeur', 'secretariat'), (req, res) => {
-  db.prepare('DELETE FROM frais_paiement WHERE id = ?').run(Number(req.params.id));
-  res.json({ ok: true });
+  const motif = String(req.body?.motif || req.query?.motif || '').trim();
+  if (motif.length < 3) return res.status(400).json({ error: 'Annuler un versement se motive.', motif_requis: true });
+  const info = db.prepare(`UPDATE frais_paiement SET annule_le = datetime('now'), annule_par = ?, annule_motif = ?
+    WHERE id = ? AND annule_le IS NULL`).run(req.user?.nom || req.user?.email || null, motif, Number(req.params.id));
+  if (!info.changes) return res.status(404).json({ error: 'Versement introuvable ou déjà annulé.' });
+  res.json({ ok: true, annule: true });
 });
 
 /* DISPENSER UNE DEMANDE DU FORFAIT VA : un motif écrit, au nom de la personne connectée.

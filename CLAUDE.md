@@ -172,6 +172,12 @@ national (`etudiant_rn_norm_*`), plus un rattrapage des fiches d'avant au démar
 accents, espaces et traits d'union ignorés) sert la création d'une fiche (409 qui nomme la fiche existante)
 et les trois recherches du recrutement — `UNIQUE(nom, prenom)` laissait passer « Dupont » à côté de « DUPONT ».
 
+**LES VERSEMENTS S'ENCODENT, ET UN VERSEMENT S'ANNULE** (3.1.437). `POST /api/frais-scolarite/paiement`
+existait sans écran : « reste à payer » était faux pour tous. Fiche → Finances → *Versements* : encoder
+(date du jour, montant proposé = acompte manquant ou reste, nature, moyen, remarque ; un remboursement
+s'encode en négatif), au nom de la personne connectée. **Un versement ne s'efface pas** : `DELETE` exige un
+motif et pose `annule_le/annule_par/annule_motif` ; il sort des totaux et reste lisible, barré.
+
 **UNE CHOSE, UNE PORTE — DEUXIÈME RELEVÉ** (3.1.428, Charles, 28 octobre 2026 : « vérifier qu'il n'y a
 pas pour une chose deux entrées possibles »). Deux déclencheurs de garde : **`garde_seance_presences`**
 (une séance qui porte des présences ne se supprime pas — elle s'annule ; réimports et versements du plan
