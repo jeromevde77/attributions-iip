@@ -134,6 +134,17 @@ droit d'inscription de l'UE (forfait de la circulaire compris si elle le porte) 
 dispense. **Un candidat non inscrit paie aussi les 150 € de frais fixes** (Charles : « oui, voir dans le
 RDE » — le texte du RDE, dans le corpus de la prod, n'a pas pu être relu depuis la session).
 
+**UNE NOTE D'UNE SÉANCE CLOSE NE S'ÉCRIT PLUS, PAR AUCUNE PORTE** (3.1.432). Seul Mes cours le refusait ;
+la feuille de notes, les épreuves d'unité et de cours, le détail de la grille du parcours, « effacer » de
+la grille et les imports écrivaient sans regarder. `lib/gardeNotes.js` porte la règle de `clotures()`
+(session de la note `s2|` ou non ; séance de l'organisation de l'étudiant, la ligne « unité entière »
+seulement sans séance par organisation ; séance de reprise exclue ; note reportée exclue) : trois
+déclencheurs `garde_note_close_*` IGNORENT l'écriture (un réimport du classeur passe à côté d'une UE
+close au lieu d'échouer), et `noteVerrouillee()` fait refuser les écrans en 409 avec la phrase qui dit
+de rouvrir la séance. **Le déclencheur ne se pose que si les colonnes qu'il lit existent** — un
+déclencheur se compile à son premier déclenchement : une colonne absente ferait échouer TOUTE écriture
+de note. L'import des notes nomme les étudiants écartés (`seance_close`).
+
 **UNE CHOSE, UNE PORTE — DEUXIÈME RELEVÉ** (3.1.428, Charles, 28 octobre 2026 : « vérifier qu'il n'y a
 pas pour une chose deux entrées possibles »). Deux déclencheurs de garde : **`garde_seance_presences`**
 (une séance qui porte des présences ne se supprime pas — elle s'annule ; réimports et versements du plan

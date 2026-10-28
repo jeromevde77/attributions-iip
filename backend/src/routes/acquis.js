@@ -45,6 +45,7 @@ import { garderTransfert, porteFermee, refusPorte } from '../lib/transferts.js';
 import { migrerReprise, simulerReprise, appliquerReprise, forcerCloture,
          MOTIF_REPRISE, MENTION_REPRISE } from '../lib/repriseHistorique.js';
 
+import { noteVerrouillee, MESSAGE_CLOSE } from '../lib/gardeNotes.js';
 const r = Router();
 
 export function migrerSessions(dbx) {
@@ -1281,6 +1282,8 @@ r.put('/feuille/note', authRequired,
      donc sans cours, la forme que tout le reste lit. */
   const coursEcrit = cours_code && cours_code !== CODE_EPREUVE_UE ? cours_code : null;
   const code = prefixe + (coursEcrit ? `${coursEcrit}|${aa_code}` : aa_code);
+  const verrou = noteVerrouillee(etudiant_id, annee_scolaire, ue_num, prefixe || 's1|');
+  if (verrou) return res.status(409).json({ error: MESSAGE_CLOSE(ue_num, verrou.session), seance_close: true });
 
   // Une mention vaut zéro : NP et PP ne sont pas des notes, mais elles
   // comptent comme telles dans la moyenne.
@@ -4856,6 +4859,12 @@ r.post('/ue/:ueNum/notes/importer', authRequired,
         continue;
       }
       rapport.total.rapproches++;
+      // UNE SÉANCE CLOSE GARDE SES NOTES (3.1.432) : l'étudiant est nommé, rien n'est écrit —
+      // la simulation le montre déjà, le réimport ne la fait pas échouer.
+      if (noteVerrouillee(t.id, an, ueNum, `s${ses}|`)) {
+        (rapport.seance_close ||= []).push(`${l.nom || ''} ${l.prenom || ''}`.trim());
+        continue;
+      }
 
       // Deux formes de notes coexistent, parce que deux classeurs coexistent.
       //
@@ -5402,6 +5411,8 @@ r.put('/ue/:ueNum/epreuve', authRequired,
   }
 
   const prefixe = session === 1 || session === 2 ? `s${session}|` : 's1|';
+  { const v = noteVerrouillee(etudiant_id, annee_scolaire, ueNum, prefixe);
+    if (v) return res.status(409).json({ error: MESSAGE_CLOSE(ueNum, v.session), seance_close: true }); }
   const poser = db.prepare(`
     INSERT INTO etudiant_note_detail
       (etudiant_id, annee_scolaire, ue_num, type, code, points, mention)
@@ -5458,6 +5469,8 @@ r.put('/cours/:coursCode/epreuve', authRequired,
   }
 
   const prefixe = session === 1 || session === 2 ? `s${session}|` : 's1|';
+  { const v = noteVerrouillee(etudiant_id, annee_scolaire, co.ue_num, prefixe);
+    if (v) return res.status(409).json({ error: MESSAGE_CLOSE(co.ue_num, v.session), seance_close: true }); }
   const poser = db.prepare(`
     INSERT INTO etudiant_note_detail
       (etudiant_id, annee_scolaire, ue_num, type, code, points, mention)

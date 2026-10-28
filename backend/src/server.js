@@ -3240,6 +3240,8 @@ try { demarrerPlanificateur(); } catch (e) { console.error('[sauvegarde] planifi
 // Le journal des modifications en DERNIER : ses déclencheurs lisent les colonnes
 // que les migrations précédentes viennent d'ajouter.
 try { migrerJournalModifications(db); } catch (e) { console.error('[migration] journal des modifications :', e.message); }
+// Une note d'une séance close ne s'écrit plus, par aucune porte (3.1.432).
+try { (await import('./lib/gardeNotes.js')).poserGardeNotes(db); } catch (e) { console.error('[migration] garde des notes closes :', e.message); }
 // Les images de l'établissement (logo, logo blanc, signature, cachet) remplacent les fichiers d'origine (3.1.253).
 import('./routes/etablissement.js').then(m => m.migrerEtablissements())   // une base neuve crée la table après l'import des routes
   .then(() => import('./lib/identite.js')).then(m => m.appliquerIdentite()).catch(e => console.error('[identité]', e.message))

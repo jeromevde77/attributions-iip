@@ -46,6 +46,7 @@ import { appelerCharges, avisCoordination, motifsVA } from '../lib/avisVA.js';
 import { TITRES_ACCES, DIPLOMES_MAX } from '../lib/profilEtudiant.js';
 import { composerNotificationVA } from '../lib/pieceNotificationVA.js';
 
+import { noteVerrouillee, MESSAGE_CLOSE } from '../lib/gardeNotes.js';
 const r = Router();
 
 // Intitulé, niveau et section d'une UE, indépendamment de l'année.
@@ -7632,6 +7633,11 @@ r.put('/:id/grille', authRequired, roleRequired('admin', 'editeur'), (req, res) 
     'DELETE FROM etudiant_valorisation WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=?'
   ).run(etudId, annee, ueN);
 
+  // Une séance close garde ses notes : ni « effacer le résultat », ni « effacer » (3.1.432).
+  if (kind === 'effacer_resultat' || kind === 'effacer') {
+    const v = noteVerrouillee(etudId, annee, ueN, 's1|') || noteVerrouillee(etudId, annee, ueN, 's2|');
+    if (v) return res.status(409).json({ error: MESSAGE_CLOSE(ueN, v.session), seance_close: true });
+  }
   // Effacer le seul résultat : l'inscription demeure, ses notes disparaissent.
   if (kind === 'effacer_resultat') {
     db.prepare(`
@@ -7825,6 +7831,8 @@ r.put('/:id/grille/detail', authRequired, roleRequired('admin', 'editeur'), (req
   // deux cours entrerait en collision. On la lève en préfixant le code par le
   // cours, tout en conservant cours_code dans sa colonne pour la lecture.
   const cleUnique = cours_code + '|' + code;
+  { const v = noteVerrouillee(etudId, annee, ueN, String(code).startsWith('s2|') ? 's2|' : 's1|');
+    if (v) return res.status(409).json({ error: MESSAGE_CLOSE(ueN, v.session), seance_close: true }); }
   const rienASauver = (points == null || points === '') && !va && !non_evalue;
 
   if (rienASauver) {
