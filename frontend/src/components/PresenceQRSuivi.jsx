@@ -9,6 +9,9 @@
  *  - le JOURNAL, en ajout seul : liens, refus, désactivations, autorisations ;
  *  - les RÉGLAGES : durée du QR, fenêtre de scan, limite, domaines d'adresse.
  *    Lus par le secrétariat, changés par la direction.
+ * La coordination lit les trois premières faces sur ses sections (la section de
+ * l'étudiant) ; les gestes — désactiver, autoriser, envoyer l'avis — et les
+ * réglages restent au secrétariat et à la direction.
  * Serveur : `routes/presenceQrSuivi.js`, métier dans `lib/presenceQr.js`.
  */
 import { useEffect, useState } from 'react';
@@ -33,6 +36,7 @@ async function appel(chemin, options = {}) {
 const ETATS = { actif: ['reussi', 'actif'], expire: ['indisponible', 'expiré'], desactive: ['corriger', 'désactivé'] };
 
 function Telephones() {
+  const agit = useDroits().passe('admin', 'editeur');
   const [q, setQ] = useState('');
   const [tous, setTous] = useState(false);
   const [liste, setListe] = useState(null);
@@ -98,13 +102,13 @@ function Telephones() {
                     {a.revoque_le && <div className="text-second text-slate-500 mt-0.5">{fr(a.revoque_le)} · {a.revoque_par} — {a.revoque_motif}</div>}
                   </td>
                   <td className="px-2 py-1.5 whitespace-nowrap text-right">
-                    {a.etat === 'actif' && (
+                    {agit && <>{a.etat === 'actif' && (
                       <button type="button" className="bouton" onClick={() => desactiver(a)} title="Désactiver ce téléphone (motif demandé)">
                         <IconDeviceMobileOff size={15} /> Désactiver</button>)}
                     {' '}
                     <button type="button" className="bouton" onClick={() => autoriser(a)}
                       title="Lever la limite d'un changement par semaine, pour le prochain téléphone lié">
-                      <IconDeviceMobilePlus size={15} /> Autoriser un nouveau</button>
+                      <IconDeviceMobilePlus size={15} /> Autoriser un nouveau</button></>}
                   </td>
                 </tr>
               ))}
@@ -163,6 +167,7 @@ function Journal() {
 /* LES ABSENCES AU-DELÀ DU SEUIL : qui, dans quelle UE, combien ; l'avis à
    l'étudiant se lit avant de partir, et rien ne part sans ce clic. */
 function Absences() {
+  const agit = useDroits().passe('admin', 'editeur');
   const [d, setD] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [filtre, setFiltre] = useState('');
@@ -172,6 +177,8 @@ function Absences() {
   const prevenir = async a => {
     try {
       const m = await appel(`/alertes/avis?etudiant=${a.etudiant_id}&ue=${a.ue_num}&annee=${encodeURIComponent(annee)}`);
+      // La coordination lit l'avis ; l'envoi passe par le secrétariat.
+      if (!agit) { informer({ titre: `L’avis à ${nom(a)} — envoyé par le secrétariat`, message: `À : ${m.to}\nObjet : ${m.subject}\n\n${m.text}` }); return; }
       const ok = await demander({ titre: `Prévenir ${nom(a)} ?`, confirmer: 'Envoyer',
         message: `${m.mention_manquante ? 'La mention réglementaire du seuil global n’est pas rédigée (Réglages) : l’avis partira sans elle.\n\n' : ''}À : ${m.to}\nObjet : ${m.subject}\n\n${m.text}` });
       if (!ok) return;
@@ -189,7 +196,7 @@ function Absences() {
           <input value={filtre} onChange={e => setFiltre(e.target.value)} placeholder="Nom, matricule ou UE"
             className="controle controle-icone border border-slate-300 rounded-champ bg-white w-72" />
         </div>
-        {d && <span className="text-second text-slate-500">Seuils : <b>{d.seuil} %</b> d’absences sans justificatif, <b>{d.seuil_global} %</b> {d.base_globale === 'injustifiees' ? 'd’absences sans motif valable (condition d’assiduité, RGE art. 6)' : 'de toutes les absences'} — sur les heures tenues ({annee}), réglables dans Réglages.</span>}
+        {d && <span className="text-second text-slate-500">Seuils : <b>{d.seuil} %</b> d’absences sans justificatif, <b>{d.seuil_global} %</b> {d.base_globale === 'injustifiees' ? 'd’absences sans motif valable (condition d’assiduité, RGE art. 6)' : 'de toutes les absences'} — sur les heures tenues ({annee}), {agit ? 'réglables dans Réglages' : 'réglés par la direction'}.</span>}
         {d && <span className="text-second text-slate-500 ml-auto">{liste.length} situation(s)</span>}
       </div>
       {erreur && <p className="text-sm" style={{ color: 'var(--c-corriger)' }}>{erreur}</p>}
@@ -224,8 +231,11 @@ function Absences() {
                   <td className="px-2 py-1.5 text-right tabular-nums whitespace-nowrap">{hm(a.absent_min + (a.justifie_min || 0))} / {hm(a.du_min)}</td>
                   <td className="px-2 py-1.5 whitespace-nowrap">{a.prevenu_le ? fr(a.prevenu_le) : '—'}</td>
                   <td className="px-2 py-1.5 text-right">
-                    <button type="button" className="bouton bouton-sortir" onClick={() => prevenir(a)} title="Lire l’avis, puis l’envoyer à l’adresse d’école">
-                      <IconMailForward size={15} /> Prévenir l’étudiant</button>
+                    {agit
+                      ? <button type="button" className="bouton bouton-sortir" onClick={() => prevenir(a)} title="Lire l’avis, puis l’envoyer à l’adresse d’école">
+                          <IconMailForward size={15} /> Prévenir l’étudiant</button>
+                      : <button type="button" className="bouton" onClick={() => prevenir(a)} title="Lire l’avis que le secrétariat enverrait">
+                          Lire l’avis</button>}
                   </td>
                 </tr>
               ))}
@@ -315,15 +325,17 @@ function Reglages() {
 }
 
 export default function PresenceQRSuivi({ faceInitiale = 'absences', onFermer }) {
+  const agit = useDroits().passe('admin', 'editeur');
   return (
     <OutilsAFaces icone={IconQrcode} titre="Suivi des présences"
-      sous="Les absences au-delà du seuil, les téléphones liés au QR, le journal, les réglages"
+      sous={agit ? 'Les absences au-delà du seuil, les téléphones liés au QR, le journal, les réglages'
+        : 'Les absences au-delà du seuil, les téléphones liés au QR et le journal — étudiants de vos sections'}
       faceInitiale={faceInitiale} onFermer={onFermer}
       faces={[
         { cle: 'absences', label: 'Absences au-delà du seuil', rendu: <Absences /> },
         { cle: 'telephones', label: 'Téléphones liés', rendu: <Telephones /> },
         { cle: 'journal', label: 'Journal', rendu: <Journal /> },
-        { cle: 'reglages', label: 'Réglages', rendu: <Reglages /> },
+        ...(agit ? [{ cle: 'reglages', label: 'Réglages', rendu: <Reglages /> }] : []),
       ]} />
   );
 }

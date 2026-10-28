@@ -4113,8 +4113,9 @@ export default function Etudiants() {
           setControles(f);
         } },
       /* LA PRÉSENCE PAR QR, CÔTÉ SECRÉTARIAT (lot 4, 28 octobre 2026) : les
-         téléphones liés, le journal, les réglages. Direction et secrétariat. */
-      ...(droitsRail.passe('admin', 'editeur') ? [{ key: 'presence-qr', label: 'Suivi des présences — absences, téléphones liés',
+         téléphones liés, le journal, les réglages. Direction et secrétariat ; la
+         coordination en lecture, sur ses sections (28 octobre 2026). */
+      ...(droitsRail.passe('admin', 'editeur', 'coordination') ? [{ key: 'presence-qr', label: 'Suivi des présences — absences, téléphones liés',
         icon: IconQrcode, onClick: () => setSuiviQR(true) }] : []),
     ] },
     // LE REGISTRE DES VALORISATIONS A QUITTÉ CE RAIL. Il y figurait en même

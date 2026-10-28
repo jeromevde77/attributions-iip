@@ -1,6 +1,6 @@
 # Fiche de traitement — la présence par QR code
 
-*Institut Ilya Prigogine — Lucie, version 3.1.416 (octobre 2026). À relire par la
+*Institut Ilya Prigogine — Lucie, version 3.1.419 (octobre 2026). À relire par la
 personne chargée de la protection des données avant l'ouverture à tous les cours.*
 
 ## 1. Ce que fait le traitement
@@ -48,7 +48,9 @@ disparaît au redémarrage du serveur.
 ## 4. Qui voit quoi
 
 - **Le professeur** : les présences de ses cours, le compteur pendant le scan.
-- **La coordination** : les présences des cours de ses sections.
+- **La coordination** : les présences des cours de ses sections ; dans le suivi,
+  les absences au-delà du seuil, les téléphones liés et le journal des étudiants
+  de ses sections, en lecture seule.
 - **Le secrétariat et la direction** : la grille des présences, les téléphones
   liés (type d'appareil, dates), le journal. Ils peuvent désactiver un
   téléphone ou autoriser un nouveau téléphone, toujours avec un motif écrit,

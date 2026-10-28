@@ -36,9 +36,10 @@ const tauxTotal = (l, base = reglagesPresenceQr().seuil_global_base) =>
 
 /**
  * Les étudiants au-delà du seuil, UE par UE, du plus haut taux au plus bas.
- * `perimetre` : null = toutes les sections, sinon la liste permise.
+ * `permis` : null = tous, sinon `etudiantId → bool` — le périmètre se juge sur la
+ * section de l'ÉTUDIANT, pas sur celle de ses UE (`sectionPropre`, routes/etudiants.js).
  */
-export function alertesAbsences(annee, { seuil = null, seuilGlobal = null, perimetre = null } = {}) {
+export function alertesAbsences(annee, { seuil = null, seuilGlobal = null, permis = null } = {}) {
   const reg = reglagesPresenceQr();
   const s = seuil ?? reg.seuil_absence_pct;
   const sg = seuilGlobal ?? reg.seuil_global_pct;
@@ -46,15 +47,12 @@ export function alertesAbsences(annee, { seuil = null, seuilGlobal = null, perim
     WHERE type = 'avis_absence' GROUP BY etudiant_id, raison`).all().map(x => [`${x.etudiant_id}|${String(x.raison || '').split(' ')[1]}`, x.le]));
   const sortie = [];
   for (const ue of uesAvecSeances(annee)) {
-    if (perimetre) {
-      const secs = db.prepare('SELECT DISTINCT section FROM ue WHERE ue_num = ? AND section IS NOT NULL').all(ue).map(x => x.section);
-      if (!secs.some(x => perimetre.includes(x))) continue;
-    }
     const x = grilleUE(ue, annee);
     const ueNom = db.prepare('SELECT MIN(ue_nom) n FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ue, annee)?.n || '';
     for (const l of x.g.lignes) {
       const total = tauxTotal(l, reg.seuil_global_base);
       if (!l.du || (l.taux_injustifie * 100 <= s && total * 100 <= sg)) continue;
+      if (permis && !permis(l.etudiant.id)) continue;
       sortie.push({
         etudiant_id: l.etudiant.id, nom: l.etudiant.nom, prenom: l.etudiant.prenom, id_ecampus: l.etudiant.id_ecampus,
         ue_num: ue, ue_nom: ueNom, taux: Math.round(l.taux_injustifie * 1000) / 10,
