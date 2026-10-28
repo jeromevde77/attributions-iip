@@ -36,7 +36,7 @@ const nomDe = e => `${String(e.nom || '').toLocaleUpperCase('fr')} ${e.prenom ||
  * heure_debut, heure_fin, minutes, cours_code, annule, sous_groupe) ;
  * `etudiants` : { id, nom, prenom, id_ecampus }. `du` / `au` bornent la période.
  */
-export function donneesGrille({ seances, etudiants, du = null, au = null, aujourdhui = new Date().toISOString().slice(0, 10) }) {
+export function donneesGrille({ seances, etudiants, du = null, au = null, dixieme = null, aujourdhui = new Date().toISOString().slice(0, 10) }) {
   const s = seances.filter(x => (!du || x.date >= du) && (!au || x.date <= au))
     .sort((a, b) => `${a.date} ${a.heure_debut}`.localeCompare(`${b.date} ${b.heure_debut}`));
   const etus = [...etudiants].sort((a, b) => nomDe(a).localeCompare(nomDe(b), 'fr'));
@@ -75,7 +75,33 @@ export function donneesGrille({ seances, etudiants, du = null, au = null, aujour
   const motifs = lignes.flatMap(l => l.cases.map((c, i) => (c.statut === 'justifie'
     ? { etudiant: nomDe(l.etudiant), date: s[i].date, heure: s[i].heure_debut, cours: s[i].cours_code,
         motif: MOTIFS_JUSTIFIES[c.motif] || c.motif || 'motif non précisé' } : null)).filter(Boolean));
-  return { seances: s, lignes, parSeance, motifs };
+  return { seances: s, lignes, parSeance, motifs, dixieme };
+}
+
+/**
+ * LE PREMIER DIXIÈME DE L'UE (Charles, 28 octobre 2026). Il se lit dans le
+ * CALENDRIER, pas dans les heures : un dixième de l'écart entre la première et
+ * la dernière date de cours de l'UE (tous ses cours, séances annulées
+ * exclues). Ce jour-là peut ne porter aucun cours — on prend alors la date de
+ * séance réelle la plus proche, la plus tôt en cas d'égalité.
+ */
+export function premierDixieme(seances) {
+  const dates = [...new Set(seances.filter(x => !x.annule && x.date).map(x => String(x.date).slice(0, 10)))].sort();
+  if (!dates.length) return null;
+  const jour = d => Date.parse(d + 'T00:00:00Z') / 86400000;
+  const premiere = dates[0], derniere = dates[dates.length - 1];
+  const cible = jour(premiere) + (jour(derniere) - jour(premiere)) / 10;
+  const theorique = new Date(Math.round(cible) * 86400000).toISOString().slice(0, 10);
+  let date = dates[0];
+  for (const d of dates) if (Math.abs(jour(d) - cible) < Math.abs(jour(date) - cible)) date = d;
+  return { date, theorique, premiere, derniere };
+}
+
+/** La phrase qui l'annonce sur la pièce. */
+export function phraseDixieme(dx) {
+  if (!dx) return null;
+  return `Premier dixième de l’UE : ${fr(dx.date)}`
+    + (dx.date !== dx.theorique ? ` (1/10 entre le ${fr(dx.premiere)} et le ${fr(dx.derniere)} = ${fr(dx.theorique)}, sans cours : séance la plus proche)` : ` (1/10 entre le ${fr(dx.premiere)} et le ${fr(dx.derniere)})`);
 }
 
 /** Le PDF (HTML de l'enveloppe commune). `cours` : { code → nom } pour le récapitulatif de l'UE. */
@@ -83,15 +109,16 @@ export function htmlGrille(g, { titre, sous, ligne = null, ue = false, cours = {
   const blocs = [];
   for (let i = 0; i < Math.max(1, g.seances.length); i += PAR_PAGE) {
     const tranche = g.seances.slice(i, i + PAR_PAGE);
-    const tete = tranche.map(x => `<th class="sc${x.annule ? ' ann' : ''}">${jm(x.date)}<br>${esc(String(x.heure_debut || '').slice(0, 5))}`
+    const dix = x => g.dixieme && String(x.date).slice(0, 10) === g.dixieme.date;
+    const tete = tranche.map(x => `<th class="sc${x.annule ? ' ann' : ''}${dix(x) ? ' dix' : ''}">${dix(x) ? '<span class="tag">1/10</span><br>' : ''}${jm(x.date)}<br>${esc(String(x.heure_debut || '').slice(0, 5))}`
       + `${ue ? `<br><span class="cc">${esc(x.cours_code || '')}</span>` : ''}${x.annule ? '<br><span class="cc">annulée</span>' : ''}</th>`).join('');
     const derniere = i + PAR_PAGE >= g.seances.length;
     const corps = g.lignes.map(l => `<tr><td class="nom"><b>${esc(String(l.etudiant.nom || '').toUpperCase())}</b> ${esc(l.etudiant.prenom || '')}`
       + `<span class="mat">${esc(l.etudiant.id_ecampus || '')}</span></td>`
-      + l.cases.slice(i, i + PAR_PAGE).map((c, k) => `<td class="c ${tranche[k].annule ? 'ann' : ''} ${c.statut || ''}">${esc(c.code)}</td>`).join('')
+      + l.cases.slice(i, i + PAR_PAGE).map((c, k) => `<td class="c ${tranche[k].annule ? 'ann' : ''} ${dix(tranche[k]) ? 'dix' : ''} ${c.statut || ''}">${esc(c.code)}</td>`).join('')
       + (derniere ? `<td class="tot">${h(l.present)} / ${h(l.du)}</td><td class="tot${l.taux_injustifie > SEUIL_CEP ? ' alerte' : ''}">${Math.round(l.taux_injustifie * 100)} %</td>` : '')
       + '</tr>').join('');
-    const pied = `<tr class="pied"><td class="nom">Présents</td>${g.parSeance.slice(i, i + PAR_PAGE).map(n => `<td class="c">${n}</td>`).join('')}`
+    const pied = `<tr class="pied"><td class="nom">Présents</td>${g.parSeance.slice(i, i + PAR_PAGE).map((n, k) => `<td class="c${dix(tranche[k]) ? ' dix' : ''}">${n}</td>`).join('')}`
       + `${derniere ? '<td class="tot"></td><td class="tot"></td>' : ''}</tr>`;
     blocs.push(`<div${i ? ' class="saut"' : ''}>
       ${g.seances.length > PAR_PAGE ? `<div class="tranche">Séances ${i + 1} à ${Math.min(i + PAR_PAGE, g.seances.length)} sur ${g.seances.length}</div>` : ''}
@@ -115,7 +142,7 @@ export function htmlGrille(g, { titre, sous, ligne = null, ue = false, cours = {
   const legende = `<div class="legende">P présent · A absent · J absence justifiée (motif ci-dessous) · — non concerné (autre sous-groupe) · case vide : non encodé · colonne grisée : séance annulée.
     Heures : séances tenues jusqu’à aujourd’hui. Absences injustifiées : sur les heures dues ; signalées au-delà de 10 % (seuil du congé-éducation payé).</div>`;
   return envelopperDocument({
-    html: blocs.join('') + recap + legende + notes, titre, orientation: 'paysage', margeCote: 12, margeHaut: 12,
+    html: (g.dixieme ? `<div class="dixieme"><b>${esc(phraseDixieme(g.dixieme))}</b></div>` : '') + blocs.join('') + recap + legende + notes, titre, orientation: 'paysage', margeCote: 12, margeHaut: 12,
     entete: { titre, sous, ligne },
     styles: `
 .grille{border-collapse:collapse;width:100%;font-size:7.5pt;table-layout:auto}
@@ -132,6 +159,9 @@ export function htmlGrille(g, { titre, sous, ligne = null, ue = false, cours = {
 .grille .alerte{color:#9D4A38}
 .grille tr.pied td{background:#F7F8FA;font-weight:600}
 .grille tr{break-inside:avoid}
+.grille .dix{border-left:.6mm solid #C9A84C;border-right:.6mm solid #C9A84C}
+.grille .tag{display:inline-block;background:#C9A84C;color:#fff;border-radius:1mm;padding:0 .8mm;font-weight:700}
+.dixieme{font-size:8pt;margin:0 0 2mm;color:#1B2B4B}.dixieme b{color:#8a6d1f}
 .tranche{font-size:8pt;color:#64748b;margin:0 0 1.5mm}
 .saut{break-before:page;page-break-before:always}
 .legende{font-size:7pt;color:#64748b;margin-top:3mm}
@@ -143,8 +173,8 @@ export function htmlGrille(g, { titre, sous, ligne = null, ue = false, cours = {
 export async function excelGrille(g, { titre, ue = false, cours = {} }) {
   const wb = new ExcelJS.Workbook();
   const f = wb.addWorksheet('Grille', { views: [{ state: 'frozen', xSplit: 3, ySplit: 2 }] });
-  f.addRow([titre]);
-  f.addRow(['Nom', 'Prénom', 'Matricule', ...g.seances.map(x => `${fr(x.date)} ${String(x.heure_debut || '').slice(0, 5)}${ue ? ` ${x.cours_code || ''}` : ''}${x.annule ? ' (annulée)' : ''}`),
+  f.addRow([g.dixieme ? `${titre} — ${phraseDixieme(g.dixieme)}` : titre]);
+  f.addRow(['Nom', 'Prénom', 'Matricule', ...g.seances.map(x => `${fr(x.date)} ${String(x.heure_debut || '').slice(0, 5)}${ue ? ` ${x.cours_code || ''}` : ''}${x.annule ? ' (annulée)' : ''}${g.dixieme && String(x.date).slice(0, 10) === g.dixieme.date ? ' — 1/10' : ''}`),
     'Heures présentes', 'Heures dues', 'Absences injustifiées (%)']);
   for (const l of g.lignes) {
     f.addRow([String(l.etudiant.nom || '').toUpperCase(), l.etudiant.prenom || '', l.etudiant.id_ecampus || '', ...l.cases.map(c => c.code),
@@ -152,6 +182,10 @@ export async function excelGrille(g, { titre, ue = false, cours = {} }) {
   }
   f.addRow(['Présents', '', '', ...g.parSeance]);
   f.getRow(2).font = { bold: true };
+  g.seances.forEach((x, i) => {
+    if (g.dixieme && String(x.date).slice(0, 10) === g.dixieme.date)
+      f.getColumn(4 + i).eachCell(c => { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF6EBC8' } }; });
+  });
   f.getColumn(1).width = 22; f.getColumn(2).width = 16; f.getColumn(3).width = 12;
   if (ue) {
     const codes = [...new Set(g.seances.map(x => x.cours_code || ''))];

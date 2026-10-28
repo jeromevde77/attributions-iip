@@ -15,7 +15,7 @@ import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 import { piedDocument } from './parametres.js';
 import { aRepresenterParCours } from './acquis.js';
 import { attributionsDe, etudiantsDuCours } from '../lib/etudiantsCours.js';
-import { donneesGrille, htmlGrille, excelGrille } from '../lib/grillePresence.js';
+import { donneesGrille, htmlGrille, excelGrille, premierDixieme } from '../lib/grillePresence.js';
 import { archiverDocument } from '../services/document-archive.js';
 import { lireSeance, qrDeLaSeance, compteurSeance, seancesACompleter, fenetreSeance, aujourdhuiBruxelles, migrerPresenceQr, modeEssai } from '../lib/presenceQr.js';
 
@@ -527,6 +527,14 @@ function grilleUEPermise(req, ueNum) {
   return db.prepare('SELECT DISTINCT section FROM ue WHERE ue_num = ? AND section IS NOT NULL').all(ueNum)
     .some(x => perim.includes(x.section));
 }
+/** Toutes les séances de l'UE, tous ses cours : la grille de l'UE, et son premier dixième. */
+function seancesDeLUE(ueNum, annee) {
+  const coursUE = db.prepare('SELECT cours_code, MIN(cours_nom) AS nom FROM cours WHERE ue_num = ? AND annee_scolaire = ? GROUP BY cours_code').all(ueNum, annee);
+  const codes = coursUE.map(c => c.cours_code);
+  const seances = db.prepare(`SELECT id, date, heure_debut, heure_fin, minutes, cours_code, sous_groupe, COALESCE(annule, 0) AS annule
+    FROM horaire_seance WHERE annee_scolaire = ? AND (ue_num = ?${codes.length ? ` OR cours_code IN (${codes.map(() => '?').join(',')})` : ''})`).all(annee, ueNum, ...codes);
+  return { coursUE, seances };
+}
 async function repondreGrille(req, res, g, { titre, sous, ligne, ue = false, cours = {}, nom, annee }) {
   const fichier = nom.replace(/[^A-Za-z0-9_.-]+/g, '_');
   if (req.query.format === 'xlsx') {
@@ -555,15 +563,12 @@ r.get('/ue/:ueNum/grille-presences', authRequired, async (req, res) => {
   const ueNum = Number(req.params.ueNum);
   const annee = String(req.query.annee || anneeDeTravail(req));
   if (!grilleUEPermise(req, ueNum)) return res.status(403).json({ error: 'La grille de l’UE se sort au secrétariat, à la direction ou par la coordination de la section.' });
-  const coursUE = db.prepare('SELECT cours_code, MIN(cours_nom) AS nom FROM cours WHERE ue_num = ? AND annee_scolaire = ? GROUP BY cours_code').all(ueNum, annee);
-  const codes = coursUE.map(c => c.cours_code);
-  const seances = db.prepare(`SELECT id, date, heure_debut, heure_fin, minutes, cours_code, sous_groupe, COALESCE(annule, 0) AS annule
-    FROM horaire_seance WHERE annee_scolaire = ? AND (ue_num = ?${codes.length ? ` OR cours_code IN (${codes.map(() => '?').join(',')})` : ''})`).all(annee, ueNum, ...codes);
+  const { coursUE, seances } = seancesDeLUE(ueNum, annee);
   const etudiants = db.prepare(`SELECT DISTINCT e.id, e.nom, e.prenom, e.id_ecampus FROM etudiant_inscription i
     JOIN etudiant e ON e.id = i.etudiant_id WHERE i.annee_scolaire = ? AND i.ue_num = ? AND e.actif = 1`).all(annee, ueNum);
   const ueNom = db.prepare('SELECT MIN(ue_nom) n FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ueNum, annee)?.n || '';
   const p = periode(req.query);
-  const g = donneesGrille({ seances, etudiants, du: p.du, au: p.au });
+  const g = donneesGrille({ seances, etudiants, du: p.du, au: p.au, dixieme: premierDixieme(seances) });
   await repondreGrille(req, res, g, { titre: `Grille de présence — UE ${ueNum}${ueNom ? ` · ${ueNom}` : ''}`,
     sous: `${coursUE.length} cours · ${etudiants.length} inscrits · ${annee}`, ligne: p.ligne, ue: true,
     cours: Object.fromEntries(coursUE.map(c => [c.cours_code, c.nom])), nom: `Presences_UE${ueNum}_${annee}`, annee });
@@ -576,7 +581,9 @@ r.get('/:coursCode/grille-presences', authRequired, async (req, res) => {
   if (!d) return res.status(403).json({ error: "Ce cours n'est ni dans vos attributions, ni dans votre section." });
   const nom = db.prepare('SELECT cours_nom FROM cours WHERE cours_code = ? ORDER BY (annee_scolaire = ?) DESC LIMIT 1').get(code, annee)?.cours_nom || '';
   const p = periode(req.query);
-  const g = donneesGrille({ seances: seancesDuCours(req, d, code, annee), etudiants: d.etudiants, du: p.du, au: p.au });
+  // Le premier dixième est celui de l'UE, pas du cours : il se calcule sur toutes ses séances.
+  const g = donneesGrille({ seances: seancesDuCours(req, d, code, annee), etudiants: d.etudiants, du: p.du, au: p.au,
+    dixieme: premierDixieme(seancesDeLUE(d.ueNum, annee).seances) });
   const profs = enseignantsParCours(annee).get(code) || [];
   await repondreGrille(req, res, g, { titre: `Grille de présence — ${code}${nom ? ` · ${nom}` : ''}`,
     sous: `UE ${d.ueNum}${profs.length ? ` · ${profs.join(', ')}` : ''} · ${annee}`, ligne: p.ligne,
