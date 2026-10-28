@@ -8,6 +8,7 @@ import { authHeaders, getAnnee } from '../lib/api.js';
 import { MOTIFS_ECHEC } from '../components/motifsEchec.js';
 import PresencesCours from '../components/PresencesCours.jsx';
 import MaJournee from '../components/MaJournee.jsx';
+import GrillePresence from '../components/GrillePresence.jsx';
 import MaListe from '../components/MaListe.jsx';
 import IndicateursNotes from '../components/IndicateursNotes.jsx';
 import { OuvrirEditions, RailLateral, Encadre } from '../components/ui.jsx';
@@ -531,6 +532,9 @@ export default function MesCours() {
                 les notes se lisent, elles ne se proposent plus.
                 {!seconde && feuille.sessions?.seconde_possible ? ' Les notes des ajournés se saisissent dans « 2ᵉ session ».' : ''}
               </Encadre>
+            )}
+            {face === 'presences' && feuille && (
+              <GrillePresence coursCode={ouvert} ueNum={feuille.ue_num} annee={annee} grilleUE={!!feuille.grille_ue} />
             )}
             {face === 'presences' && <PresencesCours key={`${ouvert}|${seanceChoisie || ''}`} coursCode={ouvert} annee={annee} seanceInitiale={seanceChoisie} />}
             {/* LES INDICATEURS DU COURS (8 octobre 2026) : sur les étudiants affichés

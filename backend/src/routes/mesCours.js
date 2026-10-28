@@ -15,6 +15,8 @@ import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 import { piedDocument } from './parametres.js';
 import { aRepresenterParCours } from './acquis.js';
 import { attributionsDe, etudiantsDuCours } from '../lib/etudiantsCours.js';
+import { donneesGrille, htmlGrille, excelGrille } from '../lib/grillePresence.js';
+import { archiverDocument } from '../services/document-archive.js';
 import { lireSeance, qrDeLaSeance, compteurSeance, seancesACompleter, fenetreSeance, aujourdhuiBruxelles, migrerPresenceQr, modeEssai } from '../lib/presenceQr.js';
 
 /**
@@ -504,6 +506,83 @@ r.get('/', authRequired, (req, res) => {
     sections_coordination: coordination ? (secs === null ? 'toutes' : secs) : null });
 });
 
+// ── LA GRILLE DE PRÉSENCE (28 octobre 2026) ─────────────────────────────────
+/* Les étudiants en lignes, les séances en colonnes : par cours (le professeur,
+ * depuis Mes cours) et par UE (la vérificatrice contrôle les présences dans
+ * l'UE). Produite ICI, comme les listes par groupe : un professeur n'entre pas
+ * dans le centre d'impression, et c'est l'appartenance du cours qui l'autorise.
+ * ?format=html : l'aperçu commun ; xlsx : le classeur ; sinon le PDF, archivé.
+ * ?du=&au= bornent la période (toute l'année par défaut). */
+const ROLES_GRILLE_UE = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat', 'coordination'];
+const dateOk = v => (/^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? String(v) : null);
+const periode = q => {
+  const du = dateOk(q.du), au = dateOk(q.au);
+  return { du, au, ligne: du || au ? `Période : ${du ? du.split('-').reverse().join('/') : 'début'} – ${au ? au.split('-').reverse().join('/') : 'aujourd’hui'}` : 'Toute l’année' };
+};
+/** La grille de l'UE est-elle permise ? Direction, secrétariat, et la coordination de SA section. */
+function grilleUEPermise(req, ueNum) {
+  if (!ROLES_GRILLE_UE.includes(req.user?.role)) return false;
+  const perim = getUserSections(req.user);
+  if (!perim) return true;
+  return db.prepare('SELECT DISTINCT section FROM ue WHERE ue_num = ? AND section IS NOT NULL').all(ueNum)
+    .some(x => perim.includes(x.section));
+}
+async function repondreGrille(req, res, g, { titre, sous, ligne, ue = false, cours = {}, nom, annee }) {
+  const fichier = nom.replace(/[^A-Za-z0-9_.-]+/g, '_');
+  if (req.query.format === 'xlsx') {
+    const buf = await excelGrille(g, { titre: `${titre} — ${sous} — ${ligne}`, ue, cours });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${fichier}.xlsx"`);
+    return res.end(Buffer.from(buf));
+  }
+  const html = htmlGrille(g, { titre, sous, ligne, ue, cours });
+  if (req.query.format === 'html') return res.json({ html, nom: fichier });
+  const cap = await capacitePdf();
+  if (!cap.disponible) return res.json({ html, nom: fichier });
+  try {
+    const pdf = await rendrePdf(html, { pagination: 'si-plusieurs', orientation: 'paysage',
+      pied: avecNum => piedGabaritPdf(LOGO_IIP_JPEG, piedDocument(), avecNum),
+      marges: { top: '12mm', right: '12mm', bottom: `${BANDE_PIED_MM}mm`, left: '12mm' } });
+    archiverDocument({ type_doc: ue ? 'grille_presence_ue' : 'grille_presence_cours', annee_scolaire: annee,
+      nom_fichier: `${fichier}.pdf`, pdf, genere_par: req.user?.email || req.user?.nom || null });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${fichier}.pdf"`);
+    res.end(pdf);
+  } catch (e) { res.json({ html, nom: fichier, avertissement: e.message }); }
+}
+
+r.get('/ue/:ueNum/grille-presences', authRequired, async (req, res) => {
+  const ueNum = Number(req.params.ueNum);
+  const annee = String(req.query.annee || anneeDeTravail(req));
+  if (!grilleUEPermise(req, ueNum)) return res.status(403).json({ error: 'La grille de l’UE se sort au secrétariat, à la direction ou par la coordination de la section.' });
+  const coursUE = db.prepare('SELECT cours_code, MIN(cours_nom) AS nom FROM cours WHERE ue_num = ? AND annee_scolaire = ? GROUP BY cours_code').all(ueNum, annee);
+  const codes = coursUE.map(c => c.cours_code);
+  const seances = db.prepare(`SELECT id, date, heure_debut, heure_fin, minutes, cours_code, sous_groupe, COALESCE(annule, 0) AS annule
+    FROM horaire_seance WHERE annee_scolaire = ? AND (ue_num = ?${codes.length ? ` OR cours_code IN (${codes.map(() => '?').join(',')})` : ''})`).all(annee, ueNum, ...codes);
+  const etudiants = db.prepare(`SELECT DISTINCT e.id, e.nom, e.prenom, e.id_ecampus FROM etudiant_inscription i
+    JOIN etudiant e ON e.id = i.etudiant_id WHERE i.annee_scolaire = ? AND i.ue_num = ? AND e.actif = 1`).all(annee, ueNum);
+  const ueNom = db.prepare('SELECT MIN(ue_nom) n FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ueNum, annee)?.n || '';
+  const p = periode(req.query);
+  const g = donneesGrille({ seances, etudiants, du: p.du, au: p.au });
+  await repondreGrille(req, res, g, { titre: `Grille de présence — UE ${ueNum}${ueNom ? ` · ${ueNom}` : ''}`,
+    sous: `${coursUE.length} cours · ${etudiants.length} inscrits · ${annee}`, ligne: p.ligne, ue: true,
+    cours: Object.fromEntries(coursUE.map(c => [c.cours_code, c.nom])), nom: `Presences_UE${ueNum}_${annee}`, annee });
+});
+
+r.get('/:coursCode/grille-presences', authRequired, async (req, res) => {
+  const annee = String(req.query.annee || anneeDeTravail(req));
+  const code = req.params.coursCode;
+  const d = accesCours(req, code, annee);
+  if (!d) return res.status(403).json({ error: "Ce cours n'est ni dans vos attributions, ni dans votre section." });
+  const nom = db.prepare('SELECT cours_nom FROM cours WHERE cours_code = ? ORDER BY (annee_scolaire = ?) DESC LIMIT 1').get(code, annee)?.cours_nom || '';
+  const p = periode(req.query);
+  const g = donneesGrille({ seances: seancesDuCours(req, d, code, annee), etudiants: d.etudiants, du: p.du, au: p.au });
+  const profs = enseignantsParCours(annee).get(code) || [];
+  await repondreGrille(req, res, g, { titre: `Grille de présence — ${code}${nom ? ` · ${nom}` : ''}`,
+    sous: `UE ${d.ueNum}${profs.length ? ` · ${profs.join(', ')}` : ''} · ${annee}`, ligne: p.ligne,
+    nom: `Presences_${code}_${annee}`, annee });
+});
+
 // ── LA PRÉSENCE PAR QR, CÔTÉ ENSEIGNANT (28 octobre 2026) ──────────────────
 /* « LA CHOSE LA PLUS SIMPLE POSSIBLE POUR LE PROF » (Charles) : il n'a pas à
  * chercher sa séance — Lucie lui propose celles du jour, celle dont la fenêtre
@@ -641,6 +720,7 @@ r.get('/:coursCode/etudiants', authRequired, (req, res) => {
     annee, cours_code: req.params.coursCode, ue_num: d.ueNum,
     repartition: d.repartition, portee: d.portee,
     session, sessions,
+    grille_ue: grilleUEPermise(req, d.ueNum),
     lecture_seule: d.etudiants.length > 0 && d.etudiants.every(e => e.clos),
     enseignants: enseignantsParCours(annee).get(req.params.coursCode) || [],
     // La feuille du professeur note PAR ACQUIS ; sans AA rattachés au cours,

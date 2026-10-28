@@ -1,0 +1,172 @@
+/**
+ * LA GRILLE DE PRÉSENCE (Charles, 28 octobre 2026 : « une liste de présence au
+ * format tableau — les étudiants en lignes, les séances en colonnes ; par cours
+ * puis par UE, car la vérificatrice demande les présences dans l'UE »).
+ *
+ * Une seule composition pour les deux portées : le COURS (les étudiants et les
+ * séances du professeur, depuis Mes cours) et l'UE (ses inscrits, toutes les
+ * séances de tous ses cours, dans l'ordre du temps, puis le récapitulatif des
+ * heures par cours). PDF A4 paysage dans l'enveloppe commune, et Excel — la
+ * vérificatrice trie et recompte.
+ *
+ * Les cases : P présent, A absent, J justifié (le motif en note, sous le
+ * tableau), — non concerné (autre sous-groupe), vide = pas encore encodé ; une
+ * séance annulée est grisée. Les heures se comptent sur les séances PASSÉES et
+ * tenues, comme pour le congé-éducation (`minutesDe`) ; le taux d'absence
+ * injustifiée se lit sur ce que l'étudiant devait suivre, et se signale
+ * au-delà de 10 % (le seuil du congé-éducation payé).
+ */
+import ExcelJS from 'exceljs';
+import db from '../db/index.js';
+import { envelopperDocument } from './document.js';
+import { minutesDe, MOTIFS_JUSTIFIES } from './cep.js';
+
+export const CODES = { present: 'P', absent: 'A', justifie: 'J', non_concerne: '—' };
+const PAR_PAGE = 20;            // séances par feuille, en paysage
+const SEUIL_CEP = 0.10;
+
+const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+const fr = d => String(d || '').slice(0, 10).split('-').reverse().join('/');
+const jm = d => { const [, m, j] = String(d || '').slice(0, 10).split('-'); return `${j}/${m}`; };
+const h = m => { const x = Math.round(m); return `${Math.floor(x / 60)}h${String(x % 60).padStart(2, '0')}`; };
+const nomDe = e => `${String(e.nom || '').toLocaleUpperCase('fr')} ${e.prenom || ''}`.trim();
+
+/**
+ * Les données de la grille. `seances` : lignes de horaire_seance (id, date,
+ * heure_debut, heure_fin, minutes, cours_code, annule, sous_groupe) ;
+ * `etudiants` : { id, nom, prenom, id_ecampus }. `du` / `au` bornent la période.
+ */
+export function donneesGrille({ seances, etudiants, du = null, au = null, aujourdhui = new Date().toISOString().slice(0, 10) }) {
+  const s = seances.filter(x => (!du || x.date >= du) && (!au || x.date <= au))
+    .sort((a, b) => `${a.date} ${a.heure_debut}`.localeCompare(`${b.date} ${b.heure_debut}`));
+  const etus = [...etudiants].sort((a, b) => nomDe(a).localeCompare(nomDe(b), 'fr'));
+  const ids = s.map(x => x.id);
+  const pres = new Map();
+  if (ids.length) {
+    for (let i = 0; i < ids.length; i += 500) {
+      const lot = ids.slice(i, i + 500);
+      for (const p of db.prepare(`SELECT seance_id, etudiant_id, statut, motif FROM presence
+          WHERE seance_id IN (${lot.map(() => '?').join(',')})`).all(...lot)) pres.set(`${p.seance_id}|${p.etudiant_id}`, p);
+    }
+  }
+  const tenue = x => !x.annule && x.date <= aujourdhui;
+  const lignes = etus.map(e => {
+    const t = { present: 0, justifie: 0, absent: 0, non_encodees: 0, par_cours: {} };
+    const cases = s.map(x => {
+      const p = pres.get(`${x.id}|${e.id}`);
+      if (tenue(x) && p?.statut !== 'non_concerne') {
+        const m = minutesDe(x);
+        const c = (t.par_cours[x.cours_code || ''] ||= { present: 0, du: 0 });
+        c.du += m;
+        if (p?.statut === 'present') { t.present += m; c.present += m; }
+        else if (p?.statut === 'justifie') t.justifie += m;
+        else if (p?.statut === 'absent') t.absent += m;
+        else t.non_encodees++;
+      }
+      return { code: x.annule ? '' : (p ? CODES[p.statut] || '' : ''), statut: p?.statut || null, motif: p?.motif || null };
+    });
+    // Les heures dues : toutes les séances tenues où l'étudiant est concerné,
+    // encodées ou non — le total de l'UE est la somme de ses cours.
+    const du = Object.values(t.par_cours).reduce((a, c) => a + c.du, 0);
+    return { etudiant: e, cases, ...t, du, taux_injustifie: du ? t.absent / du : 0 };
+  });
+  const parSeance = s.map((x, i) => lignes.filter(l => l.cases[i].statut === 'present').length);
+  // Les motifs des absences justifiées, étudiant par étudiant : la note sous la grille.
+  const motifs = lignes.flatMap(l => l.cases.map((c, i) => (c.statut === 'justifie'
+    ? { etudiant: nomDe(l.etudiant), date: s[i].date, heure: s[i].heure_debut, cours: s[i].cours_code,
+        motif: MOTIFS_JUSTIFIES[c.motif] || c.motif || 'motif non précisé' } : null)).filter(Boolean));
+  return { seances: s, lignes, parSeance, motifs };
+}
+
+/** Le PDF (HTML de l'enveloppe commune). `cours` : { code → nom } pour le récapitulatif de l'UE. */
+export function htmlGrille(g, { titre, sous, ligne = null, ue = false, cours = {} }) {
+  const blocs = [];
+  for (let i = 0; i < Math.max(1, g.seances.length); i += PAR_PAGE) {
+    const tranche = g.seances.slice(i, i + PAR_PAGE);
+    const tete = tranche.map(x => `<th class="sc${x.annule ? ' ann' : ''}">${jm(x.date)}<br>${esc(String(x.heure_debut || '').slice(0, 5))}`
+      + `${ue ? `<br><span class="cc">${esc(x.cours_code || '')}</span>` : ''}${x.annule ? '<br><span class="cc">annulée</span>' : ''}</th>`).join('');
+    const derniere = i + PAR_PAGE >= g.seances.length;
+    const corps = g.lignes.map(l => `<tr><td class="nom"><b>${esc(String(l.etudiant.nom || '').toUpperCase())}</b> ${esc(l.etudiant.prenom || '')}`
+      + `<span class="mat">${esc(l.etudiant.id_ecampus || '')}</span></td>`
+      + l.cases.slice(i, i + PAR_PAGE).map((c, k) => `<td class="c ${tranche[k].annule ? 'ann' : ''} ${c.statut || ''}">${esc(c.code)}</td>`).join('')
+      + (derniere ? `<td class="tot">${h(l.present)} / ${h(l.du)}</td><td class="tot${l.taux_injustifie > SEUIL_CEP ? ' alerte' : ''}">${Math.round(l.taux_injustifie * 100)} %</td>` : '')
+      + '</tr>').join('');
+    const pied = `<tr class="pied"><td class="nom">Présents</td>${g.parSeance.slice(i, i + PAR_PAGE).map(n => `<td class="c">${n}</td>`).join('')}`
+      + `${derniere ? '<td class="tot"></td><td class="tot"></td>' : ''}</tr>`;
+    blocs.push(`<div${i ? ' class="saut"' : ''}>
+      ${g.seances.length > PAR_PAGE ? `<div class="tranche">Séances ${i + 1} à ${Math.min(i + PAR_PAGE, g.seances.length)} sur ${g.seances.length}</div>` : ''}
+      <table class="grille"><thead><tr><th class="nom">Étudiant</th>${tete}${derniere ? '<th class="tot">Heures présentes / dues</th><th class="tot">Absences injustifiées</th>' : ''}</tr></thead>
+      <tbody>${corps || `<tr><td class="nom" colspan="${tranche.length + 3}">Aucun étudiant.</td></tr>`}${pied}</tbody></table></div>`);
+  }
+  if (!g.seances.length) blocs.splice(0, blocs.length, '<p>Aucune séance dans l’horaire pour cette période.</p>');
+
+  // LE RÉCAPITULATIF DE L'UE : les heures, cours par cours, puis le total.
+  let recap = '';
+  if (ue) {
+    const codes = [...new Set(g.seances.map(x => x.cours_code || ''))];
+    recap = `<div class="saut"><div class="tranche">Récapitulatif des heures par cours</div>
+      <table class="grille recap"><thead><tr><th class="nom">Étudiant</th>${codes.map(c => `<th>${esc(c)}<br><span class="cc">${esc(cours[c] || '')}</span></th>`).join('')}<th class="tot">Total UE</th><th class="tot">Absences injustifiées</th><th class="tot">Séances non encodées</th></tr></thead>
+      <tbody>${g.lignes.map(l => `<tr><td class="nom"><b>${esc(String(l.etudiant.nom || '').toUpperCase())}</b> ${esc(l.etudiant.prenom || '')}</td>`
+        + codes.map(c => { const x = l.par_cours[c]; return `<td class="c">${x ? `${h(x.present)} / ${h(x.du)}` : '—'}</td>`; }).join('')
+        + `<td class="tot">${h(l.present)} / ${h(l.du)}</td><td class="tot${l.taux_injustifie > SEUIL_CEP ? ' alerte' : ''}">${Math.round(l.taux_injustifie * 100)} %</td><td class="tot${l.non_encodees ? ' alerte' : ''}">${l.non_encodees || ''}</td></tr>`).join('')}</tbody></table></div>`;
+  }
+  const notes = g.motifs.length ? `<div class="notes"><b>Absences justifiées</b><ul>${g.motifs.map(m =>
+    `<li>${esc(m.etudiant)} — ${fr(m.date)} ${esc(String(m.heure || '').slice(0, 5))}${ue ? ` (${esc(m.cours)})` : ''} : ${esc(m.motif)}</li>`).join('')}</ul></div>` : '';
+  const legende = `<div class="legende">P présent · A absent · J absence justifiée (motif ci-dessous) · — non concerné (autre sous-groupe) · case vide : non encodé · colonne grisée : séance annulée.
+    Heures : séances tenues jusqu’à aujourd’hui. Absences injustifiées : sur les heures dues ; signalées au-delà de 10 % (seuil du congé-éducation payé).</div>`;
+  return envelopperDocument({
+    html: blocs.join('') + recap + legende + notes, titre, orientation: 'paysage', margeCote: 12, margeHaut: 12,
+    entete: { titre, sous, ligne },
+    styles: `
+.grille{border-collapse:collapse;width:100%;font-size:7.5pt;table-layout:auto}
+.grille th,.grille td{border:.2mm solid #D8DCE4;padding:.8mm 1mm;text-align:center}
+.grille thead th{background:#F1F4F9;color:#475569;font-weight:600;font-size:6.5pt;line-height:1.15}
+.grille .nom{text-align:left;white-space:nowrap;min-width:42mm}
+.grille .mat{display:block;font-size:6pt;color:#94a3b8}
+.grille .cc{font-weight:400;color:#64748b}
+.grille .ann{background:#EEF0F3;color:#94a3b8}
+.grille td.absent{color:#9D4A38;font-weight:700}
+.grille td.justifie{color:#B45309;font-weight:700}
+.grille td.present{color:#3E7D5E;font-weight:700}
+.grille .tot{white-space:nowrap;font-weight:600}
+.grille .alerte{color:#9D4A38}
+.grille tr.pied td{background:#F7F8FA;font-weight:600}
+.grille tr{break-inside:avoid}
+.tranche{font-size:8pt;color:#64748b;margin:0 0 1.5mm}
+.saut{break-before:page;page-break-before:always}
+.legende{font-size:7pt;color:#64748b;margin-top:3mm}
+.notes{font-size:7.5pt;margin-top:3mm}.notes ul{margin:1mm 0 0 4mm;padding:0}`,
+  });
+}
+
+/** Le classeur Excel : la grille, le récapitulatif (UE), les motifs. */
+export async function excelGrille(g, { titre, ue = false, cours = {} }) {
+  const wb = new ExcelJS.Workbook();
+  const f = wb.addWorksheet('Grille', { views: [{ state: 'frozen', xSplit: 3, ySplit: 2 }] });
+  f.addRow([titre]);
+  f.addRow(['Nom', 'Prénom', 'Matricule', ...g.seances.map(x => `${fr(x.date)} ${String(x.heure_debut || '').slice(0, 5)}${ue ? ` ${x.cours_code || ''}` : ''}${x.annule ? ' (annulée)' : ''}`),
+    'Heures présentes', 'Heures dues', 'Absences injustifiées (%)']);
+  for (const l of g.lignes) {
+    f.addRow([String(l.etudiant.nom || '').toUpperCase(), l.etudiant.prenom || '', l.etudiant.id_ecampus || '', ...l.cases.map(c => c.code),
+      Math.round(l.present / 6) / 10, Math.round(l.du / 6) / 10, Math.round(l.taux_injustifie * 1000) / 10]);
+  }
+  f.addRow(['Présents', '', '', ...g.parSeance]);
+  f.getRow(2).font = { bold: true };
+  f.getColumn(1).width = 22; f.getColumn(2).width = 16; f.getColumn(3).width = 12;
+  if (ue) {
+    const codes = [...new Set(g.seances.map(x => x.cours_code || ''))];
+    const r = wb.addWorksheet('Récapitulatif UE');
+    r.addRow(['Nom', 'Prénom', ...codes.flatMap(c => [`${c} ${cours[c] || ''} — présentes (h)`.replace('  ', ' '), `${c} — dues (h)`]), 'Total présentes (h)', 'Total dues (h)', 'Absences injustifiées (%)', 'Séances non encodées']);
+    for (const l of g.lignes) {
+      r.addRow([String(l.etudiant.nom || '').toUpperCase(), l.etudiant.prenom || '',
+        ...codes.flatMap(c => { const x = l.par_cours[c]; return x ? [Math.round(x.present / 6) / 10, Math.round(x.du / 6) / 10] : ['', '']; }),
+        Math.round(l.present / 6) / 10, Math.round(l.du / 6) / 10, Math.round(l.taux_injustifie * 1000) / 10, l.non_encodees || '']);
+    }
+    r.getRow(1).font = { bold: true };
+  }
+  const m = wb.addWorksheet('Absences justifiées');
+  m.addRow(['Étudiant', 'Date', 'Heure', 'Cours', 'Motif']);
+  for (const x of g.motifs) m.addRow([x.etudiant, fr(x.date), String(x.heure || '').slice(0, 5), x.cours || '', x.motif]);
+  m.getRow(1).font = { bold: true };
+  return wb.xlsx.writeBuffer();
+}

@@ -1349,7 +1349,7 @@ tardive = séances avant `date_inscription`. **Les présences se prennent dans
 Mes cours → Présences**, séance par séance (`presence`, journal en ajout seul
 `presence_journal`) ; une absence se justifie par un motif de la liste fermée
 (`MOTIFS_JUSTIFIES`), jamais un texte libre ; une séance à venir ne s'encode
-pas. **L'assiduité ne sort pas tant qu'une séance passée n'a pas ses
+pas. **La grille de présence** (3.1.408, Charles, 28 octobre 2026 : « par cours puis par UE, la vérificatrice demande les présences dans l'UE ») : Mes cours → Présences, étudiants en lignes, séances en colonnes (P, A, J, — non concerné), PDF paysage ou Excel, toute l'année ou une période ; la grille de l'UE (toutes les séances de tous ses cours) porte le récapitulatif des heures par cours et les motifs des absences justifiées en note — réservée au secrétariat, à la direction et à la coordination (`lib/grillePresence.js`). **L'assiduité ne sort pas tant qu'une séance passée n'a pas ses
 présences** : une heure ni présente ni absente ne s'atteste pas. Code :
 `lib/cep.js`, `lib/piecesCep.js`, `routes/cep.js`. **À venir :** le QR code
 projeté en classe pour l'émargement ; le registre CEP dans le rail.
