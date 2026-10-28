@@ -7,6 +7,7 @@ import { IconChartHistogram, IconBooks, IconChevronLeft, IconAlertTriangle, Icon
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { MOTIFS_ECHEC } from '../components/motifsEchec.js';
 import PresencesCours from '../components/PresencesCours.jsx';
+import PresenceQRSeances from '../components/PresenceQRSeances.jsx';
 import MaListe from '../components/MaListe.jsx';
 import IndicateursNotes from '../components/IndicateursNotes.jsx';
 import { OuvrirEditions, RailLateral, Encadre } from '../components/ui.jsx';
@@ -197,6 +198,9 @@ export default function MesCours() {
           <IconAlertTriangle size={16} className="flex-none mt-0.5" />{erreur}
         </div>
       )}
+
+      {/* LES PRÉSENCES DU JOUR, EN TÊTE : le QR de la séance en cours, sans rien chercher. */}
+      {!ouvert && <PresenceQRSeances />}
 
       {/* LES AVIS DE VALORISATION ATTENDUS, au-dessus des cours : c'est un délai. */}
       {!ouvert && <div id="avis-va"><AvisValorisationProf annee={annee} /></div>}

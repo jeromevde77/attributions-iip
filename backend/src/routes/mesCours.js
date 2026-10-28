@@ -520,12 +520,13 @@ function seanceAccessible(req, coursCode, seanceId) {
 }
 
 r.get('/qr/seances-du-jour', authRequired, (req, res) => {
-  const annee = req.query.annee || anneeDeTravail(req);
   const jour = aujourdhuiBruxelles();
   const profId = profDe(req);
-  const codes = [...new Set((profId ? attributionsDe(profId, annee) : []).map(a => a.code_cours))];
+  /* L'ANNÉE EST CELLE DES SÉANCES DU JOUR, pas celle que Mes cours affiche : un
+     professeur qui relit l'an passé doit quand même trouver le QR de ce matin. */
+  const annees = db.prepare('SELECT DISTINCT annee_scolaire a FROM horaire_seance WHERE date = ?').all(jour).map(x => x.a);
   const out = [];
-  for (const code of codes) {
+  for (const annee of annees) for (const code of [...new Set((profId ? attributionsDe(profId, annee) : []).map(a => a.code_cours))]) {
     const d = accesCours(req, code, annee);
     if (!d) continue;
     for (const s of seancesDuCours(req, d, code, annee).filter(x => x.date === jour && !x.annule)) {
@@ -543,7 +544,7 @@ r.get('/qr/seances-du-jour', authRequired, (req, res) => {
  * présence — présents, absents ou autre »). Les séances qu'il a projetées, la
  * fenêtre fermée ; il complète par la route des présences, une fois qu'il a vu. */
 r.get('/qr/a-completer', authRequired, (req, res) => {
-  res.json({ seances: seancesACompleter(req.user?.id) });
+  res.json({ seances: seancesACompleter(req.user?.id), statuts: STATUTS_PRESENCE, motifs: MOTIFS_JUSTIFIES });
 });
 
 r.get('/:coursCode/qr/:seanceId', authRequired, (req, res) => {

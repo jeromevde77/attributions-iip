@@ -457,7 +457,7 @@ export function seancesACompleter(userId, maintenant = new Date()) {
       db.prepare("UPDATE presence_qr_seance SET complete_le = datetime('now') WHERE seance_id = ?").run(s.id);
       continue;
     }
-    out.push({ seance_id: s.id, cours_code: s.cours_code, libelle: libelleSeance(s), date: s.date, manquants });
+    out.push({ seance_id: s.id, cours_code: s.cours_code, annee: s.annee_scolaire, libelle: libelleSeance(s), date: s.date, manquants });
   }
   return out;
 }
