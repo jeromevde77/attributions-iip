@@ -7870,7 +7870,7 @@ r.put('/:id/grille/detail', authRequired, roleRequired('admin', 'editeur'), (req
 r.get('/:id/valorisations', authRequired, (req, res) => {
   if (!etudiantPermis(req, res, req.params.id)) return;
   const rows = db.prepare(`
-    SELECT v.*, u.ue_nom, u.section
+    SELECT v.*, u.ue_nom, COALESCE(v.section, u.section) AS section
     FROM etudiant_valorisation v
     LEFT JOIN ${UE_REF} u ON u.ue_num = v.ue_num
     WHERE v.etudiant_id = ?

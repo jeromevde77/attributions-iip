@@ -140,6 +140,16 @@ seule fusion d'étudiants, une seule `copier-section`, une seule règle de secti
 reste (création d'étudiant, notes après clôture, programmes hors `ecrireProgramme()`, dates d'UE) :
 `docs/contexte/audit-boucles-2026-10-28.md`, deuxième relevé.
 
+**L'ONGLET VALORISATION DE LA FICHE LIT LE CIRCUIT COMME L'ÉCRAN VALORISATION** (3.1.429, Charles,
+28 octobre 2026 : « une porte depuis la fiche étudiant qui ne correspond pas au reste »). La carte lisait
+`type` — « partielle » par défaut à l'introduction — et montrait une demande à peine reçue comme une
+« Dispense partielle (AA ou cours) » décidée. Désormais : `components/CircuitVA.jsx` (porte AD/VA/VAE,
+`FriseCircuit`, `ETAPES`, `decisionEnMots`), seule lecture du circuit, partagée avec `pages/Valorisations.jsx`
+— la décision ne s'écrit qu'avec `decision_le`. Le bouton se nomme comme le rail (« Instruire et
+décider ») ; « Introduire une demande » offre les trois portes de la matrice (AD par section), date de
+réception du jour, et dit quand un dossier existe déjà. L'ancien formulaire de décision de la fiche (jamais
+ouvert, mais qui écrivait encore par `POST /:id/valorisations`) est retiré.
+
 **Établissement :** IIP — N° ECOT 5222132070, FASE 292, Campus Erasme,
 Route de Lennik 808, 1070 Anderlecht. Enseignement pour adultes (FWB).
 Sections : TIM (la plus grande), Psychomotricité, AeSI (soins infirmiers,

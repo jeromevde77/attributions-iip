@@ -44,7 +44,7 @@ import { useEchangesDuRail, Fenetre, Encadre, BulleAide, BoutonEditions, OuvrirE
 import PassageAnnee from '../components/PassageAnnee.jsx';
 import ComposerPAE from '../components/ComposerPAE.jsx';
 import CentreEchanges from '../components/CentreEchanges.jsx';
-import SeanceValorisation from '../components/SeanceValorisation.jsx';
+import { FriseCircuit, PastillePorte, decisionEnMots } from '../components/CircuitVA.jsx';
 import NotificationVA from '../components/NotificationVA.jsx';
 import ChampEtudiant from '../components/ChampEtudiant.jsx';
 import ImportSurMesure from '../components/ImportSurMesure.jsx';
@@ -1652,12 +1652,6 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
   );
 }
 
-const TYPES_VA = [
-  { val: 'complete',  label: 'Dispense complète (UE)' },
-  { val: 'partielle', label: 'Dispense partielle (AA ou cours)' },
-  { val: 'admission', label: 'Admission (capacités préalables)' },
-];
-
 function Valorisations({ etudId, annee }) {
   const [valos, setValos] = useState(null);
   const droitsVA = useDroits();
@@ -1667,24 +1661,6 @@ function Valorisations({ etudId, annee }) {
   // plus — il ouvre un dossier vide, qui suit le circuit.
   const [demande, setDemande] = useState(null);   // { ue_num, porte } | null
   const [demandeErr, setDemandeErr] = useState(null);
-  // L'unité dont on veut les pièces. Le procès-verbal est une pièce d'UNITÉ :
-  // il porte tous les étudiants valorisés dans cette unité, pas seulement
-  // celui dont on a la fiche sous les yeux.
-  const [documents, setDocuments] = useState(null);
-  const [form, setForm] = useState(null);
-  // Le seuil de report. Le RDE fixe la réussite à 10/20 (art. 78) et ne
-  // mentionne pas de seuil propre au report : celui-ci relève donc d'une règle
-  // interne, et reste modifiable au cas par cas.
-  const [seuilReport, setSeuilReport] = useState(12);
-  const [anterieur, setAnterieur] = useState(null);   // notes des années passées
-  /* LA LISTE DES COURS NE VIENT PLUS DU PROGRAMME DE L'ÉTUDIANT.
-     Elle était chargée depuis « les cours auxquels il est inscrit » — utile
-     tant que l'unité se devinait de ce programme. Depuis que l'unité se
-     choisit dans le catalogue de la section, une unité pas encore inscrite
-     rendait une liste vide : on cochait « par cours » et il ne restait à
-     l'écran que les acquis. Les composantes de l'UNITÉ font désormais foi, et
-     les notes déjà obtenues s'y ajoutent quand il y en a. */
-  const [composantes, setComposantes] = useState(null);
   // LES UNITÉS QU'ON PEUT VALORISER. Le numéro se tapait à la main : on ne
   // valorise pourtant que ce qui existe chez nous, et ce que l'étudiant aura à
   // son programme. Section d'abord, unités ensuite — celles du PAE en tête.
@@ -1701,7 +1677,7 @@ function Valorisations({ etudId, annee }) {
   const [sectionVA, setSectionVA] = useState('');
 
   useEffect(() => {
-    if (!form && !demande) return;
+    if (!demande) return;
     const qs = new URLSearchParams({ annee });
     if (sectionVA) qs.set('section', sectionVA);
     fetch(`/api/etudiants/${etudId}/valorisations/unites?${qs}`, { headers: authHeaders() })
@@ -1714,7 +1690,7 @@ function Valorisations({ etudId, annee }) {
       })
       .catch(() => setUnites({ sections: [], unites: [] }));
     /* eslint-disable-next-line */
-  }, [!!form || !!demande, sectionVA, etudId, annee]);
+  }, [!!demande, sectionVA, etudId, annee]);
   // Directeur, directeur adjoint et administrateur technique ont les mêmes
   // droits ici : comparer à la seule chaîne 'admin' en écartait la direction.
   // Renommer, supprimer, déposer une preuve : la route est admin/editeur, où le
@@ -1730,86 +1706,6 @@ function Valorisations({ etudId, annee }) {
     if (rep.ok) setValos(await rep.json());
   }
   useEffect(() => { charger(); /* eslint-disable-next-line */ }, [etudId]);
-
-  async function chargerComposantes(ueNum, anneeSource = null) {
-    if (!ueNum) { setComposantes(null); setAnterieur(null); return; }
-    const rep = await fetch(`/api/etudiants/ue/${ueNum}/composantes?annee=${annee}`,
-      { headers: authHeaders() });
-    if (rep.ok) {
-      const c = await rep.json();
-      setComposantes(c);
-      // EN DISPENSE COMPLÈTE, TOUS LES ACQUIS SONT ÉQUIVALENTS — c'est ce que
-      // « complète » veut dire. Les cocher un à un serait faire ressaisir une
-      // conséquence de la décision déjà prise.
-      setForm(f => (f && f.type === 'complete'
-        ? { ...f, equivalences: Object.fromEntries(
-            (c.aas || []).map(a => [a.aa_code, c.texte_equivalence])) }
-        : f));
-    }
-
-    // Les notes déjà connues de l'étudiant : le report se décidait à l'aveugle,
-    // il fallait les retenir de tête et les ressaisir.
-    const qs = new URLSearchParams({ annee_cible: annee });
-    if (anneeSource) qs.set('annee_source', anneeSource);
-    const rep2 = await fetch(`/api/acquis/notes-anterieures/${etudId}/${ueNum}?${qs}`,
-      { headers: authHeaders() });
-    if (!rep2.ok) { setAnterieur(null); return; }
-    const j = await rep2.json();
-    setAnterieur(j);
-
-    // Les notes reportables sont proposées d'emblée ; on décoche ce qu'on ne
-    // veut pas, plutôt que de tout ressaisir.
-    const notes = {}; const sel = [];
-    for (const co of j.cours) {
-      if (co.note == null || j.deja_reportes.includes(co.cours_code)) continue;
-      if (co.note < seuilReport) continue;
-      notes[co.cours_code] = String(co.note);
-      sel.push(co.cours_code);
-    }
-    setForm(f2 => f2 && ({ ...f2, notes, cible_detail: sel.join(','),
-                           annee_origine: j.annee_source }));
-  }
-
-  async function sauver() {
-    // CRÉER ET CORRIGER SONT LE MÊME GESTE. Une valorisation encodée ne se
-    // rouvrait pas : une faute de frappe imposait de supprimer — ce qui
-    // emporte les preuves déposées — puis de tout redéposer. Personne ne le
-    // faisait, et la faute restait.
-    const modif = !!form.id;
-    const rep = await fetch(modif
-      ? `/api/etudiants/valorisations/${form.id}`
-      : `/api/etudiants/${etudId}/valorisations`, {
-      method: modif ? 'PUT' : 'POST', headers: authHeaders(),
-      body: JSON.stringify({ ...form, annee_scolaire: form.annee_scolaire || annee,
-        equivalences: Object.entries(form.equivalences || {})
-          .map(([aa_code, texte]) => ({ aa_code, texte })) }),
-    });
-    const j = await rep.json();
-    if (!rep.ok) { informer(j.error || 'Erreur'); return; }
-
-    // Les notes par cours vont dans etudiant_report_note, table prévue pour
-    // cela : la valorisation dit QUELS cours sont dispensés, le report dit
-    // AVEC QUELLE NOTE.
-    const notes = form.notes || {};
-    for (const [cours_code, note] of Object.entries(notes)) {
-      if (note === '' || note == null) continue;
-      const r = await fetch('/api/acquis/reports', {
-        method: 'PUT', headers: authHeaders(),
-        body: JSON.stringify({
-          etudiant_id: etudId, annee_scolaire: annee, ue_num: Number(form.ue_num),
-          cours_code, note: Number(note),
-          annee_origine: form.annee_origine || null,
-          decision_ce: form.decision_ce || null,
-        }),
-      });
-      if (!r.ok) {
-        const e = await r.json().catch(() => ({}));
-        informer(`Note du cours ${cours_code} non enregistrée : ${e.error || 'erreur'}`);
-        return;
-      }
-    }
-    setForm(null); setComposantes(null); await charger();
-  }
 
   /**
    * LE DÉPÔT D'UNE PREUVE.
@@ -1860,23 +1756,6 @@ function Valorisations({ etudId, annee }) {
     await charger();
   }
 
-  /** Rouvrir une valorisation dans le formulaire, telle qu'elle est en base. */
-  function rouvrir(v) {
-    setForm({
-      id: v.id, annee_scolaire: v.annee_scolaire,
-      type: v.type, ue_num: String(v.ue_num),
-      cible: v.cible || 'cours', cible_detail: v.cible_detail || '',
-      pourcentage: v.pourcentage, decision_ce_date: v.decision_ce_date || '',
-      commentaire: v.commentaire || '',
-      decision: v.decision === 'refusee' ? 'refusee' : 'accordee',
-      motif_refus: v.motif_refus || '',
-      equivalences: Object.fromEntries(
-        (v.equivalences || []).map(e => [e.aa_code, e.texte || ''])),
-      notes: {},
-    });
-    setSectionVA(v.section || '');
-  }
-
   async function supprimer(vid) {
     if (!(await demander('Supprimer cette valorisation ?'))) return;
     await fetch(`/api/etudiants/valorisations/${vid}`, { method: 'DELETE', headers: authHeaders() });
@@ -1897,14 +1776,14 @@ function Valorisations({ etudId, annee }) {
         {peutInstruireVA && <>
         <button onClick={() => setSeance(true)}
           className="bouton bouton-fort mr-2 inline-flex items-center gap-1.5"
-          title="Instruire, décider et valider toutes les UE de cet étudiant — la même fenêtre que l'écran Valorisation">
-          <IconCertificate size={14} /> Délibérer cet étudiant
+          title="Recevabilité, avis, décision et validation de toutes les UE de cet étudiant — la fenêtre « Instruire et décider par étudiant » de l'écran Valorisation">
+          <IconCertificate size={14} /> Instruire et décider
         </button>
         {/* L'ONGLET NE DÉCIDE PLUS (Charles, 2 octobre 2026) : il montre, il
             introduit une demande, et il ouvre la séance. L'ancien formulaire
             écrivait une décision à côté du circuit. */}
         <button onClick={() => { setDemande({ ue_num: '', porte: 'va' }); setDemandeErr(null); }}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-300 rounded-lg">
+          className="bouton inline-flex items-center gap-1.5">
           <IconPlus size={14} /> Introduire une demande
         </button>
         </>}
@@ -1912,28 +1791,49 @@ function Valorisations({ etudId, annee }) {
 
       {demande && (
         <div className="border border-slate-200 rounded-xl p-3 mb-3 flex flex-wrap items-center gap-2 text-sm">
-          <select value={demande.ue_num} onChange={e => setDemande(x => ({ ...x, ue_num: e.target.value }))}
-            className="controle text-sm max-w-[26rem]">
-            <option value="">{unites ? '— l’unité demandée —' : 'Chargement…'}</option>
-            {(unites?.unites || []).map(u => <option key={u.ue_num} value={u.ue_num}>{u.ue_num} — {u.ue_nom}</option>)}
+          {/* LES TROIS PORTES DE LA MATRICE, ici aussi (3.1.429) : l'admission
+              se demande pour une SECTION (ue_num = 0), pas pour une unité. */}
+          {/* La section d'abord : elle borne les unités proposées et porte l'admission.
+              Celle de l'étudiant est proposée d'office. */}
+          <select value={sectionVA} onChange={e => { setSectionVA(e.target.value); setDemande(x => ({ ...x, ue_num: '' })); }}
+            className="controle text-sm" title="Section">
+            <option value="">— section —</option>
+            {(unites?.sections?.length ? unites.sections
+              : [...new Set((unites?.unites || []).map(u => u.section).filter(Boolean))].map(code => ({ code })))
+              .map(x => <option key={x.code} value={x.code}>{x.libelle || x.code}</option>)}
           </select>
+          {demande.porte === 'admission'
+            ? <span className="text-sm text-slate-600">Admission dans la section (capacités préalables)</span>
+            : <select value={demande.ue_num} onChange={e => setDemande(x => ({ ...x, ue_num: e.target.value }))}
+                className="controle text-sm max-w-[26rem]">
+                <option value="">{unites ? '— l’unité demandée —' : 'Chargement…'}</option>
+                {(unites?.unites || []).map(u => <option key={u.ue_num} value={u.ue_num}>{u.ue_num} — {u.ue_nom}</option>)}
+              </select>}
           <div className="segments">
-            {[['va', 'VA — acquis formels'], ['vae', 'VAE — expérience']].map(([v, l]) => (
+            {[['admission', 'AD — admission'], ['va', 'VA — acquis formels'], ['vae', 'VAE — expérience']].map(([v, l]) => (
               <button key={v} type="button" onClick={() => setDemande(x => ({ ...x, porte: v }))}
                 className={`px-2.5 py-1 text-second ${demande.porte === v ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>{l}</button>
             ))}
           </div>
-          <button className="bouton bouton-fort disabled:opacity-40" disabled={!demande.ue_num}
+          <button className="bouton bouton-fort disabled:opacity-40"
+            disabled={demande.porte === 'admission' ? !sectionVA : !demande.ue_num}
             onClick={async () => {
               setDemandeErr(null);
+              const ad = demande.porte === 'admission';
               const r = await fetch('/api/etudiants/valorisations/matrice', { method: 'POST', headers: authHeaders(),
-                body: JSON.stringify({ annee, cellules: [{ etudiant_id: etudId, ue_num: Number(demande.ue_num), porte: demande.porte }] }) });
+                // La date du jour est le défaut : on introduit une demande le jour où on la reçoit.
+                body: JSON.stringify({ annee, date_reception: new Date().toLocaleDateString('sv-SE'),
+                  cellules: [{ etudiant_id: etudId, ue_num: ad ? 0 : Number(demande.ue_num),
+                  porte: demande.porte, ...(ad ? { section: sectionVA } : {}) }] }) });
               const j = await r.json().catch(() => ({}));
               if (!r.ok) { setDemandeErr(j.error || 'Refusé.'); return; }
+              // La matrice ne rouvre pas une case déjà ouverte : elle n'écrit rien, et le dit ici.
+              if (j.refus?.length) { setDemandeErr(j.refus.map(x => x.pourquoi).join(' · ')); return; }
+              if (!j.crees) { setDemandeErr(`Un dossier existe déjà ${ad ? 'pour cette admission' : 'pour cette unité'} en ${annee} : il s'instruit dans « Instruire et décider ».`); return; }
               setDemande(null); await charger();
             }}>Introduire</button>
           <button className="bouton" onClick={() => setDemande(null)}>Annuler</button>
-          <span className="text-second text-slate-500 basis-full">La demande s'instruit ensuite dans la séance : dates, recevabilité, avis, décision.</span>
+          <span className="text-second text-slate-500 basis-full">La demande s'ouvre sans décision ; elle s'instruit ensuite dans « Instruire et décider » : dates, recevabilité, avis, décision, validation.</span>
           {demandeErr && <span className="text-second basis-full" style={{ color: 'var(--c-refuse, #9D4A38)' }}>{demandeErr}</span>}
         </div>
       )}
@@ -1945,414 +1845,6 @@ function Valorisations({ etudId, annee }) {
         </Suspense>
       )}
 
-      {form && (
-        <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/60 space-y-3 mb-4">
-
-          {/* ACCORDÉE OU REFUSÉE — C'EST LA PREMIÈRE QUESTION.
-              La table ne connaissait que des dispenses accordées : une demande
-              refusée n'avait nulle part où s'écrire, donc elle ne s'écrivait
-              pas — et une demande dont rien ne garde trace se réintroduit
-              l'année suivante, sans qu'on sache qu'elle a déjà été examinée. */}
-          <div className="flex items-center gap-4 text-sm">
-            <span className="intertitre">
-              Décision du Conseil
-            </span>
-            {[['accordee', 'Accordée'], ['refusee', 'Refusée']].map(([val, lab]) => (
-              <label key={val} className="flex items-center gap-1.5 cursor-pointer">
-                <input type="radio" checked={(form.decision || 'accordee') === val}
-                  onChange={() => setForm(f => ({ ...f, decision: val }))} />
-                {lab}
-              </label>
-            ))}
-            {form.id && (
-              <span className="ml-auto text-xs text-slate-400">
-                Correction d'une valorisation déjà encodée — les preuves déposées sont conservées.
-              </span>
-            )}
-          </div>
-
-          {form.decision === 'refusee' ? (
-            <>
-              <label className="block text-xs">
-                <span className="intertitre block mb-1">
-                  Unité demandée
-                </span>
-                <select value={form.ue_num || ''} className="controle w-full"
-                  onChange={e => setForm(f => ({ ...f, ue_num: e.target.value }))}>
-                  <option value="">—</option>
-                  {(unites?.unites || []).map(u => (
-                    <option key={u.ue_num} value={u.ue_num}>
-                      {u.ue_num} — {u.ue_nom}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              {/* UN REFUS SE MOTIVE. C'est une décision défavorable, et
-                  « refusé » sans motif ne se défend pas devant un recours. */}
-              <label className="block text-xs">
-                <span className="intertitre block mb-1">
-                  Motif du refus <span className="text-iip-texte">— obligatoire</span>
-                </span>
-                <textarea rows={3} value={form.motif_refus || ''}
-                  placeholder="Ce que le Conseil a constaté : pièces insuffisantes, acquis non démontrés, formation sans rapport…"
-                  className="w-full border border-slate-300 rounded-champ px-2 py-1.5 text-sm"
-                  onChange={e => setForm(f => ({ ...f, motif_refus: e.target.value }))} />
-              </label>
-            </>
-          ) : (
-          <>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <label className="text-xs col-span-2"><span className="intertitre block mb-1">Type</span>
-              <select value={form.type} onChange={e => setForm(f => {
-                const t = e.target.value;
-                // Passer en « complète » coche tout : c'est ce que le mot dit.
-                // Repasser en partielle laisse la sélection, on y retire.
-                return { ...f, type: t,
-                  equivalences: t === 'complete' && composantes?.aas
-                    ? Object.fromEntries(composantes.aas.map(
-                        a => [a.aa_code, composantes.texte_equivalence || '']))
-                    : (f.equivalences || {}) };
-              })}
-                className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
-                {TYPES_VA.map(t => <option key={t.val} value={t.val}>{t.label}</option>)}
-              </select></label>
-            <label className="text-xs"><span className="intertitre block mb-1">Section</span>
-              <select value={sectionVA} onChange={e => setSectionVA(e.target.value)}
-                className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
-                <option value="">Toutes</option>
-                {(unites?.sections || []).map(sx => (
-                  <option key={sx.code} value={sx.code}>{sx.libelle || sx.code}</option>
-                ))}
-              </select></label>
-            <label className="text-xs col-span-2"><span className="intertitre block mb-1">Unité d'enseignement</span>
-              <select value={form.ue_num || ''}
-                onChange={e => {
-                  const n = e.target.value;
-                  setForm(f => ({ ...f, ue_num: n, cible_detail: '', notes: {},
-                                  equivalences: {} }));
-                  if (n) chargerComposantes(Number(n));
-                  else { setComposantes(null); setAnterieur(null); }
-                }}
-                className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
-                <option value="">— choisir une unité —</option>
-                {(unites?.unites || []).map(u => (
-                  <option key={u.ue_num} value={u.ue_num}>
-                    {u.au_pae ? '★ ' : ''}{u.ue_num} — {u.ue_nom}
-                  </option>
-                ))}
-              </select>
-              <span className="block text-mention text-slate-400 mt-1">
-                ★ déjà au programme de l'étudiant en {annee}
-              </span></label>
-            {form.type !== 'admission' && (
-              <label className="text-xs"><span className="intertitre block mb-1">%</span>
-                <input type="number" min="0" max="100" value={form.pourcentage}
-                  onChange={e => setForm(f => ({ ...f, pourcentage: e.target.value }))}
-                  className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" /></label>
-            )}
-          </div>
-
-          {form.type === 'partielle' && (
-            <div className="space-y-2">
-              <div className="flex gap-3">
-                {['cours','aa'].map(cb => (
-                  <label key={cb} className="flex items-center gap-1.5 text-sm">
-                    <input type="radio" checked={form.cible === cb}
-                      onChange={() => setForm(f => ({ ...f, cible: cb, cible_detail: '', notes: {} }))} />
-                    {cb === 'cours' ? 'Par cours' : "Par acquis d'apprentissage"}
-                  </label>
-                ))}
-                <label className="flex items-center gap-1.5 text-xs text-slate-500 ml-auto">
-                  Seuil de report
-                  <input type="number" min="0" max="20" step="0.5" value={seuilReport}
-                    onChange={e => setSeuilReport(Number(e.target.value))}
-                    className="w-14 border border-slate-300 rounded px-1.5 py-0.5 text-xs" />
-                  /20
-                </label>
-              </div>
-
-              {/* LES COMPOSANTES DE L'UNITÉ CHOISIE — PAS LE PROGRAMME DE
-                  L'ÉTUDIANT.
-                  Cette liste venait des cours AUXQUELS L'ÉTUDIANT EST INSCRIT.
-                  Depuis que l'unité se choisit dans le catalogue de la section,
-                  une unité qu'il n'a pas encore à son programme ne rendait donc
-                  aucun cours : on cochait « par cours » et il ne restait à
-                  l'écran que les acquis, plus bas. Or on valorise une unité
-                  qu'il AURA — la liste doit venir de l'unité, et les notes
-                  déjà obtenues s'y ajoutent quand elles existent. */}
-              {!form.ue_num ? (
-                <div className="py-4 text-center text-sm text-slate-400
-                                border-2 border-dashed rounded-xl">
-                  Choisissez d'abord l'unité d'enseignement.
-                </div>
-              ) : !composantes ? (
-                <div className="py-4 text-center text-sm text-slate-400
-                                border-2 border-dashed rounded-xl">
-                  Chargement des composantes de l'unité…
-                </div>
-              ) : (() => {
-                const anterieurParCours = Object.fromEntries(
-                  (anterieur?.cours || []).map(c => [c.cours_code, c]));
-                const dejaReportes = new Set(anterieur?.deja_reportes || []);
-                const liste = form.cible === 'cours'
-                  ? (composantes.cours || []).map(c => ({
-                      code: c.cours_code, libelle: c.cours_nom,
-                      note_anterieure: anterieurParCours[c.cours_code]?.note ?? null,
-                      annee_anterieure: anterieurParCours[c.cours_code]?.annee_origine || null,
-                      deja_reporte: dejaReportes.has(c.cours_code),
-                    }))
-                  : (composantes.aas || []).map(a => ({
-                      code: a.aa_code,
-                      libelle: a.description || a.aa_code,
-                      // Un acquis ne porte pas de note reportable : le report se
-                      // fait par COURS. On ne propose donc rien ici plutôt que
-                      // d'afficher un tiret qui laisserait croire à un oubli.
-                      note_anterieure: null, annee_anterieure: null, deja_reporte: false,
-                    }));
-
-                if (!liste.length) {
-                  return (
-                    <div className="py-4 text-center text-sm text-amber-700
-                                    border-2 border-dashed border-amber-300 rounded-xl">
-                      Cette unité ne porte aucun {form.cible === 'cours' ? 'cours'
-                        : "acquis d'apprentissage"} au référentiel {annee}.
-                    </div>
-                  );
-                }
-
-                return (
-                <div className="border border-slate-200 rounded-xl overflow-hidden">
-                  <div className="intertitre px-3 py-1.5 bg-slate-50 border-b border-slate-200">
-                    UE {form.ue_num} · {liste.length}{' '}
-                    {form.cible === 'cours' ? 'cours' : "acquis d'apprentissage"}
-                    {anterieur?.annee_source && (
-                      <span className="normal-case tracking-normal text-slate-400">
-                        {' '}· notes de {anterieur.annee_source}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="max-h-72 overflow-y-auto">
-                    {liste.map(co => {
-                      const code = co.code;
-                      const sel = (form.cible_detail || '').split(',').filter(Boolean);
-                      const actif = sel.includes(code);
-                      const note = form.notes?.[code] ?? '';
-                      const sousSeuil = note !== '' && Number(note) < seuilReport;
-                      return (
-                        <div key={code}
-                          className={`px-3 py-1.5 text-second
-                                      border-b border-slate-50 last:border-0
-                                      ${actif ? 'bg-iip-blue/5' : ''}`}>
-                        <div className="flex items-center gap-2">
-                          <input type="checkbox" checked={actif}
-                            onChange={() => {
-                              const next = actif ? sel.filter(x => x !== code) : [...sel, code];
-                              setForm(f => {
-                                // COCHER UN ACQUIS, C'EST LE RECONNAÎTRE ÉQUIVALENT.
-                                // Les deux gestes n'en font qu'un : la motivation
-                                // s'ouvre sous la case, pré-remplie.
-                                if (f.cible !== 'aa') return { ...f, cible_detail: next.join(',') };
-                                const eq = { ...(f.equivalences || {}) };
-                                if (actif) delete eq[code];
-                                else eq[code] = composantes.texte_equivalence || '';
-                                return { ...f, cible_detail: next.join(','), equivalences: eq };
-                              });
-                            }} />
-                          <span className="w-20 flex-none font-mono text-xs text-slate-500">
-                            {code}
-                          </span>
-                          <span className="flex-1 min-w-0 truncate" title={co.libelle}>
-                            {co.libelle}
-                          </span>
-
-                          {/* La note déjà connue : un clic la reprend, plutôt
-                              que de la retenir de tête et la ressaisir. */}
-                          {co.note_anterieure != null ? (
-                            <button type="button"
-                              onClick={() => setForm(f => {
-                                const x = (f.cible_detail || '').split(',').filter(Boolean);
-                                return { ...f,
-                                  notes: { ...(f.notes || {}), [code]: String(co.note_anterieure) },
-                                  cible_detail: x.includes(code) ? f.cible_detail
-                                                                 : [...x, code].join(','),
-                                  annee_origine: f.annee_origine || co.annee_anterieure };
-                              })}
-                              title={co.deja_reporte ? 'Déjà reportée'
-                                : `Obtenue en ${co.annee_anterieure} — cliquer pour la reprendre`}
-                              className={`text-xs flex-none w-24 text-right
-                                ${co.deja_reporte ? 'text-slate-300'
-                                  : co.note_anterieure >= seuilReport
-                                    ? 'text-emerald-700 font-semibold hover:underline'
-                                    : 'text-slate-400 hover:underline'}`}>
-                              {co.note_anterieure}/20 <span className="text-slate-400">
-                                {String(co.annee_anterieure || '').slice(2, 7)}
-                              </span>{co.deja_reporte ? ' ✓' : ''}
-                            </button>
-                          ) : (
-                            <span className="text-xs text-slate-300 flex-none
-                                             w-24 text-right">—</span>
-                          )}
-
-                          {/* LE REPORT SE FAIT PAR COURS, jamais par acquis :
-                              c'est ce que porte etudiant_report_note. */}
-                          {form.cible === 'cours' ? (
-                            <input type="number" min="0" max="20" step="0.5" value={note}
-                              placeholder="note"
-                              onChange={e => {
-                                const v = e.target.value;
-                                setForm(f => {
-                                  const notes = { ...(f.notes || {}) };
-                                  if (v === '') delete notes[code]; else notes[code] = v;
-                                  // Saisir une note vaut sélection : sans cela on
-                                  // encoderait un point sans dispenser le cours.
-                                  const x = (f.cible_detail || '').split(',').filter(Boolean);
-                                  return { ...f, notes,
-                                    cible_detail: v !== '' && !x.includes(code)
-                                      ? [...x, code].join(',') : f.cible_detail };
-                                });
-                              }}
-                              className={`w-16 flex-none border rounded px-1.5 py-0.5
-                                          text-second text-right ${sousSeuil
-                                            ? 'border-amber-400 bg-amber-50'
-                                            : 'border-slate-300'}`} />
-                          ) : <span className="w-16 flex-none" />}
-                        </div>
-
-                        {/* LA MOTIVATION, SOUS L'ACQUIS QU'ELLE MOTIVE. Elle
-                            vivait dans un second bloc qui rejouait la même
-                            liste : on cochait en bas, le bouton restait gris,
-                            et rien ne disait que la case utile était en haut. */}
-                        {form.cible === 'aa' && actif && (
-                          <textarea rows={2}
-                            value={(form.equivalences || {})[code] || ''}
-                            onChange={e => setForm(f => ({ ...f,
-                              equivalences: { ...(f.equivalences || {}), [code]: e.target.value } }))}
-                            className="mt-1.5 ml-6 w-[calc(100%-1.5rem)] border border-slate-300
-                                       rounded-lg px-2 py-1 text-second" />
-                        )}
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {Object.keys(form.notes || {}).length > 0 && (
-                    <div className="px-3 py-1.5 bg-slate-50 border-t border-slate-200
-                                    text-xs text-slate-600">
-                      {Object.keys(form.notes).length} note(s) à reporter
-                      {Object.values(form.notes).some(n => Number(n) < seuilReport) && (
-                        <span className="text-amber-700 font-semibold">
-                          {' '}· dont certaines sous le seuil de {seuilReport}/20
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-                );
-              })()}
-            </div>
-          )}
-
-          {/* ═══ LES ACQUIS RECONNUS ÉQUIVALENTS ═══
-              Le Conseil ne dispense pas d'un acquis : il constate qu'il est
-              maîtrisé ailleurs. C'est ce constat, écrit acquis par acquis, qui
-              tient devant une inspection — d'où une phrase proposée, jamais un
-              blanc, et toujours remplaçable. */}
-          {form.ue_num && composantes?.aas?.length > 0
-            && !(form.type === 'partielle' && form.cible === 'aa') && (
-            <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-              <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200
-                              flex items-center justify-between">
-                <span className="intertitre">
-                  Acquis d'apprentissage reconnus équivalents
-                </span>
-                <span className="text-xs text-slate-500">
-                  {Object.keys(form.equivalences || {}).length} / {composantes.aas.length}
-                  {form.type === 'complete' && ' · dispense complète'}
-                </span>
-              </div>
-              <div className="max-h-72 overflow-y-auto divide-y divide-slate-100">
-                {composantes.aas.map(a => {
-                  const coche = (form.equivalences || {})[a.aa_code] !== undefined;
-                  return (
-                    <div key={a.aa_code} className={`px-3 py-2 ${coche ? 'bg-iip-blue/5' : ''}`}>
-                      <label className="flex items-start gap-2 cursor-pointer">
-                        <input type="checkbox" checked={coche} className="mt-0.5"
-                          onChange={() => setForm(f => {
-                            const eq = { ...(f.equivalences || {}) };
-                            if (coche) delete eq[a.aa_code];
-                            else eq[a.aa_code] = composantes.texte_equivalence || '';
-                            return { ...f, equivalences: eq };
-                          })} />
-                        <span className="text-second flex-1 min-w-0">
-                          <span className="font-mono text-xs text-slate-500 mr-1.5">
-                            {a.aa_code}
-                          </span>
-                          {a.description || ''}
-                        </span>
-                      </label>
-                      {coche && (
-                        <textarea rows={2}
-                          value={(form.equivalences || {})[a.aa_code] || ''}
-                          onChange={e => setForm(f => ({ ...f,
-                            equivalences: { ...(f.equivalences || {}), [a.aa_code]: e.target.value } }))}
-                          className="mt-1.5 ml-6 w-[calc(100%-1.5rem)] border border-slate-300
-                                     rounded-lg px-2 py-1 text-second" />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-          </>
-          )}
-
-          <div className="grid grid-cols-2 gap-3">
-            <label className="text-xs"><span className="intertitre block mb-1">Date décision CE</span>
-              <input type="date" value={form.decision_ce_date || ''}
-                onChange={e => setForm(f => ({ ...f, decision_ce_date: e.target.value }))}
-                className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" /></label>
-            <label className="text-xs"><span className="intertitre block mb-1">Commentaire</span>
-              <input value={form.commentaire || ''}
-                onChange={e => setForm(f => ({ ...f, commentaire: e.target.value }))}
-                className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" /></label>
-          </div>
-
-          {/* UN BOUTON GRIS QUI NE DIT PAS POURQUOI EST UN BOUTON CASSÉ.
-              « Il ne veut pas de ma valorisation » : il en voulait bien, mais
-              rien à l'écran ne nommait ce qui manquait. */}
-          {(() => {
-            const refus = form.decision === 'refusee';
-            const manque = !form.ue_num
-              ? "Choisissez l'unité d'enseignement."
-              : refus
-                ? (String(form.motif_refus || '').trim() ? null
-                  : 'Un refus se motive : écrivez ce que le Conseil a constaté.')
-                : (form.type === 'partielle' && !form.cible_detail)
-                  ? `Cochez au moins un ${form.cible === 'cours' ? 'cours'
-                      : "acquis d'apprentissage"} à dispenser.`
-                  : null;
-            return manque && (
-              <div className="text-second text-amber-800">{manque}</div>
-            );
-          })()}
-
-          <div className="flex gap-2">
-            <button onClick={sauver}
-              disabled={!form.ue_num
-                || (form.decision === 'refusee'
-                  ? !String(form.motif_refus || '').trim()
-                  : form.type === 'partielle' && !form.cible_detail)}
-              className="bouton bouton-fort disabled:opacity-40">
-              {form.id ? 'Enregistrer la correction' : 'Enregistrer'}
-            </button>
-            <button onClick={() => { setForm(null); setComposantes(null); }}
-              className="text-sm px-3 py-1.5 rounded-lg border border-slate-300">Annuler</button>
-          </div>
-        </div>
-      )}
-
       {!valos.length ? (
         <div className="text-center py-8 text-slate-400 text-sm border-2 border-dashed rounded-xl">
           Aucune valorisation enregistrée
@@ -2361,23 +1853,31 @@ function Valorisations({ etudId, annee }) {
         <div className="space-y-2">
           {valos.map(v => (
             <div key={v.id} className="flex items-center justify-between gap-3 border border-slate-200 rounded-xl px-4 py-2.5">
-              <div>
-                <span className="font-medium text-iip-blue">{v.ue_num}</span>
-                <span className="text-slate-600 ml-1.5 text-sm">{v.ue_nom}</span>
-                {v.decision === 'refusee' && (
-                  <span className="ml-2 text-xs font-semibold text-iip-texte">refusée</span>
-                )}
-                <div className="text-xs text-slate-400 mt-0.5">
-                  {v.decision === 'refusee' ? 'Demande refusée' : (
-                    <>
-                      {TYPES_VA.find(t => t.val === v.type)?.label}
-                      {v.cible ? ` · ${v.cible === 'cours' ? 'cours' : 'AA'} : ${v.cible_detail}` : ''}
-                      {v.pourcentage != null && v.decision !== 'refusee' ? ` · ${Number(v.pourcentage) > 20 ? Math.round(v.pourcentage / 5) : v.pourcentage}/20` : ''}
-                    </>
-                  )}
-                  {v.decision_ce_date ? ` · CE du ${v.decision_ce_date}` : ''}
+              <div className="min-w-0">
+                {/* LA MÊME LECTURE QUE L'ÉCRAN VALORISATION (3.1.429) : la porte,
+                    la frise du circuit, et la décision SEULEMENT quand le Conseil
+                    l'a posée. La carte lisait `type` — « partielle » par défaut à
+                    l'introduction — et montrait une demande à peine reçue comme
+                    une « Dispense partielle (AA ou cours) » décidée. */}
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <PastillePorte porte={String(v.porte || (v.type === 'admission' ? 'admission' : '')).toLowerCase()} />
+                  {v.ue_num === 0
+                    ? <span className="font-medium text-iip-blue">Admission{v.section ? ` — ${v.section}` : ''}</span>
+                    : <><span className="font-medium text-iip-blue">{v.ue_num}</span>
+                        <span className="text-slate-600 text-sm">{v.ue_nom}</span></>}
+                  {v.annee_scolaire !== annee && <span className="text-mention text-slate-400">{v.annee_scolaire}</span>}
                 </div>
-                {v.decision === 'refusee' && v.motif_refus && (
+                <div className="mt-1"><FriseCircuit dossier={v} compact /></div>
+                <div className="text-xs text-slate-500 mt-0.5">
+                  {v.recevable === 0
+                    ? `Irrecevable${v.motif_irrecevabilite ? ` — ${v.motif_irrecevabilite}` : ''}`
+                    : (decisionEnMots(v) || 'Pas encore décidée')}
+                  {v.decision_le && v.decision !== 'refusee' && v.type === 'complete' && v.pourcentage != null
+                    ? ` · ${Number(v.pourcentage) > 20 ? Math.round(v.pourcentage / 5) : v.pourcentage}/20` : ''}
+                  {v.decision_le && v.decision_ce_date ? ` · CE du ${v.decision_ce_date}` : ''}
+                  {v.valide_le ? ` · validée le ${String(v.valide_le).slice(0, 10).split('-').reverse().join('/')}` : ''}
+                </div>
+                {v.decision_le && v.decision === 'refusee' && v.motif_refus && (
                   <div className="text-second text-slate-600 mt-0.5">{v.motif_refus}</div>
                 )}
 
@@ -2442,10 +1942,6 @@ function Valorisations({ etudId, annee }) {
             </div>
           ))}
         </div>
-      )}
-      {documents && (
-        <SeanceValorisation ueNum={documents.ue_num} ueNom={documents.ue_nom}
-          annee={annee} onClose={() => setDocuments(null)} />
       )}
 
       <p className="text-xs text-slate-400 mt-3">
