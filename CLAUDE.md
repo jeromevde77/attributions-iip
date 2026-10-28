@@ -673,7 +673,7 @@ ls -lh prod/backups/avant_merge_*.db | tail -1
 
 ### Workflow de branches
 
-`develop` (validation à l'écran par Jérôme) → **puis seulement** `main`.
+`develop` (validation à l’écran par Charles, directeur, avec Claude — Jérôme ne teste pas) → **puis seulement** `main`.
 Jamais de poussée directe en production. Les migrations sont additives et
 protégées par contrôle d'existence, mais restent à surveiller.
 
@@ -2446,7 +2446,7 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
 - Public : secrétaires et enseignants. **Expliquer le travail, pas l'informatique.**
 - Toujours préciser **quelle version** est décrite (dev ou prod) — un guide écrit
   sur dev montre des écrans que l'équipe n'a pas.
-- Les captures d'écran viennent de Jérôme. **Ne pas décrire un détail visuel
+- Les captures d’écran viennent de Charles. **Ne pas décrire un détail visuel
   sans capture.**
 
 ---
@@ -2459,7 +2459,7 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
 2. Vérifier l'écart `develop` / `main` et les questions ouvertes non tranchées
    (`docs/contexte/`).
 3. Poser d'abord les questions **bloquantes** — celles qui coûtent une minute à
-   Jérôme et évitent une demi-journée de code faux.
+   Charles et évitent une demi-journée de code faux.
 4. `grep` les définitions avant toute requête ; chercher l'existant avant de
    construire.
 5. Ne conclure « fait » qu'après vérification **et** confirmation à l'écran.
