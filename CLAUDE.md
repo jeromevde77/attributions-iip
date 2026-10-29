@@ -251,6 +251,11 @@ elle était close, quelle que soit son organisation ; il lit désormais celle de
 sous les boutons du lot — sur iPad, le message en haut de la feuille était hors de vue (« je ne sais pas aller plus loin »).
 **Toute une section en un clic** (3.1.454, Charles) : dans la liste des étudiants, l'en-tête de chaque section porte
 sa case — elle coche ses étudiants AFFICHÉS (filtres compris), à moitié cochée quand une partie l'est.
+**« Ajourner aussi », pour toute la liste de la clôture** (3.1.455, Charles, UE 333 : 38 ajournés dont un acquis en
+échec n'était pas ajourné, nommés en un seul paragraphe, réparables seulement fiche par fiche). La clôture rend la liste
+en clair (`incoherences`) et un bouton pose, pour chacun, le geste de la fiche : ses cours où l'acquis échoue s'ajournent
+pour leurs acquis en échec ; un acquis qui n'échoue dans aucun cours s'ajourne lui-même
+(`POST /deliberation/ue/:ueNum/ajourner-oublies`, simulation puis confirmation). Ni la décision ni une note ne changent.
 
 **UNE UE DISPENSÉE EN ENTIER EST ACQUISE — ÇA SE LIT DU DOSSIER DE VA** (3.1.438). Les crédits de l'annexe 2,
 l'état du parcours (schéma) et le motif de l'annexe 2 attendaient un résultat `'valorise'` sur

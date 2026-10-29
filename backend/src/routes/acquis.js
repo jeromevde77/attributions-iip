@@ -6551,6 +6551,55 @@ r.get('/deliberation/ue/:ueNum/incoherences', authRequired, (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+/* « AJOURNER AUSSI », POUR TOUS (3.1.455, Charles, UE 333 : la clôture nommait 38 étudiants dont un
+   acquis en échec n'était pas ajourné, et le bouton « Ajourner aussi » n'existait que fiche par fiche).
+   Le même geste, pour chaque étudiant de la liste de la clôture : ses cours où l'acquis échoue
+   s'ajournent pour leurs acquis en échec (mode « echec ») ; un acquis qui n'échoue dans aucun cours
+   (échec de la cote consolidée) s'ajourne lui-même. Rien d'autre ne change : ni la décision, ni une
+   note. Simulation d'abord. */
+r.post('/deliberation/ue/:ueNum/ajourner-oublies', authRequired,
+      gesteRequis('deliberation.faveur'), (req, res) => {
+  const ueNum = Number(req.params.ueNum);
+  const annee = req.body?.annee || anneeDeTravail(req);
+  const org = Number(req.body?.org) > 0 ? Number(req.body.org) : null;
+  const simulation = req.body?.simulation === true;
+  const par = req.user?.email || null;
+  const close = db.prepare(`SELECT cloturee FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ?
+      AND session = 1 AND COALESCE(num_organisation, 0) = ?`).get(ueNum, annee, org || 0)?.cloturee;
+  if (close) return res.status(409).json({ error: 'La séance est clôturée : rouvrez-la pour corriger les ajournements.' });
+  const inco = incoherencesAjournement(ueNum, annee, org).filter(x => !x.sans_decision && x.oublies.length);
+  const poser = db.prepare(`INSERT INTO deliberation_ajustement
+      (etudiant_id, annee_scolaire, ue_num, session, portee, code, action, maj_par)
+    VALUES (?,?,?,1,?,?,'ajourne',?)
+    ON CONFLICT(etudiant_id, annee_scolaire, ue_num, session, portee, code)
+    DO UPDATE SET action = 'ajourne', maj_le = CURRENT_TIMESTAMP, maj_par = excluded.maj_par`);
+  const plan = inco.map(x => ({
+    etudiant_id: x.etudiant_id, nom: x.nom, prenom: x.prenom,
+    cours: [...new Set(x.oublies.flatMap(o => o.cours || []))],
+    acquis: x.oublies.filter(o => !(o.cours || []).length).map(o => o.aa_code),
+  }));
+  if (!simulation) {
+    db.transaction(() => {
+      for (const p of plan) {
+        for (const c of p.cours) {
+          const avant = delibererUE(p.etudiant_id, ueNum, annee, 1);
+          poser.run(p.etudiant_id, annee, ueNum, 'cours', c, par);
+          poserPortee(p.etudiant_id, annee, ueNum, 1, c, 'echec', avant, par);
+        }
+        for (const aa of p.acquis) poser.run(p.etudiant_id, annee, ueNum, 'aa', aa, par);
+        // La cote de l'unité se relit après l'ajournement, comme le fait la fiche (enregistrerDecision).
+        const note = delibererUE(p.etudiant_id, ueNum, annee, 1)?.ue?.note ?? null;
+        db.prepare(`UPDATE deliberation_resultat SET points = ? WHERE etudiant_id = ? AND annee_scolaire = ?
+            AND ue_num = ? AND session = 1 AND resultat = 'ajourne'`).run(note, p.etudiant_id, annee, ueNum);
+        db.prepare(`UPDATE etudiant_inscription SET points = ? WHERE etudiant_id = ? AND annee_scolaire = ?
+            AND ue_num = ? AND resultat = 'ajourne'`).run(note, p.etudiant_id, annee, ueNum);
+      }
+    })();
+  }
+  const restent = simulation ? null : incoherencesAjournement(ueNum, annee, org);
+  res.json({ simulation, etudiants: plan.length, plan, restent });
+});
+
 export function motivationsProposees(ueNum, annee, session = 1, org = null) {
   const sortie = [];
   // Par organisation, seuls SES étudiants entrent dans le compte : la clôture

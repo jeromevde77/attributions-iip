@@ -1,4 +1,4 @@
-import { choisir } from '../lib/dialogue.jsx';
+import { choisir, demander, informer } from '../lib/dialogue.jsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { nomPropre } from '../lib/nom.js';
 import {
@@ -76,6 +76,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
   const [correction, setCorrection] = useState(false);
   const [data, setData] = useState(null);
   const [erreur, setErreur] = useState(null);
+  const [incoherences, setIncoherences] = useState(null);   // refus de clôture « ajourner aussi » (3.1.455)
   // Ce que la clôture a trouvé de non rédigé, et ce qu'elle allait clôturer.
   const [proposees, setProposees] = useState(null);
   const [recherche, setRecherche] = useState('');
@@ -602,6 +603,32 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
     finally { setEnCours(false); }
   }
 
+  /* « AJOURNER AUSSI », POUR TOUTE LA LISTE DE LA CLÔTURE (3.1.455) : simulation, question, écriture. */
+  async function ajournerOublies() {
+    const appel = async simulation => {
+      const rep = await fetch(`/api/acquis/deliberation/ue/${ueNum}/ajourner-oublies`, {
+        method: 'POST', headers: authHeaders(), body: JSON.stringify({ annee, org: org ?? 0, simulation }) });
+      const j = await rep.json().catch(() => ({}));
+      if (!rep.ok) throw new Error(j.error || 'Refusé.');
+      return j;
+    };
+    setEnCours(true);
+    try {
+      const sim = await appel(true);
+      if (!sim.etudiants) { setIncoherences(null); setErreur(null); return; }
+      const ok = await demander(`Ajourner aussi, pour ${sim.etudiants} étudiant(s), les acquis en échec que la clôture signale ?\n\n`
+        + 'Chaque cours où un acquis échoue est ajourné pour ses acquis en échec ; la décision « ajourné » ne change pas, '
+        + 'aucune note ne bouge. Les motifs proposés par Lucie vous seront soumis à la clôture.');
+      if (!ok) return;
+      const j = await appel(false);
+      await charger();
+      setIncoherences(j.restent?.length ? j.restent : null);
+      setErreur(j.restent?.length ? `${j.restent.length} étudiant(s) restent à régler sur leur fiche.` : null);
+      if (!j.restent?.length) await informer(`✓ ${j.etudiants} étudiant(s) corrigé(s). Vous pouvez clôturer.`);
+    } catch (e) { setErreur(e.message); }
+    finally { setEnCours(false); }
+  }
+
   async function rouvrirSeance(motif) {
     setEnCours(true); setErreur(null);
     try {
@@ -634,10 +661,13 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
           setProposees({ liste: j.motivations_proposees, champs, detail: j.detail });
           return false;
         }
-        setErreur(j.detail ? `${j.error} ${j.detail}` : j.error);
+        if (Array.isArray(j.incoherences) && j.incoherences.length) {
+          setIncoherences(j.incoherences); setErreur(j.error);
+        } else setErreur(j.detail ? `${j.error} ${j.detail}` : j.error);
         await chargerSeance();   // le quorum renvoyé se voit à l'écran
         return false;
       }
+      setIncoherences(null);
       await chargerSeance();
       return true;
     } catch (e) { setErreur(e.message); return false; }
@@ -829,6 +859,24 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
               <IconAlertTriangle size={14} /> {erreur}
             </div>
           )}
+      {/* LA LISTE DE LA CLÔTURE, LISIBLE ET RÉPARABLE (3.1.455, Charles : 38 étudiants en un
+          paragraphe, et aucun moyen de les régler autrement qu'une fiche à la fois). */}
+      {incoherences?.length > 0 && (
+        <div className="bloc-etat px-3 py-2.5 space-y-2" data-etat="corriger">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-sm font-semibold">Acquis en échec non ajournés — la seconde session ne les reprendrait pas</span>
+            {!lectureSeule() && incoherences.some(x => !x.sans_decision) && (
+              <button type="button" className="bouton bouton-fort" disabled={enCours} onClick={ajournerOublies}>
+                Ajourner aussi leurs acquis en échec ({incoherences.filter(x => !x.sans_decision).length})</button>)}
+          </div>
+          <ul className="max-h-60 overflow-auto text-second text-slate-700 space-y-0.5">
+            {incoherences.map(x => (
+              <li key={x.etudiant_id}><b>{String(x.nom || '').toUpperCase()}</b> {x.prenom} — {x.sans_decision
+                ? 'cours ou acquis ajournés sans décision « ajourné » : à régler sur sa fiche'
+                : x.oublies.map(o => `${o.aa_code} à ${o.note ?? '—'}/20`).join(', ')}</li>))}
+          </ul>
+        </div>
+      )}
 
           {!!data.sans_structure && (
             /* UNE ALERTE SE VOIT (Charles, 3 octobre 2026) : bloc signalé orange,
