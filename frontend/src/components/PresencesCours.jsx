@@ -94,6 +94,14 @@ export default function PresencesCours({ coursCode, annee, seanceInitiale = null
 
   if (erreur && !data) return <Encadre etat="corriger">{erreur}</Encadre>;
   if (!data) return <p className="text-sm text-slate-400">Chargement…</p>;
+  if (!data.seances.length && data.vide?.raison === 'autres') {
+    return <Encadre etat="surveiller" titre="Aucune séance de ce cours ne vous nomme dans l'horaire">
+      L'horaire de Lucie porte bien des séances pour ce cours, mais elles sont au nom de {data.vide.noms.join(', ')}.
+      Vous ne voyez que les séances qui vous désignent : le secrétariat corrige le professeur des séances dans
+      Organisation → Horaire de la semaine.
+      {!data.vide.relie && ' Votre compte n’est par ailleurs relié à aucune fiche de professeur (Configuration → Utilisateurs).'}
+    </Encadre>;
+  }
   if (!data.seances.length) {
     return <Encadre etat="neutre" titre="Aucune séance de ce cours dans l'horaire de Lucie">
       Les présences se prennent sur les séances de l'horaire (Organisation → Horaires). Tant que le cours n'y est pas,

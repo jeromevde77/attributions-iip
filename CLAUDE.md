@@ -278,6 +278,10 @@ rallume « Nouveau » quand l'édition s'enrichit.
 lit le fichier en parties — « En bref », chaque `<h2>`, « Ensuite » —, une partie par onglet souligné (`.onglet-page`), chaque
 nouveauté en carte (`bloc-etat` bleu, ocre pour ce qui est à l'essai ; chemin « Où » en étapes ; étiquette en pastille), en
 deux colonnes. Le fichier s'écrit comme avant ; la direction garde le choix du public pour voir ce que chacun reçoit.
+**Les présences vides disent pourquoi** (3.1.462, Charles, compte d'essai : « je ne vois pas mon horaire »). Mes cours ne
+montre que les séances de l'horaire qui NOMMENT le professeur (`seancesDuCours`) ; un cours attribué dont les séances nomment
+un autre enseignant donnait « aucune séance dans l'horaire ». `GET /:cours/presences` rend `vide` (`autres` + les noms de
+l'horaire, et si le compte n'est relié à aucune fiche ; ou `horaire`) et l'écran le dit.
 
 **UNE UE DISPENSÉE EN ENTIER EST ACQUISE — ÇA SE LIT DU DOSSIER DE VA** (3.1.438). Les crédits de l'annexe 2,
 l'état du parcours (schéma) et le motif de l'annexe 2 attendaient un résultat `'valorise'` sur

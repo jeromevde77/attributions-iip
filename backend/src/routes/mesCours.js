@@ -1205,6 +1205,18 @@ r.get('/:coursCode/presences', authRequired, (req, res) => {
   const d = accesCours(req, req.params.coursCode, annee);
   if (!d) return res.status(403).json({ error: "Ce cours n'est ni dans vos attributions, ni dans votre section." });
   const seances = seancesDuCours(req, d, req.params.coursCode, annee);
+  /* POURQUOI LA LISTE EST VIDE (3.1.462, Charles, compte d'essai « Charles Sohet » : « je ne vois pas mon
+     horaire »). « Aucune séance dans l'horaire » était faux quand le cours A des séances, mais qu'elles nomment
+     un autre professeur : la règle de Mes cours ne montre que les séances qui vous nomment. On le dit, en
+     nommant qui l'horaire désigne, et si le compte n'est relié à aucune fiche de professeur. */
+  let vide = null;
+  if (!seances.length) {
+    const ps = db.prepare(`SELECT DISTINCT p.nom, p.prenom FROM horaire_seance h JOIN professeur p ON p.id = h.professeur_id
+        WHERE h.annee_scolaire = ? AND h.cours_code = ?`).all(annee, req.params.coursCode);
+    vide = ps.length
+      ? { raison: 'autres', noms: ps.map(p => `${String(p.nom || '').toUpperCase()} ${p.prenom || ''}`.trim()), relie: !!profDe(req) }
+      : { raison: 'horaire' };
+  }
   const ids = seances.map(x => x.id);
   const pres = {};
   if (ids.length) {
@@ -1217,7 +1229,7 @@ r.get('/:coursCode/presences', authRequired, (req, res) => {
   try { cep = new Set(db.prepare('SELECT etudiant_id FROM etudiant_cep WHERE annee_scolaire = ?').all(annee).map(x => x.etudiant_id)); }
   catch { /* table absente */ }
   res.json({
-    annee, cours_code: req.params.coursCode, statuts: STATUTS_PRESENCE, motifs: MOTIFS_JUSTIFIES,
+    annee, cours_code: req.params.coursCode, statuts: STATUTS_PRESENCE, motifs: MOTIFS_JUSTIFIES, vide,
     aujourdhui: new Date().toISOString().slice(0, 10),
     seances: seances.map(x => ({ ...x, min: minutesDe(x),
       encodees: Object.keys(pres[x.id] || {}).length })),
