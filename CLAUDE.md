@@ -297,6 +297,11 @@ disponibilités · 6 la semaine · 7 l'horaire — frise numérotée en tête, �
 sous-menu d'Organisation numérotés dans le même ordre ; le labo s'ouvre sur l'étape 1. Organisation → Horaires s'ouvre sur
 **Consulter l'horaire** (`HoraireSemaine consultation` : ni bac, ni geste d'écriture) ; « Composer la semaine » reste pour
 retoucher.
+**Relier un compte à une fiche ne change plus son rôle** (3.1.466, Charles : « Mon horaire dans mon agenda » répondait
+« compte relié à aucun dossier d'enseignant » sur son compte d'administration). Le lien se pose dans Personnel → fiche →
+Accès Lucie (`POST /api/users` avec `professeur_id` et l'adresse d'un compte EXISTANT) ; cette route réécrivait aussi rôle,
+périmètre et droits avec ceux du formulaire (« Professeur » par défaut) — relier la direction l'aurait rétrogradée. Elle ne
+pose plus que `professeur_id`. Les trois messages « non relié » (agenda, semaine, présences) disent où faire le lien.
 
 **UNE UE DISPENSÉE EN ENTIER EST ACQUISE — ÇA SE LIT DU DOSSIER DE VA** (3.1.438). Les crédits de l'annexe 2,
 l'état du parcours (schéma) et le motif de l'annexe 2 attendaient un résultat `'valorise'` sur

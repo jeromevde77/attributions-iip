@@ -99,7 +99,7 @@ export default function PresencesCours({ coursCode, annee, seanceInitiale = null
       L'horaire de Lucie porte bien des séances pour ce cours, mais elles sont au nom de {data.vide.noms.join(', ')}.
       Vous ne voyez que les séances qui vous désignent : le secrétariat corrige le professeur des séances dans
       Organisation → Horaire de la semaine.
-      {!data.vide.relie && ' Votre compte n’est par ailleurs relié à aucune fiche de professeur (Configuration → Utilisateurs).'}
+      {!data.vide.relie && ' Votre compte n’est par ailleurs relié à aucune fiche de professeur : la direction le relie dans Personnel → fiche de l’enseignant → Accès Lucie.'}
     </Encadre>;
   }
   if (!data.seances.length) {

@@ -96,13 +96,14 @@ r.post('/', authRequired, gesteRequis('configuration.comptes'), (req, res) => {
     // Si un compte existe déjà avec cet email, le lier au prof plutôt que créer
     const existing = db.prepare('SELECT id FROM utilisateur WHERE email = ?').get(email);
     if (existing) {
+      /* RELIER N'EST PAS RÉGLER (3.1.466, Charles : son compte d'administration n'était relié à aucune fiche
+         de professeur — Mes cours ne trouvait ni horaire ni agenda). Relier un compte EXISTANT à la fiche ne
+         touche plus à son rôle, son périmètre ni ses droits : le formulaire de la fiche proposait « Professeur »
+         par défaut, et relier le compte de la direction l'aurait fait descendre au rang de professeur. */
       if (professeur_id) {
-        db.prepare('UPDATE utilisateur SET professeur_id = ?, role = ?, actif = 1 WHERE id = ?')
-          .run(professeur_id, role, existing.id);
-        if (perms != null) enregistrerDroits(existing.id, role, perms);
-        poserPerimetre(existing.id, sections, perimetre_toutes);
+        db.prepare('UPDATE utilisateur SET professeur_id = ?, actif = 1 WHERE id = ?').run(professeur_id, existing.id);
       }
-      return res.status(200).json({ id: existing.id, linked: true });
+      return res.status(200).json({ id: existing.id, linked: true, role_garde: true });
     }
     const hash = bcrypt.hashSync(password, 10);
     const result = db.prepare(`

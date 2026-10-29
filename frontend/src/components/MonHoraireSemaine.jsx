@@ -69,7 +69,7 @@ export default function MonHoraireSemaine({ onFermer }) {
         {erreur && <Encadre etat="corriger">{erreur}</Encadre>}
         {data && !data.relie && (
           <Encadre etat="surveiller" titre="Votre compte n’est relié à aucune fiche de professeur">
-            Lucie ne peut pas savoir quelles séances sont les vôtres : la direction relie le compte à la fiche (Configuration → Utilisateurs).
+            Lucie ne peut pas savoir quelles séances sont les vôtres. La direction le relie dans Personnel → fiche de l’enseignant → Accès Lucie, en y indiquant l’adresse de connexion de ce compte (son rôle ne change pas).
           </Encadre>)}
         {data && data.relie && !seances.length && (
           <Encadre etat="neutre" titre="Aucune séance cette semaine">

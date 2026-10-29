@@ -50,7 +50,7 @@ export default function AgendaAbonnement({ onFermer }) {
       </>}>
       {!etat && !erreur && <p className="text-sm text-slate-400">Chargement…</p>}
       {etat && !etat.professeur && (
-        <Encadre etat="neutre" titre="Pas d’horaire à publier">Ce compte n’est relié à aucun dossier d’enseignant : l’horaire ne connaît que les cours des enseignants.</Encadre>)}
+        <Encadre etat="neutre" titre="Pas d’horaire à publier">Ce compte n’est relié à aucune fiche d’enseignant : l’horaire ne connaît que les cours des enseignants. La direction le relie dans Personnel → fiche de l’enseignant → Accès Lucie, en y indiquant l’adresse de connexion de ce compte (son rôle ne change pas).</Encadre>)}
       {etat?.professeur && (
         <div className="space-y-3 text-sm">
           <p className="m-0">Ajoutez ce lien une fois à votre agenda : vos cours y paraissent avec l’heure et le local, et un cours déplacé
