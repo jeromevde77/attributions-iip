@@ -256,6 +256,9 @@ sa case — elle coche ses étudiants AFFICHÉS (filtres compris), à moitié co
 en clair (`incoherences`) et un bouton pose, pour chacun, le geste de la fiche : ses cours où l'acquis échoue s'ajournent
 pour leurs acquis en échec ; un acquis qui n'échoue dans aucun cours s'ajourne lui-même
 (`POST /deliberation/ue/:ueNum/ajourner-oublies`, simulation puis confirmation). Ni la décision ni une note ne changent.
+**La barre de la liste des étudiants** (3.1.456, maquette validée par Charles) : une ligne — recherche, section,
+niveau, bouton « Filtres » (le nombre de filtres actifs), statuts ; le panneau range Inscription, Programme, Section
+posée/déduite, Dossier, Doublons et Plus de 60 ECTS ; les filtres actifs se lisent en pastilles sous la barre.
 
 **UNE UE DISPENSÉE EN ENTIER EST ACQUISE — ÇA SE LIT DU DOSSIER DE VA** (3.1.438). Les crédits de l'annexe 2,
 l'état du parcours (schéma) et le motif de l'annexe 2 attendaient un résultat `'valorise'` sur

@@ -19,7 +19,7 @@ import {
   IconAddressBook, IconListSearch, IconAlertTriangle, IconEyeCheck, IconTablePlus, IconArrowForwardUp, IconArchive, IconDoorExit, IconSchool, IconArrowBackUp, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconSend, IconWritingSign, IconWritingSignOff, IconX,
   IconChecks, IconLock, IconGift,
   IconQrcode,
-  IconCash,
+  IconCash, IconAdjustmentsHorizontal,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
@@ -3024,6 +3024,7 @@ export default function Etudiants() {
   // « Doublons » : ne garder que les étudiants dont le nom+prénom (accents et
   // casse ignorés) existe sur PLUSIEURS fiches — les dossiers coupés en deux.
   const [fDoublons, setFDoublons] = useState(false);
+  const [filtresOuverts, setFiltresOuverts] = useState(false);   // panneau « Filtres » (3.1.456)
   const [sections, setSections] = useState([]);
   const [selId, setSelId] = useState(null);
   // LA COHORTE QU'ON PARCOURT. La section existait déjà comme filtre de la
@@ -3743,102 +3744,130 @@ export default function Etudiants() {
         Étudiants <span className="compte">· {filtres.length}</span>
       </h1>
 
-      <div className="flex gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-[200px]">
-          <IconSearch size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input value={recherche} onChange={e => setRecherche(e.target.value)}
-            placeholder="Nom, prénom ou identifiant…" data-reponses="non"
-            className="w-full border border-slate-300 rounded-lg pl-9 pr-8 py-2 text-sm" />
-          {recherche && <button type="button" onClick={() => setRecherche('')} title="Effacer la recherche"
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><IconX size={14} /></button>}
-        </div>
-        <select value={section} onChange={e => setSection(e.target.value)}
-          title="La section de l'étudiant — posée, ou déduite de ses UE"
-          className="border border-slate-300 rounded-lg px-3 py-2 text-sm">
-          <option value="">Toutes les sections</option>
-          {sections.map(s => <option key={s.code} value={s.code}>{s.libelle}</option>)}
-          <option value="__aucune__">Sans section</option>
-        </select>
-        <select value={fNiveau} onChange={e => setFNiveau(e.target.value)}
-          className="border border-slate-300 rounded-lg px-3 py-2 text-sm">
-          <option value="">Tous les niveaux</option>
-          <option value="BA1">BA1</option>
-          <option value="BA2">BA2</option>
-          <option value="BA3">BA3</option>
-          <option value="MIXTE">Parcours mixte</option>
-          <option value="aucun">Sans niveau</option>
-        </select>
-        <select value={fUE} onChange={e => setFUE(e.target.value)}
-          className="border border-slate-300 rounded-lg px-3 py-2 text-sm">
-          <option value="">Avec ou sans UE</option>
-          <option value="sans">Sans aucune UE</option>
-          <option value="avec">Avec des UE</option>
-        </select>
-        <select value={fRatt} onChange={e => setFRatt(e.target.value)}
-          title="Posée dans le dossier, ou déduite par Lucie de ses UE"
-          className="border border-slate-300 rounded-lg px-3 py-2 text-sm">
-          <option value="">Section posée ou déduite</option>
-          <option value="posee">Section posée</option>
-          <option value="deduite">Section déduite seulement</option>
-          <option value="aucune">Aucune section</option>
-        </select>
-        {/* PRIMO OU LES AUTRES : un primo-arrivé n'a aucune inscription ni
-            valorisation avant l'année de travail ; « déjà inscrits » est
-            l'inverse exact. */}
-        <select value={fPrimo} onChange={e => setFPrimo(e.target.value)}
-          title="Primo-arrivé : aucune inscription ni valorisation avant l'année de travail"
-          className="controle text-sm">
-          <option value="">Primo et déjà inscrits</option>
-          <option value="primo">Primo-arrivés</option>
-          <option value="anciens">Déjà inscrits avant (non primo)</option>
-        </select>
-        {/* LES DOSSIERS À COMPLÉTER (Charles, 9 octobre 2026) : un champ à la
-            fois, pour que le secrétariat passe en revue « tous ceux sans
-            nationalité », puis « tous ceux sans titre d'accès ». */}
-        <select value={fManque} onChange={e => setFManque(e.target.value)}
-          title="Ne montrer que les dossiers auxquels manque ce renseignement"
-          className="controle text-sm">
-          <option value="">Dossier complet ou non</option>
-          <option value="tout">Incomplet — au moins un champ ({comptesManques.tout || 0})</option>
-          {MANQUES.map(([k, l]) => <option key={k} value={k}>Sans {l} ({comptesManques[k] || 0})</option>)}
-        </select>
-        <label className="flex items-center gap-1.5 text-sm text-slate-600 self-center"
-          title="Ne montrer que les étudiants dont le nom et le prénom existent sur plusieurs fiches">
-          <input type="checkbox" checked={fDoublons} onChange={e => setFDoublons(e.target.checked)} />
-          Doublons
-        </label>
-        <label className="flex items-center gap-1.5 text-sm text-slate-600 self-center"
-          title="Ne montrer que les étudiants dont le programme de l'année dépasse 60 ECTS">
-          <input type="checkbox" checked={fPlus60} onChange={e => setFPlus60(e.target.checked)} />
-          Plus de 60 ECTS
-        </label>
-        {(section || fNiveau || fUE || fRatt || fPrimo || fDoublons || fPlus60 || fManque) && (
-          <button className="text-second text-iip-blue underline self-center"
-            onClick={() => { setSection(''); setFNiveau(''); setFUE(''); setFRatt(''); setFPrimo(''); setFDoublons(false); setFPlus60(false); setFManque(''); }}>
-            Tout effacer
-          </button>
-        )}
-        <div className="segments">
-          {[
-            { k: 'en_cours', l: 'En cours',
-              t: 'Les étudiants dont le parcours n’est pas achevé' },
-            { k: 'diplomes', l: 'Diplômés',
-              t: 'Épreuve intégrée réussie, ou diplôme déclaré à la main' },
-            { k: 'sortis', l: 'Sortis',
-              t: 'Ont quitté le cursus : abandon, réorientation, exclusion' },
-            { k: 'archives', l: 'Archivés',
-              t: 'Rangés à la cave : hors des listes de travail, rien n’est effacé' },
-            { k: 'tous', l: 'Tous', t: 'Tout le monde, quel que soit son statut' },
-          ].map(x => (
-            <button key={x.k} onClick={() => setStatut(x.k)} title={x.t}
-              className={`px-3 py-2 text-sm ${statut === x.k
-                ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>
-              {x.l}
-            </button>
-          ))}
-        </div>
-      </div>
-
+      {/* UNE LIGNE, L'ESSENTIEL VISIBLE (3.1.456, maquette validée par Charles le 29 octobre 2026 :
+          « trop de boutons, cet écran est ancien »). Recherche, section, niveau et statut restent
+          sur la ligne ; le reste se range derrière « Filtres », et ce qui est actif se lit en
+          pastilles sous la barre — un filtre caché dans un panneau ne passe jamais inaperçu. */}
+      {(() => {
+        const actifs = [
+          fPrimo && { k: 'primo', l: fPrimo === 'primo' ? 'Primo-arrivés' : 'Déjà inscrits avant', off: () => setFPrimo('') },
+          fUE && { k: 'ue', l: fUE === 'sans' ? 'Sans aucune UE' : 'Avec des UE', off: () => setFUE('') },
+          fRatt && { k: 'ratt', l: ({ posee: 'Section posée', deduite: 'Section déduite seulement', aucune: 'Aucune section' })[fRatt], off: () => setFRatt('') },
+          fManque && { k: 'manque', l: fManque === 'tout' ? 'Dossier incomplet' : `Sans ${LIBELLE_MANQUE[fManque] || fManque}`, off: () => setFManque('') },
+          fDoublons && { k: 'doublons', l: 'Doublons', off: () => setFDoublons(false) },
+          fPlus60 && { k: 'plus60', l: 'Plus de 60 ECTS', off: () => setFPlus60(false) },
+        ].filter(Boolean);
+        const toutEffacer = () => { setSection(''); setFNiveau(''); setFUE(''); setFRatt(''); setFPrimo(''); setFDoublons(false); setFPlus60(false); setFManque(''); };
+        const ligne = (libelle, champ) => (
+          <label className="grid grid-cols-[110px_1fr] items-center gap-3 text-sm text-iip-texte">{libelle}{champ}</label>);
+        return (
+          <div className="space-y-2">
+            <div className="flex gap-2.5 flex-wrap items-center">
+              <div className="relative flex-1 min-w-[220px]">
+                <IconSearch size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input value={recherche} onChange={e => setRecherche(e.target.value)}
+                  placeholder="Nom, prénom ou matricule…" data-reponses="non"
+                  className="controle controle-icone w-full pr-8" />
+                {recherche && <button type="button" onClick={() => setRecherche('')} title="Effacer la recherche"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><IconX size={14} /></button>}
+              </div>
+              <select value={section} onChange={e => setSection(e.target.value)}
+                title="La section de l'étudiant — posée, ou déduite de ses UE" className="controle">
+                <option value="">Toutes les sections</option>
+                {sections.map(s => <option key={s.code} value={s.code}>{s.libelle}</option>)}
+                <option value="__aucune__">Sans section</option>
+              </select>
+              <select value={fNiveau} onChange={e => setFNiveau(e.target.value)} className="controle">
+                <option value="">Tous les niveaux</option>
+                <option value="BA1">BA1</option>
+                <option value="BA2">BA2</option>
+                <option value="BA3">BA3</option>
+                <option value="MIXTE">Parcours mixte</option>
+                <option value="aucun">Sans niveau</option>
+              </select>
+              <div className="relative">
+                <button type="button" onClick={() => setFiltresOuverts(o => !o)} aria-expanded={filtresOuverts}
+                  className={`controle inline-flex items-center gap-2 font-semibold ${actifs.length ? 'border-iip-blue text-iip-blue' : ''}`}>
+                  <IconAdjustmentsHorizontal size={16} /> Filtres
+                  {actifs.length > 0 && <span className="px-1.5 rounded-full text-white text-xs" style={{ background: 'var(--c-principal)' }}>{actifs.length}</span>}
+                </button>
+                {filtresOuverts && (<>
+                  <div className="fixed inset-0 z-30" onClick={() => setFiltresOuverts(false)} />
+                  <div className="absolute right-0 mt-2 z-40 w-[420px] max-w-[calc(100vw-2rem)] bg-white border border-slate-200
+                                  rounded-carte shadow-flottant p-4 space-y-2.5">
+                    {ligne('Inscription', (
+                      <select value={fPrimo} onChange={e => setFPrimo(e.target.value)} className="controle w-full"
+                        title="Primo-arrivé : aucune inscription ni valorisation avant l'année de travail">
+                        <option value="">Primo et déjà inscrits</option>
+                        <option value="primo">Primo-arrivés</option>
+                        <option value="anciens">Déjà inscrits avant (non primo)</option>
+                      </select>))}
+                    {ligne('Programme', (
+                      <select value={fUE} onChange={e => setFUE(e.target.value)} className="controle w-full">
+                        <option value="">Avec ou sans UE</option>
+                        <option value="sans">Sans aucune UE</option>
+                        <option value="avec">Avec des UE</option>
+                      </select>))}
+                    {ligne('Section', (
+                      <select value={fRatt} onChange={e => setFRatt(e.target.value)} className="controle w-full"
+                        title="Posée dans le dossier, ou déduite par Lucie de ses UE">
+                        <option value="">Posée ou déduite</option>
+                        <option value="posee">Section posée</option>
+                        <option value="deduite">Section déduite seulement</option>
+                        <option value="aucune">Aucune section</option>
+                      </select>))}
+                    {/* LES DOSSIERS À COMPLÉTER (9 octobre 2026) : un champ à la fois. */}
+                    {ligne('Dossier', (
+                      <select value={fManque} onChange={e => setFManque(e.target.value)} className="controle w-full"
+                        title="Ne montrer que les dossiers auxquels manque ce renseignement">
+                        <option value="">Complet ou non</option>
+                        <option value="tout">Incomplet — au moins un champ ({comptesManques.tout || 0})</option>
+                        {MANQUES.map(([k, l]) => <option key={k} value={k}>Sans {l} ({comptesManques[k] || 0})</option>)}
+                      </select>))}
+                    <div className="flex gap-5 pt-1 text-sm text-iip-texte">
+                      <label className="flex items-center gap-1.5"
+                        title="Ne montrer que les étudiants dont le nom et le prénom existent sur plusieurs fiches">
+                        <input type="checkbox" checked={fDoublons} onChange={e => setFDoublons(e.target.checked)} /> Doublons</label>
+                      <label className="flex items-center gap-1.5"
+                        title="Ne montrer que les étudiants dont le programme de l'année dépasse 60 ECTS">
+                        <input type="checkbox" checked={fPlus60} onChange={e => setFPlus60(e.target.checked)} /> Plus de 60 ECTS</label>
+                    </div>
+                    <div className="flex justify-between items-center pt-2 border-t border-slate-100">
+                      <button type="button" className="text-second text-iip-blue underline" onClick={toutEffacer}>Tout effacer</button>
+                      <button type="button" className="bouton" onClick={() => setFiltresOuverts(false)}>Fermer</button>
+                    </div>
+                  </div>
+                </>)}
+              </div>
+              <div className="segments">
+                {[
+                  { k: 'en_cours', l: 'En cours', t: 'Les étudiants dont le parcours n’est pas achevé' },
+                  { k: 'diplomes', l: 'Diplômés', t: 'Épreuve intégrée réussie, ou diplôme déclaré à la main' },
+                  { k: 'sortis', l: 'Sortis', t: 'Ont quitté le cursus : abandon, réorientation, exclusion' },
+                  { k: 'archives', l: 'Archivés', t: 'Rangés à la cave : hors des listes de travail, rien n’est effacé' },
+                  { k: 'tous', l: 'Tous', t: 'Tout le monde, quel que soit son statut' },
+                ].map(x => (
+                  <button key={x.k} onClick={() => setStatut(x.k)} title={x.t}
+                    className={`px-3 py-2 text-sm ${statut === x.k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>
+                    {x.l}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {(actifs.length > 0 || section || fNiveau) && (
+              <div className="flex flex-wrap items-center gap-2 text-second text-slate-600">
+                {actifs.length > 0 && <span>Filtres actifs :</span>}
+                {actifs.map(f => (
+                  <span key={f.k} className="inline-flex items-center gap-1 pl-2.5 pr-1.5 py-0.5 rounded-full bg-white border border-slate-300 text-iip-texte">
+                    {f.l}
+                    <button type="button" onClick={f.off} title={`Retirer « ${f.l} »`} className="text-slate-400 hover:text-slate-700"><IconX size={13} /></button>
+                  </span>))}
+                <button type="button" className="text-iip-blue underline" onClick={toutEffacer}>Tout effacer</button>
+              </div>
+            )}
+          </div>
+        );
+      })()}
       {erreurListe && (
         <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-sm
                         text-red-800 mb-3">
