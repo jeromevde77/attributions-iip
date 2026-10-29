@@ -220,6 +220,10 @@ Présences du titre « Pilotage des dotations · Année civile null ». Contrôl
 quatre bancs (159 vérifications) et un robot qui ouvre chaque écran et chaque entrée de rail pour chaque rôle
 (Playwright) — sur la base d'essai, aucun plantage d'écran ; ses erreurs serveur viennent toutes de tables
 absentes de cette vieille base. **La seule vérification sur données réelles est celle de la dev, à l'écran.**
+Le robot a trouvé un défaut réel : EA12, ouvert par une coordination (adresse tapée), faisait planter la page sur
+le refus du serveur ; il le dit désormais à l'écran (3.1.447). **Les essais locaux se font en
+`PERMISSIONS_MODE=strict`**, comme la production et la dev (`docker-compose.vps.yml`) : sans lui, le garde des
+modules laisse tout passer (mode « constat ») et un essai ne voit pas ce qu'un rôle se verra refuser.
 
 **UNE UE DISPENSÉE EN ENTIER EST ACQUISE — ÇA SE LIT DU DOSSIER DE VA** (3.1.438). Les crédits de l'annexe 2,
 l'état du parcours (schéma) et le motif de l'annexe 2 attendaient un résultat `'valorise'` sur
