@@ -66,6 +66,7 @@
 // directeur et direction adjointe — « accès niveau 1 », pour Charles.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { modeEmploiPour } from '../lib/modeEmploi.js';
 import express from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -271,6 +272,13 @@ export function nouveautesPour(html, role) {
     .replace(/<li data-pour="([^"]*)">[\s\S]*?<\/li>\s*/g, (m, pour) => (garde(pour) ? m : ''))
     .replace(/<nav class="filtres"[\s\S]*?<\/nav>\s*/, '');
 }
+/* LE MODE D'EMPLOI, SELON LE PROFIL (3.1.467) : chacun ne reçoit que les chapitres et les points de son métier ;
+   la direction peut regarder « comme » un public (`?voir=ens|sec|coo|dir`). */
+r.get('/mode-emploi', authRequired, (req, res) => {
+  const voir = ['ens', 'sec', 'coo', 'dir'].includes(String(req.query.voir || '')) ? String(req.query.voir) : null;
+  res.setHeader('Cache-Control', 'no-store');
+  res.json(modeEmploiPour(req.user?.role || '', voir));
+});
 r.get('/nouveautes/:edition', authRequired, (req, res) => {
   const ed = String(req.params.edition || '');
   if (!/^\d{4}-\d{2}$/.test(ed)) return res.status(404).json({ error: 'Édition inconnue' });

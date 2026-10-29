@@ -302,6 +302,16 @@ retoucher.
 Accès Lucie (`POST /api/users` avec `professeur_id` et l'adresse d'un compte EXISTANT) ; cette route réécrivait aussi rôle,
 périmètre et droits avec ceux du formulaire (« Professeur » par défaut) — relier la direction l'aurait rétrogradée. Elle ne
 pose plus que `professeur_id`. Les trois messages « non relié » (agenda, semaine, présences) disent où faire le lien.
+**Le mode d'emploi devient un guide illustré, filtré par rôle** (3.1.467, Charles : « un vrai guide illustré et joli,
+même avec animations » ; choix : schémas animés, filtré par rôle, livré le jour même). Le CONTENU quitte `pages/Aide.jsx`
+pour `backend/src/lib/modeEmploi.js` (`RUBRIQUES`, `pour` par chapitre et au besoin par point : ens · sec · coo · dir ;
+`VERSION_DECRITE`), servi par `GET /api/documentation/mode-emploi` (`?voir=` pour la direction) — un professeur ne reçoit que
+5 chapitres. L'écran (`pages/Aide.jsx`) : sommaire à gauche (bandeau sur iPad), une page par chapitre — en-tête avec
+schéma animé (`components/IllustrationsGuide.jsx` : un dessin par chapitre, le PRINCIPE et jamais le détail d'un écran ;
+animations coupées par `prefers-reduced-motion`), points en cartes numérotées, chemin « Où » en étapes, « À savoir »,
+chapitre suivant. **Une nouvelle fonction s'écrit dans `modeEmploi.js`, avec son `pour`.** Contenu mis à jour de 3.1.283 à
+3.1.467 (versements, extraits, suivi des présences, Ma journée et QR, ticket, carnet, horaire de la semaine, labo en étapes,
+consultation de l'horaire, clôture et seconde session, présences et PEP, plan d'action qualité).
 
 **UNE UE DISPENSÉE EN ENTIER EST ACQUISE — ÇA SE LIT DU DOSSIER DE VA** (3.1.438). Les crédits de l'annexe 2,
 l'état du parcours (schéma) et le motif de l'annexe 2 attendaient un résultat `'valorise'` sur
