@@ -98,8 +98,10 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
       .then(r => (r.ok ? r.json() : null)).then(u => setNiv(u?.ue_niv || null)).catch(() => {});
   }, [ueNum, annee]);
 
-  async function charger() {
-    setErreur(null);
+  // `garder` : après un refus, le rechargement ne doit pas effacer le message qui l'explique
+  // (il l'effaçait aussitôt : la note revenait, sans un mot — Charles, 29 octobre 2026).
+  async function charger(garder = false) {
+    if (garder !== true) setErreur(null);
     try {
       const rep = await fetch(`/api/acquis/ue/${ueNum}/feuille`
         + `?annee=${encodeURIComponent(annee)}&session=${session}`, { headers: authHeaders() });
@@ -153,7 +155,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
       if (!rep.ok) {
         const j = await rep.json().catch(() => ({}));
         setErreur(j.error || 'Enregistrement refusé.');
-        await charger();
+        await charger(true);
       } else {
         setErreur(null); setDernier(Date.now()); onEnregistre?.();
       }
@@ -177,7 +179,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
         const j = await rep.json().catch(() => ({}));
         setErreur(j.error || 'Enregistrement refusé.');
       } else setErreur(null);
-      await charger(); onEnregistre?.();
+      await charger(!rep.ok); onEnregistre?.();
     } catch (e) { setErreur(e.message); }
     finally { setEnAttente(n => n - 1); }
   }

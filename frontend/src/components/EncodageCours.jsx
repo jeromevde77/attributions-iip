@@ -52,8 +52,10 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
   const [enAttente, setEnAttente] = useState(0);
   const [importer, setImporter] = useState(false);
 
-  async function charger() {
-    setErreur(null);
+  // `garder` : après un refus, le rechargement ne doit pas effacer le message qui l'explique
+  // (il l'effaçait aussitôt : la note revenait, sans un mot — Charles, 29 octobre 2026).
+  async function charger(garder = false) {
+    if (garder !== true) setErreur(null);
     try {
       const rep = await fetch(
         `/api/acquis/cours/${encodeURIComponent(coursCode)}/feuille`
@@ -123,7 +125,7 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
         const j = await rep.json().catch(() => ({}));
         setErreur(j.error || 'Enregistrement refusé.');
       } else { setErreur(null); onEnregistre && onEnregistre(); }
-      await charger();
+      await charger(!rep.ok);
     } catch (e) { setErreur(e.message); }
     finally { setEnAttente(n => n - 1); }
   }
@@ -148,7 +150,7 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
       if (!rep.ok) {
         const j = await rep.json().catch(() => ({}));
         setErreur(j.error || 'Enregistrement refusé.');
-        await charger();
+        await charger(true);
       } else { setErreur(null); onEnregistre && onEnregistre(); }
     } catch (e) { setErreur(e.message); }
     finally { setEnAttente(n => n - 1); }

@@ -995,6 +995,10 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
         },
       }));
       charger();
+    } else {
+      // Un refus se dit : une note d'une séance close revenait à sa valeur sans un mot.
+      const j = await rep.json().catch(() => ({}));
+      informer(`❌ ${j.error || 'Enregistrement refusé.'}`);
     }
   }
 

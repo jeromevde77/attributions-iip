@@ -230,6 +230,10 @@ Le robot a trouvé un défaut réel : EA12, ouvert par une coordination (adresse
 le refus du serveur ; il le dit désormais à l'écran (3.1.447). **Les essais locaux se font en
 `PERMISSIONS_MODE=strict`**, comme la production et la dev (`docker-compose.vps.yml`) : sans lui, le garde des
 modules laisse tout passer (mode « constat ») et un essai ne voit pas ce qu'un rôle se verra refuser.
+**Un refus se dit, il ne s'efface pas** (3.1.450, test de Charles du 29 octobre : « Lucie ne me propose rien, si je
+clique rien ne se passe ») : dans l'encodage d'une UE et d'un cours, le message du 409 (séance close) était posé
+puis effacé par le rechargement de la grille (`charger()` commençait par `setErreur(null)`) — la note revenait sans
+un mot. `charger(true)` garde le message ; la grille du parcours de la fiche, qui ignorait tout refus, le dit.
 
 **UNE UE DISPENSÉE EN ENTIER EST ACQUISE — ÇA SE LIT DU DOSSIER DE VA** (3.1.438). Les crédits de l'annexe 2,
 l'état du parcours (schéma) et le motif de l'annexe 2 attendaient un résultat `'valorise'` sur
