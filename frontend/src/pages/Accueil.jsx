@@ -625,7 +625,7 @@ export default function Accueil() {
         <Fenetre icone={IconFilter} large="petite" titre="Filtrer le journal"
           sous="Ce qu'on regarde, et sur quelle durée"
           onFermer={() => setFiltres(false)}>
-          <div className="p-5 space-y-4">
+          <div className="space-y-4">
             <div>
               <div className="intertitre mb-1.5">Quels événements</div>
               <div className="carte divide-y divide-slate-100">

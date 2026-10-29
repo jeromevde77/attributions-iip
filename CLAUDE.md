@@ -264,6 +264,9 @@ sur la section du filtre (3.1.457, `sectionInitiale` de `ComposerPAE`).
 **La clôture ouvre la seconde session** (3.1.458, Charles, UE 333 : « séance close et pas de seconde session proposée ») :
 `sessionDeLUE` exigeait en plus une décision de première session pour CHAQUE inscrit ; un seul dossier sans décision
 tenait la seconde fermée, sans un mot. Désormais : séance de première session close + au moins un ajourné.
+**Une seule marge, celle de la fenêtre** (3.1.459, Charles : « alignement de fenêtre à revoir ») : `Fenetre` pose
+`px-5 py-4` sur son corps ; Nouvel étudiant, Filtrer le journal (Accueil) et la fenêtre d'Attributions y ajoutaient
+un `p-5` — contenu décalé de 20 px par rapport au titre et au pied. Un corps de fenêtre ne pose pas de marge.
 
 **UNE UE DISPENSÉE EN ENTIER EST ACQUISE — ÇA SE LIT DU DOSSIER DE VA** (3.1.438). Les crédits de l'annexe 2,
 l'état du parcours (schéma) et le motif de l'annexe 2 attendaient un résultat `'valorise'` sur

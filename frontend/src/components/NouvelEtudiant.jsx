@@ -104,7 +104,7 @@ export default function NouvelEtudiant({ onClose, onCree }) {
   return (
     <Fenetre icone={IconUserPlus} onFermer={onClose} large="petite"
       titre="Nouvel étudiant"
-      sous="La carte d'identité, ou le nom et le prénom — le reste se complète dans la fiche"
+      sous="Carte d'identité, ou nom et prénom — le reste se complète dans la fiche"
       pied={<>
         <button onClick={() => creer(false)} disabled={!pret || enCours || !!doublons}
           className="bouton bouton-fort disabled:opacity-40">
@@ -112,7 +112,9 @@ export default function NouvelEtudiant({ onClose, onCree }) {
         </button>
         <button onClick={onClose} className="bouton ml-auto">Annuler</button>
       </>}>
-      <div className="p-5 space-y-4">
+      {/* UNE SEULE MARGE, CELLE DE LA FENÊTRE (3.1.459, Charles : « alignement à revoir ») : un p-5 en
+          plus décalait le contenu de 20 px par rapport au titre et au pied. */}
+      <div className="space-y-4">
         <button type="button" onClick={lireCarte} disabled={enCours}
           className="bouton w-full justify-center inline-flex items-center gap-2 disabled:opacity-40">
           <IconId size={17} /> Lire la carte d'identité
@@ -134,7 +136,7 @@ export default function NouvelEtudiant({ onClose, onCree }) {
               <option value="">— choisir —</option>
               {sections.map(s => <option key={s.code} value={s.code}>{s.libelle ? `${s.code} — ${s.libelle}` : s.code}</option>)}
             </select></label>
-          <label className="block text-xs"><span className="intertitre block mb-1">Première UE ({annee}, facultatif)</span>
+          <label className="block text-xs"><span className="intertitre block mb-1">Première UE (facultatif)</span>
             <select className="controle w-full" value={ue} disabled={!section} onChange={e => setUe(e.target.value)}>
               <option value="">{section ? '— aucune pour l’instant —' : 'choisir d’abord la section'}</option>
               {ues.map(u => <option key={`${u.ue_num}-${u.section}`} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom}</option>)}
