@@ -249,6 +249,8 @@ désormais, CLOSE, elle verrouille toute l'unité et clôt la session (`close()`
 **Le lot des PP, NP et CM** (3.1.453) : « Décider ces N » lisait la première séance venue de la session pour savoir si
 elle était close, quelle que soit son organisation ; il lit désormais celle de la feuille (`org`). Et son refus se dit
 sous les boutons du lot — sur iPad, le message en haut de la feuille était hors de vue (« je ne sais pas aller plus loin »).
+**Toute une section en un clic** (3.1.454, Charles) : dans la liste des étudiants, l'en-tête de chaque section porte
+sa case — elle coche ses étudiants AFFICHÉS (filtres compris), à moitié cochée quand une partie l'est.
 
 **UNE UE DISPENSÉE EN ENTIER EST ACQUISE — ÇA SE LIT DU DOSSIER DE VA** (3.1.438). Les crédits de l'annexe 2,
 l'état du parcours (schéma) et le motif de l'annexe 2 attendaient un résultat `'valorise'` sur

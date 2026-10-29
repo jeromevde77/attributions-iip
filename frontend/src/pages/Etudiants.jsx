@@ -3999,7 +3999,21 @@ export default function Etudiants() {
                         ne rien dire de plus. */}
                     {parSection.length > 1 && (
                       <tr className="tab-repere">
-                        <td colSpan={6} className="px-4 py-2">
+                        {/* TOUTE UNE SECTION EN UN CLIC (3.1.454, Charles) : la case coche ses étudiants
+                            AFFICHÉS — filtres compris, section repliée ou non. */}
+                        <td className="px-3 py-2 w-10">
+                          {(() => {
+                            const nb = liste.filter(e => selEtudiants.has(e.id)).length;
+                            return <input type="checkbox" checked={nb > 0 && nb === liste.length}
+                              ref={el => { if (el) el.indeterminate = nb > 0 && nb < liste.length; }}
+                              title={nb === liste.length ? `Décocher les étudiants de ${sec}` : `Cocher les ${liste.length} étudiant(s) de ${sec}`}
+                              onChange={() => setSelEtudiants(st => {
+                                const n = new Set(st);
+                                for (const e of liste) nb === liste.length ? n.delete(e.id) : n.add(e.id);
+                                return n; })} />;
+                          })()}
+                        </td>
+                        <td colSpan={5} className="px-1 py-2">
                           <button onClick={basculer}
                             className="flex items-center gap-1.5 text-sm font-semibold">
                             <span className="w-3 inline-block opacity-50">{ouverte ? '−' : '+'}</span>
