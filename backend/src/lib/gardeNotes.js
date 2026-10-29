@@ -9,7 +9,7 @@
  *
  * LA RÈGLE — celle de `clotures()` (routes/mesCours.js) : la séance de la SESSION de la
  * note (« s2| » → 2, sinon 1) et de l'ORGANISATION de l'étudiant ; la ligne « unité
- * entière » ne compte que s'il n'existe aucune séance par organisation. Une séance de
+ * entière », close, verrouille toute l'unité (3.1.452). Une séance de
  * REPRISE d'archives (`reprise = 1`) ne verrouille pas : l'historique se réimporte.
  * Une note reportée (`origine = 'report:…'`) a sa propre garde.
  *
@@ -32,10 +32,10 @@ function close(x) {
               SELECT COALESCE(i.num_organisation, 0) FROM etudiant_inscription i
                WHERE i.etudiant_id = ${x}.etudiant_id AND i.annee_scolaire = ${x}.annee_scolaire
                  AND i.ue_num = ${x}.ue_num LIMIT 1))
-         OR (COALESCE(s.num_organisation, 0) = 0 AND NOT EXISTS (
-              SELECT 1 FROM deliberation_seance s2
-               WHERE s2.ue_num = s.ue_num AND s2.annee_scolaire = s.annee_scolaire
-                 AND s2.session = s.session AND COALESCE(s2.num_organisation, 0) > 0))
+         /* UNE SÉANCE « TOUTE L'UNITÉ » CLOSE EST UN CONSEIL TENU (3.1.452, UE 333 sur la dev : 84
+            non répartis délibérés et clos sur « Toute l'unité », organisations vides) : elle verrouille
+            tous les étudiants de l'unité. Une séance de planification n'est jamais close. */
+         OR COALESCE(s.num_organisation, 0) = 0
          /* L'ÉTUDIANT NON RÉPARTI (3.1.451) : comme dans clotures(), il est clos quand TOUTES les
             séances d'organisation de la session le sont. Sans ce cas, il échappait au verrou. */
          OR (COALESCE(s.num_organisation, 0) > 0 AND COALESCE((

@@ -270,6 +270,8 @@ function clotures(ueNum, annee) {
   } catch { /* colonne absente : l'unité entière */ }
   return (session, etudiantId) => {
     const s = seances.filter(x => x.session === session);
+    // Une séance « toute l'unité » CLOSE est un Conseil tenu : tout le monde est clos (3.1.452).
+    if (s.some(x => !(x.org > 0) && x.cloturee)) return true;
     const parOrg = s.filter(x => x.org > 0);
     if (parOrg.length) {
       const o = orgDe.get(etudiantId) || 0;

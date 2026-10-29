@@ -241,6 +241,11 @@ sienne (`seconde_partielle`, `organisations_s1`), l'encodage le dit et nomme cel
 session, la feuille de délibération propose le choix 1re/2e. (2) La garde des notes laissait passer l'étudiant
 NON RÉPARTI d'une UE délibérée par organisation ; il est clos, comme dans `clotures()`, quand toutes les séances
 d'organisation de la session le sont.
+**Une séance « Toute l'unité » close est un Conseil tenu** (3.1.452, test de Charles, UE 333 : 84 non répartis
+délibérés et clos sur « Toute l'unité », organisations 1 et 2 vides — rien ne se verrouillait, la 2e session ne
+s'ouvrait pas). La ligne org 0 était tenue pour un reste de planification dès qu'existait une séance d'organisation ;
+désormais, CLOSE, elle verrouille toute l'unité et clôt la session (`close()` de `gardeNotes.js`,
+`sessionCloturee`, `clotures()` de Mes cours). Ouverte, elle reste ignorée à côté des séances d'organisation.
 
 **UNE UE DISPENSÉE EN ENTIER EST ACQUISE — ÇA SE LIT DU DOSSIER DE VA** (3.1.438). Les crédits de l'annexe 2,
 l'état du parcours (schéma) et le motif de l'annexe 2 attendaient un résultat `'valorise'` sur

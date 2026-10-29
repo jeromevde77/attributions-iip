@@ -5563,13 +5563,16 @@ r.get('/ue/:ueNum/cours', authRequired, (req, res) => {
 /* UNE SESSION EST CLOSE QUAND TOUTES SES SÉANCES LE SONT. Une unité qui se
  * délibère par organisation tient plusieurs séances pour la même session :
  * la session ne compte close que lorsque chacune l'est. La ligne « unité
- * entière » (num_organisation = 0) ne compte pas dès qu'il existe des
- * séances d'organisation — c'est un reste de planification, pas un Conseil. */
+ * entière » (num_organisation = 0) OUVERTE ne compte pas dès qu'il existe des
+ * séances d'organisation — c'est un reste de planification ; CLOSE, c'est un
+ * Conseil tenu sur toute l'unité, et la session est close (3.1.452). */
 export function sessionCloturee(ueNum, annee, session) {
   const rows = db.prepare(`
     SELECT num_organisation AS org, cloturee FROM deliberation_seance
     WHERE ue_num = ? AND annee_scolaire = ? AND session = ?
   `).all(Number(ueNum), annee, Number(session));
+  // Une séance « toute l'unité » CLOSE est un Conseil tenu : elle clôt la session (3.1.452).
+  if (rows.some(r0 => !(r0.org > 0) && r0.cloturee)) return true;
   const parOrg = rows.filter(r0 => r0.org > 0);
   if (parOrg.length) return parOrg.every(r0 => r0.cloturee);
   return !!rows[0]?.cloturee;
