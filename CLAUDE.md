@@ -211,6 +211,12 @@ dessiné en SVG sur la note de frais (`qrSvg`, dépendance `qrcode`), en image d
 d'IBAN, pas de QR. **À vérifier avec une application bancaire réelle** : que la communication arrive bien
 reconnue comme structurée. Au passage : le `solde` de la note oubliait le forfait VA (total − acompte
 calculé avant lui) ; il porte désormais le total, forfait compris, moins l'acompte.
+**Le CSV** (3.1.448, Charles : « on peut prévoir aussi un import CSV ») : `lireCsv` reconnaît les colonnes à leur
+INTITULÉ, français ou néerlandais, jamais à leur place — BNP Paribas Fortis, Belfius (lignes de titre au-dessus),
+KBC (crédit/débit, communication structurée ET libre, réunies), ING ; motifs lus dans l'ordre (« Nom de la
+contrepartie » avant « Contrepartie », qui chez BNP est un compte). Sans référence de la banque, la référence est
+l'empreinte de la ligne et son rang parmi les identiques : le même fichier redonne les mêmes, deux virements
+identiques restent deux. Encodage latin-1 accepté. Banc : 50 ok.
 
 **LA REPRISE DU 2 NOVEMBRE** (3.1.446, Charles, 29 octobre 2026 : « je veux que lundi tout soit en production »).
 Le guide des nouveautés passe à l'édition `public/nouveautes/2026-11.html` (`EDITION` de `TuileNouveautes.jsx`) :

@@ -1,6 +1,6 @@
 /* LES EXTRAITS DE COMPTE (3.1.444, Charles, 29 octobre 2026 : « un système qui vérifie sur
  * le compte en banque ce qui a été payé »). On dépose l'extrait téléchargé de la banque en
- * ligne (CODA ou CAMT.053) ; Lucie montre d'abord, ligne par ligne, quel étudiant chaque
+ * ligne (CODA, CAMT.053 ou CSV) ; Lucie montre d'abord, ligne par ligne, quel étudiant chaque
  * virement paie — reconnu par sa communication structurée, ou à vérifier — et n'enregistre
  * que ce qui est coché, au nom de la personne connectée. Un virement déjà importé ne se
  * verse pas deux fois. */
@@ -72,14 +72,15 @@ export default function ExtraitsBancaires({ onFermer }) {
       )}>
       {!lu ? (
         <div className="space-y-3 text-sm text-slate-700">
-          <p>Dans la banque en ligne, téléchargez l’extrait du compte qui reçoit les frais, au format <b>CODA</b> ou
-            <b> XML (CAMT.053)</b>, puis déposez-le ici.</p>
+          <p>Dans la banque en ligne, téléchargez l’extrait du compte qui reçoit les frais, au format <b>CODA</b>,
+            <b> XML (CAMT.053)</b> ou <b>CSV</b>, puis déposez-le ici. Pour le CSV, gardez la ligne des titres de colonnes
+            telle que la banque la donne : Lucie y reconnaît la date, le montant, le donneur d’ordre et la communication.</p>
           <p className="text-second text-slate-500">Un virement est reconnu par la <b>communication structurée</b> de
             l’étudiant (elle figure sur sa note de frais). Sans elle, Lucie cherche le nom du donneur d’ordre parmi les
             inscrits de l’année ; la ligne est alors à vérifier.</p>
           <label className="bouton bouton-fort inline-flex items-center gap-2 cursor-pointer">
             <IconUpload size={15} /> {envoi ? 'Lecture…' : 'Choisir l’extrait'}
-            <input type="file" className="hidden" accept=".cod,.coda,.txt,.xml,.CODA,.COD,.XML" onChange={e => lire(e.target.files?.[0])} />
+            <input type="file" className="hidden" accept=".cod,.coda,.txt,.xml,.csv,.CODA,.COD,.XML,.CSV" onChange={e => lire(e.target.files?.[0])} />
           </label>
         </div>
       ) : (

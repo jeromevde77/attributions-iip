@@ -82,5 +82,48 @@ voir('EPC ≤ 331 octets', Buffer.byteLength(epc) <= 331);
 const svg = await qrSvg(epc, 100);
 voir('QR en SVG', svg.startsWith('<svg') && svg.includes('<path d="M'));
 
+// CSV des banques en ligne.
+const bnp = `Numéro de séquence;Date d'exécution;Date valeur;Montant;Devise du compte;Numéro de compte;Type de transaction;Contrepartie;Nom de la contrepartie;Communication;Détails;Statut;Motif du refus
+2026-00123;29/10/2026;29/10/2026;150,00;EUR;BE68539007547034;Virement en euros;BE71096123456769;DUPONT JEAN;${c};VIREMENT DE DUPONT;Accepté;
+2026-00124;28/10/2026;28/10/2026;-1.234,56;EUR;BE68539007547034;Paiement;BE00000000000000;FOURNISSEUR;facture 12;;Accepté;`;
+const lb = lireExtrait(bnp);
+voir('CSV BNP reconnu', lb.format === 'CSV' && lb.mouvements.length === 2);
+voir('CSV BNP montant, nom, compte', lb.mouvements[0].montant === 150 && lb.mouvements[0].nom === 'DUPONT JEAN' && lb.mouvements[0].compte_tiers === 'BE71096123456769');
+voir('CSV BNP communication relue', chercherCommunication(lb.mouvements[0].communication)?.etudiant_id === 123);
+voir('CSV BNP débit en milliers', lb.mouvements[1].montant === -1234.56);
+voir('CSV BNP référence de la banque', lb.mouvements[0].ref === 'csv:2026-00123');
+
+const belfius = `Dernière solde;1.000,00 EUR
+Date du dernier solde;28/10/2026
+
+Compte;Date de comptabilisation;Numéro d'extrait;Numéro de transaction;Compte contrepartie;Nom contrepartie contient;Rue et numéro;Code postal et localité;Transaction;Date valeur;Montant;Devise;BIC;Code pays;Communications
+BE68 5390 0754 7034;29/10/2026;2026/120;000045;BE71 0961 2345 6769;MARTIN MARIE;Rue X 1;1070 Anderlecht;VIREMENT;29/10/2026;40,50;EUR;GKCCBEBB;BE;${ch}`;
+const lf = lireExtrait(belfius);
+voir('CSV Belfius (préambule) reconnu', lf.format === 'CSV' && lf.mouvements.length === 1);
+voir('CSV Belfius nom et montant', lf.mouvements[0].nom === 'MARTIN MARIE' && lf.mouvements[0].montant === 40.5 && lf.mouvements[0].date === '2026-10-29');
+voir('CSV Belfius communication en chiffres', chercherCommunication(lf.mouvements[0].communication)?.etudiant_id === 123);
+
+const kbc = `Numéro de compte;Nom;Monnaie;Numéro extrait;Date;Description;Valeur;Montant;Solde;crédit;débit;numéro de compte contrepartie;BIC contrepartie;Nom contrepartie;Adresse contrepartie;communication structurée;Communication libre
+BE68539007547034;IIP;EUR;120;29/10/2026;VIREMENT;29/10/2026;;;"75,00";;BE71096123456769;KREDBEBB;PEETERS NORA;;${ch};frais`;
+const lk = lireExtrait(kbc);
+voir('CSV KBC crédit sans montant', lk.format === 'CSV' && lk.mouvements[0]?.montant === 75);
+voir('CSV KBC nom contrepartie (pas le titulaire)', lk.mouvements[0].nom === 'PEETERS NORA');
+voir('CSV KBC deux colonnes de communication réunies', chercherCommunication(lk.mouvements[0].communication)?.etudiant_id === 123 && lk.mouvements[0].communication.includes('frais'));
+
+const ing = `Numéro de compte;Nom du compte;Compte partie adverse;Numéro de mouvement;Date comptable;Date valeur;Montant;Devise;Libellés;Détails du mouvement;Message
+BE68539007547034;IIP;BE71096123456769;00321;2026-10-29;2026-10-29;20,00;EUR;Virement;De: JANSSENS YANIS;${c}
+BE68539007547034;IIP;BE71096123456769;00322;2026-10-29;2026-10-29;20,00;EUR;Virement;De: JANSSENS YANIS;${c}`;
+const li = lireExtrait(ing);
+voir('CSV ING reconnu, deux lignes distinctes', li.format === 'CSV' && li.mouvements.length === 2 && li.mouvements[0].ref !== li.mouvements[1].ref);
+voir('CSV ING communication', chercherCommunication(li.mouvements[0].communication)?.etudiant_id === 123);
+
+const sansRef = `Date;Montant;Communication;Nom de la contrepartie
+29/10/2026;10,00;${c};A
+29/10/2026;10,00;${c};A`;
+const r1 = lireExtrait(sansRef).mouvements, r2 = lireExtrait(sansRef).mouvements;
+voir('CSV sans référence : deux virements identiques restent deux', r1.length === 2 && r1[0].ref !== r1[1].ref);
+voir('CSV sans référence : le même fichier redonne les mêmes références', r1[0].ref === r2[0].ref && r1[1].ref === r2[1].ref);
+voir('CSV sans communication refusé', lireExtrait('Date;Montant;Nom\n29/10/2026;1,00;X').format === null);
+
 console.log(`${ok} ok, ${faux} faux`);
 process.exit(faux ? 1 : 0);

@@ -117,7 +117,98 @@ export function lireExtrait(texte) {
   const t = String(texte || '').replace(/^﻿/, '');
   if (/<(?:\w+:)?BkToCstmrStmt\b/.test(t)) return { format: 'CAMT.053', mouvements: lireCamt(t) };
   if (/^0{5}/.test(t) && /\n21/.test(t)) return { format: 'CODA', mouvements: lireCoda(t) };
+  const csv = lireCsv(t);
+  if (csv) return { format: 'CSV', mouvements: csv };
   return { format: null, mouvements: [] };
+}
+
+/* LE CSV DE LA BANQUE EN LIGNE (3.1.448, Charles : « on peut prévoir aussi un import CSV »). Chaque
+   banque a ses colonnes et sa langue ; on les reconnaît à leur INTITULÉ, en français ou en néerlandais
+   (BNP Paribas Fortis, Belfius, ING, KBC…), jamais à leur place. Il faut au moins une date, un montant
+   (ou un débit et un crédit) et une communication ; sinon ce n'est pas un extrait, et on le dit. */
+const sansAcc = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+// Les motifs se lisent DANS L'ORDRE : le premier qui trouve une colonne libre l'emporte (« Nom de la
+// contrepartie » avant « Contrepartie », qui chez BNP Paribas Fortis est le numéro de compte).
+const COLONNES = [
+  ['ref', [/^(numero de sequence|n. de sequence|numero de transaction|numero de mouvement|reference|reference bancaire|volgnummer|transactienummer|referentie|transaction id)$/]],
+  ['date', [/^date d.execution$/, /^date de comptabilisation$/, /^date comptable$/, /^(boekingsdatum|uitvoeringsdatum)$/, /^date$/, /^datum$/, /^booking date$/, /^date (de )?valeur$/, /^valutadatum$/]],
+  ['montant', [/^montant( \(eur\))?$/, /^montant de l.operation$/, /^bedrag( \(eur\))?$/, /^amount$/]],
+  ['credit', [/^credit$/, /^(bedrag )?credit$/]],
+  ['debit', [/^debit$/, /^(bedrag )?debet$/]],
+  ['nom', [/^nom( de la)? contrepartie( contient)?$/, /^nom du donneur d.ordre$/, /^naam (van de )?tegenpartij( bevat)?$/, /^donneur d.ordre$/, /^tegenpartij$/]],
+  ['compte', [/^(numero de )?compte( de la)? contrepartie$/, /^compte partie adverse$/, /^iban contrepartie$/, /^rekening(nummer)? tegenpartij$/, /^tegenrekening$/, /^contrepartie$/]],
+];
+// La communication peut tenir en plusieurs colonnes (KBC : structurée ET libre ; ING : libellés, détails,
+// message) : on les réunit toutes.
+const COMMUNICATION = /^(communications?( structuree| libre)?|mededelingen?|communicatie|gestructureerde mededeling|vrije mededeling|details( du mouvement)?|libelles?|omschrijving|message|description)$/;
+function decouperLigne(l, sep) {
+  const out = []; let cur = '', q = false;
+  for (let i = 0; i < l.length; i++) {
+    const c = l[i];
+    if (q) { if (c === '"' && l[i + 1] === '"') { cur += '"'; i++; } else if (c === '"') q = false; else cur += c; }
+    else if (c === '"') q = true; else if (c === sep) { out.push(cur); cur = ''; } else cur += c;
+  }
+  out.push(cur); return out.map(x => x.trim());
+}
+const nombre = v => {
+  let s = String(v || '').replace(/[\s€]|EUR/g, '');
+  if (!s) return null;
+  if (/,\d{1,2}$/.test(s)) s = s.replace(/\./g, '').replace(',', '.'); else s = s.replace(/,/g, '');
+  const n = Number(s); return Number.isFinite(n) ? n : null;
+};
+const dateCsv = v => {
+  const s = String(v || '').trim();
+  let m = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})/.exec(s); if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s); if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  return null;
+};
+function empreinte(s) { let h = 2166136261; for (const c of s) { h ^= c.codePointAt(0); h = Math.imul(h, 16777619) >>> 0; } return h.toString(36); }
+export function lireCsv(texte) {
+  const lignes = String(texte).split(/\r?\n/).filter(l => l.trim());
+  if (lignes.length < 2) return null;
+  // L'en-tête est la première ligne qui nomme une date ET un montant (certaines banques mettent un titre au-dessus).
+  for (let h = 0; h < Math.min(lignes.length, 30); h++) {
+    for (const sep of [';', ',', '\t']) {
+      const tetes = decouperLigne(lignes[h], sep).map(sansAcc);
+      if (tetes.length < 3) continue;
+      const col = {}, pris = new Set();
+      for (const [k, motifs] of COLONNES) {
+        for (const m of motifs) {
+          const i = tetes.findIndex((t, j) => !pris.has(j) && m.test(t));
+          if (i >= 0) { col[k] = i; pris.add(i); break; }
+        }
+      }
+      const comms = tetes.map((t, j) => (!pris.has(j) && COMMUNICATION.test(t) ? j : -1)).filter(j => j >= 0);
+      if (col.date == null || !comms.length || (col.montant == null && col.credit == null)) continue;
+      const vus = new Map();
+      const mouvements = [];
+      for (const l of lignes.slice(h + 1)) {
+        const c = decouperLigne(l, sep);
+        const date = dateCsv(c[col.date]);
+        let montant = col.montant != null ? nombre(c[col.montant]) : null;
+        if (montant == null && col.credit != null) {
+          const cr = nombre(c[col.credit]), db = col.debit != null ? nombre(c[col.debit]) : null;
+          montant = cr ? Math.abs(cr) : db ? -Math.abs(db) : null;
+        }
+        if (!date || montant == null) continue;
+        const communication = [...new Set(comms.map(j => c[j]).filter(Boolean))].join(' ');
+        const nom = col.nom != null ? c[col.nom] || '' : '';
+        const compte = col.compte != null ? c[col.compte] || '' : '';
+        let ref = col.ref != null && c[col.ref] ? `csv:${c[col.ref]}` : null;
+        if (!ref) {
+          // Sans référence de la banque : l'empreinte de la ligne, et son rang parmi les lignes identiques
+          // — le même fichier réimporté redonne les mêmes références, deux virements identiques restent deux.
+          const base = [date, montant.toFixed(2), communication, nom, compte].join('|');
+          const n = (vus.get(base) || 0) + 1; vus.set(base, n);
+          ref = `csv:${empreinte(base)}:${n}`;
+        }
+        mouvements.push({ ref, date, montant: Math.round(montant * 100) / 100, communication, structuree: false,
+          nom, compte_tiers: compte, compte: null });
+      }
+      return mouvements;
+    }
+  }
+  return null;
 }
 
 /** Un IBAN se vérifie (modulo 97 de la norme ISO 13616). Rend la forme groupée, ou null. */

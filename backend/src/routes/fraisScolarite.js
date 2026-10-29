@@ -464,12 +464,12 @@ function parNom(nom, annee) {
 }
 
 r.post('/banque/lire', authRequired, roleRequired('admin', 'editeur', 'secretariat'), extrait.single('fichier'), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'Déposez l’extrait de compte (CODA ou CAMT.053).' });
+  if (!req.file) return res.status(400).json({ error: 'Déposez l’extrait de compte (CODA, CAMT.053 ou CSV).' });
   const anneeDefaut = String(req.body?.annee || '');
   let texte = req.file.buffer.toString('utf8');
   if (texte.includes('�')) texte = req.file.buffer.toString('latin1');
   const { format, mouvements } = lireExtrait(texte);
-  if (!format) return res.status(400).json({ error: 'Ce fichier n’est ni un extrait CODA ni un CAMT.053. Téléchargez-le depuis la banque en ligne, au format CODA ou XML (CAMT.053).' });
+  if (!format) return res.status(400).json({ error: 'Ce fichier n’est ni un extrait CODA, ni un CAMT.053, ni un CSV de banque reconnu (il faut au moins une date, un montant et une communication). Téléchargez-le depuis la banque en ligne, au format CODA, XML (CAMT.053) ou CSV.' });
   const deja = db.prepare('SELECT etudiant_id, annule_le FROM frais_paiement WHERE banque_ref = ?');
   const cache = new Map();
   const frais = (id, an) => { const k = `${id}|${an}`; if (!cache.has(k)) { try { cache.set(k, calculerFrais(id, an)); } catch { cache.set(k, null); } } return cache.get(k); };
@@ -508,7 +508,7 @@ r.post('/banque/verser', authRequired, roleRequired('admin', 'editeur', 'secreta
   if (!lignes.length) return res.status(400).json({ error: 'Aucune ligne à verser.' });
   const qui = req.user?.nom || req.user?.email || null;
   for (const l of lignes) {
-    if (!l.ref || !String(l.ref).match(/^(coda|camt):/)) return res.status(400).json({ error: 'Ligne sans référence bancaire.' });
+    if (!l.ref || !String(l.ref).match(/^(coda|camt|csv):/)) return res.status(400).json({ error: 'Ligne sans référence bancaire.' });
     if (!(Number(l.montant) > 0)) return res.status(400).json({ error: 'Seuls les crédits se versent.' });
     if (!l.etudiant_id || !etudiantDe(Number(l.etudiant_id))) return res.status(400).json({ error: `Étudiant inconnu pour la ligne ${l.ref}.` });
     if (!/^\d{4}-\d{4}$/.test(String(l.annee || ''))) return res.status(400).json({ error: 'Année attendue au format 2026-2027.' });
