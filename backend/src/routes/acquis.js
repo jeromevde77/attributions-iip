@@ -5621,7 +5621,11 @@ export function sessionDeLUE(ueNum, annee) {
   // l'unité en seconde session, non le simple encodage des décisions.
   const s1Close = sessionCloturee(ueNum, annee, 1);
 
-  const secondeOuverte = s1Faite && s1.ajournes > 0 && s1Close;
+  /* LA CLÔTURE OUVRE LA SECONDE SESSION (3.1.458, Charles, UE 333 : « séance close et pas de délibéré de
+     seconde session proposé »). On exigeait en plus que CHAQUE inscrit ait une décision de première
+     session : un seul dossier sans décision (inscrit tardif, abandon jamais décidé) tenait la seconde
+     session fermée après la clôture, sans un mot. La clôture est l'acte du Conseil : elle suffit. */
+  const secondeOuverte = s1.ajournes > 0 && s1Close;
 
   /* PAR ORGANISATION (3.1.451, Charles, 29 octobre 2026 : « quand je clos la délibération, il ne
      propose pas la 2e session »). L'UE 333 délibère organisation par organisation : la seconde
