@@ -290,6 +290,13 @@ pilote dans le code ; le guide la présente désormais comme en service.
 (`components/MonHoraireSemaine.jsx`, `GET /api/mes-cours/semaine?date=`) — lundi → dimanche (week-end seulement s'il porte
 une séance), à l'échelle du temps, flèches de semaine, séance annulée barrée ; en liste par jour sur téléphone. Mêmes
 séances que Ma journée (`seancesDuCours`) ; un compte relié à aucune fiche de professeur est signalé.
+**Le laboratoire se fait par étapes, l'horaire se consulte hors du labo** (3.1.465, Charles : « pas clair ; par étape,
+avec en dernier la visualisation de l'horaire ; l'horaire visible dans Organisation sans passer par le labo, qui est l'outil
+de création »). `ETAPES_LABO` (`LaboratoireTemporel.jsx`) : 1 schéma · 2 le temps · 3 les groupes · 4 le planning · 5 les
+disponibilités · 6 la semaine · 7 l'horaire — frise numérotée en tête, « ce qu'on fait ici », « Étape suivante », rail et
+sous-menu d'Organisation numérotés dans le même ordre ; le labo s'ouvre sur l'étape 1. Organisation → Horaires s'ouvre sur
+**Consulter l'horaire** (`HoraireSemaine consultation` : ni bac, ni geste d'écriture) ; « Composer la semaine » reste pour
+retoucher.
 
 **UNE UE DISPENSÉE EN ENTIER EST ACQUISE — ÇA SE LIT DU DOSSIER DE VA** (3.1.438). Les crédits de l'annexe 2,
 l'état du parcours (schéma) et le motif de l'annexe 2 attendaient un résultat `'valorise'` sur

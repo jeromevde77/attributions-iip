@@ -43,9 +43,11 @@ async function appel(url, opts = {}) {
   return j;
 }
 
-export default function HoraireSemaine() {
+/* LA CONSULTATION (3.1.465, Charles : « l'horaire doit être visible dans Organisation sans passer par le labo,
+   qui est l'outil de création ») : `consultation` montre la semaine sans bac ni geste d'écriture. */
+export default function HoraireSemaine({ consultation = false }) {
   const [annee] = useState(getAnnee());
-  const peutEcrire = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'coordination'].includes(getUser()?.role);
+  const peutEcrire = !consultation && ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'coordination'].includes(getUser()?.role);
   const [vue, setVue] = useState('classe');
   const [cle, setCle] = useState('');
   const [classes, setClasses] = useState([]);
@@ -205,7 +207,7 @@ export default function HoraireSemaine() {
       {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2">{erreur}</div>}
       {!classes.length && !erreur && <p className="text-slate-500">Aucune classe : l'horaire se construit sur les groupes des attributions, et aucun groupe n'existe encore cette année.</p>}
 
-      <div className={`grid gap-3 ${vue === 'classe' ? 'grid-cols-[minmax(0,1fr)_15rem]' : 'grid-cols-1'}`}>
+      <div className={`grid gap-3 ${vue === 'classe' && !consultation ? 'grid-cols-[minmax(0,1fr)_15rem]' : 'grid-cols-1'}`}>
         {/* LA GRILLE */}
         <div ref={grille} className="border border-slate-200 rounded-carte overflow-hidden bg-white select-none">
           <div className="grid" style={{ gridTemplateColumns: `3rem repeat(${nbJours}, minmax(0,1fr))` }}>
@@ -301,7 +303,7 @@ export default function HoraireSemaine() {
         </div>
 
         {/* LE BAC */}
-        {vue === 'classe' && (
+        {vue === 'classe' && !consultation && (
           <div className="border border-slate-200 rounded-carte p-2.5 space-y-2 self-start">
             <div className="flex items-center justify-between gap-2">
               <b className="text-second text-iip-blue">À placer</b>
@@ -338,7 +340,7 @@ export default function HoraireSemaine() {
           {conflits.slice(0, 6).map(s => `${s.cours_code} le ${court(s.date)} à ${lisible(s.heure_debut)} — ${s.conflits.map(x => RAISONS[x]).join(', ')}`).join(' · ')}
         </div>
       )}
-      {!peutEcrire && <p className="text-xs text-slate-400">Lecture seule : l'horaire se compose par la coordination, le secrétariat et la direction.</p>}
+      {!peutEcrire && !consultation && <p className="text-xs text-slate-400">Lecture seule : l'horaire se compose par la coordination, le secrétariat et la direction.</p>}
 
       {/* LA BULLE D'UNE SÉANCE */}
       {sel && (

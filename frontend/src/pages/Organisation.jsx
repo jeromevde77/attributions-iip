@@ -6,7 +6,7 @@ import { useSearchParams } from 'react-router-dom';
 import Axe from '../components/Axe.jsx';
 import {
   IconLayoutGrid, IconSchool, IconSitemap, IconFileDescription, IconTimeline, IconUserCheck, IconCalendarCog,
-  IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup, IconListDetails, IconCalendarEvent, IconPercentage, IconTable, IconCalendarWeek, IconChartBar, IconPuzzle,
+  IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup, IconListDetails, IconCalendarEvent, IconPercentage, IconTable, IconCalendarWeek, IconChartBar, IconPuzzle, IconEye,
 } from '@tabler/icons-react';
 import Attributions from './Attributions.jsx';
 import Planification from './Planification.jsx';
@@ -68,14 +68,17 @@ export default function Organisation({ ongletInitial }) {
         'horaire-semaine', 'effectifs']]}
       sousMenus={[{ key: 'laboratoire', label: 'Le laboratoire temporel', icone: IconeLaboratoire, hote: 'laboratoire',
         enfants: [
-          { key: 'labo-temps', label: 'Le temps', icone: IconTimeline },
-          { key: 'labo-groupes', label: 'Les groupes', icone: IconPuzzle },
-          { key: 'labo-planning', label: 'Le planning', icone: IconCalendarCog },
-          { key: 'labo-semaine', label: 'La semaine', icone: IconCalendarWeek },
-          { key: 'labo-disponibilites', label: 'Les disponibilités', icone: IconUserCheck },
-          { key: 'labo-schema', label: 'Schéma de capitalisation', icone: IconSitemap },
+          // LES ÉTAPES DANS L'ORDRE DU TRAVAIL (3.1.465) — celui de ETAPES_LABO (LaboratoireTemporel.jsx).
+          { key: 'labo-schema', label: '1. Schéma de capitalisation', icone: IconSitemap },
+          { key: 'labo-temps', label: '2. Le temps', icone: IconTimeline },
+          { key: 'labo-groupes', label: '3. Les groupes', icone: IconPuzzle },
+          { key: 'labo-planning', label: '4. Le planning', icone: IconCalendarCog },
+          { key: 'labo-disponibilites', label: '5. Les disponibilités', icone: IconUserCheck },
+          { key: 'labo-semaine', label: '6. La semaine', icone: IconCalendarWeek },
+          { key: 'labo-horaire', label: '7. L’horaire', icone: IconEye },
         ] }, { key: 'horaire-semaine', label: 'Horaires', icone: IconCalendarWeek, hote: 'horaire-semaine',
         enfants: [
+          { key: 'horaire-consulter', label: 'Consulter l’horaire', icone: IconEye },
           { key: 'horaire-composer', label: 'Composer la semaine', icone: IconCalendarEvent },
           { key: 'horaire-controler', label: 'Contrôler contre les attributions', icone: IconClock },
         ] }, { key: 'unite', label: 'Unité : croiser, pondérer, décrire', icone: IconListDetails, hote: 'unite',
@@ -170,22 +173,30 @@ function CentreHoraire({ annee }) {
   const [face, setFace] = useState(() => {
     try {
       const o = sessionStorage.getItem('lucie.outil');
-      if (o === 'horaire-controler' || o === 'horaire-composer') { sessionStorage.removeItem('lucie.outil'); return o.slice(8); }
+      if (o === 'horaire-controler' || o === 'horaire-composer' || o === 'horaire-consulter') { sessionStorage.removeItem('lucie.outil'); return o.slice(8); }
     } catch { /* sans mémoire de session */ }
-    return 'composer';
+    // CONSULTER D'ABORD (3.1.465, Charles) : on vient voir l'horaire ; le créer se fait au laboratoire.
+    return 'consulter';
   });
   return (
     <div>
       {/* EN SERVICE LE 2 NOVEMBRE 2026 (3.1.463, Charles : « tout passe en service lundi ») : le grisé
           « bientôt » du rail et le bandeau « Version temporaire » du 11 octobre sont retirés. */}
       <RailLateral titre="Horaires" sections={[{ items: [
+        { key: 'horaire-consulter', label: 'Consulter l’horaire', icon: IconEye, actif: face === 'consulter', onClick: () => setFace('consulter') },
         { key: 'horaire-composer', label: 'Composer la semaine', icon: IconCalendarEvent, actif: face === 'composer', onClick: () => setFace('composer') },
         { key: 'horaire-controler', label: 'Contrôler contre les attributions', icon: IconClock, actif: face === 'controler', onClick: () => setFace('controler') },
       ] }]} />
-      {face === 'composer' ? (
-        <div className="p-4">
+      {face === 'consulter' || face === 'composer' ? (
+        <div className="p-4 space-y-3">
+          {face === 'consulter' && (
+            <div>
+              <h1 className="titre-ecran">L’horaire de la semaine</h1>
+              <p className="text-second text-slate-500">Par classe, par professeur ou par local. Il se crée au laboratoire temporel
+                (Organisation → Le laboratoire temporel, étapes 1 à 6) ; une séance se retouche dans « Composer la semaine ».</p>
+            </div>)}
           <Suspense fallback={<div className="text-sm text-slate-400">Chargement…</div>}>
-            <HoraireSemaine />
+            <HoraireSemaine key={face} consultation={face === 'consulter'} />
           </Suspense>
         </div>
       ) : annee
