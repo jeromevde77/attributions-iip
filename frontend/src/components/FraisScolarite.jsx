@@ -149,7 +149,7 @@ export default function FraisScolarite({ etudId, annee }) {
             <div className="text-base font-bold text-slate-700">{eur(f.solde)}</div>
             {f.echeance_solde && (
               <div className="text-xs text-slate-400">
-                pour le {f.echeance_solde}
+                pour le {fr(f.echeance_solde)}
               </div>
             )}
           </div>
