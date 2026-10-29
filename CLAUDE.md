@@ -274,6 +274,10 @@ qui ne concernent pas le rôle (`nouveautesPour` : professeur → ens, secrétar
 adjoint, admin, éditeur → tout, avec les boutons de filtre). **Toute nouvelle entrée du guide porte son `data-pour`**,
 y compris les lignes du « En bref » et de « Ce qui vient ensuite ». La révision (`REVISION` de `TuileNouveautes.jsx`)
 rallume « Nouveau » quand l'édition s'enrichit.
+**Le guide se lit en mise en page** (3.1.461, Charles : « pas en mode texte ; un sous-menu souligné ») : `TuileNouveautes`
+lit le fichier en parties — « En bref », chaque `<h2>`, « Ensuite » —, une partie par onglet souligné (`.onglet-page`), chaque
+nouveauté en carte (`bloc-etat` bleu, ocre pour ce qui est à l'essai ; chemin « Où » en étapes ; étiquette en pastille), en
+deux colonnes. Le fichier s'écrit comme avant ; la direction garde le choix du public pour voir ce que chacun reçoit.
 
 **UNE UE DISPENSÉE EN ENTIER EST ACQUISE — ÇA SE LIT DU DOSSIER DE VA** (3.1.438). Les crédits de l'annexe 2,
 l'état du parcours (schéma) et le motif de l'annexe 2 attendaient un résultat `'valorise'` sur
