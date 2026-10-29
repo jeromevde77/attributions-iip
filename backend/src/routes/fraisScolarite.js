@@ -29,7 +29,7 @@ import { forfaitVA, migrerForfaitVA, exonererForfait } from '../lib/forfaitVA.js
 import { logoCourant, etablissementDeSection } from '../lib/identite.js';
 import { etablissementCourant } from '../lib/contexteRequete.js';
 import multer from 'multer';
-import { communicationStructuree, lireExtrait, chercherCommunication, lireCommunication } from '../lib/banque.js';
+import { communicationStructuree, lireExtrait, chercherCommunication, lireCommunication, chargeEpc, qrSvg } from '../lib/banque.js';
 
 const r = Router();
 
@@ -177,7 +177,7 @@ export function calculerFrais(etudId, annee) {
     frais_administratifs: fraisAdmin,
     total: totalAvecVA,
     acompte,
-    solde,
+    solde: arrondi(totalAvecVA - acompte),   // le forfait VA se paie avec le solde, il ne disparaît pas
     echeance_solde: echeanceSolde,
     paiements,
     paiements_annules: paiementsAnnules,
@@ -187,21 +187,24 @@ export function calculerFrais(etudId, annee) {
     exonere_di: di.exonere,
     tiers: di.tiers,   // droits perçus par un tiers : hors recettes de l'établissement
     detail_ue: di.detail,
-    virement: virementDe(etudId, annee, sec),
+    virement: virementDe(etudId, annee, sec, arrondi(verse < acompte ? acompte - verse : totalAvecVA - verse)),
   };
 }
 
 /* COMMENT PAYER (3.1.444) : le compte de l'établissement de la section, et la communication
    structurée de l'étudiant pour l'année — c'est elle qui rattache le virement sans deviner. */
-export function virementDe(etudId, annee, section) {
+export function virementDe(etudId, annee, section, aPayer = 0) {
   let e = {};
   try {
     const id = section ? etablissementDeSection(section) : 1;
     e = db.prepare('SELECT iban, etab_nom, nom_court FROM etablissement WHERE id = ?').get(id)
       || db.prepare('SELECT iban, etab_nom, nom_court FROM etablissement ORDER BY id LIMIT 1').get() || {};
   } catch { /* colonne iban absente sur une vieille base */ }
-  return { iban: e.iban || null, beneficiaire: e.etab_nom || e.nom_court || null,
-    communication: communicationStructuree(etudId, annee) };
+  const communication = communicationStructuree(etudId, annee);
+  const montant = aPayer > 0 ? aPayer : null;
+  const beneficiaire = e.etab_nom || e.nom_court || null;
+  return { iban: e.iban || null, beneficiaire, communication, montant,
+    epc: chargeEpc({ iban: e.iban, beneficiaire, montant, communication }) };
 }
 
 // ── Consultation ────────────────────────────────────────────────────────────
@@ -279,7 +282,7 @@ r.put('/bareme', authRequired, roleRequired('admin'), (req, res) => {
 });
 
 // ── Note de frais, document distinct de la fiche d'inscription ─────────────
-r.get('/etudiant/:id/document', authRequired, (req, res) => {
+r.get('/etudiant/:id/document', authRequired, async (req, res) => {
   const annee = req.query.annee;
   if (!annee) return res.status(400).json({ error: 'annee requise' });
   const etudId = Number(req.params.id);
@@ -287,6 +290,7 @@ r.get('/etudiant/:id/document', authRequired, (req, res) => {
   const e = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(etudId);
   if (!e) return res.status(404).json({ error: 'étudiant introuvable' });
   const f = calculerFrais(etudId, annee);
+  const qr = f?.virement?.epc ? await qrSvg(f.virement.epc, 110) : '';
   const etab = db.prepare('SELECT * FROM etablissement WHERE id = ?').get(etablissementCourant()) || db.prepare('SELECT * FROM etablissement ORDER BY id LIMIT 1').get() || {};
 
   const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -384,11 +388,15 @@ r.get('/etudiant/:id/document', authRequired, (req, res) => {
   <div style="margin-top:8px">Solde : <b>${eur(f.solde)}</b>, à verser pour le ${fr(f.echeance_solde)} au plus tard.</div>
 </div>
 
-${f.virement?.communication ? `<div class="encadre" style="border-width:1px">
+${f.virement?.communication ? `<div class="encadre" style="border-width:1px;display:flex;gap:14px;align-items:center;page-break-inside:avoid">
+  ${qr ? `<div style="flex:none">${qr}</div>` : ''}
+  <div>
   <div><b>Pour payer par virement</b></div>
   ${f.virement.iban ? `<div style="margin-top:4px">Compte : <b>${esc(f.virement.iban)}</b>${f.virement.beneficiaire ? ` — ${esc(f.virement.beneficiaire)}` : ''}</div>` : ''}
+  ${f.virement.montant ? `<div style="margin-top:4px">Montant : <b>${eur(f.virement.montant)}</b>${f.acompte_verse ? '' : ' (acompte)'}</div>` : ''}
   <div style="margin-top:4px">Communication : <b style="font-size:14px;letter-spacing:.5px">${esc(f.virement.communication)}</b></div>
-  <div class="note">Recopiez exactement cette communication : c'est elle qui rattache votre virement à votre dossier.</div>
+  <div class="note">${qr ? 'Scannez le code avec l’application de votre banque : compte, montant et communication se remplissent seuls. ' : ''}Sinon, recopiez exactement cette communication : c'est elle qui rattache votre virement à votre dossier.</div>
+  </div>
 </div>` : ''}
 
 ${f.paiements.length ? `

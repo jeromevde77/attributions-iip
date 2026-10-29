@@ -128,3 +128,28 @@ export function ibanValide(v) {
   if (BigInt(r) % 97n !== 1n) return null;
   return s.replace(/(.{4})/g, '$1 ').trim();
 }
+
+/* LE QR CODE DE PAIEMENT (3.1.445, Charles : « un QR code à scanner — cela évitera les erreurs de
+   communication »). Le format européen EPC (« BCD », version 002), que lisent les applications
+   bancaires : bénéficiaire, IBAN, montant et communication sont remplis d'office, l'étudiant n'a
+   plus rien à recopier. La communication structurée belge part dans la zone libre, sous sa forme
+   « +++…+++ » : c'est là que les applications belges la reconnaissent, et l'import des extraits
+   la retrouve de toute façon dans le texte (`chercherCommunication`). */
+export function chargeEpc({ iban, beneficiaire, montant, communication }) {
+  const i = String(iban || '').replace(/\s+/g, '').toUpperCase();
+  if (!ibanValide(i) || !communication) return null;
+  const nom = String(beneficiaire || 'Institut Ilya Prigogine').normalize('NFC').slice(0, 70);
+  const m = Number(montant) > 0 && Number(montant) <= 999999999.99 ? `EUR${Number(montant).toFixed(2)}` : '';
+  return ['BCD', '002', '1', 'SCT', '', nom, i, m, '', '', communication].join('\n');
+}
+
+/** Un QR code en SVG, dessiné sans dépendre d'une police ni d'une image : il s'imprime net. */
+export async function qrSvg(texte, taille = 120) {
+  if (!texte) return '';
+  const QR = (await import('qrcode')).default;
+  const q = QR.create(texte, { errorCorrectionLevel: 'M' });
+  const n = q.modules.size, marge = 4, tot = n + 2 * marge;
+  let d = '';
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (q.modules.get(x, y)) d += `M${x + marge},${y + marge}h1v1h-1z`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${taille}" height="${taille}" viewBox="0 0 ${tot} ${tot}" shape-rendering="crispEdges"><rect width="${tot}" height="${tot}" fill="#fff"/><path d="${d}" fill="#000"/></svg>`;
+}

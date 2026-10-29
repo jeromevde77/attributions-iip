@@ -1,3 +1,4 @@
+import QRCode from 'qrcode';
 import { useEffect, useState } from 'react';
 import { authHeaders } from '../lib/api.js';
 import { useDroits } from '../lib/droits.js';
@@ -24,6 +25,11 @@ export default function FraisScolarite({ etudId, annee }) {
   const [detailOuvert, setDetailOuvert] = useState(false);
 
   const [recharge, setRecharge] = useState(0);
+  const [qrPaiement, setQrPaiement] = useState(null);
+  useEffect(() => {
+    if (!f?.virement?.epc) { setQrPaiement(null); return; }
+    QRCode.toDataURL(f.virement.epc, { errorCorrectionLevel: 'M', margin: 2, width: 192 }).then(setQrPaiement).catch(() => setQrPaiement(null));
+  }, [f?.virement?.epc]);
   const droits = useDroits();
   useEffect(() => {
     let vivant = true;
@@ -195,10 +201,15 @@ export default function FraisScolarite({ etudId, annee }) {
         {/* COMMENT PAYER (3.1.444) : la communication structurée rattache le virement à ce
             dossier quand l'extrait de compte est importé — Étudiants → Extraits de compte. */}
         {f.virement?.communication && (
-          <div className="border-t border-slate-200 pt-3 text-second text-slate-600 flex flex-wrap gap-x-6 gap-y-1">
-            <span>Communication structurée : <b className="text-iip-blue tabular-nums select-all">{f.virement.communication}</b></span>
-            <span>Compte : {f.virement.iban ? <b className="select-all">{f.virement.iban}</b>
-              : <span className="text-amber-700">à renseigner dans Configuration → Identité</span>}</span>
+          <div className="border-t border-slate-200 pt-3 text-second text-slate-600 flex flex-wrap items-center gap-x-6 gap-y-1">
+            {qrPaiement && <img src={qrPaiement} alt="QR code de paiement" width={96} height={96}
+              title="À scanner avec l’application bancaire : compte, montant et communication se remplissent seuls." />}
+            <div className="flex flex-col gap-1">
+              <span>Communication structurée : <b className="text-iip-blue tabular-nums select-all">{f.virement.communication}</b></span>
+              <span>Compte : {f.virement.iban ? <b className="select-all">{f.virement.iban}</b>
+                : <span className="text-amber-700">à renseigner dans Configuration → Identité (sans lui, pas de QR code)</span>}</span>
+              {f.virement.montant && f.virement.epc && <span>Le QR code porte <b>{eur(f.virement.montant)}</b>{f.acompte_verse ? '' : ' (acompte)'}.</span>}
+            </div>
           </div>
         )}
 

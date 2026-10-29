@@ -1,6 +1,6 @@
 /* Banc d'essai des extraits de compte (3.1.444) : communication structurée, CODA, CAMT.053.
    Fonctions pures, aucune base. */
-import { communicationStructuree, lireCommunication, chercherCommunication, lireExtrait, ibanValide } from '../src/lib/banque.js';
+import { communicationStructuree, lireCommunication, chercherCommunication, lireExtrait, ibanValide, chargeEpc, qrSvg } from '../src/lib/banque.js';
 
 let ok = 0, faux = 0;
 const voir = (nom, cond) => { if (cond) ok++; else { faux++; console.log('FAUX :', nom); } };
@@ -70,6 +70,17 @@ voir('CAMT texte libre', chercherCommunication(lx.mouvements[1].communication)?.
 voir('CAMT débit', lx.mouvements[2].montant === -12);
 voir('CAMT compte', lx.mouvements[0].compte === 'BE68539007547034');
 voir('autre fichier refusé', lireExtrait('nom;montant\nx;1').format === null);
+
+// QR code de paiement (EPC).
+const epc = chargeEpc({ iban: 'BE68 5390 0754 7034', beneficiaire: 'Institut Ilya Prigogine', montant: 184, communication: c });
+voir('EPC lignes', epc.split('\n').length === 11 && epc.startsWith('BCD\n002\n1\nSCT\n\n'));
+voir('EPC IBAN sans espaces', epc.includes('\nBE68539007547034\n'));
+voir('EPC montant', epc.includes('\nEUR184.00\n'));
+voir('EPC communication relue', chercherCommunication(epc)?.etudiant_id === 123);
+voir('EPC sans IBAN valide', chargeEpc({ iban: 'BE00', communication: c }) === null);
+voir('EPC ≤ 331 octets', Buffer.byteLength(epc) <= 331);
+const svg = await qrSvg(epc, 100);
+voir('QR en SVG', svg.startsWith('<svg') && svg.includes('<path d="M'));
 
 console.log(`${ok} ok, ${faux} faux`);
 process.exit(faux ? 1 : 0);

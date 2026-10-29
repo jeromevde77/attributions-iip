@@ -204,6 +204,13 @@ n'écrit que les lignes cochées, au nom de la personne connectée, nature acomp
 pas versé. **Un virement ne s'importe qu'une fois** : `frais_paiement.banque_ref` unique. Banc :
 `test/banque.mjs` (27 ok). **À vérifier sur un vrai extrait** de la banque de l'école : les positions CODA
 sont celles de la norme Febelfin, jamais encore lues sur un fichier réel.
+**Le QR code de paiement** (3.1.445, Charles : « un QR code à scanner — cela évitera les erreurs de
+communication ») : format européen EPC (`chargeEpc`, « BCD » 002) — bénéficiaire, IBAN, montant (l'acompte
+qui manque, sinon le reste dû) et la communication structurée dans la zone LIBRE, sous sa forme +++…+++ ;
+dessiné en SVG sur la note de frais (`qrSvg`, dépendance `qrcode`), en image dans Fiche → Finances. Pas
+d'IBAN, pas de QR. **À vérifier avec une application bancaire réelle** : que la communication arrive bien
+reconnue comme structurée. Au passage : le `solde` de la note oubliait le forfait VA (total − acompte
+calculé avant lui) ; il porte désormais le total, forfait compris, moins l'acompte.
 
 **UNE UE DISPENSÉE EN ENTIER EST ACQUISE — ÇA SE LIT DU DOSSIER DE VA** (3.1.438). Les crédits de l'annexe 2,
 l'état du parcours (schéma) et le motif de l'annexe 2 attendaient un résultat `'valorise'` sur
