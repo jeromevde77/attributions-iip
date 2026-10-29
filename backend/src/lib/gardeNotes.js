@@ -35,7 +35,17 @@ function close(x) {
          OR (COALESCE(s.num_organisation, 0) = 0 AND NOT EXISTS (
               SELECT 1 FROM deliberation_seance s2
                WHERE s2.ue_num = s.ue_num AND s2.annee_scolaire = s.annee_scolaire
-                 AND s2.session = s.session AND COALESCE(s2.num_organisation, 0) > 0)))))`;
+                 AND s2.session = s.session AND COALESCE(s2.num_organisation, 0) > 0))
+         /* L'ÉTUDIANT NON RÉPARTI (3.1.451) : comme dans clotures(), il est clos quand TOUTES les
+            séances d'organisation de la session le sont. Sans ce cas, il échappait au verrou. */
+         OR (COALESCE(s.num_organisation, 0) > 0 AND COALESCE((
+              SELECT i.num_organisation FROM etudiant_inscription i
+               WHERE i.etudiant_id = ${x}.etudiant_id AND i.annee_scolaire = ${x}.annee_scolaire
+                 AND i.ue_num = ${x}.ue_num LIMIT 1), 0) = 0
+             AND NOT EXISTS (SELECT 1 FROM deliberation_seance s3
+               WHERE s3.ue_num = s.ue_num AND s3.annee_scolaire = s.annee_scolaire
+                 AND s3.session = s.session AND COALESCE(s3.num_organisation, 0) > 0
+                 AND COALESCE(s3.cloturee, 0) = 0)))))`;
 }
 
 export function poserGardeNotes(dbx = db) {

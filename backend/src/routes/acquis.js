@@ -5620,6 +5620,22 @@ export function sessionDeLUE(ueNum, annee) {
 
   const secondeOuverte = s1Faite && s1.ajournes > 0 && s1Close;
 
+  /* PAR ORGANISATION (3.1.451, Charles, 29 octobre 2026 : « quand je clos la délibération, il ne
+     propose pas la 2e session »). L'UE 333 délibère organisation par organisation : la seconde
+     session s'ouvrait seulement quand TOUTES étaient closes, sans rien dire. Chaque organisation
+     close qui a des ajournés ouvre désormais la sienne ; l'écran le dit et nomme celles qui restent. */
+  let orgs = [];
+  try {
+    orgs = db.prepare(`SELECT s.num_organisation AS org, s.cloturee AS close,
+        (SELECT COUNT(*) FROM etudiant_inscription i WHERE i.ue_num = s.ue_num AND i.annee_scolaire = s.annee_scolaire
+          AND i.num_organisation = s.num_organisation AND i.resultat = 'ajourne') AS ajournes
+      FROM deliberation_seance s WHERE s.ue_num = ? AND s.annee_scolaire = ? AND s.session = 1
+        AND COALESCE(s.num_organisation, 0) > 0 ORDER BY s.num_organisation`).all(Number(ueNum), annee)
+      .map(o => ({ org: o.org, close: !!o.close, ajournes: o.ajournes || 0 }));
+  } catch { orgs = []; }
+  const orgsOuvertes = orgs.filter(o => o.close && o.ajournes > 0).map(o => o.org);
+  const secondePartielle = !secondeOuverte && orgsOuvertes.length > 0;
+
   return {
     session: secondeOuverte ? 2 : 1,
     inscrits,
@@ -5628,7 +5644,9 @@ export function sessionDeLUE(ueNum, annee) {
     s2: { decides: s2.n },
     // Sans ajourné en première session, la seconde n'a pas lieu d'être ; sans
     // clôture, elle n'est pas encore ouverte.
-    seconde_possible: secondeOuverte,
+    seconde_possible: secondeOuverte || secondePartielle,
+    seconde_partielle: secondePartielle,
+    organisations_s1: orgs,
     // Ce qui manque pour l'ouvrir, à dire à l'écran plutôt qu'à deviner.
     seconde_attend: s1Faite && s1.ajournes > 0 && !s1Close
       ? 'la clôture de la séance de première session' : null,

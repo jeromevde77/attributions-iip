@@ -378,6 +378,22 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
               par cours — <b>chaque cours de l'unité reçoit la note de l'unité</b>.
             </div>
           )}
+          {/* PAR ORGANISATION (3.1.451) : une organisation close ouvre SA seconde session, les autres
+              restent en première — l'écran le dit au lieu de rester muet. */}
+          {data?.etat_session?.seconde_partielle && (
+            <div className="mb-3 bloc-etat px-3 py-2 text-second" data-etat="disponible">
+              {(() => {
+                const o = data.etat_session.organisations_s1 || [];
+                const ouvertes = o.filter(x => x.close && x.ajournes > 0).map(x => x.org);
+                const encore = o.filter(x => !x.close).map(x => x.org);
+                return <>
+                  Séance de première session close pour l’organisation {ouvertes.join(', ')} :
+                  ses ajournés s’encodent sous <b>« 2e session »</b>
+                  {encore.length ? <> ; l’organisation {encore.join(', ')} est encore en <b>première session</b></> : null}.
+                </>;
+              })()}
+            </div>
+          )}
           {data?.a_representer && (
             <div className="mb-3 bloc-etat px-3 py-2 text-second" data-etat="surveiller">
               Seuls les <b>étudiants ajournés</b> figurent ici : les autres ne présentent pas

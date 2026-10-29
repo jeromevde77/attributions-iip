@@ -234,6 +234,13 @@ modules laisse tout passer (mode « constat ») et un essai ne voit pas ce qu'un
 clique rien ne se passe ») : dans l'encodage d'une UE et d'un cours, le message du 409 (séance close) était posé
 puis effacé par le rechargement de la grille (`charger()` commençait par `setErreur(null)`) — la note revenait sans
 un mot. `charger(true)` garde le message ; la grille du parcours de la fiche, qui ignorait tout refus, le dit.
+**La délibération par organisation, au bout du test** (3.1.451, Charles : « quand je clos la délibération, il ne
+propose pas la 2e session »). (1) `sessionDeLUE` n'ouvrait la seconde session de l'encodage « toute l'unité »
+qu'une fois TOUTES les organisations closes : chaque organisation close avec des ajournés ouvre désormais la
+sienne (`seconde_partielle`, `organisations_s1`), l'encodage le dit et nomme celles qui restent en première
+session, la feuille de délibération propose le choix 1re/2e. (2) La garde des notes laissait passer l'étudiant
+NON RÉPARTI d'une UE délibérée par organisation ; il est clos, comme dans `clotures()`, quand toutes les séances
+d'organisation de la session le sont.
 
 **UNE UE DISPENSÉE EN ENTIER EST ACQUISE — ÇA SE LIT DU DOSSIER DE VA** (3.1.438). Les crédits de l'annexe 2,
 l'état du parcours (schéma) et le motif de l'annexe 2 attendaient un résultat `'valorise'` sur
