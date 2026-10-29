@@ -11,7 +11,7 @@ import { getUser } from '../lib/api.js';
  * limités à `.guide`, couleurs du thème. « Nouveau » tant que la personne ne l'a pas ouvert
  * (mémoire de ce navigateur). Une nouvelle édition : changer EDITION et le fichier.
  */
-const EDITION = '2026-10';
+const EDITION = '2026-11';
 const DEPUIS = 'depuis le jeudi 8 octobre';
 const cleVu = () => `lucie.nouveautes.vu.${getUser()?.id || 'x'}`;
 

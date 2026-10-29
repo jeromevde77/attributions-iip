@@ -212,6 +212,15 @@ d'IBAN, pas de QR. **À vérifier avec une application bancaire réelle** : que 
 reconnue comme structurée. Au passage : le `solde` de la note oubliait le forfait VA (total − acompte
 calculé avant lui) ; il porte désormais le total, forfait compris, moins l'acompte.
 
+**LA REPRISE DU 2 NOVEMBRE** (3.1.446, Charles, 29 octobre 2026 : « je veux que lundi tout soit en production »).
+Le guide des nouveautés passe à l'édition `public/nouveautes/2026-11.html` (`EDITION` de `TuileNouveautes.jsx`) :
+tout ce qui sépare 3.1.403 (production du 23 octobre) de 3.1.445, rangé par public, avec ce que Lucie refuse
+désormais et pourquoi ; la tuile se rallume « Nouveau » pour chacun. Gestion ne coiffe plus Qualité et
+Présences du titre « Pilotage des dotations · Année civile null ». Contrôle avant mise en production : les
+quatre bancs (159 vérifications) et un robot qui ouvre chaque écran et chaque entrée de rail pour chaque rôle
+(Playwright) — sur la base d'essai, aucun plantage d'écran ; ses erreurs serveur viennent toutes de tables
+absentes de cette vieille base. **La seule vérification sur données réelles est celle de la dev, à l'écran.**
+
 **UNE UE DISPENSÉE EN ENTIER EST ACQUISE — ÇA SE LIT DU DOSSIER DE VA** (3.1.438). Les crédits de l'annexe 2,
 l'état du parcours (schéma) et le motif de l'annexe 2 attendaient un résultat `'valorise'` sur
 l'inscription, qu'aucune route n'écrivait : zéro crédit valorisé, partout, en silence. Plutôt qu'un second

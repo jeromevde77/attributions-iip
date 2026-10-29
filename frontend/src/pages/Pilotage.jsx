@@ -1953,9 +1953,15 @@ thead { display: table-header-group; }
         ) : ['deliberation', 'distributions', 'population'].includes(tab) ? (
           <PageHeader icon={IconChartBar} titre="Statistiques étudiantes"
             sous="Décisions du Conseil, cotes et effectifs — par section et par unité" />
+        ) : tab === 'qualite' ? (
+          <PageHeader icon={IconRosette} titre="Démarche qualité"
+            sous="Le plan d’action : ce qui est décidé, qui s’en charge, où on en est" />
+        ) : tab === 'presences-ue' ? (
+          <PageHeader icon={IconChartBar} titre="Présences et régularité"
+            sous="Présences encodées, réguliers au premier dixième, PEP estimée — par section et par unité" />
         ) : (
           <PageHeader icon={IconChartBar} titre="Pilotage des dotations"
-            sous={`Année civile ${selYear} · Enveloppes extérieures · Comparaison pluriannuelle`} />
+            sous={`${selYear ? `Année civile ${selYear} · ` : ''}Enveloppes extérieures · Comparaison pluriannuelle`} />
         )}
 
         {tab === 'population-ecole' ? (
