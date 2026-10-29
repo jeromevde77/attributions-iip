@@ -253,6 +253,34 @@ r.get('/guide/:nom', authRequired, (req, res) => {
   res.sendFile(chemin);
 });
 
+/* « QUOI DE NEUF » SELON LE PROFIL (3.1.460, Charles, 29 octobre 2026 : « un prof ne doit pas savoir
+ * qu'une amélioration qui ne le concerne pas a été faite »). Le guide vivait dans `public/` : n'importe
+ * qui le lisait en entier, et le filtre par public n'était qu'un choix d'affichage. Il est servi ICI, à
+ * qui a un compte, et ce qui ne concerne pas son rôle est RETIRÉ avant l'envoi — nouveautés
+ * (`<article data-pour>`), lignes du « En bref » et de « Ce qui vient ensuite » (`<li data-pour>`), et
+ * les boutons de filtre. La direction (et l'éditeur, qui en a les droits) reçoit tout. */
+const DOSSIER_NOUVEAUTES = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../assets/nouveautes');
+const PUBLIC_DU_ROLE = { professeur: ['ens'], secretariat: ['sec'], coordination: ['coo'], consultation: [] };
+const ROLES_TOUT = ['admin', 'directeur', 'directeur_adjoint', 'editeur'];
+export function nouveautesPour(html, role) {
+  if (ROLES_TOUT.includes(role)) return html;
+  const pub = PUBLIC_DU_ROLE[role] || [];
+  const garde = pour => String(pour || '').split(/\s+/).some(x => pub.includes(x));
+  return html
+    .replace(/<article class="nouveau" data-pour="([^"]*)">[\s\S]*?<\/article>\s*/g, (m, pour) => (garde(pour) ? m : ''))
+    .replace(/<li data-pour="([^"]*)">[\s\S]*?<\/li>\s*/g, (m, pour) => (garde(pour) ? m : ''))
+    .replace(/<nav class="filtres"[\s\S]*?<\/nav>\s*/, '');
+}
+r.get('/nouveautes/:edition', authRequired, (req, res) => {
+  const ed = String(req.params.edition || '');
+  if (!/^\d{4}-\d{2}$/.test(ed)) return res.status(404).json({ error: 'Édition inconnue' });
+  const chemin = path.join(DOSSIER_NOUVEAUTES, `${ed}.html`);
+  if (!fs.existsSync(chemin)) return res.status(404).json({ error: 'Édition inconnue' });
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-store');
+  res.send(nouveautesPour(fs.readFileSync(chemin, 'utf8'), req.user?.role || ''));
+});
+
 // ── CE QUI M'ATTEND — la lecture « par personne » du tableau de bord ────────
 r.get('/moi/attente', authRequired, (req, res) => {
   const docs = db.prepare(`

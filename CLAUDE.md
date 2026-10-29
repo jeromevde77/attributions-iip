@@ -219,7 +219,7 @@ l'empreinte de la ligne et son rang parmi les identiques : le même fichier redo
 identiques restent deux. Encodage latin-1 accepté. Banc : 50 ok.
 
 **LA REPRISE DU 2 NOVEMBRE** (3.1.446, Charles, 29 octobre 2026 : « je veux que lundi tout soit en production »).
-Le guide des nouveautés passe à l'édition `public/nouveautes/2026-11.html` (`EDITION` de `TuileNouveautes.jsx`) :
+Le guide des nouveautés passe à l'édition `2026-11` (aujourd'hui `backend/assets/nouveautes/2026-11.html`) (`EDITION` de `TuileNouveautes.jsx`) :
 tout ce qui sépare 3.1.403 (production du 23 octobre) de 3.1.445, rangé par public, avec ce que Lucie refuse
 désormais et pourquoi ; la tuile se rallume « Nouveau » pour chacun. Gestion ne coiffe plus Qualité et
 Présences du titre « Pilotage des dotations · Année civile null ». Contrôle avant mise en production : les
@@ -267,6 +267,13 @@ tenait la seconde fermée, sans un mot. Désormais : séance de première sessio
 **Une seule marge, celle de la fenêtre** (3.1.459, Charles : « alignement de fenêtre à revoir ») : `Fenetre` pose
 `px-5 py-4` sur son corps ; Nouvel étudiant, Filtrer le journal (Accueil) et la fenêtre d'Attributions y ajoutaient
 un `p-5` — contenu décalé de 20 px par rapport au titre et au pied. Un corps de fenêtre ne pose pas de marge.
+**« Quoi de neuf » selon le profil** (3.1.460, Charles : « un prof ne doit pas savoir qu'une amélioration qui ne le
+concerne pas a été faite »). Le guide quitte `public/` pour `backend/assets/nouveautes/` ; `GET
+/api/documentation/nouveautes/:edition` (compte requis) RETIRE avant l'envoi les `<article data-pour>` et `<li data-pour>`
+qui ne concernent pas le rôle (`nouveautesPour` : professeur → ens, secrétariat → sec, coordination → coo ; direction,
+adjoint, admin, éditeur → tout, avec les boutons de filtre). **Toute nouvelle entrée du guide porte son `data-pour`**,
+y compris les lignes du « En bref » et de « Ce qui vient ensuite ». La révision (`REVISION` de `TuileNouveautes.jsx`)
+rallume « Nouveau » quand l'édition s'enrichit.
 
 **UNE UE DISPENSÉE EN ENTIER EST ACQUISE — ÇA SE LIT DU DOSSIER DE VA** (3.1.438). Les crédits de l'annexe 2,
 l'état du parcours (schéma) et le motif de l'annexe 2 attendaient un résultat `'valorise'` sur

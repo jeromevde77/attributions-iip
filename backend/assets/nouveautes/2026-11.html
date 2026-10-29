@@ -45,7 +45,7 @@
   <h1>Lucie, quoi de neuf</h1>
   <p>Ce qui change dans Lucie à la reprise du lundi 2 novembre 2026, rangé par public : où trouver chaque nouveauté, comment s'en servir, et ce que Lucie refuse désormais — avec la raison.</p>
   <div class="versions">
-    <span>Version décrite : <b>3.1.445</b> — tout ce qui a été ajouté depuis la version 3.1.403</span>
+    <span>Version décrite : <b>3.1.459</b> — tout ce qui a été ajouté depuis la version 3.1.403</span>
   </div>
 </header>
 
@@ -53,11 +53,13 @@
   <div class="jour">
     <h2>En bref</h2>
     <ul>
-      <li><b>Les présences</b> se prennent par séance, se lisent par unité, et la régularité au premier dixième se calcule.</li>
-      <li><b>Les versements</b> des étudiants s'encodent dans la fiche ; la note de frais porte une communication structurée et un QR code de paiement.</li>
-      <li><b>Une note d'une unité délibérée</b> ne se modifie plus sans rouvrir la séance — par aucun écran ni aucun import.</li>
-      <li><b>Les professeurs</b> ont un carnet de cotes, leur horaire dans l'agenda du téléphone et le ticket de sortie.</li>
-      <li><b>La direction</b> tient le plan d'action qualité dans Lucie.</li>
+      <li data-pour="ens sec coo dir"><b>Les présences</b> se prennent par séance, se lisent par unité, et la régularité au premier dixième se calcule.</li>
+      <li data-pour="sec dir"><b>Les versements</b> des étudiants s'encodent dans la fiche ; la note de frais porte une communication structurée et un QR code de paiement.</li>
+      <li data-pour="ens sec coo dir"><b>Une note d'une unité délibérée</b> ne se modifie plus sans rouvrir la séance — par aucun écran ni aucun import.</li>
+      <li data-pour="ens dir"><b>Les professeurs</b> ont un carnet de cotes, leur horaire dans l'agenda du téléphone et le ticket de sortie.</li>
+      <li data-pour="coo dir"><b>La direction</b> tient le plan d'action qualité dans Lucie.</li>
+      <li data-pour="sec dir"><b>La délibération</b> : la clôture ouvre la seconde session, et la liste de ce qui bloque la clôture se règle en un clic.</li>
+      <li data-pour="sec coo dir"><b>La liste des étudiants</b> a une barre plus simple, et une section se coche en un clic.</li>
     </ul>
   </div>
 </section>
@@ -171,6 +173,39 @@
   <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
 </article>
 
+<article class="nouveau" data-pour="sec coo dir">
+  <h3>La liste des étudiants, plus simple</h3>
+  <span class="ou">Où : <b>Étudiants</b>, la liste.</span>
+  <ul>
+    <li>Une seule ligne au-dessus de la liste : la recherche, la section, le niveau, le bouton <b>Filtres</b> et les statuts (en cours, diplômés, sortis, archivés). Les autres filtres — primo, programme, section posée ou déduite, dossier incomplet, doublons, plus de 60 ECTS — sont rangés derrière « Filtres ».</li>
+    <li>Les filtres actifs s'affichent sous la barre, en pastilles qu'on retire d'un ✕.</li>
+    <li>La ligne d'une section porte sa case : un clic coche tous ses étudiants affichés.</li>
+    <li>« Composer les PAE » s'ouvre directement sur la section des étudiants cochés.</li>
+  </ul>
+  <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
+</article>
+
+<h2>Délibération</h2>
+<p class="intro">Pour celles et ceux qui tiennent la feuille de délibération.</p>
+
+<article class="nouveau" data-pour="sec dir">
+  <h3>La clôture ouvre la seconde session</h3>
+  <p>Dès que la séance de première session est close et qu'il y a des ajournés, la seconde session est proposée — même si un dossier est resté sans décision. Une séance « toute l'unité » close vaut pour tous les étudiants de l'unité ; une unité délibérée par organisation ouvre la seconde session organisation par organisation, et l'écran nomme celles qui restent en première.</p>
+  <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
+</article>
+
+<article class="nouveau" data-pour="sec dir">
+  <h3>« Ajourner aussi », pour toute la liste</h3>
+  <p>À la clôture, Lucie refuse un ajourné dont un acquis en échec n'est pas ajourné : il ne serait pas représenté en seconde session. La liste s'affiche désormais en clair, un étudiant par ligne, et un bouton <b>« Ajourner aussi leurs acquis en échec »</b> règle tout le monde d'un coup, après confirmation : la décision et les notes ne changent pas.</p>
+  <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
+</article>
+
+<article class="nouveau" data-pour="sec dir">
+  <h3>Un refus se dit là où l'on a cliqué</h3>
+  <p>Quand Lucie refuse un geste de la feuille — une note dans une séance close, un lot PP, NP et CM sur une séance déjà close —, le message s'affiche à côté du bouton, et non plus en haut de la page, hors de vue.</p>
+  <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
+</article>
+
 <h2>Enseignants</h2>
 <p class="intro">Dans <b>Mes cours</b>.</p>
 
@@ -192,6 +227,13 @@
   <h3>Les présences, et le retard</h3>
   <span class="ou">Où : <b>Mes cours → Présences</b>.</span>
   <p>Séance par séance : P présent, P* présent en retard (ses heures comptent), A absent, J absence justifiée avec son motif. La grille du cours sort en PDF ou en Excel.</p>
+  <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
+</article>
+
+<article class="nouveau" data-pour="ens">
+  <h3>La seconde session dans Mes cours</h3>
+  <span class="ou">Où : <b>Mes cours → un cours → Notes</b>.</span>
+  <p>Dès que la délibération de l'unité — ou de votre organisation — est close, la feuille passe d'elle-même en <b>2ᵉ session</b> : elle ne montre que vos étudiants ajournés, sur les seuls acquis à représenter. Les notes de première session se lisent, elles ne se modifient plus.</p>
   <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
 </article>
 
@@ -249,14 +291,14 @@
 <section class="avenir">
   <h2>Ce qui vient ensuite</h2>
   <ul>
-    <li>L'import du premier extrait de compte réel, puis chaque semaine.</li>
-    <li>La présence par QR code au-delà de la phase pilote.</li>
-    <li>La pièce « plan d'action » publiable, et les actions à l'Accueil de leur responsable.</li>
+    <li data-pour="sec dir">L'import du premier extrait de compte réel, puis chaque semaine.</li>
+    <li data-pour="ens dir">La présence par QR code au-delà de la phase pilote.</li>
+    <li data-pour="coo dir">La pièce « plan d'action » publiable, et les actions à l'Accueil de leur responsable.</li>
   </ul>
 </section>
 </main>
 
-<footer>Institut Ilya Prigogine · Lucie · guide des nouveautés de la reprise du 2 novembre 2026, version 3.1.448. Une question, une idée : « Proposer une amélioration », sur chaque écran de Lucie.</footer>
+<footer>Institut Ilya Prigogine · Lucie · guide des nouveautés de la reprise du 2 novembre 2026, version 3.1.459. Une question, une idée : « Proposer une amélioration », sur chaque écran de Lucie.</footer>
 </div>
 
 </div></body></html>

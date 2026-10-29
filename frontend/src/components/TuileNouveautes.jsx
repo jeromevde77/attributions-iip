@@ -1,32 +1,38 @@
 import { useEffect, useRef, useState } from 'react';
 import { IconSparkles, IconChevronRight } from '@tabler/icons-react';
 import { Fenetre } from './ui.jsx';
-import { getUser } from '../lib/api.js';
+import { authHeaders, getUser } from '../lib/api.js';
 
 /**
  * LES NOUVEAUTÉS, SUR LE BUREAU (3.1.283, Charles, 11 octobre 2026 : « comme il y en a
  * beaucoup, une tuile New / info ; quand on clique dessus, les gens tombent sur ce que tu
- * as écrit »). Le guide vit dans Lucie (`public/nouveautes/<édition>.html`) ; la fenêtre
+ * as écrit »). Le guide vit dans Lucie (`backend/assets/nouveautes/<édition>.html`, servi par
+ * `GET /api/documentation/nouveautes/<édition>` qui RETIRE ce qui ne concerne pas le rôle de la
+ * personne — 3.1.460, « un prof ne doit pas savoir qu'une amélioration qui ne le concerne pas a
+ * été faite ») ; la fenêtre
  * l'affiche — le serveur interdit les cadres (X-Frame-Options), on l'insère donc, styles
  * limités à `.guide`, couleurs du thème. « Nouveau » tant que la personne ne l'a pas ouvert
  * (mémoire de ce navigateur). Une nouvelle édition : changer EDITION et le fichier.
  */
 const EDITION = '2026-11';
+// Le guide d'une édition s'enrichit : la révision rallume « Nouveau » sans changer de fichier.
+const REVISION = `${EDITION}.459`;
 const DEPUIS = 'depuis le jeudi 8 octobre';
 const cleVu = () => `lucie.nouveautes.vu.${getUser()?.id || 'x'}`;
 
 export default function TuileNouveautes() {
-  const [vu, setVu] = useState(() => { try { return localStorage.getItem(cleVu()) === EDITION; } catch { return false; } });
+  const [vu, setVu] = useState(() => { try { return localStorage.getItem(cleVu()) === REVISION; } catch { return false; } });
   const [ouvert, setOuvert] = useState(false);
   const [html, setHtml] = useState('');
   const zone = useRef(null);
 
   async function ouvrir() {
     setOuvert(true);
-    try { localStorage.setItem(cleVu(), EDITION); } catch { /* navigateur privé */ }
+    try { localStorage.setItem(cleVu(), REVISION); } catch { /* navigateur privé */ }
     setVu(true);
     if (!html) {
-      const t = await fetch(`/nouveautes/${EDITION}.html`).then(r => r.text()).catch(() => '');
+      const t = await fetch(`/api/documentation/nouveautes/${EDITION}`, { headers: authHeaders() })
+        .then(r => (r.ok ? r.text() : '')).catch(() => '');
       const d = new DOMParser().parseFromString(t, 'text/html');
       const styles = [...d.querySelectorAll('style')].map(s => s.textContent).join('\n')
         .replace(/body\s*\{[^}]*\}/, '')                        // le fond de la page seule n'entre pas dans Lucie
@@ -53,9 +59,10 @@ export default function TuileNouveautes() {
       });
     };
     const ecouteurs = boutons.map(b => { const f = () => filtrer(b.dataset.public); b.addEventListener('click', f); return [b, f]; });
-    // On ouvre sur le public de la personne, quand on le connaît.
-    const role = getUser()?.role;
-    filtrer(role === 'professeur' ? 'ens' : role === 'secretariat' ? 'sec' : role === 'coordination' ? 'coo' : 'tous');
+    // Le serveur n'a envoyé que ce qui concerne la personne : on montre tout ce qu'on a reçu (la
+    // direction garde les boutons pour regarder par public), et un bloc vide ne s'affiche pas.
+    filtrer('tous');
+    racine.querySelectorAll('.jours, .avenir').forEach(b => { b.hidden = !b.querySelector('li'); });
     return () => ecouteurs.forEach(([b, f]) => b.removeEventListener('click', f));
   }, [ouvert, html]);
 
