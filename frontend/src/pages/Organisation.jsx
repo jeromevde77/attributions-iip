@@ -1,6 +1,6 @@
 import { ICONE_AXE } from '../lib/iconesAxes.js';
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { RailLateral, Encadre } from '../components/ui.jsx';
+import { RailLateral } from '../components/ui.jsx';
 import GardeAnnee from '../components/GardeAnnee.jsx';
 import { useSearchParams } from 'react-router-dom';
 import Axe from '../components/Axe.jsx';
@@ -145,7 +145,7 @@ export default function Organisation({ ongletInitial }) {
            que l'horaire dépense doit être ce qui a été accordé, et par les
            bonnes personnes. L'ancien « Horaires & planification » est masqué :
            la Planification du rail le remplace. */
-        { key: 'horaire-semaine', module: 'planification', label: 'Horaires', icone: IconCalendarWeek, sansMarge: true, bientot: true,
+        { key: 'horaire-semaine', module: 'planification', label: 'Horaires', icone: IconCalendarWeek, sansMarge: true,
           rendu: <CentreHoraire annee={annee} /> },
         { key: 'planification', module: 'planification', label: 'Horaires & planification', icone: IconCalendarStats,
           sansMarge: true, masque: true,
@@ -176,10 +176,8 @@ function CentreHoraire({ annee }) {
   });
   return (
     <div>
-      {/* VERSION TEMPORAIRE (Charles, 11 octobre 2026) : l'horaire n'est pas encore en service. */}
-      <div className="gouttiere-rail px-4 pt-3 md:px-6">
-        <Encadre etat="surveiller" titre="Version temporaire">L’horaire n’est pas encore en service : vous pouvez le consulter, mais ne vous y fiez pas pour l’instant. La date de sa mise en service sera annoncée.</Encadre>
-      </div>
+      {/* EN SERVICE LE 2 NOVEMBRE 2026 (3.1.463, Charles : « tout passe en service lundi ») : le grisé
+          « bientôt » du rail et le bandeau « Version temporaire » du 11 octobre sont retirés. */}
       <RailLateral titre="Horaires" sections={[{ items: [
         { key: 'horaire-composer', label: 'Composer la semaine', icon: IconCalendarEvent, actif: face === 'composer', onClick: () => setFace('composer') },
         { key: 'horaire-controler', label: 'Contrôler contre les attributions', icon: IconClock, actif: face === 'controler', onClick: () => setFace('controler') },

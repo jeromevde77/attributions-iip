@@ -282,6 +282,10 @@ deux colonnes. Le fichier s'écrit comme avant ; la direction garde le choix du 
 montre que les séances de l'horaire qui NOMMENT le professeur (`seancesDuCours`) ; un cours attribué dont les séances nomment
 un autre enseignant donnait « aucune séance dans l'horaire ». `GET /:cours/presences` rend `vide` (`autres` + les noms de
 l'horaire, et si le compte n'est relié à aucune fiche ; ou `horaire`) et l'écran le dit.
+**Tout en service le 2 novembre** (3.1.463, Charles, 29 octobre 2026 : « tout passe en service lundi »). L'entrée
+« Horaires » d'Organisation n'est plus grisée « bientôt » (le survol qui l'expliquait n'existe pas sur iPad : on la croyait
+disparue) et le bandeau « Version temporaire » du 11 octobre est retiré. La présence par QR n'avait aucune restriction de
+pilote dans le code ; le guide la présente désormais comme en service.
 
 **UNE UE DISPENSÉE EN ENTIER EST ACQUISE — ÇA SE LIT DU DOSSIER DE VA** (3.1.438). Les crédits de l'annexe 2,
 l'état du parcours (schéma) et le motif de l'annexe 2 attendaient un résultat `'valorise'` sur
