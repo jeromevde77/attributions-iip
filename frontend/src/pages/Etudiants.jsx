@@ -4319,6 +4319,10 @@ export default function Etudiants() {
       {composer && (
         <ComposerPAE modeInitial={composer === 'valider' ? 'valider' : 'composer'}
           preselection={composer === 'selection' ? [...selEtudiants] : null}
+          sectionInitiale={composer === 'selection' ? (() => {
+            const secs = new Set(etudiants.filter(e => selEtudiants.has(e.id)).map(e => e.section_rattachement).filter(Boolean));
+            return secs.size === 1 ? [...secs][0] : (section && section !== '__aucune__' ? section : '');
+          })() : (section && section !== '__aucune__' ? section : '')}
           onClose={() => setComposer(false)} onTermine={charger}
           onPassage={() => { setComposer(false); setPassage(true); }} />
       )}

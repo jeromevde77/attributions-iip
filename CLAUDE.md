@@ -259,6 +259,8 @@ pour leurs acquis en échec ; un acquis qui n'échoue dans aucun cours s'ajourne
 **La barre de la liste des étudiants** (3.1.456, maquette validée par Charles) : une ligne — recherche, section,
 niveau, bouton « Filtres » (le nombre de filtres actifs), statuts ; le panneau range Inscription, Programme, Section
 posée/déduite, Dossier, Doublons et Plus de 60 ECTS ; les filtres actifs se lisent en pastilles sous la barre.
+« Composer les PAE » depuis une sélection ouvre sur la section des étudiants cochés quand ils en partagent une, sinon
+sur la section du filtre (3.1.457, `sectionInitiale` de `ComposerPAE`).
 
 **UNE UE DISPENSÉE EN ENTIER EST ACQUISE — ÇA SE LIT DU DOSSIER DE VA** (3.1.438). Les crédits de l'annexe 2,
 l'état du parcours (schéma) et le motif de l'annexe 2 attendaient un résultat `'valorise'` sur

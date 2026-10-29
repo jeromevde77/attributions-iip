@@ -84,9 +84,11 @@ export function CasePAE({ x = {}, resultat, attente = null, anneau = null, titre
   );
 }
 
-export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial = 'composer', preselection = null }) {
+export default function ComposerPAE({ onClose, onTermine, onPassage, modeInitial = 'composer', preselection = null, sectionInitiale = '' }) {
   const [sections, setSections] = useState([]);
-  const [section, setSection] = useState('');
+  // LA SECTION DES ÉTUDIANTS COCHÉS (3.1.457, Charles : « je coche la section, je fais Composer les PAE…
+  // et tu me demandes de choisir la section ») : elle vient avec eux quand ils en partagent une.
+  const [section, setSection] = useState(sectionInitiale || '');
   const [annee, setAnnee] = useState(getAnnee() || '');
   const [grille, setGrille] = useState(null);
   const [erreur, setErreur] = useState(null);
