@@ -246,6 +246,9 @@ délibérés et clos sur « Toute l'unité », organisations 1 et 2 vides — ri
 s'ouvrait pas). La ligne org 0 était tenue pour un reste de planification dès qu'existait une séance d'organisation ;
 désormais, CLOSE, elle verrouille toute l'unité et clôt la session (`close()` de `gardeNotes.js`,
 `sessionCloturee`, `clotures()` de Mes cours). Ouverte, elle reste ignorée à côté des séances d'organisation.
+**Le lot des PP, NP et CM** (3.1.453) : « Décider ces N » lisait la première séance venue de la session pour savoir si
+elle était close, quelle que soit son organisation ; il lit désormais celle de la feuille (`org`). Et son refus se dit
+sous les boutons du lot — sur iPad, le message en haut de la feuille était hors de vue (« je ne sais pas aller plus loin »).
 
 **UNE UE DISPENSÉE EN ENTIER EST ACQUISE — ÇA SE LIT DU DOSSIER DE VA** (3.1.438). Les crédits de l'annexe 2,
 l'état du parcours (schéma) et le motif de l'annexe 2 attendaient un résultat `'valorise'` sur

@@ -587,7 +587,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
     try {
       const rep = await fetch(`/api/acquis/deliberation/ue/${ueNum}/ajourner-lot`, {
         method: 'POST', headers: authHeaders(),
-        body: JSON.stringify({ annee, session, etudiants: ids, motif, simulation,
+        body: JSON.stringify({ annee, session, org: org ?? 0, etudiants: ids, motif, simulation,
                                cours_par_etudiant: coursParEtudiant || undefined,
                                decision_par_etudiant: parEtudiant?.decisions || undefined,
                                motif_par_etudiant: parEtudiant?.motifs || undefined,
@@ -905,7 +905,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
                   figerOrdre(frais); setIdx(0); setEtape('fiche'); return; }
                 setDernierLot(n); setSeriesFaites(x => x + 1); }}
               colonnesCours={data?.colonnes_cours || []} colonnesAcquis={data?.colonnes_acquis || []}
-              enCours={enCours} onDecider={ajournerLot}
+              enCours={enCours} onDecider={ajournerLot} erreur={erreur}
               onFini={async decides => {
                 if (decides?.length) { const frais = await charger(); if (frais) figerOrdre(frais); }
                 setIdx(0); setEtape('fiche'); }} />
@@ -1628,7 +1628,7 @@ function aMentionADecider(e) {
     && ['ajourne', 'refuse'].includes(e.ue?.decision_proposee);
 }
 
-function Mentions({ liste, session, enCours, onDecider, onFini, onSerie, faits = 0, colonnesCours = [], colonnesAcquis = [] }) {
+function Mentions({ liste, session, enCours, onDecider, onFini, onSerie, faits = 0, colonnesCours = [], colonnesAcquis = [], erreur = null }) {
   // Un étudiant déjà décidé arrive DÉCOCHÉ : on ne réécrit pas une décision par mégarde.
   const [ecartes, setEcartes] = useState(() => new Set(liste.filter(e => e.resultat).map(e => e.id)));
   // LA DÉCISION DU LOT (13 octobre 2026) : celle que la mention appelle, ou la même pour tous.
@@ -1806,6 +1806,13 @@ function Mentions({ liste, session, enCours, onDecider, onFini, onSerie, faits =
         </div>
       )}
 
+      {/* UN REFUS SE DIT LÀ OÙ L'ON A CLIQUÉ (3.1.453, Charles sur iPad : « je ne sais pas aller plus
+          loin ») : le message ne s'affichait qu'en haut de la feuille, hors de vue. */}
+      {erreur && (
+        <div className="bloc-etat px-3 py-2 text-sm flex items-start gap-2" data-etat="corriger">
+          <IconAlertTriangle size={16} className="flex-none mt-0.5" style={{ color: 'var(--c-refuse)' }} /> {erreur}
+        </div>
+      )}
       <div className="flex items-center justify-between gap-3">
         <span className="text-second text-slate-500 min-w-0">
           {faits > 0 && <b className="text-iip-texte">{faits} décidé(s) — cochez la série suivante, ou passez à la revue. </b>}

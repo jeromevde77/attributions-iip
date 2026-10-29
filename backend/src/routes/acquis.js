@@ -9136,12 +9136,16 @@ r.post('/deliberation/ue/:ueNum/ajourner-lot', authRequired,
   }
 
   // Une séance close ne se complète pas en douce : on la rouvre d'abord.
+  // LA SÉANCE DE LA FEUILLE (3.1.453) : la requête prenait la première séance venue de la session,
+  // quelle que soit son organisation — une séance rouverte pouvait se lire close, et inversement.
+  const orgLot = Number(req.body?.org) > 0 ? Number(req.body.org) : 0;
   const close = !!(db.prepare(`SELECT cloturee FROM deliberation_seance
-    WHERE ue_num = ? AND annee_scolaire = ? AND session = ?`).get(ueNum, annee, ses)?.cloturee);
+    WHERE ue_num = ? AND annee_scolaire = ? AND session = ? AND COALESCE(num_organisation, 0) = ?`)
+    .get(ueNum, annee, ses, orgLot)?.cloturee);
   if (close) {
     return res.status(409).json({
       error: 'séance close',
-      detail: 'La séance est clôturée. Rouvrez-la pour reprendre la délibération.',
+      detail: 'La séance est clôturée : rien n\'a été enregistré. La direction peut la rouvrir (motif écrit) pour reprendre la délibération.',
     });
   }
 
