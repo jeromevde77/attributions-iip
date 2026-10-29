@@ -286,6 +286,10 @@ l'horaire, et si le compte n'est relié à aucune fiche ; ou `horaire`) et l'éc
 « Horaires » d'Organisation n'est plus grisée « bientôt » (le survol qui l'expliquait n'existe pas sur iPad : on la croyait
 disparue) et le bandeau « Version temporaire » du 11 octobre est retiré. La présence par QR n'avait aucune restriction de
 pilote dans le code ; le guide la présente désormais comme en service.
+**Mon horaire de la semaine** (3.1.464, Charles : « je veux voir l'horaire ») : Mes cours → rail
+(`components/MonHoraireSemaine.jsx`, `GET /api/mes-cours/semaine?date=`) — lundi → dimanche (week-end seulement s'il porte
+une séance), à l'échelle du temps, flèches de semaine, séance annulée barrée ; en liste par jour sur téléphone. Mêmes
+séances que Ma journée (`seancesDuCours`) ; un compte relié à aucune fiche de professeur est signalé.
 
 **UNE UE DISPENSÉE EN ENTIER EST ACQUISE — ÇA SE LIT DU DOSSIER DE VA** (3.1.438). Les crédits de l'annexe 2,
 l'état du parcours (schéma) et le motif de l'annexe 2 attendaient un résultat `'valorise'` sur

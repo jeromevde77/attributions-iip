@@ -622,6 +622,35 @@ r.get('/journee', authRequired, (req, res) => {
   res.json({ jour, aujourdhui, seances: out, essai: modeEssai() });
 });
 
+/* MON HORAIRE DE LA SEMAINE (3.1.464, Charles, 29 octobre 2026 : « je veux voir l'horaire »). Les séances
+ * de la semaine qui contient `date` (lundi → dimanche), par la même règle que Ma journée et les présences
+ * (`seancesDuCours` : celles qui nomment le professeur, ou toutes quand l'horaire ne nomme personne). */
+r.get('/semaine', authRequired, (req, res) => {
+  const aujourdhui = aujourdhuiBruxelles();
+  const ref = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.date || '')) ? String(req.query.date) : aujourdhui;
+  const d0 = new Date(`${ref}T12:00:00Z`);
+  const lundi = new Date(d0); lundi.setUTCDate(d0.getUTCDate() - ((d0.getUTCDay() + 6) % 7));
+  const jours = Array.from({ length: 7 }, (_, i) => { const x = new Date(lundi); x.setUTCDate(lundi.getUTCDate() + i); return x.toISOString().slice(0, 10); });
+  const profId = profDe(req);
+  const annees = db.prepare(`SELECT DISTINCT annee_scolaire a FROM horaire_seance WHERE date BETWEEN ? AND ?`).all(jours[0], jours[6]).map(x => x.a);
+  const out = [];
+  for (const annee of annees) {
+    const attrs = profId ? attributionsDe(profId, annee) : [];
+    for (const code of [...new Set(attrs.map(a => a.code_cours))]) {
+      const d = accesCours(req, code, annee);
+      if (!d) continue;
+      const a = attrs.find(x => x.code_cours === code);
+      for (const s of seancesDuCours(req, d, code, annee).filter(x => x.date >= jours[0] && x.date <= jours[6])) {
+        out.push({ id: s.id, date: s.date, cours_code: code, cours_nom: a?.cours_nom || '', ue_num: a?.ue_num ?? null,
+          matiere: s.matiere, heure_debut: s.heure_debut, heure_fin: s.heure_fin, local: s.local_texte || '',
+          sous_groupe: s.sous_groupe, annule: !!s.annule });
+      }
+    }
+  }
+  out.sort((x, y) => (x.date + x.heure_debut).localeCompare(y.date + y.heure_debut));
+  res.json({ jours, aujourdhui, relie: !!profId, seances: out });
+});
+
 /* LE TABLEAU DE BORD DEMANDE CE QU'IL EN EST DES ABSENTS (Charles : « une fenêtre
  * dans Lucie qui dit au prof : les étudiants suivants n'ont pas noté leur
  * présence — présents, absents ou autre »). Les séances qu'il a projetées, la
