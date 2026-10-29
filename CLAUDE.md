@@ -312,6 +312,16 @@ animations coupées par `prefers-reduced-motion`), points en cartes numérotées
 chapitre suivant. **Une nouvelle fonction s'écrit dans `modeEmploi.js`, avec son `pour`.** Contenu mis à jour de 3.1.283 à
 3.1.467 (versements, extraits, suivi des présences, Ma journée et QR, ticket, carnet, horaire de la semaine, labo en étapes,
 consultation de l'horaire, clôture et seconde session, présences et PEP, plan d'action qualité).
+**Une seule ligne de menu, et le haut du contenu au haut du rail** (3.1.468, Charles : « partout, une seule ligne de menu,
+jamais plus » ; « Étudiants et les autres titres alignés avec le haut du rail »). (1) **Une barre d'écran ne passe jamais sur
+deux lignes** : elle garde l'essentiel (recherche, un ou deux choix majeurs) et range le reste derrière « Filtres »
+(`components/PanneauFiltres.jsx` : `BoutonFiltres`, `PastillesFiltres` — le dessin de la liste des étudiants, commun). Une
+rangée de segments trop large devient une liste sous `xl` (Étudiants : les statuts). Le Personnel y est passé. **Un nouvel
+écran pose sa barre en `flex-nowrap`.** Rappel : `.segments` déclare son `display` — `hidden` posé dessus ne fait rien ; on
+masque une enveloppe. (2) **Le haut du contenu se MESURE** (`lib/alignerTitre.js`, `useAlignerSurLeRail` dans
+`ProtectedLayout`) : à l'ouverture d'un écran et au choix d'une face du rail, le premier contenu visible de `main` est amené au
+haut du rail par la marge haute de `main` ; la mesure suit le chargement 3,5 s puis se tait. Mesuré : de 79-164 px pour un rail
+à 76, à 76 partout (contenu au-dessus du titre compris, ex. Gestion).
 
 **UNE UE DISPENSÉE EN ENTIER EST ACQUISE — ÇA SE LIT DU DOSSIER DE VA** (3.1.438). Les crédits de l'annexe 2,
 l'état du parcours (schéma) et le motif de l'annexe 2 attendaient un résultat `'valorise'` sur

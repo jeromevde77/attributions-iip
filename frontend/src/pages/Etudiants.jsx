@@ -3762,8 +3762,10 @@ export default function Etudiants() {
           <label className="grid grid-cols-[110px_1fr] items-center gap-3 text-sm text-iip-texte">{libelle}{champ}</label>);
         return (
           <div className="space-y-2">
-            <div className="flex gap-2.5 flex-wrap items-center">
-              <div className="relative flex-1 min-w-[220px]">
+            {/* UNE SEULE LIGNE, JAMAIS DEUX (3.1.468, Charles : « partout, une seule ligne de menu »). Sur un
+                écran étroit (iPad), les statuts passent d'une rangée de boutons à une liste. */}
+            <div className="flex gap-2.5 flex-nowrap items-center">
+              <div className="relative flex-1 min-w-[140px]">
                 <IconSearch size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input value={recherche} onChange={e => setRecherche(e.target.value)}
                   placeholder="Nom, prénom ou matricule…" data-reponses="non"
@@ -3772,12 +3774,12 @@ export default function Etudiants() {
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><IconX size={14} /></button>}
               </div>
               <select value={section} onChange={e => setSection(e.target.value)}
-                title="La section de l'étudiant — posée, ou déduite de ses UE" className="controle">
+                title="La section de l'étudiant — posée, ou déduite de ses UE" className="controle flex-none max-w-[14rem]">
                 <option value="">Toutes les sections</option>
                 {sections.map(s => <option key={s.code} value={s.code}>{s.libelle}</option>)}
                 <option value="__aucune__">Sans section</option>
               </select>
-              <select value={fNiveau} onChange={e => setFNiveau(e.target.value)} className="controle">
+              <select value={fNiveau} onChange={e => setFNiveau(e.target.value)} className="controle flex-none">
                 <option value="">Tous les niveaux</option>
                 <option value="BA1">BA1</option>
                 <option value="BA2">BA2</option>
@@ -3785,7 +3787,7 @@ export default function Etudiants() {
                 <option value="MIXTE">Parcours mixte</option>
                 <option value="aucun">Sans niveau</option>
               </select>
-              <div className="relative">
+              <div className="relative flex-none">
                 <button type="button" onClick={() => setFiltresOuverts(o => !o)} aria-expanded={filtresOuverts}
                   className={`controle inline-flex items-center gap-2 font-semibold ${actifs.length ? 'border-iip-blue text-iip-blue' : ''}`}>
                   <IconAdjustmentsHorizontal size={16} /> Filtres
@@ -3839,7 +3841,16 @@ export default function Etudiants() {
                   </div>
                 </>)}
               </div>
-              <div className="segments">
+              <select value={statut} onChange={e => setStatut(e.target.value)} className="controle xl:hidden flex-none"
+                title="Le statut des étudiants affichés">
+                <option value="en_cours">En cours</option>
+                <option value="diplomes">Diplômés</option>
+                <option value="sortis">Sortis</option>
+                <option value="archives">Archivés</option>
+                <option value="tous">Tous</option>
+              </select>
+              {/* `.segments` déclare son `display` : `hidden` posé dessus ne ferait rien. On masque l'enveloppe. */}
+              <div className="hidden xl:block flex-none"><div className="segments">
                 {[
                   { k: 'en_cours', l: 'En cours', t: 'Les étudiants dont le parcours n’est pas achevé' },
                   { k: 'diplomes', l: 'Diplômés', t: 'Épreuve intégrée réussie, ou diplôme déclaré à la main' },
@@ -3852,7 +3863,7 @@ export default function Etudiants() {
                     {x.l}
                   </button>
                 ))}
-              </div>
+              </div></div>
             </div>
             {(actifs.length > 0 || section || fNiveau) && (
               <div className="flex flex-wrap items-center gap-2 text-second text-slate-600">

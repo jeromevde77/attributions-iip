@@ -53,6 +53,7 @@ import AnnulerGestes from './components/AnnulerGestes.jsx';
 import { BoutonUrgence } from './components/TuileQuiEstLa.jsx';
 import { IconEtudiant } from './components/IconesLucie.jsx';
 import { useSousMenu } from './lib/sousMenu.js';
+import { useAlignerSurLeRail } from './lib/alignerTitre.js';
 import MonCompte from './components/MonCompte.jsx';
 import ApercuGlobal from './components/ApercuGlobal.jsx';
 import Dashboard from './pages/Dashboard.jsx';
@@ -280,6 +281,7 @@ function ProtectedLayout({ children }) {
   const sousMenu = useSousMenu();          // les faces de l'écran ouvert, glissées dans la barre
   const [bulleNav, setBulleNav] = useState(null);   // { lbl, x, y } : le nom au survol d'une icône
   const location = useLocation();
+  useAlignerSurLeRail(location.pathname + location.search);   // le haut du contenu au haut du rail (3.1.468)
 
   /*
    * LA BARRE MESURE SA PROPRE HAUTEUR, ET LE RAIL LA LIT.

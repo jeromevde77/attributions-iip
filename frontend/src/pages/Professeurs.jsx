@@ -1,5 +1,6 @@
 import { ICONE_AXE } from '../lib/iconesAxes.js';
 import FonctionsPanel from '../components/FonctionsPanel.jsx';
+import { BoutonFiltres, PastillesFiltres } from '../components/PanneauFiltres.jsx';
 import { IconChalkboardTeacher } from '@tabler/icons-react';
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { calculHELB, estHELB } from '../lib/helb.js';
@@ -2038,6 +2039,39 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
     return `${p.nom||''} ${p.prenom||''}`.toUpperCase().includes('SIGN');
   }
 
+  /* LES FILTRES SECONDAIRES DERRIÈRE « FILTRES » (3.1.468 : une seule ligne de menu). La recherche et la section
+     restent sur la ligne ; fonction, statut, contrat, charge, ancienneté et fiche identité se rangent dans le panneau. */
+  const sel = 'controle w-full';
+  const libChamp = k => (CHAMPS_IDENTITE.find(([c]) => c === k) || [])[1] || k;
+  const filtresPersonnel = [
+    ...(fonctionsListe.length ? [{ k: 'fonction', libelle: 'Fonction', actif: !!fFonction, etiquette: fFonction, off: () => setFFonction(''),
+      champ: <select value={fFonction} onChange={e => setFFonction(e.target.value)} className={sel}
+        title="Qui tient cette fonction cette année — elle se règle sur la fiche, onglet Fonctions">
+        <option value="">Toutes fonctions</option>{fonctionsListe.map(f => <option key={f} value={f}>{f}</option>)}</select> }] : []),
+    { k: 'statut', libelle: 'Statut', actif: !!fStatut, etiquette: `${fStatut} seulement`, off: () => setFStatut(''),
+      champ: <select value={fStatut} onChange={e => setFStatut(e.target.value)} className={sel}>
+        <option value="">CC et EXP</option><option value="CC">CC seulement</option><option value="EXP">EXP seulement</option></select> },
+    { k: 'contrat', libelle: 'Contrat', actif: !!fContrat, etiquette: ({ IIP: 'IIP seul', HELB: 'HELB seul', mixte: 'IIP + HELB' })[fContrat], off: () => setFContrat(''),
+      champ: <select value={fContrat} onChange={e => setFContrat(e.target.value)} className={sel}>
+        <option value="">Tous contrats</option><option value="IIP">IIP seul</option><option value="HELB">HELB seul</option><option value="mixte">IIP + HELB</option></select> },
+    { k: 'charge', libelle: 'Charge', actif: !!fCharge, etiquette: fCharge === 'avec' ? 'Avec charge' : 'Sans charge', off: () => setFCharge(''),
+      champ: <select value={fCharge} onChange={e => setFCharge(e.target.value)} className={sel}>
+        <option value="">Toutes charges</option><option value="avec">Avec charge</option><option value="sans">Sans charge</option></select> },
+    { k: 'fiche', libelle: 'Fiche identité', actif: !!fChamp,
+      etiquette: fChamp === '__incomplete' ? (fChampMode === 'present' ? 'Fiche complète' : 'Fiche incomplète') : `${libChamp(fChamp)} ${fChampMode === 'present' ? 'présent' : 'manquant'}`,
+      off: () => setFChamp(''),
+      champ: <div className="flex gap-2">
+        <select value={fChamp} onChange={e => setFChamp(e.target.value)} className={sel} title="Filtrer sur un champ de la fiche identité">
+          <option value="">Tous</option><option value="__incomplete">Un champ au moins</option>
+          {CHAMPS_IDENTITE.map(([k, lib]) => <option key={k} value={k}>{lib}</option>)}</select>
+        {fChamp && <select value={fChampMode} onChange={e => setFChampMode(e.target.value)} className="controle flex-none">
+          <option value="manquant">manquant</option><option value="present">{fChamp === '__incomplete' ? 'fiche complète' : 'présent'}</option></select>}
+      </div> },
+    { k: 'anc', libelle: '', actif: fAnc, etiquette: 'Avec ancienneté', off: () => setFAnc(false),
+      champ: <label className="inline-flex items-center gap-1.5"><input type="checkbox" checked={fAnc} onChange={e => setFAnc(e.target.checked)} /> Avec ancienneté</label> },
+  ];
+  const effacerFiltresPersonnel = () => { setFContrat(''); setFStatut(''); setFCharge(''); setFSection(''); setFAnc(false); setFFonction(''); setFChamp(''); };
+
   const filtered = useMemo(() => {
     let arr = [...profs];
     // Filtrage par recherche
@@ -2337,60 +2371,7 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
             <option value="">Toutes sections</option>
             {sectionsListe.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
-          {fonctionsListe.length > 0 && (
-            <select value={fFonction} onChange={e => setFFonction(e.target.value)}
-              title="Qui tient cette fonction cette année — elle se règle sur la fiche, onglet Fonctions"
-              className="border border-gray-300 rounded-lg px-2 py-1.5 h-9 text-sm focus:outline-none focus:border-iip-gold">
-              <option value="">Toutes fonctions</option>
-              {fonctionsListe.map(f => <option key={f} value={f}>{f}</option>)}
-            </select>
-          )}
-          {/* UN FILTRE N'EST PAS UNE DESTINATION.
-              Le contrat et la charge occupaient sept icônes du rail — sept
-              places prises, dans un rail où chaque icône doit se mériter, pour
-              restreindre une liste. Ils rejoignent la rangée des filtres, où
-              l'on voit d'un coup d'œil ce qui est appliqué et où « Réinitialiser »
-              les remet tous à zéro d'un geste. */}
-          <select value={fStatut} onChange={e => setFStatut(e.target.value)}
-            className="border border-gray-300 rounded-lg px-2 py-1.5 h-9 text-sm focus:outline-none focus:border-iip-gold">
-            <option value="">CC et EXP</option>
-            <option value="CC">CC seulement</option>
-            <option value="EXP">EXP seulement</option>
-          </select>
-          <select value={fContrat} onChange={e => setFContrat(e.target.value)}
-            className="border border-gray-300 rounded-lg px-2 py-1.5 h-9 text-sm focus:outline-none focus:border-iip-gold">
-            <option value="">Tous contrats</option>
-            <option value="IIP">IIP seul</option>
-            <option value="HELB">HELB seul</option>
-            <option value="mixte">IIP + HELB</option>
-          </select>
-          <select value={fCharge} onChange={e => setFCharge(e.target.value)}
-            className="border border-gray-300 rounded-lg px-2 py-1.5 h-9 text-sm focus:outline-none focus:border-iip-gold">
-            <option value="">Toutes charges</option>
-            <option value="avec">Avec charge</option>
-            <option value="sans">Sans charge</option>
-          </select>
-          <label className="inline-flex items-center gap-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg px-2.5 py-1.5 h-9 cursor-pointer hover:bg-gray-50">
-            <input type="checkbox" checked={fAnc} onChange={e => setFAnc(e.target.checked)} />
-            Avec ancienneté
-          </label>
-          <select value={fChamp} onChange={e => setFChamp(e.target.value)} title="Filtrer sur un champ de la fiche identité"
-            className="border border-gray-300 rounded-lg px-2 py-1.5 h-9 text-sm focus:outline-none focus:border-iip-gold">
-            <option value="">Fiche identité</option>
-            <option value="__incomplete">Un champ au moins</option>
-            {CHAMPS_IDENTITE.map(([k, lib]) => <option key={k} value={k}>{lib}</option>)}
-          </select>
-          {fChamp && (
-            <select value={fChampMode} onChange={e => setFChampMode(e.target.value)}
-              className="border border-gray-300 rounded-lg px-2 py-1.5 h-9 text-sm focus:outline-none focus:border-iip-gold">
-              <option value="manquant">manquant</option>
-              <option value="present">{fChamp === '__incomplete' ? 'fiche complète' : 'présent'}</option>
-            </select>
-          )}
-          {(fContrat || fStatut || fCharge || fSection || fAnc || fFonction || fChamp) && (
-            <button onClick={() => { setFContrat(''); setFStatut(''); setFCharge(''); setFSection(''); setFAnc(false); setFFonction(''); setFChamp(''); }}
-              className="text-xs text-gray-500 hover:text-gray-700 underline">Réinitialiser</button>
-          )}
+          <BoutonFiltres filtres={filtresPersonnel} toutEffacer={effacerFiltresPersonnel} />
           {selection.size > 0 && (
             <div className="flex items-center gap-2">
               {/* Contrats PDF — un vrai PDF par prof, en ZIP.
@@ -2473,6 +2454,7 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
         </div>
       </div>
 
+      <div className="-mt-2 mb-3"><PastillesFiltres filtres={filtresPersonnel} toutEffacer={effacerFiltresPersonnel} /></div>
       {accesLot && <AccesLot ids={[...selection]} onFermer={() => setAccesLot(false)} />}
       {importFiches && <ImportPersonnelFwb onClose={() => setImportFiches(false)} onTermine={() => load()} />}
       {loading ? <p className="text-gray-400 p-4">Chargement…</p> : (
