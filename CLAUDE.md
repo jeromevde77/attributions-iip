@@ -189,6 +189,22 @@ existait sans écran : « reste à payer » était faux pour tous. Fiche → Fin
 s'encode en négatif), au nom de la personne connectée. **Un versement ne s'efface pas** : `DELETE` exige un
 motif et pose `annule_le/annule_par/annule_motif` ; il sort des totaux et reste lisible, barré.
 
+**LES EXTRAITS DE COMPTE RATTACHENT LES VIREMENTS** (3.1.444, Charles, 29 octobre 2026 : « un système qui
+vérifie sur le compte en banque ce qui a été payé » ; retenu : l'import des extraits, pas la liaison PSD2).
+La clé est la **communication structurée** de l'étudiant pour l'année (`lib/banque.js`,
+`communicationStructuree`) : elle se CALCULE, ne se stocke pas — 2 chiffres de l'année de début + n° de
+dossier sur 8 + contrôle modulo 97 (97 si 0) ; elle se relit seule (`lireCommunication`). Imprimée sur la
+note de frais (« Pour payer par virement », avec l'IBAN de l'établissement de la section —
+`etablissement.iban`, Configuration → Identité, contrôlé modulo 97) et montrée dans Fiche → Finances.
+Étudiants → rail → *Extraits de compte* (`components/ExtraitsBancaires.jsx`) : on dépose le CODA ou le
+CAMT.053 téléchargé de la banque ; `POST /api/frais-scolarite/banque/lire` ne fait que lire et proposer —
+reconnu (communication valide), à vérifier (montant au-delà du reste dû, ou rapproché par le SEUL nom du
+donneur d'ordre, un seul inscrit de l'année), non rattaché, déjà importé, débit ignoré ; `…/banque/verser`
+n'écrit que les lignes cochées, au nom de la personne connectée, nature acompte tant que l'acompte n'est
+pas versé. **Un virement ne s'importe qu'une fois** : `frais_paiement.banque_ref` unique. Banc :
+`test/banque.mjs` (27 ok). **À vérifier sur un vrai extrait** de la banque de l'école : les positions CODA
+sont celles de la norme Febelfin, jamais encore lues sur un fichier réel.
+
 **UNE UE DISPENSÉE EN ENTIER EST ACQUISE — ÇA SE LIT DU DOSSIER DE VA** (3.1.438). Les crédits de l'annexe 2,
 l'état du parcours (schéma) et le motif de l'annexe 2 attendaient un résultat `'valorise'` sur
 l'inscription, qu'aucune route n'écrivait : zéro crédit valorisé, partout, en silence. Plutôt qu'un second

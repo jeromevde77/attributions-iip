@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { ibanValide } from '../lib/banque.js';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { cachetCourant, logoBlancCourant, logoCourant, signatureCourante, oublierCompteEtablissements } from '../lib/identite.js';
@@ -29,7 +30,7 @@ export function migrerEtablissements(base = db) {
       })();
     }
     const ont = new Set(base.prepare('PRAGMA table_info(etablissement)').all().map(c => c.name));
-    for (const [c, t] of [['code', 'TEXT'], ['nom_court', 'TEXT'], ['logo', 'TEXT'], ['logo_blanc', 'TEXT'], ['signature', 'TEXT'], ['cachet', 'TEXT'], ['signataire', 'TEXT']])
+    for (const [c, t] of [['code', 'TEXT'], ['nom_court', 'TEXT'], ['logo', 'TEXT'], ['logo_blanc', 'TEXT'], ['signature', 'TEXT'], ['cachet', 'TEXT'], ['signataire', 'TEXT'], ['iban', 'TEXT']])
       if (!ont.has(c)) base.exec(`ALTER TABLE etablissement ADD COLUMN ${c} ${t}`);
     const sec = new Set(base.prepare('PRAGMA table_info(section)').all().map(c => c.name));
     if (sec.size && !sec.has('etablissement_id')) base.exec('ALTER TABLE section ADD COLUMN etablissement_id INTEGER NOT NULL DEFAULT 1');
@@ -59,7 +60,7 @@ const CHAMPS = [
   'po_nom', 'etab_nom', 'adresse', 'type_po', 'sous_type',
   'num_ecot', 'num_fase', 'num_entreprise', 'site_web', 'email_contact', 'email_ec', 'email_po',
   'gest_nom', 'gest_prenom', 'gest_qualite', 'gest_tel', 'gest_email',
-  'jours_fonctionnement',
+  'jours_fonctionnement', 'iban',
 ];
 
 // Les images d'un établissement — importées, ou à défaut celles d'origine (pour l'établissement 1).
@@ -119,6 +120,7 @@ r.put('/', authRequired, roleRequired('admin', 'editeur'), async (req, res) => {
   const vals = {};
   for (const c of [...CHAMPS, 'code', 'nom_court', 'signataire']) vals[c] = (req.body?.[c] ?? null) || null;
   if (id === 1) { vals.code = vals.code || 'IIP'; vals.nom_court = vals.nom_court || vals.code; }
+  if (vals.iban) { const v = ibanValide(vals.iban); if (!v) return res.status(400).json({ error: 'Le numéro de compte n’est pas un IBAN valide.' }); vals.iban = v; }
   // Les images : seules celles ENVOYÉES changent ; chacune est vérifiée à ses octets. Réservé à l'administrateur.
   const images = {};
   const avant = db.prepare(`SELECT ${IMAGES.join(', ')} FROM etablissement WHERE id = ?`).get(id) || {};

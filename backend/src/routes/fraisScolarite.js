@@ -26,7 +26,10 @@ import { authRequired, roleRequired } from '../middleware/auth.js';
 import { calculerDI, calculerDIS } from './droitInscription.js';
 import { premierDixiemeUE } from '../lib/datesReelles.js';
 import { forfaitVA, migrerForfaitVA, exonererForfait } from '../lib/forfaitVA.js';
-import { logoCourant } from '../lib/identite.js';
+import { logoCourant, etablissementDeSection } from '../lib/identite.js';
+import { etablissementCourant } from '../lib/contexteRequete.js';
+import multer from 'multer';
+import { communicationStructuree, lireExtrait, chercherCommunication, lireCommunication } from '../lib/banque.js';
 
 const r = Router();
 
@@ -74,6 +77,9 @@ export function migrerFraisScolarite(dbx) {
     for (const c of ['annule_le TEXT', 'annule_par TEXT', 'annule_motif TEXT']) {
       try { db.exec(`ALTER TABLE frais_paiement ADD COLUMN ${c}`); } catch { /* déjà là */ }
     }
+    /* UN VIREMENT NE S'IMPORTE QU'UNE FOIS (3.1.444) : la référence de la banque, unique. */
+    try { db.exec('ALTER TABLE frais_paiement ADD COLUMN banque_ref TEXT'); } catch { /* déjà là */ }
+    db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_frais_paiement_banque ON frais_paiement(banque_ref) WHERE banque_ref IS NOT NULL');
   } catch (e) { console.error('[migration] frais scolarité :', e.message); }
 }
 
@@ -181,7 +187,21 @@ export function calculerFrais(etudId, annee) {
     exonere_di: di.exonere,
     tiers: di.tiers,   // droits perçus par un tiers : hors recettes de l'établissement
     detail_ue: di.detail,
+    virement: virementDe(etudId, annee, sec),
   };
+}
+
+/* COMMENT PAYER (3.1.444) : le compte de l'établissement de la section, et la communication
+   structurée de l'étudiant pour l'année — c'est elle qui rattache le virement sans deviner. */
+export function virementDe(etudId, annee, section) {
+  let e = {};
+  try {
+    const id = section ? etablissementDeSection(section) : 1;
+    e = db.prepare('SELECT iban, etab_nom, nom_court FROM etablissement WHERE id = ?').get(id)
+      || db.prepare('SELECT iban, etab_nom, nom_court FROM etablissement ORDER BY id LIMIT 1').get() || {};
+  } catch { /* colonne iban absente sur une vieille base */ }
+  return { iban: e.iban || null, beneficiaire: e.etab_nom || e.nom_court || null,
+    communication: communicationStructuree(etudId, annee) };
 }
 
 // ── Consultation ────────────────────────────────────────────────────────────
@@ -267,7 +287,7 @@ r.get('/etudiant/:id/document', authRequired, (req, res) => {
   const e = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(etudId);
   if (!e) return res.status(404).json({ error: 'étudiant introuvable' });
   const f = calculerFrais(etudId, annee);
-  const etab = db.prepare('SELECT * FROM etablissement LIMIT 1').get() || {};
+  const etab = db.prepare('SELECT * FROM etablissement WHERE id = ?').get(etablissementCourant()) || db.prepare('SELECT * FROM etablissement ORDER BY id LIMIT 1').get() || {};
 
   const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
   const eur = n => (Number(n) || 0).toFixed(2).replace('.', ',') + ' €';
@@ -364,6 +384,13 @@ r.get('/etudiant/:id/document', authRequired, (req, res) => {
   <div style="margin-top:8px">Solde : <b>${eur(f.solde)}</b>, à verser pour le ${fr(f.echeance_solde)} au plus tard.</div>
 </div>
 
+${f.virement?.communication ? `<div class="encadre" style="border-width:1px">
+  <div><b>Pour payer par virement</b></div>
+  ${f.virement.iban ? `<div style="margin-top:4px">Compte : <b>${esc(f.virement.iban)}</b>${f.virement.beneficiaire ? ` — ${esc(f.virement.beneficiaire)}` : ''}</div>` : ''}
+  <div style="margin-top:4px">Communication : <b style="font-size:14px;letter-spacing:.5px">${esc(f.virement.communication)}</b></div>
+  <div class="note">Recopiez exactement cette communication : c'est elle qui rattache votre virement à votre dossier.</div>
+</div>` : ''}
+
 ${f.paiements.length ? `
 <h2>Versements enregistrés</h2>
 <table>
@@ -404,6 +431,96 @@ ${piedBalisage(logoCourant())}
 </body></html>`;
 
   res.json({ html, titre: `Frais de scolarité — ${e.nom} ${e.prenom}` });
+});
+
+// ── Extraits de compte (3.1.444) ────────────────────────────────────────────
+/* RIEN NE S'ÉCRIT SANS QU'ON AIT VU CE QUI SERA ÉCRIT : /banque/lire ne fait que lire l'extrait
+   et proposer, ligne par ligne, l'étudiant que le virement paie ; /banque/verser n'enregistre
+   que les lignes confirmées à l'écran, au nom de la personne connectée. */
+const extrait = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+const sansAccents = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z ]/g, ' ').replace(/\s+/g, ' ').trim();
+
+function etudiantDe(id) {
+  return db.prepare('SELECT id, nom, prenom, id_ecampus FROM etudiant WHERE id = ?').get(id) || null;
+}
+/* À DÉFAUT DE COMMUNICATION, LE NOM DU DONNEUR D'ORDRE — mais seulement s'il ne désigne
+   qu'UN étudiant inscrit cette année-là, et la ligne reste « à vérifier ». */
+function parNom(nom, annee) {
+  const n = sansAccents(nom);
+  if (n.length < 5) return [];
+  const mots = new Set(n.split(' '));
+  return db.prepare(`SELECT DISTINCT e.id, e.nom, e.prenom, e.id_ecampus FROM etudiant e
+      JOIN etudiant_inscription i ON i.etudiant_id = e.id AND i.annee_scolaire = ?`).all(annee)
+    .filter(e => { const a = sansAccents(e.nom).split(' '), b = sansAccents(e.prenom).split(' ');
+      return a.length && b.length && [...a, ...b].every(m => m && mots.has(m)); });
+}
+
+r.post('/banque/lire', authRequired, roleRequired('admin', 'editeur', 'secretariat'), extrait.single('fichier'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Déposez l’extrait de compte (CODA ou CAMT.053).' });
+  const anneeDefaut = String(req.body?.annee || '');
+  let texte = req.file.buffer.toString('utf8');
+  if (texte.includes('�')) texte = req.file.buffer.toString('latin1');
+  const { format, mouvements } = lireExtrait(texte);
+  if (!format) return res.status(400).json({ error: 'Ce fichier n’est ni un extrait CODA ni un CAMT.053. Téléchargez-le depuis la banque en ligne, au format CODA ou XML (CAMT.053).' });
+  const deja = db.prepare('SELECT etudiant_id, annule_le FROM frais_paiement WHERE banque_ref = ?');
+  const cache = new Map();
+  const frais = (id, an) => { const k = `${id}|${an}`; if (!cache.has(k)) { try { cache.set(k, calculerFrais(id, an)); } catch { cache.set(k, null); } } return cache.get(k); };
+  const lignes = mouvements.map(m => {
+    const l = { ...m, etat: null, etudiant: null, annee: null, motif: null };
+    if (m.montant <= 0) return { ...l, etat: 'ignore', motif: 'Débit du compte : ce n’est pas un versement d’étudiant.' };
+    const d = deja.get(m.ref);
+    if (d) return { ...l, etat: 'deja', etudiant: etudiantDe(d.etudiant_id), motif: d.annule_le ? 'Déjà importé, puis annulé.' : 'Déjà importé.' };
+    const c = (m.structuree && lireCommunication(m.communication)) || chercherCommunication(m.communication);
+    if (c) {
+      const e = etudiantDe(c.etudiant_id);
+      if (!e) return { ...l, etat: 'inconnu', motif: `La communication ${c.communication} ne correspond à aucun dossier.` };
+      const f = frais(e.id, c.annee);
+      const reste = f ? f.restant : null;
+      return { ...l, etudiant: e, annee: c.annee, communication: c.communication, reste,
+        etat: reste != null && m.montant > reste + 0.009 ? 'douteux' : 'reconnu',
+        motif: reste != null && m.montant > reste + 0.009 ? `Le montant dépasse ce qui reste dû (${reste.toFixed(2).replace('.', ',')} €).` : null };
+    }
+    if (anneeDefaut) {
+      const p = parNom(m.nom, anneeDefaut);
+      if (p.length === 1) {
+        const f = frais(p[0].id, anneeDefaut);
+        return { ...l, etat: 'douteux', etudiant: p[0], annee: anneeDefaut, reste: f ? f.restant : null,
+          motif: 'Sans communication structurée : rapproché d’après le nom du donneur d’ordre, à vérifier.' };
+      }
+    }
+    return { ...l, etat: 'inconnu', motif: 'Aucune communication structurée, et le nom ne désigne pas un seul étudiant.' };
+  });
+  const compte = (e) => lignes.filter(x => x.etat === e).length;
+  res.json({ format, fichier: req.file.originalname, lignes,
+    resume: { total: lignes.length, reconnu: compte('reconnu'), douteux: compte('douteux'), inconnu: compte('inconnu'), deja: compte('deja'), ignore: compte('ignore') } });
+});
+
+r.post('/banque/verser', authRequired, roleRequired('admin', 'editeur', 'secretariat'), (req, res) => {
+  const lignes = Array.isArray(req.body?.lignes) ? req.body.lignes : [];
+  if (!lignes.length) return res.status(400).json({ error: 'Aucune ligne à verser.' });
+  const qui = req.user?.nom || req.user?.email || null;
+  for (const l of lignes) {
+    if (!l.ref || !String(l.ref).match(/^(coda|camt):/)) return res.status(400).json({ error: 'Ligne sans référence bancaire.' });
+    if (!(Number(l.montant) > 0)) return res.status(400).json({ error: 'Seuls les crédits se versent.' });
+    if (!l.etudiant_id || !etudiantDe(Number(l.etudiant_id))) return res.status(400).json({ error: `Étudiant inconnu pour la ligne ${l.ref}.` });
+    if (!/^\d{4}-\d{4}$/.test(String(l.annee || ''))) return res.status(400).json({ error: 'Année attendue au format 2026-2027.' });
+  }
+  const existe = db.prepare('SELECT 1 FROM frais_paiement WHERE banque_ref = ?');
+  const ins = db.prepare(`INSERT INTO frais_paiement (etudiant_id, annee_scolaire, date_paiement, montant, nature, moyen, remarque, encode_par, banque_ref)
+    VALUES (?,?,?,?,?, 'virement', ?, ?, ?)`);
+  let verses = 0, sautes = 0;
+  db.transaction(() => {
+    for (const l of lignes) {
+      if (existe.get(l.ref)) { sautes++; continue; }
+      let nature = 'solde';
+      try { const f = calculerFrais(Number(l.etudiant_id), l.annee); if (f && !f.acompte_verse) nature = 'acompte'; } catch { /* */ }
+      const remarque = ['Extrait bancaire', l.nom, l.communication].filter(Boolean).join(' — ').slice(0, 300);
+      ins.run(Number(l.etudiant_id), l.annee, l.date || new Date().toISOString().slice(0, 10), Math.round(Number(l.montant) * 100) / 100,
+        nature, remarque, qui, l.ref);
+      verses++;
+    }
+  })();
+  res.json({ ok: true, verses, sautes });
 });
 
 export default r;

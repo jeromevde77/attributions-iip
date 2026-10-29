@@ -19,6 +19,7 @@ import {
   IconAddressBook, IconListSearch, IconAlertTriangle, IconEyeCheck, IconTablePlus, IconArrowForwardUp, IconArchive, IconDoorExit, IconSchool, IconArrowBackUp, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconSend, IconWritingSign, IconWritingSignOff, IconX,
   IconChecks, IconLock, IconGift,
   IconQrcode,
+  IconCash,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
@@ -36,6 +37,7 @@ import OutilsAFaces from '../components/OutilsAFaces.jsx';
 const DoublonsEtudiants = lazy(() => import('../components/DoublonsEtudiants.jsx'));
 const DoublesProgrammes = lazy(() => import('../components/DoublesProgrammes.jsx'));
 const PresenceQRSuivi = lazy(() => import('../components/PresenceQRSuivi.jsx'));
+const ExtraitsBancaires = lazy(() => import('../components/ExtraitsBancaires.jsx'));
 const HorsBloc = lazy(() => import('../components/HorsBloc.jsx'));
 const PaeHorsRegle = lazy(() => import('../components/PaeHorsRegle.jsx'));
 const DecisionsSansInscription = lazy(() => import('../components/DecisionsSansInscription.jsx'));
@@ -3049,6 +3051,7 @@ export default function Etudiants() {
   // Les contrôles des dossiers, venus de Configuration (lot 4) : la face ouverte.
   const [controles, setControles] = useState(null);
   const [suiviQR, setSuiviQR] = useState(false);
+  const [extraits, setExtraits] = useState(false);
   const [rapportPAE, setRapportPAE] = useState(false);
   const [importListe, setImportListe] = useState(false);
   const [importHisto, setImportHisto] = useState(false);
@@ -3649,6 +3652,10 @@ export default function Etudiants() {
          coordination en lecture, sur ses sections (28 octobre 2026). */
       ...(droitsRail.passe('admin', 'editeur', 'coordination') ? [{ key: 'presence-qr', label: 'Suivi des présences — par UE, régularité, absences',
         icon: IconQrcode, onClick: () => setSuiviQR(true) }] : []),
+      /* LES EXTRAITS DE COMPTE (3.1.444) : ce que la banque a reçu, rattaché aux étudiants
+         par leur communication structurée. Secrétariat et direction. */
+      ...(droitsRail.passe('admin', 'editeur') ? [{ key: 'extraits-bancaires', label: 'Extraits de compte — versements des étudiants',
+        icon: IconCash, onClick: () => setExtraits(true) }] : []),
     ] },
     // LE REGISTRE DES VALORISATIONS A QUITTÉ CE RAIL. Il y figurait en même
     // temps que l'onglet « Valorisation des acquis » de l'axe : deux portes
@@ -4101,6 +4108,9 @@ export default function Etudiants() {
           ]} />
       )}
 
+      {extraits && (
+        <Suspense fallback={null}><ExtraitsBancaires onFermer={() => setExtraits(false)} /></Suspense>
+      )}
       {suiviQR && (
         <Suspense fallback={null}><PresenceQRSuivi onFermer={() => setSuiviQR(false)} /></Suspense>
       )}

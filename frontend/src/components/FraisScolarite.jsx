@@ -192,6 +192,16 @@ export default function FraisScolarite({ etudId, annee }) {
           </div>
         )}
 
+        {/* COMMENT PAYER (3.1.444) : la communication structurée rattache le virement à ce
+            dossier quand l'extrait de compte est importé — Étudiants → Extraits de compte. */}
+        {f.virement?.communication && (
+          <div className="border-t border-slate-200 pt-3 text-second text-slate-600 flex flex-wrap gap-x-6 gap-y-1">
+            <span>Communication structurée : <b className="text-iip-blue tabular-nums select-all">{f.virement.communication}</b></span>
+            <span>Compte : {f.virement.iban ? <b className="select-all">{f.virement.iban}</b>
+              : <span className="text-amber-700">à renseigner dans Configuration → Identité</span>}</span>
+          </div>
+        )}
+
         {/* LES VERSEMENTS (3.1.437) : la route existait, aucun écran ne l'appelait — les
             versements ne s'encodaient donc pas, et « reste à payer » était faux pour tous.
             Un versement s'ANNULE avec un motif, il ne s'efface pas. */}
