@@ -2794,8 +2794,10 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   Conseil » et « Pour ses étudiants », `documents-lot`). **La session n'appartient qu'à la séance.** On arrive déjà
   répondu : la fiche = une personne, la feuille de délibération (session, org, pièces du Conseil) = une séance.
   Aperçu, Produire, Envoyer : icônes de la barre bleue (`outils` de `Fenetre`, portail `PlaceOutils`). À droite, deux
-  faces soulignées : Documents · Étudiants. Le dessin (lignes, alignements) reste à reprendre — Charles : « la logique
-  d'abord ».
+  faces soulignées : Documents · Étudiants. **Le dessin** (3.1.498, « on pousse tout en dev ») : « Pour qui ? » sur
+  une ligne ; la case de chaque pièce s'aligne sur le texte du titre de sa colonne (repère de couleur juste avant) ;
+  plus de phrase sous les listes — « Un document par étudiant » n'existe que pour une séance, sous « Pour ses
+  étudiants » ; l'aide sur les cours ne paraît que quand un cours se déplie ; espacements égaux à gauche.
 
 **L'ANNULER NE COMPARE QUE CE QUE LE GESTE A CHANGÉ** (3.1.482, Charles, 30 octobre 2026, en production :
   « Impossible d'annuler : utilisateur — la ligne a été modifiée depuis, par quelqu'un »). Se reconnecter écrit

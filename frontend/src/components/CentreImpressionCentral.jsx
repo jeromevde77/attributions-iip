@@ -2095,7 +2095,7 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
   };
   /** Une pièce à cocher — repère de couleur, case, intitulé, public, compte. */
   const lignePiece = p => (
-<label key={p.cle} className={`flex items-center gap-2 py-1.5 text-sm ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
+<label key={p.cle} className={`flex items-center gap-2 pl-[30px] py-1.5 text-sm ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
     title={dispo(p) ? '' : modePublic && publicDe(p) !== modePublic && PIECES_DOSSIER.includes(p) ? `Pièces ${modePublic.toUpperCase()} en cours — décochez-les pour les autres pièces` : 'Rien à produire pour ce périmètre'}>
     {/* LA PETITE LIGNE DIT LE SENS (2 octobre 2026) : orange pour
         l'ajournement, fraise pour le refus. */}
@@ -2104,7 +2104,7 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
     <input type="checkbox" checked={!!choix[p.cle] && dispo(p)} disabled={!dispo(p)} onChange={() => basculerPiece(p)}
       className="w-3.5 h-3.5 accent-iip-blue" />
     {p.label}
-    {p.sle && <span className="text-mention font-bold text-slate-500 border border-slate-300 rounded px-1">SLE · {etudiants.filter(e => e.sle).length}</span>}
+    {p.sle && <span className="text-mention font-bold text-slate-500 border border-slate-300 rounded px-1 whitespace-nowrap">SLE · {etudiants.filter(e => e.sle).length}</span>}
     {/* LES CHAMPS DES ANNEXES SE COMPLÈTENT ENCORE (5 octobre 2026,
         DAELEMAN Florian : « nous avions la possibilité de compléter
         certains champs dans les annexes 1 et 2 ; nous n'y parvenons
@@ -2118,12 +2118,12 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
         <button type="button" disabled={!ok}
           onClick={ev => { ev.preventDefault(); ev.stopPropagation(); setFormAnnexe({ cle: p.cle, id: un.id }); }}
           title={ok ? `Compléter les champs de l'annexe pour ${nomPropre(un.nom, un.prenom)}` : 'Cochez un seul étudiant en séjour limité aux études'}
-          className="ml-auto text-second underline text-iip-blue disabled:no-underline disabled:text-slate-400">
+          className="ml-auto text-second underline text-iip-blue whitespace-nowrap disabled:no-underline disabled:text-slate-400">
           compléter…
         </button>
       );
     })()}
-    {p.cep && <span className="text-mention font-bold text-slate-500 border border-slate-300 rounded px-1">CEP · {etudiants.filter(e => e.cep).length}</span>}
+    {p.cep && <span className="text-mention font-bold text-slate-500 border border-slate-300 rounded px-1 whitespace-nowrap">CEP · {etudiants.filter(e => e.cep).length}</span>}
     {p.nominatif && dispo(p) && seance && <span className="ml-auto text-xs text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : p.cle === 'refus' ? etudiants.filter(e => (e.refus ?? e.echecs) > 0).length : p.cle === 'ajournement' ? etudiants.filter(e => (e.ajournes ?? e.echecs) > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
   </label>
   );
@@ -2203,7 +2203,7 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
           {!seul && <div className="segments w-full mb-2">
             {[['personne', 'Une personne'], ['groupe', 'Des étudiants'], ['seance', 'Une séance']].map(([v, lib]) => (
               <button key={v} type="button" onClick={() => setPourQui(v)}
-                className={`flex-1 px-2 text-second ${pourQui === v ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>{lib}</button>))}
+                className={`flex-1 px-1 whitespace-nowrap text-second ${pourQui === v ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>{lib}</button>))}
           </div>}
           {/* L'ORDRE DU PÉRIMÈTRE (3.1.497, Charles) : d'abord QUI (un étudiant), puis QUAND (l'année), puis le reste.
               La recherche restreint la liste, ou ouvre un étudiant de toute l'école quand le périmètre ne le contient pas. */}
@@ -2215,7 +2215,7 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
           <select value={parcours ? 'toutes' : annee}
             onChange={e => { if (e.target.value === 'toutes') setParcours(true); else { setParcours(false); setAnnee(e.target.value); } }}
             title="L'année sur laquelle portent les pièces — ou tout le parcours des étudiants cochés"
-            className="controle w-full mb-2 text-sm">
+            className={`controle w-full text-sm ${seance || parcours ? 'mb-2' : ''}`}>
             {(annees.length ? annees : [annee]).map(a => (
               <option key={a} value={a}>{a === getAnnee() ? `Année actuelle — ${a}` : a}</option>
             ))}
@@ -2282,7 +2282,7 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
           })()}
         </div>
 
-        <div className={pourQui === 'personne' ? 'hidden' : 'px-3 py-3 text-xs text-slate-500'}>
+        <div className={pourQui === 'personne' || !deplie.size ? 'hidden' : 'px-3 py-3 text-xs text-slate-500'}>
           Un cours sert à désigner des personnes : les pièces restent celles de
           leur unité.
         </div>
@@ -2357,37 +2357,37 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
         </div>
         {vueDroite === 'documents' ? (
         <div className="flex-1 overflow-auto min-h-0 p-3 space-y-4">
-          <div className="grid gap-x-8 gap-y-4 md:grid-cols-2 pt-1">
+          <div className="grid gap-x-8 gap-y-5 md:grid-cols-2 pt-1">
             {seance ? <>
-            <div className="px-1">
+            <div>
               <TitreCarte Icone={IconUsers} titre="Pour le Conseil" sous="une pièce pour l’unité" />
               {PIECES.filter(p => !p.nominatif).map(lignePiece)}
             </div>
-            <div className="px-1">
+            <div>
               <TitreCarte Icone={IconFileText} titre="Pour ses étudiants" sous={`les décisions de la ${session === 1 ? '1re' : '2e'} session`} />
               {PIECES.filter(p => p.nominatif).map(lignePiece)}
+              <label className="flex items-center gap-2 pl-[42px] pt-3 text-second text-slate-600 cursor-pointer">
+                <input type="checkbox" checked={separer}
+                  onChange={e => {
+                    setSeparer(e.target.checked);
+                    try { localStorage.setItem('impression.separer', e.target.checked ? '1' : '0'); } catch { /* */ }
+                  }}
+                  className="w-3.5 h-3.5 accent-iip-blue" />
+                Un document par étudiant
+              </label>
             </div>
             </> : <>
-            <div className="px-1">
+            <div>
               <TitreCarte Icone={IconFileText} titre="Résultats" sous={parcours ? "toutes ses années, pour chaque étudiant coché" : "attestations de l’année, bulletin"} />
               {famillePieces.filter(p => CLES_RESULTATS.includes(p.cle) && (!parcours || p.cle === 'reussite')).map(lignePiece)}
             </div>
-            <div className={parcours ? 'hidden' : 'px-1'}>
+            <div className={parcours ? 'hidden' : ''}>
               <TitreCarte Icone={IconId} titre="Inscription" sous="PAE, fiche, frais — les annexes ne vont qu’aux SLE, les pièces CEP qu’aux étudiants au congé-éducation" />
               {famillePieces.filter(p => !CLES_RESULTATS.includes(p.cle)).map(lignePiece)}
             </div>
             </>}
           </div>
-          {parcours || !seance ? <p className="text-second text-slate-500 px-1 m-0">Une pièce par document et par étudiant.</p> : (
-            <label className="flex items-center gap-1.5 px-1 text-second text-slate-600 cursor-pointer">
-              <input type="checkbox" checked={separer}
-                onChange={e => {
-                  setSeparer(e.target.checked);
-                  try { localStorage.setItem('impression.separer', e.target.checked ? '1' : '0'); } catch { /* */ }
-                }}
-                className="w-4 h-4 accent-iip-blue" />
-              Un document par étudiant
-            </label>)}
+          {/* Hors séance, une pièce par document et par étudiant, toujours : la phrase qui le disait sous les listes est retirée. */}
         </div>
         ) : <>
         <div className="px-3 pt-3 pb-2 border-b border-slate-200">
