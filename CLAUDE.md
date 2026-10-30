@@ -2941,6 +2941,12 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   « Aide et règles » est un texte du site étudiant (mode d'emploi, grille de lecture) qui absorbe l'onglet Règlements.
   Le candidat voit Mes frais, pas Mon parcours. Le projet du portail est entièrement construit ; restent les frais
   estimés à côté du PAE en ligne.
+- **VOIR L'ESPACE COMME L'ÉTUDIANT** (3.1.518, Charles : « en tant que directeur, je dois avoir un mode voir comme un étudiant
+  pour tester ou vérifier »). Fiche → Suivi → « Voir son espace » (direction et administrateur ; `POST
+  /api/portail-suivi/:id/apercu`, tracé dans `portail_apercu`) : Lucie demande au portail (`/interne/apercu`) un lien d'une
+  minute, à usage unique (`apercu_jeton`) ; échangé (`POST /api/portail/apercu`) contre une session de 30 min, claim `apercu`.
+  Dans `connecte` : tout ce qui n'est pas GET est refusé, la règle de la Belgique ne s'applique pas, et `presenter()` n'est pas
+  appelé (rien ne compte comme présenté à l'étudiant). Bandeau « Aperçu de la direction » dans l'espace.
 - **LE PORTAIL DE L'ÉTUDIANT — CE QUI EST TRANCHÉ, RIEN N'EST CODÉ** (Charles, 30 octobre 2026 ; projet : logigramme et
   treize écrans hors dépôt). Mot de passe choisi par l'étudiant (comme le personnel), code en plus sur un nouvel appareil.
   **PAE en ligne** : Lucie coche ce qui est accessible (`etatsPAE`), l'étudiant choisit et envoie, la coordination valide ou

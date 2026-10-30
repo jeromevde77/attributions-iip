@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { IconWorld, IconKey } from '@tabler/icons-react';
+import { IconWorld, IconKey, IconEye } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { useDroits } from '../lib/droits.js';
 
@@ -16,12 +16,31 @@ export default function SuiviEspace({ id }) {
       .then(r => (r.ok ? r.json() : null)).then(setEspace).catch(() => {});
   }, [id]);
   useEffect(() => { charger(); }, [charger]);
+  /* VOIR COMME L'ÉTUDIANT (3.1.518) : la direction ouvre son espace en lecture seule, dans un nouvel onglet. L'onglet
+     s'ouvre au clic (sinon l'iPad le bloque), le lien d'une minute y arrive ensuite. */
+  const { passe } = useDroits();
+  const direction = passe('admin');   // la direction et l'administrateur, pas le secrétariat (même règle que le serveur)
+  const [erreurApercu, setErreurApercu] = useState(null);
+  const voirComme = async () => {
+    setErreurApercu(null);
+    const w = window.open('', '_blank');
+    try {
+      const r = await fetch(`/api/portail-suivi/${id}/apercu`, { method: 'POST', headers: authHeaders() });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
+      if (w) w.location = j.url; else window.location.href = j.url;
+    } catch (e) { w?.close(); setErreurApercu(e.message); }
+  };
   if (!espace) return null;
   const jour = d => String(d || '').slice(0, 10).split('-').reverse().join('/');
   return <>
     {espace.actif && espace.sans_adresse_ecole && <CodeCandidat id={id} candidat={espace.candidat} onChange={charger} />}
     {espace.actif && <AccesHorsBelgique id={id} exception={espace.exception} onChange={charger} />}
     <div className="bloc-etat px-3 py-2 text-second mb-3 space-y-1" data-etat="neutre">
+      {direction && espace.actif && <div className="float-right flex flex-col items-end gap-1">
+        <button type="button" className="bouton inline-flex items-center gap-1.5" onClick={voirComme}><IconEye size={15} /> Voir son espace</button>
+        {erreurApercu && <span className="text-red-700 max-w-[320px] text-right">{erreurApercu}</span>}
+      </div>}
       <div className="font-semibold text-iip-texte">Son espace étudiant
         {espace.connexions[0]
           ? <span className="font-normal text-slate-500"> · dernière connexion le {jour(espace.connexions[0].utilise_le)} à {String(espace.connexions[0].utilise_le).slice(11, 16)}</span>

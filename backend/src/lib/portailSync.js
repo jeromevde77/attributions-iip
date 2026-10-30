@@ -361,3 +361,20 @@ export function retirerException(etudiantId, par) {
   tours = 0;
   return { ok: true };
 }
+
+/** L'APERÇU DE LA DIRECTION (3.1.518, Charles : « en tant que directeur, je dois avoir un mode voir comme un étudiant pour
+ *  tester ou vérifier ») : le portail fabrique un lien d'une minute, à usage unique, qui ouvre l'espace en lecture seule.
+ *  Chaque aperçu se trace ici (qui, quel étudiant, quand). */
+export async function ouvrirApercu(etudiantId, par) {
+  if (!portailActif()) return { erreur: 'Le portail des étudiants n’est pas configuré sur ce serveur.' };
+  db.exec(`CREATE TABLE IF NOT EXISTS portail_apercu (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL,
+    par TEXT, le TEXT NOT NULL DEFAULT (datetime('now')))`);
+  try {
+    const r = await appel('POST', '/interne/apercu', { etudiant_id: Number(etudiantId), par });
+    db.prepare('INSERT INTO portail_apercu (etudiant_id, par) VALUES (?,?)').run(Number(etudiantId), par);
+    return { url: r.url };
+  } catch (e) {
+    return { erreur: /404/.test(e.message) ? 'Cet étudiant n’a pas (encore) d’espace : ni adresse de l’institut, ni code de candidat — ou le portail ne l’a pas encore reçu (deux minutes).'
+      : 'Le portail des étudiants ne répond pas.' };
+  }
+}

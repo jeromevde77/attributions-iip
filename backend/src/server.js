@@ -3099,7 +3099,7 @@ app.use('/api/pae-en-ligne', (await import('./routes/paeEnLigne.js')).default);
 // L'ESPACE DE L'ÉTUDIANT N'EST PLUS ICI (3.1.477, le mur) : il vit dans le portail (dossier portail/,
 // etudiants.lucie-iip.be), sa base et ses clés à lui. Lucie n'en sert qu'une lecture pour la fiche.
 {
-  const { suiviPortail, planifierPortail, poserException, retirerException, deposerBientot } = await import('./lib/portailSync.js');
+  const { suiviPortail, planifierPortail, poserException, retirerException, deposerBientot, ouvrirApercu } = await import('./lib/portailSync.js');
   const { authRequired: exigerCompte, roleRequired: exigerRole } = await import('./middleware/auth.js');
   const { nomEcranDuCompte } = await import('./lib/nom.js');
   const qui = req => nomEcranDuCompte(req.user?.nom, req.user?.email) || '?';
@@ -3108,6 +3108,12 @@ app.use('/api/pae-en-ligne', (await import('./routes/paeEnLigne.js')).default);
   app.post('/api/portail-suivi/:id/exception', exigerCompte, exigerRole('admin', 'editeur'), (req, res) => {
     const r = poserException(Number(req.params.id), req.body || {}, qui(req));
     res.status(r.erreur ? 400 : 200).json(r.erreur ? { error: r.erreur } : r);
+  });
+  // Voir l'espace d'un étudiant comme lui, en lecture seule — la direction seule (3.1.518).
+  app.post('/api/portail-suivi/:id/apercu', exigerCompte, (req, res, next) => (['admin', 'directeur', 'directeur_adjoint'].includes(req.user?.role)
+    ? next() : res.status(403).json({ error: 'Réservé à la direction.' })), async (req, res) => {
+    const r = await ouvrirApercu(Number(req.params.id), qui(req));
+    res.status(r.erreur ? 409 : 200).json(r.erreur ? { error: r.erreur } : r);
   });
   // Le code d'accès du candidat (sans adresse de l'institut) : l'envoyer, ou le renouveler — secrétariat et direction.
   app.post('/api/portail-suivi/:id/code-candidat', exigerCompte, exigerRole('admin', 'editeur'), async (req, res) => {

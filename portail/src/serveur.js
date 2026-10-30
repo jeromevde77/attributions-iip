@@ -95,6 +95,10 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS pae_lot (etudiant_id INTEGER PRIMARY KEY, offre TEXT, maj_le TEXT);
   -- MON PARCOURS ET MES FRAIS (3.1.517), déposés par Lucie avec le lot de l'étudiant.
   CREATE TABLE IF NOT EXISTS espace_lot (etudiant_id INTEGER PRIMARY KEY, parcours TEXT, frais TEXT, maj_le TEXT);
+  -- L'APERÇU DE LA DIRECTION (3.1.518) : un jeton à usage unique, fabriqué à la demande de Lucie (port interne), qui ouvre
+  -- l'espace d'un étudiant EN LECTURE SEULE. Rien de ce qu'on y regarde ne compte comme vu par l'étudiant.
+  CREATE TABLE IF NOT EXISTS apercu_jeton (jeton_hash TEXT PRIMARY KEY, etudiant_id INTEGER NOT NULL, par TEXT,
+    expire_le TEXT NOT NULL, utilise_le TEXT);
   -- LES MESSAGES (3.1.516) : la copie déposée par Lucie (remplacée à chaque dépôt) ; ce que l'étudiant en fait (lu, répondu),
   -- que Lucie relève.
   CREATE TABLE IF NOT EXISTS message (id INTEGER PRIMARY KEY, objet TEXT, corps TEXT, auteur TEXT, envoye_le TEXT);
@@ -317,6 +321,18 @@ pub.post('/api/portail/candidat', (req, res) => {
   res.json({ token: jwt.sign({ scope: 'portail', etudiant_id: c.etudiant_id, candidat: true }, SECRET, { expiresIn: '2h' }) });
 });
 
+/** Échanger le jeton d'aperçu (une minute, une fois) contre une session de lecture, 30 minutes. */
+pub.post('/api/portail/apercu', (req, res) => {
+  if (tropDEssais(ipDe(req), 60)) return res.status(429).json({ error: 'Trop de tentatives.' });
+  const j = db.prepare('SELECT * FROM apercu_jeton WHERE jeton_hash = ?').get(empreinte(String(req.body?.jeton || '')));
+  if (!j || j.utilise_le || j.expire_le < maintenant() || !db.prepare('SELECT 1 FROM etudiant WHERE id = ?').get(j.etudiant_id)) {
+    return res.status(401).json({ error: 'Ce lien d’aperçu a expiré : rouvrez-le depuis la fiche de l’étudiant.' });
+  }
+  db.prepare("UPDATE apercu_jeton SET utilise_le = datetime('now') WHERE jeton_hash = ?").run(j.jeton_hash);
+  const candidat = !!db.prepare("SELECT 1 FROM candidat WHERE etudiant_id = ? AND jusqu_au >= date('now')").get(j.etudiant_id);
+  res.json({ token: jwt.sign({ scope: 'portail', etudiant_id: j.etudiant_id, apercu: true, par: j.par, ...(candidat ? { candidat: true } : {}) }, SECRET, { expiresIn: '30m' }) });
+});
+
 pub.post('/api/portail/lien', (req, res) => {
   const reponse = { ok: true, message: "Si cette adresse ou ce matricule est connu, un lien d'accès part dans la minute vers votre adresse de l'institut. Il est valable 30 minutes et ne sert qu'une fois." };
   if (tropDEssais(ipDe(req))) return res.status(429).json({ error: 'Trop de demandes. Réessayez dans une heure.' });
@@ -354,6 +370,12 @@ function connecte(req, res, next) {
     const p = jwt.verify(String(req.headers.authorization || '').replace(/^Bearer /, ''), SECRET);
     const e = p.scope === 'portail' && db.prepare('SELECT * FROM etudiant WHERE id = ?').get(p.etudiant_id);
     if (!e) throw new Error('inconnu');
+    // L'APERÇU DE LA DIRECTION : lecture seule ; ouvert par Lucie, il ne passe pas par la règle de la Belgique (le personnel
+    // peut vérifier depuis où il est) ; aucun geste n'est permis.
+    if (p.apercu) {
+      if (req.method !== 'GET') return res.status(403).json({ error: 'Aperçu de la direction : lecture seule, rien ne s’enregistre.' });
+      req.etudiant = e; req.apercu = { par: p.par || '' }; req.candidat = !!p.candidat; return next();
+    }
     if (!permis(req, e.id)) return refuserHorsBelgique(res);
     // Un jeton venu du lien ne sert qu'à choisir le mot de passe.
     if (p.definir && req.path !== '/api/portail/mot-de-passe') return res.status(403).json({ definir: true, error: 'Choisissez d’abord votre mot de passe.' });
@@ -419,7 +441,7 @@ pub.get('/api/portail/moi', connecte, (req, res) => {
       signe_le: s?.signe_le || null, presente_le: accuseDe(e, 'reglement', r.version_id).presente_le || null };
   });
   const cand = req.candidat ? db.prepare('SELECT jusqu_au FROM candidat WHERE etudiant_id = ?').get(e.id) : null;
-  res.json({ candidat: cand ? { jusqu_au: cand.jusqu_au } : null, etudiant: { nom: e.nom, prenom: e.prenom, email: e.email_ecole,
+  res.json({ apercu: req.apercu || null, candidat: cand ? { jusqu_au: cand.jusqu_au } : null, etudiant: { nom: e.nom, prenom: e.prenom, email: e.email_ecole,
     matricule: db.prepare('SELECT code FROM matricule WHERE etudiant_id = ? LIMIT 1').get(e.id)?.code || '' },
     resultats: cand ? [] : [...parAnnee].map(([annee, ues]) => ({ annee, ues })), documents, reglements: cand ? [] : reglements });
 });
@@ -440,7 +462,7 @@ pub.get('/api/portail/documents/:id', connecte, (req, res) => {
   if (!libre(d) && !deverrouille(req.etudiant.id, d.id)) {
     return res.status(403).json({ code_requis: true, error: `Ce document a plus de ${JOURS_LIBRES} jours : demandez un code pour le télécharger.` });
   }
-  presenter(req.etudiant, 'envoi', d.id, req);
+  if (!req.apercu) presenter(req.etudiant, 'envoi', d.id, req);   // l'aperçu de la direction ne compte pas comme présenté
   res.setHeader('Content-Type', d.mime || 'application/pdf');
   res.setHeader('Content-Disposition', `inline; filename="${String(d.nom_fichier || 'document').replace(/[^A-Za-z0-9_.-]/g, '_')}"`);
   res.send(d.contenu);
@@ -449,7 +471,7 @@ pub.get('/api/portail/documents/:id', connecte, (req, res) => {
 pub.get('/api/portail/reglements/:cle', connecte, (req, res) => {
   const r = db.prepare('SELECT * FROM reglement WHERE cle = ? ORDER BY numero DESC LIMIT 1').get(String(req.params.cle));
   if (!r) return res.status(404).json({ error: 'Texte introuvable.' });
-  presenter(req.etudiant, 'reglement', r.version_id, req);
+  if (!req.apercu) presenter(req.etudiant, 'reglement', r.version_id, req);
   res.json({ titre: r.titre, numero: r.numero, publiee_le: r.publiee_le, contenu: r.contenu, source_url: r.source_url });
 });
 
@@ -804,6 +826,17 @@ int.post('/interne/messages', (req, res) => {
     db.exec("DELETE FROM message_reponse WHERE releve_le IS NOT NULL AND releve_le < datetime('now', '-1 day')");
   })();
   res.json({ ok: true });
+});
+
+/* L'APERÇU : Lucie (direction) demande un jeton pour un étudiant ; il ne vaut qu'une minute et qu'une fois. */
+int.post('/interne/apercu', (req, res) => {
+  const id = Number(req.body?.etudiant_id);
+  if (!db.prepare('SELECT 1 FROM etudiant WHERE id = ?').get(id)) return res.status(404).json({ error: 'Cet étudiant n’a pas d’espace.' });
+  const jeton = crypto.randomBytes(32).toString('base64url');
+  db.prepare("DELETE FROM apercu_jeton WHERE expire_le < datetime('now', '-1 day')").run();
+  db.prepare("INSERT INTO apercu_jeton (jeton_hash, etudiant_id, par, expire_le) VALUES (?,?,?, datetime('now', '+1 minute'))")
+    .run(empreinte(jeton), id, String(req.body?.par || '').slice(0, 120));
+  res.json({ url: `${URL_PUBLIQUE}/?apercu=${jeton}` });
 });
 
 int.get('/interne/documents/connus', (req, res) => res.json({ ids: db.prepare('SELECT id FROM document').all().map(x => x.id) }));

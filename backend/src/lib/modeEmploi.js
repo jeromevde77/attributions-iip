@@ -10,7 +10,7 @@
  *   savoir — ce qu'il faut savoir : les règles qui bloquent ou qui surprennent.
  * Il explique le travail, pas l'informatique (CLAUDE.md, § 7). La version décrite se dit en tête.
  */
-export const VERSION_DECRITE = '3.1.517';
+export const VERSION_DECRITE = '3.1.518';
 
 export const RUBRIQUES = [
   {
@@ -1060,6 +1060,21 @@ export const RUBRIQUES = [
           { src: "/guide/portail-parcours.png", legende: "Mon parcours (données d'essai).", etroite: true },
           { src: "/guide/portail-frais.png", legende: "Mes frais : le reste à payer et le QR de paiement.", etroite: true },
           { src: "/guide/portail-aide.png", legende: "Aide et règles : le mode d'emploi de l'espace, puis la grille de lecture et les règlements.", etroite: true },
+        ],
+      },
+      {
+        titre: "Voir l'espace comme l'étudiant (direction)",
+        pour: "dir",
+        ou: "Fiche → Suivi → bloc « Son espace étudiant » → Voir son espace.",
+        texte: "Pour tester ou vérifier, [[Voir son espace|IconEye]] ouvre, dans un nouvel onglet, l'espace de l'étudiant tel qu'il le voit : ses résultats, ses messages, son PAE, ses documents, ses frais. Un bandeau rappelle qu'il s'agit d'un aperçu de la direction.",
+        savoir: [
+          "Lecture seule : rien ne s'enregistre, et rien de ce que vous ouvrez ne compte comme lu ni signé par l'étudiant.",
+          "Le lien vaut une minute et ne sert qu'une fois ; la session d'aperçu dure 30 minutes. Chaque aperçu se trace (qui, quel étudiant, quand).",
+          "Réservé à la direction et à l'administrateur.",
+        ],
+        images: [
+          { src: "/guide/fiche-voir-espace.png", legende: "Fiche → Suivi : « Voir son espace », en haut à droite du bloc." },
+          { src: "/guide/portail-apercu-direction.png", legende: "L'espace ouvert en aperçu, avec son bandeau (données d'essai).", etroite: true },
         ],
       },
       {

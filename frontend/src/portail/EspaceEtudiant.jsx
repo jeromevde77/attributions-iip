@@ -690,6 +690,13 @@ function Espace() {
   useEffect(() => {
     const jeton = new URLSearchParams(window.location.search).get('jeton');
     if (jeton) { window.history.replaceState(null, '', '/'); setLien({ jeton }); return; }
+    // L'APERÇU DE LA DIRECTION (3.1.518) : un lien d'une minute, ouvert depuis la fiche dans Lucie, en lecture seule.
+    const apercu = new URLSearchParams(window.location.search).get('apercu');
+    if (apercu) {
+      window.history.replaceState(null, '', '/');
+      appel('POST', '/apercu', { jeton: apercu }).then(j => { poser(j.token); setConnecte(true); charger(); }).catch(e => setErreur(e.message));
+      return;
+    }
     if (lire()) { charger(); return; }
     // UN APPAREIL RECONNU : l'adresse est déjà là, il ne reste que le mot de passe.
     appel('GET', '/appareil').then(j => { if (j.reconnu) setIdent(j.identifiant); }).catch(() => {});
@@ -861,6 +868,8 @@ function Espace() {
       <Tete sous={d ? [nom, d.etudiant.matricule].filter(Boolean).join(' · ') : '…'} onQuitter={quitter} />
       <div className="max-w-[860px] mx-auto px-4 py-6 space-y-4">
         {erreur && <div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">{erreur}</div>}
+        {d?.apercu && <div className="bloc-etat px-3 py-2 text-sm" data-etat="surveiller"><b>Aperçu de la direction</b> — l’espace de {nom} tel qu’il le voit.
+          Lecture seule : rien ne s’enregistre, rien ne compte comme lu ni signé. Ouvert par {d.apercu.par}.</div>}
         {aSigner > 0 && <div className="bloc-etat px-3 py-2 text-sm" data-etat="surveiller">{aSigner} pièce(s) attendent votre accusé de réception.</div>}
         <div className="flex gap-1 border-b border-slate-200 overflow-x-auto">
           {FACES.map(([k, l, I]) => (
