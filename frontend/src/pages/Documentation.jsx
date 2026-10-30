@@ -1,4 +1,5 @@
 import { ICONE_AXE } from '../lib/iconesAxes.js';
+import { nomDuCompte } from '../lib/nom.js';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   IconBook, IconFileText, IconCheck, IconAlertTriangle, IconPlus,
@@ -936,7 +937,7 @@ function Registre({ cle, onClose }) {
             style={l.confirme_le ? undefined
               : { borderLeftWidth: 3, borderLeftColor: 'var(--c-attente)' }}>
             <span className="flex-1 min-w-0">
-              {l.nom_complet || l.email}
+              {nomDuCompte(l.nom_complet, l.email)}
               <span className="text-xs text-slate-400 ml-2">{l.role}</span>
             </span>
             {/* LES DEUX TRACES SE LISENT SÉPARÉMENT : « on le lui a servi » et

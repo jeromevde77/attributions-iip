@@ -11,7 +11,7 @@ const ETAPES_DISCIPLINAIRE = ['ouverture','convocation','audition','decision','a
 // ── GET /api/dossiers-rh/:profId ──────────────────────────────────────────────
 r.get('/:profId', authRequired, exigerPerimetreProfesseur, gesteRequis('personnel.dossiers_rh'), (req, res) => {
   const dossiers = db.prepare(`
-    SELECT d.*, u.nom_complet as createur_nom
+    SELECT d.*, lucie_nom_compte(u.nom_complet, u.email) as createur_nom
     FROM dossier_rh d
     LEFT JOIN utilisateur u ON u.email = d.cree_par
     WHERE d.professeur_id = ?

@@ -2843,6 +2843,11 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   la connexion calculait juste, mais `/me` (relu à chaque ouverture) et le récapitulatif quotidien avaient chacun leur
   règle — « Charles Sohet », sans capitales, donnait « Sohet ». UNE règle : `prenomDuCompte` (`lib/nom.js`) — sans
   capitales, le mot qui ouvre l'adresse d'école ; sinon `prenomSeul` ; sans identité, le début de l'adresse.
+  **Et le nom d'un compte, partout** (3.1.508, Charles : « Nicolas Vandecauter est aussi encodé étrangement ») : l'écran
+  des comptes écrivait « NICOLAS Vandecauter » (règle sans l'adresse). `nomDuCompte(nom, email)` (`frontend/src/lib/nom.js`,
+  jumeau de `nomEcranDuCompte`) sert les comptes, « Voir comme » et le registre de lecture ; côté serveur, la fonction
+  SQLite `lucie_nom_compte(nom, email)` (déclarée par `db/index.js`) sert l'échéancier, les personnes des réunions et
+  les dossiers RH. **Un nom de compte affiché passe par l'une ou l'autre, jamais par `nom_complet` brut.**
 
 **L'ANNULER NE COMPARE QUE CE QUE LE GESTE A CHANGÉ** (3.1.482, Charles, 30 octobre 2026, en production :
   « Impossible d'annuler : utilisateur — la ligne a été modifiée depuis, par quelqu'un »). Se reconnecter écrit

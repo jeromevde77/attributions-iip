@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { nomDepuisChaine } from '../lib/nom.js';
+import { nomDuCompte } from '../lib/nom.js';
 import { getUser, api } from '../lib/api.js';
 import { IconPlus, IconKey, IconTrash, IconAlertTriangle,
          IconShieldCheck, IconShieldOff } from '@tabler/icons-react';
@@ -278,7 +278,7 @@ export default function Users({ embedded = false }) {
           const p = profils.find(x => String(x.id) === String(profilId));
           if (!p) return;
           if (!await demander(
-            `Appliquer le profil « ${p.nom} » à ${nomDepuisChaine(u.nom_complet) || u.email} ?\n\n`
+            `Appliquer le profil « ${p.nom} » à ${nomDuCompte(u.nom_complet, u.email)} ?\n\n`
             + `${p.description || ''}\n\nLe périmètre par sections reste inchangé.`)) return;
           try {
             await authFetch(`/api/users/${u.id}`, {
@@ -478,7 +478,7 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil, acti
     <tr className={`${HAUTEUR_LIGNE} bg-white ${u.actif ? '' : 'opacity-55'}`}>
       <td className={`${COL_PREMIERE} sticky left-0 z-10 bg-white border-r border-b border-slate-100 px-3`}>
         <div className="truncate" style={{ color: 'var(--c-texte)' }}>
-          {nomDepuisChaine(u.nom_complet) || u.email}
+          {nomDuCompte(u.nom_complet, u.email)}
         </div>
         <div className="text-mention text-slate-400 truncate" title={u.email}>
           {u.role} · {u.email}

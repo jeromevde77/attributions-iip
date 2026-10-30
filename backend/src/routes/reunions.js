@@ -96,7 +96,7 @@ r.get('/personnes', authRequired, (req, res) => {
   // Les comptes sans fiche — l'administrateur technique, par exemple — restent
   // joignables : ils tiennent des tâches, eux aussi.
   const sansFiche = db.prepare(`
-    SELECT id, nom_complet AS nom, role FROM utilisateur
+    SELECT id, lucie_nom_compte(nom_complet, email) AS nom, role FROM utilisateur
      WHERE actif = 1 AND (professeur_id IS NULL
         OR professeur_id NOT IN (SELECT id FROM professeur))
      ORDER BY nom_complet

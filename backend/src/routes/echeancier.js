@@ -23,7 +23,7 @@ const SELECT_BASE = `
          e.genere_auto, e.responsable_user_id, e.responsable_role,
          t.code, t.libelle, t.description, t.zone, t.categorie,
          t.base_legale, t.lien_interne, t.rappels_defaut,
-         u.nom_complet AS responsable_nom
+         lucie_nom_compte(u.nom_complet, u.email) AS responsable_nom
     FROM echeance e
     JOIN echeance_type t ON t.id = e.type_id
     LEFT JOIN utilisateur u ON u.id = e.responsable_user_id

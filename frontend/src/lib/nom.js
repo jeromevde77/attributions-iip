@@ -100,3 +100,22 @@ export function parNom(a, b) {
 }
 
 export default nomPropre;
+
+/**
+ * « NOM Prénom » POUR UN COMPTE (30 octobre 2026, Charles : « Nicolas Vandecauter est aussi encodé étrangement »).
+ * Un compte porte son identité telle qu'on l'a tapée — « Nicolas Vandecauter », sans capitales, devenait « NICOLAS
+ * Vandecauter ». Sans capitales, le mot qui ouvre l'adresse d'école (« prénom.nom@… ») est le prénom : la règle du
+ * serveur (`nomEcranDuCompte`, lib/nom.js), ici pour l'écran. À défaut, `nomDepuisChaine`.
+ */
+export function nomDuCompte(nomComplet, email) {
+  const plat = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const mots = String(nomComplet || '').trim().split(/\s+/).filter(Boolean);
+  if (!mots.length) return String(email || '').trim();
+  const sansCapitales = !mots.some(m => m.length > 1 && m === m.toUpperCase() && /[A-ZÀ-Ý]/.test(m));
+  const local = plat(String(email || '').split('@')[0]).split(/[._-]/)[0];
+  if (sansCapitales && local && mots.length > 1) {
+    const i = mots.findIndex(m => plat(m) === local || plat(m).split(/[-'’]/)[0] === local);
+    if (i >= 0) return nomPropre(mots.filter((_, k) => k !== i).join(' '), mots[i]);
+  }
+  return nomDepuisChaine(nomComplet);
+}

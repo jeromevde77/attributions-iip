@@ -1,4 +1,5 @@
 import { ICONE_AXE } from './lib/iconesAxes.js';
+import { nomDuCompte } from './lib/nom.js';
 import { BoutonAnnulerReglage } from './lib/annulerReglage.jsx';
 import { useMiseEnPage, basculerMiseEnPage, changerMiseEnPage, deplacer, poigneeGlisser } from './lib/miseEnPage.js';
 import { useDroits } from './lib/droits.js';
@@ -260,7 +261,7 @@ function VoirCommePicker() {
           {profils.filter(p => p.id !== u?.id).map(p => (
             <button key={p.id} onClick={() => voir(p.id)}
               className="w-full text-left px-3 py-1.5 text-sm hover:bg-iip-turquoise/10 flex items-center justify-between">
-              <span className="truncate">{p.nom_complet || p.email}</span>
+              <span className="truncate">{nomDuCompte(p.nom_complet, p.email)}</span>
               <span className="text-mention text-gray-400 flex-shrink-0 ml-2">{p.role}</span>
             </button>
           ))}
