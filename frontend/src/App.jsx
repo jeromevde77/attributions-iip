@@ -611,7 +611,7 @@ function ProtectedLayout({ children }) {
           </button>)}
 
           <div className="flex-none">
-            <svg className="logo-lucie" width="90" height="28" viewBox="0 0 140 44"
+            <svg className="logo-lucie" width="98" height="28" viewBox="-12 -6 172 49"
               xmlns="http://www.w3.org/2000/svg">
               {/* LA VIERGE, CACHÉE DANS LE RÉSEAU (lib/logoVierge.js) : la figure à peine visible ; le L par-dessus,
                   dont les trois extrémités SONT des étoiles — τ en haut, Spica au coin, Zaniah au bout. */}
@@ -628,7 +628,7 @@ function ProtectedLayout({ children }) {
                   <circle cx={x} cy={y} r={i === 1 ? 1.6 : 1.4} fill="white" fillOpacity=".7" />
                 </g>))}
               {/* Texte "Lucie" */}
-              <text x="52" y="30"
+              <text x="66" y="30"
                 fontFamily="'Segoe UI','Helvetica Neue',Arial,sans-serif"
                 fontSize="22" fontWeight="700" letterSpacing="-0.5"
                 fill="#1B2B4B">Lucie</text>

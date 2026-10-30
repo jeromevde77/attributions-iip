@@ -2699,6 +2699,12 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   porte le pictogramme du chapitre. Les points portent leur numéro dans un cercle marine. Plus de naissance animée dans le
   guide (elle reste sur la page de connexion), plus d'étoile allumée par point.
 
+- **LA VRAIE FIGURE DE LA VIERGE** (3.1.485, Charles, 30 octobre 2026 : « ce n'est pas la forme de la Vierge »). Les
+  lignes de 3.1.480 étaient inventées pour le L. Désormais `TRAITS` = les lignes des cartes du ciel modernes (Stellarium,
+  CON Vir : ν–η–γ–Spica–κ–ι–μ, Spica–ζ–τ–109, ζ–δ–ε, δ–γ), douze étoiles projetées comme avant ; le L reste tracé sur
+  τ, Spica et Zaniah. Le logo s'élargit (barre : viewBox -12 -6 172 49, texte à x 66) et la figure, plus lisible
+  (`RESTE` 0,42 / 0,3), se reconnaît. Ne pas réinventer de lignes : une constellation a ses lignes.
+
 **L'ANNULER NE COMPARE QUE CE QUE LE GESTE A CHANGÉ** (3.1.482, Charles, 30 octobre 2026, en production :
   « Impossible d'annuler : utilisateur — la ligne a été modifiée depuis, par quelqu'un »). Se reconnecter écrit
   `last_login_at` sur la ligne du compte ; l'annulation comparait la ligne entière et refusait. Désormais elle ne

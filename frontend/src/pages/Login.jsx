@@ -22,8 +22,8 @@ const STYLE_NAISSANCE = `
 
 function LucieLogo({ size = 200 }) {
   // Version verticale : le L au-dessus, « Lucie » dessous. Mêmes étoiles que la barre (lib/logoVierge.js),
-  // portées à l'échelle de ce L : x 12→26, 42→114 ; y 6→16, 32→86.
-  const X = x => 26 + (x - 12) * 2.933, Y = y => 16 + (y - 6) * 2.692;
+  // portées à l'échelle de la figure entière (3.1.485 : toute la Vierge, x -9,8 → 60,1 ; y -3,9 → 32).
+  const X = x => 10 + (x + 9.8) * 1.75, Y = y => 22 + (y + 3.9) * 1.75;
   const [h, c, b] = POINTS_L.map(([x, y]) => [X(x), Y(y)]);
   const longL = (c[1] - h[1]) + (b[0] - c[0]);
   return (
@@ -53,7 +53,7 @@ function LucieLogo({ size = 200 }) {
             <circle cx={x} cy={y} r={r2} fill="white" fillOpacity=".62" />
           </g>
         </g>))}
-      <text x="70" y="135" textAnchor="middle" textLength="92" lengthAdjust="spacingAndGlyphs"
+      <text x="70" y="128" textAnchor="middle" textLength="92" lengthAdjust="spacingAndGlyphs"
             fontFamily="'Segoe UI','Helvetica Neue',Arial,sans-serif" fontSize="38" fontWeight="700" letterSpacing="-0.5"
             fill="white" className="ln-nom" style={{ animationDelay: `${CHRONO.fin}s` }}>Lucie</text>
     </svg>

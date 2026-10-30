@@ -6,9 +6,8 @@
  * tous les triplets, de trois étoiles qui forment un angle droit dont les bras ont les proportions du L — sans
  * MIROIR (la figure garde son sens, seule l'orientation change). Retenu : τ Vir en HAUT du L, SPICA (α, la plus
  * brillante) au COIN, ZANIAH (η) au BOUT — angle 93°, ramené à 90° par un cisaillement de 3°, bras vertical de
- * 24,5 au lieu de 26 (le L est très légèrement plus bas). Tombent alors DANS l'angle du L : Vindemiatrix (ε),
- * Heze (ζ), Minelauva (δ), θ et Porrima (γ), ces deux dernières au ras de la barre du bas. La tête (β, ν, ο),
- * qui passerait sur le mot « Lucie », et ι, μ, κ, λ, à gauche du L, restent hors du logo : il doit rester simple.
+ * 24,5 au lieu de 26 (le L est très légèrement plus bas). Depuis 3.1.485, TOUTE la figure des cartes du ciel est
+ * dessinée (douze étoiles, mêmes projection et cisaillement) : ν à droite, κ, ι, μ et 109 à gauche du L.
  *
  * Coordonnées dans l'espace du logo de la barre (viewBox 0 0 140 44). Un seul tracé pour les trois dessins :
  * la barre, la page de connexion, l'illustration du mode d'emploi.
@@ -16,22 +15,26 @@
  */
 export const ETOILES = {
   tau: [12, 7.5], spica: [12, 32], eta: [42, 32],
-  vindemiatrix: [39.4, 8], zeta: [18.7, 16.2], delta: [34.5, 19.2], theta: [22, 27.7], porrima: [34.5, 28.4],
+  nu: [60.1, 29.8], porrima: [34.5, 28.4], kappa: [-3.1, 21], iota: [-0.1, 14.4], mu: [-9.8, 7.7],
+  zeta: [18.7, 16.2], v109: [-3.4, -3.9], delta: [34.5, 19.2], vindemiatrix: [39.4, 8],
 };
 /** Les trois extrémités du L : des étoiles. */
 export const L = { haut: 'tau', coin: 'spica', bout: 'eta' };
 export const POINTS_L = [ETOILES.tau, ETOILES.spica, ETOILES.eta];
-/** Les traits de la figure (hors les deux barres du L, qui sont τ–Spica et Spica–Zaniah). */
+/* LA VRAIE FIGURE DE LA VIERGE (3.1.485, Charles : « ce n'est pas la forme de la Vierge » ; choisi : « la vraie figure
+   + le L »). Les lignes sont celles des cartes du ciel modernes (Stellarium, culture « modern », CON Vir) :
+   ν–η–γ–Spica–κ–ι–μ · Spica–ζ–τ–109 · ζ–δ–ε · δ–γ. Le L se trace PAR-DESSUS, sur τ, Spica et Zaniah. */
 export const TRAITS = [
-  ['eta', 'porrima'], ['porrima', 'delta'], ['delta', 'vindemiatrix'], ['porrima', 'theta'],
-  ['theta', 'spica'], ['delta', 'zeta'], ['zeta', 'tau'],
+  ['nu', 'eta'], ['eta', 'porrima'], ['porrima', 'spica'], ['spica', 'kappa'], ['kappa', 'iota'], ['iota', 'mu'],
+  ['spica', 'zeta'], ['zeta', 'tau'], ['tau', 'v109'], ['zeta', 'delta'], ['delta', 'vindemiatrix'], ['delta', 'porrima'],
 ];
 // Une magnitude grossière, pour la taille des points.
-export const ECLAT = { spica: 1, porrima: .75, vindemiatrix: .7, delta: .6, eta: .55, zeta: .5, tau: .45, theta: .4 };
+export const ECLAT = { spica: 1, porrima: .75, vindemiatrix: .7, delta: .6, eta: .55, zeta: .5, tau: .45, nu: .4,
+  kappa: .4, iota: .45, mu: .45, v109: .45 };
 
 /* L'ORDRE D'APPARITION (3.1.478, Charles : « commence par rien ; la première étoile apparaît, puis les autres ;
-   puis les liens qui font apparaître le L de Lucie »). Spica d'abord ; puis on remonte la figure. */
-export const ORDRE_APPARITION = ['spica', 'theta', 'porrima', 'eta', 'delta', 'vindemiatrix', 'zeta', 'tau'];
+   puis les liens qui font apparaître le L de Lucie »). Spica d'abord ; puis on parcourt la figure. */
+export const ORDRE_APPARITION = ['spica', 'porrima', 'eta', 'nu', 'delta', 'vindemiatrix', 'zeta', 'tau', 'v109', 'kappa', 'iota', 'mu'];
 /** Les étoiles qui ne sont pas au L : après l'animation, elles s'effacent presque (« que le logo reste simple »). */
 export const DISCRETES = ORDRE_APPARITION.filter(k => !Object.values(L).includes(k));
 
@@ -47,4 +50,4 @@ export const CHRONO = (() => {
   return { etoile, lien, L: Ldebut, dureeL, fin, effacement: fin + 0.6 };
 })();
 /** Ce qui reste de la figure une fois le L posé. */
-export const RESTE = { etoile: 0.28, trait: 0.14 };
+export const RESTE = { etoile: 0.42, trait: 0.3 };   // 3.1.485 : la figure doit se reconnaître

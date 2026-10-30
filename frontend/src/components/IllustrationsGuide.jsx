@@ -21,7 +21,7 @@ const A = 'var(--c-accent, #05B7E6)';
 const G = '#D8DCE4';
 
 // Les points et les lignes du logo (viewBox du logo : 0-44), agrandis.
-const K = 4.4, X0 = 26.6, Y0 = -3.6;
+const K = 3.4, X0 = 44.3, Y0 = 30;   // toute la figure (x -9,8 → 60,1 ; y -3,9 → 32) dans 260 × 160
 const pt = ([x, y]) => [X0 + x * K, Y0 + y * K];
 const [LH, LB, LD] = POINTS_L.map(pt);
 const CHEMIN_L = `M${LH[0]} ${LH[1]} L${LB[0]} ${LB[1]} L${LD[0]} ${LD[1]}`;
@@ -63,18 +63,18 @@ export default function IllustrationGuide({ rang = 0, Icone = null }) {
         return <circle key={e} cx={ex} cy={ey} r={3 + (ECLAT[e] || 0.35) * 3} style={{ fill: P, fillOpacity: RESTE.etoile }} />;
       })}
       {/* Le L de Lucie. */}
-      <path d={CHEMIN_L} style={{ fill: 'none', stroke: A, strokeWidth: 6, strokeLinecap: 'round', strokeLinejoin: 'round' }} />
+      <path d={CHEMIN_L} style={{ fill: 'none', stroke: A, strokeWidth: 5, strokeLinecap: 'round', strokeLinejoin: 'round' }} />
       {[LH, LB, LD].map(([lx, ly], i) => (
         <g key={i}>
-          <circle cx={lx} cy={ly} r="9" style={{ fill: A }} />
-          <circle cx={lx} cy={ly} r="3.4" style={{ fill: '#fff', fillOpacity: 0.75 }} />
+          <circle cx={lx} cy={ly} r="7.5" style={{ fill: A }} />
+          <circle cx={lx} cy={ly} r="2.8" style={{ fill: '#fff', fillOpacity: 0.75 }} />
         </g>))}
       {/* L'étoile du chapitre : elle seule change d'un chapitre à l'autre. */}
       <g key={k}>
-        <circle cx={x} cy={y} r="26" className="gl gl-onde" style={{ fill: P }} />
+        <circle cx={x} cy={y} r="22" className="gl gl-onde" style={{ fill: P }} />
         <g className="gl gl-allume">
-          <circle cx={x} cy={y} r="26" style={{ fill: P, stroke: '#fff', strokeWidth: 3 }} />
-          {Icone && <Icone x={x - 16} y={y - 16} width={32} height={32} stroke={1.8} color="#fff" />}
+          <circle cx={x} cy={y} r="22" style={{ fill: P, stroke: '#fff', strokeWidth: 3 }} />
+          {Icone && <Icone x={x - 13} y={y - 13} width={26} height={26} stroke={1.8} color="#fff" />}
         </g>
       </g>
     </svg>
