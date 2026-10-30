@@ -2197,7 +2197,7 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
           </select>
           {parcours && <div className="text-xs text-slate-500 -mt-1 mb-2 px-1">
             Les étudiants de {annee} ; pour chacun coché, ses attestations de réussite de toutes les années.</div>}
-          {delib && !parcours && <div className="segments w-full">
+          {conseil && <div className="segments w-full">
             {[[1, '1re session'], [2, '2e session']].map(([v, lib]) => (
               <button key={v} onClick={() => setSession(v)}
                 className={`flex-1 px-2 py-1 text-second ${session === v
@@ -2329,7 +2329,21 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
             ) : <>
             <div className="px-1">
               <TitreCarte Icone={IconFileText} titre="Résultats" sous={parcours ? "toutes ses années, pour chaque étudiant coché" : "attestations, motivations, bulletin"} />
-              {famillePieces.filter(p => CLES_RESULTATS.includes(p.cle) && (!parcours || p.cle === 'reussite')).map(lignePiece)}
+              {famillePieces.filter(p => p.nominatif && (!parcours || p.cle === 'reussite')).map(lignePiece)}
+              {/* LA SESSION EST UNE OPTION DES PIÈCES DE DÉLIBÉRATION, PAS DU PÉRIMÈTRE (3.1.497, Charles : « seuls certains
+                  documents y sont liés ; le choix doit venir après celui des documents, en regard d'eux »). */}
+              {delibChoisie && !parcours && (
+                <div className="flex items-center gap-2 pl-[30px] py-1.5 text-second text-slate-500">
+                  pour la
+                  <div className="segments" style={{ height: 28 }}>
+                    {[[1, '1re session'], [2, '2e session']].map(([v, lib]) => (
+                      <button key={v} type="button" onClick={() => setSession(v)}
+                        className={`px-2.5 text-second ${session === v ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>
+                        {lib}
+                      </button>))}
+                  </div>
+                </div>)}
+              {famillePieces.filter(p => !p.nominatif && CLES_RESULTATS.includes(p.cle) && !parcours).map(lignePiece)}
             </div>
             <div className={parcours ? 'hidden' : 'px-1'}>
               <TitreCarte Icone={IconId} titre="Inscription" sous="PAE, fiche, frais — les annexes ne vont qu’aux SLE, les pièces CEP qu’aux étudiants au congé-éducation" />
