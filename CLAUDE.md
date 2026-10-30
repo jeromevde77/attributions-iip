@@ -2978,7 +2978,11 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   J-3 ; le DERNIER DÉLAI d'encodage des points est J-2. Réglage : la DIRECTION SEULE (Configuration), personne ne se
   désabonne. Existant à reprendre, sans le doubler : récap du matin, rappels de l'échéancier (aujourd'hui sans courriel),
   rapport du mois, avis d'absences (manuel), avis de l'espace étudiant (un par jour). À faire : l'analyse complète (catalogue
-  de chaque rappel : déclencheur, destinataire, délai, urgence), soumise à Charles avant le code.
+  de chaque rappel : déclencheur, destinataire, délai, urgence), soumise à Charles avant le code. **Analyse faite** :
+  `docs/contexte/analyse-rappels-2026-10-30.md` (32 rappels, moteur `lib/rappels.js` sur `rappel_envoye`, ordre de construction).
+  Tranché ensuite : sans date de séance, seulement l'alerte « date à poser » (coordination, secrétariat, fin d'UE -15 j) ; délai
+  J-2 dépassé → copie à la coordination de la section ; tout le monde a un compte (rappels aux `utilisateur`) ; étudiants : E1 à E7
+  d'office, un avis par jour au plus.
 - **LE PORTAIL DE L'ÉTUDIANT — CE QUI EST TRANCHÉ, RIEN N'EST CODÉ** (Charles, 30 octobre 2026 ; projet : logigramme et
   treize écrans hors dépôt). Mot de passe choisi par l'étudiant (comme le personnel), code en plus sur un nouvel appareil.
   **PAE en ligne** : Lucie coche ce qui est accessible (`etatsPAE`), l'étudiant choisit et envoie, la coordination valide ou

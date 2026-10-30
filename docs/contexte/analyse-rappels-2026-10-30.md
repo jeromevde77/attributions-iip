@@ -120,12 +120,14 @@ Légende : **M** = dans le courriel du matin ; **U** = urgent, part aussitôt.
 - **CEP** : rien ne garde la trace d'une attestation émise. Le rappel ne peut dire que « l'échéance approche », pas « elle a été faite ».
 - **Avis VA** : l'interrupteur `va_avis_courriel` est éteint par défaut. Avec les rappels, l'appel aux chargés de cours doit partir.
 
-## 5. Questions à trancher (posées en QCM)
+## 5. Tranché par Charles (30 octobre 2026)
 
-1. Une délibération **sans date** : y a-t-il des rappels aux professeurs (sur la fin d'UE) ou seulement l'alerte « date à poser » (S1) ?
-2. **Dernier délai dépassé** (P3) : qui reçoit une copie ?
-3. **Professeurs sans compte Lucie** : leur écrire quand même à leur adresse d'institut ?
-4. **Étudiants** : lesquels des rappels E1 à E7 partent d'office ?
+1. **Sans date de délibération** : seulement l'alerte « date à poser » à la coordination et au secrétariat, 15 jours avant la
+   fin de l'UE (S1, C4). Les professeurs ne reçoivent leurs rappels qu'une fois la date posée.
+2. **Dernier délai dépassé** (P3) : copie à la **coordination de la section** de l'UE.
+3. **Professeurs sans compte** : la question ne se pose pas, **tout le monde a un compte**. Les rappels vont aux comptes
+   (`utilisateur.email`, relié à la fiche par `professeur_id`).
+4. **Étudiants** : E1 à E7 partent tous d'office (documents et accusés, PAE, frais, messages et VA), au plus un avis par jour.
 
 ## 6. Ordre de construction proposé
 
