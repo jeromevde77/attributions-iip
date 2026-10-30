@@ -2105,7 +2105,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
             <button type="button" className="mt-1 text-second underline text-iip-blue" onClick={onRevenir}>revenir au périmètre</button>
           </div>
         )}
-        <div className="p-3">
+        <div className="px-3 pt-3 pb-2">
           <div className="h-6 flex items-center mb-2.5 text-sm font-semibold text-iip-blue">Périmètre</div>
           <select value={annee} onChange={e => setAnnee(e.target.value)}
             title="L'année sur laquelle portent les pièces"
@@ -2123,11 +2123,18 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
               </button>
             ))}
           </div>}
+          {/* LA RECHERCHE D'UN ÉTUDIANT FAIT PARTIE DU PÉRIMÈTRE (3.1.497, Charles) : elle restreint la liste, ou ouvre
+              un étudiant de toute l'école quand le périmètre ne le contient pas. */}
+          <div className="relative mt-2">
+            <IconSearch size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input value={recherche} onChange={e => setRecherche(e.target.value)} placeholder="Un étudiant — nom ou matricule…"
+              className="controle controle-icone w-full text-sm" />
+          </div>
         </div>
 
         {/* Même retrait que le bloc « Périmètre » au-dessus (px-3) : à p-2, la
             section commençait 4 px plus à gauche que l'année. */}
-        <div className="flex-1 overflow-auto px-3 py-2 space-y-1.5">
+        <div className="flex-1 overflow-auto px-3 pb-2 space-y-1.5">
           <select value={secChoisie} onChange={e => choisirSection(e.target.value)} className="controle w-full text-sm">
             <option value="">{arbre ? '— choisir une section —' : 'Chargement…'}</option>
             {(arbre?.sections || []).map(sec => <option key={sec} value={sec}>{sec}</option>)}
@@ -2330,11 +2337,6 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
             </>}
           </div>
           <div className="flex flex-wrap items-center gap-2 text-second">
-            <div className="relative">
-              <IconSearch size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input value={recherche} onChange={e => setRecherche(e.target.value)} placeholder="Un étudiant — nom ou matricule…"
-                className="controle controle-icone w-64" />
-            </div>
             {!seul && <select value={fNouveau} onChange={e => setFNouveau(e.target.value)}
               className="controle" aria-label="Nouveaux ou déjà inscrits">
               <option value="">Nouveaux et déjà inscrits</option>
