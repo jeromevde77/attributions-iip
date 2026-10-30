@@ -2,6 +2,7 @@
  * recrutement.js — Module recrutement (v3)
  * Documents multiples par candidat (CV, lettre, diplômes, annexes).
  */
+import { notificationVisible } from '../lib/perimetreSection.js';
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
@@ -508,7 +509,7 @@ r.get('/notifications', (req, res) => {
        OR cible_role = ?
        OR (cible_user_id IS NOT NULL AND cible_user_id = ?)
     ORDER BY cree_le DESC LIMIT 50
-  `).all(u.role, u.id);
+  `).all(u.role, u.id).filter(n => notificationVisible(u, n.section));   // 3.1.481 : pas les rappels d'une autre section
 
   res.json(notifs.map(n => ({
     ...n,

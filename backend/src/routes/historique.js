@@ -1,3 +1,4 @@
+import { notificationVisible } from '../lib/perimetreSection.js';
 import { Router } from 'express';
 import express from 'express';
 import { readFileSync, createReadStream, writeFileSync, copyFileSync, existsSync, mkdirSync, rmSync } from 'node:fs';
@@ -512,6 +513,8 @@ r.get('/feed', authRequired, (req, res) => {
     `).all(u.role, u.id);
 
     for (const n of notifs) {
+      // Un rappel d'une autre section ne paraît pas chez une coordination (3.1.481).
+      if (!notificationVisible(u, n.section)) continue;
       let lue = false;
       try { lue = JSON.parse(n.lue_par || '[]').includes(u.id); } catch {}
       items.push({

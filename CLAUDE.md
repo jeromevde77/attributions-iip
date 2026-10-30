@@ -392,6 +392,17 @@ fictifs (`frontend/public/guide/`). D'autres chapitres sont à illustrer de mêm
 bouton « Mon horaire de la semaine » à côté du titre de Mes cours, et « Toute ma semaine » dans Ma journée — il n'était
 que dans le rail, nommé au survol, qui n'existe pas au doigt.
 
+**LES ÉCHÉANCES ET LEURS RAPPELS ONT UNE SECTION** (3.1.481, Charles, 30 octobre 2026, en aperçu comme Natacha
+Boulengier : « elle voit des choses du TIM »). Un rappel d'échéance s'adressait au RÔLE (« coordination ») : toutes les
+coordinations recevaient ceux de toutes les sections, et l'échéancier listait (et laissait cocher) les échéances de
+toutes les sections, tâches du suivi d'équipe comprises. Règle commune, `lib/perimetreSection.js` : direction,
+secrétariat, administrateur et éditeur voient tout ; les autres, leurs sections. Une échéance appartient à la section de
+l'unité dont elle vient (`source_type = 'organisation_ue'` ; à défaut d'organisation, l'intitulé « UE n — SECTION ») ;
+sans unité, elle est à l'école et reste visible de tous. `lucie_notification.section` est posée à la génération du
+rappel, et rattrapée pour les anciens rappels d'après leur intitulé (`marquerSectionNotifications`). Appliqué :
+fil d'activité, notifications du recrutement, liste et compteurs de l'échéancier, cocher une échéance (404), tâches
+reprises dans l'échéancier (règle du suivi d'équipe).
+
 **LE SUIVI D'ÉQUIPE A UN PÉRIMÈTRE** (3.1.479, Charles, 30 octobre 2026, en aperçu comme Natacha Boulengier,
 coordination : « elle voit des choses du secrétariat, ce n'est pas normal »). Aucune route des tâches ni des réunions
 (`routes/reunions.js`) n'en posait. Règle écrite une fois (`clauseTache`, `clauseReunion`, `tacheVisible`,

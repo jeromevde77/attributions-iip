@@ -10,6 +10,8 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
+import { clauseEcheance, sectionsRestreintes, sectionEcheanceSql } from '../lib/perimetreSection.js';
+import { tachesVisibles } from './reunions.js';
 import { anneeActive, instancier, recalculerStatuts, genererRappels }
   from '../services/echeancier.js';
 
@@ -46,6 +48,8 @@ r.get('/', authRequired, (req, res) => {
     sql += ' AND (e.responsable_user_id = ? OR e.responsable_role = ?)';
     p.push(req.user.id, req.user.role);
   }
+  // LE PÉRIMÈTRE (3.1.481) : une coordination ne voit que les échéances de ses sections et celles de l'école.
+  { const c = clauseEcheance(req.user, 'e'); sql += c.sql; p.push(...c.p); }
   if (depuis)  { sql += ' AND e.date_due >= ?'; p.push(depuis); }
   if (jusqu_a) { sql += ' AND e.date_due <= ?'; p.push(jusqu_a); }
 
@@ -53,7 +57,8 @@ r.get('/', authRequired, (req, res) => {
 
   const lignes = db.prepare(sql).all(...p);
 
-  // Compteurs (sur l'année entière, indépendants des filtres)
+  // Compteurs (sur l'année entière, indépendants des filtres — mais dans le périmètre)
+  const perim = clauseEcheance(req.user, 'e');
   const c = db.prepare(`
     SELECT
       SUM(CASE WHEN statut='en_retard' THEN 1 ELSE 0 END)                        AS en_retard,
@@ -61,23 +66,23 @@ r.get('/', authRequired, (req, res) => {
       SUM(CASE WHEN statut='a_faire' AND date_due <= date('now','+30 days') THEN 1 ELSE 0 END) AS mois,
       SUM(CASE WHEN statut='fait' THEN 1 ELSE 0 END)                             AS faites,
       COUNT(*)                                                                   AS total
-    FROM echeance WHERE annee_scolaire = ?
-  `).get(annee);
+    FROM echeance e WHERE e.annee_scolaire = ? ${perim.sql}
+  `).get(annee, ...perim.p);
 
   const zones = db.prepare(`
     SELECT t.zone, COUNT(*) n,
            SUM(CASE WHEN e.statut='en_retard' THEN 1 ELSE 0 END) retard
       FROM echeance e JOIN echeance_type t ON t.id = e.type_id
-     WHERE e.annee_scolaire = ? GROUP BY t.zone
-  `).all(annee);
+     WHERE e.annee_scolaire = ? ${perim.sql} GROUP BY t.zone
+  `).all(annee, ...perim.p);
 
   const responsables = db.prepare(`
     SELECT COALESCE(u.nom_complet, e.responsable_role) AS nom, COUNT(*) n,
            SUM(CASE WHEN e.statut='en_retard' THEN 1 ELSE 0 END) retard
       FROM echeance e LEFT JOIN utilisateur u ON u.id = e.responsable_user_id
-     WHERE e.annee_scolaire = ? AND COALESCE(u.nom_complet, e.responsable_role) IS NOT NULL
+     WHERE e.annee_scolaire = ? AND COALESCE(u.nom_complet, e.responsable_role) IS NOT NULL ${perim.sql}
      GROUP BY nom ORDER BY n DESC
-  `).all(annee);
+  `).all(annee, ...perim.p);
 
   // ── LES ACTIONS DE RÉUNION ENTRENT DANS L'ÉCHÉANCIER ────────────────────
   //
@@ -125,8 +130,11 @@ r.get('/', authRequired, (req, res) => {
   } catch { /* module de suivi absent (base non migrée) : l'échéancier vit sans */ }
 
   const jour = new Date().toISOString().slice(0, 10);
+  // Les tâches suivent la règle du suivi d'équipe (routes/reunions.js, 3.1.479).
+  const visibles = tachesVisibles(req, annee);
   const lignesTaches = taches
     .filter(t => {
+      if (visibles && !visibles.has(t.id)) return false;
       if (statut && t.statut !== statut) return false;
       if (zone && zone !== 'equipe') return false;
       if (mien === '1') {
@@ -205,6 +213,12 @@ r.patch('/:id', authRequired, (req, res) => {
     ech.responsable_user_id === req.user.id ||
     (ech.responsable_role && ech.responsable_role === req.user.role);
   const estAdmin = req.user.role === 'admin';
+  // Une échéance d'une autre section n'existe pas pour une coordination (3.1.481).
+  const secs = sectionsRestreintes(req.user);
+  if (secs) {
+    const sec = db.prepare(`SELECT ${sectionEcheanceSql('e')} s FROM echeance e WHERE e.id = ?`).get(id)?.s;
+    if (sec && !secs.includes(sec)) return res.status(404).json({ error: 'échéance introuvable' });
+  }
   if (!estResponsable && !estAdmin && req.user.role !== 'editeur') {
     return res.status(403).json({ error: 'seul le responsable ou un administrateur peut modifier cette échéance' });
   }

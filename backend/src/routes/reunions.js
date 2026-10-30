@@ -346,6 +346,13 @@ function clauseTache(user, req) {
   };
 }
 /** Une tâche ou une réunion précise est-elle visible ? */
+/** Pour l'échéancier, qui reprend les tâches : l'ensemble des tâches visibles de l'année, ou null (tout). */
+export function tachesVisibles(req, annee) {
+  if (voitTout(req.user)) return null;
+  const c = clauseTache(req.user, req);
+  return new Set(db.prepare(`SELECT t.id FROM tache t LEFT JOIN reunion r ON r.id = t.reunion_id
+    WHERE t.annee_scolaire = ? ${c.sql}`).all(annee, ...c.p).map(x => x.id));
+}
 function tacheVisible(req, id) {
   if (voitTout(req.user)) return true;
   const c = clauseTache(req.user, req);

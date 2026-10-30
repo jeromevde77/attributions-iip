@@ -236,11 +236,15 @@ export function genererRappels(db, { verbose = false } = {}) {
     INSERT INTO rappel_envoye (cible_type, cible_id, jalon, user_id, canal)
     VALUES ('echeance', ?, ?, ?, 'inapp')
   `);
+  // LE RAPPEL PORTE LA SECTION DE SON UNITÉ (3.1.481) : adressé au rôle « coordination », il partait à toutes
+  // les coordinations — celle de psychomotricité recevait les rappels de TIM. Le fil d'activité filtre dessus.
+  marquerSectionNotifications(db);
   const notifier = db.prepare(`
     INSERT INTO lucie_notification
-      (type, titre, corps, lien, cible_role, cible_user_id, cree_par)
-    VALUES ('echeance_rappel', ?, ?, ?, ?, ?, 'systeme')
+      (type, titre, corps, lien, cible_role, cible_user_id, cree_par, section)
+    VALUES ('echeance_rappel', ?, ?, ?, ?, ?, 'systeme', ?)
   `);
+  const sectionDe = db.prepare(`SELECT o.section FROM organisation_ue o WHERE o.id = ?`);
 
   for (const e of echeances) {
     const reste = diffJours(today, e.date_due);   // < 0 = en retard
@@ -278,6 +282,7 @@ export function genererRappels(db, { verbose = false } = {}) {
       e.lien_interne || '/echeancier',
       userId ? null : (e.responsable_role || 'admin'),
       userId,
+      e.source_type === 'organisation_ue' ? (sectionDe.get(e.source_id)?.section || null) : null,
     );
     tracer.run(e.id, cle, userId);
     envoyes++;
@@ -335,3 +340,24 @@ export function demarrerMoteur(db) {
 
 export default { instancier, declencher, recalculerStatuts, genererRappels,
                  cycleComplet, anneeActive, demarrerMoteur };
+
+/* LA COLONNE, ET LE RATTRAPAGE DES RAPPELS DÉJÀ ENVOYÉS (3.1.481). Un rappel ne garde pas l'identifiant de son
+   échéance : on le retrouve à son intitulé, qui finit par celui de l'échéance (« … — <type> — <précision> »).
+   Seuls les rappels encore sans section sont touchés ; une fois fait, rien ne se refait. */
+export function marquerSectionNotifications(db) {
+  const cols = db.prepare('PRAGMA table_info(lucie_notification)').all().map(c => c.name);
+  if (!cols.includes('section')) db.exec('ALTER TABLE lucie_notification ADD COLUMN section TEXT');
+  const reste = db.prepare(`SELECT COUNT(*) n FROM lucie_notification WHERE type = 'echeance_rappel' AND section IS NULL`).get().n;
+  if (!reste) return;
+  const ech = db.prepare(`SELECT e.libelle_override, t.libelle, o.section FROM echeance e JOIN echeance_type t ON t.id = e.type_id
+    JOIN organisation_ue o ON o.id = e.source_id WHERE e.source_type = 'organisation_ue' AND o.section IS NOT NULL`).all();
+  const maj = db.prepare(`UPDATE lucie_notification SET section = ? WHERE type = 'echeance_rappel' AND section IS NULL AND titre LIKE ?`);
+  const vus = new Set();
+  for (const e of ech) {
+    const lib = e.libelle_override ? `${e.libelle} — ${e.libelle_override}` : e.libelle;
+    const cle = `${lib}|${e.section}`;
+    if (!e.libelle_override || vus.has(cle)) continue;   // sans précision, l'intitulé ne dit pas l'unité
+    vus.add(cle);
+    maj.run(e.section, `% — ${lib}`);
+  }
+}
