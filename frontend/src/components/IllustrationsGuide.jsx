@@ -10,6 +10,8 @@
  * Mêmes coordonnées que le logo : on agrandit, on n'invente pas un second dessin. Couleurs du thème
  * (`var(--c-…)`, lues dans `style`) ; tout s'arrête pour qui a demandé moins de mouvement.
  */
+import { ETOILES, TRAITS } from '../lib/logoVierge.js';
+
 const P = 'var(--c-principal, #16406A)';
 const A = 'var(--c-accent, #05B7E6)';
 const OR = 'var(--c-iip_or, #F9B619)';
@@ -20,9 +22,9 @@ const G = '#D8DCE4';
 // Les points et les lignes du logo (viewBox du logo : 0-44), agrandis.
 const K = 4.4, X0 = 26.6, Y0 = -3.6;
 const pt = ([x, y]) => [X0 + x * K, Y0 + y * K];
-const NOEUDS = [[5, 14], [12, 6], [23, 8], [36, 14], [16, 23], [23, 32], [12, 32], [42, 32]].map(pt);
-const RESEAU = [[[5, 14], [12, 6]], [[5, 14], [16, 23]], [[12, 6], [23, 8]], [[16, 23], [23, 8]],
-  [[16, 23], [23, 32]], [[23, 8], [36, 14]], [[36, 14], [42, 32]], [[23, 32], [42, 32]]].map(([a, b]) => [pt(a), pt(b)]);
+// Les étoiles du réseau sont celles du logo (lib/logoVierge.js) ; les nœuds du L ferment la liste.
+const NOEUDS = [...Object.values(ETOILES), [12, 6], [12, 32], [42, 32]].map(pt);
+const RESEAU = TRAITS.map(([a, b]) => [pt(ETOILES[a]), pt(ETOILES[b])]);
 const [LH, LB, LD] = [pt([12, 6]), pt([12, 32]), pt([42, 32])];
 const CHEMIN_L = `M${LH[0]} ${LH[1]} L${LB[0]} ${LB[1]} L${LD[0]} ${LD[1]}`;
 const LONG_L = (LB[1] - LH[1]) + (LD[0] - LB[0]);
@@ -31,7 +33,7 @@ const LONG_L = (LB[1] - LH[1]) + (LD[0] - LB[0]);
 const TEINTES = [A, OR, OK, VI, P];
 const rangDe = id => [...String(id || '')].reduce((n, c) => n + c.charCodeAt(0), 0) % TEINTES.length;
 // Les extrémités du L gardent l'accent du logo ; les autres points prennent les teintes du chapitre.
-const L_POINTS = new Set([1, 6, 7]);
+const L_POINTS = new Set([NOEUDS.length - 3, NOEUDS.length - 2, NOEUDS.length - 1]);
 
 export const STYLE_GUIDE = `
 @keyframes gl-trace { from { stroke-dashoffset: var(--long); } to { stroke-dashoffset: 0; } }

@@ -47,6 +47,7 @@ import {
 import Login from './pages/Login.jsx';
 import MotDePasse from './pages/MotDePasse.jsx';
 import DemandeVA from './pages/DemandeVA.jsx';
+import { ETOILES, TRAITS, ECLAT } from './lib/logoVierge.js';
 import EspaceEtudiant from './pages/EspaceEtudiant.jsx';
 import PresenceQR from './pages/PresenceQR.jsx';
 import RechercheLucie from './components/RechercheLucie.jsx';
@@ -613,26 +614,17 @@ function ProtectedLayout({ children }) {
           <div className="flex-none">
             <svg className="logo-lucie" width="90" height="28" viewBox="0 0 140 44"
               xmlns="http://www.w3.org/2000/svg">
-              {/* Symbole L compact */}
-              <g stroke="#1B2B4B" strokeOpacity=".06" fill="none" strokeWidth="1.2" strokeLinecap="round">
-                <line x1="5" y1="14" x2="12" y2="6"/><line x1="5" y1="14" x2="16" y2="23"/>
-                <line x1="12" y1="6" x2="23" y2="8"/><line x1="16" y1="23" x2="23" y2="8"/>
-                <line x1="16" y1="23" x2="23" y2="32"/><line x1="23" y1="8" x2="36" y2="14"/>
-                <line x1="36" y1="14" x2="42" y2="32"/>
+              {/* LA VIERGE, CACHÉE DANS LE RÉSEAU (3.1.476, lib/logoVierge.js), puis le L par-dessus. */}
+              <g stroke="#00AACC" strokeOpacity=".32" fill="none" strokeWidth="0.9" strokeLinecap="round">
+                {TRAITS.map(([a, b]) => <line key={a + b} x1={ETOILES[a][0]} y1={ETOILES[a][1]} x2={ETOILES[b][0]} y2={ETOILES[b][1]} />)}
               </g>
-              <g stroke="#00AACC" strokeOpacity=".35" fill="none" strokeWidth="1.2" strokeLinecap="round">
-                <line x1="5" y1="14" x2="16" y2="23"/><line x1="12" y1="6" x2="23" y2="8"/>
-                <line x1="16" y1="23" x2="23" y2="32"/><line x1="23" y1="8" x2="36" y2="14"/>
-                <line x1="23" y1="32" x2="42" y2="32"/>
-              </g>
+              {Object.entries(ETOILES).map(([k, [x, y]]) => (
+                <circle key={k} cx={x} cy={y} r={0.9 + (ECLAT[k] || 0.3) * 1.3} fill={k === 'spica' ? '#00AACC' : '#1B2B4B'}
+                  fillOpacity={k === 'spica' ? 0.75 : 0.14 + (ECLAT[k] || 0.3) * 0.12} />))}
               <g stroke="#00AACC" strokeOpacity=".85" fill="none" strokeWidth="2.2" strokeLinecap="round">
                 <line x1="12" y1="6" x2="12" y2="32"/>
                 <line x1="12" y1="32" x2="42" y2="32"/>
               </g>
-              <circle cx="5"  cy="14" r="1.8" fill="#1B2B4B" fillOpacity=".1"/>
-              <circle cx="23" cy="8"  r="1.8" fill="#1B2B4B" fillOpacity=".12"/>
-              <circle cx="36" cy="14" r="1.6" fill="#1B2B4B" fillOpacity=".08"/>
-              <circle cx="16" cy="23" r="1.8" fill="#00AACC" fillOpacity=".5"/>
               <circle cx="12" cy="6"  r="3.2" fill="#00AACC"/>
               <circle cx="12" cy="32" r="3.6" fill="#00AACC"/>
               <circle cx="42" cy="32" r="3.2" fill="#00AACC"/>
