@@ -10,7 +10,7 @@
  *   savoir — ce qu'il faut savoir : les règles qui bloquent ou qui surprennent.
  * Il explique le travail, pas l'informatique (CLAUDE.md, § 7). La version décrite se dit en tête.
  */
-export const VERSION_DECRITE = '3.1.526';
+export const VERSION_DECRITE = '3.5.000';
 
 export const RUBRIQUES = [
   {
@@ -1581,7 +1581,7 @@ export const RUBRIQUES = [
         ou: "Configuration → Documents et envois → Courriels → Rappels.",
         texte: "Lucie rappelle à chacun ce qui l'attend, par courriel à son adresse d'institut. Un rappel ordinaire entre dans le récapitulatif du matin ; un rappel urgent (le jour J d'une échéance) part aussitôt. Aujourd'hui : les échéances de l'échéancier — GEDI, publication des résultats, fenêtres de recours, préparation des UE… — au responsable de l'échéance, sinon aux comptes de son rôle ; et la délibération : la date aux professeurs à J-10 et J-3, le dernier délai de leurs points à J-2, « délai dépassé » (copie à la coordination), « date à poser » quand l'UE se termine sans séance datée, et la séance passée qui n'est pas close ; et le personnel : présences à compléter, avis attendus (VA, aménagements), propositions de PAE en ligne, délais des recours et de la discipline, et chaque lundi un bilan de ce qui reste à faire (VA, absences au-delà du seuil, frais échus, aménagements) ; et les étudiants, par leur espace : document jamais ouvert, accusé à signer, PAE en ligne, message non lu, solde des frais, demande de VA sans pièce — un seul avis par jour, sans contenu.",
         savoir: [
-          "La direction seule règle : un interrupteur général et un par rappel. Personne ne se désabonne.",
+          "La direction seule règle : un interrupteur général et un par rappel. Personne ne se désabonne. Depuis la version 3.5.000, les rappels sont éteints au départ : rien ne part tant que la direction n'a pas allumé l'interrupteur général.",
           "La coordination ne reçoit que les rappels de ses sections.",
           "Un étudiant reçoit au plus un courriel par jour, entre 8 h et 20 h, qui dit seulement ce qui l'attend et renvoie à son espace. Rien ne se calcule tant que l'espace des étudiants n'est pas installé.",
           "« Publication des résultats » et les fenêtres de recours naissent désormais de la date de séance et de la date de publication de la délibération.",

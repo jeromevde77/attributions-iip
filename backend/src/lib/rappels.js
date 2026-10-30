@@ -83,7 +83,9 @@ export const CATALOGUE = [
     urgent: "Dans l'avis du jour." },
 ];
 
-const DEFAUT = { actif: true, types: Object.fromEntries(CATALOGUE.map(c => [c.cle, { actif: true }])) };
+// ÉTEINTS À LA NAISSANCE (3.5.000, Charles, 30 octobre 2026 : « tout ce qui est rappel et notification nouvelle est désactivé »
+// pour la mise en production) : rien ne part tant que la direction n'a pas allumé l'interrupteur général dans Configuration.
+const DEFAUT = { actif: false, types: Object.fromEntries(CATALOGUE.map(c => [c.cle, { actif: true }])) };
 
 export function migrerRappels(dbx = db) {
   dbx.exec(`CREATE TABLE IF NOT EXISTS rappel_courriel (
@@ -105,7 +107,7 @@ export function reglagesRappels() {
   let r = null;
   try { r = JSON.parse(db.prepare(`SELECT valeur FROM lucie_config WHERE cle = 'rappels'`).get()?.valeur || 'null'); } catch { r = null; }
   const types = { ...DEFAUT.types, ...(r?.types || {}) };
-  return { actif: r?.actif !== false, types };
+  return { actif: r?.actif === undefined ? DEFAUT.actif : r.actif !== false, types };
 }
 
 export function reglerRappels({ actif, types } = {}) {
