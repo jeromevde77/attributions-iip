@@ -1620,60 +1620,8 @@ function SeriePersonnel({ ids, profs, annee, annexes, nom, outilsMembre = null }
   );
 }
 
-/* UN ÉTUDIANT, TOUTES SES ANNÉES (Charles, 29 septembre 2026 : « on ne sait
-   pas choisir un étudiant puis imprimer toutes ses attestations »). Le reste de
-   l'onglet part d'un périmètre — une année, une section —, et un parcours sur
-   plusieurs années n'y entrait pas. On cherche la personne, et l'on sort ses
-   attestations de toutes les années : en un aperçu, ou un PDF par unité. */
-/* UN ÉTUDIANT, TOUTES SES PIÈCES (Charles, 29 septembre 2026 : « je dois
-   pouvoir sortir TOUS les documents étudiants depuis Éditions »). On le
-   choisit, et la liste commune de ses pièces s'ouvre — la même que sur sa fiche. */
-function UnEtudiantToutesAnnees({ annee, choisi, onChoisir, compact = false }) {
-  const [q, setQ] = useState('');
-  const [trouves, setTrouves] = useState([]);
-  const setChoisi = e => onChoisir(e);
-  useEffect(() => {
-    if (q.trim().length < 2 || choisi) { setTrouves([]); return; }
-    const t = setTimeout(() => {
-      fetch(`/api/etudiants?q=${encodeURIComponent(q.trim())}`, { headers: authHeaders() })
-        .then(r => r.ok ? r.json() : []).then(l => setTrouves((Array.isArray(l) ? l : []).slice(0, 8))).catch(() => {});
-    }, 250);
-    return () => clearTimeout(t);
-  }, [q, choisi]);
-  // COMPACT (2 octobre 2026, « bof ») : un seul champ sur la ligne des
-  // familles ; le titre et le texte d'aide repoussaient tout le contenu.
-  return (
-    <div className={compact ? 'relative' : 'px-3 py-2 border-b border-slate-200 space-y-1.5'}>
-      {!compact && <div className="text-sm font-semibold text-iip-blue">Un étudiant — toutes ses pièces</div>}
-      <div className="relative">
-        {compact && <IconSearch size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />}
-        <input className={`controle w-full text-sm ${compact ? 'controle-icone' : ''}`}
-          placeholder={compact ? 'Un étudiant — toutes ses pièces…' : 'Nom ou matricule…'}
-          title="Attestations, bulletin, parcours, fiche d'inscription, annexes, congé-éducation, aménagements — toutes les pièces d'un étudiant"
-          value={q} onChange={e => setQ(e.target.value)} />
-        {trouves.length > 0 && (
-          <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-champ shadow-flottant max-h-64 overflow-auto">
-            {trouves.map(e => (
-              <button key={e.id} type="button" onClick={() => { setChoisi(e); setTrouves([]); }}
-                className="w-full text-left px-2.5 py-1.5 text-second hover:bg-slate-50">
-                <b>{(e.nom || '').toUpperCase()}</b> {e.prenom} <span className="text-slate-400">· {e.id_ecampus || '—'}</span>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-      {!compact && <div className="text-xs text-slate-400">Attestations, bulletin, parcours, fiche d'inscription, annexes de l'Office des
-        Étrangers, congé-éducation, aménagements raisonnables — pour l'année {annee}.</div>}
-      {choisi && !compact && (
-        <div className="text-second text-iip-texte">Choisi : <b>{nomPropre(choisi.nom, choisi.prenom)}</b>
-          <button type="button" className="ml-2 underline text-slate-500" onClick={() => { onChoisir(null); setQ(''); }}>retirer</button></div>
-      )}
-    </div>
-  );
-}
-
 function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null, onRevenir = null }) {
-  const placeOutils = useContext(PlaceOutils);
+  const { place: placeOutils, choisirEtudiant } = useContext(PlaceOutils) || {};
   const delib = mode === 'deliberation';
   /* L'ANNÉE SE CHOISIT ICI AUSSI. L'onglet des rapports la montre depuis
      longtemps ; celui des étudiants reprenait l'année de travail sans jamais
@@ -1822,6 +1770,20 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
     if (seul) l = l.filter(e => e.id === seul.id);
     return q ? l.filter(e => `${e.nom} ${e.prenom}`.toLowerCase().includes(q)) : l;
   }, [liste, recherche, seul]);
+
+  /* UNE SEULE RECHERCHE (3.1.497, Charles : « deux fois la recherche de l'étudiant ») : « Un nom… » filtre la liste
+     du périmètre ; quand elle n'y trouve personne, elle cherche dans toute l'école et ouvre les pièces de celui
+     qu'on choisit — ce que faisait le champ « Un étudiant — toutes ses pièces », retiré. */
+  const [ailleurs, setAilleurs] = useState([]);
+  useEffect(() => {
+    const q = recherche.trim();
+    if (seul || !choisirEtudiant || q.length < 2 || etudiants.length) { setAilleurs([]); return; }
+    const t = setTimeout(() => {
+      fetch(`/api/etudiants?q=${encodeURIComponent(q)}`, { headers: authHeaders() })
+        .then(r => r.ok ? r.json() : []).then(l => setAilleurs((Array.isArray(l) ? l : []).slice(0, 8))).catch(() => {});
+    }, 250);
+    return () => clearTimeout(t);
+  }, [recherche, etudiants.length, seul, choisirEtudiant]);
 
   /** Les pièces du dossier (bulletin, annexes) des étudiants cochés. */
   async function piecesDossier() {
@@ -2136,7 +2098,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
             <b>{selectionListe.length} étudiant(s)</b> repris de votre sélection dans la liste des étudiants — cochés d’avance.
           </div>)}
         {seul && (
-          <div className="px-3 py-2 border-b border-slate-200">
+          <div className="px-3 pt-3">
             <div className="intertitre">Pour</div>
             <div className="text-base font-semibold text-iip-texte">{nomPropre(seul.nom, seul.prenom)}</div>
             <div className="text-second text-slate-500">{seul.id_ecampus || ''}{seul.section_rattachement ? ` · ${seul.section_rattachement}` : ''}</div>
@@ -2370,8 +2332,8 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
           <div className="flex flex-wrap items-center gap-2 text-second">
             <div className="relative">
               <IconSearch size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input value={recherche} onChange={e => setRecherche(e.target.value)} placeholder="Un nom…"
-                className="controle controle-icone w-48" />
+              <input value={recherche} onChange={e => setRecherche(e.target.value)} placeholder="Un étudiant — nom ou matricule…"
+                className="controle controle-icone w-64" />
             </div>
             {!seul && <select value={fNouveau} onChange={e => setFNouveau(e.target.value)}
               className="controle" aria-label="Nouveaux ou déjà inscrits">
@@ -2392,10 +2354,20 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
           </div>
         </div>
         <div className="flex-1 overflow-auto min-h-0">
-          {rien && (
+          {ailleurs.length > 0 && (
+            <div className="p-3">
+              <div className="text-second text-slate-500 mb-1">Pas dans ce périmètre — dans toute l'école :</div>
+              {ailleurs.map(e => (
+                <button key={e.id} type="button" onClick={() => { setRecherche(''); choisirEtudiant(e); }}
+                  className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded-champ hover:bg-slate-50 text-sm">
+                  <span><b>{(e.nom || '').toUpperCase()}</b> {e.prenom} <span className="text-slate-400">· {e.id_ecampus || '—'}</span></span>
+                  <span className="ml-auto text-second text-iip-blue underline">ouvrir ses pièces</span>
+                </button>))}
+            </div>)}
+          {rien && !ailleurs.length && (
             <p className="p-6 text-sm text-slate-400">
-              Choisissez un périmètre à gauche : une section, des unités, ou des
-              cours.
+              Choisissez un périmètre à gauche — une section, des unités, ou des
+              cours —, ou cherchez un étudiant ci-dessus.
             </p>
           )}
           {!rien && !etudiants.length && (
@@ -2517,7 +2489,8 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
   const [placeOutils, setPlaceOutils] = useState(null);
 
   return (
-    <PlaceOutils.Provider value={placeOutils}>
+    <PlaceOutils.Provider value={{ place: placeOutils,
+      choisirEtudiant: e => { setEtudiantVu(e); if (e && !['pieces', 'dossiers'].includes(famille)) setFamille('pieces'); } }}>
     {/* L'AVION, ET LE SOUS-TITRE AVEC LUI.
        La porte du rail portait l'avion et la fenêtre l'imprimante : on cliquait
        sur un envoi pour tomber sur une impression. Depuis que ce centre envoie
@@ -2597,11 +2570,6 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
                 Lettres
               </button>
             </span>
-            {/* UN ÉTUDIANT — TOUTES SES PIÈCES, depuis n'importe quelle famille. */}
-            <div className="ml-auto w-72 max-w-full pb-1.5">
-              <UnEtudiantToutesAnnees compact annee={getAnnee()} choisi={etudiantVu}
-                onChoisir={e => { setEtudiantVu(e); if (e && !['pieces', 'dossiers'].includes(famille)) setFamille('pieces'); }} />
-            </div>
           </div>
           {etudiantVu && ['pieces', 'dossiers'].includes(famille) ? (
             <OngletEtudiants key={`seul-${etudiantVu.id}-${famille}`} mode={famille === 'pieces' ? 'deliberation' : 'dossiers'}
