@@ -1,6 +1,8 @@
 # Le portail des étudiants — mise en place sur le VPS (Jérôme)
 
-Version 3.1.477. Charles, 30 octobre 2026 : « un mur de Berlin infranchissable entre la version de Lucie pour les
+Version 3.1.477. **Pour la mise en production 3.5.001, suivre `MISE-EN-PRODUCTION-3.5.md`** (même installation, dans
+l'ordre qui évite les pièges — les secrets AVANT le nouveau docker-compose). Depuis 3.5.001, aucun étudiant n'entre tant
+que la direction n'a pas ouvert une fonction pour lui (Configuration → Accès → Mise en service). Charles, 30 octobre 2026 : « un mur de Berlin infranchissable entre la version de Lucie pour les
 MDP et la version accessible aux étudiants ».
 
 ## Ce qui est séparé
