@@ -2691,10 +2691,13 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   20 000 lignes ne se garde pas. **Une table nouvelle est suivie au redémarrage
   suivant** ; une table à colonne BLOB ou sans rowid ne l'est pas.
 
-- - **LE LOGO DU GUIDE EST DANS L'EN-TÊTE DU CHAPITRE** (3.1.483, Charles, 30 octobre 2026 : « trop grand, pas dans une
-  case, dans l'encadré au-dessus, en plus petit ; l'expérience la plus simple »). Plus de colonne d'illustration à côté
-  des points : le logo (sans cadre, `cadre={false}`) tient à droite de l'en-tête, 112-144 px, et ses étoiles s'allument
-  au fil des points lus ; les points prennent toute la largeur.
+- - **LE LOGO DU GUIDE NE SE RECRÉE PAS : CHAQUE CHAPITRE Y ALLUME SON ÉTOILE** (3.1.483-3.1.484, Charles, 30 octobre
+  2026 : « trop grand, pas dans une case, dans l'encadré au-dessus » ; « ne pas recréer le logo à chaque fois mais allumer
+  une étoile différente avec le logo de la thématique dans cette étoile ; pas d'étoiles pour les points, le numéro dans un
+  cercle suffit ; tes étoiles jaunes, je déteste »). Le logo est FIXE, sans cadre, à droite de l'en-tête du chapitre (L et
+  figure à peine visible) ; une seule étoile de la Vierge s'allume par chapitre (`etoileDuChapitre(rang)`), un cercle qui
+  porte le pictogramme du chapitre. Les points portent leur numéro dans un cercle marine. Plus de naissance animée dans le
+  guide (elle reste sur la page de connexion), plus d'étoile allumée par point.
 
 **L'ANNULER NE COMPARE QUE CE QUE LE GESTE A CHANGÉ** (3.1.482, Charles, 30 octobre 2026, en production :
   « Impossible d'annuler : utilisateur — la ligne a été modifiée depuis, par quelqu'un »). Se reconnecter écrit
