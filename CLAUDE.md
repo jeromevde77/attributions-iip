@@ -2952,6 +2952,15 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   minute, à usage unique (`apercu_jeton`) ; échangé (`POST /api/portail/apercu`) contre une session de 30 min, claim `apercu`.
   Dans `connecte` : tout ce qui n'est pas GET est refusé, la règle de la Belgique ne s'applique pas, et `presenter()` n'est pas
   appelé (rien ne compte comme présenté à l'étudiant). Bandeau « Aperçu de la direction » dans l'espace.
+- **LES RAPPELS — CE QUI EST TRANCHÉ, RIEN N'EST CODÉ** (Charles, 30 octobre 2026 : « points non encodés, notes non lues,
+  documents non vus… délibération dans moins de 10 jours… avec courriel automatique sur l'adresse Prigogine, prof ou étudiant
+  le cas échéant, secrétariat ; ça doit être complet »). Quatre familles, toutes par courriel à l'adresse d'INSTITUT :
+  professeurs, étudiants (par le portail, derrière le mur), secrétariat, coordination et direction. Forme : tout entre dans le
+  RÉCAPITULATIF DU MATIN (`lib/recapQuotidien.js`) ; seul l'urgent part aussitôt. Délibération : la date est rappelée à J-10 et
+  J-3 ; le DERNIER DÉLAI d'encodage des points est J-2. Réglage : la DIRECTION SEULE (Configuration), personne ne se
+  désabonne. Existant à reprendre, sans le doubler : récap du matin, rappels de l'échéancier (aujourd'hui sans courriel),
+  rapport du mois, avis d'absences (manuel), avis de l'espace étudiant (un par jour). À faire : l'analyse complète (catalogue
+  de chaque rappel : déclencheur, destinataire, délai, urgence), soumise à Charles avant le code.
 - **LE PORTAIL DE L'ÉTUDIANT — CE QUI EST TRANCHÉ, RIEN N'EST CODÉ** (Charles, 30 octobre 2026 ; projet : logigramme et
   treize écrans hors dépôt). Mot de passe choisi par l'étudiant (comme le personnel), code en plus sur un nouvel appareil.
   **PAE en ligne** : Lucie coche ce qui est accessible (`etatsPAE`), l'étudiant choisit et envoie, la coordination valide ou
