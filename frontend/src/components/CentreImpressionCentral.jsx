@@ -1629,6 +1629,10 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
      l'année de toute l'application, produire la pièce, puis penser à la
      remettre — et la fenêtre couvre justement le sélecteur de la barre. */
   const [annee, setAnnee] = useState(perimetre?.annee || getAnnee());
+  /* TOUT LE PARCOURS (3.1.497, Charles : « sélectionner des étudiants puis tout leur parcours — une inspection, et on doit
+     vite tout sortir »). La liste reste celle de l'année choisie ; les attestations de réussite des étudiants cochés
+     sortent de TOUTES leurs années, une pièce chacune (la route de la fiche, `annee=toutes&separes=1`). */
+  const [parcours, setParcours] = useState(false);
   const [annees, setAnnees] = useState([]);
   useEffect(() => {
     fetch('/api/annees', { headers: authHeaders() })
@@ -1852,12 +1856,30 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
       pdf: { orientation: /size:\s*A4\s+landscape/.test(d.html || '') ? 'paysage' : 'portrait' } });
   }
 
+  /** Les attestations de toutes les années des étudiants cochés, une pièce chacune. */
+  async function attestationsParcours() {
+    const documents = [], sans = [];
+    for (const id of coches) {
+      const e = etudiants.find(x => x.id === id);
+      const r = await fetch(`/api/attestations/etudiant/${id}/document?annee=toutes&separes=1`, { headers: authHeaders() });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) { sans.push(e ? nomPropre(e.nom, e.prenom) : `n° ${id}`); continue; }
+      for (const d of j.documents || []) documents.push({ html: d.html, nom: d.nom_fichier, etudiant_id: id,
+        etudiant: e ? nomPropre(e.nom, e.prenom) : null, contenu: `Attestation de réussite — ${(j.annees || []).join(', ')}` });
+    }
+    return { documents, avis: sans.length ? [`Aucune unité réussie, toutes années confondues : ${sans.join(', ')}`] : [] };
+  }
+
   async function produire(apercu = false) {
     setEnCours(true); setErreur(null);
     try {
       const avis = [];
       let tout = [];
-      if (delibChoisie) {
+      if (parcours) {
+        const r = await attestationsParcours();
+        avis.push(...r.avis);
+        tout = r.documents.map(d => ({ html: d.html, nom: d.nom, pagination: 'si-plusieurs', etudiant: d.etudiant }));
+      } else if (delibChoisie) {
         const rep = await fetch('/api/acquis/deliberation/documents-lot', {
           method: 'POST', headers: authHeaders(),
           body: JSON.stringify({
@@ -1883,7 +1905,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
           tout = tout.map(d => ({ html: d.html, nom: d.nom, pagination: 'si-plusieurs' }));
         }
       }
-      const dossier = await piecesDossier();
+      const dossier = parcours ? { avis: [], documents: [] } : await piecesDossier();
       avis.push(...dossier.avis);
       tout.push(...dossier.documents.map(d => ({ html: d.html, nom: d.nom, pagination: d.pagination, pied: d.pied, etudiant: d.etudiant })));
       if (avis.length) setErreur(avis.join(' · '));
@@ -1900,7 +1922,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
         document.body.appendChild(a); a.click(); a.remove();
         setTimeout(() => URL.revokeObjectURL(url), 30000);
       };
-      const nomLot = `Pieces_${String(annee).replace(/\W/g, '')}`;
+      const nomLot = parcours ? 'Attestations_tout_le_parcours' : `Pieces_${String(annee).replace(/\W/g, '')}`;
       if (tout.length === 1) {
         const rp = await fetch('/api/impression/pdf', { method: 'POST', headers: authHeaders(),
           body: JSON.stringify({ html: tout[0].html, nom: tout[0].nom, pagination: tout[0].pagination || 'si-plusieurs',
@@ -1933,7 +1955,12 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
     try {
       const pieces = [];
       const avis = [];
-      if (delibChoisie) {
+      if (parcours) {
+        const r = await attestationsParcours();
+        avis.push(...r.avis);
+        pieces.push(...r.documents.map(d => ({ html: d.html, nom_fichier: d.nom, contenu: d.contenu,
+          destinataire: { type: 'etudiant', id: d.etudiant_id, nom: d.etudiant } })));
+      } else if (delibChoisie) {
         const rep = await fetch('/api/acquis/deliberation/documents-lot', {
           method: 'POST', headers: authHeaders(),
           body: JSON.stringify({
@@ -1978,7 +2005,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
         }
       }
       // Les pièces du dossier vont à l'étudiant qu'elles nomment, une par courriel.
-      const dossier = await piecesDossier();
+      const dossier = parcours ? { avis: [], documents: [] } : await piecesDossier();
       avis.push(...dossier.avis);
       pieces.push(...dossier.documents.map(d => ({
         html: d.html, nom_fichier: d.nom, contenu: d.contenu,
@@ -2029,6 +2056,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
   const recoit = e => {
     const l = [];
     if (delib) {
+      if (parcours) { if (choix.reussite) l.push('Attestations — toutes les années'); return l; }
       if (choix.reussite && e.reussites > 0) l.push('Attestation');
       if (choix.ajournement && (e.ajournes ?? (session === 1 ? e.echecs : 0)) > 0) l.push('Motivation d’ajournement');
       if (choix.refus && (e.refus ?? (session === 2 ? e.echecs : 0)) > 0) l.push('Motivation de refus');
@@ -2040,6 +2068,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
   /* GRISÉ QUAND IL N'Y A RIEN À PRODUIRE (2 octobre 2026). */
   const dispo = p => {
     if (!etudiants.length) return false;
+    if (parcours) return p.cle === 'reussite';
     if (p.cle === 'reussite') return etudiants.some(e => e.reussites > 0);
     // UN REFUS PEUT SE PRONONCER EN JUIN (PP) : chaque pièce s'ouvre dès qu'un
     // étudiant la concerne, quelle que soit la session.
@@ -2107,13 +2136,24 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
         )}
         <div className="px-3 pt-3 pb-2">
           <div className="h-6 flex items-center mb-2.5 text-sm font-semibold text-iip-blue">Périmètre</div>
-          <select value={annee} onChange={e => setAnnee(e.target.value)}
-            title="L'année sur laquelle portent les pièces"
+          {/* L'ORDRE DU PÉRIMÈTRE (3.1.497, Charles) : d'abord QUI (un étudiant), puis QUAND (l'année), puis le reste.
+              La recherche restreint la liste, ou ouvre un étudiant de toute l'école quand le périmètre ne le contient pas. */}
+          <div className="relative mb-2">
+            <IconSearch size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input value={recherche} onChange={e => setRecherche(e.target.value)} placeholder="Un étudiant — nom ou matricule…"
+              className="controle controle-icone w-full text-sm" />
+          </div>
+          <select value={parcours ? 'toutes' : annee}
+            onChange={e => { if (e.target.value === 'toutes') setParcours(true); else { setParcours(false); setAnnee(e.target.value); } }}
+            title="L'année sur laquelle portent les pièces — ou tout le parcours des étudiants cochés"
             className="controle w-full mb-2 text-sm">
             {(annees.length ? annees : [annee]).map(a => (
-              <option key={a} value={a}>{a}</option>
+              <option key={a} value={a}>{a === getAnnee() ? `Année actuelle — ${a}` : a}</option>
             ))}
+            {delib && <option value="toutes">Tout le parcours — toutes les années</option>}
           </select>
+          {parcours && <div className="text-xs text-slate-500 -mt-1 mb-2 px-1">
+            Les étudiants de {annee} ; pour chacun coché, ses attestations de réussite de toutes les années.</div>}
           {delib && <div className="segments w-full">
             {[[1, '1re session'], [2, '2e session']].map(([v, lib]) => (
               <button key={v} onClick={() => setSession(v)}
@@ -2123,13 +2163,6 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
               </button>
             ))}
           </div>}
-          {/* LA RECHERCHE D'UN ÉTUDIANT FAIT PARTIE DU PÉRIMÈTRE (3.1.497, Charles) : elle restreint la liste, ou ouvre
-              un étudiant de toute l'école quand le périmètre ne le contient pas. */}
-          <div className="relative mt-2">
-            <IconSearch size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input value={recherche} onChange={e => setRecherche(e.target.value)} placeholder="Un étudiant — nom ou matricule…"
-              className="controle controle-icone w-full text-sm" />
-          </div>
         </div>
 
         {/* Même retrait que le bloc « Périmètre » au-dessus (px-3) : à p-2, la
