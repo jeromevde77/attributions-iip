@@ -527,6 +527,8 @@ ouverte en 2026-2027). ~588 étudiants.
 3. **Ne rien trancher à sa place.** « À méditer » est une question ouverte, pas
    une commande. Poser la question bloquante (une minute) plutôt que coder trois
    heures sur une hypothèse.
+   **Toute question à Charles se pose en QCM ou en cases à cocher** (outil de questions, jamais en texte dans la
+   réponse — Charles, 30 octobre 2026 : « sinon j'oublie »). Une recommandation se place en premier choix.
 4. **Chercher avant de construire.** Deux fonctions déjà écrites ont été
    redéveloppées en double faute d'avoir cherché au bon endroit : la
    restauration de sauvegarde (elle était dans `historique.js`, pas dans
