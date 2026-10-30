@@ -22,3 +22,17 @@ export const TRAITS = [
 ];
 // Une magnitude grossière, pour la taille des points : Spica d'abord, puis Porrima, Vindemiatrix, Zavijava.
 export const ECLAT = { spica: 1, porrima: .75, vindemiatrix: .7, beta: .6, delta: .6, eta: .5, zeta: .5 };
+
+/* L'ORDRE D'APPARITION (3.1.478, Charles : « commence par rien ; la première étoile apparaît, puis les autres ;
+   puis les liens qui font apparaître le L de Lucie »). Spica d'abord — la plus brillante —, puis on remonte la
+   figure : la main et le corps, la tête, la robe. */
+export const ORDRE_APPARITION = ['spica', 'theta', 'porrima', 'eta', 'beta', 'nu', 'delta', 'vindemiatrix', 'zeta', 'tau', 'iota', 'mu'];
+/* LE RYTHME, en secondes : un temps de vide, Spica qui s'attarde, les étoiles, les liens, puis le L. */
+export const CHRONO = (() => {
+  const vide = 0.3, apresSpica = 0.5, pasEtoile = 0.15, pasLien = 0.1, pause = 0.2, dureeL = 1;
+  const etoile = i => (i === 0 ? vide : vide + apresSpica + (i - 1) * pasEtoile);
+  const finEtoiles = etoile(ORDRE_APPARITION.length - 1) + 0.4;
+  const lien = i => finEtoiles + i * pasLien;
+  const L = lien(TRAITS.length - 1) + 0.5 + pause;
+  return { etoile, lien, L, dureeL, fin: L + dureeL + 0.2 };
+})();
