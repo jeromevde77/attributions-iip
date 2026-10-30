@@ -1661,7 +1661,11 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
   /* LES SESSIONS DES PIÈCES DE L'ÉTUDIANT (3.1.497, Charles : « S1, S2 ou tout — S2 seulement si elle existe, sinon
      grisé ») : deux cases, les deux = tout. La liste se lit sur la première cochée. Au Conseil, une séance = une
      session : le choix reste au Périmètre. */
-  const [sessions, setSessions] = useState(() => new Set([perimetre?.session === 2 ? 2 : 1]));
+  /* PIÈCE PAR PIÈCE (3.1.497, Charles : « à côté des attestations, en cases à cocher, trois choix au plus ») : S1, S2,
+     Tout — Tout = les deux. Défaut : la session demandée par l'écran d'origine, sinon la première. */
+  const [sessPiece, setSessPiece] = useState({});
+  const [vueDroite, setVueDroite] = useState('documents');
+  const sessDefaut = perimetre?.session === 2 ? 2 : 1;
   // Les sections : celles que l'écran passe, sinon celles des étudiants sélectionnés dans la liste.
   const [sections, setSections] = useState(() => new Set(perimetre?.sections
     || (!perimetre?.coches && selectionEtudiants().ids.length ? selectionEtudiants().sections : [])));
@@ -1776,17 +1780,31 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
     } catch (e) { setErreur(e.message); }
   }, [annee, session, sections, ues, cours, conseil, seul]);
   useEffect(() => { charger(); }, [charger]);
+  const s2Possible = !!liste?.seconde_session;
+  const sessDe = cle => {
+    const x = sessPiece[cle] || new Set([sessDefaut]);
+    const y = new Set([...x].filter(v => v === 1 || s2Possible));
+    return y.size ? y : new Set([1]);
+  };
+  const choisirSess = (cle, quoi) => setSessPiece(m => {
+    const x = new Set(sessDe(cle));
+    if (quoi === 'tout') return { ...m, [cle]: x.size === 2 ? new Set([1]) : new Set([1, 2]) };
+    x.has(quoi) ? x.delete(quoi) : x.add(quoi);
+    return x.size ? { ...m, [cle]: x } : m;
+  });
+  const piecesSession = () => PIECES.filter(p => p.nominatif && choix[p.cle]);
+  // La liste se lit sur la première session demandée par une pièce cochée.
   useEffect(() => {
     if (conseil) return;
-    const s = sessions.has(1) ? 1 : 2;
+    const toutes = piecesSession().flatMap(p => [...sessDe(p.cle)]);
+    const s = !toutes.length || toutes.includes(1) ? 1 : 2;
     if (s !== session) setSession(s);
     // eslint-disable-next-line
-  }, [sessions, conseil]);
-  useEffect(() => {
-    if (liste && !liste.seconde_session && sessions.has(2)) setSessions(new Set([1]));
-    // eslint-disable-next-line
-  }, [liste]);
-  const sessionsLot = conseil ? [session] : [...sessions].sort();
+  }, [sessPiece, choix, conseil, s2Possible]);
+  const sessionsLot = conseil ? [session]
+    : [...new Set(piecesSession().flatMap(p => [...sessDe(p.cle)]))].sort();
+  /** Ce que demande le lot d'une session : au Conseil, toutes les pièces cochées ; côté étudiant, celles de cette session. */
+  const drapeaux = sess => Object.fromEntries(PIECES.map(p => [p.cle, !!choix[p.cle] && (conseil || sessDe(p.cle).has(sess))]));
 
   const etudiants = useMemo(() => {
     const q = recherche.trim().toLowerCase();
@@ -1801,6 +1819,8 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
      du périmètre ; quand elle n'y trouve personne, elle cherche dans toute l'école et ouvre les pièces de celui
      qu'on choisit — ce que faisait le champ « Un étudiant — toutes ses pièces », retiré. */
   const [ailleurs, setAilleurs] = useState([]);
+  // Chercher un étudiant, c'est regarder les étudiants : la face s'ouvre d'elle-même.
+  useEffect(() => { if (recherche.trim()) setVueDroite('etudiants'); }, [recherche]);
   useEffect(() => {
     const q = recherche.trim();
     if (seul || !choisirEtudiant || q.length < 2 || etudiants.length) { setAilleurs([]); return; }
@@ -1914,7 +1934,7 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
             org: perimetre?.org ?? undefined,
             ue_nums: (liste?.unites || []).map(u => u.ue_num),
             etudiants: [...coches].filter(id => etudiants.find(e => e.id === id)?.decide),
-            ...Object.fromEntries(PIECES.map(p => [p.cle, !!choix[p.cle]])),
+            ...drapeaux(sess),
           }),
         });
         const j = await rep.json();
@@ -1991,7 +2011,7 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
             org: perimetre?.org ?? undefined,
             ue_nums: (liste?.unites || []).map(u => u.ue_num),
             etudiants: [...coches].filter(id => etudiants.find(e => e.id === id)?.decide),
-            ...Object.fromEntries(PIECES.map(p => [p.cle, !!choix[p.cle]])),
+            ...drapeaux(sess),
           }),
         });
         const j = await rep.json();
@@ -2090,6 +2110,21 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
     return l;
   };
   /** Une pièce à cocher — repère de couleur, case, intitulé, public, compte. */
+  const casesSession = p => {
+    if (conseil || parcours || !p.nominatif || !choix[p.cle] || !dispo(p)) return null;
+    const x = sessDe(p.cle);
+    const c = (lib, coche, onChange, ouvert = true) => (
+      <label key={lib} className={`flex items-center gap-1 ${ouvert ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
+        title={ouvert ? '' : 'Aucune décision de seconde session dans ce périmètre'} onClick={ev => ev.stopPropagation()}>
+        <input type="checkbox" checked={coche && ouvert} disabled={!ouvert} onChange={onChange} className="w-3.5 h-3.5 accent-iip-blue" />{lib}
+      </label>);
+    return (
+      <span className="ml-auto flex items-center gap-3 text-second text-slate-600">
+        {c('S1', x.has(1), () => choisirSess(p.cle, 1))}
+        {c('S2', x.has(2), () => choisirSess(p.cle, 2), s2Possible)}
+        {c('Tout', x.size === 2, () => choisirSess(p.cle, 'tout'), s2Possible)}
+      </span>);
+  };
   const lignePiece = p => (
 <label key={p.cle} className={`flex items-center gap-2 py-1.5 text-sm ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
     title={dispo(p) ? '' : modePublic && publicDe(p) !== modePublic && PIECES_DOSSIER.includes(p) ? `Pièces ${modePublic.toUpperCase()} en cours — décochez-les pour les autres pièces` : 'Rien à produire pour ce périmètre'}>
@@ -2100,6 +2135,7 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
     <input type="checkbox" checked={!!choix[p.cle] && dispo(p)} disabled={!dispo(p)} onChange={() => basculerPiece(p)}
       className="w-3.5 h-3.5 accent-iip-blue" />
     {p.label}
+    {casesSession(p)}
     {p.sle && <span className="text-mention font-bold text-slate-500 border border-slate-300 rounded px-1">SLE · {etudiants.filter(e => e.sle).length}</span>}
     {/* LES CHAMPS DES ANNEXES SE COMPLÈTENT ENCORE (5 octobre 2026,
         DAELEMAN Florian : « nous avions la possibilité de compléter
@@ -2120,7 +2156,7 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
       );
     })()}
     {p.cep && <span className="text-mention font-bold text-slate-500 border border-slate-300 rounded px-1">CEP · {etudiants.filter(e => e.cep).length}</span>}
-    {p.nominatif && dispo(p) && !parcours && <span className="ml-auto text-xs text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : p.cle === 'refus' ? etudiants.filter(e => (e.refus ?? e.echecs) > 0).length : p.cle === 'ajournement' ? etudiants.filter(e => (e.ajournes ?? e.echecs) > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
+    {p.nominatif && dispo(p) && !parcours && !choix[p.cle] && <span className="ml-auto text-xs text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : p.cle === 'refus' ? etudiants.filter(e => (e.refus ?? e.echecs) > 0).length : p.cle === 'ajournement' ? etudiants.filter(e => (e.ajournes ?? e.echecs) > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
   </label>
   );
   /* GRISÉ QUAND IL N'Y A RIEN À PRODUIRE (2 octobre 2026). */
@@ -2303,24 +2339,18 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
       <div className={`flex-1 flex flex-col min-h-0 ${etudiantVu ? 'hidden' : ''}`}>
 
         {/* LES BOUTONS EN TÊTE, et ce qu'ils vont faire (maquette validée). */}
-        <div className="border-b border-slate-200 p-3 space-y-2.5">
-          <div className="flex flex-wrap items-center gap-2">
-            {/* EN « TOUT LE PARCOURS », UNE PIÈCE PAR ATTESTATION : la case n'a rien à décider (3.1.497, Charles :
-                « il faut penser au type de choses qu'on fait » — la session, le Conseil, les motivations non plus). */}
-            {parcours ? <span className="text-second text-slate-500">Une pièce par attestation, pour chaque étudiant coché</span> : conseil ? <span /> : (
-            <label className="flex items-center gap-1.5 text-second text-slate-600 cursor-pointer">
-              <input type="checkbox" checked={separer}
-                onChange={e => {
-                  setSeparer(e.target.checked);
-                  try { localStorage.setItem('impression.separer', e.target.checked ? '1' : '0'); } catch { /* */ }
-                }}
-                className="w-4 h-4 accent-iip-blue" />
-              Un document par étudiant
-            </label>)}
-            <span className="flex-1" />
-            <span className="text-second text-slate-500 tabular-nums">
-              {enCours ? 'Production…' : `${nbPieces} pièce${nbPieces > 1 ? 's' : ''} · ${coches.size} étudiant${coches.size > 1 ? 's' : ''}`}
+        <div className="px-3 pt-2 space-y-2.5">
+          <div className="flex flex-wrap items-end gap-2 border-b border-slate-200">
+            {/* DEUX FACES, UNE PLACE (3.1.497, Charles : « deux onglets façon sous-menu ») : les documents, ou les
+                étudiants — on choisit l'un puis l'autre, et chacun a toute la hauteur. */}
+            <span className="inline-flex">
+              <button type="button" onClick={() => setVueDroite('documents')}
+                className={`onglet-page ${vueDroite === 'documents' ? 'onglet-page-actif' : ''}`}>Documents · {nbPieces}</button>
+              <button type="button" onClick={() => setVueDroite('etudiants')}
+                className={`onglet-page ${vueDroite === 'etudiants' ? 'onglet-page-actif' : ''}`}>Étudiants · {coches.size} / {visibles.length}</button>
             </span>
+            <span className="flex-1" />
+            {enCours && <span className="text-second text-slate-500 pb-2">Production…</span>}
             {placeOutils && createPortal(<>
               <IconeBarre Icone={IconZoomIn} titre="Aperçu — voir les pièces avant de les produire" onClick={() => produire(true)}
                 disabled={enCours || !coches.size || !nbPieces} />
@@ -2336,6 +2366,9 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
               <IconAlertTriangle size={15} className="flex-none mt-0.5" /> {erreur}
             </div>
           )}
+        </div>
+        {vueDroite === 'documents' ? (
+        <div className="flex-1 overflow-auto min-h-0 p-3 space-y-4">
           <div className="grid gap-x-8 gap-y-4 md:grid-cols-2 pt-1">
             {conseil ? (
             <div className="px-1 md:col-span-2">
@@ -2346,22 +2379,6 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
             <div className="px-1">
               <TitreCarte Icone={IconFileText} titre="Résultats" sous={parcours ? "toutes ses années, pour chaque étudiant coché" : "attestations, motivations, bulletin"} />
               {famillePieces.filter(p => p.nominatif && (!parcours || p.cle === 'reussite')).map(lignePiece)}
-              {/* LA SESSION EST UNE OPTION DES PIÈCES DE DÉLIBÉRATION, PAS DU PÉRIMÈTRE (3.1.497, Charles : « seuls certains
-                  documents y sont liés ; le choix doit venir après celui des documents, en regard d'eux »). */}
-              {delibChoisie && !parcours && (
-                <div className="flex items-center gap-4 pl-[30px] py-1.5 text-second text-slate-600">
-                  {[[1, '1re session'], [2, '2e session']].map(([v, lib]) => {
-                    const ouverte = v === 1 || !!liste?.seconde_session;
-                    return (
-                      <label key={v} className={`flex items-center gap-1.5 ${ouverte ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
-                        title={ouverte ? '' : 'Aucune décision de seconde session dans ce périmètre'}>
-                        <input type="checkbox" disabled={!ouverte} checked={sessions.has(v) && ouverte}
-                          onChange={() => setSessions(x => { const n = new Set(x); n.has(v) ? n.delete(v) : n.add(v); return n.size ? n : x; })}
-                          className="w-3.5 h-3.5 accent-iip-blue" />
-                        {lib}
-                      </label>);
-                  })}
-                </div>)}
               {famillePieces.filter(p => !p.nominatif && CLES_RESULTATS.includes(p.cle) && !parcours).map(lignePiece)}
             </div>
             <div className={parcours ? 'hidden' : 'px-1'}>
@@ -2370,6 +2387,19 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
             </div>
             </>}
           </div>
+          {parcours ? <p className="text-second text-slate-500 px-1 m-0">Une pièce par attestation, pour chaque étudiant coché.</p> : !conseil && (
+            <label className="flex items-center gap-1.5 px-1 text-second text-slate-600 cursor-pointer">
+              <input type="checkbox" checked={separer}
+                onChange={e => {
+                  setSeparer(e.target.checked);
+                  try { localStorage.setItem('impression.separer', e.target.checked ? '1' : '0'); } catch { /* */ }
+                }}
+                className="w-4 h-4 accent-iip-blue" />
+              Un document par étudiant
+            </label>)}
+        </div>
+        ) : <>
+        <div className="px-3 pt-3 pb-2 border-b border-slate-200">
           <div className="flex flex-wrap items-center gap-2 text-second">
             {!seul && <select value={fNouveau} onChange={e => setFNouveau(e.target.value)}
               className="controle" aria-label="Nouveaux ou déjà inscrits">
@@ -2386,7 +2416,7 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
             <button onClick={() => setCoches(new Set(visibles.map(e => e.id)))} className="text-iip-blue underline">tout cocher</button>
             <button onClick={() => setCoches(new Set())} className="text-slate-500 underline">tout décocher</button>
             <span className="flex-1" />
-            <span className="text-slate-500">{coches.size} / {visibles.length} étudiant(s){liste?.unites?.length ? ` · ${liste.unites.length} unité(s)` : ''}{delib && !parcours ? ` · session ${session}` : ''}</span>
+            <span className="text-slate-500">{liste?.unites?.length ? `${liste.unites.length} unité(s)` : ''}</span>
           </div>
         </div>
         <div className="flex-1 overflow-auto min-h-0">
@@ -2436,7 +2466,7 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
             </label>
           ))}
         </div>
-
+        </>}
       </div>
 
       {envoi && (
