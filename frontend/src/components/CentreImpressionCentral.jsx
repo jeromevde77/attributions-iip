@@ -2154,7 +2154,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
           </select>
           {parcours && <div className="text-xs text-slate-500 -mt-1 mb-2 px-1">
             Les étudiants de {annee} ; pour chacun coché, ses attestations de réussite de toutes les années.</div>}
-          {delib && <div className="segments w-full">
+          {delib && !parcours && <div className="segments w-full">
             {[[1, '1re session'], [2, '2e session']].map(([v, lib]) => (
               <button key={v} onClick={() => setSession(v)}
                 className={`flex-1 px-2 py-1 text-second ${session === v
@@ -2246,6 +2246,9 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
         {/* LES BOUTONS EN TÊTE, et ce qu'ils vont faire (maquette validée). */}
         <div className="border-b border-slate-200 p-3 space-y-2.5">
           <div className="flex flex-wrap items-center gap-2">
+            {/* EN « TOUT LE PARCOURS », UNE PIÈCE PAR ATTESTATION : la case n'a rien à décider (3.1.497, Charles :
+                « il faut penser au type de choses qu'on fait » — la session, le Conseil, les motivations non plus). */}
+            {parcours ? <span className="text-second text-slate-500">Une pièce par attestation, pour chaque étudiant coché</span> : (
             <label className="flex items-center gap-1.5 text-second text-slate-600 cursor-pointer">
               <input type="checkbox" checked={separer}
                 onChange={e => {
@@ -2254,7 +2257,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
                 }}
                 className="w-4 h-4 accent-iip-blue" />
               Un document par étudiant
-            </label>
+            </label>)}
             <span className="flex-1" />
             <span className="text-second text-slate-500 tabular-nums">
               {enCours ? 'Production…' : `${nbPieces} pièce${nbPieces > 1 ? 's' : ''} · ${coches.size} étudiant${coches.size > 1 ? 's' : ''}`}
@@ -2277,8 +2280,8 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
           <div className="grid gap-x-8 gap-y-4 md:grid-cols-2 pt-1">
             {delib ? <>
             <div className="px-1">
-              <TitreCarte Icone={IconFileText} titre="À remettre aux étudiants" sous="une pièce par étudiant décidé" />
-              {PIECES.filter(p => p.nominatif).map(p => (
+              <TitreCarte Icone={IconFileText} titre="À remettre aux étudiants" sous={parcours ? "toutes ses années, pour chaque étudiant coché" : "une pièce par étudiant décidé"} />
+              {PIECES.filter(p => p.nominatif && (!parcours || p.cle === 'reussite')).map(p => (
                 <label key={p.cle} className={`flex items-center gap-2 py-1.5 text-sm ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
                   title={dispo(p) ? '' : modePublic && publicDe(p) !== modePublic && PIECES_DOSSIER.includes(p) ? `Pièces ${modePublic.toUpperCase()} en cours — décochez-les pour les autres pièces` : 'Rien à produire pour ce périmètre'}>
                   {/* LA PETITE LIGNE DIT LE SENS (2 octobre 2026) : orange pour
@@ -2290,11 +2293,11 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
                   {p.label}
                   {p.sle && <span className="text-mention font-bold text-slate-500 border border-slate-300 rounded px-1">SLE · {etudiants.filter(e => e.sle).length}</span>}
                   {p.cep && <span className="text-mention font-bold text-slate-500 border border-slate-300 rounded px-1">CEP · {etudiants.filter(e => e.cep).length}</span>}
-                  {p.nominatif && dispo(p) && <span className="ml-auto text-xs text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : p.cle === 'refus' ? etudiants.filter(e => (e.refus ?? e.echecs) > 0).length : p.cle === 'ajournement' ? etudiants.filter(e => (e.ajournes ?? e.echecs) > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
+                  {p.nominatif && dispo(p) && !parcours && <span className="ml-auto text-xs text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : p.cle === 'refus' ? etudiants.filter(e => (e.refus ?? e.echecs) > 0).length : p.cle === 'ajournement' ? etudiants.filter(e => (e.ajournes ?? e.echecs) > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
                 </label>
               ))}
             </div>
-            <div className="px-1">
+            <div className={parcours ? 'hidden' : 'px-1'}>
               <TitreCarte Icone={IconUsers} titre="Pour le Conseil" sous="une pièce pour l’unité" />
               {PIECES.filter(p => !p.nominatif).map(p => (
                 <label key={p.cle} className={`flex items-center gap-2 py-1.5 text-sm ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
@@ -2308,7 +2311,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
                   {p.label}
                   {p.sle && <span className="text-mention font-bold text-slate-500 border border-slate-300 rounded px-1">SLE · {etudiants.filter(e => e.sle).length}</span>}
                   {p.cep && <span className="text-mention font-bold text-slate-500 border border-slate-300 rounded px-1">CEP · {etudiants.filter(e => e.cep).length}</span>}
-                  {p.nominatif && dispo(p) && <span className="ml-auto text-xs text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : p.cle === 'refus' ? etudiants.filter(e => (e.refus ?? e.echecs) > 0).length : p.cle === 'ajournement' ? etudiants.filter(e => (e.ajournes ?? e.echecs) > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
+                  {p.nominatif && dispo(p) && !parcours && <span className="ml-auto text-xs text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : p.cle === 'refus' ? etudiants.filter(e => (e.refus ?? e.echecs) > 0).length : p.cle === 'ajournement' ? etudiants.filter(e => (e.ajournes ?? e.echecs) > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
                 </label>
               ))}
             </div>
@@ -2327,7 +2330,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
                   {p.label}
                   {p.sle && <span className="text-mention font-bold text-slate-500 border border-slate-300 rounded px-1">SLE · {etudiants.filter(e => e.sle).length}</span>}
                   {p.cep && <span className="text-mention font-bold text-slate-500 border border-slate-300 rounded px-1">CEP · {etudiants.filter(e => e.cep).length}</span>}
-                  {p.nominatif && dispo(p) && <span className="ml-auto text-xs text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : p.cle === 'refus' ? etudiants.filter(e => (e.refus ?? e.echecs) > 0).length : p.cle === 'ajournement' ? etudiants.filter(e => (e.ajournes ?? e.echecs) > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
+                  {p.nominatif && dispo(p) && !parcours && <span className="ml-auto text-xs text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : p.cle === 'refus' ? etudiants.filter(e => (e.refus ?? e.echecs) > 0).length : p.cle === 'ajournement' ? etudiants.filter(e => (e.ajournes ?? e.echecs) > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
                 </label>
               ))}
             </div>
@@ -2363,7 +2366,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
                     );
                   })()}
                   {p.cep && <span className="text-mention font-bold text-slate-500 border border-slate-300 rounded px-1">CEP · {etudiants.filter(e => e.cep).length}</span>}
-                  {p.nominatif && dispo(p) && <span className="ml-auto text-xs text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : p.cle === 'refus' ? etudiants.filter(e => (e.refus ?? e.echecs) > 0).length : p.cle === 'ajournement' ? etudiants.filter(e => (e.ajournes ?? e.echecs) > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
+                  {p.nominatif && dispo(p) && !parcours && <span className="ml-auto text-xs text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : p.cle === 'refus' ? etudiants.filter(e => (e.refus ?? e.echecs) > 0).length : p.cle === 'ajournement' ? etudiants.filter(e => (e.ajournes ?? e.echecs) > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
                 </label>
               ))}
             </div>
@@ -2385,7 +2388,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
             <button onClick={() => setCoches(new Set(visibles.map(e => e.id)))} className="text-iip-blue underline">tout cocher</button>
             <button onClick={() => setCoches(new Set())} className="text-slate-500 underline">tout décocher</button>
             <span className="flex-1" />
-            <span className="text-slate-500">{coches.size} / {visibles.length} étudiant(s){liste?.unites?.length ? ` · ${liste.unites.length} unité(s)` : ''}{delib ? ` · session ${session}` : ''}</span>
+            <span className="text-slate-500">{coches.size} / {visibles.length} étudiant(s){liste?.unites?.length ? ` · ${liste.unites.length} unité(s)` : ''}{delib && !parcours ? ` · session ${session}` : ''}</span>
           </div>
         </div>
         <div className="flex-1 overflow-auto min-h-0">
@@ -2423,7 +2426,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
                 {e.nouveau && <span className="ml-1.5 text-mention font-semibold text-slate-600 border border-slate-300 rounded px-1">nouveau</span>}
                 {e.sle && <span className="ml-1.5 text-mention font-semibold text-white bg-iip-blue rounded px-1 py-px">SLE</span>}
                 {e.cep && <span className="ml-1.5 text-mention font-semibold text-white bg-iip-blue rounded px-1 py-px">CEP</span>}
-                {delib && <span className="block text-xs text-slate-500">
+                {delib && !parcours && <span className="block text-xs text-slate-500">
                   {e.decide
                     ? `${e.reussites} réussite(s) · ${e.echecs} échec(s) sur ${e.unites.length} unité(s)`
                     : 'aucune décision pour cette session'}
