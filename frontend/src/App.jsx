@@ -48,7 +48,6 @@ import Login from './pages/Login.jsx';
 import MotDePasse from './pages/MotDePasse.jsx';
 import DemandeVA from './pages/DemandeVA.jsx';
 import { ETOILES, TRAITS, ECLAT } from './lib/logoVierge.js';
-import EspaceEtudiant from './pages/EspaceEtudiant.jsx';
 import PresenceQR from './pages/PresenceQR.jsx';
 import RechercheLucie from './components/RechercheLucie.jsx';
 import AnnulerGestes from './components/AnnulerGestes.jsx';
@@ -836,7 +835,6 @@ export default function App() {
       <Route path="/mot-de-passe" element={<MotDePasse />} />
       {/* LA PORTE DES ÉTUDIANTS (VA en ligne) : publique, son propre jeton. */}
       <Route path="/demande-va" element={<DemandeVA />} />
-      <Route path="/espace" element={<EspaceEtudiant />} />
       {/* LA PRÉSENCE PAR QR : publique, l'étudiant n'a pas de compte (28 octobre 2026). */}
       <Route path="/presence/*" element={<PresenceQR />} />
       <Route path="/presence" element={<PresenceQR />} />

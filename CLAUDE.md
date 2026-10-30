@@ -379,10 +379,29 @@ direction pour 244 → 331**, année active 2026-2027. (3.1.474 : la 3.1.473 ét
 construisait pas — un `index` de recherche tombé avant le bloc visé avait recopié le code en tête du fichier.
 **Après `vite build`, lire son statut, pas un `grep` de sa sortie.**)
 
+**LE MUR ENTRE LUCIE ET LES ÉTUDIANTS** (3.1.477, Charles, 30 octobre 2026 : « impératif : un mur de Berlin
+infranchissable entre la version de Lucie pour les MDP et la version accessible aux étudiants » ; tranché : une base
+étudiante à part, etudiant.lucie-iip.be). **L'espace de l'étudiant de 3.1.475 a quitté Lucie.** Il vit dans le
+PORTAIL : serveur `portail/src/serveur.js` (dossier, image et `package.json` à lui — aucune ligne de Lucie), sa base
+`portail.db`, sa clé de session `PORTAIL_SECRET` ; site construit seul (`frontend/portail.html`,
+`src/portail/`, `vite.portail.config.js`, `Dockerfile.portail`, `nginx-portail.conf` qui ne relaie que
+`/api/portail/` ; `publicDir: false`). Réseau Docker `lucie-portail`, où ne se trouve aucun conteneur de Lucie ; seul
+Caddy touche les deux. **Le passage est à sens unique** (`lib/portailSync.js`) : toutes les 10 s, Lucie RELÈVE sur le
+port interne du portail (via `http://caddy:8443`, non publié, jeton `PORTAIL_JETON`) les demandes de lien et de code —
+qu'elle VÉRIFIE (étudiant actif non archivé, adresse d'école, lien qui commence par l'adresse publique du portail,
+code à six chiffres) et compose elle-même —, les accusés (recopiés dans `portail_accuse` après contrôle) et les
+connexions (`portail_connexion`) ; toutes les deux minutes elle DÉPOSE les étudiants visibles, leurs résultats publiés
+(`resultatsPublies`), les règlements « Étudiants » (avec les versions dont la signature vaut encore) et, au fil de
+l'eau, les PDF des pièces envoyées. Le dépôt REMPLACE : un archivé disparaît du portail. Lien et code ne vivent en
+clair dans le portail que jusqu'au relevé. La fiche lit `GET /api/portail-suivi/:id`. Mise en place :
+`scripts/vps/PORTAIL-ETUDIANTS.md` (DNS, quatre secrets, dossiers au propriétaire 1000, compose, Caddy). **Reste de
+ce côté-ci du mur, À DÉPLACER** : la demande de VA en ligne (`/demande-va`, `routes/portailVA.js`), qui écrit dans la
+base de Lucie.
+
 **L'ESPACE DE L'ÉTUDIANT** (3.1.475, Charles, 30 octobre 2026 : « un mini espace ultra sécurisé : récupérer ses
 documents, voir ses notes, signer les accusés de réception » ; tranché : lien + code, résultats délibérés seulement,
-accusé sur les notifications, les règlements et toute pièce ; construit tout de suite). Page publique `/espace`
-(`pages/EspaceEtudiant.jsx`), serveur `routes/espaceEtudiant.js` sur `/api/espace-etudiant`. **Entrée** : matricule →
+accusé sur les notifications, les règlements et toute pièce ; construit tout de suite). **Déplacé derrière le mur en
+3.1.477, voir ci-dessus** ; ce qui suit décrit les règles, qui n'ont pas changé. **Entrée** : matricule →
 lien à usage unique, 30 min, à l'adresse D'ÉCOLE seule (pas de repli sur la privée) ; même réponse pour un matricule
 inconnu ; plafonds par étudiant et par IP ; session 2 h, clé dérivée, portée `espace_etudiant` (refusée partout
 ailleurs). **Il voit** : ses résultats publiés (séance close de son organisation ou « toute l'unité », ou année
@@ -392,7 +411,7 @@ la Documentation met « Étudiants » en destinataire (rôle `etudiant`). **L'ac
 posé par la route qui rend la pièce ; signer demande un code à six chiffres envoyé à l'adresse d'école (10 min,
 5 essais) ; un accusé signé ne se modifie ni ne s'efface (déclencheurs). Pour un règlement, la règle de reconfirmation
 du personnel vaut (`versionReference`). **L'école lit** : fiche → Imprimer ou envoyer → bloc « Son espace étudiant »
-(dernière connexion, pièces ouvertes, accusés signés ; `GET /api/espace-etudiant/suivi/:id`). **À venir** : annoncer
+(dernière connexion, pièces ouvertes, accusés signés ; `GET /api/portail-suivi/:id` depuis 3.1.477). **À venir** : annoncer
 l'adresse aux étudiants ; mettre le lien de l'espace dans les courriels d'envoi ; relire la fiche RGPD.
 
 **UNE UE DISPENSÉE EN ENTIER EST ACQUISE — ÇA SE LIT DU DOSSIER DE VA** (3.1.438). Les crédits de l'annexe 2,

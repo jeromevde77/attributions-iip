@@ -28,7 +28,8 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
-    networks: [lucie-prod, lucie-dev]
+    # Les deux portails (3.1.477) : Caddy est le SEUL conteneur qui touche à la fois Lucie et le portail.
+    networks: [lucie-prod, lucie-dev, lucie-portail, lucie-portail-dev]
 
   # ----------------------------------------------------------------- DEV
   backend-dev:
@@ -58,6 +59,10 @@ services:
       TZ: Europe/Brussels
       PORT: 3001
       JWT_SECRET: ${JWT_SECRET_DEV:?JWT_SECRET_DEV manquant dans .env}
+      # Le portail des étudiants de dev (3.1.477), par le port interne de Caddy (voir plus bas).
+      PORTAIL_INTERNE_URL: http://caddy:8444
+      PORTAIL_URL_PUBLIQUE: https://etudiant-dev.lucie-iip.be
+      PORTAIL_JETON: ${PORTAIL_JETON_DEV:-}
       # LA CLÉ QUI CHIFFRE LES SECRETS DU SECOND FACTEUR (32 octets, base64).
       # Sans elle, le backend REFUSE DE DÉMARRER — volontairement : il ne doit
       # pas accepter des enrôlements qu'il ne saurait pas relire.
@@ -114,6 +119,11 @@ services:
       # Fabriquer :  node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"
       # La même valeur va dans les secrets de l'environnement de l'assistant, sous le même nom.
       LUCIE_IDEES_JETON: ${LUCIE_IDEES_JETON:-}
+      # LE PORTAIL DES ÉTUDIANTS (3.1.477, le mur). Lucie va vers lui, jamais l'inverse : par le port interne
+      # de Caddy (8443, non publié), qui ne mène qu'au port interne du portail. Sans jeton, rien ne passe.
+      PORTAIL_INTERNE_URL: http://caddy:8443
+      PORTAIL_URL_PUBLIQUE: https://etudiant.lucie-iip.be
+      PORTAIL_JETON: ${PORTAIL_JETON_PROD:-}
       # LA CLÉ QUI CHIFFRE LES SECRETS DU SECOND FACTEUR (32 octets, base64).
       # Sans elle, le backend REFUSE DE DÉMARRER — volontairement : il ne doit
       # pas accepter des enrôlements qu'il ne saurait pas relire.
@@ -147,10 +157,80 @@ services:
       TZ: Europe/Brussels
     networks: [lucie-prod]
 
+  # ════════════════════════════════════════════════════════════════════════
+  # LE PORTAIL DES ÉTUDIANTS — DE L'AUTRE CÔTÉ DU MUR (3.1.477, Charles : « un mur de Berlin infranchissable »).
+  # Deux conteneurs par environnement, sur un réseau qui n'est PAS celui de Lucie : ils ne voient ni son
+  # backend, ni sa base, ni ses volumes ; ils n'ont ni JWT_SECRET, ni MFA_KEY, ni serveur de courriel. Leur
+  # base (portail.db) est à eux, dans leur dossier. Lucie les atteint par Caddy (port interne), jamais l'inverse.
+  # Deux secrets propres, qui ne servent nulle part ailleurs (32 caractères au moins, différents) :
+  #   node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"
+  # PORTAIL_JETON_* est aussi donné à Lucie (le passage) ; PORTAIL_SECRET_* signe les sessions des étudiants
+  # et ne sort jamais du portail.
+  # ════════════════════════════════════════════════════════════════════════
+  portail-backend:
+    image: ghcr.io/jeromevde77/lucie-portail-backend:latest
+    container_name: lucie-portail-backend
+    restart: unless-stopped
+    environment:
+      PORTAIL_SECRET: ${PORTAIL_SECRET_PROD:?PORTAIL_SECRET_PROD manquant dans .env}
+      PORTAIL_JETON: ${PORTAIL_JETON_PROD:?PORTAIL_JETON_PROD manquant dans .env}
+      PORTAIL_URL_PUBLIQUE: https://etudiant.lucie-iip.be
+      TZ: Europe/Brussels
+    volumes:
+      - ./portail/data:/app/data
+    mem_limit: 256m
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    networks: [lucie-portail]
+
+  portail-frontend:
+    image: ghcr.io/jeromevde77/lucie-portail-frontend:latest
+    container_name: lucie-portail-frontend
+    restart: unless-stopped
+    environment:
+      TZ: Europe/Brussels
+    networks: [lucie-portail]
+
+  portail-backend-dev:
+    image: ghcr.io/jeromevde77/lucie-portail-backend:dev
+    container_name: lucie-portail-backend-dev
+    restart: unless-stopped
+    environment:
+      PORTAIL_SECRET: ${PORTAIL_SECRET_DEV:?PORTAIL_SECRET_DEV manquant dans .env}
+      PORTAIL_JETON: ${PORTAIL_JETON_DEV:?PORTAIL_JETON_DEV manquant dans .env}
+      PORTAIL_URL_PUBLIQUE: https://etudiant-dev.lucie-iip.be
+      TZ: Europe/Brussels
+    volumes:
+      - ./portail-dev/data:/app/data
+    mem_limit: 256m
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    networks:
+      lucie-portail-dev:
+        aliases: [portail-backend]
+
+  portail-frontend-dev:
+    image: ghcr.io/jeromevde77/lucie-portail-frontend:dev
+    container_name: lucie-portail-frontend-dev
+    restart: unless-stopped
+    environment:
+      TZ: Europe/Brussels
+    networks:
+      lucie-portail-dev:
+        aliases: [portail-frontend]
+
 networks:
   lucie-prod:
     driver: bridge
   lucie-dev:
+    driver: bridge
+  lucie-portail:
+    driver: bridge
+  lucie-portail-dev:
     driver: bridge
 
 volumes:

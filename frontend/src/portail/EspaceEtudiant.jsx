@@ -3,10 +3,11 @@ import { IconCertificate, IconFileText, IconBook, IconSignature, IconCheck, Icon
 
 /**
  * L'ESPACE DE L'ÉTUDIANT (3.1.475, Charles : « un mini espace ultra sécurisé : récupérer ses documents, voir ses
- * notes, signer les accusés de réception »). Hors session du personnel : son propre jeton (sessionStorage,
- * « lucie.espace »), délivré contre le lien reçu à l'adresse d'école, et il ne parle qu'à /api/espace-etudiant.
+ * notes, signer les accusés de réception »). DEPUIS 3.1.477, DE L'AUTRE CÔTÉ DU MUR : ce fichier est servi par le
+ * site des étudiants (etudiant.lucie-iip.be, `vite.portail.config.js`) et ne parle qu'au portail (/api/portail),
+ * qui n'a ni la base ni les clés de Lucie. Son propre jeton (sessionStorage, « lucie.espace »).
  * Trois faces : résultats délibérés, documents, règlements. Signer un accusé = avoir ouvert la pièce + un code à
- * six chiffres reçu à l'adresse d'école. Serveur : routes/espaceEtudiant.js.
+ * six chiffres reçu à l'adresse d'école. Serveur : portail/src/serveur.js.
  */
 const CLE = 'lucie.espace';
 const lire = () => { try { return sessionStorage.getItem(CLE); } catch { return null; } };
@@ -18,7 +19,7 @@ async function appel(methode, chemin, corps, brut = false) {
   const t = lire();
   if (t) h.Authorization = `Bearer ${t}`;
   if (corps) h['Content-Type'] = 'application/json';
-  const r = await fetch(`/api/espace-etudiant${chemin}`, { method: methode, headers: h, body: corps ? JSON.stringify(corps) : undefined });
+  const r = await fetch(`/api/portail${chemin}`, { method: methode, headers: h, body: corps ? JSON.stringify(corps) : undefined });
   if (brut && r.ok) return r;
   const j = await r.json().catch(() => ({}));
   if (r.status === 401 && !chemin.startsWith('/accuser')) { poser(null); const e = new Error(j.error || 'Session expirée.'); e.session = true; throw e; }
@@ -85,7 +86,7 @@ export default function EspaceEtudiant() {
   useEffect(() => {
     const jeton = new URLSearchParams(window.location.search).get('jeton');
     if (!jeton) { if (lire()) charger(); return; }
-    window.history.replaceState(null, '', '/espace');
+    window.history.replaceState(null, '', '/');
     (async () => {
       try { const j = await appel('POST', '/session', { jeton }); poser(j.token); setConnecte(true); charger(); }
       catch (e) { setConnecte(false); setErreur(e.message); }

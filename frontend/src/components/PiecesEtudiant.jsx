@@ -44,7 +44,7 @@ export default function PiecesEtudiant({ etud, annee }) {
       .then(r => (r.ok ? r.json() : null)).then(j => setCep(j?.cep || null)).catch(() => {});
     fetch(`/api/amenagements/etudiant/${id}?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() })
       .then(r => (r.ok ? r.json() : null)).then(j => setDossierAR(j?.courant || null)).catch(() => {});
-    fetch(`/api/espace-etudiant/suivi/${id}`, { headers: authHeaders() })
+    fetch(`/api/portail-suivi/${id}`, { headers: authHeaders() })
       .then(r => (r.ok ? r.json() : null)).then(setEspace).catch(() => {});
   }, [id, annee]);
 

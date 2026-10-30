@@ -22,3 +22,4 @@ backend/data/*.xlsx
 # .claude/ n'est PAS ignoré : des réglages d'équipe pourraient un jour y vivre,
 # et les masquer d'avance les rendrait invisibles le jour où on en voudra.
 .claude/launch.json
+dist-portail/
