@@ -1656,7 +1656,7 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
   /* TROIS FACES (Charles, 30 octobre 2026 : « le sous-menu, ce n'est pas Documents et Étudiants, c'est Résultats ou
      Inscription ») : les deux familles de pièces, puis les étudiants. Pour une séance : Pour le Conseil · Pour ses
      étudiants · Étudiants. « etudiants » est la face commune. */
-  const [vueDroite, setVueDroite] = useState(() => (perimetre?.pieces || []).some(c => PIECES_DOSSIER.some(p => p.cle === c) && !CLES_RESULTATS.includes(c)) ? 'b' : 'a');
+
   // Les sections : celles que l'écran passe, sinon celles des étudiants sélectionnés dans la liste.
   const [sections, setSections] = useState(() => new Set(perimetre?.sections
     || (!perimetre?.coches && selectionEtudiants().ids.length ? selectionEtudiants().sections : [])));
@@ -1695,11 +1695,8 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
     const garde = new Set(famillePieces.map(p => p.cle));
     setChoix(c => Object.fromEntries(Object.entries(c).filter(([k]) => garde.has(k))));
     if (seance) setParcours(false);
-    setVueDroite('a');
     // eslint-disable-next-line
   }, [pourQui]);
-  // Tout le parcours n'a pas de face « Inscription ».
-  useEffect(() => { if (parcours && vueDroite === 'b') setVueDroite('a'); }, [parcours, vueDroite]);
   /* LES COCHÉS : ceux que l'écran passe, sinon la sélection de la liste des
      étudiants (lib/selectionEtudiants.js) — ouvrir Éditions depuis le rail ne
      la perd plus. */
@@ -2330,19 +2327,9 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
         {/* LES BOUTONS EN TÊTE, et ce qu'ils vont faire (maquette validée). */}
         <div className="px-3 pt-2 space-y-2.5">
           <div className="flex flex-wrap items-end gap-2 border-b border-slate-200">
-            {/* DEUX FACES, UNE PLACE (3.1.497, Charles : « deux onglets façon sous-menu ») : les documents, ou les
-                étudiants — on choisit l'un puis l'autre, et chacun a toute la hauteur. */}
-            <span className="inline-flex">
-              {(seance ? [['a', 'Pour le Conseil', PIECES.filter(p => !p.nominatif)], ['b', 'Pour ses étudiants', PIECES.filter(p => p.nominatif)]]
-                : [['a', 'Résultats', famillePieces.filter(p => CLES_RESULTATS.includes(p.cle))],
-                   ...(parcours ? [] : [['b', 'Inscription', famillePieces.filter(p => !CLES_RESULTATS.includes(p.cle))]])])
-                .map(([v, lib, ps]) => {
-                  const n = ps.filter(p => choix[p.cle] && dispo(p)).length;
-                  return (
-                    <button key={v} type="button" onClick={() => setVueDroite(v)}
-                      className={`onglet-page ${vueDroite === v ? 'onglet-page-actif' : ''}`}>{lib}{n ? ` · ${n}` : ''}</button>);
-                })}
-            </span>
+            {/* PAS DE SOUS-MENU (Charles, 30 octobre 2026 : « le tri se fait en fonction des choix ») : le volet 1 dit
+                déjà de quelles pièces il s'agit ; le volet 3 les montre toutes, groupées par intertitres. */}
+            <span className="onglet-page onglet-page-actif cursor-default">Documents{nbPieces ? ` · ${nbPieces}` : ''}</span>
             <span className="flex-1" />
             {enCours && <span className="text-second text-slate-500 pb-2">Production…</span>}
             {placeOutils && createPortal(<>
@@ -2370,12 +2357,14 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
         <div className="flex-1 overflow-auto min-h-0 p-3 space-y-4">
           <div className="pt-1 max-w-xl">
             {seance ? <>
-            <div className={vueDroite === 'a' ? '' : 'hidden'}>
-              <p className="text-second text-slate-500 mt-0 mb-2 pl-3">toujours toute l’unité</p>
+            <div>
+              <div className="intertitre pl-3 mb-0">Pour le Conseil</div>
+              <p className="text-second text-slate-500 mt-0 mb-1 pl-3">toujours toute l’unité</p>
               {PIECES.filter(p => !p.nominatif).map(lignePiece)}
             </div>
-            <div className={vueDroite === 'b' ? '' : 'hidden'}>
-              <p className="text-second text-slate-500 mt-0 mb-2 pl-3">{`les décisions de la ${session === 1 ? '1re' : '2e'} session`}</p>
+            <div className="mt-5">
+              <div className="intertitre pl-3 mb-0">Pour ses étudiants</div>
+              <p className="text-second text-slate-500 mt-0 mb-1 pl-3">{`les décisions de la ${session === 1 ? '1re' : '2e'} session`}</p>
               {PIECES.filter(p => p.nominatif).map(lignePiece)}
               <label className="flex items-center gap-2 pl-3 pt-3 text-second text-slate-600 cursor-pointer">
                 <input type="checkbox" checked={separer}
@@ -2388,11 +2377,13 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
               </label>
             </div>
             </> : <>
-            <div className={vueDroite === 'a' ? '' : 'hidden'}>
-              <p className="text-second text-slate-500 mt-0 mb-2 pl-3">{parcours ? "toutes ses années, pour chaque étudiant coché" : "attestations de l’année, bulletin"}</p>
+            <div>
+              <div className="intertitre pl-3 mb-0">Résultats</div>
+              <p className="text-second text-slate-500 mt-0 mb-1 pl-3">{parcours ? "toutes ses années, pour chaque étudiant coché" : "attestations de l’année, bulletin"}</p>
               {famillePieces.filter(p => CLES_RESULTATS.includes(p.cle) && (!parcours || p.cle === 'reussite')).map(lignePiece)}
             </div>
-            <div className={parcours || vueDroite !== 'b' ? 'hidden' : ''}>
+            <div className={parcours ? 'hidden' : 'mt-5'}>
+              <div className="intertitre pl-3 mb-0">Inscription</div>
               <p className="text-second text-slate-500 mt-0 mb-2 pl-3">PAE, fiche, frais — les annexes ne vont qu’aux SLE, les pièces CEP qu’aux étudiants au congé-éducation</p>
               {famillePieces.filter(p => !CLES_RESULTATS.includes(p.cle)).map(lignePiece)}
             </div>
