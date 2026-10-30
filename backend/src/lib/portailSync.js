@@ -20,6 +20,7 @@ import db from '../db/index.js';
 import { envoyerEmail, templateNotif } from '../services/mailer.js';
 import { copieDeLEnvoi } from '../routes/envois.js';
 import { deposerDOffice } from './depotEspace.js';
+import { piecesATransmettre, marquerTransmises } from './authentique.js';
 import { derniereVersion, versionReference } from '../routes/documentation.js';
 
 const URL_INTERNE = () => (process.env.PORTAIL_INTERNE_URL || '').replace(/\/$/, '');
@@ -178,6 +179,13 @@ async function deposer() {
   await appel('POST', '/interne/etudiants', { etudiants });
   await appel('POST', '/interne/resultats', { resultats: resultatsPublies(etudiants.map(e => e.id)) });
   await appel('POST', '/interne/reglements', { reglements: reglementsEtudiants() });
+  // LE REGISTRE D'AUTHENTICITÉ (3.1.511) : ce que le scan d'un QR doit retrouver. En ajout seul, par lots.
+  for (let i = 0; i < 20; i++) {
+    const l = piecesATransmettre(500);
+    if (!l.length) break;
+    await appel('POST', '/interne/authentiques', { pieces: l });
+    marquerTransmises(l.map(x => x.reference));
+  }
 }
 
 async function deposerDocuments() {

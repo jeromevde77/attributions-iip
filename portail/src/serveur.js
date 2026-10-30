@@ -68,6 +68,8 @@ db.exec(`
   -- fraude ») ; le code ouvre le téléchargement de CE document pour une heure.
   CREATE TABLE IF NOT EXISTS deverrou (etudiant_id INTEGER NOT NULL, document_id INTEGER NOT NULL, jusqu_a TEXT NOT NULL,
     PRIMARY KEY (etudiant_id, document_id));
+  -- Le registre d'authenticité, déposé par Lucie : ce qu'un QR retrouve. En ajout seul.
+  CREATE TABLE IF NOT EXISTS authentique (reference TEXT PRIMARY KEY, nature TEXT, objet TEXT, personne TEXT, emise_le TEXT);
   CREATE TABLE IF NOT EXISTS entree (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL,
     le TEXT NOT NULL DEFAULT (datetime('now')), ip TEXT, releve_le TEXT);
   CREATE TRIGGER IF NOT EXISTS accuse_signe_fige BEFORE UPDATE OF presente_le, signe_le, objet_id, etudiant_id ON accuse
@@ -326,6 +328,16 @@ pub.post('/api/portail/accuser', connecte, (req, res) => {
   res.json({ ok: true, ...accuseDe(e, type, id) });
 });
 
+/* LA VÉRIFICATION D'UNE PIÈCE (3.1.511) — publique, sans compte : qui scanne le QR voit ce que l'Institut a émis sous
+   cette référence, pour le comparer au papier qu'il a en main. Une référence inconnue : l'Institut ne l'a jamais émise. */
+pub.get('/api/portail/verifier/:ref', (req, res) => {
+  if (tropDEssais(ipDe(req), 120)) return res.status(429).json({ error: 'Trop de vérifications. Réessayez dans une heure.' });
+  const ref = String(req.params.ref || '').trim().toUpperCase();
+  if (!/^[A-Z0-9-]{6,40}$/.test(ref)) return res.json({ trouve: false });
+  const p = db.prepare('SELECT reference, nature, objet, personne, emise_le FROM authentique WHERE reference = ?').get(ref);
+  res.json(p ? { trouve: true, ...p, etablissement: 'Institut Ilya Prigogine' } : { trouve: false, reference: ref });
+});
+
 pub.use((req, res) => res.status(404).json({ error: 'Introuvable.' }));
 
 // ══ LE CÔTÉ INTERNE — Lucie seule, par le réseau Docker ════════════════════
@@ -372,6 +384,14 @@ int.post('/interne/reglements', (req, res) => {
     for (const r of l) i.run(Number(r.version_id), String(r.cle), String(r.titre || ''), Number(r.numero), String(r.publiee_le || ''),
       String(r.contenu || ''), r.source_url || null, JSON.stringify((r.valables || [r.version_id]).map(Number)));
   })();
+  res.json({ ok: true, n: l.length });
+});
+
+int.post('/interne/authentiques', (req, res) => {
+  const l = Array.isArray(req.body?.pieces) ? req.body.pieces : [];
+  const i = db.prepare('INSERT OR IGNORE INTO authentique (reference, nature, objet, personne, emise_le) VALUES (?,?,?,?,?)');
+  db.transaction(() => { for (const x of l) if (x?.reference) i.run(String(x.reference).toUpperCase(), String(x.nature || ''),
+    x.objet ? String(x.objet) : null, x.personne ? String(x.personne) : null, String(x.emise_le || '')); })();
   res.json({ ok: true, n: l.length });
 });
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { IconCertificate, IconFileText, IconBook, IconSignature, IconCheck, IconLogout, IconLock, IconDevices, IconTrash } from '@tabler/icons-react';
+import { IconCertificate, IconFileText, IconBook, IconSignature, IconCheck, IconLogout, IconLock, IconDevices, IconTrash, IconShieldCheck, IconShieldX } from '@tabler/icons-react';
 
 /**
  * L'ESPACE DE L'ÉTUDIANT (3.1.475, Charles : « un mini espace ultra sécurisé : récupérer ses documents, voir ses
@@ -126,7 +126,52 @@ function MesAppareils({ onErreur, onOublieCourant }) {
   );
 }
 
+/* LA VÉRIFICATION D'UNE PIÈCE (3.1.511, Charles : « si quelqu'un scanne, il sait que c'est un vrai ») — publique,
+   sans compte : le QR d'une pièce mène ici (/?v=<référence>). */
+function Verification({ reference }) {
+  const [r, setR] = useState(null);
+  useEffect(() => {
+    fetch(`/api/portail/verifier/${encodeURIComponent(reference)}`).then(x => x.json()).then(setR).catch(() => setR({ erreur: true }));
+  }, [reference]);
+  const Ligne = ({ l, v }) => v ? <div className="grid grid-cols-[8rem_1fr] gap-3 py-1.5 border-t border-slate-100 first:border-t-0">
+    <span className="text-second text-slate-500">{l}</span><span className="text-sm text-iip-texte">{v}</span></div> : null;
+  return (
+    <div className="min-h-screen bg-slate-100">
+      <Tete sous="Vérification d’une pièce" />
+      <div className="max-w-[560px] mx-auto px-4 py-8 space-y-4">
+        {!r ? <p className="text-sm text-slate-500">Vérification…</p> : r.trouve ? (
+          <div className="bloc-etat px-5 py-4 space-y-3" data-etat="reussi">
+            <h1 className="text-lg font-bold text-iip-texte flex items-center gap-2"><IconShieldCheck size={22} style={{ color: 'var(--c-reussi, #3E7D5E)' }} /> Pièce authentique</h1>
+            <p className="text-sm text-slate-600">L’Institut Ilya Prigogine a bien émis une pièce sous cette référence. Comparez-la au document que vous avez en main :
+              une pièce modifiée ne correspond plus.</p>
+            <div>
+              <Ligne l="Référence" v={r.reference} />
+              <Ligne l="Nature" v={r.nature} />
+              <Ligne l="Objet" v={r.objet} />
+              <Ligne l="Au nom de" v={r.personne} />
+              <Ligne l="Émise le" v={jourFr(r.emise_le)} />
+              <Ligne l="Par" v={r.etablissement} />
+            </div>
+          </div>
+        ) : (
+          <div className="bloc-etat px-5 py-4 space-y-2" data-etat="corriger">
+            <h1 className="text-lg font-bold text-iip-texte flex items-center gap-2"><IconShieldX size={22} style={{ color: 'var(--c-refuse, #9D4A38)' }} /> Référence inconnue</h1>
+            <p className="text-sm text-slate-600">{r.erreur ? 'La vérification n’a pas pu se faire. Réessayez dans un instant.'
+              : <>L’Institut Ilya Prigogine n’a émis aucune pièce sous la référence <b>{r.reference || reference}</b>. Vérifiez la saisie ;
+                si elle est exacte, ce document n’est pas une pièce de l’Institut. En cas de doute, contactez le secrétariat.</>}</p>
+          </div>)}
+      </div>
+    </div>
+  );
+}
+
 export default function EspaceEtudiant() {
+  const aVerifier = new URLSearchParams(window.location.search).get('v');
+  if (aVerifier) return <Verification reference={aVerifier} />;
+  return <Espace />;
+}
+
+function Espace() {
   const [connecte, setConnecte] = useState(!!lire());
   const [matricule, setMatricule] = useState('');
   // Le lien ouvert : sur cet appareil, le reconnaître ou non ; au 4e, lequel remplacer.
