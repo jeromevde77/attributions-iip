@@ -167,23 +167,29 @@ const enDataUrl = async src => {
 };
 async function ouvrirModeEmploiPdf(setErreur, voir) {
   const onglet = window.open('', '_blank');
+  const q = voir && voir !== 'tous' ? `?voir=${voir}` : '';
   try {
-    const r = await fetch(`/api/documentation/mode-emploi/document${voir && voir !== 'tous' ? `?voir=${voir}` : ''}`, { headers: authHeaders() });
-    const j = await r.json();
-    if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
-    let html = j.html;
-    for (const src of j.images || []) {
-      const d = await enDataUrl(src);
-      if (d) html = html.split(`src="${src}"`).join(`src="${d}"`);
-    }
-    const rp = await fetch('/api/impression/pdf', { method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ html, nom: j.nom, pagination: 'auto' }) });
+    // LE PDF AU MODÈLE DU KIT (3.1.521) : le serveur compose couverture, sommaire et chapitres ; l'écran joint les captures.
+    const ri = await fetch(`/api/documentation/mode-emploi/pdf/images${q}`, { headers: authHeaders() });
+    const ji = await ri.json();
+    if (!ri.ok) throw new Error(ji.error || `Erreur ${ri.status}`);
+    const images = {};
+    for (const src of ji.images || []) { const d = await enDataUrl(src); if (d) images[src] = d; }
+    const rp = await fetch('/api/documentation/mode-emploi/pdf', { method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ voir: voir && voir !== 'tous' ? voir : null, images }) });
     if (rp.ok) {
       const url = URL.createObjectURL(await rp.blob());
       if (onglet) onglet.location = url; else window.location = url;
-    } else if (onglet) {
-      onglet.document.write(html); onglet.document.close(); setTimeout(() => onglet.print(), 600);
-    } else throw new Error('Le navigateur a bloqué la fenêtre.');
+      return;
+    }
+    // Le serveur ne sait pas composer de PDF : l'impression du navigateur, sur la mise en page simple.
+    const r = await fetch(`/api/documentation/mode-emploi/document${q}`, { headers: authHeaders() });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
+    let html = j.html;
+    for (const [src, d] of Object.entries(images)) html = html.split(`src="${src}"`).join(`src="${d}"`);
+    if (!onglet) throw new Error('Le navigateur a bloqué la fenêtre.');
+    onglet.document.write(html); onglet.document.close(); setTimeout(() => onglet.print(), 600);
   } catch (e) {
     onglet?.close();
     setErreur(e.message);

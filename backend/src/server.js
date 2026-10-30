@@ -3015,6 +3015,7 @@ app.use('/api/envois', express.json({ limit: '60mb' }));
 // Les lots de pièces séparées : soixante attestations, chacune avec logo, sceau
 // et signature en ligne, dépassent de loin la limite commune (29 septembre 2026).
 app.use('/api/impression', express.json({ limit: '120mb' }));
+app.use('/api/documentation/mode-emploi/pdf', express.json({ limit: '60mb' }));
 app.use(express.json({ limit: '5mb' }));
 
 /* QUI EST EN TRAIN DE DEMANDER — POUR TOUTE LA DURÉE DE LA REQUÊTE.

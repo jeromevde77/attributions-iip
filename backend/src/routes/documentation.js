@@ -78,6 +78,7 @@ import { gesteRequis, gesteAutorise } from '../lib/gestes.js';
 import { analyserFichier, assainir, estVide } from '../lib/texteCorpus.js';
 import { assainirParties, decouperEnParties, corpsImprimable, STYLES_IMPRESSION } from '../lib/textesParties.js';
 import { envelopperDocument } from '../lib/document.js';
+import { rendreGuidePdf, imagesDuGuide } from '../lib/guideKit.js';
 
 const r = express.Router();
 
@@ -293,6 +294,23 @@ r.get('/mode-emploi/document', authRequired, (req, res) => {
     entete: { titre: "Mode d'emploi de Lucie", sous: `Version ${version}` }, html: corps });
   res.setHeader('Cache-Control', 'no-store');
   res.json({ html, images, nom: `Lucie_mode_emploi_${version}` });
+});
+/* LE MODE D'EMPLOI EN PDF, AU MODÈLE DU KIT (3.1.521) : couverture, sommaire, un chapitre par page (lib/guideKit.js).
+   GET dit quelles captures joindre ; POST les reçoit (data URL) et rend le PDF. Même public que le guide en ligne. */
+const voirDe = q => (['ens', 'sec', 'coo', 'dir'].includes(String(q || '')) ? String(q) : null);
+r.get('/mode-emploi/pdf/images', authRequired, (req, res) => {
+  res.json({ images: imagesDuGuide(req.user?.role || '', voirDe(req.query.voir)) });
+});
+r.post('/mode-emploi/pdf', authRequired, async (req, res) => {
+  try {
+    const { pdf, nom } = await rendreGuidePdf(req.user?.role || '', voirDe(req.body?.voir), req.body?.images || {});
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${nom}.pdf"`);
+    res.send(pdf);
+  } catch (e) {
+    console.error('[mode d\'emploi pdf]', e);
+    res.status(503).json({ error: "Le PDF n'a pas pu être composé sur le serveur." });
+  }
 });
 r.get('/nouveautes/:edition', authRequired, (req, res) => {
   const ed = String(req.params.edition || '');

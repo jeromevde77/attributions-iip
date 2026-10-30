@@ -2896,6 +2896,17 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   gauche et capture d'écran à droite (captures de téléphone en rang sous le texte). Un point peut porter `contenu` (HTML sûr).
   **Tout document « façon mode d'emploi » (un projet, une présentation) se compose avec ces deux fonctions, dans l'enveloppe commune,
   avec le pied de Lucie** — jamais une mise en page à part.
+- **LE MODE D'EMPLOI PDF AU MODÈLE DU KIT** (3.1.521, Charles, 30 octobre 2026 : « j'avais ça pour mon réseau, tu peux t'en
+  inspirer, et logo IIP » — le kit Microcertifications de l'Enseignement pour adultes ; tranché : le mode d'emploi SEULEMENT, les
+  pièces officielles gardent le standard administratif). `lib/guideKit.js` : couverture pleine page bleu nuit (logo BLANC de
+  l'établissement, trait or, chapitres en pied, « Produit par… »), sommaire à tuiles (chapitres, points, captures) et encadrés,
+  un chapitre par page — bandeau bleu nuit arrondi (icône du chapitre dans un cercle, `lib/iconesGuide.js` recopie le dessin
+  Tabler, publics, numéro en filigrane), « Ce que vous trouverez ici », points de `pointImprimable` redessinés. Couverture et
+  corps se rendent à part (`rendrePdf`, la couverture en `pageCss`) puis se réunissent (pdf-lib) ; pied construit comme
+  `piedGabaritPdf` (trois cases de largeur fixe). Routes : `GET /api/documentation/mode-emploi/pdf/images` (les captures à
+  joindre), `POST /api/documentation/mode-emploi/pdf` (data URL des captures, limite 60 Mo dans `server.js`) ; repli de l'écran :
+  l'ancienne mise en page, imprimée par le navigateur. Couleurs du kit adaptées à l'IIP : nuit #0E2A4F, bleus #2C7DB8 / #3E9BD0,
+  or #F9B619.
 - **PORTAIL, ÉTAPE 1 : LE MOT DE PASSE ET LA BELGIQUE** (3.1.513). `compte` (empreinte scrypt salée, dans la base du
   PORTAIL seulement, survit aux dépôts) ; `POST /api/portail/connexion` (adresse ou matricule + mot de passe ; appareil
   reconnu → session ; sinon code `connexion` composé par Lucie → `POST /connexion/code`, qui reconnaît l'appareil, 3 au
