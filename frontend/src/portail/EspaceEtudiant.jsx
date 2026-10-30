@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { IconCertificate, IconFileText, IconBook, IconSignature, IconCheck, IconLogout, IconLock, IconDevices, IconTrash, IconShieldCheck, IconShieldX } from '@tabler/icons-react';
+import { IconCertificate, IconFileText, IconBook, IconSignature, IconCheck, IconLogout, IconLock, IconDevices, IconTrash, IconShieldCheck, IconShieldX, IconKey, IconWorld, IconUserCircle } from '@tabler/icons-react';
 
 /**
  * L'ESPACE DE L'ÉTUDIANT (3.1.475, Charles : « un mini espace ultra sécurisé : récupérer ses documents, voir ses
@@ -8,12 +8,13 @@ import { IconCertificate, IconFileText, IconBook, IconSignature, IconCheck, Icon
  * qui n'a ni la base ni les clés de Lucie. Son propre jeton (sessionStorage, « lucie.espace »).
  * Trois faces : résultats délibérés, documents, règlements. Signer un accusé = avoir ouvert la pièce + un code à
  * six chiffres reçu à l'adresse d'école. Serveur : portail/src/serveur.js.
+ * ENTRER (3.1.513) : adresse de l'institut + mot de passe choisi par l'étudiant ; un code en plus sur un appareil
+ * non reconnu ; le lien par courriel ne sert qu'à la première visite et au mot de passe oublié. Depuis la Belgique.
  */
 const CLE = 'lucie.espace';
 const lire = () => { try { return sessionStorage.getItem(CLE); } catch { return null; } };
-// « Quitter » dans cet onglet : on n'y rentre pas d'office, même si l'appareil est reconnu.
+// « Quitter » dans cet onglet (depuis 3.1.513, l'entrée demande toujours le mot de passe : simple repère).
 const QUITTE = 'lucie.espace.quitte';
-const aQuitte = () => { try { return sessionStorage.getItem(QUITTE) === '1'; } catch { return false; } };
 const marquerQuitte = v => { try { v ? sessionStorage.setItem(QUITTE, '1') : sessionStorage.removeItem(QUITTE); } catch { /* */ } };
 const poser = t => { try { t ? sessionStorage.setItem(CLE, t) : sessionStorage.removeItem(CLE); } catch { /* navigation privée */ } };
 const jourFr = d => (d ? String(d).slice(0, 10).split('-').reverse().join('/') : '');
@@ -111,8 +112,8 @@ function MesAppareils({ onErreur, onOublieCourant }) {
   };
   return (
     <div className="space-y-2">
-      <p className="text-sm text-slate-600">Ces appareils entrent dans votre espace sans lien, pendant {l.jours} jours après leur dernière visite.
-        {` ${l.max} au plus`} : au-delà, le lien reçu par courriel vous demande lequel remplacer. Un appareil que vous ne reconnaissez pas ? Oubliez-le.</p>
+      <p className="text-sm text-slate-600">Sur ces appareils, votre mot de passe suffit, pendant {l.jours} jours après leur dernière visite ;
+        ailleurs, un code reçu par courriel est demandé en plus.{` ${l.max} au plus`}. Un appareil que vous ne reconnaissez pas ? Oubliez-le.</p>
       {l.appareils.length ? l.appareils.map(a => (
         <div key={a.id} className="bloc-etat px-4 py-3 flex flex-wrap items-center gap-3" data-etat="disponible">
           <IconDevices size={18} className="text-slate-400 flex-none" />
@@ -121,7 +122,7 @@ function MesAppareils({ onErreur, onOublieCourant }) {
             <div className="text-xs text-slate-500">reconnu le {jourFr(a.cree_le)}{a.vu_le ? ` · dernière visite le ${jourFr(a.vu_le)}` : ''}</div>
           </div>
           <button type="button" className="bouton inline-flex items-center gap-1.5" onClick={() => oublier(a)}><IconTrash size={15} /> Oublier</button>
-        </div>)) : <p className="text-sm text-slate-500">Aucun appareil reconnu : vous entrez par le lien reçu à votre adresse de l’institut.</p>}
+        </div>)) : <p className="text-sm text-slate-500">Aucun appareil reconnu : chaque entrée demande un code reçu à votre adresse de l’institut.</p>}
     </div>
   );
 }
@@ -171,49 +172,129 @@ export default function EspaceEtudiant() {
   return <Espace />;
 }
 
+/** Choisir son mot de passe : après le lien (première visite, oubli), ou depuis « Mon compte » avec l'actuel. */
+function ChoisirMotDePasse({ avecActuel, nouveauCompte, onFait }) {
+  const [actuel, setActuel] = useState('');
+  const [mdp, setMdp] = useState('');
+  const [mdp2, setMdp2] = useState('');
+  const [erreur, setErreur] = useState(null);
+  const [fait, setFait] = useState(false);
+  const pareil = mdp && mdp === mdp2;
+  const valider = async ev => {
+    ev.preventDefault(); setErreur(null);
+    try {
+      const j = await appel('POST', '/mot-de-passe', { nouveau: mdp, ...(avecActuel ? { actuel } : {}) });
+      if (j.token) poser(j.token);
+      setFait(true); setActuel(''); setMdp(''); setMdp2(''); onFait?.();
+    } catch (e) { setErreur(e.message); }
+  };
+  return (
+    <form onSubmit={valider} className="bg-white border border-slate-200 rounded-carte p-5 space-y-3">
+      <h1 className="text-lg font-bold text-iip-texte flex items-center gap-2"><IconKey size={18} />
+        {avecActuel ? 'Changer mon mot de passe' : nouveauCompte ? 'Choisissez votre mot de passe' : 'Choisissez un nouveau mot de passe'}</h1>
+      <p className="text-sm text-slate-600">Dix caractères au moins. Une phrase courte que vous retenez fait un bon mot de passe ; évitez
+        votre nom et celui de l'école.{!avecActuel && !nouveauCompte ? ' Vos autres appareils devront à nouveau recevoir un code.' : ''}</p>
+      {erreur && <div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">{erreur}</div>}
+      {fait && avecActuel && <div className="bloc-etat px-3 py-2 text-sm" data-etat="reussi">Mot de passe changé.</div>}
+      {avecActuel && <input type="password" value={actuel} onChange={e => setActuel(e.target.value)} placeholder="Mot de passe actuel"
+        autoComplete="current-password" className="controle w-full" />}
+      <input type="password" value={mdp} onChange={e => setMdp(e.target.value)} placeholder="Nouveau mot de passe" autoComplete="new-password" className="controle w-full" />
+      <input type="password" value={mdp2} onChange={e => setMdp2(e.target.value)} placeholder="Le même, une seconde fois" autoComplete="new-password" className="controle w-full" />
+      {mdp2 && !pareil && <p className="text-xs text-red-700">Les deux ne sont pas identiques.</p>}
+      <button type="submit" className="bouton bouton-fort w-full" disabled={!pareil || mdp.length < 10 || (avecActuel && !actuel)}>Enregistrer mon mot de passe</button>
+    </form>
+  );
+}
+
+/* Hors du composant : défini dedans, il serait un nouveau composant à chaque frappe, et le champ perdrait le focus. */
+const Cadre = ({ horsBe, erreur, children }) => (
+  <div className="min-h-screen bg-slate-100">
+    <Tete />
+    <div className="max-w-[560px] mx-auto px-4 py-8 space-y-4">
+      {horsBe && <HorsBelgique texte={horsBe} />}
+      {erreur && <div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">{erreur}</div>}
+      {children}
+    </div>
+  </div>);
+
+const HorsBelgique = ({ texte }) => (
+  <div className="bloc-etat px-4 py-3 text-sm flex gap-2" data-etat="corriger"><IconWorld size={18} className="flex-none text-slate-400" /><span>{texte}</span></div>);
+
 function Espace() {
   const [connecte, setConnecte] = useState(!!lire());
-  const [matricule, setMatricule] = useState('');
-  // Le lien ouvert : sur cet appareil, le reconnaître ou non ; au 4e, lequel remplacer.
+  // L'entrée : adresse + mot de passe ; puis, sur un autre appareil, le code (et au 4e appareil, lequel remplacer).
+  const [ident, setIdent] = useState('');
+  const [mdp, setMdp] = useState('');
+  const [defi, setDefi] = useState(null);     // { defi, adresse, code, retenir, appareils? }
+  const [modeLien, setModeLien] = useState(false);
+  // Le lien ouvert : reconnaître l'appareil ou non ; au 4e, lequel remplacer ; puis choisir le mot de passe.
   const [lien, setLien] = useState(null);   // { jeton, appareils? }
+  const [definir, setDefinir] = useState(null);   // { nouveauCompte }
   const [message, setMessage] = useState(null);
   const [erreur, setErreur] = useState(null);
+  const [horsBe, setHorsBe] = useState(null);
   const [d, setD] = useState(null);
   const [face, setFace] = useState('resultats');
   const [texte, setTexte] = useState(null);   // règlement ouvert
 
-  const echec = e => { setErreur(e.message); if (e.session) { setConnecte(false); setD(null); } };
+  const echec = e => {
+    if (e.donnees?.hors_belgique) { setHorsBe(e.message); setConnecte(false); setD(null); poser(null); return; }
+    setErreur(e.message); if (e.session) { setConnecte(false); setD(null); }
+  };
   const charger = useCallback(async () => { try { setD(await appel('GET', '/moi')); setErreur(null); } catch (e) { echec(e); } }, []);
 
   useEffect(() => {
     const jeton = new URLSearchParams(window.location.search).get('jeton');
     if (jeton) { window.history.replaceState(null, '', '/'); setLien({ jeton }); return; }
     if (lire()) { charger(); return; }
-    if (aQuitte()) return;
-    // UN APPAREIL RECONNU ENTRE DIRECTEMENT.
-    appel('POST', '/entrer').then(j => { poser(j.token); setConnecte(true); charger(); }).catch(() => {});
+    // UN APPAREIL RECONNU : l'adresse est déjà là, il ne reste que le mot de passe.
+    appel('GET', '/appareil').then(j => { if (j.reconnu) setIdent(j.identifiant); }).catch(() => {});
   }, [charger]);
+
+  const entrer = token => { poser(token); marquerQuitte(false); setDefi(null); setMdp(''); setConnecte(true); charger(); };
 
   const ouvrirSession = async (retenir, remplacer = null) => {
     setErreur(null);
     try {
       const j = await appel('POST', '/session', { jeton: lien.jeton, retenir, ...(remplacer ? { remplacer } : {}) });
-      poser(j.token); marquerQuitte(false); setLien(null); setConnecte(true); charger();
+      poser(j.token); setLien(null); setDefinir({ nouveauCompte: !j.a_un_mot_de_passe });
     } catch (e) {
       if (e.statut === 409 && e.donnees?.choix) setLien(l0 => ({ ...l0, appareils: e.donnees.appareils }));
-      else { setLien(null); setConnecte(false); setErreur(e.message); }
+      else { setLien(null); setConnecte(false); echec(e); }
     }
   };
-  const entrer = () => appel('POST', '/entrer').then(j => { poser(j.token); marquerQuitte(false); setConnecte(true); charger(); })
-    .catch(() => setErreur('Cet appareil n’est plus reconnu : demandez un lien.'));
+
+  const seConnecter = async ev => {
+    ev.preventDefault(); setErreur(null); setHorsBe(null);
+    try {
+      const j = await appel('POST', '/connexion', { identifiant: ident.trim(), mot_de_passe: mdp });
+      if (j.token) entrer(j.token);
+      else if (j.code_requis) setDefi({ defi: j.defi, adresse: j.adresse, code: '', retenir: true });
+    } catch (e) {
+      if (e.donnees?.premiere) { setModeLien(true); setErreur(e.message); } else echec(e);
+    }
+  };
+  const validerCode = async (remplacer = null, retenir = defi.retenir) => {
+    setErreur(null);
+    try {
+      const j = await appel('POST', '/connexion/code', { defi: defi.defi, code: defi.code, retenir, ...(remplacer ? { remplacer } : {}) });
+      entrer(j.token);
+    } catch (e) {
+      if (e.statut === 409 && e.donnees?.choix) setDefi(x => ({ ...x, appareils: e.donnees.appareils }));
+      else if (e.session) { setDefi(null); setErreur(e.message); } else echec(e);
+    }
+  };
 
   const demanderLien = async ev => {
     ev.preventDefault();
-    if (!matricule.trim()) return;
-    setErreur(null);
-    try { const j = await appel('POST', '/lien', { identifiant: matricule.trim() }); setMessage(j.message); } catch (e) { setErreur(e.message); }
+    if (!ident.trim()) return;
+    setErreur(null); setHorsBe(null);
+    try { const j = await appel('POST', '/lien', { identifiant: ident.trim() }); setMessage(j.message); } catch (e) { echec(e); }
   };
-  const quitter = () => { poser(null); marquerQuitte(true); setConnecte(false); setD(null); };
+  const quitter = () => {
+    poser(null); marquerQuitte(true); setConnecte(false); setD(null); setFace('resultats'); setIdent('');
+    appel('GET', '/appareil').then(j => { if (j.reconnu) setIdent(j.identifiant); }).catch(() => {});
+  };
 
   // UN DOCUMENT S'OUVRE DANS UN ONGLET : l'onglet s'ouvre AU CLIC (sinon l'iPad le bloque), la pièce y arrive ensuite.
   const ouvrir = async doc => {
@@ -229,61 +310,84 @@ function Espace() {
     try { setTexte({ ...reg, ...(await appel('GET', `/reglements/${encodeURIComponent(reg.cle)}`)) }); charger(); } catch (e) { echec(e); }
   };
 
+  // APRÈS LE LIEN : choisir son mot de passe (première visite, ou oubli).
+  if (definir) {
+    return <Cadre horsBe={horsBe} erreur={erreur}><ChoisirMotDePasse nouveauCompte={definir.nouveauCompte}
+      onFait={() => { setDefinir(null); marquerQuitte(false); setConnecte(true); charger(); }} /></Cadre>;
+  }
+
   // LE LIEN VIENT D'ÊTRE OUVERT : sur cet appareil, le reconnaître (le sien) ou juste cette fois (un ordinateur partagé).
   if (lien && !connecte) {
     return (
-      <div className="min-h-screen bg-slate-100">
-        <Tete />
-        <div className="max-w-[560px] mx-auto px-4 py-8 space-y-4">
-          {erreur && <div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">{erreur}</div>}
-          <div className="bg-white border border-slate-200 rounded-carte p-5 space-y-3">
-            {!lien.appareils ? <>
-              <h1 className="text-lg font-bold text-iip-texte flex items-center gap-2"><IconDevices size={18} /> Cet appareil est-il le vôtre ?</h1>
-              <p className="text-sm text-slate-600">Reconnu, il entrera directement dans votre espace pendant 90 jours, sans lien par courriel.
-                Sur un ordinateur partagé (bibliothèque, salle de cours), choisissez « juste cette fois ».</p>
-              <button type="button" className="bouton bouton-fort w-full" onClick={() => ouvrirSession(true)}>Oui — reconnaître cet appareil</button>
-              <button type="button" className="bouton w-full" onClick={() => ouvrirSession(false)}>Non — juste cette fois</button>
-            </> : <>
-              <h1 className="text-lg font-bold text-iip-texte flex items-center gap-2"><IconDevices size={18} /> Trois appareils sont déjà reconnus</h1>
-              <p className="text-sm text-slate-600">Pour votre sécurité, trois appareils au plus entrent sans lien. Lequel celui-ci remplace-t-il ?</p>
-              {lien.appareils.map(a => (
-                <button key={a.id} type="button" className="bouton w-full justify-between" onClick={() => ouvrirSession(true, a.id)}>
-                  <span>{a.nom || 'Appareil'}</span>
-                  <span className="text-xs text-slate-500">{a.vu_le ? `dernière visite le ${jourFr(a.vu_le)}` : `reconnu le ${jourFr(a.cree_le)}`}</span>
-                </button>))}
-              <button type="button" className="text-second text-iip-blue underline" onClick={() => ouvrirSession(false)}>Ne rien remplacer — juste cette fois</button>
-            </>}
-          </div>
+      <Cadre horsBe={horsBe} erreur={erreur}>
+        <div className="bg-white border border-slate-200 rounded-carte p-5 space-y-3">
+          {!lien.appareils ? <>
+            <h1 className="text-lg font-bold text-iip-texte flex items-center gap-2"><IconDevices size={18} /> Cet appareil est-il le vôtre ?</h1>
+            <p className="text-sm text-slate-600">Reconnu, il ne vous demandera que votre mot de passe pendant 90 jours ; un autre appareil
+              demande aussi un code reçu par courriel. Sur un ordinateur partagé (bibliothèque, salle de cours), choisissez « juste cette fois ».</p>
+            <button type="button" className="bouton bouton-fort w-full" onClick={() => ouvrirSession(true)}>Oui — reconnaître cet appareil</button>
+            <button type="button" className="bouton w-full" onClick={() => ouvrirSession(false)}>Non — juste cette fois</button>
+          </> : <ChoixAppareil appareils={lien.appareils} onChoisir={id => ouvrirSession(true, id)} onAucun={() => ouvrirSession(false)} />}
         </div>
-      </div>
+      </Cadre>
+    );
+  }
+
+  if (!connecte && defi) {
+    return (
+      <Cadre horsBe={horsBe} erreur={erreur}>
+        <div className="bg-white border border-slate-200 rounded-carte p-5 space-y-3">
+          {!defi.appareils ? <>
+            <h1 className="text-lg font-bold text-iip-texte flex items-center gap-2"><IconShieldCheck size={18} /> Un nouvel appareil</h1>
+            <p className="text-sm text-slate-600">Un code à six chiffres part dans la minute vers <b>{defi.adresse}</b>. Il est valable 10 minutes.</p>
+            <input value={defi.code} onChange={e => setDefi(x => ({ ...x, code: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
+              inputMode="numeric" autoComplete="one-time-code" placeholder="••••••" className="controle w-full text-center tracking-[0.4em]" autoFocus />
+            <label className="flex items-start gap-2 text-sm text-slate-700">
+              <input type="checkbox" checked={defi.retenir} onChange={e => setDefi(x => ({ ...x, retenir: e.target.checked }))} className="mt-0.5" />
+              <span>Reconnaître cet appareil : la prochaine fois, le mot de passe suffira (pas sur un ordinateur partagé).</span></label>
+            <button type="button" className="bouton bouton-fort w-full" disabled={defi.code.length !== 6} onClick={() => validerCode()}>Entrer</button>
+            <button type="button" className="text-second text-iip-blue underline" onClick={() => setDefi(null)}>Revenir</button>
+          </> : <ChoixAppareil appareils={defi.appareils} onChoisir={id => validerCode(id, true)} onAucun={() => validerCode(null, false)} />}
+        </div>
+      </Cadre>
     );
   }
 
   if (!connecte) {
     return (
-      <div className="min-h-screen bg-slate-100">
-        <Tete />
-        <div className="max-w-[560px] mx-auto px-4 py-8 space-y-4">
-          {erreur && <div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">{erreur}</div>}
-          <form onSubmit={demanderLien} className="bg-white border border-slate-200 rounded-carte p-5 space-y-3">
+      <Cadre horsBe={horsBe} erreur={erreur}>
+        {!modeLien ? (
+          <form onSubmit={seConnecter} className="bg-white border border-slate-200 rounded-carte p-5 space-y-3">
             <h1 className="text-lg font-bold text-iip-texte flex items-center gap-2"><IconLock size={18} /> Mon espace étudiant</h1>
-            <p className="text-sm text-slate-600">Vos résultats délibérés, vos documents, vos accusés de réception. Tapez votre adresse
-              de l'institut (ou votre matricule) : un lien d'accès, valable 30 minutes et à usage unique, part à votre adresse électronique
-              <b> de l'institut</b>. Sur un appareil reconnu, vous entrez ensuite directement.</p>
-            <input value={matricule} onChange={e => setMatricule(e.target.value)} placeholder="prenom.nom@… ou matricule" autoComplete="username"
-              className="controle w-full" autoFocus />
-            <button type="submit" className="bouton bouton-fort w-full" disabled={!matricule.trim()}>Recevoir mon lien</button>
-            {message && <p className="text-sm text-slate-700">{message}</p>}
+            <p className="text-sm text-slate-600">Vos résultats délibérés, vos documents, vos accusés de réception.</p>
+            <input value={ident} onChange={e => setIdent(e.target.value)} placeholder="Adresse de l'institut (ou matricule)" autoComplete="username"
+              className="controle w-full" autoFocus={!ident} />
+            <input type="password" value={mdp} onChange={e => setMdp(e.target.value)} placeholder="Mot de passe" autoComplete="current-password"
+              className="controle w-full" autoFocus={!!ident} />
+            <button type="submit" className="bouton bouton-fort w-full" disabled={!ident.trim() || !mdp}>Entrer</button>
+            <button type="button" className="text-second text-iip-blue underline" onClick={() => { setModeLien(true); setErreur(null); }}>
+              Première visite, ou mot de passe oublié ?</button>
           </form>
-          {aQuitte() && <button type="button" className="text-second text-iip-blue underline" onClick={entrer}>Entrer à nouveau sur cet appareil reconnu</button>}
-        </div>
-      </div>
+        ) : (
+          <form onSubmit={demanderLien} className="bg-white border border-slate-200 rounded-carte p-5 space-y-3">
+            <h1 className="text-lg font-bold text-iip-texte flex items-center gap-2"><IconKey size={18} /> Première visite ou mot de passe oublié</h1>
+            <p className="text-sm text-slate-600">Tapez votre adresse de l'institut (ou votre matricule) : un lien, valable 30 minutes et à usage
+              unique, part à votre adresse électronique <b>de l'institut</b>. Il vous mène à choisir votre mot de passe.</p>
+            <input value={ident} onChange={e => setIdent(e.target.value)} placeholder="prenom.nom@… ou matricule" autoComplete="username"
+              className="controle w-full" autoFocus />
+            <button type="submit" className="bouton bouton-fort w-full" disabled={!ident.trim()}>Recevoir mon lien</button>
+            {message && <p className="text-sm text-slate-700">{message}</p>}
+            <button type="button" className="text-second text-iip-blue underline" onClick={() => { setModeLien(false); setMessage(null); setErreur(null); }}>
+              J'ai mon mot de passe</button>
+          </form>
+        )}
+      </Cadre>
     );
   }
 
   const nom = d ? `${String(d.etudiant.nom || '').toUpperCase()} ${d.etudiant.prenom || ''}` : '';
   const aSigner = d ? d.documents.filter(x => !x.signe_le).length + d.reglements.filter(x => !x.signe_le).length : 0;
-  const FACES = [['resultats', 'Mes résultats', IconCertificate], ['documents', 'Mes documents', IconFileText], ['reglements', 'Règlements', IconBook], ['appareils', 'Mes appareils', IconDevices]];
+  const FACES = [['resultats', 'Mes résultats', IconCertificate], ['documents', 'Mes documents', IconFileText], ['reglements', 'Règlements', IconBook], ['compte', 'Mon compte', IconUserCircle]];
 
   return (
     <div className="min-h-screen bg-slate-100">
@@ -347,7 +451,11 @@ function Espace() {
               </div>))}
           </div>) : <p className="text-sm text-slate-500">Aucun règlement à lire pour l’instant.</p>)}
 
-        {face === 'appareils' && <MesAppareils onErreur={echec} onOublieCourant={quitter} />}
+        {face === 'compte' && <div className="space-y-4">
+          <ChoisirMotDePasse avecActuel />
+          <h2 className="titre-carte flex items-center gap-2"><IconDevices size={16} /> Mes appareils</h2>
+          <MesAppareils onErreur={echec} onOublieCourant={quitter} />
+        </div>}
 
         {texte && (
           <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-start justify-center p-4 overflow-auto" onClick={() => setTexte(null)}>
@@ -363,4 +471,18 @@ function Espace() {
       </div>
     </div>
   );
+}
+
+/** Trois appareils reconnus au plus : au quatrième, lequel celui-ci remplace. */
+function ChoixAppareil({ appareils, onChoisir, onAucun }) {
+  return <>
+    <h1 className="text-lg font-bold text-iip-texte flex items-center gap-2"><IconDevices size={18} /> Trois appareils sont déjà reconnus</h1>
+    <p className="text-sm text-slate-600">Pour votre sécurité, trois appareils au plus sont reconnus. Lequel celui-ci remplace-t-il ?</p>
+    {appareils.map(a => (
+      <button key={a.id} type="button" className="bouton w-full justify-between" onClick={() => onChoisir(a.id)}>
+        <span>{a.nom || 'Appareil'}</span>
+        <span className="text-xs text-slate-500">{a.vu_le ? `dernière visite le ${jourFr(a.vu_le)}` : `reconnu le ${jourFr(a.cree_le)}`}</span>
+      </button>))}
+    <button type="button" className="text-second text-iip-blue underline" onClick={onAucun}>Ne rien remplacer — juste cette fois</button>
+  </>;
 }

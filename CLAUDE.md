@@ -467,7 +467,7 @@ envoyées par Lucie (copie conservée de l'envoi, `copieDeLEnvoi` d'`envois.js`,
 la Documentation met « Étudiants » en destinataire (rôle `etudiant`). **L'accusé** (`espace_accuse`) : `presente_le`
 posé par la route qui rend la pièce ; signer demande un code à six chiffres envoyé à l'adresse d'école (10 min,
 5 essais) ; un accusé signé ne se modifie ni ne s'efface (déclencheurs). Pour un règlement, la règle de reconfirmation
-du personnel vaut (`versionReference`). **L'école lit** : fiche → Imprimer ou envoyer → bloc « Son espace étudiant »
+du personnel vaut (`versionReference`). **L'école lit** : fiche → Suivi → bloc « Son espace étudiant » (`SuiviEspace.jsx` depuis 3.1.513 ; « Une personne » d'Éditions ne l'affichait plus depuis 3.1.503)
 (dernière connexion, pièces ouvertes, accusés signés ; `GET /api/portail-suivi/:id` depuis 3.1.477). **À venir** : annoncer
 l'adresse aux étudiants ; mettre le lien de l'espace dans les courriels d'envoi ; relire la fiche RGPD.
 
@@ -2889,6 +2889,17 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   autres à moins de 1,2 unité). **Le guide en ligne est la seule source : une nouveauté s'y écrit, avec ses captures, et le
   PDF suit sans rien faire.**
 
+- **PORTAIL, ÉTAPE 1 : LE MOT DE PASSE ET LA BELGIQUE** (3.1.513). `compte` (empreinte scrypt salée, dans la base du
+  PORTAIL seulement, survit aux dépôts) ; `POST /api/portail/connexion` (adresse ou matricule + mot de passe ; appareil
+  reconnu → session ; sinon code `connexion` composé par Lucie → `POST /connexion/code`, qui reconnaît l'appareil, 3 au
+  plus) ; le LIEN ne sert plus qu'à la première visite et à l'oubli : jeton `definir` (30 min) qui n'ouvre que
+  `POST /mot-de-passe` (10 caractères, ni nom ni adresse ; remplacer → les autres appareils retombent sur le code) ;
+  10 échecs → 15 min ; `/entrer` (sans mot de passe) répond 410. **Belgique** : `portail/src/geo.js` lit `geo/be.cidr`
+  (ipdeny) et `geo/vpn.cidr` (X4BNet, VPN et centres de données) posés chaque semaine par `scripts/vps/geo-portail.sh` ;
+  contrôle à la connexion, au lien, au code et à CHAQUE requête connectée ; la vérification du QR reste ouverte ; sans
+  listes, rien n'est bloqué (journal) ; `PORTAIL_GEO=constat|non`. **L'exception** : `portail_exception` dans Lucie
+  (ajout ; retrait = `retire_le`), fiche → Suivi (`SuiviEspace.jsx`, secrétariat et direction ; motif, un an au plus),
+  déposée par `/interne/exceptions`. La coordination lit.
 - **LE PORTAIL DE L'ÉTUDIANT — CE QUI EST TRANCHÉ, RIEN N'EST CODÉ** (Charles, 30 octobre 2026 ; projet : logigramme et
   treize écrans hors dépôt). Mot de passe choisi par l'étudiant (comme le personnel), code en plus sur un nouvel appareil.
   **PAE en ligne** : Lucie coche ce qui est accessible (`etatsPAE`), l'étudiant choisit et envoie, la coordination valide ou
@@ -2898,7 +2909,7 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   au secrétariat**. **Candidat** : dès son inscription dans Lucie, un code d'accès temporaire à son espace jusqu'à son adresse
   officielle (tranché : envoyé à l'adresse PRIVÉE du dossier ; s'éteint dès que l'adresse d'institut est encodée, au plus 60 jours, renouvelable par le secrétariat ; il ouvre la demande de VA, les documents, les frais et les messages). Résultats : détail par acquis (NA sous 10) après clôture publiée. Messages :
   réponse possible. Accès **bloqué hors de Belgique**, exception accordée par le secrétariat pour une période ; la vérification
-  du QR reste ouverte partout. Toute écriture venant du portail passe par le relevé de Lucie (`portailSync.js`), jamais l'inverse. **Ordre de construction** : 1 mot de passe et blocage hors Belgique · 2 VA en ligne déplacée + code candidat · 3 PAE en ligne · 4 messages · puis parcours, frais, aide.
+  du QR reste ouverte partout. (Mot de passe et Belgique : FAITS en 3.1.513.) Toute écriture venant du portail passe par le relevé de Lucie (`portailSync.js`), jamais l'inverse. **Ordre de construction** : 1 mot de passe et blocage hors Belgique · 2 VA en ligne déplacée + code candidat · 3 PAE en ligne · 4 messages · puis parcours, frais, aide.
 
 **L'ANNULER NE COMPARE QUE CE QUE LE GESTE A CHANGÉ** (3.1.482, Charles, 30 octobre 2026, en production :
   « Impossible d'annuler : utilisateur — la ligne a été modifiée depuis, par quelqu'un »). Se reconnecter écrit

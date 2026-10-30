@@ -3096,9 +3096,18 @@ app.use('/api/portail-va', (await import('./routes/portailVA.js')).default);
 // L'ESPACE DE L'ÉTUDIANT N'EST PLUS ICI (3.1.477, le mur) : il vit dans le portail (dossier portail/,
 // etudiants.lucie-iip.be), sa base et ses clés à lui. Lucie n'en sert qu'une lecture pour la fiche.
 {
-  const { suiviPortail, planifierPortail } = await import('./lib/portailSync.js');
-  const { authRequired: exigerCompte } = await import('./middleware/auth.js');
+  const { suiviPortail, planifierPortail, poserException, retirerException } = await import('./lib/portailSync.js');
+  const { authRequired: exigerCompte, roleRequired: exigerRole } = await import('./middleware/auth.js');
+  const { nomEcranDuCompte } = await import('./lib/nom.js');
+  const qui = req => nomEcranDuCompte(req.user?.nom, req.user?.email) || '?';
   app.get('/api/portail-suivi/:id', exigerCompte, (req, res) => res.json(suiviPortail(Number(req.params.id))));
+  // L'accès hors de Belgique : secrétariat et direction (la coordination ne l'ouvre pas).
+  app.post('/api/portail-suivi/:id/exception', exigerCompte, exigerRole('admin', 'editeur'), (req, res) => {
+    const r = poserException(Number(req.params.id), req.body || {}, qui(req));
+    res.status(r.erreur ? 400 : 200).json(r.erreur ? { error: r.erreur } : r);
+  });
+  app.delete('/api/portail-suivi/:id/exception', exigerCompte, exigerRole('admin', 'editeur'),
+    (req, res) => res.json(retirerException(Number(req.params.id), qui(req))));
   try { planifierPortail(); } catch (e) { console.error('[portail] planification :', e.message); }
 }
 // LA PRÉSENCE PAR QR (28 octobre 2026) : publique, l'étudiant n'a pas de compte ;

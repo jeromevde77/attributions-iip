@@ -10,7 +10,7 @@
  *   savoir — ce qu'il faut savoir : les règles qui bloquent ou qui surprennent.
  * Il explique le travail, pas l'informatique (CLAUDE.md, § 7). La version décrite se dit en tête.
  */
-export const VERSION_DECRITE = '3.1.512';
+export const VERSION_DECRITE = '3.1.513';
 
 export const RUBRIQUES = [
   {
@@ -934,15 +934,34 @@ export const RUBRIQUES = [
     points: [
       {
         titre: "Comment l'étudiant y entre",
-        texte: "Le site des étudiants vit à part de Lucie, sur sa propre adresse. L'étudiant donne son adresse d'institut (ou son matricule) et reçoit un lien à usage unique à cette adresse d'école. En l'ouvrant, il choisit « reconnaître cet appareil » — il entrera ensuite directement, pendant 90 jours — ou « juste cette fois » sur un ordinateur partagé.",
+        texte: "Le site des étudiants vit à part de Lucie, sur sa propre adresse. La première fois, l'étudiant demande un lien (« Première visite, ou mot de passe oublié ? ») : il part à son adresse d'institut, vaut 30 minutes, et le mène à choisir son mot de passe. Ensuite, il entre avec son adresse d'institut (ou son matricule) et ce mot de passe. Sur un appareil qu'il a fait reconnaître, c'est tout ; sur un autre, un code à six chiffres reçu à l'adresse d'école est demandé en plus.",
         savoir: [
-          "Trois appareils reconnus au plus ; au quatrième, il choisit lequel remplacer. Il les voit et les oublie dans « Mes appareils ».",
-          "Le lien ne part jamais à une adresse privée : une fiche sans adresse d'école n'a pas d'espace.",
-          "Lucie et le site des étudiants ne partagent ni base ni réseau : Lucie y dépose ce qui est public pour l'étudiant, et relève ses accusés.",
+          "Mot de passe oublié : le même lien, qui mène à en choisir un nouveau ; ses autres appareils devront à nouveau recevoir un code.",
+          "Trois appareils reconnus au plus, pendant 90 jours ; au quatrième, il choisit lequel remplacer. Il les voit et les oublie dans « Mon compte », où il change aussi son mot de passe.",
+          "Dix essais manqués bloquent le compte un quart d'heure.",
+          "Le lien et les codes ne partent jamais à une adresse privée : une fiche sans adresse d'école n'a pas d'espace.",
+          "Lucie et le site des étudiants ne partagent ni base ni réseau : Lucie y dépose ce qui est public pour l'étudiant, et relève ses accusés. Le mot de passe ne vit que dans le site des étudiants.",
         ],
         images: [
-          { src: "/guide/portail-entree.png", legende: "L'entrée (données d'essai) : l'adresse d'institut ou le matricule, puis le lien reçu par courriel.", etroite: true },
-          { src: "/guide/portail-appareil.png", legende: "À l'ouverture du lien : reconnaître cet appareil, ou juste cette fois.", etroite: true },
+          { src: "/guide/portail-entree.png", legende: "L'entrée (données d'essai) : adresse de l'institut et mot de passe ; la première fois, « Première visite, ou mot de passe oublié ? ».", etroite: true },
+          { src: "/guide/portail-mot-de-passe.png", legende: "Après le lien : choisir son mot de passe, dix caractères au moins.", etroite: true },
+          { src: "/guide/portail-code.png", legende: "Sur un appareil non reconnu : le code reçu à l'adresse d'école, et la case pour reconnaître l'appareil.", etroite: true },
+        ],
+      },
+      {
+        titre: "Depuis la Belgique seulement",
+        pour: "sec coo dir",
+        ou: "Fiche → Suivi → bloc « Son espace s'ouvre… ».",
+        texte: "L'espace ne s'ouvre que depuis une connexion belge, et pas au travers d'un VPN ni d'un hébergeur connu. Un étudiant en stage ou en Erasmus à l'étranger : [[Ouvrir hors de Belgique]], une date de fin et un motif, puis [[Enregistrer|fort]]. L'ouverture part vers le site des étudiants dans les deux minutes.",
+        savoir: [
+          "Le secrétariat et la direction ouvrent, prolongent et retirent ; la coordination le lit.",
+          "Une ouverture vaut au plus un an, puis se renouvelle. Le motif est obligatoire.",
+          "Un téléphone belge en roaming passe : son adresse reste celle de son opérateur.",
+          "La page de vérification d'une pièce (le QR) reste ouverte au monde entier.",
+          "Le même bloc dit la dernière connexion de l'étudiant, les pièces qu'il a ouvertes et les accusés qu'il a signés.",
+        ],
+        images: [
+          { src: "/guide/fiche-espace-hors-belgique.png", legende: "Fiche → Suivi (données d'essai) : ouvert hors de Belgique jusqu'au 31/01/2027 pour un stage, avec [[Prolonger]] et [[Retirer]]." },
         ],
       },
       {
@@ -952,7 +971,7 @@ export const RUBRIQUES = [
           "À la clôture d'une délibération, chaque délibéré reçoit d'office la pièce de sa décision : attestation de réussite, ou motivation d'ajournement ou de refus — la même que celle produite par Éditions. Puis un seul courriel : « un nouveau document vous attend ».",
           "Une pièce se télécharge librement pendant 90 jours ; ensuite, un code reçu par courriel l'ouvre pour une heure.",
           "Sous 10, l'espace affiche « NA », comme les pièces remises à l'étudiant.",
-          "Le registre des envois montre ces pièces « dans l'espace », et la fiche (Imprimer ou envoyer → Son espace étudiant) dit sa dernière connexion, les pièces ouvertes et les accusés signés.",
+          "Le registre des envois montre ces pièces « dans l'espace », et la fiche (onglet Suivi) dit sa dernière connexion, les pièces ouvertes et les accusés signés.",
         ],
         images: [
           { src: "/guide/portail-documents.png", legende: "Mes documents : chaque pièce avec sa référence et sa date de téléchargement libre, [[Ouvrir]] puis « Signer l'accusé de réception ».", etroite: true },

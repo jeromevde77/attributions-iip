@@ -42,6 +42,11 @@ export function migrerPortail(dbx = db) {
       WHEN OLD.signe_le IS NOT NULL BEGIN SELECT RAISE(ABORT, 'Un accusé signé ne s''efface pas.'); END;
     CREATE TABLE IF NOT EXISTS portail_connexion (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL,
       le TEXT, ip TEXT, ref_portail INTEGER UNIQUE);
+    -- L'ACCÈS HORS DE BELGIQUE (3.1.513, Charles : « bloquer, avec une exception accordée par le secrétariat pour une
+    -- période — stage, Erasmus »). Une ligne par ouverture, en ajout : on la retire, on ne l'efface pas.
+    CREATE TABLE IF NOT EXISTS portail_exception (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL,
+      jusqu_au TEXT NOT NULL, motif TEXT NOT NULL, par TEXT, le TEXT NOT NULL DEFAULT (datetime('now')),
+      retire_le TEXT, retire_par TEXT);
   `);
 }
 
@@ -135,16 +140,16 @@ async function relever() {
       }
       sujet = 'Institut Ilya Prigogine — votre lien d’accès à votre espace';
       html = templateNotif({ titre: 'Votre espace étudiant', corps: `<p>Bonjour ${esc(e.prenom || '')},</p>
-        <p>Voici votre lien d'accès à votre espace à l'Institut Ilya Prigogine : vos résultats délibérés, vos documents, vos accusés de réception.
-        Il est valable 30 minutes et ne sert qu'une fois. Ouvert sur un appareil que vous gardez, il le fait reconnaître pendant 90 jours :
-        vous y entrerez ensuite directement (trois appareils au plus).</p>
+        <p>Voici votre lien pour votre espace à l'Institut Ilya Prigogine : vos résultats délibérés, vos documents, vos accusés de réception.
+        Il est valable 30 minutes et ne sert qu'une fois : il vous mène à <b>choisir votre mot de passe</b>. Ensuite, vous entrez avec
+        votre adresse de l'institut et ce mot de passe.</p>
         <p><a href="${esc(lien)}" style="display:inline-block;background:#16406A;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none">Ouvrir mon espace</a></p>
         <p style="color:#64748b;font-size:12px">Vous n'avez rien demandé ? Ignorez ce message : sans ce lien, personne n'accède à votre espace.</p>` });
     } else if (d.type === 'code') {
       if (!/^\d{6}$/.test(String(d.valeur || ''))) continue;
       sujet = `Institut Ilya Prigogine — votre code ${d.valeur}`;
-      html = templateNotif({ titre: 'Votre code', corps: `<p>Votre code pour votre espace — signer un accusé de réception, ou
-        télécharger un document de plus de 90 jours :</p>
+      html = templateNotif({ titre: 'Votre code', corps: `<p>Votre code pour votre espace — entrer depuis un nouvel appareil,
+        signer un accusé de réception, ou télécharger un document de plus de 90 jours :</p>
         <p style="font-size:28px;font-weight:bold;letter-spacing:6px">${d.valeur}</p><p>Il est valable 10 minutes.</p>
         <p style="color:#64748b;font-size:12px">Vous n'avez rien demandé ? Ne communiquez ce code à personne.</p>` });
     } else continue;
@@ -179,6 +184,8 @@ async function deposer() {
   await appel('POST', '/interne/etudiants', { etudiants });
   await appel('POST', '/interne/resultats', { resultats: resultatsPublies(etudiants.map(e => e.id)) });
   await appel('POST', '/interne/reglements', { reglements: reglementsEtudiants() });
+  await appel('POST', '/interne/exceptions', { exceptions: db.prepare(`SELECT etudiant_id, MAX(jusqu_au) AS jusqu_au FROM portail_exception
+    WHERE retire_le IS NULL AND jusqu_au >= date('now') GROUP BY etudiant_id`).all() });
   // LE REGISTRE D'AUTHENTICITÉ (3.1.511) : ce que le scan d'un QR doit retrouver. En ajout seul, par lots.
   for (let i = 0; i < 20; i++) {
     const l = piecesATransmettre(500);
@@ -240,10 +247,32 @@ export function suiviPortail(etudiantId) {
   migrerPortail();
   return {
     actif: portailActif(), adresse: URL_PUBLIQUE(),
+    exception: db.prepare(`SELECT id, jusqu_au, motif, par, le FROM portail_exception WHERE etudiant_id = ? AND retire_le IS NULL
+      AND jusqu_au >= date('now') ORDER BY jusqu_au DESC LIMIT 1`).get(etudiantId) || null,
     connexions: db.prepare('SELECT le AS utilise_le, ip FROM portail_connexion WHERE etudiant_id = ? ORDER BY le DESC LIMIT 5').all(etudiantId),
     accuses: db.prepare(`SELECT a.objet_type, a.objet_id, a.presente_le, a.signe_le,
         CASE a.objet_type WHEN 'envoi' THEN (SELECT COALESCE(m.nom_fichier, m.sujet) || ' · ' || COALESCE(m.reference, '') FROM envoi_mail m WHERE m.id = a.objet_id)
           ELSE (SELECT d.titre || ' (version ' || v.numero || ')' FROM corpus_version v JOIN corpus_document d ON d.id = v.document_id WHERE v.id = a.objet_id) END AS piece
       FROM portail_accuse a WHERE a.etudiant_id = ? ORDER BY COALESCE(a.signe_le, a.presente_le) DESC`).all(etudiantId),
   };
+}
+
+/** Ouvrir l'accès hors de Belgique jusqu'à une date (motif obligatoire), ou le retirer. Part au prochain dépôt. */
+export function poserException(etudiantId, { jusqu_au, motif }, par) {
+  migrerPortail();
+  const j = String(jusqu_au || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(j) || j < new Date().toISOString().slice(0, 10)) return { erreur: 'Une date de fin, aujourd’hui ou plus tard.' };
+  if (j > new Date(Date.now() + 400 * 86400e3).toISOString().slice(0, 10)) return { erreur: 'Une ouverture vaut au plus un an : elle se renouvelle.' };
+  if (!String(motif || '').trim()) return { erreur: 'Le motif est obligatoire (stage, Erasmus…).' };
+  if (!db.prepare('SELECT 1 FROM etudiant WHERE id = ?').get(etudiantId)) return { erreur: 'Étudiant introuvable.' };
+  db.prepare("UPDATE portail_exception SET retire_le = datetime('now'), retire_par = ? WHERE etudiant_id = ? AND retire_le IS NULL").run(par, etudiantId);
+  db.prepare('INSERT INTO portail_exception (etudiant_id, jusqu_au, motif, par) VALUES (?,?,?,?)').run(etudiantId, j, String(motif).trim().slice(0, 300), par);
+  tours = 0;   // le prochain passage dépose
+  return { ok: true };
+}
+export function retirerException(etudiantId, par) {
+  migrerPortail();
+  db.prepare("UPDATE portail_exception SET retire_le = datetime('now'), retire_par = ? WHERE etudiant_id = ? AND retire_le IS NULL").run(par, etudiantId);
+  tours = 0;
+  return { ok: true };
 }

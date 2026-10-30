@@ -1,0 +1,80 @@
+import { useCallback, useEffect, useState } from 'react';
+import { IconWorld } from '@tabler/icons-react';
+import { authHeaders } from '../lib/api.js';
+import { useDroits } from '../lib/droits.js';
+
+/**
+ * SON ESPACE ÉTUDIANT, VU DE LUCIE (3.1.475, sorti de PiecesEtudiant en 3.1.513) : la dernière connexion, les pièces
+ * ouvertes et les accusés signés, tels que Lucie les a relevés de l'autre côté du mur ; et l'accès hors de Belgique.
+ * Montré dans la fiche (onglet Suivi) — depuis 3.1.503, « Une personne » d'Éditions n'ouvre plus ce panneau.
+ */
+export default function SuiviEspace({ id }) {
+  const [espace, setEspace] = useState(null);
+  const charger = useCallback(() => {
+    if (!id) return;
+    fetch(`/api/portail-suivi/${id}`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : null)).then(setEspace).catch(() => {});
+  }, [id]);
+  useEffect(() => { charger(); }, [charger]);
+  if (!espace) return null;
+  const jour = d => String(d || '').slice(0, 10).split('-').reverse().join('/');
+  return <>
+    {espace.actif && <AccesHorsBelgique id={id} exception={espace.exception} onChange={charger} />}
+    <div className="bloc-etat px-3 py-2 text-second mb-3 space-y-1" data-etat="neutre">
+      <div className="font-semibold text-iip-texte">Son espace étudiant
+        {espace.connexions[0]
+          ? <span className="font-normal text-slate-500"> · dernière connexion le {jour(espace.connexions[0].utilise_le)} à {String(espace.connexions[0].utilise_le).slice(11, 16)}</span>
+          : <span className="font-normal text-slate-500"> · jamais connecté</span>}</div>
+      {espace.accuses.map((a, i) => (
+        <div key={i} className="flex flex-wrap gap-x-2">
+          <span className="min-w-0 flex-1 truncate">{a.piece}</span>
+          <span className={a.signe_le ? 'text-emerald-700' : 'text-amber-700'}>
+            {a.signe_le ? `accusé signé le ${jour(a.signe_le)}` : `ouvert le ${jour(a.presente_le)}, non signé`}</span>
+        </div>))}
+    </div>
+  </>;
+}
+
+/* L'ACCÈS HORS DE BELGIQUE (3.1.513, Charles : « bloquer, avec une exception accordée par le secrétariat pour une
+   période »). L'espace ne s'ouvre que depuis la Belgique ; le secrétariat et la direction l'ouvrent ici jusqu'à une
+   date, avec un motif (stage, Erasmus). La coordination le lit. */
+function AccesHorsBelgique({ id, exception, onChange }) {
+  const { passe } = useDroits();
+  const peut = passe('admin', 'editeur');
+  const [ouvert, setOuvert] = useState(false);
+  const [jusqu, setJusqu] = useState('');
+  const [motif, setMotif] = useState('');
+  const [erreur, setErreur] = useState(null);
+  const jour = d => String(d || '').slice(0, 10).split('-').reverse().join('/');
+  const envoyer = async (methode, corps) => {
+    setErreur(null);
+    const r = await fetch(`/api/portail-suivi/${id}/exception`, { method: methode,
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' }, body: corps ? JSON.stringify(corps) : undefined });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { setErreur(j.error || `Erreur ${r.status}`); return; }
+    setOuvert(false); setMotif(''); setJusqu(''); onChange?.();
+  };
+  return (
+    <div className="bloc-etat px-3 py-2 text-second mb-3 space-y-1.5" data-etat={exception ? 'disponible' : 'neutre'}>
+      <div className="flex flex-wrap items-center gap-2">
+        <IconWorld size={15} className="text-slate-400" />
+        <span className="flex-1 min-w-0">
+          {exception
+            ? <>Son espace s'ouvre aussi <b>hors de Belgique</b> jusqu'au {jour(exception.jusqu_au)} — {exception.motif}
+              <span className="text-slate-500"> (par {exception.par}, le {jour(exception.le)})</span></>
+            : <>Son espace ne s'ouvre que <b>depuis la Belgique</b>.</>}
+        </span>
+        {peut && !ouvert && <button type="button" className="bouton" onClick={() => setOuvert(true)}>{exception ? 'Prolonger' : 'Ouvrir hors de Belgique'}</button>}
+        {peut && exception && !ouvert && <button type="button" className="bouton" onClick={() => envoyer('DELETE')}>Retirer</button>}
+      </div>
+      {ouvert && (
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="text-slate-600">jusqu'au <input type="date" value={jusqu} onChange={e => setJusqu(e.target.value)} className="controle ml-1" /></label>
+          <input value={motif} onChange={e => setMotif(e.target.value)} placeholder="Motif : stage à…, Erasmus à…" className="controle flex-1 min-w-[200px]" data-reponses="Motif d'ouverture hors de Belgique" />
+          <button type="button" className="bouton bouton-fort" disabled={!jusqu || !motif.trim()} onClick={() => envoyer('POST', { jusqu_au: jusqu, motif })}>Enregistrer</button>
+          <button type="button" className="bouton" onClick={() => { setOuvert(false); setErreur(null); }}>Annuler</button>
+        </div>)}
+      {erreur && <div className="text-red-700">{erreur}</div>}
+    </div>
+  );
+}

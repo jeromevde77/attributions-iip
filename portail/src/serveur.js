@@ -21,11 +21,18 @@
 // (la base n'en garde que l'empreinte), 90 jours glissants, trois appareils au plus — au quatrième, l'étudiant,
 // qui vient de prouver sa boîte d'école, choisit lequel remplacer. Signer un accusé : avoir ouvert la pièce (posé par la route qui la rend) + un code à six chiffres
 // reçu à l'adresse d'école (10 min, 5 essais). Un accusé signé ne se modifie ni ne s'efface.
+//
+// LE MOT DE PASSE (3.1.513, Charles : « son mot de passe qu'il a choisi lui, comme pour les MDP »). Le lien reçu par
+// courriel ne sert plus qu'à la PREMIÈRE visite et au mot de passe OUBLIÉ : il mène à « choisir mon mot de passe ».
+// Ensuite : adresse d'institut (ou matricule) + mot de passe ; sur un appareil reconnu, c'est tout ; sur un autre,
+// un code à six chiffres reçu à l'adresse d'école en plus. Et l'espace ne s'ouvre que DEPUIS LA BELGIQUE, hors VPN
+// connus (`geo.js`), sauf ouverture accordée par le secrétariat dans Lucie (stage, Erasmus) — déposée ici.
 // ─────────────────────────────────────────────────────────────────────────────
 import express from 'express';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import Database from 'better-sqlite3';
+import { autorise, etatGeo } from './geo.js';
 
 const PORT_PUBLIC = Number(process.env.PORT_PUBLIC || 3101);
 const PORT_INTERNE = Number(process.env.PORT_INTERNE || 3102);
@@ -72,6 +79,12 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS authentique (reference TEXT PRIMARY KEY, nature TEXT, objet TEXT, personne TEXT, emise_le TEXT);
   CREATE TABLE IF NOT EXISTS entree (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL,
     le TEXT NOT NULL DEFAULT (datetime('now')), ip TEXT, releve_le TEXT);
+  -- Le mot de passe choisi par l'étudiant (empreinte scrypt salée) : il survit aux dépôts de Lucie, qui remplacent
+  -- la table « etudiant ».
+  CREATE TABLE IF NOT EXISTS compte (etudiant_id INTEGER PRIMARY KEY, mdp TEXT NOT NULL, maj_le TEXT NOT NULL DEFAULT (datetime('now')),
+    echecs INTEGER NOT NULL DEFAULT 0, bloque_jusqu_a TEXT);
+  -- Les ouvertures hors de Belgique, déposées par Lucie (remplacées à chaque dépôt).
+  CREATE TABLE IF NOT EXISTS exception (etudiant_id INTEGER PRIMARY KEY, jusqu_au TEXT NOT NULL);
   CREATE TRIGGER IF NOT EXISTS accuse_signe_fige BEFORE UPDATE OF presente_le, signe_le, objet_id, etudiant_id ON accuse
     WHEN OLD.signe_le IS NOT NULL BEGIN SELECT RAISE(ABORT, 'Un accusé signé ne se modifie pas.'); END;
   CREATE TRIGGER IF NOT EXISTS accuse_sans_effacement BEFORE DELETE ON accuse
@@ -98,7 +111,39 @@ function tropDEssais(ip, plafond = 30) {
   return l.length > plafond;
 }
 
-pub.get('/api/portail/sante', (req, res) => res.json({ ok: true }));
+pub.get('/api/portail/sante', (req, res) => res.json({ ok: true, geo: etatGeo() }));
+
+// ── Le mot de passe ──
+const hacher = mdp => { const sel = crypto.randomBytes(16); return `scrypt$${sel.toString('base64')}$${crypto.scryptSync(String(mdp), sel, 64).toString('base64')}`; };
+const verifierMdp = (mdp, h) => {
+  const [, sel, emp] = String(h || 'scrypt$AAAAAAAAAAAAAAAAAAAAAA==$').split('$');
+  const calc = crypto.scryptSync(String(mdp), Buffer.from(sel || '', 'base64'), 64);
+  const attendu = Buffer.from(emp || '', 'base64');
+  return attendu.length === calc.length && crypto.timingSafeEqual(calc, attendu);
+};
+const BANALS = ['motdepasse', 'password', 'azerty', 'qwerty', '123456', 'institut', 'prigogine', 'bonjour', 'soleil'];
+function mdpRefuse(mdp, e) {
+  const m = String(mdp || '');
+  if (m.length < 10) return 'Dix caractères au moins.';
+  if (m.length > 200) return 'Deux cents caractères au plus.';
+  const bas = m.toLowerCase();
+  if (BANALS.some(b => bas.includes(b)) || /^(.)\1+$/.test(m) || /^\d+$/.test(m)) return 'Trop facile à deviner : mélangez des mots, des chiffres, des signes.';
+  const parties = [e?.nom, e?.prenom, String(e?.email_ecole || '').split('@')[0]].filter(x => x && x.length >= 3).map(x => String(x).toLowerCase());
+  if (parties.some(x => bas.includes(x))) return 'Votre nom ou votre adresse ne peuvent pas faire partie du mot de passe.';
+  return null;
+}
+
+// ── Depuis la Belgique ──
+const HORS_BELGIQUE = "Votre espace ne s'ouvre que depuis la Belgique, et pas au travers d'un VPN. En stage ou en Erasmus à l'étranger ? Le secrétariat peut vous ouvrir l'accès pour la durée du séjour.";
+const exceptionDe = id => !!(id && db.prepare("SELECT 1 FROM exception WHERE etudiant_id = ? AND jusqu_au >= date('now')").get(id));
+const permis = (req, etudiantId) => autorise(ipDe(req), exceptionDe(etudiantId));
+const refuserHorsBelgique = res => res.status(403).json({ hors_belgique: true, error: HORS_BELGIQUE });
+const trouver = ident => {
+  const i = String(ident || '').trim();
+  if (!i || i.length > 120) return null;
+  return i.includes('@') ? db.prepare('SELECT * FROM etudiant WHERE lower(email_ecole) = lower(?)').get(i)
+    : db.prepare('SELECT e.* FROM matricule m JOIN etudiant e ON e.id = m.etudiant_id WHERE m.code = ?').get(i);
+};
 
 // ── L'appareil reconnu ──
 const COOKIE = 'portail_appareil';
@@ -128,20 +173,92 @@ const appareilCourant = req => {
   const v = lireCookie(req);
   return v ? db.prepare(`SELECT * FROM appareil WHERE jeton_hash = ? AND retire_le IS NULL AND expire_le > datetime('now')`).get(empreinte(v)) : null;
 };
-const session = id => jwt.sign({ scope: 'portail', etudiant_id: id }, SECRET, { expiresIn: '2h' });
+const session = (id, definir = false) => jwt.sign({ scope: 'portail', etudiant_id: id, ...(definir ? { definir: true } : {}) }, SECRET, { expiresIn: definir ? '30m' : '2h' });
+const aUnMotDePasse = id => !!db.prepare('SELECT 1 FROM compte WHERE etudiant_id = ?').get(id);
 
-/** Entrer sans lien, depuis un appareil reconnu. */
-pub.post('/api/portail/entrer', (req, res) => {
-  if (tropDEssais(ipDe(req), 60)) return res.status(429).json({ error: 'Trop de tentatives. Réessayez dans une heure.' });
-  const a = appareilCourant(req);
-  if (!a || !db.prepare('SELECT 1 FROM etudiant WHERE id = ?').get(a.etudiant_id)) {
-    if (lireCookie(req)) oublierCookie(req, res);
-    return res.status(401).json({ error: 'Appareil non reconnu.' });
+/** Reconnaître l'appareil (après le lien ou le code) : trois au plus ; au quatrième, l'étudiant choisit lequel remplacer. */
+function reconnaitre(req, res, etudiantId) {
+  if (req.body?.retenir === false || appareilCourant(req)?.etudiant_id === etudiantId) return true;
+  const actifs = appareilsActifs(etudiantId);
+  const remplacer = Number(req.body?.remplacer) || null;
+  if (actifs.length >= MAX_APPAREILS && !actifs.some(a => a.id === remplacer)) {
+    res.status(409).json({ choix: true, max: MAX_APPAREILS, appareils: actifs,
+      error: `Vous avez déjà ${MAX_APPAREILS} appareils reconnus. Choisissez celui que celui-ci remplace.` });
+    return false;
   }
-  db.prepare(`UPDATE appareil SET vu_le = datetime('now'), expire_le = datetime('now', '+${JOURS_APPAREIL} days'), ip = ? WHERE id = ?`).run(ipDe(req), a.id);
-  db.prepare('INSERT INTO entree (etudiant_id, ip) VALUES (?, ?)').run(a.etudiant_id, ipDe(req));
-  poserCookie(req, res, lireCookie(req), JOURS_APPAREIL * 86400);
-  res.json({ token: session(a.etudiant_id) });
+  if (remplacer) db.prepare("UPDATE appareil SET retire_le = datetime('now') WHERE id = ? AND etudiant_id = ?").run(remplacer, etudiantId);
+  const valeur = crypto.randomBytes(32).toString('base64url');
+  db.prepare(`INSERT INTO appareil (etudiant_id, jeton_hash, nom, vu_le, expire_le, ip) VALUES (?,?,?, datetime('now'), datetime('now', '+${JOURS_APPAREIL} days'), ?)`)
+    .run(etudiantId, empreinte(valeur), nomAppareil(req.headers['user-agent']), ipDe(req));
+  poserCookie(req, res, valeur, JOURS_APPAREIL * 86400);
+  return true;
+}
+
+/** L'appareil est-il reconnu ? Il pré-remplit l'adresse : seul l'appareil qui porte le cookie la reçoit. */
+pub.get('/api/portail/appareil', (req, res) => {
+  const a = appareilCourant(req);
+  const e = a && db.prepare('SELECT email_ecole FROM etudiant WHERE id = ?').get(a.etudiant_id);
+  res.json(e ? { reconnu: true, identifiant: e.email_ecole } : { reconnu: false });
+});
+/* Avant 3.1.513, un appareil reconnu entrait sans rien : il demande désormais le mot de passe. */
+pub.post('/api/portail/entrer', (req, res) => res.status(410).json({ error: 'Entrez avec votre mot de passe.' }));
+
+/** ENTRER : adresse (ou matricule) + mot de passe ; un appareil non reconnu reçoit en plus un code à l'adresse d'école. */
+pub.post('/api/portail/connexion', (req, res) => {
+  if (tropDEssais(ipDe(req), 60)) return res.status(429).json({ error: 'Trop de tentatives. Réessayez dans une heure.' });
+  const e = trouver(req.body?.identifiant);
+  if (!permis(req, e?.id)) return refuserHorsBelgique(res);
+  const c = e && db.prepare('SELECT * FROM compte WHERE etudiant_id = ?').get(e.id);
+  if (c?.bloque_jusqu_a && c.bloque_jusqu_a > maintenant()) {
+    return res.status(429).json({ error: 'Trop d’essais sur ce compte : réessayez dans un quart d’heure, ou demandez un lien (mot de passe oublié).' });
+  }
+  const bon = verifierMdp(req.body?.mot_de_passe, c?.mdp);   // calculé même sans compte : même durée de réponse
+  if (!e || !c || !bon) {
+    if (c) db.prepare(`UPDATE compte SET echecs = echecs + 1, bloque_jusqu_a = CASE WHEN echecs + 1 >= 10
+      THEN datetime('now', '+15 minutes') END WHERE etudiant_id = ?`).run(e.id);
+    if (e && !c) return res.status(401).json({ premiere: true, error: 'Vous n’avez pas encore choisi de mot de passe : demandez votre lien de première visite.' });
+    return res.status(401).json({ error: 'Adresse ou mot de passe incorrect.' });
+  }
+  db.prepare('UPDATE compte SET echecs = 0, bloque_jusqu_a = NULL WHERE etudiant_id = ?').run(e.id);
+  const a = appareilCourant(req);
+  if (a && a.etudiant_id === e.id) {
+    db.prepare(`UPDATE appareil SET vu_le = datetime('now'), expire_le = datetime('now', '+${JOURS_APPAREIL} days'), ip = ? WHERE id = ?`).run(ipDe(req), a.id);
+    db.prepare('INSERT INTO entree (etudiant_id, ip) VALUES (?, ?)').run(e.id, ipDe(req));
+    poserCookie(req, res, lireCookie(req), JOURS_APPAREIL * 86400);
+    return res.json({ token: session(e.id) });
+  }
+  // UN AUTRE APPAREIL : un code à l'adresse d'école, que Lucie compose et envoie.
+  if (db.prepare(`SELECT COUNT(*) n FROM code WHERE etudiant_id = ? AND cree_le > datetime('now', '-1 hour')`).get(e.id).n >= 10) {
+    return res.status(429).json({ error: 'Trop de codes demandés. Réessayez dans une heure.' });
+  }
+  const valeur = String(crypto.randomInt(0, 1e6)).padStart(6, '0');
+  db.prepare(`UPDATE code SET utilise_le = datetime('now') WHERE etudiant_id = ? AND objet_type = 'connexion' AND utilise_le IS NULL`).run(e.id);
+  db.prepare(`INSERT INTO code (etudiant_id, objet_type, objet_id, code_hash, expire_le) VALUES (?, 'connexion', 0, ?, datetime('now', '+10 minutes'))`)
+    .run(e.id, empreinte(`${e.id}:${valeur}`));
+  db.prepare(`INSERT INTO demande (type, etudiant_id, valeur) VALUES ('code', ?, ?)`).run(e.id, valeur);
+  const defi = jwt.sign({ scope: 'defi', etudiant_id: e.id }, SECRET, { expiresIn: '10m' });
+  const [u, dom] = String(e.email_ecole).split('@');
+  res.json({ code_requis: true, defi, adresse: `${u.slice(0, 2)}•••@${dom}` });
+});
+
+pub.post('/api/portail/connexion/code', (req, res) => {
+  if (tropDEssais(ipDe(req), 60)) return res.status(429).json({ error: 'Trop de tentatives. Réessayez dans une heure.' });
+  let p; try { p = jwt.verify(String(req.body?.defi || ''), SECRET); } catch { p = null; }
+  if (!p || p.scope !== 'defi') return res.status(401).json({ error: 'Délai dépassé : reconnectez-vous.' });
+  const e = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(p.etudiant_id);
+  if (!e) return res.status(401).json({ error: 'Délai dépassé : reconnectez-vous.' });
+  if (!permis(req, e.id)) return refuserHorsBelgique(res);
+  const c = db.prepare(`SELECT * FROM code WHERE etudiant_id = ? AND objet_type = 'connexion' AND utilise_le IS NULL ORDER BY id DESC LIMIT 1`).get(e.id);
+  if (!c || c.expire_le < maintenant()) return res.status(400).json({ error: 'Ce code a expiré. Reconnectez-vous pour en recevoir un autre.' });
+  if (c.essais >= 5) return res.status(429).json({ error: 'Trop d’essais. Reconnectez-vous pour recevoir un nouveau code.' });
+  if (!egal(empreinte(`${e.id}:${String(req.body?.code || '').replace(/\D/g, '')}`), c.code_hash)) {
+    db.prepare('UPDATE code SET essais = essais + 1 WHERE id = ?').run(c.id);
+    return res.status(400).json({ error: 'Code incorrect.' });
+  }
+  if (!reconnaitre(req, res, e.id)) return;
+  db.prepare("UPDATE code SET utilise_le = datetime('now') WHERE id = ?").run(c.id);
+  db.prepare('INSERT INTO entree (etudiant_id, ip) VALUES (?, ?)').run(e.id, ipDe(req));
+  res.json({ token: session(e.id) });
 });
 
 pub.post('/api/portail/lien', (req, res) => {
@@ -151,6 +268,7 @@ pub.post('/api/portail/lien', (req, res) => {
   const m = ident && ident.length <= 120 && (ident.includes('@')
     ? db.prepare('SELECT id AS etudiant_id FROM etudiant WHERE lower(email_ecole) = lower(?)').get(ident)
     : db.prepare('SELECT etudiant_id FROM matricule WHERE code = ?').get(ident));
+  if (!permis(req, m?.etudiant_id)) return refuserHorsBelgique(res);
   if (!m) return res.json(reponse);
   const recents = db.prepare(`SELECT COUNT(*) n FROM jeton WHERE etudiant_id = ? AND cree_le > datetime('now', '-1 hour')`).get(m.etudiant_id).n;
   if (recents >= 3) return res.json(reponse);
@@ -168,23 +286,11 @@ pub.post('/api/portail/session', (req, res) => {
   if (!l || l.utilise_le || l.expire_le < maintenant() || !db.prepare('SELECT 1 FROM etudiant WHERE id = ?').get(l.etudiant_id)) {
     return res.status(401).json({ error: 'Ce lien a expiré ou a déjà servi. Demandez-en un nouveau.' });
   }
-  const retenir = req.body?.retenir !== false;
-  if (retenir && !appareilCourant(req)) {
-    // TROIS APPAREILS AU PLUS : au quatrième, l'étudiant — qui vient de prouver sa boîte d'école — choisit lequel remplacer.
-    const actifs = appareilsActifs(l.etudiant_id);
-    const remplacer = Number(req.body?.remplacer) || null;
-    if (actifs.length >= MAX_APPAREILS && !actifs.some(a => a.id === remplacer)) {
-      return res.status(409).json({ choix: true, max: MAX_APPAREILS, appareils: actifs,
-        error: `Vous avez déjà ${MAX_APPAREILS} appareils reconnus. Choisissez celui que celui-ci remplace.` });
-    }
-    if (remplacer) db.prepare("UPDATE appareil SET retire_le = datetime('now') WHERE id = ? AND etudiant_id = ?").run(remplacer, l.etudiant_id);
-    const valeur = crypto.randomBytes(32).toString('base64url');
-    db.prepare(`INSERT INTO appareil (etudiant_id, jeton_hash, nom, vu_le, expire_le, ip) VALUES (?,?,?, datetime('now'), datetime('now', '+${JOURS_APPAREIL} days'), ?)`)
-      .run(l.etudiant_id, empreinte(valeur), nomAppareil(req.headers['user-agent']), ipDe(req));
-    poserCookie(req, res, valeur, JOURS_APPAREIL * 86400);
-  }
+  if (!permis(req, l.etudiant_id)) return refuserHorsBelgique(res);
+  if (!reconnaitre(req, res, l.etudiant_id)) return;
   db.prepare("UPDATE jeton SET utilise_le = datetime('now'), ip = ? WHERE id = ?").run(ipDe(req), l.id);
-  res.json({ token: session(l.etudiant_id) });
+  // LE LIEN MÈNE À « CHOISIR MON MOT DE PASSE » : première visite, ou mot de passe oublié.
+  res.json({ token: session(l.etudiant_id, true), definir: true, a_un_mot_de_passe: aUnMotDePasse(l.etudiant_id) });
 });
 
 function connecte(req, res, next) {
@@ -192,9 +298,30 @@ function connecte(req, res, next) {
     const p = jwt.verify(String(req.headers.authorization || '').replace(/^Bearer /, ''), SECRET);
     const e = p.scope === 'portail' && db.prepare('SELECT * FROM etudiant WHERE id = ?').get(p.etudiant_id);
     if (!e) throw new Error('inconnu');
-    req.etudiant = e; next();
-  } catch { res.status(401).json({ error: 'Session expirée. Redemandez un lien.' }); }
+    if (!permis(req, e.id)) return refuserHorsBelgique(res);
+    // Un jeton venu du lien ne sert qu'à choisir le mot de passe.
+    if (p.definir && req.path !== '/api/portail/mot-de-passe') return res.status(403).json({ definir: true, error: 'Choisissez d’abord votre mot de passe.' });
+    req.etudiant = e; req.peutDefinir = !!p.definir; next();
+  } catch { res.status(401).json({ error: 'Session expirée. Reconnectez-vous.' }); }
 }
+
+/** Choisir (après le lien) ou changer (avec l'actuel) son mot de passe. */
+pub.post('/api/portail/mot-de-passe', connecte, (req, res) => {
+  const e = req.etudiant;
+  const c = db.prepare('SELECT * FROM compte WHERE etudiant_id = ?').get(e.id);
+  if (!req.peutDefinir && !(c && verifierMdp(req.body?.actuel, c.mdp))) return res.status(400).json({ error: 'Mot de passe actuel incorrect.' });
+  const refus = mdpRefuse(req.body?.nouveau, e);
+  if (refus) return res.status(400).json({ error: refus });
+  db.prepare(`INSERT INTO compte (etudiant_id, mdp) VALUES (?, ?) ON CONFLICT(etudiant_id) DO UPDATE SET mdp = excluded.mdp,
+    maj_le = datetime('now'), echecs = 0, bloque_jusqu_a = NULL`).run(e.id, hacher(req.body.nouveau));
+  // Un mot de passe REMPLACÉ : les autres appareils devront refaire le code.
+  if (c) {
+    const courant = appareilCourant(req);
+    db.prepare("UPDATE appareil SET retire_le = datetime('now') WHERE etudiant_id = ? AND retire_le IS NULL AND id <> ?").run(e.id, courant?.id || 0);
+  }
+  if (req.peutDefinir) db.prepare('INSERT INTO entree (etudiant_id, ip) VALUES (?, ?)').run(e.id, ipDe(req));
+  res.json({ ok: true, token: session(e.id) });
+});
 
 /** Mes appareils : les voir, en oublier un (celui-ci compris). */
 pub.get('/api/portail/appareils', connecte, (req, res) => {
@@ -392,6 +519,16 @@ int.post('/interne/authentiques', (req, res) => {
   const i = db.prepare('INSERT OR IGNORE INTO authentique (reference, nature, objet, personne, emise_le) VALUES (?,?,?,?,?)');
   db.transaction(() => { for (const x of l) if (x?.reference) i.run(String(x.reference).toUpperCase(), String(x.nature || ''),
     x.objet ? String(x.objet) : null, x.personne ? String(x.personne) : null, String(x.emise_le || '')); })();
+  res.json({ ok: true, n: l.length });
+});
+
+int.post('/interne/exceptions', (req, res) => {
+  const l = Array.isArray(req.body?.exceptions) ? req.body.exceptions : [];
+  db.transaction(() => {
+    db.exec('DELETE FROM exception');
+    const i = db.prepare('INSERT OR REPLACE INTO exception (etudiant_id, jusqu_au) VALUES (?,?)');
+    for (const x of l) if (Number(x.etudiant_id) && /^\d{4}-\d{2}-\d{2}$/.test(String(x.jusqu_au || ''))) i.run(Number(x.etudiant_id), String(x.jusqu_au));
+  })();
   res.json({ ok: true, n: l.length });
 });
 

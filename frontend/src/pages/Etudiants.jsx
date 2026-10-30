@@ -1,3 +1,4 @@
+import SuiviEspace from '../components/SuiviEspace.jsx';
 import ImportInscrireListe from '../components/ImportInscrireListe.jsx';
 import ImportTfe from '../components/ImportTfe.jsx';
 import { useTransfertsFermes } from '../lib/transferts.js';
@@ -2535,6 +2536,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
           {/* LE SUIVI CONFIDENTIEL — la porte est jugée par le serveur, pas
               par l'onglet : à qui n'est ni enseignant de l'étudiant, ni sa
               coordination, ni la direction, l'écran dit que c'est fermé. */}
+          {onglet === 'suivi' && <SuiviEspace id={id} />}
           {onglet === 'suivi' && <SuiviEtudiant etudId={id} />}
 
           {/* FINANCES : tout ce qui touche à l'argent au même endroit — droit
