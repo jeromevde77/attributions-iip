@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { api, isAuthenticated } from '../lib/api.js';
 import { IconFlask } from '@tabler/icons-react';
-import { ETOILES, TRAITS, ECLAT, ORDRE_APPARITION, POINTS_L, L } from '../lib/logoVierge.js';
+import { ETOILES, TRAITS, ECLAT, ORDRE_APPARITION, POINTS_L, L, ETOILES_HORS, ECLAT_HORS } from '../lib/logoVierge.js';
 
 /* LA NAISSANCE DU LOGO, DE LA NUIT AU BLEU DE LUCIE (3.1.486, Charles, 30 octobre 2026 — projet D, mélange de « Nuit
    bleue » et « Veilleuse » : « on démarre en nuit bleue très profonde, puis les étoiles apparaissent, puis les liens
@@ -130,40 +130,33 @@ function LucieLogo({ size = 240 }) {
   );
 }
 
+/* LE FOND DE LA CONNEXION : LA VIERGE, EN GRAND (3.1.494, Charles : « dans le fond, que les étoiles et les lignes soient
+   celles de la Vierge, et que ça scintille discrètement, étoile par étoile »). Les dix-huit étoiles réelles (la figure et
+   les six hors des lignes, lib/logoVierge.js) et les lignes des cartes du ciel, très légères ; chaque étoile a son propre
+   rythme, décalé des autres, pour qu'on ne voie jamais tout le ciel battre ensemble. */
 function NetworkBg() {
-  const nodes = [
-    {x:8,y:12},{x:25,y:5},{x:55,y:18},{x:80,y:8},{x:95,y:22},
-    {x:15,y:40},{x:40,y:35},{x:70,y:30},{x:88,y:45},
-    {x:5,y:60},{x:30,y:65},{x:58,y:55},{x:85,y:68},
-    {x:18,y:82},{x:45,y:78},{x:72,y:85},{x:92,y:75},
-    {x:10,y:95},{x:50,y:95},{x:78,y:95},
-  ];
-  const links = [
-    [0,1],[1,2],[2,3],[3,4],[4,8],[8,12],[12,16],[16,19],
-    [0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],
-    [9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],
-    [1,6],[6,11],[11,15],[2,7],[7,12],[3,8],[10,14],[15,19],
-  ];
+  const etoiles = { ...ETOILES, ...ETOILES_HORS };
+  const eclat = { ...ECLAT, ...ECLAT_HORS };
+  const cles = Object.keys(etoiles);
+  // Un rythme par étoile, fixe d'une visite à l'autre : durée 3,2 à 6,4 s, départ étalé sur 6 s.
+  const rythme = k => { const h = [...k].reduce((n, c) => (n * 31 + c.charCodeAt(0)) % 997, 7); return { d: 3.2 + (h % 33) / 10, r: (h % 60) / 10 }; };
   return (
-    <svg style={{position:'absolute',inset:0,width:'100%',height:'100%',opacity:.18}}
-         viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice"
-         xmlns="http://www.w3.org/2000/svg">
+    <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} aria-hidden="true"
+         viewBox="-22 -16 92 64" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
       <style>{`
-        .nl { stroke:var(--c-accent); stroke-width:.18; fill:none; }
-        .nd { fill:var(--c-accent); animation: pulse 4s ease-in-out infinite; }
-        @keyframes pulse {
-          0%,100% { opacity:.5; }
-          50%      { opacity:1; }
-        }
-        ${nodes.map((_,i)=>`.nd${i}{animation-delay:${(i*0.22).toFixed(2)}s}`).join('')}
+        @keyframes vb-scintille { 0%, 100% { opacity: .22; transform: scale(.85); } 50% { opacity: .75; transform: scale(1.15); } }
+        .vb-e { transform-box: fill-box; transform-origin: center; animation: vb-scintille var(--d) ease-in-out var(--r) infinite; }
+        @media (prefers-reduced-motion: reduce) { .vb-e { animation: none; opacity: .5; } }
       `}</style>
-      {links.map(([a,b],i) => (
-        <line key={i} x1={nodes[a].x} y1={nodes[a].y}
-              x2={nodes[b].x} y2={nodes[b].y} className="nl"/>
-      ))}
-      {nodes.map((n,i) => (
-        <circle key={i} cx={n.x} cy={n.y} r=".65" className={`nd nd${i}`}/>
-      ))}
+      <g stroke="var(--c-accent)" strokeOpacity=".22" strokeWidth=".12" fill="none" strokeLinecap="round">
+        {TRAITS.map(([a, z]) => (
+          <line key={a + z} x1={etoiles[a][0]} y1={etoiles[a][1]} x2={etoiles[z][0]} y2={etoiles[z][1]} />))}
+      </g>
+      {cles.map(k => {
+        const { d, r } = rythme(k);
+        return <circle key={k} cx={etoiles[k][0]} cy={etoiles[k][1]} r={0.2 + (eclat[k] || 0.35) * 0.32}
+          fill="var(--c-accent)" className="vb-e" style={{ '--d': `${d.toFixed(1)}s`, '--r': `-${r.toFixed(1)}s` }} />;
+      })}
     </svg>
   );
 }

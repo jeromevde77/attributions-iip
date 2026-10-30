@@ -2713,6 +2713,12 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   « Lucie » garde la police du logo (Segoe UI / Helvetica Neue / Arial gras) et est CALÉ EN LARGEUR sur le L
   (`textLength`, du bord de Spica au bord de Zaniah). `prefers-reduced-motion` : l'état final, d'emblée.
 
+- **LE FOND DE LA CONNEXION EST LA VIERGE** (3.1.494, Charles : « que les étoiles et les lignes soient celles de la
+  Vierge, et que ça scintille discrètement, étoile par étoile »). `NetworkBg` (`pages/Login.jsx`) ne dessine plus un réseau
+  inventé : les dix-huit étoiles réelles (`ETOILES` + `ETOILES_HORS`) et les lignes `TRAITS`, en grand, très légères,
+  entières à l'écran (`meet`, iPad en paysage comme en portrait) ; chaque étoile scintille à son propre rythme (3,2 à 6,4 s,
+  départs décalés), jamais toutes ensemble.
+
 - **LE LOGO EN APLAT, ET LE GUIDE EN CARTE DES CHAPITRES** (3.1.487, Charles, 30 octobre 2026 : « le logo dans Lucie
   doit aussi être mis à jour, mais en aplat, dans les couleurs actuelles ; dans le mode d'emploi il se dessine aussi et
   chaque étoile devient un des thèmes »). (1) Barre du haut : l'état final de la connexion — liens presque invisibles,
