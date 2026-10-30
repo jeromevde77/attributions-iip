@@ -2691,6 +2691,11 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   20 000 lignes ne se garde pas. **Une table nouvelle est suivie au redémarrage
   suivant** ; une table à colonne BLOB ou sans rowid ne l'est pas.
 
+- **L'ANNULER NE COMPARE QUE CE QUE LE GESTE A CHANGÉ** (3.1.482, Charles, 30 octobre 2026, en production :
+  « Impossible d'annuler : utilisateur — la ligne a été modifiée depuis, par quelqu'un »). Se reconnecter écrit
+  `last_login_at` sur la ligne du compte ; l'annulation comparait la ligne entière et refusait. Désormais elle ne
+  vérifie, et ne remet, que les colonnes que le geste a changées ; les champs techniques (`TECHNIQUES` : heure de
+  connexion, dernier pas du code, `maj_le`, `vu_le`…) ne bloquent jamais.
 - **Rien ne s'écrit sans qu'on ait vu ce qui sera écrit** : tout import et tout
   traitement en lot passe par une simulation.
 - **Un bouton caché n'est pas une protection** : une opération réservée au
