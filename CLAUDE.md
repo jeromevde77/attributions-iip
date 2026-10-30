@@ -2991,7 +2991,16 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   `rappel_envoye` canal 'email' ; jour J = urgent). Les ancres `deliberation` et `publication` se lisent désormais de
   `deliberation_seance` (`date_seance`, `publie_le`) dans `instancier`, source `deliberation_seance` (section par
   `organisation_ue`, `sectionEcheanceSql` étendue) ; un jalon déjà passé à sa naissance ne se crée pas. Écran : Configuration →
-  Courriels → panneau « Rappels ». **Un nouveau rappel s'ajoute au CATALOGUE et dépose par `mettreEnFile`.** Étapes 2 à 4 à venir.
+  Courriels → panneau « Rappels ». **Un nouveau rappel s'ajoute au CATALOGUE et dépose par `mettreEnFile`.**
+  **ÉTAPE 2 FAITE (3.1.523)** : `lib/rappelsDeliberation.js` (`genererRappelsDeliberation(annee)`, toutes les heures dans
+  `server.js`, dev comprise — seule la file se remplit ; aussi au « Régénérer » de l'échéancier). Séances non closes datées
+  (`deliberation_seance.date_seance`) : professeurs attribués à l'UE (et à l'organisation de la séance), un rappel par cours —
+  J-10 et J-3 (date + reste à encoder, matin), J-2 « dernier délai » et J-1/J « délai dépassé » (urgents, seulement s'il reste
+  des points) ; copie agrégée à la coordination de la section au délai dépassé ; séance passée non close à J+2 puis chaque
+  semaine (secrétariat, coordination, direction) ; « date à poser » quand `organisation_ue.date_fin` tombe dans 15 jours sans
+  séance de 1re session datée (secrétariat, coordination). Le reste à encoder = `resteAEncoder(profId, cours, annee, session)`
+  (`routes/mesCours.js`), la règle de la complétude, écrite une fois. Anti-doublon `rappel_envoye` (cible `deliberation_seance`
+  ou `organisation_ue`, jalon `J-10|cours`…). Étapes 3 et 4 à venir.
 - **LE PORTAIL DE L'ÉTUDIANT — CE QUI EST TRANCHÉ, RIEN N'EST CODÉ** (Charles, 30 octobre 2026 ; projet : logigramme et
   treize écrans hors dépôt). Mot de passe choisi par l'étudiant (comme le personnel), code en plus sur un nouvel appareil.
   **PAE en ligne** : Lucie coche ce qui est accessible (`etatsPAE`), l'étudiant choisit et envoie, la coordination valide ou

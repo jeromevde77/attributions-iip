@@ -2932,6 +2932,15 @@ import { planifierRecap, migrerRecap } from './lib/recapQuotidien.js';
 try { migrerRecap(db); planifierRecap(); } catch (e) { console.error('[recap] planification :', e.message); }
 import { planifierRappels } from './lib/rappels.js';
 try { planifierRappels(); } catch (e) { console.error('[rappels] planification :', e.message); }
+// LES RAPPELS DE LA DÉLIBÉRATION (3.1.523) se calculent partout, toutes les heures (dev comprise) : ils ne font que
+// remplir la file ; seul l'envoi est réservé à la production.
+import { genererRappelsDeliberation } from './lib/rappelsDeliberation.js';
+import { anneeActive as anneeActiveRappels } from './services/echeancier.js';
+{
+  const tourDelib = () => { try { const r = genererRappelsDeliberation(anneeActiveRappels(db)); if (Object.values(r).some(Boolean)) console.log('[rappels délibération]', r); } catch (e) { console.error('[rappels délibération]', e.message); } };
+  setTimeout(tourDelib, 45_000).unref?.();
+  setInterval(tourDelib, 60 * 60 * 1000).unref?.();
+}
 try { migrerClassement(db); } catch (e) { console.error('[migration] classement :', e.message); }
 try { migrerAncienneteService(db); } catch (e) { console.error('[migration] anciennete_service :', e.message); }
 try { migrerEtudiants(db); } catch (e) { console.error('[migration] etudiants :', e.message); }

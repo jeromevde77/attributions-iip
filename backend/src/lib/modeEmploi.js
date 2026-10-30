@@ -10,7 +10,7 @@
  *   savoir — ce qu'il faut savoir : les règles qui bloquent ou qui surprennent.
  * Il explique le travail, pas l'informatique (CLAUDE.md, § 7). La version décrite se dit en tête.
  */
-export const VERSION_DECRITE = '3.1.522';
+export const VERSION_DECRITE = '3.1.523';
 
 export const RUBRIQUES = [
   {
@@ -1113,6 +1113,7 @@ export const RUBRIQUES = [
           "Une note sous 10 ne s'enregistre pas sans son « Justificatif d'échec » (panneau de droite). Écrivez-le, ou « Choisir dans la liste ».",
           "Ce justificatif devient la motivation de l'échec en délibération. Le Conseil peut la réécrire.",
           "Unité en évaluation unique : la note d'un acquis encodée sur un cours vaut pour tous les cours qui le portent.",
+          "Lucie vous rappelle la délibération par courriel, à J-10 et J-3, avec ce qui reste à encoder. Le dernier délai pour vos points est J-2 ; passé ce délai, la coordination de la section en est avertie.",
         ],
         image: "/guide/mescours-notes.png",
         legende: "Un cours ouvert, face « Notes » : une case par étudiant et par acquis ; à droite, ce que vous évaluez.",
@@ -1576,7 +1577,7 @@ export const RUBRIQUES = [
       {
         titre: "Les rappels par courriel",
         ou: "Configuration → Documents et envois → Courriels → Rappels.",
-        texte: "Lucie rappelle à chacun ce qui l'attend, par courriel à son adresse d'institut. Un rappel ordinaire entre dans le récapitulatif du matin ; un rappel urgent (le jour J d'une échéance) part aussitôt. Aujourd'hui : les échéances de l'échéancier — GEDI, publication des résultats, fenêtres de recours, préparation des UE… — au responsable de l'échéance, sinon aux comptes de son rôle.",
+        texte: "Lucie rappelle à chacun ce qui l'attend, par courriel à son adresse d'institut. Un rappel ordinaire entre dans le récapitulatif du matin ; un rappel urgent (le jour J d'une échéance) part aussitôt. Aujourd'hui : les échéances de l'échéancier — GEDI, publication des résultats, fenêtres de recours, préparation des UE… — au responsable de l'échéance, sinon aux comptes de son rôle ; et la délibération : la date aux professeurs à J-10 et J-3, le dernier délai de leurs points à J-2, « délai dépassé » (copie à la coordination), « date à poser » quand l'UE se termine sans séance datée, et la séance passée qui n'est pas close.",
         savoir: [
           "La direction seule règle : un interrupteur général et un par rappel. Personne ne se désabonne.",
           "La coordination ne reçoit que les rappels de ses sections.",

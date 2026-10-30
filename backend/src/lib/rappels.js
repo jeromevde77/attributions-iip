@@ -24,6 +24,22 @@ export const CATALOGUE = [
     pour: "Le responsable de l'échéance, ou les comptes de son rôle (la coordination : ses sections seulement).",
     quand: "Aux jalons de chaque type d'échéance (J-30, J-7, J-1…), puis chaque semaine en retard.",
     urgent: "Le jour J part aussitôt ; le reste, le matin." },
+  { cle: 'deliberation_professeurs', titre: 'La délibération et les points à encoder',
+    pour: "Les professeurs attribués à l'UE (et à l'organisation de la séance).",
+    quand: "La date de la séance à J-10 et J-3, avec ce qui reste à encoder ; le dernier délai à J-2 ; « délai dépassé » la veille et le jour même.",
+    urgent: "J-2 et le délai dépassé partent aussitôt, et seulement s'il reste des points ; J-10 et J-3, le matin." },
+  { cle: 'deliberation_coordination', titre: "Encodage incomplet — copie à la coordination",
+    pour: "La coordination de la section de l'UE.",
+    quand: "La veille et le jour de la séance, s'il reste des points : qui, quel cours, combien d'étudiants.",
+    urgent: "Part aussitôt." },
+  { cle: 'deliberation_date_a_poser', titre: 'Date de délibération à poser',
+    pour: "Le secrétariat et la coordination de la section.",
+    quand: "Quand l'UE se termine dans 15 jours au plus et qu'aucune séance de première session n'est datée.",
+    urgent: "Le matin, une fois." },
+  { cle: 'deliberation_non_close', titre: 'Séance passée et non close',
+    pour: "Le secrétariat, la coordination de la section et la direction.",
+    quand: "Deux jours après la date de séance, puis chaque semaine tant qu'elle n'est pas close.",
+    urgent: "Le matin." },
 ];
 
 const DEFAUT = { actif: true, types: Object.fromEntries(CATALOGUE.map(c => [c.cle, { actif: true }])) };
