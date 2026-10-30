@@ -1658,6 +1658,10 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
   // unité sans que cette unité soit déjà choisie ferait recommencer un travail
   // qu'on venait de faire : on arrive là où l'on était.
   const [session, setSession] = useState(perimetre?.session === 2 ? 2 : 1);
+  /* LES SESSIONS DES PIÈCES DE L'ÉTUDIANT (3.1.497, Charles : « S1, S2 ou tout — S2 seulement si elle existe, sinon
+     grisé ») : deux cases, les deux = tout. La liste se lit sur la première cochée. Au Conseil, une séance = une
+     session : le choix reste au Périmètre. */
+  const [sessions, setSessions] = useState(() => new Set([perimetre?.session === 2 ? 2 : 1]));
   // Les sections : celles que l'écran passe, sinon celles des étudiants sélectionnés dans la liste.
   const [sections, setSections] = useState(() => new Set(perimetre?.sections
     || (!perimetre?.coches && selectionEtudiants().ids.length ? selectionEtudiants().sections : [])));
@@ -1772,6 +1776,17 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
     } catch (e) { setErreur(e.message); }
   }, [annee, session, sections, ues, cours, conseil, seul]);
   useEffect(() => { charger(); }, [charger]);
+  useEffect(() => {
+    if (conseil) return;
+    const s = sessions.has(1) ? 1 : 2;
+    if (s !== session) setSession(s);
+    // eslint-disable-next-line
+  }, [sessions, conseil]);
+  useEffect(() => {
+    if (liste && !liste.seconde_session && sessions.has(2)) setSessions(new Set([1]));
+    // eslint-disable-next-line
+  }, [liste]);
+  const sessionsLot = conseil ? [session] : [...sessions].sort();
 
   const etudiants = useMemo(() => {
     const q = recherche.trim().toLowerCase();
@@ -1886,11 +1901,11 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
         const r = await attestationsParcours();
         avis.push(...r.avis);
         tout = r.documents.map(d => ({ html: d.html, nom: d.nom, pagination: 'si-plusieurs', etudiant: d.etudiant }));
-      } else if (delibChoisie) {
+      } else if (delibChoisie) for (const sess of sessionsLot) {
         const rep = await fetch('/api/acquis/deliberation/documents-lot', {
           method: 'POST', headers: authHeaders(),
           body: JSON.stringify({
-            annee, session,
+            annee, session: sess,
             // Avec des pièces du dossier, tout part en un document par étudiant :
             // un bulletin ne se coud pas dans l'enveloppe d'une délibération.
             separer: separer || dossierChoisi.length > 0,
@@ -1903,13 +1918,14 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
           }),
         });
         const j = await rep.json();
-        if (!rep.ok) { if (!dossierChoisi.length) { setErreur(j.error); return; } avis.push(j.error); }
+        if (!rep.ok) avis.push(sessionsLot.length > 1 ? `Session ${sess} : ${j.error}` : j.error);   // une session vide n'arrête pas l'autre
         else {
           if (j.manques?.length) avis.push(`${j.pieces} pièce(s), mais : ${j.manques.slice(0, 4).join(' · ')}${j.manques.length > 4 ? ' …' : ''}`);
-          tout = j.separes
+          const lot = j.separes
             ? [...(j.collectif ? [j.collectif] : []), ...j.documents]
             : [{ nom: (j.nom || 'documents').replace(/\.html$/, ''), html: j.html }];
-          tout = tout.map(d => ({ html: d.html, nom: d.nom, pagination: 'si-plusieurs' }));
+          // Les deux sessions dans un même lot : chaque fichier dit la sienne.
+          tout.push(...lot.map(d => ({ html: d.html, nom: sessionsLot.length > 1 ? `S${sess}_${d.nom}` : d.nom, pagination: 'si-plusieurs' })));
         }
       }
       const dossier = parcours ? { avis: [], documents: [] } : await piecesDossier();
@@ -1967,11 +1983,11 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
         avis.push(...r.avis);
         pieces.push(...r.documents.map(d => ({ html: d.html, nom_fichier: d.nom, contenu: d.contenu,
           destinataire: { type: 'etudiant', id: d.etudiant_id, nom: d.etudiant } })));
-      } else if (delibChoisie) {
+      } else if (delibChoisie) for (const sess of sessionsLot) {
         const rep = await fetch('/api/acquis/deliberation/documents-lot', {
           method: 'POST', headers: authHeaders(),
           body: JSON.stringify({
-            annee, session, separer: true,
+            annee, session: sess, separer: true,
             org: perimetre?.org ?? undefined,
             ue_nums: (liste?.unites || []).map(u => u.ue_num),
             etudiants: [...coches].filter(id => etudiants.find(e => e.id === id)?.decide),
@@ -1979,7 +1995,7 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
           }),
         });
         const j = await rep.json();
-        if (!rep.ok) { if (!dossierChoisi.length) { setErreur(j.error); return; } avis.push(j.error); }
+        if (!rep.ok) avis.push(sessionsLot.length > 1 ? `Session ${sess} : ${j.error}` : j.error);   // une session vide n'arrête pas l'autre
         else {
           pieces.push(...(j.documents || []).map(d => ({
             html: d.html, nom_fichier: d.nom, contenu: d.contenu,
@@ -2333,15 +2349,18 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
               {/* LA SESSION EST UNE OPTION DES PIÈCES DE DÉLIBÉRATION, PAS DU PÉRIMÈTRE (3.1.497, Charles : « seuls certains
                   documents y sont liés ; le choix doit venir après celui des documents, en regard d'eux »). */}
               {delibChoisie && !parcours && (
-                <div className="flex items-center gap-2 pl-[30px] py-1.5 text-second text-slate-500">
-                  pour la
-                  <div className="segments" style={{ height: 28 }}>
-                    {[[1, '1re session'], [2, '2e session']].map(([v, lib]) => (
-                      <button key={v} type="button" onClick={() => setSession(v)}
-                        className={`px-2.5 text-second ${session === v ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>
+                <div className="flex items-center gap-4 pl-[30px] py-1.5 text-second text-slate-600">
+                  {[[1, '1re session'], [2, '2e session']].map(([v, lib]) => {
+                    const ouverte = v === 1 || !!liste?.seconde_session;
+                    return (
+                      <label key={v} className={`flex items-center gap-1.5 ${ouverte ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
+                        title={ouverte ? '' : 'Aucune décision de seconde session dans ce périmètre'}>
+                        <input type="checkbox" disabled={!ouverte} checked={sessions.has(v) && ouverte}
+                          onChange={() => setSessions(x => { const n = new Set(x); n.has(v) ? n.delete(v) : n.add(v); return n.size ? n : x; })}
+                          className="w-3.5 h-3.5 accent-iip-blue" />
                         {lib}
-                      </button>))}
-                  </div>
+                      </label>);
+                  })}
                 </div>)}
               {famillePieces.filter(p => !p.nominatif && CLES_RESULTATS.includes(p.cle) && !parcours).map(lignePiece)}
             </div>
