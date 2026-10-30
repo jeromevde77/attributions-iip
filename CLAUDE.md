@@ -2774,6 +2774,15 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   agrandie devient floue) et plafonne à 17 rem de haut ; un toucher l'ouvre en grand (`Fenetre`, par `createPortal` :
   l'animation de la carte enfermerait la fenêtre dans le point).
 
+- **LUCIE SUR L'ÉCRAN D'ACCUEIL** (3.1.496, Charles, 30 octobre 2026 : « une icône Lucie sur iPhone ou Android » ;
+  icône choisie : la Vierge et le L, L en grand, étoiles et lignes discrètes). Application web installable, SANS
+  service worker (un cache sur le téléphone recréerait l'écart de version) : `public/manifest.webmanifest`
+  (`manifest-dev.webmanifest` sur dev. et localhost, nom « Lucie dev », choisi par le script d'`index.html`),
+  `public/icones/` (192, 512, « maskable » plus serrée pour Android, `apple-touch-icon` 180), `favicon.svg` (c'était
+  encore le « A » doré d'Attributions), titre d'onglet « Lucie ». nginx sert le manifeste en
+  `application/manifest+json`, sans cache. iPhone/iPad : Safari seulement, première connexion dans l'app (stockage
+  séparé de Safari). Le portail des étudiants n'en a pas (choix de Charles : Lucie d'abord).
+
 **L'ANNULER NE COMPARE QUE CE QUE LE GESTE A CHANGÉ** (3.1.482, Charles, 30 octobre 2026, en production :
   « Impossible d'annuler : utilisateur — la ligne a été modifiée depuis, par quelqu'un »). Se reconnecter écrit
   `last_login_at` sur la ligne du compte ; l'annulation comparait la ligne entière et refusait. Désormais elle ne

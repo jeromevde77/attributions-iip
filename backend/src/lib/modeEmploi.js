@@ -10,7 +10,7 @@
  *   savoir — ce qu'il faut savoir : les règles qui bloquent ou qui surprennent.
  * Il explique le travail, pas l'informatique (CLAUDE.md, § 7). La version décrite se dit en tête.
  */
-export const VERSION_DECRITE = '3.1.490';
+export const VERSION_DECRITE = '3.1.496';
 
 export const RUBRIQUES = [
   {
@@ -60,6 +60,16 @@ export const RUBRIQUES = [
     id: 'demarrage', pour: 'ens sec coo dir', titre: 'Pour commencer', icone: 'IconChevronRight',
     resume: "L'année de travail, le menu, la recherche, l'avion et les idées.",
     points: [
+      {
+        titre: "Lucie sur l'écran d'accueil du téléphone ou de l'iPad",
+        ou: "Dans le navigateur du téléphone, à l'adresse de Lucie.",
+        texte: "Lucie s'installe comme une application : une icône sur l'écran d'accueil, et elle s'ouvre en plein écran, sans barre d'adresse. Sur iPhone et iPad, ouvrez Lucie dans Safari, touchez Partager (le carré à flèche), puis « Sur l'écran d'accueil ». Sur Android, dans Chrome, touchez « Installer l'application » ou le menu ⋮ → Installer.",
+        savoir: [
+          "Sur iPhone et iPad, il faut passer par Safari : les autres navigateurs ne proposent pas l'installation.",
+          "La première fois, connectez-vous dans l'application : l'iPhone ne lui donne pas la connexion de Safari. Elle la garde ensuite.",
+          "C'est toujours la Lucie du serveur : rien à mettre à jour, et rien ne fonctionne sans connexion internet.",
+        ],
+      },
       {
         titre: "Revenir en arrière : le bouton ↶",
         ou: "Barre du haut, à côté de la loupe.",

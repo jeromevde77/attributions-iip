@@ -1,0 +1,17 @@
+{
+  "name": "Lucie (développement)",
+  "short_name": "Lucie dev",
+  "description": "La gestion académique de l'Institut Ilya Prigogine.",
+  "lang": "fr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#16406A",
+  "theme_color": "#16406A",
+  "icons": [
+    { "src": "/icones/lucie-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icones/lucie-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icones/lucie-masque-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icones/lucie-masque-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -4,7 +4,24 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>Attributions IIP</title>
+    <title>Lucie</title>
+    <!-- LUCIE SUR L'ÉCRAN D'ACCUEIL (3.1.496, Charles : « une icône Lucie sur iPhone ou Android »). Une application web
+         installable : iPhone/iPad par Safari → Partager → « Sur l'écran d'accueil » ; Android par Chrome → Installer.
+         Elle s'ouvre en plein écran. Pas de service worker : Lucie reste toujours la version servie par le serveur. -->
+    <link rel="manifest" id="manifeste" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/icones/apple-touch-icon.png" />
+    <meta name="theme-color" content="#16406A" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" id="titre-app" content="Lucie" />
+    <script>
+      /* La dev s'installe sous un autre nom : deux icônes « Lucie » identiques sur un iPad, c'est une erreur annoncée. */
+      if (/^dev\./.test(location.hostname) || location.hostname === 'localhost') {
+        document.getElementById('manifeste').href = '/manifest-dev.webmanifest';
+        document.getElementById('titre-app').content = 'Lucie dev';
+      }
+    </script>
     <!-- Aptos / Arial — polices système, pas d'import externe nécessaire -->
   </head>
   <body>
