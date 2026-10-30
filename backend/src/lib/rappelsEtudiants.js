@@ -14,11 +14,14 @@
 import db from '../db/index.js';
 import { rappelActif, reglagesRappels } from './rappels.js';
 import { portailActif } from './portailSync.js';
+import { fonctionPour } from './fonctions.js';
 import { reglagePAE } from './paeEnLigne.js';
 import { calculerFrais } from '../routes/fraisScolarite.js';
 import { controleDelai } from './valorisation.js';
 import { envoyerEmail, templateNotif } from '../services/mailer.js';
 
+const FONCTION_DU_RAPPEL = { etudiants_documents: 'espace.documents', etudiants_pae: 'espace.pae', etudiants_messages: 'espace.messages',
+  etudiants_frais: 'espace.frais', etudiants_va: 'espace.va' };
 const URL_PUBLIQUE = () => (process.env.PORTAIL_URL_PUBLIQUE || 'https://etudiants.lucie-iip.be').replace(/\/$/, '');
 const esc = t => String(t ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const jourFr = d => String(d || '').slice(0, 10).split('-').reverse().join('/');
@@ -68,6 +71,8 @@ export function genererRappelsEtudiants(annee, { jour = null, force = false } = 
   const qui = joignables();
   const deposer = (etudiantId, cle, objet, jalon, titre) => {
     if (!qui.has(etudiantId) || !rappelActif(cle)) return;
+    // La fonction de l'espace dont parle le rappel doit être ouverte pour cet étudiant (3.5.001, Configuration → Fonctions).
+    if (!fonctionPour(FONCTION_DU_RAPPEL[cle], { etudiantId })) return;
     const r = db.prepare(`INSERT OR IGNORE INTO rappel_etudiant (etudiant_id, cle, objet, jalon, titre) VALUES (?,?,?,?,?)`)
       .run(etudiantId, cle, String(objet), String(jalon), titre);
     return r.changes > 0;

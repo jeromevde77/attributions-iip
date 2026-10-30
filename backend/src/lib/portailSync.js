@@ -25,6 +25,7 @@ import { derniereVersion, versionReference } from '../routes/documentation.js';
 import { aDeposer as messagesADeposer, recevoir as recevoirMessages, aviserParCourriel } from './messagesEtudiants.js';
 import { parcoursPortail, fraisPortail } from './portailEspace.js';
 import { offrePAE, deposerProposition, recevoirSignature, signatureDe } from './paeEnLigne.js';
+import { fonctionsEspace, fonctionPour, fonctionOuverte } from './fonctions.js';
 import { offreVA, etatVA, appliquerGeste, accuserReception, codesDOffice, candidatsValides, candidatDe, anneeActive as anneeVA } from './portailValorisation.js';
 
 const URL_INTERNE = () => (process.env.PORTAIL_INTERNE_URL || '').replace(/\/$/, '');
@@ -81,8 +82,10 @@ function etudiantsVisibles() {
   try { autres = db.prepare('SELECT etudiant_id, id_ecampus FROM etudiant_matricule').all(); } catch { /* table absente */ }
   const parId = new Map();
   for (const a of autres) { if (!parId.has(a.etudiant_id)) parId.set(a.etudiant_id, []); parId.get(a.etudiant_id).push(a.id_ecampus); }
-  return l.map(e => ({ id: e.id, nom: e.nom, prenom: e.prenom, email_ecole: e.email_ecole,
-    matricules: [...new Set([e.id_ecampus, ...(parId.get(e.id) || [])].filter(Boolean))] }));
+  // LES FONCTIONS (3.5.001) : seul entre dans l'espace l'étudiant pour qui au moins une fonction est ouverte
+  // (allumée, ou en essai et désigné) ; l'espace ne lui montre que celles-là.
+  return l.map(e => ({ id: e.id, nom: e.nom, prenom: e.prenom, email_ecole: e.email_ecole, fonctions: fonctionsEspace(e.id),
+    matricules: [...new Set([e.id_ecampus, ...(parId.get(e.id) || [])].filter(Boolean))] })).filter(e => e.fonctions.length);
 }
 
 /** Les résultats PUBLIÉS : séance close (de son organisation, ou « toute l'unité »), ou année antérieure. Jamais une note de travail. */
@@ -149,8 +152,10 @@ async function deposerVA(ids) {
     if (!e) continue;
     try {
       const candidat = !String(e.email_ecole || '').includes('@');
-      lots.push({ etudiant_id: e.id, offre: offreVA(e, annee), etat: etatVA(e, annee), pae: candidat ? null : offrePAE(e),
-        parcours: candidat ? null : parcoursPortail(e, annee), frais: await fraisPortail(e, annee) });
+      const f = new Set(fonctionsEspace(e.id));
+      lots.push({ etudiant_id: e.id, offre: f.has('va') ? offreVA(e, annee) : null, etat: f.has('va') ? etatVA(e, annee) : [],
+        pae: candidat || !f.has('pae') ? null : offrePAE(e),
+        parcours: candidat || !f.has('parcours') ? null : parcoursPortail(e, annee), frais: f.has('frais') ? await fraisPortail(e, annee) : null });
     }
     catch (x) { console.error(`[portail] VA de l'étudiant ${e.id} :`, x.message); }
   }
@@ -217,6 +222,7 @@ async function relever() {
     let erreur = null;
     try {
       if (!e) erreur = 'Votre dossier ne permet pas cette demande en ligne : adressez-vous au secrétariat.';
+      else if (!fonctionPour('espace.va', { etudiantId: e.id })) erreur = 'La demande de valorisation en ligne n’est pas ouverte : adressez-vous au secrétariat.';
       else if (g.type === 'terminer') erreur = await accuserReception(e);
       else {
         const contenu = g.type === 'piece' ? await lireBinaire(`/interne/va/piece/${g.id}`) : null;
@@ -233,6 +239,7 @@ async function relever() {
     let erreur = null;
     try {
       if (!e || !String(e.email_ecole || '').includes('@')) erreur = 'Le PAE en ligne demande votre adresse de l’institut.';
+      else if (!fonctionPour('espace.pae', { etudiantId: e.id })) erreur = 'Le PAE en ligne n’est pas ouvert : adressez-vous à votre coordination.';
       else if (g.type === 'proposer') erreur = deposerProposition(e, JSON.parse(g.ues || '[]'));
       else if (g.type === 'signer') erreur = recevoirSignature(e, g);
     } catch (x) { console.error('[portail] geste PAE :', x.message); erreur = 'Le geste n’a pas pu être enregistré : réessayez, ou adressez-vous à votre coordination.'; }
@@ -255,14 +262,19 @@ async function relever() {
 // ── DÉPOSER ────────────────────────────────────────────────────────────────
 async function deposer() {
   const etudiants = etudiantsVisibles();
-  try { await codesDOffice(URL_PUBLIQUE()); } catch (e) { console.error('[portail] codes des candidats :', e.message); }
-  const candidats = candidatsValides().map(c => ({ id: c.id, nom: c.nom, prenom: c.prenom, email_prive: c.email_perso, code_hash: c.code_hash, jusqu_au: c.jusqu_au }));
+  if (fonctionOuverte('espace.candidats')) {
+    try { await codesDOffice(URL_PUBLIQUE()); } catch (e) { console.error('[portail] codes des candidats :', e.message); }
+  }
+  const candidats = candidatsValides().filter(c => fonctionPour('espace.candidats', { etudiantId: c.id }))
+    .map(c => ({ id: c.id, nom: c.nom, prenom: c.prenom, email_prive: c.email_perso, code_hash: c.code_hash, jusqu_au: c.jusqu_au,
+      fonctions: fonctionsEspace(c.id).filter(f => !['resultats', 'reglements', 'parcours', 'pae'].includes(f)) }));
+  const avec = (f, l) => l.filter(x => x.fonctions.includes(f)).map(x => x.id);
   await appel('POST', '/interne/etudiants', { etudiants, candidats });
   // Les demandes de valorisation de ceux qui sont venus ces trois dernières heures (les autres, à leur prochaine entrée).
   await deposerVA(db.prepare(`SELECT DISTINCT etudiant_id FROM portail_connexion WHERE le >= datetime('now', '-3 hours')`).all().map(x => x.etudiant_id));
-  await appel('POST', '/interne/resultats', { resultats: resultatsPublies(etudiants.map(e => e.id)) });
+  await appel('POST', '/interne/resultats', { resultats: resultatsPublies(avec('resultats', etudiants)) });
   await appel('POST', '/interne/reglements', { reglements: reglementsEtudiants() });
-  await appel('POST', '/interne/messages', messagesADeposer([...etudiants.map(e => e.id), ...candidats.map(c => c.id)]));
+  await appel('POST', '/interne/messages', messagesADeposer([...avec('messages', etudiants), ...avec('messages', candidats)]));
   try { await aviserParCourriel(URL_PUBLIQUE()); } catch (e) { console.error('[messages] avis :', e.message); }
   await appel('POST', '/interne/exceptions', { exceptions: db.prepare(`SELECT etudiant_id, MAX(jusqu_au) AS jusqu_au FROM portail_exception
     WHERE retire_le IS NULL AND jusqu_au >= date('now') GROUP BY etudiant_id`).all() });
@@ -277,8 +289,13 @@ async function deposer() {
 
 async function deposerDocuments() {
   // D'abord le dépôt d'office des pièces de délibération (3.1.510) : elles entrent au registre, puis partent ci-dessous.
-  try { await deposerDOffice(etudiantsVisibles(), URL_PUBLIQUE()); } catch (e) { console.error('[espace] dépôt d’office :', e.message); }
-  const ids = new Set(etudiantsVisibles().map(e => e.id));
+  const visibles = etudiantsVisibles();
+  const office = visibles.filter(e => e.fonctions.includes('depot_office') && e.fonctions.includes('documents'));
+  if (office.length) {
+    try { await deposerDOffice(office, URL_PUBLIQUE()); } catch (e) { console.error('[espace] dépôt d’office :', e.message); }
+  }
+  const ids = new Set([...visibles, ...candidatsValides().filter(c => fonctionPour('espace.candidats', { etudiantId: c.id })).map(c => ({ id: c.id, fonctions: fonctionsEspace(c.id) }))]
+    .filter(e => e.fonctions.includes('documents')).map(e => e.id));
   const connus = new Set((await appel('GET', '/interne/documents/connus')).ids || []);
   let envois = [];
   try {

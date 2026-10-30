@@ -3049,6 +3049,22 @@ des candidats, avis des messages) ne tournent pas sans `PORTAIL_INTERNE_URL`/`PO
 installé. Conséquence voulue : la demande de VA en ligne (`/demande-va`, retirée en 3.1.514) n'existe plus tant que l'espace
 n'est pas installé — elle passe par le secrétariat. Le récapitulatif du matin (3.1.472) était déjà en production.
 
+**LA MISE EN SERVICE, FONCTION PAR FONCTION** (3.5.001, Charles, 30 octobre 2026 : « tout l'espace étudiant en ligne, pas
+encore communiqué ; on activera petit à petit — d'abord les documents ; comme les présences, d'abord des tests ; un onglet dans
+Configuration pour activer ou désactiver des fonctions » ; tranché : trois états, la présence par QR éteinte). `lib/fonctions.js` —
+`CATALOGUE` (espace : documents, depot_office, resultats, reglements, messages, parcours, frais, va, pae, candidats ; personnel :
+`presence.qr`), `lucie_config` « fonctions » {etats, etudiants_essai, comptes_essai}, tout naît `eteinte`. **La règle se lit par
+`fonctionPour(cle, { etudiantId | userId })`, nulle part ailleurs** ; `fonctionsEspace(id)` = les noms courts ouverts pour un
+étudiant ; `fonctionOuverte(cle)` = ouverte pour au moins un. Routes `/api/fonctions` (direction ; `/moi` pour le compte).
+Écran : Configuration → Accès → *Mise en service* (`components/MiseEnService.jsx`). Branché : `portailSync` (n'entre au portail
+que l'étudiant qui a au moins une fonction, avec sa liste `fonctions` ; résultats, messages, documents, dépôt d'office, VA, PAE,
+parcours, frais, candidats et codes d'office déposés selon elle ; gestes VA/PAE refusés au relevé si fermés), messages
+(`joignables`), rappels aux étudiants (`FONCTION_DU_RAPPEL`), code candidat manuel (409). Portail : colonne `etudiant.fonctions`,
+`/moi` rend `fonctions` et vide ce qui est fermé, `exige(f)` répond 404 sur les routes fermées, l'écran ne montre que ces
+onglets (aide et compte toujours). Présence : `GET /:cours/qr/:seance` et tout le ticket de sortie en 403, boutons cachés dans
+Ma journée. **Une fonction nouvelle visible des étudiants ou du personnel s'ajoute au CATALOGUE, naît éteinte, et se garde par
+`fonctionPour` côté serveur.**
+
 **L'ANNULER NE COMPARE QUE CE QUE LE GESTE A CHANGÉ** (3.1.482, Charles, 30 octobre 2026, en production :
   « Impossible d'annuler : utilisateur — la ligne a été modifiée depuis, par quelqu'un »). Se reconnecter écrit
   `last_login_at` sur la ligne du compte ; l'annulation comparait la ligne entière et refusait. Désormais elle ne

@@ -907,9 +907,12 @@ function Espace() {
   const nom = d ? `${String(d.etudiant.nom || '').toUpperCase()} ${d.etudiant.prenom || ''}` : '';
   const aSigner = d ? d.documents.filter(x => !x.signe_le).length + d.reglements.filter(x => !x.signe_le).length : 0;
   const msg = ['messages', nonLus ? `Messages (${nonLus})` : 'Messages', IconMessages];
-  const FACES = d?.candidat ? [['va', 'Valorisation', IconAward], msg, ['documents', 'Mes documents', IconFileText], ['frais', 'Mes frais', IconCash]]
+  const FACES = (d?.candidat ? [['va', 'Valorisation', IconAward], msg, ['documents', 'Mes documents', IconFileText], ['frais', 'Mes frais', IconCash]]
     : [['resultats', 'Mes résultats', IconCertificate], msg, ['parcours', 'Mon parcours', IconRoute], ['pae', 'Mon PAE', IconListCheck],
-      ['documents', 'Mes documents', IconFileText], ['va', 'Valorisation', IconAward], ['frais', 'Mes frais', IconCash], ['aide', 'Aide et règles', IconHelpCircle], ['compte', 'Mon compte', IconUserCircle]];
+      ['documents', 'Mes documents', IconFileText], ['va', 'Valorisation', IconAward], ['frais', 'Mes frais', IconCash], ['aide', 'Aide et règles', IconHelpCircle], ['compte', 'Mon compte', IconUserCircle]])
+    // LES FONCTIONS OUVERTES (3.5.001) : seuls les onglets que Lucie a ouverts pour cet étudiant ; l'aide et le compte, toujours.
+    .filter(([k]) => ['aide', 'compte'].includes(k) || (d?.fonctions || []).includes(k));
+  if (d && FACES.length && !FACES.some(([k]) => k === face)) setTimeout(() => setFace(FACES[0][0]), 0);
 
   return (
     <div className="min-h-screen bg-slate-100">

@@ -6,7 +6,7 @@ import { api, getAnnee, setAnnee as setAnneeActive, getUser } from '../lib/api.j
 import { BoutonAnnulerReglage, useRelireReglages } from '../lib/annulerReglage.jsx';
 import { ORIGINE, COULEURS_SOMBRE, chargerCouleurs, echelleGris, poser as poserCouleurs, poserGris, variables as variablesCouleurs } from '../lib/couleurs.js';
 import Audit from './Audit.jsx';
-import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette, IconArchive, IconAlertTriangle, IconShieldLock, IconDatabase, IconHierarchy, IconArrowsSplit, IconTool, IconSchool, IconStairsUp, IconCalculator, IconLinkOff, IconSend, IconMessageDots, IconId, IconFileDescription, IconKey, IconMailForward, IconUserSearch, IconCoin, IconShape, IconComponents, IconArrowsExchange } from '@tabler/icons-react';
+import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette, IconArchive, IconAlertTriangle, IconShieldLock, IconDatabase, IconHierarchy, IconArrowsSplit, IconTool, IconSchool, IconStairsUp, IconCalculator, IconLinkOff, IconSend, IconMessageDots, IconId, IconFileDescription, IconKey, IconMailForward, IconUserSearch, IconCoin, IconShape, IconComponents, IconArrowsExchange, IconPower } from '@tabler/icons-react';
 import CatalogueVisuels from '../components/CatalogueVisuels.jsx';
 import ReglageDesign from '../components/ReglageDesign.jsx';
 import { PageHeader, RailLateral, TuileEtat, PastilleEtat, Encadre } from '../components/ui.jsx';
@@ -22,6 +22,7 @@ const DecisionsSansInscription = lazy(() => import('../components/DecisionsSansI
 const RegistreEnvois = lazy(() => import('../components/RegistreEnvois.jsx'));
 const ModeleDiplome = lazy(() => import('./Attestation.jsx').then(m => ({ default: m.ModeleDiplome })));
 const ConfigCourriels = lazy(() => import('../components/ConfigCourriels.jsx'));
+const MiseEnService = lazy(() => import('../components/MiseEnService.jsx'));
 
 const TOKEN = () => localStorage.getItem('token');
 const authFetch = (url, opts = {}) => fetch(url, { ...opts, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN()}`, ...opts.headers } }).then(r => r.json());
@@ -1136,6 +1137,8 @@ export default function Configuration() {
       /* « Fonctions » est retirée (3.1.32) : elles se règlent sur la fiche du
          membre, onglet Fonctions, et se lisent par le filtre « Fonction » de Personnel. */
       { key: 'securite', label: 'Sécurité', icon: IconShieldLock },
+      // LA MISE EN SERVICE (3.5.001) : chaque fonction éteinte, en essai ou allumée — l'espace des étudiants, la présence par QR.
+      { key: 'mise-en-service', label: 'Mise en service', icon: IconPower },
     ]},
     // La machine, et l'apparence de toute l'application (Charles : « je
     // mettrais bien Apparence dans Système »).
@@ -1327,6 +1330,10 @@ export default function Configuration() {
         <Suspense fallback={<div className="p-8 text-center text-gray-400">Chargement…</div>}>
           <ReponsesTypesConfig />
         </Suspense>
+      )}
+
+      {tab === 'mise-en-service' && (
+        <Suspense fallback={<div className="p-8 text-center text-gray-400">Chargement…</div>}><MiseEnService /></Suspense>
       )}
 
       {/* ── Onglet Courriels ── */}

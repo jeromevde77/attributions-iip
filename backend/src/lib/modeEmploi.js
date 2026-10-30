@@ -10,7 +10,7 @@
  *   savoir — ce qu'il faut savoir : les règles qui bloquent ou qui surprennent.
  * Il explique le travail, pas l'informatique (CLAUDE.md, § 7). La version décrite se dit en tête.
  */
-export const VERSION_DECRITE = '3.5.000';
+export const VERSION_DECRITE = '3.5.001';
 
 export const RUBRIQUES = [
   {
@@ -1153,6 +1153,7 @@ export const RUBRIQUES = [
         savoir: [
           "Le code change toutes les quinze secondes : une photo envoyée à un absent ne sert à rien.",
           "Un étudiant qui change de téléphone passe par le secrétariat (Suivi des présences → Téléphones liés).",
+          "[[Afficher le QR|IconQrcode]] et [[Ticket de sortie|IconTicket]] ne paraissent que si la direction a ouvert la présence par QR pour votre compte (Configuration → Mise en service). Sinon, les présences s'encodent avec [[Présences|IconUserCheck]].",
         ],
         images: [
           { src: "/guide/mescours-journee.png", legende: "Ma journée : un clic sur une séance, puis [[Afficher le QR|IconQrcode|fort]], [[Présences|IconUserCheck]], [[Ticket de sortie|IconTicket]], [[Notes|IconPencil]] ou [[Étudiants|IconUsers]]." },
@@ -1574,6 +1575,17 @@ export const RUBRIQUES = [
         ],
         images: [
           { src: "/guide/config-courriels.png", legende: "Configuration → Courriels : l'envoi de documents par courriel, le récapitulatif quotidien ([[M’envoyer le mien maintenant]] pour l'essayer) et l'expéditeur — Microsoft 365 ou serveur SMTP." },
+        ],
+      },
+      {
+        titre: "La mise en service des fonctions",
+        ou: "Configuration → Accès → Mise en service.",
+        texte: "Chaque fonction nouvelle s'allume quand la direction le décide : Mes documents, le dépôt d'office à la clôture, Mes résultats, les règlements, les messages, Mon parcours, Mes frais, la demande de valorisation en ligne, le PAE en ligne, le code d'accès des candidats — et, pour le personnel, la présence par QR et le ticket de sortie. Chacune est Éteinte, en Essai ou Allumée. En essai, elle ne vaut que pour les étudiants d'essai ou les comptes d'essai nommés sous la liste ; les autres ne la voient pas et ne reçoivent aucun courriel.",
+        savoir: [
+          "Tout naît éteint. Un étudiant n'entre dans son espace que si au moins une fonction est ouverte pour lui, et n'y voit que les onglets ouverts.",
+          "Le dépôt d'office demande aussi « Mes documents » : la pièce déposée doit pouvoir se lire.",
+          "Un étudiant d'essai peut être un dossier fictif ou un volontaire ; il agit pour de vrai (une demande de VA en essai est une vraie demande).",
+          "Les rappels par courriel ont leur propre interrupteur, dans Configuration → Courriels → Rappels.",
         ],
       },
       {

@@ -7,6 +7,7 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired } from '../middleware/auth.js';
+import { fonctionPour } from '../lib/fonctions.js';
 import { accesCours } from './mesCours.js';
 import { lireSeance } from '../lib/presenceQr.js';
 import { migrerTicket, ticketDeLaSeance, poserTicket, qrDuTicket, resultatsTicket, fermerTicket, QUESTIONS_DEFAUT, TYPES, MAX_QUESTIONS } from '../lib/ticketSortie.js';
@@ -15,6 +16,9 @@ import { migrerCarnet } from '../lib/carnet.js';
 try { migrerTicket(); migrerCarnet(); } catch (e) { console.error('[migration] ticket de sortie :', e.message); }
 
 const r = Router();
+// LE TICKET DE SORTIE suit la fonction « présence par QR » (3.5.001, Configuration → Fonctions).
+r.use(authRequired, (req, res, next) => (fonctionPour('presence.qr', { userId: req.user.id }) ? next()
+  : res.status(403).json({ error: "Le ticket de sortie n'est pas ouvert pour votre compte." })));
 const qui = req => req.user?.email || req.user?.nom || null;
 
 function contexte(req, res) {
