@@ -75,20 +75,6 @@ const ONGLETS = [
    l'ajournement, brique pour le refus — les couleurs d'état réglées. Les autres pièces n'en portent pas. */
 const REPERE_PIECE = { reussite: 'var(--c-reussi, #3E7D5E)', ajournement: 'var(--c-attente, #B45309)', refus: 'var(--c-refuse, #9D4A38)' };
 
-/** Le titre d'une carte de pièces : une icône, l'intitulé, et ce qu'elle contient. */
-function TitreCarte({ Icone, titre, sous }) {
-  return (
-    <div className="flex items-start gap-2.5 mb-1.5">
-      <span className="flex-none w-8 h-8 rounded-full inline-flex items-center justify-center text-iip-blue"
-        style={{ background: 'color-mix(in srgb, var(--c-principal) 8%, transparent)' }}><Icone size={17} /></span>
-      <div className="min-w-0">
-        <div className="text-sm font-semibold">{titre}</div>
-        <div className="text-xs text-slate-500">{sous}</div>
-      </div>
-    </div>
-  );
-}
-
 /* LES ACTIONS DANS LA BARRE BLEUE (3.1.497, Charles : « comme dans d'autres fenêtres, aperçu, produire ou envoyer
    doivent être dans la barre bleue du haut, sous forme d'icônes — loupe, imprimante, avion »). La fenêtre offre une
    place à côté de la croix ; l'onglet des pièces y dépose ses trois gestes (portail React). */
@@ -1667,7 +1653,10 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
   /* LES SESSIONS DES PIÈCES DE L'ÉTUDIANT (3.1.497, Charles : « S1, S2 ou tout — S2 seulement si elle existe, sinon
      grisé ») : deux cases, les deux = tout. La liste se lit sur la première cochée. Au Conseil, une séance = une
      session : le choix reste au Périmètre. */
-  const [vueDroite, setVueDroite] = useState('documents');
+  /* TROIS FACES (Charles, 30 octobre 2026 : « le sous-menu, ce n'est pas Documents et Étudiants, c'est Résultats ou
+     Inscription ») : les deux familles de pièces, puis les étudiants. Pour une séance : Pour le Conseil · Pour ses
+     étudiants · Étudiants. « etudiants » est la face commune. */
+  const [vueDroite, setVueDroite] = useState(() => (perimetre?.pieces || []).some(c => PIECES_DOSSIER.some(p => p.cle === c) && !CLES_RESULTATS.includes(c)) ? 'b' : 'a');
   // Les sections : celles que l'écran passe, sinon celles des étudiants sélectionnés dans la liste.
   const [sections, setSections] = useState(() => new Set(perimetre?.sections
     || (!perimetre?.coches && selectionEtudiants().ids.length ? selectionEtudiants().sections : [])));
@@ -1706,8 +1695,11 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
     const garde = new Set(famillePieces.map(p => p.cle));
     setChoix(c => Object.fromEntries(Object.entries(c).filter(([k]) => garde.has(k))));
     if (seance) setParcours(false);
+    setVueDroite(v => v === 'etudiants' ? v : 'a');
     // eslint-disable-next-line
   }, [pourQui]);
+  // Tout le parcours n'a pas de face « Inscription ».
+  useEffect(() => { if (parcours && vueDroite === 'b') setVueDroite('a'); }, [parcours, vueDroite]);
   /* LES COCHÉS : ceux que l'écran passe, sinon la sélection de la liste des
      étudiants (lib/selectionEtudiants.js) — ouvrir Éditions depuis le rail ne
      la perd plus. */
@@ -2095,7 +2087,7 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
   };
   /** Une pièce à cocher — repère de couleur, case, intitulé, public, compte. */
   const lignePiece = p => (
-<label key={p.cle} className={`flex items-center gap-2 pl-[30px] py-1.5 text-sm ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
+<label key={p.cle} className={`flex items-center gap-2 py-1.5 text-sm ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
     title={dispo(p) ? '' : modePublic && publicDe(p) !== modePublic && PIECES_DOSSIER.includes(p) ? `Pièces ${modePublic.toUpperCase()} en cours — décochez-les pour les autres pièces` : 'Rien à produire pour ce périmètre'}>
     {/* LA PETITE LIGNE DIT LE SENS (2 octobre 2026) : orange pour
         l'ajournement, fraise pour le refus. */}
@@ -2332,8 +2324,15 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
             {/* DEUX FACES, UNE PLACE (3.1.497, Charles : « deux onglets façon sous-menu ») : les documents, ou les
                 étudiants — on choisit l'un puis l'autre, et chacun a toute la hauteur. */}
             <span className="inline-flex">
-              <button type="button" onClick={() => setVueDroite('documents')}
-                className={`onglet-page ${vueDroite === 'documents' ? 'onglet-page-actif' : ''}`}>Documents · {nbPieces}</button>
+              {(seance ? [['a', 'Pour le Conseil', PIECES.filter(p => !p.nominatif)], ['b', 'Pour ses étudiants', PIECES.filter(p => p.nominatif)]]
+                : [['a', 'Résultats', famillePieces.filter(p => CLES_RESULTATS.includes(p.cle))],
+                   ...(parcours ? [] : [['b', 'Inscription', famillePieces.filter(p => !CLES_RESULTATS.includes(p.cle))]])])
+                .map(([v, lib, ps]) => {
+                  const n = ps.filter(p => choix[p.cle] && dispo(p)).length;
+                  return (
+                    <button key={v} type="button" onClick={() => setVueDroite(v)}
+                      className={`onglet-page ${vueDroite === v ? 'onglet-page-actif' : ''}`}>{lib}{n ? ` · ${n}` : ''}</button>);
+                })}
               <button type="button" onClick={() => setVueDroite('etudiants')}
                 className={`onglet-page ${vueDroite === 'etudiants' ? 'onglet-page-actif' : ''}`}>Étudiants · {coches.size} / {visibles.length}</button>
             </span>
@@ -2355,18 +2354,18 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
             </div>
           )}
         </div>
-        {vueDroite === 'documents' ? (
+        {vueDroite !== 'etudiants' ? (
         <div className="flex-1 overflow-auto min-h-0 p-3 space-y-4">
-          <div className="grid gap-x-8 gap-y-5 md:grid-cols-2 pt-1">
+          <div className="pt-1 max-w-xl">
             {seance ? <>
-            <div>
-              <TitreCarte Icone={IconUsers} titre="Pour le Conseil" sous="une pièce pour l’unité" />
+            <div className={vueDroite === 'a' ? '' : 'hidden'}>
+              <p className="text-second text-slate-500 mt-0 mb-2 pl-3">une pièce pour l’unité</p>
               {PIECES.filter(p => !p.nominatif).map(lignePiece)}
             </div>
-            <div>
-              <TitreCarte Icone={IconFileText} titre="Pour ses étudiants" sous={`les décisions de la ${session === 1 ? '1re' : '2e'} session`} />
+            <div className={vueDroite === 'b' ? '' : 'hidden'}>
+              <p className="text-second text-slate-500 mt-0 mb-2 pl-3">{`les décisions de la ${session === 1 ? '1re' : '2e'} session`}</p>
               {PIECES.filter(p => p.nominatif).map(lignePiece)}
-              <label className="flex items-center gap-2 pl-[42px] pt-3 text-second text-slate-600 cursor-pointer">
+              <label className="flex items-center gap-2 pl-3 pt-3 text-second text-slate-600 cursor-pointer">
                 <input type="checkbox" checked={separer}
                   onChange={e => {
                     setSeparer(e.target.checked);
@@ -2377,12 +2376,12 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
               </label>
             </div>
             </> : <>
-            <div>
-              <TitreCarte Icone={IconFileText} titre="Résultats" sous={parcours ? "toutes ses années, pour chaque étudiant coché" : "attestations de l’année, bulletin"} />
+            <div className={vueDroite === 'a' ? '' : 'hidden'}>
+              <p className="text-second text-slate-500 mt-0 mb-2 pl-3">{parcours ? "toutes ses années, pour chaque étudiant coché" : "attestations de l’année, bulletin"}</p>
               {famillePieces.filter(p => CLES_RESULTATS.includes(p.cle) && (!parcours || p.cle === 'reussite')).map(lignePiece)}
             </div>
-            <div className={parcours ? 'hidden' : ''}>
-              <TitreCarte Icone={IconId} titre="Inscription" sous="PAE, fiche, frais — les annexes ne vont qu’aux SLE, les pièces CEP qu’aux étudiants au congé-éducation" />
+            <div className={parcours || vueDroite !== 'b' ? 'hidden' : ''}>
+              <p className="text-second text-slate-500 mt-0 mb-2 pl-3">PAE, fiche, frais — les annexes ne vont qu’aux SLE, les pièces CEP qu’aux étudiants au congé-éducation</p>
               {famillePieces.filter(p => !CLES_RESULTATS.includes(p.cle)).map(lignePiece)}
             </div>
             </>}

@@ -2798,6 +2798,11 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   une ligne ; la case de chaque pièce s'aligne sur le texte du titre de sa colonne (repère de couleur juste avant) ;
   plus de phrase sous les listes — « Un document par étudiant » n'existe que pour une séance, sous « Pour ses
   étudiants » ; l'aide sur les cours ne paraît que quand un cours se déplie ; espacements égaux à gauche.
+  **Les sous-onglets de droite** (3.1.499, Charles : « ce n'est pas Documents et Étudiants, c'est Résultats ou
+  Inscription » ; choisi : un 3e onglet Étudiants) : **Résultats · Inscription · Étudiants** (tout le parcours :
+  Résultats · Étudiants) ; pour une séance **Pour le Conseil · Pour ses étudiants · Étudiants**. Une face à la fois
+  (`vueDroite` 'a' | 'b' | 'etudiants'), le nombre de pièces cochées dans l'onglet ; on entre sur « Inscription »
+  quand l'appel n'apporte que des pièces d'inscription (le PAE de la revue).
 
 **L'ANNULER NE COMPARE QUE CE QUE LE GESTE A CHANGÉ** (3.1.482, Charles, 30 octobre 2026, en production :
   « Impossible d'annuler : utilisateur — la ligne a été modifiée depuis, par quelqu'un »). Se reconnecter écrit
