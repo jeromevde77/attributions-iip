@@ -2815,6 +2815,13 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   oublié ; pas de cinéma »). `Etape` (numéro → coche verte quand faite, cerclé gris quand elle attend) et `ZONE` (fond
   du principal à 4 %, `rounded-carte`) ; plus de sous-menu au volet 3 : ses pièces se groupent par intertitres (« le
   tri se fait en fonction des choix ») ; une personne : zone 2 pâlie, « sans objet ».
+  **Une personne, ses années, ses attestations** (3.1.503, Charles, essai sur iPad) : un étudiant choisi est le
+  périmètre (`etudiant_id` de `POST /api/perimetre/etudiants`, ses unités de l'année quelle que soit leur section) —
+  plus de section ni d'unité à choisir ; ses années se cochent (« Année en cours », « Tout le parcours », ou une à
+  une), lues de `POST /api/perimetre/parcours` (années d'inscription + décision par unité et par session, toutes
+  années). Hors séance, « Attestations » = Réussites · Ajournements · Refus, comptés sur les années choisies, les deux
+  sessions comprises : réussites par la route de la fiche, année par année ; motivations par `documents-lot`, groupé
+  par année et session, borné aux cochés et à leurs unités (`motivationsHorsSeance`).
 
 **L'ANNULER NE COMPARE QUE CE QUE LE GESTE A CHANGÉ** (3.1.482, Charles, 30 octobre 2026, en production :
   « Impossible d'annuler : utilisateur — la ligne a été modifiée depuis, par quelqu'un »). Se reconnecter écrit

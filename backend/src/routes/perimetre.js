@@ -30,6 +30,35 @@ import { decisionDeSession } from './acquis.js';
 
 const r = Router();
 
+/**
+ * LE PARCOURS DES ÉTUDIANTS, TOUTES ANNÉES ET SESSIONS (Charles, 30 octobre 2026 : « choisir l'année en cours, tout
+ * le parcours, ou cocher les années selon l'étudiant » ; « attestations : les réussites, les ajournements et les
+ * refus »). Pour chaque étudiant : ses années d'inscription, et chaque décision par unité et par session. C'est ce
+ * que lit l'écran pour proposer les années et compter ce qui sortira ; les pièces, elles, viennent de leurs routes.
+ */
+r.post('/parcours', authRequired, (req, res) => {
+  const ids = (Array.isArray(req.body?.ids) ? req.body.ids : []).map(Number).filter(Boolean).slice(0, 2000);
+  if (!ids.length) return res.json({ parcours: {} });
+  const perim = getUserSections(req.user);
+  const cl = perim ? clauseSections(perim, 'u.section') : null;
+  const nomUE = db.prepare(`SELECT ue_nom FROM ue WHERE ue_num = ? ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1`);
+  const parcours = {};
+  for (const id of ids) {
+    const inscr = db.prepare(`SELECT DISTINCT i.annee_scolaire AS annee, i.ue_num FROM etudiant_inscription i
+      ${cl ? `WHERE i.etudiant_id = ? AND EXISTS (SELECT 1 FROM ue u WHERE u.ue_num = i.ue_num AND u.annee_scolaire = i.annee_scolaire
+        AND (u.section IS NULL OR ${cl.sql}))` : 'WHERE i.etudiant_id = ?'}
+      ORDER BY i.annee_scolaire, i.ue_num`).all(id, ...(cl ? cl.params : []));
+    const decisions = [];
+    for (const i of inscr) for (const session of [1, 2]) {
+      const d = decisionDeSession(id, i.ue_num, i.annee, session);
+      if (d.resultat) decisions.push({ annee: i.annee, ue_num: i.ue_num, ue_nom: nomUE.get(i.ue_num, i.annee)?.ue_nom || null,
+        session, resultat: d.resultat });
+    }
+    parcours[id] = { annees: [...new Set(inscr.map(i => i.annee))], decisions };
+  }
+  res.json({ parcours });
+});
+
 /** De quoi composer un périmètre : sections, unités, et leurs cours. */
 r.get('/arborescence', authRequired, (req, res) => {
   const annee = req.query.annee || anneeDeTravail(req);
@@ -82,10 +111,15 @@ r.post('/etudiants', authRequired, (req, res) => {
   const ueNums = Array.isArray(req.body?.ue_nums) ? req.body.ue_nums.map(Number) : [];
   const coursCodes = Array.isArray(req.body?.cours_codes) ? req.body.cours_codes : [];
   const perim = getUserSections(req.user);
+  /* UN ÉTUDIANT CHOISI EST LE PÉRIMÈTRE (Charles, 30 octobre 2026 : « si je choisis l'étudiant, je ne dois plus
+     choisir sa section ») : ses unités de l'année, quelle que soit leur section. */
+  const seulId = Number(req.body?.etudiant_id) || null;
 
   // Les unités du périmètre : celles nommées, celles des sections nommées, et
   // celles auxquelles appartiennent les cours nommés.
   const ues = new Set(ueNums);
+  if (seulId) for (const u of db.prepare(`SELECT ue_num FROM etudiant_inscription
+    WHERE etudiant_id = ? AND annee_scolaire = ?`).all(seulId, annee)) ues.add(u.ue_num);
   if (sections.length) {
     const marques = sections.map(() => '?').join(',');
     for (const u of db.prepare(`SELECT ue_num FROM ue
@@ -125,8 +159,8 @@ r.post('/etudiants', authRequired, (req, res) => {
       EXISTS (SELECT 1 FROM etudiant_cep c WHERE c.etudiant_id = e.id AND c.annee_scolaire = i.annee_scolaire
                 AND COALESCE(c.region, '') <> 'flandre') AS cep
     FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
-    WHERE i.annee_scolaire = ? AND i.ue_num IN (${marques})
-    ORDER BY e.nom, e.prenom, i.ue_num`).all(annee, ...liste);
+    WHERE i.annee_scolaire = ? AND i.ue_num IN (${marques}) ${seulId ? 'AND i.etudiant_id = ?' : ''}
+    ORDER BY e.nom, e.prenom, i.ue_num`).all(annee, ...liste, ...(seulId ? [seulId] : []));
 
   // QUAND UN COURS EST NOMMÉ, il restreint les étudiants de SON unité à ceux
   // qui le suivent — les autres unités du périmètre restent entières.
