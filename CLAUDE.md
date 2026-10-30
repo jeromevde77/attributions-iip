@@ -2821,7 +2821,12 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   une), lues de `POST /api/perimetre/parcours` (années d'inscription + décision par unité et par session, toutes
   années). Hors séance, « Attestations » = Réussites · Ajournements · Refus, comptés sur les années choisies, les deux
   sessions comprises : réussites par la route de la fiche, année par année ; motivations par `documents-lot`, groupé
-  par année et session, borné aux cochés et à leurs unités (`motivationsHorsSeance`).
+  par année et session, borné aux cochés et à leurs unités (`motivationsHorsSeance`). **Les années après les
+  étudiants** (3.1.504, Charles : « pas logique de choisir les années avant la section et les étudiants — il a
+  peut-être été étudiant en 19-20 ») : hors séance, l'étape 1 n'a plus d'année (la liste est celle de l'année de
+  travail) ; l'étape 3 commence par « Quelles années ? » — la réunion des années des cochés (`parAnnee`, avec leur
+  nombre), « Année en cours », « Tout le parcours ». `portee` = les années cochées ; une seule → les pièces
+  d'inscription y portent (`anneeDossier`) ; plusieurs → seules les attestations. Une séance garde son année à l'étape 1.
 
 **L'ANNULER NE COMPARE QUE CE QUE LE GESTE A CHANGÉ** (3.1.482, Charles, 30 octobre 2026, en production :
   « Impossible d'annuler : utilisateur — la ligne a été modifiée depuis, par quelqu'un »). Se reconnecter écrit

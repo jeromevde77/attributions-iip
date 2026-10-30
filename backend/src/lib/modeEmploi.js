@@ -10,7 +10,7 @@
  *   savoir — ce qu'il faut savoir : les règles qui bloquent ou qui surprennent.
  * Il explique le travail, pas l'informatique (CLAUDE.md, § 7). La version décrite se dit en tête.
  */
-export const VERSION_DECRITE = '3.1.503';
+export const VERSION_DECRITE = '3.1.504';
 
 export const RUBRIQUES = [
   {
@@ -901,7 +901,7 @@ export const RUBRIQUES = [
         savoir: [
           "La session n'appartient qu'à la séance : une attestation de réussite n'en a pas besoin.",
           "Trois volets, de gauche à droite : 1 pour qui · 2 les étudiants (tous cochés, on décoche ; pour une personne, pas de volet 2 ; pour une séance, les délibérés et leur résultat, sans case — tout part pour toute l'unité) · 3 quoi (les pièces, groupées : « Résultats » et « Inscription » ; pour une séance, « Pour le Conseil » et « Pour ses étudiants »). Trois zones numérotées, toujours visibles : le numéro devient une coche verte quand l'étape est faite ; on revient en arrière d'un clic pour cocher un étudiant oublié.",
-          "Une personne : ni section ni unité à choisir. « Année en cours », « Tout le parcours », ou ses années à cocher — celles où elle a été inscrite.",
+          "Les années se choisissent à l'étape 3, après les étudiants : « Année en cours », « Tout le parcours », ou une à une parmi celles où les étudiants cochés ont été inscrits (avec leur nombre). Une personne n'a ni section ni unité à choisir. Une séance garde son année à l'étape 1.",
           "« Attestations » réunit les réussites, les ajournements et les refus (leur motivation), avec leur nombre sur les années choisies — les deux sessions comprises.",
           "Une pièce sans rien à produire est grisée (attestation sans réussite, motivation de refus sans refus…).",
           "Mode SLE : cocher une annexe 1 ou 2 ne montre que les étudiants en séjour limité aux études. Mode CEP : cocher une pièce CEP ne montre que les étudiants au congé-éducation payé de l'année (hors Flandre).",
@@ -909,7 +909,7 @@ export const RUBRIQUES = [
         ],
         images: [
           { src: "/guide/editions-personne.png", legende: "« Une personne » (données d'essai) : le nom cherché à gauche, « ouvrir ses pièces » à droite." },
-          { src: "/guide/editions-personne-annees.png", legende: "Une personne ouverte : ses années à cocher (ici tout son parcours), puis « Attestations » — réussites, ajournements, refus, avec leur nombre." },
+          { src: "/guide/editions-personne-annees.png", legende: "Une personne ouverte : à l'étape 3, ses années (ici tout son parcours), puis « Attestations » — réussites, ajournements, refus, avec leur nombre." },
           { src: "/guide/editions-groupe.png", legende: "« Des étudiants » : l'année ou tout le parcours, la section et ses unités ; 1 le périmètre, 2 les étudiants à cocher, 3 les pièces — Résultats et Inscription." },
           { src: "/guide/editions-seance.png", legende: "« Une séance » : l'année, la session, l'unité ; 2 les délibérés et leur résultat, sans case ; 3 « Pour le Conseil » et « Pour ses étudiants »." },
         ],
