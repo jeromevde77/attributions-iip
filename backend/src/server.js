@@ -3114,6 +3114,8 @@ app.use((req, res, next) => {
 });
 
 // LES MESSAGES AUX ÉTUDIANTS (3.1.516) : écrits ici, lus dans leur espace.
+// LES FONCTIONS QU'ON ALLUME UNE À UNE (3.5.001) : Configuration → Fonctions.
+app.use('/api/fonctions', (await import('./routes/fonctions.js')).default);
 app.use('/api/messages-etudiants', (await import('./routes/messagesEtudiants.js')).default);
 // LE PAE EN LIGNE (3.1.515) : la fenêtre et les propositions des étudiants, côté école.
 app.use('/api/pae-en-ligne', (await import('./routes/paeEnLigne.js')).default);
@@ -3141,6 +3143,9 @@ app.use('/api/pae-en-ligne', (await import('./routes/paeEnLigne.js')).default);
   // Le code d'accès du candidat (sans adresse de l'institut) : l'envoyer, ou le renouveler — secrétariat et direction.
   app.post('/api/portail-suivi/:id/code-candidat', exigerCompte, exigerRole('admin', 'editeur'), async (req, res) => {
     const { envoyerCodeCandidat } = await import('./lib/portailValorisation.js');
+    const { fonctionPour } = await import('./lib/fonctions.js');
+    if (!fonctionPour('espace.candidats', { etudiantId: Number(req.params.id) }))
+      return res.status(409).json({ error: "Le code d'accès des candidats n'est pas ouvert pour ce dossier (Configuration → Fonctions)." });
     const r = await envoyerCodeCandidat(Number(req.params.id), qui(req), process.env.PORTAIL_URL_PUBLIQUE || 'https://etudiants.lucie-iip.be');
     if (!r.erreur) deposerBientot();
     res.status(r.erreur ? 400 : 200).json(r.erreur ? { error: r.erreur } : r);

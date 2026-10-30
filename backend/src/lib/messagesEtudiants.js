@@ -12,6 +12,7 @@ import db from '../db/index.js';
 import { getUserSections, professeurDe } from '../middleware/auth.js';
 import { sectionPropre } from '../routes/etudiants.js';
 import { envoyerEmail, templateNotif } from '../services/mailer.js';
+import { fonctionPour } from './fonctions.js';
 
 export function migrerMessages(dbx = db) {
   dbx.exec(`
@@ -39,7 +40,10 @@ function joignables() {
   let cand = new Set();
   try { cand = new Set(db.prepare("SELECT etudiant_id FROM portail_candidat WHERE jusqu_au >= date('now')").all().map(x => x.etudiant_id)); } catch { /* */ }
   return db.prepare(`SELECT id, nom, prenom, email_ecole, email_perso FROM etudiant WHERE COALESCE(actif, 1) = 1
-    AND COALESCE(sortie_statut, '') <> 'archive'`).all().map(e => ({ ...e, espace: String(e.email_ecole || '').includes('@') || cand.has(e.id) }));
+    AND COALESCE(sortie_statut, '') <> 'archive'`).all().map(e => ({ ...e,
+    // L'espace ET la fonction « messages » ouverte pour lui (3.5.001, Configuration → Fonctions).
+    espace: (String(e.email_ecole || '').includes('@') || (cand.has(e.id) && fonctionPour('espace.candidats', { etudiantId: e.id })))
+      && fonctionPour('espace.messages', { etudiantId: e.id }) }));
 }
 
 /** Le périmètre de celui qui écrit : sections, UE, et l'ensemble des étudiants qu'il peut viser (null = tous). */

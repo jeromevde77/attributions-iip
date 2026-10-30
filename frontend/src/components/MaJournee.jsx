@@ -44,6 +44,11 @@ export default function MaJournee({ onAgir, onSemaine }) {
   const [jour, setJour] = useState(null);           // null : aujourd'hui (le serveur le dit)
   const [choisie, setChoisie] = useState(null);     // id de séance
   const [projetee, setProjetee] = useState(null);
+  // LA PRÉSENCE PAR QR ET LE TICKET suivent Configuration → Mise en service (3.5.001) : éteints, pas de bouton.
+  const [qrOuvert, setQrOuvert] = useState(false);
+  useEffect(() => {
+    fetch('/api/fonctions/moi', { headers: authHeaders() }).then(x => (x.ok ? x.json() : {})).then(f => setQrOuvert(!!f['presence.qr'])).catch(() => {});
+  }, []);
   const [ticket, setTicket] = useState(null);      // le ticket de sortie de la séance
   const [maintenant, setMaintenant] = useState(maintenantMin());
 
@@ -143,7 +148,7 @@ export default function MaJournee({ onAgir, onSemaine }) {
             {s.annule ? <span className="text-slate-500"> · séance annulée</span>
               : <span className="text-slate-500"> · présences {s.presences.encodees} / {s.presences.attendus}</span>}
           </span>
-          {(estAujourdhui || data.essai) && !s.annule && (
+          {qrOuvert && (estAujourdhui || data.essai) && !s.annule && (
             <button type="button" onClick={() => setProjetee(s)} className={`bouton ${s.fenetre?.ouverte ? 'bouton-fort' : ''}`}
               title={s.fenetre?.ouverte ? 'Le scan est ouvert maintenant' : `Scan ouvert de ${s.fenetre?.ouvre} à ${s.fenetre?.ferme}`}>
               <IconQrcode size={16} /> Afficher le QR</button>
@@ -152,7 +157,7 @@ export default function MaJournee({ onAgir, onSemaine }) {
             <button type="button" className="bouton" onClick={() => onAgir?.('presences', s)}><IconUserCheck size={16} /> Présences</button>
           )}
           {/* LE TICKET DE SORTIE (28 octobre 2026) : deux ou trois questions en fin de séance, par le même QR. */}
-          {!s.annule && (
+          {qrOuvert && !s.annule && (
             <button type="button" className="bouton" onClick={() => setTicket(s)} title="Deux ou trois questions en fin de séance, par QR">
               <IconTicket size={16} /> Ticket de sortie</button>
           )}

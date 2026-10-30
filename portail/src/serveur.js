@@ -47,6 +47,9 @@ if (SECRET === JETON_INTERNE) { console.error('[portail] PORTAIL_SECRET et PORTA
 
 const db = new Database(process.env.PORTAIL_DB || '/app/data/portail.db');
 db.pragma('journal_mode = WAL');
+// LES FONCTIONS DE CHAQUE ÉTUDIANT (3.5.001) : Lucie les nomme à chaque dépôt (Configuration → Fonctions) ; l'espace ne
+// montre et ne sert que celles-là.
+try { db.exec('ALTER TABLE etudiant ADD COLUMN fonctions TEXT'); } catch { /* déjà là, ou table à naître ci-dessous */ }
 db.exec(`
   CREATE TABLE IF NOT EXISTS etudiant (id INTEGER PRIMARY KEY, nom TEXT, prenom TEXT, email_ecole TEXT NOT NULL, maj_le TEXT);
   CREATE TABLE IF NOT EXISTS matricule (code TEXT PRIMARY KEY, etudiant_id INTEGER NOT NULL);
@@ -365,6 +368,12 @@ pub.post('/api/portail/session', (req, res) => {
   res.json({ token: session(l.etudiant_id, true), definir: true, a_un_mot_de_passe: aUnMotDePasse(l.etudiant_id) });
 });
 
+try { db.exec('ALTER TABLE etudiant ADD COLUMN fonctions TEXT'); } catch { /* déjà là */ }
+const fonctionsDe = id => { try { return JSON.parse(db.prepare('SELECT fonctions FROM etudiant WHERE id = ?').get(id)?.fonctions || '[]'); } catch { return []; } };
+/** Une route d'une fonction fermée pour cet étudiant : 404, comme si elle n'existait pas. */
+const exige = f => (req, res, next) => (fonctionsDe(req.etudiant?.id).includes(f) ? next()
+  : res.status(404).json({ error: 'Cette partie de votre espace n’est pas encore ouverte.' }));
+
 function connecte(req, res, next) {
   try {
     const p = jwt.verify(String(req.headers.authorization || '').replace(/^Bearer /, ''), SECRET);
@@ -441,9 +450,11 @@ pub.get('/api/portail/moi', connecte, (req, res) => {
       signe_le: s?.signe_le || null, presente_le: accuseDe(e, 'reglement', r.version_id).presente_le || null };
   });
   const cand = req.candidat ? db.prepare('SELECT jusqu_au FROM candidat WHERE etudiant_id = ?').get(e.id) : null;
-  res.json({ apercu: req.apercu || null, candidat: cand ? { jusqu_au: cand.jusqu_au } : null, etudiant: { nom: e.nom, prenom: e.prenom, email: e.email_ecole,
+  const f = new Set(fonctionsDe(e.id));
+  res.json({ fonctions: [...f], apercu: req.apercu || null, candidat: cand ? { jusqu_au: cand.jusqu_au } : null, etudiant: { nom: e.nom, prenom: e.prenom, email: e.email_ecole,
     matricule: db.prepare('SELECT code FROM matricule WHERE etudiant_id = ? LIMIT 1').get(e.id)?.code || '' },
-    resultats: cand ? [] : [...parAnnee].map(([annee, ues]) => ({ annee, ues })), documents, reglements: cand ? [] : reglements });
+    resultats: cand || !f.has('resultats') ? [] : [...parAnnee].map(([annee, ues]) => ({ annee, ues })),
+    documents: f.has('documents') ? documents : [], reglements: cand || !f.has('reglements') ? [] : reglements });
 });
 
 function presenter(e, type, id, req) {
@@ -456,7 +467,7 @@ const JOURS_LIBRES = 90;
 const deverrouille = (etudiantId, docId) => !!db.prepare(`SELECT 1 FROM deverrou WHERE etudiant_id = ? AND document_id = ? AND jusqu_a > datetime('now')`).get(etudiantId, docId);
 const libre = d => !!db.prepare(`SELECT 1 WHERE ? >= datetime('now', '-${JOURS_LIBRES} days')`).get(String(d.envoye_le || ''));
 
-pub.get('/api/portail/documents/:id', connecte, (req, res) => {
+pub.get('/api/portail/documents/:id', connecte, exige('documents'), (req, res) => {
   const d = db.prepare('SELECT * FROM document WHERE id = ? AND etudiant_id = ?').get(Number(req.params.id), req.etudiant.id);
   if (!d || !d.contenu) return res.status(404).json({ error: 'Document introuvable.' });
   if (!libre(d) && !deverrouille(req.etudiant.id, d.id)) {
@@ -468,7 +479,7 @@ pub.get('/api/portail/documents/:id', connecte, (req, res) => {
   res.send(d.contenu);
 });
 
-pub.get('/api/portail/reglements/:cle', connecte, (req, res) => {
+pub.get('/api/portail/reglements/:cle', connecte, exige('reglements'), (req, res) => {
   const r = db.prepare('SELECT * FROM reglement WHERE cle = ? ORDER BY numero DESC LIMIT 1').get(String(req.params.cle));
   if (!r) return res.status(404).json({ error: 'Texte introuvable.' });
   if (!req.apercu) presenter(req.etudiant, 'reglement', r.version_id, req);
@@ -504,7 +515,7 @@ pub.post('/api/portail/code', connecte, (req, res) => {
 });
 
 /** Au-delà de 90 jours : le code reçu à l'adresse d'école ouvre le téléchargement de ce document pour une heure. */
-pub.post('/api/portail/documents/:id/deverrouiller', connecte, (req, res) => {
+pub.post('/api/portail/documents/:id/deverrouiller', connecte, exige('documents'), (req, res) => {
   const e = req.etudiant, id = Number(req.params.id);
   const valeur = String(req.body?.code || '').replace(/\D/g, '');
   if (!objetValide(e, 'telechargement', id)) return res.status(404).json({ error: 'Document introuvable.' });
@@ -555,19 +566,19 @@ const gesteVA = (req, res, champs) => {
   return true;
 };
 /** Ce que l'étudiant voit : l'offre et l'état déposés par Lucie, ses gestes pas encore relevés, et les refus. */
-pub.get('/api/portail/va', connecte, (req, res) => {
+pub.get('/api/portail/va', connecte, exige('va'), (req, res) => {
   const id = req.etudiant.id;
   const lot = lotVA(id);
   const enAttente = db.prepare('SELECT id, type, ue_num, porte, nature, nom, cree_le FROM va_geste WHERE etudiant_id = ? AND releve_le IS NULL ORDER BY id').all(id);
   const refus = db.prepare(`SELECT id, type, ue_num, nom, erreur, releve_le FROM va_geste WHERE etudiant_id = ? AND erreur IS NOT NULL AND vu_le IS NULL ORDER BY id`).all(id);
   res.json({ pret: !!lot?.offre, ...(lot || { offre: null, etat: [] }), en_attente: enAttente, refus });
 });
-pub.post('/api/portail/va/refus-lus', connecte, (req, res) => {
+pub.post('/api/portail/va/refus-lus', connecte, exige('va'), (req, res) => {
   db.prepare("UPDATE va_geste SET vu_le = datetime('now') WHERE etudiant_id = ? AND erreur IS NOT NULL AND vu_le IS NULL").run(req.etudiant.id);
   res.json({ ok: true });
 });
 const demandeDe = (lot, ue) => (lot?.etat || []).find(d => Number(d.ue_num) === Number(ue));
-pub.post('/api/portail/va/ouvrir', connecte, (req, res) => {
+pub.post('/api/portail/va/ouvrir', connecte, exige('va'), (req, res) => {
   const lot = lotVA(req.etudiant.id), ue = Number(req.body?.ue_num), porte = String(req.body?.porte || '').toLowerCase();
   if (!['va', 'vae'].includes(porte)) return res.status(400).json({ error: 'Choisissez VA ou VAE.' });
   if (!(lot?.offre?.unites || []).some(u => Number(u.ue_num) === ue)) return res.status(400).json({ error: 'Cette unité ne peut pas être demandée en ligne.' });
@@ -583,7 +594,7 @@ const modifiable = (req, res, ue) => {
   if (d && !d.modifiable) { res.status(409).json({ error: 'Le secrétariat a déjà examiné cette demande : pour la compléter, adressez-vous à lui.' }); return false; }
   return true;
 };
-pub.post('/api/portail/va/piece', connecte, express.raw({ type: 'application/octet-stream', limit: '25mb' }), (req, res) => {
+pub.post('/api/portail/va/piece', connecte, exige('va'), express.raw({ type: 'application/octet-stream', limit: '25mb' }), (req, res) => {
   const ue = Number(req.query.ue_num);
   if (!modifiable(req, res, ue)) return;
   const b = Buffer.isBuffer(req.body) ? req.body : null;
@@ -595,18 +606,18 @@ pub.post('/api/portail/va/piece', connecte, express.raw({ type: 'application/oct
 });
 pub.use('/api/portail/va/piece', (err, req, res, next) => (err?.type === 'entity.too.large'
   ? res.status(413).json({ error: 'Fichier trop lourd (25 Mo au plus).' }) : next(err)));
-pub.post('/api/portail/va/retirer', connecte, (req, res) => {
+pub.post('/api/portail/va/retirer', connecte, exige('va'), (req, res) => {
   const ue = Number(req.body?.ue_num);
   if (!modifiable(req, res, ue)) return;
   if (gesteVA(req, res, { type: 'retirer', ue_num: ue })) res.json({ ok: true });
 });
-pub.post('/api/portail/va/retirer-piece', connecte, (req, res) => {
+pub.post('/api/portail/va/retirer-piece', connecte, exige('va'), (req, res) => {
   const ue = Number(req.body?.ue_num), f = Number(req.body?.fichier_id);
   if (!modifiable(req, res, ue)) return;
   if (!(demandeDe(lotVA(req.etudiant.id), ue)?.pieces || []).some(p => p.id === f && p.a_moi)) return res.status(404).json({ error: 'Pièce introuvable (seules les vôtres se retirent).' });
   if (gesteVA(req, res, { type: 'retirer_piece', ue_num: ue, fichier_id: f })) res.json({ ok: true });
 });
-pub.post('/api/portail/va/terminer', connecte, (req, res) => {
+pub.post('/api/portail/va/terminer', connecte, exige('va'), (req, res) => {
   if (!(lotVA(req.etudiant.id)?.etat || []).length && !db.prepare(`SELECT 1 FROM va_geste WHERE etudiant_id = ? AND type = 'ouvrir' AND releve_le IS NULL`).get(req.etudiant.id)) {
     return res.status(400).json({ error: 'Aucune demande à confirmer.' });
   }
@@ -615,17 +626,17 @@ pub.post('/api/portail/va/terminer', connecte, (req, res) => {
 
 // ── MON PARCOURS, MES FRAIS (3.1.517) ──
 const lotEspace = id => db.prepare('SELECT * FROM espace_lot WHERE etudiant_id = ?').get(id);
-pub.get('/api/portail/parcours', connecte, (req, res) => {
+pub.get('/api/portail/parcours', connecte, exige('parcours'), (req, res) => {
   const l = lotEspace(req.etudiant.id);
   res.json({ pret: !!l, parcours: l ? JSON.parse(l.parcours || 'null') : null, maj_le: l?.maj_le || null });
 });
-pub.get('/api/portail/frais', connecte, (req, res) => {
+pub.get('/api/portail/frais', connecte, exige('frais'), (req, res) => {
   const l = lotEspace(req.etudiant.id);
   res.json({ pret: !!l, frais: l ? JSON.parse(l.frais || 'null') : null, maj_le: l?.maj_le || null });
 });
 
 // ── LES MESSAGES (3.1.516) ──
-pub.get('/api/portail/messages', connecte, (req, res) => {
+pub.get('/api/portail/messages', connecte, exige('messages'), (req, res) => {
   const id = req.etudiant.id;
   const l = db.prepare(`SELECT m.*, d.lu_le AS lu_lucie, (SELECT lu_le FROM message_lu WHERE message_id = m.id AND etudiant_id = ?) AS lu_ici
     FROM message m JOIN message_dest d ON d.message_id = m.id AND d.etudiant_id = ? ORDER BY m.envoye_le DESC`).all(id, id);
@@ -642,12 +653,12 @@ const monMessage = (req, res) => {
   if (!ok) res.status(404).json({ error: 'Message introuvable.' });
   return !!ok;
 };
-pub.post('/api/portail/messages/:id/lu', connecte, (req, res) => {
+pub.post('/api/portail/messages/:id/lu', connecte, exige('messages'), (req, res) => {
   if (!monMessage(req, res)) return;
   db.prepare('INSERT OR IGNORE INTO message_lu (message_id, etudiant_id) VALUES (?,?)').run(Number(req.params.id), req.etudiant.id);
   res.json({ ok: true });
 });
-pub.post('/api/portail/messages/:id/repondre', connecte, (req, res) => {
+pub.post('/api/portail/messages/:id/repondre', connecte, exige('messages'), (req, res) => {
   if (!monMessage(req, res)) return;
   const corps = String(req.body?.corps || '').trim();
   if (!corps) return res.status(400).json({ error: 'Écrivez votre réponse.' });
@@ -662,18 +673,18 @@ pub.post('/api/portail/messages/:id/repondre', connecte, (req, res) => {
 
 // ── LE PAE EN LIGNE (3.1.515) ──
 const offrePAEde = id => { try { return JSON.parse(db.prepare('SELECT offre FROM pae_lot WHERE etudiant_id = ?').get(id)?.offre || 'null'); } catch { return null; } };
-pub.get('/api/portail/pae', connecte, (req, res) => {
+pub.get('/api/portail/pae', connecte, exige('pae'), (req, res) => {
   const id = req.etudiant.id;
   res.json({ pret: !!db.prepare('SELECT 1 FROM pae_lot WHERE etudiant_id = ?').get(id), offre: offrePAEde(id),
     en_attente: db.prepare('SELECT id, type, cree_le FROM pae_geste WHERE etudiant_id = ? AND releve_le IS NULL ORDER BY id').all(id),
     refus: db.prepare('SELECT id, type, erreur FROM pae_geste WHERE etudiant_id = ? AND erreur IS NOT NULL AND vu_le IS NULL ORDER BY id').all(id) });
 });
-pub.post('/api/portail/pae/refus-lus', connecte, (req, res) => {
+pub.post('/api/portail/pae/refus-lus', connecte, exige('pae'), (req, res) => {
   db.prepare("UPDATE pae_geste SET vu_le = datetime('now') WHERE etudiant_id = ? AND erreur IS NOT NULL AND vu_le IS NULL").run(req.etudiant.id);
   res.json({ ok: true });
 });
 /** Proposer son programme : seulement ce que Lucie a dit cochable, pendant la fenêtre. Lucie juge encore au relevé. */
-pub.post('/api/portail/pae/proposer', connecte, (req, res) => {
+pub.post('/api/portail/pae/proposer', connecte, exige('pae'), (req, res) => {
   const o = offrePAEde(req.etudiant.id);
   if (!o?.ouvert) return res.status(409).json({ error: 'Le PAE en ligne est fermé : adressez-vous à votre coordination.' });
   if (o.confirme_le) return res.status(409).json({ error: 'Votre PAE est déjà confirmé par l’école : pour le changer, adressez-vous à votre coordination.' });
@@ -688,7 +699,7 @@ pub.post('/api/portail/pae/proposer', connecte, (req, res) => {
   res.json({ ok: true });
 });
 /** Confirmer son PAE (celui que l'école a confirmé) : par le code reçu à l'adresse d'école (POST /code, objet « pae »). */
-pub.post('/api/portail/pae/confirmer', connecte, (req, res) => {
+pub.post('/api/portail/pae/confirmer', connecte, exige('pae'), (req, res) => {
   const e = req.etudiant, o = offrePAEde(e.id);
   if (!o?.confirme_le) return res.status(409).json({ error: 'Votre PAE n’est pas encore confirmé par l’école.' });
   const id = Number(String(o.annee).slice(0, 4));
@@ -731,11 +742,12 @@ int.post('/interne/etudiants', (req, res) => {
   const l = Array.isArray(req.body?.etudiants) ? req.body.etudiants : [];
   db.transaction(() => {
     db.exec('DELETE FROM matricule; DELETE FROM etudiant;');
-    const ie = db.prepare("INSERT INTO etudiant (id, nom, prenom, email_ecole, maj_le) VALUES (?,?,?,?, datetime('now'))");
+    const ie = db.prepare("INSERT INTO etudiant (id, nom, prenom, email_ecole, fonctions, maj_le) VALUES (?,?,?,?,?, datetime('now'))");
+    const fx = x => JSON.stringify(Array.isArray(x.fonctions) ? x.fonctions.map(String) : []);
     const im = db.prepare('INSERT OR IGNORE INTO matricule (code, etudiant_id) VALUES (?,?)');
     for (const e of l) {
       if (!Number(e.id) || !String(e.email_ecole || '').includes('@')) continue;
-      ie.run(Number(e.id), String(e.nom || ''), String(e.prenom || ''), String(e.email_ecole));
+      ie.run(Number(e.id), String(e.nom || ''), String(e.prenom || ''), String(e.email_ecole), fx(e));
       for (const m of e.matricules || []) if (m) im.run(String(m).trim(), Number(e.id));
     }
     // Les candidats : sans adresse d'institut ; ils n'entrent que par leur code.
@@ -743,7 +755,7 @@ int.post('/interne/etudiants', (req, res) => {
     const ic = db.prepare('INSERT OR REPLACE INTO candidat (etudiant_id, email_prive, code_hash, jusqu_au) VALUES (?,?,?,?)');
     for (const c of Array.isArray(req.body?.candidats) ? req.body.candidats : []) {
       if (!Number(c.id) || !String(c.email_prive || '').includes('@') || !String(c.code_hash || '').startsWith('scrypt$')) continue;
-      ie.run(Number(c.id), String(c.nom || ''), String(c.prenom || ''), '');
+      ie.run(Number(c.id), String(c.nom || ''), String(c.prenom || ''), '', fx(c));
       ic.run(Number(c.id), String(c.email_prive), String(c.code_hash), String(c.jusqu_au || ''));
     }
   })();

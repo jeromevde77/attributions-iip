@@ -18,6 +18,7 @@ import { donneesGrille, htmlGrille, excelGrille, premierDixieme, grillePermise, 
 import { archiverDocument } from '../services/document-archive.js';
 import { lireSeance, qrDeLaSeance, compteurSeance, seancesACompleter, fenetreSeance, aujourdhuiBruxelles, migrerPresenceQr, modeEssai } from '../lib/presenceQr.js';
 import { logoCourant } from '../lib/identite.js';
+import { fonctionPour } from '../lib/fonctions.js';
 
 /**
  * MES COURS — la porte du professeur (25 septembre 2026).
@@ -660,6 +661,8 @@ r.get('/qr/a-completer', authRequired, (req, res) => {
 });
 
 r.get('/:coursCode/qr/:seanceId', authRequired, (req, res) => {
+  // LA FONCTION « PRÉSENCE PAR QR » (3.5.001, Configuration → Fonctions) : éteinte, la présence s'encode à la main.
+  if (!fonctionPour('presence.qr', { userId: req.user.id })) return res.status(403).json({ error: "La présence par QR n'est pas ouverte pour votre compte." });
   const s = seanceAccessible(req, req.params.coursCode, req.params.seanceId);
   if (!s) return res.status(404).json({ error: 'Séance introuvable dans vos séances de ce cours.' });
   const x = qrDeLaSeance(s, req.user);
