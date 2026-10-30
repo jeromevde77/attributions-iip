@@ -116,13 +116,20 @@ sudo chown -R 1000:1000 /opt/lucie/portail /opt/lucie/portail-dev
 
 ## Étape 4 — Les fichiers de configuration de référence
 
-Le dépôt porte les copies de référence : `docker-compose.vps.yml` et `Caddyfile.vps`. Les récupérer depuis `main`
-(par un clone, ou en téléchargeant les deux fichiers depuis GitHub), puis :
+Le dépôt est public : les copies de référence (`docker-compose.vps.yml`, `Caddyfile.vps`, `geo-portail.sh`) se
+récupèrent directement depuis `main`, sur le serveur :
 
 ```bash
-sudo cp docker-compose.vps.yml /opt/lucie/docker-compose.yml
-sudo cp Caddyfile.vps /opt/lucie/Caddyfile
+cd /tmp
+curl -fsSO https://raw.githubusercontent.com/jeromevde77/attributions-iip/main/docker-compose.vps.yml
+curl -fsSO https://raw.githubusercontent.com/jeromevde77/attributions-iip/main/Caddyfile.vps
+curl -fsSO https://raw.githubusercontent.com/jeromevde77/attributions-iip/main/scripts/vps/geo-portail.sh
+sudo cp /tmp/docker-compose.vps.yml /opt/lucie/docker-compose.yml
+sudo cp /tmp/Caddyfile.vps /opt/lucie/Caddyfile
+sudo cp /tmp/geo-portail.sh /opt/lucie/geo-portail.sh
 ```
+
+Les IMAGES, elles, restent privées : les `pull` gardent `DOCKER_CONFIG=/home/<compte-admin>/.docker`.
 
 Regarder ce qui change par rapport à l'ancien, avant d'aller plus loin :
 
@@ -224,7 +231,6 @@ Le script pose, chaque semaine, la liste des adresses belges et celle des VPN et
 chaque espace. L'espace les relit seul (dans la minute), sans redémarrage.
 
 ```bash
-sudo cp scripts/vps/geo-portail.sh /opt/lucie/geo-portail.sh
 sudo sh /opt/lucie/geo-portail.sh
 ```
 
