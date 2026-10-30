@@ -2721,6 +2721,19 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   de la figure, puis six autres étoiles réelles de la Vierge hors des lignes — β, ο, θ, λ, ρ, φ, `ETOILES_HORS`) ;
   toucher une étoile ouvre son chapitre ; l'étoile du chapitre ouvert porte son pictogramme.
 
+- **LES TEXTES DE L'IIP S'ÉCRIVENT PAR PARTIES DANS LUCIE, ET S'Y IMPRIMENT** (3.1.489, Charles, 30 octobre 2026 : « que
+  les procédures soient sur ce modèle par partie… Lucie, l'endroit où on les crée, pas où on les importe ; l'endroit
+  aussi pour les imprimer » ; tranché : textes de l'IIP — procédures, RDE, ROI, notes, `NATURES_PAR_PARTIES` ; une
+  partie se compose comme le mode d'emploi ; l'existant se découpe ; tout de suite). Format de version `parties`
+  (`lib/textesParties.js` : `{ parties: [{ titre, resume, points: [{ titre, qui, ou, contenu HTML assaini, savoir }] }] }`) ;
+  mêmes règles que le corpus (version publiée immuable, résumé du changement, reconfirmation choisie). Écran
+  (`components/TexteParParties.jsx`) : `LecteurParties` (sommaire, une page par partie, points numérotés — le `Point`
+  du mode d'emploi), `EditeurParties` (parties et points à ajouter, monter, retirer ; texte de chaque point dans
+  l'éditeur de Lucie, sans import). « Écrire un texte » ouvre l'éditeur par parties pour ces natures ;
+  « Réécrire par parties » sur un texte existant (`GET /:cle/decouper` : coupe aux titres, ne publie rien).
+  **Imprimer** : `GET /:cle/document` (enveloppe commune, sommaire, version, pied « produit par »), PDF serveur ou
+  impression du navigateur. Les boutons `[[Libellé]]` se dessinent à l'écran et s'impriment entre crochets.
+
 **L'ANNULER NE COMPARE QUE CE QUE LE GESTE A CHANGÉ** (3.1.482, Charles, 30 octobre 2026, en production :
   « Impossible d'annuler : utilisateur — la ligne a été modifiée depuis, par quelqu'un »). Se reconnecter écrit
   `last_login_at` sur la ligne du compte ; l'annulation comparait la ligne entière et refusait. Désormais elle ne

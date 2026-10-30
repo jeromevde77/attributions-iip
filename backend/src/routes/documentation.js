@@ -76,6 +76,8 @@ import multer from 'multer';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { gesteRequis, gesteAutorise } from '../lib/gestes.js';
 import { analyserFichier, assainir, estVide } from '../lib/texteCorpus.js';
+import { assainirParties, decouperEnParties, corpsImprimable, STYLES_IMPRESSION } from '../lib/textesParties.js';
+import { envelopperDocument } from '../lib/document.js';
 
 const r = express.Router();
 
@@ -96,6 +98,10 @@ export const NATURES = [
   { cle: 'note', libelle: 'Note de service', externe: false },
   { cle: 'aide', libelle: 'Mode d’emploi de Lucie', externe: false },
 ];
+/* LES TEXTES QUE L'IIP RÉDIGE S'ÉCRIVENT PAR PARTIES, DANS LUCIE (3.1.489, Charles : « Lucie deviendrait l'endroit où
+ * on les crée, pas où on les importe ; l'endroit aussi pour les imprimer »). Décrets et circulaires restent ce qu'ils
+ * sont : des textes de la FWB, lus ou liés, pas réécrits ici. */
+export const NATURES_PAR_PARTIES = ['reglement', 'procedure', 'note'];
 
 export function migrerDocumentation(dbx) {
   try {
@@ -335,7 +341,7 @@ r.get('/', authRequired, (req, res) => {
       a_confirmer: !!(pourMoi && v && !lecture?.confirme_le),
     });
   }
-  res.json({ documents: sortie, natures: NATURES });
+  res.json({ documents: sortie, natures: NATURES, par_parties: NATURES_PAR_PARTIES });
 });
 
 /* LE TEXTE LUI-MÊME — ET C'EST CETTE ROUTE QUI POSE `ouvert_le`.
@@ -344,6 +350,41 @@ r.get('/', authRequired, (req, res) => {
  * non sur un clic de l'écran : un écran peut prétendre avoir affiché ce qu'il
  * n'a pas reçu. La trace dit « le document a été servi à cette personne », et
  * elle ne peut le dire que depuis l'endroit qui le sert. */
+/* DÉCOUPER L'EXISTANT EN PARTIES (3.1.489, tranché : « les découper »). Ne publie rien : la proposition revient à
+ * l'éditeur, la direction la relit et publie la version suivante — les confirmations suivent la règle habituelle. */
+r.get('/:cle/decouper', authRequired, gesteRequis('documentation.publier'), (req, res) => {
+  const d = db.prepare('SELECT * FROM corpus_document WHERE cle = ?').get(req.params.cle);
+  if (!d) return res.status(404).json({ error: 'Document introuvable.' });
+  const v = derniereVersion(d.id);
+  if (!v) return res.json({ parties: [] });
+  if (v.format === 'parties') return res.json(JSON.parse(v.contenu));
+  const html = v.format === 'html' ? v.contenu
+    : String(v.contenu).split(/\n{2,}/).map(par => `<p>${par.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br>')}</p>`).join('');
+  res.json(decouperEnParties(html, d.titre));
+});
+
+/* IMPRIMER UN TEXTE DU CORPUS (3.1.489) : dans l'enveloppe commune des pièces (en-tête, filet, pied « produit par »).
+ * Un texte par parties sort avec son sommaire et ses points numérotés ; un texte mis en forme, tel quel. La version
+ * est dite sur la pièce : c'est sur CE texte-là qu'on s'est engagé. */
+r.get('/:cle/document', authRequired, (req, res) => {
+  const d = db.prepare('SELECT * FROM corpus_document WHERE cle = ?').get(req.params.cle);
+  if (!d) return res.status(404).json({ error: 'Document introuvable.' });
+  const v = req.query.version
+    ? db.prepare('SELECT * FROM corpus_version WHERE document_id = ? AND numero = ?').get(d.id, Number(req.query.version))
+    : derniereVersion(d.id);
+  if (!v) return res.status(404).json({ error: 'Aucune version publiée.' });
+  const nature = NATURES.find(n => n.cle === d.nature)?.libelle || '';
+  const esc = x => String(x ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  let corps;
+  if (v.format === 'parties') corps = corpsImprimable({ titre: d.titre, version: v, parties: JSON.parse(v.contenu).parties || [] });
+  else if (v.format === 'html') corps = `<div class="tp-version">Version ${v.numero}</div><div class="tp-contenu">${v.contenu}</div>`;
+  else corps = `<div class="tp-version">Version ${v.numero}</div><div style="white-space:pre-wrap;font-size:9.5pt">${esc(v.contenu)}</div>`;
+  const html = envelopperDocument({
+    titre: d.titre, styles: STYLES_IMPRESSION, entete: { titre: d.titre, sous: nature }, html: corps,
+  });
+  res.json({ html, nom: d.titre });
+});
+
 r.get('/:cle', authRequired, (req, res) => {
   const d = db.prepare('SELECT * FROM corpus_document WHERE cle = ?').get(req.params.cle);
   if (!d) return res.status(404).json({ error: 'Document introuvable.' });
@@ -516,12 +557,21 @@ r.post('/:cle/versions', authRequired, gesteRequis('documentation.publier'), (re
   /* LE TEXTE MIS EN FORME PASSE PAR LA LISTE DE CE QUI EST PERMIS, ICI, AVANT
    * D'ÊTRE ÉCRIT. Le texte brut d'avant (format 'texte') reste accepté : il
    * s'affiche tel quel, sans rien interpréter. */
-  const format = req.body?.format === 'html' ? 'html' : 'texte';
-  const contenu = format === 'html'
-    ? assainir(req.body?.contenu)
-    : String(req.body?.contenu || '').trim();
-  if (!contenu || (format === 'html' && estVide(contenu))) {
-    return res.status(400).json({ error: 'Le texte est vide.' });
+  const format = ['html', 'parties'].includes(req.body?.format) ? req.body.format : 'texte';
+  let contenu;
+  if (format === 'parties') {
+    // Le texte par parties : chaque champ passe la même liste fermée que le texte mis en forme.
+    const parties = assainirParties(req.body?.contenu);
+    if (!parties) return res.status(400).json({ error: 'Le texte est vide : il faut au moins une partie avec un point.' });
+    if (parties.parties.some(p => !p.titre)) return res.status(400).json({ error: 'Chaque partie porte un titre.' });
+    contenu = JSON.stringify(parties);
+  } else {
+    contenu = format === 'html'
+      ? assainir(req.body?.contenu)
+      : String(req.body?.contenu || '').trim();
+    if (!contenu || (format === 'html' && estVide(contenu))) {
+      return res.status(400).json({ error: 'Le texte est vide.' });
+    }
   }
 
   const derniere = derniereVersion(d.id);

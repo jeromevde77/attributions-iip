@@ -28,7 +28,7 @@ function BoutonGuide({ libelle, icone, sorte }) {
   );
 }
 /** Le texte d'un point, avec ses boutons dessinés. */
-function Enrichi({ texte }) {
+export function Enrichi({ texte }) {
   const morceaux = String(texte || '').split(/(\[\[[^\]]+\]\])/g);
   return morceaux.map((m, i) => {
     const b = /^\[\[([^\]|]+)(?:\|([^\]|]*))?(?:\|([^\]|]*))?\]\]$/.exec(m);
@@ -39,6 +39,12 @@ function Enrichi({ texte }) {
     return <BoutonGuide key={i} libelle={libelle.trim()} icone={icone} sorte={sorte} />;
   });
 }
+/** Les boutons [[Libellé|…]] dans un HTML déjà filtré : une pastille à la forme du bouton, le libellé échappé. */
+export const boutonsHtml = h => String(h || '').replace(/\[\[([^\]|]+)(?:\|([^\]|]*))?(?:\|([^\]|]*))?\]\]/g, (_, l, a2 = '', a3 = '') => {
+  const sorte = [a2, a3].find(x => ['fort', 'sortir', 'detruire'].includes(x));
+  const lib = l.trim().replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  return `<span class="bouton ${sorte ? `bouton-${sorte} ` : ''}bouton-guide">${lib}</span>`;
+});
 /** Les images d'un point : `image` + `legende`, ou `images` [{ src, legende, etroite }]. */
 function ImagesDuPoint({ p }) {
   const liste = [...(p.image ? [{ src: p.image, legende: p.legende }] : []), ...(p.images || [])];
@@ -163,7 +169,7 @@ const ICONES = { IconAccessible, IconAward, IconBook, IconBooks, IconCertificate
 const Icone = ({ nom, ...p }) => { const I = ICONES[nom] || IconHelpCircle; return <I {...p} />; };
 
 /* Le chemin « Où », en étapes : « Mes cours → un cours → Présences ». */
-function Chemin({ ou }) {
+export function Chemin({ ou }) {
   const [chemin, ...reste] = String(ou).split(/(?<=\.)\s|·|;/).map(x => x.trim()).filter(Boolean);
   const etapes = String(chemin || '').replace(/\.$/, '').split('→').map(x => x.trim()).filter(Boolean);
   return (
@@ -180,14 +186,14 @@ function Chemin({ ou }) {
 }
 
 /* LE NUMÉRO D'UN POINT : un cercle, rien de plus (3.1.484, Charles : « pas d'étoiles pour les points »). */
-function NumeroPoint({ n }) {
+export function NumeroPoint({ n }) {
   return (
-    <span className="flex-none inline-grid place-items-center w-6 h-6 rounded-full text-[11px] font-bold text-white tabular-nums"
+    <span className="flex-none inline-grid place-items-center min-w-[1.5rem] h-6 px-1 rounded-full text-[11px] font-bold text-white tabular-nums"
       style={{ background: 'var(--c-principal)' }}>{n}</span>
   );
 }
 
-function Point({ p, n, delai = 0 }) {
+export function Point({ p, n, delai = 0 }) {
   return (
     <article className="guide-entree bloc-etat px-4 py-3.5 space-y-2.5" data-etat="neutre"
       style={{ borderLeftColor: 'var(--c-principal)', animationDelay: `${delai}s` }}>
@@ -196,7 +202,14 @@ function Point({ p, n, delai = 0 }) {
         <h3 className="titre-carte flex-1 min-w-0 m-0">{p.titre}</h3>
       </div>
       {p.ou && <Chemin ou={p.ou} />}
-      <p className="text-sm text-slate-700 leading-relaxed m-0"><Enrichi texte={p.texte} /></p>
+      {p.qui && (
+        <div className="flex flex-wrap items-center gap-1.5 text-second">
+          <IconUsers size={14} className="text-slate-400 flex-none" />
+          <span className="text-slate-500">Qui :</span><span className="text-iip-texte font-semibold">{p.qui}</span>
+        </div>)}
+      {p.texte && <p className="text-sm text-slate-700 leading-relaxed m-0"><Enrichi texte={p.texte} /></p>}
+      {/* Le texte d'une procédure (3.1.489) : du HTML que le serveur a filtré à l'écriture ; les boutons [[…]] s'y dessinent. */}
+      {p.contenu && <div className="texte-corpus text-sm" dangerouslySetInnerHTML={{ __html: boutonsHtml(p.contenu) }} />}
       <ImagesDuPoint p={p} />
       {p.savoir?.length > 0 && (
         <div className="rounded-champ border border-slate-200 bg-white px-3 py-2">
