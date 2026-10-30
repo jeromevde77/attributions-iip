@@ -363,13 +363,24 @@ function aConvertir() {
   const ph = NATURES_PAR_PARTIES.map(() => '?').join(',');
   return db.prepare(`SELECT * FROM corpus_document WHERE retire_le IS NULL AND nature IN (${ph}) ORDER BY nature, titre`)
     .all(...NATURES_PAR_PARTIES)
-    .map(d => ({ d, v: derniereVersion(d.id) }))
-    .filter(({ v }) => v && v.format !== 'parties');
+    .map(d => {
+      const der = derniereVersion(d.id);
+      if (!der) return null;
+      if (der.format !== 'parties') return { d, v: der, numero: der.numero };
+      /* UNE CONVERSION AUTOMATIQUE SE REFAIT (3.1.493) : tant que personne n'a retouché la version convertie, on repart du
+         dernier texte d'origine — la règle de découpage s'est améliorée, la conversion doit pouvoir en profiter. */
+      if (der.resume_changement !== RESUME_CONVERSION) return null;
+      const source = db.prepare(`SELECT * FROM corpus_version WHERE document_id = ? AND format != 'parties'
+        ORDER BY numero DESC LIMIT 1`).get(d.id);
+      return source ? { d, v: source, numero: der.numero, refaire: true } : null;
+    })
+    .filter(Boolean);
 }
+const RESUME_CONVERSION = 'Texte réécrit par parties dans Lucie ; le contenu ne change pas.';
 r.get('/conversion', authRequired, gesteRequis('documentation.publier'), (req, res) => {
-  res.json({ textes: aConvertir().map(({ d, v }) => {
+  res.json({ textes: aConvertir().map(({ d, v, numero, refaire }) => {
     const { parties } = texteEnParties(d, v);
-    return { cle: d.cle, titre: d.titre, nature: d.nature, version: v.numero,
+    return { cle: d.cle, titre: d.titre, nature: d.nature, version: numero, refaire: !!refaire,
       parties: parties.map(p => ({ titre: p.titre, points: p.points.map(pt => pt.titre) })),
       // Un seul bloc : le texte n'avait pas de titres ; il passera tel quel, en une partie, à reprendre à la main.
       sans_titres: parties.length <= 1 };
@@ -384,12 +395,11 @@ r.post('/conversion', authRequired, gesteRequis('documentation.publier'), (req, 
     VALUES (?,?,?,'parties',0,?,?,?)`);
   const faits = [];
   try { db.transaction(() => {
-    for (const { d, v } of lot) {
+    for (const { d, v, numero } of lot) {
       const parties = assainirParties(texteEnParties(d, v));
       if (!parties) throw Object.assign(new Error(`« ${d.titre} » : rien à découper (texte vide).`), { status: 409 });
-      ins.run(d.id, v.numero + 1, JSON.stringify(parties),
-        'Texte réécrit par parties dans Lucie ; le contenu ne change pas.', auteur(req.user), req.user?.role || null);
-      faits.push({ cle: d.cle, titre: d.titre, version: v.numero + 1 });
+      ins.run(d.id, numero + 1, JSON.stringify(parties), RESUME_CONVERSION, auteur(req.user), req.user?.role || null);
+      faits.push({ cle: d.cle, titre: d.titre, version: numero + 1 });
     }
   })(); } catch (e) { return res.status(e.status || 500).json({ error: e.message }); }
   res.json({ ok: true, convertis: faits });
@@ -402,7 +412,10 @@ r.get('/:cle/decouper', authRequired, gesteRequis('documentation.publier'), (req
   if (!d) return res.status(404).json({ error: 'Document introuvable.' });
   const v = derniereVersion(d.id);
   if (!v) return res.json({ parties: [] });
-  if (v.format === 'parties') return res.json(JSON.parse(v.contenu));
+  if (v.format === 'parties') {
+    const auto = aConvertir().find(x => x.d.id === d.id && x.refaire);
+    return res.json(auto ? texteEnParties(d, auto.v) : JSON.parse(v.contenu));
+  }
   const html = v.format === 'html' ? v.contenu
     : String(v.contenu).split(/\n{2,}/).map(par => `<p>${par.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br>')}</p>`).join('');
   res.json(decouperEnParties(html, d.titre));

@@ -211,10 +211,12 @@ export function Point({ p, n, delai = 0 }) {
   return (
     <article className="guide-entree bloc-etat px-4 py-3.5 space-y-2.5" data-etat="neutre"
       style={{ borderLeftColor: 'var(--c-principal)', animationDelay: `${delai}s` }}>
-      <div className="flex items-start gap-3">
-        {n != null && <NumeroPoint n={n} />}
-        <h3 className="titre-carte flex-1 min-w-0 m-0">{p.titre}</h3>
-      </div>
+      {/* Un point sans titre (le texte d'ouverture d'une partie) n'a pas d'en-tête : un numéro seul ne dirait rien. */}
+      {p.titre && (
+        <div className="flex items-start gap-3">
+          {n != null && <NumeroPoint n={n} />}
+          <h3 className="titre-carte flex-1 min-w-0 m-0">{p.titre}</h3>
+        </div>)}
       <div className={aImages ? 'grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)] items-start' : ''}>
         <div className="space-y-2.5 min-w-0">
           {p.ou && <Chemin ou={p.ou} />}

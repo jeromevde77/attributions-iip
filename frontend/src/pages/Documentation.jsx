@@ -760,7 +760,7 @@ function ConvertirTextes({ onClose, onFait }) {
                   onChange={() => setCoches(c => basculerDans(c, t.cle))} />
                 <button type="button" className="flex-1 min-w-0 text-left" onClick={() => setOuvert(o => (o === t.cle ? null : t.cle))}>
                   <span className="text-sm font-semibold text-iip-texte">{t.titre}</span>
-                  <span className="text-second text-slate-500"> · {nat[t.nature] || t.nature} · version {t.version} → {t.version + 1} · {t.parties.length} partie{t.parties.length > 1 ? 's' : ''}, {(n => `${n} point${n > 1 ? 's' : ''}`)(t.parties.reduce((n, p) => n + p.points.length, 0))}</span>
+                  <span className="text-second text-slate-500"> · {nat[t.nature] || t.nature}{t.refaire ? ' · déjà converti, à redécouper' : ''} · version {t.version} → {t.version + 1} · {t.parties.length} partie{t.parties.length > 1 ? 's' : ''}, {(n => `${n} point${n > 1 ? 's' : ''}`)(t.parties.reduce((n, p) => n + p.points.length, 0))}</span>
                 </button>
               </div>
               {t.sans_titres && <div className="text-second mt-1" style={{ color: 'var(--c-attente)' }}>

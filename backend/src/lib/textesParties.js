@@ -13,7 +13,7 @@
 import { parse as parseHtml } from 'node-html-parser';
 import { assainir, estVide } from './texteCorpus.js';
 
-const sansNumero = t => t.replace(/^\s*(?:\d+(?:\.\d+)*|[IVXLC]+|[a-z])\s*[.)°:–-]\s*/i, '').trim() || t;
+const sansNumero = t => t.replace(/^\s*(?:\d+(?:\.\d+)+\.?|\d+\s*[.)°:–-]|[IVXLC]+\s*[.)°:–-]|[a-z][.)])\s+(?:[–-]\s+)?/i, '').trim() || t;
 const texte = (v, max = 2000) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
 
 /** Normalise et assainit un texte par parties. Rend `null` s'il est vide. */
@@ -46,8 +46,15 @@ export function assainirParties(entree) {
 export function decouperEnParties(html, titreDocument = '') {
   const racine = parseHtml(`<div>${assainir(html)}</div>`).firstChild;
   const blocs = racine.childNodes.filter(n => n.nodeType === 1 || String(n.text || '').trim());
-  const niveaux = ['h1', 'h2', 'h3', 'h4'].filter(h => blocs.some(b => b.tagName?.toLowerCase() === h));
-  const [hPartie, hPoint] = niveaux;
+  const tagDe = b => b.tagName?.toLowerCase();
+  const compte = h => blocs.filter(b => tagDe(b) === h).length;
+  /* LE NIVEAU DES PARTIES (3.1.493, Charles, circulaire de rentrée : « sois malin, tu ne mets pas de menu alors que tu
+     as des titres »). Un titre qui n'apparaît qu'UNE fois est le titre du document, pas une partie : on prend le plus
+     haut niveau qui revient au moins deux fois ; le suivant donne les points. */
+  const tous = ['h1', 'h2', 'h3', 'h4'].filter(h => compte(h) > 0);
+  const repetes = tous.filter(h => compte(h) >= 2);
+  const hPartie = repetes[0] || null;
+  const hPoint = hPartie ? tous.find(h => h > hPartie && compte(h) > 0) || null : null;
   // UN TEXTE SANS TITRES passe en une seule partie, un seul point : rien n'est perdu, la découpe se fait ensuite à la main.
   if (!hPartie) {
     return assainirParties({ parties: [{ titre: titreDocument || 'Texte', resume: '', points: [{ titre: '', contenu: html }] }] }) || { parties: [] };
@@ -57,20 +64,21 @@ export function decouperEnParties(html, titreDocument = '') {
   const nouvellePartie = titre => { partie = { titre, resume: '', points: [] }; parties.push(partie); point = null; };
   const nouveauPoint = titre => { if (!partie) nouvellePartie('Préambule'); point = { titre, qui: '', ou: '', contenu: '', savoir: [] }; partie.points.push(point); };
   for (const b of blocs) {
-    const tag = b.tagName?.toLowerCase();
+    const tag = tagDe(b);
     // La numérotation se refait à l'affichage : « 1. », « II – », « Article 3 : » ne se recopient pas dans le titre.
-    if (hPartie && tag === hPartie) { nouvellePartie(sansNumero(texte(b.text, 200))); continue; }
-    if (hPoint && tag === hPoint) { nouveauPoint(sansNumero(texte(b.text, 300))); continue; }
-    if (!point) nouveauPoint(!partie || !partie.points.length ? '' : 'Suite');
+    if (tag === hPartie) { nouvellePartie(sansNumero(texte(b.text, 200))); continue; }
+    if (hPoint && tag === hPoint && partie) { nouveauPoint(sansNumero(texte(b.text, 300))); continue; }
+    // Le titre du document (un titre plus haut, qui ne revient pas) n'est pas recopié dans le préambule.
+    if (!partie && /^h[1-4]$/.test(tag || '') && tag < hPartie) continue;
+    if (!point) nouveauPoint(partie && partie.points.length ? 'Suite' : '');
     point.contenu += b.toString();
   }
   for (const p of parties) for (const pt of p.points) {
     pt.contenu = assainir(pt.contenu);
-    // Un point sans titre au début d'une partie : son texte devient le résumé s'il est court, sinon il garde le titre de la partie.
-    if (!pt.titre) {
+    // Le texte d'ouverture d'une partie : court, il devient son résumé ; long, il reste un point sans titre.
+    if (!pt.titre && p.points[0] === pt && !p.resume) {
       const brut = texte(parseHtml(pt.contenu).text, 2000);
-      if (brut.length <= 400 && !/<(table|ul|ol)/.test(pt.contenu)) { p.resume = brut; pt.contenu = ''; }
-      else pt.titre = p.titre;
+      if (brut.length <= 400 && !/<(table|ul|ol|blockquote)/.test(pt.contenu)) { p.resume = brut; pt.contenu = ''; }
     }
   }
   return assainirParties({ parties }) || { parties: [] };

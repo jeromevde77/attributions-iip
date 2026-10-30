@@ -2742,6 +2742,14 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   reconfirmation (« le contenu ne change pas »), tout ou rien. Un texte sans titres passe en une partie, un point.
   **À faire par la direction, sur la dev puis en production** : l'assistant ne peut pas le lancer.
 
+- **LE DÉCOUPAGE LIT LES TITRES QUI REVIENNENT** (3.1.493, Charles, circulaire de rentrée en une seule partie : « sois
+  malin, tu ne mets pas de menu alors que tu as des titres »). Un titre qui n'apparaît qu'UNE fois est le titre du
+  document (non recopié) : les parties prennent le plus haut niveau qui revient au moins deux fois, les points le
+  suivant ; la numérotation (« 1. », « 2.1 », « II – », « a) ») est retirée, jamais un nombre qui commence une phrase
+  (« 12 mois »). Un texte d'ouverture court devient le résumé de sa partie, long il reste un point sans titre (sans
+  en-tête à l'écran). **Une conversion automatique se refait** tant que personne ne l'a retouchée (même résumé de
+  changement) : elle repart du dernier texte d'origine, ligne « déjà converti, à redécouper ».
+
 - **LE MODE D'EMPLOI MONTRE LES ÉCRANS ET LES BOUTONS** (3.1.488-3.1.490, Charles, 30 octobre 2026 : « des images des
   boutons, des captures des fenêtres… le mode d'emploi PDF ne doit plus être la base de la recherche »). Un bouton
   s'écrit `[[Libellé|IconNom|fort]]` dans `modeEmploi.js` (texte, « à savoir », légendes) et se dessine avec les
