@@ -442,7 +442,15 @@ REGISTRE DES ENVOIS (`deposerDansLEspace`, `routes/envois.js` : statut `depose`,
 refaite par `copieDeLEnvoi`) puis part au portail avec les autres envois ; une pièce ne se dépose qu'une fois
 (`portail_depot`). Puis UN courriel par étudiant, sans pièce jointe. **90 jours** : au-delà, le portail exige un code à
 six chiffres (objet `telechargement`), qui ouvre ce document une heure (`deverrou`). Une motivation que Lucie ne peut
-pas composer (aucun acquis en échec) ne se dépose pas. La fiche lit `GET /api/portail-suivi/:id`. Mise en place :
+pas composer (aucun acquis en échec) ne se dépose pas. **Le QR d'authenticité** (3.1.511, Charles : « un petit QR qui
+permet d'authentifier le document ; si quelqu'un scanne, il sait que c'est un vrai » ; « les attestations et documents
+légaux — les diplômes ont la signature manuscrite ») : `filigraner()` (`lib/filigraneDocument.js`) donne à CHAQUE bloc de
+clôture sa référence (la première garde celle de l'envoi), l'inscrit au registre `piece_authentique`
+(`lib/authentique.js` : nature = `.doc-cadre-t`, objet = `.doc-cadre-s` + `.doc-cadre-l`, personne = `.nom`, auteur) et pose
+juste au-dessus la ligne « Pièce authentifiable · réf. … » et un QR de 15 mm vers `<portail>/?v=<réf.>`. Le registre part au
+portail (`/interne/authentiques`, en ajout seul) ; `GET /api/portail/verifier/:ref` (public, plafonné par IP) rend la pièce ou
+« référence inconnue » ; la page `Verification` du site des étudiants l'affiche. Le diplôme n'a pas de bloc de clôture : pas
+de QR. La fiche lit `GET /api/portail-suivi/:id`. Mise en place :
 `scripts/vps/PORTAIL-ETUDIANTS.md` (DNS, quatre secrets, dossiers au propriétaire 1000, compose, Caddy). **Reste de
 ce côté-ci du mur, À DÉPLACER** : la demande de VA en ligne (`/demande-va`, `routes/portailVA.js`), qui écrit dans la
 base de Lucie.

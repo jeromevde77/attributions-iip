@@ -20,6 +20,7 @@
  * leur bloc `.cloture` — ce serait autant d'occasions d'en oublier un.
  */
 import { nouvelleReference } from '../services/filigrane.js';
+import { enregistrerPiece, blocAuthenticite, STYLE_AUTHENTICITE } from './authentique.js';
 
 const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 
@@ -93,6 +94,11 @@ export function filigraner(html, o = {}) {
   if (!/class="cloture|class="[^"]*\bcote\b/.test(doc)) return doc;
   const ref = o.ref || nouvelleReference();
   const date = new Date().toLocaleDateString('fr-BE');
+  // Le dernier texte d'une classe donnée dans un morceau de page (titre, objet, personne de CETTE pièce).
+  const dernierTexte = (bloc, classe) => {
+    const l = [...bloc.matchAll(new RegExp(`<div class="${classe}">([\\s\\S]*?)</div>`, 'g'))];
+    return l.length ? l[l.length - 1][1] : '';
+  };
   const texteDe = bloc => {
     // La personne : le nom en tête de la pièce, quand elle en porte un.
     // Le DERNIER nom avant ce bloc : le morceau commence au bloc précédent, et
@@ -101,20 +107,26 @@ export function filigraner(html, o = {}) {
     const nom = noms.length ? noms[noms.length - 1][1] : undefined;
     return [o.texte || 'Institut Ilya Prigogine', nom, date].filter(Boolean).join(' · ');
   };
-  // Chaque bloc de clôture reçoit son fond, avec la personne de SA page.
-  let dernier = 0, sortie = '';
+  /* Chaque bloc de clôture reçoit son fond, avec la personne de SA page — ET SA RÉFÉRENCE (3.1.511, le QR
+     d'authenticité) : une pièce par bloc, inscrite au registre, et son QR juste au-dessus. La première garde la
+     référence demandée (celle d'un envoi) ; les suivantes d'un même lot en reçoivent une à elles. */
+  let dernier = 0, sortie = '', k = 0;
   const re = /<div class="cloture[^"]*">/g;
   let m;
   while ((m = re.exec(doc))) {
     const page = doc.slice(dernier, m.index);
-    sortie += page + m[0] + fondCloture({ ref, texte: texteDe(page) });
+    const refBloc = k++ === 0 ? ref : nouvelleReference();
+    enregistrerPiece({ reference: refBloc, nature: dernierTexte(page, 'doc-cadre-t') || o.texte,
+      objet: [dernierTexte(page, 'doc-cadre-s'), dernierTexte(page, 'doc-cadre-l')].filter(Boolean).join(' — '),
+      personne: dernierTexte(page, 'nom') });
+    sortie += page + blocAuthenticite(refBloc) + m[0] + fondCloture({ ref: refBloc, texte: texteDe(page) });
     dernier = re.lastIndex;
   }
   doc = sortie + doc.slice(dernier);
   // Les cotes marquées « cote » reçoivent leur cartouche.
   const fond = fondCote(ref);
   doc = doc.replace(/class="([^"]*\bcote\b[^"]*)"/g, (t, c) => `class="${c}" style="background-image:${fond}"`);
-  return doc.replace('</head>', `${STYLES}</head>`);
+  return doc.replace('</head>', `${STYLES.replace('</style>', `${STYLE_AUTHENTICITE}</style>`)}</head>`);
 }
 
 export default filigraner;
