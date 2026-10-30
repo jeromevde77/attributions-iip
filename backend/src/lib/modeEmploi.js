@@ -10,7 +10,7 @@
  *   savoir — ce qu'il faut savoir : les règles qui bloquent ou qui surprennent.
  * Il explique le travail, pas l'informatique (CLAUDE.md, § 7). La version décrite se dit en tête.
  */
-export const VERSION_DECRITE = '3.1.518';
+export const VERSION_DECRITE = '3.1.519';
 
 export const RUBRIQUES = [
   {
@@ -1469,7 +1469,7 @@ export const RUBRIQUES = [
       {
         titre: "Textes et procédures",
         ou: "Documentation → Textes et procédures (les trois faces : Textes et procédures · Mode d'emploi de Lucie · Conventions).",
-        texte: "Décrets, circulaires, règlements et procédures de l'Institut. Ce qui vous attend passe en tête. Ouvrez le texte ([[Lire]]), puis cochez « Je confirme avoir pris connaissance de ce document » et [[Confirmer|fort]].",
+        texte: "Décrets, circulaires, règlements et procédures de l'Institut. Ce qui vous attend passe en tête. Le trait à gauche de chaque ligne dit où vous en êtes : rouge, à confirmer ; vert, lu ; bleu, pour information. Touchez la ligne pour ouvrir le texte, puis cochez « Je confirme avoir pris connaissance de ce document » et [[Confirmer|fort]].",
         savoir: [
           "La case ne se coche qu'une fois le texte affiché.",
           "Une version publiée ne se modifie plus. Une nouvelle version dit si elle demande une nouvelle confirmation.",
@@ -1477,7 +1477,7 @@ export const RUBRIQUES = [
           "Chaque texte s'imprime : [[Imprimer|IconSend|sortir]], au pied du texte ouvert — sommaire, version et « produit par » sur la pièce.",
         ],
         images: [
-          { src: "/guide/documentation-textes.png", legende: "Le texte à confirmer est signalé en tête et dans la liste ; [[Lire]] l'ouvre (données d'essai)." },
+          { src: "/guide/documentation-textes.png", legende: "Une seule liste : trait rouge à confirmer, vert lu, bleu pour information ; la ligne s'ouvre d'un toucher (données d'essai)." },
           { src: "/guide/documentation-lire.png", legende: "Le texte ouvert : la case « Je confirme avoir pris connaissance de ce document », puis [[Confirmer|fort]] ; [[Imprimer|IconSend|sortir]] à droite." },
         ],
       },

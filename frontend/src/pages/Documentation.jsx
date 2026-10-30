@@ -228,6 +228,10 @@ export default function Documentation() {
               <span className="text-second text-slate-500">
                 {vus.length} texte(s)
               </span>
+              <span className="ml-auto flex items-center gap-3 text-xs text-slate-500">
+                {[['var(--c-refuse)', 'à confirmer'], ['var(--c-reussi)', 'lu'], ['var(--c-disponible)', 'pour information']].map(([c, t]) => (
+                  <span key={t} className="flex items-center gap-1.5"><span className="w-1 h-3.5 rounded-sm" style={{ background: c }} />{t}</span>))}
+              </span>
             </div>
 
             {docs && !vus.length && (
@@ -237,55 +241,62 @@ export default function Documentation() {
               </p>
             )}
 
-            <div className="space-y-1.5">
-              {vus.map(d => (
-                <div key={d.cle} className="carte px-3 py-2 flex items-center gap-3"
-                  style={d.a_confirmer
-                    ? { borderLeftWidth: 3, borderLeftColor: 'var(--c-attente)' } : undefined}>
-                  <span className="flex-1 min-w-0">
-                    <span className="text-sm font-semibold text-iip-blue">{d.titre}</span>
-                    <span className="block text-xs text-slate-500">
-                      {libelleNature.get(d.nature) || d.nature}
-                      {d.version ? ` · version ${d.version.numero} du ${frDate(d.version.publiee_le)}` : ' · aucune version publiée'}
-                      {d.retire_le ? ' · RETIRÉ' : ''}
-                    </span>
-                  </span>
+            {/* UNE LISTE, PAS DES TUILES (Charles, 30 octobre 2026 : « pas de tuiles différentes pour chaque
+                ligne ; cliquer dessus doit lire ou ouvrir le lien ; obligatoire rouge, lu vert, pour info bleu »).
+                Le liseré gauche porte l'état ; toute la ligne ouvre le texte (ou le texte officiel en ligne
+                quand aucune version n'est publiée). */}
+            {vus.length > 0 && (
+              <div className="carte overflow-hidden">
+                {vus.map(d => {
+                  const lu = !!d.confirme_le || (!d.a_confirmer && !!d.ouvert_le);
+                  const couleur = d.a_confirmer ? 'var(--c-refuse)' : lu ? 'var(--c-reussi)' : 'var(--c-disponible)';
+                  const lien = !d.version && d.source_url;
+                  const ouvrir = () => (lien ? window.open(d.source_url, '_blank', 'noopener') : setOuvert(d.cle));
+                  return (
+                    <div key={d.cle} role="button" tabIndex={0} onClick={ouvrir}
+                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ouvrir(); } }}
+                      className="ligne-maison last:border-b-0 flex items-center gap-3 pl-4 pr-2 py-2.5 cursor-pointer"
+                      style={{ boxShadow: `inset 4px 0 0 ${couleur}` }}>
+                      <span className="flex-1 min-w-0">
+                        <span className="text-sm font-semibold text-iip-texte flex items-center gap-1.5">
+                          <span className="truncate">{d.titre}</span>
+                          {lien && <IconExternalLink size={13} className="flex-none text-slate-400" />}
+                        </span>
+                        <span className="block text-xs text-slate-500 truncate">
+                          {libelleNature.get(d.nature) || d.nature}
+                          {d.version ? ` · version ${d.version.numero} du ${frDate(d.version.publiee_le)}` : ' · aucune version publiée'}
+                          {d.retire_le ? ' · RETIRÉ' : ''}
+                        </span>
+                      </span>
 
-                  {/* L'ÉTAT PERSONNEL, ET IL NE DIT QU'UNE CHOSE À LA FOIS. */}
-                  {d.confirme_le ? (
-                    <span className="text-xs text-emerald-700 flex items-center gap-1 flex-none">
-                      <IconCheck size={14} /> confirmé le {frDate(d.confirme_le)}
-                    </span>
-                  ) : d.a_confirmer ? (
-                    <span className="text-xs text-iip-texte flex-none">à confirmer</span>
-                  ) : d.me_concerne ? null : (
-                    <span className="text-xs text-slate-400 flex-none">pour information</span>
-                  )}
+                      {/* L'ÉTAT PERSONNEL, ET IL NE DIT QU'UNE CHOSE À LA FOIS. */}
+                      <span className="text-xs text-slate-500 flex-none hidden sm:flex items-center gap-1">
+                        {d.confirme_le ? <><IconCheck size={14} /> confirmé le {frDate(d.confirme_le)}</>
+                          : d.a_confirmer ? 'à confirmer'
+                          : lu ? <><IconCheck size={14} /> lu</> : 'pour information'}
+                      </span>
 
-                  <button className="bouton text-second px-2.5 py-1 flex-none"
-                    onClick={() => setOuvert(d.cle)}>
-                    <IconFileText size={14} /> Lire
-                  </button>
-                  {publie && (
-                    <button className="bouton text-second px-2.5 py-1 flex-none"
-                      title="Qui a confirmé, qui pas"
-                      onClick={() => setRegistre(d.cle)}>
-                      <IconUsersGroup size={14} />
-                    </button>
-                  )}
-                  {/* RETIRER SE VOIT SUR LA LIGNE (Charles, 27 septembre 2026 : « je
-                      ne sais toujours pas supprimer »). Le bouton sous le texte
-                      ne se trouvait pas ; ici il ouvre le texte sur la confirmation. */}
-                  {publie && !d.retire_le && (
-                    <button className="bouton text-second px-2.5 py-1 flex-none"
-                      title="Retirer ce texte" aria-label="Retirer ce texte"
-                      onClick={() => { setRetirerOuvert(true); setOuvert(d.cle); }}>
-                      <IconTrash size={14} />
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
+                      {publie && (
+                        <button className="p-1.5 rounded-champ text-slate-500 hover:bg-slate-100 flex-none"
+                          title="Qui a confirmé, qui pas" aria-label="Qui a confirmé, qui pas"
+                          onClick={e => { e.stopPropagation(); setRegistre(d.cle); }}>
+                          <IconUsersGroup size={16} />
+                        </button>
+                      )}
+                      {/* RETIRER SE VOIT SUR LA LIGNE (Charles, 27 septembre 2026 : « je ne sais toujours pas
+                          supprimer ») : il ouvre le texte sur la confirmation. */}
+                      {publie && !d.retire_le && (
+                        <button className="p-1.5 rounded-champ text-slate-500 hover:bg-slate-100 flex-none"
+                          title="Retirer ce texte" aria-label="Retirer ce texte"
+                          onClick={e => { e.stopPropagation(); setRetirerOuvert(true); setOuvert(d.cle); }}>
+                          <IconTrash size={16} />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </>
         )}
       </div>

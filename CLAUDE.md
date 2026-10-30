@@ -2941,6 +2941,11 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   « Aide et règles » est un texte du site étudiant (mode d'emploi, grille de lecture) qui absorbe l'onglet Règlements.
   Le candidat voit Mes frais, pas Mon parcours. Le projet du portail est entièrement construit ; restent les frais
   estimés à côté du PAE en ligne.
+- **LES TEXTES DE DOCUMENTATION EN UNE LISTE** (3.1.519, Charles, 30 octobre 2026 : « pas de tuiles différentes pour chaque
+  ligne ; cliquer dessus doit lire ou ouvrir le lien ; obligatoire rouge à gauche, lu vert, pour info bleu »). Une seule carte,
+  une ligne par texte (`.ligne-maison`), liseré gauche de 4 px : `--c-refuse` à confirmer, `--c-reussi` confirmé ou (texte non
+  opposable) déjà ouvert, `--c-disponible` pour information ; légende à droite du compteur. Toute la ligne ouvre le texte, ou
+  `source_url` quand aucune version n'est publiée ; le bouton « Lire » disparaît ; registre et retrait en icônes nues.
 - **VOIR L'ESPACE COMME L'ÉTUDIANT** (3.1.518, Charles : « en tant que directeur, je dois avoir un mode voir comme un étudiant
   pour tester ou vérifier »). Fiche → Suivi → « Voir son espace » (direction et administrateur ; `POST
   /api/portail-suivi/:id/apercu`, tracé dans `portail_apercu`) : Lucie demande au portail (`/interne/apercu`) un lien d'une
