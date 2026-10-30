@@ -10,7 +10,7 @@
  *   savoir — ce qu'il faut savoir : les règles qui bloquent ou qui surprennent.
  * Il explique le travail, pas l'informatique (CLAUDE.md, § 7). La version décrite se dit en tête.
  */
-export const VERSION_DECRITE = '3.1.525';
+export const VERSION_DECRITE = '3.1.526';
 
 export const RUBRIQUES = [
   {
@@ -983,6 +983,7 @@ export const RUBRIQUES = [
         savoir: [
           "Une unité grisée ne se choisit pas en ligne (déjà acquise, prérequis manquant, épreuve intégrée…) ; la raison est écrite dessous. Il en parle à sa coordination.",
           "Une unité posée par l'école et hors de sa main reste cochée et grisée : elle demeure au programme.",
+          "Sous la liste, les frais estimés suivent ses choix : droit d'inscription, frais administratifs et acompte, calculés comme la note de frais. C'est une estimation : la note de frais remise par l'école fait foi.",
         ],
         images: [
           { src: "/guide/portail-pae.png", legende: "Mon PAE (données d'essai) : la proposition attend la coordination ; l'UE 333, posée par l'école, reste au programme.", etroite: true },

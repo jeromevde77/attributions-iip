@@ -2957,8 +2957,14 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   ECTS de `ue.ects`) et `fraisPortail` (`calculerFrais` : lignes, versements, échéance ; `virement` et QR `qrSvg` de la
   charge EPC, seulement s'il reste à payer et qu'un IBAN existe), déposés avec le lot de l'étudiant (`espace_lot` du portail).
   « Aide et règles » est un texte du site étudiant (mode d'emploi, grille de lecture) qui absorbe l'onglet Règlements.
-  Le candidat voit Mes frais, pas Mon parcours. Le projet du portail est entièrement construit ; restent les frais
-  estimés à côté du PAE en ligne.
+  Le candidat voit Mes frais, pas Mon parcours. Le projet du portail est entièrement construit.
+  **LES FRAIS ESTIMÉS À CÔTÉ DU PAE EN LIGNE** (3.1.526) : `lib/fraisEstimes.js` — `tarifPAE(etudId, annee, ueNums)` (barèmes du
+  DI et des frais de l'année, exonération, `sectionsSansFrais`/tiers, droit spécifique, et par unité `per_di` = `periodesDI`,
+  `per_etud` = `periodesEtudiantUE`, niveau) déposé avec l'offre (`offrePAE().tarif`, unités offertes + programme) ; `estimerFrais`
+  — forfait une fois, plafond global le secondaire d'abord, DI arrondi aux 5 cents, fixes + périodes étudiant — est RECOPIÉE telle
+  quelle dans `EspaceEtudiant.jsx` (`FraisEstimes`, sous la liste et sur le PAE confirmé). Vérifiée contre `calculerFrais`
+  (`total_hors_va`, `acompte`) : plafond dépassé, exonéré, DIS, sous-ensemble. **Qui change une règle de `calculerDI` ou de
+  `calculerFrais` change aussi les deux copies d'`estimerFrais`.** Hors estimation : forfait VA, dispenses.
 - **LES TEXTES DE DOCUMENTATION EN UNE LISTE** (3.1.519, Charles, 30 octobre 2026 : « pas de tuiles différentes pour chaque
   ligne ; cliquer dessus doit lire ou ouvrir le lien ; obligatoire rouge à gauche, lu vert, pour info bleu »). Une seule carte,
   une ligne par texte (`.ligne-maison`), liseré gauche de 4 px : `--c-refuse` à confirmer, `--c-reussi` confirmé ou (texte non
@@ -2970,7 +2976,7 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   minute, à usage unique (`apercu_jeton`) ; échangé (`POST /api/portail/apercu`) contre une session de 30 min, claim `apercu`.
   Dans `connecte` : tout ce qui n'est pas GET est refusé, la règle de la Belgique ne s'applique pas, et `presenter()` n'est pas
   appelé (rien ne compte comme présenté à l'étudiant). Bandeau « Aperçu de la direction » dans l'espace.
-- **LES RAPPELS — CE QUI EST TRANCHÉ, RIEN N'EST CODÉ** (Charles, 30 octobre 2026 : « points non encodés, notes non lues,
+- **LES RAPPELS — TRANCHÉS PUIS CONSTRUITS EN QUATRE ÉTAPES (3.1.522 → 3.1.525)** (Charles, 30 octobre 2026 : « points non encodés, notes non lues,
   documents non vus… délibération dans moins de 10 jours… avec courriel automatique sur l'adresse Prigogine, prof ou étudiant
   le cas échéant, secrétariat ; ça doit être complet »). Quatre familles, toutes par courriel à l'adresse d'INSTITUT :
   professeurs, étudiants (par le portail, derrière le mur), secrétariat, coordination et direction. Forme : tout entre dans le
@@ -3023,7 +3029,7 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   lien de l'espace, reporté au lendemain si l'avis des messages est parti le jour même ; adresse d'institut, le candidat à son adresse
   privée tant que son code vaut. Cinq interrupteurs (`etudiants_*`, `etudiants: true` dans le CATALOGUE) ; Configuration → Rappels
   liste aussi « Derniers rappels aux étudiants ». Restent : l'assiduité CEP par tranche de 3 mois (aucune trace d'attestation émise).
-- **LE PORTAIL DE L'ÉTUDIANT — CE QUI EST TRANCHÉ, RIEN N'EST CODÉ** (Charles, 30 octobre 2026 ; projet : logigramme et
+- **LE PORTAIL DE L'ÉTUDIANT — CE QUI A ÉTÉ TRANCHÉ (tout est construit, 3.1.513 → 3.1.517 et 3.1.526)** (Charles, 30 octobre 2026 ; projet : logigramme et
   treize écrans hors dépôt). Mot de passe choisi par l'étudiant (comme le personnel), code en plus sur un nouvel appareil.
   **PAE en ligne** : Lucie coche ce qui est accessible (`etatsPAE`), l'étudiant choisit et envoie, la coordination valide ou
   corrige, il confirme par code ; **aucune exception demandée en ligne** (« sinon ça va être la folie ») — ce qu'une règle

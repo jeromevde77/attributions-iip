@@ -12,6 +12,7 @@
  */
 import db from '../db/index.js';
 import { composerPAE, ecrireProgramme } from '../routes/etudiants.js';
+import { tarifPAE } from './fraisEstimes.js';
 
 export function migrerPaeEnLigne(dbx = db) {
   dbx.exec(`
@@ -85,7 +86,10 @@ export function offrePAE(e, anneeVoulue = null) {
       // POSÉE PAR L'ÉCOLE ET HORS DE SA MAIN : elle reste au programme ; l'étudiant ne l'ajoute ni ne la retire.
       verrouillee: !raison ? false : programme.includes(Number(u.ue_num)) };
   });
-  return { ...base, unites, sections: c.sections || [], confirme_le: c.pae_confirme_le || null };
+  // LES FRAIS ESTIMÉS (3.1.526) : le tarif de l'année du PAE, pour chaque unité offerte ; le portail additionne.
+  let tarif = null;
+  try { tarif = tarifPAE(e.id, annee, [...new Set([...unites.map(u => Number(u.ue_num)), ...programme.map(Number)])]); } catch (x) { console.error('[pae en ligne] tarif :', x.message); }
+  return { ...base, unites, sections: c.sections || [], confirme_le: c.pae_confirme_le || null, tarif };
 }
 
 /** La proposition de l'étudiant : jugée ici, jamais écrite au programme. Rend null, ou la phrase qu'il lira. */

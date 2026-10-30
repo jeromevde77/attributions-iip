@@ -413,7 +413,7 @@ const GUIDE = [
   ['Entrer', "Votre adresse de l'institut et votre mot de passe. Sur un appareil que vous n'avez pas fait reconnaître, un code reçu par courriel est demandé en plus. Mot de passe oublié : « Première visite, ou mot de passe oublié ? ». L'espace s'ouvre depuis la Belgique ; en stage ou en Erasmus à l'étranger, le secrétariat peut vous l'ouvrir pour la durée du séjour."],
   ['Mes résultats', 'Les décisions du Conseil des études, une fois la délibération close et publiée. La grille ci-dessous dit comment les lire.'],
   ['Messages', "Ce que l'école vous écrit. Vous pouvez répondre : votre réponse va à la personne qui a écrit."],
-  ['Mon PAE', "Pendant la période annoncée, cochez les unités que vous voulez suivre et envoyez votre proposition ; votre coordination la valide ou la corrige. Une fois votre PAE confirmé par l'école, confirmez-le à votre tour."],
+  ['Mon PAE', "Pendant la période annoncée, cochez les unités que vous voulez suivre et envoyez votre proposition ; votre coordination la valide ou la corrige. Sous la liste, les frais estimés suivent vos choix. Une fois votre PAE confirmé par l'école, confirmez-le à votre tour."],
   ['Mes documents', "Vos attestations et les décisions qui vous concernent. Ouvrez-les, puis signez l'accusé de réception (un code reçu par courriel). Téléchargement libre pendant 90 jours ; ensuite, un code est demandé."],
   ['Valorisation', "Faire reconnaître des études ou une expérience pour une unité : une demande par unité, avec vos pièces. Vous complétez tant que le secrétariat ne l'a pas examinée. L'admission se demande au secrétariat."],
   ['Mes frais', 'Ce qui est dû, versé, ce qui reste ; et le QR à scanner pour payer avec la bonne communication.'],
@@ -506,6 +506,52 @@ function MesMessages({ onErreur, onLus }) {
   );
 }
 
+/** LES FRAIS ESTIMÉS (3.1.526) : la formule de Lucie (backend/src/lib/fraisEstimes.js, `estimerFrais`), recopiée telle
+ *  quelle — le tarif vient de Lucie avec l'offre, l'espace ne fait qu'additionner les unités cochées. */
+function estimerFrais(t, ues) {
+  const arrondi = n => Math.round((Number(n) || 0) * 100) / 100;
+  const l = ues.map(n => t.unites[Number(n)]).filter(Boolean);
+  if (!l.length) return null;
+  const somme = (niv, k) => l.filter(u => !niv || u.niveau === niv).reduce((s, u) => s + (Number(u[k]) || 0), 0);
+  const sec = Math.min(somme('secondaire', 'per_di'), t.plafond);
+  const sup = Math.max(0, Math.min(somme('superieur', 'per_di'), t.plafond - sec));
+  const droit = t.exonere_di ? 0 : Math.round((t.forfait + sec * t.tarif_secondaire + sup * t.tarif_superieur) * 20) / 20;
+  const fixes = t.sans_frais ? 0 : t.frais_fixes;
+  const variables = t.sans_frais ? 0 : arrondi(somme(null, 'per_etud') * t.par_periode);
+  const total = arrondi(droit + t.dis + fixes + variables);
+  return { droit: arrondi(droit), dis: t.dis, fixes: arrondi(fixes), variables, total, acompte: arrondi(droit + t.dis + fixes),
+    periodes: somme(null, 'per_etud') };
+}
+
+function FraisEstimes({ tarif, ues }) {
+  if (!tarif) return null;
+  const f = estimerFrais(tarif, ues);
+  if (!f) return null;
+  const lignes = [
+    ['Droit d’inscription', f.droit, tarif.exonere_di ? 'exonéré' : null],
+    ['Droit spécifique', f.dis],
+    ['Frais administratifs (part fixe)', f.fixes],
+    [`Frais administratifs (${f.periodes} périodes)`, f.variables],
+  ].filter(([, m, note]) => m > 0 || note);
+  return (
+    <div className="bg-white border border-slate-200 rounded-carte px-4 py-3 text-sm space-y-1.5">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="font-semibold text-iip-texte">Frais estimés pour {tarif.annee}</span>
+        <span className="text-lg font-semibold tabular-nums text-iip-texte">{eur(f.total)}</span>
+      </div>
+      {lignes.map(([lib, m, note]) => (
+        <div key={lib} className="flex justify-between gap-3 text-slate-600">
+          <span>{lib}{note ? ` — ${note}` : ''}</span><span className="tabular-nums">{eur(m)}</span>
+        </div>))}
+      <div className="flex justify-between gap-3 text-slate-600 border-t border-slate-100 pt-1.5">
+        <span>dont acompte à l’inscription</span><span className="tabular-nums">{eur(f.acompte)}</span>
+      </div>
+      <p className="text-xs text-slate-500">Une estimation, selon les unités cochées : ce qui fait foi est la note de frais que l’école vous remettra.
+        {tarif.tiers ? ` Vos droits sont perçus par ${tarif.tiers}.` : ''} Une demande de valorisation a ses propres frais d’analyse.</p>
+    </div>
+  );
+}
+
 /** LE PAE EN LIGNE (3.1.515) : Lucie coche ce qui est accessible ; l'étudiant choisit et envoie ; la coordination valide
  *  ou corrige ; une fois le PAE confirmé par l'école, il le confirme à son tour par un code. */
 function MonPAE({ onErreur }) {
@@ -564,6 +610,7 @@ function MonPAE({ onErreur }) {
         <ul className="bg-white border border-slate-200 rounded-carte divide-y divide-slate-100">
           {(o.programme || []).map(n => <li key={n} className="px-4 py-2 text-sm"><span className="text-slate-500 tabular-nums mr-2">UE {n}</span>{nomUE(n)}</li>)}
         </ul>
+        <FraisEstimes tarif={o.tarif} ues={o.programme || []} />
         {!signe && !attend && (codeEnvoye ? (
           <div className="flex flex-wrap gap-2">
             <input value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" placeholder="Code reçu"
@@ -604,6 +651,7 @@ function MonPAE({ onErreur }) {
           </label>))}
       </div>
       <p className="text-xs text-slate-500">Une unité grisée ne se choisit pas en ligne : si vous pensez qu’elle devrait l’être, parlez-en à votre coordination.</p>
+      <FraisEstimes tarif={o.tarif} ues={[...(choix || []), ...(o.unites || []).filter(u => u.verrouillee).map(u => u.ue_num)]} />
       {o.ouvert && <button type="button" className="bouton bouton-fort w-full" disabled={!n || enCours || attend}
         onClick={() => geste('/pae/proposer', { ues: [...choix] })}>Envoyer ma proposition — {n + verrouillees} unité{n + verrouillees > 1 ? 's' : ''}</button>}
     </div>
