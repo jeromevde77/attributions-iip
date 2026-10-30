@@ -414,7 +414,7 @@ tâches, à la liste des réunions, à la séance (lecture, modification, PV) et
 
 **LE MUR ENTRE LUCIE ET LES ÉTUDIANTS** (3.1.477, Charles, 30 octobre 2026 : « impératif : un mur de Berlin
 infranchissable entre la version de Lucie pour les MDP et la version accessible aux étudiants » ; tranché : une base
-étudiante à part, etudiant.lucie-iip.be). **L'espace de l'étudiant de 3.1.475 a quitté Lucie.** Il vit dans le
+étudiante à part, etudiants.lucie-iip.be). **L'espace de l'étudiant de 3.1.475 a quitté Lucie.** Il vit dans le
 PORTAIL : serveur `portail/src/serveur.js` (dossier, image et `package.json` à lui — aucune ligne de Lucie), sa base
 `portail.db`, sa clé de session `PORTAIL_SECRET` ; site construit seul (`frontend/portail.html`,
 `src/portail/`, `vite.portail.config.js`, `Dockerfile.portail`, `nginx-portail.conf` qui ne relaie que

@@ -2,7 +2,7 @@
 // LUCIE ET LE PORTAIL DES ÉTUDIANTS — LE PASSAGE À SENS UNIQUE (3.1.477, Charles, 30 octobre 2026 : « un mur
 // de Berlin infranchissable entre la version de Lucie pour les MDP et la version accessible aux étudiants »).
 //
-// Le portail (dossier `portail/`, etudiant.lucie-iip.be) n'a ni la base de Lucie, ni ses clés, ni son courriel,
+// Le portail (dossier `portail/`, etudiants.lucie-iip.be) n'a ni la base de Lucie, ni ses clés, ni son courriel,
 // et il ne peut pas l'appeler. C'est Lucie qui va vers lui, sur son port INTERNE (réseau Docker, jeton partagé
 // `PORTAIL_JETON`), toutes les dix secondes :
 //
@@ -23,7 +23,7 @@ import { derniereVersion, versionReference } from '../routes/documentation.js';
 
 const URL_INTERNE = () => (process.env.PORTAIL_INTERNE_URL || '').replace(/\/$/, '');
 const JETON = () => process.env.PORTAIL_JETON || '';
-const URL_PUBLIQUE = () => (process.env.PORTAIL_URL_PUBLIQUE || 'https://etudiant.lucie-iip.be').replace(/\/$/, '');
+const URL_PUBLIQUE = () => (process.env.PORTAIL_URL_PUBLIQUE || 'https://etudiants.lucie-iip.be').replace(/\/$/, '');
 export const portailActif = () => !!URL_INTERNE() && JETON().length >= 32;
 const esc = t => String(t ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 

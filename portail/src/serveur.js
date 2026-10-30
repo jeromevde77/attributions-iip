@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // LE PORTAIL DES ÉTUDIANTS — DE L'AUTRE CÔTÉ DU MUR (3.1.477, Charles, 30 octobre 2026 : « il est impératif
 // qu'un mur de Berlin infranchissable soit mis entre la version de Lucie pour les MDP et la version accessible
-// aux étudiants » ; tranché : une base étudiante à part, etudiant.lucie-iip.be).
+// aux étudiants » ; tranché : une base étudiante à part, etudiants.lucie-iip.be).
 //
 // CE PROGRAMME NE CONTIENT RIEN DE LUCIE. Pas une ligne de son code, pas sa base, pas ses clés (ni JWT_SECRET,
 // ni MFA_KEY), pas son serveur de courriel, et il ne l'appelle jamais : il n'est pas sur son réseau. Il a SA
@@ -28,7 +28,7 @@ const PORT_PUBLIC = Number(process.env.PORT_PUBLIC || 3101);
 const PORT_INTERNE = Number(process.env.PORT_INTERNE || 3102);
 const SECRET = process.env.PORTAIL_SECRET || '';
 const JETON_INTERNE = process.env.PORTAIL_JETON || '';
-const URL_PUBLIQUE = (process.env.PORTAIL_URL_PUBLIQUE || 'https://etudiant.lucie-iip.be').replace(/\/$/, '');
+const URL_PUBLIQUE = (process.env.PORTAIL_URL_PUBLIQUE || 'https://etudiants.lucie-iip.be').replace(/\/$/, '');
 if (SECRET.length < 32 || JETON_INTERNE.length < 32) {
   console.error('[portail] PORTAIL_SECRET et PORTAIL_JETON (32 caractères au moins) sont requis : refus de démarrer.');
   process.exit(1);

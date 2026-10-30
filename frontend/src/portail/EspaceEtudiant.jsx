@@ -4,7 +4,7 @@ import { IconCertificate, IconFileText, IconBook, IconSignature, IconCheck, Icon
 /**
  * L'ESPACE DE L'ÉTUDIANT (3.1.475, Charles : « un mini espace ultra sécurisé : récupérer ses documents, voir ses
  * notes, signer les accusés de réception »). DEPUIS 3.1.477, DE L'AUTRE CÔTÉ DU MUR : ce fichier est servi par le
- * site des étudiants (etudiant.lucie-iip.be, `vite.portail.config.js`) et ne parle qu'au portail (/api/portail),
+ * site des étudiants (etudiants.lucie-iip.be, `vite.portail.config.js`) et ne parle qu'au portail (/api/portail),
  * qui n'a ni la base ni les clés de Lucie. Son propre jeton (sessionStorage, « lucie.espace »).
  * Trois faces : résultats délibérés, documents, règlements. Signer un accusé = avoir ouvert la pièce + un code à
  * six chiffres reçu à l'adresse d'école. Serveur : portail/src/serveur.js.

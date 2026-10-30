@@ -70,11 +70,11 @@ dev.lucie-iip.be {
 # ------------------------------------------------- LE PORTAIL DES ÉTUDIANTS (3.1.477, le mur)
 # Le site des étudiants : son propre frontend, qui ne relaie que /api/portail/ vers le portail. Rien ici ne
 # mène à Lucie.
-etudiant.lucie-iip.be {
+etudiants.lucie-iip.be {
 	import commun
 	reverse_proxy portail-frontend:80
 }
-etudiant-dev.lucie-iip.be {
+etudiants-dev.lucie-iip.be {
 	import commun
 	header X-Lucie-Env "DEVELOPPEMENT"
 	reverse_proxy portail-frontend-dev:80

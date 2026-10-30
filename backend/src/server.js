@@ -3094,7 +3094,7 @@ app.use((req, res, next) => {
 // propre jeton — aucune route du personnel ne l'accepte.
 app.use('/api/portail-va', (await import('./routes/portailVA.js')).default);
 // L'ESPACE DE L'ÉTUDIANT N'EST PLUS ICI (3.1.477, le mur) : il vit dans le portail (dossier portail/,
-// etudiant.lucie-iip.be), sa base et ses clés à lui. Lucie n'en sert qu'une lecture pour la fiche.
+// etudiants.lucie-iip.be), sa base et ses clés à lui. Lucie n'en sert qu'une lecture pour la fiche.
 {
   const { suiviPortail, planifierPortail } = await import('./lib/portailSync.js');
   const { authRequired: exigerCompte } = await import('./middleware/auth.js');

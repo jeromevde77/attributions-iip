@@ -7,7 +7,7 @@ MDP et la version accessible aux étudiants ».
 
 | | Lucie (personnel) | Portail (étudiants) |
 |---|---|---|
-| Adresse | www.lucie-iip.be / dev.lucie-iip.be | **etudiant.lucie-iip.be** / **etudiant-dev.lucie-iip.be** |
+| Adresse | www.lucie-iip.be / dev.lucie-iip.be | **etudiants.lucie-iip.be** / **etudiants-dev.lucie-iip.be** |
 | Code | `backend/`, `frontend/` | `portail/` (serveur), `frontend/src/portail/` (site, construit seul) |
 | Images | attributions-backend / -frontend | **lucie-portail-backend** / **lucie-portail-frontend** |
 | Base | `prod/data/attributions.db` | `portail/data/portail.db` (la sienne, rien d'autre) |
@@ -20,7 +20,7 @@ n'envoie même pas de courriel — il inscrit une demande que Lucie relève, vé
 
 ## Installation (une fois, en `jeromevde`, dans /opt/lucie)
 
-1. **DNS** : deux enregistrements A (ou CNAME) vers le VPS : `etudiant.lucie-iip.be` et `etudiant-dev.lucie-iip.be`.
+1. **DNS** : deux enregistrements A (ou CNAME) vers le VPS : `etudiants.lucie-iip.be` et `etudiants-dev.lucie-iip.be`.
 2. **Quatre secrets** dans `/opt/lucie/.env` (chacun fabriqué séparément, jamais réutilisé, jamais écrit ailleurs) :
    ```
    node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"
@@ -43,9 +43,9 @@ n'envoie même pas de courriel — il inscrit une demande que Lucie relève, vé
 
 ## Vérifier
 
-- `https://etudiant-dev.lucie-iip.be` affiche « Mon espace étudiant ».
-- `curl -s https://etudiant-dev.lucie-iip.be/api/portail/sante` → `{"ok":true}`.
-- `curl -s -o /dev/null -w '%{http_code}' https://etudiant-dev.lucie-iip.be/api/etudiants` → **404** (aucune route de Lucie).
+- `https://etudiants-dev.lucie-iip.be` affiche « Mon espace étudiant ».
+- `curl -s https://etudiants-dev.lucie-iip.be/api/portail/sante` → `{"ok":true}`.
+- `curl -s -o /dev/null -w '%{http_code}' https://etudiants-dev.lucie-iip.be/api/etudiants` → **404** (aucune route de Lucie).
 - Le journal de Lucie ne dit plus « [portail] non configuré ».
 - Depuis le conteneur du portail, Lucie est injoignable :
   `sudo docker exec lucie-portail-backend-dev node -e "fetch('http://backend:3001/api/health').then(()=>console.log('JOIGNABLE — ANOMALIE')).catch(()=>console.log('injoignable : bien'))"`
