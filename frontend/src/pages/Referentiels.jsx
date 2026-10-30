@@ -1,3 +1,35 @@
+    try {
+      if (portee !== 'toutes') {
+        const sim = await api.renameUENum(ue.ue_num, n, true, portee);
+        const detail = sim.tables.slice(0, 16).map(t => `  • ${t.table} : ${t.lignes}${t.note ? ` — ${t.note}` : ''}`).join('\n');
+        const ok = await demander(
+          `L'UE ${ue.ue_num} devient l'UE ${n} À PARTIR DE ${portee}.\n\n`
+          + `Les années d'avant gardent ${ue.ue_num}. Pour ${portee} et après, ${sim.total} ligne(s) changeront :\n${detail}`
+          + `${sim.tables.length > 16 ? '\n  • …' : ''}\n\nUne sauvegarde de la base est faite avant d'écrire ; si une seule ligne `
+          + `refuse de changer, rien n'est écrit.`);
+        if (!ok) { setSaving(false); return; }
+        const fait = await api.renameUENum(ue.ue_num, n, false, portee);
+        informer(`✓ L'UE ${ue.ue_num} est devenue l'UE ${n} à partir de ${portee} (${fait.total} ligne(s)).`);
+        onSaved();
+        return;
+      }
+      const sim = await api.renameUENum(ue.ue_num, n, true);
+      const detail = sim.lignes.slice(0, 14).map(l => `  • ${l.table} (${l.colonne}) : ${l.n}`).join('\n');
+      const cours = sim.cours.map(([a, b]) => `${a} → ${b}`).join(', ');
+      const ok = await demander(
+        `Renuméroter l'UE ${ue.ue_num} en ${n}, sur TOUTES les années ?\n\n`
+        + `${sim.total} ligne(s) changeront :\n${detail}${sim.lignes.length > 14 ? '\n  • …' : ''}\n\n`
+        + (cours ? `Cours : ${cours}\n` : '')
+        + (sim.aa.length ? `Acquis : ${sim.aa.length} (AA${ue.ue_num}.x → AA${n}.x)\n` : '')
+        + (sim.hors_modele.length ? `\nCodes de cours hors modèle, NON renommés : ${sim.hors_modele.join(', ')}\n` : '')
+        + `\nLes pièces déjà délivrées portent l'ancien numéro.`);
+      if (!ok) { setSaving(false); return; }
+      await api.renameUENum(ue.ue_num, n, false);
+      onSaved();
+    }
+    catch (e) { informer('Erreur : ' + e.message); setSaving(false); }
+  }
+
 import EditeurRubrique from '../components/EditeurRubrique.jsx';
 import { rubriquesDuDossier, decouperProgramme, recomposerProgramme } from '../lib/texteDossier.js';
 import { MODES_GROUPES } from '../lib/groupes.js';
@@ -696,6 +728,8 @@ function UEModal({ ue, sections, onClose, onSaved, navigation = null }) {
   const [saving, setSaving] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [newNum, setNewNum] = useState('');
+  // Toutes les années (la bibliothèque), ou à partir d'une année : un nouveau numéro officiel FWB (3.1.473).
+  const [portee, setPortee] = useState('toutes');
   // Multi-sections : ensemble des codes de sections cochées
   const [selSections, setSelSections] = useState(new Set(ue?._sections ? [...ue._sections] : (ue?.section ? [ue.section] : [])));
   function set(k, v) { setForm(f => ({ ...f, [k]: v })); }
@@ -833,9 +867,15 @@ function UEModal({ ue, sections, onClose, onSaved, navigation = null }) {
         {renaming && (
           <div className="mt-2 rounded-carte border border-slate-200 p-3 space-y-2">
             <p className="text-second text-slate-600">
-              Forcer le numéro met à jour l'unité, ses cours, ses attributions et ses rattachements,
-              sur toutes les années. Lucie vérifie qu'il est libre et montre ce qui changera avant d'écrire.
+              Forcer le numéro met à jour l'unité, ses cours, ses acquis et tout ce qui s'y rattache. Lucie vérifie
+              qu'il est libre et montre ce qui changera avant d'écrire.
             </p>
+            <label className="flex items-center gap-2 text-second text-slate-600">Portée
+              <select value={portee} onChange={e => setPortee(e.target.value)} className="controle">
+                <option value="toutes">Toutes les années (l'unité a toujours porté ce numéro)</option>
+                <option value={getAnnee()}>À partir de {getAnnee()} (nouveau numéro officiel ; les années d'avant gardent l'ancien)</option>
+              </select>
+            </label>
             <div className="flex gap-2">
               <input type="number" value={newNum} onChange={e => setNewNum(e.target.value)}
                 placeholder="Nouveau numéro" className="controle flex-1" />

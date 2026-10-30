@@ -363,6 +363,20 @@ personne et par jour). Interrupteur et essai : Configuration → Courriels → *
 (`GET/PUT /api/envois/recap`, `POST /api/envois/recap/moi`). **Automatique en production seulement** (la dev redirige
 tout vers une seule boîte). Le premier matin, tout ce qui attend compte comme nouveau : chacun en reçoit un.
 
+**CHANGER LE NUMÉRO D'UNE UE À PARTIR D'UNE ANNÉE** (3.1.473, Charles, 30 octobre 2026 — Florian Daeleman : soins de
+plaies, UE 244 devenue 331 avec le nouveau dossier ; tranché : 331 dès 2026-2027, les années d'avant gardent 244).
+Référentiels → fiche de l'UE → *Forcer le numéro* → Portée « À partir de <année active> » (`PATCH
+/api/ref/ue/:num/rename` avec `a_partir_de`, moteur `lib/renumeroterUE.js` ; « Toutes les années » reste
+`lib/renommerUE.js`). Pour l'année et les suivantes : toute colonne de numéro d'UE et tout code (cours « 244.1 »,
+acquis « AA244.1 », clés « s1|244.1|AA244.1 », « 244#2 », listes `cible_detail`) des tables qui ont une année, plus
+celles rattachées à une table qui en a une (grille_cours, carnet_evaluation_aa, etudiant_valorisation_aa,
+proc_acquis, amenagement_ue/mesure). Les acquis (`aa`, sans année), l'introduction des acquis et les titres requis
+des cours sont COPIÉS sous le nouveau numéro ; les codes d'import (`ue_code_externe`) repointés. Journaux et
+réunions non touchés. Simulation d'abord ; refus si le nouveau numéro existe déjà (fusion) ; sauvegarde de la base
+avant d'écrire ; contrôle final — s'il reste une trace de l'ancien numéro sur la période, tout est annulé. Les
+reports sont traités en premier (la garde des notes reportées regarde le report). **À faire en production par la
+direction pour 244 → 331**, année active 2026-2027.
+
 **UNE UE DISPENSÉE EN ENTIER EST ACQUISE — ÇA SE LIT DU DOSSIER DE VA** (3.1.438). Les crédits de l'annexe 2,
 l'état du parcours (schéma) et le motif de l'annexe 2 attendaient un résultat `'valorise'` sur
 l'inscription, qu'aucune route n'écrivait : zéro crédit valorisé, partout, en silence. Plutôt qu'un second
