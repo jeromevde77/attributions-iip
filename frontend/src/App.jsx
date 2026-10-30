@@ -614,12 +614,13 @@ function ProtectedLayout({ children }) {
             <svg className="logo-lucie" width="98" height="28" viewBox="-12 -6 172 49"
               xmlns="http://www.w3.org/2000/svg">
               {/* LA VIERGE, CACHÉE DANS LE RÉSEAU (lib/logoVierge.js) : la figure à peine visible ; le L par-dessus,
-                  dont les trois extrémités SONT des étoiles — τ en haut, Spica au coin, Zaniah au bout. */}
-              <g stroke="#00AACC" strokeOpacity=".22" fill="none" strokeWidth="0.8" strokeLinecap="round">
+                  dont les trois extrémités SONT des étoiles — τ en haut, Spica au coin, Zaniah au bout. En aplat, comme
+                  la fin de l'animation de la connexion (3.1.487) : liens presque invisibles, étoiles discrètes, L plat. */}
+              <g stroke="#1B2B4B" strokeOpacity=".12" fill="none" strokeWidth="0.8" strokeLinecap="round">
                 {TRAITS.map(([a, b]) => <line key={a + b} x1={ETOILES[a][0]} y1={ETOILES[a][1]} x2={ETOILES[b][0]} y2={ETOILES[b][1]} />)}
               </g>
               {DISCRETES.map(k => (
-                <circle key={k} cx={ETOILES[k][0]} cy={ETOILES[k][1]} r={0.9 + (ECLAT[k] || 0.3) * 1.1} fill="#1B2B4B" fillOpacity=".16" />))}
+                <circle key={k} cx={ETOILES[k][0]} cy={ETOILES[k][1]} r={0.9 + (ECLAT[k] || 0.3) * 1.1} fill="#1B2B4B" fillOpacity=".3" />))}
               <path d={`M${POINTS_L[0][0]} ${POINTS_L[0][1]} L${POINTS_L[1][0]} ${POINTS_L[1][1]} L${POINTS_L[2][0]} ${POINTS_L[2][1]}`}
                 stroke="#00AACC" strokeOpacity=".85" fill="none" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
               {POINTS_L.map(([x, y], i) => (

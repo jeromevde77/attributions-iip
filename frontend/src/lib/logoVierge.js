@@ -51,3 +51,15 @@ export const CHRONO = (() => {
 })();
 /** Ce qui reste de la figure une fois le L posé. */
 export const RESTE = { etoile: 0.42, trait: 0.3 };   // 3.1.485 : la figure doit se reconnaître
+
+/* LES ÉTOILES DU MODE D'EMPLOI (3.1.487, Charles : « chaque étoile devient un des thèmes du mode d'emploi »). Dix-huit
+   chapitres pour douze étoiles dans la figure : six autres étoiles RÉELLES de la Vierge, hors des lignes des cartes du
+   ciel (β, ο, θ, λ, ρ, φ), mêmes projection et cisaillement (scratchpad vierge3.py). Elles ne paraissent que dans le
+   guide ; le logo de la barre et de la connexion garde la figure seule. */
+export const ETOILES_HORS = {
+  beta: [53.9, 35.2], omicron: [55.5, 22.7], theta: [22, 27.7], lambda: [-8.5, 24.1], rho: [45.1, 13.2], phi: [-0.8, 6.4],
+};
+export const ECLAT_HORS = { beta: .5, omicron: .4, theta: .4, lambda: .35, rho: .3, phi: .35 };
+/** Une étoile par chapitre, dans l'ordre des chapitres : la figure d'abord (Spica au chapitre 1), puis les six autres. */
+export const ETOILES_GUIDE = [...ORDRE_APPARITION, 'theta', 'beta', 'omicron', 'rho', 'phi', 'lambda'];
+export const positionEtoile = k => ETOILES[k] || ETOILES_HORS[k];

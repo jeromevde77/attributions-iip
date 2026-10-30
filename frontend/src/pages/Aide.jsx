@@ -275,8 +275,8 @@ export default function Aide({ integre = false }) {
                 </div>}
               </div>
               {/* Le logo de Lucie, fixe : chaque chapitre y allume son étoile, qui porte son pictogramme. */}
-              <div className="w-28 sm:w-36 flex-none">
-                <IllustrationGuide rang={index} Icone={ICONES[r.icone] || IconHelpCircle} />
+              <div className="w-36 sm:w-44 flex-none">
+                <IllustrationGuide chapitres={rubriques} rang={index} Icone={ICONES[r.icone] || IconHelpCircle} onChoisir={aller} />
               </div>
             </div>
 

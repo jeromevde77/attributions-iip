@@ -1,81 +1,104 @@
 /**
- * L'ILLUSTRATION DU MODE D'EMPLOI, TIRÉE DU LOGO DE LUCIE (3.1.470, Charles : « j'aime beaucoup l'image
- * animée, mais elle serait mieux sur base du logo de Lucie — il y a des lignes et des points que tu
- * pourrais colorer et animer »). Remplace les schémas de 3.1.467.
+ * LE LOGO DU MODE D'EMPLOI : UNE CARTE DES CHAPITRES (3.1.487, Charles : « dans le mode d'emploi il se dessine aussi,
+ * et chaque étoile devient un des thèmes du mode d'emploi »).
  *
- * La constellation du logo (App.jsx, `.logo-lucie`) est redessinée en grand : le réseau fin se trace, le
- * « L » se tire à l'accent, puis les points s'allument un à un, chacun dans une teinte de la maison (l'ordre
- * des teintes tourne d'un chapitre à l'autre), un éclat parcourt le L, et le pictogramme du chapitre se pose
- * au pied, dans la teinte du chapitre.
- * Mêmes coordonnées que le logo : on agrandit, on n'invente pas un second dessin. Couleurs du thème
- * (`var(--c-…)`, lues dans `style`) ; tout s'arrête pour qui a demandé moins de mouvement.
- *
- * 3.1.484 (Charles : « tu ne dois pas recréer le logo à chaque fois, mais allumer une étoile différente avec le
- * logo de la thématique dans cette étoile ») : le logo est FIXE — le L et la figure à peine visible, comme dans la
- * barre ; chaque chapitre allume UNE étoile de la Vierge, un cercle qui porte le pictogramme du chapitre.
+ * Le logo se DESSINE une fois, à la première ouverture du guide — les étoiles, Spica d'abord, puis les liens de la
+ * Vierge, puis le L —, en aplat, dans les couleurs de Lucie (pas de néon : c'est l'état final de la page de
+ * connexion). Il ne se redessine pas d'un chapitre à l'autre (« tu ne dois pas recréer le logo à chaque fois ») :
+ * seule l'étoile du chapitre ouvert change, un cercle qui porte son pictogramme.
+ * Chaque chapitre a SON étoile (`ETOILES_GUIDE` : les douze de la figure, puis six autres étoiles réelles de la
+ * Vierge, hors des lignes) ; toucher une étoile ouvre son chapitre — au doigt comme à la souris, le titre se lit
+ * dans `<title>` au survol et sous le logo pour l'étoile ouverte.
  */
-import { ETOILES, TRAITS, ECLAT, ORDRE_APPARITION, POINTS_L, RESTE } from '../lib/logoVierge.js';
+import { useEffect, useState } from 'react';
+import { ETOILES, TRAITS, ECLAT, POINTS_L, ETOILES_GUIDE, ECLAT_HORS, positionEtoile } from '../lib/logoVierge.js';
 
 const P = 'var(--c-principal, #16406A)';
 const A = 'var(--c-accent, #05B7E6)';
-const G = '#D8DCE4';
 
-// Les points et les lignes du logo (viewBox du logo : 0-44), agrandis.
-const K = 3.4, X0 = 44.3, Y0 = 30;   // toute la figure (x -9,8 → 60,1 ; y -3,9 → 32) dans 260 × 160
+// Le logo (x -9,8 → 60,1 ; y -3,9 → 35,2) dans 260 × 160.
+const K = 3.4, X0 = 44.3, Y0 = 28;
 const pt = ([x, y]) => [X0 + x * K, Y0 + y * K];
 const [LH, LB, LD] = POINTS_L.map(pt);
 const CHEMIN_L = `M${LH[0]} ${LH[1]} L${LB[0]} ${LB[1]} L${LD[0]} ${LD[1]}`;
 
 export const STYLE_GUIDE = `
+@keyframes gl-pop { 0% { opacity: 0; transform: scale(.2); } 60% { opacity: 1; transform: scale(1.3); } 100% { opacity: 1; transform: scale(1); } }
+@keyframes gl-trace { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
 @keyframes gl-allume { 0% { opacity: 0; transform: scale(.3); } 65% { opacity: 1; transform: scale(1.15); } 100% { opacity: 1; transform: scale(1); } }
-@keyframes gl-onde { 0% { opacity: .45; transform: scale(1); } 100% { opacity: 0; transform: scale(1.9); } }
 @keyframes ga-entree { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 .gl { transform-box: fill-box; transform-origin: center; }
+.gl-nait { opacity: 0; animation: gl-pop .55s cubic-bezier(.32,.72,0,1) forwards; }
+.gl-trace { stroke-dasharray: 1; stroke-dashoffset: 1; animation: gl-trace .6s ease-out forwards; }
 .gl-allume { animation: gl-allume .6s cubic-bezier(.32,.72,0,1) both; }
-.gl-onde { opacity: 0; animation: gl-onde 2.6s ease-out .6s infinite; }
+.gl-etoile-chapitre { cursor: pointer; }
+.gl-etoile-chapitre:hover circle.gl-cible { stroke: ${A}; stroke-width: 1.5; }
+.gl-etoile-chapitre:focus-visible { outline: none; }
+.gl-etoile-chapitre:focus-visible circle.gl-cible { stroke: ${A}; stroke-width: 2; }
 .guide-entree { animation: ga-entree .45s cubic-bezier(.32,.72,0,1) both; }
 @media (prefers-reduced-motion: reduce) {
-  .gl-allume, .guide-entree { animation: none !important; opacity: 1 !important; transform: none !important; }
-  .gl-onde { display: none; }
+  .gl-nait, .gl-trace, .gl-allume, .guide-entree { animation: none !important; opacity: 1 !important; stroke-dashoffset: 0 !important; transform: none !important; }
 }`;
 
-/** L'étoile de la Vierge que chaque chapitre allume (les huit tournent sur les dix-huit chapitres). */
-export const etoileDuChapitre = rang => ORDRE_APPARITION[Math.max(0, rang) % ORDRE_APPARITION.length];
+// Le dessin ne se fait qu'une fois par visite du guide : les chapitres suivants trouvent le logo déjà posé.
+let dejaDessine = false;
+
+export const etoileDuChapitre = rang => ETOILES_GUIDE[Math.max(0, rang) % ETOILES_GUIDE.length];
 
 /**
- * LE LOGO, FIXE, ET L'ÉTOILE DU CHAPITRE.
- * rang  — le rang du chapitre (quelle étoile s'allume)
- * Icone — le pictogramme du chapitre, posé DANS l'étoile allumée
+ * chapitres — [{ id, titre }] dans l'ordre du sommaire ; rang — le chapitre ouvert ; Icone — son pictogramme ;
+ * onChoisir(id) — ouvrir un chapitre en touchant son étoile.
  */
-export default function IllustrationGuide({ rang = 0, Icone = null }) {
-  const k = etoileDuChapitre(rang);
-  const [x, y] = pt(ETOILES[k]);
+export default function IllustrationGuide({ chapitres = [], rang = 0, Icone = null, onChoisir = null }) {
+  // Lu à la naissance du composant, marqué après son affichage (le double rendu du mode strict ne le consomme pas).
+  const [anime] = useState(() => !dejaDessine);
+  useEffect(() => { dejaDessine = true; }, []);
+  const d = s => (anime ? { animationDelay: `${s}s` } : { animation: 'none', opacity: 1, strokeDashoffset: 0 });
+  const kOuvert = etoileDuChapitre(rang);
+  const [ox, oy] = pt(positionEtoile(kOuvert));
+  const finDessin = anime ? 2.6 : 0;
+
   return (
-    <svg viewBox="0 0 260 160" className="w-full h-auto" style={{ overflow: 'visible' }} role="img" aria-hidden="true">
-      {/* La figure, à peine visible, comme dans la barre. */}
-      {TRAITS.map(([a, b]) => {
-        const [p1, p2] = [pt(ETOILES[a]), pt(ETOILES[b])];
-        return <line key={a + b} x1={p1[0]} y1={p1[1]} x2={p2[0]} y2={p2[1]}
-          style={{ stroke: P, strokeOpacity: RESTE.trait, strokeWidth: 2, strokeLinecap: 'round' }} />;
-      })}
-      {Object.keys(ETOILES).map(e => {
-        const [ex, ey] = pt(ETOILES[e]);
-        return <circle key={e} cx={ex} cy={ey} r={3 + (ECLAT[e] || 0.35) * 3} style={{ fill: P, fillOpacity: RESTE.etoile }} />;
-      })}
-      {/* Le L de Lucie. */}
-      <path d={CHEMIN_L} style={{ fill: 'none', stroke: A, strokeWidth: 5, strokeLinecap: 'round', strokeLinejoin: 'round' }} />
-      {[LH, LB, LD].map(([lx, ly], i) => (
-        <g key={i}>
-          <circle cx={lx} cy={ly} r="7.5" style={{ fill: A }} />
-          <circle cx={lx} cy={ly} r="2.8" style={{ fill: '#fff', fillOpacity: 0.75 }} />
+    <svg viewBox="0 0 260 160" className="w-full h-auto" style={{ overflow: 'visible' }} role="group" aria-label="Les chapitres du mode d'emploi">
+      {/* Les liens de la Vierge, légers. */}
+      <g fill="none" strokeLinecap="round" style={{ stroke: P, strokeOpacity: 0.16, strokeWidth: 1.4 }}>
+        {TRAITS.map(([a, b], j) => {
+          const [p1, p2] = [pt(ETOILES[a]), pt(ETOILES[b])];
+          return <path key={a + b} d={`M${p1[0]} ${p1[1]} L${p2[0]} ${p2[1]}`} pathLength="1" className="gl-trace" style={d(1.2 + j * 0.06)} />;
+        })}
+      </g>
+      {/* Le L de Lucie, en aplat. */}
+      <path d={CHEMIN_L} pathLength="1" className="gl-trace" style={{ fill: 'none', stroke: A, strokeWidth: 5, strokeLinecap: 'round', strokeLinejoin: 'round', animationDuration: '.9s', ...d(1.9) }} />
+      {[LH, LB, LD].map(([x, y], i) => (
+        <g key={`L${i}`} className="gl gl-nait" style={d(1.9 + i * 0.4)}>
+          <circle cx={x} cy={y} r="7" style={{ fill: A }} />
+          <circle cx={x} cy={y} r="2.8" style={{ fill: '#fff', fillOpacity: 0.75 }} />
         </g>))}
-      {/* L'étoile du chapitre : elle seule change d'un chapitre à l'autre. */}
-      <g key={k}>
-        <circle cx={x} cy={y} r="22" className="gl gl-onde" style={{ fill: P }} />
-        <g className="gl gl-allume">
-          <circle cx={x} cy={y} r="22" style={{ fill: P, stroke: '#fff', strokeWidth: 3 }} />
-          {Icone && <Icone x={x - 13} y={y - 13} width={26} height={26} stroke={1.8} color="#fff" />}
-        </g>
+
+      {/* UNE ÉTOILE PAR CHAPITRE : toucher l'étoile ouvre le chapitre. Les étoiles sans chapitre restent de simples points. */}
+      {ETOILES_GUIDE.map((k, i) => {
+        const [x, y] = pt(positionEtoile(k));
+        const e = ECLAT[k] ?? ECLAT_HORS[k] ?? 0.4;
+        const ch = chapitres[i];
+        const r = 2.6 + e * 2.6;
+        const point = <circle cx={x} cy={y} r={r} className="gl-cible" style={{ fill: P, fillOpacity: ch ? 0.55 : 0.25, stroke: 'transparent', strokeWidth: 8 }} />;
+        return (
+          <g key={k} className="gl gl-nait" style={d(0.15 + i * 0.07)}>
+            {ch && onChoisir ? (
+              <g className="gl-etoile-chapitre" role="button" tabIndex={0} aria-label={`Chapitre ${i + 1} : ${ch.titre}`}
+                onClick={() => onChoisir(ch.id)} onKeyDown={ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); onChoisir(ch.id); } }}>
+                <title>{`${i + 1}. ${ch.titre}`}</title>
+                {/* Une cible plus large que le point, pour le doigt. */}
+                <circle cx={x} cy={y} r="11" style={{ fill: 'transparent' }} />
+                {point}
+              </g>) : point}
+          </g>);
+      })}
+
+      {/* L'étoile du chapitre ouvert : elle seule change d'un chapitre à l'autre. */}
+      <g key={kOuvert} className="gl gl-allume" style={anime ? { animationDelay: `${finDessin}s` } : undefined}>
+        <circle cx={ox} cy={oy} r="18" style={{ fill: P, stroke: '#fff', strokeWidth: 3 }} />
+        {Icone && <Icone x={ox - 10.5} y={oy - 10.5} width={21} height={21} stroke={1.8} color="#fff" />}
       </g>
     </svg>
   );

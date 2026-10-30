@@ -2713,6 +2713,14 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   « Lucie » garde la police du logo (Segoe UI / Helvetica Neue / Arial gras) et est CALÉ EN LARGEUR sur le L
   (`textLength`, du bord de Spica au bord de Zaniah). `prefers-reduced-motion` : l'état final, d'emblée.
 
+- **LE LOGO EN APLAT, ET LE GUIDE EN CARTE DES CHAPITRES** (3.1.487, Charles, 30 octobre 2026 : « le logo dans Lucie
+  doit aussi être mis à jour, mais en aplat, dans les couleurs actuelles ; dans le mode d'emploi il se dessine aussi et
+  chaque étoile devient un des thèmes »). (1) Barre du haut : l'état final de la connexion — liens presque invisibles,
+  étoiles discrètes, L plat. (2) Mode d'emploi (`IllustrationsGuide.jsx`) : le logo se DESSINE une fois par visite
+  (étoiles, liens, L ; en aplat), jamais à chaque chapitre ; CHAQUE CHAPITRE A SON ÉTOILE (`ETOILES_GUIDE` : les douze
+  de la figure, puis six autres étoiles réelles de la Vierge hors des lignes — β, ο, θ, λ, ρ, φ, `ETOILES_HORS`) ;
+  toucher une étoile ouvre son chapitre ; l'étoile du chapitre ouvert porte son pictogramme.
+
 **L'ANNULER NE COMPARE QUE CE QUE LE GESTE A CHANGÉ** (3.1.482, Charles, 30 octobre 2026, en production :
   « Impossible d'annuler : utilisateur — la ligne a été modifiée depuis, par quelqu'un »). Se reconnecter écrit
   `last_login_at` sur la ligne du compte ; l'annulation comparait la ligne entière et refusait. Désormais elle ne
