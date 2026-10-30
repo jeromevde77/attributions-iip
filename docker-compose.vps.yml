@@ -109,6 +109,11 @@ services:
       TZ: Europe/Brussels
       PORT: 3001
       JWT_SECRET: ${JWT_SECRET_PROD:?JWT_SECRET_PROD manquant dans .env}
+      # LE JETON QUI LAISSE L'ASSISTANT LIRE LES IDÉES (3.1.470, GET /api/suggestions/flux, en-tête
+      # X-Lucie-Jeton). Facultatif : vide ou absent, l'adresse répond 404. 32 caractères au moins.
+      # Fabriquer :  node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"
+      # La même valeur va dans les secrets de l'environnement de l'assistant, sous le même nom.
+      LUCIE_IDEES_JETON: ${LUCIE_IDEES_JETON:-}
       # LA CLÉ QUI CHIFFRE LES SECRETS DU SECOND FACTEUR (32 octets, base64).
       # Sans elle, le backend REFUSE DE DÉMARRER — volontairement : il ne doit
       # pas accepter des enrôlements qu'il ne saurait pas relire.

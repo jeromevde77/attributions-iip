@@ -335,6 +335,16 @@ il cachait le texte qu'on tape. Restent au registre, à trancher : UE 244 → 33
 copie de la demande d'AR à l'étudiant, notification par courriel, attestations de toutes les années en un envoi, et la
 réparation du dossier MAGNI (UE retirées en 2025-2026 par erreur — le journal des modifications les garde).
 
+**LES IDÉES ARRIVENT AU TABLEAU DE BORD, ET L'ASSISTANT LES LIT À CHAQUE SESSION** (3.1.470, Charles, 30 octobre
+2026). (1) Accueil de la direction → bloc *Idées à traiter* (`MesPropositions.jsx`) : chaque idée « nouvelle » ou dont
+l'auteur a écrit sans être lu, à déplier — texte, état, fil et réponse ; elle quitte le bloc quand on lui donne un état
+et qu'on a lu le fil. (2) `GET /api/suggestions/flux` (lecture seule, ne marque rien comme vu) : en-tête
+`X-Lucie-Jeton` comparé à `LUCIE_IDEES_JETON` (environnement du serveur, `.env` du VPS ; absent = 404). La même valeur
+vit dans les secrets de l'environnement de l'assistant — **jamais dans le dépôt ni dans une conversation**. Voir le
+réflexe de démarrage (§ 8). (3) **L'illustration du mode d'emploi est le logo de Lucie** (`IllustrationsGuide.jsx`) :
+sa constellation agrandie, réseau tracé, L à l'accent, points allumés chacun dans une teinte de la maison (l'ordre
+tourne par chapitre), éclat qui parcourt le L, pictogramme du chapitre au pied.
+
 **UNE UE DISPENSÉE EN ENTIER EST ACQUISE — ÇA SE LIT DU DOSSIER DE VA** (3.1.438). Les crédits de l'annexe 2,
 l'état du parcours (schéma) et le motif de l'annexe 2 attendaient un résultat `'valorise'` sur
 l'inscription, qu'aucune route n'écrivait : zéro crédit valorisé, partout, en silence. Plutôt qu'un second
@@ -2602,10 +2612,13 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
 1. Lire ce fichier, puis **la passation la plus récente**
    (`docs/contexte/passation-AAAA-MM-JJ.md`, la dernière par date) : c'est elle
    qui dit ce qui a été livré depuis et ce qui reste ouvert.
-2. Vérifier l'écart `develop` / `main` et les questions ouvertes non tranchées
+2. **Lire les idées du registre de la production** (3.1.470, Charles) :
+   `curl -s -H "X-Lucie-Jeton: $LUCIE_IDEES_JETON" https://www.lucie-iip.be/api/suggestions/flux` — les idées
+   ouvertes et leur fil. Signaler à Charles ce qui est nouveau et important. Sans la variable, le dire.
+3. Vérifier l'écart `develop` / `main` et les questions ouvertes non tranchées
    (`docs/contexte/`).
-3. Poser d'abord les questions **bloquantes** — celles qui coûtent une minute à
+4. Poser d'abord les questions **bloquantes** — celles qui coûtent une minute à
    Charles et évitent une demi-journée de code faux.
-4. `grep` les définitions avant toute requête ; chercher l'existant avant de
+5. `grep` les définitions avant toute requête ; chercher l'existant avant de
    construire.
-5. Ne conclure « fait » qu'après vérification **et** confirmation à l'écran.
+6. Ne conclure « fait » qu'après vérification **et** confirmation à l'écran.

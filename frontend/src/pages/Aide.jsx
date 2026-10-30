@@ -262,7 +262,7 @@ export default function Aide({ integre = false }) {
                     <span key={k} className="pastille-etat" data-etat="disponible">{NOMS_PUBLIC[k] || k}</span>))}
                 </div>}
               </div>
-              <div className="guide-entree" style={{ animationDelay: '.1s' }}><IllustrationGuide id={r.id} /></div>
+              <div className="guide-entree" style={{ animationDelay: '.1s' }}><IllustrationGuide id={r.id} Icone={ICONES[r.icone] || IconHelpCircle} /></div>
             </div>
 
             <div className="space-y-3">
