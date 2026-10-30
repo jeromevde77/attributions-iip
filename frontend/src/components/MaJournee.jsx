@@ -39,7 +39,7 @@ function enRangs(seances) {
   });
 }
 
-export default function MaJournee({ onAgir }) {
+export default function MaJournee({ onAgir, onSemaine }) {
   const [data, setData] = useState(null);
   const [jour, setJour] = useState(null);           // null : aujourd'hui (le serveur le dit)
   const [choisie, setChoisie] = useState(null);     // id de séance
@@ -87,6 +87,8 @@ export default function MaJournee({ onAgir }) {
           <span className="objet-barre objet-barre-etat" style={{ '--e': 'var(--c-attente, #E8890C)' }}
             title="Sur la dev seulement : le QR se projette pour n’importe quelle séance, la date et la fenêtre de scan sont ignorées">mode essai</span>
         )}
+        {/* TOUTE LA SEMAINE, D'ICI (3.1.480, Charles : « je ne vois pas où le prof voit son horaire »). */}
+        {onSemaine && <button type="button" className="text-second text-iip-blue underline" onClick={onSemaine}>Toute ma semaine</button>}
         <span className="ml-auto segments">
           <button type="button" className="px-2 py-1" title="Jour précédent" onClick={() => setJour(decaler(data.jour, -1))}><IconChevronLeft size={15} /></button>
           <button type="button" className={`px-2.5 py-1 text-second ${estAujourdhui ? 'font-semibold' : ''}`} onClick={() => setJour(null)}>Aujourd’hui</button>

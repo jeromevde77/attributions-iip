@@ -47,7 +47,7 @@ import {
 import Login from './pages/Login.jsx';
 import MotDePasse from './pages/MotDePasse.jsx';
 import DemandeVA from './pages/DemandeVA.jsx';
-import { ETOILES, TRAITS, ECLAT } from './lib/logoVierge.js';
+import { ETOILES, TRAITS, ECLAT, DISCRETES, POINTS_L } from './lib/logoVierge.js';
 import PresenceQR from './pages/PresenceQR.jsx';
 import RechercheLucie from './components/RechercheLucie.jsx';
 import AnnulerGestes from './components/AnnulerGestes.jsx';
@@ -613,23 +613,20 @@ function ProtectedLayout({ children }) {
           <div className="flex-none">
             <svg className="logo-lucie" width="90" height="28" viewBox="0 0 140 44"
               xmlns="http://www.w3.org/2000/svg">
-              {/* LA VIERGE, CACHÉE DANS LE RÉSEAU (3.1.476, lib/logoVierge.js), puis le L par-dessus. */}
-              <g stroke="#00AACC" strokeOpacity=".32" fill="none" strokeWidth="0.9" strokeLinecap="round">
+              {/* LA VIERGE, CACHÉE DANS LE RÉSEAU (lib/logoVierge.js) : la figure à peine visible ; le L par-dessus,
+                  dont les trois extrémités SONT des étoiles — τ en haut, Spica au coin, Zaniah au bout. */}
+              <g stroke="#00AACC" strokeOpacity=".22" fill="none" strokeWidth="0.8" strokeLinecap="round">
                 {TRAITS.map(([a, b]) => <line key={a + b} x1={ETOILES[a][0]} y1={ETOILES[a][1]} x2={ETOILES[b][0]} y2={ETOILES[b][1]} />)}
               </g>
-              {Object.entries(ETOILES).map(([k, [x, y]]) => (
-                <circle key={k} cx={x} cy={y} r={0.9 + (ECLAT[k] || 0.3) * 1.3} fill={k === 'spica' ? '#00AACC' : '#1B2B4B'}
-                  fillOpacity={k === 'spica' ? 0.75 : 0.14 + (ECLAT[k] || 0.3) * 0.12} />))}
-              <g stroke="#00AACC" strokeOpacity=".85" fill="none" strokeWidth="2.2" strokeLinecap="round">
-                <line x1="12" y1="6" x2="12" y2="32"/>
-                <line x1="12" y1="32" x2="42" y2="32"/>
-              </g>
-              <circle cx="12" cy="6"  r="3.2" fill="#00AACC"/>
-              <circle cx="12" cy="32" r="3.6" fill="#00AACC"/>
-              <circle cx="42" cy="32" r="3.2" fill="#00AACC"/>
-              <circle cx="12" cy="6"  r="1.4" fill="white" fillOpacity=".7"/>
-              <circle cx="12" cy="32" r="1.6" fill="white" fillOpacity=".65"/>
-              <circle cx="42" cy="32" r="1.4" fill="white" fillOpacity=".7"/>
+              {DISCRETES.map(k => (
+                <circle key={k} cx={ETOILES[k][0]} cy={ETOILES[k][1]} r={0.9 + (ECLAT[k] || 0.3) * 1.1} fill="#1B2B4B" fillOpacity=".16" />))}
+              <path d={`M${POINTS_L[0][0]} ${POINTS_L[0][1]} L${POINTS_L[1][0]} ${POINTS_L[1][1]} L${POINTS_L[2][0]} ${POINTS_L[2][1]}`}
+                stroke="#00AACC" strokeOpacity=".85" fill="none" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+              {POINTS_L.map(([x, y], i) => (
+                <g key={i}>
+                  <circle cx={x} cy={y} r={i === 1 ? 3.6 : 3.2} fill="#00AACC" />
+                  <circle cx={x} cy={y} r={i === 1 ? 1.6 : 1.4} fill="white" fillOpacity=".7" />
+                </g>))}
               {/* Texte "Lucie" */}
               <text x="52" y="30"
                 fontFamily="'Segoe UI','Helvetica Neue',Arial,sans-serif"

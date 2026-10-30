@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   IconSearch, IconX, IconHelpCircle, IconFileTypePdf, IconMapPin, IconArrowRight, IconArrowLeft,
   IconBulb, IconChevronRight,
@@ -130,17 +130,45 @@ function Chemin({ ou }) {
   );
 }
 
-function Point({ p, n, delai = 0 }) {
+/* L'ÉTOILE D'UN POINT (3.1.480, Charles : « une étoile s'allume dans le guide par item, et grandit ») : grise tant
+   que le point n'a pas paru, elle s'allume et grandit quand on le lit — et l'étoile de la Vierge qui lui répond
+   s'allume dans l'illustration du chapitre. */
+function EtoilePoint({ n, allumee }) {
   return (
-    <article className="guide-entree bloc-etat px-4 py-3.5 space-y-2.5" data-etat="neutre"
+    <span className={`etoile-point flex-none relative inline-grid place-items-center w-7 h-7 ${allumee ? 'etoile-point-allumee' : ''}`}>
+      <svg viewBox="0 0 24 24" className="absolute inset-0 w-full h-full" aria-hidden="true">
+        <path d="M12 1.5l2.9 6.6 7.1.7-5.4 4.8 1.6 7-6.2-3.7-6.2 3.7 1.6-7L2 8.8l7.1-.7z"
+          style={{ fill: allumee ? 'var(--c-iip_or, #F9B619)' : '#E2E8F0', transition: 'fill .5s' }} />
+      </svg>
+      <span className={`relative text-[10px] font-bold ${allumee ? 'text-iip-texte' : 'text-slate-500'}`}>{n}</span>
+    </span>
+  );
+}
+
+function Point({ p, n, delai = 0, allumee = false, onVu }) {
+  const ref = useRef(null);
+  // LE POINT A PARU QUAND IL EST BIEN À L'ÉCRAN — et c'est lui qu'on lit tant qu'il occupe le milieu de la fenêtre.
+  useEffect(() => {
+    if (!ref.current || !onVu || typeof IntersectionObserver === 'undefined') return undefined;
+    const o = new IntersectionObserver(es => { for (const e of es) if (e.isIntersecting) onVu(n - 1); },
+      { rootMargin: '-35% 0px -45% 0px' });
+    o.observe(ref.current);
+    return () => o.disconnect();
+  }, [onVu, n]);
+  return (
+    <article ref={ref} className="guide-entree bloc-etat px-4 py-3.5 space-y-2.5" data-etat="neutre"
       style={{ borderLeftColor: 'var(--c-principal)', animationDelay: `${delai}s` }}>
       <div className="flex items-start gap-3">
-        {n != null && <span className="flex-none inline-grid place-items-center w-6 h-6 rounded-full text-mention font-bold text-white"
-          style={{ background: 'var(--c-principal)' }}>{n}</span>}
+        {n != null && <EtoilePoint n={n} allumee={allumee} />}
         <h3 className="titre-carte flex-1 min-w-0 m-0">{p.titre}</h3>
       </div>
       {p.ou && <Chemin ou={p.ou} />}
       <p className="text-sm text-slate-700 leading-relaxed m-0">{p.texte}</p>
+      {p.image && (
+        <figure className="m-0 rounded-champ border border-slate-200 overflow-hidden bg-white">
+          <img src={p.image} alt={p.legende || p.titre} loading="lazy" className="w-full h-auto block" />
+          {p.legende && <figcaption className="px-3 py-1.5 text-mention text-slate-500 border-t border-slate-100">{p.legende}</figcaption>}
+        </figure>)}
       {p.savoir?.length > 0 && (
         <div className="rounded-champ border border-slate-200 bg-white px-3 py-2">
           <div className="flex items-center gap-1.5 text-second font-semibold text-iip-texte mb-1">
@@ -152,6 +180,25 @@ function Point({ p, n, delai = 0 }) {
           </ul>
         </div>)}
     </article>
+  );
+}
+
+/* LES POINTS D'UN CHAPITRE, ET L'ILLUSTRATION QUI LES SUIT. Sur grand écran, l'illustration reste à côté pendant
+   qu'on lit : chaque point paru allume son étoile, celui qu'on lit la fait grandir. */
+function PointsDuChapitre({ r, Icone }) {
+  const [vus, setVus] = useState([]);
+  const [actif, setActif] = useState(null);
+  const onVu = useMemo(() => i => { setActif(i); setVus(v => (v.includes(i) ? v : [...v, i])); }, []);
+  return (
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px] items-start">
+      <div className="space-y-3 min-w-0">
+        {r.points.map((p, i) => <Point key={i} p={p} n={i + 1} delai={0.08 + Math.min(i, 8) * 0.05} allumee={vus.includes(i)} onVu={onVu} />)}
+      </div>
+      <div className="hidden lg:block sticky top-24">
+        <IllustrationGuide id={r.id} Icone={Icone} vus={vus} actif={actif} />
+        <p className="text-mention text-slate-400 mt-2 text-center">{vus.length} point{vus.length > 1 ? 's' : ''} lu{vus.length > 1 ? 's' : ''} sur {r.points.length}</p>
+      </div>
+    </div>
   );
 }
 
@@ -246,7 +293,7 @@ export default function Aide({ integre = false }) {
 
           <div key={`${r.id}-${voir}`} className="space-y-4 min-w-0">
             {/* L'EN-TÊTE DU CHAPITRE : ce qu'il couvre, pour qui, et son schéma. */}
-            <div className="guide-entree carte p-5 grid gap-5 md:grid-cols-[minmax(0,1fr)_260px] items-center">
+            <div className="guide-entree carte p-5 grid gap-5 md:grid-cols-[minmax(0,1fr)_260px] lg:grid-cols-1 items-center">
               <div className="space-y-2.5">
                 <div className="flex items-center gap-2 text-second text-slate-500">
                   <span className="tabular-nums">Chapitre {index + 1} sur {rubriques.length}</span>
@@ -262,12 +309,11 @@ export default function Aide({ integre = false }) {
                     <span key={k} className="pastille-etat" data-etat="disponible">{NOMS_PUBLIC[k] || k}</span>))}
                 </div>}
               </div>
-              <div className="guide-entree" style={{ animationDelay: '.1s' }}><IllustrationGuide id={r.id} Icone={ICONES[r.icone] || IconHelpCircle} /></div>
+              {/* Sur un écran étroit, l'illustration reste dans l'en-tête ; sur grand écran, elle accompagne la lecture. */}
+              <div className="guide-entree lg:hidden" style={{ animationDelay: '.1s' }}><IllustrationGuide id={r.id} Icone={ICONES[r.icone] || IconHelpCircle} /></div>
             </div>
 
-            <div className="space-y-3">
-              {r.points.map((p, i) => <Point key={i} p={p} n={i + 1} delai={0.08 + Math.min(i, 8) * 0.05} />)}
-            </div>
+            <PointsDuChapitre r={r} Icone={ICONES[r.icone] || IconHelpCircle} />
 
             <div className="flex flex-wrap justify-between gap-2 pt-1">
               {rubriques[index - 1] ? (

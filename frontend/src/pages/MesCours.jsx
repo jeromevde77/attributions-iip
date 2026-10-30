@@ -263,6 +263,10 @@ export default function MesCours() {
           className="controle border border-slate-300 rounded-champ bg-white text-sm font-semibold">
           {(annees.length ? annees : [annee]).map(a => <option key={a} value={a}>{a}</option>)}
         </select>
+        {/* MON HORAIRE, À LA VUE (3.1.480, Charles : « je ne vois pas où le prof voit son horaire ») : il n'était que
+            dans le rail, une icône nommée au survol — qui n'existe pas au doigt. */}
+        <button type="button" className="bouton bouton-fort ml-auto inline-flex items-center gap-1.5" onClick={() => setSemaine(true)}>
+          <IconCalendarWeek size={16} /> Mon horaire de la semaine</button>
       </div>
 
       {erreur && (
@@ -272,7 +276,7 @@ export default function MesCours() {
       )}
 
       {/* LES PRÉSENCES DU JOUR, EN TÊTE : le QR de la séance en cours, sans rien chercher. */}
-      {!ouvert && <MaJournee onAgir={agir} />}
+      {!ouvert && <MaJournee onAgir={agir} onSemaine={() => setSemaine(true)} />}
 
       {/* LES AVIS DE VALORISATION ATTENDUS, au-dessus des cours : c'est un délai. */}
       {!ouvert && <div id="avis-va"><AvisValorisationProf annee={annee} /></div>}

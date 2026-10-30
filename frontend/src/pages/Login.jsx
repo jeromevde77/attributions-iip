@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { api, isAuthenticated } from '../lib/api.js';
 import { IconFlask } from '@tabler/icons-react';
-import { ETOILES, TRAITS, ECLAT, ORDRE_APPARITION, CHRONO } from '../lib/logoVierge.js';
+import { ETOILES, TRAITS, ECLAT, ORDRE_APPARITION, CHRONO, DISCRETES, POINTS_L, RESTE } from '../lib/logoVierge.js';
 
 const STYLE_NAISSANCE = `
 @keyframes ln-pop { 0% { opacity: 0; transform: scale(.2); } 60% { opacity: 1; transform: scale(1.35); } 100% { opacity: 1; transform: scale(1); } }
@@ -11,43 +11,50 @@ const STYLE_NAISSANCE = `
 .ln-etoile { opacity: 0; transform-box: fill-box; transform-origin: center; animation: ln-pop .55s cubic-bezier(.32,.72,0,1) forwards; }
 .ln-trace { stroke-dasharray: 1; stroke-dashoffset: 1; animation: ln-trace .5s ease-out forwards; }
 .ln-L { animation-duration: ${CHRONO.dureeL}s; animation-timing-function: ease-in-out; }
+/* Après l'animation, la figure s'efface presque : le L reste (« que le logo reste simple »). */
+@keyframes ln-discret { to { opacity: ${RESTE.etoile}; } }
+@keyframes ln-discret-trait { to { opacity: ${RESTE.trait}; } }
+.ln-discret { animation: ln-pop .55s cubic-bezier(.32,.72,0,1) forwards, ln-discret 1.4s ease-in-out forwards; }
+.ln-discret-trait { stroke-opacity: .5; animation: ln-trace .5s ease-out forwards, ln-discret-trait 1.4s ease-in-out forwards; }
 .ln-nom { opacity: 0; transform-box: fill-box; animation: ln-nom .6s ease-out forwards; }
-@media (prefers-reduced-motion: reduce) { .ln-etoile, .ln-trace, .ln-nom { animation: none; opacity: 1; stroke-dashoffset: 0; transform: none; } }`;
+@media (prefers-reduced-motion: reduce) { .ln-etoile, .ln-trace, .ln-nom { animation: none; opacity: 1; stroke-dashoffset: 0; transform: none; }
+  .ln-etoile.ln-discret { opacity: ${RESTE.etoile}; } .ln-trace.ln-discret-trait { opacity: ${RESTE.trait}; } }`;
 
 function LucieLogo({ size = 200 }) {
-  // Version verticale : symbole L au-dessus, "Lucie" dessous, calé sur la largeur du L.
-  // Le L occupe x ∈ [26, 114] (largeur 88). Le texte est calé sur cette largeur.
+  // Version verticale : le L au-dessus, « Lucie » dessous. Mêmes étoiles que la barre (lib/logoVierge.js),
+  // portées à l'échelle de ce L : x 12→26, 42→114 ; y 6→16, 32→86.
+  const X = x => 26 + (x - 12) * 2.933, Y = y => 16 + (y - 6) * 2.692;
+  const [h, c, b] = POINTS_L.map(([x, y]) => [X(x), Y(y)]);
+  const longL = (c[1] - h[1]) + (b[0] - c[0]);
   return (
-    <svg width={size} height={Math.round(size * 1.15)} viewBox="0 0 140 150"
-         xmlns="http://www.w3.org/2000/svg">
-      {/* ─── LA NAISSANCE DU LOGO (3.1.478, Charles) : rien ; puis Spica ; puis les autres étoiles ; puis les liens
-             de la Vierge ; puis le L de Lucie, et son nom. Même figure et même rythme que le mode d'emploi
-             (lib/logoVierge.js), portés à l'échelle de ce L (x : 12→26, 42→114 ; y : 6→16, 32→86). ─── */}
+    <svg width={size} height={Math.round(size * 1.15)} viewBox="0 0 140 150" xmlns="http://www.w3.org/2000/svg">
+      {/* LA NAISSANCE DU LOGO (3.1.478-3.1.480, Charles) : rien ; Spica ; les autres étoiles ; les liens de la Vierge ;
+          le L, dont les extrémités sont trois de ses étoiles ; le nom. Puis la figure s'efface presque, le L reste. */}
       <style>{STYLE_NAISSANCE}</style>
-      <g transform="translate(26 16) scale(2.933 2.692) translate(-12 -6)">
-        <g stroke="#00AACC" strokeOpacity=".4" fill="none" strokeWidth=".45" strokeLinecap="round">
-          {TRAITS.map(([a, b], i) => <line key={a + b} x1={ETOILES[a][0]} y1={ETOILES[a][1]} x2={ETOILES[b][0]} y2={ETOILES[b][1]}
-            pathLength="1" className="ln-trace" style={{ animationDelay: `${CHRONO.lien(i)}s` }} />)}
-        </g>
-        {ORDRE_APPARITION.map((k, i) => { const [x, y] = ETOILES[k]; return (
-          <circle key={k} cx={x} cy={y} r={0.55 + (ECLAT[k] || 0.3) * 0.75} fill={k === 'spica' ? '#00AACC' : 'white'}
-            fillOpacity={k === 'spica' ? 0.85 : 0.2 + (ECLAT[k] || 0.3) * 0.2} className="ln-etoile" style={{ animationDelay: `${CHRONO.etoile(i)}s` }} />); })}
+      <g stroke="#00AACC" fill="none" strokeWidth="1.3" strokeLinecap="round">
+        {TRAITS.map(([a, z], i) => (
+          <line key={a + z} x1={X(ETOILES[a][0])} y1={Y(ETOILES[a][1])} x2={X(ETOILES[z][0])} y2={Y(ETOILES[z][1])}
+            pathLength="1" className="ln-trace ln-discret-trait" style={{ animationDelay: `${CHRONO.lien(i)}s, ${CHRONO.effacement}s` }} />))}
       </g>
-      {/* le L (chemins forts) : du haut vers le pied, puis vers la droite */}
-      <path d="M26 16 L26 86 L114 86" pathLength="1" stroke="#00AACC" strokeOpacity=".85" fill="none" strokeWidth="2.8"
-        strokeLinecap="round" strokeLinejoin="round" className="ln-trace ln-L" style={{ animationDelay: `${CHRONO.L}s` }} />
-      {/* nœuds du L, allumés au passage du trait */}
-      {[[26, 16, 8.5, 3.8, 0], [26, 86, 9.5, 4.2, 70 / 158], [114, 86, 8.5, 3.8, 1]].map(([x, y, r, r2, f]) => (
-        <g key={`${x}-${y}`} className="ln-etoile" style={{ animationDelay: `${CHRONO.L + f * CHRONO.dureeL}s` }}>
-          <circle cx={x} cy={y} r={r} fill="#00AACC" />
-          <circle cx={x} cy={y} r={r2} fill="white" fillOpacity=".62" />
+      {ORDRE_APPARITION.filter(k => DISCRETES.includes(k)).map(k => {
+        const i = ORDRE_APPARITION.indexOf(k);
+        return <circle key={k} cx={X(ETOILES[k][0])} cy={Y(ETOILES[k][1])} r={1.6 + (ECLAT[k] || 0.3) * 2.2}
+          fill={k === 'spica' ? '#00AACC' : 'white'} className="ln-etoile ln-discret" style={{ animationDelay: `${CHRONO.etoile(i)}s, ${CHRONO.effacement}s` }} />;
+      })}
+      {/* le L : du haut (τ) vers le coin (Spica), puis vers le bout (Zaniah) */}
+      <path d={`M${h[0]} ${h[1]} L${c[0]} ${c[1]} L${b[0]} ${b[1]}`} pathLength="1" stroke="#00AACC" strokeOpacity=".85" fill="none"
+        strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" className="ln-trace ln-L" style={{ animationDelay: `${CHRONO.L}s` }} />
+      {/* ses trois étoiles : chacune paraît à son rang dans la figure, puis grandit quand le trait l'atteint */}
+      {[[h, 8.5, 3.8, 'tau', 0], [c, 9.5, 4.2, 'spica', (c[1] - h[1]) / longL], [b, 8.5, 3.8, 'eta', 1]].map(([[x, y], r, r2, k, f]) => (
+        <g key={k}>
+          <circle cx={x} cy={y} r={2.4} fill="#00AACC" className="ln-etoile" style={{ animationDelay: `${CHRONO.etoile(ORDRE_APPARITION.indexOf(k))}s` }} />
+          <g className="ln-etoile" style={{ animationDelay: `${CHRONO.L + f * CHRONO.dureeL}s` }}>
+            <circle cx={x} cy={y} r={r} fill="#00AACC" />
+            <circle cx={x} cy={y} r={r2} fill="white" fillOpacity=".62" />
+          </g>
         </g>))}
-
-      {/* ─── "Lucie" centré sous le L, calé sur sa largeur (x: 26 → 114) ─── */}
-      <text x="70" y="135"
-            textAnchor="middle" textLength="92" lengthAdjust="spacingAndGlyphs"
-            fontFamily="'Segoe UI','Helvetica Neue',Arial,sans-serif"
-            fontSize="38" fontWeight="700" letterSpacing="-0.5"
+      <text x="70" y="135" textAnchor="middle" textLength="92" lengthAdjust="spacingAndGlyphs"
+            fontFamily="'Segoe UI','Helvetica Neue',Arial,sans-serif" fontSize="38" fontWeight="700" letterSpacing="-0.5"
             fill="white" className="ln-nom" style={{ animationDelay: `${CHRONO.fin}s` }}>Lucie</text>
     </svg>
   );

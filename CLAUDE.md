@@ -379,6 +379,19 @@ direction pour 244 → 331**, année active 2026-2027. (3.1.474 : la 3.1.473 ét
 construisait pas — un `index` de recherche tombé avant le bloc visé avait recopié le code en tête du fichier.
 **Après `vite build`, lire son statut, pas un `grep` de sa sortie.**)
 
+**LE LOGO, LE GUIDE ET L'HORAIRE DU PROFESSEUR** (3.1.480, Charles, 30 octobre 2026). (1) **Les trois extrémités du
+L sont des étoiles de la Vierge** — τ en haut, Spica au coin, Zaniah au bout — trouvées par calcul (projection des
+étoiles, recherche d'un angle droit aux proportions du L, sans miroir) ; le L est très légèrement plus bas (bras de
+24,5) ; cinq étoiles tombent dans l'angle du L, les autres restent hors du logo (`lib/logoVierge.js`, seule source des
+trois dessins). (2) Après la naissance, la figure s'efface presque (`RESTE`) : le L reste. (3) **Une étoile s'allume par
+point du mode d'emploi, et grandit** : badge en étoile sur chaque point, allumé quand il paraît
+(IntersectionObserver), et l'étoile de la Vierge correspondante s'allume dans l'illustration, fixe à droite sur grand
+écran (`PointsDuChapitre`, `etoileDuPoint`). (4) **Le guide a des captures** : un point peut porter `image` et
+`legende` (`modeEmploi.js`) ; cinq captures RÉELLES du chapitre « Mes cours », prises sur une base d'essai aux noms
+fictifs (`frontend/public/guide/`). D'autres chapitres sont à illustrer de même. (5) **L'horaire du professeur se voit** :
+bouton « Mon horaire de la semaine » à côté du titre de Mes cours, et « Toute ma semaine » dans Ma journée — il n'était
+que dans le rail, nommé au survol, qui n'existe pas au doigt.
+
 **LE SUIVI D'ÉQUIPE A UN PÉRIMÈTRE** (3.1.479, Charles, 30 octobre 2026, en aperçu comme Natacha Boulengier,
 coordination : « elle voit des choses du secrétariat, ce n'est pas normal »). Aucune route des tâches ni des réunions
 (`routes/reunions.js`) n'en posait. Règle écrite une fois (`clauseTache`, `clauseReunion`, `tacheVisible`,

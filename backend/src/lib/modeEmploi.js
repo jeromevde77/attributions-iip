@@ -10,7 +10,7 @@
  *   savoir — ce qu'il faut savoir : les règles qui bloquent ou qui surprennent.
  * Il explique le travail, pas l'informatique (CLAUDE.md, § 7). La version décrite se dit en tête.
  */
-export const VERSION_DECRITE = '3.1.467';
+export const VERSION_DECRITE = '3.1.480';
 
 export const RUBRIQUES = [
   {
@@ -731,7 +731,8 @@ export const RUBRIQUES = [
              + "change pas l'année de travail du reste de Lucie.",
         savoir: [
           "Dans un cours : filtre par groupe (Tous, A, B…), et l'avion « Listes du cours », une feuille par groupe avec une colonne de signature.",
-        ] },
+        ],
+        image: "/guide/mescours-liste.png", legende: "Mes cours : le bouton « Mon horaire de la semaine », la journée, puis vos cours (données d'essai)." },
       { titre: "Encoder les notes",
         ou: "Mes cours → un cours → Notes du cours.",
         texte: "Une note entière sur 20 par acquis. PP : pas présenté. NP : note de présence. CM : certificat "
@@ -741,7 +742,8 @@ export const RUBRIQUES = [
           "Une note sous 10 ne s'enregistre pas sans son « Justificatif d'échec » (panneau de droite). Écrivez-le, ou « Choisir dans la liste ».",
           "Ce justificatif devient la motivation de l'échec en délibération. Le Conseil peut la réécrire.",
           "Unité en évaluation unique : la note d'un acquis encodée sur un cours vaut pour tous les cours qui le portent.",
-        ] },
+        ],
+        image: "/guide/mescours-notes.png", legende: "Un cours ouvert, face « Notes » : une case par étudiant et par acquis ; à droite, ce que vous évaluez." },
       { titre: "Avis de valorisation",
         ou: "Mes cours → rail → Avis de valorisation.",
         texte: "Les demandes de VA recevables pour vos cours. Ouvrez les pièces déposées, puis « Rendre mon avis » : "
@@ -783,16 +785,20 @@ export const RUBRIQUES = [
         savoir: [
           "Le carnet ne remplace pas la feuille de notes : c'est vous qui enregistrez, avec le justificatif sous 10.",
           "« Reprendre l'an dernier » reprend la structure, jamais les notes.",
-        ] },
+        ],
+        image: "/guide/mescours-carnet.png", legende: "Le carnet : une colonne par évaluation, la moyenne, et la proposition par acquis." },
       { titre: "Mon horaire de la semaine, et dans l'agenda du téléphone",
-        ou: "Mes cours → rail → Mon horaire de la semaine · Mon horaire dans mon agenda.",
+        ou: "Mes cours → Mon horaire de la semaine.",
         texte: "Vos séances de la semaine, à l'échelle du temps, avec le cours, l'activité et le local ; les flèches "
              + "passent d'une semaine à l'autre. Le lien d'agenda met le même horaire dans l'agenda du téléphone, "
              + "qui suit seul les déplacements et les annulations.",
         savoir: [
+          "Le bouton « Mon horaire de la semaine » est en haut à droite de Mes cours ; « Toute ma semaine », dans Ma journée, y mène aussi.",
+          "Le lien pour l'agenda du téléphone : Mes cours, rail, « Mon horaire dans mon agenda ».",
           "Vous ne voyez que les séances où l'horaire vous nomme. Si rien n'apparaît, l'écran dit pourquoi.",
           "Le lien d'agenda ne s'affiche qu'une fois ; « Nouveau lien » annule l'ancien.",
-        ] },
+        ],
+        image: "/guide/mescours-semaine.png", legende: "Mon horaire de la semaine : les séances à l'échelle du temps, le local, les flèches pour changer de semaine." },
       { titre: "Présences",
         ou: "Mes cours → un cours → Présences.",
         texte: "Séance par séance : « Tous présents », puis corrigez les absents (A), les retards (P*) et les absences "
@@ -802,7 +808,8 @@ export const RUBRIQUES = [
           "Une séance à venir ne s'encode pas.",
           "Une note d'une unité dont la délibération est close ne se modifie plus ; la seconde session s'ouvre d'elle-même pour les ajournés.",
           "Les étudiants marqués CEP : leurs présences partent sur l'attestation d'assiduité du congé-éducation, qui ne sort pas tant qu'une séance passée n'a pas ses présences.",
-        ] },
+        ],
+        image: "/guide/mescours-presences.png", legende: "Les présences : les séances à gauche, la séance choisie à droite — P, P*, A, J, ou non concerné." },
     ],
   },
   {
