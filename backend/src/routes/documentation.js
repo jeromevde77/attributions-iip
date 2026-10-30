@@ -185,7 +185,7 @@ function versionReference(documentId) {
  * `confirme_le` et `version_confirmee` disent QUELLE version a été confirmée :
  * la personne a accepté un texte précis, pas « le document ».
  */
-function etatLecture(documentId, utilisateurId) {
+export function etatLecture(documentId, utilisateurId) {
   const ref = versionReference(documentId);
   const derniere = derniereVersion(documentId);
   if (!ref || !derniere || !utilisateurId) {
@@ -212,7 +212,7 @@ function etatLecture(documentId, utilisateurId) {
 const auteur = u => u?.nom || u?.nom_complet || u?.email || null;
 
 /** La dernière version publiée d'un document — celle qui fait foi. */
-function derniereVersion(documentId) {
+export function derniereVersion(documentId) {
   return db.prepare(`SELECT * FROM corpus_version WHERE document_id = ?
     ORDER BY numero DESC LIMIT 1`).get(documentId) || null;
 }

@@ -354,6 +354,15 @@ raisonnable** (Audrey Perez) — pièce `accuse` de `piecesAmenagement.js`, envo
 formulaire (cadres A et B), chacun dans son PDF ; le dossier garde `accuse_le` / `accuse_par`
 (`POST /amenagements/dossier/:id/accuse`). Il faut la date de la demande.
 
+**LE RÉCAPITULATIF QUOTIDIEN PAR COURRIEL** (3.1.472, Charles, 30 octobre 2026, idée de Véronique Moiny ; rythme :
+quotidien). `lib/recapQuotidien.js` : chaque matin après 7 h (Bruxelles), un courriel par compte actif — SEULEMENT si
+quelque chose de NOUVEAU l'attend depuis le précédent : tâches « les miennes » (la règle de l'Accueil), textes à
+confirmer (`etatLecture`), messages non lus (`messagesRecus`), réponses à ses idées, et pour la direction les idées
+déposées. Des intitulés et des nombres, un lien vers le tableau de bord ; rien de sensible. `recap_envoi` (un par
+personne et par jour). Interrupteur et essai : Configuration → Courriels → *Récapitulatif quotidien*
+(`GET/PUT /api/envois/recap`, `POST /api/envois/recap/moi`). **Automatique en production seulement** (la dev redirige
+tout vers une seule boîte). Le premier matin, tout ce qui attend compte comme nouveau : chacun en reçoit un.
+
 **UNE UE DISPENSÉE EN ENTIER EST ACQUISE — ÇA SE LIT DU DOSSIER DE VA** (3.1.438). Les crédits de l'annexe 2,
 l'état du parcours (schéma) et le motif de l'annexe 2 attendaient un résultat `'valorise'` sur
 l'inscription, qu'aucune route n'écrivait : zéro crédit valorisé, partout, en silence. Plutôt qu'un second

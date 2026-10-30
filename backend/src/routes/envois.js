@@ -21,6 +21,7 @@ import { preparerPourCourriel, variableImage } from '../lib/courrielPiece.js';
 import { nouvelleReference, signatureFiligranee } from '../services/filigrane.js';
 import { protegerSignature, jourDuJour } from '../lib/protectionSignature.js';
 import { getParam } from './parametres.js';
+import { recapActif, poserRecapActif, passerRecap, ceQuiAttend, migrerRecap } from '../lib/recapQuotidien.js';
 import { envoyerEmail, mailerConfigure, lireConfigSmtp, ecrireConfigSmtp, verifierSmtp } from '../services/mailer.js';
 
 const r = express.Router();
@@ -194,6 +195,26 @@ r.get('/etat', authRequired, async (req, res) => {
              // L'écran cache le bouton à qui n'a pas le droit ; la route le
              // refuse quand même — un bouton caché n'est pas une protection.
              peut_envoyer: gesteAutorise(req, 'envois.envoyer') === 'oui' });
+});
+
+// ── Le récapitulatif quotidien (3.1.472) : l'interrupteur, et le sien en essai ──
+r.get('/recap', authRequired, (req, res) => {
+  migrerRecap();
+  const u = db.prepare('SELECT id, email, role, nom_complet, professeur_id FROM utilisateur WHERE id = ?').get(req.user.id);
+  const a = u ? ceQuiAttend(u, null) : null;
+  const dernier = db.prepare(`SELECT jour, statut, resume FROM recap_envoi WHERE statut IN ('envoye','simule','echec')
+    ORDER BY envoye_le DESC LIMIT 1`).get() || null;
+  const aujourdhui = db.prepare(`SELECT statut, COUNT(*) n FROM recap_envoi WHERE jour = date('now') GROUP BY statut`).all();
+  res.json({ actif: recapActif(), mien: a && { total: a.total, taches: a.taches.length, textes: a.textes.length,
+    messages: a.messages.length, idees: a.idees.length }, dernier, aujourdhui });
+});
+r.put('/recap', authRequired, roleRequired('admin'), (req, res) => {
+  poserRecapActif(!!req.body?.actif);
+  res.json({ actif: recapActif() });
+});
+r.post('/recap/moi', authRequired, async (req, res) => {
+  const r0 = await passerRecap({ seul: req.user.id, force: true });
+  res.json(r0);
 });
 
 // ── Réglages (admin) : interrupteur et serveur SMTP ─────────────────────────
