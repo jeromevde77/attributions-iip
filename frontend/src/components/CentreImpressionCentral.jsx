@@ -4,14 +4,14 @@ import OngletSLE from './OngletSLE.jsx';
 import { useDroits, peutGeste } from '../lib/droits.js';
 import CentreDiplomation from './CentreDiplomation.jsx';
 import LettresModele from './LettresModele.jsx';
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, lazy, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { nomPropre } from '../lib/nom.js';
 import {
   IconPrinter, IconUsers, IconSchool, IconChartBar, IconCalendarStats,
   IconBooks, IconAlertTriangle, IconChevronRight, IconChevronDown, IconSearch,
-  IconDownload, IconSend, IconFilePlus, IconMailForward, IconFileText, IconRoute, IconId,
+  IconDownload, IconSend, IconFilePlus, IconMailForward, IconFileText, IconRoute, IconId, IconZoomIn,
 } from '@tabler/icons-react';
 const RegistreEnvois = lazy(() => import('./RegistreEnvois.jsx'));
 import PreviewModal from './PreviewModal.jsx';
@@ -86,6 +86,20 @@ function TitreCarte({ Icone, titre, sous }) {
         <div className="text-xs text-slate-500">{sous}</div>
       </div>
     </div>
+  );
+}
+
+/* LES ACTIONS DANS LA BARRE BLEUE (3.1.497, Charles : « comme dans d'autres fenêtres, aperçu, produire ou envoyer
+   doivent être dans la barre bleue du haut, sous forme d'icônes — loupe, imprimante, avion »). La fenêtre offre une
+   place à côté de la croix ; l'onglet des pièces y dépose ses trois gestes (portail React). */
+const PlaceOutils = createContext(null);
+
+function IconeBarre({ Icone, titre, onClick, disabled }) {
+  return (
+    <button type="button" onClick={onClick} disabled={disabled} title={titre} aria-label={titre}
+      className="flex-none w-8 h-8 grid place-items-center rounded-champ hover:bg-white/15 disabled:opacity-35 disabled:hover:bg-transparent transition-colors duration-150 ease-ios">
+      <Icone size={17} />
+    </button>
   );
 }
 
@@ -1659,6 +1673,7 @@ function UnEtudiantToutesAnnees({ annee, choisi, onChoisir, compact = false }) {
 }
 
 function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null, onRevenir = null }) {
+  const placeOutils = useContext(PlaceOutils);
   const delib = mode === 'deliberation';
   /* L'ANNÉE SE CHOISIT ICI AUSSI. L'onglet des rapports la montre depuis
      longtemps ; celui des étudiants reprenait l'année de travail sans jamais
@@ -2129,7 +2144,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
           </div>
         )}
         <div className="p-3">
-          <div className="h-9 flex items-center mb-2.5 text-sm font-semibold text-iip-blue">Périmètre</div>
+          <div className="h-6 flex items-center mb-2.5 text-sm font-semibold text-iip-blue">Périmètre</div>
           <select value={annee} onChange={e => setAnnee(e.target.value)}
             title="L'année sur laquelle portent les pièces"
             className="controle w-full mb-2 text-sm">
@@ -2239,23 +2254,18 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
               Un document par étudiant
             </label>
             <span className="flex-1" />
-            <button onClick={() => produire(true)} disabled={enCours || !coches.size || !nbPieces}
-              title="Voir les pièces avant de les produire — rien n'est téléchargé"
-              className="bouton">
-              Aperçu
-            </button>
-            <button onClick={() => produire()} disabled={enCours || !coches.size || !nbPieces}
-              className="bouton bouton-fort">
-              <IconPrinter size={15} />
-              {enCours ? 'Production…' : `Produire ${nbPieces} pièce${nbPieces > 1 ? 's' : ''} · ${coches.size} étudiant${coches.size > 1 ? 's' : ''}`}
-            </button>
-            {etatEnvoi?.actif && etatEnvoi?.peut_envoyer && (
-              <button onClick={envoyer} disabled={enCours || !coches.size || !nbPieces}
-                title="Envoyer par courriel — un document par personne, jamais de copie collective"
-                className="bouton bouton-sortir">
-                <IconSend size={15} /> Envoyer
-              </button>
-            )}
+            <span className="text-second text-slate-500 tabular-nums">
+              {enCours ? 'Production…' : `${nbPieces} pièce${nbPieces > 1 ? 's' : ''} · ${coches.size} étudiant${coches.size > 1 ? 's' : ''}`}
+            </span>
+            {placeOutils && createPortal(<>
+              <IconeBarre Icone={IconZoomIn} titre="Aperçu — voir les pièces avant de les produire" onClick={() => produire(true)}
+                disabled={enCours || !coches.size || !nbPieces} />
+              <IconeBarre Icone={IconPrinter} onClick={() => produire()} disabled={enCours || !coches.size || !nbPieces}
+                titre={`Produire ${nbPieces} pièce${nbPieces > 1 ? 's' : ''} · ${coches.size} étudiant${coches.size > 1 ? 's' : ''}`} />
+              {etatEnvoi?.actif && etatEnvoi?.peut_envoyer && (
+                <IconeBarre Icone={IconSend} onClick={envoyer} disabled={enCours || !coches.size || !nbPieces}
+                  titre="Envoyer par courriel — un document par personne, jamais de copie collective" />)}
+            </>, placeOutils)}
           </div>
           {erreur && (
             <div data-etat="surveiller" className="bloc-etat px-3 py-2 text-sm flex items-start gap-2">
@@ -2504,14 +2514,18 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
     setFamille(onglet === 'etudiants' || onglet === 'personnel' ? 'pieces' : 'rapports');
   }, [onglet]);
 
+  const [placeOutils, setPlaceOutils] = useState(null);
+
   return (
-    /* L'AVION, ET LE SOUS-TITRE AVEC LUI.
+    <PlaceOutils.Provider value={placeOutils}>
+    {/* L'AVION, ET LE SOUS-TITRE AVEC LUI.
        La porte du rail portait l'avion et la fenêtre l'imprimante : on cliquait
        sur un envoi pour tomber sur une impression. Depuis que ce centre envoie
        aussi par courriel, « tout ce que Lucie imprime » n'était plus vrai — et
-       un sous-titre qui ment coûte plus cher qu'une icône qui dépareille. */
+       un sous-titre qui ment coûte plus cher qu'une icône qui dépareille. */}
     <Fenetre icone={IconSend} titre="Éditions"
       sous="Tout ce que Lucie produit — à imprimer ou à envoyer."
+      outils={<span ref={setPlaceOutils} className="flex items-center gap-1 pr-1 mr-1 border-r border-white/20 empty:hidden" />}
       large="pleine" onFermer={onClose}>
 
       <PiecesDeLEcran pieces={pieces}
@@ -2635,5 +2649,6 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
         </>
       )}
     </Fenetre>
+    </PlaceOutils.Provider>
   );
 }
