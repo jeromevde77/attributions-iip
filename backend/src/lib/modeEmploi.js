@@ -10,7 +10,7 @@
  *   savoir — ce qu'il faut savoir : les règles qui bloquent ou qui surprennent.
  * Il explique le travail, pas l'informatique (CLAUDE.md, § 7). La version décrite se dit en tête.
  */
-export const VERSION_DECRITE = '3.1.515';
+export const VERSION_DECRITE = '3.1.516';
 
 export const RUBRIQUES = [
   {
@@ -945,7 +945,7 @@ export const RUBRIQUES = [
   },
   {
     id: 'espace', pour: 'sec coo dir', titre: "L'espace de l'étudiant", icone: 'IconDeviceMobile',
-    resume: "Le site à part où l'étudiant retrouve ses résultats et ses documents, en accuse réception, demande une valorisation, compose son PAE, et où chacun peut vérifier qu'une pièce est authentique.",
+    resume: "Le site à part où l'étudiant retrouve ses résultats et ses documents, en accuse réception, lit les messages de l'école, demande une valorisation, compose son PAE, et où chacun peut vérifier qu'une pièce est authentique.",
     points: [
       {
         titre: "Comment l'étudiant y entre",
@@ -1002,6 +1002,22 @@ export const RUBRIQUES = [
         images: [
           { src: "/guide/portail-candidat.png", legende: "L'entrée du candidat : son adresse privée et le code reçu.", etroite: true },
           { src: "/guide/fiche-code-candidat.png", legende: "Fiche → Suivi : le code envoyé, sa validité, et [[Envoyer un nouveau code]]." },
+        ],
+      },
+      {
+        titre: "Écrire aux étudiants",
+        ou: "Étudiants → rail → Écrire aux étudiants (les enseignants : Mes cours → Écrire à mes étudiants).",
+        texte: "Choisissez à qui — une section, les inscrits d'une ou plusieurs UE, des étudiants cherchés par leur nom —, voyez la liste de ceux qui recevront, puis l'objet et le texte, et [[Envoyer|IconSend|fort]]. L'étudiant le lit dans son espace (onglet « Messages ») et peut répondre ; un courriel l'avertit, sans le contenu, un par jour au plus. « Envoyés » montre, message par message, qui l'a lu (✓) et les réponses, auxquelles vous répondez sur la même ligne.",
+        savoir: [
+          "Le secrétariat et la direction écrivent à tous ; la coordination aux étudiants de ses sections ; un enseignant aux inscrits de ses UE.",
+          "La réponse d'un étudiant revient à l'auteur du message, avec une notification sur son tableau de bord ; la direction lit tout.",
+          "Un étudiant sans espace (ni adresse de l'institut ni code de candidat) ne le reçoit pas : l'aperçu le dit avant l'envoi.",
+          "Un message envoyé par erreur se [[Retirer|IconX]] : il quitte les espaces, il reste au registre avec son fil.",
+        ],
+        images: [
+          { src: "/guide/messages-ecrire.png", legende: "Écrire (données d'essai) : à gauche les destinataires et la liste de ceux qui recevront, à droite l'objet et le texte." },
+          { src: "/guide/messages-suivi.png", legende: "Envoyés → un message : qui l'a lu, la réponse de l'étudiant, et la vôtre." },
+          { src: "/guide/portail-messages.png", legende: "Ce que lit l'étudiant, avec le fil de la conversation.", etroite: true },
         ],
       },
       {
@@ -1125,6 +1141,18 @@ export const RUBRIQUES = [
           { src: "/guide/presence-etudiant-adresse.png", legende: "Première fois : l'adresse d'école, puis « Recevoir mon code ».", etroite: true },
           { src: "/guide/presence-etudiant-code.png", legende: "Le code reçu par courriel, puis « Valider et enregistrer ma présence ».", etroite: true },
           { src: "/guide/presence-etudiant-ok.png", legende: "C'est fait : la présence est enregistrée, avec le cours et l'heure.", etroite: true },
+        ],
+      },
+      {
+        titre: "Écrire à mes étudiants",
+        ou: "Mes cours → rail → Écrire à mes étudiants.",
+        texte: "Un message aux inscrits d'une ou plusieurs de vos UE (ou à des étudiants choisis parmi eux), qu'ils lisent dans leur espace étudiant. Vous voyez avant l'envoi qui le recevra, puis qui l'a lu (✓), et leurs réponses, qui reviennent à vous.",
+        savoir: [
+          "Un courriel avertit l'étudiant qu'un message l'attend, sans le contenu.",
+          "Une réponse d'étudiant s'annonce aussi sur votre tableau de bord.",
+        ],
+        images: [
+          { src: "/guide/messages-ecrire.png", legende: "Écrire : les UE, la liste de ceux qui recevront, puis l'objet et le texte." },
         ],
       },
       {

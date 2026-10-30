@@ -22,6 +22,7 @@ import { copieDeLEnvoi } from '../routes/envois.js';
 import { deposerDOffice } from './depotEspace.js';
 import { piecesATransmettre, marquerTransmises } from './authentique.js';
 import { derniereVersion, versionReference } from '../routes/documentation.js';
+import { aDeposer as messagesADeposer, recevoir as recevoirMessages, aviserParCourriel } from './messagesEtudiants.js';
 import { offrePAE, deposerProposition, recevoirSignature, signatureDe } from './paeEnLigne.js';
 import { offreVA, etatVA, appliquerGeste, accuserReception, codesDOffice, candidatsValides, candidatDe, anneeActive as anneeVA } from './portailValorisation.js';
 
@@ -157,7 +158,7 @@ async function deposerVA(ids) {
 // ── RELEVER ────────────────────────────────────────────────────────────────
 async function relever() {
   const r = await appel('GET', '/interne/releve');
-  const ok = { demandes: [], accuses: [], connexions: [], entrees: [], va: [], pae: [] };
+  const ok = { demandes: [], accuses: [], connexions: [], entrees: [], va: [], pae: [], messages_lus: [], messages_reponses: [] };
   const etudiant = id => db.prepare(`SELECT id, prenom, email_ecole FROM etudiant WHERE id = ? AND COALESCE(actif, 1) = 1
     AND COALESCE(sortie_statut, '') <> 'archive' AND email_ecole LIKE '%@%'`).get(Number(id));
   for (const d of r.demandes || []) {
@@ -236,7 +237,15 @@ async function relever() {
     ok.pae.push({ id: g.id, erreur });
     touches.add(Number(g.etudiant_id));
   }
-  if (ok.demandes.length || ok.accuses.length || ok.connexions.length || ok.entrees.length || ok.va.length || ok.pae.length) await appel('POST', '/interne/acquitter', ok);
+  // LES MESSAGES (3.1.516) : ✓ lu, et les réponses (au fil, l'auteur prévenu).
+  if ((r.messages_lus || []).length || (r.messages_reponses || []).length) {
+    const m = recevoirMessages({ lus: r.messages_lus || [], reponses: r.messages_reponses || [] });
+    ok.messages_lus = m.lus; ok.messages_reponses = m.reponses;
+    for (const x of [...(r.messages_lus || []), ...(r.messages_reponses || [])]) touches.add(Number(x.etudiant_id));
+    tours = 0;
+  }
+  if (ok.demandes.length || ok.accuses.length || ok.connexions.length || ok.entrees.length || ok.va.length || ok.pae.length
+    || ok.messages_lus.length || ok.messages_reponses.length) await appel('POST', '/interne/acquitter', ok);
   // Ce qui vient de changer, ou qui vient d'entrer, voit ses demandes à jour dans les secondes qui suivent.
   if (touches.size) await deposerVA([...touches]);
 }
@@ -251,6 +260,8 @@ async function deposer() {
   await deposerVA(db.prepare(`SELECT DISTINCT etudiant_id FROM portail_connexion WHERE le >= datetime('now', '-3 hours')`).all().map(x => x.etudiant_id));
   await appel('POST', '/interne/resultats', { resultats: resultatsPublies(etudiants.map(e => e.id)) });
   await appel('POST', '/interne/reglements', { reglements: reglementsEtudiants() });
+  await appel('POST', '/interne/messages', messagesADeposer([...etudiants.map(e => e.id), ...candidats.map(c => c.id)]));
+  try { await aviserParCourriel(URL_PUBLIQUE()); } catch (e) { console.error('[messages] avis :', e.message); }
   await appel('POST', '/interne/exceptions', { exceptions: db.prepare(`SELECT etudiant_id, MAX(jusqu_au) AS jusqu_au FROM portail_exception
     WHERE retire_le IS NULL AND jusqu_au >= date('now') GROUP BY etudiant_id`).all() });
   // LE REGISTRE D'AUTHENTICITÉ (3.1.511) : ce que le scan d'un QR doit retrouver. En ajout seul, par lots.

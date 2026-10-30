@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { IconCertificate, IconFileText, IconBook, IconSignature, IconCheck, IconLogout, IconLock, IconDevices, IconTrash, IconShieldCheck, IconShieldX, IconKey, IconWorld, IconUserCircle, IconAward, IconUpload, IconPlus, IconAlertTriangle, IconListCheck } from '@tabler/icons-react';
+import { IconCertificate, IconFileText, IconBook, IconSignature, IconCheck, IconLogout, IconLock, IconDevices, IconTrash, IconShieldCheck, IconShieldX, IconKey, IconWorld, IconUserCircle, IconAward, IconUpload, IconPlus, IconAlertTriangle, IconListCheck, IconMessages } from '@tabler/icons-react';
 
 /**
  * L'ESPACE DE L'ÉTUDIANT (3.1.475, Charles : « un mini espace ultra sécurisé : récupérer ses documents, voir ses
@@ -303,6 +303,52 @@ function MesValorisations({ onErreur }) {
   );
 }
 
+/** LES MESSAGES DE L'ÉCOLE (3.1.516) : les lire (l'auteur voit ✓ lu), y répondre — la réponse va à l'auteur. */
+function MesMessages({ onErreur, onLus }) {
+  const [l, setL] = useState(null);
+  const [ouvert, setOuvert] = useState(null);
+  const [texte, setTexte] = useState('');
+  const [enCours, setEnCours] = useState(false);
+  const charger = useCallback(() => appel('GET', '/messages').then(x => { setL(x); onLus?.(x.filter(m => !m.lu).length); }).catch(onErreur), [onErreur, onLus]);
+  useEffect(() => { charger(); }, [charger]);
+  const enCoursFil = l?.some(m => m.fil.some(f => f.en_cours));
+  // Une réponse en route : on regarde vite ; sinon toutes les trente secondes (une réponse de l'école arrive).
+  useEffect(() => { const t = setTimeout(charger, enCoursFil ? 5000 : 30000); return () => clearTimeout(t); }, [enCoursFil, l, charger]);
+  if (!l) return <p className="text-sm text-slate-500">Chargement…</p>;
+  if (!l.length) return <p className="text-sm text-slate-500">Aucun message pour l’instant. Les messages du secrétariat, de votre coordination et de vos enseignants paraîtront ici.</p>;
+  const ouvrir = async m => {
+    setOuvert(o => (o === m.id ? null : m.id)); setTexte('');
+    if (!m.lu) { try { await appel('POST', `/messages/${m.id}/lu`); charger(); } catch (e) { onErreur(e); } }
+  };
+  const envoyer = async m => {
+    setEnCours(true);
+    try { await appel('POST', `/messages/${m.id}/repondre`, { corps: texte }); setTexte(''); await charger(); } catch (e) { onErreur(e); } finally { setEnCours(false); }
+  };
+  return (
+    <div className="space-y-2">
+      {l.map(m => (
+        <section key={m.id} className="bloc-etat px-4 py-3 space-y-2" data-etat={m.lu ? 'neutre' : 'disponible'}>
+          <button type="button" className="w-full text-left flex items-start gap-2" onClick={() => ouvrir(m)}>
+            {!m.lu && <span className="mt-1.5 w-2 h-2 rounded-full flex-none" style={{ background: 'var(--c-disponible, #2F6FB0)' }} aria-label="non lu" />}
+            <span className="flex-1 min-w-0">
+              <span className={`block text-sm text-iip-texte ${m.lu ? '' : 'font-semibold'}`}>{m.objet}</span>
+              <span className="block text-xs text-slate-500">{m.auteur} · {jourFr(m.envoye_le)}{m.fil.length ? ` · ${m.fil.length} réponse${m.fil.length > 1 ? 's' : ''}` : ''}</span>
+            </span>
+          </button>
+          {ouvert === m.id && <div className="space-y-2">
+            <div className="text-sm text-slate-700 whitespace-pre-line break-words">{m.corps}</div>
+            {m.fil.map((f, i) => (
+              <div key={i} className={`text-sm rounded-carte px-3 py-2 whitespace-pre-line break-words ${f.de === 'etudiant' ? 'border border-slate-200 ml-6' : 'bloc-etat mr-6'}`}>
+                <div className="text-xs text-slate-500 mb-0.5">{f.de === 'etudiant' ? 'Vous' : f.auteur} · {jourFr(f.le)}{f.en_cours ? ' · envoi en cours…' : ''}</div>{f.corps}
+              </div>))}
+            <textarea value={texte} onChange={e => setTexte(e.target.value)} rows={3} placeholder={`Répondre à ${m.auteur}…`} className="controle w-full !h-auto py-2" />
+            <button type="button" className="bouton bouton-fort" disabled={!texte.trim() || enCours} onClick={() => envoyer(m)}>Répondre</button>
+          </div>}
+        </section>))}
+    </div>
+  );
+}
+
 /** LE PAE EN LIGNE (3.1.515) : Lucie coche ce qui est accessible ; l'étudiant choisit et envoie ; la coordination valide
  *  ou corrige ; une fois le PAE confirmé par l'école, il le confirme à son tour par un code. */
 function MonPAE({ onErreur }) {
@@ -473,6 +519,10 @@ function Espace() {
   const [d, setD] = useState(null);
   const [face, setFace] = useState('resultats');
   const [texte, setTexte] = useState(null);   // règlement ouvert
+  const [nonLus, setNonLus] = useState(0);
+  // Les messages non lus se voient dès l'entrée, sur l'onglet.
+  const aD = !!d;
+  useEffect(() => { if (aD) appel('GET', '/messages').then(x => setNonLus(x.filter(m => !m.lu).length)).catch(() => {}); }, [aD]);
 
   const echec = e => {
     if (e.donnees?.hors_belgique) { setHorsBe(e.message); setConnecte(false); setD(null); poser(null); return; }
@@ -644,8 +694,8 @@ function Espace() {
 
   const nom = d ? `${String(d.etudiant.nom || '').toUpperCase()} ${d.etudiant.prenom || ''}` : '';
   const aSigner = d ? d.documents.filter(x => !x.signe_le).length + d.reglements.filter(x => !x.signe_le).length : 0;
-  const FACES = d?.candidat ? [['va', 'Valorisation', IconAward], ['documents', 'Mes documents', IconFileText]]
-    : [['resultats', 'Mes résultats', IconCertificate], ['pae', 'Mon PAE', IconListCheck], ['documents', 'Mes documents', IconFileText], ['va', 'Valorisation', IconAward], ['reglements', 'Règlements', IconBook], ['compte', 'Mon compte', IconUserCircle]];
+  const FACES = d?.candidat ? [['va', 'Valorisation', IconAward], ['messages', nonLus ? `Messages (${nonLus})` : 'Messages', IconMessages], ['documents', 'Mes documents', IconFileText]]
+    : [['resultats', 'Mes résultats', IconCertificate], ['messages', nonLus ? `Messages (${nonLus})` : 'Messages', IconMessages], ['pae', 'Mon PAE', IconListCheck], ['documents', 'Mes documents', IconFileText], ['va', 'Valorisation', IconAward], ['reglements', 'Règlements', IconBook], ['compte', 'Mon compte', IconUserCircle]];
 
   return (
     <div className="min-h-screen bg-slate-100">
@@ -713,6 +763,7 @@ function Espace() {
           jusqu’à votre adresse de l’institut : votre demande de valorisation et vos documents.</div>}
         {face === 'va' && <MesValorisations onErreur={echec} />}
         {face === 'pae' && <MonPAE onErreur={echec} />}
+        {face === 'messages' && <MesMessages onErreur={echec} onLus={setNonLus} />}
         {face === 'compte' && <div className="space-y-4">
           <ChoisirMotDePasse avecActuel />
           <h2 className="titre-carte flex items-center gap-2"><IconDevices size={16} /> Mes appareils</h2>

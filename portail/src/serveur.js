@@ -93,6 +93,15 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS va_lot (etudiant_id INTEGER PRIMARY KEY, offre TEXT, etat TEXT, maj_le TEXT);
   -- LE PAE EN LIGNE (3.1.515) : l'offre déposée par Lucie, et les gestes (proposer, confirmer) qu'elle relève.
   CREATE TABLE IF NOT EXISTS pae_lot (etudiant_id INTEGER PRIMARY KEY, offre TEXT, maj_le TEXT);
+  -- LES MESSAGES (3.1.516) : la copie déposée par Lucie (remplacée à chaque dépôt) ; ce que l'étudiant en fait (lu, répondu),
+  -- que Lucie relève.
+  CREATE TABLE IF NOT EXISTS message (id INTEGER PRIMARY KEY, objet TEXT, corps TEXT, auteur TEXT, envoye_le TEXT);
+  CREATE TABLE IF NOT EXISTS message_dest (message_id INTEGER NOT NULL, etudiant_id INTEGER NOT NULL, lu_le TEXT, PRIMARY KEY (message_id, etudiant_id));
+  CREATE TABLE IF NOT EXISTS message_fil (id INTEGER PRIMARY KEY, message_id INTEGER NOT NULL, etudiant_id INTEGER NOT NULL, de TEXT, auteur TEXT, corps TEXT, le TEXT);
+  CREATE TABLE IF NOT EXISTS message_lu (id INTEGER PRIMARY KEY AUTOINCREMENT, message_id INTEGER NOT NULL, etudiant_id INTEGER NOT NULL,
+    lu_le TEXT NOT NULL DEFAULT (datetime('now')), releve_le TEXT, UNIQUE (message_id, etudiant_id));
+  CREATE TABLE IF NOT EXISTS message_reponse (id INTEGER PRIMARY KEY AUTOINCREMENT, message_id INTEGER NOT NULL, etudiant_id INTEGER NOT NULL,
+    corps TEXT NOT NULL, le TEXT NOT NULL DEFAULT (datetime('now')), releve_le TEXT);
   CREATE TABLE IF NOT EXISTS pae_geste (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL,
     type TEXT NOT NULL CHECK (type IN ('proposer','signer')), annee TEXT, ues TEXT, programme TEXT, ip TEXT, signe_le TEXT,
     cree_le TEXT NOT NULL DEFAULT (datetime('now')), releve_le TEXT, erreur TEXT, vu_le TEXT);
@@ -349,7 +358,7 @@ function connecte(req, res, next) {
     if (p.candidat) {
       // Le code vaut tant que Lucie le dépose : adresse d'institut reçue, ou 60 jours passés, il disparaît.
       if (!db.prepare("SELECT 1 FROM candidat WHERE etudiant_id = ? AND jusqu_au >= date('now')").get(e.id)) throw new Error('échu');
-      if (!/^\/api\/portail\/(moi|va|documents\/)/.test(req.path)) return res.status(403).json({ error: 'Pas encore accessible avec un code d’accès.' });
+      if (!/^\/api\/portail\/(moi|va|documents\/|messages)/.test(req.path)) return res.status(403).json({ error: 'Pas encore accessible avec un code d’accès.' });
     }
     req.etudiant = e; req.peutDefinir = !!p.definir; req.candidat = !!p.candidat; next();
   } catch { res.status(401).json({ error: 'Session expirée. Reconnectez-vous.' }); }
@@ -580,6 +589,42 @@ pub.post('/api/portail/va/terminer', connecte, (req, res) => {
   if (gesteVA(req, res, { type: 'terminer' })) res.json({ ok: true });
 });
 
+// ── LES MESSAGES (3.1.516) ──
+pub.get('/api/portail/messages', connecte, (req, res) => {
+  const id = req.etudiant.id;
+  const l = db.prepare(`SELECT m.*, d.lu_le AS lu_lucie, (SELECT lu_le FROM message_lu WHERE message_id = m.id AND etudiant_id = ?) AS lu_ici
+    FROM message m JOIN message_dest d ON d.message_id = m.id AND d.etudiant_id = ? ORDER BY m.envoye_le DESC`).all(id, id);
+  const fil = db.prepare('SELECT de, auteur, corps, le FROM message_fil WHERE message_id = ? AND etudiant_id = ? ORDER BY id');
+  // Ses réponses que le fil déposé par Lucie ne porte pas encore (relevées ou non) : on les montre « en cours ».
+  const enAttente = db.prepare(`SELECT r.corps, r.le FROM message_reponse r WHERE r.message_id = ? AND r.etudiant_id = ?
+    AND NOT EXISTS (SELECT 1 FROM message_fil f WHERE f.message_id = r.message_id AND f.etudiant_id = r.etudiant_id AND f.de = 'etudiant' AND f.le = r.le AND f.corps = r.corps)
+    ORDER BY r.id`);
+  res.json(l.map(m => ({ id: m.id, objet: m.objet, corps: m.corps, auteur: m.auteur, envoye_le: m.envoye_le, lu: !!(m.lu_lucie || m.lu_ici),
+    fil: [...fil.all(m.id, id), ...enAttente.all(m.id, id).map(r => ({ de: 'etudiant', corps: r.corps, le: r.le, en_cours: true }))] })));
+});
+const monMessage = (req, res) => {
+  const ok = db.prepare('SELECT 1 FROM message_dest WHERE message_id = ? AND etudiant_id = ?').get(Number(req.params.id), req.etudiant.id);
+  if (!ok) res.status(404).json({ error: 'Message introuvable.' });
+  return !!ok;
+};
+pub.post('/api/portail/messages/:id/lu', connecte, (req, res) => {
+  if (!monMessage(req, res)) return;
+  db.prepare('INSERT OR IGNORE INTO message_lu (message_id, etudiant_id) VALUES (?,?)').run(Number(req.params.id), req.etudiant.id);
+  res.json({ ok: true });
+});
+pub.post('/api/portail/messages/:id/repondre', connecte, (req, res) => {
+  if (!monMessage(req, res)) return;
+  const corps = String(req.body?.corps || '').trim();
+  if (!corps) return res.status(400).json({ error: 'Écrivez votre réponse.' });
+  if (corps.length > 5000) return res.status(400).json({ error: 'Cinq mille caractères au plus.' });
+  if (db.prepare(`SELECT COUNT(*) n FROM message_reponse WHERE etudiant_id = ? AND le > datetime('now', '-1 hour')`).get(req.etudiant.id).n >= 20) {
+    return res.status(429).json({ error: 'Trop de réponses en une heure. Réessayez plus tard.' });
+  }
+  db.prepare('INSERT OR IGNORE INTO message_lu (message_id, etudiant_id) VALUES (?,?)').run(Number(req.params.id), req.etudiant.id);
+  db.prepare('INSERT INTO message_reponse (message_id, etudiant_id, corps) VALUES (?,?,?)').run(Number(req.params.id), req.etudiant.id, corps);
+  res.json({ ok: true });
+});
+
 // ── LE PAE EN LIGNE (3.1.515) ──
 const offrePAEde = id => { try { return JSON.parse(db.prepare('SELECT offre FROM pae_lot WHERE etudiant_id = ?').get(id)?.offre || 'null'); } catch { return null; } };
 pub.get('/api/portail/pae', connecte, (req, res) => {
@@ -729,6 +774,22 @@ int.get('/interne/va/piece/:id', (req, res) => {
   res.setHeader('Content-Type', 'application/octet-stream'); res.send(g.contenu);
 });
 
+int.post('/interne/messages', (req, res) => {
+  const b = req.body || {};
+  db.transaction(() => {
+    db.exec('DELETE FROM message; DELETE FROM message_dest; DELETE FROM message_fil;');
+    const im = db.prepare('INSERT INTO message (id, objet, corps, auteur, envoye_le) VALUES (?,?,?,?,?)');
+    for (const m of b.messages || []) im.run(Number(m.id), String(m.objet || ''), String(m.corps || ''), String(m.auteur || ''), String(m.envoye_le || ''));
+    const id = db.prepare('INSERT OR IGNORE INTO message_dest (message_id, etudiant_id, lu_le) VALUES (?,?,?)');
+    for (const d of b.destinations || []) id.run(Number(d.message_id), Number(d.etudiant_id), d.lu_le || null);
+    const ifl = db.prepare('INSERT INTO message_fil (id, message_id, etudiant_id, de, auteur, corps, le) VALUES (?,?,?,?,?,?,?)');
+    for (const f of b.fils || []) ifl.run(Number(f.id), Number(f.message_id), Number(f.etudiant_id), String(f.de || ''), String(f.auteur || ''), String(f.corps || ''), String(f.le || ''));
+    // Une réponse déjà relevée ET déjà revenue dans le fil n'a plus à vivre ici.
+    db.exec("DELETE FROM message_reponse WHERE releve_le IS NOT NULL AND releve_le < datetime('now', '-1 day')");
+  })();
+  res.json({ ok: true });
+});
+
 int.get('/interne/documents/connus', (req, res) => res.json({ ids: db.prepare('SELECT id FROM document').all().map(x => x.id) }));
 int.post('/interne/documents', (req, res) => {
   const l = Array.isArray(req.body?.documents) ? req.body.documents : [];
@@ -753,6 +814,8 @@ int.get('/interne/releve', (req, res) => {
     // Les gestes de valorisation, dans l'ordre (la pièce se lit à part, /interne/va/piece/:id).
     va: db.prepare('SELECT id, etudiant_id, type, ue_num, porte, fichier_id, nature, nom, taille FROM va_geste WHERE releve_le IS NULL ORDER BY id LIMIT 50').all(),
     pae: db.prepare('SELECT id, etudiant_id, type, annee, ues, programme, ip, signe_le FROM pae_geste WHERE releve_le IS NULL ORDER BY id LIMIT 100').all(),
+    messages_lus: db.prepare('SELECT id, message_id, etudiant_id, lu_le FROM message_lu WHERE releve_le IS NULL LIMIT 500').all(),
+    messages_reponses: db.prepare('SELECT id, message_id, etudiant_id, corps, le FROM message_reponse WHERE releve_le IS NULL ORDER BY id LIMIT 200').all(),
   });
 });
 int.post('/interne/acquitter', (req, res) => {
@@ -767,6 +830,8 @@ int.post('/interne/acquitter', (req, res) => {
       db.prepare("UPDATE va_geste SET releve_le = datetime('now'), erreur = ?, contenu = NULL WHERE id = ?").run(g.erreur ? String(g.erreur).slice(0, 300) : null, Number(g.id));
     }
     db.prepare("DELETE FROM va_geste WHERE releve_le < datetime('now', '-30 days')").run();
+    for (const id of ids('messages_lus')) db.prepare("UPDATE message_lu SET releve_le = datetime('now') WHERE id = ?").run(id);
+    for (const id of ids('messages_reponses')) db.prepare("UPDATE message_reponse SET releve_le = datetime('now') WHERE id = ?").run(id);
     for (const g of Array.isArray(req.body?.pae) ? req.body.pae : []) {
       db.prepare("UPDATE pae_geste SET releve_le = datetime('now'), erreur = ? WHERE id = ?").run(g.erreur ? String(g.erreur).slice(0, 300) : null, Number(g.id));
     }

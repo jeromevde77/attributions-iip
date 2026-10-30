@@ -3090,6 +3090,8 @@ app.use((req, res, next) => {
   next();
 });
 
+// LES MESSAGES AUX ÉTUDIANTS (3.1.516) : écrits ici, lus dans leur espace.
+app.use('/api/messages-etudiants', (await import('./routes/messagesEtudiants.js')).default);
 // LE PAE EN LIGNE (3.1.515) : la fenêtre et les propositions des étudiants, côté école.
 app.use('/api/pae-en-ligne', (await import('./routes/paeEnLigne.js')).default);
 // LA DEMANDE DE VA EN LIGNE (3 octobre 2026) A QUITTÉ LUCIE en 3.1.514 : elle vit dans le portail des étudiants,

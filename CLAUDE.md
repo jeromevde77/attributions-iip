@@ -2924,6 +2924,16 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   puis un mot), Ne pas retenir (un mot) ; chaque geste fait déposer aussitôt (`deposerBientot`). Une fois le PAE confirmé
   par l'école, l'étudiant confirme par code (objet `pae`) → `pae_signature_etudiant` (ajout seul, avec le programme ;
   refusée si le programme a changé) ; fiche → Suivi dit « confirmé par l'étudiant » ou « programme modifié depuis ».
+- **PORTAIL, ÉTAPE 4 : LES MESSAGES AUX ÉTUDIANTS** (3.1.516, tranché : secrétariat et direction à tous, coordination à ses
+  sections, enseignants aux inscrits de leurs UE ; la réponse revient à l'AUTEUR, la direction lit tout ; un courriel
+  d'avis sans contenu, un par jour au plus). `lib/messagesEtudiants.js` : `perimetre`, `resoudre` (sections par
+  `sectionPropre`, inscrits d'UE, étudiants choisis ; seuls ceux qui ont un espace reçoivent), tables `message_etudiant`,
+  `_dest` (lu_le), `_fil` (ajout seul ; réponses de l'étudiant et de l'école), `_avis`. Routes `/api/messages-etudiants`
+  (cibles, etudiants, apercu, envoyer, envoyés, détail, repondre, retirer — un message se RETIRE, jamais effacé). Écran
+  `MessagesEtudiants.jsx` (Écrire · Envoyés) : rail Étudiants (direction, secrétariat, coordination) et rail Mes cours
+  (« Écrire à mes étudiants »). Passage du mur : dépôt complet `/interne/messages` à chaque cycle ; relevé `messages_lus`
+  et `messages_reponses` → ✓ lu, fil, `lucie_notification` (type `reponse_etudiant`, `cible_user_id` = l'auteur) ;
+  `aviserParCourriel` après le dépôt. Portail : onglet « Messages (n) », candidats compris.
 - **LE PORTAIL DE L'ÉTUDIANT — CE QUI EST TRANCHÉ, RIEN N'EST CODÉ** (Charles, 30 octobre 2026 ; projet : logigramme et
   treize écrans hors dépôt). Mot de passe choisi par l'étudiant (comme le personnel), code en plus sur un nouvel appareil.
   **PAE en ligne** : Lucie coche ce qui est accessible (`etatsPAE`), l'étudiant choisit et envoie, la coordination valide ou
@@ -2933,7 +2943,7 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   au secrétariat**. **Candidat** : dès son inscription dans Lucie, un code d'accès temporaire à son espace jusqu'à son adresse
   officielle (tranché : envoyé à l'adresse PRIVÉE du dossier ; s'éteint dès que l'adresse d'institut est encodée, au plus 60 jours, renouvelable par le secrétariat ; il ouvre la demande de VA, les documents, les frais et les messages). Résultats : détail par acquis (NA sous 10) après clôture publiée. Messages :
   réponse possible. Accès **bloqué hors de Belgique**, exception accordée par le secrétariat pour une période ; la vérification
-  du QR reste ouverte partout. (Mot de passe et Belgique : FAITS en 3.1.513 ; VA en ligne et code du candidat : FAITS en 3.1.514 ; PAE en ligne : FAIT en 3.1.515.) Toute écriture venant du portail passe par le relevé de Lucie (`portailSync.js`), jamais l'inverse. **Ordre de construction** : 1 mot de passe et blocage hors Belgique · 2 VA en ligne déplacée + code candidat · 3 PAE en ligne · 4 messages · puis parcours, frais, aide.
+  du QR reste ouverte partout. (Mot de passe et Belgique : FAITS en 3.1.513 ; VA en ligne et code du candidat : FAITS en 3.1.514 ; PAE en ligne : FAIT en 3.1.515 ; messages : FAITS en 3.1.516.) Toute écriture venant du portail passe par le relevé de Lucie (`portailSync.js`), jamais l'inverse. **Ordre de construction** : 1 mot de passe et blocage hors Belgique · 2 VA en ligne déplacée + code candidat · 3 PAE en ligne · 4 messages · puis parcours, frais, aide.
 
 **L'ANNULER NE COMPARE QUE CE QUE LE GESTE A CHANGÉ** (3.1.482, Charles, 30 octobre 2026, en production :
   « Impossible d'annuler : utilisateur — la ligne a été modifiée depuis, par quelqu'un »). Se reconnecter écrit

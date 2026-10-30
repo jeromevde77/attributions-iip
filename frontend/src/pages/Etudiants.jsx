@@ -17,7 +17,7 @@ import { RailLateral, Chevron } from '../components/ui.jsx';
 import SuiviEtudiant from '../components/SuiviEtudiant.jsx';
 import NouvelEtudiant from '../components/NouvelEtudiant.jsx';
 import {
-  IconAddressBook, IconListSearch, IconAlertTriangle, IconEyeCheck, IconInbox, IconTablePlus, IconArrowForwardUp, IconArchive, IconDoorExit, IconSchool, IconArrowBackUp, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconSend, IconWritingSign, IconWritingSignOff, IconX,
+  IconAddressBook, IconListSearch, IconAlertTriangle, IconEyeCheck, IconInbox, IconMessages, IconTablePlus, IconArrowForwardUp, IconArchive, IconDoorExit, IconSchool, IconArrowBackUp, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconSend, IconWritingSign, IconWritingSignOff, IconX,
   IconChecks, IconLock, IconGift,
   IconQrcode,
   IconCash, IconAdjustmentsHorizontal,
@@ -40,6 +40,7 @@ const DoublesProgrammes = lazy(() => import('../components/DoublesProgrammes.jsx
 const PresenceQRSuivi = lazy(() => import('../components/PresenceQRSuivi.jsx'));
 const ExtraitsBancaires = lazy(() => import('../components/ExtraitsBancaires.jsx'));
 const PropositionsPAE = lazy(() => import('../components/PropositionsPAE.jsx'));
+const MessagesEtudiants = lazy(() => import('../components/MessagesEtudiants.jsx'));
 const HorsBloc = lazy(() => import('../components/HorsBloc.jsx'));
 const PaeHorsRegle = lazy(() => import('../components/PaeHorsRegle.jsx'));
 const DecisionsSansInscription = lazy(() => import('../components/DecisionsSansInscription.jsx'));
@@ -3061,6 +3062,7 @@ export default function Etudiants() {
   const [suiviQR, setSuiviQR] = useState(false);
   const [extraits, setExtraits] = useState(false);
   const [paeEnLigne, setPaeEnLigne] = useState(false);
+  const [messagesEtud, setMessagesEtud] = useState(false);
   const [rapportPAE, setRapportPAE] = useState(false);
   const [importListe, setImportListe] = useState(false);
   const [importHisto, setImportHisto] = useState(false);
@@ -3677,6 +3679,9 @@ export default function Etudiants() {
         icon: IconQrcode, onClick: () => setSuiviQR(true) }] : []),
       /* LES EXTRAITS DE COMPTE (3.1.444) : ce que la banque a reçu, rattaché aux étudiants
          par leur communication structurée. Secrétariat et direction. */
+      /* LES MESSAGES AUX ÉTUDIANTS (3.1.516) : lus dans leur espace ; leurs réponses reviennent à l'auteur. */
+      ...(droitsRail.passe('admin', 'editeur', 'coordination') ? [{ key: 'messages-etudiants', label: 'Écrire aux étudiants — messages dans leur espace',
+        icon: IconMessages, onClick: () => setMessagesEtud(true) }] : []),
       ...(droitsRail.passe('admin', 'editeur') ? [{ key: 'extraits-bancaires', label: 'Extraits de compte — versements des étudiants',
         icon: IconCash, onClick: () => setExtraits(true) }] : []),
     ] },
@@ -4190,6 +4195,9 @@ export default function Etudiants() {
 
       {extraits && (
         <Suspense fallback={null}><ExtraitsBancaires onFermer={() => setExtraits(false)} /></Suspense>
+      )}
+      {messagesEtud && (
+        <Suspense fallback={null}><MessagesEtudiants onFermer={() => setMessagesEtud(false)} /></Suspense>
       )}
       {paeEnLigne && (
         <Suspense fallback={null}><PropositionsPAE Revue={RevuePAE} onFermer={() => { setPaeEnLigne(false); charger(); }} /></Suspense>
