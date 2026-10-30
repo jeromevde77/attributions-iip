@@ -66,7 +66,7 @@
 // directeur et direction adjointe — « accès niveau 1 », pour Charles.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { modeEmploiPour } from '../lib/modeEmploi.js';
+import { modeEmploiPour, modeEmploiImprimable, STYLES_MODE_EMPLOI } from '../lib/modeEmploi.js';
 import express from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -247,9 +247,8 @@ function concerne(doc, user) {
  * choisit un fichier connu, jamais un chemin. */
 const DOSSIER_GUIDES = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../assets/guides');
 const GUIDES = {
-  secretariat: 'Lucie_mode_emploi_secretariat.pdf',
-  // La présence par QR code (Charles, 28 octobre 2026) : professeur, étudiant, secrétariat.
-  'presence-qr': 'Lucie_mode_emploi_presence_QR.pdf',
+  // 3.1.512 : le guide du secrétariat et celui de la présence par QR sont remplacés par UN mode d'emploi en PDF,
+  // composé du guide en ligne (`/mode-emploi/document`). La porte reste, fermée, pour un guide à venir.
 };
 r.get('/guide/:nom', authRequired, (req, res) => {
   const fichier = GUIDES[req.params.nom];
@@ -284,6 +283,16 @@ r.get('/mode-emploi', authRequired, (req, res) => {
   const voir = ['ens', 'sec', 'coo', 'dir'].includes(String(req.query.voir || '')) ? String(req.query.voir) : null;
   res.setHeader('Cache-Control', 'no-store');
   res.json(modeEmploiPour(req.user?.role || '', voir));
+});
+/* LE MODE D'EMPLOI EN UN SEUL PDF (3.1.512) : composé du même contenu, pour le même public. L'écran y joint les
+   captures (`images`, chemins du site) puis demande le PDF au serveur d'impression. */
+r.get('/mode-emploi/document', authRequired, (req, res) => {
+  const voir = ['ens', 'sec', 'coo', 'dir'].includes(String(req.query.voir || '')) ? String(req.query.voir) : null;
+  const { corps, images, version } = modeEmploiImprimable(req.user?.role || '', voir);
+  const html = envelopperDocument({ titre: "Lucie — mode d'emploi", styles: STYLES_MODE_EMPLOI,
+    entete: { titre: "Mode d'emploi de Lucie", sous: `Version ${version}` }, html: corps });
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ html, images, nom: `Lucie_mode_emploi_${version}` });
 });
 r.get('/nouveautes/:edition', authRequired, (req, res) => {
   const ed = String(req.params.edition || '');

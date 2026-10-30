@@ -10,7 +10,7 @@
  *   savoir — ce qu'il faut savoir : les règles qui bloquent ou qui surprennent.
  * Il explique le travail, pas l'informatique (CLAUDE.md, § 7). La version décrite se dit en tête.
  */
-export const VERSION_DECRITE = '3.1.511';
+export const VERSION_DECRITE = '3.1.512';
 
 export const RUBRIQUES = [
   {
@@ -929,6 +929,50 @@ export const RUBRIQUES = [
     ],
   },
   {
+    id: 'espace', pour: 'sec coo dir', titre: "L'espace de l'étudiant", icone: 'IconDeviceMobile',
+    resume: "Le site à part où l'étudiant retrouve ses résultats et ses documents, en accuse réception, et où chacun peut vérifier qu'une pièce est authentique.",
+    points: [
+      {
+        titre: "Comment l'étudiant y entre",
+        texte: "Le site des étudiants vit à part de Lucie, sur sa propre adresse. L'étudiant donne son adresse d'institut (ou son matricule) et reçoit un lien à usage unique à cette adresse d'école. En l'ouvrant, il choisit « reconnaître cet appareil » — il entrera ensuite directement, pendant 90 jours — ou « juste cette fois » sur un ordinateur partagé.",
+        savoir: [
+          "Trois appareils reconnus au plus ; au quatrième, il choisit lequel remplacer. Il les voit et les oublie dans « Mes appareils ».",
+          "Le lien ne part jamais à une adresse privée : une fiche sans adresse d'école n'a pas d'espace.",
+          "Lucie et le site des étudiants ne partagent ni base ni réseau : Lucie y dépose ce qui est public pour l'étudiant, et relève ses accusés.",
+        ],
+        images: [
+          { src: "/guide/portail-entree.png", legende: "L'entrée (données d'essai) : l'adresse d'institut ou le matricule, puis le lien reçu par courriel.", etroite: true },
+          { src: "/guide/portail-appareil.png", legende: "À l'ouverture du lien : reconnaître cet appareil, ou juste cette fois.", etroite: true },
+        ],
+      },
+      {
+        titre: "Ce qu'il y trouve",
+        texte: "Ses résultats publiés (séance close et publiée), les pièces que l'école lui a envoyées par Lucie, et les règlements destinés aux étudiants. Chaque pièce s'ouvre, s'imprime, et son accusé de réception se signe par un code à six chiffres envoyé à l'adresse d'école.",
+        savoir: [
+          "À la clôture d'une délibération, chaque délibéré reçoit d'office la pièce de sa décision : attestation de réussite, ou motivation d'ajournement ou de refus — la même que celle produite par Éditions. Puis un seul courriel : « un nouveau document vous attend ».",
+          "Une pièce se télécharge librement pendant 90 jours ; ensuite, un code reçu par courriel l'ouvre pour une heure.",
+          "Sous 10, l'espace affiche « NA », comme les pièces remises à l'étudiant.",
+          "Le registre des envois montre ces pièces « dans l'espace », et la fiche (Imprimer ou envoyer → Son espace étudiant) dit sa dernière connexion, les pièces ouvertes et les accusés signés.",
+        ],
+        images: [
+          { src: "/guide/portail-documents.png", legende: "Mes documents : chaque pièce avec sa référence et sa date de téléchargement libre, [[Ouvrir]] puis « Signer l'accusé de réception ».", etroite: true },
+        ],
+      },
+      {
+        titre: "Le QR d'authenticité",
+        texte: "Les attestations et motivations sorties de Lucie portent, au-dessus de la signature, une référence et un petit QR code. Qui le scanne — un employeur, une autre école — arrive sur la page de vérification du site des étudiants : la nature de la pièce, la personne, l'unité, la date et qui l'a produite ; ou « référence inconnue ».",
+        savoir: [
+          "Le diplôme n'en porte pas : il a la signature manuscrite.",
+          "La vérification est publique et ne montre que ce qui est imprimé sur la pièce.",
+        ],
+        images: [
+          { src: "/guide/portail-attestation.png", legende: "Une attestation de réussite (données d'essai) : la ligne « Pièce authentifiable · réf. … » et le QR, juste au-dessus de la signature.", etroite: true },
+          { src: "/guide/portail-verification.png", legende: "Ce que voit celui qui scanne : « Pièce authentique », et ce qu'elle atteste.", etroite: true },
+        ],
+      },
+    ],
+  },
+  {
     id: 'mescours', pour: 'ens coo dir', titre: 'Mes cours', icone: 'IconPencil',
     resume: "Pour les enseignants, les coordinations et la direction : notes, avis, aménagements, présences, listes.",
     points: [
@@ -992,6 +1036,20 @@ export const RUBRIQUES = [
           { src: "/guide/mescours-journee.png", legende: "Ma journée : un clic sur une séance, puis [[Afficher le QR|IconQrcode|fort]], [[Présences|IconUserCheck]], [[Ticket de sortie|IconTicket]], [[Notes|IconPencil]] ou [[Étudiants|IconUsers]]." },
           { src: "/guide/mescours-qr.png", legende: "Le QR projeté en classe : le compteur des présents et l'heure de fermeture du scan, sous le code.", etroite: true },
           { src: "/guide/mescours-absents.png", legende: "Au tableau de bord, après la séance : les étudiants qui n'ont pas scanné, un statut pour chacun, puis [[Enregistrer|fort]].", etroite: true },
+        ],
+      },
+      {
+        titre: "Ce que voit l'étudiant quand il scanne",
+        texte: "Aucune application à installer : l'appareil photo suffit. La première fois sur un téléphone, l'étudiant tape son adresse d'école et reçoit un code à six chiffres (valable dix minutes) ; ensuite, un scan suffit. L'écran lui dit aussitôt que sa présence est enregistrée, avec l'heure.",
+        savoir: [
+          "Lucie compare l'adresse tapée à l'adresse d'école de la fiche : une fiche sans adresse d'école, ou fausse, bloque le lien.",
+          "Scanner deux fois ne double rien ; un téléphone ne sert qu'à un étudiant.",
+          "Lucie ne garde du téléphone qu'un identifiant chiffré et son type — ni position, ni numéro.",
+        ],
+        images: [
+          { src: "/guide/presence-etudiant-adresse.png", legende: "Première fois : l'adresse d'école, puis « Recevoir mon code ».", etroite: true },
+          { src: "/guide/presence-etudiant-code.png", legende: "Le code reçu par courriel, puis « Valider et enregistrer ma présence ».", etroite: true },
+          { src: "/guide/presence-etudiant-ok.png", legende: "C'est fait : la présence est enregistrée, avec le cours et l'heure.", etroite: true },
         ],
       },
       {
@@ -1461,4 +1519,70 @@ export function modeEmploiPour(role, voir = null) {
       .map(r => ({ ...r, points: r.points.filter(p => garde(p.pour)) }))
       .filter(r => r.points.length),
   };
+}
+
+/* LE MODE D'EMPLOI EN PDF — UN SEUL DOCUMENT (3.1.512, Charles, 30 octobre 2026 : « le mode d'emploi pdf doit inclure
+ * la prise de présences, un seul doc donc, puisque tout le monde a le guide en ligne »). Il se COMPOSE de ce contenu,
+ * pour le public de celui qui le demande : il ne se rédige plus à part, il ne prend donc plus de retard. Les images
+ * restent des chemins (`/guide/…`) : c'est l'écran qui les joint avant de demander le PDF, le serveur ne les a pas. */
+const escP = x => String(x ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const boutonsP = h => String(h || '').replace(/\[\[([^\]|]+)[^\]]*\]\]/g, (_, l) => `<b class="me-bt">${l.trim()}</b>`);
+const enrichiP = t => boutonsP(escP(t));
+
+export const STYLES_MODE_EMPLOI = `
+  .me-garde { padding: 30mm 0 0; }
+  .me-garde h1 { font-size: 24pt; color: #1B2B4B; margin: 0 0 3mm; }
+  .me-garde p { font-size: 11pt; color: #475569; margin: 0 0 2mm; max-width: 140mm; }
+  .me-sommaire { margin-top: 12mm; border: 0.3mm solid #D8DCE4; border-left: 1mm solid #1B2B4B; border-radius: 0 2.6mm 2.6mm 0; padding: 4mm 5mm; font-size: 10pt; }
+  .me-sommaire ol { margin: 2mm 0 0; padding-left: 6mm; columns: 2; column-gap: 10mm; }
+  .me-sommaire li { margin: 0 0 1mm; }
+  .me-chap { page-break-before: always; }
+  .me-chap h2 { font-size: 15pt; color: #1B2B4B; margin: 0 0 1.5mm; }
+  .me-chap .me-resume { font-size: 10pt; color: #475569; margin: 0 0 5mm; }
+  .me-num { color: #64748B; margin-right: 2mm; }
+  .me-point { border: 0.3mm solid #D8DCE4; border-left: 1mm solid #1B2B4B; border-radius: 0 2.6mm 2.6mm 0; padding: 3mm 4mm; margin: 0 0 4mm; font-size: 9.5pt; }
+  .me-point h3 { font-size: 11pt; color: #1B2B4B; margin: 0 0 1.5mm; page-break-after: avoid; }
+  .me-ou { font-size: 9pt; color: #334155; margin: 0 0 1.5mm; }
+  .me-point p { margin: 0 0 1.5mm; }
+  .me-savoir { margin-top: 1.5mm; border-top: 0.2mm dashed #CBD5E1; padding-top: 1.5mm; font-size: 9pt; page-break-inside: avoid; }
+  .me-savoir ul { margin: 1mm 0 0; padding-left: 5mm; }
+  .me-images { margin-top: 3mm; }
+  .me-fig { display: block; margin: 0 0 3mm; page-break-inside: avoid; break-inside: avoid; }
+  .me-fig.etroite { display: inline-block; vertical-align: top; width: 55mm; margin-right: 4mm; }
+  .me-fig img { display: block; max-width: 100%; max-height: 95mm; border: 0.2mm solid #D8DCE4; border-radius: 1.5mm; }
+  .me-fig figcaption { font-size: 8pt; color: #64748B; margin-top: 1mm; }
+  .me-bt { font-weight: 700; color: #16406A; border: 0.2mm solid #94A3B8; border-radius: 1mm; padding: 0 1mm; white-space: nowrap; }
+`;
+
+const NOMS_PUBLIC_P = { ens: 'enseignants', sec: 'secrétariat', coo: 'coordinations', dir: 'direction' };
+
+/** Le corps du PDF : page de garde et sommaire, puis un chapitre par page. Rend { corps, images } (chemins à joindre). */
+export function modeEmploiImprimable(role, voir = null) {
+  const m = modeEmploiPour(role, voir);
+  const images = new Set();
+  const figures = p => {
+    const l = [...(p.image ? [{ src: p.image, legende: p.legende }] : []), ...(p.images || [])];
+    l.forEach(i => images.add(i.src));
+    return l.length ? `<div class="me-images">${l.map(i => `<figure class="me-fig${i.etroite ? ' etroite' : ''}">
+      <img src="${escP(i.src)}" alt="">${i.legende ? `<figcaption>${enrichiP(i.legende)}</figcaption>` : ''}</figure>`).join('')}</div>` : '';
+  };
+  const pourQui = m.publics ? `Édition pour : ${m.publics.map(p => NOMS_PUBLIC_P[p]).join(', ')}.` : 'Édition complète (tous les publics).';
+  const garde = `<section class="me-garde">
+    <h1>Lucie — mode d'emploi</h1>
+    <p>Le même contenu que le guide en ligne (Documentation → Mode d'emploi), composé le jour où vous l'imprimez. ${pourQui}</p>
+    <p>Version décrite : ${escP(m.version)}. Les captures viennent d'une base d'essai : les noms sont fictifs.</p>
+    <div class="me-sommaire"><b>Sommaire</b><ol>${m.rubriques.map(r => `<li>${escP(r.titre)}</li>`).join('')}</ol></div>
+  </section>`;
+  const chapitres = m.rubriques.map((r, i) => `<section class="me-chap">
+    <h2><span class="me-num">${i + 1}</span>${escP(r.titre)}</h2>
+    ${r.resume ? `<p class="me-resume">${enrichiP(r.resume)}</p>` : ''}
+    ${r.points.map((p, k) => `<div class="me-point">
+      <h3><span class="me-num">${i + 1}.${k + 1}</span>${escP(p.titre)}</h3>
+      ${p.ou ? `<p class="me-ou"><b>Où :</b> ${enrichiP(p.ou)}</p>` : ''}
+      ${p.texte ? `<p>${enrichiP(p.texte)}</p>` : ''}
+      ${p.savoir?.length ? `<div class="me-savoir"><b>À savoir</b><ul>${p.savoir.map(s => `<li>${enrichiP(s)}</li>`).join('')}</ul></div>` : ''}
+      ${figures(p)}
+    </div>`).join('')}
+  </section>`).join('');
+  return { corps: garde + chapitres, images: [...images], version: m.version };
 }

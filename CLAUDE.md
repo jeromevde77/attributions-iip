@@ -2873,6 +2873,20 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   SQLite `lucie_nom_compte(nom, email)` (déclarée par `db/index.js`) sert l'échéancier, les personnes des réunions et
   les dossiers RH. **Un nom de compte affiché passe par l'une ou l'autre, jamais par `nom_complet` brut.**
 
+- **UN SEUL MODE D'EMPLOI, ET LE PDF EN SORT** (3.1.512, Charles, 30 octobre 2026 : « le mode d'emploi pdf doit inclure la
+  prise de présences — un seul doc, puisque tout le monde a le guide en ligne » ; « mets à jour le guide avec tous les
+  changements et les nouvelles captures, de manière régulière »). Documentation → Mode d'emploi → *Tout le mode d'emploi
+  (PDF)* : `GET /api/documentation/mode-emploi/document` (`modeEmploiImprimable`, `STYLES_MODE_EMPLOI` de
+  `lib/modeEmploi.js`) compose le MÊME contenu, pour le même public (`?voir=` pour la direction) — garde, sommaire, un
+  chapitre par page ; l'écran y joint les captures (`/guide/*.png`, que l'image du backend n'a pas) en data URL, puis
+  `/api/impression/pdf`. Les deux PDF faits à la main (guide du secrétariat, présence par QR) sont RETIRÉS
+  (`assets/guides/`, `GUIDES` vide) : ce qu'ils disaient est dans le guide — côté étudiant de la présence (« Ce que voit
+  l'étudiant quand il scanne », trois captures reprises du PDF) et nouveau chapitre **L'espace de l'étudiant** (entrée,
+  appareils, documents, 90 jours, QR d'authenticité ; captures de la base d'essai). Dix-neuf chapitres : une
+  dix-neuvième étoile de la Vierge, χ Vir (`ETOILES_HORS.chi`, projetée par la même transformation, ajustée sur les dix-huit
+  autres à moins de 1,2 unité). **Le guide en ligne est la seule source : une nouveauté s'y écrit, avec ses captures, et le
+  PDF suit sans rien faire.**
+
 **L'ANNULER NE COMPARE QUE CE QUE LE GESTE A CHANGÉ** (3.1.482, Charles, 30 octobre 2026, en production :
   « Impossible d'annuler : utilisateur — la ligne a été modifiée depuis, par quelqu'un »). Se reconnecter écrit
   `last_login_at` sur la ligne du compte ; l'annulation comparait la ligne entière et refusait. Désormais elle ne
