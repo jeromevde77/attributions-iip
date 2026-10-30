@@ -3544,6 +3544,20 @@ export default function Etudiants() {
     const j = await rep.json().catch(() => ({}));
     if (!rep.ok) { informer(j.error || `Refusé (${rep.status})`); return; }
     if (j.refuses?.length) informer(`${j.faits} traité(s). ${j.refuses.length} hors de votre périmètre, laissé(s) tels quels.`);
+    /* UN ARCHIVÉ N'A PAS DE PROGRAMME BLEU (3.1.469) : ses unités de l'année de travail et des suivantes
+       sans résultat, note ni report se retirent — sur demande, après avoir vu combien. */
+    if (statutCible === 'archive' && j.programme?.ues > 0) {
+      const p = j.programme;
+      const garde = p.conservees?.length ? `\n\n${p.conservees.length} unité(s) portant une note ou un report restent.` : '';
+      if (await demander(`${p.etudiants} étudiant(s) archivé(s) ont encore un programme : ${p.ues} unité(s) sans résultat, cette année ou après.\n\nLes retirer ?${garde}`)) {
+        const r2 = await fetch('/api/etudiants/statut/retirer-programme', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() },
+          body: JSON.stringify({ ids, simulation: false }),
+        });
+        const j2 = await r2.json().catch(() => ({}));
+        informer(r2.ok ? `✓ ${j2.ues} unité(s) retirée(s) du programme de ${j2.etudiants} étudiant(s).` : (j2.error || `Refusé (${r2.status})`));
+      }
+    }
     setSelEtudiants(new Set());
     await charger();
   }

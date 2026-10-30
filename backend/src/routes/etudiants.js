@@ -6689,6 +6689,8 @@ r.post('/pae-promotion', authRequired,
     FROM etudiant e JOIN etudiant_inscription i ON i.etudiant_id = e.id
     WHERE i.annee_scolaire = ? AND i.ue_num IN (${uesSection.map(() => '?').join(',')})
       AND e.actif = 1
+      -- Un archivé, un diplômé, un sorti ne se promeut pas : il recevait un programme bleu (3.1.469).
+      AND COALESCE(e.sortie_statut, '') NOT IN ('archive', 'diplome', 'sorti')
     ORDER BY e.nom, e.prenom`).all(annee_source, ...uesSection);
 
   // Une sélection restreint ; son absence prend toute la promotion.
@@ -7124,7 +7126,48 @@ r.post('/statut', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
       faits++;
     }
   })();
-  res.json({ ok: true, faits, refuses });
+  // Un archivé ne garde pas de programme à venir : l'écran propose ensuite de le retirer (3.1.469).
+  const aRetirer = statut === 'archive' ? programmeDesArchives(ids.filter(id => !refuses.includes(id)), anneeDeTravail(req), req) : null;
+  res.json({ ok: true, faits, refuses, programme: aRetirer && { ues: aRetirer.ues, etudiants: aRetirer.etudiants, conservees: aRetirer.conservees } });
+});
+
+/* UN ARCHIVÉ N'A PAS DE PROGRAMME BLEU (3.1.469, Marie Lambert, 21 octobre 2026 : « certains étudiants
+ * archivés ont un programme — UE en bleu ; je le découvre en voulant faire les listes de TP et d'examens »).
+ * La promotion d'année les reprenait avec les autres. Pour l'année de travail et les suivantes, leurs
+ * inscriptions SANS résultat, note ni report se retirent par la porte unique ; ce qui porte une trace
+ * reste, et se nomme. Simulation d'abord. */
+function programmeDesArchives(ids, annee, req, simulation = true) {
+  const archives = ids.filter(id => db.prepare(`SELECT 1 FROM etudiant WHERE id = ? AND sortie_statut = 'archive'`).get(id));
+  let ues = 0; const etudiants = new Set(); const conservees = [];
+  const par = req.user?.email || req.user?.nom || null;
+  for (const id of archives) {
+    const annees = db.prepare(`SELECT DISTINCT annee_scolaire FROM etudiant_inscription
+      WHERE etudiant_id = ? AND annee_scolaire >= ? AND resultat IS NULL`).all(id, annee).map(x => x.annee_scolaire);
+    for (const a of annees) {
+      const sans = db.prepare(`SELECT ue_num FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ?
+        AND resultat IS NULL`).all(id, a).map(x => x.ue_num);
+      const b = ecrireProgramme({ etudId: id, annee: a, retirer: sans, origine: 'archivage', par, simulation });
+      if (b.retirees.length) { ues += b.retirees.length; etudiants.add(id); }
+      for (const c of b.conservees) conservees.push({ etudiant_id: id, annee: a, ue_num: c.ue_num, pourquoi: c.pourquoi });
+    }
+  }
+  return { ues, etudiants: etudiants.size, conservees };
+}
+
+r.post('/statut/retirer-programme', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
+  const ids = (Array.isArray(req.body?.ids) ? req.body.ids : []).map(Number).filter(Boolean);
+  if (!ids.length) return res.status(400).json({ error: 'Aucun étudiant.' });
+  const permises = perimetre(req);
+  const permis = ids.filter(id => {
+    if (!permises) return true;
+    const rat = db.prepare('SELECT section_rattachement FROM etudiant WHERE id = ?').get(id)?.section_rattachement;
+    const toutes = [...new Set([...sectionsDeLEtudiant(id, null).sections, ...(rat ? [rat] : [])])];
+    return !toutes.length || toutes.some(x => permises.includes(x));
+  });
+  const simulation = req.body?.simulation !== false;
+  let b;
+  db.transaction(() => { b = programmeDesArchives(permis, anneeDeTravail(req), req, simulation); })();
+  res.json({ ok: true, simulation, ...b, hors_perimetre: ids.length - permis.length });
 });
 
 /* SUPPRIMER UN ÉTUDIANT — directement, mais jamais à l'aveugle (Jérôme,

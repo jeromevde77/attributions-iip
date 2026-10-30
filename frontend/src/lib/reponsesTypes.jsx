@@ -157,7 +157,12 @@ export function ReponsesTypesHote() {
           title="Insérer une réponse pré-établie"
           className="fixed z-[80] inline-flex items-center gap-1 h-6 px-2 rounded-full bg-white border border-slate-300
                      text-xs text-slate-600 hover:text-iip-blue hover:border-iip-blue shadow-pose"
-          style={{ top: rect.top + 5, left: rect.right - 128 }}>
+          style={{
+            // SOUS LE CHAMP, PAS DEDANS (3.1.469, Marie Lambert : « l'icône empêche de voir ce qu'on écrit »).
+            // Accroché au bord bas, à droite ; au-dessus si le bas de l'écran manque.
+            top: rect.bottom + 28 < window.innerHeight ? rect.bottom + 2 : rect.top - 26,
+            left: rect.right - 128,
+          }}>
           <IconMessageDots size={13} /> Réponses types
         </button>
       )}

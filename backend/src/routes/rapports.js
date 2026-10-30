@@ -1158,7 +1158,10 @@ export function donneesListesUE(annee, section) {
   const inscrits = db.prepare(`SELECT e.id, e.nom, e.prenom, COALESCE(e.id_ecampus, e.matricule_helb) AS matricule,
         MAX(COALESCE(i.dispense_complete, 0)) AS dispense_complete
       FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
-     WHERE i.annee_scolaire = ? AND i.ue_num = ? GROUP BY e.id ORDER BY upper(e.nom), e.prenom`);
+     WHERE i.annee_scolaire = ? AND i.ue_num = ?
+       -- Un archivé sans résultat n'est pas sur la liste (3.1.469).
+       AND (COALESCE(e.sortie_statut, '') <> 'archive' OR i.resultat IS NOT NULL)
+     GROUP BY e.id ORDER BY upper(e.nom), e.prenom`);
   const vas = db.prepare(`SELECT etudiant_id, annee_scolaire, type, cible, cible_detail, porte, decision_le
       FROM etudiant_valorisation WHERE ue_num = ? AND COALESCE(decision, 'accordee') <> 'refusee'`);
   const reports = db.prepare(`SELECT etudiant_id, cours_code, annee_origine, nature FROM etudiant_report_note
@@ -2318,6 +2321,7 @@ export const RAPPORTS = [
               AND j2.annee_scolaire < i.annee_scolaire AND j2.resultat = 'reussi') AS reussie_en
           FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
          WHERE i.annee_scolaire = ? AND i.ue_num = ?
+           AND (COALESCE(e.sortie_statut, '') <> 'archive' OR i.resultat IS NOT NULL)
          GROUP BY e.id ORDER BY upper(e.nom), e.prenom`);
       const out = [];
       const siens = etudiantsDeLaSection(p.annee, p.section);

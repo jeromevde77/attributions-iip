@@ -39,6 +39,8 @@ export default function Ameliorations({ ecran, onClose }) {
   // Les fils ouverts. Ouvrir un fil le marque vu côté serveur.
   const [ouverts, setOuverts] = useState(() => new Set());
   const [vus, setVus] = useState(() => new Set());
+  // L'auteur corrige la sienne tant que la direction n'y a pas répondu (même règle que le serveur).
+  const [edition, setEdition] = useState(null);   // { id, titre, detail }
   const basculer = id => {
     setVus(v => new Set(v).add(id));
     setOuverts(o => { const n = new Set(o); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -71,6 +73,18 @@ export default function Ameliorations({ ecran, onClose }) {
       method: 'PATCH', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
       body: JSON.stringify(champs),
     });
+    await charger();
+  }
+
+  async function corriger() {
+    setErreur(null);
+    const rep = await fetch(`/api/suggestions/${edition.id}`, {
+      method: 'PATCH', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ titre: edition.titre, detail: edition.detail }),
+    });
+    const j = await rep.json().catch(() => ({}));
+    if (!rep.ok) { setErreur(j.error || 'Correction refusée.'); return; }
+    setEdition(null);
     await charger();
   }
 
@@ -147,7 +161,18 @@ export default function Ameliorations({ ecran, onClose }) {
                 )}
               </div>
 
-              {s.detail && (
+              {edition?.id === s.id ? (
+                <div className="mt-2 space-y-2">
+                  <input value={edition.titre} onChange={e => setEdition({ ...edition, titre: e.target.value })}
+                    className="controle w-full" />
+                  <textarea rows={3} value={edition.detail} onChange={e => setEdition({ ...edition, detail: e.target.value })}
+                    className="w-full border border-slate-300 rounded-champ px-2 py-1.5 text-sm" />
+                  <div className="flex gap-2">
+                    <button className="bouton bouton-fort" disabled={!edition.titre.trim()} onClick={corriger}>Enregistrer la correction</button>
+                    <button className="bouton" onClick={() => setEdition(null)}>Annuler</button>
+                  </div>
+                </div>
+              ) : s.detail && (
                 <div className="text-second text-slate-600 mt-1 whitespace-pre-wrap">
                   {s.detail}
                 </div>
@@ -164,6 +189,10 @@ export default function Ameliorations({ ecran, onClose }) {
                     : s.nb_messages ? `Lire le fil (${s.nb_messages})`
                       : (etat.tout && s.cote === 'direction' ? 'Répondre' : 'Écrire')}
                 </button>
+                {s.cote === 'auteur' && !s.dernier_direction_le && edition?.id !== s.id && (
+                  <button onClick={() => setEdition({ id: s.id, titre: s.titre, detail: s.detail || '' })}
+                    className="text-second text-iip-blue hover:underline"
+                    title="Possible tant que la direction n'y a pas répondu">Modifier</button>)}
                 {s.nouveau && !vus.has(s.id) && <PastilleNouveau />}
               </div>
               {ouverts.has(s.id) && (

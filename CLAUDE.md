@@ -323,6 +323,18 @@ masque une enveloppe. (2) **Le haut du contenu se MESURE** (`lib/alignerTitre.js
 haut du rail par la marge haute de `main` ; la mesure suit le chargement 3,5 s puis se tait. Mesuré : de 79-164 px pour un rail
 à 76, à 76 partout (contenu au-dessus du titre compris, ex. Gestion).
 
+**LES IDÉES DU REGISTRE, AVANT LA MISE EN SERVICE** (3.1.469, Charles, 30 octobre 2026 : « dans les propositions
+d'idées en prod, il y a des choses importantes »). (1) **Un archivé n'a pas de programme bleu** (Marie Lambert) : la
+promotion d'année reprenait archivés, diplômés et sortis ; elle les écarte. Archiver propose ensuite de retirer leurs
+unités SANS résultat de l'année de travail et des suivantes (`programmeDesArchives`, `POST
+/etudiants/statut/retirer-programme`, simulation d'abord, par `ecrireProgramme()` — note ou report = conservée) ; les
+listes (`routes/listes.js`, année de travail et suivantes) et les listes par UE du centre d'impression
+(`donneesListesUE`, archivé sans résultat) ne les portent plus. (2) **L'auteur corrige son idée** tant que la direction
+n'a pas répondu (« Modifier », règle du serveur déjà en place). (3) **« Réponses types » sous le champ**, plus dessus :
+il cachait le texte qu'on tape. Restent au registre, à trancher : UE 244 → 331 (soins de plaies, nouveau numéro FWB),
+copie de la demande d'AR à l'étudiant, notification par courriel, attestations de toutes les années en un envoi, et la
+réparation du dossier MAGNI (UE retirées en 2025-2026 par erreur — le journal des modifications les garde).
+
 **UNE UE DISPENSÉE EN ENTIER EST ACQUISE — ÇA SE LIT DU DOSSIER DE VA** (3.1.438). Les crédits de l'annexe 2,
 l'état du parcours (schéma) et le motif de l'annexe 2 attendaient un résultat `'valorise'` sur
 l'inscription, qu'aucune route n'écrivait : zéro crédit valorisé, partout, en silence. Plutôt qu'un second
