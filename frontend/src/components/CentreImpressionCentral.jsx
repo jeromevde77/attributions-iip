@@ -11,7 +11,7 @@ import { nomPropre } from '../lib/nom.js';
 import {
   IconPrinter, IconUsers, IconSchool, IconChartBar, IconCalendarStats,
   IconBooks, IconAlertTriangle, IconChevronRight, IconChevronDown, IconSearch,
-  IconDownload, IconSend, IconFilePlus, IconMailForward,
+  IconDownload, IconSend, IconFilePlus, IconMailForward, IconFileText, IconRoute, IconId,
 } from '@tabler/icons-react';
 const RegistreEnvois = lazy(() => import('./RegistreEnvois.jsx'));
 import PreviewModal from './PreviewModal.jsx';
@@ -70,6 +70,24 @@ const ONGLETS = [
   { cle: 'organisation', label: 'Organisation', icon: IconBooks },
   { cle: 'gestion', label: 'Gestion', icon: IconChartBar },
 ];
+
+/* LE REPÈRE D'UNE PIÈCE (3.1.497, Charles, d'après la maquette de l'avis graphique) : vert pour la réussite, ocre pour
+   l'ajournement, brique pour le refus — les couleurs d'état réglées. Les autres pièces n'en portent pas. */
+const REPERE_PIECE = { reussite: 'var(--c-reussi, #3E7D5E)', ajournement: 'var(--c-attente, #B45309)', refus: 'var(--c-refuse, #9D4A38)' };
+
+/** Le titre d'une carte de pièces : une icône, l'intitulé, et ce qu'elle contient. */
+function TitreCarte({ Icone, titre, sous }) {
+  return (
+    <div className="flex items-start gap-2.5 mb-1.5">
+      <span className="flex-none w-8 h-8 rounded-full inline-flex items-center justify-center text-iip-blue"
+        style={{ background: 'color-mix(in srgb, var(--c-principal) 8%, transparent)' }}><Icone size={17} /></span>
+      <div className="min-w-0">
+        <div className="text-sm font-semibold">{titre}</div>
+        <div className="text-xs text-slate-500">{sous}</div>
+      </div>
+    </div>
+  );
+}
 
 const PIECES = [
   { cle: 'reussite', label: 'Attestations de réussite', nominatif: true },
@@ -2110,8 +2128,8 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
             <button type="button" className="mt-1 text-second underline text-iip-blue" onClick={onRevenir}>revenir au périmètre</button>
           </div>
         )}
-        <div className="px-3 py-2 border-b border-slate-200">
-          <div className="text-sm font-semibold text-iip-blue mb-1.5">Périmètre</div>
+        <div className="p-3">
+          <div className="text-sm font-semibold text-iip-blue mb-2">Périmètre</div>
           <select value={annee} onChange={e => setAnnee(e.target.value)}
             title="L'année sur laquelle portent les pièces"
             className="controle w-full mb-2 text-sm">
@@ -2178,7 +2196,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
           })()}
         </div>
 
-        <div className="px-3 py-2 border-t border-slate-200 text-xs text-slate-500">
+        <div className="px-3 py-3 text-xs text-slate-500">
           Un cours sert à désigner des personnes : les pièces restent celles de
           leur unité.
         </div>
@@ -2223,20 +2241,19 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
             <span className="flex-1" />
             <button onClick={() => produire(true)} disabled={enCours || !coches.size || !nbPieces}
               title="Voir les pièces avant de les produire — rien n'est téléchargé"
-              className="bouton controle px-3 text-sm inline-flex items-center gap-1.5">
+              className="bouton">
               Aperçu
             </button>
             <button onClick={() => produire()} disabled={enCours || !coches.size || !nbPieces}
-              className="px-4 py-2 text-sm rounded-lg bg-iip-blue text-white font-semibold disabled:opacity-40 inline-flex items-center gap-1.5">
-              <IconPrinter size={14} />
+              className="bouton bouton-fort">
+              <IconPrinter size={15} />
               {enCours ? 'Production…' : `Produire ${nbPieces} pièce${nbPieces > 1 ? 's' : ''} · ${coches.size} étudiant${coches.size > 1 ? 's' : ''}`}
             </button>
             {etatEnvoi?.actif && etatEnvoi?.peut_envoyer && (
               <button onClick={envoyer} disabled={enCours || !coches.size || !nbPieces}
                 title="Envoyer par courriel — un document par personne, jamais de copie collective"
-                className="px-4 py-2 text-sm rounded-lg border font-semibold disabled:opacity-40 inline-flex items-center gap-1.5"
-                style={{ borderColor: 'var(--c-principal, #16406A)', color: 'var(--c-principal, #16406A)' }}>
-                <IconSend size={14} /> Envoyer
+                className="bouton bouton-sortir">
+                <IconSend size={15} /> Envoyer
               </button>
             )}
           </div>
@@ -2248,15 +2265,14 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
           <div className="grid gap-2.5 md:grid-cols-2">
             {delib ? <>
             <div className="border border-slate-200 rounded-carte p-2.5">
-              <div className="text-sm font-semibold">À remettre aux étudiants</div>
-              <div className="text-xs text-slate-500 mb-1.5">une pièce par étudiant décidé</div>
+              <TitreCarte Icone={IconFileText} titre="À remettre aux étudiants" sous="une pièce par étudiant décidé" />
               {PIECES.filter(p => p.nominatif).map(p => (
-                <label key={p.cle} className={`flex items-center gap-2 py-0.5 text-sm ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
+                <label key={p.cle} className={`flex items-center gap-2 py-1.5 text-sm ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
                   title={dispo(p) ? '' : modePublic && publicDe(p) !== modePublic && PIECES_DOSSIER.includes(p) ? `Pièces ${modePublic.toUpperCase()} en cours — décochez-les pour les autres pièces` : 'Rien à produire pour ce périmètre'}>
                   {/* LA PETITE LIGNE DIT LE SENS (2 octobre 2026) : orange pour
                       l'ajournement, fraise pour le refus. */}
-                  <span className="w-[3px] h-4 rounded-full flex-none"
-                    style={{ background: p.cle === 'ajournement' ? 'var(--c-attente, #B45309)' : p.cle === 'refus' ? 'var(--c-refuse, #9D4A38)' : 'transparent' }} />
+                  <span className="w-1 h-5 rounded-full flex-none"
+                    style={{ background: REPERE_PIECE[p.cle] || 'transparent' }} />
                   <input type="checkbox" checked={!!choix[p.cle] && dispo(p)} disabled={!dispo(p)} onChange={() => basculerPiece(p)}
                     className="w-3.5 h-3.5 accent-iip-blue" />
                   {p.label}
@@ -2267,15 +2283,14 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
               ))}
             </div>
             <div className="border border-slate-200 rounded-carte p-2.5">
-              <div className="text-sm font-semibold">Pour le Conseil</div>
-              <div className="text-xs text-slate-500 mb-1.5">une pièce pour l’unité</div>
+              <TitreCarte Icone={IconUsers} titre="Pour le Conseil" sous="une pièce pour l’unité" />
               {PIECES.filter(p => !p.nominatif).map(p => (
-                <label key={p.cle} className={`flex items-center gap-2 py-0.5 text-sm ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
+                <label key={p.cle} className={`flex items-center gap-2 py-1.5 text-sm ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
                   title={dispo(p) ? '' : modePublic && publicDe(p) !== modePublic && PIECES_DOSSIER.includes(p) ? `Pièces ${modePublic.toUpperCase()} en cours — décochez-les pour les autres pièces` : 'Rien à produire pour ce périmètre'}>
                   {/* LA PETITE LIGNE DIT LE SENS (2 octobre 2026) : orange pour
                       l'ajournement, fraise pour le refus. */}
-                  <span className="w-[3px] h-4 rounded-full flex-none"
-                    style={{ background: p.cle === 'ajournement' ? 'var(--c-attente, #B45309)' : p.cle === 'refus' ? 'var(--c-refuse, #9D4A38)' : 'transparent' }} />
+                  <span className="w-1 h-5 rounded-full flex-none"
+                    style={{ background: REPERE_PIECE[p.cle] || 'transparent' }} />
                   <input type="checkbox" checked={!!choix[p.cle] && dispo(p)} disabled={!dispo(p)} onChange={() => basculerPiece(p)}
                     className="w-3.5 h-3.5 accent-iip-blue" />
                   {p.label}
@@ -2287,15 +2302,14 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
             </div>
             </> : <>
             <div className="border border-slate-200 rounded-carte p-2.5">
-              <div className="text-sm font-semibold">Le parcours</div>
-              <div className="text-xs text-slate-500 mb-1.5">à tout moment de l’année</div>
+              <TitreCarte Icone={IconRoute} titre="Le parcours" sous="à tout moment de l’année" />
               {PIECES_DOSSIER.filter(p => ['bulletin', 'pae', 'parcours'].includes(p.cle)).map(p => (
-                <label key={p.cle} className={`flex items-center gap-2 py-0.5 text-sm ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
+                <label key={p.cle} className={`flex items-center gap-2 py-1.5 text-sm ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
                   title={dispo(p) ? '' : modePublic && publicDe(p) !== modePublic && PIECES_DOSSIER.includes(p) ? `Pièces ${modePublic.toUpperCase()} en cours — décochez-les pour les autres pièces` : 'Rien à produire pour ce périmètre'}>
                   {/* LA PETITE LIGNE DIT LE SENS (2 octobre 2026) : orange pour
                       l'ajournement, fraise pour le refus. */}
-                  <span className="w-[3px] h-4 rounded-full flex-none"
-                    style={{ background: p.cle === 'ajournement' ? 'var(--c-attente, #B45309)' : p.cle === 'refus' ? 'var(--c-refuse, #9D4A38)' : 'transparent' }} />
+                  <span className="w-1 h-5 rounded-full flex-none"
+                    style={{ background: REPERE_PIECE[p.cle] || 'transparent' }} />
                   <input type="checkbox" checked={!!choix[p.cle] && dispo(p)} disabled={!dispo(p)} onChange={() => basculerPiece(p)}
                     className="w-3.5 h-3.5 accent-iip-blue" />
                   {p.label}
@@ -2306,15 +2320,14 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
               ))}
             </div>
             <div className="border border-slate-200 rounded-carte p-2.5">
-              <div className="text-sm font-semibold">L’inscription</div>
-              <div className="text-xs text-slate-500 mb-1.5">administratif — les annexes ne vont qu’aux SLE, les pièces CEP qu’aux étudiants au congé-éducation</div>
+              <TitreCarte Icone={IconId} titre="L’inscription" sous="administratif — les annexes ne vont qu’aux SLE, les pièces CEP qu’aux étudiants au congé-éducation" />
               {PIECES_DOSSIER.filter(p => !['bulletin', 'pae', 'parcours'].includes(p.cle)).map(p => (
-                <label key={p.cle} className={`flex items-center gap-2 py-0.5 text-sm ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
+                <label key={p.cle} className={`flex items-center gap-2 py-1.5 text-sm ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
                   title={dispo(p) ? '' : modePublic && publicDe(p) !== modePublic && PIECES_DOSSIER.includes(p) ? `Pièces ${modePublic.toUpperCase()} en cours — décochez-les pour les autres pièces` : 'Rien à produire pour ce périmètre'}>
                   {/* LA PETITE LIGNE DIT LE SENS (2 octobre 2026) : orange pour
                       l'ajournement, fraise pour le refus. */}
-                  <span className="w-[3px] h-4 rounded-full flex-none"
-                    style={{ background: p.cle === 'ajournement' ? 'var(--c-attente, #B45309)' : p.cle === 'refus' ? 'var(--c-refuse, #9D4A38)' : 'transparent' }} />
+                  <span className="w-1 h-5 rounded-full flex-none"
+                    style={{ background: REPERE_PIECE[p.cle] || 'transparent' }} />
                   <input type="checkbox" checked={!!choix[p.cle] && dispo(p)} disabled={!dispo(p)} onChange={() => basculerPiece(p)}
                     className="w-3.5 h-3.5 accent-iip-blue" />
                   {p.label}
@@ -2346,18 +2359,18 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
           </div>
           <div className="flex flex-wrap items-center gap-2 text-second">
             <div className="relative">
-              <IconSearch size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+              <IconSearch size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input value={recherche} onChange={e => setRecherche(e.target.value)} placeholder="Un nom…"
-                className="pl-7 pr-2 py-1 text-second border border-slate-300 rounded-lg w-48" />
+                className="controle controle-icone w-48" />
             </div>
             {!seul && <select value={fNouveau} onChange={e => setFNouveau(e.target.value)}
-              className="py-1 px-2 text-second border border-slate-300 rounded-lg" aria-label="Nouveaux ou déjà inscrits">
+              className="controle" aria-label="Nouveaux ou déjà inscrits">
               <option value="">Nouveaux et déjà inscrits</option>
               <option value="nouveaux">Nouveaux (première année chez nous)</option>
               <option value="anciens">Déjà inscrits avant</option>
             </select>}
             {!seul && !!blocsDispo.length && <select value={fBloc} onChange={e => setFBloc(e.target.value)}
-              className="py-1 px-2 text-second border border-slate-300 rounded-lg" aria-label="Bloc">
+              className="controle" aria-label="Bloc">
               <option value="">Tous les blocs</option>
               {blocsDispo.map(b => <option key={b} value={b}>{b === 'MIXTE' ? 'Parcours mixte' : b}</option>)}
             </select>}
@@ -2506,7 +2519,7 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
 
       {/* Les domaines : ce qu'on sort ici porte sur les étudiants, le
           personnel, l'établissement… Le domaine ouvert est le seul en marine. */}
-      <div className="flex gap-1 flex-wrap mb-4 pb-3 border-b border-slate-200">
+      <div className="flex gap-1 flex-wrap mb-3">
         {onglets.map(o => (
           <button key={o.cle} onClick={() => setOnglet(o.cle)}
             className={`px-3 py-1.5 rounded-champ text-sm inline-flex items-center gap-1.5
@@ -2532,17 +2545,17 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
         <Suspense fallback={<div className="text-sm text-slate-400">Chargement…</div>}><RegistreEnvois /></Suspense>
       ) : onglet === 'etudiants' ? (
         <>
-          <div className="px-1 pb-3 flex flex-wrap items-center gap-3">
-            <span className="seg-fam">
+          <div className="mb-3 flex flex-wrap items-center gap-3 border-b border-slate-200">
+            <span className="inline-flex flex-wrap">
               {/* « PIÈCES PAR ÉTUDIANT » SE COUPE EN DEUX (maquette validée,
                   2 octobre 2026) : ce qui demande une délibération, et le
                   dossier de l'étudiant, à tout moment. */}
               <button onClick={() => setFamille('pieces')}
-                className={famille === 'pieces' ? 'on' : ''}>
+                className={`onglet-page ${famille === 'pieces' ? 'onglet-page-actif' : ''}`}>
                 Délibération
               </button>
               <button onClick={() => setFamille('dossiers')}
-                className={famille === 'dossiers' ? 'on' : ''}>
+                className={`onglet-page ${famille === 'dossiers' ? 'onglet-page-actif' : ''}`}>
                 Dossiers étudiants
               </button>
               {/* LA VALORISATION EST UNE FAMILLE À PART, ET NON UNE PIÈCE
@@ -2552,26 +2565,26 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
                   aurait fait poser la mauvaise question. Ici on choisit
                   l'UNITÉ, parce que c'est elle qui convoque le conseil. */}
               <button onClick={() => setFamille('valorisation')}
-                className={famille === 'valorisation' ? 'on' : ''}>
+                className={`onglet-page ${famille === 'valorisation' ? 'onglet-page-actif' : ''}`}>
                 Valorisation des acquis
               </button>
               <button onClick={() => setFamille('diplomes')}
-                className={famille === 'diplomes' ? 'on' : ''}>
+                className={`onglet-page ${famille === 'diplomes' ? 'onglet-page-actif' : ''}`}>
                 Diplômes et titres
               </button>
               <button onClick={() => setFamille('listes')}
-                className={famille === 'listes' || famille === 'rapports' ? 'on' : ''}>
+                className={`onglet-page ${famille === 'listes' || famille === 'rapports' ? 'onglet-page-actif' : ''}`}>
                 Listes et rapports
               </button>
               {/* LES LETTRES DE L'ATELIER (9 octobre 2026) : un modèle composé dans
                   l'atelier de Lucie, une lettre par étudiant choisi. */}
               <button onClick={() => setFamille('lettres')}
-                className={famille === 'lettres' ? 'on' : ''}>
+                className={`onglet-page ${famille === 'lettres' ? 'onglet-page-actif' : ''}`}>
                 Lettres
               </button>
             </span>
             {/* UN ÉTUDIANT — TOUTES SES PIÈCES, depuis n'importe quelle famille. */}
-            <div className="ml-auto w-72 max-w-full">
+            <div className="ml-auto w-72 max-w-full pb-1.5">
               <UnEtudiantToutesAnnees compact annee={getAnnee()} choisi={etudiantVu}
                 onChoisir={e => { setEtudiantVu(e); if (e && !['pieces', 'dossiers'].includes(famille)) setFamille('pieces'); }} />
             </div>
@@ -2596,22 +2609,22 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
            disait la proposition validée — et l'onglet en tête redevient ce
            qu'il est, l'OUTIL où l'on choisit ses colonnes. */
         <>
-          <div className="px-1 pb-3">
-            <span className="seg-fam">
+          <div className="mb-3 border-b border-slate-200">
+            <span className="inline-flex flex-wrap">
               {onglet === 'personnel' && (
                 <button onClick={() => setFamille('pieces')}
-                  className={famille === 'pieces' ? 'on' : ''}>
+                  className={`onglet-page ${famille === 'pieces' ? 'onglet-page-actif' : ''}`}>
                   Pièces par membre
                 </button>
               )}
               {onglet === 'organisation' && (
                 <button onClick={() => setFamille('schemas')}
-                  className={famille === 'schemas' ? 'on' : ''}>
+                  className={`onglet-page ${famille === 'schemas' ? 'onglet-page-actif' : ''}`}>
                   Schémas de capitalisation
                 </button>
               )}
               <button onClick={() => setFamille('listes')}
-                className={(onglet === 'personnel' && famille === 'pieces') || (onglet === 'organisation' && famille === 'schemas') ? '' : 'on'}>
+                className={`onglet-page ${(onglet === 'personnel' && famille === 'pieces') || (onglet === 'organisation' && famille === 'schemas') ? '' : 'onglet-page-actif'}`}>
                 Listes et rapports
               </button>
             </span>
