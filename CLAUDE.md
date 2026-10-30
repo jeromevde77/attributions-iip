@@ -2802,7 +2802,10 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   Inscription » ; choisi : un 3e onglet Étudiants) : **Résultats · Inscription · Étudiants** (tout le parcours :
   Résultats · Étudiants) ; pour une séance **Pour le Conseil · Pour ses étudiants · Étudiants**. Une face à la fois
   (`vueDroite` 'a' | 'b' | 'etudiants'), le nombre de pièces cochées dans l'onglet ; on entre sur « Inscription »
-  quand l'appel n'apporte que des pièces d'inscription (le PAE de la revue).
+  quand l'appel n'apporte que des pièces d'inscription (le PAE de la revue). **Trois colonnes** (3.1.500, Charles :
+  « au plus on va à droite, au plus on précise ») : pour qui · quoi (Résultats | Inscription, ou Pour le Conseil |
+  Pour ses étudiants) · les étudiants (`w-[400px]`, toujours visibles, filtres sur une ligne) — l'onglet
+  « Étudiants » a disparu.
 
 **L'ANNULER NE COMPARE QUE CE QUE LE GESTE A CHANGÉ** (3.1.482, Charles, 30 octobre 2026, en production :
   « Impossible d'annuler : utilisateur — la ligne a été modifiée depuis, par quelqu'un »). Se reconnecter écrit

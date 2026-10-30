@@ -10,7 +10,7 @@
  *   savoir — ce qu'il faut savoir : les règles qui bloquent ou qui surprennent.
  * Il explique le travail, pas l'informatique (CLAUDE.md, § 7). La version décrite se dit en tête.
  */
-export const VERSION_DECRITE = '3.1.499';
+export const VERSION_DECRITE = '3.1.500';
 
 export const RUBRIQUES = [
   {
@@ -900,16 +900,16 @@ export const RUBRIQUES = [
         texte: "La première question est « Pour qui ? ». « Une personne » : cherchez-la par son nom ou son matricule dans toute l'école, puis « ouvrir ses pièces » — de l'année, ou de tout son parcours. « Des étudiants » : une section, ses unités, des cases à cocher — leurs attestations de réussite, bulletin, PAE, fiche, frais, annexes, pièces CEP, de l'année ou de tout le parcours (une inspection : tout sortir vite). « Une séance » : l'année, la session, l'unité — « Pour le Conseil » (PV, composition, grille, ajournés par cours) et « Pour ses étudiants » (attestations, motivations d'ajournement et de refus). Les autres onglets : « Valorisation des acquis » (par unité), « Diplômes et titres », « Listes et rapports », « Divers » (les lettres composées dans l'atelier).",
         savoir: [
           "La session n'appartient qu'à la séance : une attestation de réussite n'en a pas besoin.",
-          "À droite, des sous-onglets : « Résultats », « Inscription » et « Étudiants » (qui reçoit) — pour une séance, « Pour le Conseil », « Pour ses étudiants » et « Étudiants ». Le nombre de pièces cochées s'y lit.",
+          "Trois colonnes, du plus large au plus précis : pour qui · quoi (« Résultats » ou « Inscription » ; pour une séance, « Pour le Conseil » ou « Pour ses étudiants ») · les étudiants, à cocher. Le nombre de pièces cochées se lit dans l'onglet.",
           "Une pièce sans rien à produire est grisée (attestation sans réussite, motivation de refus sans refus…).",
           "Mode SLE : cocher une annexe 1 ou 2 ne montre que les étudiants en séjour limité aux études. Mode CEP : cocher une pièce CEP ne montre que les étudiants au congé-éducation payé de l'année (hors Flandre).",
           "Dans la barre bleue : [[Aperçu|IconZoomIn]], [[Produire|IconPrinter]] et [[Envoyer|IconSend]] — par courriel, un document par personne, jamais de copie collective, à l'adresse d'école.",
         ],
         images: [
           { src: "/guide/editions-personne.png", legende: "« Une personne » (données d'essai) : le nom cherché à gauche, « ouvrir ses pièces » à droite." },
-          { src: "/guide/editions-groupe.png", legende: "« Des étudiants » : l'année ou tout le parcours, la section et ses unités ; à droite, les sous-onglets Résultats, Inscription, Étudiants." },
+          { src: "/guide/editions-groupe.png", legende: "« Des étudiants » : l'année ou tout le parcours, la section et ses unités ; au milieu, Résultats ou Inscription ; à droite, les étudiants." },
           { src: "/guide/editions-inscription.png", legende: "Le sous-onglet « Inscription » : PAE, fiche, frais, annexes des SLE, pièces CEP." },
-          { src: "/guide/editions-seance.png", legende: "« Une séance » : l'année, la session, l'unité ; sous-onglets « Pour le Conseil », « Pour ses étudiants », « Étudiants »." },
+          { src: "/guide/editions-seance.png", legende: "« Une séance » : l'année, la session, l'unité ; « Pour le Conseil » ou « Pour ses étudiants » ; à droite, les étudiants et ce qu'ils ont obtenu." },
         ],
       },
       {

@@ -1695,7 +1695,7 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
     const garde = new Set(famillePieces.map(p => p.cle));
     setChoix(c => Object.fromEntries(Object.entries(c).filter(([k]) => garde.has(k))));
     if (seance) setParcours(false);
-    setVueDroite(v => v === 'etudiants' ? v : 'a');
+    setVueDroite('a');
     // eslint-disable-next-line
   }, [pourQui]);
   // Tout le parcours n'a pas de face « Inscription ».
@@ -1791,8 +1791,6 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
      du périmètre ; quand elle n'y trouve personne, elle cherche dans toute l'école et ouvre les pièces de celui
      qu'on choisit — ce que faisait le champ « Un étudiant — toutes ses pièces », retiré. */
   const [ailleurs, setAilleurs] = useState([]);
-  // Chercher un étudiant, c'est regarder les étudiants : la face s'ouvre d'elle-même.
-  useEffect(() => { if (recherche.trim()) setVueDroite('etudiants'); }, [recherche]);
   useEffect(() => {
     const q = recherche.trim();
     if (seul || !choisirEtudiant || q.length < 2 || (etudiants.length && pourQui !== 'personne')) { setAilleurs([]); return; }
@@ -2316,7 +2314,10 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
               <span className="ml-auto text-second text-iip-blue underline">ouvrir ses pièces</span>
             </button>))}
         </div>)}
-      <div className={`flex-1 flex flex-col min-h-0 ${etudiantVu || (pourQui === 'personne' && !seul) ? 'hidden' : ''}`}>
+      {/* TROIS COLONNES, DU LARGE AU PRÉCIS (Charles, 30 octobre 2026 : « au plus on va à droite, au plus on précise ») :
+          pour qui · quoi (résultats ou inscription — pour une séance, le Conseil ou ses étudiants) · les étudiants. */}
+      <div className={`flex-1 flex min-h-0 gap-4 ${etudiantVu || (pourQui === 'personne' && !seul) ? 'hidden' : ''}`}>
+      <div className="flex-1 min-w-0 flex flex-col min-h-0">
 
         {/* LES BOUTONS EN TÊTE, et ce qu'ils vont faire (maquette validée). */}
         <div className="px-3 pt-2 space-y-2.5">
@@ -2333,8 +2334,6 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
                     <button key={v} type="button" onClick={() => setVueDroite(v)}
                       className={`onglet-page ${vueDroite === v ? 'onglet-page-actif' : ''}`}>{lib}{n ? ` · ${n}` : ''}</button>);
                 })}
-              <button type="button" onClick={() => setVueDroite('etudiants')}
-                className={`onglet-page ${vueDroite === 'etudiants' ? 'onglet-page-actif' : ''}`}>Étudiants · {coches.size} / {visibles.length}</button>
             </span>
             <span className="flex-1" />
             {enCours && <span className="text-second text-slate-500 pb-2">Production…</span>}
@@ -2354,7 +2353,7 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
             </div>
           )}
         </div>
-        {vueDroite !== 'etudiants' ? (
+        {(
         <div className="flex-1 overflow-auto min-h-0 p-3 space-y-4">
           <div className="pt-1 max-w-xl">
             {seance ? <>
@@ -2388,25 +2387,35 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
           </div>
           {/* Hors séance, une pièce par document et par étudiant, toujours : la phrase qui le disait sous les listes est retirée. */}
         </div>
-        ) : <>
-        <div className="px-3 pt-3 pb-2 border-b border-slate-200">
-          <div className="flex flex-wrap items-center gap-2 text-second">
-            {!seul && <select value={fNouveau} onChange={e => setFNouveau(e.target.value)}
-              className="controle" aria-label="Nouveaux ou déjà inscrits">
+        )}
+      </div>
+      <div className="w-[400px] flex-none flex flex-col min-h-0">
+        <div className="px-3 pt-2">
+          <div className="flex items-end border-b border-slate-200">
+            <span className="onglet-page onglet-page-actif cursor-default">Étudiants · {coches.size} / {visibles.length}</span>
+          </div>
+        </div>
+        {/* La colonne des étudiants : ses filtres sur une ligne, puis cocher, sans second filet. */}
+        <div className="px-3 pt-3 pb-1 space-y-2 text-second">
+          {!seul && <div className="flex gap-2">
+            <select value={fNouveau} onChange={e => setFNouveau(e.target.value)}
+              className="controle flex-1 min-w-0" aria-label="Nouveaux ou déjà inscrits">
               <option value="">Nouveaux et déjà inscrits</option>
               <option value="nouveaux">Nouveaux (première année chez nous)</option>
               <option value="anciens">Déjà inscrits avant</option>
-            </select>}
-            {!seul && !!blocsDispo.length && <select value={fBloc} onChange={e => setFBloc(e.target.value)}
-              className="controle" aria-label="Bloc">
+            </select>
+            {!!blocsDispo.length && <select value={fBloc} onChange={e => setFBloc(e.target.value)}
+              className="controle flex-1 min-w-0" aria-label="Bloc">
               <option value="">Tous les blocs</option>
               {blocsDispo.map(b => <option key={b} value={b}>{b === 'MIXTE' ? 'Parcours mixte' : b}</option>)}
             </select>}
-            {modePublic && <span className="font-semibold text-iip-blue">Pièces {NOM_PUBLIC[modePublic]}</span>}
+          </div>}
+          <div className="flex items-center gap-3 pl-1">
             <button onClick={() => setCoches(new Set(visibles.map(e => e.id)))} className="text-iip-blue underline">tout cocher</button>
             <button onClick={() => setCoches(new Set())} className="text-slate-500 underline">tout décocher</button>
+            {modePublic && <span className="font-semibold text-iip-blue">Pièces {NOM_PUBLIC[modePublic]}</span>}
             <span className="flex-1" />
-            <span className="text-slate-500">{liste?.unites?.length ? `${liste.unites.length} unité(s)` : ''}</span>
+            <span className="text-slate-500">{liste?.unites?.length ? `${liste.unites.length} unité${liste.unites.length > 1 ? 's' : ''}` : ''}</span>
           </div>
         </div>
         <div className="flex-1 overflow-auto min-h-0">
@@ -2456,7 +2465,7 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
             </label>
           ))}
         </div>
-        </>}
+      </div>
       </div>
 
       {envoi && (
