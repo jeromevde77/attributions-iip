@@ -3,7 +3,56 @@ import {
   IconSearch, IconX, IconHelpCircle, IconFileTypePdf, IconMapPin, IconArrowRight, IconArrowLeft,
   IconBulb, IconChevronRight,
   IconAccessible, IconAward, IconBook, IconBooks, IconCertificate, IconChartBar, IconChecklist, IconHome, IconLayoutGrid, IconPencil, IconScale, IconSend, IconSettings, IconShieldExclamation, IconStairsUp, IconUserCheck, IconUsers,
+  IconPlus, IconDeviceFloppy, IconCheck, IconTrash, IconDownload, IconUpload, IconFilter, IconCalendar, IconEye, IconArrowBackUp,
+  IconQrcode, IconPrinter, IconFileSpreadsheet, IconClipboardText, IconLock, IconLockOpen, IconMail, IconRefresh, IconCopy,
+  IconUserPlus, IconCalendarWeek, IconPlayerPlay, IconDots, IconMessage, IconBell, IconCalendarPlus, IconTicket, IconGift,
 } from '@tabler/icons-react';
+
+/* LES BOUTONS DANS LE TEXTE (3.1.488, Charles : « des images des boutons… comment veux-tu que les profs comprennent ;
+   le mode d'emploi PDF ne doit plus être la base de la recherche »). Dans `modeEmploi.js`, un bouton s'écrit
+   [[Libellé]], [[Libellé|IconNom]] ou [[Libellé|IconNom|fort]] (« fort » : l'action principale, marine plein ; « sortir » :
+   ce qui produit une pièce). Il se dessine avec les classes de Lucie, comme à l'écran, en plus petit. */
+const ICONES_BOUTON = { IconPlus, IconDeviceFloppy, IconCheck, IconTrash, IconDownload, IconUpload, IconFilter, IconCalendar,
+  IconEye, IconArrowBackUp, IconQrcode, IconPrinter, IconFileSpreadsheet, IconClipboardText, IconLock, IconLockOpen, IconMail,
+  IconRefresh, IconCopy, IconUserPlus, IconCalendarWeek, IconPlayerPlay, IconDots, IconMessage, IconBell, IconCalendarPlus,
+  IconTicket, IconGift, IconSend, IconSearch, IconX, IconPencil, IconSettings, IconScale, IconHome, IconUsers, IconUserCheck,
+  IconStairsUp, IconCertificate, IconAccessible, IconAward, IconBook, IconChecklist, IconChartBar, IconArrowRight, IconArrowLeft,
+  IconFileTypePdf, IconChevronRight };
+function BoutonGuide({ libelle, icone, sorte }) {
+  const I = ICONES_BOUTON[icone];
+  const classe = sorte === 'fort' ? 'bouton bouton-fort' : sorte === 'sortir' ? 'bouton bouton-sortir' : sorte === 'detruire' ? 'bouton bouton-detruire' : 'bouton';
+  return (
+    <span className={`${classe} bouton-guide`} role="img" aria-label={`bouton ${libelle}`}>
+      {I && <I size={13} />}{libelle}
+    </span>
+  );
+}
+/** Le texte d'un point, avec ses boutons dessinés. */
+function Enrichi({ texte }) {
+  const morceaux = String(texte || '').split(/(\[\[[^\]]+\]\])/g);
+  return morceaux.map((m, i) => {
+    const b = /^\[\[([^\]|]+)(?:\|([^\]|]*))?(?:\|([^\]|]*))?\]\]$/.exec(m);
+    if (!b) return <span key={i}>{m}</span>;
+    const [, libelle, a2 = '', a3 = ''] = b;
+    const icone = /^Icon/.test(a2) ? a2 : /^Icon/.test(a3) ? a3 : '';
+    const sorte = [a2, a3].find(x => ['fort', 'sortir', 'detruire'].includes(x)) || '';
+    return <BoutonGuide key={i} libelle={libelle.trim()} icone={icone} sorte={sorte} />;
+  });
+}
+/** Les images d'un point : `image` + `legende`, ou `images` [{ src, legende, etroite }]. */
+function ImagesDuPoint({ p }) {
+  const liste = [...(p.image ? [{ src: p.image, legende: p.legende }] : []), ...(p.images || [])];
+  if (!liste.length) return null;
+  return (
+    <div className="grid gap-3">
+      {liste.map((im, i) => (
+        <figure key={i} className={`m-0 rounded-champ border border-slate-200 overflow-hidden bg-white ${im.etroite ? 'max-w-md' : ''}`}>
+          <img src={im.src} alt={im.legende || p.titre} loading="lazy" className="w-full h-auto block" />
+          {im.legende && <figcaption className="px-3 py-1.5 text-mention text-slate-500 border-t border-slate-100"><Enrichi texte={im.legende} /></figcaption>}
+        </figure>))}
+    </div>
+  );
+}
 import { authHeaders } from '../lib/api.js';
 import IllustrationGuide, { STYLE_GUIDE } from '../components/IllustrationsGuide.jsx';
 
@@ -107,7 +156,7 @@ async function ouvrirGuide(setErreur, nom = 'secretariat') {
 }
 
 /* La recherche lit tout ce que le point dit : titre, chemin, texte, règles. */
-const texteDuPoint = p => [p.titre, p.ou, p.texte, ...(p.savoir || [])].filter(Boolean).join(' ').toLowerCase();
+const texteDuPoint = p => [p.titre, p.ou, p.texte, ...(p.savoir || [])].filter(Boolean).join(' ').replace(/\[\[([^\]|]+)[^\]]*\]\]/g, '$1').toLowerCase();
 const NOMS_PUBLIC = { ens: 'Enseignants', sec: 'Secrétariat', coo: 'Coordinations', dir: 'Direction' };
 // Les icônes que le contenu nomme (`icone` côté serveur) : une liste fermée, pas toute la bibliothèque.
 const ICONES = { IconAccessible, IconAward, IconBook, IconBooks, IconCertificate, IconChartBar, IconChecklist, IconChevronRight, IconHome, IconLayoutGrid, IconPencil, IconScale, IconSend, IconSettings, IconShieldExclamation, IconStairsUp, IconUserCheck, IconUsers };
@@ -147,12 +196,8 @@ function Point({ p, n, delai = 0 }) {
         <h3 className="titre-carte flex-1 min-w-0 m-0">{p.titre}</h3>
       </div>
       {p.ou && <Chemin ou={p.ou} />}
-      <p className="text-sm text-slate-700 leading-relaxed m-0">{p.texte}</p>
-      {p.image && (
-        <figure className="m-0 rounded-champ border border-slate-200 overflow-hidden bg-white">
-          <img src={p.image} alt={p.legende || p.titre} loading="lazy" className="w-full h-auto block" />
-          {p.legende && <figcaption className="px-3 py-1.5 text-mention text-slate-500 border-t border-slate-100">{p.legende}</figcaption>}
-        </figure>)}
+      <p className="text-sm text-slate-700 leading-relaxed m-0"><Enrichi texte={p.texte} /></p>
+      <ImagesDuPoint p={p} />
       {p.savoir?.length > 0 && (
         <div className="rounded-champ border border-slate-200 bg-white px-3 py-2">
           <div className="flex items-center gap-1.5 text-second font-semibold text-iip-texte mb-1">
@@ -160,7 +205,7 @@ function Point({ p, n, delai = 0 }) {
           <ul className="space-y-1 m-0 pl-0 list-none">
             {p.savoir.map((s, k) => (
               <li key={k} className="text-second text-slate-600 leading-relaxed pl-3.5 relative">
-                <span className="absolute left-0 top-[0.55em] w-1.5 h-1.5 rounded-full" style={{ background: 'var(--c-accent)' }} />{s}</li>))}
+                <span className="absolute left-0 top-[0.55em] w-1.5 h-1.5 rounded-full" style={{ background: 'var(--c-accent)' }} /><Enrichi texte={s} /></li>))}
           </ul>
         </div>)}
     </article>

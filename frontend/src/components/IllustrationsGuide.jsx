@@ -35,6 +35,9 @@ export const STYLE_GUIDE = `
 .gl-etoile-chapitre:hover circle.gl-cible { stroke: ${A}; stroke-width: 1.5; }
 .gl-etoile-chapitre:focus-visible { outline: none; }
 .gl-etoile-chapitre:focus-visible circle.gl-cible { stroke: ${A}; stroke-width: 2; }
+/* Les boutons du texte du guide : la forme de Lucie, en petit, et inertes. */
+.bouton.bouton-guide { display: inline-flex; align-items: center; gap: 4px; height: auto; min-height: 0; padding: 1px 8px;
+  font-size: 12px; line-height: 1.55; vertical-align: 1px; margin: 1px 1px; pointer-events: none; white-space: nowrap; box-shadow: none; }
 .guide-entree { animation: ga-entree .45s cubic-bezier(.32,.72,0,1) both; }
 @media (prefers-reduced-motion: reduce) {
   .gl-nait, .gl-trace, .gl-allume, .guide-entree { animation: none !important; opacity: 1 !important; stroke-dashoffset: 0 !important; transform: none !important; }
