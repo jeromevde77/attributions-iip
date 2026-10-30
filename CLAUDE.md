@@ -2783,6 +2783,20 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   `application/manifest+json`, sans cache. iPhone/iPad : Safari seulement, première connexion dans l'app (stockage
   séparé de Safari). Le portail des étudiants n'en a pas (choix de Charles : Lucie d'abord).
 
+- **ÉDITIONS : « POUR QUI ? »** (3.1.497, Charles, 30 octobre 2026 : « la session n'a pas de sens pour tout le
+  parcours » ; « délibération et dossiers étudiants, ce n'est pas logique » ; recommandation D validée sur logigramme).
+  Éditions → Étudiants : onglets **Documents** · Valorisation des acquis · Diplômes et titres · Listes et rapports ·
+  **Divers** (les lettres de l'atelier, `LettresModele`). « Délibération », « Dossiers étudiants » et « Pièces du
+  Conseil » ne sont plus des onglets. Dans Documents (`OngletEtudiants`, `pourQui`), la première question : **Une
+  personne** (recherche dans toute l'école, `/api/etudiants?q=`, puis « ouvrir ses pièces » — `seul`) · **Des
+  étudiants** (section, unités, cases ; l'année OU « Tout le parcours » = attestations de toutes les années,
+  `GET /attestations/etudiant/:id/document?annee=toutes&separes=1`) · **Une séance** (année, session, unité ; « Pour le
+  Conseil » et « Pour ses étudiants », `documents-lot`). **La session n'appartient qu'à la séance.** On arrive déjà
+  répondu : la fiche = une personne, la feuille de délibération (session, org, pièces du Conseil) = une séance.
+  Aperçu, Produire, Envoyer : icônes de la barre bleue (`outils` de `Fenetre`, portail `PlaceOutils`). À droite, deux
+  faces soulignées : Documents · Étudiants. Le dessin (lignes, alignements) reste à reprendre — Charles : « la logique
+  d'abord ».
+
 **L'ANNULER NE COMPARE QUE CE QUE LE GESTE A CHANGÉ** (3.1.482, Charles, 30 octobre 2026, en production :
   « Impossible d'annuler : utilisateur — la ligne a été modifiée depuis, par quelqu'un »). Se reconnecter écrit
   `last_login_at` sur la ligne du compte ; l'annulation comparait la ligne entière et refusait. Désormais elle ne

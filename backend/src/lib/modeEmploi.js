@@ -10,7 +10,7 @@
  *   savoir — ce qu'il faut savoir : les règles qui bloquent ou qui surprennent.
  * Il explique le travail, pas l'informatique (CLAUDE.md, § 7). La version décrite se dit en tête.
  */
-export const VERSION_DECRITE = '3.1.496';
+export const VERSION_DECRITE = '3.1.497';
 
 export const RUBRIQUES = [
   {
@@ -895,20 +895,20 @@ export const RUBRIQUES = [
         ],
       },
       {
-        titre: "Étudiants : cinq familles",
-        ou: "Éditions → Étudiants.",
-        texte: "« Délibération » : choisissez la session, puis les pièces « À remettre aux étudiants » (attestations de réussite, motivations d'ajournement et de refus) et « Pour le Conseil » (PV, composition, grille). « Dossiers étudiants » : « Le parcours » (bulletin, PAE) et « L'inscription » (fiche, frais, annexes 1 et 2, pièces CEP). « Valorisation des acquis » : par unité. « Diplômes et titres ». « Listes et rapports ».",
+        titre: "Étudiants : « Pour qui ? »",
+        ou: "Éditions → Étudiants → Documents.",
+        texte: "La première question est « Pour qui ? ». « Une personne » : cherchez-la par son nom ou son matricule dans toute l'école, puis « ouvrir ses pièces » — de l'année, ou de tout son parcours. « Des étudiants » : une section, ses unités, des cases à cocher — leurs attestations de réussite, bulletin, PAE, fiche, frais, annexes, pièces CEP, de l'année ou de tout le parcours (une inspection : tout sortir vite). « Une séance » : l'année, la session, l'unité — « Pour le Conseil » (PV, composition, grille, ajournés par cours) et « Pour ses étudiants » (attestations, motivations d'ajournement et de refus). Les autres onglets : « Valorisation des acquis » (par unité), « Diplômes et titres », « Listes et rapports », « Divers » (les lettres composées dans l'atelier).",
         savoir: [
-          "Le périmètre : la section au menu, puis ses UE à cocher, puis leurs cours. La colonne « Reçoit » dit qui reçoit quoi.",
-          "Une pièce sans rien à produire est grisée (attestation sans réussite, ajournement hors 1re session…).",
-          "Mode SLE : cocher une annexe 1 ou 2 ne montre que les étudiants en séjour limité aux études ; les autres pièces se grisent.",
-          "Mode CEP : cocher une pièce CEP ne montre que les étudiants au congé-éducation payé de l'année (hors Flandre).",
-          "Le champ « Un étudiant — toutes ses pièces… » fait d'un étudiant le périmètre ; « revenir au périmètre » le quitte.",
-          "[[Produire … pièce(s) · … étudiant(s)|IconPrinter|fort]] imprime ; [[Envoyer|IconSend|sortir]] expédie par courriel, un document par personne, jamais de copie collective, à l'adresse d'école.",
+          "La session n'appartient qu'à la séance : une attestation de réussite n'en a pas besoin.",
+          "À droite, deux faces : « Documents » (ce qu'on sort) et « Étudiants » (qui le reçoit).",
+          "Une pièce sans rien à produire est grisée (attestation sans réussite, motivation de refus sans refus…).",
+          "Mode SLE : cocher une annexe 1 ou 2 ne montre que les étudiants en séjour limité aux études. Mode CEP : cocher une pièce CEP ne montre que les étudiants au congé-éducation payé de l'année (hors Flandre).",
+          "Dans la barre bleue : [[Aperçu|IconZoomIn]], [[Produire|IconPrinter]] et [[Envoyer|IconSend]] — par courriel, un document par personne, jamais de copie collective, à l'adresse d'école.",
         ],
         images: [
-          { src: "/guide/editions-deliberation.png", legende: "Famille « Délibération » (données d'essai) : le périmètre à gauche (année, session, section, unités), les pièces à cocher en deux colonnes, les étudiants en dessous ; une pièce sans rien à produire est grisée." },
-          { src: "/guide/editions-dossiers.png", legende: "Famille « Dossiers étudiants » : le parcours et l'inscription ; les annexes 1 et 2 portent le compte des SLE, les pièces CEP celui des étudiants au congé-éducation." },
+          { src: "/guide/editions-personne.png", legende: "« Une personne » (données d'essai) : le nom cherché à gauche, « ouvrir ses pièces » à droite." },
+          { src: "/guide/editions-groupe.png", legende: "« Des étudiants » : l'année ou tout le parcours, la section et ses unités ; à droite les résultats et l'inscription." },
+          { src: "/guide/editions-seance.png", legende: "« Une séance » : l'année, la session, l'unité ; « Pour le Conseil » et « Pour ses étudiants »." },
         ],
       },
       {

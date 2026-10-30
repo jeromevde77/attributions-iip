@@ -168,7 +168,7 @@ function aplatirSurBlanc(src) {
 // ─── Champs simples ────────────────────────────────────────────────────────
 const CHAMPS = {
   /* L'ÉTUDIANT — pour les lettres individuelles, produites dans Éditions →
-     Étudiants → Lettres (une lettre par étudiant). */
+     Étudiants → Divers (une lettre par étudiant). */
   'Étudiant': [
     { key: 'etudiant.cher',          label: 'Formule d’appel (Chère Madame…)' },
     { key: 'etudiant.civilite',      label: 'Civilité (Madame / Monsieur)' },

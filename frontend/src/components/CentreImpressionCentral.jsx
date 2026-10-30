@@ -2594,11 +2594,11 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
               {/* « PIÈCES PAR ÉTUDIANT » SE COUPE EN DEUX (maquette validée,
                   2 octobre 2026) : ce qui demande une délibération, et le
                   dossier de l'étudiant, à tout moment. */}
-              {/* UN SEUL ONGLET « PIÈCES » (3.1.497) : la première question y est
+              {/* UN SEUL ONGLET « DOCUMENTS » (3.1.497) : la première question y est
                   « Pour qui ? » — une personne, des étudiants, une séance. */}
               <button onClick={() => setFamille('pieces')}
                 className={`onglet-page ${famille === 'pieces' ? 'onglet-page-actif' : ''}`}>
-                Pièces
+                Documents
               </button>
               {/* LA VALORISATION EST UNE FAMILLE À PART, ET NON UNE PIÈCE
                   « PAR ÉTUDIANT ». Le procès-verbal d'annexe 4 porte TOUS les
@@ -2622,7 +2622,7 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
                   l'atelier de Lucie, une lettre par étudiant choisi. */}
               <button onClick={() => setFamille('lettres')}
                 className={`onglet-page ${famille === 'lettres' ? 'onglet-page-actif' : ''}`}>
-                Documents
+                Divers
               </button>
             </span>
           </div>
