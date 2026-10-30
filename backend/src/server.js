@@ -2936,6 +2936,7 @@ try { planifierRappels(); } catch (e) { console.error('[rappels] planification :
 // remplir la file ; seul l'envoi est réservé à la production.
 import { genererRappelsDeliberation } from './lib/rappelsDeliberation.js';
 import { genererRappelsPersonnel, poserEcheancesCEP } from './lib/rappelsPersonnel.js';
+import { genererRappelsEtudiants, planifierAvisEtudiants } from './lib/rappelsEtudiants.js';
 try { poserEcheancesCEP(db); } catch (e) { console.error('[rappels] CEP :', e.message); }
 import { anneeActive as anneeActiveRappels } from './services/echeancier.js';
 {
@@ -2945,6 +2946,11 @@ import { anneeActive as anneeActiveRappels } from './services/echeancier.js';
   setInterval(tourPersonnel, 60 * 60 * 1000).unref?.();
   setTimeout(tourDelib, 45_000).unref?.();
   setInterval(tourDelib, 60 * 60 * 1000).unref?.();
+  // LES RAPPELS AUX ÉTUDIANTS (3.1.525) : la file partout (si le portail existe), l'avis du jour en production.
+  const tourEtudiants = () => { try { const r = genererRappelsEtudiants(anneeActiveRappels(db)); if (Object.values(r).some(x => x)) console.log('[rappels étudiants]', r); } catch (e) { console.error('[rappels étudiants]', e.message); } };
+  setTimeout(tourEtudiants, 105_000).unref?.();
+  setInterval(tourEtudiants, 60 * 60 * 1000).unref?.();
+  try { planifierAvisEtudiants(); } catch (e) { console.error('[rappels étudiants] planification :', e.message); }
 }
 try { migrerClassement(db); } catch (e) { console.error('[migration] classement :', e.message); }
 try { migrerAncienneteService(db); } catch (e) { console.error('[migration] anciennete_service :', e.message); }

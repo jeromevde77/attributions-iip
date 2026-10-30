@@ -10,7 +10,7 @@ Décisions déjà prises (30 octobre) :
 - **délibération** : rappel de la date à J-10 et J-3, dernier délai d'encodage des points à J-2 ;
 - **réglage** : par la direction seule, sans désabonnement possible.
 
-Rien n'est codé.
+Construit en quatre étapes, 3.1.522 à 3.1.525 (voir CLAUDE.md, « LES RAPPELS »).
 
 ## 1. Ce qui existe aujourd'hui
 

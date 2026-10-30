@@ -3011,7 +3011,18 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   prévenus, `calculerFrais` restant > 0 après `echeance_solde`, aménagements à décider / notifier / communiquer — secrétariat et
   direction tout, coordination ses sections sans frais ni validation ; calculé une fois le lundi, `lucie_config`
   « bilan_lundi_fait »). Échéance CEP `cep_attestation_inscription` (fixe:31/10) posée au démarrage (`poserEcheancesCEP`).
-  Restent : l'étape 4 (étudiants) ; l'assiduité CEP par tranche de 3 mois (aucune trace d'attestation émise).
+  **ÉTAPE 4 FAITE (3.1.525)** : `lib/rappelsEtudiants.js` — rien ne se calcule sans portail installé (`portailActif()`).
+  Le passage (`genererRappelsEtudiants(annee, { jour })`, toutes les heures et au « Régénérer ») remplit `rappel_etudiant`
+  (UNIQUE étudiant, clé, objet, jalon) : E1 document jamais ouvert (`envoi_mail` depuis `portail_depot_depuis`, sans
+  `portail_accuse.presente_le` : J+7, J+30, J+80 — seul le dernier jalon atteint) ; E2 accusé présenté non signé (J+3, J+10) ;
+  E3 PAE confirmé par l'école depuis l'ouverture de la fenêtre sans `pae_signature_etudiant` postérieure (J+2, J+7) ; E4 fenêtre
+  `pae_en_ligne` (ouverture, puis fermeture J-3 pour qui n'a rien proposé ni PAE confirmé) ; E5 message non lu (J+3) ; E6 solde
+  (`calculerFrais`, J-7 et J+3 de `echeance_solde`, une fois par jour : `lucie_config` « rappels_etudiants_frais_jour ») ; E7 VA en
+  ligne non examinée sans pièce (J+3, et J-3 de l'échéance `controleDelai`). L'envoi (`envoyerAvisEtudiants`, production, toutes les
+  30 min, entre 8 h et 20 h à Bruxelles) : UN courriel par étudiant et par jour (`rappel_etudiant_jour`), les intitulés seuls et le
+  lien de l'espace, reporté au lendemain si l'avis des messages est parti le jour même ; adresse d'institut, le candidat à son adresse
+  privée tant que son code vaut. Cinq interrupteurs (`etudiants_*`, `etudiants: true` dans le CATALOGUE) ; Configuration → Rappels
+  liste aussi « Derniers rappels aux étudiants ». Restent : l'assiduité CEP par tranche de 3 mois (aucune trace d'attestation émise).
 - **LE PORTAIL DE L'ÉTUDIANT — CE QUI EST TRANCHÉ, RIEN N'EST CODÉ** (Charles, 30 octobre 2026 ; projet : logigramme et
   treize écrans hors dépôt). Mot de passe choisi par l'étudiant (comme le personnel), code en plus sur un nouvel appareil.
   **PAE en ligne** : Lucie coche ce qui est accessible (`etatsPAE`), l'étudiant choisit et envoie, la coordination valide ou

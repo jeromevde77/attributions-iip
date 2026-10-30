@@ -359,7 +359,7 @@ function Interrupteur({ actif, onClick, titre }) {
 }
 // La base écrit l'heure en UTC (datetime('now')) : on l'affiche à l'heure de Bruxelles.
 const quandFr = d => (d ? new Date(`${String(d).replace(' ', 'T')}Z`).toLocaleString('fr-BE', { timeZone: 'Europe/Brussels', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', '') : '');
-const STATUT_FR = { envoye: 'parti', simule: 'simulé', echec: 'échec' };
+const STATUT_FR = { envoye: 'parti', simule: 'simulé', echec: 'échec', sans_espace: 'sans espace' };
 function Rappels() {
   const [r, setR] = useState(null);
   const [msg, setMsg] = useState(null);
@@ -400,6 +400,8 @@ function Rappels() {
                 <div className="font-semibold text-iip-texte">{c.titre}</div>
                 <div className="text-second text-slate-600">Pour : {c.pour}</div>
                 <div className="text-second text-slate-600">Quand : {c.quand} {c.urgent}</div>
+                {c.etudiants && !r.portail_actif && (
+                  <div className="text-second text-slate-500 italic">Rien ne se calcule tant que l’espace des étudiants n’est pas installé.</div>)}
               </div>
               <Interrupteur actif={r.reglages.actif && r.reglages.types[c.cle]?.actif !== false} titre="Allumer ou couper ce rappel"
                 onClick={() => regler({ types: { [c.cle]: { actif: !(r.reglages.types[c.cle]?.actif !== false) } } })} />
@@ -421,6 +423,23 @@ function Rappels() {
                       <td className="px-2 py-1.5">{h.nom_complet || h.email}</td>
                       <td className="px-2 py-1.5">{h.titre}{h.urgent ? ' · urgent' : ''}</td>
                       <td className="px-2 py-1.5 whitespace-nowrap text-slate-500">{h.envoye_le ? `${STATUT_FR[h.statut] || h.statut} ${quandFr(h.envoye_le)}` : 'en attente du matin'}</td>
+                    </tr>))}
+                </tbody>
+              </table>
+            </div>)}
+        </div>
+        <div>
+          <div className="intertitre mb-1">Derniers rappels aux étudiants</div>
+          {!r.historique_etudiants?.length ? <p className="text-second text-slate-500">Aucun pour l’instant.</p> : (
+            <div className="max-h-72 overflow-auto border border-slate-200 rounded-champ">
+              <table className="w-full text-second">
+                <tbody>
+                  {r.historique_etudiants.map(h => (
+                    <tr key={h.id} className="border-b border-slate-100 last:border-b-0">
+                      <td className="px-2 py-1.5 whitespace-nowrap text-slate-500">{quandFr(h.cree_le)}</td>
+                      <td className="px-2 py-1.5">{`${String(h.nom || '').toUpperCase()} ${h.prenom || ''}`.trim()}</td>
+                      <td className="px-2 py-1.5">{h.titre}</td>
+                      <td className="px-2 py-1.5 whitespace-nowrap text-slate-500">{h.envoye_le ? `${STATUT_FR[h.statut] || h.statut} ${quandFr(h.envoye_le)}` : 'en attente de l’avis du jour'}</td>
                     </tr>))}
                 </tbody>
               </table>

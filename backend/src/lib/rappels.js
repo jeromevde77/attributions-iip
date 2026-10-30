@@ -60,6 +60,27 @@ export const CATALOGUE = [
     pour: "Le secrétariat et la direction (tout) ; la coordination (ses sections, sans les frais ni la validation des VA).",
     quand: "Chaque lundi : VA à instruire, à valider, à notifier, à encoder dans eProm ; absences au-delà du seuil non prévenues ; soldes de frais échus ; aménagements à décider, notifier, communiquer.",
     urgent: "Le matin." },
+  // LES ÉTUDIANTS (3.1.525) : par leur espace, derrière le mur ; un avis par jour au plus, sans contenu (lib/rappelsEtudiants.js).
+  { cle: 'etudiants_documents', titre: 'Étudiants — documents et accusés de réception', etudiants: true,
+    pour: "L'étudiant (adresse d'institut ; le candidat, son adresse privée tant que son code vaut).",
+    quand: "Un document jamais ouvert : 7, 30 puis 80 jours après l'envoi (avant le code des 90 jours). Un accusé présenté et pas signé : 3 et 10 jours après.",
+    urgent: "Dans l'avis du jour (au plus un courriel par jour, entre 8 h et 20 h)." },
+  { cle: 'etudiants_pae', titre: 'Étudiants — le PAE en ligne', etudiants: true,
+    pour: "L'étudiant (pas le candidat).",
+    quand: "L'ouverture de la fenêtre ; sa fermeture à J-3 pour qui n'a rien proposé ; un PAE confirmé par l'école et pas par l'étudiant, 2 et 7 jours après.",
+    urgent: "Dans l'avis du jour." },
+  { cle: 'etudiants_messages', titre: 'Étudiants — message non lu', etudiants: true,
+    pour: "L'étudiant destinataire.",
+    quand: "3 jours après l'envoi, s'il n'est pas lu.",
+    urgent: "Dans l'avis du jour." },
+  { cle: 'etudiants_frais', titre: 'Étudiants — le solde des frais', etudiants: true,
+    pour: "L'étudiant inscrit dont le solde n'est pas versé.",
+    quand: "7 jours avant l'échéance du solde, puis 3 jours après.",
+    urgent: "Dans l'avis du jour." },
+  { cle: 'etudiants_va', titre: 'Étudiants — demande de valorisation incomplète', etudiants: true,
+    pour: "L'étudiant dont la demande en ligne n'a aucune pièce et n'est pas encore examinée.",
+    quand: "3 jours après la demande, et 3 jours avant son échéance (RDE art. 28).",
+    urgent: "Dans l'avis du jour." },
 ];
 
 const DEFAUT = { actif: true, types: Object.fromEntries(CATALOGUE.map(c => [c.cle, { actif: true }])) };

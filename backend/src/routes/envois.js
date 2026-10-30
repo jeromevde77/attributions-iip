@@ -22,6 +22,8 @@ import { nouvelleReference, signatureFiligranee } from '../services/filigrane.js
 import { protegerSignature, jourDuJour } from '../lib/protectionSignature.js';
 import { getParam } from './parametres.js';
 import { recapActif, poserRecapActif, passerRecap, ceQuiAttend, migrerRecap } from '../lib/recapQuotidien.js';
+import { historiqueEtudiants } from '../lib/rappelsEtudiants.js';
+import { portailActif } from '../lib/portailSync.js';
 import { CATALOGUE as CATALOGUE_RAPPELS, reglagesRappels, reglerRappels, historiqueRappels, envoyerUrgents, rappelsEnAttente, migrerRappels } from '../lib/rappels.js';
 import { envoyerEmail, mailerConfigure, lireConfigSmtp, ecrireConfigSmtp, verifierSmtp } from '../services/mailer.js';
 
@@ -223,7 +225,9 @@ r.get('/rappels', authRequired, roleRequired('admin'), (req, res) => {
   migrerRappels();
   res.json({ catalogue: CATALOGUE_RAPPELS, reglages: reglagesRappels(), recap_actif: recapActif(),
     automatique: process.env.NODE_ENV === 'production', historique: historiqueRappels(60),
-    mes_attente: rappelsEnAttente(req.user.id).length });
+    mes_attente: rappelsEnAttente(req.user.id).length,
+    // Les étudiants (3.1.525) : leur file, et si le portail existe — sans lui, rien ne se calcule.
+    historique_etudiants: historiqueEtudiants(60), portail_actif: portailActif() });
 });
 r.put('/rappels', authRequired, roleRequired('admin'), (req, res) => {
   res.json({ reglages: reglerRappels(req.body || {}) });
