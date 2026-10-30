@@ -10,7 +10,7 @@
  *   savoir — ce qu'il faut savoir : les règles qui bloquent ou qui surprennent.
  * Il explique le travail, pas l'informatique (CLAUDE.md, § 7). La version décrite se dit en tête.
  */
-export const VERSION_DECRITE = '3.1.519';
+export const VERSION_DECRITE = '3.1.520';
 
 export const RUBRIQUES = [
   {
@@ -1660,43 +1660,101 @@ const escP = x => String(x ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').r
 const boutonsP = h => String(h || '').replace(/\[\[([^\]|]+)[^\]]*\]\]/g, (_, l) => `<b class="me-bt">${l.trim()}</b>`);
 const enrichiP = t => boutonsP(escP(t));
 
+/* LE PDF A LE DESSIN DU GUIDE EN LIGNE (3.1.520, Charles, 30 octobre 2026 : « regarde le mode d'emploi de Lucie, c'est en
+ * bleu »). Mêmes pièces qu'à l'écran (`pages/Aide.jsx`) : en-tête de chapitre (pastille marine, « Chapitre n sur N », publics
+ * en pastilles), points au liseré principal avec leur numéro dans un cercle, chemin « Où » en étapes, « À savoir » encadré
+ * avec l'ampoule or et des puces accent, texte à gauche et captures à droite. Couleurs de la Maison IIP, en dur : une pièce
+ * imprimée garde la charte en hexadécimal. */
+const ME = { principal: '#16406A', accent: '#0A8FBF', disponible: '#3F7FD0', or: '#F9B619', filet: '#D8DCE4', texte: '#1F2A3C', gris: '#64748B' };
 export const STYLES_MODE_EMPLOI = `
-  .me-garde { padding: 30mm 0 0; }
-  .me-garde h1 { font-size: 24pt; color: #1B2B4B; margin: 0 0 3mm; }
-  .me-garde p { font-size: 11pt; color: #475569; margin: 0 0 2mm; max-width: 140mm; }
-  .me-sommaire { margin-top: 12mm; border: 0.3mm solid #D8DCE4; border-left: 1mm solid #1B2B4B; border-radius: 0 2.6mm 2.6mm 0; padding: 4mm 5mm; font-size: 10pt; }
+  .me-garde { padding: 26mm 0 0; }
+  .me-garde h1 { font-size: 24pt; color: ${ME.principal}; margin: 0 0 3mm; }
+  .me-garde p { font-size: 11pt; color: #475569; margin: 0 0 2mm; max-width: 150mm; line-height: 1.45; }
+  .me-sommaire { margin-top: 12mm; border: 0.3mm solid ${ME.filet}; border-left: 1.2mm solid ${ME.principal}; border-radius: 0 3mm 3mm 0; padding: 4mm 5mm; font-size: 10pt; }
+  .me-sommaire b { color: ${ME.principal}; }
   .me-sommaire ol { margin: 2mm 0 0; padding-left: 6mm; columns: 2; column-gap: 10mm; }
-  .me-sommaire li { margin: 0 0 1mm; }
+  .me-sommaire li { margin: 0 0 1mm; } .me-sommaire li::marker { color: ${ME.principal}; font-weight: 700; }
   .me-chap { page-break-before: always; }
-  .me-chap h2 { font-size: 15pt; color: #1B2B4B; margin: 0 0 1.5mm; }
-  .me-chap .me-resume { font-size: 10pt; color: #475569; margin: 0 0 5mm; }
-  .me-num { color: #64748B; margin-right: 2mm; }
-  .me-point { border: 0.3mm solid #D8DCE4; border-left: 1mm solid #1B2B4B; border-radius: 0 2.6mm 2.6mm 0; padding: 3mm 4mm; margin: 0 0 4mm; font-size: 9.5pt; }
-  .me-point h3 { font-size: 11pt; color: #1B2B4B; margin: 0 0 1.5mm; page-break-after: avoid; }
-  .me-ou { font-size: 9pt; color: #334155; margin: 0 0 1.5mm; }
-  .me-point p { margin: 0 0 1.5mm; }
-  .me-savoir { margin-top: 1.5mm; border-top: 0.2mm dashed #CBD5E1; padding-top: 1.5mm; font-size: 9pt; page-break-inside: avoid; }
-  .me-savoir ul { margin: 1mm 0 0; padding-left: 5mm; }
-  .me-images { margin-top: 3mm; }
+  .me-tete { display: flex; align-items: flex-start; gap: 4mm; border: 0.3mm solid ${ME.filet}; border-radius: 3mm; padding: 4mm 5mm; margin: 0 0 4mm; page-break-inside: avoid; }
+  .me-tete .me-de { font-size: 8.5pt; color: ${ME.gris}; margin: 0 0 1.5mm; }
+  .me-tete h2 { display: flex; align-items: center; gap: 3mm; font-size: 16pt; color: ${ME.principal}; margin: 0 0 2mm; }
+  .me-carre { display: inline-grid; place-items: center; width: 9mm; height: 9mm; border-radius: 2.2mm; background: ${ME.principal}; color: #fff; font-size: 11pt; font-weight: 700; flex: none; }
+  .me-resume { font-size: 10pt; color: #334155; margin: 0 0 2mm; }
+  .me-publics { display: flex; flex-wrap: wrap; gap: 1.2mm; }
+  .me-pub { background: ${ME.disponible}; color: #fff; font-size: 7.5pt; font-weight: 600; border-radius: 0.8mm; padding: 0.4mm 1.5mm; }
+  .me-point { border: 0.3mm solid ${ME.filet}; border-left: 1.2mm solid ${ME.principal}; border-radius: 0 3mm 3mm 0; padding: 3.5mm 4.5mm; margin: 0 0 4mm; font-size: 9.5pt; color: ${ME.texte}; }
+  .me-point h3 { display: flex; align-items: center; gap: 2.5mm; font-size: 11.5pt; color: ${ME.principal}; margin: 0 0 2.5mm; page-break-after: avoid; }
+  .me-rond { display: inline-grid; place-items: center; min-width: 5.5mm; height: 5.5mm; padding: 0 1mm; border-radius: 3mm; background: ${ME.principal}; color: #fff; font-size: 8pt; font-weight: 700; flex: none; }
+  .me-corps.avec-images { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 0.85fr); gap: 5mm; align-items: start; }
+  .me-corps p { margin: 0 0 2mm; line-height: 1.5; }
+  .me-corps ul { margin: 0 0 2mm; padding-left: 5mm; } .me-corps li { margin: 0 0 1mm; }
+  .me-chemin { display: flex; flex-wrap: wrap; align-items: center; gap: 1.2mm; font-size: 8.5pt; margin: 0 0 2.5mm; }
+  .me-chemin .pas { border: 0.3mm solid ${ME.filet}; border-radius: 1.5mm; padding: 0.5mm 1.8mm; color: ${ME.texte}; background: #fff; }
+  .me-chemin .sep { color: #CBD5E1; } .me-chemin .reste { color: ${ME.gris}; }
+  .me-chemin .lieu { color: #94A3B8; }
+  .me-savoir { border: 0.3mm solid #E2E8F0; border-radius: 2mm; padding: 2.5mm 3.5mm; margin: 2mm 0 0; font-size: 9pt; page-break-inside: avoid; }
+  .me-savoir .titre { display: flex; align-items: center; gap: 1.5mm; font-weight: 700; color: ${ME.principal}; margin: 0 0 1.2mm; }
+  .me-savoir ul { list-style: none; margin: 0; padding: 0; }
+  .me-savoir li { position: relative; padding-left: 3.5mm; margin: 0 0 1mm; color: #475569; line-height: 1.45; }
+  .me-savoir li::before { content: ''; position: absolute; left: 0; top: 1.6mm; width: 1.4mm; height: 1.4mm; border-radius: 50%; background: ${ME.accent}; }
+  .me-images { display: block; }
   .me-fig { display: block; margin: 0 0 3mm; page-break-inside: avoid; break-inside: avoid; }
-  .me-fig.etroite { display: inline-block; vertical-align: top; width: 55mm; margin-right: 4mm; }
-  .me-fig img { display: block; max-width: 100%; max-height: 95mm; border: 0.2mm solid #D8DCE4; border-radius: 1.5mm; }
-  .me-fig figcaption { font-size: 8pt; color: #64748B; margin-top: 1mm; }
-  .me-bt { font-weight: 700; color: #16406A; border: 0.2mm solid #94A3B8; border-radius: 1mm; padding: 0 1mm; white-space: nowrap; }
+  .me-fig.etroite { display: inline-block; vertical-align: top; width: 40mm; margin-right: 3mm; }
+  .me-fig img { display: block; max-width: 100%; max-height: 85mm; border: 0.3mm solid ${ME.filet}; border-radius: 2mm; }
+  .me-fig figcaption { font-size: 7.8pt; color: ${ME.gris}; margin-top: 1mm; }
+  .me-corps.sans-images .me-fig.etroite { width: 50mm; }
+  .me-bt { font-weight: 700; color: ${ME.principal}; border: 0.3mm solid #94A3B8; border-radius: 1mm; padding: 0 1mm; white-space: nowrap; }
 `;
+const AMPOULE = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="${ME.or}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h1m8-9v1m8 8h1m-15.4-6.4l.7.7m12.1-.7l-.7.7"/><path d="M9 16a5 5 0 1 1 6 0a3.5 3.5 0 0 0-1 3a2 2 0 0 1-4 0a3.5 3.5 0 0 0-1-3"/><path d="M9.7 17h4.6"/></svg>`;
+const LIEU = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11a3 3 0 1 0 6 0a3 3 0 0 0-6 0"/><path d="M17.66 16.66l-4.24 4.24a2 2 0 0 1-2.83 0l-4.25-4.24a8 8 0 1 1 11.32 0z"/></svg>`;
+
 
 const NOMS_PUBLIC_P = { ens: 'enseignants', sec: 'secrétariat', coo: 'coordinations', dir: 'direction' };
+const PASTILLE_PUBLIC = { ens: 'Enseignants', sec: 'Secrétariat', coo: 'Coordinations', dir: 'Direction' };
+
+/** Le chemin « Où », en étapes, comme `Chemin` de l'écran. */
+function cheminP(ou) {
+  const [chemin, ...reste] = String(ou).split(/(?<=\.)\s|·|;/).map(x => x.trim()).filter(Boolean);
+  const etapes = String(chemin || '').replace(/\.$/, '').split('→').map(x => x.trim()).filter(Boolean);
+  return `<div class="me-chemin"><span class="lieu">${LIEU}</span>${etapes.map((x, i) => `${i ? '<span class="sep">›</span>' : ''}<span class="pas">${enrichiP(x)}</span>`).join('')}${reste.length ? `<span class="reste">· ${reste.map(enrichiP).join(' · ')}</span>` : ''}</div>`;
+}
+
+/** Un point, imprimé comme la carte de l'écran. `images` : chemins ou data URL ; `contenu` : HTML déjà sûr. */
+export function pointImprimable(p, n, ajouter = () => {}) {
+  const l = [...(p.image ? [{ src: p.image, legende: p.legende }] : []), ...(p.images || [])];
+  l.forEach(i => ajouter(i.src));
+  const etroites = l.length && l.every(i => i.etroite);
+  const imgs = l.length ? `<div class="me-images">${l.map(i => `<figure class="me-fig${i.etroite ? ' etroite' : ''}">
+      <img src="${escP(i.src)}" alt="">${i.legende ? `<figcaption>${enrichiP(i.legende)}</figcaption>` : ''}</figure>`).join('')}</div>` : '';
+  const texte = `<div>${p.ou ? cheminP(p.ou) : ''}${p.texte ? `<p>${enrichiP(p.texte)}</p>` : ''}${p.contenu || ''}
+      ${p.savoir?.length ? `<div class="me-savoir"><div class="titre">${AMPOULE} À savoir</div><ul>${p.savoir.map(s => `<li>${enrichiP(s)}</li>`).join('')}</ul></div>` : ''}</div>`;
+  // Des captures de téléphone côte à côte se lisent sous le texte ; une capture d'écran large, à droite.
+  const corps = !l.length ? `<div class="me-corps">${texte}</div>`
+    : etroites || p.images_dessous ? `<div class="me-corps sans-images">${texte}${imgs}</div>`
+    : `<div class="me-corps avec-images">${texte}${imgs}</div>`;
+  return `<div class="me-point">${p.titre ? `<h3>${n != null ? `<span class="me-rond">${n}</span>` : ''}${escP(p.titre)}</h3>` : ''}${corps}</div>`;
+}
+
+/** L'en-tête d'un chapitre et ses points. */
+export function chapitreImprimable(r, i, total, ajouter) {
+  const pubs = String(r.pour || '').split(/\s+/).filter(x => PASTILLE_PUBLIC[x]);
+  return `<section class="me-chap">
+    <div class="me-tete"><div style="flex:1;min-width:0">
+      <p class="me-de">Chapitre ${i + 1} sur ${total}</p>
+      <h2><span class="me-carre">${i + 1}</span>${escP(r.titre)}</h2>
+      ${r.resume ? `<p class="me-resume">${enrichiP(r.resume)}</p>` : ''}
+      ${pubs.length ? `<div class="me-publics">${pubs.map(x => `<span class="me-pub">${PASTILLE_PUBLIC[x]}</span>`).join('')}</div>` : ''}
+    </div></div>
+    ${r.points.map((p, k) => pointImprimable(p, p.titre ? k + 1 : null, ajouter)).join('')}
+  </section>`;
+}
+
 
 /** Le corps du PDF : page de garde et sommaire, puis un chapitre par page. Rend { corps, images } (chemins à joindre). */
 export function modeEmploiImprimable(role, voir = null) {
   const m = modeEmploiPour(role, voir);
   const images = new Set();
-  const figures = p => {
-    const l = [...(p.image ? [{ src: p.image, legende: p.legende }] : []), ...(p.images || [])];
-    l.forEach(i => images.add(i.src));
-    return l.length ? `<div class="me-images">${l.map(i => `<figure class="me-fig${i.etroite ? ' etroite' : ''}">
-      <img src="${escP(i.src)}" alt="">${i.legende ? `<figcaption>${enrichiP(i.legende)}</figcaption>` : ''}</figure>`).join('')}</div>` : '';
-  };
+  const ajouter = src => images.add(src);
   const pourQui = m.publics ? `Édition pour : ${m.publics.map(p => NOMS_PUBLIC_P[p]).join(', ')}.` : 'Édition complète (tous les publics).';
   const garde = `<section class="me-garde">
     <h1>Lucie — mode d'emploi</h1>
@@ -1704,16 +1762,6 @@ export function modeEmploiImprimable(role, voir = null) {
     <p>Version décrite : ${escP(m.version)}. Les captures viennent d'une base d'essai : les noms sont fictifs.</p>
     <div class="me-sommaire"><b>Sommaire</b><ol>${m.rubriques.map(r => `<li>${escP(r.titre)}</li>`).join('')}</ol></div>
   </section>`;
-  const chapitres = m.rubriques.map((r, i) => `<section class="me-chap">
-    <h2><span class="me-num">${i + 1}</span>${escP(r.titre)}</h2>
-    ${r.resume ? `<p class="me-resume">${enrichiP(r.resume)}</p>` : ''}
-    ${r.points.map((p, k) => `<div class="me-point">
-      <h3><span class="me-num">${i + 1}.${k + 1}</span>${escP(p.titre)}</h3>
-      ${p.ou ? `<p class="me-ou"><b>Où :</b> ${enrichiP(p.ou)}</p>` : ''}
-      ${p.texte ? `<p>${enrichiP(p.texte)}</p>` : ''}
-      ${p.savoir?.length ? `<div class="me-savoir"><b>À savoir</b><ul>${p.savoir.map(s => `<li>${enrichiP(s)}</li>`).join('')}</ul></div>` : ''}
-      ${figures(p)}
-    </div>`).join('')}
-  </section>`).join('');
+  const chapitres = m.rubriques.map((r, i) => chapitreImprimable(r, i, m.rubriques.length, ajouter)).join('');
   return { corps: garde + chapitres, images: [...images], version: m.version };
 }

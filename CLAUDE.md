@@ -2889,6 +2889,13 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   autres à moins de 1,2 unité). **Le guide en ligne est la seule source : une nouveauté s'y écrit, avec ses captures, et le
   PDF suit sans rien faire.**
 
+- **LE PDF DU MODE D'EMPLOI A LE DESSIN DU GUIDE EN LIGNE** (3.1.520, Charles, 30 octobre 2026 : « regarde le mode d'emploi de
+  Lucie, c'est en bleu »). `STYLES_MODE_EMPLOI`, `pointImprimable`, `chapitreImprimable` (`lib/modeEmploi.js`) impriment les pièces de
+  l'écran (`pages/Aide.jsx`) : en-tête de chapitre (carré marine numéroté, « Chapitre n sur N », publics en pastilles bleues), points
+  au liseré principal et numéro dans un cercle, chemin « Où » en étapes, « À savoir » encadré (ampoule or, puces accent), texte à
+  gauche et capture d'écran à droite (captures de téléphone en rang sous le texte). Un point peut porter `contenu` (HTML sûr).
+  **Tout document « façon mode d'emploi » (un projet, une présentation) se compose avec ces deux fonctions, dans l'enveloppe commune,
+  avec le pied de Lucie** — jamais une mise en page à part.
 - **PORTAIL, ÉTAPE 1 : LE MOT DE PASSE ET LA BELGIQUE** (3.1.513). `compte` (empreinte scrypt salée, dans la base du
   PORTAIL seulement, survit aux dépôts) ; `POST /api/portail/connexion` (adresse ou matricule + mot de passe ; appareil
   reconnu → session ; sinon code `connexion` composé par Lucie → `POST /connexion/code`, qui reconnaît l'appareil, 3 au
