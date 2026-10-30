@@ -81,7 +81,7 @@ const d = s => ({ animationDelay: `${s}s` });
  */
 export const etoileDuPoint = i => ORDRE_APPARITION[i % ORDRE_APPARITION.length];
 
-export default function IllustrationGuide({ id, Icone = null, vus = [], actif = null }) {
+export default function IllustrationGuide({ id, Icone = null, vus = [], actif = null, cadre = true }) {
   const r0 = rangDe(id);
   const teinte = i => TEINTES[(r0 + i) % TEINTES.length];
   const c = teinte(0);
@@ -91,8 +91,8 @@ export default function IllustrationGuide({ id, Icone = null, vus = [], actif = 
   const kActif = actif != null ? etoileDuPoint(actif) : null;
   return (
     // La clé redémarre l'animation à chaque chapitre.
-    <svg key={id} viewBox="0 0 260 160" className="w-full h-auto" role="img" aria-hidden="true">
-      <rect x="1" y="1" width="258" height="158" rx="14" style={{ fill: '#fff', stroke: G }} />
+    <svg key={id} viewBox="0 0 260 160" className="w-full h-auto" style={{ overflow: cadre ? undefined : 'visible' }} role="img" aria-hidden="true">
+      {cadre && <rect x="1" y="1" width="258" height="158" rx="14" style={{ fill: '#fff', stroke: G }} />}
 
       {/* LES LIENS DE LA FIGURE, après les étoiles ; ils s'effacent presque une fois le L posé. */}
       {TRAITS.map(([a, b], i) => {

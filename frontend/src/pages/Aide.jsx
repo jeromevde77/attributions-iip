@@ -183,21 +183,12 @@ function Point({ p, n, delai = 0, allumee = false, onVu }) {
   );
 }
 
-/* LES POINTS D'UN CHAPITRE, ET L'ILLUSTRATION QUI LES SUIT. Sur grand écran, l'illustration reste à côté pendant
-   qu'on lit : chaque point paru allume son étoile, celui qu'on lit la fait grandir. */
-function PointsDuChapitre({ r, Icone }) {
-  const [vus, setVus] = useState([]);
-  const [actif, setActif] = useState(null);
-  const onVu = useMemo(() => i => { setActif(i); setVus(v => (v.includes(i) ? v : [...v, i])); }, []);
+/* LES POINTS D'UN CHAPITRE. Chaque point paru allume son étoile dans le logo de l'en-tête ; celui qu'on lit la
+   fait grandir (3.1.483, Charles : « le logo, plus petit, sans case, dans l'encadré au-dessus »). */
+function PointsDuChapitre({ r, vus, onVu }) {
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px] items-start">
-      <div className="space-y-3 min-w-0">
-        {r.points.map((p, i) => <Point key={i} p={p} n={i + 1} delai={0.08 + Math.min(i, 8) * 0.05} allumee={vus.includes(i)} onVu={onVu} />)}
-      </div>
-      <div className="hidden lg:block sticky top-24">
-        <IllustrationGuide id={r.id} Icone={Icone} vus={vus} actif={actif} />
-        <p className="text-mention text-slate-400 mt-2 text-center">{vus.length} point{vus.length > 1 ? 's' : ''} lu{vus.length > 1 ? 's' : ''} sur {r.points.length}</p>
-      </div>
+    <div className="space-y-3 min-w-0">
+      {r.points.map((p, i) => <Point key={i} p={p} n={i + 1} delai={0.08 + Math.min(i, 8) * 0.05} allumee={vus.includes(i)} onVu={onVu} />)}
     </div>
   );
 }
@@ -209,6 +200,8 @@ export default function Aide({ integre = false }) {
   const [recherche, setRecherche] = useState('');
   const [erreurGuide, setErreurGuide] = useState(null);
   const [cle, setCle] = useState(() => (window.location.hash || '').replace(/^#/, '') || null);
+  // Les points parus du chapitre ouvert (leurs étoiles s'allument dans le logo de l'en-tête).
+  const [lecture, setLecture] = useState({ id: null, vus: [], actif: null });
 
   useEffect(() => {
     setErreur(null);
@@ -228,6 +221,13 @@ export default function Aide({ integre = false }) {
     if (!q) return null;
     return rubriques.flatMap(x => x.points.filter(p => texteDuPoint(p).includes(q)).map(p => ({ r: x, p })));
   }, [recherche, rubriques]);
+  const idOuvert = r?.id;
+  const onVu = useMemo(() => i => setLecture(l => {
+    const base = l.id === idOuvert ? l : { id: idOuvert, vus: [], actif: null };
+    return { id: idOuvert, actif: i, vus: base.vus.includes(i) ? base.vus : [...base.vus, i] };
+  }), [idOuvert]);
+  const vus = lecture.id === idOuvert ? lecture.vus : [];
+  const actif = lecture.id === idOuvert ? lecture.actif : null;
 
   return (
     <div className={`${integre ? '' : 'p-5 '}space-y-4`} id="guide-haut">
@@ -293,7 +293,7 @@ export default function Aide({ integre = false }) {
 
           <div key={`${r.id}-${voir}`} className="space-y-4 min-w-0">
             {/* L'EN-TÊTE DU CHAPITRE : ce qu'il couvre, pour qui, et son schéma. */}
-            <div className="guide-entree carte p-5 grid gap-5 md:grid-cols-[minmax(0,1fr)_260px] lg:grid-cols-1 items-center">
+            <div className="guide-entree carte p-5 grid gap-4 grid-cols-[minmax(0,1fr)_auto] items-center">
               <div className="space-y-2.5">
                 <div className="flex items-center gap-2 text-second text-slate-500">
                   <span className="tabular-nums">Chapitre {index + 1} sur {rubriques.length}</span>
@@ -309,11 +309,14 @@ export default function Aide({ integre = false }) {
                     <span key={k} className="pastille-etat" data-etat="disponible">{NOMS_PUBLIC[k] || k}</span>))}
                 </div>}
               </div>
-              {/* Sur un écran étroit, l'illustration reste dans l'en-tête ; sur grand écran, elle accompagne la lecture. */}
-              <div className="guide-entree lg:hidden" style={{ animationDelay: '.1s' }}><IllustrationGuide id={r.id} Icone={ICONES[r.icone] || IconHelpCircle} /></div>
+              {/* Le logo de Lucie, petit et sans cadre : ses étoiles s'allument au fil des points. */}
+              <div className="guide-entree w-28 sm:w-36 flex-none text-center" style={{ animationDelay: '.1s' }}>
+                <IllustrationGuide id={r.id} Icone={ICONES[r.icone] || IconHelpCircle} vus={vus} actif={actif} cadre={false} />
+                {vus.length > 0 && <p className="text-mention text-slate-400 mb-0 mt-3">{vus.length} sur {r.points.length} lu{vus.length > 1 ? 's' : ''}</p>}
+              </div>
             </div>
 
-            <PointsDuChapitre r={r} Icone={ICONES[r.icone] || IconHelpCircle} />
+            <PointsDuChapitre r={r} vus={vus} onVu={onVu} />
 
             <div className="flex flex-wrap justify-between gap-2 pt-1">
               {rubriques[index - 1] ? (

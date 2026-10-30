@@ -2691,7 +2691,12 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   20 000 lignes ne se garde pas. **Une table nouvelle est suivie au redémarrage
   suivant** ; une table à colonne BLOB ou sans rowid ne l'est pas.
 
-- **L'ANNULER NE COMPARE QUE CE QUE LE GESTE A CHANGÉ** (3.1.482, Charles, 30 octobre 2026, en production :
+- - **LE LOGO DU GUIDE EST DANS L'EN-TÊTE DU CHAPITRE** (3.1.483, Charles, 30 octobre 2026 : « trop grand, pas dans une
+  case, dans l'encadré au-dessus, en plus petit ; l'expérience la plus simple »). Plus de colonne d'illustration à côté
+  des points : le logo (sans cadre, `cadre={false}`) tient à droite de l'en-tête, 112-144 px, et ses étoiles s'allument
+  au fil des points lus ; les points prennent toute la largeur.
+
+**L'ANNULER NE COMPARE QUE CE QUE LE GESTE A CHANGÉ** (3.1.482, Charles, 30 octobre 2026, en production :
   « Impossible d'annuler : utilisateur — la ligne a été modifiée depuis, par quelqu'un »). Se reconnecter écrit
   `last_login_at` sur la ligne du compte ; l'annulation comparait la ligne entière et refusait. Désormais elle ne
   vérifie, et ne remet, que les colonnes que le geste a changées ; les champs techniques (`TECHNIQUES` : heure de
