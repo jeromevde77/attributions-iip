@@ -183,8 +183,13 @@ r.post('/etudiants', authRequired, (req, res) => {
     WHERE annee_scolaire = ? AND ue_num IN (${marques})`).all(annee, ...liste)
     .map(u => [u.ue_num, u.ue_nom]));
 
+  /* UNE SECONDE SESSION EXISTE-T-ELLE ? (3.1.497, Charles : « S1, S2 ou tout — S2 seulement si elle existe, sinon
+     grisé »). Oui dès qu'une décision de seconde session est enregistrée pour une unité du périmètre. */
+  const secondeSession = !!db.prepare(`SELECT 1 FROM deliberation_resultat
+    WHERE annee_scolaire = ? AND session = 2 AND ue_num IN (${marques}) LIMIT 1`).get(annee, ...liste);
+
   res.json({
-    annee, session,
+    annee, session, seconde_session: secondeSession,
     unites: liste.sort((a, b) => a - b).map(n => ({
       ue_num: n, ue_nom: nomsUE[n] || null,
       cours_filtrants: coursParUE[n] || [],
