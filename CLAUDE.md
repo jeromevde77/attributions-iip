@@ -432,7 +432,17 @@ son lien par son adresse d'institut (ou son matricule) ; en ouvrant le lien, il 
 « juste cette fois » (ordinateur partagé) ; reconnu = cookie httpOnly `portail_appareil` (empreinte seule en base, table
 `appareil`), 90 jours glissants, `POST /api/portail/entrer` sans lien ; TROIS au plus — au quatrième, il choisit lequel
 remplacer (il vient de prouver sa boîte d'école) ; face « Mes appareils » (oublier) ; les entrées sans lien (`entree`)
-remontent à Lucie comme connexions (`portail_connexion`, référence négative). La fiche lit `GET /api/portail-suivi/:id`. Mise en place :
+remontent à Lucie comme connexions (`portail_connexion`, référence négative). **Le dépôt d'office** (3.1.510,
+Charles : « attestations de réussite ou d'échec à télécharger, fidèles à ce qui est produit » ; « d'office à la clôture » ;
+« à terme, on met à disposition et l'étudiant reçoit un mail : vous avez un message dans votre espace ») :
+`lib/depotEspace.js` — à chaque séance close et publiée DEPUIS la mise en service (`lucie_config`
+« portail_depot_depuis », posé au premier passage : pas de rattrapage de l'historique), chaque délibéré reçoit la pièce
+de sa décision, composée par `assemblerDocumentsUE` (réussi → attestation ; ajourné / refusé → motivation). Elle entre au
+REGISTRE DES ENVOIS (`deposerDansLEspace`, `routes/envois.js` : statut `depose`, mode `espace`, copie + référence, signature
+refaite par `copieDeLEnvoi`) puis part au portail avec les autres envois ; une pièce ne se dépose qu'une fois
+(`portail_depot`). Puis UN courriel par étudiant, sans pièce jointe. **90 jours** : au-delà, le portail exige un code à
+six chiffres (objet `telechargement`), qui ouvre ce document une heure (`deverrou`). Une motivation que Lucie ne peut
+pas composer (aucun acquis en échec) ne se dépose pas. La fiche lit `GET /api/portail-suivi/:id`. Mise en place :
 `scripts/vps/PORTAIL-ETUDIANTS.md` (DNS, quatre secrets, dossiers au propriétaire 1000, compose, Caddy). **Reste de
 ce côté-ci du mur, À DÉPLACER** : la demande de VA en ligne (`/demande-va`, `routes/portailVA.js`), qui écrit dans la
 base de Lucie.

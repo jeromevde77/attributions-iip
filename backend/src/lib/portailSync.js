@@ -19,6 +19,7 @@
 import db from '../db/index.js';
 import { envoyerEmail, templateNotif } from '../services/mailer.js';
 import { copieDeLEnvoi } from '../routes/envois.js';
+import { deposerDOffice } from './depotEspace.js';
 import { derniereVersion, versionReference } from '../routes/documentation.js';
 
 const URL_INTERNE = () => (process.env.PORTAIL_INTERNE_URL || '').replace(/\/$/, '');
@@ -140,10 +141,11 @@ async function relever() {
         <p style="color:#64748b;font-size:12px">Vous n'avez rien demandé ? Ignorez ce message : sans ce lien, personne n'accède à votre espace.</p>` });
     } else if (d.type === 'code') {
       if (!/^\d{6}$/.test(String(d.valeur || ''))) continue;
-      sujet = `Institut Ilya Prigogine — code de signature ${d.valeur}`;
-      html = templateNotif({ titre: 'Votre code de signature', corps: `<p>Votre code pour signer l'accusé de réception dans votre espace :</p>
+      sujet = `Institut Ilya Prigogine — votre code ${d.valeur}`;
+      html = templateNotif({ titre: 'Votre code', corps: `<p>Votre code pour votre espace — signer un accusé de réception, ou
+        télécharger un document de plus de 90 jours :</p>
         <p style="font-size:28px;font-weight:bold;letter-spacing:6px">${d.valeur}</p><p>Il est valable 10 minutes.</p>
-        <p style="color:#64748b;font-size:12px">Vous n'êtes pas en train de signer ? Ne communiquez ce code à personne.</p>` });
+        <p style="color:#64748b;font-size:12px">Vous n'avez rien demandé ? Ne communiquez ce code à personne.</p>` });
     } else continue;
     const envoi = await envoyerEmail({ to: e.email_ecole, subject: sujet, html }).catch(err => ({ ok: false, erreur: err.message }));
     if (envoi?.simule && process.env.NODE_ENV !== 'production') console.log(`[portail] ${d.type} (courriel simulé) : ${d.valeur}`);
@@ -179,12 +181,14 @@ async function deposer() {
 }
 
 async function deposerDocuments() {
+  // D'abord le dépôt d'office des pièces de délibération (3.1.510) : elles entrent au registre, puis partent ci-dessous.
+  try { await deposerDOffice(etudiantsVisibles(), URL_PUBLIQUE()); } catch (e) { console.error('[espace] dépôt d’office :', e.message); }
   const ids = new Set(etudiantsVisibles().map(e => e.id));
   const connus = new Set((await appel('GET', '/interne/documents/connus')).ids || []);
   let envois = [];
   try {
     envois = db.prepare(`SELECT m.id, m.destinataire_id, m.sujet, m.nom_fichier, m.envoye_le, m.reference FROM envoi_mail m
-      JOIN envoi_copie c ON c.envoi_id = m.id WHERE m.destinataire_type = 'etudiant' AND m.statut IN ('envoye','simule')
+      JOIN envoi_copie c ON c.envoi_id = m.id WHERE m.destinataire_type = 'etudiant' AND m.statut IN ('envoye','simule','depose')
       ORDER BY m.id DESC`).all();
   } catch { return; }
   const aRetirer = [...connus].filter(id => !envois.some(m => m.id === id && ids.has(m.destinataire_id)));

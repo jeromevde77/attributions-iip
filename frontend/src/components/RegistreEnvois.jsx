@@ -19,7 +19,7 @@ const quand = d => {
   const x = new Date(String(d).replace(' ', 'T') + 'Z');
   return x.toLocaleString('fr-BE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
-const STATUT = { envoye: ['envoyé', 'reussi'], simule: ['simulé', 'disponible'], echec: ['échec', 'corriger'] };
+const STATUT = { envoye: ['envoyé', 'reussi'], simule: ['simulé', 'disponible'], echec: ['échec', 'corriger'], depose: ['dans l’espace', 'disponible'] };
 const ilYa = j => new Date(Date.now() - j * 864e5).toISOString().slice(0, 10);
 
 export default function RegistreEnvois() {

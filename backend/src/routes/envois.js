@@ -623,6 +623,27 @@ r.get('/journal', authRequired, gesteRequis('envois.envoyer'), (req, res) => {
  */
 /* LA COPIE D'UNE PIÈCE ENVOYÉE, telle qu'elle est partie (signée, sa référence). Commune au registre des envois
    et à l'espace de l'étudiant (3.1.475) : `{ erreur, code }` ou `{ type, corps, nom }`. */
+/**
+ * METTRE À DISPOSITION DANS L'ESPACE DE L'ÉTUDIANT (Charles, 30 octobre 2026 : « à terme on n'envoie pas de mail : on
+ * met à disposition, l'étudiant reçoit un mail qui dit qu'il a un message dans son espace ; il va voir et imprime »).
+ * Une mise à disposition est un ENVOI du registre, mode « espace », statut « depose » : même copie conservée, même
+ * référence, même signature refaite à l'identique (`copieDeLEnvoi`) — la pièce de l'espace est celle qu'on aurait
+ * imprimée. Aucun courriel ne part d'ici ; l'avis vient à part (lib/depotEspace.js).
+ */
+export function deposerDansLEspace({ etudiant, sujet, nom_fichier, html, type_doc, contenu = null, par = 'Lucie (dépôt d’office)' }) {
+  ensureTable();
+  const reference = nouvelleReference();
+  const jour = new Date().toLocaleDateString('fr-BE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const info = db.prepare(`INSERT INTO envoi_mail (lot, type_doc, destinataire_type, destinataire_id, destinataire_nom, email, sujet,
+      nom_fichier, taille, statut, erreur, envoye_par, reference, contenu, message, mode)
+    VALUES (?,?,'etudiant',?,?,?,?,?,?,'depose',NULL,?,?,?,NULL,'espace')`)
+    .run(`espace-${new Date().toISOString().slice(0, 10)}`, type_doc, etudiant.id, `${etudiant.prenom || ''} ${etudiant.nom || ''}`.trim(),
+      etudiant.email_ecole || '', sujet, nom_fichier, Buffer.byteLength(html), par, reference, contenu);
+  db.prepare('INSERT OR IGNORE INTO envoi_copie (envoi_id, html_gz, jour, empreinte) VALUES (?,?,?,NULL)')
+    .run(info.lastInsertRowid, compacter(html), jour);
+  return { id: Number(info.lastInsertRowid), reference };
+}
+
 export async function copieDeLEnvoi(id, { format = 'pdf' } = {}) {
   ensureTable();
   const m = db.prepare('SELECT * FROM envoi_mail WHERE id = ?').get(Number(id));

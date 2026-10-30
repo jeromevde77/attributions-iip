@@ -64,6 +64,10 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS appareil (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL,
     jeton_hash TEXT NOT NULL UNIQUE, nom TEXT, cree_le TEXT NOT NULL DEFAULT (datetime('now')), vu_le TEXT,
     expire_le TEXT NOT NULL, retire_le TEXT, ip TEXT);
+  -- Au-delà de 90 jours, un document ne se télécharge qu'après un code (Charles, 30 octobre 2026 : « pour éviter la
+  -- fraude ») ; le code ouvre le téléchargement de CE document pour une heure.
+  CREATE TABLE IF NOT EXISTS deverrou (etudiant_id INTEGER NOT NULL, document_id INTEGER NOT NULL, jusqu_a TEXT NOT NULL,
+    PRIMARY KEY (etudiant_id, document_id));
   CREATE TABLE IF NOT EXISTS entree (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL,
     le TEXT NOT NULL DEFAULT (datetime('now')), ip TEXT, releve_le TEXT);
   CREATE TRIGGER IF NOT EXISTS accuse_signe_fige BEFORE UPDATE OF presente_le, signe_le, objet_id, etudiant_id ON accuse
@@ -213,8 +217,10 @@ pub.get('/api/portail/moi', connecte, (req, res) => {
     if (!parAnnee.has(r.annee)) parAnnee.set(r.annee, []);
     parAnnee.get(r.annee).push({ ue_num: r.ue_num, ue_nom: r.ue_nom, decision: r.decision, note: /^\d+$/.test(r.note || '') ? Number(r.note) : r.note, etat: r.etat });
   }
-  const documents = db.prepare('SELECT id, sujet, nom_fichier, envoye_le, reference FROM document WHERE etudiant_id = ? ORDER BY envoye_le DESC, id DESC')
-    .all(e.id).map(d => ({ ...d, ...accuseDe(e, 'envoi', d.id) }));
+  const documents = db.prepare(`SELECT id, sujet, nom_fichier, envoye_le, reference,
+      (envoye_le >= datetime('now', '-${JOURS_LIBRES} days')) AS libre,
+      date(envoye_le, '+${JOURS_LIBRES} days') AS libre_jusqu_au FROM document WHERE etudiant_id = ? ORDER BY envoye_le DESC, id DESC`)
+    .all(e.id).map(d => ({ ...d, libre_jusqu_au: d.libre ? d.libre_jusqu_au : null, libre: !!d.libre || deverrouille(e.id, d.id), ...accuseDe(e, 'envoi', d.id) }));
   const reglements = db.prepare('SELECT * FROM reglement ORDER BY titre').all().map(r => {
     // Signé sur une version dont la signature vaut encore (Lucie en donne la liste : la règle de reconfirmation du personnel).
     const s = db.prepare(`SELECT signe_le FROM accuse WHERE etudiant_id = ? AND objet_type = 'reglement' AND signe_le IS NOT NULL
@@ -233,9 +239,16 @@ function presenter(e, type, id, req) {
     WHERE accuse.signe_le IS NULL AND accuse.presente_le IS NULL`).run(e.id, type, id, ipDe(req), String(req.headers['user-agent'] || '').slice(0, 200));
 }
 
+const JOURS_LIBRES = 90;
+const deverrouille = (etudiantId, docId) => !!db.prepare(`SELECT 1 FROM deverrou WHERE etudiant_id = ? AND document_id = ? AND jusqu_a > datetime('now')`).get(etudiantId, docId);
+const libre = d => !!db.prepare(`SELECT 1 WHERE ? >= datetime('now', '-${JOURS_LIBRES} days')`).get(String(d.envoye_le || ''));
+
 pub.get('/api/portail/documents/:id', connecte, (req, res) => {
   const d = db.prepare('SELECT * FROM document WHERE id = ? AND etudiant_id = ?').get(Number(req.params.id), req.etudiant.id);
   if (!d || !d.contenu) return res.status(404).json({ error: 'Document introuvable.' });
+  if (!libre(d) && !deverrouille(req.etudiant.id, d.id)) {
+    return res.status(403).json({ code_requis: true, error: `Ce document a plus de ${JOURS_LIBRES} jours : demandez un code pour le télécharger.` });
+  }
   presenter(req.etudiant, 'envoi', d.id, req);
   res.setHeader('Content-Type', d.mime || 'application/pdf');
   res.setHeader('Content-Disposition', `inline; filename="${String(d.nom_fichier || 'document').replace(/[^A-Za-z0-9_.-]/g, '_')}"`);
@@ -250,6 +263,7 @@ pub.get('/api/portail/reglements/:cle', connecte, (req, res) => {
 });
 
 function objetValide(e, type, id) {
+  if (type === 'telechargement') return !!db.prepare('SELECT 1 FROM document WHERE id = ? AND etudiant_id = ?').get(id, e.id);
   if (type === 'envoi') return !!db.prepare('SELECT 1 FROM document WHERE id = ? AND etudiant_id = ?').get(id, e.id);
   if (type === 'reglement') return !!db.prepare('SELECT 1 FROM reglement WHERE version_id = ?').get(id);   // la version en vigueur
   return false;
@@ -259,9 +273,11 @@ pub.post('/api/portail/code', connecte, (req, res) => {
   const e = req.etudiant;
   const type = String(req.body?.objet_type || ''), id = Number(req.body?.objet_id);
   if (!objetValide(e, type, id)) return res.status(404).json({ error: 'Pièce introuvable.' });
-  const a = accuseDe(e, type, id);
-  if (!a.presente_le) return res.status(409).json({ error: 'Ouvrez d’abord la pièce : on ne signe que ce qu’on a lu.' });
-  if (a.signe_le) return res.status(409).json({ error: 'Déjà signé.' });
+  if (type !== 'telechargement') {
+    const a = accuseDe(e, type, id);
+    if (!a.presente_le) return res.status(409).json({ error: 'Ouvrez d’abord la pièce : on ne signe que ce qu’on a lu.' });
+    if (a.signe_le) return res.status(409).json({ error: 'Déjà signé.' });
+  }
   if (db.prepare(`SELECT COUNT(*) n FROM code WHERE etudiant_id = ? AND cree_le > datetime('now', '-1 hour')`).get(e.id).n >= 10) {
     return res.status(429).json({ error: 'Trop de codes demandés. Réessayez dans une heure.' });
   }
@@ -271,6 +287,24 @@ pub.post('/api/portail/code', connecte, (req, res) => {
     .run(e.id, type, id, empreinte(`${e.id}:${valeur}`));
   db.prepare(`INSERT INTO demande (type, etudiant_id, valeur) VALUES ('code', ?, ?)`).run(e.id, valeur);
   res.json({ ok: true, message: `Un code à six chiffres part dans la minute vers ${e.email_ecole}.` });
+});
+
+/** Au-delà de 90 jours : le code reçu à l'adresse d'école ouvre le téléchargement de ce document pour une heure. */
+pub.post('/api/portail/documents/:id/deverrouiller', connecte, (req, res) => {
+  const e = req.etudiant, id = Number(req.params.id);
+  const valeur = String(req.body?.code || '').replace(/\D/g, '');
+  if (!objetValide(e, 'telechargement', id)) return res.status(404).json({ error: 'Document introuvable.' });
+  const c = db.prepare(`SELECT * FROM code WHERE etudiant_id = ? AND objet_type = 'telechargement' AND objet_id = ? AND utilise_le IS NULL ORDER BY id DESC LIMIT 1`).get(e.id, id);
+  if (!c || c.expire_le < maintenant()) return res.status(400).json({ error: 'Ce code a expiré. Demandez-en un nouveau.' });
+  if (c.essais >= 5) return res.status(429).json({ error: 'Trop d’essais. Demandez un nouveau code.' });
+  if (!egal(empreinte(`${e.id}:${valeur}`), c.code_hash)) {
+    db.prepare('UPDATE code SET essais = essais + 1 WHERE id = ?').run(c.id);
+    return res.status(400).json({ error: 'Code incorrect.' });
+  }
+  db.prepare("UPDATE code SET utilise_le = datetime('now') WHERE id = ?").run(c.id);
+  db.prepare(`INSERT INTO deverrou (etudiant_id, document_id, jusqu_a) VALUES (?,?, datetime('now', '+1 hour'))
+    ON CONFLICT(etudiant_id, document_id) DO UPDATE SET jusqu_a = excluded.jusqu_a`).run(e.id, id);
+  res.json({ ok: true });
 });
 
 pub.post('/api/portail/accuser', connecte, (req, res) => {

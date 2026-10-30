@@ -75,6 +75,31 @@ function Accuse({ type, id, presente, signe, onFait, onErreur }) {
   );
 }
 
+/** Au-delà de 90 jours, un document s'ouvre par un code reçu à l'adresse de l'institut (anti-fraude). */
+function Deverrouiller({ doc, onOuvrir, onErreur }) {
+  const [etape, setEtape] = useState(null);
+  const [code, setCode] = useState('');
+  const [msg, setMsg] = useState(null);
+  const demander = async () => {
+    try { const j = await appel('POST', '/code', { objet_type: 'telechargement', objet_id: doc.id }); setMsg(j.message); setEtape('code'); }
+    catch (e) { onErreur(e); }
+  };
+  const valider = async ev => {
+    ev.preventDefault();
+    try { await appel('POST', `/documents/${doc.id}/deverrouiller`, { code }); onOuvrir(doc); }
+    catch (e) { setMsg(e.message); }
+  };
+  if (etape !== 'code') return <button type="button" className="bouton inline-flex items-center gap-1.5" onClick={demander}><IconLock size={15} /> Recevoir un code</button>;
+  return (
+    <form onSubmit={valider} className="flex flex-wrap items-center gap-2">
+      <input value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="one-time-code"
+        placeholder="Code à 6 chiffres" className="controle w-40 tracking-widest" autoFocus />
+      <button type="submit" className="bouton bouton-fort" disabled={code.length !== 6}>Ouvrir</button>
+      {msg && <span className="text-second text-slate-600 w-full">{msg}</span>}
+    </form>
+  );
+}
+
 /** Mes appareils : ceux qui entrent sans lien ; en oublier un. */
 function MesAppareils({ onErreur, onOublieCourant }) {
   const [l, setL] = useState(null);
@@ -252,13 +277,16 @@ export default function EspaceEtudiant() {
               <div key={doc.id} className="bloc-etat px-4 py-3 flex flex-wrap items-center gap-3" data-etat={doc.signe_le ? 'reussi' : 'disponible'}>
                 <IconFileText size={18} className="text-slate-400 flex-none" />
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold text-iip-texte truncate">{doc.sujet}</div>
-                  <div className="text-xs text-slate-500 truncate">{doc.nom_fichier || ''} · envoyé le {jourFr(doc.envoye_le)}{doc.reference ? ` · réf. ${doc.reference}` : ''}</div>
+                  <div className="text-sm font-semibold text-iip-texte break-words">{doc.sujet}</div>
+                  <div className="text-xs text-slate-500 break-words">mis à disposition le {jourFr(doc.envoye_le)}{doc.reference ? ` · réf. ${doc.reference}` : ''}
+                    {doc.libre && doc.libre_jusqu_au ? ` · téléchargeable librement jusqu’au ${jourFr(doc.libre_jusqu_au)}` : ''}
+                    {!doc.libre ? ' · plus de 90 jours : un code est demandé' : ''}</div>
                 </div>
-                <button type="button" className="bouton" onClick={() => ouvrir(doc)}>Ouvrir</button>
+                {doc.libre ? <button type="button" className="bouton" onClick={() => ouvrir(doc)}>Ouvrir</button>
+                  : <Deverrouiller doc={doc} onOuvrir={ouvrir} onErreur={echec} />}
                 <div className="w-full"><Accuse type="envoi" id={doc.id} presente={doc.presente_le} signe={doc.signe_le} onFait={charger} onErreur={echec} /></div>
               </div>))}
-          </div>) : <p className="text-sm text-slate-500">Aucun document pour l’instant. Les pièces que l’école vous envoie par Lucie paraissent ici.</p>)}
+          </div>) : <p className="text-sm text-slate-500">Aucun document pour l’instant. Vos attestations et les décisions du Conseil des études paraissent ici dès la clôture de la délibération.</p>)}
 
         {d && face === 'reglements' && (d.reglements.length ? (
           <div className="space-y-2">
