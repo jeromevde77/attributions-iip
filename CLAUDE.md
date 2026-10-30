@@ -2734,6 +2734,14 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   **Imprimer** : `GET /:cle/document` (enveloppe commune, sommaire, version, pied « produit par »), PDF serveur ou
   impression du navigateur. Les boutons `[[Libellé]]` se dessinent à l'écran et s'impriment entre crochets.
 
+- **TOUT CONVERTIR EN UN GESTE** (3.1.492, Charles : « tu n'as pas converti les procédures comme prévu » — elles vivent
+  dans la base de la dev et de la production, que l'assistant ne lit pas ; choisi : « tout convertir en un geste »).
+  Documentation → rail → *Convertir les textes de l'IIP par parties* (`ConvertirTextes`, `GET/POST
+  /api/documentation/conversion`) : les procédures, règlements et notes pas encore par parties, le découpage proposé
+  (parties et points), cochés d'office sauf ceux sans titres ; la publication écrit la version suivante de chacun, sans
+  reconfirmation (« le contenu ne change pas »), tout ou rien. Un texte sans titres passe en une partie, un point.
+  **À faire par la direction, sur la dev puis en production** : l'assistant ne peut pas le lancer.
+
 - **LE MODE D'EMPLOI MONTRE LES ÉCRANS ET LES BOUTONS** (3.1.488-3.1.490, Charles, 30 octobre 2026 : « des images des
   boutons, des captures des fenêtres… le mode d'emploi PDF ne doit plus être la base de la recherche »). Un bouton
   s'écrit `[[Libellé|IconNom|fort]]` dans `modeEmploi.js` (texte, « à savoir », légendes) et se dessine avec les

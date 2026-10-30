@@ -350,6 +350,51 @@ r.get('/', authRequired, (req, res) => {
  * non sur un clic de l'écran : un écran peut prétendre avoir affiché ce qu'il
  * n'a pas reçu. La trace dit « le document a été servi à cette personne », et
  * elle ne peut le dire que depuis l'endroit qui le sert. */
+/* TOUT CONVERTIR EN UN GESTE (3.1.492, Charles : « tu n'as pas converti les procédures comme prévu » ; choisi : « tout
+ * convertir en un geste »). La liste des textes de l'IIP qui ne sont pas encore par parties, avec le découpage proposé
+ * pour chacun ; puis la publication des textes cochés en version suivante, SANS demander de reconfirmation (le contenu
+ * ne change pas, seule sa présentation), tout ou rien. Rien n'est publié par la lecture. */
+function texteEnParties(d, v) {
+  const html = v.format === 'html' ? v.contenu
+    : String(v.contenu).split(/\n{2,}/).map(par => `<p>${par.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br>')}</p>`).join('');
+  return decouperEnParties(html, d.titre);
+}
+function aConvertir() {
+  const ph = NATURES_PAR_PARTIES.map(() => '?').join(',');
+  return db.prepare(`SELECT * FROM corpus_document WHERE retire_le IS NULL AND nature IN (${ph}) ORDER BY nature, titre`)
+    .all(...NATURES_PAR_PARTIES)
+    .map(d => ({ d, v: derniereVersion(d.id) }))
+    .filter(({ v }) => v && v.format !== 'parties');
+}
+r.get('/conversion', authRequired, gesteRequis('documentation.publier'), (req, res) => {
+  res.json({ textes: aConvertir().map(({ d, v }) => {
+    const { parties } = texteEnParties(d, v);
+    return { cle: d.cle, titre: d.titre, nature: d.nature, version: v.numero,
+      parties: parties.map(p => ({ titre: p.titre, points: p.points.map(pt => pt.titre) })),
+      // Un seul bloc : le texte n'avait pas de titres ; il passera tel quel, en une partie, à reprendre à la main.
+      sans_titres: parties.length <= 1 };
+  }) });
+});
+r.post('/conversion', authRequired, gesteRequis('documentation.publier'), (req, res) => {
+  const voulues = new Set((Array.isArray(req.body?.cles) ? req.body.cles : []).map(String));
+  const lot = aConvertir().filter(({ d }) => voulues.has(d.cle));
+  if (!lot.length) return res.status(400).json({ error: 'Aucun texte à convertir parmi ceux cochés.' });
+  const ins = db.prepare(`INSERT INTO corpus_version
+    (document_id, numero, contenu, format, reconfirmer, resume_changement, publiee_par, publiee_par_role)
+    VALUES (?,?,?,'parties',0,?,?,?)`);
+  const faits = [];
+  try { db.transaction(() => {
+    for (const { d, v } of lot) {
+      const parties = assainirParties(texteEnParties(d, v));
+      if (!parties) throw Object.assign(new Error(`« ${d.titre} » : rien à découper (texte vide).`), { status: 409 });
+      ins.run(d.id, v.numero + 1, JSON.stringify(parties),
+        'Texte réécrit par parties dans Lucie ; le contenu ne change pas.', auteur(req.user), req.user?.role || null);
+      faits.push({ cle: d.cle, titre: d.titre, version: v.numero + 1 });
+    }
+  })(); } catch (e) { return res.status(e.status || 500).json({ error: e.message }); }
+  res.json({ ok: true, convertis: faits });
+});
+
 /* DÉCOUPER L'EXISTANT EN PARTIES (3.1.489, tranché : « les découper »). Ne publie rien : la proposition revient à
  * l'éditeur, la direction la relit et publie la version suivante — les confirmations suivent la règle habituelle. */
 r.get('/:cle/decouper', authRequired, gesteRequis('documentation.publier'), (req, res) => {

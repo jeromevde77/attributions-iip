@@ -120,6 +120,7 @@ export default function Documentation() {
     return n;
   });
   const [depot, setDepot] = useState(false);
+  const [conversion, setConversion] = useState(false);
   const [registre, setRegistre] = useState(null);
   const [retirerOuvert, setRetirerOuvert] = useState(false);
 
@@ -180,6 +181,8 @@ export default function Documentation() {
           ]}] : publie ? [{ label: 'Actions', items: [
             { key: 'deposer', label: 'Écrire un texte', icon: IconPlus,
               couleur: 'var(--menu-accent)', onClick: () => setDepot(true) },
+            { key: 'convertir', label: 'Convertir les textes de l’IIP par parties', icon: IconListNumbers,
+              onClick: () => setConversion(true) },
           ]}] : []),
         ]}
       />
@@ -293,6 +296,7 @@ export default function Documentation() {
       {depot && <DeposerTexte natures={natures} parParties={parParties}
         onClose={() => setDepot(false)} onCree={charger} />}
       {registre && <Registre cle={registre} onClose={() => setRegistre(null)} />}
+      {conversion && <ConvertirTextes onClose={() => setConversion(false)} onFait={charger} />}
     </div>
   );
 }
@@ -701,6 +705,73 @@ function LireTexte({ cle, publie, natures, parParties = [], onClose, onChange, r
           )}
         </div>
       )}
+    </Fenetre>
+  );
+}
+
+/* ══ CONVERTIR LES TEXTES DE L'IIP PAR PARTIES, EN UN GESTE (3.1.492) ══════════
+   La liste de ce qui n'est pas encore par parties, le découpage proposé pour chacun (ouvrir pour voir les parties et
+   leurs points), puis une seule publication : la version suivante de chaque texte coché, sans reconfirmation. */
+function ConvertirTextes({ onClose, onFait }) {
+  const [textes, setTextes] = useState(null);
+  const [coches, setCoches] = useState(() => new Set());
+  const [ouvert, setOuvert] = useState(null);
+  const [erreur, setErreur] = useState(null);
+  const [enCours, setEnCours] = useState(false);
+  const [fait, setFait] = useState(null);
+  useEffect(() => {
+    fetch('/api/documentation/conversion', { headers: authHeaders() })
+      .then(async r => { const j = await r.json(); if (!r.ok) throw new Error(j.error || 'Lecture refusée.'); return j; })
+      .then(j => { setTextes(j.textes || []); setCoches(new Set((j.textes || []).filter(t => !t.sans_titres).map(t => t.cle))); })
+      .catch(e => setErreur(e.message));
+  }, []);
+  async function convertir() {
+    setEnCours(true); setErreur(null);
+    try {
+      const r = await fetch('/api/documentation/conversion', { method: 'POST',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify({ cles: [...coches] }) });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || 'Conversion refusée.');
+      setFait(j.convertis || []); await onFait?.();
+    } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
+  }
+  const nat = { procedure: 'Procédure', reglement: 'Règlement', note: 'Note de service' };
+  return (
+    <Fenetre icone={IconListNumbers} large="grande" onFermer={onClose} titre="Convertir les textes de l’IIP par parties"
+      sous="Chaque texte coché est publié en version suivante, découpé à ses titres ; personne ne doit reconfirmer"
+      pied={<>
+        {!fait && <button className="bouton bouton-fort disabled:opacity-40" disabled={enCours || !coches.size} onClick={convertir}>
+          {enCours ? 'Conversion…' : `Convertir ${coches.size} texte${coches.size > 1 ? 's' : ''}`}</button>}
+        <span className="text-second text-slate-500 min-w-0">
+          {fait ? `${fait.length} texte(s) convertis.` : 'Ouvrez une ligne pour voir les parties proposées.'}</span>
+        <button className="bouton ml-auto" onClick={onClose}>Fermer</button>
+      </>}>
+      {erreur && <div className="carte p-3 text-second text-rose-700 mb-3">{erreur}</div>}
+      {fait ? (
+        <div className="space-y-1 text-sm">{fait.map(f => (
+          <div key={f.cle} className="flex items-center gap-1.5"><IconCheck size={14} className="text-emerald-700" /> {f.titre} — version {f.version}</div>))}</div>
+      ) : !textes ? <div className="text-sm text-slate-500">Lecture…</div>
+        : !textes.length ? <div className="text-sm text-slate-500">Tous les textes de l’IIP sont déjà écrits par parties.</div> : (
+        <div className="space-y-2">
+          {textes.map(t => (
+            <div key={t.cle} className="carte p-3">
+              <div className="flex items-center gap-2">
+                <input type="checkbox" className="w-4 h-4" checked={coches.has(t.cle)}
+                  onChange={() => setCoches(c => basculerDans(c, t.cle))} />
+                <button type="button" className="flex-1 min-w-0 text-left" onClick={() => setOuvert(o => (o === t.cle ? null : t.cle))}>
+                  <span className="text-sm font-semibold text-iip-texte">{t.titre}</span>
+                  <span className="text-second text-slate-500"> · {nat[t.nature] || t.nature} · version {t.version} → {t.version + 1} · {t.parties.length} partie{t.parties.length > 1 ? 's' : ''}, {(n => `${n} point${n > 1 ? 's' : ''}`)(t.parties.reduce((n, p) => n + p.points.length, 0))}</span>
+                </button>
+              </div>
+              {t.sans_titres && <div className="text-second mt-1" style={{ color: 'var(--c-attente)' }}>
+                Aucun titre trouvé : le texte passerait en une seule partie. Mieux vaut l’ouvrir et le découper à la main (« Réécrire par parties »).</div>}
+              {ouvert === t.cle && (
+                <ol className="mt-2 mb-0 pl-6 text-second text-slate-600 space-y-1">
+                  {t.parties.map((p, i) => (
+                    <li key={i}><b className="text-iip-texte">{p.titre}</b>{p.points.filter(Boolean).length ? ` — ${p.points.filter(Boolean).join(' · ')}` : ''}</li>))}
+                </ol>)}
+            </div>))}
+        </div>)}
     </Fenetre>
   );
 }

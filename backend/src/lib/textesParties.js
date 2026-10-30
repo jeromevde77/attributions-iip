@@ -43,11 +43,15 @@ export function assainirParties(entree) {
  * suivant le point ; ce qui précède le premier titre devient une partie « Préambule ». Rien n'est publié : la
  * direction relit la proposition, la retouche, puis publie la version suivante.
  */
-export function decouperEnParties(html) {
+export function decouperEnParties(html, titreDocument = '') {
   const racine = parseHtml(`<div>${assainir(html)}</div>`).firstChild;
   const blocs = racine.childNodes.filter(n => n.nodeType === 1 || String(n.text || '').trim());
   const niveaux = ['h1', 'h2', 'h3', 'h4'].filter(h => blocs.some(b => b.tagName?.toLowerCase() === h));
   const [hPartie, hPoint] = niveaux;
+  // UN TEXTE SANS TITRES passe en une seule partie, un seul point : rien n'est perdu, la découpe se fait ensuite à la main.
+  if (!hPartie) {
+    return assainirParties({ parties: [{ titre: titreDocument || 'Texte', resume: '', points: [{ titre: '', contenu: html }] }] }) || { parties: [] };
+  }
   const parties = [];
   let partie = null, point = null;
   const nouvellePartie = titre => { partie = { titre, resume: '', points: [] }; parties.push(partie); point = null; };
