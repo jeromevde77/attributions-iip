@@ -1,35 +1,3 @@
-    try {
-      if (portee !== 'toutes') {
-        const sim = await api.renameUENum(ue.ue_num, n, true, portee);
-        const detail = sim.tables.slice(0, 16).map(t => `  • ${t.table} : ${t.lignes}${t.note ? ` — ${t.note}` : ''}`).join('\n');
-        const ok = await demander(
-          `L'UE ${ue.ue_num} devient l'UE ${n} À PARTIR DE ${portee}.\n\n`
-          + `Les années d'avant gardent ${ue.ue_num}. Pour ${portee} et après, ${sim.total} ligne(s) changeront :\n${detail}`
-          + `${sim.tables.length > 16 ? '\n  • …' : ''}\n\nUne sauvegarde de la base est faite avant d'écrire ; si une seule ligne `
-          + `refuse de changer, rien n'est écrit.`);
-        if (!ok) { setSaving(false); return; }
-        const fait = await api.renameUENum(ue.ue_num, n, false, portee);
-        informer(`✓ L'UE ${ue.ue_num} est devenue l'UE ${n} à partir de ${portee} (${fait.total} ligne(s)).`);
-        onSaved();
-        return;
-      }
-      const sim = await api.renameUENum(ue.ue_num, n, true);
-      const detail = sim.lignes.slice(0, 14).map(l => `  • ${l.table} (${l.colonne}) : ${l.n}`).join('\n');
-      const cours = sim.cours.map(([a, b]) => `${a} → ${b}`).join(', ');
-      const ok = await demander(
-        `Renuméroter l'UE ${ue.ue_num} en ${n}, sur TOUTES les années ?\n\n`
-        + `${sim.total} ligne(s) changeront :\n${detail}${sim.lignes.length > 14 ? '\n  • …' : ''}\n\n`
-        + (cours ? `Cours : ${cours}\n` : '')
-        + (sim.aa.length ? `Acquis : ${sim.aa.length} (AA${ue.ue_num}.x → AA${n}.x)\n` : '')
-        + (sim.hors_modele.length ? `\nCodes de cours hors modèle, NON renommés : ${sim.hors_modele.join(', ')}\n` : '')
-        + `\nLes pièces déjà délivrées portent l'ancien numéro.`);
-      if (!ok) { setSaving(false); return; }
-      await api.renameUENum(ue.ue_num, n, false);
-      onSaved();
-    }
-    catch (e) { informer('Erreur : ' + e.message); setSaving(false); }
-  }
-
 import EditeurRubrique from '../components/EditeurRubrique.jsx';
 import { rubriquesDuDossier, decouperProgramme, recomposerProgramme } from '../lib/texteDossier.js';
 import { MODES_GROUPES } from '../lib/groupes.js';
@@ -778,6 +746,20 @@ function UEModal({ ue, sections, onClose, onSaved, navigation = null }) {
        combien de lignes, table par table, et c'est seulement après accord
        qu'on écrit. */
     try {
+      if (portee !== 'toutes') {
+        const sim = await api.renameUENum(ue.ue_num, n, true, portee);
+        const detail = sim.tables.slice(0, 16).map(t => `  • ${t.table} : ${t.lignes}${t.note ? ` — ${t.note}` : ''}`).join('\n');
+        const ok = await demander(
+          `L'UE ${ue.ue_num} devient l'UE ${n} À PARTIR DE ${portee}.\n\n`
+          + `Les années d'avant gardent ${ue.ue_num}. Pour ${portee} et après, ${sim.total} ligne(s) changeront :\n${detail}`
+          + `${sim.tables.length > 16 ? '\n  • …' : ''}\n\nUne sauvegarde de la base est faite avant d'écrire ; si une seule ligne `
+          + `refuse de changer, rien n'est écrit.`);
+        if (!ok) { setSaving(false); return; }
+        const fait = await api.renameUENum(ue.ue_num, n, false, portee);
+        informer(`✓ L'UE ${ue.ue_num} est devenue l'UE ${n} à partir de ${portee} (${fait.total} ligne(s)).`);
+        onSaved();
+        return;
+      }
       const sim = await api.renameUENum(ue.ue_num, n, true);
       const detail = sim.lignes.slice(0, 14).map(l => `  • ${l.table} (${l.colonne}) : ${l.n}`).join('\n');
       const cours = sim.cours.map(([a, b]) => `${a} → ${b}`).join(', ');

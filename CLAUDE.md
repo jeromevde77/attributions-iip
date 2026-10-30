@@ -375,7 +375,9 @@ des cours sont COPIÉS sous le nouveau numéro ; les codes d'import (`ue_code_ex
 réunions non touchés. Simulation d'abord ; refus si le nouveau numéro existe déjà (fusion) ; sauvegarde de la base
 avant d'écrire ; contrôle final — s'il reste une trace de l'ancien numéro sur la période, tout est annulé. Les
 reports sont traités en premier (la garde des notes reportées regarde le report). **À faire en production par la
-direction pour 244 → 331**, année active 2026-2027.
+direction pour 244 → 331**, année active 2026-2027. (3.1.474 : la 3.1.473 était partie avec un écran qui ne se
+construisait pas — un `index` de recherche tombé avant le bloc visé avait recopié le code en tête du fichier.
+**Après `vite build`, lire son statut, pas un `grep` de sa sortie.**)
 
 **UNE UE DISPENSÉE EN ENTIER EST ACQUISE — ÇA SE LIT DU DOSSIER DE VA** (3.1.438). Les crédits de l'annexe 2,
 l'état du parcours (schéma) et le motif de l'annexe 2 attendaient un résultat `'valorise'` sur
