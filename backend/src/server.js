@@ -2930,6 +2930,28 @@ try { planifierRetention(); } catch (e) { console.error('[retention] planificati
 // Le récapitulatif quotidien par courriel (3.1.472) : le matin, seulement si quelque chose de nouveau attend.
 import { planifierRecap, migrerRecap } from './lib/recapQuotidien.js';
 try { migrerRecap(db); planifierRecap(); } catch (e) { console.error('[recap] planification :', e.message); }
+import { planifierRappels } from './lib/rappels.js';
+try { planifierRappels(); } catch (e) { console.error('[rappels] planification :', e.message); }
+// LES RAPPELS DE LA DÉLIBÉRATION (3.1.523) se calculent partout, toutes les heures (dev comprise) : ils ne font que
+// remplir la file ; seul l'envoi est réservé à la production.
+import { genererRappelsDeliberation } from './lib/rappelsDeliberation.js';
+import { genererRappelsPersonnel, poserEcheancesCEP } from './lib/rappelsPersonnel.js';
+import { genererRappelsEtudiants, planifierAvisEtudiants } from './lib/rappelsEtudiants.js';
+try { poserEcheancesCEP(db); } catch (e) { console.error('[rappels] CEP :', e.message); }
+import { anneeActive as anneeActiveRappels } from './services/echeancier.js';
+{
+  const tourDelib = () => { try { const r = genererRappelsDeliberation(anneeActiveRappels(db)); if (Object.values(r).some(Boolean)) console.log('[rappels délibération]', r); } catch (e) { console.error('[rappels délibération]', e.message); } };
+  const tourPersonnel = () => { try { const r = genererRappelsPersonnel(anneeActiveRappels(db)); if (Object.values(r).some(x => x)) console.log('[rappels personnel]', r); } catch (e) { console.error('[rappels personnel]', e.message); } };
+  setTimeout(tourPersonnel, 75_000).unref?.();
+  setInterval(tourPersonnel, 60 * 60 * 1000).unref?.();
+  setTimeout(tourDelib, 45_000).unref?.();
+  setInterval(tourDelib, 60 * 60 * 1000).unref?.();
+  // LES RAPPELS AUX ÉTUDIANTS (3.1.525) : la file partout (si le portail existe), l'avis du jour en production.
+  const tourEtudiants = () => { try { const r = genererRappelsEtudiants(anneeActiveRappels(db)); if (Object.values(r).some(x => x)) console.log('[rappels étudiants]', r); } catch (e) { console.error('[rappels étudiants]', e.message); } };
+  setTimeout(tourEtudiants, 105_000).unref?.();
+  setInterval(tourEtudiants, 60 * 60 * 1000).unref?.();
+  try { planifierAvisEtudiants(); } catch (e) { console.error('[rappels étudiants] planification :', e.message); }
+}
 try { migrerClassement(db); } catch (e) { console.error('[migration] classement :', e.message); }
 try { migrerAncienneteService(db); } catch (e) { console.error('[migration] anciennete_service :', e.message); }
 try { migrerEtudiants(db); } catch (e) { console.error('[migration] etudiants :', e.message); }
@@ -3015,6 +3037,7 @@ app.use('/api/envois', express.json({ limit: '60mb' }));
 // Les lots de pièces séparées : soixante attestations, chacune avec logo, sceau
 // et signature en ligne, dépassent de loin la limite commune (29 septembre 2026).
 app.use('/api/impression', express.json({ limit: '120mb' }));
+app.use('/api/documentation/mode-emploi/pdf', express.json({ limit: '60mb' }));
 app.use(express.json({ limit: '5mb' }));
 
 /* QUI EST EN TRAIN DE DEMANDER — POUR TOUTE LA DURÉE DE LA REQUÊTE.
@@ -3090,15 +3113,40 @@ app.use((req, res, next) => {
   next();
 });
 
-// LA PORTE DES ÉTUDIANTS (VA en ligne, 3 octobre 2026) : publique, avec son
-// propre jeton — aucune route du personnel ne l'accepte.
-app.use('/api/portail-va', (await import('./routes/portailVA.js')).default);
+// LES MESSAGES AUX ÉTUDIANTS (3.1.516) : écrits ici, lus dans leur espace.
+app.use('/api/messages-etudiants', (await import('./routes/messagesEtudiants.js')).default);
+// LE PAE EN LIGNE (3.1.515) : la fenêtre et les propositions des étudiants, côté école.
+app.use('/api/pae-en-ligne', (await import('./routes/paeEnLigne.js')).default);
+// LA DEMANDE DE VA EN LIGNE (3 octobre 2026) A QUITTÉ LUCIE en 3.1.514 : elle vit dans le portail des étudiants,
+// et Lucie relève les gestes (lib/portailValorisation.js). /api/portail-va n'existe plus.
 // L'ESPACE DE L'ÉTUDIANT N'EST PLUS ICI (3.1.477, le mur) : il vit dans le portail (dossier portail/,
 // etudiants.lucie-iip.be), sa base et ses clés à lui. Lucie n'en sert qu'une lecture pour la fiche.
 {
-  const { suiviPortail, planifierPortail } = await import('./lib/portailSync.js');
-  const { authRequired: exigerCompte } = await import('./middleware/auth.js');
+  const { suiviPortail, planifierPortail, poserException, retirerException, deposerBientot, ouvrirApercu } = await import('./lib/portailSync.js');
+  const { authRequired: exigerCompte, roleRequired: exigerRole } = await import('./middleware/auth.js');
+  const { nomEcranDuCompte } = await import('./lib/nom.js');
+  const qui = req => nomEcranDuCompte(req.user?.nom, req.user?.email) || '?';
   app.get('/api/portail-suivi/:id', exigerCompte, (req, res) => res.json(suiviPortail(Number(req.params.id))));
+  // L'accès hors de Belgique : secrétariat et direction (la coordination ne l'ouvre pas).
+  app.post('/api/portail-suivi/:id/exception', exigerCompte, exigerRole('admin', 'editeur'), (req, res) => {
+    const r = poserException(Number(req.params.id), req.body || {}, qui(req));
+    res.status(r.erreur ? 400 : 200).json(r.erreur ? { error: r.erreur } : r);
+  });
+  // Voir l'espace d'un étudiant comme lui, en lecture seule — la direction seule (3.1.518).
+  app.post('/api/portail-suivi/:id/apercu', exigerCompte, (req, res, next) => (['admin', 'directeur', 'directeur_adjoint'].includes(req.user?.role)
+    ? next() : res.status(403).json({ error: 'Réservé à la direction.' })), async (req, res) => {
+    const r = await ouvrirApercu(Number(req.params.id), qui(req));
+    res.status(r.erreur ? 409 : 200).json(r.erreur ? { error: r.erreur } : r);
+  });
+  // Le code d'accès du candidat (sans adresse de l'institut) : l'envoyer, ou le renouveler — secrétariat et direction.
+  app.post('/api/portail-suivi/:id/code-candidat', exigerCompte, exigerRole('admin', 'editeur'), async (req, res) => {
+    const { envoyerCodeCandidat } = await import('./lib/portailValorisation.js');
+    const r = await envoyerCodeCandidat(Number(req.params.id), qui(req), process.env.PORTAIL_URL_PUBLIQUE || 'https://etudiants.lucie-iip.be');
+    if (!r.erreur) deposerBientot();
+    res.status(r.erreur ? 400 : 200).json(r.erreur ? { error: r.erreur } : r);
+  });
+  app.delete('/api/portail-suivi/:id/exception', exigerCompte, exigerRole('admin', 'editeur'),
+    (req, res) => res.json(retirerException(Number(req.params.id), qui(req))));
   try { planifierPortail(); } catch (e) { console.error('[portail] planification :', e.message); }
 }
 // LA PRÉSENCE PAR QR (28 octobre 2026) : publique, l'étudiant n'a pas de compte ;

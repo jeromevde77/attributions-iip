@@ -8,9 +8,9 @@ import { nomPropre, nomDepuisChaine } from '../lib/nom.js';
 import { useNavigate } from 'react-router-dom';
 import { api, getAnnee, getUser, nomDoc, authHeaders } from '../lib/api.js';
 import ProfFicheModal from './ProfFicheModal.jsx';
-import PreviewModal from '../components/PreviewModal.jsx';
+import PreviewModal, { IconeApercu } from '../components/PreviewModal.jsx';
 import CoursEditModal from '../components/CoursEditModal.jsx';
-import { IconSend, IconAddressBook, IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck, IconBriefcase, IconTargetArrow, IconChevronDown, IconChevronRight, IconChevronLeft, IconUsers, IconSchool, IconUserPlus, IconBuilding, IconBuildingBank, IconFileDescription, IconFileImport } from '@tabler/icons-react';
+import { IconSend, IconAddressBook, IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck, IconBriefcase, IconTargetArrow, IconChevronDown, IconChevronRight, IconChevronLeft, IconUsers, IconSchool, IconUserPlus, IconBuilding, IconBuildingBank, IconFileDescription, IconFileImport, IconFileTypePdf, IconFileTypeDocx } from '@tabler/icons-react';
 import { MODULES_ACCES, ROLES_LUCIE, estDirection } from '../lib/modules.js';
 import { RailLateral, OuvrirEditions, Fenetre, Encadre } from '../components/ui.jsx';
 import ImportPersonnelFwb from '../components/ImportPersonnelFwb.jsx';
@@ -1078,14 +1078,10 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint =
           onClose={() => setAperçuContrat(null)}
           actionExtra={
             <>
-              <button onClick={telechargerPdf} disabled={generatingPdf}
-                className="bouton bouton-detruire flex items-center gap-1.5">
-                <IconDownload size={13}/> {generatingPdf ? '…' : 'Télécharger PDF'}
-              </button>
-              <button onClick={telechargerDocx} disabled={generatingContrat}
-                className="bouton bouton-fort flex items-center gap-1.5">
-                <IconDownload size={13}/> {generatingContrat ? '…' : 'Télécharger .docx'}
-              </button>
+              <IconeApercu Icone={IconFileTypePdf} onClick={telechargerPdf} disabled={generatingPdf}
+                titre={generatingPdf ? 'PDF en cours…' : 'Télécharger le PDF'} />
+              <IconeApercu Icone={IconFileTypeDocx} onClick={telechargerDocx} disabled={generatingContrat}
+                titre={generatingContrat ? 'Document en cours…' : 'Télécharger le .docx (Word)'} />
             </>
           }
         />

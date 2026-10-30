@@ -52,6 +52,16 @@ export function demandesVA(etudId, annee) {
     exoneree: !!r.exo_motif }));
 }
 
+/** Le prix d'UNE demande VA ou VAE sur une unité, d'après ses frais d'inscription (`fi`, absent si non inscrit).
+ *  Servi aussi AVANT la demande : le portail l'annonce à l'étudiant (3.1.514). */
+export function prixDUneUE(fi) {
+  const parUE = nombre('va.forfait_ue', 30), supp = nombre('va.supplement_ue', 15);
+  const e2 = n => arrondi(n).toFixed(2).replace('.', ',');
+  if (fi == null) return { du: parUE, calcul: `pas inscrit à l’UE : forfait de ${e2(parUE)} €` };
+  if (fi < parUE) return { du: arrondi(parUE - fi), fi: arrondi(fi), calcul: `frais de l’UE ${e2(fi)} € < ${e2(parUE)} € : portés au forfait, ${e2(parUE - fi)} € de plus` };
+  return { du: supp, fi: arrondi(fi), calcul: `frais de l’UE ${e2(fi)} € ≥ ${e2(parUE)} € : ${e2(supp)} €` };
+}
+
 /** Le forfait dû. `fiParUE` : Map ue_num → frais d'inscription de l'unité (unités inscrites seulement). */
 export function forfaitVA(etudId, annee, { fiParUE = new Map() } = {}) {
   const d = demandesVA(etudId, annee);
@@ -60,10 +70,7 @@ export function forfaitVA(etudId, annee, { fiParUE = new Map() } = {}) {
   for (const x of d) {
     if (x.exoneree) { x.du = 0; x.calcul = `dispensée : ${x.exo_motif}`; continue; }
     if (x.nature === 'admission') { x.du = adm; x.calcul = `admission : ${e2(adm)} €`; continue; }
-    const fi = fiParUE.get(Number(x.ue_num));
-    if (fi == null) { x.du = parUE; x.calcul = `pas inscrit à l’UE : forfait de ${e2(parUE)} €`; }
-    else if (fi < parUE) { x.du = arrondi(parUE - fi); x.fi = arrondi(fi); x.calcul = `frais de l’UE ${e2(fi)} € < ${e2(parUE)} € : portés au forfait, ${e2(parUE - fi)} € de plus`; }
-    else { x.du = supp; x.fi = arrondi(fi); x.calcul = `frais de l’UE ${e2(fi)} € ≥ ${e2(parUE)} € : ${e2(supp)} €`; }
+    Object.assign(x, prixDUneUE(fiParUE.get(Number(x.ue_num))));
   }
   const actives = d.filter(x => !x.exoneree);
   const du_ue = arrondi(actives.filter(x => x.nature !== 'admission').reduce((t, x) => t + x.du, 0));

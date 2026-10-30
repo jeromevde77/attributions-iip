@@ -426,10 +426,33 @@ code à six chiffres) et compose elle-même —, les accusés (recopiés dans `p
 connexions (`portail_connexion`) ; toutes les deux minutes elle DÉPOSE les étudiants visibles, leurs résultats publiés
 (`resultatsPublies`), les règlements « Étudiants » (avec les versions dont la signature vaut encore) et, au fil de
 l'eau, les PDF des pièces envoyées. Le dépôt REMPLACE : un archivé disparaît du portail. Lien et code ne vivent en
-clair dans le portail que jusqu'au relevé. La fiche lit `GET /api/portail-suivi/:id`. Mise en place :
-`scripts/vps/PORTAIL-ETUDIANTS.md` (DNS, quatre secrets, dossiers au propriétaire 1000, compose, Caddy). **Reste de
-ce côté-ci du mur, À DÉPLACER** : la demande de VA en ligne (`/demande-va`, `routes/portailVA.js`), qui écrit dans la
-base de Lucie.
+clair dans le portail que jusqu'au relevé. **Les appareils reconnus** (3.1.509, Charles : « pas que sur téléphone ; trois
+dispositifs au maximum ; une fois l'accès obtenu, il entre directement avec son adresse institut ») : l'étudiant demande
+son lien par son adresse d'institut (ou son matricule) ; en ouvrant le lien, il choisit « reconnaître cet appareil » ou
+« juste cette fois » (ordinateur partagé) ; reconnu = cookie httpOnly `portail_appareil` (empreinte seule en base, table
+`appareil`), 90 jours glissants, `POST /api/portail/entrer` sans lien ; TROIS au plus — au quatrième, il choisit lequel
+remplacer (il vient de prouver sa boîte d'école) ; face « Mes appareils » (oublier) ; les entrées sans lien (`entree`)
+remontent à Lucie comme connexions (`portail_connexion`, référence négative). **Le dépôt d'office** (3.1.510,
+Charles : « attestations de réussite ou d'échec à télécharger, fidèles à ce qui est produit » ; « d'office à la clôture » ;
+« à terme, on met à disposition et l'étudiant reçoit un mail : vous avez un message dans votre espace ») :
+`lib/depotEspace.js` — à chaque séance close et publiée DEPUIS la mise en service (`lucie_config`
+« portail_depot_depuis », posé au premier passage : pas de rattrapage de l'historique), chaque délibéré reçoit la pièce
+de sa décision, composée par `assemblerDocumentsUE` (réussi → attestation ; ajourné / refusé → motivation). Elle entre au
+REGISTRE DES ENVOIS (`deposerDansLEspace`, `routes/envois.js` : statut `depose`, mode `espace`, copie + référence, signature
+refaite par `copieDeLEnvoi`) puis part au portail avec les autres envois ; une pièce ne se dépose qu'une fois
+(`portail_depot`). Puis UN courriel par étudiant, sans pièce jointe. **90 jours** : au-delà, le portail exige un code à
+six chiffres (objet `telechargement`), qui ouvre ce document une heure (`deverrou`). Une motivation que Lucie ne peut
+pas composer (aucun acquis en échec) ne se dépose pas. **Le QR d'authenticité** (3.1.511, Charles : « un petit QR qui
+permet d'authentifier le document ; si quelqu'un scanne, il sait que c'est un vrai » ; « les attestations et documents
+légaux — les diplômes ont la signature manuscrite ») : `filigraner()` (`lib/filigraneDocument.js`) donne à CHAQUE bloc de
+clôture sa référence (la première garde celle de l'envoi), l'inscrit au registre `piece_authentique`
+(`lib/authentique.js` : nature = `.doc-cadre-t`, objet = `.doc-cadre-s` + `.doc-cadre-l`, personne = `.nom`, auteur) et pose
+juste au-dessus la ligne « Pièce authentifiable · réf. … » et un QR de 15 mm vers `<portail>/?v=<réf.>`. Le registre part au
+portail (`/interne/authentiques`, en ajout seul) ; `GET /api/portail/verifier/:ref` (public, plafonné par IP) rend la pièce ou
+« référence inconnue » ; la page `Verification` du site des étudiants l'affiche. Le diplôme n'a pas de bloc de clôture : pas
+de QR. La fiche lit `GET /api/portail-suivi/:id`. Mise en place :
+`scripts/vps/PORTAIL-ETUDIANTS.md` (DNS, quatre secrets, dossiers au propriétaire 1000, compose, Caddy). **La demande
+de VA en ligne a passé le mur en 3.1.514** (« PORTAIL, ÉTAPE 2 ») : `/demande-va` et `routes/portailVA.js` sont retirés.
 
 **L'ESPACE DE L'ÉTUDIANT** (3.1.475, Charles, 30 octobre 2026 : « un mini espace ultra sécurisé : récupérer ses
 documents, voir ses notes, signer les accusés de réception » ; tranché : lien + code, résultats délibérés seulement,
@@ -443,7 +466,7 @@ envoyées par Lucie (copie conservée de l'envoi, `copieDeLEnvoi` d'`envois.js`,
 la Documentation met « Étudiants » en destinataire (rôle `etudiant`). **L'accusé** (`espace_accuse`) : `presente_le`
 posé par la route qui rend la pièce ; signer demande un code à six chiffres envoyé à l'adresse d'école (10 min,
 5 essais) ; un accusé signé ne se modifie ni ne s'efface (déclencheurs). Pour un règlement, la règle de reconfirmation
-du personnel vaut (`versionReference`). **L'école lit** : fiche → Imprimer ou envoyer → bloc « Son espace étudiant »
+du personnel vaut (`versionReference`). **L'école lit** : fiche → Suivi → bloc « Son espace étudiant » (`SuiviEspace.jsx` depuis 3.1.513 ; « Une personne » d'Éditions ne l'affichait plus depuis 3.1.503)
 (dernière connexion, pièces ouvertes, accusés signés ; `GET /api/portail-suivi/:id` depuis 3.1.477). **À venir** : annoncer
 l'adresse aux étudiants ; mettre le lien de l'espace dans les courriels d'envoi ; relire la fiche RGPD.
 
@@ -503,6 +526,8 @@ ouverte en 2026-2027). ~588 étudiants.
 3. **Ne rien trancher à sa place.** « À méditer » est une question ouverte, pas
    une commande. Poser la question bloquante (une minute) plutôt que coder trois
    heures sur une hypothèse.
+   **Toute question à Charles se pose en QCM ou en cases à cocher** (outil de questions, jamais en texte dans la
+   réponse — Charles, 30 octobre 2026 : « sinon j'oublie »). Une recommandation se place en premier choix.
 4. **Chercher avant de construire.** Deux fonctions déjà écrites ont été
    redéveloppées en double faute d'avoir cherché au bon endroit : la
    restauration de sauvegarde (elle était dans `historique.js`, pas dans
@@ -1519,7 +1544,8 @@ promesse, et le refus arrive alors après coup.
 > 36 px, et deux ascenseurs se chevauchaient au pied de la fenêtre.
 
 **LA PORTE DES ÉTUDIANTS — DEMANDE DE VA EN LIGNE** (3.0.14, Charles, 3
-octobre 2026). Page publique `/demande-va`, serveur `routes/portailVA.js`
+octobre 2026 ; **déplacée dans le portail des étudiants en 3.1.514** — ce qui suit décrit l'ancienne porte, dont les
+règles ont été reprises). Page publique `/demande-va`, serveur `routes/portailVA.js`
 (`/api/portail-va`). Le matricule seul ne prouve rien : il déclenche un lien à
 usage unique, 30 minutes, envoyé à l'adresse DU DOSSIER (école, sinon privée),
 jamais à une adresse tapée ; même réponse pour un matricule inconnu. Le jeton
@@ -2782,6 +2808,246 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   encore le « A » doré d'Attributions), titre d'onglet « Lucie ». nginx sert le manifeste en
   `application/manifest+json`, sans cache. iPhone/iPad : Safari seulement, première connexion dans l'app (stockage
   séparé de Safari). Le portail des étudiants n'en a pas (choix de Charles : Lucie d'abord).
+
+- **ÉDITIONS : « POUR QUI ? »** (3.1.497, Charles, 30 octobre 2026 : « la session n'a pas de sens pour tout le
+  parcours » ; « délibération et dossiers étudiants, ce n'est pas logique » ; recommandation D validée sur logigramme).
+  Éditions → Étudiants : onglets **Documents** · Valorisation des acquis · Diplômes et titres · Listes et rapports ·
+  **Divers** (les lettres de l'atelier, `LettresModele`). « Délibération », « Dossiers étudiants » et « Pièces du
+  Conseil » ne sont plus des onglets. Dans Documents (`OngletEtudiants`, `pourQui`), la première question : **Une
+  personne** (recherche dans toute l'école, `/api/etudiants?q=`, puis « ouvrir ses pièces » — `seul`) · **Des
+  étudiants** (section, unités, cases ; l'année OU « Tout le parcours » = attestations de toutes les années,
+  `GET /attestations/etudiant/:id/document?annee=toutes&separes=1`) · **Une séance** (année, session, unité ; « Pour le
+  Conseil » et « Pour ses étudiants », `documents-lot`). **La session n'appartient qu'à la séance.** On arrive déjà
+  répondu : la fiche = une personne, la feuille de délibération (session, org, pièces du Conseil) = une séance.
+  Aperçu, Produire, Envoyer : icônes de la barre bleue (`outils` de `Fenetre`, portail `PlaceOutils`). À droite, deux
+  faces soulignées : Documents · Étudiants. **Le dessin** (3.1.498, « on pousse tout en dev ») : « Pour qui ? » sur
+  une ligne ; la case de chaque pièce s'aligne sur le texte du titre de sa colonne (repère de couleur juste avant) ;
+  plus de phrase sous les listes — « Un document par étudiant » n'existe que pour une séance, sous « Pour ses
+  étudiants » ; l'aide sur les cours ne paraît que quand un cours se déplie ; espacements égaux à gauche.
+  **Les sous-onglets de droite** (3.1.499, Charles : « ce n'est pas Documents et Étudiants, c'est Résultats ou
+  Inscription » ; choisi : un 3e onglet Étudiants) : **Résultats · Inscription · Étudiants** (tout le parcours :
+  Résultats · Étudiants) ; pour une séance **Pour le Conseil · Pour ses étudiants · Étudiants**. Une face à la fois
+  (`vueDroite` 'a' | 'b' | 'etudiants'), le nombre de pièces cochées dans l'onglet ; on entre sur « Inscription »
+  quand l'appel n'apporte que des pièces d'inscription (le PAE de la revue). **Trois colonnes** (3.1.500, Charles :
+  « au plus on va à droite, au plus on précise ») : pour qui · quoi (Résultats | Inscription, ou Pour le Conseil |
+  Pour ses étudiants) · les étudiants (`w-[400px]`, toujours visibles, filtres sur une ligne) — l'onglet
+  « Étudiants » a disparu. **Trois volets** (3.1.501, Charles : « volet 1 le périmètre, volet 2 les étudiants si
+  plusieurs, volet 3 quoi » ; logigramme v3 validé) : l'ordre devient pour qui · **les étudiants** · **quoi**. Une
+  personne : pas de volet 2. **Une séance ne se trie pas** (« pas de case à cocher ») : le volet 2 liste les délibérés
+  et leur résultat, et `documents-lot` part SANS `etudiants` — PV, grille, composition et pièces des délibérés
+  portent toute l'unité (avant, le PV ne portait que les cochés). Le volet 3 dit ce qui manque tant que les
+  précédents ne sont pas remplis. **Le dessin : trois zones numérotées** (3.1.502, Charles, maquette A parmi trois —
+  zones, tiroirs de côté, tiroirs empilés : « 1-2-3 pour les étapes, on revient en arrière ou on coche un étudiant
+  oublié ; pas de cinéma »). `Etape` (numéro → coche verte quand faite, cerclé gris quand elle attend) et `ZONE` (fond
+  du principal à 4 %, `rounded-carte`) ; plus de sous-menu au volet 3 : ses pièces se groupent par intertitres (« le
+  tri se fait en fonction des choix ») ; une personne : zone 2 pâlie, « sans objet ».
+  **Une personne, ses années, ses attestations** (3.1.503, Charles, essai sur iPad) : un étudiant choisi est le
+  périmètre (`etudiant_id` de `POST /api/perimetre/etudiants`, ses unités de l'année quelle que soit leur section) —
+  plus de section ni d'unité à choisir ; ses années se cochent (« Année en cours », « Tout le parcours », ou une à
+  une), lues de `POST /api/perimetre/parcours` (années d'inscription + décision par unité et par session, toutes
+  années). Hors séance, « Attestations » = Réussites · Ajournements · Refus, comptés sur les années choisies, les deux
+  sessions comprises : réussites par la route de la fiche, année par année ; motivations par `documents-lot`, groupé
+  par année et session, borné aux cochés et à leurs unités (`motivationsHorsSeance`). **Les années après les
+  étudiants** (3.1.504, Charles : « pas logique de choisir les années avant la section et les étudiants — il a
+  peut-être été étudiant en 19-20 ») : hors séance, l'étape 1 n'a plus d'année (la liste est celle de l'année de
+  travail) ; l'étape 3 commence par « Quelles années ? » — la réunion des années des cochés (`parAnnee`, avec leur
+  nombre), « Année en cours », « Tout le parcours ». `portee` = les années cochées ; une seule → les pièces
+  d'inscription y portent (`anneeDossier`) ; plusieurs → seules les attestations. Une séance garde son année à l'étape 1.
+  **L'aperçu suit le même standard** (3.1.505, Charles, capture d'iPad : « pas aux standards qu'on a définis ») :
+  ses actions sont des ICÔNES dans la barre bleue — PDF, imprimante, avion, chevrons « 1 / 2 » pour passer d'une
+  pièce à l'autre — puis un filet avant la croix ; jamais de bouton blanc à libellé dans le bandeau. Composant
+  `IconeApercu` (`PreviewModal.jsx`), repris par Éditions (`NavApercu`), les lettres, le contrat d'un professeur et
+  les anciennes procédures. Le titre de l'aperçu est l'étudiant, le nom de fichier va dessous. **Et la dev se
+  construit frontend d'abord** (`build-dev.yml`) : sa mise à jour part dès l'image du backend, qui reprenait
+  l'ancien frontend (écart 503 ≠ 504, trois fois le 30 octobre). **L'aperçu ne saute plus** (3.1.506, Charles :
+  « l'affichage de l'aperçu saute ») : il montrait le HTML centré puis le PDF du serveur, que Safari sur iPad colle à
+  gauche à sa taille réelle. Les pages du PDF sont désormais DESSINÉES par pdf.js (`PagesPdf`, `PreviewModal.jsx`),
+  centrées, à la largeur de la fenêtre ; pendant la composition, une feuille d'attente, plus de HTML. pdf.js est
+  servi par Lucie (`frontend/public/vendor/pdfjs-3.11.174`, build « legacy », licence jointe) — pas de dépendance npm :
+  le paquet tire un module natif (`canvas`) au build. Échec de chargement → l'ancien affichage du PDF.
+  **« Bonjour Charles ! »** (3.1.507, Charles : « des semaines que je veux le prénom — vérifie pour tout le monde ») :
+  la connexion calculait juste, mais `/me` (relu à chaque ouverture) et le récapitulatif quotidien avaient chacun leur
+  règle — « Charles Sohet », sans capitales, donnait « Sohet ». UNE règle : `prenomDuCompte` (`lib/nom.js`) — sans
+  capitales, le mot qui ouvre l'adresse d'école ; sinon `prenomSeul` ; sans identité, le début de l'adresse.
+  **Et le nom d'un compte, partout** (3.1.508, Charles : « Nicolas Vandecauter est aussi encodé étrangement ») : l'écran
+  des comptes écrivait « NICOLAS Vandecauter » (règle sans l'adresse). `nomDuCompte(nom, email)` (`frontend/src/lib/nom.js`,
+  jumeau de `nomEcranDuCompte`) sert les comptes, « Voir comme » et le registre de lecture ; côté serveur, la fonction
+  SQLite `lucie_nom_compte(nom, email)` (déclarée par `db/index.js`) sert l'échéancier, les personnes des réunions et
+  les dossiers RH. **Un nom de compte affiché passe par l'une ou l'autre, jamais par `nom_complet` brut.**
+
+- **UN SEUL MODE D'EMPLOI, ET LE PDF EN SORT** (3.1.512, Charles, 30 octobre 2026 : « le mode d'emploi pdf doit inclure la
+  prise de présences — un seul doc, puisque tout le monde a le guide en ligne » ; « mets à jour le guide avec tous les
+  changements et les nouvelles captures, de manière régulière »). Documentation → Mode d'emploi → *Tout le mode d'emploi
+  (PDF)* : `GET /api/documentation/mode-emploi/document` (`modeEmploiImprimable`, `STYLES_MODE_EMPLOI` de
+  `lib/modeEmploi.js`) compose le MÊME contenu, pour le même public (`?voir=` pour la direction) — garde, sommaire, un
+  chapitre par page ; l'écran y joint les captures (`/guide/*.png`, que l'image du backend n'a pas) en data URL, puis
+  `/api/impression/pdf`. Les deux PDF faits à la main (guide du secrétariat, présence par QR) sont RETIRÉS
+  (`assets/guides/`, `GUIDES` vide) : ce qu'ils disaient est dans le guide — côté étudiant de la présence (« Ce que voit
+  l'étudiant quand il scanne », trois captures reprises du PDF) et nouveau chapitre **L'espace de l'étudiant** (entrée,
+  appareils, documents, 90 jours, QR d'authenticité ; captures de la base d'essai). Dix-neuf chapitres : une
+  dix-neuvième étoile de la Vierge, χ Vir (`ETOILES_HORS.chi`, projetée par la même transformation, ajustée sur les dix-huit
+  autres à moins de 1,2 unité). **Le guide en ligne est la seule source : une nouveauté s'y écrit, avec ses captures, et le
+  PDF suit sans rien faire.**
+
+- **LE PDF DU MODE D'EMPLOI A LE DESSIN DU GUIDE EN LIGNE** (3.1.520, Charles, 30 octobre 2026 : « regarde le mode d'emploi de
+  Lucie, c'est en bleu »). `STYLES_MODE_EMPLOI`, `pointImprimable`, `chapitreImprimable` (`lib/modeEmploi.js`) impriment les pièces de
+  l'écran (`pages/Aide.jsx`) : en-tête de chapitre (carré marine numéroté, « Chapitre n sur N », publics en pastilles bleues), points
+  au liseré principal et numéro dans un cercle, chemin « Où » en étapes, « À savoir » encadré (ampoule or, puces accent), texte à
+  gauche et capture d'écran à droite (captures de téléphone en rang sous le texte). Un point peut porter `contenu` (HTML sûr).
+  **Tout document « façon mode d'emploi » (un projet, une présentation) se compose avec ces deux fonctions, dans l'enveloppe commune,
+  avec le pied de Lucie** — jamais une mise en page à part.
+- **LE MODE D'EMPLOI PDF AU MODÈLE DU KIT** (3.1.521, Charles, 30 octobre 2026 : « j'avais ça pour mon réseau, tu peux t'en
+  inspirer, et logo IIP » — le kit Microcertifications de l'Enseignement pour adultes ; tranché : le mode d'emploi SEULEMENT, les
+  pièces officielles gardent le standard administratif). `lib/guideKit.js` : couverture pleine page bleu nuit (logo BLANC de
+  l'établissement, trait or, chapitres en pied, « Produit par… »), sommaire à tuiles (chapitres, points, captures) et encadrés,
+  un chapitre par page — bandeau bleu nuit arrondi (icône du chapitre dans un cercle, `lib/iconesGuide.js` recopie le dessin
+  Tabler, publics, numéro en filigrane), « Ce que vous trouverez ici », points de `pointImprimable` redessinés. Couverture et
+  corps se rendent à part (`rendrePdf`, la couverture en `pageCss`) puis se réunissent (pdf-lib) ; pied construit comme
+  `piedGabaritPdf` (trois cases de largeur fixe). Routes : `GET /api/documentation/mode-emploi/pdf/images` (les captures à
+  joindre), `POST /api/documentation/mode-emploi/pdf` (data URL des captures, limite 60 Mo dans `server.js`) ; repli de l'écran :
+  l'ancienne mise en page, imprimée par le navigateur. Couleurs du kit adaptées à l'IIP : nuit #0E2A4F, bleus #2C7DB8 / #3E9BD0,
+  or #F9B619.
+- **PORTAIL, ÉTAPE 1 : LE MOT DE PASSE ET LA BELGIQUE** (3.1.513). `compte` (empreinte scrypt salée, dans la base du
+  PORTAIL seulement, survit aux dépôts) ; `POST /api/portail/connexion` (adresse ou matricule + mot de passe ; appareil
+  reconnu → session ; sinon code `connexion` composé par Lucie → `POST /connexion/code`, qui reconnaît l'appareil, 3 au
+  plus) ; le LIEN ne sert plus qu'à la première visite et à l'oubli : jeton `definir` (30 min) qui n'ouvre que
+  `POST /mot-de-passe` (10 caractères, ni nom ni adresse ; remplacer → les autres appareils retombent sur le code) ;
+  10 échecs → 15 min ; `/entrer` (sans mot de passe) répond 410. **Belgique** : `portail/src/geo.js` lit `geo/be.cidr`
+  (ipdeny) et `geo/vpn.cidr` (X4BNet, VPN et centres de données) posés chaque semaine par `scripts/vps/geo-portail.sh` ;
+  contrôle à la connexion, au lien, au code et à CHAQUE requête connectée ; la vérification du QR reste ouverte ; sans
+  listes, rien n'est bloqué (journal) ; `PORTAIL_GEO=constat|non`. **L'exception** : `portail_exception` dans Lucie
+  (ajout ; retrait = `retire_le`), fiche → Suivi (`SuiviEspace.jsx`, secrétariat et direction ; motif, un an au plus),
+  déposée par `/interne/exceptions`. La coordination lit.
+- **PORTAIL, ÉTAPE 2 : LA VA EN LIGNE DERRIÈRE LE MUR, ET LE CODE DU CANDIDAT** (3.1.514). Le portail ne fait que NOTER les
+  gestes de l'étudiant (`va_geste` : ouvrir, piece, retirer, retirer_piece, terminer ; la pièce, contrôlée à ses premiers
+  octets, ne vit là que jusqu'au relevé) ; Lucie les relève toutes les 10 s, les JUGE et les écrit
+  (`lib/portailValorisation.js` : `appliquerGeste`, mêmes règles que l'ancienne porte, journal « NOM Prénom (étudiant, en
+  ligne) », `accuserReception` avec le forfait) et rend un refus en clair (`erreur`). En retour elle DÉPOSE par étudiant
+  (`/interne/va`, `va_lot`) l'offre — unités de sa section valorisables, prix (`prixDUneUE` de `forfaitVA.js`, d'après
+  `fi_par_ue` de `calculerFrais`), échéance (`controleDelai`) — et l'état : la frise (reçue, recevable, avis, décision,
+  notifiée), jamais l'avis ni une décision avant `notifie_le`. Déposé pour ceux qui viennent d'entrer ou d'agir, et ceux
+  venus ces 3 h (pas pour les 600 à chaque passage). Pièces : nginx du site étudiant à 26 Mo sur `/api/portail/va/piece`
+  seulement. **Le candidat** : `portail_candidat` dans Lucie (empreinte scrypt du code XXXXX-XXXXX, 60 jours) ; code
+  d'office pour les dossiers créés depuis `portail_candidat_depuis`, sinon fiche → Suivi (`CodeCandidat`,
+  `POST /api/portail-suivi/:id/code-candidat`, secrétariat et direction) ; déposé avec les étudiants
+  (`candidats`) ; il entre par `POST /api/portail/candidat` (adresse privée + code) et ne passe que sur `/moi`
+  (sans résultats ni règlements), `/va*` et `/documents/` ; Belgique comprise.
+- **PORTAIL, ÉTAPE 3 : LE PAE EN LIGNE** (3.1.515). Fenêtre `lucie_config` « pae_en_ligne » {annee, du, au}, réglée par la
+  direction (`PUT /api/pae-en-ligne/reglage`, en tête de la fenêtre des propositions). `lib/paeEnLigne.js` : `offrePAE` lit
+  `composerPAE` — `cochable` = accessible, pas acquise, pas en attente, dans le bloc ; sinon la `raison`, et une unité au
+  programme hors de la main de l'étudiant est `verrouillee` (elle RESTE) ; déposée au portail avec le lot VA (`pae_lot`).
+  L'étudiant propose (`pae_geste` « proposer ») → `pae_proposition` (jamais écrite au programme ; une nouvelle remplace
+  la précédente). Écran `PropositionsPAE.jsx` (rail Étudiants, geste `etudiants.pae_composer`, périmètre) : Reprendre
+  (`ecrireProgramme`, origine `pae_en_ligne`, garde les verrouillées), Corriger dans la revue (`RevuePAE` passé en prop,
+  puis un mot), Ne pas retenir (un mot) ; chaque geste fait déposer aussitôt (`deposerBientot`). Une fois le PAE confirmé
+  par l'école, l'étudiant confirme par code (objet `pae`) → `pae_signature_etudiant` (ajout seul, avec le programme ;
+  refusée si le programme a changé) ; fiche → Suivi dit « confirmé par l'étudiant » ou « programme modifié depuis ».
+- **PORTAIL, ÉTAPE 4 : LES MESSAGES AUX ÉTUDIANTS** (3.1.516, tranché : secrétariat et direction à tous, coordination à ses
+  sections, enseignants aux inscrits de leurs UE ; la réponse revient à l'AUTEUR, la direction lit tout ; un courriel
+  d'avis sans contenu, un par jour au plus). `lib/messagesEtudiants.js` : `perimetre`, `resoudre` (sections par
+  `sectionPropre`, inscrits d'UE, étudiants choisis ; seuls ceux qui ont un espace reçoivent), tables `message_etudiant`,
+  `_dest` (lu_le), `_fil` (ajout seul ; réponses de l'étudiant et de l'école), `_avis`. Routes `/api/messages-etudiants`
+  (cibles, etudiants, apercu, envoyer, envoyés, détail, repondre, retirer — un message se RETIRE, jamais effacé). Écran
+  `MessagesEtudiants.jsx` (Écrire · Envoyés) : rail Étudiants (direction, secrétariat, coordination) et rail Mes cours
+  (« Écrire à mes étudiants »). Passage du mur : dépôt complet `/interne/messages` à chaque cycle ; relevé `messages_lus`
+  et `messages_reponses` → ✓ lu, fil, `lucie_notification` (type `reponse_etudiant`, `cible_user_id` = l'auteur) ;
+  `aviserParCourriel` après le dépôt. Portail : onglet « Messages (n) », candidats compris.
+- **PORTAIL, ÉTAPE 5 : MON PARCOURS, MES FRAIS, AIDE ET RÈGLES** (3.1.517). `lib/portailEspace.js` : `parcoursPortail`
+  (les unités de `composerPAE` pour l'année active : acquise · à mon programme · accessible · en attente · pas encore + raison ;
+  ECTS de `ue.ects`) et `fraisPortail` (`calculerFrais` : lignes, versements, échéance ; `virement` et QR `qrSvg` de la
+  charge EPC, seulement s'il reste à payer et qu'un IBAN existe), déposés avec le lot de l'étudiant (`espace_lot` du portail).
+  « Aide et règles » est un texte du site étudiant (mode d'emploi, grille de lecture) qui absorbe l'onglet Règlements.
+  Le candidat voit Mes frais, pas Mon parcours. Le projet du portail est entièrement construit.
+  **LES FRAIS ESTIMÉS À CÔTÉ DU PAE EN LIGNE** (3.1.526) : `lib/fraisEstimes.js` — `tarifPAE(etudId, annee, ueNums)` (barèmes du
+  DI et des frais de l'année, exonération, `sectionsSansFrais`/tiers, droit spécifique, et par unité `per_di` = `periodesDI`,
+  `per_etud` = `periodesEtudiantUE`, niveau) déposé avec l'offre (`offrePAE().tarif`, unités offertes + programme) ; `estimerFrais`
+  — forfait une fois, plafond global le secondaire d'abord, DI arrondi aux 5 cents, fixes + périodes étudiant — est RECOPIÉE telle
+  quelle dans `EspaceEtudiant.jsx` (`FraisEstimes`, sous la liste et sur le PAE confirmé). Vérifiée contre `calculerFrais`
+  (`total_hors_va`, `acompte`) : plafond dépassé, exonéré, DIS, sous-ensemble. **Qui change une règle de `calculerDI` ou de
+  `calculerFrais` change aussi les deux copies d'`estimerFrais`.** Hors estimation : forfait VA, dispenses.
+- **LES TEXTES DE DOCUMENTATION EN UNE LISTE** (3.1.519, Charles, 30 octobre 2026 : « pas de tuiles différentes pour chaque
+  ligne ; cliquer dessus doit lire ou ouvrir le lien ; obligatoire rouge à gauche, lu vert, pour info bleu »). Une seule carte,
+  une ligne par texte (`.ligne-maison`), liseré gauche de 4 px : `--c-refuse` à confirmer, `--c-reussi` confirmé ou (texte non
+  opposable) déjà ouvert, `--c-disponible` pour information ; légende à droite du compteur. Toute la ligne ouvre le texte, ou
+  `source_url` quand aucune version n'est publiée ; le bouton « Lire » disparaît ; registre et retrait en icônes nues.
+- **VOIR L'ESPACE COMME L'ÉTUDIANT** (3.1.518, Charles : « en tant que directeur, je dois avoir un mode voir comme un étudiant
+  pour tester ou vérifier »). Fiche → Suivi → « Voir son espace » (direction et administrateur ; `POST
+  /api/portail-suivi/:id/apercu`, tracé dans `portail_apercu`) : Lucie demande au portail (`/interne/apercu`) un lien d'une
+  minute, à usage unique (`apercu_jeton`) ; échangé (`POST /api/portail/apercu`) contre une session de 30 min, claim `apercu`.
+  Dans `connecte` : tout ce qui n'est pas GET est refusé, la règle de la Belgique ne s'applique pas, et `presenter()` n'est pas
+  appelé (rien ne compte comme présenté à l'étudiant). Bandeau « Aperçu de la direction » dans l'espace.
+- **LES RAPPELS — TRANCHÉS PUIS CONSTRUITS EN QUATRE ÉTAPES (3.1.522 → 3.1.525)** (Charles, 30 octobre 2026 : « points non encodés, notes non lues,
+  documents non vus… délibération dans moins de 10 jours… avec courriel automatique sur l'adresse Prigogine, prof ou étudiant
+  le cas échéant, secrétariat ; ça doit être complet »). Quatre familles, toutes par courriel à l'adresse d'INSTITUT :
+  professeurs, étudiants (par le portail, derrière le mur), secrétariat, coordination et direction. Forme : tout entre dans le
+  RÉCAPITULATIF DU MATIN (`lib/recapQuotidien.js`) ; seul l'urgent part aussitôt. Délibération : la date est rappelée à J-10 et
+  J-3 ; le DERNIER DÉLAI d'encodage des points est J-2. Réglage : la DIRECTION SEULE (Configuration), personne ne se
+  désabonne. Existant à reprendre, sans le doubler : récap du matin, rappels de l'échéancier (aujourd'hui sans courriel),
+  rapport du mois, avis d'absences (manuel), avis de l'espace étudiant (un par jour). À faire : l'analyse complète (catalogue
+  de chaque rappel : déclencheur, destinataire, délai, urgence), soumise à Charles avant le code. **Analyse faite** :
+  `docs/contexte/analyse-rappels-2026-10-30.md` (32 rappels, moteur `lib/rappels.js` sur `rappel_envoye`, ordre de construction).
+  Tranché ensuite : sans date de séance, seulement l'alerte « date à poser » (coordination, secrétariat, fin d'UE -15 j) ; délai
+  J-2 dépassé → copie à la coordination de la section ; tout le monde a un compte (rappels aux `utilisateur`) ; étudiants : E1 à E7
+  d'office, un avis par jour au plus.
+  **ÉTAPE 1 FAITE (3.1.522)** : `lib/rappels.js` — CATALOGUE (une entrée = un interrupteur), file `rappel_courriel`
+  (ordinaire → rubrique « Rappels » du récapitulatif du matin, `rappelsEnAttente`/`marquerEnvoyes` ; urgent → `envoyerUrgents`,
+  un courriel groupé par personne, toutes les 30 min, production seulement), réglage `lucie_config` « rappels » (direction :
+  `GET/PUT /api/envois/rappels`, essai `POST /api/envois/rappels/moi`), destinataires `comptesDuRole(role, section)` (coordination
+  bornée à `utilisateur_section` sauf `perimetre_toutes`). L'échéancier y dépose ses jalons (`genererRappels`, anti-doublon
+  `rappel_envoye` canal 'email' ; jour J = urgent). Les ancres `deliberation` et `publication` se lisent désormais de
+  `deliberation_seance` (`date_seance`, `publie_le`) dans `instancier`, source `deliberation_seance` (section par
+  `organisation_ue`, `sectionEcheanceSql` étendue) ; un jalon déjà passé à sa naissance ne se crée pas. Écran : Configuration →
+  Courriels → panneau « Rappels ». **Un nouveau rappel s'ajoute au CATALOGUE et dépose par `mettreEnFile`.**
+  **ÉTAPE 2 FAITE (3.1.523)** : `lib/rappelsDeliberation.js` (`genererRappelsDeliberation(annee)`, toutes les heures dans
+  `server.js`, dev comprise — seule la file se remplit ; aussi au « Régénérer » de l'échéancier). Séances non closes datées
+  (`deliberation_seance.date_seance`) : professeurs attribués à l'UE (et à l'organisation de la séance), un rappel par cours —
+  J-10 et J-3 (date + reste à encoder, matin), J-2 « dernier délai » et J-1/J « délai dépassé » (urgents, seulement s'il reste
+  des points) ; copie agrégée à la coordination de la section au délai dépassé ; séance passée non close à J+2 puis chaque
+  semaine (secrétariat, coordination, direction) ; « date à poser » quand `organisation_ue.date_fin` tombe dans 15 jours sans
+  séance de 1re session datée (secrétariat, coordination). Le reste à encoder = `resteAEncoder(profId, cours, annee, session)`
+  (`routes/mesCours.js`), la règle de la complétude, écrite une fois. Anti-doublon `rappel_envoye` (cible `deliberation_seance`
+  ou `organisation_ue`, jalon `J-10|cours`…).
+  **ÉTAPE 3 FAITE (3.1.524)** : `lib/rappelsPersonnel.js` (`genererRappelsPersonnel(annee, { jour })`, toutes les heures et
+  au « Régénérer ») — présences à compléter (séances passées 30 j sans aucune `presence`, du professeur ou de ses cours attribués
+  sans professeur nommé : le lendemain, sinon le lundi) ; avis attendus (VA : `valorisation_avis_appel` sans `valorisation_avis`,
+  décision non posée ; AR : dossier `valide_b_le` non décidé, chargés de cours sans `amenagement_avis` — 5 puis 10 jours
+  ouvrables, copie coordination / secrétariat à 10) ; propositions de PAE (`deposee` : au dépôt, J+3 ; secrétariat + coordination
+  de la section de l'étudiant) ; délais de procédure (`lireDossier().echeances`, prochaine ouverte : J-2 et jour J, urgent,
+  secrétariat + direction) ; BILAN DU LUNDI (un chiffre par paquet : VA comme `/valorisations/en-retard`, `alertesAbsences` non
+  prévenus, `calculerFrais` restant > 0 après `echeance_solde`, aménagements à décider / notifier / communiquer — secrétariat et
+  direction tout, coordination ses sections sans frais ni validation ; calculé une fois le lundi, `lucie_config`
+  « bilan_lundi_fait »). Échéance CEP `cep_attestation_inscription` (fixe:31/10) posée au démarrage (`poserEcheancesCEP`).
+  **ÉTAPE 4 FAITE (3.1.525)** : `lib/rappelsEtudiants.js` — rien ne se calcule sans portail installé (`portailActif()`).
+  Le passage (`genererRappelsEtudiants(annee, { jour })`, toutes les heures et au « Régénérer ») remplit `rappel_etudiant`
+  (UNIQUE étudiant, clé, objet, jalon) : E1 document jamais ouvert (`envoi_mail` depuis `portail_depot_depuis`, sans
+  `portail_accuse.presente_le` : J+7, J+30, J+80 — seul le dernier jalon atteint) ; E2 accusé présenté non signé (J+3, J+10) ;
+  E3 PAE confirmé par l'école depuis l'ouverture de la fenêtre sans `pae_signature_etudiant` postérieure (J+2, J+7) ; E4 fenêtre
+  `pae_en_ligne` (ouverture, puis fermeture J-3 pour qui n'a rien proposé ni PAE confirmé) ; E5 message non lu (J+3) ; E6 solde
+  (`calculerFrais`, J-7 et J+3 de `echeance_solde`, une fois par jour : `lucie_config` « rappels_etudiants_frais_jour ») ; E7 VA en
+  ligne non examinée sans pièce (J+3, et J-3 de l'échéance `controleDelai`). L'envoi (`envoyerAvisEtudiants`, production, toutes les
+  30 min, entre 8 h et 20 h à Bruxelles) : UN courriel par étudiant et par jour (`rappel_etudiant_jour`), les intitulés seuls et le
+  lien de l'espace, reporté au lendemain si l'avis des messages est parti le jour même ; adresse d'institut, le candidat à son adresse
+  privée tant que son code vaut. Cinq interrupteurs (`etudiants_*`, `etudiants: true` dans le CATALOGUE) ; Configuration → Rappels
+  liste aussi « Derniers rappels aux étudiants ». Restent : l'assiduité CEP par tranche de 3 mois (aucune trace d'attestation émise).
+- **LE PORTAIL DE L'ÉTUDIANT — CE QUI A ÉTÉ TRANCHÉ (tout est construit, 3.1.513 → 3.1.517 et 3.1.526)** (Charles, 30 octobre 2026 ; projet : logigramme et
+  treize écrans hors dépôt). Mot de passe choisi par l'étudiant (comme le personnel), code en plus sur un nouvel appareil.
+  **PAE en ligne** : Lucie coche ce qui est accessible (`etatsPAE`), l'étudiant choisit et envoie, la coordination valide ou
+  corrige, il confirme par code ; **aucune exception demandée en ligne** (« sinon ça va être la folie ») — ce qu'une règle
+  refuse reste grisé, il en parle à sa coordination ; ouvert pendant une **fenêtre** fixée par la direction. **VA en ligne**
+  déplacée derrière le mur (`/demande-va` disparaît), règles actuelles, prix annoncé avant l'envoi ; **l'admission (AD) reste
+  au secrétariat**. **Candidat** : dès son inscription dans Lucie, un code d'accès temporaire à son espace jusqu'à son adresse
+  officielle (tranché : envoyé à l'adresse PRIVÉE du dossier ; s'éteint dès que l'adresse d'institut est encodée, au plus 60 jours, renouvelable par le secrétariat ; il ouvre la demande de VA, les documents, les frais et les messages). Résultats : détail par acquis (NA sous 10) après clôture publiée. Messages :
+  réponse possible. Accès **bloqué hors de Belgique**, exception accordée par le secrétariat pour une période ; la vérification
+  du QR reste ouverte partout. (Mot de passe et Belgique : FAITS en 3.1.513 ; VA en ligne et code du candidat : FAITS en 3.1.514 ; PAE en ligne : FAIT en 3.1.515 ; messages : FAITS en 3.1.516 ; parcours, frais, aide : FAITS en 3.1.517.) Toute écriture venant du portail passe par le relevé de Lucie (`portailSync.js`), jamais l'inverse. **Ordre de construction** : 1 mot de passe et blocage hors Belgique · 2 VA en ligne déplacée + code candidat · 3 PAE en ligne · 4 messages · puis parcours, frais, aide.
+
+**LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
+main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
+production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux
+du personnel (échéancier par courriel, délibération, présences, avis, PAE, procédures, bilan du lundi), ni ceux des étudiants ;
+la direction les allume dans Configuration → Courriels → Rappels. Les envois de l'espace des étudiants (dépôt d'office, codes
+des candidats, avis des messages) ne tournent pas sans `PORTAIL_INTERNE_URL`/`PORTAIL_JETON` : l'espace n'est pas encore
+installé. Conséquence voulue : la demande de VA en ligne (`/demande-va`, retirée en 3.1.514) n'existe plus tant que l'espace
+n'est pas installé — elle passe par le secrétariat. Le récapitulatif du matin (3.1.472) était déjà en production.
 
 **L'ANNULER NE COMPARE QUE CE QUE LE GESTE A CHANGÉ** (3.1.482, Charles, 30 octobre 2026, en production :
   « Impossible d'annuler : utilisateur — la ligne a été modifiée depuis, par quelqu'un »). Se reconnecter écrit

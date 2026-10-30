@@ -1,4 +1,5 @@
 import { ICONE_AXE } from './lib/iconesAxes.js';
+import { nomDuCompte } from './lib/nom.js';
 import { BoutonAnnulerReglage } from './lib/annulerReglage.jsx';
 import { useMiseEnPage, basculerMiseEnPage, changerMiseEnPage, deplacer, poigneeGlisser } from './lib/miseEnPage.js';
 import { useDroits } from './lib/droits.js';
@@ -46,7 +47,6 @@ import {
 
 import Login from './pages/Login.jsx';
 import MotDePasse from './pages/MotDePasse.jsx';
-import DemandeVA from './pages/DemandeVA.jsx';
 import { ETOILES, TRAITS, ECLAT, DISCRETES, POINTS_L } from './lib/logoVierge.js';
 import PresenceQR from './pages/PresenceQR.jsx';
 import RechercheLucie from './components/RechercheLucie.jsx';
@@ -260,7 +260,7 @@ function VoirCommePicker() {
           {profils.filter(p => p.id !== u?.id).map(p => (
             <button key={p.id} onClick={() => voir(p.id)}
               className="w-full text-left px-3 py-1.5 text-sm hover:bg-iip-turquoise/10 flex items-center justify-between">
-              <span className="truncate">{p.nom_complet || p.email}</span>
+              <span className="truncate">{nomDuCompte(p.nom_complet, p.email)}</span>
               <span className="text-mention text-gray-400 flex-shrink-0 ml-2">{p.role}</span>
             </button>
           ))}
@@ -831,8 +831,8 @@ export default function App() {
       {/* HORS SESSION, ET C'EST TOUT LE PROPOS : on arrive ici parce qu'on ne
           peut PAS se connecter. La page ne reçoit aucun jeton de session. */}
       <Route path="/mot-de-passe" element={<MotDePasse />} />
-      {/* LA PORTE DES ÉTUDIANTS (VA en ligne) : publique, son propre jeton. */}
-      <Route path="/demande-va" element={<DemandeVA />} />
+      {/* LA DEMANDE DE VA EN LIGNE A QUITTÉ LUCIE (3.1.514) : elle vit dans l'espace des étudiants, derrière le mur. */}
+      <Route path="/demande-va" element={<DemandeVADeplacee />} />
       {/* LA PRÉSENCE PAR QR : publique, l'étudiant n'a pas de compte (28 octobre 2026). */}
       <Route path="/presence/*" element={<PresenceQR />} />
       <Route path="/presence" element={<PresenceQR />} />
@@ -918,5 +918,21 @@ export default function App() {
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
     </ErrorBoundary>
+  );
+}
+
+/* L'ancienne adresse (liens déjà envoyés) : dire où la demande se fait désormais. */
+function DemandeVADeplacee() {
+  const dev = /^(dev\.|localhost)/.test(window.location.hostname);
+  const adresse = dev ? 'https://etudiants-dev.lucie-iip.be' : 'https://etudiants.lucie-iip.be';
+  return (
+    <div className="min-h-screen bg-slate-100 grid place-items-center px-4">
+      <div className="bg-white border border-slate-200 rounded-carte p-6 max-w-[520px] space-y-3">
+        <h1 className="titre-carte">La demande de valorisation se fait dans votre espace étudiant</h1>
+        <p className="text-sm text-slate-600">Entrez dans votre espace, puis ouvrez « Valorisation ». Pas encore d'adresse de l'institut ?
+          Utilisez le code d'accès reçu à votre adresse privée.</p>
+        <a href={adresse} className="bouton bouton-fort inline-flex">Ouvrir mon espace étudiant</a>
+      </div>
+    </div>
   );
 }

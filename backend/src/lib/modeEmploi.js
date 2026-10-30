@@ -10,7 +10,7 @@
  *   savoir — ce qu'il faut savoir : les règles qui bloquent ou qui surprennent.
  * Il explique le travail, pas l'informatique (CLAUDE.md, § 7). La version décrite se dit en tête.
  */
-export const VERSION_DECRITE = '3.1.496';
+export const VERSION_DECRITE = '3.5.000';
 
 export const RUBRIQUES = [
   {
@@ -590,6 +590,21 @@ export const RUBRIQUES = [
         savoir: [
           "Tant que le report est accordé, ses notes sont protégées : un import ou un encodage ne les remplace pas.",
         ] },
+      {
+        titre: "Le PAE en ligne — les propositions des étudiants",
+        ou: "Étudiants → rail → PAE en ligne — propositions des étudiants.",
+        texte: "Pendant la fenêtre fixée par la direction, chaque étudiant coche dans son espace les unités qui lui sont accessibles, puis envoie sa proposition. Elle arrive ici, face à son programme actuel : [[Reprendre sa proposition|IconCheck|fort]] fait de son choix son programme ; [[Corriger dans la revue|IconEyeCheck]] ouvre la revue, puis demande ce que vous avez corrigé ; [[Ne pas retenir|IconX]] demande un mot. L'étudiant lit la réponse dans son espace.",
+        savoir: [
+          "Rien n'est écrit au programme avant votre geste : la proposition attend.",
+          "L'étudiant ne coche que ce que le moteur du PAE déclare accessible : pas d'exception demandée en ligne. Une unité posée par l'école et hors de sa main (« reste ») demeure au programme.",
+          "La fenêtre (année du PAE, du… au…) se règle en tête de la même fenêtre, par la direction.",
+          "Une fois le PAE confirmé par l'école, l'étudiant le confirme à son tour par un code ; la fiche (onglet Suivi) le dit, et dit si le programme a changé depuis.",
+          "La coordination traite les propositions de ses sections.",
+        ],
+        images: [
+          { src: "/guide/pae-propositions.png", legende: "Une proposition (données d'essai) : ce que l'étudiante propose, ce qui est au programme, et les trois gestes. En tête, la fenêtre réglée par la direction." },
+        ],
+      },
     ],
   },
   {
@@ -618,7 +633,7 @@ export const RUBRIQUES = [
         savoir: [
           "Sur la ligne d'un étudiant du registre : « Ajouter une ou plusieurs unités à valoriser », ou « Retirer cet étudiant du registre pour cette année ».",
           "Trois natures de demande : dispense complète, dispense partielle, et admission (capacités préalables, sans unité).",
-          "Les étudiants peuvent aussi demander en ligne, sur la page publique /demande-va de Lucie : matricule, lien envoyé à l'adresse du dossier (valable 30 minutes), unités demandées, pièces. Ils reçoivent un accusé de réception. Ils peuvent compléter tant que la recevabilité n'est pas posée.",
+          "Les étudiants demandent aussi en ligne, depuis leur espace étudiant (onglet Valorisation) : une demande VA ou VAE par unité de leur section, le prix annoncé avant l'envoi, leurs pièces. Elle arrive ici « en ligne », datée du jour, avec ses pièces nommées ; ils complètent tant que la recevabilité n'est pas posée. L'admission reste au secrétariat.",
         ],
         images: [
           { src: "/guide/valorisation-registre.png", legende: "Le registre : une ligne par étudiant, une frise par unité ; [[Unités|IconPlus]] ajoute des unités à valoriser, [[Délibérer]] ouvre la séance sur lui." },
@@ -895,20 +910,23 @@ export const RUBRIQUES = [
         ],
       },
       {
-        titre: "Étudiants : cinq familles",
-        ou: "Éditions → Étudiants.",
-        texte: "« Délibération » : choisissez la session, puis les pièces « À remettre aux étudiants » (attestations de réussite, motivations d'ajournement et de refus) et « Pour le Conseil » (PV, composition, grille). « Dossiers étudiants » : « Le parcours » (bulletin, PAE) et « L'inscription » (fiche, frais, annexes 1 et 2, pièces CEP). « Valorisation des acquis » : par unité. « Diplômes et titres ». « Listes et rapports ».",
+        titre: "Étudiants : « Pour qui ? »",
+        ou: "Éditions → Étudiants → Documents.",
+        texte: "La première question est « Pour qui ? ». « Une personne » : cherchez-la par son nom ou son matricule dans toute l'école, puis « ouvrir ses pièces » — de l'année, ou de tout son parcours. « Des étudiants » : une section, ses unités, des cases à cocher — leurs attestations de réussite, bulletin, PAE, fiche, frais, annexes, pièces CEP, de l'année ou de tout le parcours (une inspection : tout sortir vite). « Une séance » : l'année, la session, l'unité — « Pour le Conseil » (PV, composition, grille, ajournés par cours) et « Pour ses étudiants » (attestations, motivations d'ajournement et de refus). Les autres onglets : « Valorisation des acquis » (par unité), « Diplômes et titres », « Listes et rapports », « Divers » (les lettres composées dans l'atelier).",
         savoir: [
-          "Le périmètre : la section au menu, puis ses UE à cocher, puis leurs cours. La colonne « Reçoit » dit qui reçoit quoi.",
-          "Une pièce sans rien à produire est grisée (attestation sans réussite, ajournement hors 1re session…).",
-          "Mode SLE : cocher une annexe 1 ou 2 ne montre que les étudiants en séjour limité aux études ; les autres pièces se grisent.",
-          "Mode CEP : cocher une pièce CEP ne montre que les étudiants au congé-éducation payé de l'année (hors Flandre).",
-          "Le champ « Un étudiant — toutes ses pièces… » fait d'un étudiant le périmètre ; « revenir au périmètre » le quitte.",
-          "[[Produire … pièce(s) · … étudiant(s)|IconPrinter|fort]] imprime ; [[Envoyer|IconSend|sortir]] expédie par courriel, un document par personne, jamais de copie collective, à l'adresse d'école.",
+          "La session n'appartient qu'à la séance : une attestation de réussite n'en a pas besoin.",
+          "Trois volets, de gauche à droite : 1 pour qui · 2 les étudiants (tous cochés, on décoche ; pour une personne, pas de volet 2 ; pour une séance, les délibérés et leur résultat, sans case — tout part pour toute l'unité) · 3 quoi (les pièces, groupées : « Résultats » et « Inscription » ; pour une séance, « Pour le Conseil » et « Pour ses étudiants »). Trois zones numérotées, toujours visibles : le numéro devient une coche verte quand l'étape est faite ; on revient en arrière d'un clic pour cocher un étudiant oublié.",
+          "Les années se choisissent à l'étape 3, après les étudiants : « Année en cours », « Tout le parcours », ou une à une parmi celles où les étudiants cochés ont été inscrits (avec leur nombre). Une personne n'a ni section ni unité à choisir. Une séance garde son année à l'étape 1.",
+          "« Attestations » réunit les réussites, les ajournements et les refus (leur motivation), avec leur nombre sur les années choisies — les deux sessions comprises.",
+          "Une pièce sans rien à produire est grisée (attestation sans réussite, motivation de refus sans refus…).",
+          "Mode SLE : cocher une annexe 1 ou 2 ne montre que les étudiants en séjour limité aux études. Mode CEP : cocher une pièce CEP ne montre que les étudiants au congé-éducation payé de l'année (hors Flandre).",
+          "Dans la barre bleue : [[Aperçu|IconZoomIn]], [[Produire|IconPrinter]] et [[Envoyer|IconSend]] — par courriel, un document par personne, jamais de copie collective, à l'adresse d'école.",
         ],
         images: [
-          { src: "/guide/editions-deliberation.png", legende: "Famille « Délibération » (données d'essai) : le périmètre à gauche (année, session, section, unités), les pièces à cocher en deux colonnes, les étudiants en dessous ; une pièce sans rien à produire est grisée." },
-          { src: "/guide/editions-dossiers.png", legende: "Famille « Dossiers étudiants » : le parcours et l'inscription ; les annexes 1 et 2 portent le compte des SLE, les pièces CEP celui des étudiants au congé-éducation." },
+          { src: "/guide/editions-personne.png", legende: "« Une personne » (données d'essai) : le nom cherché à gauche, « ouvrir ses pièces » à droite." },
+          { src: "/guide/editions-personne-annees.png", legende: "Une personne ouverte : à l'étape 3, ses années (ici tout son parcours), puis « Attestations » — réussites, ajournements, refus, avec leur nombre." },
+          { src: "/guide/editions-groupe.png", legende: "« Des étudiants » : l'année ou tout le parcours, la section et ses unités ; 1 le périmètre, 2 les étudiants à cocher, 3 les pièces — Résultats et Inscription." },
+          { src: "/guide/editions-seance.png", legende: "« Une séance » : l'année, la session, l'unité ; 2 les délibérés et leur résultat, sans case ; 3 « Pour le Conseil » et « Pour ses étudiants »." },
         ],
       },
       {
@@ -921,6 +939,155 @@ export const RUBRIQUES = [
         ],
         images: [
           { src: "/guide/editions-listes.png", legende: "Listes et rapports : à gauche les rapports prêts à imprimer et la liste à composer ; filtres, puis [[Générer|fort]], les colonnes à cocher, et la sortie [[Imprimer / PDF|IconPrinter]], [[Envoyer|IconSend|sortir]], [[CSV|IconDownload]] ou [[Excel|IconFileSpreadsheet]]." },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'espace', pour: 'sec coo dir', titre: "L'espace de l'étudiant", icone: 'IconDeviceMobile',
+    resume: "Le site à part où l'étudiant retrouve ses résultats et ses documents, en accuse réception, lit les messages de l'école, suit son parcours et ses frais, demande une valorisation, compose son PAE, et où chacun peut vérifier qu'une pièce est authentique.",
+    points: [
+      {
+        titre: "Comment l'étudiant y entre",
+        texte: "Le site des étudiants vit à part de Lucie, sur sa propre adresse. La première fois, l'étudiant demande un lien (« Première visite, ou mot de passe oublié ? ») : il part à son adresse d'institut, vaut 30 minutes, et le mène à choisir son mot de passe. Ensuite, il entre avec son adresse d'institut (ou son matricule) et ce mot de passe. Sur un appareil qu'il a fait reconnaître, c'est tout ; sur un autre, un code à six chiffres reçu à l'adresse d'école est demandé en plus.",
+        savoir: [
+          "Mot de passe oublié : le même lien, qui mène à en choisir un nouveau ; ses autres appareils devront à nouveau recevoir un code.",
+          "Trois appareils reconnus au plus, pendant 90 jours ; au quatrième, il choisit lequel remplacer. Il les voit et les oublie dans « Mon compte », où il change aussi son mot de passe.",
+          "Dix essais manqués bloquent le compte un quart d'heure.",
+          "Le lien et les codes ne partent jamais à une adresse privée : une fiche sans adresse d'école n'a pas d'espace.",
+          "Lucie et le site des étudiants ne partagent ni base ni réseau : Lucie y dépose ce qui est public pour l'étudiant, et relève ses accusés. Le mot de passe ne vit que dans le site des étudiants.",
+        ],
+        images: [
+          { src: "/guide/portail-entree.png", legende: "L'entrée (données d'essai) : adresse de l'institut et mot de passe ; la première fois, « Première visite, ou mot de passe oublié ? ».", etroite: true },
+          { src: "/guide/portail-mot-de-passe.png", legende: "Après le lien : choisir son mot de passe, dix caractères au moins.", etroite: true },
+          { src: "/guide/portail-code.png", legende: "Sur un appareil non reconnu : le code reçu à l'adresse d'école, et la case pour reconnaître l'appareil.", etroite: true },
+        ],
+      },
+      {
+        titre: "La demande de valorisation en ligne",
+        texte: "Dans son espace, onglet « Valorisation » : l'étudiant choisit une unité de sa section, VA (des études réussies) ou VAE (une expérience), voit le forfait d'analyse et l'échéance du RDE, puis [[Introduire la demande|fort]]. Il dépose ses pièces (« Quelle pièce ? », puis [[Choisir le fichier|IconUpload]]), suit la frise — reçue, recevable, avis, décision, notifiée — et reçoit un accusé de réception quand il a terminé.",
+        savoir: [
+          "Chaque geste arrive dans Lucie en quelques secondes, au registre des valorisations, au nom de l'étudiant « (étudiant, en ligne) ».",
+          "Il complète ou retire tant que la recevabilité n'est pas posée ; ensuite, il s'adresse au secrétariat.",
+          "Il ne lit ni l'avis du chargé de cours ni une décision avant sa notification.",
+          "L'admission ne se demande pas en ligne : elle reste au secrétariat. L'ancienne page /demande-va de Lucie renvoie vers l'espace.",
+        ],
+        images: [
+          { src: "/guide/portail-va-demande.png", legende: "Nouvelle demande (données d'essai) : l'unité, VA ou VAE, le forfait d'analyse et l'échéance, puis « Introduire la demande ».", etroite: true },
+          { src: "/guide/portail-va-suivi.png", legende: "La demande introduite : sa frise, ses pièces, « Retirer cette demande » tant qu'elle n'est pas examinée.", etroite: true },
+        ],
+      },
+      {
+        titre: "Le PAE en ligne",
+        texte: "Pendant la période fixée par la direction, onglet « Mon PAE » : l'étudiant coche les unités qui lui sont accessibles et envoie sa proposition ; sa coordination la reprend, la corrige ou ne la retient pas, et il lit sa réponse. Quand l'école a confirmé son PAE, il le relit et le confirme à son tour : [[Confirmer mon PAE|IconSignature|fort]], puis le code reçu à son adresse de l'institut.",
+        savoir: [
+          "Une unité grisée ne se choisit pas en ligne (déjà acquise, prérequis manquant, épreuve intégrée…) ; la raison est écrite dessous. Il en parle à sa coordination.",
+          "Une unité posée par l'école et hors de sa main reste cochée et grisée : elle demeure au programme.",
+          "Sous la liste, les frais estimés suivent ses choix : droit d'inscription, frais administratifs et acompte, calculés comme la note de frais. C'est une estimation : la note de frais remise par l'école fait foi.",
+        ],
+        images: [
+          { src: "/guide/portail-pae.png", legende: "Mon PAE (données d'essai) : la proposition attend la coordination ; l'UE 333, posée par l'école, reste au programme.", etroite: true },
+          { src: "/guide/portail-pae-confirmer.png", legende: "Le PAE confirmé par l'école : l'étudiant le relit, puis « Confirmer mon PAE ».", etroite: true },
+        ],
+      },
+      {
+        titre: "Le candidat, sans adresse de l'institut",
+        pour: "sec coo dir",
+        ou: "Fiche → Suivi → bloc « Pas encore d'adresse de l'institut ».",
+        texte: "Un étudiant inscrit qui n'a pas encore son adresse de l'institut reçoit un code d'accès à son adresse privée. Il entre par « Pas encore d'adresse de l'institut ? Entrer avec mon code d'accès » et n'y voit que sa demande de valorisation et ses documents. Le code vaut jusqu'à ce que son adresse d'institut soit encodée, et au plus 60 jours.",
+        savoir: [
+          "Le code part tout seul aux dossiers créés depuis la mise en service ; pour les autres, ou quand il est perdu ou échu : [[Envoyer un code d'accès]] (secrétariat et direction).",
+          "Envoyer un nouveau code annule le précédent.",
+          "Dès que l'adresse de l'institut est encodée, il entre comme les autres : lien de première visite, puis son mot de passe.",
+        ],
+        images: [
+          { src: "/guide/portail-candidat.png", legende: "L'entrée du candidat : son adresse privée et le code reçu.", etroite: true },
+          { src: "/guide/fiche-code-candidat.png", legende: "Fiche → Suivi : le code envoyé, sa validité, et [[Envoyer un nouveau code]]." },
+        ],
+      },
+      {
+        titre: "Écrire aux étudiants",
+        ou: "Étudiants → rail → Écrire aux étudiants (les enseignants : Mes cours → Écrire à mes étudiants).",
+        texte: "Choisissez à qui — une section, les inscrits d'une ou plusieurs UE, des étudiants cherchés par leur nom —, voyez la liste de ceux qui recevront, puis l'objet et le texte, et [[Envoyer|IconSend|fort]]. L'étudiant le lit dans son espace (onglet « Messages ») et peut répondre ; un courriel l'avertit, sans le contenu, un par jour au plus. « Envoyés » montre, message par message, qui l'a lu (✓) et les réponses, auxquelles vous répondez sur la même ligne.",
+        savoir: [
+          "Le secrétariat et la direction écrivent à tous ; la coordination aux étudiants de ses sections ; un enseignant aux inscrits de ses UE.",
+          "La réponse d'un étudiant revient à l'auteur du message, avec une notification sur son tableau de bord ; la direction lit tout.",
+          "Un étudiant sans espace (ni adresse de l'institut ni code de candidat) ne le reçoit pas : l'aperçu le dit avant l'envoi.",
+          "Un message envoyé par erreur se [[Retirer|IconX]] : il quitte les espaces, il reste au registre avec son fil.",
+        ],
+        images: [
+          { src: "/guide/messages-ecrire.png", legende: "Écrire (données d'essai) : à gauche les destinataires et la liste de ceux qui recevront, à droite l'objet et le texte." },
+          { src: "/guide/messages-suivi.png", legende: "Envoyés → un message : qui l'a lu, la réponse de l'étudiant, et la vôtre." },
+          { src: "/guide/portail-messages.png", legende: "Ce que lit l'étudiant, avec le fil de la conversation.", etroite: true },
+        ],
+      },
+      {
+        titre: "Depuis la Belgique seulement",
+        pour: "sec coo dir",
+        ou: "Fiche → Suivi → bloc « Son espace s'ouvre… ».",
+        texte: "L'espace ne s'ouvre que depuis une connexion belge, et pas au travers d'un VPN ni d'un hébergeur connu. Un étudiant en stage ou en Erasmus à l'étranger : [[Ouvrir hors de Belgique]], une date de fin et un motif, puis [[Enregistrer|fort]]. L'ouverture part vers le site des étudiants dans les deux minutes.",
+        savoir: [
+          "Le secrétariat et la direction ouvrent, prolongent et retirent ; la coordination le lit.",
+          "Une ouverture vaut au plus un an, puis se renouvelle. Le motif est obligatoire.",
+          "Un téléphone belge en roaming passe : son adresse reste celle de son opérateur.",
+          "La page de vérification d'une pièce (le QR) reste ouverte au monde entier.",
+          "Le même bloc dit la dernière connexion de l'étudiant, les pièces qu'il a ouvertes et les accusés qu'il a signés.",
+        ],
+        images: [
+          { src: "/guide/fiche-espace-hors-belgique.png", legende: "Fiche → Suivi (données d'essai) : ouvert hors de Belgique jusqu'au 31/01/2027 pour un stage, avec [[Prolonger]] et [[Retirer]]." },
+        ],
+      },
+      {
+        titre: "Ce qu'il y trouve",
+        texte: "Ses résultats publiés (séance close et publiée), les pièces que l'école lui a envoyées par Lucie, et les règlements destinés aux étudiants. Chaque pièce s'ouvre, s'imprime, et son accusé de réception se signe par un code à six chiffres envoyé à l'adresse d'école.",
+        savoir: [
+          "À la clôture d'une délibération, chaque délibéré reçoit d'office la pièce de sa décision : attestation de réussite, ou motivation d'ajournement ou de refus — la même que celle produite par Éditions. Puis un seul courriel : « un nouveau document vous attend ».",
+          "Une pièce se télécharge librement pendant 90 jours ; ensuite, un code reçu par courriel l'ouvre pour une heure.",
+          "Sous 10, l'espace affiche « NA », comme les pièces remises à l'étudiant.",
+          "Le registre des envois montre ces pièces « dans l'espace », et la fiche (onglet Suivi) dit sa dernière connexion, les pièces ouvertes et les accusés signés.",
+        ],
+        images: [
+          { src: "/guide/portail-documents.png", legende: "Mes documents : chaque pièce avec sa référence et sa date de téléchargement libre, [[Ouvrir]] puis « Signer l'accusé de réception ».", etroite: true },
+        ],
+      },
+      {
+        titre: "Mon parcours, mes frais, l'aide",
+        texte: "Trois autres onglets de l'espace. « Mon parcours » : les unités de sa section, par bloc, dans leur état (acquise, à son programme, accessible, en attente d'une délibération, pas encore accessible, avec la raison) et les crédits acquis. « Mes frais » : total, versé, reste à payer, l'échéance du solde, le détail et ses versements ; et, tant qu'il reste à payer, le QR à scanner avec l'application de sa banque, qui remplit bénéficiaire, montant et communication structurée. « Aide et règles » : un petit mode d'emploi de l'espace, la grille de lecture des résultats (réussi, NA, ajourné, refusé, faveur, VA) et les règlements à lire et à signer.",
+        savoir: [
+          "Les chiffres sont ceux de Lucie : le parcours vient du moteur du PAE, les frais de la note de frais de l'étudiant.",
+          "Un candidat (code d'accès) voit ses frais ; pas encore son parcours.",
+        ],
+        images: [
+          { src: "/guide/portail-parcours.png", legende: "Mon parcours (données d'essai).", etroite: true },
+          { src: "/guide/portail-frais.png", legende: "Mes frais : le reste à payer et le QR de paiement.", etroite: true },
+          { src: "/guide/portail-aide.png", legende: "Aide et règles : le mode d'emploi de l'espace, puis la grille de lecture et les règlements.", etroite: true },
+        ],
+      },
+      {
+        titre: "Voir l'espace comme l'étudiant (direction)",
+        pour: "dir",
+        ou: "Fiche → Suivi → bloc « Son espace étudiant » → Voir son espace.",
+        texte: "Pour tester ou vérifier, [[Voir son espace|IconEye]] ouvre, dans un nouvel onglet, l'espace de l'étudiant tel qu'il le voit : ses résultats, ses messages, son PAE, ses documents, ses frais. Un bandeau rappelle qu'il s'agit d'un aperçu de la direction.",
+        savoir: [
+          "Lecture seule : rien ne s'enregistre, et rien de ce que vous ouvrez ne compte comme lu ni signé par l'étudiant.",
+          "Le lien vaut une minute et ne sert qu'une fois ; la session d'aperçu dure 30 minutes. Chaque aperçu se trace (qui, quel étudiant, quand).",
+          "Réservé à la direction et à l'administrateur.",
+        ],
+        images: [
+          { src: "/guide/fiche-voir-espace.png", legende: "Fiche → Suivi : « Voir son espace », en haut à droite du bloc." },
+          { src: "/guide/portail-apercu-direction.png", legende: "L'espace ouvert en aperçu, avec son bandeau (données d'essai).", etroite: true },
+        ],
+      },
+      {
+        titre: "Le QR d'authenticité",
+        texte: "Les attestations et motivations sorties de Lucie portent, au-dessus de la signature, une référence et un petit QR code. Qui le scanne — un employeur, une autre école — arrive sur la page de vérification du site des étudiants : la nature de la pièce, la personne, l'unité, la date et qui l'a produite ; ou « référence inconnue ».",
+        savoir: [
+          "Le diplôme n'en porte pas : il a la signature manuscrite.",
+          "La vérification est publique et ne montre que ce qui est imprimé sur la pièce.",
+        ],
+        images: [
+          { src: "/guide/portail-attestation.png", legende: "Une attestation de réussite (données d'essai) : la ligne « Pièce authentifiable · réf. … » et le QR, juste au-dessus de la signature.", etroite: true },
+          { src: "/guide/portail-verification.png", legende: "Ce que voit celui qui scanne : « Pièce authentique », et ce qu'elle atteste.", etroite: true },
         ],
       },
     ],
@@ -947,6 +1114,8 @@ export const RUBRIQUES = [
           "Une note sous 10 ne s'enregistre pas sans son « Justificatif d'échec » (panneau de droite). Écrivez-le, ou « Choisir dans la liste ».",
           "Ce justificatif devient la motivation de l'échec en délibération. Le Conseil peut la réécrire.",
           "Unité en évaluation unique : la note d'un acquis encodée sur un cours vaut pour tous les cours qui le portent.",
+          "Lucie vous rappelle la délibération par courriel, à J-10 et J-3, avec ce qui reste à encoder. Le dernier délai pour vos points est J-2 ; passé ce délai, la coordination de la section en est avertie.",
+          "Une séance passée sans présences encodées vous est rappelée le lendemain, puis chaque lundi ; un avis de valorisation ou d'aménagement demandé, après 5 jours ouvrables, puis 10.",
         ],
         image: "/guide/mescours-notes.png",
         legende: "Un cours ouvert, face « Notes » : une case par étudiant et par acquis ; à droite, ce que vous évaluez.",
@@ -989,6 +1158,32 @@ export const RUBRIQUES = [
           { src: "/guide/mescours-journee.png", legende: "Ma journée : un clic sur une séance, puis [[Afficher le QR|IconQrcode|fort]], [[Présences|IconUserCheck]], [[Ticket de sortie|IconTicket]], [[Notes|IconPencil]] ou [[Étudiants|IconUsers]]." },
           { src: "/guide/mescours-qr.png", legende: "Le QR projeté en classe : le compteur des présents et l'heure de fermeture du scan, sous le code.", etroite: true },
           { src: "/guide/mescours-absents.png", legende: "Au tableau de bord, après la séance : les étudiants qui n'ont pas scanné, un statut pour chacun, puis [[Enregistrer|fort]].", etroite: true },
+        ],
+      },
+      {
+        titre: "Ce que voit l'étudiant quand il scanne",
+        texte: "Aucune application à installer : l'appareil photo suffit. La première fois sur un téléphone, l'étudiant tape son adresse d'école et reçoit un code à six chiffres (valable dix minutes) ; ensuite, un scan suffit. L'écran lui dit aussitôt que sa présence est enregistrée, avec l'heure.",
+        savoir: [
+          "Lucie compare l'adresse tapée à l'adresse d'école de la fiche : une fiche sans adresse d'école, ou fausse, bloque le lien.",
+          "Scanner deux fois ne double rien ; un téléphone ne sert qu'à un étudiant.",
+          "Lucie ne garde du téléphone qu'un identifiant chiffré et son type — ni position, ni numéro.",
+        ],
+        images: [
+          { src: "/guide/presence-etudiant-adresse.png", legende: "Première fois : l'adresse d'école, puis « Recevoir mon code ».", etroite: true },
+          { src: "/guide/presence-etudiant-code.png", legende: "Le code reçu par courriel, puis « Valider et enregistrer ma présence ».", etroite: true },
+          { src: "/guide/presence-etudiant-ok.png", legende: "C'est fait : la présence est enregistrée, avec le cours et l'heure.", etroite: true },
+        ],
+      },
+      {
+        titre: "Écrire à mes étudiants",
+        ou: "Mes cours → rail → Écrire à mes étudiants.",
+        texte: "Un message aux inscrits d'une ou plusieurs de vos UE (ou à des étudiants choisis parmi eux), qu'ils lisent dans leur espace étudiant. Vous voyez avant l'envoi qui le recevra, puis qui l'a lu (✓), et leurs réponses, qui reviennent à vous.",
+        savoir: [
+          "Un courriel avertit l'étudiant qu'un message l'attend, sans le contenu.",
+          "Une réponse d'étudiant s'annonce aussi sur votre tableau de bord.",
+        ],
+        images: [
+          { src: "/guide/messages-ecrire.png", legende: "Écrire : les UE, la liste de ceux qui recevront, puis l'objet et le texte." },
         ],
       },
       {
@@ -1277,7 +1472,7 @@ export const RUBRIQUES = [
       {
         titre: "Textes et procédures",
         ou: "Documentation → Textes et procédures (les trois faces : Textes et procédures · Mode d'emploi de Lucie · Conventions).",
-        texte: "Décrets, circulaires, règlements et procédures de l'Institut. Ce qui vous attend passe en tête. Ouvrez le texte ([[Lire]]), puis cochez « Je confirme avoir pris connaissance de ce document » et [[Confirmer|fort]].",
+        texte: "Décrets, circulaires, règlements et procédures de l'Institut. Ce qui vous attend passe en tête. Le trait à gauche de chaque ligne dit où vous en êtes : rouge, à confirmer ; vert, lu ; bleu, pour information. Touchez la ligne pour ouvrir le texte, puis cochez « Je confirme avoir pris connaissance de ce document » et [[Confirmer|fort]].",
         savoir: [
           "La case ne se coche qu'une fois le texte affiché.",
           "Une version publiée ne se modifie plus. Une nouvelle version dit si elle demande une nouvelle confirmation.",
@@ -1285,7 +1480,7 @@ export const RUBRIQUES = [
           "Chaque texte s'imprime : [[Imprimer|IconSend|sortir]], au pied du texte ouvert — sommaire, version et « produit par » sur la pièce.",
         ],
         images: [
-          { src: "/guide/documentation-textes.png", legende: "Le texte à confirmer est signalé en tête et dans la liste ; [[Lire]] l'ouvre (données d'essai)." },
+          { src: "/guide/documentation-textes.png", legende: "Une seule liste : trait rouge à confirmer, vert lu, bleu pour information ; la ligne s'ouvre d'un toucher (données d'essai)." },
           { src: "/guide/documentation-lire.png", legende: "Le texte ouvert : la case « Je confirme avoir pris connaissance de ce document », puis [[Confirmer|fort]] ; [[Imprimer|IconSend|sortir]] à droite." },
         ],
       },
@@ -1382,6 +1577,21 @@ export const RUBRIQUES = [
         ],
       },
       {
+        titre: "Les rappels par courriel",
+        ou: "Configuration → Documents et envois → Courriels → Rappels.",
+        texte: "Lucie rappelle à chacun ce qui l'attend, par courriel à son adresse d'institut. Un rappel ordinaire entre dans le récapitulatif du matin ; un rappel urgent (le jour J d'une échéance) part aussitôt. Aujourd'hui : les échéances de l'échéancier — GEDI, publication des résultats, fenêtres de recours, préparation des UE… — au responsable de l'échéance, sinon aux comptes de son rôle ; et la délibération : la date aux professeurs à J-10 et J-3, le dernier délai de leurs points à J-2, « délai dépassé » (copie à la coordination), « date à poser » quand l'UE se termine sans séance datée, et la séance passée qui n'est pas close ; et le personnel : présences à compléter, avis attendus (VA, aménagements), propositions de PAE en ligne, délais des recours et de la discipline, et chaque lundi un bilan de ce qui reste à faire (VA, absences au-delà du seuil, frais échus, aménagements) ; et les étudiants, par leur espace : document jamais ouvert, accusé à signer, PAE en ligne, message non lu, solde des frais, demande de VA sans pièce — un seul avis par jour, sans contenu.",
+        savoir: [
+          "La direction seule règle : un interrupteur général et un par rappel. Personne ne se désabonne. Depuis la version 3.5.000, les rappels sont éteints au départ : rien ne part tant que la direction n'a pas allumé l'interrupteur général.",
+          "La coordination ne reçoit que les rappels de ses sections.",
+          "Un étudiant reçoit au plus un courriel par jour, entre 8 h et 20 h, qui dit seulement ce qui l'attend et renvoie à son espace. Rien ne se calcule tant que l'espace des étudiants n'est pas installé.",
+          "« Publication des résultats » et les fenêtres de recours naissent désormais de la date de séance et de la date de publication de la délibération.",
+          "Sur la version de test, rien ne part tout seul : [[M’envoyer mes rappels maintenant]] sert d'essai. « Derniers rappels » dit ce qui est parti, à qui et quand.",
+        ],
+        images: [
+          { src: "/guide/configuration-rappels.png", legende: "Les rappels : l'interrupteur général, un par rappel, l'essai, et ce qui est parti (données d'essai)." },
+        ],
+      },
+      {
         titre: "Accès, fonctions, sécurité",
         ou: "Configuration → Accès → Accès · Sécurité.",
         texte: "« Plafonds par rôle » : ce que chaque rôle autorise au mieux, module par module. « Accès par personne » : ce que chaque compte a réellement. « Les gestes » : pour chaque geste et chaque rôle, oui, non, ou par demande pour la coordination.",
@@ -1458,4 +1668,118 @@ export function modeEmploiPour(role, voir = null) {
       .map(r => ({ ...r, points: r.points.filter(p => garde(p.pour)) }))
       .filter(r => r.points.length),
   };
+}
+
+/* LE MODE D'EMPLOI EN PDF — UN SEUL DOCUMENT (3.1.512, Charles, 30 octobre 2026 : « le mode d'emploi pdf doit inclure
+ * la prise de présences, un seul doc donc, puisque tout le monde a le guide en ligne »). Il se COMPOSE de ce contenu,
+ * pour le public de celui qui le demande : il ne se rédige plus à part, il ne prend donc plus de retard. Les images
+ * restent des chemins (`/guide/…`) : c'est l'écran qui les joint avant de demander le PDF, le serveur ne les a pas. */
+const escP = x => String(x ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const boutonsP = h => String(h || '').replace(/\[\[([^\]|]+)[^\]]*\]\]/g, (_, l) => `<b class="me-bt">${l.trim()}</b>`);
+const enrichiP = t => boutonsP(escP(t));
+
+/* LE PDF A LE DESSIN DU GUIDE EN LIGNE (3.1.520, Charles, 30 octobre 2026 : « regarde le mode d'emploi de Lucie, c'est en
+ * bleu »). Mêmes pièces qu'à l'écran (`pages/Aide.jsx`) : en-tête de chapitre (pastille marine, « Chapitre n sur N », publics
+ * en pastilles), points au liseré principal avec leur numéro dans un cercle, chemin « Où » en étapes, « À savoir » encadré
+ * avec l'ampoule or et des puces accent, texte à gauche et captures à droite. Couleurs de la Maison IIP, en dur : une pièce
+ * imprimée garde la charte en hexadécimal. */
+const ME = { principal: '#16406A', accent: '#0A8FBF', disponible: '#3F7FD0', or: '#F9B619', filet: '#D8DCE4', texte: '#1F2A3C', gris: '#64748B' };
+export const STYLES_MODE_EMPLOI = `
+  .me-garde { padding: 26mm 0 0; }
+  .me-garde h1 { font-size: 24pt; color: ${ME.principal}; margin: 0 0 3mm; }
+  .me-garde p { font-size: 11pt; color: #475569; margin: 0 0 2mm; max-width: 150mm; line-height: 1.45; }
+  .me-sommaire { margin-top: 12mm; border: 0.3mm solid ${ME.filet}; border-left: 1.2mm solid ${ME.principal}; border-radius: 0 3mm 3mm 0; padding: 4mm 5mm; font-size: 10pt; }
+  .me-sommaire b { color: ${ME.principal}; }
+  .me-sommaire ol { margin: 2mm 0 0; padding-left: 6mm; columns: 2; column-gap: 10mm; }
+  .me-sommaire li { margin: 0 0 1mm; } .me-sommaire li::marker { color: ${ME.principal}; font-weight: 700; }
+  .me-chap { page-break-before: always; }
+  .me-tete { display: flex; align-items: flex-start; gap: 4mm; border: 0.3mm solid ${ME.filet}; border-radius: 3mm; padding: 4mm 5mm; margin: 0 0 4mm; page-break-inside: avoid; }
+  .me-tete .me-de { font-size: 8.5pt; color: ${ME.gris}; margin: 0 0 1.5mm; }
+  .me-tete h2 { display: flex; align-items: center; gap: 3mm; font-size: 16pt; color: ${ME.principal}; margin: 0 0 2mm; }
+  .me-carre { display: inline-grid; place-items: center; width: 9mm; height: 9mm; border-radius: 2.2mm; background: ${ME.principal}; color: #fff; font-size: 11pt; font-weight: 700; flex: none; }
+  .me-resume { font-size: 10pt; color: #334155; margin: 0 0 2mm; }
+  .me-publics { display: flex; flex-wrap: wrap; gap: 1.2mm; }
+  .me-pub { background: ${ME.disponible}; color: #fff; font-size: 7.5pt; font-weight: 600; border-radius: 0.8mm; padding: 0.4mm 1.5mm; }
+  .me-point { border: 0.3mm solid ${ME.filet}; border-left: 1.2mm solid ${ME.principal}; border-radius: 0 3mm 3mm 0; padding: 3.5mm 4.5mm; margin: 0 0 4mm; font-size: 9.5pt; color: ${ME.texte}; }
+  .me-point h3 { display: flex; align-items: center; gap: 2.5mm; font-size: 11.5pt; color: ${ME.principal}; margin: 0 0 2.5mm; page-break-after: avoid; }
+  .me-rond { display: inline-grid; place-items: center; min-width: 5.5mm; height: 5.5mm; padding: 0 1mm; border-radius: 3mm; background: ${ME.principal}; color: #fff; font-size: 8pt; font-weight: 700; flex: none; }
+  .me-corps.avec-images { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 0.85fr); gap: 5mm; align-items: start; }
+  .me-corps p { margin: 0 0 2mm; line-height: 1.5; }
+  .me-corps ul { margin: 0 0 2mm; padding-left: 5mm; } .me-corps li { margin: 0 0 1mm; }
+  .me-chemin { display: flex; flex-wrap: wrap; align-items: center; gap: 1.2mm; font-size: 8.5pt; margin: 0 0 2.5mm; }
+  .me-chemin .pas { border: 0.3mm solid ${ME.filet}; border-radius: 1.5mm; padding: 0.5mm 1.8mm; color: ${ME.texte}; background: #fff; }
+  .me-chemin .sep { color: #CBD5E1; } .me-chemin .reste { color: ${ME.gris}; }
+  .me-chemin .lieu { color: #94A3B8; }
+  .me-savoir { border: 0.3mm solid #E2E8F0; border-radius: 2mm; padding: 2.5mm 3.5mm; margin: 2mm 0 0; font-size: 9pt; page-break-inside: avoid; }
+  .me-savoir .titre { display: flex; align-items: center; gap: 1.5mm; font-weight: 700; color: ${ME.principal}; margin: 0 0 1.2mm; }
+  .me-savoir ul { list-style: none; margin: 0; padding: 0; }
+  .me-savoir li { position: relative; padding-left: 3.5mm; margin: 0 0 1mm; color: #475569; line-height: 1.45; }
+  .me-savoir li::before { content: ''; position: absolute; left: 0; top: 1.6mm; width: 1.4mm; height: 1.4mm; border-radius: 50%; background: ${ME.accent}; }
+  .me-images { display: block; }
+  .me-fig { display: block; margin: 0 0 3mm; page-break-inside: avoid; break-inside: avoid; }
+  .me-fig.etroite { display: inline-block; vertical-align: top; width: 40mm; margin-right: 3mm; }
+  .me-fig img { display: block; max-width: 100%; max-height: 85mm; border: 0.3mm solid ${ME.filet}; border-radius: 2mm; }
+  .me-fig figcaption { font-size: 7.8pt; color: ${ME.gris}; margin-top: 1mm; }
+  .me-corps.sans-images .me-fig.etroite { width: 50mm; }
+  .me-bt { font-weight: 700; color: ${ME.principal}; border: 0.3mm solid #94A3B8; border-radius: 1mm; padding: 0 1mm; white-space: nowrap; }
+`;
+const AMPOULE = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="${ME.or}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h1m8-9v1m8 8h1m-15.4-6.4l.7.7m12.1-.7l-.7.7"/><path d="M9 16a5 5 0 1 1 6 0a3.5 3.5 0 0 0-1 3a2 2 0 0 1-4 0a3.5 3.5 0 0 0-1-3"/><path d="M9.7 17h4.6"/></svg>`;
+const LIEU = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11a3 3 0 1 0 6 0a3 3 0 0 0-6 0"/><path d="M17.66 16.66l-4.24 4.24a2 2 0 0 1-2.83 0l-4.25-4.24a8 8 0 1 1 11.32 0z"/></svg>`;
+
+
+const NOMS_PUBLIC_P = { ens: 'enseignants', sec: 'secrétariat', coo: 'coordinations', dir: 'direction' };
+const PASTILLE_PUBLIC = { ens: 'Enseignants', sec: 'Secrétariat', coo: 'Coordinations', dir: 'Direction' };
+
+/** Le chemin « Où », en étapes, comme `Chemin` de l'écran. */
+function cheminP(ou) {
+  const [chemin, ...reste] = String(ou).split(/(?<=\.)\s|·|;/).map(x => x.trim()).filter(Boolean);
+  const etapes = String(chemin || '').replace(/\.$/, '').split('→').map(x => x.trim()).filter(Boolean);
+  return `<div class="me-chemin"><span class="lieu">${LIEU}</span>${etapes.map((x, i) => `${i ? '<span class="sep">›</span>' : ''}<span class="pas">${enrichiP(x)}</span>`).join('')}${reste.length ? `<span class="reste">· ${reste.map(enrichiP).join(' · ')}</span>` : ''}</div>`;
+}
+
+/** Un point, imprimé comme la carte de l'écran. `images` : chemins ou data URL ; `contenu` : HTML déjà sûr. */
+export function pointImprimable(p, n, ajouter = () => {}) {
+  const l = [...(p.image ? [{ src: p.image, legende: p.legende }] : []), ...(p.images || [])];
+  l.forEach(i => ajouter(i.src));
+  const etroites = l.length && l.every(i => i.etroite);
+  const imgs = l.length ? `<div class="me-images">${l.map(i => `<figure class="me-fig${i.etroite ? ' etroite' : ''}">
+      <img src="${escP(i.src)}" alt="">${i.legende ? `<figcaption>${enrichiP(i.legende)}</figcaption>` : ''}</figure>`).join('')}</div>` : '';
+  const texte = `<div>${p.ou ? cheminP(p.ou) : ''}${p.texte ? `<p>${enrichiP(p.texte)}</p>` : ''}${p.contenu || ''}
+      ${p.savoir?.length ? `<div class="me-savoir"><div class="titre">${AMPOULE} À savoir</div><ul>${p.savoir.map(s => `<li>${enrichiP(s)}</li>`).join('')}</ul></div>` : ''}</div>`;
+  // Des captures de téléphone côte à côte se lisent sous le texte ; une capture d'écran large, à droite.
+  const corps = !l.length ? `<div class="me-corps">${texte}</div>`
+    : etroites || p.images_dessous ? `<div class="me-corps sans-images">${texte}${imgs}</div>`
+    : `<div class="me-corps avec-images">${texte}${imgs}</div>`;
+  return `<div class="me-point">${p.titre ? `<h3>${n != null ? `<span class="me-rond">${n}</span>` : ''}${escP(p.titre)}</h3>` : ''}${corps}</div>`;
+}
+
+/** L'en-tête d'un chapitre et ses points. */
+export function chapitreImprimable(r, i, total, ajouter) {
+  const pubs = String(r.pour || '').split(/\s+/).filter(x => PASTILLE_PUBLIC[x]);
+  return `<section class="me-chap">
+    <div class="me-tete"><div style="flex:1;min-width:0">
+      <p class="me-de">Chapitre ${i + 1} sur ${total}</p>
+      <h2><span class="me-carre">${i + 1}</span>${escP(r.titre)}</h2>
+      ${r.resume ? `<p class="me-resume">${enrichiP(r.resume)}</p>` : ''}
+      ${pubs.length ? `<div class="me-publics">${pubs.map(x => `<span class="me-pub">${PASTILLE_PUBLIC[x]}</span>`).join('')}</div>` : ''}
+    </div></div>
+    ${r.points.map((p, k) => pointImprimable(p, p.titre ? k + 1 : null, ajouter)).join('')}
+  </section>`;
+}
+
+
+/** Le corps du PDF : page de garde et sommaire, puis un chapitre par page. Rend { corps, images } (chemins à joindre). */
+export function modeEmploiImprimable(role, voir = null) {
+  const m = modeEmploiPour(role, voir);
+  const images = new Set();
+  const ajouter = src => images.add(src);
+  const pourQui = m.publics ? `Édition pour : ${m.publics.map(p => NOMS_PUBLIC_P[p]).join(', ')}.` : 'Édition complète (tous les publics).';
+  const garde = `<section class="me-garde">
+    <h1>Lucie — mode d'emploi</h1>
+    <p>Le même contenu que le guide en ligne (Documentation → Mode d'emploi), composé le jour où vous l'imprimez. ${pourQui}</p>
+    <p>Version décrite : ${escP(m.version)}. Les captures viennent d'une base d'essai : les noms sont fictifs.</p>
+    <div class="me-sommaire"><b>Sommaire</b><ol>${m.rubriques.map(r => `<li>${escP(r.titre)}</li>`).join('')}</ol></div>
+  </section>`;
+  const chapitres = m.rubriques.map((r, i) => chapitreImprimable(r, i, m.rubriques.length, ajouter)).join('');
+  return { corps: garde + chapitres, images: [...images], version: m.version };
 }

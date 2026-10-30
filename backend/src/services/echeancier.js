@@ -16,6 +16,7 @@ import {
 } from './echeancier_dates.js';
 import { DATES_GEDI } from '../db/migrations_echeancier.js';
 import { premierDixiemeUE } from '../lib/datesReelles.js';
+import { mettreEnFile, comptesDuRole } from '../lib/rappels.js';
 
 const aujourdhui = () => iso(new Date());
 
@@ -141,8 +142,42 @@ export function instancier(db, anneeScolaire, { verbose = false } = {}) {
         continue;
       }
 
-      // Les autres ancres (engagement, publication, deliberation, contrat_fin,
-      // evenement) sont déclenchées à l'événement, pas en masse.
+      // LA DÉLIBÉRATION ET LA PUBLICATION SE LISENT DES SÉANCES (3.1.522). Ces deux ancres attendaient un
+      // `declencher()` que personne n'appelait : « publication des résultats » et les fenêtres de recours ne
+      // naissaient jamais. Elles se lisent désormais de `deliberation_seance` — la date de séance posée, la date de
+      // publication posée à la clôture —, quelle que soit la porte qui les a écrites. Comme pour les UE, un jalon
+      // jamais touché suit la date quand elle change.
+      if (ancre === 'deliberation' || ancre === 'publication') {
+        const col = ancre === 'deliberation' ? 'date_seance' : 'publie_le';
+        let seances = [];
+        try {
+          seances = db.prepare(`SELECT s.id, s.ue_num, s.session, s.num_organisation, s.${col} AS d,
+              (SELECT o.section FROM organisation_ue o WHERE o.ue_num = s.ue_num AND o.annee_scolaire = s.annee_scolaire
+                 AND (s.num_organisation = 0 OR o.num_organisation = s.num_organisation) ORDER BY o.num_organisation LIMIT 1) AS section
+            FROM deliberation_seance s WHERE s.annee_scolaire = ? AND s.${col} IS NOT NULL AND COALESCE(s.reprise, 0) = 0`).all(anneeScolaire);
+        } catch { seances = []; }
+        for (const se of seances) {
+          const ctx = { ...ctxBase, ancres: { [ancre]: String(se.d).slice(0, 10) } };
+          // Un jalon déjà passé quand la séance l'engendre ne se crée pas : la reprise d'une année close ferait
+          // pleuvoir des « en retard » sur des publications faites depuis longtemps.
+          const dates = calculerDates(regle, ctx).map(d => d.date_due).filter(d => d && d >= aujourdhui());
+          const precis = `${se.session === 2 ? '2e session' : '1re session'}${se.num_organisation ? ` · org ${se.num_organisation}` : ''}`;
+          for (const date_due of dates) {
+            ajouter(type, date_due, { libelle: `UE ${se.ue_num}${se.section ? ' — ' + se.section : ''} (${precis})`,
+              source_type: 'deliberation_seance', source_id: se.id });
+          }
+          if (dates.length) try {
+            db.prepare(`DELETE FROM echeance WHERE type_id = ? AND annee_scolaire = ? AND source_type = 'deliberation_seance'
+                AND source_id = ? AND date_due NOT IN (${dates.map(() => '?').join(',')})
+                AND genere_auto = 1 AND statut = 'a_faire' AND fait_le IS NULL AND COALESCE(commentaire, '') = ''
+                AND responsable_user_id IS NULL AND NOT EXISTS (SELECT 1 FROM tache t WHERE t.echeance_id = echeance.id)`)
+              .run(type.id, anneeScolaire, se.id, ...dates);
+          } catch (e) { console.error(`   ! ${type.code} — séance ${se.id} : ${e.message}`); }
+        }
+        continue;
+      }
+
+      // Les autres ancres (engagement, contrat_fin, evenement) sont déclenchées à l'événement, pas en masse.
       continue;
     }
 
@@ -244,7 +279,17 @@ export function genererRappels(db, { verbose = false } = {}) {
       (type, titre, corps, lien, cible_role, cible_user_id, cree_par, section)
     VALUES ('echeance_rappel', ?, ?, ?, ?, ?, 'systeme', ?)
   `);
-  const sectionDe = db.prepare(`SELECT o.section FROM organisation_ue o WHERE o.id = ?`);
+  const sectionOrg = db.prepare(`SELECT o.section FROM organisation_ue o WHERE o.id = ?`);
+  const sectionSeance = db.prepare(`SELECT o.section FROM deliberation_seance s JOIN organisation_ue o
+    ON o.ue_num = s.ue_num AND o.annee_scolaire = s.annee_scolaire AND (s.num_organisation = 0 OR o.num_organisation = s.num_organisation)
+    WHERE s.id = ? ORDER BY o.num_organisation LIMIT 1`);
+  const sectionDe = e => (e.source_type === 'organisation_ue' ? sectionOrg.get(e.source_id)?.section
+    : e.source_type === 'deliberation_seance' ? sectionSeance.get(e.source_id)?.section : null) || null;
+  // LE COURRIEL (3.1.522) : chaque rappel de l'échéancier entre aussi dans la file des courriels — au responsable
+  // nommé, sinon aux comptes de son rôle (une coordination : ses sections). Le jour J part aussitôt, le reste le matin.
+  const dejaMail = db.prepare(`SELECT 1 FROM rappel_envoye WHERE cible_type='echeance' AND cible_id=? AND jalon=? AND canal='email'
+      AND IFNULL(user_id,0)=IFNULL(?,0)`);
+  const tracerMail = db.prepare(`INSERT OR IGNORE INTO rappel_envoye (cible_type, cible_id, jalon, user_id, canal) VALUES ('echeance', ?, ?, ?, 'email')`);
 
   for (const e of echeances) {
     const reste = diffJours(today, e.date_due);   // < 0 = en retard
@@ -282,9 +327,17 @@ export function genererRappels(db, { verbose = false } = {}) {
       e.lien_interne || '/echeancier',
       userId ? null : (e.responsable_role || 'admin'),
       userId,
-      e.source_type === 'organisation_ue' ? (sectionDe.get(e.source_id)?.section || null) : null,
+      sectionDe(e),
     );
     tracer.run(e.id, cle, userId);
+    try {
+      const destinataires = userId ? [userId] : comptesDuRole(e.responsable_role || 'admin', sectionDe(e));
+      for (const uid of destinataires) {
+        if (dejaMail.get(e.id, cle, uid)) continue;
+        if (mettreEnFile({ utilisateurId: uid, cle: 'echeancier', titre, detail: corps, lien: e.lien_interne || '/echeancier', urgent: jalon === 'jour_j' }))
+          tracerMail.run(e.id, cle, uid);
+      }
+    } catch (err) { console.error('[echeancier] courriel :', err.message); }
     envoyes++;
     if (verbose) console.log(`   🔔 ${titre}`);
   }

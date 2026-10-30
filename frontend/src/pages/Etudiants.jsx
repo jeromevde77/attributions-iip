@@ -1,3 +1,4 @@
+import SuiviEspace from '../components/SuiviEspace.jsx';
 import ImportInscrireListe from '../components/ImportInscrireListe.jsx';
 import ImportTfe from '../components/ImportTfe.jsx';
 import { useTransfertsFermes } from '../lib/transferts.js';
@@ -16,7 +17,7 @@ import { RailLateral, Chevron } from '../components/ui.jsx';
 import SuiviEtudiant from '../components/SuiviEtudiant.jsx';
 import NouvelEtudiant from '../components/NouvelEtudiant.jsx';
 import {
-  IconAddressBook, IconListSearch, IconAlertTriangle, IconEyeCheck, IconTablePlus, IconArrowForwardUp, IconArchive, IconDoorExit, IconSchool, IconArrowBackUp, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconSend, IconWritingSign, IconWritingSignOff, IconX,
+  IconAddressBook, IconListSearch, IconAlertTriangle, IconEyeCheck, IconInbox, IconMessages, IconTablePlus, IconArrowForwardUp, IconArchive, IconDoorExit, IconSchool, IconArrowBackUp, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconSend, IconWritingSign, IconWritingSignOff, IconX,
   IconChecks, IconLock, IconGift,
   IconQrcode,
   IconCash, IconAdjustmentsHorizontal,
@@ -38,6 +39,8 @@ const DoublonsEtudiants = lazy(() => import('../components/DoublonsEtudiants.jsx
 const DoublesProgrammes = lazy(() => import('../components/DoublesProgrammes.jsx'));
 const PresenceQRSuivi = lazy(() => import('../components/PresenceQRSuivi.jsx'));
 const ExtraitsBancaires = lazy(() => import('../components/ExtraitsBancaires.jsx'));
+const PropositionsPAE = lazy(() => import('../components/PropositionsPAE.jsx'));
+const MessagesEtudiants = lazy(() => import('../components/MessagesEtudiants.jsx'));
 const HorsBloc = lazy(() => import('../components/HorsBloc.jsx'));
 const PaeHorsRegle = lazy(() => import('../components/PaeHorsRegle.jsx'));
 const DecisionsSansInscription = lazy(() => import('../components/DecisionsSansInscription.jsx'));
@@ -2535,6 +2538,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
           {/* LE SUIVI CONFIDENTIEL — la porte est jugée par le serveur, pas
               par l'onglet : à qui n'est ni enseignant de l'étudiant, ni sa
               coordination, ni la direction, l'écran dit que c'est fermé. */}
+          {onglet === 'suivi' && <SuiviEspace id={id} />}
           {onglet === 'suivi' && <SuiviEtudiant etudId={id} />}
 
           {/* FINANCES : tout ce qui touche à l'argent au même endroit — droit
@@ -3057,6 +3061,8 @@ export default function Etudiants() {
   const [controles, setControles] = useState(null);
   const [suiviQR, setSuiviQR] = useState(false);
   const [extraits, setExtraits] = useState(false);
+  const [paeEnLigne, setPaeEnLigne] = useState(false);
+  const [messagesEtud, setMessagesEtud] = useState(false);
   const [rapportPAE, setRapportPAE] = useState(false);
   const [importListe, setImportListe] = useState(false);
   const [importHisto, setImportHisto] = useState(false);
@@ -3673,6 +3679,9 @@ export default function Etudiants() {
         icon: IconQrcode, onClick: () => setSuiviQR(true) }] : []),
       /* LES EXTRAITS DE COMPTE (3.1.444) : ce que la banque a reçu, rattaché aux étudiants
          par leur communication structurée. Secrétariat et direction. */
+      /* LES MESSAGES AUX ÉTUDIANTS (3.1.516) : lus dans leur espace ; leurs réponses reviennent à l'auteur. */
+      ...(droitsRail.passe('admin', 'editeur', 'coordination') ? [{ key: 'messages-etudiants', label: 'Écrire aux étudiants — messages dans leur espace',
+        icon: IconMessages, onClick: () => setMessagesEtud(true) }] : []),
       ...(droitsRail.passe('admin', 'editeur') ? [{ key: 'extraits-bancaires', label: 'Extraits de compte — versements des étudiants',
         icon: IconCash, onClick: () => setExtraits(true) }] : []),
     ] },
@@ -3696,6 +3705,10 @@ export default function Etudiants() {
         onClick: () => setReportsOffice(true) }] : []),
       /* LA REVUE DES PAE (1er octobre 2026) : les étudiants cochés s'il y en a,
          sinon la liste telle qu'elle est filtrée, dans son ordre. */
+      /* LE PAE EN LIGNE (3.1.515) : ce que les étudiants ont coché dans leur espace ; la coordination reprend, corrige
+         ou refuse. La fenêtre s'y règle, par la direction. */
+      ...(droitsRail.peut('etudiants.pae_composer') ? [{ key: 'pae-en-ligne', label: 'PAE en ligne — propositions des étudiants',
+        icon: IconInbox, onClick: () => setPaeEnLigne(true) }] : []),
       { key: 'revue-pae', label: 'Revue des PAE', icon: IconEyeCheck,
         onClick: () => {
           const coches = filtres.filter(e => selEtudiants.has(e.id));
@@ -4182,6 +4195,12 @@ export default function Etudiants() {
 
       {extraits && (
         <Suspense fallback={null}><ExtraitsBancaires onFermer={() => setExtraits(false)} /></Suspense>
+      )}
+      {messagesEtud && (
+        <Suspense fallback={null}><MessagesEtudiants onFermer={() => setMessagesEtud(false)} /></Suspense>
+      )}
+      {paeEnLigne && (
+        <Suspense fallback={null}><PropositionsPAE Revue={RevuePAE} onFermer={() => { setPaeEnLigne(false); charger(); }} /></Suspense>
       )}
       {suiviQR && (
         <Suspense fallback={null}><PresenceQRSuivi onFermer={() => setSuiviQR(false)} /></Suspense>

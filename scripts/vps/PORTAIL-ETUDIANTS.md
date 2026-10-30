@@ -41,10 +41,21 @@ n'envoie même pas de courriel — il inscrit une demande que Lucie relève, vé
    ```
    Puis, une fois la dev vérifiée, la même chose pour la production (`portail-backend portail-frontend backend`).
 
+6. **Depuis la Belgique seulement** (3.1.513) : recopier `scripts/vps/geo-portail.sh` → `/opt/lucie/geo-portail.sh`,
+   le lancer une fois (`sudo sh /opt/lucie/geo-portail.sh`), puis l'inscrire chaque semaine dans la crontab de root :
+   ```
+   17 4 * * 1  sh /opt/lucie/geo-portail.sh >> /var/log/geo-portail.log 2>&1
+   ```
+   Il pose `geo/be.cidr` et `geo/vpn.cidr` dans le dossier de données de chaque portail ; le portail les relit seul.
+   **Sans ces listes, rien n'est bloqué** (le journal du portail le dit) : une installation incomplète ne ferme pas
+   l'espace à tout le monde. `PORTAIL_GEO=constat` (variable du conteneur) note les accès étrangers sans les bloquer ;
+   `PORTAIL_GEO=non` coupe le contrôle.
+
 ## Vérifier
 
 - `https://etudiants-dev.lucie-iip.be` affiche « Mon espace étudiant ».
-- `curl -s https://etudiants-dev.lucie-iip.be/api/portail/sante` → `{"ok":true}`.
+- `curl -s https://etudiants-dev.lucie-iip.be/api/portail/sante` → `{"ok":true,"geo":{"mode":"bloquer","belgique":…,"vpn":…}}` — les deux nombres ne sont pas à zéro.
+- Depuis un téléphone en 4G belge : l'espace s'ouvre ; par un VPN : « Votre espace ne s'ouvre que depuis la Belgique ».
 - `curl -s -o /dev/null -w '%{http_code}' https://etudiants-dev.lucie-iip.be/api/etudiants` → **404** (aucune route de Lucie).
 - Le journal de Lucie ne dit plus « [portail] non configuré ».
 - Depuis le conteneur du portail, Lucie est injoignable :

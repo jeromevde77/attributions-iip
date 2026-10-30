@@ -22,6 +22,9 @@ import { nouvelleReference, signatureFiligranee } from '../services/filigrane.js
 import { protegerSignature, jourDuJour } from '../lib/protectionSignature.js';
 import { getParam } from './parametres.js';
 import { recapActif, poserRecapActif, passerRecap, ceQuiAttend, migrerRecap } from '../lib/recapQuotidien.js';
+import { historiqueEtudiants } from '../lib/rappelsEtudiants.js';
+import { portailActif } from '../lib/portailSync.js';
+import { CATALOGUE as CATALOGUE_RAPPELS, reglagesRappels, reglerRappels, historiqueRappels, envoyerUrgents, rappelsEnAttente, migrerRappels } from '../lib/rappels.js';
 import { envoyerEmail, mailerConfigure, lireConfigSmtp, ecrireConfigSmtp, verifierSmtp } from '../services/mailer.js';
 
 const r = express.Router();
@@ -215,6 +218,23 @@ r.put('/recap', authRequired, roleRequired('admin'), (req, res) => {
 r.post('/recap/moi', authRequired, async (req, res) => {
   const r0 = await passerRecap({ seul: req.user.id, force: true });
   res.json(r0);
+});
+
+// ── Les rappels (3.1.522, lib/rappels.js) : le catalogue, les interrupteurs (direction seule), ce qui est parti ──
+r.get('/rappels', authRequired, roleRequired('admin'), (req, res) => {
+  migrerRappels();
+  res.json({ catalogue: CATALOGUE_RAPPELS, reglages: reglagesRappels(), recap_actif: recapActif(),
+    automatique: process.env.NODE_ENV === 'production', historique: historiqueRappels(60),
+    mes_attente: rappelsEnAttente(req.user.id).length,
+    // Les étudiants (3.1.525) : leur file, et si le portail existe — sans lui, rien ne se calcule.
+    historique_etudiants: historiqueEtudiants(60), portail_actif: portailActif() });
+});
+r.put('/rappels', authRequired, roleRequired('admin'), (req, res) => {
+  res.json({ reglages: reglerRappels(req.body || {}) });
+});
+// L'essai : tout ce qui m'attend dans la file part tout de suite, à moi seul.
+r.post('/rappels/moi', authRequired, roleRequired('admin'), async (req, res) => {
+  res.json(await envoyerUrgents({ seul: req.user.id }));
 });
 
 // ── Réglages (admin) : interrupteur et serveur SMTP ─────────────────────────
@@ -623,6 +643,27 @@ r.get('/journal', authRequired, gesteRequis('envois.envoyer'), (req, res) => {
  */
 /* LA COPIE D'UNE PIÈCE ENVOYÉE, telle qu'elle est partie (signée, sa référence). Commune au registre des envois
    et à l'espace de l'étudiant (3.1.475) : `{ erreur, code }` ou `{ type, corps, nom }`. */
+/**
+ * METTRE À DISPOSITION DANS L'ESPACE DE L'ÉTUDIANT (Charles, 30 octobre 2026 : « à terme on n'envoie pas de mail : on
+ * met à disposition, l'étudiant reçoit un mail qui dit qu'il a un message dans son espace ; il va voir et imprime »).
+ * Une mise à disposition est un ENVOI du registre, mode « espace », statut « depose » : même copie conservée, même
+ * référence, même signature refaite à l'identique (`copieDeLEnvoi`) — la pièce de l'espace est celle qu'on aurait
+ * imprimée. Aucun courriel ne part d'ici ; l'avis vient à part (lib/depotEspace.js).
+ */
+export function deposerDansLEspace({ etudiant, sujet, nom_fichier, html, type_doc, contenu = null, par = 'Lucie (dépôt d’office)' }) {
+  ensureTable();
+  const reference = nouvelleReference();
+  const jour = new Date().toLocaleDateString('fr-BE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const info = db.prepare(`INSERT INTO envoi_mail (lot, type_doc, destinataire_type, destinataire_id, destinataire_nom, email, sujet,
+      nom_fichier, taille, statut, erreur, envoye_par, reference, contenu, message, mode)
+    VALUES (?,?,'etudiant',?,?,?,?,?,?,'depose',NULL,?,?,?,NULL,'espace')`)
+    .run(`espace-${new Date().toISOString().slice(0, 10)}`, type_doc, etudiant.id, `${etudiant.prenom || ''} ${etudiant.nom || ''}`.trim(),
+      etudiant.email_ecole || '', sujet, nom_fichier, Buffer.byteLength(html), par, reference, contenu);
+  db.prepare('INSERT OR IGNORE INTO envoi_copie (envoi_id, html_gz, jour, empreinte) VALUES (?,?,?,NULL)')
+    .run(info.lastInsertRowid, compacter(html), jour);
+  return { id: Number(info.lastInsertRowid), reference };
+}
+
 export async function copieDeLEnvoi(id, { format = 'pdf' } = {}) {
   ensureTable();
   const m = db.prepare('SELECT * FROM envoi_mail WHERE id = ?').get(Number(id));

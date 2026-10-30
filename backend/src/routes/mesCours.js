@@ -894,6 +894,30 @@ r.post('/:coursCode/notes', authRequired, (req, res) => {
   res.json({ ok: true, session, proposees: n, complet, reprise });
 });
 
+/* CE QUI RESTE À ENCODER, POUR UN PROFESSEUR ET UN COURS (3.1.523, rappels de délibération). La règle de la
+ * complétude (`signalerSiComplet`), écrite une fois pour l'écran et pour les rappels : ses étudiants (ses groupes),
+ * hors cours reporté, dispense et séance close ; en seconde session, les ajournés sur leurs seuls acquis rouverts.
+ * Rend [{ id, nom, prenom, manque }] — `manque` = le nombre d'acquis (ou la note de cours) sans note ni mention. */
+export function resteAEncoder(profId, coursCode, annee, session = 1) {
+  const d = etudiantsDuCours(profId, coursCode, annee);
+  if (!d) return [];
+  const acquis = acquisDuCours(coursCode, d.ueNum, annee);
+  const cles = acquis.length ? acquis.map(a => a.aa_code) : [''];
+  const etat = sessionsDuCours(d, coursCode, annee, acquis);
+  const etus = session === 2 ? etat.seconde.etudiants : d.etudiants.filter(e => !etat.close(1, e.id));
+  const reporte = db.prepare(`SELECT 1 FROM etudiant_report_note WHERE etudiant_id = ? AND annee_scolaire = ?
+    AND cours_code = ? AND statut = 'accorde'`);
+  const dispCours = dispensesDeLUE(d.ueNum, annee);
+  const poses = new Set(db.prepare(`SELECT etudiant_id || '|' || aa_code k FROM note_proposee
+      WHERE annee_scolaire = ? AND cours_code = ? AND session = ? AND (note IS NOT NULL OR mention IS NOT NULL)`)
+    .all(annee, coursCode, session).map(x => x.k));
+  return etus
+    .filter(e => { try { return !reporte.get(e.id, annee, coursCode) && !dispenseDuCours(dispCours, e.id, coursCode); } catch { return true; } })
+    .map(e => ({ id: e.id, nom: e.nom, prenom: e.prenom,
+      manque: (session === 2 && e.aa_ouverts ? e.aa_ouverts : cles).filter(a => !poses.has(`${e.id}|${a}`)).length }))
+    .filter(e => e.manque > 0);
+}
+
 /* LE SECRÉTARIAT EST PRÉVENU QUAND UN COURS EST COMPLET (Charles, 8 octobre 2026 :
  * « une notification sur l'écran d'accueil pour le secrétariat quand un prof a
  * complété les notes d'un cours »). Complet = chaque étudiant de l'enseignant

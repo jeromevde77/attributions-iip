@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   IconSearch, IconX, IconHelpCircle, IconFileTypePdf, IconMapPin, IconArrowRight, IconArrowLeft,
-  IconBulb, IconChevronRight,
+  IconBulb, IconChevronRight, IconDeviceMobile, IconEyeCheck, IconSignature,
   IconAccessible, IconAward, IconBook, IconBooks, IconCertificate, IconChartBar, IconChecklist, IconHome, IconLayoutGrid, IconPencil, IconScale, IconSend, IconSettings, IconShieldExclamation, IconStairsUp, IconUserCheck, IconUsers,
   IconZoomIn, IconPlus, IconDeviceFloppy, IconCheck, IconTrash, IconDownload, IconUpload, IconFilter, IconCalendar, IconEye, IconArrowBackUp,
   IconQrcode, IconPrinter, IconFileSpreadsheet, IconClipboardText, IconLock, IconLockOpen, IconMail, IconRefresh, IconCopy,
@@ -17,7 +17,7 @@ const ICONES_BOUTON = { IconPlus, IconDeviceFloppy, IconCheck, IconTrash, IconDo
   IconRefresh, IconCopy, IconUserPlus, IconCalendarWeek, IconPlayerPlay, IconDots, IconMessage, IconBell, IconCalendarPlus,
   IconTicket, IconGift, IconSend, IconSearch, IconX, IconPencil, IconSettings, IconScale, IconHome, IconUsers, IconUserCheck,
   IconStairsUp, IconCertificate, IconAccessible, IconAward, IconBook, IconChecklist, IconChartBar, IconArrowRight, IconArrowLeft,
-  IconFileTypePdf, IconChevronRight };
+  IconFileTypePdf, IconChevronRight, IconZoomIn, IconEyeCheck, IconSignature };
 function BoutonGuide({ libelle, icone, sorte }) {
   const I = ICONES_BOUTON[icone];
   const classe = sorte === 'fort' ? 'bouton bouton-fort' : sorte === 'sortir' ? 'bouton bouton-sortir' : sorte === 'detruire' ? 'bouton bouton-detruire' : 'bouton';
@@ -157,16 +157,39 @@ export function BoutonAide({ page }) {
   );
 }
 
-/* LE GUIDE ILLUSTRÉ (PDF, captures de la version de test) — servi derrière la
- * connexion. L'onglet s'ouvre AVANT d'attendre le fichier : ouvert après, le
- * navigateur le prend pour une fenêtre surgissante et le bloque en silence. */
-async function ouvrirGuide(setErreur, nom = 'secretariat') {
+/* LE MODE D'EMPLOI EN UN SEUL PDF (3.1.512, Charles : « un seul doc, puisque tout le monde a le guide en ligne »).
+ * Le serveur compose le même contenu, pour le même public ; l'écran y joint les captures (le serveur ne les a pas),
+ * puis demande le PDF. L'onglet s'ouvre AVANT d'attendre : ouvert après, le navigateur le bloquerait en silence. */
+const enDataUrl = async src => {
+  const r = await fetch(src); if (!r.ok) return null;
+  const b = await r.blob();
+  return new Promise(ok => { const f = new FileReader(); f.onload = () => ok(f.result); f.onerror = () => ok(null); f.readAsDataURL(b); });
+};
+async function ouvrirModeEmploiPdf(setErreur, voir) {
   const onglet = window.open('', '_blank');
+  const q = voir && voir !== 'tous' ? `?voir=${voir}` : '';
   try {
-    const rep = await fetch(`/api/documentation/guide/${nom}`, { headers: authHeaders() });
-    if (!rep.ok) throw new Error((await rep.json().catch(() => ({}))).error || `Erreur ${rep.status}`);
-    const url = URL.createObjectURL(await rep.blob());
-    if (onglet) onglet.location = url; else window.location = url;
+    // LE PDF AU MODÈLE DU KIT (3.1.521) : le serveur compose couverture, sommaire et chapitres ; l'écran joint les captures.
+    const ri = await fetch(`/api/documentation/mode-emploi/pdf/images${q}`, { headers: authHeaders() });
+    const ji = await ri.json();
+    if (!ri.ok) throw new Error(ji.error || `Erreur ${ri.status}`);
+    const images = {};
+    for (const src of ji.images || []) { const d = await enDataUrl(src); if (d) images[src] = d; }
+    const rp = await fetch('/api/documentation/mode-emploi/pdf', { method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ voir: voir && voir !== 'tous' ? voir : null, images }) });
+    if (rp.ok) {
+      const url = URL.createObjectURL(await rp.blob());
+      if (onglet) onglet.location = url; else window.location = url;
+      return;
+    }
+    // Le serveur ne sait pas composer de PDF : l'impression du navigateur, sur la mise en page simple.
+    const r = await fetch(`/api/documentation/mode-emploi/document${q}`, { headers: authHeaders() });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
+    let html = j.html;
+    for (const [src, d] of Object.entries(images)) html = html.split(`src="${src}"`).join(`src="${d}"`);
+    if (!onglet) throw new Error('Le navigateur a bloqué la fenêtre.');
+    onglet.document.write(html); onglet.document.close(); setTimeout(() => onglet.print(), 600);
   } catch (e) {
     onglet?.close();
     setErreur(e.message);
@@ -177,7 +200,7 @@ async function ouvrirGuide(setErreur, nom = 'secretariat') {
 const texteDuPoint = p => [p.titre, p.ou, p.texte, ...(p.savoir || [])].filter(Boolean).join(' ').replace(/\[\[([^\]|]+)[^\]]*\]\]/g, '$1').toLowerCase();
 const NOMS_PUBLIC = { ens: 'Enseignants', sec: 'Secrétariat', coo: 'Coordinations', dir: 'Direction' };
 // Les icônes que le contenu nomme (`icone` côté serveur) : une liste fermée, pas toute la bibliothèque.
-const ICONES = { IconAccessible, IconAward, IconBook, IconBooks, IconCertificate, IconChartBar, IconChecklist, IconChevronRight, IconHome, IconLayoutGrid, IconPencil, IconScale, IconSend, IconSettings, IconShieldExclamation, IconStairsUp, IconUserCheck, IconUsers };
+const ICONES = { IconAccessible, IconAward, IconBook, IconBooks, IconCertificate, IconChartBar, IconChecklist, IconChevronRight, IconDeviceMobile, IconHome, IconLayoutGrid, IconPencil, IconScale, IconSend, IconSettings, IconShieldExclamation, IconStairsUp, IconUserCheck, IconUsers };
 const Icone = ({ nom, ...p }) => { const I = ICONES[nom] || IconHelpCircle; return <I {...p} />; };
 
 /* Le chemin « Où », en étapes : « Mes cours → un cours → Présences ». */
@@ -258,6 +281,7 @@ export default function Aide({ integre = false }) {
   const [voir, setVoir] = useState('tous');
   const [recherche, setRecherche] = useState('');
   const [erreurGuide, setErreurGuide] = useState(null);
+  const [pdfEnCours, setPdfEnCours] = useState(false);
   const [cle, setCle] = useState(() => (window.location.hash || '').replace(/^#/, '') || null);
 
   useEffect(() => {
@@ -306,11 +330,9 @@ export default function Aide({ integre = false }) {
             <button onClick={() => setRecherche('')} aria-label="Effacer"
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><IconX size={15} /></button>)}
         </div>
-        {(!data?.publics || data.publics.includes('sec')) && (
-          <button onClick={() => { setErreurGuide(null); ouvrirGuide(setErreurGuide); }} className="bouton bouton-sortir controle">
-            <IconFileTypePdf size={16} /> Guide du secrétariat (PDF)</button>)}
-        <button onClick={() => { setErreurGuide(null); ouvrirGuide(setErreurGuide, 'presence-qr'); }} className="bouton bouton-sortir controle">
-          <IconFileTypePdf size={16} /> La présence par QR code (PDF)</button>
+        <button onClick={() => { setErreurGuide(null); setPdfEnCours(true); ouvrirModeEmploiPdf(setErreurGuide, voir).finally(() => setPdfEnCours(false)); }}
+          disabled={pdfEnCours} className="bouton bouton-sortir controle">
+          <IconFileTypePdf size={16} /> {pdfEnCours ? 'Composition du PDF…' : 'Tout le mode d’emploi (PDF)'}</button>
         {erreurGuide && <span className="text-second text-red-700">{erreurGuide}</span>}
       </div>
 

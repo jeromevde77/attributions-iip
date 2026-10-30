@@ -7,6 +7,9 @@
 //               « fait » par le responsable ou un administrateur, avec trace.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { genererRappelsDeliberation } from '../lib/rappelsDeliberation.js';
+import { genererRappelsPersonnel } from '../lib/rappelsPersonnel.js';
+import { genererRappelsEtudiants } from '../lib/rappelsEtudiants.js';
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
@@ -23,7 +26,7 @@ const SELECT_BASE = `
          e.genere_auto, e.responsable_user_id, e.responsable_role,
          t.code, t.libelle, t.description, t.zone, t.categorie,
          t.base_legale, t.lien_interne, t.rappels_defaut,
-         u.nom_complet AS responsable_nom
+         lucie_nom_compte(u.nom_complet, u.email) AS responsable_nom
     FROM echeance e
     JOIN echeance_type t ON t.id = e.type_id
     LEFT JOIN utilisateur u ON u.id = e.responsable_user_id
@@ -298,7 +301,14 @@ r.post('/instancier', authRequired, roleRequired('admin', 'editeur'), (req, res)
     const stats = instancier(db, annee);
     const statuts = recalculerStatuts(db);
     const rappels = genererRappels(db);
-    res.json({ ok: true, annee, ...stats, ...statuts, ...rappels });
+    // « Régénérer » relance aussi les rappels de la délibération (3.1.523).
+    let delib = {};
+    try { delib = genererRappelsDeliberation(annee); } catch (e) { console.error('[rappels délibération]', e.message); }
+    let personnel = {};
+    try { personnel = genererRappelsPersonnel(annee); } catch (e) { console.error('[rappels personnel]', e.message); }
+    let etudiants = {};
+    try { etudiants = genererRappelsEtudiants(annee); } catch (e) { console.error('[rappels étudiants]', e.message); }
+    res.json({ ok: true, annee, ...stats, ...statuts, ...rappels, rappels_deliberation: delib, rappels_personnel: personnel, rappels_etudiants: etudiants });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

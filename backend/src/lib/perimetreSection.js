@@ -21,6 +21,9 @@ export function sectionsRestreintes(user) {
 // « UE 246 — TIM » (services/echeancier.js).
 export const sectionEcheanceSql = (alias = 'e') => `COALESCE((SELECT o.section FROM organisation_ue o
   WHERE ${alias}.source_type = 'organisation_ue' AND o.id = ${alias}.source_id),
+  (SELECT o.section FROM deliberation_seance s JOIN organisation_ue o ON o.ue_num = s.ue_num AND o.annee_scolaire = s.annee_scolaire
+     AND (s.num_organisation = 0 OR o.num_organisation = s.num_organisation)
+   WHERE ${alias}.source_type = 'deliberation_seance' AND s.id = ${alias}.source_id ORDER BY o.num_organisation LIMIT 1),
   CASE WHEN ${alias}.source_type = 'organisation_ue' AND ${alias}.libelle_override LIKE 'UE % — %'
     THEN substr(${alias}.libelle_override, instr(${alias}.libelle_override, ' — ') + 3) END)`;
 

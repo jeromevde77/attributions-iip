@@ -124,6 +124,29 @@ export function prenomSeul(brut) {
 }
 
 /**
+ * LE PRÉNOM D'UN COMPTE — UNE SEULE RÈGLE (Charles, 30 octobre 2026 : « des semaines que je veux "Bonjour Charles !" —
+ * vérifie pour tout le monde »). La connexion la calculait juste, mais la relecture du profil (`/me`) et le
+ * récapitulatif quotidien en avaient chacun une autre : « Charles Sohet », écrit sans capitales, donnait « Sohet ».
+ * Sans capitales, le mot qui ouvre l'adresse d'école (« prénom.nom@… ») est le prénom ; sinon la règle commune ;
+ * sans identité du tout, le début de l'adresse.
+ */
+export function prenomDuCompte(user) {
+  const plat = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const mots = String(user?.nom_complet || '').trim().split(/\s+/).filter(Boolean);
+  const local = plat(String(user?.email || '').split('@')[0]).split(/[._-]/)[0];
+  const sansCapitales = !mots.some(m => m.length > 1 && m === m.toUpperCase() && /[A-ZÀ-Ý]/.test(m));
+  if (sansCapitales && local && mots.length > 1) {
+    const m = mots.find(x => plat(x) === local);
+    if (m) return m.charAt(0).toLocaleUpperCase('fr') + m.slice(1);
+  }
+  const p = prenomSeul(user?.nom_complet);
+  if (p) return p;
+  if (mots.length === 1 && plat(mots[0]) === local) return mots[0].charAt(0).toLocaleUpperCase('fr') + mots[0].slice(1);
+  return local && /^[a-z]+$/.test(local) && !/^(admin|secretariat|direction|info|contact)$/.test(local)
+    ? local.charAt(0).toUpperCase() + local.slice(1) : '';
+}
+
+/**
  * « NOM Prénom » POUR UN COMPTE (12 octobre 2026, Charles, « Qui est là ? » : « pourquoi les noms
  * ne s'écrivent pas de la même manière ? »). Les comptes portent leur identité telle qu'on l'a
  * tapée : « AEVALIOTIS Mati », mais aussi « Nicolas Vandecauter ». Sans capitales, rien ne dit où

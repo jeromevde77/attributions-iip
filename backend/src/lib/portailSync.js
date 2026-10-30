@@ -19,7 +19,13 @@
 import db from '../db/index.js';
 import { envoyerEmail, templateNotif } from '../services/mailer.js';
 import { copieDeLEnvoi } from '../routes/envois.js';
+import { deposerDOffice } from './depotEspace.js';
+import { piecesATransmettre, marquerTransmises } from './authentique.js';
 import { derniereVersion, versionReference } from '../routes/documentation.js';
+import { aDeposer as messagesADeposer, recevoir as recevoirMessages, aviserParCourriel } from './messagesEtudiants.js';
+import { parcoursPortail, fraisPortail } from './portailEspace.js';
+import { offrePAE, deposerProposition, recevoirSignature, signatureDe } from './paeEnLigne.js';
+import { offreVA, etatVA, appliquerGeste, accuserReception, codesDOffice, candidatsValides, candidatDe, anneeActive as anneeVA } from './portailValorisation.js';
 
 const URL_INTERNE = () => (process.env.PORTAIL_INTERNE_URL || '').replace(/\/$/, '');
 const JETON = () => process.env.PORTAIL_JETON || '';
@@ -40,7 +46,18 @@ export function migrerPortail(dbx = db) {
       WHEN OLD.signe_le IS NOT NULL BEGIN SELECT RAISE(ABORT, 'Un accusé signé ne s''efface pas.'); END;
     CREATE TABLE IF NOT EXISTS portail_connexion (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL,
       le TEXT, ip TEXT, ref_portail INTEGER UNIQUE);
+    -- L'ACCÈS HORS DE BELGIQUE (3.1.513, Charles : « bloquer, avec une exception accordée par le secrétariat pour une
+    -- période — stage, Erasmus »). Une ligne par ouverture, en ajout : on la retire, on ne l'efface pas.
+    CREATE TABLE IF NOT EXISTS portail_exception (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL,
+      jusqu_au TEXT NOT NULL, motif TEXT NOT NULL, par TEXT, le TEXT NOT NULL DEFAULT (datetime('now')),
+      retire_le TEXT, retire_par TEXT);
   `);
+}
+
+async function lireBinaire(chemin) {
+  const r = await fetch(`${URL_INTERNE()}${chemin}`, { headers: { 'X-Portail-Jeton': JETON() }, signal: AbortSignal.timeout(60_000) });
+  if (!r.ok) return null;
+  return Buffer.from(await r.arrayBuffer());
 }
 
 async function appel(methode, chemin, corps) {
@@ -115,10 +132,35 @@ function reglementsEtudiants() {
   } catch { return []; }
 }
 
+/** Un étudiant que le portail connaît : visible (adresse d'institut) ou candidat dont le code vaut encore. */
+function etudiantDuPortail(id) {
+  const e = db.prepare(`SELECT * FROM etudiant WHERE id = ? AND COALESCE(actif, 1) = 1 AND COALESCE(sortie_statut, '') <> 'archive'`).get(Number(id));
+  if (!e) return null;
+  if (String(e.email_ecole || '').includes('@')) return e;
+  return candidatsValides().some(c => c.id === e.id) ? e : null;
+}
+
+/** L'offre et l'état des valorisations, pour les étudiants nommés (ceux qui sont venus, ou qui viennent d'agir). */
+async function deposerVA(ids) {
+  const annee = anneeVA();
+  const lots = [];
+  for (const id of ids) {
+    const e = etudiantDuPortail(id);
+    if (!e) continue;
+    try {
+      const candidat = !String(e.email_ecole || '').includes('@');
+      lots.push({ etudiant_id: e.id, offre: offreVA(e, annee), etat: etatVA(e, annee), pae: candidat ? null : offrePAE(e),
+        parcours: candidat ? null : parcoursPortail(e, annee), frais: await fraisPortail(e, annee) });
+    }
+    catch (x) { console.error(`[portail] VA de l'étudiant ${e.id} :`, x.message); }
+  }
+  if (lots.length) await appel('POST', '/interne/va', { lots });
+}
+
 // ── RELEVER ────────────────────────────────────────────────────────────────
 async function relever() {
   const r = await appel('GET', '/interne/releve');
-  const ok = { demandes: [], accuses: [], connexions: [] };
+  const ok = { demandes: [], accuses: [], connexions: [], entrees: [], va: [], pae: [], messages_lus: [], messages_reponses: [] };
   const etudiant = id => db.prepare(`SELECT id, prenom, email_ecole FROM etudiant WHERE id = ? AND COALESCE(actif, 1) = 1
     AND COALESCE(sortie_statut, '') <> 'archive' AND email_ecole LIKE '%@%'`).get(Number(id));
   for (const d of r.demandes || []) {
@@ -133,16 +175,18 @@ async function relever() {
       }
       sujet = 'Institut Ilya Prigogine — votre lien d’accès à votre espace';
       html = templateNotif({ titre: 'Votre espace étudiant', corps: `<p>Bonjour ${esc(e.prenom || '')},</p>
-        <p>Voici votre lien d'accès à votre espace à l'Institut Ilya Prigogine : vos résultats délibérés, vos documents, vos accusés de réception.
-        Il est valable 30 minutes et ne sert qu'une fois.</p>
+        <p>Voici votre lien pour votre espace à l'Institut Ilya Prigogine : vos résultats délibérés, vos documents, vos accusés de réception.
+        Il est valable 30 minutes et ne sert qu'une fois : il vous mène à <b>choisir votre mot de passe</b>. Ensuite, vous entrez avec
+        votre adresse de l'institut et ce mot de passe.</p>
         <p><a href="${esc(lien)}" style="display:inline-block;background:#16406A;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none">Ouvrir mon espace</a></p>
         <p style="color:#64748b;font-size:12px">Vous n'avez rien demandé ? Ignorez ce message : sans ce lien, personne n'accède à votre espace.</p>` });
     } else if (d.type === 'code') {
       if (!/^\d{6}$/.test(String(d.valeur || ''))) continue;
-      sujet = `Institut Ilya Prigogine — code de signature ${d.valeur}`;
-      html = templateNotif({ titre: 'Votre code de signature', corps: `<p>Votre code pour signer l'accusé de réception dans votre espace :</p>
+      sujet = `Institut Ilya Prigogine — votre code ${d.valeur}`;
+      html = templateNotif({ titre: 'Votre code', corps: `<p>Votre code pour votre espace — entrer depuis un nouvel appareil,
+        signer un accusé de réception, confirmer votre PAE, ou télécharger un document de plus de 90 jours :</p>
         <p style="font-size:28px;font-weight:bold;letter-spacing:6px">${d.valeur}</p><p>Il est valable 10 minutes.</p>
-        <p style="color:#64748b;font-size:12px">Vous n'êtes pas en train de signer ? Ne communiquez ce code à personne.</p>` });
+        <p style="color:#64748b;font-size:12px">Vous n'avez rien demandé ? Ne communiquez ce code à personne.</p>` });
     } else continue;
     const envoi = await envoyerEmail({ to: e.email_ecole, subject: sujet, html }).catch(err => ({ ok: false, erreur: err.message }));
     if (envoi?.simule && process.env.NODE_ENV !== 'production') console.log(`[portail] ${d.type} (courriel simulé) : ${d.valeur}`);
@@ -164,24 +208,82 @@ async function relever() {
   }
   const cx = db.prepare('INSERT OR IGNORE INTO portail_connexion (etudiant_id, le, ip, ref_portail) VALUES (?,?,?,?)');
   for (const c of r.connexions || []) { ok.connexions.push(c.id); cx.run(Number(c.etudiant_id), String(c.utilise_le || ''), String(c.ip || '').slice(0, 60), Number(c.id)); }
-  if (ok.demandes.length || ok.accuses.length || ok.connexions.length) await appel('POST', '/interne/acquitter', ok);
+  // Les entrées depuis un appareil reconnu (sans lien) : des connexions aussi ; référence négative, pour ne jamais croiser celles des liens.
+  for (const c of r.entrees || []) { ok.entrees.push(c.id); cx.run(Number(c.etudiant_id), String(c.utilise_le || ''), String(c.ip || '').slice(0, 60), -Number(c.id)); }
+  // LES GESTES DE VALORISATION (3.1.514) : jugés et écrits ici, avec les règles de Lucie ; un refus revient à l'étudiant.
+  const touches = new Set([...(r.connexions || []), ...(r.entrees || [])].map(c => Number(c.etudiant_id)));
+  for (const g of r.va || []) {
+    const e = etudiantDuPortail(g.etudiant_id);
+    let erreur = null;
+    try {
+      if (!e) erreur = 'Votre dossier ne permet pas cette demande en ligne : adressez-vous au secrétariat.';
+      else if (g.type === 'terminer') erreur = await accuserReception(e);
+      else {
+        const contenu = g.type === 'piece' ? await lireBinaire(`/interne/va/piece/${g.id}`) : null;
+        if (g.type === 'piece' && !contenu) erreur = 'La pièce n’a pas pu être reçue : déposez-la à nouveau.';
+        else erreur = appliquerGeste(e, g, contenu);
+      }
+    } catch (x) { console.error('[portail] geste VA :', x.message); erreur = 'Le geste n’a pas pu être enregistré : réessayez, ou adressez-vous au secrétariat.'; }
+    ok.va.push({ id: g.id, erreur });
+    touches.add(Number(g.etudiant_id));
+  }
+  // LE PAE EN LIGNE (3.1.515) : une proposition (jugée, jamais écrite au programme), ou la confirmation de l'étudiant.
+  for (const g of r.pae || []) {
+    const e = etudiantDuPortail(g.etudiant_id);
+    let erreur = null;
+    try {
+      if (!e || !String(e.email_ecole || '').includes('@')) erreur = 'Le PAE en ligne demande votre adresse de l’institut.';
+      else if (g.type === 'proposer') erreur = deposerProposition(e, JSON.parse(g.ues || '[]'));
+      else if (g.type === 'signer') erreur = recevoirSignature(e, g);
+    } catch (x) { console.error('[portail] geste PAE :', x.message); erreur = 'Le geste n’a pas pu être enregistré : réessayez, ou adressez-vous à votre coordination.'; }
+    ok.pae.push({ id: g.id, erreur });
+    touches.add(Number(g.etudiant_id));
+  }
+  // LES MESSAGES (3.1.516) : ✓ lu, et les réponses (au fil, l'auteur prévenu).
+  if ((r.messages_lus || []).length || (r.messages_reponses || []).length) {
+    const m = recevoirMessages({ lus: r.messages_lus || [], reponses: r.messages_reponses || [] });
+    ok.messages_lus = m.lus; ok.messages_reponses = m.reponses;
+    for (const x of [...(r.messages_lus || []), ...(r.messages_reponses || [])]) touches.add(Number(x.etudiant_id));
+    tours = 0;
+  }
+  if (ok.demandes.length || ok.accuses.length || ok.connexions.length || ok.entrees.length || ok.va.length || ok.pae.length
+    || ok.messages_lus.length || ok.messages_reponses.length) await appel('POST', '/interne/acquitter', ok);
+  // Ce qui vient de changer, ou qui vient d'entrer, voit ses demandes à jour dans les secondes qui suivent.
+  if (touches.size) await deposerVA([...touches]);
 }
 
 // ── DÉPOSER ────────────────────────────────────────────────────────────────
 async function deposer() {
   const etudiants = etudiantsVisibles();
-  await appel('POST', '/interne/etudiants', { etudiants });
+  try { await codesDOffice(URL_PUBLIQUE()); } catch (e) { console.error('[portail] codes des candidats :', e.message); }
+  const candidats = candidatsValides().map(c => ({ id: c.id, nom: c.nom, prenom: c.prenom, email_prive: c.email_perso, code_hash: c.code_hash, jusqu_au: c.jusqu_au }));
+  await appel('POST', '/interne/etudiants', { etudiants, candidats });
+  // Les demandes de valorisation de ceux qui sont venus ces trois dernières heures (les autres, à leur prochaine entrée).
+  await deposerVA(db.prepare(`SELECT DISTINCT etudiant_id FROM portail_connexion WHERE le >= datetime('now', '-3 hours')`).all().map(x => x.etudiant_id));
   await appel('POST', '/interne/resultats', { resultats: resultatsPublies(etudiants.map(e => e.id)) });
   await appel('POST', '/interne/reglements', { reglements: reglementsEtudiants() });
+  await appel('POST', '/interne/messages', messagesADeposer([...etudiants.map(e => e.id), ...candidats.map(c => c.id)]));
+  try { await aviserParCourriel(URL_PUBLIQUE()); } catch (e) { console.error('[messages] avis :', e.message); }
+  await appel('POST', '/interne/exceptions', { exceptions: db.prepare(`SELECT etudiant_id, MAX(jusqu_au) AS jusqu_au FROM portail_exception
+    WHERE retire_le IS NULL AND jusqu_au >= date('now') GROUP BY etudiant_id`).all() });
+  // LE REGISTRE D'AUTHENTICITÉ (3.1.511) : ce que le scan d'un QR doit retrouver. En ajout seul, par lots.
+  for (let i = 0; i < 20; i++) {
+    const l = piecesATransmettre(500);
+    if (!l.length) break;
+    await appel('POST', '/interne/authentiques', { pieces: l });
+    marquerTransmises(l.map(x => x.reference));
+  }
 }
 
 async function deposerDocuments() {
+  // D'abord le dépôt d'office des pièces de délibération (3.1.510) : elles entrent au registre, puis partent ci-dessous.
+  try { await deposerDOffice(etudiantsVisibles(), URL_PUBLIQUE()); } catch (e) { console.error('[espace] dépôt d’office :', e.message); }
   const ids = new Set(etudiantsVisibles().map(e => e.id));
   const connus = new Set((await appel('GET', '/interne/documents/connus')).ids || []);
   let envois = [];
   try {
     envois = db.prepare(`SELECT m.id, m.destinataire_id, m.sujet, m.nom_fichier, m.envoye_le, m.reference FROM envoi_mail m
-      JOIN envoi_copie c ON c.envoi_id = m.id WHERE m.destinataire_type = 'etudiant' AND m.statut IN ('envoye','simule')
+      JOIN envoi_copie c ON c.envoi_id = m.id WHERE m.destinataire_type = 'etudiant' AND m.statut IN ('envoye','simule','depose')
       ORDER BY m.id DESC`).all();
   } catch { return; }
   const aRetirer = [...connus].filter(id => !envois.some(m => m.id === id && ids.has(m.destinataire_id)));
@@ -199,6 +301,8 @@ async function deposerDocuments() {
 }
 
 let tours = 0, enCours = false;
+/** Le prochain passage (dans les dix secondes) dépose tout : après un geste de l'école que le portail doit voir vite. */
+export const deposerBientot = () => { tours = 0; };
 export async function passerPortail() {
   if (!portailActif() || enCours) return;
   enCours = true;
@@ -225,10 +329,52 @@ export function suiviPortail(etudiantId) {
   migrerPortail();
   return {
     actif: portailActif(), adresse: URL_PUBLIQUE(),
+    candidat: candidatDe(etudiantId),
+    pae: signatureDe(etudiantId),
+    sans_adresse_ecole: !String(db.prepare('SELECT email_ecole FROM etudiant WHERE id = ?').get(etudiantId)?.email_ecole || '').includes('@'),
+    exception: db.prepare(`SELECT id, jusqu_au, motif, par, le FROM portail_exception WHERE etudiant_id = ? AND retire_le IS NULL
+      AND jusqu_au >= date('now') ORDER BY jusqu_au DESC LIMIT 1`).get(etudiantId) || null,
     connexions: db.prepare('SELECT le AS utilise_le, ip FROM portail_connexion WHERE etudiant_id = ? ORDER BY le DESC LIMIT 5').all(etudiantId),
     accuses: db.prepare(`SELECT a.objet_type, a.objet_id, a.presente_le, a.signe_le,
         CASE a.objet_type WHEN 'envoi' THEN (SELECT COALESCE(m.nom_fichier, m.sujet) || ' · ' || COALESCE(m.reference, '') FROM envoi_mail m WHERE m.id = a.objet_id)
           ELSE (SELECT d.titre || ' (version ' || v.numero || ')' FROM corpus_version v JOIN corpus_document d ON d.id = v.document_id WHERE v.id = a.objet_id) END AS piece
       FROM portail_accuse a WHERE a.etudiant_id = ? ORDER BY COALESCE(a.signe_le, a.presente_le) DESC`).all(etudiantId),
   };
+}
+
+/** Ouvrir l'accès hors de Belgique jusqu'à une date (motif obligatoire), ou le retirer. Part au prochain dépôt. */
+export function poserException(etudiantId, { jusqu_au, motif }, par) {
+  migrerPortail();
+  const j = String(jusqu_au || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(j) || j < new Date().toISOString().slice(0, 10)) return { erreur: 'Une date de fin, aujourd’hui ou plus tard.' };
+  if (j > new Date(Date.now() + 400 * 86400e3).toISOString().slice(0, 10)) return { erreur: 'Une ouverture vaut au plus un an : elle se renouvelle.' };
+  if (!String(motif || '').trim()) return { erreur: 'Le motif est obligatoire (stage, Erasmus…).' };
+  if (!db.prepare('SELECT 1 FROM etudiant WHERE id = ?').get(etudiantId)) return { erreur: 'Étudiant introuvable.' };
+  db.prepare("UPDATE portail_exception SET retire_le = datetime('now'), retire_par = ? WHERE etudiant_id = ? AND retire_le IS NULL").run(par, etudiantId);
+  db.prepare('INSERT INTO portail_exception (etudiant_id, jusqu_au, motif, par) VALUES (?,?,?,?)').run(etudiantId, j, String(motif).trim().slice(0, 300), par);
+  tours = 0;   // le prochain passage dépose
+  return { ok: true };
+}
+export function retirerException(etudiantId, par) {
+  migrerPortail();
+  db.prepare("UPDATE portail_exception SET retire_le = datetime('now'), retire_par = ? WHERE etudiant_id = ? AND retire_le IS NULL").run(par, etudiantId);
+  tours = 0;
+  return { ok: true };
+}
+
+/** L'APERÇU DE LA DIRECTION (3.1.518, Charles : « en tant que directeur, je dois avoir un mode voir comme un étudiant pour
+ *  tester ou vérifier ») : le portail fabrique un lien d'une minute, à usage unique, qui ouvre l'espace en lecture seule.
+ *  Chaque aperçu se trace ici (qui, quel étudiant, quand). */
+export async function ouvrirApercu(etudiantId, par) {
+  if (!portailActif()) return { erreur: 'Le portail des étudiants n’est pas configuré sur ce serveur.' };
+  db.exec(`CREATE TABLE IF NOT EXISTS portail_apercu (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL,
+    par TEXT, le TEXT NOT NULL DEFAULT (datetime('now')))`);
+  try {
+    const r = await appel('POST', '/interne/apercu', { etudiant_id: Number(etudiantId), par });
+    db.prepare('INSERT INTO portail_apercu (etudiant_id, par) VALUES (?,?)').run(Number(etudiantId), par);
+    return { url: r.url };
+  } catch (e) {
+    return { erreur: /404/.test(e.message) ? 'Cet étudiant n’a pas (encore) d’espace : ni adresse de l’institut, ni code de candidat — ou le portail ne l’a pas encore reçu (deux minutes).'
+      : 'Le portail des étudiants ne répond pas.' };
+  }
 }

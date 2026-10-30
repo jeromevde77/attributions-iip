@@ -7684,7 +7684,7 @@ export function pageMotivations(ueNum, annee, session = 1) {
  * deux fois — pour une unité, et pour un lot d'unités. Une seule mécanique,
  * donc une seule mise en page, un seul décompte, une seule liste de manques.
  */
-function assemblerDocumentsUE(ueNum, annee, veut, opts = {}) {
+export function assemblerDocumentsUE(ueNum, annee, veut, opts = {}) {
   const session = opts.session === 2 ? 2 : 1;
   // LES PIÈCES D'UNE ORGANISATION : ses étudiants, sa séance, son PV.
   const org = opts.org == null ? null : Math.max(0, Number(opts.org) || 0);

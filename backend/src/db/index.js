@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import 'dotenv/config';
 import { utilisateurCourant, gesteCourant } from '../lib/contexteRequete.js';
+import { nomEcranDuCompte } from '../lib/nom.js';
 
 /* L'AUTEUR D'UNE ÉCRITURE, LU PAR LES DÉCLENCHEURS DU JOURNAL DES
    MODIFICATIONS (lib/journalModifications.js) : la personne connectée, ou null
@@ -22,6 +23,8 @@ try {
   db.function('lucie_auteur', { deterministic: false }, auteurNom);
   db.function('lucie_auteur_id', { deterministic: false }, auteurId);
   db.function('lucie_geste', { deterministic: false }, () => gesteCourant());
+  // « NOM Prénom » d'un compte, dans une requête (30 octobre 2026) : la règle de lib/nom.js, adresse comprise.
+  db.function('lucie_nom_compte', { deterministic: true }, (nom, email) => nomEcranDuCompte(nom, email) || null);
 } catch {
   const { DatabaseSync } = await import('node:sqlite');
   const inner = new DatabaseSync(DB_PATH);
