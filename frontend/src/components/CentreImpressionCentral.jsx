@@ -1625,11 +1625,17 @@ function SeriePersonnel({ ids, profs, annee, annexes, nom, outilsMembre = null }
   );
 }
 
-function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, onRevenir = null }) {
+function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
   const { place: placeOutils, choisirEtudiant } = useContext(PlaceOutils) || {};
-  const conseil = mode === 'conseil';
-  // `delib` : les pièces de la délibération sont en jeu (les pièces du Conseil, ou une pièce de résultat cochée).
-  const famillePieces = conseil ? PIECES.filter(p => !p.nominatif) : [...PIECES.filter(p => p.nominatif), ...PIECES_DOSSIER];
+  /* POUR QUI ? (3.1.497, Charles : « le principe est bon ») — une pièce s'attache toujours à l'une de trois choses :
+     UNE PERSONNE, DES ÉTUDIANTS, ou UNE SÉANCE de délibération. La session n'appartient qu'à la séance : une
+     attestation de réussite n'en a pas besoin (l'unité est réussie, Lucie sait quand). On arrive le plus souvent déjà
+     répondu : la fiche d'un étudiant = une personne, la feuille de délibération = une séance, la liste = des étudiants. */
+  const [pourQui, setPourQui] = useState(() => seul ? 'personne'
+    : (perimetre?.session || perimetre?.org != null || (perimetre?.pieces || []).some(c => PIECES.some(p => !p.nominatif && p.cle === c))) ? 'seance'
+    : (perimetre?.coches?.length || perimetre?.sections?.length || perimetre?.ue_nums?.length || selectionEtudiants().ids.length) ? 'groupe' : 'personne');
+  const seance = pourQui === 'seance';
+  const famillePieces = seance ? PIECES : [PIECES.find(p => p.cle === 'reussite'), ...PIECES_DOSSIER];
   /* L'ANNÉE SE CHOISIT ICI AUSSI. L'onglet des rapports la montre depuis
      longtemps ; celui des étudiants reprenait l'année de travail sans jamais
      la dire. Pour retirer une attestation de l'an dernier, il fallait changer
@@ -1661,11 +1667,7 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
   /* LES SESSIONS DES PIÈCES DE L'ÉTUDIANT (3.1.497, Charles : « S1, S2 ou tout — S2 seulement si elle existe, sinon
      grisé ») : deux cases, les deux = tout. La liste se lit sur la première cochée. Au Conseil, une séance = une
      session : le choix reste au Périmètre. */
-  /* PIÈCE PAR PIÈCE (3.1.497, Charles : « à côté des attestations, en cases à cocher, trois choix au plus ») : S1, S2,
-     Tout — Tout = les deux. Défaut : la session demandée par l'écran d'origine, sinon la première. */
-  const [sessPiece, setSessPiece] = useState({});
   const [vueDroite, setVueDroite] = useState('documents');
-  const sessDefaut = perimetre?.session === 2 ? 2 : 1;
   // Les sections : celles que l'écran passe, sinon celles des étudiants sélectionnés dans la liste.
   const [sections, setSections] = useState(() => new Set(perimetre?.sections
     || (!perimetre?.coches && selectionEtudiants().ids.length ? selectionEtudiants().sections : [])));
@@ -1703,8 +1705,9 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
   useEffect(() => {
     const garde = new Set(famillePieces.map(p => p.cle));
     setChoix(c => Object.fromEntries(Object.entries(c).filter(([k]) => garde.has(k))));
+    if (seance) setParcours(false);
     // eslint-disable-next-line
-  }, [mode]);
+  }, [pourQui]);
   /* LES COCHÉS : ceux que l'écran passe, sinon la sélection de la liste des
      étudiants (lib/selectionEtudiants.js) — ouvrir Éditions depuis le rail ne
      la perd plus. */
@@ -1776,35 +1779,12 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
         // Les étudiants de l'écran d'où l'on vient — une fois, à l'ouverture.
         setCoches(new Set(j.etudiants.filter(e => cochesImposees.current.has(e.id)).map(e => e.id)));
         cochesImposees.current = null;
-      } else setCoches(new Set(j.etudiants.filter(e => !conseil || e.decide).map(e => e.id)));
+      } else setCoches(new Set(j.etudiants.filter(e => !seance || e.decide).map(e => e.id)));
     } catch (e) { setErreur(e.message); }
-  }, [annee, session, sections, ues, cours, conseil, seul]);
+  }, [annee, session, sections, ues, cours, seance, seul]);
   useEffect(() => { charger(); }, [charger]);
-  const s2Possible = !!liste?.seconde_session;
-  const sessDe = cle => {
-    const x = sessPiece[cle] || new Set([sessDefaut]);
-    const y = new Set([...x].filter(v => v === 1 || s2Possible));
-    return y.size ? y : new Set([1]);
-  };
-  const choisirSess = (cle, quoi) => setSessPiece(m => {
-    const x = new Set(sessDe(cle));
-    if (quoi === 'tout') return { ...m, [cle]: x.size === 2 ? new Set([1]) : new Set([1, 2]) };
-    x.has(quoi) ? x.delete(quoi) : x.add(quoi);
-    return x.size ? { ...m, [cle]: x } : m;
-  });
-  const piecesSession = () => PIECES.filter(p => p.nominatif && choix[p.cle]);
-  // La liste se lit sur la première session demandée par une pièce cochée.
-  useEffect(() => {
-    if (conseil) return;
-    const toutes = piecesSession().flatMap(p => [...sessDe(p.cle)]);
-    const s = !toutes.length || toutes.includes(1) ? 1 : 2;
-    if (s !== session) setSession(s);
-    // eslint-disable-next-line
-  }, [sessPiece, choix, conseil, s2Possible]);
-  const sessionsLot = conseil ? [session]
-    : [...new Set(piecesSession().flatMap(p => [...sessDe(p.cle)]))].sort();
-  /** Ce que demande le lot d'une session : au Conseil, toutes les pièces cochées ; côté étudiant, celles de cette session. */
-  const drapeaux = sess => Object.fromEntries(PIECES.map(p => [p.cle, !!choix[p.cle] && (conseil || sessDe(p.cle).has(sess))]));
+  const sessionsLot = [session];
+  const drapeaux = () => Object.fromEntries(PIECES.map(p => [p.cle, !!choix[p.cle]]));
 
   const etudiants = useMemo(() => {
     const q = recherche.trim().toLowerCase();
@@ -1823,13 +1803,13 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
   useEffect(() => { if (recherche.trim()) setVueDroite('etudiants'); }, [recherche]);
   useEffect(() => {
     const q = recherche.trim();
-    if (seul || !choisirEtudiant || q.length < 2 || etudiants.length) { setAilleurs([]); return; }
+    if (seul || !choisirEtudiant || q.length < 2 || (etudiants.length && pourQui !== 'personne')) { setAilleurs([]); return; }
     const t = setTimeout(() => {
       fetch(`/api/etudiants?q=${encodeURIComponent(q)}`, { headers: authHeaders() })
         .then(r => r.ok ? r.json() : []).then(l => setAilleurs((Array.isArray(l) ? l : []).slice(0, 8))).catch(() => {});
     }, 250);
     return () => clearTimeout(t);
-  }, [recherche, etudiants.length, seul, choisirEtudiant]);
+  }, [recherche, etudiants.length, seul, choisirEtudiant, pourQui]);
 
   /** Les pièces du dossier (bulletin, annexes) des étudiants cochés. */
   async function piecesDossier() {
@@ -1898,18 +1878,19 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
       pdf: { orientation: /size:\s*A4\s+landscape/.test(d.html || '') ? 'paysage' : 'portrait' } });
   }
 
-  /** Les attestations de toutes les années des étudiants cochés, une pièce chacune. */
+  /** Les attestations des étudiants cochés — l'année choisie ou toutes —, une pièce chacune (sans session). */
   async function attestationsParcours() {
     const documents = [], sans = [];
+    const quand = parcours ? 'toutes' : annee;
     for (const id of coches) {
       const e = etudiants.find(x => x.id === id);
-      const r = await fetch(`/api/attestations/etudiant/${id}/document?annee=toutes&separes=1`, { headers: authHeaders() });
+      const r = await fetch(`/api/attestations/etudiant/${id}/document?annee=${encodeURIComponent(quand)}&separes=1`, { headers: authHeaders() });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) { sans.push(e ? nomPropre(e.nom, e.prenom) : `n° ${id}`); continue; }
       for (const d of j.documents || []) documents.push({ html: d.html, nom: d.nom_fichier, etudiant_id: id,
         etudiant: e ? nomPropre(e.nom, e.prenom) : null, contenu: `Attestation de réussite — ${(j.annees || []).join(', ')}` });
     }
-    return { documents, avis: sans.length ? [`Aucune unité réussie, toutes années confondues : ${sans.join(', ')}`] : [] };
+    return { documents, avis: sans.length ? [`Aucune unité réussie${parcours ? ', toutes années confondues' : ` en ${annee}`} : ${sans.join(', ')}`] : [] };
   }
 
   async function produire(apercu = false) {
@@ -1917,10 +1898,10 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
     try {
       const avis = [];
       let tout = [];
-      if (parcours) {
-        const r = await attestationsParcours();
+      if (!seance) {
+        const r = choix.reussite ? await attestationsParcours() : { avis: [], documents: [] };
         avis.push(...r.avis);
-        tout = r.documents.map(d => ({ html: d.html, nom: d.nom, pagination: 'si-plusieurs', etudiant: d.etudiant }));
+        tout.push(...r.documents.map(d => ({ html: d.html, nom: d.nom, pagination: 'si-plusieurs', etudiant: d.etudiant })));
       } else if (delibChoisie) for (const sess of sessionsLot) {
         const rep = await fetch('/api/acquis/deliberation/documents-lot', {
           method: 'POST', headers: authHeaders(),
@@ -1934,7 +1915,7 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
             org: perimetre?.org ?? undefined,
             ue_nums: (liste?.unites || []).map(u => u.ue_num),
             etudiants: [...coches].filter(id => etudiants.find(e => e.id === id)?.decide),
-            ...drapeaux(sess),
+            ...drapeaux(),
           }),
         });
         const j = await rep.json();
@@ -1948,7 +1929,7 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
           tout.push(...lot.map(d => ({ html: d.html, nom: sessionsLot.length > 1 ? `S${sess}_${d.nom}` : d.nom, pagination: 'si-plusieurs' })));
         }
       }
-      const dossier = parcours ? { avis: [], documents: [] } : await piecesDossier();
+      const dossier = parcours || seance ? { avis: [], documents: [] } : await piecesDossier();
       avis.push(...dossier.avis);
       tout.push(...dossier.documents.map(d => ({ html: d.html, nom: d.nom, pagination: d.pagination, pied: d.pied, etudiant: d.etudiant })));
       if (avis.length) setErreur(avis.join(' · '));
@@ -1998,8 +1979,8 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
     try {
       const pieces = [];
       const avis = [];
-      if (parcours) {
-        const r = await attestationsParcours();
+      if (!seance) {
+        const r = choix.reussite ? await attestationsParcours() : { avis: [], documents: [] };
         avis.push(...r.avis);
         pieces.push(...r.documents.map(d => ({ html: d.html, nom_fichier: d.nom, contenu: d.contenu,
           destinataire: { type: 'etudiant', id: d.etudiant_id, nom: d.etudiant } })));
@@ -2011,7 +1992,7 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
             org: perimetre?.org ?? undefined,
             ue_nums: (liste?.unites || []).map(u => u.ue_num),
             etudiants: [...coches].filter(id => etudiants.find(e => e.id === id)?.decide),
-            ...drapeaux(sess),
+            ...drapeaux(),
           }),
         });
         const j = await rep.json();
@@ -2048,7 +2029,7 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
         }
       }
       // Les pièces du dossier vont à l'étudiant qu'elles nomment, une par courriel.
-      const dossier = parcours ? { avis: [], documents: [] } : await piecesDossier();
+      const dossier = parcours || seance ? { avis: [], documents: [] } : await piecesDossier();
       avis.push(...dossier.avis);
       pieces.push(...dossier.documents.map(d => ({
         html: d.html, nom_fichier: d.nom, contenu: d.contenu,
@@ -2066,7 +2047,7 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
   const delibChoisie = PIECES.some(p => choix[p.cle]);
   // La session n'a de sens que pour une pièce de délibération : au Conseil, toujours ; côté étudiant, si l'on coche
   // une attestation ou une motivation (et pas en « tout le parcours »).
-  const delib = conseil || (delibChoisie && !parcours);
+  const delib = seance;
   const seulementSLE = dossierChoisi.length > 0 && dossierChoisi.every(p => p.sle) && !delibChoisie;
   /* COCHER UNE PIÈCE SLE, C'EST TRAVAILLER POUR LES SLE (Charles, 3 octobre
      2026 : « si je coche SLE, je ne dois sélectionner et travailler QUE les
@@ -2075,7 +2056,7 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
      et la sélection s'y réduit. On en sort en décochant les annexes. */
   // Le public d'une pièce : 'sle', 'cep', ou personne en particulier.
   const publicDe = p => (p.sle ? 'sle' : p.cep ? 'cep' : null);
-  const modePublic = conseil ? null : (dossierChoisi.map(publicDe).find(Boolean) || null);
+  const modePublic = seance ? null : (dossierChoisi.map(publicDe).find(Boolean) || null);
   const modeSLE = modePublic === 'sle';
   const NOM_PUBLIC = { sle: 'SLE : seuls les étudiants en séjour limité aux études', cep: 'CEP : seuls les étudiants au congé-éducation payé' };
   const visibles = etudiants
@@ -2101,30 +2082,18 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
   const cochable = () => true;
   const recoit = e => {
     const l = [];
-    if (conseil) return l;
-    if (parcours) { if (choix.reussite) l.push('Attestations — toutes les années'); return l; }
-    if (choix.reussite && e.reussites > 0) l.push('Attestation');
-    if (choix.ajournement && (e.ajournes ?? (session === 1 ? e.echecs : 0)) > 0) l.push('Motivation d’ajournement');
-    if (choix.refus && (e.refus ?? (session === 2 ? e.echecs : 0)) > 0) l.push('Motivation de refus');
+    if (seance) {
+      if (choix.reussite && e.reussites > 0) l.push('Attestation');
+      if (choix.ajournement && (e.ajournes ?? (session === 1 ? e.echecs : 0)) > 0) l.push('Motivation d’ajournement');
+      if (choix.refus && (e.refus ?? (session === 2 ? e.echecs : 0)) > 0) l.push('Motivation de refus');
+      return l;
+    }
+    if (choix.reussite) l.push(parcours ? 'Attestations — toutes les années' : 'Attestations de l’année');
+    if (parcours) return l;
     for (const p of PIECES_DOSSIER) if (choix[p.cle] && (!p.sle || e.sle) && (!p.cep || e.cep)) l.push(p.cep ? p.label.replace('CEP — attestation d’', 'CEP ') : p.label.split(' — ')[0]);
     return l;
   };
   /** Une pièce à cocher — repère de couleur, case, intitulé, public, compte. */
-  const casesSession = p => {
-    if (conseil || parcours || !p.nominatif || !choix[p.cle] || !dispo(p)) return null;
-    const x = sessDe(p.cle);
-    const c = (lib, coche, onChange, ouvert = true) => (
-      <label key={lib} className={`flex items-center gap-1 ${ouvert ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
-        title={ouvert ? '' : 'Aucune décision de seconde session dans ce périmètre'} onClick={ev => ev.stopPropagation()}>
-        <input type="checkbox" checked={coche && ouvert} disabled={!ouvert} onChange={onChange} className="w-3.5 h-3.5 accent-iip-blue" />{lib}
-      </label>);
-    return (
-      <span className="ml-auto flex items-center gap-3 text-second text-slate-600">
-        {c('S1', x.has(1), () => choisirSess(p.cle, 1))}
-        {c('S2', x.has(2), () => choisirSess(p.cle, 2), s2Possible)}
-        {c('Tout', x.size === 2, () => choisirSess(p.cle, 'tout'), s2Possible)}
-      </span>);
-  };
   const lignePiece = p => (
 <label key={p.cle} className={`flex items-center gap-2 py-1.5 text-sm ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
     title={dispo(p) ? '' : modePublic && publicDe(p) !== modePublic && PIECES_DOSSIER.includes(p) ? `Pièces ${modePublic.toUpperCase()} en cours — décochez-les pour les autres pièces` : 'Rien à produire pour ce périmètre'}>
@@ -2135,7 +2104,6 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
     <input type="checkbox" checked={!!choix[p.cle] && dispo(p)} disabled={!dispo(p)} onChange={() => basculerPiece(p)}
       className="w-3.5 h-3.5 accent-iip-blue" />
     {p.label}
-    {casesSession(p)}
     {p.sle && <span className="text-mention font-bold text-slate-500 border border-slate-300 rounded px-1">SLE · {etudiants.filter(e => e.sle).length}</span>}
     {/* LES CHAMPS DES ANNEXES SE COMPLÈTENT ENCORE (5 octobre 2026,
         DAELEMAN Florian : « nous avions la possibilité de compléter
@@ -2156,13 +2124,14 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
       );
     })()}
     {p.cep && <span className="text-mention font-bold text-slate-500 border border-slate-300 rounded px-1">CEP · {etudiants.filter(e => e.cep).length}</span>}
-    {p.nominatif && dispo(p) && !parcours && !choix[p.cle] && <span className="ml-auto text-xs text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : p.cle === 'refus' ? etudiants.filter(e => (e.refus ?? e.echecs) > 0).length : p.cle === 'ajournement' ? etudiants.filter(e => (e.ajournes ?? e.echecs) > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
+    {p.nominatif && dispo(p) && seance && <span className="ml-auto text-xs text-slate-400 tabular-nums">{p.cle === 'reussite' ? etudiants.filter(e => e.reussites > 0).length : p.cle === 'refus' ? etudiants.filter(e => (e.refus ?? e.echecs) > 0).length : p.cle === 'ajournement' ? etudiants.filter(e => (e.ajournes ?? e.echecs) > 0).length : etudiants.filter(e => e.echecs > 0).length}</span>}
   </label>
   );
   /* GRISÉ QUAND IL N'Y A RIEN À PRODUIRE (2 octobre 2026). */
   const dispo = p => {
     if (!etudiants.length) return false;
     if (parcours) return p.cle === 'reussite';
+    if (!seance && p.cle === 'reussite') return true;   // hors séance : l'attestation de l'année, s'il y en a
     if (modePublic && !PIECES_DOSSIER.includes(p)) return false;
     if (p.cle === 'reussite') return etudiants.some(e => e.reussites > 0);
     // UN REFUS PEUT SE PRONONCER EN JUIN (PP) : chaque pièce s'ouvre dès qu'un
@@ -2230,10 +2199,15 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
           </div>
         )}
         <div className="px-3 pt-3 pb-2">
-          <div className="h-6 flex items-center mb-2.5 text-sm font-semibold text-iip-blue">Périmètre</div>
+          {!seul && <div className="h-6 flex items-center mb-2.5 text-sm font-semibold text-iip-blue">Pour qui ?</div>}
+          {!seul && <div className="segments w-full mb-2">
+            {[['personne', 'Une personne'], ['groupe', 'Des étudiants'], ['seance', 'Une séance']].map(([v, lib]) => (
+              <button key={v} type="button" onClick={() => setPourQui(v)}
+                className={`flex-1 px-2 text-second ${pourQui === v ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>{lib}</button>))}
+          </div>}
           {/* L'ORDRE DU PÉRIMÈTRE (3.1.497, Charles) : d'abord QUI (un étudiant), puis QUAND (l'année), puis le reste.
               La recherche restreint la liste, ou ouvre un étudiant de toute l'école quand le périmètre ne le contient pas. */}
-          <div className={conseil ? 'hidden' : 'relative mb-2'}>
+          <div className={pourQui === 'personne' && !seul ? 'relative mb-2' : 'hidden'}>
             <IconSearch size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input value={recherche} onChange={e => setRecherche(e.target.value)} placeholder="Un étudiant — nom ou matricule…"
               className="controle controle-icone w-full text-sm" />
@@ -2245,11 +2219,11 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
             {(annees.length ? annees : [annee]).map(a => (
               <option key={a} value={a}>{a === getAnnee() ? `Année actuelle — ${a}` : a}</option>
             ))}
-            {!conseil && <option value="toutes">Tout le parcours — toutes les années</option>}
+            {!seance && <option value="toutes">Tout le parcours — toutes les années</option>}
           </select>
           {parcours && <div className="text-xs text-slate-500 -mt-1 mb-2 px-1">
-            Les étudiants de {annee} ; pour chacun coché, ses attestations de réussite de toutes les années.</div>}
-          {conseil && <div className="segments w-full">
+            Pour chaque étudiant coché, ses attestations de réussite de toutes les années.</div>}
+          {seance && <div className="segments w-full">
             {[[1, '1re session'], [2, '2e session']].map(([v, lib]) => (
               <button key={v} onClick={() => setSession(v)}
                 className={`flex-1 px-2 py-1 text-second ${session === v
@@ -2262,7 +2236,7 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
 
         {/* Même retrait que le bloc « Périmètre » au-dessus (px-3) : à p-2, la
             section commençait 4 px plus à gauche que l'année. */}
-        <div className="flex-1 overflow-auto px-3 pb-2 space-y-1.5">
+        <div className={pourQui === 'personne' && !seul ? 'hidden' : 'flex-1 overflow-auto px-3 pb-2 space-y-1.5'}>
           <select value={secChoisie} onChange={e => choisirSection(e.target.value)} className="controle w-full text-sm">
             <option value="">{arbre ? '— choisir une section —' : 'Chargement…'}</option>
             {(arbre?.sections || []).map(sec => <option key={sec} value={sec}>{sec}</option>)}
@@ -2308,7 +2282,7 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
           })()}
         </div>
 
-        <div className="px-3 py-3 text-xs text-slate-500">
+        <div className={pourQui === 'personne' ? 'hidden' : 'px-3 py-3 text-xs text-slate-500'}>
           Un cours sert à désigner des personnes : les pièces restent celles de
           leur unité.
         </div>
@@ -2336,7 +2310,21 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
           <PiecesEtudiant etud={etudiantVu} annee={annee} />
         </div>
       )}
-      <div className={`flex-1 flex flex-col min-h-0 ${etudiantVu ? 'hidden' : ''}`}>
+      {/* UNE PERSONNE : on la cherche à gauche, on l'ouvre ici — ses pièces viennent ensuite. */}
+      {pourQui === 'personne' && !seul && !etudiantVu && (
+        <div className="flex-1 overflow-auto min-h-0 p-3">
+          {recherche.trim().length < 2 ? (
+            <p className="p-3 text-sm text-slate-400">Cherchez l'étudiant à gauche — nom ou matricule. Ses pièces s'ouvrent ensuite, de l'année ou de tout son parcours.</p>
+          ) : !ailleurs.length ? (
+            <p className="p-3 text-sm text-slate-400">Personne ne répond à « {recherche.trim()} ».</p>
+          ) : ailleurs.map(e => (
+            <button key={e.id} type="button" onClick={() => { setRecherche(''); choisirEtudiant(e); }}
+              className="w-full text-left flex items-center gap-2 px-2 py-2 rounded-champ hover:bg-slate-50 text-sm">
+              <span><b>{(e.nom || '').toUpperCase()}</b> {e.prenom} <span className="text-slate-400">· {e.id_ecampus || '—'}{e.section_rattachement ? ` · ${e.section_rattachement}` : ''}</span></span>
+              <span className="ml-auto text-second text-iip-blue underline">ouvrir ses pièces</span>
+            </button>))}
+        </div>)}
+      <div className={`flex-1 flex flex-col min-h-0 ${etudiantVu || (pourQui === 'personne' && !seul) ? 'hidden' : ''}`}>
 
         {/* LES BOUTONS EN TÊTE, et ce qu'ils vont faire (maquette validée). */}
         <div className="px-3 pt-2 space-y-2.5">
@@ -2370,16 +2358,19 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
         {vueDroite === 'documents' ? (
         <div className="flex-1 overflow-auto min-h-0 p-3 space-y-4">
           <div className="grid gap-x-8 gap-y-4 md:grid-cols-2 pt-1">
-            {conseil ? (
-            <div className="px-1 md:col-span-2">
-              <TitreCarte Icone={IconUsers} titre="Pièces du Conseil" sous="ce qui sort d’une séance de délibération — une pièce pour l’unité" />
-              <div className="grid md:grid-cols-2 gap-x-8">{famillePieces.map(lignePiece)}</div>
-            </div>
-            ) : <>
+            {seance ? <>
             <div className="px-1">
-              <TitreCarte Icone={IconFileText} titre="Résultats" sous={parcours ? "toutes ses années, pour chaque étudiant coché" : "attestations, motivations, bulletin"} />
-              {famillePieces.filter(p => p.nominatif && (!parcours || p.cle === 'reussite')).map(lignePiece)}
-              {famillePieces.filter(p => !p.nominatif && CLES_RESULTATS.includes(p.cle) && !parcours).map(lignePiece)}
+              <TitreCarte Icone={IconUsers} titre="Pour le Conseil" sous="une pièce pour l’unité" />
+              {PIECES.filter(p => !p.nominatif).map(lignePiece)}
+            </div>
+            <div className="px-1">
+              <TitreCarte Icone={IconFileText} titre="Pour ses étudiants" sous={`les décisions de la ${session === 1 ? '1re' : '2e'} session`} />
+              {PIECES.filter(p => p.nominatif).map(lignePiece)}
+            </div>
+            </> : <>
+            <div className="px-1">
+              <TitreCarte Icone={IconFileText} titre="Résultats" sous={parcours ? "toutes ses années, pour chaque étudiant coché" : "attestations de l’année, bulletin"} />
+              {famillePieces.filter(p => CLES_RESULTATS.includes(p.cle) && (!parcours || p.cle === 'reussite')).map(lignePiece)}
             </div>
             <div className={parcours ? 'hidden' : 'px-1'}>
               <TitreCarte Icone={IconId} titre="Inscription" sous="PAE, fiche, frais — les annexes ne vont qu’aux SLE, les pièces CEP qu’aux étudiants au congé-éducation" />
@@ -2387,7 +2378,7 @@ function OngletEtudiants({ perimetre = null, mode = 'etudiants', seul = null, on
             </div>
             </>}
           </div>
-          {parcours ? <p className="text-second text-slate-500 px-1 m-0">Une pièce par attestation, pour chaque étudiant coché.</p> : !conseil && (
+          {parcours || !seance ? <p className="text-second text-slate-500 px-1 m-0">Une pièce par document et par étudiant.</p> : (
             <label className="flex items-center gap-1.5 px-1 text-second text-slate-600 cursor-pointer">
               <input type="checkbox" checked={separer}
                 onChange={e => {
@@ -2534,8 +2525,8 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
      les rapports partout ailleurs. Elle se remet à sa valeur d'origine quand
      on change d'axe : « Listes » laissé actif en passant de Personnel à
      Gestion ouvrait une colonne vide, et l'on croyait l'axe vide. */
-  const versConseil = (perimetre?.pieces || []).some(c => PIECES.some(p => !p.nominatif && p.cle === c));
-  const [famille, setFamille] = useState(familleInitiale || (versConseil ? 'conseil' : 'pieces'));
+  // « Pour qui ? » se pose DANS les pièces (3.1.497) : une séance n'a plus son onglet.
+  const [famille, setFamille] = useState(familleInitiale === 'conseil' ? 'pieces' : (familleInitiale || 'pieces'));
   // OUVERT DEPUIS LA FICHE D'UN ÉTUDIANT : il est le périmètre, dans la même
   // fenêtre que partout ailleurs.
   const [etudiantVu, setEtudiantVu] = useState(etudiant ? { ...etudiant } : null);
@@ -2603,14 +2594,11 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
               {/* « PIÈCES PAR ÉTUDIANT » SE COUPE EN DEUX (maquette validée,
                   2 octobre 2026) : ce qui demande une délibération, et le
                   dossier de l'étudiant, à tout moment. */}
-              {/* PAR DESTINATAIRE (3.1.497) : ce qui va à l'étudiant, ce qui sort d'une séance. */}
+              {/* UN SEUL ONGLET « PIÈCES » (3.1.497) : la première question y est
+                  « Pour qui ? » — une personne, des étudiants, une séance. */}
               <button onClick={() => setFamille('pieces')}
                 className={`onglet-page ${famille === 'pieces' ? 'onglet-page-actif' : ''}`}>
-                Pièces des étudiants
-              </button>
-              <button onClick={() => setFamille('conseil')}
-                className={`onglet-page ${famille === 'conseil' ? 'onglet-page-actif' : ''}`}>
-                Pièces du Conseil
+                Pièces
               </button>
               {/* LA VALORISATION EST UNE FAMILLE À PART, ET NON UNE PIÈCE
                   « PAR ÉTUDIANT ». Le procès-verbal d'annexe 4 porte TOUS les
@@ -2634,16 +2622,15 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
                   l'atelier de Lucie, une lettre par étudiant choisi. */}
               <button onClick={() => setFamille('lettres')}
                 className={`onglet-page ${famille === 'lettres' ? 'onglet-page-actif' : ''}`}>
-                Lettres
+                Documents
               </button>
             </span>
           </div>
           {etudiantVu && famille === 'pieces' ? (
-            <OngletEtudiants key={`seul-${etudiantVu.id}-${famille}`} mode="etudiants"
+            <OngletEtudiants key={`seul-${etudiantVu.id}-${famille}`}
               seul={etudiantVu} onRevenir={() => setEtudiantVu(null)}
               perimetre={{ sections: [etudiantVu.section_rattachement || String(etudiantVu.sections || '').split(',')[0]].filter(Boolean), coches: [etudiantVu.id],
-                ...(perimetre?.pieces ? { pieces: perimetre.pieces } : {}), ...(anneeEtudiant ? { annee: anneeEtudiant } : {}) }} />          ) : famille === 'pieces' ? <OngletEtudiants perimetre={perimetre} mode="etudiants" />
-            : famille === 'conseil' ? <OngletEtudiants perimetre={perimetre} mode="conseil" />
+                ...(perimetre?.pieces ? { pieces: perimetre.pieces } : {}), ...(anneeEtudiant ? { annee: anneeEtudiant } : {}) }} />          ) : famille === 'pieces' ? <OngletEtudiants perimetre={perimetre} />
             : famille === 'valorisation' ? <OngletValorisation initial={perimetre?.valorisation || null} />
             : famille === 'diplomes' ? <CentreDiplomation annee={getAnnee()} integre onClose={onClose} />
             : famille === 'lettres' ? <LettresModele annee={getAnnee()} />
