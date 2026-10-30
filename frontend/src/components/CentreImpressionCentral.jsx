@@ -11,7 +11,7 @@ import { nomPropre } from '../lib/nom.js';
 import {
   IconPrinter, IconUsers, IconSchool, IconChartBar, IconCalendarStats,
   IconBooks, IconAlertTriangle, IconChevronRight, IconChevronDown, IconSearch,
-  IconDownload, IconSend, IconFilePlus, IconMailForward, IconFileText, IconRoute, IconId, IconZoomIn,
+  IconDownload, IconSend, IconFilePlus, IconMailForward, IconFileText, IconRoute, IconId, IconZoomIn, IconCheck,
 } from '@tabler/icons-react';
 const RegistreEnvois = lazy(() => import('./RegistreEnvois.jsx'));
 import PreviewModal from './PreviewModal.jsx';
@@ -74,6 +74,22 @@ const ONGLETS = [
 /* LE REPÈRE D'UNE PIÈCE (3.1.497, Charles, d'après la maquette de l'avis graphique) : vert pour la réussite, ocre pour
    l'ajournement, brique pour le refus — les couleurs d'état réglées. Les autres pièces n'en portent pas. */
 const REPERE_PIECE = { reussite: 'var(--c-reussi, #3E7D5E)', ajournement: 'var(--c-attente, #B45309)', refus: 'var(--c-refuse, #9D4A38)' };
+
+/* LES TROIS ÉTAPES (Charles, 30 octobre 2026, maquette A : « 1-2-3 pour les étapes, cela permet de revenir en arrière ou
+   de cocher un étudiant oublié — pas de cinéma ») : trois zones côte à côte, toujours visibles. Le numéro dit l'état :
+   coche verte quand l'étape est faite, marine quand elle est à faire, cerclé gris quand elle attend la précédente. */
+const ZONE = { background: 'color-mix(in srgb, var(--c-principal, #16406A) 4%, var(--c-fenetre_corps, #fff))' };
+function Etape({ n, titre, fait, attend, children }) {
+  return (
+    <div className="h-6 flex items-center gap-2 text-sm font-semibold text-iip-blue">
+      <span className={`w-[22px] h-[22px] rounded-full inline-grid place-items-center text-xs font-bold flex-none ${
+        attend ? 'text-slate-400 ring-[1.5px] ring-inset ring-slate-300' : 'text-white'}`}
+        style={attend ? undefined : { background: fait ? 'var(--c-reussi, #3E7D5E)' : 'var(--c-principal, #16406A)' }}>
+        {fait ? <IconCheck size={13} stroke={3} /> : n}</span>
+      {titre}{children}
+    </div>
+  );
+}
 
 /* LES ACTIONS DANS LA BARRE BLEUE (3.1.497, Charles : « comme dans d'autres fenêtres, aperçu, produire ou envoyer
    doivent être dans la barre bleue du haut, sous forme d'icônes — loupe, imprimante, avion »). La fenêtre offre une
@@ -2070,6 +2086,8 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
      tout étudiant du périmètre se coche ; la colonne « Reçoit » dit ce qu'il
      recevra, et « — » quand rien ne le concerne. */
   const cochable = () => true;
+  // L'étape 3 s'ouvre quand les précédentes sont faites (une personne : elle est faite d'emblée).
+  const etape3 = !!seul || (!rien && (seance ? visibles.length > 0 : coches.size > 0));
   // Une séance ne se trie pas : tous ses délibérés en font partie.
   useEffect(() => {
     if (seance) setCoches(new Set(etudiants.filter(e => e.decide).map(e => e.id)));
@@ -2178,23 +2196,23 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
   }, [modePublic, etudiants]);
 
   return (
-    <div className="flex min-h-0 flex-1">
-      {/* LE PÉRIMÈTRE */}
-      <div className="w-[340px] flex flex-col min-h-0">
+    <div className="flex min-h-0 flex-1 gap-3">
+      {/* ÉTAPE 1 — POUR QUI ? */}
+      <div className="w-[340px] flex-none flex flex-col min-h-0 rounded-carte" style={ZONE}>
         {reprisDeLaListe && !seul && (
           <div data-etat="disponible" className="bloc-etat mx-3 mt-3 px-3 py-2 text-second">
             <b>{selectionListe.length} étudiant(s)</b> repris de votre sélection dans la liste des étudiants — cochés d’avance.
           </div>)}
         {seul && (
           <div className="px-3 pt-3">
-            <div className="intertitre">Pour</div>
+            <div className="mb-2"><Etape n={1} titre="Pour qui ?" fait /></div>
             <div className="text-base font-semibold text-iip-texte">{nomPropre(seul.nom, seul.prenom)}</div>
             <div className="text-second text-slate-500">{seul.id_ecampus || ''}{seul.section_rattachement ? ` · ${seul.section_rattachement}` : ''}</div>
             <button type="button" className="mt-1 text-second underline text-iip-blue" onClick={onRevenir}>revenir au périmètre</button>
           </div>
         )}
         <div className="px-3 pt-3 pb-2">
-          {!seul && <div className="h-6 flex items-center mb-2.5 text-sm font-semibold text-iip-blue">Pour qui ?</div>}
+          {!seul && <div className="mb-2.5"><Etape n={1} titre="Pour qui ?" fait={!rien} /></div>}
           {!seul && <div className="segments w-full mb-2">
             {[['personne', 'Une personne'], ['groupe', 'Des étudiants'], ['seance', 'Une séance']].map(([v, lib]) => (
               <button key={v} type="button" onClick={() => setPourQui(v)}
@@ -2307,7 +2325,8 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
       )}
       {/* UNE PERSONNE : on la cherche à gauche, on l'ouvre ici — ses pièces viennent ensuite. */}
       {pourQui === 'personne' && !seul && !etudiantVu && (
-        <div className="flex-1 overflow-auto min-h-0 p-3">
+        <div className="flex-1 overflow-auto min-h-0 p-3 rounded-carte" style={ZONE}>
+          <Etape n={2} titre="La personne" attend={recherche.trim().length < 2} />
           {recherche.trim().length < 2 ? (
             <p className="p-3 text-sm text-slate-400">Cherchez l'étudiant à gauche — nom ou matricule. Ses pièces s'ouvrent ensuite, de l'année ou de tout son parcours.</p>
           ) : !ailleurs.length ? (
@@ -2321,17 +2340,18 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
         </div>)}
       {/* TROIS COLONNES, DU LARGE AU PRÉCIS (Charles, 30 octobre 2026 : « au plus on va à droite, au plus on précise ») :
           pour qui · quoi (résultats ou inscription — pour une séance, le Conseil ou ses étudiants) · les étudiants. */}
-      <div className={`flex-1 flex min-h-0 gap-4 ${etudiantVu || (pourQui === 'personne' && !seul) ? 'hidden' : ''}`}>
-      <div className="flex-1 min-w-0 flex flex-col min-h-0 order-last">
+      <div className={`flex-1 flex min-h-0 gap-3 ${etudiantVu || (pourQui === 'personne' && !seul) ? 'hidden' : ''}`}>
+      <div className={`flex-1 min-w-0 flex flex-col min-h-0 order-last rounded-carte ${etape3 ? '' : 'opacity-60'}`} style={ZONE}>
 
         {/* LES BOUTONS EN TÊTE, et ce qu'ils vont faire (maquette validée). */}
-        <div className="px-3 pt-2 space-y-2.5">
-          <div className="flex flex-wrap items-end gap-2 border-b border-slate-200">
+        <div className="px-3 pt-3 space-y-2.5">
+          <div className="flex flex-wrap items-center gap-2">
             {/* PAS DE SOUS-MENU (Charles, 30 octobre 2026 : « le tri se fait en fonction des choix ») : le volet 1 dit
                 déjà de quelles pièces il s'agit ; le volet 3 les montre toutes, groupées par intertitres. */}
-            <span className="onglet-page onglet-page-actif cursor-default">Documents{nbPieces ? ` · ${nbPieces}` : ''}</span>
+            <Etape n={3} titre="Quoi ?" fait={nbPieces > 0} attend={!etape3}>
+              {nbPieces > 0 && <span className="font-normal text-slate-500">· {nbPieces} pièce{nbPieces > 1 ? 's' : ''}</span>}</Etape>
             <span className="flex-1" />
-            {enCours && <span className="text-second text-slate-500 pb-2">Production…</span>}
+            {enCours && <span className="text-second text-slate-500">Production…</span>}
             {placeOutils && createPortal(<>
               <IconeBarre Icone={IconZoomIn} titre="Aperçu — voir les pièces avant de les produire" onClick={() => produire(true)}
                 disabled={enCours || !coches.size || !nbPieces} />
@@ -2349,7 +2369,7 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
           )}
         </div>
         {/* Le volet 3 s'ouvre quand les précédents sont remplis. */}
-        {!seul && (rien || (!seance && !coches.size) || (seance && !visibles.length)) ? (
+        {!etape3 ? (
           <p className="p-6 text-sm text-slate-400">{rien
             ? (seance ? 'Choisissez à gauche la section et l’unité de la séance.' : 'Choisissez à gauche une section, puis ses unités.')
             : seance ? 'Aucun étudiant délibéré dans cette séance.' : 'Cochez au moins un étudiant.'}</p>
@@ -2396,11 +2416,15 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
       {/* VOLET 2 — LES ÉTUDIANTS (Charles, 30 octobre 2026 : « volet 1 le périmètre, volet 2 s'ouvre et on choisit les
           étudiants si plusieurs, ensuite volet 3 et on choisit quoi »). Une personne : pas de volet 2, c'est elle. Une
           séance : les délibérés et leur résultat, SANS case — ses pièces portent toute l'unité. */}
-      <div className={seul ? 'hidden' : 'w-[360px] flex-none flex flex-col min-h-0'}>
-        <div className="px-3 pt-2">
-          <div className="flex items-end border-b border-slate-200">
-            <span className="onglet-page onglet-page-actif cursor-default">{seance ? `Délibérés · ${visibles.length}` : `Étudiants · ${coches.size} / ${visibles.length}`}</span>
-          </div>
+      {seul && (
+        <div className="w-[360px] flex-none rounded-carte px-3 pt-3 opacity-60" style={ZONE}>
+          <Etape n={2} titre="Les étudiants" attend />
+          <p className="text-second text-slate-500 mt-2">Sans objet : c’est {nomPropre(seul.nom, seul.prenom)}.</p>
+        </div>)}
+      <div className={seul ? 'hidden' : `w-[360px] flex-none flex flex-col min-h-0 rounded-carte ${rien ? 'opacity-60' : ''}`} style={ZONE}>
+        <div className="px-3 pt-3">
+          <Etape n={2} titre={seance ? 'Les délibérés' : 'Les étudiants'} fait={!rien && (seance ? visibles.length > 0 : coches.size > 0)} attend={rien}>
+            {!rien && <span className="font-normal text-slate-500">· {seance ? visibles.length : `${coches.size} / ${visibles.length}`}</span>}</Etape>
         </div>
         {/* La colonne des étudiants : ses filtres sur une ligne, puis cocher, sans second filet. */}
         <div className={seance || rien ? 'hidden' : 'px-3 pt-3 pb-1 space-y-2 text-second'}>

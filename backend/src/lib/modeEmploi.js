@@ -10,7 +10,7 @@
  *   savoir — ce qu'il faut savoir : les règles qui bloquent ou qui surprennent.
  * Il explique le travail, pas l'informatique (CLAUDE.md, § 7). La version décrite se dit en tête.
  */
-export const VERSION_DECRITE = '3.1.501';
+export const VERSION_DECRITE = '3.1.502';
 
 export const RUBRIQUES = [
   {
@@ -900,16 +900,15 @@ export const RUBRIQUES = [
         texte: "La première question est « Pour qui ? ». « Une personne » : cherchez-la par son nom ou son matricule dans toute l'école, puis « ouvrir ses pièces » — de l'année, ou de tout son parcours. « Des étudiants » : une section, ses unités, des cases à cocher — leurs attestations de réussite, bulletin, PAE, fiche, frais, annexes, pièces CEP, de l'année ou de tout le parcours (une inspection : tout sortir vite). « Une séance » : l'année, la session, l'unité — « Pour le Conseil » (PV, composition, grille, ajournés par cours) et « Pour ses étudiants » (attestations, motivations d'ajournement et de refus). Les autres onglets : « Valorisation des acquis » (par unité), « Diplômes et titres », « Listes et rapports », « Divers » (les lettres composées dans l'atelier).",
         savoir: [
           "La session n'appartient qu'à la séance : une attestation de réussite n'en a pas besoin.",
-          "Trois volets, de gauche à droite : 1 pour qui · 2 les étudiants (tous cochés, on décoche ; pour une personne, pas de volet 2 ; pour une séance, les délibérés et leur résultat, sans case — tout part pour toute l'unité) · 3 quoi (« Résultats » ou « Inscription » ; pour une séance, « Pour le Conseil » ou « Pour ses étudiants »). Le volet 3 s'ouvre quand les précédents sont remplis.",
+          "Trois volets, de gauche à droite : 1 pour qui · 2 les étudiants (tous cochés, on décoche ; pour une personne, pas de volet 2 ; pour une séance, les délibérés et leur résultat, sans case — tout part pour toute l'unité) · 3 quoi (les pièces, groupées : « Résultats » et « Inscription » ; pour une séance, « Pour le Conseil » et « Pour ses étudiants »). Trois zones numérotées, toujours visibles : le numéro devient une coche verte quand l'étape est faite ; on revient en arrière d'un clic pour cocher un étudiant oublié.",
           "Une pièce sans rien à produire est grisée (attestation sans réussite, motivation de refus sans refus…).",
           "Mode SLE : cocher une annexe 1 ou 2 ne montre que les étudiants en séjour limité aux études. Mode CEP : cocher une pièce CEP ne montre que les étudiants au congé-éducation payé de l'année (hors Flandre).",
           "Dans la barre bleue : [[Aperçu|IconZoomIn]], [[Produire|IconPrinter]] et [[Envoyer|IconSend]] — par courriel, un document par personne, jamais de copie collective, à l'adresse d'école.",
         ],
         images: [
           { src: "/guide/editions-personne.png", legende: "« Une personne » (données d'essai) : le nom cherché à gauche, « ouvrir ses pièces » à droite." },
-          { src: "/guide/editions-groupe.png", legende: "« Des étudiants » : l'année ou tout le parcours, la section et ses unités ; au milieu, les étudiants à cocher ; à droite, Résultats ou Inscription." },
-          { src: "/guide/editions-inscription.png", legende: "Le sous-onglet « Inscription » : PAE, fiche, frais, annexes des SLE, pièces CEP." },
-          { src: "/guide/editions-seance.png", legende: "« Une séance » : l'année, la session, l'unité ; au milieu, les délibérés et leur résultat, sans case ; à droite, « Pour le Conseil » ou « Pour ses étudiants »." },
+          { src: "/guide/editions-groupe.png", legende: "« Des étudiants » : l'année ou tout le parcours, la section et ses unités ; 1 le périmètre, 2 les étudiants à cocher, 3 les pièces — Résultats et Inscription." },
+          { src: "/guide/editions-seance.png", legende: "« Une séance » : l'année, la session, l'unité ; 2 les délibérés et leur résultat, sans case ; 3 « Pour le Conseil » et « Pour ses étudiants »." },
         ],
       },
       {

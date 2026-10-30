@@ -2810,7 +2810,11 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   personne : pas de volet 2. **Une séance ne se trie pas** (« pas de case à cocher ») : le volet 2 liste les délibérés
   et leur résultat, et `documents-lot` part SANS `etudiants` — PV, grille, composition et pièces des délibérés
   portent toute l'unité (avant, le PV ne portait que les cochés). Le volet 3 dit ce qui manque tant que les
-  précédents ne sont pas remplis.
+  précédents ne sont pas remplis. **Le dessin : trois zones numérotées** (3.1.502, Charles, maquette A parmi trois —
+  zones, tiroirs de côté, tiroirs empilés : « 1-2-3 pour les étapes, on revient en arrière ou on coche un étudiant
+  oublié ; pas de cinéma »). `Etape` (numéro → coche verte quand faite, cerclé gris quand elle attend) et `ZONE` (fond
+  du principal à 4 %, `rounded-carte`) ; plus de sous-menu au volet 3 : ses pièces se groupent par intertitres (« le
+  tri se fait en fonction des choix ») ; une personne : zone 2 pâlie, « sans objet ».
 
 **L'ANNULER NE COMPARE QUE CE QUE LE GESTE A CHANGÉ** (3.1.482, Charles, 30 octobre 2026, en production :
   « Impossible d'annuler : utilisateur — la ligne a été modifiée depuis, par quelqu'un »). Se reconnecter écrit
