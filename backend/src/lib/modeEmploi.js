@@ -10,7 +10,7 @@
  *   savoir — ce qu'il faut savoir : les règles qui bloquent ou qui surprennent.
  * Il explique le travail, pas l'informatique (CLAUDE.md, § 7). La version décrite se dit en tête.
  */
-export const VERSION_DECRITE = '3.1.516';
+export const VERSION_DECRITE = '3.1.517';
 
 export const RUBRIQUES = [
   {
@@ -945,7 +945,7 @@ export const RUBRIQUES = [
   },
   {
     id: 'espace', pour: 'sec coo dir', titre: "L'espace de l'étudiant", icone: 'IconDeviceMobile',
-    resume: "Le site à part où l'étudiant retrouve ses résultats et ses documents, en accuse réception, lit les messages de l'école, demande une valorisation, compose son PAE, et où chacun peut vérifier qu'une pièce est authentique.",
+    resume: "Le site à part où l'étudiant retrouve ses résultats et ses documents, en accuse réception, lit les messages de l'école, suit son parcours et ses frais, demande une valorisation, compose son PAE, et où chacun peut vérifier qu'une pièce est authentique.",
     points: [
       {
         titre: "Comment l'étudiant y entre",
@@ -1047,6 +1047,19 @@ export const RUBRIQUES = [
         ],
         images: [
           { src: "/guide/portail-documents.png", legende: "Mes documents : chaque pièce avec sa référence et sa date de téléchargement libre, [[Ouvrir]] puis « Signer l'accusé de réception ».", etroite: true },
+        ],
+      },
+      {
+        titre: "Mon parcours, mes frais, l'aide",
+        texte: "Trois autres onglets de l'espace. « Mon parcours » : les unités de sa section, par bloc, dans leur état (acquise, à son programme, accessible, en attente d'une délibération, pas encore accessible, avec la raison) et les crédits acquis. « Mes frais » : total, versé, reste à payer, l'échéance du solde, le détail et ses versements ; et, tant qu'il reste à payer, le QR à scanner avec l'application de sa banque, qui remplit bénéficiaire, montant et communication structurée. « Aide et règles » : un petit mode d'emploi de l'espace, la grille de lecture des résultats (réussi, NA, ajourné, refusé, faveur, VA) et les règlements à lire et à signer.",
+        savoir: [
+          "Les chiffres sont ceux de Lucie : le parcours vient du moteur du PAE, les frais de la note de frais de l'étudiant.",
+          "Un candidat (code d'accès) voit ses frais ; pas encore son parcours.",
+        ],
+        images: [
+          { src: "/guide/portail-parcours.png", legende: "Mon parcours (données d'essai).", etroite: true },
+          { src: "/guide/portail-frais.png", legende: "Mes frais : le reste à payer et le QR de paiement.", etroite: true },
+          { src: "/guide/portail-aide.png", legende: "Aide et règles : le mode d'emploi de l'espace, puis la grille de lecture et les règlements.", etroite: true },
         ],
       },
       {

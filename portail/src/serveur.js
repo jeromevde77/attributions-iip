@@ -93,6 +93,8 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS va_lot (etudiant_id INTEGER PRIMARY KEY, offre TEXT, etat TEXT, maj_le TEXT);
   -- LE PAE EN LIGNE (3.1.515) : l'offre déposée par Lucie, et les gestes (proposer, confirmer) qu'elle relève.
   CREATE TABLE IF NOT EXISTS pae_lot (etudiant_id INTEGER PRIMARY KEY, offre TEXT, maj_le TEXT);
+  -- MON PARCOURS ET MES FRAIS (3.1.517), déposés par Lucie avec le lot de l'étudiant.
+  CREATE TABLE IF NOT EXISTS espace_lot (etudiant_id INTEGER PRIMARY KEY, parcours TEXT, frais TEXT, maj_le TEXT);
   -- LES MESSAGES (3.1.516) : la copie déposée par Lucie (remplacée à chaque dépôt) ; ce que l'étudiant en fait (lu, répondu),
   -- que Lucie relève.
   CREATE TABLE IF NOT EXISTS message (id INTEGER PRIMARY KEY, objet TEXT, corps TEXT, auteur TEXT, envoye_le TEXT);
@@ -358,7 +360,7 @@ function connecte(req, res, next) {
     if (p.candidat) {
       // Le code vaut tant que Lucie le dépose : adresse d'institut reçue, ou 60 jours passés, il disparaît.
       if (!db.prepare("SELECT 1 FROM candidat WHERE etudiant_id = ? AND jusqu_au >= date('now')").get(e.id)) throw new Error('échu');
-      if (!/^\/api\/portail\/(moi|va|documents\/|messages)/.test(req.path)) return res.status(403).json({ error: 'Pas encore accessible avec un code d’accès.' });
+      if (!/^\/api\/portail\/(moi|va|documents\/|messages|frais)/.test(req.path)) return res.status(403).json({ error: 'Pas encore accessible avec un code d’accès.' });
     }
     req.etudiant = e; req.peutDefinir = !!p.definir; req.candidat = !!p.candidat; next();
   } catch { res.status(401).json({ error: 'Session expirée. Reconnectez-vous.' }); }
@@ -589,6 +591,17 @@ pub.post('/api/portail/va/terminer', connecte, (req, res) => {
   if (gesteVA(req, res, { type: 'terminer' })) res.json({ ok: true });
 });
 
+// ── MON PARCOURS, MES FRAIS (3.1.517) ──
+const lotEspace = id => db.prepare('SELECT * FROM espace_lot WHERE etudiant_id = ?').get(id);
+pub.get('/api/portail/parcours', connecte, (req, res) => {
+  const l = lotEspace(req.etudiant.id);
+  res.json({ pret: !!l, parcours: l ? JSON.parse(l.parcours || 'null') : null, maj_le: l?.maj_le || null });
+});
+pub.get('/api/portail/frais', connecte, (req, res) => {
+  const l = lotEspace(req.etudiant.id);
+  res.json({ pret: !!l, frais: l ? JSON.parse(l.frais || 'null') : null, maj_le: l?.maj_le || null });
+});
+
 // ── LES MESSAGES (3.1.516) ──
 pub.get('/api/portail/messages', connecte, (req, res) => {
   const id = req.etudiant.id;
@@ -760,11 +773,14 @@ int.post('/interne/va', (req, res) => {
   const l = Array.isArray(req.body?.lots) ? req.body.lots : [];
   const i = db.prepare(`INSERT INTO va_lot (etudiant_id, offre, etat, maj_le) VALUES (?,?,?, datetime('now'))
     ON CONFLICT(etudiant_id) DO UPDATE SET offre = excluded.offre, etat = excluded.etat, maj_le = excluded.maj_le`);
+  const ie = db.prepare(`INSERT INTO espace_lot (etudiant_id, parcours, frais, maj_le) VALUES (?,?,?, datetime('now'))
+    ON CONFLICT(etudiant_id) DO UPDATE SET parcours = excluded.parcours, frais = excluded.frais, maj_le = excluded.maj_le`);
   const ip = db.prepare(`INSERT INTO pae_lot (etudiant_id, offre, maj_le) VALUES (?,?, datetime('now'))
     ON CONFLICT(etudiant_id) DO UPDATE SET offre = excluded.offre, maj_le = excluded.maj_le`);
   db.transaction(() => { for (const x of l) if (Number(x.etudiant_id)) {
     i.run(Number(x.etudiant_id), JSON.stringify(x.offre ?? null), JSON.stringify(x.etat ?? []));
     if (x.pae !== undefined) ip.run(Number(x.etudiant_id), JSON.stringify(x.pae ?? null));
+    if (x.parcours !== undefined || x.frais !== undefined) ie.run(Number(x.etudiant_id), JSON.stringify(x.parcours ?? null), JSON.stringify(x.frais ?? null));
   } })();
   res.json({ ok: true, n: l.length });
 });

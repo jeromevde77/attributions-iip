@@ -2934,6 +2934,13 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   (« Écrire à mes étudiants »). Passage du mur : dépôt complet `/interne/messages` à chaque cycle ; relevé `messages_lus`
   et `messages_reponses` → ✓ lu, fil, `lucie_notification` (type `reponse_etudiant`, `cible_user_id` = l'auteur) ;
   `aviserParCourriel` après le dépôt. Portail : onglet « Messages (n) », candidats compris.
+- **PORTAIL, ÉTAPE 5 : MON PARCOURS, MES FRAIS, AIDE ET RÈGLES** (3.1.517). `lib/portailEspace.js` : `parcoursPortail`
+  (les unités de `composerPAE` pour l'année active : acquise · à mon programme · accessible · en attente · pas encore + raison ;
+  ECTS de `ue.ects`) et `fraisPortail` (`calculerFrais` : lignes, versements, échéance ; `virement` et QR `qrSvg` de la
+  charge EPC, seulement s'il reste à payer et qu'un IBAN existe), déposés avec le lot de l'étudiant (`espace_lot` du portail).
+  « Aide et règles » est un texte du site étudiant (mode d'emploi, grille de lecture) qui absorbe l'onglet Règlements.
+  Le candidat voit Mes frais, pas Mon parcours. Le projet du portail est entièrement construit ; restent les frais
+  estimés à côté du PAE en ligne.
 - **LE PORTAIL DE L'ÉTUDIANT — CE QUI EST TRANCHÉ, RIEN N'EST CODÉ** (Charles, 30 octobre 2026 ; projet : logigramme et
   treize écrans hors dépôt). Mot de passe choisi par l'étudiant (comme le personnel), code en plus sur un nouvel appareil.
   **PAE en ligne** : Lucie coche ce qui est accessible (`etatsPAE`), l'étudiant choisit et envoie, la coordination valide ou
@@ -2943,7 +2950,7 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   au secrétariat**. **Candidat** : dès son inscription dans Lucie, un code d'accès temporaire à son espace jusqu'à son adresse
   officielle (tranché : envoyé à l'adresse PRIVÉE du dossier ; s'éteint dès que l'adresse d'institut est encodée, au plus 60 jours, renouvelable par le secrétariat ; il ouvre la demande de VA, les documents, les frais et les messages). Résultats : détail par acquis (NA sous 10) après clôture publiée. Messages :
   réponse possible. Accès **bloqué hors de Belgique**, exception accordée par le secrétariat pour une période ; la vérification
-  du QR reste ouverte partout. (Mot de passe et Belgique : FAITS en 3.1.513 ; VA en ligne et code du candidat : FAITS en 3.1.514 ; PAE en ligne : FAIT en 3.1.515 ; messages : FAITS en 3.1.516.) Toute écriture venant du portail passe par le relevé de Lucie (`portailSync.js`), jamais l'inverse. **Ordre de construction** : 1 mot de passe et blocage hors Belgique · 2 VA en ligne déplacée + code candidat · 3 PAE en ligne · 4 messages · puis parcours, frais, aide.
+  du QR reste ouverte partout. (Mot de passe et Belgique : FAITS en 3.1.513 ; VA en ligne et code du candidat : FAITS en 3.1.514 ; PAE en ligne : FAIT en 3.1.515 ; messages : FAITS en 3.1.516 ; parcours, frais, aide : FAITS en 3.1.517.) Toute écriture venant du portail passe par le relevé de Lucie (`portailSync.js`), jamais l'inverse. **Ordre de construction** : 1 mot de passe et blocage hors Belgique · 2 VA en ligne déplacée + code candidat · 3 PAE en ligne · 4 messages · puis parcours, frais, aide.
 
 **L'ANNULER NE COMPARE QUE CE QUE LE GESTE A CHANGÉ** (3.1.482, Charles, 30 octobre 2026, en production :
   « Impossible d'annuler : utilisateur — la ligne a été modifiée depuis, par quelqu'un »). Se reconnecter écrit

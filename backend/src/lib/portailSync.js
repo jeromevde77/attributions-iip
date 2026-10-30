@@ -23,6 +23,7 @@ import { deposerDOffice } from './depotEspace.js';
 import { piecesATransmettre, marquerTransmises } from './authentique.js';
 import { derniereVersion, versionReference } from '../routes/documentation.js';
 import { aDeposer as messagesADeposer, recevoir as recevoirMessages, aviserParCourriel } from './messagesEtudiants.js';
+import { parcoursPortail, fraisPortail } from './portailEspace.js';
 import { offrePAE, deposerProposition, recevoirSignature, signatureDe } from './paeEnLigne.js';
 import { offreVA, etatVA, appliquerGeste, accuserReception, codesDOffice, candidatsValides, candidatDe, anneeActive as anneeVA } from './portailValorisation.js';
 
@@ -148,7 +149,8 @@ async function deposerVA(ids) {
     if (!e) continue;
     try {
       const candidat = !String(e.email_ecole || '').includes('@');
-      lots.push({ etudiant_id: e.id, offre: offreVA(e, annee), etat: etatVA(e, annee), pae: candidat ? null : offrePAE(e) });
+      lots.push({ etudiant_id: e.id, offre: offreVA(e, annee), etat: etatVA(e, annee), pae: candidat ? null : offrePAE(e),
+        parcours: candidat ? null : parcoursPortail(e, annee), frais: await fraisPortail(e, annee) });
     }
     catch (x) { console.error(`[portail] VA de l'étudiant ${e.id} :`, x.message); }
   }
