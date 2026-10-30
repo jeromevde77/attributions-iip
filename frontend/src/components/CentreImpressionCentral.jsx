@@ -2115,7 +2115,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
   return (
     <div className="flex min-h-0 flex-1">
       {/* LE PÉRIMÈTRE */}
-      <div className="w-[340px] border-r border-slate-200 flex flex-col min-h-0">
+      <div className="w-[340px] flex flex-col min-h-0">
         {reprisDeLaListe && !seul && (
           <div data-etat="disponible" className="bloc-etat mx-3 mt-3 px-3 py-2 text-second">
             <b>{selectionListe.length} étudiant(s)</b> repris de votre sélection dans la liste des étudiants — cochés d’avance.
@@ -2129,7 +2129,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
           </div>
         )}
         <div className="p-3">
-          <div className="text-sm font-semibold text-iip-blue mb-2">Périmètre</div>
+          <div className="h-9 flex items-center mb-2.5 text-sm font-semibold text-iip-blue">Périmètre</div>
           <select value={annee} onChange={e => setAnnee(e.target.value)}
             title="L'année sur laquelle portent les pièces"
             className="controle w-full mb-2 text-sm">
@@ -2262,9 +2262,9 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
               <IconAlertTriangle size={15} className="flex-none mt-0.5" /> {erreur}
             </div>
           )}
-          <div className="grid gap-2.5 md:grid-cols-2">
+          <div className="grid gap-x-8 gap-y-4 md:grid-cols-2 pt-1">
             {delib ? <>
-            <div className="border border-slate-200 rounded-carte p-2.5">
+            <div className="px-1">
               <TitreCarte Icone={IconFileText} titre="À remettre aux étudiants" sous="une pièce par étudiant décidé" />
               {PIECES.filter(p => p.nominatif).map(p => (
                 <label key={p.cle} className={`flex items-center gap-2 py-1.5 text-sm ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
@@ -2282,7 +2282,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
                 </label>
               ))}
             </div>
-            <div className="border border-slate-200 rounded-carte p-2.5">
+            <div className="px-1">
               <TitreCarte Icone={IconUsers} titre="Pour le Conseil" sous="une pièce pour l’unité" />
               {PIECES.filter(p => !p.nominatif).map(p => (
                 <label key={p.cle} className={`flex items-center gap-2 py-1.5 text-sm ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
@@ -2301,7 +2301,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
               ))}
             </div>
             </> : <>
-            <div className="border border-slate-200 rounded-carte p-2.5">
+            <div className="px-1">
               <TitreCarte Icone={IconRoute} titre="Le parcours" sous="à tout moment de l’année" />
               {PIECES_DOSSIER.filter(p => ['bulletin', 'pae', 'parcours'].includes(p.cle)).map(p => (
                 <label key={p.cle} className={`flex items-center gap-2 py-1.5 text-sm ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
@@ -2319,7 +2319,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
                 </label>
               ))}
             </div>
-            <div className="border border-slate-200 rounded-carte p-2.5">
+            <div className="px-1">
               <TitreCarte Icone={IconId} titre="L’inscription" sous="administratif — les annexes ne vont qu’aux SLE, les pièces CEP qu’aux étudiants au congé-éducation" />
               {PIECES_DOSSIER.filter(p => !['bulletin', 'pae', 'parcours'].includes(p.cle)).map(p => (
                 <label key={p.cle} className={`flex items-center gap-2 py-1.5 text-sm ${dispo(p) ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
@@ -2395,7 +2395,7 @@ function OngletEtudiants({ perimetre = null, mode = 'deliberation', seul = null,
           )}
           {visibles.map(e => (
             <label key={e.id}
-              className={`flex items-center gap-2 px-3 py-1.5 border-b border-slate-100
+              className={`flex items-center gap-2 px-3 py-1.5 hover:bg-slate-50
                           cursor-pointer ${cochable(e) ? '' : 'opacity-50'}`}>
               <input type="checkbox" checked={coches.has(e.id)} disabled={!cochable(e)}
                 onChange={() => setCoches(s => bascule(s, e.id))}
