@@ -2734,6 +2734,16 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   **Imprimer** : `GET /:cle/document` (enveloppe commune, sommaire, version, pied « produit par »), PDF serveur ou
   impression du navigateur. Les boutons `[[Libellé]]` se dessinent à l'écran et s'impriment entre crochets.
 
+- **LE MODE D'EMPLOI MONTRE LES ÉCRANS ET LES BOUTONS** (3.1.488-3.1.490, Charles, 30 octobre 2026 : « des images des
+  boutons, des captures des fenêtres… le mode d'emploi PDF ne doit plus être la base de la recherche »). Un bouton
+  s'écrit `[[Libellé|IconNom|fort]]` dans `modeEmploi.js` (texte, « à savoir », légendes) et se dessine avec les
+  classes de Lucie (`Enrichi`, `BoutonGuide`, liste fermée d'icônes `ICONES_BOUTON` dans `pages/Aide.jsx`) ; un point
+  porte `images: [{ src, legende, etroite }]`. 92 points sur 105 illustrés par ~110 captures RÉELLES
+  (`frontend/public/guide/<chapitre>-*.png`), prises sur une base d'essai aux noms fictifs, jamais sur la dev.
+  **Une nouvelle fonction s'écrit dans `modeEmploi.js` avec ses boutons et, si l'écran le montre, sa capture.**
+  Non illustrés faute de données dans la base d'essai : attributions, rapport ETP, contrats/EA12, recours, reports
+  de notes, schéma par section (la base d'essai, ancienne, n'a ni section ni attribution).
+
 **L'ANNULER NE COMPARE QUE CE QUE LE GESTE A CHANGÉ** (3.1.482, Charles, 30 octobre 2026, en production :
   « Impossible d'annuler : utilisateur — la ligne a été modifiée depuis, par quelqu'un »). Se reconnecter écrit
   `last_login_at` sur la ligne du compte ; l'annulation comparait la ligne entière et refusait. Désormais elle ne
