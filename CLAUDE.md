@@ -2705,6 +2705,14 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   τ, Spica et Zaniah. Le logo s'élargit (barre : viewBox -12 -6 172 49, texte à x 66) et la figure, plus lisible
   (`RESTE` 0,42 / 0,3), se reconnaît. Ne pas réinventer de lignes : une constellation a ses lignes.
 
+- **LA PAGE DE CONNEXION : DE LA NUIT AU BLEU DE LUCIE** (3.1.486, Charles, 30 octobre 2026, projet D validé sur
+  maquette). `pages/Login.jsx` (`NuitProfonde`, `LucieLogo`, rythme `T`) : nuit très profonde sur toute la page avec
+  poussière d'étoiles ; les étoiles de la Vierge apparaissent (Spica d'abord) et scintillent (quatre aigrettes) ; les
+  liens se tracent en blanc léger ; le L devient bleu néon ; à 7 s tout s'apaise — la nuit se lève sur le bleu de
+  Lucie, les liens deviennent presque invisibles, et le néon s'éteint : on finit sur le L PLAT du logo, neutre.
+  « Lucie » garde la police du logo (Segoe UI / Helvetica Neue / Arial gras) et est CALÉ EN LARGEUR sur le L
+  (`textLength`, du bord de Spica au bord de Zaniah). `prefers-reduced-motion` : l'état final, d'emblée.
+
 **L'ANNULER NE COMPARE QUE CE QUE LE GESTE A CHANGÉ** (3.1.482, Charles, 30 octobre 2026, en production :
   « Impossible d'annuler : utilisateur — la ligne a été modifiée depuis, par quelqu'un »). Se reconnecter écrit
   `last_login_at` sur la ligne du compte ; l'annulation comparait la ligne entière et refusait. Désormais elle ne
