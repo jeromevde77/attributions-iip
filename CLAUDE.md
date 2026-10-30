@@ -2805,7 +2805,12 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   quand l'appel n'apporte que des pièces d'inscription (le PAE de la revue). **Trois colonnes** (3.1.500, Charles :
   « au plus on va à droite, au plus on précise ») : pour qui · quoi (Résultats | Inscription, ou Pour le Conseil |
   Pour ses étudiants) · les étudiants (`w-[400px]`, toujours visibles, filtres sur une ligne) — l'onglet
-  « Étudiants » a disparu.
+  « Étudiants » a disparu. **Trois volets** (3.1.501, Charles : « volet 1 le périmètre, volet 2 les étudiants si
+  plusieurs, volet 3 quoi » ; logigramme v3 validé) : l'ordre devient pour qui · **les étudiants** · **quoi**. Une
+  personne : pas de volet 2. **Une séance ne se trie pas** (« pas de case à cocher ») : le volet 2 liste les délibérés
+  et leur résultat, et `documents-lot` part SANS `etudiants` — PV, grille, composition et pièces des délibérés
+  portent toute l'unité (avant, le PV ne portait que les cochés). Le volet 3 dit ce qui manque tant que les
+  précédents ne sont pas remplis.
 
 **L'ANNULER NE COMPARE QUE CE QUE LE GESTE A CHANGÉ** (3.1.482, Charles, 30 octobre 2026, en production :
   « Impossible d'annuler : utilisateur — la ligne a été modifiée depuis, par quelqu'un »). Se reconnecter écrit

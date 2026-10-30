@@ -1904,7 +1904,8 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
             // ses pièces — PV, grille, notifications — ne portent alors qu'elle.
             org: perimetre?.org ?? undefined,
             ue_nums: (liste?.unites || []).map(u => u.ue_num),
-            etudiants: [...coches].filter(id => etudiants.find(e => e.id === id)?.decide),
+            // UNE SÉANCE NE SE TRIE PAS (Charles, 30 octobre 2026 : « pas de case à cocher ») : ses pièces portent
+            // toute l'unité — le Conseil comme les délibérés.
             ...drapeaux(),
           }),
         });
@@ -1981,7 +1982,8 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
             annee, session: sess, separer: true,
             org: perimetre?.org ?? undefined,
             ue_nums: (liste?.unites || []).map(u => u.ue_num),
-            etudiants: [...coches].filter(id => etudiants.find(e => e.id === id)?.decide),
+            // UNE SÉANCE NE SE TRIE PAS (Charles, 30 octobre 2026 : « pas de case à cocher ») : ses pièces portent
+            // toute l'unité — le Conseil comme les délibérés.
             ...drapeaux(),
           }),
         });
@@ -2050,6 +2052,7 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
   const modeSLE = modePublic === 'sle';
   const NOM_PUBLIC = { sle: 'SLE : seuls les étudiants en séjour limité aux études', cep: 'CEP : seuls les étudiants au congé-éducation payé' };
   const visibles = etudiants
+    .filter(e => !seance || e.decide)
     .filter(e => !modePublic || e[modePublic])
     .filter(e => !fNouveau || (fNouveau === 'nouveaux' ? e.nouveau : !e.nouveau))
     .filter(e => !fBloc || e.bloc === fBloc)
@@ -2070,6 +2073,11 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
      tout étudiant du périmètre se coche ; la colonne « Reçoit » dit ce qu'il
      recevra, et « — » quand rien ne le concerne. */
   const cochable = () => true;
+  // Une séance ne se trie pas : tous ses délibérés en font partie.
+  useEffect(() => {
+    if (seance) setCoches(new Set(etudiants.filter(e => e.decide).map(e => e.id)));
+    // eslint-disable-next-line
+  }, [seance, etudiants]);
   const recoit = e => {
     const l = [];
     if (seance) {
@@ -2317,7 +2325,7 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
       {/* TROIS COLONNES, DU LARGE AU PRÉCIS (Charles, 30 octobre 2026 : « au plus on va à droite, au plus on précise ») :
           pour qui · quoi (résultats ou inscription — pour une séance, le Conseil ou ses étudiants) · les étudiants. */}
       <div className={`flex-1 flex min-h-0 gap-4 ${etudiantVu || (pourQui === 'personne' && !seul) ? 'hidden' : ''}`}>
-      <div className="flex-1 min-w-0 flex flex-col min-h-0">
+      <div className="flex-1 min-w-0 flex flex-col min-h-0 order-last">
 
         {/* LES BOUTONS EN TÊTE, et ce qu'ils vont faire (maquette validée). */}
         <div className="px-3 pt-2 space-y-2.5">
@@ -2353,12 +2361,17 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
             </div>
           )}
         </div>
-        {(
+        {/* Le volet 3 s'ouvre quand les précédents sont remplis. */}
+        {!seul && (rien || (!seance && !coches.size) || (seance && !visibles.length)) ? (
+          <p className="p-6 text-sm text-slate-400">{rien
+            ? (seance ? 'Choisissez à gauche la section et l’unité de la séance.' : 'Choisissez à gauche une section, puis ses unités.')
+            : seance ? 'Aucun étudiant délibéré dans cette séance.' : 'Cochez au moins un étudiant.'}</p>
+        ) : (
         <div className="flex-1 overflow-auto min-h-0 p-3 space-y-4">
           <div className="pt-1 max-w-xl">
             {seance ? <>
             <div className={vueDroite === 'a' ? '' : 'hidden'}>
-              <p className="text-second text-slate-500 mt-0 mb-2 pl-3">une pièce pour l’unité</p>
+              <p className="text-second text-slate-500 mt-0 mb-2 pl-3">toujours toute l’unité</p>
               {PIECES.filter(p => !p.nominatif).map(lignePiece)}
             </div>
             <div className={vueDroite === 'b' ? '' : 'hidden'}>
@@ -2389,14 +2402,17 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
         </div>
         )}
       </div>
-      <div className="w-[400px] flex-none flex flex-col min-h-0">
+      {/* VOLET 2 — LES ÉTUDIANTS (Charles, 30 octobre 2026 : « volet 1 le périmètre, volet 2 s'ouvre et on choisit les
+          étudiants si plusieurs, ensuite volet 3 et on choisit quoi »). Une personne : pas de volet 2, c'est elle. Une
+          séance : les délibérés et leur résultat, SANS case — ses pièces portent toute l'unité. */}
+      <div className={seul ? 'hidden' : 'w-[360px] flex-none flex flex-col min-h-0'}>
         <div className="px-3 pt-2">
           <div className="flex items-end border-b border-slate-200">
-            <span className="onglet-page onglet-page-actif cursor-default">Étudiants · {coches.size} / {visibles.length}</span>
+            <span className="onglet-page onglet-page-actif cursor-default">{seance ? `Délibérés · ${visibles.length}` : `Étudiants · ${coches.size} / ${visibles.length}`}</span>
           </div>
         </div>
         {/* La colonne des étudiants : ses filtres sur une ligne, puis cocher, sans second filet. */}
-        <div className="px-3 pt-3 pb-1 space-y-2 text-second">
+        <div className={seance || rien ? 'hidden' : 'px-3 pt-3 pb-1 space-y-2 text-second'}>
           {!seul && <div className="flex gap-2">
             <select value={fNouveau} onChange={e => setFNouveau(e.target.value)}
               className="controle flex-1 min-w-0" aria-label="Nouveaux ou déjà inscrits">
@@ -2442,18 +2458,20 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
           )}
           {visibles.map(e => (
             <label key={e.id}
-              className={`flex items-center gap-2 px-3 py-1.5 hover:bg-slate-50
-                          cursor-pointer ${cochable(e) ? '' : 'opacity-50'}`}>
-              <input type="checkbox" checked={coches.has(e.id)} disabled={!cochable(e)}
+              className={`flex items-center gap-2 px-3 py-1.5 ${seance ? '' : 'hover:bg-slate-50 cursor-pointer'} ${cochable(e) ? '' : 'opacity-50'}`}>
+              {!seance && <input type="checkbox" checked={coches.has(e.id)} disabled={!cochable(e)}
                 onChange={() => setCoches(s => bascule(s, e.id))}
-                className="w-4 h-4 accent-iip-blue" />
+                className="w-4 h-4 accent-iip-blue" />}
               <span className="flex-1 min-w-0">
                 <span className="text-sm font-medium">{nomPropre(e.nom, e.prenom)}</span>
                 {e.bloc && <span className="ml-1.5 text-mention text-slate-500">{e.bloc === 'MIXTE' ? 'mixte' : e.bloc}</span>}
                 {e.nouveau && <span className="ml-1.5 text-mention font-semibold text-slate-600 border border-slate-300 rounded px-1">nouveau</span>}
                 {e.sle && <span className="ml-1.5 text-mention font-semibold text-white bg-iip-blue rounded px-1 py-px">SLE</span>}
                 {e.cep && <span className="ml-1.5 text-mention font-semibold text-white bg-iip-blue rounded px-1 py-px">CEP</span>}
-                {delib && !parcours && <span className="block text-xs text-slate-500">
+                {seance && e.decide && e.unites?.length === 1 ? (() => {
+                  const r = e.reussites > 0 ? ['réussi', 'var(--c-reussi, #3E7D5E)'] : (e.refus ?? 0) > 0 || session === 2 ? ['refusé', 'var(--c-refuse, #9D4A38)'] : ['ajourné', 'var(--c-attente, #B45309)'];
+                  return <span className="ml-1.5 text-mention font-semibold text-white rounded-full px-1.5" style={{ background: r[1] }}>{r[0]}</span>;
+                })() : delib && !parcours && <span className="block text-xs text-slate-500">
                   {e.decide
                     ? `${e.reussites} réussite(s) · ${e.echecs} échec(s) sur ${e.unites.length} unité(s)`
                     : 'aucune décision pour cette session'}
