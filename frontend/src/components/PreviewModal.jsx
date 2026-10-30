@@ -9,6 +9,60 @@ import { authHeaders } from '../lib/api.js';
 
 /* LES ACTIONS DE L'APERÇU SONT DES ICÔNES DANS LA BARRE BLEUE (Charles, 30 octobre 2026 : « pas aux standards qu'on a
    définis ») — comme Éditions : PDF, imprimante, avion, puis un filet avant la croix. Le libellé vit dans la bulle. */
+/* LES PAGES DU PDF, DESSINÉES PAR LUCIE (Charles, 30 octobre 2026 : « l'affichage de l'aperçu saute »). L'aperçu
+   montrait le HTML centré, puis le remplaçait par le PDF du serveur — que Safari, sur iPad, colle à gauche à sa taille
+   réelle. Les pages sont désormais dessinées par pdf.js (servi par Lucie : /vendor/pdfjs-3.11.174, sans dépendance
+   npm), centrées sur le fond gris, à la largeur de la fenêtre. Pendant la composition, une feuille d'attente — pas de
+   HTML qui saute. Si pdf.js ne se charge pas, le PDF s'ouvre comme avant. */
+const PDFJS = '/vendor/pdfjs-3.11.174';
+let pdfjsPromesse = null;
+function chargerPdfjs() {
+  if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  if (!pdfjsPromesse) pdfjsPromesse = new Promise((ok, ko) => {
+    const sc = document.createElement('script');
+    sc.src = `${PDFJS}/pdf.min.js`;
+    sc.onload = () => { if (window.pdfjsLib) { window.pdfjsLib.GlobalWorkerOptions.workerSrc = `${PDFJS}/pdf.worker.min.js`; ok(window.pdfjsLib); } else ko(new Error('pdf.js')); };
+    sc.onerror = () => { pdfjsPromesse = null; ko(new Error('pdf.js')); };
+    document.head.appendChild(sc);
+  });
+  return pdfjsPromesse;
+}
+function PagesPdf({ url, titre }) {
+  const boite = useRef(null);
+  const [echec, setEchec] = useState(false);
+  useEffect(() => {
+    let vivant = true;
+    const el = boite.current;
+    (async () => {
+      try {
+        const lib = await chargerPdfjs();
+        const doc = await lib.getDocument(url).promise;
+        if (!vivant) return;
+        el.innerHTML = '';
+        const largeur = Math.min(el.clientWidth - 48, 900);
+        const dpr = Math.min(window.devicePixelRatio || 1, 3);
+        for (let n = 1; n <= doc.numPages; n++) {
+          const page = await doc.getPage(n);
+          if (!vivant) return;
+          const base = page.getViewport({ scale: 1 });
+          const vue = page.getViewport({ scale: (largeur / base.width) * dpr });
+          const c = document.createElement('canvas');
+          c.width = Math.floor(vue.width); c.height = Math.floor(vue.height);
+          c.style.width = `${Math.floor(vue.width / dpr)}px`;
+          c.style.height = `${Math.floor(vue.height / dpr)}px`;
+          c.className = 'block mx-auto bg-white shadow-pose';
+          c.setAttribute('aria-label', `${titre || 'Document'} — page ${n}`);
+          el.appendChild(c);
+          await page.render({ canvasContext: c.getContext('2d'), viewport: vue }).promise;
+        }
+      } catch { if (vivant) setEchec(true); }
+    })();
+    return () => { vivant = false; };
+  }, [url, titre]);
+  if (echec) return <iframe src={url} title={titre} className="flex-1 w-full border-0 bg-gray-100" />;
+  return <div ref={boite} className="flex-1 overflow-auto bg-gray-100 py-6 space-y-6" />;
+}
+
 export function IconeApercu({ Icone, titre, onClick, disabled = false, href = null, download = null }) {
   const cls = 'flex-none w-8 h-8 grid place-items-center rounded-champ text-white hover:bg-white/15 disabled:opacity-35 disabled:hover:bg-transparent transition-colors duration-150 ease-ios';
   return href
@@ -229,17 +283,18 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
             )}
       </div>}>
         {/* ── iframe ── */}
-        {feuille && <iframe src={feuille} title={nomFichier || titre}
-          className="flex-1 w-full border-0 bg-gray-100" />}
+        {feuille && <PagesPdf url={feuille} titre={nomFichier || titre} />}
         {composition && !feuille && (
-          <div className="px-4 py-1 text-xs text-slate-500 border-b border-slate-200">
-            Mise en page A4 en cours — le pied se pose au bas de chaque feuille…</div>)}
+          <div className="flex-1 bg-gray-100 grid place-items-start justify-center pt-6">
+            <div className="bg-white shadow-pose w-[min(900px,calc(100vw-96px))] aspect-[210/297] grid place-items-center text-sm text-slate-400">
+              Mise en page A4…</div>
+          </div>)}
         <iframe
           ref={iframeRef}
           srcDoc={htmlAffiche}
           onLoad={() => setPret(true)}
           title={nomFichier || titre}
-          className={`flex-1 w-full border-0 bg-gray-100 ${feuille ? 'hidden' : ''}`}
+          className={`flex-1 w-full border-0 bg-gray-100 ${feuille || composition ? 'hidden' : ''}`}
         />
     </Fenetre>
       {envoi && (

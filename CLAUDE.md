@@ -2833,7 +2833,12 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   `IconeApercu` (`PreviewModal.jsx`), repris par Éditions (`NavApercu`), les lettres, le contrat d'un professeur et
   les anciennes procédures. Le titre de l'aperçu est l'étudiant, le nom de fichier va dessous. **Et la dev se
   construit frontend d'abord** (`build-dev.yml`) : sa mise à jour part dès l'image du backend, qui reprenait
-  l'ancien frontend (écart 503 ≠ 504, trois fois le 30 octobre).
+  l'ancien frontend (écart 503 ≠ 504, trois fois le 30 octobre). **L'aperçu ne saute plus** (3.1.506, Charles :
+  « l'affichage de l'aperçu saute ») : il montrait le HTML centré puis le PDF du serveur, que Safari sur iPad colle à
+  gauche à sa taille réelle. Les pages du PDF sont désormais DESSINÉES par pdf.js (`PagesPdf`, `PreviewModal.jsx`),
+  centrées, à la largeur de la fenêtre ; pendant la composition, une feuille d'attente, plus de HTML. pdf.js est
+  servi par Lucie (`frontend/public/vendor/pdfjs-3.11.174`, build « legacy », licence jointe) — pas de dépendance npm :
+  le paquet tire un module natif (`canvas`) au build. Échec de chargement → l'ancien affichage du PDF.
 
 **L'ANNULER NE COMPARE QUE CE QUE LE GESTE A CHANGÉ** (3.1.482, Charles, 30 octobre 2026, en production :
   « Impossible d'annuler : utilisateur — la ligne a été modifiée depuis, par quelqu'un »). Se reconnecter écrit
