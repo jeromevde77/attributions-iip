@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   IconSearch, IconX, IconHelpCircle, IconFileTypePdf, IconMapPin, IconArrowRight, IconArrowLeft,
-  IconBulb, IconChevronRight, IconDeviceMobile,
+  IconBulb, IconChevronRight, IconDeviceMobile, IconEyeCheck, IconSignature,
   IconAccessible, IconAward, IconBook, IconBooks, IconCertificate, IconChartBar, IconChecklist, IconHome, IconLayoutGrid, IconPencil, IconScale, IconSend, IconSettings, IconShieldExclamation, IconStairsUp, IconUserCheck, IconUsers,
   IconZoomIn, IconPlus, IconDeviceFloppy, IconCheck, IconTrash, IconDownload, IconUpload, IconFilter, IconCalendar, IconEye, IconArrowBackUp,
   IconQrcode, IconPrinter, IconFileSpreadsheet, IconClipboardText, IconLock, IconLockOpen, IconMail, IconRefresh, IconCopy,
@@ -17,7 +17,7 @@ const ICONES_BOUTON = { IconPlus, IconDeviceFloppy, IconCheck, IconTrash, IconDo
   IconRefresh, IconCopy, IconUserPlus, IconCalendarWeek, IconPlayerPlay, IconDots, IconMessage, IconBell, IconCalendarPlus,
   IconTicket, IconGift, IconSend, IconSearch, IconX, IconPencil, IconSettings, IconScale, IconHome, IconUsers, IconUserCheck,
   IconStairsUp, IconCertificate, IconAccessible, IconAward, IconBook, IconChecklist, IconChartBar, IconArrowRight, IconArrowLeft,
-  IconFileTypePdf, IconChevronRight, IconZoomIn };
+  IconFileTypePdf, IconChevronRight, IconZoomIn, IconEyeCheck, IconSignature };
 function BoutonGuide({ libelle, icone, sorte }) {
   const I = ICONES_BOUTON[icone];
   const classe = sorte === 'fort' ? 'bouton bouton-fort' : sorte === 'sortir' ? 'bouton bouton-sortir' : sorte === 'detruire' ? 'bouton bouton-detruire' : 'bouton';

@@ -3090,6 +3090,8 @@ app.use((req, res, next) => {
   next();
 });
 
+// LE PAE EN LIGNE (3.1.515) : la fenêtre et les propositions des étudiants, côté école.
+app.use('/api/pae-en-ligne', (await import('./routes/paeEnLigne.js')).default);
 // LA DEMANDE DE VA EN LIGNE (3 octobre 2026) A QUITTÉ LUCIE en 3.1.514 : elle vit dans le portail des étudiants,
 // et Lucie relève les gestes (lib/portailValorisation.js). /api/portail-va n'existe plus.
 // L'ESPACE DE L'ÉTUDIANT N'EST PLUS ICI (3.1.477, le mur) : il vit dans le portail (dossier portail/,

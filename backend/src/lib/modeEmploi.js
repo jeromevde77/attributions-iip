@@ -10,7 +10,7 @@
  *   savoir — ce qu'il faut savoir : les règles qui bloquent ou qui surprennent.
  * Il explique le travail, pas l'informatique (CLAUDE.md, § 7). La version décrite se dit en tête.
  */
-export const VERSION_DECRITE = '3.1.514';
+export const VERSION_DECRITE = '3.1.515';
 
 export const RUBRIQUES = [
   {
@@ -590,6 +590,21 @@ export const RUBRIQUES = [
         savoir: [
           "Tant que le report est accordé, ses notes sont protégées : un import ou un encodage ne les remplace pas.",
         ] },
+      {
+        titre: "Le PAE en ligne — les propositions des étudiants",
+        ou: "Étudiants → rail → PAE en ligne — propositions des étudiants.",
+        texte: "Pendant la fenêtre fixée par la direction, chaque étudiant coche dans son espace les unités qui lui sont accessibles, puis envoie sa proposition. Elle arrive ici, face à son programme actuel : [[Reprendre sa proposition|IconCheck|fort]] fait de son choix son programme ; [[Corriger dans la revue|IconEyeCheck]] ouvre la revue, puis demande ce que vous avez corrigé ; [[Ne pas retenir|IconX]] demande un mot. L'étudiant lit la réponse dans son espace.",
+        savoir: [
+          "Rien n'est écrit au programme avant votre geste : la proposition attend.",
+          "L'étudiant ne coche que ce que le moteur du PAE déclare accessible : pas d'exception demandée en ligne. Une unité posée par l'école et hors de sa main (« reste ») demeure au programme.",
+          "La fenêtre (année du PAE, du… au…) se règle en tête de la même fenêtre, par la direction.",
+          "Une fois le PAE confirmé par l'école, l'étudiant le confirme à son tour par un code ; la fiche (onglet Suivi) le dit, et dit si le programme a changé depuis.",
+          "La coordination traite les propositions de ses sections.",
+        ],
+        images: [
+          { src: "/guide/pae-propositions.png", legende: "Une proposition (données d'essai) : ce que l'étudiante propose, ce qui est au programme, et les trois gestes. En tête, la fenêtre réglée par la direction." },
+        ],
+      },
     ],
   },
   {
@@ -930,7 +945,7 @@ export const RUBRIQUES = [
   },
   {
     id: 'espace', pour: 'sec coo dir', titre: "L'espace de l'étudiant", icone: 'IconDeviceMobile',
-    resume: "Le site à part où l'étudiant retrouve ses résultats et ses documents, en accuse réception, demande une valorisation, et où chacun peut vérifier qu'une pièce est authentique.",
+    resume: "Le site à part où l'étudiant retrouve ses résultats et ses documents, en accuse réception, demande une valorisation, compose son PAE, et où chacun peut vérifier qu'une pièce est authentique.",
     points: [
       {
         titre: "Comment l'étudiant y entre",
@@ -960,6 +975,18 @@ export const RUBRIQUES = [
         images: [
           { src: "/guide/portail-va-demande.png", legende: "Nouvelle demande (données d'essai) : l'unité, VA ou VAE, le forfait d'analyse et l'échéance, puis « Introduire la demande ».", etroite: true },
           { src: "/guide/portail-va-suivi.png", legende: "La demande introduite : sa frise, ses pièces, « Retirer cette demande » tant qu'elle n'est pas examinée.", etroite: true },
+        ],
+      },
+      {
+        titre: "Le PAE en ligne",
+        texte: "Pendant la période fixée par la direction, onglet « Mon PAE » : l'étudiant coche les unités qui lui sont accessibles et envoie sa proposition ; sa coordination la reprend, la corrige ou ne la retient pas, et il lit sa réponse. Quand l'école a confirmé son PAE, il le relit et le confirme à son tour : [[Confirmer mon PAE|IconSignature|fort]], puis le code reçu à son adresse de l'institut.",
+        savoir: [
+          "Une unité grisée ne se choisit pas en ligne (déjà acquise, prérequis manquant, épreuve intégrée…) ; la raison est écrite dessous. Il en parle à sa coordination.",
+          "Une unité posée par l'école et hors de sa main reste cochée et grisée : elle demeure au programme.",
+        ],
+        images: [
+          { src: "/guide/portail-pae.png", legende: "Mon PAE (données d'essai) : la proposition attend la coordination ; l'UE 333, posée par l'école, reste au programme.", etroite: true },
+          { src: "/guide/portail-pae-confirmer.png", legende: "Le PAE confirmé par l'école : l'étudiant le relit, puis « Confirmer mon PAE ».", etroite: true },
         ],
       },
       {

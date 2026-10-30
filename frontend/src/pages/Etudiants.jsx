@@ -17,7 +17,7 @@ import { RailLateral, Chevron } from '../components/ui.jsx';
 import SuiviEtudiant from '../components/SuiviEtudiant.jsx';
 import NouvelEtudiant from '../components/NouvelEtudiant.jsx';
 import {
-  IconAddressBook, IconListSearch, IconAlertTriangle, IconEyeCheck, IconTablePlus, IconArrowForwardUp, IconArchive, IconDoorExit, IconSchool, IconArrowBackUp, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconSend, IconWritingSign, IconWritingSignOff, IconX,
+  IconAddressBook, IconListSearch, IconAlertTriangle, IconEyeCheck, IconInbox, IconTablePlus, IconArrowForwardUp, IconArchive, IconDoorExit, IconSchool, IconArrowBackUp, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconSend, IconWritingSign, IconWritingSignOff, IconX,
   IconChecks, IconLock, IconGift,
   IconQrcode,
   IconCash, IconAdjustmentsHorizontal,
@@ -39,6 +39,7 @@ const DoublonsEtudiants = lazy(() => import('../components/DoublonsEtudiants.jsx
 const DoublesProgrammes = lazy(() => import('../components/DoublesProgrammes.jsx'));
 const PresenceQRSuivi = lazy(() => import('../components/PresenceQRSuivi.jsx'));
 const ExtraitsBancaires = lazy(() => import('../components/ExtraitsBancaires.jsx'));
+const PropositionsPAE = lazy(() => import('../components/PropositionsPAE.jsx'));
 const HorsBloc = lazy(() => import('../components/HorsBloc.jsx'));
 const PaeHorsRegle = lazy(() => import('../components/PaeHorsRegle.jsx'));
 const DecisionsSansInscription = lazy(() => import('../components/DecisionsSansInscription.jsx'));
@@ -3059,6 +3060,7 @@ export default function Etudiants() {
   const [controles, setControles] = useState(null);
   const [suiviQR, setSuiviQR] = useState(false);
   const [extraits, setExtraits] = useState(false);
+  const [paeEnLigne, setPaeEnLigne] = useState(false);
   const [rapportPAE, setRapportPAE] = useState(false);
   const [importListe, setImportListe] = useState(false);
   const [importHisto, setImportHisto] = useState(false);
@@ -3698,6 +3700,10 @@ export default function Etudiants() {
         onClick: () => setReportsOffice(true) }] : []),
       /* LA REVUE DES PAE (1er octobre 2026) : les étudiants cochés s'il y en a,
          sinon la liste telle qu'elle est filtrée, dans son ordre. */
+      /* LE PAE EN LIGNE (3.1.515) : ce que les étudiants ont coché dans leur espace ; la coordination reprend, corrige
+         ou refuse. La fenêtre s'y règle, par la direction. */
+      ...(droitsRail.peut('etudiants.pae_composer') ? [{ key: 'pae-en-ligne', label: 'PAE en ligne — propositions des étudiants',
+        icon: IconInbox, onClick: () => setPaeEnLigne(true) }] : []),
       { key: 'revue-pae', label: 'Revue des PAE', icon: IconEyeCheck,
         onClick: () => {
           const coches = filtres.filter(e => selEtudiants.has(e.id));
@@ -4184,6 +4190,9 @@ export default function Etudiants() {
 
       {extraits && (
         <Suspense fallback={null}><ExtraitsBancaires onFermer={() => setExtraits(false)} /></Suspense>
+      )}
+      {paeEnLigne && (
+        <Suspense fallback={null}><PropositionsPAE Revue={RevuePAE} onFermer={() => { setPaeEnLigne(false); charger(); }} /></Suspense>
       )}
       {suiviQR && (
         <Suspense fallback={null}><PresenceQRSuivi onFermer={() => setSuiviQR(false)} /></Suspense>

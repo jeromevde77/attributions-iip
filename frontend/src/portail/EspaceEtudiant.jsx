@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { IconCertificate, IconFileText, IconBook, IconSignature, IconCheck, IconLogout, IconLock, IconDevices, IconTrash, IconShieldCheck, IconShieldX, IconKey, IconWorld, IconUserCircle, IconAward, IconUpload, IconPlus, IconAlertTriangle } from '@tabler/icons-react';
+import { IconCertificate, IconFileText, IconBook, IconSignature, IconCheck, IconLogout, IconLock, IconDevices, IconTrash, IconShieldCheck, IconShieldX, IconKey, IconWorld, IconUserCircle, IconAward, IconUpload, IconPlus, IconAlertTriangle, IconListCheck } from '@tabler/icons-react';
 
 /**
  * L'ESPACE DE L'ÉTUDIANT (3.1.475, Charles : « un mini espace ultra sécurisé : récupérer ses documents, voir ses
@@ -303,6 +303,110 @@ function MesValorisations({ onErreur }) {
   );
 }
 
+/** LE PAE EN LIGNE (3.1.515) : Lucie coche ce qui est accessible ; l'étudiant choisit et envoie ; la coordination valide
+ *  ou corrige ; une fois le PAE confirmé par l'école, il le confirme à son tour par un code. */
+function MonPAE({ onErreur }) {
+  const [p, setP] = useState(null);
+  const [choix, setChoix] = useState(null);
+  const [code, setCode] = useState('');
+  const [codeEnvoye, setCodeEnvoye] = useState(false);
+  const [enCours, setEnCours] = useState(false);
+  const charger = useCallback(() => appel('GET', '/pae').then(x => { setP(x); }).catch(onErreur), [onErreur]);
+  useEffect(() => { charger(); }, [charger]);
+  const attend = p && (!p.pret || p.en_attente.length > 0);
+  // Une proposition qui attend la coordination, ou un PAE confirmé par l'école mais pas encore par lui : on regarde de temps en temps.
+  const veille = p?.offre && (p.offre.proposition?.statut === 'deposee' || (p.offre.confirme_le && !p.offre.signature?.a_jour));
+  useEffect(() => { if (!attend && !veille) return undefined; const t = setTimeout(charger, attend ? 4000 : 20000); return () => clearTimeout(t); }, [attend, veille, p, charger]);
+  const o = p?.offre;
+  // Point de départ : sa dernière proposition, sinon le programme, sinon ce que Lucie propose.
+  useEffect(() => {
+    if (!o?.unites || choix) return;
+    const cochables = new Set(o.unites.filter(u => u.cochable).map(u => Number(u.ue_num)));
+    const depart = o.proposition?.statut === 'deposee' ? o.proposition.ues
+      : o.programme?.some(u => cochables.has(Number(u))) ? o.programme : o.unites.filter(u => u.propose && u.cochable).map(u => u.ue_num);
+    setChoix(new Set(depart.map(Number).filter(u => cochables.has(u))));
+  }, [o, choix]);
+  if (!p) return <p className="text-sm text-slate-500">Chargement…</p>;
+  if (!p.pret) return <p className="text-sm text-slate-500">Préparation de votre PAE… quelques secondes.</p>;
+  if (!o?.annee) return <p className="text-sm text-slate-500">Le PAE en ligne n’est pas ouvert pour l’instant.</p>;
+  const nomUE = n => o.unites?.find(u => u.ue_num === n)?.ue_nom || '';
+  const geste = async (chemin, corps, ok) => {
+    setEnCours(true);
+    try { await appel('POST', chemin, corps); ok?.(); await charger(); } catch (e) { onErreur(e); } finally { setEnCours(false); }
+  };
+  const refus = p.refus.length > 0 && (
+    <div className="space-y-2">
+      {p.refus.map(r => <div key={r.id} className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">{r.erreur}</div>)}
+      <button type="button" className="text-second text-iip-blue underline" onClick={() => geste('/pae/refus-lus')}>J’ai compris</button>
+    </div>);
+  const prop = o.proposition;
+  const etatProp = prop && {
+    deposee: ['disponible', `Votre proposition du ${jourFr(prop.depose_le)} attend votre coordination.`],
+    reprise: ['reussi', `Votre proposition a été reprise telle quelle le ${jourFr(prop.traite_le)}.`],
+    corrigee: ['surveiller', `Votre coordination a corrigé votre proposition le ${jourFr(prop.traite_le)}.`],
+    refusee: ['corriger', `Votre coordination n’a pas retenu votre proposition (${jourFr(prop.traite_le)}).`],
+  }[prop.statut];
+
+  // CONFIRMÉ PAR L'ÉCOLE : on le lit, et on le confirme à son tour.
+  if (o.confirme_le) {
+    const signe = o.signature?.a_jour;
+    return (
+      <div className="space-y-3">
+        {refus}
+        <div className="bloc-etat px-4 py-3 text-sm space-y-1" data-etat={signe ? 'reussi' : 'disponible'}>
+          <div className="font-semibold text-iip-texte">PAE {o.annee} — confirmé par l’école le {jourFr(o.confirme_le)}</div>
+          {signe ? <div>Vous l’avez confirmé le {jourFr(o.signature.signe_le)}.</div>
+            : <div>Relisez-le, puis confirmez-le : un code part à votre adresse de l’institut.</div>}
+        </div>
+        <ul className="bg-white border border-slate-200 rounded-carte divide-y divide-slate-100">
+          {(o.programme || []).map(n => <li key={n} className="px-4 py-2 text-sm"><span className="text-slate-500 tabular-nums mr-2">UE {n}</span>{nomUE(n)}</li>)}
+        </ul>
+        {!signe && !attend && (codeEnvoye ? (
+          <div className="flex flex-wrap gap-2">
+            <input value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" placeholder="Code reçu"
+              className="controle w-36 text-center tracking-widest" autoComplete="one-time-code" />
+            <button type="button" className="bouton bouton-fort" disabled={code.length !== 6 || enCours}
+              onClick={() => geste('/pae/confirmer', { code }, () => { setCode(''); setCodeEnvoye(false); })}>Je confirme mon PAE</button>
+          </div>) : (
+          <button type="button" className="bouton bouton-fort w-full" disabled={enCours}
+            onClick={() => geste('/code', { objet_type: 'pae', objet_id: Number(String(o.annee).slice(0, 4)) }, () => setCodeEnvoye(true))}>
+            <IconSignature size={15} /> Confirmer mon PAE</button>))}
+        {attend && <p className="text-sm text-slate-500">Confirmation en cours d’enregistrement…</p>}
+      </div>);
+  }
+
+  const n = choix ? choix.size : 0;
+  const verrouillees = (o.unites || []).filter(u => u.verrouillee).length;
+  return (
+    <div className="space-y-3">
+      {refus}
+      <div className="bloc-etat px-4 py-3 text-sm" data-etat={o.ouvert ? 'disponible' : 'neutre'}>
+        <b>Mon PAE {o.annee}</b> — {o.ouvert ? <>ouvert jusqu’au {jourFr(o.au)}. Cochez les unités que vous voulez suivre, puis envoyez :
+          votre coordination valide ou corrige.</> : <>ouvert du {jourFr(o.du)} au {jourFr(o.au)}.</>}
+      </div>
+      {etatProp && <div className="bloc-etat px-4 py-3 text-sm space-y-1" data-etat={etatProp[0]}><div>{etatProp[1]}</div>
+        {prop.message && <div className="text-slate-600">« {prop.message} »</div>}</div>}
+      {attend && <p className="text-sm text-slate-500">Envoi en cours d’enregistrement…</p>}
+      <div className="bg-white border border-slate-200 rounded-carte divide-y divide-slate-100">
+        {(o.unites || []).map(u => (
+          <label key={u.ue_num} className={`flex items-start gap-3 px-4 py-2.5 text-sm ${u.cochable && o.ouvert ? 'cursor-pointer' : 'opacity-60'}`}>
+            <input type="checkbox" className="mt-0.5" disabled={!u.cochable || !o.ouvert} checked={u.verrouillee || !!choix?.has(u.ue_num)}
+              onChange={e => setChoix(c => { const x = new Set(c); e.target.checked ? x.add(u.ue_num) : x.delete(u.ue_num); return x; })} />
+            <span className="flex-1 min-w-0">
+              <span className="text-slate-500 tabular-nums mr-2">UE {u.ue_num}</span>{u.ue_nom}
+              {u.ue_niv && <span className="text-xs text-slate-400 ml-1">· {u.ue_niv}</span>}
+              {u.raison && <span className="block text-xs text-slate-500">{u.verrouillee ? `au programme, posée par l’école (${u.raison})` : u.raison}</span>}
+              {u.avertissement && <span className="block text-xs" style={{ color: 'var(--c-attente, #B45309)' }}>{u.avertissement}</span>}
+            </span>
+          </label>))}
+      </div>
+      <p className="text-xs text-slate-500">Une unité grisée ne se choisit pas en ligne : si vous pensez qu’elle devrait l’être, parlez-en à votre coordination.</p>
+      {o.ouvert && <button type="button" className="bouton bouton-fort w-full" disabled={!n || enCours || attend}
+        onClick={() => geste('/pae/proposer', { ues: [...choix] })}>Envoyer ma proposition — {n + verrouillees} unité{n + verrouillees > 1 ? 's' : ''}</button>}
+    </div>
+  );
+}
+
 /** Choisir son mot de passe : après le lien (première visite, oubli), ou depuis « Mon compte » avec l'actuel. */
 function ChoisirMotDePasse({ avecActuel, nouveauCompte, onFait }) {
   const [actuel, setActuel] = useState('');
@@ -541,7 +645,7 @@ function Espace() {
   const nom = d ? `${String(d.etudiant.nom || '').toUpperCase()} ${d.etudiant.prenom || ''}` : '';
   const aSigner = d ? d.documents.filter(x => !x.signe_le).length + d.reglements.filter(x => !x.signe_le).length : 0;
   const FACES = d?.candidat ? [['va', 'Valorisation', IconAward], ['documents', 'Mes documents', IconFileText]]
-    : [['resultats', 'Mes résultats', IconCertificate], ['documents', 'Mes documents', IconFileText], ['va', 'Valorisation', IconAward], ['reglements', 'Règlements', IconBook], ['compte', 'Mon compte', IconUserCircle]];
+    : [['resultats', 'Mes résultats', IconCertificate], ['pae', 'Mon PAE', IconListCheck], ['documents', 'Mes documents', IconFileText], ['va', 'Valorisation', IconAward], ['reglements', 'Règlements', IconBook], ['compte', 'Mon compte', IconUserCircle]];
 
   return (
     <div className="min-h-screen bg-slate-100">
@@ -608,6 +712,7 @@ function Espace() {
         {d?.candidat && <div className="bloc-etat px-3 py-2 text-sm" data-etat="disponible">Accès par code, jusqu’au {jourFr(d.candidat.jusqu_au)} ou
           jusqu’à votre adresse de l’institut : votre demande de valorisation et vos documents.</div>}
         {face === 'va' && <MesValorisations onErreur={echec} />}
+        {face === 'pae' && <MonPAE onErreur={echec} />}
         {face === 'compte' && <div className="space-y-4">
           <ChoisirMotDePasse avecActuel />
           <h2 className="titre-carte flex items-center gap-2"><IconDevices size={16} /> Mes appareils</h2>

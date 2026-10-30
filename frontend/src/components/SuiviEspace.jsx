@@ -26,6 +26,11 @@ export default function SuiviEspace({ id }) {
         {espace.connexions[0]
           ? <span className="font-normal text-slate-500"> · dernière connexion le {jour(espace.connexions[0].utilise_le)} à {String(espace.connexions[0].utilise_le).slice(11, 16)}</span>
           : <span className="font-normal text-slate-500"> · jamais connecté</span>}</div>
+      {espace.pae && <div className="flex flex-wrap gap-x-2">
+        <span className="min-w-0 flex-1">PAE {espace.pae.annee}</span>
+        <span className={espace.pae.a_jour ? 'text-emerald-700' : 'text-amber-700'}>{espace.pae.a_jour
+          ? `confirmé par l'étudiant le ${jour(espace.pae.signe_le)}` : `confirmé par l'étudiant le ${jour(espace.pae.signe_le)}, programme modifié depuis`}</span>
+      </div>}
       {espace.accuses.map((a, i) => (
         <div key={i} className="flex flex-wrap gap-x-2">
           <span className="min-w-0 flex-1 truncate">{a.piece}</span>

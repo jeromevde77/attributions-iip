@@ -91,6 +91,11 @@ db.exec(`
   -- LA VALORISATION EN LIGNE (3.1.514) : ce que Lucie montre (l'offre, l'état des demandes) et les gestes de l'étudiant,
   -- que Lucie relève, juge et écrit chez elle. Une pièce ne vit ici que jusqu'au relevé.
   CREATE TABLE IF NOT EXISTS va_lot (etudiant_id INTEGER PRIMARY KEY, offre TEXT, etat TEXT, maj_le TEXT);
+  -- LE PAE EN LIGNE (3.1.515) : l'offre déposée par Lucie, et les gestes (proposer, confirmer) qu'elle relève.
+  CREATE TABLE IF NOT EXISTS pae_lot (etudiant_id INTEGER PRIMARY KEY, offre TEXT, maj_le TEXT);
+  CREATE TABLE IF NOT EXISTS pae_geste (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL,
+    type TEXT NOT NULL CHECK (type IN ('proposer','signer')), annee TEXT, ues TEXT, programme TEXT, ip TEXT, signe_le TEXT,
+    cree_le TEXT NOT NULL DEFAULT (datetime('now')), releve_le TEXT, erreur TEXT, vu_le TEXT);
   CREATE TABLE IF NOT EXISTS va_geste (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL,
     type TEXT NOT NULL CHECK (type IN ('ouvrir','piece','retirer','retirer_piece','terminer')), ue_num INTEGER, porte TEXT,
     fichier_id INTEGER, nature TEXT, nom TEXT, taille INTEGER, contenu BLOB, cree_le TEXT NOT NULL DEFAULT (datetime('now')),
@@ -441,6 +446,7 @@ function objetValide(e, type, id) {
   if (type === 'telechargement') return !!db.prepare('SELECT 1 FROM document WHERE id = ? AND etudiant_id = ?').get(id, e.id);
   if (type === 'envoi') return !!db.prepare('SELECT 1 FROM document WHERE id = ? AND etudiant_id = ?').get(id, e.id);
   if (type === 'reglement') return !!db.prepare('SELECT 1 FROM reglement WHERE version_id = ?').get(id);   // la version en vigueur
+  if (type === 'pae') { const o = offrePAEde(e.id); return !!(o?.confirme_le && Number(String(o.annee).slice(0, 4)) === id); }
   return false;
 }
 
@@ -448,7 +454,7 @@ pub.post('/api/portail/code', connecte, (req, res) => {
   const e = req.etudiant;
   const type = String(req.body?.objet_type || ''), id = Number(req.body?.objet_id);
   if (!objetValide(e, type, id)) return res.status(404).json({ error: 'Pièce introuvable.' });
-  if (type !== 'telechargement') {
+  if (type !== 'telechargement' && type !== 'pae') {
     const a = accuseDe(e, type, id);
     if (!a.presente_le) return res.status(409).json({ error: 'Ouvrez d’abord la pièce : on ne signe que ce qu’on a lu.' });
     if (a.signe_le) return res.status(409).json({ error: 'Déjà signé.' });
@@ -574,6 +580,51 @@ pub.post('/api/portail/va/terminer', connecte, (req, res) => {
   if (gesteVA(req, res, { type: 'terminer' })) res.json({ ok: true });
 });
 
+// ── LE PAE EN LIGNE (3.1.515) ──
+const offrePAEde = id => { try { return JSON.parse(db.prepare('SELECT offre FROM pae_lot WHERE etudiant_id = ?').get(id)?.offre || 'null'); } catch { return null; } };
+pub.get('/api/portail/pae', connecte, (req, res) => {
+  const id = req.etudiant.id;
+  res.json({ pret: !!db.prepare('SELECT 1 FROM pae_lot WHERE etudiant_id = ?').get(id), offre: offrePAEde(id),
+    en_attente: db.prepare('SELECT id, type, cree_le FROM pae_geste WHERE etudiant_id = ? AND releve_le IS NULL ORDER BY id').all(id),
+    refus: db.prepare('SELECT id, type, erreur FROM pae_geste WHERE etudiant_id = ? AND erreur IS NOT NULL AND vu_le IS NULL ORDER BY id').all(id) });
+});
+pub.post('/api/portail/pae/refus-lus', connecte, (req, res) => {
+  db.prepare("UPDATE pae_geste SET vu_le = datetime('now') WHERE etudiant_id = ? AND erreur IS NOT NULL AND vu_le IS NULL").run(req.etudiant.id);
+  res.json({ ok: true });
+});
+/** Proposer son programme : seulement ce que Lucie a dit cochable, pendant la fenêtre. Lucie juge encore au relevé. */
+pub.post('/api/portail/pae/proposer', connecte, (req, res) => {
+  const o = offrePAEde(req.etudiant.id);
+  if (!o?.ouvert) return res.status(409).json({ error: 'Le PAE en ligne est fermé : adressez-vous à votre coordination.' });
+  if (o.confirme_le) return res.status(409).json({ error: 'Votre PAE est déjà confirmé par l’école : pour le changer, adressez-vous à votre coordination.' });
+  const cochables = new Set((o.unites || []).filter(u => u.cochable).map(u => Number(u.ue_num)));
+  const ues = [...new Set((Array.isArray(req.body?.ues) ? req.body.ues : []).map(Number).filter(Boolean))];
+  if (!ues.length) return res.status(400).json({ error: 'Choisissez au moins une unité.' });
+  if (ues.some(u => !cochables.has(u))) return res.status(400).json({ error: 'Une unité choisie n’est pas accessible en ligne : parlez-en à votre coordination.' });
+  if (db.prepare(`SELECT COUNT(*) n FROM pae_geste WHERE etudiant_id = ? AND cree_le > datetime('now', '-1 hour')`).get(req.etudiant.id).n >= 20) {
+    return res.status(429).json({ error: 'Trop d’envois en une heure. Réessayez plus tard.' });
+  }
+  db.prepare("INSERT INTO pae_geste (etudiant_id, type, annee, ues) VALUES (?, 'proposer', ?, ?)").run(req.etudiant.id, o.annee, JSON.stringify(ues));
+  res.json({ ok: true });
+});
+/** Confirmer son PAE (celui que l'école a confirmé) : par le code reçu à l'adresse d'école (POST /code, objet « pae »). */
+pub.post('/api/portail/pae/confirmer', connecte, (req, res) => {
+  const e = req.etudiant, o = offrePAEde(e.id);
+  if (!o?.confirme_le) return res.status(409).json({ error: 'Votre PAE n’est pas encore confirmé par l’école.' });
+  const id = Number(String(o.annee).slice(0, 4));
+  const c = db.prepare(`SELECT * FROM code WHERE etudiant_id = ? AND objet_type = 'pae' AND objet_id = ? AND utilise_le IS NULL ORDER BY id DESC LIMIT 1`).get(e.id, id);
+  if (!c || c.expire_le < maintenant()) return res.status(400).json({ error: 'Ce code a expiré. Demandez-en un nouveau.' });
+  if (c.essais >= 5) return res.status(429).json({ error: 'Trop d’essais. Demandez un nouveau code.' });
+  if (!egal(empreinte(`${e.id}:${String(req.body?.code || '').replace(/\D/g, '')}`), c.code_hash)) {
+    db.prepare('UPDATE code SET essais = essais + 1 WHERE id = ?').run(c.id);
+    return res.status(400).json({ error: 'Code incorrect.' });
+  }
+  db.prepare("UPDATE code SET utilise_le = datetime('now') WHERE id = ?").run(c.id);
+  db.prepare("INSERT INTO pae_geste (etudiant_id, type, annee, programme, ip, signe_le) VALUES (?, 'signer', ?, ?, ?, datetime('now'))")
+    .run(e.id, o.annee, JSON.stringify(o.programme || []), ipDe(req));
+  res.json({ ok: true });
+});
+
 /* LA VÉRIFICATION D'UNE PIÈCE (3.1.511) — publique, sans compte : qui scanne le QR voit ce que l'Institut a émis sous
    cette référence, pour le comparer au papier qu'il a en main. Une référence inconnue : l'Institut ne l'a jamais émise. */
 pub.get('/api/portail/verifier/:ref', (req, res) => {
@@ -664,7 +715,12 @@ int.post('/interne/va', (req, res) => {
   const l = Array.isArray(req.body?.lots) ? req.body.lots : [];
   const i = db.prepare(`INSERT INTO va_lot (etudiant_id, offre, etat, maj_le) VALUES (?,?,?, datetime('now'))
     ON CONFLICT(etudiant_id) DO UPDATE SET offre = excluded.offre, etat = excluded.etat, maj_le = excluded.maj_le`);
-  db.transaction(() => { for (const x of l) if (Number(x.etudiant_id)) i.run(Number(x.etudiant_id), JSON.stringify(x.offre ?? null), JSON.stringify(x.etat ?? [])); })();
+  const ip = db.prepare(`INSERT INTO pae_lot (etudiant_id, offre, maj_le) VALUES (?,?, datetime('now'))
+    ON CONFLICT(etudiant_id) DO UPDATE SET offre = excluded.offre, maj_le = excluded.maj_le`);
+  db.transaction(() => { for (const x of l) if (Number(x.etudiant_id)) {
+    i.run(Number(x.etudiant_id), JSON.stringify(x.offre ?? null), JSON.stringify(x.etat ?? []));
+    if (x.pae !== undefined) ip.run(Number(x.etudiant_id), JSON.stringify(x.pae ?? null));
+  } })();
   res.json({ ok: true, n: l.length });
 });
 int.get('/interne/va/piece/:id', (req, res) => {
@@ -696,6 +752,7 @@ int.get('/interne/releve', (req, res) => {
     entrees: db.prepare('SELECT id, etudiant_id, le AS utilise_le, ip FROM entree WHERE releve_le IS NULL LIMIT 500').all(),
     // Les gestes de valorisation, dans l'ordre (la pièce se lit à part, /interne/va/piece/:id).
     va: db.prepare('SELECT id, etudiant_id, type, ue_num, porte, fichier_id, nature, nom, taille FROM va_geste WHERE releve_le IS NULL ORDER BY id LIMIT 50').all(),
+    pae: db.prepare('SELECT id, etudiant_id, type, annee, ues, programme, ip, signe_le FROM pae_geste WHERE releve_le IS NULL ORDER BY id LIMIT 100').all(),
   });
 });
 int.post('/interne/acquitter', (req, res) => {
@@ -710,6 +767,9 @@ int.post('/interne/acquitter', (req, res) => {
       db.prepare("UPDATE va_geste SET releve_le = datetime('now'), erreur = ?, contenu = NULL WHERE id = ?").run(g.erreur ? String(g.erreur).slice(0, 300) : null, Number(g.id));
     }
     db.prepare("DELETE FROM va_geste WHERE releve_le < datetime('now', '-30 days')").run();
+    for (const g of Array.isArray(req.body?.pae) ? req.body.pae : []) {
+      db.prepare("UPDATE pae_geste SET releve_le = datetime('now'), erreur = ? WHERE id = ?").run(g.erreur ? String(g.erreur).slice(0, 300) : null, Number(g.id));
+    }
   })();
   res.json({ ok: true });
 });

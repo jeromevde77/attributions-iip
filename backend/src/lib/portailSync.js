@@ -22,6 +22,7 @@ import { copieDeLEnvoi } from '../routes/envois.js';
 import { deposerDOffice } from './depotEspace.js';
 import { piecesATransmettre, marquerTransmises } from './authentique.js';
 import { derniereVersion, versionReference } from '../routes/documentation.js';
+import { offrePAE, deposerProposition, recevoirSignature, signatureDe } from './paeEnLigne.js';
 import { offreVA, etatVA, appliquerGeste, accuserReception, codesDOffice, candidatsValides, candidatDe, anneeActive as anneeVA } from './portailValorisation.js';
 
 const URL_INTERNE = () => (process.env.PORTAIL_INTERNE_URL || '').replace(/\/$/, '');
@@ -144,7 +145,10 @@ async function deposerVA(ids) {
   for (const id of ids) {
     const e = etudiantDuPortail(id);
     if (!e) continue;
-    try { lots.push({ etudiant_id: e.id, offre: offreVA(e, annee), etat: etatVA(e, annee) }); }
+    try {
+      const candidat = !String(e.email_ecole || '').includes('@');
+      lots.push({ etudiant_id: e.id, offre: offreVA(e, annee), etat: etatVA(e, annee), pae: candidat ? null : offrePAE(e) });
+    }
     catch (x) { console.error(`[portail] VA de l'étudiant ${e.id} :`, x.message); }
   }
   if (lots.length) await appel('POST', '/interne/va', { lots });
@@ -153,7 +157,7 @@ async function deposerVA(ids) {
 // ── RELEVER ────────────────────────────────────────────────────────────────
 async function relever() {
   const r = await appel('GET', '/interne/releve');
-  const ok = { demandes: [], accuses: [], connexions: [], entrees: [], va: [] };
+  const ok = { demandes: [], accuses: [], connexions: [], entrees: [], va: [], pae: [] };
   const etudiant = id => db.prepare(`SELECT id, prenom, email_ecole FROM etudiant WHERE id = ? AND COALESCE(actif, 1) = 1
     AND COALESCE(sortie_statut, '') <> 'archive' AND email_ecole LIKE '%@%'`).get(Number(id));
   for (const d of r.demandes || []) {
@@ -177,7 +181,7 @@ async function relever() {
       if (!/^\d{6}$/.test(String(d.valeur || ''))) continue;
       sujet = `Institut Ilya Prigogine — votre code ${d.valeur}`;
       html = templateNotif({ titre: 'Votre code', corps: `<p>Votre code pour votre espace — entrer depuis un nouvel appareil,
-        signer un accusé de réception, ou télécharger un document de plus de 90 jours :</p>
+        signer un accusé de réception, confirmer votre PAE, ou télécharger un document de plus de 90 jours :</p>
         <p style="font-size:28px;font-weight:bold;letter-spacing:6px">${d.valeur}</p><p>Il est valable 10 minutes.</p>
         <p style="color:#64748b;font-size:12px">Vous n'avez rien demandé ? Ne communiquez ce code à personne.</p>` });
     } else continue;
@@ -220,7 +224,19 @@ async function relever() {
     ok.va.push({ id: g.id, erreur });
     touches.add(Number(g.etudiant_id));
   }
-  if (ok.demandes.length || ok.accuses.length || ok.connexions.length || ok.entrees.length || ok.va.length) await appel('POST', '/interne/acquitter', ok);
+  // LE PAE EN LIGNE (3.1.515) : une proposition (jugée, jamais écrite au programme), ou la confirmation de l'étudiant.
+  for (const g of r.pae || []) {
+    const e = etudiantDuPortail(g.etudiant_id);
+    let erreur = null;
+    try {
+      if (!e || !String(e.email_ecole || '').includes('@')) erreur = 'Le PAE en ligne demande votre adresse de l’institut.';
+      else if (g.type === 'proposer') erreur = deposerProposition(e, JSON.parse(g.ues || '[]'));
+      else if (g.type === 'signer') erreur = recevoirSignature(e, g);
+    } catch (x) { console.error('[portail] geste PAE :', x.message); erreur = 'Le geste n’a pas pu être enregistré : réessayez, ou adressez-vous à votre coordination.'; }
+    ok.pae.push({ id: g.id, erreur });
+    touches.add(Number(g.etudiant_id));
+  }
+  if (ok.demandes.length || ok.accuses.length || ok.connexions.length || ok.entrees.length || ok.va.length || ok.pae.length) await appel('POST', '/interne/acquitter', ok);
   // Ce qui vient de changer, ou qui vient d'entrer, voit ses demandes à jour dans les secondes qui suivent.
   if (touches.size) await deposerVA([...touches]);
 }
@@ -301,6 +317,7 @@ export function suiviPortail(etudiantId) {
   return {
     actif: portailActif(), adresse: URL_PUBLIQUE(),
     candidat: candidatDe(etudiantId),
+    pae: signatureDe(etudiantId),
     sans_adresse_ecole: !String(db.prepare('SELECT email_ecole FROM etudiant WHERE id = ?').get(etudiantId)?.email_ecole || '').includes('@'),
     exception: db.prepare(`SELECT id, jusqu_au, motif, par, le FROM portail_exception WHERE etudiant_id = ? AND retire_le IS NULL
       AND jusqu_au >= date('now') ORDER BY jusqu_au DESC LIMIT 1`).get(etudiantId) || null,
