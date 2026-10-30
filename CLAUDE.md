@@ -2744,6 +2744,12 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   Non illustrés faute de données dans la base d'essai : attributions, rapport ETP, contrats/EA12, recours, reports
   de notes, schéma par section (la base d'essai, ancienne, n'a ni section ni attribution).
 
+- **LES CAPTURES À CÔTÉ DU TEXTE, PETITES, ET QUI S'AGRANDISSENT** (3.1.491, Charles : « certaines sont trop grandes ;
+  plus malin de mettre le texte à côté »). Un point illustré se lit en deux colonnes sur grand écran (texte à gauche,
+  images à droite ; empilés sur iPad en portrait) ; une image ne dépasse jamais sa taille réelle (une capture étroite
+  agrandie devient floue) et plafonne à 17 rem de haut ; un toucher l'ouvre en grand (`Fenetre`, par `createPortal` :
+  l'animation de la carte enfermerait la fenêtre dans le point).
+
 **L'ANNULER NE COMPARE QUE CE QUE LE GESTE A CHANGÉ** (3.1.482, Charles, 30 octobre 2026, en production :
   « Impossible d'annuler : utilisateur — la ligne a été modifiée depuis, par quelqu'un »). Se reconnecter écrit
   `last_login_at` sur la ligne du compte ; l'annulation comparait la ligne entière et refusait. Désormais elle ne

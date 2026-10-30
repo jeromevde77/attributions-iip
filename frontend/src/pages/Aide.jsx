@@ -3,7 +3,7 @@ import {
   IconSearch, IconX, IconHelpCircle, IconFileTypePdf, IconMapPin, IconArrowRight, IconArrowLeft,
   IconBulb, IconChevronRight,
   IconAccessible, IconAward, IconBook, IconBooks, IconCertificate, IconChartBar, IconChecklist, IconHome, IconLayoutGrid, IconPencil, IconScale, IconSend, IconSettings, IconShieldExclamation, IconStairsUp, IconUserCheck, IconUsers,
-  IconPlus, IconDeviceFloppy, IconCheck, IconTrash, IconDownload, IconUpload, IconFilter, IconCalendar, IconEye, IconArrowBackUp,
+  IconZoomIn, IconPlus, IconDeviceFloppy, IconCheck, IconTrash, IconDownload, IconUpload, IconFilter, IconCalendar, IconEye, IconArrowBackUp,
   IconQrcode, IconPrinter, IconFileSpreadsheet, IconClipboardText, IconLock, IconLockOpen, IconMail, IconRefresh, IconCopy,
   IconUserPlus, IconCalendarWeek, IconPlayerPlay, IconDots, IconMessage, IconBell, IconCalendarPlus, IconTicket, IconGift,
 } from '@tabler/icons-react';
@@ -46,20 +46,32 @@ export const boutonsHtml = h => String(h || '').replace(/\[\[([^\]|]+)(?:\|([^\]
   return `<span class="bouton ${sorte ? `bouton-${sorte} ` : ''}bouton-guide">${lib}</span>`;
 });
 /** Les images d'un point : `image` + `legende`, ou `images` [{ src, legende, etroite }]. */
-function ImagesDuPoint({ p }) {
+/* LES IMAGES D'UN POINT (3.1.491, Charles : « certaines sont trop grandes ; il est plus malin de mettre le texte à côté
+   pour gagner en confort »). Elles vivent à DROITE du texte sur grand écran, sous lui sur iPad en portrait ; jamais plus
+   grandes que leur taille réelle (une capture étroite agrandie devient floue), plafonnées en hauteur, et un toucher les
+   ouvre en grand. */
+function ImagesDuPoint({ p, onAgrandir }) {
   const liste = [...(p.image ? [{ src: p.image, legende: p.legende }] : []), ...(p.images || [])];
   if (!liste.length) return null;
   return (
-    <div className="grid gap-3">
+    <div className="grid gap-3 content-start">
       {liste.map((im, i) => (
-        <figure key={i} className={`m-0 rounded-champ border border-slate-200 overflow-hidden bg-white ${im.etroite ? 'max-w-md' : ''}`}>
-          <img src={im.src} alt={im.legende || p.titre} loading="lazy" className="w-full h-auto block" />
+        <figure key={i} className="m-0 rounded-champ border border-slate-200 overflow-hidden bg-white">
+          <button type="button" className="relative block w-full bg-slate-50 cursor-zoom-in" title="Agrandir"
+            onClick={() => onAgrandir?.(im)}>
+            <img src={im.src} alt={im.legende || p.titre} loading="lazy"
+              className="block mx-auto w-auto h-auto max-w-full max-h-[17rem] object-contain" />
+            <span className="absolute right-1.5 bottom-1.5 inline-grid place-items-center w-7 h-7 rounded-full bg-white/90 border border-slate-200 text-slate-500">
+              <IconZoomIn size={15} /></span>
+          </button>
           {im.legende && <figcaption className="px-3 py-1.5 text-mention text-slate-500 border-t border-slate-100"><Enrichi texte={im.legende} /></figcaption>}
         </figure>))}
     </div>
   );
 }
 import { authHeaders } from '../lib/api.js';
+import { Fenetre } from '../components/ui.jsx';
+import { createPortal } from 'react-dom';
 import IllustrationGuide, { STYLE_GUIDE } from '../components/IllustrationsGuide.jsx';
 
 /**
@@ -194,6 +206,8 @@ export function NumeroPoint({ n }) {
 }
 
 export function Point({ p, n, delai = 0 }) {
+  const [grand, setGrand] = useState(null);
+  const aImages = !!(p.image || p.images?.length);
   return (
     <article className="guide-entree bloc-etat px-4 py-3.5 space-y-2.5" data-etat="neutre"
       style={{ borderLeftColor: 'var(--c-principal)', animationDelay: `${delai}s` }}>
@@ -201,26 +215,37 @@ export function Point({ p, n, delai = 0 }) {
         {n != null && <NumeroPoint n={n} />}
         <h3 className="titre-carte flex-1 min-w-0 m-0">{p.titre}</h3>
       </div>
-      {p.ou && <Chemin ou={p.ou} />}
-      {p.qui && (
-        <div className="flex flex-wrap items-center gap-1.5 text-second">
-          <IconUsers size={14} className="text-slate-400 flex-none" />
-          <span className="text-slate-500">Qui :</span><span className="text-iip-texte font-semibold">{p.qui}</span>
-        </div>)}
-      {p.texte && <p className="text-sm text-slate-700 leading-relaxed m-0"><Enrichi texte={p.texte} /></p>}
-      {/* Le texte d'une procédure (3.1.489) : du HTML que le serveur a filtré à l'écriture ; les boutons [[…]] s'y dessinent. */}
-      {p.contenu && <div className="texte-corpus text-sm" dangerouslySetInnerHTML={{ __html: boutonsHtml(p.contenu) }} />}
-      <ImagesDuPoint p={p} />
-      {p.savoir?.length > 0 && (
-        <div className="rounded-champ border border-slate-200 bg-white px-3 py-2">
-          <div className="flex items-center gap-1.5 text-second font-semibold text-iip-texte mb-1">
-            <IconBulb size={15} style={{ color: 'var(--c-iip_or, #F9B619)' }} /> À savoir</div>
-          <ul className="space-y-1 m-0 pl-0 list-none">
-            {p.savoir.map((s, k) => (
-              <li key={k} className="text-second text-slate-600 leading-relaxed pl-3.5 relative">
-                <span className="absolute left-0 top-[0.55em] w-1.5 h-1.5 rounded-full" style={{ background: 'var(--c-accent)' }} /><Enrichi texte={s} /></li>))}
-          </ul>
-        </div>)}
+      <div className={aImages ? 'grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)] items-start' : ''}>
+        <div className="space-y-2.5 min-w-0">
+          {p.ou && <Chemin ou={p.ou} />}
+          {p.qui && (
+            <div className="flex flex-wrap items-center gap-1.5 text-second">
+              <IconUsers size={14} className="text-slate-400 flex-none" />
+              <span className="text-slate-500">Qui :</span><span className="text-iip-texte font-semibold">{p.qui}</span>
+            </div>)}
+          {p.texte && <p className="text-sm text-slate-700 leading-relaxed m-0"><Enrichi texte={p.texte} /></p>}
+          {/* Le texte d'une procédure (3.1.489) : du HTML que le serveur a filtré à l'écriture ; les boutons [[…]] s'y dessinent. */}
+          {p.contenu && <div className="texte-corpus text-sm" dangerouslySetInnerHTML={{ __html: boutonsHtml(p.contenu) }} />}
+          {p.savoir?.length > 0 && (
+            <div className="rounded-champ border border-slate-200 bg-white px-3 py-2">
+              <div className="flex items-center gap-1.5 text-second font-semibold text-iip-texte mb-1">
+                <IconBulb size={15} style={{ color: 'var(--c-iip_or, #F9B619)' }} /> À savoir</div>
+              <ul className="space-y-1 m-0 pl-0 list-none">
+                {p.savoir.map((s, k) => (
+                  <li key={k} className="text-second text-slate-600 leading-relaxed pl-3.5 relative">
+                    <span className="absolute left-0 top-[0.55em] w-1.5 h-1.5 rounded-full" style={{ background: 'var(--c-accent)' }} /><Enrichi texte={s} /></li>))}
+              </ul>
+            </div>)}
+        </div>
+        <ImagesDuPoint p={p} onAgrandir={setGrand} />
+      </div>
+      {/* Hors de la carte : son animation (transform) enfermerait la fenêtre dans le point. */}
+      {grand && createPortal(
+        <Fenetre large="pleine" titre={p.titre} onFermer={() => setGrand(null)}
+          pied={<button type="button" className="bouton ml-auto" onClick={() => setGrand(null)}>Fermer</button>}>
+          <img src={grand.src} alt={grand.legende || p.titre} className="block mx-auto w-auto h-auto max-w-full" />
+          {grand.legende && <p className="text-second text-slate-500 mt-2 mb-0"><Enrichi texte={grand.legende} /></p>}
+        </Fenetre>, document.body)}
     </article>
   );
 }
