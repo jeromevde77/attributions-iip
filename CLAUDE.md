@@ -2839,6 +2839,10 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   centrées, à la largeur de la fenêtre ; pendant la composition, une feuille d'attente, plus de HTML. pdf.js est
   servi par Lucie (`frontend/public/vendor/pdfjs-3.11.174`, build « legacy », licence jointe) — pas de dépendance npm :
   le paquet tire un module natif (`canvas`) au build. Échec de chargement → l'ancien affichage du PDF.
+  **« Bonjour Charles ! »** (3.1.507, Charles : « des semaines que je veux le prénom — vérifie pour tout le monde ») :
+  la connexion calculait juste, mais `/me` (relu à chaque ouverture) et le récapitulatif quotidien avaient chacun leur
+  règle — « Charles Sohet », sans capitales, donnait « Sohet ». UNE règle : `prenomDuCompte` (`lib/nom.js`) — sans
+  capitales, le mot qui ouvre l'adresse d'école ; sinon `prenomSeul` ; sans identité, le début de l'adresse.
 
 **L'ANNULER NE COMPARE QUE CE QUE LE GESTE A CHANGÉ** (3.1.482, Charles, 30 octobre 2026, en production :
   « Impossible d'annuler : utilisateur — la ligne a été modifiée depuis, par quelqu'un »). Se reconnecter écrit

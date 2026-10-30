@@ -15,6 +15,7 @@
 // par jour — un redémarrage ne renvoie rien.
 // ─────────────────────────────────────────────────────────────────────────────
 import db from '../db/index.js';
+import { prenomDuCompte } from './nom.js';
 import { envoyerEmail, templateNotif } from '../services/mailer.js';
 import { etatLecture, derniereVersion } from '../routes/documentation.js';
 import { messagesRecus } from '../routes/communication.js';
@@ -100,7 +101,7 @@ function section(titre, lignes, rendu) {
 }
 
 export function composerRecap(u, a) {
-  const prenom = String(u.nom_complet || '').split(/\s+/).slice(1).join(' ') || '';
+  const prenom = prenomDuCompte(u);
   const corps = `<p>Bonjour${prenom ? ` ${esc(prenom)}` : ''},</p>
     <p>Voici ce qui vous attend dans Lucie${a.nouveaux ? ` — dont <b>${a.nouveaux} nouveau${a.nouveaux > 1 ? 'x' : ''}</b> depuis le dernier récapitulatif` : ''}.</p>
     ${section('Vos tâches', a.taches, t => `${esc(t.titre)}${t.echeance ? ` — pour le ${jourFr(t.echeance)}${t.retard ? ' <b style="color:#9D4A38">(en retard)</b>' : ''}` : ''}`)}

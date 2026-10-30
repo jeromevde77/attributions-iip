@@ -5,7 +5,7 @@ import db from '../db/index.js';
 import { signToken, authRequired, roleRequired, peutValiderAttributions, signPreviewToken,
          signPendingToken, verifyPendingToken } from '../middleware/auth.js';
 import { dechiffrer } from '../lib/secret-box.js';
-import { prenomSeul } from '../lib/nom.js';
+import { prenomDuCompte } from '../lib/nom.js';
 import { GESTES, cleDe, gesteAutorise } from '../lib/gestes.js';
 import { peut as peutModule } from '../middleware/permissions.js';
 import { verifierTotp } from '../lib/totp.js';
@@ -88,22 +88,8 @@ function oublierEssais(jeton) {
 }
 
 /** La charge utile « user » de la réponse, écrite une seule fois. */
-/* LE PRÉNOM QUAND L'IDENTITÉ NE DIT PAS OÙ COUPER (Charles, 11 octobre 2026 : « Bonjour
- * Sohet ! »). « Charles Sohet », sans capitales, se lisait selon la convention « NOM Prénom ».
- * L'adresse de l'école s'écrit « prénom.nom@… » : le mot de l'identité qui ouvre l'adresse
- * est le prénom. Sinon, la règle commune (`prenomSeul`). */
-function prenomDuCompte(user) {
-  const plat = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-  const mots = String(user?.nom_complet || '').trim().split(/\s+/).filter(Boolean);
-  const local = plat(String(user?.email || '').split('@')[0]).split(/[._-]/)[0];
-  const sansCapitales = !mots.some(m => m.length > 1 && m === m.toUpperCase() && /[A-ZÀ-Ý]/.test(m));
-  if (sansCapitales && local && mots.length > 1) {
-    const m = mots.find(x => plat(x) === local);
-    if (m) return m.charAt(0).toLocaleUpperCase('fr') + m.slice(1);
-  }
-  return prenomSeul(user?.nom_complet);
-}
-
+/* LE PRÉNOM : `prenomDuCompte` (lib/nom.js), la même règle pour la connexion, la relecture du profil (`/me`) et le
+ * récapitulatif quotidien. `/me` en avait une autre, et rendait « Sohet » à chaque ouverture (30 octobre 2026). */
 function profilPublic(user) {
   /* LE PRÉNOM SE CALCULE ICI, PAS À L'ÉCRAN. L'accueil le devinait en prenant
    * le premier mot de l'identité — ce qui donne le NOM de famille dès qu'elle
@@ -439,7 +425,7 @@ r.get('/me', authRequired, (req, res) => {
   // calculé à la connexion gardait « Bonjour, veronique.moiny ! » pendant les
   // trente jours du jeton.
   res.json({ user: frais
-    ? { ...req.user, ...frais, nom: frais.nom_complet || req.user.nom, prenom: prenomSeul(frais.nom_complet) || null }
+    ? { ...req.user, ...frais, nom: frais.nom_complet || req.user.nom, prenom: prenomDuCompte({ ...frais, email: frais.email || req.user.email }) || null }
     : req.user });
 });
 
