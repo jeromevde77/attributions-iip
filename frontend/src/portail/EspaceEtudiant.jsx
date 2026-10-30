@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { IconCertificate, IconFileText, IconBook, IconSignature, IconCheck, IconLogout, IconLock } from '@tabler/icons-react';
+import { IconCertificate, IconFileText, IconBook, IconSignature, IconCheck, IconLogout, IconLock, IconDevices, IconTrash } from '@tabler/icons-react';
 
 /**
  * L'ESPACE DE L'ÉTUDIANT (3.1.475, Charles : « un mini espace ultra sécurisé : récupérer ses documents, voir ses
@@ -11,6 +11,10 @@ import { IconCertificate, IconFileText, IconBook, IconSignature, IconCheck, Icon
  */
 const CLE = 'lucie.espace';
 const lire = () => { try { return sessionStorage.getItem(CLE); } catch { return null; } };
+// « Quitter » dans cet onglet : on n'y rentre pas d'office, même si l'appareil est reconnu.
+const QUITTE = 'lucie.espace.quitte';
+const aQuitte = () => { try { return sessionStorage.getItem(QUITTE) === '1'; } catch { return false; } };
+const marquerQuitte = v => { try { v ? sessionStorage.setItem(QUITTE, '1') : sessionStorage.removeItem(QUITTE); } catch { /* */ } };
 const poser = t => { try { t ? sessionStorage.setItem(CLE, t) : sessionStorage.removeItem(CLE); } catch { /* navigation privée */ } };
 const jourFr = d => (d ? String(d).slice(0, 10).split('-').reverse().join('/') : '');
 
@@ -19,11 +23,11 @@ async function appel(methode, chemin, corps, brut = false) {
   const t = lire();
   if (t) h.Authorization = `Bearer ${t}`;
   if (corps) h['Content-Type'] = 'application/json';
-  const r = await fetch(`/api/portail${chemin}`, { method: methode, headers: h, body: corps ? JSON.stringify(corps) : undefined });
+  const r = await fetch(`/api/portail${chemin}`, { method: methode, headers: h, body: corps ? JSON.stringify(corps) : undefined, credentials: 'same-origin' });
   if (brut && r.ok) return r;
   const j = await r.json().catch(() => ({}));
   if (r.status === 401 && !chemin.startsWith('/accuser')) { poser(null); const e = new Error(j.error || 'Session expirée.'); e.session = true; throw e; }
-  if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
+  if (!r.ok) { const e = new Error(j.error || `Erreur ${r.status}`); e.donnees = j; e.statut = r.status; throw e; }
   return j;
 }
 
@@ -71,9 +75,37 @@ function Accuse({ type, id, presente, signe, onFait, onErreur }) {
   );
 }
 
+/** Mes appareils : ceux qui entrent sans lien ; en oublier un. */
+function MesAppareils({ onErreur, onOublieCourant }) {
+  const [l, setL] = useState(null);
+  const charger = useCallback(() => appel('GET', '/appareils').then(setL).catch(onErreur), [onErreur]);
+  useEffect(() => { charger(); }, [charger]);
+  if (!l) return <p className="text-sm text-slate-500">Chargement…</p>;
+  const oublier = async a => {
+    try { await appel('POST', `/appareils/${a.id}/oublier`); if (a.courant) onOublieCourant(); else charger(); } catch (e) { onErreur(e); }
+  };
+  return (
+    <div className="space-y-2">
+      <p className="text-sm text-slate-600">Ces appareils entrent dans votre espace sans lien, pendant {l.jours} jours après leur dernière visite.
+        {` ${l.max} au plus`} : au-delà, le lien reçu par courriel vous demande lequel remplacer. Un appareil que vous ne reconnaissez pas ? Oubliez-le.</p>
+      {l.appareils.length ? l.appareils.map(a => (
+        <div key={a.id} className="bloc-etat px-4 py-3 flex flex-wrap items-center gap-3" data-etat="disponible">
+          <IconDevices size={18} className="text-slate-400 flex-none" />
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-semibold text-iip-texte">{a.nom || 'Appareil'}{a.courant ? ' — celui-ci' : ''}</div>
+            <div className="text-xs text-slate-500">reconnu le {jourFr(a.cree_le)}{a.vu_le ? ` · dernière visite le ${jourFr(a.vu_le)}` : ''}</div>
+          </div>
+          <button type="button" className="bouton inline-flex items-center gap-1.5" onClick={() => oublier(a)}><IconTrash size={15} /> Oublier</button>
+        </div>)) : <p className="text-sm text-slate-500">Aucun appareil reconnu : vous entrez par le lien reçu à votre adresse de l’institut.</p>}
+    </div>
+  );
+}
+
 export default function EspaceEtudiant() {
   const [connecte, setConnecte] = useState(!!lire());
   const [matricule, setMatricule] = useState('');
+  // Le lien ouvert : sur cet appareil, le reconnaître ou non ; au 4e, lequel remplacer.
+  const [lien, setLien] = useState(null);   // { jeton, appareils? }
   const [message, setMessage] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [d, setD] = useState(null);
@@ -85,21 +117,33 @@ export default function EspaceEtudiant() {
 
   useEffect(() => {
     const jeton = new URLSearchParams(window.location.search).get('jeton');
-    if (!jeton) { if (lire()) charger(); return; }
-    window.history.replaceState(null, '', '/');
-    (async () => {
-      try { const j = await appel('POST', '/session', { jeton }); poser(j.token); setConnecte(true); charger(); }
-      catch (e) { setConnecte(false); setErreur(e.message); }
-    })();
+    if (jeton) { window.history.replaceState(null, '', '/'); setLien({ jeton }); return; }
+    if (lire()) { charger(); return; }
+    if (aQuitte()) return;
+    // UN APPAREIL RECONNU ENTRE DIRECTEMENT.
+    appel('POST', '/entrer').then(j => { poser(j.token); setConnecte(true); charger(); }).catch(() => {});
   }, [charger]);
+
+  const ouvrirSession = async (retenir, remplacer = null) => {
+    setErreur(null);
+    try {
+      const j = await appel('POST', '/session', { jeton: lien.jeton, retenir, ...(remplacer ? { remplacer } : {}) });
+      poser(j.token); marquerQuitte(false); setLien(null); setConnecte(true); charger();
+    } catch (e) {
+      if (e.statut === 409 && e.donnees?.choix) setLien(l0 => ({ ...l0, appareils: e.donnees.appareils }));
+      else { setLien(null); setConnecte(false); setErreur(e.message); }
+    }
+  };
+  const entrer = () => appel('POST', '/entrer').then(j => { poser(j.token); marquerQuitte(false); setConnecte(true); charger(); })
+    .catch(() => setErreur('Cet appareil n’est plus reconnu : demandez un lien.'));
 
   const demanderLien = async ev => {
     ev.preventDefault();
     if (!matricule.trim()) return;
     setErreur(null);
-    try { const j = await appel('POST', '/lien', { matricule: matricule.trim() }); setMessage(j.message); } catch (e) { setErreur(e.message); }
+    try { const j = await appel('POST', '/lien', { identifiant: matricule.trim() }); setMessage(j.message); } catch (e) { setErreur(e.message); }
   };
-  const quitter = () => { poser(null); setConnecte(false); setD(null); };
+  const quitter = () => { poser(null); marquerQuitte(true); setConnecte(false); setD(null); };
 
   // UN DOCUMENT S'OUVRE DANS UN ONGLET : l'onglet s'ouvre AU CLIC (sinon l'iPad le bloque), la pièce y arrive ensuite.
   const ouvrir = async doc => {
@@ -115,6 +159,36 @@ export default function EspaceEtudiant() {
     try { setTexte({ ...reg, ...(await appel('GET', `/reglements/${encodeURIComponent(reg.cle)}`)) }); charger(); } catch (e) { echec(e); }
   };
 
+  // LE LIEN VIENT D'ÊTRE OUVERT : sur cet appareil, le reconnaître (le sien) ou juste cette fois (un ordinateur partagé).
+  if (lien && !connecte) {
+    return (
+      <div className="min-h-screen bg-slate-100">
+        <Tete />
+        <div className="max-w-[560px] mx-auto px-4 py-8 space-y-4">
+          {erreur && <div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">{erreur}</div>}
+          <div className="bg-white border border-slate-200 rounded-carte p-5 space-y-3">
+            {!lien.appareils ? <>
+              <h1 className="text-lg font-bold text-iip-texte flex items-center gap-2"><IconDevices size={18} /> Cet appareil est-il le vôtre ?</h1>
+              <p className="text-sm text-slate-600">Reconnu, il entrera directement dans votre espace pendant 90 jours, sans lien par courriel.
+                Sur un ordinateur partagé (bibliothèque, salle de cours), choisissez « juste cette fois ».</p>
+              <button type="button" className="bouton bouton-fort w-full" onClick={() => ouvrirSession(true)}>Oui — reconnaître cet appareil</button>
+              <button type="button" className="bouton w-full" onClick={() => ouvrirSession(false)}>Non — juste cette fois</button>
+            </> : <>
+              <h1 className="text-lg font-bold text-iip-texte flex items-center gap-2"><IconDevices size={18} /> Trois appareils sont déjà reconnus</h1>
+              <p className="text-sm text-slate-600">Pour votre sécurité, trois appareils au plus entrent sans lien. Lequel celui-ci remplace-t-il ?</p>
+              {lien.appareils.map(a => (
+                <button key={a.id} type="button" className="bouton w-full justify-between" onClick={() => ouvrirSession(true, a.id)}>
+                  <span>{a.nom || 'Appareil'}</span>
+                  <span className="text-xs text-slate-500">{a.vu_le ? `dernière visite le ${jourFr(a.vu_le)}` : `reconnu le ${jourFr(a.cree_le)}`}</span>
+                </button>))}
+              <button type="button" className="text-second text-iip-blue underline" onClick={() => ouvrirSession(false)}>Ne rien remplacer — juste cette fois</button>
+            </>}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!connecte) {
     return (
       <div className="min-h-screen bg-slate-100">
@@ -123,12 +197,15 @@ export default function EspaceEtudiant() {
           {erreur && <div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">{erreur}</div>}
           <form onSubmit={demanderLien} className="bg-white border border-slate-200 rounded-carte p-5 space-y-3">
             <h1 className="text-lg font-bold text-iip-texte flex items-center gap-2"><IconLock size={18} /> Mon espace étudiant</h1>
-            <p className="text-sm text-slate-600">Vos résultats délibérés, vos documents, vos accusés de réception. Tapez votre matricule :
-              un lien d'accès, valable 30 minutes et à usage unique, part à votre adresse électronique <b>de l'école</b>.</p>
-            <input value={matricule} onChange={e => setMatricule(e.target.value)} placeholder="Matricule" className="controle w-full" autoFocus />
+            <p className="text-sm text-slate-600">Vos résultats délibérés, vos documents, vos accusés de réception. Tapez votre adresse
+              de l'institut (ou votre matricule) : un lien d'accès, valable 30 minutes et à usage unique, part à votre adresse électronique
+              <b> de l'institut</b>. Sur un appareil reconnu, vous entrez ensuite directement.</p>
+            <input value={matricule} onChange={e => setMatricule(e.target.value)} placeholder="prenom.nom@… ou matricule" autoComplete="username"
+              className="controle w-full" autoFocus />
             <button type="submit" className="bouton bouton-fort w-full" disabled={!matricule.trim()}>Recevoir mon lien</button>
             {message && <p className="text-sm text-slate-700">{message}</p>}
           </form>
+          {aQuitte() && <button type="button" className="text-second text-iip-blue underline" onClick={entrer}>Entrer à nouveau sur cet appareil reconnu</button>}
         </div>
       </div>
     );
@@ -136,7 +213,7 @@ export default function EspaceEtudiant() {
 
   const nom = d ? `${String(d.etudiant.nom || '').toUpperCase()} ${d.etudiant.prenom || ''}` : '';
   const aSigner = d ? d.documents.filter(x => !x.signe_le).length + d.reglements.filter(x => !x.signe_le).length : 0;
-  const FACES = [['resultats', 'Mes résultats', IconCertificate], ['documents', 'Mes documents', IconFileText], ['reglements', 'Règlements', IconBook]];
+  const FACES = [['resultats', 'Mes résultats', IconCertificate], ['documents', 'Mes documents', IconFileText], ['reglements', 'Règlements', IconBook], ['appareils', 'Mes appareils', IconDevices]];
 
   return (
     <div className="min-h-screen bg-slate-100">
@@ -146,8 +223,8 @@ export default function EspaceEtudiant() {
         {aSigner > 0 && <div className="bloc-etat px-3 py-2 text-sm" data-etat="surveiller">{aSigner} pièce(s) attendent votre accusé de réception.</div>}
         <div className="flex gap-1 border-b border-slate-200 overflow-x-auto">
           {FACES.map(([k, l, I]) => (
-            <button key={k} type="button" onClick={() => setFace(k)} className={`onglet-page inline-flex items-center gap-1.5 ${face === k ? 'onglet-page-actif' : ''}`}>
-              <I size={15} /> {l}</button>))}
+            <button key={k} type="button" onClick={() => setFace(k)} title={l} aria-label={l} className={`onglet-page inline-flex items-center gap-1.5 ${face === k ? 'onglet-page-actif' : ''}`}>
+              <I size={15} /> <span className={face === k ? '' : 'hidden sm:inline'}>{l}</span></button>))}
         </div>
 
         {d && face === 'resultats' && (d.resultats.length ? d.resultats.map(a => (
@@ -196,6 +273,8 @@ export default function EspaceEtudiant() {
                 <div className="w-full"><Accuse type="reglement" id={reg.version_id} presente={reg.presente_le} signe={reg.signe_le} onFait={charger} onErreur={echec} /></div>
               </div>))}
           </div>) : <p className="text-sm text-slate-500">Aucun règlement à lire pour l’instant.</p>)}
+
+        {face === 'appareils' && <MesAppareils onErreur={echec} onOublieCourant={quitter} />}
 
         {texte && (
           <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-start justify-center p-4 overflow-auto" onClick={() => setTexte(null)}>

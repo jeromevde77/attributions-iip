@@ -426,7 +426,13 @@ code à six chiffres) et compose elle-même —, les accusés (recopiés dans `p
 connexions (`portail_connexion`) ; toutes les deux minutes elle DÉPOSE les étudiants visibles, leurs résultats publiés
 (`resultatsPublies`), les règlements « Étudiants » (avec les versions dont la signature vaut encore) et, au fil de
 l'eau, les PDF des pièces envoyées. Le dépôt REMPLACE : un archivé disparaît du portail. Lien et code ne vivent en
-clair dans le portail que jusqu'au relevé. La fiche lit `GET /api/portail-suivi/:id`. Mise en place :
+clair dans le portail que jusqu'au relevé. **Les appareils reconnus** (3.1.509, Charles : « pas que sur téléphone ; trois
+dispositifs au maximum ; une fois l'accès obtenu, il entre directement avec son adresse institut ») : l'étudiant demande
+son lien par son adresse d'institut (ou son matricule) ; en ouvrant le lien, il choisit « reconnaître cet appareil » ou
+« juste cette fois » (ordinateur partagé) ; reconnu = cookie httpOnly `portail_appareil` (empreinte seule en base, table
+`appareil`), 90 jours glissants, `POST /api/portail/entrer` sans lien ; TROIS au plus — au quatrième, il choisit lequel
+remplacer (il vient de prouver sa boîte d'école) ; face « Mes appareils » (oublier) ; les entrées sans lien (`entree`)
+remontent à Lucie comme connexions (`portail_connexion`, référence négative). La fiche lit `GET /api/portail-suivi/:id`. Mise en place :
 `scripts/vps/PORTAIL-ETUDIANTS.md` (DNS, quatre secrets, dossiers au propriétaire 1000, compose, Caddy). **Reste de
 ce côté-ci du mur, À DÉPLACER** : la demande de VA en ligne (`/demande-va`, `routes/portailVA.js`), qui écrit dans la
 base de Lucie.

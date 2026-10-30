@@ -118,7 +118,7 @@ function reglementsEtudiants() {
 // ── RELEVER ────────────────────────────────────────────────────────────────
 async function relever() {
   const r = await appel('GET', '/interne/releve');
-  const ok = { demandes: [], accuses: [], connexions: [] };
+  const ok = { demandes: [], accuses: [], connexions: [], entrees: [] };
   const etudiant = id => db.prepare(`SELECT id, prenom, email_ecole FROM etudiant WHERE id = ? AND COALESCE(actif, 1) = 1
     AND COALESCE(sortie_statut, '') <> 'archive' AND email_ecole LIKE '%@%'`).get(Number(id));
   for (const d of r.demandes || []) {
@@ -134,7 +134,8 @@ async function relever() {
       sujet = 'Institut Ilya Prigogine — votre lien d’accès à votre espace';
       html = templateNotif({ titre: 'Votre espace étudiant', corps: `<p>Bonjour ${esc(e.prenom || '')},</p>
         <p>Voici votre lien d'accès à votre espace à l'Institut Ilya Prigogine : vos résultats délibérés, vos documents, vos accusés de réception.
-        Il est valable 30 minutes et ne sert qu'une fois.</p>
+        Il est valable 30 minutes et ne sert qu'une fois. Ouvert sur un appareil que vous gardez, il le fait reconnaître pendant 90 jours :
+        vous y entrerez ensuite directement (trois appareils au plus).</p>
         <p><a href="${esc(lien)}" style="display:inline-block;background:#16406A;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none">Ouvrir mon espace</a></p>
         <p style="color:#64748b;font-size:12px">Vous n'avez rien demandé ? Ignorez ce message : sans ce lien, personne n'accède à votre espace.</p>` });
     } else if (d.type === 'code') {
@@ -164,7 +165,9 @@ async function relever() {
   }
   const cx = db.prepare('INSERT OR IGNORE INTO portail_connexion (etudiant_id, le, ip, ref_portail) VALUES (?,?,?,?)');
   for (const c of r.connexions || []) { ok.connexions.push(c.id); cx.run(Number(c.etudiant_id), String(c.utilise_le || ''), String(c.ip || '').slice(0, 60), Number(c.id)); }
-  if (ok.demandes.length || ok.accuses.length || ok.connexions.length) await appel('POST', '/interne/acquitter', ok);
+  // Les entrées depuis un appareil reconnu (sans lien) : des connexions aussi ; référence négative, pour ne jamais croiser celles des liens.
+  for (const c of r.entrees || []) { ok.entrees.push(c.id); cx.run(Number(c.etudiant_id), String(c.utilise_le || ''), String(c.ip || '').slice(0, 60), -Number(c.id)); }
+  if (ok.demandes.length || ok.accuses.length || ok.connexions.length || ok.entrees.length) await appel('POST', '/interne/acquitter', ok);
 }
 
 // ── DÉPOSER ────────────────────────────────────────────────────────────────

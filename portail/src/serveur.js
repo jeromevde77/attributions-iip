@@ -15,8 +15,11 @@
 // elle-même. Un portail compromis ne livre donc que ce qu'il contient, et ne peut faire écrire à Lucie ni un autre
 // texte, ni à une autre adresse.
 //
-// L'ÉTUDIANT : matricule → lien à usage unique (30 min) à son adresse d'école → session de 2 h signée de la clé
-// du portail. Signer un accusé : avoir ouvert la pièce (posé par la route qui la rend) + un code à six chiffres
+// L'ÉTUDIANT : son adresse d'institut (ou son matricule) → lien à usage unique (30 min) à son adresse d'école →
+// session de 2 h signée de la clé du portail. L'APPAREIL RECONNU (Charles, 30 octobre 2026 : « pas que sur
+// téléphone ; trois dispositifs au maximum ; une fois l'accès obtenu, il entre directement ») : un cookie httpOnly
+// (la base n'en garde que l'empreinte), 90 jours glissants, trois appareils au plus — au quatrième, l'étudiant,
+// qui vient de prouver sa boîte d'école, choisit lequel remplacer. Signer un accusé : avoir ouvert la pièce (posé par la route qui la rend) + un code à six chiffres
 // reçu à l'adresse d'école (10 min, 5 essais). Un accusé signé ne se modifie ni ne s'efface.
 // ─────────────────────────────────────────────────────────────────────────────
 import express from 'express';
@@ -58,6 +61,11 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS accuse (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL,
     objet_type TEXT NOT NULL CHECK (objet_type IN ('envoi','reglement')), objet_id INTEGER NOT NULL,
     presente_le TEXT, signe_le TEXT, ip TEXT, agent TEXT, releve_le TEXT, UNIQUE (etudiant_id, objet_type, objet_id));
+  CREATE TABLE IF NOT EXISTS appareil (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL,
+    jeton_hash TEXT NOT NULL UNIQUE, nom TEXT, cree_le TEXT NOT NULL DEFAULT (datetime('now')), vu_le TEXT,
+    expire_le TEXT NOT NULL, retire_le TEXT, ip TEXT);
+  CREATE TABLE IF NOT EXISTS entree (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL,
+    le TEXT NOT NULL DEFAULT (datetime('now')), ip TEXT, releve_le TEXT);
   CREATE TRIGGER IF NOT EXISTS accuse_signe_fige BEFORE UPDATE OF presente_le, signe_le, objet_id, etudiant_id ON accuse
     WHEN OLD.signe_le IS NOT NULL BEGIN SELECT RAISE(ABORT, 'Un accusé signé ne se modifie pas.'); END;
   CREATE TRIGGER IF NOT EXISTS accuse_sans_effacement BEFORE DELETE ON accuse
@@ -86,11 +94,57 @@ function tropDEssais(ip, plafond = 30) {
 
 pub.get('/api/portail/sante', (req, res) => res.json({ ok: true }));
 
+// ── L'appareil reconnu ──
+const COOKIE = 'portail_appareil';
+const MAX_APPAREILS = 3;
+const JOURS_APPAREIL = 90;
+const lireCookie = req => {
+  for (const p of String(req.headers.cookie || '').split(';')) {
+    const [k, ...v] = p.trim().split('=');
+    if (k === COOKIE) return decodeURIComponent(v.join('='));
+  }
+  return '';
+};
+const sur = req => URL_PUBLIQUE.startsWith('https://') && !/^(localhost|127\.)/.test(req.hostname || '');
+const poserCookie = (req, res, valeur, secondes) => res.append('Set-Cookie',
+  `${COOKIE}=${encodeURIComponent(valeur)}; Path=/api/portail; HttpOnly; SameSite=Strict; Max-Age=${secondes}${sur(req) ? '; Secure' : ''}`);
+const oublierCookie = (req, res) => poserCookie(req, res, '', 0);
+function nomAppareil(ua) {
+  const u = String(ua || '');
+  const sys = /iPad/.test(u) ? 'iPad' : /iPhone/.test(u) ? 'iPhone' : /Android/.test(u) ? 'Android'
+    : /Macintosh|Mac OS X/.test(u) ? 'Mac' : /Windows/.test(u) ? 'Windows' : /Linux/.test(u) ? 'Linux' : 'Appareil';
+  const nav = /Edg\//.test(u) ? 'Edge' : /Firefox\//.test(u) ? 'Firefox' : /Chrome\//.test(u) ? 'Chrome' : /Safari\//.test(u) ? 'Safari' : '';
+  return nav ? `${sys} · ${nav}` : sys;
+}
+const appareilsActifs = id => db.prepare(`SELECT id, nom, cree_le, vu_le FROM appareil WHERE etudiant_id = ? AND retire_le IS NULL
+  AND expire_le > datetime('now') ORDER BY COALESCE(vu_le, cree_le) DESC`).all(id);
+const appareilCourant = req => {
+  const v = lireCookie(req);
+  return v ? db.prepare(`SELECT * FROM appareil WHERE jeton_hash = ? AND retire_le IS NULL AND expire_le > datetime('now')`).get(empreinte(v)) : null;
+};
+const session = id => jwt.sign({ scope: 'portail', etudiant_id: id }, SECRET, { expiresIn: '2h' });
+
+/** Entrer sans lien, depuis un appareil reconnu. */
+pub.post('/api/portail/entrer', (req, res) => {
+  if (tropDEssais(ipDe(req), 60)) return res.status(429).json({ error: 'Trop de tentatives. Réessayez dans une heure.' });
+  const a = appareilCourant(req);
+  if (!a || !db.prepare('SELECT 1 FROM etudiant WHERE id = ?').get(a.etudiant_id)) {
+    if (lireCookie(req)) oublierCookie(req, res);
+    return res.status(401).json({ error: 'Appareil non reconnu.' });
+  }
+  db.prepare(`UPDATE appareil SET vu_le = datetime('now'), expire_le = datetime('now', '+${JOURS_APPAREIL} days'), ip = ? WHERE id = ?`).run(ipDe(req), a.id);
+  db.prepare('INSERT INTO entree (etudiant_id, ip) VALUES (?, ?)').run(a.etudiant_id, ipDe(req));
+  poserCookie(req, res, lireCookie(req), JOURS_APPAREIL * 86400);
+  res.json({ token: session(a.etudiant_id) });
+});
+
 pub.post('/api/portail/lien', (req, res) => {
-  const reponse = { ok: true, message: "Si ce matricule est connu, un lien d'accès part dans la minute vers votre adresse d'école. Il est valable 30 minutes et ne sert qu'une fois." };
+  const reponse = { ok: true, message: "Si cette adresse ou ce matricule est connu, un lien d'accès part dans la minute vers votre adresse de l'institut. Il est valable 30 minutes et ne sert qu'une fois." };
   if (tropDEssais(ipDe(req))) return res.status(429).json({ error: 'Trop de demandes. Réessayez dans une heure.' });
-  const mat = String(req.body?.matricule || '').trim();
-  const m = mat && mat.length <= 40 && db.prepare('SELECT etudiant_id FROM matricule WHERE code = ?').get(mat);
+  const ident = String(req.body?.identifiant || req.body?.matricule || '').trim();
+  const m = ident && ident.length <= 120 && (ident.includes('@')
+    ? db.prepare('SELECT id AS etudiant_id FROM etudiant WHERE lower(email_ecole) = lower(?)').get(ident)
+    : db.prepare('SELECT etudiant_id FROM matricule WHERE code = ?').get(ident));
   if (!m) return res.json(reponse);
   const recents = db.prepare(`SELECT COUNT(*) n FROM jeton WHERE etudiant_id = ? AND cree_le > datetime('now', '-1 hour')`).get(m.etudiant_id).n;
   if (recents >= 3) return res.json(reponse);
@@ -106,10 +160,25 @@ pub.post('/api/portail/session', (req, res) => {
   const jeton = String(req.body?.jeton || '');
   const l = jeton && db.prepare('SELECT * FROM jeton WHERE jeton_hash = ?').get(empreinte(jeton));
   if (!l || l.utilise_le || l.expire_le < maintenant() || !db.prepare('SELECT 1 FROM etudiant WHERE id = ?').get(l.etudiant_id)) {
-    return res.status(401).json({ error: 'Ce lien a expiré ou a déjà servi. Demandez-en un nouveau avec votre matricule.' });
+    return res.status(401).json({ error: 'Ce lien a expiré ou a déjà servi. Demandez-en un nouveau.' });
+  }
+  const retenir = req.body?.retenir !== false;
+  if (retenir && !appareilCourant(req)) {
+    // TROIS APPAREILS AU PLUS : au quatrième, l'étudiant — qui vient de prouver sa boîte d'école — choisit lequel remplacer.
+    const actifs = appareilsActifs(l.etudiant_id);
+    const remplacer = Number(req.body?.remplacer) || null;
+    if (actifs.length >= MAX_APPAREILS && !actifs.some(a => a.id === remplacer)) {
+      return res.status(409).json({ choix: true, max: MAX_APPAREILS, appareils: actifs,
+        error: `Vous avez déjà ${MAX_APPAREILS} appareils reconnus. Choisissez celui que celui-ci remplace.` });
+    }
+    if (remplacer) db.prepare("UPDATE appareil SET retire_le = datetime('now') WHERE id = ? AND etudiant_id = ?").run(remplacer, l.etudiant_id);
+    const valeur = crypto.randomBytes(32).toString('base64url');
+    db.prepare(`INSERT INTO appareil (etudiant_id, jeton_hash, nom, vu_le, expire_le, ip) VALUES (?,?,?, datetime('now'), datetime('now', '+${JOURS_APPAREIL} days'), ?)`)
+      .run(l.etudiant_id, empreinte(valeur), nomAppareil(req.headers['user-agent']), ipDe(req));
+    poserCookie(req, res, valeur, JOURS_APPAREIL * 86400);
   }
   db.prepare("UPDATE jeton SET utilise_le = datetime('now'), ip = ? WHERE id = ?").run(ipDe(req), l.id);
-  res.json({ token: jwt.sign({ scope: 'portail', etudiant_id: l.etudiant_id }, SECRET, { expiresIn: '2h' }) });
+  res.json({ token: session(l.etudiant_id) });
 });
 
 function connecte(req, res, next) {
@@ -118,8 +187,23 @@ function connecte(req, res, next) {
     const e = p.scope === 'portail' && db.prepare('SELECT * FROM etudiant WHERE id = ?').get(p.etudiant_id);
     if (!e) throw new Error('inconnu');
     req.etudiant = e; next();
-  } catch { res.status(401).json({ error: 'Session expirée. Redemandez un lien avec votre matricule.' }); }
+  } catch { res.status(401).json({ error: 'Session expirée. Redemandez un lien.' }); }
 }
+
+/** Mes appareils : les voir, en oublier un (celui-ci compris). */
+pub.get('/api/portail/appareils', connecte, (req, res) => {
+  const c = appareilCourant(req);
+  res.json({ max: MAX_APPAREILS, jours: JOURS_APPAREIL,
+    appareils: appareilsActifs(req.etudiant.id).map(a => ({ ...a, courant: !!c && c.id === a.id })) });
+});
+pub.post('/api/portail/appareils/:id/oublier', connecte, (req, res) => {
+  const id = Number(req.params.id);
+  const r = db.prepare("UPDATE appareil SET retire_le = datetime('now') WHERE id = ? AND etudiant_id = ? AND retire_le IS NULL").run(id, req.etudiant.id);
+  if (!r.changes) return res.status(404).json({ error: 'Appareil introuvable.' });
+  const c = lireCookie(req);
+  if (c && db.prepare('SELECT 1 FROM appareil WHERE id = ? AND jeton_hash = ?').get(id, empreinte(c))) oublierCookie(req, res);
+  res.json({ ok: true });
+});
 const accuseDe = (e, type, id) => db.prepare('SELECT presente_le, signe_le FROM accuse WHERE etudiant_id = ? AND objet_type = ? AND objet_id = ?').get(e.id, type, id) || {};
 
 pub.get('/api/portail/moi', connecte, (req, res) => {
@@ -276,6 +360,8 @@ int.get('/interne/releve', (req, res) => {
     demandes: db.prepare('SELECT id, type, etudiant_id, valeur, cree_le FROM demande WHERE releve_le IS NULL ORDER BY id LIMIT 200').all(),
     accuses: db.prepare('SELECT id, etudiant_id, objet_type, objet_id, presente_le, signe_le, ip, agent FROM accuse WHERE releve_le IS NULL LIMIT 500').all(),
     connexions: db.prepare('SELECT id, etudiant_id, utilise_le, ip FROM jeton WHERE utilise_le IS NOT NULL AND releve_le IS NULL LIMIT 500').all(),
+    // Les entrées depuis un appareil reconnu : des connexions aussi, que la fiche doit voir.
+    entrees: db.prepare('SELECT id, etudiant_id, le AS utilise_le, ip FROM entree WHERE releve_le IS NULL LIMIT 500').all(),
   });
 });
 int.post('/interne/acquitter', (req, res) => {
@@ -285,6 +371,7 @@ int.post('/interne/acquitter', (req, res) => {
     for (const id of ids('demandes')) db.prepare("UPDATE demande SET releve_le = datetime('now'), valeur = NULL WHERE id = ?").run(id);
     for (const id of ids('accuses')) db.prepare("UPDATE accuse SET releve_le = datetime('now') WHERE id = ?").run(id);
     for (const id of ids('connexions')) db.prepare("UPDATE jeton SET releve_le = datetime('now') WHERE id = ?").run(id);
+    for (const id of ids('entrees')) db.prepare("UPDATE entree SET releve_le = datetime('now') WHERE id = ?").run(id);
   })();
   res.json({ ok: true });
 });
