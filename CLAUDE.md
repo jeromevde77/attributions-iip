@@ -2827,6 +2827,13 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   travail) ; l'étape 3 commence par « Quelles années ? » — la réunion des années des cochés (`parAnnee`, avec leur
   nombre), « Année en cours », « Tout le parcours ». `portee` = les années cochées ; une seule → les pièces
   d'inscription y portent (`anneeDossier`) ; plusieurs → seules les attestations. Une séance garde son année à l'étape 1.
+  **L'aperçu suit le même standard** (3.1.505, Charles, capture d'iPad : « pas aux standards qu'on a définis ») :
+  ses actions sont des ICÔNES dans la barre bleue — PDF, imprimante, avion, chevrons « 1 / 2 » pour passer d'une
+  pièce à l'autre — puis un filet avant la croix ; jamais de bouton blanc à libellé dans le bandeau. Composant
+  `IconeApercu` (`PreviewModal.jsx`), repris par Éditions (`NavApercu`), les lettres, le contrat d'un professeur et
+  les anciennes procédures. Le titre de l'aperçu est l'étudiant, le nom de fichier va dessous. **Et la dev se
+  construit frontend d'abord** (`build-dev.yml`) : sa mise à jour part dès l'image du backend, qui reprenait
+  l'ancien frontend (écart 503 ≠ 504, trois fois le 30 octobre).
 
 **L'ANNULER NE COMPARE QUE CE QUE LE GESTE A CHANGÉ** (3.1.482, Charles, 30 octobre 2026, en production :
   « Impossible d'annuler : utilisateur — la ligne a été modifiée depuis, par quelqu'un »). Se reconnecter écrit

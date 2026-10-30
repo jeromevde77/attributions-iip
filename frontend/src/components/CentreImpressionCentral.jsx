@@ -10,11 +10,11 @@ import { createPortal } from 'react-dom';
 import { nomPropre } from '../lib/nom.js';
 import {
   IconPrinter, IconUsers, IconSchool, IconChartBar, IconCalendarStats,
-  IconBooks, IconAlertTriangle, IconChevronRight, IconChevronDown, IconSearch,
+  IconBooks, IconAlertTriangle, IconChevronRight, IconChevronLeft, IconChevronDown, IconSearch,
   IconDownload, IconSend, IconFilePlus, IconMailForward, IconFileText, IconRoute, IconId, IconZoomIn, IconCheck,
 } from '@tabler/icons-react';
 const RegistreEnvois = lazy(() => import('./RegistreEnvois.jsx'));
-import PreviewModal from './PreviewModal.jsx';
+import PreviewModal, { IconeApercu } from './PreviewModal.jsx';
 import SaisieAnnexe from './SaisieAnnexe.jsx';
 /* La séance de valorisation est chargée à la demande : Éditions s'ouvre
    souvent pour un rapport, et cet écran porte le rendu du procès-verbal. */
@@ -74,6 +74,17 @@ const ONGLETS = [
 /* LE REPÈRE D'UNE PIÈCE (3.1.497, Charles, d'après la maquette de l'avis graphique) : vert pour la réussite, ocre pour
    l'ajournement, brique pour le refus — les couleurs d'état réglées. Les autres pièces n'en portent pas. */
 const REPERE_PIECE = { reussite: 'var(--c-reussi, #3E7D5E)', ajournement: 'var(--c-attente, #B45309)', refus: 'var(--c-refuse, #9D4A38)' };
+
+/** Passer d'une pièce à l'autre dans l'aperçu : deux chevrons et « 1 / 2 », dans la barre bleue. */
+function NavApercu({ k, n, aller }) {
+  return (
+    <span className="flex items-center gap-0.5 text-white text-second">
+      <IconeApercu Icone={IconChevronLeft} titre="Pièce précédente" disabled={k === 0} onClick={() => aller(k - 1)} />
+      <span className="tabular-nums px-1 opacity-80">{k + 1} / {n}</span>
+      <IconeApercu Icone={IconChevronRight} titre="Pièce suivante" disabled={k === n - 1} onClick={() => aller(k + 1)} />
+    </span>
+  );
+}
 
 /* LES TROIS ÉTAPES (Charles, 30 octobre 2026, maquette A : « 1-2-3 pour les étapes, cela permet de revenir en arrière ou
    de cocher un étudiant oublié — pas de cinéma ») : trois zones côte à côte, toujours visibles. Le numéro dit l'état :
@@ -432,11 +443,7 @@ function ValorisationParEtudiant({ annee, dossiers, nomUE }) {
   const apercu = k => {
     const d = produits[k];
     const nav = produits.length > 1 ? (
-      <span className="flex items-center gap-1 text-second text-slate-500">
-        <button type="button" className="bouton controle px-2" disabled={k === 0} onClick={() => apercu(k - 1)}>◀</button>
-        <span className="tabular-nums px-1">{k + 1} / {produits.length}</span>
-        <button type="button" className="bouton controle px-2" disabled={k === produits.length - 1} onClick={() => apercu(k + 1)}>▶</button>
-      </span>) : null;
+      <NavApercu k={k} n={produits.length} aller={apercu} />) : null;
     ouvrirApercu({ html: d.html, titre: `Valorisation — ${d.etudiant}`, nomFichier: d.nom, envoiPossible: false,
       astuceImpression: 'A4 portrait', actionExtra: nav });
   };
@@ -1876,13 +1883,9 @@ function OngletEtudiants({ perimetre = null, seul = null, onRevenir = null }) {
   function montrer(docs, k) {
     const d = docs[k];
     const nav = docs.length > 1 ? (
-      <span className="flex items-center gap-1 text-second text-slate-500">
-        <button type="button" className="bouton controle px-2" disabled={k === 0} onClick={() => montrer(docs, k - 1)}>◀</button>
-        <span className="tabular-nums px-1">{k + 1} / {docs.length}</span>
-        <button type="button" className="bouton controle px-2" disabled={k === docs.length - 1} onClick={() => montrer(docs, k + 1)}>▶</button>
-      </span>
+      <NavApercu k={k} n={docs.length} aller={i => montrer(docs, i)} />
     ) : null;
-    ouvrirApercu({ html: d.html, titre: d.etudiant ? `${d.nom} — ${d.etudiant}` : d.nom, nomFichier: d.nom,
+    ouvrirApercu({ html: d.html, titre: d.etudiant || d.nom, nomFichier: d.nom,
       envoiPossible: false, astuceImpression: null, actionExtra: nav,
       pdf: { orientation: /size:\s*A4\s+landscape/.test(d.html || '') ? 'paysage' : 'portrait' } });
   }

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { getAnnee } from '../lib/api.js';
-import PreviewModal from '../components/PreviewModal.jsx';
+import PreviewModal, { IconeApercu } from '../components/PreviewModal.jsx';
 import { ouvrirApercu } from '../lib/apercu.js';
 import { PageHeader, RailLateral, OuvrirEditions, Fenetre } from '../components/ui.jsx';
 import Disciplinaire from './Disciplinaire.jsx';
@@ -9,6 +9,7 @@ import {
   IconChecklist, IconScale, IconShieldExclamation, IconClipboardList,
   IconFolder, IconCheck, IconX, IconArrowBackUp, IconGavel,
   IconBan, IconAlertTriangle, IconClock, IconCircleCheck, IconRefresh, IconFileText, IconPrinter, IconPencil,
+  IconFileTypePdf,
 } from '@tabler/icons-react';
 
 // ─── Utilitaires ──────────────────────────────────────────────────────────────
@@ -869,7 +870,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
           destinataire={{ nom: etudiant || 'Étudiant' }} typeDoc="decision_recours"
           sujetMail={`Décision du Conseil des études — recours${ueNum ? ` UE ${ueNum}` : ''} — Institut Ilya Prigogine`}
           actionExtra={
-            <button onClick={async () => {
+            <IconeApercu Icone={IconFileTypePdf} titre="Télécharger le PDF" onClick={async () => {
                 try {
                   const res = await fetch('/api/procedures/html-to-pdf', {
                     method: 'POST',
@@ -883,10 +884,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
                   a.href = url; a.download = `PV_Recours_${etudiant || ''}.pdf`;
                   a.click(); URL.revokeObjectURL(url);
                 } catch (e) { informer('Erreur : ' + e.message); }
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-medium hover:opacity-90">
-              <IconFileText size={13}/> Télécharger PDF
-            </button>
+              }} />
           }
         />
       )}
@@ -1475,7 +1473,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
       {previewHtml && (
         <PreviewModal html={previewHtml} titre="PV de fraude" onClose={() => setPreviewHtml(null)}
           actionExtra={
-            <button onClick={async () => {
+            <IconeApercu Icone={IconFileTypePdf} titre="Télécharger le PDF" onClick={async () => {
                 try {
                   const res = await fetch('/api/procedures/html-to-pdf', {
                     method: 'POST',
@@ -1489,10 +1487,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
                   a.href = url; a.download = `PV_Fraude_${etudiant || ''}.pdf`;
                   a.click(); URL.revokeObjectURL(url);
                 } catch (e) { informer('Erreur : ' + e.message); }
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-medium hover:opacity-90">
-              <IconFileText size={13}/> Télécharger PDF
-            </button>
+              }} />
           }
         />
 

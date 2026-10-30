@@ -5,6 +5,8 @@ import { documentModele } from '../lib/modeleDocument.js';
 import { useEnvoiMail } from '../lib/envoiMail.js';
 import { peutGeste } from '../lib/droits.js';
 import EnvoiMailModal from './EnvoiMailModal.jsx';
+import { IconeApercu } from './PreviewModal.jsx';
+import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 
 /**
  * UNE LETTRE PAR ÉTUDIANT, À PARTIR D'UN MODÈLE DE L'ATELIER (Charles,
@@ -73,10 +75,10 @@ export default function LettresModele({ annee }) {
   const apercu = k => {
     const d = produits.documents[k];
     const nav = produits.documents.length > 1 ? (
-      <span className="flex items-center gap-1 text-second text-slate-500">
-        <button type="button" className="bouton controle px-2" disabled={k === 0} onClick={() => apercu(k - 1)}>◀</button>
-        <span className="tabular-nums px-1">{k + 1} / {produits.documents.length}</span>
-        <button type="button" className="bouton controle px-2" disabled={k === produits.documents.length - 1} onClick={() => apercu(k + 1)}>▶</button>
+      <span className="flex items-center gap-0.5 text-white text-second">
+        <IconeApercu Icone={IconChevronLeft} titre="Lettre précédente" disabled={k === 0} onClick={() => apercu(k - 1)} />
+        <span className="tabular-nums px-1 opacity-80">{k + 1} / {produits.documents.length}</span>
+        <IconeApercu Icone={IconChevronRight} titre="Lettre suivante" disabled={k === produits.documents.length - 1} onClick={() => apercu(k + 1)} />
       </span>) : null;
     ouvrirApercu({ html: html([d]), titre: `${nomModele} — ${d.nom}`, nomFichier: fichier(d), envoiPossible: false, actionExtra: nav });
   };

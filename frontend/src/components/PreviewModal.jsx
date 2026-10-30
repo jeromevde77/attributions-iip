@@ -1,11 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 import { informer } from '../lib/dialogue.jsx';
 import { peutGeste } from '../lib/droits.js';
-import { IconSend, IconX, IconDownload, IconMail } from '@tabler/icons-react';
+import { IconSend, IconX, IconDownload, IconMail, IconPrinter, IconFileTypePdf } from '@tabler/icons-react';
 import EnvoiMailModal from './EnvoiMailModal.jsx';
 import { Fenetre } from './ui.jsx';
 import { useEnvoiMail } from '../lib/envoiMail.js';
 import { authHeaders } from '../lib/api.js';
+
+/* LES ACTIONS DE L'APERÇU SONT DES ICÔNES DANS LA BARRE BLEUE (Charles, 30 octobre 2026 : « pas aux standards qu'on a
+   définis ») — comme Éditions : PDF, imprimante, avion, puis un filet avant la croix. Le libellé vit dans la bulle. */
+export function IconeApercu({ Icone, titre, onClick, disabled = false, href = null, download = null }) {
+  const cls = 'flex-none w-8 h-8 grid place-items-center rounded-champ text-white hover:bg-white/15 disabled:opacity-35 disabled:hover:bg-transparent transition-colors duration-150 ease-ios';
+  return href
+    ? <a href={href} download={download} title={titre} aria-label={titre} className={cls}><Icone size={17} /></a>
+    : <button type="button" onClick={onClick} disabled={disabled} title={titre} aria-label={titre} className={cls}><Icone size={17} /></button>;
+}
 
 /**
  * Modale d'aperçu d'un document HTML avant impression / sauvegarde PDF.
@@ -185,9 +194,9 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
     const nomPdf = `${String(nomFichier || titre || 'document').replace(/\.pdf$/i, '')}.pdf`;
     return (
       <Fenetre large="pleine" hauteurFixe pleinCorps titre={titre} sous={[sousTitre, nomPdf].filter(Boolean).join(' · ')} onFermer={onClose}
-        outils={<div className="flex items-center gap-2">
-          <button onClick={() => window.open(pdfUrl, '_blank')} className="bouton bouton-sortir"><IconSend size={15} /> Imprimer</button>
-          <a href={pdfUrl} download={nomPdf} className="bouton"><IconDownload size={15} /> Enregistrer</a>
+        outils={<div className="flex items-center gap-1 pr-1 mr-1 border-r border-white/20">
+          <IconeApercu Icone={IconPrinter} titre="Imprimer" onClick={() => window.open(pdfUrl, '_blank')} />
+          <IconeApercu Icone={IconDownload} titre="Enregistrer le PDF" href={pdfUrl} download={nomPdf} />
         </div>}>
         <iframe src={pdfUrl} title={nomPdf} className="flex-1 w-full border-0 bg-gray-100" />
       </Fenetre>);
@@ -206,29 +215,18 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
        son bandeau, son voile et ses réglages — plus un dessin à part. */
     <>
     <Fenetre large="pleine" hauteurFixe pleinCorps titre={titre} sous={[sousTitre, nomFichier].filter(Boolean).join(' · ')} onFermer={onClose}
-      outils={<div className="flex items-center gap-2">
-            {astuceImpression && <span className="text-xs text-white/70 hidden lg:inline">
-              {astuceImpression}
-            </span>}
+      outils={<div className="flex items-center gap-1 pr-1 mr-1 border-r border-white/20">
+            {actionExtra && <span className="flex items-center mr-2">{actionExtra}</span>}
             {pdf && (
-              <button onClick={telechargerPdf} disabled={!pret || pdfEnCours}
-                title={`Le PDF composé par le serveur — A4 ${pdf.orientation === 'paysage' ? 'paysage' : 'portrait'} imposé, quel que soit le navigateur`}
-                className="bouton bouton-sortir">
-                <IconSend size={15} /> {pdfEnCours ? 'PDF…' : `PDF — A4 ${pdf.orientation === 'paysage' ? 'paysage' : 'portrait'}`}
-              </button>
+              <IconeApercu Icone={IconFileTypePdf} onClick={telechargerPdf} disabled={!pret || pdfEnCours}
+                titre={pdfEnCours ? 'PDF en cours…' : `PDF — A4 ${pdf.orientation === 'paysage' ? 'paysage' : 'portrait'} imposé, composé par le serveur`} />
             )}
-            <button onClick={imprimer} disabled={!pret}
-              className={`bouton ${pdf && !feuille ? '' : 'bouton-sortir'}`}>
-              {(!pdf || feuille) && <IconSend size={15} />} {feuille ? 'Imprimer' : paysage ? 'Imprimer — A4 paysage' : pdf ? 'Imprimer (navigateur)' : 'Imprimer / PDF'}
-            </button>
+            <IconeApercu Icone={IconPrinter} onClick={imprimer} disabled={!pret}
+              titre={feuille ? 'Imprimer' : paysage ? 'Imprimer — A4 paysage' : pdf ? 'Imprimer (navigateur)' : 'Imprimer ou enregistrer en PDF'} />
             {envoiPossible && envoiMail?.actif && peutGeste('envois.envoyer') && (
-              <button onClick={() => setEnvoi(true)} disabled={!pret}
-                title="Envoyer ce document par courriel — PDF joint ou dans le corps du message"
-                className="bouton">
-                <IconMail size={15} /> Envoyer
-              </button>
+              <IconeApercu Icone={IconSend} onClick={() => setEnvoi(true)} disabled={!pret}
+                titre="Envoyer ce document par courriel — PDF joint ou dans le corps du message" />
             )}
-            {actionExtra}
       </div>}>
         {/* ── iframe ── */}
         {feuille && <iframe src={feuille} title={nomFichier || titre}
