@@ -3093,6 +3093,8 @@ app.use((req, res, next) => {
 // LA PORTE DES ÉTUDIANTS (VA en ligne, 3 octobre 2026) : publique, avec son
 // propre jeton — aucune route du personnel ne l'accepte.
 app.use('/api/portail-va', (await import('./routes/portailVA.js')).default);
+// L'espace de l'étudiant (3.1.475) : sa propre porte, sa propre clé ; aucune autre route ne l'accepte.
+app.use('/api/espace-etudiant', (await import('./routes/espaceEtudiant.js')).default);
 // LA PRÉSENCE PAR QR (28 octobre 2026) : publique, l'étudiant n'a pas de compte ;
 // son appareil appairé l'identifie (lib/presenceQr.js).
 app.use('/api/presence-qr', (await import('./routes/presenceQr.js')).default);

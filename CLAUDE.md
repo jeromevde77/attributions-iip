@@ -379,6 +379,22 @@ direction pour 244 → 331**, année active 2026-2027. (3.1.474 : la 3.1.473 ét
 construisait pas — un `index` de recherche tombé avant le bloc visé avait recopié le code en tête du fichier.
 **Après `vite build`, lire son statut, pas un `grep` de sa sortie.**)
 
+**L'ESPACE DE L'ÉTUDIANT** (3.1.475, Charles, 30 octobre 2026 : « un mini espace ultra sécurisé : récupérer ses
+documents, voir ses notes, signer les accusés de réception » ; tranché : lien + code, résultats délibérés seulement,
+accusé sur les notifications, les règlements et toute pièce ; construit tout de suite). Page publique `/espace`
+(`pages/EspaceEtudiant.jsx`), serveur `routes/espaceEtudiant.js` sur `/api/espace-etudiant`. **Entrée** : matricule →
+lien à usage unique, 30 min, à l'adresse D'ÉCOLE seule (pas de repli sur la privée) ; même réponse pour un matricule
+inconnu ; plafonds par étudiant et par IP ; session 2 h, clé dérivée, portée `espace_etudiant` (refusée partout
+ailleurs). **Il voit** : ses résultats publiés (séance close de son organisation ou « toute l'unité », ou année
+antérieure) — décision, note d'unité, « NA » sous 10, 10 pour une faveur, « VA » ; les pièces que l'école lui a
+envoyées par Lucie (copie conservée de l'envoi, `copieDeLEnvoi` d'`envois.js`, sa référence) ; les règlements dont
+la Documentation met « Étudiants » en destinataire (rôle `etudiant`). **L'accusé** (`espace_accuse`) : `presente_le`
+posé par la route qui rend la pièce ; signer demande un code à six chiffres envoyé à l'adresse d'école (10 min,
+5 essais) ; un accusé signé ne se modifie ni ne s'efface (déclencheurs). Pour un règlement, la règle de reconfirmation
+du personnel vaut (`versionReference`). **L'école lit** : fiche → Imprimer ou envoyer → bloc « Son espace étudiant »
+(dernière connexion, pièces ouvertes, accusés signés ; `GET /api/espace-etudiant/suivi/:id`). **À venir** : annoncer
+l'adresse aux étudiants ; mettre le lien de l'espace dans les courriels d'envoi ; relire la fiche RGPD.
+
 **UNE UE DISPENSÉE EN ENTIER EST ACQUISE — ÇA SE LIT DU DOSSIER DE VA** (3.1.438). Les crédits de l'annexe 2,
 l'état du parcours (schéma) et le motif de l'annexe 2 attendaient un résultat `'valorise'` sur
 l'inscription, qu'aucune route n'écrivait : zéro crédit valorisé, partout, en silence. Plutôt qu'un second

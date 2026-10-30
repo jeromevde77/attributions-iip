@@ -621,34 +621,39 @@ r.get('/journal', authRequired, gesteRequis('envois.envoyer'), (req, res) => {
  * référence, même date. Les envois antérieurs au 30 septembre 2026 n'en ont
  * pas : on le dit, on n'invente rien.
  */
-r.get('/:id/copie', authRequired, gesteRequis('envois.envoyer'), async (req, res) => {
-  if (!/^\d+$/.test(String(req.params.id))) return res.status(400).json({ error: 'numéro d\'envoi attendu' });
+/* LA COPIE D'UNE PIÈCE ENVOYÉE, telle qu'elle est partie (signée, sa référence). Commune au registre des envois
+   et à l'espace de l'étudiant (3.1.475) : `{ erreur, code }` ou `{ type, corps, nom }`. */
+export async function copieDeLEnvoi(id, { format = 'pdf' } = {}) {
   ensureTable();
-  const m = db.prepare('SELECT * FROM envoi_mail WHERE id = ?').get(Number(req.params.id));
-  if (!m) return res.status(404).json({ error: 'envoi introuvable' });
+  const m = db.prepare('SELECT * FROM envoi_mail WHERE id = ?').get(Number(id));
+  if (!m) return { code: 404, erreur: 'envoi introuvable' };
   const c = db.prepare('SELECT * FROM envoi_copie WHERE envoi_id = ?').get(m.id);
   if (!c) {
-    return res.status(404).json({ error: "Cet envoi est antérieur à la conservation des copies (30 septembre 2026) : "
-      + 'le registre dit à qui et quand, il ne peut pas dire ce que contenait la pièce.' });
+    return { code: 404, erreur: "Cet envoi est antérieur à la conservation des copies (30 septembre 2026) : "
+      + 'le registre dit à qui et quand, il ne peut pas dire ce que contenait la pièce.' };
   }
   let html;
-  try { html = decompacter(c.html_gz); } catch (e) { return res.status(500).json({ error: `copie illisible : ${e.message}` }); }
+  try { html = decompacter(c.html_gz); } catch (e) { return { code: 500, erreur: `copie illisible : ${e.message}` }; }
   const { htmlSigne } = await signer(html, { sujet: m.sujet, destinataire: m.destinataire_nom,
     jour: c.jour, reference: m.reference });
-  const nom = String(m.nom_fichier || 'copie').replace(/\.(html?|pdf)$/i, '');
-  if (req.query.format !== 'html' && m.mode !== 'corps') {
+  const nom = String(m.nom_fichier || 'copie').replace(/\.(html?|pdf)$/i, '').replace(/[^A-Za-z0-9_.-]/g, '_');
+  if (format !== 'html' && m.mode !== 'corps') {
     const cap = await capacitePdf();
     if (cap.disponible) {
-      try {
-        const pdf = await rendrePdf(htmlSigne, { pagination: 'si-plusieurs' });
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `inline; filename="${nom.replace(/[^A-Za-z0-9_.-]/g, '_')}_copie.pdf"`);
-        return res.send(pdf);
-      } catch { /* on retombe sur le HTML */ }
+      try { return { type: 'application/pdf', corps: await rendrePdf(htmlSigne, { pagination: 'si-plusieurs' }), nom: `${nom}.pdf` }; }
+      catch { /* on retombe sur le HTML */ }
     }
   }
-  res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  res.send(htmlSigne);
+  return { type: 'text/html; charset=utf-8', corps: htmlSigne, nom: `${nom}.html` };
+}
+
+r.get('/:id/copie', authRequired, gesteRequis('envois.envoyer'), async (req, res) => {
+  if (!/^\d+$/.test(String(req.params.id))) return res.status(400).json({ error: 'numéro d\'envoi attendu' });
+  const c = await copieDeLEnvoi(req.params.id, { format: req.query.format });
+  if (c.erreur) return res.status(c.code).json({ error: c.erreur });
+  res.setHeader('Content-Type', c.type);
+  if (c.type === 'application/pdf') res.setHeader('Content-Disposition', `inline; filename="${c.nom.replace(/\.pdf$/, '')}_copie.pdf"`);
+  res.send(c.corps);
 });
 
 /** Le corps du courriel : le message de l'expéditeur, dans l'enveloppe Lucie. */

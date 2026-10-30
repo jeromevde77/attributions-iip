@@ -168,7 +168,7 @@ export function migrerDocumentation(dbx) {
 /* LA VERSION QU'IL FAUT AVOIR CONFIRMÉE — la dernière qui l'a DEMANDÉ.
  * Une version 3 publiée « sans reconfirmation » ne déplace pas la référence :
  * avoir confirmé la version 2 suffit toujours. */
-function versionReference(documentId) {
+export function versionReference(documentId) {
   return db.prepare(`SELECT * FROM corpus_version
     WHERE document_id = ? AND (reconfirmer = 1 OR numero = 1)
     ORDER BY numero DESC LIMIT 1`).get(documentId) || null;

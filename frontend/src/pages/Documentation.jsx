@@ -66,6 +66,8 @@ const ROLES = [
   ['professeur', 'Enseignants'], ['secretariat', 'Secrétariat'],
   ['coordination', 'Coordinations'], ['directeur_adjoint', 'Direction adjointe'],
   ['editeur', 'Éditeurs'],
+  // Les étudiants le lisent et l'accusent dans leur espace (/espace, 3.1.475), un code à l'appui.
+  ['etudiant', 'Étudiants'],
 ];
 
 function CasesRoles({ roles, onBasculer }) {

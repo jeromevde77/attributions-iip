@@ -35,6 +35,7 @@ export default function PiecesEtudiant({ etud, annee }) {
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(null);
   const [envoi, setEnvoi] = useState(null);       // la pièce à envoyer : attestations, une par unité
+  const [espace, setEspace] = useState(null);     // ce que l'étudiant a ouvert et signé dans son espace (3.1.475)
 
   useEffect(() => {
     if (!id) return;
@@ -43,6 +44,8 @@ export default function PiecesEtudiant({ etud, annee }) {
       .then(r => (r.ok ? r.json() : null)).then(j => setCep(j?.cep || null)).catch(() => {});
     fetch(`/api/amenagements/etudiant/${id}?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() })
       .then(r => (r.ok ? r.json() : null)).then(j => setDossierAR(j?.courant || null)).catch(() => {});
+    fetch(`/api/espace-etudiant/suivi/${id}`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : null)).then(setEspace).catch(() => {});
   }, [id, annee]);
 
   const destinataire = { type: 'etudiant', id, nom: nomDe(etud) };
@@ -169,6 +172,18 @@ export default function PiecesEtudiant({ etud, annee }) {
         </div>
       )}
       {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2 text-second mb-3">{erreur}</div>}
+      {/* SON ESPACE : ce qu'il a ouvert, ce qu'il a signé (un code reçu à son adresse d'école à l'appui). */}
+      {espace && (espace.connexions.length > 0 || espace.accuses.length > 0) && (
+        <div className="bloc-etat px-3 py-2 text-second mb-3 space-y-1" data-etat="neutre">
+          <div className="font-semibold text-iip-texte">Son espace étudiant
+            {espace.connexions[0] && <span className="font-normal text-slate-500"> · dernière connexion le {String(espace.connexions[0].utilise_le).slice(0, 16).replace(' ', ' à ').split(' à ').map((x, i) => (i ? x : x.split('-').reverse().join('/'))).join(' à ')}</span>}</div>
+          {espace.accuses.map((a, i) => (
+            <div key={i} className="flex flex-wrap gap-x-2">
+              <span className="min-w-0 flex-1 truncate">{a.piece}</span>
+              <span className={a.signe_le ? 'text-emerald-700' : 'text-amber-700'}>
+                {a.signe_le ? `accusé signé le ${String(a.signe_le).slice(0, 10).split('-').reverse().join('/')}` : `ouvert le ${String(a.presente_le).slice(0, 10).split('-').reverse().join('/')}, non signé`}</span>
+            </div>))}
+        </div>)}
       {groupes.map(([titre, pieces]) => (
         <GroupeFenetre key={titre} titre={titre}>
           <div className="grid gap-1.5 md:grid-cols-2">

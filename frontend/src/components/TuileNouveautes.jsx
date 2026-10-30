@@ -22,7 +22,7 @@ import { authHeaders, getUser } from '../lib/api.js';
  */
 const EDITION = '2026-11';
 // Le guide d'une édition s'enrichit : la révision rallume « Nouveau » sans changer de fichier.
-const REVISION = `${EDITION}.472`;
+const REVISION = `${EDITION}.475`;
 const DEPUIS = 'depuis le jeudi 8 octobre';
 const cleVu = () => `lucie.nouveautes.vu.${getUser()?.id || 'x'}`;
 
