@@ -1,10 +1,15 @@
-# Le compte `lucie-ops` — l'accès limité de Claude au VPS
+# Le compte de service — l'accès limité de Claude au VPS
 
-Deux comptes sur le serveur, et ce n'est pas un détail :
+> **Les noms des comptes ne s'écrivent pas dans ce dépôt** (Charles, 30 octobre 2026). Ce document dit
+> `<compte-admin>` (le compte d'administration d'origine OVH), `<compte-jerome>` (celui de Jérôme) et
+> `<compte-service>` (celui des interventions de Claude). Les commandes ci-dessous les lisent dans deux
+> variables, à poser au début de la session de terminal ; les vrais noms vivent sur le VPS et chez Jérôme.
 
-- **`debian`** — Jérôme. Accès complet, mot de passe ou clé personnelle.
-- **`lucie-ops`** — les interventions de Claude. **Aucun shell** : sa clé SSH
-  est liée au script `/usr/local/sbin/lucie-ops`, et sudo ne lui permet de
+Sur le serveur, deux sortes d'accès, et ce n'est pas un détail :
+
+- **`<compte-admin>`, `<compte-jerome>`** — accès complet, mot de passe ou clé personnelle.
+- **`<compte-service>`** — les interventions de Claude. **Aucun shell** : sa clé SSH est liée au script
+  `/usr/local/sbin/gestes-vps` (copie de référence : `scripts/vps/gestes-vps`), et sudo ne lui permet de
   lancer que ce fichier. Cinq verbes, rien d'autre :
 
 | Verbe | Effet |
@@ -15,67 +20,85 @@ Deux comptes sur le serveur, et ce n'est pas un détail :
 | `maj-prod` | **sauvegarde d'abord**, puis `pull` + `--force-recreate` de prod |
 | `lecture "<SQL>"` | requête SELECT/WITH/PRAGMA, base ouverte en lecture seule |
 
-Pourquoi pas le groupe `docker` : y être, c'est être root. Pourquoi une clé
-liée à une commande : si elle fuyait, elle ne pourrait rien faire d'autre.
+Pourquoi pas le groupe `docker` : y être, c'est être root. Pourquoi une clé liée à une commande : si elle
+fuyait, elle ne pourrait rien faire d'autre.
 
-Toute écriture en base (un nettoyage comme celui du 21 septembre 2026) reste
-un geste de Jérôme, sous `debian`.
+Toute écriture en base reste un geste de Jérôme.
 
-## Installation (une fois, sous `debian`)
+## Installation (une fois, sous `<compte-admin>`)
+
+Dans chaque terminal (Mac puis VPS), poser d'abord les deux noms :
+
+```bash
+SERVICE='<compte-service>'   # le nom réel, choisi par Jérôme
+ADMIN='<compte-admin>'
+```
 
 **1. Depuis le Mac** — envoyer le script et la clé publique :
 
 ```bash
-scp ~/Projets/Lucie/scripts/vps/lucie-ops ~/.ssh/lucie_vps.pub debian@www.lucie-iip.be:/tmp/
+scp ~/Projets/Lucie/scripts/vps/gestes-vps ~/.ssh/lucie_vps.pub "$ADMIN@www.lucie-iip.be:/tmp/"
 ```
 
-**2. Sur le VPS**, connecté en `debian` :
+**2. Sur le VPS**, connecté sous `<compte-admin>` :
 
 ```bash
 # Le compte, sans mot de passe utilisable
-sudo adduser --disabled-password --gecos "Interventions Claude (Lucie)" lucie-ops
-sudo passwd -l lucie-ops
+sudo adduser --disabled-password --gecos "Interventions Claude (Lucie)" "$SERVICE"
+sudo passwd -l "$SERVICE"
 
-# Le script, propriété de root, non modifiable par lucie-ops
-sudo install -o root -g root -m 0755 /tmp/lucie-ops /usr/local/sbin/lucie-ops
+# Le réglage du script (hors dépôt) : où lire l'identifiant du registre des images
+sudo install -d -m 0755 /etc/lucie
+echo "DOCKER_CONFIG_REGISTRE=/home/$ADMIN/.docker" | sudo tee /etc/lucie/gestes.conf
+sudo chmod 0644 /etc/lucie/gestes.conf
+
+# Le script, propriété de root, non modifiable par le compte de service
+sudo install -o root -g root -m 0755 /tmp/gestes-vps /usr/local/sbin/gestes-vps
 
 # sudo : CE script et rien d'autre ; la commande SSH doit le traverser
-echo 'Defaults:lucie-ops env_keep += "SSH_ORIGINAL_COMMAND"
-lucie-ops ALL=(root) NOPASSWD: /usr/local/sbin/lucie-ops' | sudo tee /etc/sudoers.d/lucie-ops
-sudo chmod 0440 /etc/sudoers.d/lucie-ops
-sudo visudo -cf /etc/sudoers.d/lucie-ops
+printf 'Defaults:%s env_keep += "SSH_ORIGINAL_COMMAND"\n%s ALL=(root) NOPASSWD: /usr/local/sbin/gestes-vps\n' \
+  "$SERVICE" "$SERVICE" | sudo tee /etc/sudoers.d/gestes-vps
+sudo chmod 0440 /etc/sudoers.d/gestes-vps
+sudo visudo -cf /etc/sudoers.d/gestes-vps
 
 # La clé, liée au script, sans terminal ni redirection
-sudo install -d -o lucie-ops -g lucie-ops -m 0700 /home/lucie-ops/.ssh
-echo "command=\"sudo /usr/local/sbin/lucie-ops\",restrict $(cat /tmp/lucie_vps.pub)" \
-  | sudo tee /home/lucie-ops/.ssh/authorized_keys
-sudo chown lucie-ops:lucie-ops /home/lucie-ops/.ssh/authorized_keys
-sudo chmod 0600 /home/lucie-ops/.ssh/authorized_keys
+sudo install -d -o "$SERVICE" -g "$SERVICE" -m 0700 "/home/$SERVICE/.ssh"
+echo "command=\"sudo /usr/local/sbin/gestes-vps\",restrict $(cat /tmp/lucie_vps.pub)" \
+  | sudo tee "/home/$SERVICE/.ssh/authorized_keys"
+sudo chown "$SERVICE:$SERVICE" "/home/$SERVICE/.ssh/authorized_keys"
+sudo chmod 0600 "/home/$SERVICE/.ssh/authorized_keys"
 
-rm /tmp/lucie-ops /tmp/lucie_vps.pub
+rm /tmp/gestes-vps /tmp/lucie_vps.pub
 ```
 
-**3. Test** — depuis le Mac :
+**3. Test** — depuis le Mac (l'alias `lucie-vps` de `~/.ssh/config` porte le nom du compte) :
 
 ```bash
-ssh -i ~/.ssh/lucie_vps lucie-ops@www.lucie-iip.be version
+ssh lucie-vps version
 ```
 
 Doit afficher les versions de www et de dev. Et ceci doit être **refusé** :
 
 ```bash
-ssh -i ~/.ssh/lucie_vps lucie-ops@www.lucie-iip.be "lecture DELETE FROM etudiant"
+ssh lucie-vps "lecture DELETE FROM etudiant"
 ```
 
 ## Surveiller, retirer
 
-- Ce que lucie-ops a fait : `sudo journalctl -t lucie-ops`
-- Couper l'accès : `sudo rm /home/lucie-ops/.ssh/authorized_keys`
-  (ou `sudo deluser --remove-home lucie-ops` et `sudo rm /etc/sudoers.d/lucie-ops`)
+- Ce que le compte de service a fait : `sudo journalctl -t lucie-gestes`
+- Couper l'accès : `sudo rm "/home/$SERVICE/.ssh/authorized_keys"`
+  (ou `sudo deluser --remove-home "$SERVICE"` et `sudo rm /etc/sudoers.d/gestes-vps`)
 - Mettre le script à jour : refaire `scp` puis `sudo install …` de l'étape 2.
 
-## Et ensuite, pour `debian`
+## Passer de l'ancienne installation à celle-ci
 
-Une fois les clés en place, désactiver la connexion par mot de passe
-(`PasswordAuthentication no` dans `/etc/ssh/sshd_config.d/`) — **après** avoir
-vérifié que `debian` entre par sa propre clé, sans quoi on s'enferme dehors.
+Jusqu'au 30 octobre 2026, le script s'appelait autrement et portait le nom du compte en dur ; ces noms restent
+dans l'historique git. Pour qu'ils ne servent plus à rien : créer le compte de service sous un **nouveau nom**
+(étape 2), installer `/etc/lucie/gestes.conf` et `gestes-vps`, mettre à jour l'alias `lucie-vps` du Mac, vérifier
+`ssh lucie-vps version`, puis supprimer l'ancien compte, son fichier sudoers et l'ancien script.
+
+## Et ensuite, pour `<compte-admin>`
+
+Une fois les clés en place, désactiver la connexion par mot de passe (`PasswordAuthentication no` dans
+`/etc/ssh/sshd_config.d/`) — **après** avoir vérifié que `<compte-admin>` entre par sa propre clé, sans quoi on
+s'enferme dehors. (Choix actuel de Jérôme : la connexion par mot de passe reste ouverte.)

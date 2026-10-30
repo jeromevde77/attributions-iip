@@ -1,32 +1,36 @@
 #!/bin/bash
 # ─────────────────────────────────────────────────────────────────────────────
-#  /usr/local/sbin/lucie-ops — LES SEULS GESTES PERMIS AU COMPTE « lucie-ops »
+#  /usr/local/sbin/gestes-vps — LES SEULS GESTES PERMIS AU COMPTE DE SERVICE DE CLAUDE
 #
 #  COPIE DE RÉFÉRENCE : ce fichier est installé tel quel sur le VPS (voir
 #  scripts/vps/INSTALLATION.md). Le modifier ici sans le réinstaller, c'est
 #  décrire un serveur qui n'existe pas.
 #
-#  Le compte lucie-ops n'a PAS de shell : sa clé SSH est liée à ce script
+#  Le compte de service n'a PAS de shell : sa clé SSH est liée à ce script
 #  (command= dans authorized_keys), et sudo ne l'autorise qu'à lancer CE
 #  fichier. Mettre quelqu'un dans le groupe docker lui donnerait les droits
 #  root ; ici, il n'a que cinq verbes. Tout le reste est refusé.
 #
-#  Chaque appel est journalisé (journalctl -t lucie-ops), avec son résultat.
+#  Chaque appel est journalisé (journalctl -t lucie-gestes), avec son résultat.
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 LUCIE=/opt/lucie
-# LES IMAGES SONT PRIVÉES, ET L'IDENTIFIANT DU REGISTRE EST CELUI DE debian.
-# Lancé par sudo, ce script tourne en root, qui n'en a pas : le premier
-# maj-dev a répondu « unauthorized » (22 septembre 2026). On lit donc la
-# configuration Docker de debian, sans la copier.
-export DOCKER_CONFIG=/home/debian/.docker
+# LES IMAGES SONT PRIVÉES, ET L'IDENTIFIANT DU REGISTRE EST CELUI DU COMPTE
+# D'ADMINISTRATION. Lancé par sudo, ce script tourne en root, qui n'en a pas : le
+# premier maj-dev a répondu « unauthorized » (22 septembre 2026). On lit donc la
+# configuration Docker de ce compte, sans la copier.
+# LES NOMS DES COMPTES NE SONT PAS DANS LE DÉPÔT (Charles, 30 octobre 2026) : le
+# chemin vient de /etc/lucie/gestes.conf, sur le VPS seulement
+#   DOCKER_CONFIG_REGISTRE=/home/<compte-admin>/.docker
+[ -r /etc/lucie/gestes.conf ] && . /etc/lucie/gestes.conf
+export DOCKER_CONFIG="${DOCKER_CONFIG_REGISTRE:?/etc/lucie/gestes.conf : DOCKER_CONFIG_REGISTRE manque}"
 PROD_BACKEND=attributions-backend
 DEV_BACKEND=attributions-backend-dev
 
 # Appel par SSH : la commande demandée arrive dans SSH_ORIGINAL_COMMAND.
-# Appel local (test par debian) : les arguments.
+# Appel local (test par le compte d'administration) : les arguments.
 if [ -n "${SSH_ORIGINAL_COMMAND:-}" ]; then
   VERBE="${SSH_ORIGINAL_COMMAND%% *}"
   if [ "$VERBE" = "$SSH_ORIGINAL_COMMAND" ]; then RESTE=""; else RESTE="${SSH_ORIGINAL_COMMAND#* }"; fi
@@ -34,7 +38,7 @@ else
   VERBE="${1:-}"; shift || true; RESTE="$*"
 fi
 
-journal() { logger -t lucie-ops -- "par=${SUDO_USER:-$USER} verbe=$VERBE $*"; }
+journal() { logger -t lucie-gestes -- "par=${SUDO_USER:-$USER} verbe=$VERBE $*"; }
 refus()   { journal "REFUS $*"; echo "✗ $*" >&2; exit 2; }
 
 # UNE SAUVEGARDE COHÉRENTE, PAS UNE COPIE DE FICHIER. La base est en mode WAL :

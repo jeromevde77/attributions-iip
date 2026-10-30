@@ -18,7 +18,7 @@ Seul **Caddy** est sur les deux réseaux. Lucie atteint le portail par `http://c
 mène qu'au port interne du portail, et avec le jeton `PORTAIL_JETON`. Le portail ne peut pas appeler Lucie : il
 n'envoie même pas de courriel — il inscrit une demande que Lucie relève, vérifie et compose.
 
-## Installation (une fois, en `jeromevde`, dans /opt/lucie)
+## Installation (une fois, sous `<compte-jerome>`, dans /opt/lucie)
 
 1. **DNS** : deux enregistrements A (ou CNAME) vers le VPS : `etudiants.lucie-iip.be` et `etudiants-dev.lucie-iip.be`.
 2. **Quatre secrets** dans `/opt/lucie/.env` (chacun fabriqué séparément, jamais réutilisé, jamais écrit ailleurs) :
@@ -33,10 +33,10 @@ n'envoie même pas de courriel — il inscrit une demande que Lucie relève, vé
    ```
 4. **Recopier** `docker-compose.vps.yml` → `/opt/lucie/docker-compose.yml` et `Caddyfile.vps` → `/opt/lucie/Caddyfile`
    (ce sont les copies de référence du dépôt).
-5. **Démarrer** (images privées : l'identifiant du registre est celui de `debian`) :
+5. **Démarrer** (images privées : l'identifiant du registre est celui de `<compte-admin>`) :
    ```
    cd /opt/lucie
-   sudo DOCKER_CONFIG=/home/debian/.docker docker compose pull portail-backend-dev portail-frontend-dev backend-dev
+   sudo DOCKER_CONFIG=/home/<compte-admin>/.docker docker compose pull portail-backend-dev portail-frontend-dev backend-dev
    sudo docker compose up -d --force-recreate caddy portail-backend-dev portail-frontend-dev backend-dev
    ```
    Puis, une fois la dev vérifiée, la même chose pour la production (`portail-backend portail-frontend backend`).

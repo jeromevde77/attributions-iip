@@ -807,15 +807,17 @@ NAS Synology.
 > La restauration de sauvegarde reste gardée par `NODE_ENV`, non par l'adresse :
 > le déménagement ne l'affaiblit pas.
 
-- **Trois comptes sur le VPS** (21 septembre 2026) : `debian` (compte d'origine
-  OVH, sudo sans mot de passe), `jeromevde` (Jérôme, mot de passe, groupes
-  `sudo` et `docker`), et **`lucie-ops`** — Claude, **sans shell**, clé liée au
-  script `/usr/local/sbin/lucie-ops` : `version`, `sauvegarde`, `maj-dev`,
-  `maj-prod` (qui sauvegarde d'abord), `lecture "<SELECT…>"`. Depuis le Mac :
-  `ssh lucie-vps <verbe>`. Toute écriture en base reste un geste de Jérôme.
-  Détail et révocation : `scripts/vps/INSTALLATION.md` ; journal :
-  `sudo journalctl -t lucie-ops`. La connexion par mot de passe reste ouverte
-  (choix de Jérôme) : ne pas poser `PasswordAuthentication no`.
+- **Trois comptes sur le VPS** (21 septembre 2026) : le compte d'administration
+  d'origine OVH (sudo sans mot de passe), le compte de Jérôme (mot de passe,
+  groupes `sudo` et `docker`), et le **compte de service** de Claude — **sans
+  shell**, clé liée au script des gestes (`scripts/vps/gestes-vps`) : `version`,
+  `sauvegarde`, `maj-dev`, `maj-prod` (qui sauvegarde d'abord), `lecture "<SELECT…>"`.
+  Depuis le Mac : `ssh lucie-vps <verbe>`. Toute écriture en base reste un geste de
+  Jérôme. Détail et révocation : `scripts/vps/INSTALLATION.md`. **LES NOMS DES
+  COMPTES NE S'ÉCRIVENT PAS DANS LE DÉPÔT** (Charles, 30 octobre 2026) : la
+  documentation dit `<compte-admin>`, `<compte-jerome>`, `<compte-service>` ; les
+  vrais noms vivent sur le VPS et chez Jérôme. La connexion par mot de passe reste
+  ouverte (choix de Jérôme) : ne pas poser `PasswordAuthentication no`.
 - **JAMAIS `maj-dev` ET `maj-prod` ENSEMBLE** (Charles, 25 septembre 2026). Une
   mise à jour à la fois : la lancer, vérifier avec `version` que ses deux
   moitiés répondent, puis seulement l'autre, dans un appel séparé.
@@ -826,14 +828,14 @@ NAS Synology.
   ce même conteneur). La troisième fois, la dev avait été mise à jour SEULE et
   vérifiée avant : la simultanéité n'y est donc pour rien. À diagnostiquer sur
   le VPS (`sudo journalctl -u docker`). **En attendant, Claude ne lance plus
-  `maj-prod`** : la mise en production se fait à la main, en `jeromevde` —
+  `maj-prod`** : la mise en production se fait à la main, sous `<compte-jerome>` —
   `sudo docker ps -a --filter name=attributions-backend`, `sudo docker rm -f`
   des restes, puis `cd /opt/lucie && sudo docker compose up -d backend frontend`.
   **Pour un `pull` à la main, `sudo` ne suffit pas** : les images sont privées
-  et l'identifiant du registre est celui de `debian` — en root, le registre
+  et l'identifiant du registre est celui de `<compte-admin>` — en root, le registre
   répond « unauthorized » (25 septembre 2026). Écrire
-  `sudo DOCKER_CONFIG=/home/debian/.docker docker compose pull backend frontend`,
-  comme le fait `lucie-ops`.
+  `sudo DOCKER_CONFIG=/home/<compte-admin>/.docker docker compose pull backend frontend`,
+  comme le fait le script des gestes.
   Après un redémarrage forcé, vérifier le NOM du conteneur
   (`sudo docker ps --format '{{.Names}}'`) : resté provisoire
   (`3b187e036e7d_attributions-backend`), il bloque lectures, sauvegardes et
@@ -896,7 +898,7 @@ NAS Synology.
 
 **Il n'y a plus de bouton** (l'écran Sauvegardes le dit : « la restauration
 reste manuelle, en ligne de commande »). Procédure du 30 septembre 2026, sur le
-VPS en `debian`, une commande à la fois — la production n'est que LUE :
+VPS sous `<compte-admin>`, une commande à la fois — la production n'est que LUE :
 
 ```bash
 # 1. Copie cohérente de la prod (API de sauvegarde SQLite, même en marche)
@@ -907,8 +909,8 @@ cd /opt/lucie && sudo cp dev/data/attributions.db dev/backups/avant_copie_prod_$
 sudo docker stop attributions-backend-dev && sudo cp prod/backups/copie_pour_dev.db dev/data/attributions.db && sudo rm -f dev/data/attributions.db-wal dev/data/attributions.db-shm && sudo docker start attributions-backend-dev
 ```
 
-Le redémarrage se voit à `demarre_le` (`ssh lucie-vps version`). `lucie-ops
-lecture` ne lit que la PROD : la vérification de la dev se fait à l'écran.
+Le redémarrage se voit à `demarre_le` (`ssh lucie-vps version`). `lecture` (script des
+gestes) ne lit que la PROD : la vérification de la dev se fait à l'écran.
 
 ### Sauvegarde avant tout merge vers `main`
 

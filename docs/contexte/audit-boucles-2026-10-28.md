@@ -88,4 +88,4 @@ Restent, plus lourds — à décider :
    l'établissement se déduit de la section, de l'étudiant ou de l'UE de la requête.
 3. **Démarche qualité AEQES** : un module à concevoir (registre des actions dans l'échéancier,
    indicateurs, inscrits sur cinq ans).
-4. **Routes sans appelant** (~20) : à retirer après vérification qu'aucun script ni `lucie-ops` ne s'en sert.
+4. **Routes sans appelant** (~20) : à retirer après vérification qu'aucun script ni le script des gestes du VPS ne s'en sert.

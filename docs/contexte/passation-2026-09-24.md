@@ -36,7 +36,7 @@
    (≈ 1 min 30) — sinon `maj-prod` tire l'image précédente et le badge affiche
    « v2.12.168 ≠ 2.12.169 ». Vérifiable par l'API publique des Actions
    (`/repos/jeromevde77/attributions-iip/actions/runs?branch=main`).
-5. Côté serveur, Jérôme : `sudo /usr/local/sbin/lucie-ops maj-prod`, puis
+5. Côté serveur, Jérôme : `sudo /usr/local/sbin/le script des gestes maj-prod`, puis
    Ctrl+Maj+R.
 
 ---
@@ -180,11 +180,11 @@ Les grandes lignes (le détail, commit par commit, est en annexe) :
 - 2026-09-21 — Suivi d'équipe : confier, tenir au courant, filtrer et ranger ; le chargé de cours se choisit (2.12.110)
 - 2026-09-21 — Une année sans inscription n'est pas un étudiant sans section (2.12.111)
 - 2026-09-21 — Composer les PAE suivants : un étudiant ne reçoit que le programme de SA section (2.12.112)
-- 2026-09-21 — Un second compte sur le VPS, limité à cinq gestes : lucie-ops
+- 2026-09-21 — Un second compte sur le VPS, limité à cinq gestes : le script des gestes
 - 2026-09-21 — CLAUDE.md : les trois comptes du VPS
 - 2026-09-21 — docker-compose.vps.yml : la production est en PERMISSIONS_MODE strict, la copie de référence le dit
 - 2026-09-22 — Séance de valorisation, recours, fraude et disciplinaire : ceux qui instruisent, dans leurs sections ; effacer reste à la direction (2.12.113)
-- 2026-09-22 — lucie-ops : lire l'identifiant du registre de debian, sans quoi maj-dev et maj-prod sont refusés
+- 2026-09-22 — le script des gestes : lire l'identifiant du registre du compte d'administration, sans quoi maj-dev et maj-prod sont refusés
 - 2026-09-22 — Chiffres de l'école : la population réelle — programmes confirmés par section, par niveau, et par UE face au prévu (2.12.114)
 - 2026-09-22 — Contrat de travail : la génération échouait sur « near COALESCE : syntax error » — virgule manquante dans la requête des attributions, après la sous-requête titulaire_en_conge (2.12.115)
 - 2026-09-22 — Coordonnées d'une sélection : la liste imprimable des étudiants ou des membres du personnel cochés — emails, GSM, adresse (2.12.116)
