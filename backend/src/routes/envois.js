@@ -493,6 +493,43 @@ r.post('/', authRequired, gesteRequis('envois.envoyer'), actifRequis, async (req
         base.nom, email, sujet, null, Buffer.byteLength(emailHtml), statut, note, par);
       continue;
     }
+    /* PLUSIEURS PIÈCES, UN SEUL COURRIEL (3.1.471, Charles : « un seul envoi, mais chaque document est
+       indépendant : quatre attestations de réussite, ce sont quatre PDF »). Une pièce peut porter
+       `documents` [{ html, nom_fichier }] : chacun est signé et rendu à part — son fac-similé, sa
+       référence —, tous partent joints au même courriel, et le registre garde une ligne par pièce. */
+    if (Array.isArray(p.documents) && p.documents.length > 1) {
+      const joints = [], lignes = [];
+      let erreurRendu = null;
+      for (const doc of p.documents.slice(0, 60)) {
+        const ref = nouvelleReference();
+        const signe1 = await signer(String(doc.html || ''), { sujet, destinataire: base.nom, jour, reference: ref });
+        try {
+          const pdf1 = await rendrePdf(signe1.htmlSigne, { pagination: 'si-plusieurs' });
+          const fichier1 = String(doc.nom_fichier || 'document')
+            .replace(/\.(html?|pdf)$/i, '').replace(/[^A-Za-z0-9_.-]/g, '_') + '.pdf';
+          joints.push({ filename: fichier1, content: pdf1, contentType: 'application/pdf' });
+          lignes.push({ ref, fichier: fichier1, pdf: pdf1, html: doc.html });
+        } catch (e) { erreurRendu = `rendu PDF : ${String(e.message).slice(0, 200)}`; break; }
+      }
+      if (erreurRendu) {
+        resultats.push({ ...base, statut: 'echec', erreur: erreurRendu });
+        journal.run(lot, type_doc || null, base.destinataire_type, base.destinataire_id,
+          base.nom, email, sujet, null, null, 'echec', erreurRendu, par);
+        continue;
+      }
+      const envoi = await envoyerEmail({ to: email, subject: sujet, html: corpsHtml, attachments: joints });
+      const statut = !envoi.ok ? 'echec' : envoi.simule ? 'simule' : 'envoye';
+      const redir = lireConfigSmtp().redirection;
+      const note = envoi.erreur || (redir ? `redirigé vers ${redir}` : null);
+      resultats.push({ ...base, statut, erreur: envoi.erreur || null, redirige: redir || null,
+        nom_fichier: lignes.map(l => l.fichier).join(', '), pieces: lignes.length });
+      for (const l of lignes) {
+        refCourante = l.ref; pieceCourante = { ...p, html: l.html }; empreinteCourante = empreinte(l.pdf);
+        journal.run(lot, type_doc || null, base.destinataire_type, base.destinataire_id,
+          base.nom, email, sujet, l.fichier, l.pdf.length, statut, note, par);
+      }
+      continue;
+    }
     let pdf;
     try {
       pdf = await rendrePdf(htmlSigne, { pagination: 'si-plusieurs' });

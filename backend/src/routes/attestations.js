@@ -1010,8 +1010,16 @@ r.get('/etudiant/:id/document', authRequired, (req, res) => {
 
   const html = envelopper(pages, `Attestations — ${e.nom} ${e.prenom}`);
 
+  // `separes=1` (3.1.471) : chaque attestation aussi en pièce à part — l'envoi en fait un PDF chacune.
+  const propre = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9-]+/g, '_').replace(/^_+|_+$/g, '');
+  const documents = req.query.separes ? unites.map(u => ({
+    html: envelopper(pageAttestation(e, u, u._annee, etab, req.query.date_document, ident,
+      sessionDeReussite(e.id, u.ue_num, u._annee)), `Attestation — UE ${u.ue_num}`),
+    nom_fichier: `${propre(e.nom)}_${propre(e.prenom)}_UE${u.ue_num}_${String(u._annee).replace('-', '')}`,
+  })) : undefined;
+
   res.json({
-    html,
+    html, documents,
     nom: `attestations_${(e.nom || '').replace(/\W/g, '_')}_${annee === 'toutes' ? 'toutes_annees' : annee}.html`,
     unites: unites.length,
     annees,

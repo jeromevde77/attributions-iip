@@ -345,6 +345,15 @@ réflexe de démarrage (§ 8). (3) **L'illustration du mode d'emploi est le logo
 sa constellation agrandie, réseau tracé, L à l'accent, points allumés chacun dans une teinte de la maison (l'ordre
 tourne par chapitre), éclat qui parcourt le L, pictogramme du chapitre au pied.
 
+**PLUSIEURS PIÈCES, UN SEUL COURRIEL** (3.1.471, Charles, 30 octobre 2026 : « un seul envoi, mais chaque document
+est indépendant : quatre attestations, quatre PDF »). Une pièce d'envoi peut porter `documents` [{ html, nom_fichier }] :
+`POST /api/envois` signe et rend chacun à part (son fac-similé, sa référence), les joint au même courriel et écrit une
+ligne de registre par pièce. Servi par : Fiche → Imprimer ou envoyer → *Envoyer les attestations — toutes les années*
+(`GET /attestations/etudiant/:id/document?annee=toutes&separes=1`) ; et l'**accusé de réception d'un aménagement
+raisonnable** (Audrey Perez) — pièce `accuse` de `piecesAmenagement.js`, envoyée à l'étudiant AVANT la décision avec le
+formulaire (cadres A et B), chacun dans son PDF ; le dossier garde `accuse_le` / `accuse_par`
+(`POST /amenagements/dossier/:id/accuse`). Il faut la date de la demande.
+
 **UNE UE DISPENSÉE EN ENTIER EST ACQUISE — ÇA SE LIT DU DOSSIER DE VA** (3.1.438). Les crédits de l'annexe 2,
 l'état du parcours (schéma) et le motif de l'annexe 2 attendaient un résultat `'valorise'` sur
 l'inscription, qu'aucune route n'écrivait : zéro crédit valorisé, partout, en silence. Plutôt qu'un second

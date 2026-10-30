@@ -49,6 +49,7 @@ export const RECOURS_DEFAUT =
 
 export const TYPES_PIECE = {
   formulaire: 'Demande — cadres A et B',
+  accuse: 'Accusé de réception de la demande',
   decision: 'Décision du Conseil des études',
   notification: 'Notification de la décision',
   mesures: 'Fiche « mesures » — chargés de cours',
@@ -101,6 +102,7 @@ export function chargerDossier(id) {
 export function manquesPiece(type, d) {
   const m = [];
   if (type === 'formulaire') return m;           // il se remplit au fil du dossier
+  if (type === 'accuse') return d.date_demande ? m : ['la date de la demande'];
   if (!DECIDES.includes(d.statut)) {
     m.push("la décision du Conseil (statut « Accordé », « Partiellement accordé » ou « Refusé »)");
   }
@@ -329,6 +331,29 @@ function corpsNotification(d) {
 </div>`;
 }
 
+/* L'ACCUSÉ DE RÉCEPTION (3.1.471, Charles, à la demande d'Audrey Perez : « envoyer une copie de la
+   demande à l'étudiant avant la décision — cela le rassure d'avoir une preuve »). Il dit ce qui a été
+   reçu et quand, et ce qui suit ; il ne dit rien de la décision. Part avec le formulaire (cadres A et B),
+   chacun dans son PDF. Pas de signature manuscrite : c'est un accusé, pas un acte. */
+function corpsAccuse(d) {
+  const ident = identiteEtablissement() || {};
+  return `<div class="attestation piece">
+  ${enteteDocument({
+    titre: 'Accusé de réception — demande d’aménagements raisonnables',
+    sous: 'Le secrétariat',
+    ligne: ligneEntete(d, 'Décret du 30 juin 2016'),
+  })}
+  ${blocEtudiant(d)}
+  <p class="corps">Votre demande d'aménagements raisonnables pour l'année ${esc(String(d.annee_scolaire).replace('-', '/'))}
+  a bien été reçue le <b>${jour(d.date_demande)}</b>. Vous en trouverez la copie jointe (cadres A et B du formulaire).</p>
+  <p class="corps">Elle sera examinée par le Conseil des études, qui statue par une décision motivée. Cette décision
+  vous sera notifiée par la direction, avec, le cas échéant, les voies de recours.</p>
+  <p class="corps">Les informations relatives à votre situation sont couvertes par le secret professionnel : seules
+  les mesures qui seraient retenues seront communiquées aux chargés de cours concernés.</p>
+  <p class="corps">Fait à ${esc(ident.ville || 'Bruxelles')}, le ${jour(aujourdhui())}.</p>
+</div>`;
+}
+
 function corpsMesures(d) {
   return `<div class="attestation piece">
   ${enteteDocument({
@@ -406,12 +431,13 @@ export function composerPiece(type, d) {
     .replace(/[^A-Za-z0-9_-]+/g, '-');
   const saut = '<div class="saut"></div>';
   const corps = type === 'formulaire' ? corpsFormulaire(d)
+    : type === 'accuse' ? corpsAccuse(d)
     : type === 'decision' ? corpsDecision(d)
       // Une pièce par onglet, c'est une pièce tout court : la décision part
       // DANS la même enveloppe que la lettre qui la notifie.
       : type === 'notification' ? corpsNotification(d) + saut + corpsDecision(d)
         : corpsMesures(d);
-  const nom = { formulaire: 'AR_Demande', decision: 'AR_Decision',
+  const nom = { formulaire: 'AR_Demande', accuse: 'AR_Accuse_reception', decision: 'AR_Decision',
                 notification: 'AR_Notification', mesures: 'AR_Mesures' }[type] + '_' + base;
   return { html: envelopper(corps, TYPES_PIECE[type]), nom };
 }

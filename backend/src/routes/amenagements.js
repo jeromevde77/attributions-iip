@@ -214,6 +214,8 @@ export function migrerAmenagements(dbx) {
       // La communication des mesures aux chargés de cours : quand, par qui,
       // à qui. Celui qui clique est celui qui signe.
       ['communique_le', 'TEXT'],
+      ['accuse_le', 'TEXT'],
+      ['accuse_par', 'TEXT'],
       ['communique_par', 'TEXT'],
       ['communique_a', 'TEXT'],
     ];
@@ -520,6 +522,15 @@ r.post('/dossier/:id/communication', authRequired, peutAmenager, (req, res) => {
   db.prepare(`UPDATE amenagement_dossier SET communique_le = datetime('now'),
       communique_par = ?, communique_a = ?, maj_le = datetime('now') WHERE id = ?`)
     .run(par, noms.join(', '), d.id);
+  res.json({ ok: true });
+});
+
+// ── L'accusé de réception à l'étudiant, consigné au dossier (3.1.471) ─────
+r.post('/dossier/:id/accuse', authRequired, peutAmenager, (req, res) => {
+  const d = dossierLisible(req, res);
+  if (!d) return;
+  db.prepare(`UPDATE amenagement_dossier SET accuse_le = datetime('now'), accuse_par = ?, maj_le = datetime('now')
+    WHERE id = ?`).run(req.user?.nom || req.user?.email || null, d.id);
   res.json({ ok: true });
 });
 

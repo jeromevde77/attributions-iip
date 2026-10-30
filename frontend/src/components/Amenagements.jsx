@@ -559,7 +559,38 @@ function PiecesDossier({ d, etudId, onChange, setMessage }) {
     } finally { setEnCours(false); }
   }
 
+  /* L'ACCUSÉ DE RÉCEPTION, AVEC LA COPIE DE LA DEMANDE (3.1.471, Audrey Perez : « cela les rassure
+     d'avoir une preuve ») — avant la décision. Un seul courriel à l'adresse d'école de l'étudiant,
+     l'accusé et le formulaire chacun dans son PDF ; le dossier garde quand et par qui. */
+  async function accuser() {
+    setEnCours(true);
+    try {
+      const lire = async type => {
+        const rep = await fetch(`/api/amenagements/dossier/${d.id}/piece/${type}`, { headers: authHeaders() });
+        const j = await rep.json().catch(() => ({}));
+        if (!rep.ok) { setMessage({ type: 'err', texte: j.error || `erreur ${rep.status}` }); return null; }
+        return j;
+      };
+      const accuse = await lire('accuse'); if (!accuse) return;
+      const formulaire = await lire('formulaire'); if (!formulaire) return;
+      setEnvoi({
+        sujet: 'Aménagements raisonnables — accusé de réception de votre demande',
+        typeDoc: 'amenagement_accuse', apresEnvoi: 'accuse',
+        pieces: [{ html: accuse.html, nom_fichier: accuse.nom,
+          documents: [{ html: accuse.html, nom_fichier: accuse.nom }, { html: formulaire.html, nom_fichier: formulaire.nom }],
+          destinataire: { type: 'etudiant', id: etudId } }],
+      });
+    } finally { setEnCours(false); }
+  }
+
   async function consigner(resultat) {
+    if (envoi?.apresEnvoi === 'accuse') {
+      if ((resultat?.resultats || []).some(x => x.statut === 'envoye' || x.statut === 'simule')) {
+        await fetch(`/api/amenagements/dossier/${d.id}/accuse`, { method: 'POST', headers: authHeaders() });
+        onChange && onChange();
+      }
+      return;
+    }
     const partis = (resultat?.resultats || [])
       .filter(x => x.statut === 'envoye' || x.statut === 'simule').map(x => x.nom);
     if (!partis.length) return;
@@ -587,11 +618,21 @@ function PiecesDossier({ d, etudId, onChange, setMessage }) {
           }}>
           <IconSend size={14} /> Fiche « mesures »
         </button>
+        <button className="bouton bouton-sortir flex items-center gap-1.5" disabled={enCours || !d.date_demande}
+          title={d.date_demande ? 'L’accusé et la copie de la demande, en un courriel à l’étudiant' : 'Indiquez d’abord la date de la demande'}
+          onClick={accuser}>
+          <IconSend size={14} /> Accusé de réception à l’étudiant
+        </button>
         <button className="bouton bouton-fort flex items-center gap-1.5" disabled={!accorde || enCours}
           onClick={communiquer}>
           <IconUsers size={14} /> {enCours ? 'Préparation…' : 'Communiquer aux chargés de cours'}
         </button>
       </div>
+      {d.accuse_le && (
+        <div className="text-second text-slate-500">
+          Accusé de réception et copie de la demande envoyés à l’étudiant le <b>{String(d.accuse_le).slice(0, 10).split('-').reverse().join('/')}</b>
+          {d.accuse_par && <> par <b>{d.accuse_par}</b></>}.
+        </div>)}
       <div className="text-second text-slate-500">
         {d.communique_le
           ? <>Mesures communiquées le <b>{String(d.communique_le).slice(0, 10).split('-').reverse().join('/')}</b>
@@ -602,7 +643,7 @@ function PiecesDossier({ d, etudId, onChange, setMessage }) {
             : 'La fiche « mesures » et sa communication attendent une décision qui accorde au moins une mesure.'}
       </div>
       {envoi && (
-        <EnvoiMailModal pieces={envoi.pieces} typeDoc="amenagement_mesures" sujet={envoi.sujet}
+        <EnvoiMailModal pieces={envoi.pieces} typeDoc={envoi.typeDoc || 'amenagement_mesures'} sujet={envoi.sujet}
           onEnvoye={consigner} onClose={() => setEnvoi(null)} />
       )}
     </div>
