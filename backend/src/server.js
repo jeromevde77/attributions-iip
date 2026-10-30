@@ -2935,9 +2935,14 @@ try { planifierRappels(); } catch (e) { console.error('[rappels] planification :
 // LES RAPPELS DE LA DÉLIBÉRATION (3.1.523) se calculent partout, toutes les heures (dev comprise) : ils ne font que
 // remplir la file ; seul l'envoi est réservé à la production.
 import { genererRappelsDeliberation } from './lib/rappelsDeliberation.js';
+import { genererRappelsPersonnel, poserEcheancesCEP } from './lib/rappelsPersonnel.js';
+try { poserEcheancesCEP(db); } catch (e) { console.error('[rappels] CEP :', e.message); }
 import { anneeActive as anneeActiveRappels } from './services/echeancier.js';
 {
   const tourDelib = () => { try { const r = genererRappelsDeliberation(anneeActiveRappels(db)); if (Object.values(r).some(Boolean)) console.log('[rappels délibération]', r); } catch (e) { console.error('[rappels délibération]', e.message); } };
+  const tourPersonnel = () => { try { const r = genererRappelsPersonnel(anneeActiveRappels(db)); if (Object.values(r).some(x => x)) console.log('[rappels personnel]', r); } catch (e) { console.error('[rappels personnel]', e.message); } };
+  setTimeout(tourPersonnel, 75_000).unref?.();
+  setInterval(tourPersonnel, 60 * 60 * 1000).unref?.();
   setTimeout(tourDelib, 45_000).unref?.();
   setInterval(tourDelib, 60 * 60 * 1000).unref?.();
 }

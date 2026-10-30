@@ -8,6 +8,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { genererRappelsDeliberation } from '../lib/rappelsDeliberation.js';
+import { genererRappelsPersonnel } from '../lib/rappelsPersonnel.js';
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
@@ -302,7 +303,9 @@ r.post('/instancier', authRequired, roleRequired('admin', 'editeur'), (req, res)
     // « Régénérer » relance aussi les rappels de la délibération (3.1.523).
     let delib = {};
     try { delib = genererRappelsDeliberation(annee); } catch (e) { console.error('[rappels délibération]', e.message); }
-    res.json({ ok: true, annee, ...stats, ...statuts, ...rappels, rappels_deliberation: delib });
+    let personnel = {};
+    try { personnel = genererRappelsPersonnel(annee); } catch (e) { console.error('[rappels personnel]', e.message); }
+    res.json({ ok: true, annee, ...stats, ...statuts, ...rappels, rappels_deliberation: delib, rappels_personnel: personnel });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

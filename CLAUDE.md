@@ -3000,7 +3000,18 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   semaine (secrétariat, coordination, direction) ; « date à poser » quand `organisation_ue.date_fin` tombe dans 15 jours sans
   séance de 1re session datée (secrétariat, coordination). Le reste à encoder = `resteAEncoder(profId, cours, annee, session)`
   (`routes/mesCours.js`), la règle de la complétude, écrite une fois. Anti-doublon `rappel_envoye` (cible `deliberation_seance`
-  ou `organisation_ue`, jalon `J-10|cours`…). Étapes 3 et 4 à venir.
+  ou `organisation_ue`, jalon `J-10|cours`…).
+  **ÉTAPE 3 FAITE (3.1.524)** : `lib/rappelsPersonnel.js` (`genererRappelsPersonnel(annee, { jour })`, toutes les heures et
+  au « Régénérer ») — présences à compléter (séances passées 30 j sans aucune `presence`, du professeur ou de ses cours attribués
+  sans professeur nommé : le lendemain, sinon le lundi) ; avis attendus (VA : `valorisation_avis_appel` sans `valorisation_avis`,
+  décision non posée ; AR : dossier `valide_b_le` non décidé, chargés de cours sans `amenagement_avis` — 5 puis 10 jours
+  ouvrables, copie coordination / secrétariat à 10) ; propositions de PAE (`deposee` : au dépôt, J+3 ; secrétariat + coordination
+  de la section de l'étudiant) ; délais de procédure (`lireDossier().echeances`, prochaine ouverte : J-2 et jour J, urgent,
+  secrétariat + direction) ; BILAN DU LUNDI (un chiffre par paquet : VA comme `/valorisations/en-retard`, `alertesAbsences` non
+  prévenus, `calculerFrais` restant > 0 après `echeance_solde`, aménagements à décider / notifier / communiquer — secrétariat et
+  direction tout, coordination ses sections sans frais ni validation ; calculé une fois le lundi, `lucie_config`
+  « bilan_lundi_fait »). Échéance CEP `cep_attestation_inscription` (fixe:31/10) posée au démarrage (`poserEcheancesCEP`).
+  Restent : l'étape 4 (étudiants) ; l'assiduité CEP par tranche de 3 mois (aucune trace d'attestation émise).
 - **LE PORTAIL DE L'ÉTUDIANT — CE QUI EST TRANCHÉ, RIEN N'EST CODÉ** (Charles, 30 octobre 2026 ; projet : logigramme et
   treize écrans hors dépôt). Mot de passe choisi par l'étudiant (comme le personnel), code en plus sur un nouvel appareil.
   **PAE en ligne** : Lucie coche ce qui est accessible (`etatsPAE`), l'étudiant choisit et envoie, la coordination valide ou
