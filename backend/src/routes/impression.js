@@ -16,9 +16,9 @@ import { authRequired, getUserSections } from '../middleware/auth.js';
 import { documentsPour, documentParCle, valeursParametre } from '../lib/documents.js';
 import { capacitePdf, rendrePdf } from '../services/pdf.js';
 import { piedGabaritPdf, BANDE_PIED_MM } from '../lib/document.js';
-import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 import { piedDocument } from './parametres.js';
 import { protegerSignature } from '../lib/protectionSignature.js';
+import { logoCourant } from '../lib/identite.js';
 
 const r = express.Router();
 
@@ -150,7 +150,7 @@ function optionsPiece({ pagination, pied = true, orientation, page_css } = {}) {
   const pageCss = !!page_css && !pied;
   return {
     pagination: pageCss ? 'jamais' : (pagination || 'si-plusieurs'),
-    pied: pied ? (avecNum => piedGabaritPdf(LOGO_IIP_JPEG, piedDocument(), avecNum)) : null,
+    pied: pied ? (avecNum => piedGabaritPdf(logoCourant(), piedDocument(), avecNum)) : null,
     orientation: orientation === 'paysage' ? 'paysage' : 'portrait',
     pageCss,
     ...(pied ? { marges: { top: '12mm', right: '15mm', bottom: `${BANDE_PIED_MM}mm`, left: '15mm' } } : {}),
@@ -243,7 +243,7 @@ r.post('/pdf', authRequired, async (req, res) => {
     // pages. Le PDF, lui, dispose d'un vrai gabarit : on le lui donne, et la
     // marge basse lui réserve sa hauteur.
     const gabarit = pied
-      ? (avecNum => piedGabaritPdf(LOGO_IIP_JPEG, piedDocument(), avecNum))
+      ? (avecNum => piedGabaritPdf(logoCourant(), piedDocument(), avecNum))
       : null;
     // Une pièce qui porte sa propre page (le diplôme) n'a ni pied ni marge :
     // c'est son @page qui décide, pas le centre.

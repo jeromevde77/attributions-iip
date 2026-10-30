@@ -3,6 +3,7 @@ import db from '../db/index.js';
 import { piedDocument, enteteLogoActif } from './parametres.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { gesteRequis } from '../lib/gestes.js';
+import { etablissementCourant } from '../lib/contexteRequete.js';
 
 const r = Router();
 
@@ -231,7 +232,20 @@ const villeDe = adresse => {
   return m ? m[1].trim() : null;
 };
 export function identiteEtablissement() {
-  const etabDB = db.prepare('SELECT * FROM etablissement LIMIT 1').get() || {};
+  /* LA PIÈCE D'UN AUTRE ÉTABLISSEMENT PORTE SON IDENTITÉ (3.1.443) : celui que la route a posé
+     dans le contexte (`poserEtablissementDe`). Sa fiche seule, sans les réglages de l'IIP —
+     ni son adresse, ni son directeur ne valent pour un autre établissement. */
+  const courant = etablissementCourant();
+  if (courant > 1) {
+    const e = db.prepare('SELECT * FROM etablissement WHERE id = ?').get(courant);
+    if (e) return {
+      nom: e.etab_nom || e.nom_court || 'Établissement', adresse: e.adresse || null,
+      matricule: e.num_ecot || null, fase: e.num_fase || null, ville: villeDe(e.adresse) || null,
+      tel: e.gest_tel || null, site: e.site_web || null, directeur: e.signataire || null,
+    };
+  }
+  const etabDB = db.prepare('SELECT * FROM etablissement WHERE id = 1').get()
+    || db.prepare('SELECT * FROM etablissement LIMIT 1').get() || {};
   const row = db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'attestation_etab'").get();
   let saved = {};
   if (row) { try { saved = JSON.parse(row.valeur); } catch { /* configuration illisible */ } }

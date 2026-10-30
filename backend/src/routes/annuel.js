@@ -13,6 +13,7 @@ import { exigeValidation, sectionAutorisee, deposerDemande } from './demandes.js
 import { calculerDates, chargerPeriodesConges, anneeDebutDe, diffJours }
   from '../services/echeancier_dates.js';
 import { instancier, recalculerStatuts } from '../services/echeancier.js';
+import { comparerDatesUE } from '../lib/datesReelles.js';
 
 const r = Router();
 
@@ -60,6 +61,18 @@ r.get('/dates-ue', authRequired, (req, res) => {
     sections: [...new Set(lignes.map(l => l.section).filter(Boolean))].sort(),
     lignes,
   });
+});
+
+// ── GET /annuel/dates-ue/horaire?annee=&section= ────────────────────────────
+// Les dates de l'UE face à l'horaire réel : première et dernière séance, les deux
+// premiers dixièmes, les séances hors des dates (lib/datesReelles.js). Déclarée
+// avant les routes paramétriques. L'alignement passe par le PUT ci-dessous.
+r.get('/dates-ue/horaire', authRequired, (req, res) => {
+  try {
+    const annee = String(req.query.annee || '');
+    if (!annee) return res.status(400).json({ error: 'annee requise' });
+    res.json({ lignes: comparerDatesUE(annee, { section: req.query.section || null, perimetre: getUserSections(req.user) }) });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ── PUT /annuel/dates-ue ────────────────────────────────────────────────────

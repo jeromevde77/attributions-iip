@@ -19,6 +19,7 @@ import { urgence } from '../lib/urgence.js';
 import { Fenetre } from '../components/ui.jsx';
 import ConventionsASigner from '../components/ConventionsASigner.jsx';
 import MesPropositions from '../components/MesPropositions.jsx';
+import PresencesACompleter from '../components/PresencesACompleter.jsx';
 import { informer } from '../lib/dialogue.jsx';
 
 const tok = () => localStorage.getItem('token');
@@ -624,7 +625,7 @@ export default function Accueil() {
         <Fenetre icone={IconFilter} large="petite" titre="Filtrer le journal"
           sous="Ce qu'on regarde, et sur quelle durée"
           onFermer={() => setFiltres(false)}>
-          <div className="p-5 space-y-4">
+          <div className="space-y-4">
             <div>
               <div className="intertitre mb-1.5">Quels événements</div>
               <div className="carte divide-y divide-slate-100">
@@ -704,6 +705,9 @@ export default function Accueil() {
         {/* LES MESSAGES TOUJOURS EN HAUT (Charles, 11 octobre 2026 : « c'est la priorité que l'info
             passe ») : hors de la mise en page, ils ne se déplacent ni ne se masquent. */}
         <div className="mb-4 space-y-2"><MessagesRecus />
+          {/* LES PRÉSENCES À COMPLÉTER APRÈS UN QR (28 octobre 2026) : une obligation, pas un
+              bloc qu'on range — elle ne se masque pas. */}
+          <PresencesACompleter />
           {/* QUI EST LÀ ? TOUJOURS VISIBLE, POUR TOUS (Charles, 12 octobre 2026 : « tout le monde doit
               pouvoir voir qui est là, en cas d'urgence ») : hors de la mise en page, comme les messages. */}
           <TuileQuiEstLa /></div>

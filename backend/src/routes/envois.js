@@ -21,6 +21,7 @@ import { preparerPourCourriel, variableImage } from '../lib/courrielPiece.js';
 import { nouvelleReference, signatureFiligranee } from '../services/filigrane.js';
 import { protegerSignature, jourDuJour } from '../lib/protectionSignature.js';
 import { getParam } from './parametres.js';
+import { recapActif, poserRecapActif, passerRecap, ceQuiAttend, migrerRecap } from '../lib/recapQuotidien.js';
 import { envoyerEmail, mailerConfigure, lireConfigSmtp, ecrireConfigSmtp, verifierSmtp } from '../services/mailer.js';
 
 const r = express.Router();
@@ -194,6 +195,26 @@ r.get('/etat', authRequired, async (req, res) => {
              // L'écran cache le bouton à qui n'a pas le droit ; la route le
              // refuse quand même — un bouton caché n'est pas une protection.
              peut_envoyer: gesteAutorise(req, 'envois.envoyer') === 'oui' });
+});
+
+// ── Le récapitulatif quotidien (3.1.472) : l'interrupteur, et le sien en essai ──
+r.get('/recap', authRequired, (req, res) => {
+  migrerRecap();
+  const u = db.prepare('SELECT id, email, role, nom_complet, professeur_id FROM utilisateur WHERE id = ?').get(req.user.id);
+  const a = u ? ceQuiAttend(u, null) : null;
+  const dernier = db.prepare(`SELECT jour, statut, resume FROM recap_envoi WHERE statut IN ('envoye','simule','echec')
+    ORDER BY envoye_le DESC LIMIT 1`).get() || null;
+  const aujourdhui = db.prepare(`SELECT statut, COUNT(*) n FROM recap_envoi WHERE jour = date('now') GROUP BY statut`).all();
+  res.json({ actif: recapActif(), mien: a && { total: a.total, taches: a.taches.length, textes: a.textes.length,
+    messages: a.messages.length, idees: a.idees.length }, dernier, aujourdhui });
+});
+r.put('/recap', authRequired, roleRequired('admin'), (req, res) => {
+  poserRecapActif(!!req.body?.actif);
+  res.json({ actif: recapActif() });
+});
+r.post('/recap/moi', authRequired, async (req, res) => {
+  const r0 = await passerRecap({ seul: req.user.id, force: true });
+  res.json(r0);
 });
 
 // ── Réglages (admin) : interrupteur et serveur SMTP ─────────────────────────
@@ -493,6 +514,43 @@ r.post('/', authRequired, gesteRequis('envois.envoyer'), actifRequis, async (req
         base.nom, email, sujet, null, Buffer.byteLength(emailHtml), statut, note, par);
       continue;
     }
+    /* PLUSIEURS PIÈCES, UN SEUL COURRIEL (3.1.471, Charles : « un seul envoi, mais chaque document est
+       indépendant : quatre attestations de réussite, ce sont quatre PDF »). Une pièce peut porter
+       `documents` [{ html, nom_fichier }] : chacun est signé et rendu à part — son fac-similé, sa
+       référence —, tous partent joints au même courriel, et le registre garde une ligne par pièce. */
+    if (Array.isArray(p.documents) && p.documents.length > 1) {
+      const joints = [], lignes = [];
+      let erreurRendu = null;
+      for (const doc of p.documents.slice(0, 60)) {
+        const ref = nouvelleReference();
+        const signe1 = await signer(String(doc.html || ''), { sujet, destinataire: base.nom, jour, reference: ref });
+        try {
+          const pdf1 = await rendrePdf(signe1.htmlSigne, { pagination: 'si-plusieurs' });
+          const fichier1 = String(doc.nom_fichier || 'document')
+            .replace(/\.(html?|pdf)$/i, '').replace(/[^A-Za-z0-9_.-]/g, '_') + '.pdf';
+          joints.push({ filename: fichier1, content: pdf1, contentType: 'application/pdf' });
+          lignes.push({ ref, fichier: fichier1, pdf: pdf1, html: doc.html });
+        } catch (e) { erreurRendu = `rendu PDF : ${String(e.message).slice(0, 200)}`; break; }
+      }
+      if (erreurRendu) {
+        resultats.push({ ...base, statut: 'echec', erreur: erreurRendu });
+        journal.run(lot, type_doc || null, base.destinataire_type, base.destinataire_id,
+          base.nom, email, sujet, null, null, 'echec', erreurRendu, par);
+        continue;
+      }
+      const envoi = await envoyerEmail({ to: email, subject: sujet, html: corpsHtml, attachments: joints });
+      const statut = !envoi.ok ? 'echec' : envoi.simule ? 'simule' : 'envoye';
+      const redir = lireConfigSmtp().redirection;
+      const note = envoi.erreur || (redir ? `redirigé vers ${redir}` : null);
+      resultats.push({ ...base, statut, erreur: envoi.erreur || null, redirige: redir || null,
+        nom_fichier: lignes.map(l => l.fichier).join(', '), pieces: lignes.length });
+      for (const l of lignes) {
+        refCourante = l.ref; pieceCourante = { ...p, html: l.html }; empreinteCourante = empreinte(l.pdf);
+        journal.run(lot, type_doc || null, base.destinataire_type, base.destinataire_id,
+          base.nom, email, sujet, l.fichier, l.pdf.length, statut, note, par);
+      }
+      continue;
+    }
     let pdf;
     try {
       pdf = await rendrePdf(htmlSigne, { pagination: 'si-plusieurs' });
@@ -563,34 +621,39 @@ r.get('/journal', authRequired, gesteRequis('envois.envoyer'), (req, res) => {
  * référence, même date. Les envois antérieurs au 30 septembre 2026 n'en ont
  * pas : on le dit, on n'invente rien.
  */
-r.get('/:id/copie', authRequired, gesteRequis('envois.envoyer'), async (req, res) => {
-  if (!/^\d+$/.test(String(req.params.id))) return res.status(400).json({ error: 'numéro d\'envoi attendu' });
+/* LA COPIE D'UNE PIÈCE ENVOYÉE, telle qu'elle est partie (signée, sa référence). Commune au registre des envois
+   et à l'espace de l'étudiant (3.1.475) : `{ erreur, code }` ou `{ type, corps, nom }`. */
+export async function copieDeLEnvoi(id, { format = 'pdf' } = {}) {
   ensureTable();
-  const m = db.prepare('SELECT * FROM envoi_mail WHERE id = ?').get(Number(req.params.id));
-  if (!m) return res.status(404).json({ error: 'envoi introuvable' });
+  const m = db.prepare('SELECT * FROM envoi_mail WHERE id = ?').get(Number(id));
+  if (!m) return { code: 404, erreur: 'envoi introuvable' };
   const c = db.prepare('SELECT * FROM envoi_copie WHERE envoi_id = ?').get(m.id);
   if (!c) {
-    return res.status(404).json({ error: "Cet envoi est antérieur à la conservation des copies (30 septembre 2026) : "
-      + 'le registre dit à qui et quand, il ne peut pas dire ce que contenait la pièce.' });
+    return { code: 404, erreur: "Cet envoi est antérieur à la conservation des copies (30 septembre 2026) : "
+      + 'le registre dit à qui et quand, il ne peut pas dire ce que contenait la pièce.' };
   }
   let html;
-  try { html = decompacter(c.html_gz); } catch (e) { return res.status(500).json({ error: `copie illisible : ${e.message}` }); }
+  try { html = decompacter(c.html_gz); } catch (e) { return { code: 500, erreur: `copie illisible : ${e.message}` }; }
   const { htmlSigne } = await signer(html, { sujet: m.sujet, destinataire: m.destinataire_nom,
     jour: c.jour, reference: m.reference });
-  const nom = String(m.nom_fichier || 'copie').replace(/\.(html?|pdf)$/i, '');
-  if (req.query.format !== 'html' && m.mode !== 'corps') {
+  const nom = String(m.nom_fichier || 'copie').replace(/\.(html?|pdf)$/i, '').replace(/[^A-Za-z0-9_.-]/g, '_');
+  if (format !== 'html' && m.mode !== 'corps') {
     const cap = await capacitePdf();
     if (cap.disponible) {
-      try {
-        const pdf = await rendrePdf(htmlSigne, { pagination: 'si-plusieurs' });
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `inline; filename="${nom.replace(/[^A-Za-z0-9_.-]/g, '_')}_copie.pdf"`);
-        return res.send(pdf);
-      } catch { /* on retombe sur le HTML */ }
+      try { return { type: 'application/pdf', corps: await rendrePdf(htmlSigne, { pagination: 'si-plusieurs' }), nom: `${nom}.pdf` }; }
+      catch { /* on retombe sur le HTML */ }
     }
   }
-  res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  res.send(htmlSigne);
+  return { type: 'text/html; charset=utf-8', corps: htmlSigne, nom: `${nom}.html` };
+}
+
+r.get('/:id/copie', authRequired, gesteRequis('envois.envoyer'), async (req, res) => {
+  if (!/^\d+$/.test(String(req.params.id))) return res.status(400).json({ error: 'numéro d\'envoi attendu' });
+  const c = await copieDeLEnvoi(req.params.id, { format: req.query.format });
+  if (c.erreur) return res.status(c.code).json({ error: c.erreur });
+  res.setHeader('Content-Type', c.type);
+  if (c.type === 'application/pdf') res.setHeader('Content-Disposition', `inline; filename="${c.nom.replace(/\.pdf$/, '')}_copie.pdf"`);
+  res.send(c.corps);
 });
 
 /** Le corps du courriel : le message de l'expéditeur, dans l'enveloppe Lucie. */

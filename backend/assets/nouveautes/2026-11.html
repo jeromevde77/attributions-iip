@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lucie, quoi de neuf</title>
+<style>body { margin: 0; padding: 1.5rem 1rem; background: #F6F8FB; font-family: system-ui, sans-serif; }
+/* Le guide des nouveautés, dans Lucie (tuile du tableau de bord) ou seul. Tout est limité à
+   .guide ; les couleurs suivent le thème de Lucie, avec la charte en repli. */
+.guide { --papier: var(--blanc, #fff); --encre: var(--c-texte, #16263A); --doux: rgb(var(--gris-500, 91 107 127)); --filet: rgb(var(--gris-200, 220 227 236));
+  --marine: var(--c-principal, #16406A); --or: var(--c-iip_or, #C98A0B); --cyan: var(--c-accent, #0B8DB3); --vert: var(--c-reussi, #2F7D57); --ocre: var(--c-attente, #B45309);
+  color: var(--encre); font-size: 15px; line-height: 1.6; }
+.guide * { box-sizing: border-box; }
+.guide .page { max-width: 46rem; margin: 0 auto; }
+.guide header h1 { font-size: 1.9rem; line-height: 1.15; font-weight: 700; color: var(--marine); margin: 0 0 .5rem; text-wrap: balance; }
+.guide header p { color: var(--doux); margin: 0 0 .25rem; }
+.guide .versions { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; margin: .75rem 0 0; font-size: .85rem; color: var(--doux); }
+.guide .versions b { color: var(--encre); font-variant-numeric: tabular-nums; }
+.guide .jours { margin-top: 1.25rem; display: grid; gap: .8rem; }
+.guide .jour { background: var(--papier); border: 1px solid var(--filet); border-radius: 10px; padding: .8rem 1rem; }
+.guide .jour h2 { margin: 0 0 .35rem; font-size: 1.05rem; color: var(--marine); }
+.guide .jour ul { margin: 0; padding-left: 1.2rem; list-style: disc; }
+.guide .jour li { margin: .15rem 0; }
+.guide .jour .n { color: var(--doux); font-size: .8rem; font-weight: 400; }
+.guide .filtres { position: sticky; top: 0; z-index: 2; background: var(--papier); padding-block: .7rem; margin-top: 1.25rem; border-bottom: 1px solid var(--filet); display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+.guide .filtres span { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--doux); margin-right: .25rem; }
+.guide .filtres button { font-weight: 600; font-size: .85rem; color: var(--encre); background: var(--papier); border: 1px solid var(--filet); border-radius: 999px; padding: .25rem .75rem; cursor: pointer; }
+.guide .filtres button[aria-pressed="true"] { background: var(--marine); border-color: var(--marine); color: #fff; }
+.guide main h2 { font-size: 1.25rem; font-weight: 700; color: var(--marine); margin: 2rem 0 .2rem; }
+.guide h2 + .intro { color: var(--doux); margin: 0 0 .75rem; }
+.guide .nouveau { border-top: 1px solid var(--filet); padding-block: 1rem; }
+.guide .nouveau h3 { font-weight: 700; font-size: 1rem; margin: 0 0 .3rem; }
+.guide .nouveau p { margin: .3rem 0; }
+.guide .nouveau ol { list-style: decimal; } .guide .nouveau ul { list-style: disc; }
+.guide .nouveau ol, .guide .nouveau ul { margin: .35rem 0; padding-left: 1.3rem; }
+.guide .ou { display: inline-block; font-size: .85rem; color: var(--doux); }
+.guide .ou b { color: var(--encre); font-weight: 600; }
+.guide .etiquettes { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .5rem; }
+.guide .etiquette { font-size: .72rem; font-weight: 600; padding: .05rem .5rem; border-radius: 4px; border: 1px solid var(--filet); color: var(--doux); }
+.guide .prod { border-color: var(--vert); color: var(--vert); } .guide .dev { border-color: var(--ocre); color: var(--ocre); }
+.guide .astuce { border-left: 3px solid var(--or); padding: .15rem 0 .15rem .75rem; margin: .5rem 0; }
+.guide .avenir { margin-top: 2rem; padding: 1rem 1.1rem; background: var(--papier); border: 1px solid var(--filet); border-radius: 10px; }
+.guide .avenir h2 { margin-top: 0; } .guide .avenir ul { list-style: disc; padding-left: 1.2rem; }
+.guide footer { margin-top: 2rem; font-size: .85rem; color: var(--doux); }
+</style></head>
+<body><div class="guide"><div class="page">
+<header>
+  <h1>Lucie, quoi de neuf</h1>
+  <p>Ce qui change dans Lucie à la reprise du lundi 2 novembre 2026, rangé par public : où trouver chaque nouveauté, comment s'en servir, et ce que Lucie refuse désormais — avec la raison.</p>
+  <div class="versions">
+    <span>Version décrite : <b>3.1.467</b> — tout ce qui a été ajouté depuis la version 3.1.403</span>
+  </div>
+</header>
+
+<section class="jours" aria-label="En bref">
+  <div class="jour">
+    <h2>En bref</h2>
+    <ul>
+      <li data-pour="ens sec coo dir"><b>Les présences</b> se prennent par séance, se lisent par unité, et la régularité au premier dixième se calcule.</li>
+      <li data-pour="sec dir"><b>Les versements</b> des étudiants s'encodent dans la fiche ; la note de frais porte une communication structurée et un QR code de paiement.</li>
+      <li data-pour="ens sec coo dir"><b>Une note d'une unité délibérée</b> ne se modifie plus sans rouvrir la séance — par aucun écran ni aucun import.</li>
+      <li data-pour="ens dir"><b>Les professeurs</b> ont un carnet de cotes, leur horaire de la semaine — dans Lucie et dans l'agenda du téléphone — et le ticket de sortie.</li>
+      <li data-pour="coo dir"><b>La direction</b> tient le plan d'action qualité dans Lucie.</li>
+      <li data-pour="sec dir"><b>La délibération</b> : la clôture ouvre la seconde session, et la liste de ce qui bloque la clôture se règle en un clic.</li>
+      <li data-pour="ens sec coo dir"><b>Lucie s'installe sur le téléphone et l'iPad</b>, avec son icône, en plein écran.</li>
+      <li data-pour="sec coo dir"><b>La liste des étudiants</b> a une barre plus simple, et une section se coche en un clic.</li>
+    </ul>
+  </div>
+</section>
+
+<nav class="filtres" aria-label="Filtrer par public">
+  <span>Pour</span>
+  <button type="button" data-public="tous" aria-pressed="true">Tout voir</button>
+  <button type="button" data-public="ens" aria-pressed="false">Enseignants</button>
+  <button type="button" data-public="sec" aria-pressed="false">Secrétariat</button>
+  <button type="button" data-public="coo" aria-pressed="false">Coordinations</button>
+  <button type="button" data-public="dir" aria-pressed="false">Direction</button>
+</nav>
+
+<main>
+<h2>Ce que Lucie refuse désormais</h2>
+<p class="intro">Ces refus sont voulus. Chacun dit pourquoi, et ce qu'il faut faire à la place.</p>
+
+<article class="nouveau" data-pour="ens sec coo dir">
+  <h3>Une note d'une unité dont la séance est close</h3>
+  <p>Une fois la délibération close, plus aucune note de cette unité ne change : ni dans Mes cours, ni dans la feuille de notes, ni dans la grille du parcours, ni par un import du classeur. L'écran le dit et rappelle qu'il faut d'abord <b>rouvrir la séance</b> — un geste de la direction, avec un motif écrit.</p>
+  <ul>
+    <li>Un import qui contient des notes d'une unité close les laisse de côté et nomme les étudiants écartés ; le reste s'importe normalement.</li>
+    <li>La seconde session, elle, reste ouverte : ses notes entrent dans leur propre session.</li>
+  </ul>
+  <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
+</article>
+
+<article class="nouveau" data-pour="sec coo dir">
+  <h3>Un résultat sur une unité qui n'est pas au programme</h3>
+  <p>L'encodage rapide, l'encodage direct, les résultats du PAE et la grille du parcours n'inscrivent plus un étudiant au passage. Pour l'année en cours, une unité doit d'abord être au PAE de l'étudiant ; les années passées, reprises d'Excel, restent encodables comme avant.</p>
+  <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
+</article>
+
+<article class="nouveau" data-pour="sec dir">
+  <h3>Un nouvel étudiant sans section</h3>
+  <p><b>Étudiants → Créer un étudiant</b> demande une section de rattachement, ou au moins une première unité. Sans l'une ni l'autre, l'étudiant n'apparaîtrait dans aucune liste.</p>
+  <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
+</article>
+
+<article class="nouveau" data-pour="sec coo dir">
+  <h3>Supprimer une séance qui porte des présences</h3>
+  <p>Une séance de l'horaire où des présences ont été prises ne se supprime plus : elle s'<b>annule</b>. Les présences restent, et les attestations de congé-éducation aussi.</p>
+  <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
+</article>
+
+<h2>Pour tous</h2>
+<p class="intro">Ce qui change pour chacun.</p>
+
+<article class="nouveau" data-pour="ens sec coo dir">
+  <h3>Lucie a son icône sur le téléphone et l'iPad</h3>
+  <span class="ou">Où : <b>Safari → Partager → « Sur l'écran d'accueil »</b> (iPhone, iPad) · <b>Chrome → Installer l'application</b> (Android).</span>
+  <p>Lucie s'installe sur l'écran d'accueil, avec son icône, et s'ouvre en plein écran comme une application. La première fois, on s'y connecte ; ensuite, elle garde la connexion. Rien à mettre à jour : c'est toujours la Lucie du serveur.</p>
+  <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
+</article>
+
+<article class="nouveau" data-pour="ens sec coo dir">
+  <h3>Le mode d'emploi devient un guide illustré</h3>
+  <span class="ou">Où : <b>Documentation → Mode d'emploi de Lucie</b>.</span>
+  <p>Un chapitre par métier, chacun avec son schéma animé ; chaque point dit où aller, ce qu'on y fait et ce qu'il faut savoir. Vous n'y trouvez que ce qui concerne votre travail. La recherche parcourt tout le guide.</p>
+  <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
+</article>
+
+<article class="nouveau" data-pour="ens sec coo dir">
+  <h3>Un courriel le matin quand quelque chose vous attend</h3>
+  <span class="ou">Où : <b>votre boîte de courriel</b>, chaque matin.</span>
+  <p>Quand une chose nouvelle vous attend dans Lucie — une tâche, un texte à lire et confirmer, un message, une réponse à votre idée —, vous recevez un courriel récapitulatif le matin, avec le lien vers votre tableau de bord. Rien de nouveau : pas de courriel.</p>
+  <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
+</article>
+
+<article class="nouveau" data-pour="ens sec coo dir">
+  <h3>Vos idées : corriger la sienne, et écrire sans que « Réponses types » cache le texte</h3>
+  <span class="ou">Où : <b>Proposer une amélioration</b> (l'ampoule, sur chaque écran).</span>
+  <p>Tant que la direction n'a pas répondu, « Modifier » sous votre idée permet d'en corriger l'intitulé et le texte. Et dans toute zone de texte, le bouton « Réponses types » se place désormais sous le champ, plus dessus.</p>
+  <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
+</article>
+
+<article class="nouveau" data-pour="dir">
+  <h3>Les idées d'amélioration arrivent sur votre tableau de bord</h3>
+  <span class="ou">Où : <b>Tableau de bord → Idées à traiter</b>.</span>
+  <p>Chaque idée nouvelle, ou dont l'auteur vous a écrit, s'y affiche : on la déplie, on lui donne un état et on répond sur place. « Toutes les idées » ouvre le registre complet.</p>
+  <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
+</article>
+
+<h2>Secrétariat</h2>
+<p class="intro">Les gestes de tous les jours qui changent.</p>
+
+<article class="nouveau" data-pour="sec coo dir">
+  <h3>L'espace de l'étudiant : ses résultats, ses documents, ses accusés de réception</h3>
+  <span class="ou">Où : <b>etudiants.lucie-iip.be</b>, côté étudiant — un site à part, séparé de Lucie ; <b>fiche → Imprimer ou envoyer</b>, côté école.</span>
+  <p>L'étudiant tape son matricule et reçoit un lien d'accès à son adresse d'école. Il y voit ses résultats délibérés (« NA » sous 10), les pièces que l'école lui a envoyées par Lucie, et les règlements que la direction lui destine. Il en accuse réception avec un code à six chiffres reçu à son adresse d'école. Sur la fiche, l'école voit sa dernière connexion, ce qu'il a ouvert et ce qu'il a signé.</p>
+  <div class="etiquettes"><span class="etiquette dev">À l'essai</span></div>
+</article>
+
+<article class="nouveau" data-pour="sec dir">
+  <h3>Toutes les attestations d'un étudiant, en un courriel — un PDF par attestation</h3>
+  <span class="ou">Où : <b>fiche de l'étudiant → Imprimer ou envoyer → Envoyer les attestations — toutes les années</b>.</span>
+  <p>Toutes ses attestations de réussite, de toutes les années, partent dans un seul courriel à son adresse d'école ; chacune est un PDF à part.</p>
+  <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
+</article>
+
+<article class="nouveau" data-pour="sec coo dir">
+  <h3>Aménagements raisonnables : l'accusé de réception à l'étudiant</h3>
+  <span class="ou">Où : <b>fiche → Aménagements → Pièces du dossier → Accusé de réception à l'étudiant</b>.</span>
+  <p>Avant la décision, l'étudiant reçoit en un courriel l'accusé de réception de sa demande et la copie du formulaire (cadres A et B), chacun en PDF. Le dossier note quand et par qui. Il faut que la date de la demande soit encodée.</p>
+  <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
+</article>
+
+<article class="nouveau" data-pour="sec coo dir">
+  <h3>Un étudiant archivé n'a plus de programme, ni de place sur les listes</h3>
+  <span class="ou">Où : <b>Étudiants → cocher → Archiver</b>.</span>
+  <p>Après l'archivage, Lucie dit combien d'unités sans résultat restent à son programme (cette année ou après) et propose de les retirer. Ce qui porte une note ou un report reste. Les archivés sans résultat ne paraissent plus sur les listes de TP et d'examens, et le passage d'année ne leur compose plus de programme. Pour ceux déjà archivés : cochez-les dans la liste des archivés et archivez-les à nouveau.</p>
+  <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
+</article>
+
+<article class="nouveau" data-pour="sec dir">
+  <h3>Encoder un versement, et l'annuler</h3>
+  <span class="ou">Où : <b>fiche de l'étudiant → Finances → Versements</b>.</span>
+  <ol>
+    <li>« Encoder un versement » : la date du jour, le montant (Lucie propose ce qui manque à l'acompte, ou le reste), la nature, le moyen, une remarque.</li>
+    <li>Le versement s'inscrit à votre nom ; « Versé » et « reste » se mettent à jour.</li>
+  </ol>
+  <p>Un versement ne s'efface jamais : « annuler » demande un motif. La ligne reste lisible, barrée, et sort des totaux. Un remboursement s'encode en montant négatif.</p>
+  <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
+</article>
+
+<article class="nouveau" data-pour="sec dir">
+  <h3>La note de frais : forfait de valorisation, communication structurée, QR code</h3>
+  <span class="ou">Où : <b>fiche → Finances → Produire le document</b>.</span>
+  <ul>
+    <li>Une demande de valorisation (VA ou VAE) a son prix, unité par unité : 30 € si l'étudiant n'est pas inscrit à l'unité, la différence si ses frais d'inscription de l'unité sont plus bas, sinon 15 € ; 50 € pour une admission. La ligne figure sur la note ; une demande peut en être dispensée, avec un motif.</li>
+    <li>Chaque étudiant a sa <b>communication structurée</b> pour l'année (+++…+++), et la note porte un <b>QR code</b> : scanné avec l'application bancaire, il remplit le compte, le montant et la communication.</li>
+    <li>Le compte de l'école se saisit une fois dans <b>Configuration → Identité</b> ; sans lui, pas de QR code.</li>
+  </ul>
+  <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
+</article>
+
+<article class="nouveau" data-pour="sec dir">
+  <h3>Les extraits de compte</h3>
+  <span class="ou">Où : <b>Étudiants → rail → Extraits de compte</b>.</span>
+  <p>Déposez l'extrait téléchargé de la banque en ligne : CODA, XML ou CSV (BNP Paribas Fortis, Belfius, KBC, ING — gardez la ligne des titres de colonnes). Lucie montre chaque virement : <b>reconnu</b> (la communication structurée est la bonne), <b>à vérifier</b> (montant au-delà du dû, ou rapproché d'après le nom), <b>non rattaché</b>. Rien ne s'enregistre avant que vous cochiez et confirmiez ; un même virement ne s'importe jamais deux fois.</p>
+  <div class="etiquettes"><span class="etiquette dev">À essayer avec un premier extrait</span></div>
+</article>
+
+<article class="nouveau" data-pour="sec coo dir">
+  <h3>Le suivi des présences</h3>
+  <span class="ou">Où : <b>Étudiants → rail → Suivi des présences</b>.</span>
+  <ul>
+    <li><b>Absences</b> : les étudiants au-delà du seuil d'absences injustifiées (10 %), unité par unité, et ceux qui dépassent quatre dixièmes (RGE, art. 6). « Prévenir l'étudiant » montre l'avis avant de l'envoyer à son adresse d'école — jamais d'envoi automatique.</li>
+    <li><b>Par UE</b> : la grille de l'unité, une case par étudiant et par séance, qui se change d'un clic (P, P* en retard, A, J avec motif). Deux colonnes de régularité, au premier dixième et au cinquième : R ou IR, qui s'inverse d'un clic.</li>
+    <li><b>Congé-éducation</b> : le registre des attestations.</li>
+    <li>La coordination y lit les étudiants de ses sections.</li>
+  </ul>
+  <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
+</article>
+
+<article class="nouveau" data-pour="sec dir">
+  <h3>La grille de présence imprimée</h3>
+  <span class="ou">Où : <b>Étudiants → Listes et rapports → Grille de présence</b>.</span>
+  <p>Pour une unité ou un cours, sur une période : étudiants en lignes, séances en colonnes, le premier dixième marqué. Imprimer (PDF paysage) ou Tableur. C'est la pièce que demande la vérificatrice.</p>
+  <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
+</article>
+
+<article class="nouveau" data-pour="sec coo dir">
+  <h3>L'onglet Valorisation de la fiche</h3>
+  <span class="ou">Où : <b>fiche de l'étudiant → Valorisation</b>.</span>
+  <ul>
+    <li>Chaque demande montre sa frise (demande, recevabilité, avis, décision, validation) : on voit où elle en est.</li>
+    <li>« Introduire une demande » propose AD, VA ou VAE, avec la date du jour, et dit si un dossier existe déjà.</li>
+    <li>Une pièce justificative se dépose en deux temps : d'abord « quelle pièce ? », puis le fichier.</li>
+  </ul>
+  <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
+</article>
+
+<article class="nouveau" data-pour="sec dir">
+  <h3>Les imports reconnaissent l'étudiant qui revient</h3>
+  <p>Un étudiant revenu avec un nouveau matricule n'est plus créé une seconde fois : la liste eCampus et l'import Excel le retrouvent (registre national, anciens matricules, nom, prénom et date de naissance) et complètent sa fiche sans jamais effacer une adresse par un vide.</p>
+  <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
+</article>
+
+<article class="nouveau" data-pour="sec coo dir">
+  <h3>La liste des étudiants, plus simple</h3>
+  <span class="ou">Où : <b>Étudiants</b>, la liste.</span>
+  <ul>
+    <li>Une seule ligne au-dessus de la liste : la recherche, la section, le niveau, le bouton <b>Filtres</b> et les statuts (en cours, diplômés, sortis, archivés). Les autres filtres — primo, programme, section posée ou déduite, dossier incomplet, doublons, plus de 60 ECTS — sont rangés derrière « Filtres ».</li>
+    <li>Les filtres actifs s'affichent sous la barre, en pastilles qu'on retire d'un ✕.</li>
+    <li>La ligne d'une section porte sa case : un clic coche tous ses étudiants affichés.</li>
+    <li>« Composer les PAE » s'ouvre directement sur la section des étudiants cochés.</li>
+  </ul>
+  <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
+</article>
+
+<article class="nouveau" data-pour="sec coo dir">
+  <h3>L'horaire de la semaine entre en service</h3>
+  <span class="ou">Où : <b>Organisation → Horaires → Consulter l'horaire</b>.</span>
+  <ul>
+    <li>L'horaire se <b>consulte</b> directement dans Organisation ; il se <b>crée</b> au laboratoire temporel, qui se parcourt désormais en sept étapes numérotées : schéma de capitalisation, le temps, les groupes, le planning, les disponibilités, la semaine, et pour finir l'horaire.</li>
+    <li>Trois lectures de la même semaine : par <b>classe</b> (une section et un bloc), par <b>professeur</b>, par <b>local</b>.</li>
+    <li>C'est sur ces séances que les professeurs prennent leurs présences et que se calculent le premier dixième et les attestations de congé-éducation : un professeur ne voit que les séances qui le nomment.</li>
+    <li>« Contrôler contre les attributions » compare l'horaire à ce qui a été attribué.</li>
+  </ul>
+  <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
+</article>
+
+<h2>Délibération</h2>
+<p class="intro">Pour celles et ceux qui tiennent la feuille de délibération.</p>
+
+<article class="nouveau" data-pour="sec dir">
+  <h3>La clôture ouvre la seconde session</h3>
+  <p>Dès que la séance de première session est close et qu'il y a des ajournés, la seconde session est proposée — même si un dossier est resté sans décision. Une séance « toute l'unité » close vaut pour tous les étudiants de l'unité ; une unité délibérée par organisation ouvre la seconde session organisation par organisation, et l'écran nomme celles qui restent en première.</p>
+  <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
+</article>
+
+<article class="nouveau" data-pour="sec dir">
+  <h3>« Ajourner aussi », pour toute la liste</h3>
+  <p>À la clôture, Lucie refuse un ajourné dont un acquis en échec n'est pas ajourné : il ne serait pas représenté en seconde session. La liste s'affiche désormais en clair, un étudiant par ligne, et un bouton <b>« Ajourner aussi leurs acquis en échec »</b> règle tout le monde d'un coup, après confirmation : la décision et les notes ne changent pas.</p>
+  <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
+</article>
+
+<article class="nouveau" data-pour="sec dir">
+  <h3>Un refus se dit là où l'on a cliqué</h3>
+  <p>Quand Lucie refuse un geste de la feuille — une note dans une séance close, un lot PP, NP et CM sur une séance déjà close —, le message s'affiche à côté du bouton, et non plus en haut de la page, hors de vue.</p>
+  <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
+</article>
+
+<h2>Enseignants</h2>
+<p class="intro">Dans <b>Mes cours</b>.</p>
+
+<article class="nouveau" data-pour="ens dir">
+  <h3>Le carnet de cotes</h3>
+  <span class="ou">Où : <b>Mes cours → un cours → Carnet</b>.</span>
+  <p>Une colonne par évaluation (intitulé, date, sur combien, poids), des points ou PP, NP, CM. On peut coller une colonne d'Excel et sortir le carnet en Excel. Une évaluation rattachée à des acquis propose une note par acquis ; « Reprendre dans la feuille de notes » remplit les cases, et c'est vous qui enregistrez.</p>
+  <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
+</article>
+
+<article class="nouveau" data-pour="ens">
+  <h3>Mon horaire dans l'agenda du téléphone</h3>
+  <span class="ou">Où : <b>Mes cours → rail → Mon horaire dans mon agenda</b>.</span>
+  <p>Un lien à ajouter à l'agenda du téléphone (iPhone, Google, Outlook) : vos séances y apparaissent et suivent seules les déplacements et les annulations. Le lien ne s'affiche qu'une fois ; « Nouveau lien » annule l'ancien.</p>
+  <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
+</article>
+
+<article class="nouveau" data-pour="ens sec dir">
+  <h3>Les présences, et le retard</h3>
+  <span class="ou">Où : <b>Mes cours → Présences</b>.</span>
+  <p>Séance par séance : P présent, P* présent en retard (ses heures comptent), A absent, J absence justifiée avec son motif. La grille du cours sort en PDF ou en Excel.</p>
+  <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
+</article>
+
+<article class="nouveau" data-pour="ens">
+  <h3>La seconde session dans Mes cours</h3>
+  <span class="ou">Où : <b>Mes cours → un cours → Notes</b>.</span>
+  <p>Dès que la délibération de l'unité — ou de votre organisation — est close, la feuille passe d'elle-même en <b>2ᵉ session</b> : elle ne montre que vos étudiants ajournés, sur les seuls acquis à représenter. Les notes de première session se lisent, elles ne se modifient plus.</p>
+  <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
+</article>
+
+<article class="nouveau" data-pour="ens">
+  <h3>Mon horaire de la semaine</h3>
+  <span class="ou">Où : <b>Mes cours → rail → Mon horaire de la semaine</b>.</span>
+  <p>Vos séances de la semaine, du lundi au vendredi (le week-end quand il y a cours), avec l'heure, le cours, l'activité et le local. Les flèches passent d'une semaine à l'autre ; une séance annulée reste visible, barrée. Sur le téléphone, la semaine se lit jour par jour.</p>
+  <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
+</article>
+
+<article class="nouveau" data-pour="ens dir">
+  <h3>La présence par QR code et le ticket de sortie</h3>
+  <span class="ou">Où : <b>Mes cours → Ma journée → une séance</b>.</span>
+  <p>Le professeur projette un QR code ; chaque étudiant le scanne avec son téléphone et sa présence s'encode. En fin de cours, le <b>ticket de sortie</b> pose jusqu'à quatre questions par le même téléphone, anonymes par défaut.</p>
+  <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
+</article>
+
+<h2>Coordinations</h2>
+
+<article class="nouveau" data-pour="coo dir">
+  <h3>Les dates d'une UE deviennent une demande</h3>
+  <p>Que les dates soient changées dans « Dates des UE » ou dans le laboratoire, la saisie d'une coordination part en <b>demande</b> à valider, et l'écran le dit (« transmise pour validation »). Une date de fin avant le début est refusée.</p>
+  <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
+</article>
+
+<h2>Direction</h2>
+
+<article class="nouveau" data-pour="dir">
+  <h3>Les présences dans Gestion, et la PEP estimée</h3>
+  <span class="ou">Où : <b>Gestion → Présences</b>.</span>
+  <p>Présences encodées, alertes (séances sans présences, plus de 20 % d'irréguliers au premier dixième), réguliers par section et par unité. La <b>PEP estimée</b> (réguliers × périodes de l'unité) se lit à côté de la PEP officielle d'eProm, pour la comparer.</p>
+  <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
+</article>
+
+<article class="nouveau" data-pour="dir coo">
+  <h3>Le plan d'action qualité</h3>
+  <span class="ou">Où : <b>Gestion → Qualité → Plan d'action</b>.</span>
+  <p>Chaque action porte son critère AEQES, son périmètre (l'école ou une section), un responsable, une échéance, une priorité, un indicateur et sa cible. L'avancement se pose par des <b>points de suivi</b>, qui ne s'effacent pas : un an plus tard, on relit qui a fait quoi et quand. Une action ne se supprime pas ; elle s'abandonne, avec un motif. La coordination tient les actions de ses sections.</p>
+  <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
+</article>
+
+<article class="nouveau" data-pour="dir">
+  <h3>Les valorisations comptent dans le parcours</h3>
+  <p>Une unité dispensée en entier par une valorisation décidée compte désormais comme acquise : crédits de l'annexe 2, schéma du parcours, motif proposé. Avant, ces crédits valaient zéro.</p>
+  <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
+</article>
+
+<article class="nouveau" data-pour="dir">
+  <h3>Un second établissement</h3>
+  <span class="ou">Où : <b>Configuration → Identité</b>.</span>
+  <p>Les pièces d'un étudiant d'une section rattachée à un autre établissement portent le nom, l'adresse, le logo, la signature et le cachet de cet établissement. À régler avant usage : sa fiche, ses images et ses sections.</p>
+  <div class="etiquettes"><span class="etiquette dev">À régler avant usage</span></div>
+</article>
+
+<article class="nouveau" data-pour="dir">
+  <h3>Le motif proposé en cas d'échec</h3>
+  <span class="ou">Où : <b>Configuration → Unités et cours → fiche de l’UE → Acquis</b>.</span>
+  <p>Pour chaque acquis, une phrase que la délibération propose quand le motif d'échec est vide. Elle n'est jamais écrite d'office : le Conseil la confirme.</p>
+  <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
+</article>
+
+<article class="nouveau" data-pour="sec dir">
+  <h3>Les procédures s'écrivent dans Lucie, par parties</h3>
+  <span class="ou">Où : <b>Documentation → Écrire un texte</b>, ou un texte ouvert <b>→ Réécrire par parties</b>.</span>
+  <p>Les textes de l'IIP (procédures, RDE, ROI, notes de service) se rédigent partie par partie, comme le mode d'emploi : un sommaire, puis pour chaque partie des points numérotés — qui, où dans Lucie, le texte, « à savoir ». Un texte déjà déposé se découpe à ses titres ; on relit avant de publier. Chaque texte s'imprime depuis Lucie, avec son sommaire et sa version.</p>
+  <div class="etiquettes"><span class="etiquette prod">À partir du 2 novembre</span></div>
+</article>
+
+<section class="avenir">
+  <h2>Ce qui vient ensuite</h2>
+  <ul>
+    <li data-pour="sec dir">L'import du premier extrait de compte réel, puis chaque semaine.</li>
+        <li data-pour="coo dir">La pièce « plan d'action » publiable, et les actions à l'Accueil de leur responsable.</li>
+  </ul>
+</section>
+</main>
+
+<footer>Institut Ilya Prigogine · Lucie · guide des nouveautés de la reprise du 2 novembre 2026, version 3.1.467. Une question, une idée : « Proposer une amélioration », sur chaque écran de Lucie.</footer>
+</div>
+
+</div></body></html>

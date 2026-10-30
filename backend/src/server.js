@@ -110,6 +110,7 @@ import dcppRoutes          from './routes/dcpp.js';
 import dossiersRoutes      from './routes/dossiers.js';
 import recrutementRoutes   from './routes/recrutement.js';
 import aaRoutes            from './routes/aa.js';
+import { logoCourant } from './lib/identite.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -2926,6 +2927,9 @@ try { migrerTentatives(db); } catch (e) { console.error('[migration] tentatives 
 import { planifierRetention, migrerRetention } from './lib/retention.js';
 try { migrerRetention(db); } catch (e) { console.error('[migration] retention :', e.message); }
 try { planifierRetention(); } catch (e) { console.error('[retention] planification :', e.message); }
+// Le récapitulatif quotidien par courriel (3.1.472) : le matin, seulement si quelque chose de nouveau attend.
+import { planifierRecap, migrerRecap } from './lib/recapQuotidien.js';
+try { migrerRecap(db); planifierRecap(); } catch (e) { console.error('[recap] planification :', e.message); }
 try { migrerClassement(db); } catch (e) { console.error('[migration] classement :', e.message); }
 try { migrerAncienneteService(db); } catch (e) { console.error('[migration] anciennete_service :', e.message); }
 try { migrerEtudiants(db); } catch (e) { console.error('[migration] etudiants :', e.message); }
@@ -3089,6 +3093,24 @@ app.use((req, res, next) => {
 // LA PORTE DES ÉTUDIANTS (VA en ligne, 3 octobre 2026) : publique, avec son
 // propre jeton — aucune route du personnel ne l'accepte.
 app.use('/api/portail-va', (await import('./routes/portailVA.js')).default);
+// L'ESPACE DE L'ÉTUDIANT N'EST PLUS ICI (3.1.477, le mur) : il vit dans le portail (dossier portail/,
+// etudiants.lucie-iip.be), sa base et ses clés à lui. Lucie n'en sert qu'une lecture pour la fiche.
+{
+  const { suiviPortail, planifierPortail } = await import('./lib/portailSync.js');
+  const { authRequired: exigerCompte } = await import('./middleware/auth.js');
+  app.get('/api/portail-suivi/:id', exigerCompte, (req, res) => res.json(suiviPortail(Number(req.params.id))));
+  try { planifierPortail(); } catch (e) { console.error('[portail] planification :', e.message); }
+}
+// LA PRÉSENCE PAR QR (28 octobre 2026) : publique, l'étudiant n'a pas de compte ;
+// son appareil appairé l'identifie (lib/presenceQr.js).
+app.use('/api/presence-qr', (await import('./routes/presenceQr.js')).default);
+// Mon horaire dans mon agenda : le flux .ics est public (le jeton fait foi), le reste demande la session.
+app.use('/api/agenda', (await import('./routes/agenda.js')).default);
+// Le suivi côté secrétariat : téléphones liés, journal, réglages (lot 4).
+app.use('/api/presence-qr-suivi', (await import('./routes/presenceQrSuivi.js')).default);
+app.use('/api/presences-ue', (await import('./routes/presencesUE.js')).default);
+// La démarche qualité : le plan d'action AEQES (3.1.442).
+app.use('/api/qualite', (await import('./routes/qualite.js')).default);
 app.use('/api/notes-doubles', (await import('./routes/notesDoubles.js')).default);
 app.use('/api/auth',         garderModule('auth'), authRoutes);
 app.use('/api/mfa',          garderModule('mfa'), mfaRoutes);
@@ -3172,6 +3194,9 @@ app.use('/api/planification-ia', garderModule('planification-ia'), planifIARoute
 app.use('/api/locaux', garderModule('locaux'), locauxRoutes);
 app.use('/api/apercu', garderModule('apercu'), apercuRoutes);
 app.use('/api/perimetre', garderModule('perimetre'), perimetreRoutes);
+// Le carnet de cotes, AVANT les routes paramétriques de Mes cours (« /:coursCode/… »).
+app.use('/api/mes-cours/carnet', garderModule('mes-cours'), (await import('./routes/carnet.js')).default);
+app.use('/api/mes-cours/ticket', garderModule('mes-cours'), (await import('./routes/ticketSortie.js')).default);
 app.use('/api/mes-cours', garderModule('mes-cours'), mesCoursRoutes);
 // LES PROPOSITIONS EN ATTENTE ENTRENT DANS L'ENCODAGE (reprise automatique, 8 octobre 2026) —
 // celles d'avant ce choix, une fois au démarrage ; ensuite, à chaque enregistrement.
@@ -3199,10 +3224,9 @@ const _logoPath = _jn(_dn(_fup(import.meta.url)), 'src/services/assets/logo_iip.
 /* Le logo sur FOND BLANC, celui de toutes les pièces : le PNG d'origine est
    opaque, sur fond noir (27 septembre 2026). */
 app.get('/api/logo-iip', async (_req, res) => {
-  const { LOGO_IIP_JPEG } = await import('./services/assets/logo_iip_jpeg.js');
   res.setHeader('Content-Type', 'image/jpeg');
   res.setHeader('Cache-Control', 'public, max-age=86400');
-  res.end(Buffer.from(LOGO_IIP_JPEG.split(',')[1], 'base64'));
+  res.end(Buffer.from(logoCourant().split(',')[1], 'base64'));
 });
 const _logoBlanc = _jn(_dn(_fup(import.meta.url)), 'src/services/assets/logo_iip_blanc.png');
 app.get('/api/logo-iip-blanc', (_req, res) => {
@@ -3229,6 +3253,10 @@ try { demarrerPlanificateur(); } catch (e) { console.error('[sauvegarde] planifi
 // Le journal des modifications en DERNIER : ses déclencheurs lisent les colonnes
 // que les migrations précédentes viennent d'ajouter.
 try { migrerJournalModifications(db); } catch (e) { console.error('[migration] journal des modifications :', e.message); }
+// Une note d'une séance close ne s'écrit plus, par aucune porte (3.1.432).
+try { (await import('./lib/gardeNotes.js')).poserGardeNotes(db); } catch (e) { console.error('[migration] garde des notes closes :', e.message); }
+// rn_norm se calcule à chaque écriture du numéro national, par toutes les portes (3.1.435).
+try { (await import('./lib/etudiantUnique.js')).poserNormalisationRN(db); } catch (e) { console.error('[migration] rn_norm :', e.message); }
 // Les images de l'établissement (logo, logo blanc, signature, cachet) remplacent les fichiers d'origine (3.1.253).
 import('./routes/etablissement.js').then(m => m.migrerEtablissements())   // une base neuve crée la table après l'import des routes
   .then(() => import('./lib/identite.js')).then(m => m.appliquerIdentite()).catch(e => console.error('[identité]', e.message))

@@ -97,19 +97,22 @@ r.get('/etudiants', authRequired, (req, res) => {
     .toUpperCase().replace(/[^A-Z0-9]+/g, '');
 
   // ── La base : les étudiants DE L'ANNÉE ────────────────────────────────────
+  // UN ARCHIVÉ N'EST PAS SUR UNE LISTE DE TP OU D'EXAMEN (3.1.469, Marie Lambert) — pour l'année de
+  // travail et les suivantes ; une année passée garde ceux qui y étaient inscrits.
+  const sansArchives = annee >= anneeDeTravail(req) ? "AND COALESCE(e.sortie_statut, '') <> 'archive'" : '';
   let base;
   if (ueNum) {
     base = db.prepare(`
       SELECT e.id, e.nom, e.prenom, e.id_ecampus, e.email_ecole, i.resultat, i.points
       FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
-      WHERE i.annee_scolaire = ? AND i.ue_num = ? AND e.actif = 1
+      WHERE i.annee_scolaire = ? AND i.ue_num = ? AND e.actif = 1 ${sansArchives}
       ORDER BY e.nom, e.prenom`).all(annee, ueNum)
       .map(x => ({ ...x, statut: 'Inscrit' }));
   } else {
     base = db.prepare(`
       SELECT DISTINCT e.id, e.nom, e.prenom, e.id_ecampus, e.email_ecole
       FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
-      WHERE i.annee_scolaire = ? AND e.actif = 1
+      WHERE i.annee_scolaire = ? AND e.actif = 1 ${sansArchives}
       ORDER BY e.nom, e.prenom`).all(annee)
       .map(x => ({ ...x, statut: 'Inscrit' }));
     if (section) {
@@ -117,7 +120,7 @@ r.get('/etudiants', authRequired, (req, res) => {
       // « de l'année » aussi — susceptibles d'en avoir un.
       const dedans = new Set(base.map(x => x.id));
       for (const e of db.prepare(
-        'SELECT id, nom, prenom, id_ecampus, email_ecole FROM etudiant WHERE actif = 1').all()) {
+        "SELECT id, nom, prenom, id_ecampus, email_ecole FROM etudiant WHERE actif = 1 AND COALESCE(sortie_statut, '') = ''").all()) {
         if (dedans.has(e.id)) continue;
         const rat = sectionRattachement(e.id, annee);
         if (rat.section && norm(rat.section) === norm(section)) {

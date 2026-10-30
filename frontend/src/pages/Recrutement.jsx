@@ -514,19 +514,15 @@ function FormulaireCandidatIA({ annee, ue_num, code_cours, section, onSaved, onC
         r.onerror = rej;
         r.readAsDataURL(file);
       });
-      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      // PAR LE SERVEUR DE LUCIE (audit du 28 octobre 2026) : l'appel partait du navigateur,
+      // sans clé, et échouait toujours — le CV ne quitte plus Lucie que par sa porte.
+      const resp = await fetch('/api/analyse-cv', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6', max_tokens: 500,
-          messages: [{ role: 'user', content: [
-            { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
-            { type: 'text', text: 'Extrais du CV. JSON strict sans backticks : {"nom":"NOM (en majuscules)","prenom":"Prénom","email":"","telephone":"","notes":"profil en 1-2 phrases"}' }
-          ]}]
-        }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify({ pdf_base64: base64, media_type: 'application/pdf' }),
       });
-      const data = await resp.json();
-      const info = JSON.parse((data.content || []).map(b => b.text || '').join('').trim());
+      const info = await resp.json();
+      if (!resp.ok) throw new Error(info.error || 'Analyse impossible');
       setF(prev => ({
         nom:       info.nom       || prev.nom,
         prenom:    info.prenom    || prev.prenom,
@@ -882,31 +878,17 @@ function GrilleEntretien({ poste, annee, qIA, setQIA, grille }) {
     setLoading(true); setErr('');
     try {
       const ctx = await af(`/contexte?annee=${encodeURIComponent(annee)}&ue_num=${poste.ue_num}&section=${encodeURIComponent(poste.section)}`);
-      const lignesAA = (ctx.aa || []).map(a => `- ${a.aa_code} : L'étudiant sera capable ${a.description}`).join('\n');
-      const lignesCours = (ctx.cours || []).map(c => `${c.cours_nom} (${c.ct_pp})`).join(', ');
 
-      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      // PAR LE SERVEUR DE LUCIE (audit du 28 octobre 2026), qui compose la demande à partir de ces champs.
+      const resp = await fetch('/api/analyse-cv/questions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6', max_tokens: 800,
-          messages: [{ role: 'user', content:
-            `Tu aides à recruter un professeur pour ce cours à l'Institut Ilya Prigogine (enseignement de promotion sociale, Bruxelles).
-
-Cours : ${poste.nom_cours || poste.ue_nom} — UE ${poste.ue_num} — Section ${poste.section}
-${lignesCours ? `Activités : ${lignesCours}` : ''}
-${lignesAA ? `\nAcquis d'apprentissage visés :\n${lignesAA}` : ''}
-
-Génère 6 à 8 questions d'entretien SPÉCIFIQUES à ce cours et à ces acquis d'apprentissage.
-Ces questions complètent une grille générale (connaissance formation, expérience, pédagogie, contraintes) déjà posée.
-Tester ici la maîtrise disciplinaire et la capacité à enseigner CES contenus précis.
-
-Réponds en JSON strict sans backticks : {"questions":["question 1","question 2",...]}`
-          }],
-        }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify({ cours: poste.nom_cours || poste.ue_nom, ue_num: poste.ue_num, section: poste.section,
+          activites: (ctx.cours || []).map(c => `${c.cours_nom} (${c.ct_pp})`),
+          acquis: (ctx.aa || []).map(a => ({ code: a.aa_code, description: a.description })) }),
       });
-      const data = await resp.json();
-      const parsed = JSON.parse((data.content || []).map(b => b.text || '').join('').trim());
+      const parsed = await resp.json();
+      if (!resp.ok) throw new Error(parsed.error || 'Génération impossible');
       setQIA(Array.isArray(parsed.questions) ? parsed.questions : []);
     } catch (e) { setErr('Erreur : ' + e.message); }
     finally { setLoading(false); }

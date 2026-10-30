@@ -1,0 +1,14 @@
+{
+  "name": "lucie-portail-etudiant",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Le portail des étudiants de Lucie — séparé de Lucie : sa base, ses clés, aucun accès à Lucie.",
+  "main": "src/serveur.js",
+  "scripts": { "start": "node src/serveur.js" },
+  "dependencies": {
+    "better-sqlite3": "^11.3.0",
+    "express": "^4.21.0",
+    "jsonwebtoken": "^9.0.2"
+  }
+}

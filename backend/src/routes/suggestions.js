@@ -15,6 +15,7 @@
  * n'apprend qu'une chose à son auteur : que cela ne sert à rien d'écrire. Le
  * statut « écartée » existe donc, et il porte un motif comme les autres.
  */
+import crypto from 'crypto';
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired } from '../middleware/auth.js';
@@ -153,6 +154,33 @@ function ajouterMessage(s, user, texte) {
 function voitTout(user) {
   return ['admin', 'directeur', 'directeur_adjoint'].includes(user?.role);
 }
+
+/**
+ * LES IDÉES, LUES PAR L'ASSISTANT À CHAQUE SESSION (3.1.470, Charles : « que tu aies la possibilité, à
+ * chaque connexion, de les lire »). L'assistant n'a pas de compte Lucie ni d'accès au serveur : il lit
+ * cette adresse avec un JETON, posé dans l'environnement du serveur (`LUCIE_IDEES_JETON`) et dans les
+ * secrets de l'environnement de l'assistant — jamais dans le dépôt ni dans une conversation. Sans jeton
+ * réglé côté serveur, l'adresse n'existe pas (404). LECTURE SEULE, et elle ne marque rien comme vu : la
+ * lecture de l'assistant n'est pas celle de la direction. Les idées ouvertes, et les closes qui ont bougé
+ * dans les quatorze derniers jours, avec leur fil.
+ */
+function jetonValide(recu) {
+  const attendu = process.env.LUCIE_IDEES_JETON || '';
+  if (attendu.length < 32 || !recu) return false;
+  const h = x => crypto.createHash('sha256').update(String(x)).digest();
+  return crypto.timingSafeEqual(h(recu), h(attendu));
+}
+r.get('/flux', (req, res) => {
+  if (!jetonValide(req.get('X-Lucie-Jeton'))) return res.status(404).json({ error: 'Introuvable.' });
+  const limite = new Date(Date.now() - 14 * 86400000).toISOString().replace('T', ' ').slice(0, 19);
+  const idees = db.prepare(`SELECT s.id, s.titre, s.detail, s.ecran, s.auteur_nom, s.etat, s.cree_le, s.maj_le,
+      ${COLONNES_FIL} FROM suggestion s ORDER BY s.cree_le DESC`).all()
+    .filter(s => !FERMES.includes(s.etat)
+      || [s.maj_le, s.dernier_direction_le, s.dernier_auteur_le].some(x => x && x >= limite))
+    .map(s => ({ ...s, fil: fil(s.id).map(m => ({ de: m.auteur_nom, cote: m.cote, le: m.cree_le, texte: m.texte })) }));
+  res.set('Cache-Control', 'no-store');
+  res.json({ lu_le: new Date().toISOString(), etats: ETATS, idees });
+});
 
 /* LA LISTE NE MARQUE RIEN COMME VU : elle ne sert pas le fil. Ce qui est
    nouveau passe devant — une réponse en attente de lecture ne se cherche pas

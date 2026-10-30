@@ -16,7 +16,6 @@
 import { filigraner } from '../lib/filigraneDocument.js';
 import { Router } from 'express';
 import { manquesDossier, uniteValorisable } from '../lib/valorisation.js';
-import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 import { piedBalisage, piedStyles, reglesDePage, stylesEntete, enteteDocument,
   BANDE_PIED_MM, MARGE_SOUS_PIED_MM, piedGabaritPdf } from '../lib/document.js';
 import { sectionDuDossier } from '../lib/sectionDossier.js';
@@ -26,7 +25,6 @@ import { authRequired, getUserSections, roleRequired } from '../middleware/auth.
 import { PEUT_INSTRUIRE } from '../lib/valorisation.js';
 import { gesteRequis } from '../lib/gestes.js';
 import { capacitePdf, rendrePdf, rendrePdfs, compterPages } from '../services/pdf.js';
-import { SIGNATURE_SOHET, SCEAU_IIP } from '../services/assets/signature_sohet.js';
 import { piedDocument } from './parametres.js';
 import { identiteEtablissement } from './config.js';
 import { composerModele, STYLE_MODELE, declarerModele, blocModele } from '../lib/modelesPieces.js';
@@ -36,6 +34,7 @@ import { composerModele, STYLE_MODELE, declarerModele, blocModele } from '../lib
 // deux sources pour un même fait, c'est une source de moins.
 import { membresDuConseil, etatQuorum, CATEGORIES_MEMBRE,
   nomPropreDepuisChaine, memePersonne } from './acquis.js';
+import { cachetCourant, logoCourant, signatureCourante } from '../lib/identite.js';
 
 const r = Router();
 
@@ -356,7 +355,7 @@ function envelopperBrut(corps, titre) {
 <title>${esc(titre)}</title>
 <style>
 ${STYLE_MODELE}
-:root{--sceau:url("${SCEAU_IIP}");--paraphe:url("${SIGNATURE_SOHET}")}
+:root{--sceau:url("${cachetCourant()}");--paraphe:url("${signatureCourante()}")}
   * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
   /* Une attestation tient sur UNE page : les corps sont resserrés et les
@@ -601,7 +600,7 @@ ${STYLE_MODELE}
   }
 </style></head><body>
 ${corps}
-${piedBalisage(LOGO_IIP_JPEG)}
+${piedBalisage(logoCourant())}
 </body></html>`;
 }
 
@@ -922,7 +921,7 @@ export function pageAttestation(e, u, annee, etab, dateDoc = null,
    réservaient 22 mm sans gabarit : le pied, posé dans le flux, débordait de la
    page selon la longueur de la pièce. */
 const OPTIONS_PDF_ATTESTATION = () => ({
-  pied: avecNum => piedGabaritPdf(LOGO_IIP_JPEG, piedDocument(), avecNum),
+  pied: avecNum => piedGabaritPdf(logoCourant(), piedDocument(), avecNum),
   marges: { top: '12mm', right: '15mm', bottom: `${BANDE_PIED_MM}mm`, left: '15mm' },
   pagination: 'si-plusieurs',
 });
@@ -1011,8 +1010,16 @@ r.get('/etudiant/:id/document', authRequired, (req, res) => {
 
   const html = envelopper(pages, `Attestations — ${e.nom} ${e.prenom}`);
 
+  // `separes=1` (3.1.471) : chaque attestation aussi en pièce à part — l'envoi en fait un PDF chacune.
+  const propre = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9-]+/g, '_').replace(/^_+|_+$/g, '');
+  const documents = req.query.separes ? unites.map(u => ({
+    html: envelopper(pageAttestation(e, u, u._annee, etab, req.query.date_document, ident,
+      sessionDeReussite(e.id, u.ue_num, u._annee)), `Attestation — UE ${u.ue_num}`),
+    nom_fichier: `${propre(e.nom)}_${propre(e.prenom)}_UE${u.ue_num}_${String(u._annee).replace('-', '')}`,
+  })) : undefined;
+
   res.json({
-    html,
+    html, documents,
     nom: `attestations_${(e.nom || '').replace(/\W/g, '_')}_${annee === 'toutes' ? 'toutes_annees' : annee}.html`,
     unites: unites.length,
     annees,
@@ -1996,7 +2003,7 @@ r.post('/valorisation/ue/:ueNum/documents', authRequired, gesteRequis('valorisat
       pages = compterPages(await rendrePdf(htmlAvec('……'), {
         marges: { top: '12mm', right: '15mm',
                   bottom: `${BANDE_PIED_MM}mm`, left: '15mm' },
-        pied: avecNum => piedGabaritPdf(LOGO_IIP_JPEG, piedDocument(), avecNum),
+        pied: avecNum => piedGabaritPdf(logoCourant(), piedDocument(), avecNum),
         pagination: 'si-plusieurs',
       }));
     }

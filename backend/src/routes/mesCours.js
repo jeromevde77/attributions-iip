@@ -11,9 +11,13 @@ import { DECIDE } from '../lib/circuitAR.js';
 import { ecrirePresences, minutesDe, STATUTS_PRESENCE, MOTIFS_JUSTIFIES } from '../lib/cep.js';
 import { envelopperDocument, piedGabaritPdf, BANDE_PIED_MM } from '../lib/document.js';
 import { capacitePdf, rendrePdf } from '../services/pdf.js';
-import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 import { piedDocument } from './parametres.js';
 import { aRepresenterParCours } from './acquis.js';
+import { attributionsDe, etudiantsDuCours } from '../lib/etudiantsCours.js';
+import { donneesGrille, htmlGrille, excelGrille, premierDixieme, grillePermise, seancesDeLUE, grilleUE, dispensesUE } from '../lib/grillePresence.js';
+import { archiverDocument } from '../services/document-archive.js';
+import { lireSeance, qrDeLaSeance, compteurSeance, seancesACompleter, fenetreSeance, aujourdhuiBruxelles, migrerPresenceQr, modeEssai } from '../lib/presenceQr.js';
+import { logoCourant } from '../lib/identite.js';
 
 /**
  * MES COURS — la porte du professeur (25 septembre 2026).
@@ -143,7 +147,7 @@ const r = Router();
 /* Les acquis évalués par CE cours — la pondération seule en tient le compte,
  * comme pour la DUE. Sans lignes de pondération : repli sur le rattachement
  * direct aa.cours_code, puis, à défaut, la note de cours. */
-function acquisDuCours(coursCode, ueNum, annee) {
+export function acquisDuCours(coursCode, ueNum, annee) {
   try {
     const lies = db.prepare(`
       SELECT p.aa_code, COALESCE(a.description, '') AS description,
@@ -167,87 +171,6 @@ function profDe(req) {
   } catch { return null; }
 }
 
-// Les lignes d'attribution du professeur pour l'année : cours, organisation,
-// lettre de groupe — c'est à ce titre qu'il voit et propose.
-function attributionsDe(profId, annee) {
-  return db.prepare(`
-    SELECT DISTINCT a.code_cours, a.ue_num,
-           COALESCE(a.num_organisation, 1) AS org, a.code AS groupe,
-           COALESCE(a.activite_id, 0) AS activite_id,
-           (SELECT t.libelle FROM activite_type t WHERE t.id = a.activite_id) AS activite_libelle,
-           (SELECT c.cours_nom FROM cours c WHERE c.cours_code = a.code_cours
-             ORDER BY (c.annee_scolaire = ?) DESC LIMIT 1) AS cours_nom,
-           (SELECT x.ue_nom FROM ue x WHERE x.ue_num = a.ue_num AND x.ue_nom IS NOT NULL
-             ORDER BY x.annee_scolaire DESC LIMIT 1) AS ue_nom,
-           a.section,
-           -- Le bloc de l'unité DANS la section de l'attribution : un même
-           -- numéro vit sous plusieurs sections (l'UE 95).
-           (SELECT x.ue_niv FROM ue x WHERE x.ue_num = a.ue_num AND x.ue_niv IS NOT NULL
-             AND (a.section IS NULL OR x.section = a.section)
-             ORDER BY (x.annee_scolaire = ?) DESC, x.annee_scolaire DESC LIMIT 1) AS ue_niv
-    FROM attribution a
-    WHERE a.professeur_id = ? AND a.annee_scolaire = ? AND a.code_cours IS NOT NULL
-      -- Les activités retirées du carnet de cotes (Répartition des étudiants) :
-      -- de l'EPT, des périodes de correction… ne font pas un carnet.
-      AND NOT EXISTS (SELECT 1 FROM carnet_exclusion x WHERE x.annee_scolaire = a.annee_scolaire
-            AND x.cours_code = a.code_cours AND x.activite_id = COALESCE(a.activite_id, 0))
-    ORDER BY a.ue_num, a.code_cours, org, groupe
-  `).all(annee, annee, profId, annee);
-}
-
-/* Les étudiants du professeur pour UN cours : ceux de ses groupes quand la
- * répartition du cours existe, tous les inscrits de l'unité sinon. */
-function etudiantsDuCours(profId, coursCode, annee) {
-  const miennes = attributionsDe(profId, annee).filter(a => a.code_cours === coursCode);
-  if (!miennes.length) return null;   // pas son cours
-  const ueNum = miennes[0].ue_num;
-
-  /* PAR ACTIVITÉ. Un professeur porte une ou plusieurs lignes d'attribution
-   * — « labo, groupe 3 », « théorie » — et chacune désigne ses étudiants :
-   * ceux que la répartition a placés dans CE groupe de CETTE activité ; et
-   * si l'activité n'est pas répartie (la théorie, suivie par tous), tous les
-   * inscrits de l'unité. On réunit, sans doublon. */
-  const repartis = db.prepare(`
-    SELECT g.etudiant_id, g.num_organisation, g.groupe_code, COALESCE(g.activite_id, 0) AS activite_id,
-           e.nom, e.prenom, e.id_ecampus, e.email_ecole
-    FROM etudiant_cours_groupe g JOIN etudiant e ON e.id = g.etudiant_id
-    WHERE g.annee_scolaire = ? AND g.cours_code = ? AND e.actif = 1
-    ORDER BY e.nom, e.prenom
-  `).all(annee, coursCode);
-  const inscrits = () => db.prepare(`
-    SELECT e.id, e.nom, e.prenom, e.id_ecampus, e.email_ecole
-    FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
-    WHERE i.annee_scolaire = ? AND i.ue_num = ? AND e.actif = 1
-    ORDER BY e.nom, e.prenom
-  `).all(annee, ueNum);
-
-  const parId = new Map();
-  let repartition = false;
-  for (const a of miennes) {
-    const deLActivite = repartis.filter(x => x.activite_id === a.activite_id);
-    const prefixe = a.activite_libelle ? `${a.activite_libelle} · ` : '';
-    let lot;
-    if (deLActivite.length) {
-      repartition = true;
-      lot = deLActivite
-        .filter(x => (x.num_organisation ?? 1) === a.org && String(x.groupe_code || '') === String(a.groupe || ''))
-        .map(x => ({ id: x.etudiant_id, nom: x.nom, prenom: x.prenom, id_ecampus: x.id_ecampus, email_ecole: x.email_ecole,
-          groupe: `${prefixe}Org ${x.num_organisation ?? 1}${x.groupe_code ? ` · Gr. ${x.groupe_code}` : ''}` }));
-    } else {
-      lot = inscrits().map(x => ({ ...x, groupe: a.activite_libelle ? `${a.activite_libelle} · tous` : '' }));
-    }
-    for (const e of lot) {
-      const deja = parId.get(e.id);
-      if (!deja) parId.set(e.id, e);
-      else if (e.groupe && !deja.groupe.split(' + ').includes(e.groupe)) {
-        deja.groupe = deja.groupe ? `${deja.groupe} + ${e.groupe}` : e.groupe;
-      }
-    }
-  }
-  const etudiants = [...parId.values()].sort((x, y) =>
-    `${x.nom} ${x.prenom}`.localeCompare(`${y.nom} ${y.prenom}`, 'fr'));
-  return { miennes, ueNum, etudiants, repartition };
-}
 
 /* LA COORDINATION VOIT TOUS LES COURS DE SA SECTION (Charles, 26 septembre
  * 2026 : « comme elle a un rôle de coordination, elle doit pouvoir encoder les
@@ -303,7 +226,7 @@ function coursDesSections(sections, annee) {
 }
 /** Qui peut ouvrir ce cours, et avec quels étudiants : ses attributions
  *  d'abord ; à défaut, la coordination de la section. `null` : personne. */
-function accesCours(req, coursCode, annee) {
+export function accesCours(req, coursCode, annee) {
   const profId = profDe(req);
   const mien = profId ? etudiantsDuCours(profId, coursCode, annee) : null;
   if (mien) return { ...mien, portee: 'attribution' };
@@ -347,6 +270,8 @@ function clotures(ueNum, annee) {
   } catch { /* colonne absente : l'unité entière */ }
   return (session, etudiantId) => {
     const s = seances.filter(x => x.session === session);
+    // Une séance « toute l'unité » CLOSE est un Conseil tenu : tout le monde est clos (3.1.452).
+    if (s.some(x => !(x.org > 0) && x.cloturee)) return true;
     const parOrg = s.filter(x => x.org > 0);
     if (parOrg.length) {
       const o = orgDe.get(etudiantId) || 0;
@@ -583,6 +508,171 @@ r.get('/', authRequired, (req, res) => {
     sections_coordination: coordination ? (secs === null ? 'toutes' : secs) : null });
 });
 
+// ── LA GRILLE DE PRÉSENCE (28 octobre 2026) ─────────────────────────────────
+/* Les étudiants en lignes, les séances en colonnes : par cours (le professeur,
+ * depuis Mes cours) et par UE (la vérificatrice contrôle les présences dans
+ * l'UE). Produite ICI, comme les listes par groupe : un professeur n'entre pas
+ * dans le centre d'impression, et c'est l'appartenance du cours qui l'autorise.
+ * ?format=html : l'aperçu commun ; xlsx : le classeur ; sinon le PDF, archivé.
+ * ?du=&au= bornent la période (toute l'année par défaut). */
+const dateOk = v => (/^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? String(v) : null);
+const periode = q => {
+  const du = dateOk(q.du), au = dateOk(q.au);
+  return { du, au, ligne: du || au ? `Période : ${du ? du.split('-').reverse().join('/') : 'début'} – ${au ? au.split('-').reverse().join('/') : 'aujourd’hui'}` : 'Toute l’année' };
+};
+/** La grille de l'UE est-elle permise ? Direction, secrétariat, et la coordination de SA section
+ *  — la même règle que le centre d'impression (`grillePermise`, lib/grillePresence.js). */
+function grilleUEPermise(req, ueNum) {
+  return grillePermise(req.user?.role, getUserSections(req.user), ueNum);
+}
+async function repondreGrille(req, res, g, { titre, sous, ligne, ue = false, cours = {}, nom, annee }) {
+  const fichier = nom.replace(/[^A-Za-z0-9_.-]+/g, '_');
+  if (req.query.format === 'xlsx') {
+    const buf = await excelGrille(g, { titre: `${titre} — ${sous} — ${ligne}`, ue, cours });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${fichier}.xlsx"`);
+    return res.end(Buffer.from(buf));
+  }
+  const html = htmlGrille(g, { titre, sous, ligne, ue, cours });
+  if (req.query.format === 'html') return res.json({ html, nom: fichier });
+  const cap = await capacitePdf();
+  if (!cap.disponible) return res.json({ html, nom: fichier });
+  try {
+    const pdf = await rendrePdf(html, { pagination: 'si-plusieurs', orientation: 'paysage',
+      pied: avecNum => piedGabaritPdf(logoCourant(), piedDocument(), avecNum),
+      marges: { top: '12mm', right: '12mm', bottom: `${BANDE_PIED_MM}mm`, left: '12mm' } });
+    archiverDocument({ type_doc: ue ? 'grille_presence_ue' : 'grille_presence_cours', annee_scolaire: annee,
+      nom_fichier: `${fichier}.pdf`, pdf, genere_par: req.user?.email || req.user?.nom || null });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${fichier}.pdf"`);
+    res.end(pdf);
+  } catch (e) { res.json({ html, nom: fichier, avertissement: e.message }); }
+}
+
+r.get('/ue/:ueNum/grille-presences', authRequired, async (req, res) => {
+  const ueNum = Number(req.params.ueNum);
+  const annee = String(req.query.annee || anneeDeTravail(req));
+  if (!grilleUEPermise(req, ueNum)) return res.status(403).json({ error: 'La grille de l’UE se sort au secrétariat, à la direction ou par la coordination de la section.' });
+  const p = periode(req.query);
+  const x = grilleUE(ueNum, annee, { du: p.du, au: p.au });
+  await repondreGrille(req, res, x.g, { ...x.opts, nom: x.nom, annee });
+});
+
+r.get('/:coursCode/grille-presences', authRequired, async (req, res) => {
+  const annee = String(req.query.annee || anneeDeTravail(req));
+  const code = req.params.coursCode;
+  const d = accesCours(req, code, annee);
+  if (!d) return res.status(403).json({ error: "Ce cours n'est ni dans vos attributions, ni dans votre section." });
+  const nom = db.prepare('SELECT cours_nom FROM cours WHERE cours_code = ? ORDER BY (annee_scolaire = ?) DESC LIMIT 1').get(code, annee)?.cours_nom || '';
+  const p = periode(req.query);
+  // Le premier dixième est celui de l'UE, pas du cours : il se calcule sur toutes ses séances.
+  const g = donneesGrille({ seances: seancesDuCours(req, d, code, annee), etudiants: d.etudiants, du: p.du, au: p.au,
+    dixieme: premierDixieme(seancesDeLUE(d.ueNum, annee).seances), dispensesParEtudiant: dispensesUE(d.etudiants, d.ueNum, annee) });
+  const profs = enseignantsParCours(annee).get(code) || [];
+  await repondreGrille(req, res, g, { titre: `Grille de présence — ${code}${nom ? ` · ${nom}` : ''}`,
+    sous: `UE ${d.ueNum}${profs.length ? ` · ${profs.join(', ')}` : ''} · ${annee}`, ligne: p.ligne,
+    nom: `Presences_${code}_${annee}`, annee });
+});
+
+// ── LA PRÉSENCE PAR QR, CÔTÉ ENSEIGNANT (28 octobre 2026) ──────────────────
+/* « LA CHOSE LA PLUS SIMPLE POSSIBLE POUR LE PROF » (Charles) : il n'a pas à
+ * chercher sa séance — Lucie lui propose celles du jour, celle dont la fenêtre
+ * est ouverte en tête. Les droits sont ceux des présences manuelles : le
+ * professeur pour SES séances, la coordination et la direction pour celles du cours. */
+try { migrerPresenceQr(); } catch (e) { console.error('[migration] présence QR :', e.message); }
+
+function seanceAccessible(req, coursCode, seanceId) {
+  const s = lireSeance(seanceId);
+  if (!s || s.cours_code !== coursCode) return null;
+  const d = accesCours(req, coursCode, s.annee_scolaire);
+  if (!d) return null;
+  return seancesDuCours(req, d, coursCode, s.annee_scolaire).some(x => x.id === s.id) ? s : null;
+}
+
+/* MA JOURNÉE (Charles, 28 octobre 2026 : « un aperçu de ses cours du jour sous la
+ * forme d'un mini calendrier ; s'il clique dessus, il peut prendre les présences,
+ * encoder une note, avoir la liste des étudiants »). Les séances du professeur
+ * pour une date (aujourd'hui par défaut), avec ce qu'il faut pour agir dessus :
+ * la fenêtre du QR, et où en sont les présences. */
+r.get('/journee', authRequired, (req, res) => {
+  const aujourdhui = aujourdhuiBruxelles();
+  const jour = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.date || '')) ? String(req.query.date) : aujourdhui;
+  const profId = profDe(req);
+  /* L'ANNÉE EST CELLE DES SÉANCES DU JOUR, pas celle que Mes cours affiche : un
+     professeur qui relit l'an passé doit quand même trouver le QR de ce matin. */
+  const annees = db.prepare('SELECT DISTINCT annee_scolaire a FROM horaire_seance WHERE date = ?').all(jour).map(x => x.a);
+  const encodees = db.prepare('SELECT COUNT(*) n FROM presence WHERE seance_id = ?');
+  const out = [];
+  for (const annee of annees) {
+    const attrs = profId ? attributionsDe(profId, annee) : [];
+    for (const code of [...new Set(attrs.map(a => a.code_cours))]) {
+      const d = accesCours(req, code, annee);
+      if (!d) continue;
+      const a = attrs.find(x => x.code_cours === code);
+      for (const s of seancesDuCours(req, d, code, annee).filter(x => x.date === jour)) {
+        out.push({ id: s.id, annee, cours_code: code, cours_nom: a?.cours_nom || '', ue_num: a?.ue_num ?? null,
+          matiere: s.matiere, heure_debut: s.heure_debut, heure_fin: s.heure_fin, local: s.local_texte || '',
+          sous_groupe: s.sous_groupe, annule: !!s.annule,
+          fenetre: jour === aujourdhui ? fenetreSeance({ ...s }, new Date()) : null,
+          presences: { encodees: encodees.get(s.id).n, attendus: d.etudiants.length } });
+      }
+    }
+  }
+  out.sort((x, y) => String(x.heure_debut).localeCompare(String(y.heure_debut)));
+  res.json({ jour, aujourdhui, seances: out, essai: modeEssai() });
+});
+
+/* MON HORAIRE DE LA SEMAINE (3.1.464, Charles, 29 octobre 2026 : « je veux voir l'horaire »). Les séances
+ * de la semaine qui contient `date` (lundi → dimanche), par la même règle que Ma journée et les présences
+ * (`seancesDuCours` : celles qui nomment le professeur, ou toutes quand l'horaire ne nomme personne). */
+r.get('/semaine', authRequired, (req, res) => {
+  const aujourdhui = aujourdhuiBruxelles();
+  const ref = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.date || '')) ? String(req.query.date) : aujourdhui;
+  const d0 = new Date(`${ref}T12:00:00Z`);
+  const lundi = new Date(d0); lundi.setUTCDate(d0.getUTCDate() - ((d0.getUTCDay() + 6) % 7));
+  const jours = Array.from({ length: 7 }, (_, i) => { const x = new Date(lundi); x.setUTCDate(lundi.getUTCDate() + i); return x.toISOString().slice(0, 10); });
+  const profId = profDe(req);
+  const annees = db.prepare(`SELECT DISTINCT annee_scolaire a FROM horaire_seance WHERE date BETWEEN ? AND ?`).all(jours[0], jours[6]).map(x => x.a);
+  const out = [];
+  for (const annee of annees) {
+    const attrs = profId ? attributionsDe(profId, annee) : [];
+    for (const code of [...new Set(attrs.map(a => a.code_cours))]) {
+      const d = accesCours(req, code, annee);
+      if (!d) continue;
+      const a = attrs.find(x => x.code_cours === code);
+      for (const s of seancesDuCours(req, d, code, annee).filter(x => x.date >= jours[0] && x.date <= jours[6])) {
+        out.push({ id: s.id, date: s.date, cours_code: code, cours_nom: a?.cours_nom || '', ue_num: a?.ue_num ?? null,
+          matiere: s.matiere, heure_debut: s.heure_debut, heure_fin: s.heure_fin, local: s.local_texte || '',
+          sous_groupe: s.sous_groupe, annule: !!s.annule });
+      }
+    }
+  }
+  out.sort((x, y) => (x.date + x.heure_debut).localeCompare(y.date + y.heure_debut));
+  res.json({ jours, aujourdhui, relie: !!profId, seances: out });
+});
+
+/* LE TABLEAU DE BORD DEMANDE CE QU'IL EN EST DES ABSENTS (Charles : « une fenêtre
+ * dans Lucie qui dit au prof : les étudiants suivants n'ont pas noté leur
+ * présence — présents, absents ou autre »). Les séances qu'il a projetées, la
+ * fenêtre fermée ; il complète par la route des présences, une fois qu'il a vu. */
+r.get('/qr/a-completer', authRequired, (req, res) => {
+  res.json({ seances: seancesACompleter(req.user?.id), statuts: STATUTS_PRESENCE, motifs: MOTIFS_JUSTIFIES });
+});
+
+r.get('/:coursCode/qr/:seanceId', authRequired, (req, res) => {
+  const s = seanceAccessible(req, req.params.coursCode, req.params.seanceId);
+  if (!s) return res.status(404).json({ error: 'Séance introuvable dans vos séances de ce cours.' });
+  const x = qrDeLaSeance(s, req.user);
+  if (x.erreur) return res.status(409).json({ ...x, error: x.message });
+  res.json({ ...x, compteur: compteurSeance(s) });
+});
+
+r.get('/:coursCode/qr/:seanceId/compteur', authRequired, (req, res) => {
+  const s = seanceAccessible(req, req.params.coursCode, req.params.seanceId);
+  if (!s) return res.status(404).json({ error: 'Séance introuvable dans vos séances de ce cours.' });
+  res.json(compteurSeance(s));
+});
+
 // ── La feuille d'un cours : mes étudiants et mes propositions ────────────────
 r.get('/:coursCode/etudiants', authRequired, (req, res) => {
   const annee = req.query.annee || anneeDeTravail(req);
@@ -650,6 +740,7 @@ r.get('/:coursCode/etudiants', authRequired, (req, res) => {
     annee, cours_code: req.params.coursCode, ue_num: d.ueNum,
     repartition: d.repartition, portee: d.portee,
     session, sessions,
+    grille_ue: grilleUEPermise(req, d.ueNum),
     lecture_seule: d.etudiants.length > 0 && d.etudiants.every(e => e.clos),
     enseignants: enseignantsParCours(annee).get(req.params.coursCode) || [],
     // La feuille du professeur note PAR ACQUIS ; sans AA rattachés au cours,
@@ -715,7 +806,7 @@ tr{break-inside:avoid}`,
   if (!cap.disponible) return res.json({ html });
   try {
     const pdf = await rendrePdf(html, { pagination: 'si-plusieurs', orientation: 'portrait',
-      pied: avecNum => piedGabaritPdf(LOGO_IIP_JPEG, piedDocument(), avecNum),
+      pied: avecNum => piedGabaritPdf(logoCourant(), piedDocument(), avecNum),
       marges: { top: '12mm', right: '15mm', bottom: `${BANDE_PIED_MM}mm`, left: '15mm' } });
     const fichier = `Liste_${code}${demande ? `_${demande}` : ''}`.replace(/[^A-Za-z0-9_.-]+/g, '_');
     res.setHeader('Content-Type', 'application/pdf');
@@ -1126,7 +1217,7 @@ r.post('/:coursCode/reprendre', authRequired, roleRequired(...PEUT_INSTRUIRE), (
  * cours. Une séance à venir ne s'encode pas : on n'atteste pas une présence qui
  * n'a pas encore eu lieu. */
 function seancesDuCours(req, d, coursCode, annee) {
-  const toutes = db.prepare(`SELECT id, date, heure_debut, heure_fin, minutes, sous_groupe, matiere,
+  const toutes = db.prepare(`SELECT id, date, heure_debut, heure_fin, minutes, sous_groupe, matiere, local_texte,
       professeur_id, COALESCE(annule, 0) AS annule
     FROM horaire_seance WHERE annee_scolaire = ? AND cours_code = ?
     ORDER BY date, heure_debut`).all(annee, coursCode);
@@ -1143,19 +1234,31 @@ r.get('/:coursCode/presences', authRequired, (req, res) => {
   const d = accesCours(req, req.params.coursCode, annee);
   if (!d) return res.status(403).json({ error: "Ce cours n'est ni dans vos attributions, ni dans votre section." });
   const seances = seancesDuCours(req, d, req.params.coursCode, annee);
+  /* POURQUOI LA LISTE EST VIDE (3.1.462, Charles, compte d'essai « Charles Sohet » : « je ne vois pas mon
+     horaire »). « Aucune séance dans l'horaire » était faux quand le cours A des séances, mais qu'elles nomment
+     un autre professeur : la règle de Mes cours ne montre que les séances qui vous nomment. On le dit, en
+     nommant qui l'horaire désigne, et si le compte n'est relié à aucune fiche de professeur. */
+  let vide = null;
+  if (!seances.length) {
+    const ps = db.prepare(`SELECT DISTINCT p.nom, p.prenom FROM horaire_seance h JOIN professeur p ON p.id = h.professeur_id
+        WHERE h.annee_scolaire = ? AND h.cours_code = ?`).all(annee, req.params.coursCode);
+    vide = ps.length
+      ? { raison: 'autres', noms: ps.map(p => `${String(p.nom || '').toUpperCase()} ${p.prenom || ''}`.trim()), relie: !!profDe(req) }
+      : { raison: 'horaire' };
+  }
   const ids = seances.map(x => x.id);
   const pres = {};
   if (ids.length) {
-    for (const p of db.prepare(`SELECT seance_id, etudiant_id, statut, motif, encode_par, encode_le FROM presence
+    for (const p of db.prepare(`SELECT seance_id, etudiant_id, statut, motif, retard, encode_par, encode_le FROM presence
         WHERE seance_id IN (${ids.map(() => '?').join(',')})`).all(...ids)) {
-      (pres[p.seance_id] ||= {})[p.etudiant_id] = { statut: p.statut, motif: p.motif, par: p.encode_par, le: p.encode_le };
+      (pres[p.seance_id] ||= {})[p.etudiant_id] = { statut: p.statut, motif: p.motif, retard: !!p.retard, par: p.encode_par, le: p.encode_le };
     }
   }
   let cep = new Set();
   try { cep = new Set(db.prepare('SELECT etudiant_id FROM etudiant_cep WHERE annee_scolaire = ?').all(annee).map(x => x.etudiant_id)); }
   catch { /* table absente */ }
   res.json({
-    annee, cours_code: req.params.coursCode, statuts: STATUTS_PRESENCE, motifs: MOTIFS_JUSTIFIES,
+    annee, cours_code: req.params.coursCode, statuts: STATUTS_PRESENCE, motifs: MOTIFS_JUSTIFIES, vide,
     aujourdhui: new Date().toISOString().slice(0, 10),
     seances: seances.map(x => ({ ...x, min: minutesDe(x),
       encodees: Object.keys(pres[x.id] || {}).length })),
@@ -1177,7 +1280,7 @@ r.post('/:coursCode/presences/:seanceId', authRequired, (req, res) => {
   }
   const miens = new Set(d.etudiants.map(e => e.id));
   const lignes = (req.body?.presences || []).map(p => ({ seance_id: s.id, etudiant_id: Number(p.etudiant_id),
-    statut: p.statut || null, motif: p.motif || null }));
+    statut: p.statut || null, motif: p.motif || null, retard: !!p.retard }));
   const etrangers = lignes.filter(l => !miens.has(l.etudiant_id));
   if (etrangers.length) return res.status(400).json({ error: `${etrangers.length} étudiant(s) hors de la liste de ce cours.` });
   const out = ecrirePresences(lignes, req.user?.email || req.user?.nom || null);

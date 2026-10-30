@@ -3,8 +3,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   IconBook, IconFileText, IconCheck, IconAlertTriangle, IconPlus,
   IconHistory, IconUsersGroup, IconHelpCircle, IconScale, IconExternalLink, IconTrash,
-  IconWritingSign, IconUpload, IconTemplate,
+  IconWritingSign, IconUpload, IconTemplate, IconSend, IconListNumbers,
 } from '@tabler/icons-react';
+import { LecteurParties, EditeurParties, manqueParties, pourPublier, nouvellesParties } from '../components/TexteParParties.jsx';
 import { useSearchParams } from 'react-router-dom';
 import { authHeaders, getUser } from '../lib/api.js';
 import { PageHeader, RailLateral, Fenetre } from '../components/ui.jsx';
@@ -66,6 +67,8 @@ const ROLES = [
   ['professeur', 'Enseignants'], ['secretariat', 'Secrétariat'],
   ['coordination', 'Coordinations'], ['directeur_adjoint', 'Direction adjointe'],
   ['editeur', 'Éditeurs'],
+  // Les étudiants le lisent et l'accusent dans leur espace (/espace, 3.1.475), un code à l'appui.
+  ['etudiant', 'Étudiants'],
 ];
 
 function CasesRoles({ roles, onBasculer }) {
@@ -102,6 +105,7 @@ export default function Documentation() {
   const [actionConv, setActionConv] = useState(null);       // nouvelle | deposer | modeles
   const [docs, setDocs] = useState(null);
   const [natures, setNatures] = useState([]);
+  const [parParties, setParParties] = useState([]);   // les natures qui s'écrivent par parties (serveur)
   const [fNature, setFNature] = useState('');
   const [erreur, setErreur] = useState(null);
   /* LE DOCUMENT OUVERT VIT DANS L'ADRESSE (`?doc=<clé>`).
@@ -116,6 +120,7 @@ export default function Documentation() {
     return n;
   });
   const [depot, setDepot] = useState(false);
+  const [conversion, setConversion] = useState(false);
   const [registre, setRegistre] = useState(null);
   const [retirerOuvert, setRetirerOuvert] = useState(false);
 
@@ -126,6 +131,7 @@ export default function Documentation() {
       if (!r.ok) { setErreur(j.error || 'Lecture refusée.'); return; }
       setDocs(j.documents || []);
       setNatures(j.natures || []);
+      setParParties(j.par_parties || []);
     } catch (e) { setErreur(e.message); }
   }, []);
   useEffect(() => { charger(); }, [charger]);
@@ -173,8 +179,10 @@ export default function Documentation() {
             { key: 'conv-modeles', label: 'Modèles de convention', icon: IconTemplate,
               onClick: () => setActionConv('modeles') },
           ]}] : publie ? [{ label: 'Actions', items: [
-            { key: 'deposer', label: 'Déposer un texte', icon: IconPlus,
+            { key: 'deposer', label: 'Écrire un texte', icon: IconPlus,
               couleur: 'var(--menu-accent)', onClick: () => setDepot(true) },
+            { key: 'convertir', label: 'Convertir les textes de l’IIP par parties', icon: IconListNumbers,
+              onClick: () => setConversion(true) },
           ]}] : []),
         ]}
       />
@@ -224,7 +232,7 @@ export default function Documentation() {
             {docs && !vus.length && (
               <p className="text-sm text-slate-400">
                 Aucun texte déposé{fNature ? ' de cette nature' : ''}.
-                {publie && ' Le bouton « Déposer un texte » en ajoute un.'}
+                {publie && ' Le bouton « Écrire un texte » en ajoute un.'}
               </p>
             )}
 
@@ -282,12 +290,13 @@ export default function Documentation() {
       </div>
 
       {ouvert && (
-        <LireTexte cle={ouvert} publie={publie} natures={natures} retirer={retirerOuvert}
+        <LireTexte cle={ouvert} publie={publie} natures={natures} parParties={parParties} retirer={retirerOuvert}
           onClose={() => { setOuvert(null); setRetirerOuvert(false); }} onChange={charger} />
       )}
-      {depot && <DeposerTexte natures={natures}
+      {depot && <DeposerTexte natures={natures} parParties={parParties}
         onClose={() => setDepot(false)} onCree={charger} />}
       {registre && <Registre cle={registre} onClose={() => setRegistre(null)} />}
+      {conversion && <ConvertirTextes onClose={() => setConversion(false)} onFait={charger} />}
     </div>
   );
 }
@@ -307,7 +316,7 @@ export default function Documentation() {
  * Cela ne prétend pas prouver la LECTURE, et Charles l'a dit lui-même : coché
  * sans lire, c'est le problème de celui qui a coché.
  */
-function LireTexte({ cle, publie, natures, onClose, onChange, retirer: retirerDemande = false }) {
+function LireTexte({ cle, publie, natures, parParties = [], onClose, onChange, retirer: retirerDemande = false }) {
   const [d, setD] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(false);
@@ -379,7 +388,8 @@ function LireTexte({ cle, publie, natures, onClose, onChange, retirer: retirerDe
     try {
       const r = await fetch(`/api/documentation/${encodeURIComponent(cle)}/versions`, {
         method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contenu: nouvelle.contenu, format: 'html',
+        body: JSON.stringify({ contenu: nouvelle.parties ? pourPublier(nouvelle.parties) : nouvelle.contenu,
+                               format: nouvelle.parties ? 'parties' : 'html',
                                resume_changement: nouvelle.resume,
                                reconfirmer: nouvelle.reconfirmer,
                                source_url: nouvelle.source }),
@@ -389,6 +399,42 @@ function LireTexte({ cle, publie, natures, onClose, onChange, retirer: retirerDe
       setNouvelle(null); await charger(); await onChange?.();
     } catch (e) { setErreur(e.message); }
     finally { setEnCours(false); }
+  }
+
+  /* IMPRIMER (3.1.489, Charles : « Lucie, l'endroit aussi pour les imprimer »). La pièce vient du serveur, dans
+     l'enveloppe commune ; le PDF serveur d'abord, l'impression du navigateur si le serveur ne sait pas en faire. */
+  async function imprimer() {
+    setEnCours(true); setErreur(null);
+    try {
+      const r = await fetch(`/api/documentation/${encodeURIComponent(cle)}/document${d?.version?.numero ? `?version=${d.version.numero}` : ''}`,
+        { headers: authHeaders() });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || 'La pièce n’a pas pu être composée.');
+      const rp = await fetch('/api/impression/pdf', { method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ html: j.html, nom: j.nom, pagination: 'auto' }) });
+      if (rp.ok) {
+        const url = URL.createObjectURL(await rp.blob());
+        const lien = document.createElement('a'); lien.href = url; lien.download = `${j.nom}.pdf`;
+        document.body.appendChild(lien); lien.click(); lien.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
+      } else {
+        const w = window.open('', '_blank');
+        if (!w) throw new Error('Le navigateur a bloqué la fenêtre d’impression.');
+        w.document.write(j.html); w.document.close(); w.focus(); setTimeout(() => w.print(), 400);
+      }
+    } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
+  }
+
+  /* PASSER UN TEXTE EN PARTIES : le serveur le découpe à ses titres ; rien n'est publié avant relecture. */
+  async function decouper() {
+    setEnCours(true); setErreur(null);
+    try {
+      const r = await fetch(`/api/documentation/${encodeURIComponent(cle)}/decouper`, { headers: authHeaders() });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || 'Découpage refusé.');
+      setNouvelle({ parties: j.parties?.length ? j.parties : nouvellesParties(),
+        resume: 'Texte réécrit par parties dans Lucie.', reconfirmer: false, source: d?.source_url || '' });
+    } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
   }
 
   /* MODIFIER À QUI LE TEXTE S'IMPOSE, APRÈS PUBLICATION.
@@ -447,7 +493,10 @@ function LireTexte({ cle, publie, natures, onClose, onChange, retirer: retirerDe
             Ce document ne vous est pas opposé : il est là pour information.
           </span>
         )}
-        <button className="bouton ml-auto" onClick={onClose}>Fermer</button>
+        <button className="bouton bouton-sortir ml-auto" disabled={enCours || !d?.version} onClick={imprimer}>
+          <IconSend size={15} /> Imprimer
+        </button>
+        <button className="bouton" onClick={onClose}>Fermer</button>
       </>}>
 
       {erreur && (
@@ -475,7 +524,9 @@ function LireTexte({ cle, publie, natures, onClose, onChange, retirer: retirerDe
           l'écriture — seule une liste fermée de balises y est entrée —, on
           peut donc l'afficher tel quel. Texte brut (les versions d'avant
           2.12.91) : `pre-wrap`, on respecte les retours à la ligne. */}
-      {d?.version?.format === 'html' ? (
+      {d?.version?.format === 'parties' ? (
+        <LecteurParties parties={(() => { try { return JSON.parse(d.version.contenu).parties || []; } catch { return []; } })()} />
+      ) : d?.version?.format === 'html' ? (
         <div className="carte p-4 texte-corpus-cadre">
           <div className="texte-corpus"
             dangerouslySetInnerHTML={{ __html: d.version.contenu }} />
@@ -589,13 +640,20 @@ function LireTexte({ cle, publie, natures, onClose, onChange, retirer: retirerDe
       {publie && (
         <div className="mt-4">
           {!nouvelle ? (
-            <button className="bouton text-second"
-              onClick={() => setNouvelle({
-                contenu: d?.version?.format === 'html'
-                  ? d.version.contenu : texteEnHtml(d?.version?.contenu),
-                resume: '', reconfirmer: false, source: d?.source_url || '' })}>
-              Corriger — publier une nouvelle version
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button className="bouton text-second"
+                onClick={() => setNouvelle(d?.version?.format === 'parties'
+                  ? { parties: JSON.parse(d.version.contenu).parties || [], resume: '', reconfirmer: false, source: d?.source_url || '' }
+                  : { contenu: d?.version?.format === 'html'
+                    ? d.version.contenu : texteEnHtml(d?.version?.contenu),
+                  resume: '', reconfirmer: false, source: d?.source_url || '' })}>
+                Corriger — publier une nouvelle version
+              </button>
+              {d?.version?.format !== 'parties' && parParties.includes(d?.nature) && (
+                <button className="bouton text-second" disabled={enCours} onClick={decouper}>
+                  <IconListNumbers size={14} /> Réécrire par parties
+                </button>)}
+            </div>
           ) : (
             <div className="carte p-3 space-y-2">
               {/* UNE VERSION PUBLIÉE NE SE MODIFIE PLUS — on en publie une
@@ -604,8 +662,11 @@ function LireTexte({ cle, publie, natures, onClose, onChange, retirer: retirerDe
               <div className="intertitre">
                 Version {(d?.version?.numero || 0) + 1} — partie de la version {d?.version?.numero}
               </div>
-              <EditeurTexte valeur={nouvelle.contenu}
-                onChange={html => setNouvelle(n => ({ ...n, contenu: html }))} />
+              {nouvelle.parties ? (
+                <EditeurParties parties={nouvelle.parties} onChange={parties => setNouvelle(n => ({ ...n, parties }))} />
+              ) : (
+                <EditeurTexte valeur={nouvelle.contenu}
+                  onChange={html => setNouvelle(n => ({ ...n, contenu: html }))} />)}
               <input value={nouvelle.resume}
                 onChange={e => setNouvelle(n => ({ ...n, resume: e.target.value }))}
                 placeholder="Ce qui change, en une phrase — obligatoire"
@@ -634,7 +695,7 @@ function LireTexte({ cle, publie, natures, onClose, onChange, retirer: retirerDe
               </label>
               <div className="flex gap-2">
                 <button className="bouton bouton-fort disabled:opacity-40"
-                  disabled={enCours || sansTexte(nouvelle.contenu) || !nouvelle.resume.trim()}
+                  disabled={enCours || (nouvelle.parties ? !!manqueParties(nouvelle.parties) : sansTexte(nouvelle.contenu)) || !nouvelle.resume.trim()}
                   onClick={publier}>
                   Publier la version {(d?.version?.numero || 0) + 1}
                 </button>
@@ -648,12 +709,82 @@ function LireTexte({ cle, publie, natures, onClose, onChange, retirer: retirerDe
   );
 }
 
+/* ══ CONVERTIR LES TEXTES DE L'IIP PAR PARTIES, EN UN GESTE (3.1.492) ══════════
+   La liste de ce qui n'est pas encore par parties, le découpage proposé pour chacun (ouvrir pour voir les parties et
+   leurs points), puis une seule publication : la version suivante de chaque texte coché, sans reconfirmation. */
+function ConvertirTextes({ onClose, onFait }) {
+  const [textes, setTextes] = useState(null);
+  const [coches, setCoches] = useState(() => new Set());
+  const [ouvert, setOuvert] = useState(null);
+  const [erreur, setErreur] = useState(null);
+  const [enCours, setEnCours] = useState(false);
+  const [fait, setFait] = useState(null);
+  useEffect(() => {
+    fetch('/api/documentation/conversion', { headers: authHeaders() })
+      .then(async r => { const j = await r.json(); if (!r.ok) throw new Error(j.error || 'Lecture refusée.'); return j; })
+      .then(j => { setTextes(j.textes || []); setCoches(new Set((j.textes || []).filter(t => !t.sans_titres).map(t => t.cle))); })
+      .catch(e => setErreur(e.message));
+  }, []);
+  async function convertir() {
+    setEnCours(true); setErreur(null);
+    try {
+      const r = await fetch('/api/documentation/conversion', { method: 'POST',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify({ cles: [...coches] }) });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || 'Conversion refusée.');
+      setFait(j.convertis || []); await onFait?.();
+    } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
+  }
+  const nat = { procedure: 'Procédure', reglement: 'Règlement', note: 'Note de service' };
+  return (
+    <Fenetre icone={IconListNumbers} large="grande" onFermer={onClose} titre="Convertir les textes de l’IIP par parties"
+      sous="Chaque texte coché est publié en version suivante, découpé à ses titres ; personne ne doit reconfirmer"
+      pied={<>
+        {!fait && <button className="bouton bouton-fort disabled:opacity-40" disabled={enCours || !coches.size} onClick={convertir}>
+          {enCours ? 'Conversion…' : `Convertir ${coches.size} texte${coches.size > 1 ? 's' : ''}`}</button>}
+        <span className="text-second text-slate-500 min-w-0">
+          {fait ? `${fait.length} texte(s) convertis.` : 'Ouvrez une ligne pour voir les parties proposées.'}</span>
+        <button className="bouton ml-auto" onClick={onClose}>Fermer</button>
+      </>}>
+      {erreur && <div className="carte p-3 text-second text-rose-700 mb-3">{erreur}</div>}
+      {fait ? (
+        <div className="space-y-1 text-sm">{fait.map(f => (
+          <div key={f.cle} className="flex items-center gap-1.5"><IconCheck size={14} className="text-emerald-700" /> {f.titre} — version {f.version}</div>))}</div>
+      ) : !textes ? <div className="text-sm text-slate-500">Lecture…</div>
+        : !textes.length ? <div className="text-sm text-slate-500">Tous les textes de l’IIP sont déjà écrits par parties.</div> : (
+        <div className="space-y-2">
+          {textes.map(t => (
+            <div key={t.cle} className="carte p-3">
+              <div className="flex items-center gap-2">
+                <input type="checkbox" className="w-4 h-4" checked={coches.has(t.cle)}
+                  onChange={() => setCoches(c => basculerDans(c, t.cle))} />
+                <button type="button" className="flex-1 min-w-0 text-left" onClick={() => setOuvert(o => (o === t.cle ? null : t.cle))}>
+                  <span className="text-sm font-semibold text-iip-texte">{t.titre}</span>
+                  <span className="text-second text-slate-500"> · {nat[t.nature] || t.nature}{t.refaire ? ' · déjà converti, à redécouper' : ''} · version {t.version} → {t.version + 1} · {t.parties.length} partie{t.parties.length > 1 ? 's' : ''}, {(n => `${n} point${n > 1 ? 's' : ''}`)(t.parties.reduce((n, p) => n + p.points.length, 0))}</span>
+                </button>
+              </div>
+              {t.sans_titres && <div className="text-second mt-1" style={{ color: 'var(--c-attente)' }}>
+                Aucun titre trouvé : le texte passerait en une seule partie. Mieux vaut l’ouvrir et le découper à la main (« Réécrire par parties »).</div>}
+              {ouvert === t.cle && (
+                <ol className="mt-2 mb-0 pl-6 text-second text-slate-600 space-y-1">
+                  {t.parties.map((p, i) => (
+                    <li key={i}><b className="text-iip-texte">{p.titre}</b>{p.points.filter(Boolean).length ? ` — ${p.points.filter(Boolean).join(' · ')}` : ''}</li>))}
+                </ol>)}
+            </div>))}
+        </div>)}
+    </Fenetre>
+  );
+}
+
 /* ══ DÉPOSER UN TEXTE ═════════════════════════════════════════════════════ */
 
-function DeposerTexte({ natures, onClose, onCree }) {
+function DeposerTexte({ natures, parParties = [], onClose, onCree }) {
   const [titre, setTitre] = useState('');
   const [nature, setNature] = useState('procedure');
   const [contenu, setContenu] = useState('');
+  const [parties, setParties] = useState(nouvellesParties);
+  // UN TEXTE DE L'IIP S'ÉCRIT PAR PARTIES, DANS LUCIE (3.1.489) ; un décret, une circulaire se recopient tels quels.
+  const enParties = parParties.includes(nature);
   const [source, setSource] = useState('');
   const [roles, setRoles] = useState(() => new Set());
   const [erreur, setErreur] = useState(null);
@@ -665,8 +796,9 @@ function DeposerTexte({ natures, onClose, onCree }) {
      un mode d'emploi n'a pas à être accusé réception. */
 
   const manque = !titre.trim() ? 'Donne un titre au texte.'
-    : sansTexte(contenu) ? 'Importez un fichier ou écrivez le texte : il est vide.'
-      : null;
+    : enParties ? manqueParties(parties)
+      : sansTexte(contenu) ? 'Importez un fichier ou écrivez le texte : il est vide.'
+        : null;
 
   async function creer() {
     if (manque) return;
@@ -681,7 +813,7 @@ function DeposerTexte({ natures, onClose, onCree }) {
 
       const v = await fetch(`/api/documentation/${j.cle}/versions`, {
         method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contenu, format: 'html' }),
+        body: JSON.stringify(enParties ? { contenu: pourPublier(parties), format: 'parties' } : { contenu, format: 'html' }),
       });
       const jv = await v.json();
       if (!v.ok) throw new Error(jv.error || 'La version n’a pas pu être publiée.');
@@ -699,8 +831,9 @@ function DeposerTexte({ natures, onClose, onCree }) {
 
   return (
     <Fenetre icone={IconPlus} large="grande" onFermer={onClose}
-      titre="Déposer un texte"
-      sous="Il sera publié en version 1, et opposable aux rôles que vous cochez"
+      titre={enParties ? 'Écrire un texte' : 'Déposer un texte'}
+      sous={enParties ? 'Partie par partie, dans Lucie ; publié en version 1, opposable aux rôles que vous cochez'
+        : 'Il sera publié en version 1, et opposable aux rôles que vous cochez'}
       pied={<>
         <button className="bouton bouton-fort disabled:opacity-40"
           disabled={!!manque || enCours} onClick={creer}>
@@ -733,7 +866,9 @@ function DeposerTexte({ natures, onClose, onCree }) {
           placeholder="Lien vers le texte officiel en ligne (facultatif, utile pour un décret) — https://…"
           className="controle text-sm w-full" />
 
-        <EditeurTexte valeur={contenu} onChange={setContenu} />
+        {enParties
+          ? <EditeurParties parties={parties} onChange={setParties} />
+          : <EditeurTexte valeur={contenu} onChange={setContenu} />}
 
         <div className="carte p-3 space-y-2">
           <div className="intertitre">

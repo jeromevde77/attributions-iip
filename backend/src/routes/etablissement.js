@@ -1,9 +1,8 @@
 import { Router } from 'express';
+import { ibanValide } from '../lib/banque.js';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
-import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
-import { LOGO_IIP_BLANC_B64 } from '../services/assets/logo_iip_blanc.js';
-import { SIGNATURE_SOHET, SCEAU_IIP } from '../services/assets/signature_sohet.js';
+import { cachetCourant, logoBlancCourant, logoCourant, signatureCourante, oublierCompteEtablissements } from '../lib/identite.js';
 
 const r = Router();
 
@@ -31,7 +30,7 @@ export function migrerEtablissements(base = db) {
       })();
     }
     const ont = new Set(base.prepare('PRAGMA table_info(etablissement)').all().map(c => c.name));
-    for (const [c, t] of [['code', 'TEXT'], ['nom_court', 'TEXT'], ['logo', 'TEXT'], ['logo_blanc', 'TEXT'], ['signature', 'TEXT'], ['cachet', 'TEXT'], ['signataire', 'TEXT']])
+    for (const [c, t] of [['code', 'TEXT'], ['nom_court', 'TEXT'], ['logo', 'TEXT'], ['logo_blanc', 'TEXT'], ['signature', 'TEXT'], ['cachet', 'TEXT'], ['signataire', 'TEXT'], ['iban', 'TEXT']])
       if (!ont.has(c)) base.exec(`ALTER TABLE etablissement ADD COLUMN ${c} ${t}`);
     const sec = new Set(base.prepare('PRAGMA table_info(section)').all().map(c => c.name));
     if (sec.size && !sec.has('etablissement_id')) base.exec('ALTER TABLE section ADD COLUMN etablissement_id INTEGER NOT NULL DEFAULT 1');
@@ -61,14 +60,14 @@ const CHAMPS = [
   'po_nom', 'etab_nom', 'adresse', 'type_po', 'sous_type',
   'num_ecot', 'num_fase', 'num_entreprise', 'site_web', 'email_contact', 'email_ec', 'email_po',
   'gest_nom', 'gest_prenom', 'gest_qualite', 'gest_tel', 'gest_email',
-  'jours_fonctionnement',
+  'jours_fonctionnement', 'iban',
 ];
 
 // Les images d'un établissement — importées, ou à défaut celles d'origine (pour l'établissement 1).
 r.get('/images', authRequired, (req, res) => {
   const id = Number(req.query.id) || 1;
   const i = db.prepare('SELECT logo, logo_blanc, signature, cachet FROM etablissement WHERE id = ?').get(id) || {};
-  const repli = id === 1 ? { logo: LOGO_IIP_JPEG, logo_blanc: LOGO_IIP_BLANC_B64, signature: SIGNATURE_SOHET, cachet: SCEAU_IIP } : {};
+  const repli = id === 1 ? { logo: logoCourant(), logo_blanc: logoBlancCourant(), signature: signatureCourante(), cachet: cachetCourant() } : {};
   res.set('Cache-Control', 'private, max-age=300');
   res.json({ logo: i.logo || repli.logo || '', logo_blanc: i.logo_blanc || repli.logo_blanc || '',
     signature: i.signature || repli.signature || '', cachet: i.cachet || repli.cachet || '' });
@@ -92,6 +91,7 @@ r.post('/', authRequired, roleRequired('admin'), (req, res) => {
   if (!nom || !code) return res.status(400).json({ error: 'Un nom et un code court (ex. HELB, EPFC).' });
   if (db.prepare('SELECT 1 FROM etablissement WHERE UPPER(code) = ?').get(code)) return res.status(409).json({ error: `Le code ${code} existe déjà.` });
   const id = db.prepare('INSERT INTO etablissement (code, nom_court, etab_nom) VALUES (?,?,?)').run(code, code, nom).lastInsertRowid;
+  oublierCompteEtablissements();
   res.json({ ok: true, id });
 });
 // Retirer un établissement : jamais le premier, et jamais s'il porte encore des sections.
@@ -101,6 +101,7 @@ r.delete('/:id', authRequired, roleRequired('admin'), (req, res) => {
   const n = db.prepare('SELECT COUNT(*) n FROM section WHERE etablissement_id = ?').get(id).n;
   if (n) return res.status(409).json({ error: `${n} section(s) y sont rattachées : rattachez-les ailleurs d’abord.` });
   db.prepare('DELETE FROM etablissement WHERE id = ?').run(id);
+  oublierCompteEtablissements();
   res.json({ ok: true });
 });
 // Rattacher des sections à un établissement.
@@ -119,6 +120,7 @@ r.put('/', authRequired, roleRequired('admin', 'editeur'), async (req, res) => {
   const vals = {};
   for (const c of [...CHAMPS, 'code', 'nom_court', 'signataire']) vals[c] = (req.body?.[c] ?? null) || null;
   if (id === 1) { vals.code = vals.code || 'IIP'; vals.nom_court = vals.nom_court || vals.code; }
+  if (vals.iban) { const v = ibanValide(vals.iban); if (!v) return res.status(400).json({ error: 'Le numéro de compte n’est pas un IBAN valide.' }); vals.iban = v; }
   // Les images : seules celles ENVOYÉES changent ; chacune est vérifiée à ses octets. Réservé à l'administrateur.
   const images = {};
   const avant = db.prepare(`SELECT ${IMAGES.join(', ')} FROM etablissement WHERE id = ?`).get(id) || {};

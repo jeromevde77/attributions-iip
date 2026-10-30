@@ -1,13 +1,15 @@
 import { ICONE_AXE } from '../lib/iconesAxes.js';
-import { IconReportAnalytics, IconReportMoney, IconChartInfographic, IconSchool, IconBuildingBank, IconCoin } from '@tabler/icons-react';
+import { IconReportAnalytics, IconReportMoney, IconChartInfographic, IconSchool, IconBuildingBank, IconCoin, IconRosette } from '@tabler/icons-react';
 import { droitEffectif } from '../lib/modules.js';
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import { api, getAnnee, getUser, authHeaders } from '../lib/api.js';
-import { IconChartBar, IconHome, IconUsers, IconSettings, IconChevronRight, IconChevronDown, IconPrinter, IconRotateClockwise, IconCheck, IconX, IconTrash, IconCash, IconCalendar, IconArrowsLeftRight, IconScale, IconUsersGroup } from '@tabler/icons-react';
+import { IconChartBar, IconHome, IconUsers, IconSettings, IconChevronRight, IconChevronDown, IconPrinter, IconRotateClockwise, IconCheck, IconX, IconTrash, IconCash, IconCalendar, IconArrowsLeftRight, IconScale, IconUsersGroup, IconUserCheck } from '@tabler/icons-react';
 import { PageHeader, Tabs, RailLateral, OuvrirEditions, TuileEtat, Chevron, Fenetre } from '../components/ui.jsx';
 import { createPortal } from 'react-dom';
 import Distributions from '../components/Distributions.jsx';
 import Population from '../components/Population.jsx';
+import PilotagePresences from '../components/PilotagePresences.jsx';
+import PlanActionQualite from '../components/PlanActionQualite.jsx';
 import PopulationEcole from '../components/PopulationEcole.jsx';
 import PersonnelEcole from '../components/PersonnelEcole.jsx';
 import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
@@ -1595,12 +1597,20 @@ export default function Pilotage({ vue = 'tout' }) {
   const RUBRIQUES = [
     { key: 'g-population', label: 'Population', icon: IconUsersGroup, faces: [
       ['population-ecole', 'Qui sont nos étudiants'], !coord && ['personnel-ecole', 'Notre personnel'], ['population', 'Places par unité']] },
+    /* LES PRÉSENCES (28 octobre 2026) : par UE, le comptage au 1er dixième, les alertes —
+       direction et secrétariat (la route le garde ; la coordination n'y passe pas). */
+    { key: 'g-presences', label: 'Présences', icon: IconUserCheck, faces: [
+      !coord && ['presences-ue', 'Présences par UE']] },
     { key: 'g-resultats', label: 'Résultats', icon: IconSchool, faces: [
       ['deliberation', 'Décisions et taux de réussite'], ['distributions', 'Distributions des cotes']] },
     { key: 'g-dotation', label: 'Dotation', icon: IconBuildingBank, faces: [
       lit('dotation') && ['synthese', 'Dotation'], ['etp', 'ETP'], ['dotation', 'Comparaison'],
       !coord && lit('repartition') && ['repartition', 'Répartition des périodes'],
       lit('dotation') && ['config', 'Configuration']] },
+    /* LA DÉMARCHE QUALITÉ (3.1.442) : le plan d'action AEQES, tenu dans Lucie dès 2026-2027 —
+       rien ne se rattrape en 2028. La coordination y pose les actions de ses sections. */
+    { key: 'g-qualite', label: 'Qualité', icon: IconRosette, faces: [
+      ['qualite', 'Plan d’action']] },
     { key: 'g-finances', label: 'Finances', icon: IconCoin, faces: [
       !coord && ['rapport', 'Coûts des formations'], lit('budget') && ['budget', 'Budget']] },
   ].map(r => ({ ...r, faces: r.faces.filter(Boolean) })).filter(r => r.faces.length);
@@ -1943,9 +1953,15 @@ thead { display: table-header-group; }
         ) : ['deliberation', 'distributions', 'population'].includes(tab) ? (
           <PageHeader icon={IconChartBar} titre="Statistiques étudiantes"
             sous="Décisions du Conseil, cotes et effectifs — par section et par unité" />
+        ) : tab === 'qualite' ? (
+          <PageHeader icon={IconRosette} titre="Démarche qualité"
+            sous="Le plan d’action : ce qui est décidé, qui s’en charge, où on en est" />
+        ) : tab === 'presences-ue' ? (
+          <PageHeader icon={IconChartBar} titre="Présences et régularité"
+            sous="Présences encodées, réguliers au premier dixième, PEP estimée — par section et par unité" />
         ) : (
           <PageHeader icon={IconChartBar} titre="Pilotage des dotations"
-            sous={`Année civile ${selYear} · Enveloppes extérieures · Comparaison pluriannuelle`} />
+            sous={`${selYear ? `Année civile ${selYear} · ` : ''}Enveloppes extérieures · Comparaison pluriannuelle`} />
         )}
 
         {tab === 'population-ecole' ? (
@@ -1960,6 +1976,10 @@ thead { display: table-header-group; }
           <Distributions annee={vue === 'gestion' ? anneeActive : null} />
         ) : tab === 'population' ? (
           <Population annee={anneeActive} />
+        ) : tab === 'presences-ue' ? (
+          <PilotagePresences annee={anneeActive} />
+        ) : tab === 'qualite' ? (
+          <PlanActionQualite />
         ) : tab === 'budget' ? (
           <Budget />
         ) : loading ? (

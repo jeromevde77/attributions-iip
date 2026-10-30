@@ -17,13 +17,12 @@ import express from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { envelopperDocument } from '../lib/document.js';
-import { SIGNATURE_SOHET, SCEAU_IIP } from '../services/assets/signature_sohet.js';
-import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 import { identiteEtablissement } from './config.js';
 import { sectionRattachement } from './etudiants.js';
 import { donneesSectionDiplome } from './diplomes.js';
 import { frDate, bilanCredits } from './annexe2.js';
 import { sleEnregistre } from './sle.js';
+import { cachetCourant, logoCourant, signatureCourante } from '../lib/identite.js';
 
 const r = express.Router();
 const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
@@ -115,7 +114,7 @@ export function documentAnnexe1(body) {
     d’un pays tiers), visé à l’article 99 de l’arrêté royal du 8 octobre 1981 sur l'accès au territoire, le
     séjour, l'établissement et l'éloignement des étrangers</p>
   <p class="logo">Logo de l'établissement d'enseignement supérieur (facultatif) :
-    <img src="${LOGO_IIP_JPEG}" alt="" /></p>
+    <img src="${logoCourant()}" alt="" /></p>
 
   <p>Je soussigné <sup>(1)</sup> : ${champ(`${(ident.directeur || 'SOHET Charles')}, Directeur`)}</p>
   <p>En ma qualité de représentant de <sup>(2)</sup> : ${champ(ident.nom || 'Institut Ilya Prigogine')}</p>
@@ -195,7 +194,7 @@ export function documentAnnexe1(body) {
     // Comme l'annexe 2 : le modèle officiel n'a ni en-tête ni pied de page.
     avecPied: false, entete: false, logo: false, margeHaut: 16, margeCote: 18,
     styles: `
-:root{--paraphe:url("${SIGNATURE_SOHET}");--sceau:url("${SCEAU_IIP}")}
+:root{--paraphe:url("${signatureCourante()}");--sceau:url("${cachetCourant()}")}
 .a1{font-size:10pt;line-height:1.35;color:#000;font-family:Calibri,Arial,sans-serif}
 .a1 p{margin:0 0 2.2mm;text-align:justify}
 .a1 .ref{font-size:8.5pt;margin-bottom:4mm}

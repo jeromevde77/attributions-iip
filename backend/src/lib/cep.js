@@ -83,6 +83,32 @@ export function migrerCep(base = db) {
       avant TEXT, apres TEXT, motif TEXT,
       par TEXT, le TEXT DEFAULT (datetime('now')));
   `);
+  /* LA SOURCE D'UNE PRÉSENCE (28 octobre 2026, prise par QR code) : « manuel »
+     quand quelqu'un la pose à l'écran, « qr » quand l'étudiant scanne. Une
+     présence corrigée à la main redevient « manuel » : c'est celui qui corrige
+     qui en répond. */
+  for (const t of ['presence', 'presence_journal']) {
+    if (!base.prepare(`PRAGMA table_info(${t})`).all().some(c => c.name === 'source')) {
+      base.exec(`ALTER TABLE ${t} ADD COLUMN source TEXT NOT NULL DEFAULT 'manuel'`);
+    }
+  }
+  /* UNE SÉANCE QUI PORTE DES PRÉSENCES NE SE SUPPRIME PAS (3.1.428). La présence
+     tombait avec elle (ON DELETE CASCADE) : un réimport d'horaire, un lot retiré,
+     un plan versé effaçaient en silence des présences déjà encodées — et avec elles
+     les attestations d'assiduité et la régularité. Les portes d'écriture épargnent
+     ces séances ; ce déclencheur rattrape celle qu'on aurait oubliée. Une séance
+     qui n'a pas eu lieu s'ANNULE (annule = 1), elle ne s'efface pas. */
+  try { base.exec(`CREATE TRIGGER IF NOT EXISTS garde_seance_presences BEFORE DELETE ON horaire_seance
+    WHEN EXISTS (SELECT 1 FROM presence WHERE seance_id = OLD.id)
+    BEGIN SELECT RAISE(ABORT, 'Cette séance porte des présences encodées : elle ne se supprime pas, elle s''annule.'); END`); } catch { /* horaire_seance pas encore créée : posé au démarrage suivant */ }
+  /* LE RETARD (Charles, 28 octobre 2026 : « on peut, avec un * ») : un présent
+     arrivé en retard reste PRÉSENT — ses heures comptent — et la grille l'écrit
+     « P* ». Une marque sur la présence, pas un cinquième statut. */
+  for (const t of ['presence', 'presence_journal']) {
+    if (!base.prepare(`PRAGMA table_info(${t})`).all().some(c => c.name === 'retard')) {
+      base.exec(`ALTER TABLE ${t} ADD COLUMN retard INTEGER NOT NULL DEFAULT 0`);
+    }
+  }
 }
 
 const hm = t => { const [h, m] = String(t || '0:0').split(':').map(Number); return h * 60 + (m || 0); };
@@ -131,7 +157,7 @@ function estEpreuveIntegree(ueNum, annee, caseRef) {
    est complète, ses cours si elle est partielle par cours (une dispense par
    acquis ne se traduit pas en heures : le cours reste suivi) — et les cours
    reportés d'office d'une année précédente. */
-function dispenses(etudId, ueNum, annee) {
+export function dispenses(etudId, ueNum, annee) {
   const cours = new Set();
   let complete = false;
   try {
@@ -360,33 +386,37 @@ export const heures = min => {
  * ÉCRIRE DES PRÉSENCES — la seule porte, pour Mes cours comme pour le
  * secrétariat. Chaque changement laisse sa ligne au journal ; une absence
  * justifiée exige un motif de la liste fermée.
- * `lignes` : [{ seance_id, etudiant_id, statut, motif }]. Rend { ecrites } ou
- * { erreur }.
+ * `lignes` : [{ seance_id, etudiant_id, statut, motif, retard }] — `retard` ne
+ * vaut que pour un présent. Rend { ecrites } ou
+ * { erreur }. `source` : 'manuel' (un écran) ou 'qr' (le scan de l'étudiant).
  */
-export function ecrirePresences(lignes, par) {
+export function ecrirePresences(lignes, par, source = 'manuel') {
+  if (!['manuel', 'qr'].includes(source)) return { erreur: `source inconnue : ${source}` };
   for (const l of lignes) {
     if (!STATUTS_PRESENCE[l.statut] && l.statut !== null) return { erreur: `statut inconnu : ${l.statut}` };
     if (l.statut === 'justifie' && !MOTIFS_JUSTIFIES[l.motif]) {
       return { erreur: "Une absence justifiée demande son motif — seuls ceux que reconnaît le congé-éducation payé." };
     }
   }
-  const lire = db.prepare('SELECT statut, motif FROM presence WHERE seance_id = ? AND etudiant_id = ?');
-  const poser = db.prepare(`INSERT INTO presence (seance_id, etudiant_id, statut, motif, encode_par, encode_le)
-      VALUES (?, ?, ?, ?, ?, datetime('now'))
+  const lire = db.prepare('SELECT statut, motif, retard FROM presence WHERE seance_id = ? AND etudiant_id = ?');
+  const poser = db.prepare(`INSERT INTO presence (seance_id, etudiant_id, statut, motif, encode_par, encode_le, source, retard)
+      VALUES (?, ?, ?, ?, ?, datetime('now'), ?, ?)
       ON CONFLICT (seance_id, etudiant_id) DO UPDATE SET statut = excluded.statut, motif = excluded.motif,
-        encode_par = excluded.encode_par, encode_le = excluded.encode_le`);
+        encode_par = excluded.encode_par, encode_le = excluded.encode_le, source = excluded.source, retard = excluded.retard`);
   const effacer = db.prepare('DELETE FROM presence WHERE seance_id = ? AND etudiant_id = ?');
-  const journal = db.prepare(`INSERT INTO presence_journal (seance_id, etudiant_id, avant, apres, motif, par)
-      VALUES (?, ?, ?, ?, ?, ?)`);
+  const journal = db.prepare(`INSERT INTO presence_journal (seance_id, etudiant_id, avant, apres, motif, par, source, retard)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
   let ecrites = 0;
   db.transaction(() => {
     for (const l of lignes) {
       const avant = lire.get(l.seance_id, l.etudiant_id);
       const motif = l.statut === 'justifie' ? l.motif : null;
-      if ((avant?.statut || null) === (l.statut || null) && (avant?.motif || null) === motif) continue;
-      if (l.statut) poser.run(l.seance_id, l.etudiant_id, l.statut, motif, par);
+      const retard = l.statut === 'present' && l.retard ? 1 : 0;
+      if ((avant?.statut || null) === (l.statut || null) && (avant?.motif || null) === motif
+        && (avant?.retard || 0) === retard) continue;
+      if (l.statut) poser.run(l.seance_id, l.etudiant_id, l.statut, motif, par, source, retard);
       else effacer.run(l.seance_id, l.etudiant_id);
-      journal.run(l.seance_id, l.etudiant_id, avant?.statut || null, l.statut || null, motif, par);
+      journal.run(l.seance_id, l.etudiant_id, avant?.statut || null, l.statut || null, motif, par, source, retard);
       ecrites++;
     }
   })();

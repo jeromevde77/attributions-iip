@@ -1545,57 +1545,6 @@ r.patch('/organisation/renumeroter', authRequired, roleRequired('admin', 'editeu
   res.json({ ok: true, updated: result.changes, num_organisation: nouveau });
 });
 
-// ─── Copier les attributions d'une section d'une année vers une autre ────────
-// Les professeurs et toutes les données métier sont conservés.
-// Si force=true, les attributions existantes en destination sont supprimées avant copie.
-r.post('/copier-section', authRequired, roleRequired('admin'), (req, res) => {
-  const { section, annee_source, annee_dest, force } = req.body || {};
-  if (!section || !annee_source || !annee_dest)
-    return res.status(400).json({ error: 'section, annee_source et annee_dest sont requis' });
-  if (annee_source === annee_dest)
-    return res.status(400).json({ error: 'L\'année source et la destination doivent être différentes' });
-  if (!canAccessSection(req.user, section))
-    return res.status(403).json({ error: "Vous n'avez pas accès à cette section." });
-
-  // Attributions source
-  const sources = db.prepare(
-    `SELECT * FROM attribution WHERE section = ? AND annee_scolaire = ?`
-  ).all(section, annee_source);
-
-  if (!sources.length)
-    return res.status(404).json({ error: `Aucune attribution trouvée pour ${section} en ${annee_source}` });
-
-  // Conflits en destination
-  const existantes = db.prepare(
-    `SELECT COUNT(*) AS n FROM attribution WHERE section = ? AND annee_scolaire = ?`
-  ).get(section, annee_dest).n;
-
-  if (existantes > 0 && !force)
-    return res.status(409).json({
-      error: `${existantes} attribution(s) existent déjà en ${annee_dest} pour ${section}. Forcez pour écraser.`,
-      count: existantes, canForce: true
-    });
-
-  // Colonnes disponibles (sauf id qui est auto-increment)
-  const cols = db.prepare('PRAGMA table_info(attribution)').all()
-    .map(c => c.name).filter(c => c !== 'id');
-
-  const tx = db.transaction(() => {
-    if (force) {
-      db.prepare(`DELETE FROM attribution WHERE section = ? AND annee_scolaire = ?`).run(section, annee_dest);
-    }
-    const placeholders = cols.map(() => '?').join(',');
-    const stmt = db.prepare(`INSERT INTO attribution (${cols.join(',')}) VALUES (${placeholders})`);
-    for (const row of sources) {
-      const vals = cols.map(c => c === 'annee_scolaire' ? annee_dest : row[c]);
-      stmt.run(...vals);
-    }
-  });
-  tx();
-
-  res.json({ ok: true, copied: sources.length, section, annee_source, annee_dest });
-});
-
 // ─── Remplissage automatique des périodes prof (baguette magique) ───────────
 // Pour toutes les lignes d'une section où periodes_attribuees = 0,
 // applique la valeur cours_per du cours correspondant.
@@ -1633,12 +1582,18 @@ r.post('/auto-fill-periodes', authRequired, roleRequired('admin', 'editeur', 'co
 // ─── POST /attributions/copier-section ───────────────────────────────────────
 // Copie toutes les attributions d'une section/année source vers une autre année.
 // - Si des attributions existent déjà en destination : bloque (sauf force=true admin)
+// DEUX ROUTES PORTAIENT CE NOM (3.1.428) : la première, réservée à l'admin et
+// recopiant TOUTES les colonnes (validation de l'an passé comprise), masquait
+// celle-ci. Une seule désormais : colonnes de travail seulement, périmètre de
+// section, l'écrasement réservé à l'admin et fait dans la même transaction.
 r.post('/copier-section', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
-  const { section, annee_source, annee_dest, force } = req.body;
+  const { section, annee_source, annee_dest, force } = req.body || {};
   if (!section || !annee_source || !annee_dest)
     return res.status(400).json({ error: 'section, annee_source et annee_dest sont requis' });
   if (annee_source === annee_dest)
     return res.status(400).json({ error: 'Source et destination identiques' });
+  if (!canAccessSection(req.user, section))
+    return res.status(403).json({ error: "Vous n'avez pas accès à cette section." });
   if (force && req.user.role !== 'admin')
     return res.status(403).json({ error: 'Seul un admin peut forcer la copie' });
 
@@ -1669,8 +1624,6 @@ r.post('/copier-section', authRequired, roleRequired('admin', 'editeur'), (req, 
   if (sources.length === 0)
     return res.status(404).json({ error: `Aucune attribution trouvée pour ${section} en ${annee_source}` });
 
-  if (force && existantes.n > 0)
-    db.prepare('DELETE FROM attribution WHERE section = ? AND annee_scolaire = ?').run(section, annee_dest);
 
   const insert = db.prepare(`
     INSERT INTO attribution (
@@ -1697,6 +1650,8 @@ r.post('/copier-section', authRequired, roleRequired('admin', 'editeur'), (req, 
   `);
 
   db.transaction(() => {
+    if (force && existantes.n > 0)
+      db.prepare('DELETE FROM attribution WHERE section = ? AND annee_scolaire = ?').run(section, annee_dest);
     for (const row of sources) insert.run({ ...row, annee_dest, uid: req.user.id });
   })();
 
@@ -1711,6 +1666,8 @@ r.post('/creer-depuis-cours', authRequired, roleRequired('admin', 'editeur', 'co
   if (!annee || !cours_code || !ue_num || !section) {
     return res.status(400).json({ error: 'annee, cours_code, ue_num et section requis' });
   }
+  // Le périmètre se pose sur chaque porte (3.1.428) : une coordination ne crée que dans ses sections.
+  if (!sectionPermise(req, section)) return res.status(403).json({ error: 'Section hors de votre périmètre.' });
   // Le cours doit exister dans le DP
   const cours = db.prepare(`SELECT * FROM cours WHERE cours_code = ? AND annee_scolaire = ? AND section = ? AND ue_num = ?`)
     .get(cours_code, annee, section, ue_num);

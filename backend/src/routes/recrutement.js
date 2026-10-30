@@ -2,6 +2,7 @@
  * recrutement.js — Module recrutement (v3)
  * Documents multiples par candidat (CV, lettre, diplômes, annexes).
  */
+import { notificationVisible } from '../lib/perimetreSection.js';
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
@@ -61,6 +62,7 @@ function recrutementAcces(req, res, next) {
   return res.status(403).json({ error: 'Accès non autorisé' });
 }
 
+import { professeurExistant } from '../lib/professeurUnique.js';
 const r = Router();
 r.use(authRequired);
 r.use(recrutementAcces);
@@ -370,8 +372,7 @@ r.post('/candidatures/:id/attribuer', async (req, res) => {
 
   const tx = db.transaction(() => {
     // 1. Créer ou retrouver le professeur
-    let prof = db.prepare('SELECT id FROM professeur WHERE nom = ? AND prenom = ?')
-      .get(cand.nom?.toUpperCase() || cand.nom, cand.prenom);
+    let prof = professeurExistant(cand.nom, cand.prenom);
 
     if (!prof) {
       const info = db.prepare(`
@@ -508,7 +509,7 @@ r.get('/notifications', (req, res) => {
        OR cible_role = ?
        OR (cible_user_id IS NOT NULL AND cible_user_id = ?)
     ORDER BY cree_le DESC LIMIT 50
-  `).all(u.role, u.id);
+  `).all(u.role, u.id).filter(n => notificationVisible(u, n.section));   // 3.1.481 : pas les rappels d'une autre section
 
   res.json(notifs.map(n => ({
     ...n,
@@ -624,7 +625,7 @@ r.post('/candidats/:id/engager-global', authRequired, roleRequired('admin', 'edi
       `${prenom.toLowerCase().replace(/\s+/g,'.')}.${nom.toLowerCase().replace(/\s+/g,'.')}@institut-prigogine.be`;
 
     // Créer ou retrouver le professeur (aucune attribution touchée)
-    let prof = db.prepare('SELECT id FROM professeur WHERE nom = ? AND prenom = ?').get(nom, prenom);
+    let prof = professeurExistant(nom, prenom);
     let cree = false;
     if (!prof) {
       const r2 = db.prepare(`
@@ -680,7 +681,7 @@ r.post('/candidats/:id/engager', authRequired, roleRequired('admin', 'editeur'),
       `${prenom.toLowerCase().replace(/\s+/g,'.')}.${nom.toLowerCase().replace(/\s+/g,'.')}@institut-prigogine.be`;
 
     // 1. Créer ou retrouver le professeur
-    let prof = db.prepare('SELECT id FROM professeur WHERE nom = ? AND prenom = ?').get(nom, prenom);
+    let prof = professeurExistant(nom, prenom);
     if (!prof) {
       const r2 = db.prepare(`
         INSERT INTO professeur (nom, prenom, adresse_mail, date_engagement)

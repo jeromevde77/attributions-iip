@@ -34,6 +34,8 @@ import { motsDuPdf } from '../lib/motsDuPdf.js';
 import { lireHoraire, dureeMinutes } from '../lib/lireHoraireEDT.js';
 
 const r = Router();
+// Une séance qui porte des présences ne se supprime pas (3.1.428) : clause des suppressions en lot.
+const SP = 'NOT EXISTS (SELECT 1 FROM presence pr WHERE pr.seance_id = horaire_seance.id)';
 const upload = multer({ storage: multer.memoryStorage(),
                         limits: { fileSize: 20 * 1024 * 1024 } });
 
@@ -181,11 +183,18 @@ r.post('/import', authRequired, roleRequired('admin', 'directeur',
       const anciens = db.prepare(
         'SELECT id FROM horaire_lot WHERE annee_scolaire = ? AND classe IS ?'
       ).all(an, lu.classe || null);
+      /* Le réimport remplace l'ancien lot SAUF ce qui ne lui appartient plus :
+         une séance retouchée dans Lucie, une séance qui porte des présences
+         (3.1.428). Elles passent au nouveau lot, et le fichier ne les double pas. */
+      const gardees = [];
       for (const a of anciens) {
-        db.prepare('DELETE FROM horaire_seance WHERE lot_id = ?').run(a.id);
-        db.prepare('DELETE FROM horaire_lot WHERE id = ?').run(a.id);
+        gardees.push(...db.prepare(`SELECT id, date, heure_debut, COALESCE(cours_code, matiere, '') AS quoi FROM horaire_seance
+          WHERE lot_id = ? AND (COALESCE(modifie_lucie, 0) = 1 OR NOT (${SP}))`).all(a.id));
+        db.prepare(`DELETE FROM horaire_seance WHERE lot_id = ? AND COALESCE(modifie_lucie, 0) = 0 AND ${SP}`).run(a.id);
       }
       rapport.remplaces = anciens.length;
+      rapport.gardees = gardees.length;
+      const dejaLa = new Set(gardees.map(g => `${g.date}|${g.heure_debut}|${g.quoi}`));
 
       const lot = db.prepare(`INSERT INTO horaire_lot
         (annee_scolaire, classe, section, fichier, periode_debut, periode_fin,
@@ -199,7 +208,10 @@ r.post('/import', authRequired, roleRequired('admin', 'directeur',
          minutes, cours_code, ue_num, matiere, professeur_texte, professeur_id,
          local_texte, source)
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'import')`);
+      for (const g of gardees) db.prepare('UPDATE horaire_seance SET lot_id = ? WHERE id = ?').run(lot.id, g.id);
+      for (const a of anciens) db.prepare('DELETE FROM horaire_lot WHERE id = ?').run(a.id);
       for (const s of prets) {
+        if (dejaLa.has(`${s.date}|${s.heure_debut}|${s.cours_code || s.matiere || ''}`)) continue;
         ins.run(lot.id, an, s.classe || lu.classe || null, rapport.section, s.date,
                 s.heure_debut, s.heure_fin, s.minutes, s.cours_code, s.ue_num,
                 s.matiere, s.professeur, s.professeur_id, s.local);
@@ -222,9 +234,11 @@ r.get('/lots', authRequired, (req, res) => {
 
 r.delete('/lot/:id', authRequired, roleRequired('admin', 'directeur',
          'directeur_adjoint'), (req, res) => {
-  db.prepare('DELETE FROM horaire_seance WHERE lot_id = ?').run(req.params.id);
-  db.prepare('DELETE FROM horaire_lot WHERE id = ?').run(req.params.id);
-  res.json({ ok: true });
+  // Les séances qui portent des présences restent, et leur lot avec elles (3.1.428).
+  db.prepare(`DELETE FROM horaire_seance WHERE lot_id = ? AND ${SP}`).run(req.params.id);
+  const restent = db.prepare('SELECT COUNT(*) n FROM horaire_seance WHERE lot_id = ?').get(req.params.id).n;
+  if (!restent) db.prepare('DELETE FROM horaire_lot WHERE id = ?').run(req.params.id);
+  res.json({ ok: true, gardees: restent });
 });
 
 r.get('/seances', authRequired, (req, res) => {
@@ -651,6 +665,10 @@ r.delete('/seance/:id', authRequired, roleRequired(...EDITEURS), (req, res) => {
   const s = db.prepare('SELECT * FROM horaire_seance WHERE id = ?').get(Number(req.params.id));
   if (!s) return res.status(404).json({ error: 'Séance introuvable.' });
   if (!sectionPermise(req, s.section)) return res.status(403).json({ error: 'Section hors de votre périmètre.' });
+  if (db.prepare('SELECT 1 FROM presence WHERE seance_id = ? LIMIT 1').get(s.id)) {
+    return res.status(409).json({ error: 'Cette séance porte des présences encodées : elle ne se supprime pas. '
+      + 'Si elle n’a pas eu lieu, annulez-la.' });
+  }
   db.prepare('DELETE FROM horaire_seance WHERE id = ?').run(s.id);
   res.json({ ok: true });
 });
@@ -871,14 +889,18 @@ function analyserClasse(rows, { an, sec, bloc, classeSource, lundi1 }) {
 
 /** Écrit l'analyse d'une classe : remplace l'import précédent, jamais ce qui a été retouché. */
 function ecrireClasse(a, { an, fichier, par }) {
-  db.prepare(`DELETE FROM horaire_seance WHERE annee_scolaire = ? AND section = ? AND classe = ? AND source = 'import' AND modifie_lucie = 0`)
+  db.prepare(`DELETE FROM horaire_seance WHERE annee_scolaire = ? AND section = ? AND classe = ? AND source = 'import' AND modifie_lucie = 0 AND NOT EXISTS (SELECT 1 FROM presence pr WHERE pr.seance_id = horaire_seance.id)`)
     .run(an, a.section, a.classe_lucie);
   const lot = db.prepare(`INSERT INTO horaire_lot (annee_scolaire, classe, section, fichier, periode_debut, periode_fin, nb_seances, importe_par)
     VALUES (?,?,?,?,?,?,?,?)`).run(an, a.classe_lucie, a.section, fichier, a.du, a.au, a.liste.length, par);
   const ins = db.prepare(`INSERT INTO horaire_seance (lot_id, annee_scolaire, classe, section, bloc, date, heure_debut, heure_fin, minutes,
       cours_code, ue_num, matiere, professeur_texte, professeur_id, groupe_id, sous_groupe, source, modifie_lucie, cree_par, cree_le)
     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'import', 0, ?, datetime('now'))`);
-  for (const s of a.liste) ins.run(lot.lastInsertRowid, an, a.classe_lucie, a.section, s.bloc, s.date, s.heure_debut, s.heure_fin, s.minutes,
+  // Ce qui est resté (retouché, ou porteur de présences) n'est pas posé une seconde fois.
+  const dejaLa = new Set(db.prepare(`SELECT date, heure_debut, COALESCE(cours_code, matiere, '') AS quoi FROM horaire_seance
+    WHERE annee_scolaire = ? AND section = ? AND classe = ? AND source = 'import'`).all(an, a.section, a.classe_lucie)
+    .map(g => `${g.date}|${g.heure_debut}|${g.quoi}`));
+  for (const s of a.liste) if (!dejaLa.has(`${s.date}|${s.heure_debut}|${s.cours_code || s.matiere || ''}`)) ins.run(lot.lastInsertRowid, an, a.classe_lucie, a.section, s.bloc, s.date, s.heure_debut, s.heure_fin, s.minutes,
     s.cours_code, s.ue_num, s.matiere, s.professeur_texte, s.professeur_id, s.groupe_id, s.sous_groupe, par);
 }
 

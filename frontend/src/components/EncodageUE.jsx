@@ -98,8 +98,10 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
       .then(r => (r.ok ? r.json() : null)).then(u => setNiv(u?.ue_niv || null)).catch(() => {});
   }, [ueNum, annee]);
 
-  async function charger() {
-    setErreur(null);
+  // `garder` : après un refus, le rechargement ne doit pas effacer le message qui l'explique
+  // (il l'effaçait aussitôt : la note revenait, sans un mot — Charles, 29 octobre 2026).
+  async function charger(garder = false) {
+    if (garder !== true) setErreur(null);
     try {
       const rep = await fetch(`/api/acquis/ue/${ueNum}/feuille`
         + `?annee=${encodeURIComponent(annee)}&session=${session}`, { headers: authHeaders() });
@@ -153,7 +155,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
       if (!rep.ok) {
         const j = await rep.json().catch(() => ({}));
         setErreur(j.error || 'Enregistrement refusé.');
-        await charger();
+        await charger(true);
       } else {
         setErreur(null); setDernier(Date.now()); onEnregistre?.();
       }
@@ -177,7 +179,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
         const j = await rep.json().catch(() => ({}));
         setErreur(j.error || 'Enregistrement refusé.');
       } else setErreur(null);
-      await charger(); onEnregistre?.();
+      await charger(!rep.ok); onEnregistre?.();
     } catch (e) { setErreur(e.message); }
     finally { setEnAttente(n => n - 1); }
   }
@@ -374,6 +376,22 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
               Cette unité est évaluée par une <b>épreuve intégrée</b> : une seule grille,
               les <b>acquis de l'unité entière</b>, une note commune. Il n'y a pas de note
               par cours — <b>chaque cours de l'unité reçoit la note de l'unité</b>.
+            </div>
+          )}
+          {/* PAR ORGANISATION (3.1.451) : une organisation close ouvre SA seconde session, les autres
+              restent en première — l'écran le dit au lieu de rester muet. */}
+          {data?.etat_session?.seconde_partielle && (
+            <div className="mb-3 bloc-etat px-3 py-2 text-second" data-etat="disponible">
+              {(() => {
+                const o = data.etat_session.organisations_s1 || [];
+                const ouvertes = o.filter(x => x.close && x.ajournes > 0).map(x => x.org);
+                const encore = o.filter(x => !x.close).map(x => x.org);
+                return <>
+                  Séance de première session close pour l’organisation {ouvertes.join(', ')} :
+                  ses ajournés s’encodent sous <b>« 2e session »</b>
+                  {encore.length ? <> ; l’organisation {encore.join(', ')} est encore en <b>première session</b></> : null}.
+                </>;
+              })()}
             </div>
           )}
           {data?.a_representer && (

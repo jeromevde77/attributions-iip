@@ -923,7 +923,7 @@ export function poserSimulation(section, bloc, annee, { simulation = true, par =
     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'simulation', 0, ?, datetime('now'))`);
   db.transaction(() => {
     db.prepare(`DELETE FROM horaire_seance WHERE annee_scolaire = ? AND section = ? AND bloc = ?
-      AND source = 'simulation' AND COALESCE(modifie_lucie, 0) = 0`).run(annee, section, bloc);
+      AND source = 'simulation' AND COALESCE(modifie_lucie, 0) = 0 AND NOT EXISTS (SELECT 1 FROM presence pr WHERE pr.seance_id = horaire_seance.id)`).run(annee, section, bloc);
     for (const x of sim.seances) {
       const [, , , code] = x.cle.split('#');
       if (!profId.has(x.cle)) {
@@ -975,10 +975,10 @@ export function verserPlan(section, bloc, annee, { depuis = null, remplacer = fa
     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'plan', 0, ?, datetime('now'))`);
   db.transaction(() => {
     if (importees) {
-      db.prepare(`INSERT INTO horaire_seance_remplacee SELECT *, datetime('now'), ? FROM horaire_seance WHERE ${filtre} AND COALESCE(source, '') NOT IN ('plan', 'simulation')`).run(par, annee, section, bloc, d0);
-      db.prepare(`DELETE FROM horaire_seance WHERE ${filtre} AND COALESCE(source, '') NOT IN ('plan', 'simulation')`).run(annee, section, bloc, d0);
+      db.prepare(`INSERT INTO horaire_seance_remplacee SELECT *, datetime('now'), ? FROM horaire_seance WHERE ${filtre} AND COALESCE(source, '') NOT IN ('plan', 'simulation') AND NOT EXISTS (SELECT 1 FROM presence pr WHERE pr.seance_id = horaire_seance.id)`).run(par, annee, section, bloc, d0);
+      db.prepare(`DELETE FROM horaire_seance WHERE ${filtre} AND COALESCE(source, '') NOT IN ('plan', 'simulation') AND NOT EXISTS (SELECT 1 FROM presence pr WHERE pr.seance_id = horaire_seance.id)`).run(annee, section, bloc, d0);
     }
-    db.prepare(`DELETE FROM horaire_seance WHERE ${filtre} AND source = 'plan'`).run(annee, section, bloc, d0);
+    db.prepare(`DELETE FROM horaire_seance WHERE ${filtre} AND source = 'plan' AND NOT EXISTS (SELECT 1 FROM presence pr WHERE pr.seance_id = horaire_seance.id)`).run(annee, section, bloc, d0);
     for (const x of aPoser) {
       const [, act, , code] = x.cle.split('#');
       if (!prof.has(x.cle)) {
@@ -1005,7 +1005,7 @@ export function retablirImportees(section, bloc, annee) {
       const lignes = db.prepare('SELECT * FROM horaire_seance_remplacee WHERE annee_scolaire = ? AND section = ? AND bloc = ?').all(annee, section, bloc);
       // Les séances « plan » non retouchées de la période remplacée cèdent la place.
       const premiere = lignes.reduce((m, l) => (!m || l.date < m ? l.date : m), null);
-      if (premiere) db.prepare(`DELETE FROM horaire_seance WHERE annee_scolaire = ? AND section = ? AND bloc = ? AND source = 'plan' AND COALESCE(modifie_lucie, 0) = 0 AND date >= ?`).run(annee, section, bloc, premiere);
+      if (premiere) db.prepare(`DELETE FROM horaire_seance WHERE annee_scolaire = ? AND section = ? AND bloc = ? AND source = 'plan' AND COALESCE(modifie_lucie, 0) = 0 AND date >= ? AND NOT EXISTS (SELECT 1 FROM presence pr WHERE pr.seance_id = horaire_seance.id)`).run(annee, section, bloc, premiere);
       for (const l of lignes) {
         db.prepare(`INSERT INTO horaire_seance (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`).run(...cols.map(c => l[c]));
         n++;

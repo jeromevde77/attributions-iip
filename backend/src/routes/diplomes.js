@@ -27,6 +27,7 @@ import { TITRES_ACCES } from '../lib/profilEtudiant.js';
 import { LOGO_EUROPASS } from '../lib/logoEuropass.js';
 import { presidenceConseil, delibererUE } from './acquis.js';
 import { composerModele, declarerModele, blocModele } from '../lib/modelesPieces.js';
+import { logoCourant } from '../lib/identite.js';
 
 const r = Router();
 
@@ -691,14 +692,13 @@ function poserSignatures(modele, bloc, propre) {
  * (lucie_config.diplome_cologo_helb : { section: bool }) — absente, la case
  * vaut oui pour TIM seulement, la seule section co-diplômée (27 septembre 2026). */
 async function logosDe(sectionCode) {
-  const { LOGO_IIP_B64 } = await import('../services/assets/logo_iip.js');
   let co = '';
   try { co = db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'diplome_logo_helb'").get()?.valeur || ''; } catch { /* rien */ }
   /* L'IMAGE IMPORTÉE EST LE LOGO DE CO-DIPLOMATION, IIP ET HELB ENSEMBLE — elle
      REMPLACE le logo de l'IIP, elle ne s'y ajoute pas : posée à côté, l'IIP
      paraissait deux fois sur le diplôme de TIM. */
   if (co && coDiplomee(sectionCode)) return `<img src="${co}" class="logo-img" alt="Institut Ilya Prigogine — HELB" />`;
-  return `<img src="${LOGO_IIP_B64}" class="logo-img" alt="Institut Ilya Prigogine" />`;
+  return `<img src="${logoCourant()}" class="logo-img" alt="Institut Ilya Prigogine" />`;
 }
 /* Un modèle enregistré avant 2.12.108 n'a que l'image HELB : on la remplace
  * par le bloc des logos, sans quoi l'IIP n'y paraîtrait toujours pas. */

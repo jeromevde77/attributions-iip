@@ -70,6 +70,33 @@ jobs:
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,scope=frontend,mode=max
 
+      # LE PORTAIL DES ÉTUDIANTS (3.1.477, le mur) : deux images à part — le serveur (dossier portail/, rien de
+      # Lucie) et le site (frontend/Dockerfile.portail, la seule entrée portail.html).
+      - name: Build & push portail — serveur
+        uses: docker/build-push-action@v5
+        with:
+          context: ./portail
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/lucie-portail-backend:latest
+          build-args: |
+            BUILD_VERSION=${{ steps.version.outputs.value }}
+          cache-from: type=gha,scope=portail-backend
+          cache-to: type=gha,scope=portail-backend,mode=max
+
+      - name: Build & push portail — site
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile.portail
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/lucie-portail-frontend:latest
+          cache-from: type=gha,scope=portail-frontend
+          cache-to: type=gha,scope=portail-frontend,mode=max
+
       - name: Summary
         run: |
           echo "### Images publiées" >> $GITHUB_STEP_SUMMARY

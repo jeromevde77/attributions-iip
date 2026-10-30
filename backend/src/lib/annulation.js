@@ -127,7 +127,14 @@ const lireLigne = s => {
   return Array.isArray(v) ? Object.assign({}, ...v) : v;
 };
 const memeValeur = (a, b) => (a == null && b == null) || (a != null && b != null && String(a) === String(b));
-const pareil = (ligne, attendu) => Object.keys(attendu).every(k => memeValeur(ligne[k], attendu[k]));
+/* LES CHAMPS TECHNIQUES NE BLOQUENT PAS UNE ANNULATION (3.1.482, Charles, 30 octobre 2026 : « Impossible d'annuler :
+   utilisateur — la ligne a été modifiée depuis, par quelqu'un »). Se reconnecter écrit l'heure de connexion sur la
+   ligne du compte : l'annulation comparait la ligne ENTIÈRE et refusait, alors que rien de ce que le geste avait
+   changé n'avait bougé. Ces champs se tiennent seuls ; ils ne disent rien du travail de quelqu'un. */
+const TECHNIQUES = new Set(['last_login_at', 'totp_dernier_pas', 'maj_le', 'updated_at', 'vu_le', 'lue_par']);
+const pareil = (ligne, attendu, seules = null) => Object.keys(attendu)
+  .filter(k => !TECHNIQUES.has(k) && (!seules || seules.includes(k)))
+  .every(k => memeValeur(ligne[k], attendu[k]));
 
 /** Ce que dit un geste, à partir de ses traces. */
 function resumer(traces) {
@@ -224,8 +231,12 @@ export function annulerGeste(id, { user, direction = false, motif = '' }) {
         db.prepare(`DELETE FROM "${t.tbl}" WHERE rowid = ?`).run(t.rid);
       } else if (t.op === 'u') {
         if (!cur) throw conflit(t, 'la ligne a été supprimée');
-        if (!pareil(cur, apres)) throw conflit(t, 'la ligne a été modifiée');
-        const k = Object.keys(avant).filter(c => cols.includes(c));
+        // SEULS COMPTENT LES CHAMPS QUE LE GESTE A CHANGÉS : on ne refuse que si l'un d'eux a rebougé depuis, et l'on
+        // ne remet qu'eux — ce qui a changé ailleurs sur la ligne (par quelqu'un d'autre, ou tout seul) reste.
+        const changes = Object.keys(apres).filter(c => cols.includes(c) && !TECHNIQUES.has(c) && !memeValeur(avant[c], apres[c]));
+        if (!pareil(cur, apres, changes)) throw conflit(t, 'ce que le geste avait changé a été modifié');
+        const k = changes;
+        if (!k.length) continue;
         db.prepare(`UPDATE "${t.tbl}" SET ${k.map(c => `"${c}" = ?`).join(', ')} WHERE rowid = ?`).run(...k.map(c => avant[c]), t.rid);
       } else {
         if (cur) throw conflit(t, 'une autre ligne a pris sa place');

@@ -47,11 +47,14 @@ import {
 import Login from './pages/Login.jsx';
 import MotDePasse from './pages/MotDePasse.jsx';
 import DemandeVA from './pages/DemandeVA.jsx';
+import { ETOILES, TRAITS, ECLAT, DISCRETES, POINTS_L } from './lib/logoVierge.js';
+import PresenceQR from './pages/PresenceQR.jsx';
 import RechercheLucie from './components/RechercheLucie.jsx';
 import AnnulerGestes from './components/AnnulerGestes.jsx';
 import { BoutonUrgence } from './components/TuileQuiEstLa.jsx';
 import { IconEtudiant } from './components/IconesLucie.jsx';
 import { useSousMenu } from './lib/sousMenu.js';
+import { useAlignerSurLeRail } from './lib/alignerTitre.js';
 import MonCompte from './components/MonCompte.jsx';
 import ApercuGlobal from './components/ApercuGlobal.jsx';
 import Dashboard from './pages/Dashboard.jsx';
@@ -279,6 +282,7 @@ function ProtectedLayout({ children }) {
   const sousMenu = useSousMenu();          // les faces de l'écran ouvert, glissées dans la barre
   const [bulleNav, setBulleNav] = useState(null);   // { lbl, x, y } : le nom au survol d'une icône
   const location = useLocation();
+  useAlignerSurLeRail(location.pathname + location.search);   // le haut du contenu au haut du rail (3.1.468)
 
   /*
    * LA BARRE MESURE SA PROPRE HAUTEUR, ET LE RAIL LA LIT.
@@ -607,36 +611,25 @@ function ProtectedLayout({ children }) {
           </button>)}
 
           <div className="flex-none">
-            <svg className="logo-lucie" width="90" height="28" viewBox="0 0 140 44"
+            <svg className="logo-lucie" width="98" height="28" viewBox="-12 -6 172 49"
               xmlns="http://www.w3.org/2000/svg">
-              {/* Symbole L compact */}
-              <g stroke="#1B2B4B" strokeOpacity=".06" fill="none" strokeWidth="1.2" strokeLinecap="round">
-                <line x1="5" y1="14" x2="12" y2="6"/><line x1="5" y1="14" x2="16" y2="23"/>
-                <line x1="12" y1="6" x2="23" y2="8"/><line x1="16" y1="23" x2="23" y2="8"/>
-                <line x1="16" y1="23" x2="23" y2="32"/><line x1="23" y1="8" x2="36" y2="14"/>
-                <line x1="36" y1="14" x2="42" y2="32"/>
+              {/* LA VIERGE, CACHÉE DANS LE RÉSEAU (lib/logoVierge.js) : la figure à peine visible ; le L par-dessus,
+                  dont les trois extrémités SONT des étoiles — τ en haut, Spica au coin, Zaniah au bout. En aplat, comme
+                  la fin de l'animation de la connexion (3.1.487) : liens presque invisibles, étoiles discrètes, L plat. */}
+              <g stroke="#1B2B4B" strokeOpacity=".12" fill="none" strokeWidth="0.8" strokeLinecap="round">
+                {TRAITS.map(([a, b]) => <line key={a + b} x1={ETOILES[a][0]} y1={ETOILES[a][1]} x2={ETOILES[b][0]} y2={ETOILES[b][1]} />)}
               </g>
-              <g stroke="#00AACC" strokeOpacity=".35" fill="none" strokeWidth="1.2" strokeLinecap="round">
-                <line x1="5" y1="14" x2="16" y2="23"/><line x1="12" y1="6" x2="23" y2="8"/>
-                <line x1="16" y1="23" x2="23" y2="32"/><line x1="23" y1="8" x2="36" y2="14"/>
-                <line x1="23" y1="32" x2="42" y2="32"/>
-              </g>
-              <g stroke="#00AACC" strokeOpacity=".85" fill="none" strokeWidth="2.2" strokeLinecap="round">
-                <line x1="12" y1="6" x2="12" y2="32"/>
-                <line x1="12" y1="32" x2="42" y2="32"/>
-              </g>
-              <circle cx="5"  cy="14" r="1.8" fill="#1B2B4B" fillOpacity=".1"/>
-              <circle cx="23" cy="8"  r="1.8" fill="#1B2B4B" fillOpacity=".12"/>
-              <circle cx="36" cy="14" r="1.6" fill="#1B2B4B" fillOpacity=".08"/>
-              <circle cx="16" cy="23" r="1.8" fill="#00AACC" fillOpacity=".5"/>
-              <circle cx="12" cy="6"  r="3.2" fill="#00AACC"/>
-              <circle cx="12" cy="32" r="3.6" fill="#00AACC"/>
-              <circle cx="42" cy="32" r="3.2" fill="#00AACC"/>
-              <circle cx="12" cy="6"  r="1.4" fill="white" fillOpacity=".7"/>
-              <circle cx="12" cy="32" r="1.6" fill="white" fillOpacity=".65"/>
-              <circle cx="42" cy="32" r="1.4" fill="white" fillOpacity=".7"/>
+              {DISCRETES.map(k => (
+                <circle key={k} cx={ETOILES[k][0]} cy={ETOILES[k][1]} r={0.9 + (ECLAT[k] || 0.3) * 1.1} fill="#1B2B4B" fillOpacity=".3" />))}
+              <path d={`M${POINTS_L[0][0]} ${POINTS_L[0][1]} L${POINTS_L[1][0]} ${POINTS_L[1][1]} L${POINTS_L[2][0]} ${POINTS_L[2][1]}`}
+                stroke="#00AACC" strokeOpacity=".85" fill="none" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+              {POINTS_L.map(([x, y], i) => (
+                <g key={i}>
+                  <circle cx={x} cy={y} r={i === 1 ? 3.6 : 3.2} fill="#00AACC" />
+                  <circle cx={x} cy={y} r={i === 1 ? 1.6 : 1.4} fill="white" fillOpacity=".7" />
+                </g>))}
               {/* Texte "Lucie" */}
-              <text x="52" y="30"
+              <text x="66" y="30"
                 fontFamily="'Segoe UI','Helvetica Neue',Arial,sans-serif"
                 fontSize="22" fontWeight="700" letterSpacing="-0.5"
                 fill="#1B2B4B">Lucie</text>
@@ -840,6 +833,9 @@ export default function App() {
       <Route path="/mot-de-passe" element={<MotDePasse />} />
       {/* LA PORTE DES ÉTUDIANTS (VA en ligne) : publique, son propre jeton. */}
       <Route path="/demande-va" element={<DemandeVA />} />
+      {/* LA PRÉSENCE PAR QR : publique, l'étudiant n'a pas de compte (28 octobre 2026). */}
+      <Route path="/presence/*" element={<PresenceQR />} />
+      <Route path="/presence" element={<PresenceQR />} />
       <Route path="/"             element={<Navigate to="/accueil" replace />} />
       <Route path="/attributions" element={<Navigate to="/organisation" replace />} />
       <Route path="/professeurs"  element={<ProtectedLayout><Professeurs /></ProtectedLayout>} />

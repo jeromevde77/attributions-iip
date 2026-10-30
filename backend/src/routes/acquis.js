@@ -28,7 +28,6 @@ import { nomPropre, nomPropreDepuisChaine, separerNomPrenom } from '../lib/nom.j
 import { anneeDeTravail, anneeActiveEnBase } from '../helpers/annee.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
 import { gesteRequis } from '../lib/gestes.js';
-import { SIGNATURE_SOHET, SCEAU_IIP } from '../services/assets/signature_sohet.js';
 import { identiteEtablissement } from './config.js';
 import { composerModele, declarerModele, blocModele } from '../lib/modelesPieces.js';
 // Les trois pièces de la délibération — attestation de réussite, motivation
@@ -37,7 +36,6 @@ import { composerModele, declarerModele, blocModele } from '../lib/modelesPieces
 import { envelopper, unitesReussies, pageAttestation, frDate } from './attestations.js';
 import { enteteDocument, stylesEntete, BANDE_PIED_MM, piedGabaritPdf } from '../lib/document.js';
 import { capacitePdf, rendrePdf, compterPages } from '../services/pdf.js';
-import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 import { piedDocument, getParam } from './parametres.js';
 import { motifPropose } from '../lib/motifPropose.js';
 import { marquerPonderationFixee, dueValidee } from './due.js';
@@ -45,6 +43,9 @@ import { garderTransfert, porteFermee, refusPorte } from '../lib/transferts.js';
 import { migrerReprise, simulerReprise, appliquerReprise, forcerCloture,
          MOTIF_REPRISE, MENTION_REPRISE } from '../lib/repriseHistorique.js';
 
+import { noteVerrouillee, MESSAGE_CLOSE } from '../lib/gardeNotes.js';
+import { uesValorisees } from '../lib/valorisation.js';
+import { logoCourant } from '../lib/identite.js';
 const r = Router();
 
 export function migrerSessions(dbx) {
@@ -1281,6 +1282,8 @@ r.put('/feuille/note', authRequired,
      donc sans cours, la forme que tout le reste lit. */
   const coursEcrit = cours_code && cours_code !== CODE_EPREUVE_UE ? cours_code : null;
   const code = prefixe + (coursEcrit ? `${coursEcrit}|${aa_code}` : aa_code);
+  const verrou = noteVerrouillee(etudiant_id, annee_scolaire, ue_num, prefixe || 's1|');
+  if (verrou) return res.status(409).json({ error: MESSAGE_CLOSE(ue_num, verrou.session), seance_close: true });
 
   // Une mention vaut zéro : NP et PP ne sont pas des notes, mais elles
   // comptent comme telles dans la moyenne.
@@ -2309,6 +2312,20 @@ r.put('/reports', authRequired, roleRequired('admin', 'editeur'), (req, res) => 
      pour 146 cas éligibles). Et `aa_code` étant NULL pour un report de cours,
      l'unicité ne joue pas : on cherche donc la ligne, puis on écrit. */
   const cle = [Number(etudiant_id), annee_scolaire, Number(ue_num), cours_code];
+  /* DEUX PORTES POUR UN MÊME REPORT, ET ELLES NE FAISAIENT PAS LA MÊME CHOSE
+     (3.1.428). Le report d'office copie les notes des acquis ; celle-ci
+     n'écrivait que la ligne de report — la délibération ne trouvait alors
+     aucune note — et repassait en « accordé » un report que le Conseil avait
+     refusé, sans un mot. Un refus ne se renverse plus qu'avec un motif, et un
+     cours éligible reçoit ses notes comme d'office. */
+  const ancien = db.prepare(`SELECT statut FROM etudiant_report_note
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND cible = 'cours'
+      AND cours_code = ? AND aa_code IS NULL`).get(...cle);
+  const motif = String(req.body?.motif || '').trim();
+  if (ancien && ancien.statut !== 'accorde' && !motif) {
+    return res.status(409).json({ error: 'Le report de ce cours a été refusé : le reposer demande un motif écrit.',
+      motif_requis: true });
+  }
   const ligne = db.prepare(`SELECT id FROM etudiant_report_note
     WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND cible = 'cours'
       AND cours_code = ? AND aa_code IS NULL`).get(...cle);
@@ -2323,7 +2340,26 @@ r.put('/reports', authRequired, roleRequired('admin', 'editeur'), (req, res) => 
       VALUES (?,?,?, 'cours', ?, NULL, ?, ?, 'accorde', ?, datetime('now'), ?)`)
       .run(...cle, Number(note), annee_origine || null, decision_ce || null, req.user?.nom || req.user?.email || null);
   }
-  res.json({ ok: true });
+  if (motif && ancien && ancien.statut !== 'accorde') {
+    db.prepare(`UPDATE etudiant_report_note SET decision_ce = ? WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
+      AND cible = 'cours' AND cours_code = ? AND aa_code IS NULL`).run(`refus levé : ${motif}`, ...cle);
+  }
+  // Les notes des acquis, comme le report d'office — sans écraser une note encodée.
+  let notes = 0;
+  try {
+    const c = reportsEligibles(cle[0], cle[2], annee_scolaire, { ...reglesDeliberation(), base_s2: 'cours' }).cours
+      .find(x => x.cours_code === cours_code);
+    if (c) {
+      const ins = db.prepare(`INSERT INTO etudiant_note_detail
+        (etudiant_id, annee_scolaire, ue_num, type, code, cours_code, points, origine)
+        VALUES (?,?,?, 'aa', ?,?,?,?) ON CONFLICT(etudiant_id, annee_scolaire, ue_num, type, code) DO NOTHING`);
+      for (const a of c.aas || []) {
+        notes += ins.run(cle[0], annee_scolaire, cle[2], `s1|${cours_code}|${a.aa_code}`, cours_code,
+          a.note, `report:${c.annee_origine || annee_origine || ''}`).changes;
+      }
+    }
+  } catch (e) { console.error('[reports] notes :', e.message); }
+  res.json({ ok: true, notes });
 });
 
 /* LE RATTRAPAGE : poser d'office les reports des PAE déjà composés. Rien ne
@@ -4823,6 +4859,12 @@ r.post('/ue/:ueNum/notes/importer', authRequired,
         continue;
       }
       rapport.total.rapproches++;
+      // UNE SÉANCE CLOSE GARDE SES NOTES (3.1.432) : l'étudiant est nommé, rien n'est écrit —
+      // la simulation le montre déjà, le réimport ne la fait pas échouer.
+      if (noteVerrouillee(t.id, an, ueNum, `s${ses}|`)) {
+        (rapport.seance_close ||= []).push(`${l.nom || ''} ${l.prenom || ''}`.trim());
+        continue;
+      }
 
       // Deux formes de notes coexistent, parce que deux classeurs coexistent.
       //
@@ -5369,6 +5411,8 @@ r.put('/ue/:ueNum/epreuve', authRequired,
   }
 
   const prefixe = session === 1 || session === 2 ? `s${session}|` : 's1|';
+  { const v = noteVerrouillee(etudiant_id, annee_scolaire, ueNum, prefixe);
+    if (v) return res.status(409).json({ error: MESSAGE_CLOSE(ueNum, v.session), seance_close: true }); }
   const poser = db.prepare(`
     INSERT INTO etudiant_note_detail
       (etudiant_id, annee_scolaire, ue_num, type, code, points, mention)
@@ -5425,6 +5469,8 @@ r.put('/cours/:coursCode/epreuve', authRequired,
   }
 
   const prefixe = session === 1 || session === 2 ? `s${session}|` : 's1|';
+  { const v = noteVerrouillee(etudiant_id, annee_scolaire, co.ue_num, prefixe);
+    if (v) return res.status(409).json({ error: MESSAGE_CLOSE(co.ue_num, v.session), seance_close: true }); }
   const poser = db.prepare(`
     INSERT INTO etudiant_note_detail
       (etudiant_id, annee_scolaire, ue_num, type, code, points, mention)
@@ -5517,13 +5563,16 @@ r.get('/ue/:ueNum/cours', authRequired, (req, res) => {
 /* UNE SESSION EST CLOSE QUAND TOUTES SES SÉANCES LE SONT. Une unité qui se
  * délibère par organisation tient plusieurs séances pour la même session :
  * la session ne compte close que lorsque chacune l'est. La ligne « unité
- * entière » (num_organisation = 0) ne compte pas dès qu'il existe des
- * séances d'organisation — c'est un reste de planification, pas un Conseil. */
+ * entière » (num_organisation = 0) OUVERTE ne compte pas dès qu'il existe des
+ * séances d'organisation — c'est un reste de planification ; CLOSE, c'est un
+ * Conseil tenu sur toute l'unité, et la session est close (3.1.452). */
 export function sessionCloturee(ueNum, annee, session) {
   const rows = db.prepare(`
     SELECT num_organisation AS org, cloturee FROM deliberation_seance
     WHERE ue_num = ? AND annee_scolaire = ? AND session = ?
   `).all(Number(ueNum), annee, Number(session));
+  // Une séance « toute l'unité » CLOSE est un Conseil tenu : elle clôt la session (3.1.452).
+  if (rows.some(r0 => !(r0.org > 0) && r0.cloturee)) return true;
   const parOrg = rows.filter(r0 => r0.org > 0);
   if (parOrg.length) return parOrg.every(r0 => r0.cloturee);
   return !!rows[0]?.cloturee;
@@ -5572,7 +5621,27 @@ export function sessionDeLUE(ueNum, annee) {
   // l'unité en seconde session, non le simple encodage des décisions.
   const s1Close = sessionCloturee(ueNum, annee, 1);
 
-  const secondeOuverte = s1Faite && s1.ajournes > 0 && s1Close;
+  /* LA CLÔTURE OUVRE LA SECONDE SESSION (3.1.458, Charles, UE 333 : « séance close et pas de délibéré de
+     seconde session proposé »). On exigeait en plus que CHAQUE inscrit ait une décision de première
+     session : un seul dossier sans décision (inscrit tardif, abandon jamais décidé) tenait la seconde
+     session fermée après la clôture, sans un mot. La clôture est l'acte du Conseil : elle suffit. */
+  const secondeOuverte = s1.ajournes > 0 && s1Close;
+
+  /* PAR ORGANISATION (3.1.451, Charles, 29 octobre 2026 : « quand je clos la délibération, il ne
+     propose pas la 2e session »). L'UE 333 délibère organisation par organisation : la seconde
+     session s'ouvrait seulement quand TOUTES étaient closes, sans rien dire. Chaque organisation
+     close qui a des ajournés ouvre désormais la sienne ; l'écran le dit et nomme celles qui restent. */
+  let orgs = [];
+  try {
+    orgs = db.prepare(`SELECT s.num_organisation AS org, s.cloturee AS close,
+        (SELECT COUNT(*) FROM etudiant_inscription i WHERE i.ue_num = s.ue_num AND i.annee_scolaire = s.annee_scolaire
+          AND i.num_organisation = s.num_organisation AND i.resultat = 'ajourne') AS ajournes
+      FROM deliberation_seance s WHERE s.ue_num = ? AND s.annee_scolaire = ? AND s.session = 1
+        AND COALESCE(s.num_organisation, 0) > 0 ORDER BY s.num_organisation`).all(Number(ueNum), annee)
+      .map(o => ({ org: o.org, close: !!o.close, ajournes: o.ajournes || 0 }));
+  } catch { orgs = []; }
+  const orgsOuvertes = orgs.filter(o => o.close && o.ajournes > 0).map(o => o.org);
+  const secondePartielle = !secondeOuverte && orgsOuvertes.length > 0;
 
   return {
     session: secondeOuverte ? 2 : 1,
@@ -5582,7 +5651,9 @@ export function sessionDeLUE(ueNum, annee) {
     s2: { decides: s2.n },
     // Sans ajourné en première session, la seconde n'a pas lieu d'être ; sans
     // clôture, elle n'est pas encore ouverte.
-    seconde_possible: secondeOuverte,
+    seconde_possible: secondeOuverte || secondePartielle,
+    seconde_partielle: secondePartielle,
+    organisations_s1: orgs,
     // Ce qui manque pour l'ouvrir, à dire à l'écran plutôt qu'à deviner.
     seconde_attend: s1Faite && s1.ajournes > 0 && !s1Close
       ? 'la clôture de la séance de première session' : null,
@@ -6484,6 +6555,55 @@ r.get('/deliberation/ue/:ueNum/incoherences', authRequired, (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+/* « AJOURNER AUSSI », POUR TOUS (3.1.455, Charles, UE 333 : la clôture nommait 38 étudiants dont un
+   acquis en échec n'était pas ajourné, et le bouton « Ajourner aussi » n'existait que fiche par fiche).
+   Le même geste, pour chaque étudiant de la liste de la clôture : ses cours où l'acquis échoue
+   s'ajournent pour leurs acquis en échec (mode « echec ») ; un acquis qui n'échoue dans aucun cours
+   (échec de la cote consolidée) s'ajourne lui-même. Rien d'autre ne change : ni la décision, ni une
+   note. Simulation d'abord. */
+r.post('/deliberation/ue/:ueNum/ajourner-oublies', authRequired,
+      gesteRequis('deliberation.faveur'), (req, res) => {
+  const ueNum = Number(req.params.ueNum);
+  const annee = req.body?.annee || anneeDeTravail(req);
+  const org = Number(req.body?.org) > 0 ? Number(req.body.org) : null;
+  const simulation = req.body?.simulation === true;
+  const par = req.user?.email || null;
+  const close = db.prepare(`SELECT cloturee FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ?
+      AND session = 1 AND COALESCE(num_organisation, 0) = ?`).get(ueNum, annee, org || 0)?.cloturee;
+  if (close) return res.status(409).json({ error: 'La séance est clôturée : rouvrez-la pour corriger les ajournements.' });
+  const inco = incoherencesAjournement(ueNum, annee, org).filter(x => !x.sans_decision && x.oublies.length);
+  const poser = db.prepare(`INSERT INTO deliberation_ajustement
+      (etudiant_id, annee_scolaire, ue_num, session, portee, code, action, maj_par)
+    VALUES (?,?,?,1,?,?,'ajourne',?)
+    ON CONFLICT(etudiant_id, annee_scolaire, ue_num, session, portee, code)
+    DO UPDATE SET action = 'ajourne', maj_le = CURRENT_TIMESTAMP, maj_par = excluded.maj_par`);
+  const plan = inco.map(x => ({
+    etudiant_id: x.etudiant_id, nom: x.nom, prenom: x.prenom,
+    cours: [...new Set(x.oublies.flatMap(o => o.cours || []))],
+    acquis: x.oublies.filter(o => !(o.cours || []).length).map(o => o.aa_code),
+  }));
+  if (!simulation) {
+    db.transaction(() => {
+      for (const p of plan) {
+        for (const c of p.cours) {
+          const avant = delibererUE(p.etudiant_id, ueNum, annee, 1);
+          poser.run(p.etudiant_id, annee, ueNum, 'cours', c, par);
+          poserPortee(p.etudiant_id, annee, ueNum, 1, c, 'echec', avant, par);
+        }
+        for (const aa of p.acquis) poser.run(p.etudiant_id, annee, ueNum, 'aa', aa, par);
+        // La cote de l'unité se relit après l'ajournement, comme le fait la fiche (enregistrerDecision).
+        const note = delibererUE(p.etudiant_id, ueNum, annee, 1)?.ue?.note ?? null;
+        db.prepare(`UPDATE deliberation_resultat SET points = ? WHERE etudiant_id = ? AND annee_scolaire = ?
+            AND ue_num = ? AND session = 1 AND resultat = 'ajourne'`).run(note, p.etudiant_id, annee, ueNum);
+        db.prepare(`UPDATE etudiant_inscription SET points = ? WHERE etudiant_id = ? AND annee_scolaire = ?
+            AND ue_num = ? AND resultat = 'ajourne'`).run(note, p.etudiant_id, annee, ueNum);
+      }
+    })();
+  }
+  const restent = simulation ? null : incoherencesAjournement(ueNum, annee, org);
+  res.json({ simulation, etudiants: plan.length, plan, restent });
+});
+
 export function motivationsProposees(ueNum, annee, session = 1, org = null) {
   const sortie = [];
   // Par organisation, seuls SES étudiants entrent dans le compte : la clôture
@@ -6823,6 +6943,18 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
  *
  * GET compte ; POST assemble tout en UN document, chaque pièce sur sa page.
  */
+/* LES RÉOUVERTURES D'UNE SÉANCE, RELUES (audit du 28 octobre 2026). Le motif était
+   exigé et écrit (« conservé au dossier ») mais aucun écran ne le relisait : le voici,
+   dans la feuille de délibération, avec qui et quand. */
+r.get('/deliberation/ue/:ueNum/reouvertures', authRequired, (req, res) => {
+  try {
+    const session = Number(req.query.session) === 2 ? 2 : 1;
+    res.json(db.prepare(`SELECT motif, le, par FROM deliberation_reouverture
+      WHERE ue_num = ? AND annee_scolaire = ? AND session = ? ORDER BY le DESC, id DESC`)
+      .all(Number(req.params.ueNum), String(req.query.annee || ''), session));
+  } catch { res.json([]); }   // table absente : aucune réouverture
+});
+
 r.get('/deliberation/ue/:ueNum/documents', authRequired, (req, res) => {
   const ueNum = Number(req.params.ueNum);
   const annee = req.query.annee || anneeDeTravail(req);
@@ -8193,7 +8325,7 @@ export async function numeroterPagesPV(corps, style = '') {
     if ((await capacitePdf()).disponible) {
       n = compterPages(await rendrePdf(envelopper(style + corps.split(PH_PAGES_PV).join('……'), 'PV'), {
         marges: { top: '12mm', right: '15mm', bottom: `${BANDE_PIED_MM}mm`, left: '15mm' },
-        pied: avecNum => piedGabaritPdf(LOGO_IIP_JPEG, piedDocument(), avecNum),
+        pied: avecNum => piedGabaritPdf(logoCourant(), piedDocument(), avecNum),
         pagination: 'si-plusieurs',
       }));
     }
@@ -9057,12 +9189,16 @@ r.post('/deliberation/ue/:ueNum/ajourner-lot', authRequired,
   }
 
   // Une séance close ne se complète pas en douce : on la rouvre d'abord.
+  // LA SÉANCE DE LA FEUILLE (3.1.453) : la requête prenait la première séance venue de la session,
+  // quelle que soit son organisation — une séance rouverte pouvait se lire close, et inversement.
+  const orgLot = Number(req.body?.org) > 0 ? Number(req.body.org) : 0;
   const close = !!(db.prepare(`SELECT cloturee FROM deliberation_seance
-    WHERE ue_num = ? AND annee_scolaire = ? AND session = ?`).get(ueNum, annee, ses)?.cloturee);
+    WHERE ue_num = ? AND annee_scolaire = ? AND session = ? AND COALESCE(num_organisation, 0) = ?`)
+    .get(ueNum, annee, ses, orgLot)?.cloturee);
   if (close) {
     return res.status(409).json({
       error: 'séance close',
-      detail: 'La séance est clôturée. Rouvrez-la pour reprendre la délibération.',
+      detail: 'La séance est clôturée : rien n\'a été enregistré. La direction peut la rouvrir (motif écrit) pour reprendre la délibération.',
     });
   }
 
@@ -9344,10 +9480,11 @@ export function parcoursComplet(etudId, annee) {
       WHERE etudiant_id = ? AND action = 'faveur'`).all(etudId).map(r => r.ue_num));
   const ins = db.prepare(`SELECT ue_num, annee_scolaire, resultat FROM etudiant_inscription
       WHERE etudiant_id = ? ORDER BY annee_scolaire`).all(etudId);
+  const vaUE = uesValorisees(etudId);   // dispense complète = acquise (3.1.438)
   const unites = Object.entries(niv).map(([n, bloc]) => {
     const ue = Number(n);
     const lignes = ins.filter(x => x.ue_num === ue);
-    const acquise = lignes.some(x => ['reussi', 'valorise', 'capitalise'].includes(x.resultat));
+    const acquise = lignes.some(x => ['reussi', 'valorise', 'capitalise'].includes(x.resultat)) || vaUE.ues.has(ue);
     const cetteAnnee = lignes.find(x => x.annee_scolaire === annee);
     const etat = acquise ? (faveurs.has(ue) ? 'faveur' : 'reussi')
       : cetteAnnee ? (cetteAnnee.resultat === 'ajourne' ? 'ajourne' : cetteAnnee.resultat === 'refuse' ? 'refuse' : 'en_cours')

@@ -35,10 +35,19 @@ par défaut). **Les images ne sont plus en dur** : `services/assets/*` exportent
 des liaisons vivantes que `lib/identite.js` remplace par celles de
 l'établissement 1 au démarrage et à chaque import ; `GET /api/etablissement/images`
 les sert à l'écran (`frontend/src/lib/identite.js`) — quatre écrans les
-embarquaient en texte (≈ 950 Ko retirés du code, Attestation 784 → 84 Ko). **À
-venir :** les pièces d'une section d'un AUTRE établissement lisent son identité
-(`etablissementDeSection`), le filtre par établissement, le périmètre d'accès par
-établissement.
+embarquaient en texte (≈ 950 Ko retirés du code, Attestation 784 → 84 Ko).
+**Une pièce porte l'identité de l'établissement de SA section** (3.1.443, Charles : un second
+établissement aura une section cette année). Le contexte de la requête (`lib/contexteRequete.js`)
+porte l'« établissement courant », déduit à la première lecture (`fournirDeduction`, dans
+`lib/identite.js`) : section nommée, sinon étudiant (`section_rattachement`), sinon UE →
+`etablissementDeSection`. Les pièces n'importent plus les constantes d'images : `logoCourant()`,
+`logoHtmlCourant()`, `logoBlancCourant()`, `signatureCourante()`, `cachetCourant()` ; et
+`identiteEtablissement()` (`routes/config.js`) comme `piedDocument()` lisent la fiche de cet
+établissement (nom, adresse, ECOT, FASE, signataire). Tant qu'il n'existe qu'un établissement, rien
+n'est cherché : l'IIP. **À régler à l'écran pour le second** : sa fiche complète (nom, adresse,
+ECOT, signataire) et ses quatre images dans Configuration → Identité, et ses sections rattachées —
+une image absente retombe sur celle de l'IIP. **À venir :** le filtre par établissement, le
+périmètre d'accès par établissement.
 
 **LA COMMUNICATION** (3.1.278-3.1.279, Charles, 10 octobre 2026 : « envoyer sur le
 tableau de bord de tous, d'une partie, d'une section… à terme, supprimer les courriels
@@ -51,6 +60,430 @@ facultative (redirigée sur la dev) ; ✓ vert quand c'est lu ; retrait (le regi
 tout). Direction, secrétariat : à tous ; coordination : ses sections. **Le ménage** :
 même choix de groupes, « Vider leurs tableaux de bord » pose `tableau_vide.vide_le` par
 compte ; les notifications d'avant quittent le fil, les messages et les vœux restent.
+
+**LE CARNET DE COTES** (3.1.422, Charles, 28 octobre 2026 : « rendre Lucie intéressante pour
+les profs — gagner du temps, encoder des notes, des tests par exemple »). Mes cours → onglet
+*Carnet* (`components/CarnetCotes.jsx`, `routes/carnet.js` monté sur `/api/mes-cours/carnet` AVANT
+les routes paramétriques de Mes cours, métier `lib/carnet.js`, tables `carnet_evaluation`,
+`carnet_evaluation_aa`, `carnet_note`). Une colonne par évaluation (intitulé, date, sur, poids,
+session), des points à deux décimales ou PP · NP · CM, coller une colonne d'Excel (dans l'ordre, ou
+matricule/nom + note), export Excel, « Reprendre l'an dernier » (la STRUCTURE, jamais les notes).
+**Rattacher une évaluation à des acquis reste un choix, évaluation par évaluation** (question non
+tranchée par Charles : on ne force rien) : rattachée, elle nourrit une PROPOSITION par acquis
+(moyenne pondérée poids d'évaluation × poids du lien, sur 20, vide et mentions hors dénominateur,
+arrondi à l'unité) ; sinon elle reste un repère. « Reprendre dans la feuille de notes » REMPLIT les
+cases (demande avant d'écraser une note déjà tapée) et n'enregistre rien : la porte reste
+`POST /mes-cours/:cours/notes`, avec justificatif sous 10. Le carnet d'un cours est commun à ceux
+qui y ont accès (`accesCours`) ; chaque évaluation et chaque note gardent leur auteur. Banc :
+`backend/test/carnet.mjs`.
+
+**MON HORAIRE DANS MON AGENDA** (3.1.423, Charles, 28 octobre 2026). Mes cours → rail → *Mon
+horaire dans mon agenda* (`components/AgendaAbonnement.jsx`, `routes/agenda.js`, `lib/agendaIcs.js`,
+table `agenda_lien`) : un lien d'abonnement iCalendar que l'agenda du téléphone (iPhone, Google,
+Outlook) relit seul — séance déplacée ou annulée (`STATUS:CANCELLED`) suivie, fuseau
+Europe/Brussels. **Un agenda ne se connecte pas** : `GET /api/agenda/flux/<jeton>.ics` est PUBLIC, le
+jeton fait foi ; la base n'en garde que l'empreinte (SHA-256), le lien ne s'affiche qu'à sa création ;
+« Nouveau lien » révoque l'ancien (404, comme un jeton faux). Le flux ne porte que des cours, des
+heures et des locaux. Séances : celles qui nomment le professeur, plus celles de ses cours attribués
+dont l'horaire ne nomme personne (règle de Mes cours), de 60 jours en arrière à la fin de l'horaire.
+L'adresse vient de `LUCIE_URL` (dev → dev.lucie-iip.be). **À venir** : le même lien pour les
+étudiants (ils n'ont pas de compte — passer par le téléphone lié de la présence QR ?).
+
+**LES PRÉSENCES PAR UE ET LA RÉGULARITÉ** (3.1.424, Charles, 28 octobre 2026 : « un module admin
+qui permet de choisir une UE, de voir les données en tableau, de savoir les changer ; une colonne
+pour la régularité — R sur fond vert, sinon IR ; en cliquant on inverse le badge »). Étudiants →
+*Suivi des présences* → face **Par UE** (`components/PresencesUE.jsx`, `routes/presencesUE.js` sur
+`/api/presences-ue`, `lib/regularite.js`) — direction et secrétariat. Grille de l'UE (inscrits ×
+séances de tous ses cours), case changée d'un clic (P, P*, A, J + motif, —, effacer) par
+`ecrirePresences()`. **Deux colonnes de régularité, juste après la séance du 1er dixième et celle du
+5e** (« la régularité est admin, pour la vérification ») : R si présences + absences justifiées
+≥ 60 % des heures dues ET encodées jusqu'au jalon inclus (dispensés hors compte, non encodées
+signalées) ; jalons = 1/10 et 5/10 entre première et dernière séance, séance la plus proche.
+**Inverser = un clic, sans motif** (« si je change, cela doit être léger ») ; `regularite_marque`
+garde qui et quand, badge pointillé ; revenir au calcul efface la marque. **Pilotage → Gestion →
+Présences** (`components/PilotagePresences.jsx`, `GET /api/presences-ue/pilotage`) : tuiles, alertes
+(présences non encodées, > 20 % d'irréguliers au 1/10, 1/10 passé sans séance), comptage des
+réguliers au 1/10 par section (hors cursus à part), une ligne par UE qui ouvre son module. **La PEP
+estimée** (3.1.441, Charles : « à côté ») : réguliers au 1/10 × périodes de l'UE (professeur, autonomie
+comprise, hors Z — `periodesDI`, à défaut la somme des cours), par UE, par section et en tuile ; la PEP
+officielle reste celle d'eProm (saisie dans la dotation civile), l'estimée s'y compare.
+**Couleurs** : `var(--c-corriger)` et `var(--c-surveiller)` N'EXISTENT PAS (les états sont
+`--c-refuse` et `--c-attente`) — onze écrans de présence les employaient et peignaient en noir ou en
+transparent ; corrigé partout en 3.1.424.
+
+**LE TICKET DE SORTIE** (3.1.425, Charles, 28 octobre 2026). Mes cours → Ma journée → séance →
+*Ticket de sortie* (`components/TicketSortie.jsx`, `routes/ticketSortie.js` sur
+`/api/mes-cours/ticket` AVANT les routes paramétriques, métier `lib/ticketSortie.js`, tables
+`ticket_sortie`, `ticket_reponse`). Jusqu'à 4 questions (échelle 1-5, réponse courte, QCM avec bonne
+réponse facultative ; deux proposées d'office), un QR projeté qui tourne comme celui de la présence
+(jetons signés `x`, puis `y` = 20 min pour répondre, `signerJeton`), ouvert le jour de la séance
+jusqu'à une heure après la fin ou jusqu'à « Fermer ». L'étudiant répond depuis le TÉLÉPHONE DÉJÀ LIÉ
+(cookie de la présence, routes `/api/presence-qr/ticket/*`, même page `/presence/<jeton>`) ; un
+téléphone non lié est renvoyé vers le QR de présence ; une réponse par étudiant, inscrits de la
+séance seulement ; la bonne réponse ne sort jamais vers le téléphone. **Anonyme par défaut** (le
+professeur ne voit que totaux et textes) ; nominatif, un QCM corrigé se verse dans le carnet (« Ticket
+du jj/mm », un point par bonne réponse, une fois). Les questions ne changent plus après la première
+réponse. Banc : `test/presenceQr.mjs` (94 ok).
+
+**LA BOUCLE BOUCLÉE** (3.1.426, Charles, 28 octobre 2026 : « on arrive à maturation ; il faut
+vérifier que tous les liens soient bien pensés »). Relevé complet et liste de ce qui reste ouvert :
+`docs/contexte/audit-boucles-2026-10-28.md`. Règle qui en sort : **une donnée écrite que personne
+ne relit est une boucle ouverte** — avant d'ajouter une table ou une trace, dire quel écran la lit.
+
+**UN ÉTUDIANT NAÎT RATTACHÉ, ET UNE DEMANDE DE VA A SON PRIX** (3.1.427, Charles, 28 octobre 2026).
+(1) `POST /api/etudiants` refuse un dossier sans section de rattachement NI première UE (année +
+`ue_nums`, inscrites par `ecrireProgramme()`) : un étudiant sans l'un ni l'autre n'apparaît dans
+aucune liste de section. (2) **Forfait de valorisation** (`lib/forfaitVA.js`, paramètres `couts` :
+`va.forfait_ue` 30 €, `va.supplement_ue` 15 €, `va.forfait_admission` 50 €), dû dès la demande, VA
+et VAE par UE demandée : non inscrit → 30 € × UE ; inscrit dont les frais d'inscription sont sous ce
+montant → ils sont portés à ce montant (on ajoute la différence) ; sinon 15 € par UE. L'admission :
+50 € d'office. Lu par `calculerFrais` (ligne de la note de frais), l'accusé de réception du portail
+VA, et dispensable par demande avec motif (`va_forfait_exoneration`, Frais de l'étudiant). **UE PAR UE**
+(3.1.431, tranché par Charles) : chaque demande se compare aux frais d'inscription de SON unité —
+droit d'inscription de l'UE (forfait de la circulaire compris si elle le porte) + ses frais variables
+(périodes étudiant × tarif), hors partie fixe ; une UE dispensée se compte à ses périodes d'avant la
+dispense. **Un candidat non inscrit paie aussi les 150 € de frais fixes** (Charles : « oui, voir dans le
+RDE » — le texte du RDE, dans le corpus de la prod, n'a pas pu être relu depuis la session).
+
+**UNE NOTE D'UNE SÉANCE CLOSE NE S'ÉCRIT PLUS, PAR AUCUNE PORTE** (3.1.432). Seul Mes cours le refusait ;
+la feuille de notes, les épreuves d'unité et de cours, le détail de la grille du parcours, « effacer » de
+la grille et les imports écrivaient sans regarder. `lib/gardeNotes.js` porte la règle de `clotures()`
+(session de la note `s2|` ou non ; séance de l'organisation de l'étudiant, la ligne « unité entière »
+seulement sans séance par organisation ; séance de reprise exclue ; note reportée exclue) : trois
+déclencheurs `garde_note_close_*` IGNORENT l'écriture (un réimport du classeur passe à côté d'une UE
+close au lieu d'échouer), et `noteVerrouillee()` fait refuser les écrans en 409 avec la phrase qui dit
+de rouvrir la séance. **Le déclencheur ne se pose que si les colonnes qu'il lit existent** — un
+déclencheur se compile à son premier déclenchement : une colonne absente ferait échouer TOUTE écriture
+de note. L'import des notes nomme les étudiants écartés (`seance_close`).
+
+**LES ROUTES DE RÉSULTATS NE COMPOSENT PAS ET NE REJUGENT PAS** (3.1.433). La matrice (Encodage rapide),
+l'encodage direct, les résultats du PAE et la grille du parcours (résultats et faveur) consignent des
+faits — mais créaient l'inscription au passage et réécrivaient une délibération close. `refusResultat()`
+(`routes/etudiants.js`) : refus nommé pour une UE dont la séance est close (hors reprise), et, pour
+l'année de travail et les suivantes, pour une UE absente du programme (elle s'inscrit d'abord par le
+PAE). Les années reprises restent encodables. « Doubles programmes » retire par `ecrireProgramme()`
+(la confirmation du PAE tombe). Restent voulus : `/repartition` et `/grille/cohortes` écrivent tous deux
+`num_organisation` (le cas par cas et la cohorte) ; `/import-suivi/deplacer` est un outil de réparation.
+
+**LES DATES D'UNE UE ONT UNE RÈGLE, QUELLE QUE SOIT LA PORTE** (3.1.434). « Dates des UE »
+(`PUT /annuel/dates-ue`) posait le périmètre de section, refusait une fin avant le début et faisait de
+la saisie d'une coordination une DEMANDE (`deposerDemande`, type `date_ue`) ; le laboratoire
+(`PUT /grille/ue`, `POST /grille/organisation-de-base`) écrivait directement. Mêmes trois règles
+désormais ; l'écran dit « transmise pour validation » et la tuile reste où elle était.
+
+**UN ÉTUDIANT, UN DOSSIER, QUELLE QUE SOIT LA PORTE** (3.1.435). L'import de la liste eCampus et l'import
+Excel ne cherchaient que le matricule DE L'ANNÉE (un étudiant revenu avec un nouveau matricule devenait un
+second dossier) et l'Excel écrasait les adresses par un vide. `trouverOuCreerEtudiant()`
+(`lib/etudiantUnique.js`, sur `rapprocher()` : numéro national, tous les matricules connus, puis nom +
+prénom + date de naissance) complète sans jamais remplacer une valeur par un vide et rattache le nouveau
+matricule (`etudiant_matricule`). Les portes HELB, signalétique, inscription de liste et classeur de suivi
+passaient déjà par `rapprocher()`. Et **`rn_norm` se calcule par déclencheur** à chaque écriture du numéro
+national (`etudiant_rn_norm_*`), plus un rattrapage des fiches d'avant au démarrage.
+**Un professeur, une fiche** (3.1.436) : `professeurExistant()` (`lib/professeurUnique.js`, casse,
+accents, espaces et traits d'union ignorés) sert la création d'une fiche (409 qui nomme la fiche existante)
+et les trois recherches du recrutement — `UNIQUE(nom, prenom)` laissait passer « Dupont » à côté de « DUPONT ».
+
+**LES VERSEMENTS S'ENCODENT, ET UN VERSEMENT S'ANNULE** (3.1.437). `POST /api/frais-scolarite/paiement`
+existait sans écran : « reste à payer » était faux pour tous. Fiche → Finances → *Versements* : encoder
+(date du jour, montant proposé = acompte manquant ou reste, nature, moyen, remarque ; un remboursement
+s'encode en négatif), au nom de la personne connectée. **Un versement ne s'efface pas** : `DELETE` exige un
+motif et pose `annule_le/annule_par/annule_motif` ; il sort des totaux et reste lisible, barré.
+
+**LES EXTRAITS DE COMPTE RATTACHENT LES VIREMENTS** (3.1.444, Charles, 29 octobre 2026 : « un système qui
+vérifie sur le compte en banque ce qui a été payé » ; retenu : l'import des extraits, pas la liaison PSD2).
+La clé est la **communication structurée** de l'étudiant pour l'année (`lib/banque.js`,
+`communicationStructuree`) : elle se CALCULE, ne se stocke pas — 2 chiffres de l'année de début + n° de
+dossier sur 8 + contrôle modulo 97 (97 si 0) ; elle se relit seule (`lireCommunication`). Imprimée sur la
+note de frais (« Pour payer par virement », avec l'IBAN de l'établissement de la section —
+`etablissement.iban`, Configuration → Identité, contrôlé modulo 97) et montrée dans Fiche → Finances.
+Étudiants → rail → *Extraits de compte* (`components/ExtraitsBancaires.jsx`) : on dépose le CODA ou le
+CAMT.053 téléchargé de la banque ; `POST /api/frais-scolarite/banque/lire` ne fait que lire et proposer —
+reconnu (communication valide), à vérifier (montant au-delà du reste dû, ou rapproché par le SEUL nom du
+donneur d'ordre, un seul inscrit de l'année), non rattaché, déjà importé, débit ignoré ; `…/banque/verser`
+n'écrit que les lignes cochées, au nom de la personne connectée, nature acompte tant que l'acompte n'est
+pas versé. **Un virement ne s'importe qu'une fois** : `frais_paiement.banque_ref` unique. Banc :
+`test/banque.mjs` (27 ok). **À vérifier sur un vrai extrait** de la banque de l'école : les positions CODA
+sont celles de la norme Febelfin, jamais encore lues sur un fichier réel.
+**Le QR code de paiement** (3.1.445, Charles : « un QR code à scanner — cela évitera les erreurs de
+communication ») : format européen EPC (`chargeEpc`, « BCD » 002) — bénéficiaire, IBAN, montant (l'acompte
+qui manque, sinon le reste dû) et la communication structurée dans la zone LIBRE, sous sa forme +++…+++ ;
+dessiné en SVG sur la note de frais (`qrSvg`, dépendance `qrcode`), en image dans Fiche → Finances. Pas
+d'IBAN, pas de QR. **À vérifier avec une application bancaire réelle** : que la communication arrive bien
+reconnue comme structurée. Au passage : le `solde` de la note oubliait le forfait VA (total − acompte
+calculé avant lui) ; il porte désormais le total, forfait compris, moins l'acompte.
+**Le CSV** (3.1.448, Charles : « on peut prévoir aussi un import CSV ») : `lireCsv` reconnaît les colonnes à leur
+INTITULÉ, français ou néerlandais, jamais à leur place — BNP Paribas Fortis, Belfius (lignes de titre au-dessus),
+KBC (crédit/débit, communication structurée ET libre, réunies), ING ; motifs lus dans l'ordre (« Nom de la
+contrepartie » avant « Contrepartie », qui chez BNP est un compte). Sans référence de la banque, la référence est
+l'empreinte de la ligne et son rang parmi les identiques : le même fichier redonne les mêmes, deux virements
+identiques restent deux. Encodage latin-1 accepté. Banc : 50 ok.
+
+**LA REPRISE DU 2 NOVEMBRE** (3.1.446, Charles, 29 octobre 2026 : « je veux que lundi tout soit en production »).
+Le guide des nouveautés passe à l'édition `2026-11` (aujourd'hui `backend/assets/nouveautes/2026-11.html`) (`EDITION` de `TuileNouveautes.jsx`) :
+tout ce qui sépare 3.1.403 (production du 23 octobre) de 3.1.445, rangé par public, avec ce que Lucie refuse
+désormais et pourquoi ; la tuile se rallume « Nouveau » pour chacun. Gestion ne coiffe plus Qualité et
+Présences du titre « Pilotage des dotations · Année civile null ». Contrôle avant mise en production : les
+quatre bancs (159 vérifications) et un robot qui ouvre chaque écran et chaque entrée de rail pour chaque rôle
+(Playwright) — sur la base d'essai, aucun plantage d'écran ; ses erreurs serveur viennent toutes de tables
+absentes de cette vieille base. **La seule vérification sur données réelles est celle de la dev, à l'écran.**
+Le robot a trouvé un défaut réel : EA12, ouvert par une coordination (adresse tapée), faisait planter la page sur
+le refus du serveur ; il le dit désormais à l'écran (3.1.447). **Les essais locaux se font en
+`PERMISSIONS_MODE=strict`**, comme la production et la dev (`docker-compose.vps.yml`) : sans lui, le garde des
+modules laisse tout passer (mode « constat ») et un essai ne voit pas ce qu'un rôle se verra refuser.
+**Un refus se dit, il ne s'efface pas** (3.1.450, test de Charles du 29 octobre : « Lucie ne me propose rien, si je
+clique rien ne se passe ») : dans l'encodage d'une UE et d'un cours, le message du 409 (séance close) était posé
+puis effacé par le rechargement de la grille (`charger()` commençait par `setErreur(null)`) — la note revenait sans
+un mot. `charger(true)` garde le message ; la grille du parcours de la fiche, qui ignorait tout refus, le dit.
+**La délibération par organisation, au bout du test** (3.1.451, Charles : « quand je clos la délibération, il ne
+propose pas la 2e session »). (1) `sessionDeLUE` n'ouvrait la seconde session de l'encodage « toute l'unité »
+qu'une fois TOUTES les organisations closes : chaque organisation close avec des ajournés ouvre désormais la
+sienne (`seconde_partielle`, `organisations_s1`), l'encodage le dit et nomme celles qui restent en première
+session, la feuille de délibération propose le choix 1re/2e. (2) La garde des notes laissait passer l'étudiant
+NON RÉPARTI d'une UE délibérée par organisation ; il est clos, comme dans `clotures()`, quand toutes les séances
+d'organisation de la session le sont.
+**Une séance « Toute l'unité » close est un Conseil tenu** (3.1.452, test de Charles, UE 333 : 84 non répartis
+délibérés et clos sur « Toute l'unité », organisations 1 et 2 vides — rien ne se verrouillait, la 2e session ne
+s'ouvrait pas). La ligne org 0 était tenue pour un reste de planification dès qu'existait une séance d'organisation ;
+désormais, CLOSE, elle verrouille toute l'unité et clôt la session (`close()` de `gardeNotes.js`,
+`sessionCloturee`, `clotures()` de Mes cours). Ouverte, elle reste ignorée à côté des séances d'organisation.
+**Le lot des PP, NP et CM** (3.1.453) : « Décider ces N » lisait la première séance venue de la session pour savoir si
+elle était close, quelle que soit son organisation ; il lit désormais celle de la feuille (`org`). Et son refus se dit
+sous les boutons du lot — sur iPad, le message en haut de la feuille était hors de vue (« je ne sais pas aller plus loin »).
+**Toute une section en un clic** (3.1.454, Charles) : dans la liste des étudiants, l'en-tête de chaque section porte
+sa case — elle coche ses étudiants AFFICHÉS (filtres compris), à moitié cochée quand une partie l'est.
+**« Ajourner aussi », pour toute la liste de la clôture** (3.1.455, Charles, UE 333 : 38 ajournés dont un acquis en
+échec n'était pas ajourné, nommés en un seul paragraphe, réparables seulement fiche par fiche). La clôture rend la liste
+en clair (`incoherences`) et un bouton pose, pour chacun, le geste de la fiche : ses cours où l'acquis échoue s'ajournent
+pour leurs acquis en échec ; un acquis qui n'échoue dans aucun cours s'ajourne lui-même
+(`POST /deliberation/ue/:ueNum/ajourner-oublies`, simulation puis confirmation). Ni la décision ni une note ne changent.
+**La barre de la liste des étudiants** (3.1.456, maquette validée par Charles) : une ligne — recherche, section,
+niveau, bouton « Filtres » (le nombre de filtres actifs), statuts ; le panneau range Inscription, Programme, Section
+posée/déduite, Dossier, Doublons et Plus de 60 ECTS ; les filtres actifs se lisent en pastilles sous la barre.
+« Composer les PAE » depuis une sélection ouvre sur la section des étudiants cochés quand ils en partagent une, sinon
+sur la section du filtre (3.1.457, `sectionInitiale` de `ComposerPAE`).
+**La clôture ouvre la seconde session** (3.1.458, Charles, UE 333 : « séance close et pas de seconde session proposée ») :
+`sessionDeLUE` exigeait en plus une décision de première session pour CHAQUE inscrit ; un seul dossier sans décision
+tenait la seconde fermée, sans un mot. Désormais : séance de première session close + au moins un ajourné.
+**Une seule marge, celle de la fenêtre** (3.1.459, Charles : « alignement de fenêtre à revoir ») : `Fenetre` pose
+`px-5 py-4` sur son corps ; Nouvel étudiant, Filtrer le journal (Accueil) et la fenêtre d'Attributions y ajoutaient
+un `p-5` — contenu décalé de 20 px par rapport au titre et au pied. Un corps de fenêtre ne pose pas de marge.
+**« Quoi de neuf » selon le profil** (3.1.460, Charles : « un prof ne doit pas savoir qu'une amélioration qui ne le
+concerne pas a été faite »). Le guide quitte `public/` pour `backend/assets/nouveautes/` ; `GET
+/api/documentation/nouveautes/:edition` (compte requis) RETIRE avant l'envoi les `<article data-pour>` et `<li data-pour>`
+qui ne concernent pas le rôle (`nouveautesPour` : professeur → ens, secrétariat → sec, coordination → coo ; direction,
+adjoint, admin, éditeur → tout, avec les boutons de filtre). **Toute nouvelle entrée du guide porte son `data-pour`**,
+y compris les lignes du « En bref » et de « Ce qui vient ensuite ». La révision (`REVISION` de `TuileNouveautes.jsx`)
+rallume « Nouveau » quand l'édition s'enrichit.
+**Le guide se lit en mise en page** (3.1.461, Charles : « pas en mode texte ; un sous-menu souligné ») : `TuileNouveautes`
+lit le fichier en parties — « En bref », chaque `<h2>`, « Ensuite » —, une partie par onglet souligné (`.onglet-page`), chaque
+nouveauté en carte (`bloc-etat` bleu, ocre pour ce qui est à l'essai ; chemin « Où » en étapes ; étiquette en pastille), en
+deux colonnes. Le fichier s'écrit comme avant ; la direction garde le choix du public pour voir ce que chacun reçoit.
+**Les présences vides disent pourquoi** (3.1.462, Charles, compte d'essai : « je ne vois pas mon horaire »). Mes cours ne
+montre que les séances de l'horaire qui NOMMENT le professeur (`seancesDuCours`) ; un cours attribué dont les séances nomment
+un autre enseignant donnait « aucune séance dans l'horaire ». `GET /:cours/presences` rend `vide` (`autres` + les noms de
+l'horaire, et si le compte n'est relié à aucune fiche ; ou `horaire`) et l'écran le dit.
+**Tout en service le 2 novembre** (3.1.463, Charles, 29 octobre 2026 : « tout passe en service lundi »). L'entrée
+« Horaires » d'Organisation n'est plus grisée « bientôt » (le survol qui l'expliquait n'existe pas sur iPad : on la croyait
+disparue) et le bandeau « Version temporaire » du 11 octobre est retiré. La présence par QR n'avait aucune restriction de
+pilote dans le code ; le guide la présente désormais comme en service.
+**Mon horaire de la semaine** (3.1.464, Charles : « je veux voir l'horaire ») : Mes cours → rail
+(`components/MonHoraireSemaine.jsx`, `GET /api/mes-cours/semaine?date=`) — lundi → dimanche (week-end seulement s'il porte
+une séance), à l'échelle du temps, flèches de semaine, séance annulée barrée ; en liste par jour sur téléphone. Mêmes
+séances que Ma journée (`seancesDuCours`) ; un compte relié à aucune fiche de professeur est signalé.
+**Le laboratoire se fait par étapes, l'horaire se consulte hors du labo** (3.1.465, Charles : « pas clair ; par étape,
+avec en dernier la visualisation de l'horaire ; l'horaire visible dans Organisation sans passer par le labo, qui est l'outil
+de création »). `ETAPES_LABO` (`LaboratoireTemporel.jsx`) : 1 schéma · 2 le temps · 3 les groupes · 4 le planning · 5 les
+disponibilités · 6 la semaine · 7 l'horaire — frise numérotée en tête, « ce qu'on fait ici », « Étape suivante », rail et
+sous-menu d'Organisation numérotés dans le même ordre ; le labo s'ouvre sur l'étape 1. Organisation → Horaires s'ouvre sur
+**Consulter l'horaire** (`HoraireSemaine consultation` : ni bac, ni geste d'écriture) ; « Composer la semaine » reste pour
+retoucher.
+**Relier un compte à une fiche ne change plus son rôle** (3.1.466, Charles : « Mon horaire dans mon agenda » répondait
+« compte relié à aucun dossier d'enseignant » sur son compte d'administration). Le lien se pose dans Personnel → fiche →
+Accès Lucie (`POST /api/users` avec `professeur_id` et l'adresse d'un compte EXISTANT) ; cette route réécrivait aussi rôle,
+périmètre et droits avec ceux du formulaire (« Professeur » par défaut) — relier la direction l'aurait rétrogradée. Elle ne
+pose plus que `professeur_id`. Les trois messages « non relié » (agenda, semaine, présences) disent où faire le lien.
+**Le mode d'emploi devient un guide illustré, filtré par rôle** (3.1.467, Charles : « un vrai guide illustré et joli,
+même avec animations » ; choix : schémas animés, filtré par rôle, livré le jour même). Le CONTENU quitte `pages/Aide.jsx`
+pour `backend/src/lib/modeEmploi.js` (`RUBRIQUES`, `pour` par chapitre et au besoin par point : ens · sec · coo · dir ;
+`VERSION_DECRITE`), servi par `GET /api/documentation/mode-emploi` (`?voir=` pour la direction) — un professeur ne reçoit que
+5 chapitres. L'écran (`pages/Aide.jsx`) : sommaire à gauche (bandeau sur iPad), une page par chapitre — en-tête avec
+schéma animé (`components/IllustrationsGuide.jsx` : un dessin par chapitre, le PRINCIPE et jamais le détail d'un écran ;
+animations coupées par `prefers-reduced-motion`), points en cartes numérotées, chemin « Où » en étapes, « À savoir »,
+chapitre suivant. **Une nouvelle fonction s'écrit dans `modeEmploi.js`, avec son `pour`.** Contenu mis à jour de 3.1.283 à
+3.1.467 (versements, extraits, suivi des présences, Ma journée et QR, ticket, carnet, horaire de la semaine, labo en étapes,
+consultation de l'horaire, clôture et seconde session, présences et PEP, plan d'action qualité).
+**Une seule ligne de menu, et le haut du contenu au haut du rail** (3.1.468, Charles : « partout, une seule ligne de menu,
+jamais plus » ; « Étudiants et les autres titres alignés avec le haut du rail »). (1) **Une barre d'écran ne passe jamais sur
+deux lignes** : elle garde l'essentiel (recherche, un ou deux choix majeurs) et range le reste derrière « Filtres »
+(`components/PanneauFiltres.jsx` : `BoutonFiltres`, `PastillesFiltres` — le dessin de la liste des étudiants, commun). Une
+rangée de segments trop large devient une liste sous `xl` (Étudiants : les statuts). Le Personnel y est passé. **Un nouvel
+écran pose sa barre en `flex-nowrap`.** Rappel : `.segments` déclare son `display` — `hidden` posé dessus ne fait rien ; on
+masque une enveloppe. (2) **Le haut du contenu se MESURE** (`lib/alignerTitre.js`, `useAlignerSurLeRail` dans
+`ProtectedLayout`) : à l'ouverture d'un écran et au choix d'une face du rail, le premier contenu visible de `main` est amené au
+haut du rail par la marge haute de `main` ; la mesure suit le chargement 3,5 s puis se tait. Mesuré : de 79-164 px pour un rail
+à 76, à 76 partout (contenu au-dessus du titre compris, ex. Gestion).
+
+**LES IDÉES DU REGISTRE, AVANT LA MISE EN SERVICE** (3.1.469, Charles, 30 octobre 2026 : « dans les propositions
+d'idées en prod, il y a des choses importantes »). (1) **Un archivé n'a pas de programme bleu** (Marie Lambert) : la
+promotion d'année reprenait archivés, diplômés et sortis ; elle les écarte. Archiver propose ensuite de retirer leurs
+unités SANS résultat de l'année de travail et des suivantes (`programmeDesArchives`, `POST
+/etudiants/statut/retirer-programme`, simulation d'abord, par `ecrireProgramme()` — note ou report = conservée) ; les
+listes (`routes/listes.js`, année de travail et suivantes) et les listes par UE du centre d'impression
+(`donneesListesUE`, archivé sans résultat) ne les portent plus. (2) **L'auteur corrige son idée** tant que la direction
+n'a pas répondu (« Modifier », règle du serveur déjà en place). (3) **« Réponses types » sous le champ**, plus dessus :
+il cachait le texte qu'on tape. Restent au registre, à trancher : UE 244 → 331 (soins de plaies, nouveau numéro FWB),
+copie de la demande d'AR à l'étudiant, notification par courriel, attestations de toutes les années en un envoi, et la
+réparation du dossier MAGNI (UE retirées en 2025-2026 par erreur — le journal des modifications les garde).
+
+**LES IDÉES ARRIVENT AU TABLEAU DE BORD, ET L'ASSISTANT LES LIT À CHAQUE SESSION** (3.1.470, Charles, 30 octobre
+2026). (1) Accueil de la direction → bloc *Idées à traiter* (`MesPropositions.jsx`) : chaque idée « nouvelle » ou dont
+l'auteur a écrit sans être lu, à déplier — texte, état, fil et réponse ; elle quitte le bloc quand on lui donne un état
+et qu'on a lu le fil. (2) `GET /api/suggestions/flux` (lecture seule, ne marque rien comme vu) : en-tête
+`X-Lucie-Jeton` comparé à `LUCIE_IDEES_JETON` (environnement du serveur, `.env` du VPS ; absent = 404). La même valeur
+vit dans les secrets de l'environnement de l'assistant — **jamais dans le dépôt ni dans une conversation**. Voir le
+réflexe de démarrage (§ 8). (3) **L'illustration du mode d'emploi est le logo de Lucie** (`IllustrationsGuide.jsx`) :
+sa constellation agrandie, réseau tracé, L à l'accent, points allumés chacun dans une teinte de la maison (l'ordre
+tourne par chapitre), éclat qui parcourt le L, pictogramme du chapitre au pied.
+
+**PLUSIEURS PIÈCES, UN SEUL COURRIEL** (3.1.471, Charles, 30 octobre 2026 : « un seul envoi, mais chaque document
+est indépendant : quatre attestations, quatre PDF »). Une pièce d'envoi peut porter `documents` [{ html, nom_fichier }] :
+`POST /api/envois` signe et rend chacun à part (son fac-similé, sa référence), les joint au même courriel et écrit une
+ligne de registre par pièce. Servi par : Fiche → Imprimer ou envoyer → *Envoyer les attestations — toutes les années*
+(`GET /attestations/etudiant/:id/document?annee=toutes&separes=1`) ; et l'**accusé de réception d'un aménagement
+raisonnable** (Audrey Perez) — pièce `accuse` de `piecesAmenagement.js`, envoyée à l'étudiant AVANT la décision avec le
+formulaire (cadres A et B), chacun dans son PDF ; le dossier garde `accuse_le` / `accuse_par`
+(`POST /amenagements/dossier/:id/accuse`). Il faut la date de la demande.
+
+**LE RÉCAPITULATIF QUOTIDIEN PAR COURRIEL** (3.1.472, Charles, 30 octobre 2026, idée de Véronique Moiny ; rythme :
+quotidien). `lib/recapQuotidien.js` : chaque matin après 7 h (Bruxelles), un courriel par compte actif — SEULEMENT si
+quelque chose de NOUVEAU l'attend depuis le précédent : tâches « les miennes » (la règle de l'Accueil), textes à
+confirmer (`etatLecture`), messages non lus (`messagesRecus`), réponses à ses idées, et pour la direction les idées
+déposées. Des intitulés et des nombres, un lien vers le tableau de bord ; rien de sensible. `recap_envoi` (un par
+personne et par jour). Interrupteur et essai : Configuration → Courriels → *Récapitulatif quotidien*
+(`GET/PUT /api/envois/recap`, `POST /api/envois/recap/moi`). **Automatique en production seulement** (la dev redirige
+tout vers une seule boîte). Le premier matin, tout ce qui attend compte comme nouveau : chacun en reçoit un.
+
+**CHANGER LE NUMÉRO D'UNE UE À PARTIR D'UNE ANNÉE** (3.1.473, Charles, 30 octobre 2026 — Florian Daeleman : soins de
+plaies, UE 244 devenue 331 avec le nouveau dossier ; tranché : 331 dès 2026-2027, les années d'avant gardent 244).
+Référentiels → fiche de l'UE → *Forcer le numéro* → Portée « À partir de <année active> » (`PATCH
+/api/ref/ue/:num/rename` avec `a_partir_de`, moteur `lib/renumeroterUE.js` ; « Toutes les années » reste
+`lib/renommerUE.js`). Pour l'année et les suivantes : toute colonne de numéro d'UE et tout code (cours « 244.1 »,
+acquis « AA244.1 », clés « s1|244.1|AA244.1 », « 244#2 », listes `cible_detail`) des tables qui ont une année, plus
+celles rattachées à une table qui en a une (grille_cours, carnet_evaluation_aa, etudiant_valorisation_aa,
+proc_acquis, amenagement_ue/mesure). Les acquis (`aa`, sans année), l'introduction des acquis et les titres requis
+des cours sont COPIÉS sous le nouveau numéro ; les codes d'import (`ue_code_externe`) repointés. Journaux et
+réunions non touchés. Simulation d'abord ; refus si le nouveau numéro existe déjà (fusion) ; sauvegarde de la base
+avant d'écrire ; contrôle final — s'il reste une trace de l'ancien numéro sur la période, tout est annulé. Les
+reports sont traités en premier (la garde des notes reportées regarde le report). **À faire en production par la
+direction pour 244 → 331**, année active 2026-2027. (3.1.474 : la 3.1.473 était partie avec un écran qui ne se
+construisait pas — un `index` de recherche tombé avant le bloc visé avait recopié le code en tête du fichier.
+**Après `vite build`, lire son statut, pas un `grep` de sa sortie.**)
+
+**LE LOGO, LE GUIDE ET L'HORAIRE DU PROFESSEUR** (3.1.480, Charles, 30 octobre 2026). (1) **Les trois extrémités du
+L sont des étoiles de la Vierge** — τ en haut, Spica au coin, Zaniah au bout — trouvées par calcul (projection des
+étoiles, recherche d'un angle droit aux proportions du L, sans miroir) ; le L est très légèrement plus bas (bras de
+24,5) ; cinq étoiles tombent dans l'angle du L, les autres restent hors du logo (`lib/logoVierge.js`, seule source des
+trois dessins). (2) Après la naissance, la figure s'efface presque (`RESTE`) : le L reste. (3) **Une étoile s'allume par
+point du mode d'emploi, et grandit** : badge en étoile sur chaque point, allumé quand il paraît
+(IntersectionObserver), et l'étoile de la Vierge correspondante s'allume dans l'illustration, fixe à droite sur grand
+écran (`PointsDuChapitre`, `etoileDuPoint`). (4) **Le guide a des captures** : un point peut porter `image` et
+`legende` (`modeEmploi.js`) ; cinq captures RÉELLES du chapitre « Mes cours », prises sur une base d'essai aux noms
+fictifs (`frontend/public/guide/`). D'autres chapitres sont à illustrer de même. (5) **L'horaire du professeur se voit** :
+bouton « Mon horaire de la semaine » à côté du titre de Mes cours, et « Toute ma semaine » dans Ma journée — il n'était
+que dans le rail, nommé au survol, qui n'existe pas au doigt.
+
+**LES ÉCHÉANCES ET LEURS RAPPELS ONT UNE SECTION** (3.1.481, Charles, 30 octobre 2026, en aperçu comme Natacha
+Boulengier : « elle voit des choses du TIM »). Un rappel d'échéance s'adressait au RÔLE (« coordination ») : toutes les
+coordinations recevaient ceux de toutes les sections, et l'échéancier listait (et laissait cocher) les échéances de
+toutes les sections, tâches du suivi d'équipe comprises. Règle commune, `lib/perimetreSection.js` : direction,
+secrétariat, administrateur et éditeur voient tout ; les autres, leurs sections. Une échéance appartient à la section de
+l'unité dont elle vient (`source_type = 'organisation_ue'` ; à défaut d'organisation, l'intitulé « UE n — SECTION ») ;
+sans unité, elle est à l'école et reste visible de tous. `lucie_notification.section` est posée à la génération du
+rappel, et rattrapée pour les anciens rappels d'après leur intitulé (`marquerSectionNotifications`). Appliqué :
+fil d'activité, notifications du recrutement, liste et compteurs de l'échéancier, cocher une échéance (404), tâches
+reprises dans l'échéancier (règle du suivi d'équipe).
+
+**LE SUIVI D'ÉQUIPE A UN PÉRIMÈTRE** (3.1.479, Charles, 30 octobre 2026, en aperçu comme Natacha Boulengier,
+coordination : « elle voit des choses du secrétariat, ce n'est pas normal »). Aucune route des tâches ni des réunions
+(`routes/reunions.js`) n'en posait. Règle écrite une fois (`clauseTache`, `clauseReunion`, `tacheVisible`,
+`reunionVisible`) : direction, secrétariat, administrateur et éditeur voient tout ; les autres voient une tâche s'ils en
+répondent (nom, rôle, fiche, équipage), en sont tenus au courant, l'ont confiée, ou si elle vient d'une réunion qu'ils
+ont organisée, où ils étaient convoqués ou qui porte sur une de leurs sections — et une réunion aux trois mêmes titres.
+Appliquée à la liste des tâches (et donc à la frise des échéances), à la modification d'une tâche, à la feuille des
+tâches, à la liste des réunions, à la séance (lecture, modification, PV) et à « ce qui reste ouvert » ; 404 sinon.
+
+**LE MUR ENTRE LUCIE ET LES ÉTUDIANTS** (3.1.477, Charles, 30 octobre 2026 : « impératif : un mur de Berlin
+infranchissable entre la version de Lucie pour les MDP et la version accessible aux étudiants » ; tranché : une base
+étudiante à part, etudiants.lucie-iip.be). **L'espace de l'étudiant de 3.1.475 a quitté Lucie.** Il vit dans le
+PORTAIL : serveur `portail/src/serveur.js` (dossier, image et `package.json` à lui — aucune ligne de Lucie), sa base
+`portail.db`, sa clé de session `PORTAIL_SECRET` ; site construit seul (`frontend/portail.html`,
+`src/portail/`, `vite.portail.config.js`, `Dockerfile.portail`, `nginx-portail.conf` qui ne relaie que
+`/api/portail/` ; `publicDir: false`). Réseau Docker `lucie-portail`, où ne se trouve aucun conteneur de Lucie ; seul
+Caddy touche les deux. **Le passage est à sens unique** (`lib/portailSync.js`) : toutes les 10 s, Lucie RELÈVE sur le
+port interne du portail (via `http://caddy:8443`, non publié, jeton `PORTAIL_JETON`) les demandes de lien et de code —
+qu'elle VÉRIFIE (étudiant actif non archivé, adresse d'école, lien qui commence par l'adresse publique du portail,
+code à six chiffres) et compose elle-même —, les accusés (recopiés dans `portail_accuse` après contrôle) et les
+connexions (`portail_connexion`) ; toutes les deux minutes elle DÉPOSE les étudiants visibles, leurs résultats publiés
+(`resultatsPublies`), les règlements « Étudiants » (avec les versions dont la signature vaut encore) et, au fil de
+l'eau, les PDF des pièces envoyées. Le dépôt REMPLACE : un archivé disparaît du portail. Lien et code ne vivent en
+clair dans le portail que jusqu'au relevé. La fiche lit `GET /api/portail-suivi/:id`. Mise en place :
+`scripts/vps/PORTAIL-ETUDIANTS.md` (DNS, quatre secrets, dossiers au propriétaire 1000, compose, Caddy). **Reste de
+ce côté-ci du mur, À DÉPLACER** : la demande de VA en ligne (`/demande-va`, `routes/portailVA.js`), qui écrit dans la
+base de Lucie.
+
+**L'ESPACE DE L'ÉTUDIANT** (3.1.475, Charles, 30 octobre 2026 : « un mini espace ultra sécurisé : récupérer ses
+documents, voir ses notes, signer les accusés de réception » ; tranché : lien + code, résultats délibérés seulement,
+accusé sur les notifications, les règlements et toute pièce ; construit tout de suite). **Déplacé derrière le mur en
+3.1.477, voir ci-dessus** ; ce qui suit décrit les règles, qui n'ont pas changé. **Entrée** : matricule →
+lien à usage unique, 30 min, à l'adresse D'ÉCOLE seule (pas de repli sur la privée) ; même réponse pour un matricule
+inconnu ; plafonds par étudiant et par IP ; session 2 h, clé dérivée, portée `espace_etudiant` (refusée partout
+ailleurs). **Il voit** : ses résultats publiés (séance close de son organisation ou « toute l'unité », ou année
+antérieure) — décision, note d'unité, « NA » sous 10, 10 pour une faveur, « VA » ; les pièces que l'école lui a
+envoyées par Lucie (copie conservée de l'envoi, `copieDeLEnvoi` d'`envois.js`, sa référence) ; les règlements dont
+la Documentation met « Étudiants » en destinataire (rôle `etudiant`). **L'accusé** (`espace_accuse`) : `presente_le`
+posé par la route qui rend la pièce ; signer demande un code à six chiffres envoyé à l'adresse d'école (10 min,
+5 essais) ; un accusé signé ne se modifie ni ne s'efface (déclencheurs). Pour un règlement, la règle de reconfirmation
+du personnel vaut (`versionReference`). **L'école lit** : fiche → Imprimer ou envoyer → bloc « Son espace étudiant »
+(dernière connexion, pièces ouvertes, accusés signés ; `GET /api/portail-suivi/:id` depuis 3.1.477). **À venir** : annoncer
+l'adresse aux étudiants ; mettre le lien de l'espace dans les courriels d'envoi ; relire la fiche RGPD.
+
+**UNE UE DISPENSÉE EN ENTIER EST ACQUISE — ÇA SE LIT DU DOSSIER DE VA** (3.1.438). Les crédits de l'annexe 2,
+l'état du parcours (schéma) et le motif de l'annexe 2 attendaient un résultat `'valorise'` sur
+l'inscription, qu'aucune route n'écrivait : zéro crédit valorisé, partout, en silence. Plutôt qu'un second
+endroit pour le même fait, `uesValorisees()` (`lib/valorisation.js`) lit les valorisations COMPLÈTES
+retenues (`vaRetenue` : décidées, ou d'une année reprise), non archivées. Les statistiques de délibération
+ne les comptent pas : une VA n'est pas une délibération.
+**Le motif par défaut d'un acquis a son écran** (3.1.439) : Référentiels → fiche de l'UE → onglet des
+acquis, bloc « Motif proposé en cas d'échec » (`components/MotifsDefautUE.jsx`, `GET/PUT
+/api/acquis/motifs-defaut`). Lu par la proposition de motivation de la délibération ; jamais écrit d'office.
+**Ménage** (3.1.440) : sept fichiers que rien n'importait sont retirés (`TexteDossierPedagogique`,
+remplacé par la fiche de l'UE en quatre onglets ; `CentreImpression`, `CentreDocumentsUE`, `LiensCoursAcquis`,
+`PonderationsAA`, `lib/routage.js`, `lib/lireSuivi.js`). Le banc `test/reports.mjs` lisait encore des poids
+sans année : remis d'aplomb. Les trois bancs passent (`carnet`, `presenceQr`, `reports`).
+
+**UNE CHOSE, UNE PORTE — DEUXIÈME RELEVÉ** (3.1.428, Charles, 28 octobre 2026 : « vérifier qu'il n'y a
+pas pour une chose deux entrées possibles »). Deux déclencheurs de garde : **`garde_seance_presences`**
+(une séance qui porte des présences ne se supprime pas — elle s'annule ; réimports et versements du plan
+l'épargnent) et **`garde_va_validee`** (un dossier de VA validé ne se supprime par aucune porte). La grille
+du parcours ne touche plus une VA du circuit ; la fiche refuse un second dossier de VA sur une unité ;
+`PUT /acquis/reports` copie les notes comme le report d'office et ne lève un refus qu'avec un motif ; une
+seule fusion d'étudiants, une seule `copier-section`, une seule règle de section des dossiers. Ce qui
+reste (création d'étudiant, notes après clôture, programmes hors `ecrireProgramme()`, dates d'UE) :
+`docs/contexte/audit-boucles-2026-10-28.md`, deuxième relevé.
+
+**L'ONGLET VALORISATION DE LA FICHE LIT LE CIRCUIT COMME L'ÉCRAN VALORISATION** (3.1.429, Charles,
+28 octobre 2026 : « une porte depuis la fiche étudiant qui ne correspond pas au reste »). La carte lisait
+`type` — « partielle » par défaut à l'introduction — et montrait une demande à peine reçue comme une
+« Dispense partielle (AA ou cours) » décidée. Désormais : `components/CircuitVA.jsx` (porte AD/VA/VAE,
+`FriseCircuit`, `ETAPES`, `decisionEnMots`), seule lecture du circuit, partagée avec `pages/Valorisations.jsx`
+— la décision ne s'écrit qu'avec `decision_le`. Le bouton se nomme comme le rail (« Instruire et
+décider ») ; « Introduire une demande » offre les trois portes de la matrice (AD par section), date de
+réception du jour, et dit quand un dossier existe déjà. L'ancien formulaire de décision de la fiche (jamais
+ouvert, mais qui écrivait encore par `POST /:id/valorisations`) est retiré.
+**Une pièce justificative se dépose en deux temps** (3.1.430, Charles : « je ne comprends pas ce que vient
+faire carte d'identité dans VA ») : la liste des natures, posée seule sur chaque carte avec « Carte
+d'identité » présélectionnée, se lisait comme une donnée du dossier. « Déposer une pièce justificative »
+→ « quelle pièce ? » (sans défaut) → « Choisir le fichier ». La nature ne sert qu'à NOMMER le fichier.
 
 **Établissement :** IIP — N° ECOT 5222132070, FASE 292, Campus Erasme,
 Route de Lennik 808, 1070 Anderlecht. Enseignement pour adultes (FWB).
@@ -374,15 +807,17 @@ NAS Synology.
 > La restauration de sauvegarde reste gardée par `NODE_ENV`, non par l'adresse :
 > le déménagement ne l'affaiblit pas.
 
-- **Trois comptes sur le VPS** (21 septembre 2026) : `debian` (compte d'origine
-  OVH, sudo sans mot de passe), `jeromevde` (Jérôme, mot de passe, groupes
-  `sudo` et `docker`), et **`lucie-ops`** — Claude, **sans shell**, clé liée au
-  script `/usr/local/sbin/lucie-ops` : `version`, `sauvegarde`, `maj-dev`,
-  `maj-prod` (qui sauvegarde d'abord), `lecture "<SELECT…>"`. Depuis le Mac :
-  `ssh lucie-vps <verbe>`. Toute écriture en base reste un geste de Jérôme.
-  Détail et révocation : `scripts/vps/INSTALLATION.md` ; journal :
-  `sudo journalctl -t lucie-ops`. La connexion par mot de passe reste ouverte
-  (choix de Jérôme) : ne pas poser `PasswordAuthentication no`.
+- **Trois comptes sur le VPS** (21 septembre 2026) : le compte d'administration
+  d'origine OVH (sudo sans mot de passe), le compte de Jérôme (mot de passe,
+  groupes `sudo` et `docker`), et le **compte de service** de Claude — **sans
+  shell**, clé liée au script des gestes (`scripts/vps/gestes-vps`) : `version`,
+  `sauvegarde`, `maj-dev`, `maj-prod` (qui sauvegarde d'abord), `lecture "<SELECT…>"`.
+  Depuis le Mac : `ssh lucie-vps <verbe>`. Toute écriture en base reste un geste de
+  Jérôme. Détail et révocation : `scripts/vps/INSTALLATION.md`. **LES NOMS DES
+  COMPTES NE S'ÉCRIVENT PAS DANS LE DÉPÔT** (Charles, 30 octobre 2026) : la
+  documentation dit `<compte-admin>`, `<compte-jerome>`, `<compte-service>` ; les
+  vrais noms vivent sur le VPS et chez Jérôme. La connexion par mot de passe reste
+  ouverte (choix de Jérôme) : ne pas poser `PasswordAuthentication no`.
 - **JAMAIS `maj-dev` ET `maj-prod` ENSEMBLE** (Charles, 25 septembre 2026). Une
   mise à jour à la fois : la lancer, vérifier avec `version` que ses deux
   moitiés répondent, puis seulement l'autre, dans un appel séparé.
@@ -393,14 +828,14 @@ NAS Synology.
   ce même conteneur). La troisième fois, la dev avait été mise à jour SEULE et
   vérifiée avant : la simultanéité n'y est donc pour rien. À diagnostiquer sur
   le VPS (`sudo journalctl -u docker`). **En attendant, Claude ne lance plus
-  `maj-prod`** : la mise en production se fait à la main, en `jeromevde` —
+  `maj-prod`** : la mise en production se fait à la main, sous `<compte-jerome>` —
   `sudo docker ps -a --filter name=attributions-backend`, `sudo docker rm -f`
   des restes, puis `cd /opt/lucie && sudo docker compose up -d backend frontend`.
   **Pour un `pull` à la main, `sudo` ne suffit pas** : les images sont privées
-  et l'identifiant du registre est celui de `debian` — en root, le registre
+  et l'identifiant du registre est celui de `<compte-admin>` — en root, le registre
   répond « unauthorized » (25 septembre 2026). Écrire
-  `sudo DOCKER_CONFIG=/home/debian/.docker docker compose pull backend frontend`,
-  comme le fait `lucie-ops`.
+  `sudo DOCKER_CONFIG=/home/<compte-admin>/.docker docker compose pull backend frontend`,
+  comme le fait le script des gestes.
   Après un redémarrage forcé, vérifier le NOM du conteneur
   (`sudo docker ps --format '{{.Names}}'`) : resté provisoire
   (`3b187e036e7d_attributions-backend`), il bloque lectures, sauvegardes et
@@ -463,7 +898,7 @@ NAS Synology.
 
 **Il n'y a plus de bouton** (l'écran Sauvegardes le dit : « la restauration
 reste manuelle, en ligne de commande »). Procédure du 30 septembre 2026, sur le
-VPS en `debian`, une commande à la fois — la production n'est que LUE :
+VPS sous `<compte-admin>`, une commande à la fois — la production n'est que LUE :
 
 ```bash
 # 1. Copie cohérente de la prod (API de sauvegarde SQLite, même en marche)
@@ -474,8 +909,8 @@ cd /opt/lucie && sudo cp dev/data/attributions.db dev/backups/avant_copie_prod_$
 sudo docker stop attributions-backend-dev && sudo cp prod/backups/copie_pour_dev.db dev/data/attributions.db && sudo rm -f dev/data/attributions.db-wal dev/data/attributions.db-shm && sudo docker start attributions-backend-dev
 ```
 
-Le redémarrage se voit à `demarre_le` (`ssh lucie-vps version`). `lucie-ops
-lecture` ne lit que la PROD : la vérification de la dev se fait à l'écran.
+Le redémarrage se voit à `demarre_le` (`ssh lucie-vps version`). `lecture` (script des
+gestes) ne lit que la PROD : la vérification de la dev se fait à l'écran.
 
 ### Sauvegarde avant tout merge vers `main`
 
@@ -498,7 +933,7 @@ ls -lh prod/backups/avant_merge_*.db | tail -1
 
 ### Workflow de branches
 
-`develop` (validation à l'écran par Jérôme) → **puis seulement** `main`.
+`develop` (validation à l’écran par Charles, directeur, avec Claude — Jérôme ne teste pas) → **puis seulement** `main`.
 Jamais de poussée directe en production. Les migrations sont additives et
 protégées par contrôle d'existence, mais restent à surveiller.
 
@@ -1349,10 +1784,30 @@ tardive = séances avant `date_inscription`. **Les présences se prennent dans
 Mes cours → Présences**, séance par séance (`presence`, journal en ajout seul
 `presence_journal`) ; une absence se justifie par un motif de la liste fermée
 (`MOTIFS_JUSTIFIES`), jamais un texte libre ; une séance à venir ne s'encode
-pas. **L'assiduité ne sort pas tant qu'une séance passée n'a pas ses
+pas. **La grille de présence** (3.1.408, Charles, 28 octobre 2026 : « par cours puis par UE, la vérificatrice demande les présences dans l'UE ») : Mes cours → Présences, étudiants en lignes, séances en colonnes (P, A, J, — non concerné), PDF paysage ou Excel, toute l'année ou une période ; la grille de l'UE (toutes les séances de tous ses cours) porte le récapitulatif des heures par cours et les motifs des absences justifiées en note — réservée au secrétariat, à la direction et à la coordination (`lib/grillePresence.js`). **Le secrétariat la sort au centre d'impression** (3.1.410 : il n'entre pas dans Mes cours) — Étudiants → Listes et rapports → *Grille de présence*, rapport `grille-presences` de `routes/rapports.js`, portée une unité ou un cours, période du/au, Imprimer (PDF paysage) ou Tableur (le classeur à trois onglets) ; même pièce et même règle d'accès que Mes cours (`grillePermise`, `grilleUE`, `grilleCours`). Un rapport du catalogue peut désormais déclarer `roles` (absent du catalogue pour les autres, 404 sur ses routes), `tableur` (une pièce mise en page qui sort aussi en Excel) et `xlsx(p)` (son propre classeur). **Le premier dixième de l'UE** (3.1.409, Charles : « le premier dixième de ces dates, pas 10 % des cours » — c'est la méthode de la VÉRIFICATRICE, sans référence écrite connue ; un ancien arrêté (Gallilex 17780) le définissait par les périodes effectivement organisées : ne pas citer de base légale sur la pièce) se lit dans le CALENDRIER : 1/10 de l'écart entre la première et la dernière date de séance de l'UE (tous ses cours, annulées exclues) ; si ce jour n'a pas de cours, la séance réelle la plus proche, la plus tôt en cas d'égalité (`premierDixieme`). Annoncé en tête de la grille et marqué d'un liseré or sur sa colonne, cours comme UE. **Une seule règle du premier dixième pour tout Lucie** (3.1.420, Charles : « oui » aux frais, au droit d'inscription et à l'échéancier) : `premierDixiemeUE()` (`lib/datesReelles.js`) — l'horaire réel d'abord (1/10 entre première et dernière séance, séance la plus proche), à défaut les dates de l'organisation (UE sans séance, ou en plusieurs organisations, que l'horaire ne sépare pas). Le forfait du droit d'inscription (UE au premier dixième le plus tôt), l'échéance du solde des frais (le plus tôt des premiers dixièmes — on combinait le plus petit début et la plus petite fin de deux UE différentes) et le jalon « comptage au 1/10 » de l'échéancier (`rel:ue_debut+Npc`) la lisent. **Un jalon d'UE qui bouge ne laisse plus l'ancien derrière lui** : la clé d'unicité de `echeance` porte la date, chaque changement de dates ajoutait un jalon à côté du précédent ; `instancier` retire désormais l'ancien s'il n'a jamais été touché (généré, à faire, sans commentaire, sans responsable nommé, sans tâche). **Les dates de l'UE s'alignent sur l'horaire réel** (3.1.417, Charles : « le premier dixième et le dernier dixième alignés aux horaires réels, et vice versa ») : Organisation → Planification → Dates des UE → *Comparer à l'horaire réel* (`ComparerHoraire.jsx`, `GET /api/annuel/dates-ue/horaire`, `lib/datesReelles.js`) — par organisation : dates de l'UE contre première et dernière séance (annulées exclues), le premier dixième des DATES (RGE, art. 1er 12°) à côté de celui de l'HORAIRE (vérificatrice), les séances hors des dates. *Aligner* reprend la première et la dernière séance comme ouverture et fermeture, par le `PUT /annuel/dates-ue` habituel (la coordination dépose une demande), puis recalcule l'échéancier ; alignées, les deux méthodes donnent le même jour. Une UE en plusieurs organisations ne s'aligne pas d'office (l'horaire ne dit pas à quelle organisation appartient une séance) : ses séances « hors des dates » sont celles qui ne tombent dans la fenêtre d'aucune. Le sens inverse — une séance hors des dates — se corrige dans l'horaire. **Le retard** (3.1.418, Charles : « on peut, avec un * ») : une MARQUE sur la présence (`presence.retard`, aussi au journal), pas un cinquième statut — un retardataire est PRÉSENT, ses heures comptent ; bouton « P* » de Mes cours → Présences, « P* » dans la grille et sa légende. Au scan QR, `retard_apres_min` (Suivi des présences → Réglages ; 0 par défaut = jamais d'office) marque en retard un scan tardif, à l'heure du SCAN (le ticket), pas à celle du code. **L'assiduité ne sort pas tant qu'une séance passée n'a pas ses
 présences** : une heure ni présente ni absente ne s'atteste pas. Code :
-`lib/cep.js`, `lib/piecesCep.js`, `routes/cep.js`. **À venir :** le QR code
-projeté en classe pour l'émargement ; le registre CEP dans le rail.
+`lib/cep.js`, `lib/piecesCep.js`, `routes/cep.js`. **La présence par QR code** (3.1.404 → 3.1.411, Charles, 28 octobre
+2026 : « la chose la plus simple possible pour le prof ») : Mes cours → *Ma journée* →
+*Afficher le QR* (jeton HMAC renouvelé toutes les 15 s, fenêtre −10/+20 min, compteur) ;
+l'étudiant scanne, la première fois adresse d'école + code à six chiffres, ensuite le
+téléphone est reconnu (cookie httpOnly, la base ne garde que l'empreinte) ; présence
+écrite par `ecrirePresences(…, 'qr')` ; le tableau de bord du professeur demande les
+absents d'une séance projetée. **Lot 4 (3.1.411)** : Étudiants → *Présence par QR —
+téléphones liés* (`PresenceQRSuivi.jsx`, `routes/presenceQrSuivi.js`) — téléphones liés,
+désactiver (motif), **autoriser un nouveau téléphone** (motif ; vaut pour le PROCHAIN
+téléphone lié, consommée par lui), journal en ajout seul, réglages (direction ; `lucie_config`
+« presence_qr », bornés). Mode essai sur la dev seulement (`NODE_ENV=development`).
+**Les absences au-delà du seuil (3.1.412)** : première face de la même fenêtre, rebaptisée
+*Suivi des présences* — les étudiants dont les absences injustifiées dépassent le seuil
+(`seuil_absence_pct`, 10 % par défaut, réglable), UE par UE, calculées comme la grille
+(`lib/alertesAbsences.js`) ; « Prévenir l'étudiant » montre l'avis (séances manquées, taux,
+mention du congé-éducation) puis l'envoie à l'adresse d'école — **jamais d'envoi
+automatique** —, journalisé `avis_absence`. **La coordination y lit ses sections** (3.1.419, Charles) : absences, texte de l'avis, téléphones et journal des étudiants de son périmètre — jugé sur la section de l'ÉTUDIANT (`sectionPropre`, la règle de la fiche, jamais celle de ses UE) ; désactiver, autoriser, envoyer l'avis et les réglages restent au secrétariat et à la direction. **Et le seuil de 40 % (3.1.414, Charles : « toutes les absences », justifiées ou non)** : `seuil_global_pct` (40 par défaut), colonne « Toutes absences » en rouge au-delà ; l'avis liste alors aussi les absences justifiées et cite la **mention réglementaire** `mention_seuil_global`. **LU DANS LE TEXTE (3.1.416)** : ce n'est pas le décret du 16 avril 1991 (version consolidée de 2009 : son art. 35 ne fait que compter les élèves « régulièrement admis ») mais le **RGE du supérieur de promotion sociale** (A.Gt du 2 septembre 2015, Gallilex 41802, mis à jour le 13 juin 2024) : art. 5 — étudiant régulier = qui « participe de manière assidue » ; **art. 6 § 1er — « s'il ne s'absente pas, sans motif valable, de plus de quatre dixièmes des activités d'enseignement dont il n'est pas dispensé »** (sept dixièmes pour un sportif de haut niveau, § 2) ; § 3 — la direction apprécie la validité du motif. D'où : `seuil_global_base` = `injustifiees` par défaut, la mention par défaut CITE les articles 5 et 6, et **la grille sort les activités dispensées des heures dues** (case « D », `dispensesUE` sur `dispenses()` de `lib/cep.js` : valorisation accordée complète ou par cours, report d'office). Le même RGE définit le premier dixième « en fonction des dates d'ouverture et de fermeture de l'unité » (art. 1er, 12°) — la grille suit, elle, la méthode de la vérificatrice (dates des séances) : à trancher. Fiche RGPD : `docs/rgpd-presences-qr.md`. **Le mode d'emploi illustré** (3.1.413,
+gabarit du guide du secrétariat ; 17 pages depuis 3.1.421 : retard P*, dispenses D, seuils de 10 et 40 %, coordination, dates de l’UE face à l’horaire) : Documentation → Mode d'emploi → *La présence par
+QR code (PDF)*, servi par `GET /api/documentation/guide/presence-qr` (liste FERMÉE de guides,
+`backend/assets/guides/`). Banc :
+`backend/test/presenceQr.mjs`. **À venir :** la phase pilote (un professeur, un cours) ; la
+coordination dans le suivi (ses sections — faite en 3.1.419) ; le registre CEP (fait en 3.1.426 : Suivi des présences → Congé-éducation).
 
 **RECOURS ET DISCIPLINE, REFONDUS SUR LE RDE 2026-2027** (3.1.x, Charles,
 3 octobre 2026 : « pas de liens avec les étudiants ni les membres des UE…
@@ -1404,8 +1859,8 @@ sont côte à côte, l'écart venant de la méthode, pas des périodes.
 
 **Chantiers de conformité ouverts, dans l'ordre :** geler les décisions à la
 clôture et historiser par ajout ; figer et horodater le PV ; bloc de signatures
-nominatif ; date d'affichage et mode de publication en champs propres ; écrire
-`'valorise'` dans le parcours ; raccorder la mention au PV.
+nominatif ; date d'affichage et mode de publication en champs propres ; lire la VA dans le parcours (fait en
+3.1.438, sans écrire `'valorise'`) ; raccorder la mention au PV.
 
 ---
 
@@ -1435,6 +1890,17 @@ seul registre, deux lentilles (l'Accueil montre *les miennes*, la Qualité
 
 **Ce qui n'est pas rattrapable :** ce qui n'est pas consigné en 2026-2027 ne
 sera pas récupérable en 2028. Détail dans `docs/contexte/qualite-aeqes.html`.
+
+**LE PLAN D'ACTION EST DANS LUCIE** (3.1.442, Charles, 28 octobre 2026 : « plan d'action » d'abord).
+Gestion → *Qualité* → *Plan d'action* (`components/PlanActionQualite.jsx`, `routes/qualite.js` sur
+`/api/qualite`). La table `action` (prévue par l'échéancier, jamais servie) devient le registre : critère du
+référentiel institutionnel (stratégie-gouvernance-qualité, pilotage des programmes, formation et parcours),
+périmètre (institution ou section), responsable (compte ou nom libre), échéance, priorité, indicateur et cible,
+origine. **L'avancement ne se tape pas** : il se pose par un POINT DE SUIVI (`action_suivi`, en ajout seul —
+texte, avancement, statut, qui, quand) ; abandonner se motive ; une action ne se supprime pas. La coordination
+pose et suit les actions de SES sections ; une action d'institution reste à la direction. **À venir** : la
+pièce « plan d'action » (version publique, et état de réalisation avec ses preuves), les actions à l'Accueil
+de leur responsable, les indicateurs chiffrés (inscrits sur cinq ans, ETP).
 
 ---
 
@@ -2227,6 +2693,101 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   20 000 lignes ne se garde pas. **Une table nouvelle est suivie au redémarrage
   suivant** ; une table à colonne BLOB ou sans rowid ne l'est pas.
 
+- - **LE LOGO DU GUIDE NE SE RECRÉE PAS : CHAQUE CHAPITRE Y ALLUME SON ÉTOILE** (3.1.483-3.1.484, Charles, 30 octobre
+  2026 : « trop grand, pas dans une case, dans l'encadré au-dessus » ; « ne pas recréer le logo à chaque fois mais allumer
+  une étoile différente avec le logo de la thématique dans cette étoile ; pas d'étoiles pour les points, le numéro dans un
+  cercle suffit ; tes étoiles jaunes, je déteste »). Le logo est FIXE, sans cadre, à droite de l'en-tête du chapitre (L et
+  figure à peine visible) ; une seule étoile de la Vierge s'allume par chapitre (`etoileDuChapitre(rang)`), un cercle qui
+  porte le pictogramme du chapitre. Les points portent leur numéro dans un cercle marine. Plus de naissance animée dans le
+  guide (elle reste sur la page de connexion), plus d'étoile allumée par point.
+
+- **LA VRAIE FIGURE DE LA VIERGE** (3.1.485, Charles, 30 octobre 2026 : « ce n'est pas la forme de la Vierge »). Les
+  lignes de 3.1.480 étaient inventées pour le L. Désormais `TRAITS` = les lignes des cartes du ciel modernes (Stellarium,
+  CON Vir : ν–η–γ–Spica–κ–ι–μ, Spica–ζ–τ–109, ζ–δ–ε, δ–γ), douze étoiles projetées comme avant ; le L reste tracé sur
+  τ, Spica et Zaniah. Le logo s'élargit (barre : viewBox -12 -6 172 49, texte à x 66) et la figure, plus lisible
+  (`RESTE` 0,42 / 0,3), se reconnaît. Ne pas réinventer de lignes : une constellation a ses lignes.
+
+- **LA PAGE DE CONNEXION : DE LA NUIT AU BLEU DE LUCIE** (3.1.486, Charles, 30 octobre 2026, projet D validé sur
+  maquette). `pages/Login.jsx` (`NuitProfonde`, `LucieLogo`, rythme `T`) : nuit très profonde sur toute la page avec
+  poussière d'étoiles ; les étoiles de la Vierge apparaissent (Spica d'abord) et scintillent (quatre aigrettes) ; les
+  liens se tracent en blanc léger ; le L devient bleu néon ; à 7 s tout s'apaise — la nuit se lève sur le bleu de
+  Lucie, les liens deviennent presque invisibles, et le néon s'éteint : on finit sur le L PLAT du logo, neutre.
+  « Lucie » garde la police du logo (Segoe UI / Helvetica Neue / Arial gras) et est CALÉ EN LARGEUR sur le L
+  (`textLength`, du bord de Spica au bord de Zaniah). `prefers-reduced-motion` : l'état final, d'emblée.
+
+- **LE FOND DE LA CONNEXION EST LA VIERGE** (3.1.494, Charles : « que les étoiles et les lignes soient celles de la
+  Vierge, et que ça scintille discrètement, étoile par étoile »). `NetworkBg` (`pages/Login.jsx`) ne dessine plus un réseau
+  inventé : les dix-huit étoiles réelles (`ETOILES` + `ETOILES_HORS`) et les lignes `TRAITS`, en grand, très légères,
+  entières à l'écran (`meet`, iPad en paysage comme en portrait) ; chaque étoile scintille à son propre rythme (3,2 à 6,4 s,
+  départs décalés), jamais toutes ensemble.
+
+- **LE LOGO EN APLAT, ET LE GUIDE EN CARTE DES CHAPITRES** (3.1.487, Charles, 30 octobre 2026 : « le logo dans Lucie
+  doit aussi être mis à jour, mais en aplat, dans les couleurs actuelles ; dans le mode d'emploi il se dessine aussi et
+  chaque étoile devient un des thèmes »). (1) Barre du haut : l'état final de la connexion — liens presque invisibles,
+  étoiles discrètes, L plat. (2) Mode d'emploi (`IllustrationsGuide.jsx`) : le logo se DESSINE une fois par visite
+  (étoiles, liens, L ; en aplat), jamais à chaque chapitre ; CHAQUE CHAPITRE A SON ÉTOILE (`ETOILES_GUIDE` : les douze
+  de la figure, puis six autres étoiles réelles de la Vierge hors des lignes — β, ο, θ, λ, ρ, φ, `ETOILES_HORS`) ;
+  toucher une étoile ouvre son chapitre ; l'étoile du chapitre ouvert porte son pictogramme.
+
+- **LES TEXTES DE L'IIP S'ÉCRIVENT PAR PARTIES DANS LUCIE, ET S'Y IMPRIMENT** (3.1.489, Charles, 30 octobre 2026 : « que
+  les procédures soient sur ce modèle par partie… Lucie, l'endroit où on les crée, pas où on les importe ; l'endroit
+  aussi pour les imprimer » ; tranché : textes de l'IIP — procédures, RDE, ROI, notes, `NATURES_PAR_PARTIES` ; une
+  partie se compose comme le mode d'emploi ; l'existant se découpe ; tout de suite). Format de version `parties`
+  (`lib/textesParties.js` : `{ parties: [{ titre, resume, points: [{ titre, qui, ou, contenu HTML assaini, savoir }] }] }`) ;
+  mêmes règles que le corpus (version publiée immuable, résumé du changement, reconfirmation choisie). Écran
+  (`components/TexteParParties.jsx`) : `LecteurParties` (sommaire, une page par partie, points numérotés — le `Point`
+  du mode d'emploi), `EditeurParties` (parties et points à ajouter, monter, retirer ; texte de chaque point dans
+  l'éditeur de Lucie, sans import). « Écrire un texte » ouvre l'éditeur par parties pour ces natures ;
+  « Réécrire par parties » sur un texte existant (`GET /:cle/decouper` : coupe aux titres, ne publie rien).
+  **Imprimer** : `GET /:cle/document` (enveloppe commune, sommaire, version, pied « produit par »), PDF serveur ou
+  impression du navigateur. Les boutons `[[Libellé]]` se dessinent à l'écran et s'impriment entre crochets.
+
+- **TOUT CONVERTIR EN UN GESTE** (3.1.492, Charles : « tu n'as pas converti les procédures comme prévu » — elles vivent
+  dans la base de la dev et de la production, que l'assistant ne lit pas ; choisi : « tout convertir en un geste »).
+  Documentation → rail → *Convertir les textes de l'IIP par parties* (`ConvertirTextes`, `GET/POST
+  /api/documentation/conversion`) : les procédures, règlements et notes pas encore par parties, le découpage proposé
+  (parties et points), cochés d'office sauf ceux sans titres ; la publication écrit la version suivante de chacun, sans
+  reconfirmation (« le contenu ne change pas »), tout ou rien. Un texte sans titres passe en une partie, un point.
+  **À faire par la direction, sur la dev puis en production** : l'assistant ne peut pas le lancer.
+
+- **LE DÉCOUPAGE LIT LES TITRES QUI REVIENNENT** (3.1.493, Charles, circulaire de rentrée en une seule partie : « sois
+  malin, tu ne mets pas de menu alors que tu as des titres »). Un titre qui n'apparaît qu'UNE fois est le titre du
+  document (non recopié) : les parties prennent le plus haut niveau qui revient au moins deux fois, les points le
+  suivant ; la numérotation (« 1. », « 2.1 », « II – », « a) ») est retirée, jamais un nombre qui commence une phrase
+  (« 12 mois »). Un texte d'ouverture court devient le résumé de sa partie, long il reste un point sans titre (sans
+  en-tête à l'écran). **Une conversion automatique se refait** tant que personne ne l'a retouchée (même résumé de
+  changement) : elle repart du dernier texte d'origine, ligne « déjà converti, à redécouper ».
+
+- **LE MODE D'EMPLOI MONTRE LES ÉCRANS ET LES BOUTONS** (3.1.488-3.1.490, Charles, 30 octobre 2026 : « des images des
+  boutons, des captures des fenêtres… le mode d'emploi PDF ne doit plus être la base de la recherche »). Un bouton
+  s'écrit `[[Libellé|IconNom|fort]]` dans `modeEmploi.js` (texte, « à savoir », légendes) et se dessine avec les
+  classes de Lucie (`Enrichi`, `BoutonGuide`, liste fermée d'icônes `ICONES_BOUTON` dans `pages/Aide.jsx`) ; un point
+  porte `images: [{ src, legende, etroite }]`. 92 points sur 105 illustrés par ~110 captures RÉELLES
+  (`frontend/public/guide/<chapitre>-*.png`), prises sur une base d'essai aux noms fictifs, jamais sur la dev.
+  **Une nouvelle fonction s'écrit dans `modeEmploi.js` avec ses boutons et, si l'écran le montre, sa capture.**
+  Non illustrés faute de données dans la base d'essai : attributions, rapport ETP, contrats/EA12, recours, reports
+  de notes, schéma par section (la base d'essai, ancienne, n'a ni section ni attribution).
+
+- **LES CAPTURES À CÔTÉ DU TEXTE, PETITES, ET QUI S'AGRANDISSENT** (3.1.491, Charles : « certaines sont trop grandes ;
+  plus malin de mettre le texte à côté »). Un point illustré se lit en deux colonnes sur grand écran (texte à gauche,
+  images à droite ; empilés sur iPad en portrait) ; une image ne dépasse jamais sa taille réelle (une capture étroite
+  agrandie devient floue) et plafonne à 17 rem de haut ; un toucher l'ouvre en grand (`Fenetre`, par `createPortal` :
+  l'animation de la carte enfermerait la fenêtre dans le point).
+
+- **LUCIE SUR L'ÉCRAN D'ACCUEIL** (3.1.496, Charles, 30 octobre 2026 : « une icône Lucie sur iPhone ou Android » ;
+  icône choisie : la Vierge et le L, L en grand, étoiles et lignes discrètes). Application web installable, SANS
+  service worker (un cache sur le téléphone recréerait l'écart de version) : `public/manifest.webmanifest`
+  (`manifest-dev.webmanifest` sur dev. et localhost, nom « Lucie dev », choisi par le script d'`index.html`),
+  `public/icones/` (192, 512, « maskable » plus serrée pour Android, `apple-touch-icon` 180), `favicon.svg` (c'était
+  encore le « A » doré d'Attributions), titre d'onglet « Lucie ». nginx sert le manifeste en
+  `application/manifest+json`, sans cache. iPhone/iPad : Safari seulement, première connexion dans l'app (stockage
+  séparé de Safari). Le portail des étudiants n'en a pas (choix de Charles : Lucie d'abord).
+
+**L'ANNULER NE COMPARE QUE CE QUE LE GESTE A CHANGÉ** (3.1.482, Charles, 30 octobre 2026, en production :
+  « Impossible d'annuler : utilisateur — la ligne a été modifiée depuis, par quelqu'un »). Se reconnecter écrit
+  `last_login_at` sur la ligne du compte ; l'annulation comparait la ligne entière et refusait. Désormais elle ne
+  vérifie, et ne remet, que les colonnes que le geste a changées ; les champs techniques (`TECHNIQUES` : heure de
+  connexion, dernier pas du code, `maj_le`, `vu_le`…) ne bloquent jamais.
 - **Rien ne s'écrit sans qu'on ait vu ce qui sera écrit** : tout import et tout
   traitement en lot passe par une simulation.
 - **Un bouton caché n'est pas une protection** : une opération réservée au
@@ -2240,7 +2801,7 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
 - Public : secrétaires et enseignants. **Expliquer le travail, pas l'informatique.**
 - Toujours préciser **quelle version** est décrite (dev ou prod) — un guide écrit
   sur dev montre des écrans que l'équipe n'a pas.
-- Les captures d'écran viennent de Jérôme. **Ne pas décrire un détail visuel
+- Les captures d’écran viennent de Charles. **Ne pas décrire un détail visuel
   sans capture.**
 
 ---
@@ -2250,10 +2811,13 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
 1. Lire ce fichier, puis **la passation la plus récente**
    (`docs/contexte/passation-AAAA-MM-JJ.md`, la dernière par date) : c'est elle
    qui dit ce qui a été livré depuis et ce qui reste ouvert.
-2. Vérifier l'écart `develop` / `main` et les questions ouvertes non tranchées
+2. **Lire les idées du registre de la production** (3.1.470, Charles) :
+   `curl -s -H "X-Lucie-Jeton: $LUCIE_IDEES_JETON" https://www.lucie-iip.be/api/suggestions/flux` — les idées
+   ouvertes et leur fil. Signaler à Charles ce qui est nouveau et important. Sans la variable, le dire.
+3. Vérifier l'écart `develop` / `main` et les questions ouvertes non tranchées
    (`docs/contexte/`).
-3. Poser d'abord les questions **bloquantes** — celles qui coûtent une minute à
-   Jérôme et évitent une demi-journée de code faux.
-4. `grep` les définitions avant toute requête ; chercher l'existant avant de
+4. Poser d'abord les questions **bloquantes** — celles qui coûtent une minute à
+   Charles et évitent une demi-journée de code faux.
+5. `grep` les définitions avant toute requête ; chercher l'existant avant de
    construire.
-5. Ne conclure « fait » qu'après vérification **et** confirmation à l'écran.
+6. Ne conclure « fait » qu'après vérification **et** confirmation à l'écran.

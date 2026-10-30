@@ -116,6 +116,8 @@ export default function ConfigCourriels() {
         </div>
       </section>
 
+      <RecapQuotidien />
+
       {/* ── Expédition ── */}
       <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div className="px-4 py-3 bg-iip-blue/5 border-b border-gray-200">
@@ -296,5 +298,50 @@ export default function ConfigCourriels() {
         )}
       </section>
     </div>
+  );
+}
+
+/* LE RÉCAPITULATIF QUOTIDIEN (3.1.472) : chaque matin, à qui une chose nouvelle attend — tâches, textes à
+   confirmer, messages, idées. L'interrupteur, ce que contiendrait le sien, et un essai. */
+function RecapQuotidien() {
+  const [r, setR] = useState(null);
+  const [msg, setMsg] = useState(null);
+  const charger = () => fetch('/api/envois/recap', { headers: authHeaders() }).then(x => (x.ok ? x.json() : null)).then(setR).catch(() => {});
+  useEffect(() => { charger(); }, []);
+  if (!r) return null;
+  const basculer = async () => {
+    await fetch('/api/envois/recap', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ actif: !r.actif }) });
+    charger();
+  };
+  const essai = async () => {
+    setMsg(null);
+    const x = await fetch('/api/envois/recap/moi', { method: 'POST', headers: authHeaders() });
+    const j = await x.json().catch(() => ({}));
+    setMsg(x.ok ? (j.envoyes ? 'Votre récapitulatif est parti (voir la redirection de test, s’il y en a une).' : 'Rien n’est parti : vérifiez votre adresse et le serveur d’envoi.') : (j.error || 'Refusé.'));
+    charger();
+  };
+  const m = r.mien;
+  return (
+    <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      <div className="px-4 py-3 bg-iip-blue/5 border-b border-gray-200 flex items-center justify-between">
+        <div>
+          <h2 className="titre-carte flex items-center gap-2"><IconMail size={16} /> Récapitulatif quotidien</h2>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Chaque matin, après 7 h, un courriel à chaque personne — seulement si une chose nouvelle l’attend : une tâche, un texte à confirmer, un message, une idée.
+          </p>
+        </div>
+        <button onClick={basculer}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${r.actif ? 'bg-iip-turquoise' : 'bg-slate-300'}`}
+          title={r.actif ? 'Désactiver' : 'Activer'}>
+          <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${r.actif ? 'translate-x-5' : 'translate-x-0.5'}`} />
+        </button>
+      </div>
+      <div className="px-4 py-3 text-sm space-y-2">
+        {m && <p className="text-slate-600">Le vôtre, aujourd’hui : {m.taches} tâche(s), {m.textes} texte(s) à confirmer, {m.messages} message(s) non lu(s), {m.idees} idée(s).</p>}
+        {r.dernier && <p className="text-xs text-slate-500">Dernier envoi : {String(r.dernier.jour).split('-').reverse().join('/')} — {r.dernier.statut}.</p>}
+        <button className="bouton" onClick={essai}>M’envoyer le mien maintenant</button>
+        {msg && <p className="text-xs text-slate-600">{msg}</p>}
+      </div>
+    </section>
   );
 }

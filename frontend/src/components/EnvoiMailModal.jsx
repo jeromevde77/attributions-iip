@@ -13,7 +13,7 @@ import { Fenetre } from './ui.jsx';
  * ou corriger, puis remet le tout au serveur qui rend le PDF, l'attache et
  * consigne l'envoi.
  *
- * @param {Array<{ html: string, nom_fichier?: string,
+ * @param {Array<{ html: string, nom_fichier?: string, documents?: Array<{ html, nom_fichier }>,
  *                 destinataire: { type?: 'etudiant'|'professeur', id?: number,
  *                                 nom: string, email?: string } }>} pieces
  * @param {string} typeDoc      identifiant du document, pour le journal
@@ -109,6 +109,8 @@ export default function EnvoiMailModal({ pieces, typeDoc, apercu = true, sujet: 
             destinataire_type: l.type, destinataire_id: l.id, nom: l.nom,
             email: l.email.trim(), html: pieces[l.idx].html, nom_fichier: l.nom_fichier,
             contenu: pieces[l.idx].contenu || undefined,
+            // Plusieurs pièces dans un même courriel, un PDF chacune (3.1.471).
+            documents: pieces[l.idx].documents || undefined,
           })),
         }),
       });

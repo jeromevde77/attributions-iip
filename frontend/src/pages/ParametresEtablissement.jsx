@@ -133,6 +133,8 @@ export default function ParametresEtablissement() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Champ label="E-mail de contact (secrétariat)" value={f.email_contact} onChange={v => set('email_contact', v)}
             placeholder="secretariat@exemple.be" hint="Adresse générale affichée sur les documents" />
+          <Champ label="Compte des frais étudiants (IBAN)" value={f.iban} onChange={v => set('iban', v)}
+            placeholder="BE.. .... .... ...." hint="Imprimé sur la note de frais, avec la communication structurée de l'étudiant" />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Champ label="E-mail officiel (ec)" value={f.email_ec} onChange={v => set('email_ec', v)}

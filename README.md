@@ -69,6 +69,31 @@ les axes ; le rail latéral porte les rubriques de l'axe et les outils de l'écr
   composition des programmes sur les résultats, parcours individuels imprimables.
 - Détection et fusion des dossiers en double.
 - Aménagements, frais de scolarité, droit d'inscription, valorisations.
+- **Présence par QR code** : le professeur projette un QR qui change toutes les
+  15 secondes, les étudiants le scannent ; la présence s'enregistre avec l'heure.
+  Le secrétariat suit les absences au-delà du seuil (avis à l'étudiant sur clic) et
+  les téléphones liés (Étudiants → Suivi des présences), et sort la
+  **grille de présence** par cours ou par UE au centre d'impression. Fiche RGPD :
+  [`docs/rgpd-presences-qr.md`](docs/rgpd-presences-qr.md).
+- **Ticket de sortie** (Mes cours → Ma journée) : deux ou trois questions en fin de séance par QR,
+  réponses au téléphone déjà lié, anonymes par défaut ; un QCM nominatif se verse au carnet.
+- **Présences par UE et régularité** (Étudiants → Suivi des présences → Par UE) : la grille de
+  l'UE, corrigeable d'un clic, la régularité (R/IR) au 1er et au 5e dixième ; dans Gestion →
+  Présences, le tableau par UE, le comptage au 1er dixième par section et les alertes.
+- **Carnet de cotes** (Mes cours → Carnet) : les tests, interrogations et travaux du
+  professeur, collés depuis Excel s'il le faut ; rattachés à des acquis, ils proposent la
+  note par acquis, reprise d'un clic dans la feuille de notes (rien ne s'enregistre d'office).
+- **Forfait de valorisation** : 30 € par UE demandée en VA ou VAE (ou complément des frais
+  d'inscription jusqu'à ce montant, sinon 15 € par UE), 50 € pour une admission ; sur la note de
+  frais et l'accusé de réception, dispensable avec motif. Montants dans Configuration → Coût des périodes.
+- **Créer un étudiant** exige une section de rattachement ou une première UE.
+- **Mon horaire dans mon agenda** (Mes cours) : un lien d'abonnement personnel ; l'agenda du
+  téléphone suit l'horaire de Lucie, changements et annulations compris.
+- **Dates des UE face à l'horaire réel** (Organisation → Planification → Dates
+  des UE → *Comparer à l'horaire réel*) : dates d'ouverture et de fermeture contre
+  première et dernière séance, les deux premiers dixièmes (dates de l'UE et
+  horaire), les séances hors des dates ; *Aligner* reprend les dates de l'UE sur
+  l'horaire, après confirmation.
 
 ### Pièces produites
 
@@ -142,6 +167,9 @@ illisible. **La route refuse de s'exécuter hors développement.**
 - Rôles : `admin`, `directeur`, `directeur_adjoint`, `editeur`, `secretariat`,
   `consultation` — avec **périmètre par section**.
 - Journal des modifications.
+- Présence par QR : QR signé par une clé du serveur (`PRESENCE_QR_SECRET`, ou
+  dérivée de `JWT_SECRET`) ; la base ne garde que l'empreinte de l'identifiant du
+  téléphone, aucune position, aucune adresse IP.
 - **Aucun secret dans le dépôt ni dans un document.** Les jetons vivent dans
   l'environnement du conteneur ou dans les secrets GitHub.
 

@@ -228,7 +228,7 @@ function FenetreStatut({ etat, onFermer, onGeneral, onException }) {
         {erreur && <span className="text-second text-rose-700">{erreur}</span>}
         <button onClick={onFermer} className="bouton ml-auto">Annuler</button>
       </>}>
-      <div className="p-5 space-y-4 text-sm">
+      <div className="space-y-4 text-sm">
 
         {!statutMdp ? (
           <>

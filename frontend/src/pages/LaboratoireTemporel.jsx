@@ -5,7 +5,29 @@ import { passeRole } from '../lib/droits.js';
 import { teinteCours, styleTuileCours } from '../lib/teinteCours.js';
 import { IconeLaboratoire } from '../components/IconeLaboratoire.jsx';
 import { RailLateral } from '../components/ui.jsx';
-import { IconSitemap, IconPuzzle, IconCalendarWeek, IconTimeline, IconTrash, IconHistory, IconUserCheck, IconCalendarCog, IconWand } from '@tabler/icons-react';
+import { IconSitemap, IconPuzzle, IconCalendarWeek, IconTimeline, IconTrash, IconHistory, IconUserCheck, IconCalendarCog, IconWand, IconEye, IconArrowLeft, IconArrowRight } from '@tabler/icons-react';
+const HoraireSemaine = lazy(() => import('./HoraireSemaine.jsx'));
+
+/* LE LABORATOIRE SE FAIT PAR ÉTAPES (3.1.465, Charles, 29 octobre 2026 : « pas clair ; il faut que ça se fasse
+   par étape, avec en dernier la visualisation de l'horaire »). L'ordre est celui du travail : ce qu'on organise
+   (le schéma), quand (le temps), en combien de groupes, dans quelles plages, avec quels enseignants, puis la
+   semaine se calcule et se verse ; l'horaire se regarde à la fin. Chaque étape dit ce qu'on y fait. */
+export const ETAPES_LABO = [
+  { k: 'schema', titre: 'Schéma de capitalisation', Icone: IconSitemap,
+    dit: 'Quelles UE s’organisent cette année, dans quel bloc et quel quadrimestre, et ce qui dépend de quoi.' },
+  { k: 'temps', titre: 'Le temps', Icone: IconTimeline,
+    dit: 'Quand chaque UE se donne : ses dates dans l’année (« Organisation de base » les propose), ses couches, son verre.' },
+  { k: 'groupes', titre: 'Les groupes', Icone: IconPuzzle,
+    dit: 'En combien de groupes chaque cours se donne, bloc par bloc, et quels étudiants y vont.' },
+  { k: 'planning', titre: 'Le planning', Icone: IconCalendarCog,
+    dit: 'Les blocs de cours de l’école sur la semaine, et ce qu’on évite ou interdit (section, bloc, local, UE).' },
+  { k: 'disponibilites', titre: 'Les disponibilités', Icone: IconUserCheck,
+    dit: 'Quand chaque enseignant peut donner cours — commun à toutes ses sections.' },
+  { k: 'semaine', titre: 'La semaine', Icone: IconCalendarWeek,
+    dit: 'Lucie calcule la semaine type à partir de tout ce qui précède ; on l’adopte, on la retouche, puis on la verse dans l’horaire.' },
+  { k: 'horaire', titre: 'L’horaire', Icone: IconEye,
+    dit: 'Le résultat : l’horaire tel que le voient les classes, les professeurs et les locaux.' },
+];
 const StructureSection = lazy(() => import('./StructureSection.jsx'));
 const GroupesCommuns = lazy(() => import('./GroupesCommuns.jsx'));
 const DisponibilitesSection = lazy(() => import('./DisponibilitesSection.jsx'));
@@ -68,8 +90,8 @@ export default function LaboratoireTemporel() {
     try {
       const o = sessionStorage.getItem('lucie.outil');
       if (o?.startsWith('labo-')) { sessionStorage.removeItem('lucie.outil'); return o.slice(5); }
-      const q = new URLSearchParams(window.location.search); return q.get('face') || (q.get('onglet') === 'groupes-communs' ? 'groupes' : 'temps');
-    } catch { return 'temps'; }
+      const q = new URLSearchParams(window.location.search); return q.get('face') || (q.get('onglet') === 'groupes-communs' ? 'groupes' : 'schema');
+    } catch { return 'schema'; }
   });
   const [choix, setChoix] = useState(null);           // n° de l'UE choisie
   const [glisse, setGlisse] = useState(null);         // { ue, de, a } pendant un geste
@@ -161,6 +183,8 @@ export default function LaboratoireTemporel() {
   const NB = semaines.length;
   const indexDe = num => semaines.findIndex(s => s.semaine_num === num);
   const blocs = useMemo(() => [...new Set((data?.ues || []).map(u => String(u.ue_niv || '').toUpperCase()).filter(Boolean))].sort(), [data]);
+  // Passer d'une étape à l'autre ; les groupes et la semaine se font bloc par bloc.
+  const allerEtape = k => { setFace(k); if ((k === 'groupes' || k === 'semaine') && !bloc && blocs[0]) setBloc(blocs.includes('BA2') ? 'BA2' : blocs[0]); };
   const ues = useMemo(() => (data?.ues || []).filter(u => !bloc || String(u.ue_niv || '').toUpperCase() === bloc), [data, bloc]);
   // L'étendue d'une UE en colonnes : ses dates, sinon toute l'année de cours (à poser).
   const premiereCours = semaines.findIndex(s => s.type === 'cours'), derniereCours = semaines.map(s => s.type).lastIndexOf('cours');
@@ -196,6 +220,8 @@ export default function LaboratoireTemporel() {
     const j = await r.json().catch(() => ({}));
     if (!r.ok) { setErreur(j.error || `Erreur ${r.status}`); return; }
     await charger();
+    // La coordination propose : la tuile reste où elle était tant que la direction n'a pas validé.
+    if (j.en_attente) await informer(j.message);
   }
   async function basculerConges(u) {
     const r = await fetch('/api/grille/ue', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ annee_scolaire: annee, section, ue_num: u.ue_num, num_organisation: u.num_organisation || 1, cours_pendant_conges: !u.cours_pendant_conges }) });
@@ -229,7 +255,8 @@ export default function LaboratoireTemporel() {
     const j = await r.json().catch(() => ({}));
     if (!r.ok) { setErreur(j.error || `Erreur ${r.status}`); return; }
     await charger();
-    await informer(`✓ ${j.ecrit} UE posée(s) dans l’année.${j.sauvegarde ? ' Le laboratoire avait été sauvegardé avant.' : ''}`);
+    await informer(j.en_attente ? j.message
+      : `✓ ${j.ecrit} UE posée(s) dans l’année.${j.sauvegarde ? ' Le laboratoire avait été sauvegardé avant.' : ''}`);
   }
   async function dedoubler(u) {
     if (!(await demander({ titre: `Dédoubler l’UE ${u.ue_num}`, message: `Une organisation de plus pour l’UE ${u.ue_num}, avec ses propres dates. Son verre reprend celui de l’organisation 1 tant qu’on ne le découpe pas autrement.
@@ -457,9 +484,38 @@ Les étudiants se répartissent ensuite entre les organisations (répartition de
         </>}
         <span className="text-second text-slate-500">{face !== 'temps' ? '' : zoom === 'ue' ? 'Glisser une activité dans un cours ; tirer le haut d’une couche ; double-clic : revenir à l’année.' : (zoom === 'couches' ? 'Glisser une barre la déplace, ses bords l’allongent ; « à la suite » ou « en parallèle » arrangent un cours d’un clic · double-clic : le verre.' : 'Ctrl + molette ou double-clic pour zoomer · glisser une tuile la déplace dans l’année, ses bords l’allongent.')}</span>
       </div>
-      <RailLateral titre="Le laboratoire temporel" sections={[{ items: [['temps', 'Le temps', IconTimeline], ['groupes', 'Les groupes', IconPuzzle], ['planning', 'Le planning', IconCalendarCog], ['semaine', 'La semaine', IconCalendarWeek], ['disponibilites', 'Les disponibilités', IconUserCheck], ['schema', 'Schéma de capitalisation', IconSitemap]]
-        .map(([k, l, I]) => ({ key: `labo-${k}`, label: l, icon: I, actif: face === k,
-          onClick: () => { setFace(k); if ((k === 'groupes' || k === 'semaine') && !bloc && blocs[0]) setBloc(blocs.includes('BA2') ? 'BA2' : blocs[0]); } })) }]} />
+      <RailLateral titre="Le laboratoire temporel" sections={[{ items: ETAPES_LABO
+        .map((e, i) => ({ key: `labo-${e.k}`, label: `${i + 1}. ${e.titre}`, icon: e.Icone, actif: face === e.k,
+          onClick: () => allerEtape(e.k) })) }]} />
+      {(() => {
+        /* LA FRISE DES ÉTAPES : où l'on est, ce qu'on fait ici, et la suivante. */
+        const i = Math.max(0, ETAPES_LABO.findIndex(e => e.k === face));
+        const e = ETAPES_LABO[i], av = ETAPES_LABO[i - 1], ap = ETAPES_LABO[i + 1];
+        return (
+          <div className="carte p-3 space-y-2.5">
+            <div className="flex flex-wrap items-center gap-1">
+              {ETAPES_LABO.map((x, j) => (
+                <button key={x.k} type="button" onClick={() => allerEtape(x.k)}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-second border transition-colors
+                    ${j === i ? 'bg-iip-blue text-white border-transparent font-semibold'
+                      : j < i ? 'bg-white text-iip-blue border-slate-300' : 'bg-white text-slate-500 border-slate-200'}`}>
+                  <span className={`inline-grid place-items-center w-5 h-5 rounded-full text-mention font-bold
+                    ${j === i ? 'bg-white text-iip-blue' : 'bg-slate-100 text-slate-600'}`}>{j + 1}</span>
+                  {x.titre}
+                </button>))}
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <e.Icone size={20} className="text-iip-blue flex-none" />
+              <div className="flex-1 min-w-[240px]">
+                <div className="text-sm font-semibold text-iip-texte">Étape {i + 1} sur {ETAPES_LABO.length} — {e.titre}</div>
+                <div className="text-second text-slate-600">{e.dit}</div>
+              </div>
+              {av && <button type="button" className="bouton" onClick={() => allerEtape(av.k)}><IconArrowLeft size={15} /> {av.titre}</button>}
+              {ap && <button type="button" className="bouton bouton-fort" onClick={() => allerEtape(ap.k)}>Étape suivante : {ap.titre} <IconArrowRight size={15} /></button>}
+            </div>
+          </div>
+        );
+      })()}
       {erreur && <div className="text-second" style={{ color: 'var(--c-refuse)' }}>{erreur}</div>}
       {!data && !erreur && <div className="text-sm text-slate-400">Chargement…</div>}
 
@@ -483,6 +539,10 @@ Les étudiants se répartissent ensuite entre les organisations (répartition de
       {face === 'disponibilites' && (
         <Suspense fallback={<div className="text-sm text-slate-400">Chargement…</div>}>
           <DisponibilitesSection key={section} section={section} annee={annee} peutEcrire={peutEcrire} />
+        </Suspense>)}
+      {face === 'horaire' && (
+        <Suspense fallback={<div className="text-sm text-slate-400">Chargement…</div>}>
+          <HoraireSemaine consultation />
         </Suspense>)}
       {face === 'schema' && (
         <Suspense fallback={<div className="text-sm text-slate-400">Chargement…</div>}>

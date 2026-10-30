@@ -14,10 +14,9 @@
  * reçoit deux contrats : la rétribution de la période n'est pas la même, et un
  * contrat qui mêlerait les deux engagerait l'école sur un montant faux.
  */
-import { LOGO_IIP_JPEG } from './assets/logo_iip_jpeg.js';
 import { tauxExpertBase, typeExpert, LIB_TYPE_EXPERT } from '../lib/tauxExperts.js';
-import { SIGNATURE_SOHET } from './assets/signature_sohet.js';
 import { piedDocument } from '../routes/parametres.js';
+import { logoCourant, signatureCourante } from '../lib/identite.js';
 
 const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -276,8 +275,8 @@ export function genererContratExpert({ etab, prof, lignes, annee, date_contrat, 
     '{{taux}}': t.toFixed(2).replace('.', ','),
     '{{remuneration}}': remuneration,
     '{{iban}}': prof.iban ? `IBAN ${esc(prof.iban)}` : '<i>(IBAN à compléter)</i>',
-    '{{signature_representant}}': /sohet/i.test(rep) ? `<img src="${SIGNATURE_SOHET}" alt="signature">` : '',
-    '{{logo_iip}}': LOGO_IIP_JPEG,
+    '{{signature_representant}}': /sohet/i.test(rep) ? `<img src="${signatureCourante()}" alt="signature">` : '',
+    '{{logo_iip}}': logoCourant(),
     '{{pied_page}}': piedDocument(),
   };
   let html = templateHtml || genererTemplateExpert();

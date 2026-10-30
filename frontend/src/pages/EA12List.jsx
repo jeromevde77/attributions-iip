@@ -7,10 +7,12 @@ export default function EA12List() {
   const navigate = useNavigate();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [erreur, setErreur] = useState(null);
 
   async function load() {
     setLoading(true);
-    try { setRows(await api.ea12List()); } finally { setLoading(false); }
+    // Un refus du serveur se dit à l'écran ; il faisait planter la page (coordination, adresse tapée).
+    try { setErreur(null); setRows(await api.ea12List()); } catch (e) { setRows([]); setErreur(e.message || 'Accès refusé.'); } finally { setLoading(false); }
   }
   useEffect(() => { load(); }, []);
 
@@ -29,7 +31,7 @@ export default function EA12List() {
   return (
     <div className="max-w-none mx-auto p-4">
       <h1 className="text-xl font-title text-iip-gold mb-4">Documents EA12</h1>
-      {loading ? <div className="text-gray-400">Chargement…</div> : rows.length === 0 ? (
+      {loading ? <div className="text-gray-400">Chargement…</div> : erreur ? <div className="text-sm text-slate-600">{erreur}</div> : rows.length === 0 ? (
         <div className="bg-white border border-gray-200 rounded-lg p-8 text-center text-gray-500">
           Aucun EA12 pour l’instant. Créez-en un depuis la fiche d’un professeur (bouton « Nouvel EA12 »).
         </div>

@@ -10,7 +10,6 @@ import { Router } from 'express';
 import multer from 'multer';
 import { existsSync, mkdirSync, unlinkSync } from 'fs';
 import { join } from 'path';
-import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 import { piedBalisage, piedStyles, reglesDePage, envelopperDocument } from '../lib/document.js';
 import { htmlListeCoordonnees } from '../services/liste_coordonnees.js';
 
@@ -24,7 +23,6 @@ import { construireGraphe, niveauxEffectifs, rangNiveau } from './capitalisation
 import { placementsSection } from '../lib/placement.js';
 import { marquerPrimo } from '../lib/primo.js';
 import { etatsPAE, plafondBloc, rangBloc } from '../lib/pae.js';
-import { SIGNATURE_SOHET, SCEAU_IIP } from '../services/assets/signature_sohet.js';
 import { identiteEtablissement } from './config.js';
 import { structureUE, calculerNoteUE, coursValidesAnterieurs, poserReportsDOffice } from './acquis.js';
 import {
@@ -46,6 +44,9 @@ import { appelerCharges, avisCoordination, motifsVA } from '../lib/avisVA.js';
 import { TITRES_ACCES, DIPLOMES_MAX } from '../lib/profilEtudiant.js';
 import { composerNotificationVA } from '../lib/pieceNotificationVA.js';
 
+import { noteVerrouillee, MESSAGE_CLOSE } from '../lib/gardeNotes.js';
+import { trouverOuCreerEtudiant } from '../lib/etudiantUnique.js';
+import { cachetCourant, logoCourant, signatureCourante } from '../lib/identite.js';
 const r = Router();
 
 // Intitulé, niveau et section d'une UE, indépendamment de l'année.
@@ -478,6 +479,13 @@ export function migrerEtudiants(dbx) {
       // déduction dans chaque requête — et la déduction reste la référence.
       ajouter('etat', "TEXT NOT NULL DEFAULT 'introduite'");
     }
+    /* UN DOSSIER VALIDÉ NE SE SUPPRIME PAS, PAR QUELQUE PORTE QUE CE SOIT
+       (3.1.428). Les routes de la valorisation le refusaient déjà ; la grille du
+       parcours, la purge d'une année et l'effacement de résultats, non — et le
+       journal partait avec la ligne. La direction retire d'abord la validation. */
+    dbx.exec(`CREATE TRIGGER IF NOT EXISTS garde_va_validee BEFORE DELETE ON etudiant_valorisation
+      WHEN OLD.valide_le IS NOT NULL
+      BEGIN SELECT RAISE(ABORT, 'Ce dossier de valorisation est validé : il ne se supprime pas. La direction retire d''abord la validation.'); END`);
   } catch (e) { console.error('[migration] valorisation/circuit :', e.message); }
 
   /* LE JOURNAL — CE QUI PROTÈGE CONTRE CE QU'ON A VÉCU.
@@ -935,6 +943,30 @@ export function controlerAjouts(etudId, annee, ajouts, programmeFinal, faits = n
     if (regles.length) ecarts.push({ ue_num: ue, regles: regles.map(x => ({ ...x, libelle: LIBELLE_REGLE[x.regle] })) });
   }
   return ecarts;
+}
+
+/**
+ * LES ROUTES DE RÉSULTATS NE COMPOSENT PAS ET NE REJUGENT PAS (3.1.433). La matrice,
+ * l'encodage direct, les résultats du PAE et la grille du parcours consignent des FAITS
+ * — c'est leur rôle pour les années reprises. Mais elles créaient l'inscription au
+ * passage, hors de `ecrireProgramme()`, et réécrivaient sans un mot le résultat d'une
+ * délibération close. Deux refus, nommés :
+ *   - l'unité dont la séance est close (hors séance de reprise) : le résultat est celui
+ *     du Conseil, il ne change qu'en rouvrant la séance ;
+ *   - pour l'année de travail et les suivantes, une unité absente du programme : elle
+ *     s'inscrit d'abord par le PAE, qui juge les règles.
+ * Rend la raison du refus, ou null.
+ */
+export function refusResultat(req, etudId, annee, ueNum) {
+  if (noteVerrouillee(etudId, annee, ueNum, 's1|') || noteVerrouillee(etudId, annee, ueNum, 's2|')) {
+    return `UE ${ueNum} : la délibération est close — le résultat est celui du Conseil (rouvrir la séance pour le changer).`;
+  }
+  const courante = anneeDeTravail(req);
+  if (courante && annee >= courante && !db.prepare(`SELECT 1 FROM etudiant_inscription
+      WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`).get(Number(etudId), annee, Number(ueNum))) {
+    return `UE ${ueNum} : pas au programme de ${annee} — l'inscription passe d'abord par le PAE.`;
+  }
+  return null;
 }
 
 export function ecrireProgramme({ etudId, annee, ajouter = [], retirer = [], origine, par = null,
@@ -2034,7 +2066,7 @@ r.get('/rapport', authRequired, (req, res) => {
 </table>
 <div class="legende"><b>C</b> réussite · <b>R</b> refusé · <b>A</b> absent · <b>VA</b> valorisation des acquis · <b>•</b> inscrit (non délibéré) · survolez une case pour les points</div>
 
-${piedBalisage(LOGO_IIP_JPEG)}
+${piedBalisage(logoCourant())}
 </body></html>`;
 
   res.json({ html, nom: 'parcours_' + section + '_' + annee + '.html' });
@@ -2126,28 +2158,11 @@ r.post('/import-liste', authRequired, roleRequired('admin', 'editeur'), (req, re
     return res.status(400).json({ error: 'annee et etudiants requis' });
   }
 
-  const upEtud = db.prepare(`
-    INSERT INTO etudiant (id_ecampus, nom, prenom, email_ecole, email_perso,
-      date_naissance, num_national, gsm, adresse, localite, cp, titre,
-      lieu_naissance)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
-    ON CONFLICT(id_ecampus) DO UPDATE SET
-      nom = excluded.nom, prenom = excluded.prenom,
-      email_ecole   = COALESCE(excluded.email_ecole,   etudiant.email_ecole),
-      email_perso   = COALESCE(excluded.email_perso,   etudiant.email_perso),
-      date_naissance= COALESCE(excluded.date_naissance,etudiant.date_naissance),
-      num_national  = COALESCE(excluded.num_national,  etudiant.num_national),
-      gsm           = COALESCE(excluded.gsm,           etudiant.gsm),
-      adresse       = COALESCE(excluded.adresse,       etudiant.adresse),
-      localite      = COALESCE(excluded.localite,      etudiant.localite),
-      cp            = COALESCE(excluded.cp,            etudiant.cp),
-      titre         = COALESCE(excluded.titre,         etudiant.titre),
-      -- Les classeurs eCampus portent LieuNais, mais l'import ne le reprenait
-      -- pas : la donnée existait dans vos fichiers et n'entrait jamais en base,
-      -- d'où le lieu de naissance vide sur les attestations.
-      lieu_naissance= COALESCE(excluded.lieu_naissance, etudiant.lieu_naissance)
-  `);
-  const trouver = db.prepare('SELECT id FROM etudiant WHERE id_ecampus = ?');
+  /* UN ÉTUDIANT, UN DOSSIER (3.1.435) : on cherchait le seul matricule DE L'ANNÉE — un
+     étudiant revenu avec un nouveau matricule devenait un second dossier. La recherche est
+     celle de toutes les portes (`trouverOuCreerEtudiant`, sur `rapprocher()`), et la fiche
+     se complète sans qu'aucune valeur soit remplacée par un vide. */
+  const idDe = new Map();   // matricule de la liste → dossier
   const upInsc = db.prepare(`
     INSERT INTO etudiant_inscription (etudiant_id, annee_scolaire, ue_num, groupe, date_inscription)
     VALUES (?,?,?,?,?)
@@ -2158,17 +2173,14 @@ r.post('/import-liste', authRequired, roleRequired('admin', 'editeur'), (req, re
   const dateJour = new Date().toISOString().slice(0, 10);
   let nEtud = 0, nInsc = 0, sansCode = 0;
 
+  let nCrees = 0;
   db.transaction(() => {
     for (const e of etudiants) {
-      // UN MATRICULE ABSENT EST NULL, NON UNE CHAÎNE VIDE. La chaîne vide est
-      // une valeur : deux étudiants sans matricule entraient en conflit sur
-      // l'unicité, et le second ÉCRASAIT le premier — deux personnes réduites
-      // à une fiche, sans un mot. SQLite, lui, autorise plusieurs NULL.
-      upEtud.run(String(e.id_ecampus || '').trim() || null, e.nom || '', e.prenom || '',
-        e.email_ecole || null, e.email_perso || null, e.date_naissance || null,
-        e.num_national || null, e.gsm || null, e.adresse || null,
-        e.localite || null, e.cp || null, e.titre || null,
-        e.lieu_naissance || null);
+      // Un matricule absent reste NULL (jamais une chaîne vide, qui ferait collision).
+      const t = trouverOuCreerEtudiant({ ...e, id_ecampus: String(e.id_ecampus || '').trim() || null },
+        { annee, source: 'liste eCampus' });
+      if (e.id_ecampus) idDe.set(String(e.id_ecampus).trim(), t.id);
+      if (t.cree) nCrees++;
       nEtud++;
     }
   })();
@@ -2181,7 +2193,9 @@ r.post('/import-liste', authRequired, roleRequired('admin', 'editeur'), (req, re
   const parEtud = new Map();
   for (const i of (inscriptions || [])) {
     if (i.ue_num == null) { sansCode++; continue; }
-    const e = trouver.get(String(i.id_ecampus || '').trim());
+    const mi = String(i.id_ecampus || '').trim();
+    const e = idDe.has(mi) ? { id: idDe.get(mi) } : (mi ? db.prepare('SELECT id FROM etudiant WHERE id_ecampus = ?').get(mi)
+      || db.prepare('SELECT etudiant_id AS id FROM etudiant_matricule WHERE id_ecampus = ?').get(mi) : null);
     if (!e) { sansCode++; continue; }
     if (!parEtud.has(e.id)) parEtud.set(e.id, []);
     parEtud.get(e.id).push(i);
@@ -2195,7 +2209,7 @@ r.post('/import-liste', authRequired, roleRequired('admin', 'editeur'), (req, re
     for (const i of lignes) { upInsc.run(id, annee, Number(i.ue_num), i.groupe || null, dateJour); nInsc++; }
   }
 
-  res.json({ ok: true, annee, etudiants: nEtud, inscriptions: nInsc, ignorees: sansCode,
+  res.json({ ok: true, annee, etudiants: nEtud, etudiants_crees: nCrees, inscriptions: nInsc, ignorees: sansCode,
     a_regulariser: aRegulariser.length, a_regulariser_liste: aRegulariser.slice(0, 200) });
 });
 
@@ -3723,7 +3737,7 @@ export function documentParcours(etudId, annee) {
 
   const html = envelopperDocument({
     html: corps, titre: '', orientation: 'paysage',
-    margeHaut: 10, margeCote: 10, logo: LOGO_IIP_JPEG,
+    margeHaut: 10, margeCote: 10, logo: logoCourant(),
     styles: `
 .fp{font-size:8pt;color:#1B2B4B}
 .entete{display:flex;justify-content:space-between;align-items:flex-end;
@@ -4000,7 +4014,7 @@ table.ues td.ei{border-left:1mm solid #C9A227}
 .fleches{font-size:7.2pt;color:#334155;line-height:1.45;margin-top:2mm;border-left:.6mm solid #C9A84C;padding-left:2.5mm}
 /* LA SIGNATURE : le bloc des attestations, tel quel — la protection fac-similé
    (lib/protectionSignature.js) le reconnaît et le filigrane au PDF, à l'aperçu et à l'envoi. */
-:root{--sceau:url("${SCEAU_IIP}");--paraphe:url("${SIGNATURE_SOHET}")}
+:root{--sceau:url("${cachetCourant()}");--paraphe:url("${signatureCourante()}")}
 .cloture{display:grid;grid-template-columns:auto 1fr auto;grid-template-rows:auto auto;column-gap:14mm;align-items:end;margin-top:8mm;page-break-inside:avoid;break-inside:avoid}
 .cloture .lieu{grid-column:2;grid-row:2;font-size:8.5pt;color:#334;text-align:center;padding-bottom:1mm}
 .cloture .sceau,.cloture .paraphe{grid-row:1;height:20mm;background-repeat:no-repeat;background-position:center bottom;background-size:contain}
@@ -5781,13 +5795,16 @@ r.post('/doubles-programmes', authRequired,
 
   let retirees = 0;
   if (!simulation) {
-    const del = db.prepare('DELETE FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND resultat IS NULL');
-    db.transaction(() => {
-      for (const l of lignes) {
-        if (l.ambigu || exclusSet.has(l.etudiant_id)) continue;
-        for (const x of l.retirer) retirees += del.run(l.etudiant_id, annee, x.ue_num).changes;
-      }
-    })();
+    /* PAR LA PORTE DU PAE (3.1.433) : un DELETE direct laissait au programme sa
+       confirmation alors qu'il venait de changer. `ecrireProgramme()` retire, garde ce
+       qui porte résultat, note ou report, et retire la confirmation. */
+    const par = req.user?.email || req.user?.nom || null;
+    for (const l of lignes) {
+      if (l.ambigu || exclusSet.has(l.etudiant_id) || !l.retirer.length) continue;
+      const b = ecrireProgramme({ etudId: l.etudiant_id, annee, retirer: l.retirer.map(x => x.ue_num),
+        origine: 'doubles programmes', par });
+      retirees += b.retirees.length;
+    }
     console.log(`[doubles-programmes] ${retirees} inscription(s) retirée(s) par ${req.user?.email || '?'} (${annee})`);
   }
   res.json({ ok: true, simulation: !!simulation, annee, lignes,
@@ -5922,8 +5939,11 @@ r.post('/pae-resultats', authRequired,
     UPDATE etudiant_inscription SET resultat = NULL, points = NULL
     WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`);
   let ecrits = 0, effaces = 0;
+  const refus = [];
   db.transaction(() => {
     for (const x of lignes) {
+      const pourquoi = refusResultat(req, x.etudiant_id, annee, x.ue_num);
+      if (pourquoi) { refus.push({ etudiant_id: x.etudiant_id, ue_num: x.ue_num, pourquoi }); continue; }
       if (x.resultat === null && x.points === null) {
         effaces += effacer.run(x.etudiant_id, annee, x.ue_num).changes;
       } else {
@@ -5932,7 +5952,7 @@ r.post('/pae-resultats', authRequired,
       }
     }
   })();
-  res.json({ ok: true, ecrits, effaces });
+  res.json({ ok: true, ecrits, effaces, refus });
 });
 
 // POST /pae-lot : retiré le 28 septembre 2026 — aucun écran ne l'appelait,
@@ -5958,6 +5978,8 @@ r.post('/encodage-direct', authRequired,
   const refuses = [];
   db.transaction(() => {
     for (const e of entrees) {
+      const pourquoi = refusResultat(req, e.etudiant_id, annee, e.ue_num);
+      if (pourquoi) { refuses.push({ etudiant_id: e.etudiant_id, ue_num: e.ue_num, pourquoi }); continue; }
       let points = null;
       if (e.points != null && e.points !== '') {
         points = Number(String(e.points).replace(',', '.'));
@@ -6023,8 +6045,11 @@ r.post('/matrice', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
   };
 
   let n = 0;
+  const refus = [];
   db.transaction(() => {
     for (const ch of changements) {
+      const pourquoi = refusResultat(req, ch.etudiant_id, annee, ch.ue_num);
+      if (pourquoi) { refus.push({ etudiant_id: Number(ch.etudiant_id), ue_num: Number(ch.ue_num), pourquoi }); continue; }
       const session = ch.session === 2 ? 2 : ch.session === 1 ? 1 : null;
 
       if (!session) {
@@ -6062,7 +6087,7 @@ r.post('/matrice', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
     }
   })();
 
-  res.json({ ok: true, enregistres: n });
+  res.json({ ok: true, enregistres: n, refus });
 });
 
 // ── Périmètre disponible pour la purge : UE et cours d'une section ──────────
@@ -6267,7 +6292,12 @@ r.get('/:id', authRequired, (req, res) => {
     return res.status(403).json({ error: 'Cet étudiant est hors de votre périmètre' });
   }
 
-  res.json({ ...etudiant, inscriptions, niveau: niveauEtudiant(etudiant.id, anneeAct) });
+  /* LE COMMENTAIRE DU CONSEIL DES ÉTUDES, importé avec les résultats, ne se lisait nulle
+     part (audit du 28 octobre 2026) : il paraît désormais dans le parcours de la fiche. */
+  let commentaires_ce = [];
+  try { commentaires_ce = db.prepare(`SELECT annee_scolaire, texte, maj_le FROM etudiant_commentaire_ce
+    WHERE etudiant_id = ? AND TRIM(COALESCE(texte, '')) != '' ORDER BY annee_scolaire DESC`).all(etudiant.id); } catch { /* table absente */ }
+  res.json({ ...etudiant, inscriptions, niveau: niveauEtudiant(etudiant.id, anneeAct), commentaires_ce });
 });
 
 // ── Encoder un résultat ───────────────────────────────────────────────────────
@@ -6659,6 +6689,8 @@ r.post('/pae-promotion', authRequired,
     FROM etudiant e JOIN etudiant_inscription i ON i.etudiant_id = e.id
     WHERE i.annee_scolaire = ? AND i.ue_num IN (${uesSection.map(() => '?').join(',')})
       AND e.actif = 1
+      -- Un archivé, un diplômé, un sorti ne se promeut pas : il recevait un programme bleu (3.1.469).
+      AND COALESCE(e.sortie_statut, '') NOT IN ('archive', 'diplome', 'sorti')
     ORDER BY e.nom, e.prenom`).all(annee_source, ...uesSection);
 
   // Une sélection restreint ; son absence prend toute la promotion.
@@ -7094,7 +7126,48 @@ r.post('/statut', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
       faits++;
     }
   })();
-  res.json({ ok: true, faits, refuses });
+  // Un archivé ne garde pas de programme à venir : l'écran propose ensuite de le retirer (3.1.469).
+  const aRetirer = statut === 'archive' ? programmeDesArchives(ids.filter(id => !refuses.includes(id)), anneeDeTravail(req), req) : null;
+  res.json({ ok: true, faits, refuses, programme: aRetirer && { ues: aRetirer.ues, etudiants: aRetirer.etudiants, conservees: aRetirer.conservees } });
+});
+
+/* UN ARCHIVÉ N'A PAS DE PROGRAMME BLEU (3.1.469, Marie Lambert, 21 octobre 2026 : « certains étudiants
+ * archivés ont un programme — UE en bleu ; je le découvre en voulant faire les listes de TP et d'examens »).
+ * La promotion d'année les reprenait avec les autres. Pour l'année de travail et les suivantes, leurs
+ * inscriptions SANS résultat, note ni report se retirent par la porte unique ; ce qui porte une trace
+ * reste, et se nomme. Simulation d'abord. */
+function programmeDesArchives(ids, annee, req, simulation = true) {
+  const archives = ids.filter(id => db.prepare(`SELECT 1 FROM etudiant WHERE id = ? AND sortie_statut = 'archive'`).get(id));
+  let ues = 0; const etudiants = new Set(); const conservees = [];
+  const par = req.user?.email || req.user?.nom || null;
+  for (const id of archives) {
+    const annees = db.prepare(`SELECT DISTINCT annee_scolaire FROM etudiant_inscription
+      WHERE etudiant_id = ? AND annee_scolaire >= ? AND resultat IS NULL`).all(id, annee).map(x => x.annee_scolaire);
+    for (const a of annees) {
+      const sans = db.prepare(`SELECT ue_num FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ?
+        AND resultat IS NULL`).all(id, a).map(x => x.ue_num);
+      const b = ecrireProgramme({ etudId: id, annee: a, retirer: sans, origine: 'archivage', par, simulation });
+      if (b.retirees.length) { ues += b.retirees.length; etudiants.add(id); }
+      for (const c of b.conservees) conservees.push({ etudiant_id: id, annee: a, ue_num: c.ue_num, pourquoi: c.pourquoi });
+    }
+  }
+  return { ues, etudiants: etudiants.size, conservees };
+}
+
+r.post('/statut/retirer-programme', authRequired, roleRequired(...PEUT_INSTRUIRE), (req, res) => {
+  const ids = (Array.isArray(req.body?.ids) ? req.body.ids : []).map(Number).filter(Boolean);
+  if (!ids.length) return res.status(400).json({ error: 'Aucun étudiant.' });
+  const permises = perimetre(req);
+  const permis = ids.filter(id => {
+    if (!permises) return true;
+    const rat = db.prepare('SELECT section_rattachement FROM etudiant WHERE id = ?').get(id)?.section_rattachement;
+    const toutes = [...new Set([...sectionsDeLEtudiant(id, null).sections, ...(rat ? [rat] : [])])];
+    return !toutes.length || toutes.some(x => permises.includes(x));
+  });
+  const simulation = req.body?.simulation !== false;
+  let b;
+  db.transaction(() => { b = programmeDesArchives(permis, anneeDeTravail(req), req, simulation); })();
+  res.json({ ok: true, simulation, ...b, hors_perimetre: ids.length - permis.length });
 });
 
 /* SUPPRIMER UN ÉTUDIANT — directement, mais jamais à l'aveugle (Jérôme,
@@ -7564,7 +7637,30 @@ r.put('/:id/grille', authRequired, roleRequired('admin', 'editeur'), (req, res) 
         AND portee = 'ue' AND action = 'faveur'`).run(etudId, annee, ueN);
     } catch { /* table absente */ }
   };
+  /* UNE VALORISATION DU CIRCUIT NE S'EFFACE PAS DEPUIS LE PARCOURS (3.1.428).
+     Chaque choix posé sur la case — sauf « effacer le résultat » — supprimait
+     la valorisation de l'unité, et son journal partait avec elle (ON DELETE
+     CASCADE) : une décision validée, notifiée, disparaissait d'un clic, sans
+     trace. Depuis 2026-2027, ou dès qu'un dossier est validé ou notifié, la
+     grille refuse et renvoie vers l'écran Valorisation. */
+  let vaCircuit = null;
+  if (kind !== 'effacer_resultat') {
+    try {
+      vaCircuit = db.prepare(`SELECT id FROM etudiant_valorisation
+        WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=?
+          AND (annee_scolaire >= ? OR valide_le IS NOT NULL OR notifie_le IS NOT NULL)`)
+        .get(etudId, annee, ueN, ANNEE_CIRCUIT_VA);
+    } catch { /* colonnes absentes sur une base non migrée */ }
+    // S'inscrire à l'UE n'efface rien : une demande de VA et l'inscription coexistent.
+    if (vaCircuit && kind !== 'inscrit') {
+      return res.status(409).json({ error: `Une valorisation est instruite pour l'UE ${ueN} en ${annee} `
+        + "(demande du circuit, ou dossier validé ou notifié). Elle se corrige ou se retire dans l'écran "
+        + 'Valorisation des acquis : la grille du parcours ne l’efface pas.' });
+    }
+  }
   if (kind === 'faveur') {
+    { const pourquoi = refusResultat(req, etudId, annee, ueN);
+      if (pourquoi) return res.status(409).json({ error: pourquoi }); }
     let session = 1;
     try {
       session = db.prepare(`SELECT MAX(session) s FROM deliberation_resultat WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`)
@@ -7595,10 +7691,15 @@ r.put('/:id/grille', authRequired, roleRequired('admin', 'editeur'), (req, res) 
      L'étudiante refusée par le Conseil se retrouvait avec deux décisions pour
      la même unité, et le procès-verbal imprimait les deux : « Refus », puis
      « Réussite ». Une pièce signée qui se contredit elle-même. */
-  const delVa = () => db.prepare(
+  const delVa = () => vaCircuit ? null : db.prepare(
     'DELETE FROM etudiant_valorisation WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=?'
   ).run(etudId, annee, ueN);
 
+  // Une séance close garde ses notes : ni « effacer le résultat », ni « effacer » (3.1.432).
+  if (kind === 'effacer_resultat' || kind === 'effacer') {
+    const v = noteVerrouillee(etudId, annee, ueN, 's1|') || noteVerrouillee(etudId, annee, ueN, 's2|');
+    if (v) return res.status(409).json({ error: MESSAGE_CLOSE(ueN, v.session), seance_close: true });
+  }
   // Effacer le seul résultat : l'inscription demeure, ses notes disparaissent.
   if (kind === 'effacer_resultat') {
     db.prepare(`
@@ -7677,6 +7778,8 @@ r.put('/:id/grille', authRequired, roleRequired('admin', 'editeur'), (req, res) 
   }
   // inscrit / reussi / ajourne / absent → etudiant_inscription. La marque de
   // réinscription forcée n'est pas touchée : ré-encoder un résultat l'effaçait.
+  { const pourquoi = refusResultat(req, etudId, annee, ueN);
+    if (pourquoi) return res.status(409).json({ error: pourquoi }); }
   delVa();
   db.prepare(`
     INSERT INTO etudiant_inscription (etudiant_id, annee_scolaire, ue_num, resultat, points)
@@ -7792,6 +7895,8 @@ r.put('/:id/grille/detail', authRequired, roleRequired('admin', 'editeur'), (req
   // deux cours entrerait en collision. On la lève en préfixant le code par le
   // cours, tout en conservant cours_code dans sa colonne pour la lecture.
   const cleUnique = cours_code + '|' + code;
+  { const v = noteVerrouillee(etudId, annee, ueN, String(code).startsWith('s2|') ? 's2|' : 's1|');
+    if (v) return res.status(409).json({ error: MESSAGE_CLOSE(ueN, v.session), seance_close: true }); }
   const rienASauver = (points == null || points === '') && !va && !non_evalue;
 
   if (rienASauver) {
@@ -7837,7 +7942,7 @@ r.put('/:id/grille/detail', authRequired, roleRequired('admin', 'editeur'), (req
 r.get('/:id/valorisations', authRequired, (req, res) => {
   if (!etudiantPermis(req, res, req.params.id)) return;
   const rows = db.prepare(`
-    SELECT v.*, u.ue_nom, u.section
+    SELECT v.*, u.ue_nom, COALESCE(v.section, u.section) AS section
     FROM etudiant_valorisation v
     LEFT JOIN ${UE_REF} u ON u.ue_num = v.ue_num
     WHERE v.etudiant_id = ?
@@ -9891,6 +9996,8 @@ r.post('/valorisations/lot', authRequired, gesteRequis('valorisation.instruire')
         decision_ce_date || null, commentaire || null,
         decision, refus ? String(req.body.motif_refus).trim() : null);
       if (equivalences.length) ecrireEquivalences(info.lastInsertRowid, equivalences);
+      // Chaque dossier du lot porte sa ligne de journal (3.1.428) : il naissait sans trace.
+      journaliser(info.lastInsertRowid, 'introduction', req, `créé en série (UE ${ue_num}, ${ids.length} dossier(s))`);
       crees.push({ etudiant_id: id, valorisation_id: info.lastInsertRowid });
     }
     return crees;
@@ -9919,6 +10026,15 @@ r.post('/:id/valorisations', authRequired, gesteRequis('valorisation.instruire')
       error: `L'unité ${ue_num} n'existe pas dans le référentiel.` });
   }
   if (!unitePermise(req, res, Number(ue_num))) return;
+  /* UNE UNITÉ, UNE DÉCISION (3.1.428). Le lot refusait déjà le doublon ; cette
+     porte-ci, non : deux décisions sur une même unité bloquent ensuite
+     l'impression du PV sans que personne sache pourquoi. */
+  const deja = db.prepare(`SELECT id FROM etudiant_valorisation WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? LIMIT 1`)
+    .get(Number(req.params.id), annee_scolaire, Number(ue_num));
+  if (deja) {
+    return res.status(409).json({ error: `Un dossier de valorisation existe déjà pour l'UE ${ue_num} en ${annee_scolaire} : `
+      + 'corrigez-le plutôt que d’en ouvrir un second.', valorisation_id: deja.id });
+  }
 
   // UN REFUS NE PORTE NI DISPENSE NI POURCENTAGE. Le procès-verbal lit
   // l'absence de pourcentage comme un refus : lui en laisser un le ferait
@@ -9943,6 +10059,7 @@ r.post('/:id/valorisations', authRequired, gesteRequis('valorisation.instruire')
   if (!refus && Array.isArray(req.body.equivalences)) {
     ecrireEquivalences(info.lastInsertRowid, req.body.equivalences);
   }
+  journaliser(info.lastInsertRowid, 'introduction', req, `créé depuis la fiche (UE ${ue_num})`);
   res.json({ ok: true, id: info.lastInsertRowid });
 });
 
@@ -10946,6 +11063,23 @@ r.post('/completer', authRequired, roleRequired('admin', 'directeur', 'directeur
 r.post('/', authRequired, gesteRequis('etudiants.creer'), (req, res) => {
   const { nom, prenom, annee, ue_nums, ...rest } = req.body;
   if (!nom || !prenom) return res.status(400).json({ error: 'nom et prenom requis' });
+  /* UNE SECTION OU UNE UE (Charles, 28 octobre 2026 : « quand on crée un étudiant, soit lui
+     attribuer une section, soit l'inscrire à au moins une UE »). Un dossier sans l'un ni
+     l'autre n'apparaît dans aucune liste de section, aucun périmètre : il se perd. */
+  const sectionDonnee = String(rest.section_rattachement || '').trim();
+  const ues = Array.isArray(ue_nums) ? ue_nums.map(Number).filter(n => Number.isInteger(n) && n > 0) : [];
+  if (!sectionDonnee && !(annee && ues.length)) {
+    return res.status(400).json({ error: 'Choisissez la section de l’étudiant, ou inscrivez-le à au moins une UE.' });
+  }
+  if (sectionDonnee) {
+    const connue = db.prepare('SELECT 1 FROM section WHERE code = ?').get(sectionDonnee)
+      || db.prepare('SELECT 1 FROM ue WHERE section = ? LIMIT 1').get(sectionDonnee);
+    if (!connue) return res.status(400).json({ error: `Section inconnue : ${sectionDonnee}.` });
+  }
+  if (ues.length) {
+    const inconnues = ues.filter(n => !db.prepare('SELECT 1 FROM ue WHERE ue_num = ? AND annee_scolaire = ? LIMIT 1').get(n, annee));
+    if (inconnues.length) return res.status(400).json({ error: `UE inconnue(s) en ${annee} : ${inconnues.join(', ')}.` });
+  }
 
   if (!rest.forcer) {
     const nn = String(rest.num_national || '').replace(/\D/g, '');
@@ -10978,7 +11112,7 @@ r.post('/', authRequired, gesteRequis('etudiants.creer'), (req, res) => {
   `).run(nom.trim(), prenom.trim(), rest.email_ecole||null, rest.email_perso||null,
          rest.date_naissance||null, rest.num_national||null, rest.gsm||null,
          rest.adresse||null, rest.localite||null, rest.cp||null, rest.titre||null,
-         rest.section_rattachement||null);
+         sectionDonnee || null);
 
   const id = Number(info.lastInsertRowid);
   // Ce que la carte d'identité apporte en plus (3 octobre 2026).
@@ -10991,8 +11125,8 @@ r.post('/', authRequired, gesteRequis('etudiants.creer'), (req, res) => {
   // Par la porte unique (mode « signaler ») : l'écran n'en envoie pas, mais
   // la route les accepte — elles ne passent plus sans être jugées.
   let aRegulariser = 0;
-  if (annee && Array.isArray(ue_nums) && ue_nums.length) {
-    aRegulariser = ecrireProgramme({ etudId: id, annee, ajouter: ue_nums, origine: 'création du dossier',
+  if (annee && ues.length) {
+    aRegulariser = ecrireProgramme({ etudId: id, annee, ajouter: ues, origine: 'création du dossier',
       par: req.user?.email || req.user?.nom || null, mode: 'signaler' }).ecarts.length;
   }
 
@@ -11280,23 +11414,16 @@ r.post('/import-excel', authRequired, gesteRequis('etudiants.import'), async (re
   }
 
   try {
-    const insEtud = db.prepare(`
-      INSERT INTO etudiant (id_ecampus,nom,prenom,email_ecole,email_perso,
-        date_naissance,num_national,gsm,adresse,localite,cp,titre)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
-      ON CONFLICT(id_ecampus) DO UPDATE SET
-        nom=excluded.nom, prenom=excluded.prenom,
-        email_ecole=excluded.email_ecole, email_perso=excluded.email_perso
-    `);
-
+    /* UN ÉTUDIANT, UN DOSSIER (3.1.435) : même recherche que toutes les portes, et un
+       dossier existant se COMPLÈTE — l'import écrasait ses adresses par un vide. */
+    const idDe = new Map();
     let etudiants_crees=0, inscriptions_creees=0;
     const tx = db.transaction(() => {
       for (const e of etudiantsData) {
-        const r = insEtud.run(e.id_ecampus||null, e.nom||'', e.prenom||'',
-          e.email_ecole||null, e.email_perso||null, e.date_naissance||null,
-          e.num_national||null, e.gsm||null, e.adresse||null,
-          e.localite||null, e.cp||null, e.titre||null);
-        if (r.changes) etudiants_crees++;
+        const t = trouverOuCreerEtudiant({ ...e, id_ecampus: String(e.id_ecampus || '').trim() || null },
+          { annee, source: 'Excel eCampus' });
+        if (e.id_ecampus) idDe.set(String(e.id_ecampus).trim(), t.id);
+        if (t.cree) etudiants_crees++;
       }
     });
     tx();
@@ -11306,7 +11433,9 @@ r.post('/import-excel', authRequired, gesteRequis('etudiants.import'), async (re
     const parEtud = new Map();
     for (const i of inscriptionsData) {
       if (!i.ue_num || isNaN(Number(i.ue_num))) continue;
-      const e = trouver.get(i.id_ecampus);
+      const mi = String(i.id_ecampus || '').trim();
+      const e = idDe.has(mi) ? { id: idDe.get(mi) } : trouver.get(mi)
+        || db.prepare('SELECT etudiant_id AS id FROM etudiant_matricule WHERE id_ecampus = ?').get(mi);
       if (!e) continue;
       if (!parEtud.has(e.id)) parEtud.set(e.id, []);
       parEtud.get(e.id).push(i);

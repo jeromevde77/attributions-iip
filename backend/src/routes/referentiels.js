@@ -6,6 +6,8 @@ import { codeGroupe, modeGroupes } from '../lib/groupes.js';
 import { Router } from 'express';
 import db from '../db/index.js';
 import { renommerUE } from '../lib/renommerUE.js';
+import { renumeroterUE } from '../lib/renumeroterUE.js';
+import { executerSauvegarde } from './sauvegardes.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { authRequired, roleRequired, getUserSections, exigerPerimetreProfesseur,
   clauseSections, soiSeul, SOI_SEUL, professeurDe } from '../middleware/auth.js';
@@ -16,6 +18,7 @@ import { gesteRequis } from '../lib/gestes.js';
 import { htmlListeCoordonnees } from '../services/liste_coordonnees.js';
 import { composerFicheAttributions } from '../lib/pieceFicheAttributions.js';
 
+import { professeurExistant } from '../lib/professeurUnique.js';
 const r = Router();
 
 /**
@@ -383,10 +386,23 @@ r.patch('/ue/:num', authRequired, roleRequired('admin', 'editeur'), (req, res) =
 // horaires, pondérations et valorisations restaient accrochés à 900. Le moteur
 // (lib/renommerUE.js) inspecte la base plutôt que de suivre une liste.
 // `simulation: true` montre ce qui changerait, table par table, sans écrire.
-r.patch('/ue/:num/rename', authRequired, roleRequired('admin'), (req, res) => {
+r.patch('/ue/:num/rename', authRequired, roleRequired('admin'), async (req, res) => {
   const ancien = String(req.params.num).trim();
   const nouveau = String(req.body.nouveau_num || '').trim();
   const simulation = req.body.simulation === true;
+  /* À PARTIR D'UNE ANNÉE (3.1.473, l'UE 244 devenue 331 en 2026-2027) : les années d'avant gardent
+     l'ancien numéro, les acquis sont copiés (lib/renumeroterUE.js). Sauvegarde de la base avant d'écrire. */
+  if (req.body.a_partir_de) {
+    if (!/^\d+$/.test(nouveau)) return res.status(400).json({ error: 'Un numéro d’UE ne porte que des chiffres.' });
+    if (!simulation) {
+      try { await executerSauvegarde('avant renumérotation', req.user?.nom || req.user?.email || null); }
+      catch (e) { return res.status(500).json({ error: `Sauvegarde impossible, rien n'est écrit : ${e.message}` }); }
+    }
+    const b = renumeroterUE({ ancien, nouveau, annee: req.body.a_partir_de, simulation });
+    if (b.erreur) return res.status(409).json({ error: b.erreur, ...b });
+    if (!simulation) console.log(`[renumérotation UE] ${ancien} → ${nouveau} dès ${req.body.a_partir_de} par ${req.user?.nom || req.user?.email} : ${b.total} ligne(s)`);
+    return res.json({ ok: true, ...b });
+  }
   if (!nouveau) return res.status(400).json({ error: 'Nouveau numéro requis' });
   if (!/^\d+$/.test(nouveau)) return res.status(400).json({ error: 'Un numéro d’UE ne porte que des chiffres.' });
   if (nouveau === ancien) return res.json({ ok: true, lignes: [] });
@@ -1299,6 +1315,9 @@ r.post('/professeurs', authRequired, gesteRequis('personnel.fiche'), (req, res) 
   const { nom, prenom, adresse_mail, mail_prive, statut, adresse_rue, code_postal,
           commune, capaes, anciennete_25_26_po } = req.body;
   if (!nom || !prenom) return res.status(400).json({ error: 'Nom et prénom requis' });
+  // La même personne écrite autrement (casse, accents) est la même fiche (3.1.436).
+  const deja = professeurExistant(nom, prenom);
+  if (deja) return res.status(409).json({ error: `Une fiche existe déjà : ${String(deja.nom).toUpperCase()} ${deja.prenom}.`, id: deja.id });
   try {
     const result = db.prepare(`
       INSERT INTO professeur (nom, prenom, adresse_mail, mail_prive, statut,

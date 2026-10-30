@@ -420,6 +420,12 @@ export default function ImportNotesUE({ ueNum, annee, onClose, onImporte }) {
                   Acquis absents du référentiel : {rapport.acquis_inconnus.join(', ')}.
                 </div>
               )}
+              {!!rapport.seance_close?.length && (
+                <div className="text-amber-800">
+                  Séance close — notes non modifiées pour {rapport.seance_close.length} étudiant(s) : {rapport.seance_close.join(', ')}.
+                  La direction peut rouvrir la séance, avec un motif écrit.
+                </div>
+              )}
             </div>
           )}
         </div>

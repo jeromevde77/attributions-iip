@@ -15,9 +15,10 @@ import { sectionDuDossier } from '../lib/sectionDossier.js';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { envelopperDocument } from '../lib/document.js';
-import { SIGNATURE_SOHET, SCEAU_IIP } from '../services/assets/signature_sohet.js';
 import { identiteEtablissement } from './config.js';
 import { sleEnregistre, motifPropose } from './sle.js';
+import { uesValorisees } from '../lib/valorisation.js';
+import { cachetCourant, signatureCourante } from '../lib/identite.js';
 
 const r = express.Router();
 
@@ -111,6 +112,18 @@ export function bilanCredits(etudiantId, annee) {
     }
     if (acquis(l.resultat)) acquisTotal += e;
     if (l.resultat === 'valorise') valorises += e;
+  }
+  /* LES UE DISPENSÉES PAR VALORISATION (3.1.438) : lues des dossiers, pas d'un résultat
+     « valorise » que personne n'écrivait. Acquises, et comptées comme valorisées — sans
+     doubler une inscription de la même année déjà réussie. */
+  const va = uesValorisees(etudiantId);
+  const ectsDe = db.prepare(`SELECT ects, section FROM ue WHERE ue_num = ? AND ects IS NOT NULL ORDER BY annee_scolaire DESC LIMIT 1`);
+  for (const k of va.parAnnee) {
+    const [an, u] = k.split('|'); const ue = Number(u);
+    if (lignes.some(l => l.ue_num === ue && l.annee_scolaire === an && acquis(l.resultat))) continue;
+    const e = Number(ectsDe.get(ue)?.ects) || 0;
+    acquisTotal += e; valorises += e;
+    if (an === annee) acquisAnnee += e;
   }
 
   return { inscritsAnnee, acquisAnnee, acquisTotal, valorises, sansEcts,
@@ -276,7 +289,7 @@ export function documentAnnexe2(body) {
     avecPied: false, entete: false, logo: false,
     margeHaut: 20, margeCote: 20,
     styles: `
-:root{--paraphe:url("${SIGNATURE_SOHET}");--sceau:url("${SCEAU_IIP}")}
+:root{--paraphe:url("${signatureCourante()}");--sceau:url("${cachetCourant()}")}
 
 /* Formulaire réglementaire : mise en forme sobre, au plus près du Word. */
 .a2{font-size:11pt;line-height:1.45;color:#000;font-family:Calibri,Arial,sans-serif}

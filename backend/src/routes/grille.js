@@ -26,6 +26,7 @@ import { organisationsDe, cohorte as cohorteBloc } from '../lib/groupesCommuns.j
 import { cohortesDe } from './capitalisation.js';
 import { placementsSection, uesDuBloc } from '../lib/placement.js';
 import { marquerPrimo } from '../lib/primo.js';
+import { exigeValidation, sectionAutorisee, deposerDemande } from './demandes.js';
 
 const r = Router();
 
@@ -521,12 +522,28 @@ r.put('/ue', authRequired, roleRequired('admin', 'editeur', 'coordination'), (re
   const ueNum = Number(b.ue_num);
   if (!section || !ueNum) return res.status(400).json({ error: 'section et ue_num requis' });
 
+  /* LES DATES D'UNE UE ONT UNE RÈGLE, QUELLE QUE SOIT LA PORTE (3.1.434) : celle de
+     « Dates des UE » (PUT /annuel/dates-ue) — le périmètre de section, la fin après le
+     début, et pour la coordination une DEMANDE que la direction valide. Le laboratoire
+     écrivait directement, sans aucune des trois. */
+  if (!sectionAutorisee(req.user, section)) return res.status(403).json({ error: 'Section hors de votre périmètre.' });
+  const a = k => Object.prototype.hasOwnProperty.call(b, k);
+  if ((a('date_debut') || a('date_fin')) && b.date_debut && b.date_fin && b.date_fin < b.date_debut) {
+    return res.status(400).json({ error: 'La date de fin précède la date de début.' });
+  }
   const o = organisationDe(annee, section, ueNum, true, Number(b.num_organisation) || null);
   if (!o) return res.status(500).json({ error: "L'organisation de l'unité n'a pas pu être ouverte." });
 
+  let demande = null;
+  if ((a('date_debut') || a('date_fin')) && exigeValidation(req.user)) {
+    demande = deposerDemande({ type: 'date_ue', operation: 'modifier', cible_id: o.id, section, annee_scolaire: annee,
+      libelle: `Dates de l'UE ${ueNum}${(o.num_organisation || 1) > 1 ? ` (organisation ${o.num_organisation})` : ''}`,
+      avant: { date_debut: o.date_debut, date_fin: o.date_fin },
+      apres: { date_debut: a('date_debut') ? (b.date_debut || null) : o.date_debut, date_fin: a('date_fin') ? (b.date_fin || null) : o.date_fin },
+      user: req.user });
+  }
   // Seuls les champs ENVOYÉS changent : cocher « stage bloquant » ne vide pas les dates.
-  const a = k => Object.prototype.hasOwnProperty.call(b, k);
-  if (a('date_debut') || a('date_fin')) {
+  if ((a('date_debut') || a('date_fin')) && !demande) {
     db.prepare(`UPDATE organisation_ue SET date_debut = ?, date_fin = ?, nb_semaines = ?
       WHERE id = ?`).run(b.date_debut || null, b.date_fin || null,
         b.nb_semaines != null ? Number(b.nb_semaines) : o.nb_semaines, o.id);
@@ -539,7 +556,8 @@ r.put('/ue', authRequired, roleRequired('admin', 'editeur', 'coordination'), (re
     db.prepare('UPDATE organisation_ue SET autonomie_reservee = ?, autonomie_motif = ? WHERE id = ?').run(v, v > 0 ? motif : null, o.id);
   }
 
-  res.json({ ok: true, controle: controlerUE(annee, section, ueNum) });
+  res.json({ ok: true, controle: controlerUE(annee, section, ueNum),
+    ...(demande ? { en_attente: true, message: demande.message } : {}) });
 });
 
 /**
@@ -819,10 +837,22 @@ r.post('/organisation-de-base', authRequired, roleRequired('admin', 'editeur', '
   const b = req.body || {};
   const annee = b.annee_scolaire || anneeDeTravail(req), section = String(b.section || '').trim();
   if (!section) return res.status(400).json({ error: 'section requise' });
+  if (!sectionAutorisee(req.user, section)) return res.status(403).json({ error: 'Section hors de votre périmètre.' });
   const { propositions, alertes } = organisationDeBase(annee, section);
   const remplacer = !!b.remplacer;
   const a_ecrire = propositions.filter(p => remplacer || !p.actuel);
   if (b.simulation !== false) return res.json({ propositions, alertes, a_ecrire: a_ecrire.length, deja_posees: propositions.filter(p => p.actuel).length });
+  // La coordination propose : une demande par unité, que la direction valide (même règle que « Dates des UE »).
+  if (exigeValidation(req.user)) {
+    for (const p of a_ecrire) {
+      const o = organisationDe(annee, section, p.ue_num, true, 1);
+      deposerDemande({ type: 'date_ue', operation: 'modifier', cible_id: o.id, section, annee_scolaire: annee,
+        libelle: `Dates de l'UE ${p.ue_num} — organisation de base`,
+        avant: { date_debut: o.date_debut, date_fin: o.date_fin }, apres: { date_debut: p.date_debut, date_fin: p.date_fin }, user: req.user });
+    }
+    return res.json({ ok: true, ecrit: 0, en_attente: true, deposees: a_ecrire.length,
+      message: `${a_ecrire.length} demande(s) transmise(s) : les dates ne changeront qu'après accord de la direction.` });
+  }
   let sauvegarde = null;
   if (remplacer && propositions.some(p => p.actuel)) sauvegarde = sauvegarder(annee, section, 'avant l’organisation de base', req.user?.email || null);
   db.transaction(() => {

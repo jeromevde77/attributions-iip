@@ -16,13 +16,14 @@
  */
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { IconFileText, IconFileZip, IconCertificate, IconWorld, IconBriefcase, IconAccessible } from '@tabler/icons-react';
+import { IconSend, IconFileText, IconFileZip, IconCertificate, IconWorld, IconBriefcase, IconAccessible } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { ouvrirApercu } from '../lib/apercu.js';
 import { GroupeFenetre, PieceFenetre } from './ui.jsx';
 import MotivationDecision from './MotivationDecision.jsx';
 import Annexe1 from './Annexe1.jsx';
 import Annexe2 from './Annexe2.jsx';
+import EnvoiMailModal from './EnvoiMailModal.jsx';
 
 const nomDe = e => `${String(e?.nom || '').toUpperCase()} ${e?.prenom || ''}`.trim();
 
@@ -33,6 +34,8 @@ export default function PiecesEtudiant({ etud, annee }) {
   const [modale, setModale] = useState(null);    // 'motivation' | 'annexe1' | 'annexe2'
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(null);
+  const [envoi, setEnvoi] = useState(null);       // la pièce à envoyer : attestations, une par unité
+  const [espace, setEspace] = useState(null);     // ce que l'étudiant a ouvert et signé dans son espace (3.1.475)
 
   useEffect(() => {
     if (!id) return;
@@ -41,6 +44,8 @@ export default function PiecesEtudiant({ etud, annee }) {
       .then(r => (r.ok ? r.json() : null)).then(j => setCep(j?.cep || null)).catch(() => {});
     fetch(`/api/amenagements/etudiant/${id}?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() })
       .then(r => (r.ok ? r.json() : null)).then(j => setDossierAR(j?.courant || null)).catch(() => {});
+    fetch(`/api/portail-suivi/${id}`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : null)).then(setEspace).catch(() => {});
   }, [id, annee]);
 
   const destinataire = { type: 'etudiant', id, nom: nomDe(etud) };
@@ -81,6 +86,18 @@ export default function PiecesEtudiant({ etud, annee }) {
       telecharger(await rp.blob(), `${nomFichier}.pdf`);
     } catch (e) { setErreur(e.message); } finally { setEnCours(null); }
   };
+  /* TOUTES LES ATTESTATIONS EN UN ENVOI, UN PDF CHACUNE (3.1.471, Charles, à la demande de Mati
+     Aevaliotis : « un seul envoi, mais chaque document est indépendant »). */
+  const envoyerToutes = async () => {
+    setEnCours('envoi-att'); setErreur(null);
+    try {
+      const r = await fetch(`/api/attestations/etudiant/${id}/document?annee=toutes&separes=1`, { headers: authHeaders() });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || 'Les attestations n’ont pas pu être produites.');
+      setEnvoi({ html: j.html, documents: j.documents, nom_fichier: j.nom, destinataire,
+        contenu: `${j.unites} attestation(s) de réussite — ${(j.annees || []).join(', ')}` });
+    } catch (e) { setErreur(e.message); } finally { setEnCours(null); }
+  };
   const archive = async () => {
     setEnCours('pdfs'); setErreur(null);
     try {
@@ -101,6 +118,7 @@ export default function PiecesEtudiant({ etud, annee }) {
         clic: () => apercu('att', `/api/attestations/etudiant/${id}/document?annee=${a}`, `Attestations de réussite — ${annee}`, 'attestation_reussite') },
       { cle: 'att-toutes', icone: IconCertificate, titre: 'Attestations de réussite — toutes les années', sous: 'Tout le parcours, en un document',
         clic: () => apercu('att-toutes', `/api/attestations/etudiant/${id}/document?annee=toutes`, 'Attestations de réussite — toutes les années', 'attestation_reussite') },
+      { cle: 'envoi-att', icone: IconSend, titre: 'Envoyer les attestations — toutes les années', sous: 'Un seul courriel, un PDF par attestation', clic: envoyerToutes },
       { cle: 'pdfs', icone: IconFileZip, titre: 'Attestations de réussite — un PDF par unité', sous: 'Toutes les années, une archive', clic: archive },
       { cle: 'bulletin', icone: IconFileText, titre: 'Bulletin de parcours', sous: 'Toutes les UE, année après année, et le schéma en annexe',
         clic: () => apercu('bulletin', `/api/etudiants/${id}/bulletin/document?annee=${a}`, 'Bulletin de parcours', 'bulletin') },
@@ -154,6 +172,18 @@ export default function PiecesEtudiant({ etud, annee }) {
         </div>
       )}
       {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2 text-second mb-3">{erreur}</div>}
+      {/* SON ESPACE : ce qu'il a ouvert, ce qu'il a signé (un code reçu à son adresse d'école à l'appui). */}
+      {espace && (espace.connexions.length > 0 || espace.accuses.length > 0) && (
+        <div className="bloc-etat px-3 py-2 text-second mb-3 space-y-1" data-etat="neutre">
+          <div className="font-semibold text-iip-texte">Son espace étudiant
+            {espace.connexions[0] && <span className="font-normal text-slate-500"> · dernière connexion le {String(espace.connexions[0].utilise_le).slice(0, 16).replace(' ', ' à ').split(' à ').map((x, i) => (i ? x : x.split('-').reverse().join('/'))).join(' à ')}</span>}</div>
+          {espace.accuses.map((a, i) => (
+            <div key={i} className="flex flex-wrap gap-x-2">
+              <span className="min-w-0 flex-1 truncate">{a.piece}</span>
+              <span className={a.signe_le ? 'text-emerald-700' : 'text-amber-700'}>
+                {a.signe_le ? `accusé signé le ${String(a.signe_le).slice(0, 10).split('-').reverse().join('/')}` : `ouvert le ${String(a.presente_le).slice(0, 10).split('-').reverse().join('/')}, non signé`}</span>
+            </div>))}
+        </div>)}
       {groupes.map(([titre, pieces]) => (
         <GroupeFenetre key={titre} titre={titre}>
           <div className="grid gap-1.5 md:grid-cols-2">
@@ -167,6 +197,10 @@ export default function PiecesEtudiant({ etud, annee }) {
 
       {/* HORS DE LA FENÊTRE QUI LES APPELLE : rendues dedans, elles s'y
           retrouvaient enfermées, derrière le voile. */}
+      {envoi && createPortal(
+        <EnvoiMailModal pieces={[envoi]} typeDoc="attestation_reussite" apercu={false}
+          sujet="Vos attestations de réussite" contenu={envoi.contenu} onClose={() => setEnvoi(null)} />,
+        document.body)}
       {modale && createPortal(
         modale === 'motivation' ? <MotivationDecision etudId={id} annee={annee} onClose={() => setModale(null)} />
           : modale === 'annexe1' ? <Annexe1 etudId={id} annee={annee} enPdf={sortie === 'pdf'} onClose={() => setModale(null)} />

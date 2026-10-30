@@ -24,22 +24,18 @@ import {
 import { structureUE } from './acquis.js';
 import { composerPieceProcedure, PIECES } from '../lib/piecesProcedures.js';
 
+import { sectionDuDossier } from '../lib/sectionDossier.js';
+
 const r = Router();
 const DATA_DIR = process.env.DATA_DIR || '/app/data';
 try { migrerProcedures(db); } catch (e) { console.error('[migration] procédures :', e.message); }
 
 const qui = req => req.user?.nom || req.user?.email || null;
 
-/** LA SECTION D'UN DOSSIER : celle de l'UE, sauf hors cursus — alors celle de
- *  l'étudiant (leçon de 2.11.1 : la section d'une UE n'est pas un rattachement). */
-function sectionDe(etudiantId, ueNum, annee) {
-  if (ueNum) {
-    const u = db.prepare(`SELECT section, COALESCE(hors_cursus, 0) AS hc FROM ue WHERE ue_num = ?
-      ORDER BY (annee_scolaire = ?) DESC LIMIT 1`).get(ueNum, annee);
-    if (u && !u.hc && u.section) return u.section;
-  }
-  return db.prepare('SELECT section_rattachement FROM etudiant WHERE id = ?').get(etudiantId)?.section_rattachement || null;
-}
+/* LA SECTION D'UN DOSSIER : la règle commune (lib/sectionDossier.js), plus une
+   copie locale (3.1.428) — celle-ci ignorait les unités rattachées (ue_section) :
+   le dossier d'un orthoptiste se rangeait en Optométrie, hors du périmètre de sa coordination. */
+const sectionDe = (etudiantId, ueNum, annee) => sectionDuDossier(etudiantId, ueNum, annee);
 
 /** LE PÉRIMÈTRE SE POSE SUR CHAQUE PORTE (CLAUDE.md) : 404 sur un dossier hors
  *  périmètre — « interdit » confirmerait qu'il existe. */

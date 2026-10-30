@@ -66,6 +66,7 @@
 // directeur et direction adjointe — « accès niveau 1 », pour Charles.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { modeEmploiPour } from '../lib/modeEmploi.js';
 import express from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -75,6 +76,8 @@ import multer from 'multer';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { gesteRequis, gesteAutorise } from '../lib/gestes.js';
 import { analyserFichier, assainir, estVide } from '../lib/texteCorpus.js';
+import { assainirParties, decouperEnParties, corpsImprimable, STYLES_IMPRESSION } from '../lib/textesParties.js';
+import { envelopperDocument } from '../lib/document.js';
 
 const r = express.Router();
 
@@ -95,6 +98,10 @@ export const NATURES = [
   { cle: 'note', libelle: 'Note de service', externe: false },
   { cle: 'aide', libelle: 'Mode d’emploi de Lucie', externe: false },
 ];
+/* LES TEXTES QUE L'IIP RÉDIGE S'ÉCRIVENT PAR PARTIES, DANS LUCIE (3.1.489, Charles : « Lucie deviendrait l'endroit où
+ * on les crée, pas où on les importe ; l'endroit aussi pour les imprimer »). Décrets et circulaires restent ce qu'ils
+ * sont : des textes de la FWB, lus ou liés, pas réécrits ici. */
+export const NATURES_PAR_PARTIES = ['reglement', 'procedure', 'note'];
 
 export function migrerDocumentation(dbx) {
   try {
@@ -167,7 +174,7 @@ export function migrerDocumentation(dbx) {
 /* LA VERSION QU'IL FAUT AVOIR CONFIRMÉE — la dernière qui l'a DEMANDÉ.
  * Une version 3 publiée « sans reconfirmation » ne déplace pas la référence :
  * avoir confirmé la version 2 suffit toujours. */
-function versionReference(documentId) {
+export function versionReference(documentId) {
   return db.prepare(`SELECT * FROM corpus_version
     WHERE document_id = ? AND (reconfirmer = 1 OR numero = 1)
     ORDER BY numero DESC LIMIT 1`).get(documentId) || null;
@@ -184,7 +191,7 @@ function versionReference(documentId) {
  * `confirme_le` et `version_confirmee` disent QUELLE version a été confirmée :
  * la personne a accepté un texte précis, pas « le document ».
  */
-function etatLecture(documentId, utilisateurId) {
+export function etatLecture(documentId, utilisateurId) {
   const ref = versionReference(documentId);
   const derniere = derniereVersion(documentId);
   if (!ref || !derniere || !utilisateurId) {
@@ -211,7 +218,7 @@ function etatLecture(documentId, utilisateurId) {
 const auteur = u => u?.nom || u?.nom_complet || u?.email || null;
 
 /** La dernière version publiée d'un document — celle qui fait foi. */
-function derniereVersion(documentId) {
+export function derniereVersion(documentId) {
   return db.prepare(`SELECT * FROM corpus_version WHERE document_id = ?
     ORDER BY numero DESC LIMIT 1`).get(documentId) || null;
 }
@@ -236,13 +243,56 @@ function concerne(doc, user) {
  * compose hors de Lucie, page par page. Servi par le serveur et non comme un
  * fichier public, pour qu'il ne s'ouvre qu'à ceux qui ont un compte. Deux
  * segments : `/:cle` ne l'avale pas. */
-const GUIDE_SECRETARIAT = path.join(path.dirname(fileURLToPath(import.meta.url)),
-  '../../assets/guides/Lucie_mode_emploi_secretariat.pdf');
-r.get('/guide/secretariat', authRequired, (req, res) => {
-  if (!fs.existsSync(GUIDE_SECRETARIAT)) return res.status(404).json({ error: 'Guide introuvable sur le serveur' });
+/* Plusieurs guides, une seule porte : la liste est FERMÉE — le nom demandé
+ * choisit un fichier connu, jamais un chemin. */
+const DOSSIER_GUIDES = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../assets/guides');
+const GUIDES = {
+  secretariat: 'Lucie_mode_emploi_secretariat.pdf',
+  // La présence par QR code (Charles, 28 octobre 2026) : professeur, étudiant, secrétariat.
+  'presence-qr': 'Lucie_mode_emploi_presence_QR.pdf',
+};
+r.get('/guide/:nom', authRequired, (req, res) => {
+  const fichier = GUIDES[req.params.nom];
+  const chemin = fichier && path.join(DOSSIER_GUIDES, fichier);
+  if (!chemin || !fs.existsSync(chemin)) return res.status(404).json({ error: 'Guide introuvable sur le serveur' });
   res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', 'inline; filename="Lucie_mode_emploi_secretariat.pdf"');
-  res.sendFile(GUIDE_SECRETARIAT);
+  res.setHeader('Content-Disposition', `inline; filename="${fichier}"`);
+  res.sendFile(chemin);
+});
+
+/* « QUOI DE NEUF » SELON LE PROFIL (3.1.460, Charles, 29 octobre 2026 : « un prof ne doit pas savoir
+ * qu'une amélioration qui ne le concerne pas a été faite »). Le guide vivait dans `public/` : n'importe
+ * qui le lisait en entier, et le filtre par public n'était qu'un choix d'affichage. Il est servi ICI, à
+ * qui a un compte, et ce qui ne concerne pas son rôle est RETIRÉ avant l'envoi — nouveautés
+ * (`<article data-pour>`), lignes du « En bref » et de « Ce qui vient ensuite » (`<li data-pour>`), et
+ * les boutons de filtre. La direction (et l'éditeur, qui en a les droits) reçoit tout. */
+const DOSSIER_NOUVEAUTES = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../assets/nouveautes');
+const PUBLIC_DU_ROLE = { professeur: ['ens'], secretariat: ['sec'], coordination: ['coo'], consultation: [] };
+const ROLES_TOUT = ['admin', 'directeur', 'directeur_adjoint', 'editeur'];
+export function nouveautesPour(html, role) {
+  if (ROLES_TOUT.includes(role)) return html;
+  const pub = PUBLIC_DU_ROLE[role] || [];
+  const garde = pour => String(pour || '').split(/\s+/).some(x => pub.includes(x));
+  return html
+    .replace(/<article class="nouveau" data-pour="([^"]*)">[\s\S]*?<\/article>\s*/g, (m, pour) => (garde(pour) ? m : ''))
+    .replace(/<li data-pour="([^"]*)">[\s\S]*?<\/li>\s*/g, (m, pour) => (garde(pour) ? m : ''))
+    .replace(/<nav class="filtres"[\s\S]*?<\/nav>\s*/, '');
+}
+/* LE MODE D'EMPLOI, SELON LE PROFIL (3.1.467) : chacun ne reçoit que les chapitres et les points de son métier ;
+   la direction peut regarder « comme » un public (`?voir=ens|sec|coo|dir`). */
+r.get('/mode-emploi', authRequired, (req, res) => {
+  const voir = ['ens', 'sec', 'coo', 'dir'].includes(String(req.query.voir || '')) ? String(req.query.voir) : null;
+  res.setHeader('Cache-Control', 'no-store');
+  res.json(modeEmploiPour(req.user?.role || '', voir));
+});
+r.get('/nouveautes/:edition', authRequired, (req, res) => {
+  const ed = String(req.params.edition || '');
+  if (!/^\d{4}-\d{2}$/.test(ed)) return res.status(404).json({ error: 'Édition inconnue' });
+  const chemin = path.join(DOSSIER_NOUVEAUTES, `${ed}.html`);
+  if (!fs.existsSync(chemin)) return res.status(404).json({ error: 'Édition inconnue' });
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-store');
+  res.send(nouveautesPour(fs.readFileSync(chemin, 'utf8'), req.user?.role || ''));
 });
 
 // ── CE QUI M'ATTEND — la lecture « par personne » du tableau de bord ────────
@@ -291,7 +341,7 @@ r.get('/', authRequired, (req, res) => {
       a_confirmer: !!(pourMoi && v && !lecture?.confirme_le),
     });
   }
-  res.json({ documents: sortie, natures: NATURES });
+  res.json({ documents: sortie, natures: NATURES, par_parties: NATURES_PAR_PARTIES });
 });
 
 /* LE TEXTE LUI-MÊME — ET C'EST CETTE ROUTE QUI POSE `ouvert_le`.
@@ -300,6 +350,99 @@ r.get('/', authRequired, (req, res) => {
  * non sur un clic de l'écran : un écran peut prétendre avoir affiché ce qu'il
  * n'a pas reçu. La trace dit « le document a été servi à cette personne », et
  * elle ne peut le dire que depuis l'endroit qui le sert. */
+/* TOUT CONVERTIR EN UN GESTE (3.1.492, Charles : « tu n'as pas converti les procédures comme prévu » ; choisi : « tout
+ * convertir en un geste »). La liste des textes de l'IIP qui ne sont pas encore par parties, avec le découpage proposé
+ * pour chacun ; puis la publication des textes cochés en version suivante, SANS demander de reconfirmation (le contenu
+ * ne change pas, seule sa présentation), tout ou rien. Rien n'est publié par la lecture. */
+function texteEnParties(d, v) {
+  const html = v.format === 'html' ? v.contenu
+    : String(v.contenu).split(/\n{2,}/).map(par => `<p>${par.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br>')}</p>`).join('');
+  return decouperEnParties(html, d.titre);
+}
+function aConvertir() {
+  const ph = NATURES_PAR_PARTIES.map(() => '?').join(',');
+  return db.prepare(`SELECT * FROM corpus_document WHERE retire_le IS NULL AND nature IN (${ph}) ORDER BY nature, titre`)
+    .all(...NATURES_PAR_PARTIES)
+    .map(d => {
+      const der = derniereVersion(d.id);
+      if (!der) return null;
+      if (der.format !== 'parties') return { d, v: der, numero: der.numero };
+      /* UNE CONVERSION AUTOMATIQUE SE REFAIT (3.1.493) : tant que personne n'a retouché la version convertie, on repart du
+         dernier texte d'origine — la règle de découpage s'est améliorée, la conversion doit pouvoir en profiter. */
+      if (der.resume_changement !== RESUME_CONVERSION) return null;
+      const source = db.prepare(`SELECT * FROM corpus_version WHERE document_id = ? AND format != 'parties'
+        ORDER BY numero DESC LIMIT 1`).get(d.id);
+      return source ? { d, v: source, numero: der.numero, refaire: true } : null;
+    })
+    .filter(Boolean);
+}
+const RESUME_CONVERSION = 'Texte réécrit par parties dans Lucie ; le contenu ne change pas.';
+r.get('/conversion', authRequired, gesteRequis('documentation.publier'), (req, res) => {
+  res.json({ textes: aConvertir().map(({ d, v, numero, refaire }) => {
+    const { parties } = texteEnParties(d, v);
+    return { cle: d.cle, titre: d.titre, nature: d.nature, version: numero, refaire: !!refaire,
+      parties: parties.map(p => ({ titre: p.titre, points: p.points.map(pt => pt.titre) })),
+      // Un seul bloc : le texte n'avait pas de titres ; il passera tel quel, en une partie, à reprendre à la main.
+      sans_titres: parties.length <= 1 };
+  }) });
+});
+r.post('/conversion', authRequired, gesteRequis('documentation.publier'), (req, res) => {
+  const voulues = new Set((Array.isArray(req.body?.cles) ? req.body.cles : []).map(String));
+  const lot = aConvertir().filter(({ d }) => voulues.has(d.cle));
+  if (!lot.length) return res.status(400).json({ error: 'Aucun texte à convertir parmi ceux cochés.' });
+  const ins = db.prepare(`INSERT INTO corpus_version
+    (document_id, numero, contenu, format, reconfirmer, resume_changement, publiee_par, publiee_par_role)
+    VALUES (?,?,?,'parties',0,?,?,?)`);
+  const faits = [];
+  try { db.transaction(() => {
+    for (const { d, v, numero } of lot) {
+      const parties = assainirParties(texteEnParties(d, v));
+      if (!parties) throw Object.assign(new Error(`« ${d.titre} » : rien à découper (texte vide).`), { status: 409 });
+      ins.run(d.id, numero + 1, JSON.stringify(parties), RESUME_CONVERSION, auteur(req.user), req.user?.role || null);
+      faits.push({ cle: d.cle, titre: d.titre, version: numero + 1 });
+    }
+  })(); } catch (e) { return res.status(e.status || 500).json({ error: e.message }); }
+  res.json({ ok: true, convertis: faits });
+});
+
+/* DÉCOUPER L'EXISTANT EN PARTIES (3.1.489, tranché : « les découper »). Ne publie rien : la proposition revient à
+ * l'éditeur, la direction la relit et publie la version suivante — les confirmations suivent la règle habituelle. */
+r.get('/:cle/decouper', authRequired, gesteRequis('documentation.publier'), (req, res) => {
+  const d = db.prepare('SELECT * FROM corpus_document WHERE cle = ?').get(req.params.cle);
+  if (!d) return res.status(404).json({ error: 'Document introuvable.' });
+  const v = derniereVersion(d.id);
+  if (!v) return res.json({ parties: [] });
+  if (v.format === 'parties') {
+    const auto = aConvertir().find(x => x.d.id === d.id && x.refaire);
+    return res.json(auto ? texteEnParties(d, auto.v) : JSON.parse(v.contenu));
+  }
+  const html = v.format === 'html' ? v.contenu
+    : String(v.contenu).split(/\n{2,}/).map(par => `<p>${par.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br>')}</p>`).join('');
+  res.json(decouperEnParties(html, d.titre));
+});
+
+/* IMPRIMER UN TEXTE DU CORPUS (3.1.489) : dans l'enveloppe commune des pièces (en-tête, filet, pied « produit par »).
+ * Un texte par parties sort avec son sommaire et ses points numérotés ; un texte mis en forme, tel quel. La version
+ * est dite sur la pièce : c'est sur CE texte-là qu'on s'est engagé. */
+r.get('/:cle/document', authRequired, (req, res) => {
+  const d = db.prepare('SELECT * FROM corpus_document WHERE cle = ?').get(req.params.cle);
+  if (!d) return res.status(404).json({ error: 'Document introuvable.' });
+  const v = req.query.version
+    ? db.prepare('SELECT * FROM corpus_version WHERE document_id = ? AND numero = ?').get(d.id, Number(req.query.version))
+    : derniereVersion(d.id);
+  if (!v) return res.status(404).json({ error: 'Aucune version publiée.' });
+  const nature = NATURES.find(n => n.cle === d.nature)?.libelle || '';
+  const esc = x => String(x ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  let corps;
+  if (v.format === 'parties') corps = corpsImprimable({ titre: d.titre, version: v, parties: JSON.parse(v.contenu).parties || [] });
+  else if (v.format === 'html') corps = `<div class="tp-version">Version ${v.numero}</div><div class="tp-contenu">${v.contenu}</div>`;
+  else corps = `<div class="tp-version">Version ${v.numero}</div><div style="white-space:pre-wrap;font-size:9.5pt">${esc(v.contenu)}</div>`;
+  const html = envelopperDocument({
+    titre: d.titre, styles: STYLES_IMPRESSION, entete: { titre: d.titre, sous: nature }, html: corps,
+  });
+  res.json({ html, nom: d.titre });
+});
+
 r.get('/:cle', authRequired, (req, res) => {
   const d = db.prepare('SELECT * FROM corpus_document WHERE cle = ?').get(req.params.cle);
   if (!d) return res.status(404).json({ error: 'Document introuvable.' });
@@ -472,12 +615,21 @@ r.post('/:cle/versions', authRequired, gesteRequis('documentation.publier'), (re
   /* LE TEXTE MIS EN FORME PASSE PAR LA LISTE DE CE QUI EST PERMIS, ICI, AVANT
    * D'ÊTRE ÉCRIT. Le texte brut d'avant (format 'texte') reste accepté : il
    * s'affiche tel quel, sans rien interpréter. */
-  const format = req.body?.format === 'html' ? 'html' : 'texte';
-  const contenu = format === 'html'
-    ? assainir(req.body?.contenu)
-    : String(req.body?.contenu || '').trim();
-  if (!contenu || (format === 'html' && estVide(contenu))) {
-    return res.status(400).json({ error: 'Le texte est vide.' });
+  const format = ['html', 'parties'].includes(req.body?.format) ? req.body.format : 'texte';
+  let contenu;
+  if (format === 'parties') {
+    // Le texte par parties : chaque champ passe la même liste fermée que le texte mis en forme.
+    const parties = assainirParties(req.body?.contenu);
+    if (!parties) return res.status(400).json({ error: 'Le texte est vide : il faut au moins une partie avec un point.' });
+    if (parties.parties.some(p => !p.titre)) return res.status(400).json({ error: 'Chaque partie porte un titre.' });
+    contenu = JSON.stringify(parties);
+  } else {
+    contenu = format === 'html'
+      ? assainir(req.body?.contenu)
+      : String(req.body?.contenu || '').trim();
+    if (!contenu || (format === 'html' && estVide(contenu))) {
+      return res.status(400).json({ error: 'Le texte est vide.' });
+    }
   }
 
   const derniere = derniereVersion(d.id);

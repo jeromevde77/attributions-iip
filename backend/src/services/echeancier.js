@@ -15,6 +15,7 @@ import {
   calculerDates, chargerPeriodesConges, anneeDebutDe, iso, diffJours, ajouterJours,
 } from './echeancier_dates.js';
 import { DATES_GEDI } from '../db/migrations_echeancier.js';
+import { premierDixiemeUE } from '../lib/datesReelles.js';
 
 const aujourdhui = () => iso(new Date());
 
@@ -76,7 +77,7 @@ export function instancier(db, anneeScolaire, { verbose = false } = {}) {
         // Certains jalons ne visent qu'un sous-ensemble d'UE (ex. les épreuves
         // intégrées pour la clôture des inscriptions — RGE art. 32).
         let sql = `
-          SELECT o.id, o.ue_num, o.section, o.date_debut, o.date_fin
+          SELECT o.id, o.ue_num, o.section, o.num_organisation, o.date_debut, o.date_fin
           FROM organisation_ue o
           WHERE o.annee_scolaire = ? AND o.date_debut IS NOT NULL AND o.date_fin IS NOT NULL`;
         if (type.filtre_source === 'epreuve_integree') {
@@ -85,14 +86,35 @@ export function instancier(db, anneeScolaire, { verbose = false } = {}) {
                                AND u.is_epreuve_integree = 1)`;
         }
         const ues = db.prepare(sql).all(anneeScolaire);
+        // UN POURCENTAGE DE L'UE SE LIT DANS L'HORAIRE RÉEL (28 octobre 2026) : le
+        // comptage au 1/10 tombe sur la séance la plus proche du dixième des séances,
+        // comme le compte la vérificatrice ; à défaut de séances, sur les dates.
+        const pc = /^rel:ue_debut\+(\d+)pc$/.exec(regle);
         for (const ue of ues) {
           const ctx = { ...ctxBase, ancres: { ue_debut: ue.date_debut, ue_fin: ue.date_fin } };
-          for (const d of calculerDates(regle, ctx)) {
-            ajouter(type, d.date_due, {
+          const reel = pc ? premierDixiemeUE(ue.ue_num, anneeScolaire,
+            { section: ue.section, numOrganisation: ue.num_organisation, pct: Number(pc[1]) }) : null;
+          const dates = (reel ? [{ date_due: reel.date }] : calculerDates(regle, ctx)).map(d => d.date_due).filter(Boolean);
+          for (const date_due of dates) {
+            ajouter(type, date_due, {
               libelle: `UE ${ue.ue_num}${ue.section ? ' — ' + ue.section : ''}`,
               source_type: 'organisation_ue', source_id: ue.id,
             });
           }
+          // UNE DATE D'UE QUI BOUGE NE LAISSE PAS SON ANCIEN JALON DERRIÈRE ELLE. La clé
+          // d'unicité porte la date : changer les dates de l'UE (ou les aligner sur
+          // l'horaire) ajoutait le nouveau jalon À CÔTÉ de l'ancien. On retire l'ancien
+          // seulement s'il n'a jamais été touché — généré, à faire, sans commentaire,
+          // ni fait, ni rattaché à une tâche.
+          if (dates.length) try {
+            stats.remplaces = (stats.remplaces || 0) + db.prepare(`DELETE FROM echeance
+              WHERE type_id = ? AND annee_scolaire = ? AND source_type = 'organisation_ue' AND source_id = ?
+                AND date_due NOT IN (${dates.map(() => '?').join(',')})
+                AND genere_auto = 1 AND statut = 'a_faire' AND fait_le IS NULL AND COALESCE(commentaire, '') = ''
+                AND responsable_user_id IS NULL
+                AND NOT EXISTS (SELECT 1 FROM tache t WHERE t.echeance_id = echeance.id)`)
+              .run(type.id, anneeScolaire, ue.id, ...dates).changes;
+          } catch (e) { console.error(`   ! ${type.code} — ancien jalon de l'UE ${ue.ue_num} : ${e.message}`); }
         }
         continue;
       }
@@ -214,11 +236,15 @@ export function genererRappels(db, { verbose = false } = {}) {
     INSERT INTO rappel_envoye (cible_type, cible_id, jalon, user_id, canal)
     VALUES ('echeance', ?, ?, ?, 'inapp')
   `);
+  // LE RAPPEL PORTE LA SECTION DE SON UNITÉ (3.1.481) : adressé au rôle « coordination », il partait à toutes
+  // les coordinations — celle de psychomotricité recevait les rappels de TIM. Le fil d'activité filtre dessus.
+  marquerSectionNotifications(db);
   const notifier = db.prepare(`
     INSERT INTO lucie_notification
-      (type, titre, corps, lien, cible_role, cible_user_id, cree_par)
-    VALUES ('echeance_rappel', ?, ?, ?, ?, ?, 'systeme')
+      (type, titre, corps, lien, cible_role, cible_user_id, cree_par, section)
+    VALUES ('echeance_rappel', ?, ?, ?, ?, ?, 'systeme', ?)
   `);
+  const sectionDe = db.prepare(`SELECT o.section FROM organisation_ue o WHERE o.id = ?`);
 
   for (const e of echeances) {
     const reste = diffJours(today, e.date_due);   // < 0 = en retard
@@ -256,6 +282,7 @@ export function genererRappels(db, { verbose = false } = {}) {
       e.lien_interne || '/echeancier',
       userId ? null : (e.responsable_role || 'admin'),
       userId,
+      e.source_type === 'organisation_ue' ? (sectionDe.get(e.source_id)?.section || null) : null,
     );
     tracer.run(e.id, cle, userId);
     envoyes++;
@@ -313,3 +340,24 @@ export function demarrerMoteur(db) {
 
 export default { instancier, declencher, recalculerStatuts, genererRappels,
                  cycleComplet, anneeActive, demarrerMoteur };
+
+/* LA COLONNE, ET LE RATTRAPAGE DES RAPPELS DÉJÀ ENVOYÉS (3.1.481). Un rappel ne garde pas l'identifiant de son
+   échéance : on le retrouve à son intitulé, qui finit par celui de l'échéance (« … — <type> — <précision> »).
+   Seuls les rappels encore sans section sont touchés ; une fois fait, rien ne se refait. */
+export function marquerSectionNotifications(db) {
+  const cols = db.prepare('PRAGMA table_info(lucie_notification)').all().map(c => c.name);
+  if (!cols.includes('section')) db.exec('ALTER TABLE lucie_notification ADD COLUMN section TEXT');
+  const reste = db.prepare(`SELECT COUNT(*) n FROM lucie_notification WHERE type = 'echeance_rappel' AND section IS NULL`).get().n;
+  if (!reste) return;
+  const ech = db.prepare(`SELECT e.libelle_override, t.libelle, o.section FROM echeance e JOIN echeance_type t ON t.id = e.type_id
+    JOIN organisation_ue o ON o.id = e.source_id WHERE e.source_type = 'organisation_ue' AND o.section IS NOT NULL`).all();
+  const maj = db.prepare(`UPDATE lucie_notification SET section = ? WHERE type = 'echeance_rappel' AND section IS NULL AND titre LIKE ?`);
+  const vus = new Set();
+  for (const e of ech) {
+    const lib = e.libelle_override ? `${e.libelle} — ${e.libelle_override}` : e.libelle;
+    const cle = `${lib}|${e.section}`;
+    if (!e.libelle_override || vus.has(cle)) continue;   // sans précision, l'intitulé ne dit pas l'unité
+    vus.add(cle);
+    maj.run(e.section, `% — ${lib}`);
+  }
+}
