@@ -2896,9 +2896,9 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   refuse reste grisé, il en parle à sa coordination ; ouvert pendant une **fenêtre** fixée par la direction. **VA en ligne**
   déplacée derrière le mur (`/demande-va` disparaît), règles actuelles, prix annoncé avant l'envoi ; **l'admission (AD) reste
   au secrétariat**. **Candidat** : dès son inscription dans Lucie, un code d'accès temporaire à son espace jusqu'à son adresse
-  officielle (adresse, durée et portée à préciser). Résultats : détail par acquis (NA sous 10) après clôture publiée. Messages :
+  officielle (tranché : envoyé à l'adresse PRIVÉE du dossier ; s'éteint dès que l'adresse d'institut est encodée, au plus 60 jours, renouvelable par le secrétariat ; il ouvre la demande de VA, les documents, les frais et les messages). Résultats : détail par acquis (NA sous 10) après clôture publiée. Messages :
   réponse possible. Accès **bloqué hors de Belgique**, exception accordée par le secrétariat pour une période ; la vérification
-  du QR reste ouverte partout. Toute écriture venant du portail passe par le relevé de Lucie (`portailSync.js`), jamais l'inverse.
+  du QR reste ouverte partout. Toute écriture venant du portail passe par le relevé de Lucie (`portailSync.js`), jamais l'inverse. **Ordre de construction** : 1 mot de passe et blocage hors Belgique · 2 VA en ligne déplacée + code candidat · 3 PAE en ligne · 4 messages · puis parcours, frais, aide.
 
 **L'ANNULER NE COMPARE QUE CE QUE LE GESTE A CHANGÉ** (3.1.482, Charles, 30 octobre 2026, en production :
   « Impossible d'annuler : utilisateur — la ligne a été modifiée depuis, par quelqu'un »). Se reconnecter écrit
