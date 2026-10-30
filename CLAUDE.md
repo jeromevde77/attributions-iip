@@ -379,6 +379,15 @@ direction pour 244 → 331**, année active 2026-2027. (3.1.474 : la 3.1.473 ét
 construisait pas — un `index` de recherche tombé avant le bloc visé avait recopié le code en tête du fichier.
 **Après `vite build`, lire son statut, pas un `grep` de sa sortie.**)
 
+**LE SUIVI D'ÉQUIPE A UN PÉRIMÈTRE** (3.1.479, Charles, 30 octobre 2026, en aperçu comme Natacha Boulengier,
+coordination : « elle voit des choses du secrétariat, ce n'est pas normal »). Aucune route des tâches ni des réunions
+(`routes/reunions.js`) n'en posait. Règle écrite une fois (`clauseTache`, `clauseReunion`, `tacheVisible`,
+`reunionVisible`) : direction, secrétariat, administrateur et éditeur voient tout ; les autres voient une tâche s'ils en
+répondent (nom, rôle, fiche, équipage), en sont tenus au courant, l'ont confiée, ou si elle vient d'une réunion qu'ils
+ont organisée, où ils étaient convoqués ou qui porte sur une de leurs sections — et une réunion aux trois mêmes titres.
+Appliquée à la liste des tâches (et donc à la frise des échéances), à la modification d'une tâche, à la feuille des
+tâches, à la liste des réunions, à la séance (lecture, modification, PV) et à « ce qui reste ouvert » ; 404 sinon.
+
 **LE MUR ENTRE LUCIE ET LES ÉTUDIANTS** (3.1.477, Charles, 30 octobre 2026 : « impératif : un mur de Berlin
 infranchissable entre la version de Lucie pour les MDP et la version accessible aux étudiants » ; tranché : une base
 étudiante à part, etudiant.lucie-iip.be). **L'espace de l'étudiant de 3.1.475 a quitté Lucie.** Il vit dans le

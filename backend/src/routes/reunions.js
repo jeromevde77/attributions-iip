@@ -14,7 +14,7 @@
 
 import { Router } from 'express';
 import db from '../db/index.js';
-import { authRequired, roleRequired } from '../middleware/auth.js';
+import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
 import { envelopperDocument } from '../lib/document.js';
 import { envoyerEmail, mailerConfigure } from '../services/mailer.js';
 import { rendrePdf } from '../services/pdf.js';
@@ -310,6 +310,54 @@ const SELECT_TACHE = `
 `;
 
 /**
+ * QUI VOIT QUOI DANS LE SUIVI D'ÉQUIPE (3.1.479, Charles, 30 octobre 2026, en aperçu « Natacha Boulengier,
+ * coordination » : « elle voit des choses du secrétariat, ce n'est pas normal »). Aucune route des tâches ni des
+ * réunions ne posait de périmètre : une coordination lisait les tâches du secrétariat et les réunions de direction.
+ *
+ * LA RÈGLE, ÉCRITE UNE FOIS. La direction, le secrétariat et l'administrateur voient tout. Les autres voient une
+ * tâche s'ils en RÉPONDENT (nommément, par leur rôle, par leur fiche, dans l'équipage), s'ils en sont TENUS AU
+ * COURANT, s'ils l'ont CONFIÉE, ou si elle vient d'une réunion qu'ils ont ORGANISÉE, où ils étaient CONVOQUÉS, ou
+ * qui porte sur une de LEURS SECTIONS. Une réunion se voit aux trois mêmes titres. Le reste n'existe pas pour eux
+ * (404 sur une route par identifiant : « interdit » confirmerait que ça existe).
+ */
+const VOIT_TOUT = ['admin', 'directeur', 'directeur_adjoint', 'secretariat', 'editeur'];
+const voitTout = user => VOIT_TOUT.includes(user?.role);
+function clauseReunion(user, alias = 'r') {
+  const secs = getUserSections(user);
+  const p = [user.id, user.id, user.id];
+  let sql = `(${alias}.organisateur_user_id = ?
+    OR EXISTS (SELECT 1 FROM reunion_participant rp WHERE rp.reunion_id = ${alias}.id
+      AND (rp.user_id = ? OR (rp.professeur_id IS NOT NULL AND rp.professeur_id = (SELECT professeur_id FROM utilisateur WHERE id = ?))))`;
+  if (Array.isArray(secs) && secs.length) { sql += ` OR ${alias}.section IN (${secs.map(() => '?').join(',')})`; p.push(...secs); }
+  return { sql: sql + ')', p };
+}
+function clauseTache(user, req) {
+  const r0 = clauseReunion(user, 'r');
+  return {
+    sql: ` AND (t.responsable_user_id = ? OR t.responsable_role = ?
+      OR (t.responsable_professeur_id IS NOT NULL AND t.responsable_professeur_id = (SELECT professeur_id FROM utilisateur WHERE id = ?))
+      OR EXISTS (SELECT 1 FROM tache_personne tp WHERE tp.tache_id = t.id AND (tp.user_id = ? OR tp.role = ?
+        OR (tp.professeur_id IS NOT NULL AND tp.professeur_id = (SELECT professeur_id FROM utilisateur WHERE id = ?))))
+      OR EXISTS (SELECT 1 FROM tache_informe ti WHERE ti.tache_id = t.id AND (ti.user_id = ? OR ti.role = ?
+        OR (ti.professeur_id IS NOT NULL AND ti.professeur_id = (SELECT professeur_id FROM utilisateur WHERE id = ?))))
+      OR t.cree_par = ?
+      OR (t.reunion_id IS NOT NULL AND ${r0.sql}))`,
+    p: [user.id, user.role, user.id, user.id, user.role, user.id, user.id, user.role, user.id, qui(req), ...r0.p],
+  };
+}
+/** Une tâche ou une réunion précise est-elle visible ? */
+function tacheVisible(req, id) {
+  if (voitTout(req.user)) return true;
+  const c = clauseTache(req.user, req);
+  return !!db.prepare(`SELECT 1 FROM tache t LEFT JOIN reunion r ON r.id = t.reunion_id WHERE t.id = ? ${c.sql}`).get(Number(id), ...c.p);
+}
+function reunionVisible(req, id) {
+  if (voitTout(req.user)) return true;
+  const c = clauseReunion(req.user, 'r');
+  return !!db.prepare(`SELECT 1 FROM reunion r WHERE r.id = ? AND ${c.sql}`).get(Number(id), ...c.p);
+}
+
+/**
  * GET /taches — filtres : annee, statut, responsable_user_id, mien, reunion_id,
  * ouvertes=1 (tout ce qui n'est ni fait ni abandonné).
  */
@@ -370,6 +418,7 @@ r.get('/taches', authRequired, (req, res) => {
       p.push(req.user.id);
     }
   }
+  if (!voitTout(req.user)) { const c = clauseTache(req.user, req); sql += c.sql; p.push(...c.p); }
   // L'ordre d'une liste de tâches n'est pas l'ordre de création : ce qui est en
   // retard d'abord, puis ce qui vient, puis ce qui n'a pas de date.
   sql += ` ORDER BY CASE WHEN t.statut IN ('fait','abandonnee') THEN 1 ELSE 0 END,
@@ -477,7 +526,7 @@ r.post('/taches', authRequired, (req, res) => {
 
 r.put('/taches/:id', authRequired, (req, res) => {
   const t = db.prepare('SELECT * FROM tache WHERE id = ?').get(req.params.id);
-  if (!t) return res.status(404).json({ error: 'tâche inconnue' });
+  if (!t || !tacheVisible(req, t.id)) return res.status(404).json({ error: 'tâche inconnue' });
   const b = req.body || {};
   const v = (k, d) => (b[k] === undefined ? d : b[k]);
 
@@ -559,6 +608,7 @@ function peutConfidentiel(user, reunion) {
 
 r.get('/', authRequired, (req, res) => {
   const annee = anneeDeTravail(req);
+  const perim = voitTout(req.user) ? { sql: '', p: [] } : (c => ({ sql: `AND ${c.sql}`, p: c.p }))(clauseReunion(req.user, 'r'));
   const lignes = db.prepare(`
     SELECT r.*,
       COALESCE(u.nom_complet, pr.prenom || ' ' || pr.nom) AS organisateur_nom,
@@ -570,9 +620,9 @@ r.get('/', authRequired, (req, res) => {
     FROM reunion r
     LEFT JOIN utilisateur u  ON u.id  = r.organisateur_user_id
     LEFT JOIN professeur  pr ON pr.id = r.organisateur_professeur_id
-    WHERE r.annee_scolaire = ?
+    WHERE r.annee_scolaire = ? ${perim.sql}
     ORDER BY r.date_seance DESC, r.id DESC
-  `).all(annee);
+  `).all(annee, ...perim.p);
   // QUI ÉTAIT LÀ (Jérôme, 24 septembre 2026) : l'organisateur seul ne dit pas
   // de quelle séance il s'agit — le nom des présents, si.
   const lirePresents = db.prepare(`SELECT nom, present, excuse FROM reunion_participant
@@ -631,7 +681,7 @@ r.get('/:id', authRequired, (req, res) => {
       LEFT JOIN utilisateur u  ON u.id  = r.organisateur_user_id
       LEFT JOIN professeur  pr ON pr.id = r.organisateur_professeur_id
      WHERE r.id = ?`).get(req.params.id);
-  if (!reunion) return res.status(404).json({ error: 'réunion inconnue' });
+  if (!reunion || !reunionVisible(req, reunion.id)) return res.status(404).json({ error: 'réunion inconnue' });
   reunion.ues = db.prepare(
     'SELECT ue_num FROM reunion_ue WHERE reunion_id = ? ORDER BY ue_num')
     .all(reunion.id).map(x => x.ue_num);
@@ -648,13 +698,14 @@ r.get('/:id', authRequired, (req, res) => {
   }
   const taches = attacherResponsables(
     db.prepare(SELECT_TACHE + ' WHERE t.reunion_id = ? ORDER BY t.id').all(reunion.id));
+  const resteP = voitTout(req.user) ? { sql: '', p: [] } : clauseTache(req.user, req);
   // CE QUI RESTE OUVERT DES SÉANCES PRÉCÉDENTES, c'est le premier point de
   // toute réunion de suivi — et c'est justement ce qu'on oublie de préparer.
   const reste = db.prepare(SELECT_TACHE + `
     WHERE t.annee_scolaire = ? AND t.statut IN ('a_faire','en_cours')
-      AND (t.reunion_id IS NULL OR t.reunion_id <> ?)
+      AND (t.reunion_id IS NULL OR t.reunion_id <> ?) ${resteP.sql}
     ORDER BY CASE WHEN t.echeance IS NULL THEN 1 ELSE 0 END, t.echeance, t.id
-  `).all(reunion.annee_scolaire, reunion.id);
+  `).all(reunion.annee_scolaire, reunion.id, ...resteP.p);
   attacherResponsables(reste);
   res.json({ ...reunion, participants, taches, reste });
 });
@@ -703,7 +754,7 @@ r.post('/', authRequired, (req, res) => {
 
 r.put('/:id', authRequired, (req, res) => {
   const reunion = db.prepare('SELECT * FROM reunion WHERE id = ?').get(req.params.id);
-  if (!reunion) return res.status(404).json({ error: 'réunion inconnue' });
+  if (!reunion || !reunionVisible(req, reunion.id)) return res.status(404).json({ error: 'réunion inconnue' });
   const b = req.body || {};
   const v = (k) => (b[k] === undefined ? reunion[k] : b[k]);
   // UN ÉCRAN QUI N'A PAS REÇU LE CONFIDENTIEL NE PEUT PAS L'EFFACER. Il
@@ -819,7 +870,7 @@ r.post('/:id/document', authRequired, (req, res, next) => {
   // « taches » n'est pas une réunion : la route de la feuille des tâches vient plus bas.
   if (req.params.id === 'taches') return next();
   const reunion = db.prepare('SELECT * FROM reunion WHERE id = ?').get(req.params.id);
-  if (!reunion) return res.status(404).json({ error: 'réunion inconnue' });
+  if (!reunion || !reunionVisible(req, reunion.id)) return res.status(404).json({ error: 'réunion inconnue' });
   /* DEUX PV, ET UN SEUL CIRCULE. Le PV ordinaire ne reproduit jamais le
    * confidentiel — c'est celui qu'on diffuse. Le PV INTÉGRAL le reprend,
    * marqué comme tel, et ne se produit que pour qui peut le lire. */
@@ -933,11 +984,12 @@ r.post('/taches/document', authRequired, (req, res) => {
   const annee = anneeDeTravail(req);
   const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
   const fr = d => (d ? String(d).slice(0, 10).split('-').reverse().join('/') : '—');
+  const feuilleP = voitTout(req.user) ? { sql: '', p: [] } : clauseTache(req.user, req);
   const taches = db.prepare(SELECT_TACHE + `
-    WHERE t.annee_scolaire = ? ${req.body?.toutes ? '' : "AND t.statut IN ('a_faire','en_cours')"}
+    WHERE t.annee_scolaire = ? ${req.body?.toutes ? '' : "AND t.statut IN ('a_faire','en_cours')"} ${feuilleP.sql}
     ORDER BY COALESCE(u.nom_complet, t.responsable_role, 'zzz'),
              CASE WHEN t.echeance IS NULL THEN 1 ELSE 0 END, t.echeance
-  `).all(annee);
+  `).all(annee, ...feuilleP.p);
   attacherResponsables(taches);
 
   // PAR PERSONNE, PAS PAR DATE. On ne lit pas cette feuille pour savoir ce qui
