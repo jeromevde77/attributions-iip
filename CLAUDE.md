@@ -2887,6 +2887,17 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   autres à moins de 1,2 unité). **Le guide en ligne est la seule source : une nouveauté s'y écrit, avec ses captures, et le
   PDF suit sans rien faire.**
 
+- **LE PORTAIL DE L'ÉTUDIANT — CE QUI EST TRANCHÉ, RIEN N'EST CODÉ** (Charles, 30 octobre 2026 ; projet : logigramme et
+  treize écrans hors dépôt). Mot de passe choisi par l'étudiant (comme le personnel), code en plus sur un nouvel appareil.
+  **PAE en ligne** : Lucie coche ce qui est accessible (`etatsPAE`), l'étudiant choisit et envoie, la coordination valide ou
+  corrige, il confirme par code ; **aucune exception demandée en ligne** (« sinon ça va être la folie ») — ce qu'une règle
+  refuse reste grisé, il en parle à sa coordination ; ouvert pendant une **fenêtre** fixée par la direction. **VA en ligne**
+  déplacée derrière le mur (`/demande-va` disparaît), règles actuelles, prix annoncé avant l'envoi ; **l'admission (AD) reste
+  au secrétariat**. **Candidat** : dès son inscription dans Lucie, un code d'accès temporaire à son espace jusqu'à son adresse
+  officielle (adresse, durée et portée à préciser). Résultats : détail par acquis (NA sous 10) après clôture publiée. Messages :
+  réponse possible. Accès **bloqué hors de Belgique**, exception accordée par le secrétariat pour une période ; la vérification
+  du QR reste ouverte partout. Toute écriture venant du portail passe par le relevé de Lucie (`portailSync.js`), jamais l'inverse.
+
 **L'ANNULER NE COMPARE QUE CE QUE LE GESTE A CHANGÉ** (3.1.482, Charles, 30 octobre 2026, en production :
   « Impossible d'annuler : utilisateur — la ligne a été modifiée depuis, par quelqu'un »). Se reconnecter écrit
   `last_login_at` sur la ligne du compte ; l'annulation comparait la ligne entière et refusait. Désormais elle ne
