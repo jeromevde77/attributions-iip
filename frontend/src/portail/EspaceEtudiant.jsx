@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { IconCertificate, IconFileText, IconBook, IconSignature, IconCheck, IconLogout, IconLock, IconDevices, IconTrash, IconShieldCheck, IconShieldX, IconKey, IconWorld, IconUserCircle } from '@tabler/icons-react';
+import { IconCertificate, IconFileText, IconBook, IconSignature, IconCheck, IconLogout, IconLock, IconDevices, IconTrash, IconShieldCheck, IconShieldX, IconKey, IconWorld, IconUserCircle, IconAward, IconUpload, IconPlus, IconAlertTriangle } from '@tabler/icons-react';
 
 /**
  * L'ESPACE DE L'ÉTUDIANT (3.1.475, Charles : « un mini espace ultra sécurisé : récupérer ses documents, voir ses
@@ -172,6 +172,137 @@ export default function EspaceEtudiant() {
   return <Espace />;
 }
 
+const eur = n => `${(Number(n) || 0).toFixed(2).replace('.', ',')} €`;
+const PORTE = { va: 'VA', vae: 'VAE' };
+
+/** Une pièce, de l'appareil au portail (25 Mo au plus) ; Lucie la relève et la range au dossier. */
+async function deposerPiece(ue, nature, fichier) {
+  const t = lire();
+  const r = await fetch(`/api/portail/va/piece?ue_num=${ue}&nature=${encodeURIComponent(nature)}&nom=${encodeURIComponent(fichier.name)}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/octet-stream', ...(t ? { Authorization: `Bearer ${t}` } : {}) }, body: fichier });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || (r.status === 413 ? 'Fichier trop lourd (25 Mo au plus).' : `Erreur ${r.status}`));
+}
+
+/** LA DEMANDE DE VALORISATION EN LIGNE (3.1.514) : derrière le mur, Lucie relève et juge chaque geste. */
+function MesValorisations({ onErreur }) {
+  const [v, setV] = useState(null);
+  const [ue, setUe] = useState('');
+  const [porte, setPorte] = useState('');
+  const [nature, setNature] = useState({});
+  const [enCours, setEnCours] = useState(false);
+  const [message, setMessage] = useState(null);
+  const charger = useCallback(() => appel('GET', '/va').then(setV).catch(onErreur), [onErreur]);
+  useEffect(() => { charger(); }, [charger]);
+  // Tant que Lucie n'a pas relevé (quelques secondes), on regarde à nouveau.
+  const attend = v && (!v.pret || v.en_attente.length > 0);
+  useEffect(() => { if (!attend) return undefined; const t = setTimeout(charger, 4000); return () => clearTimeout(t); }, [attend, v, charger]);
+  if (!v) return <p className="text-sm text-slate-500">Chargement…</p>;
+  if (!v.pret) return <p className="text-sm text-slate-500">Préparation de vos unités… quelques secondes.</p>;
+
+  const geste = async (chemin, corps, ok) => {
+    setEnCours(true); setMessage(null);
+    try { await appel('POST', chemin, corps); ok?.(); await charger(); } catch (e) { onErreur(e); } finally { setEnCours(false); }
+  };
+  const ouvertes = new Set([...v.etat.map(d => d.ue_num), ...v.en_attente.filter(g => g.type === 'ouvrir').map(g => g.ue_num)]);
+  const libres = (v.offre?.unites || []).filter(u => !ouvertes.has(u.ue_num));
+  const choisie = libres.find(u => String(u.ue_num) === String(ue));
+  const enAttente = (u, type) => v.en_attente.filter(g => g.ue_num === u && (!type || g.type === type));
+  const natures = v.offre?.natures || [];
+  const ajouter = async (u, ev) => {
+    const f = ev.target.files?.[0]; ev.target.value = '';
+    if (!f) return;
+    setEnCours(true);
+    try { await deposerPiece(u, nature[u] || 'AUT', f); await charger(); } catch (e) { onErreur(e); } finally { setEnCours(false); }
+  };
+  const demandes = [...v.etat, ...v.en_attente.filter(g => g.type === 'ouvrir').map(g => ({ ue_num: g.ue_num, porte: g.porte, attente: true,
+    ue_nom: (v.offre?.unites || []).find(u => u.ue_num === g.ue_num)?.ue_nom, pieces: [], modifiable: true, frise: [] }))];
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-slate-600">La <b>VA</b> fait reconnaître des études déjà réussies (un diplôme, des unités) ; la <b>VAE</b>, une
+        expérience professionnelle ou personnelle. Une demande par unité, avec ses pièces ; vous complétez tant que le secrétariat ne l’a pas examinée.
+        L’admission se demande au secrétariat.</p>
+      {v.refus.map(r => (
+        <div key={r.id} className="bloc-etat px-3 py-2 text-sm flex gap-2" data-etat="corriger"><IconAlertTriangle size={16} className="flex-none text-slate-400" />
+          <span className="flex-1">{r.ue_num ? `UE ${r.ue_num} — ` : ''}{r.nom ? `${r.nom} : ` : ''}{r.erreur}</span></div>))}
+      {v.refus.length > 0 && <button type="button" className="text-second text-iip-blue underline" onClick={() => geste('/va/refus-lus')}>J’ai compris</button>}
+      {message && <div className="bloc-etat px-3 py-2 text-sm" data-etat="reussi">{message}</div>}
+
+      {demandes.map(d => (
+        <section key={d.ue_num} className="bloc-etat px-4 py-3 space-y-2" data-etat={d.attente ? 'neutre' : 'disponible'}>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-semibold text-iip-texte flex-1 min-w-0">UE {d.ue_num} {d.ue_nom || ''}</span>
+            <span className="pastille-etat" style={{ background: 'var(--c-disponible, #2F6FB0)', color: '#fff' }}>{PORTE[d.porte] || d.porte}</span>
+          </div>
+          {d.attente ? <p className="text-xs text-slate-500">Envoyée à l’école : enregistrée dans quelques secondes.</p> : (
+            <div className="flex flex-wrap gap-1">
+              {d.frise.map(e => (
+                <span key={e.cle} className="text-xs px-2 py-0.5 rounded-full border"
+                  style={e.refus ? { background: 'var(--c-refuse, #9D4A38)', color: '#fff', borderColor: 'transparent' }
+                    : e.fait ? { background: 'var(--c-reussi, #3E7D5E)', color: '#fff', borderColor: 'transparent' } : { color: '#64748b' }}>
+                  {e.fait ? '✓ ' : ''}{e.libelle}{e.le && e.fait ? ` · ${jourFr(e.le)}` : ''}</span>))}
+            </div>)}
+          {d.motif_irrecevabilite && <p className="text-sm text-slate-700">Motif : {d.motif_irrecevabilite}</p>}
+          {d.decision && <p className="text-sm text-slate-700">Décision : <b>{d.decision}</b> — la notification est dans vos documents.</p>}
+          <div className="space-y-1">
+            {d.pieces.map(pc => (
+              <div key={pc.id} className="flex flex-wrap items-center gap-2 text-sm">
+                <IconFileText size={15} className="text-slate-400" /><span className="flex-1 min-w-0 break-all">{pc.nom}</span>
+                {pc.a_moi && d.modifiable && <button type="button" className="text-second text-iip-blue underline" disabled={enCours}
+                  onClick={() => geste('/va/retirer-piece', { ue_num: d.ue_num, fichier_id: pc.id })}>retirer</button>}
+              </div>))}
+            {enAttente(d.ue_num, 'piece').map(g => <div key={g.id} className="text-sm text-slate-500">{g.nom} — envoi en cours…</div>)}
+            {enAttente(d.ue_num, 'retirer_piece').length > 0 && <div className="text-sm text-slate-500">Retrait en cours…</div>}
+          </div>
+          {d.modifiable && !enAttente(d.ue_num, 'retirer').length && (
+            <div className="flex flex-wrap items-center gap-2">
+              <select value={nature[d.ue_num] || ''} onChange={e => setNature(n => ({ ...n, [d.ue_num]: e.target.value }))} className="controle w-full sm:w-auto sm:flex-1 min-w-0">
+                <option value="">Quelle pièce ?</option>
+                {natures.map(n => <option key={n.cle} value={n.cle}>{n.label}</option>)}
+              </select>
+              <label className={`bouton inline-flex items-center gap-1.5 ${!nature[d.ue_num] || enCours ? 'opacity-50 pointer-events-none' : 'cursor-pointer'}`}>
+                <IconUpload size={15} /> Choisir le fichier
+                <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png,.heic,.tif,.tiff,.doc,.docx,.odt,image/*" onChange={ev => ajouter(d.ue_num, ev)} /></label>
+              {!d.attente && d.en_ligne && <button type="button" className="text-second text-iip-blue underline ml-auto" disabled={enCours}
+                onClick={() => geste('/va/retirer', { ue_num: d.ue_num })}>Retirer cette demande</button>}
+            </div>)}
+          {enAttente(d.ue_num, 'retirer').length > 0 && <p className="text-xs text-slate-500">Retrait de la demande en cours…</p>}
+        </section>))}
+
+      {libres.length > 0 && (
+        <section className="bg-white border border-slate-200 rounded-carte p-4 space-y-3">
+          <h2 className="titre-carte flex items-center gap-2"><IconPlus size={16} /> Nouvelle demande</h2>
+          <select value={ue} onChange={e => setUe(e.target.value)} className="controle w-full min-w-0">
+            <option value="">Quelle unité ? (section {v.offre?.section || '—'})</option>
+            {libres.map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom}{u.au_pae ? ' · à mon programme' : ''}</option>)}
+          </select>
+          <div className="grid grid-cols-2 gap-2">
+            {['va', 'vae'].map(p => (
+              <button key={p} type="button" onClick={() => setPorte(p)} className={`bouton min-w-0 !whitespace-normal !h-auto py-2 leading-tight ${porte === p ? 'bouton-fort' : ''}`}>
+                {p === 'va' ? 'VA — des études réussies' : 'VAE — une expérience'}</button>))}
+          </div>
+          {choisie && (
+            <div className="bloc-etat px-3 py-2 text-sm space-y-1" data-etat={choisie.hors_delai ? 'surveiller' : 'disponible'}>
+              <div><b>Forfait d’analyse : {eur(choisie.prix)}</b> ({choisie.calcul}). Il est dû dès la demande, quelle que soit la décision :
+                l’examen du dossier demande du travail.</div>
+              {choisie.echeance && <div>{choisie.hors_delai
+                ? <>Le délai est dépassé (avant le {jourFr(choisie.echeance)}, RDE art. 28) : la demande risque d’être irrecevable.</>
+                : <>À introduire avant le {jourFr(choisie.echeance)} (RDE art. 28).</>}</div>}
+            </div>)}
+          <button type="button" className="bouton bouton-fort w-full" disabled={!choisie || !porte || enCours}
+            onClick={() => geste('/va/ouvrir', { ue_num: Number(ue), porte }, () => { setUe(''); setPorte(''); })}>
+            Introduire la demande{choisie ? ` — ${eur(choisie.prix)}` : ''}</button>
+        </section>)}
+
+      {demandes.length > 0 && (
+        <button type="button" className="bouton w-full" disabled={enCours || attend}
+          onClick={() => geste('/va/terminer', null, () => setMessage('C’est noté : l’accusé de réception part à votre adresse dans la minute.'))}>
+          J’ai terminé — recevoir l’accusé de réception</button>)}
+    </div>
+  );
+}
+
 /** Choisir son mot de passe : après le lien (première visite, oubli), ou depuis « Mon compte » avec l'actuel. */
 function ChoisirMotDePasse({ avecActuel, nouveauCompte, onFait }) {
   const [actuel, setActuel] = useState('');
@@ -227,6 +358,8 @@ function Espace() {
   const [mdp, setMdp] = useState('');
   const [defi, setDefi] = useState(null);     // { defi, adresse, code, retenir, appareils? }
   const [modeLien, setModeLien] = useState(false);
+  const [modeCandidat, setModeCandidat] = useState(false);
+  const [codeAcces, setCodeAcces] = useState('');
   // Le lien ouvert : reconnaître l'appareil ou non ; au 4e, lequel remplacer ; puis choisir le mot de passe.
   const [lien, setLien] = useState(null);   // { jeton, appareils? }
   const [definir, setDefinir] = useState(null);   // { nouveauCompte }
@@ -285,6 +418,11 @@ function Espace() {
     }
   };
 
+  const entrerCandidat = async ev => {
+    ev.preventDefault(); setErreur(null); setHorsBe(null);
+    try { const j = await appel('POST', '/candidat', { email: ident.trim(), code: codeAcces }); setCodeAcces(''); entrer(j.token); setFace('va'); }
+    catch (e) { echec(e); }
+  };
   const demanderLien = async ev => {
     ev.preventDefault();
     if (!ident.trim()) return;
@@ -356,7 +494,20 @@ function Espace() {
   if (!connecte) {
     return (
       <Cadre horsBe={horsBe} erreur={erreur}>
-        {!modeLien ? (
+        {modeCandidat ? (
+          <form onSubmit={entrerCandidat} className="bg-white border border-slate-200 rounded-carte p-5 space-y-3">
+            <h1 className="text-lg font-bold text-iip-texte flex items-center gap-2"><IconKey size={18} /> Pas encore d’adresse de l’institut</h1>
+            <p className="text-sm text-slate-600">Votre dossier vient d’être ouvert : un <b>code d’accès</b> vous a été envoyé à votre adresse
+              privée. Il ouvre votre demande de valorisation et vos documents, jusqu’à ce que vous receviez votre adresse de l’institut.</p>
+            <input value={ident} onChange={e => setIdent(e.target.value)} placeholder="Votre adresse privée" autoComplete="email"
+              className="controle w-full" autoFocus />
+            <input value={codeAcces} onChange={e => setCodeAcces(e.target.value.toUpperCase())} placeholder="Code d’accès : XXXXX-XXXXX" autoComplete="one-time-code"
+              className="controle w-full tracking-widest" />
+            <button type="submit" className="bouton bouton-fort w-full" disabled={!ident.trim() || codeAcces.replace(/[^A-Z0-9]/g, '').length < 10}>Entrer</button>
+            <p className="text-xs text-slate-500">Code perdu ou échu ? Le secrétariat peut vous en envoyer un nouveau.</p>
+            <button type="button" className="text-second text-iip-blue underline" onClick={() => { setModeCandidat(false); setErreur(null); }}>J’ai mon adresse de l’institut</button>
+          </form>
+        ) : !modeLien ? (
           <form onSubmit={seConnecter} className="bg-white border border-slate-200 rounded-carte p-5 space-y-3">
             <h1 className="text-lg font-bold text-iip-texte flex items-center gap-2"><IconLock size={18} /> Mon espace étudiant</h1>
             <p className="text-sm text-slate-600">Vos résultats délibérés, vos documents, vos accusés de réception.</p>
@@ -367,6 +518,8 @@ function Espace() {
             <button type="submit" className="bouton bouton-fort w-full" disabled={!ident.trim() || !mdp}>Entrer</button>
             <button type="button" className="text-second text-iip-blue underline" onClick={() => { setModeLien(true); setErreur(null); }}>
               Première visite, ou mot de passe oublié ?</button>
+            <button type="button" className="block text-second text-iip-blue underline" onClick={() => { setModeCandidat(true); setErreur(null); setIdent(''); }}>
+              Pas encore d’adresse de l’institut ? Entrer avec mon code d’accès</button>
           </form>
         ) : (
           <form onSubmit={demanderLien} className="bg-white border border-slate-200 rounded-carte p-5 space-y-3">
@@ -387,11 +540,12 @@ function Espace() {
 
   const nom = d ? `${String(d.etudiant.nom || '').toUpperCase()} ${d.etudiant.prenom || ''}` : '';
   const aSigner = d ? d.documents.filter(x => !x.signe_le).length + d.reglements.filter(x => !x.signe_le).length : 0;
-  const FACES = [['resultats', 'Mes résultats', IconCertificate], ['documents', 'Mes documents', IconFileText], ['reglements', 'Règlements', IconBook], ['compte', 'Mon compte', IconUserCircle]];
+  const FACES = d?.candidat ? [['va', 'Valorisation', IconAward], ['documents', 'Mes documents', IconFileText]]
+    : [['resultats', 'Mes résultats', IconCertificate], ['documents', 'Mes documents', IconFileText], ['va', 'Valorisation', IconAward], ['reglements', 'Règlements', IconBook], ['compte', 'Mon compte', IconUserCircle]];
 
   return (
     <div className="min-h-screen bg-slate-100">
-      <Tete sous={d ? `${nom} · ${d.etudiant.matricule || ''}` : '…'} onQuitter={quitter} />
+      <Tete sous={d ? [nom, d.etudiant.matricule].filter(Boolean).join(' · ') : '…'} onQuitter={quitter} />
       <div className="max-w-[860px] mx-auto px-4 py-6 space-y-4">
         {erreur && <div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">{erreur}</div>}
         {aSigner > 0 && <div className="bloc-etat px-3 py-2 text-sm" data-etat="surveiller">{aSigner} pièce(s) attendent votre accusé de réception.</div>}
@@ -451,6 +605,9 @@ function Espace() {
               </div>))}
           </div>) : <p className="text-sm text-slate-500">Aucun règlement à lire pour l’instant.</p>)}
 
+        {d?.candidat && <div className="bloc-etat px-3 py-2 text-sm" data-etat="disponible">Accès par code, jusqu’au {jourFr(d.candidat.jusqu_au)} ou
+          jusqu’à votre adresse de l’institut : votre demande de valorisation et vos documents.</div>}
+        {face === 'va' && <MesValorisations onErreur={echec} />}
         {face === 'compte' && <div className="space-y-4">
           <ChoisirMotDePasse avecActuel />
           <h2 className="titre-carte flex items-center gap-2"><IconDevices size={16} /> Mes appareils</h2>

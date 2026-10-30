@@ -167,6 +167,7 @@ export function calculerFrais(etudId, annee) {
   return {
     annee, bareme: b,
     forfait_va: va,
+    fi_par_ue: Object.fromEntries(fiParUE),   // frais d'inscription de chaque unité : le prix d'une VA s'en déduit
     total_hors_va: total,
     periodes,
     droit_inscription: droit,

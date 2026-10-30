@@ -3090,13 +3090,12 @@ app.use((req, res, next) => {
   next();
 });
 
-// LA PORTE DES ÉTUDIANTS (VA en ligne, 3 octobre 2026) : publique, avec son
-// propre jeton — aucune route du personnel ne l'accepte.
-app.use('/api/portail-va', (await import('./routes/portailVA.js')).default);
+// LA DEMANDE DE VA EN LIGNE (3 octobre 2026) A QUITTÉ LUCIE en 3.1.514 : elle vit dans le portail des étudiants,
+// et Lucie relève les gestes (lib/portailValorisation.js). /api/portail-va n'existe plus.
 // L'ESPACE DE L'ÉTUDIANT N'EST PLUS ICI (3.1.477, le mur) : il vit dans le portail (dossier portail/,
 // etudiants.lucie-iip.be), sa base et ses clés à lui. Lucie n'en sert qu'une lecture pour la fiche.
 {
-  const { suiviPortail, planifierPortail, poserException, retirerException } = await import('./lib/portailSync.js');
+  const { suiviPortail, planifierPortail, poserException, retirerException, deposerBientot } = await import('./lib/portailSync.js');
   const { authRequired: exigerCompte, roleRequired: exigerRole } = await import('./middleware/auth.js');
   const { nomEcranDuCompte } = await import('./lib/nom.js');
   const qui = req => nomEcranDuCompte(req.user?.nom, req.user?.email) || '?';
@@ -3104,6 +3103,13 @@ app.use('/api/portail-va', (await import('./routes/portailVA.js')).default);
   // L'accès hors de Belgique : secrétariat et direction (la coordination ne l'ouvre pas).
   app.post('/api/portail-suivi/:id/exception', exigerCompte, exigerRole('admin', 'editeur'), (req, res) => {
     const r = poserException(Number(req.params.id), req.body || {}, qui(req));
+    res.status(r.erreur ? 400 : 200).json(r.erreur ? { error: r.erreur } : r);
+  });
+  // Le code d'accès du candidat (sans adresse de l'institut) : l'envoyer, ou le renouveler — secrétariat et direction.
+  app.post('/api/portail-suivi/:id/code-candidat', exigerCompte, exigerRole('admin', 'editeur'), async (req, res) => {
+    const { envoyerCodeCandidat } = await import('./lib/portailValorisation.js');
+    const r = await envoyerCodeCandidat(Number(req.params.id), qui(req), process.env.PORTAIL_URL_PUBLIQUE || 'https://etudiants.lucie-iip.be');
+    if (!r.erreur) deposerBientot();
     res.status(r.erreur ? 400 : 200).json(r.erreur ? { error: r.erreur } : r);
   });
   app.delete('/api/portail-suivi/:id/exception', exigerCompte, exigerRole('admin', 'editeur'),

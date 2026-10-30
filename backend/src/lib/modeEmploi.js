@@ -10,7 +10,7 @@
  *   savoir — ce qu'il faut savoir : les règles qui bloquent ou qui surprennent.
  * Il explique le travail, pas l'informatique (CLAUDE.md, § 7). La version décrite se dit en tête.
  */
-export const VERSION_DECRITE = '3.1.513';
+export const VERSION_DECRITE = '3.1.514';
 
 export const RUBRIQUES = [
   {
@@ -618,7 +618,7 @@ export const RUBRIQUES = [
         savoir: [
           "Sur la ligne d'un étudiant du registre : « Ajouter une ou plusieurs unités à valoriser », ou « Retirer cet étudiant du registre pour cette année ».",
           "Trois natures de demande : dispense complète, dispense partielle, et admission (capacités préalables, sans unité).",
-          "Les étudiants peuvent aussi demander en ligne, sur la page publique /demande-va de Lucie : matricule, lien envoyé à l'adresse du dossier (valable 30 minutes), unités demandées, pièces. Ils reçoivent un accusé de réception. Ils peuvent compléter tant que la recevabilité n'est pas posée.",
+          "Les étudiants demandent aussi en ligne, depuis leur espace étudiant (onglet Valorisation) : une demande VA ou VAE par unité de leur section, le prix annoncé avant l'envoi, leurs pièces. Elle arrive ici « en ligne », datée du jour, avec ses pièces nommées ; ils complètent tant que la recevabilité n'est pas posée. L'admission reste au secrétariat.",
         ],
         images: [
           { src: "/guide/valorisation-registre.png", legende: "Le registre : une ligne par étudiant, une frise par unité ; [[Unités|IconPlus]] ajoute des unités à valoriser, [[Délibérer]] ouvre la séance sur lui." },
@@ -930,7 +930,7 @@ export const RUBRIQUES = [
   },
   {
     id: 'espace', pour: 'sec coo dir', titre: "L'espace de l'étudiant", icone: 'IconDeviceMobile',
-    resume: "Le site à part où l'étudiant retrouve ses résultats et ses documents, en accuse réception, et où chacun peut vérifier qu'une pièce est authentique.",
+    resume: "Le site à part où l'étudiant retrouve ses résultats et ses documents, en accuse réception, demande une valorisation, et où chacun peut vérifier qu'une pièce est authentique.",
     points: [
       {
         titre: "Comment l'étudiant y entre",
@@ -946,6 +946,35 @@ export const RUBRIQUES = [
           { src: "/guide/portail-entree.png", legende: "L'entrée (données d'essai) : adresse de l'institut et mot de passe ; la première fois, « Première visite, ou mot de passe oublié ? ».", etroite: true },
           { src: "/guide/portail-mot-de-passe.png", legende: "Après le lien : choisir son mot de passe, dix caractères au moins.", etroite: true },
           { src: "/guide/portail-code.png", legende: "Sur un appareil non reconnu : le code reçu à l'adresse d'école, et la case pour reconnaître l'appareil.", etroite: true },
+        ],
+      },
+      {
+        titre: "La demande de valorisation en ligne",
+        texte: "Dans son espace, onglet « Valorisation » : l'étudiant choisit une unité de sa section, VA (des études réussies) ou VAE (une expérience), voit le forfait d'analyse et l'échéance du RDE, puis [[Introduire la demande|fort]]. Il dépose ses pièces (« Quelle pièce ? », puis [[Choisir le fichier|IconUpload]]), suit la frise — reçue, recevable, avis, décision, notifiée — et reçoit un accusé de réception quand il a terminé.",
+        savoir: [
+          "Chaque geste arrive dans Lucie en quelques secondes, au registre des valorisations, au nom de l'étudiant « (étudiant, en ligne) ».",
+          "Il complète ou retire tant que la recevabilité n'est pas posée ; ensuite, il s'adresse au secrétariat.",
+          "Il ne lit ni l'avis du chargé de cours ni une décision avant sa notification.",
+          "L'admission ne se demande pas en ligne : elle reste au secrétariat. L'ancienne page /demande-va de Lucie renvoie vers l'espace.",
+        ],
+        images: [
+          { src: "/guide/portail-va-demande.png", legende: "Nouvelle demande (données d'essai) : l'unité, VA ou VAE, le forfait d'analyse et l'échéance, puis « Introduire la demande ».", etroite: true },
+          { src: "/guide/portail-va-suivi.png", legende: "La demande introduite : sa frise, ses pièces, « Retirer cette demande » tant qu'elle n'est pas examinée.", etroite: true },
+        ],
+      },
+      {
+        titre: "Le candidat, sans adresse de l'institut",
+        pour: "sec coo dir",
+        ou: "Fiche → Suivi → bloc « Pas encore d'adresse de l'institut ».",
+        texte: "Un étudiant inscrit qui n'a pas encore son adresse de l'institut reçoit un code d'accès à son adresse privée. Il entre par « Pas encore d'adresse de l'institut ? Entrer avec mon code d'accès » et n'y voit que sa demande de valorisation et ses documents. Le code vaut jusqu'à ce que son adresse d'institut soit encodée, et au plus 60 jours.",
+        savoir: [
+          "Le code part tout seul aux dossiers créés depuis la mise en service ; pour les autres, ou quand il est perdu ou échu : [[Envoyer un code d'accès]] (secrétariat et direction).",
+          "Envoyer un nouveau code annule le précédent.",
+          "Dès que l'adresse de l'institut est encodée, il entre comme les autres : lien de première visite, puis son mot de passe.",
+        ],
+        images: [
+          { src: "/guide/portail-candidat.png", legende: "L'entrée du candidat : son adresse privée et le code reçu.", etroite: true },
+          { src: "/guide/fiche-code-candidat.png", legende: "Fiche → Suivi : le code envoyé, sa validité, et [[Envoyer un nouveau code]]." },
         ],
       },
       {

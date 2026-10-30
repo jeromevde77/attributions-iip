@@ -85,6 +85,16 @@ db.exec(`
     echecs INTEGER NOT NULL DEFAULT 0, bloque_jusqu_a TEXT);
   -- Les ouvertures hors de Belgique, déposées par Lucie (remplacées à chaque dépôt).
   CREATE TABLE IF NOT EXISTS exception (etudiant_id INTEGER PRIMARY KEY, jusqu_au TEXT NOT NULL);
+  -- LE CANDIDAT (3.1.514) : pas encore d'adresse d'institut ; un code d'accès temporaire, fabriqué et envoyé par Lucie
+  -- à son adresse privée, déposé ici en empreinte. Il ouvre la demande de VA et les documents, rien d'autre.
+  CREATE TABLE IF NOT EXISTS candidat (etudiant_id INTEGER PRIMARY KEY, email_prive TEXT NOT NULL, code_hash TEXT NOT NULL, jusqu_au TEXT NOT NULL);
+  -- LA VALORISATION EN LIGNE (3.1.514) : ce que Lucie montre (l'offre, l'état des demandes) et les gestes de l'étudiant,
+  -- que Lucie relève, juge et écrit chez elle. Une pièce ne vit ici que jusqu'au relevé.
+  CREATE TABLE IF NOT EXISTS va_lot (etudiant_id INTEGER PRIMARY KEY, offre TEXT, etat TEXT, maj_le TEXT);
+  CREATE TABLE IF NOT EXISTS va_geste (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL,
+    type TEXT NOT NULL CHECK (type IN ('ouvrir','piece','retirer','retirer_piece','terminer')), ue_num INTEGER, porte TEXT,
+    fichier_id INTEGER, nature TEXT, nom TEXT, taille INTEGER, contenu BLOB, cree_le TEXT NOT NULL DEFAULT (datetime('now')),
+    releve_le TEXT, erreur TEXT, vu_le TEXT);
   CREATE TRIGGER IF NOT EXISTS accuse_signe_fige BEFORE UPDATE OF presente_le, signe_le, objet_id, etudiant_id ON accuse
     WHEN OLD.signe_le IS NOT NULL BEGIN SELECT RAISE(ABORT, 'Un accusé signé ne se modifie pas.'); END;
   CREATE TRIGGER IF NOT EXISTS accuse_sans_effacement BEFORE DELETE ON accuse
@@ -112,6 +122,15 @@ function tropDEssais(ip, plafond = 30) {
 }
 
 pub.get('/api/portail/sante', (req, res) => res.json({ ok: true, geo: etatGeo() }));
+
+// ── Le type réel d'une pièce : ses premiers octets (Lucie le vérifie encore au relevé) ──
+function typeReel(b) {
+  if (!b || b.length < 4) return false;
+  const hex = b.toString('hex', 0, 8), t4 = b.toString('latin1', 0, 4);
+  return t4 === '%PDF' || hex.startsWith('ffd8ff') || hex.startsWith('89504e47') || t4 === 'GIF8'
+    || (t4 === 'RIFF' && b.toString('latin1', 8, 12) === 'WEBP') || b.toString('latin1', 4, 8) === 'ftyp'
+    || hex.startsWith('49492a00') || hex.startsWith('4d4d002a') || hex.startsWith('504b0304') || hex.startsWith('d0cf11e0');
+}
 
 // ── Le mot de passe ──
 const hacher = mdp => { const sel = crypto.randomBytes(16); return `scrypt$${sel.toString('base64')}$${crypto.scryptSync(String(mdp), sel, 64).toString('base64')}`; };
@@ -261,6 +280,27 @@ pub.post('/api/portail/connexion/code', (req, res) => {
   res.json({ token: session(e.id) });
 });
 
+/** LE CANDIDAT : adresse privée + code d'accès temporaire (envoyé par Lucie). Pas de mot de passe, pas d'appareil :
+ *  le code vaut jusqu'à l'adresse d'institut, 60 jours au plus. */
+const echecsCandidat = new Map();
+pub.post('/api/portail/candidat', (req, res) => {
+  if (tropDEssais(ipDe(req), 30)) return res.status(429).json({ error: 'Trop de tentatives. Réessayez dans une heure.' });
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  const code = String(req.body?.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/^(.{5})/, '$1-');
+  const c = email && db.prepare("SELECT * FROM candidat WHERE lower(email_prive) = ? AND jusqu_au >= date('now')").get(email);
+  if (!permis(req, c?.etudiant_id)) return refuserHorsBelgique(res);
+  const n = (echecsCandidat.get(c?.etudiant_id) || []).filter(t => Date.now() - t < 15 * 60e3);
+  if (c && n.length >= 10) return res.status(429).json({ error: 'Trop d’essais : réessayez dans un quart d’heure.' });
+  const bon = verifierMdp(code, c?.code_hash);
+  if (!c || !bon || !db.prepare('SELECT 1 FROM etudiant WHERE id = ?').get(c.etudiant_id)) {
+    if (c) echecsCandidat.set(c.etudiant_id, [...n, Date.now()]);
+    return res.status(401).json({ error: 'Adresse ou code incorrect, ou code échu : le secrétariat peut vous en envoyer un nouveau.' });
+  }
+  echecsCandidat.delete(c.etudiant_id);
+  db.prepare('INSERT INTO entree (etudiant_id, ip) VALUES (?, ?)').run(c.etudiant_id, ipDe(req));
+  res.json({ token: jwt.sign({ scope: 'portail', etudiant_id: c.etudiant_id, candidat: true }, SECRET, { expiresIn: '2h' }) });
+});
+
 pub.post('/api/portail/lien', (req, res) => {
   const reponse = { ok: true, message: "Si cette adresse ou ce matricule est connu, un lien d'accès part dans la minute vers votre adresse de l'institut. Il est valable 30 minutes et ne sert qu'une fois." };
   if (tropDEssais(ipDe(req))) return res.status(429).json({ error: 'Trop de demandes. Réessayez dans une heure.' });
@@ -301,7 +341,12 @@ function connecte(req, res, next) {
     if (!permis(req, e.id)) return refuserHorsBelgique(res);
     // Un jeton venu du lien ne sert qu'à choisir le mot de passe.
     if (p.definir && req.path !== '/api/portail/mot-de-passe') return res.status(403).json({ definir: true, error: 'Choisissez d’abord votre mot de passe.' });
-    req.etudiant = e; req.peutDefinir = !!p.definir; next();
+    if (p.candidat) {
+      // Le code vaut tant que Lucie le dépose : adresse d'institut reçue, ou 60 jours passés, il disparaît.
+      if (!db.prepare("SELECT 1 FROM candidat WHERE etudiant_id = ? AND jusqu_au >= date('now')").get(e.id)) throw new Error('échu');
+      if (!/^\/api\/portail\/(moi|va|documents\/)/.test(req.path)) return res.status(403).json({ error: 'Pas encore accessible avec un code d’accès.' });
+    }
+    req.etudiant = e; req.peutDefinir = !!p.definir; req.candidat = !!p.candidat; next();
   } catch { res.status(401).json({ error: 'Session expirée. Reconnectez-vous.' }); }
 }
 
@@ -357,9 +402,10 @@ pub.get('/api/portail/moi', connecte, (req, res) => {
     return { cle: r.cle, titre: r.titre, numero: r.numero, publiee_le: r.publiee_le, version_id: r.version_id,
       signe_le: s?.signe_le || null, presente_le: accuseDe(e, 'reglement', r.version_id).presente_le || null };
   });
-  res.json({ etudiant: { nom: e.nom, prenom: e.prenom, email: e.email_ecole,
+  const cand = req.candidat ? db.prepare('SELECT jusqu_au FROM candidat WHERE etudiant_id = ?').get(e.id) : null;
+  res.json({ candidat: cand ? { jusqu_au: cand.jusqu_au } : null, etudiant: { nom: e.nom, prenom: e.prenom, email: e.email_ecole,
     matricule: db.prepare('SELECT code FROM matricule WHERE etudiant_id = ? LIMIT 1').get(e.id)?.code || '' },
-    resultats: [...parAnnee].map(([annee, ues]) => ({ annee, ues })), documents, reglements });
+    resultats: cand ? [] : [...parAnnee].map(([annee, ues]) => ({ annee, ues })), documents, reglements: cand ? [] : reglements });
 });
 
 function presenter(e, type, id, req) {
@@ -455,6 +501,79 @@ pub.post('/api/portail/accuser', connecte, (req, res) => {
   res.json({ ok: true, ...accuseDe(e, type, id) });
 });
 
+// ── LA VALORISATION EN LIGNE (3.1.514) ──
+const lotVA = id => {
+  const l = db.prepare('SELECT * FROM va_lot WHERE etudiant_id = ?').get(id);
+  return l ? { offre: JSON.parse(l.offre || 'null'), etat: JSON.parse(l.etat || '[]'), maj_le: l.maj_le } : null;
+};
+const gesteVA = (req, res, champs) => {
+  if (db.prepare(`SELECT COUNT(*) n FROM va_geste WHERE etudiant_id = ? AND cree_le > datetime('now', '-1 hour')`).get(req.etudiant.id).n >= 80) {
+    res.status(429).json({ error: 'Trop de gestes en une heure. Réessayez plus tard.' }); return false;
+  }
+  db.prepare(`INSERT INTO va_geste (etudiant_id, type, ue_num, porte, fichier_id, nature, nom, taille, contenu) VALUES (?,?,?,?,?,?,?,?,?)`)
+    .run(req.etudiant.id, champs.type, champs.ue_num ?? null, champs.porte ?? null, champs.fichier_id ?? null, champs.nature ?? null,
+      champs.nom ?? null, champs.contenu?.length ?? null, champs.contenu ?? null);
+  return true;
+};
+/** Ce que l'étudiant voit : l'offre et l'état déposés par Lucie, ses gestes pas encore relevés, et les refus. */
+pub.get('/api/portail/va', connecte, (req, res) => {
+  const id = req.etudiant.id;
+  const lot = lotVA(id);
+  const enAttente = db.prepare('SELECT id, type, ue_num, porte, nature, nom, cree_le FROM va_geste WHERE etudiant_id = ? AND releve_le IS NULL ORDER BY id').all(id);
+  const refus = db.prepare(`SELECT id, type, ue_num, nom, erreur, releve_le FROM va_geste WHERE etudiant_id = ? AND erreur IS NOT NULL AND vu_le IS NULL ORDER BY id`).all(id);
+  res.json({ pret: !!lot?.offre, ...(lot || { offre: null, etat: [] }), en_attente: enAttente, refus });
+});
+pub.post('/api/portail/va/refus-lus', connecte, (req, res) => {
+  db.prepare("UPDATE va_geste SET vu_le = datetime('now') WHERE etudiant_id = ? AND erreur IS NOT NULL AND vu_le IS NULL").run(req.etudiant.id);
+  res.json({ ok: true });
+});
+const demandeDe = (lot, ue) => (lot?.etat || []).find(d => Number(d.ue_num) === Number(ue));
+pub.post('/api/portail/va/ouvrir', connecte, (req, res) => {
+  const lot = lotVA(req.etudiant.id), ue = Number(req.body?.ue_num), porte = String(req.body?.porte || '').toLowerCase();
+  if (!['va', 'vae'].includes(porte)) return res.status(400).json({ error: 'Choisissez VA ou VAE.' });
+  if (!(lot?.offre?.unites || []).some(u => Number(u.ue_num) === ue)) return res.status(400).json({ error: 'Cette unité ne peut pas être demandée en ligne.' });
+  if (demandeDe(lot, ue) || db.prepare(`SELECT 1 FROM va_geste WHERE etudiant_id = ? AND type = 'ouvrir' AND ue_num = ? AND releve_le IS NULL`).get(req.etudiant.id, ue)) {
+    return res.status(409).json({ error: 'Une demande existe déjà pour cette unité.' });
+  }
+  if (gesteVA(req, res, { type: 'ouvrir', ue_num: ue, porte })) res.json({ ok: true });
+});
+const modifiable = (req, res, ue) => {
+  const d = demandeDe(lotVA(req.etudiant.id), ue);
+  const enCours = db.prepare(`SELECT 1 FROM va_geste WHERE etudiant_id = ? AND type = 'ouvrir' AND ue_num = ? AND releve_le IS NULL`).get(req.etudiant.id, Number(ue));
+  if (!d && !enCours) { res.status(404).json({ error: 'Demande introuvable.' }); return false; }
+  if (d && !d.modifiable) { res.status(409).json({ error: 'Le secrétariat a déjà examiné cette demande : pour la compléter, adressez-vous à lui.' }); return false; }
+  return true;
+};
+pub.post('/api/portail/va/piece', connecte, express.raw({ type: 'application/octet-stream', limit: '25mb' }), (req, res) => {
+  const ue = Number(req.query.ue_num);
+  if (!modifiable(req, res, ue)) return;
+  const b = Buffer.isBuffer(req.body) ? req.body : null;
+  if (!b || !b.length) return res.status(400).json({ error: 'Aucun fichier reçu.' });
+  if (!typeReel(b)) return res.status(400).json({ error: "Ce fichier n'est pas un PDF, une image ou un document Word valable." });
+  const enAttente = db.prepare(`SELECT COALESCE(SUM(taille), 0) t FROM va_geste WHERE etudiant_id = ? AND releve_le IS NULL`).get(req.etudiant.id).t;
+  if (enAttente + b.length > 120 * 1024 * 1024) return res.status(429).json({ error: 'Trop de pièces en attente : patientez une minute.' });
+  if (gesteVA(req, res, { type: 'piece', ue_num: ue, nature: String(req.query.nature || 'AUT').slice(0, 8), nom: String(req.query.nom || '').slice(0, 150), contenu: b })) res.json({ ok: true });
+});
+pub.use('/api/portail/va/piece', (err, req, res, next) => (err?.type === 'entity.too.large'
+  ? res.status(413).json({ error: 'Fichier trop lourd (25 Mo au plus).' }) : next(err)));
+pub.post('/api/portail/va/retirer', connecte, (req, res) => {
+  const ue = Number(req.body?.ue_num);
+  if (!modifiable(req, res, ue)) return;
+  if (gesteVA(req, res, { type: 'retirer', ue_num: ue })) res.json({ ok: true });
+});
+pub.post('/api/portail/va/retirer-piece', connecte, (req, res) => {
+  const ue = Number(req.body?.ue_num), f = Number(req.body?.fichier_id);
+  if (!modifiable(req, res, ue)) return;
+  if (!(demandeDe(lotVA(req.etudiant.id), ue)?.pieces || []).some(p => p.id === f && p.a_moi)) return res.status(404).json({ error: 'Pièce introuvable (seules les vôtres se retirent).' });
+  if (gesteVA(req, res, { type: 'retirer_piece', ue_num: ue, fichier_id: f })) res.json({ ok: true });
+});
+pub.post('/api/portail/va/terminer', connecte, (req, res) => {
+  if (!(lotVA(req.etudiant.id)?.etat || []).length && !db.prepare(`SELECT 1 FROM va_geste WHERE etudiant_id = ? AND type = 'ouvrir' AND releve_le IS NULL`).get(req.etudiant.id)) {
+    return res.status(400).json({ error: 'Aucune demande à confirmer.' });
+  }
+  if (gesteVA(req, res, { type: 'terminer' })) res.json({ ok: true });
+});
+
 /* LA VÉRIFICATION D'UNE PIÈCE (3.1.511) — publique, sans compte : qui scanne le QR voit ce que l'Institut a émis sous
    cette référence, pour le comparer au papier qu'il a en main. Une référence inconnue : l'Institut ne l'a jamais émise. */
 pub.get('/api/portail/verifier/:ref', (req, res) => {
@@ -487,6 +606,14 @@ int.post('/interne/etudiants', (req, res) => {
       if (!Number(e.id) || !String(e.email_ecole || '').includes('@')) continue;
       ie.run(Number(e.id), String(e.nom || ''), String(e.prenom || ''), String(e.email_ecole));
       for (const m of e.matricules || []) if (m) im.run(String(m).trim(), Number(e.id));
+    }
+    // Les candidats : sans adresse d'institut ; ils n'entrent que par leur code.
+    db.exec('DELETE FROM candidat');
+    const ic = db.prepare('INSERT OR REPLACE INTO candidat (etudiant_id, email_prive, code_hash, jusqu_au) VALUES (?,?,?,?)');
+    for (const c of Array.isArray(req.body?.candidats) ? req.body.candidats : []) {
+      if (!Number(c.id) || !String(c.email_prive || '').includes('@') || !String(c.code_hash || '').startsWith('scrypt$')) continue;
+      ie.run(Number(c.id), String(c.nom || ''), String(c.prenom || ''), '');
+      ic.run(Number(c.id), String(c.email_prive), String(c.code_hash), String(c.jusqu_au || ''));
     }
   })();
   res.json({ ok: true, n: l.length });
@@ -532,6 +659,20 @@ int.post('/interne/exceptions', (req, res) => {
   res.json({ ok: true, n: l.length });
 });
 
+/* L'offre et l'état des demandes de valorisation : par lot d'étudiants (ceux qui sont venus), sans rien retirer. */
+int.post('/interne/va', (req, res) => {
+  const l = Array.isArray(req.body?.lots) ? req.body.lots : [];
+  const i = db.prepare(`INSERT INTO va_lot (etudiant_id, offre, etat, maj_le) VALUES (?,?,?, datetime('now'))
+    ON CONFLICT(etudiant_id) DO UPDATE SET offre = excluded.offre, etat = excluded.etat, maj_le = excluded.maj_le`);
+  db.transaction(() => { for (const x of l) if (Number(x.etudiant_id)) i.run(Number(x.etudiant_id), JSON.stringify(x.offre ?? null), JSON.stringify(x.etat ?? [])); })();
+  res.json({ ok: true, n: l.length });
+});
+int.get('/interne/va/piece/:id', (req, res) => {
+  const g = db.prepare(`SELECT contenu FROM va_geste WHERE id = ? AND type = 'piece' AND releve_le IS NULL`).get(Number(req.params.id));
+  if (!g?.contenu) return res.status(404).end();
+  res.setHeader('Content-Type', 'application/octet-stream'); res.send(g.contenu);
+});
+
 int.get('/interne/documents/connus', (req, res) => res.json({ ids: db.prepare('SELECT id FROM document').all().map(x => x.id) }));
 int.post('/interne/documents', (req, res) => {
   const l = Array.isArray(req.body?.documents) ? req.body.documents : [];
@@ -553,6 +694,8 @@ int.get('/interne/releve', (req, res) => {
     connexions: db.prepare('SELECT id, etudiant_id, utilise_le, ip FROM jeton WHERE utilise_le IS NOT NULL AND releve_le IS NULL LIMIT 500').all(),
     // Les entrées depuis un appareil reconnu : des connexions aussi, que la fiche doit voir.
     entrees: db.prepare('SELECT id, etudiant_id, le AS utilise_le, ip FROM entree WHERE releve_le IS NULL LIMIT 500').all(),
+    // Les gestes de valorisation, dans l'ordre (la pièce se lit à part, /interne/va/piece/:id).
+    va: db.prepare('SELECT id, etudiant_id, type, ue_num, porte, fichier_id, nature, nom, taille FROM va_geste WHERE releve_le IS NULL ORDER BY id LIMIT 50').all(),
   });
 });
 int.post('/interne/acquitter', (req, res) => {
@@ -563,6 +706,10 @@ int.post('/interne/acquitter', (req, res) => {
     for (const id of ids('accuses')) db.prepare("UPDATE accuse SET releve_le = datetime('now') WHERE id = ?").run(id);
     for (const id of ids('connexions')) db.prepare("UPDATE jeton SET releve_le = datetime('now') WHERE id = ?").run(id);
     for (const id of ids('entrees')) db.prepare("UPDATE entree SET releve_le = datetime('now') WHERE id = ?").run(id);
+    for (const g of Array.isArray(req.body?.va) ? req.body.va : []) {
+      db.prepare("UPDATE va_geste SET releve_le = datetime('now'), erreur = ?, contenu = NULL WHERE id = ?").run(g.erreur ? String(g.erreur).slice(0, 300) : null, Number(g.id));
+    }
+    db.prepare("DELETE FROM va_geste WHERE releve_le < datetime('now', '-30 days')").run();
   })();
   res.json({ ok: true });
 });

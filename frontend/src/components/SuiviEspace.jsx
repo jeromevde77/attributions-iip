@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { IconWorld } from '@tabler/icons-react';
+import { IconWorld, IconKey } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { useDroits } from '../lib/droits.js';
 
@@ -19,6 +19,7 @@ export default function SuiviEspace({ id }) {
   if (!espace) return null;
   const jour = d => String(d || '').slice(0, 10).split('-').reverse().join('/');
   return <>
+    {espace.actif && espace.sans_adresse_ecole && <CodeCandidat id={id} candidat={espace.candidat} onChange={charger} />}
     {espace.actif && <AccesHorsBelgique id={id} exception={espace.exception} onChange={charger} />}
     <div className="bloc-etat px-3 py-2 text-second mb-3 space-y-1" data-etat="neutre">
       <div className="font-semibold text-iip-texte">Son espace étudiant
@@ -74,6 +75,41 @@ function AccesHorsBelgique({ id, exception, onChange }) {
           <button type="button" className="bouton bouton-fort" disabled={!jusqu || !motif.trim()} onClick={() => envoyer('POST', { jusqu_au: jusqu, motif })}>Enregistrer</button>
           <button type="button" className="bouton" onClick={() => { setOuvert(false); setErreur(null); }}>Annuler</button>
         </div>)}
+      {erreur && <div className="text-red-700">{erreur}</div>}
+    </div>
+  );
+}
+
+/* LE CODE D'ACCÈS DU CANDIDAT (3.1.514, Charles : « dès qu'un étudiant est inscrit dans Lucie, il reçoit un code d'accès
+   temporaire à son dossier jusqu'à avoir une adresse officielle »). Envoyé d'office aux dossiers créés depuis la mise en
+   service ; ici, l'envoyer ou le renouveler (adresse privée, 60 jours). */
+function CodeCandidat({ id, candidat, onChange }) {
+  const { passe } = useDroits();
+  const [erreur, setErreur] = useState(null);
+  const [enCours, setEnCours] = useState(false);
+  const jour = d => String(d || '').slice(0, 10).split('-').reverse().join('/');
+  const valable = candidat && candidat.jusqu_au >= new Date().toISOString().slice(0, 10);
+  const envoyer = async () => {
+    setErreur(null); setEnCours(true);
+    try {
+      const r = await fetch(`/api/portail-suivi/${id}/code-candidat`, { method: 'POST', headers: authHeaders() });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
+      onChange?.();
+    } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
+  };
+  return (
+    <div className="bloc-etat px-3 py-2 text-second mb-3 space-y-1" data-etat={valable ? 'disponible' : 'neutre'}>
+      <div className="flex flex-wrap items-center gap-2">
+        <IconKey size={15} className="text-slate-400" />
+        <span className="flex-1 min-w-0">
+          Pas encore d'adresse de l'institut : {valable
+            ? <>son <b>code d'accès</b> vaut jusqu'au {jour(candidat.jusqu_au)} <span className="text-slate-500">(envoyé le {jour(candidat.cree_le)} à {candidat.envoye_a}, par {candidat.par})</span>. Il ouvre sa demande de VA et ses documents.</>
+            : <>{candidat ? <>son code d'accès est <b>échu</b> depuis le {jour(candidat.jusqu_au)}.</> : <>aucun code d'accès à son espace.</>}</>}
+        </span>
+        {passe('admin', 'editeur') && <button type="button" className="bouton" disabled={enCours} onClick={envoyer}>
+          {enCours ? 'Envoi…' : candidat ? 'Envoyer un nouveau code' : "Envoyer un code d'accès"}</button>}
+      </div>
       {erreur && <div className="text-red-700">{erreur}</div>}
     </div>
   );

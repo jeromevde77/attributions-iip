@@ -22,6 +22,7 @@ import { copieDeLEnvoi } from '../routes/envois.js';
 import { deposerDOffice } from './depotEspace.js';
 import { piecesATransmettre, marquerTransmises } from './authentique.js';
 import { derniereVersion, versionReference } from '../routes/documentation.js';
+import { offreVA, etatVA, appliquerGeste, accuserReception, codesDOffice, candidatsValides, candidatDe, anneeActive as anneeVA } from './portailValorisation.js';
 
 const URL_INTERNE = () => (process.env.PORTAIL_INTERNE_URL || '').replace(/\/$/, '');
 const JETON = () => process.env.PORTAIL_JETON || '';
@@ -48,6 +49,12 @@ export function migrerPortail(dbx = db) {
       jusqu_au TEXT NOT NULL, motif TEXT NOT NULL, par TEXT, le TEXT NOT NULL DEFAULT (datetime('now')),
       retire_le TEXT, retire_par TEXT);
   `);
+}
+
+async function lireBinaire(chemin) {
+  const r = await fetch(`${URL_INTERNE()}${chemin}`, { headers: { 'X-Portail-Jeton': JETON() }, signal: AbortSignal.timeout(60_000) });
+  if (!r.ok) return null;
+  return Buffer.from(await r.arrayBuffer());
 }
 
 async function appel(methode, chemin, corps) {
@@ -122,10 +129,31 @@ function reglementsEtudiants() {
   } catch { return []; }
 }
 
+/** Un étudiant que le portail connaît : visible (adresse d'institut) ou candidat dont le code vaut encore. */
+function etudiantDuPortail(id) {
+  const e = db.prepare(`SELECT * FROM etudiant WHERE id = ? AND COALESCE(actif, 1) = 1 AND COALESCE(sortie_statut, '') <> 'archive'`).get(Number(id));
+  if (!e) return null;
+  if (String(e.email_ecole || '').includes('@')) return e;
+  return candidatsValides().some(c => c.id === e.id) ? e : null;
+}
+
+/** L'offre et l'état des valorisations, pour les étudiants nommés (ceux qui sont venus, ou qui viennent d'agir). */
+async function deposerVA(ids) {
+  const annee = anneeVA();
+  const lots = [];
+  for (const id of ids) {
+    const e = etudiantDuPortail(id);
+    if (!e) continue;
+    try { lots.push({ etudiant_id: e.id, offre: offreVA(e, annee), etat: etatVA(e, annee) }); }
+    catch (x) { console.error(`[portail] VA de l'étudiant ${e.id} :`, x.message); }
+  }
+  if (lots.length) await appel('POST', '/interne/va', { lots });
+}
+
 // ── RELEVER ────────────────────────────────────────────────────────────────
 async function relever() {
   const r = await appel('GET', '/interne/releve');
-  const ok = { demandes: [], accuses: [], connexions: [], entrees: [] };
+  const ok = { demandes: [], accuses: [], connexions: [], entrees: [], va: [] };
   const etudiant = id => db.prepare(`SELECT id, prenom, email_ecole FROM etudiant WHERE id = ? AND COALESCE(actif, 1) = 1
     AND COALESCE(sortie_statut, '') <> 'archive' AND email_ecole LIKE '%@%'`).get(Number(id));
   for (const d of r.demandes || []) {
@@ -175,13 +203,36 @@ async function relever() {
   for (const c of r.connexions || []) { ok.connexions.push(c.id); cx.run(Number(c.etudiant_id), String(c.utilise_le || ''), String(c.ip || '').slice(0, 60), Number(c.id)); }
   // Les entrées depuis un appareil reconnu (sans lien) : des connexions aussi ; référence négative, pour ne jamais croiser celles des liens.
   for (const c of r.entrees || []) { ok.entrees.push(c.id); cx.run(Number(c.etudiant_id), String(c.utilise_le || ''), String(c.ip || '').slice(0, 60), -Number(c.id)); }
-  if (ok.demandes.length || ok.accuses.length || ok.connexions.length || ok.entrees.length) await appel('POST', '/interne/acquitter', ok);
+  // LES GESTES DE VALORISATION (3.1.514) : jugés et écrits ici, avec les règles de Lucie ; un refus revient à l'étudiant.
+  const touches = new Set([...(r.connexions || []), ...(r.entrees || [])].map(c => Number(c.etudiant_id)));
+  for (const g of r.va || []) {
+    const e = etudiantDuPortail(g.etudiant_id);
+    let erreur = null;
+    try {
+      if (!e) erreur = 'Votre dossier ne permet pas cette demande en ligne : adressez-vous au secrétariat.';
+      else if (g.type === 'terminer') erreur = await accuserReception(e);
+      else {
+        const contenu = g.type === 'piece' ? await lireBinaire(`/interne/va/piece/${g.id}`) : null;
+        if (g.type === 'piece' && !contenu) erreur = 'La pièce n’a pas pu être reçue : déposez-la à nouveau.';
+        else erreur = appliquerGeste(e, g, contenu);
+      }
+    } catch (x) { console.error('[portail] geste VA :', x.message); erreur = 'Le geste n’a pas pu être enregistré : réessayez, ou adressez-vous au secrétariat.'; }
+    ok.va.push({ id: g.id, erreur });
+    touches.add(Number(g.etudiant_id));
+  }
+  if (ok.demandes.length || ok.accuses.length || ok.connexions.length || ok.entrees.length || ok.va.length) await appel('POST', '/interne/acquitter', ok);
+  // Ce qui vient de changer, ou qui vient d'entrer, voit ses demandes à jour dans les secondes qui suivent.
+  if (touches.size) await deposerVA([...touches]);
 }
 
 // ── DÉPOSER ────────────────────────────────────────────────────────────────
 async function deposer() {
   const etudiants = etudiantsVisibles();
-  await appel('POST', '/interne/etudiants', { etudiants });
+  try { await codesDOffice(URL_PUBLIQUE()); } catch (e) { console.error('[portail] codes des candidats :', e.message); }
+  const candidats = candidatsValides().map(c => ({ id: c.id, nom: c.nom, prenom: c.prenom, email_prive: c.email_perso, code_hash: c.code_hash, jusqu_au: c.jusqu_au }));
+  await appel('POST', '/interne/etudiants', { etudiants, candidats });
+  // Les demandes de valorisation de ceux qui sont venus ces trois dernières heures (les autres, à leur prochaine entrée).
+  await deposerVA(db.prepare(`SELECT DISTINCT etudiant_id FROM portail_connexion WHERE le >= datetime('now', '-3 hours')`).all().map(x => x.etudiant_id));
   await appel('POST', '/interne/resultats', { resultats: resultatsPublies(etudiants.map(e => e.id)) });
   await appel('POST', '/interne/reglements', { reglements: reglementsEtudiants() });
   await appel('POST', '/interne/exceptions', { exceptions: db.prepare(`SELECT etudiant_id, MAX(jusqu_au) AS jusqu_au FROM portail_exception
@@ -221,6 +272,8 @@ async function deposerDocuments() {
 }
 
 let tours = 0, enCours = false;
+/** Le prochain passage (dans les dix secondes) dépose tout : après un geste de l'école que le portail doit voir vite. */
+export const deposerBientot = () => { tours = 0; };
 export async function passerPortail() {
   if (!portailActif() || enCours) return;
   enCours = true;
@@ -247,6 +300,8 @@ export function suiviPortail(etudiantId) {
   migrerPortail();
   return {
     actif: portailActif(), adresse: URL_PUBLIQUE(),
+    candidat: candidatDe(etudiantId),
+    sans_adresse_ecole: !String(db.prepare('SELECT email_ecole FROM etudiant WHERE id = ?').get(etudiantId)?.email_ecole || '').includes('@'),
     exception: db.prepare(`SELECT id, jusqu_au, motif, par, le FROM portail_exception WHERE etudiant_id = ? AND retire_le IS NULL
       AND jusqu_au >= date('now') ORDER BY jusqu_au DESC LIMIT 1`).get(etudiantId) || null,
     connexions: db.prepare('SELECT le AS utilise_le, ip FROM portail_connexion WHERE etudiant_id = ? ORDER BY le DESC LIMIT 5').all(etudiantId),

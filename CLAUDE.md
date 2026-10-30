@@ -451,9 +451,8 @@ juste au-dessus la ligne « Pièce authentifiable · réf. … » et un QR de 15
 portail (`/interne/authentiques`, en ajout seul) ; `GET /api/portail/verifier/:ref` (public, plafonné par IP) rend la pièce ou
 « référence inconnue » ; la page `Verification` du site des étudiants l'affiche. Le diplôme n'a pas de bloc de clôture : pas
 de QR. La fiche lit `GET /api/portail-suivi/:id`. Mise en place :
-`scripts/vps/PORTAIL-ETUDIANTS.md` (DNS, quatre secrets, dossiers au propriétaire 1000, compose, Caddy). **Reste de
-ce côté-ci du mur, À DÉPLACER** : la demande de VA en ligne (`/demande-va`, `routes/portailVA.js`), qui écrit dans la
-base de Lucie.
+`scripts/vps/PORTAIL-ETUDIANTS.md` (DNS, quatre secrets, dossiers au propriétaire 1000, compose, Caddy). **La demande
+de VA en ligne a passé le mur en 3.1.514** (« PORTAIL, ÉTAPE 2 ») : `/demande-va` et `routes/portailVA.js` sont retirés.
 
 **L'ESPACE DE L'ÉTUDIANT** (3.1.475, Charles, 30 octobre 2026 : « un mini espace ultra sécurisé : récupérer ses
 documents, voir ses notes, signer les accusés de réception » ; tranché : lien + code, résultats délibérés seulement,
@@ -1545,7 +1544,8 @@ promesse, et le refus arrive alors après coup.
 > 36 px, et deux ascenseurs se chevauchaient au pied de la fenêtre.
 
 **LA PORTE DES ÉTUDIANTS — DEMANDE DE VA EN LIGNE** (3.0.14, Charles, 3
-octobre 2026). Page publique `/demande-va`, serveur `routes/portailVA.js`
+octobre 2026 ; **déplacée dans le portail des étudiants en 3.1.514** — ce qui suit décrit l'ancienne porte, dont les
+règles ont été reprises). Page publique `/demande-va`, serveur `routes/portailVA.js`
 (`/api/portail-va`). Le matricule seul ne prouve rien : il déclenche un lien à
 usage unique, 30 minutes, envoyé à l'adresse DU DOSSIER (école, sinon privée),
 jamais à une adresse tapée ; même réponse pour un matricule inconnu. Le jeton
@@ -2900,6 +2900,20 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   listes, rien n'est bloqué (journal) ; `PORTAIL_GEO=constat|non`. **L'exception** : `portail_exception` dans Lucie
   (ajout ; retrait = `retire_le`), fiche → Suivi (`SuiviEspace.jsx`, secrétariat et direction ; motif, un an au plus),
   déposée par `/interne/exceptions`. La coordination lit.
+- **PORTAIL, ÉTAPE 2 : LA VA EN LIGNE DERRIÈRE LE MUR, ET LE CODE DU CANDIDAT** (3.1.514). Le portail ne fait que NOTER les
+  gestes de l'étudiant (`va_geste` : ouvrir, piece, retirer, retirer_piece, terminer ; la pièce, contrôlée à ses premiers
+  octets, ne vit là que jusqu'au relevé) ; Lucie les relève toutes les 10 s, les JUGE et les écrit
+  (`lib/portailValorisation.js` : `appliquerGeste`, mêmes règles que l'ancienne porte, journal « NOM Prénom (étudiant, en
+  ligne) », `accuserReception` avec le forfait) et rend un refus en clair (`erreur`). En retour elle DÉPOSE par étudiant
+  (`/interne/va`, `va_lot`) l'offre — unités de sa section valorisables, prix (`prixDUneUE` de `forfaitVA.js`, d'après
+  `fi_par_ue` de `calculerFrais`), échéance (`controleDelai`) — et l'état : la frise (reçue, recevable, avis, décision,
+  notifiée), jamais l'avis ni une décision avant `notifie_le`. Déposé pour ceux qui viennent d'entrer ou d'agir, et ceux
+  venus ces 3 h (pas pour les 600 à chaque passage). Pièces : nginx du site étudiant à 26 Mo sur `/api/portail/va/piece`
+  seulement. **Le candidat** : `portail_candidat` dans Lucie (empreinte scrypt du code XXXXX-XXXXX, 60 jours) ; code
+  d'office pour les dossiers créés depuis `portail_candidat_depuis`, sinon fiche → Suivi (`CodeCandidat`,
+  `POST /api/portail-suivi/:id/code-candidat`, secrétariat et direction) ; déposé avec les étudiants
+  (`candidats`) ; il entre par `POST /api/portail/candidat` (adresse privée + code) et ne passe que sur `/moi`
+  (sans résultats ni règlements), `/va*` et `/documents/` ; Belgique comprise.
 - **LE PORTAIL DE L'ÉTUDIANT — CE QUI EST TRANCHÉ, RIEN N'EST CODÉ** (Charles, 30 octobre 2026 ; projet : logigramme et
   treize écrans hors dépôt). Mot de passe choisi par l'étudiant (comme le personnel), code en plus sur un nouvel appareil.
   **PAE en ligne** : Lucie coche ce qui est accessible (`etatsPAE`), l'étudiant choisit et envoie, la coordination valide ou
@@ -2909,7 +2923,7 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   au secrétariat**. **Candidat** : dès son inscription dans Lucie, un code d'accès temporaire à son espace jusqu'à son adresse
   officielle (tranché : envoyé à l'adresse PRIVÉE du dossier ; s'éteint dès que l'adresse d'institut est encodée, au plus 60 jours, renouvelable par le secrétariat ; il ouvre la demande de VA, les documents, les frais et les messages). Résultats : détail par acquis (NA sous 10) après clôture publiée. Messages :
   réponse possible. Accès **bloqué hors de Belgique**, exception accordée par le secrétariat pour une période ; la vérification
-  du QR reste ouverte partout. (Mot de passe et Belgique : FAITS en 3.1.513.) Toute écriture venant du portail passe par le relevé de Lucie (`portailSync.js`), jamais l'inverse. **Ordre de construction** : 1 mot de passe et blocage hors Belgique · 2 VA en ligne déplacée + code candidat · 3 PAE en ligne · 4 messages · puis parcours, frais, aide.
+  du QR reste ouverte partout. (Mot de passe et Belgique : FAITS en 3.1.513 ; VA en ligne et code du candidat : FAITS en 3.1.514.) Toute écriture venant du portail passe par le relevé de Lucie (`portailSync.js`), jamais l'inverse. **Ordre de construction** : 1 mot de passe et blocage hors Belgique · 2 VA en ligne déplacée + code candidat · 3 PAE en ligne · 4 messages · puis parcours, frais, aide.
 
 **L'ANNULER NE COMPARE QUE CE QUE LE GESTE A CHANGÉ** (3.1.482, Charles, 30 octobre 2026, en production :
   « Impossible d'annuler : utilisateur — la ligne a été modifiée depuis, par quelqu'un »). Se reconnecter écrit
