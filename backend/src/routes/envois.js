@@ -22,6 +22,7 @@ import { nouvelleReference, signatureFiligranee } from '../services/filigrane.js
 import { protegerSignature, jourDuJour } from '../lib/protectionSignature.js';
 import { getParam } from './parametres.js';
 import { recapActif, poserRecapActif, passerRecap, ceQuiAttend, migrerRecap } from '../lib/recapQuotidien.js';
+import { CATALOGUE as CATALOGUE_RAPPELS, reglagesRappels, reglerRappels, historiqueRappels, envoyerUrgents, rappelsEnAttente, migrerRappels } from '../lib/rappels.js';
 import { envoyerEmail, mailerConfigure, lireConfigSmtp, ecrireConfigSmtp, verifierSmtp } from '../services/mailer.js';
 
 const r = express.Router();
@@ -215,6 +216,21 @@ r.put('/recap', authRequired, roleRequired('admin'), (req, res) => {
 r.post('/recap/moi', authRequired, async (req, res) => {
   const r0 = await passerRecap({ seul: req.user.id, force: true });
   res.json(r0);
+});
+
+// ── Les rappels (3.1.522, lib/rappels.js) : le catalogue, les interrupteurs (direction seule), ce qui est parti ──
+r.get('/rappels', authRequired, roleRequired('admin'), (req, res) => {
+  migrerRappels();
+  res.json({ catalogue: CATALOGUE_RAPPELS, reglages: reglagesRappels(), recap_actif: recapActif(),
+    automatique: process.env.NODE_ENV === 'production', historique: historiqueRappels(60),
+    mes_attente: rappelsEnAttente(req.user.id).length });
+});
+r.put('/rappels', authRequired, roleRequired('admin'), (req, res) => {
+  res.json({ reglages: reglerRappels(req.body || {}) });
+});
+// L'essai : tout ce qui m'attend dans la file part tout de suite, à moi seul.
+r.post('/rappels/moi', authRequired, roleRequired('admin'), async (req, res) => {
+  res.json(await envoyerUrgents({ seul: req.user.id }));
 });
 
 // ── Réglages (admin) : interrupteur et serveur SMTP ─────────────────────────

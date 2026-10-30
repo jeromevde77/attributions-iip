@@ -10,7 +10,7 @@
  *   savoir — ce qu'il faut savoir : les règles qui bloquent ou qui surprennent.
  * Il explique le travail, pas l'informatique (CLAUDE.md, § 7). La version décrite se dit en tête.
  */
-export const VERSION_DECRITE = '3.1.521';
+export const VERSION_DECRITE = '3.1.522';
 
 export const RUBRIQUES = [
   {
@@ -1571,6 +1571,20 @@ export const RUBRIQUES = [
         ],
         images: [
           { src: "/guide/config-courriels.png", legende: "Configuration → Courriels : l'envoi de documents par courriel, le récapitulatif quotidien ([[M’envoyer le mien maintenant]] pour l'essayer) et l'expéditeur — Microsoft 365 ou serveur SMTP." },
+        ],
+      },
+      {
+        titre: "Les rappels par courriel",
+        ou: "Configuration → Documents et envois → Courriels → Rappels.",
+        texte: "Lucie rappelle à chacun ce qui l'attend, par courriel à son adresse d'institut. Un rappel ordinaire entre dans le récapitulatif du matin ; un rappel urgent (le jour J d'une échéance) part aussitôt. Aujourd'hui : les échéances de l'échéancier — GEDI, publication des résultats, fenêtres de recours, préparation des UE… — au responsable de l'échéance, sinon aux comptes de son rôle.",
+        savoir: [
+          "La direction seule règle : un interrupteur général et un par rappel. Personne ne se désabonne.",
+          "La coordination ne reçoit que les rappels de ses sections.",
+          "« Publication des résultats » et les fenêtres de recours naissent désormais de la date de séance et de la date de publication de la délibération.",
+          "Sur la version de test, rien ne part tout seul : [[M’envoyer mes rappels maintenant]] sert d'essai. « Derniers rappels » dit ce qui est parti, à qui et quand.",
+        ],
+        images: [
+          { src: "/guide/configuration-rappels.png", legende: "Les rappels : l'interrupteur général, un par rappel, l'essai, et ce qui est parti (données d'essai)." },
         ],
       },
       {

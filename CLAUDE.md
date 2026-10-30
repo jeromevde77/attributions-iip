@@ -2983,6 +2983,15 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   Tranché ensuite : sans date de séance, seulement l'alerte « date à poser » (coordination, secrétariat, fin d'UE -15 j) ; délai
   J-2 dépassé → copie à la coordination de la section ; tout le monde a un compte (rappels aux `utilisateur`) ; étudiants : E1 à E7
   d'office, un avis par jour au plus.
+  **ÉTAPE 1 FAITE (3.1.522)** : `lib/rappels.js` — CATALOGUE (une entrée = un interrupteur), file `rappel_courriel`
+  (ordinaire → rubrique « Rappels » du récapitulatif du matin, `rappelsEnAttente`/`marquerEnvoyes` ; urgent → `envoyerUrgents`,
+  un courriel groupé par personne, toutes les 30 min, production seulement), réglage `lucie_config` « rappels » (direction :
+  `GET/PUT /api/envois/rappels`, essai `POST /api/envois/rappels/moi`), destinataires `comptesDuRole(role, section)` (coordination
+  bornée à `utilisateur_section` sauf `perimetre_toutes`). L'échéancier y dépose ses jalons (`genererRappels`, anti-doublon
+  `rappel_envoye` canal 'email' ; jour J = urgent). Les ancres `deliberation` et `publication` se lisent désormais de
+  `deliberation_seance` (`date_seance`, `publie_le`) dans `instancier`, source `deliberation_seance` (section par
+  `organisation_ue`, `sectionEcheanceSql` étendue) ; un jalon déjà passé à sa naissance ne se crée pas. Écran : Configuration →
+  Courriels → panneau « Rappels ». **Un nouveau rappel s'ajoute au CATALOGUE et dépose par `mettreEnFile`.** Étapes 2 à 4 à venir.
 - **LE PORTAIL DE L'ÉTUDIANT — CE QUI EST TRANCHÉ, RIEN N'EST CODÉ** (Charles, 30 octobre 2026 ; projet : logigramme et
   treize écrans hors dépôt). Mot de passe choisi par l'étudiant (comme le personnel), code en plus sur un nouvel appareil.
   **PAE en ligne** : Lucie coche ce qui est accessible (`etatsPAE`), l'étudiant choisit et envoie, la coordination valide ou

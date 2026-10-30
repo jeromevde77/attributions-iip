@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { IconMail, IconCheck, IconAlertTriangle, IconPlugConnected, IconSend, IconRefresh, IconLoader2 } from '@tabler/icons-react';
+import { IconBell, IconMail, IconCheck, IconAlertTriangle, IconPlugConnected, IconSend, IconRefresh, IconLoader2 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { chargerEtatEnvoi } from '../lib/envoiMail.js';
 
@@ -117,6 +117,7 @@ export default function ConfigCourriels() {
       </section>
 
       <RecapQuotidien />
+      <Rappels />
 
       {/* ── Expédition ── */}
       <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
@@ -341,6 +342,90 @@ function RecapQuotidien() {
         {r.dernier && <p className="text-xs text-slate-500">Dernier envoi : {String(r.dernier.jour).split('-').reverse().join('/')} — {r.dernier.statut}.</p>}
         <button className="bouton" onClick={essai}>M’envoyer le mien maintenant</button>
         {msg && <p className="text-xs text-slate-600">{msg}</p>}
+      </div>
+    </section>
+  );
+}
+
+/* LES RAPPELS (3.1.522, lib/rappels.js) : la direction seule règle — un interrupteur général et un par rappel ; personne
+   ne se désabonne. Un rappel ordinaire part dans le récapitulatif du matin, un urgent aussitôt. Ce qui est parti se lit dessous. */
+function Interrupteur({ actif, onClick, titre }) {
+  return (
+    <button type="button" onClick={onClick} title={titre}
+      className={`relative inline-flex h-6 w-11 flex-none items-center rounded-full transition ${actif ? 'bg-iip-turquoise' : 'bg-slate-300'}`}>
+      <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${actif ? 'translate-x-5' : 'translate-x-0.5'}`} />
+    </button>
+  );
+}
+// La base écrit l'heure en UTC (datetime('now')) : on l'affiche à l'heure de Bruxelles.
+const quandFr = d => (d ? new Date(`${String(d).replace(' ', 'T')}Z`).toLocaleString('fr-BE', { timeZone: 'Europe/Brussels', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', '') : '');
+const STATUT_FR = { envoye: 'parti', simule: 'simulé', echec: 'échec' };
+function Rappels() {
+  const [r, setR] = useState(null);
+  const [msg, setMsg] = useState(null);
+  const charger = () => fetch('/api/envois/rappels', { headers: authHeaders() }).then(x => (x.ok ? x.json() : null)).then(setR).catch(() => {});
+  useEffect(() => { charger(); }, []);
+  if (!r) return null;
+  const regler = async corps => {
+    await fetch('/api/envois/rappels', { method: 'PUT', headers: authHeaders(), body: JSON.stringify(corps) });
+    charger();
+  };
+  const essai = async () => {
+    setMsg(null);
+    const x = await fetch('/api/envois/rappels/moi', { method: 'POST', headers: authHeaders() });
+    const j = await x.json().catch(() => ({}));
+    setMsg(!x.ok ? (j.error || 'Refusé.') : j.envoyes ? 'Vos rappels en attente sont partis (voir la redirection de test, s’il y en a une).' : 'Aucun rappel ne vous attend.');
+    charger();
+  };
+  return (
+    <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      <div className="px-4 py-3 bg-iip-blue/5 border-b border-gray-200 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="titre-carte flex items-center gap-2"><IconBell size={16} /> Rappels</h2>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Réglés par la direction ; personne ne s’en désabonne. Un rappel ordinaire entre dans le récapitulatif du matin, un rappel urgent part aussitôt.
+            {!r.automatique && ' Sur cette version de test, rien ne part tout seul : seul l’essai envoie.'}
+          </p>
+        </div>
+        <Interrupteur actif={r.reglages.actif} titre={r.reglages.actif ? 'Couper tous les rappels' : 'Rallumer les rappels'}
+          onClick={() => regler({ actif: !r.reglages.actif })} />
+      </div>
+      <div className="px-4 py-3 text-sm space-y-3">
+        {!r.recap_actif && (
+          <p className="bloc-etat px-3 py-2 text-second" data-etat="surveiller">Le récapitulatif du matin est coupé : les rappels ordinaires ne partiront pas. Seuls les urgents partent.</p>)}
+        <ul className="divide-y divide-slate-100 border border-slate-200 rounded-champ">
+          {r.catalogue.map(c => (
+            <li key={c.cle} className="flex items-start gap-3 px-3 py-2.5">
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-iip-texte">{c.titre}</div>
+                <div className="text-second text-slate-600">Pour : {c.pour}</div>
+                <div className="text-second text-slate-600">Quand : {c.quand} {c.urgent}</div>
+              </div>
+              <Interrupteur actif={r.reglages.actif && r.reglages.types[c.cle]?.actif !== false} titre="Allumer ou couper ce rappel"
+                onClick={() => regler({ types: { [c.cle]: { actif: !(r.reglages.types[c.cle]?.actif !== false) } } })} />
+            </li>))}
+        </ul>
+        <div className="flex flex-wrap items-center gap-2">
+          <button className="bouton" onClick={essai}>M’envoyer mes rappels maintenant{r.mes_attente ? ` (${r.mes_attente})` : ''}</button>
+          {msg && <span className="text-xs text-slate-600">{msg}</span>}
+        </div>
+        <div>
+          <div className="intertitre mb-1">Derniers rappels</div>
+          {!r.historique.length ? <p className="text-second text-slate-500">Aucun rappel pour l’instant.</p> : (
+            <div className="max-h-72 overflow-auto border border-slate-200 rounded-champ">
+              <table className="w-full text-second">
+                <tbody>
+                  {r.historique.map(h => (
+                    <tr key={h.id} className="border-b border-slate-100 last:border-b-0">
+                      <td className="px-2 py-1.5 whitespace-nowrap text-slate-500">{quandFr(h.cree_le)}</td>
+                      <td className="px-2 py-1.5">{h.nom_complet || h.email}</td>
+                      <td className="px-2 py-1.5">{h.titre}{h.urgent ? ' · urgent' : ''}</td>
+                      <td className="px-2 py-1.5 whitespace-nowrap text-slate-500">{h.envoye_le ? `${STATUT_FR[h.statut] || h.statut} ${quandFr(h.envoye_le)}` : 'en attente du matin'}</td>
+                    </tr>))}
+                </tbody>
+              </table>
+            </div>)}
+        </div>
       </div>
     </section>
   );

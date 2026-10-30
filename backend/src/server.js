@@ -2930,6 +2930,8 @@ try { planifierRetention(); } catch (e) { console.error('[retention] planificati
 // Le récapitulatif quotidien par courriel (3.1.472) : le matin, seulement si quelque chose de nouveau attend.
 import { planifierRecap, migrerRecap } from './lib/recapQuotidien.js';
 try { migrerRecap(db); planifierRecap(); } catch (e) { console.error('[recap] planification :', e.message); }
+import { planifierRappels } from './lib/rappels.js';
+try { planifierRappels(); } catch (e) { console.error('[rappels] planification :', e.message); }
 try { migrerClassement(db); } catch (e) { console.error('[migration] classement :', e.message); }
 try { migrerAncienneteService(db); } catch (e) { console.error('[migration] anciennete_service :', e.message); }
 try { migrerEtudiants(db); } catch (e) { console.error('[migration] etudiants :', e.message); }

@@ -19,6 +19,7 @@ import { prenomDuCompte } from './nom.js';
 import { envoyerEmail, templateNotif } from '../services/mailer.js';
 import { etatLecture, derniereVersion } from '../routes/documentation.js';
 import { messagesRecus } from '../routes/communication.js';
+import { rappelsEnAttente, rubriqueRappels, marquerEnvoyes } from './rappels.js';
 
 const DIRECTION = ['admin', 'directeur', 'directeur_adjoint'];
 const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -88,8 +89,12 @@ export function ceQuiAttend(u, depuis) {
     }
   } catch { /* pas de registre des idées */ }
 
-  const tout = [...taches, ...textes, ...messages, ...idees];
-  return { taches, textes, messages, idees, nouveaux: tout.filter(x => x.nouveau).length, total: tout.length };
+  // LES RAPPELS DU MATIN (3.1.522, lib/rappels.js) : ce que la file a reçu depuis le dernier passage. Tous nouveaux.
+  let rappels = [];
+  try { rappels = rappelsEnAttente(u.id).map(r => ({ ...r, nouveau: true })); } catch { /* table absente */ }
+
+  const tout = [...taches, ...textes, ...messages, ...idees, ...rappels];
+  return { taches, textes, messages, idees, rappels, nouveaux: tout.filter(x => x.nouveau).length, total: tout.length };
 }
 
 function section(titre, lignes, rendu) {
@@ -104,6 +109,7 @@ export function composerRecap(u, a) {
   const prenom = prenomDuCompte(u);
   const corps = `<p>Bonjour${prenom ? ` ${esc(prenom)}` : ''},</p>
     <p>Voici ce qui vous attend dans Lucie${a.nouveaux ? ` — dont <b>${a.nouveaux} nouveau${a.nouveaux > 1 ? 'x' : ''}</b> depuis le dernier récapitulatif` : ''}.</p>
+    ${rubriqueRappels(a.rappels || [])}
     ${section('Vos tâches', a.taches, t => `${esc(t.titre)}${t.echeance ? ` — pour le ${jourFr(t.echeance)}${t.retard ? ' <b style="color:#9D4A38">(en retard)</b>' : ''}` : ''}`)}
     ${section('Textes à lire et confirmer', a.textes, t => esc(t.titre))}
     ${section('Messages non lus', a.messages, m => esc(m.titre))}
@@ -134,7 +140,8 @@ export async function passerRecap({ seul = null, force = false } = {}) {
     const statut = !r.ok ? 'echec' : r.simule ? 'simule' : 'envoye';
     db.prepare(`INSERT INTO recap_envoi (utilisateur_id, jour, statut, resume) VALUES (?,?,?,?)
       ON CONFLICT(utilisateur_id, jour) DO UPDATE SET statut = excluded.statut, resume = excluded.resume, envoye_le = datetime('now')`)
-      .run(u.id, jour, statut, `${a.taches.length} tâche(s), ${a.textes.length} texte(s), ${a.messages.length} message(s), ${a.idees.length} idée(s)`);
+      .run(u.id, jour, statut, `${a.rappels.length} rappel(s), ${a.taches.length} tâche(s), ${a.textes.length} texte(s), ${a.messages.length} message(s), ${a.idees.length} idée(s)`);
+    if (r.ok) marquerEnvoyes(a.rappels.map(x => x.id), statut);
     if (r.ok) envoyes++;
   }
   return { envoyes, jour };
