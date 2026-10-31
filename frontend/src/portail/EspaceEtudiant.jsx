@@ -773,7 +773,7 @@ function MonPAE({ onErreur }) {
   }, [o, choix]);
   if (!p) return <p className="text-sm text-slate-500">Chargement…</p>;
   if (!p.pret) return <p className="text-sm text-slate-500">Préparation de votre PAE… quelques secondes.</p>;
-  if (!o?.annee) return <p className="text-sm text-slate-500">Le PAE en ligne n’est pas ouvert pour l’instant.</p>;
+  if (!o?.annee) return <p className="text-sm text-slate-500">Votre PAE n’est pas encore disponible.</p>;
   const nomUE = n => o.unites?.find(u => u.ue_num === n)?.ue_nom || '';
   const geste = async (chemin, corps, ok) => {
     setEnCours(true);
@@ -801,7 +801,7 @@ function MonPAE({ onErreur }) {
         <div className="bloc-etat px-4 py-3 text-sm space-y-1" data-etat={signe ? 'reussi' : 'disponible'}>
           <div className="font-semibold text-iip-texte">PAE {o.annee} — confirmé par l’école le {jourFr(o.confirme_le)}</div>
           {signe ? <div>Vous l’avez confirmé le {jourFr(o.signature.signe_le)}.</div>
-            : <div>Relisez-le, puis confirmez-le : un code part à votre adresse de l’institut.</div>}
+            : <div>Relisez-le, puis confirmez-le : un code part à votre adresse de l’institut (ou à votre adresse privée tant que vous entrez par un code d’accès).</div>}
         </div>
         <ul className="bg-white border border-slate-200 rounded-carte divide-y divide-slate-100">
           {(o.programme || []).map(n => <li key={n} className="px-4 py-2 text-sm"><span className="text-slate-500 tabular-nums mr-2">UE {n}</span>{nomUE(n)}</li>)}
@@ -818,6 +818,24 @@ function MonPAE({ onErreur }) {
             onClick={() => geste('/code', { objet_type: 'pae', objet_id: Number(String(o.annee).slice(0, 4)) }, () => setCodeEnvoye(true))}>
             <IconSignature size={15} /> Confirmer mon PAE</button>))}
         {attend && <p className="text-sm text-slate-500">Confirmation en cours d’enregistrement…</p>}
+      </div>);
+  }
+
+  // HORS DE LA FENÊTRE : le PAE de l'année se LIT — ses unités, ses frais estimés (3.5.008).
+  if (!o.ouvert && !etatProp) {
+    const prog = o.programme || [];
+    return (
+      <div className="space-y-3">
+        {refus}
+        <div className="bloc-etat px-4 py-3 text-sm" data-etat="neutre">
+          <div className="font-semibold text-iip-texte">Mon PAE {o.annee} — {prog.length} unité{prog.length > 1 ? 's' : ''} inscrite{prog.length > 1 ? 's' : ''}</div>
+          <div className="text-slate-600">Pas encore confirmé par l’école. Pour le modifier, adressez-vous à votre coordination
+            {o.du && o.au && o.du > new Date().toISOString().slice(0, 10) ? `, ou proposez vos unités en ligne du ${jourFr(o.du)} au ${jourFr(o.au)}` : ''}.</div>
+        </div>
+        {prog.length ? <ul className="bg-white border border-slate-200 rounded-carte divide-y divide-slate-100">
+          {prog.map(n => <li key={n} className="px-4 py-2 text-sm"><span className="text-slate-500 tabular-nums mr-2">UE {n}</span>{nomUE(n)}</li>)}
+        </ul> : <p className="text-sm text-slate-500">Aucune unité inscrite cette année pour l’instant.</p>}
+        {prog.length > 0 && <FraisEstimes tarif={o.tarif} ues={prog} />}
       </div>);
   }
 
@@ -982,7 +1000,7 @@ function Espace() {
 
   const entrerCandidat = async ev => {
     ev.preventDefault(); setErreur(null); setHorsBe(null);
-    try { const j = await appel('POST', '/candidat', { email: ident.trim(), code: codeAcces }); setCodeAcces(''); entrer(j.token); setFace('va'); }
+    try { const j = await appel('POST', '/candidat', { email: ident.trim(), code: codeAcces }); setCodeAcces(''); entrer(j.token); }
     catch (e) { echec(e); }
   };
   const demanderLien = async ev => {
@@ -1060,7 +1078,7 @@ function Espace() {
           <form onSubmit={entrerCandidat} className="bg-white border border-slate-200 rounded-carte p-5 space-y-3">
             <h1 className="text-lg font-bold text-iip-texte flex items-center gap-2"><IconKey size={18} /> Pas encore d’adresse de l’institut</h1>
             <p className="text-sm text-slate-600">Votre dossier vient d’être ouvert : un <b>code d’accès</b> vous a été envoyé à votre adresse
-              privée. Il ouvre votre demande de valorisation et vos documents, jusqu’à ce que vous receviez votre adresse de l’institut.</p>
+              privée. Il ouvre votre espace jusqu’à ce que vous receviez votre adresse de l’institut.</p>
             <input value={ident} onChange={e => setIdent(e.target.value)} placeholder="Votre adresse privée" autoComplete="email"
               className="controle w-full" autoFocus />
             <input value={codeAcces} onChange={e => setCodeAcces(e.target.value.toUpperCase())} placeholder="Code d’accès : XXXXX-XXXXX" autoComplete="one-time-code"
@@ -1103,8 +1121,7 @@ function Espace() {
   const nom = d ? `${String(d.etudiant.nom || '').toUpperCase()} ${d.etudiant.prenom || ''}` : '';
   const aSigner = d ? d.documents.filter(x => !x.signe_le).length + d.reglements.filter(x => !x.signe_le).length : 0;
   const msg = ['messages', nonLus ? `Messages (${nonLus})` : 'Messages', IconMessages];
-  const FACES = (d?.candidat ? [['va', 'Valorisation', IconAward], msg, ['documents', 'Mes documents', IconFileText], ['frais', 'Mes frais', IconCash]]
-    : [['resultats', 'Mes résultats', IconCertificate], msg, ['parcours', 'Mon parcours', IconRoute], ['pae', 'Mon PAE', IconListCheck],
+  const FACES = ([['resultats', 'Mes résultats', IconCertificate], msg, ['parcours', 'Mon parcours', IconRoute], ['pae', 'Mon PAE', IconListCheck],
       ['documents', 'Mes documents', IconFileText], ['va', 'Valorisation', IconAward], ['frais', 'Mes frais', IconCash], ['aide', 'Aide et règles', IconHelpCircle], ['compte', 'Mon compte', IconUserCircle]])
     // LES FONCTIONS OUVERTES (3.5.001) : seuls les onglets que Lucie a ouverts pour cet étudiant ; l'aide et le compte, toujours.
     .filter(([k]) => ['aide', 'compte'].includes(k) || (d?.fonctions || []).includes(k));
@@ -1165,7 +1182,7 @@ function Espace() {
         {face === 'frais' && <MesFrais onErreur={echec} />}
 
         {d?.candidat && <div className="bloc-etat px-3 py-2 text-sm" data-etat="disponible">Accès par code, jusqu’au {jourFr(d.candidat.jusqu_au)} ou
-          jusqu’à votre adresse de l’institut : votre demande de valorisation et vos documents.</div>}
+          jusqu’à votre adresse de l’institut.</div>}
         {face === 'va' && <MesValorisations onErreur={echec} />}
         {face === 'pae' && <MonPAE onErreur={echec} />}
         {face === 'messages' && <MesMessages onErreur={echec} onLus={setNonLus} />}

@@ -66,13 +66,15 @@ function raisonDe(u) {
 export function offrePAE(e, anneeVoulue = null) {
   migrerPaeEnLigne();
   const g = reglagePAE();
-  if (!g.annee && !anneeVoulue) return { ouvert: false };
-  const annee = anneeVoulue || g.annee;
+  // SANS FENÊTRE, LE PAE DE L'ANNÉE EN COURS SE LIT QUAND MÊME (3.5.008, Charles : « je ne vois pas le PAE ») : les unités
+  // inscrites cette année, sans rien à cocher.
+  const annee = anneeVoulue || g.annee || db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code;
+  if (!annee) return { ouvert: false };
   const programme = programmeDe(e.id, annee);
   const prop = db.prepare(`SELECT ues, depose_le, statut, message, traite_le FROM pae_proposition WHERE etudiant_id = ? AND annee_scolaire = ?
     AND statut <> 'remplacee' ORDER BY id DESC LIMIT 1`).get(e.id, annee);
   const sig = db.prepare('SELECT programme, signe_le FROM pae_signature_etudiant WHERE etudiant_id = ? AND annee_scolaire = ? ORDER BY id DESC LIMIT 1').get(e.id, annee);
-  const base = { ouvert: g.ouvert, du: g.du, au: g.au, annee, programme,
+  const base = { ouvert: g.ouvert && annee === g.annee, du: g.du, au: g.au, annee, programme,
     proposition: prop ? { ues: JSON.parse(prop.ues), depose_le: prop.depose_le, statut: prop.statut, message: prop.message, traite_le: prop.traite_le } : null,
     signature: sig ? { signe_le: sig.signe_le, a_jour: sig.programme === JSON.stringify(programme) } : null };
   let c;

@@ -406,7 +406,6 @@ function connecte(req, res, next) {
     if (p.candidat) {
       // Le code vaut tant que Lucie le dépose : adresse d'institut reçue, ou 60 jours passés, il disparaît.
       if (!db.prepare("SELECT 1 FROM candidat WHERE etudiant_id = ? AND jusqu_au >= date('now')").get(e.id)) throw new Error('échu');
-      if (!/^\/api\/portail\/(moi|va|documents\/|messages|frais)/.test(req.path)) return res.status(403).json({ error: 'Pas encore accessible avec un code d’accès.' });
     }
     req.etudiant = e; req.peutDefinir = !!p.definir; req.candidat = !!p.candidat; next();
   } catch { res.status(401).json({ error: 'Session expirée. Reconnectez-vous.' }); }
@@ -468,8 +467,8 @@ pub.get('/api/portail/moi', connecte, (req, res) => {
   const f = new Set(fonctionsDe(e.id));
   res.json({ fonctions: [...f], apercu: req.apercu || null, candidat: cand ? { jusqu_au: cand.jusqu_au } : null, etudiant: { nom: e.nom, prenom: e.prenom, email: e.email_ecole,
     matricule: db.prepare('SELECT code FROM matricule WHERE etudiant_id = ? LIMIT 1').get(e.id)?.code || '' },
-    resultats: cand || !f.has('resultats') ? [] : [...parAnnee].map(([annee, ues]) => ({ annee, ues })),
-    documents: f.has('documents') ? documents : [], reglements: cand || !f.has('reglements') ? [] : reglements });
+    resultats: !f.has('resultats') ? [] : [...parAnnee].map(([annee, ues]) => ({ annee, ues })),
+    documents: f.has('documents') ? documents : [], reglements: !f.has('reglements') ? [] : reglements });
 });
 
 function presenter(e, type, id, req) {

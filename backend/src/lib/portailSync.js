@@ -151,11 +151,10 @@ async function deposerVA(ids) {
     const e = etudiantDuPortail(id);
     if (!e) continue;
     try {
-      const candidat = !String(e.email_ecole || '').includes('@');
       const f = new Set(fonctionsEspace(e.id));
       lots.push({ etudiant_id: e.id, offre: f.has('va') ? offreVA(e, annee) : null, etat: f.has('va') ? etatVA(e, annee) : [],
-        pae: candidat || !f.has('pae') ? null : offrePAE(e),
-        parcours: candidat || !f.has('parcours') ? null : parcoursPortail(e, annee), frais: f.has('frais') ? await fraisPortail(e, annee) : null });
+        pae: !f.has('pae') ? null : offrePAE(e),
+        parcours: !f.has('parcours') ? null : parcoursPortail(e, annee), frais: f.has('frais') ? await fraisPortail(e, annee) : null });
     }
     catch (x) { console.error(`[portail] VA de l'étudiant ${e.id} :`, x.message); }
   }
@@ -166,8 +165,8 @@ async function deposerVA(ids) {
 async function relever() {
   const r = await appel('GET', '/interne/releve');
   const ok = { demandes: [], accuses: [], connexions: [], entrees: [], va: [], pae: [], messages_lus: [], messages_reponses: [] };
-  const etudiant = id => db.prepare(`SELECT id, prenom, email_ecole FROM etudiant WHERE id = ? AND COALESCE(actif, 1) = 1
-    AND COALESCE(sortie_statut, '') <> 'archive' AND email_ecole LIKE '%@%'`).get(Number(id));
+  // Le candidat reçoit ses codes à son adresse privée, tant que son accès vaut (3.5.008).
+  const etudiant = id => etudiantDuPortail(id);
   for (const d of r.demandes || []) {
     ok.demandes.push(d.id);   // relevée, même refusée : elle ne doit pas revenir à chaque passage
     const e = etudiant(d.etudiant_id);
@@ -186,6 +185,7 @@ async function relever() {
         <p><a href="${esc(lien)}" style="display:inline-block;background:#16406A;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none">Ouvrir mon espace</a></p>
         <p style="color:#64748b;font-size:12px">Vous n'avez rien demandé ? Ignorez ce message : sans ce lien, personne n'accède à votre espace.</p>` });
     } else if (d.type === 'code') {
+      if (!String(e.email_ecole || '').includes('@') && !String(e.email_perso || '').includes('@')) continue;
       if (!/^\d{6}$/.test(String(d.valeur || ''))) continue;
       sujet = `Institut Ilya Prigogine — votre code ${d.valeur}`;
       html = templateNotif({ titre: 'Votre code', corps: `<p>Votre code pour votre espace — entrer depuis un nouvel appareil,
@@ -193,7 +193,8 @@ async function relever() {
         <p style="font-size:28px;font-weight:bold;letter-spacing:6px">${d.valeur}</p><p>Il est valable 10 minutes.</p>
         <p style="color:#64748b;font-size:12px">Vous n'avez rien demandé ? Ne communiquez ce code à personne.</p>` });
     } else continue;
-    const envoi = await envoyerEmail({ to: e.email_ecole, subject: sujet, html }).catch(err => ({ ok: false, erreur: err.message }));
+    if (d.type === 'lien' && !String(e.email_ecole || '').includes('@')) continue;
+    const envoi = await envoyerEmail({ to: String(e.email_ecole || '').includes('@') ? e.email_ecole : e.email_perso, subject: sujet, html }).catch(err => ({ ok: false, erreur: err.message }));
     if (envoi?.simule && process.env.NODE_ENV !== 'production') console.log(`[portail] ${d.type} (courriel simulé) : ${d.valeur}`);
     if (!envoi?.ok) console.error('[portail] courriel non parti :', envoi?.erreur);
   }
@@ -238,7 +239,7 @@ async function relever() {
     const e = etudiantDuPortail(g.etudiant_id);
     let erreur = null;
     try {
-      if (!e || !String(e.email_ecole || '').includes('@')) erreur = 'Le PAE en ligne demande votre adresse de l’institut.';
+      if (!e) erreur = 'Votre accès à l’espace n’est plus valable : adressez-vous au secrétariat.';
       else if (!fonctionPour('espace.pae', { etudiantId: e.id })) erreur = 'Le PAE en ligne n’est pas ouvert : adressez-vous à votre coordination.';
       else if (g.type === 'proposer') erreur = deposerProposition(e, JSON.parse(g.ues || '[]'));
       else if (g.type === 'signer') erreur = recevoirSignature(e, g);
@@ -267,7 +268,9 @@ async function deposer() {
   }
   const candidats = candidatsValides().filter(c => fonctionPour('espace.candidats', { etudiantId: c.id }))
     .map(c => ({ id: c.id, nom: c.nom, prenom: c.prenom, email_prive: c.email_perso, code_hash: c.code_hash, jusqu_au: c.jusqu_au,
-      fonctions: fonctionsEspace(c.id).filter(f => !['resultats', 'reglements', 'parcours', 'pae'].includes(f)) }));
+      // UN CANDIDAT EST UN INSCRIT (3.5.008, Charles : « ce n'est pas parce qu'il n'a pas encore d'adresse qu'il n'est pas
+      // inscrit ») : il voit ce que voit un étudiant.
+      fonctions: fonctionsEspace(c.id) }));
   const avec = (f, l) => l.filter(x => x.fonctions.includes(f)).map(x => x.id);
   await appel('POST', '/interne/etudiants', { etudiants, candidats });
   // Les demandes de valorisation de ceux qui sont venus ces trois dernières heures (les autres, à leur prochaine entrée).
