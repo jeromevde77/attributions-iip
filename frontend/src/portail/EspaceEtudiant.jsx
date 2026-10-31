@@ -368,7 +368,9 @@ function MesFrais({ onErreur }) {
   if (!p.pret) return <p className="text-sm text-slate-500">Préparation de vos frais… quelques secondes.</p>;
   const f = p.frais;
   if (!f) return <p className="text-sm text-slate-500">Aucun frais pour l’instant.</p>;
-  if (f.sans_frais) return <p className="text-sm text-slate-600">Votre inscription ne donne lieu à aucun frais auprès de l’Institut.</p>;
+  /* « SANS FRAIS » NE VEUT DIRE QUE « SANS FRAIS ADMINISTRATIFS » (Charles, 31 octobre 2026 : l'AeSI ne perçoit pas de
+     frais administratifs, mais le droit d'inscription du PAE et le forfait VA restent dus). Rien à payer = total nul. */
+  if (!(Number(f.total) > 0)) return <p className="text-sm text-slate-600">Votre inscription ne donne lieu à aucun frais auprès de l’Institut.</p>;
   const copier = async t => { try { await navigator.clipboard.writeText(t); setCopie(true); setTimeout(() => setCopie(false), 1500); } catch { /* */ } };
   return (
     <div className="space-y-4">
@@ -401,6 +403,7 @@ function MesFrais({ onErreur }) {
           <span className="tabular-nums">{l.note || eur(l.montant)}</span></div>)}
         <div className="px-4 py-2 text-sm flex gap-2 font-semibold"><span className="flex-1">Total {f.annee}</span><span className="tabular-nums">{eur(f.total)}</span></div>
       </section>
+      {f.sans_frais && <p className="text-xs text-slate-500">Votre section ne perçoit pas de frais administratifs : seuls les droits ci-dessus sont dus.</p>}
       {f.paiements.length > 0 && <section className="space-y-1">
         <h2 className="text-xs font-bold uppercase tracking-wide text-slate-500">Mes versements</h2>
         {f.paiements.map((v, i) => <div key={i} className="text-sm flex gap-2"><span className="w-24 text-slate-500 tabular-nums">{jourFr(v.date)}</span>
