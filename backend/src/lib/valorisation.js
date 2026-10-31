@@ -253,6 +253,15 @@ export function controleDelai({ ueNum, annee, date_demande, date_reception }) {
       explication: "La date d'introduction n'est pas renseignée : le délai ne peut pas être contrôlé." };
   }
 
+  // LA DATE LIMITE DE L'ANNÉE, QUAND LA DIRECTION L'A POSÉE (Configuration → Coût des périodes,
+  // `va.date_limite.<année>`, 3.5.006) : elle vaut pour toutes les UE du PAE.
+  let limite = null;
+  try { limite = String(db.prepare('SELECT valeur FROM parametre WHERE cle = ?').get(`va.date_limite.${annee}`)?.valeur || '').trim() || null; } catch { /* */ }
+  if (limite && /^\d{4}-\d{2}-\d{2}$/.test(limite)) {
+    return { connu: true, hors_delai: retenue > limite, echeance: limite, date_retenue: retenue,
+      explication: `Programme ${annee} : la demande doit être introduite au plus tard le ${limite}, pour toutes les UE du PAE.` };
+  }
+
   // L'ouverture de l'unité, quand elle est encodée, fait l'échéance.
   let ouverture = null;
   try {

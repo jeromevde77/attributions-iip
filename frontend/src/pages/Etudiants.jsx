@@ -1285,7 +1285,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                                 setPopover({ annee: a, ue_num: u.ue_num, verrou: true });
                               }
                             }}
-                            className={`w-11 h-[22px] text-xs font-semibold tabular-nums rounded-md border px-0.5 transition
+                            className={`min-w-[2.75rem] whitespace-nowrap h-[22px] text-xs font-semibold tabular-nums rounded-md border px-0.5 transition
                               ${kind ? kind.cls : 'border-transparent text-slate-300 hover:border-slate-200 hover:bg-slate-50'}
                               ${cl?.derogation ? 'ring-1 ring-amber-400' : ''}
                               ${choix.has(`${a}|${u.ue_num}`) ? 'ring-2 ring-[color:var(--c-disponible)] ring-offset-1' : ''}
@@ -1294,7 +1294,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                             {kind
                               ? (kind.val === 'faveur' ? <span className="inline-flex items-center gap-0.5">10<IconeFaveur size={10} /></span>
                                  : kind.val === 'reussi' ? (cl.points != null ? String(Math.round(cl.points)) : '✓')
-                                 : kind.val === 'va' ? (cl.points != null ? 'VA ' + cl.points : 'VA')
+                                 : kind.val === 'va' ? `${cl.sigle || 'VA'}${cl.points != null ? ' ' + cl.points : ''}`
                                  : kind.short)
                               : '·'}
                             {aDetail(a, u.ue_num) && <span className="ml-0.5 align-super text-mention">●</span>}

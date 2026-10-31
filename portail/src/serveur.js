@@ -115,14 +115,29 @@ db.exec(`
     type TEXT NOT NULL CHECK (type IN ('proposer','signer')), annee TEXT, ues TEXT, programme TEXT, ip TEXT, signe_le TEXT,
     cree_le TEXT NOT NULL DEFAULT (datetime('now')), releve_le TEXT, erreur TEXT, vu_le TEXT);
   CREATE TABLE IF NOT EXISTS va_geste (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL,
-    type TEXT NOT NULL CHECK (type IN ('ouvrir','piece','retirer','retirer_piece','terminer')), ue_num INTEGER, porte TEXT,
+    type TEXT NOT NULL CHECK (type IN ('ouvrir','piece','retirer','retirer_piece','terminer','motiver')), ue_num INTEGER, porte TEXT,
     fichier_id INTEGER, nature TEXT, nom TEXT, taille INTEGER, contenu BLOB, cree_le TEXT NOT NULL DEFAULT (datetime('now')),
-    releve_le TEXT, erreur TEXT, vu_le TEXT);
+    releve_le TEXT, erreur TEXT, vu_le TEXT, texte TEXT);
   CREATE TRIGGER IF NOT EXISTS accuse_signe_fige BEFORE UPDATE OF presente_le, signe_le, objet_id, etudiant_id ON accuse
     WHEN OLD.signe_le IS NOT NULL BEGIN SELECT RAISE(ABORT, 'Un accusé signé ne se modifie pas.'); END;
   CREATE TRIGGER IF NOT EXISTS accuse_sans_effacement BEFORE DELETE ON accuse
     WHEN OLD.signe_le IS NOT NULL BEGIN SELECT RAISE(ABORT, 'Un accusé signé ne s''efface pas.'); END;
 `);
+
+/* LA MOTIVATION PAR ACQUIS (3.5.006) : un type de geste de plus et sa colonne. Une contrainte CHECK ne se
+   modifie pas en SQLite : la table se reconstruit, ses lignes recopiées. */
+if (!/'motiver'/.test(db.prepare("SELECT sql FROM sqlite_master WHERE name = 'va_geste'").get()?.sql || '')) {
+  db.transaction(() => {
+    db.exec(`ALTER TABLE va_geste RENAME TO va_geste_ancien;
+      CREATE TABLE va_geste (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL,
+        type TEXT NOT NULL CHECK (type IN ('ouvrir','piece','retirer','retirer_piece','terminer','motiver')), ue_num INTEGER, porte TEXT,
+        fichier_id INTEGER, nature TEXT, nom TEXT, taille INTEGER, contenu BLOB, cree_le TEXT NOT NULL DEFAULT (datetime('now')),
+        releve_le TEXT, erreur TEXT, vu_le TEXT, texte TEXT);
+      INSERT INTO va_geste (id, etudiant_id, type, ue_num, porte, fichier_id, nature, nom, taille, contenu, cree_le, releve_le, erreur, vu_le)
+        SELECT id, etudiant_id, type, ue_num, porte, fichier_id, nature, nom, taille, contenu, cree_le, releve_le, erreur, vu_le FROM va_geste_ancien;
+      DROP TABLE va_geste_ancien;`);
+  })();
+}
 
 const empreinte = t => crypto.createHash('sha256').update(String(t)).digest('hex');
 const maintenant = () => db.prepare("SELECT datetime('now') n").get().n;
@@ -560,16 +575,16 @@ const gesteVA = (req, res, champs) => {
   if (db.prepare(`SELECT COUNT(*) n FROM va_geste WHERE etudiant_id = ? AND cree_le > datetime('now', '-1 hour')`).get(req.etudiant.id).n >= 80) {
     res.status(429).json({ error: 'Trop de gestes en une heure. Réessayez plus tard.' }); return false;
   }
-  db.prepare(`INSERT INTO va_geste (etudiant_id, type, ue_num, porte, fichier_id, nature, nom, taille, contenu) VALUES (?,?,?,?,?,?,?,?,?)`)
+  db.prepare(`INSERT INTO va_geste (etudiant_id, type, ue_num, porte, fichier_id, nature, nom, taille, contenu, texte) VALUES (?,?,?,?,?,?,?,?,?,?)`)
     .run(req.etudiant.id, champs.type, champs.ue_num ?? null, champs.porte ?? null, champs.fichier_id ?? null, champs.nature ?? null,
-      champs.nom ?? null, champs.contenu?.length ?? null, champs.contenu ?? null);
+      champs.nom ?? null, champs.contenu?.length ?? null, champs.contenu ?? null, champs.texte ?? null);
   return true;
 };
 /** Ce que l'étudiant voit : l'offre et l'état déposés par Lucie, ses gestes pas encore relevés, et les refus. */
 pub.get('/api/portail/va', connecte, exige('va'), (req, res) => {
   const id = req.etudiant.id;
   const lot = lotVA(id);
-  const enAttente = db.prepare('SELECT id, type, ue_num, porte, nature, nom, cree_le FROM va_geste WHERE etudiant_id = ? AND releve_le IS NULL ORDER BY id').all(id);
+  const enAttente = db.prepare('SELECT id, type, ue_num, porte, nature, nom, texte, cree_le FROM va_geste WHERE etudiant_id = ? AND releve_le IS NULL ORDER BY id').all(id);
   const refus = db.prepare(`SELECT id, type, ue_num, nom, erreur, releve_le FROM va_geste WHERE etudiant_id = ? AND erreur IS NOT NULL AND vu_le IS NULL ORDER BY id`).all(id);
   res.json({ pret: !!lot?.offre, ...(lot || { offre: null, etat: [] }), en_attente: enAttente, refus });
 });
@@ -616,6 +631,14 @@ pub.post('/api/portail/va/retirer-piece', connecte, exige('va'), (req, res) => {
   if (!modifiable(req, res, ue)) return;
   if (!(demandeDe(lotVA(req.etudiant.id), ue)?.pieces || []).some(p => p.id === f && p.a_moi)) return res.status(404).json({ error: 'Pièce introuvable (seules les vôtres se retirent).' });
   if (gesteVA(req, res, { type: 'retirer_piece', ue_num: ue, fichier_id: f })) res.json({ ok: true });
+});
+/* La motivation d'un acquis : son texte et les numéros de ses pièces (des identifiants de pièces de la demande). */
+pub.post('/api/portail/va/motiver', connecte, exige('va'), (req, res) => {
+  const ue = Number(req.body?.ue_num), aa = String(req.body?.aa_code || '').slice(0, 40);
+  if (!modifiable(req, res, ue)) return;
+  if (!aa) return res.status(400).json({ error: 'Acquis manquant.' });
+  const pieces = (Array.isArray(req.body?.pieces) ? req.body.pieces : []).map(Number).filter(Boolean).slice(0, 50).join(',');
+  if (gesteVA(req, res, { type: 'motiver', ue_num: ue, nature: aa, porte: pieces, texte: String(req.body?.texte || '').slice(0, 4000) })) res.json({ ok: true });
 });
 pub.post('/api/portail/va/terminer', connecte, exige('va'), (req, res) => {
   if (!(lotVA(req.etudiant.id)?.etat || []).length && !db.prepare(`SELECT 1 FROM va_geste WHERE etudiant_id = ? AND type = 'ouvrir' AND releve_le IS NULL`).get(req.etudiant.id)) {
@@ -873,7 +896,7 @@ int.get('/interne/releve', (req, res) => {
     // Les entrées depuis un appareil reconnu : des connexions aussi, que la fiche doit voir.
     entrees: db.prepare('SELECT id, etudiant_id, le AS utilise_le, ip FROM entree WHERE releve_le IS NULL LIMIT 500').all(),
     // Les gestes de valorisation, dans l'ordre (la pièce se lit à part, /interne/va/piece/:id).
-    va: db.prepare('SELECT id, etudiant_id, type, ue_num, porte, fichier_id, nature, nom, taille FROM va_geste WHERE releve_le IS NULL ORDER BY id LIMIT 50').all(),
+    va: db.prepare('SELECT id, etudiant_id, type, ue_num, porte, fichier_id, nature, nom, taille, texte FROM va_geste WHERE releve_le IS NULL ORDER BY id LIMIT 50').all(),
     pae: db.prepare('SELECT id, etudiant_id, type, annee, ues, programme, ip, signe_le FROM pae_geste WHERE releve_le IS NULL ORDER BY id LIMIT 100').all(),
     messages_lus: db.prepare('SELECT id, message_id, etudiant_id, lu_le FROM message_lu WHERE releve_le IS NULL LIMIT 500').all(),
     messages_reponses: db.prepare('SELECT id, message_id, etudiant_id, corps, le FROM message_reponse WHERE releve_le IS NULL ORDER BY id LIMIT 200').all(),

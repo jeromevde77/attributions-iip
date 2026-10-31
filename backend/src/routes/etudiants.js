@@ -6995,10 +6995,12 @@ export function donneesCapitalisation(etudId, annee, sectionForcee = null) {
     reussite[r0.ue_num] = { annee: r0.annee_scolaire, note: r0.points ?? null, va: false,
       faveur: avecFaveur.has(cleFaveur(r0.ue_num, r0.annee_scolaire)), s2: !!r0.s2 };
   }
-  for (const v of db.prepare(`SELECT ue_num, annee_scolaire FROM etudiant_valorisation
+  for (const v of db.prepare(`SELECT ue_num, annee_scolaire, porte, base_code FROM etudiant_valorisation
       WHERE etudiant_id = ? AND type = 'complete' AND ${vaRetenue()}
       ORDER BY annee_scolaire`).all(etudId)) {
-    if (!reussite[v.ue_num]) reussite[v.ue_num] = { annee: v.annee_scolaire, note: null, va: true };
+    if (!reussite[v.ue_num]) reussite[v.ue_num] = { annee: v.annee_scolaire, note: null, va: true,
+      // VA ou VAE, noté (3.5.006) : la porte, à défaut la base (D, E = non formel).
+      sigle: String(v.porte || '').toUpperCase() === 'VAE' || ['D', 'E'].includes(String(v.base_code || '').toUpperCase()) ? 'VAE' : 'VA' };
   }
   /* L'ÉTAT DE CHAQUE UNITÉ VIENT DU MOTEUR (lib/pae.js) — le même que la
      proposition du PAE : le schéma ne peut plus dire « indisponible » d'une
@@ -7366,6 +7368,9 @@ r.get('/:id/grille', authRequired, (req, res) => {
   for (const v of vas) {
     (cellules[v.annee_scolaire] = cellules[v.annee_scolaire] || {})[v.ue_num] = {
       kind: 'va', points: vaSur20(v.pourcentage), derogation: false, vid: v.id,
+      // VA OU VAE, ÇA SE NOTE (Charles, 31 octobre 2026 : « c'est important ») : la porte du dossier, à défaut sa base
+      // (D, E = acquis non formels ou informels).
+      sigle: String(v.porte || '').toUpperCase() === 'VAE' || ['D', 'E'].includes(String(v.base_code || '').toUpperCase()) ? 'VAE' : 'VA',
     };
   }
   // La faveur : posée par le Conseil (ou dans cette grille) sur l'unité, ou
@@ -8668,6 +8673,26 @@ function refuseSiValide(v, res) {
   return false;
 }
 
+/** La motivation de l'étudiant (portail) : chaque acquis de l'unité, son texte, ses pièces numérotées. */
+function demandeEtudiant(v) {
+  let mot = [];
+  try { mot = db.prepare('SELECT aa_code, texte, pieces FROM va_motivation WHERE valorisation_id = ?').all(v.id); } catch { return null; }
+  const fics = db.prepare('SELECT id, nom FROM etudiant_valorisation_fichier WHERE valorisation_id = ? ORDER BY id').all(v.id);
+  if (!mot.length && !v.certifie_le) return null;
+  const numero = new Map(fics.map((f, i) => [f.id, i + 1]));
+  const parCode = new Map(mot.map(m => [m.aa_code, m]));
+  const acquis = db.prepare(`SELECT aa_code, description FROM aa WHERE ue_num = ? ORDER BY COALESCE(aa_num, 999), aa_code`).all(Number(v.ue_num));
+  return {
+    certifie_le: v.certifie_le || null,
+    pieces: fics.map((f, i) => ({ numero: i + 1, nom: f.nom })),
+    acquis: acquis.map(a => {
+      const m = parCode.get(a.aa_code);
+      return { code: a.aa_code, libelle: a.description, texte: m?.texte || null,
+        pieces: String(m?.pieces || '').split(',').map(Number).map(id => numero.get(id)).filter(Boolean) };
+    }),
+  };
+}
+
 /** Un dossier, son état, ce qui lui manque, et son journal. */
 r.get('/valorisations/:vid/dossier', authRequired, (req, res) => {
   const vid = Number(req.params.vid);
@@ -8692,6 +8717,9 @@ r.get('/valorisations/:vid/dossier', authRequired, (req, res) => {
                            date_demande: v.date_demande,
                            date_reception: v.date_reception }),
     manques: manquesDossier(v),
+    // LA DEMANDE DE L'ÉTUDIANT, ACQUIS PAR ACQUIS (3.5.006, circulaire 9447, annexes 6 et 7) : sa motivation et
+    // les numéros des pièces qui la prouvent (rang de dépôt), telles qu'il les a écrites dans son espace.
+    demande_etudiant: demandeEtudiant(v),
     // CE QUI PROTÈGE LA SIGNATURE : l'écran le montre AVANT qu'on demande la
     // pièce, plutôt que de faire découvrir le refus au moment de l'imprimer.
     piece: pieceProduisible(v),

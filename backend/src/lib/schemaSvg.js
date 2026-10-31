@@ -139,7 +139,7 @@ export function schemaSvg(data) {
       <text x="${p.x + 7}" y="${p.y + 12}" font-size="10" font-weight="700" fill="${co.texte}">${n.ue_num}</text>
       ${statut === 'faveur' ? cadeau(p.x + 8 + String(n.ue_num).length * 6.2, p.y + 4.2) : ''}
       ${aNote ? `<circle cx="${xn}" cy="${p.y + 9}" r="5.6" fill="#fff" stroke="${co.rail}" stroke-width="1"/>
-      <text x="${xn}" y="${p.y + 11.4}" text-anchor="middle" font-size="${n.reussite.va ? 5 : 6.5}" font-weight="700" fill="#1B2B4B">${n.reussite.va ? 'VA' : statut === 'faveur' ? 10 : n.reussite.note == null ? '✓' : Math.round(n.reussite.note) < 10 ? 'NA' : Math.round(n.reussite.note)}</text>
+      <text x="${xn}" y="${p.y + 11.4}" text-anchor="middle" font-size="${n.reussite.va ? 5 : 6.5}" font-weight="700" fill="#1B2B4B">${n.reussite.va ? (n.reussite.sigle || 'VA') : statut === 'faveur' ? 10 : n.reussite.note == null ? '✓' : Math.round(n.reussite.note) < 10 ? 'NA' : Math.round(n.reussite.note)}</text>
       <text x="${p.x + L - 4}" y="${p.y + 22}" text-anchor="end" font-size="6.2" font-style="italic" fill="#7A879E">${esc(String(n.reussite.annee || '').replace(/^20(\d\d)-20(\d\d)$/, '$1-$2'))}</text>` : ''}
       <text x="${p.x + 7}" y="${p.y + 22}" font-size="7" fill="${co.texte}" opacity=".85">${esc(court)}</text>
     </g>`;
