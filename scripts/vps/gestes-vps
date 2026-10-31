@@ -75,7 +75,9 @@ case "$VERBE" in
     cd "$LUCIE"
     # LE PORTAIL DE LA DEV AVEC LUI (3.5.006) : l'espace des étudiants se construit avec Lucie ; sans lui, une
     # nouveauté de l'espace restait invisible sur la dev. Absents du compose (avant l'installation) : ignorés.
-    PORTAIL_DEV=$(docker compose config --services 2>/dev/null | grep -E '^portail-(backend|frontend)-dev$' | tr '\n' ' ')
+    # Lu dans le fichier lui-même : `docker compose config` peut échouer en silence (variables), et le portail était sauté.
+    PORTAIL_DEV=$(grep -oE '^  portail-(backend|frontend)-dev:' docker-compose.yml | tr -d ' :' | tr '\n' ' ')
+    echo "Portail de la dev : ${PORTAIL_DEV:-absent du docker-compose}"
     docker compose pull backend-dev frontend-dev $PORTAIL_DEV
     docker compose up -d --force-recreate backend-dev frontend-dev $PORTAIL_DEV
     journal "ok"; sleep 8; version ;;
