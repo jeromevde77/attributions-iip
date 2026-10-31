@@ -296,9 +296,11 @@ function MesValorisations({ onErreur }) {
         </section>)}
 
       {demandes.length > 0 && (
-        <button type="button" className="bouton w-full" disabled={enCours || attend}
+        /* LE DERNIER GESTE SE VOIT (Charles, 31 octobre 2026 : « en vert avec un petit V, sinon ils ne verront pas »). */
+        <button type="button" className="bouton w-full inline-flex items-center justify-center gap-2 font-semibold" disabled={enCours || attend}
+          style={{ background: ETAT_COULEUR.reussi, borderColor: ETAT_COULEUR.reussi, color: '#fff' }}
           onClick={() => geste('/va/terminer', null, () => setMessage('C’est noté : l’accusé de réception part à votre adresse dans la minute.'))}>
-          J’ai terminé — recevoir l’accusé de réception</button>)}
+          <IconCheck size={17} /> J’ai terminé — recevoir l’accusé de réception</button>)}
     </div>
   );
 }
