@@ -11,9 +11,12 @@
  * Chaque pièce entre au registre des envois (`deposerDansLEspace`, mode « espace ») : copie, référence, signature
  * refaite à l'identique. Puis UN courriel par étudiant, sans pièce jointe : « un nouveau document vous attend ».
  *
- * PAS DE RATTRAPAGE DU PASSÉ : le dépôt ne vaut que pour les séances publiées depuis sa mise en service
- * (`lucie_config` « portail_depot_depuis », posé au premier passage) — sans quoi la première nuit déposerait
- * l'historique entier et enverrait des centaines de courriels. Une pièce ne se dépose qu'une fois (`portail_depot`).
+ * À LA CLÔTURE, ET POUR TOUTE SÉANCE CLOSE DE L'ANNÉE (Charles, 31 octobre 2026 : « si elles ne sont pas parties,
+ * tu as les données pour les reproduire ; cette action est d'office liée à la clôture de la délibération »). Chaque
+ * séance close (hors reprise d'archives) de l'année de travail et des suivantes : la pièce de chaque délibéré est
+ * déposée — SAUF s'il l'a déjà reçue par le centre d'envoi (un envoi « deliberation_lot » de l'année, depuis la date
+ * de la séance, avec sa copie : l'espace le montre déjà ; on le note sans recomposer). Les années d'avant ne sont pas
+ * reprises. Une pièce ne se dépose qu'une fois (`portail_depot`).
  */
 import db from '../db/index.js';
 import { assemblerDocumentsUE } from '../routes/acquis.js';
@@ -35,31 +38,33 @@ export function migrerDepot(dbx = db) {
     UNIQUE (etudiant_id, annee_scolaire, ue_num, session, nature))`);
 }
 
-/** Depuis quand le dépôt d'office vaut : posé au premier passage, jamais en arrière. */
-function depuis() {
-  const v = db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'portail_depot_depuis'").get()?.valeur;
-  if (v) return v;
-  const j = db.prepare("SELECT date('now') d").get().d;
-  db.prepare("INSERT OR IGNORE INTO lucie_config (cle, valeur) VALUES ('portail_depot_depuis', ?)").run(j);
-  return j;
-}
-
 /**
  * Dépose ce qui manque, puis avise. `visibles` : les étudiants que le portail connaît (adresse d'école).
  * Rend { deposes, avises }.
  */
 export async function deposerDOffice(visibles, urlPortail) {
   migrerDepot();
+  // La date de mise en service reste notée : les rappels « document jamais ouvert » partent d'elle (rappelsEtudiants.js).
+  db.prepare("INSERT OR IGNORE INTO lucie_config (cle, valeur) VALUES ('portail_depot_depuis', date('now'))").run();
   const parId = new Map(visibles.map(e => [Number(e.id), e]));
   const cols = db.prepare('PRAGMA table_info(deliberation_seance)').all().map(c => c.name);
   if (!cols.includes('publie_le')) return { deposes: 0, avises: 0 };
   const orgCol = cols.includes('num_organisation') ? 'COALESCE(num_organisation, 0)' : '0';
-  const seances = db.prepare(`SELECT ue_num, annee_scolaire, session, ${orgCol} AS org FROM deliberation_seance
-    WHERE cloturee = 1 AND COALESCE(reprise, 0) = 0 AND publie_le IS NOT NULL AND publie_le >= ?
-    ORDER BY publie_le, ue_num`).all(depuis());
+  const active = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code
+    || db.prepare('SELECT code FROM annee_scolaire ORDER BY code DESC LIMIT 1').get()?.code || '';
+  const seances = db.prepare(`SELECT ue_num, annee_scolaire, session, ${orgCol} AS org,
+      COALESCE(date_seance, publie_le, maj_le) AS le FROM deliberation_seance
+    WHERE cloturee = 1 AND COALESCE(reprise, 0) = 0 AND annee_scolaire >= ?
+    ORDER BY COALESCE(publie_le, date_seance), ue_num`).all(active);
+  // DÉJÀ PARTIE PAR LE CENTRE D'ENVOI : un envoi de délibération de l'année, depuis la séance, dont la copie est gardée.
+  const dejaEnvoyee = db.prepare(`SELECT m.id FROM envoi_mail m JOIN envoi_copie c ON c.envoi_id = m.id
+    WHERE m.destinataire_type = 'etudiant' AND m.destinataire_id = ? AND m.type_doc = 'deliberation_lot'
+      AND m.statut = 'envoye' AND m.sujet LIKE ? AND substr(m.envoye_le, 1, 10) >= substr(?, 1, 10) ORDER BY m.id LIMIT 1`);
   const deja = db.prepare(`SELECT 1 FROM portail_depot WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND session = ? AND nature = ?`);
   const noter = db.prepare(`INSERT OR IGNORE INTO portail_depot (etudiant_id, annee_scolaire, ue_num, session, nature, envoi_id)
     VALUES (?,?,?,?,?,?)`);
+  const noterEnvoye = db.prepare(`INSERT OR IGNORE INTO portail_depot (etudiant_id, annee_scolaire, ue_num, session, nature, envoi_id, avise_le)
+    VALUES (?,?,?,?,?,?, datetime('now'))`);
   const nomUE = db.prepare('SELECT ue_nom FROM ue WHERE ue_num = ? ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1');
   const slug = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '');
   let deposes = 0;
@@ -72,6 +77,15 @@ export async function deposerDOffice(visibles, urlPortail) {
       .filter(d => parId.has(Number(d.etudiant_id)))
       .filter(d => !deja.get(d.etudiant_id, s.annee_scolaire, s.ue_num, s.session,
         { reussi: 'reussite', ajourne: 'ajournement', refuse: 'refus' }[d.resultat]));
+    // Ceux qui l'ont déjà reçue : notés (sans avis : ils ont eu le courriel), pas recomposés.
+    const aComposer = [];
+    for (const d of decides) {
+      const nat = { reussi: 'reussite', ajourne: 'ajournement', refuse: 'refus' }[d.resultat];
+      const m = dejaEnvoyee.get(Number(d.etudiant_id), `%${s.annee_scolaire}%`, s.le || s.annee_scolaire.slice(0, 4) + '-09-01');
+      if (m) { noterEnvoye.run(d.etudiant_id, s.annee_scolaire, s.ue_num, s.session, nat, m.id); continue; }
+      aComposer.push(d);
+    }
+    decides.length = 0; decides.push(...aComposer);
     if (!decides.length) continue;
     let a;
     try {
