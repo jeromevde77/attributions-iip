@@ -3145,7 +3145,7 @@ app.use('/api/pae-en-ligne', (await import('./routes/paeEnLigne.js')).default);
     const { envoyerCodeCandidat } = await import('./lib/portailValorisation.js');
     const { fonctionPour } = await import('./lib/fonctions.js');
     if (!fonctionPour('espace.candidats', { etudiantId: Number(req.params.id) }))
-      return res.status(409).json({ error: "Le code d'accès des candidats n'est pas ouvert pour ce dossier (Configuration → Fonctions)." });
+      return res.status(409).json({ error: "Le code d'accès des candidats n'est pas ouvert pour ce dossier : en Essai, il faut aussi nommer l'étudiant dans « Étudiants d'essai » (Configuration → Accès → Mise en service)." });
     const r = await envoyerCodeCandidat(Number(req.params.id), qui(req), process.env.PORTAIL_URL_PUBLIQUE || 'https://etudiants.lucie-iip.be');
     if (!r.erreur) deposerBientot();
     res.status(r.erreur ? 400 : 200).json(r.erreur ? { error: r.erreur } : r);
