@@ -43,6 +43,8 @@ const Tete = ({ sous, onQuitter }) => (
   </div>
 );
 
+// Le nom court d'un onglet sur téléphone (la grille des onglets, 3.5.009).
+const COURT = { resultats: 'Résultats', messages: 'Messages', parcours: 'Parcours', pae: 'PAE', documents: 'Documents', va: 'VA / VAE', frais: 'Frais', aide: 'Aide', compte: 'Compte' };
 const ETAT_COULEUR = { reussi: 'var(--c-reussi, #3E7D5E)', surveiller: 'var(--c-attente, #B45309)', corriger: 'var(--c-refuse, #9D4A38)' };
 
 /** L'accusé d'une pièce : ouvrir, puis signer par code. */
@@ -1135,10 +1137,13 @@ function Espace() {
         {d?.apercu && <div className="bloc-etat px-3 py-2 text-sm" data-etat="surveiller"><b>Aperçu de la direction</b> — l’espace de {nom} tel qu’il le voit.
           Lecture seule : rien ne s’enregistre, rien ne compte comme lu ni signé. Ouvert par {d.apercu.par}.</div>}
         {aSigner > 0 && <div className="bloc-etat px-3 py-2 text-sm" data-etat="surveiller">{aSigner} pièce(s) attendent votre accusé de réception.</div>}
-        <div className="flex gap-1 border-b border-slate-200 overflow-x-auto">
+        {/* TOUS LES ONGLETS À LA VUE (3.5.009, Charles : « on n'a plus Mes frais ») : sur téléphone, la barre d'icônes débordait
+            et cachait les derniers onglets hors de l'écran. Une grille qui passe à la ligne, chaque onglet nommé. */}
+        <div className="grid grid-cols-5 sm:flex sm:flex-wrap gap-1 border-b border-slate-200 pb-1">
           {FACES.map(([k, l, I]) => (
-            <button key={k} type="button" onClick={() => setFace(k)} title={l} aria-label={l} className={`onglet-page inline-flex items-center gap-1.5 ${face === k ? 'onglet-page-actif' : ''}`}>
-              <I size={15} /> <span className={face === k ? '' : 'hidden sm:inline'}>{l}</span></button>))}
+            <button key={k} type="button" onClick={() => setFace(k)} title={l} aria-label={l}
+              className={`onglet-page flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1.5 px-1 sm:px-3 ${face === k ? 'onglet-page-actif' : ''}`}>
+              <I size={16} /> <span className="sm:hidden text-[11px] leading-tight text-center">{k === 'messages' ? l : COURT[k] || l}</span><span className="hidden sm:inline">{l}</span></button>))}
         </div>
 
         {d && face === 'resultats' && (d.resultats.length ? d.resultats.map(a => (
@@ -1148,7 +1153,7 @@ function Espace() {
               <tbody>
                 {a.ues.map(u => (
                   <tr key={`${u.ue_num}-${u.decision}`} className="border-t border-slate-100 first:border-t-0">
-                    <td className="px-4 py-2 tabular-nums text-slate-500 w-16">UE {u.ue_num}</td>
+                    <td className="px-4 py-2 tabular-nums text-slate-500 w-20 whitespace-nowrap">UE {u.ue_num}</td>
                     <td className="px-2 py-2">{u.ue_nom}</td>
                     <td className="px-2 py-2 whitespace-nowrap"><span className="pastille-etat" style={{ background: ETAT_COULEUR[u.etat], color: '#fff' }}>{u.decision}</span></td>
                     <td className="px-4 py-2 text-right font-semibold tabular-nums w-20">{u.note}{typeof u.note === 'number' ? ' /20' : ''}</td>
