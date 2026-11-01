@@ -22,7 +22,7 @@ const SeanceValorisation = lazy(() => import('./SeanceValorisation.jsx'));
 import EnvoiMailModal from './EnvoiMailModal.jsx';
 import { useEnvoiMail } from '../lib/envoiMail.js';
 import { api, authHeaders, getAnnee } from '../lib/api.js';
-import { Fenetre, GroupeFenetre, PieceFenetre, Chevron } from './ui.jsx';
+import { Fenetre, GroupeFenetre, PieceFenetre, Chevron, Tableau, TableauEntete, Th, Td, Tr, PastilleEtat } from './ui.jsx';
 import SchemaCapitalisation from './SchemaCapitalisation.jsx';
 import InscritsPrevus from './InscritsPrevus.jsx';
 import { svgImprimable } from '../lib/svgImprimable.js';
@@ -298,33 +298,34 @@ function OngletValorisation({ initial = null }) {
         </p>
       )}
 
-      <div className="space-y-1.5">
-        {vue === 'unite' && unites.map(u => (
-          <div key={u.ue_num} className="carte px-3 py-2 flex items-center gap-3">
-            <span className="flex-1 min-w-0">
-              <span className="text-sm font-semibold text-iip-blue">
-                {u.ue_num === 0 ? 'Admission de section' : `UE ${u.ue_num}`}
-              </span>
-              <span className="text-sm text-slate-600 ml-2">{u.ue_nom}</span>
-              <span className="block text-xs text-slate-500">
-                {u.section || 'section à déduire'} · {u.n} dossier(s)
-                {u.partielles ? ` · ${u.partielles} partielle(s)` : ''}
-                {u.refus ? ` · ${u.refus} refus` : ''}
-                {/* CE QUI EMPÊCHERA LA PIÈCE DE SORTIR SE VOIT ICI, PAS AU
-                    MOMENT D'IMPRIMER — le découvrir devant quelqu'un qui
-                    attend son attestation est la mauvaise façon de l'apprendre. */}
-                {u.avalider
-                  ? <span className="text-iip-texte"> · {u.avalider} non validé(s)</span>
-                  : null}
-              </span>
-            </span>
-            <button className="bouton-sortir controle px-3 text-second flex-none"
-              onClick={() => setOuverte(u)}>
-              PV et attestations
-            </button>
-          </div>
-        ))}
-      </div>
+      {/* UNE LISTE, PAS DES TUILES (3.5.037, Charles : « réduire les tailles, ne pas faire des tuiles ») : un tableau, une
+          ligne par unité, l'action au bout de la ligne. */}
+      {vue === 'unite' && unites.length > 0 && (
+        <Tableau dense>
+          <TableauEntete>
+            <Th largeur="w-[5.5rem]">Unité</Th><Th>Intitulé</Th><Th>Section</Th>
+            <Th align="droite">Dossiers</Th><Th align="droite">Partielles</Th><Th align="droite">Refus</Th>
+            <Th align="droite">Non validés</Th><Th />
+          </TableauEntete>
+          <tbody>
+            {unites.map(u => (
+              <Tr key={u.ue_num}>
+                <Td ton="fort" className="whitespace-nowrap">{u.ue_num === 0 ? 'Admission' : `UE ${u.ue_num}`}</Td>
+                <Td>{u.ue_num === 0 ? 'Admission de section' : u.ue_nom}</Td>
+                <Td ton="secondaire">{u.section || 'à déduire'}</Td>
+                <Td align="droite">{u.n}</Td>
+                <Td align="droite" ton="secondaire">{u.partielles || ''}</Td>
+                <Td align="droite" ton="secondaire">{u.refus || ''}</Td>
+                {/* CE QUI EMPÊCHERA LA PIÈCE DE SORTIR SE VOIT ICI, PAS AU MOMENT D'IMPRIMER. */}
+                <Td align="droite">{u.avalider ? <PastilleEtat etat="surveiller">{u.avalider}</PastilleEtat> : ''}</Td>
+                <Td align="droite" className="whitespace-nowrap">
+                  <button className="bouton-sortir px-2.5 py-1 text-second" onClick={() => setOuverte(u)}>PV et attestations</button>
+                </Td>
+              </Tr>
+            ))}
+          </tbody>
+        </Tableau>
+      )}
 
       {ouverte && (
         <Suspense fallback={null}>
