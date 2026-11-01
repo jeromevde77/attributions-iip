@@ -8,7 +8,8 @@
  * un cercle, titre, résumé, grand numéro en filigrane) ; « Ce que vous trouverez ici » ; chaque point en carte (rond
  * numéroté, « POINT n », titre, bande « Où ? », texte, captures encadrées, « À savoir ») ; un aide-mémoire « Je veux…
  * je vais… » ; un liseré sur le bord gauche de chaque page ; un pied logo · titre · page.
- * Ce qui vient de l'ancien guide : le mot de la direction, signé ; les couleurs du logo dans le liseré.
+ * Ce qui vient de l'ancien guide : le mot de la direction, signé ; les captures annotées (repères numérotés, une carte
+ * par repère). Pas de bleu clair en aplat, pas de liseré tricolore (3.5.034) : le bleu nuit du kit.
  *
  * Le CONTENU reste celui du guide en ligne (`modeEmploi.js`, filtré par public) : rien ne s'écrit ici.
  *
@@ -24,7 +25,7 @@ import { mentionProduction } from './contexteRequete.js';
 import { rendrePdfs } from '../services/pdf.js';
 
 const esc = x => String(x ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-/* Les couleurs du kit, et celles du logo de l'IIP pour le liseré. */
+/* Les couleurs du kit (le cyan du logo ne sert plus qu'au L de la couverture). */
 const C = {
   nuit: '#0B2A55', bleu: '#1F78BE', clair: '#3E9BD6', ciel: '#9FD0F0', pale: '#EEF5FB', pale2: '#E4F0FA',
   filet: '#DCE6F0', gris: '#64748B', encre: '#1E293B', or: '#F9B619', cyan: '#05B7E6', iip: '#19537E',
@@ -82,21 +83,21 @@ const STYLES = `
   .pub { border: .3mm solid rgba(255,255,255,.28); border-radius: 1.5mm; padding: .3mm 2mm; font-size: 7.2pt; color: #DCEAF6; }
 
   /* « Ce que vous trouverez ici » */
-  .trouver { border: .3mm solid ${C.filet}; border-left: 1.3mm solid ${C.clair}; border-radius: 0 3.5mm 3.5mm 0; padding: 3.5mm 5mm 3mm;
+  .trouver { border: .3mm solid ${C.filet}; border-left: 1.3mm solid ${C.nuit}; border-radius: 0 3.5mm 3.5mm 0; padding: 3.5mm 5mm 3mm;
     margin: 0 0 6mm; break-inside: avoid; }
   .trouver .t { display: flex; gap: 2mm; align-items: center; font-weight: 700; color: ${C.nuit}; margin-bottom: 1.8mm; }
   .trouver ul { margin: 0; padding-left: 4.5mm; columns: 2; column-gap: 9mm; }
   .trouver li { margin: 0 0 1mm; break-inside: avoid; } .trouver li::marker { color: ${C.clair}; }
 
   /* un point = une carte, au dessin des étapes du kit */
-  .pt { border: .3mm solid ${C.filet}; border-left: 1.3mm solid ${C.clair}; border-radius: 0 3.5mm 3.5mm 0; padding: 4.5mm 5.5mm 3.5mm;
+  .pt { border: .3mm solid ${C.filet}; border-left: 1.3mm solid ${C.nuit}; border-radius: 0 3.5mm 3.5mm 0; padding: 4.5mm 5.5mm 3.5mm;
     margin: 0 0 4.5mm; }
   .pt-tete { display: flex; align-items: center; gap: 3.5mm; margin: 0 0 3mm; break-inside: avoid; break-after: avoid; }
-  .pt-num { width: 9.5mm; height: 9.5mm; border-radius: 50%; background: ${C.clair}; color: #fff; display: grid; place-items: center;
+  .pt-num { width: 9.5mm; height: 9.5mm; border-radius: 50%; background: ${C.nuit}; color: #fff; display: grid; place-items: center;
     font-weight: 750; font-size: 11pt; flex: none; }
   .pt-kick { font-size: 6.8pt; letter-spacing: .22em; font-weight: 700; color: ${C.clair}; text-transform: uppercase; }
   .pt h3 { font-size: 12.5pt; color: ${C.nuit}; margin: .3mm 0 0; font-weight: 750; line-height: 1.25; }
-  .pt-ou { display: flex; align-items: flex-start; gap: 2mm; background: ${C.pale}; border-radius: 2mm; padding: 2mm 3mm; margin: 0 0 3mm;
+  .pt-ou { display: flex; align-items: flex-start; gap: 2mm; background: #F1F4F8; border-radius: 2mm; padding: 2mm 3mm; margin: 0 0 3mm;
     font-size: 8.8pt; break-inside: avoid; }
   .pt-ou svg { flex: none; margin-top: .4mm; }
   .pt-ou .q { font-weight: 700; color: ${C.nuit}; white-space: nowrap; }
@@ -111,9 +112,23 @@ const STYLES = `
   .intro { margin: 0 0 4.5mm; }
 
   /* les captures, dans un cadre bleu pâle, légende centrée (ancien guide) */
-  .cap { background: ${C.pale2}; border-radius: 3.5mm; padding: 3mm; margin: 0 0 3mm; break-inside: avoid; }
-  .cap img { display: block; width: 100%; max-height: 92mm; object-fit: contain; border-radius: 1.5mm; border: .3mm solid #C9DBEA; background: #fff; }
-  .cap figcaption { font-size: 7.8pt; color: #334155; text-align: center; margin-top: 1.8mm; line-height: 1.4; }
+  /* Une capture se pose seule, sur un filet gris (3.5.034, Charles : « tu mets des bandes bleues claires »). */
+  .cap { margin: 0 0 3mm; break-inside: avoid; }
+  .cap img { display: block; width: 100%; max-height: 92mm; object-fit: contain; border-radius: 2mm; border: .3mm solid #CBD5E1; background: #fff; }
+  .cap figcaption { font-size: 7.8pt; color: ${C.gris}; text-align: center; margin-top: 1.8mm; line-height: 1.4; }
+  .annot { margin: 1mm 0 3.5mm; width: 100%; }
+  .annot-ecran { position: relative; }
+  .annot-img { position: relative; }
+  .annot-img img { display: block; width: 100%; border: .3mm solid #CBD5E1; border-radius: 2mm; background: #fff; }
+  .rep { display: inline-grid; place-items: center; width: 5.6mm; height: 5.6mm; border-radius: 50%; background: ${C.nuit}; color: #fff;
+    font-size: 7.6pt; font-weight: 750; flex: none; }
+  .annot-ecran > .rep { position: absolute; transform: translateX(-50%); }
+  .rep-trait { position: absolute; width: .45mm; margin-left: -.225mm; background: ${C.nuit}; }
+  .annot figcaption { font-size: 7.8pt; color: ${C.gris}; text-align: center; margin: 1.8mm 0 2.5mm; }
+  .reps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2.2mm; }
+  .rep-carte { display: flex; gap: 2mm; align-items: flex-start; background: #F3F5F8; border-radius: 2.5mm; padding: 2.2mm 2.6mm;
+    font-size: 8.2pt; line-height: 1.38; break-inside: avoid; }
+  .rep-carte b { color: ${C.nuit}; }
   .flottant { float: left; display: flex; gap: 3mm; align-items: flex-start; margin: 0 5mm 2mm 0; max-width: 62%; }
   .flottant .cap { margin: 0; }
   .rangee { display: flex; flex-wrap: wrap; gap: 3mm; align-items: flex-start; clear: both; }
@@ -141,7 +156,7 @@ const STYLES = `
   /* mot de la direction */
   .mot { padding-top: 14mm; } .mot h1 { font-size: 21pt; color: ${C.nuit}; font-weight: 800; margin: 2.5mm 0 8mm; letter-spacing: -.01em; }
   .mot p { font-size: 10.4pt; line-height: 1.62; margin: 0 0 4mm; }
-  .mot .sign { border-left: 1.1mm solid ${C.or}; padding: 2mm 0 2mm 6mm; margin-top: 10mm; }
+  .mot .sign { border-left: 1.1mm solid ${C.nuit}; padding: 2mm 0 2mm 6mm; margin-top: 10mm; }
   .mot .sign img { height: 19mm; display: block; margin: 0 0 2mm; }
   .mot .sign .q { color: ${C.gris}; font-size: 9pt; }
 
@@ -179,12 +194,44 @@ function figure(i, w) {
   return `<figure class="cap"${w ? ` style="width:${w}mm"` : ''}><img src="${esc(i.src)}" alt="">${i.legende ? `<figcaption>${enrichiP(i.legende)}</figcaption>` : ''}</figure>`;
 }
 
+/* LA CAPTURE ANNOTÉE (3.5.034, Charles : « je n'ai pas comme dans le mode d'emploi initial ceci » — la barre du haut du
+   guide du secrétariat, numérotée). Les numéros se posent AU-DESSUS de la capture, sur autant de rangs qu'il faut pour
+   ne pas se toucher (`rangsReperes`), chacun avec son trait jusqu'à l'objet ; puis une carte par numéro, en quatre
+   colonnes. Une capture annotée prend toute la largeur : elle ne flotte jamais à côté du texte. */
+const PAS_RANG = 6.5;     // mm entre deux rangs de numéros
+function captureAnnotee(i) {
+  const reps = rangsReperes(i.reperes, 5.2);
+  const nRangs = Math.max(...reps.map(r => r.rang)) + 1;
+  const haut = nRangs * PAS_RANG + 2.5;
+  const numeros = reps.map((r, k) => `<span class="rep" style="left:${r.x}%;top:${r.rang * PAS_RANG}mm">${k + 1}</span>`).join('');
+  const traits = reps.map(r => {
+    const ecart = haut - (r.rang * PAS_RANG + 5.6);
+    return `<i class="rep-trait" style="left:${r.x}%;top:-${ecart}mm;height:calc(${r.y ?? 50}% + ${ecart}mm)"></i>`;
+  }).join('');
+  return `<figure class="annot"><div class="annot-ecran" style="padding-top:${haut}mm">${numeros}
+      <div class="annot-img"><img src="${esc(i.src)}" alt="">${traits}</div></div>
+    ${i.legende ? `<figcaption>${enrichiP(i.legende)}</figcaption>` : ''}
+    <div class="reps">${reps.map((r, k) => `<div class="rep-carte"><span class="rep">${k + 1}</span><div><b>${esc(r.titre)}</b>${r.texte ? ` — ${enrichiP(r.texte)}` : ''}</div></div>`).join('')}</div>
+  </figure>`;
+}
+/** Rangs des repères : dans l'ordre de `x`, chacun sur le premier rang où il ne touche pas le précédent. */
+export function rangsReperes(reperes, ecartMin) {
+  const fins = [];
+  return (reperes || []).map(r => {
+    let rang = 0;
+    while (fins[rang] != null && r.x - fins[rang] < ecartMin) rang++;
+    fins[rang] = r.x;
+    return { ...r, rang };
+  });
+}
+
 /** Un point du guide, en carte. */
 function point(p, n, dims) {
   const l = [...(p.image ? [{ src: p.image, legende: p.legende }] : []), ...(p.images || [])];
   const petites = [], grandes = [];
   let cumul = 0;
   for (const i of l) {
+    if (i.reperes?.length) { grandes.push([i, null]); continue; }
     const w = largeur(i, dims);
     const plafond = COLONNE_MM * (petites.length ? 0.5 : 0.62);
     if (w && cumul + w + (petites.length ? 3 : 0) < plafond) { petites.push([i, w]); cumul += w + (petites.length > 1 ? 3 : 0); }
@@ -193,7 +240,7 @@ function point(p, n, dims) {
   const corps = `<div class="pt-corps">
       ${petites.length ? `<div class="flottant">${petites.map(([i, w]) => figure(i, w)).join('')}</div>` : ''}
       ${p.texte ? `<p>${enrichiP(p.texte)}</p>` : ''}${p.contenu || ''}
-      ${grandes.length ? `<div class="rangee">${grandes.map(([i, w]) => figure(i, w)).join('')}</div>` : ''}
+      ${grandes.length ? `<div class="rangee">${grandes.map(([i, w]) => (i.reperes?.length ? captureAnnotee(i) : figure(i, w))).join('')}</div>` : ''}
     </div>
     ${p.savoir?.length ? `<div class="pt-savoir">${icone('bulb', 15, C.bleu, 2)}<div><div class="t">À savoir</div>
       <ul>${p.savoir.map(s => `<li>${enrichiP(s)}</li>`).join('')}</ul></div></div>` : ''}`;
@@ -222,7 +269,7 @@ function chapitre(r, i, dims) {
     ${r.points.map(p => point(p, p.titre ? ++k : null, dims)).join('')}`);
 }
 
-/** La couverture : pleine page, sans marge ni pied ; liseré aux couleurs du logo. */
+/** La couverture : pleine page bleu nuit, sans marge ni pied. */
 function couverture(m) {
   const pub = m.publics?.length === 1 ? m.publics[0] : null;
   const titre = pub ? GUIDE_DE[pub] : 'Le guide complet';
@@ -230,7 +277,7 @@ function couverture(m) {
     ? 'Vos premiers pas dans Lucie, puis tout ce que vous pouvez y faire : vos cours, vos notes, vos présences, vos avis.'
     : "Où aller, ce qu'on y fait, et ce qu'il faut savoir : tout le travail de l'école, écran par écran.";
   const v = String(m.version).split('.').slice(0, 2).join('.');
-  return page(`<section class="couv"><div class="liseré"><i style="background:${C.or}"></i><i style="background:${C.cyan}"></i><i style="background:${C.iip}"></i></div>
+  return page(`<section class="couv">
     <div class="haut"><img src="${logoBlancCourant()}" alt=""><div class="k">ENSEIGNEMENT POUR ADULTES<br>INSTITUT ILYA PRIGOGINE</div></div>
     <div class="milieu"><div class="kick">Mode d'emploi</div>
       <div class="logo">${logoLucie()}<div class="nom">Lucie<span>v.${esc(v)}</span></div></div>
@@ -242,8 +289,6 @@ function couverture(m) {
     @page { size: A4; margin: 0; }
     body { padding: 0; }
     .couv { width: 210mm; height: 297mm; background: ${C.nuit}; color: #fff; padding: 24mm 22mm 20mm; display: flex; flex-direction: column; overflow: hidden; position: relative; }
-    .couv .liseré { position: absolute; left: 0; top: 0; bottom: 0; width: 3mm; display: flex; flex-direction: column; }
-    .couv .liseré i { flex: 1; display: block; }
     .couv .haut { display: flex; justify-content: space-between; align-items: flex-start; }
     .couv .haut img { height: 30mm; margin: -6mm 0 0 -6mm; }
     .couv .haut .k { text-align: right; font-size: 7.4pt; letter-spacing: .26em; color: ${C.clair}; line-height: 2.1; }
@@ -386,8 +431,8 @@ export async function rendreGuidePdf(role, voir, images = {}) {
   doc.getPages().forEach((pg, k) => {
     if (k === 0) return;
     const { width, height } = pg.getSize();
-    const tiers = height / 3;
-    [C.iip, C.cyan, C.or].forEach((c, j) => pg.drawRectangle({ x: 0, y: j * tiers, width: mm(2.2), height: tiers, color: hex(c) }));
+    // Le liseré du kit : bleu nuit, d'un seul trait (3.5.034 : les trois couleurs du logo n'étaient pas celles du kit).
+    pg.drawRectangle({ x: 0, y: 0, width: mm(1.8), height, color: hex(C.nuit) });
     const t = `${k} / ${total}`;
     const taille = 6.5;
     pg.drawText(t, { x: width - mm(18) - police.widthOfTextAtSize(t, taille), y: mm(10.4), size: taille, font: police, color: hex('#3F4652') });

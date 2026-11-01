@@ -29,7 +29,26 @@ export const RUBRIQUES = [
           "Tableau de bord : ce qui attend chacun, l'échéancier légal, les réunions et les tâches de l'équipe.",
         ],
         images: [
-          { src: "/guide/ensemble-barre-direction.png", legende: "La barre du haut de la direction : un axe par métier (Tableau de bord, Mes cours, Étudiants, Personnel, Organisation, Gestion, Documentation, Configuration), puis la recherche, le bouton ↶ et le compte." },
+          /* LES REPÈRES (3.5.034, Charles : « comme dans le mode d'emploi initial » — la capture annotée du guide du
+             secrétariat) : un numéro posé au-dessus de l'écran, un trait vers l'objet, puis une carte par numéro. `x` et `y`
+             en pour cent de la capture (relevés sur l'image de 1 280 × 60). */
+          { src: "/guide/ensemble-barre-direction.png", legende: "La barre du haut de la direction : un axe par métier (Tableau de bord, Mes cours, Étudiants, Personnel, Organisation, Gestion, Documentation, Configuration), puis la recherche, le bouton ↶ et le compte.",
+            reperes: [
+              { x: 14.8, y: 50, titre: "L'année de travail", texte: "Tout ce que vous voyez porte sur elle. Sans y toucher, Lucie prend l'année active." },
+              { x: 26.6, y: 50, titre: "Tableau de bord", texte: "Ce qui vous attend ; la pastille compte les nouveautés non lues." },
+              { x: 37.2, y: 50, titre: "Les métiers", texte: "Mes cours, Étudiants, Personnel, Organisation, Gestion, Documentation : une icône par axe, nommée au survol ; l'axe ouvert écrit son nom." },
+              { x: 52, y: 50, titre: "Configuration", texte: "Les réglages de l'école (direction)." },
+              { x: 58.4, y: 50, titre: "Urgence", texte: "Hors des heures du secrétariat : qui est de permanence, et l'appeler. Secrétariat ouvert, le bouton passe au vert : qui est là." },
+              { x: 64.7, y: 50, titre: "La loupe « Où aller ? »", texte: "Un mot, et Lucie propose l'écran (⌘K / Ctrl+K)." },
+              { x: 68.1, y: 50, titre: "Revenir en arrière", texte: "Vos dix derniers enregistrements, à défaire du plus récent au plus ancien." },
+              { x: 71.6, y: 50, titre: "Mise en page", texte: "L'administrateur range la barre, les rails et les blocs des pages." },
+              { x: 74.9, y: 50, titre: "Clair ou sombre", texte: "Les menus en gris pâle ou en marine." },
+              { x: 79.9, y: 50, titre: "La version", texte: "Un clic en donne le détail." },
+              { x: 85.4, y: 50, titre: "Vos initiales", texte: "Pour la direction : « Voir comme… » un autre profil, en lecture." },
+              { x: 89.8, y: 50, titre: "Votre rôle", texte: "Le rôle du compte connecté, en abrégé." },
+              { x: 93.8, y: 50, titre: "Votre compte", texte: "Mot de passe et vérification en deux temps." },
+              { x: 96.9, y: 50, titre: "Quitter", texte: "Se déconnecter." },
+            ] },
         ],
       },
       {

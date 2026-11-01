@@ -2917,6 +2917,16 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   **aide-mémoire** « Je veux… je vais… » tiré des `ou` des points. Chaque morceau se rend à part (`rendrePdfs`) pour connaître la
   page de chaque chapitre ; pdf-lib réunit, pose le **liseré aux trois couleurs du logo** et la pagination « n / N » (couverture
   non comptée). Police Inter : paquet `fonts-inter` ajouté à l'image du serveur.
+- **LE KIT, SANS BLEU CLAIR, ET LES CAPTURES ANNOTÉES** (3.5.034, Charles, 1er novembre 2026 : « tu n'as pas respecté le KIT, tu
+  mets des bandes bleues claires » ; « je n'ai pas comme dans le mode d'emploi initial ceci » — la barre du haut numérotée du guide
+  du secrétariat). (1) PDF (`guideKit.js`) : liseré de page bleu nuit d'un seul trait (plus de tricolore), bord des cartes et ronds
+  des points en bleu nuit, captures posées seules sur un filet gris (plus de cadre bleu pâle), bande « Où ? » grise. (2) **Une
+  capture peut porter des repères** : `images: [{ src, legende, reperes: [{ x, y, titre, texte }] }]` (`modeEmploi.js`, x et y en
+  % de l'image, relevés sur la capture) — numéros au-dessus, sur des rangs qui ne se touchent pas (`rangsReperes`), un trait
+  jusqu'à l'objet, puis une carte par numéro ; toute la largeur, jamais à côté du texte. Même dessin dans le PDF
+  (`captureAnnotee`) et à l'écran (`CaptureAnnotee`, `pages/Aide.jsx`). Premier exemple : la barre du haut de la direction
+  (14 repères). L'ancien guide du secrétariat (76 pages, retiré en 3.1.512) se relit par
+  `git show 0f78aa9^:backend/assets/guides/Lucie_mode_emploi_secretariat.pdf` : ses autres captures annotées sont à reprendre.
 - **PORTAIL, ÉTAPE 1 : LE MOT DE PASSE ET LA BELGIQUE** (3.1.513). `compte` (empreinte scrypt salée, dans la base du
   PORTAIL seulement, survit aux dépôts) ; `POST /api/portail/connexion` (adresse ou matricule + mot de passe ; appareil
   reconnu → session ; sinon code `connexion` composé par Lucie → `POST /connexion/code`, qui reconnaît l'appareil, 3 au

@@ -45,6 +45,50 @@ export const boutonsHtml = h => String(h || '').replace(/\[\[([^\]|]+)(?:\|([^\]
   const lib = l.trim().replace(/&/g, '&amp;').replace(/</g, '&lt;');
   return `<span class="bouton ${sorte ? `bouton-${sorte} ` : ''}bouton-guide">${lib}</span>`;
 });
+/* LA CAPTURE ANNOTÉE (3.5.034, Charles : « comme dans le mode d'emploi initial ») : les numéros au-dessus de la capture,
+   chacun avec son trait jusqu'à l'objet (`reperes` : x, y en % de l'image), puis une carte par numéro. Même règle que le
+   PDF (`captureAnnotee` de lib/guideKit.js) : rangs qui ne se touchent pas, toute la largeur, jamais à côté du texte. */
+const PAS_RANG = 26;
+function rangsReperes(reperes, ecartMin) {
+  const fins = [];
+  return (reperes || []).map(r => {
+    let rang = 0;
+    while (fins[rang] != null && r.x - fins[rang] < ecartMin) rang++;
+    fins[rang] = r.x;
+    return { ...r, rang };
+  });
+}
+function CaptureAnnotee({ im, p, onAgrandir }) {
+  const reps = rangsReperes(im.reperes, 4.2);
+  const nRangs = Math.max(...reps.map(r => r.rang)) + 1;
+  const haut = nRangs * PAS_RANG + 8;
+  return (
+    <figure className="m-0 w-full">
+      <div className="relative" style={{ paddingTop: haut }}>
+        {reps.map((r, k) => (
+          <span key={k} className="absolute -translate-x-1/2 inline-grid place-items-center w-[22px] h-[22px] rounded-full text-white text-mention font-semibold"
+            style={{ left: `${r.x}%`, top: r.rang * PAS_RANG, background: 'var(--c-principal)' }}>{k + 1}</span>))}
+        <button type="button" className="relative block w-full cursor-zoom-in" title="Agrandir" onClick={() => onAgrandir?.(im)}>
+          <img src={im.src} alt={im.legende || p.titre} loading="lazy" className="block w-full h-auto rounded-champ border border-slate-200 bg-white" />
+          {reps.map((r, k) => {
+            const ecart = haut - (r.rang * PAS_RANG + 22);
+            return <i key={k} className="absolute w-[2px] -ml-px" style={{ left: `${r.x}%`, top: -ecart, height: `calc(${r.y ?? 50}% + ${ecart}px)`, background: 'var(--c-principal)' }} />;
+          })}
+        </button>
+      </div>
+      {im.legende && <figcaption className="text-mention text-slate-500 text-center mt-1.5"><Enrichi texte={im.legende} /></figcaption>}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 mt-2.5">
+        {reps.map((r, k) => (
+          <div key={k} className="flex items-start gap-2 rounded-champ border border-slate-200 px-2.5 py-2 text-second leading-snug">
+            <span className="flex-none inline-grid place-items-center w-[20px] h-[20px] rounded-full text-white text-mention font-semibold"
+              style={{ background: 'var(--c-principal)' }}>{k + 1}</span>
+            <span><b className="text-iip-texte">{r.titre}</b>{r.texte && <> — <Enrichi texte={r.texte} /></>}</span>
+          </div>))}
+      </div>
+    </figure>
+  );
+}
+
 /** Les images d'un point : `image` + `legende`, ou `images` [{ src, legende, etroite }]. */
 /* LES IMAGES D'UN POINT (3.1.491, puis 3.5.024, Charles : « les captures dans le corps du texte, ou en dessous — on perd
    beaucoup trop de place »). Elles suivent le texte, dans la largeur de la carte, côte à côte quand elles tiennent ; chacune
@@ -54,7 +98,9 @@ const imagesDe = p => [...(p.image ? [{ src: p.image, legende: p.legende }] : []
 
 function ImagesDuPoint({ liste, p, onAgrandir, onTaille }) {
   if (!liste.length) return null;
-  return <div className="flex flex-wrap items-start gap-3">{liste.map((im, i) => <ImageDuPoint key={im.src + i} im={im} p={p} onAgrandir={onAgrandir} onTaille={onTaille} />)}</div>;
+  return <div className="flex flex-wrap items-start gap-3">{liste.map((im, i) => (im.reperes?.length
+    ? <CaptureAnnotee key={im.src + i} im={im} p={p} onAgrandir={onAgrandir} />
+    : <ImageDuPoint key={im.src + i} im={im} p={p} onAgrandir={onAgrandir} onTaille={onTaille} />))}</div>;
 }
 
 /* Le cadre prend la largeur de l'image telle qu'elle s'affiche (taille réelle, ou réduite par le plafond de hauteur) :
@@ -264,6 +310,7 @@ export function Point({ p, n, delai = 0 }) {
   const petites = [], grandes = [];
   let cumul = 0;
   for (const im of liste) {
+    if (im.reperes?.length) { grandes.push(im); continue; }   // une capture annotée prend toute la largeur
     const l = largeurDe(im);
     // Une seule capture : jusqu'aux trois quarts ; à plusieurs, 55 % — le texte garde de quoi se lire.
     const plafondGroupe = colonne * (petites.length ? 0.55 : 0.75);
