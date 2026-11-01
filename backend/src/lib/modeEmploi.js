@@ -10,7 +10,15 @@
  *   savoir — ce qu'il faut savoir : les règles qui bloquent ou qui surprennent.
  * Il explique le travail, pas l'informatique (CLAUDE.md, § 7). La version décrite se dit en tête.
  */
-export const VERSION_DECRITE = '3.5.033';
+import * as gMoi from './guide/moi.js';
+import * as gPresences from './guide/presences.js';
+import * as gPieces from './guide/pieces.js';
+import * as gFinances from './guide/finances.js';
+import * as gConfig from './guide/config.js';
+import * as gEcole from './guide/ecole.js';
+import * as gNouveautes from './guide/nouveautes.js';
+
+export const VERSION_DECRITE = '3.5.041';
 
 export const RUBRIQUES = [
   {
@@ -1717,7 +1725,7 @@ export const RUBRIQUES = [
       {
         titre: "Thèmes et couleurs",
         ou: "Configuration → Système → Thèmes et couleurs.",
-        texte: "Toutes les couleurs de Lucie se règlent ici : écran, états, repères, fonds. Le thème « Maison IIP » (couleurs du logo) est le défaut ; « Lucie d'origine », les gris clairs et « Gris Apple » (gris système d'Apple, bleu Apple) restent disponibles. Le jeu de gris de l'interface se choisit à part : Ardoise, Neutre ou Apple.",
+        texte: "Toutes les couleurs de Lucie se règlent ici : écran, états, repères, fonds. Le thème « Maison IIP » (couleurs du logo) est le défaut ; « Lucie d'origine », les gris clairs, « Gris Apple » (gris système d'Apple, bleu Apple), « Sombre », « Métal » et « Pastel » restent disponibles pour toute l'école — chacun peut aussi choisir, pour lui seul, Maison IIP, Sombre, Métal ou Pastel (palette de la barre du haut). Le jeu de gris de l'interface se choisit à part : Ardoise, Neutre ou Apple.",
         savoir: [
           "Les pièces imprimées gardent la charte de l'Institut, quel que soit le thème.",
         ],
@@ -1747,6 +1755,49 @@ export const RUBRIQUES = [
     ],
   },
 ];
+
+/* LE GUIDE COMPLET (3.5.040, Charles, 1er novembre 2026 : « TOUT doit y être — budget, dotation, configuration, les
+ * documents qui sortent, les présences, l'espace personnel —, même si cela fait 200 pages ; je vais l'envoyer au CA et à
+ * l'administration »). Les compléments vivent dans `lib/guide/*.js`, un fichier par domaine, sous la même forme :
+ * `chapitres` (nouveaux), `ajouts` (points ajoutés à un chapitre), `remplacements` (« id|titre » → point refait). Ils
+ * s'appliquent ici, une fois, au chargement ; puis les chapitres se rangent dans l'ordre du travail. */
+const COMPLEMENTS = [gMoi, gPresences, gPieces, gFinances, gConfig, gEcole, gNouveautes];
+const ORDRE_CHAPITRES = ['ensemble', 'demarrage', 'moi', 'accueil', 'equipe',
+  'etudiants', 'pae', 'valorisation', 'amenagements', 'deliberation', 'procedures', 'diplomes', 'editions', 'pieces', 'espace',
+  'mescours', 'presences', 'cep',
+  'personnel', 'organisation', 'gestion', 'dotation', 'frais',
+  'documentation', 'config'];
+const RETRAITS = ['gestion|Rapport ETP et ratio étudiants / ETP'];
+const RESUMES = { gestion: 'Le budget des sections, les présences et la PEP estimée, le plan d’action qualité.' };
+/* L'ordre des points de Configuration suit les familles de son rail : Établissement · Enseignement · Documents et
+   envois · Accès · Système. Un point absent de la liste garde sa place, à la fin. */
+const ORDRE_CONFIG = ['Les cinq familles', 'Identité fait foi', 'Plusieurs établissements', 'Années et calendrier', 'Le calendrier des sessions',
+  'Coût des périodes', 'Les inscrits prévus', 'Enseignement : le référentiel', 'Prérequis d', 'Cursus compatibles', 'Règles de délibération',
+  'Procédures et délais', 'Planification', 'Documents et envois', "L'atelier de Lucie", 'La galerie des pièces', 'Le contrat de travail',
+  'Le modèle de diplôme', "Descriptifs d'UE", 'Courriels', 'Le récapitulatif quotidien', 'Les rappels par courriel', 'Réponses types',
+  'Accès, fonctions, sécurité', 'Créer un rôle', 'Sécurité', 'Ouvrir Configuration en lecture', 'La mise en service des fonctions',
+  'Les attestations des années passées', 'Thèmes et couleurs', 'Une seule bande', "Régler l'apparence", "Revenir sur un réglage",
+  'Le mode « Mise en page »', 'Sauvegardes', 'Transferts', 'Traces et historique', 'Registre des envois', 'Qui a fait quoi', 'Nouveautés', 'Traces'];
+(function completer() {
+  const chap = id => RUBRIQUES.find(r => r.id === id);
+  for (const c of COMPLEMENTS) for (const [cle, point] of Object.entries(c.remplacements || {})) {
+    const [id, titre] = cle.split('|'); const r = chap(id); const i = r ? r.points.findIndex(p => p.titre === titre) : -1;
+    if (i >= 0) r.points[i] = point; else console.warn('[mode d’emploi] remplacement sans cible :', cle);
+  }
+  for (const cle of RETRAITS) { const [id, titre] = cle.split('|'); const r = chap(id); if (r) r.points = r.points.filter(p => p.titre !== titre); }
+  for (const [id, t] of Object.entries(RESUMES)) if (chap(id)) chap(id).resume = t;
+  for (const c of COMPLEMENTS) for (const r of c.chapitres || []) if (!chap(r.id)) RUBRIQUES.push(r);
+  for (const c of COMPLEMENTS) for (const [id, pts] of Object.entries(c.ajouts || {})) {
+    if (chap(id)) chap(id).points.push(...pts); else console.warn('[mode d’emploi] ajout sans chapitre :', id);
+  }
+  const rang = id => { const i = ORDRE_CHAPITRES.indexOf(id); return i < 0 ? 999 : i; };
+  RUBRIQUES.sort((a, b) => rang(a.id) - rang(b.id));
+  const cfg = chap('config');
+  if (cfg) {
+    const rangP = p => { const i = ORDRE_CONFIG.findIndex(t => String(p.titre || '').startsWith(t)); return i < 0 ? 999 : i; };
+    cfg.points = cfg.points.map((p, i) => [p, i]).sort((x, y) => (rangP(x[0]) - rangP(y[0])) || (x[1] - y[1])).map(x => x[0]);
+  }
+})();
 
 const PUBLIC_DU_ROLE = { professeur: ['ens'], secretariat: ['sec'], coordination: ['coo'], consultation: ['ens'] };
 export const ROLES_TOUT = ['admin', 'directeur', 'directeur_adjoint', 'editeur'];

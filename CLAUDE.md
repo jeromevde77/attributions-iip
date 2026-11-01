@@ -3081,6 +3081,18 @@ une a un corps blanc) et `OutilFenetre` (icône blanche, dans `outils` de `Fenet
 sortie d'une fenêtre (aperçu, imprimer, envoyer, PDF) est un `OutilFenetre` du bandeau.** Pas de cadre dans un cadre, pas de clé
 technique affichée (en `title=`), pas d'émoji dans un bouton. 105 fichiers repris en un passage.
 
+**LE MODE D'EMPLOI COMPLET** (3.5.041, Charles, 1er novembre 2026 : « TOUT doit y être — budget, dotation, configuration,
+les documents qui sortent, les présences, l'espace personnel —, même si cela fait 200 pages ; je vais l'envoyer au CA et à
+l'administration »). 25 chapitres, 312 points, 233 pages pour la direction (le professeur : 7 chapitres, 56 points). Six
+chapitres nouveaux — Mon espace, Le travail d'équipe, Les documents qui sortent de Lucie, Les présences, Dotation ETP et
+coûts, Frais de scolarité et paiements — et des points ajoutés à Personnel, Organisation, Configuration (41 points, rangés
+selon les familles du rail). **Les compléments vivent dans `backend/src/lib/guide/*.js`** (un fichier par domaine :
+`chapitres`, `ajouts`, `remplacements` « id|titre ») et s'appliquent au chargement de `modeEmploi.js`
+(`COMPLEMENTS`, `ORDRE_CHAPITRES`, `ORDRE_CONFIG`, `RETRAITS`, `RESUMES`). Six étoiles de plus dans la Vierge pour le
+sommaire en ciel (ψ, 59, 16, ω, σ, π — projetées par la même transformation, ajustée sur les 19 autres à moins d'une unité).
+Icônes de chapitre : `iconesGuide.js` (PDF) et `ICONES` d'`Aide.jsx` (écran), les deux. **Les nouveaux chapitres n'ont pas
+encore de captures** (la base d'essai locale est trop ancienne) : à prendre sur une base d'essai complète.
+
 **LE TEMPS DE TRAVAIL DU SECRÉTARIAT** (3.5.039, Charles, 1er novembre 2026 — courriel à Nicolas : 36 h effectives par
 semaine, pause de 15 min au-delà de 6 h, 8 h/jour (9 h en 4 jours ou horaire variable au règlement de travail), 11 h de
 repos, semaines flexibles art. 20bis, 13 semaines de congés, 39 × 36 = 1 404 h ; « un générateur annuel qui respecte le décret

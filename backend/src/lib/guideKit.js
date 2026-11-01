@@ -37,10 +37,10 @@ const GUIDE_DE = { ens: "Le guide de l'enseignant", sec: 'Le guide du secrétari
 /* LES PARTIES, comme « Comprendre et conduire · Les outils » du kit et « Mise en marche · Tout ce que vous pouvez
    faire » de l'ancien guide. Un chapitre absent de la liste va dans la dernière. */
 const PARTIES = [
-  { titre: 'Mise en marche', ids: ['ensemble', 'demarrage', 'accueil'] },
+  { titre: 'Mise en marche', ids: ['ensemble', 'demarrage', 'moi', 'accueil', 'equipe'] },
   // « Mes cours » vit entre l'espace de l'étudiant et le CEP dans le guide : une partie qui la sépare couperait l'ordre.
-  { titre: 'Les étudiants et les cours', ids: ['etudiants', 'pae', 'valorisation', 'amenagements', 'deliberation', 'procedures', 'diplomes', 'editions', 'espace', 'mescours', 'cep'] },
-  { titre: "L'école", ids: ['personnel', 'organisation', 'gestion'] },
+  { titre: 'Les étudiants et les cours', ids: ['etudiants', 'pae', 'valorisation', 'amenagements', 'deliberation', 'procedures', 'diplomes', 'editions', 'pieces', 'espace', 'mescours', 'presences', 'cep'] },
+  { titre: "L'école", ids: ['personnel', 'organisation', 'gestion', 'dotation', 'frais'] },
   { titre: 'Les textes et les réglages', ids: ['documentation', 'config'] },
 ];
 const partieDe = id => (PARTIES.find(p => p.ids.includes(id)) || PARTIES[PARTIES.length - 1]).titre;

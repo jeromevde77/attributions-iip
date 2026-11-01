@@ -178,7 +178,7 @@ function Releve({ uid, info, ouvrir }) {
       <Tableau dense>
         <TableauEntete><Th>Jour</Th><Th>Prévu</Th><Th>Réel ou absence</Th><Th align="droite">Prévu</Th><Th align="droite">Presté</Th><Th align="droite">Écart</Th><Th /></TableauEntete>
         <tbody>
-          {d.jours.filter(j => j.etat !== 'libre' && j.etat !== 'hors' || j.saisie).map(j => {
+          {d.jours.filter(j => j.saisie || j.plan || (!['samedi', 'dimanche'].includes(j.jour_semaine) && !['libre', 'hors'].includes(j.etat))).map(j => {
             const [etat, mot] = ETAT_JOUR[j.etat] || [null, ''];
             return (
               <Tr key={j.jour}>
