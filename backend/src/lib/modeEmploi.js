@@ -10,7 +10,7 @@
  *   savoir — ce qu'il faut savoir : les règles qui bloquent ou qui surprennent.
  * Il explique le travail, pas l'informatique (CLAUDE.md, § 7). La version décrite se dit en tête.
  */
-export const VERSION_DECRITE = '3.5.024';
+export const VERSION_DECRITE = '3.5.025';
 
 export const RUBRIQUES = [
   {
@@ -1744,7 +1744,6 @@ export const STYLES_MODE_EMPLOI = `
   .me-point { border: 0.3mm solid ${ME.filet}; border-left: 1.2mm solid ${ME.principal}; border-radius: 0 3mm 3mm 0; padding: 3.5mm 4.5mm; margin: 0 0 4mm; font-size: 9.5pt; color: ${ME.texte}; }
   .me-point h3 { display: flex; align-items: center; gap: 2.5mm; font-size: 11.5pt; color: ${ME.principal}; margin: 0 0 2.5mm; page-break-after: avoid; }
   .me-rond { display: inline-grid; place-items: center; min-width: 5.5mm; height: 5.5mm; padding: 0 1mm; border-radius: 3mm; background: ${ME.principal}; color: #fff; font-size: 8pt; font-weight: 700; flex: none; }
-  .me-corps.avec-images { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 0.85fr); gap: 5mm; align-items: start; }
   .me-corps p { margin: 0 0 2mm; line-height: 1.5; }
   .me-corps ul { margin: 0 0 2mm; padding-left: 5mm; } .me-corps li { margin: 0 0 1mm; }
   .me-chemin { display: flex; flex-wrap: wrap; align-items: center; gap: 1.2mm; font-size: 8.5pt; margin: 0 0 2.5mm; }
@@ -1756,12 +1755,14 @@ export const STYLES_MODE_EMPLOI = `
   .me-savoir ul { list-style: none; margin: 0; padding: 0; }
   .me-savoir li { position: relative; padding-left: 3.5mm; margin: 0 0 1mm; color: #475569; line-height: 1.45; }
   .me-savoir li::before { content: ''; position: absolute; left: 0; top: 1.6mm; width: 1.4mm; height: 1.4mm; border-radius: 50%; background: ${ME.accent}; }
-  .me-images { display: block; }
+  .me-corps { display: flow-root; } .me-savoir { display: flow-root; }
+  .me-flottant { float: left; display: flex; gap: 3mm; align-items: flex-start; margin: 0 4.5mm 2.5mm 0; max-width: 75%; }
+  .me-flottant .me-fig { margin: 0; }
+  .me-images { display: flex; flex-wrap: wrap; gap: 3mm; align-items: flex-start; }
   .me-fig { display: block; margin: 0 0 3mm; page-break-inside: avoid; break-inside: avoid; }
-  .me-fig.etroite { display: inline-block; vertical-align: top; width: 40mm; margin-right: 3mm; }
-  .me-fig img { display: block; max-width: 100%; max-height: 85mm; border: 0.3mm solid ${ME.filet}; border-radius: 2mm; }
+
+  .me-fig { max-width: 100%; } .me-fig img { display: block; width: 100%; max-height: 85mm; object-fit: contain; border: 0.3mm solid ${ME.filet}; border-radius: 2mm; }
   .me-fig figcaption { font-size: 7.8pt; color: ${ME.gris}; margin-top: 1mm; }
-  .me-corps.sans-images .me-fig.etroite { width: 50mm; }
   .me-bt { font-weight: 700; color: ${ME.principal}; border: 0.3mm solid #94A3B8; border-radius: 1mm; padding: 0 1mm; white-space: nowrap; }
 `;
 const AMPOULE = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="${ME.or}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h1m8-9v1m8 8h1m-15.4-6.4l.7.7m12.1-.7l-.7.7"/><path d="M9 16a5 5 0 1 1 6 0a3.5 3.5 0 0 0-1 3a2 2 0 0 1-4 0a3.5 3.5 0 0 0-1-3"/><path d="M9.7 17h4.6"/></svg>`;
@@ -1779,20 +1780,43 @@ function cheminP(ou) {
 }
 
 /** Un point, imprimé comme la carte de l'écran. `images` : chemins ou data URL ; `contenu` : HTML déjà sûr. */
-export function pointImprimable(p, n, ajouter = () => {}) {
+/* « CARRÉ COMME WORD » (3.5.025) : une capture qui s'imprime à moins des trois quarts de la colonne flotte à gauche, le
+   texte coule à sa droite ; à plusieurs, côte à côte jusqu'à 55 %. `dims(src)` rend { w, h } en pixels quand on les
+   connaît (les captures jointes au PDF) ; sans elle, seule une capture `etroite` flotte. Échelle : 0,12 mm le pixel
+   (une capture d'écran de 1 400 px remplit la colonne), hauteur plafonnée à 85 mm. */
+const COLONNE_MM = 172;
+function largeurImprimee(im, dims) {
+  const d = dims?.(im.src);
+  if (!d?.w || !d?.h) return im.etroite ? 40 : null;
+  let w = d.w * 0.12, h = d.h * 0.12;
+  if (h > 85) { w *= 85 / h; h = 85; }
+  return Math.min(COLONNE_MM, Math.round(w * 10) / 10);
+}
+
+export function pointImprimable(p, n, ajouter = () => {}, dims = null) {
   const l = [...(p.image ? [{ src: p.image, legende: p.legende }] : []), ...(p.images || [])];
   l.forEach(i => ajouter(i.src));
-  const imgs = l.length ? `<div class="me-images">${l.map(i => `<figure class="me-fig${i.etroite ? ' etroite' : ''}">
-      <img src="${escP(i.src)}" alt="">${i.legende ? `<figcaption>${enrichiP(i.legende)}</figcaption>` : ''}</figure>`).join('')}</div>` : '';
+  const fig = (i, w) => `<figure class="me-fig"${w ? ` style="width:${w}mm"` : ''}>
+      <img src="${escP(i.src)}" alt="">${i.legende ? `<figcaption>${enrichiP(i.legende)}</figcaption>` : ''}</figure>`;
+  const petites = [], grandes = [];
+  let cumul = 0;
+  for (const i of l) {
+    const w = largeurImprimee(i, dims);
+    const plafond = COLONNE_MM * (petites.length ? 0.55 : 0.75);
+    if (w && cumul + w + (petites.length ? 3 : 0) < plafond) { petites.push([i, w]); cumul += w + (petites.length > 1 ? 3 : 0); }
+    else grandes.push([i, w]);
+  }
+  const flottant = petites.length ? `<div class="me-flottant">${petites.map(([i, w]) => fig(i, w)).join('')}</div>` : '';
+  const dessous = grandes.length ? `<div class="me-images">${grandes.map(([i, w]) => fig(i, w)).join('')}</div>` : '';
   // LES CAPTURES DANS LE CORPS DU TEXTE (3.5.024, Charles : « dans le corps du texte, ou en dessous — on perd beaucoup trop
-  // de place ») : après le texte, avant « À savoir », dans toute la largeur du point ; plus de colonne de droite.
-  const corps = `<div class="me-corps sans-images">${p.ou ? cheminP(p.ou) : ''}${p.texte ? `<p>${enrichiP(p.texte)}</p>` : ''}${p.contenu || ''}${imgs}
+  // de place ») : les petites à gauche du texte, les autres après lui, avant « À savoir » ; plus de colonne de droite.
+  const corps = `<div class="me-corps">${p.ou ? cheminP(p.ou) : ''}${flottant}${p.texte ? `<p>${enrichiP(p.texte)}</p>` : ''}${p.contenu || ''}${dessous}
       ${p.savoir?.length ? `<div class="me-savoir"><div class="titre">${AMPOULE} À savoir</div><ul>${p.savoir.map(s => `<li>${enrichiP(s)}</li>`).join('')}</ul></div>` : ''}</div>`;
   return `<div class="me-point">${p.titre ? `<h3>${n != null ? `<span class="me-rond">${n}</span>` : ''}${escP(p.titre)}</h3>` : ''}${corps}</div>`;
 }
 
 /** L'en-tête d'un chapitre et ses points. */
-export function chapitreImprimable(r, i, total, ajouter) {
+export function chapitreImprimable(r, i, total, ajouter, dims = null) {
   const pubs = String(r.pour || '').split(/\s+/).filter(x => PASTILLE_PUBLIC[x]);
   return `<section class="me-chap">
     <div class="me-tete"><div style="flex:1;min-width:0">
@@ -1801,7 +1825,7 @@ export function chapitreImprimable(r, i, total, ajouter) {
       ${r.resume ? `<p class="me-resume">${enrichiP(r.resume)}</p>` : ''}
       ${pubs.length ? `<div class="me-publics">${pubs.map(x => `<span class="me-pub">${PASTILLE_PUBLIC[x]}</span>`).join('')}</div>` : ''}
     </div></div>
-    ${r.points.map((p, k) => pointImprimable(p, p.titre ? k + 1 : null, ajouter)).join('')}
+    ${r.points.map((p, k) => pointImprimable(p, p.titre ? k + 1 : null, ajouter, dims)).join('')}
   </section>`;
 }
 
