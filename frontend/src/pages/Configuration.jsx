@@ -1175,6 +1175,11 @@ export default function Configuration() {
      coupaient (« Registre des env… »). Le tiroir est celui d'« Inscriptions
      & PAE » : la famille ouverte se déplie entre deux filets, une icône par
      rubrique — jamais celle de la famille —, le nom entier en bulle. */
+  /* PAS DE DROIT, PAS D'ÉCRAN (3.5.045 — le robot : un professeur qui tape /configuration voyait la page planter sur le refus
+     du serveur). Configuration s'ouvre à la direction, et en lecture aux rôles dont la grille dit « lit ». */
+  if (!estDirection(getUser()) && !['lit', 'ecrit'].includes(droitEffectif(getUser(), 'configuration'))) {
+    return <div className="carte px-4 py-3 text-sm text-slate-600 m-4">Configuration est réservée à la direction.</div>;
+  }
   return (
     <div className="relative" style={{ minHeight: 'calc(100vh - 64px)' }}>
       {/* VINGT-DEUX ICÔNES, ET PLUS PERSONNE NE TROUVAIT RIEN (Charles, 21
