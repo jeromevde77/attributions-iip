@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import SchemaCapitalisation from '../components/SchemaCapitalisation.jsx';
 import { IconCertificate, IconFileText, IconBook, IconSignature, IconCheck, IconLogout, IconLock, IconDevices, IconTrash, IconShieldCheck, IconShieldX, IconKey, IconWorld, IconUserCircle, IconAward, IconUpload, IconPlus, IconAlertTriangle, IconListCheck, IconMessages, IconRoute, IconCash, IconHelpCircle, IconCopy } from '@tabler/icons-react';
 
 /**
@@ -509,32 +510,18 @@ const PARCOURS_ETAT = {
 
 /** LE SCHÉMA DE CAPITALISATION (3.5.010) : le dessin de la fiche, déposé par Lucie, montré comme une image (aucun script
  *  ne passe) ; sur téléphone il défile de côté, un toucher l'ouvre en grand. */
-const LEGENDE_SCHEMA = [['#3E7D5E', 'réussie'], ['#6B46C1', 'par faveur'], ['#2F6FB0', 'au programme cette année', true], ['#2F6FB0', 'disponible'],
-  ['#B45309', 'ajournée, en attente'], ['#9AA3B0', 'encore indisponible']];
-function SchemaParcours({ svg }) {
-  const [grand, setGrand] = useState(false);
-  const src = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-  const vb = (svg.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/) || []).slice(1).map(Number);
-  // L'échelle de Lucie (SchemaCapitalisation, BASE = 1,25 px par unité du dessin), ni plus ni moins.
-  const largeur = vb.length ? Math.round(vb[0] * 1.25) : 600;
+/* LE SCHÉMA DE LUCIE (3.5.026) : le composant de la fiche, en lecture (mode « etudiant »), sur les données déposées — les
+   flèches contournent les cases comme partout. Un lot d'avant (une chaîne SVG) se montre encore en image, le temps du
+   prochain dépôt. Le composant ne fait que dessiner : aucune donnée de Lucie ne passe par lui. */
+function SchemaParcours({ schema }) {
+  if (typeof schema === 'string') {
+    const src = `data:image/svg+xml;utf8,${encodeURIComponent(schema)}`;
+    return <section className="bg-white border border-slate-200 rounded-carte p-3"><div className="overflow-x-auto"><img src={src} alt="Schéma de capitalisation" style={{ maxWidth: 'none' }} /></div></section>;
+  }
   return (
-    <section className="bg-white border border-slate-200 rounded-carte p-3 space-y-2">
-      <h2 className="intertitre">Mon schéma de capitalisation</h2>
-      <p className="sm:hidden text-xs text-slate-500">Faites glisser le schéma de côté, ou touchez-le pour l’agrandir.</p>
-      <div className="overflow-x-auto">
-        <button type="button" onClick={() => setGrand(true)} className="block" title="Agrandir">
-          <img src={src} alt="Schéma de capitalisation" style={{ width: largeur, maxWidth: 'none' }} className="sm:max-w-full" />
-        </button>
-      </div>
-      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600">
-        {LEGENDE_SCHEMA.map(([c, l, plein]) => (
-          <span key={l} className="inline-flex items-center gap-1"><span className="w-3.5 h-3" style={{ borderRadius: 2, background: plein ? c : '#fff', border: `1px solid ${c}`, borderLeft: `3px solid ${c}` }} />{l}</span>))}
-        <span>· une flèche : il faut d’abord l’unité de départ · ★ épreuve intégrée</span>
-      </div>
-      {grand && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-3" onClick={() => setGrand(false)}>
-          <div className="bg-white rounded-carte p-3 max-w-full max-h-full overflow-auto"><img src={src} alt="" style={{ width: largeur * 1.8, maxWidth: 'none' }} /></div>
-        </div>)}
+    <section className="bg-white border border-slate-200 rounded-carte p-3">
+      <p className="sm:hidden text-xs text-slate-500 mb-1">Faites glisser le schéma de côté ; « + » l’agrandit.</p>
+      <SchemaCapitalisation data={schema} mode="etudiant" titre="Mon schéma de capitalisation" />
     </section>
   );
 }
@@ -559,7 +546,7 @@ function MonParcours({ onErreur }) {
           <div className="h-2 rounded-full bg-slate-200 overflow-hidden"><div className="h-full" style={{ width: `${pc}%`, background: 'var(--c-reussi, #3E7D5E)' }} /></div>
         </> : <div className="text-sm"><b>{x.unites.filter(u => u.etat === 'acquise').length}</b> unité(s) acquise(s) sur {x.unites.length} — {x.sections.join(', ')} · {x.annee}</div>}
       </div>
-      {x.schema && <SchemaParcours svg={x.schema} />}
+      {x.schema && <SchemaParcours schema={x.schema} />}
       <h2 className="intertitre pt-1">Où j’en suis cette année</h2>
       <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600">
         {Object.entries(PARCOURS_ETAT).map(([k, [f, t, l]]) => (
