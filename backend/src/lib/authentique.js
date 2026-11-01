@@ -22,6 +22,8 @@ export function migrerAuthentique(dbx = db) {
   if (migre && dbx === db) return;
   dbx.exec(`CREATE TABLE IF NOT EXISTS piece_authentique (reference TEXT PRIMARY KEY, nature TEXT, objet TEXT, personne TEXT,
     emise_le TEXT NOT NULL DEFAULT (datetime('now')), emise_par TEXT, transmise_le TEXT)`);
+  // 3.5.047 : les spécimens de la galerie s'y inscrivaient (« SPÉCIMEN Camille ») — ce ne sont pas des pièces. Retirés une fois.
+  try { dbx.prepare("DELETE FROM piece_authentique WHERE personne LIKE '%SPÉCIMEN%' OR personne LIKE '%SPECIMEN%'").run(); } catch { /* déclencheurs absents hors requête */ }
   if (dbx === db) migre = true;
 }
 

@@ -79,6 +79,18 @@ export const ajouts = {
       ],
     },
   ],
+  documentation: [
+    {
+      titre: "Le mode d'emploi en PDF : quatre versions, et ses annexes",
+      ou: "Documentation → Mode d'emploi → les boutons PDF, à droite de la recherche.",
+      texte: "Le PDF reprend tout le guide en ligne, dans la mise en page de l'Institut : couverture, mot de la direction, sommaire, un chapitre par partie, aide-mémoire. La direction en a quatre versions : [[Complet (direction) (PDF)|IconFileTypePdf]] — tout Lucie, Configuration comprise —, Secrétariat, Coordination et Enseignants ; chacun d'autre reçoit la sienne. Les versions direction, secrétariat et coordination se terminent par deux annexes : A, le catalogue de toutes les pièces que Lucie produit (plus de cent vingt, par domaine) ; B, leurs spécimens — la pièce elle-même, composée par Lucie sur un dossier inventé.",
+      savoir: [
+        "La première composition prend une à deux minutes (l'onglet le dit) ; ensuite le PDF ressort aussitôt, jusqu'à la version suivante de Lucie.",
+        "Un spécimen ne porte jamais un vrai nom (« SPÉCIMEN Camille », unité 999) ni de QR d'authenticité : il dit « Spécimen — sans valeur ».",
+        "Si le serveur ne parvient pas à composer le PDF, l'écran le dit : il ne sort jamais une autre mise en page à la place.",
+      ],
+    },
+  ],
   config: [
     {
       titre: "Une seule bande pour les en-têtes, partout",

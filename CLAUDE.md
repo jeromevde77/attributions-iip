@@ -3081,6 +3081,19 @@ une a un corps blanc) et `OutilFenetre` (icône blanche, dans `outils` de `Fenet
 sortie d'une fenêtre (aperçu, imprimer, envoyer, PDF) est un `OutilFenetre` du bandeau.** Pas de cadre dans un cadre, pas de clé
 technique affichée (en `title=`), pas d'émoji dans un bouton. 105 fichiers repris en un passage.
 
+**LE MODE D'EMPLOI DE TOUT LUCIE, EN QUATRE VERSIONS, AVEC SES ANNEXES** (3.5.047, Charles : « le mode d'emploi de TOUT
+Lucie… avec les documents que cela peut sortir en annexe… la version secrétariat (totale), la version profs… TOUT dans la
+version admin avec config »). Documentation → Mode d'emploi : la direction a quatre boutons PDF (Complet, Secrétariat,
+Coordination, Enseignants), les autres le leur. Hors version enseignants, deux annexes (`guideKit.js`) : **A** — le catalogue
+des 126 pièces de la galerie (`galerie()`), par domaine, avec ce qu'on choisit ; **B** — les spécimens (`composerSpecimen`,
+`SPECIMENS` de `lib/specimens.js` : attestations de réussite et de valorisation, AR ×4, procédures ×6, CEP ×3), rendus avec le
+pied des pièces. **Un spécimen n'entre jamais au registre des pièces authentiques** : `enSpecimen(fn)`
+(`lib/filigraneDocument.js`) coupe l'inscription et remplace le QR par « SPÉCIMEN — sans valeur ». Défaut trouvé au passage :
+la galerie de Configuration inscrivait chaque spécimen ouvert au registre (« SPÉCIMEN Camille » se serait vérifié comme vrai) ;
+les lignes déjà inscrites sont retirées au démarrage (`migrerAuthentique`). **Côté portail, les copies déjà transmises
+restent** (le dépôt est en ajout seul) : à purger sur le portail quand il sera installé. **À venir** : des spécimens pour les
+autres pièces (motivation, PV, diplôme, note de frais, contrats…), sur une base de spécimens.
+
 **LE PDF DU MODE D'EMPLOI N'A QU'UNE MISE EN PAGE, CELLE DU KIT** (3.5.044, Charles, 1er novembre 2026, furieux : « si on
 clique sur la version PDF, on a un mode d'emploi impeccable dans cette mise en page. POINT ! »). Ce qu'il recevait n'était
 pas le kit mais le REPLI : chaque chapitre avait 61 s pour se rendre (le délai de `rendrePdf` se compte sur les `.saut`, que

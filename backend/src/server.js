@@ -3268,6 +3268,8 @@ app.use('/api/annulation', (await import('./routes/annulation.js')).default);
 app.use('/api/communication', (await import('./routes/communication.js')).default);
 app.use('/api/equipe', (await import('./routes/equipe.js')).default);
 app.use('/api/temps-travail', (await import('./routes/tempsTravail.js')).default);
+// Le registre des pièces authentiques : créé, et débarrassé des spécimens inscrits par erreur (3.5.047), au démarrage.
+try { (await import('./lib/authentique.js')).migrerAuthentique(); } catch (e) { console.error('[authentique]', e.message); }
 app.use('/api/transferts', (await import('./routes/transferts.js')).default);
 app.use('/api/analyse-cv',      garderModule('analyse-cv'), (await import('./routes/analyseCv.js')).default);
 app.use('/api/dossiers-rh',     garderModule('dossiers-rh'), (await import('./routes/dossiersRh.js')).default);

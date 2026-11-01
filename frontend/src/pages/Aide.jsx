@@ -421,9 +421,12 @@ export default function Aide({ integre = false }) {
             <button onClick={() => setRecherche('')} aria-label="Effacer"
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><IconX size={15} /></button>)}
         </div>
-        <button onClick={() => { setErreurGuide(null); setPdfEnCours(true); ouvrirModeEmploiPdf(setErreurGuide, voir).finally(() => setPdfEnCours(false)); }}
-          disabled={pdfEnCours} className="bouton bouton-sortir controle">
-          <IconFileTypePdf size={16} /> {pdfEnCours ? 'Composition du PDF…' : 'Tout le mode d’emploi (PDF)'}</button>
+        {/* LES VERSIONS DU PDF (3.5.047, Charles : « le mode d'emploi de TOUT Lucie… la version secrétariat (totale), la version
+            profs… et TOUT dans la version admin avec config »). La direction a les quatre ; chacun d'autre, la sienne. */}
+        {(data?.filtrable ? [['tous', 'Complet (direction)'], ['sec', 'Secrétariat'], ['coo', 'Coordination'], ['ens', 'Enseignants']] : [[null, 'Mon mode d’emploi']]).map(([k, l]) => (
+          <button key={k || 'moi'} onClick={() => { setErreurGuide(null); setPdfEnCours(k || 'moi'); ouvrirModeEmploiPdf(setErreurGuide, k).finally(() => setPdfEnCours(false)); }}
+            disabled={!!pdfEnCours} className="bouton bouton-sortir controle">
+            <IconFileTypePdf size={16} /> {pdfEnCours === (k || 'moi') ? 'Composition…' : `${l} (PDF)`}</button>))}
         {erreurGuide && <span className="text-second text-red-700">{erreurGuide}</span>}
       </div>
 

@@ -23,6 +23,10 @@ import { icone } from './iconesGuide.js';
 import { logoCourant, logoBlancCourant, signatureCourante } from './identite.js';
 import { mentionProduction } from './contexteRequete.js';
 import { rendrePdfs } from '../services/pdf.js';
+import { galerie } from './galerieDocuments.js';
+import { composerSpecimen, SPECIMENS } from './specimens.js';
+import { piedGabaritPdf } from './document.js';
+import { piedDocument } from '../routes/parametres.js';
 
 const esc = x => String(x ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 /* Les couleurs du kit (le cyan du logo ne sert plus qu'au L de la couverture). */
@@ -334,7 +338,7 @@ function motDeLaDirection() {
 }
 
 /** Le sommaire, avec les pages de chaque chapitre. */
-function sommaire(m, pages, pageAide) {
+function sommaire(m, pages, pageAide, annexes = []) {
   const nPoints = m.rubriques.reduce((s, r) => s + r.points.filter(p => p.titre).length, 0);
   const nImages = m.rubriques.reduce((s, r) => s + r.points.reduce((t, p) => t + (p.image ? 1 : 0) + (p.images?.length || 0), 0), 0);
   const parties = PARTIES.map(pa => ({ ...pa, chap: m.rubriques.map((r, i) => ({ r, i })).filter(({ r }) => partieDe(r.id) === pa.titre) }))
@@ -342,7 +346,7 @@ function sommaire(m, pages, pageAide) {
   const ligne = (n, l, p) => `<div><span class="n">${n}</span><span class="l">${esc(l)}</span><span class="p">${p ?? ''}</span></div>`;
   return page(`<h1 class="titre">Sommaire</h1>
     ${parties.map((pa, k) => `<div class="kick som-partie">${esc(pa.titre)}</div>
-      <div class="somg">${pa.chap.map(({ r, i }) => ligne(i + 1, r.titre, pages[i])).join('')}${k === parties.length - 1 ? ligne('✓', 'Aide-mémoire', pageAide) : ''}</div>`).join('')}
+      <div class="somg">${pa.chap.map(({ r, i }) => ligne(i + 1, r.titre, pages[i])).join('')}${k === parties.length - 1 ? ligne('✓', 'Aide-mémoire', pageAide) + annexes.map(x => ligne(x.n, x.l, x.p)).join('') : ''}</div>`).join('')}
     <div class="tuiles">
       <div class="tuile"><div class="n">${m.rubriques.length} <small>chapitres</small></div><p>en ${parties.length} parties, de la mise en marche ${parties.length > 2 ? 'aux réglages' : 'à votre travail'}</p></div>
       <div class="tuile"><div class="n">${nPoints} <small>points</small></div><p>chacun dit où aller, ce qu'on y fait, et ce qu'il faut savoir</p></div>
@@ -352,7 +356,7 @@ function sommaire(m, pages, pageAide) {
       ${(m.rubriques.length > 8
         ? [`<p>${parties.map(pa => `<b>${esc(pa.titre)}</b> (${pa.chap.length > 1 ? `chapitres ${pa.chap[0].i + 1} à ${pa.chap[pa.chap.length - 1].i + 1}` : `chapitre ${pa.chap[0].i + 1}`})`).join(' · ')}.</p>`]
         : parties.map(pa => `<p><b>${esc(pa.titre)}</b> (chapitre${pa.chap.length > 1 ? 's' : ''} ${pa.chap.length > 1 ? `${pa.chap[0].i + 1} à ${pa.chap[pa.chap.length - 1].i + 1}` : pa.chap[0].i + 1}) : ${esc(pa.chap.map(c => c.r.titre).join(' · '))}.</p>`)).join('')}
-      <p>En fin de guide, l'<b>aide-mémoire</b> : « je veux… je vais… », chaque geste et son chemin.</p></div></div>
+      <p>En fin de guide, l'<b>aide-mémoire</b> : « je veux… je vais… », chaque geste et son chemin${annexes.length ? ' ; puis les <b>annexes</b> : toutes les pièces que Lucie produit, et leurs spécimens' : ''}.</p></div></div>
     <div class="deux">
       <div class="callout clair"><div>${icone('eye', 18, C.bleu)}</div><div><span class="t">Des données fictives</span><p>Les captures viennent d'une base d'essai : les noms, matricules et adresses sont <b>inventés</b>. Ce que vous verrez porte vos cours et vos étudiants.</p></div></div>
       <div class="callout clair"><div>${icone('bulb', 18, C.bleu)}</div><div><span class="t">Une question, une idée ?</span><p>L'<b>ampoule</b> « Proposer une amélioration » est sur tous les écrans : la direction y répond, et la réponse revient sur votre tableau de bord.</p></div></div>
@@ -370,6 +374,53 @@ function aideMemoire(m) {
   return page(`${bande({ kick: 'Pour aller vite', titre: 'Aide-mémoire', resume: 'Je veux… je vais… — chaque point du guide et son chemin.', nom: 'IconChecklist', grand: '✓' })}
     <table class="aide">${lignes}</table>`);
 }
+
+/* LES ANNEXES (3.5.047, Charles : « le mode d'emploi de TOUT Lucie, avec les documents que cela peut sortir en annexe »).
+ * A — le catalogue : chaque pièce de la galerie de Configuration (126), par domaine, avec ce qu'on choisit pour la produire.
+ * B — les spécimens : la pièce elle-même, composée par la VRAIE fonction de Lucie sur un dossier inventé (« SPÉCIMEN
+ * Camille », UE 999) — jamais un vrai nom dans un document qui sort de l'école. Pas d'annexes dans la version enseignants. */
+const LIB_SPECIMEN = {
+  attestation_reussite: "Attestation de réussite d'une unité d'enseignement",
+  attestation_valorisation: "Attestation de réussite — valorisation des acquis",
+  amenagement_formulaire: 'Aménagement raisonnable — formulaire de demande (cadres A et B)',
+  amenagement_decision: 'Aménagement raisonnable — décision motivée',
+  amenagement_notification: 'Aménagement raisonnable — notification à l’étudiant',
+  amenagement_mesures: 'Aménagement raisonnable — fiche « mesures » pour les chargés de cours',
+  procedure_accuse_reception: 'Recours — accusé de réception',
+  procedure_irrecevabilite: 'Recours — décision d’irrecevabilité',
+  procedure_decision_recours: 'Recours — décision',
+  procedure_convocation: 'Procédure disciplinaire — convocation',
+  procedure_pv_audition: 'Procédure disciplinaire — procès-verbal d’audition',
+  procedure_decision_disciplinaire: 'Procédure disciplinaire — décision',
+  cep_inscription: 'Congé-éducation payé — attestation d’inscription régulière',
+  cep_assiduite: 'Congé-éducation payé — attestation d’assiduité',
+  cep_seconde_session: 'Congé-éducation payé — attestation de seconde session',
+};
+const PARAMS = { annee: 'année', section: 'section', ue: 'unité', etudiant: 'étudiant', session: 'session', professeur: 'membre du personnel',
+  amenagement: 'dossier d’aménagement', procedure: 'dossier de procédure', reunion: 'réunion', offre: 'offre d’emploi', ea12: 'EA12',
+  template: 'modèle', lieu: 'lieu de stage', cours: 'cours', mois: 'mois', debut: 'début', fin: 'fin' };
+function annexeCatalogue() {
+  let docs = []; try { docs = galerie().documents; } catch { docs = []; }
+  const doms = [...new Set(docs.map(d => d.domaine))];
+  const lignes = doms.map(dm => `<tr class="chap"><td colspan="2">${esc(dm)} · ${docs.filter(d => d.domaine === dm).length}</td></tr>`
+    + docs.filter(d => d.domaine === dm).map(d => `<tr><td>${esc(d.libelle)}</td><td>${esc((d.params || []).map(x => PARAMS[x] || x).join(' · ') || '—')}</td></tr>`).join('')).join('');
+  return page(`${bande({ kick: 'Annexes', titre: 'Annexe A — Les pièces que Lucie produit', resume: `${docs.length} pièces, rangées par domaine, avec ce que l'on choisit pour les produire. Chacune se voit dans Configuration → Modèles de pièces → la galerie, et sort par l'avion (Éditions).`, nom: 'IconFileCertificate', grand: 'A' })}
+    <table class="aide"><tr class="chap"><td>La pièce</td><td>Ce que l'on choisit</td></tr>${lignes}</table>`);
+}
+function annexeSpecimensIntro(liste, annee) {
+  return page(`${bande({ kick: 'Annexes', titre: 'Annexe B — Spécimens', resume: `${liste.length} pièces telles que Lucie les produit, sur un dossier inventé.`, nom: 'IconCertificate', grand: 'B' })}
+    <div class="callout"><div>${icone('eye', 18, C.nuit)}</div><div><span class="t">Des pièces vraies, sur des données fictives</span>
+      <p>Chaque pièce est composée par la fonction même qui produit la pièce réelle — même mise en page, mêmes mentions, mêmes contrôles —, mais sur un dossier inventé : l'étudiante s'appelle « SPÉCIMEN Camille », l'unité 999 n'existe pas, et rien n'est enregistré. Année : ${esc(annee)}.</p></div></div>
+    <table class="aide">${liste.map((x, i) => `<tr><td>B.${i + 1}</td><td>${esc(x.libelle)}</td></tr>`).join('')}</table>`);
+}
+async function rendreSpecimens(annee) {
+  const liste = [...SPECIMENS].map(id => ({ id, libelle: LIB_SPECIMEN[id] || id, ...composerSpecimen(id, annee) })).filter(x => x.html);
+  const gabarit = avecNum => piedGabaritPdf(logoCourant(), piedDocument(), avecNum);
+  const pdfs = await rendrePdfs(liste.map(x => ({ html: x.html, pied: gabarit, pagination: 'si-plusieurs', delaiMs: 10 * 60 * 1000,
+    marges: { top: '12mm', right: '15mm', bottom: '24mm', left: '15mm' } })), {}, 2);
+  return { liste, pdfs };
+}
+const anneeDuJour = () => { const d = new Date(), y = d.getFullYear(); return d.getMonth() >= 8 ? `${y}-${y + 1}` : `${y - 1}-${y}`; };
 
 /** Le pied de chaque page : logo au-dessus du filet, deux lignes centrées. La page « n / N » est posée ensuite. */
 function pied() {
@@ -439,8 +490,14 @@ async function composerGuidePdf(role, voir, images = {}) {
     ...m.rubriques.map((r, i) => ({ html: joindre(chapitre(r, i, dims), images), ...corpsOpts })),
     { html: aideMemoire(m), ...corpsOpts },
   ];
+  // Les annexes : pas pour la version enseignants.
+  const avecAnnexes = !(m.publics && m.publics.length === 1 && m.publics[0] === 'ens');
+  const annee = anneeDuJour();
+  const spec = avecAnnexes ? await rendreSpecimens(annee) : { liste: [], pdfs: [] };
+  if (avecAnnexes) morceaux.push({ html: annexeCatalogue(), ...corpsOpts }, { html: annexeSpecimensIntro(spec.liste, annee), ...corpsOpts });
+  const ANN = avecAnnexes ? [{ n: 'A', l: 'Annexe A — Les pièces que Lucie produit' }, { n: 'B', l: 'Annexe B — Spécimens' }] : [];
   // 2. Le sommaire se compte d'abord (pages provisoires), puis se refait avec les vraies pages.
-  const brouillon = sommaire(m, m.rubriques.map(() => '00'), '00');
+  const brouillon = sommaire(m, m.rubriques.map(() => '00'), '00', ANN.map(x => ({ ...x, p: '00' })));
   const [rendus, [somBrouillon]] = await Promise.all([rendrePdfs(morceaux, {}, 2), rendrePdfs([{ html: brouillon, ...corpsOpts }], {}, 1)]);
   const docs = await Promise.all(rendus.map(b => PDFDocument.load(b)));
   const nSom = (await PDFDocument.load(somBrouillon)).getPageCount();
@@ -449,10 +506,16 @@ async function composerGuidePdf(role, voir, images = {}) {
   let p = 1 + nMot + nSom;
   const pages = m.rubriques.map((_, i) => { const d = p; p += docs[2 + i].getPageCount(); return d; });
   const pageAide = p;
-  const [som] = await rendrePdfs([{ html: sommaire(m, pages, pageAide), ...corpsOpts }], {}, 1);
+  const iAide = 2 + m.rubriques.length;
+  p += docs[iAide].getPageCount();
+  if (avecAnnexes) { ANN[0].p = p; p += docs[iAide + 1].getPageCount(); ANN[1].p = p; }
+  const [som] = await rendrePdfs([{ html: sommaire(m, pages, pageAide, ANN), ...corpsOpts }], {}, 1);
+  const specDocs = await Promise.all(spec.pdfs.map(b => PDFDocument.load(b)));
 
-  // 3. L'assemblage, le liseré et la pagination.
-  const ordre = [docs[0], docs[1], await PDFDocument.load(som), ...docs.slice(2)];
+  // 3. L'assemblage, le liseré et la pagination. Les spécimens gardent leur propre pied (et leur numérotation) : le guide
+  //    ne pose sur eux que son liseré.
+  const ordre = [docs[0], docs[1], await PDFDocument.load(som), ...docs.slice(2), ...specDocs];
+  const debutSpecimens = ordre.slice(0, ordre.length - specDocs.length).reduce((t, d) => t + d.getPageCount(), 0);
   const doc = await PDFDocument.create();
   for (const d of ordre) (await doc.copyPages(d, d.getPageIndices())).forEach(pg => doc.addPage(pg));
   const police = await doc.embedFont(StandardFonts.Helvetica);
@@ -464,6 +527,7 @@ async function composerGuidePdf(role, voir, images = {}) {
     const { width, height } = pg.getSize();
     // Le liseré du kit : bleu nuit, d'un seul trait (3.5.034 : les trois couleurs du logo n'étaient pas celles du kit).
     pg.drawRectangle({ x: 0, y: 0, width: mm(2.2), height, color: hex(C.nuit) });
+    if (k >= debutSpecimens) return;
     const t = `${k} / ${total}`;
     const taille = 6.5;
     pg.drawText(t, { x: width - mm(18) - police.widthOfTextAtSize(t, taille), y: mm(10.4), size: taille, font: police, color: hex('#3F4652') });

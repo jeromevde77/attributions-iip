@@ -18,6 +18,9 @@ import { composerPiece as composerPieceAR } from './piecesAmenagement.js';
 import { composerPieceProcedure } from './piecesProcedures.js';
 import { composerPieceCep } from './piecesCep.js';
 import { congesDe, periodesDe } from './cep.js';
+import db from '../db/index.js';
+import { enSpecimen } from './filigraneDocument.js';
+import { pageAttestation, pageAttestationValorisation, envelopper } from '../routes/attestations.js';
 
 const ETUDIANT = {
   id: 0, nom: 'SPÉCIMEN', prenom: 'Camille', titre: 'Mme', id_ecampus: '00-00000',
@@ -133,8 +136,35 @@ function dossierCep(annee) {
            session2: [{ ue_num: unite.ue_num, ue_nom: unite.ue_nom, du: unite.fin, au: unite.fin, participe: false }] };
 }
 
+// ── Attestations de réussite (3.5.047 : les annexes du mode d'emploi) ─────────
+const UNITE = {
+  ue_num: 999, ue_nom: "Unité d'enseignement d'exemple", code_fwb: '999999U32D1', superieur: true, ects: 6,
+  domaine: 'Sciences de la santé publique', type_enseignement: 'Enseignement supérieur de type court',
+  section: 'EX', section_libelle: SECTION, periodes: 80, periodes_cours: 64, autonomie: 16,
+  epreuve_integree: false, est_stage: false, pourcentage: 72,
+  acquis: [
+    { aa_code: 'AA999.1', description: "d'identifier les situations de l'exemple et d'en décrire les caractéristiques" },
+    { aa_code: 'AA999.2', description: "de mettre en œuvre une démarche d'analyse adaptée, en justifiant ses choix" },
+    { aa_code: 'AA999.3', description: 'de rendre compte de son travail, par écrit et oralement, dans un langage professionnel' },
+  ],
+  activites: [{ cours_nom: "Théorie de l'exemple", cours_per: 40 }, { cours_nom: 'Exercices pratiques', cours_per: 24 }],
+};
+function attestationSpecimen(id, annee) {
+  let etab = {}; try { etab = db.prepare('SELECT * FROM etablissement WHERE id = 1').get() || {}; } catch { /* base minimale */ }
+  if (id === 'attestation_reussite') {
+    const html = envelopper(pageAttestation(ETUDIANT, UNITE, annee, etab, decale(-3)), "Attestation de réussite");
+    return { html, nom: 'Attestation_reussite_UE999' };
+  }
+  if (id === 'attestation_valorisation') {
+    const va = { pourcentage: 65, decision_ce_date: decale(-10), base_legale: 'V1' };
+    const html = envelopper(pageAttestationValorisation(ETUDIANT, { ...UNITE, pourcentage: 65 }, annee, etab, va, decale(-3)), 'Attestation de réussite — valorisation');
+    return { html, nom: 'Attestation_valorisation_UE999' };
+  }
+  return null;
+}
+
 /** Les pièces qui ont un spécimen. */
-export const SPECIMENS = new Set([
+export const SPECIMENS = new Set(['attestation_reussite', 'attestation_valorisation',
   'amenagement_formulaire', 'amenagement_decision', 'amenagement_notification', 'amenagement_mesures',
   'procedure_accuse_reception', 'procedure_irrecevabilite', 'procedure_decision_recours',
   'procedure_convocation', 'procedure_pv_audition', 'procedure_decision_disciplinaire',
@@ -143,8 +173,12 @@ export const SPECIMENS = new Set([
 
 /** Compose le spécimen d'une pièce de la galerie : { html, nom } ou { erreur }. */
 export function composerSpecimen(id, annee) {
+  return enSpecimen(() => composerSpecimenBrut(id, annee));
+}
+function composerSpecimenBrut(id, annee) {
   let out = null;
-  if (id.startsWith('amenagement_')) out = composerPieceAR(id.slice('amenagement_'.length), dossierAR(annee));
+  if (id.startsWith('attestation_')) out = attestationSpecimen(id, annee);
+  else if (id.startsWith('amenagement_')) out = composerPieceAR(id.slice('amenagement_'.length), dossierAR(annee));
   else if (id.startsWith('procedure_')) {
     const piece = id.slice('procedure_'.length);
     const type = ['accuse_reception', 'irrecevabilite', 'decision_recours'].includes(piece) ? 'recours' : 'disciplinaire';
