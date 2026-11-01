@@ -39,7 +39,7 @@ t('1 404 h dues et prévues', g.bilan.cible_annee === 1404 * 60 && g.bilan.total
 t('aucune erreur', !g.bilan.erreurs.length && !g.bilan.semaines_en_defaut, g.bilan.erreurs);
 t('7 h 12 par jour, pause de 30 min', T.dureeJour(g.modele[0]) === 432 && g.modele[0].pause_debut === '12:00', g.modele[0]);
 t('l’été hors fenêtre est refusé', T.genererAnnee(1, A, { formule: '5j', ete: '2027-07-19' }).bilan.erreurs.some(e => /5 semaines d’été/.test(e)));
-t('sans été : signalé', T.genererAnnee(1, A, { formule: '5j' }).bilan.erreurs.some(e => /pas encore choisies/.test(e)));
+t('sans été : signalé', T.genererAnnee(1, A, { formule: '5j' }).bilan.erreurs.some(e => /pas fixé/.test(e)));
 g = T.genererAnnee(1, A, { formule: '5j', fraction: 1, ete: '2027-07-05' }, { ecrire: true, par: 'banc' });
 t('écrit : 52 semaines en base', T.anneeDe(1, A).length === 52);
 
@@ -114,6 +114,16 @@ console.log('\nL’échange : Carnaval travaillé, six semaines d’été');
   t('six semaines d’été, une de congé en moins, toujours 39 semaines et 1 404 h', g2.bilan.semaines_ete === 6 && g2.bilan.semaines_travail === 39 && g2.bilan.total_annee === 1404 * 60 && !g2.bilan.erreurs.length, g2.bilan);
   t('été de six semaines au 12 juillet : hors fenêtre', T.genererAnnee(1, A, { formule: '5j', ete: '2027-07-12', travaillees: [lc] }).bilan.erreurs.some(e => /6 semaines/.test(e)));
 }
+
+console.log('\nLes 13 semaines fixées par la direction, été compris');
+T.fixerConges(A, [{ du: '2026-10-19', au: '2026-10-30', libelle: 'Toussaint' }, { du: '2026-12-21', au: '2027-01-01', libelle: 'Noël' },
+  { du: '2027-02-15', au: '2027-02-26', libelle: 'Carnaval' }, { du: '2027-04-26', au: '2027-05-07', libelle: 'Pâques' }, { du: '2027-07-05', au: '2027-08-06', libelle: 'Été' }], 'banc');
+{ const g4 = T.genererAnnee(1, A, { formule: '5j' });
+  t('13 semaines fixées : 1 404 h sans rien choisir de plus', g4.bilan.total_annee === 1404 * 60 && g4.bilan.cible_annee === 1404 * 60 && !g4.bilan.erreurs.length && g4.bilan.semaines_ete === 5, g4.bilan);
+  const lc = '2027-02-15';
+  const g5 = T.genererAnnee(1, A, { formule: '5j', travaillees: [lc] });
+  t('Carnaval (1 semaine) travaillé : été de 6 semaines, toujours 1 404 h', g5.bilan.semaines_ete === 6 && g5.bilan.total_annee === 1404 * 60 && !g5.bilan.erreurs.length, g5.bilan); }
+T.fixerConges(A, [], 'banc');
 
 console.log('\nLes congés fixés par la direction');
 t('sans congés fixés : le calendrier de l’école', T.periodesDeConge(A).source === 'ecole');

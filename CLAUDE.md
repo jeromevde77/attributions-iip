@@ -3134,9 +3134,10 @@ relevé et le planning de l'équipe ; la direction désigne les comptes). Person
 lus du calendrier « vacances » de l'école, cinq semaines d'été dans la fenêtre réglable, formule 5 j / 4 × 9 h / annualisé
 avec semaines fortes compensées) et contrôle chaque règle ; un férié pendant une semaine de travail compte pour ses heures
 prévues. Le mois signé par la direction se verrouille. L'annualisé ne s'applique qu'une fois coché « horaire variable inscrit
-au règlement de travail » (Personnes et réglages). **13 semaines de congé au total, 39 de travail, 1 404 h par temps plein** (3.5.055, Charles) : la direction FIXE les
-congés de l'année (face « Congés », `tt_conge`, repris du calendrier de l'école tant que rien n'est fixé) ; l'été est le
-complément (13 − les congés scolaires pris), d'un seul tenant ; une semaine de congé travaillée (Carnaval) allonge l'été
+au règlement de travail » (Personnes et réglages). **13 semaines de congé au total, 39 de travail, 1 404 h par temps plein** (3.5.055-056, Charles : « je fixe les congés, c'est-à-dire
+5 semaines en été et les semaines à Toussaint, Carnaval, Noël et Pâques ; tu as donc 1 404, pas 1 584 ») : la direction FIXE les
+13 semaines, ÉTÉ COMPRIS (face « Congés », `tt_conge` ; une semaine en juillet-août est de l'été) ; le dû est TOUJOURS
+36 × 39 × fraction, quel que soit le calendrier ; une semaine de congé travaillée (Carnaval) allonge l'été
 d'autant (`travaillees` du générateur). L'année du module est la sienne (celle d'aujourd'hui). **Toute l'année, semaine par semaine** (3.5.040, Charles : « une
 version en semaines, avec le temps de travail de chacun par semaine, et annuel ») : faces « L'équipe : l'année » (52 colonnes,
 présté par semaine, presté / dû / solde de l'année, présents par semaine — `anneeEquipe`) et « L'équipe : une semaine »
