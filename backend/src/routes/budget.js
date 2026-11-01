@@ -15,7 +15,7 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
-import { exigeValidation, deposerDemande } from './demandes.js';
+import { migrerBudgetSections, assurerAnnee, syntheseBudget, nature, effectifsLucie, PRIORITES, ETATS_INVENTAIRE } from '../lib/budgetSections.js';
 
 const r = Router();
 
@@ -92,6 +92,20 @@ export function migrerBudget(dbx) {
       console.log('[migration] budget : 8 comptes ajoutés, comptes HELB retirés de la liste');
     }
   } catch (e) { console.error('[migration] budget (comptes) :', e.message); }
+  try { migrerBudgetSections(dbx); } catch (e) { console.error('[migration] budget des sections :', e.message); }
+}
+
+// La direction règle les paramètres et arbitre ; la coordination encode pour ses sections.
+const DIRECTION = ['admin', 'directeur', 'directeur_adjoint'];
+const estDirection = user => DIRECTION.includes(user?.role);
+const qui = req => req.user?.nom_complet || req.user?.email || null;
+/* LES CHAMPS DE LA LIGNE (guide C.2), lus une fois pour la création et la modification. */
+function champsLigne(l) {
+  const prio = PRIORITES[l.priorite] ? l.priorite : 'souhaitable';
+  const mois = Number(l.mois) >= 1 && Number(l.mois) <= 12 ? Number(l.mois) : null;
+  return { categorie_id: l.categorie_id ? Number(l.categorie_id) : null, priorite: prio, mois,
+    justification: String(l.justification || '').trim() || null, devis: String(l.devis || '').trim() || null,
+    tronc_commun: l.tronc_commun ? 1 : 0 };
 }
 
 // Périmètre de l'utilisateur : un coordinateur ne voit que ses sections.
@@ -174,6 +188,7 @@ r.get('/', authRequired, (req, res) => {
     parLigne[d.ligne_id] = (parLigne[d.ligne_id] || 0) + Number(d.montant_htva || 0);
   }
 
+  const seuil = db.prepare('SELECT seuil_invest FROM budget_parametre WHERE annee_civile = ?').get(annee)?.seuil_invest ?? 500;
   const enrichies = lignes.map(l => {
     const prevu = Math.round(htva(l) * 100) / 100;
     const engage = Math.round((parLigne[l.id] || 0) * 100) / 100;
@@ -185,6 +200,7 @@ r.get('/', authRequired, (req, res) => {
       engage,
       solde: Math.round((prevu - engage) * 100) / 100,
       depasse: engage > prevu,
+      nature: nature(l.prix_unitaire, seuil),
     };
   });
 
@@ -202,6 +218,7 @@ r.get('/', authRequired, (req, res) => {
       engage: Math.round(depenses.reduce((s, d) => s + Number(d.montant_htva || 0), 0) * 100) / 100,
     },
     peut_ecrire: section ? peutEcrire(req.user, section) : (autorisees === null),
+    peut_arbitrer: estDirection(req.user), seuil,
   });
 });
 
@@ -242,44 +259,32 @@ r.post('/ligne', authRequired, roleRequired('admin', 'directeur', 'directeur_adj
   if (!peutEcrire(req.user, l.section)) {
     return res.status(403).json({ error: 'Section hors de votre périmètre' });
   }
-  // La coordination encode pour sa section, mais sa saisie passe par la
-  // direction : c'est la règle posée pour tous ses écrans.
-  if (exigeValidation(req.user)) {
-    return res.json(deposerDemande({
-      type: 'budget_ligne', operation: 'creer', cible_id: null,
-      section: l.section, annee_scolaire: String(l.annee_civile),
-      libelle: `Prévision budgétaire — ${l.details}`,
-      avant: null,
-      apres: {
-        annee_civile: Number(l.annee_civile), section: l.section,
-        compte_ref: l.compte_ref || null, details: l.details,
-        a_charge: l.a_charge || 'IIP', prix_unitaire: Number(l.prix_unitaire || 0),
-        quantite: Number(l.quantite || 1),
-        taux_tva: l.taux_tva != null ? Number(l.taux_tva) : 0.21,
-        remarque: l.remarque || null, statut: 'prevu',
-      },
-      user: req.user,
-    }));
-  }
-
+  /* LA COORDINATION ÉCRIT, LA DIRECTION ARBITRE (Charles, 1er novembre 2026) : la ligne entre « prévue » ;
+     seul l'arbitrage (route /arbitrer, direction) la dit retenue ou refusée. */
+  const c = champsLigne(l);
   const info = db.prepare(`
     INSERT INTO budget_ligne (annee_civile, section, compte_ref, details, a_charge,
-      prix_unitaire, quantite, taux_tva, remarque, statut, cree_par)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?)
+      prix_unitaire, quantite, taux_tva, remarque, statut, cree_par,
+      categorie_id, priorite, mois, justification, devis, tronc_commun)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   `).run(Number(l.annee_civile), l.section, l.compte_ref || null, l.details,
          l.a_charge || 'IIP', Number(l.prix_unitaire || 0), Number(l.quantite || 1),
          l.taux_tva != null ? Number(l.taux_tva) : 0.21, l.remarque || null,
-         l.statut || 'prevu', req.user?.email || null);
+         estDirection(req.user) && ['prevu', 'arbitre', 'refuse'].includes(l.statut) ? l.statut : 'prevu', req.user?.email || null,
+         c.categorie_id, c.priorite, c.mois, c.justification, c.devis, c.tronc_commun);
   res.json({ ok: true, id: Number(info.lastInsertRowid) });
 });
 
 r.put('/ligne/:id', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat', 'coordination'), (req, res) => {
-  const ligne = db.prepare('SELECT section FROM budget_ligne WHERE id = ?').get(Number(req.params.id));
+  const ligne = db.prepare('SELECT section, statut FROM budget_ligne WHERE id = ?').get(Number(req.params.id));
   if (!ligne) return res.status(404).json({ error: 'ligne introuvable' });
   if (!peutEcrire(req.user, ligne.section)) {
     return res.status(403).json({ error: 'Section hors de votre périmètre' });
   }
   const l = req.body;
+  // L'arbitrage est à la direction : la coordination ne change pas le statut d'une ligne.
+  const statut = estDirection(req.user) && ['prevu', 'arbitre', 'refuse'].includes(l.statut) ? l.statut : ligne.statut;
+  const c = champsLigne(l);
   /* LA SECTION SE CORRIGE (3.1.274, Charles, 10 octobre 2026 : « j'ai mis Restart et ce
      n'est pas le cas ; c'est Psychologue, qui n'existe pas — donc Autres »). Une ligne
      rangée dans la mauvaise section change de casier avec ses dépenses ; on doit
@@ -292,12 +297,13 @@ r.put('/ligne/:id', authRequired, roleRequired('admin', 'directeur', 'directeur_
     db.prepare(`
       UPDATE budget_ligne SET
         section = ?, compte_ref = ?, details = ?, a_charge = ?, prix_unitaire = ?, quantite = ?,
-        taux_tva = ?, remarque = ?, statut = ?, maj_le = datetime('now')
+        taux_tva = ?, remarque = ?, statut = ?, categorie_id = ?, priorite = ?, mois = ?, justification = ?,
+        devis = ?, tronc_commun = ?, maj_le = datetime('now')
       WHERE id = ?
     `).run(nouvelle, l.compte_ref || null, l.details || '', l.a_charge || 'IIP',
            Number(l.prix_unitaire || 0), Number(l.quantite || 1),
            l.taux_tva != null ? Number(l.taux_tva) : 0.21, l.remarque || null,
-           l.statut || 'prevu', Number(req.params.id));
+           statut, c.categorie_id, c.priorite, c.mois, c.justification, c.devis, c.tronc_commun, Number(req.params.id));
     if (nouvelle !== ligne.section) db.prepare('UPDATE budget_depense SET section = ? WHERE ligne_id = ?').run(nouvelle, Number(req.params.id));
   })();
   res.json({ ok: true, section: nouvelle });
@@ -402,15 +408,18 @@ r.post('/reprendre', authRequired, roleRequired('admin', 'directeur', 'directeur
 
   const ins = db.prepare(`
     INSERT INTO budget_ligne (annee_civile, section, compte_ref, details, a_charge,
-      prix_unitaire, quantite, taux_tva, remarque, statut, cree_par)
-    VALUES (?,?,?,?,?,?,?,?,?, 'prevu', ?)
+      prix_unitaire, quantite, taux_tva, remarque, statut, cree_par,
+      categorie_id, priorite, mois, justification, tronc_commun)
+    VALUES (?,?,?,?,?,?,?,?,?, 'prevu', ?, ?,?,?,?,?)
   `);
   let n = 0;
   db.transaction(() => {
     for (const l of src) {
+      // Reprise d'une ligne : à arbitrer de nouveau, sans son devis (daté) ni son arbitrage.
       ins.run(Number(annee), section, l.compte_ref, l.details, l.a_charge,
               l.prix_unitaire, l.quantite, l.taux_tva, l.remarque,
-              req.user?.email || null);
+              req.user?.email || null, l.categorie_id ?? null, l.priorite || 'souhaitable', l.mois ?? null,
+              l.justification ?? null, l.tronc_commun ? 1 : 0);
       n++;
     }
   })();
@@ -420,6 +429,156 @@ r.post('/reprendre', authRequired, roleRequired('admin', 'directeur', 'directeur
       ? `Aucune prévision n'existe en ${annee_source} pour ${section} : rien à reprendre.`
       : `${n} ligne(s) reprise(s) de ${annee_source}.`,
   });
+});
+
+// ── LE BUDGET DES SECTIONS (guide, parties A à C) ───────────────────────────
+/* Le tableau : la direction voit toutes les sections et les totaux ; une coordination, ses sections. */
+r.get('/sections', authRequired, (req, res) => {
+  const annee = Number(req.query.annee);
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+  try {
+    const x = syntheseBudget(annee, estDirection(req.user) ? null : (sectionsAutorisees(req.user) || null));
+    // LA COORDINATION NE VOIT QUE SON DISPONIBLE (Charles) : ni le brut, ni le coussin, ni le barème, ni le résultat de l'IIP.
+    if (!estDirection(req.user)) {
+      x.parametres = { annee_civile: x.parametres.annee_civile, seuil_invest: x.parametres.seuil_invest, montant_etudiant: x.parametres.montant_etudiant };
+      x.sections = x.sections.map(({ enveloppe_brute, coussin, socle, ponderation, ...reste }) => reste);
+      x.totaux = null;
+    }
+    res.json({ ...x, direction: estDirection(req.user) });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+r.get('/categories', authRequired, (req, res) => {
+  res.json(db.prepare('SELECT * FROM budget_categorie WHERE actif = 1 ORDER BY ordre, groupe, libelle').all());
+});
+r.put('/categories', authRequired, roleRequired(...DIRECTION), (req, res) => {
+  const l = Array.isArray(req.body?.categories) ? req.body.categories : null;
+  if (!l) return res.status(400).json({ error: 'categories requises' });
+  const maj = db.prepare('UPDATE budget_categorie SET groupe = ?, libelle = ?, amortissement = ?, compte_defaut = ?, ordre = ?, actif = ? WHERE id = ?');
+  const ins = db.prepare('INSERT INTO budget_categorie (groupe, libelle, amortissement, compte_defaut, ordre) VALUES (?,?,?,?,?)');
+  db.transaction(() => {
+    for (const c of l) {
+      const g = String(c.groupe || '').trim(), lib = String(c.libelle || '').trim();
+      if (!g || !lib) continue;
+      const a = c.amortissement === 'informatique' ? 'informatique' : 'mobilier';
+      if (c.id) maj.run(g, lib, a, c.compte_defaut || null, Number(c.ordre) || 0, c.actif === false || c.actif === 0 ? 0 : 1, Number(c.id));
+      else ins.run(g, lib, a, c.compte_defaut || null, Number(c.ordre) || 999);
+    }
+  })();
+  res.json({ ok: true });
+});
+
+/* LES PARAMÈTRES D'UNE ANNÉE (C.1) — direction seule. */
+r.get('/parametres', authRequired, roleRequired(...DIRECTION), (req, res) => {
+  const annee = Number(req.query.annee);
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+  assurerAnnee(annee, qui(req));
+  res.json({
+    annee, parametres: db.prepare('SELECT * FROM budget_parametre WHERE annee_civile = ?').get(annee),
+    sections: db.prepare('SELECT * FROM budget_section_param WHERE annee_civile = ? ORDER BY section').all(annee),
+  });
+});
+r.put('/parametres', authRequired, roleRequired(...DIRECTION), (req, res) => {
+  const annee = Number(req.body?.annee);
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+  assurerAnnee(annee, qui(req));
+  const P = req.body?.parametres || {};
+  const num = (v, min = 0) => (v === '' || v == null || !Number.isFinite(Number(v)) || Number(v) < min ? null : Number(v));
+  for (const [k, min] of [['montant_etudiant', 0], ['seuil_invest', 0.01], ['amort_info', 1], ['amort_mobilier', 1],
+    ['coussin_seuil1', 0], ['coussin_seuil2', 0], ['coussin_taux1', 0], ['coussin_taux2', 0], ['coussin_taux3', 0]]) {
+    if (P[k] !== undefined && num(P[k], min) == null) return res.status(400).json({ error: `Valeur invalide : ${k}.` });
+  }
+  if (['coussin_taux1', 'coussin_taux2', 'coussin_taux3'].some(k => P[k] !== undefined && Number(P[k]) > 1)) return res.status(400).json({ error: 'Un taux de coussin est une part : entre 0 et 1 (0,10 pour 10 %).' });
+  if (P.date_effectifs !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(String(P.date_effectifs))) return res.status(400).json({ error: 'Date de référence des effectifs : AAAA-MM-JJ.' });
+  db.transaction(() => {
+    const cur = db.prepare('SELECT * FROM budget_parametre WHERE annee_civile = ?').get(annee);
+    const v = k => (P[k] === undefined ? cur[k] : P[k] === '' ? null : P[k]);
+    db.prepare(`UPDATE budget_parametre SET montant_etudiant = ?, seuil_invest = ?, amort_info = ?, amort_mobilier = ?, date_effectifs = ?,
+        orthoptie_budget_he = ?, orthoptie_part = ?, resultat_n1 = ?, coussin_seuil1 = ?, coussin_seuil2 = ?, coussin_taux1 = ?,
+        coussin_taux2 = ?, coussin_taux3 = ?, maj_par = ?, maj_le = datetime('now') WHERE annee_civile = ?`)
+      .run(Number(v('montant_etudiant')), Number(v('seuil_invest')), Math.round(Number(v('amort_info'))), Math.round(Number(v('amort_mobilier'))),
+        v('date_effectifs'), v('orthoptie_budget_he') == null ? null : Number(v('orthoptie_budget_he')),
+        Number(v('orthoptie_part') ?? 1 / 3), v('resultat_n1') == null ? null : Number(v('resultat_n1')),
+        Number(v('coussin_seuil1') ?? 15000), Number(v('coussin_seuil2') ?? 30000), Number(v('coussin_taux1') ?? 0.1),
+        Number(v('coussin_taux2') ?? 0.2), Number(v('coussin_taux3') ?? 0.3), qui(req), annee);
+    const majS = db.prepare(`UPDATE budget_section_param SET socle = ?, ponderation = ?, effectif = ?, charges_n1 = ?, produits_n1 = ?,
+        hors_budget = ?, reserve_invest = ?, maj_par = ?, maj_le = datetime('now') WHERE annee_civile = ? AND section = ?`);
+    for (const s of Array.isArray(req.body?.sections) ? req.body.sections : []) {
+      const c = db.prepare('SELECT * FROM budget_section_param WHERE annee_civile = ? AND section = ?').get(annee, s.section);
+      if (!c) continue;
+      const w = k => (s[k] === undefined ? c[k] : s[k] === '' ? null : Number(s[k]));
+      majS.run(w('socle') ?? 0, w('ponderation') ?? 0, w('effectif') == null ? null : Math.round(w('effectif')), w('charges_n1'), w('produits_n1'),
+        s.hors_budget === undefined ? c.hors_budget : (s.hors_budget ? 1 : 0), w('reserve_invest') ?? 0, qui(req), annee, s.section);
+    }
+  })();
+  res.json({ ok: true });
+});
+/* Recompter les effectifs dans Lucie à la date de référence — simulation d'abord (rien n'est écrit sans `ecrire`). */
+r.post('/parametres/effectifs', authRequired, roleRequired(...DIRECTION), (req, res) => {
+  const annee = Number(req.body?.annee);
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+  assurerAnnee(annee, qui(req));
+  const P = db.prepare('SELECT date_effectifs FROM budget_parametre WHERE annee_civile = ?').get(annee);
+  const eff = effectifsLucie(P.date_effectifs);
+  const lignes = db.prepare('SELECT section, effectif FROM budget_section_param WHERE annee_civile = ? AND hors_budget = 0').all(annee)
+    .map(x => ({ section: x.section, actuel: x.effectif, lucie: eff[x.section] || 0 }));
+  if (!req.body?.ecrire) return res.json({ simulation: true, date: P.date_effectifs, lignes });
+  const maj = db.prepare("UPDATE budget_section_param SET effectif = ?, effectif_compte_le = datetime('now'), maj_par = ? WHERE annee_civile = ? AND section = ?");
+  db.transaction(() => { for (const l of lignes) maj.run(l.lucie, qui(req), annee, l.section); })();
+  res.json({ ok: true, date: P.date_effectifs, lignes });
+});
+
+/* L'ARBITRAGE (A.7) : la direction retient ou refuse une ligne ; un refus se motive. */
+r.put('/ligne/:id/arbitrer', authRequired, roleRequired(...DIRECTION), (req, res) => {
+  const statut = req.body?.statut;
+  if (!['prevu', 'arbitre', 'refuse'].includes(statut)) return res.status(400).json({ error: 'statut : prevu, arbitre ou refuse' });
+  const motif = String(req.body?.motif || '').trim() || null;
+  if (statut === 'refuse' && !motif) return res.status(400).json({ error: 'Un refus se motive.' });
+  const x = db.prepare(`UPDATE budget_ligne SET statut = ?, motif_arbitrage = ?, arbitre_par = ?, arbitre_le = datetime('now'), maj_le = datetime('now') WHERE id = ?`)
+    .run(statut, statut === 'prevu' ? null : motif, statut === 'prevu' ? null : qui(req), Number(req.params.id));
+  if (!x.changes) return res.status(404).json({ error: 'ligne introuvable' });
+  res.json({ ok: true });
+});
+
+/* L'INVENTAIRE DE L'EXISTANT (C.3) — la coordination pour ses sections, la direction pour toutes. */
+r.get('/inventaire', authRequired, (req, res) => {
+  const autorisees = sectionsAutorisees(req.user);
+  const section = req.query.section || null;
+  if (section && autorisees && !autorisees.includes(section)) return res.status(403).json({ error: 'Section hors de votre périmètre' });
+  const l = db.prepare(`SELECT * FROM budget_inventaire ${section ? 'WHERE section = ?' : ''} ORDER BY section, type_bien, id`).all(...(section ? [section] : []))
+    .filter(x => !autorisees || autorisees.includes(x.section));
+  res.json({ biens: l, etats: ETATS_INVENTAIRE, peut_ecrire: section ? peutEcrire(req.user, section) : autorisees === null });
+});
+function bienValide(b) {
+  if (!String(b.section || '').trim() || !String(b.type_bien || '').trim()) return 'Section et type de bien requis.';
+  if (!ETATS_INVENTAIRE[b.etat || 'bon']) return 'État : bon, à surveiller ou à remplacer.';
+  const an = b.annee_achat ? Number(b.annee_achat) : null;
+  if (an != null && (an < 1950 || an > new Date().getFullYear() + 1)) return "Année d'achat invalide.";
+  return null;
+}
+r.post('/inventaire', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint', 'coordination'), (req, res) => {
+  const b = req.body || {};
+  const err = bienValide(b); if (err) return res.status(400).json({ error: err });
+  if (!peutEcrire(req.user, b.section)) return res.status(403).json({ error: 'Section hors de votre périmètre' });
+  const info = db.prepare('INSERT INTO budget_inventaire (section, type_bien, description, quantite, annee_achat, etat, cree_par) VALUES (?,?,?,?,?,?,?)')
+    .run(b.section, String(b.type_bien).trim(), b.description || null, Math.max(1, Math.round(Number(b.quantite) || 1)),
+      b.annee_achat ? Number(b.annee_achat) : null, b.etat || 'bon', qui(req));
+  res.json({ ok: true, id: Number(info.lastInsertRowid) });
+});
+r.put('/inventaire/:id', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint', 'coordination'), (req, res) => {
+  const cur = db.prepare('SELECT * FROM budget_inventaire WHERE id = ?').get(Number(req.params.id));
+  if (!cur || !peutEcrire(req.user, cur.section)) return res.status(404).json({ error: 'bien introuvable' });
+  const b = { ...cur, ...req.body, section: cur.section };
+  const err = bienValide(b); if (err) return res.status(400).json({ error: err });
+  db.prepare("UPDATE budget_inventaire SET type_bien = ?, description = ?, quantite = ?, annee_achat = ?, etat = ?, maj_le = datetime('now') WHERE id = ?")
+    .run(String(b.type_bien).trim(), b.description || null, Math.max(1, Math.round(Number(b.quantite) || 1)), b.annee_achat ? Number(b.annee_achat) : null, b.etat, cur.id);
+  res.json({ ok: true });
+});
+r.delete('/inventaire/:id', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint', 'coordination'), (req, res) => {
+  const cur = db.prepare('SELECT section FROM budget_inventaire WHERE id = ?').get(Number(req.params.id));
+  if (!cur || !peutEcrire(req.user, cur.section)) return res.status(404).json({ error: 'bien introuvable' });
+  db.prepare('DELETE FROM budget_inventaire WHERE id = ?').run(Number(req.params.id));
+  res.json({ ok: true });
 });
 
 export default r;

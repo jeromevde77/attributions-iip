@@ -3040,6 +3040,20 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   réponse possible. Accès **bloqué hors de Belgique**, exception accordée par le secrétariat pour une période ; la vérification
   du QR reste ouverte partout. (Mot de passe et Belgique : FAITS en 3.1.513 ; VA en ligne et code du candidat : FAITS en 3.1.514 ; PAE en ligne : FAIT en 3.1.515 ; messages : FAITS en 3.1.516 ; parcours, frais, aide : FAITS en 3.1.517.) Toute écriture venant du portail passe par le relevé de Lucie (`portailSync.js`), jamais l'inverse. **Ordre de construction** : 1 mot de passe et blocage hors Belgique · 2 VA en ligne déplacée + code candidat · 3 PAE en ligne · 4 messages · puis parcours, frais, aide.
 
+**LE BUDGET DES SECTIONS** (3.5.019, Charles, 1er novembre 2026 ; cahier des charges : `docs/contexte/guide-budget-sections.md`).
+Gestion → Finances → Budget, faces Enveloppes · Lignes · Investissements · Inventaire · Exécution · Paramètres (direction).
+`lib/budgetSections.js` : enveloppe = socle + montant par étudiant × pondération × effectif (guide A.4), arrondie à l'euro ;
+paramètres par ANNÉE CIVILE (`budget_parametre`, `budget_section_param` : socle, pondération, effectif FIGÉ, N-1, réserve
+d'investissement, hors budget), créés au premier accès (valeurs du guide pour 2027 — total des sept sections 126.437 € ;
+sections hors guide au régime standard, choix de Charles ; Optométrie : réserve d'investissement de 10.000 €). **Le coussin de la direction** (Charles) : retenu sur chaque enveloppe PAR TRANCHES comme l'impôt — 10 % jusqu'à 15.000 €, 20 % jusqu'à 30.000 €, 30 % au-delà, réglables par année (`coussin()`) ; la coordination ne voit QUE le disponible (ni brut, ni coussin, ni barème : la route les retire). La NATURE d'une
+ligne (fonctionnement / investissement) se CALCULE du prix unitaire HT contre le seuil (500 € HT), jamais saisie. Catégories du
+guide B.2 en table (`budget_categorie`, distinctes des comptes comptables `budget_compte`) ; inventaire `budget_inventaire`.
+**La coordination écrit, la direction arbitre** : plafond « budget » de la coordination passé de « validation » à « écrit »,
+borné à ses sections (`getUserSections`) ; seule la direction change le statut (`PUT /ligne/:id/arbitrer`, refus motivé) et
+règle les paramètres. L'orthoptie n'a pas d'enveloppe : quote-part (1/3 du budget HE saisi). Impact sur la contribution à
+l'ASBL à produits constants (A.5). Banc : `backend/test/budget.mjs` (47 ok). **À venir** : le mode d'emploi du module (partie B
+pour les coordinations, A et B pour la direction) et son export PDF.
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux

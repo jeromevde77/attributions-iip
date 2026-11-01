@@ -798,7 +798,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
 /** Cadre du tableau : bordure, arrondi, défilement horizontal. */
 export function Tableau({ children, className = '', dense = false }) {
   return (
-    <div style={{ background: 'var(--c-fond_ligne, #fff)', borderColor: 'var(--c-filet, rgb(var(--gris-200)))' }} className={`border rounded-xl overflow-x-auto ${className}`}>
+    <div style={{ background: 'var(--c-fond_ligne, #fff)', borderColor: 'var(--c-filet, rgb(var(--gris-200)))' }} className={`tableau-cadre border rounded-xl overflow-x-auto ${className}`}>
       <table className={`tableau-maison w-full ${dense ? 'text-second' : 'text-sm'}`}>{children}</table>
     </div>
   );
@@ -1206,7 +1206,7 @@ export function Fenetre({ icone: Ic, titre, sous, large = 'moyenne',
 
         {/* LE CORPS PLEIN (3.1.255) : un document (aperçu de pièce) occupe toute la fenêtre, sans marge. */}
         {pleinCorps ? <div className="flex-1 min-h-0 flex flex-col">{children}</div>
-          : <div className="min-h-0 overflow-y-auto px-5 py-4">{children}</div>}
+          : <div className="corps-fenetre min-h-0 overflow-y-auto px-5 py-4">{children}</div>}
 
         {pied && (
           /* LE PIED NE SE CHEVAUCHE PAS.
