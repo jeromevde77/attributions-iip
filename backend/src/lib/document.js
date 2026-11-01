@@ -539,10 +539,9 @@ export function piedGabaritPdf(logo, texte, numeroter = false) {
        + '<div style="border-top:0.5pt solid #C9A84C;padding-top:1.2mm;text-align:center;display:flex;align-items:flex-start">'
        + `<div style="width:24mm;flex:none;text-align:left">${logo ? `<img src="${logo}" style="height:6.5mm;display:block;opacity:.9">` : ''}</div>`
        + '<div style="flex:1;min-width:0">'
-       // Le numéro prend la place que piedDocument() lui réserve : à droite,
-       // sur la ligne de l'adresse, en anthracite comme le reste.
-       + `<div style="font-size:6pt;color:#3F4652;line-height:1.3">${numeroter
-            ? T.replace(/<span class="pied-page"([^>]*)><\/span>/, '<span class="pied-page"$1><span class="pageNumber"></span> / <span class="totalPages"></span></span>')
-            : T}</div>`
-       + '</div><div style="width:24mm;flex:none"></div></div></div>';
+       // LE NUMÉRO VA DANS LA CASE DE DROITE (3.5.015, Charles : « 1/12 » se posait sur l'adresse du site). Posé en
+       // absolu sur la ligne de l'adresse, il recouvrait le texte dès que la ligne allait jusqu'au bord.
+       + `<div style="font-size:6pt;color:#3F4652;line-height:1.3">${T.replace(/<span class="pied-page"[^>]*><\/span>/, '')}</div>`
+       + '</div><div style="width:24mm;flex:none;text-align:right;font-size:6pt;color:#3F4652;line-height:1.3;padding-top:2.2mm">'
+       + `${numeroter ? '<span class="pageNumber"></span> / <span class="totalPages"></span>' : ''}</div></div></div>`;
 }
