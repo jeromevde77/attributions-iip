@@ -267,7 +267,7 @@ function donneesCompletes(cle, profId, annee, mois) {
   if (!SAISISSABLES.includes(cle) || !d.membre) return { d, manques: [] };
   const s = saisieDe(cle, profId, annee, mois);
   const valeurs = s ? { ...proposition(cle, profId, annee, mois), ...s.donnees } : proposition(cle, profId, annee, mois);
-  return { d: { ...d, ...valeurs }, manques: s ? manques(cle, valeurs) : ['la pièce n\'a pas encore été complétée dans Lucie'] };
+  return { d: { ...d, ...valeurs }, manques: s ? manques(cle, valeurs) : ['vérifiez ce que Lucie propose dans la fenêtre de la pièce, puis enregistrez'] };
 }
 
 /* WORD ET PDF. Le Word est la pièce qu'on dépose dans GEDI ; le PDF, celle
