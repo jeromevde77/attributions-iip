@@ -156,7 +156,7 @@ export default function ParcoursCompact({ etudId, annee, programme = new Set(), 
   const nSurvol = survol != null ? plan.pos[survol]?.n : null;
   const etiquette = nSurvol ? [
     `${nSurvol.ue_num} ${nSurvol.ue_nom || ''}`.trim(),
-    nSurvol.reussite?.va ? "VA" : nSurvol.reussite?.note != null ? `${Math.round(nSurvol.reussite.note)}/20` : null,
+    nSurvol.reussite?.va ? (nSurvol.reussite.sigle || "VA") : nSurvol.reussite?.note != null ? `${Math.round(nSurvol.reussite.note)}/20` : null,
     amont.size ? `ouverte par ${[...plan.edges.filter(e => e.to === survol).map(e => e.from)].join(', ')}` : 'sans prérequis',
     aval.size ? `ouvre ${[...aval].join(', ')}` : null,
   ].filter(Boolean).join(' · ') : null;
@@ -194,7 +194,7 @@ export default function ParcoursCompact({ etudId, annee, programme = new Set(), 
                 strokeWidth={n.ue_num === survol ? 1.8 : (t.epais || 1)} />
               <rect x={x} y={y} width={LIS} height={H} style={{ fill: t.lisere }} />
               <text x={x + (L + LIS) / 2} y={y + (t.va ? 12.5 : 15.5)} textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: t.texte }}>{n.ue_num}</text>
-              {t.va && <text x={x + (L + LIS) / 2} y={y + H - 3} textAnchor="middle" fontSize="7.5" fontWeight="700" style={{ fill: 'var(--c-reussi, #3E7D5E)' }}>VA</text>}
+              {t.va && <text x={x + (L + LIS) / 2} y={y + H - 3} textAnchor="middle" fontSize="7.5" fontWeight="700" style={{ fill: 'var(--c-reussi, #3E7D5E)' }}>{n.reussite?.sigle || 'VA'}</text>}
               {/* Repères : refusée une fois (rouge, haut gauche), déterminante
                   (marine, haut droit), report ou VA (gris, bas droit). */}
               {n.refusee && <circle cx={x} cy={y} r={3.6} fill="#C0392B" stroke="#fff" strokeWidth={1} />}

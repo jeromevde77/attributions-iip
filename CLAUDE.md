@@ -3062,7 +3062,8 @@ parcours, frais, candidats et codes d'office déposés selon elle ; gestes VA/PA
 (`joignables`), rappels aux étudiants (`FONCTION_DU_RAPPEL`), code candidat manuel (409). Portail : colonne `etudiant.fonctions`,
 `/moi` rend `fonctions` et vide ce qui est fermé, `exige(f)` répond 404 sur les routes fermées, l'écran ne montre que ces
 onglets (aide et compte toujours). Présence : `GET /:cours/qr/:seance` et tout le ticket de sortie en 403, boutons cachés dans
-Ma journée. **Une fonction nouvelle visible des étudiants ou du personnel s'ajoute au CATALOGUE, naît éteinte, et se garde par
+Ma journée. Guide d'installation pour Jérôme : `scripts/vps/MISE-EN-PRODUCTION-3.5.md` (secrets AVANT le nouveau
+docker-compose, qui refuse de démarrer sans eux ; dev d'abord, puis production à la main). **Une fonction nouvelle visible des étudiants ou du personnel s'ajoute au CATALOGUE, naît éteinte, et se garde par
 `fonctionPour` côté serveur.**
 
 **L'ANNULER NE COMPARE QUE CE QUE LE GESTE A CHANGÉ** (3.1.482, Charles, 30 octobre 2026, en production :

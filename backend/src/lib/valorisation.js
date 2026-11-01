@@ -253,6 +253,15 @@ export function controleDelai({ ueNum, annee, date_demande, date_reception }) {
       explication: "La date d'introduction n'est pas renseignée : le délai ne peut pas être contrôlé." };
   }
 
+  // LA DATE LIMITE DE L'ANNÉE, QUAND LA DIRECTION L'A POSÉE (Configuration → Coût des périodes,
+  // `va.date_limite.<année>`, 3.5.006) : elle vaut pour toutes les UE du PAE.
+  let limite = null;
+  try { limite = String(db.prepare('SELECT valeur FROM parametre WHERE cle = ?').get(`va.date_limite.${annee}`)?.valeur || '').trim() || null; } catch { /* */ }
+  if (limite && /^\d{4}-\d{2}-\d{2}$/.test(limite)) {
+    return { connu: true, hors_delai: retenue > limite, echeance: limite, date_retenue: retenue,
+      explication: `Programme ${annee} : la demande doit être introduite au plus tard le ${limite}, pour toutes les UE du PAE.` };
+  }
+
   // L'ouverture de l'unité, quand elle est encodée, fait l'échéance.
   let ouverture = null;
   try {
@@ -571,4 +580,12 @@ export function uesValorisees(etudId) {
       WHERE etudiant_id = ? AND type = 'complete' AND ue_num > 0 AND archive_le IS NULL AND ${vaRetenue()}`).all(Number(etudId));
   } catch { rows = []; }
   return { parAnnee: new Set(rows.map(r => `${r.annee_scolaire}|${r.ue_num}`)), ues: new Set(rows.map(r => Number(r.ue_num))) };
+}
+
+/** VA OU VAE (3.5.012, Charles : « l'étudiant a une VA et une VAE, tu as mis deux VAE ») : la PORTE par laquelle la demande
+ *  est entrée fait foi ; la base légale (D, E = acquis non formels ou informels) ne décide qu'à défaut de porte. */
+export function sigleVA(v) {
+  const porte = String(v?.porte || '').toUpperCase();
+  if (porte === 'VAE' || porte === 'VA') return porte;
+  return ['D', 'E'].includes(String(v?.base_code || '').toUpperCase()) ? 'VAE' : 'VA';
 }

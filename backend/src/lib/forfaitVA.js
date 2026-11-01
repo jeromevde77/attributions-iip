@@ -30,6 +30,27 @@ export function migrerForfaitVA(dbx = db) {
   ins.run('va.forfait_ue', '30', 'Forfait d’analyse d’une demande de VA ou de VAE, par UE (€)', null, 'couts');
   ins.run('va.supplement_ue', '15', 'Supplément par UE demandée quand les frais d’inscription dépassent le forfait VA (€)', null, 'couts');
   ins.run('va.forfait_admission', '50', 'Forfait d’une demande d’admission (€)', null, 'couts');
+  dbx.prepare("UPDATE parametre SET label = ? WHERE cle = 'va.forfait_ue'").run('Frais d’instruction d’une demande de VA ou de VAE, par UE (€)');
+  dbx.prepare("UPDATE parametre SET label = ? WHERE cle = 'va.supplement_ue'").run('(ne sert plus depuis 3.5.006 : 30 € par UE)');
+  /* LA DATE LIMITE DES DEMANDES, UNE PAR ANNÉE (Charles, 31 octobre 2026 : « 14 novembre pour un
+     programme annuel, pour toutes les UE de la section » ; « date réglable par année »). Vide = la
+     règle du RDE art. 28 (15e jour de l'année, ou avant le premier cours de l'UE). */
+  let annees = [];
+  try { annees = dbx.prepare("SELECT DISTINCT annee_scolaire a FROM ue WHERE annee_scolaire >= '2026-2027' ORDER BY 1").all().map(r => r.a); } catch { /* */ }
+  if (!annees.includes('2026-2027')) annees.unshift('2026-2027');
+  /* LES EXEMPLES DE L'ÉPREUVE D'ADMISSION, PAR SECTION (3.5.006 ; Charles : « je propose, l'école corrige ») :
+     une proposition pour les sections dont le dossier pédagogique porte les capacités ; l'école les réécrit. */
+  const EX = {
+    TIM: "En mathématiques — par exemple : une dose prescrite à 2 mg/kg pour un patient de 72 kg ; combien de mL d'une solution à 20 mg/mL faut-il ? Lire un graphique qui montre la décroissance d'un produit dans le temps et dire au bout de combien d'heures il en reste la moitié.\nEn français — par exemple : résumer en une dizaine de lignes un article de vulgarisation sur l'imagerie médicale, puis donner en une quinzaine de lignes votre avis argumenté sur le sujet.",
+    AeSI: "En mathématiques — par exemple : un patient boit 3 verres de 150 mL et une bouteille de 0,5 L ; combien a-t-il bu en litres ? Une perfusion de 1 000 mL coule en 8 heures : combien de mL par heure ? Un prix de 80 € augmente de 15 % : quel est le nouveau prix ? Lire une courbe de température et dire à quelle heure elle a été la plus haute.\nEn français — par exemple : lire un article d'une page sur l'hygiène des mains à l'hôpital, en écrire un résumé fidèle des idées essentielles, puis un court commentaire personnel structuré.",
+  };
+  const insEx = dbx.prepare('INSERT OR IGNORE INTO parametre (cle, valeur, label, section, groupe) VALUES (?,?,?,?,?)');
+  let secs = [];
+  try { secs = dbx.prepare('SELECT code FROM section ORDER BY code').all().map(r => r.code); } catch { /* */ }
+  for (const sec of new Set([...secs, ...Object.keys(EX)])) insEx.run(`admission.exemples.${sec}`, EX[sec] || '',
+    `Épreuve d'admission ${sec} : exemples de ce qui est attendu (montrés aux candidats)`, null, 'procedures');
+  for (const a of annees) ins.run(`va.date_limite.${a}`, a === '2026-2027' ? '2026-11-14' : '',
+    `Date limite des demandes de VA et de VAE ${a}, pour toutes les UE du PAE (AAAA-MM-JJ ; vide = RDE art. 28)`, null, 'couts');
 }
 
 const nombre = (cle, defaut) => { const n = Number(String(getParam(cle, defaut) ?? defaut).replace(',', '.')); return Number.isFinite(n) && n >= 0 ? n : defaut; };
@@ -55,11 +76,12 @@ export function demandesVA(etudId, annee) {
 /** Le prix d'UNE demande VA ou VAE sur une unité, d'après ses frais d'inscription (`fi`, absent si non inscrit).
  *  Servi aussi AVANT la demande : le portail l'annonce à l'étudiant (3.1.514). */
 export function prixDUneUE(fi) {
-  const parUE = nombre('va.forfait_ue', 30), supp = nombre('va.supplement_ue', 15);
+  /* 30 € PAR UE, QU'ELLE SOIT AU PAE OU NON (Charles, 31 octobre 2026 : « 30 € par UE » —
+     les frais d'inscription complémentaires pour l'instruction). Le supplément de 15 € et la
+     comparaison aux frais de l'unité (3.1.431) ne valent plus ; `fi` reste lu pour l'affichage. */
+  const parUE = nombre('va.forfait_ue', 30);
   const e2 = n => arrondi(n).toFixed(2).replace('.', ',');
-  if (fi == null) return { du: parUE, calcul: `pas inscrit à l’UE : forfait de ${e2(parUE)} €` };
-  if (fi < parUE) return { du: arrondi(parUE - fi), fi: arrondi(fi), calcul: `frais de l’UE ${e2(fi)} € < ${e2(parUE)} € : portés au forfait, ${e2(parUE - fi)} € de plus` };
-  return { du: supp, fi: arrondi(fi), calcul: `frais de l’UE ${e2(fi)} € ≥ ${e2(parUE)} € : ${e2(supp)} €` };
+  return { du: parUE, ...(fi != null ? { fi: arrondi(fi) } : {}), calcul: `frais d’instruction : ${e2(parUE)} € par UE` };
 }
 
 /** Le forfait dû. `fiParUE` : Map ue_num → frais d'inscription de l'unité (unités inscrites seulement). */

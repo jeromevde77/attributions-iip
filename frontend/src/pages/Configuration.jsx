@@ -417,7 +417,8 @@ function GestionParametres({ groupes = null }) {
             </div>
             <div className="divide-y divide-gray-100">
               {params.map(p => {
-                const t = PARAM_TYPES[p.cle] || { type: 'text' };
+                const t = PARAM_TYPES[p.cle]
+                  || (p.cle.startsWith('admission.exemples.') ? { type: 'texte' } : p.cle.startsWith('va.date_limite.') ? { type: 'date' } : { type: 'text' });
                 const val = getValue(p.cle, p.valeur);
                 const modified = pending[p.cle] !== undefined;
                 return (

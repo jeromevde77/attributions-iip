@@ -129,7 +129,8 @@ function dossierCep(annee) {
     detail: [{ du: seances[0].date, au: seances.at(-1).date, jour: 1, de: '18:00', a: '21:20' }],
     periodes, nb_seances: seances.length };
   return { etudiant: ETUDIANT, cep: { region: 'bruxelles' }, annee, section: 'EX', section_libelle: SECTION,
-           unites: [unite], conges: congesDe(annee) };
+           unites: [unite], conges: congesDe(annee),
+           session2: [{ ue_num: unite.ue_num, ue_nom: unite.ue_nom, du: unite.fin, au: unite.fin, participe: false }] };
 }
 
 /** Les pièces qui ont un spécimen. */
@@ -137,7 +138,7 @@ export const SPECIMENS = new Set([
   'amenagement_formulaire', 'amenagement_decision', 'amenagement_notification', 'amenagement_mesures',
   'procedure_accuse_reception', 'procedure_irrecevabilite', 'procedure_decision_recours',
   'procedure_convocation', 'procedure_pv_audition', 'procedure_decision_disciplinaire',
-  'cep_inscription', 'cep_assiduite',
+  'cep_inscription', 'cep_assiduite', 'cep_seconde_session',
 ]);
 
 /** Compose le spécimen d'une pièce de la galerie : { html, nom } ou { erreur }. */

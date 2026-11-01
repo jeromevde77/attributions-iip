@@ -90,6 +90,15 @@ ssh lucie-vps "lecture DELETE FROM etudiant"
   (ou `sudo deluser --remove-home "$SERVICE"` et `sudo rm /etc/sudoers.d/gestes-vps`)
 - Mettre le script à jour : refaire `scp` puis `sudo install …` de l'étape 2.
 
+> **ÉTAT RÉEL AU 1er NOVEMBRE 2026 : le passage ci-dessous N'A PAS ÉTÉ FAIT.** Le compte de service est
+> encore l'ancien, et sa clé lance encore l'ANCIEN script, sous l'ancien nom (dans `/usr/local/sbin/`,
+> introuvable par `find -name "gestes-vps*"`). Installer `gestes-vps` seul ne change donc rien : le
+> 31 octobre, trois réinstallations ont laissé l'espace des étudiants hors de `maj-dev`. Pour trouver le
+> fichier réellement lancé : `sudo grep -rln "verbe inconnu" /usr/local/sbin`. Tant que le passage n'est
+> pas fait, une mise à jour du script s'installe AUSSI sous ce nom-là :
+> `sudo install -o root -g root -m 0755 /usr/local/sbin/gestes-vps /usr/local/sbin/<ancien-nom>`.
+> Contrôle : `maj-dev` affiche « Portail de la dev : portail-backend-dev portail-frontend-dev ».
+
 ## Passer de l'ancienne installation à celle-ci
 
 Jusqu'au 30 octobre 2026, le script s'appelait autrement et portait le nom du compte en dur ; ces noms restent

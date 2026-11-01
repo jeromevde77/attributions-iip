@@ -1882,6 +1882,31 @@ function FenetreDossier({ vid, onClose, onChange }) {
           </section>
         )}
 
+        {/* LA DEMANDE DE L'ÉTUDIANT (3.5.006) : sa motivation acquis par acquis, avec ses pièces numérotées —
+            ce que le Conseil lit pour décider (circulaire 9447, annexes 6 et 7). */}
+        {d.demande_etudiant && (
+          <section className="carte p-3 space-y-2">
+            <div className="intertitre">Demande de l'étudiant — motivation par acquis</div>
+            <p className="text-second text-slate-500">
+              {d.demande_etudiant.certifie_le
+                ? <>Certifiée exacte par l'étudiant le {String(d.demande_etudiant.certifie_le).slice(0, 10).split('-').reverse().join('/')}.</>
+                : <>Pas encore envoyée : l'étudiant la complète dans son espace.</>}
+            </p>
+            {d.demande_etudiant.pieces.length > 0 && (
+              <div className="text-second text-slate-600">Pièces : {d.demande_etudiant.pieces.map(p => `n° ${p.numero} ${p.nom}`).join(' · ')}</div>)}
+            <table className="w-full text-second">
+              <tbody>
+                {d.demande_etudiant.acquis.map(a => (
+                  <tr key={a.code} className="border-t border-slate-100 align-top">
+                    <td className="py-1.5 pr-2 w-1/3"><b>{a.code}</b> <span className="text-slate-500">{a.libelle}</span></td>
+                    <td className="py-1.5 pr-2 whitespace-pre-wrap">{a.texte || <span className="text-slate-400">non motivé</span>}</td>
+                    <td className="py-1.5 whitespace-nowrap text-slate-500">{a.pieces.length ? a.pieces.map(n => `n° ${n}`).join(', ') : ''}</td>
+                  </tr>))}
+              </tbody>
+            </table>
+          </section>
+        )}
+
         {/* ÉTAPE 2 — L'INTRODUCTION ET LE DÉLAI. */}
         <EtapeDemande dossier={v} delai={d.delai} onEnregistrer={c => agir('demande', c)}
           enCours={enCours} />

@@ -43,6 +43,8 @@ const Tete = ({ sous, onQuitter }) => (
   </div>
 );
 
+// Le nom court d'un onglet sur téléphone (la grille des onglets, 3.5.009).
+const COURT = { resultats: 'Résultats', messages: 'Messages', parcours: 'Parcours', pae: 'PAE', documents: 'Documents', va: 'VA / VAE', frais: 'Frais', aide: 'Aide', compte: 'Compte' };
 const ETAT_COULEUR = { reussi: 'var(--c-reussi, #3E7D5E)', surveiller: 'var(--c-attente, #B45309)', corriger: 'var(--c-refuse, #9D4A38)' };
 
 /** L'accusé d'une pièce : ouvrir, puis signer par code. */
@@ -185,11 +187,82 @@ async function deposerPiece(ue, nature, fichier) {
 }
 
 /** LA DEMANDE DE VALORISATION EN LIGNE (3.1.514) : derrière le mur, Lucie relève et juge chaque geste. */
+/* LA VALORISATION PAS À PAS (3.5.006, Charles, 31 octobre 2026 : « il faut dire à l'étudiant ce qui est attendu de lui…
+   pas à pas, comme un tutoriel » ; « cela doit surtout respecter la circulaire »). D'abord ce que sont la VA, la VAE et
+   l'admission, les règles dépliables ; puis la demande en trois étapes, celles du formulaire de la circulaire 9447
+   (annexes 6 et 7) : ma demande · mes documents probants · la motivation, acquis par acquis ; puis « je certifie » et
+   l'envoi. Les pièces sont numérotées : la motivation les cite. */
+const ORIGINES = [
+  ['Mon parcours dans l’enseignement', ['DIP', 'REL', 'DP']],
+  ['Un organisme de formation ou un centre de validation', ['ATT']],
+  ['Mon expérience professionnelle ou personnelle', ['EXP', 'CT', 'CV']],
+  ['Autre', ['DEM', 'CI', 'AUT']],
+];
+const ATTENDU = {
+  va: ['Le diplôme, le certificat, l’attestation de réussite ou le bulletin', 'Ce qu’ils couvrent : programme, contenu des cours, acquis, crédits, fiche ECTS', 'Si utile : grille horaire, heures de cours, relevé d’heures de stage'],
+  vae: ['Le contrat de travail, la description de fonction, une attestation de service ou des tâches réalisées', 'Un projet, un portfolio, des réalisations', 'Ce qui vient de votre vie personnelle : bénévolat, loisirs, langues, autoformation'],
+};
+function Etapes({ faits }) {
+  const noms = ['Ma demande', 'Mes documents', 'Ma motivation', 'Envoyer'];
+  const courant = faits.findIndex(f => !f);
+  return (
+    <div className="flex">
+      {noms.map((n, i) => {
+        const fait = faits[i], actif = i === courant;
+        return (
+          <div key={n} className="flex-1 text-center relative text-xs" style={{ color: actif ? 'var(--c-principal, #16406A)' : '#64748b', fontWeight: actif ? 600 : 400 }}>
+            {i > 0 && <span className="absolute top-[13px] right-1/2 w-full h-0.5" style={{ background: fait || actif ? ETAT_COULEUR.reussi : '#E2E8F0' }} />}
+            <span className="relative z-10 mx-auto mb-1 w-7 h-7 rounded-full grid place-items-center font-bold border-2"
+              style={fait ? { background: ETAT_COULEUR.reussi, borderColor: ETAT_COULEUR.reussi, color: '#fff' }
+                : actif ? { background: 'var(--c-principal, #16406A)', borderColor: 'var(--c-principal, #16406A)', color: '#fff' }
+                  : { background: '#fff', borderColor: '#CBD5E1' }}>{fait ? <IconCheck size={15} /> : i + 1}</span>
+            {n}
+          </div>);
+      })}
+    </div>);
+}
+const Zone = ({ n, titre, children, pale }) => (
+  <section className={`bg-white border border-slate-200 rounded-carte p-4 space-y-2 ${pale ? 'opacity-60' : ''}`}>
+    <h3 className="text-sm font-semibold text-iip-texte flex items-center gap-2">
+      <span className="w-6 h-6 rounded-full grid place-items-center text-xs text-white flex-none" style={{ background: 'var(--c-principal, #16406A)' }}>{n}</span>{titre}</h3>
+    {children}
+  </section>);
+const Plus = ({ titre, children }) => (
+  <details className="text-sm py-1.5 border-b border-slate-100 last:border-b-0">
+    <summary className="cursor-pointer font-semibold text-iip-blue">{titre}</summary>
+    <div className="mt-1.5 text-slate-700 space-y-1">{children}</div>
+  </details>);
+
+function CarteAdmission({ adm }) {
+  const entete = l => /^en\s.+,$/i.test(l) || /:$/.test(l);
+  return (
+    <div className="bloc-etat px-3 py-2.5 space-y-1.5" data-etat="neutre">
+      <div className="text-sm font-semibold text-iip-texte">Admission — l’épreuve d’entrée</div>
+      <p className="text-second text-slate-600">Vous n’avez pas le titre demandé pour entrer dans la section{adm?.titre ? <> ({adm.titre.replace(/\.$/, '')})</> : ''} ?
+        Vous pouvez passer une <b>épreuve d’admission</b> qui vous en donne l’accès.</p>
+      {adm?.capacites?.length > 0 && (
+        <details className="text-second">
+          <summary className="cursor-pointer font-semibold text-iip-blue">Ce que l’épreuve vérifie{adm.section ? ` en ${adm.section}` : ''}</summary>
+          {adm.capacites.map((c, i) => (
+            <div key={i} className="mt-1.5 space-y-0.5">
+              {adm.capacites.length > 1 && <div className="text-xs text-slate-500">UE {c.ues.join(', ')}</div>}
+              {c.lignes.map((l, j) => entete(l) ? <div key={j} className="font-semibold text-slate-700 pt-1">{l}</div>
+                : <div key={j} className="pl-3 text-slate-700">· {l}</div>)}
+            </div>))}
+          {adm.exemples && <div className="mt-2 space-y-1">
+            {adm.exemples.split('\n').filter(Boolean).map((l, i) => <p key={i} className="text-slate-600">{l}</p>)}</div>}
+        </details>)}
+      <p className="text-second text-slate-600">La demande d’admission et l’inscription à l’épreuve se font au secrétariat, qui vous en communique la date.</p>
+    </div>);
+}
+
 function MesValorisations({ onErreur }) {
   const [v, setV] = useState(null);
   const [ue, setUe] = useState('');
   const [porte, setPorte] = useState('');
   const [nature, setNature] = useState({});
+  const [brouillon, setBrouillon] = useState({});   // `${ue}|${aa}` → { texte, pieces: [] }
+  const [certifie, setCertifie] = useState(false);
   const [enCours, setEnCours] = useState(false);
   const [message, setMessage] = useState(null);
   const charger = useCallback(() => appel('GET', '/va').then(setV).catch(onErreur), [onErreur]);
@@ -204,8 +277,9 @@ function MesValorisations({ onErreur }) {
     setEnCours(true); setMessage(null);
     try { await appel('POST', chemin, corps); ok?.(); await charger(); } catch (e) { onErreur(e); } finally { setEnCours(false); }
   };
+  const unites = v.offre?.unites || [];
   const ouvertes = new Set([...v.etat.map(d => d.ue_num), ...v.en_attente.filter(g => g.type === 'ouvrir').map(g => g.ue_num)]);
-  const libres = (v.offre?.unites || []).filter(u => !ouvertes.has(u.ue_num));
+  const libres = unites.filter(u => !ouvertes.has(u.ue_num));
   const choisie = libres.find(u => String(u.ue_num) === String(ue));
   const enAttente = (u, type) => v.en_attente.filter(g => g.ue_num === u && (!type || g.type === type));
   const natures = v.offre?.natures || [];
@@ -216,89 +290,210 @@ function MesValorisations({ onErreur }) {
     try { await deposerPiece(u, nature[u] || 'AUT', f); await charger(); } catch (e) { onErreur(e); } finally { setEnCours(false); }
   };
   const demandes = [...v.etat, ...v.en_attente.filter(g => g.type === 'ouvrir').map(g => ({ ue_num: g.ue_num, porte: g.porte, attente: true,
-    ue_nom: (v.offre?.unites || []).find(u => u.ue_num === g.ue_num)?.ue_nom, pieces: [], modifiable: true, frise: [] }))];
+    ue_nom: unites.find(u => u.ue_num === g.ue_num)?.ue_nom, pieces: [], modifiable: true, frise: [],
+    acquis: unites.find(u => u.ue_num === g.ue_num)?.acquis || [], motivations: {} }))];
+  // La motivation telle qu'elle sera une fois relevée : l'enregistré, puis les gestes en route.
+  const motivation = (d, code) => {
+    const g = [...enAttente(d.ue_num, 'motiver')].reverse().find(x => x.nature === code);
+    if (g) return { texte: g.texte || '', pieces: String(g.porte || '').split(',').map(Number).filter(Boolean) };
+    return d.motivations?.[code] || { texte: '', pieces: [] };
+  };
+  const ouvertesALaMain = demandes.filter(d => d.modifiable);
+  const manques = d => {
+    const m = [];
+    if (!d.pieces.length && !enAttente(d.ue_num, 'piece').length) m.push('aucune pièce');
+    const nm = (d.acquis || []).filter(a => !motivation(d, a.code).texte.trim()).length;
+    if (nm) m.push(`${nm} acquis à motiver`);
+    return m;
+  };
+  const faits = [
+    demandes.length > 0,
+    demandes.length > 0 && demandes.every(d => d.pieces.length > 0 || enAttente(d.ue_num, 'piece').length > 0),
+    demandes.length > 0 && demandes.every(d => (d.acquis || []).every(a => motivation(d, a.code).texte.trim())),
+    demandes.length > 0 && demandes.every(d => d.certifie_le || !d.modifiable),
+  ];
+  const incomplets = ouvertesALaMain.map(d => ({ d, m: manques(d) })).filter(x => x.m.length);
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-slate-600">La <b>VA</b> fait reconnaître des études déjà réussies (un diplôme, des unités) ; la <b>VAE</b>, une
-        expérience professionnelle ou personnelle. Une demande par unité, avec ses pièces ; vous complétez tant que le secrétariat ne l’a pas examinée.
-        L’admission se demande au secrétariat.</p>
+      {/* CE QUE C'EST — AVANT TOUT GESTE. */}
+      <section className="space-y-2">
+        <h2 className="titre-carte">Faire reconnaître ce que vous savez déjà</h2>
+        <p className="text-sm text-slate-600">Vous maîtrisez déjà, par des études ou par l’expérience, ce qu’enseigne une unité ? Le Conseil des études
+          peut vous en dispenser : c’est la <b>valorisation des acquis</b>.</p>
+        <div className="grid gap-2 sm:grid-cols-3">
+          {[['va', 'VA — par des études', <>Des acquis <b>formels</b> : un diplôme, une attestation de réussite, des crédits, un titre de compétence…</>],
+            ['vae', 'VAE — par l’expérience', <>Des acquis <b>informels ou non formels</b> : votre travail, une formation non diplômante, le bénévolat, la vie personnelle.</>]].map(([p, t, txt]) => (
+            <div key={p} className="bloc-etat px-3 py-2.5 space-y-1.5" data-etat="disponible">
+              <div className="text-sm font-semibold text-iip-texte">{t}</div>
+              <p className="text-second text-slate-600">{txt}</p>
+              <details className="text-second"><summary className="cursor-pointer font-semibold text-iip-blue">Que faut-il montrer ?</summary>
+                <ul className="mt-1 pl-4 list-disc text-slate-700">{ATTENDU[p].map(l => <li key={l}>{l}</li>)}</ul>
+                {p === 'va' && <p className="mt-1 text-slate-600">Les originaux se présentent au secrétariat ; l’école en garde une copie.</p>}
+                {p === 'vae' && <p className="mt-1 text-slate-600">Le Conseil peut décider sur dossier, ou vous faire passer un test ou une épreuve.</p>}
+              </details>
+            </div>))}
+          <CarteAdmission adm={v.offre?.admission} />
+        </div>
+        <div className="bg-white border border-slate-200 rounded-carte px-4 py-1">
+          <Plus titre="Ce que le Conseil peut décider"><ul className="pl-4 list-disc space-y-1">
+            <li><b>Dispense complète</b> : vous maîtrisez de façon globale et suffisante <b>tous</b> les acquis de l’unité. Vous ne la suivez pas et recevez une attestation de réussite « valorisation », avec des points en pourcentage.</li>
+            <li><b>Dispense partielle</b> : vous maîtrisez certains acquis ; vous êtes dispensé des activités qui y correspondent, mais vous restez inscrit à l’unité et présentez l’évaluation que le Conseil précise.</li>
+            <li><b>Refus</b>, motivé : le Conseil dit quel acquis n’est pas atteint.</li></ul></Plus>
+          <Plus titre="Ce qui ne se valorise pas"><ul className="pl-4 list-disc space-y-1">
+            <li>L’épreuve intégrée, les unités sans prestations d’étudiants, celles qu’une réglementation impose de suivre.</li>
+            <li>Un stage : votre activité professionnelle peut tenir lieu de tout ou partie des heures de stage, mais pas des évaluations, tests et rapports.</li></ul></Plus>
+          <Plus titre="Dans l’enseignement supérieur"><ul className="pl-4 list-disc space-y-1">
+            <li>Au moins 30 crédits doivent être suivis dans l’établissement qui délivre le diplôme.</li>
+            <li>Par l’expérience, une valorisation porte sur moins de 60 crédits.</li></ul></Plus>
+          <Plus titre="Délai, frais, décision"><ul className="pl-4 list-disc space-y-1">
+            <li>Une demande par unité, dans le délai affiché pour chacune. Hors délai, elle n’est pas prise en considération.</li>
+            <li>Vous payez vos frais d’inscription sur la base de votre PAE. Si une <b>dispense complète</b> (VA ou VAE de toute l’unité) vous est accordée, vous n’êtes plus redevable du droit d’inscription de cette unité : vos frais sont revus.</li>
+            <li>L’instruction d’une demande de VA ou de VAE coûte des frais d’inscription complémentaires, annoncés avant l’envoi, dus dès la demande, quelle que soit la décision.</li>
+            <li>La décision vous est communiquée au plus tard deux jours ouvrables après la séance du Conseil. Elle est définitive et ne peut faire l’objet d’aucun recours (décrets liés à l’organisation de l’enseignement pour adultes et de la valorisation des acquis).</li></ul></Plus>
+        </div>
+      </section>
+
       {v.refus.map(r => (
         <div key={r.id} className="bloc-etat px-3 py-2 text-sm flex gap-2" data-etat="corriger"><IconAlertTriangle size={16} className="flex-none text-slate-400" />
           <span className="flex-1">{r.ue_num ? `UE ${r.ue_num} — ` : ''}{r.nom ? `${r.nom} : ` : ''}{r.erreur}</span></div>))}
       {v.refus.length > 0 && <button type="button" className="text-second text-iip-blue underline" onClick={() => geste('/va/refus-lus')}>J’ai compris</button>}
       {message && <div className="bloc-etat px-3 py-2 text-sm" data-etat="reussi">{message}</div>}
 
-      {demandes.map(d => (
-        <section key={d.ue_num} className="bloc-etat px-4 py-3 space-y-2" data-etat={d.attente ? 'neutre' : 'disponible'}>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-semibold text-iip-texte flex-1 min-w-0">UE {d.ue_num} {d.ue_nom || ''}</span>
-            <span className="pastille-etat" style={{ background: 'var(--c-disponible, #2F6FB0)', color: '#fff' }}>{PORTE[d.porte] || d.porte}</span>
-          </div>
-          {d.attente ? <p className="text-xs text-slate-500">Envoyée à l’école : enregistrée dans quelques secondes.</p> : (
-            <div className="flex flex-wrap gap-1">
-              {d.frise.map(e => (
-                <span key={e.cle} className="text-xs px-2 py-0.5 rounded-full border"
-                  style={e.refus ? { background: 'var(--c-refuse, #9D4A38)', color: '#fff', borderColor: 'transparent' }
-                    : e.fait ? { background: 'var(--c-reussi, #3E7D5E)', color: '#fff', borderColor: 'transparent' } : { color: '#64748b' }}>
-                  {e.fait ? '✓ ' : ''}{e.libelle}{e.le && e.fait ? ` · ${jourFr(e.le)}` : ''}</span>))}
-            </div>)}
-          {d.motif_irrecevabilite && <p className="text-sm text-slate-700">Motif : {d.motif_irrecevabilite}</p>}
-          {d.decision && <p className="text-sm text-slate-700">Décision : <b>{d.decision}</b> — la notification est dans vos documents.</p>}
-          <div className="space-y-1">
-            {d.pieces.map(pc => (
-              <div key={pc.id} className="flex flex-wrap items-center gap-2 text-sm">
-                <IconFileText size={15} className="text-slate-400" /><span className="flex-1 min-w-0 break-all">{pc.nom}</span>
-                {pc.a_moi && d.modifiable && <button type="button" className="text-second text-iip-blue underline" disabled={enCours}
-                  onClick={() => geste('/va/retirer-piece', { ue_num: d.ue_num, fichier_id: pc.id })}>retirer</button>}
-              </div>))}
-            {enAttente(d.ue_num, 'piece').map(g => <div key={g.id} className="text-sm text-slate-500">{g.nom} — envoi en cours…</div>)}
-            {enAttente(d.ue_num, 'retirer_piece').length > 0 && <div className="text-sm text-slate-500">Retrait en cours…</div>}
-          </div>
-          {d.modifiable && !enAttente(d.ue_num, 'retirer').length && (
+      {/* LA DEMANDE, EN TROIS ÉTAPES. */}
+      <section className="space-y-3">
+        <h2 className="titre-carte">Votre demande, unité par unité, en 3 étapes</h2>
+        <p className="text-second text-slate-500">Les trois étapes du formulaire officiel. Vous pouvez vous arrêter et revenir : tout est gardé.</p>
+        <Etapes faits={faits} />
+
+        {libres.length > 0 && (
+          <Zone n="1" titre={demandes.length ? 'Ma demande — une autre unité ?' : 'Ma demande'}>
+            <p className="text-second text-slate-500">L’unité que vous voulez faire reconnaître, puis sur quoi vous vous appuyez. Le prix et la date limite s’affichent avant de confirmer.</p>
+            <select value={ue} onChange={e => setUe(e.target.value)} className="controle w-full min-w-0">
+              <option value="">Quelle unité ? (section {v.offre?.section || '—'})</option>
+              {libres.map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom}{u.au_pae ? ' · à mon programme' : ''}</option>)}
+            </select>
+            <div className="grid grid-cols-2 gap-2">
+              {['va', 'vae'].map(p => (
+                <button key={p} type="button" onClick={() => setPorte(p)} className={`bouton min-w-0 !whitespace-normal !h-auto py-2 leading-tight ${porte === p ? 'bouton-fort' : ''}`}>
+                  {p === 'va' ? 'VA — par des études' : 'VAE — par l’expérience'}</button>))}
+            </div>
+            {choisie && (
+              <div className="bloc-etat px-3 py-2 text-sm space-y-1" data-etat={choisie.hors_delai ? 'surveiller' : 'disponible'}>
+                {choisie.echeance && <div>{choisie.hors_delai
+                  ? <>Le délai est dépassé (au plus tard le {jourFr(choisie.echeance)}) : la demande risque de ne pas être prise en considération.</>
+                  : <>À introduire au plus tard le <b>{jourFr(choisie.echeance)}</b>.</>}</div>}
+                <div><b>Frais d’instruction : {eur(choisie.prix)}</b>, dus dès la demande, quelle que soit la décision.</div>
+                {choisie.au_pae && <div>Si la dispense complète vous est accordée, le droit d’inscription de l’UE {choisie.ue_num} n’est plus dû : vos frais seront revus.</div>}
+              </div>)}
+            <button type="button" className="bouton bouton-fort w-full" disabled={!choisie || !porte || enCours}
+              onClick={() => geste('/va/ouvrir', { ue_num: Number(ue), porte }, () => { setUe(''); setPorte(''); })}>
+              Ouvrir la demande{choisie ? ` pour l’UE ${choisie.ue_num}` : ''}</button>
+          </Zone>)}
+
+        {demandes.map(d => (
+          <div key={d.ue_num} className="space-y-2 border-l-4 pl-3" style={{ borderColor: 'var(--c-disponible, #2F6FB0)' }}>
             <div className="flex flex-wrap items-center gap-2">
-              <select value={nature[d.ue_num] || ''} onChange={e => setNature(n => ({ ...n, [d.ue_num]: e.target.value }))} className="controle w-full sm:w-auto sm:flex-1 min-w-0">
-                <option value="">Quelle pièce ?</option>
-                {natures.map(n => <option key={n.cle} value={n.cle}>{n.label}</option>)}
-              </select>
-              <label className={`bouton inline-flex items-center gap-1.5 ${!nature[d.ue_num] || enCours ? 'opacity-50 pointer-events-none' : 'cursor-pointer'}`}>
-                <IconUpload size={15} /> Choisir le fichier
-                <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png,.heic,.tif,.tiff,.doc,.docx,.odt,image/*" onChange={ev => ajouter(d.ue_num, ev)} /></label>
-              {!d.attente && d.en_ligne && <button type="button" className="text-second text-iip-blue underline ml-auto" disabled={enCours}
+              <span className="text-sm font-semibold text-iip-texte flex-1 min-w-0">UE {d.ue_num} {d.ue_nom || ''}</span>
+              <span className="pastille-etat" style={{ background: 'var(--c-disponible, #2F6FB0)', color: '#fff' }}>{PORTE[d.porte] || d.porte}</span>
+              {!d.attente && d.en_ligne && d.modifiable && <button type="button" className="text-second text-iip-blue underline" disabled={enCours}
                 onClick={() => geste('/va/retirer', { ue_num: d.ue_num })}>Retirer cette demande</button>}
-            </div>)}
-          {enAttente(d.ue_num, 'retirer').length > 0 && <p className="text-xs text-slate-500">Retrait de la demande en cours…</p>}
-        </section>))}
+            </div>
+            {d.attente && <p className="text-xs text-slate-500">Envoyée à l’école : enregistrée dans quelques secondes.</p>}
+            {enAttente(d.ue_num, 'retirer').length > 0 && <p className="text-xs text-slate-500">Retrait de la demande en cours…</p>}
 
-      {libres.length > 0 && (
-        <section className="bg-white border border-slate-200 rounded-carte p-4 space-y-3">
-          <h2 className="titre-carte flex items-center gap-2"><IconPlus size={16} /> Nouvelle demande</h2>
-          <select value={ue} onChange={e => setUe(e.target.value)} className="controle w-full min-w-0">
-            <option value="">Quelle unité ? (section {v.offre?.section || '—'})</option>
-            {libres.map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom}{u.au_pae ? ' · à mon programme' : ''}</option>)}
-          </select>
-          <div className="grid grid-cols-2 gap-2">
-            {['va', 'vae'].map(p => (
-              <button key={p} type="button" onClick={() => setPorte(p)} className={`bouton min-w-0 !whitespace-normal !h-auto py-2 leading-tight ${porte === p ? 'bouton-fort' : ''}`}>
-                {p === 'va' ? 'VA — des études réussies' : 'VAE — une expérience'}</button>))}
-          </div>
-          {choisie && (
-            <div className="bloc-etat px-3 py-2 text-sm space-y-1" data-etat={choisie.hors_delai ? 'surveiller' : 'disponible'}>
-              <div><b>Forfait d’analyse : {eur(choisie.prix)}</b> ({choisie.calcul}). Il est dû dès la demande, quelle que soit la décision :
-                l’examen du dossier demande du travail.</div>
-              {choisie.echeance && <div>{choisie.hors_delai
-                ? <>Le délai est dépassé (avant le {jourFr(choisie.echeance)}, RDE art. 28) : la demande risque d’être irrecevable.</>
-                : <>À introduire avant le {jourFr(choisie.echeance)} (RDE art. 28).</>}</div>}
-            </div>)}
-          <button type="button" className="bouton bouton-fort w-full" disabled={!choisie || !porte || enCours}
-            onClick={() => geste('/va/ouvrir', { ue_num: Number(ue), porte }, () => { setUe(''); setPorte(''); })}>
-            Introduire la demande{choisie ? ` — ${eur(choisie.prix)}` : ''}</button>
-        </section>)}
+            <Zone n="2" titre="Mes documents probants">
+              <p className="text-second text-slate-500">Tout ce qui prouve que vous maîtrisez les acquis de l’unité. Une pièce à la fois : dites ce que c’est,
+                puis choisissez le fichier (PDF, photo, Word — 25 Mo au plus). Chaque pièce reçoit un numéro, que vous citerez à l’étape 3.</p>
+              {!d.pieces.length && <ul className="text-second text-slate-600 pl-4 list-disc">{(ATTENDU[d.porte] || ATTENDU.va).map(l => <li key={l}>{l}</li>)}</ul>}
+              <div className="space-y-1">
+                {d.pieces.map(pc => (
+                  <div key={pc.id} className="flex flex-wrap items-center gap-2 text-sm">
+                    <span className="text-xs font-semibold text-slate-500 w-9">n° {pc.numero}</span>
+                    <IconFileText size={15} className="text-slate-400" /><span className="flex-1 min-w-0 break-all">{pc.nom}</span>
+                    {pc.a_moi && d.modifiable && <button type="button" className="text-second text-iip-blue underline" disabled={enCours}
+                      onClick={() => geste('/va/retirer-piece', { ue_num: d.ue_num, fichier_id: pc.id })}>retirer</button>}
+                  </div>))}
+                {enAttente(d.ue_num, 'piece').map(g => <div key={g.id} className="text-sm text-slate-500">{g.nom} — envoi en cours…</div>)}
+                {enAttente(d.ue_num, 'retirer_piece').length > 0 && <div className="text-sm text-slate-500">Retrait en cours…</div>}
+              </div>
+              {d.modifiable && !enAttente(d.ue_num, 'retirer').length && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <select value={nature[d.ue_num] || ''} onChange={e => setNature(n => ({ ...n, [d.ue_num]: e.target.value }))} className="controle w-full sm:w-auto sm:flex-1 min-w-0">
+                    <option value="">Quelle pièce ?</option>
+                    {ORIGINES.map(([titre, cles]) => {
+                      const ns = natures.filter(n => cles.includes(n.cle));
+                      return ns.length ? <optgroup key={titre} label={titre}>{ns.map(n => <option key={n.cle} value={n.cle}>{n.label}</option>)}</optgroup> : null;
+                    })}
+                  </select>
+                  <label className={`bouton inline-flex items-center gap-1.5 ${!nature[d.ue_num] || enCours ? 'opacity-50 pointer-events-none' : 'cursor-pointer'}`}>
+                    <IconUpload size={15} /> Choisir le fichier
+                    <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png,.heic,.tif,.tiff,.doc,.docx,.odt,image/*" onChange={ev => ajouter(d.ue_num, ev)} /></label>
+                </div>)}
+              {d.porte === 'va' && <p className="text-xs text-slate-500">Les originaux de vos diplômes seront à présenter au secrétariat.</p>}
+            </Zone>
 
-      {demandes.length > 0 && (
-        <button type="button" className="bouton w-full" disabled={enCours || attend}
-          onClick={() => geste('/va/terminer', null, () => setMessage('C’est noté : l’accusé de réception part à votre adresse dans la minute.'))}>
-          J’ai terminé — recevoir l’accusé de réception</button>)}
+            <Zone n="3" titre="Motivation de ma demande" pale={!d.pieces.length}>
+              <p className="text-second text-slate-500">Pour <b>chaque</b> acquis d’apprentissage de l’unité (ils viennent du dossier pédagogique), dites en
+                quelques lignes où et comment vous l’avez acquis, et cochez les pièces qui le prouvent. C’est ce que lira le Conseil des études.
+                Chaque acquis doit être motivé. Si vous ne les maîtrisez pas tous, le Conseil peut vous accorder une dispense partielle.</p>
+              {!(d.acquis || []).length && <p className="text-second text-slate-500">Les acquis de cette unité ne sont pas encore disponibles en ligne : décrivez votre demande au secrétariat.</p>}
+              {(d.acquis || []).map(a => {
+                const cle = `${d.ue_num}|${a.code}`, enreg = motivation(d, a.code), b = brouillon[cle];
+                const cur = b || enreg, change = !!b && (b.texte !== enreg.texte || b.pieces.join(',') !== enreg.pieces.join(','));
+                const poser = x => setBrouillon(o => ({ ...o, [cle]: { ...cur, ...x } }));
+                return (
+                  <div key={a.code} className="border-t border-slate-100 pt-2 space-y-1">
+                    <div className="text-sm"><b className="text-iip-texte">{a.code}</b> <span className="text-slate-700">{a.libelle}</span>
+                      {enreg.texte.trim() && !change && <IconCheck size={14} className="inline ml-1" style={{ color: ETAT_COULEUR.reussi }} />}</div>
+                    <textarea rows={3} className="controle w-full !h-auto py-1.5 leading-snug" disabled={!d.modifiable || d.attente} value={cur.texte}
+                      placeholder="Où et comment avez-vous acquis cet acquis ?" onChange={e => poser({ texte: e.target.value })} />
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-second text-slate-600">
+                      {d.pieces.length > 0 && <span>Pièces :</span>}
+                      {d.pieces.map(pc => (
+                        <label key={pc.id} className="inline-flex items-center gap-1">
+                          <input type="checkbox" disabled={!d.modifiable} checked={cur.pieces.includes(pc.id)}
+                            onChange={e => poser({ pieces: e.target.checked ? [...cur.pieces, pc.id] : cur.pieces.filter(x => x !== pc.id) })} /> n° {pc.numero}</label>))}
+                      {change && <button type="button" className="bouton bouton-fort ml-auto" disabled={enCours}
+                        onClick={() => geste('/va/motiver', { ue_num: d.ue_num, aa_code: a.code, texte: cur.texte, pieces: cur.pieces },
+                          () => setBrouillon(o => { const n = { ...o }; delete n[cle]; return n; }))}>Enregistrer</button>}
+                    </div>
+                  </div>);
+              })}
+            </Zone>
+
+            {!d.attente && d.frise.length > 0 && (
+              <div className="space-y-1">
+                <div className="text-xs text-slate-500">Ensuite, ce que fait l’école :</div>
+                <div className="flex flex-wrap gap-1">
+                  {d.frise.map(e => (
+                    <span key={e.cle} className="text-xs px-2 py-0.5 rounded-full border"
+                      style={e.refus ? { background: 'var(--c-refuse, #9D4A38)', color: '#fff', borderColor: 'transparent' }
+                        : e.fait ? { background: 'var(--c-reussi, #3E7D5E)', color: '#fff', borderColor: 'transparent' } : { color: '#64748b' }}>
+                      {e.fait ? '✓ ' : ''}{e.libelle}{e.le && e.fait ? ` · ${jourFr(e.le)}` : ''}</span>))}
+                </div>
+              </div>)}
+            {d.motif_irrecevabilite && <p className="text-sm text-slate-700">Motif : {d.motif_irrecevabilite}</p>}
+            {d.decision && <p className="text-sm text-slate-700">Décision : <b>{d.decision}</b> — la notification est dans vos documents.</p>}
+          </div>))}
+
+        {ouvertesALaMain.length > 0 && (
+          <Zone n={<IconCheck size={13} />} titre="Je certifie et j’envoie">
+            {incomplets.length > 0 && (
+              <div className="text-second text-slate-600">Pour envoyer, il manque encore :
+                <ul className="pl-4 list-disc">{incomplets.map(x => <li key={x.d.ue_num}>UE {x.d.ue_num} — {x.m.join(', ')}</li>)}</ul></div>)}
+            <label className="flex items-start gap-2 text-sm">
+              <input type="checkbox" className="mt-0.5" checked={certifie} onChange={e => setCertifie(e.target.checked)} />
+              Je certifie que toutes les informations renseignées dans ma demande de valorisation sont exactes.</label>
+            {/* LE DERNIER GESTE SE VOIT (Charles, 31 octobre 2026 : « en vert avec un petit V, sinon ils ne verront pas »). */}
+            <button type="button" className="bouton w-full inline-flex items-center justify-center gap-2 font-semibold disabled:opacity-50"
+              disabled={enCours || attend || !certifie || incomplets.length > 0}
+              style={{ background: ETAT_COULEUR.reussi, borderColor: ETAT_COULEUR.reussi, color: '#fff' }}
+              onClick={() => geste('/va/terminer', null, () => { setCertifie(false); setMessage('C’est noté : l’accusé de réception part à votre adresse dans la minute. Il reste dans vos documents.'); })}>
+              <IconCheck size={17} /> J’ai terminé — envoyer et recevoir l’accusé de réception</button>
+            <p className="text-xs text-slate-500">Vous pouvez encore compléter tant que le secrétariat n’a pas examiné la demande.</p>
+          </Zone>)}
+      </section>
     </div>
   );
 }
@@ -310,6 +505,38 @@ const PARCOURS_ETAT = {
   attente: ['var(--c-attente, #B45309)', '#fff', 'en attente d’une délibération'],
   pas_encore: ['#EEF1F5', '#64748b', 'pas encore accessible'],
 };
+
+/** LE SCHÉMA DE CAPITALISATION (3.5.010) : le dessin de la fiche, déposé par Lucie, montré comme une image (aucun script
+ *  ne passe) ; sur téléphone il défile de côté, un toucher l'ouvre en grand. */
+const LEGENDE_SCHEMA = [['#3E7D5E', 'réussie'], ['#6B46C1', 'par faveur'], ['#2F6FB0', 'au programme cette année', true], ['#2F6FB0', 'disponible'],
+  ['#B45309', 'ajournée, en attente'], ['#9AA3B0', 'encore indisponible']];
+function SchemaParcours({ svg }) {
+  const [grand, setGrand] = useState(false);
+  const src = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+  const vb = (svg.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/) || []).slice(1).map(Number);
+  // L'échelle de Lucie (SchemaCapitalisation, BASE = 1,25 px par unité du dessin), ni plus ni moins.
+  const largeur = vb.length ? Math.round(vb[0] * 1.25) : 600;
+  return (
+    <section className="bg-white border border-slate-200 rounded-carte p-3 space-y-2">
+      <h2 className="intertitre">Mon schéma de capitalisation</h2>
+      <p className="sm:hidden text-xs text-slate-500">Faites glisser le schéma de côté, ou touchez-le pour l’agrandir.</p>
+      <div className="overflow-x-auto">
+        <button type="button" onClick={() => setGrand(true)} className="block" title="Agrandir">
+          <img src={src} alt="Schéma de capitalisation" style={{ width: largeur, maxWidth: 'none' }} className="sm:max-w-full" />
+        </button>
+      </div>
+      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600">
+        {LEGENDE_SCHEMA.map(([c, l, plein]) => (
+          <span key={l} className="inline-flex items-center gap-1"><span className="w-3.5 h-3" style={{ borderRadius: 2, background: plein ? c : '#fff', border: `1px solid ${c}`, borderLeft: `3px solid ${c}` }} />{l}</span>))}
+        <span>· une flèche : il faut d’abord l’unité de départ · ★ épreuve intégrée</span>
+      </div>
+      {grand && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-3" onClick={() => setGrand(false)}>
+          <div className="bg-white rounded-carte p-3 max-w-full max-h-full overflow-auto"><img src={src} alt="" style={{ width: largeur * 1.8, maxWidth: 'none' }} /></div>
+        </div>)}
+    </section>
+  );
+}
 
 /** MON PARCOURS (3.1.517) : le schéma de l'année — chaque unité de ses sections, par bloc, et les crédits acquis. */
 function MonParcours({ onErreur }) {
@@ -331,6 +558,8 @@ function MonParcours({ onErreur }) {
           <div className="h-2 rounded-full bg-slate-200 overflow-hidden"><div className="h-full" style={{ width: `${pc}%`, background: 'var(--c-reussi, #3E7D5E)' }} /></div>
         </> : <div className="text-sm"><b>{x.unites.filter(u => u.etat === 'acquise').length}</b> unité(s) acquise(s) sur {x.unites.length} — {x.sections.join(', ')} · {x.annee}</div>}
       </div>
+      {x.schema && <SchemaParcours svg={x.schema} />}
+      <h2 className="intertitre pt-1">Où j’en suis cette année</h2>
       <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600">
         {Object.entries(PARCOURS_ETAT).map(([k, [f, t, l]]) => (
           <span key={k} className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded-sm border border-slate-300" style={{ background: f }} />{l}</span>))}
@@ -343,7 +572,7 @@ function MonParcours({ onErreur }) {
               const [f, t] = PARCOURS_ETAT[u.etat] || PARCOURS_ETAT.pas_encore;
               return (
                 <div key={u.ue_num} className="rounded-champ px-2.5 py-2 text-xs border min-w-0" style={{ background: f, color: t, borderColor: u.etat === 'accessible' ? t : 'transparent' }}>
-                  <div className="font-bold">UE {u.ue_num}{u.epreuve ? ' ★' : ''}{u.va ? ' · VA' : ''}</div>
+                  <div className="font-bold">UE {u.ue_num}{u.epreuve ? ' ★' : ''}{u.va ? ` · ${u.va === true ? 'VA' : u.va}` : ''}</div>
                   <div className="truncate" title={u.ue_nom}>{u.ue_nom}</div>
                   <div className="opacity-80">{u.ects ? `${u.ects} ECTS` : ''}{u.raison ? ` · ${u.raison}` : ''}</div>
                 </div>);
@@ -366,7 +595,9 @@ function MesFrais({ onErreur }) {
   if (!p.pret) return <p className="text-sm text-slate-500">Préparation de vos frais… quelques secondes.</p>;
   const f = p.frais;
   if (!f) return <p className="text-sm text-slate-500">Aucun frais pour l’instant.</p>;
-  if (f.sans_frais) return <p className="text-sm text-slate-600">Votre inscription ne donne lieu à aucun frais auprès de l’Institut.</p>;
+  /* « SANS FRAIS » NE VEUT DIRE QUE « SANS FRAIS ADMINISTRATIFS » (Charles, 31 octobre 2026 : l'AeSI ne perçoit pas de
+     frais administratifs, mais le droit d'inscription du PAE et le forfait VA restent dus). Rien à payer = total nul. */
+  if (!(Number(f.total) > 0)) return <p className="text-sm text-slate-600">Votre inscription ne donne lieu à aucun frais auprès de l’Institut.</p>;
   const copier = async t => { try { await navigator.clipboard.writeText(t); setCopie(true); setTimeout(() => setCopie(false), 1500); } catch { /* */ } };
   return (
     <div className="space-y-4">
@@ -399,6 +630,7 @@ function MesFrais({ onErreur }) {
           <span className="tabular-nums">{l.note || eur(l.montant)}</span></div>)}
         <div className="px-4 py-2 text-sm flex gap-2 font-semibold"><span className="flex-1">Total {f.annee}</span><span className="tabular-nums">{eur(f.total)}</span></div>
       </section>
+      {f.sans_frais && <p className="text-xs text-slate-500">Votre section ne perçoit pas de frais administratifs : seuls les droits ci-dessus sont dus.</p>}
       {f.paiements.length > 0 && <section className="space-y-1">
         <h2 className="text-xs font-bold uppercase tracking-wide text-slate-500">Mes versements</h2>
         {f.paiements.map((v, i) => <div key={i} className="text-sm flex gap-2"><span className="w-24 text-slate-500 tabular-nums">{jourFr(v.date)}</span>
@@ -554,7 +786,7 @@ function FraisEstimes({ tarif, ues }) {
 
 /** LE PAE EN LIGNE (3.1.515) : Lucie coche ce qui est accessible ; l'étudiant choisit et envoie ; la coordination valide
  *  ou corrige ; une fois le PAE confirmé par l'école, il le confirme à son tour par un code. */
-function MonPAE({ onErreur }) {
+function MonPAE({ onErreur, email }) {
   const [p, setP] = useState(null);
   const [choix, setChoix] = useState(null);
   const [code, setCode] = useState('');
@@ -577,7 +809,7 @@ function MonPAE({ onErreur }) {
   }, [o, choix]);
   if (!p) return <p className="text-sm text-slate-500">Chargement…</p>;
   if (!p.pret) return <p className="text-sm text-slate-500">Préparation de votre PAE… quelques secondes.</p>;
-  if (!o?.annee) return <p className="text-sm text-slate-500">Le PAE en ligne n’est pas ouvert pour l’instant.</p>;
+  if (!o?.annee) return <p className="text-sm text-slate-500">Votre PAE n’est pas encore disponible.</p>;
   const nomUE = n => o.unites?.find(u => u.ue_num === n)?.ue_nom || '';
   const geste = async (chemin, corps, ok) => {
     setEnCours(true);
@@ -605,14 +837,17 @@ function MonPAE({ onErreur }) {
         <div className="bloc-etat px-4 py-3 text-sm space-y-1" data-etat={signe ? 'reussi' : 'disponible'}>
           <div className="font-semibold text-iip-texte">PAE {o.annee} — confirmé par l’école le {jourFr(o.confirme_le)}</div>
           {signe ? <div>Vous l’avez confirmé le {jourFr(o.signature.signe_le)}.</div>
-            : <div>Relisez-le, puis confirmez-le : un code part à votre adresse de l’institut.</div>}
+            : <div>Relisez-le, puis confirmez-le : un code part à votre adresse de l’institut (ou à votre adresse privée tant que vous entrez par un code d’accès).</div>}
         </div>
         <ul className="bg-white border border-slate-200 rounded-carte divide-y divide-slate-100">
           {(o.programme || []).map(n => <li key={n} className="px-4 py-2 text-sm"><span className="text-slate-500 tabular-nums mr-2">UE {n}</span>{nomUE(n)}</li>)}
         </ul>
         <FraisEstimes tarif={o.tarif} ues={o.programme || []} />
         {!signe && !attend && (codeEnvoye ? (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="w-full text-sm text-slate-600">Un code à six chiffres vient de partir par courriel{email ? <> à <b>{email}</b></> : ' à votre adresse'} ;
+              il vaut 10 minutes. Rien reçu ? Regardez les indésirables, ou{' '}
+              <button type="button" className="underline text-iip-blue" onClick={() => setCodeEnvoye(false)}>demandez-en un autre</button>.</p>
             <input value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" placeholder="Code reçu"
               className="controle w-36 text-center tracking-widest" autoComplete="one-time-code" />
             <button type="button" className="bouton bouton-fort" disabled={code.length !== 6 || enCours}
@@ -622,6 +857,24 @@ function MonPAE({ onErreur }) {
             onClick={() => geste('/code', { objet_type: 'pae', objet_id: Number(String(o.annee).slice(0, 4)) }, () => setCodeEnvoye(true))}>
             <IconSignature size={15} /> Confirmer mon PAE</button>))}
         {attend && <p className="text-sm text-slate-500">Confirmation en cours d’enregistrement…</p>}
+      </div>);
+  }
+
+  // HORS DE LA FENÊTRE : le PAE de l'année se LIT — ses unités, ses frais estimés (3.5.008).
+  if (!o.ouvert && !etatProp) {
+    const prog = o.programme || [];
+    return (
+      <div className="space-y-3">
+        {refus}
+        <div className="bloc-etat px-4 py-3 text-sm" data-etat="neutre">
+          <div className="font-semibold text-iip-texte">Mon PAE {o.annee} — {prog.length} unité{prog.length > 1 ? 's' : ''} inscrite{prog.length > 1 ? 's' : ''}</div>
+          <div className="text-slate-600">Pas encore confirmé par l’école. Pour le modifier, adressez-vous à votre coordination
+            {o.du && o.au && o.du > new Date().toISOString().slice(0, 10) ? `, ou proposez vos unités en ligne du ${jourFr(o.du)} au ${jourFr(o.au)}` : ''}.</div>
+        </div>
+        {prog.length ? <ul className="bg-white border border-slate-200 rounded-carte divide-y divide-slate-100">
+          {prog.map(n => <li key={n} className="px-4 py-2 text-sm"><span className="text-slate-500 tabular-nums mr-2">UE {n}</span>{nomUE(n)}</li>)}
+        </ul> : <p className="text-sm text-slate-500">Aucune unité inscrite cette année pour l’instant.</p>}
+        {prog.length > 0 && <FraisEstimes tarif={o.tarif} ues={prog} />}
       </div>);
   }
 
@@ -786,7 +1039,7 @@ function Espace() {
 
   const entrerCandidat = async ev => {
     ev.preventDefault(); setErreur(null); setHorsBe(null);
-    try { const j = await appel('POST', '/candidat', { email: ident.trim(), code: codeAcces }); setCodeAcces(''); entrer(j.token); setFace('va'); }
+    try { const j = await appel('POST', '/candidat', { email: ident.trim(), code: codeAcces }); setCodeAcces(''); entrer(j.token); }
     catch (e) { echec(e); }
   };
   const demanderLien = async ev => {
@@ -864,7 +1117,7 @@ function Espace() {
           <form onSubmit={entrerCandidat} className="bg-white border border-slate-200 rounded-carte p-5 space-y-3">
             <h1 className="text-lg font-bold text-iip-texte flex items-center gap-2"><IconKey size={18} /> Pas encore d’adresse de l’institut</h1>
             <p className="text-sm text-slate-600">Votre dossier vient d’être ouvert : un <b>code d’accès</b> vous a été envoyé à votre adresse
-              privée. Il ouvre votre demande de valorisation et vos documents, jusqu’à ce que vous receviez votre adresse de l’institut.</p>
+              privée. Il ouvre votre espace jusqu’à ce que vous receviez votre adresse de l’institut.</p>
             <input value={ident} onChange={e => setIdent(e.target.value)} placeholder="Votre adresse privée" autoComplete="email"
               className="controle w-full" autoFocus />
             <input value={codeAcces} onChange={e => setCodeAcces(e.target.value.toUpperCase())} placeholder="Code d’accès : XXXXX-XXXXX" autoComplete="one-time-code"
@@ -907,8 +1160,7 @@ function Espace() {
   const nom = d ? `${String(d.etudiant.nom || '').toUpperCase()} ${d.etudiant.prenom || ''}` : '';
   const aSigner = d ? d.documents.filter(x => !x.signe_le).length + d.reglements.filter(x => !x.signe_le).length : 0;
   const msg = ['messages', nonLus ? `Messages (${nonLus})` : 'Messages', IconMessages];
-  const FACES = (d?.candidat ? [['va', 'Valorisation', IconAward], msg, ['documents', 'Mes documents', IconFileText], ['frais', 'Mes frais', IconCash]]
-    : [['resultats', 'Mes résultats', IconCertificate], msg, ['parcours', 'Mon parcours', IconRoute], ['pae', 'Mon PAE', IconListCheck],
+  const FACES = ([['resultats', 'Mes résultats', IconCertificate], msg, ['parcours', 'Mon parcours', IconRoute], ['pae', 'Mon PAE', IconListCheck],
       ['documents', 'Mes documents', IconFileText], ['va', 'Valorisation', IconAward], ['frais', 'Mes frais', IconCash], ['aide', 'Aide et règles', IconHelpCircle], ['compte', 'Mon compte', IconUserCircle]])
     // LES FONCTIONS OUVERTES (3.5.001) : seuls les onglets que Lucie a ouverts pour cet étudiant ; l'aide et le compte, toujours.
     .filter(([k]) => ['aide', 'compte'].includes(k) || (d?.fonctions || []).includes(k));
@@ -922,10 +1174,13 @@ function Espace() {
         {d?.apercu && <div className="bloc-etat px-3 py-2 text-sm" data-etat="surveiller"><b>Aperçu de la direction</b> — l’espace de {nom} tel qu’il le voit.
           Lecture seule : rien ne s’enregistre, rien ne compte comme lu ni signé. Ouvert par {d.apercu.par}.</div>}
         {aSigner > 0 && <div className="bloc-etat px-3 py-2 text-sm" data-etat="surveiller">{aSigner} pièce(s) attendent votre accusé de réception.</div>}
-        <div className="flex gap-1 border-b border-slate-200 overflow-x-auto">
+        {/* TOUS LES ONGLETS À LA VUE (3.5.009, Charles : « on n'a plus Mes frais ») : sur téléphone, la barre d'icônes débordait
+            et cachait les derniers onglets hors de l'écran. Une grille qui passe à la ligne, chaque onglet nommé. */}
+        <div className="grid grid-cols-5 sm:flex sm:flex-wrap gap-1 border-b border-slate-200 pb-1">
           {FACES.map(([k, l, I]) => (
-            <button key={k} type="button" onClick={() => setFace(k)} title={l} aria-label={l} className={`onglet-page inline-flex items-center gap-1.5 ${face === k ? 'onglet-page-actif' : ''}`}>
-              <I size={15} /> <span className={face === k ? '' : 'hidden sm:inline'}>{l}</span></button>))}
+            <button key={k} type="button" onClick={() => setFace(k)} title={l} aria-label={l}
+              className={`onglet-page flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1.5 px-1 sm:px-3 ${face === k ? 'onglet-page-actif' : ''}`}>
+              <I size={16} /> <span className="sm:hidden text-[11px] leading-tight text-center">{k === 'messages' ? l : COURT[k] || l}</span><span className="hidden sm:inline">{l}</span></button>))}
         </div>
 
         {d && face === 'resultats' && (d.resultats.length ? d.resultats.map(a => (
@@ -935,7 +1190,7 @@ function Espace() {
               <tbody>
                 {a.ues.map(u => (
                   <tr key={`${u.ue_num}-${u.decision}`} className="border-t border-slate-100 first:border-t-0">
-                    <td className="px-4 py-2 tabular-nums text-slate-500 w-16">UE {u.ue_num}</td>
+                    <td className="px-4 py-2 tabular-nums text-slate-500 w-20 whitespace-nowrap">UE {u.ue_num}</td>
                     <td className="px-2 py-2">{u.ue_nom}</td>
                     <td className="px-2 py-2 whitespace-nowrap"><span className="pastille-etat" style={{ background: ETAT_COULEUR[u.etat], color: '#fff' }}>{u.decision}</span></td>
                     <td className="px-4 py-2 text-right font-semibold tabular-nums w-20">{u.note}{typeof u.note === 'number' ? ' /20' : ''}</td>
@@ -969,9 +1224,9 @@ function Espace() {
         {face === 'frais' && <MesFrais onErreur={echec} />}
 
         {d?.candidat && <div className="bloc-etat px-3 py-2 text-sm" data-etat="disponible">Accès par code, jusqu’au {jourFr(d.candidat.jusqu_au)} ou
-          jusqu’à votre adresse de l’institut : votre demande de valorisation et vos documents.</div>}
+          jusqu’à votre adresse de l’institut.</div>}
         {face === 'va' && <MesValorisations onErreur={echec} />}
-        {face === 'pae' && <MonPAE onErreur={echec} />}
+        {face === 'pae' && <MonPAE onErreur={echec} email={d?.etudiant?.email} />}
         {face === 'messages' && <MesMessages onErreur={echec} onLus={setNonLus} />}
         {face === 'compte' && <div className="space-y-4">
           <ChoisirMotDePasse avecActuel />

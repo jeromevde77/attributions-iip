@@ -23,6 +23,7 @@ import { cepDe, dossierCepUE, unitesInscrites, congesDe, heures, REGIONS } from 
 export const TYPES_PIECE_CEP = {
   inscription: "Attestation d'inscription régulière — congé-éducation payé",
   assiduite: "Attestation d'assiduité — congé-éducation payé",
+  seconde_session: "Attestation de seconde session d'examens — congé-éducation payé",
 };
 
 const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -55,7 +56,8 @@ export function chargerCep(etudId, annee, { jusquau } = {}) {
   const unites = unitesInscrites(e.id, annee)
     .filter(u => !u.epreuve_integree)
     .map(u => ({ ...u, ...dossierCepUE(e.id, u.ue_num, annee, jusquau) }));
-  return { etudiant: e, cep, annee, section, section_libelle: sectionLib, unites, conges: congesDe(annee) };
+  return { etudiant: e, cep, annee, section, section_libelle: sectionLib, unites, conges: congesDe(annee),
+    session2: secondeSession(e.id, annee) };
 }
 
 /** Ce qui manque pour qu'une pièce parte — vide quand tout y est. */
@@ -65,6 +67,10 @@ export function manquesCep(type, d) {
   if (!e.date_naissance) m.push('la date de naissance');
   if (!e.lieu_naissance) m.push('le lieu de naissance');
   if (!e.adresse || !e.localite) m.push("l'adresse de domicile");
+  if (type === 'seconde_session') {
+    if (!d.session2?.length) m.push("une unité ajournée en première session cette année, avec la date de sa seconde session (feuille de délibération)");
+    return m;
+  }
   if (!d.unites.length) m.push("une unité inscrite cette année (l'épreuve intégrée n'ouvre pas le droit)");
   const sansHoraire = d.unites.filter(u => !u.nb_seances);
   if (sansHoraire.length) {
@@ -82,77 +88,140 @@ export function manquesCep(type, d) {
   return m;
 }
 
-function blocIdentite(d, ident) {
-  const e = d.etudiant;
-  const f = feminin(e);
-  return `
-  <p class="corps">Je soussigné, <b>${esc(ident.directeur || '……………')}</b>, agissant en qualité de
-    <b>Directeur</b> de l'établissement d'enseignement dont la dénomination et l'adresse figurent
-    ci-dessus, atteste que</p>
-  <div class="etudiant">
-    <div class="nom">${esc(String(e.nom || '').toUpperCase())} ${esc(e.prenom || '')}</div>
-    <div class="naissance">né${f ? 'e' : ''} à ${esc(e.lieu_naissance || '……')} le ${jour(e.date_naissance)}
-      · domicilié${f ? 'e' : ''} ${esc(e.adresse || '……')}, ${esc(e.cp || '')} ${esc(e.localite || '')}</div>
-  </div>
-  <p class="corps">est inscrit${f ? 'e' : ''} régulièrement — à l'exclusion des élèves libres — aux cours
-    ci-après décrits :</p>`;
+/* LA SECONDE SESSION (annexe II de l'A.M. du 20 août 1985) : chaque unité où l'étudiant est AJOURNÉ en première session
+   de l'année. Les dates viennent de la feuille de délibération (dates d'épreuve par cours, à défaut celle de la séance) ;
+   une décision de seconde session prise vaut confirmation de la participation, avec la date du dernier examen. */
+function secondeSession(etudId, annee) {
+  try {
+    const l = db.prepare(`SELECT r.ue_num, (SELECT ue_nom FROM ue WHERE ue_num = r.ue_num ORDER BY (annee_scolaire = ?) DESC LIMIT 1) ue_nom
+      FROM deliberation_resultat r WHERE r.etudiant_id = ? AND r.annee_scolaire = ? AND r.session = 1 AND r.resultat = 'ajourne'
+      ORDER BY r.ue_num`).all(annee, etudId, annee);
+    return l.map(u => {
+      const dates = db.prepare(`SELECT MIN(s2_date) du, MAX(s2_date) au FROM deliberation_session2
+        WHERE ue_num = ? AND annee_scolaire = ? AND COALESCE(s2_date, '') <> ''`).get(u.ue_num, annee) || {};
+      const seance = db.prepare(`SELECT MIN(session2_date) d FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ?
+        AND session = 1 AND COALESCE(session2_date, '') <> ''`).get(u.ue_num, annee)?.d || null;
+      const s2 = db.prepare(`SELECT resultat FROM deliberation_resultat WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
+        AND session = 2 AND COALESCE(resultat, '') <> ''`).get(etudId, annee, u.ue_num);
+      const du = dates.du || seance, au = dates.au || seance;
+      return { ue_num: u.ue_num, ue_nom: u.ue_nom, du, au, participe: !!s2 };
+    }).filter(u => u.du);
+  } catch { return []; }
 }
 
-function blocUnite(d, u) {
-  return `<div class="carac">
-    <div>Catégorie : <b>Formation professionnelle</b></div>
-    <div>Niveau : <b>${esc(NIVEAUX[u.ue_niveau] || u.ue_niveau || '—')}</b> · Section : <b>${esc(d.section_libelle || '—')}</b></div>
-    <div class="large">Unité d'enseignement : <b>UE ${u.ue_num}${u.ue_nom ? ` — ${esc(u.ue_nom)}` : ''}</b>${
-      u.code_fwb ? ` <span class="detail">(code ${esc(u.code_fwb)})</span>` : ''} · durée normale : 1 année</div>
-    <div>Date de l'inscription : <b>${jour(u.inscription)}</b></div>
-    <div>Cours du <b>${jour(u.debut)}</b> au <b>${jour(u.fin)}</b></div>
+/* ─────────────────────────────────────────────────────────────────────────────
+   LE MODÈLE OFFICIEL, DANS LA CHARTE DE LUCIE (Charles, 1er novembre 2026 : « copie du modèle officiel, mais dans la police
+   de Lucie, avec la base de page de Lucie, ma signature et le QR, dans les couleurs de Lucie »).
+   Les rubriques, leur ordre et leurs intitulés sont ceux de l'annexe I bis de l'arrêté ministériel du 20 août 1985
+   (« conforme au modèle ») — formation modulaire : des périodes de trois mois à compter du début de l'unité — et de son
+   annexe II pour la seconde session. L'enveloppe (en-tête, pied « produit par »), la signature, le cachet et le QR
+   d'authenticité sont ceux de toutes les pièces de Lucie.
+   ───────────────────────────────────────────────────────────────────────────── */
+const MARINE = '#1B2B4B', OR = '#C9A84C', FILET = '#D8DCE4', GRIS = '#5B6B82';
+const LAB = `font-size:7pt;letter-spacing:.06em;text-transform:uppercase;color:${GRIS}`;
+const lab = t => `<span style="${LAB}">${t}</span>`;
+const val = t => `<b style="color:${MARINE}">${t}</b>`;
+const boite = t => `<span style="display:inline-block;min-width:24mm;padding:0.6mm 2.5mm;border:0.3mm solid ${MARINE};border-radius:1mm;text-align:center;font-weight:700;color:${MARINE}">${t}</span>`;
+
+const BASES = {
+  bruxelles: "loi de redressement du 22 janvier 1985, art. 107 à 136 ; arrêté du Gouvernement de la Région de Bruxelles-Capitale du 29 juin 2023",
+  wallonie: "loi de redressement du 22 janvier 1985, art. 107 à 136 ; arrêté royal du 23 juillet 1985 d'exécution, art. 21, tel que modifié par le Gouvernement wallon",
+};
+function blocCadre(d, annexe) {
+  return `<div style="border:0.3mm solid ${MARINE};border-left:1mm solid ${OR};border-radius:0 1.5mm 1.5mm 0;padding:1.2mm 3mm;margin:0 0 2mm;font-size:7.8pt;color:${MARINE}">
+    <b>Ce document est délivré en application de la législation relative à l'octroi du congé-éducation payé dans le cadre de la formation permanente des travailleurs.</b>
+    <div style="font-size:7pt;color:${GRIS};margin-top:0.6mm">${esc(BASES[d.cep.region] || BASES.bruxelles)}. Modèle : annexe ${annexe} de l'arrêté ministériel du 20 août 1985.</div>
   </div>`;
 }
-
+function blocSoussigne(ident) {
+  return `<table style="width:100%;border-collapse:collapse;margin:0 0 1.5mm;font-size:8.5pt;line-height:1.35"><tr>
+    <td style="vertical-align:top;padding:0;border:none">
+      <div>Je, soussigné, ${val(esc(ident.directeur || '……………'))}, agissant en qualité de ${val('Directeur')} de l'établissement
+        d'enseignement dont la dénomination et l'adresse sont mentionnées dans le cadre ci-contre,</div>
+      <div style="margin-top:1mm;font-weight:700;color:${MARINE}">ATTESTE QUE :</div></td>
+    <td style="width:60mm;vertical-align:top;padding:1.2mm 2.5mm;border:0.3mm solid ${FILET};border-radius:1.5mm;font-size:7.3pt;line-height:1.3">
+      <b style="color:${MARINE}">${esc(ident.nom || 'Institut Ilya Prigogine')}</b><br>Enseignement pour adultes<br>${esc(ident.adresse || '')}${
+        ident.matricule ? `<br>N° ECOT ${esc(ident.matricule)}` : ''}${ident.fase ? ` · FASE ${esc(ident.fase)}` : ''}</td></tr></table>`;
+}
+function blocEtudiant(d) {
+  const e = d.etudiant, f = feminin(e);
+  return `<div style="font-size:8.5pt;line-height:1.45">
+    <div>${lab('Nom et prénoms')} &nbsp;${val(`${f ? 'Mme' : 'M.'} ${esc(String(e.nom || '').toUpperCase())} ${esc(e.prenom || '')}`)}</div>
+    <div>${lab(f ? 'née à' : 'né à')} &nbsp;${val(esc(e.lieu_naissance || '……'))}, ${lab('le')} ${val(jour(e.date_naissance))} &nbsp;·&nbsp;
+      ${lab(f ? 'domiciliée à' : 'domicilié à')} &nbsp;${val(`${esc(e.adresse || '……')}, ${esc(e.cp || '')} ${esc(e.localite || '')}`)}</div>
+  </div>`;
+}
+function blocUnite(d, u) {
+  return `<div style="font-size:8.5pt;line-height:1.45;margin:0.5mm 0 1.5mm">
+    <div>${lab('Catégorie')} &nbsp;${val('Formation professionnelle')} &nbsp;&nbsp; ${lab('Niveau')} &nbsp;${val(esc(NIVEAUX[u.ue_niveau] || u.ue_niveau || '—'))}
+      &nbsp;&nbsp; ${lab("Date de l'inscription")} &nbsp;${val(jour(u.inscription))}</div>
+    <div>${lab('Intitulé')} &nbsp;${val(`UE ${u.ue_num}${u.ue_nom ? ` — ${esc(u.ue_nom)}` : ''}`)}${u.code_fwb ? ` <span style="color:${GRIS}">(code ${esc(u.code_fwb)})</span>` : ''}${
+      d.section_libelle ? ` · ${esc(d.section_libelle)}` : ''}</div>
+  </div>`;
+}
 function tableHeures(u) {
-  const ligne = (lettre, lib, val) => `<tr><td style="width:8mm"><b>(${lettre})</b></td><td>${lib}</td>
-    <td style="width:26mm;text-align:right"><b>${h(val)}</b></td></tr>`;
-  return `<table class="doc" style="font-size:8pt"><tbody>
-    ${ligne('a', "Nombre théorique d'heures de cours de l'unité <span class=\"ref\">(hors activités de développement professionnel, stage et épreuve intégrée)</span>", u.a)}
-    ${ligne('b', "Heures que l'étudiant est dispensé de suivre en raison d'études antérieures ou en cours", u.b)}
-    ${ligne('c', "Nombre théorique d'heures de cours pour l'étudiant <span class=\"ref\">(c) = (a) − (b)</span>", u.c)}
-    ${ligne('d', "Heures auxquelles l'étudiant n'a pas assisté en raison d'une inscription tardive <span class=\"ref\">(hors dispense)</span>", u.d)}
+  const ligne = (lettre, lib, v, note = '') => `<tr><td style="padding:0.6mm 2mm 0.6mm 0;border:none;border-bottom:0.2mm solid ${FILET}">${lib}</td>
+    <td style="width:8mm;text-align:center;color:${GRIS};border:none">[${lettre}]</td>
+    <td style="width:26mm;padding:0.6mm 2.5mm;border:0.3mm solid ${MARINE};text-align:right;font-weight:700;color:${MARINE}">${h(v)}eures${
+      note ? `<div style="font-size:6.5pt;font-weight:400;color:${GRIS}">${note}</div>` : ''}</td></tr>`;
+  return `<table style="width:100%;border-collapse:collapse;font-size:8pt;margin:0.5mm 0 1.5mm"><tbody>
+    ${ligne('a', "Nombre d'heures théorique total de la formation <span style=\"color:" + GRIS + "\">(hors stage et épreuve intégrée)</span>", u.a)}
+    ${ligne('b', "Nombre théorique d'heures de formation que l'intéressé est dispensé de suivre en raison d'une formation antérieure ou en cours", u.b)}
+    ${ligne('c', "Nombre théorique d'heures de formation pour l'intéressé", u.c, '[c] = [a] − [b]')}
+    ${ligne('d', "Nombre théorique d'heures de formation auxquelles l'intéressé n'a pas assisté en raison d'une inscription tardive (déduction faite des heures de dispense)", u.d)}
   </tbody></table>`;
 }
-
-function tableHoraire(u) {
+function blocDates(u) {
+  return `<div style="font-size:8.5pt;margin:0.5mm 0 1.5mm">${lab('Date du début de la formation')} &nbsp;${boite(court(u.debut))}
+    &nbsp;&nbsp;&nbsp; ${lab('Date de fin de la formation')} &nbsp;${boite(court(u.fin))}</div>`;
+}
+function blocCalendrier(d, u) {
   const ordre = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
-  const jours = ordre.filter(j => u.horaire[j]).map(j => `${j} <b>${hh(u.horaire[j].de)} – ${hh(u.horaire[j].a)}</b>`);
-  return `<div style="font-size:8pt;margin:1.5mm 0 1mm"><b>Horaire des cours suivis :</b> ${jours.length ? jours.join(' · ') : '—'}
-    <span style="color:#475569">— première et dernière heure de chaque jour ; horaire détaillé en annexe.</span></div>`;
+  const jours = ordre.filter(j => u.horaire[j]).map(j => `les ${j}s de ${hh(u.horaire[j].de)} à ${hh(u.horaire[j].a)}`);
+  const v = d.conges.vacances.map(x => `${esc(x.label)} du ${court(x.du)} au ${court(x.au)}`);
+  const f = d.conges.feries.map(x => `${court(x.date)}`);
+  return `<div style="font-size:8pt;margin:0.5mm 0 1.5mm;line-height:1.4">${lab('Calendrier de la formation (dates et horaire journalier)')}<br>
+    ${val(jours.length ? jours.join(' ; ') : '—')} — du ${court(u.debut)} au ${court(u.fin)} ; horaire détaillé en annexe.
+    <div style="color:${GRIS};font-size:7pt">Hors congés : ${v.length ? v.join(' ; ') : '—'}${f.length ? ` ; jours fériés : ${f.join(', ')}` : ''}.</div></div>`;
 }
-
-function blocConges(d) {
-  const v = d.conges.vacances.map(x => `${esc(x.label)} : du ${jour(x.du)} au ${jour(x.au)} inclus`);
-  const f = d.conges.feries.map(x => `${frDate(x.date)} (${esc(x.label)})`);
-  return `<div style="font-size:7.5pt;line-height:1.3;margin:1mm 0 2mm"><b>Vacances :</b> ${v.length ? v.join(' ; ') : '—'}<br>
-    <b>Autres congés :</b> ${f.length ? f.join(' ; ') : '—'}</div>`;
-}
-
-function tableAssiduite(u) {
-  const ps = u.periodes.filter(p => p.commencee).slice(0, 4);
-  if (!ps.length) return '<p class="corps">Aucune période de cours n\'a encore commencé.</p>';
+function tableAssiduite(u, remplir) {
+  const ps = remplir ? u.periodes.filter(p => p.commencee).slice(0, 4) : [];
+  const cols = [0, 1, 2, 3].map(i => ps[i] || null);
+  const nom = ['1<sup>er</sup>', '2<sup>e</sup>', '3<sup>e</sup>', '4<sup>e</sup>'];
   const lignes = [
-    ["Nombre théorique d'heures de cours", p => p.theorique],
-    ["Nombre d'heures de cours effectivement données", p => p.donnees],
+    ["Nombre théorique d'heures de formation <span style=\"color:" + GRIS + "\">[y]</span>", p => p.theorique],
+    ["Nombre d'heures de formation effectivement données", p => p.donnees],
     ["Nombre d'heures de présence", p => p.presence],
     ["Nombre d'heures d'absences justifiées", p => p.justifiees],
-    ["Nombre d'heures d'absences injustifiées", p => p.injustifiees],
-    ["Nombre d'heures de dispense de cours", p => p.dispense],
-    ["Nombre d'heures (inscription tardive)", p => p.tardive],
+    ["Nombre d'heures d'absences injustifiées <span style=\"color:" + GRIS + "\">[z]</span>", p => p.injustifiees],
   ];
-  return `<table class="doc" style="font-size:8pt"><thead><tr><th>L'étudiant a suivi les cours de la façon suivante</th>${
-    ps.map(p => `<th style="text-align:center">Période ${p.num}<br><span class="ref">${frDate(p.du)} – ${frDate(p.au)}${
-      p.terminee ? '' : ' · en cours'}</span></th>`).join('')}</tr></thead>
-    <tbody>${lignes.map(([lib, f]) => `<tr><td>${lib}</td>${
-      ps.map(p => `<td style="text-align:right">${h(f(p))}</td>`).join('')}</tr>`).join('')}</tbody></table>
-    <p style="margin:0.5mm 0 1mm;font-size:7.5pt;color:#475569">Périodes de trois mois à compter du début de l'unité (enseignement
-      modulaire). Une période en cours n'est comptée que jusqu'à la date de la présente.</p>`;
+  const th = `padding:0.7mm 1.5mm;border:0.3mm solid ${MARINE};background:${MARINE};color:#fff;font-weight:600;text-align:center;font-size:7.5pt`;
+  const td = `padding:0.3mm 2mm;border:0.3mm solid ${FILET};text-align:right;font-weight:700;color:${MARINE}`;
+  return `<div style="font-size:8.5pt;margin:1mm 0 0.8mm">L'intéressé a suivi la formation susdécrite de la façon suivante :</div>
+  <table style="width:100%;border-collapse:collapse;font-size:8pt"><thead><tr><th style="border:none;background:none"></th>${
+    cols.map((p, i) => `<th style="${th}">${nom[i]} trimestre*${p ? `<br><span style="font-weight:400;opacity:.85;white-space:nowrap">${court(p.du).slice(0, 5)} – ${court(p.au)}${p.terminee ? '' : ' (en cours)'}</span>` : ''}</th>`).join('')}</tr></thead>
+    <tbody>${lignes.map(([lib, f]) => `<tr><td style="padding:0.3mm 2mm 0.3mm 0;border:none;border-bottom:0.2mm solid ${FILET}">${lib}</td>${
+      cols.map(p => `<td style="${td};width:24mm">${p ? h(f(p)) : 'h'}</td>`).join('')}</tr>`).join('')}</tbody></table>
+  <div style="font-size:6.8pt;color:${GRIS};margin:0.6mm 0 1.2mm">(*) Par trimestre, on entend des périodes successives de trois mois, dont la première prend cours avec le début de la formation.${
+    remplir && cols.some(p => p && !p.terminee) ? " Une période en cours n'est comptée que jusqu'à la date de la présente." : ''}</div>`;
+}
+function blocAbandon(e) {
+  const date = e.sortie_statut === 'sorti' && e.sortie_le ? jour(e.sortie_le) : '—';
+  return `<div style="font-size:8.5pt;margin:0.5mm 0 1mm">${lab("Date d'abandon de la formation (le cas échéant)")} &nbsp;${val(date)}</div>`;
+}
+function blocSignature(ident) {
+  return `<div style="border-top:0.3mm solid ${OR};margin-top:1mm"></div>
+  <div class="cloture">
+    <div class="sceau"></div><div class="paraphe"></div>
+    <div class="lieu">Fait à ${esc(ident.ville || 'Bruxelles')}, le ${jour(new Date().toISOString().slice(0, 10))}</div>
+    <div class="legende"><div class="qualite">Date et signature (en original)<br>le Directeur</div>
+      <div class="nom">${esc(ident.directeur || '……………')}</div></div>
+  </div>`;
+}
+function blocCorrection(correction) {
+  // Une ligne, pas un encadré de plus : l'attestation tient sur sa page (le titre porte déjà « correction »).
+  if (!correction) return '';
+  return `<div style="font-size:8pt;color:#9D4A38;margin:0 0 1mm"><b>CORRECTION</b> — remplace l'attestation délivrée le ${jour(correction)} ; signée et datée à nouveau.</div>`;
 }
 
 function annexe(d, u, titre) {
@@ -168,84 +237,98 @@ function annexe(d, u, titre) {
 </div>`;
 }
 
-/* LE TEXTE DES DEUX ATTESTATIONS SE CORRIGE DANS LUCIE (Galerie des pièces →
-   Modifier le modèle). Les tableaux d'heures, l'horaire, les congés,
-   l'assiduité et la signature restent des blocs verrouillés : ils viennent de
-   l'horaire et des présences. */
+/* LE TEXTE DES ATTESTATIONS SE CORRIGE DANS LUCIE (Galerie des pièces → Modifier le modèle). Les rubriques du modèle
+   officiel sont des blocs verrouillés : ils viennent de l'horaire, des présences et de la délibération. */
 declarerModele('cep', {
-  libelle: "Congé-éducation payé — attestations d'inscription et d'assiduité", galerie: ['cep_inscription', 'cep_assiduite'],
+  libelle: "Congé-éducation payé — attestations d'inscription, d'assiduité et de seconde session", galerie: ['cep_inscription', 'cep_assiduite'],
   champs: { directeur: 'Directeur', nom_prenom: "Nom et prénom de l'étudiant", inscrit_e: 'inscrit / inscrite',
     annee: 'Année', ville: 'Ville' },
-  blocs: { cadre_legal: 'Base légale (loi du 22 janvier 1985…)', identite: "Identité et domicile de l'étudiant",
-    unite: "L'unité : niveau, section, dates", heures: 'Tableau des heures (a) à (d)', horaire: 'Horaire des cours suivis',
-    conges: 'Vacances et congés', assiduite: "Tableau d'assiduité (attestation d'assiduité)", abandon: "Date d'abandon (s'il y a lieu)",
-    signature: 'Lieu, date et signature' },
-  obligatoires: { blocs: ['cadre_legal', 'identite', 'unite', 'heures', 'horaire', 'conges', 'assiduite', 'abandon', 'signature'] },
-  defaut: `${blocModele('cadre_legal')}
-<p>Je soussigné, <b>{{directeur}}</b>, agissant en qualité de <b>Directeur</b> de l'établissement d'enseignement dont la dénomination et l'adresse figurent ci-dessus, atteste que</p>
+  blocs: { correction: 'Mention « correction » (s\'il y a lieu)', cadre_legal: 'Cadre légal (encadré du modèle officiel)',
+    soussigne: 'Je, soussigné… (et le cadre de l\'établissement)', identite: "Nom, naissance et domicile de l'étudiant",
+    unite: 'Catégorie, niveau, intitulé, date de l\'inscription', heures: 'Heures [a] à [d]', dates: 'Début et fin de la formation',
+    calendrier: 'Calendrier de la formation', assiduite: 'Tableau trimestriel d\'assiduité', abandon: "Date d'abandon",
+    signature: 'Lieu, date, signature et cachet' },
+  obligatoires: { blocs: ['cadre_legal', 'soussigne', 'identite', 'unite', 'heures', 'dates', 'calendrier', 'assiduite', 'abandon', 'signature'] },
+  defaut: `${blocModele('correction')}
+${blocModele('cadre_legal')}
+${blocModele('soussigne')}
 ${blocModele('identite')}
-<p>est {{inscrit_e}} régulièrement — à l'exclusion des élèves libres — aux cours ci-après décrits :</p>
+<p style="margin:1mm 0">est {{inscrit_e}} régulièrement — à l'exclusion des élèves libres — à la formation ci-après décrite :</p>
 ${blocModele('unite')}
 ${blocModele('heures')}
-${blocModele('horaire')}
-${blocModele('conges')}
+${blocModele('dates')}
+${blocModele('calendrier')}
 ${blocModele('assiduite')}
 ${blocModele('abandon')}
 ${blocModele('signature')}`,
 });
 
-function page(type, d, u) {
+function page(type, d, u, { correction = null } = {}) {
   const ident = identiteEtablissement() || {};
   const e = d.etudiant;
   const f = feminin(e);
-  const titre = type === 'inscription' ? "Attestation d'inscription régulière" : "Attestation d'assiduité";
-  const cadre = d.cep.region === 'bruxelles'
-    ? " (loi de redressement du 22 janvier 1985 ; arrêté du Gouvernement de la Région de Bruxelles-Capitale du 29 juin 2023)"
-    : '';
-  const abandon = e.sortie_statut === 'sorti' && e.sortie_le
-    ? `<div class="champ"><span class="lab">Date d'abandon des cours :</span> <b>${jour(e.sortie_le)}</b></div>` : '';
+  const titre = type === 'inscription' ? "Attestation d'inscription régulière" : 'Attestation trimestrielle d’assiduité';
   return `<div class="attestation piece">
-  ${enteteDocument({ titre, sous: 'Congé-éducation payé — enseignement pour adultes',
-    ligne: [`Année ${String(d.annee).replace('-', '/')}`, d.section_libelle,
-      `Lieu de travail : ${REGIONS[d.cep.region] || d.cep.region}`].filter(Boolean).join(' · ') })}
+  ${enteteDocument({ titre: `${titre}${correction ? ' (correction)' : ''}`, sous: 'Congé-éducation payé — formation permanente des travailleurs',
+    ligne: [`Année ${String(d.annee).replace('-', '/')}`, `UE ${u.ue_num}`, `Lieu de travail : ${REGIONS[d.cep.region] || d.cep.region}`].join(' · ') })}
   ${composerModele('cep', {
     champs: { directeur: esc(ident.directeur || '……………'), nom_prenom: `${esc(String(e.nom || '').toUpperCase())} ${esc(e.prenom || '')}`,
       inscrit_e: f ? 'inscrite' : 'inscrit', annee: esc(String(d.annee).replace('-', '/')), ville: esc(ident.ville || 'Bruxelles') },
     blocs: {
-      cadre_legal: `<p style="margin:0 0 1.5mm;font-size:7.5pt;color:#475569">Document délivré en application de la législation relative à l'octroi
-    du congé-éducation payé dans le cadre de la formation permanente des travailleurs${cadre}.</p>`,
-      identite: `<div class="etudiant">
-    <div class="nom">${esc(String(e.nom || '').toUpperCase())} ${esc(e.prenom || '')}</div>
-    <div class="naissance">né${f ? 'e' : ''} à ${esc(e.lieu_naissance || '……')} le ${jour(e.date_naissance)}
-      · domicilié${f ? 'e' : ''} ${esc(e.adresse || '……')}, ${esc(e.cp || '')} ${esc(e.localite || '')}</div>
-  </div>`,
-      unite: blocUnite(d, u), heures: tableHeures(u), horaire: tableHoraire(u), conges: blocConges(d),
-      assiduite: type === 'assiduite' ? tableAssiduite(u) : '',
-      abandon,
-      signature: `<div class="cloture sans-paraphe">
-    <div class="sceau"></div><div class="paraphe"></div>
-    <div class="lieu">Fait à ${esc(ident.ville || 'Bruxelles')}, le ${jour(new Date().toISOString().slice(0, 10))}</div>
-    <div class="legende"><div class="qualite">Date et signature (en original)<br>le Directeur</div>
-      <div class="nom">${esc(ident.directeur || '……………')}</div></div>
-  </div>`,
+      correction: blocCorrection(correction), cadre_legal: blocCadre(d, 'I bis'), soussigne: blocSoussigne(ident),
+      identite: blocEtudiant(d), unite: blocUnite(d, u), heures: tableHeures(u), dates: blocDates(u),
+      calendrier: blocCalendrier(d, u), assiduite: tableAssiduite(u, type === 'assiduite'), abandon: blocAbandon(e),
+      signature: blocSignature(ident),
     },
   })}
 </div>`;
 }
 
+/** L'attestation de seconde session (annexe II) : une page, toutes les unités ajournées de l'année. */
+function pageSecondeSession(d, { correction = null } = {}) {
+  const ident = identiteEtablissement() || {};
+  const e = d.etudiant, f = feminin(e);
+  const lignes = d.session2.map(u => `<tr><td style="padding:1.2mm 2mm;border-bottom:0.2mm solid ${FILET}">${val(`UE ${u.ue_num}`)} — ${esc(u.ue_nom || '')}</td>
+    <td style="padding:1.2mm 2mm;border-bottom:0.2mm solid ${FILET};white-space:nowrap">du ${boite(court(u.du))} au ${boite(court(u.au))}</td>
+    <td style="padding:1.2mm 2mm;border-bottom:0.2mm solid ${FILET};font-size:8pt">${u.participe
+      ? `<b style="color:#3E7D5E">A participé</b> — dernier examen le ${court(u.au)}` : '<span style="color:' + GRIS + '">à venir</span>'}</td></tr>`).join('');
+  const tous = d.session2.every(u => u.participe);
+  return `<div class="attestation piece">
+  ${enteteDocument({ titre: `Attestation de seconde session d'examens${correction ? ' — correction' : ''}`, sous: 'Congé-éducation payé — formation permanente des travailleurs',
+    ligne: [`Année ${String(d.annee).replace('-', '/')}`, d.section_libelle, `Lieu de travail : ${REGIONS[d.cep.region] || d.cep.region}`].filter(Boolean).join(' · ') })}
+  ${blocCorrection(correction)}
+  ${blocCadre(d, 'II')}
+  ${blocSoussigne(ident)}
+  ${blocEtudiant(d)}
+  <p style="font-size:9pt">${f ? 'régulièrement inscrite' : 'régulièrement inscrit'} aux cours ci-dessous${d.section_libelle ? ` (${esc(d.section_libelle)})` : ''},
+    est ${f ? 'tenue' : 'tenu'} de présenter des examens en seconde session. Cette session se déroulera aux dates suivantes :</p>
+  <table style="width:100%;border-collapse:collapse;font-size:8.5pt;margin:1mm 0 2mm"><thead><tr>
+    <th style="text-align:left;${LAB};padding:1mm 2mm">Unité d'enseignement</th><th style="text-align:left;${LAB};padding:1mm 2mm">Seconde session</th>
+    <th style="text-align:left;${LAB};padding:1mm 2mm">Participation</th></tr></thead><tbody>${lignes}</tbody></table>
+  ${tous ? `<p style="font-size:8.5pt">L'école confirme la participation effective à la seconde session ; date du dernier examen : ${val(court(d.session2.reduce((m, u) => (u.au > m ? u.au : m), '')))}.</p>` : ''}
+  ${blocSignature(ident)}
+</div>`;
+}
+
 /** Compose une pièce. Rend { html, nom } ou { erreur, manques, code }. */
-export function composerPieceCep(type, d, { ue = null } = {}) {
+export function composerPieceCep(type, d, { ue = null, correction = null } = {}) {
   if (!TYPES_PIECE_CEP[type]) return { code: 400, erreur: 'pièce inconnue' };
-  const vue = ue ? { ...d, unites: d.unites.filter(u => Number(u.ue_num) === Number(ue)) } : d;
+  if (correction && !/^\d{4}-\d{2}-\d{2}$/.test(String(correction))) return { code: 400, erreur: "La date de l'attestation corrigée est au format AAAA-MM-JJ." };
+  const vue = ue ? { ...d, unites: d.unites.filter(u => Number(u.ue_num) === Number(ue)), session2: (d.session2 || []).filter(u => Number(u.ue_num) === Number(ue)) } : d;
   const manques = manquesCep(type, vue);
   if (manques.length) {
     return { code: 409, manques, erreur: `La pièce ne peut pas sortir : il manque ${manques.join(', ')}.` };
   }
   const saut = '<div class="saut"></div>';
-  const titre = type === 'inscription' ? "Attestation d'inscription régulière" : "Attestation d'assiduité";
-  const corps = vue.unites.map(u => page(type, vue, u) + saut + annexe(vue, u, titre)).join(saut);
+  let corps;
+  if (type === 'seconde_session') corps = pageSecondeSession(vue, { correction });
+  else {
+    const titre = type === 'inscription' ? "Attestation d'inscription régulière" : "Attestation d'assiduité";
+    corps = vue.unites.map(u => page(type, vue, u, { correction }) + saut + annexe(vue, u, titre)).join(saut);
+  }
   const e = vue.etudiant;
-  const nom = `CEP_${type === 'inscription' ? 'Inscription' : 'Assiduite'}_${String(e.nom || '').toUpperCase()}_${
-    e.prenom || ''}_${vue.annee}${ue ? `_UE${ue}` : ''}`.replace(/[^A-Za-z0-9_-]+/g, '-');
+  const genre = { inscription: 'Inscription', assiduite: 'Assiduite', seconde_session: 'Seconde-session' }[type];
+  const nom = `CEP_${genre}_${String(e.nom || '').toUpperCase()}_${e.prenom || ''}_${vue.annee}${ue ? `_UE${ue}` : ''}${correction ? '_correction' : ''}`
+    .replace(/[^A-Za-z0-9_-]+/g, '-');
   return { html: envelopper(corps, TYPES_PIECE_CEP[type]), nom };
 }

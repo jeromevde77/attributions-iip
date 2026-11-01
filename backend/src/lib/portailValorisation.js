@@ -37,6 +37,73 @@ export const anneeActive = () => db.prepare('SELECT code FROM annee_scolaire WHE
 /** Ce que le journal de la valorisation inscrit comme auteur d'un geste venu du portail. */
 const auteur = e => ({ user: { id: null, nom: `${String(e.nom || '').toUpperCase()} ${e.prenom || ''} (étudiant, en ligne)`.trim(), role: 'etudiant' } });
 
+// ── LA MOTIVATION, ACQUIS PAR ACQUIS (3.5.006) ─────────────────────────────
+/* CIRCULAIRE 9447, ANNEXES 6 ET 7, ÉTAPE 3 : l'étudiant motive sa demande « au regard de TOUS les acquis
+   d'apprentissage du dossier pédagogique », en citant le numéro de ses pièces (Charles, 31 octobre 2026 :
+   obligatoire pour chaque acquis). Lue par le Conseil dans le dossier (routes/etudiants.js, /dossier). */
+export function migrerMotivation(dbx = db) {
+  dbx.exec(`CREATE TABLE IF NOT EXISTS va_motivation (valorisation_id INTEGER NOT NULL, aa_code TEXT NOT NULL,
+    texte TEXT NOT NULL, pieces TEXT, le TEXT NOT NULL DEFAULT (datetime('now')), PRIMARY KEY (valorisation_id, aa_code))`);
+  try { dbx.exec('ALTER TABLE etudiant_valorisation ADD COLUMN certifie_le TEXT'); } catch { /* déjà là */ }
+}
+/** Les acquis d'une unité, dans l'ordre du dossier pédagogique. */
+export function acquisDeLUE(ue) {
+  try {
+    return db.prepare(`SELECT aa_code, description FROM aa WHERE ue_num = ? AND COALESCE(description, '') <> ''
+      ORDER BY COALESCE(aa_num, 999), aa_code`).all(Number(ue)).map(a => ({ code: a.aa_code, libelle: String(a.description).trim() }));
+  } catch { return []; }
+}
+/** Les motivations d'une demande : { aa_code: { texte, pieces: [id…] } }. */
+export function motivationsDe(vid) {
+  migrerMotivation();
+  const m = {};
+  for (const r of db.prepare('SELECT aa_code, texte, pieces FROM va_motivation WHERE valorisation_id = ?').all(Number(vid))) {
+    m[r.aa_code] = { texte: r.texte, pieces: String(r.pieces || '').split(',').map(Number).filter(Boolean) };
+  }
+  return m;
+}
+
+// ── L'ADMISSION : CE QUE L'ÉPREUVE VÉRIFIE (3.5.006) ───────────────────────
+/* Charles, 31 octobre 2026 : « vous pouvez passer une épreuve qui vous donne accès à la section ; les compétences
+   nécessaires sont dans les dossiers pédagogiques des premières UE ; maths et français ; donner des exemples ».
+   Les UE d'ENTRÉE : celles dont le titre qui tient lieu des capacités est le CESS (et non une autre UE). Leurs
+   capacités préalables, lues dans le dossier pédagogique (`ue.ue_dp`), sans doublon. Les exemples : un texte par
+   section, `admission.exemples.<section>` (Configuration → Procédures), écrit par l'école. */
+const normaliser = t => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+export function admissionDeSection(section, annee) {
+  if (!section) return null;
+  let rows = [];
+  try {
+    rows = db.prepare(`SELECT ue_num, ue_dp FROM ue WHERE annee_scolaire = ? AND section = ? AND ue_dp LIKE '%apacit%pr%alable%'
+      ORDER BY ue_num`).all(annee, section);
+  } catch { rows = []; }
+  const blocs = new Map();
+  let titre = null;
+  for (const r of rows) {
+    const dp = String(r.ue_dp);
+    const i = dp.search(/capacit[ée]s pr[ée]alables/i);
+    if (i < 0) continue;
+    let bloc = dp.slice(i).replace(/^[^\n]*\n/, '');
+    const fin = bloc.search(/\n\s*(##|Titres?\s*(\(s\))?\s*(pouvant en tenir|tenant) lieu)/i);
+    const suite = fin >= 0 ? bloc.slice(fin) : '';
+    if (fin >= 0) bloc = bloc.slice(0, fin);
+    const t = (suite.match(/(?:pouvant en tenir|tenant) lieu\s*:?\s*\n?([^\n]+)/i) || [])[1] || '';
+    // L'ENTRÉE : le titre requis est le CESS, pas l'attestation d'une autre unité.
+    if (!/C\.?E\.?S\.?S|secondaire sup[ée]rieur/i.test(t + bloc)) continue;
+    if (/attestation de r[ée]ussite de l.unit[ée]/i.test(t)) continue;
+    titre = titre || t.trim() || null;
+    const lignes = bloc.split('\n').map(l => l.replace(/^\s*[-•]\s*/, '').trim()).filter(Boolean)
+      .filter(l => !/^capacit[ée]s\s*:?$/i.test(l));
+    if (!lignes.length) continue;
+    const cle = normaliser(lignes.join(' '));
+    if (!blocs.has(cle)) blocs.set(cle, { ues: [], lignes });
+    blocs.get(cle).ues.push(r.ue_num);
+  }
+  let exemples = '';
+  try { exemples = String(db.prepare('SELECT valeur FROM parametre WHERE cle = ?').get(`admission.exemples.${section}`)?.valeur || '').trim(); } catch { /* */ }
+  return { section, titre, capacites: [...blocs.values()], exemples: exemples || null };
+}
+
 // ── CE QUE L'ÉTUDIANT PEUT DEMANDER ────────────────────────────────────────
 function unitesDeSaSection(e, annee) {
   const sec = sectionRattachement(e.id, annee).section;
@@ -64,13 +131,15 @@ export function offreVA(e, annee = anneeActive()) {
     const prix = prixDUneUE(fi[u.ue_num] ?? null);
     const d = controleDelai({ ueNum: u.ue_num, annee, date_demande: jour, date_reception: jour });
     return { ue_num: u.ue_num, ue_nom: u.ue_nom, au_pae: auPAE.has(Number(u.ue_num)), prix: prix.du, calcul: prix.calcul,
-      echeance: d?.echeance || null, hors_delai: !!d?.hors_delai };
+      echeance: d?.echeance || null, hors_delai: !!d?.hors_delai, acquis: acquisDeLUE(u.ue_num) };
   }).sort((a, b) => (b.au_pae - a.au_pae) || a.ue_num - b.ue_num);
-  return { annee, section, unites, natures: NATURES_PREUVE.filter(n => n.cle !== 'TEST').map(n => ({ cle: n.cle, label: n.label })) };
+  return { annee, section, unites, natures: NATURES_PREUVE.filter(n => n.cle !== 'TEST').map(n => ({ cle: n.cle, label: n.label })),
+    admission: admissionDeSection(section, annee) };
 }
 
 /** L'état de ses demandes, tel que l'étudiant peut le lire : la frise, jamais l'avis ni une décision non notifiée. */
 export function etatVA(e, annee = anneeActive()) {
+  migrerMotivation();
   const v = db.prepare(`SELECT v.*, (SELECT ue_nom FROM ue WHERE ue_num = v.ue_num ORDER BY annee_scolaire DESC LIMIT 1) ue_nom
     FROM etudiant_valorisation v WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num > 0 AND archive_le IS NULL ORDER BY ue_num`).all(e.id, annee);
   const fic = db.prepare('SELECT id, nom, nature, cree_par FROM etudiant_valorisation_fichier WHERE valorisation_id = ? ORDER BY id');
@@ -91,7 +160,11 @@ export function etatVA(e, annee = anneeActive()) {
       ],
       motif_irrecevabilite: x.recevable === 0 ? x.motif_irrecevabilite || null : null,
       decision,
-      pieces: fic.all(x.id).map(f => ({ id: f.id, nom: f.nom, nature: f.nature, a_moi: String(f.cree_par || '') === `etudiant:${e.id}` })),
+      // Les pièces sont NUMÉROTÉES dans l'ordre du dépôt : la motivation les cite par leur numéro (annexes 6 et 7).
+      pieces: fic.all(x.id).map((f, i) => ({ id: f.id, numero: i + 1, nom: f.nom, nature: f.nature, a_moi: String(f.cree_par || '') === `etudiant:${e.id}` })),
+      acquis: acquisDeLUE(x.ue_num),
+      motivations: motivationsDe(x.id),
+      certifie_le: x.certifie_le || null,
     };
   });
 }
@@ -165,6 +238,19 @@ export function appliquerGeste(e, a, contenu = null, annee = anneeActive()) {
     journaliser(v.id, 'introduction', req, `pièce déposée en ligne (portail) : ${nom}`);
     return null;
   }
+  if (a.type === 'motiver') {
+    const code = String(a.nature || '');
+    if (!acquisDeLUE(ue).some(x => x.code === code)) return 'Cet acquis n’appartient pas à l’unité.';
+    const texte = String(a.texte || '').trim().slice(0, 4000);
+    migrerMotivation();
+    if (!texte) { db.prepare('DELETE FROM va_motivation WHERE valorisation_id = ? AND aa_code = ?').run(v.id, code); return null; }
+    const mes = new Set(db.prepare('SELECT id FROM etudiant_valorisation_fichier WHERE valorisation_id = ?').all(v.id).map(f => f.id));
+    const pieces = String(a.porte || '').split(',').map(Number).filter(id => mes.has(id)).join(',');
+    db.prepare(`INSERT INTO va_motivation (valorisation_id, aa_code, texte, pieces) VALUES (?,?,?,?)
+      ON CONFLICT(valorisation_id, aa_code) DO UPDATE SET texte = excluded.texte, pieces = excluded.pieces, le = datetime('now')`)
+      .run(v.id, code, texte, pieces || null);
+    return null;
+  }
   if (a.type === 'retirer_piece') {
     const f = db.prepare('SELECT * FROM etudiant_valorisation_fichier WHERE id = ? AND valorisation_id = ?').get(Number(a.fichier_id), v.id);
     if (!f || f.cree_par !== `etudiant:${e.id}`) return 'Pièce introuvable (seules les vôtres se retirent).';
@@ -180,19 +266,35 @@ export function appliquerGeste(e, a, contenu = null, annee = anneeActive()) {
 export async function accuserReception(e, annee = anneeActive()) {
   const d = etatVA(e, annee).filter(x => x.en_ligne);
   if (!d.length) return 'Aucune demande à confirmer.';
+  /* LE DOSSIER COMPLET AVANT L'ACCUSÉ (circulaire 9447, annexes 6 et 7) : au moins une pièce, et chaque acquis motivé. */
+  const incomplets = d.filter(x => x.modifiable).map(x => {
+    const manque = [];
+    if (!x.pieces.length) manque.push('aucune pièce');
+    const nm = x.acquis.filter(a => !x.motivations[a.code]?.texte).length;
+    if (nm) manque.push(`${nm} acquis sans motivation`);
+    return manque.length ? `UE ${x.ue_num} : ${manque.join(', ')}` : null;
+  }).filter(Boolean);
+  if (incomplets.length) return `Votre demande n’est pas complète — ${incomplets.join(' ; ')}.`;
+  const certif = db.prepare("UPDATE etudiant_valorisation SET certifie_le = COALESCE(certifie_le, datetime('now')) WHERE id = ?");
+  for (const x of db.prepare(`SELECT id FROM etudiant_valorisation WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num > 0
+      AND archive_le IS NULL AND mode_introduction = 'en ligne'`).all(e.id, annee)) {
+    certif.run(x.id);
+    journaliser(x.id, 'introduction', auteur(e), 'l’étudiant certifie que les informations de sa demande sont exactes (portail)');
+  }
   const reference = `VA-${String(annee).replace(/^20(\d\d)-20(\d\d)$/, '$1$2')}-${e.id_ecampus || e.id}`;
   const quand = new Date().toLocaleString('fr-BE', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Europe/Brussels' });
-  const lignes = d.map(x => `<li><b>UE ${x.ue_num}</b> ${esc(x.ue_nom || '')} — ${x.porte === 'vae' ? 'VAE' : 'VA'} — ${x.pieces.length} pièce(s)</li>`).join('');
+  const lignes = d.map(x => `<li><b>UE ${x.ue_num}</b> ${esc(x.ue_nom || '')} — ${x.porte === 'vae' ? 'VAE' : 'VA'} — ${x.pieces.length} pièce(s), ${Object.keys(x.motivations).length} acquis motivé(s)</li>`).join('');
   let forfait = null;
   try { forfait = calculerFrais(e.id, annee)?.forfait_va || null; } catch { forfait = null; }
   const eur = n => `${(Number(n) || 0).toFixed(2).replace('.', ',')} €`;
-  const phraseForfait = forfait?.du ? `<p>L’analyse d’une demande de valorisation demande un travail d’examen du dossier : des frais
-    d’analyse de <b>${eur(forfait.du)}</b> s’ajoutent à vos frais de l’année (${esc(forfait.demandes.filter(x => !x.exoneree).map(x => `${x.nature === 'admission' ? 'admission' : `UE ${x.ue_num}`} : ${x.calcul}`).join(' ; '))}).
+  const phraseForfait = forfait?.du ? `<p>L’instruction d’une demande de valorisation demande un travail d’examen du dossier : des frais
+    d’inscription complémentaires de <b>${eur(forfait.du)}</b> s’ajoutent à vos frais de l’année (${esc(forfait.demandes.filter(x => !x.exoneree).map(x => `${x.nature === 'admission' ? 'admission' : `UE ${x.ue_num}`} : ${x.calcul}`).join(' ; '))}).
     Ils sont dus dès la demande, quelle que soit la décision.</p>` : '';
   const adresse = e.email_ecole || e.email_perso;
   if (!adresse) return null;
   const html = templateNotif({ titre: `Accusé de réception — ${reference}`, corps: `<p>Bonjour ${esc(e.prenom || '')},</p>
     <p>Votre demande de valorisation des acquis est enregistrée (${esc(quand)}) :</p><ul>${lignes}</ul>
+    <p>Vous avez certifié que toutes les informations renseignées dans votre demande sont exactes.</p>
     <p>La suite se fait à l'école : le secrétariat vérifie que le dossier est complet et dans les délais, les chargés de cours
     rendent leur avis, le Conseil des études décide. La décision vous est notifiée par écrit.</p>
     ${phraseForfait}

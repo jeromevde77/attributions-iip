@@ -155,6 +155,8 @@ const PIECES_DOSSIER = [
     route: (id, a) => `/api/cep/etudiant/${id}/piece/inscription?annee=${a}` },
   { cle: 'cep_assiduite', label: 'CEP — attestation d’assiduité', cep: true,
     route: (id, a) => `/api/cep/etudiant/${id}/piece/assiduite?annee=${a}` },
+  { cle: 'cep_seconde_session', label: 'CEP — attestation de seconde session', cep: true,
+    route: (id, a) => `/api/cep/etudiant/${id}/piece/seconde_session?annee=${a}` },
 ];
 
 /* ══ LA VALORISATION DES ACQUIS, DEPUIS ÉDITIONS ══════════════════════════

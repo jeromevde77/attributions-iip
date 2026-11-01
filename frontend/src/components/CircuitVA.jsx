@@ -30,6 +30,11 @@ export const ETAPES = [
   { cle: 'validation', label: 'Validation direction', court: 'Validation',
     aide: 'Réservée à la direction et à la direction adjointe',
     franchie: d => !!d.valide_le },
+  /* LA NOTIFICATION FERME LE CIRCUIT (Charles, 31 octobre 2026 : « j'ai terminé le circuit, pourtant dans l'espace
+     étudiant » — validé n'est pas notifié : la frise disait « circuit parcouru » et l'étudiant n'avait rien). */
+  { cle: 'notification', label: 'Notification à l’étudiant', court: 'Notification',
+    aide: 'Fiche du dossier → « Notifier à l’étudiant » : c’est elle que l’étudiant voit',
+    franchie: d => !!d.notifie_le },
 ];
 
 const VERT = 'var(--c-reussi)', BRIQUE = 'var(--c-refuse)', GRIS = 'rgb(var(--gris-300))';   // les couleurs des états (3.1.264)

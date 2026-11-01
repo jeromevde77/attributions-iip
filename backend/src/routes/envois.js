@@ -299,22 +299,24 @@ r.get('/destinataires', authRequired, actifRequis, async (req, res) => {
   const regle = String(req.query.regle || '');
   const ids = String(req.query.ids || '').split(',').map(Number).filter(Boolean);
 
-  // L'ADRESSE DE L'ÉCOLE, ET ELLE SEULE. Une pièce de l'institution part à
-  // l'adresse de l'institution : l'adresse privée n'est pas un repli, c'est
-  // une autre destination. Sans adresse d'école, la pièce ne part pas — et on
-  // le dit, plutôt que de la faire disparaître d'une liste.
+  // L'ADRESSE DE L'INSTITUT D'ABORD, LA PRIVÉE SI ELLE MANQUE (Charles, 31 octobre 2026 :
+  // « par défaut c'est @institut, mais si pas, l'adresse privée évidemment » — un candidat,
+  // un nouvel inscrit n'ont pas encore d'adresse d'institut). La ligne dit laquelle part.
   if (regle === 'etudiant') {
     if (!ids.length) return res.json([]);
     const marks = ids.map(() => '?').join(',');
-    return res.json(db.prepare(`SELECT id, nom, prenom, email_ecole
+    return res.json(db.prepare(`SELECT id, nom, prenom, email_ecole, email_perso
       FROM etudiant WHERE id IN (${marks})`).all(...ids)
-      .map(e => ({
-        type: 'etudiant', id: e.id,
-        nom: `${e.nom} ${e.prenom || ''}`.trim(),
-        email: (e.email_ecole || '').trim() || null,
-        motif: 'destinataire de la pièce',
-        manque: (e.email_ecole || '').trim() ? null : "pas d'adresse école",
-      })));
+      .map(e => {
+        const ecole = (e.email_ecole || '').trim(), privee = (e.email_perso || '').trim();
+        return {
+          type: 'etudiant', id: e.id,
+          nom: `${e.nom} ${e.prenom || ''}`.trim(),
+          email: ecole || privee || null,
+          motif: ecole ? 'destinataire de la pièce' : 'destinataire de la pièce — adresse privée (pas d’adresse de l’institut)',
+          manque: ecole || privee ? null : "pas d'adresse",
+        };
+      }));
   }
 
   if (regle === 'professeur') {
@@ -395,15 +397,12 @@ r.get('/adresses', authRequired, actifRequis, (req, res) => {
 
   if (type === 'etudiant') {
     const rows = db.prepare(`
-      SELECT id, nom, prenom, email_ecole FROM etudiant WHERE id IN (${marks})
+      SELECT id, nom, prenom, email_ecole, email_perso FROM etudiant WHERE id IN (${marks})
     `).all(...liste);
-    // ADRESSE ÉCOLE UNIQUEMENT. L'adresse privée existe en base pour d'autres
-    // usages ; elle n'est pas un repli quand l'école manque, c'est une autre
-    // destination. La proposer ici ferait partir une pièce officielle sur une
-    // boîte personnelle sans que personne n'ait décidé de le faire.
+    // L'institut d'abord ; la privée seulement quand l'institut manque (Charles, 31 octobre 2026).
     return res.json(rows.map(e => ({
       id: e.id, nom: e.nom, prenom: e.prenom,
-      adresses: [e.email_ecole && { email: e.email_ecole, libelle: 'école' }].filter(Boolean),
+      adresses: [e.email_ecole ? { email: e.email_ecole, libelle: 'école' } : e.email_perso && { email: e.email_perso, libelle: 'privée' }].filter(Boolean),
     })));
   }
   if (type === 'professeur') {

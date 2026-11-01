@@ -7,7 +7,9 @@
  * EPC du virement — les mêmes chiffres que la fiche et la note de frais. Lucie dépose, le portail affiche.
  */
 import db from '../db/index.js';
-import { composerPAE } from '../routes/etudiants.js';
+import { composerPAE, donneesCapitalisation } from '../routes/etudiants.js';
+import { schemaSvg } from './schemaSvg.js';
+import { sigleVA } from './valorisation.js';
 import { calculerFrais } from '../routes/fraisScolarite.js';
 import { qrSvg } from './banque.js';
 
@@ -17,16 +19,24 @@ export function parcoursPortail(e, annee) {
   try { c = composerPAE(e.id, annee); } catch { return null; }
   if (!c || c.erreur) return null;
   const ects = db.prepare('SELECT ects FROM ue WHERE ue_num = ? ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1');
+  // VA OU VAE, JAMAIS L'UN POUR L'AUTRE (la règle de la fiche, 3.5.006).
+  const vaDe = db.prepare(`SELECT porte, base_code FROM etudiant_valorisation WHERE etudiant_id = ? AND ue_num = ? AND type = 'complete'
+    ORDER BY id DESC LIMIT 1`);
+  const sigle = n => sigleVA(vaDe.get(e.id, n) || {});
   const unites = (c.pae || []).map(u => {
     const acquise = !!(u.deja_reussie || u.va_complete);
     const etat = acquise ? 'acquise' : u.inscrite ? 'programme' : u.en_attente ? 'attente' : u.accessible ? 'accessible' : 'pas_encore';
     return { ue_num: u.ue_num, ue_nom: u.ue_nom, bloc: u.ue_niv || '—', ects: Number(ects.get(u.ue_num, annee)?.ects) || 0, etat,
-      va: !!u.va_complete, epreuve: !!u.epreuve_integree,
+      va: u.va_complete ? sigle(u.ue_num) : null, epreuve: !!u.epreuve_integree,
       raison: etat === 'pas_encore' ? (u.prereq_manquants?.length ? `prérequis : UE ${u.prereq_manquants.join(', ')}` : u.epreuve_integree ? 'tout le reste d’abord' : null) : null };
   });
   const total = unites.reduce((s, u) => s + u.ects, 0);
   const acquis = unites.filter(u => u.etat === 'acquise').reduce((s, u) => s + u.ects, 0);
-  return { annee, sections: c.sections || [], unites, ects_total: total, ects_acquis: acquis };
+  // LE SCHÉMA DE CAPITALISATION (3.5.010, Charles : « sous la forme du schéma, et en dessous où il en est ») : le MÊME
+  // dessin que la fiche et la pièce imprimée (donneesCapitalisation + schemaSvg), en SVG sans script.
+  let schema = null;
+  try { const g = donneesCapitalisation(e.id, annee); if (g.nodes?.length) schema = schemaSvg(g); } catch (x) { console.error('[portail] schéma :', x.message); }
+  return { annee, sections: c.sections || [], unites, ects_total: total, ects_acquis: acquis, schema };
 }
 
 /** Les frais de l'année : ce qui est dû, versé, reste ; l'échéance ; comment payer, avec le QR. */

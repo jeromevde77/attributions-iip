@@ -613,7 +613,7 @@ export default function SchemaCapitalisation({
                           {/* UNE FAVEUR VAUT 10, PARTOUT (Charles, 9 octobre 2026 :
                               « tu affiches 14 ! mais c'est une faveur, c'est 10 ») —
                               comme sur la pièce imprimée (lib/schemaSvg.js). */}
-                          {n.reussite.va ? 'VA' : statut === 'faveur' ? '10' : n.reussite.note != null
+                          {n.reussite.va ? (n.reussite.sigle || 'VA') : statut === 'faveur' ? '10' : n.reussite.note != null
                             ? String(Math.round(n.reussite.note)) : '✓'}
                         </text>
                         <text x={p.x + layout.L - 4} y={p.y + 22} textAnchor="end"
