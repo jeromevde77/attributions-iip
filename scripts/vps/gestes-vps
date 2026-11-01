@@ -79,7 +79,13 @@ case "$VERBE" in
     PORTAIL_DEV=$(grep -oE '^  portail-(backend|frontend)-dev:' docker-compose.yml | tr -d ' :' | tr '\n' ' ')
     echo "Portail de la dev : ${PORTAIL_DEV:-absent du docker-compose}"
     docker compose pull backend-dev frontend-dev $PORTAIL_DEV
-    docker compose up -d --force-recreate backend-dev frontend-dev $PORTAIL_DEV
+    # LE CONFLIT DE NOM (1er novembre 2026, deux fois en un matin) : un recreate sur deux laisse un conteneur sous un
+    # nom provisoire (« 46b7…_attributions-backend-dev ») et la dev tombe en 502 ; un second passage le répare. On le
+    # fait donc d'office, et on dit qu'il a fallu le faire.
+    if ! docker compose up -d --force-recreate backend-dev frontend-dev $PORTAIL_DEV; then
+      echo "Conflit au premier passage : second passage."; sleep 5
+      docker compose up -d --force-recreate backend-dev frontend-dev $PORTAIL_DEV
+    fi
     journal "ok"; sleep 8; version ;;
 
   maj-prod)
