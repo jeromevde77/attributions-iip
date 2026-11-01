@@ -1545,3 +1545,13 @@ table.grid-excel-soft tbody tr:nth-child(even) { background-color: var(--d-zebre
 }
 #root tbody > tr:not(.texte-corpus *, .texte-due *, .texte-dossier *, .hors-maison *):nth-child(even):not([class*="bg-"]) { background: var(--d-zebre, transparent); }
 #root tbody > tr:not(.texte-corpus *, .texte-due *, .texte-dossier *, .hors-maison *):hover:not([class*="bg-"]) { background: var(--c-fond_survol, rgb(var(--c-texte-rgb) / .04)); }
+
+/* LE THÈME MÉTAL, À LA FAÇON D'APPLE (3.5.048, Charles : « il n'y a pas de bordure… en survol, un effet d'ombre qui
+   apparaît doucement »). Cartes, tableaux et tuiles blanches sur le gris de la page, sans contour ; au survol, une ombre
+   douce qui se lève. Seulement quand chacun a choisi Métal (`data-theme`, lib/theme.js). */
+:root[data-theme="metal"] :is(.carte, .tableau-cadre, .bloc-etat, .tuile) {
+  border-color: transparent;
+  transition: box-shadow 260ms cubic-bezier(.32,.72,0,1), transform 260ms cubic-bezier(.32,.72,0,1);
+}
+:root[data-theme="metal"] :is(.carte, .tableau-cadre, .tuile):hover { box-shadow: 0 6px 22px -6px rgba(0, 0, 0, .14); }
+:root[data-theme="metal"] .bloc-etat { border-left-color: var(--e, transparent); }

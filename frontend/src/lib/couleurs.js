@@ -147,17 +147,21 @@ export const COULEURS_SOMBRE = { principal: '#5B9BD5', accent: '#3FC1E8', texte:
                graphique_vide: '#3A4048', graphique_grille: '#33383F', graphique_piste: '#2E333A' };
 
 /* LE FOND DE LA PAGE A TOUJOURS LA COULEUR DU RAIL ET DE LA BARRE DU HAUT (3.5.046, Charles : « j'insiste ») : dans chaque
- * thème, fond_menus = fond_page. Métal : les gris d'Apple (« dans les tons de gris, genre Apple »).
+ * thème, fond_menus = fond_page. Métal : les gris d'Apple (« dans les tons de gris, genre Apple » ; « il n'y a pas de bordure, les teintes de gris sont plus
+ * proches » — apple.com, deux captures) : page et menus #F5F5F7 (la règle : le fond a la couleur du rail), cartes et tuiles BLANCHES sans bordure, une ombre douce
+ * qui naît au survol (index.css, `[data-theme="metal"]`), texte
+ * #1D1D1F, le bleu d'Apple (#0071E3) pour l'action, l'orange (#BF4800) pour ce qui est à surveiller.
  * MÉTAL ET PASTEL (3.5.037, Charles : « j'aimerais aussi un métal et un pastel »). Comme le Sombre : des couleurs
  * seulement, qu'on pose pour soi (bouton palette de la barre du haut) ou que l'école adopte (Thèmes et couleurs). Les
  * états gardent leur sens (Pastel : fond BLANC — Charles, 1er novembre 2026 : « le fond est moche, il faut garder un fond blanc ») — vert réussi, ocre à surveiller, brique à corriger, violet faveur — dans la nuance du thème. */
-export const COULEURS_METAL = { principal: '#3A3A3C', accent: '#6E6E73', texte: '#1D1D1F', donnees: '#8E8E93', menu_sombre: '#2C2C2E',
-               iip: '#3A3A3C', helb: '#B5577F', ct: '#636366', pp: '#4E7A5E',
-               reussi: '#248A3D', faveur: '#8944AB', disponible: '#5A7090', attente: '#C93400', refuse: '#D70015',
-               ba1: '#C9A227', ba2: '#5FA8C2', ba3: '#3A3A3C', epreuve: '#B8973A',
-               fond_page: '#F5F5F7', fond_indispo: '#E8E8ED', fond_menus: '#F5F5F7', fond_carte: '#FFFFFF', fond_entete: '#EBEBF0',
-               fond_tuile: '#FFFFFF', fond_champ: '#FFFFFF', filet: '#D2D2D7', fenetre_bandeau: '#3A3A3C',
-               titre: '#1D1D1F', intertitre: '#86868B' };
+export const COULEURS_METAL = { principal: '#1D1D1F', accent: '#0071E3', texte: '#1D1D1F', donnees: '#6E6E73', menu_sombre: '#1D1D1F',
+               iip: '#1D1D1F', helb: '#B5577F', ct: '#6E6E73', pp: '#4E7A5E',
+               reussi: '#248A3D', faveur: '#8944AB', disponible: '#0071E3', attente: '#BF4800', refuse: '#D70015',
+               ba1: '#C9A227', ba2: '#5FA8C2', ba3: '#1D1D1F', epreuve: '#B8973A',
+               fond_page: '#F5F5F7', fond_indispo: '#EDEDF0', fond_menus: '#F5F5F7', fond_carte: '#FFFFFF', fond_entete: '#FAFAFC',
+               fond_ligne: '#FFFFFF', fond_tuile: '#FFFFFF', fond_champ: '#FFFFFF', filet: '#F0F0F2', fond_survol: '#F7F7F9',
+               fenetre_bandeau: '#1D1D1F', bouton_fort: '#0071E3', segment_actif: '#1D1D1F',
+               titre: '#1D1D1F', intertitre: '#6E6E73' };
 export const COULEURS_PASTEL = { principal: '#5A6FA8', accent: '#5FAFC2', texte: '#3A4466', donnees: '#7FA7D9', menu_sombre: '#4A5A8A',
                iip: '#5A6FA8', helb: '#D97FA8', ct: '#7FA7D9', pp: '#6DB896',
                reussi: '#5BAA7A', faveur: '#9D7FD0', disponible: '#6F9AD6', attente: '#E39A50', refuse: '#DB7070',
@@ -169,7 +173,7 @@ export const COULEURS_PASTEL = { principal: '#5A6FA8', accent: '#5FAFC2', texte:
 export const THEMES_PERSONNELS = {
   ecole:  { nom: 'Maison IIP', texte: "Les couleurs de l'école", couleurs: null, gris: null },
   sombre: { nom: 'Sombre', texte: 'Gris foncés, texte clair', couleurs: COULEURS_SOMBRE, gris: 'sombre' },
-  metal:  { nom: 'Métal', texte: 'Les gris d’Apple, sans couleur', couleurs: COULEURS_METAL, gris: 'apple' },
+  metal:  { nom: 'Métal', texte: 'Blanc et gris d’Apple, sans bordure', couleurs: COULEURS_METAL, gris: 'apple' },
   pastel: { nom: 'Pastel', texte: 'Tons doux sur fond blanc', couleurs: COULEURS_PASTEL, gris: 'neutre' },
 };
 const CLES_PERSO = [...new Set([COULEURS_SOMBRE, COULEURS_METAL, COULEURS_PASTEL].flatMap(Object.keys))];

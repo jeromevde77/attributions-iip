@@ -3147,7 +3147,8 @@ alternées et survol de Formes et composants → Tableaux, même pour un tableau
 Sombre, Métal, Pastel — pour soi, gardé dans le navigateur, posé par-dessus les couleurs de l'école ; Métal et Pastel
 s'adoptent aussi pour toute l'école dans Thèmes et couleurs. Remplace le bouton lune. **Dans chaque thème, le fond de la page
 a la couleur du rail et de la barre du haut** (3.5.046, Charles : « j'insiste ») : `fond_menus` = `fond_page` (et
-`menu_sombre` pour le Sombre). Métal = les gris d'Apple (#F5F5F7, texte #1D1D1F, gris `apple`) ; Pastel = fond blanc. (4) Nouveautés : une carte par jour,
+`menu_sombre` pour le Sombre). Métal = apple.com (3.5.048) : page et menus #F5F5F7, cartes, tableaux et tuiles BLANCS SANS CONTOUR, ombre douce qui naît au
+survol (`[data-theme="metal"]` dans `index.css`), texte #1D1D1F, bleu Apple #0071E3 pour l'action ; Pastel = fond blanc. (4) Nouveautés : une carte par jour,
 nature en pastille pleine, les fusions de branches retirées ; Qui a fait quoi : `Tableau`, dates nommées « Du / au ».
 
 **CONFIGURATION DANS LA GRILLE DES PLAFONDS** (3.5.030, Charles, 1er novembre 2026 : « un accès en lecture à tout sauf dotation,
