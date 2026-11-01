@@ -1753,7 +1753,7 @@ export function modeEmploiPour(role, voir = null) {
  * restent des chemins (`/guide/…`) : c'est l'écran qui les joint avant de demander le PDF, le serveur ne les a pas. */
 const escP = x => String(x ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const boutonsP = h => String(h || '').replace(/\[\[([^\]|]+)[^\]]*\]\]/g, (_, l) => `<b class="me-bt">${l.trim()}</b>`);
-const enrichiP = t => boutonsP(escP(t));
+export const enrichiP = t => boutonsP(escP(t));
 
 /* LE PDF A LE DESSIN DU GUIDE EN LIGNE (3.1.520, Charles, 30 octobre 2026 : « regarde le mode d'emploi de Lucie, c'est en
  * bleu »). Mêmes pièces qu'à l'écran (`pages/Aide.jsx`) : en-tête de chapitre (pastille marine, « Chapitre n sur N », publics
