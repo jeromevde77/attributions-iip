@@ -83,14 +83,16 @@ const STYLES = `
   .pub { border: .3mm solid rgba(255,255,255,.28); border-radius: 1.5mm; padding: .3mm 2mm; font-size: 7.2pt; color: #DCEAF6; }
 
   /* « Ce que vous trouverez ici » */
-  .trouver { border: .3mm solid ${C.filet}; border-left: 1.3mm solid ${C.nuit}; border-radius: 0 3.5mm 3.5mm 0; padding: 3.5mm 5mm 3mm;
+  /* Plus de trait bleu à côté des blocs (3.5.035, Charles : « le bleu à côté de chaque rectangle, c'est trop ; je veux le texte ») :
+     seule la ligne bleu nuit en marge de la page reste. */
+  .trouver { border-bottom: .3mm solid ${C.filet}; padding: 0 0 3mm;
     margin: 0 0 6mm; break-inside: avoid; }
   .trouver .t { display: flex; gap: 2mm; align-items: center; font-weight: 700; color: ${C.nuit}; margin-bottom: 1.8mm; }
   .trouver ul { margin: 0; padding-left: 4.5mm; columns: 2; column-gap: 9mm; }
   .trouver li { margin: 0 0 1mm; break-inside: avoid; } .trouver li::marker { color: ${C.clair}; }
 
   /* un point = une carte, au dessin des étapes du kit */
-  .pt { border: .3mm solid ${C.filet}; border-left: 1.3mm solid ${C.nuit}; border-radius: 0 3.5mm 3.5mm 0; padding: 4.5mm 5.5mm 3.5mm;
+  .pt { border-top: .3mm solid ${C.filet}; padding: 4.5mm 0 2mm;
     margin: 0 0 4.5mm; }
   .pt-tete { display: flex; align-items: center; gap: 3.5mm; margin: 0 0 3mm; break-inside: avoid; break-after: avoid; }
   .pt-num { width: 9.5mm; height: 9.5mm; border-radius: 50%; background: ${C.nuit}; color: #fff; display: grid; place-items: center;
@@ -135,9 +137,8 @@ const STYLES = `
   .me-bt { font-weight: 700; color: ${C.nuit}; border: .3mm solid #9FB3C8; border-radius: 1.2mm; padding: 0 1.2mm; white-space: nowrap; background: #fff; }
 
   /* encadrés et tuiles (sommaire) */
-  .callout { display: flex; gap: 3.5mm; background: ${C.pale}; border-left: 1.3mm solid ${C.nuit}; border-radius: 0 3.5mm 3.5mm 0;
+  .callout { display: flex; gap: 3.5mm; background: #F3F5F8; border-radius: 3.5mm;
     padding: 3.5mm 5mm; margin: 0 0 4mm; break-inside: avoid; }
-  .callout.clair { border-left-color: ${C.clair}; }
   .callout .t { display: block; font-weight: 700; color: ${C.nuit}; margin-bottom: .8mm; } .callout p { margin: 0 0 1mm; }
   .deux { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; margin: 0 0 4mm; } .deux .callout { margin: 0; }
   .tuiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4mm; margin: 6mm 0 5mm; }
@@ -156,7 +157,7 @@ const STYLES = `
   /* mot de la direction */
   .mot { padding-top: 14mm; } .mot h1 { font-size: 21pt; color: ${C.nuit}; font-weight: 800; margin: 2.5mm 0 8mm; letter-spacing: -.01em; }
   .mot p { font-size: 10.4pt; line-height: 1.62; margin: 0 0 4mm; }
-  .mot .sign { border-left: 1.1mm solid ${C.nuit}; padding: 2mm 0 2mm 6mm; margin-top: 10mm; }
+  .mot .sign { padding: 2mm 0; margin-top: 10mm; }
   .mot .sign img { height: 19mm; display: block; margin: 0 0 2mm; }
   .mot .sign .q { color: ${C.gris}; font-size: 9pt; }
 
@@ -432,7 +433,7 @@ export async function rendreGuidePdf(role, voir, images = {}) {
     if (k === 0) return;
     const { width, height } = pg.getSize();
     // Le liseré du kit : bleu nuit, d'un seul trait (3.5.034 : les trois couleurs du logo n'étaient pas celles du kit).
-    pg.drawRectangle({ x: 0, y: 0, width: mm(1.8), height, color: hex(C.nuit) });
+    pg.drawRectangle({ x: 0, y: 0, width: mm(2.2), height, color: hex(C.nuit) });
     const t = `${k} / ${total}`;
     const taille = 6.5;
     pg.drawText(t, { x: width - mm(18) - police.widthOfTextAtSize(t, taille), y: mm(10.4), size: taille, font: police, color: hex('#3F4652') });

@@ -2927,6 +2927,10 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   (`captureAnnotee`) et à l'écran (`CaptureAnnotee`, `pages/Aide.jsx`). Premier exemple : la barre du haut de la direction
   (14 repères). L'ancien guide du secrétariat (76 pages, retiré en 3.1.512) se relit par
   `git show 0f78aa9^:backend/assets/guides/Lucie_mode_emploi_secretariat.pdf` : ses autres captures annotées sont à reprendre.
+- **LE TEXTE, PAS DE TRAIT À CÔTÉ DES BLOCS** (3.5.035, Charles, 1er novembre 2026 : « le bleu à côté de chaque rectangle, c'est
+  trop ; je veux le texte ; une ligne marine en marge du document, comme pour la FeLSI »). PDF du mode d'emploi : les points ne sont
+  plus des cartes — un filet gris au-dessus, le texte ; « Ce que vous trouverez ici », les encadrés et la signature perdent leur
+  trait de gauche. Seule ligne de couleur : le liseré bleu nuit de 2,2 mm en marge gauche de chaque page (pdf-lib).
 - **PORTAIL, ÉTAPE 1 : LE MOT DE PASSE ET LA BELGIQUE** (3.1.513). `compte` (empreinte scrypt salée, dans la base du
   PORTAIL seulement, survit aux dépôts) ; `POST /api/portail/connexion` (adresse ou matricule + mot de passe ; appareil
   reconnu → session ; sinon code `connexion` composé par Lucie → `POST /connexion/code`, qui reconnaît l'appareil, 3 au
