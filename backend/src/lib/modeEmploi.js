@@ -10,7 +10,7 @@
  *   savoir — ce qu'il faut savoir : les règles qui bloquent ou qui surprennent.
  * Il explique le travail, pas l'informatique (CLAUDE.md, § 7). La version décrite se dit en tête.
  */
-export const VERSION_DECRITE = '3.5.023';
+export const VERSION_DECRITE = '3.5.024';
 
 export const RUBRIQUES = [
   {
@@ -1722,7 +1722,7 @@ const enrichiP = t => boutonsP(escP(t));
 /* LE PDF A LE DESSIN DU GUIDE EN LIGNE (3.1.520, Charles, 30 octobre 2026 : « regarde le mode d'emploi de Lucie, c'est en
  * bleu »). Mêmes pièces qu'à l'écran (`pages/Aide.jsx`) : en-tête de chapitre (pastille marine, « Chapitre n sur N », publics
  * en pastilles), points au liseré principal avec leur numéro dans un cercle, chemin « Où » en étapes, « À savoir » encadré
- * avec l'ampoule or et des puces accent, texte à gauche et captures à droite. Couleurs de la Maison IIP, en dur : une pièce
+ * avec l'ampoule or et des puces accent, les captures dans le corps du texte. Couleurs de la Maison IIP, en dur : une pièce
  * imprimée garde la charte en hexadécimal. */
 const ME = { principal: '#16406A', accent: '#0A8FBF', disponible: '#3F7FD0', or: '#F9B619', filet: '#D8DCE4', texte: '#1F2A3C', gris: '#64748B' };
 export const STYLES_MODE_EMPLOI = `
@@ -1782,15 +1782,12 @@ function cheminP(ou) {
 export function pointImprimable(p, n, ajouter = () => {}) {
   const l = [...(p.image ? [{ src: p.image, legende: p.legende }] : []), ...(p.images || [])];
   l.forEach(i => ajouter(i.src));
-  const etroites = l.length && l.every(i => i.etroite);
   const imgs = l.length ? `<div class="me-images">${l.map(i => `<figure class="me-fig${i.etroite ? ' etroite' : ''}">
       <img src="${escP(i.src)}" alt="">${i.legende ? `<figcaption>${enrichiP(i.legende)}</figcaption>` : ''}</figure>`).join('')}</div>` : '';
-  const texte = `<div>${p.ou ? cheminP(p.ou) : ''}${p.texte ? `<p>${enrichiP(p.texte)}</p>` : ''}${p.contenu || ''}
+  // LES CAPTURES DANS LE CORPS DU TEXTE (3.5.024, Charles : « dans le corps du texte, ou en dessous — on perd beaucoup trop
+  // de place ») : après le texte, avant « À savoir », dans toute la largeur du point ; plus de colonne de droite.
+  const corps = `<div class="me-corps sans-images">${p.ou ? cheminP(p.ou) : ''}${p.texte ? `<p>${enrichiP(p.texte)}</p>` : ''}${p.contenu || ''}${imgs}
       ${p.savoir?.length ? `<div class="me-savoir"><div class="titre">${AMPOULE} À savoir</div><ul>${p.savoir.map(s => `<li>${enrichiP(s)}</li>`).join('')}</ul></div>` : ''}</div>`;
-  // Des captures de téléphone côte à côte se lisent sous le texte ; une capture d'écran large, à droite.
-  const corps = !l.length ? `<div class="me-corps">${texte}</div>`
-    : etroites || p.images_dessous ? `<div class="me-corps sans-images">${texte}${imgs}</div>`
-    : `<div class="me-corps avec-images">${texte}${imgs}</div>`;
   return `<div class="me-point">${p.titre ? `<h3>${n != null ? `<span class="me-rond">${n}</span>` : ''}${escP(p.titre)}</h3>` : ''}${corps}</div>`;
 }
 

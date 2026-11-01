@@ -46,27 +46,37 @@ export const boutonsHtml = h => String(h || '').replace(/\[\[([^\]|]+)(?:\|([^\]
   return `<span class="bouton ${sorte ? `bouton-${sorte} ` : ''}bouton-guide">${lib}</span>`;
 });
 /** Les images d'un point : `image` + `legende`, ou `images` [{ src, legende, etroite }]. */
-/* LES IMAGES D'UN POINT (3.1.491, Charles : « certaines sont trop grandes ; il est plus malin de mettre le texte à côté
-   pour gagner en confort »). Elles vivent à DROITE du texte sur grand écran, sous lui sur iPad en portrait ; jamais plus
-   grandes que leur taille réelle (une capture étroite agrandie devient floue), plafonnées en hauteur, et un toucher les
-   ouvre en grand. */
+/* LES IMAGES D'UN POINT (3.1.491, puis 3.5.024, Charles : « les captures dans le corps du texte, ou en dessous — on perd
+   beaucoup trop de place »). Elles suivent le texte, dans la largeur de la carte, côte à côte quand elles tiennent ; chacune
+   garde sa largeur (le cadre s'arrête à l'image), jamais plus grande que sa taille réelle (une capture étroite agrandie
+   devient floue), plafonnée en hauteur, et un toucher l'ouvre en grand. */
 function ImagesDuPoint({ p, onAgrandir }) {
   const liste = [...(p.image ? [{ src: p.image, legende: p.legende }] : []), ...(p.images || [])];
   if (!liste.length) return null;
+  return <div className="flex flex-wrap items-start gap-3">{liste.map((im, i) => <ImageDuPoint key={i} im={im} p={p} onAgrandir={onAgrandir} />)}</div>;
+}
+
+/* Le cadre prend la largeur de l'image telle qu'elle s'affiche (taille réelle, ou réduite par le plafond de hauteur) :
+   mesurée au chargement — une image réduite par `max-width` n'impose pas sa largeur à son cadre, la légende l'écrasait. */
+function ImageDuPoint({ im, p, onAgrandir }) {
+  const plafond = im.etroite ? 320 : 384;
+  const [largeur, setLargeur] = useState(null);
+  const charge = e => {
+    const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
+    if (w && h) setLargeur(Math.round(Math.min(w, (w * plafond) / h)));
+  };
   return (
-    <div className="grid gap-3 content-start">
-      {liste.map((im, i) => (
-        <figure key={i} className="m-0 rounded-champ border border-slate-200 overflow-hidden bg-white">
-          <button type="button" className="relative block w-full bg-slate-50 cursor-zoom-in" title="Agrandir"
-            onClick={() => onAgrandir?.(im)}>
-            <img src={im.src} alt={im.legende || p.titre} loading="lazy"
-              className="block mx-auto w-auto h-auto max-w-full max-h-[17rem] object-contain" />
-            <span className="absolute right-1.5 bottom-1.5 inline-grid place-items-center w-7 h-7 rounded-full bg-white/90 border border-slate-200 text-slate-500">
-              <IconZoomIn size={15} /></span>
-          </button>
-          {im.legende && <figcaption className="px-3 py-1.5 text-mention text-slate-500 border-t border-slate-100"><Enrichi texte={im.legende} /></figcaption>}
-        </figure>))}
-    </div>
+    <figure className="m-0 max-w-full rounded-champ border border-slate-200 overflow-hidden bg-white"
+      style={{ width: largeur ? `${largeur + 2}px` : '18rem' }}>
+      <button type="button" className="relative block w-full bg-slate-50 cursor-zoom-in" title="Agrandir"
+        onClick={() => onAgrandir?.(im)}>
+        <img src={im.src} alt={im.legende || p.titre} loading="lazy" onLoad={charge}
+          className="block w-full h-auto object-contain" style={{ maxHeight: plafond }} />
+        <span className="absolute right-1.5 bottom-1.5 inline-grid place-items-center w-7 h-7 rounded-full bg-white/90 border border-slate-200 text-slate-500">
+          <IconZoomIn size={15} /></span>
+      </button>
+      {im.legende && <figcaption className="px-3 py-1.5 text-mention text-slate-500 border-t border-slate-100"><Enrichi texte={im.legende} /></figcaption>}
+    </figure>
   );
 }
 import { authHeaders } from '../lib/api.js';
@@ -240,8 +250,7 @@ export function Point({ p, n, delai = 0 }) {
           {n != null && <NumeroPoint n={n} />}
           <h3 className="titre-carte flex-1 min-w-0 m-0">{p.titre}</h3>
         </div>)}
-      <div className={aImages ? 'grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)] items-start' : ''}>
-        <div className="space-y-2.5 min-w-0">
+      <div className="space-y-2.5 min-w-0">
           {p.ou && <Chemin ou={p.ou} />}
           {p.qui && (
             <div className="flex flex-wrap items-center gap-1.5 text-second">
@@ -251,6 +260,7 @@ export function Point({ p, n, delai = 0 }) {
           {p.texte && <p className="text-sm text-slate-700 leading-relaxed m-0"><Enrichi texte={p.texte} /></p>}
           {/* Le texte d'une procédure (3.1.489) : du HTML que le serveur a filtré à l'écriture ; les boutons [[…]] s'y dessinent. */}
           {p.contenu && <div className="texte-corpus text-sm" dangerouslySetInnerHTML={{ __html: boutonsHtml(p.contenu) }} />}
+          {aImages && <ImagesDuPoint p={p} onAgrandir={setGrand} />}
           {p.savoir?.length > 0 && (
             <div className="rounded-champ border border-slate-200 bg-white px-3 py-2">
               <div className="flex items-center gap-1.5 text-second font-semibold text-iip-texte mb-1">
@@ -261,8 +271,6 @@ export function Point({ p, n, delai = 0 }) {
                     <span className="absolute left-0 top-[0.55em] w-1.5 h-1.5 rounded-full" style={{ background: 'var(--c-accent)' }} /><Enrichi texte={s} /></li>))}
               </ul>
             </div>)}
-        </div>
-        <ImagesDuPoint p={p} onAgrandir={setGrand} />
       </div>
       {/* Hors de la carte : son animation (transform) enfermerait la fenêtre dans le point. */}
       {grand && createPortal(
