@@ -64,6 +64,49 @@ r.put('/ue/:ue/presences', authRequired, EDITEUR, (req, res) => {
   res.json({ ok: true, ...out });
 });
 
+/* REMPLIR LES CASES VIDES EN « PRÉSENT » (3.5.016, Charles : le secrétariat rattrape les séances d'avant Toussaint).
+   Deux portées : une séance (`seance_id`), ou toutes les séances tenues de l'UE jusqu'à une date (`jusquau`). On ne
+   touche JAMAIS une case déjà encodée, ni une dispense, ni une séance annulée ou à venir, ni une séance d'avant
+   l'inscription de l'étudiant. Ce que l'horaire ne permet pas de savoir ne se devine pas : une séance d'un
+   sous-groupe (qui n'en est pas ?) et une UE donnée en plusieurs organisations (qui suit quelle séance ?) restent à
+   la main. `simuler` rend ce qui serait écrit, sans rien écrire. */
+r.post('/ue/:ue/remplir', authRequired, EDITEUR, (req, res) => {
+  const annee = anneeDe(req);
+  const ue = Number(req.params.ue);
+  const aujourdhui = new Date().toISOString().slice(0, 10);
+  const seanceId = req.body?.seance_id ? Number(req.body.seance_id) : null;
+  const jusquau = /^\d{4}-\d{2}-\d{2}$/.test(String(req.body?.jusquau || '')) ? String(req.body.jusquau) : null;
+  if (!seanceId && !jusquau) return res.status(400).json({ error: 'Une séance, ou une date « jusqu’au ».' });
+  const orgs = db.prepare(`SELECT COUNT(DISTINCT COALESCE(num_organisation, 1)) n FROM etudiant_inscription WHERE annee_scolaire = ? AND ue_num = ?`).get(annee, ue).n;
+  if (orgs > 1) return res.status(409).json({ error: `L’UE ${ue} est donnée en ${orgs} organisations : l’horaire ne dit pas quelle séance est suivie par qui. Ses présences s’encodent case par case.` });
+  const x = presencesDeLUE(ue, annee);
+  const inscr = new Map(db.prepare(`SELECT etudiant_id, MIN(date_inscription) d FROM etudiant_inscription WHERE annee_scolaire = ? AND ue_num = ? GROUP BY etudiant_id`)
+    .all(annee, ue).map(r0 => [r0.etudiant_id, r0.d ? String(r0.d).slice(0, 10) : null]));
+  const borne = jusquau && jusquau < aujourdhui ? jusquau : aujourdhui;
+  const lignes = [], seancesTouchees = new Set();
+  let sousGroupes = 0;
+  x.g.seances.forEach((s, i) => {
+    if (seanceId ? s.id !== seanceId : s.date > borne) return;
+    if (s.annule || s.date > aujourdhui) return;
+    if (s.sous_groupe != null && s.sous_groupe !== '') { sousGroupes++; return; }
+    for (const l of x.g.lignes) {
+      const c = l.cases[i];
+      if (c?.statut) continue;                          // déjà encodée, dispensée ou non concernée
+      const ins = inscr.get(l.etudiant.id);
+      if (ins && s.date < ins) continue;                // pas encore inscrit ce jour-là
+      lignes.push({ seance_id: s.id, etudiant_id: l.etudiant.id, statut: 'present', motif: null, retard: false });
+      seancesTouchees.add(s.id);
+    }
+  });
+  const resume = { cases: lignes.length, seances: seancesTouchees.size, sous_groupes: sousGroupes, jusquau: seanceId ? null : borne };
+  if (seanceId && sousGroupes) return res.status(409).json({ error: 'Séance d’un sous-groupe : Lucie ne sait pas quels étudiants en font partie. Encodez-la case par case.' });
+  if (req.body?.simuler) return res.json({ simulation: true, ...resume });
+  if (!lignes.length) return res.json({ ok: true, ecrites: 0, ...resume });
+  const out = ecrirePresences(lignes, qui(req));
+  if (out.erreur) return res.status(400).json({ error: out.erreur });
+  res.json({ ok: true, ...out, ...resume });
+});
+
 r.put('/ue/:ue/regularite', authRequired, EDITEUR, (req, res) => {
   const x = marquerRegularite(req.params.ue, anneeDe(req), req.body?.etudiant_id, Number(req.body?.jalon), String(req.body?.valeur || ''), qui(req));
   if (x.erreur) return res.status(400).json({ error: x.erreur });
