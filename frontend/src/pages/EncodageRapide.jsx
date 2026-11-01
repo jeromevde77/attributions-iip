@@ -386,9 +386,9 @@ export default function EncodageRapide() {
         <div className="border border-slate-200 rounded-xl overflow-auto" style={{ maxHeight: '68vh' }}>
           <table className="text-sm border-collapse">
             <thead className="sticky top-0 z-20">
-              <tr className="bg-slate-50">
-                <th className="sticky left-0 z-30 bg-slate-50 border-b border-r border-slate-200 px-2 py-2 w-8"></th>
-                <th className="sticky left-8 z-30 bg-slate-50 border-b border-r border-slate-200 px-3 py-2 text-left min-w-[190px]">
+              <tr className="bande-entete">
+                <th className="sticky left-0 z-30 bande-entete border-b border-r border-slate-200 px-2 py-2 w-8"></th>
+                <th className="sticky left-8 z-30 bande-entete border-b border-r border-slate-200 px-3 py-2 text-left min-w-[190px]">
                   <span className="intertitre">Étudiant</span>
                 </th>
                 {data.ues.map((u, i) => (
@@ -547,8 +547,8 @@ function SyntheseAnnees({ synthese, recherche, onOuvrir }) {
       <div className="border border-slate-200 rounded-xl overflow-auto" style={{ maxHeight: '68vh' }}>
         <table className="text-sm border-collapse w-full">
           <thead className="sticky top-0 z-20">
-            <tr className="bg-slate-50">
-              <th className="sticky left-0 z-30 bg-slate-50 border-b border-r border-slate-200 px-3 py-2 text-left min-w-[210px]">
+            <tr className="bande-entete">
+              <th className="sticky left-0 z-30 bande-entete border-b border-r border-slate-200 px-3 py-2 text-left min-w-[210px]">
                 <span className="intertitre">Étudiant</span>
               </th>
               {synthese.annees.map(a => (

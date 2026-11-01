@@ -3081,6 +3081,21 @@ une a un corps blanc) et `OutilFenetre` (icône blanche, dans `outils` de `Fenet
 sortie d'une fenêtre (aperçu, imprimer, envoyer, PDF) est un `OutilFenetre` du bandeau.** Pas de cadre dans un cadre, pas de clé
 technique affichée (en `title=`), pas d'émoji dans un bouton. 105 fichiers repris en un passage.
 
+**TOUT TABLEAU SUIT LES RÉGLAGES, ET CHACUN CHOISIT SON THÈME** (3.5.037, Charles, 1er novembre 2026 : « non respect du
+design » sur Qui a fait quoi, Nouveautés, la liste des étudiants, l'encodage rapide, les recours ; « ce doit être géré dans
+paramètres, TOUJOURS identique » ; « TOUT paramétrable dans Configuration » ; « que TOUT le monde ait le choix entre des
+thèmes : Maison IIP, Sombre, Métal, Pastel »). (1) **Une seule bande** : l'en-tête d'un tableau, la ligne de regroupement,
+l'en-tête d'une carte et d'un panneau prennent `--c-fond_entete` (Thèmes et couleurs → Surfaces, « En-têtes de tableau et
+de carte », défaut : le principal à 5 %, `--fond-bande`) — elle était blanche, ton sur ton. (2) **Le défaut s'applique à
+tout tableau** (`index.css`, règles `#root thead/tbody`) : bande, taille, casse et couleur de l'en-tête, filets, lignes
+alternées et survol de Formes et composants → Tableaux, même pour un tableau écrit à la main ; hors règle :
+`.texte-corpus`, `.texte-due`, `.texte-dossier`, `.hors-maison`. (3) **Le thème de chacun** (`lib/theme.js` :
+`choisirTheme`, `useTheme`, `THEMES_PERSO` ; `lib/couleurs.js` : `THEMES_PERSONNELS`, `COULEURS_METAL`,
+`COULEURS_PASTEL` ; `components/ChoixTheme.jsx`, palette de la barre du haut) : Maison IIP (les couleurs de l'école),
+Sombre, Métal, Pastel — pour soi, gardé dans le navigateur, posé par-dessus les couleurs de l'école ; Métal et Pastel
+s'adoptent aussi pour toute l'école dans Thèmes et couleurs. Remplace le bouton lune. (4) Nouveautés : une carte par jour,
+nature en pastille pleine, les fusions de branches retirées ; Qui a fait quoi : `Tableau`, dates nommées « Du / au ».
+
 **CONFIGURATION DANS LA GRILLE DES PLAFONDS** (3.5.030, Charles, 1er novembre 2026 : « un accès en lecture à tout sauf dotation,
 finances-budget et recrutement au service info » ; tranché : Configuration en lecture, mots de passe masqués). Module
 `configuration` (MODULES de `permissions.js`, `MODULES_ACCES` de `lib/modules.js`) : naît « ecrit » pour la direction, « rien »

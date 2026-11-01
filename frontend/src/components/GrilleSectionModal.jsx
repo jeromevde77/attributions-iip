@@ -297,7 +297,7 @@ export default function GrilleSectionModal({ section, onClose }) {
 
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-xs uppercase text-gray-500 bg-white border-b border-gray-100">
+                    <tr className="text-xs uppercase text-gray-500 bande-entete border-b border-gray-100">
                       <th className="text-left px-3 py-1.5 h-9 font-medium">Code</th>
                       <th className="text-left px-3 py-1.5 h-9 font-medium">Cours</th>
                       <th className="px-2 py-1.5 h-9 font-medium text-center">DP</th>

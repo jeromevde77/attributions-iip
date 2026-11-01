@@ -157,7 +157,7 @@ export default function CalculateurAnciennete({ profId, estAdmin, peutEcrire, an
           </EnteteCarte>
           <table className="w-full text-sm">
             <thead>
-              <tr className="intertitre bg-slate-50/60 border-b border-slate-200">
+              <tr className="intertitre bande-entete border-b border-slate-200">
                 <th className="px-3 py-2 text-left">Cours</th>
                 <th className="px-3 py-2 text-left w-16">Type</th>
                 <th className="px-3 py-2 text-right w-24">Périodes</th>

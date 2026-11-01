@@ -1280,7 +1280,7 @@ export default function Pilotage({ vue = 'tout' }) {
         </div>
         <table className="w-full text-sm border-collapse">
           <thead>
-            <tr className="bg-gray-50 text-gray-500 text-xs uppercase">
+            <tr className="bande-entete text-gray-500 text-xs uppercase">
               <th className="text-left px-3 py-2">Section / UE</th>
               <th className="text-right px-3 py-2">ETP CT <span className="font-normal normal-case">(÷800)</span></th>
               <th className="text-right px-3 py-2">ETP PP <span className="font-normal normal-case">(÷1000)</span></th>

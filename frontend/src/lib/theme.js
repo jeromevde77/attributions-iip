@@ -25,31 +25,51 @@ import { useEffect, useState } from 'react';
  * mode, il lit ses jetons.
  */
 const CLE = 'lucie.mode';
+/* LE THÈME DE CHACUN (3.5.037, Charles, 1er novembre 2026 : « que TOUT le monde puisse, non pas gérer la mise en page,
+ * mais avoir le choix entre des thèmes : Maison IIP, Sombre, Métal, Pastel »). Un choix PERSONNEL, gardé dans ce
+ * navigateur : il se pose PAR-DESSUS les couleurs de l'école (Configuration → Thèmes et couleurs), qui ne changent pas.
+ * « ecole » = les couleurs de l'école telles que la direction les a réglées (la Maison IIP par défaut). Les menus sont
+ * marine (mode « sombre ») avec le thème Sombre seulement. */
+const CLE_THEME = 'lucie.theme';
+export const THEMES_PERSO = ['ecole', 'sombre', 'metal', 'pastel'];
 const abonnes = new Set();
 
-function lire() {
+function lireTheme() {
   try {
-    const v = localStorage.getItem(CLE);
-    return v === 'sombre' ? 'sombre' : 'clair';
-  } catch { return 'clair'; }
+    const t = localStorage.getItem(CLE_THEME);
+    if (THEMES_PERSO.includes(t)) return t;
+    return localStorage.getItem(CLE) === 'sombre' ? 'sombre' : 'ecole';   // l'ancien bouton lune
+  } catch { return 'ecole'; }
 }
 
-let mode = lire();
+let theme = lireTheme();
+let mode = theme === 'sombre' ? 'sombre' : 'clair';
 
 function poser(v) {
-  try { document.documentElement.dataset.mode = v; } catch { /* rendu serveur */ }
+  try { document.documentElement.dataset.mode = v; document.documentElement.dataset.theme = theme; } catch { /* rendu serveur */ }
 }
 poser(mode);
 
 export function modeActuel() { return mode; }
+export function themeActuel() { return theme; }
 
-export function basculerMode() {
-  mode = mode === 'sombre' ? 'clair' : 'sombre';
-  try { localStorage.setItem(CLE, mode); } catch { /* navigation privée */ }
+export function choisirTheme(t) {
+  if (!THEMES_PERSO.includes(t)) return;
+  theme = t; mode = t === 'sombre' ? 'sombre' : 'clair';
+  try { localStorage.setItem(CLE_THEME, t); localStorage.setItem(CLE, mode); } catch { /* navigation privée */ }
   poser(mode);
   for (const f of abonnes) f(mode);
-  // Le mode sombre est aussi le THÈME sombre (12 octobre 2026) : on repose les couleurs.
+  for (const f of abonnesTheme) f(theme);
   import('./couleurs.js').then(m => m.chargerCouleurs()).catch(() => {});
+}
+
+export function basculerMode() { choisirTheme(theme === 'sombre' ? 'ecole' : 'sombre'); }
+
+const abonnesTheme = new Set();
+export function useTheme() {
+  const [v, setV] = useState(theme);
+  useEffect(() => { abonnesTheme.add(setV); setV(theme); return () => abonnesTheme.delete(setV); }, []);
+  return v;
 }
 
 export function useMode() {

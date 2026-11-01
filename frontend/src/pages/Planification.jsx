@@ -1463,7 +1463,7 @@ export default function Planification() {
             <thead className="sticky top-0 z-20">
               {/* Mois */}
               <tr>
-                <th className="sticky left-0 z-30 bg-white border border-gray-300 w-[260px]"></th>
+                <th className="sticky left-0 z-30 bande-entete border border-gray-300 w-[260px]"></th>
                 <th className="sticky left-[260px] z-30 bg-white border border-gray-300 w-24 text-center text-mention text-gray-400">Total</th>
                 {semaines.map((sem, i) => {
                   const style = TYPE_STYLE[sem.type] || TYPE_STYLE.cours;

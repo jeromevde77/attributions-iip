@@ -362,7 +362,7 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
               <div className="overflow-x-auto">
                 <table className="w-full text-sm border border-gray-200 rounded">
                   <thead>
-                    <tr className="bg-gray-50 text-xs uppercase text-gray-600">
+                    <tr className="bande-entete text-xs uppercase text-gray-600">
                       <th className="text-left p-2 border-b">Cours</th>
                       <th className="text-left p-2 border-b">Activité</th>
                       <th className="text-left p-2 border-b">Groupe</th>

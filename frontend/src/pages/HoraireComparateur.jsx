@@ -225,7 +225,7 @@ export default function HoraireComparateur({ annee }) {
           <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
             <table className="w-full text-second">
               <thead>
-                <tr className="bg-slate-50 text-slate-600 text-left">
+                <tr className="bande-entete text-slate-600 text-left">
                   <th className="px-3 py-2 font-semibold">Cours</th>
                   <th className="px-2 py-2 font-semibold text-right">Séances</th>
                   <th className="px-2 py-2 font-semibold text-right">À l'horaire</th>

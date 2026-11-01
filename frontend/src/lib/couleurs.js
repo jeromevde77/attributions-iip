@@ -1,4 +1,4 @@
-import { modeActuel } from './theme.js';
+import { modeActuel, themeActuel } from './theme.js';
 import { authHeaders } from './api.js';
 
 /**
@@ -146,20 +146,50 @@ export const COULEURS_SOMBRE = { principal: '#5B9BD5', accent: '#3FC1E8', texte:
                serie_1: '#5B9BD5', serie_2: '#3FC1E8', serie_3: '#F9B619', serie_4: '#A879C9', serie_5: '#4FB06A', serie_6: '#E07AA6',
                graphique_vide: '#3A4048', graphique_grille: '#33383F', graphique_piste: '#2E333A' };
 
+/* MÉTAL ET PASTEL (3.5.037, Charles : « j'aimerais aussi un métal et un pastel »). Comme le Sombre : des couleurs
+ * seulement, qu'on pose pour soi (bouton palette de la barre du haut) ou que l'école adopte (Thèmes et couleurs). Les
+ * états gardent leur sens — vert réussi, ocre à surveiller, brique à corriger, violet faveur — dans la nuance du thème. */
+export const COULEURS_METAL = { principal: '#3E4A56', accent: '#4F7DA6', texte: '#2B323A', donnees: '#5C7A99', menu_sombre: '#2A3139',
+               iip: '#3E4A56', helb: '#B5577F', ct: '#4F7DA6', pp: '#4E8A72',
+               reussi: '#4E8F5A', faveur: '#7D5BA6', disponible: '#4F7DA6', attente: '#C27C2C', refuse: '#B8483F',
+               ba1: '#C9A227', ba2: '#5FA8C2', ba3: '#3E4A56', epreuve: '#B8973A',
+               fond_page: '#ECEEF1', fond_indispo: '#E0E3E7', fond_menus: '#E3E6EA', fond_carte: '#F4F5F7', fond_entete: '#DCE0E5',
+               fond_tuile: '#FFFFFF', fond_champ: '#FFFFFF', filet: '#C3C9D0', fenetre_bandeau: '#3E4A56',
+               titre: '#2B323A', intertitre: '#68727E' };
+export const COULEURS_PASTEL = { principal: '#5A6FA8', accent: '#5FAFC2', texte: '#3A4466', donnees: '#7FA7D9', menu_sombre: '#4A5A8A',
+               iip: '#5A6FA8', helb: '#D97FA8', ct: '#7FA7D9', pp: '#6DB896',
+               reussi: '#5BAA7A', faveur: '#9D7FD0', disponible: '#6F9AD6', attente: '#E39A50', refuse: '#DB7070',
+               ba1: '#F3C95C', ba2: '#86CDE3', ba3: '#8C9ED6', epreuve: '#D4B062',
+               fond_page: '#FBF8F4', fond_indispo: '#F1EEF6', fond_menus: '#F6F2FA', fond_carte: '#FDFBF8', fond_entete: '#EEF0FA',
+               fond_tuile: '#FFFFFF', fond_champ: '#FFFFFF', filet: '#E2DDEB', fenetre_bandeau: '#6F82BC',
+               titre: '#4A5788', intertitre: '#878DA8' };
+/** Le thème de chacun : ses couleurs et son jeu de gris. « ecole » : rien par-dessus les couleurs de l'école. */
+export const THEMES_PERSONNELS = {
+  ecole:  { nom: 'Maison IIP', texte: "Les couleurs de l'école", couleurs: null, gris: null },
+  sombre: { nom: 'Sombre', texte: 'Gris foncés, texte clair', couleurs: COULEURS_SOMBRE, gris: 'sombre' },
+  metal:  { nom: 'Métal', texte: 'Acier et gris froids', couleurs: COULEURS_METAL, gris: 'neutre' },
+  pastel: { nom: 'Pastel', texte: 'Tons doux sur fond crème', couleurs: COULEURS_PASTEL, gris: 'neutre' },
+};
+const CLES_PERSO = [...new Set([COULEURS_SOMBRE, COULEURS_METAL, COULEURS_PASTEL].flatMap(Object.keys))];
+function poserThemePerso() {
+  const t = THEMES_PERSONNELS[themeActuel()];
+  if (t?.couleurs) { poser(t.couleurs); poserGris(t.gris); }
+}
+
 /** À l'ouverture de l'application, et après chaque réglage. */
 export async function chargerCouleurs() {
   // Repartir propre : ce que le thème sombre avait posé et que l'école ne règle pas doit s'effacer.
-  poser(Object.fromEntries(Object.keys(COULEURS_SOMBRE).map(k => [k, null])));
+  poser(Object.fromEntries(CLES_PERSO.map(k => [k, null])));
   poser(DEFAUT);
-  if (modeActuel() === 'sombre') { poser(COULEURS_SOMBRE); poserGris('sombre'); }   // tout de suite, sans attendre le serveur
+  poserThemePerso();   // tout de suite, sans attendre le serveur
   try {
     const rep = await fetch('/api/config/couleurs', { headers: authHeaders() });
     if (!rep.ok) return DEFAUT;
     const j = await rep.json();
     poser(j.couleurs);
     poserGris(j.gris);
-    // La nuit, pour soi : le thème sombre par-dessus les couleurs de l'école.
-    if (modeActuel() === 'sombre') { poser(COULEURS_SOMBRE); poserGris('sombre'); }
+    // Le thème de chacun, par-dessus les couleurs de l'école.
+    poserThemePerso();
     return j.couleurs;
   } catch {
     // Hors ligne ou session expirée : les défauts tiennent l'écran debout.

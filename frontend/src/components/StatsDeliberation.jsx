@@ -267,7 +267,7 @@ export default function StatsDeliberation({ annee }) {
                 sous="Un cours n'a pas de décision — le Conseil délibère l'unité. Ce qui se dit d'un cours, c'est la note qu'il a produite : un indicateur d'évaluation, pas de délibération." />
               <div className="overflow-x-auto max-h-[420px]">
                 <table className="w-full text-second">
-                  <thead className="sticky top-0 bg-white">
+                  <thead className="sticky top-0 bande-entete">
                     <tr className="text-slate-500 text-left border-b border-slate-200">
                       <th className="px-3 py-1.5 font-semibold">Cours</th>
                       <th className="px-2 py-1.5 font-semibold text-right">Notes</th>

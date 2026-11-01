@@ -5,7 +5,7 @@ import { useEffect, useState, lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api, getAnnee, setAnnee as setAnneeActive, getUser } from '../lib/api.js';
 import { BoutonAnnulerReglage, useRelireReglages } from '../lib/annulerReglage.jsx';
-import { ORIGINE, COULEURS_SOMBRE, chargerCouleurs, echelleGris, poser as poserCouleurs, poserGris, variables as variablesCouleurs } from '../lib/couleurs.js';
+import { ORIGINE, COULEURS_SOMBRE, COULEURS_METAL, COULEURS_PASTEL, chargerCouleurs, echelleGris, poser as poserCouleurs, poserGris, variables as variablesCouleurs } from '../lib/couleurs.js';
 import Audit from './Audit.jsx';
 import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette, IconArchive, IconAlertTriangle, IconShieldLock, IconDatabase, IconHierarchy, IconArrowsSplit, IconTool, IconSchool, IconStairsUp, IconCalculator, IconLinkOff, IconSend, IconMessageDots, IconId, IconFileDescription, IconKey, IconMailForward, IconUserSearch, IconCoin, IconShape, IconComponents, IconArrowsExchange, IconPower } from '@tabler/icons-react';
 import CatalogueVisuels from '../components/CatalogueVisuels.jsx';
@@ -230,32 +230,34 @@ function cleanSubject(s) {
   return txt.charAt(0).toUpperCase() + txt.slice(1);
 }
 
-// Catégorise un commit par mot-clé pour une petite pastille
+// Catégorise un commit par mot-clé. LA RÈGLE DES COULEURS (29 septembre 2026) : une information est une PASTILLE PLEINE.
 function commitTag(s) {
   const l = s.toLowerCase();
-  // Une catégorie, pas un état : pastilles neutres.
-  if (/^fix|corrig|bug/.test(l)) return { label: 'Correctif', cls: 'border border-slate-200 text-slate-600' };
-  if (/^feat|ajout|nouveau|nouvelle|module/.test(l)) return { label: 'Nouveauté', cls: 'border border-slate-200 text-slate-600' };
-  return { label: 'Amélioration', cls: 'border border-slate-200 text-slate-600' };
+  if (/^fix|corrig|bug/.test(l)) return { label: 'Correctif', etat: 'surveiller' };
+  if (/^feat|ajout|nouveau|nouvelle|module/.test(l)) return { label: 'Nouveauté', etat: 'disponible' };
+  return { label: 'Amélioration', etat: 'reussi' };
 }
 
+/* LES NOUVEAUTÉS AU STANDARD (3.5.037, Charles : « non respect du design ») : une carte par jour, son en-tête de carte,
+   une ligne par version (`.ligne-maison`), la nature en pastille pleine. Les fusions de branches ne sont pas des nouveautés. */
 function ChangelogView({ data }) {
   const days = Object.keys(data.byDay || {}).sort().reverse();
-  if (days.length === 0) return <p className="text-sm text-gray-400">Aucune nouveauté disponible.</p>;
+  const utiles = day => (data.byDay[day] || []).filter(c => !/^merge\b/i.test(c.subject));
+  const jours = days.filter(d => utiles(d).length);
+  if (jours.length === 0) return <p className="text-sm text-slate-500">Aucune nouveauté disponible.</p>;
   return (
-    <div className="space-y-5">
-      {days.map(day => (
-        <div key={day}>
-          <h3 className="titre-carte mb-2 pb-1 border-b border-gray-100">
-            {new Date(day).toLocaleDateString('fr-BE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-          </h3>
-          <ul className="space-y-1.5">
-            {data.byDay[day].map(c => {
+    <div className="space-y-4">
+      {jours.map(day => (
+        <div key={day} className="carte overflow-hidden">
+          <EnteteCarte titre={new Date(day).toLocaleDateString('fr-BE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            sous={`${utiles(day).length} changement${utiles(day).length > 1 ? 's' : ''}`} />
+          <ul>
+            {utiles(day).map(c => {
               const tag = commitTag(c.subject);
               return (
-                <li key={c.hash} className="flex items-start gap-2 text-sm">
-                  <span className={`text-mention px-1.5 py-0.5 rounded font-semibold flex-shrink-0 mt-0.5 ${tag.cls}`}>{tag.label}</span>
-                  <span className="text-gray-700 flex-1" title={c.hash}>{cleanSubject(c.subject)}</span>
+                <li key={c.hash} className="ligne-maison last:border-b-0 flex items-start gap-3 px-4 py-2 text-sm">
+                  <PastilleEtat etat={tag.etat} className="flex-none w-[6.5rem] justify-center mt-0.5">{tag.label}</PastilleEtat>
+                  <span className="flex-1 min-w-0" title={c.hash}>{cleanSubject(c.subject)}</span>
                 </li>
               );
             })}
@@ -1286,9 +1288,7 @@ export default function Configuration() {
 
       {/* ── Onglet Nouveautés ── */}
       {tab === 'changelog' && (
-        <div className="max-w-none carte p-5">
-          <ChangelogView data={changelog} />
-        </div>
+        <ChangelogView data={changelog} />
       )}
 
       {/* ── Onglet Éditeur ── */}
@@ -2132,6 +2132,10 @@ const THEMES = [
      elles, restent sur papier blanc. */
   { cle: 'sombre', nom: 'Sombre', texte: 'Gris foncés, texte clair, bleu éclairci ; les états restent lisibles.', gris: 'sombre',
     valeurs: COULEURS_SOMBRE },
+  /* MÉTAL ET PASTEL (3.5.037) : chacun peut les choisir pour soi (palette de la barre du haut) ; l'école peut aussi les
+     adopter ici pour tout le monde. Mêmes valeurs, écrites une fois (lib/couleurs.js). */
+  { cle: 'metal', nom: 'Métal', texte: 'Acier et gris froids ; les états gardent leur sens.', gris: 'neutre', valeurs: COULEURS_METAL },
+  { cle: 'pastel', nom: 'Pastel', texte: 'Tons doux sur fond crème ; les états gardent leur sens.', gris: 'neutre', valeurs: COULEURS_PASTEL },
 ];
 const GROUPES_COULEURS = [
   ['ecran', 'L’écran', 'Tout ce qui n’est pas un état : le bouton principal, l’accent, le texte, les données, les menus sombres.'],
@@ -2165,9 +2169,9 @@ function ReglageCouleurs() {
     if (d?.valeur) return d.valeur;
     if (d?.suit && catalogue[d.suit]) return v(d.suit);
     // « texte à 6 % » : le mélange du texte et du blanc, comme le fait le CSS.
-    const m = /^texte à (\d+)/.exec(d?.suit || '');
+    const m = /^(texte|principal) à (\d+)/.exec(d?.suit || '');
     if (m) {
-      const k = Number(m[1]) / 100, t = v('texte').slice(1).match(/../g).map(x => parseInt(x, 16));
+      const k = Number(m[2]) / 100, t = v(m[1]).slice(1).match(/../g).map(x => parseInt(x, 16));
       return '#' + t.map(c => Math.round(255 - (255 - c) * k).toString(16).padStart(2, '0')).join('').toUpperCase();
     }
     return '#FFFFFF';

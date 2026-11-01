@@ -603,7 +603,7 @@ export default function RepartitionCours() {
           <table className="w-full text-second" style={{ minWidth: 760 }}>
             <thead>
               <tr>
-                <th rowSpan="2" className="text-left px-3 py-2 bg-slate-50 sticky left-0 z-[2] min-w-[240px] w-[280px] border-b border-slate-200">
+                <th rowSpan="2" className="text-left px-3 py-2 bande-entete sticky left-0 z-[2] min-w-[240px] w-[280px] border-b border-slate-200">
                   <input type="checkbox" className="mr-2 align-middle"
                     checked={etudiants.length > 0 && etudiants.every(e => coches.has(e.id))}
                     onChange={ev => setCoches(ev.target.checked ? new Set(etudiants.map(e => e.id)) : new Set())} />

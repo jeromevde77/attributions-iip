@@ -641,7 +641,7 @@ function SyntheseBudget({ synthese, onOuvrir }) {
     <div className="border border-slate-200 rounded-xl overflow-hidden">
       <table className="w-full text-sm">
         <thead>
-          <tr className="intertitre bg-slate-50 border-b border-slate-200">
+          <tr className="intertitre bande-entete border-b border-slate-200">
             <th className="px-3 py-2 text-left">Section</th>
             <th className="px-3 py-2 text-right w-32">Prévu HTVA</th>
             <th className="px-3 py-2 text-right w-32">Engagé</th>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { IconHistory } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { Tableau, TableauEntete, Th, Td, Tr } from '../components/ui.jsx';
 
 /**
  * QUI A FAIT QUOI.
@@ -115,10 +116,14 @@ export default function Audit() {
           ))}
         </select>
 
-        <input type="date" value={depuis} onChange={e => setDepuis(e.target.value)}
-          title="Depuis" className="controle border border-slate-300 rounded-champ text-sm" />
-        <input type="date" value={jusqu} onChange={e => setJusqu(e.target.value)}
-          title="Jusqu'au" className="controle border border-slate-300 rounded-champ text-sm" />
+        {/* UN CHAMP DE DATE VIDE NE DOIT PAS SE LIRE COMME UNE DATE CHOISIE : Safari y montre le jour en gris pâle.
+            L'étiquette dit ce que c'est (3.5.037, Charles : « non respect du design »). */}
+        <label className="flex items-center gap-1.5 text-second text-slate-500">Du
+          <input type="date" value={depuis} onChange={e => setDepuis(e.target.value)}
+            className="controle border border-slate-300 rounded-champ text-sm" /></label>
+        <label className="flex items-center gap-1.5 text-second text-slate-500">au
+          <input type="date" value={jusqu} onChange={e => setJusqu(e.target.value)}
+            className="controle border border-slate-300 rounded-champ text-sm" /></label>
 
         {(qui || registre || depuis || jusqu) && (
           <button onClick={() => { setQui(''); setRegistre(''); setDepuis(''); setJusqu(''); }}
@@ -138,48 +143,35 @@ export default function Audit() {
           passé : elle veut dire que rien ne correspond à ce qui est demandé ci-dessus.
         </div>
       ) : (
-        <div className="carte overflow-hidden">
-          <table className="w-full text-second">
-            <thead className="tab-entete">
-              <tr>
-                <th className="text-left px-3 py-1.5 w-[140px]">Quand</th>
-                <th className="text-left px-2 py-1.5 w-[170px]">Qui</th>
-                <th className="text-left px-2 py-1.5 w-[110px]">Registre</th>
-                <th className="text-left px-2 py-1.5">Geste</th>
-                <th className="text-left px-2 py-1.5">Sur quoi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {d.lignes.map((l, i) => {
-                const reg = REGISTRES[l.registre] || { label: l.registre, teinte: 'rgb(var(--gris-500))' };
-                return (
-                  <tr key={i} className="border-b border-slate-100">
-                    <td className="px-3 py-1 text-slate-500 whitespace-nowrap">
-                      {String(l.quand || '').slice(0, 16).replace('T', ' ')}
-                    </td>
-                    <td className="px-2 py-1">{(l.qui_nom || '—').trim()}</td>
-                    <td className="px-2 py-1">
-                      {/* Le registre porte sa teinte par un FILET, jamais par
-                          un fond : six pastilles colorées ne signalent plus rien. */}
-                      <span className="pl-1.5 border-l-2" style={{ borderColor: reg.teinte }}>
-                        {reg.label}
-                      </span>
-                    </td>
-                    <td className="px-2 py-1">{GESTES[l.geste] || l.geste}</td>
-                    <td className="px-2 py-1 text-slate-600">
-                      {l.objet}
-                      {(l.section || l.annee || l.detail) && (
-                        <span className="text-slate-400">
-                          {' '}· {[l.section, l.annee, l.detail].filter(Boolean).join(' · ')}
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <Tableau dense>
+          <TableauEntete>
+            <Th largeur="w-[140px]">Quand</Th>
+            <Th largeur="w-[170px]">Qui</Th>
+            <Th largeur="w-[150px]">Registre</Th>
+            <Th>Geste</Th>
+            <Th>Sur quoi</Th>
+          </TableauEntete>
+          <tbody>
+            {d.lignes.map((l, i) => {
+              const reg = REGISTRES[l.registre] || { label: l.registre, teinte: 'rgb(var(--gris-500))' };
+              return (
+                <Tr key={i}>
+                  <Td ton="secondaire" className="whitespace-nowrap">{String(l.quand || '').slice(0, 16).replace('T', ' ')}</Td>
+                  <Td>{(l.qui_nom || '—').trim()}</Td>
+                  {/* Le registre porte sa teinte par un FILET, jamais par un fond : six pastilles colorées ne signalent plus rien. */}
+                  <Td><span className="inline-block pl-1.5 border-l-2 whitespace-nowrap" style={{ borderColor: reg.teinte }}>{reg.label}</span></Td>
+                  <Td>{GESTES[l.geste] || l.geste}</Td>
+                  <Td>
+                    {l.objet}
+                    {(l.section || l.annee || l.detail) && (
+                      <span className="text-slate-500">{' '}· {[l.section, l.annee, l.detail].filter(Boolean).join(' · ')}</span>
+                    )}
+                  </Td>
+                </Tr>
+              );
+            })}
+          </tbody>
+        </Tableau>
       )}
 
       <div className="carte px-4 py-2.5 text-xs text-slate-500 leading-relaxed">
