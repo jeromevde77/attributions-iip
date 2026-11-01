@@ -147,6 +147,7 @@ function BadgeVersion({ versionIsNew, versionDecalee, verServeurNum }) {
           {versionDecalee && (
             <p className="text-xs text-[#B45309] pt-1 leading-snug">Une moitié n'a pas été remplacée : docker compose up -d --force-recreate.</p>
           )}
+          <p className="border-t border-slate-100 pt-1.5 mt-1 text-xs leading-snug text-slate-500">Lucie © {new Date().getFullYear()} <b className="text-iip-blue">Charles Sohet</b> — conçue et développée par lui, tous droits réservés. Version adaptée à l'Institut Ilya Prigogine.</p>
         </div>
       )}
     </span>

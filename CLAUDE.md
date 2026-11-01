@@ -3081,7 +3081,10 @@ une a un corps blanc) et `OutilFenetre` (icône blanche, dans `outils` de `Fenet
 sortie d'une fenêtre (aperçu, imprimer, envoyer, PDF) est un `OutilFenetre` du bandeau.** Pas de cadre dans un cadre, pas de clé
 technique affichée (en `title=`), pas d'émoji dans un bouton. 105 fichiers repris en un passage.
 
-**LE MODE D'EMPLOI DIT QUI EST L'AUTEUR** (3.5.051, Charles : « qu'on comprenne bien que c'est moi l'auteur, ce n'est pas
+**L'AUTEUR DE LUCIE EST CHARLES SOHET** (3.5.053, « je tiens très fort à ma propriété intellectuelle ») : fichier `COPYRIGHT`
+à la racine (tous droits réservés), mention « Lucie © Charles Sohet — tous droits réservés · version adaptée à l'Institut
+Ilya Prigogine » sur la page de connexion, dans la fenêtre du badge de version et au pied du mode d'emploi. À ne jamais
+retirer. **LE MODE D'EMPLOI DIT QUI EST L'AUTEUR** (3.5.051, Charles : « qu'on comprenne bien que c'est moi l'auteur, ce n'est pas
 Prigogine »). Pied de chaque page du PDF : la marque de Lucie et « Lucie — conçue et développée par Charles Sohet · version
 adaptée à l'Institut Ilya Prigogine » ; même mention au pied de la couverture. Les PIÈCES OFFICIELLES gardent le pied de
 l'établissement (`piedDocument`).

@@ -567,6 +567,10 @@ export default function Login() {
         }}>
           FELSI · Établissements libres subventionnés indépendants
         </p>
+        {/* L'AUTEUR (3.5.053, Charles : « je tiens très fort à ma propriété intellectuelle »). */}
+        <p style={{ color:'rgba(255,255,255,.42)', fontSize:'11px', fontFamily:"'Segoe UI',sans-serif", textAlign:'center', marginTop:'6px' }}>
+          Lucie © {new Date().getFullYear()} Charles Sohet — tous droits réservés · version adaptée à l'Institut Ilya Prigogine
+        </p>
       </div>
 
       <style>{`
