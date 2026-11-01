@@ -6,6 +6,8 @@ import {
 import { authHeaders } from '../lib/api.js';
 import { Tableau, TableauEntete, Th, Fenetre } from '../components/ui.jsx';
 import { demander } from '../lib/dialogue.jsx';
+import { useDroits } from '../lib/droits.js';
+import { Enveloppes, Investissements, Inventaire, Parametres, PRIORITES, MOIS } from '../components/BudgetSections.jsx';
 
 /**
  * Gestion budgétaire — par année CIVILE et par section.
@@ -24,7 +26,11 @@ export default function Budget() {
   const [comptes, setComptes] = useState([]);
   const [data, setData] = useState(null);
   const [synthese, setSynthese] = useState(null);
-  const [vue, setVue] = useState('section');        // section | synthese
+  // LE BUDGET DES SECTIONS (1er novembre 2026) : l'enveloppe d'abord ; les lignes, l'inventaire, l'arbitrage, les paramètres.
+  const [vue, setVue] = useState('enveloppes');     // enveloppes | section | investissements | inventaire | synthese | parametres
+  const { passe } = useDroits();
+  const direction = passe('admin', 'directeur', 'directeur_adjoint');
+  const [categories, setCategories] = useState([]);
   const [form, setForm] = useState(null);           // ligne en cours d'édition
   const [depenseFor, setDepenseFor] = useState(null);
   const [message, setMessage] = useState(null);
@@ -41,6 +47,8 @@ export default function Budget() {
         setSections(codes);
         if (codes.length && !section) setSection(codes[0]);
       }).catch(() => {});
+    fetch('/api/budget/categories', { headers: authHeaders() })
+      .then(r => r.json()).then(l => { if (Array.isArray(l)) setCategories(l); }).catch(() => {});
     fetch('/api/budget/comptes', { headers: authHeaders() })
       .then(r => r.json()).then(l => { if (Array.isArray(l)) setComptes(l); }).catch(() => {});
     // eslint-disable-next-line
@@ -48,6 +56,7 @@ export default function Budget() {
 
   async function charger() {
     if (!annee) return;
+    if (!['section', 'synthese'].includes(vue)) return;
     if (vue === 'synthese') {
       const rep = await fetch(`/api/budget/synthese?annee=${annee}`, { headers: authHeaders() });
       setSynthese(rep.ok ? await rep.json() : { sections: [] });
@@ -244,7 +253,8 @@ export default function Budget() {
           {annees.map(a => <option key={a} value={a}>{a}</option>)}
         </select>
         <div className="segments">
-          {[['section', 'Par section'], ['synthese', "Vue d'ensemble"]].map(([v, l]) => (
+          {[['enveloppes', direction ? 'Enveloppes' : 'Mon enveloppe'], ['section', 'Lignes'], ['investissements', 'Investissements'],
+            ['inventaire', 'Inventaire'], ['synthese', 'Exécution'], ...(direction ? [['parametres', 'Paramètres']] : [])].map(([v, l]) => (
             <button key={v} onClick={() => setVue(v)}
               className={`px-3 py-1.5 text-sm ${vue === v
                 ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>
@@ -266,7 +276,15 @@ export default function Budget() {
         )}
       </div>
 
-      {vue === 'synthese' ? (
+      {vue === 'enveloppes' ? (
+        <Enveloppes annee={annee} onOuvrirSection={s => { setSection(s); setVue('section'); }} />
+      ) : vue === 'investissements' ? (
+        <Investissements annee={annee} />
+      ) : vue === 'inventaire' ? (
+        <Inventaire sections={sections} sectionInitiale={section} />
+      ) : vue === 'parametres' ? (
+        <Parametres annee={annee} />
+      ) : vue === 'synthese' ? (
         <SyntheseBudget synthese={synthese} onOuvrir={s => { setSection(s); setVue('section'); }} />
       ) : !data ? (
         <div className="py-10 text-center text-sm text-slate-400">Chargement…</div>
@@ -288,7 +306,7 @@ export default function Budget() {
           </div>
 
           {data.peut_ecrire && (
-            <button onClick={() => setForm({ prix_unitaire: 0, quantite: 1, taux_tva: 0.21, a_charge: 'IIP' })}
+            <button onClick={() => setForm({ prix_unitaire: 0, quantite: 1, taux_tva: 0.21, a_charge: 'IIP', priorite: 'souhaitable' })}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-iip-blue text-white font-semibold rounded-lg">
               <IconPlus size={15} /> Ajouter une prévision
             </button>
@@ -296,6 +314,7 @@ export default function Budget() {
 
           {form && (
             <LigneForm form={form} setForm={setForm} comptes={comptes} sections={sections} sectionCourante={section}
+              categories={categories} seuil={data.seuil ?? 500}
               onEnregistrer={enregistrerLigne} onAnnuler={() => setForm(null)} />
           )}
 
@@ -308,6 +327,7 @@ export default function Budget() {
                 <TableauEntete>
                   <Th>Compte</Th>
                   <Th>Prévision</Th>
+                  <Th largeur="w-32">Nature · priorité</Th>
                   <Th align="droite" largeur="w-24">P.U. HTVA</Th>
                   <Th align="droite" largeur="w-14">Qté</Th>
                   <Th align="droite" largeur="w-28">Total HTVA</Th>
@@ -381,6 +401,12 @@ function LigneBudget({ l, depenses, peutEcrire, onEditer, onSupprimer, onDepense
             </button>
           )}
         </td>
+        <td className="px-2 py-2 text-second whitespace-nowrap">
+          <span className="pastille-etat" style={{ color: '#fff', background: l.nature === 'investissement' ? 'var(--c-disponible)' : 'var(--c-neutre-fort, #64748b)' }}>
+            {l.nature === 'investissement' ? 'Investissement' : 'Fonctionnement'}</span>
+          <span className="block text-mention text-slate-500 mt-0.5">{PRIORITES[l.priorite] || ''}{l.mois ? ` · ${MOIS[l.mois - 1]}` : ''}
+            {l.statut === 'arbitre' ? ' · retenue' : l.statut === 'refuse' ? ' · refusée' : ''}</span>
+        </td>
         <td className="px-2 py-2 text-right text-second">{eur(l.prix_unitaire)}</td>
         <td className="px-2 py-2 text-right text-second">{l.quantite}</td>
         <td className="px-2 py-2 text-right text-sm font-semibold text-iip-blue">{eur(l.total_htva)}</td>
@@ -404,7 +430,7 @@ function LigneBudget({ l, depenses, peutEcrire, onEditer, onSupprimer, onDepense
       {ouvert && depenses.map(d => (
         <tr key={d.id} className="bg-slate-50/60 border-b border-slate-100">
           <td></td>
-          <td className="px-3 py-1 text-second text-slate-600" colSpan={3}>
+          <td className="px-3 py-1 text-second text-slate-600" colSpan={4}>
             <span className="text-slate-400 mr-2">{d.date_depense}</span>{d.libelle}
             {d.piece && <span className="text-slate-400 ml-2">pièce {d.piece}</span>}
           </td>
@@ -424,9 +450,12 @@ function LigneBudget({ l, depenses, peutEcrire, onEditer, onSupprimer, onDepense
 }
 
 // ── Formulaire de prévision ────────────────────────────────────────────────
-function LigneForm({ form, setForm, comptes, sections = [], sectionCourante, onEnregistrer, onAnnuler }) {
+function LigneForm({ form, setForm, comptes, sections = [], sectionCourante, categories = [], seuil = 500, onEnregistrer, onAnnuler }) {
   const total = Number(form.prix_unitaire || 0) * Number(form.quantite || 0);
   const maj = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  // LA NATURE SE CALCULE (guide A.6) : le prix UNITAIRE HT contre le seuil de l'année — jamais saisie.
+  const invest = Math.round(Number(form.prix_unitaire || 0) * 100) >= Math.round(Number(seuil) * 100);
+  const groupes = [...new Set(categories.map(c => c.groupe))];
   return (
     <div className="border border-iip-turquoise/40 rounded-xl p-4 bg-iip-turquoise/5 space-y-3">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -437,6 +466,47 @@ function LigneForm({ form, setForm, comptes, sections = [], sectionCourante, onE
             className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white">
             {sections.map(s0 => <option key={s0} value={s0}>{s0}</option>)}
           </select>
+        </label>
+        <label className="text-xs">
+          <span className="intertitre block mb-1">Catégorie</span>
+          <select value={form.categorie_id || ''} onChange={e => maj('categorie_id', e.target.value ? Number(e.target.value) : null)}
+            className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white">
+            <option value="">— Choisir —</option>
+            {groupes.map(g => <optgroup key={g} label={g}>{categories.filter(c => c.groupe === g).map(c => <option key={c.id} value={c.id}>{c.libelle}</option>)}</optgroup>)}
+          </select>
+        </label>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="text-xs">
+            <span className="intertitre block mb-1">Priorité</span>
+            <select value={form.priorite || 'souhaitable'} onChange={e => maj('priorite', e.target.value)}
+              className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white">
+              {Object.entries(PRIORITES).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+            </select>
+          </label>
+          <label className="text-xs">
+            <span className="intertitre block mb-1">Mois d'achat prévu</span>
+            <select value={form.mois || ''} onChange={e => maj('mois', e.target.value ? Number(e.target.value) : null)}
+              className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white">
+              <option value="">—</option>
+              {MOIS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+            </select>
+          </label>
+        </div>
+        <label className="text-xs md:col-span-2">
+          <span className="intertitre block mb-1">Justification (pédagogique ou pratique)</span>
+          <textarea rows={2} value={form.justification || ''} onChange={e => maj('justification', e.target.value)}
+            data-reponses="budget-justification"
+            placeholder="À quel acquis d'apprentissage ou à quel problème cela répond-il ?"
+            className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white" />
+        </label>
+        <label className="text-xs">
+          <span className="intertitre block mb-1">Devis (référence, facultatif)</span>
+          <input value={form.devis || ''} onChange={e => maj('devis', e.target.value)} placeholder="Fournisseur, n° et date du devis"
+            className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white" />
+        </label>
+        <label className="text-xs flex items-center gap-2 pt-5">
+          <input type="checkbox" checked={!!form.tronc_commun} onChange={e => maj('tronc_commun', e.target.checked)} />
+          Matériel du tronc commun (Optométrie / Orthoptie)
         </label>
         <label className="text-xs md:col-span-2">
           <span className="intertitre block mb-1">Compte général</span>
@@ -486,6 +556,9 @@ function LigneForm({ form, setForm, comptes, sections = [], sectionCourante, onE
       </div>
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="text-sm text-slate-600">
+          <span className="pastille-etat mr-2" style={{ color: '#fff', background: invest ? 'var(--c-disponible)' : '#64748b' }}>
+            {invest ? 'Investissement' : 'Fonctionnement'}</span>
+          {invest && <span className="text-second mr-2">(prix unitaire ≥ {eur(seuil)} HT : arbitré par la direction, hors enveloppe)</span>}
           Total HTVA <b className="text-iip-blue">{eur(total)}</b> ·
           TVAC <b>{eur(total * (1 + Number(form.taux_tva ?? 0.21)))}</b>
         </div>
