@@ -49,7 +49,10 @@ export default function SaisieAnnexe({ annexe, membre, annee, moisInitial, onFer
     } catch (e) { setErreur(e.message); return false; } finally { setBusy(null); }
   };
   const produire = async format => {
-    if (sale && !(await enregistrer())) return;
+    /* PRODUIRE, C'EST VALIDER CE QU'ON VOIT (3.5.052, Charles devant l'A27 : « ? » — les dates étaient déjà reprises de
+       l'horaire, et la pièce répondait « pas encore complétée dans Lucie »). Une proposition jamais enregistrée l'est d'abord,
+       au nom de la personne qui clique ; la pièce sort ensuite. */
+    if ((sale || !info?.enregistre) && !(await enregistrer())) return;
     setBusy(format); setErreur(null);
     try {
       const r = await fetch(`/api/formulaires/${annexe.cle}?${q()}${format === 'pdf' ? '&format=pdf' : ''}`, { headers: authHeaders() });
