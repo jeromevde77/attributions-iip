@@ -93,8 +93,15 @@ case "$VERBE" in
     # échoue, rien n'est mis à jour.
     sauvegarder merge
     cd "$LUCIE"
-    docker compose pull backend frontend
-    docker compose up -d --force-recreate backend frontend
+    # RÉTABLI LE 1er NOVEMBRE 2026 (Charles : « Claude la lance ») : l'espace des étudiants avec Lucie, et le second
+    # passage quand le conflit de nom arrête le premier (la panne de septembre et d'octobre).
+    PORTAIL=$(grep -oE '^  portail-(backend|frontend):' docker-compose.yml | tr -d ' :' | tr '\n' ' ')
+    echo "Portail de la production : ${PORTAIL:-absent du docker-compose}"
+    docker compose pull backend frontend $PORTAIL
+    if ! docker compose up -d --force-recreate backend frontend $PORTAIL; then
+      echo "Conflit au premier passage : second passage."; sleep 5
+      docker compose up -d --force-recreate backend frontend $PORTAIL
+    fi
     journal "ok"; sleep 8; version ;;
 
   lecture)
