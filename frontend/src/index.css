@@ -975,7 +975,9 @@ select[multiple], select[size]:not([size="1"]) {
  * la première. Seule la DONNÉE est blanche — et c'est ainsi qu'on la voit.
  */
 .tab-repere {
-  background: var(--c-fond_entete, var(--fond-bande));
+  /* LA LIGNE DE REGROUPEMENT N'EST PAS UN EN-TÊTE (3.5.042, Charles : « ce n'est pas un haut de fenêtre, ce doit être
+     blanc ») : elle a son réglage propre, « Lignes de regroupement », qui suit les cartes (blanc) tant qu'on n'y touche pas. */
+  background: var(--c-fond_regroupement, var(--tab-repere));
   border-top: 1px solid var(--menu-bord);
   border-bottom: 1px solid var(--menu-bord);
   color: var(--menu-texte);

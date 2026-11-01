@@ -3113,8 +3113,9 @@ présté par semaine, presté / dû / solde de l'année, présents par semaine �
 **TOUT TABLEAU SUIT LES RÉGLAGES, ET CHACUN CHOISIT SON THÈME** (3.5.037, Charles, 1er novembre 2026 : « non respect du
 design » sur Qui a fait quoi, Nouveautés, la liste des étudiants, l'encodage rapide, les recours ; « ce doit être géré dans
 paramètres, TOUJOURS identique » ; « TOUT paramétrable dans Configuration » ; « que TOUT le monde ait le choix entre des
-thèmes : Maison IIP, Sombre, Métal, Pastel »). (1) **Une seule bande** : l'en-tête d'un tableau, la ligne de regroupement,
-l'en-tête d'une carte et d'un panneau prennent `--c-fond_entete` (Thèmes et couleurs → Surfaces, « En-têtes de tableau et
+thèmes : Maison IIP, Sombre, Métal, Pastel »). (1) **Une seule bande** : l'en-tête d'un tableau, l'en-tête d'une carte et d'un panneau prennent `--c-fond_entete` ;
+**une ligne de regroupement (`.tab-repere`, sections repliables) n'est PAS un en-tête** (3.5.042, Charles : « ce doit être
+blanc ») : `--c-fond_regroupement`, qui suit les cartes — (Thèmes et couleurs → Surfaces, « En-têtes de tableau et
 de carte », défaut : le principal à 5 %, `--fond-bande`) — elle était blanche, ton sur ton. (2) **Le défaut s'applique à
 tout tableau** (`index.css`, règles `#root thead/tbody`) : bande, taille, casse et couleur de l'en-tête, filets, lignes
 alternées et survol de Formes et composants → Tableaux, même pour un tableau écrit à la main ; hors règle :

@@ -68,7 +68,8 @@ export const COULEURS_DEFAUT = {
   // un seul sol par défaut, et rien ne change pour qui ne touche à rien.
   fond_menus:      { groupe: 'surfaces', libelle: 'Rail et barre du haut', valeur: null, suit: 'fond_page' },
   fond_carte:      { groupe: 'surfaces', libelle: 'Cartes, listes, panneaux', valeur: null, suit: 'fond_page' },
-  fond_entete:     { groupe: 'surfaces', libelle: 'En-têtes de tableau et de carte, lignes de regroupement', valeur: null, suit: 'principal à 5 %' },
+  fond_entete:     { groupe: 'surfaces', libelle: 'En-têtes de tableau et de carte', valeur: null, suit: 'principal à 5 %' },
+  fond_regroupement: { groupe: 'surfaces', libelle: 'Lignes de regroupement (sections repliables)', valeur: null, suit: 'fond_carte' },
   fond_ligne:      { groupe: 'surfaces', libelle: 'Lignes de tableau', valeur: '#FFFFFF' },
   fond_survol:     { groupe: 'surfaces', libelle: 'Survol d’une ligne ou d’une entrée', valeur: null, suit: 'texte à 6 %' },
   fond_tuile:      { groupe: 'surfaces', libelle: 'Tuiles et encadrés', valeur: '#FFFFFF' },

@@ -84,7 +84,7 @@ export const ajouts = {
       titre: "Une seule bande pour les en-têtes, partout",
       pour: 'dir',
       ou: "Configuration → Thèmes et couleurs → Les surfaces · Formes et composants → Tableaux.",
-      texte: "L'en-tête de chaque tableau, la ligne qui regroupe des lignes, l'en-tête des cartes et des panneaux portent la même bande, réglée une fois : « En-têtes de tableau et de carte, lignes de regroupement » (par défaut, le bleu de l'école très pâle). La taille et la casse du texte d'en-tête, les filets, les lignes alternées et le survol se règlent dans Formes et composants → Tableaux — et valent pour TOUS les tableaux de Lucie, y compris les plus anciens.",
+      texte: "L'en-tête de chaque tableau, l'en-tête des cartes et des panneaux portent la même bande, réglée une fois : « En-têtes de tableau et de carte » (par défaut, le bleu de l'école très pâle). Les lignes qui regroupent et se replient (les sections des attributions, par exemple) ne sont pas des en-têtes : elles restent blanches, et ont leur propre réglage, « Lignes de regroupement ». La taille et la casse du texte d'en-tête, les filets, les lignes alternées et le survol se règlent dans Formes et composants → Tableaux — et valent pour TOUS les tableaux de Lucie, y compris les plus anciens.",
       savoir: [
         "Les textes publiés de la Documentation gardent les tableaux de leur document d'origine.",
       ],
