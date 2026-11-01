@@ -250,6 +250,17 @@ export const DOCUMENTS = [
     destinataires: 'etudiant',
     roles: ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'],
   },
+  {
+    cle: 'cep_seconde_session',
+    libelle: "Congé-éducation payé — attestation de seconde session d'examens",
+    description: "Annexe II de l'A.M. du 20 août 1985 : les unités ajournées et les dates de seconde session ; une fois la seconde session délibérée, elle confirme la participation.",
+    portee: 'etudiant', lot: false, groupe: 'Étudiants',
+    route: { methode: 'GET', chemin: '/api/cep/etudiant/:id/piece/seconde_session' },
+    parametres: ['annee'],
+    nomFichier: 'CEP_Seconde-session_{nom}_{prenom}_{annee}',
+    destinataires: 'etudiant',
+    roles: ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'],
+  },
 ];
 
 /** Le catalogue taillé au périmètre de la personne. */

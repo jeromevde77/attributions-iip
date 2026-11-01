@@ -142,6 +142,8 @@ export default function PiecesEtudiant({ etud, annee }) {
         clic: () => apercu('cep-i', `/api/cep/etudiant/${id}/piece/inscription?annee=${a}`, "Attestation d'inscription — CEP", 'cep_inscription') },
       { cle: 'cep-a', icone: IconBriefcase, titre: "Attestation d'assiduité", sous: 'Par période de trois mois',
         clic: () => apercu('cep-a', `/api/cep/etudiant/${id}/piece/assiduite?annee=${a}`, "Attestation d'assiduité — CEP", 'cep_assiduite') },
+      { cle: 'cep-s', icone: IconBriefcase, titre: 'Attestation de seconde session', sous: 'Unités ajournées et dates de seconde session',
+        clic: () => apercu('cep-s', `/api/cep/etudiant/${id}/piece/seconde_session?annee=${a}`, 'Attestation de seconde session — CEP', 'cep_seconde_session') },
     ]]] : []),
     ...(dossierAR ? [['Aménagements raisonnables', [
       ['formulaire', 'Demande (cadres A et B)', 'Pièce confidentielle'],

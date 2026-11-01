@@ -45,9 +45,12 @@ export default function OngletCep({ etudId, annee }) {
     if (!r.ok) { setMessage({ etat: 'corriger', texte: j.error || `Erreur ${r.status}` }); return; }
     setEdition(null); setRecharge(x => x + 1);
   };
+  // UNE ATTESTATION REFAITE PORTE « CORRECTION » (vade-mecum du SPW) : la date de celle qu'elle remplace.
+  const [correction, setCorrection] = useState('');
   const piece = async (type, ue = null) => {
     setMessage(null);
-    const r = await fetch(`/api/cep/etudiant/${etudId}/piece/${type}?annee=${encodeURIComponent(annee)}${ue ? `&ue=${ue}` : ''}`,
+    const r = await fetch(`/api/cep/etudiant/${etudId}/piece/${type}?annee=${encodeURIComponent(annee)}${ue ? `&ue=${ue}` : ''}${
+      correction ? `&correction=${correction}` : ''}`,
       { headers: authHeaders() });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) { setMessage({ etat: 'corriger', texte: j.error || `Erreur ${r.status}` }); return; }
@@ -140,7 +143,20 @@ export default function OngletCep({ etudId, annee }) {
               onClick={() => piece('inscription')}><IconFileText size={14} /> Attestation d'inscription — toutes les unités</button>
             <button type="button" className="bouton bouton-sortir inline-flex items-center gap-1.5"
               onClick={() => piece('assiduite')}><IconFileText size={14} /> Attestation d'assiduité — toutes les unités</button>
+            <button type="button" className="bouton bouton-sortir inline-flex items-center gap-1.5"
+              onClick={() => piece('seconde_session')}><IconFileText size={14} /> Attestation de seconde session</button>
           </div>
+          <label className="inline-flex items-center gap-2 text-second text-slate-600">
+            <input type="checkbox" checked={!!correction} onChange={e => setCorrection(e.target.checked ? new Date().toISOString().slice(0, 10) : '')} />
+            Correction d'une attestation déjà remise
+            {correction && <>, délivrée le <input type="date" className="controle py-0 h-8" value={correction} onChange={e => setCorrection(e.target.value)} /></>}
+          </label>
+          <Encadre etat="neutre" titre="Les délais de l'école">
+            Inscription régulière : dans les 20 jours du début de la formation (8 jours après une inscription tardive) — l'étudiant
+            la remet à son employeur au plus tard le 31 octobre, ou dans les 15 jours d'une inscription tardive.
+            Assiduité : dans les 8 jours après la fin de chaque période de trois mois. Seconde session : dans les 8 jours après
+            la fin de la première session. Plus de 10 % d'absences injustifiées sur une période suspend le droit six mois.
+          </Encadre>
 
           <div className="border border-slate-200 rounded-carte overflow-x-auto">
             <table className="w-full text-second">

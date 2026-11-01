@@ -132,7 +132,7 @@ r.get('/etudiant/:id/piece/:type', authRequired, peutCep, (req, res) => {
   if (!TYPES_PIECE_CEP[req.params.type]) return res.status(400).json({ error: 'pièce inconnue' });
   const d = chargerCep(Number(req.params.id), annee);
   if (d.erreur) return res.status(d.code || 400).json({ error: d.erreur });
-  const p = composerPieceCep(req.params.type, d, { ue: req.query.ue || null });
+  const p = composerPieceCep(req.params.type, d, { ue: req.query.ue || null, correction: req.query.correction || null });
   if (p.erreur) return res.status(p.code || 400).json({ error: p.erreur, manques: p.manques || [] });
   res.json({ html: p.html, nom: p.nom, titre: TYPES_PIECE_CEP[req.params.type], etudiant_id: d.etudiant.id });
 });

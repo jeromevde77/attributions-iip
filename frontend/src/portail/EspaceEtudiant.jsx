@@ -786,7 +786,7 @@ function FraisEstimes({ tarif, ues }) {
 
 /** LE PAE EN LIGNE (3.1.515) : Lucie coche ce qui est accessible ; l'étudiant choisit et envoie ; la coordination valide
  *  ou corrige ; une fois le PAE confirmé par l'école, il le confirme à son tour par un code. */
-function MonPAE({ onErreur }) {
+function MonPAE({ onErreur, email }) {
   const [p, setP] = useState(null);
   const [choix, setChoix] = useState(null);
   const [code, setCode] = useState('');
@@ -844,7 +844,10 @@ function MonPAE({ onErreur }) {
         </ul>
         <FraisEstimes tarif={o.tarif} ues={o.programme || []} />
         {!signe && !attend && (codeEnvoye ? (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="w-full text-sm text-slate-600">Un code à six chiffres vient de partir par courriel{email ? <> à <b>{email}</b></> : ' à votre adresse'} ;
+              il vaut 10 minutes. Rien reçu ? Regardez les indésirables, ou{' '}
+              <button type="button" className="underline text-iip-blue" onClick={() => setCodeEnvoye(false)}>demandez-en un autre</button>.</p>
             <input value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" placeholder="Code reçu"
               className="controle w-36 text-center tracking-widest" autoComplete="one-time-code" />
             <button type="button" className="bouton bouton-fort" disabled={code.length !== 6 || enCours}
@@ -1223,7 +1226,7 @@ function Espace() {
         {d?.candidat && <div className="bloc-etat px-3 py-2 text-sm" data-etat="disponible">Accès par code, jusqu’au {jourFr(d.candidat.jusqu_au)} ou
           jusqu’à votre adresse de l’institut.</div>}
         {face === 'va' && <MesValorisations onErreur={echec} />}
-        {face === 'pae' && <MonPAE onErreur={echec} />}
+        {face === 'pae' && <MonPAE onErreur={echec} email={d?.etudiant?.email} />}
         {face === 'messages' && <MesMessages onErreur={echec} onLus={setNonLus} />}
         {face === 'compte' && <div className="space-y-4">
           <ChoisirMotDePasse avecActuel />
