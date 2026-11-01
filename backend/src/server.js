@@ -3267,6 +3267,7 @@ app.use('/api/config',          garderModule('config'), (await import('./routes/
 app.use('/api/annulation', (await import('./routes/annulation.js')).default);
 app.use('/api/communication', (await import('./routes/communication.js')).default);
 app.use('/api/equipe', (await import('./routes/equipe.js')).default);
+app.use('/api/temps-travail', (await import('./routes/tempsTravail.js')).default);
 app.use('/api/transferts', (await import('./routes/transferts.js')).default);
 app.use('/api/analyse-cv',      garderModule('analyse-cv'), (await import('./routes/analyseCv.js')).default);
 app.use('/api/dossiers-rh',     garderModule('dossiers-rh'), (await import('./routes/dossiersRh.js')).default);

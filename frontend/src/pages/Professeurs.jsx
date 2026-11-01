@@ -10,7 +10,7 @@ import { api, getAnnee, getUser, nomDoc, authHeaders } from '../lib/api.js';
 import ProfFicheModal from './ProfFicheModal.jsx';
 import PreviewModal, { IconeApercu } from '../components/PreviewModal.jsx';
 import CoursEditModal from '../components/CoursEditModal.jsx';
-import { IconSend, IconAlertTriangle, IconAddressBook, IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck, IconBriefcase, IconTargetArrow, IconChevronDown, IconChevronRight, IconChevronLeft, IconUsers, IconSchool, IconUserPlus, IconBuilding, IconBuildingBank, IconFileDescription, IconFileImport, IconFileTypePdf, IconFileTypeDocx } from '@tabler/icons-react';
+import { IconSend, IconAlertTriangle, IconAddressBook, IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck, IconBriefcase, IconTargetArrow, IconChevronDown, IconChevronRight, IconChevronLeft, IconUsers, IconSchool, IconUserPlus, IconBuilding, IconBuildingBank, IconFileDescription, IconFileImport, IconFileTypePdf, IconFileTypeDocx, IconClockHour4 } from '@tabler/icons-react';
 import { MODULES_ACCES, ROLES_LUCIE, estDirection } from '../lib/modules.js';
 import { RailLateral, OuvrirEditions, Fenetre, Encadre, OutilFenetre, EnteteCarte } from '../components/ui.jsx';
 import ImportPersonnelFwb from '../components/ImportPersonnelFwb.jsx';
@@ -23,6 +23,7 @@ import ImportPersonnelFwb from '../components/ImportPersonnelFwb.jsx';
    les autres. */
 const Besoins = lazy(() => import('./Besoins.jsx'));
 const Classement = lazy(() => import('./Classement.jsx'));
+const TempsTravail = lazy(() => import('./TempsTravail.jsx'));
 import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
 
 /**
@@ -1473,6 +1474,8 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
   // La rubrique ouverte dans l'axe Personnel : la liste des membres, ou l'une
   // des deux faces qui s'en détachaient en emportant le rail.
   const [vue, setVue] = useState(vueInitiale);
+  const [ttMoi, setTtMoi] = useState(null);
+  useEffect(() => { fetch('/api/temps-travail/moi', { headers: authHeaders() }).then(r => (r.ok ? r.json() : null)).then(setTtMoi).catch(() => {}); }, []);
   const [sortBy, setSortBy] = useState({ key: 'nom_prenom', dir: 'asc' });
   const [deleting, setDeleting] = useState(null);
   const [selection, setSelection] = useState(new Set());
@@ -2307,6 +2310,10 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
                donc il ne perd pas la navigation en s'ouvrant. */
             { key: 'nav-recrutement', label: 'Recrutement', icon: IconBriefcase, actif: false, onClick: () => navigate('/recrutement') },
           ]}] : []),
+          // LE TEMPS DE TRAVAIL (3.5.039) : la direction, et les personnes qu'elle a désignées (le secrétariat).
+          ...(ttMoi?.gere || ttMoi?.designe ? [{ label: 'Temps de travail', items: [
+            { key: 'nav-temps', label: 'Temps de travail', icon: IconClockHour4, actif: vue === 'temps', onClick: () => setVue('temps') },
+          ]}] : []),
           ...(estDirection(getUser()) ? [{ label: 'Carrière', items: [
             { key: 'nav-classement', label: 'Classement & prioritaires', icon: IconFileDescription,
               actif: vue === 'classement', onClick: () => setVue('classement') },
@@ -2322,6 +2329,7 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
         <Suspense fallback={<div className="p-8 text-slate-400 text-sm">Chargement…</div>}>
           {vue === 'besoins' && <Besoins />}
           {vue === 'classement' && <Classement />}
+          {vue === 'temps' && <TempsTravail />}
         </Suspense>
       ) : (<>
       {/* UN SEUL FORMAT DE TITRE, celui de PageHeader : icône turquoise,

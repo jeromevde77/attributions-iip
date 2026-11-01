@@ -3081,6 +3081,20 @@ une a un corps blanc) et `OutilFenetre` (icône blanche, dans `outils` de `Fenet
 sortie d'une fenêtre (aperçu, imprimer, envoyer, PDF) est un `OutilFenetre` du bandeau.** Pas de cadre dans un cadre, pas de clé
 technique affichée (en `title=`), pas d'émoji dans un bouton. 105 fichiers repris en un passage.
 
+**LE TEMPS DE TRAVAIL DU SECRÉTARIAT** (3.5.039, Charles, 1er novembre 2026 — courriel à Nicolas : 36 h effectives par
+semaine, pause de 15 min au-delà de 6 h, 8 h/jour (9 h en 4 jours ou horaire variable au règlement de travail), 11 h de
+repos, semaines flexibles art. 20bis, 13 semaines de congés, 39 × 36 = 1 404 h ; « un générateur annuel qui respecte le décret
+et calcule le temps de travail » ; choix recommandés retenus : l'horaire PRÉVU fait foi et l'on n'encode que les écarts ;
+relevé signé personne → direction adjointe → direction ; fiche de congés direction adjointe → direction ; chacun lit son
+relevé et le planning de l'équipe ; la direction désigne les comptes). Personnel → rail → *Temps de travail*
+(`pages/TempsTravail.jsx`, `routes/tempsTravail.js` sur `/api/temps-travail`, moteur `lib/tempsTravail.js`, tables
+`tt_personne`, `tt_semaine`, `tt_ecart`, `tt_signature` en ajout seul). Le générateur pose les 52 semaines (congés scolaires
+lus du calendrier « vacances » de l'école, cinq semaines d'été dans la fenêtre réglable, formule 5 j / 4 × 9 h / annualisé
+avec semaines fortes compensées) et contrôle chaque règle ; un férié pendant une semaine de travail compte pour ses heures
+prévues. Le mois signé par la direction se verrouille. L'annualisé ne s'applique qu'une fois coché « horaire variable inscrit
+au règlement de travail » (Personnes et réglages). L'année du module est la sienne (celle d'aujourd'hui). Banc :
+`backend/test/tempsTravail.mjs` (35 ok).
+
 **TOUT TABLEAU SUIT LES RÉGLAGES, ET CHACUN CHOISIT SON THÈME** (3.5.037, Charles, 1er novembre 2026 : « non respect du
 design » sur Qui a fait quoi, Nouveautés, la liste des étudiants, l'encodage rapide, les recours ; « ce doit être géré dans
 paramètres, TOUJOURS identique » ; « TOUT paramétrable dans Configuration » ; « que TOUT le monde ait le choix entre des
