@@ -486,7 +486,8 @@ function MesValorisations({ onErreur }) {
               <input type="checkbox" className="mt-0.5" checked={certifie} onChange={e => setCertifie(e.target.checked)} />
               Je certifie que toutes les informations renseignées dans ma demande de valorisation sont exactes.</label>
             {/* LE DERNIER GESTE SE VOIT (Charles, 31 octobre 2026 : « en vert avec un petit V, sinon ils ne verront pas »). */}
-            <button type="button" className="bouton w-full inline-flex items-center justify-center gap-2 font-semibold disabled:opacity-50"
+            {/* Sur téléphone, le libellé passe à la ligne : `.bouton` ne le permet pas (3.5.022). */}
+            <button type="button" className="bouton w-full inline-flex items-center justify-center gap-2 font-semibold disabled:opacity-50 !whitespace-normal !h-auto py-2 text-center leading-snug"
               disabled={enCours || attend || !certifie || incomplets.length > 0}
               style={{ background: ETAT_COULEUR.reussi, borderColor: ETAT_COULEUR.reussi, color: '#fff' }}
               onClick={() => geste('/va/terminer', null, () => { setCertifie(false); setMessage('C’est noté : l’accusé de réception part à votre adresse dans la minute. Il reste dans vos documents.'); })}>
