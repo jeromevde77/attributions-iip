@@ -5,6 +5,7 @@ import { choisir, demander, informer, saisir } from '../lib/dialogue.jsx';
 import { passeRole } from '../lib/droits.js';
 import { teinteCours, styleTuileCours } from '../lib/teinteCours.js';
 import { ouvrirApercu } from '../lib/apercu.js';
+import { EnteteCarte } from '../components/ui.jsx';
 
 /**
  * LES GROUPES COMMUNS (Charles, 9 octobre 2026 : « des TP par 4, par 6, par 8
@@ -143,10 +144,8 @@ export default function GroupesCommuns({ sectionImposee = null, blocImpose = nul
 
       {c && (
         <div className="carte overflow-hidden">
-          <div className="px-3 py-2 border-b border-slate-200 flex items-center gap-3 flex-wrap">
-            <b className="text-sm">Activités à groupes — {section} · {bloc}</b>
-            <span className="text-second text-slate-600">{c.etudiants.length} étudiant(s) · <b>{B} brique(s)</b> : le plus petit nombre qui convient à tous les découpages cochés</span>
-          </div>
+          <EnteteCarte titre={`Activités à groupes — ${section} · ${bloc}`}
+            sous={<>{c.etudiants.length} étudiant(s) · <b>{B} brique(s)</b> : le plus petit nombre qui convient à tous les découpages cochés</>} />
           <table className="w-full text-second">
             <thead><tr className="tab-entete text-left">
               <th className="px-3 py-1.5">Dans les briques</th><th className="px-3 py-1.5">Cours · activité</th>

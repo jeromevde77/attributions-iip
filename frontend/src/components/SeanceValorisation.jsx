@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { IconAlertTriangle, IconFileTypePdf, IconPrinter, IconSend } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
-import { Fenetre } from './ui.jsx';
+import { Fenetre, OutilFenetre } from './ui.jsx';
 import { ouvrirApercu } from '../lib/apercu.js';
 import { peutGeste } from '../lib/droits.js';
 import { useEnvoiMail } from '../lib/envoiMail.js';
@@ -165,16 +165,14 @@ export default function SeanceValorisation({ ueNum, ueNom, annee, onClose }) {
     <Fenetre icone={IconPrinter} large="moyenne" onFermer={onClose}
       titre={`Valorisation des acquis — UE ${ueNum}`}
       sous={`${ueNom || etat?.ue?.ue_nom || ''} · ${annee}`}
-      pied={<>
-        <button onClick={produire} disabled={enCours}
-          className="bouton bouton-sortir disabled:opacity-50">
-          <IconPrinter size={15} /> Produire le PV et les attestations
-        </button>
+      outils={<>
+        <OutilFenetre Icone={IconPrinter} titre="Produire le PV et les attestations" onClick={produire} disabled={enCours} />
+        {doc && <OutilFenetre Icone={IconFileTypePdf} titre="PDF" onClick={() => enPdf(doc.html, doc.nom)} disabled={enCours} />}
         {attestations.length > 0 && envoiMail?.actif && peutGeste('envois.envoyer') && (
-          <button onClick={() => setEnvoi(true)} disabled={enCours} className="bouton bouton-sortir"
-            title="Chaque étudiant reçoit sa propre attestation — le procès-verbal ne part pas">
-            <IconSend size={15} /> Envoyer aux étudiants ({attestations.length})
-          </button>)}
+          <OutilFenetre Icone={IconSend} titre={`Envoyer aux étudiants (${attestations.length}) — chaque étudiant reçoit sa propre attestation, le procès-verbal ne part pas`}
+            onClick={() => setEnvoi(true)} disabled={enCours} />)}
+      </>}
+      pied={<>
         <button onClick={enregistrer} disabled={enCours} className="bouton">
           Enregistrer la séance
         </button>
@@ -261,11 +259,11 @@ export default function SeanceValorisation({ ueNum, ueNom, annee, onClose }) {
           </div>
 
           {!!manques.length && (
-            <div className="carte border-amber-300 bg-amber-50/60 px-3 py-2 border-l-4 border-l-amber-500">
-              <div className="flex items-center gap-1.5 text-second font-semibold text-amber-800">
+            <div className="bloc-etat px-3 py-2" data-etat="surveiller">
+              <div className="flex items-center gap-1.5 text-second font-semibold">
                 <IconAlertTriangle size={14} /> À encoder avant impression
               </div>
-              <ul className="mt-1 text-xs text-amber-900 list-disc pl-5 space-y-0.5">
+              <ul className="mt-1 text-xs list-disc pl-5 space-y-0.5">
                 {manques.map((m, i) => <li key={i}>{m}</li>)}
               </ul>
             </div>
@@ -278,16 +276,10 @@ export default function SeanceValorisation({ ueNum, ueNom, annee, onClose }) {
               pied qu'une fois, à la fin. Le A4 et le pied répété se garantissent
               côté serveur, pas dans un onglet. */}
           {doc && (
-            <div className="bloc-etat etat-neutre flex items-center gap-2 text-second px-3 py-2 border-l-[color:var(--c-epreuve)]">
-              <span className="flex-1">
-                L'onglet ouvert est un <b>aperçu</b>. Pour la pièce elle-même —
-                A4 garanti, pied de page sur chaque feuille — prends le PDF.
-              </span>
-              <button onClick={() => enPdf(doc.html, doc.nom)} disabled={enCours}
-                className="bouton bouton-sortir text-second px-2.5 py-1 disabled:opacity-50">
-                <IconFileTypePdf size={14} /> PDF
-              </button>
-            </div>
+            <p className="text-second text-slate-600">
+              L'onglet ouvert est un <b>aperçu</b>. Pour la pièce elle-même —
+              A4 garanti, pied de page sur chaque feuille — prends le PDF.
+            </p>
           )}
           {erreur && <div className="text-second text-rose-700">{erreur}</div>}
 

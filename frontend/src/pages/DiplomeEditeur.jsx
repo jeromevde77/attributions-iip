@@ -3,6 +3,7 @@ import { estDirection } from '../lib/modules.js';
 import { IconDeviceFloppy, IconEye, IconRefresh, IconPhoto, IconX, IconArrowUp, IconArrowDown, IconPlus, IconSignature } from '@tabler/icons-react';
 import { ouvrirApercu } from '../lib/apercu.js';
 import { demander } from '../lib/dialogue.jsx';
+import { EnteteCarte } from '../components/ui.jsx';
 
 const tok = () => localStorage.getItem('token');
 const af = (url, opts = {}) => fetch(url, {
@@ -353,15 +354,15 @@ export default function DiplomeEditeur({ assets = {} }) {
           <p className="text-xs text-gray-500">Une page identique pour toutes les sections. Ce qui change se remplit seul : les données de la section et de l'étudiant (champs <code>{'{{...}}'}</code>), le logo si co-diplomation, les signataires.</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={apercu} className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"><IconEye size={16}/> Aperçu</button>
-          {peutEcrire && <button onClick={restaurer} className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border border-gray-300 text-gray-500 hover:bg-gray-50"><IconRefresh size={16}/> Défaut</button>}
+          <button onClick={apercu} className="bouton"><IconEye size={16}/> Aperçu</button>
+          {peutEcrire && <button onClick={restaurer} className="bouton"><IconRefresh size={16}/> Défaut</button>}
           {peutEcrire && <button onClick={enregistrer} disabled={!dirty || busy} className="bouton bouton-fort flex items-center gap-1.5"><IconDeviceFloppy size={16}/> {busy ? '…' : 'Enregistrer'}</button>}
         </div>
       </div>
 
       {err && <div className="bloc-etat etat-corriger text-sm text-red-600 px-3 py-2">{err}</div>}
       {saved && <div className="bloc-etat etat-reussi text-sm text-green-700 px-3 py-2">Modèle enregistré.</div>}
-      {!peutEcrire && <div className="text-xs text-gray-500 bg-amber-500 border border-amber-500 rounded-lg px-3 py-2">Lecture seule — seule la direction (admin) peut modifier le modèle.</div>}
+      {!peutEcrire && <div className="bloc-etat text-xs px-3 py-2" data-etat="surveiller">Lecture seule — seule la direction (admin) peut modifier le modèle.</div>}
 
       {/* LA SECTION D'ABORD (Charles, 27 septembre 2026 : « en fonction de la
           section, le contenu est différent ») : elle décide du modèle, du logo
@@ -402,7 +403,7 @@ export default function DiplomeEditeur({ assets = {} }) {
                 <button onClick={retirerHelb} className="text-gray-400 hover:text-red-500" title="Retirer"><IconX size={15}/></button>
               </span>
             : <span className="text-xs text-gray-400 italic">aucun logo importé</span>}
-          <label className="ml-auto text-sm px-3 py-1.5 rounded-lg border border-gray-300 text-iip-blue hover:bg-gray-50 cursor-pointer">
+          <label className="bouton ml-auto cursor-pointer">
             Importer une image…
             <input type="file" accept="image/*" className="hidden" onChange={e => { importerHelb(e.target.files?.[0]); e.target.value=''; }} />
           </label>
@@ -417,22 +418,15 @@ export default function DiplomeEditeur({ assets = {} }) {
           reste unique ; seul l'emplacement {{signatures}} change de contenu.
           Le bloc « Au nom du Gouvernement… le titulaire » n'en fait pas
           partie : il est le même pour toutes les sections. */}
-      <div className="bg-white border border-gray-200 rounded-lg p-3 space-y-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-semibold text-iip-blue flex items-center gap-1.5">
-            <IconSignature size={16}/> Signataires par section
-          </span>
-          {!secSig && <span className="text-second text-gray-500">Choisissez une section en tête pour régler ses signataires.</span>}
-          {secSig && (
-            <span className="text-second text-gray-500">
-              {propre ? 'Liste propre à cette section.'
-                : coDiplomee(secSig) ? 'Pas encore de liste propre : les signataires de la co-diplomation HELB.'
-                : 'Pas encore de liste propre : le jury et la direction de l’IIP.'}
-            </span>
-          )}
-        </div>
+      <section className="carte overflow-hidden">
+        <EnteteCarte icone={IconSignature} titre="Signataires par section"
+          sous={!secSig ? 'Choisissez une section en tête pour régler ses signataires.'
+            : propre ? 'Liste propre à cette section.'
+            : coDiplomee(secSig) ? 'Pas encore de liste propre : les signataires de la co-diplomation HELB.'
+            : 'Pas encore de liste propre : le jury et la direction de l’IIP.'} />
+        <div className="p-3 space-y-2">
         {secSig && (
-          <div className="flex flex-wrap items-end gap-2 border border-slate-200 rounded-lg p-2.5">
+          <div className="flex flex-wrap items-end gap-2">
             <label className="text-second"><span className="block text-slate-600">Président(e) du jury d’épreuve intégrée — {secSig}</span>
               <input key={secSig} className="controle w-72 text-sm" defaultValue={presidents[secSig] || ''} disabled={!peutEcrire}
                 placeholder="Prénom NOM — une autre personne que le directeur"
@@ -471,7 +465,7 @@ export default function DiplomeEditeur({ assets = {} }) {
               </div>
             )}
             {!modele.includes('{{signatures}}') && (
-              <p className="text-second text-white bg-amber-500 border border-amber-500 rounded px-2 py-1">
+              <p className="bloc-etat text-second px-2 py-1" data-etat="surveiller">
                 Votre modèle n’a pas d’emplacement <code>{'{{signatures}}'}</code> : Lucie remplacera son bloc de
                 signatures actuel par la liste de la section. Pour le rendre explicite, remplacez dans le modèle les
                 colonnes de signataires par <code>{'{{signatures}}'}</code>, ou restaurez le modèle par défaut.
@@ -479,7 +473,8 @@ export default function DiplomeEditeur({ assets = {} }) {
             )}
           </>
         )}
-      </div>
+        </div>
+      </section>
 
       <textarea
         value={modele}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { IconCheck, IconArrowRight, IconAlertTriangle } from '@tabler/icons-react';
+import { IconCheck, IconArrowRight, IconAlertTriangle, IconX } from '@tabler/icons-react';
+import { EnteteCarte } from './ui.jsx';
 import { authHeaders } from '../lib/api.js';
 
 /**
@@ -27,27 +28,20 @@ export default function Assistant({ cle, params = {}, onFerme = null }) {
   const pct = etat.total ? Math.round((etat.faites / etat.total) * 100) : 0;
 
   return (
-    <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-      <div className="px-4 py-3 border-b border-slate-200 bg-slate-50">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div>
-            <div className="font-semibold text-iip-blue text-base">{etat.titre}</div>
-            <div className="text-second text-slate-500 mt-0.5">{etat.intro}</div>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="text-second font-semibold text-slate-600">
-              {etat.faites}/{etat.total}
-            </div>
-            <button onClick={charger}
-              className="text-second px-2.5 py-1 border border-slate-300 rounded-lg hover:bg-white">
-              Actualiser
-            </button>
-            {onFerme && (
-              <button onClick={onFerme} className="text-slate-400 hover:text-slate-600 text-lg leading-none">✕</button>
-            )}
-          </div>
+    <div className="carte overflow-hidden">
+      <EnteteCarte titre={etat.titre} sous={etat.intro}>
+        <div className="text-second font-semibold text-slate-600">
+          {etat.faites}/{etat.total}
         </div>
-        <div className="jauge mt-2">
+        <button onClick={charger} className="bouton">
+          Actualiser
+        </button>
+        {onFerme && (
+          <button onClick={onFerme} title="Fermer" aria-label="Fermer" className="text-slate-400 hover:text-slate-600"><IconX size={16} /></button>
+        )}
+      </EnteteCarte>
+      <div className="px-4 py-2 border-b border-slate-100">
+        <div className="jauge">
           <div className="h-full bg-iip-turquoise transition-all" style={{ width: pct + '%' }} />
         </div>
       </div>

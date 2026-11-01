@@ -286,9 +286,9 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
             ) : (
               <table ref={grille} onKeyDown={ev => naviguerGrille(ev, grille.current)}
                 className="text-second border-separate border-spacing-0">
-                <thead className="sticky top-0 z-20 bg-white">
+                <thead className="sticky top-0 z-20 bande-entete">
                   <tr>
-                    <th className="sticky left-0 z-30 bg-white text-left px-2 pb-1
+                    <th className="sticky left-0 z-30 bande-entete text-left px-2 pb-1
                                    min-w-[190px]" />
                     {/* Le groupe couvre ses acquis, sa cote, et l'ajournement
                         quand il existe — en seconde session il n'existe pas. Un

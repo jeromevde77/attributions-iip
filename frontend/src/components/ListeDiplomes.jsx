@@ -133,6 +133,13 @@ export default function ListeDiplomes({ annee, onClose }) {
   return (
     <Fenetre icone={IconCertificate} titre="Liste des étudiants diplômés" large="moyenne" onFermer={onClose}
       sous={`Document de la Fédération · année académique ${String(annee).replace('-', '/')}`}
+      outils={
+        /* L'AVION MÈNE AU CENTRE D'ÉDITION (2 octobre 2026) : l'acte et le document de travail y sont, en tête. */
+        <OuvrirEditions sombre taille="moyen" disabled={enCours || !choisis.size} titre="Procès-verbal de section et liste des diplômés — centre d'édition"
+          pieces={[
+            { cle: 'pv', label: 'Procès-verbal de section', description: "Annexe 6 (section avec épreuve intégrée) ou 7 — l'acte qui fonde le titre", onClick: () => imprimer('pv') },
+            { cle: 'liste', label: 'Liste des diplômés', description: 'Document de travail — ne figure pas dans la circulaire', onClick: () => imprimer('liste') },
+          ]} />}
       pied={<>
         <span className="text-second text-slate-500">
           {choisis.size} étudiant(s) sur la liste
@@ -140,17 +147,10 @@ export default function ListeDiplomes({ annee, onClose }) {
         <button onClick={onClose} className="bouton">
           Fermer
         </button>
-        {/* L'AVION MÈNE AU CENTRE D'ÉDITION (2 octobre 2026) : l'acte et le document de travail y sont, en tête. */}
-        <OuvrirEditions disabled={enCours || !choisis.size} titre="Procès-verbal de section et liste des diplômés — centre d'édition"
-          pieces={[
-            { cle: 'pv', label: 'Procès-verbal de section', description: "Annexe 6 (section avec épreuve intégrée) ou 7 — l'acte qui fonde le titre", onClick: () => imprimer('pv') },
-            { cle: 'liste', label: 'Liste des diplômés', description: 'Document de travail — ne figure pas dans la circulaire', onClick: () => imprimer('liste') },
-          ]} />
       </>}>
         <div className="space-y-3">
           {erreur && (
-            <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
-                            text-second text-amber-900 flex items-start gap-1.5">
+            <div className="bloc-etat px-3 py-2 text-second flex items-start gap-1.5" data-etat="surveiller">
               <IconAlertTriangle size={14} className="mt-0.5 flex-none" /> {erreur}
             </div>
           )}
@@ -167,8 +167,7 @@ export default function ListeDiplomes({ annee, onClose }) {
           </label>
 
           {etat?.avertissement && (
-            <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
-                            text-second text-amber-900">{etat.avertissement}</div>
+            <div className="bloc-etat px-3 py-2 text-second" data-etat="surveiller">{etat.avertissement}</div>
           )}
 
           {etat && !!cands.length && (

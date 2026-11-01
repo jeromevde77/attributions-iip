@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState } from 'react';
-import { IconAlertTriangle, IconDeviceFloppy, IconCalculator, IconCheck} from '@tabler/icons-react';
+import { IconAlertTriangle, IconDeviceFloppy, IconCalculator, IconCheck, IconX } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
+import { EnteteCarte } from '../components/ui.jsx';
 
 /**
  * Répartition des périodes entre les deux années civiles d'une année académique.
@@ -151,7 +152,7 @@ export default function RepartitionPeriodes({ annee: anneeImposee = null } = {})
           message.type === 'ok' ? 'bg-emerald-500 text-white border border-emerald-500'
                                 : 'bg-red-500 text-white border border-red-500'}`}>
           <span>{message.texte}</span>
-          <button onClick={() => setMessage(null)} className="ml-3 opacity-60">✕</button>
+          <button onClick={() => setMessage(null)} title="Fermer" aria-label="Fermer" className="ml-3 opacity-60"><IconX size={14} /></button>
         </div>
       )}
 
@@ -169,10 +170,8 @@ export default function RepartitionPeriodes({ annee: anneeImposee = null } = {})
 
       {/* Ce que la Fédération intègrera en avril */}
       {civile && (
-        <div className="border border-iip-blue/30 rounded-xl overflow-hidden">
-          <div className="px-4 py-2 bg-iip-blue text-white text-sm font-semibold">
-            Dotation de l'année civile {civile.annee_civile}
-          </div>
+        <section className="carte overflow-hidden">
+          <EnteteCarte titre={`Dotation de l'année civile ${civile.annee_civile}`} />
           <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <div className="intertitre">
@@ -235,7 +234,7 @@ export default function RepartitionPeriodes({ annee: anneeImposee = null } = {})
               )}
             </div>
           )}
-        </div>
+        </section>
       )}
 
       {/* Bouclage : ce qui est réparti doit égaler ce qui est attribué. */}

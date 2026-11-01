@@ -3117,6 +3117,7 @@ app.use((req, res, next) => {
 // LES FONCTIONS QU'ON ALLUME UNE À UNE (3.5.001) : Configuration → Fonctions.
 app.use('/api/fonctions', (await import('./routes/fonctions.js')).default);
 app.use('/api/messages-etudiants', (await import('./routes/messagesEtudiants.js')).default);
+app.use('/api/refus-seconde', (await import('./routes/refusSeconde.js')).default);
 // LE PAE EN LIGNE (3.1.515) : la fenêtre et les propositions des étudiants, côté école.
 app.use('/api/pae-en-ligne', (await import('./routes/paeEnLigne.js')).default);
 // LA DEMANDE DE VA EN LIGNE (3 octobre 2026) A QUITTÉ LUCIE en 3.1.514 : elle vit dans le portail des étudiants,
@@ -3266,6 +3267,9 @@ app.use('/api/config',          garderModule('config'), (await import('./routes/
 app.use('/api/annulation', (await import('./routes/annulation.js')).default);
 app.use('/api/communication', (await import('./routes/communication.js')).default);
 app.use('/api/equipe', (await import('./routes/equipe.js')).default);
+app.use('/api/temps-travail', (await import('./routes/tempsTravail.js')).default);
+// Le registre des pièces authentiques : créé, et débarrassé des spécimens inscrits par erreur (3.5.047), au démarrage.
+try { (await import('./lib/authentique.js')).migrerAuthentique(); } catch (e) { console.error('[authentique]', e.message); }
 app.use('/api/transferts', (await import('./routes/transferts.js')).default);
 app.use('/api/analyse-cv',      garderModule('analyse-cv'), (await import('./routes/analyseCv.js')).default);
 app.use('/api/dossiers-rh',     garderModule('dossiers-rh'), (await import('./routes/dossiersRh.js')).default);

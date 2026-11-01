@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { peutAmenager } from '../lib/droits.js';
-import { IconAlertTriangle, IconPlus, IconTrash, IconShieldCheck, IconSend, IconUsers } from '@tabler/icons-react';
+import { IconAlertTriangle, IconPlus, IconTrash, IconShieldCheck, IconSend, IconUsers, IconCheck, IconX } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { ouvrirApercu } from '../lib/apercu.js';
 import EtapesAmenagement from './EtapesAmenagement.jsx';
 import EnvoiMailModal from './EnvoiMailModal.jsx';
-import { Tableau, TableauEntete, Th, Td, Tr, Badge } from './ui.jsx';
+import { Tableau, TableauEntete, Th, Td, Tr, Badge, EnteteCarte } from './ui.jsx';
 import { demander } from '../lib/dialogue.jsx';
 
 /**
@@ -151,9 +151,8 @@ export default function Amenagements({ etudId, annee }) {
       </div>
     ) : (
       <div className="flex flex-wrap items-center gap-2">
-        {v.peut !== false && <button type="button" className="bouton font-semibold disabled:opacity-40" disabled={!!v.manques?.length}
-          style={v.manques?.length ? undefined : { background: 'var(--c-reussi, #3E7D5E)', borderColor: 'var(--c-reussi, #3E7D5E)', color: '#fff' }}
-          onClick={() => geste(route)}>✓ Valider {libelle.toLowerCase()}</button>}
+        {v.peut !== false && <button type="button" className="bouton bouton-fort inline-flex items-center gap-1.5" disabled={!!v.manques?.length}
+          onClick={() => geste(route)}><IconCheck size={14} /> Valider {libelle.toLowerCase()}</button>}
         <span className="text-second text-slate-500 min-w-0">
           {v.manques?.length ? `Il manque : ${v.manques.join(', ')}.` : 'Tout est complet.'}
         </span>
@@ -167,7 +166,7 @@ export default function Amenagements({ etudId, annee }) {
         <span className="text-sm font-semibold text-iip-blue">Mesures {modeDecision ? 'à trancher' : 'demandées'} ({d.mesures?.length || 0})</span>
         {!modeDecision && !c?.b?.valide_le && (
           <button onClick={() => setAjout({ nature: 'pedagogique', portee: 'toutes' })}
-            className="flex items-center gap-1.5 text-second px-2.5 py-1 border border-slate-300 rounded-lg hover:bg-slate-50">
+            className="bouton flex items-center gap-1.5">
             <IconPlus size={14} /> Ajouter une mesure
           </button>
         )}
@@ -293,7 +292,7 @@ export default function Amenagements({ etudId, annee }) {
         <div data-etat={message.type === 'err' ? 'corriger' : message.type === 'rappel' ? 'surveiller' : 'reussi'}
           className="bloc-etat px-3 py-2 text-sm flex items-start justify-between gap-2">
           <span>{message.texte}</span>
-          <button onClick={() => setMessage(null)} className="opacity-60">✕</button>
+          <button onClick={() => setMessage(null)} title="Fermer" aria-label="Fermer" className="opacity-60"><IconX size={14} /></button>
         </div>
       )}
 
@@ -601,8 +600,9 @@ function PiecesDossier({ d, etudId, onChange, setMessage }) {
   }
 
   return (
-    <div className="border border-slate-200 rounded-xl p-4 space-y-3">
-      <div className="text-sm font-semibold text-iip-blue">Pièces du dossier</div>
+    <section className="carte overflow-hidden">
+      <EnteteCarte titre="Pièces du dossier" />
+      <div className="p-4 space-y-3">
       <div className="flex flex-wrap gap-2">
         {PIECES.map(([type, lib]) => (
           <button key={type} className="bouton bouton-sortir flex items-center gap-1.5"
@@ -646,7 +646,8 @@ function PiecesDossier({ d, etudId, onChange, setMessage }) {
         <EnvoiMailModal pieces={envoi.pieces} typeDoc={envoi.typeDoc || 'amenagement_mesures'} sujet={envoi.sujet}
           onEnvoye={consigner} onClose={() => setEnvoi(null)} />
       )}
-    </div>
+      </div>
+    </section>
   );
 }
 
@@ -751,7 +752,7 @@ function UesConcernees({ dossierId, annee, choisies, onChange }) {
   if (!ues) return <div className="text-second text-slate-400">Chargement des unités…</div>;
   if (!ues.length) {
     return (
-      <div className="text-second text-slate-500 border border-slate-200 rounded-lg p-3">
+      <div className="text-second text-slate-500">
         Cet étudiant n'est inscrit à aucune unité en {annee} : son programme doit
         être établi avant de désigner les unités concernées.
       </div>
@@ -759,16 +760,10 @@ function UesConcernees({ dossierId, annee, choisies, onChange }) {
   }
 
   return (
-    <div className="border border-slate-200 rounded-lg p-3">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-semibold text-iip-blue">
-          Unités concernées {sel.size > 0 && `(${sel.size})`}
-        </span>
-        <span className="text-xs text-slate-400">
-          {enCours ? 'Enregistrement…' : 'Aucune cochée = toutes'}
-        </span>
-      </div>
-      <div className="max-h-40 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-x-3">
+    <section className="carte overflow-hidden">
+      <EnteteCarte titre={`Unités concernées${sel.size > 0 ? ` (${sel.size})` : ''}`}
+        sous={enCours ? 'Enregistrement…' : 'Aucune cochée = toutes'} />
+      <div className="p-3 max-h-40 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-x-3">
         {ues.map(u => (
           <label key={u.ue_num}
             className="flex items-center gap-2 py-0.5 text-second cursor-pointer">
@@ -786,7 +781,7 @@ function UesConcernees({ dossierId, annee, choisies, onChange }) {
           </label>
         ))}
       </div>
-    </div>
+    </section>
   );
 }
 

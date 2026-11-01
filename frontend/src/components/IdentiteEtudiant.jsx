@@ -1,10 +1,10 @@
 import ChampsAdresse, { ChoixPays } from './ChampsAdresse.jsx';
 import { useEffect, useState } from 'react';
 import { nomPropre } from '../lib/nom.js';
-import { IconDeviceFloppy, IconUpload, IconAlertTriangle, IconCheck } from '@tabler/icons-react';
+import { IconDeviceFloppy, IconUpload, IconAlertTriangle, IconCheck, IconX } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { useDroits } from '../lib/droits.js';
-import { Tableau, TableauEntete, Th, Td, Tr, Badge } from './ui.jsx';
+import { Tableau, TableauEntete, Th, Td, Tr, Badge, EnteteCarte } from './ui.jsx';
 
 /**
  * Identité d'un étudiant, et complément de dossier par import.
@@ -101,11 +101,10 @@ export default function IdentiteEtudiant({ etudId, onModifie }) {
       </div>
 
       {message && (
-        <div className={`px-3 py-2 rounded-lg text-sm flex items-start justify-between gap-2 ${
-          message.type === 'ok' ? 'bg-emerald-500 border border-emerald-500 text-white'
-                                : 'bg-red-500 border border-red-500 text-white'}`}>
+        <div className="bloc-etat px-3 py-2 text-sm flex items-start justify-between gap-2"
+          data-etat={message.type === 'ok' ? 'reussi' : 'corriger'}>
           <span>{message.texte}</span>
-          <button onClick={() => setMessage(null)} className="opacity-60">✕</button>
+          <button onClick={() => setMessage(null)} className="opacity-60" title="Fermer"><IconX size={14} /></button>
         </div>
       )}
 
@@ -390,14 +389,10 @@ export function ComplementDossiers({ onTermine }) {
       {/* Correspondance des colonnes — corrigeable, car aucun jeu d'en-têtes
           ne se répète d'une liste à l'autre. */}
       {entetes && (
-        <div className="border border-slate-200 rounded-xl p-4 space-y-3">
-          <div>
-            <span className="text-sm font-semibold text-iip-blue">Correspondance des colonnes</span>
-            <p className="text-second text-slate-500">
-              {brut.length} ligne(s), {entetes.length} colonne(s). Vérifiez les correspondances
-              proposées et corrigez celles qui ne conviennent pas.
-            </p>
-          </div>
+        <div className="carte overflow-hidden">
+          <EnteteCarte titre="Correspondance des colonnes"
+            sous={`${brut.length} ligne(s), ${entetes.length} colonne(s). Vérifiez les correspondances proposées et corrigez celles qui ne conviennent pas.`} />
+          <div className="p-4 space-y-3">
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {CHAMPS_IMPORT.map(ch => (
@@ -445,10 +440,10 @@ export function ComplementDossiers({ onTermine }) {
 
           <button onClick={() => envoyer(true)} disabled={enCours || !identifiable}
             title={identifiable ? '' : "Indiquez le numéro national, le matricule, ou le nom et le prénom"}
-            className="px-4 py-2 text-sm bg-iip-blue text-white font-semibold rounded-lg
-                       disabled:opacity-40">
+            className="bouton bouton-fort">
             {enCours ? 'Analyse…' : 'Simuler'}
           </button>
+        </div>
         </div>
       )}
 
@@ -534,13 +529,11 @@ export function ComplementDossiers({ onTermine }) {
           {rapport.simulation ? (
             <button onClick={() => envoyer(false)}
               disabled={enCours || !rapport.modifications.length}
-              className="flex items-center gap-1.5 px-4 py-2 text-sm bg-iip-blue text-white
-                         font-semibold rounded-lg disabled:opacity-40">
+              className="bouton bouton-fort flex items-center gap-1.5">
               <IconCheck size={15} /> Appliquer à {rapport.modifications.length} dossier(s)
             </button>
           ) : (
-            <div className="px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200
-                            text-sm text-emerald-800">
+            <div className="bloc-etat px-3 py-2 text-sm" data-etat="reussi">
               {rapport.modifications.length} dossier(s) complété(s).
             </div>
           )}

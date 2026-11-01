@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { IconGavel, IconScale, IconMail, IconClipboardText, IconGavel as IconDecision, IconPaperclip, IconTrash, IconDownload, IconPlus, IconChevronLeft, IconChevronRight, IconLock
 } from '@tabler/icons-react';
 import PreviewModal from '../components/PreviewModal.jsx';
+import { EnteteCarte } from '../components/ui.jsx';
 import { demander, informer } from '../lib/dialogue.jsx';
 import { chargerIdentite, useIdentite } from '../lib/identite.js';
 
@@ -351,8 +352,9 @@ export default function Disciplinaire() {
 
       {/* ÉTAPE 1 — Faits */}
       {step === 1 && (
-        <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
-          <div className="text-sm font-bold text-iip-blue">Étape 1 — Les faits</div>
+        <section className="carte overflow-hidden">
+          <EnteteCarte titre="Étape 1 — Les faits" />
+          <div className="p-4 space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-3 2xl:grid-cols-4 gap-3">
             <div><label className={lab}>Nom</label><input className={champ} value={nom} onChange={e => setNom(e.target.value)} /></div>
             <div><label className={lab}>Prénom</label><input className={champ} value={prenom} onChange={e => setPrenom(e.target.value)} /></div>
@@ -367,31 +369,35 @@ export default function Disciplinaire() {
             <Q text="Les faits sont-ils établis et documentés (preuves, témoignages) ?" value={qEtablis} onChange={setQEtablis} />
             <Q text="S'agit-il d'une récidive (faits déjà sanctionnés) ?" value={qRecidive} onChange={setQRecidive} />
           </div>
-        </div>
+          </div>
+        </section>
       )}
 
       {/* ÉTAPE 2 — Qualification */}
       {step === 2 && (
         <div className="space-y-3">
-          <div className="bg-white border border-gray-200 rounded-xl p-4">
-            <div className="text-sm font-bold text-iip-blue mb-2">Étape 2 — Qualification &amp; gravité</div>
+          <section className="carte overflow-hidden">
+            <EnteteCarte titre="Étape 2 — Qualification & gravité" />
+            <div className="p-4">
             <Q text="Le fait constitue-t-il une faute grave (violence, menaces, arme, racket, faux…) ?" art={r2627 ? 'Art. 117' : 'Art. 96'} value={qGrave} onChange={setQGrave} />
             <Q text="S'agit-il d'une fraude / d'un plagiat ?" art={r2627 ? 'Art. 72-75' : 'Art. 54-55'} value={tf.fraude ? 'oui' : qGrave === '' ? '' : 'non'} onChange={() => {}} />
             <div className="mt-3"><label className={lab}>Sanction envisagée</label>
               <select className={champ} value={sanction} onChange={e => setSanction(e.target.value)}>{SANCTIONS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}</select></div>
             <div className="bloc-etat etat-surveiller mt-3 text-sm p-3 text-amber-900"><strong>Recommandation :</strong> {recommandation()}</div>
-          </div>
-          <div className="bg-iip-blue/5 border border-iip-blue/20 rounded-xl p-4">
-            <div className="flex items-center gap-2 text-iip-blue font-semibold text-sm mb-2"><IconScale size={16} /> Analyse RDE/ROI</div>
-            <ul className="text-sm text-gray-700 list-disc pl-5 space-y-1">{analyse().map((l, i) => <li key={i}>{l}</li>)}</ul>
-          </div>
+            </div>
+          </section>
+          <section className="carte overflow-hidden">
+            <EnteteCarte icone={IconScale} titre="Analyse RDE/ROI" />
+            <ul className="text-sm text-gray-700 list-disc pl-9 pr-4 py-3 space-y-1">{analyse().map((l, i) => <li key={i}>{l}</li>)}</ul>
+          </section>
         </div>
       )}
 
       {/* ÉTAPE 3 — Convocation */}
       {step === 3 && (
-        <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
-          <div className="text-sm font-bold text-iip-blue">Étape 3 — Convocation à l'audition</div>
+        <section className="carte overflow-hidden">
+          <EnteteCarte titre="Étape 3 — Convocation à l'audition" />
+          <div className="p-4 space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div><label className={lab}>Envoi de la convocation</label><input type="date" className={champ} value={dateEnvoi} onChange={e => setDateEnvoi(e.target.value)} /></div>
             <div><label className={lab}>Date d'audition</label><input type="date" className={champ} value={dateAudition} onChange={e => setDateAudition(e.target.value)} />
@@ -404,13 +410,15 @@ export default function Disciplinaire() {
           </div>
           <div className="text-xs text-gray-500">La convocation rappellera automatiquement : recommandé/AR, faits, sanction envisagée, droit d'être assisté·e, consultation du dossier et délai de réponse{estRenvoiDef ? ', et le délai de 8 jours ouvrables (exclusion définitive)' : ''}.</div>
           <button onClick={() => ouvrir('Convocation à audition', genConvocation())} className={btnDoc}><IconMail size={16} /> Générer la convocation</button>
-        </div>
+          </div>
+        </section>
       )}
 
       {/* ÉTAPE 4 — Audition */}
       {step === 4 && (
-        <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
-          <div className="text-sm font-bold text-iip-blue">Étape 4 — Audition</div>
+        <section className="carte overflow-hidden">
+          <EnteteCarte titre="Étape 4 — Audition" />
+          <div className="p-4 space-y-3">
           <Q text="L'étudiant·e s'est-il/elle présenté·e à l'audition ?" value={qPresente} onChange={setQPresente} />
           <Q text="S'est-il/elle fait assister ?" value={qAssiste} onChange={setQAssiste} />
           {tf.fraude && <Q text="L'audition contradictoire a-t-elle été tenue (après audition séparée) ?" art="Art. 72-75 / 54-55" value={qContradictoire} onChange={setQContradictoire} />}
@@ -421,14 +429,16 @@ export default function Disciplinaire() {
             <div><label className={lab}>Déclarations / observations de l'étudiant·e</label><textarea rows={3} className={champ} value={declarations} onChange={e => setDeclarations(e.target.value)} /></div>
           </div>
           <button onClick={() => ouvrir("PV d'audition", genPV())} className={btnDoc}><IconClipboardText size={16} /> Générer le PV d'audition</button>
-        </div>
+          </div>
+        </section>
       )}
 
       {/* ÉTAPE 5 — Décision */}
       {step === 5 && (
         <div className="space-y-3">
-          <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
-            <div className="text-sm font-bold text-iip-blue">Étape 5 — Décision</div>
+          <section className="carte overflow-hidden">
+            <EnteteCarte titre="Étape 5 — Décision" />
+            <div className="p-4 space-y-3">
             {estRenvoiDef && <>
               <Q text="L'avis du Conseil des Études a-t-il été demandé ?" art={r2627 ? 'Art. 115 septies' : 'Art. 96'} value={qAvisDemande} onChange={setQAvisDemande} />
               <Q text="L'avis du Conseil des Études a-t-il été rendu (sous 8 jours) ?" value={qAvisRecu} onChange={setQAvisRecu} />
@@ -438,7 +448,8 @@ export default function Disciplinaire() {
               <div className="md:col-span-2"><label className={lab}>Motivation de la décision</label><textarea rows={3} className={champ} value={motivation} onChange={e => setMotivation(e.target.value)} /></div>
             </div>
             <button onClick={() => ouvrir('Décision disciplinaire', genDecision())} className={btnDoc}><IconDecision size={16} /> Générer la décision</button>
-          </div>
+            </div>
+          </section>
           <div className={`border rounded-xl p-4 ${conformiteOk ? 'bg-green-50 border-green-200 border-l-4 border-l-green-500' : 'bg-red-50 border-red-200'}`}>
             <div className="font-semibold text-sm mb-2">{conformiteOk ? '✓ Conformité procédurale' : '⚠ Points à vérifier avant de notifier'}</div>
             {conformite.map((c, i) => <Check key={i} ok={c.ok} label={c.label} />)}
@@ -448,14 +459,15 @@ export default function Disciplinaire() {
 
       {/* Navigation étapes */}
       <div className="flex items-center justify-between">
-        <button onClick={() => setStep(s => Math.max(1, s - 1))} disabled={step === 1} className="flex items-center gap-1 text-sm px-3 py-1.5 rounded-lg border border-gray-300 text-gray-600 disabled:opacity-40 hover:bg-gray-50"><IconChevronLeft size={16} /> Précédent</button>
+        <button onClick={() => setStep(s => Math.max(1, s - 1))} disabled={step === 1} className="bouton flex items-center gap-1"><IconChevronLeft size={16} /> Précédent</button>
         <span className="text-xs text-gray-400">Étape {step} / {STEPS.length}</span>
-        <button onClick={() => setStep(s => Math.min(STEPS.length, s + 1))} disabled={step === STEPS.length} className="flex items-center gap-1 text-sm px-3 py-1.5 rounded-lg border border-gray-300 text-gray-600 disabled:opacity-40 hover:bg-gray-50">Suivant <IconChevronRight size={16} /></button>
+        <button onClick={() => setStep(s => Math.min(STEPS.length, s + 1))} disabled={step === STEPS.length} className="bouton flex items-center gap-1">Suivant <IconChevronRight size={16} /></button>
       </div>
 
       {/* Pièces jointes */}
-      <div className="bg-white border border-gray-200 rounded-xl p-4">
-        <div className="flex items-center gap-2 font-semibold text-sm text-gray-700 mb-3"><IconPaperclip size={16} /> Pièces jointes du dossier (courriers reçus, preuves, réponses…)</div>
+      <section className="carte overflow-hidden">
+        <EnteteCarte icone={IconPaperclip} titre="Pièces jointes du dossier (courriers reçus, preuves, réponses…)" />
+        <div className="p-4">
         {!caseId && <p className="text-xs text-gray-400 mb-2">Renseignez d'abord les faits (enregistrement automatique), puis ajoutez les pièces.</p>}
         <div className="flex items-center gap-2 flex-wrap mb-3">
           <select value={catUp} onChange={e => setCatUp(e.target.value)} className={champ + ' w-52'}>{CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}</select>
@@ -474,7 +486,8 @@ export default function Disciplinaire() {
             ))}
           </ul>
         )}
-      </div>
+        </div>
+      </section>
 
       {preview && <PreviewModal html={preview.html} titre={preview.titre} sousTitre={preview.sousTitre} astuceImpression="" onClose={() => setPreview(null)} />}
     </div>

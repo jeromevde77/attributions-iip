@@ -6,7 +6,7 @@ let SCEAU_IIP = ''; // l'image de l'établissement (lib/identite.js, 3.1.253)
 chargerIdentite().then(i => { LOGO_IIP = i.logo || LOGO_IIP; SIGNATURE_SOHET = i.signature || SIGNATURE_SOHET; SCEAU_IIP = i.cachet || SCEAU_IIP; });
 import PreviewModal from '../components/PreviewModal.jsx';
 import DiplomeEditeur from './DiplomeEditeur.jsx';
-import { IconPlus, IconTrash, IconEye, IconDownload, IconCopy, IconLock
+import { IconPlus, IconTrash, IconEye, IconDownload, IconCopy, IconLock, IconUpload, IconDeviceFloppy, IconFileZip
 } from '@tabler/icons-react';
 import { ouvrirApercu } from '../lib/apercu.js';
 import { demander, informer } from '../lib/dialogue.jsx';
@@ -779,8 +779,8 @@ export default function Attestation() {
             if (lignes.some(l => l.nom) && !(await demander('Remplacer les lignes existantes par les étudiants TIM BA1 2025-2026 ?'))) return;
             setLignes(ETUDIANTS_TIM_BA1.map(e => deriveLigne({ ...LIGNE_VIDE(), ...e, id: Date.now() + Math.random() }, cfgBySec)));
           }}
-            className="flex items-center gap-1.5 bg-amber-500 text-white text-sm px-3 py-1.5 rounded-lg hover:opacity-90">
-            📥 Importer TIM BA1 (101 étudiants)
+            className="bouton flex items-center gap-1.5">
+            <IconUpload size={15}/> Importer TIM BA1 (101 étudiants)
           </button>
           {lectureSeule
             ? <span className="text-xs text-gray-500" title="Droits insuffisants : demandez la permission Listes (écriture)"><IconLock size={13} stroke={1.8} className="inline -mt-0.5 text-slate-400" /> Lecture seule</span>
@@ -789,11 +789,11 @@ export default function Attestation() {
                 {dirty && !enregOk && <span className="text-xs text-amber-600">● non enregistré</span>}
                 <button onClick={sauver} title="Enregistrer la liste"
                   className="bouton bouton-fort flex items-center gap-1.5">
-                  💾 Enregistrer
+                  <IconDeviceFloppy size={15}/> Enregistrer
                 </button>
               </>}
           <button onClick={exporterListe} title="Exporter la liste affichée (CSV)"
-            className="flex items-center gap-1.5 bg-white border border-gray-300 text-gray-700 text-sm px-3 py-1.5 rounded-lg hover:bg-gray-50">
+            className="bouton flex items-center gap-1.5">
             <IconDownload size={15}/> Exporter la liste
           </button>
           <div className="flex items-center gap-0.5 bg-gray-100 rounded-lg p-0.5">
@@ -813,8 +813,8 @@ export default function Attestation() {
           </button>
           <button onClick={genererZip} disabled={generating}
             title="ZIP : un fichier PDF par étudiant"
-            className="flex items-center gap-1.5 bg-white border border-iip-blue text-iip-blue text-sm px-4 py-1.5 rounded-lg hover:bg-gray-50 disabled:opacity-40 font-medium">
-            📦 {generating ? 'Préparation…' : 'ZIP séparés'}
+            className="bouton bouton-sortir flex items-center gap-1.5">
+            <IconFileZip size={15}/> {generating ? 'Préparation…' : 'ZIP séparés'}
           </button>
         </div>
       </div>
@@ -844,7 +844,7 @@ export default function Attestation() {
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
+              <tr className="bande-entete border-b border-gray-200">
                 <th className="px-2 py-2 w-8 text-center"><input type="checkbox" checked={tousSel} onChange={toggleTous} title="Tout sélectionner (affichés)" /></th>
                 {COLS.map(c => (
                   <th key={c.key} onClick={() => trier(c.key)} className={`text-left px-2 py-2 font-semibold text-gray-500 cursor-pointer select-none hover:text-iip-blue ${c.w}`}>{c.label}{fleche(c.key)}</th>

@@ -372,7 +372,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
               description: a.description, poids: a.poids })))} />
         <div className="flex-1 overflow-auto p-5 pt-1">
           {data?.epreuve_integree && (
-            <div className="mb-3 bloc-etat px-3 py-2 text-second" data-etat="neutre">
+            <div className="mb-3 text-second text-slate-600">
               Cette unité est évaluée par une <b>épreuve intégrée</b> : une seule grille,
               les <b>acquis de l'unité entière</b>, une note commune. Il n'y a pas de note
               par cours — <b>chaque cours de l'unité reçoit la note de l'unité</b>.
@@ -440,7 +440,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
             <table className="border-separate border-spacing-0 text-sm">
               <thead>
                 <tr>
-                  <th className="intertitre sticky left-0 z-20 bg-white text-left px-4 py-3 border-b border-slate-200 align-bottom">Étudiant</th>
+                  <th className="intertitre sticky left-0 z-20 bande-entete text-left px-4 py-3 border-b border-slate-200 align-bottom">Étudiant</th>
                   {acquisUE.map((x, i) => (
                     <th key={x.aa_code} title={x.description || x.aa_code}
                       className={`px-2 pt-3 pb-2 w-24 border-b border-slate-200 align-bottom text-center ${i && acquisUE[i - 1].cours[0] !== x.cours[0] ? 'border-l border-l-slate-300' : 'border-l border-l-slate-100'}`}
@@ -497,7 +497,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
               className="text-sm border-separate border-spacing-0">
               <thead>
                 <tr>
-                  <th rowSpan={2} className="intertitre sticky left-0 z-20 bg-white text-left px-4 pb-2 align-bottom border-b border-slate-200">Étudiant</th>
+                  <th rowSpan={2} className="intertitre sticky left-0 z-20 bande-entete text-left px-4 pb-2 align-bottom border-b border-slate-200">Étudiant</th>
                   {coursVus.map(c => (
                     <th key={c.cours_code} colSpan={c.acquis.length + 1}
                       className="px-3 pt-3 pb-1 text-left align-bottom border-l border-slate-200 font-normal"

@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { IconFileText, IconAlertTriangle, IconExternalLink, IconSearch, IconArrowRight } from '@tabler/icons-react';
+import { IconFileText, IconAlertTriangle, IconSearch, IconArrowRight, IconEye, IconFileTypePdf } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import ChoixUnite from './ChoixUnite.jsx';
 import ChampEtudiant from './ChampEtudiant.jsx';
 import { ouvrirApercu } from '../lib/apercu.js';
-import { Fenetre } from './ui.jsx';
+import { Fenetre, OutilFenetre } from './ui.jsx';
 import EditeurModelePiece from './EditeurModelePiece.jsx';
 import { useDroits } from '../lib/droits.js';
 import { IconPencil } from '@tabler/icons-react';
@@ -204,6 +204,13 @@ export default function ApercuDocuments({ onClose }) {
   return (
     <Fenetre icone={IconFileText} titre="Galerie des pièces" large="pleine" onFermer={onClose}
       sous={`${g?.documents?.length || '…'} pièces, chacune sur un exemple de la base — choisissez l’étudiant, l’unité, la section… Rien ne s’enregistre.`}
+      outils={<>
+        {rendu?.html && (
+          <OutilFenetre Icone={IconEye} titre="Ouvrir dans l’aperçu"
+            onClick={() => ouvrirApercu({ html: rendu.html, titre: choisi?.libelle, nomFichier: rendu.nom, envoiPossible: false })} />)}
+        {rendu?.pdf && (
+          <OutilFenetre Icone={IconFileTypePdf} titre="Ouvrir le PDF" onClick={() => window.open(rendu.pdf, '_blank', 'noreferrer')} />)}
+      </>}
       pied={<><span className="text-second text-slate-500">L’aperçu passe par la route qui produit la pièce : ce que vous voyez est ce qui sortira.</span>
         <button onClick={onClose} className="bouton">Fermer</button></>}>
       <div className="flex -mx-5 -my-4 h-[calc(88vh-8rem)]">
@@ -281,15 +288,6 @@ export default function ApercuDocuments({ onClose }) {
               <button className="bouton controle inline-flex items-center gap-1" onClick={() => setEdition(true)}>
                 <IconPencil size={14} /> Modifier le modèle
               </button>)}
-            {rendu?.html && (
-              <button className="bouton controle inline-flex items-center gap-1"
-                onClick={() => ouvrirApercu({ html: rendu.html, titre: choisi?.libelle, nomFichier: rendu.nom, envoiPossible: false })}>
-                <IconExternalLink size={14} /> Ouvrir dans l’aperçu
-              </button>)}
-            {rendu?.pdf && (
-              <a href={rendu.pdf} target="_blank" rel="noreferrer" className="bouton controle inline-flex items-center gap-1">
-                <IconExternalLink size={14} /> Ouvrir le PDF
-              </a>)}
           </div>
           {choisi?.note && <div className="px-3 py-1.5 text-second text-slate-500 border-b border-slate-200">{choisi.note}</div>}
           {rendu?.specimen && (

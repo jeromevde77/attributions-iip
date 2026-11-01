@@ -6,6 +6,7 @@ import {
   IconZoomIn, IconPlus, IconDeviceFloppy, IconCheck, IconTrash, IconDownload, IconUpload, IconFilter, IconCalendar, IconEye, IconArrowBackUp,
   IconQrcode, IconPrinter, IconFileSpreadsheet, IconClipboardText, IconLock, IconLockOpen, IconMail, IconRefresh, IconCopy,
   IconUserPlus, IconCalendarWeek, IconPlayerPlay, IconDots, IconMessage, IconBell, IconCalendarPlus, IconTicket, IconGift,
+  IconBuildingBank, IconCoin, IconFileCertificate, IconCalendarCheck, IconUserCircle, IconUsersGroup,
 } from '@tabler/icons-react';
 
 /* LES BOUTONS DANS LE TEXTE (3.1.488, Charles : « des images des boutons… comment veux-tu que les profs comprennent ;
@@ -45,6 +46,50 @@ export const boutonsHtml = h => String(h || '').replace(/\[\[([^\]|]+)(?:\|([^\]
   const lib = l.trim().replace(/&/g, '&amp;').replace(/</g, '&lt;');
   return `<span class="bouton ${sorte ? `bouton-${sorte} ` : ''}bouton-guide">${lib}</span>`;
 });
+/* LA CAPTURE ANNOTÉE (3.5.034, Charles : « comme dans le mode d'emploi initial ») : les numéros au-dessus de la capture,
+   chacun avec son trait jusqu'à l'objet (`reperes` : x, y en % de l'image), puis une carte par numéro. Même règle que le
+   PDF (`captureAnnotee` de lib/guideKit.js) : rangs qui ne se touchent pas, toute la largeur, jamais à côté du texte. */
+const PAS_RANG = 26;
+function rangsReperes(reperes, ecartMin) {
+  const fins = [];
+  return (reperes || []).map(r => {
+    let rang = 0;
+    while (fins[rang] != null && r.x - fins[rang] < ecartMin) rang++;
+    fins[rang] = r.x;
+    return { ...r, rang };
+  });
+}
+function CaptureAnnotee({ im, p, onAgrandir }) {
+  const reps = rangsReperes(im.reperes, 4.2);
+  const nRangs = Math.max(...reps.map(r => r.rang)) + 1;
+  const haut = nRangs * PAS_RANG + 8;
+  return (
+    <figure className="m-0 w-full">
+      <div className="relative" style={{ paddingTop: haut }}>
+        {reps.map((r, k) => (
+          <span key={k} className="absolute -translate-x-1/2 inline-grid place-items-center w-[22px] h-[22px] rounded-full text-white text-mention font-semibold"
+            style={{ left: `${r.x}%`, top: r.rang * PAS_RANG, background: 'var(--c-principal)' }}>{k + 1}</span>))}
+        <button type="button" className="relative block w-full cursor-zoom-in" title="Agrandir" onClick={() => onAgrandir?.(im)}>
+          <img src={im.src} alt={im.legende || p.titre} loading="lazy" className="block w-full h-auto rounded-champ border border-slate-200 bg-white" />
+          {reps.map((r, k) => {
+            const ecart = haut - (r.rang * PAS_RANG + 22);
+            return <i key={k} className="absolute w-[2px] -ml-px" style={{ left: `${r.x}%`, top: -ecart, height: `calc(${r.y ?? 50}% + ${ecart}px)`, background: 'var(--c-principal)' }} />;
+          })}
+        </button>
+      </div>
+      {im.legende && <figcaption className="text-mention text-slate-500 text-center mt-1.5"><Enrichi texte={im.legende} /></figcaption>}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 mt-2.5">
+        {reps.map((r, k) => (
+          <div key={k} className="flex items-start gap-2 rounded-champ border border-slate-200 px-2.5 py-2 text-second leading-snug">
+            <span className="flex-none inline-grid place-items-center w-[20px] h-[20px] rounded-full text-white text-mention font-semibold"
+              style={{ background: 'var(--c-principal)' }}>{k + 1}</span>
+            <span><b className="text-iip-texte">{r.titre}</b>{r.texte && <> — <Enrichi texte={r.texte} /></>}</span>
+          </div>))}
+      </div>
+    </figure>
+  );
+}
+
 /** Les images d'un point : `image` + `legende`, ou `images` [{ src, legende, etroite }]. */
 /* LES IMAGES D'UN POINT (3.1.491, puis 3.5.024, Charles : « les captures dans le corps du texte, ou en dessous — on perd
    beaucoup trop de place »). Elles suivent le texte, dans la largeur de la carte, côte à côte quand elles tiennent ; chacune
@@ -54,7 +99,9 @@ const imagesDe = p => [...(p.image ? [{ src: p.image, legende: p.legende }] : []
 
 function ImagesDuPoint({ liste, p, onAgrandir, onTaille }) {
   if (!liste.length) return null;
-  return <div className="flex flex-wrap items-start gap-3">{liste.map((im, i) => <ImageDuPoint key={im.src + i} im={im} p={p} onAgrandir={onAgrandir} onTaille={onTaille} />)}</div>;
+  return <div className="flex flex-wrap items-start gap-3">{liste.map((im, i) => (im.reperes?.length
+    ? <CaptureAnnotee key={im.src + i} im={im} p={p} onAgrandir={onAgrandir} />
+    : <ImageDuPoint key={im.src + i} im={im} p={p} onAgrandir={onAgrandir} onTaille={onTaille} />))}</div>;
 }
 
 /* Le cadre prend la largeur de l'image telle qu'elle s'affiche (taille réelle, ou réduite par le plafond de hauteur) :
@@ -178,11 +225,19 @@ const enDataUrl = async src => {
   const b = await r.blob();
   return new Promise(ok => { const f = new FileReader(); f.onload = () => ok(f.result); f.onerror = () => ok(null); f.readAsDataURL(b); });
 };
+/* UNE SEULE MISE EN PAGE, CELLE DU KIT (3.5.044, Charles : « si on clique sur la version PDF, on a un mode d'emploi impeccable
+ * dans cette mise en page. POINT ! »). L'ancien repli — la mise en page simple, imprimée par le navigateur — sortait dès que
+ * le serveur tardait : c'est lui qu'on recevait. Il est retiré : si le serveur échoue, on le dit, on ne sort rien d'autre.
+ * Pendant la composition (une à deux minutes la première fois, puis aussitôt), l'onglet ouvert dit ce qui se passe. */
+const ATTENTE = `<!doctype html><meta charset="utf-8"><title>Lucie — mode d'emploi</title>
+<body style="margin:0;display:grid;place-items:center;height:100vh;background:#0E2A4F;color:#fff;font-family:Inter,Segoe UI,Helvetica,Arial,sans-serif">
+<div style="text-align:center;max-width:30rem;padding:2rem"><div style="font-size:28px;font-weight:700;margin-bottom:12px">Lucie — mode d'emploi</div>
+<div style="opacity:.85;line-height:1.5">Composition du document, chapitre par chapitre, avec ses captures.<br>La première fois, cela prend une à deux minutes ; ensuite, il s'ouvre aussitôt.</div></div></body>`;
 async function ouvrirModeEmploiPdf(setErreur, voir) {
   const onglet = window.open('', '_blank');
+  try { onglet?.document.write(ATTENTE); onglet?.document.close(); } catch { /* onglet bloqué */ }
   const q = voir && voir !== 'tous' ? `?voir=${voir}` : '';
   try {
-    // LE PDF AU MODÈLE DU KIT (3.1.521) : le serveur compose couverture, sommaire et chapitres ; l'écran joint les captures.
     const ri = await fetch(`/api/documentation/mode-emploi/pdf/images${q}`, { headers: authHeaders() });
     const ji = await ri.json();
     if (!ri.ok) throw new Error(ji.error || `Erreur ${ri.status}`);
@@ -190,21 +245,14 @@ async function ouvrirModeEmploiPdf(setErreur, voir) {
     for (const src of ji.images || []) { const d = await enDataUrl(src); if (d) images[src] = d; }
     const rp = await fetch('/api/documentation/mode-emploi/pdf', { method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ voir: voir && voir !== 'tous' ? voir : null, images }) });
-    if (rp.ok) {
-      const url = URL.createObjectURL(await rp.blob());
-      if (onglet) onglet.location = url; else window.location = url;
-      return;
+    if (!rp.ok) {
+      const j = await rp.json().catch(() => ({}));
+      throw new Error(j.error || `Le PDF n'a pas pu être composé (erreur ${rp.status}). Réessayez dans un instant.`);
     }
-    // Le serveur ne sait pas composer de PDF : l'impression du navigateur, sur la mise en page simple.
-    const r = await fetch(`/api/documentation/mode-emploi/document${q}`, { headers: authHeaders() });
-    const j = await r.json();
-    if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
-    let html = j.html;
-    for (const [src, d] of Object.entries(images)) html = html.split(`src="${src}"`).join(`src="${d}"`);
-    if (!onglet) throw new Error('Le navigateur a bloqué la fenêtre.');
-    onglet.document.write(html); onglet.document.close(); setTimeout(() => onglet.print(), 600);
+    const url = URL.createObjectURL(await rp.blob());
+    if (onglet && !onglet.closed) onglet.location = url; else window.location = url;
   } catch (e) {
-    onglet?.close();
+    try { onglet?.close(); } catch { /* */ }
     setErreur(e.message);
   }
 }
@@ -213,7 +261,7 @@ async function ouvrirModeEmploiPdf(setErreur, voir) {
 const texteDuPoint = p => [p.titre, p.ou, p.texte, ...(p.savoir || [])].filter(Boolean).join(' ').replace(/\[\[([^\]|]+)[^\]]*\]\]/g, '$1').toLowerCase();
 const NOMS_PUBLIC = { ens: 'Enseignants', sec: 'Secrétariat', coo: 'Coordinations', dir: 'Direction' };
 // Les icônes que le contenu nomme (`icone` côté serveur) : une liste fermée, pas toute la bibliothèque.
-const ICONES = { IconAccessible, IconAward, IconBook, IconBooks, IconCertificate, IconChartBar, IconChecklist, IconChevronRight, IconDeviceMobile, IconHome, IconLayoutGrid, IconPencil, IconScale, IconSend, IconSettings, IconShieldExclamation, IconStairsUp, IconUserCheck, IconUsers };
+const ICONES = { IconBuildingBank, IconCoin, IconFileCertificate, IconCalendarCheck, IconUserCircle, IconUsersGroup, IconAccessible, IconAward, IconBook, IconBooks, IconCertificate, IconChartBar, IconChecklist, IconChevronRight, IconDeviceMobile, IconHome, IconLayoutGrid, IconPencil, IconScale, IconSend, IconSettings, IconShieldExclamation, IconStairsUp, IconUserCheck, IconUsers };
 const Icone = ({ nom, ...p }) => { const I = ICONES[nom] || IconHelpCircle; return <I {...p} />; };
 
 /* Le chemin « Où », en étapes : « Mes cours → un cours → Présences ». */
@@ -264,6 +312,7 @@ export function Point({ p, n, delai = 0 }) {
   const petites = [], grandes = [];
   let cumul = 0;
   for (const im of liste) {
+    if (im.reperes?.length) { grandes.push(im); continue; }   // une capture annotée prend toute la largeur
     const l = largeurDe(im);
     // Une seule capture : jusqu'aux trois quarts ; à plusieurs, 55 % — le texte garde de quoi se lire.
     const plafondGroupe = colonne * (petites.length ? 0.55 : 0.75);
@@ -372,9 +421,12 @@ export default function Aide({ integre = false }) {
             <button onClick={() => setRecherche('')} aria-label="Effacer"
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><IconX size={15} /></button>)}
         </div>
-        <button onClick={() => { setErreurGuide(null); setPdfEnCours(true); ouvrirModeEmploiPdf(setErreurGuide, voir).finally(() => setPdfEnCours(false)); }}
-          disabled={pdfEnCours} className="bouton bouton-sortir controle">
-          <IconFileTypePdf size={16} /> {pdfEnCours ? 'Composition du PDF…' : 'Tout le mode d’emploi (PDF)'}</button>
+        {/* LES VERSIONS DU PDF (3.5.047, Charles : « le mode d'emploi de TOUT Lucie… la version secrétariat (totale), la version
+            profs… et TOUT dans la version admin avec config »). La direction a les quatre ; chacun d'autre, la sienne. */}
+        {(data?.filtrable ? [['tous', 'Complet (direction)'], ['sec', 'Secrétariat'], ['coo', 'Coordination'], ['ens', 'Enseignants']] : [[null, 'Mon mode d’emploi']]).map(([k, l]) => (
+          <button key={k || 'moi'} onClick={() => { setErreurGuide(null); setPdfEnCours(k || 'moi'); ouvrirModeEmploiPdf(setErreurGuide, k).finally(() => setPdfEnCours(false)); }}
+            disabled={!!pdfEnCours} className="bouton bouton-sortir controle">
+            <IconFileTypePdf size={16} /> {pdfEnCours === (k || 'moi') ? 'Composition…' : `${l} (PDF)`}</button>))}
         {erreurGuide && <span className="text-second text-red-700">{erreurGuide}</span>}
       </div>
 

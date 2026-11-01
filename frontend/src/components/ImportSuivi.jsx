@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 import {
   IconUpload, IconAlertTriangle, IconCheck, IconFileSpreadsheet,
 } from '@tabler/icons-react';
-import { Fenetre } from './ui.jsx';
+import { Fenetre, EnteteCarte } from './ui.jsx';
 import { authHeaders } from '../lib/api.js';
 import { lireClasseur, GEOMETRIE } from '../lib/suiviClasseur.js';
 
@@ -134,8 +134,7 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
       </>}>
         <div className="space-y-4">
           {erreur && (
-            <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200
-                            text-sm text-red-900 flex items-start gap-1.5">
+            <div className="bloc-etat px-3 py-2 text-sm flex items-start gap-1.5" data-etat="corriger">
               <IconAlertTriangle size={14} className="mt-0.5 flex-none" /> {erreur}
             </div>
           )}
@@ -157,17 +156,15 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
           {/* ── Ce que le classeur contient ───────────────────────────── */}
           {unites && (
             <>
-              <div className="border border-slate-200 rounded-xl overflow-hidden">
-                <div className="bg-slate-50 px-3 py-1.5 text-xs font-semibold
-                                text-slate-600 flex items-center justify-between">
-                  <span>{unites.length} unité(s) dans le classeur</span>
+              <section className="carte overflow-hidden">
+                <EnteteCarte titre={`${unites.length} unité(s) dans le classeur`}>
                   <button
                     onClick={() => setChoisies(c => c.size === unites.length
                       ? new Set() : new Set(unites.map(u => u.ue_num)))}
-                    className="text-iip-blue font-semibold">
+                    className="bouton bouton-compact">
                     {choisies.size === unites.length ? 'tout décocher' : 'tout cocher'}
                   </button>
-                </div>
+                </EnteteCarte>
                 <div className="max-h-56 overflow-y-auto divide-y divide-slate-50">
                   {unites.map(u => (
                     <label key={u.ue_num}
@@ -197,7 +194,7 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
                     </label>
                   ))}
                 </div>
-              </div>
+              </section>
 
               <div className="flex flex-wrap gap-4 px-1">
                 {[['ponderations', 'Pondérations'], ['notes', 'Notes'],
@@ -262,19 +259,14 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
                   faut pouvoir situer. Ces dates ne sont pas dans le classeur —
                   elles viennent du planning —, donc on les déclare. */}
               {migration && !!choisies.size && (
-                <div className="mx-1 rounded-xl border border-slate-200 overflow-hidden">
-                  <div className="px-3 py-2 bg-slate-50 border-b border-slate-200
-                                  flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-semibold text-iip-blue">
-                      Les séances — dates de délibération et de visite des copies
-                    </span>
-                    <span className="flex-1" />
+                <section className="mx-1 carte overflow-hidden">
+                  <EnteteCarte titre="Les séances — dates de délibération et de visite des copies">
                     <label className="flex items-center gap-1.5 text-second text-slate-700">
                       <input type="checkbox" checked={clore} className="w-4 h-4 accent-iip-blue"
                         onChange={e => setClore(e.target.checked)} />
                       Clôturer les séances
                     </label>
-                  </div>
+                  </EnteteCarte>
                   <div className="px-3 py-2 border-b border-slate-100 flex items-end gap-2 flex-wrap">
                     <span className="text-second text-slate-500 self-center">
                       Reporter sur toutes les unités cochées :
@@ -333,17 +325,16 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
                       );
                     })}
                   </div>
-                  <div className="px-3 py-2 text-xs text-slate-500 bg-slate-50">
+                  <div className="px-3 py-2 text-xs text-slate-500 border-t border-slate-100">
                     Une unité laissée vide n'écrase rien : sa séance reste en l'état.
                     {clore && ' Clôturer fige l’acte et fait courir le délai de recours — '
                       + 'ne cochez que pour des séances réellement tenues.'}
                   </div>
-                </div>
+                </section>
               )}
 
               {(quoi.creer || quoi.inscrire) && (
-                <div className="mx-1 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
-                                text-second text-amber-900">
+                <div className="mx-1 bloc-etat px-3 py-2 text-second" data-etat="surveiller">
                   Le classeur devient une source d'inscription : chaque ligne inconnue
                   crée un dossier — matricule, nom, prénom — et l'inscrit à l'unité.
                   C'est ce qu'il faut sur une base vide ; ailleurs, une faute de frappe
@@ -366,8 +357,7 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
 
           {/* ── Le rapport ────────────────────────────────────────────── */}
           {rapport && (
-            <div className={`rounded-xl border p-3 space-y-2
-              ${applique ? 'bg-emerald-50 border-emerald-200' : 'bg-sky-50 border-sky-200'}`}>
+            <div className="bloc-etat p-3 space-y-2" data-etat={applique ? 'reussi' : 'disponible'}>
               <div className="text-sm font-semibold flex items-center gap-1.5
                               text-slate-800">
                 {applique ? <IconCheck size={15} className="text-emerald-700" /> : null}

@@ -3,7 +3,7 @@ import {
   IconDeviceFloppy, IconAlertTriangle, IconPrinter,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
-import { Fenetre } from './ui.jsx';
+import { Fenetre, EnteteCarte, OutilFenetre } from './ui.jsx';
 import { MOTIFS_ECHEC, texteDuMotif, composerMotif, decomposerMotif } from './motifsEchec.js';
 import { ouvrirApercu } from '../lib/apercu.js';
 
@@ -152,16 +152,13 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
     <Fenetre large="moyenne" onFermer={onClose}
       titre={`Motivation d'une décision ${estRefus ? 'de refus' : "d'ajournement"}`}
       sous={`UE ${ueNum} · ${annee} · annexe ${estRefus ? '9' : '8'} de la circulaire Sanction des études`}
+      outils={<OutilFenetre Icone={IconPrinter} onClick={produireDocument}
+        disabled={!nonMaitrises.length || sansMotif > 0}
+        titre={sansMotif > 0
+          ? 'Motivez chaque acquis avant de produire le document'
+          : 'Produire le document réglementaire'} />}
       pied={<>
         <span />
-        <button onClick={produireDocument}
-          disabled={!nonMaitrises.length || sansMotif > 0}
-          title={sansMotif > 0
-            ? 'Motivez chaque acquis avant de produire le document'
-            : 'Produire le document réglementaire'}
-          className="bouton bouton-sortir inline-flex items-center gap-1.5">
-          <IconPrinter size={15} /> Produire le document
-        </button>
         <button onClick={enregistrer} disabled={enCours || !nonMaitrises.length}
           className="bouton bouton-fort inline-flex items-center gap-1.5">
           <IconDeviceFloppy size={15} />
@@ -210,10 +207,8 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
             pas lieu d'être — vérifiez la décision encodée.
           </div>
         ) : (
-          <div className="border border-slate-200 rounded-xl overflow-hidden">
-            <div className="intertitre px-3 py-1.5 bg-slate-50 border-b border-slate-200">
-              Acquis d'apprentissage non maîtrisés · motivation
-            </div>
+          <section className="carte overflow-hidden">
+            <EnteteCarte titre="Acquis d'apprentissage non maîtrisés · motivation" />
             <div className="divide-y divide-slate-100">
               {nonMaitrises.map(a => (
                 <div key={a.aa_code} className="px-3 py-2">
@@ -304,7 +299,7 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
                 </div>
               ))}
             </div>
-          </div>
+          </section>
         )}
 
         {donnees.nb_non_evalues > 0 && (

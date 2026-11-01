@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { IconSignature, IconFileText } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { EnteteCarte } from './ui.jsx';
 import { frDate, nomEcran, ouvrirConvention } from './ConventionStage.jsx';
 
 /**
@@ -61,15 +62,15 @@ export default function ConventionsASigner() {
   const n = coches.size;
   return (
     <div className="mb-5">
-      <div className="flex items-baseline gap-2 mb-1.5">
-        <h2 className="titre-carte">À signer</h2>
-        <span className="text-xs text-slate-400">
-          {liste.length ? `${liste.length} convention${liste.length > 1 ? 's' : ''} préparée${liste.length > 1 ? 's' : ''} — votre accord est attendu` : ''}
-        </span>
-      </div>
+      {!liste.length && (
+        <div className="flex items-baseline gap-2 mb-1.5">
+          <h2 className="titre-carte">À signer</h2>
+        </div>)}
 
       {liste.length > 0 && (
         <div className="carte overflow-hidden">
+          <EnteteCarte titre="À signer"
+            sous={`${liste.length} convention${liste.length > 1 ? 's' : ''} préparée${liste.length > 1 ? 's' : ''} — votre accord est attendu`} />
           <label className="tab-entete flex items-center gap-3 px-3 py-1.5 text-xs text-slate-500 cursor-pointer">
             <input type="checkbox" checked={tout}
               onChange={() => setCoches(tout ? new Set() : new Set(liste.map(c => c.id)))} />

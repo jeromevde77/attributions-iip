@@ -18,7 +18,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { IconArrowsSplit, IconCopy, IconX } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
-import { Fenetre } from './ui.jsx';
+import { Fenetre, EnteteCarte } from './ui.jsx';
 
 const nb = v => (v ? Number(v).toLocaleString('fr-BE') : '—');
 
@@ -200,10 +200,9 @@ export default function BasculeOrganisation({ ueNum, onClose, onFait }) {
               <div data-etat="reussi" className="bloc-etat px-3 py-2 text-second">Chaque cours tombe sur un multiple du DP dans chaque organisation, l’organisation {cible} a un groupe de chaque cours et sa part d’autonomie.</div>
             )}
             {groupes.map(g => (
-              <div key={`${g.num}|${g.section}`} className="border border-slate-200 rounded-carte overflow-x-auto">
-                <div className="tab-entete px-3 py-1.5 text-second font-semibold text-slate-700">
-                  Organisation {g.num} — {g.section || 'sans section'} <span className="font-normal text-slate-500">· {g.lignes.length} ligne(s)</span>
-                </div>
+              <section key={`${g.num}|${g.section}`} className="carte overflow-hidden">
+                <EnteteCarte titre={`Organisation ${g.num} — ${g.section || 'sans section'}`} sous={`${g.lignes.length} ligne(s)`} />
+                <div className="overflow-x-auto">
                 <table className="w-full text-second">
                   <thead className="tab-entete"><tr className="text-left text-xs text-slate-500">
                     <th className="px-2 py-1 w-10" title="Déplacer la ligne vers l’organisation cible">Dépl.</th>
@@ -234,7 +233,8 @@ export default function BasculeOrganisation({ ueNum, onClose, onFait }) {
                     ))}
                   </tbody>
                 </table>
-              </div>
+                </div>
+              </section>
             ))}
             {!groupes.length && <p className="text-slate-500">Aucune attribution pour cette UE en {annee}.</p>}
           </>

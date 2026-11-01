@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { IconFileSpreadsheet, IconAlertTriangle, IconCheck } from '@tabler/icons-react';
-import { Fenetre } from './ui.jsx';
+import { Fenetre, EnteteCarte } from './ui.jsx';
 import { authHeaders } from '../lib/api.js';
 
 /**
@@ -154,12 +154,8 @@ export default function ImportAcquisCours({ coursCode, coursNom, annee, onClose,
             <>
               {/* La correspondance, avec la valeur réelle en regard : c'est
                   elle qui dit si l'on a visé la bonne colonne. */}
-              <div className="border border-slate-200 rounded-xl overflow-hidden">
-                <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200
-                                flex items-center justify-between gap-2">
-                  <span className="text-second font-semibold text-iip-blue">
-                    Correspondance des colonnes
-                  </span>
+              <div className="carte overflow-hidden">
+                <EnteteCarte titre="Correspondance des colonnes">
                   <span className="flex items-center gap-1 text-xs text-slate-500">
                     exemple : ligne
                     <button disabled={ligne <= 0} onClick={() => setLigne(l => l - 1)}
@@ -169,7 +165,7 @@ export default function ImportAcquisCours({ coursCode, coursNom, annee, onClose,
                       className="px-1.5 rounded border border-slate-300 disabled:opacity-30">›</button>
                     / {brut.length}
                   </span>
-                </div>
+                </EnteteCarte>
                 <div className="divide-y divide-slate-100">
                   {CHAMPS.map(c => (
                     <div key={c.cle} className="px-3 py-2 flex items-center gap-3">

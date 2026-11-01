@@ -1,15 +1,16 @@
+import { estDirection, droitEffectif } from '../lib/modules.js';
 import { ICONE_AXE } from '../lib/iconesAxes.js';
 import InscritsPrevus from '../components/InscritsPrevus.jsx';
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api, getAnnee, setAnnee as setAnneeActive, getUser } from '../lib/api.js';
 import { BoutonAnnulerReglage, useRelireReglages } from '../lib/annulerReglage.jsx';
-import { ORIGINE, COULEURS_SOMBRE, chargerCouleurs, echelleGris, poser as poserCouleurs, poserGris, variables as variablesCouleurs } from '../lib/couleurs.js';
+import { ORIGINE, COULEURS_SOMBRE, COULEURS_METAL, COULEURS_PASTEL, chargerCouleurs, echelleGris, poser as poserCouleurs, poserGris, variables as variablesCouleurs } from '../lib/couleurs.js';
 import Audit from './Audit.jsx';
 import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette, IconArchive, IconAlertTriangle, IconShieldLock, IconDatabase, IconHierarchy, IconArrowsSplit, IconTool, IconSchool, IconStairsUp, IconCalculator, IconLinkOff, IconSend, IconMessageDots, IconId, IconFileDescription, IconKey, IconMailForward, IconUserSearch, IconCoin, IconShape, IconComponents, IconArrowsExchange, IconPower } from '@tabler/icons-react';
 import CatalogueVisuels from '../components/CatalogueVisuels.jsx';
 import ReglageDesign from '../components/ReglageDesign.jsx';
-import { PageHeader, RailLateral, TuileEtat, PastilleEtat, Encadre } from '../components/ui.jsx';
+import { PageHeader, RailLateral, TuileEtat, PastilleEtat, Encadre, EnteteCarte } from '../components/ui.jsx';
 import ApercuDocuments from '../components/ApercuDocuments.jsx';
 const RegistreTransferts = lazy(() => import('../components/RegistreTransferts.jsx'));
 const Editeur = lazy(() => import('./Editeur.jsx'));
@@ -52,13 +53,9 @@ function PurgeAnnee() {
   }
 
   return (
-    <section className="bg-white rounded-lg border border-red-200 overflow-hidden">
-      <div className="px-4 py-3 bg-red-50 border-b border-red-200 border-l-4 border-l-red-500">
-        <h2 className="font-semibold text-red-700">Purge d'une année scolaire</h2>
-        <p className="text-xs text-red-500 mt-0.5">
-          Supprime toutes les attributions, UE, cours et organisations d'une année. Irréversible.
-        </p>
-      </div>
+    <section className="carte overflow-hidden">
+      <EnteteCarte icone={IconTrash} titre="Purge d'une année scolaire"
+        sous="Supprime toutes les attributions, UE, cours et organisations d'une année. Irréversible." />
       <div className="px-4 py-4 space-y-3">
         {etape === 1 && (
           <>
@@ -77,7 +74,7 @@ function PurgeAnnee() {
               </div>
               <button onClick={() => { if(annee) setEtape(2); }}
                 disabled={!annee}
-                className="px-4 py-1.5 h-9 bg-red-600 text-white text-sm rounded disabled:opacity-40 hover:bg-red-700">
+                className="bouton bouton-detruire">
                 Purger…
               </button>
             </div>
@@ -92,14 +89,14 @@ function PurgeAnnee() {
               Toutes les attributions, UE, cours, organisations et EA12 de cette année
               seront définitivement supprimés. Cette action est irréversible.
             </p>
-            {err && <p className="text-xs text-white bg-red-500 rounded p-2">{err}</p>}
+            {err && <p className="bloc-etat px-3 py-2 text-xs" data-etat="corriger">{err}</p>}
             <div className="flex gap-3">
               <button onClick={purger} disabled={loading}
                 className="bouton bouton-detruire">
                 {loading ? 'Suppression…' : `Oui, supprimer ${annee}`}
               </button>
               <button onClick={() => { setEtape(1); setErr(''); }}
-                className="px-4 py-1.5 h-9 border border-gray-300 text-gray-600 text-sm rounded hover:bg-gray-50">
+                className="bouton">
                 Annuler
               </button>
             </div>
@@ -139,16 +136,9 @@ function RegenererDonneesDev() {
   }
 
   return (
-    <section className="bg-white rounded-lg border border-amber-300 overflow-hidden">
-      <div className="px-4 py-3 bg-amber-50 border-b border-amber-200 border-l-4 border-l-amber-500">
-        <h2 className="font-semibold text-amber-700">🔧 Régénérer les données de test</h2>
-        <p className="text-xs text-amber-600 mt-0.5">
-          Environnement de développement uniquement. Remplace les noms, adresses,
-          diplômes et données personnelles de tous les professeurs ET de tous les
-          étudiants par des données fictives (RGPD-safe). Attributions, notes,
-          parcours et décisions sont conservés.
-        </p>
-      </div>
+    <section className="carte overflow-hidden">
+      <EnteteCarte icone={IconTool} titre="Régénérer les données de test"
+        sous="Environnement de développement uniquement. Remplace les noms, adresses, diplômes et données personnelles de tous les professeurs ET de tous les étudiants par des données fictives (RGPD-safe). Attributions, notes, parcours et décisions sont conservés." />
       <div className="px-4 py-4 space-y-3">
         {etape === 1 && (
           <>
@@ -157,7 +147,7 @@ function RegenererDonneesDev() {
               mais réalistes (matricules, titres, communes belges, statuts EA12 variés).
             </p>
             <button onClick={() => setEtape(2)}
-              className="px-4 py-1.5 h-9 bg-amber-500 text-white text-sm rounded hover:bg-amber-600">
+              className="bouton bouton-fort">
               Régénérer les données fictives
             </button>
           </>
@@ -172,14 +162,14 @@ function RegenererDonneesDev() {
               et diplômes seront remplacés par de nouvelles données fictives. Les
               attributions, UE et cours ne sont pas touchés.
             </p>
-            {err && <p className="text-xs text-white bg-red-500 rounded p-2">{err}</p>}
+            {err && <p className="bloc-etat px-3 py-2 text-xs" data-etat="corriger">{err}</p>}
             <div className="flex gap-3">
               <button onClick={regenerer} disabled={loading}
                 className="bouton">
                 {loading ? 'Régénération…' : 'Oui, régénérer'}
               </button>
               <button onClick={() => { setEtape(1); setErr(''); }}
-                className="px-4 py-1.5 h-9 border border-gray-300 text-gray-600 text-sm rounded hover:bg-gray-50">
+                className="bouton">
                 Annuler
               </button>
             </div>
@@ -240,32 +230,34 @@ function cleanSubject(s) {
   return txt.charAt(0).toUpperCase() + txt.slice(1);
 }
 
-// Catégorise un commit par mot-clé pour une petite pastille
+// Catégorise un commit par mot-clé. LA RÈGLE DES COULEURS (29 septembre 2026) : une information est une PASTILLE PLEINE.
 function commitTag(s) {
   const l = s.toLowerCase();
-  if (/^fix|corrig|bug/.test(l)) return { label: 'Correctif', cls: 'bg-red-500 text-white' };
-  if (/^feat|ajout|nouveau|nouvelle|module/.test(l)) return { label: 'Nouveauté', cls: 'bg-green-500 text-white' };
-  return { label: 'Amélioration', cls: 'bg-iip-turquoise/10 text-iip-blue' };
+  if (/^fix|corrig|bug/.test(l)) return { label: 'Correctif', etat: 'surveiller' };
+  if (/^feat|ajout|nouveau|nouvelle|module/.test(l)) return { label: 'Nouveauté', etat: 'disponible' };
+  return { label: 'Amélioration', etat: 'reussi' };
 }
 
+/* LES NOUVEAUTÉS AU STANDARD (3.5.037, Charles : « non respect du design ») : une carte par jour, son en-tête de carte,
+   une ligne par version (`.ligne-maison`), la nature en pastille pleine. Les fusions de branches ne sont pas des nouveautés. */
 function ChangelogView({ data }) {
   const days = Object.keys(data.byDay || {}).sort().reverse();
-  if (days.length === 0) return <p className="text-sm text-gray-400">Aucune nouveauté disponible.</p>;
+  const utiles = day => (data.byDay[day] || []).filter(c => !/^merge\b/i.test(c.subject));
+  const jours = days.filter(d => utiles(d).length);
+  if (jours.length === 0) return <p className="text-sm text-slate-500">Aucune nouveauté disponible.</p>;
   return (
-    <div className="space-y-5">
-      {days.map(day => (
-        <div key={day}>
-          <h3 className="titre-carte mb-2 pb-1 border-b border-gray-100">
-            {new Date(day).toLocaleDateString('fr-BE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-          </h3>
-          <ul className="space-y-1.5">
-            {data.byDay[day].map(c => {
+    <div className="space-y-4">
+      {jours.map(day => (
+        <div key={day} className="carte overflow-hidden">
+          <EnteteCarte titre={new Date(day).toLocaleDateString('fr-BE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            sous={`${utiles(day).length} changement${utiles(day).length > 1 ? 's' : ''}`} />
+          <ul>
+            {utiles(day).map(c => {
               const tag = commitTag(c.subject);
               return (
-                <li key={c.hash} className="flex items-start gap-2 text-sm">
-                  <span className={`text-mention px-1.5 py-0.5 rounded font-semibold flex-shrink-0 mt-0.5 ${tag.cls}`}>{tag.label}</span>
-                  <span className="text-gray-700 flex-1">{cleanSubject(c.subject)}</span>
-                  <code className="text-mention text-gray-300 font-mono flex-shrink-0 mt-0.5">{c.hash}</code>
+                <li key={c.hash} className="ligne-maison last:border-b-0 flex items-start gap-3 px-4 py-2 text-sm">
+                  <PastilleEtat etat={tag.etat} className="flex-none w-[6.5rem] justify-center mt-0.5">{tag.label}</PastilleEtat>
+                  <span className="flex-1 min-w-0" title={c.hash}>{cleanSubject(c.subject)}</span>
                 </li>
               );
             })}
@@ -390,8 +382,7 @@ function GestionParametres({ groupes = null }) {
     <div className="space-y-4">
       {/* Barre de sauvegarde sticky */}
       {(nbModifs > 0 || saved) && (
-        <div className={`sticky top-0 z-10 flex items-center justify-between px-4 py-2.5 rounded-lg border text-sm
-          ${saved ? 'bg-green-500 border-green-500 text-white' : 'bg-iip-gold/10 border-iip-gold/30 text-iip-gold'}`}>
+        <div className="sticky top-0 z-10 bloc-etat flex items-center justify-between px-4 py-2 text-sm" data-etat={saved ? 'reussi' : 'surveiller'}>
           {saved
             ? '✓ Paramètres enregistrés'
             : `${nbModifs} modification${nbModifs > 1 ? 's' : ''} non sauvegardée${nbModifs > 1 ? 's' : ''}`}
@@ -404,17 +395,16 @@ function GestionParametres({ groupes = null }) {
         </div>
       )}
 
-      <div className="grid gap-4 items-start xl:grid-cols-2 min-[1800px]:grid-cols-3">
+      {/* UN SEUL GROUPE PREND TOUTE LA LARGEUR (3.5.031, Charles : « vieille mise en page » — l'onglet des descriptifs
+          n'en montrait qu'un, rangé dans une demi-colonne). */}
+      <div className={`grid gap-4 items-start ${Object.keys(GROUPE_LABELS).filter(g => (!groupes || groupes.includes(g)) && (grouped[g] || []).length).length > 1 ? 'xl:grid-cols-2 min-[1800px]:grid-cols-3' : ''}`}>
       {Object.entries(GROUPE_LABELS).filter(([g]) => !groupes || groupes.includes(g)).map(([groupe, meta]) => {
         const params = grouped[groupe] || [];
         if (!params.length) return null;
         const Icon = meta.icon;
         return (
           <div key={groupe} className="carte overflow-hidden min-w-0">
-            <div className="px-5 py-4 border-b border-gray-100">
-              <h3 className="titre-carte flex items-center gap-2">{Icon && <Icon size={17} className="text-iip-turquoise" />}{meta.label}</h3>
-              <p className="text-xs text-gray-500 mt-0.5">{meta.desc}</p>
-            </div>
+            <EnteteCarte icone={Icon} titre={meta.label} sous={meta.desc} />
             <div className="divide-y divide-gray-100">
               {params.map(p => {
                 const t = PARAM_TYPES[p.cle]
@@ -422,10 +412,10 @@ function GestionParametres({ groupes = null }) {
                 const val = getValue(p.cle, p.valeur);
                 const modified = pending[p.cle] !== undefined;
                 return (
-                  <div key={p.cle} className={`flex items-center gap-x-4 gap-y-2 px-5 py-3 ${t.type === 'texte' ? 'flex-wrap' : ''} ${modified ? 'bg-iip-gold/5' : ''}`}>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-700">{p.label}</p>
-                      <p className="text-xs text-gray-400 font-mono">{p.cle}</p>
+                  <div key={p.cle} className={`flex items-center gap-x-4 gap-y-2 px-5 py-3 ${t.type === 'texte' ? 'flex-wrap' : ''}`}>
+                    {/* Le nom technique du réglage ne s'affiche plus : il reste au survol, pour qui le cherche. */}
+                    <div className="flex-1 min-w-0" title={p.cle}>
+                      <p className="text-sm font-medium text-iip-texte m-0">{p.label}{modified && <span className="ml-2 text-mention text-amber-700">modifié</span>}</p>
                     </div>
                     <div className={`flex items-center gap-2 ${t.type === 'texte' ? 'basis-full' : ''}`}>
                       {/* UN OUI/NON SE COCHE. Il se tapait « 0 » ou « 1 » dans un
@@ -435,7 +425,7 @@ function GestionParametres({ groupes = null }) {
                         <textarea value={val} rows={6}
                           onChange={e => handleChange(p.cle, e.target.value)}
                           className={`border rounded-champ px-3 py-2 text-sm w-full leading-relaxed bg-white
-                            ${modified ? 'border-iip-gold ring-1 ring-iip-gold/30' : 'border-gray-300'}`} />
+                            ${modified ? 'border-amber-500' : 'border-slate-200'}`} />
                       ) : t.type === 'booleen' ? (
                         <label className="flex items-center gap-2 cursor-pointer select-none">
                           <span className={`text-second ${val === '1' ? 'text-slate-700' : 'text-slate-400'}`}>
@@ -443,8 +433,7 @@ function GestionParametres({ groupes = null }) {
                           </span>
                           <input type="checkbox" checked={val === '1'}
                             onChange={e => handleChange(p.cle, e.target.checked ? '1' : '0')}
-                            className={`h-4 w-4 cursor-pointer
-                              ${modified ? 'ring-2 ring-iip-gold/40 rounded-champ' : ''}`} />
+                            className="h-4 w-4 cursor-pointer" />
                         </label>
                       ) : (
                       <input
@@ -453,9 +442,9 @@ function GestionParametres({ groupes = null }) {
                         value={val}
                         onChange={e => handleChange(p.cle, e.target.value)}
                         style={{ MozAppearance: 'textfield', appearance: 'textfield' }}
-                        className={`border rounded px-3 py-1.5 text-sm text-right
+                        className={`controle text-right
                           ${t.type === 'number' ? 'w-24' : 'w-64 max-w-full'}
-                          ${modified ? 'border-iip-gold ring-1 ring-iip-gold/30' : 'border-gray-300'}`}
+                          ${modified ? '!border-amber-500' : ''}`}
                       />
                       )}
                       {modified && (
@@ -621,11 +610,10 @@ function GestionPrerequis() {
       </div>
 
       {msgLien && (
-        <div className={`px-3 py-2 rounded-lg text-sm flex items-center justify-between ${
-          msgLien.type === 'ok' ? 'bg-emerald-500 text-white border border-emerald-500'
-                                : 'bg-red-500 text-white border border-red-500'}`}>
+        <div className="bloc-etat px-3 py-2 text-sm flex items-center justify-between"
+          data-etat={msgLien.type === 'ok' ? 'reussi' : 'corriger'}>
           <span>{msgLien.texte}</span>
-          <button onClick={() => setMsgLien(null)} className="ml-3 opacity-60">✕</button>
+          <button onClick={() => setMsgLien(null)} className="ml-3 opacity-60" title="Fermer"><IconX size={14} /></button>
         </div>
       )}
 
@@ -642,9 +630,9 @@ function GestionPrerequis() {
       {section && vue === 'liste' && (
         <>
           {/* Ajouter un prérequis */}
-          <div className="bg-white rounded-lg border border-gray-200 px-5 py-4 space-y-3">
-            <p className="text-sm font-medium text-gray-700">Ajouter un prérequis</p>
-            <div className="flex gap-2 items-end flex-wrap">
+          <div className="carte overflow-hidden">
+            <EnteteCarte icone={IconPlus} titre="Ajouter un prérequis" />
+            <div className="flex gap-2 items-end flex-wrap px-5 py-4">
               <div>
                 <label className="block text-xs text-gray-500 mb-1">UE qui dépend de…</label>
                 <select value={newUe} onChange={e => setNewUe(e.target.value)}
@@ -672,11 +660,11 @@ function GestionPrerequis() {
           {loading ? (
             <div className="text-center text-gray-400 py-8">Chargement…</div>
           ) : Object.keys(parUE).length === 0 ? (
-            <div className="text-center text-gray-400 py-8 bg-white rounded-lg border border-gray-200">
+            <div className="carte text-center text-gray-400 py-8">
               Aucun prérequis défini pour {section}
             </div>
           ) : (
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            <div className="carte overflow-hidden bg-white">
               <table className="w-full text-sm">
                 <thead className="tab-entete intertitre">
                   <tr>
@@ -705,8 +693,8 @@ function GestionPrerequis() {
             </div>
           )}
 
-          <div className="bg-iip-turquoise/5 border border-iip-turquoise/30 rounded-lg p-3 text-xs text-iip-blue">
-            <p className="font-medium mb-0.5">💡 Comment ça fonctionne</p>
+          <div className="text-second text-slate-600">
+            <p className="font-medium mb-0.5">Comment ça fonctionne</p>
             <p>Si UE-B dépend de UE-A, le planificateur IA s'assurera que toutes les heures de UE-A sont terminées avant que UE-B puisse commencer. Les épreuves intégrées dépendent automatiquement de toutes les UE de la section.</p>
           </div>
         </>
@@ -789,24 +777,22 @@ function ConfigContrat() {
           <p className="text-xs text-gray-500 mt-0.5">Éditez le HTML du contrat. Utilisez les variables <code className="bg-gray-100 px-1 rounded">{"{{variable}}"}</code> pour les données dynamiques.</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={reinitialiser} className="text-xs border border-gray-300 text-gray-500 hover:bg-gray-50 px-3 py-1.5 rounded-lg">↺ Réinitialiser</button>
-          <button onClick={() => setPreview(v => !v)} className={`text-xs px-3 py-1.5 rounded-lg border ${preview ? 'bg-iip-blue text-white border-iip-blue' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}>
-            {preview ? '⊞ Éditeur' : '👁 Prévisualiser'}
-          </button>
-          <button onClick={sauvegarder} disabled={saving}
-            className={`text-xs px-4 py-1.5 rounded-lg font-semibold ${saved ? 'bg-green-600 text-white' : 'bg-iip-blue text-white hover:opacity-90'} disabled:opacity-40`}>
-            {saved ? '✓ Sauvegardé' : saving ? 'Sauvegarde…' : '✓ Sauvegarder'}
+          <button onClick={reinitialiser} className="bouton">Réinitialiser</button>
+          <button onClick={() => setPreview(v => !v)} className="bouton">{preview ? 'Revenir à l’éditeur' : 'Prévisualiser'}</button>
+          <button onClick={sauvegarder} disabled={saving} className="bouton bouton-fort">
+            {saved ? 'Enregistré' : saving ? 'Enregistrement…' : 'Enregistrer'}
           </button>
         </div>
       </div>
 
       {/* Variables disponibles */}
-      <div className="bloc-etat etat-surveiller p-3">
-        <div className="text-xs font-bold text-amber-700 mb-2">Variables disponibles — cliquez pour insérer</div>
+      {/* Les variables : de simples étiquettes à cliquer, pas un état (l'ocre dit « à surveiller » partout ailleurs). */}
+      <div>
+        <div className="intertitre mb-2">Variables — cliquez pour insérer</div>
         <div className="flex flex-wrap gap-1.5">
           {VARS.map(({ v, desc }) => (
             <button key={v} onClick={() => inserer(v)} title={desc}
-              className="text-xs font-mono bg-white border border-amber-500 text-iip-texte hover:bg-amber-500 hover:text-white px-2 py-0.5 rounded transition">
+              className="text-xs font-mono bg-white border border-slate-200 text-iip-texte hover:border-iip-blue px-2 py-0.5 rounded-champ transition">
               {v}
             </button>
           ))}
@@ -929,12 +915,12 @@ function ConfigAttestation() {
           ))}
           <div className="flex gap-2">
             <button onClick={ajouterSection}
-              className="bouton bouton-fort flex items-center gap-1.5">
+              className="bouton flex items-center gap-1.5">
               <IconPlus size={14}/> Ajouter une section
             </button>
             <button onClick={sauvegarderSections}
-              className={`px-4 py-1.5 rounded-lg text-sm font-semibold ${saved==='sections' ? 'bg-green-600 text-white' : 'bg-iip-blue text-white hover:opacity-90'}`}>
-              {saved==='sections' ? '✓ Sauvegardé' : '✓ Sauvegarder'}
+              className="bouton bouton-fort flex items-center gap-1.5">
+              <IconCheck size={14} /> {saved==='sections' ? 'Sauvegardé' : 'Sauvegarder'}
             </button>
           </div>
         </div>
@@ -1177,6 +1163,7 @@ export default function Configuration() {
   // « QUI A FAIT QUOI » N'APPARAÎT QUE POUR L'ADMINISTRATEUR, et le serveur le
   // refuse de toute façon : un onglet visible qui rend un 403 se lit « Lucie
   // est cassée », pas « ce n'est pas pour vous ».
+  const lectureSeule = !estDirection(getUser()) && droitEffectif(getUser(), 'configuration') === 'lit';
   const groupesVisibles = CONF_GROUPES.map(g => ({ ...g,
     items: g.items.filter(t => !['audit', 'transferts'].includes(t.key) || getUser()?.role === 'admin') }));
   const porte = t => t.key === tab || (t.faces || []).some(([k]) => k === tab);
@@ -1188,6 +1175,11 @@ export default function Configuration() {
      coupaient (« Registre des env… »). Le tiroir est celui d'« Inscriptions
      & PAE » : la famille ouverte se déplie entre deux filets, une icône par
      rubrique — jamais celle de la famille —, le nom entier en bulle. */
+  /* PAS DE DROIT, PAS D'ÉCRAN (3.5.045 — le robot : un professeur qui tape /configuration voyait la page planter sur le refus
+     du serveur). Configuration s'ouvre à la direction, et en lecture aux rôles dont la grille dit « lit ». */
+  if (!estDirection(getUser()) && !['lit', 'ecrit'].includes(droitEffectif(getUser(), 'configuration'))) {
+    return <div className="carte px-4 py-3 text-sm text-slate-600 m-4">Configuration est réservée à la direction.</div>;
+  }
   return (
     <div className="relative" style={{ minHeight: 'calc(100vh - 64px)' }}>
       {/* VINGT-DEUX ICÔNES, ET PLUS PERSONNE NE TROUVAIT RIEN (Charles, 21
@@ -1220,13 +1212,17 @@ export default function Configuration() {
           <div className="flex justify-end -mt-2"><AnneeDuReferentiel onglet={tab} /></div>
         )}
         {ongletActif?.faces && (
-          <div className="segments -mt-1">
+          <div className="segments mb-2">
             {ongletActif.faces.map(([k, l]) => (
               <button key={k} type="button" onClick={() => setTab(k)} className={tab === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>{l}</button>
             ))}
           </div>
         )}
 
+      {/* LA CONFIGURATION EN LECTURE (3.5.030) : un rôle qui ne fait que lire voit chaque onglet, mais aucun champ ni bouton
+          n'y répond (fieldset désactivé) — et le serveur refuserait de toute façon. */}
+      {lectureSeule && <div className="bloc-etat px-3 py-2 text-second" data-etat="disponible">Lecture seule : vous voyez les réglages, seule la direction les modifie.</div>}
+      <fieldset disabled={lectureSeule} className="contents">
       {ongletActif?.demenage && <Demenage d={ongletActif.demenage} />}
 
       {/* ── Le référentiel de l'année, ses quatre faces ── */}
@@ -1297,9 +1293,7 @@ export default function Configuration() {
 
       {/* ── Onglet Nouveautés ── */}
       {tab === 'changelog' && (
-        <div className="max-w-none bg-white rounded-lg border border-gray-200 p-5">
-          <ChangelogView data={changelog} />
-        </div>
+        <ChangelogView data={changelog} />
       )}
 
       {/* ── Onglet Éditeur ── */}
@@ -1353,14 +1347,9 @@ export default function Configuration() {
       <GestionParametres groupes={['systeme']} />
 
       {/* ── Historique des modifications ── */}
-      <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <div className="px-4 py-3 bg-iip-gold/5 border-b border-gray-200">
-          <h2 className="titre-carte">Historique des modifications</h2>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Sauvegarde un snapshot complet de chaque attribution avant chaque modification.
-            Permet de revenir en arrière en cas d'erreur.
-          </p>
-        </div>
+      <section className="carte overflow-hidden">
+        <EnteteCarte icone={IconHistory} titre="Historique des modifications"
+          sous="Sauvegarde un snapshot complet de chaque attribution avant chaque modification. Permet de revenir en arrière en cas d'erreur." />
         <div className="px-4">
           <Toggle
             label="Activer la journalisation"
@@ -1374,7 +1363,7 @@ export default function Configuration() {
         </div>
         {historiqueActif && (
           <div className="px-4 pb-4">
-            <p className="text-xs text-white bg-amber-500 border border-amber-500 rounded px-3 py-2">
+            <p className="bloc-etat text-xs px-3 py-2" data-etat="surveiller">
               ⚠️ L'historique consomme de l'espace disque. Pour une utilisation intensive,
               pensez à effectuer des sauvegardes régulières et à purger l'historique ancien.
             </p>
@@ -1383,13 +1372,9 @@ export default function Configuration() {
       </section>
 
       {/* ── Sauvegarde de la base ── */}
-      <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <div className="px-4 py-3 bg-iip-gold/5 border-b border-gray-200">
-          <h2 className="titre-carte">Sauvegarde de la base de données</h2>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Télécharge une copie complète de la base SQLite (attributions, profs, historique, planning…).
-          </p>
-        </div>
+      <section className="carte overflow-hidden">
+        <EnteteCarte icone={IconDatabase} titre="Sauvegarde de la base de données"
+          sous="Télécharge une copie complète de la base SQLite (attributions, profs, historique, planning…)." />
         <div className="px-4 py-4 space-y-4">
           {/* Téléchargement direct */}
           <div className="flex items-center justify-between gap-4">
@@ -1409,14 +1394,9 @@ export default function Configuration() {
 
       {/* ── Restauration de la base (DEV uniquement) ── */}
       {env === 'dev' && (
-        <section className="bg-white rounded-lg border border-red-200 overflow-hidden">
-          <div className="px-4 py-3 bg-red-50 border-b border-red-200 border-l-4 border-l-red-500">
-            <h2 className="font-semibold text-red-700">⚠ Restauration de la base (DEV)</h2>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Remplace entièrement la base de développement par un fichier de sauvegarde .db.
-              Une sauvegarde automatique de l'état actuel est créée avant. Le serveur redémarre ensuite.
-            </p>
-          </div>
+        <section className="carte overflow-hidden">
+          <EnteteCarte icone={IconAlertTriangle} titre="Restauration de la base (DEV)"
+            sous="Remplace entièrement la base de développement par un fichier de sauvegarde .db. Une sauvegarde automatique de l'état actuel est créée avant. Le serveur redémarre ensuite." />
           <div className="px-4 py-4 space-y-3">
             <div className="flex items-center gap-3 flex-wrap">
               <input type="file" accept=".db,application/octet-stream"
@@ -1424,11 +1404,11 @@ export default function Configuration() {
                 className="text-sm text-gray-600 file:mr-3 file:py-1.5 h-9 file:px-3 file:rounded file:border-0 file:text-sm file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200" />
               <button onClick={restaurerBase} disabled={!restoreFile || restoring}
                 className="bouton bouton-detruire whitespace-nowrap">
-                {restoring ? 'Restauration…' : '♻ Restaurer cette base'}
+                {restoring ? 'Restauration…' : 'Restaurer cette base'}
               </button>
             </div>
             {restoreFile && <div className="text-xs text-gray-500">Fichier : {restoreFile.name} ({(restoreFile.size/1024/1024).toFixed(2)} Mo)</div>}
-            {restoreStatus && <div className="text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded px-3 py-2 whitespace-pre-wrap">{restoreStatus}</div>}
+            {restoreStatus && <div className="text-xs text-gray-700 whitespace-pre-wrap">{restoreStatus}</div>}
             <p className="text-xs text-red-600">
               ⚠ Action irréversible sur les données actuelles. Un garde-fou vérifie la base restaurée et remet
               automatiquement l'ancienne en place si elle est illisible (le serveur ne redémarre alors pas).
@@ -1454,12 +1434,14 @@ docker start attributions-backend-dev`}</div>
       )}
 
       {/* ── Infos ── */}
-      <section className="bg-white rounded-lg border border-gray-200 px-4 py-4 text-xs text-gray-500 space-y-1">
-        <div className="font-semibold text-gray-700 mb-2">À propos</div>
+      <section className="carte overflow-hidden">
+        <EnteteCarte titre="À propos" />
+        <div className="px-4 py-4 text-xs text-gray-500 space-y-1">
         <div>Base de données : SQLite (fichier <code className="bg-gray-100 px-1 rounded">attributions.db</code>)</div>
         <div>Le fichier de sauvegarde peut être restauré directement sur la Synology en remplaçant
           <code className="bg-gray-100 px-1 rounded mx-1">/volume1/docker/attributions-app/backend/data/attributions.db</code>
           et en redémarrant le container.
+        </div>
         </div>
       </section>
       {/* ── Purge d'une année scolaire ── */}
@@ -1474,6 +1456,7 @@ docker start attributions-backend-dev`}</div>
       {tab === 'procedures' && <div className="space-y-4"><GestionParametres groupes={['procedures']} /><OngletProcedures /></div>}
       {tab === 'audit' && <Audit />}
       {false && tab === 'statistiques' && <OngletStatistiques />}
+      </fieldset>
 
         </div>
     </div>
@@ -1541,16 +1524,10 @@ function PnccSection({ annee }) {
   const totalAll = postes.reduce((s, p) => s + (p.etp || 0), 0);
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-      <div className="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
-        <div>
-          <h3 className="titre-carte">Postes PNCC — Personnel non chargé de cours</h3>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Année {annee} · Total : <strong>{totalAll.toFixed(1)} ETP</strong>
-            {totalSecEtu > 0 && <> · dont secrétariat étudiant : <strong className="text-sky-600">{totalSecEtu.toFixed(1)} ETP</strong> (proratisé par section)</>}
-          </p>
-        </div>
-      </div>
+    <div className="carte overflow-hidden">
+      <EnteteCarte titre="Postes PNCC — Personnel non chargé de cours"
+        sous={<>Année {annee} · Total : <strong>{totalAll.toFixed(1)} ETP</strong>
+          {totalSecEtu > 0 && <> · dont secrétariat étudiant : <strong className="text-sky-600">{totalSecEtu.toFixed(1)} ETP</strong> (proratisé par section)</>}</>} />
 
       {/* Liste par catégorie */}
       <div className="divide-y divide-gray-100">
@@ -1571,7 +1548,7 @@ function PnccSection({ annee }) {
               </div>
               <div className="space-y-1.5">
                 {liste.map(p => (
-                  <div key={p.id} className="flex items-center gap-3 bg-gray-50 rounded-lg px-3 py-2">
+                  <div key={p.id} className="flex items-center gap-3 px-3 py-2 border-t border-slate-100 first:border-t-0">
                     <div className="flex-1 min-w-0">
                       <span className="text-sm font-medium text-gray-800">{p.libelle_fonction}</span>
                       {p.nom_personne && <span className="text-xs text-gray-500 ml-2">— {p.nom_personne}</span>}
@@ -1711,17 +1688,10 @@ function OngletProcedures() {
   if (loading) return <div className="p-8 text-gray-400">Chargement…</div>;
 
   return (
-    <div className="max-w-none bg-white rounded-lg border border-gray-200 p-5 space-y-4">
-      <div>
-        <h2 className="titre-carte flex items-center gap-2">
-          <IconGavel size={17} className="text-iip-turquoise" />
-          Justifications types — Procédure de recours
-        </h2>
-        <p className="text-xs text-gray-500 mt-1">
-          Ces textes apparaissent sous forme de cases à cocher dans le formulaire de recours.
-          L'établissement peut en ajouter, modifier ou supprimer selon ses besoins.
-        </p>
-      </div>
+    <div className="max-w-none carte overflow-hidden">
+      <EnteteCarte icone={IconGavel} titre="Justifications types — Procédure de recours"
+        sous="Ces textes apparaissent sous forme de cases à cocher dans le formulaire de recours. L'établissement peut en ajouter, modifier ou supprimer selon ses besoins." />
+      <div className="p-5 space-y-4">
 
       <div className="space-y-2">
         {justifs.map((j, i) => (
@@ -1765,6 +1735,7 @@ function OngletProcedures() {
           <IconCheck size={13} /> Sauvegardé
         </p>
       )}
+      </div>
     </div>
   );
 }
@@ -1895,19 +1866,12 @@ export function OngletStatistiques() {
   return (
     <div className="max-w-none space-y-4">
       {/* En-tête */}
-      <div className="bg-white rounded-lg border border-gray-200 p-5">
-        <h2 className="titre-carte flex items-center gap-2 mb-1">
-          <IconChartBar size={17} className="text-iip-turquoise" />
-          Effectifs estimés par section
-        </h2>
-        <p className="text-xs text-gray-500">
-          Saisissez les effectifs réels ou prévisionnels par UE pour le calcul du ratio étudiants/ETP dans les rapports.
-          Ces données alimentent automatiquement le rapport ETP.
-        </p>
-      </div>
+      <div className="carte overflow-hidden">
+      <EnteteCarte icone={IconChartBar} titre="Effectifs estimés par section"
+        sous="Saisissez les effectifs réels ou prévisionnels par UE pour le calcul du ratio étudiants/ETP dans les rapports. Ces données alimentent automatiquement le rapport ETP." />
 
       {/* Sélecteurs */}
-      <div className="bg-white rounded-lg border border-gray-200 p-4 flex flex-wrap gap-4 items-end">
+      <div className="p-4 flex flex-wrap gap-4 items-end">
         <label className="flex flex-col gap-1">
           <span className="text-xs font-semibold text-gray-600">Année</span>
           <select value={annee} onChange={e => setAnnee(e.target.value)}
@@ -1957,7 +1921,7 @@ export function OngletStatistiques() {
               </button>
               <button onClick={appliquerMemeEtudiantsPartout}
                 title="Mettre le même chiffre sur toutes les UE"
-                className="h-9 px-3 bg-gray-200 text-gray-700 text-xs font-semibold rounded hover:bg-gray-300">
+                className="bouton">
                 Uniforme
               </button>
             </div>
@@ -1968,25 +1932,22 @@ export function OngletStatistiques() {
         <div className="flex-1" />
         {saved && <span className="text-xs text-green-600 flex items-center gap-1"><IconCheck size={13} /> Sauvegardé</span>}
       </div>
+      </div>
 
       {/* Tableau UEs */}
       {loading ? (
-        <div className="bg-white rounded-lg border border-gray-200 p-8 text-center text-gray-400 text-sm">Chargement…</div>
+        <div className="carte p-8 text-center text-gray-400 text-sm">Chargement…</div>
       ) : ues.length === 0 ? (
-        <div className="bg-white rounded-lg border border-gray-200 p-8 text-center text-gray-400 text-sm">Aucune UE trouvée pour cette section / année.</div>
+        <div className="carte p-8 text-center text-gray-400 text-sm">Aucune UE trouvée pour cette section / année.</div>
       ) : (
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <div className="carte overflow-hidden">
           {/* Résumé total */}
-          <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50">
-            <div className="text-sm text-gray-600">
-              <span className="font-semibold text-gray-800">{ues.length}</span> UEs ·
-              Total estimé : <span className="font-semibold text-iip-blue">{totalReel > 0 ? totalReel : '—'}</span> étudiants
-            </div>
+          <EnteteCarte titre={<><span className="font-semibold">{ues.length}</span>&nbsp;UEs · Total estimé :&nbsp;<span className="text-iip-blue">{totalReel > 0 ? totalReel : '—'}</span>&nbsp;étudiants</>}>
             <button onClick={() => sauvegarder(ues)} disabled={saving}
-              className="bg-iip-blue text-white text-xs font-semibold px-4 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-40 flex items-center gap-1.5">
+              className="bouton bouton-fort flex items-center gap-1.5">
               {saving ? 'Sauvegarde…' : <><IconCheck size={12} /> Sauvegarder tout</>}
             </button>
-          </div>
+          </EnteteCarte>
 
           {/* Tableau par niveau */}
           <table className="w-full text-sm border-collapse">
@@ -2083,35 +2044,29 @@ function ConfigRecrutement() {
   /* APPELÉE, PAS MONTÉE (12 octobre 2026) : en composant défini ici, elle était recréée à chaque
      frappe et la zone de texte perdait le curseur à chaque lettre. */
   const Bloc = ({ label, desc, field }) => (
-    <div className="mb-8">
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <h2 className="titre-carte">{label}</h2>
-          <p className="text-xs text-gray-400 mt-0.5">{desc}</p>
-        </div>
+    <section className="carte overflow-hidden mb-8">
+      <EnteteCarte titre={label} sous={desc}>
         <button onClick={field.sauvegarder} disabled={field.saving || field.loading}
-          className={`text-sm px-4 py-2 rounded-lg font-medium flex items-center gap-1.5 ${
-            field.saved ? 'bg-green-600 text-white' : 'bg-iip-blue text-white hover:opacity-90'
-          } disabled:opacity-50`}>
-          {field.saved ? '✓ Sauvegardé' : field.saving ? 'Sauvegarde…' : '✓ Enregistrer'}
+          className="bouton bouton-fort flex items-center gap-1.5">
+          <IconCheck size={14} /> {field.saved ? 'Sauvegardé' : field.saving ? 'Sauvegarde…' : 'Enregistrer'}
         </button>
-      </div>
-      {field.err && <div className="text-sm text-red-600 bg-red-50 rounded px-3 py-2 mb-3 border-l-4 border-l-red-500">{field.err}</div>}
-      {field.loading ? <div className="text-sm text-gray-400 py-4">Chargement…</div> : (
-        <div className="border border-gray-200 rounded-xl overflow-hidden">
-          <div className="px-4 py-2 bg-iip-blue/5 border-b border-gray-200 text-xs text-gray-500">
+      </EnteteCarte>
+      {field.err && <div className="bloc-etat text-sm px-3 py-2 m-4" data-etat="corriger">{field.err}</div>}
+      {field.loading ? <div className="text-sm text-gray-400 px-4 py-4">Chargement…</div> : (
+        <div>
+          <div className="px-4 py-2 border-b border-slate-100 text-second text-slate-600">
             Les sauts de ligne sont conservés. Ce texte est lu au candidat lors de l'entretien.
           </div>
           <textarea value={field.valeur} onChange={e => field.setValeur(e.target.value)}
             rows={10}
             className="w-full text-sm px-4 py-3 resize-none focus:outline-none focus:ring-1 focus:ring-iip-turquoise font-mono" />
-          <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 text-xs text-gray-400 flex justify-between">
+          <div className="px-4 py-2 border-t border-slate-100 text-xs text-gray-400 flex justify-between">
             <span>{field.valeur.length} caractères</span>
             <span>~{Math.ceil(field.valeur.split(' ').filter(Boolean).length / 130)} min à voix haute</span>
           </div>
         </div>
       )}
-    </div>
+    </section>
   );
 
   return (
@@ -2182,6 +2137,10 @@ const THEMES = [
      elles, restent sur papier blanc. */
   { cle: 'sombre', nom: 'Sombre', texte: 'Gris foncés, texte clair, bleu éclairci ; les états restent lisibles.', gris: 'sombre',
     valeurs: COULEURS_SOMBRE },
+  /* MÉTAL ET PASTEL (3.5.037) : chacun peut les choisir pour soi (palette de la barre du haut) ; l'école peut aussi les
+     adopter ici pour tout le monde. Mêmes valeurs, écrites une fois (lib/couleurs.js). */
+  { cle: 'metal', nom: 'Métal', texte: 'Les gris d’Apple, sans couleur ; les états gardent leur sens.', gris: 'apple', valeurs: COULEURS_METAL },
+  { cle: 'pastel', nom: 'Pastel', texte: 'Tons doux sur fond blanc ; les états gardent leur sens.', gris: 'neutre', valeurs: COULEURS_PASTEL },
 ];
 const GROUPES_COULEURS = [
   ['ecran', 'L’écran', 'Tout ce qui n’est pas un état : le bouton principal, l’accent, le texte, les données, les menus sombres.'],
@@ -2215,9 +2174,9 @@ function ReglageCouleurs() {
     if (d?.valeur) return d.valeur;
     if (d?.suit && catalogue[d.suit]) return v(d.suit);
     // « texte à 6 % » : le mélange du texte et du blanc, comme le fait le CSS.
-    const m = /^texte à (\d+)/.exec(d?.suit || '');
+    const m = /^(texte|principal) à (\d+)/.exec(d?.suit || '');
     if (m) {
-      const k = Number(m[1]) / 100, t = v('texte').slice(1).match(/../g).map(x => parseInt(x, 16));
+      const k = Number(m[2]) / 100, t = v(m[1]).slice(1).match(/../g).map(x => parseInt(x, 16));
       return '#' + t.map(c => Math.round(255 - (255 - c) * k).toString(16).padStart(2, '0')).join('').toUpperCase();
     }
     return '#FFFFFF';
@@ -2330,10 +2289,7 @@ function ReglageCouleurs() {
             if (!cles.length) return null;
             return (
               <div key={g} className="carte overflow-hidden">
-                <div className="px-3 py-2 border-b border-slate-100">
-                  <div className="text-sm font-semibold text-iip-blue">{titre}</div>
-                  <div className="text-xs text-slate-400">{sous}</div>
-                </div>
+                <EnteteCarte titre={titre} sous={sous || null} />
                 {cles.map(([cle, d]) => (
                   <div key={cle} className="px-3 py-1.5 flex items-center gap-3 border-t border-slate-100 first:border-t-0">
                     <span className="flex-1 text-sm text-slate-800">{d.libelle}</span>

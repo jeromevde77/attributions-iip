@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { IconArrowsSplit, IconCheck, IconAlertTriangle, IconHistory, IconLock } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import SchemaLiensAA from '../components/SchemaLiensAA.jsx';
-import { TuileEtat } from '../components/ui.jsx';
+import { TuileEtat, EnteteCarte } from '../components/ui.jsx';
 import { demander } from '../lib/dialogue.jsx';
 
 /**
@@ -56,16 +56,15 @@ function Tuile({ valeur, libelle, precision, ton = 'neutre' }) {
 
 function Zone({ lettre, titre, sous, children, droite }) {
   return (
-    <section className="rounded-carte border border-slate-200 p-3 space-y-2 min-w-0">
-      <div className="flex items-baseline gap-2.5 flex-wrap">
-        {/* La lettre de la zone porte le principal : l'or est celui de
-            l'épreuve intégrée, et il ne dit que cela. */}
+    <section className="carte overflow-hidden min-w-0">
+      {/* La lettre de la zone porte le principal : l'or est celui de
+          l'épreuve intégrée, et il ne dit que cela. */}
+      <EnteteCarte sous={sous || null} titre={<>
         <span className="w-[20px] h-[20px] rounded-full bg-iip-blue/10 text-iip-blue text-xs font-bold grid place-items-center flex-none">{lettre}</span>
-        <h3 className="titre-carte">{titre}</h3>
-        {sous && <span className="text-second text-slate-400">{sous}</span>}
-        {droite && <span className="ml-auto">{droite}</span>}
-      </div>
-      {children}
+        {titre}</>}>
+        {droite || null}
+      </EnteteCarte>
+      <div className="p-3 space-y-2">{children}</div>
     </section>
   );
 }

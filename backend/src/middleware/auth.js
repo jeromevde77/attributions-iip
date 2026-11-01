@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import db from '../db/index.js';
+import { litLaConfiguration } from './permissions.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'change-me-in-prod';
 
@@ -71,6 +72,12 @@ export function authRequired(req, res, next) {
   }
 }
 
+/** Réservé à la direction, lecture comprise : ce qui contient tout (sauvegarde, export de la base). */
+export function directionStricte(req, res, next) {
+  req._directionStricte = true;
+  return roleRequired('admin')(req, res, next);
+}
+
 export function roleRequired(...roles) {
   return (req, res, next) => {
     if (!req.user) return res.status(401).json({ error: 'Non authentifié' });
@@ -81,6 +88,11 @@ export function roleRequired(...roles) {
     // 'editeur' : même niveau d'écriture, sans les référentiels.
     if (NIVEAU_DIRECTION.includes(role) && (roles.includes('admin') || roles.includes('editeur'))) return next();
     if (role === 'secretariat' && roles.includes('editeur')) return next();
+
+    // LA LECTURE DE LA CONFIGURATION (3.5.030) : un rôle dont le plafond « Configuration » est au moins « lit » passe
+    // une route réservée à la direction quand il ne fait que LIRE. Écrire reste à la direction. Les lectures qui
+    // contiennent tout (une sauvegarde, l'export de la base) se gardent par `directionStricte`.
+    if ((req.method === 'GET' || req.method === 'HEAD') && roles.includes('admin') && !req._directionStricte && litLaConfiguration(req.user)) return next();
 
     // Un coordinateur n'écrit jamais directement : ses modifications passent
     // par une demande. Les écrans qui savent la déposer le font eux-mêmes ;

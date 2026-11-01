@@ -1,4 +1,4 @@
-import { modeActuel } from './theme.js';
+import { modeActuel, themeActuel } from './theme.js';
 import { authHeaders } from './api.js';
 
 /**
@@ -135,31 +135,67 @@ export function variables(jeu) {
  * l'école, et le bouton lune de la barre du haut les pose POUR SOI (12 octobre 2026, Charles :
  * « quand je clique sur nuit, je veux le mode sombre »). Le choix est personnel, gardé dans ce
  * navigateur (lib/theme.js) ; les couleurs de l'école ne changent pas. */
-export const COULEURS_SOMBRE = { principal: '#5B9BD5', accent: '#3FC1E8', texte: '#E4E8EE', donnees: '#5B9BD5', menu_sombre: '#14161A',
+export const COULEURS_SOMBRE = { principal: '#5B9BD5', accent: '#3FC1E8', texte: '#E4E8EE', donnees: '#5B9BD5', menu_sombre: '#17191C',
                iip: '#7FB3E6', helb: '#E07AA6', ct: '#6FA0DD', pp: '#4FB58E',
                reussi: '#4FB06A', faveur: '#A879C9', disponible: '#5B9BE0', attente: '#F0A040', refuse: '#E66A62',
                ba1: '#F9B619', ba2: '#05B7E6', ba3: '#7FB3E6', epreuve: '#D4AF37',
-               fond_page: '#17191C', fond_indispo: '#2A2E34', fond_menus: '#1B1E22', fond_carte: '#1B1E22', fond_entete: '#24282E',
+               fond_page: '#17191C', fond_indispo: '#2A2E34', fond_menus: '#17191C', fond_carte: '#1B1E22', fond_entete: '#24282E',
                fond_ligne: '#1F2226', fond_survol: '#2A2F36', fond_tuile: '#23272D', fond_champ: '#262A30', filet: '#353A42',
                sous_menu: '#6FA8DC', fenetre_bandeau: '#2A3038', fenetre_titre: '#F2F4F7', fenetre_corps: '#202328',
                titre: '#E9EDF2', intertitre: '#9AA3AF', tableau_total: '#2A3038', fond_volet: '#24282E',
                serie_1: '#5B9BD5', serie_2: '#3FC1E8', serie_3: '#F9B619', serie_4: '#A879C9', serie_5: '#4FB06A', serie_6: '#E07AA6',
                graphique_vide: '#3A4048', graphique_grille: '#33383F', graphique_piste: '#2E333A' };
 
+/* LE FOND DE LA PAGE A TOUJOURS LA COULEUR DU RAIL ET DE LA BARRE DU HAUT (3.5.046, Charles : « j'insiste ») : dans chaque
+ * thème, fond_menus = fond_page. Métal : les gris d'Apple (« dans les tons de gris, genre Apple » ; « il n'y a pas de bordure, les teintes de gris sont plus
+ * proches » — apple.com, deux captures) : page et menus #F5F5F7 (la règle : le fond a la couleur du rail), cartes et tuiles BLANCHES sans bordure, une ombre douce
+ * qui naît au survol (index.css, `[data-theme="metal"]`), texte
+ * #1D1D1F, le bleu d'Apple (#0071E3) pour l'action, l'orange (#BF4800) pour ce qui est à surveiller.
+ * MÉTAL ET PASTEL (3.5.037, Charles : « j'aimerais aussi un métal et un pastel »). Comme le Sombre : des couleurs
+ * seulement, qu'on pose pour soi (bouton palette de la barre du haut) ou que l'école adopte (Thèmes et couleurs). Les
+ * états gardent leur sens (Pastel : fond BLANC — Charles, 1er novembre 2026 : « le fond est moche, il faut garder un fond blanc ») — vert réussi, ocre à surveiller, brique à corriger, violet faveur — dans la nuance du thème. */
+export const COULEURS_METAL = { principal: '#1D1D1F', accent: '#0071E3', texte: '#1D1D1F', donnees: '#6E6E73', menu_sombre: '#1D1D1F',
+               iip: '#1D1D1F', helb: '#B5577F', ct: '#6E6E73', pp: '#4E7A5E',
+               reussi: '#248A3D', faveur: '#8944AB', disponible: '#0071E3', attente: '#BF4800', refuse: '#D70015',
+               ba1: '#C9A227', ba2: '#5FA8C2', ba3: '#1D1D1F', epreuve: '#B8973A',
+               fond_page: '#F5F5F7', fond_indispo: '#EDEDF0', fond_menus: '#F5F5F7', fond_carte: '#FFFFFF', fond_entete: '#FAFAFC',
+               fond_ligne: '#FFFFFF', fond_tuile: '#FFFFFF', fond_champ: '#FFFFFF', filet: '#F0F0F2', fond_survol: '#F7F7F9',
+               fenetre_bandeau: '#1D1D1F', bouton_fort: '#0071E3', segment_actif: '#1D1D1F',
+               titre: '#1D1D1F', intertitre: '#6E6E73' };
+export const COULEURS_PASTEL = { principal: '#5A6FA8', accent: '#5FAFC2', texte: '#3A4466', donnees: '#7FA7D9', menu_sombre: '#4A5A8A',
+               iip: '#5A6FA8', helb: '#D97FA8', ct: '#7FA7D9', pp: '#6DB896',
+               reussi: '#5BAA7A', faveur: '#9D7FD0', disponible: '#6F9AD6', attente: '#E39A50', refuse: '#DB7070',
+               ba1: '#F3C95C', ba2: '#86CDE3', ba3: '#8C9ED6', epreuve: '#D4B062',
+               fond_page: '#FFFFFF', fond_indispo: '#F3F2F8', fond_menus: '#FFFFFF', fond_carte: '#FFFFFF', fond_entete: '#EEF0FA',
+               fond_tuile: '#FFFFFF', fond_champ: '#FFFFFF', filet: '#E2DDEB', fenetre_bandeau: '#6F82BC',
+               titre: '#4A5788', intertitre: '#878DA8' };
+/** Le thème de chacun : ses couleurs et son jeu de gris. « ecole » : rien par-dessus les couleurs de l'école. */
+export const THEMES_PERSONNELS = {
+  ecole:  { nom: 'Maison IIP', texte: "Les couleurs de l'école", couleurs: null, gris: null },
+  sombre: { nom: 'Sombre', texte: 'Gris foncés, texte clair', couleurs: COULEURS_SOMBRE, gris: 'sombre' },
+  metal:  { nom: 'Métal', texte: 'Blanc et gris d’Apple, sans bordure', couleurs: COULEURS_METAL, gris: 'apple' },
+  pastel: { nom: 'Pastel', texte: 'Tons doux sur fond blanc', couleurs: COULEURS_PASTEL, gris: 'neutre' },
+};
+const CLES_PERSO = [...new Set([COULEURS_SOMBRE, COULEURS_METAL, COULEURS_PASTEL].flatMap(Object.keys))];
+function poserThemePerso() {
+  const t = THEMES_PERSONNELS[themeActuel()];
+  if (t?.couleurs) { poser(t.couleurs); poserGris(t.gris); }
+}
+
 /** À l'ouverture de l'application, et après chaque réglage. */
 export async function chargerCouleurs() {
   // Repartir propre : ce que le thème sombre avait posé et que l'école ne règle pas doit s'effacer.
-  poser(Object.fromEntries(Object.keys(COULEURS_SOMBRE).map(k => [k, null])));
+  poser(Object.fromEntries(CLES_PERSO.map(k => [k, null])));
   poser(DEFAUT);
-  if (modeActuel() === 'sombre') { poser(COULEURS_SOMBRE); poserGris('sombre'); }   // tout de suite, sans attendre le serveur
+  poserThemePerso();   // tout de suite, sans attendre le serveur
   try {
     const rep = await fetch('/api/config/couleurs', { headers: authHeaders() });
     if (!rep.ok) return DEFAUT;
     const j = await rep.json();
     poser(j.couleurs);
     poserGris(j.gris);
-    // La nuit, pour soi : le thème sombre par-dessus les couleurs de l'école.
-    if (modeActuel() === 'sombre') { poser(COULEURS_SOMBRE); poserGris('sombre'); }
+    // Le thème de chacun, par-dessus les couleurs de l'école.
+    poserThemePerso();
     return j.couleurs;
   } catch {
     // Hors ligne ou session expirée : les défauts tiennent l'écran debout.

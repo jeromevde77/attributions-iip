@@ -4,6 +4,7 @@ import {
   IconCheck,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { EnteteCarte } from './ui.jsx';
 import { demander } from '../lib/dialogue.jsx';
 
 const fr = n => n == null ? '—' : String(n);
@@ -86,11 +87,11 @@ export default function CalculateurAnciennete({ profId, estAdmin, peutEcrire, an
                 <option value="2026-2027">2026-2027</option>
               </select>
               <button onClick={preremplir} disabled={!anneeFiltre}
-                className="text-sm px-2.5 py-1.5 rounded-lg border border-slate-300 flex items-center gap-1.5 disabled:opacity-40">
+                className="bouton disabled:opacity-40">
                 <IconWand size={14} /> Pré-remplir depuis les attributions
               </button>
               <button onClick={() => setForm({ annee_scolaire: anneeFiltre || '', cours_code: '', cours_nom: '', type_cours: 'CT', periodes: '' })}
-                className="text-sm px-2.5 py-1.5 rounded-lg border border-slate-300 flex items-center gap-1.5">
+                className="bouton">
                 <IconPlus size={14} /> Ajouter
               </button>
             </>
@@ -138,26 +139,25 @@ export default function CalculateurAnciennete({ profId, estAdmin, peutEcrire, an
               Enregistrer
             </button>
             <button onClick={() => setForm(null)}
-              className="text-sm px-3 py-1.5 rounded-lg border border-slate-300">Annuler</button>
+              className="bouton">Annuler</button>
           </div>
         </div>
       )}
 
       {/* Détail par année */}
       {anneesFiltrees.map(a => (
-        <div key={a.annee_scolaire} className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-          <div className="px-4 py-2 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-            <span className="font-semibold text-sm text-iip-blue">{a.annee_scolaire}</span>
+        <section key={a.annee_scolaire} className="carte overflow-hidden">
+          <EnteteCarte titre={a.annee_scolaire}>
             <div className="flex gap-4 text-second text-slate-500">
               <span>ETP : <b className="text-slate-700">{a.etp_total}</b></span>
               <span>Jours PO : <b className={a.jours_po >= 360 ? 'text-amber-700' : 'text-slate-700'}>{a.jours_po}</b>
                 {a.jours_po >= 360 && <span className="ml-1 text-mention bg-amber-500 text-white px-1 rounded">plafonné</span>}
               </span>
             </div>
-          </div>
+          </EnteteCarte>
           <table className="w-full text-sm">
             <thead>
-              <tr className="intertitre bg-slate-50/60 border-b border-slate-200">
+              <tr className="intertitre bande-entete border-b border-slate-200">
                 <th className="px-3 py-2 text-left">Cours</th>
                 <th className="px-3 py-2 text-left w-16">Type</th>
                 <th className="px-3 py-2 text-right w-24">Périodes</th>
@@ -196,15 +196,13 @@ export default function CalculateurAnciennete({ profId, estAdmin, peutEcrire, an
               ))}
             </tbody>
           </table>
-        </div>
+        </section>
       ))}
 
       {/* Récapitulatif global */}
       {!anneeFiltre && (
-        <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-          <div className="px-4 py-2 bg-iip-blue/5 border-b border-slate-200 font-semibold text-sm text-iip-blue">
-            Totaux cumulés — toutes années
-          </div>
+        <section className="carte overflow-hidden">
+          <EnteteCarte titre="Totaux cumulés — toutes années" />
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 p-4">
             <div className="border border-slate-200 rounded-xl p-3">
               <div className="intertitre mb-1">Ancienneté PO totale</div>
@@ -219,7 +217,7 @@ export default function CalculateurAnciennete({ profId, estAdmin, peutEcrire, an
               </div>
             ))}
           </div>
-        </div>
+        </section>
       )}
 
       <p className="text-xs text-slate-400">

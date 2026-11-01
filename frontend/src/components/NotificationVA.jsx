@@ -10,7 +10,7 @@ import { useState } from 'react';
 import { IconSend, IconPrinter } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { ouvrirApercu } from '../lib/apercu.js';
-import { Fenetre } from './ui.jsx';
+import { Fenetre, OutilFenetre } from './ui.jsx';
 import EnvoiMailModal from './EnvoiMailModal.jsx';
 
 export default function NotificationVA({ etudId, annee, nom, onFait, compact = false }) {
@@ -47,13 +47,13 @@ export default function NotificationVA({ etudId, annee, nom, onFait, compact = f
       </button>
       {piece && !envoi && (
         <Fenetre titre="Notification des décisions de valorisation" sous={`${nom || ''} · ${annee}`} onFermer={() => { setPiece(null); setErreur(null); }}
-          pied={!piece.vide && <>
-            <button type="button" className="bouton bouton-fort flex items-center gap-1.5" onClick={() => setEnvoi(true)}>
-              <IconSend size={14} /> Envoyer à l’étudiant</button>
-            <button type="button" className="bouton bouton-sortir flex items-center gap-1.5"
+          outils={!piece.vide && <>
+            <OutilFenetre Icone={IconPrinter} titre="Aperçu, imprimer"
               onClick={() => ouvrirApercu({ html: piece.html, titre: piece.titre, nomFichier: piece.nom, typeDoc: 'valorisation_notification',
-                astuceImpression: 'A4 portrait', destinataire: { type: 'etudiant', id: etudId } })}>
-              <IconPrinter size={14} /> Aperçu, imprimer</button>
+                astuceImpression: 'A4 portrait', destinataire: { type: 'etudiant', id: etudId } })} />
+            <OutilFenetre Icone={IconSend} titre="Envoyer à l’étudiant" onClick={() => setEnvoi(true)} />
+          </>}
+          pied={!piece.vide && <>
             <span className="text-second text-slate-500 min-w-0">L’envoi enregistre la date de notification sur chaque dossier.</span>
           </>}>
           {erreur ? <div data-etat="corriger" className="bloc-etat px-3 py-2 text-sm">{erreur}</div> : (

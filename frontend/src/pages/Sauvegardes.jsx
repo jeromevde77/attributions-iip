@@ -3,7 +3,7 @@ import {
   IconDatabase, IconDownload, IconTrash, IconAlertTriangle, IconCheck, IconClock,
 } from '@tabler/icons-react';
 import { authHeaders, telechargerFichier } from '../lib/api.js';
-import { TableauEntete, Th, Badge } from '../components/ui.jsx';
+import { TableauEntete, Th, Badge, EnteteCarte } from '../components/ui.jsx';
 import { demander } from '../lib/dialogue.jsx';
 
 /**
@@ -115,11 +115,8 @@ export default function Sauvegardes() {
       )}
 
       {/* Planification */}
-      <div className="border border-slate-200 rounded-xl overflow-hidden">
-        <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center gap-2">
-          <IconClock size={15} className="text-slate-400" />
-          <span className="text-sm font-semibold text-iip-blue">Planification</span>
-        </div>
+      <section className="carte overflow-hidden">
+        <EnteteCarte icone={IconClock} titre="Planification" />
         <div className="p-4 flex flex-wrap items-end gap-4">
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={config.active}
@@ -149,18 +146,12 @@ export default function Sauvegardes() {
             vérification comptable n'appellent pas la même profondeur.
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Historique */}
-      <div className="border border-slate-200 rounded-xl overflow-hidden">
-        <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-          <span className="text-sm font-semibold text-iip-blue">
-            {reussies.length} sauvegarde(s) conservée(s)
-          </span>
-          <span className="text-xs text-slate-400">
-            {octets(data.espace_total)} · {data.dossier}
-          </span>
-        </div>
+      <section className="carte overflow-hidden">
+        <EnteteCarte icone={IconDatabase} titre={`${reussies.length} sauvegarde(s) conservée(s)`}
+          sous={`${octets(data.espace_total)} · ${data.dossier}`} />
 
         {!data.sauvegardes.length ? (
           <div className="py-10 text-center text-sm text-slate-400">
@@ -233,7 +224,7 @@ export default function Sauvegardes() {
             </tbody>
           </table>
         )}
-      </div>
+      </section>
 
       <div className="text-xs text-slate-500 space-y-1">
         <p>

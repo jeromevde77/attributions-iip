@@ -207,7 +207,7 @@ export function Absences({ profId, peutEcrire }) {
         </div>
         {peutEcrire && !form && (
           <button onClick={() => setForm({ type: 'maladie', date_debut: '', date_fin: '' })}
-            className="text-sm px-3 py-1.5 rounded-lg bg-iip-blue text-white font-semibold flex items-center gap-1.5">
+            className="bouton bouton-fort flex items-center gap-1.5">
             <IconPlus size={15} /> Déclarer une absence
           </button>
         )}
@@ -386,7 +386,7 @@ export function Entretiens({ profId, peutEcrire, estAdmin }) {
         </div>
         {peutEcrire && !form && (
           <button onClick={() => setForm({ type: 'suivi', date_prevue: '', confidentiel: 0 })}
-            className="text-sm px-3 py-1.5 rounded-lg bg-iip-blue text-white font-semibold flex items-center gap-1.5">
+            className="bouton bouton-fort flex items-center gap-1.5">
             <IconCalendarPlus size={15} /> Planifier
           </button>
         )}

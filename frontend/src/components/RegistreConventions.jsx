@@ -4,7 +4,7 @@ import {
   IconEye, IconPlus, IconX, IconArrowBackUp,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
-import { PageHeader, Fenetre, PastilleEtat } from './ui.jsx';
+import { PageHeader, Fenetre, PastilleEtat, OutilFenetre } from './ui.jsx';
 import EditeurTexte from './EditeurTexte.jsx';
 import { frDate, nomEcran, ouvrirConvention } from './ConventionStage.jsx';
 
@@ -394,10 +394,10 @@ function NouvelleConvention({ sections, annee: anneeDefaut, onClose, onCree }) {
     <Fenetre icone={IconPlus} large="grande" onFermer={onClose}
       titre={famille ? `Nouvelle convention — ${({ cadre_stage: 'convention-cadre de stage', partenariat: 'partenariat pédagogique', etablissements: 'convention entre établissements' })[famille]}` : 'Nouvelle convention'}
       sous={famille ? 'Le texte vient du modèle publié ; l’Institut (nom, adresse, signataire) vient de Configuration → Établissement.' : 'Quelle sorte de convention ?'}
+      outils={famille ? <OutilFenetre Icone={IconEye} titre="Aperçu" onClick={apercu} /> : null}
       pied={famille ? (<>
         <p className="flex-1 min-w-0 text-second text-red-700">{erreur}</p>
         <button type="button" className="bouton" onClick={() => { setFamille(null); setErreur(null); }}>Changer de famille</button>
-        <button type="button" className="bouton" onClick={apercu}><IconEye size={15} /> Aperçu</button>
         <button type="button" className="bouton bouton-fort" disabled={enCours} onClick={composer}>
           {enCours ? 'Composition…' : 'Composer'}
         </button>

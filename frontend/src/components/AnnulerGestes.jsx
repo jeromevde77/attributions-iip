@@ -84,8 +84,8 @@ export default function AnnulerGestes() {
                       {g.annule_le
                         ? <span className="text-mention text-slate-500">annulé le {heure(g.annule_le)}{g.annule_par ? ` par ${g.annule_par}` : ''}</span>
                         : g.annulable
-                          ? <button className="bouton" disabled={enCours} onClick={() => reculerJusqua(g)}
-                              title={equipe ? 'Annuler ce geste (motif demandé)' : 'Annuler ce geste, et ceux qui sont venus après'}>↶ {equipe ? 'Annuler' : 'Revenir avant ce geste'}</button>
+                          ? <button className="bouton inline-flex items-center gap-1" disabled={enCours} onClick={() => reculerJusqua(g)}
+                              title={equipe ? 'Annuler ce geste (motif demandé)' : 'Annuler ce geste, et ceux qui sont venus après'}><IconArrowBackUp size={14} /> {equipe ? 'Annuler' : 'Revenir avant ce geste'}</button>
                           : <span className="text-mention text-slate-400">ne s’annule pas ici</span>}
                     </td>
                   </tr>))}

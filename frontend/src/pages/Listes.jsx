@@ -1862,7 +1862,7 @@ ${methodologie}
                                    envoiPossible: false });
                   } catch (e) { setError(e.message); }
                 }}
-                className="text-sm border border-iip-blue text-iip-blue hover:bg-slate-100 px-3 py-2 rounded-lg font-medium flex items-center gap-1.5">
+                className="bouton bouton-sortir flex items-center gap-1.5">
                 <IconPrinter size={16} /> Imprimer / PDF
               </button>
             )}
@@ -1871,7 +1871,7 @@ ${methodologie}
                 donc par un autre chemin, ou pas du tout. */}
             {apercuHtml && peutGeste('envois.envoyer') && (
               <button onClick={() => setEnvoi([{ html: apercuHtml, nom_fichier: `${nomFichier}.pdf` }])}
-                className="text-sm border border-iip-turquoise text-iip-turquoise hover:bg-cyan-50 px-3 py-2 rounded-lg font-medium flex items-center gap-1.5">
+                className="bouton bouton-sortir flex items-center gap-1.5">
                 <IconSend size={16} /> Envoyer
               </button>
             )}
@@ -1880,7 +1880,7 @@ ${methodologie}
                 if (entite === 'rapport-etp') genererRapportEtpExcel(d, filtres);
                 else def.grille ? genererGrilleExcel(d) : genererRapportExcel(d, filtres);
               }}
-              className="bloc-etat etat-reussi text-sm border-emerald-500 text-emerald-700 hover:bg-emerald-50 px-3 py-2 font-medium flex items-center gap-1.5">
+              className="bouton flex items-center gap-1.5">
               <IconFileSpreadsheet size={16} /> Excel
             </button>
           </>
@@ -1894,7 +1894,7 @@ ${methodologie}
                 } catch (e) { setError(e.message); }
               }}
               disabled={rows.length === 0}
-              className="text-sm border border-iip-blue text-iip-blue hover:bg-slate-100 disabled:opacity-40 px-3 py-2 rounded-lg font-medium flex items-center gap-1.5">
+              className="bouton bouton-sortir flex items-center gap-1.5">
               <IconPrinter size={16} /> Imprimer / PDF
             </button>
             {/* ENVOYER EST UNE SORTIE COMME LES AUTRES. La liste part en PDF,
@@ -1908,15 +1908,15 @@ ${methodologie}
                 } catch (e) { setError(e.message); }
               }}
               disabled={rows.length === 0}
-              className="text-sm border border-iip-turquoise text-iip-turquoise hover:bg-cyan-50 disabled:opacity-40 px-3 py-2 rounded-lg font-medium flex items-center gap-1.5">
+              className="bouton bouton-sortir flex items-center gap-1.5">
               <IconSend size={16} /> Envoyer
             </button>}
             <button onClick={() => exportCSV(rows, colsVisibles, nomFichier)} disabled={rows.length === 0}
-              className="text-sm border border-slate-300 hover:bg-slate-100 disabled:opacity-40 px-3 py-2 rounded-lg text-slate-600 flex items-center gap-1.5">
+              className="bouton flex items-center gap-1.5">
               <IconDownload size={16} /> CSV
             </button>
             <button onClick={() => exportExcel(rows, colsVisibles, nomFichier)} disabled={rows.length === 0}
-              className="bloc-etat etat-reussi text-sm border-emerald-500 text-emerald-700 hover:bg-emerald-50 disabled:opacity-40 px-3 py-2 font-medium flex items-center gap-1.5">
+              className="bouton flex items-center gap-1.5">
               <IconFileSpreadsheet size={16} /> Excel
             </button>
           </>
@@ -2191,8 +2191,8 @@ function HeuresContactView({ sections, annee }) {
           </div>
         </div>
         <button onClick={imprimer}
-          className="text-sm border border-iip-blue text-iip-blue hover:bg-slate-100 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
-          🖨 Imprimer / PDF
+          className="bouton bouton-sortir flex items-center gap-1.5">
+          <IconPrinter size={16} /> Imprimer / PDF
         </button>
       </div>
 

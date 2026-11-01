@@ -9,7 +9,7 @@
  * serveur) : l'écran et le papier ne peuvent pas différer.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { Chevron } from './ui.jsx';
+import { Chevron, EnteteCarte } from './ui.jsx';
 import { IconSend, IconRefresh, IconChevronDown, IconChevronRight } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { ouvrirApercu } from '../lib/apercu.js';
@@ -34,10 +34,9 @@ const Barres = props => <BarresMaison format={eur} {...props} />;
 
 function Carte({ titre, sous, children, className = '' }) {
   return (
-    <section className={`carte p-4 space-y-3 ${className}`}>
-      {titre && <div><div className="text-base font-semibold text-iip-blue">{titre}</div>
-        {sous && <div className="text-second text-slate-500">{sous}</div>}</div>}
-      {children}
+    <section className={`carte overflow-hidden ${className}`}>
+      {titre && <EnteteCarte titre={titre} sous={sous} />}
+      <div className="p-4 space-y-3">{children}</div>
     </section>);
 }
 
@@ -397,7 +396,7 @@ export default function RapportStatistique({ annee: anneeImposee = null } = {}) 
       </div>
       {erreur && <div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">{erreur}</div>}
       {!d ? <p className="text-sm text-slate-400">{enCours ? 'Calcul du rapport…' : ''}</p> : (<>
-        <div className="bloc-etat px-3 py-2 text-second text-slate-600" data-etat="neutre">
+        <div className="text-second text-slate-600">
           Montants au <b>coût de convention</b> : ce que coûte une période quand l'établissement doit l'acheter à la Fédération —
           pas les traitements réellement versés. Un membre du personnel absent peut être remplacé <b>sans coût supplémentaire</b> à
           partir de {d.remplacement_jours} jours ouvrables d'absence (circ. 9760, III.2.8).

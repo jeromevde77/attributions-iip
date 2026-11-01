@@ -14,8 +14,7 @@ import { authHeaders, isAuthenticated } from './api.js';
 import {
   IconCalendarEvent,   IconSchool, IconClipboardList, IconUsers, IconFolders, IconCalendar,
   IconMail, IconFileText, IconGavel, IconChartBar, IconCalendarStats, IconCoin, IconBriefcase,
-  IconAccessible,
-} from '@tabler/icons-react';
+  IconAccessible, IconSettings } from '@tabler/icons-react';
 
 export const MODULES_ACCES = [
   { key: 'etudiants',    label: 'Étudiants',     Icone: IconSchool,        desc: 'Parcours, PAE, résultats, dossiers' },
@@ -53,6 +52,10 @@ export const MODULES_ACCES = [
   // coordination, « écrire » ne vaut que si cette case est cochée sur sa fiche.
   { key: 'amenagements', label: 'Aménagements raisonnables', Icone: IconAccessible,
     desc: 'Créer et modifier les aménagements (besoins spécifiques) — sur octroi pour la coordination' },
+  /* CONFIGURATION (3.5.030, Charles : « un accès en lecture à tout, sauf dotation, budget et recrutement, pour le service
+     informatique »). « Lit » : les écrans de Configuration s'ouvrent sans rien modifier ; écrire reste à la direction. */
+  { key: 'configuration', label: 'Configuration', Icone: IconSettings,
+    desc: 'Réglages de Lucie — en lecture : tout se voit, rien ne se modifie ; écrire reste à la direction' },
 ];
 
 export const ROLES_LUCIE = [
@@ -103,6 +106,8 @@ const abonnes = new Set();
 export function plafondDe(role, module) {
   const n = cache?.[role]?.[module];
   if (n) return n;
+  // Configuration (3.5.030) : la direction seule, tant que le serveur n'a pas dit autre chose.
+  if (module === 'configuration') return ['admin', 'directeur', 'directeur_adjoint'].includes(role) ? 'ecrit' : 'rien';
   return (AMORCE[role] || AMORCE.consultation)(module);
 }
 

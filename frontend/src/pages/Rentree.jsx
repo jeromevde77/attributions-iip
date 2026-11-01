@@ -5,6 +5,7 @@ import {
 import Assistant from '../components/Assistant.jsx';
 import { authHeaders } from '../lib/api.js';
 import { demander } from '../lib/dialogue.jsx';
+import { EnteteCarte } from '../components/ui.jsx';
 
 /**
  * Rentrée — ouverture d'une année scolaire.
@@ -110,16 +111,9 @@ export default function Rentree({ annee }) {
       )}
 
       {/* ── Veille réglementaire ── */}
-      <div className="border border-slate-200 rounded-xl overflow-hidden">
-        <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center gap-2">
-          <IconScale size={16} className="text-iip-blue" />
-          <span className="font-semibold text-iip-blue text-sm">Veille réglementaire</span>
-          {veille && (
-            <span className="text-second text-slate-500 ml-1">
-              {veille.revus}/{veille.total} type(s) confirmé(s)
-            </span>
-          )}
-        </div>
+      <section className="carte overflow-hidden">
+        <EnteteCarte icone={IconScale} titre="Veille réglementaire"
+          sous={veille ? `${veille.revus}/${veille.total} type(s) confirmé(s)` : null} />
 
         <div className="p-4">
           {!veille ? (
@@ -145,11 +139,11 @@ export default function Rentree({ annee }) {
               </p>
               <div className="flex gap-2 flex-wrap">
                 <button onClick={() => confirmerVeille(true)}
-                  className="px-3 py-1.5 text-sm bg-iip-turquoise text-white font-semibold rounded-lg">
+                  className="bouton bouton-fort">
                   Rien n'a changé — reconduire
                 </button>
                 <button onClick={() => confirmerVeille(false)}
-                  className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">
+                  className="bouton">
                   Un texte a changé — revoir les types
                 </button>
                 {veille.a_revoir?.length > 0 && (
@@ -161,7 +155,7 @@ export default function Rentree({ annee }) {
               </div>
 
               {detailOuvert && veille.a_revoir?.length > 0 && (
-                <div className="mt-3 border border-slate-200 rounded-xl divide-y divide-slate-100">
+                <div className="mt-3 border-t border-slate-100 divide-y divide-slate-100">
                   {veille.a_revoir.map(t => (
                     <div key={t.id} className="flex items-start justify-between gap-3 px-3 py-2">
                       <div className="min-w-0">
@@ -172,7 +166,7 @@ export default function Rentree({ annee }) {
                         </div>
                       </div>
                       <button onClick={() => confirmerType(t.id)}
-                        className="flex-none text-second px-2 py-1 border border-slate-300 rounded-lg hover:bg-slate-50">
+                        className="flex-none bouton">
                         Inchangé
                       </button>
                     </div>
@@ -182,21 +176,16 @@ export default function Rentree({ annee }) {
             </>
           )}
         </div>
-      </div>
+      </section>
 
       {/* ── Événements de l'établissement ── */}
-      <div className="border border-slate-200 rounded-xl overflow-hidden">
-        <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-2">
-            <IconCalendarEvent size={16} className="text-iip-blue" />
-            <span className="font-semibold text-iip-blue text-sm">Événements de l'établissement</span>
-            <span className="text-second text-slate-500 ml-1">{evenements.length} pour {annee}</span>
-          </div>
-          <button onClick={reporterEvenements}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">
+      <section className="carte overflow-hidden">
+        <EnteteCarte icone={IconCalendarEvent} titre="Événements de l'établissement"
+          sous={`${evenements.length} pour ${annee}`}>
+          <button onClick={reporterEvenements} className="bouton flex items-center gap-1.5">
             <IconCopy size={14} /> Reporter depuis {anneePrecedente}
           </button>
-        </div>
+        </EnteteCarte>
 
         <div className="p-4">
           {!evenements.length ? (
@@ -230,7 +219,7 @@ export default function Rentree({ annee }) {
             ensuite, notamment les délibérations, qui dépendent des dates de fin d'UE.
           </p>
         </div>
-      </div>
+      </section>
 
       {/* ── Checklist d'ouverture ── */}
       {annee && <Assistant cle="annee" params={{ annee }} />}

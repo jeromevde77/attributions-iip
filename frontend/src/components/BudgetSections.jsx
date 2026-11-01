@@ -12,7 +12,7 @@
 import { useEffect, useState } from 'react';
 import { IconPlus, IconTrash, IconRefresh } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
-import { Encadre, TuileEtat } from './ui.jsx';
+import { Encadre, TuileEtat, EnteteCarte } from './ui.jsx';
 import { demander, saisir } from '../lib/dialogue.jsx';
 
 export const eur = n => (n == null ? '—' : (Number(n) || 0).toLocaleString('fr-BE', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + ' €');
@@ -109,15 +109,17 @@ function RepartitionCategories({ s }) {
   if (!s.par_categorie.length) return <p className="text-second text-slate-500">Aucune ligne de fonctionnement encodée pour l'instant.</p>;
   const max = Math.max(...s.par_categorie.map(c => c.montant), 1);
   return (
-    <div className="carte p-3 space-y-1.5">
-      <div className="intertitre">Répartition par catégorie</div>
+    <section className="carte overflow-hidden">
+      <EnteteCarte titre="Répartition par catégorie" />
+      <div className="p-3 space-y-1.5">
       {s.par_categorie.map(c => (
         <div key={c.groupe} className="grid grid-cols-[minmax(0,14rem)_1fr_6rem] items-center gap-2 text-second">
           <span className="truncate" title={c.groupe}>{c.groupe}</span>
           <div className="jauge"><div className="h-full" style={{ width: `${Math.round(c.montant / max * 100)}%`, background: 'var(--c-disponible)' }} /></div>
           <span className="text-right tabular-nums">{eur(c.montant)}</span>
         </div>))}
-    </div>
+      </div>
+    </section>
   );
 }
 
@@ -128,8 +130,9 @@ function Contribution({ T }) {
     <tr className={`border-t border-slate-100 ${fort ? 'font-semibold' : ''}`}><td className="px-3 py-1.5">{l}</td>
       <td className="px-3 text-right tabular-nums">{a}</td><td className="px-3 text-right tabular-nums">{b}</td></tr>);
   return (
-    <div className="carte overflow-x-auto">
-      <div className="px-3 pt-2 intertitre">Impact sur la contribution de l'IIP à l'ASBL (à produits constants)</div>
+    <section className="carte overflow-hidden">
+      <EnteteCarte titre="Impact sur la contribution de l'IIP à l'ASBL (à produits constants)" />
+      <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead className="tab-entete"><tr><th className="px-3 py-1.5 text-left" /><th className="px-3 text-right">Année précédente</th><th className="px-3 text-right">Avec les enveloppes</th></tr></thead>
         <tbody>
@@ -142,8 +145,9 @@ function Contribution({ T }) {
           {ligne('Contribution, investissements compris', '', eur(c.contribution_avec_investissements), true)}
         </tbody>
       </table>
+      </div>
       <p className="px-3 py-2 text-mention text-slate-500">Calcul à produits constants (guide A.5). Le changement de gestion est à annoncer et négocier avec la direction de l'ASBL.</p>
-    </div>
+    </section>
   );
 }
 
@@ -319,16 +323,16 @@ export function Parametres({ annee }) {
             <option value="0.333333">un tiers</option><option value="0.5">la moitié</option><option value="0.25">un quart</option><option value="1">la totalité</option></select></label>
         {champ('resultat_n1', "Résultat de l'IIP l'année précédente (€)", { type: 'number' })}
       </div>
-      <div className="carte p-3 space-y-2">
-        <div className="intertitre">Coussin de la direction — retenu sur chaque enveloppe, par tranches (la coordination ne voit que le disponible)</div>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <section className="carte overflow-hidden">
+        <EnteteCarte titre="Coussin de la direction" sous="retenu sur chaque enveloppe, par tranches (la coordination ne voit que le disponible)" />
+        <div className="p-3 grid grid-cols-2 md:grid-cols-5 gap-3">
           {pct('coussin_taux1', `Taux jusqu’au 1er seuil`)}
           {champ('coussin_seuil1', '1er seuil (€)', { type: 'number' })}
           {pct('coussin_taux2', 'Taux entre les seuils')}
           {champ('coussin_seuil2', '2e seuil (€)', { type: 'number' })}
           {pct('coussin_taux3', 'Taux au-delà du 2e seuil')}
         </div>
-      </div>
+      </section>
       <div className="flex items-center gap-2">
         <button type="button" className="bouton inline-flex items-center gap-1.5" onClick={recompter}><IconRefresh size={14} /> Recompter les effectifs dans Lucie</button>
         <span className="text-second text-slate-500">Les effectifs restent figés jusqu'à ce que vous les recomptiez ou les corrigiez ; un étudiant inscrit dans deux sections compte dans chacune.</span>

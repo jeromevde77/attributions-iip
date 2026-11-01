@@ -89,6 +89,13 @@ const STYLES = `<style>
  *   ref   : la référence (celle de l'envoi si la pièce part par courriel) ;
  *   texte : ce que dit la bande — la pièce, la personne, la date.
  */
+/* UN SPÉCIMEN N'EST PAS UNE PIÈCE (3.5.047). La galerie de Configuration et les annexes du mode d'emploi composent des
+   pièces sur des dossiers inventés : elles passaient par ici et entraient au REGISTRE des pièces authentiques — un QR
+   « SPÉCIMEN Camille » se serait vérifié comme vrai. Pendant `enSpecimen(fn)` (composition synchrone), rien ne s'inscrit,
+   et la ligne d'authenticité devient « Spécimen — sans valeur ». */
+let SPECIMEN = false;
+export function enSpecimen(fn) { const avant = SPECIMEN; SPECIMEN = true; try { return fn(); } finally { SPECIMEN = avant; } }
+
 export function filigraner(html, o = {}) {
   let doc = String(html || '');
   if (!/class="cloture|class="[^"]*\bcote\b/.test(doc)) return doc;
@@ -116,6 +123,7 @@ export function filigraner(html, o = {}) {
   while ((m = re.exec(doc))) {
     const page = doc.slice(dernier, m.index);
     const refBloc = k++ === 0 ? ref : nouvelleReference();
+    if (SPECIMEN) { sortie += page + '<div class="authenticite"><div class="authenticite-t"><b>SPÉCIMEN</b> — données fictives, pièce sans valeur</div></div>' + m[0] + fondCloture({ ref: 'SPÉCIMEN', texte: 'Spécimen — sans valeur' }); dernier = re.lastIndex; continue; }
     enregistrerPiece({ reference: refBloc, nature: dernierTexte(page, 'doc-cadre-t') || o.texte,
       objet: [dernierTexte(page, 'doc-cadre-s'), dernierTexte(page, 'doc-cadre-l')].filter(Boolean).join(' — '),
       personne: dernierTexte(page, 'nom') });

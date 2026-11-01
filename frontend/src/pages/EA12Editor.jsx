@@ -1,23 +1,18 @@
 import { useEffect, useState } from 'react';
-import { IconDeviceFloppy, IconPrinter, IconFileWord, IconX, IconArrowLeft, IconFileText } from '@tabler/icons-react';
-import { RailLateral } from '../components/ui.jsx';
+import { IconDeviceFloppy, IconPrinter, IconFileWord, IconX, IconArrowLeft, IconFileText, IconRefresh } from '@tabler/icons-react';
+import { RailLateral, EnteteCarte } from '../components/ui.jsx';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 
 /* ─── Micro-composants Lucie ──────────────────────────────────────────────── */
-function Section({ titre, children, color = 'gold' }) {
-  const hdr = color === 'mauve'
-    ? 'bg-iip-mauve/10 border-b border-iip-mauve/20'
-    : 'bg-iip-gold/10 border-b border-gray-200';
-  const ttl = color === 'mauve' ? 'text-iip-mauve' : 'text-iip-gold';
+function Section({ titre, children }) {
+  // UN SEUL EN-TÊTE DE CARTE (3.5.032) : la couleur par section disparaît.
   return (
-    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-      <div className={`${hdr} px-4 py-2`}>
-        <h3 className={`text-sm font-semibold ${ttl}`}>{titre}</h3>
-      </div>
+    <section className="carte overflow-hidden">
+      <EnteteCarte titre={titre} />
       <div className="p-4 space-y-3">{children}</div>
-    </div>
+    </section>
   );
 }
 function Chk({ label, checked, onChange }) {
@@ -351,8 +346,8 @@ export default function EA12Editor() {
         <div className="flex justify-between items-center mb-1">
           <p className="text-xs text-gray-500">Modifiez le tableau ci-dessous. Les données proviennent de l'application.</p>
           <div className="flex gap-2">
-            <button onClick={resetAttrs} className="text-xs text-gray-500 border border-gray-300 px-2 py-0.5 rounded hover:bg-gray-50">↺ Réinitialiser depuis la base</button>
-            <button onClick={addAttrRow} className="text-xs text-iip-mauve border border-iip-mauve/40 px-2 py-0.5 rounded hover:bg-iip-mauve/5">+ Ajouter une ligne</button>
+            <button onClick={resetAttrs} className="bouton flex items-center gap-1.5"><IconRefresh size={14}/> Réinitialiser depuis la base</button>
+            <button onClick={addAttrRow} className="bouton">+ Ajouter une ligne</button>
           </div>
         </div>
         <div className="overflow-auto">

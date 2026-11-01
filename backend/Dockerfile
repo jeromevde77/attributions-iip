@@ -16,8 +16,9 @@ WORKDIR /app
 # fontconfig, Chromium ne sait pas qu'Arial se substitue par Liberation Sans —
 # il retombe sur une police par défaut qu'il étire pour approcher les largeurs
 # demandées. C'est ce qui donnait ce texte élargi dans les PDF exportés.
+# « fonts-inter » (3.5.032) : la police du mode d'emploi PDF au modèle du kit FeLSI (lib/guideKit.js).
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    fontconfig fonts-liberation fonts-dejavu-core \
+    fontconfig fonts-liberation fonts-dejavu-core fonts-inter \
     libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 \
     libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2 \
     libpangocairo-1.0-0 libpango-1.0-0 libcairo2 libgtk-3-0 libx11-xcb1 \

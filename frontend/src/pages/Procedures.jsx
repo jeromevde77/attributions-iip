@@ -28,7 +28,7 @@ import { nomPropre } from '../lib/nom.js';
 import { informer, saisir, demander } from '../lib/dialogue.jsx';
 import {
   RailLateral, PageHeader, Fenetre, Encadre, PastilleEtat,
-  Tableau, TableauEntete, Th, Td, Tr, TableauVide,
+  Tableau, TableauEntete, Th, Td, Tr, TableauVide, EnteteCarte,
 } from '../components/ui.jsx';
 // Les anciens dossiers ne se chargent que si on les ouvre : l'ancien écran est lourd.
 const ArchivesProcedures = lazy(() => import('./ProceduresAnciennes.jsx').then(m => ({ default: m.ArchivesProcedures })));
@@ -196,12 +196,9 @@ function OuiNon({ valeur, onChange, oui = 'Oui', non = 'Non', desactive }) {
 }
 function Bloc({ titre, children, actions }) {
   return (
-    <section className="carte p-3">
-      <div className="flex items-center justify-between gap-2 mb-2">
-        <div className="intertitre">{titre}</div>
-        {actions}
-      </div>
-      {children}
+    <section className="carte overflow-hidden">
+      <EnteteCarte titre={titre}>{actions || null}</EnteteCarte>
+      <div className="p-3">{children}</div>
     </section>
   );
 }

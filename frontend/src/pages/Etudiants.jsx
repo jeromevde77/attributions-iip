@@ -17,7 +17,7 @@ import { RailLateral, Chevron } from '../components/ui.jsx';
 import SuiviEtudiant from '../components/SuiviEtudiant.jsx';
 import NouvelEtudiant from '../components/NouvelEtudiant.jsx';
 import {
-  IconAddressBook, IconListSearch, IconAlertTriangle, IconEyeCheck, IconInbox, IconMessages, IconTablePlus, IconArrowForwardUp, IconArchive, IconDoorExit, IconSchool, IconArrowBackUp, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconSend, IconWritingSign, IconWritingSignOff, IconX,
+  IconAddressBook, IconListSearch, IconAlertTriangle, IconEyeCheck, IconInbox, IconPlaylistX, IconMessages, IconTablePlus, IconArrowForwardUp, IconArchive, IconDoorExit, IconSchool, IconArrowBackUp, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconSend, IconWritingSign, IconWritingSignOff, IconX,
   IconChecks, IconLock, IconGift,
   IconQrcode,
   IconCash, IconAdjustmentsHorizontal,
@@ -40,12 +40,13 @@ const DoublesProgrammes = lazy(() => import('../components/DoublesProgrammes.jsx
 const PresenceQRSuivi = lazy(() => import('../components/PresenceQRSuivi.jsx'));
 const ExtraitsBancaires = lazy(() => import('../components/ExtraitsBancaires.jsx'));
 const PropositionsPAE = lazy(() => import('../components/PropositionsPAE.jsx'));
+const RefusSeconde = lazy(() => import('../components/RefusSeconde.jsx'));
 const MessagesEtudiants = lazy(() => import('../components/MessagesEtudiants.jsx'));
 const HorsBloc = lazy(() => import('../components/HorsBloc.jsx'));
 const PaeHorsRegle = lazy(() => import('../components/PaeHorsRegle.jsx'));
 const DecisionsSansInscription = lazy(() => import('../components/DecisionsSansInscription.jsx'));
 const NationalitesNormaliser = lazy(() => import('../components/NationalitesNormaliser.jsx'));
-import { useEchangesDuRail, Fenetre, Encadre, BulleAide, BoutonEditions, OuvrirEditions, IconeFaveur } from '../components/ui.jsx';
+import { useEchangesDuRail, Fenetre, Encadre, BulleAide, OuvrirEditions, IconeFaveur, OutilFenetre } from '../components/ui.jsx';
 import PassageAnnee from '../components/PassageAnnee.jsx';
 import ComposerPAE from '../components/ComposerPAE.jsx';
 import CentreEchanges from '../components/CentreEchanges.jsx';
@@ -439,14 +440,12 @@ export function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
   const etudiantPret = !!(d && cur && d.etudiant?.id === cur.id);
   const navBoutons = (
     <span className="ml-auto flex items-center gap-2">
-      <button className="bouton" disabled={i === 0} onClick={() => setI(i - 1)}>◀ Précédent</button>
-      <button className="bouton" disabled={i >= liste.length - 1} onClick={() => setI(i + 1)}>Passer ▶</button>
-      {/* VERT, ÉCRIT BLANC : c'est le geste de la revue, et il valide. Le fond
-          passe en style — `.bouton` porte le sien et l'emporte sur l'utilitaire. */}
-      <button className="bouton font-semibold disabled:opacity-40"
-        style={{ background: 'var(--c-reussi, #3E7D5E)', borderColor: 'var(--c-reussi, #3E7D5E)', color: '#fff' }}
+      <button className="bouton" disabled={i === 0} onClick={() => setI(i - 1)}><IconChevronLeft size={15} /> Précédent</button>
+      <button className="bouton" disabled={i >= liste.length - 1} onClick={() => setI(i + 1)}>Passer <IconChevronRight size={15} /></button>
+      {/* Le geste de la revue : l'action principale, au bouton de la maison. */}
+      <button className="bouton bouton-fort"
         disabled={!etudiantPret || !!enCours} onClick={() => marquer(true, true)}>
-        {i >= liste.length - 1 ? 'Valider' : 'Valider · étudiant suivant ▶'}</button>
+        {i >= liste.length - 1 ? 'Valider' : <>Valider · étudiant suivant <IconChevronRight size={15} /></>}</button>
     </span>
   );
   const nRevus = synthese ? liste.filter(e => synthese[e.id]?.revu).length : 0;
@@ -455,10 +454,8 @@ export function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
     <Fenetre icone={IconEyeCheck} large="ecran" hauteurFixe onFermer={onClose}
       titre={d ? `Revue des PAE — ${nomPropre(d.etudiant.nom, d.etudiant.prenom)}` : 'Revue des PAE'}
       sous={liste.length ? `${Math.min(i, liste.length - 1) + 1} sur ${liste.length} · ${nRevus} validé(s) · année ${annee}` : `Aucun étudiant ne correspond · année ${annee}`}
-      outils={<button type="button" title="Imprimer ou envoyer le PAE de cet étudiant — centre d'édition" aria-label="Éditions"
-        disabled={!liste.length} onClick={() => setEditions(true)}
-        className="flex-none w-8 h-8 grid place-items-center rounded-champ hover:bg-white/15 disabled:opacity-40">
-        <IconSend size={16} /></button>}>
+      outils={<OutilFenetre Icone={IconSend} titre="Imprimer ou envoyer le PAE de cet étudiant — centre d'édition"
+        disabled={!liste.length} onClick={() => setEditions(true)} />}>
       {/* LES FILTRES : on choisit la liasse avant de la parcourir. */}
       <div className="flex flex-wrap items-center gap-2 mb-3">
         <select className="controle text-sm" value={annee} onChange={e => setAnnee(e.target.value)} title="Année du PAE">
@@ -576,9 +573,9 @@ export function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
               {navBoutons}
             </div>
             {d.revu && (
-              <div className="mb-2 px-3 py-2 rounded-lg text-sm bg-emerald-700 text-white">
+              <div className="bloc-etat mb-2 px-3 py-2 text-sm" data-etat="reussi">
                 <b>Ce PAE a été validé</b> le {quandLocal(d.revu.revu_le)} par {d.revu.revu_par || '—'}{d.revu.ects_confirme ? ` — ${d.revu.ects_confirme} ECTS, au-delà de 60, confirmés en connaissance de cause` : ''}.
-                <button type="button" disabled={!!enCours} className="ml-3 underline text-white/80 hover:text-white text-second"
+                <button type="button" disabled={!!enCours} className="ml-3 underline text-slate-600 hover:text-iip-blue text-second"
                   onClick={() => marquer(false)}>retirer la validation</button>
               </div>
             )}
@@ -629,7 +626,7 @@ export function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
                                 <select className="border border-slate-300 rounded h-7 px-1.5 text-second bg-white" value={saisieUE.origine} onChange={ev => setSaisieUE({ ...saisieUE, origine: ev.target.value })}>
                                   {anneesReprise.map(x => <option key={x} value={x}>{x}</option>)}
                                 </select>
-                                <button type="button" disabled={enCours === `ue-${u.ue_num}`} className="rounded bg-teal-800 text-white h-7 px-2 text-second font-semibold disabled:opacity-40"
+                                <button type="button" disabled={enCours === `ue-${u.ue_num}`} className="bouton bouton-fort bouton-compact"
                                   onClick={() => poserVAUE(u.ue_num, saisieUE.nature, saisieUE.origine)}>Poser · tous les cours à 10/20</button>
                                 <button type="button" className="underline text-slate-500" onClick={() => setSaisieUE(null)}>annuler</button>
                               </div>
@@ -662,7 +659,7 @@ export function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
                                           <select className="border border-slate-300 rounded h-7 px-1.5 text-second bg-white" value={saisieVA.origine} onChange={ev => setSaisieVA({ ...saisieVA, origine: ev.target.value })}>
                                             {anneesReprise.map(x => <option key={x} value={x}>{x}</option>)}
                                           </select>
-                                          <button type="button" disabled={occupe || !saisieVA.origine} className="rounded bg-teal-800 text-white h-7 px-2 text-second font-semibold disabled:opacity-40"
+                                          <button type="button" disabled={occupe || !saisieVA.origine} className="bouton bouton-fort bouton-compact"
                                             onClick={() => reporter(u.ue_num, c.code, { nature: saisieVA.nature, annee_origine: saisieVA.origine }).then(() => setSaisieVA(null))}>Poser · 10/20</button>
                                           <button type="button" className="underline text-slate-500" onClick={() => setSaisieVA(null)}>annuler</button>
                                         </>}
@@ -670,7 +667,7 @@ export function RevuePAE({ liste: base, annee: anneeDepart, onClose }) {
                                           <span className="font-semibold text-blue-700">à suivre</span>
                                           {c.refuse && <span className="text-slate-400" title={c.refuse.motif || ''}>· report retiré</span>}
                                           {peutReporter && c.eligible && (
-                                            <button type="button" disabled={occupe} className="rounded border border-slate-300 bg-white h-7 px-2 text-second font-medium hover:bg-slate-50 disabled:opacity-40"
+                                            <button type="button" disabled={occupe} className="bouton bouton-compact"
                                               onClick={() => reporter(u.ue_num, c.code)}>Reporter {c.eligible.note != null ? `${c.eligible.note}/20` : ''} · {String(c.eligible.annee_origine || '').replace(/^20(\d\d)-20(\d\d)$/, '$1-$2')}</button>
                                           )}
                                           {peutReporter && (
@@ -1397,7 +1394,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
           {/* DEUX FENÊTRES EN UNE : la largeur suit ce qu'on y fait — petite
               pour la poignée de boutons, moyenne pour la grille du détail. */}
             {popover.verrou && (
-              <div className="text-xs text-white bg-amber-500 border border-amber-500 rounded-lg px-2 py-1 mb-2">
+              <div className="bloc-etat text-xs px-2 py-1 mb-2" data-etat="surveiller">
                 Dérogation — sera tracée comme telle
               </div>
             )}
@@ -1480,7 +1477,7 @@ function GrilleParcours({ etudId, peutEcrire, annee, ueFocus = null }) {
                             // seconde session et à un éventuel recours. Elle n'est
                             // simplement pas communiquée à l'étudiant.
                             { points: detail.calcul.sur20 })}
-                          className="flex-none text-second px-2.5 py-1.5 rounded-lg bg-iip-blue text-white font-semibold">
+                          className="bouton bouton-fort flex-none">
                           Reporter sur l’UE
                         </button>
                       </div>
@@ -2461,7 +2458,9 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
     <Fenetre icone={IconUser} titre={nomPropre(data.nom, data.prenom)}
       sous={[data.email_ecole || 'sans adresse d’école', data.id_ecampus || (data.matricule_helb ? `HELB ${data.matricule_helb}` : 'sans matricule')].join(' · ')
             + (data.niveau?.libelle ? ' · ' + data.niveau.libelle : '')}
-      large="ecran" onFermer={onClose}>
+      large="ecran" onFermer={onClose}
+      /* L'AVION, ET RIEN D'AUTRE (2 octobre 2026) : il ouvre le centre d'édition sur cet étudiant — dans le bandeau. */
+      outils={<OutilFenetre Icone={IconSend} titre="Imprimer ou envoyer — le centre d'édition, sur cet étudiant" onClick={() => setEdition(true)} />}>
       <div className="-mx-5 -my-4">
 
 
@@ -2509,10 +2508,6 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
           {(onPrec || onSuiv) && portee && (
             <MenuParcourir portee={portee} onPortee={onPortee} sections={sections} ues={ues} annees={annees} />
           )}
-          {/* L'AVION, ET RIEN D'AUTRE (2 octobre 2026) : il ouvre le centre
-              d'édition sur cet étudiant. */}
-          <BoutonEditions onClick={() => setEdition(true)} taille="moyen"
-            titre="Imprimer ou envoyer — le centre d'édition, sur cet étudiant" />
           </div>
         </div>
         {revueFiche && (
@@ -2686,14 +2681,11 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                   confirmée : le dire évite de la lire comme un état de fait,
                   maintenant que schéma et programme sont sur la même page. */}
               {paeValide && (
-                <div className="mb-2 px-3 py-2 rounded-lg text-sm bg-emerald-700 text-white">
+                <div className="bloc-etat mb-2 px-3 py-2 text-sm" data-etat="reussi">
                   <b>Ce PAE a été validé</b> le {quandLocal(paeValide.revu_le)} par {paeValide.revu_par || '—'} — revue des PAE.
                 </div>
               )}
-              <div className={`mb-3 px-3 py-2 rounded-lg text-sm border ${
-                paeConfirme
-                  ? 'bg-emerald-500 border-emerald-500 text-white'
-                  : 'bg-amber-500 border-amber-500 text-white'}`}>
+              <div className="bloc-etat mb-3 px-3 py-2 text-sm" data-etat={paeConfirme ? 'reussi' : 'surveiller'}>
                 <b>{paeConfirme ? 'Programme confirmé' : 'Programme proposé'}</b>
                 {' — '}
                 {paeConfirme
@@ -2706,7 +2698,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
               {!pae ? (
                 <div className="text-center py-8 text-slate-400 text-sm">Chargement du PAE…</div>
               ) : pae.erreur ? (
-                <div className="text-center py-8 text-white text-sm border border-red-500 bg-red-500 rounded-xl">{pae.erreur}</div>
+                <div className="bloc-etat text-center py-8 text-sm" data-etat="corriger">{pae.erreur}</div>
               ) : (() => {
                 const sel = selection || new Set();
                 const retenues = pae.pae.filter(u => sel.has(u.ue_num));
@@ -3062,6 +3054,8 @@ export default function Etudiants() {
   const [suiviQR, setSuiviQR] = useState(false);
   const [extraits, setExtraits] = useState(false);
   const [paeEnLigne, setPaeEnLigne] = useState(false);
+  // LES REFUS EN 2E SESSION (3.5.029) : ouverts aussi depuis la notification (/etudiants?outil=refus2).
+  const [refus2, setRefus2] = useState(() => { try { return new URLSearchParams(window.location.search).get('outil') === 'refus2'; } catch { return false; } });
   const [messagesEtud, setMessagesEtud] = useState(false);
   const [rapportPAE, setRapportPAE] = useState(false);
   const [importListe, setImportListe] = useState(false);
@@ -3709,6 +3703,8 @@ export default function Etudiants() {
          ou refuse. La fenêtre s'y règle, par la direction. */
       ...(droitsRail.peut('etudiants.pae_composer') ? [{ key: 'pae-en-ligne', label: 'PAE en ligne — propositions des étudiants',
         icon: IconInbox, onClick: () => setPaeEnLigne(true) }] : []),
+      ...(droitsRail.passe('admin', 'editeur') || droitsRail.peut('etudiants.pae_composer') ? [{ key: 'refus2', label: 'Refus en 2e session — unités à retirer du PAE',
+        icon: IconPlaylistX, onClick: () => setRefus2(true) }] : []),
       { key: 'revue-pae', label: 'Revue des PAE', icon: IconEyeCheck,
         onClick: () => {
           const coches = filtres.filter(e => selEtudiants.has(e.id));
@@ -3756,11 +3752,10 @@ export default function Etudiants() {
           ligne du tableau. */}
 
       {msgImport && (
-        <div className={`px-4 py-2.5 rounded-lg text-sm flex items-center justify-between ${msgImport.type==='ok'
-          ? 'bg-emerald-500 text-white border border-emerald-500'
-          : 'bg-red-500 text-white border border-red-500'}`}>
+        <div className="bloc-etat px-4 py-2.5 text-sm flex items-center justify-between"
+          data-etat={msgImport.type==='ok' ? 'reussi' : 'corriger'}>
           <span>{msgImport.texte}</span>
-          <button onClick={() => setMsgImport(null)} className="ml-3 opacity-60">✕</button>
+          <button onClick={() => setMsgImport(null)} className="ml-3 opacity-60" title="Fermer"><IconX size={14} /></button>
         </div>
       )}
       {/* UN TITRE, ET LE MÊME QUE PARTOUT. Il avait été retiré parce que le
@@ -4199,6 +4194,8 @@ export default function Etudiants() {
       {messagesEtud && (
         <Suspense fallback={null}><MessagesEtudiants onFermer={() => setMessagesEtud(false)} /></Suspense>
       )}
+      {refus2 && (
+        <Suspense fallback={null}><RefusSeconde onFermer={() => { setRefus2(false); charger(); }} /></Suspense>)}
       {paeEnLigne && (
         <Suspense fallback={null}><PropositionsPAE Revue={RevuePAE} onFermer={() => { setPaeEnLigne(false); charger(); }} /></Suspense>
       )}

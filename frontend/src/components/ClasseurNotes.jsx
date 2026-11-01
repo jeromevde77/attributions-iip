@@ -83,14 +83,12 @@ export default function ClasseurNotes({
         onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) relire(f); }} />
       <button onClick={exporter} disabled={enCours || !colonnes?.length}
         title="Exporter la grille en classeur, pour que le professeur la complète"
-        className="px-2.5 py-1.5 text-second rounded-lg border border-slate-300
-                   text-slate-600 flex items-center gap-1.5 disabled:opacity-40">
+        className="bouton flex items-center gap-1.5">
         <IconTableExport size={14} /> Exporter
       </button>
       <button onClick={() => fichierRef.current?.click()} disabled={enCours}
         title="Relire un classeur rempli et en reprendre les notes"
-        className="px-2.5 py-1.5 text-second rounded-lg border border-slate-300
-                   text-slate-600 flex items-center gap-1.5 disabled:opacity-40">
+        className="bouton flex items-center gap-1.5">
         <IconTableImport size={14} /> Importer
       </button>
 

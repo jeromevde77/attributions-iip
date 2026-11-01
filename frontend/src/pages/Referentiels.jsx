@@ -9,7 +9,7 @@ import GrilleSectionModal from '../components/GrilleSectionModal.jsx';
 import CompositionSection from '../components/CompositionSection.jsx';
 import ImportUEAssistant from '../components/ImportUEAssistant.jsx';
 import { IconX, IconPencil, IconTrash, IconPlus, IconCheck, IconLink, IconChevronRight, IconTarget, IconUpload, IconFileText, IconAlertTriangle, IconBooks } from '@tabler/icons-react';
-import { Fenetre, GroupeFenetre, Chevron } from '../components/ui.jsx';
+import { Fenetre, GroupeFenetre, Chevron, EnteteCarte } from '../components/ui.jsx';
 import AcquisUE from '../components/AcquisUE.jsx';
 import MotifsDefautUE from '../components/MotifsDefautUE.jsx';
 import { demander, informer } from '../lib/dialogue.jsx';
@@ -239,13 +239,12 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
           </>)}
 
           {liste && (
-            <div className="border border-iip-turquoise/30 rounded-lg overflow-hidden">
-              <div className="bg-iip-turquoise/8 px-4 py-2 text-xs font-semibold text-iip-blue uppercase tracking-wide">
-                {resultats ? 'Import effectué' : "Résultat de l'analyse"}
-                <span className="float-right font-normal normal-case text-gray-500">
+            <div className="carte overflow-hidden">
+              <EnteteCarte titre={resultats ? 'Import effectué' : "Résultat de l'analyse"}>
+                <span className="text-second text-gray-500">
                   {liste.filter(x => x.ok).length}/{liste.length} lus
                 </span>
-              </div>
+              </EnteteCarte>
               <div className="divide-y divide-gray-100 max-h-72 overflow-auto">
                 {liste.map((x, i) => (
                   <div key={i} className="px-4 py-2 text-xs">
@@ -404,7 +403,7 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
 
               {!resultats && bloquant && (
                 <div className="p-3 border-t border-gray-100 space-y-2">
-                  <div className="bg-amber-500 border border-amber-500 rounded p-2 text-xs text-white flex items-start gap-1.5">
+                  <div className="bloc-etat p-2 text-xs flex items-start gap-1.5" data-etat="surveiller">
                     <IconAlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
                     {aCreer.length} unité(s) sont inconnues et seraient créées : choisissez une
                     section cible, ou rattachez chaque dossier à une unité existante.
@@ -469,7 +468,7 @@ function EffectifsImportModal({ annee, onClose, onSaved }) {
           placeholder={"Exemple :\nTIM\t248\tPhysique…\tBA1\tQ1/Q2\t144\nTIM\t260\tContrôle qualité…\tBA1\tQ2\t139"}
           className="w-full border border-gray-300 rounded px-3 py-2 text-xs font-mono mb-3" />
         <div className="flex gap-2 mb-3">
-          <button type="button" onClick={parser} className="bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm px-4 py-1.5 h-9 rounded">Analyser</button>
+          <button type="button" onClick={parser} className="bouton">Analyser</button>
           {preview && <span className="text-sm text-gray-500 self-center">{preview.length} ligne(s) détectée(s)</span>}
         </div>
         {preview && preview.length > 0 && (
@@ -1793,16 +1792,13 @@ function GestionActivites({ sections = [] }) {
   function Bloc({ cle, titre, sousTitre, acts, couleur }) {
     const replie = collapsed[cle];
     return (
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      <div className="carte overflow-hidden">
+        {/* L'en-tête commun, qui replie la carte d'un clic. */}
         <button onClick={() => setCollapsed(c => ({ ...c, [cle]: !c[cle] }))}
-          className="w-full flex items-center justify-between px-5 py-3 border-b bg-gray-50 hover:bg-gray-100 transition text-left">
-          <div>
-            <p className={`text-sm font-semibold ${couleur || 'text-gray-700'}`}>
-              <IconChevronRight size={14} className={`inline-block transition-transform ${replie ? '' : 'rotate-90'} mr-1 text-gray-400`} />
-              {titre} <span className="text-gray-400 font-normal">({acts.length})</span>
-            </p>
-            {sousTitre && <p className="text-xs text-gray-400 ml-4">{sousTitre}</p>}
-          </div>
+          className="block w-full text-left">
+          <EnteteCarte sous={sousTitre || null}
+            titre={<><IconChevronRight size={14} className={`inline-block transition-transform ${replie ? '' : 'rotate-90'} text-gray-400`} />
+              {titre} <span className="text-gray-400 font-normal">({acts.length})</span></>} />
         </button>
         {!replie && (
           <table className="w-full">
@@ -1819,9 +1815,9 @@ function GestionActivites({ sections = [] }) {
   return (
     <div className="space-y-4 max-w-none">
       {/* Formulaire ajout */}
-      <div className="bg-white rounded-lg border border-gray-200 px-5 py-4">
-        <p className="text-sm font-medium text-gray-700 mb-3">Ajouter une activité</p>
-        <div className="flex gap-2 flex-wrap items-end">
+      <div className="carte overflow-hidden">
+        <EnteteCarte titre="Ajouter une activité" />
+        <div className="flex gap-2 flex-wrap items-end px-5 py-4">
           <div className="flex-1 min-w-48">
             <label className="block text-xs text-gray-500 mb-1">Nom</label>
             <input value={newLibelle} onChange={e => setNewLibelle(e.target.value)}

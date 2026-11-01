@@ -4,7 +4,7 @@ import {
   IconLock, IconWand, IconSearch, IconLayoutRows, IconColumns,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
-import { PageHeader, Fenetre, Chevron } from './ui.jsx';
+import { PageHeader, Fenetre, Chevron, EnteteCarte } from './ui.jsx';
 
 /**
  * LE CALENDRIER DES SESSIONS — une section, une page, les deux sessions.
@@ -272,19 +272,13 @@ function BlocSession({
   const champs = useMemo(() => champsLot(ses), [ses]);
   const def = champs.find(c => c.cle === lot.champ) || champs[0];
   const bleu = ses === 1;
-  const cadre = bleu ? 'border-iip-blue/30 bg-iip-blue/[0.035]' : 'border-slate-300 bg-slate-50';
-  const titre = bleu ? 'text-iip-blue' : 'text-slate-600';
   const seanceDe = u => (ses === 1 ? u.seance_s1 : u.seance_s2) || {};
   const coursDe = (c) => (ses === 1 ? c.s1 : c.s2) || {};
   const p = ses === 2 ? 's2' : 's1';
 
   return (
-    <section className={`border rounded-xl p-3 mb-4 ${cadre}`}>
-      <div className="flex flex-wrap items-center gap-2 mb-2.5">
-        <h3 className={`text-base font-medium ${titre}`}>
-          {bleu ? 'Première session' : 'Seconde session'}
-        </h3>
-        <span className="flex-1" />
+    <section className="carte overflow-hidden p-3 mb-4">
+      <EnteteCarte className="-mx-3 -mt-3 mb-2.5" titre={bleu ? 'Première session' : 'Seconde session'}>
         {def.type === 'local'
           ? <ChoixLocal valeur={lot.valeur} locaux={locaux}
               onPoser={v => setLot(l => ({ ...l, valeur: v }))} />
@@ -297,11 +291,10 @@ function BlocSession({
           {champs.map(c => <option key={c.cle} value={c.cle}>{c.label}</option>)}
         </select>
         <button onClick={() => appliquerLot(ses, def, lot.valeur)}
-          className="px-2.5 py-1 text-second rounded border border-slate-300
-                     text-slate-700 hover:bg-white inline-flex items-center gap-1">
+          className="bouton inline-flex items-center gap-1">
           <IconWand size={13} /> Poser sur {coches.size} cochée{coches.size > 1 ? 's' : ''}
         </button>
-      </div>
+      </EnteteCarte>
 
       <table className="w-full text-sm table-fixed">
         <colgroup>

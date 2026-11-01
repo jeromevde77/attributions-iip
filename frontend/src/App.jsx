@@ -36,7 +36,8 @@ class ErrorBoundary extends Component {
 }
 import { Routes, Route, Navigate, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { isAuthenticated, getUser, api, getAnnee, setAnnee } from './lib/api.js';
-import { useMode, basculerMode } from './lib/theme.js';
+import { useMode } from './lib/theme.js';
+import ChoixTheme from './components/ChoixTheme.jsx';
 import {
   IconClipboardList, IconBooks, IconUsers, IconFileExport, IconChecklist,
   IconChartBar, IconCalendarStats, IconEdit, IconSettings, IconLogout, IconMenu2, IconX,
@@ -590,7 +591,7 @@ function ProtectedLayout({ children }) {
      2026 : « changer cette icône et mettre Documentation à côté, ce sera plus
      clair pour tout le monde »). Une bibliothèque, et son nom. */
   nav.push(['/documentation', 'Documentation', ICONE_AXE.documentation]);
-  if (estDirection(u)) nav.push(['/configuration', 'Config.', ICONE_AXE.configuration]);
+  if (estDirection(u) || droitEffectif(u, 'configuration') !== 'rien') nav.push(['/configuration', 'Config.', ICONE_AXE.configuration]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -726,11 +727,7 @@ function ProtectedLayout({ children }) {
               </button>)}
             {u?.role === 'admin' && mep.actif && <BoutonAnnulerReglage quoi="mise_en_page" className="objet-barre objet-barre-icone" libelle="Annuler" />}
             {!compacte && (
-            <button onClick={basculerMode} aria-label="Changer le mode d'affichage"
-              title={mode === 'sombre' ? 'Menus en gris pâle' : 'Menus en marine'}
-              className="objet-barre objet-barre-icone">
-              {mode === 'sombre' ? <IconSun size={16} /> : <IconMoon size={16} />}
-            </button>)}
+            <ChoixTheme />)}
             {import.meta.env.VITE_DEMO_MODE === 'true' && (
               <span className="objet-barre objet-barre-etat" style={{ '--e': 'var(--c-attente, #E8890C)' }}>
                 DÉMO
@@ -783,9 +780,7 @@ function ProtectedLayout({ children }) {
             <div className="text-xs text-gray-500 px-3 py-1 flex flex-wrap items-center gap-2">
               <span>{u?.nom || u?.email} · <span className="text-iip-turquoise">{ROLE_COURT[u?.role] || u?.role}</span></span>
               {env === 'dev' && <span className="objet-barre objet-barre-etat" style={{ '--e': 'var(--c-attente, #E8890C)' }}><IconFlask size={14} stroke={2} /> DEV</span>}
-              <button onClick={basculerMode} className="objet-barre ml-auto">
-                {mode === 'sombre' ? <IconSun size={14} /> : <IconMoon size={14} />} {mode === 'sombre' ? 'Menus clairs' : 'Menus marine'}
-              </button>
+              <ChoixTheme enLigne />
             </div>
             {nav.map(([to, lbl, Icon]) => (
               <Fragment key={to}>

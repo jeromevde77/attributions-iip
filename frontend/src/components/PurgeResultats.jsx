@@ -296,7 +296,7 @@ export default function PurgeResultats({ anneeCourante, onClose, onPurge }) {
               )}
 
               <div className="flex justify-end gap-2">
-                <button onClick={onClose} className="text-sm px-3 py-1.5 rounded-lg border border-slate-300">
+                <button onClick={onClose} className="bouton">
                   Annuler
                 </button>
                 <button onClick={simuler} disabled={enCours}

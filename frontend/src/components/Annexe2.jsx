@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { OuvrirEditions, Fenetre } from './ui.jsx';
+import { OuvrirEditions, Fenetre, OutilFenetre } from './ui.jsx';
 import {
   IconAlertTriangle, IconPrinter, IconFileTypePdf,
 } from '@tabler/icons-react';
@@ -83,20 +83,18 @@ export default function Annexe2({ etudId, annee, onClose }) {
   return (
     <Fenetre titre="Attestation du progrès des études" large="moyenne" onFermer={onClose}
       sous={`Annexe 2 — Office des Étrangers · année ${annee}`}
+      outils={<>
+        {pdfPossible && (
+          <OutilFenetre Icone={IconFileTypePdf} titre={enCours ? 'Génération…' : 'PDF'}
+            onClick={() => produire(true)} disabled={enCours || !donnees} />
+        )}
+        <OuvrirEditions sombre taille="moyen" disabled={enCours || !donnees} titre="Imprimer ou envoyer l'annexe 2 — centre d'édition"
+          pieces={[{ cle: 'annexe2', label: 'Annexe 2 — progrès des études', description: 'Telle qu’elle est complétée ici', onClick: () => produire(false) }]} />
+      </>}
       pied={<>
         <span className="text-xs text-slate-500">
           Le relevé de notes doit être joint au formulaire, comme le prévoit le modèle.
         </span>
-        {pdfPossible && (
-          <button onClick={() => produire(true)} disabled={enCours || !donnees}
-            title="Recommandé : le pied de page est correctement ancré, ce que
-                   l'impression du navigateur ne garantit pas sur Safari"
-            className="bouton bouton-fort inline-flex items-center gap-1.5">
-            <IconFileTypePdf size={15} /> {enCours ? 'Génération…' : 'PDF'}
-          </button>
-        )}
-        <OuvrirEditions disabled={enCours || !donnees} titre="Imprimer ou envoyer l'annexe 2 — centre d'édition"
-          pieces={[{ cle: 'annexe2', label: 'Annexe 2 — progrès des études', description: 'Telle qu’elle est complétée ici', onClick: () => produire(false) }]} />
       </>}>
         <div className="space-y-4">
         {erreur && (

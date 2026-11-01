@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   IconUpload, IconAlertTriangle, IconCheck, IconFileSpreadsheet, IconWand,
 } from '@tabler/icons-react';
-import { Fenetre } from './ui.jsx';
+import { Fenetre, EnteteCarte } from './ui.jsx';
 import { authHeaders } from '../lib/api.js';
 
 /**
@@ -319,17 +319,13 @@ export default function ImportNotesUE({ ueNum, annee, onClose, onImporte }) {
               </div>
 
               {/* ── LES COTES ATTENDUES, COURS PAR COURS ── */}
-              <div className="border border-slate-200 rounded-lg overflow-hidden">
-                <div className="bg-slate-50 px-3 py-2 flex items-center justify-between gap-2">
-                  <span className="text-second text-slate-600">
-                    <b>{associees}</b> / {couples.length} cote(s) associée(s)
-                  </span>
+              <div className="carte overflow-hidden">
+                <EnteteCarte titre={`${associees} / ${couples.length} cote(s) associée(s)`}>
                   <button onClick={() => { proposer(matrice, ligneEntete); setRapport(null); }}
-                    className="text-xs px-2 py-1 rounded-lg border border-iip-gold/60
-                               text-iip-blue hover:bg-amber-50 flex items-center gap-1">
+                    className="bouton flex items-center gap-1">
                     <IconWand size={12} /> Reproposer
                   </button>
-                </div>
+                </EnteteCarte>
                 <div className="divide-y divide-slate-100 max-h-64 overflow-y-auto">
                   {(structure?.cours || []).filter(c => c.acquis?.length).map(c => (
                     <div key={c.cours_code}>

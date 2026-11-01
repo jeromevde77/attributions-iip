@@ -8,6 +8,7 @@ import { IconPower, IconSchool, IconUserCheck, IconX, IconSearch, IconCertificat
 import { demander } from '../lib/dialogue.jsx';
 import { authHeaders } from '../lib/api.js';
 import { nomDuCompte } from '../lib/nom.js';
+import { EnteteCarte } from './ui.jsx';
 
 const LIBELLES = { eteinte: 'Éteinte', essai: 'Essai', allumee: 'Allumée' };
 const COULEUR = { eteinte: 'var(--c-indisponible, #94A3B8)', essai: 'var(--c-attente, #B45309)', allumee: 'var(--c-reussi, #3E7D5E)' };
@@ -46,8 +47,9 @@ function AnneesPassees() {
     }
   };
   return (
-    <section className="bg-white rounded-lg border border-gray-200 px-4 py-3 space-y-3">
-      <div className="intertitre flex items-center gap-2"><IconCertificate size={15} /> Les années passées dans les espaces</div>
+    <section className="carte overflow-hidden">
+      <EnteteCarte icone={IconCertificate} titre="Les années passées dans les espaces" />
+      <div className="px-4 py-3 space-y-3">
       <p className="text-second text-slate-500">Pour chaque étudiant, archivés compris : une attestation de réussite par unité réussie avant
         l’année active, une attestation par valorisation complète, et un document qui les réunit toutes. Ce sont les pièces d’Éditions. Elles
         entrent au registre des envois et paraissent dans « Mes documents » dès que l’espace est ouvert à l’étudiant. <b>Aucun courriel ne part</b> ;
@@ -71,6 +73,7 @@ function AnneesPassees() {
                 <ul className="mt-1 pl-4 list-disc max-h-60 overflow-auto">{x.manques.map((m, i) => <li key={i}>{m}</li>)}</ul></details>)}
           </div>);
       })()}
+      </div>
     </section>
   );
 }
@@ -125,8 +128,8 @@ export default function MiseEnService() {
   if (!r) return null;
   const nomEtudiant = e => `${String(e.nom || '').toUpperCase()} ${e.prenom || ''}`.trim();
   const groupe = (famille, titre) => (
-    <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-      <div className="px-4 py-3 bg-iip-blue/5 border-b border-gray-200"><h2 className="titre-carte">{titre}</h2></div>
+    <section className="carte overflow-hidden">
+      <EnteteCarte titre={titre} />
       <ul className="divide-y divide-slate-100">
         {r.catalogue.filter(c => c.famille === famille).map(c => {
           const etat = r.etats[c.cle];
@@ -155,7 +158,7 @@ export default function MiseEnService() {
       {groupe('espace', 'L’espace des étudiants')}
       {groupe('personnel', 'Le personnel')}
       <AnneesPassees />
-      <section className="bg-white rounded-lg border border-gray-200 px-4 py-3 space-y-5">
+      <section className="carte px-4 py-3 space-y-5">
         <Personnes titre="Étudiants d’essai" icone={IconSchool} l={r.etudiants} nom={nomEtudiant}
           aide="Ils voient les fonctions en essai de l’espace des étudiants. Un dossier fictif, ou des volontaires."
           chercher={q => fetch(`/api/etudiants?q=${encodeURIComponent(q)}`, { headers: authHeaders() }).then(x => (x.ok ? x.json() : [])).then(l => (Array.isArray(l) ? l : []).slice(0, 8))}

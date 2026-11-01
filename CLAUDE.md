@@ -2907,6 +2907,35 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   joindre), `POST /api/documentation/mode-emploi/pdf` (data URL des captures, limite 60 Mo dans `server.js`) ; repli de l'écran :
   l'ancienne mise en page, imprimée par le navigateur. Couleurs du kit adaptées à l'IIP : nuit #0E2A4F, bleus #2C7DB8 / #3E9BD0,
   or #F9B619.
+- **LE MODE D'EMPLOI PDF REFAIT AU KIT FeLSI** (3.5.032, Charles, 1er novembre 2026 : « fais évoluer le design vers le modèle
+  microcertif de la FeLSI » ; niveau de détail : le « Guide de l'enseignant » 3.1.219). `lib/guideKit.js` réécrit : couverture
+  (logo blanc, figure de la Vierge et « Lucie v.x.y », titre selon le public — guide de l'enseignant, du secrétariat… ou complet),
+  **le mot de la direction** signé (texte du guide 3.1.219, `signatureCourante()`), **sommaire paginé** groupé en parties
+  (`PARTIES` : Mise en marche · Les étudiants et les cours · L'école · Les textes et les réglages), tuiles et encadrés ; chaque
+  chapitre ouvre une page par un **bandeau pleine largeur** (marges latérales en `padding` du corps, pas en `@page`, sinon Chromium
+  coupe le bandeau) ; chaque point en carte (rond, « POINT n », bande « Où ? », captures en cadre bleu pâle, « À savoir ») ;
+  **aide-mémoire** « Je veux… je vais… » tiré des `ou` des points. Chaque morceau se rend à part (`rendrePdfs`) pour connaître la
+  page de chaque chapitre ; pdf-lib réunit, pose le **liseré aux trois couleurs du logo** et la pagination « n / N » (couverture
+  non comptée). Police Inter : paquet `fonts-inter` ajouté à l'image du serveur.
+- **LE KIT, SANS BLEU CLAIR, ET LES CAPTURES ANNOTÉES** (3.5.034, Charles, 1er novembre 2026 : « tu n'as pas respecté le KIT, tu
+  mets des bandes bleues claires » ; « je n'ai pas comme dans le mode d'emploi initial ceci » — la barre du haut numérotée du guide
+  du secrétariat). (1) PDF (`guideKit.js`) : liseré de page bleu nuit d'un seul trait (plus de tricolore), bord des cartes et ronds
+  des points en bleu nuit, captures posées seules sur un filet gris (plus de cadre bleu pâle), bande « Où ? » grise. (2) **Une
+  capture peut porter des repères** : `images: [{ src, legende, reperes: [{ x, y, titre, texte }] }]` (`modeEmploi.js`, x et y en
+  % de l'image, relevés sur la capture) — numéros au-dessus, sur des rangs qui ne se touchent pas (`rangsReperes`), un trait
+  jusqu'à l'objet, puis une carte par numéro ; toute la largeur, jamais à côté du texte. Même dessin dans le PDF
+  (`captureAnnotee`) et à l'écran (`CaptureAnnotee`, `pages/Aide.jsx`). Premier exemple : la barre du haut de la direction
+  (14 repères). L'ancien guide du secrétariat (76 pages, retiré en 3.1.512) se relit par
+  `git show 0f78aa9^:backend/assets/guides/Lucie_mode_emploi_secretariat.pdf` : ses autres captures annotées sont à reprendre.
+- **LE TEXTE, PAS DE TRAIT À CÔTÉ DES BLOCS** (3.5.035, Charles, 1er novembre 2026 : « le bleu à côté de chaque rectangle, c'est
+  trop ; je veux le texte ; une ligne marine en marge du document, comme pour la FeLSI »). PDF du mode d'emploi : les points ne sont
+  plus des cartes — un filet gris au-dessus, le texte ; « Ce que vous trouverez ici », les encadrés et la signature perdent leur
+  trait de gauche. Seule ligne de couleur : le liseré bleu nuit de 2,2 mm en marge gauche de chaque page (pdf-lib).
+- **L'ERGONOMIE DE LECTURE DU PDF** (3.5.036, Charles : « des captures qui débutent à la page d'après sans contexte ; des titres en
+  bas de page ; pense à l'ergonomie de la lecture »). Chaque point a un DÉBUT d'un tenant (`.pt-debut`, break-inside: avoid) :
+  titre, chemin « Où ? », texte et première capture ne se séparent jamais ; un « À savoir » de trois lignes au plus se colle au
+  bloc qui le précède ; les captures plafonnent à 72 mm de haut. Garder le point ENTIER a été essayé : 145 pages au lieu de 121,
+  trop de demi-pages blanches.
 - **PORTAIL, ÉTAPE 1 : LE MOT DE PASSE ET LA BELGIQUE** (3.1.513). `compte` (empreinte scrypt salée, dans la base du
   PORTAIL seulement, survit aux dépôts) ; `POST /api/portail/connexion` (adresse ou matricule + mot de passe ; appareil
   reconnu → session ; sinon code `connexion` composé par Lucie → `POST /connexion/code`, qui reconnaît l'appareil, 3 au
@@ -3043,6 +3072,107 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   officielle (tranché : envoyé à l'adresse PRIVÉE du dossier ; s'éteint dès que l'adresse d'institut est encodée, au plus 60 jours, renouvelable par le secrétariat ; il ouvre la demande de VA, les documents, les frais et les messages). Résultats : détail par acquis (NA sous 10) après clôture publiée. Messages :
   réponse possible. Accès **bloqué hors de Belgique**, exception accordée par le secrétariat pour une période ; la vérification
   du QR reste ouverte partout. (Mot de passe et Belgique : FAITS en 3.1.513 ; VA en ligne et code du candidat : FAITS en 3.1.514 ; PAE en ligne : FAIT en 3.1.515 ; messages : FAITS en 3.1.516 ; parcours, frais, aide : FAITS en 3.1.517.) Toute écriture venant du portail passe par le relevé de Lucie (`portailSync.js`), jamais l'inverse. **Ordre de construction** : 1 mot de passe et blocage hors Belgique · 2 VA en ligne déplacée + code candidat · 3 PAE en ligne · 4 messages · puis parcours, frais, aide.
+
+**UN SEUL EN-TÊTE DE CARTE, LES SORTIES AU BANDEAU DES FENÊTRES** (3.5.032, Charles, 1er novembre 2026 : « l'en-tête est blanche
+ici, bleu clair ailleurs… fais le tour de TOUS les écrans et TOUTES les fenêtres » ; modèle retenu : la bande de « Envoi de documents
+par courriel » ; « pour les FENÊTRES comme Éditions on garde le bleu ; un bouton IMPRIMER, ENVOYER ou APERÇU doit être dans le bandeau
+supérieur. Point. »). `EnteteCarte` (ui.jsx, classe `.entete-carte` : bande pâle du principal à 5 %, filet ; une carte qui en porte
+une a un corps blanc) et `OutilFenetre` (icône blanche, dans `outils` de `Fenetre`). **Toute carte titrée prend `EnteteCarte` ; toute
+sortie d'une fenêtre (aperçu, imprimer, envoyer, PDF) est un `OutilFenetre` du bandeau.** Pas de cadre dans un cadre, pas de clé
+technique affichée (en `title=`), pas d'émoji dans un bouton. 105 fichiers repris en un passage.
+
+**LE MODE D'EMPLOI DE TOUT LUCIE, EN QUATRE VERSIONS, AVEC SES ANNEXES** (3.5.047, Charles : « le mode d'emploi de TOUT
+Lucie… avec les documents que cela peut sortir en annexe… la version secrétariat (totale), la version profs… TOUT dans la
+version admin avec config »). Documentation → Mode d'emploi : la direction a quatre boutons PDF (Complet, Secrétariat,
+Coordination, Enseignants), les autres le leur. Hors version enseignants, deux annexes (`guideKit.js`) : **A** — le catalogue
+des 126 pièces de la galerie (`galerie()`), par domaine, avec ce qu'on choisit ; **B** — les spécimens (`composerSpecimen`,
+`SPECIMENS` de `lib/specimens.js` : attestations de réussite et de valorisation, AR ×4, procédures ×6, CEP ×3), rendus avec le
+pied des pièces. **Un spécimen n'entre jamais au registre des pièces authentiques** : `enSpecimen(fn)`
+(`lib/filigraneDocument.js`) coupe l'inscription et remplace le QR par « SPÉCIMEN — sans valeur ». Défaut trouvé au passage :
+la galerie de Configuration inscrivait chaque spécimen ouvert au registre (« SPÉCIMEN Camille » se serait vérifié comme vrai) ;
+les lignes déjà inscrites sont retirées au démarrage (`migrerAuthentique`). **Côté portail, les copies déjà transmises
+restent** (le dépôt est en ajout seul) : à purger sur le portail quand il sera installé. **À venir** : des spécimens pour les
+autres pièces (motivation, PV, diplôme, note de frais, contrats…), sur une base de spécimens.
+
+**LE PDF DU MODE D'EMPLOI N'A QU'UNE MISE EN PAGE, CELLE DU KIT** (3.5.044, Charles, 1er novembre 2026, furieux : « si on
+clique sur la version PDF, on a un mode d'emploi impeccable dans cette mise en page. POINT ! »). Ce qu'il recevait n'était
+pas le kit mais le REPLI : chaque chapitre avait 61 s pour se rendre (le délai de `rendrePdf` se compte sur les `.saut`, que
+le guide n'a pas) ; un chapitre de vingt pages chargé de captures dépassait sur le VPS, le serveur rendait 503, et l'écran
+imprimait l'ancienne mise en page simple. Désormais : `delaiMs` (option de `rendrePdf`) à 10 min pour chaque morceau du
+guide, deux morceaux à la fois ; le PDF composé se GARDE en mémoire par public et version (`CACHE` de `guideKit.js`, la
+promesse comprise : deux clics, une composition) ; **le repli est retiré d'`Aide.jsx`** — un échec se dit, rien d'autre ne
+sort ; l'onglet affiche une page d'attente pendant la composition. **Ne jamais remettre de mise en page de secours.**
+
+**LE MODE D'EMPLOI COMPLET** (3.5.041, Charles, 1er novembre 2026 : « TOUT doit y être — budget, dotation, configuration,
+les documents qui sortent, les présences, l'espace personnel —, même si cela fait 200 pages ; je vais l'envoyer au CA et à
+l'administration »). 25 chapitres, 312 points, 233 pages pour la direction (le professeur : 7 chapitres, 56 points). Six
+chapitres nouveaux — Mon espace, Le travail d'équipe, Les documents qui sortent de Lucie, Les présences, Dotation ETP et
+coûts, Frais de scolarité et paiements — et des points ajoutés à Personnel, Organisation, Configuration (41 points, rangés
+selon les familles du rail). **Les compléments vivent dans `backend/src/lib/guide/*.js`** (un fichier par domaine :
+`chapitres`, `ajouts`, `remplacements` « id|titre ») et s'appliquent au chargement de `modeEmploi.js`
+(`COMPLEMENTS`, `ORDRE_CHAPITRES`, `ORDRE_CONFIG`, `RETRAITS`, `RESUMES`). Six étoiles de plus dans la Vierge pour le
+sommaire en ciel (ψ, 59, 16, ω, σ, π — projetées par la même transformation, ajustée sur les 19 autres à moins d'une unité).
+Icônes de chapitre : `iconesGuide.js` (PDF) et `ICONES` d'`Aide.jsx` (écran), les deux. **Les nouveaux chapitres n'ont pas
+encore de captures** (la base d'essai locale est trop ancienne) : à prendre sur une base d'essai complète.
+
+**LE TEMPS DE TRAVAIL DU SECRÉTARIAT** (3.5.039, Charles, 1er novembre 2026 — courriel à Nicolas : 36 h effectives par
+semaine, pause de 15 min au-delà de 6 h, 8 h/jour (9 h en 4 jours ou horaire variable au règlement de travail), 11 h de
+repos, semaines flexibles art. 20bis, 13 semaines de congés, 39 × 36 = 1 404 h ; « un générateur annuel qui respecte le décret
+et calcule le temps de travail » ; choix recommandés retenus : l'horaire PRÉVU fait foi et l'on n'encode que les écarts ;
+relevé signé personne → direction adjointe → direction ; fiche de congés direction adjointe → direction ; chacun lit son
+relevé et le planning de l'équipe ; la direction désigne les comptes). Personnel → rail → *Temps de travail*
+(`pages/TempsTravail.jsx`, `routes/tempsTravail.js` sur `/api/temps-travail`, moteur `lib/tempsTravail.js`, tables
+`tt_personne`, `tt_semaine`, `tt_ecart`, `tt_signature` en ajout seul). Le générateur pose les 52 semaines (congés scolaires
+lus du calendrier « vacances » de l'école, cinq semaines d'été dans la fenêtre réglable, formule 5 j / 4 × 9 h / annualisé
+avec semaines fortes compensées) et contrôle chaque règle ; un férié pendant une semaine de travail compte pour ses heures
+prévues. Le mois signé par la direction se verrouille. L'annualisé ne s'applique qu'une fois coché « horaire variable inscrit
+au règlement de travail » (Personnes et réglages). L'année du module est la sienne (celle d'aujourd'hui). **Toute l'année, semaine par semaine** (3.5.040, Charles : « une
+version en semaines, avec le temps de travail de chacun par semaine, et annuel ») : faces « L'équipe : l'année » (52 colonnes,
+présté par semaine, presté / dû / solde de l'année, présents par semaine — `anneeEquipe`) et « L'équipe : une semaine »
+(jour par jour — `semaineEquipe`) ; les heures des autres restent à la direction. Banc :
+`backend/test/tempsTravail.mjs` (41 ok).
+
+**TOUT TABLEAU SUIT LES RÉGLAGES, ET CHACUN CHOISIT SON THÈME** (3.5.037, Charles, 1er novembre 2026 : « non respect du
+design » sur Qui a fait quoi, Nouveautés, la liste des étudiants, l'encodage rapide, les recours ; « ce doit être géré dans
+paramètres, TOUJOURS identique » ; « TOUT paramétrable dans Configuration » ; « que TOUT le monde ait le choix entre des
+thèmes : Maison IIP, Sombre, Métal, Pastel »). (1) **Une seule bande** : l'en-tête d'un tableau, l'en-tête d'une carte et d'un panneau prennent `--c-fond_entete` ;
+**une ligne de regroupement (`.tab-repere`, sections repliables) n'est PAS un en-tête** (3.5.042, Charles : « ce doit être
+blanc ») : `--c-fond_regroupement`, qui suit les cartes — (Thèmes et couleurs → Surfaces, « En-têtes de tableau et
+de carte », défaut : le principal à 5 %, `--fond-bande`) — elle était blanche, ton sur ton. (2) **Le défaut s'applique à
+tout tableau** (`index.css`, règles `#root thead/tbody`) : bande, taille, casse et couleur de l'en-tête, filets, lignes
+alternées et survol de Formes et composants → Tableaux, même pour un tableau écrit à la main ; hors règle :
+`.texte-corpus`, `.texte-due`, `.texte-dossier`, `.hors-maison`. (3) **Le thème de chacun** (`lib/theme.js` :
+`choisirTheme`, `useTheme`, `THEMES_PERSO` ; `lib/couleurs.js` : `THEMES_PERSONNELS`, `COULEURS_METAL`,
+`COULEURS_PASTEL` ; `components/ChoixTheme.jsx`, palette de la barre du haut) : Maison IIP (les couleurs de l'école),
+Sombre, Métal, Pastel — pour soi, gardé dans le navigateur, posé par-dessus les couleurs de l'école ; Métal et Pastel
+s'adoptent aussi pour toute l'école dans Thèmes et couleurs. Remplace le bouton lune. **Dans chaque thème, le fond de la page
+a la couleur du rail et de la barre du haut** (3.5.046, Charles : « j'insiste ») : `fond_menus` = `fond_page` (et
+`menu_sombre` pour le Sombre). Métal = apple.com (3.5.048) : page et menus #F5F5F7, cartes, tableaux et tuiles BLANCS SANS CONTOUR, ombre douce qui naît au
+survol (`[data-theme="metal"]` dans `index.css`), texte #1D1D1F, bleu Apple #0071E3 pour l'action ; Pastel = fond blanc. (4) Nouveautés : une carte par jour,
+nature en pastille pleine, les fusions de branches retirées ; Qui a fait quoi : `Tableau`, dates nommées « Du / au ».
+
+**CONFIGURATION DANS LA GRILLE DES PLAFONDS** (3.5.030, Charles, 1er novembre 2026 : « un accès en lecture à tout sauf dotation,
+finances-budget et recrutement au service info » ; tranché : Configuration en lecture, mots de passe masqués). Module
+`configuration` (MODULES de `permissions.js`, `MODULES_ACCES` de `lib/modules.js`) : naît « ecrit » pour la direction, « rien »
+pour tous les autres (`initial`). « lit » : `roleRequired('admin')` laisse passer une LECTURE (GET/HEAD) quand
+`litLaConfiguration(user)` (auth.js) ; écrire reste à la direction ; `directionStricte` garde ce qui contient tout (télécharger une
+sauvegarde, `/historique/backup`). Barre : « Config. » si direction ou plafond ≠ rien ; l'écran passe en lecture seule
+(`fieldset disabled`, bandeau). Mise en service (`routes/fonctions.js`) lisible aussi. Les secrets de messagerie étaient déjà
+masqués (`pass_defini`, `secret_defini`). **Le rôle « Service informatique » se crée à l'écran** (+ Nouveau rôle).
+Le refus en 2e session cite l'**article 32 § 3 du RDE** (D. 16/04/1991, art. 36ter) ; le remboursement est maintenu malgré l'art. 19 §2
+(désinscription de l'étudiant, autre cas) — à préciser dans le RDE 2027-2028.
+
+**LE REFUS EN SECONDE SESSION ET LE PAE** (3.5.029, Charles, 1er novembre 2026 : « notification au secrétariat et à la
+coordination : l'UE XXX est échouée en 2e session, les UE suivantes doivent être retirées du PAE ; puis un mail — ou un message
+dans son espace — : inscription annulée conformément au décret du 16.04.1991, frais liés remboursés sauf ceux d'une VA » ; tranché :
+UE qui ont XXX en prérequis LÉGAL, en cascade ; le secrétariat retire et prévient d'un clic après aperçu ; remboursement calculé et
+inscrit dans Finances, SAUF dette : déduit d'abord ; la partie fixe jamais). `lib/refusSeconde.js` : `signalerRefus` (appelé à la
+clôture d'une séance de session 2, `PUT /deliberation/ue/:ueNum/seance`) → `refus_seconde` + `lucie_notification` type `refus_seconde`
+(secrétariat, coordination de la section, direction ; lien `/etudiants?outil=refus2`) ; `suitesDe` (BFS sur `ue_prerequis`, sections
+du cursus, inscriptions sans résultat de l'année et des suivantes) ; `apercu` (frais avant/après par `calculerFrais`, l'« après »
+calculé dans une transaction DÉFAITE — le DI a un plafond, on ne soustrait pas `fi_par_ue`) ; `traiter` (`ecrireProgramme`, origine
+`refus_seconde`, puis message par `envoyer` si `espace.messages` est ouvert, sinon courriel) ; `remboursementsAFaire` (fiche →
+Finances, jusqu'au versement négatif). Écran `components/RefusSeconde.jsx` (rail Étudiants). Routes `/api/refus-seconde`.
 
 **LES ATTESTATIONS DES ANNÉES PASSÉES DANS LES ESPACES** (3.5.027, Charles, 1er novembre 2026 : « Lucie est nouvelle de
 cette année ; pour tous les résultats antérieurs, toutes les attestations de réussite, de VA, etc., dans les espaces des

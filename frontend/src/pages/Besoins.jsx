@@ -5,7 +5,7 @@ import {
   IconTargetArrow, IconBriefcase, IconAlertTriangle, IconCheck, IconX,
   IconSend, IconEye, IconMailForward, IconRefresh, IconChevronRight, IconSchool, IconCertificate,
 } from '@tabler/icons-react';
-import { PageHeader, Fenetre, Encadre, TuileEtat } from '../components/ui.jsx';
+import { PageHeader, Fenetre, Encadre, TuileEtat, OutilFenetre } from '../components/ui.jsx';
 import { authHeaders } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 
@@ -266,7 +266,7 @@ export default function Besoins({ annee: anneeProp }) {
                             <IconCheck size={13} /> {b.offres_existantes} offre(s)
                           </span>
                         : <button onClick={() => preparerOffre(b)}
-                            className="text-second px-2.5 py-1.5 rounded-lg bg-iip-blue text-white font-semibold flex items-center gap-1.5 ml-auto">
+                            className="bouton flex items-center gap-1.5 ml-auto">
                             <IconBriefcase size={14} /> Créer l'offre
                           </button>}
                     </td>
@@ -302,24 +302,24 @@ export default function Besoins({ annee: anneeProp }) {
                   </div>
                   <span className={`px-2 py-0.5 rounded-champ text-xs font-bold ${s.classe}`}>{s.label}</span>
                   <button onClick={() => ouvrirApercu(o)}
-                    className="text-second px-2.5 py-1.5 rounded-lg border border-slate-300 flex items-center gap-1">
+                    className="bouton flex items-center gap-1">
                     <IconEye size={14} /> Aperçu
                   </button>
                   {o.statut === 'publiee' && (
                     <button onClick={() => setEnvoi({ offre: o, destinataires: '' })}
-                      className="text-second px-2.5 py-1.5 rounded-lg border border-slate-300 flex items-center gap-1">
+                      className="bouton flex items-center gap-1">
                       <IconMailForward size={14} /> Envoyer
                     </button>
                   )}
                   {o.statut === 'brouillon' && (
                     <button onClick={() => publier(o.id)}
-                      className="text-second px-2.5 py-1.5 rounded-lg bg-iip-turquoise text-white font-semibold flex items-center gap-1.5">
+                      className="bouton flex items-center gap-1.5">
                       <IconSend size={14} /> Publier
                     </button>
                   )}
                   {o.statut === 'publiee' && (
                     <button onClick={() => navigate('/recrutement')}
-                      className="text-second px-2.5 py-1.5 rounded-lg border border-slate-300 flex items-center gap-1">
+                      className="bouton flex items-center gap-1">
                       Recrutement <IconChevronRight size={13} />
                     </button>
                   )}
@@ -470,6 +470,8 @@ export default function Besoins({ annee: anneeProp }) {
       {envoi && (
         <Fenetre icone={IconMailForward} large="petite" onFermer={() => setEnvoi(null)}
           titre={`Envoyer l'offre — ${envoi.offre.intitule || envoi.offre.code_cours}`}
+          outils={!envoi.fait && <OutilFenetre Icone={IconMailForward} titre="Envoyer" onClick={envoyerOffre}
+            disabled={!envoi.destinataires.trim()} />}
           pied={envoi.fait ? <>
             <span />
             <button onClick={() => setEnvoi(null)}
@@ -477,10 +479,6 @@ export default function Besoins({ annee: anneeProp }) {
           </> : <>
             <span />
             <button onClick={() => setEnvoi(null)} className="bouton">Annuler</button>
-            <button onClick={envoyerOffre} disabled={!envoi.destinataires.trim()}
-              className="bouton bouton-fort inline-flex items-center gap-1.5">
-              <IconMailForward size={15} /> Envoyer
-            </button>
           </>}>
           <div className="space-y-3">
             {envoi.fait ? (

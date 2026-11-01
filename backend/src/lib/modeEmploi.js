@@ -10,7 +10,15 @@
  *   savoir — ce qu'il faut savoir : les règles qui bloquent ou qui surprennent.
  * Il explique le travail, pas l'informatique (CLAUDE.md, § 7). La version décrite se dit en tête.
  */
-export const VERSION_DECRITE = '3.5.028';
+import * as gMoi from './guide/moi.js';
+import * as gPresences from './guide/presences.js';
+import * as gPieces from './guide/pieces.js';
+import * as gFinances from './guide/finances.js';
+import * as gConfig from './guide/config.js';
+import * as gEcole from './guide/ecole.js';
+import * as gNouveautes from './guide/nouveautes.js';
+
+export const VERSION_DECRITE = '3.5.048';
 
 export const RUBRIQUES = [
   {
@@ -29,7 +37,26 @@ export const RUBRIQUES = [
           "Tableau de bord : ce qui attend chacun, l'échéancier légal, les réunions et les tâches de l'équipe.",
         ],
         images: [
-          { src: "/guide/ensemble-barre-direction.png", legende: "La barre du haut de la direction : un axe par métier (Tableau de bord, Mes cours, Étudiants, Personnel, Organisation, Gestion, Documentation, Configuration), puis la recherche, le bouton ↶ et le compte." },
+          /* LES REPÈRES (3.5.034, Charles : « comme dans le mode d'emploi initial » — la capture annotée du guide du
+             secrétariat) : un numéro posé au-dessus de l'écran, un trait vers l'objet, puis une carte par numéro. `x` et `y`
+             en pour cent de la capture (relevés sur l'image de 1 280 × 60). */
+          { src: "/guide/ensemble-barre-direction.png", legende: "La barre du haut de la direction : un axe par métier (Tableau de bord, Mes cours, Étudiants, Personnel, Organisation, Gestion, Documentation, Configuration), puis la recherche, le bouton ↶ et le compte.",
+            reperes: [
+              { x: 14.8, y: 50, titre: "L'année de travail", texte: "Tout ce que vous voyez porte sur elle. Sans y toucher, Lucie prend l'année active." },
+              { x: 26.6, y: 50, titre: "Tableau de bord", texte: "Ce qui vous attend ; la pastille compte les nouveautés non lues." },
+              { x: 37.2, y: 50, titre: "Les métiers", texte: "Mes cours, Étudiants, Personnel, Organisation, Gestion, Documentation : une icône par axe, nommée au survol ; l'axe ouvert écrit son nom." },
+              { x: 52, y: 50, titre: "Configuration", texte: "Les réglages de l'école (direction)." },
+              { x: 58.4, y: 50, titre: "Urgence", texte: "Hors des heures du secrétariat : qui est de permanence, et l'appeler. Secrétariat ouvert, le bouton passe au vert : qui est là." },
+              { x: 64.7, y: 50, titre: "La loupe « Où aller ? »", texte: "Un mot, et Lucie propose l'écran (⌘K / Ctrl+K)." },
+              { x: 68.1, y: 50, titre: "Revenir en arrière", texte: "Vos dix derniers enregistrements, à défaire du plus récent au plus ancien." },
+              { x: 71.6, y: 50, titre: "Mise en page", texte: "L'administrateur range la barre, les rails et les blocs des pages." },
+              { x: 74.9, y: 50, titre: "Clair ou sombre", texte: "Les menus en gris pâle ou en marine." },
+              { x: 79.9, y: 50, titre: "La version", texte: "Un clic en donne le détail." },
+              { x: 85.4, y: 50, titre: "Vos initiales", texte: "Pour la direction : « Voir comme… » un autre profil, en lecture." },
+              { x: 89.8, y: 50, titre: "Votre rôle", texte: "Le rôle du compte connecté, en abrégé." },
+              { x: 93.8, y: 50, titre: "Votre compte", texte: "Mot de passe et vérification en deux temps." },
+              { x: 96.9, y: 50, titre: "Quitter", texte: "Se déconnecter." },
+            ] },
         ],
       },
       {
@@ -770,6 +797,18 @@ export const RUBRIQUES = [
         ],
         images: [
           { src: "/guide/deliberation-cloture.png", legende: "La vue « Clôture » d'une séance déjà close : date de la séance, date de publication des résultats, visite des copies, puis [[Générer les documents]]." },
+        ],
+      },
+      {
+        titre: "Après un refus en seconde session : les unités à retirer du PAE",
+        ou: "Étudiants → rail → Refus en 2e session — unités à retirer du PAE (ou la notification du tableau de bord).",
+        texte: "Quand une séance de seconde session se clôt, Lucie cherche les étudiants refusés dont le PAE porte des unités qui ont l'unité refusée en prérequis — directement ou en cascade — et prévient le secrétariat, la coordination de la section et la direction. Dans la fenêtre, l'aperçu montre les unités à retirer (on peut en décocher), ce que valent leurs frais, ce qui est déduit de ce que l'étudiant doit encore et ce qui lui est remboursé, et le texte qu'il recevra. [[Retirer et prévenir|IconCheck|fort]] retire les unités de son PAE, note le remboursement et le prévient.",
+        savoir: [
+          "Rien n'est retiré d'office : c'est le secrétariat (ou la direction) qui clique. La coordination lit les dossiers de ses sections.",
+          "L'étudiant est prévenu par un message dans son espace si « Messages » lui est ouvert, sinon par courriel (adresse d'institut, à défaut privée). Le texte cite l'article 32, § 3, du règlement des études (décret du 16 avril 1991, article 36ter).",
+          "Les frais remboursés sont ceux des unités retirées — droit d'inscription et frais variables —, jamais la partie fixe ni les frais d'analyse d'une VA. Si l'étudiant doit encore de l'argent, ils s'en déduisent d'abord.",
+          "Le remboursement s'affiche dans la fiche → Finances (« Remboursement à faire ») jusqu'à ce qu'il soit encodé comme un versement négatif, nature « Remboursement ».",
+          "Une unité qui porte déjà un résultat, une note ou un report reste au programme : elle est nommée. « Sans suite » ferme un dossier avec un motif.",
         ],
       },
       {
@@ -1607,6 +1646,18 @@ export const RUBRIQUES = [
         ],
       },
       {
+        titre: "Ouvrir Configuration en lecture (le service informatique)",
+        pour: "dir",
+        ou: "Configuration → Accès → Plafonds par rôle, colonne « Configuration ».",
+        texte: "Configuration est un module de la grille, comme les autres. Il naît « écrit » pour la direction et « aucun » pour les autres rôles. Mis à « lit » pour un rôle — par exemple un rôle « Service informatique » créé par [[+ Nouveau rôle]], en lecture partout sauf Dotation, Budget et Recrutement —, il fait paraître « Config. » dans la barre : chaque onglet se lit, aucun champ ni bouton n'y répond, et un bandeau le dit.",
+        savoir: [
+          "Écrire reste à la direction, quoi que dise la grille : le serveur refuse toute modification.",
+          "Les mots de passe et les clés de la messagerie ne s'affichent jamais, à personne.",
+          "Deux lectures restent à la direction seule, parce qu'elles contiennent tout : télécharger une sauvegarde et l'export de la base.",
+          "Dotation, Budget et Recrutement suivent leur propre colonne : à « aucun », ils restent fermés, Configuration ouverte ou non.",
+        ],
+      },
+      {
         titre: "La mise en service des fonctions",
         ou: "Configuration → Accès → Mise en service.",
         texte: "Chaque fonction nouvelle s'allume quand la direction le décide : Mes documents, le dépôt d'office à la clôture, Mes résultats, les règlements, les messages, Mon parcours, Mes frais, la demande de valorisation en ligne, le PAE en ligne, le code d'accès des candidats — et, pour le personnel, la présence par QR et le ticket de sortie. Chacune est Éteinte, en Essai ou Allumée. En essai, elle ne vaut que pour les étudiants d'essai ou les comptes d'essai nommés sous la liste ; les autres ne la voient pas et ne reçoivent aucun courriel.",
@@ -1674,7 +1725,7 @@ export const RUBRIQUES = [
       {
         titre: "Thèmes et couleurs",
         ou: "Configuration → Système → Thèmes et couleurs.",
-        texte: "Toutes les couleurs de Lucie se règlent ici : écran, états, repères, fonds. Le thème « Maison IIP » (couleurs du logo) est le défaut ; « Lucie d'origine », les gris clairs et « Gris Apple » (gris système d'Apple, bleu Apple) restent disponibles. Le jeu de gris de l'interface se choisit à part : Ardoise, Neutre ou Apple.",
+        texte: "Toutes les couleurs de Lucie se règlent ici : écran, états, repères, fonds. Le thème « Maison IIP » (couleurs du logo) est le défaut ; « Lucie d'origine », les gris clairs, « Gris Apple » (gris système d'Apple, bleu Apple), « Sombre », « Métal » et « Pastel » restent disponibles pour toute l'école — chacun peut aussi choisir, pour lui seul, Maison IIP, Sombre, Métal ou Pastel (palette de la barre du haut). Le jeu de gris de l'interface se choisit à part : Ardoise, Neutre ou Apple.",
         savoir: [
           "Les pièces imprimées gardent la charte de l'Institut, quel que soit le thème.",
         ],
@@ -1705,6 +1756,49 @@ export const RUBRIQUES = [
   },
 ];
 
+/* LE GUIDE COMPLET (3.5.040, Charles, 1er novembre 2026 : « TOUT doit y être — budget, dotation, configuration, les
+ * documents qui sortent, les présences, l'espace personnel —, même si cela fait 200 pages ; je vais l'envoyer au CA et à
+ * l'administration »). Les compléments vivent dans `lib/guide/*.js`, un fichier par domaine, sous la même forme :
+ * `chapitres` (nouveaux), `ajouts` (points ajoutés à un chapitre), `remplacements` (« id|titre » → point refait). Ils
+ * s'appliquent ici, une fois, au chargement ; puis les chapitres se rangent dans l'ordre du travail. */
+const COMPLEMENTS = [gMoi, gPresences, gPieces, gFinances, gConfig, gEcole, gNouveautes];
+const ORDRE_CHAPITRES = ['ensemble', 'demarrage', 'moi', 'accueil', 'equipe',
+  'etudiants', 'pae', 'valorisation', 'amenagements', 'deliberation', 'procedures', 'diplomes', 'editions', 'pieces', 'espace',
+  'mescours', 'presences', 'cep',
+  'personnel', 'organisation', 'gestion', 'dotation', 'frais',
+  'documentation', 'config'];
+const RETRAITS = ['gestion|Rapport ETP et ratio étudiants / ETP'];
+const RESUMES = { gestion: 'Le budget des sections, les présences et la PEP estimée, le plan d’action qualité.' };
+/* L'ordre des points de Configuration suit les familles de son rail : Établissement · Enseignement · Documents et
+   envois · Accès · Système. Un point absent de la liste garde sa place, à la fin. */
+const ORDRE_CONFIG = ['Les cinq familles', 'Identité fait foi', 'Plusieurs établissements', 'Années et calendrier', 'Le calendrier des sessions',
+  'Coût des périodes', 'Les inscrits prévus', 'Enseignement : le référentiel', 'Prérequis d', 'Cursus compatibles', 'Règles de délibération',
+  'Procédures et délais', 'Planification', 'Documents et envois', "L'atelier de Lucie", 'La galerie des pièces', 'Le contrat de travail',
+  'Le modèle de diplôme', "Descriptifs d'UE", 'Courriels', 'Le récapitulatif quotidien', 'Les rappels par courriel', 'Réponses types',
+  'Accès, fonctions, sécurité', 'Créer un rôle', 'Sécurité', 'Ouvrir Configuration en lecture', 'La mise en service des fonctions',
+  'Les attestations des années passées', 'Thèmes et couleurs', 'Une seule bande', "Régler l'apparence", "Revenir sur un réglage",
+  'Le mode « Mise en page »', 'Sauvegardes', 'Transferts', 'Traces et historique', 'Registre des envois', 'Qui a fait quoi', 'Nouveautés', 'Traces'];
+(function completer() {
+  const chap = id => RUBRIQUES.find(r => r.id === id);
+  for (const c of COMPLEMENTS) for (const [cle, point] of Object.entries(c.remplacements || {})) {
+    const [id, titre] = cle.split('|'); const r = chap(id); const i = r ? r.points.findIndex(p => p.titre === titre) : -1;
+    if (i >= 0) r.points[i] = point; else console.warn('[mode d’emploi] remplacement sans cible :', cle);
+  }
+  for (const cle of RETRAITS) { const [id, titre] = cle.split('|'); const r = chap(id); if (r) r.points = r.points.filter(p => p.titre !== titre); }
+  for (const [id, t] of Object.entries(RESUMES)) if (chap(id)) chap(id).resume = t;
+  for (const c of COMPLEMENTS) for (const r of c.chapitres || []) if (!chap(r.id)) RUBRIQUES.push(r);
+  for (const c of COMPLEMENTS) for (const [id, pts] of Object.entries(c.ajouts || {})) {
+    if (chap(id)) chap(id).points.push(...pts); else console.warn('[mode d’emploi] ajout sans chapitre :', id);
+  }
+  const rang = id => { const i = ORDRE_CHAPITRES.indexOf(id); return i < 0 ? 999 : i; };
+  RUBRIQUES.sort((a, b) => rang(a.id) - rang(b.id));
+  const cfg = chap('config');
+  if (cfg) {
+    const rangP = p => { const i = ORDRE_CONFIG.findIndex(t => String(p.titre || '').startsWith(t)); return i < 0 ? 999 : i; };
+    cfg.points = cfg.points.map((p, i) => [p, i]).sort((x, y) => (rangP(x[0]) - rangP(y[0])) || (x[1] - y[1])).map(x => x[0]);
+  }
+})();
+
 const PUBLIC_DU_ROLE = { professeur: ['ens'], secretariat: ['sec'], coordination: ['coo'], consultation: ['ens'] };
 export const ROLES_TOUT = ['admin', 'directeur', 'directeur_adjoint', 'editeur'];
 
@@ -1729,7 +1823,7 @@ export function modeEmploiPour(role, voir = null) {
  * restent des chemins (`/guide/…`) : c'est l'écran qui les joint avant de demander le PDF, le serveur ne les a pas. */
 const escP = x => String(x ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const boutonsP = h => String(h || '').replace(/\[\[([^\]|]+)[^\]]*\]\]/g, (_, l) => `<b class="me-bt">${l.trim()}</b>`);
-const enrichiP = t => boutonsP(escP(t));
+export const enrichiP = t => boutonsP(escP(t));
 
 /* LE PDF A LE DESSIN DU GUIDE EN LIGNE (3.1.520, Charles, 30 octobre 2026 : « regarde le mode d'emploi de Lucie, c'est en
  * bleu »). Mêmes pièces qu'à l'écran (`pages/Aide.jsx`) : en-tête de chapitre (pastille marine, « Chapitre n sur N », publics

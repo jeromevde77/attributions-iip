@@ -1,5 +1,6 @@
 import QRCode from 'qrcode';
 import { useEffect, useState } from 'react';
+import { EnteteCarte } from './ui.jsx';
 import { authHeaders } from '../lib/api.js';
 import { useDroits } from '../lib/droits.js';
 import { saisir, informer } from '../lib/dialogue.jsx';
@@ -26,6 +27,13 @@ export default function FraisScolarite({ etudId, annee }) {
 
   const [recharge, setRecharge] = useState(0);
   const [qrPaiement, setQrPaiement] = useState(null);
+  // LES REMBOURSEMENTS À FAIRE (3.5.029) : unités retirées après un refus en seconde session ; la ligne s'efface quand le
+  // remboursement est encodé (un versement négatif, nature « remboursement »).
+  const [aRembourser, setARembourser] = useState([]);
+  useEffect(() => {
+    fetch(`/api/refus-seconde/etudiant/${etudId}/remboursements`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : [])).then(l => setARembourser(Array.isArray(l) ? l : [])).catch(() => setARembourser([]));
+  }, [etudId, recharge]);
   useEffect(() => {
     if (!f?.virement?.epc) { setQrPaiement(null); return; }
     QRCode.toDataURL(f.virement.epc, { errorCorrectionLevel: 'M', margin: 2, width: 192 }).then(setQrPaiement).catch(() => setQrPaiement(null));
@@ -90,14 +98,8 @@ export default function FraisScolarite({ etudId, annee }) {
   const soldeRegle = f.verse >= f.total;
 
   return (
-    <div className="border border-slate-200 rounded-xl overflow-hidden">
-      <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200
-                      flex items-center justify-between gap-3 flex-wrap">
-        <span className="text-sm font-semibold text-iip-blue">Calcul des frais</span>
-        <span className="text-xs text-slate-400">
-          RDE art. 16 à 20 · {annee}{b.defaut ? ' · barème par défaut' : ''}
-        </span>
-      </div>
+    <section className="carte overflow-hidden">
+      <EnteteCarte titre="Calcul des frais" sous={`RDE art. 16 à 20 · ${annee}${b.defaut ? ' · barème par défaut' : ''}`} />
 
       <div className="p-4 space-y-3">
         {/* La formule est écrite en toutes lettres : c'est elle qu'on vient
@@ -216,6 +218,11 @@ export default function FraisScolarite({ etudId, annee }) {
         {/* LES VERSEMENTS (3.1.437) : la route existait, aucun écran ne l'appelait — les
             versements ne s'encodaient donc pas, et « reste à payer » était faux pour tous.
             Un versement s'ANNULE avec un motif, il ne s'efface pas. */}
+        {aRembourser.map(x => (
+          <div key={x.id} className="bloc-etat px-3 py-2 text-second" data-etat="surveiller">
+            <b>Remboursement à faire : {eur(x.reste)}</b> — unités retirées après le refus en seconde session de l’UE {x.ue_num} {x.ue_nom}
+            {' '}({x.annee_scolaire}, le {String(x.traite_le || '').slice(0, 10).split('-').reverse().join('/')}). Il s’encode comme un versement négatif, nature « Remboursement ».
+          </div>))}
         <div className="border-t border-slate-200 pt-3 space-y-2">
           <div className="flex items-center justify-between gap-2">
             <span className="text-sm font-semibold text-iip-blue">Versements</span>
@@ -292,6 +299,6 @@ export default function FraisScolarite({ etudId, annee }) {
           <span>Copie d'épreuve : <b>{eur(b.copie_epreuve_page)}</b> la page</span>
         </div>
       </div>
-    </div>
+    </section>
   );
 }

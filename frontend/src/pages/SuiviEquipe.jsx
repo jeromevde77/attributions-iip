@@ -8,7 +8,7 @@ import {
 import { authHeaders, getUser } from '../lib/api.js';
 import FriseEcheances from '../components/FriseEcheances.jsx';
 import { urgence } from '../lib/urgence.js';
-import { Fenetre, PageHeader, RailLateral, OuvrirEditions } from '../components/ui.jsx';
+import { Fenetre, PageHeader, RailLateral, OuvrirEditions, OutilFenetre } from '../components/ui.jsx';
 import { nomDepuisChaine, nomListe, parNom } from '../lib/nom.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 import ConfierTache from '../components/ConfierTache.jsx';
@@ -259,12 +259,10 @@ export default function SuiviEquipe() {
         <Fenetre icone={IconReport} large="petite" titre="Rapport du mois"
           sous="Réunions, tâches, étudiants, délibérations, valorisations, personnel"
           onFermer={() => setRapportMois(null)}
+          outils={<OutilFenetre Icone={IconPrinter} titre="Produire le rapport"
+              onClick={() => { const m = rapportMois; setRapportMois(null); imprimer('/rapport-mensuel', { mois: m }); }} />}
           pied={<>
-            <button className="bouton bouton-fort ml-auto"
-              onClick={() => { const m = rapportMois; setRapportMois(null); imprimer('/rapport-mensuel', { mois: m }); }}>
-              Produire le rapport
-            </button>
-            <button className="bouton" onClick={() => setRapportMois(null)}>Fermer</button>
+            <button className="bouton ml-auto" onClick={() => setRapportMois(null)}>Fermer</button>
           </>}>
           <label className="text-sm text-slate-600 flex items-center gap-2">
             Mois

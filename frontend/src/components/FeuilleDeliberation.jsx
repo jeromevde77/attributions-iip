@@ -15,7 +15,7 @@ import { authHeaders, getUser } from '../lib/api.js';
    'editeur'), où le secrétariat passe aussi. Les autres LISENT la feuille. */
 const PEUT_DELIBERER = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'];
 const lectureSeule = () => !PEUT_DELIBERER.includes(getUser()?.role);
-import { Fenetre } from './ui.jsx';
+import { Fenetre, EnteteCarte } from './ui.jsx';
 import TableauBordEtudiant from './TableauBordEtudiant.jsx';
 import RepartitionOrganisation from './RepartitionOrganisation.jsx';
 import { MOTIFS_ECHEC, composerMotif, decomposerMotif, texteDuMotif } from './motifsEchec.js';
@@ -811,8 +811,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose, enPage = fa
                 ajournements.
               </span>
               <button onClick={() => { setLot(false); setTableau(false); setEtape('cloture'); }}
-                className="flex-none px-3 py-1.5 text-second rounded-lg bg-iip-blue
-                           text-white font-semibold">
+                className="flex-none bouton bouton-fort">
                 Aller à la clôture
               </button>
             </div>
@@ -1392,8 +1391,7 @@ function Presences({ seance, onValider, enCours, ueNum, annee }) {
               }]);
               setAjout({ nom: '', prenom: '', categorie: '', qualite: '' });
             }}
-            className="px-3 py-1.5 text-sm rounded-lg border border-slate-300
-                       text-slate-600 disabled:opacity-40">
+            className="bouton">
             Ajouter
           </button>
         </div>
@@ -1457,8 +1455,7 @@ function Presences({ seance, onValider, enCours, ueNum, annee }) {
           title={presidenceIncomplete
             ? 'Désignez qui a présidé : la direction n’a pas siégé.' : undefined}
           onClick={() => onValider(membres, date, heure, president)}
-          className="px-4 py-2 text-sm rounded-lg bg-iip-blue text-white font-semibold
-                     disabled:opacity-40">
+          className="bouton bouton-fort">
           Ouvrir la délibération
         </button>
       </div>
@@ -1546,7 +1543,7 @@ function Reprise({ reprise, session, onAppliquer, onRetour, enCours }) {
 
       <div className="flex items-center justify-end gap-2">
         <button onClick={onRetour}
-          className="px-3 py-1.5 text-sm rounded-lg border border-slate-300 text-slate-600">
+          className="bouton">
           Passer — les revoir un à un
         </button>
         <button disabled={enCours || !aReprendre} onClick={onAppliquer}
@@ -1604,7 +1601,7 @@ function PleinDroit({ auto, onAppliquer, onPasser, enCours }) {
         </span>
         <div className="flex gap-2">
           <button onClick={onPasser}
-            className="px-3 py-1.5 text-sm rounded-lg border border-slate-300 text-slate-600">
+            className="bouton">
             Passer — les revoir un à un
           </button>
           <button disabled={enCours || !auto.reussites.length} onClick={onAppliquer}
@@ -2170,7 +2167,7 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
 
       <div className="lg:col-span-2 flex items-center justify-between gap-2">
         <button onClick={onRetour}
-          className="px-3 py-1.5 text-sm rounded-lg border border-slate-300 text-slate-600">
+          className="bouton">
           Revenir aux fiches
         </button>
         <div className="flex items-center gap-2">
@@ -2199,8 +2196,7 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
             title={complet ? '' : 'La date de délibération est requise, ainsi que '
               + 'la date, l’heure et le local de visite des copies — ou, à leur '
               + 'place, la mention qui dit comment les obtenir'}
-            className="px-4 py-2 text-sm rounded-lg bg-emerald-600 text-white font-semibold
-                       disabled:opacity-40">
+            className="bouton bouton-fort">
             {close ? 'Enregistré' : 'Clore la délibération'}
           </button>
         </div>
@@ -3333,17 +3329,15 @@ function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours,
     if (rien) return null;
   }
   return (
-    <div className={boutons && details ? 'border border-slate-200 rounded-xl overflow-hidden' : ''}>
+    <div className={boutons && details ? 'carte overflow-hidden' : ''}>
       {boutons && details && (
-      <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200 text-second
-                      font-semibold text-iip-blue flex items-center justify-between gap-2">
-        <span>Décision du Conseil des études</span>
+      <EnteteCarte titre="Décision du Conseil des études">
         {!ue.na && ue.note != null && (
-          <span className="font-normal text-slate-600">
+          <span className="text-second text-slate-600">
             note de l'unité : <b>{fmt(ue.note)}</b>/20
           </span>
         )}
-      </div>
+      </EnteteCarte>
       )}
 
       <div className={boutons && details ? 'p-3 space-y-2' : 'space-y-1.5'}>
@@ -3409,9 +3403,7 @@ function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours,
           {(e.resultat || ue.faveur || ue.na) && onAnnuler && (
             <button onClick={onAnnuler} disabled={enCours}
               title="Effacer la décision et les ajustements de cet étudiant — ses notes sont conservées"
-              className="ml-auto text-second px-2.5 py-1 rounded-lg border border-slate-300
-                         text-slate-500 hover:border-red-400 hover:text-red-700
-                         flex items-center gap-1">
+              className="ml-auto bouton bouton-detruire flex items-center gap-1">
               <IconRotate size={13} /> Reprendre ce dossier
             </button>
           )}
@@ -3779,19 +3771,19 @@ function VueLot({ liste, onAjourner, onOuvrir, enCours, session = 1 }) {
       <div className="flex flex-wrap items-center gap-2 text-second">
         <span className="text-slate-500">Sélection rapide :</span>
         <button onClick={() => poser(liste.filter(zero).map(e => e.id))}
-          className="px-2.5 py-1 rounded-lg border border-slate-300 text-slate-600">
+          className="bouton">
           À zéro ou non évalués ({liste.filter(zero).length})
         </button>
         <button onClick={() => poser(sous(5))}
-          className="px-2.5 py-1 rounded-lg border border-slate-300 text-slate-600">
+          className="bouton">
           Sous 5/20 ({sous(5).length})
         </button>
         <button onClick={() => poser(sous(10))}
-          className="px-2.5 py-1 rounded-lg border border-slate-300 text-slate-600">
+          className="bouton">
           Sous 10/20 ({sous(10).length})
         </button>
         <button onClick={() => setChoisis(new Set())}
-          className="px-2.5 py-1 rounded-lg border border-slate-300 text-slate-500">
+          className="bouton">
           Tout décocher
         </button>
       </div>
@@ -3892,8 +3884,7 @@ function VueLot({ liste, onAjourner, onOuvrir, enCours, session = 1 }) {
         <div className="flex gap-2">
           <button disabled={!pret || enCours}
             onClick={async () => setApercu(await onAjourner(ids, motif.trim(), true, parCours, null, mode))}
-            className="px-3 py-1.5 text-sm rounded-lg border border-slate-300
-                       text-slate-600 disabled:opacity-40">
+            className="bouton">
             Simuler
           </button>
           <button disabled={!pret || enCours}

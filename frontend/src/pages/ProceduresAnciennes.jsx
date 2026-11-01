@@ -1637,8 +1637,8 @@ export function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
           <input value={filtreQ} onChange={e => setFiltreQ(e.target.value)}
             placeholder="Rechercher…" className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm" />
         </div>
-        <button onClick={charger} className="border border-gray-300 text-gray-600 text-sm px-3 py-1.5 h-9 rounded hover:bg-gray-50">
-          ↺ Actualiser
+        <button onClick={charger} className="bouton">
+          <IconRefresh size={14} /> Actualiser
         </button>
       </div>
 
@@ -1708,7 +1708,9 @@ export function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
       {/* Panneau de détail */}
       {detail && (
         <Fenetre titre={detail.etudiant} large="moyenne" onFermer={() => setDetail(null)}
-          sous={`${detail.type === 'recours' ? '⚖ Recours' : '🚨 Fraude'} · UE ${detail.ue_num} · ${detail.section} · ${detail.annee_scolaire}`}>
+          sous={`${detail.type === 'recours' ? '⚖ Recours' : '🚨 Fraude'} · UE ${detail.ue_num} · ${detail.section} · ${detail.annee_scolaire}`}
+          outils={<OuvrirEditions sombre taille="moyen" titre="Voir, imprimer ou envoyer le document — centre d'édition"
+            pieces={[{ cle: 'procedure', label: 'Document de la procédure', description: 'Recomposé à partir du dossier', onClick: () => regenererHTML(detail) }]} />}>
             <div className="space-y-5">
               {/* Badges */}
               <div className="flex flex-wrap gap-2">
@@ -1743,20 +1745,18 @@ export function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
                 </div>
               </div>
 
-              {/* Actions */}
+              {/* Actions — le document part du bandeau (l'avion) */}
+              {onReprendreRecours && (
               <div className="space-y-2">
                 <p className="text-xs text-gray-500 font-medium">Actions</p>
                 <div className="flex flex-wrap gap-2">
-                  <OuvrirEditions titre="Voir, imprimer ou envoyer le document — centre d'édition"
-                    pieces={[{ cle: 'procedure', label: 'Document de la procédure', description: 'Recomposé à partir du dossier', onClick: () => regenererHTML(detail) }]} />
-                  {onReprendreRecours && (
                   <button onClick={() => { setDetail(null); onReprendreRecours(detail); }}
-                    className="flex items-center gap-1.5 text-sm px-3 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50 transition">
-                    <IconPencil size={15} className="inline align-[-2px] mr-1" />Reprendre dans le formulaire
+                    className="bouton">
+                    <IconPencil size={15} />Reprendre dans le formulaire
                   </button>
-                  )}
                 </div>
               </div>
+              )}
 
               {/* Suppression */}
               <div className="border-t border-red-100 pt-4 mt-4">
@@ -1766,10 +1766,10 @@ export function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
                     <p className="text-xs text-red-700">Cette action est irréversible. La procédure et toutes ses traces seront effacées de la base de données.</p>
                     <div className="flex gap-2">
                       <button onClick={() => supprimerPhysique(detail.id)} disabled={saving}
-                        className="bg-red-600 text-white text-xs px-4 py-1.5 h-9 rounded hover:bg-red-700 disabled:opacity-50">
+                        className="bouton bouton-detruire">
                         Confirmer la suppression
                       </button>
-                      <button onClick={() => setConfirmSupp(null)} className="border border-gray-300 text-gray-600 text-xs px-4 py-1.5 h-9 rounded">
+                      <button onClick={() => setConfirmSupp(null)} className="bouton">
                         Annuler
                       </button>
                     </div>

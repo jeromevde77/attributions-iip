@@ -5,7 +5,7 @@ import { readFileSync, createReadStream, writeFileSync, copyFileSync, existsSync
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import db from '../db/index.js';
-import { professeurDe } from '../middleware/auth.js';
+import { professeurDe, directionStricte } from '../middleware/auth.js';
 import { messagesRecus, videLe } from './communication.js';
 import { anneeActiveEnBase } from '../helpers/annee.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
@@ -201,7 +201,7 @@ r.post('/rollback/:snapshotId', authRequired, roleRequired('admin'), (req, res) 
 
 // ─── Backup SQLite ────────────────────────────────────────────────────────────
 
-r.get('/backup', authRequired, roleRequired('admin'), (req, res) => {
+r.get('/backup', authRequired, directionStricte, (req, res) => {
   try {
     const dbPath = resolve(__dirname, '../../data/attributions.db');
     const buf = readFileSync(dbPath);
@@ -522,7 +522,7 @@ r.get('/feed', authRequired, (req, res) => {
         source_id: n.id,
         // Le type conditionne l'icône et la couleur dans la cloche : les rappels
         // de l'échéancier ne doivent pas s'afficher comme du recrutement.
-        type: n.type === 'echeance_rappel' ? 'echeance' : ['notes_completes', 'notes_encodees'].includes(n.type) ? 'notes' : 'recrutement',
+        type: n.type === 'echeance_rappel' ? 'echeance' : ['notes_completes', 'notes_encodees', 'refus_seconde'].includes(n.type) ? 'notes' : 'recrutement',
         // Deux visages pour les notes : encodées (en cours) et complètes.
         action: n.type === 'notes_encodees' ? 'encodage' : 'info',
         titre: n.titre,

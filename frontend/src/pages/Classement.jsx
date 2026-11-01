@@ -5,6 +5,7 @@ import {
   IconAlertTriangle, IconX, IconScale,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { EnteteCarte } from '../components/ui.jsx';
 import { demander } from '../lib/dialogue.jsx';
 
 const fr = iso => iso ? iso.slice(0, 10).split('-').reverse().join('/') : '—';
@@ -100,13 +101,11 @@ export default function Classement({ annee: anneeProp }) {
     await chargerPrior();
   }
 
-  const Groupe = ({ titre, sous, lignes, ton }) => (
-    <div className="border border-slate-200 rounded-xl overflow-hidden bg-white mb-3">
-      <div className={`px-4 py-2 border-b border-slate-200 flex items-baseline gap-2 ${ton}`}>
-        <span className="font-bold text-sm">{titre}</span>
-        <span className="text-xs opacity-70">{sous}</span>
-        <span className="ml-auto text-xs font-bold">{lignes.length}</span>
-      </div>
+  const Groupe = ({ titre, sous, lignes }) => (
+    <div className="carte overflow-hidden mb-3">
+      <EnteteCarte titre={titre} sous={sous}>
+        <span className="text-xs font-bold">{lignes.length}</span>
+      </EnteteCarte>
       {lignes.length ? (
         <table className="w-full text-sm">
           <tbody>
@@ -205,7 +204,7 @@ export default function Classement({ annee: anneeProp }) {
               </select>
             </div>
             <button onClick={preremplir}
-              className="text-second px-2.5 py-1.5 rounded-lg border border-slate-300 flex items-center gap-1.5">
+              className="bouton flex items-center gap-1.5">
               <IconWand size={14} /> Pré-remplir depuis l'ancienneté PO
             </button>
           </div>
@@ -213,11 +212,11 @@ export default function Classement({ annee: anneeProp }) {
           {data && (
             <>
               <Groupe titre="Groupe 1" sous="à partir de 721 jours d'ancienneté dans la fonction"
-                      lignes={data.groupe1} ton="bg-iip-blue/5 text-iip-blue" />
+                      lignes={data.groupe1} />
               <Groupe titre="Groupe 2" sous="360 à 720 jours, répartis sur deux années au moins"
-                      lignes={data.groupe2} ton="bg-cyan-50 text-cyan-900" />
+                      lignes={data.groupe2} />
               <Groupe titre="Hors groupes" sous="conditions de l'art. 34 § 1er non réunies"
-                      lignes={data.hors_groupes} ton="bg-slate-50 text-slate-600" />
+                      lignes={data.hors_groupes} />
               <p className="text-xs text-slate-400">
                 {data.reference}. L'ancienneté s'entend par fonction au sein du PO ;
                 le pré-remplissage propose l'ancienneté PO globale comme point de
@@ -244,7 +243,7 @@ export default function Classement({ annee: anneeProp }) {
             {!form && (
               <button onClick={() => setForm({ fonctions: '', voie: 'recommandee',
                 date_reception: new Date().toISOString().slice(0, 10) })}
-                className="text-sm px-3 py-1.5 rounded-lg bg-iip-blue text-white font-semibold flex items-center gap-1.5">
+                className="bouton bouton-fort flex items-center gap-1.5">
                 <IconPlus size={15} /> Enregistrer une candidature
               </button>
             )}
@@ -283,12 +282,12 @@ export default function Classement({ annee: anneeProp }) {
                   Enregistrer
                 </button>
                 <button onClick={() => setForm(null)}
-                  className="text-sm px-3 py-1.5 rounded-lg border border-slate-300">Annuler</button>
+                  className="bouton">Annuler</button>
               </div>
             </div>
           )}
 
-          <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
+          <div className="carte overflow-hidden">
             <table className="w-full text-sm">
               <thead>
                 <tr className="tab-entete">

@@ -10,9 +10,9 @@ import { api, getAnnee, getUser, nomDoc, authHeaders } from '../lib/api.js';
 import ProfFicheModal from './ProfFicheModal.jsx';
 import PreviewModal, { IconeApercu } from '../components/PreviewModal.jsx';
 import CoursEditModal from '../components/CoursEditModal.jsx';
-import { IconSend, IconAddressBook, IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck, IconBriefcase, IconTargetArrow, IconChevronDown, IconChevronRight, IconChevronLeft, IconUsers, IconSchool, IconUserPlus, IconBuilding, IconBuildingBank, IconFileDescription, IconFileImport, IconFileTypePdf, IconFileTypeDocx } from '@tabler/icons-react';
+import { IconSend, IconAlertTriangle, IconAddressBook, IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck, IconBriefcase, IconTargetArrow, IconChevronDown, IconChevronRight, IconChevronLeft, IconUsers, IconSchool, IconUserPlus, IconBuilding, IconBuildingBank, IconFileDescription, IconFileImport, IconFileTypePdf, IconFileTypeDocx, IconClockHour4 } from '@tabler/icons-react';
 import { MODULES_ACCES, ROLES_LUCIE, estDirection } from '../lib/modules.js';
-import { RailLateral, OuvrirEditions, Fenetre, Encadre } from '../components/ui.jsx';
+import { RailLateral, OuvrirEditions, Fenetre, Encadre, OutilFenetre, EnteteCarte } from '../components/ui.jsx';
 import ImportPersonnelFwb from '../components/ImportPersonnelFwb.jsx';
 /* LES RUBRIQUES DE L'AXE PERSONNEL SE RENDENT DANS L'AXE, PAS AILLEURS.
    « Besoins & offres » et « Classement & prioritaires » étaient des entrées de
@@ -23,6 +23,7 @@ import ImportPersonnelFwb from '../components/ImportPersonnelFwb.jsx';
    les autres. */
 const Besoins = lazy(() => import('./Besoins.jsx'));
 const Classement = lazy(() => import('./Classement.jsx'));
+const TempsTravail = lazy(() => import('./TempsTravail.jsx'));
 import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
 
 /**
@@ -510,11 +511,11 @@ function AccesLuciePanel({ profId, detail }) {
 
       <div className="flex items-center gap-2 pt-1 flex-wrap">
         <button onClick={sauvegarder} disabled={busy}
-          className={`flex-1 flex items-center justify-center gap-1.5 text-sm px-3 py-2 rounded-lg font-medium ${saved ? 'bg-green-600 text-white' : 'bg-iip-blue text-white hover:opacity-90'} disabled:opacity-40`}>
-          {saved ? '✓ Sauvegardé' : busy ? 'Sauvegarde…' : '✓ Sauvegarder'}
+          className="bouton bouton-fort flex-1 justify-center">
+          {saved ? <><IconCheck size={14} /> Sauvegardé</> : busy ? 'Sauvegarde…' : 'Sauvegarder'}
         </button>
         <button onClick={envoyerLien} disabled={busy} title="Envoyer à cette personne le lien pour choisir son mot de passe"
-          className="flex items-center gap-1.5 text-sm border border-gray-300 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-50 disabled:opacity-40">
+          className="bouton">
           <IconMail size={14} /> Envoyer le lien
         </button>
         {/* LE BOUTON DISAIT « RÉACTIVER » ET DÉSACTIVAIT.
@@ -537,9 +538,7 @@ function AccesLuciePanel({ profId, detail }) {
             af(`/api/users/${account.id}`, { method: 'PATCH', body: JSON.stringify({ actif: rendre ? 1 : 0 }) })
               .then(charger).catch(e => setErr(e.message));
           }}
-          className={`flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg border ${account.actif
-            ? 'border-red-500 text-white hover:bg-red-500'
-            : 'border-emerald-500 text-white hover:bg-emerald-500'}`}>
+          className={account.actif ? 'bouton bouton-detruire' : 'bouton'}>
           {account.actif ? <IconX size={14} /> : <IconKey size={14} />}
           {account.actif ? 'Désactiver' : 'Réactiver'}
         </button>
@@ -548,16 +547,14 @@ function AccesLuciePanel({ profId, detail }) {
   );
 
   return (
-    <div className="border border-iip-turquoise/40 rounded-xl overflow-hidden">
-      <div className="flex items-center gap-2 px-4 py-2.5 bg-iip-turquoise/5 border-b border-iip-turquoise/20">
-        <IconLock size={16} className="text-iip-turquoise" />
-        <span className="text-sm font-semibold text-iip-blue">Accès Lucie</span>
+    <section className="carte overflow-hidden">
+      <EnteteCarte icone={IconLock} titre="Accès Lucie">
         {account && (
-          <span className={`ml-auto text-xs px-2 py-0.5 rounded-champ font-semibold ${account.actif ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-500'}`}>
+          <span className={`text-xs px-2 py-0.5 rounded-champ font-semibold ${account.actif ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-500'}`}>
             {account.actif ? 'Actif' : 'Désactivé'}
           </span>
         )}
-      </div>
+      </EnteteCarte>
       <div className="p-4 space-y-3">
         {err && <div className="text-xs text-white bg-red-500 border border-red-500 rounded px-3 py-2">{err}</div>}
         {lienRes && (
@@ -577,7 +574,7 @@ function AccesLuciePanel({ profId, detail }) {
         {account === null && FormCreer}
         {account && FormEditer}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -1089,13 +1086,11 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint =
       {showContratModal && (
         <Fenetre icone={IconFileText} titre="Générer le contrat de travail" large="petite"
           onFermer={() => setShowContratModal(false)}
+          outils={<OutilFenetre Icone={IconDownload} titre={generatingContrat ? 'Génération…' : 'Télécharger .docx'}
+            onClick={genererContrat} disabled={generatingContrat || !dateContrat} />}
           pied={<>
             <span />
             <button onClick={() => setShowContratModal(false)} className="bouton">Annuler</button>
-            <button onClick={genererContrat} disabled={generatingContrat || !dateContrat}
-              className="bouton bouton-fort">
-              {generatingContrat ? 'Génération…' : <span className="inline-flex items-center gap-1.5"><IconDownload size={15}/>Télécharger .docx</span>}
-            </button>
           </>}>
             <p className="text-sm text-gray-600 mb-4">Contrat CDD — <strong>{detail.nom_prenom}</strong></p>
             <div className="space-y-4">
@@ -1212,12 +1207,12 @@ function DossiersRH({ profId, profNom }) {
         </div>
         <div className="flex gap-2">
           <button onClick={() => setNouveauType('fin_contrat')}
-            className="text-xs bg-red-600 text-white px-3 py-1.5 rounded-lg font-medium hover:opacity-90 flex items-center gap-1.5">
-            📋 Fin de contrat
+            className="bouton">
+            <IconFileText size={14} /> Fin de contrat
           </button>
           <button onClick={() => setNouveauType('disciplinaire')}
-            className="text-xs bg-orange-600 text-white px-3 py-1.5 rounded-lg font-medium hover:opacity-90 flex items-center gap-1.5">
-            ⚠️ Dossier disciplinaire
+            className="bouton">
+            <IconAlertTriangle size={14} /> Dossier disciplinaire
           </button>
         </div>
       </div>
@@ -1295,8 +1290,8 @@ function DossiersRH({ profId, profNom }) {
                   <div className="flex items-center gap-2">
                     {!isFinContrat && !isClos && (
                       <button onClick={() => setEtapeForm({ dossier_id: d.id, type_etape: '', date_etape: new Date().toISOString().split('T')[0], auteur: '', notes: '' })}
-                        className="text-xs bg-orange-600 text-white px-2.5 py-1 rounded hover:opacity-90">
-                        + Étape
+                        className="bouton bouton-compact">
+                        <IconPlus size={13} /> Étape
                       </button>
                     )}
                     <button onClick={() => supprimerDossier(d.id)} className="text-gray-300 hover:text-red-500 p-1">
@@ -1479,6 +1474,8 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
   // La rubrique ouverte dans l'axe Personnel : la liste des membres, ou l'une
   // des deux faces qui s'en détachaient en emportant le rail.
   const [vue, setVue] = useState(vueInitiale);
+  const [ttMoi, setTtMoi] = useState(null);
+  useEffect(() => { fetch('/api/temps-travail/moi', { headers: authHeaders() }).then(r => (r.ok ? r.json() : null)).then(setTtMoi).catch(() => {}); }, []);
   const [sortBy, setSortBy] = useState({ key: 'nom_prenom', dir: 'asc' });
   const [deleting, setDeleting] = useState(null);
   const [selection, setSelection] = useState(new Set());
@@ -2313,6 +2310,10 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
                donc il ne perd pas la navigation en s'ouvrant. */
             { key: 'nav-recrutement', label: 'Recrutement', icon: IconBriefcase, actif: false, onClick: () => navigate('/recrutement') },
           ]}] : []),
+          // LE TEMPS DE TRAVAIL (3.5.039) : la direction, et les personnes qu'elle a désignées (le secrétariat).
+          ...(ttMoi?.gere || ttMoi?.designe ? [{ label: 'Temps de travail', items: [
+            { key: 'nav-temps', label: 'Temps de travail', icon: IconClockHour4, actif: vue === 'temps', onClick: () => setVue('temps') },
+          ]}] : []),
           ...(estDirection(getUser()) ? [{ label: 'Carrière', items: [
             { key: 'nav-classement', label: 'Classement & prioritaires', icon: IconFileDescription,
               actif: vue === 'classement', onClick: () => setVue('classement') },
@@ -2328,6 +2329,7 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
         <Suspense fallback={<div className="p-8 text-slate-400 text-sm">Chargement…</div>}>
           {vue === 'besoins' && <Besoins />}
           {vue === 'classement' && <Classement />}
+          {vue === 'temps' && <TempsTravail />}
         </Suspense>
       ) : (<>
       {/* UN SEUL FORMAT DE TITRE, celui de PageHeader : icône turquoise,
@@ -2376,14 +2378,14 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
                   l'écran. C'est l'utilisateur connecté qu'il faut. */}
               {peutGenererContrat(getUser()) && (
                 <button onClick={exporterContratsZip} disabled={contratsZipEnCours}
-                  className="bg-green-700 hover:opacity-90 disabled:opacity-50 text-white text-sm px-3 py-1.5 h-9 rounded font-medium inline-flex items-center gap-1.5">
+                  className="bouton bouton-sortir">
                   <IconFileText size={15}/> {contratsZipEnCours ? 'Préparation…' : `Contrats PDF (${selection.size})`}
                 </button>
               )}
               {/* Imprimer — un seul PDF combiné */}
               <div className="relative">
                 <button onClick={() => setPrintSelMenu(v => !v)} disabled={printing}
-                  className="bg-iip-mauve hover:opacity-90 disabled:opacity-50 text-white text-sm px-3 py-1.5 h-9 rounded font-medium inline-flex items-center gap-1.5">
+                  className="bouton bouton-sortir">
                   <IconPrinter size={15}/>{printing ? 'Préparation…' : `Imprimer (${selection.size})`}
                   <IconChevronDown size={12} />
                 </button>
@@ -2409,7 +2411,7 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
               {/* ZIP — un fichier HTML par prof */}
               <div className="relative">
                 <button onClick={() => setZipMenu(v => !v)} disabled={printing}
-                  className="bg-green-700 hover:opacity-90 disabled:opacity-50 text-white text-sm px-3 py-1.5 h-9 rounded font-medium inline-flex items-center gap-1.5">
+                  className="bouton bouton-sortir">
                   <IconDownload size={15}/> ZIP ({selection.size})
                   <IconChevronDown size={12} />
                 </button>

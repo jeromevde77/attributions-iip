@@ -9,7 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { nomPropre } from '../lib/nom.js';
 import {
-  IconPrinter, IconUsers, IconSchool, IconChartBar, IconCalendarStats,
+  IconPrinter, IconEye, IconUsers, IconSchool, IconChartBar, IconCalendarStats,
   IconBooks, IconAlertTriangle, IconChevronRight, IconChevronLeft, IconChevronDown, IconSearch,
   IconDownload, IconSend, IconFilePlus, IconMailForward, IconFileText, IconRoute, IconId, IconZoomIn, IconCheck,
 } from '@tabler/icons-react';
@@ -22,7 +22,7 @@ const SeanceValorisation = lazy(() => import('./SeanceValorisation.jsx'));
 import EnvoiMailModal from './EnvoiMailModal.jsx';
 import { useEnvoiMail } from '../lib/envoiMail.js';
 import { api, authHeaders, getAnnee } from '../lib/api.js';
-import { Fenetre, GroupeFenetre, PieceFenetre, Chevron } from './ui.jsx';
+import { Fenetre, GroupeFenetre, PieceFenetre, Chevron, Tableau, TableauEntete, Th, Td, Tr, PastilleEtat } from './ui.jsx';
 import SchemaCapitalisation from './SchemaCapitalisation.jsx';
 import InscritsPrevus from './InscritsPrevus.jsx';
 import { svgImprimable } from '../lib/svgImprimable.js';
@@ -298,33 +298,34 @@ function OngletValorisation({ initial = null }) {
         </p>
       )}
 
-      <div className="space-y-1.5">
-        {vue === 'unite' && unites.map(u => (
-          <div key={u.ue_num} className="carte px-3 py-2 flex items-center gap-3">
-            <span className="flex-1 min-w-0">
-              <span className="text-sm font-semibold text-iip-blue">
-                {u.ue_num === 0 ? 'Admission de section' : `UE ${u.ue_num}`}
-              </span>
-              <span className="text-sm text-slate-600 ml-2">{u.ue_nom}</span>
-              <span className="block text-xs text-slate-500">
-                {u.section || 'section à déduire'} · {u.n} dossier(s)
-                {u.partielles ? ` · ${u.partielles} partielle(s)` : ''}
-                {u.refus ? ` · ${u.refus} refus` : ''}
-                {/* CE QUI EMPÊCHERA LA PIÈCE DE SORTIR SE VOIT ICI, PAS AU
-                    MOMENT D'IMPRIMER — le découvrir devant quelqu'un qui
-                    attend son attestation est la mauvaise façon de l'apprendre. */}
-                {u.avalider
-                  ? <span className="text-iip-texte"> · {u.avalider} non validé(s)</span>
-                  : null}
-              </span>
-            </span>
-            <button className="bouton-sortir controle px-3 text-second flex-none"
-              onClick={() => setOuverte(u)}>
-              PV et attestations
-            </button>
-          </div>
-        ))}
-      </div>
+      {/* UNE LISTE, PAS DES TUILES (3.5.037, Charles : « réduire les tailles, ne pas faire des tuiles ») : un tableau, une
+          ligne par unité, l'action au bout de la ligne. */}
+      {vue === 'unite' && unites.length > 0 && (
+        <Tableau dense>
+          <TableauEntete>
+            <Th largeur="w-[5.5rem]">Unité</Th><Th>Intitulé</Th><Th>Section</Th>
+            <Th align="droite">Dossiers</Th><Th align="droite">Partielles</Th><Th align="droite">Refus</Th>
+            <Th align="droite">Non validés</Th><Th />
+          </TableauEntete>
+          <tbody>
+            {unites.map(u => (
+              <Tr key={u.ue_num}>
+                <Td ton="fort" className="whitespace-nowrap">{u.ue_num === 0 ? 'Admission' : `UE ${u.ue_num}`}</Td>
+                <Td>{u.ue_num === 0 ? 'Admission de section' : u.ue_nom}</Td>
+                <Td ton="secondaire">{u.section || 'à déduire'}</Td>
+                <Td align="droite">{u.n}</Td>
+                <Td align="droite" ton="secondaire">{u.partielles || ''}</Td>
+                <Td align="droite" ton="secondaire">{u.refus || ''}</Td>
+                {/* CE QUI EMPÊCHERA LA PIÈCE DE SORTIR SE VOIT ICI, PAS AU MOMENT D'IMPRIMER. */}
+                <Td align="droite">{u.avalider ? <PastilleEtat etat="surveiller">{u.avalider}</PastilleEtat> : ''}</Td>
+                <Td align="droite" className="whitespace-nowrap">
+                  <button className="bouton-sortir px-2.5 py-1 text-second" onClick={() => setOuverte(u)}>PV et attestations</button>
+                </Td>
+              </Tr>
+            ))}
+          </tbody>
+        </Tableau>
+      )}
 
       {ouverte && (
         <Suspense fallback={null}>
@@ -360,6 +361,7 @@ function fusionnerHtml(docs) {
 
 function ValorisationParEtudiant({ annee, dossiers, nomUE }) {
   const envoiMail = useEnvoiMail();
+  const { place: placeOutils } = useContext(PlaceOutils) || {};
   const [coches, setCoches] = useState(() => new Set());
   const [choix, setChoix] = useState({ notification: true, attestation: true });
   const [q, setQ] = useState('');
@@ -468,13 +470,19 @@ function ValorisationParEtudiant({ annee, dossiers, nomUE }) {
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" className="bouton bouton-fort" disabled={enCours || !coches.size || !Object.values(choix).some(Boolean)}
           onClick={produire}>{enCours ? 'Production…' : `Produire pour ${coches.size} étudiant(s)`}</button>
-        {produits?.length > 0 && <>
+        {/* Aperçu, imprimer, envoyer : dans la barre bleue de la fenêtre (portail), ici seulement hors fenêtre. */}
+        {produits?.length > 0 && (placeOutils ? createPortal(<>
+          <IconeBarre Icone={IconEye} titre="Aperçu, un par un" onClick={() => apercu(0)} />
+          <IconeBarre Icone={IconPrinter} titre="Tout imprimer" onClick={toutImprimer} />
+          {envoiMail?.actif && peutGeste('envois.envoyer') && (
+            <IconeBarre Icone={IconSend} titre={`Envoyer à chacun (${produits.length})`} onClick={() => setEnvoi(true)} />)}
+        </>, placeOutils) : <>
           <button type="button" className="bouton" onClick={() => apercu(0)}>Aperçu, un par un</button>
           <button type="button" className="bouton bouton-sortir" onClick={toutImprimer}>Tout imprimer</button>
           {envoiMail?.actif && peutGeste('envois.envoyer') && (
             <button type="button" className="bouton bouton-sortir" onClick={() => setEnvoi(true)}>
               Envoyer à chacun ({produits.length})</button>)}
-        </>}
+        </>)}
       </div>
       {parSection.length > 1 && (
         <div className="flex flex-wrap items-center gap-1.5 text-second">
@@ -543,6 +551,7 @@ function ValorisationParEtudiant({ annee, dossiers, nomUE }) {
  * diverger.
  */
 function OngletSchemas() {
+  const { place: placeOutils } = useContext(PlaceOutils) || {};
   const [annee, setAnnee] = useState(getAnnee());
   const [annees, setAnnees] = useState([]);
   const [sections, setSections] = useState([]);
@@ -592,10 +601,14 @@ function OngletSchemas() {
           {(annees.length ? annees : [annee]).map(a => <option key={a} value={a}>{a}</option>)}
         </select>
         <span className="flex-1" />
+        {/* Aperçu et impression : dans la barre bleue de la fenêtre (portail), ici seulement hors fenêtre. */}
+        {placeOutils ? createPortal(
+          <IconeBarre Icone={IconPrinter} titre={enCours ? 'Composition…' : 'Aperçu et impression — A4 paysage'}
+            disabled={enCours || !data?.nodes?.length} onClick={produire} />, placeOutils) : (
         <button type="button" className="bouton bouton-sortir controle px-3 text-sm"
           disabled={enCours || !data?.nodes?.length} onClick={produire}>
           {enCours ? 'Composition…' : 'Aperçu et impression — A4 paysage'}
-        </button>
+        </button>)}
       </div>
       {erreur && <p className="text-second text-[color:var(--c-refuse)]">{erreur}</p>}
       <div ref={zone}>
@@ -641,6 +654,7 @@ function ListesEtRapports({ domaine }) {
 }
 
 function OngletRapports({ domaine, sansListe = false, rapportId = null }) {
+  const { place: placeOutils } = useContext(PlaceOutils) || {};
   /* L'ANNÉE SE CHOISIT ICI. Le centre reprenait l'année de travail sans
      jamais la montrer : pour sortir la charge de l'an dernier — ce que
      demandent la dotation, le COPIL et l'AEQES —, il fallait changer l'année
@@ -1114,10 +1128,12 @@ function OngletRapports({ domaine, sansListe = false, rapportId = null }) {
           )}
           {/* IMPRIMER D'ABORD, comme dans le rail : c'est le geste le plus
               fréquent, et il porte la couleur qui le fait trouver. */}
+          {placeOutils ? createPortal(
+            <IconeBarre Icone={IconPrinter} titre="Imprimer" onClick={imprimer} disabled={!choisi || enCours} />, placeOutils) : (
           <button onClick={imprimer} disabled={!choisi || enCours}
             className="controle controle-fort">
             <IconPrinter size={14} /> Imprimer
-          </button>
+          </button>)}
           {/* Une pièce mise en page ne sort pas en tableur : elle n'a pas de
               lignes à retrier, elle a une forme. */}
           {(!choisi?.piece || choisi?.tableur) && (
@@ -2630,7 +2646,7 @@ function PiecesDeLEcran({ pieces, onChoisir }) {
         </label>
       ))}
       <button type="button" onClick={() => onChoisir(p)}
-        className="ml-auto px-4 py-2 text-sm rounded-lg bg-iip-blue text-white font-semibold inline-flex items-center gap-1.5">
+        className="ml-auto bouton bouton-sortir inline-flex items-center gap-1.5">
         <IconPrinter size={14} /> Produire
       </button>
     </div>

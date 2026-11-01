@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useState } from 'react';
 import { Chevron as ChevronMaison } from '../components/ui.jsx';
 import { createPortal } from 'react-dom';
-import { IconLock, IconEye, IconShieldCheck, IconTrash, IconChevronRight, IconChevronDown, IconCheck, IconArrowBackUp } from '@tabler/icons-react';
+import { IconLock, IconEye, IconShieldCheck, IconTrash, IconChevronRight, IconChevronDown, IconCheck, IconArrowBackUp, IconX } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { nomListe } from '../lib/nom.js';
 import { MODULES_ACCES, oublierPlafonds } from '../lib/modules.js';
@@ -104,8 +104,8 @@ function Constat() {
           </div>
 
           <button onClick={() => setOuvert(!ouvert)}
-            className="w-full px-4 py-1.5 text-xs text-slate-500 hover:text-iip-blue text-left">
-            {ouvert ? '▾' : '▸'} Le détail, ligne à ligne ({d.lignes.length})
+            className="w-full px-4 py-1.5 text-xs text-slate-500 hover:text-iip-blue text-left inline-flex items-center gap-1">
+            {ouvert ? <IconChevronDown size={13} /> : <IconChevronRight size={13} />} Le détail, ligne à ligne ({d.lignes.length})
           </button>
 
           {ouvert && (
@@ -516,7 +516,7 @@ export default function RolesPlafonds() {
         <div className="bloc-etat px-4 py-2.5 text-sm flex items-start justify-between gap-3"
           data-etat={message.type === 'err' ? 'corriger' : 'surveiller'}>
           <span>{message.texte}</span>
-          <button onClick={() => setMessage(null)} className="text-slate-400">✕</button>
+          <button onClick={() => setMessage(null)} title="Fermer" aria-label="Fermer" className="text-slate-400"><IconX size={14} /></button>
         </div>
       )}
 

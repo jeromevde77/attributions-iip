@@ -6,7 +6,7 @@ import {
   IconRubberStamp, IconUserPlus, IconUsersGroup, IconX,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
-import { BulleAide, Fenetre, RailLateral, OuvrirEditions, Chevron as ChevronMaison } from '../components/ui.jsx';
+import { BulleAide, Fenetre, RailLateral, OuvrirEditions, Chevron as ChevronMaison, EnteteCarte } from '../components/ui.jsx';
 import SeanceValorisation from '../components/SeanceValorisation.jsx';
 import NotificationVA from '../components/NotificationVA.jsx';
 import { nomListe, parNom } from '../lib/nom.js';
@@ -1421,12 +1421,9 @@ function ValoriserEnSerie({ annee, onClose, onCree }) {
 
         {/* 2 — LES ÉTUDIANTS QUE CETTE UNITÉ CONCERNE. */}
         {ueNum && (
-          <section className="carte p-0 overflow-hidden">
-            <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-200">
-              <span className="intertitre">
-                2 · Les étudiants
-              </span>
-              <span className="ml-auto text-second text-slate-500">
+          <section className="carte overflow-hidden">
+            <EnteteCarte titre="2 · Les étudiants">
+              <span className="text-second text-slate-500">
                 {coches.size ? `${coches.size} coché(s)` : 'Aucun coché'}
               </span>
               {libres.length > 0 && (
@@ -1438,7 +1435,7 @@ function ValoriserEnSerie({ annee, onClose, onCree }) {
                 className="bouton text-second">
                 <IconUserPlus size={14} /> Ajouter depuis le fichier
               </button>
-            </div>
+            </EnteteCarte>
 
             {!candidats ? (
               <div className="p-5 text-sm text-slate-400">Chargement…</div>
@@ -1581,10 +1578,9 @@ function ValoriserEnSerie({ annee, onClose, onCree }) {
 
         {/* 3 — LA DÉCISION, SAISIE UNE FOIS. */}
         {ueNum && (
-          <section className="carte p-3 space-y-3">
-            <div className="intertitre">
-              3 · La décision du conseil des études
-            </div>
+          <section className="carte overflow-hidden">
+            <EnteteCarte titre="3 · La décision du conseil des études" />
+            <div className="p-3 space-y-3">
 
             <div className="flex flex-wrap gap-2">
               {[
@@ -1738,6 +1734,7 @@ function ValoriserEnSerie({ annee, onClose, onCree }) {
                 Unité {uniteChoisie.ue_num} — {uniteChoisie.ue_nom} · {annee}
               </p>
             )}
+            </div>
           </section>
         )}
 
@@ -1864,7 +1861,7 @@ function FenetreDossier({ vid, onClose, onChange }) {
             Le découvrir au moment d'imprimer, c'est le découvrir devant
             quelqu'un qui attend son attestation. */}
         {!d.piece.ok && (
-          <section className="carte p-3 border-l-[3px] border-l-amber-600">
+          <section className="bloc-etat p-3" data-etat="surveiller">
             <div className="text-sm font-medium text-slate-800">
               Ce dossier ne peut pas produire d'attestation en l'état
             </div>
@@ -1877,16 +1874,17 @@ function FenetreDossier({ vid, onClose, onChange }) {
         )}
 
         {!d.unite_valorisable && (
-          <section className="carte p-3 border-l-[3px] border-l-rose-700">
-            <div className="text-sm text-rose-800">{d.unite_motif}</div>
+          <section className="bloc-etat p-3" data-etat="corriger">
+            <div className="text-sm">{d.unite_motif}</div>
           </section>
         )}
 
         {/* LA DEMANDE DE L'ÉTUDIANT (3.5.006) : sa motivation acquis par acquis, avec ses pièces numérotées —
             ce que le Conseil lit pour décider (circulaire 9447, annexes 6 et 7). */}
         {d.demande_etudiant && (
-          <section className="carte p-3 space-y-2">
-            <div className="intertitre">Demande de l'étudiant — motivation par acquis</div>
+          <section className="carte overflow-hidden">
+            <EnteteCarte titre="Demande de l'étudiant — motivation par acquis" />
+            <div className="p-3 space-y-2">
             <p className="text-second text-slate-500">
               {d.demande_etudiant.certifie_le
                 ? <>Certifiée exacte par l'étudiant le {String(d.demande_etudiant.certifie_le).slice(0, 10).split('-').reverse().join('/')}.</>
@@ -1904,6 +1902,7 @@ function FenetreDossier({ vid, onClose, onChange }) {
                   </tr>))}
               </tbody>
             </table>
+            </div>
           </section>
         )}
 
@@ -1960,10 +1959,8 @@ function FenetreDossier({ vid, onClose, onChange }) {
         </section>
 
         {/* LE JOURNAL — CE QUI RÉVÈLE UNE PROCÉDURE CONTOURNÉE. */}
-        <section className="carte p-0 overflow-hidden">
-          <div className="tab-entete px-3 py-1.5 text-xs uppercase tracking-wide">
-            Journal du dossier — en ajout seul, rien ne s'y efface
-          </div>
+        <section className="carte overflow-hidden">
+          <EnteteCarte titre="Journal du dossier — en ajout seul, rien ne s'y efface" />
           {!d.journal.length ? (
             <div className="p-3 text-second text-slate-400">
               Aucun geste enregistré : ce dossier est antérieur au suivi du circuit.

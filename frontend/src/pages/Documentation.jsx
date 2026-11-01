@@ -4,12 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   IconBook, IconFileText, IconCheck, IconAlertTriangle, IconPlus,
   IconHistory, IconUsersGroup, IconHelpCircle, IconScale, IconExternalLink, IconTrash,
-  IconWritingSign, IconUpload, IconTemplate, IconSend, IconListNumbers,
+  IconWritingSign, IconUpload, IconTemplate, IconListNumbers, IconPrinter,
 } from '@tabler/icons-react';
 import { LecteurParties, EditeurParties, manqueParties, pourPublier, nouvellesParties } from '../components/TexteParParties.jsx';
 import { useSearchParams } from 'react-router-dom';
 import { authHeaders, getUser } from '../lib/api.js';
-import { PageHeader, RailLateral, Fenetre } from '../components/ui.jsx';
+import { PageHeader, RailLateral, Fenetre, OutilFenetre, EnteteCarte } from '../components/ui.jsx';
 import Aide from './Aide.jsx';
 import EditeurTexte from '../components/EditeurTexte.jsx';
 import RegistreConventions, { LIRE_CONVENTIONS } from '../components/RegistreConventions.jsx';
@@ -473,6 +473,7 @@ function LireTexte({ cle, publie, natures, parParties = [], onClose, onChange, r
 
   return (
     <Fenetre icone={IconFileText} large="grande" onFermer={onClose}
+      outils={<OutilFenetre Icone={IconPrinter} titre="Imprimer" disabled={enCours || !d?.version} onClick={imprimer} />}
       titre={d?.titre || 'Document'}
       sous={d?.version ? `Version ${d.version.numero} du ${frDate(d.version.publiee_le)}`
         + `${d.version.publiee_par ? ` · publiée par ${d.version.publiee_par}` : ''}`
@@ -505,10 +506,7 @@ function LireTexte({ cle, publie, natures, parParties = [], onClose, onChange, r
             Ce document ne vous est pas opposé : il est là pour information.
           </span>
         )}
-        <button className="bouton bouton-sortir ml-auto" disabled={enCours || !d?.version} onClick={imprimer}>
-          <IconSend size={15} /> Imprimer
-        </button>
-        <button className="bouton" onClick={onClose}>Fermer</button>
+        <button className="bouton ml-auto" onClick={onClose}>Fermer</button>
       </>}>
 
       {erreur && (
@@ -622,10 +620,9 @@ function LireTexte({ cle, publie, natures, parParties = [], onClose, onChange, r
               )}
             </div>
           ) : (
-            <div className="carte p-3 space-y-2 mb-2">
-              <div className="intertitre">
-                Renommer — le texte, les versions et les confirmations ne changent pas
-              </div>
+            <div className="carte overflow-hidden mb-2">
+              <EnteteCarte titre="Renommer — le texte, les versions et les confirmations ne changent pas" />
+              <div className="p-3 space-y-2">
               <input value={renomme.titre}
                 onChange={e => setRenomme(r0 => ({ ...r0, titre: e.target.value }))}
                 placeholder="Titre du document"
@@ -644,6 +641,7 @@ function LireTexte({ cle, publie, natures, parParties = [], onClose, onChange, r
                 </button>
                 <button className="bouton" onClick={() => setRenomme(null)}>Annuler</button>
               </div>
+            </div>
             </div>
           )}
         </div>
@@ -667,13 +665,12 @@ function LireTexte({ cle, publie, natures, parParties = [], onClose, onChange, r
                 </button>)}
             </div>
           ) : (
-            <div className="carte p-3 space-y-2">
+            <div className="carte overflow-hidden">
               {/* UNE VERSION PUBLIÉE NE SE MODIFIE PLUS — on en publie une
                   autre, qu'on part de la précédente pour corriger. Le résumé
                   n'est pas une politesse : la version reste au dossier. */}
-              <div className="intertitre">
-                Version {(d?.version?.numero || 0) + 1} — partie de la version {d?.version?.numero}
-              </div>
+              <EnteteCarte titre={`Version ${(d?.version?.numero || 0) + 1} — partie de la version ${d?.version?.numero}`} />
+              <div className="p-3 space-y-2">
               {nouvelle.parties ? (
                 <EditeurParties parties={nouvelle.parties} onChange={parties => setNouvelle(n => ({ ...n, parties }))} />
               ) : (
@@ -712,6 +709,7 @@ function LireTexte({ cle, publie, natures, parParties = [], onClose, onChange, r
                   Publier la version {(d?.version?.numero || 0) + 1}
                 </button>
                 <button className="bouton" onClick={() => setNouvelle(null)}>Annuler</button>
+              </div>
               </div>
             </div>
           )}
@@ -882,15 +880,15 @@ function DeposerTexte({ natures, parParties = [], onClose, onCree }) {
           ? <EditeurParties parties={parties} onChange={setParties} />
           : <EditeurTexte valeur={contenu} onChange={setContenu} />}
 
-        <div className="carte p-3 space-y-2">
-          <div className="intertitre">
-            À qui ce texte s’impose
-          </div>
+        <div className="carte overflow-hidden">
+          <EnteteCarte titre="À qui ce texte s’impose" />
+          <div className="p-3 space-y-2">
           <CasesRoles roles={roles} onBasculer={cle => setRoles(s0 => basculerDans(s0, cle))} />
           <p className="text-second text-slate-500">
             Par RÔLE, jamais par personne : nommer les gens un à un, c’est
             oublier celui qui arrive en octobre.
           </p>
+          </div>
         </div>
       </div>
     </Fenetre>

@@ -10,8 +10,8 @@ import { ouvrirApercuPdf } from '../lib/apercu.js';
  * le pied de la fenêtre dit quoi.
  */
 import { useEffect, useState } from 'react';
-import { IconFileCheck } from '@tabler/icons-react';
-import { Fenetre } from './ui.jsx';
+import { IconFileCheck, IconFileTypeDocx, IconFileTypePdf } from '@tabler/icons-react';
+import { Fenetre, OutilFenetre } from './ui.jsx';
 import { authHeaders } from '../lib/api.js';
 
 const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
@@ -73,13 +73,16 @@ export default function SaisieAnnexe({ annexe, membre, annee, moisInitial, onFer
           : info?.enregistre ? `Complète — enregistrée${info.enregistre.par && info.enregistre.par !== 'vous' ? ` par ${info.enregistre.par}` : ''}${info.enregistre.le ? ` le ${String(info.enregistre.le).slice(0, 10).split('-').reverse().join('/')}` : ''}.` : ''}
       </div>
       <button type="button" className="bouton" disabled={!v || busy || !sale} onClick={enregistrer}>{busy === 'save' ? '…' : 'Enregistrer'}</button>
-      <button type="button" className="bouton bouton-sortir" disabled={!v || busy || (!sale && manque.length > 0)} onClick={() => produire('docx')}>{busy === 'docx' ? '…' : 'Word'}</button>
-      <button type="button" className="bouton bouton-sortir" disabled={!v || busy || (!sale && manque.length > 0)} onClick={() => produire('pdf')}>{busy === 'pdf' ? '…' : 'Aperçu PDF'}</button>
     </div>
   );
+  // Produire la pièce : dans le bandeau, en icônes (règle des fenêtres, 3.5.032).
+  const outils = (<>
+    <OutilFenetre Icone={IconFileTypeDocx} titre={busy === 'docx' ? 'Word…' : 'Word'} disabled={!v || !!busy || (!sale && manque.length > 0)} onClick={() => produire('docx')} />
+    <OutilFenetre Icone={IconFileTypePdf} titre={busy === 'pdf' ? 'Aperçu PDF…' : 'Aperçu PDF'} disabled={!v || !!busy || (!sale && manque.length > 0)} onClick={() => produire('pdf')} />
+  </>);
 
   return (
-    <Fenetre icone={IconFileCheck} titre={`${annexe.titre}`} sous={`${membre.nom} · ${annee}`} large="grande" pied={pied} onFermer={onFermer}>
+    <Fenetre icone={IconFileCheck} titre={`${annexe.titre}`} sous={`${membre.nom} · ${annee}`} large="grande" pied={pied} outils={outils} onFermer={onFermer}>
       <div className="space-y-4">
         {erreur && <div data-etat="corriger" className="bloc-etat px-3 py-2 text-second">{erreur}</div>}
         {annexe.mois && (

@@ -45,7 +45,7 @@ import db from '../db/index.js';
 export const MODULES = [
   'etudiants', 'attributions', 'personnel', 'organisation', 'planification',
   'listes', 'procedures', 'pilotage', 'dotation', 'repartition', 'budget',
-  'recrutement', 'amenagements', 'reunions',
+  'recrutement', 'amenagements', 'reunions', 'configuration',
 ];
 
 /* LES DROITS PAR ÉCRAN, ACCORDÉS À UNE PERSONNE (2.12.207, Charles, 26
@@ -86,6 +86,14 @@ const PLAFOND_INITIAL = {
   consultation: m => (['dotation', 'repartition', 'budget'].includes(m) ? 'rien' : 'lit'),
 };
 
+/* CONFIGURATION DANS LA GRILLE (3.5.030, Charles, 1er novembre 2026 : « donner un accès en lecture à tout, sauf dotation,
+   finances-budget et recrutement, au service informatique »). Le module naît « écrit » pour la direction et « rien » pour
+   tous les autres : rien ne s'ouvre sans que la direction l'ouvre. « Lit » = les écrans de Configuration se lisent sans se
+   modifier (auth.js : une route réservée à la direction laisse passer une LECTURE). */
+const initial = (role, m) => (m === 'configuration'
+  ? (['admin', 'directeur', 'directeur_adjoint'].includes(role) ? 'ecrit' : 'rien')
+  : (PLAFOND_INITIAL[role] ? PLAFOND_INITIAL[role](m) : 'rien'));
+
 export const ROLES = Object.keys(PLAFOND_INITIAL);
 export const NIVEAUX = ['rien', 'lit', 'ecrit', 'validation'];
 
@@ -112,7 +120,7 @@ export function migrerPlafonds(dbx) {
       'INSERT OR IGNORE INTO role_plafond (role, module, niveau) VALUES (?,?,?)');
     let n = 0;
     for (const [role, fn] of Object.entries(PLAFOND_INITIAL)) {
-      for (const m of MODULES) { ins.run(role, m, fn(m)); n++; }
+      for (const m of MODULES) { ins.run(role, m, initial(role, m)); n++; }
     }
     console.log(`[migration] role_plafond : ${n} combinaison(s) vérifiée(s)`);
 
@@ -215,8 +223,7 @@ function plafondDe(role, module) {
    * ligne lisible — ou un rôle inconnu — ne reçoit RIEN : le repli
    * « consultation » d'avant aurait ouvert toute la lecture à un rôle que
    * personne n'a paramétré, le défaut permissif exactement. */
-  const fn = PLAFOND_INITIAL[role];
-  return fn ? fn(module) : 'rien';
+  return initial(role, module);
 }
 
 function permissions(user) {
@@ -308,6 +315,12 @@ export function droitsDe(user) {
     d[m] = { lire: !!peut(user, m, 'lire'), ecrire: peut(user, m, 'ecrire') };
   }
   return d;
+}
+
+/** La configuration se lit-elle pour ce compte ? (plafond « configuration » au moins « lit ») */
+export function litLaConfiguration(user) {
+  if (!user) return false;
+  try { return plafondDe(fraicheur(user).role, 'configuration') !== 'rien'; } catch { return false; }
 }
 
 export default { peut, exigePermission, droitsDe, MODULES };

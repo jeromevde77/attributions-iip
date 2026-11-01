@@ -14,7 +14,7 @@ import OrganiserGroupesModal from '../components/OrganiserGroupesModal.jsx';
 import Doc23Modal from '../components/Doc23Modal.jsx';
 import AnnulationPanel from '../components/AnnulationPanel.jsx';
 import * as XLSX from 'xlsx';
-import { IconArrowsSplit, IconClipboardText, IconTrash, IconLock, IconLockOpen, IconRefresh, IconCalendar, IconFileText, IconEraser, IconWand, IconX, IconSettings, IconFolder, IconPlus, IconFileImport, IconFileSpreadsheet, IconUsersGroup, IconScissors, IconClock, IconChevronLeft, IconChevronRight, IconFilter, IconBriefcase, IconArrowBackUp, IconInfoCircle, IconUserCog, IconAlertTriangle } from '@tabler/icons-react';
+import { IconArrowsSplit, IconClipboardText, IconTrash, IconLock, IconLockOpen, IconRefresh, IconCalendar, IconFileText, IconEraser, IconWand, IconX, IconSettings, IconFolder, IconPlus, IconFileImport, IconFileSpreadsheet, IconUsersGroup, IconScissors, IconClock, IconChevronLeft, IconChevronRight, IconFilter, IconBriefcase, IconArrowBackUp, IconInfoCircle, IconUserCog, IconAlertTriangle, IconChevronsUp, IconChevronsDown } from '@tabler/icons-react';
 
 // ─── Modale : copier les attributions d'une section d'une année vers une autre ─
 function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied }) {
@@ -138,7 +138,7 @@ function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied 
                 <div className="mt-2">
                   <button onClick={() => copier(true)} disabled={loading}
                     className="bouton-detruire controle text-second px-3 disabled:opacity-40">
-                    ⚠️ Forcer — supprimer les {conflict.count} existantes et recopier
+                    Forcer — supprimer les {conflict.count} existantes et recopier
                   </button>
                 </div>
               )}
@@ -2215,9 +2215,9 @@ export default function Attributions() {
       {/* Barre mobile */}
       <div className="md:hidden mb-2 flex gap-2">
         <input value={filters.q} onChange={e=>setFilters({...filters,q:e.target.value})} onKeyDown={e=>e.key==='Enter'&&applyFilters()} placeholder="Rechercher…" className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 h-9 text-sm"/>
-        <button onClick={mobileCollapseAll} title="Tout replier" className="bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm font-medium">⊟</button>
-        <button onClick={mobileExpandAll} title="Tout déplier" className="bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm font-medium">⊞</button>
-        <button onClick={()=>setFiltersOpenMobile(o=>!o)} className="bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm font-medium">{filtersOpenMobile ? <IconX size={16}/> : <IconSettings size={16}/>}</button>
+        <button onClick={mobileCollapseAll} title="Tout replier" className="bouton"><IconChevronsUp size={16}/></button>
+        <button onClick={mobileExpandAll} title="Tout déplier" className="bouton"><IconChevronsDown size={16}/></button>
+        <button onClick={()=>setFiltersOpenMobile(o=>!o)} className="bouton">{filtersOpenMobile ? <IconX size={16}/> : <IconSettings size={16}/>}</button>
       </div>
 
       {/* Filtres (mobile uniquement — desktop : dans le panneau latéral) */}
@@ -2302,17 +2302,17 @@ export default function Attributions() {
                   Actions
                 </summary>
                 <div className="flex flex-col gap-1.5">
-                  <button onClick={()=>{ const next = unite==='heures'?'periodes':'heures'; setUniteLocal(next); setUniteGlobal(next); window.dispatchEvent(new Event('unite-change')); }} title="Basculer périodes / heures" className="flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-sm font-medium px-3 py-2 rounded-lg"><IconClock size={16}/>{unite==='heures' ? 'Heures' : 'Périodes'}</button>
-                  {peutEcrireAttr && <button onClick={()=>setShowForm(true)} className="flex items-center gap-2 bg-iip-blue hover:bg-iip-blue-dark text-white text-sm font-medium px-3 py-2 rounded-lg"><IconPlus size={16}/>Nouveau</button>}
+                  <button onClick={()=>{ const next = unite==='heures'?'periodes':'heures'; setUniteLocal(next); setUniteGlobal(next); window.dispatchEvent(new Event('unite-change')); }} title="Basculer périodes / heures" className="bouton flex items-center gap-2"><IconClock size={16}/>{unite==='heures' ? 'Heures' : 'Périodes'}</button>
+                  {peutEcrireAttr && <button onClick={()=>setShowForm(true)} className="bouton bouton-fort flex items-center gap-2"><IconPlus size={16}/>Nouveau</button>}
                   {peutAdminAttr && <button onClick={()=>setShowAnnulation(true)} title="Annuler une modification récente"
-                    className="flex items-center gap-2 border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm font-medium px-3 py-2 rounded-lg"><IconArrowBackUp size={16}/>Annuler</button>}
-                  {peutAdminAttr && <button onClick={()=>setShowCopierSection(true)} className="flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-sm font-medium px-3 py-2 rounded-lg"><IconClipboardText size={16}/>Copier section</button>}
-                  <button onClick={()=>api.exportExcel()} className="flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-sm font-medium px-3 py-2 rounded-lg"><IconFileImport size={16}/>Export</button>
+                    className="bouton flex items-center gap-2"><IconArrowBackUp size={16}/>Annuler</button>}
+                  {peutAdminAttr && <button onClick={()=>setShowCopierSection(true)} className="bouton flex items-center gap-2"><IconClipboardText size={16}/>Copier section</button>}
+                  <button onClick={()=>api.exportExcel()} className="bouton flex items-center gap-2"><IconFileImport size={16}/>Export</button>
                   {isAdmin && <>
-                    {selected.size>0 && <button onClick={()=>openBulkModal('selection')} className="flex items-center gap-2 bg-white border border-[color:var(--c-attente)] text-iip-texte hover:bg-[color:color-mix(in_srgb,var(--c-attente)_9%,var(--blanc))] text-sm font-medium px-3 py-2 rounded-champ"><IconTrash size={16}/>Sélection ({selected.size})</button>}
-                    <button onClick={()=>openBulkModal('filtered')} className="flex items-center gap-2 bg-white border border-[color:var(--c-attente)] text-iip-texte hover:bg-[color:color-mix(in_srgb,var(--c-attente)_9%,var(--blanc))] text-sm font-medium px-3 py-2 rounded-champ"><IconTrash size={16}/>Suppr. filtre</button>
-                    <button onClick={()=>openBulkModal('all')} className="flex items-center gap-2 bg-iip-danger hover:brightness-110 text-white text-sm font-medium px-3 py-2 rounded-lg"><IconTrash size={16}/>Tout supprimer</button>
-                    <button onClick={reimportExcel} className="flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-sm font-medium px-3 py-2 rounded-lg"><IconRefresh size={16}/>Réimporter</button>
+                    {selected.size>0 && <button onClick={()=>openBulkModal('selection')} className="bouton bouton-detruire flex items-center gap-2"><IconTrash size={16}/>Sélection ({selected.size})</button>}
+                    <button onClick={()=>openBulkModal('filtered')} className="bouton bouton-detruire flex items-center gap-2"><IconTrash size={16}/>Suppr. filtre</button>
+                    <button onClick={()=>openBulkModal('all')} className="bouton bouton-detruire flex items-center gap-2"><IconTrash size={16}/>Tout supprimer</button>
+                    <button onClick={reimportExcel} className="bouton flex items-center gap-2"><IconRefresh size={16}/>Réimporter</button>
                   </>}
                 </div>
               </details>
@@ -2666,7 +2666,7 @@ export default function Attributions() {
             <div className="space-y-2">
               <button onClick={()=>{ const s=rapportSectionChoix; setRapportSectionChoix(null); genererRapport(s, ''); }}
                 className="w-full text-left px-4 py-2.5 rounded-lg border border-gray-200 hover:border-iip-mauve hover:bg-iip-mauve/5 text-sm font-medium">
-                📄 L'ensemble <span className="text-gray-400 font-normal">— toutes les UE de la section</span>
+                L'ensemble <span className="text-gray-400 font-normal">— toutes les UE de la section</span>
               </button>
               <button onClick={()=>{ const s=rapportSectionChoix; setRapportSectionChoix(null); genererRapport(s, 'tc'); }}
                 className="w-full text-left px-4 py-2.5 rounded-lg border border-gray-200 hover:border-iip-turquoise hover:bg-iip-turquoise/5 text-sm font-medium">

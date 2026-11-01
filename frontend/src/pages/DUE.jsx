@@ -803,10 +803,7 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
             </button>)}
           {d.droits.valider && (
             <button onClick={basculerValidation} disabled={enCours}
-              className={`px-3 py-1.5 text-second rounded-lg font-semibold flex items-center gap-1.5
-                ${d.statut === 'validee'
-      ? 'border border-amber-500 text-white bg-amber-500'
-      : 'bg-emerald-600 text-white'}`}>
+              className="bouton">
               {d.statut === 'validee' ? <><IconLockOpen size={14} /> Rouvrir</>
                 : <><IconLock size={14} /> Valider</>}
             </button>
@@ -821,20 +818,17 @@ export function Fiche({ ueNum, onRetour, integree = false }) {
       </div>
 
       {erreur && (
-        <div className="mb-3 px-3 py-2 rounded-lg bg-red-50 border border-red-200
-                        text-second text-red-800 flex items-start gap-1.5">
+        <div className="bloc-etat mb-3 px-3 py-2 text-second flex items-start gap-1.5" data-etat="corriger">
           <IconAlertTriangle size={14} className="mt-0.5 flex-none" /> {erreur}
         </div>
       )}
       {message && (
-        <div className="mb-3 px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200
-                        text-second text-emerald-800 flex items-start gap-1.5">
+        <div className="bloc-etat mb-3 px-3 py-2 text-second flex items-start gap-1.5" data-etat="reussi">
           <IconCircleCheck size={14} className="mt-0.5 flex-none" /> {message}
         </div>
       )}
       {!lecture && !!manques.length && (
-        <div className="mb-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
-                        text-second text-amber-900">
+        <div className="bloc-etat mb-3 px-3 py-2 text-second" data-etat="surveiller">
           <b>Reste à compléter :</b> {manques.join(' · ')}.
         </div>
       )}

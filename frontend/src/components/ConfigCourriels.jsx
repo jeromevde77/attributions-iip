@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { IconBell, IconMail, IconCheck, IconAlertTriangle, IconPlugConnected, IconSend, IconRefresh, IconLoader2 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { chargerEtatEnvoi } from '../lib/envoiMail.js';
+import { EnteteCarte } from './ui.jsx';
 
 /**
  * Configuration → Courriels.
@@ -86,20 +87,15 @@ export default function ConfigCourriels() {
     <div className="max-w-none space-y-6">
 
       {/* ── Interrupteur ── */}
-      <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <div className="px-4 py-3 bg-iip-blue/5 border-b border-gray-200 flex items-center justify-between">
-          <div>
-            <h2 className="titre-carte flex items-center gap-2"><IconMail size={16} /> Envoi de documents par courriel</h2>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Attestations, fiches d'attributions, décisions… envoyées à l'intéressé en PDF joint, depuis les aperçus et le centre d'impression.
-            </p>
-          </div>
+      <section className="carte overflow-hidden">
+        <EnteteCarte icone={IconMail} titre="Envoi de documents par courriel"
+          sous="Attestations, fiches d'attributions, décisions… envoyées à l'intéressé en PDF joint, depuis les aperçus et le centre d'impression.">
           <button onClick={basculer} disabled={occupe === 'actif'}
             className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${etat.actif ? 'bg-iip-turquoise' : 'bg-slate-300'}`}
             title={etat.actif ? 'Désactiver' : 'Activer'}>
             <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${etat.actif ? 'translate-x-5' : 'translate-x-0.5'}`} />
           </button>
-        </div>
+        </EnteteCarte>
         <div className="px-4 py-3 text-sm">
           {etat.actif
             ? <span className="text-emerald-700 flex items-center gap-1.5"><IconCheck size={14} /> Fonction active — les boutons « Envoyer » sont visibles.</span>
@@ -120,11 +116,8 @@ export default function ConfigCourriels() {
       <Rappels />
 
       {/* ── Expédition ── */}
-      <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <div className="px-4 py-3 bg-iip-blue/5 border-b border-gray-200">
-          <h2 className="titre-carte">Expéditeur</h2>
-          <p className="text-xs text-gray-500 mt-0.5">Par où les courriels partent.</p>
-        </div>
+      <section className="carte overflow-hidden">
+        <EnteteCarte titre="Expéditeur" sous="Par où les courriels partent." />
         <div className="p-4 flex flex-wrap gap-2">
           {[['graph', 'Microsoft 365 (API Graph)', 'Recommandé : application Entra, sans mot de passe de boîte.'],
             ['smtp', 'Serveur SMTP', 'Tout autre serveur. Pour Microsoft 365, bloqué par les security defaults.']].map(([v, l, d]) => (
@@ -138,7 +131,7 @@ export default function ConfigCourriels() {
 
         {cfg.mode === 'graph' ? (
           <div className="px-4 pb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2 text-second text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 leading-relaxed">
+            <div className="md:col-span-2 text-second text-slate-600 leading-relaxed">
               <b>Dans le centre d'administration Entra</b> (entra.microsoft.com → Applications → Inscriptions d'applications) :
               <ol className="list-decimal ml-5 mt-1 space-y-0.5">
                 <li>Nouvelle inscription, nom « Lucie », comptes de cet annuaire uniquement. Copier l'<i>ID d'application (client)</i> et l'<i>ID de l'annuaire (tenant)</i>.</li>
@@ -237,14 +230,10 @@ export default function ConfigCourriels() {
       </section>
 
       {/* ── Garde-fou de test ── */}
-      <section className="bg-white rounded-lg border border-amber-200 overflow-hidden">
-        <div className="px-4 py-3 bg-amber-50 border-b border-amber-200 border-l-4 border-l-amber-500">
-          <h2 className="font-semibold text-amber-800">Redirection de test</h2>
-          <p className="text-xs text-amber-700 mt-0.5">
-            Si une adresse est renseignée, <b>tous</b> les courriels partent vers elle, quel que soit le destinataire — l'objet indique le vrai destinataire.
-            Ce réglage vit dans la base de ce serveur : posé sur dev, il n'existe pas en prod. À vider pour envoyer réellement.
-          </p>
-        </div>
+      <section className="carte overflow-hidden">
+        <EnteteCarte icone={IconAlertTriangle} titre="Redirection de test"
+          sous={<>Si une adresse est renseignée, <b>tous</b> les courriels partent vers elle, quel que soit le destinataire — l'objet indique le vrai destinataire.
+            Ce réglage vit dans la base de ce serveur : posé sur dev, il n'existe pas en prod. À vider pour envoyer réellement.</>} />
         <div className="p-4 flex flex-wrap items-center gap-2">
           <input value={cfg.redirection || ''} onChange={e => maj({ redirection: e.target.value })}
             placeholder="vide = envoi réel aux destinataires"
@@ -257,14 +246,10 @@ export default function ConfigCourriels() {
       </section>
 
       {/* ── Journal ── */}
-      <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <div className="px-4 py-3 bg-iip-blue/5 border-b border-gray-200 flex items-center justify-between">
-          <div>
-            <h2 className="titre-carte">Journal des envois</h2>
-            <p className="text-xs text-gray-500 mt-0.5">Les 100 derniers. Qui a reçu quoi, quand, et si c'est parti.</p>
-          </div>
+      <section className="carte overflow-hidden">
+        <EnteteCarte titre="Journal des envois" sous="Les 100 derniers. Qui a reçu quoi, quand, et si c'est parti.">
           <button onClick={chargerJournal} className="text-slate-400 hover:text-iip-blue p-1.5 rounded-lg" title="Rafraîchir"><IconRefresh size={16} /></button>
-        </div>
+        </EnteteCarte>
         {!journal.length ? (
           <div className="px-4 py-6 text-center text-sm text-slate-400">Aucun envoi consigné.</div>
         ) : (
@@ -323,20 +308,15 @@ function RecapQuotidien() {
   };
   const m = r.mien;
   return (
-    <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-      <div className="px-4 py-3 bg-iip-blue/5 border-b border-gray-200 flex items-center justify-between">
-        <div>
-          <h2 className="titre-carte flex items-center gap-2"><IconMail size={16} /> Récapitulatif quotidien</h2>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Chaque matin, après 7 h, un courriel à chaque personne — seulement si une chose nouvelle l’attend : une tâche, un texte à confirmer, un message, une idée.
-          </p>
-        </div>
+    <section className="carte overflow-hidden">
+      <EnteteCarte icone={IconMail} titre="Récapitulatif quotidien"
+        sous="Chaque matin, après 7 h, un courriel à chaque personne — seulement si une chose nouvelle l’attend : une tâche, un texte à confirmer, un message, une idée.">
         <button onClick={basculer}
           className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${r.actif ? 'bg-iip-turquoise' : 'bg-slate-300'}`}
           title={r.actif ? 'Désactiver' : 'Activer'}>
           <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${r.actif ? 'translate-x-5' : 'translate-x-0.5'}`} />
         </button>
-      </div>
+      </EnteteCarte>
       <div className="px-4 py-3 text-sm space-y-2">
         {m && <p className="text-slate-600">Le vôtre, aujourd’hui : {m.taches} tâche(s), {m.textes} texte(s) à confirmer, {m.messages} message(s) non lu(s), {m.idees} idée(s).</p>}
         {r.dernier && <p className="text-xs text-slate-500">Dernier envoi : {String(r.dernier.jour).split('-').reverse().join('/')} — {r.dernier.statut}.</p>}
@@ -378,24 +358,19 @@ function Rappels() {
     charger();
   };
   return (
-    <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-      <div className="px-4 py-3 bg-iip-blue/5 border-b border-gray-200 flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="titre-carte flex items-center gap-2"><IconBell size={16} /> Rappels</h2>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Réglés par la direction ; personne ne s’en désabonne. Un rappel ordinaire entre dans le récapitulatif du matin, un rappel urgent part aussitôt.
-            {!r.automatique && ' Sur cette version de test, rien ne part tout seul : seul l’essai envoie.'}
-          </p>
-        </div>
+    <section className="carte overflow-hidden">
+      <EnteteCarte icone={IconBell} titre="Rappels"
+        sous={<>Réglés par la direction ; personne ne s’en désabonne. Un rappel ordinaire entre dans le récapitulatif du matin, un rappel urgent part aussitôt.
+          {!r.automatique && ' Sur cette version de test, rien ne part tout seul : seul l’essai envoie.'}</>}>
         <Interrupteur actif={r.reglages.actif} titre={r.reglages.actif ? 'Couper tous les rappels' : 'Rallumer les rappels'}
           onClick={() => regler({ actif: !r.reglages.actif })} />
-      </div>
+      </EnteteCarte>
       <div className="px-4 py-3 text-sm space-y-3">
         {!r.recap_actif && (
           <p className="bloc-etat px-3 py-2 text-second" data-etat="surveiller">Le récapitulatif du matin est coupé : les rappels ordinaires ne partiront pas. Seuls les urgents partent.</p>)}
-        <ul className="divide-y divide-slate-100 border border-slate-200 rounded-champ">
+        <ul className="divide-y divide-slate-100 border-y border-slate-100 -mx-4">
           {r.catalogue.map(c => (
-            <li key={c.cle} className="flex items-start gap-3 px-3 py-2.5">
+            <li key={c.cle} className="flex items-start gap-3 px-4 py-2.5">
               <div className="flex-1 min-w-0">
                 <div className="font-semibold text-iip-texte">{c.titre}</div>
                 <div className="text-second text-slate-600">Pour : {c.pour}</div>
@@ -414,7 +389,7 @@ function Rappels() {
         <div>
           <div className="intertitre mb-1">Derniers rappels</div>
           {!r.historique.length ? <p className="text-second text-slate-500">Aucun rappel pour l’instant.</p> : (
-            <div className="max-h-72 overflow-auto border border-slate-200 rounded-champ">
+            <div className="max-h-72 overflow-auto border-t border-slate-100">
               <table className="w-full text-second">
                 <tbody>
                   {r.historique.map(h => (
@@ -431,7 +406,7 @@ function Rappels() {
         <div>
           <div className="intertitre mb-1">Derniers rappels aux étudiants</div>
           {!r.historique_etudiants?.length ? <p className="text-second text-slate-500">Aucun pour l’instant.</p> : (
-            <div className="max-h-72 overflow-auto border border-slate-200 rounded-champ">
+            <div className="max-h-72 overflow-auto border-t border-slate-100">
               <table className="w-full text-second">
                 <tbody>
                   {r.historique_etudiants.map(h => (

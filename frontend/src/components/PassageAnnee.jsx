@@ -5,7 +5,7 @@ import {
   IconSquareCheck, IconArrowRight,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
-import { TuileEtat, OuvrirEditions, Fenetre } from './ui.jsx';
+import { TuileEtat, OuvrirEditions, Fenetre, EnteteCarte } from './ui.jsx';
 import { ouvrirApercu } from '../lib/apercu.js';
 
 /**
@@ -114,14 +114,14 @@ export default function PassageAnnee({ annee, onClose, onTermine }) {
 
   return (
     <Fenetre titre="Passage à l'année suivante" large="grande" onFermer={onClose}
+      outils={rapport && <OuvrirEditions sombre taille="moyen" disabled={enCours || !retenus.length} titre="Parcours individuels — centre d'édition"
+        pieces={[{ cle: 'parcours', label: 'Parcours individuels', description: 'Graphe des prérequis, unités acquises, programme — un par dossier retenu', onClick: () => imprimer() }]} />}
       sous="Composer le programme de chacun sur ses résultats : les unités réussies libèrent la suite, celles qui ne l'ont pas été reviennent au programme."
       pied={rapport && (<>
         <span className="text-xs text-slate-500">
           {retenus.length} dossier(s) retenu(s) · <b>{aCreer}</b> inscription(s) seront
           créées. Une unité déjà inscrite n'est jamais recréée, et rien n'est supprimé.
         </span>
-        <OuvrirEditions disabled={enCours || !retenus.length} titre="Parcours individuels — centre d'édition"
-          pieces={[{ cle: 'parcours', label: 'Parcours individuels', description: 'Graphe des prérequis, unités acquises, programme — un par dossier retenu', onClick: () => imprimer() }]} />
         <button onClick={ecrire} disabled={enCours || !aCreer}
           className="bouton bouton-fort inline-flex items-center gap-1.5">
           <IconCheck size={15} /> Créer les {aCreer} inscription(s)
@@ -192,13 +192,8 @@ export default function PassageAnnee({ annee, onClose, onTermine }) {
               </div>
 
               {!!rapport.prets.length && (
-                <div className="border border-slate-200 rounded-xl overflow-hidden">
-                  <div className="intertitre px-3 py-1.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                    <span>Programmes à créer</span>
-                    <span className="normal-case tracking-normal text-slate-400">
-                      décochez pour écarter un dossier
-                    </span>
-                  </div>
+                <section className="carte overflow-hidden">
+                  <EnteteCarte titre="Programmes à créer" sous="décochez pour écarter un dossier" />
                   <div className="divide-y divide-slate-100 max-h-[280px] overflow-y-auto">
                     {rapport.prets.map(p => {
                       const pris = !ecartes.has(p.id);
@@ -242,7 +237,7 @@ export default function PassageAnnee({ annee, onClose, onTermine }) {
                       );
                     })}
                   </div>
-                </div>
+                </section>
               )}
 
               {!!rapport.attente.length && (
@@ -271,8 +266,7 @@ export default function PassageAnnee({ annee, onClose, onTermine }) {
               )}
 
               {!!rapport.sans_programme.length && (
-                <div className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200
-                                text-slate-600">
+                <div className="text-second text-slate-600">
                   <b>{rapport.sans_programme.length} étudiant(s)</b> à qui plus aucune unité
                   ne s'ouvre en {cible} — cursus terminé, ou décision à prendre au cas par
                   cas : {rapport.sans_programme.map(x => `${x.nom} ${x.prenom}`).join(' · ')}

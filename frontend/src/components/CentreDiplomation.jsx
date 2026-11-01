@@ -7,7 +7,7 @@ import {
   IconSquareMinus, IconCertificate, IconEye, IconFileTypePdf, IconMail,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
-import { Fenetre } from './ui.jsx';
+import { Fenetre, EnteteCarte } from './ui.jsx';
 import { useEnvoiMail } from '../lib/envoiMail.js';
 import PreviewModal from './PreviewModal.jsx';
 import EnvoiMailModal from './EnvoiMailModal.jsx';
@@ -287,10 +287,8 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
                             text-rose-900">{erreur}</div>
           )}
           {!!produits?.length && (
-            <div className="border border-slate-200 rounded-xl overflow-hidden">
-              <div className="px-3 py-2 tab-entete text-second font-semibold text-iip-blue">
-                Pièces prêtes — {nb} étudiant(s)
-              </div>
+            <section className="carte overflow-hidden">
+              <EnteteCarte titre={`Pièces prêtes — ${nb} étudiant(s)`} />
               <div className="divide-y divide-slate-100">
                 {produits.map(p => (
                   <div key={p.cle} className="px-3 py-2 flex items-center gap-3 flex-wrap">
@@ -331,7 +329,7 @@ export default function CentreDiplomation({ annee, onClose, integre = false }) {
                   </span>
                 </div>
               )}
-            </div>
+            </section>
           )}
 
           {enCours && <p className="text-slate-400 italic py-6 text-center">Calcul…</p>}

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { IconPrinter } from '@tabler/icons-react';
+import { IconPrinter, IconWand } from '@tabler/icons-react';
 import { api, getAnnee } from '../lib/api.js';
 import PreviewModal from './PreviewModal.jsx';
-import { Fenetre } from './ui.jsx';
+import { Fenetre, OutilFenetre } from './ui.jsx';
 import { informer } from '../lib/dialogue.jsx';
 
 // Conversion heures (×60 min) → périodes (50 min) : ×1.2
@@ -229,12 +229,7 @@ export default function GrilleSectionModal({ section, onClose }) {
     <Fenetre titre={`Répartition de l'autonomie — ${section}`}
       sous={`${annee} · classe + EV1 + VC1 → périodes, comblées par l'autonomie`}
       large="pleine" onFermer={onClose}
-      outils={
-        <button onClick={imprimer} title="Imprimer la grille"
-          className="flex-none h-8 px-2.5 rounded-champ text-sm text-white hover:bg-white/15 transition-colors duration-150 ease-ios">
-          <IconPrinter size={14} className="inline align-[-2px] mr-1" />Imprimer
-        </button>
-      }
+      outils={<OutilFenetre Icone={IconPrinter} titre="Imprimer la grille" onClick={imprimer} />}
       pied={<>
         <span />
         <button onClick={onClose} className="bouton bouton-fort">
@@ -274,7 +269,7 @@ export default function GrilleSectionModal({ section, onClose }) {
                 <div className={`flex items-center justify-between px-3 py-2 border-b ${insuffisant ? 'bg-red-50 border-red-200 border-l-4 border-l-red-500' : 'bg-gray-50 border-gray-200'}`}>
                   <div className="flex items-center gap-2">
                     <button onClick={() => baguette(ue)} title="Répartir l'autonomie automatiquement (prorata des besoins)"
-                      className="text-base hover:scale-110 transition" >🪄</button>
+                      className="text-slate-500 hover:text-iip-blue transition" ><IconWand size={16} /></button>
                     <div className="font-semibold text-iip-gold text-sm">
                       UE {ue.ue_num} <span className="text-gray-600 font-normal">· {ue.ue_nom}</span>
                       {ue.ue_tc === 'x' && (
@@ -302,7 +297,7 @@ export default function GrilleSectionModal({ section, onClose }) {
 
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-xs uppercase text-gray-500 bg-white border-b border-gray-100">
+                    <tr className="text-xs uppercase text-gray-500 bande-entete border-b border-gray-100">
                       <th className="text-left px-3 py-1.5 h-9 font-medium">Code</th>
                       <th className="text-left px-3 py-1.5 h-9 font-medium">Cours</th>
                       <th className="px-2 py-1.5 h-9 font-medium text-center">DP</th>

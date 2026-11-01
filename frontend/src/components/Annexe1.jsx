@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { IconFileText } from '@tabler/icons-react';
+import { IconFileText, IconFileTypePdf, IconEye } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { ouvrirApercu } from '../lib/apercu.js';
-import { Fenetre, Encadre } from './ui.jsx';
+import { Fenetre, Encadre, OutilFenetre } from './ui.jsx';
 
 /**
  * Formulaire pour l'obtention d'un visa ou d'un titre de séjour étudiant —
@@ -68,13 +68,13 @@ export default function Annexe1({ etudId, annee, onClose, enPdf = true }) {
   return (
     <Fenetre icone={IconFileText} titre="Visa ou titre de séjour étudiant" large="moyenne" onFermer={onClose}
       sous={`Annexe 1 de l'arrêté ministériel du 28 mars 2022 — Office des Étrangers · ${annee}`}
+      outils={<OutilFenetre Icone={enPdf ? IconFileTypePdf : IconEye}
+        titre={enCours ? 'Préparation…' : 'Produire le formulaire'} disabled={!d || enCours} onClick={produire} />}
       pied={<div className="flex items-center gap-2 w-full">
         <span className="text-second text-slate-500 min-w-0 flex-1">
           {sous54 && !f.raisons.trim() ? 'Programme sous 54 crédits : la raison est attendue par le formulaire.' : ''}
         </span>
         <button type="button" className="bouton" onClick={onClose}>Fermer</button>
-        <button type="button" className="bouton bouton-sortir" disabled={!d || enCours} onClick={produire}>
-          {enCours ? 'Préparation…' : 'Produire le formulaire'}</button>
       </div>}>
       <div className="space-y-3 text-sm">
         {erreur && <Encadre etat="corriger">{erreur}</Encadre>}

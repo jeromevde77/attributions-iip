@@ -1,8 +1,6 @@
 import ChoixRecherche from '../components/ChoixRecherche.jsx';
 import { useEffect, useMemo, useState } from 'react';
-import {
-  IconPlus, IconTrash, IconUpload, IconCopy, IconAlertTriangle, IconCash,
-} from '@tabler/icons-react';
+import { IconPlus, IconTrash, IconUpload, IconCopy, IconAlertTriangle, IconCash, IconX } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { Tableau, TableauEntete, Th, Fenetre } from '../components/ui.jsx';
 import { demander } from '../lib/dialogue.jsx';
@@ -231,7 +229,7 @@ export default function Budget() {
             Prévisions et dépenses, par année civile et par section.
           </p>
         </div>
-        <label className={`flex items-center gap-2 px-3 py-1.5 text-sm border border-slate-300 rounded-lg cursor-pointer hover:bg-slate-50`}>
+        <label className="bouton flex items-center gap-2 cursor-pointer">
           <IconUpload size={14} /> Importer le canevas ({annee})
           <input type="file" accept=".xlsx,.xlsm" className="hidden"
             onChange={e => e.target.files[0] && importerCanevas(e.target.files[0])} />
@@ -243,7 +241,7 @@ export default function Budget() {
           message.type === 'ok' ? 'bg-emerald-500 text-white border border-emerald-500'
                                 : 'bg-red-500 text-white border border-red-500'}`}>
           <span>{message.texte}</span>
-          <button onClick={() => setMessage(null)} className="ml-3 opacity-60">✕</button>
+          <button onClick={() => setMessage(null)} title="Fermer" aria-label="Fermer" className="ml-3 opacity-60"><IconX size={14} /></button>
         </div>
       )}
 
@@ -269,7 +267,7 @@ export default function Budget() {
               {sections.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
             <button onClick={reprendre}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm border border-slate-300 rounded-lg hover:bg-slate-50">
+              className="bouton flex items-center gap-1.5">
               <IconCopy size={14} /> Reprendre {annee - 1}
             </button>
           </>
@@ -294,7 +292,7 @@ export default function Budget() {
             {[
               ['Prévu HTVA', data.totaux.prevu_htva, 'text-iip-blue'],
               ['Prévu TVAC', data.totaux.prevu_tvac, 'text-slate-600'],
-              ['Engagé', data.totaux.engage, 'text-amber-700'],
+              ['Engagé', data.totaux.engage, 'text-slate-700'],
               ['Solde', (data.totaux.prevu_htva || 0) - (data.totaux.engage || 0),
                (data.totaux.prevu_htva || 0) - (data.totaux.engage || 0) < 0 ? 'text-red-600' : 'text-emerald-700'],
             ].map(([lib, val, cls]) => (
@@ -307,7 +305,7 @@ export default function Budget() {
 
           {data.peut_ecrire && (
             <button onClick={() => setForm({ prix_unitaire: 0, quantite: 1, taux_tva: 0.21, a_charge: 'IIP', priorite: 'souhaitable' })}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-iip-blue text-white font-semibold rounded-lg">
+              className="bouton bouton-fort flex items-center gap-1.5">
               <IconPlus size={15} /> Ajouter une prévision
             </button>
           )}
@@ -563,7 +561,7 @@ function LigneForm({ form, setForm, comptes, sections = [], sectionCourante, cat
           TVAC <b>{eur(total * (1 + Number(form.taux_tva ?? 0.21)))}</b>
         </div>
         <div className="flex gap-2">
-          <button onClick={onAnnuler} className="text-sm px-3 py-1.5 rounded-lg border border-slate-300">Annuler</button>
+          <button onClick={onAnnuler} className="bouton">Annuler</button>
           <button onClick={onEnregistrer} disabled={!form.details}
             className="bouton bouton-fort">
             Enregistrer
@@ -643,7 +641,7 @@ function SyntheseBudget({ synthese, onOuvrir }) {
     <div className="border border-slate-200 rounded-xl overflow-hidden">
       <table className="w-full text-sm">
         <thead>
-          <tr className="intertitre bg-slate-50 border-b border-slate-200">
+          <tr className="intertitre bande-entete border-b border-slate-200">
             <th className="px-3 py-2 text-left">Section</th>
             <th className="px-3 py-2 text-right w-32">Prévu HTVA</th>
             <th className="px-3 py-2 text-right w-32">Engagé</th>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { IconAlertTriangle, IconCheck } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { EnteteCarte } from './ui.jsx';
 
 /**
  * Droit d'inscription (DI) et droit d'inscription spécifique (DIS).
@@ -54,16 +55,8 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
       {/* LE MONTANT À PAYER, en tête. L'écran montrait deux droits sans jamais
           dire ce que l'étudiant doit verser : c'est pourtant la question. */}
       {f && (
-        <div className="border-2 border-iip-blue/30 rounded-xl overflow-hidden">
-          <div className="px-4 py-2.5 bg-iip-blue/5 border-b border-iip-blue/20
-                          flex items-center justify-between gap-3 flex-wrap">
-            <span className="text-sm font-semibold text-iip-blue">
-              Montant à payer
-            </span>
-            <span className="text-xs text-slate-500">
-              {f.periodes ?? '—'} périodes · {annee}
-            </span>
-          </div>
+        <section className="carte overflow-hidden">
+          <EnteteCarte titre="Montant à payer" sous={`${f.periodes ?? '—'} périodes · ${annee}`} />
 
           <div className="p-4">
             <div className="flex flex-wrap items-start gap-x-8 gap-y-3">
@@ -117,18 +110,13 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
               )}
             </div>
           </div>
-        </div>
+        </section>
       )}
 
       {/* ── Droit d'inscription ── */}
-      <div className="border border-slate-200 rounded-xl overflow-hidden">
-        <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3">
-          <span className="text-sm font-semibold text-iip-blue">Droit d'inscription</span>
-          <span className="text-xs text-slate-400">
-            Circulaire 9731 · {annee}
-            {di.bareme.defaut ? ' · barème par défaut' : ''}
-          </span>
-        </div>
+      <section className="carte overflow-hidden">
+        <EnteteCarte titre="Droit d'inscription"
+          sous={`Circulaire 9731 · ${annee}${di.bareme.defaut ? ' · barème par défaut' : ''}`} />
 
         <div className="p-4 space-y-3">
           {!di.detail.length ? (
@@ -251,14 +239,11 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
             </>
           )}
         </div>
-      </div>
+      </section>
 
       {/* ── Droit d'inscription spécifique ── */}
-      <div className="border border-slate-200 rounded-xl overflow-hidden">
-        <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3">
-          <span className="text-sm font-semibold text-iip-blue">Droit d'inscription spécifique</span>
-          <span className="text-xs text-slate-400">A.E. 25-09-1991, art. 2, 4°</span>
-        </div>
+      <section className="carte overflow-hidden">
+        <EnteteCarte titre="Droit d'inscription spécifique" sous="A.E. 25-09-1991, art. 2, 4°" />
 
         <div className="p-4 space-y-3">
           <p className="text-second text-slate-500">
@@ -315,7 +300,7 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
             </>
           )}
         </div>
-      </div>
+      </section>
 
       <p className="text-xs text-slate-400 flex items-start gap-1.5">
         <IconAlertTriangle size={13} className="mt-0.5 flex-none" />
@@ -334,7 +319,7 @@ function TiersPayeur({ di, peutEcrire, onPoser }) {
   const [motif, setMotif] = useState(t?.source === 'fiche' ? (t.motif || '') : '');
   const coche = !!t;
   return (
-    <div className="border border-slate-200 rounded-lg p-2.5 space-y-2 text-sm">
+    <div className="border-t border-slate-100 pt-2.5 space-y-2 text-sm">
       <label className="flex items-start gap-2">
         <input type="checkbox" checked={coche} disabled={!peutEcrire || t?.source === 'section'}
           onChange={e => onPoser(e.target.checked ? (payeur || 'HELB') : '', e.target.checked ? motif : '')} className="mt-0.5" />
