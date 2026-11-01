@@ -3044,6 +3044,18 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   réponse possible. Accès **bloqué hors de Belgique**, exception accordée par le secrétariat pour une période ; la vérification
   du QR reste ouverte partout. (Mot de passe et Belgique : FAITS en 3.1.513 ; VA en ligne et code du candidat : FAITS en 3.1.514 ; PAE en ligne : FAIT en 3.1.515 ; messages : FAITS en 3.1.516 ; parcours, frais, aide : FAITS en 3.1.517.) Toute écriture venant du portail passe par le relevé de Lucie (`portailSync.js`), jamais l'inverse. **Ordre de construction** : 1 mot de passe et blocage hors Belgique · 2 VA en ligne déplacée + code candidat · 3 PAE en ligne · 4 messages · puis parcours, frais, aide.
 
+**LE REFUS EN SECONDE SESSION ET LE PAE** (3.5.029, Charles, 1er novembre 2026 : « notification au secrétariat et à la
+coordination : l'UE XXX est échouée en 2e session, les UE suivantes doivent être retirées du PAE ; puis un mail — ou un message
+dans son espace — : inscription annulée conformément au décret du 16.04.1991, frais liés remboursés sauf ceux d'une VA » ; tranché :
+UE qui ont XXX en prérequis LÉGAL, en cascade ; le secrétariat retire et prévient d'un clic après aperçu ; remboursement calculé et
+inscrit dans Finances, SAUF dette : déduit d'abord ; la partie fixe jamais). `lib/refusSeconde.js` : `signalerRefus` (appelé à la
+clôture d'une séance de session 2, `PUT /deliberation/ue/:ueNum/seance`) → `refus_seconde` + `lucie_notification` type `refus_seconde`
+(secrétariat, coordination de la section, direction ; lien `/etudiants?outil=refus2`) ; `suitesDe` (BFS sur `ue_prerequis`, sections
+du cursus, inscriptions sans résultat de l'année et des suivantes) ; `apercu` (frais avant/après par `calculerFrais`, l'« après »
+calculé dans une transaction DÉFAITE — le DI a un plafond, on ne soustrait pas `fi_par_ue`) ; `traiter` (`ecrireProgramme`, origine
+`refus_seconde`, puis message par `envoyer` si `espace.messages` est ouvert, sinon courriel) ; `remboursementsAFaire` (fiche →
+Finances, jusqu'au versement négatif). Écran `components/RefusSeconde.jsx` (rail Étudiants). Routes `/api/refus-seconde`.
+
 **LES ATTESTATIONS DES ANNÉES PASSÉES DANS LES ESPACES** (3.5.027, Charles, 1er novembre 2026 : « Lucie est nouvelle de
 cette année ; pour tous les résultats antérieurs, toutes les attestations de réussite, de VA, etc., dans les espaces des
 étudiants » ; tranché : réussites par UE + VA complètes + un document « toutes les années » ; aucun courriel ; bouton de la

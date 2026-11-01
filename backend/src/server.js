@@ -3117,6 +3117,7 @@ app.use((req, res, next) => {
 // LES FONCTIONS QU'ON ALLUME UNE À UNE (3.5.001) : Configuration → Fonctions.
 app.use('/api/fonctions', (await import('./routes/fonctions.js')).default);
 app.use('/api/messages-etudiants', (await import('./routes/messagesEtudiants.js')).default);
+app.use('/api/refus-seconde', (await import('./routes/refusSeconde.js')).default);
 // LE PAE EN LIGNE (3.1.515) : la fenêtre et les propositions des étudiants, côté école.
 app.use('/api/pae-en-ligne', (await import('./routes/paeEnLigne.js')).default);
 // LA DEMANDE DE VA EN LIGNE (3 octobre 2026) A QUITTÉ LUCIE en 3.1.514 : elle vit dans le portail des étudiants,

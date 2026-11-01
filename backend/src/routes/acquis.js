@@ -7088,6 +7088,13 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
   const seance = db.prepare(
     'SELECT * FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ? AND session = ?'
   ).get(ueNum, annee, session);
+  // LE REFUS EN SECONDE SESSION (3.5.029) : les refusés dont le PAE porte des unités qui dépendent de celle-ci sont
+  // signalés au secrétariat et à la coordination (lib/refusSeconde.js). Rien n'est retiré d'office.
+  if (cloturee && session === 2) {
+    const auteur = req.user?.nom_complet || 'Lucie';
+    import('../lib/refusSeconde.js').then(m => m.signalerRefus(ueNum, annee, org, auteur))
+      .catch(e => console.error('[refus seconde]', e.message));
+  }
   res.json({ ok: true, session, seance });
 });
 

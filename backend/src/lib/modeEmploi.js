@@ -10,7 +10,7 @@
  *   savoir — ce qu'il faut savoir : les règles qui bloquent ou qui surprennent.
  * Il explique le travail, pas l'informatique (CLAUDE.md, § 7). La version décrite se dit en tête.
  */
-export const VERSION_DECRITE = '3.5.028';
+export const VERSION_DECRITE = '3.5.029';
 
 export const RUBRIQUES = [
   {
@@ -770,6 +770,18 @@ export const RUBRIQUES = [
         ],
         images: [
           { src: "/guide/deliberation-cloture.png", legende: "La vue « Clôture » d'une séance déjà close : date de la séance, date de publication des résultats, visite des copies, puis [[Générer les documents]]." },
+        ],
+      },
+      {
+        titre: "Après un refus en seconde session : les unités à retirer du PAE",
+        ou: "Étudiants → rail → Refus en 2e session — unités à retirer du PAE (ou la notification du tableau de bord).",
+        texte: "Quand une séance de seconde session se clôt, Lucie cherche les étudiants refusés dont le PAE porte des unités qui ont l'unité refusée en prérequis — directement ou en cascade — et prévient le secrétariat, la coordination de la section et la direction. Dans la fenêtre, l'aperçu montre les unités à retirer (on peut en décocher), ce que valent leurs frais, ce qui est déduit de ce que l'étudiant doit encore et ce qui lui est remboursé, et le texte qu'il recevra. [[Retirer et prévenir|IconCheck|fort]] retire les unités de son PAE, note le remboursement et le prévient.",
+        savoir: [
+          "Rien n'est retiré d'office : c'est le secrétariat (ou la direction) qui clique. La coordination lit les dossiers de ses sections.",
+          "L'étudiant est prévenu par un message dans son espace si « Messages » lui est ouvert, sinon par courriel (adresse d'institut, à défaut privée). Le texte cite le décret du 16 avril 1991 et le règlement des études.",
+          "Les frais remboursés sont ceux des unités retirées — droit d'inscription et frais variables —, jamais la partie fixe ni les frais d'analyse d'une VA. Si l'étudiant doit encore de l'argent, ils s'en déduisent d'abord.",
+          "Le remboursement s'affiche dans la fiche → Finances (« Remboursement à faire ») jusqu'à ce qu'il soit encodé comme un versement négatif, nature « Remboursement ».",
+          "Une unité qui porte déjà un résultat, une note ou un report reste au programme : elle est nommée. « Sans suite » ferme un dossier avec un motif.",
         ],
       },
       {

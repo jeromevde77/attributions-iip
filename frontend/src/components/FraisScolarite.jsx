@@ -26,6 +26,13 @@ export default function FraisScolarite({ etudId, annee }) {
 
   const [recharge, setRecharge] = useState(0);
   const [qrPaiement, setQrPaiement] = useState(null);
+  // LES REMBOURSEMENTS À FAIRE (3.5.029) : unités retirées après un refus en seconde session ; la ligne s'efface quand le
+  // remboursement est encodé (un versement négatif, nature « remboursement »).
+  const [aRembourser, setARembourser] = useState([]);
+  useEffect(() => {
+    fetch(`/api/refus-seconde/etudiant/${etudId}/remboursements`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : [])).then(l => setARembourser(Array.isArray(l) ? l : [])).catch(() => setARembourser([]));
+  }, [etudId, recharge]);
   useEffect(() => {
     if (!f?.virement?.epc) { setQrPaiement(null); return; }
     QRCode.toDataURL(f.virement.epc, { errorCorrectionLevel: 'M', margin: 2, width: 192 }).then(setQrPaiement).catch(() => setQrPaiement(null));
@@ -216,6 +223,11 @@ export default function FraisScolarite({ etudId, annee }) {
         {/* LES VERSEMENTS (3.1.437) : la route existait, aucun écran ne l'appelait — les
             versements ne s'encodaient donc pas, et « reste à payer » était faux pour tous.
             Un versement s'ANNULE avec un motif, il ne s'efface pas. */}
+        {aRembourser.map(x => (
+          <div key={x.id} className="bloc-etat px-3 py-2 text-second" data-etat="surveiller">
+            <b>Remboursement à faire : {eur(x.reste)}</b> — unités retirées après le refus en seconde session de l’UE {x.ue_num} {x.ue_nom}
+            {' '}({x.annee_scolaire}, le {String(x.traite_le || '').slice(0, 10).split('-').reverse().join('/')}). Il s’encode comme un versement négatif, nature « Remboursement ».
+          </div>))}
         <div className="border-t border-slate-200 pt-3 space-y-2">
           <div className="flex items-center justify-between gap-2">
             <span className="text-sm font-semibold text-iip-blue">Versements</span>

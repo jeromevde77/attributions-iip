@@ -17,7 +17,7 @@ import { RailLateral, Chevron } from '../components/ui.jsx';
 import SuiviEtudiant from '../components/SuiviEtudiant.jsx';
 import NouvelEtudiant from '../components/NouvelEtudiant.jsx';
 import {
-  IconAddressBook, IconListSearch, IconAlertTriangle, IconEyeCheck, IconInbox, IconMessages, IconTablePlus, IconArrowForwardUp, IconArchive, IconDoorExit, IconSchool, IconArrowBackUp, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconSend, IconWritingSign, IconWritingSignOff, IconX,
+  IconAddressBook, IconListSearch, IconAlertTriangle, IconEyeCheck, IconInbox, IconPlaylistX, IconMessages, IconTablePlus, IconArrowForwardUp, IconArchive, IconDoorExit, IconSchool, IconArrowBackUp, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconSend, IconWritingSign, IconWritingSignOff, IconX,
   IconChecks, IconLock, IconGift,
   IconQrcode,
   IconCash, IconAdjustmentsHorizontal,
@@ -40,6 +40,7 @@ const DoublesProgrammes = lazy(() => import('../components/DoublesProgrammes.jsx
 const PresenceQRSuivi = lazy(() => import('../components/PresenceQRSuivi.jsx'));
 const ExtraitsBancaires = lazy(() => import('../components/ExtraitsBancaires.jsx'));
 const PropositionsPAE = lazy(() => import('../components/PropositionsPAE.jsx'));
+const RefusSeconde = lazy(() => import('../components/RefusSeconde.jsx'));
 const MessagesEtudiants = lazy(() => import('../components/MessagesEtudiants.jsx'));
 const HorsBloc = lazy(() => import('../components/HorsBloc.jsx'));
 const PaeHorsRegle = lazy(() => import('../components/PaeHorsRegle.jsx'));
@@ -3062,6 +3063,8 @@ export default function Etudiants() {
   const [suiviQR, setSuiviQR] = useState(false);
   const [extraits, setExtraits] = useState(false);
   const [paeEnLigne, setPaeEnLigne] = useState(false);
+  // LES REFUS EN 2E SESSION (3.5.029) : ouverts aussi depuis la notification (/etudiants?outil=refus2).
+  const [refus2, setRefus2] = useState(() => { try { return new URLSearchParams(window.location.search).get('outil') === 'refus2'; } catch { return false; } });
   const [messagesEtud, setMessagesEtud] = useState(false);
   const [rapportPAE, setRapportPAE] = useState(false);
   const [importListe, setImportListe] = useState(false);
@@ -3709,6 +3712,8 @@ export default function Etudiants() {
          ou refuse. La fenêtre s'y règle, par la direction. */
       ...(droitsRail.peut('etudiants.pae_composer') ? [{ key: 'pae-en-ligne', label: 'PAE en ligne — propositions des étudiants',
         icon: IconInbox, onClick: () => setPaeEnLigne(true) }] : []),
+      ...(droitsRail.passe('admin', 'editeur') || droitsRail.peut('etudiants.pae_composer') ? [{ key: 'refus2', label: 'Refus en 2e session — unités à retirer du PAE',
+        icon: IconPlaylistX, onClick: () => setRefus2(true) }] : []),
       { key: 'revue-pae', label: 'Revue des PAE', icon: IconEyeCheck,
         onClick: () => {
           const coches = filtres.filter(e => selEtudiants.has(e.id));
@@ -4199,6 +4204,8 @@ export default function Etudiants() {
       {messagesEtud && (
         <Suspense fallback={null}><MessagesEtudiants onFermer={() => setMessagesEtud(false)} /></Suspense>
       )}
+      {refus2 && (
+        <Suspense fallback={null}><RefusSeconde onFermer={() => { setRefus2(false); charger(); }} /></Suspense>)}
       {paeEnLigne && (
         <Suspense fallback={null}><PropositionsPAE Revue={RevuePAE} onFermer={() => { setPaeEnLigne(false); charger(); }} /></Suspense>
       )}
