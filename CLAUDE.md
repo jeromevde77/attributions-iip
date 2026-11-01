@@ -3081,6 +3081,11 @@ une a un corps blanc) et `OutilFenetre` (icône blanche, dans `outils` de `Fenet
 sortie d'une fenêtre (aperçu, imprimer, envoyer, PDF) est un `OutilFenetre` du bandeau.** Pas de cadre dans un cadre, pas de clé
 technique affichée (en `title=`), pas d'émoji dans un bouton. 105 fichiers repris en un passage.
 
+**LE MODE D'EMPLOI DIT QUI EST L'AUTEUR** (3.5.051, Charles : « qu'on comprenne bien que c'est moi l'auteur, ce n'est pas
+Prigogine »). Pied de chaque page du PDF : la marque de Lucie et « Lucie — conçue et développée par Charles Sohet · version
+adaptée à l'Institut Ilya Prigogine » ; même mention au pied de la couverture. Les PIÈCES OFFICIELLES gardent le pied de
+l'établissement (`piedDocument`).
+
 **LE MODE D'EMPLOI DE TOUT LUCIE, EN QUATRE VERSIONS, AVEC SES ANNEXES** (3.5.047, Charles : « le mode d'emploi de TOUT
 Lucie… avec les documents que cela peut sortir en annexe… la version secrétariat (totale), la version profs… TOUT dans la
 version admin avec config »). Documentation → Mode d'emploi : la direction a quatre boutons PDF (Complet, Secrétariat,

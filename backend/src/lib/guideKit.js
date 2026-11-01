@@ -305,7 +305,7 @@ function couverture(m) {
       <div class="logo">${logoLucie()}<div class="nom">Lucie<span>v.${esc(v)}</span></div></div>
       <div class="ligne"></div><h2>${esc(titre)}</h2><div class="sous">${esc(sous)}</div></div>
     <div class="themes">${m.rubriques.map(r => esc(r.titre)).join(' · ')} · Aide-mémoire</div>
-    <div class="pied"><div><b>Institut Ilya Prigogine</b><br>Campus Erasme · Route de Lennik 808, 1070 Anderlecht</div>
+    <div class="pied"><div><b>Lucie — conçue et développée par Charles Sohet</b><br>Version adaptée à l'Institut Ilya Prigogine · Campus Erasme, 1070 Anderlecht</div>
       <div style="text-align:right">${esc(mentionProduction())} · version ${esc(m.version)}<br>Captures sur données fictives</div></div>
   </section>`, `
     @page { size: A4; margin: 0; }
@@ -427,12 +427,14 @@ async function rendreSpecimens(annee) {
 }
 const anneeDuJour = () => { const d = new Date(), y = d.getFullYear(); return d.getMonth() >= 8 ? `${y}-${y + 1}` : `${y - 1}-${y}`; };
 
-/** Le pied de chaque page : logo au-dessus du filet, deux lignes centrées. La page « n / N » est posée ensuite. */
+/** Le pied de chaque page : logo au-dessus du filet, deux lignes centrées. L'AUTEUR D'ABORD (3.5.051, Charles : « qu'on
+ *  comprenne bien que c'est moi l'auteur, ce n'est pas Prigogine ») : Lucie, conçue et développée par Charles Sohet,
+ *  version adaptée à l'Institut. Les pièces officielles, elles, gardent le pied de l'établissement. La page « n / N » est posée ensuite. */
 function pied() {
   return `<div style="width:100%;font-family:Inter,Arial,Helvetica,sans-serif;padding:0 18mm;margin:0">
-    <img src="${logoCourant()}" style="height:7.5mm;display:block;margin:0 0 1mm">
+    <div style="display:flex;align-items:center;gap:1.5mm;margin:0 0 1mm">${logoLucie().replace('width="68mm"', 'width="13mm" height="7.5mm"')}<span style="font-size:8pt;font-weight:700;color:${C.nuit}">Lucie</span></div>
     <div style="border-top:0.5pt solid ${C.bleu};padding-top:1.3mm;text-align:center;font-size:6.3pt;color:#3F4652;line-height:1.4">
-      <b style="color:${C.nuit}">Institut Ilya Prigogine</b> · Lucie — mode d'emploi<br>${esc(mentionProduction())}</div></div>`;
+      <b style="color:${C.nuit}">Lucie — conçue et développée par Charles Sohet</b> · version adaptée à l'Institut Ilya Prigogine<br>Mode d'emploi · ${esc(mentionProduction())}</div></div>`;
 }
 const MARGES = { top: '16mm', right: '0', bottom: '27mm', left: '0' };
 
