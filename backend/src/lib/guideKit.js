@@ -408,23 +408,40 @@ export function imagesDuGuide(role, voir) {
   return [...l];
 }
 
+/* LE PDF SE GARDE (3.5.044) : composé une fois par public et par version, il ressort aussitôt au clic suivant. La clé
+   porte le public réellement servi (les chapitres et points), la version décrite, et l'ensemble des captures jointes. */
+const CACHE = new Map();
+const cleCache = (m, images) => `${m.version}|${(m.publics || ['tous']).join(',')}|${m.rubriques.map(r => r.id + ':' + r.points.length).join(',')}|${Object.keys(images).length}`;
+
 /** Le PDF complet. `images` : { '/guide/x.png': 'data:image/png;base64,…' }. */
 export async function rendreGuidePdf(role, voir, images = {}) {
+  const m0 = modeEmploiPour(role, voir);
+  const cle = cleCache(m0, images);
+  // La promesse se garde, pas seulement le résultat : deux clics pendant la composition n'en lancent qu'une.
+  if (!CACHE.has(cle)) {
+    if (CACHE.size > 12) CACHE.delete(CACHE.keys().next().value);
+    CACHE.set(cle, composerGuidePdf(role, voir, images).catch(e => { CACHE.delete(cle); throw e; }));
+  }
+  return CACHE.get(cle);
+}
+
+async function composerGuidePdf(role, voir, images = {}) {
   const m = modeEmploiPour(role, voir);
   const dims = dimsDepuis(images);
   const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
-  const corpsOpts = { pied, marges: MARGES };
+  // Dix minutes par morceau : un chapitre de vingt pages et trente captures prend son temps sur le serveur (3.5.044).
+  const corpsOpts = { pied, marges: MARGES, delaiMs: 10 * 60 * 1000 };
 
   // 1. Tout sauf le sommaire : couverture, mot, chapitres, aide-mémoire.
   const morceaux = [
-    { html: couverture(m), pageCss: true },
+    { html: couverture(m), pageCss: true, delaiMs: 10 * 60 * 1000 },
     { html: motDeLaDirection(), ...corpsOpts },
     ...m.rubriques.map((r, i) => ({ html: joindre(chapitre(r, i, dims), images), ...corpsOpts })),
     { html: aideMemoire(m), ...corpsOpts },
   ];
   // 2. Le sommaire se compte d'abord (pages provisoires), puis se refait avec les vraies pages.
   const brouillon = sommaire(m, m.rubriques.map(() => '00'), '00');
-  const [rendus, [somBrouillon]] = await Promise.all([rendrePdfs(morceaux, {}, 3), rendrePdfs([{ html: brouillon, ...corpsOpts }], {}, 1)]);
+  const [rendus, [somBrouillon]] = await Promise.all([rendrePdfs(morceaux, {}, 2), rendrePdfs([{ html: brouillon, ...corpsOpts }], {}, 1)]);
   const docs = await Promise.all(rendus.map(b => PDFDocument.load(b)));
   const nSom = (await PDFDocument.load(somBrouillon)).getPageCount();
   // Pagination : la couverture ne compte pas ; le mot de la direction est la page 1.

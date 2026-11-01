@@ -225,11 +225,19 @@ const enDataUrl = async src => {
   const b = await r.blob();
   return new Promise(ok => { const f = new FileReader(); f.onload = () => ok(f.result); f.onerror = () => ok(null); f.readAsDataURL(b); });
 };
+/* UNE SEULE MISE EN PAGE, CELLE DU KIT (3.5.044, Charles : « si on clique sur la version PDF, on a un mode d'emploi impeccable
+ * dans cette mise en page. POINT ! »). L'ancien repli — la mise en page simple, imprimée par le navigateur — sortait dès que
+ * le serveur tardait : c'est lui qu'on recevait. Il est retiré : si le serveur échoue, on le dit, on ne sort rien d'autre.
+ * Pendant la composition (une à deux minutes la première fois, puis aussitôt), l'onglet ouvert dit ce qui se passe. */
+const ATTENTE = `<!doctype html><meta charset="utf-8"><title>Lucie — mode d'emploi</title>
+<body style="margin:0;display:grid;place-items:center;height:100vh;background:#0E2A4F;color:#fff;font-family:Inter,Segoe UI,Helvetica,Arial,sans-serif">
+<div style="text-align:center;max-width:30rem;padding:2rem"><div style="font-size:28px;font-weight:700;margin-bottom:12px">Lucie — mode d'emploi</div>
+<div style="opacity:.85;line-height:1.5">Composition du document, chapitre par chapitre, avec ses captures.<br>La première fois, cela prend une à deux minutes ; ensuite, il s'ouvre aussitôt.</div></div></body>`;
 async function ouvrirModeEmploiPdf(setErreur, voir) {
   const onglet = window.open('', '_blank');
+  try { onglet?.document.write(ATTENTE); onglet?.document.close(); } catch { /* onglet bloqué */ }
   const q = voir && voir !== 'tous' ? `?voir=${voir}` : '';
   try {
-    // LE PDF AU MODÈLE DU KIT (3.1.521) : le serveur compose couverture, sommaire et chapitres ; l'écran joint les captures.
     const ri = await fetch(`/api/documentation/mode-emploi/pdf/images${q}`, { headers: authHeaders() });
     const ji = await ri.json();
     if (!ri.ok) throw new Error(ji.error || `Erreur ${ri.status}`);
@@ -237,21 +245,14 @@ async function ouvrirModeEmploiPdf(setErreur, voir) {
     for (const src of ji.images || []) { const d = await enDataUrl(src); if (d) images[src] = d; }
     const rp = await fetch('/api/documentation/mode-emploi/pdf', { method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ voir: voir && voir !== 'tous' ? voir : null, images }) });
-    if (rp.ok) {
-      const url = URL.createObjectURL(await rp.blob());
-      if (onglet) onglet.location = url; else window.location = url;
-      return;
+    if (!rp.ok) {
+      const j = await rp.json().catch(() => ({}));
+      throw new Error(j.error || `Le PDF n'a pas pu être composé (erreur ${rp.status}). Réessayez dans un instant.`);
     }
-    // Le serveur ne sait pas composer de PDF : l'impression du navigateur, sur la mise en page simple.
-    const r = await fetch(`/api/documentation/mode-emploi/document${q}`, { headers: authHeaders() });
-    const j = await r.json();
-    if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
-    let html = j.html;
-    for (const [src, d] of Object.entries(images)) html = html.split(`src="${src}"`).join(`src="${d}"`);
-    if (!onglet) throw new Error('Le navigateur a bloqué la fenêtre.');
-    onglet.document.write(html); onglet.document.close(); setTimeout(() => onglet.print(), 600);
+    const url = URL.createObjectURL(await rp.blob());
+    if (onglet && !onglet.closed) onglet.location = url; else window.location = url;
   } catch (e) {
-    onglet?.close();
+    try { onglet?.close(); } catch { /* */ }
     setErreur(e.message);
   }
 }

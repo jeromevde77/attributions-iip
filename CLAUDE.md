@@ -3081,6 +3081,15 @@ une a un corps blanc) et `OutilFenetre` (icône blanche, dans `outils` de `Fenet
 sortie d'une fenêtre (aperçu, imprimer, envoyer, PDF) est un `OutilFenetre` du bandeau.** Pas de cadre dans un cadre, pas de clé
 technique affichée (en `title=`), pas d'émoji dans un bouton. 105 fichiers repris en un passage.
 
+**LE PDF DU MODE D'EMPLOI N'A QU'UNE MISE EN PAGE, CELLE DU KIT** (3.5.044, Charles, 1er novembre 2026, furieux : « si on
+clique sur la version PDF, on a un mode d'emploi impeccable dans cette mise en page. POINT ! »). Ce qu'il recevait n'était
+pas le kit mais le REPLI : chaque chapitre avait 61 s pour se rendre (le délai de `rendrePdf` se compte sur les `.saut`, que
+le guide n'a pas) ; un chapitre de vingt pages chargé de captures dépassait sur le VPS, le serveur rendait 503, et l'écran
+imprimait l'ancienne mise en page simple. Désormais : `delaiMs` (option de `rendrePdf`) à 10 min pour chaque morceau du
+guide, deux morceaux à la fois ; le PDF composé se GARDE en mémoire par public et version (`CACHE` de `guideKit.js`, la
+promesse comprise : deux clics, une composition) ; **le repli est retiré d'`Aide.jsx`** — un échec se dit, rien d'autre ne
+sort ; l'onglet affiche une page d'attente pendant la composition. **Ne jamais remettre de mise en page de secours.**
+
 **LE MODE D'EMPLOI COMPLET** (3.5.041, Charles, 1er novembre 2026 : « TOUT doit y être — budget, dotation, configuration,
 les documents qui sortent, les présences, l'espace personnel —, même si cela fait 200 pages ; je vais l'envoyer au CA et à
 l'administration »). 25 chapitres, 312 points, 233 pages pour la direction (le professeur : 7 chapitres, 56 points). Six

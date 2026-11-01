@@ -124,6 +124,9 @@ export async function rendrePdf(html, options = {}) {
     // (A4 paysage, sans marge) dans son @page. Sans cela, on imposait A4
     // portrait et 12 mm de marge à une pièce faite pour du papier pré-imprimé.
     pageCss = false,
+    // UN DÉLAI IMPOSÉ (3.5.044) : le mode d'emploi rend des chapitres de vingt pages chargés de captures, sans « saut » à
+    // compter — 61 s ne suffisaient pas sur le serveur, et l'écran retombait sur une mise en page de secours.
+    delaiMs = null,
   } = options;
 
   const nav = await obtenirNavigateur();
@@ -145,7 +148,7 @@ export async function rendrePdf(html, options = {}) {
     // Le délai s'adapte au volume : une minute de base, plus une seconde par
     // page estimée. Mieux vaut un rendu long qu'une expiration à mi-course.
     const pagesEstimees = Math.max(1, (html.match(/class="saut"/g) || []).length + 1);
-    const delai = Math.min(15 * 60 * 1000, 60000 + pagesEstimees * 1000);
+    const delai = delaiMs || Math.min(15 * 60 * 1000, 60000 + pagesEstimees * 1000);
 
     const commun = {
       timeout: delai,
