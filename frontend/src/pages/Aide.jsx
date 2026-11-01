@@ -6,6 +6,7 @@ import {
   IconZoomIn, IconPlus, IconDeviceFloppy, IconCheck, IconTrash, IconDownload, IconUpload, IconFilter, IconCalendar, IconEye, IconArrowBackUp,
   IconQrcode, IconPrinter, IconFileSpreadsheet, IconClipboardText, IconLock, IconLockOpen, IconMail, IconRefresh, IconCopy,
   IconUserPlus, IconCalendarWeek, IconPlayerPlay, IconDots, IconMessage, IconBell, IconCalendarPlus, IconTicket, IconGift,
+  IconBuildingBank, IconCoin, IconFileCertificate, IconCalendarCheck, IconUserCircle, IconUsersGroup,
 } from '@tabler/icons-react';
 
 /* LES BOUTONS DANS LE TEXTE (3.1.488, Charles : « des images des boutons… comment veux-tu que les profs comprennent ;
@@ -259,7 +260,7 @@ async function ouvrirModeEmploiPdf(setErreur, voir) {
 const texteDuPoint = p => [p.titre, p.ou, p.texte, ...(p.savoir || [])].filter(Boolean).join(' ').replace(/\[\[([^\]|]+)[^\]]*\]\]/g, '$1').toLowerCase();
 const NOMS_PUBLIC = { ens: 'Enseignants', sec: 'Secrétariat', coo: 'Coordinations', dir: 'Direction' };
 // Les icônes que le contenu nomme (`icone` côté serveur) : une liste fermée, pas toute la bibliothèque.
-const ICONES = { IconAccessible, IconAward, IconBook, IconBooks, IconCertificate, IconChartBar, IconChecklist, IconChevronRight, IconDeviceMobile, IconHome, IconLayoutGrid, IconPencil, IconScale, IconSend, IconSettings, IconShieldExclamation, IconStairsUp, IconUserCheck, IconUsers };
+const ICONES = { IconBuildingBank, IconCoin, IconFileCertificate, IconCalendarCheck, IconUserCircle, IconUsersGroup, IconAccessible, IconAward, IconBook, IconBooks, IconCertificate, IconChartBar, IconChecklist, IconChevronRight, IconDeviceMobile, IconHome, IconLayoutGrid, IconPencil, IconScale, IconSend, IconSettings, IconShieldExclamation, IconStairsUp, IconUserCheck, IconUsers };
 const Icone = ({ nom, ...p }) => { const I = ICONES[nom] || IconHelpCircle; return <I {...p} />; };
 
 /* Le chemin « Où », en étapes : « Mes cours → un cours → Présences ». */

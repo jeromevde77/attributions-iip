@@ -57,7 +57,8 @@ export default function TempsTravail() {
   if (!info.gere && !info.designe) return <div className="carte px-4 py-3 text-sm text-slate-600">Le temps de travail ne concerne que les membres du personnel désignés par la direction.</div>;
 
   const faces = [
-    ...(info.designe || info.gere ? [['annee', 'Année', IconCalendarWeek], ['releve', 'Relevé du mois', IconClockHour4], ['equipe', 'L’équipe', IconUsers]] : []),
+    ...(info.designe || info.gere ? [['annee', 'Année', IconCalendarWeek], ['releve', 'Relevé du mois', IconClockHour4],
+      ['equipe-annee', 'L’équipe : l’année', IconUsers], ['equipe-semaine', 'L’équipe : une semaine', IconUsers], ['equipe', 'L’équipe : un mois', IconUsers]] : []),
     ...(info.gere ? [['suivi', 'Suivi', IconChecklist], ['generer', 'Générer l’année', IconWand], ['reglages', 'Personnes et réglages', IconSettings]] : []),
   ];
   const listePers = personnes.personnes || [];
@@ -90,6 +91,8 @@ export default function TempsTravail() {
       {face === 'annee' && <Annee uid={uid} info={info} ouvrir={ouvrir} />}
       {face === 'releve' && <Releve uid={uid} info={info} ouvrir={ouvrir} />}
       {face === 'equipe' && <Equipe />}
+      {face === 'equipe-annee' && <EquipeAnnee gere={info.gere} onSemaine={l => { SEMAINE.v = l; setFace('equipe-semaine'); }} />}
+      {face === 'equipe-semaine' && <EquipeSemaine gere={info.gere} />}
       {face === 'suivi' && <Suivi onOuvrir={(id, f) => { setUid(id); setFace(f); }} />}
       {face === 'generer' && <Generer info={info} personnes={listePers} recharger={chargerPersonnes} />}
       </div>
@@ -281,6 +284,101 @@ function Equipe() {
         </Tableau>
       </div>
       <p className="text-second text-slate-500">● prévu présent · C congé · A absence · F férié.</p>
+    </div>
+  );
+}
+
+const SEMAINE = { v: null };
+const lundiDe = d => { const x = new Date(`${d}T00:00:00Z`); const w = (x.getUTCDay() + 6) % 7; return new Date(x.getTime() - w * 864e5).toISOString().slice(0, 10); };
+const plus = (d, n) => new Date(new Date(`${d}T00:00:00Z`).getTime() + n * 864e5).toISOString().slice(0, 10);
+const court = m => (m ? hm(m).replace(' h ', 'h').replace(/h00$/, 'h') : '');
+
+/* L'ANNÉE DE L'ÉQUIPE (3.5.040, Charles : « toute l'année ; une version en semaines, avec le temps de travail de chacun
+   par semaine, et annuel »). Une ligne par personne, une colonne par semaine ; les totaux de l'année au bout. */
+function EquipeAnnee({ gere, onSemaine }) {
+  const [d, setD] = useState(null);
+  useEffect(() => { api('/equipe-annee').then(setD).catch(e => setD({ erreur: e.message })); }, []);
+  if (!d) return <div className="text-sm text-slate-500">Chargement…</div>;
+  if (d.erreur) return <div className="text-sm text-red-700">{d.erreur}</div>;
+  const cel = x => (x.statut === 'travail' ? (gere ? court(x.reel) : '●') : x.statut === 'ete' ? 'été' : x.statut === 'conge' ? 'C' : '');
+  return (
+    <div className="space-y-3">
+      <p className="text-second text-slate-500">{gere ? 'Heures prestées par semaine (le prévu, corrigé des écarts encodés) ; au bout, l’année face au dû.' : 'Qui travaille, qui est en congé, semaine par semaine.'} Un clic sur une semaine l’ouvre jour par jour.</p>
+      <div className="overflow-x-auto">
+        <Tableau dense>
+          <TableauEntete>
+            <Th className="sticky left-0 z-10">Personne</Th>
+            {d.semaines.map(l => <Th key={l} align="centre" className="cursor-pointer px-1" onClick={() => onSemaine(l)} title={`Semaine du ${l}`}>{fmt(l)}</Th>)}
+            {gere && <><Th align="droite">Presté</Th><Th align="droite">Dû</Th><Th align="droite">Solde</Th></>}
+          </TableauEntete>
+          <tbody>
+            {d.personnes.map(p => (
+              <Tr key={p.id}>
+                <Td className="whitespace-nowrap sticky left-0 z-10" style={{ background: 'var(--c-fond_ligne, #fff)' }}>{p.nom}{!p.genere && <span className="text-slate-400"> · à générer</span>}</Td>
+                {p.semaines.map(x => (
+                  <Td key={x.lundi} align="centre" className={`px-1 whitespace-nowrap ${x.statut === 'travail' ? '' : 'text-slate-400'}`}
+                    title={x.statut === 'travail' && gere ? `prévu ${hm(x.prevu)} · presté ${hm(x.reel)}` : ''}>
+                    <span className={gere && x.statut === 'travail' && x.reel !== x.prevu ? 'font-semibold' : ''}>{cel(x)}</span>
+                  </Td>
+                ))}
+                {gere && <><Td align="droite" ton="fort" className="whitespace-nowrap">{hm(p.reel)}</Td><Td align="droite" className="whitespace-nowrap">{hm(p.du)}</Td>
+                  <Td align="droite" className="whitespace-nowrap">{p.reel - p.du ? <PastilleEtat etat={p.reel > p.du ? 'surveiller' : 'corriger'}>{hm(p.reel - p.du)}</PastilleEtat> : '0'}</Td></>}
+              </Tr>
+            ))}
+            <Tr>
+              <Td ton="fort" className="sticky left-0 z-10" style={{ background: 'var(--c-fond_ligne, #fff)' }}>Au travail</Td>
+              {d.presents.map((n, i) => <Td key={i} align="centre" className="px-1">{n < d.presents_min ? <PastilleEtat etat={n ? 'surveiller' : 'corriger'}>{n}</PastilleEtat> : n}</Td>)}
+              {gere && <Td colSpan={3} />}
+            </Tr>
+          </tbody>
+        </Tableau>
+      </div>
+      <p className="text-second text-slate-500">C congé scolaire · été vacances d’été{gere ? ' · en gras : une semaine dont le presté diffère du prévu' : ' · ● au travail'}. La ligne « Au travail » compte les personnes en semaine de travail (le roulement de l’été s’y lit).</p>
+    </div>
+  );
+}
+
+/* UNE SEMAINE DE L'ÉQUIPE, jour par jour. */
+function EquipeSemaine({ gere }) {
+  const [lundi, setLundi] = useState(SEMAINE.v || lundiDe(new Date().toISOString().slice(0, 10)));
+  const [d, setD] = useState(null);
+  useEffect(() => { SEMAINE.v = lundi; api(`/equipe-semaine/${lundi}`).then(setD).catch(e => setD({ erreur: e.message })); }, [lundi]);
+  if (!d) return <div className="text-sm text-slate-500">Chargement…</div>;
+  if (d.erreur) return <div className="text-sm text-red-700">{d.erreur}</div>;
+  const J = ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim'];
+  const visibles = d.jours.map((j, i) => i < 5 || d.personnes.some(p => p.jours[i].plan || p.jours[i].present)).map((v, i) => (v ? i : -1)).filter(i => i >= 0);
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-nowrap items-center gap-2">
+        <button className="bouton" onClick={() => setLundi(plus(lundi, -7))} aria-label="Semaine précédente">‹</button>
+        <input type="date" className="controle border border-slate-300 rounded-champ text-sm" value={lundi} onChange={e => e.target.value && setLundi(lundiDe(e.target.value))} />
+        <button className="bouton" onClick={() => setLundi(plus(lundi, 7))} aria-label="Semaine suivante">›</button>
+        <span className="text-second text-slate-500">Semaine du {fmt(d.lundi)} au {fmt(plus(d.lundi, 6))}</span>
+      </div>
+      <Tableau dense>
+        <TableauEntete>
+          <Th>Personne</Th>
+          {visibles.map(i => <Th key={i} align="centre" title={d.jours[i].ferie || ''}>{J[i]} {fmt(d.jours[i].jour)}{d.jours[i].ferie ? ' · férié' : ''}</Th>)}
+          {gere && <><Th align="droite">Prévu</Th><Th align="droite">Presté</Th></>}
+        </TableauEntete>
+        <tbody>
+          {d.personnes.map(p => (
+            <Tr key={p.id}>
+              <Td className="whitespace-nowrap">{p.nom}</Td>
+              {visibles.map(i => { const c = p.jours[i];
+                return (
+                  <Td key={i} align="centre" className="whitespace-nowrap">
+                    {c.statut && c.statut !== 'travail' ? <span className="text-slate-400">{c.statut === 'ete' ? 'été' : 'congé'}</span>
+                      : c.absence ? <PastilleEtat etat="surveiller">{c.absence}</PastilleEtat>
+                      : gere ? <>{c.reel || c.plan || ''}{c.reel && <div className="text-mention text-slate-500">prévu {c.plan || '—'}</div>}</>
+                      : c.present ? '●' : ''}
+                  </Td>
+                ); })}
+              {gere && <><Td align="droite">{hm(p.prevu)}</Td><Td align="droite" ton="fort">{hm(p.preste)}</Td></>}
+            </Tr>
+          ))}
+        </tbody>
+      </Tableau>
     </div>
   );
 }

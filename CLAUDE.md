@@ -3092,8 +3092,11 @@ relevé et le planning de l'équipe ; la direction désigne les comptes). Person
 lus du calendrier « vacances » de l'école, cinq semaines d'été dans la fenêtre réglable, formule 5 j / 4 × 9 h / annualisé
 avec semaines fortes compensées) et contrôle chaque règle ; un férié pendant une semaine de travail compte pour ses heures
 prévues. Le mois signé par la direction se verrouille. L'annualisé ne s'applique qu'une fois coché « horaire variable inscrit
-au règlement de travail » (Personnes et réglages). L'année du module est la sienne (celle d'aujourd'hui). Banc :
-`backend/test/tempsTravail.mjs` (35 ok).
+au règlement de travail » (Personnes et réglages). L'année du module est la sienne (celle d'aujourd'hui). **Toute l'année, semaine par semaine** (3.5.040, Charles : « une
+version en semaines, avec le temps de travail de chacun par semaine, et annuel ») : faces « L'équipe : l'année » (52 colonnes,
+présté par semaine, presté / dû / solde de l'année, présents par semaine — `anneeEquipe`) et « L'équipe : une semaine »
+(jour par jour — `semaineEquipe`) ; les heures des autres restent à la direction. Banc :
+`backend/test/tempsTravail.mjs` (41 ok).
 
 **TOUT TABLEAU SUIT LES RÉGLAGES, ET CHACUN CHOISIT SON THÈME** (3.5.037, Charles, 1er novembre 2026 : « non respect du
 design » sur Qui a fait quoi, Nouveautés, la liste des étudiants, l'encodage rapide, les recours ; « ce doit être géré dans

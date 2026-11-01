@@ -442,3 +442,66 @@ export function planningEquipe(annee, mois) {
 }
 
 export { JOURS };
+
+/* L'ANNÉE DE L'ÉQUIPE, SEMAINE PAR SEMAINE (3.5.040, Charles : « la gestion de l'emploi du temps des administratifs doit
+ * couvrir toute l'année ; une version en semaines, avec le temps de travail de chacun par semaine, et annuel »). Pour
+ * chaque personne désignée et chaque semaine : le statut, le prévu, le presté (prévu corrigé des écarts encodés) ; puis
+ * les totaux de l'année face au dû. `heures` faux : les statuts seuls (ce que voit une personne désignée des autres). */
+export function anneeEquipe(annee, { heures = true } = {}) {
+  const semaines = semainesDeLAnnee(annee);
+  const gens = db.prepare(`SELECT p.utilisateur_id AS id, p.fraction, p.formule, u.nom_complet AS nom, u.email FROM tt_personne p
+    JOIN utilisateur u ON u.id = p.utilisateur_id WHERE p.actif = 1 ORDER BY u.nom_complet`).all();
+  const fin = plusJours(semaines[51], 6);
+  const personnes = gens.map(g => {
+    const sem = new Map(anneeDe(g.id, annee).map(s => [s.lundi, s]));
+    const ecarts = db.prepare('SELECT * FROM tt_ecart WHERE utilisateur_id = ? AND jour >= ? AND jour <= ?').all(g.id, semaines[0], fin);
+    const delta = new Map();
+    for (const e of ecarts) {
+      const l = lundiDe(e.jour), i = (s2d(e.jour).getUTCDay() + 6) % 7, s = sem.get(l);
+      const p = s?.statut === 'travail' ? dureeJour(s.jours[i]) : 0;
+      const r = e.type === 'reel' ? dureeJour(e) : (ABSENCES[e.motif]?.compte ? p : 0);
+      delta.set(l, (delta.get(l) || 0) + r - p);
+    }
+    const lignes = semaines.map(l => {
+      const s = sem.get(l);
+      const prevu = s?.minutes || 0, reel = prevu + (delta.get(l) || 0);
+      return heures ? { lundi: l, statut: s?.statut || null, prevu, reel } : { lundi: l, statut: s?.statut || null };
+    });
+    const travail = lignes.filter(x => x.statut === 'travail').length;
+    const du = Math.round(REGLES.hebdo * g.fraction) * travail;
+    const out = { id: g.id, nom: g.nom, email: g.email, formule: g.formule, fraction: g.fraction, genere: sem.size > 0, semaines: lignes };
+    if (heures) Object.assign(out, { du, prevu: lignes.reduce((t, x) => t + x.prevu, 0), reel: lignes.reduce((t, x) => t + x.reel, 0) });
+    return out;
+  });
+  // Les présents par semaine (jours ouvrables où chacun est prévu) : le roulement de l'été se lit ici.
+  const presents = semaines.map(l => personnes.filter(p => p.semaines.find(x => x.lundi === l)?.statut === 'travail').length);
+  return { semaines, personnes, presents, presents_min: reglage(annee).presents_min };
+}
+
+/** Une semaine de l'équipe, jour par jour : l'horaire prévu, le réel encodé, le total de chacun. */
+export function semaineEquipe(annee, lundi, { heures = true } = {}) {
+  lundi = lundiDe(lundi);
+  const gens = db.prepare(`SELECT p.utilisateur_id AS id, u.nom_complet AS nom, u.email FROM tt_personne p
+    JOIN utilisateur u ON u.id = p.utilisateur_id WHERE p.actif = 1 ORDER BY u.nom_complet`).all();
+  const feries = feriesDe(annee);
+  const jours = Array.from({ length: 7 }, (_, i) => plusJours(lundi, i));
+  return {
+    lundi, jours: jours.map(j => ({ jour: j, ferie: feries.get(j) || null })),
+    personnes: gens.map(g => {
+      const s = db.prepare('SELECT statut, jours_json FROM tt_semaine WHERE utilisateur_id = ? AND lundi = ?').get(g.id, lundi);
+      const plan = s ? JSON.parse(s.jours_json || '[]') : [];
+      const ec = new Map(db.prepare('SELECT * FROM tt_ecart WHERE utilisateur_id = ? AND jour >= ? AND jour <= ?').all(g.id, lundi, jours[6]).map(e => [e.jour, e]));
+      let tp = 0, tr = 0;
+      const cases = jours.map((j, i) => {
+        const p = s?.statut === 'travail' ? plan[i] : null, e = ec.get(j);
+        const dp = dureeJour(p), dr = e?.type === 'reel' ? dureeJour(e) : e?.type === 'absence' ? (ABSENCES[e.motif]?.compte ? dp : 0) : dp;
+        tp += dp; tr += dr;
+        const c = { statut: s?.statut || null, present: dr > 0 && e?.type !== 'absence',
+          absence: e?.type === 'absence' ? (ABSENCES[e.motif]?.libelle || e.motif) : null, ferie: feries.get(j) || null };
+        if (heures) Object.assign(c, { plan: p ? `${p.debut}–${p.fin}` : null, reel: e?.type === 'reel' ? `${e.debut}–${e.fin}` : null, prevu: dp, preste: dr });
+        return c;
+      });
+      return { id: g.id, nom: g.nom, email: g.email, statut: s?.statut || null, jours: cases, ...(heures ? { prevu: tp, preste: tr } : {}) };
+    }),
+  };
+}

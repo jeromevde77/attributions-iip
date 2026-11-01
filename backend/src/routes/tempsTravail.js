@@ -9,7 +9,7 @@ import { envelopperDocument } from '../lib/document.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import {
   migrerTempsTravail, reglage, ecrireReglage, genererAnnee, anneeDe, modifierSemaine, releve, ecrireEcart, ficheConges,
-  signer, planningEquipe, FORMULES, ABSENCES, REGLES, hm, semainesDeLAnnee, semainesDeConge, JOURS, plusJours,
+  signer, planningEquipe, anneeEquipe, semaineEquipe, FORMULES, ABSENCES, REGLES, hm, semainesDeLAnnee, semainesDeConge, JOURS, plusJours,
 } from '../lib/tempsTravail.js';
 
 try { migrerTempsTravail(); } catch (e) { console.error('[temps de travail] migration', e.message); }
@@ -126,6 +126,17 @@ r.post('/signer/:uid', authRequired, (req, res) => {
 r.get('/equipe/:mois', authRequired, (req, res) => {
   if (!gere(req.user) && !designe(req.user.id)) return res.status(404).json({ error: 'Introuvable.' });
   res.json(planningEquipe(annee(req), req.params.mois));
+});
+
+// L'année de l'équipe, semaine par semaine, et une semaine jour par jour. La direction voit les heures ; une personne
+// désignée ne voit des autres que leur présence et leurs congés — ses propres heures, elle les a dans son année.
+r.get('/equipe-annee', authRequired, (req, res) => {
+  if (!gere(req.user) && !designe(req.user.id)) return res.status(404).json({ error: 'Introuvable.' });
+  res.json(anneeEquipe(annee(req), { heures: gere(req.user) }));
+});
+r.get('/equipe-semaine/:lundi', authRequired, (req, res) => {
+  if (!gere(req.user) && !designe(req.user.id)) return res.status(404).json({ error: 'Introuvable.' });
+  res.json(semaineEquipe(annee(req), req.params.lundi, { heures: gere(req.user) }));
 });
 
 // Le tableau de bord de la direction : chaque personne, son année, son solde, ses relevés à signer.

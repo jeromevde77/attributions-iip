@@ -95,5 +95,18 @@ t('une signature ne s’efface pas', /efface/.test(essai(() => db.prepare('DELET
 t('fiche de congés : l’adjoint d’abord', essai(() => T.signer(1, 'conges', A, 'adjoint', adj, 'Nicolas', A)) === null);
 t('fiche de congés : 5 périodes', T.ficheConges(1, A).periodes.length === 5, T.ficheConges(1, A).periodes);
 
+console.log('\nL’année et la semaine de l’équipe');
+db.prepare("INSERT OR IGNORE INTO tt_personne (utilisateur_id, fraction, formule) VALUES (1, 1, '5j')").run();
+const ae = T.anneeEquipe(A);
+const p1a = ae.personnes.find(p => p.id === 1);
+t('52 semaines par personne', p1a.semaines.length === 52);
+t('dû 1 404 h, prévu 1 404 h', p1a.du === 1404 * 60 && p1a.prevu === 1404 * 60, [p1a.du, p1a.prevu]);
+t('presté = prévu + écarts (+30 min − 7 h 12)', p1a.reel === 1404 * 60 + 30 - 432, p1a.reel - 1404 * 60);
+t('sans les heures pour une personne désignée', T.anneeEquipe(A, { heures: false }).personnes[0].prevu === undefined);
+const se = T.semaineEquipe(A, '2026-11-04');
+t('la semaine part du lundi', se.lundi === '2026-11-02');
+const s1 = se.personnes.find(p => p.id === 1);
+t('semaine du 2 novembre : 36 h prévues, 29 h 18 prestées', s1.prevu === 2160 && s1.preste === 2160 + 30 - 432, [s1.prevu, s1.preste]);
+
 console.log(`\n${ok} ok, ${ko} faux`);
 process.exit(ko ? 1 : 0);
