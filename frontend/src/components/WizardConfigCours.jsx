@@ -145,7 +145,7 @@ export default function WizardConfigCours({ cours: coursInit, ueNum, section, an
         ) : (
           <button onClick={genererLignes}
             className="bouton bouton-fort">
-            ✓ Générer les lignes
+            Générer les lignes
           </button>
         )}
       </>}>

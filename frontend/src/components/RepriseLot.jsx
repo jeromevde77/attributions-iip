@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { IconAlertTriangle } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
-import { Fenetre } from './ui.jsx';
+import { Fenetre, EnteteCarte } from './ui.jsx';
 
 /**
  * REPRENDRE TOUT UN CLASSEUR — une section, ou les unités qu'on coche.
@@ -191,10 +191,9 @@ export default function RepriseLot({ annee, section = null, onClose, onFini }) {
               </div>
 
               {/* ── La date, qui ira au procès-verbal ─────────────────────── */}
-              <div className="px-3 py-3 rounded-xl border border-slate-200 space-y-2">
-                <div className="text-sm font-semibold text-iip-blue">
-                  La date de la séance
-                </div>
+              <section className="carte overflow-hidden">
+                <EnteteCarte titre="La date de la séance" />
+                <div className="px-3 py-3 space-y-2">
                 <p className="text-second text-slate-500">
                   Le classeur ne dit pas quand le Conseil s'est réuni. La date que vous
                   fixez ici figurera sur tous les procès-verbaux et toutes les notifications
@@ -230,7 +229,8 @@ export default function RepriseLot({ annee, section = null, onClose, onFini }) {
                                  rounded-lg text-sm" />
                   </label>
                 </div>
-              </div>
+                </div>
+              </section>
 
               {/* ── La clôture, et ce qu'elle engage ──────────────────────── */}
               <div className="bloc-etat etat-surveiller px-3 py-3 space-y-2">

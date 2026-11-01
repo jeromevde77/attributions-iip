@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { IconCheck, IconX, IconClock, IconAlertTriangle } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { saisir } from '../lib/dialogue.jsx';
+import { EnteteCarte } from '../components/ui.jsx';
 
 /**
  * Demandes de modification.
@@ -106,26 +107,17 @@ export default function Demandes() {
           {data.demandes.map(d => {
             const diff = ecarts(d);
             return (
-              <div key={d.id} className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-                <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-start justify-between gap-3 flex-wrap">
-                  <div>
-                    <div className="text-sm font-semibold text-iip-blue">{d.libelle}</div>
-                    <div className="text-xs text-slate-500">
-                      {LIBELLE_TYPE[d.type] || d.type}
-                      {d.section ? ` · ${d.section}` : ''}
-                      {d.annee_scolaire ? ` · ${d.annee_scolaire}` : ''}
-                      {' · demandé par '}{d.auteur_nom || '—'}
-                      {' le '}{fr(d.cree_le)}
-                    </div>
-                  </div>
+              <section key={d.id} className="carte overflow-hidden">
+                <EnteteCarte titre={d.libelle}
+                  sous={`${LIBELLE_TYPE[d.type] || d.type}${d.section ? ` · ${d.section}` : ''}${d.annee_scolaire ? ` · ${d.annee_scolaire}` : ''} · demandé par ${d.auteur_nom || '—'} le ${fr(d.cree_le)}`}>
                   {d.statut === 'en_attente' ? (
                     <div className="flex gap-2">
                       <button onClick={() => decider(d.id, 'refuser')} disabled={enCours}
-                        className="flex items-center gap-1 text-second px-2.5 py-1 rounded-lg border border-red-500 text-white hover:bg-red-500 disabled:opacity-50">
+                        className="bouton flex items-center gap-1">
                         <IconX size={13} /> Refuser
                       </button>
                       <button onClick={() => decider(d.id, 'valider')} disabled={enCours}
-                        className="flex items-center gap-1 text-second px-3 py-1 rounded-lg bg-emerald-600 text-white font-semibold disabled:opacity-50">
+                        className="bouton bouton-fort flex items-center gap-1">
                         <IconCheck size={13} /> Valider
                       </button>
                     </div>
@@ -135,7 +127,7 @@ export default function Demandes() {
                       {d.motif_refus && <span className="block text-slate-500">« {d.motif_refus} »</span>}
                     </div>
                   )}
-                </div>
+                </EnteteCarte>
 
                 <div className="px-4 py-2.5">
                   {!diff.length ? (
@@ -161,7 +153,7 @@ export default function Demandes() {
                     </table>
                   )}
                 </div>
-              </div>
+              </section>
             );
           })}
         </div>

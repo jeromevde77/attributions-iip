@@ -27,6 +27,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { IconCheck, IconDeviceFloppy, IconAlertTriangle, IconPlus } from '@tabler/icons-react';
 import { api, authHeaders, getAnnee, getUser } from '../lib/api.js';
 import { useDroits } from '../lib/droits.js';
+import { EnteteCarte } from './ui.jsx';
 import { blocsDepuisPoints, lireProgramme } from '../pages/DUE.jsx';
 
 const ANNEE_POINTS = '2026-2027';
@@ -281,9 +282,9 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
           c'est important »). Les colonnes ne portent que le code : sans le texte, on
           coche au jugé. */}
       {acquis.length > 0 && (
-        <section className="rounded-carte border border-slate-200 px-3 py-2">
-          <div className="intertitre mb-1">Acquis d’apprentissage de l’unité</div>
-          <dl className="m-0 grid gap-x-4 gap-y-1 text-second" style={{ gridTemplateColumns: 'max-content 1fr' }}>
+        <section className="carte overflow-hidden">
+          <EnteteCarte titre="Acquis d’apprentissage de l’unité" />
+          <dl className="m-0 px-3 py-2 grid gap-x-4 gap-y-1 text-second" style={{ gridTemplateColumns: 'max-content 1fr' }}>
             {acquis.map(a => (
               <div key={a.aa_code} className="contents">
                 <dt className="font-semibold text-iip-blue">{a.aa_code}</dt>
@@ -302,11 +303,8 @@ export default function CroisementUE({ ueNum, onEnregistre, suivante = null }) {
         const orph = orphelins(co);
         const aActuel = !!actuel[co] && Object.keys(actuel[co]).length > 0;
         return (
-          <section key={co} className="rounded-carte border border-slate-200 overflow-hidden">
-            <div className="tab-entete px-3 py-1.5 text-second font-semibold flex flex-wrap items-center gap-2">
-              <span>{co} — {x.cours_nom || ''}</span>
-              <span className="font-normal text-slate-500">{pts.length} point(s) du programme · {total} croix</span>
-            </div>
+          <section key={co} className="carte overflow-hidden">
+            <EnteteCarte titre={`${co} — ${x.cours_nom || ''}`} sous={`${pts.length} point(s) du programme · ${total} croix`} />
             <div className="overflow-x-auto">
               <table className="w-full text-second border-collapse">
                 <thead><tr className="tab-entete">

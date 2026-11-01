@@ -154,13 +154,11 @@ export default function DoublonsEtudiants() {
           </div>
           <div className="flex items-center gap-2 pt-1">
             <button onClick={() => lot(false)} disabled={enCours}
-              className="px-3 py-2 text-sm rounded-lg bg-amber-600 text-white
-                         font-semibold flex items-center gap-1.5 disabled:opacity-40">
+              className="bouton bouton-fort flex items-center gap-1.5">
               <IconArrowMerge size={15} /> Appliquer les {apercu.fusions} fusions
             </button>
             <button onClick={() => setApercu(null)} disabled={enCours}
-              className="px-3 py-2 text-sm rounded-lg border border-amber-500
-                         text-amber-900">
+              className="bouton">
               Annuler
             </button>
           </div>

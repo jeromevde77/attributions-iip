@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { IconInfoCircle, IconPlus } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { EnteteCarte } from './ui.jsx';
 
 /**
  * Planificateur — vue ligne du temps des organisations d'UE.
@@ -274,14 +275,10 @@ export default function PlanificateurUE({ items, annee, val, editer, modifs }) {
 
       {/* Jalons de l'organisation sélectionnée */}
       {selectionnee && (
-        <div className="border border-slate-200 rounded-xl bg-white px-4 py-3">
-          <div className="text-sm font-semibold text-iip-blue mb-1.5">
-            Jalons — UE {selectionnee.ue_num}
-            {selectionnee.num_organisation > 1 ? ` · organisation ${selectionnee.num_organisation}` : ''}
-            <span className="font-normal text-slate-500">
-              {' '}({frDate(val(selectionnee, 'date_debut'))} → {frDate(val(selectionnee, 'date_fin'))})
-            </span>
-          </div>
+        <section className="carte overflow-hidden">
+          <EnteteCarte titre={`Jalons — UE ${selectionnee.ue_num}${selectionnee.num_organisation > 1 ? ` · organisation ${selectionnee.num_organisation}` : ''}`}
+            sous={`${frDate(val(selectionnee, 'date_debut'))} → ${frDate(val(selectionnee, 'date_fin'))}`} />
+          <div className="px-4 py-3">
           {modifs[selectionnee.id] ? (
             <p className="text-second text-amber-700 flex items-center gap-1.5">
               <IconInfoCircle size={14} />
@@ -303,7 +300,8 @@ export default function PlanificateurUE({ items, annee, val, editer, modifs }) {
               Aucun jalon pour ces dates (dates non enregistrées, ou échéances non instanciées).
             </p>
           )}
-        </div>
+          </div>
+        </section>
       )}
 
       <p className="text-xs text-slate-400">

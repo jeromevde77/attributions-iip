@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { COULEUR_BLOC, OR_EPREUVE, blocDe, rangBloc } from '../lib/blocs.js';
+import { EnteteCarte } from './ui.jsx';
 
 /**
  * LES UNITÉS RANGÉES PAR BLOC — BA1 d'abord, puis BA2, puis BA3 (Charles,
@@ -63,12 +64,9 @@ export default function GroupesParBloc({ items, blocDeItem, estEpreuve, children
         {groupes.map(g => tuile(g.cle, g.liste.length, g.titre, g.couleur))}
       </div>
       {visibles.map(g => (
-        <section key={g.cle} className="border border-slate-200 bg-white overflow-hidden"
+        <section key={g.cle} className="carte overflow-hidden"
           style={{ borderLeft: `4px solid ${g.couleur}`, borderRadius: '0 14px 14px 0' }}>
-          <div className="px-3 py-1.5 flex items-center gap-2 border-b border-slate-100 bg-slate-50/60">
-            <span className="text-sm font-semibold text-iip-blue">{g.titre}</span>
-            <span className="text-second text-slate-500">{g.liste.length} {libelle}</span>
-          </div>
+          <EnteteCarte titre={g.titre} sous={`${g.liste.length} ${libelle}`} />
           {children(g.liste, g)}
         </section>
       ))}

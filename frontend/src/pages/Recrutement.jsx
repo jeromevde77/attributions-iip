@@ -3,9 +3,9 @@ import {
   IconBriefcase, IconUserPlus, IconArrowLeft, IconTrash, IconPlus,
   IconFileCv, IconExternalLink, IconUpload, IconSparkles,
   IconCheck, IconX, IconUsersGroup, IconDownload, IconClipboardText,
-  IconLayoutColumns, IconChevronRight, IconSettings, IconFileText,
+  IconLayoutColumns, IconChevronRight, IconSettings, IconFileText, IconFileTypePdf, IconPrinter,
 } from '@tabler/icons-react';
-import { Btn, RailLateral, VoletRail, Fenetre } from '../components/ui.jsx';
+import { Btn, RailLateral, VoletRail, Fenetre, OutilFenetre, EnteteCarte } from '../components/ui.jsx';
 import { getAnnee } from '../lib/api.js';
 import { ouvrirApercu } from '../lib/apercu.js';
 import { demander, informer } from '../lib/dialogue.jsx';
@@ -417,8 +417,8 @@ function FichePoste({ poste, annee, onBack, grille }) {
         <div className="flex items-center gap-2">
           {candidats.length > 0 && (
             <button onClick={() => genererComparatif(candidats, poste, grille)}
-              className="text-xs border border-gray-300 text-gray-500 hover:bg-gray-50 rounded px-2.5 py-1.5 flex items-center gap-1.5">
-              🖨 Comparatif PDF
+              className="bouton bouton-sortir flex items-center gap-1.5">
+              <IconPrinter size={14} /> Comparatif PDF
             </button>
           )}
           <Btn variant="primary" icon={IconUserPlus} onClick={() => setAjout(true)}>
@@ -763,12 +763,8 @@ function CarteCandidatPoste({ candidature: c, onChange, onEntretien }) {
       {visionneur && (
         <Fenetre titre={visionneur.nom} large="ecran" hauteurFixe
           onFermer={() => { URL.revokeObjectURL(visionneur.url); setVisionneur(null); }}
-          outils={
-            <button onClick={() => telechargerDoc(null, visionneur.nom, visionneur.url)}
-              className="text-xs border border-white/40 text-white rounded px-2 py-1 hover:bg-white/10 flex items-center gap-1">
-              <IconDownload size={13} /> Télécharger
-            </button>
-          }>
+          outils={<OutilFenetre Icone={IconDownload} titre="Télécharger"
+            onClick={() => telechargerDoc(null, visionneur.nom, visionneur.url)} />}>
           {/* Le document remplit la fenêtre : 88 vh moins l'en-tête, sans la
               marge intérieure du contenu. */}
           <div className="-mx-5 -my-4 h-[calc(88vh-3.5rem)] overflow-hidden bg-black/70">
@@ -1140,8 +1136,8 @@ function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSav
           ))}
 
           {/* Bilan global */}
-          <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-pose">
-            <div className="text-sm font-semibold text-iip-blue mb-2">Bilan global de l'entretien</div>
+          <div className="carte overflow-hidden p-4">
+            <EnteteCarte className="-mx-4 -mt-4 mb-3" titre="Bilan global de l'entretien" />
             <textarea
               value={commentaireGlobal}
               onChange={e => setCommentaireGlobal(e.target.value)}
@@ -2044,16 +2040,13 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
           )}
         </span>
       }
+      outils={<OutilFenetre Icone={IconFileTypePdf} titre="PDF" onClick={() => genererFicheIndividuelle(candidat, grille)} />}
       pied={<>
-            <button onClick={() => genererFicheIndividuelle(candidat, grille)}
-              className="bouton inline-flex items-center gap-1.5">
-              🖨 PDF
-            </button>
             {docs.some(d => d.type === 'cv') && (
               <button onClick={() => setAnalyseCv(true)}
                 title="Analyser le CV avec Lucie"
                 className="bouton inline-flex items-center gap-1.5">
-                🤖 Analyser CV
+                <IconSparkles size={14} /> Analyser CV
               </button>
             )}
             <button onClick={() => setEntretienLibre(true)}
@@ -2071,7 +2064,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
               }}
               title="Créer la fiche prof sans attribuer de cours"
               className="bouton inline-flex items-center gap-1.5">
-              ➕ Recrutement global
+              <IconUserPlus size={14} /> Recrutement global
             </button>
             {candidat.candidatures?.some(ca => ca.statut === 'retenu') && (
               <button onClick={async () => {
@@ -2099,8 +2092,8 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
         <div className="space-y-5">
 
           {/* ── Cadre 1 : Coordonnées ── */}
-          <div className="border border-gray-200 rounded-xl p-4">
-            <div className="intertitre mb-3">Coordonnées</div>
+          <div className="carte overflow-hidden p-4">
+            <EnteteCarte className="-mx-4 -mt-4 mb-3" titre="Coordonnées" />
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <div className="text-xs text-gray-500 mb-1">Prénom</div>
@@ -2126,8 +2119,8 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
           </div>
 
           {/* ── Cadre 2 : Documents remis ── */}
-          <div className="border border-gray-200 rounded-xl p-4">
-            <div className="intertitre mb-3">Documents remis</div>
+          <div className="carte overflow-hidden p-4">
+            <EnteteCarte className="-mx-4 -mt-4 mb-3" titre="Documents remis" />
             <div className="grid grid-cols-2 gap-1.5 mb-3">
               {DOCS_REMIS_LIST.map(doc => {
                 const checked = !!f.docs_remis?.[doc.key];
@@ -2179,14 +2172,13 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
           </div>
 
           {/* ── Cadre 3 : Diplômes et titres ── */}
-          <div className="border border-gray-200 rounded-xl p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="intertitre">Diplômes &amp; Titres</div>
+          <div className="carte overflow-hidden p-4">
+            <EnteteCarte className="-mx-4 -mt-4 mb-3" titre="Diplômes & Titres">
               <button type="button" onClick={() => setAjoutQual(true)}
-                className="text-xs bg-iip-blue text-white px-2.5 py-1 rounded-lg flex items-center gap-1 hover:opacity-90">
+                className="bouton flex items-center gap-1">
                 <IconPlus size={11} /> Ajouter
               </button>
-            </div>
+            </EnteteCarte>
             {f.qualifications.length === 0 && (
               <div className="text-xs text-gray-400 italic">Aucun titre ou diplôme renseigné.</div>
             )}
@@ -2214,10 +2206,8 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
           </div>
 
           {/* ── Cadre 4 : Cours envisagés ── */}
-          <div className="border border-gray-200 rounded-xl p-4">
-            <div className="intertitre mb-3">
-              Cours envisagés ({candidatures.length})
-            </div>
+          <div className="carte overflow-hidden p-4">
+            <EnteteCarte className="-mx-4 -mt-4 mb-3" titre={`Cours envisagés (${candidatures.length})`} />
             {candidatures.length > 0 && (
               <div className="space-y-1.5 mb-3">
                 {candidatures.map((ca, i) => {
@@ -2336,7 +2326,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
                     else informer(e.message);
                   } finally { setAjoutBusy(false); }
                 }}
-                className="w-full text-xs bg-iip-blue text-white rounded px-3 py-1.5 hover:opacity-90 disabled:opacity-40 flex items-center justify-center gap-1.5">
+                className="bouton bouton-fort w-full flex items-center justify-center gap-1.5">
                 <IconPlus size={12} /> {ajoutBusy ? 'Ajout…' : 'Rattacher ce cours'}
               </button>
             </div>
@@ -2705,8 +2695,8 @@ function ModalAnalyseCv({ onClose, onResultat, candidatExistant = null }) {
               </div>
 
               {/* Coordonnées */}
-              <div className="border border-gray-200 rounded-xl p-4">
-                <div className="intertitre mb-3">Coordonnées</div>
+              <div className="carte overflow-hidden p-4">
+                <EnteteCarte className="-mx-4 -mt-4 mb-3" titre="Coordonnées" />
                 <div className="grid grid-cols-2 gap-3">
                   {[['prenom','Prénom'],['nom','Nom'],['email','E-mail'],['telephone','Téléphone']].map(([k,l]) => (
                     <div key={k}>
@@ -2729,10 +2719,8 @@ function ModalAnalyseCv({ onClose, onResultat, candidatExistant = null }) {
               </div>
 
               {/* Diplômes détectés */}
-              <div className="border border-gray-200 rounded-xl p-4">
-                <div className="intertitre mb-3">
-                  Diplômes & Titres détectés ({apercu.qualifications?.length || 0})
-                </div>
+              <div className="carte overflow-hidden p-4">
+                <EnteteCarte className="-mx-4 -mt-4 mb-3" titre={`Diplômes & Titres détectés (${apercu.qualifications?.length || 0})`} />
                 {apercu.qualifications?.length === 0 && (
                   <div className="text-xs text-gray-400 italic">Aucun diplôme détecté automatiquement.</div>
                 )}
@@ -3165,7 +3153,7 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
       {/* Barre de navigation — elle reste en haut quand le guide défile. */}
       <div className="sticky top-0 z-10 bg-gray-50 border-b border-gray-200 px-5 py-2 flex items-center gap-1 overflow-x-auto">
         {sections.map((s, i) => {
-          const labels = { intro: '📋 Intro', 'q-fixe': '1️⃣ Questions fixes', admin: '🗓 Administratif', bilan: '⭐ Bilan' };
+          const labels = { intro: 'Intro', 'q-fixe': 'Questions fixes', admin: 'Administratif', bilan: 'Bilan' };
           const label = labels[s] || `Axe ${axeKeys.indexOf(s) + 1}`;
           return (
             <button key={s} onClick={() => setSection(s)}
@@ -3181,8 +3169,8 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
 
           {/* ── Introduction ── */}
           {section === 'intro' && (
-            <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-pose">
-              <h2 className="titre-carte mb-4">Introduction — à lire au candidat</h2>
+            <div className="carte overflow-hidden p-5">
+              <EnteteCarte className="-mx-5 -mt-5 mb-4" titre="Introduction — à lire au candidat" />
               {introTexte ? (
                 <div className="text-sm text-gray-700 leading-relaxed bg-iip-blue/5 border-l-4 border-iip-blue rounded-r-lg p-4 whitespace-pre-wrap">
                   {introTexte}
@@ -3199,10 +3187,8 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
           {/* ── Questions fixes ── */}
           {section === 'q-fixe' && (
             <div className="space-y-4">
-              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-pose">
-                <div className="px-4 py-2.5 text-sm font-semibold text-white" style={{ background: 'var(--c-principal)' }}>
-                  Questions fixes — posées à tous les candidats
-                </div>
+              <section className="carte overflow-hidden">
+                <EnteteCarte titre="Questions fixes — posées à tous les candidats" />
                 <div className="divide-y divide-gray-100 px-4 py-3 space-y-4">
                   <div>
                     <div className="text-xs text-iip-blue font-bold uppercase tracking-wide mb-1">Q1 — Présentation (1 minute)</div>
@@ -3222,7 +3208,7 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
                       className="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 resize-none focus:outline-none focus:border-iip-turquoise" />
                   </div>
                 </div>
-              </div>
+              </section>
             </div>
           )}
 
@@ -3282,30 +3268,28 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
           {/* ── Administratif ── */}
           {section === 'admin' && (
             <div className="space-y-4">
-              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-pose">
-                <div className="px-4 py-2.5 text-sm font-semibold text-white" style={{ background: 'var(--c-attente)' }}>
-                  Questions administratives
-                </div>
+              <section className="carte overflow-hidden">
+                <EnteteCarte titre="Questions administratives" />
                 <div className="px-4 py-3 space-y-3 text-sm text-gray-700">
-                  <div className="bg-amber-500 rounded-lg px-3 py-2 text-xs text-white font-medium">
+                  <div className="text-second text-slate-600 font-medium">
                     Questions à poser systématiquement en fin d'entretien
                   </div>
                   <ul className="space-y-1.5 text-sm">
-                    <li className="flex gap-2"><span className="text-amber-500">→</span>Quel volume horaire hebdomadaire êtes-vous en mesure d'assumer ?</li>
-                    <li className="flex gap-2"><span className="text-amber-500">→</span>Connaissez-vous les attendus de l'IIP quant au travail invisible (jury, TFE, encadrement) ?</li>
-                    <li className="flex gap-2"><span className="text-amber-500">→</span>Pour les encadrants de stage : pouvez-vous vous déplacer dans les milieux partenaires ?</li>
-                    <li className="flex gap-2"><span className="text-amber-500">→</span>Avez-vous des contraintes spécifiques de jours ou d'horaires ?</li>
+                    <li className="flex gap-2"><span className="text-slate-400">→</span>Quel volume horaire hebdomadaire êtes-vous en mesure d'assumer ?</li>
+                    <li className="flex gap-2"><span className="text-slate-400">→</span>Connaissez-vous les attendus de l'IIP quant au travail invisible (jury, TFE, encadrement) ?</li>
+                    <li className="flex gap-2"><span className="text-slate-400">→</span>Pour les encadrants de stage : pouvez-vous vous déplacer dans les milieux partenaires ?</li>
+                    <li className="flex gap-2"><span className="text-slate-400">→</span>Avez-vous des contraintes spécifiques de jours ou d'horaires ?</li>
                   </ul>
                 </div>
-              </div>
+              </section>
 
-              <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-pose">
-                <div className="text-sm font-semibold text-iip-blue mb-3">Indisponibilités</div>
+              <div className="carte overflow-hidden p-4">
+                <EnteteCarte className="-mx-4 -mt-4 mb-3" titre="Indisponibilités" />
                 <SemainierIndisp value={dispo} onChange={setDispo} />
               </div>
 
-              <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-pose">
-                <div className="text-sm font-semibold text-iip-blue mb-2">Divers / autres remarques</div>
+              <div className="carte overflow-hidden p-4">
+                <EnteteCarte className="-mx-4 -mt-4 mb-3" titre="Divers / autres remarques" />
                 <textarea value={divers} onChange={e => setDivers(e.target.value)}
                   placeholder="Tout autre élément pertinent noté pendant l'entretien…" rows={3}
                   className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:border-iip-turquoise" />
@@ -3319,8 +3303,8 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
 
               {/* Mot de conclusion */}
               {conclusionTexte && (
-                <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-pose">
-                  <h2 className="titre-carte mb-4">Mot de fin — à lire au candidat</h2>
+                <div className="carte overflow-hidden p-5">
+                  <EnteteCarte className="-mx-5 -mt-5 mb-4" titre="Mot de fin — à lire au candidat" />
                   <div className="text-sm text-gray-700 leading-relaxed bg-iip-blue/5 border-l-4 border-iip-blue rounded-r-lg p-4 whitespace-pre-wrap">
                     {conclusionTexte}
                   </div>
@@ -3328,8 +3312,8 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
                 </div>
               )}
 
-              <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-pose">
-                <div className="text-sm font-semibold text-iip-blue mb-2">Bilan global de l'entretien</div>
+              <div className="carte overflow-hidden p-4">
+                <EnteteCarte className="-mx-4 -mt-4 mb-3" titre="Bilan global de l'entretien" />
                 <textarea value={commentaireGlobal} onChange={e => setCommentaireGlobal(e.target.value)}
                   placeholder="Impression générale, points forts, réserves, recommandation finale…" rows={4}
                   className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:border-iip-turquoise" />

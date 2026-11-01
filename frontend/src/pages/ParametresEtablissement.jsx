@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import EtablissementsGestion from '../components/EtablissementsGestion.jsx';
 import { api, authHeaders } from '../lib/api.js';
+import { EnteteCarte } from '../components/ui.jsx';
 
 function Champ({ label, value, onChange, placeholder, hint, className = '' }) {
   return (
@@ -90,8 +91,9 @@ export default function ParametresEtablissement() {
       <EtablissementsGestion etabId={etabId} setEtabId={id => { setLoading(true); setEtabId(id); }} />
 
       {/* Identification de l'établissement */}
-      <section className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
-        <div className="intertitre">Identification de l'établissement</div>
+      <section className="carte overflow-hidden">
+        <EnteteCarte titre="Identification de l'établissement" />
+        <div className="p-4 space-y-3">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Champ label="Nom du Pouvoir Organisateur (PO)" value={f.po_nom} onChange={v => set('po_nom', v)} />
           <Champ label="Nom de l'établissement" value={f.etab_nom} onChange={v => set('etab_nom', v)} />
@@ -153,25 +155,23 @@ export default function ParametresEtablissement() {
           </select>
           <div className="text-xs text-gray-400 mt-0.5">Se reporte automatiquement sur les EA12.</div>
         </label>
+      </div>
       </section>
 
       {/* Direction — le signataire des pièces */}
-      <section className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
-        <div className="intertitre">
-          Direction
-          <span className="font-normal normal-case text-gray-400"> · nom porté sous la signature et le sceau des pièces officielles</span>
-        </div>
+      <section className="carte overflow-hidden">
+        <EnteteCarte titre="Direction" sous="Nom porté sous la signature et le sceau des pièces officielles" />
+        <div className="p-4 space-y-3">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Champ label="Directeur ou directrice (NOM Prénom)" value={signataire} onChange={setSignataire} />
         </div>
+      </div>
       </section>
 
       {/* Gestionnaire du dossier */}
-      <section className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
-        <div className="intertitre">
-          Gestionnaire du dossier
-          <span className="font-normal normal-case text-gray-400"> · personne joignable par l'Administration</span>
-        </div>
+      <section className="carte overflow-hidden">
+        <EnteteCarte titre="Gestionnaire du dossier" sous="Personne joignable par l'Administration" />
+        <div className="p-4 space-y-3">
         <div className="grid grid-cols-1 md:grid-cols-3 2xl:grid-cols-4 gap-3">
           <Champ label="Nom" value={f.gest_nom} onChange={v => set('gest_nom', v)} />
           <Champ label="Prénom" value={f.gest_prenom} onChange={v => set('gest_prenom', v)} />
@@ -181,14 +181,13 @@ export default function ParametresEtablissement() {
           <Champ label="Téléphone direct" value={f.gest_tel} onChange={v => set('gest_tel', v)} />
           <Champ label="E-mail" value={f.gest_email} onChange={v => set('gest_email', v)} />
         </div>
+      </div>
       </section>
 
       {/* Mise en page des documents */}
-      <section className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
-        <div className="intertitre">
-          Mise en page des documents
-          <span className="font-normal normal-case text-gray-400"> · en-tête et pied de page de tous les documents imprimés</span>
-        </div>
+      <section className="carte overflow-hidden">
+        <EnteteCarte titre="Mise en page des documents" sous="En-tête et pied de page de tous les documents imprimés" />
+        <div className="p-4 space-y-3">
 
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={mep['miseenpage.entete_logo'] === '1'}
@@ -239,6 +238,7 @@ export default function ParametresEtablissement() {
             })()}
           </div>
         </div>
+      </div>
       </section>
 
       <div className="flex items-center gap-3">
@@ -304,14 +304,10 @@ export function ReglesDeliberation() {
   );
 
   return (
-    <section className="carte p-4 space-y-3">
-      <div className="intertitre">
-        Délibération — ce que le Conseil ajourne
-      </div>
-      <p className="text-second text-slate-500">
-        Le décret ne fixe pas cette règle. Elle s'applique à toutes les délibérations et
-        détermine ce que porte la notification d'ajournement (annexe 8).
-      </p>
+    <section className="carte overflow-hidden">
+      <EnteteCarte titre="Délibération — ce que le Conseil ajourne"
+        sous="Le décret ne fixe pas cette règle. Elle s'applique à toutes les délibérations et détermine ce que porte la notification d'ajournement (annexe 8)." />
+      <div className="p-4 space-y-3">
 
       <Choix nom="portee" valeur={ajour.portee}
         onChoisir={v => setAjour(a => ({ ...a, portee: v }))}
@@ -343,8 +339,9 @@ export function ReglesDeliberation() {
       )}
 
       <div className="flex items-center gap-3 pt-1">
-        <button onClick={enregistrer} className="bouton-fort controle px-3">Enregistrer</button>
+        <button onClick={enregistrer} className="bouton bouton-fort controle px-3">Enregistrer</button>
         {etat && <span className="text-second text-slate-500">{etat}</span>}
+      </div>
       </div>
     </section>
   );

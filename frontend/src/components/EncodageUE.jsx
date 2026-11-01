@@ -372,7 +372,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
               description: a.description, poids: a.poids })))} />
         <div className="flex-1 overflow-auto p-5 pt-1">
           {data?.epreuve_integree && (
-            <div className="mb-3 bloc-etat px-3 py-2 text-second" data-etat="neutre">
+            <div className="mb-3 text-second text-slate-600">
               Cette unité est évaluée par une <b>épreuve intégrée</b> : une seule grille,
               les <b>acquis de l'unité entière</b>, une note commune. Il n'y a pas de note
               par cours — <b>chaque cours de l'unité reçoit la note de l'unité</b>.

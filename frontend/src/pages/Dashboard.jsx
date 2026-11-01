@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { api, getAnnee } from '../lib/api.js';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from 'recharts';
 import ActivityFeed from '../components/ActivityFeed.jsx';
-import { RailLateral, TuileEtat, Chevron } from '../components/ui.jsx';
+import { RailLateral, TuileEtat, Chevron, EnteteCarte } from '../components/ui.jsx';
 import { IconChevronRight, IconLayoutDashboard, IconChartBar, IconBuildingCommunity, IconFileText, IconUsers } from '@tabler/icons-react';
 import { couleursGraphique } from '../lib/couleurs.js';
 import { reglagesGraphique } from '../lib/design.js';
@@ -119,8 +119,9 @@ export default function Dashboard() {
 
       {/* ═══════════ Onglet Aperçu : graphe ═══════════ */}
       {tab === 'apercu' && (
-        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-pose">
-          <h2 className="titre-carte mb-4">Répartition des périodes par section</h2>
+        <section className="carte overflow-hidden">
+          <EnteteCarte titre="Répartition des périodes par section" />
+          <div className="p-5">
           <ResponsiveContainer width="100%" height={400}>
             <BarChart data={chartData}>
               {reglagesGraphique().grille !== 'aucun' && <CartesianGrid strokeDasharray={reglagesGraphique().grille === 'plein' ? '0' : '3 3'} stroke={couleursGraphique().grille} />}
@@ -132,19 +133,20 @@ export default function Dashboard() {
               <Bar dataKey="HELB" stackId="a" fill={couleursGraphique().helb} />
             </BarChart>
           </ResponsiveContainer>
-        </div>
+          </div>
+        </section>
       )}
 
       {/* ═══════════ Onglet Par section ═══════════ */}
       {tab === 'sections' && (
         <>
-          <div className="text-xs text-gray-500 bg-gray-50 rounded px-3 py-2 border border-gray-200">
+          <div className="text-second text-slate-600">
             💡 <b>S-D</b> = Sept–Déc — UE Q1 : 100%, Q1/Q2 : 40% · <b>J-J</b> = Jan–Juin — UE Q2 : 100%, Q1/Q2 : 60% ·
             <b>Coût dotation</b> = périodes × coef. (SUP ×1.5, DS ×1.25), IIP uniquement
           </div>
 
-          <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-            <h2 className="titre-carte p-3 border-b bg-iip-gold/5">Récapitulatif par section</h2>
+          <section className="carte overflow-hidden">
+            <EnteteCarte titre="Récapitulatif par section" />
             <div className="overflow-auto">
               <table className="grid-excel-soft w-full">
                 <thead><tr>
@@ -205,7 +207,7 @@ export default function Dashboard() {
                 const detail = detailBySection[sec.section] || [];
                 const docs = doc23BySection[sec.section] || [];
                 return (
-                  <div key={sec.section} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                  <div key={sec.section} className="carte overflow-hidden">
                     <button onClick={() => toggleSection(sec.section)}
                       className="w-full flex items-center gap-3 px-4 py-3 hover:bg-iip-gold/5 transition text-left bg-iip-gold/5">
                       <Chevron ouvert={open} size={18} className="text-iip-gold" />
@@ -307,14 +309,10 @@ export default function Dashboard() {
 
       {/* ═══════════ Onglet DOC 2-3 global ═══════════ */}
       {tab === 'doc23' && (
-        <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-          <h2 className="titre-carte p-3 border-b bg-iip-gold/5">
-            Concordance DOC 2-3 — Vue globale
-            <span className="ml-3 text-sm font-normal text-gray-500">
-              Prévu : {n(totPerDoc2)} · Attribué : {n(totPerDP)}
-              {nbEcartsNonZero > 0 && <span className="text-red-600 ml-2">· {nbEcartsNonZero} UE avec écart</span>}
-            </span>
-          </h2>
+        <section className="carte overflow-hidden">
+          <EnteteCarte titre="Concordance DOC 2-3 — Vue globale"
+            sous={<>Prévu : {n(totPerDoc2)} · Attribué : {n(totPerDP)}
+              {nbEcartsNonZero > 0 && <span className="text-red-600 ml-2">· {nbEcartsNonZero} UE avec écart</span>}</>} />
           <div className="overflow-auto max-h-[65vh]">
             <table className="grid-excel-soft w-full">
               <thead><tr>
@@ -351,8 +349,8 @@ export default function Dashboard() {
 
       {/* ═══════════ Onglet ETP ═══════════ */}
       {tab === 'etp' && (
-        <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-          <h2 className="titre-carte p-3 border-b bg-iip-gold/5">ETP par section et niveau</h2>
+        <section className="carte overflow-hidden">
+          <EnteteCarte titre="ETP par section et niveau" />
           <div className="overflow-auto max-h-[65vh]">
             <table className="grid-excel-soft w-full">
               <thead><tr>

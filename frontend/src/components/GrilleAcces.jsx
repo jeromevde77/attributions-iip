@@ -9,6 +9,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { MODULES_ACCES } from '../lib/modules.js';
+import { EnteteCarte } from './ui.jsx';
 
 /** Les mesures communes. Une colonne de module a la même largeur partout, la
  *  première colonne aussi : les modules tombent l'un sous l'autre d'un tableau
@@ -99,15 +100,7 @@ export function Legende({ defs, children }) {
   );
 }
 
-/** Le titre d'une carte (15 px) et sa ligne d'explication. */
+/** Le titre d'une carte et sa ligne d'explication : l'en-tête commun (`EnteteCarte`). */
 export function TitreCarte({ titre, children, droite }) {
-  return (
-    <div className="px-4 py-2.5 border-b border-slate-200 flex items-center gap-3 flex-wrap">
-      <div className="min-w-0 flex-1">
-        <div className="text-base font-semibold" style={{ color: 'var(--c-texte)' }}>{titre}</div>
-        {children && <div className="text-second text-slate-500">{children}</div>}
-      </div>
-      {droite}
-    </div>
-  );
+  return <EnteteCarte titre={titre} sous={children || null}>{droite || null}</EnteteCarte>;
 }

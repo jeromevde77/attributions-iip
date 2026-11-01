@@ -3044,6 +3044,14 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   réponse possible. Accès **bloqué hors de Belgique**, exception accordée par le secrétariat pour une période ; la vérification
   du QR reste ouverte partout. (Mot de passe et Belgique : FAITS en 3.1.513 ; VA en ligne et code du candidat : FAITS en 3.1.514 ; PAE en ligne : FAIT en 3.1.515 ; messages : FAITS en 3.1.516 ; parcours, frais, aide : FAITS en 3.1.517.) Toute écriture venant du portail passe par le relevé de Lucie (`portailSync.js`), jamais l'inverse. **Ordre de construction** : 1 mot de passe et blocage hors Belgique · 2 VA en ligne déplacée + code candidat · 3 PAE en ligne · 4 messages · puis parcours, frais, aide.
 
+**UN SEUL EN-TÊTE DE CARTE, LES SORTIES AU BANDEAU DES FENÊTRES** (3.5.032, Charles, 1er novembre 2026 : « l'en-tête est blanche
+ici, bleu clair ailleurs… fais le tour de TOUS les écrans et TOUTES les fenêtres » ; modèle retenu : la bande de « Envoi de documents
+par courriel » ; « pour les FENÊTRES comme Éditions on garde le bleu ; un bouton IMPRIMER, ENVOYER ou APERÇU doit être dans le bandeau
+supérieur. Point. »). `EnteteCarte` (ui.jsx, classe `.entete-carte` : bande pâle du principal à 5 %, filet ; une carte qui en porte
+une a un corps blanc) et `OutilFenetre` (icône blanche, dans `outils` de `Fenetre`). **Toute carte titrée prend `EnteteCarte` ; toute
+sortie d'une fenêtre (aperçu, imprimer, envoyer, PDF) est un `OutilFenetre` du bandeau.** Pas de cadre dans un cadre, pas de clé
+technique affichée (en `title=`), pas d'émoji dans un bouton. 105 fichiers repris en un passage.
+
 **CONFIGURATION DANS LA GRILLE DES PLAFONDS** (3.5.030, Charles, 1er novembre 2026 : « un accès en lecture à tout sauf dotation,
 finances-budget et recrutement au service info » ; tranché : Configuration en lecture, mots de passe masqués). Module
 `configuration` (MODULES de `permissions.js`, `MODULES_ACCES` de `lib/modules.js`) : naît « ecrit » pour la direction, « rien »

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { IconCalendar, IconDeviceFloppy, IconPencil, IconTrash } from '@tabler/icons-react';
 import { demander } from '../lib/dialogue.jsx';
-import { Fenetre } from './ui.jsx';
+import { Fenetre, EnteteCarte } from './ui.jsx';
 
 const FLAGS = [
   { key: 'ept_uniquement',        label: 'Uniquement EPT / périodes suppl.' },
@@ -34,14 +34,14 @@ function OrgForm({ org, onSave, onDelete, onCancel }) {
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   return (
-    <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="font-semibold text-iip-gold text-sm">Organisation N° {form.num_organisation}</div>
+    <section className="carte overflow-hidden">
+      <EnteteCarte titre={`Organisation N° ${form.num_organisation}`}>
         {org?.id && (
           <button onClick={() => onDelete(org.id)}
-            className="text-red-400 hover:text-red-600 text-xs"><IconTrash size={14} className="inline align-[-2px] mr-1" />Supprimer</button>
+            className="bouton bouton-detruire"><IconTrash size={14} className="inline align-[-2px] mr-1" />Supprimer</button>
         )}
-      </div>
+      </EnteteCarte>
+      <div className="p-4 space-y-4">
 
       {/* Dates obligatoires */}
       <div className="grid grid-cols-3 gap-3">
@@ -105,11 +105,12 @@ function OrgForm({ org, onSave, onDelete, onCancel }) {
           <IconDeviceFloppy size={14} className="inline align-[-2px] mr-1" />Enregistrer
         </button>
         <button onClick={onCancel}
-          className="text-gray-500 text-sm px-3 py-1.5 h-9 rounded border border-gray-300 hover:bg-gray-50">
+          className="bouton">
           Annuler
         </button>
       </div>
-    </div>
+      </div>
+    </section>
   );
 }
 

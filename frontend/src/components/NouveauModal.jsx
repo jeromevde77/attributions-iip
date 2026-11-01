@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 import { IconCheck, IconChevronRight, IconBuilding, IconBook, IconSchool } from '@tabler/icons-react';
 import { informer } from '../lib/dialogue.jsx';
-import { Fenetre } from './ui.jsx';
+import { Fenetre, EnteteCarte } from './ui.jsx';
 
 /**
  * Modale "Nouveau" — 3 chemins :
@@ -286,9 +286,9 @@ export default function NouveauModal({ onClose, onCreated }) {
               </div>
 
               {selUE && cours.length > 0 && (
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                  <div className="text-xs font-semibold text-gray-500 mb-2">Cours à créer ({cours.filter(c => c.nb_attributions === 0).length} manquant{cours.filter(c => c.nb_attributions === 0).length > 1 ? 's' : ''})</div>
-                  <div className="space-y-1">
+                <section className="carte overflow-hidden">
+                  <EnteteCarte titre={`Cours à créer (${cours.filter(c => c.nb_attributions === 0).length} manquant${cours.filter(c => c.nb_attributions === 0).length > 1 ? 's' : ''})`} />
+                  <div className="p-3 space-y-1">
                     {cours.map(c => (
                       <div key={c.cours_code} className="flex items-center gap-2 text-xs">
                         <span className={`w-2 h-2 rounded-full flex-shrink-0 ${c.nb_attributions > 0 ? 'bg-green-400' : 'bg-orange-400'}`} />
@@ -299,7 +299,7 @@ export default function NouveauModal({ onClose, onCreated }) {
                       </div>
                     ))}
                   </div>
-                </div>
+                </section>
               )}
 
             </div>

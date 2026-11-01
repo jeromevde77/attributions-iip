@@ -116,13 +116,11 @@ export default function HoraireComparateur({ annee }) {
             <input ref={fichierRef} type="file" accept=".pdf" className="hidden"
               onChange={e => e.target.files?.[0] && envoyer(e.target.files[0], true)} />
             <button onClick={() => fichierRef.current?.click()} disabled={enCours || !annee}
-              className="px-3 py-1.5 text-sm rounded-lg bg-iip-blue text-white
-                         font-semibold flex items-center gap-1.5 disabled:opacity-40">
+              className="bouton bouton-fort">
               <IconUpload size={15} /> Lire un emploi du temps
             </button>
             <button onClick={charger} disabled={enCours}
-              className="px-2.5 py-1.5 text-second rounded-lg border border-slate-300
-                         text-slate-600 flex items-center gap-1.5 disabled:opacity-40">
+              className="bouton">
               <IconRefresh size={14} /> Relire
             </button>
           </div>
@@ -134,8 +132,7 @@ export default function HoraireComparateur({ annee }) {
       </div>
 
       {erreur && (
-        <div className="px-3 py-2 rounded-xl bg-rose-50 border border-rose-200
-                        text-second text-rose-900">{erreur}</div>
+        <div className="bloc-etat px-3 py-2 text-second" data-etat="corriger">{erreur}</div>
       )}
 
       {/* LA SIMULATION D'ABORD : ce qui sera lu, avant que rien ne soit écrit. */}
@@ -162,13 +159,11 @@ export default function HoraireComparateur({ annee }) {
           <div className="flex items-center gap-2 pt-1">
             <button onClick={() => choisi.current && envoyer(choisi.current, false)}
               disabled={enCours}
-              className="px-3 py-2 text-sm rounded-lg bg-amber-600 text-white
-                         font-semibold disabled:opacity-40">
+              className="bouton bouton-fort">
               Enregistrer cet horaire
             </button>
             <button onClick={() => { setApercu(null); choisi.current = null; }}
-              className="px-3 py-2 text-sm rounded-lg border border-amber-500
-                         text-amber-900">Annuler</button>
+              className="bouton">Annuler</button>
           </div>
           <p className="text-xs text-amber-800">
             Enregistrer remplace l'horaire déjà connu pour cette classe et cette
@@ -333,8 +328,7 @@ export default function HoraireComparateur({ annee }) {
           )}
 
           {(!!comp.profs_non_rapproches.length || !!comp.sans_code.length) && (
-            <div className="px-4 py-3 rounded-xl bg-slate-50 border border-slate-200
-                            text-second text-slate-600 space-y-1">
+            <div className="text-second text-slate-600 space-y-1">
               {!!comp.profs_non_rapproches.length && (
                 <div>
                   <b>Professeurs de l'horaire absents de Lucie :</b>{' '}
@@ -352,8 +346,7 @@ export default function HoraireComparateur({ annee }) {
           )}
 
           {!comp.total.ecarts && !comp.total.sans_seance && (
-            <div className="px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200
-                            text-second text-emerald-900 flex items-center gap-1.5">
+            <div className="bloc-etat px-3 py-2 text-second flex items-center gap-1.5" data-etat="reussi">
               <IconCheck size={15} /> L'horaire dépense exactement ce que les
               attributions ont accordé, et par les bonnes personnes.
             </div>

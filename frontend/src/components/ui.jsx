@@ -1288,7 +1288,7 @@ export function EnteteCarte({ icone: Ic = null, titre, sous = null, children = n
         <h3 className="titre-carte">{Ic && <Ic size={17} className="flex-none" style={{ color: 'var(--c-accent, #0E7490)' }} />}{titre}</h3>
         {sous && <p className="entete-carte-sous">{sous}</p>}
       </div>
-      {children && <div className="flex-none flex items-center gap-2">{children}</div>}
+      {children && <div className="flex flex-wrap items-center justify-end gap-2 min-w-0">{children}</div>}
     </div>
   );
 }

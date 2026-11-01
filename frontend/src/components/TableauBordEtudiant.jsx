@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { IconAlertTriangle, IconCheck } from '@tabler/icons-react';
 import { authHeaders, api } from '../lib/api.js';
-import { Fenetre } from './ui.jsx';
+import { Fenetre, EnteteCarte } from './ui.jsx';
 import { MOTIFS_ECHEC, texteDuMotif, composerMotif, decomposerMotif } from './motifsEchec.js';
 import { ouvrirApercu } from '../lib/apercu.js';
 
@@ -154,9 +154,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
       </>}>
 
       {message && (
-        <div className={`px-3 py-2 rounded-lg text-sm ${message.type === 'ok'
-          ? 'bg-emerald-500 border border-emerald-500 text-white'
-          : 'bg-red-500 border border-red-500 text-white'}`}>{message.texte}</div>
+        <div className="bloc-etat px-3 py-2 text-sm" data-etat={message.type === 'ok' ? 'reussi' : 'corriger'}>{message.texte}</div>
       )}
 
       {/* ── IDENTITÉ ─────────────────────────────────────────────────────── */}
@@ -354,18 +352,14 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
 
         {/* ── MOTIVATION, exigée acquis par acquis ────────────────────────── */}
         {!!nonMaitrises.length && (
-          <div className="border border-slate-200 rounded-xl overflow-hidden">
-            <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200
-                            flex items-center justify-between gap-2">
-              <span className="intertitre">
-                Motivation — {nonMaitrises.length} acquis non maîtrisé(s)
-              </span>
+          <div className="carte overflow-hidden">
+            <EnteteCarte titre={`Motivation — ${nonMaitrises.length} acquis non maîtrisé(s)`}>
               {sansMotif > 0 && (
                 <span className="text-second text-amber-800 flex items-center gap-1">
                   <IconAlertTriangle size={13} /> {sansMotif} sans motivation
                 </span>
               )}
-            </div>
+            </EnteteCarte>
             <div className="divide-y divide-slate-100">
               {nonMaitrises.map(a => (
                 <div key={a.aa_code} className="px-3 py-2">

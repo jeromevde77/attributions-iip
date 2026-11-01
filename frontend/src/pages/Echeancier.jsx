@@ -3,7 +3,7 @@ import {
   IconCalendarStats, IconCheck, IconRefresh,
   IconScale, IconFilter, IconX, IconBooks, IconPlayerPlay,
 } from '@tabler/icons-react';
-import { PageHeader, Tabs, Btn, KpiCard, RailLateral, Fenetre } from '../components/ui.jsx';
+import { PageHeader, Tabs, Btn, KpiCard, RailLateral, Fenetre, EnteteCarte } from '../components/ui.jsx';
 import { authHeaders } from '../lib/api.js';
 
 const MOIS = ['janvier','février','mars','avril','mai','juin',
@@ -312,16 +312,9 @@ export default function Echeancier() {
 
         {/* ── RÉFÉRENTIEL ── */}
         {tab === 'referentiel' && (
-          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-            <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center gap-2">
-              <IconBooks size={16} className="text-iip-turquoise" />
-              <span className="text-second font-bold text-iip-blue uppercase tracking-wide">
-                Référentiel légal des échéances
-              </span>
-              <span className="text-xs text-slate-500 ml-2">
-                {types.length} types — modifiable par l'administrateur à la lecture d'une circulaire
-              </span>
-            </div>
+          <section className="carte overflow-hidden">
+            <EnteteCarte icone={IconBooks} titre="Référentiel légal des échéances"
+              sous={`${types.length} types — modifiable par l'administrateur à la lecture d'une circulaire`} />
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -355,7 +348,7 @@ export default function Echeancier() {
                 </tbody>
               </table>
             </div>
-          </div>
+          </section>
         )}
       </div>
 

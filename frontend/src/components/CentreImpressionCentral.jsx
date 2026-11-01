@@ -9,7 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { nomPropre } from '../lib/nom.js';
 import {
-  IconPrinter, IconUsers, IconSchool, IconChartBar, IconCalendarStats,
+  IconPrinter, IconEye, IconUsers, IconSchool, IconChartBar, IconCalendarStats,
   IconBooks, IconAlertTriangle, IconChevronRight, IconChevronLeft, IconChevronDown, IconSearch,
   IconDownload, IconSend, IconFilePlus, IconMailForward, IconFileText, IconRoute, IconId, IconZoomIn, IconCheck,
 } from '@tabler/icons-react';
@@ -360,6 +360,7 @@ function fusionnerHtml(docs) {
 
 function ValorisationParEtudiant({ annee, dossiers, nomUE }) {
   const envoiMail = useEnvoiMail();
+  const { place: placeOutils } = useContext(PlaceOutils) || {};
   const [coches, setCoches] = useState(() => new Set());
   const [choix, setChoix] = useState({ notification: true, attestation: true });
   const [q, setQ] = useState('');
@@ -468,13 +469,19 @@ function ValorisationParEtudiant({ annee, dossiers, nomUE }) {
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" className="bouton bouton-fort" disabled={enCours || !coches.size || !Object.values(choix).some(Boolean)}
           onClick={produire}>{enCours ? 'Production…' : `Produire pour ${coches.size} étudiant(s)`}</button>
-        {produits?.length > 0 && <>
+        {/* Aperçu, imprimer, envoyer : dans la barre bleue de la fenêtre (portail), ici seulement hors fenêtre. */}
+        {produits?.length > 0 && (placeOutils ? createPortal(<>
+          <IconeBarre Icone={IconEye} titre="Aperçu, un par un" onClick={() => apercu(0)} />
+          <IconeBarre Icone={IconPrinter} titre="Tout imprimer" onClick={toutImprimer} />
+          {envoiMail?.actif && peutGeste('envois.envoyer') && (
+            <IconeBarre Icone={IconSend} titre={`Envoyer à chacun (${produits.length})`} onClick={() => setEnvoi(true)} />)}
+        </>, placeOutils) : <>
           <button type="button" className="bouton" onClick={() => apercu(0)}>Aperçu, un par un</button>
           <button type="button" className="bouton bouton-sortir" onClick={toutImprimer}>Tout imprimer</button>
           {envoiMail?.actif && peutGeste('envois.envoyer') && (
             <button type="button" className="bouton bouton-sortir" onClick={() => setEnvoi(true)}>
               Envoyer à chacun ({produits.length})</button>)}
-        </>}
+        </>)}
       </div>
       {parSection.length > 1 && (
         <div className="flex flex-wrap items-center gap-1.5 text-second">
@@ -543,6 +550,7 @@ function ValorisationParEtudiant({ annee, dossiers, nomUE }) {
  * diverger.
  */
 function OngletSchemas() {
+  const { place: placeOutils } = useContext(PlaceOutils) || {};
   const [annee, setAnnee] = useState(getAnnee());
   const [annees, setAnnees] = useState([]);
   const [sections, setSections] = useState([]);
@@ -592,10 +600,14 @@ function OngletSchemas() {
           {(annees.length ? annees : [annee]).map(a => <option key={a} value={a}>{a}</option>)}
         </select>
         <span className="flex-1" />
+        {/* Aperçu et impression : dans la barre bleue de la fenêtre (portail), ici seulement hors fenêtre. */}
+        {placeOutils ? createPortal(
+          <IconeBarre Icone={IconPrinter} titre={enCours ? 'Composition…' : 'Aperçu et impression — A4 paysage'}
+            disabled={enCours || !data?.nodes?.length} onClick={produire} />, placeOutils) : (
         <button type="button" className="bouton bouton-sortir controle px-3 text-sm"
           disabled={enCours || !data?.nodes?.length} onClick={produire}>
           {enCours ? 'Composition…' : 'Aperçu et impression — A4 paysage'}
-        </button>
+        </button>)}
       </div>
       {erreur && <p className="text-second text-[color:var(--c-refuse)]">{erreur}</p>}
       <div ref={zone}>
@@ -641,6 +653,7 @@ function ListesEtRapports({ domaine }) {
 }
 
 function OngletRapports({ domaine, sansListe = false, rapportId = null }) {
+  const { place: placeOutils } = useContext(PlaceOutils) || {};
   /* L'ANNÉE SE CHOISIT ICI. Le centre reprenait l'année de travail sans
      jamais la montrer : pour sortir la charge de l'an dernier — ce que
      demandent la dotation, le COPIL et l'AEQES —, il fallait changer l'année
@@ -1114,10 +1127,12 @@ function OngletRapports({ domaine, sansListe = false, rapportId = null }) {
           )}
           {/* IMPRIMER D'ABORD, comme dans le rail : c'est le geste le plus
               fréquent, et il porte la couleur qui le fait trouver. */}
+          {placeOutils ? createPortal(
+            <IconeBarre Icone={IconPrinter} titre="Imprimer" onClick={imprimer} disabled={!choisi || enCours} />, placeOutils) : (
           <button onClick={imprimer} disabled={!choisi || enCours}
             className="controle controle-fort">
             <IconPrinter size={14} /> Imprimer
-          </button>
+          </button>)}
           {/* Une pièce mise en page ne sort pas en tableur : elle n'a pas de
               lignes à retrier, elle a une forme. */}
           {(!choisi?.piece || choisi?.tableur) && (
@@ -2630,7 +2645,7 @@ function PiecesDeLEcran({ pieces, onChoisir }) {
         </label>
       ))}
       <button type="button" onClick={() => onChoisir(p)}
-        className="ml-auto px-4 py-2 text-sm rounded-lg bg-iip-blue text-white font-semibold inline-flex items-center gap-1.5">
+        className="ml-auto bouton bouton-sortir inline-flex items-center gap-1.5">
         <IconPrinter size={14} /> Produire
       </button>
     </div>

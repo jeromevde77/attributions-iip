@@ -1,8 +1,8 @@
 import { useEffect, useState, useMemo } from 'react';
 import { estDirection } from '../lib/modules.js';
-import { IconPlus, IconTarget, IconTrash } from '@tabler/icons-react';
+import { IconPlus, IconTarget, IconTrash, IconSchool } from '@tabler/icons-react';
 import { api } from '../lib/api.js';
-import { Fenetre } from './ui.jsx';
+import { Fenetre, EnteteCarte } from './ui.jsx';
 import { informer } from '../lib/dialogue.jsx';
 import { codeGroupe } from '../lib/groupes.js';
 
@@ -277,14 +277,15 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
           {loading ? (
             <p className="text-gray-400 text-center py-8">Chargement…</p>
           ) : error ? (
-            <div className="bg-red-50 text-red-700 text-sm rounded p-3 border-l-4 border-l-red-500">{error}</div>
+            <div className="bloc-etat text-sm p-3" data-etat="corriger">{error}</div>
           ) : (
             <>
               {/* ── Encart Vue étudiant ── */}
-              <div className="bloc-etat etat-faveur p-3 mb-4 space-y-2">
-                <div className="text-xs font-semibold text-violet-700 uppercase tracking-wider">🎓 Vue étudiant</div>
+              <section className="carte overflow-hidden mb-4">
+                <EnteteCarte icone={IconSchool} titre="Vue étudiant" />
+                <div className="p-3 space-y-2">
                 <div className="grid grid-cols-3 gap-3 text-center">
-                  <div className="bg-white rounded border border-violet-100 p-2">
+                  <div className="bg-white rounded border border-slate-200 p-2">
                     <div className="text-mention text-gray-500 mb-0.5">Heures de contact</div>
                     <input type="number" min="0"
                       value={heures}
@@ -292,25 +293,25 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
                       onBlur={saveHeures}
                       autoComplete="off"
                       placeholder="0"
-                      className="font-bold text-violet-700 text-lg text-center w-full bg-transparent border-b border-violet-200 focus:outline-none focus:border-violet-500"
+                      className="font-bold text-iip-blue text-lg text-center w-full bg-transparent border-b border-slate-200 focus:outline-none focus:border-iip-blue"
                     />
                     <div className="text-mention text-gray-400">heures ×60 min</div>
                   </div>
-                  <div className="bg-white rounded border border-violet-100 p-2">
+                  <div className="bg-white rounded border border-slate-200 p-2">
                     <div className="text-mention text-gray-500 mb-0.5">Pér. contact (×1.2)</div>
-                    <div className="font-bold text-violet-600 text-lg">
+                    <div className="font-bold text-iip-turquoise text-lg">
                       {Number(heures) > 0 ? Math.round(Number(heures) * 1.2) : '—'}
                     </div>
                     <div className="text-mention text-gray-400">périodes 50 min</div>
                   </div>
-                  <div className="bg-white rounded border border-violet-100 p-2">
+                  <div className="bg-white rounded border border-slate-200 p-2">
                     <div className="text-mention text-gray-500 mb-0.5">Pér. dossier pédag.</div>
                     <div className="font-bold text-iip-gold text-lg">{coursPer ?? '—'}</div>
                     <div className="text-mention text-gray-400">périodes prof.</div>
                   </div>
                 </div>
                 {Number(heures) > 0 && coursPer > 0 && (
-                  <div className="text-xs text-violet-600 text-center pt-1 border-t border-violet-100">
+                  <div className="text-xs text-iip-blue text-center pt-1 border-t border-slate-100">
                     Temps hors-contact estimé : <strong>{Math.max(0, Math.round(coursPer - Number(heures) * 1.2))} pér.</strong>
                     <span className="text-gray-400"> (corrections, évaluations, préparation...)</span>
                   </div>
@@ -318,7 +319,7 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
 
                 {/* Analyse autonomie UE — intervalle [min ; max] */}
                 {ueAnalyse && ueAnalyse.per_ouvertes > 0 && (
-                  <div className={`rounded p-2 mt-1 text-xs ${ueAnalyse.ok ? 'bg-green-500 text-white' : 'bg-orange-500 text-white'}`}>
+                  <div className="bloc-etat p-2 mt-1 text-xs" data-etat={ueAnalyse.ok ? 'reussi' : 'surveiller'}>
                     <div className="font-semibold mb-1">
                       {ueAnalyse.ok ? '✅' : '⚠'} Autonomie UE {ueNum} ({ueAnalyse.nb_cours} cours)
                     </div>
@@ -343,7 +344,7 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
                       <span className="text-gray-500">Déjà attribuée :</span>
                       <span className="font-medium">{ueAnalyse.aut_attribuee} pér.</span>
                     </div>
-                    <div className={`mt-1 pt-1 border-t font-semibold ${ueAnalyse.ok ? 'border-green-200' : 'border-orange-200'}`}>
+                    <div className="mt-1 pt-1 border-t border-slate-200 font-semibold">
                       {ueAnalyse.ok
                         ? (ueAnalyse.multiple_obligatoire
                             ? `✅ Autonomie conforme (${ueAnalyse.attendu} pér.)`
@@ -356,7 +357,8 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
                     </div>
                   </div>
                 )}
-              </div>
+                </div>
+              </section>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm border border-gray-200 rounded">
                   <thead>
@@ -558,8 +560,8 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
 
               {canEdit && (
                 <button onClick={addRow}
-                        className="mt-3 bg-iip-mauve/15 hover:bg-iip-mauve/25 text-iip-mauve text-sm font-medium px-4 py-2 rounded">
-                  <IconPlus size={14} className="inline align-[-2px] mr-1" />Ajouter une ligne
+                        className="bouton mt-3">
+                  <IconPlus size={14} />Ajouter une ligne
                 </button>
               )}
             </>

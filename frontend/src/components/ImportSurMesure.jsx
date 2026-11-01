@@ -3,7 +3,7 @@ import {
   IconUpload, IconCheck, IconAlertTriangle, IconDeviceFloppy,
   IconArrowRight, IconTrash,
 } from '@tabler/icons-react';
-import { Fenetre } from './ui.jsx';
+import { Fenetre, EnteteCarte } from './ui.jsx';
 import { authHeaders } from '../lib/api.js';
 
 /**
@@ -275,22 +275,18 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
         )}
 
         {entetes && (
-          <div className="border border-slate-200 rounded-xl p-4 space-y-3">
-            <div>
-              <span className="text-sm font-semibold text-iip-blue">Correspondances</span>
+          <div className="carte overflow-hidden">
+            <EnteteCarte titre={<>Correspondances
               {classeur && classeur.SheetNames.length > 1 && (
-                <span className="ml-2 text-second text-slate-600">· onglet <b>« {onglet} »</b>{' '}
+                <span className="ml-2 text-second font-normal text-slate-600">· onglet <b>« {onglet} »</b>{' '}
                   <button type="button" className="text-iip-blue underline"
                     onClick={() => { setOnglet(''); setEntetes(null); setBrut(null); setCorresp({}); }}>changer d'onglet</button>
-                </span>)}
-              <p className="text-second text-slate-500">
-                {brut.length} ligne(s), {entetes.length} colonne(s). À gauche le champ de
-                Lucie, à droite la colonne du document.
-              </p>
-            </div>
+                </span>)}</>}
+              sous={`${brut.length} ligne(s), ${entetes.length} colonne(s). À gauche le champ de Lucie, à droite la colonne du document.`} />
+            <div className="p-4 space-y-3">
 
-            <label className="block text-xs bg-amber-500 border border-amber-500 rounded-lg p-2.5">
-              <span className="block font-semibold text-amber-900 mb-1">
+            <label className="bloc-etat block text-xs p-2.5" data-etat="surveiller">
+              <span className="block font-semibold mb-1">
                 Colonne qui identifie la ligne
               </span>
               <select value={cleChoisie} onChange={e => setCleChoisie(e.target.value)}
@@ -420,6 +416,7 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
               </button>
             </div>
           </div>
+          </div>
         )}
 
         {rapport && (
@@ -444,8 +441,7 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
             )}
 
             {rapport.nb_illisibles > 0 && (
-              <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
-                              text-second text-amber-900">
+              <div className="bloc-etat px-3 py-2 text-second" data-etat="surveiller">
                 <div className="flex items-center gap-1.5 font-semibold mb-1">
                   <IconAlertTriangle size={14} /> {rapport.nb_illisibles} valeur(s) illisible(s)
                 </div>
@@ -463,8 +459,7 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
             )}
 
             {rapport.nb_inconnus > 0 && (
-              <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
-                              text-second text-amber-900">
+              <div className="bloc-etat px-3 py-2 text-second" data-etat="surveiller">
                 {rapport.nb_inconnus} ligne(s) sans correspondance dans Lucie.
               </div>
             )}

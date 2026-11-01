@@ -108,7 +108,7 @@ export default function RepartitionOrganisation({ ueNum, ueNom, annee, onClose, 
                 <span className="text-sm font-semibold text-iip-blue">{coches.size} coché(s) →</span>
                 {orgs.map(o => (
                   <button key={o} onClick={() => affecterCoches(o)}
-                    className="px-2.5 py-1 text-second font-semibold rounded bg-iip-blue text-white hover:opacity-90">
+                    className="bouton">
                     Organisation {o}
                   </button>
                 ))}

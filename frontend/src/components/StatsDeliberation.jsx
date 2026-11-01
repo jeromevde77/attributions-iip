@@ -4,6 +4,7 @@ import { authHeaders } from '../lib/api.js';
 import {
   nb, pc, tonTaux, couleurTaux, BarreDecisions, Tuile, Etendue, forme,
 } from './statsUi.jsx';
+import { EnteteCarte } from './ui.jsx';
 
 /**
  * LES CHIFFRES DE LA DÉLIBÉRATION.
@@ -35,11 +36,8 @@ const Barre = ({ c }) => (
 function Tableau({ titre, sous, lignes, colonne = 'Groupe' }) {
   if (!lignes?.length) return null;
   return (
-    <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-      <div className="px-3 py-2 bg-slate-50 border-b border-slate-200">
-        <div className="text-sm font-semibold text-iip-blue">{titre}</div>
-        {sous && <div className="text-xs text-slate-500">{sous}</div>}
-      </div>
+    <div className="carte overflow-hidden">
+      <EnteteCarte titre={titre} sous={sous || null} />
       <div className="overflow-x-auto">
         <table className="w-full text-second">
           <thead>
@@ -182,8 +180,7 @@ export default function StatsDeliberation({ annee }) {
       </div>
 
       {erreur && (
-        <div className="px-3 py-2 rounded-xl bg-rose-50 border border-rose-200
-                        text-second text-rose-900">{erreur}</div>
+        <div className="bloc-etat px-3 py-2 text-second" data-etat="corriger">{erreur}</div>
       )}
 
       {data && (
@@ -239,8 +236,7 @@ export default function StatsDeliberation({ annee }) {
           )}
 
           {!!data.dossiers_ouverts && (
-            <div className="px-3 py-2 rounded-xl bg-amber-50 border border-amber-300
-                            text-second text-amber-900 flex items-start gap-1.5">
+            <div className="bloc-etat px-3 py-2 text-second flex items-start gap-1.5" data-etat="surveiller">
               <IconAlertTriangle size={15} className="flex-none mt-px" />
               <span>
                 <b>{data.dossiers_ouverts} inscription(s) sans aucune décision.</b> Elles
@@ -266,15 +262,9 @@ export default function StatsDeliberation({ annee }) {
           {/* LE COURS N'EST PAS DÉLIBÉRÉ : on ne lui donne donc pas les mêmes
               colonnes, pour qu'on ne lise pas ces chiffres comme des décisions. */}
           {!!data.par_cours?.length && (
-            <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-              <div className="px-3 py-2 bg-slate-50 border-b border-slate-200">
-                <div className="text-sm font-semibold text-iip-blue">Par cours</div>
-                <div className="text-xs text-slate-500">
-                  Un cours n'a pas de décision — le Conseil délibère l'unité. Ce qui se dit
-                  d'un cours, c'est la note qu'il a produite : un indicateur d'évaluation,
-                  pas de délibération.
-                </div>
-              </div>
+            <div className="carte overflow-hidden">
+              <EnteteCarte titre="Par cours"
+                sous="Un cours n'a pas de décision — le Conseil délibère l'unité. Ce qui se dit d'un cours, c'est la note qu'il a produite : un indicateur d'évaluation, pas de délibération." />
               <div className="overflow-x-auto max-h-[420px]">
                 <table className="w-full text-second">
                   <thead className="sticky top-0 bg-white">

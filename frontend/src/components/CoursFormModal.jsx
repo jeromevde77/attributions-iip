@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { estDirection } from '../lib/modules.js';
-import { IconCheck, IconX } from '@tabler/icons-react';
+import { IconCheck, IconX, IconSchool } from '@tabler/icons-react';
 import { api, getUser } from '../lib/api.js';
-import { Fenetre } from './ui.jsx';
+import { Fenetre, EnteteCarte } from './ui.jsx';
 
 /**
  * Modale création / édition d'un cours du référentiel.
@@ -251,24 +251,23 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
 
             {/* ── ENCART VUE ÉTUDIANT ───────────────────────────────────── */}
             {!isZ && (
-              <div className="bg-iip-blue/5 border border-iip-blue/15 rounded-lg p-3 space-y-1.5">
-                <div className="text-xs font-semibold text-iip-blue uppercase tracking-wider flex items-center gap-1.5">
-                  🎓 Vue étudiant
-                </div>
+              <section className="carte overflow-hidden">
+                <EnteteCarte icone={IconSchool} titre="Vue étudiant" />
+                <div className="p-3 space-y-1.5">
                 <div className="grid grid-cols-4 gap-3 text-center">
-                  <div className="bg-white rounded border border-iip-blue/10 p-2">
+                  <div className="bg-white rounded border border-slate-200 p-2">
                     <div className="text-mention text-gray-500 mb-0.5">Heures de contact</div>
                     <div className="font-bold text-iip-blue text-lg">{form.heures || '—'} h</div>
                     <div className="text-mention text-gray-400">×60 min</div>
                   </div>
-                  <div className="bg-white rounded border border-iip-blue/10 p-2">
+                  <div className="bg-white rounded border border-slate-200 p-2">
                     <div className="text-mention text-gray-500 mb-0.5">Pér. contact (×1.2)</div>
                     <div className="font-bold text-iip-turquoise text-lg">
                       {Number(form.heures) > 0 ? Math.round(Number(form.heures) * 1.2) : '—'}
                     </div>
                     <div className="text-mention text-gray-400">périodes 50 min</div>
                   </div>
-                  <div className="bg-white rounded border border-iip-blue/10 p-2">
+                  <div className="bg-white rounded border border-slate-200 p-2">
                     <div className="text-mention text-gray-500 mb-0.5">Pér. dossier pédag.</div>
                     <div className="font-bold text-iip-gold text-lg">{form.cours_per || '—'}</div>
                     <div className="text-mention text-gray-400">périodes prof.</div>
@@ -283,12 +282,13 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
                   </div>
                 </div>
                 {Number(form.heures) > 0 && Number(form.cours_per) > 0 && (
-                  <div className="text-xs text-iip-blue text-center pt-1 border-t border-iip-blue/10">
+                  <div className="text-xs text-iip-blue text-center pt-1 border-t border-slate-100">
                     Temps hors-contact estimé : <strong>{Math.max(0, Math.round(Number(form.cours_per) - Number(form.heures) * 1.2))} pér.</strong>
                     <span className="text-gray-400"> (corrections, évaluations, préparation...)</span>
                   </div>
                 )}
-              </div>
+                </div>
+              </section>
             )}
 
             {/* Case Stage */}

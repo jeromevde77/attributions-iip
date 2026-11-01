@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { nomPropre } from '../lib/nom.js';
 import { getAnnee } from '../lib/api.js';
-import { IconCalendarStats, IconPencil, IconChevronDown, IconChevronRight, IconX, IconDeviceFloppy, IconTrash, IconPlus, IconHash, IconCalendar, IconSitemap, IconBook, IconAlertTriangle } from '@tabler/icons-react';
+import { IconCalendarStats, IconPencil, IconChevronDown, IconChevronRight, IconX, IconDeviceFloppy, IconTrash, IconPlus, IconHash, IconCalendar, IconSitemap, IconBook, IconAlertTriangle, IconDownload, IconSparkles } from '@tabler/icons-react';
 import PlanificateurVisuel from '../components/PlanificateurVisuel.jsx';
 import { Fenetre } from '../components/ui.jsx';
 import { informer } from '../lib/dialogue.jsx';
@@ -1412,34 +1412,34 @@ export default function Planification() {
           <span className="px-1.5 py-0.5 rounded bg-purple-500 text-white font-bold">VC = 1h</span>
         </div>
         <button onClick={() => setShowImport(true)}
-          className="bg-iip-gold text-white text-xs px-3 py-1.5 h-9 rounded hover:bg-iip-amber">
-          ⬇ Importer
+          className="bouton flex items-center gap-1">
+          <IconDownload size={14} />Importer
         </button>
         {filtreSection && (
           <button onClick={() => setShowSequence(true)}
-            className="bg-iip-mauve/10 text-iip-mauve text-xs px-3 py-1.5 h-9 rounded hover:bg-iip-mauve/20 flex items-center gap-1">
+            className="bouton flex items-center gap-1">
             <IconHash size={14} />Séquencer
           </button>
         )}
         <button onClick={() => setShowVisuel(true)}
-          className="bg-iip-turquoise/10 text-iip-blue text-xs px-3 py-1.5 h-9 rounded hover:bg-iip-turquoise/20 flex items-center gap-1">
+          className="bouton flex items-center gap-1">
           <IconCalendar size={14} />Planificateur visuel
         </button>
         {filtreSection && (
           <button onClick={() => setShowIA(true)}
-            className="bg-iip-mauve text-white text-xs px-3 py-1.5 h-9 rounded hover:opacity-90 flex items-center gap-1">
-            ✨ Générer avec Lucie IA
+            className="bouton flex items-center gap-1">
+            <IconSparkles size={14} />Générer avec Lucie IA
           </button>
         )}
         {filtreSection && (
           <button onClick={() => setShowReset(true)}
-            className="bg-red-500 text-white text-xs px-3 py-1.5 h-9 rounded hover:bg-red-500 flex items-center gap-1">
-            <IconTrash size={15} className="inline align-[-2px] mr-1" /> Réinitialiser
+            className="bouton bouton-detruire flex items-center gap-1">
+            <IconTrash size={15} /> Réinitialiser
           </button>
         )}
         <button onClick={() => setShowCalendrier(true)}
-          className="border border-gray-300 text-gray-600 text-xs px-3 py-1.5 h-9 rounded hover:bg-gray-50">
-          <IconCalendar size={14} className="inline align-[-2px] mr-1" />Calendrier
+          className="bouton flex items-center gap-1">
+          <IconCalendar size={14} />Calendrier
         </button>
         {saving && <span className="text-xs text-iip-gold animate-pulse"><IconDeviceFloppy size={12} className="inline" /></span>}
         {!saving && Object.keys(pendingCells).length === 0 && grille && <span className="text-xs text-green-500">✓</span>}
@@ -1502,8 +1502,8 @@ export default function Planification() {
                     <p className="text-2xl mb-2"><IconPlus size={28} className="inline text-gray-300" /></p>
                     <p className="text-sm">Aucun groupe configuré pour {annee}.</p>
                     <button onClick={() => setShowImport(true)}
-                      className="mt-3 bg-iip-gold text-white text-sm px-5 py-2 rounded hover:bg-iip-amber">
-                      ⬇ Importer depuis les attributions
+                      className="mt-3 bouton bouton-fort inline-flex items-center gap-1.5">
+                      <IconDownload size={15} /> Importer depuis les attributions
                     </button>
                   </td>
                 </tr>

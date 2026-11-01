@@ -327,16 +327,16 @@ export default function EncodageRapide() {
           {niveauxPresents.map(n => <option key={n} value={n}>UE de {n}</option>)}
         </select>
         <button onClick={() => appliquerLot('reussi')}
-          className="text-second px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-semibold">
+          className="bouton">
           Tout réussi
         </button>
         <button onClick={() => appliquerLot('ajourne')}
-          className="text-second px-2.5 py-1 rounded-lg border border-amber-300 text-amber-800">
+          className="bouton">
           Tout ajourné
         </button>
         <button onClick={() => appliquerLot('refuse')}
           title="Décision définitive, distincte de l'ajournement"
-          className="text-second px-2.5 py-1 rounded-lg border border-red-300 text-red-700">
+          className="bouton">
           Tout refusé
         </button>
         <button onClick={() => appliquerLot(null)}

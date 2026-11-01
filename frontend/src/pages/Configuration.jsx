@@ -10,7 +10,7 @@ import Audit from './Audit.jsx';
 import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail, IconPalette, IconArchive, IconAlertTriangle, IconShieldLock, IconDatabase, IconHierarchy, IconArrowsSplit, IconTool, IconSchool, IconStairsUp, IconCalculator, IconLinkOff, IconSend, IconMessageDots, IconId, IconFileDescription, IconKey, IconMailForward, IconUserSearch, IconCoin, IconShape, IconComponents, IconArrowsExchange, IconPower } from '@tabler/icons-react';
 import CatalogueVisuels from '../components/CatalogueVisuels.jsx';
 import ReglageDesign from '../components/ReglageDesign.jsx';
-import { PageHeader, RailLateral, TuileEtat, PastilleEtat, Encadre } from '../components/ui.jsx';
+import { PageHeader, RailLateral, TuileEtat, PastilleEtat, Encadre, EnteteCarte } from '../components/ui.jsx';
 import ApercuDocuments from '../components/ApercuDocuments.jsx';
 const RegistreTransferts = lazy(() => import('../components/RegistreTransferts.jsx'));
 const Editeur = lazy(() => import('./Editeur.jsx'));
@@ -53,13 +53,9 @@ function PurgeAnnee() {
   }
 
   return (
-    <section className="bg-white rounded-lg border border-red-200 overflow-hidden">
-      <div className="px-4 py-3 bg-red-50 border-b border-red-200 border-l-4 border-l-red-500">
-        <h2 className="font-semibold text-red-700">Purge d'une année scolaire</h2>
-        <p className="text-xs text-red-500 mt-0.5">
-          Supprime toutes les attributions, UE, cours et organisations d'une année. Irréversible.
-        </p>
-      </div>
+    <section className="carte overflow-hidden">
+      <EnteteCarte icone={IconTrash} titre="Purge d'une année scolaire"
+        sous="Supprime toutes les attributions, UE, cours et organisations d'une année. Irréversible." />
       <div className="px-4 py-4 space-y-3">
         {etape === 1 && (
           <>
@@ -78,7 +74,7 @@ function PurgeAnnee() {
               </div>
               <button onClick={() => { if(annee) setEtape(2); }}
                 disabled={!annee}
-                className="px-4 py-1.5 h-9 bg-red-600 text-white text-sm rounded disabled:opacity-40 hover:bg-red-700">
+                className="bouton bouton-detruire">
                 Purger…
               </button>
             </div>
@@ -93,14 +89,14 @@ function PurgeAnnee() {
               Toutes les attributions, UE, cours, organisations et EA12 de cette année
               seront définitivement supprimés. Cette action est irréversible.
             </p>
-            {err && <p className="text-xs text-white bg-red-500 rounded p-2">{err}</p>}
+            {err && <p className="bloc-etat px-3 py-2 text-xs" data-etat="corriger">{err}</p>}
             <div className="flex gap-3">
               <button onClick={purger} disabled={loading}
                 className="bouton bouton-detruire">
                 {loading ? 'Suppression…' : `Oui, supprimer ${annee}`}
               </button>
               <button onClick={() => { setEtape(1); setErr(''); }}
-                className="px-4 py-1.5 h-9 border border-gray-300 text-gray-600 text-sm rounded hover:bg-gray-50">
+                className="bouton">
                 Annuler
               </button>
             </div>
@@ -140,16 +136,9 @@ function RegenererDonneesDev() {
   }
 
   return (
-    <section className="bg-white rounded-lg border border-amber-300 overflow-hidden">
-      <div className="px-4 py-3 bg-amber-50 border-b border-amber-200 border-l-4 border-l-amber-500">
-        <h2 className="font-semibold text-amber-700">🔧 Régénérer les données de test</h2>
-        <p className="text-xs text-amber-600 mt-0.5">
-          Environnement de développement uniquement. Remplace les noms, adresses,
-          diplômes et données personnelles de tous les professeurs ET de tous les
-          étudiants par des données fictives (RGPD-safe). Attributions, notes,
-          parcours et décisions sont conservés.
-        </p>
-      </div>
+    <section className="carte overflow-hidden">
+      <EnteteCarte icone={IconTool} titre="Régénérer les données de test"
+        sous="Environnement de développement uniquement. Remplace les noms, adresses, diplômes et données personnelles de tous les professeurs ET de tous les étudiants par des données fictives (RGPD-safe). Attributions, notes, parcours et décisions sont conservés." />
       <div className="px-4 py-4 space-y-3">
         {etape === 1 && (
           <>
@@ -158,7 +147,7 @@ function RegenererDonneesDev() {
               mais réalistes (matricules, titres, communes belges, statuts EA12 variés).
             </p>
             <button onClick={() => setEtape(2)}
-              className="px-4 py-1.5 h-9 bg-amber-500 text-white text-sm rounded hover:bg-amber-600">
+              className="bouton bouton-fort">
               Régénérer les données fictives
             </button>
           </>
@@ -173,14 +162,14 @@ function RegenererDonneesDev() {
               et diplômes seront remplacés par de nouvelles données fictives. Les
               attributions, UE et cours ne sont pas touchés.
             </p>
-            {err && <p className="text-xs text-white bg-red-500 rounded p-2">{err}</p>}
+            {err && <p className="bloc-etat px-3 py-2 text-xs" data-etat="corriger">{err}</p>}
             <div className="flex gap-3">
               <button onClick={regenerer} disabled={loading}
                 className="bouton">
                 {loading ? 'Régénération…' : 'Oui, régénérer'}
               </button>
               <button onClick={() => { setEtape(1); setErr(''); }}
-                className="px-4 py-1.5 h-9 border border-gray-300 text-gray-600 text-sm rounded hover:bg-gray-50">
+                className="bouton">
                 Annuler
               </button>
             </div>
@@ -244,9 +233,10 @@ function cleanSubject(s) {
 // Catégorise un commit par mot-clé pour une petite pastille
 function commitTag(s) {
   const l = s.toLowerCase();
-  if (/^fix|corrig|bug/.test(l)) return { label: 'Correctif', cls: 'bg-red-500 text-white' };
-  if (/^feat|ajout|nouveau|nouvelle|module/.test(l)) return { label: 'Nouveauté', cls: 'bg-green-500 text-white' };
-  return { label: 'Amélioration', cls: 'bg-iip-turquoise/10 text-iip-blue' };
+  // Une catégorie, pas un état : pastilles neutres.
+  if (/^fix|corrig|bug/.test(l)) return { label: 'Correctif', cls: 'border border-slate-200 text-slate-600' };
+  if (/^feat|ajout|nouveau|nouvelle|module/.test(l)) return { label: 'Nouveauté', cls: 'border border-slate-200 text-slate-600' };
+  return { label: 'Amélioration', cls: 'border border-slate-200 text-slate-600' };
 }
 
 function ChangelogView({ data }) {
@@ -265,8 +255,7 @@ function ChangelogView({ data }) {
               return (
                 <li key={c.hash} className="flex items-start gap-2 text-sm">
                   <span className={`text-mention px-1.5 py-0.5 rounded font-semibold flex-shrink-0 mt-0.5 ${tag.cls}`}>{tag.label}</span>
-                  <span className="text-gray-700 flex-1">{cleanSubject(c.subject)}</span>
-                  <code className="text-mention text-gray-300 font-mono flex-shrink-0 mt-0.5">{c.hash}</code>
+                  <span className="text-gray-700 flex-1" title={c.hash}>{cleanSubject(c.subject)}</span>
                 </li>
               );
             })}
@@ -413,10 +402,7 @@ function GestionParametres({ groupes = null }) {
         const Icon = meta.icon;
         return (
           <div key={groupe} className="carte overflow-hidden min-w-0">
-            <div className="px-5 py-4 border-b border-gray-100">
-              <h3 className="titre-carte flex items-center gap-2">{Icon && <Icon size={17} className="text-iip-turquoise" />}{meta.label}</h3>
-              <p className="text-xs text-gray-500 mt-0.5">{meta.desc}</p>
-            </div>
+            <EnteteCarte icone={Icon} titre={meta.label} sous={meta.desc} />
             <div className="divide-y divide-gray-100">
               {params.map(p => {
                 const t = PARAM_TYPES[p.cle]
@@ -622,11 +608,10 @@ function GestionPrerequis() {
       </div>
 
       {msgLien && (
-        <div className={`px-3 py-2 rounded-lg text-sm flex items-center justify-between ${
-          msgLien.type === 'ok' ? 'bg-emerald-500 text-white border border-emerald-500'
-                                : 'bg-red-500 text-white border border-red-500'}`}>
+        <div className="bloc-etat px-3 py-2 text-sm flex items-center justify-between"
+          data-etat={msgLien.type === 'ok' ? 'reussi' : 'corriger'}>
           <span>{msgLien.texte}</span>
-          <button onClick={() => setMsgLien(null)} className="ml-3 opacity-60">✕</button>
+          <button onClick={() => setMsgLien(null)} className="ml-3 opacity-60" title="Fermer"><IconX size={14} /></button>
         </div>
       )}
 
@@ -643,9 +628,9 @@ function GestionPrerequis() {
       {section && vue === 'liste' && (
         <>
           {/* Ajouter un prérequis */}
-          <div className="bg-white rounded-lg border border-gray-200 px-5 py-4 space-y-3">
-            <p className="text-sm font-medium text-gray-700">Ajouter un prérequis</p>
-            <div className="flex gap-2 items-end flex-wrap">
+          <div className="carte overflow-hidden">
+            <EnteteCarte icone={IconPlus} titre="Ajouter un prérequis" />
+            <div className="flex gap-2 items-end flex-wrap px-5 py-4">
               <div>
                 <label className="block text-xs text-gray-500 mb-1">UE qui dépend de…</label>
                 <select value={newUe} onChange={e => setNewUe(e.target.value)}
@@ -673,11 +658,11 @@ function GestionPrerequis() {
           {loading ? (
             <div className="text-center text-gray-400 py-8">Chargement…</div>
           ) : Object.keys(parUE).length === 0 ? (
-            <div className="text-center text-gray-400 py-8 bg-white rounded-lg border border-gray-200">
+            <div className="carte text-center text-gray-400 py-8">
               Aucun prérequis défini pour {section}
             </div>
           ) : (
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            <div className="carte overflow-hidden bg-white">
               <table className="w-full text-sm">
                 <thead className="tab-entete intertitre">
                   <tr>
@@ -706,8 +691,8 @@ function GestionPrerequis() {
             </div>
           )}
 
-          <div className="bg-iip-turquoise/5 border border-iip-turquoise/30 rounded-lg p-3 text-xs text-iip-blue">
-            <p className="font-medium mb-0.5">💡 Comment ça fonctionne</p>
+          <div className="text-second text-slate-600">
+            <p className="font-medium mb-0.5">Comment ça fonctionne</p>
             <p>Si UE-B dépend de UE-A, le planificateur IA s'assurera que toutes les heures de UE-A sont terminées avant que UE-B puisse commencer. Les épreuves intégrées dépendent automatiquement de toutes les UE de la section.</p>
           </div>
         </>
@@ -928,12 +913,12 @@ function ConfigAttestation() {
           ))}
           <div className="flex gap-2">
             <button onClick={ajouterSection}
-              className="bouton bouton-fort flex items-center gap-1.5">
+              className="bouton flex items-center gap-1.5">
               <IconPlus size={14}/> Ajouter une section
             </button>
             <button onClick={sauvegarderSections}
-              className={`px-4 py-1.5 rounded-lg text-sm font-semibold ${saved==='sections' ? 'bg-green-600 text-white' : 'bg-iip-blue text-white hover:opacity-90'}`}>
-              {saved==='sections' ? '✓ Sauvegardé' : '✓ Sauvegarder'}
+              className="bouton bouton-fort flex items-center gap-1.5">
+              <IconCheck size={14} /> {saved==='sections' ? 'Sauvegardé' : 'Sauvegarder'}
             </button>
           </div>
         </div>
@@ -1301,7 +1286,7 @@ export default function Configuration() {
 
       {/* ── Onglet Nouveautés ── */}
       {tab === 'changelog' && (
-        <div className="max-w-none bg-white rounded-lg border border-gray-200 p-5">
+        <div className="max-w-none carte p-5">
           <ChangelogView data={changelog} />
         </div>
       )}
@@ -1357,14 +1342,9 @@ export default function Configuration() {
       <GestionParametres groupes={['systeme']} />
 
       {/* ── Historique des modifications ── */}
-      <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <div className="px-4 py-3 bg-iip-gold/5 border-b border-gray-200">
-          <h2 className="titre-carte">Historique des modifications</h2>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Sauvegarde un snapshot complet de chaque attribution avant chaque modification.
-            Permet de revenir en arrière en cas d'erreur.
-          </p>
-        </div>
+      <section className="carte overflow-hidden">
+        <EnteteCarte icone={IconHistory} titre="Historique des modifications"
+          sous="Sauvegarde un snapshot complet de chaque attribution avant chaque modification. Permet de revenir en arrière en cas d'erreur." />
         <div className="px-4">
           <Toggle
             label="Activer la journalisation"
@@ -1378,7 +1358,7 @@ export default function Configuration() {
         </div>
         {historiqueActif && (
           <div className="px-4 pb-4">
-            <p className="text-xs text-white bg-amber-500 border border-amber-500 rounded px-3 py-2">
+            <p className="bloc-etat text-xs px-3 py-2" data-etat="surveiller">
               ⚠️ L'historique consomme de l'espace disque. Pour une utilisation intensive,
               pensez à effectuer des sauvegardes régulières et à purger l'historique ancien.
             </p>
@@ -1387,13 +1367,9 @@ export default function Configuration() {
       </section>
 
       {/* ── Sauvegarde de la base ── */}
-      <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <div className="px-4 py-3 bg-iip-gold/5 border-b border-gray-200">
-          <h2 className="titre-carte">Sauvegarde de la base de données</h2>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Télécharge une copie complète de la base SQLite (attributions, profs, historique, planning…).
-          </p>
-        </div>
+      <section className="carte overflow-hidden">
+        <EnteteCarte icone={IconDatabase} titre="Sauvegarde de la base de données"
+          sous="Télécharge une copie complète de la base SQLite (attributions, profs, historique, planning…)." />
         <div className="px-4 py-4 space-y-4">
           {/* Téléchargement direct */}
           <div className="flex items-center justify-between gap-4">
@@ -1413,14 +1389,9 @@ export default function Configuration() {
 
       {/* ── Restauration de la base (DEV uniquement) ── */}
       {env === 'dev' && (
-        <section className="bg-white rounded-lg border border-red-200 overflow-hidden">
-          <div className="px-4 py-3 bg-red-50 border-b border-red-200 border-l-4 border-l-red-500">
-            <h2 className="font-semibold text-red-700">⚠ Restauration de la base (DEV)</h2>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Remplace entièrement la base de développement par un fichier de sauvegarde .db.
-              Une sauvegarde automatique de l'état actuel est créée avant. Le serveur redémarre ensuite.
-            </p>
-          </div>
+        <section className="carte overflow-hidden">
+          <EnteteCarte icone={IconAlertTriangle} titre="Restauration de la base (DEV)"
+            sous="Remplace entièrement la base de développement par un fichier de sauvegarde .db. Une sauvegarde automatique de l'état actuel est créée avant. Le serveur redémarre ensuite." />
           <div className="px-4 py-4 space-y-3">
             <div className="flex items-center gap-3 flex-wrap">
               <input type="file" accept=".db,application/octet-stream"
@@ -1428,11 +1399,11 @@ export default function Configuration() {
                 className="text-sm text-gray-600 file:mr-3 file:py-1.5 h-9 file:px-3 file:rounded file:border-0 file:text-sm file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200" />
               <button onClick={restaurerBase} disabled={!restoreFile || restoring}
                 className="bouton bouton-detruire whitespace-nowrap">
-                {restoring ? 'Restauration…' : '♻ Restaurer cette base'}
+                {restoring ? 'Restauration…' : 'Restaurer cette base'}
               </button>
             </div>
             {restoreFile && <div className="text-xs text-gray-500">Fichier : {restoreFile.name} ({(restoreFile.size/1024/1024).toFixed(2)} Mo)</div>}
-            {restoreStatus && <div className="text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded px-3 py-2 whitespace-pre-wrap">{restoreStatus}</div>}
+            {restoreStatus && <div className="text-xs text-gray-700 whitespace-pre-wrap">{restoreStatus}</div>}
             <p className="text-xs text-red-600">
               ⚠ Action irréversible sur les données actuelles. Un garde-fou vérifie la base restaurée et remet
               automatiquement l'ancienne en place si elle est illisible (le serveur ne redémarre alors pas).
@@ -1458,12 +1429,14 @@ docker start attributions-backend-dev`}</div>
       )}
 
       {/* ── Infos ── */}
-      <section className="bg-white rounded-lg border border-gray-200 px-4 py-4 text-xs text-gray-500 space-y-1">
-        <div className="font-semibold text-gray-700 mb-2">À propos</div>
+      <section className="carte overflow-hidden">
+        <EnteteCarte titre="À propos" />
+        <div className="px-4 py-4 text-xs text-gray-500 space-y-1">
         <div>Base de données : SQLite (fichier <code className="bg-gray-100 px-1 rounded">attributions.db</code>)</div>
         <div>Le fichier de sauvegarde peut être restauré directement sur la Synology en remplaçant
           <code className="bg-gray-100 px-1 rounded mx-1">/volume1/docker/attributions-app/backend/data/attributions.db</code>
           et en redémarrant le container.
+        </div>
         </div>
       </section>
       {/* ── Purge d'une année scolaire ── */}
@@ -1546,16 +1519,10 @@ function PnccSection({ annee }) {
   const totalAll = postes.reduce((s, p) => s + (p.etp || 0), 0);
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-      <div className="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
-        <div>
-          <h3 className="titre-carte">Postes PNCC — Personnel non chargé de cours</h3>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Année {annee} · Total : <strong>{totalAll.toFixed(1)} ETP</strong>
-            {totalSecEtu > 0 && <> · dont secrétariat étudiant : <strong className="text-sky-600">{totalSecEtu.toFixed(1)} ETP</strong> (proratisé par section)</>}
-          </p>
-        </div>
-      </div>
+    <div className="carte overflow-hidden">
+      <EnteteCarte titre="Postes PNCC — Personnel non chargé de cours"
+        sous={<>Année {annee} · Total : <strong>{totalAll.toFixed(1)} ETP</strong>
+          {totalSecEtu > 0 && <> · dont secrétariat étudiant : <strong className="text-sky-600">{totalSecEtu.toFixed(1)} ETP</strong> (proratisé par section)</>}</>} />
 
       {/* Liste par catégorie */}
       <div className="divide-y divide-gray-100">
@@ -1576,7 +1543,7 @@ function PnccSection({ annee }) {
               </div>
               <div className="space-y-1.5">
                 {liste.map(p => (
-                  <div key={p.id} className="flex items-center gap-3 bg-gray-50 rounded-lg px-3 py-2">
+                  <div key={p.id} className="flex items-center gap-3 px-3 py-2 border-t border-slate-100 first:border-t-0">
                     <div className="flex-1 min-w-0">
                       <span className="text-sm font-medium text-gray-800">{p.libelle_fonction}</span>
                       {p.nom_personne && <span className="text-xs text-gray-500 ml-2">— {p.nom_personne}</span>}
@@ -1716,17 +1683,10 @@ function OngletProcedures() {
   if (loading) return <div className="p-8 text-gray-400">Chargement…</div>;
 
   return (
-    <div className="max-w-none bg-white rounded-lg border border-gray-200 p-5 space-y-4">
-      <div>
-        <h2 className="titre-carte flex items-center gap-2">
-          <IconGavel size={17} className="text-iip-turquoise" />
-          Justifications types — Procédure de recours
-        </h2>
-        <p className="text-xs text-gray-500 mt-1">
-          Ces textes apparaissent sous forme de cases à cocher dans le formulaire de recours.
-          L'établissement peut en ajouter, modifier ou supprimer selon ses besoins.
-        </p>
-      </div>
+    <div className="max-w-none carte overflow-hidden">
+      <EnteteCarte icone={IconGavel} titre="Justifications types — Procédure de recours"
+        sous="Ces textes apparaissent sous forme de cases à cocher dans le formulaire de recours. L'établissement peut en ajouter, modifier ou supprimer selon ses besoins." />
+      <div className="p-5 space-y-4">
 
       <div className="space-y-2">
         {justifs.map((j, i) => (
@@ -1770,6 +1730,7 @@ function OngletProcedures() {
           <IconCheck size={13} /> Sauvegardé
         </p>
       )}
+      </div>
     </div>
   );
 }
@@ -1900,19 +1861,12 @@ export function OngletStatistiques() {
   return (
     <div className="max-w-none space-y-4">
       {/* En-tête */}
-      <div className="bg-white rounded-lg border border-gray-200 p-5">
-        <h2 className="titre-carte flex items-center gap-2 mb-1">
-          <IconChartBar size={17} className="text-iip-turquoise" />
-          Effectifs estimés par section
-        </h2>
-        <p className="text-xs text-gray-500">
-          Saisissez les effectifs réels ou prévisionnels par UE pour le calcul du ratio étudiants/ETP dans les rapports.
-          Ces données alimentent automatiquement le rapport ETP.
-        </p>
-      </div>
+      <div className="carte overflow-hidden">
+      <EnteteCarte icone={IconChartBar} titre="Effectifs estimés par section"
+        sous="Saisissez les effectifs réels ou prévisionnels par UE pour le calcul du ratio étudiants/ETP dans les rapports. Ces données alimentent automatiquement le rapport ETP." />
 
       {/* Sélecteurs */}
-      <div className="bg-white rounded-lg border border-gray-200 p-4 flex flex-wrap gap-4 items-end">
+      <div className="p-4 flex flex-wrap gap-4 items-end">
         <label className="flex flex-col gap-1">
           <span className="text-xs font-semibold text-gray-600">Année</span>
           <select value={annee} onChange={e => setAnnee(e.target.value)}
@@ -1962,7 +1916,7 @@ export function OngletStatistiques() {
               </button>
               <button onClick={appliquerMemeEtudiantsPartout}
                 title="Mettre le même chiffre sur toutes les UE"
-                className="h-9 px-3 bg-gray-200 text-gray-700 text-xs font-semibold rounded hover:bg-gray-300">
+                className="bouton">
                 Uniforme
               </button>
             </div>
@@ -1973,25 +1927,22 @@ export function OngletStatistiques() {
         <div className="flex-1" />
         {saved && <span className="text-xs text-green-600 flex items-center gap-1"><IconCheck size={13} /> Sauvegardé</span>}
       </div>
+      </div>
 
       {/* Tableau UEs */}
       {loading ? (
-        <div className="bg-white rounded-lg border border-gray-200 p-8 text-center text-gray-400 text-sm">Chargement…</div>
+        <div className="carte p-8 text-center text-gray-400 text-sm">Chargement…</div>
       ) : ues.length === 0 ? (
-        <div className="bg-white rounded-lg border border-gray-200 p-8 text-center text-gray-400 text-sm">Aucune UE trouvée pour cette section / année.</div>
+        <div className="carte p-8 text-center text-gray-400 text-sm">Aucune UE trouvée pour cette section / année.</div>
       ) : (
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <div className="carte overflow-hidden">
           {/* Résumé total */}
-          <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50">
-            <div className="text-sm text-gray-600">
-              <span className="font-semibold text-gray-800">{ues.length}</span> UEs ·
-              Total estimé : <span className="font-semibold text-iip-blue">{totalReel > 0 ? totalReel : '—'}</span> étudiants
-            </div>
+          <EnteteCarte titre={<><span className="font-semibold">{ues.length}</span>&nbsp;UEs · Total estimé :&nbsp;<span className="text-iip-blue">{totalReel > 0 ? totalReel : '—'}</span>&nbsp;étudiants</>}>
             <button onClick={() => sauvegarder(ues)} disabled={saving}
-              className="bg-iip-blue text-white text-xs font-semibold px-4 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-40 flex items-center gap-1.5">
+              className="bouton bouton-fort flex items-center gap-1.5">
               {saving ? 'Sauvegarde…' : <><IconCheck size={12} /> Sauvegarder tout</>}
             </button>
-          </div>
+          </EnteteCarte>
 
           {/* Tableau par niveau */}
           <table className="w-full text-sm border-collapse">
@@ -2088,35 +2039,29 @@ function ConfigRecrutement() {
   /* APPELÉE, PAS MONTÉE (12 octobre 2026) : en composant défini ici, elle était recréée à chaque
      frappe et la zone de texte perdait le curseur à chaque lettre. */
   const Bloc = ({ label, desc, field }) => (
-    <div className="mb-8">
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <h2 className="titre-carte">{label}</h2>
-          <p className="text-xs text-gray-400 mt-0.5">{desc}</p>
-        </div>
+    <section className="carte overflow-hidden mb-8">
+      <EnteteCarte titre={label} sous={desc}>
         <button onClick={field.sauvegarder} disabled={field.saving || field.loading}
-          className={`text-sm px-4 py-2 rounded-lg font-medium flex items-center gap-1.5 ${
-            field.saved ? 'bg-green-600 text-white' : 'bg-iip-blue text-white hover:opacity-90'
-          } disabled:opacity-50`}>
-          {field.saved ? '✓ Sauvegardé' : field.saving ? 'Sauvegarde…' : '✓ Enregistrer'}
+          className="bouton bouton-fort flex items-center gap-1.5">
+          <IconCheck size={14} /> {field.saved ? 'Sauvegardé' : field.saving ? 'Sauvegarde…' : 'Enregistrer'}
         </button>
-      </div>
-      {field.err && <div className="text-sm text-red-600 bg-red-50 rounded px-3 py-2 mb-3 border-l-4 border-l-red-500">{field.err}</div>}
-      {field.loading ? <div className="text-sm text-gray-400 py-4">Chargement…</div> : (
-        <div className="border border-gray-200 rounded-xl overflow-hidden">
-          <div className="px-4 py-2 bg-iip-blue/5 border-b border-gray-200 text-xs text-gray-500">
+      </EnteteCarte>
+      {field.err && <div className="bloc-etat text-sm px-3 py-2 m-4" data-etat="corriger">{field.err}</div>}
+      {field.loading ? <div className="text-sm text-gray-400 px-4 py-4">Chargement…</div> : (
+        <div>
+          <div className="px-4 py-2 border-b border-slate-100 text-second text-slate-600">
             Les sauts de ligne sont conservés. Ce texte est lu au candidat lors de l'entretien.
           </div>
           <textarea value={field.valeur} onChange={e => field.setValeur(e.target.value)}
             rows={10}
             className="w-full text-sm px-4 py-3 resize-none focus:outline-none focus:ring-1 focus:ring-iip-turquoise font-mono" />
-          <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 text-xs text-gray-400 flex justify-between">
+          <div className="px-4 py-2 border-t border-slate-100 text-xs text-gray-400 flex justify-between">
             <span>{field.valeur.length} caractères</span>
             <span>~{Math.ceil(field.valeur.split(' ').filter(Boolean).length / 130)} min à voix haute</span>
           </div>
         </div>
       )}
-    </div>
+    </section>
   );
 
   return (
@@ -2335,10 +2280,7 @@ function ReglageCouleurs() {
             if (!cles.length) return null;
             return (
               <div key={g} className="carte overflow-hidden">
-                <div className="px-3 py-2 border-b border-slate-100">
-                  <div className="text-sm font-semibold text-iip-blue">{titre}</div>
-                  <div className="text-xs text-slate-400">{sous}</div>
-                </div>
+                <EnteteCarte titre={titre} sous={sous || null} />
                 {cles.map(([cle, d]) => (
                   <div key={cle} className="px-3 py-1.5 flex items-center gap-3 border-t border-slate-100 first:border-t-0">
                     <span className="flex-1 text-sm text-slate-800">{d.libelle}</span>

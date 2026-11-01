@@ -118,9 +118,9 @@ export default function BulkCreateForm({ onClose, onCreated }) {
               {section && !loading && ues.length > 0 && (
                 <>
                   <div className="flex flex-wrap gap-2 mb-3 text-xs">
-                    <button onClick={selectAll}     className="bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded">Tout cocher</button>
-                    <button onClick={selectMissing} className="bg-iip-gold/10 hover:bg-iip-gold/20 text-iip-gold px-3 py-1 rounded font-medium">Seulement les manquants</button>
-                    <button onClick={selectNone}    className="bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded">Tout décocher</button>
+                    <button onClick={selectAll}     className="bouton bouton-compact">Tout cocher</button>
+                    <button onClick={selectMissing} className="bouton bouton-compact">Seulement les manquants</button>
+                    <button onClick={selectNone}    className="bouton bouton-compact">Tout décocher</button>
                   </div>
 
                   <div className="border border-gray-200 rounded overflow-hidden">

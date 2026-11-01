@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { IconAlertTriangle, IconChartBar } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
+import { EnteteCarte } from './ui.jsx';
 import {
   nb, pc, tonTaux, couleurTaux, BarreDecisions, Tuile, Etendue, forme,
 } from './statsUi.jsx';
@@ -306,13 +307,12 @@ function Famille({ famille, donnees }) {
 
   if (!ens || !ens.n) {
     return (
-      <div className="carte p-4">
-        <div className="text-base font-semibold text-iip-blue">{famille.titre}</div>
-        <p className="text-second text-slate-500 mt-1">{famille.aide}</p>
-        <div className="text-second text-slate-400 mt-3">
+      <section className="carte overflow-hidden">
+        <EnteteCarte titre={famille.titre} sous={famille.aide} />
+        <div className="p-4 text-second text-slate-400">
           Aucune donnée pour cette année et ce filtre.
         </div>
-      </div>
+      </section>
     );
   }
 
@@ -320,12 +320,8 @@ function Famille({ famille, donnees }) {
     ? Math.abs(ens.moyenne - ens.mediane) : 0;
 
   return (
-    <div className="carte p-4 space-y-3">
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <div className="text-base font-semibold text-iip-blue">{famille.titre}</div>
-          <p className="text-second text-slate-500">{famille.aide}</p>
-        </div>
+    <section className="carte overflow-hidden">
+      <EnteteCarte titre={famille.titre} sous={famille.aide}>
         {famille.vues.length > 1 && (
           <div className="flex gap-1 flex-none">
             {famille.vues.map(([k, lib]) => (
@@ -338,8 +334,9 @@ function Famille({ famille, donnees }) {
             ))}
           </div>
         )}
-      </div>
+      </EnteteCarte>
 
+      <div className="p-4 space-y-3">
       <div className="flex gap-2 flex-wrap">
         <Tuile libelle="Moyenne" valeur={nb(ens.moyenne)} unite={famille.unite}
           ton={ecart > 1 ? 'alerte' : 'fort'}
@@ -358,7 +355,8 @@ function Famille({ famille, donnees }) {
           lignes. Les tuiles d'ensemble restent : elles répondent à une question
           d'ensemble, pas à une question de ligne. */}
       {!famille.sansTable && <Table lignes={lignes} max={max} />}
-    </div>
+      </div>
+    </section>
   );
 }
 

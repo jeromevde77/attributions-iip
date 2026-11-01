@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { IconSearch } from '@tabler/icons-react';
 import { couleurBloc, rangBloc } from '../lib/blocs.js';
+import { EnteteCarte } from './ui.jsx';
 
 /**
  * LA COMPOSITION D'UNE SECTION, EN GRILLE À COCHER (Charles, 30 septembre
@@ -73,10 +74,8 @@ export default function CompositionSection({ sectionCode, data, choix, onChoix, 
       {groupes.map(g => {
         const aelle = g.section === sectionCode;
         return (
-          <div key={g.section} className="border border-slate-200 rounded-carte overflow-hidden">
-            <div className="tab-entete px-3 py-1.5 text-second font-semibold text-slate-700 flex items-center gap-2">
-              {aelle ? `${g.section} — ses propres UE, comprises d'office` : `UE de ${g.section}`}
-            </div>
+          <section key={g.section} className="carte overflow-hidden">
+            <EnteteCarte titre={aelle ? `${g.section} — ses propres UE, comprises d'office` : `UE de ${g.section}`} />
             <div className="divide-y divide-slate-100">
               {g.blocs.map(([bloc, lst]) => {
                 const tous = lst.every(coche);
@@ -115,7 +114,7 @@ export default function CompositionSection({ sectionCode, data, choix, onChoix, 
                 );
               })}
             </div>
-          </div>
+          </section>
         );
       })}
       {!groupes.length && <p className="text-sm text-slate-500">Aucune UE ne correspond.</p>}

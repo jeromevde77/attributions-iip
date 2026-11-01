@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { authHeaders } from '../lib/api.js';
 import { ouvrirApercu } from '../lib/apercu.js';
 import { informer } from '../lib/dialogue.jsx';
-import { Encadre } from './ui.jsx';
+import { Encadre, EnteteCarte } from './ui.jsx';
 
 /**
  * L'ONGLET « SLE » DE LA FICHE (3.1.60, Charles, 5 octobre 2026 : « compléter
@@ -126,8 +126,9 @@ export default function OngletSLE({ etudId, annee: anneeDepart }) {
       {/* LES DEUX ANNEXES CÔTE À CÔTE sur un écran large (5 octobre 2026 :
           « largeur… ») — l'une sous l'autre sur un écran étroit. */}
       <div className="grid gap-4 xl:grid-cols-2 items-start">
-      <section className="border border-slate-200 rounded-carte p-3 space-y-2">
-        <div className="text-sm font-semibold">Annexe 1 — visa ou titre de séjour</div>
+      <section className="carte overflow-hidden">
+        <EnteteCarte titre="Annexe 1 — visa ou titre de séjour" />
+        <div className="p-3 space-y-2">
         <fieldset className="space-y-1">
           <legend className="text-second font-semibold text-slate-600 mb-1">Situation de l'étudiant</legend>
           {Object.entries(a1.situations || {}).map(([k, l]) => (
@@ -164,10 +165,12 @@ export default function OngletSLE({ etudId, annee: anneeDepart }) {
             <textarea className="controle w-full h-16 py-1.5" value={f.conditions} data-reponses="sle-conditions"
               onChange={e => set('conditions', e.target.value)} /></label>
         )}
+        </div>
       </section>
 
-      <section className="border border-slate-200 rounded-carte p-3 space-y-2">
-        <div className="text-sm font-semibold">Annexe 2 — progrès des études au terme de {annee}</div>
+      <section className="carte overflow-hidden">
+        <EnteteCarte titre={`Annexe 2 — progrès des études au terme de ${annee}`} />
+        <div className="p-3 space-y-2">
         <label className={lab}>Raisons pour lesquelles l'étudiant(e) n'a pas obtenu ses crédits
           <textarea className="controle w-full h-20 py-1.5" value={f.motif_a2} data-reponses="sle-motif"
             onChange={e => set('motif_a2', e.target.value)} /></label>
@@ -180,6 +183,7 @@ export default function OngletSLE({ etudId, annee: anneeDepart }) {
         <label className={lab}>Avis facultatif sur le déroulement des études
           <textarea className="controle w-full h-16 py-1.5" value={f.avis_a2} placeholder="Néant" data-reponses="sle-avis"
             onChange={e => set('avis_a2', e.target.value)} /></label>
+        </div>
       </section>
       </div>
     </fieldset>

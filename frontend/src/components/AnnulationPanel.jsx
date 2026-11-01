@@ -117,7 +117,7 @@ export default function AnnulationPanel({ annee, onClose, onRestaure }) {
                     </div>
                     {it.action !== 'rollback' && (
                       <button onClick={() => restaurer(it)} disabled={enCours === it.id}
-                        className="flex-none flex items-center gap-1 text-second px-2.5 py-1.5 rounded-lg border border-slate-300 text-slate-600 hover:bg-white hover:border-iip-turquoise disabled:opacity-40">
+                        className="bouton bouton-compact flex-none">
                         <IconArrowBackUp size={13} />
                         {enCours === it.id ? '…' : 'Rétablir l\u2019état antérieur'}
                       </button>

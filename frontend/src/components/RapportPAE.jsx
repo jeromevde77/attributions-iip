@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { IconPrinter, IconSend, IconTable, IconFileSpreadsheet } from '@tabler/icons-react';
+import { IconPrinter, IconEye, IconTable, IconFileSpreadsheet } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
-import { Fenetre } from './ui.jsx';
+import { Fenetre, OutilFenetre } from './ui.jsx';
 
 /**
  * Rapport de PAE.
@@ -343,14 +343,11 @@ ${j.granularite === 'cours' && !cotesCours ? `
     <>
       <Fenetre titre={`Rapport de PAE${idsSel ? ` — ${idsSel.size} étudiant(s) coché(s)` : ''}`}
         sous="Aperçu imprimable ou classeur à compléter" large="moyenne" onFermer={onClose}
+        outils={<OutilFenetre Icone={IconEye} titre="Aperçu" onClick={voirApercu} disabled={enCours} />}
         pied={<>
           <span />
           <button onClick={onClose} className="bouton">
             Fermer
-          </button>
-          <button onClick={voirApercu} disabled={enCours}
-            className="bouton bouton-sortir inline-flex items-center gap-1.5">
-            <IconPrinter size={15} /> Aperçu
           </button>
           <button onClick={exporterExcel} disabled={enCours}
             className="bouton bouton-fort inline-flex items-center gap-1.5">
@@ -528,7 +525,8 @@ function PreviewLite({ documents, onClose }) {
   if (!doc) return null;
   return (
     <Fenetre titre="Aperçu" sous={doc.nom} large="ecran" hauteurFixe onFermer={onClose}
-      outils={documents.length > 1 && (
+      outils={<>
+        {documents.length > 1 && (
         <div className="flex items-center gap-2 flex-wrap">
           {documents.map((d, j) => (
             <button key={d.section} onClick={() => setI(j)}
@@ -538,20 +536,18 @@ function PreviewLite({ documents, onClose }) {
             </button>
           ))}
         </div>
-      )}
+        )}
+        <OutilFenetre Icone={IconPrinter} titre="Imprimer / PDF" onClick={() => {
+            const f = document.getElementById('apercu-pae');
+            f?.contentWindow?.focus(); f?.contentWindow?.print();
+          }} />
+      </>}
       pied={<>
         <span className="text-xs text-slate-500">
           Paysage A4 conseillé.{documents.length > 1
             ? ` Section ${i + 1} sur ${documents.length} — imprimez-les séparément pour obtenir un PDF par section.`
             : ''}
         </span>
-        <button onClick={() => {
-            const f = document.getElementById('apercu-pae');
-            f?.contentWindow?.focus(); f?.contentWindow?.print();
-          }}
-          className="bouton bouton-sortir inline-flex items-center gap-1.5">
-          <IconSend size={15} /> Imprimer / PDF
-        </button>
       </>}>
       <iframe id="apercu-pae" key={doc.section} aria-label="Aperçu" srcDoc={doc.html}
         className="w-full h-[calc(88vh-170px)] bg-white rounded-xl border border-slate-200" />

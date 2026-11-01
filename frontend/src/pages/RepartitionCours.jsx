@@ -474,7 +474,7 @@ export default function RepartitionCours() {
                 onChange={e => { chargerClasseur(e.target.files?.[0]); e.target.value = ''; }} />
             </label>
             <button onClick={proposer}
-              className="px-3 py-1.5 text-second font-semibold rounded-champ border border-iip-turquoise text-iip-turquoise inline-flex items-center gap-1.5">
+              className="bouton">
               <IconWand size={14} /> Proposer depuis la délibération
             </button>
             <button onClick={enregistrer} disabled={saving || !attente.size}

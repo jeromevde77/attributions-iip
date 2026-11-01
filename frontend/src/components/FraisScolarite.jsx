@@ -1,5 +1,6 @@
 import QRCode from 'qrcode';
 import { useEffect, useState } from 'react';
+import { EnteteCarte } from './ui.jsx';
 import { authHeaders } from '../lib/api.js';
 import { useDroits } from '../lib/droits.js';
 import { saisir, informer } from '../lib/dialogue.jsx';
@@ -97,14 +98,8 @@ export default function FraisScolarite({ etudId, annee }) {
   const soldeRegle = f.verse >= f.total;
 
   return (
-    <div className="border border-slate-200 rounded-xl overflow-hidden">
-      <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200
-                      flex items-center justify-between gap-3 flex-wrap">
-        <span className="text-sm font-semibold text-iip-blue">Calcul des frais</span>
-        <span className="text-xs text-slate-400">
-          RDE art. 16 à 20 · {annee}{b.defaut ? ' · barème par défaut' : ''}
-        </span>
-      </div>
+    <section className="carte overflow-hidden">
+      <EnteteCarte titre="Calcul des frais" sous={`RDE art. 16 à 20 · ${annee}${b.defaut ? ' · barème par défaut' : ''}`} />
 
       <div className="p-4 space-y-3">
         {/* La formule est écrite en toutes lettres : c'est elle qu'on vient
@@ -304,6 +299,6 @@ export default function FraisScolarite({ etudId, annee }) {
           <span>Copie d'épreuve : <b>{eur(b.copie_epreuve_page)}</b> la page</span>
         </div>
       </div>
-    </div>
+    </section>
   );
 }

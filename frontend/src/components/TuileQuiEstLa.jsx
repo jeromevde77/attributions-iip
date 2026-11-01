@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { IconLifebuoy, IconChevronRight, IconPhone, IconPlus, IconTrash, IconPencil, IconDoorEnter, IconDoorExit } from '@tabler/icons-react';
+import { IconLifebuoy, IconChevronRight, IconPhone, IconPlus, IconTrash, IconPencil, IconDoorEnter, IconDoorExit, IconX } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { Fenetre } from './ui.jsx';
 import { demander, informer } from '../lib/dialogue.jsx';
@@ -387,7 +387,7 @@ function SemaineEquipe({ recharger, ouvrir }) {
                           <span className="flex items-center justify-between text-mention text-slate-500">
                             <label className="flex items-center gap-1" title="Pause de midi 12 h 00 – 12 h 30">
                               <input type="checkbox" checked={!!pl[0].pause_debut} onChange={e => basculerPause(x, j, e.target.checked)} />pause</label>
-                            <button type="button" className="text-slate-400 hover:text-red-600" aria-label="Retirer ce jour" onClick={() => retirerJour(x, j)}>×</button>
+                            <button type="button" className="text-slate-400 hover:text-red-600" aria-label="Retirer ce jour" title="Retirer ce jour" onClick={() => retirerJour(x, j)}><IconX size={13} /></button>
                           </span>
                         </div>)}
                       {pl.length > 1 && <button type="button" className="text-second text-slate-500 underline" onClick={() => ouvrir(x.id)}>{pl.length} plages</button>}

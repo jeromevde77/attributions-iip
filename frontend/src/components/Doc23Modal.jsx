@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { nomDoc } from '../lib/api.js';
 import { ouvrirApercu } from '../lib/apercu.js';
 import { Fenetre } from './ui.jsx';
+import { IconFileText } from '@tabler/icons-react';
 
 // Catégorie EPROM selon ct_pp
 const CAT_EPROM = {
@@ -363,7 +364,7 @@ export default function Doc23Modal({ ue_num, section, ue_nom, annee, onClose }) 
           ) : data ? (
             <div className="space-y-3">
               {/* Aperçu */}
-              <div className="bg-gray-50 rounded-lg p-3 text-xs text-gray-600 space-y-1">
+              <div className="text-second text-slate-600 space-y-1">
                 <div><b>UE {ue_num}</b> — {data.ue?.ue_nom}</div>
                 <div>Code FWB : {data.ue?.ue_code_fwb || '—'}</div>
                 <div>{data.cours?.length} cours · {data.lignes_ept?.length} lignes EPT</div>
@@ -373,12 +374,12 @@ export default function Doc23Modal({ ue_num, section, ue_nom, annee, onClose }) 
               {/* Boutons */}
               <div className="grid grid-cols-2 gap-3">
                 <button onClick={() => ouvrir(genDoc2Html(data, annee), nomDoc('DOC2', 'UE'+ue_num, ue_nom, 'Org'+numOrg, annee))}
-                  className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-2 rounded font-medium">
-                  📄 DOC2 (populations)
+                  className="bouton bouton-sortir justify-center">
+                  <IconFileText size={15} /> DOC2 (populations)
                 </button>
                 <button onClick={() => ouvrir(genDoc3Html(data, annee, null), nomDoc('DOC3', 'UE'+ue_num, ue_nom, 'Org'+numOrg, annee))}
-                  className="bg-iip-mauve hover:opacity-90 text-white text-sm px-4 py-2 rounded font-medium">
-                  📋 DOC3 (attributions)
+                  className="bouton bouton-sortir justify-center">
+                  <IconFileText size={15} /> DOC3 (attributions)
                 </button>
               </div>
 
@@ -392,7 +393,7 @@ export default function Doc23Modal({ ue_num, section, ue_nom, annee, onClose }) 
                         onClick={() => ouvrir(genDoc3Html(data, annee, c.cours_code), nomDoc('DOC3', 'UE'+ue_num, c.cours_nom, 'Org'+numOrg, annee))}
                         className="w-full text-left text-xs border border-gray-200 rounded px-3 py-1.5 h-9 hover:bg-gray-50 flex justify-between items-center">
                         <span><b>{c.num_activite}</b> — {c.cours_nom}</span>
-                        <span className="text-gray-400">📋</span>
+                        <IconFileText size={14} className="text-slate-400" />
                       </button>
                     ))}
                   </div>

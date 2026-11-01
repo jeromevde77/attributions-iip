@@ -10,7 +10,7 @@ import { useEffect, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { Anneau, Barres, SERIES, couleurSerie } from './graphiques.jsx';
-import { TuileEtat } from './ui.jsx';
+import { TuileEtat, EnteteCarte } from './ui.jsx';
 import { saisir, informer } from '../lib/dialogue.jsx';
 
 const k0 = n => Math.round(n || 0).toLocaleString('fr-BE');
@@ -19,9 +19,9 @@ const NOM_SECTION = s => String(s || '').replace(/_/g, ' ');
 
 function Carte({ titre, sous, children, className = '' }) {
   return (
-    <section className={`carte p-4 space-y-3 min-w-0 ${className}`}>
-      <div><div className="titre-carte">{titre}</div>{sous && <div className="text-second text-slate-500">{sous}</div>}</div>
-      {children}
+    <section className={`carte overflow-hidden min-w-0 ${className}`}>
+      <EnteteCarte titre={titre} sous={sous || null} />
+      <div className="p-4 space-y-3">{children}</div>
     </section>);
 }
 

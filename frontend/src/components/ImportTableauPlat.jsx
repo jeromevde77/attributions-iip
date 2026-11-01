@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import { IconAlertTriangle, IconUpload } from '@tabler/icons-react';
-import { Fenetre } from './ui.jsx';
+import { Fenetre, EnteteCarte } from './ui.jsx';
 import { authHeaders } from '../lib/api.js';
 import { CHAMPS, reconnaitreColonnes, construireUnites, construirePlanning, estPlanning }
   from '../lib/lireTableauPlat.js';
@@ -190,11 +190,8 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
               </div>
 
               {/* ── CE QUE LUCIE A COMPRIS DES COLONNES ──────────────────── */}
-              <div className="rounded-xl border border-slate-200 overflow-hidden">
-                <div className="px-3 py-2 bg-slate-50 border-b border-slate-200
-                                text-sm font-semibold text-iip-blue">
-                  Les colonnes du fichier
-                </div>
+              <section className="carte overflow-hidden">
+                <EnteteCarte titre="Les colonnes du fichier" />
                 <div className="p-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                   {CHAMPS.filter(c => !planning
                     || !['nom', 'prenom', 'decision', 'note', 'justification', 'matricule']
@@ -233,24 +230,19 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
                       : ' Un planning a besoin de l’unité, de la session et de la date.'}
                   </div>
                 )}
-              </div>
+              </section>
 
               {!manquants.length && (
                 <>
                   {/* ── LES UNITÉS LUES ──────────────────────────────────── */}
-                  <div className="rounded-xl border border-slate-200 overflow-hidden">
-                    <div className="px-3 py-2 bg-slate-50 border-b border-slate-200
-                                    flex items-center gap-2">
-                      <span className="text-sm font-semibold text-iip-blue">
-                        {unites.length} unité(s) lue(s)
-                      </span>
-                      <span className="flex-1" />
+                  <section className="carte overflow-hidden">
+                    <EnteteCarte titre={`${unites.length} unité(s) lue(s)`}>
                       <button onClick={() => setChoisies(choisies.size === unites.length
                         ? new Set() : new Set(unites.map(u => u.ue_num)))}
                         className="text-second text-iip-blue underline">
                         {choisies.size === unites.length ? 'tout décocher' : 'tout cocher'}
                       </button>
-                    </div>
+                    </EnteteCarte>
                     <div className="max-h-[30vh] overflow-y-auto divide-y divide-slate-100">
                       {unites.map(u => (
                         <label key={u.ue_num}
@@ -285,7 +277,7 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
                         </label>
                       ))}
                     </div>
-                  </div>
+                  </section>
 
                   {!!rejets.length && (
                     <div className="px-3 py-2 rounded-xl bg-amber-50 border border-amber-200

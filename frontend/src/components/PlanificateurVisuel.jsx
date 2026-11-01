@@ -470,8 +470,8 @@ export default function PlanificateurVisuel({ onClose }) {
             </select>
             {ueNum && (
               <button onClick={() => setWizardCours(true)}
-                className="bg-iip-mauve/10 text-iip-mauve text-xs px-3 py-1.5 h-9 rounded hover:bg-iip-mauve/20 whitespace-nowrap">
-                ⚙ Configurer un cours
+                className="bouton whitespace-nowrap">
+                Configurer un cours
               </button>
             )}
           </div>
@@ -676,10 +676,10 @@ export default function PlanificateurVisuel({ onClose }) {
             {ueChoisie && <>UE {ueChoisie.ue_num} · {voies.length} groupe(s) · {blocs.length} bloc(s)</>}
           </div>
           <div className="flex gap-2">
-            <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Fermer</button>
+            <button onClick={onClose} className="bouton">Fermer</button>
             <button onClick={() => setConfirmOpen(true)} disabled={!blocs.length || saving}
-              className="bg-iip-gold hover:bg-iip-amber disabled:opacity-50 text-white text-sm px-5 py-2 rounded font-medium">
-              {saving ? 'Création…' : '✓ Créer les attributions'}
+              className="bouton bouton-fort">
+              {saving ? 'Création…' : 'Créer les attributions'}
             </button>
           </div>
         </div>
@@ -726,7 +726,7 @@ export default function PlanificateurVisuel({ onClose }) {
             )}
 
             <div className="flex justify-end gap-2">
-              <button onClick={() => setConfirmOpen(false)} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
+              <button onClick={() => setConfirmOpen(false)} className="bouton">Annuler</button>
               <button onClick={enregistrer} disabled={saving}
                 className="bouton bouton-fort">
                 {saving ? 'Création…' : 'Confirmer'}
@@ -746,12 +746,12 @@ export default function PlanificateurVisuel({ onClose }) {
               sera déduite à la confirmation finale (le DP du cours reste intact).
             </p>
             <div className="flex justify-end gap-2">
-              <button onClick={() => setEvalASupprimer(null)} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
+              <button onClick={() => setEvalASupprimer(null)} className="bouton">Annuler</button>
               <button onClick={() => {
                   setEvalSupprimees(prev => new Set(prev).add(evalASupprimer.id));
                   setEvalASupprimer(null);
                 }}
-                className="bg-red-600 hover:bg-red-700 text-white text-sm px-5 py-2 rounded font-medium">
+                className="bouton bouton-detruire">
                 Supprimer
               </button>
             </div>
@@ -787,9 +787,9 @@ export default function PlanificateurVisuel({ onClose }) {
               </span>
             </label>
             <div className="flex justify-end gap-2">
-              <button onClick={() => setCoupeBloc(null)} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
+              <button onClick={() => setCoupeBloc(null)} className="bouton">Annuler</button>
               <button onClick={() => couperBlocPosition(coupeBloc, coupeMode, coupeVal)} disabled={!coupeVal}
-                className="bg-iip-gold hover:bg-iip-amber disabled:opacity-40 text-white text-sm px-5 py-2 rounded font-medium">
+                className="bouton bouton-fort">
                 Scinder
               </button>
             </div>

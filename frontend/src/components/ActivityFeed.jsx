@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Chevron } from './ui.jsx';
+import { Chevron, EnteteCarte } from './ui.jsx';
 import { IconChevronRight } from '@tabler/icons-react';
 import { api } from '../lib/api.js';
 
@@ -50,8 +50,8 @@ export default function ActivityFeed() {
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-pose overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 bg-iip-gold/5 border-b border-gray-100">
+    <div className="carte overflow-hidden">
+      <EnteteCarte titre={
         <button onClick={() => setOpen(o => !o)} className="flex items-center gap-2 text-left">
           {nonTraitees > 0 && (
             <span className="relative flex h-2.5 w-2.5">
@@ -59,21 +59,21 @@ export default function ActivityFeed() {
               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-iip-mauve"></span>
             </span>
           )}
-          <span className="font-semibold text-iip-gold">
+          <span>
             Activité des 7 derniers jours
             {nonTraitees > 0
               ? <span className="ml-1 text-iip-mauve">· {nonTraitees} à vérifier</span>
               : <span className="ml-1 text-green-600 font-normal">· tout est vérifié ✓</span>}
           </span>
-          <Chevron ouvert={open} size={14} className="text-iip-gold" />
-        </button>
+          <Chevron ouvert={open} size={14} className="text-slate-400" />
+        </button>}>
         {open && (
           <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
             <input type="checkbox" checked={onlyTodo} onChange={e => setOnlyTodo(e.target.checked)} className="cursor-pointer" />
             À vérifier seulement
           </label>
         )}
-      </div>
+      </EnteteCarte>
 
       {open && (
         <ul className="divide-y divide-gray-100 max-h-96 overflow-auto">

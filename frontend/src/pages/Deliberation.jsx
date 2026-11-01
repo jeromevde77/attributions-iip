@@ -21,7 +21,7 @@ import DiagnosticAnnees from '../components/DiagnosticAnnees.jsx';
 import SchemaLiensAA from '../components/SchemaLiensAA.jsx';
 import EncodageRapide from './EncodageRapide.jsx';
 import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
-import { BoutonEditions, Fenetre, RailLateral } from '../components/ui.jsx';
+import { BoutonEditions, Fenetre, RailLateral, EnteteCarte } from '../components/ui.jsx';
 import RepriseLot from '../components/RepriseLot.jsx';
 import ImportTableauPlat from '../components/ImportTableauPlat.jsx';
 import ReglesDeliberation from '../components/ReglesDeliberation.jsx';
@@ -324,27 +324,18 @@ export default function Deliberation() {
             <IconArrowLeft size={15} /> Toutes les sections
           </button>
 
-          <div className="border border-slate-200 rounded-xl overflow-hidden">
-            <div className="px-3 py-2 bg-slate-50 border-b border-slate-200
-                            flex items-center justify-between gap-2">
-              <span className="text-sm font-semibold text-iip-blue">
-                {sec.section}
-                <span className="ml-2 font-normal text-slate-500">
-                  {sec.nb_ues} unité(s) · {sec.inscrits} inscription(s)
-                </span>
-              </span>
+          <section className="carte overflow-hidden">
+            <EnteteCarte titre={sec.section} sous={`${sec.nb_ues} unité(s) · ${sec.inscrits} inscription(s)`}>
               {/* CLÔTURER SANS QUORUM. Réservé à la direction, et nommé pour
                   ce que c'est : on force, on ne délibère pas. */}
               {estDirection(moi) && (
                 <button onClick={() => setForcage(f => f
                   ? null : { ues: new Set(), s1: true, s2: false })}
-                  className={`px-2 py-1 text-second rounded-lg border font-semibold flex-none
-                    ${forcage ? 'border-amber-500 bg-amber-500 text-white'
-                              : 'border-slate-300 text-slate-600'}`}>
+                  className="bouton bouton-compact">
                   {forcage ? 'Annuler le forçage' : 'Forcer la clôture…'}
                 </button>
               )}
-            </div>
+            </EnteteCarte>
 
             {forceFait && (
               <div className="px-3 py-2 text-second bg-emerald-50 border-b border-emerald-200
@@ -478,8 +469,7 @@ export default function Deliberation() {
                     {u.nb_organisations > 1 && (
                       <button onClick={() => setRepartirUE(u)}
                         title={`${u.nb_organisations} organisations — répartir les étudiants entre elles avant de délibérer`}
-                        className="px-2 py-1 text-second rounded-lg border border-iip-turquoise
-                                   text-iip-turquoise font-semibold flex-none">
+                        className="bouton bouton-compact flex-none">
                         Répartir ({u.nb_organisations} org.)
                       </button>
                     )}
@@ -538,7 +528,7 @@ export default function Deliberation() {
                             par cours n'a rien à montrer.
                           </div>
                           <button onClick={() => setParametrer(u.ue_num)}
-                            className="px-2 py-1 rounded-lg bg-iip-blue text-white font-semibold">
+                            className="bouton bouton-compact bouton-fort">
                             Paramétrer les cours et acquis
                           </button>
                         </div>
@@ -570,7 +560,7 @@ export default function Deliberation() {
             </div>
             )}</GroupesParBloc>
             </div>
-          </div>
+          </section>
 
           <p className="text-second text-slate-500">
             Un échec sans motivation rend la décision attaquable : la motivation
@@ -648,8 +638,7 @@ export default function Deliberation() {
             </button>
           </>}>
           <div className="space-y-3">
-            <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2
-                            text-sm text-red-900">
+            <div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">
               <div className="font-semibold">Seront effacés</div>
               <ul className="list-disc pl-4 mt-0.5 space-y-0.5">
                 <li>les décisions du Conseil : résultat, cote, mention ;</li>
@@ -658,8 +647,7 @@ export default function Deliberation() {
               </ul>
             </div>
 
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2
-                            text-sm text-emerald-900">
+            <div className="bloc-etat px-3 py-2 text-sm" data-etat="reussi">
               <div className="font-semibold">Seront conservés</div>
               <ul className="list-disc pl-4 mt-0.5 space-y-0.5">
                 <li>les notes encodées par les professeurs ;</li>

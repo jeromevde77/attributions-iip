@@ -165,7 +165,7 @@ export default function InscritsUnites() {
             onClick={() => setF({ profil: new Set(), bloc: new Set(), partie: new Set(), sle: false })}>effacer les filtres</button>)}
         <div className="flex-1" />
         {data && vue === 'unites' && (
-          <button type="button" className="bouton-sortir controle flex items-center gap-1.5" disabled={impression} onClick={imprimer}
+          <button type="button" className="bouton bouton-sortir controle flex items-center gap-1.5" disabled={impression} onClick={imprimer}
             title={choisies.length ? 'La synthèse des unités cochées, puis une page par unité avec ses cours' : 'La synthèse de toutes les unités de la section'}>
             <IconPrinter size={16} /> {impression ? 'Préparation…' : choisies.length ? `Imprimer la sélection (${choisies.length})` : 'Imprimer la section'}
           </button>)}

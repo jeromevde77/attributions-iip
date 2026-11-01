@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
-import { Chevron as ChevronMaison } from './ui.jsx';
+import { Chevron as ChevronMaison, EnteteCarte } from './ui.jsx';
 import { IconBulb, IconChevronDown, IconChevronRight } from '@tabler/icons-react';
 import { authHeaders, getUser } from '../lib/api.js';
 import FilSuggestion, { PastilleIdee, PastilleNouveau } from './FilSuggestion.jsx';
@@ -72,19 +72,15 @@ export default function MesPropositions() {
     <>
       {aTraiter.length > 0 && (
         <div className="mb-5">
-          <div className="flex items-baseline gap-2 mb-1.5">
-            <h2 className="titre-carte">Idées à traiter</h2>
-            <span className="text-xs text-slate-400">
-              {aTraiter.length} — les nouvelles, et celles où l’auteur vous a écrit
-            </span>
-            <button type="button" className="ml-auto text-second text-iip-blue hover:underline" onClick={() => setFenetre(true)}>
-              Toutes les idées</button>
-          </div>
           <div className="carte overflow-hidden">
+            <EnteteCarte titre="Idées à traiter" sous={`${aTraiter.length} — les nouvelles, et celles où l’auteur vous a écrit`}>
+              <button type="button" className="text-second text-iip-blue hover:underline" onClick={() => setFenetre(true)}>
+                Toutes les idées</button>
+            </EnteteCarte>
             {aTraiter.map(s => {
               const Chevron = props => <ChevronMaison ouvert={ouvert === s.id} {...props} />;
               return (
-                <div key={s.id} className="border-t border-slate-100 first:border-t-0">
+                <div key={s.id} className="border-t border-slate-100 [&:nth-child(2)]:border-t-0">
                   <button type="button" onClick={() => ouvrir(s.id)}
                     className="w-full text-left px-3 py-2 flex items-center gap-3 hover:bg-slate-100">
                     <Chevron size={14} className="text-slate-400 flex-none" />
@@ -117,19 +113,14 @@ export default function MesPropositions() {
 
       {lignes.length > 0 && (
         <div className="mb-5">
-          <div className="flex items-baseline gap-2 mb-1.5">
-            <h2 className="titre-carte">Mes propositions</h2>
-            <span className="text-xs text-slate-400">
-              {nbNouveaux
-                ? `${nbNouveaux} réponse${nbNouveaux > 1 ? 's' : ''} de la direction à lire`
-                : 'les réponses de la direction à vos idées'}
-            </span>
-          </div>
           <div className="carte overflow-hidden">
+            <EnteteCarte titre="Mes propositions" sous={nbNouveaux
+                ? `${nbNouveaux} réponse${nbNouveaux > 1 ? 's' : ''} de la direction à lire`
+                : 'les réponses de la direction à vos idées'} />
             {lignes.map(s => {
               const Chevron = props => <ChevronMaison ouvert={ouvert === s.id} {...props} />;
               return (
-                <div key={s.id} className="border-t border-slate-100 first:border-t-0">
+                <div key={s.id} className="border-t border-slate-100 [&:nth-child(2)]:border-t-0">
                   <button type="button" onClick={() => ouvrir(s.id)}
                     className="w-full text-left px-3 py-2 flex items-center gap-3 hover:bg-slate-100">
                     <Chevron size={14} className="text-slate-400 flex-none" />

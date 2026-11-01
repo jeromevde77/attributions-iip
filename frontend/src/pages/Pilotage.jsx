@@ -3,8 +3,8 @@ import { IconReportAnalytics, IconReportMoney, IconChartInfographic, IconSchool,
 import { droitEffectif } from '../lib/modules.js';
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import { api, getAnnee, getUser, authHeaders } from '../lib/api.js';
-import { IconChartBar, IconHome, IconUsers, IconSettings, IconChevronRight, IconChevronDown, IconPrinter, IconRotateClockwise, IconCheck, IconX, IconTrash, IconCash, IconCalendar, IconArrowsLeftRight, IconScale, IconUsersGroup, IconUserCheck } from '@tabler/icons-react';
-import { PageHeader, Tabs, RailLateral, OuvrirEditions, TuileEtat, Chevron, Fenetre } from '../components/ui.jsx';
+import { IconChartBar, IconHome, IconUsers, IconSettings, IconChevronRight, IconChevronDown, IconPrinter, IconEye, IconRotateClockwise, IconCheck, IconX, IconTrash, IconCash, IconCalendar, IconArrowsLeftRight, IconScale, IconUsersGroup, IconUserCheck } from '@tabler/icons-react';
+import { PageHeader, Tabs, RailLateral, OuvrirEditions, TuileEtat, Chevron, Fenetre, EnteteCarte, OutilFenetre } from '../components/ui.jsx';
 import { createPortal } from 'react-dom';
 import Distributions from '../components/Distributions.jsx';
 import Population from '../components/Population.jsx';
@@ -407,7 +407,7 @@ function DotationComparaison({ civil }) {
       </div>
 
       {data && (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
+        <div className="carte overflow-x-auto">
           <table className="w-full text-sm border-collapse">
             <thead>
               <tr className="text-white text-xs" style={{ background: 'var(--c-principal)' }}>
@@ -794,7 +794,7 @@ export default function Pilotage({ vue = 'tout' }) {
           {dotTable.map(s => {
             const open = dotOpen.has(s.section);
             return (
-              <div key={s.section} className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-pose">
+              <div key={s.section} className="carte overflow-hidden">
                 <button onClick={() => setDotOpen(p => { const n = new Set(p); n.has(s.section) ? n.delete(s.section) : n.add(s.section); return n; })}
                   className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-gray-50 text-left">
                   {open ? <IconChevronDown size={16} className="text-gray-400" /> : <IconChevronRight size={16} className="text-gray-400" />}
@@ -861,21 +861,18 @@ export default function Pilotage({ vue = 'tout' }) {
       <div className="space-y-5">
 
         {/* ── Grande carte unique : KPIs + enveloppes + dotation détaillée ── */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-pose overflow-hidden">
+        <div className="carte overflow-hidden">
 
           {/* ── En-tête avec flip ── */}
-          <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-            <div className="intertitre">
-              {dotFace === 'recto'
+          <EnteteCarte titre={dotFace === 'recto'
                 ? `Dotation organique · Civile ${d.annee_civile}`
-                : 'Comparaison pluriannuelle'}
-            </div>
+                : 'Comparaison pluriannuelle'}>
             <button onClick={() => setDotFace(f => f === 'recto' ? 'verso' : 'recto')}
               title="Retourner la carte"
               className="w-8 h-8 rounded-full border border-iip-turquoise/40 text-iip-turquoise hover:bg-iip-turquoise hover:text-white flex items-center justify-center transition flex-shrink-0">
               <IconRotateClockwise size={16} />
             </button>
-          </div>
+          </EnteteCarte>
 
           {dotFace === 'verso' ? (
             /* ── VERSO : graphiques ── */
@@ -1162,15 +1159,10 @@ export default function Pilotage({ vue = 'tout' }) {
         {/* Section PEP */}
         {pepChartData.length > 0 && (
           <div className="space-y-3">
-            <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-pose">
-              <div className="flex items-center justify-between mb-1">
-                <div className="intertitre">
-                  Périodes-élèves pondérées (PEP) · Art. 3 A.Gt 22-11-2002
-                </div>
-                <span className="text-mention text-gray-400 bg-gray-100 px-2 py-0.5 rounded">
-                  Dotation civile N = basée sur PEP N-2 · Bande neutre ±8 %
-                </span>
-              </div>
+            <div className="carte overflow-hidden">
+              <EnteteCarte titre="Périodes-élèves pondérées (PEP) · Art. 3 A.Gt 22-11-2002"
+                sous="Dotation civile N = basée sur PEP N-2 · Bande neutre ±8 %" />
+              <div className="p-4">
               <p className="text-xs text-gray-400 mb-3">
                 Dérogations COVID: dotations 2022/2023/2024 ont utilisé PEP 2019 (A.Gt 27-10-2022).
                 PEP de référence à saisir dans Configuration (valeur pivot HOD).
@@ -1191,13 +1183,12 @@ export default function Pilotage({ vue = 'tout' }) {
                   <Line yAxisId="dot" dataKey="Dotation" stroke={couleursGraphique().series[0]} strokeWidth={2} dot={{ r: 3 }} name="Dotation org. (pér. B)" />
                 </ComposedChart>
               </ResponsiveContainer>
+              </div>
             </div>
 
             {/* Table PEP & calcul dotation */}
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <div className="intertitre px-4 py-2.5 border-b border-gray-100">
-                Mécanisme d'ajustement de dotation
-              </div>
+            <div className="carte overflow-hidden">
+              <EnteteCarte titre="Mécanisme d'ajustement de dotation" />
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="tab-entete intertitre">
@@ -1280,7 +1271,7 @@ export default function Pilotage({ vue = 'tout' }) {
           <div className="flex-1 min-w-[170px]"><TuileEtat etat="fort" valeur={ratio(etpCours + etpAdmin)} libelle="étudiants par ETP, tout le monde compris" precision={`${f(etpCours + etpAdmin)} ETP · ${pour(etpCours + etpAdmin)}`} /></div>
           <div className="flex-1 min-w-[140px]"><TuileEtat valeur={nEtu.toLocaleString('fr-BE')} libelle="étudiants inscrits" precision="hors archivés, chacun une fois" /></div>
         </div>
-        <div className="mb-4 bg-iip-gold/5 border border-iip-gold/30 rounded-lg p-3 text-second text-gray-700">
+        <div className="mb-4 text-second text-gray-700">
           <b>Répartition ETP</b> — équivalents temps plein par section et UE, année {etpData.annee}.
           <span className="block mt-1 text-gray-500">
             <b>IIP</b> : cours généraux (CT) ÷ 800 périodes + cours pratiques (PP) ÷ 1000 périodes.
@@ -1407,15 +1398,12 @@ export default function Pilotage({ vue = 'tout' }) {
   const renderConfig = () => (
     <div className="space-y-6">
       {/* Dotations organiques */}
-      <div className="bg-white rounded-xl border border-gray-200">
-        <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-          <h3 className="titre-carte">Dotations organiques par année civile</h3>
-          <div className="flex gap-2">
+      <div className="carte overflow-hidden">
+        <EnteteCarte titre="Dotations organiques par année civile">
             <input value={newYear} onChange={e => setNewYear(e.target.value)} placeholder="Ex: 2027"
               className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-24" />
             <button onClick={addYear} disabled={saving || !newYear} className="bouton bouton-fort">Ajouter</button>
-          </div>
-        </div>
+        </EnteteCarte>
         <table className="w-full text-sm">
           <thead className="tab-entete intertitre">
             <tr><th className="px-4 py-2 text-left">Année civile</th><th className="px-4 py-2 text-right">Dotation (pér. B)</th><th className="px-4 py-2 text-right">PEP</th><th className="px-4 py-2 text-right">PEP réf.</th><th className="px-4 py-2 text-right">PEP an. utilisée</th><th className="px-4 py-2 text-right">Usage historique</th><th className="px-4 py-2 text-right" title="Ce que la direction constate : le solde réellement resté à la fin de l’année. Il ne remplace pas le calcul, il le confronte.">Solde constaté</th><th className="px-4 py-2 text-left">Notes</th><th className="px-4 py-2" /></tr>
@@ -1465,13 +1453,12 @@ export default function Pilotage({ vue = 'tout' }) {
       </div>
 
       {/* Enveloppes extérieures */}
-      <div className="bg-white rounded-xl border border-gray-200">
-        <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-          <h3 className="titre-carte">Enveloppes extérieures</h3>
-          <button onClick={() => setEditEnv({ id: null, code: 'QUAL', label: '', annee_civile: selYear || 2026, periodes_b: 0, usage_historique: '', notes: '' })} className="bg-iip-gold hover:bg-iip-amber text-white text-xs px-3 py-1.5 h-9 rounded">+ Ajouter</button>
-        </div>
+      <div className="carte overflow-hidden">
+        <EnteteCarte titre="Enveloppes extérieures">
+          <button onClick={() => setEditEnv({ id: null, code: 'QUAL', label: '', annee_civile: selYear || 2026, periodes_b: 0, usage_historique: '', notes: '' })} className="bouton bouton-fort">+ Ajouter</button>
+        </EnteteCarte>
         {editEnv && !editEnv.id && (
-          <div className="p-4 bg-iip-gold/5 border-b border-gray-100">
+          <div className="p-4 border-b border-gray-100">
             <div className="grid grid-cols-2 md:grid-cols-5 gap-2 items-end">
               <div><label className="block text-xs text-gray-500 mb-0.5">Code</label>
                 <select value={editEnv.code} onChange={e => setEditEnv({ ...editEnv, code: e.target.value })} className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-full">
@@ -1527,13 +1514,8 @@ export default function Pilotage({ vue = 'tout' }) {
 
       {/* UEs avec pot */}
       {ueList.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200">
-          <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between gap-4">
-            <div>
-              <h3 className="titre-carte">Attribution des enveloppes par UE</h3>
-              <p className="text-xs text-gray-400 mt-0.5">Assigne chaque UE à une enveloppe (QUAL, CF, INCL, AESI, organique...)</p>
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="carte overflow-hidden">
+          <EnteteCarte titre="Attribution des enveloppes par UE" sous="Assigne chaque UE à une enveloppe (QUAL, CF, INCL, AESI, organique...)">
               <select onChange={e => {
                   const s = e.target.value;
                   api.ueWithPot(anneeActive, s || null, true).then(setUeList);
@@ -1544,8 +1526,7 @@ export default function Pilotage({ vue = 'tout' }) {
                   <option key={s} value={s}>{s}</option>
                 )}
               </select>
-            </div>
-          </div>
+          </EnteteCarte>
           <table className="w-full text-sm">
             <thead className="tab-entete intertitre">
               <tr>
@@ -1833,11 +1814,10 @@ thead { display: table-header-group; }
       {choixImpression && (
         <Fenetre icone={IconPrinter} titre="Imprimer des parties de la Gestion" large="moyenne" onFermer={() => setChoixImpression(null)}
           sous={`Année scolaire ${anneeActive} — cochez les parties ; elles se suivent dans une seule pièce, chacune sur sa page`}
+          outils={<OutilFenetre Icone={IconEye} titre="Composer l'aperçu" disabled={!choixImpression.size}
+              onClick={() => { const ordre = IMPRIMABLES.flatMap(r => r.faces.map(([k]) => k)).filter(k => choixImpression.has(k)); setFacesImprimees(ordre); setChoixImpression(null); setChoisirBlocs(false); setNbRetires(0); }} />}
           pied={<>
             <span className="text-second text-slate-500 flex-1 min-w-0">{choixImpression.size ? `${choixImpression.size} partie(s)` : 'Cochez au moins une partie.'}</span>
-            <button type="button" className="bouton bouton-fort" disabled={!choixImpression.size}
-              onClick={() => { const ordre = IMPRIMABLES.flatMap(r => r.faces.map(([k]) => k)).filter(k => choixImpression.has(k)); setFacesImprimees(ordre); setChoixImpression(null); setChoisirBlocs(false); setNbRetires(0); }}>
-              Composer l'aperçu</button>
           </>}>
           <div className="space-y-4">
             {IMPRIMABLES.map(r => {
