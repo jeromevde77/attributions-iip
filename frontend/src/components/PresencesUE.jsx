@@ -57,6 +57,11 @@ export default function PresencesUE({ ueInitiale = null }) {
   const [filtre, setFiltre] = useState('');
   const [menu, setMenu] = useState(null);       // { li, si, x, y }
   const [motif, setMotif] = useState('');
+  // LA SECTION D'ABORD (3.5.017, Charles) : la liste des unités se réduit à la section choisie.
+  const [section, setSection] = useState('');
+  const sectionsDe = u => String(u.sections || '').split(',').map(x => x.trim()).filter(Boolean);
+  const sections = useMemo(() => [...new Set((ues || []).flatMap(sectionsDe))].sort((a, b) => a.localeCompare(b, 'fr')), [ues]);
+  const uesVues = useMemo(() => (ues || []).filter(u => !section || sectionsDe(u).includes(section)), [ues, section]);
 
   useEffect(() => { appel(`/ues?annee=${encodeURIComponent(annee)}`).then(j => setUes(j.ues)).catch(e => setErreur(e.message)); }, [annee]);
   const charger = (u = ue) => u && appel(`/ue/${u}?annee=${encodeURIComponent(annee)}`).then(j => { setD(j); setErreur(null); }).catch(e => setErreur(e.message));
@@ -122,9 +127,14 @@ export default function PresencesUE({ ueInitiale = null }) {
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
+        <select className="controle border border-slate-300 rounded-champ bg-white" value={section} aria-label="Section"
+          onChange={e => { setSection(e.target.value); if (e.target.value && ue && !(ues || []).some(u => u.ue_num === ue && sectionsDe(u).includes(e.target.value))) setUe(null); }}>
+          <option value="">Toutes les sections</option>
+          {sections.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
         <select className="controle border border-slate-300 rounded-champ bg-white min-w-[22rem]" value={ue || ''} onChange={e => setUe(e.target.value ? Number(e.target.value) : null)}>
           <option value="">— Choisir une unité —</option>
-          {(ues || []).map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num}{u.ue_nom ? ` — ${u.ue_nom}` : ''}{u.sections ? ` (${u.sections})` : ''} · {u.inscrits} inscrits · {u.seances} séances</option>)}
+          {uesVues.map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num}{u.ue_nom ? ` — ${u.ue_nom}` : ''}{u.sections ? ` (${u.sections})` : ''} · {u.inscrits} inscrits · {u.seances} séances</option>)}
         </select>
         {d && (
           <div className="relative">

@@ -39,6 +39,14 @@ else
 fi
 
 journal() { logger -t lucie-gestes -- "par=${SUDO_USER:-$USER} verbe=$VERBE $*"; }
+# LES RESTES DU CONFLIT DE NOM (1er novembre 2026 : le second passage a buté à son tour). Docker laisse l'ANCIEN
+# conteneur sous un nom provisoire « <12 hexa>_<nom> » ; tant qu'il est là, le nom ne se libère pas. On retire ces
+# restes-là, et eux seuls, pour la moitié visée (dev : noms en -dev ; prod : sans -dev). Les données sont dans les volumes.
+nettoyer_restes() {
+  local motif='^[0-9a-f]{12}_(attributions-(backend|frontend)|lucie-portail-(backend|frontend))'
+  if [ "$1" = dev ]; then motif="$motif-dev\$"; else motif="$motif\$"; fi
+  docker ps -a --format '{{.Names}}' | grep -E "$motif" | while read -r n; do echo "Reste retiré : $n"; docker rm -f "$n" >/dev/null; done
+}
 refus()   { journal "REFUS $*"; echo "✗ $*" >&2; exit 2; }
 
 # UNE SAUVEGARDE COHÉRENTE, PAS UNE COPIE DE FICHIER. La base est en mode WAL :
@@ -83,7 +91,7 @@ case "$VERBE" in
     # nom provisoire (« 46b7…_attributions-backend-dev ») et la dev tombe en 502 ; un second passage le répare. On le
     # fait donc d'office, et on dit qu'il a fallu le faire.
     if ! docker compose up -d --force-recreate backend-dev frontend-dev $PORTAIL_DEV; then
-      echo "Conflit au premier passage : second passage."; sleep 5
+      echo "Conflit au premier passage : second passage."; sleep 5; nettoyer_restes dev
       docker compose up -d --force-recreate backend-dev frontend-dev $PORTAIL_DEV
     fi
     journal "ok"; sleep 8; version ;;
@@ -93,8 +101,15 @@ case "$VERBE" in
     # échoue, rien n'est mis à jour.
     sauvegarder merge
     cd "$LUCIE"
-    docker compose pull backend frontend
-    docker compose up -d --force-recreate backend frontend
+    # RÉTABLI LE 1er NOVEMBRE 2026 (Charles : « Claude la lance ») : l'espace des étudiants avec Lucie, et le second
+    # passage quand le conflit de nom arrête le premier (la panne de septembre et d'octobre).
+    PORTAIL=$(grep -oE '^  portail-(backend|frontend):' docker-compose.yml | tr -d ' :' | tr '\n' ' ')
+    echo "Portail de la production : ${PORTAIL:-absent du docker-compose}"
+    docker compose pull backend frontend $PORTAIL
+    if ! docker compose up -d --force-recreate backend frontend $PORTAIL; then
+      echo "Conflit au premier passage : second passage."; sleep 5; nettoyer_restes prod
+      docker compose up -d --force-recreate backend frontend $PORTAIL
+    fi
     journal "ok"; sleep 8; version ;;
 
   lecture)
