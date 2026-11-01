@@ -138,7 +138,7 @@ export default function ConfigCourriels() {
 
         {cfg.mode === 'graph' ? (
           <div className="px-4 pb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2 text-second text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 leading-relaxed">
+            <div className="md:col-span-2 text-second text-slate-600 leading-relaxed">
               <b>Dans le centre d'administration Entra</b> (entra.microsoft.com → Applications → Inscriptions d'applications) :
               <ol className="list-decimal ml-5 mt-1 space-y-0.5">
                 <li>Nouvelle inscription, nom « Lucie », comptes de cet annuaire uniquement. Copier l'<i>ID d'application (client)</i> et l'<i>ID de l'annuaire (tenant)</i>.</li>
@@ -393,9 +393,9 @@ function Rappels() {
       <div className="px-4 py-3 text-sm space-y-3">
         {!r.recap_actif && (
           <p className="bloc-etat px-3 py-2 text-second" data-etat="surveiller">Le récapitulatif du matin est coupé : les rappels ordinaires ne partiront pas. Seuls les urgents partent.</p>)}
-        <ul className="divide-y divide-slate-100 border border-slate-200 rounded-champ">
+        <ul className="divide-y divide-slate-100 border-y border-slate-100 -mx-4">
           {r.catalogue.map(c => (
-            <li key={c.cle} className="flex items-start gap-3 px-3 py-2.5">
+            <li key={c.cle} className="flex items-start gap-3 px-4 py-2.5">
               <div className="flex-1 min-w-0">
                 <div className="font-semibold text-iip-texte">{c.titre}</div>
                 <div className="text-second text-slate-600">Pour : {c.pour}</div>
@@ -414,7 +414,7 @@ function Rappels() {
         <div>
           <div className="intertitre mb-1">Derniers rappels</div>
           {!r.historique.length ? <p className="text-second text-slate-500">Aucun rappel pour l’instant.</p> : (
-            <div className="max-h-72 overflow-auto border border-slate-200 rounded-champ">
+            <div className="max-h-72 overflow-auto border-t border-slate-100">
               <table className="w-full text-second">
                 <tbody>
                   {r.historique.map(h => (
@@ -431,7 +431,7 @@ function Rappels() {
         <div>
           <div className="intertitre mb-1">Derniers rappels aux étudiants</div>
           {!r.historique_etudiants?.length ? <p className="text-second text-slate-500">Aucun pour l’instant.</p> : (
-            <div className="max-h-72 overflow-auto border border-slate-200 rounded-champ">
+            <div className="max-h-72 overflow-auto border-t border-slate-100">
               <table className="w-full text-second">
                 <tbody>
                   {r.historique_etudiants.map(h => (

@@ -391,8 +391,7 @@ function GestionParametres({ groupes = null }) {
     <div className="space-y-4">
       {/* Barre de sauvegarde sticky */}
       {(nbModifs > 0 || saved) && (
-        <div className={`sticky top-0 z-10 flex items-center justify-between px-4 py-2.5 rounded-lg border text-sm
-          ${saved ? 'bg-green-500 border-green-500 text-white' : 'bg-iip-gold/10 border-iip-gold/30 text-iip-gold'}`}>
+        <div className="sticky top-0 z-10 bloc-etat flex items-center justify-between px-4 py-2 text-sm" data-etat={saved ? 'reussi' : 'surveiller'}>
           {saved
             ? '✓ Paramètres enregistrés'
             : `${nbModifs} modification${nbModifs > 1 ? 's' : ''} non sauvegardée${nbModifs > 1 ? 's' : ''}`}
@@ -405,7 +404,9 @@ function GestionParametres({ groupes = null }) {
         </div>
       )}
 
-      <div className="grid gap-4 items-start xl:grid-cols-2 min-[1800px]:grid-cols-3">
+      {/* UN SEUL GROUPE PREND TOUTE LA LARGEUR (3.5.031, Charles : « vieille mise en page » — l'onglet des descriptifs
+          n'en montrait qu'un, rangé dans une demi-colonne). */}
+      <div className={`grid gap-4 items-start ${Object.keys(GROUPE_LABELS).filter(g => (!groupes || groupes.includes(g)) && (grouped[g] || []).length).length > 1 ? 'xl:grid-cols-2 min-[1800px]:grid-cols-3' : ''}`}>
       {Object.entries(GROUPE_LABELS).filter(([g]) => !groupes || groupes.includes(g)).map(([groupe, meta]) => {
         const params = grouped[groupe] || [];
         if (!params.length) return null;
@@ -423,10 +424,10 @@ function GestionParametres({ groupes = null }) {
                 const val = getValue(p.cle, p.valeur);
                 const modified = pending[p.cle] !== undefined;
                 return (
-                  <div key={p.cle} className={`flex items-center gap-x-4 gap-y-2 px-5 py-3 ${t.type === 'texte' ? 'flex-wrap' : ''} ${modified ? 'bg-iip-gold/5' : ''}`}>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-700">{p.label}</p>
-                      <p className="text-xs text-gray-400 font-mono">{p.cle}</p>
+                  <div key={p.cle} className={`flex items-center gap-x-4 gap-y-2 px-5 py-3 ${t.type === 'texte' ? 'flex-wrap' : ''}`}>
+                    {/* Le nom technique du réglage ne s'affiche plus : il reste au survol, pour qui le cherche. */}
+                    <div className="flex-1 min-w-0" title={p.cle}>
+                      <p className="text-sm font-medium text-iip-texte m-0">{p.label}{modified && <span className="ml-2 text-mention text-amber-700">modifié</span>}</p>
                     </div>
                     <div className={`flex items-center gap-2 ${t.type === 'texte' ? 'basis-full' : ''}`}>
                       {/* UN OUI/NON SE COCHE. Il se tapait « 0 » ou « 1 » dans un
@@ -436,7 +437,7 @@ function GestionParametres({ groupes = null }) {
                         <textarea value={val} rows={6}
                           onChange={e => handleChange(p.cle, e.target.value)}
                           className={`border rounded-champ px-3 py-2 text-sm w-full leading-relaxed bg-white
-                            ${modified ? 'border-iip-gold ring-1 ring-iip-gold/30' : 'border-gray-300'}`} />
+                            ${modified ? 'border-amber-500' : 'border-slate-200'}`} />
                       ) : t.type === 'booleen' ? (
                         <label className="flex items-center gap-2 cursor-pointer select-none">
                           <span className={`text-second ${val === '1' ? 'text-slate-700' : 'text-slate-400'}`}>
@@ -444,8 +445,7 @@ function GestionParametres({ groupes = null }) {
                           </span>
                           <input type="checkbox" checked={val === '1'}
                             onChange={e => handleChange(p.cle, e.target.checked ? '1' : '0')}
-                            className={`h-4 w-4 cursor-pointer
-                              ${modified ? 'ring-2 ring-iip-gold/40 rounded-champ' : ''}`} />
+                            className="h-4 w-4 cursor-pointer" />
                         </label>
                       ) : (
                       <input
@@ -454,9 +454,9 @@ function GestionParametres({ groupes = null }) {
                         value={val}
                         onChange={e => handleChange(p.cle, e.target.value)}
                         style={{ MozAppearance: 'textfield', appearance: 'textfield' }}
-                        className={`border rounded px-3 py-1.5 text-sm text-right
+                        className={`controle text-right
                           ${t.type === 'number' ? 'w-24' : 'w-64 max-w-full'}
-                          ${modified ? 'border-iip-gold ring-1 ring-iip-gold/30' : 'border-gray-300'}`}
+                          ${modified ? '!border-amber-500' : ''}`}
                       />
                       )}
                       {modified && (
@@ -790,24 +790,22 @@ function ConfigContrat() {
           <p className="text-xs text-gray-500 mt-0.5">Éditez le HTML du contrat. Utilisez les variables <code className="bg-gray-100 px-1 rounded">{"{{variable}}"}</code> pour les données dynamiques.</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={reinitialiser} className="text-xs border border-gray-300 text-gray-500 hover:bg-gray-50 px-3 py-1.5 rounded-lg">↺ Réinitialiser</button>
-          <button onClick={() => setPreview(v => !v)} className={`text-xs px-3 py-1.5 rounded-lg border ${preview ? 'bg-iip-blue text-white border-iip-blue' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}>
-            {preview ? '⊞ Éditeur' : '👁 Prévisualiser'}
-          </button>
-          <button onClick={sauvegarder} disabled={saving}
-            className={`text-xs px-4 py-1.5 rounded-lg font-semibold ${saved ? 'bg-green-600 text-white' : 'bg-iip-blue text-white hover:opacity-90'} disabled:opacity-40`}>
-            {saved ? '✓ Sauvegardé' : saving ? 'Sauvegarde…' : '✓ Sauvegarder'}
+          <button onClick={reinitialiser} className="bouton">Réinitialiser</button>
+          <button onClick={() => setPreview(v => !v)} className="bouton">{preview ? 'Revenir à l’éditeur' : 'Prévisualiser'}</button>
+          <button onClick={sauvegarder} disabled={saving} className="bouton bouton-fort">
+            {saved ? 'Enregistré' : saving ? 'Enregistrement…' : 'Enregistrer'}
           </button>
         </div>
       </div>
 
       {/* Variables disponibles */}
-      <div className="bloc-etat etat-surveiller p-3">
-        <div className="text-xs font-bold text-amber-700 mb-2">Variables disponibles — cliquez pour insérer</div>
+      {/* Les variables : de simples étiquettes à cliquer, pas un état (l'ocre dit « à surveiller » partout ailleurs). */}
+      <div>
+        <div className="intertitre mb-2">Variables — cliquez pour insérer</div>
         <div className="flex flex-wrap gap-1.5">
           {VARS.map(({ v, desc }) => (
             <button key={v} onClick={() => inserer(v)} title={desc}
-              className="text-xs font-mono bg-white border border-amber-500 text-iip-texte hover:bg-amber-500 hover:text-white px-2 py-0.5 rounded transition">
+              className="text-xs font-mono bg-white border border-slate-200 text-iip-texte hover:border-iip-blue px-2 py-0.5 rounded-champ transition">
               {v}
             </button>
           ))}
@@ -1222,7 +1220,7 @@ export default function Configuration() {
           <div className="flex justify-end -mt-2"><AnneeDuReferentiel onglet={tab} /></div>
         )}
         {ongletActif?.faces && (
-          <div className="segments -mt-1">
+          <div className="segments mb-2">
             {ongletActif.faces.map(([k, l]) => (
               <button key={k} type="button" onClick={() => setTab(k)} className={tab === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}>{l}</button>
             ))}
