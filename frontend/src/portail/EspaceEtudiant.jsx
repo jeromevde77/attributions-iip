@@ -514,7 +514,8 @@ function SchemaParcours({ svg }) {
   const [grand, setGrand] = useState(false);
   const src = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
   const vb = (svg.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/) || []).slice(1).map(Number);
-  const largeur = vb.length ? Math.round(vb[0] * 2.2) : 900;
+  // L'échelle de Lucie (SchemaCapitalisation, BASE = 1,25 px par unité du dessin), ni plus ni moins.
+  const largeur = vb.length ? Math.round(vb[0] * 1.25) : 600;
   return (
     <section className="bg-white border border-slate-200 rounded-carte p-3 space-y-2">
       <h2 className="intertitre">Mon schéma de capitalisation</h2>
@@ -531,7 +532,7 @@ function SchemaParcours({ svg }) {
       </div>
       {grand && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-3" onClick={() => setGrand(false)}>
-          <div className="bg-white rounded-carte p-3 max-w-full max-h-full overflow-auto"><img src={src} alt="" style={{ width: Math.max(largeur, 1000), maxWidth: 'none' }} /></div>
+          <div className="bg-white rounded-carte p-3 max-w-full max-h-full overflow-auto"><img src={src} alt="" style={{ width: largeur * 1.8, maxWidth: 'none' }} /></div>
         </div>)}
     </section>
   );
