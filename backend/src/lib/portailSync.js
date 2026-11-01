@@ -25,7 +25,7 @@ import { derniereVersion, versionReference } from '../routes/documentation.js';
 import { aDeposer as messagesADeposer, recevoir as recevoirMessages, aviserParCourriel } from './messagesEtudiants.js';
 import { parcoursPortail, fraisPortail } from './portailEspace.js';
 import { offrePAE, deposerProposition, recevoirSignature, signatureDe } from './paeEnLigne.js';
-import { fonctionsEspace, fonctionPour, fonctionOuverte } from './fonctions.js';
+import { fonctionsEspace, fonctionPour, fonctionOuverte, CATALOGUE as CATALOGUE_FONCTIONS } from './fonctions.js';
 import { offreVA, etatVA, appliquerGeste, accuserReception, codesDOffice, candidatsValides, candidatDe, anneeActive as anneeVA } from './portailValorisation.js';
 
 const URL_INTERNE = () => (process.env.PORTAIL_INTERNE_URL || '').replace(/\/$/, '');
@@ -74,18 +74,38 @@ const colonnes = t => { try { return db.prepare(`PRAGMA table_info("${t}")`).all
 const anneeActive = () => db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code
   || db.prepare('SELECT code FROM annee_scolaire ORDER BY code DESC LIMIT 1').get()?.code;
 
+/** L'APERÇU DE LA DIRECTION VOIT TOUT (3.5.023, Charles : « je dois pouvoir tout voir sans aucun accès ») : un étudiant
+ *  ouvert en aperçu ces 30 dernières minutes reçoit au portail les données de TOUTES les fonctions, même éteintes pour lui,
+ *  même sans adresse de l'institut. Ses `fonctions` restent les vraies : l'étudiant, lui, n'y gagne rien (le portail le
+ *  marque `apercu_seul` quand il n'a aucune fonction, et refuse alors de le laisser entrer). */
+const TOUTES_FONCTIONS = CATALOGUE_FONCTIONS.filter(c => c.famille === 'espace').map(c => c.cle.slice('espace.'.length));
+function enApercu() {
+  try {
+    return new Set(db.prepare(`SELECT DISTINCT etudiant_id FROM portail_apercu WHERE le >= datetime('now', '-30 minutes')`).all().map(x => x.etudiant_id));
+  } catch { return new Set(); }
+}
+/** Les fonctions dont on DÉPOSE les données (les vraies, ou toutes pour un étudiant en aperçu) — jamais pour décider d'un envoi. */
+const fonctionsDonnees = (id, apercus = enApercu()) => (apercus.has(Number(id)) ? TOUTES_FONCTIONS : fonctionsEspace(id));
+
 /** Les étudiants que le portail connaît : actifs, non archivés, avec une adresse d'école. */
 function etudiantsVisibles() {
+  const apercus = enApercu();
   const l = db.prepare(`SELECT id, nom, prenom, email_ecole, id_ecampus FROM etudiant
-    WHERE COALESCE(actif, 1) = 1 AND COALESCE(sortie_statut, '') <> 'archive' AND email_ecole LIKE '%@%'`).all();
+    WHERE COALESCE(actif, 1) = 1 AND COALESCE(sortie_statut, '') <> 'archive'
+      AND (email_ecole LIKE '%@%' OR id IN (SELECT value FROM json_each(?)))`).all(JSON.stringify([...apercus]));
   let autres = [];
   try { autres = db.prepare('SELECT etudiant_id, id_ecampus FROM etudiant_matricule').all(); } catch { /* table absente */ }
   const parId = new Map();
   for (const a of autres) { if (!parId.has(a.etudiant_id)) parId.set(a.etudiant_id, []); parId.get(a.etudiant_id).push(a.id_ecampus); }
   // LES FONCTIONS (3.5.001) : seul entre dans l'espace l'étudiant pour qui au moins une fonction est ouverte
   // (allumée, ou en essai et désigné) ; l'espace ne lui montre que celles-là.
-  return l.map(e => ({ id: e.id, nom: e.nom, prenom: e.prenom, email_ecole: e.email_ecole, fonctions: fonctionsEspace(e.id),
-    matricules: [...new Set([e.id_ecampus, ...(parId.get(e.id) || [])].filter(Boolean))] })).filter(e => e.fonctions.length);
+  return l.map(e => {
+    const fonctions = fonctionsEspace(e.id);
+    const apercu = apercus.has(e.id);
+    return { id: e.id, nom: e.nom, prenom: e.prenom, email_ecole: String(e.email_ecole || '').includes('@') ? e.email_ecole : '',
+      fonctions, donnees: apercu ? TOUTES_FONCTIONS : fonctions, apercu_seul: !fonctions.length && apercu,
+      matricules: [...new Set([e.id_ecampus, ...(parId.get(e.id) || [])].filter(Boolean))] };
+  }).filter(e => e.fonctions.length || e.apercu_seul);
 }
 
 /** Les résultats PUBLIÉS : séance close (de son organisation, ou « toute l'unité »), ou année antérieure. Jamais une note de travail. */
@@ -139,7 +159,7 @@ function reglementsEtudiants() {
 function etudiantDuPortail(id) {
   const e = db.prepare(`SELECT * FROM etudiant WHERE id = ? AND COALESCE(actif, 1) = 1 AND COALESCE(sortie_statut, '') <> 'archive'`).get(Number(id));
   if (!e) return null;
-  if (String(e.email_ecole || '').includes('@')) return e;
+  if (String(e.email_ecole || '').includes('@') || enApercu().has(e.id)) return e;
   return candidatsValides().some(c => c.id === e.id) ? e : null;
 }
 
@@ -151,7 +171,7 @@ async function deposerVA(ids) {
     const e = etudiantDuPortail(id);
     if (!e) continue;
     try {
-      const f = new Set(fonctionsEspace(e.id));
+      const f = new Set(fonctionsDonnees(e.id));
       lots.push({ etudiant_id: e.id, offre: f.has('va') ? offreVA(e, annee) : null, etat: f.has('va') ? etatVA(e, annee) : [],
         pae: !f.has('pae') ? null : offrePAE(e),
         parcours: !f.has('parcours') ? null : parcoursPortail(e, annee), frais: f.has('frais') ? await fraisPortail(e, annee) : null });
@@ -270,8 +290,9 @@ async function deposer() {
     .map(c => ({ id: c.id, nom: c.nom, prenom: c.prenom, email_prive: c.email_perso, code_hash: c.code_hash, jusqu_au: c.jusqu_au,
       // UN CANDIDAT EST UN INSCRIT (3.5.008, Charles : « ce n'est pas parce qu'il n'a pas encore d'adresse qu'il n'est pas
       // inscrit ») : il voit ce que voit un étudiant.
-      fonctions: fonctionsEspace(c.id) }));
-  const avec = (f, l) => l.filter(x => x.fonctions.includes(f)).map(x => x.id);
+      fonctions: fonctionsEspace(c.id), donnees: fonctionsDonnees(c.id) }));
+  // Les données se déposent d'après `donnees` (l'aperçu de la direction compris) ; les envois, d'après les vraies fonctions.
+  const avec = (f, l) => l.filter(x => x.donnees.includes(f)).map(x => x.id);
   await appel('POST', '/interne/etudiants', { etudiants, candidats });
   // Les demandes de valorisation de ceux qui sont venus ces trois dernières heures (les autres, à leur prochaine entrée).
   await deposerVA(db.prepare(`SELECT DISTINCT etudiant_id FROM portail_connexion WHERE le >= datetime('now', '-3 hours')`).all().map(x => x.etudiant_id));
@@ -297,8 +318,8 @@ async function deposerDocuments() {
   if (office.length) {
     try { await deposerDOffice(office, URL_PUBLIQUE()); } catch (e) { console.error('[espace] dépôt d’office :', e.message); }
   }
-  const ids = new Set([...visibles, ...candidatsValides().filter(c => fonctionPour('espace.candidats', { etudiantId: c.id })).map(c => ({ id: c.id, fonctions: fonctionsEspace(c.id) }))]
-    .filter(e => e.fonctions.includes('documents')).map(e => e.id));
+  const ids = new Set([...visibles, ...candidatsValides().filter(c => fonctionPour('espace.candidats', { etudiantId: c.id })).map(c => ({ id: c.id, donnees: fonctionsDonnees(c.id) }))]
+    .filter(e => e.donnees.includes('documents')).map(e => e.id));
   const connus = new Set((await appel('GET', '/interne/documents/connus')).ids || []);
   let envois = [];
   try {
@@ -390,11 +411,15 @@ export async function ouvrirApercu(etudiantId, par) {
   db.exec(`CREATE TABLE IF NOT EXISTS portail_apercu (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL,
     par TEXT, le TEXT NOT NULL DEFAULT (datetime('now')))`);
   try {
-    const r = await appel('POST', '/interne/apercu', { etudiant_id: Number(etudiantId), par });
+    // Tracé d'abord : c'est la trace qui fait déposer TOUTES les données de cet étudiant (30 minutes), aussitôt.
     db.prepare('INSERT INTO portail_apercu (etudiant_id, par) VALUES (?,?)').run(Number(etudiantId), par);
+    await deposer();
+    await deposerVA([Number(etudiantId)]);
+    try { await deposerDocuments(); } catch (e) { console.error('[portail] aperçu, documents :', e.message); }
+    const r = await appel('POST', '/interne/apercu', { etudiant_id: Number(etudiantId), par });
     return { url: r.url };
   } catch (e) {
-    return { erreur: /404/.test(e.message) ? 'Cet étudiant n’a pas (encore) d’espace : ni adresse de l’institut, ni code de candidat — ou le portail ne l’a pas encore reçu (deux minutes).'
+    return { erreur: /404/.test(e.message) ? 'Le portail n’a pas reçu cet étudiant (archivé, ou sorti de Lucie).'
       : 'Le portail des étudiants ne répond pas.' };
   }
 }

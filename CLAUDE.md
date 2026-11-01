@@ -2975,7 +2975,11 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   /api/portail-suivi/:id/apercu`, tracé dans `portail_apercu`) : Lucie demande au portail (`/interne/apercu`) un lien d'une
   minute, à usage unique (`apercu_jeton`) ; échangé (`POST /api/portail/apercu`) contre une session de 30 min, claim `apercu`.
   Dans `connecte` : tout ce qui n'est pas GET est refusé, la règle de la Belgique ne s'applique pas, et `presenter()` n'est pas
-  appelé (rien ne compte comme présenté à l'étudiant). Bandeau « Aperçu de la direction » dans l'espace.
+  appelé (rien ne compte comme présenté à l'étudiant). Bandeau « Aperçu de la direction » dans l'espace. **L'aperçu voit TOUT** (3.5.023, Charles : « je dois pouvoir tout voir sans aucun accès ») : un étudiant ouvert en aperçu
+  (`portail_apercu`, 30 min) reçoit au portail les données de toutes les fonctions (`fonctionsDonnees`, `donnees` dans
+  `portailSync`), même éteintes, même sans adresse d'institut ; ses `fonctions` restent les vraies. Sans fonction ouverte, il est
+  déposé `apercu_seul` : aucune porte de l'étudiant ne l'admet (`ouvertALEtudiant`, `trouver`). Côté portail, `fonctionsVues(req)` =
+  tout en aperçu. Les envois (dépôt d'office, avis) suivent toujours les vraies fonctions.
 - **LES RAPPELS — TRANCHÉS PUIS CONSTRUITS EN QUATRE ÉTAPES (3.1.522 → 3.1.525)** (Charles, 30 octobre 2026 : « points non encodés, notes non lues,
   documents non vus… délibération dans moins de 10 jours… avec courriel automatique sur l'adresse Prigogine, prof ou étudiant
   le cas échéant, secrétariat ; ça doit être complet »). Quatre familles, toutes par courriel à l'adresse d'INSTITUT :

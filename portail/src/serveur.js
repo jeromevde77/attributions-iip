@@ -50,6 +50,7 @@ db.pragma('journal_mode = WAL');
 // LES FONCTIONS DE CHAQUE ÉTUDIANT (3.5.001) : Lucie les nomme à chaque dépôt (Configuration → Fonctions) ; l'espace ne
 // montre et ne sert que celles-là.
 try { db.exec('ALTER TABLE etudiant ADD COLUMN fonctions TEXT'); } catch { /* déjà là, ou table à naître ci-dessous */ }
+try { db.exec('ALTER TABLE etudiant ADD COLUMN apercu_seul INTEGER NOT NULL DEFAULT 0'); } catch { /* déjà là, ou table à naître ci-dessous */ }
 db.exec(`
   CREATE TABLE IF NOT EXISTS etudiant (id INTEGER PRIMARY KEY, nom TEXT, prenom TEXT, email_ecole TEXT NOT NULL, maj_le TEXT);
   CREATE TABLE IF NOT EXISTS matricule (code TEXT PRIMARY KEY, etudiant_id INTEGER NOT NULL);
@@ -195,11 +196,14 @@ const HORS_BELGIQUE = "Votre espace ne s'ouvre que depuis la Belgique, et pas au
 const exceptionDe = id => !!(id && db.prepare("SELECT 1 FROM exception WHERE etudiant_id = ? AND jusqu_au >= date('now')").get(id));
 const permis = (req, etudiantId) => autorise(ipDe(req), exceptionDe(etudiantId));
 const refuserHorsBelgique = res => res.status(403).json({ hors_belgique: true, error: HORS_BELGIQUE });
+/* UN ÉTUDIANT DÉPOSÉ POUR LE SEUL APERÇU DE LA DIRECTION (`apercu_seul`, 3.5.023) n'existe pas pour les portes de
+ * l'étudiant : ni connexion, ni lien, ni code, ni session. Seul le jeton d'aperçu l'ouvre. */
+const ouvertALEtudiant = id => !!db.prepare('SELECT 1 FROM etudiant WHERE id = ? AND COALESCE(apercu_seul, 0) = 0').get(id);
 const trouver = ident => {
   const i = String(ident || '').trim();
   if (!i || i.length > 120) return null;
-  return i.includes('@') ? db.prepare('SELECT * FROM etudiant WHERE lower(email_ecole) = lower(?)').get(i)
-    : db.prepare('SELECT e.* FROM matricule m JOIN etudiant e ON e.id = m.etudiant_id WHERE m.code = ?').get(i);
+  return i.includes('@') ? db.prepare('SELECT * FROM etudiant WHERE lower(email_ecole) = lower(?) AND COALESCE(apercu_seul, 0) = 0').get(i)
+    : db.prepare('SELECT e.* FROM matricule m JOIN etudiant e ON e.id = m.etudiant_id WHERE m.code = ? AND COALESCE(e.apercu_seul, 0) = 0').get(i);
 };
 
 // ── L'appareil reconnu ──
@@ -254,7 +258,7 @@ function reconnaitre(req, res, etudiantId) {
 /** L'appareil est-il reconnu ? Il pré-remplit l'adresse : seul l'appareil qui porte le cookie la reçoit. */
 pub.get('/api/portail/appareil', (req, res) => {
   const a = appareilCourant(req);
-  const e = a && db.prepare('SELECT email_ecole FROM etudiant WHERE id = ?').get(a.etudiant_id);
+  const e = a && db.prepare('SELECT email_ecole FROM etudiant WHERE id = ? AND COALESCE(apercu_seul, 0) = 0').get(a.etudiant_id);
   res.json(e ? { reconnu: true, identifiant: e.email_ecole } : { reconnu: false });
 });
 /* Avant 3.1.513, un appareil reconnu entrait sans rien : il demande désormais le mot de passe. */
@@ -302,7 +306,7 @@ pub.post('/api/portail/connexion/code', (req, res) => {
   if (tropDEssais(ipDe(req), 60)) return res.status(429).json({ error: 'Trop de tentatives. Réessayez dans une heure.' });
   let p; try { p = jwt.verify(String(req.body?.defi || ''), SECRET); } catch { p = null; }
   if (!p || p.scope !== 'defi') return res.status(401).json({ error: 'Délai dépassé : reconnectez-vous.' });
-  const e = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(p.etudiant_id);
+  const e = ouvertALEtudiant(p.etudiant_id) && db.prepare('SELECT * FROM etudiant WHERE id = ?').get(p.etudiant_id);
   if (!e) return res.status(401).json({ error: 'Délai dépassé : reconnectez-vous.' });
   if (!permis(req, e.id)) return refuserHorsBelgique(res);
   const c = db.prepare(`SELECT * FROM code WHERE etudiant_id = ? AND objet_type = 'connexion' AND utilise_le IS NULL ORDER BY id DESC LIMIT 1`).get(e.id);
@@ -330,7 +334,7 @@ pub.post('/api/portail/candidat', (req, res) => {
   const n = (echecsCandidat.get(c?.etudiant_id) || []).filter(t => Date.now() - t < 15 * 60e3);
   if (c && n.length >= 10) return res.status(429).json({ error: 'Trop d’essais : réessayez dans un quart d’heure.' });
   const bon = verifierMdp(code, c?.code_hash);
-  if (!c || !bon || !db.prepare('SELECT 1 FROM etudiant WHERE id = ?').get(c.etudiant_id)) {
+  if (!c || !bon || !ouvertALEtudiant(c.etudiant_id)) {
     if (c) echecsCandidat.set(c.etudiant_id, [...n, Date.now()]);
     return res.status(401).json({ error: 'Adresse ou code incorrect, ou code échu : le secrétariat peut vous en envoyer un nouveau.' });
   }
@@ -356,8 +360,8 @@ pub.post('/api/portail/lien', (req, res) => {
   if (tropDEssais(ipDe(req))) return res.status(429).json({ error: 'Trop de demandes. Réessayez dans une heure.' });
   const ident = String(req.body?.identifiant || req.body?.matricule || '').trim();
   const m = ident && ident.length <= 120 && (ident.includes('@')
-    ? db.prepare('SELECT id AS etudiant_id FROM etudiant WHERE lower(email_ecole) = lower(?)').get(ident)
-    : db.prepare('SELECT etudiant_id FROM matricule WHERE code = ?').get(ident));
+    ? db.prepare('SELECT id AS etudiant_id FROM etudiant WHERE lower(email_ecole) = lower(?) AND COALESCE(apercu_seul, 0) = 0').get(ident)
+    : db.prepare('SELECT m.etudiant_id FROM matricule m JOIN etudiant e ON e.id = m.etudiant_id WHERE m.code = ? AND COALESCE(e.apercu_seul, 0) = 0').get(ident));
   if (!permis(req, m?.etudiant_id)) return refuserHorsBelgique(res);
   if (!m) return res.json(reponse);
   const recents = db.prepare(`SELECT COUNT(*) n FROM jeton WHERE etudiant_id = ? AND cree_le > datetime('now', '-1 hour')`).get(m.etudiant_id).n;
@@ -373,7 +377,7 @@ pub.post('/api/portail/session', (req, res) => {
   if (tropDEssais(ipDe(req))) return res.status(429).json({ error: 'Trop de tentatives. Réessayez dans une heure.' });
   const jeton = String(req.body?.jeton || '');
   const l = jeton && db.prepare('SELECT * FROM jeton WHERE jeton_hash = ?').get(empreinte(jeton));
-  if (!l || l.utilise_le || l.expire_le < maintenant() || !db.prepare('SELECT 1 FROM etudiant WHERE id = ?').get(l.etudiant_id)) {
+  if (!l || l.utilise_le || l.expire_le < maintenant() || !ouvertALEtudiant(l.etudiant_id)) {
     return res.status(401).json({ error: 'Ce lien a expiré ou a déjà servi. Demandez-en un nouveau.' });
   }
   if (!permis(req, l.etudiant_id)) return refuserHorsBelgique(res);
@@ -385,8 +389,11 @@ pub.post('/api/portail/session', (req, res) => {
 
 try { db.exec('ALTER TABLE etudiant ADD COLUMN fonctions TEXT'); } catch { /* déjà là */ }
 const fonctionsDe = id => { try { return JSON.parse(db.prepare('SELECT fonctions FROM etudiant WHERE id = ?').get(id)?.fonctions || '[]'); } catch { return []; } };
+/** L'aperçu de la direction voit TOUT l'espace, fonctions éteintes comprises (3.5.023) ; l'étudiant, ses seules fonctions. */
+const TOUTES = ['documents', 'depot_office', 'resultats', 'reglements', 'messages', 'parcours', 'frais', 'va', 'pae', 'candidats'];
+const fonctionsVues = req => (req.apercu ? TOUTES : fonctionsDe(req.etudiant?.id));
 /** Une route d'une fonction fermée pour cet étudiant : 404, comme si elle n'existait pas. */
-const exige = f => (req, res, next) => (fonctionsDe(req.etudiant?.id).includes(f) ? next()
+const exige = f => (req, res, next) => (fonctionsVues(req).includes(f) ? next()
   : res.status(404).json({ error: 'Cette partie de votre espace n’est pas encore ouverte.' }));
 
 function connecte(req, res, next) {
@@ -400,6 +407,7 @@ function connecte(req, res, next) {
       if (req.method !== 'GET') return res.status(403).json({ error: 'Aperçu de la direction : lecture seule, rien ne s’enregistre.' });
       req.etudiant = e; req.apercu = { par: p.par || '' }; req.candidat = !!p.candidat; return next();
     }
+    if (e.apercu_seul) throw new Error('aperçu seul');
     if (!permis(req, e.id)) return refuserHorsBelgique(res);
     // Un jeton venu du lien ne sert qu'à choisir le mot de passe.
     if (p.definir && req.path !== '/api/portail/mot-de-passe') return res.status(403).json({ definir: true, error: 'Choisissez d’abord votre mot de passe.' });
@@ -464,7 +472,7 @@ pub.get('/api/portail/moi', connecte, (req, res) => {
       signe_le: s?.signe_le || null, presente_le: accuseDe(e, 'reglement', r.version_id).presente_le || null };
   });
   const cand = req.candidat ? db.prepare('SELECT jusqu_au FROM candidat WHERE etudiant_id = ?').get(e.id) : null;
-  const f = new Set(fonctionsDe(e.id));
+  const f = new Set(fonctionsVues(req));
   res.json({ fonctions: [...f], apercu: req.apercu || null, candidat: cand ? { jusqu_au: cand.jusqu_au } : null, etudiant: { nom: e.nom, prenom: e.prenom, email: e.email_ecole,
     matricule: db.prepare('SELECT code FROM matricule WHERE etudiant_id = ? LIMIT 1').get(e.id)?.code || '' },
     resultats: !f.has('resultats') ? [] : [...parAnnee].map(([annee, ues]) => ({ annee, ues })),
@@ -764,12 +772,13 @@ int.post('/interne/etudiants', (req, res) => {
   const l = Array.isArray(req.body?.etudiants) ? req.body.etudiants : [];
   db.transaction(() => {
     db.exec('DELETE FROM matricule; DELETE FROM etudiant;');
-    const ie = db.prepare("INSERT INTO etudiant (id, nom, prenom, email_ecole, fonctions, maj_le) VALUES (?,?,?,?,?, datetime('now'))");
+    const ie = db.prepare("INSERT INTO etudiant (id, nom, prenom, email_ecole, fonctions, apercu_seul, maj_le) VALUES (?,?,?,?,?,?, datetime('now'))");
     const fx = x => JSON.stringify(Array.isArray(x.fonctions) ? x.fonctions.map(String) : []);
     const im = db.prepare('INSERT OR IGNORE INTO matricule (code, etudiant_id) VALUES (?,?)');
     for (const e of l) {
-      if (!Number(e.id) || !String(e.email_ecole || '').includes('@')) continue;
-      ie.run(Number(e.id), String(e.nom || ''), String(e.prenom || ''), String(e.email_ecole), fx(e));
+      // Sans adresse d'institut, seul l'aperçu de la direction entre (apercu_seul) : l'étudiant, lui, n'a aucune porte.
+      if (!Number(e.id) || (!String(e.email_ecole || '').includes('@') && !e.apercu_seul)) continue;
+      ie.run(Number(e.id), String(e.nom || ''), String(e.prenom || ''), String(e.email_ecole || ''), fx(e), e.apercu_seul ? 1 : 0);
       for (const m of e.matricules || []) if (m) im.run(String(m).trim(), Number(e.id));
     }
     // Les candidats : sans adresse d'institut ; ils n'entrent que par leur code.
@@ -777,7 +786,8 @@ int.post('/interne/etudiants', (req, res) => {
     const ic = db.prepare('INSERT OR REPLACE INTO candidat (etudiant_id, email_prive, code_hash, jusqu_au) VALUES (?,?,?,?)');
     for (const c of Array.isArray(req.body?.candidats) ? req.body.candidats : []) {
       if (!Number(c.id) || !String(c.email_prive || '').includes('@') || !String(c.code_hash || '').startsWith('scrypt$')) continue;
-      ie.run(Number(c.id), String(c.nom || ''), String(c.prenom || ''), '', fx(c));
+      if (db.prepare('SELECT 1 FROM etudiant WHERE id = ?').get(Number(c.id))) db.prepare('DELETE FROM etudiant WHERE id = ?').run(Number(c.id));
+      ie.run(Number(c.id), String(c.nom || ''), String(c.prenom || ''), '', fx(c), 0);
       ic.run(Number(c.id), String(c.email_prive), String(c.code_hash), String(c.jusqu_au || ''));
     }
   })();

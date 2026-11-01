@@ -10,7 +10,7 @@
  *   savoir — ce qu'il faut savoir : les règles qui bloquent ou qui surprennent.
  * Il explique le travail, pas l'informatique (CLAUDE.md, § 7). La version décrite se dit en tête.
  */
-export const VERSION_DECRITE = '3.5.022';
+export const VERSION_DECRITE = '3.5.023';
 
 export const RUBRIQUES = [
   {
@@ -1079,6 +1079,7 @@ export const RUBRIQUES = [
           "Lecture seule : rien ne s'enregistre, et rien de ce que vous ouvrez ne compte comme lu ni signé par l'étudiant.",
           "Le lien vaut une minute et ne sert qu'une fois ; la session d'aperçu dure 30 minutes. Chaque aperçu se trace (qui, quel étudiant, quand).",
           "Réservé à la direction et à l'administrateur.",
+          "L'aperçu montre TOUT l'espace, même les parties pas encore mises en service, même pour un étudiant qui n'a pas encore accès ou pas d'adresse de l'institut. L'étudiant, lui, n'y gagne rien : il ne voit que ce qui lui est ouvert, et sans fonction ouverte il n'entre pas.",
         ],
         images: [
           { src: "/guide/fiche-voir-espace.png", legende: "Fiche → Suivi : « Voir son espace », en haut à droite du bloc." },
