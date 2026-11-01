@@ -9,7 +9,7 @@ import { envelopperDocument } from '../lib/document.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import {
   migrerTempsTravail, reglage, ecrireReglage, genererAnnee, anneeDe, modifierSemaine, releve, ecrireEcart, ficheConges,
-  signer, planningEquipe, anneeEquipe, semaineEquipe, FORMULES, ABSENCES, REGLES, hm, semainesDeLAnnee, semainesDeConge, JOURS, plusJours,
+  signer, planningEquipe, anneeEquipe, semaineEquipe, periodesDeConge, fixerConges, FORMULES, ABSENCES, REGLES, hm, semainesDeLAnnee, semainesDeConge, JOURS, plusJours,
 } from '../lib/tempsTravail.js';
 
 try { migrerTempsTravail(); } catch (e) { console.error('[temps de travail] migration', e.message); }
@@ -66,6 +66,19 @@ r.get('/reglage', authRequired, (req, res) => res.json(reglage(annee(req))));
 r.put('/reglage', authRequired, (req, res) => {
   if (!gere(req.user)) return res.status(403).json({ error: 'Réservé à la direction et à la direction adjointe.' });
   res.json(ecrireReglage(annee(req), req.body || {}));
+});
+
+// LES CONGÉS DE L'ANNÉE (3.5.055) : ceux que la direction a fixés, sinon le calendrier de l'école.
+r.get('/conges-annee', authRequired, (req, res) => {
+  if (!gere(req.user) && !designe(req.user.id)) return res.status(404).json({ error: 'Introuvable.' });
+  const an = annee(req); const p = periodesDeConge(an); const c = semainesDeConge(an);
+  // 13 semaines de congé au total : l'été en est le complément ; 39 semaines de travail, 1 404 h par temps plein.
+  res.json({ ...p, semaines_conge: c.size, semaines_ete: Math.max(0, REGLES.congesAnnuels - c.size), semaines_travail: 52 - REGLES.congesAnnuels, heures: (52 - REGLES.congesAnnuels) * 36, reglage: reglage(an) });
+});
+r.put('/conges-annee', authRequired, (req, res) => {
+  if (!gere(req.user)) return res.status(403).json({ error: 'Réservé à la direction et à la direction adjointe.' });
+  try { fixerConges(annee(req), req.body?.periodes || [], nomDe(req.user)); const an = annee(req); res.json({ ...periodesDeConge(an), semaines_conge: semainesDeConge(an).size }); }
+  catch (e) { faute(res, e); }
 });
 
 // Le calendrier de l'année : semaines, congés scolaires, fenêtre d'été (pour choisir l'été).
