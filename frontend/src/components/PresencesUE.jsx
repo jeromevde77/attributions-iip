@@ -12,6 +12,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react';
 import { IconSearch } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { Encadre } from './ui.jsx';
+import { demander, informer } from '../lib/dialogue.jsx';
 
 const API = '/api/presences-ue';
 const fr = d => (d ? String(d).slice(0, 10).split('-').reverse().slice(0, 2).join('/') : '');
@@ -84,6 +85,25 @@ export default function PresencesUE({ ueInitiale = null }) {
       await charger();
     } catch (e) { setErreur(e.message); }
   }
+  // LES GESTES RAPIDES (3.5.016) : une séance « tous présents », ou toute l'UE jusqu'à une date — les cases vides seules.
+  const [jusquau, setJusquau] = useState(new Date().toISOString().slice(0, 10));
+  async function remplir(portee, libelle) {
+    try {
+      const sim = await appel(`/ue/${ue}/remplir`, { method: 'POST', body: JSON.stringify({ annee, ...portee, simuler: true }) });
+      if (!sim.cases) {
+        await informer(`Rien à remplir ${libelle} : toutes les cases sont déjà encodées.${sim.sous_groupes ? `\n${sim.sous_groupes} séance(s) en sous-groupes restent à encoder case par case.` : ''}`);
+        return;
+      }
+      const ok = await demander({ message: `Marquer « présent » ${sim.cases} case(s) vide(s) sur ${sim.seances} séance(s) ${libelle} ?\n\n`
+        + 'Les cases déjà encodées, les dispenses et les séances d’avant l’inscription ne sont pas touchées. '
+        + 'Vous marquerez ensuite les absents un par un.'
+        + (sim.sous_groupes ? `\n\n${sim.sous_groupes} séance(s) en sous-groupes ne sont pas remplies : elles s’encodent case par case.` : ''),
+        confirmer: `Marquer ${sim.cases} présence(s)` });
+      if (!ok) return;
+      await appel(`/ue/${ue}/remplir`, { method: 'POST', body: JSON.stringify({ annee, ...portee }) });
+      await charger();
+    } catch (e) { setErreur(e.message); }
+  }
   async function inverser(l, j) {
     const r = l.regularite[j];
     try {
@@ -112,6 +132,13 @@ export default function PresencesUE({ ueInitiale = null }) {
             <input value={filtre} onChange={e => setFiltre(e.target.value)} placeholder="Nom ou matricule"
               className="controle controle-icone border border-slate-300 rounded-champ bg-white w-56" />
           </div>)}
+        {d && d.seances.length > 0 && (
+          <span className="inline-flex items-center gap-1.5">
+            <span className="text-second text-slate-600">Cases vides en « présent » jusqu’au</span>
+            <input type="date" className="controle border border-slate-300 rounded-champ bg-white" value={jusquau} max={d.aujourdhui}
+              onChange={e => setJusquau(e.target.value)} />
+            <button type="button" className="bouton" onClick={() => remplir({ jusquau }, `jusqu’au ${frl(jusquau)}`)}>Remplir</button>
+          </span>)}
         {d && <span className="text-second text-slate-500">
           1er dixième : <b>{frl(d.jalons['10'])}</b> · 5e dixième : <b>{frl(d.jalons['50'])}</b> · régulier : présences + justifiées ≥ {Math.round(d.seuil * 100)} %</span>}
       </div>
@@ -132,6 +159,9 @@ export default function PresencesUE({ ueInitiale = null }) {
                       style={Object.values(d.jalons).includes(s.date) && !s.annule ? { background: 'color-mix(in srgb, #C9A227 18%, transparent)' } : undefined}>
                       <div className="font-semibold text-slate-800">{fr(s.date)}</div>
                       <div>{s.cours_code}</div>
+                      {!s.annule && !s.sous_groupe && s.date <= d.aujourdhui && (
+                        <button type="button" className="mt-0.5 text-[10px] font-semibold underline text-iip-blue"
+                          title="Toutes les cases vides de cette séance en « présent »" onClick={() => remplir({ seance_id: s.id }, `le ${frl(s.date)}`)}>tous P</button>)}
                     </th>
                     {(apres[i] || []).map(colReg)}
                   </Fragment>
