@@ -10,7 +10,7 @@
  *   savoir — ce qu'il faut savoir : les règles qui bloquent ou qui surprennent.
  * Il explique le travail, pas l'informatique (CLAUDE.md, § 7). La version décrite se dit en tête.
  */
-export const VERSION_DECRITE = '3.5.001';
+export const VERSION_DECRITE = '3.5.027';
 
 export const RUBRIQUES = [
   {
@@ -34,7 +34,7 @@ export const RUBRIQUES = [
       },
       {
         titre: "Pour qui",
-        texte: "La direction et la direction adjointe, le secrétariat, les coordinations de section et les enseignants. Chacun voit son métier : un rôle dit ce qu'on peut faire, un périmètre quelles sections on voit. Les étudiants n'ont qu'une porte, publique : la demande de valorisation en ligne.",
+        texte: "La direction et la direction adjointe, le secrétariat, les coordinations de section et les enseignants. Chacun voit son métier : un rôle dit ce qu'on peut faire, un périmètre quelles sections on voit. Les étudiants n'entrent pas dans Lucie : ils ont leur espace, sur un site à part (résultats, documents, parcours, PAE, valorisation, frais, messages), que la direction ouvre fonction par fonction.",
         savoir: [
           "Ce qu'un rôle ne peut pas faire n'apparaît pas à l'écran : pas de bouton qui serait refusé après le clic.",
           "La direction règle elle-même, sans développeur, les droits de chaque rôle, geste par geste.",
@@ -441,6 +441,8 @@ export const RUBRIQUES = [
         savoir: [
           "[[Prévenir l’étudiant|IconMail]] montre l'avis avant de l'envoyer à son adresse d'école ; rien ne part tout seul.",
           "La coordination lit les étudiants de ses sections ; envoyer et régler restent au secrétariat et à la direction.",
+          "Par UE, on choisit d'abord la section, puis l'unité. Pour rattraper vite : « tous P » sous une date remplit les cases VIDES de cette séance ; « Cases vides en « présent » jusqu'au … » fait de même pour toutes les séances jusqu'à cette date, après un aperçu qui dit combien de cases seront remplies. Rien de ce qui est déjà encodé ne change.",
+          "Une case D (activité dispensée) reste D ; les séances d'avant la date d'inscription de l'étudiant restent vides (à encoder à la main s'il était là). Une séance de sous-groupe, ou une UE en plusieurs organisations, se remplit case par case.",
         ],
         images: [
           { src: "/guide/etudiants-presences-ue.png", legende: "Suivi des présences → Par UE (données d’essai) : une ligne par étudiant, une colonne par séance, et la régularité (R ou IR) au 1er et au 5e dixième." },
@@ -742,7 +744,7 @@ export const RUBRIQUES = [
         texte: "La feuille montre l'étudiant, ses acquis par cours, la note d'unité et le choix du Conseil : Réussi, Ajourné, Refusé, et « Faveur ». Précédent / suivant pour passer d'un étudiant à l'autre. Le sélecteur en haut à droite change de vue : « Fiche » (un étudiant), « Tableau » (tous les étudiants d'un coup d'œil : une note juste à l'encre, un acquis en défaut en pastille fraise, la faveur en violet), « En lot » (ajourner plusieurs étudiants avec une justification commune), « Clôture ».",
         savoir: [
           "Pas de compensation entre acquis : un seul acquis en défaut, c'est « ajourné » en 1re session, « refusé » en 2e.",
-          "En 2e session, « ajourné » n'existe pas.",
+          "En 2e session, « ajourné » n'existe pas. La feuille ne montre que les acquis, rangés de 1 à n, avec leur note en regard : le décret juge sur les acquis. Les cours restent au tiroir — « voir les N cours » dans l'en-tête de la colonne les rouvre, « masquer les cours » les replie.",
           "La faveur porte l'unité au seuil ; sur les documents de l'étudiant, tout vaut alors 10.",
           "Jamais de cote sous 10 sur un document remis à l'étudiant : c'est « NA ».",
           "Le justificatif d'échec écrit par le chargé de cours dans Mes cours EST la motivation. Le Conseil peut la réécrire.",
@@ -920,7 +922,7 @@ export const RUBRIQUES = [
           "« Attestations » réunit les réussites, les ajournements et les refus (leur motivation), avec leur nombre sur les années choisies — les deux sessions comprises.",
           "Une pièce sans rien à produire est grisée (attestation sans réussite, motivation de refus sans refus…).",
           "Mode SLE : cocher une annexe 1 ou 2 ne montre que les étudiants en séjour limité aux études. Mode CEP : cocher une pièce CEP ne montre que les étudiants au congé-éducation payé de l'année (hors Flandre).",
-          "Dans la barre bleue : [[Aperçu|IconZoomIn]], [[Produire|IconPrinter]] et [[Envoyer|IconSend]] — par courriel, un document par personne, jamais de copie collective, à l'adresse d'école.",
+          "Dans la barre bleue : [[Aperçu|IconZoomIn]], [[Produire|IconPrinter]] et [[Envoyer|IconSend]] — par courriel, un document par personne, jamais de copie collective, à l'adresse d'école. Quand elle manque (un candidat, un nouvel inscrit), Lucie propose l'adresse privée du dossier, et la ligne le dit.",
         ],
         images: [
           { src: "/guide/editions-personne.png", legende: "« Une personne » (données d'essai) : le nom cherché à gauche, « ouvrir ses pièces » à droite." },
@@ -954,7 +956,7 @@ export const RUBRIQUES = [
           "Mot de passe oublié : le même lien, qui mène à en choisir un nouveau ; ses autres appareils devront à nouveau recevoir un code.",
           "Trois appareils reconnus au plus, pendant 90 jours ; au quatrième, il choisit lequel remplacer. Il les voit et les oublie dans « Mon compte », où il change aussi son mot de passe.",
           "Dix essais manqués bloquent le compte un quart d'heure.",
-          "Le lien et les codes ne partent jamais à une adresse privée : une fiche sans adresse d'école n'a pas d'espace.",
+          "Le lien et les codes de l'étudiant ne partent jamais à une adresse privée. Seul le candidat, qui n'a pas encore d'adresse de l'institut, entre par un code d'accès reçu à son adresse privée (voir plus bas).",
           "Lucie et le site des étudiants ne partagent ni base ni réseau : Lucie y dépose ce qui est public pour l'étudiant, et relève ses accusés. Le mot de passe ne vit que dans le site des étudiants.",
         ],
         images: [
@@ -965,28 +967,30 @@ export const RUBRIQUES = [
       },
       {
         titre: "La demande de valorisation en ligne",
-        texte: "Dans son espace, onglet « Valorisation » : l'étudiant choisit une unité de sa section, VA (des études réussies) ou VAE (une expérience), voit le forfait d'analyse et l'échéance du RDE, puis [[Introduire la demande|fort]]. Il dépose ses pièces (« Quelle pièce ? », puis [[Choisir le fichier|IconUpload]]), suit la frise — reçue, recevable, avis, décision, notifiée — et reçoit un accusé de réception quand il a terminé.",
+        texte: "Dans son espace, onglet « VA / VAE », la demande suit le formulaire officiel de la circulaire, en étapes numérotées. 1. Ma demande : l'unité, VA (des études réussies) ou VAE (une expérience), les frais d'instruction (30 € par UE) et la date limite, puis [[Ouvrir la demande|fort]]. 2. Mes documents : chaque pièce (« Quelle pièce ? », puis [[Choisir le fichier|IconUpload]]) reçoit un numéro. 3. Ma motivation : pour CHAQUE acquis de l'unité, quelques lignes et les pièces qui le prouvent. Enfin « Je certifie » et [[J’ai terminé — envoyer et recevoir l’accusé de réception|IconCheck|fort]], qui ne s'allume que quand tout est complet.",
         savoir: [
-          "Chaque geste arrive dans Lucie en quelques secondes, au registre des valorisations, au nom de l'étudiant « (étudiant, en ligne) ».",
-          "Il complète ou retire tant que la recevabilité n'est pas posée ; ensuite, il s'adresse au secrétariat.",
-          "Il ne lit ni l'avis du chargé de cours ni une décision avant sa notification.",
-          "L'admission ne se demande pas en ligne : elle reste au secrétariat. L'ancienne page /demande-va de Lucie renvoie vers l'espace.",
+          "Avant de commencer, l'écran explique VA, VAE et l'épreuve d'admission (les capacités attendues viennent des dossiers pédagogiques des premières unités de la section), ce que le Conseil peut décider, ce qui ne se valorise pas, et la règle des décisions : communiquées au plus tard deux jours ouvrables après la séance, définitives, sans recours.",
+          "La date limite se règle par année (paramètre « va.date_limite.<année> » : le 14 novembre en 2026-2027, pour toutes les UE du programme annuel).",
+          "Chaque geste arrive dans Lucie en quelques secondes, au nom de l'étudiant « (étudiant, en ligne) ». Dans le dossier de VA, le bloc « Demande de l'étudiant » montre sa motivation par acquis et ses pièces numérotées.",
+          "Il complète ou retire tant que la recevabilité n'est pas posée ; ensuite, il s'adresse au secrétariat. Il ne lit ni l'avis du chargé de cours ni une décision avant sa notification ; la frise s'arrête à « Notifiée ».",
+          "L'admission ne se demande pas en ligne : elle reste au secrétariat.",
         ],
         images: [
-          { src: "/guide/portail-va-demande.png", legende: "Nouvelle demande (données d'essai) : l'unité, VA ou VAE, le forfait d'analyse et l'échéance, puis « Introduire la demande ».", etroite: true },
-          { src: "/guide/portail-va-suivi.png", legende: "La demande introduite : sa frise, ses pièces, « Retirer cette demande » tant qu'elle n'est pas examinée.", etroite: true },
+          { src: "/guide/portail-va-intro.png", legende: "L'onglet VA / VAE (données d'essai) : VA, VAE et l'admission expliquées, les règles dépliables, puis les étapes.", etroite: true },
+          { src: "/guide/portail-va-demande.png", legende: "1. Ma demande : l'unité, VA ou VAE ; le prix et la date limite s'affichent avant d'ouvrir.", etroite: true },
+          { src: "/guide/portail-va-suivi.png", legende: "2. les pièces numérotées, 3. la motivation acquis par acquis, puis « Je certifie et j'envoie » : ce qui manque est nommé.", etroite: true },
         ],
       },
       {
         titre: "Le PAE en ligne",
-        texte: "Pendant la période fixée par la direction, onglet « Mon PAE » : l'étudiant coche les unités qui lui sont accessibles et envoie sa proposition ; sa coordination la reprend, la corrige ou ne la retient pas, et il lit sa réponse. Quand l'école a confirmé son PAE, il le relit et le confirme à son tour : [[Confirmer mon PAE|IconSignature|fort]], puis le code reçu à son adresse de l'institut.",
+        texte: "Onglet « PAE » : hors de la période fixée par la direction, l'étudiant y lit les unités de son programme de l'année et leurs frais estimés. Pendant la période, il coche les unités qui lui sont accessibles et envoie sa proposition ; sa coordination la reprend, la corrige ou ne la retient pas, et il lit sa réponse. Quand l'école a confirmé son PAE, il le relit et le confirme à son tour : [[Confirmer mon PAE|IconSignature|fort]], puis le code reçu à son adresse de l'institut.",
         savoir: [
           "Une unité grisée ne se choisit pas en ligne (déjà acquise, prérequis manquant, épreuve intégrée…) ; la raison est écrite dessous. Il en parle à sa coordination.",
           "Une unité posée par l'école et hors de sa main reste cochée et grisée : elle demeure au programme.",
           "Sous la liste, les frais estimés suivent ses choix : droit d'inscription, frais administratifs et acompte, calculés comme la note de frais. C'est une estimation : la note de frais remise par l'école fait foi.",
         ],
         images: [
-          { src: "/guide/portail-pae.png", legende: "Mon PAE (données d'essai) : la proposition attend la coordination ; l'UE 333, posée par l'école, reste au programme.", etroite: true },
+          { src: "/guide/portail-pae.png", legende: "Mon PAE pendant la période (données d'essai) : ce qui est déjà acquis est grisé, les unités accessibles se cochent ; les frais estimés suivent sous la liste.", etroite: true },
           { src: "/guide/portail-pae-confirmer.png", legende: "Le PAE confirmé par l'école : l'étudiant le relit, puis « Confirmer mon PAE ».", etroite: true },
         ],
       },
@@ -994,7 +998,7 @@ export const RUBRIQUES = [
         titre: "Le candidat, sans adresse de l'institut",
         pour: "sec coo dir",
         ou: "Fiche → Suivi → bloc « Pas encore d'adresse de l'institut ».",
-        texte: "Un étudiant inscrit qui n'a pas encore son adresse de l'institut reçoit un code d'accès à son adresse privée. Il entre par « Pas encore d'adresse de l'institut ? Entrer avec mon code d'accès » et n'y voit que sa demande de valorisation et ses documents. Le code vaut jusqu'à ce que son adresse d'institut soit encodée, et au plus 60 jours.",
+        texte: "Un étudiant inscrit qui n'a pas encore son adresse de l'institut reçoit un code d'accès à son adresse privée. Il entre par « Pas encore d'adresse de l'institut ? Entrer avec mon code d'accès » et y voit tout ce que voit un étudiant : résultats, documents, parcours, PAE, valorisation, frais, messages. Les codes de confirmation lui arrivent à cette même adresse privée. Le code vaut jusqu'à ce que son adresse d'institut soit encodée, et au plus 60 jours.",
         savoir: [
           "Le code part tout seul aux dossiers créés depuis la mise en service ; pour les autres, ou quand il est perdu ou échu : [[Envoyer un code d'accès]] (secrétariat et direction).",
           "Envoyer un nouveau code annule le précédent.",
@@ -1041,24 +1045,27 @@ export const RUBRIQUES = [
         titre: "Ce qu'il y trouve",
         texte: "Ses résultats publiés (séance close et publiée), les pièces que l'école lui a envoyées par Lucie, et les règlements destinés aux étudiants. Chaque pièce s'ouvre, s'imprime, et son accusé de réception se signe par un code à six chiffres envoyé à l'adresse d'école.",
         savoir: [
-          "À la clôture d'une délibération, chaque délibéré reçoit d'office la pièce de sa décision : attestation de réussite, ou motivation d'ajournement ou de refus — la même que celle produite par Éditions. Puis un seul courriel : « un nouveau document vous attend ».",
+          "À la clôture d'une délibération, chaque délibéré reçoit d'office la pièce de sa décision : attestation de réussite, ou motivation d'ajournement ou de refus — la même que celle produite par Éditions. Puis un seul courriel : « un nouveau document vous attend ». Toutes les séances closes de l'année sont reprises ; une pièce déjà envoyée par le centre d'envoi n'est pas déposée une seconde fois.",
+          "Les onglets se lisent tous, avec leur nom, sur un téléphone : deux rangées (Résultats · Messages · Parcours · PAE · Documents, puis VA / VAE · Frais · Aide · Compte).",
           "Une pièce se télécharge librement pendant 90 jours ; ensuite, un code reçu par courriel l'ouvre pour une heure.",
           "Sous 10, l'espace affiche « NA », comme les pièces remises à l'étudiant.",
           "Le registre des envois montre ces pièces « dans l'espace », et la fiche (onglet Suivi) dit sa dernière connexion, les pièces ouvertes et les accusés signés.",
         ],
         images: [
+          { src: "/guide/portail-resultats.png", legende: "L'espace sur un téléphone (données d'essai) : les neuf onglets nommés, puis les résultats par année ; « NA » sous 10.", etroite: true },
           { src: "/guide/portail-documents.png", legende: "Mes documents : chaque pièce avec sa référence et sa date de téléchargement libre, [[Ouvrir]] puis « Signer l'accusé de réception ».", etroite: true },
         ],
       },
       {
         titre: "Mon parcours, mes frais, l'aide",
-        texte: "Trois autres onglets de l'espace. « Mon parcours » : les unités de sa section, par bloc, dans leur état (acquise, à son programme, accessible, en attente d'une délibération, pas encore accessible, avec la raison) et les crédits acquis. « Mes frais » : total, versé, reste à payer, l'échéance du solde, le détail et ses versements ; et, tant qu'il reste à payer, le QR à scanner avec l'application de sa banque, qui remplit bénéficiaire, montant et communication structurée. « Aide et règles » : un petit mode d'emploi de l'espace, la grille de lecture des résultats (réussi, NA, ajourné, refusé, faveur, VA) et les règlements à lire et à signer.",
+        texte: "Trois autres onglets de l'espace. « Mon parcours » : en haut, son schéma de capitalisation — le même dessin que la fiche, à la même échelle, les prérequis en flèches, ses réussites avec leur note (ou VA, VAE) ; en dessous, « Où j'en suis cette année » : les unités de sa section, par bloc, dans leur état (acquise, à son programme, accessible, en attente d'une délibération, pas encore accessible, avec la raison) et les crédits acquis. « Mes frais » : total, versé, reste à payer, l'échéance du solde, le détail et ses versements ; et, tant qu'il reste à payer, le QR à scanner avec l'application de sa banque, qui remplit bénéficiaire, montant et communication structurée. « Aide et règles » : un petit mode d'emploi de l'espace, la grille de lecture des résultats (réussi, NA, ajourné, refusé, faveur, VA) et les règlements à lire et à signer.",
         savoir: [
           "Les chiffres sont ceux de Lucie : le parcours vient du moteur du PAE, les frais de la note de frais de l'étudiant.",
-          "Un candidat (code d'accès) voit ses frais ; pas encore son parcours.",
+          "Sur un téléphone, le schéma se fait glisser de côté ; un toucher l'agrandit.",
+          "Un candidat (entré par un code d'accès, faute d'adresse de l'institut) est un inscrit : il voit tout ce que voit un étudiant, et ses codes arrivent à son adresse privée.",
         ],
         images: [
-          { src: "/guide/portail-parcours.png", legende: "Mon parcours (données d'essai).", etroite: true },
+          { src: "/guide/portail-parcours.png", legende: "Mon parcours (données d'essai) : le schéma de capitalisation, puis « Où j'en suis cette année ».", etroite: true },
           { src: "/guide/portail-frais.png", legende: "Mes frais : le reste à payer et le QR de paiement.", etroite: true },
           { src: "/guide/portail-aide.png", legende: "Aide et règles : le mode d'emploi de l'espace, puis la grille de lecture et les règlements.", etroite: true },
         ],
@@ -1072,6 +1079,7 @@ export const RUBRIQUES = [
           "Lecture seule : rien ne s'enregistre, et rien de ce que vous ouvrez ne compte comme lu ni signé par l'étudiant.",
           "Le lien vaut une minute et ne sert qu'une fois ; la session d'aperçu dure 30 minutes. Chaque aperçu se trace (qui, quel étudiant, quand).",
           "Réservé à la direction et à l'administrateur.",
+          "L'aperçu montre TOUT l'espace, même les parties pas encore mises en service, même pour un étudiant qui n'a pas encore accès ou pas d'adresse de l'institut. L'étudiant, lui, n'y gagne rien : il ne voit que ce qui lui est ouvert, et sans fonction ouverte il n'entre pas.",
         ],
         images: [
           { src: "/guide/fiche-voir-espace.png", legende: "Fiche → Suivi : « Voir son espace », en haut à droite du bloc." },
@@ -1243,17 +1251,20 @@ export const RUBRIQUES = [
   },
   {
     id: 'cep', pour: 'sec dir', titre: 'Congé-éducation payé (CEP)', icone: 'IconUserCheck',
-    resume: "La case sur la fiche, les présences, les deux attestations.",
+    resume: "La case sur la fiche, les présences, les trois attestations.",
     points: [
       {
         titre: "Le dossier CEP d'un étudiant",
         ou: "Fiche → Congé-éducation.",
-        texte: "Marquez l'étudiant au CEP pour l'année, avec la région du lieu de travail et l'employeur. L'onglet montre ses unités, ses heures et ses absences, et produit les pièces [[Inscription]] et [[Assiduité]] par unité.",
+        texte: "Marquez l'étudiant au CEP pour l'année, avec la région du lieu de travail (Bruxelles-Capitale ou Wallonie) et l'employeur. L'onglet montre ses unités, ses heures et ses absences, et produit trois attestations par unité : [[Inscription]], [[Assiduité]] et [[Seconde session]]. Elles reprennent le modèle officiel (A.M. du 20 août 1985, annexes I bis et II) dans la mise en page de Lucie, avec la signature et le QR d'authenticité.",
         savoir: [
-          "La région est celle du LIEU DE TRAVAIL. La Flandre n'utilise pas ces pièces : Lucie refuse.",
-          "Attestation d'inscription régulière : à l'employeur au plus tard le 31 octobre (ou 15 jours après une inscription tardive).",
-          "Assiduité : par période de trois mois à compter du début de l'UE. Les heures viennent de l'horaire.",
-          "En nombre : Éditions → Étudiants → Dossiers étudiants, pièces « CEP — … ».",
+          "La région est celle du LIEU DE TRAVAIL ; le cadre légal imprimé suit la région. La Flandre n'utilise pas ces pièces : Lucie refuse.",
+          "Les délais s'affichent dans l'onglet. Attestation d'inscription régulière : à l'employeur au plus tard le 31 octobre (ou 15 jours après une inscription tardive). Assiduité : par période de trois mois à compter du début de l'UE.",
+          "Les heures [a] viennent du dossier pédagogique : périodes professeur, autonomie comprise, moins les stages et l'épreuve intégrée, à 50 minutes la période ; les activités dispensées sont déduites. Les dates sont celles de l'unité (son organisation).",
+          "Une unité dispensée en entier, ou faite seulement de stage, n'a pas de page.",
+          "Une pièce qui en remplace une autre : cochez « Correction », la mention s'imprime.",
+          "L'attestation de seconde session sort pour un étudiant ajourné dont la seconde session a sa date.",
+          "En nombre : Éditions → Étudiants → Documents → « Des étudiants », pièces « CEP — … ».",
         ],
         images: [
           { src: "/guide/cep-onglet.png", legende: "L'onglet Congé-éducation de la fiche (données d'essai) : la région et l'employeur ([[Modifier]]), le taux d'absences injustifiées, ce qui manque pour que les pièces sortent, les heures par unité et période de trois mois, et la justification de chaque absence." },
@@ -1301,6 +1312,7 @@ export const RUBRIQUES = [
              + "circulaire 9760. En nombre : un document, une pièce par page ; les annexes en archive Word.",
         savoir: [
           "Ces pièces sont réservées à l'administration et à la direction.",
+          "L'A27 (prestations mensuelles d'un expert) se remplit depuis l'horaire : pour chaque cours, les dates et les périodes du mois, seulement les séances qui nomment l'expert, les séances annulées exclues.",
         ] },
     ],
   },
@@ -1410,15 +1422,32 @@ export const RUBRIQUES = [
     resume: "Dotation, budget, répartition des périodes.",
     points: [
       {
-        titre: "Le budget",
-        pour: "dir",
-        ou: "Gestion → Budget.",
-        texte: "La section d'une prévision se corrige dans son formulaire (ses dépenses la suivent) ; « Autres » accueille ce qui ne relève d'aucune section. Le compte général se cherche en tapant (« matériel », « 6124 »).",
+        titre: "Le budget de ma section",
+        pour: "coo dir",
+        ou: "Gestion → Budget (la coordination ouvre sur « Mon enveloppe », la direction sur « Enveloppes »).",
+        texte: "Chaque section reçoit une enveloppe de fonctionnement par année civile : un socle, plus un montant par étudiant pondéré selon la section. La coordination voit son disponible, encode ses lignes ([[Encoder les lignes de TIM]]) — catégorie, priorité, mois, justification, devis — et demande ses investissements à part. La direction arbitre : chaque ligne et chaque investissement est retenu ou refusé, un refus se motive.",
         savoir: [
-          "L'import du canevas prend aussi les comptes utilisés dans la colonne A hors de sa liste ; les comptes HELB ne sont plus proposés.",
+          "Le coussin de la direction est retenu sur chaque enveloppe, par tranches comme l'impôt : 10 % jusqu'à 15 000 €, 20 % jusqu'à 30 000 €, 30 % au-delà. La coordination ne voit que le disponible.",
+          "Un achat de 500 € HT ou plus (à l'unité) est un investissement : Lucie le classe d'elle-même. Il sort de l'enveloppe et s'amortit (informatique 3 ans, mobilier et matériel 5 ans).",
+          "« Inventaire » garde le matériel acquis, section par section. « Exécution » compare le prévu et le dépensé.",
+          "Une section absente du guide reçoit le régime standard ; Orthoptie est hors budget (un tiers du budget communiqué par la haute école).",
         ],
         images: [
-          { src: "/guide/gestion-budget.png", legende: "Gestion → Finances → Budget : [[Ajouter une prévision|IconPlus|fort]] ouvre le formulaire (section, compte général qu'on cherche en tapant, détail, montants) ; [[Importer le canevas (2026)|IconUpload]] reprend le tableur, [[Reprendre 2025|IconCopy]] l'année précédente." },
+          { src: "/guide/gestion-budget-coordination.png", legende: "Ce que voit la coordination (données d'essai) : son enveloppe disponible, ce qui est encodé, le solde, les investissements demandés." },
+          { src: "/guide/gestion-budget.png", legende: "Ce que voit la direction : par section, l'enveloppe, le coussin, le disponible, l'encodé et l'écart ; en dessous, l'effet sur la contribution de l'IIP à l'ASBL." },
+        ],
+      },
+      {
+        titre: "Les paramètres du budget",
+        pour: "dir",
+        ou: "Gestion → Budget → Paramètres.",
+        texte: "Par année civile : le montant par étudiant, le seuil d'investissement, les durées d'amortissement, la date de référence des effectifs, les tranches du coussin ; par section, le socle, la pondération, les effectifs, les charges et produits de l'année précédente, la réserve d'investissement (10 000 € pour l'Optométrie en 2027).",
+        savoir: [
+          "Les effectifs restent figés jusqu'à [[Recompter les effectifs dans Lucie|IconRefresh]] (aperçu d'abord) ou une correction à la main ; un étudiant inscrit dans deux sections compte dans chacune.",
+          "[[Importer le canevas (2027)|IconUpload]] reprend le tableur des prévisions ; le compte général se cherche en tapant (« matériel », « 6124 »).",
+        ],
+        images: [
+          { src: "/guide/gestion-budget-parametres.png", legende: "Les paramètres de l'année et des sections (données d'essai)." },
         ],
       },
       {
@@ -1589,6 +1618,18 @@ export const RUBRIQUES = [
         ],
       },
       {
+        titre: "Les attestations des années passées dans les espaces",
+        pour: "dir",
+        ou: "Configuration → Accès → Mise en service → Les années passées dans les espaces.",
+        texte: "Lucie est née cette année, mais les étudiants ont un passé. Ce bloc dépose dans l'espace de chacun, archivés compris, les pièces des années avant l'année active : une attestation de réussite par unité réussie, une attestation de réussite « valorisation » par VA complète, et un document qui les réunit toutes. [[Compter ce qui serait déposé]] montre combien, par nature, par année et par section ; [[Déposer|fort]] les dépose, par lots de cent étudiants, jusqu'au bout.",
+        savoir: [
+          "Ce sont les pièces d'Éditions, avec leur référence et leur QR d'authenticité ; elles entrent au registre des envois.",
+          "Aucun courriel ne part, et aucun rappel « document jamais ouvert » ne les concerne : elles attendent dans « Mes documents ». Quand l'espace s'ouvrira, l'annonce aux étudiants dira qu'ils y trouvent leurs attestations.",
+          "Une pièce à laquelle il manque une mention (code FWB, ECTS, domaine, périodes, activités) n'est pas composée : elle est nommée sous le compte, à compléter au référentiel avant de relancer.",
+          "Relancer ne dépose jamais deux fois la même pièce. Un archivé la verra s'il revient.",
+        ],
+      },
+      {
         titre: "Les rappels par courriel",
         ou: "Configuration → Documents et envois → Courriels → Rappels.",
         texte: "Lucie rappelle à chacun ce qui l'attend, par courriel à son adresse d'institut. Un rappel ordinaire entre dans le récapitulatif du matin ; un rappel urgent (le jour J d'une échéance) part aussitôt. Aujourd'hui : les échéances de l'échéancier — GEDI, publication des résultats, fenêtres de recours, préparation des UE… — au responsable de l'échéance, sinon aux comptes de son rôle ; et la délibération : la date aux professeurs à J-10 et J-3, le dernier délai de leurs points à J-2, « délai dépassé » (copie à la coordination), « date à poser » quand l'UE se termine sans séance datée, et la séance passée qui n'est pas close ; et le personnel : présences à compléter, avis attendus (VA, aménagements), propositions de PAE en ligne, délais des recours et de la discipline, et chaque lundi un bilan de ce qui reste à faire (VA, absences au-delà du seuil, frais échus, aménagements) ; et les étudiants, par leur espace : document jamais ouvert, accusé à signer, PAE en ligne, message non lu, solde des frais, demande de VA sans pièce — un seul avis par jour, sans contenu.",
@@ -1693,7 +1734,7 @@ const enrichiP = t => boutonsP(escP(t));
 /* LE PDF A LE DESSIN DU GUIDE EN LIGNE (3.1.520, Charles, 30 octobre 2026 : « regarde le mode d'emploi de Lucie, c'est en
  * bleu »). Mêmes pièces qu'à l'écran (`pages/Aide.jsx`) : en-tête de chapitre (pastille marine, « Chapitre n sur N », publics
  * en pastilles), points au liseré principal avec leur numéro dans un cercle, chemin « Où » en étapes, « À savoir » encadré
- * avec l'ampoule or et des puces accent, texte à gauche et captures à droite. Couleurs de la Maison IIP, en dur : une pièce
+ * avec l'ampoule or et des puces accent, les captures dans le corps du texte. Couleurs de la Maison IIP, en dur : une pièce
  * imprimée garde la charte en hexadécimal. */
 const ME = { principal: '#16406A', accent: '#0A8FBF', disponible: '#3F7FD0', or: '#F9B619', filet: '#D8DCE4', texte: '#1F2A3C', gris: '#64748B' };
 export const STYLES_MODE_EMPLOI = `
@@ -1715,7 +1756,6 @@ export const STYLES_MODE_EMPLOI = `
   .me-point { border: 0.3mm solid ${ME.filet}; border-left: 1.2mm solid ${ME.principal}; border-radius: 0 3mm 3mm 0; padding: 3.5mm 4.5mm; margin: 0 0 4mm; font-size: 9.5pt; color: ${ME.texte}; }
   .me-point h3 { display: flex; align-items: center; gap: 2.5mm; font-size: 11.5pt; color: ${ME.principal}; margin: 0 0 2.5mm; page-break-after: avoid; }
   .me-rond { display: inline-grid; place-items: center; min-width: 5.5mm; height: 5.5mm; padding: 0 1mm; border-radius: 3mm; background: ${ME.principal}; color: #fff; font-size: 8pt; font-weight: 700; flex: none; }
-  .me-corps.avec-images { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 0.85fr); gap: 5mm; align-items: start; }
   .me-corps p { margin: 0 0 2mm; line-height: 1.5; }
   .me-corps ul { margin: 0 0 2mm; padding-left: 5mm; } .me-corps li { margin: 0 0 1mm; }
   .me-chemin { display: flex; flex-wrap: wrap; align-items: center; gap: 1.2mm; font-size: 8.5pt; margin: 0 0 2.5mm; }
@@ -1727,12 +1767,14 @@ export const STYLES_MODE_EMPLOI = `
   .me-savoir ul { list-style: none; margin: 0; padding: 0; }
   .me-savoir li { position: relative; padding-left: 3.5mm; margin: 0 0 1mm; color: #475569; line-height: 1.45; }
   .me-savoir li::before { content: ''; position: absolute; left: 0; top: 1.6mm; width: 1.4mm; height: 1.4mm; border-radius: 50%; background: ${ME.accent}; }
-  .me-images { display: block; }
+  .me-corps { display: flow-root; } .me-savoir { display: flow-root; }
+  .me-flottant { float: left; display: flex; gap: 3mm; align-items: flex-start; margin: 0 4.5mm 2.5mm 0; max-width: 75%; }
+  .me-flottant .me-fig { margin: 0; }
+  .me-images { display: flex; flex-wrap: wrap; gap: 3mm; align-items: flex-start; }
   .me-fig { display: block; margin: 0 0 3mm; page-break-inside: avoid; break-inside: avoid; }
-  .me-fig.etroite { display: inline-block; vertical-align: top; width: 40mm; margin-right: 3mm; }
-  .me-fig img { display: block; max-width: 100%; max-height: 85mm; border: 0.3mm solid ${ME.filet}; border-radius: 2mm; }
+
+  .me-fig { max-width: 100%; } .me-fig img { display: block; width: 100%; max-height: 85mm; object-fit: contain; border: 0.3mm solid ${ME.filet}; border-radius: 2mm; }
   .me-fig figcaption { font-size: 7.8pt; color: ${ME.gris}; margin-top: 1mm; }
-  .me-corps.sans-images .me-fig.etroite { width: 50mm; }
   .me-bt { font-weight: 700; color: ${ME.principal}; border: 0.3mm solid #94A3B8; border-radius: 1mm; padding: 0 1mm; white-space: nowrap; }
 `;
 const AMPOULE = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="${ME.or}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h1m8-9v1m8 8h1m-15.4-6.4l.7.7m12.1-.7l-.7.7"/><path d="M9 16a5 5 0 1 1 6 0a3.5 3.5 0 0 0-1 3a2 2 0 0 1-4 0a3.5 3.5 0 0 0-1-3"/><path d="M9.7 17h4.6"/></svg>`;
@@ -1750,23 +1792,43 @@ function cheminP(ou) {
 }
 
 /** Un point, imprimé comme la carte de l'écran. `images` : chemins ou data URL ; `contenu` : HTML déjà sûr. */
-export function pointImprimable(p, n, ajouter = () => {}) {
+/* « CARRÉ COMME WORD » (3.5.025) : une capture qui s'imprime à moins des trois quarts de la colonne flotte à gauche, le
+   texte coule à sa droite ; à plusieurs, côte à côte jusqu'à 55 %. `dims(src)` rend { w, h } en pixels quand on les
+   connaît (les captures jointes au PDF) ; sans elle, seule une capture `etroite` flotte. Échelle : 0,12 mm le pixel
+   (une capture d'écran de 1 400 px remplit la colonne), hauteur plafonnée à 85 mm. */
+const COLONNE_MM = 172;
+function largeurImprimee(im, dims) {
+  const d = dims?.(im.src);
+  if (!d?.w || !d?.h) return im.etroite ? 40 : null;
+  let w = d.w * 0.12, h = d.h * 0.12;
+  if (h > 85) { w *= 85 / h; h = 85; }
+  return Math.min(COLONNE_MM, Math.round(w * 10) / 10);
+}
+
+export function pointImprimable(p, n, ajouter = () => {}, dims = null) {
   const l = [...(p.image ? [{ src: p.image, legende: p.legende }] : []), ...(p.images || [])];
   l.forEach(i => ajouter(i.src));
-  const etroites = l.length && l.every(i => i.etroite);
-  const imgs = l.length ? `<div class="me-images">${l.map(i => `<figure class="me-fig${i.etroite ? ' etroite' : ''}">
-      <img src="${escP(i.src)}" alt="">${i.legende ? `<figcaption>${enrichiP(i.legende)}</figcaption>` : ''}</figure>`).join('')}</div>` : '';
-  const texte = `<div>${p.ou ? cheminP(p.ou) : ''}${p.texte ? `<p>${enrichiP(p.texte)}</p>` : ''}${p.contenu || ''}
+  const fig = (i, w) => `<figure class="me-fig"${w ? ` style="width:${w}mm"` : ''}>
+      <img src="${escP(i.src)}" alt="">${i.legende ? `<figcaption>${enrichiP(i.legende)}</figcaption>` : ''}</figure>`;
+  const petites = [], grandes = [];
+  let cumul = 0;
+  for (const i of l) {
+    const w = largeurImprimee(i, dims);
+    const plafond = COLONNE_MM * (petites.length ? 0.55 : 0.75);
+    if (w && cumul + w + (petites.length ? 3 : 0) < plafond) { petites.push([i, w]); cumul += w + (petites.length > 1 ? 3 : 0); }
+    else grandes.push([i, w]);
+  }
+  const flottant = petites.length ? `<div class="me-flottant">${petites.map(([i, w]) => fig(i, w)).join('')}</div>` : '';
+  const dessous = grandes.length ? `<div class="me-images">${grandes.map(([i, w]) => fig(i, w)).join('')}</div>` : '';
+  // LES CAPTURES DANS LE CORPS DU TEXTE (3.5.024, Charles : « dans le corps du texte, ou en dessous — on perd beaucoup trop
+  // de place ») : les petites à gauche du texte, les autres après lui, avant « À savoir » ; plus de colonne de droite.
+  const corps = `<div class="me-corps">${p.ou ? cheminP(p.ou) : ''}${flottant}${p.texte ? `<p>${enrichiP(p.texte)}</p>` : ''}${p.contenu || ''}${dessous}
       ${p.savoir?.length ? `<div class="me-savoir"><div class="titre">${AMPOULE} À savoir</div><ul>${p.savoir.map(s => `<li>${enrichiP(s)}</li>`).join('')}</ul></div>` : ''}</div>`;
-  // Des captures de téléphone côte à côte se lisent sous le texte ; une capture d'écran large, à droite.
-  const corps = !l.length ? `<div class="me-corps">${texte}</div>`
-    : etroites || p.images_dessous ? `<div class="me-corps sans-images">${texte}${imgs}</div>`
-    : `<div class="me-corps avec-images">${texte}${imgs}</div>`;
   return `<div class="me-point">${p.titre ? `<h3>${n != null ? `<span class="me-rond">${n}</span>` : ''}${escP(p.titre)}</h3>` : ''}${corps}</div>`;
 }
 
 /** L'en-tête d'un chapitre et ses points. */
-export function chapitreImprimable(r, i, total, ajouter) {
+export function chapitreImprimable(r, i, total, ajouter, dims = null) {
   const pubs = String(r.pour || '').split(/\s+/).filter(x => PASTILLE_PUBLIC[x]);
   return `<section class="me-chap">
     <div class="me-tete"><div style="flex:1;min-width:0">
@@ -1775,7 +1837,7 @@ export function chapitreImprimable(r, i, total, ajouter) {
       ${r.resume ? `<p class="me-resume">${enrichiP(r.resume)}</p>` : ''}
       ${pubs.length ? `<div class="me-publics">${pubs.map(x => `<span class="me-pub">${PASTILLE_PUBLIC[x]}</span>`).join('')}</div>` : ''}
     </div></div>
-    ${r.points.map((p, k) => pointImprimable(p, p.titre ? k + 1 : null, ajouter)).join('')}
+    ${r.points.map((p, k) => pointImprimable(p, p.titre ? k + 1 : null, ajouter, dims)).join('')}
   </section>`;
 }
 

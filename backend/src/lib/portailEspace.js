@@ -8,7 +8,6 @@
  */
 import db from '../db/index.js';
 import { composerPAE, donneesCapitalisation } from '../routes/etudiants.js';
-import { schemaSvg } from './schemaSvg.js';
 import { sigleVA } from './valorisation.js';
 import { calculerFrais } from '../routes/fraisScolarite.js';
 import { qrSvg } from './banque.js';
@@ -35,7 +34,10 @@ export function parcoursPortail(e, annee) {
   // LE SCHÉMA DE CAPITALISATION (3.5.010, Charles : « sous la forme du schéma, et en dessous où il en est ») : le MÊME
   // dessin que la fiche et la pièce imprimée (donneesCapitalisation + schemaSvg), en SVG sans script.
   let schema = null;
-  try { const g = donneesCapitalisation(e.id, annee); if (g.nodes?.length) schema = schemaSvg(g); } catch (x) { console.error('[portail] schéma :', x.message); }
+  // LE DESSIN DE LUCIE, PAS UNE COPIE (3.5.026, Charles : « tu respectes le modèle de schéma actuel, avec les flèches qui
+  // ne passent pas derrière, comme partout ailleurs ») : on dépose les DONNÉES du schéma de la fiche ; le site des étudiants
+  // les dessine avec le même composant (SchemaCapitalisation, lib/schemaCouches.js). Le SVG du serveur ne sert plus ici.
+  try { const g = donneesCapitalisation(e.id, annee); if (g.nodes?.length) schema = { nodes: g.nodes, edges: g.edges, groupes: g.groupes, colonnes: g.colonnes }; } catch (x) { console.error('[portail] schéma :', x.message); }
   return { annee, sections: c.sections || [], unites, ects_total: total, ects_acquis: acquis, schema };
 }
 

@@ -85,8 +85,10 @@ export function genererRappelsEtudiants(annee, { jour = null, force = false } = 
   if (depuis) {
     let docs = [];
     try {
+      // Les attestations des années passées (3.5.027) ne relancent personne : elles attendent qu'on vienne.
       docs = db.prepare(`SELECT m.id, m.destinataire_id AS etudiant_id, date(m.envoye_le) le FROM envoi_mail m
-        WHERE m.destinataire_type = 'etudiant' AND m.statut <> 'echec' AND date(m.envoye_le) >= ? AND date(m.envoye_le) > date(?, '-90 days')
+        WHERE m.destinataire_type = 'etudiant' AND m.statut <> 'echec' AND date(m.envoye_le) >= ?
+          AND COALESCE(m.type_doc, '') NOT LIKE 'espace_hist_%' AND date(m.envoye_le) > date(?, '-90 days')
           AND NOT EXISTS (SELECT 1 FROM portail_accuse a WHERE a.etudiant_id = m.destinataire_id AND a.objet_type = 'envoi'
             AND a.objet_id = m.id AND a.presente_le IS NOT NULL)`).all(depuis, auj);
     } catch { docs = []; }

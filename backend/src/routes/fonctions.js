@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { authRequired } from '../middleware/auth.js';
 import { reglagesFonctions, reglerFonctions, fonctionPour, CATALOGUE } from '../lib/fonctions.js';
 import { deposerBientot } from '../lib/portailSync.js';
+import { deposerHistorique } from '../lib/depotHistorique.js';
 
 const r = Router();
 const DIRECTION = ['admin', 'directeur', 'directeur_adjoint'];
@@ -18,5 +19,16 @@ r.put('/', authRequired, direction, (req, res) => {
   const n = reglerFonctions(req.body || {});
   deposerBientot();   // l'espace suit dans les dix secondes
   res.json(n);
+});
+// LES ANNÉES PASSÉES DANS LES ESPACES (3.5.027) : compter d'abord, puis déposer. Aucun courriel.
+r.get('/historique', authRequired, direction, (req, res) => {
+  try { res.json(deposerHistorique({ ecrire: false })); } catch (e) { res.status(500).json({ error: e.message }); }
+});
+r.post('/historique', authRequired, direction, (req, res) => {
+  try {
+    const b = deposerHistorique({ ecrire: true, par: `${req.user?.nom_complet || 'Direction'} (années passées)` });
+    deposerBientot();
+    res.json(b);
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 export default r;

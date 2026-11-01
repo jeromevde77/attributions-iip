@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   IconSearch, IconX, IconHelpCircle, IconFileTypePdf, IconMapPin, IconArrowRight, IconArrowLeft,
   IconBulb, IconChevronRight, IconDeviceMobile, IconEyeCheck, IconSignature,
@@ -46,27 +46,40 @@ export const boutonsHtml = h => String(h || '').replace(/\[\[([^\]|]+)(?:\|([^\]
   return `<span class="bouton ${sorte ? `bouton-${sorte} ` : ''}bouton-guide">${lib}</span>`;
 });
 /** Les images d'un point : `image` + `legende`, ou `images` [{ src, legende, etroite }]. */
-/* LES IMAGES D'UN POINT (3.1.491, Charles : « certaines sont trop grandes ; il est plus malin de mettre le texte à côté
-   pour gagner en confort »). Elles vivent à DROITE du texte sur grand écran, sous lui sur iPad en portrait ; jamais plus
-   grandes que leur taille réelle (une capture étroite agrandie devient floue), plafonnées en hauteur, et un toucher les
-   ouvre en grand. */
-function ImagesDuPoint({ p, onAgrandir }) {
-  const liste = [...(p.image ? [{ src: p.image, legende: p.legende }] : []), ...(p.images || [])];
+/* LES IMAGES D'UN POINT (3.1.491, puis 3.5.024, Charles : « les captures dans le corps du texte, ou en dessous — on perd
+   beaucoup trop de place »). Elles suivent le texte, dans la largeur de la carte, côte à côte quand elles tiennent ; chacune
+   garde sa largeur (le cadre s'arrête à l'image), jamais plus grande que sa taille réelle (une capture étroite agrandie
+   devient floue), plafonnée en hauteur, et un toucher l'ouvre en grand. */
+const imagesDe = p => [...(p.image ? [{ src: p.image, legende: p.legende }] : []), ...(p.images || [])];
+
+function ImagesDuPoint({ liste, p, onAgrandir, onTaille }) {
   if (!liste.length) return null;
+  return <div className="flex flex-wrap items-start gap-3">{liste.map((im, i) => <ImageDuPoint key={im.src + i} im={im} p={p} onAgrandir={onAgrandir} onTaille={onTaille} />)}</div>;
+}
+
+/* Le cadre prend la largeur de l'image telle qu'elle s'affiche (taille réelle, ou réduite par le plafond de hauteur) :
+   mesurée au chargement — une image réduite par `max-width` n'impose pas sa largeur à son cadre, la légende l'écrasait. */
+function ImageDuPoint({ im, p, onAgrandir, onTaille }) {
+  const plafond = im.etroite ? 320 : 384;
+  const [largeur, setLargeur] = useState(null);
+  const charge = e => {
+    const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
+    if (!w || !h) return;
+    const l = Math.round(Math.min(w, (w * plafond) / h));
+    setLargeur(l); onTaille?.(im.src, l);
+  };
   return (
-    <div className="grid gap-3 content-start">
-      {liste.map((im, i) => (
-        <figure key={i} className="m-0 rounded-champ border border-slate-200 overflow-hidden bg-white">
-          <button type="button" className="relative block w-full bg-slate-50 cursor-zoom-in" title="Agrandir"
-            onClick={() => onAgrandir?.(im)}>
-            <img src={im.src} alt={im.legende || p.titre} loading="lazy"
-              className="block mx-auto w-auto h-auto max-w-full max-h-[17rem] object-contain" />
-            <span className="absolute right-1.5 bottom-1.5 inline-grid place-items-center w-7 h-7 rounded-full bg-white/90 border border-slate-200 text-slate-500">
-              <IconZoomIn size={15} /></span>
-          </button>
-          {im.legende && <figcaption className="px-3 py-1.5 text-mention text-slate-500 border-t border-slate-100"><Enrichi texte={im.legende} /></figcaption>}
-        </figure>))}
-    </div>
+    <figure className="m-0 max-w-full rounded-champ border border-slate-200 overflow-hidden bg-white"
+      style={{ width: largeur ? `${largeur + 2}px` : '18rem' }}>
+      <button type="button" className="relative block w-full bg-slate-50 cursor-zoom-in" title="Agrandir"
+        onClick={() => onAgrandir?.(im)}>
+        <img src={im.src} alt={im.legende || p.titre} loading="lazy" onLoad={charge}
+          className="block w-full h-auto object-contain" style={{ maxHeight: plafond }} />
+        <span className="absolute right-1.5 bottom-1.5 inline-grid place-items-center w-7 h-7 rounded-full bg-white/90 border border-slate-200 text-slate-500">
+          <IconZoomIn size={15} /></span>
+      </button>
+      {im.legende && <figcaption className="px-3 py-1.5 text-mention text-slate-500 border-t border-slate-100"><Enrichi texte={im.legende} /></figcaption>}
+    </figure>
   );
 }
 import { authHeaders } from '../lib/api.js';
@@ -228,9 +241,36 @@ export function NumeroPoint({ n }) {
   );
 }
 
+/* « CARRÉ COMME WORD » (3.5.025, Charles : « si la capture est plus petite que 3/4 de la largeur de la zone de texte, image
+   à gauche et texte à droite — sois malin »). Une capture affichée à moins des trois quarts de la colonne flotte à gauche, le
+   texte coule à sa droite puis reprend toute la largeur ; une capture plus large suit le texte. La largeur de la colonne se
+   MESURE (elle change avec l'écran : sur téléphone, presque tout passe dessous) ; celle d'une capture, à son chargement —
+   avant, une capture marquée `etroite` est tenue pour petite. */
 export function Point({ p, n, delai = 0 }) {
   const [grand, setGrand] = useState(null);
-  const aImages = !!(p.image || p.images?.length);
+  const liste = imagesDe(p);
+  const boite = useRef(null);
+  const [colonne, setColonne] = useState(0);
+  const [tailles, setTailles] = useState({});
+  useEffect(() => {
+    const el = boite.current;
+    if (!el || !liste.length || typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(([e]) => setColonne(Math.round(e.contentRect.width)));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [liste.length]);
+  // Les petites, côte à côte, tant que leur largeur cumulée reste sous les trois quarts ; les autres suivent le texte.
+  const largeurDe = im => tailles[im.src] || (im.etroite ? 180 : 0);
+  const petites = [], grandes = [];
+  let cumul = 0;
+  for (const im of liste) {
+    const l = largeurDe(im);
+    // Une seule capture : jusqu'aux trois quarts ; à plusieurs, 55 % — le texte garde de quoi se lire.
+    const plafondGroupe = colonne * (petites.length ? 0.55 : 0.75);
+    const tient = colonne ? l && cumul + l + (petites.length ? 12 : 0) < plafondGroupe : im.etroite && !petites.length;
+    if (tient) { petites.push(im); cumul += l + (petites.length > 1 ? 12 : 0); } else grandes.push(im);
+  }
+  const noterTaille = (src, l) => setTailles(t => (t[src] === l ? t : { ...t, [src]: l }));
   return (
     <article className="guide-entree bloc-etat px-4 py-3.5 space-y-2.5" data-etat="neutre"
       style={{ borderLeftColor: 'var(--c-principal)', animationDelay: `${delai}s` }}>
@@ -240,9 +280,12 @@ export function Point({ p, n, delai = 0 }) {
           {n != null && <NumeroPoint n={n} />}
           <h3 className="titre-carte flex-1 min-w-0 m-0">{p.titre}</h3>
         </div>)}
-      <div className={aImages ? 'grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)] items-start' : ''}>
-        <div className="space-y-2.5 min-w-0">
+      <div ref={boite} className="space-y-2.5 min-w-0 flow-root">
           {p.ou && <Chemin ou={p.ou} />}
+          {petites.length > 0 && (
+            <div className="float-left mr-4 mb-2.5 flex items-start gap-3 max-w-[75%]">
+              {petites.map((im, i) => <ImageDuPoint key={im.src + i} im={im} p={p} onAgrandir={setGrand} onTaille={noterTaille} />)}
+            </div>)}
           {p.qui && (
             <div className="flex flex-wrap items-center gap-1.5 text-second">
               <IconUsers size={14} className="text-slate-400 flex-none" />
@@ -251,8 +294,9 @@ export function Point({ p, n, delai = 0 }) {
           {p.texte && <p className="text-sm text-slate-700 leading-relaxed m-0"><Enrichi texte={p.texte} /></p>}
           {/* Le texte d'une procédure (3.1.489) : du HTML que le serveur a filtré à l'écriture ; les boutons [[…]] s'y dessinent. */}
           {p.contenu && <div className="texte-corpus text-sm" dangerouslySetInnerHTML={{ __html: boutonsHtml(p.contenu) }} />}
+          <ImagesDuPoint liste={grandes} p={p} onAgrandir={setGrand} onTaille={noterTaille} />
           {p.savoir?.length > 0 && (
-            <div className="rounded-champ border border-slate-200 bg-white px-3 py-2">
+            <div className="flow-root rounded-champ border border-slate-200 bg-white px-3 py-2">
               <div className="flex items-center gap-1.5 text-second font-semibold text-iip-texte mb-1">
                 <IconBulb size={15} style={{ color: 'var(--c-iip_or, #F9B619)' }} /> À savoir</div>
               <ul className="space-y-1 m-0 pl-0 list-none">
@@ -261,8 +305,6 @@ export function Point({ p, n, delai = 0 }) {
                     <span className="absolute left-0 top-[0.55em] w-1.5 h-1.5 rounded-full" style={{ background: 'var(--c-accent)' }} /><Enrichi texte={s} /></li>))}
               </ul>
             </div>)}
-        </div>
-        <ImagesDuPoint p={p} onAgrandir={setGrand} />
       </div>
       {/* Hors de la carte : son animation (transform) enfermerait la fenêtre dans le point. */}
       {grand && createPortal(

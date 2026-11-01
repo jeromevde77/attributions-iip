@@ -15,7 +15,7 @@
 
 import { filigraner } from '../lib/filigraneDocument.js';
 import { Router } from 'express';
-import { manquesDossier, uniteValorisable } from '../lib/valorisation.js';
+import { manquesDossier, uniteValorisable, vaRetenue, vaPourcent } from '../lib/valorisation.js';
 import { piedBalisage, piedStyles, reglesDePage, stylesEntete, enteteDocument,
   BANDE_PIED_MM, MARGE_SOUS_PIED_MM, piedGabaritPdf } from '../lib/document.js';
 import { sectionDuDossier } from '../lib/sectionDossier.js';
@@ -938,6 +938,74 @@ function attestationsDe(etudId, annee, ueFiltre = '') {
   let unites = annees.flatMap(an => unitesReussies(etudId, an).map(u => ({ ...u, _annee: an })));
   if (filtre.length) unites = unites.filter(u => filtre.includes(u.ue_num));
   return { annees, unites };
+}
+
+/**
+ * LES PIÈCES DES ANNÉES PASSÉES, POUR L'ESPACE DE L'ÉTUDIANT (3.5.027, Charles, 1er novembre 2026 : « Lucie est nouvelle de
+ * cette année : pour tous les résultats antérieurs, génère toutes les attestations de réussite, de VA, etc., et que tout
+ * soit dans les espaces des étudiants »). Pour un étudiant et les années AVANT `anneeActive` :
+ *   · une attestation de réussite par unité réussie — celle d'Éditions (`attestationsDe`, `pageAttestation`) ;
+ *   · une attestation de réussite « valorisation » par VA complète retenue (annexe 15 / 14, `pageAttestationValorisation`),
+ *     sauf contradiction entre deux décisions sur la même unité (la règle du PV : rien ne s'imprime) ;
+ *   · un document « toutes les années » qui les réunit, chacune sur sa page.
+ * Une pièce à laquelle il manque une mention (référentiel incomplet) n'est PAS composée : elle est nommée dans `manques`.
+ * Rend { pieces: [{ nature, annee, ue_num, sujet, nom_fichier, html }], manques: [texte] }.
+ */
+export function piecesHistoriques(etudId, anneeActive) {
+  const e = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(Number(etudId));
+  if (!e) return { pieces: [], manques: [] };
+  const etab = db.prepare('SELECT * FROM etablissement LIMIT 1').get() || {};
+  const ident = identiteEtablissement();
+  const propre = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9-]+/g, '_').replace(/^_+|_+$/g, '');
+  const nomUE = (n, an) => db.prepare('SELECT ue_nom FROM ue WHERE ue_num = ? ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1').get(n, an)?.ue_nom || '';
+  const pieces = [], manques = [], corps = [];
+  // Les réussites délibérées.
+  const { unites } = attestationsDe(e.id, 'toutes');
+  for (const u of unites.filter(x => x._annee < anneeActive)) {
+    if (u.manques?.length) { manques.push(`UE ${u.ue_num} (${u._annee}) : ${u.manques.join(', ')}`); continue; }
+    const page = pageAttestation(e, u, u._annee, etab, null, ident, sessionDeReussite(e.id, u.ue_num, u._annee));
+    corps.push(page);
+    pieces.push({ nature: 'hist_reussite', annee: u._annee, ue_num: u.ue_num,
+      sujet: `Attestation de réussite — UE ${u.ue_num}${nomUE(u.ue_num, u._annee) ? ` ${nomUE(u.ue_num, u._annee)}` : ''} (${u._annee})`,
+      nom_fichier: `Attestation_reussite_UE${u.ue_num}_${String(u._annee).replace(/\W/g, '')}`,
+      html: envelopper(page, `Attestation — UE ${u.ue_num}`) });
+  }
+  // Les valorisations complètes retenues.
+  const vas = db.prepare(`SELECT v.*, e.nom, e.prenom, e.titre, e.date_naissance, e.lieu_naissance
+      FROM etudiant_valorisation v JOIN etudiant e ON e.id = v.etudiant_id
+      WHERE v.etudiant_id = ? AND v.annee_scolaire < ? AND v.ue_num > 0 AND ${vaRetenue('v.')}
+      ORDER BY v.annee_scolaire, v.ue_num, v.id`).all(e.id, anneeActive);
+  const parUE = new Map();
+  for (const v of vas) { const k = `${v.annee_scolaire}|${v.ue_num}`; if (!parUE.has(k)) parUE.set(k, []); parUE.get(k).push(v); }
+  const tousLesDossiers = db.prepare('SELECT decision, type, pourcentage, cible, cible_detail FROM etudiant_valorisation WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?');
+  for (const [k, lot] of parUE) {
+    const [annee, ueTxt] = k.split('|'); const ueNum = Number(ueTxt);
+    const empreinte = v => [v.decision || 'accordee', v.type, v.pourcentage == null ? '' : Number(v.pourcentage), v.cible || '', v.cible_detail || ''].join('|');
+    if (new Set(tousLesDossiers.all(e.id, annee, ueNum).map(empreinte)).size > 1) {
+      manques.push(`UE ${ueNum} (${annee}) : décisions de valorisation contraires — à trancher dans l'écran Valorisation`); continue;
+    }
+    const v = lot[0];
+    if (v.type !== 'complete') continue;
+    const ue = db.prepare('SELECT * FROM ue WHERE ue_num = ? ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1').get(ueNum, annee) || {};
+    const niv = String(ue.ue_niv || '').toUpperCase();
+    const superieur = /SUP|BES|BAC|ESTC|ESTL/.test(niv) ? true : /SEC|ESI|ESS/.test(niv) ? false : !!ue.ects;
+    const u = decrireUnite(ueNum, annee, { pourcentage: vaPourcent(v.pourcentage) }, { etudiant_id: e.id });
+    if (u.manques?.length) { manques.push(`VA UE ${ueNum} (${annee}) : ${u.manques.join(', ')}`); continue; }
+    const page = pageAttestationValorisation(v, { ...u, superieur }, annee, etab, v, null, ident);
+    corps.push(page);
+    pieces.push({ nature: 'hist_va', annee, ue_num: ueNum,
+      sujet: `Attestation de réussite — valorisation — UE ${ueNum}${nomUE(ueNum, annee) ? ` ${nomUE(ueNum, annee)}` : ''} (${annee})`,
+      nom_fichier: `Attestation_VA_UE${ueNum}_${String(annee).replace(/\W/g, '')}`,
+      html: envelopper(page, `Attestation — valorisation — UE ${ueNum}`) });
+  }
+  // Toutes les années, en un document (chaque attestation sur sa page).
+  if (corps.length > 1) {
+    pieces.push({ nature: 'hist_recap', annee: 'toutes', ue_num: 0,
+      sujet: `Attestations de réussite — toutes les années avant ${anneeActive}`,
+      nom_fichier: `Attestations_${propre(e.nom)}_${propre(e.prenom)}_avant_${String(anneeActive).replace(/\W/g, '')}`,
+      html: envelopper(corps.join('<div class="saut"></div>'), `Attestations — ${e.nom} ${e.prenom || ''}`.trim()) });
+  }
+  return { pieces, manques };
 }
 
 /* UN PDF PAR ATTESTATION, DANS UNE ARCHIVE (Charles, 29 septembre 2026 : « il

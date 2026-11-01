@@ -55,7 +55,6 @@ const STYLES = `
   .me-point { border: .3mm solid ${C.filet}; border-left: none; border-radius: 0; border-width: .3mm 0 0 0; padding: 4mm 0 2mm; margin: 0 0 2mm; font-size: 9.3pt; }
   .me-point h3 { display: flex; align-items: center; gap: 2.5mm; font-size: 12.5pt; color: ${C.nuit}; margin: 0 0 2.5mm; break-after: avoid; }
   .me-rond { display: inline-grid; place-items: center; min-width: 6mm; height: 6mm; padding: 0 1mm; border-radius: 3mm; background: ${C.clair}; color: #fff; font-size: 8pt; font-weight: 700; }
-  .me-corps.avec-images { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .85fr); gap: 5mm; align-items: start; }
   .me-corps p { margin: 0 0 2mm; } .me-corps ul { margin: 0 0 2mm; padding-left: 4.5mm; } .me-corps li::marker { color: ${C.clair}; }
   .me-chemin { display: flex; flex-wrap: wrap; align-items: center; gap: 1.2mm; font-size: 8.3pt; margin: 0 0 2.5mm; }
   .me-chemin .pas { background: ${C.pale}; border-radius: 1.5mm; padding: .6mm 2mm; color: ${C.nuit}; font-weight: 600; }
@@ -65,10 +64,12 @@ const STYLES = `
   .me-savoir ul { list-style: none; margin: 0; padding: 0; }
   .me-savoir li { position: relative; padding-left: 3.5mm; margin: 0 0 1mm; color: #334155; }
   .me-savoir li::before { content: ''; position: absolute; left: 0; top: 1.6mm; width: 1.4mm; height: 1.4mm; border-radius: 50%; background: ${C.clair}; }
-  .me-fig { display: block; margin: 0 0 3mm; break-inside: avoid; }
-  .me-fig.etroite { display: inline-block; vertical-align: top; width: 40mm; margin-right: 3mm; }
-  .me-corps.sans-images .me-fig.etroite { width: 50mm; }
-  .me-fig img { display: block; max-width: 100%; max-height: 85mm; border: .3mm solid ${C.filet}; border-radius: 2.5mm; }
+  .me-corps, .me-savoir { display: flow-root; }
+  .me-flottant { float: left; display: flex; gap: 3mm; align-items: flex-start; margin: 0 4.5mm 2.5mm 0; max-width: 75%; }
+  .me-flottant .me-fig { margin: 0; }
+  .me-images { display: flex; flex-wrap: wrap; gap: 3mm; align-items: flex-start; }
+  .me-fig { display: block; margin: 0 0 3mm; break-inside: avoid; max-width: 100%; }
+  .me-fig img { display: block; width: 100%; max-height: 85mm; object-fit: contain; border: .3mm solid ${C.filet}; border-radius: 2.5mm; }
   .me-fig figcaption { font-size: 7.6pt; color: #64748B; margin-top: 1mm; }
   .me-bt { font-weight: 700; color: ${C.nuit}; border: .3mm solid #94A3B8; border-radius: 1mm; padding: 0 1mm; white-space: nowrap; }
 `;
@@ -114,7 +115,19 @@ function pied(numeroter) {
 }
 
 /** Le corps : sommaire, puis un chapitre par page. */
-function corps(m) {
+/** Largeur et hauteur d'une capture jointe (PNG : l'en-tête IHDR), pour décider si elle flotte à gauche du texte. */
+function dimsDepuis(images) {
+  const cache = new Map();
+  return src => {
+    if (cache.has(src)) return cache.get(src);
+    let d = null;
+    const m = /^data:image\/png;base64,(.{0,64})/.exec(String(images[src] || ''));
+    if (m) { const b = Buffer.from(m[1], 'base64'); if (b.length >= 24) d = { w: b.readUInt32BE(16), h: b.readUInt32BE(20) }; }
+    cache.set(src, d); return d;
+  };
+}
+
+function corps(m, dims = null) {
   const nPoints = m.rubriques.reduce((s, r) => s + r.points.length, 0);
   const nImages = m.rubriques.reduce((s, r) => s + r.points.reduce((t, p) => t + (p.image ? 1 : 0) + (p.images?.length || 0), 0), 0);
   const sommaire = `<section>
@@ -142,7 +155,7 @@ function corps(m) {
         <div class="grand">${i + 1}</div></div>
       ${titres.length > 1 ? `<div class="trouver"><div class="t">${icone('main', 17, C.iip)} Ce que vous trouverez ici</div>
         <ol>${titres.map(p => `<li>${esc(p.titre)}</li>`).join('')}</ol></div>` : ''}
-      ${r.points.map((p, k) => pointImprimable(p, p.titre ? k + 1 : null)).join('')}
+      ${r.points.map((p, k) => pointImprimable(p, p.titre ? k + 1 : null, () => {}, dims)).join('')}
     </section>`;
   }).join('');
   return page(sommaire + chapitres);
@@ -160,7 +173,7 @@ export function imagesDuGuide(role, voir) {
 export async function rendreGuidePdf(role, voir, images = {}) {
   const m = modeEmploiPour(role, voir);
   const pourQui = m.publics ? `Édition pour : ${m.publics.map(p => PUBLICS[p].toLowerCase()).join(', ')}.` : 'Édition complète (tous les publics).';
-  let html = corps(m);
+  let html = corps(m, dimsDepuis(images));
   for (const [src, data] of Object.entries(images)) {
     if (/^\/guide\/[\w.-]+\.(png|jpe?g|webp)$/i.test(src) && /^data:image\/(png|jpeg|webp);base64,/.test(String(data))) {
       html = html.split(`src="${src}"`).join(`src="${data}"`);

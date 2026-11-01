@@ -2975,7 +2975,11 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   /api/portail-suivi/:id/apercu`, tracé dans `portail_apercu`) : Lucie demande au portail (`/interne/apercu`) un lien d'une
   minute, à usage unique (`apercu_jeton`) ; échangé (`POST /api/portail/apercu`) contre une session de 30 min, claim `apercu`.
   Dans `connecte` : tout ce qui n'est pas GET est refusé, la règle de la Belgique ne s'applique pas, et `presenter()` n'est pas
-  appelé (rien ne compte comme présenté à l'étudiant). Bandeau « Aperçu de la direction » dans l'espace.
+  appelé (rien ne compte comme présenté à l'étudiant). Bandeau « Aperçu de la direction » dans l'espace. **L'aperçu voit TOUT** (3.5.023, Charles : « je dois pouvoir tout voir sans aucun accès ») : un étudiant ouvert en aperçu
+  (`portail_apercu`, 30 min) reçoit au portail les données de toutes les fonctions (`fonctionsDonnees`, `donnees` dans
+  `portailSync`), même éteintes, même sans adresse d'institut ; ses `fonctions` restent les vraies. Sans fonction ouverte, il est
+  déposé `apercu_seul` : aucune porte de l'étudiant ne l'admet (`ouvertALEtudiant`, `trouver`). Côté portail, `fonctionsVues(req)` =
+  tout en aperçu. Les envois (dépôt d'office, avis) suivent toujours les vraies fonctions.
 - **LES RAPPELS — TRANCHÉS PUIS CONSTRUITS EN QUATRE ÉTAPES (3.1.522 → 3.1.525)** (Charles, 30 octobre 2026 : « points non encodés, notes non lues,
   documents non vus… délibération dans moins de 10 jours… avec courriel automatique sur l'adresse Prigogine, prof ou étudiant
   le cas échéant, secrétariat ; ça doit être complet »). Quatre familles, toutes par courriel à l'adresse d'INSTITUT :
@@ -3039,6 +3043,18 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   officielle (tranché : envoyé à l'adresse PRIVÉE du dossier ; s'éteint dès que l'adresse d'institut est encodée, au plus 60 jours, renouvelable par le secrétariat ; il ouvre la demande de VA, les documents, les frais et les messages). Résultats : détail par acquis (NA sous 10) après clôture publiée. Messages :
   réponse possible. Accès **bloqué hors de Belgique**, exception accordée par le secrétariat pour une période ; la vérification
   du QR reste ouverte partout. (Mot de passe et Belgique : FAITS en 3.1.513 ; VA en ligne et code du candidat : FAITS en 3.1.514 ; PAE en ligne : FAIT en 3.1.515 ; messages : FAITS en 3.1.516 ; parcours, frais, aide : FAITS en 3.1.517.) Toute écriture venant du portail passe par le relevé de Lucie (`portailSync.js`), jamais l'inverse. **Ordre de construction** : 1 mot de passe et blocage hors Belgique · 2 VA en ligne déplacée + code candidat · 3 PAE en ligne · 4 messages · puis parcours, frais, aide.
+
+**LES ATTESTATIONS DES ANNÉES PASSÉES DANS LES ESPACES** (3.5.027, Charles, 1er novembre 2026 : « Lucie est nouvelle de
+cette année ; pour tous les résultats antérieurs, toutes les attestations de réussite, de VA, etc., dans les espaces des
+étudiants » ; tranché : réussites par UE + VA complètes + un document « toutes les années » ; aucun courriel ; bouton de la
+direction, simulation d'abord ; TOUS les étudiants, archivés compris). `piecesHistoriques(etudId, anneeActive)`
+(`routes/attestations.js` : `attestationsDe`, `pageAttestation`, `pageAttestationValorisation` — les pièces d'Éditions ; une
+pièce à mention manquante n'est pas composée mais nommée ; deux décisions de VA contraires bloquent) ; `lib/depotHistorique.js`
+(`deposerHistorique({ ecrire, limite })`, par lots de 100 étudiants) → `deposerDansLEspace`, `portail_depot` (natures `hist_*`,
+session 0, `avise_le` posé d'emblée : l'avis du dépôt d'office ne part pas) ; E1 « document jamais ouvert » ignore
+`espace_hist_*`. Routes `GET/POST /api/fonctions/historique` (direction) ; écran : Mise en service → *Les années passées dans
+les espaces*. **À lancer par la direction, sur la dev puis en production** ; les pièces paraissent quand « Mes documents » est
+ouvert à l'étudiant.
 
 **LE BUDGET DES SECTIONS** (3.5.019, Charles, 1er novembre 2026 ; cahier des charges : `docs/contexte/guide-budget-sections.md`).
 Gestion → Finances → Budget, faces Enveloppes · Lignes · Investissements · Inventaire · Exécution · Paramètres (direction).
