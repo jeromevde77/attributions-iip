@@ -1,121 +1,327 @@
 /**
- * LE MODE D'EMPLOI EN PDF, AU MODÈLE DU KIT (3.1.521, Charles, 30 octobre 2026 : « j'avais ça pour mon réseau, tu peux
- * t'en inspirer, et le logo IIP » — le kit Microcertifications de l'Enseignement pour adultes ; tranché : le mode d'emploi
- * seulement, les pièces officielles gardent le standard administratif).
+ * LE MODE D'EMPLOI EN PDF, AU MODÈLE DU KIT FeLSI (3.1.521 ; refait en 3.5.032, Charles, 1er novembre 2026 : « je veux
+ * que tu fasses évoluer le design vers le modèle microcertif de la FeLSI » — le kit « Microcertifications » qu'il a
+ * dessiné pour le réseau ; le niveau de détail est celui du « Guide de l'enseignant » 3.1.219).
  *
- * Couverture pleine page bleu nuit (logo blanc de l'établissement, titre, trait or, chapitres en pied), puis un sommaire
- * à tuiles, puis un chapitre par page : bandeau bleu nuit (icône dans un cercle, titre, résumé, numéro en filigrane),
- * « Ce que vous trouverez ici », et les points — ceux de `pointImprimable` (modeEmploi.js), redessinés par les styles
- * du kit. Le pied porte le logo, le titre, la mention « Produit par… » (règle des traces) et le numéro de page.
+ * Ce qui vient du kit : couverture pleine page bleu nuit ; sommaire groupé par parties, avec les PAGES ; tuiles de
+ * chiffres et encadrés ; chaque chapitre ouvre une page par un bandeau PLEINE LARGEUR (partie en surtitre, icône dans
+ * un cercle, titre, résumé, grand numéro en filigrane) ; « Ce que vous trouverez ici » ; chaque point en carte (rond
+ * numéroté, « POINT n », titre, bande « Où ? », texte, captures encadrées, « À savoir ») ; un aide-mémoire « Je veux…
+ * je vais… » ; un liseré sur le bord gauche de chaque page ; un pied logo · titre · page.
+ * Ce qui vient de l'ancien guide : le mot de la direction, signé ; les couleurs du logo dans le liseré.
  *
- * La couverture et le corps se rendent à part (la couverture n'a ni marge ni pied), puis se réunissent (pdf-lib).
- * Les captures ne vivent pas sur le serveur : l'écran les envoie en data URL, clé = chemin `/guide/…`.
+ * Le CONTENU reste celui du guide en ligne (`modeEmploi.js`, filtré par public) : rien ne s'écrit ici.
+ *
+ * La mécanique : chaque morceau (couverture, mot, chaque chapitre, aide-mémoire) se rend à part — c'est ce qui donne
+ * le numéro de page de chaque chapitre pour le sommaire —, puis le sommaire, puis tout se réunit (pdf-lib), qui pose
+ * le liseré et la pagination « n / N ». Les captures ne vivent pas sur le serveur : l'écran les envoie en data URL.
+ * La police est Inter (paquet `fonts-inter` de l'image du serveur) ; à défaut, la police sans empattement du système.
  */
-import { modeEmploiPour, pointImprimable } from './modeEmploi.js';
+import { modeEmploiPour, enrichiP } from './modeEmploi.js';
 import { icone } from './iconesGuide.js';
-import { logoCourant, logoBlancCourant } from './identite.js';
+import { logoCourant, logoBlancCourant, signatureCourante } from './identite.js';
 import { mentionProduction } from './contexteRequete.js';
-import { rendrePdf } from '../services/pdf.js';
+import { rendrePdfs } from '../services/pdf.js';
 
 const esc = x => String(x ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-const C = { nuit: '#0E2A4F', iip: '#19537E', bleu: '#2C7DB8', clair: '#3E9BD0', or: '#F9B619', pale: '#EEF5FB', filet: '#DCE6F0' };
+/* Les couleurs du kit, et celles du logo de l'IIP pour le liseré. */
+const C = {
+  nuit: '#0B2A55', bleu: '#1F78BE', clair: '#3E9BD6', ciel: '#9FD0F0', pale: '#EEF5FB', pale2: '#E4F0FA',
+  filet: '#DCE6F0', gris: '#64748B', encre: '#1E293B', or: '#F9B619', cyan: '#05B7E6', iip: '#19537E',
+};
 const POLICE = `Inter, "Segoe UI", "Helvetica Neue", Arial, sans-serif`;
 const PUBLICS = { ens: 'Enseignants', sec: 'Secrétariat', coo: 'Coordinations', dir: 'Direction' };
+const GUIDE_DE = { ens: "Le guide de l'enseignant", sec: 'Le guide du secrétariat', coo: 'Le guide de la coordination', dir: 'Le guide de la direction' };
+
+/* LES PARTIES, comme « Comprendre et conduire · Les outils » du kit et « Mise en marche · Tout ce que vous pouvez
+   faire » de l'ancien guide. Un chapitre absent de la liste va dans la dernière. */
+const PARTIES = [
+  { titre: 'Mise en marche', ids: ['ensemble', 'demarrage', 'accueil'] },
+  // « Mes cours » vit entre l'espace de l'étudiant et le CEP dans le guide : une partie qui la sépare couperait l'ordre.
+  { titre: 'Les étudiants et les cours', ids: ['etudiants', 'pae', 'valorisation', 'amenagements', 'deliberation', 'procedures', 'diplomes', 'editions', 'espace', 'mescours', 'cep'] },
+  { titre: "L'école", ids: ['personnel', 'organisation', 'gestion'] },
+  { titre: 'Les textes et les réglages', ids: ['documentation', 'config'] },
+];
+const partieDe = id => (PARTIES.find(p => p.ids.includes(id)) || PARTIES[PARTIES.length - 1]).titre;
+
+/* LA FIGURE DU LOGO (coordonnées de `frontend/src/lib/logoVierge.js`, viewBox 0 0 140 44) : la couverture la dessine,
+   comme l'ancien guide. */
+const ETOILES = { tau: [12, 7.5], spica: [12, 32], eta: [42, 32], nu: [60.1, 29.8], porrima: [34.5, 28.4], kappa: [-3.1, 21],
+  iota: [-0.1, 14.4], mu: [-9.8, 7.7], zeta: [18.7, 16.2], v109: [-3.4, -3.9], delta: [34.5, 19.2], vindemiatrix: [39.4, 8] };
+const TRAITS = [['nu', 'eta'], ['eta', 'porrima'], ['porrima', 'spica'], ['spica', 'kappa'], ['kappa', 'iota'], ['iota', 'mu'],
+  ['spica', 'zeta'], ['zeta', 'tau'], ['tau', 'v109'], ['zeta', 'delta'], ['delta', 'vindemiatrix'], ['delta', 'porrima']];
+function logoLucie() {
+  const L = ['tau', 'spica', 'eta'];
+  const traits = TRAITS.map(([a, b]) => `<line x1="${ETOILES[a][0]}" y1="${ETOILES[a][1]}" x2="${ETOILES[b][0]}" y2="${ETOILES[b][1]}" stroke="#5E87B5" stroke-width=".55" stroke-opacity=".7"/>`).join('');
+  const points = Object.entries(ETOILES).filter(([k]) => !L.includes(k))
+    .map(([, [x, y]]) => `<circle cx="${x}" cy="${y}" r="1.25" fill="#6F8FB3" fill-opacity=".85"/>`).join('');
+  const l = `<path d="M12 7.5 L12 32 L42 32" fill="none" stroke="${C.cyan}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>`
+    + L.map(k => `<circle cx="${ETOILES[k][0]}" cy="${ETOILES[k][1]}" r="3.1" fill="${C.cyan}"/><circle cx="${ETOILES[k][0]}" cy="${ETOILES[k][1]}" r="1.5" fill="#BDEBFA"/>`).join('');
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-14 -8 80 46" width="68mm">${traits}${points}${l}</svg>`;
+}
 
 const STYLES = `
   * { box-sizing: border-box; }
-  html, body { margin: 0; font-family: ${POLICE}; color: #1E293B; font-size: 9.3pt; line-height: 1.45;
+  html, body { margin: 0; font-family: ${POLICE}; color: ${C.encre}; font-size: 9.4pt; line-height: 1.5;
     -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .kick { font-size: 7.3pt; letter-spacing: .26em; font-weight: 700; text-transform: uppercase; color: #6FB9E3; }
-  .saut { page-break-before: always; }
+  /* Les marges latérales sont DANS la page (padding) : c'est ce qui laisse le bandeau aller d'un bord à l'autre. */
+  body { padding: 0 18mm; }
+  b, strong { font-weight: 650; color: ${C.nuit}; }
+  .kick { font-size: 7.2pt; letter-spacing: .24em; font-weight: 700; text-transform: uppercase; color: ${C.clair}; }
+  p { margin: 0 0 2.2mm; }
+
+  /* le bandeau d'ouverture : pleine largeur, du bord gauche au bord droit de la feuille */
+  .bande { background: ${C.nuit}; color: #fff; margin: 0 -18mm 6mm; padding: 9mm 18mm 9mm 18mm; position: relative; overflow: hidden;
+    display: flex; gap: 7mm; align-items: center; break-inside: avoid; min-height: 52mm; }
+  .bande .rond { width: 17mm; height: 17mm; border-radius: 50%; background: rgba(255,255,255,.08); display: grid; place-items: center; flex: none; }
+  .bande .texte { position: relative; z-index: 1; max-width: 128mm; }
+  .bande h1 { font-size: 23pt; font-weight: 800; letter-spacing: -.015em; margin: 2mm 0 2.5mm; line-height: 1.1; color: #fff; }
+  .bande .res { color: #C3D6EA; font-size: 10pt; line-height: 1.45; margin: 0 0 2.5mm; }
+  .bande .grand { position: absolute; right: 9mm; top: -9mm; font-size: 118pt; font-weight: 900; color: rgba(62,155,214,.17); line-height: 1; }
+  .pubs { display: flex; flex-wrap: wrap; gap: 1.4mm; }
+  .pub { border: .3mm solid rgba(255,255,255,.28); border-radius: 1.5mm; padding: .3mm 2mm; font-size: 7.2pt; color: #DCEAF6; }
+
+  /* « Ce que vous trouverez ici » */
+  .trouver { border: .3mm solid ${C.filet}; border-left: 1.3mm solid ${C.clair}; border-radius: 0 3.5mm 3.5mm 0; padding: 3.5mm 5mm 3mm;
+    margin: 0 0 6mm; break-inside: avoid; }
+  .trouver .t { display: flex; gap: 2mm; align-items: center; font-weight: 700; color: ${C.nuit}; margin-bottom: 1.8mm; }
+  .trouver ul { margin: 0; padding-left: 4.5mm; columns: 2; column-gap: 9mm; }
+  .trouver li { margin: 0 0 1mm; break-inside: avoid; } .trouver li::marker { color: ${C.clair}; }
+
+  /* un point = une carte, au dessin des étapes du kit */
+  .pt { border: .3mm solid ${C.filet}; border-left: 1.3mm solid ${C.clair}; border-radius: 0 3.5mm 3.5mm 0; padding: 4.5mm 5.5mm 3.5mm;
+    margin: 0 0 4.5mm; }
+  .pt-tete { display: flex; align-items: center; gap: 3.5mm; margin: 0 0 3mm; break-inside: avoid; break-after: avoid; }
+  .pt-num { width: 9.5mm; height: 9.5mm; border-radius: 50%; background: ${C.clair}; color: #fff; display: grid; place-items: center;
+    font-weight: 750; font-size: 11pt; flex: none; }
+  .pt-kick { font-size: 6.8pt; letter-spacing: .22em; font-weight: 700; color: ${C.clair}; text-transform: uppercase; }
+  .pt h3 { font-size: 12.5pt; color: ${C.nuit}; margin: .3mm 0 0; font-weight: 750; line-height: 1.25; }
+  .pt-ou { display: flex; align-items: flex-start; gap: 2mm; background: ${C.pale}; border-radius: 2mm; padding: 2mm 3mm; margin: 0 0 3mm;
+    font-size: 8.8pt; break-inside: avoid; }
+  .pt-ou svg { flex: none; margin-top: .4mm; }
+  .pt-ou .q { font-weight: 700; color: ${C.nuit}; white-space: nowrap; }
+  .pt-ou .pas { font-weight: 600; color: ${C.nuit}; } .pt-ou .sep { color: ${C.clair}; margin: 0 1mm; font-weight: 700; }
+  .pt-ou .reste { color: ${C.gris}; }
+  .pt-corps { display: flow-root; }
+  .pt-savoir { display: flex; gap: 2.5mm; background: #EEF2F7; border-radius: 2.5mm; padding: 3mm 4mm; margin: 2mm 0 1mm; font-size: 8.9pt;
+    break-inside: avoid; }
+  .pt-savoir svg { flex: none; margin-top: .3mm; }
+  .pt-savoir .t { font-weight: 700; color: ${C.nuit}; margin-bottom: .8mm; }
+  .pt-savoir ul { margin: 0; padding-left: 4mm; } .pt-savoir li { margin: 0 0 .8mm; } .pt-savoir li::marker { color: ${C.clair}; }
+  .intro { margin: 0 0 4.5mm; }
+
+  /* les captures, dans un cadre bleu pâle, légende centrée (ancien guide) */
+  .cap { background: ${C.pale2}; border-radius: 3.5mm; padding: 3mm; margin: 0 0 3mm; break-inside: avoid; }
+  .cap img { display: block; width: 100%; max-height: 92mm; object-fit: contain; border-radius: 1.5mm; border: .3mm solid #C9DBEA; background: #fff; }
+  .cap figcaption { font-size: 7.8pt; color: #334155; text-align: center; margin-top: 1.8mm; line-height: 1.4; }
+  .flottant { float: left; display: flex; gap: 3mm; align-items: flex-start; margin: 0 5mm 2mm 0; max-width: 62%; }
+  .flottant .cap { margin: 0; }
+  .rangee { display: flex; flex-wrap: wrap; gap: 3mm; align-items: flex-start; clear: both; }
+  .me-bt { font-weight: 700; color: ${C.nuit}; border: .3mm solid #9FB3C8; border-radius: 1.2mm; padding: 0 1.2mm; white-space: nowrap; background: #fff; }
+
+  /* encadrés et tuiles (sommaire) */
+  .callout { display: flex; gap: 3.5mm; background: ${C.pale}; border-left: 1.3mm solid ${C.nuit}; border-radius: 0 3.5mm 3.5mm 0;
+    padding: 3.5mm 5mm; margin: 0 0 4mm; break-inside: avoid; }
+  .callout.clair { border-left-color: ${C.clair}; }
+  .callout .t { display: block; font-weight: 700; color: ${C.nuit}; margin-bottom: .8mm; } .callout p { margin: 0 0 1mm; }
+  .deux { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; margin: 0 0 4mm; } .deux .callout { margin: 0; }
+  .tuiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4mm; margin: 6mm 0 5mm; }
+  .tuile { background: ${C.nuit}; color: #fff; border-radius: 3.5mm; padding: 4.5mm 5mm; }
+  .tuile .n { font-size: 24pt; font-weight: 800; line-height: 1; } .tuile .n small { font-size: 11pt; font-weight: 650; color: ${C.ciel}; }
+  .tuile p { margin: 2mm 0 0; font-size: 8pt; color: #C3D6EA; line-height: 1.4; }
+
   /* sommaire */
-  h1.som { font-size: 24pt; color: ${C.nuit}; margin: 0 0 5mm; }
-  .somg { display: grid; grid-template-columns: 1fr 1fr; column-gap: 12mm; }
-  .somg div { display: flex; gap: 4mm; padding: 2mm 0; border-bottom: .3mm dotted #B8C6D6; font-size: 10pt; break-inside: avoid; }
-  .somg span:first-child { color: ${C.bleu}; font-weight: 700; width: 6mm; flex: none; }
-  .tuiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4mm; margin: 7mm 0 5mm; }
-  .tuile { background: ${C.nuit}; color: #fff; border-radius: 3mm; padding: 4mm 5mm; }
-  .tuile .n { font-size: 22pt; font-weight: 800; line-height: 1; } .tuile .n small { font-size: 11pt; font-weight: 600; color: #9CD3EE; }
-  .tuile p { margin: 2mm 0 0; font-size: 8pt; color: #C9DCEE; line-height: 1.4; }
-  .callout { display: flex; gap: 3.5mm; background: ${C.pale}; border-left: 1.3mm solid ${C.nuit}; border-radius: 0 3mm 3mm 0; padding: 3.5mm 5mm; margin: 0 0 4mm; break-inside: avoid; }
-  .callout.clair { border-left-color: ${C.clair}; } .callout b.t { display: block; color: ${C.nuit}; margin-bottom: 1mm; } .callout p { margin: 0; }
-  .deux { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; } .deux .callout { margin: 0; }
-  /* chapitre */
-  .bande { background: ${C.nuit}; color: #fff; border-radius: 3.5mm; padding: 8mm 9mm; display: flex; gap: 6mm; align-items: center; position: relative; overflow: hidden; margin: 0 0 5mm; break-inside: avoid; }
-  .bande .rond { width: 16mm; height: 16mm; border-radius: 50%; background: rgba(255,255,255,.09); display: grid; place-items: center; flex: none; }
-  .bande h2 { font-size: 20pt; font-weight: 800; margin: 1.2mm 0 1.5mm; letter-spacing: -.01em; }
-  .bande p { margin: 0 0 2mm; color: #C9DCEE; font-size: 9.6pt; max-width: 120mm; }
-  .bande .grand { position: absolute; right: 6mm; top: -7mm; font-size: 96pt; font-weight: 900; color: rgba(255,255,255,.08); line-height: 1; }
-  .pubs { display: flex; flex-wrap: wrap; gap: 1.2mm; } .pub { background: rgba(255,255,255,.14); border-radius: 1.2mm; padding: .5mm 2mm; font-size: 7.3pt; color: #E2EEF8; }
-  .trouver { border: .3mm solid ${C.filet}; border-left: 1.3mm solid ${C.clair}; border-radius: 0 3mm 3mm 0; padding: 3mm 5mm; margin: 0 0 5mm; break-inside: avoid; }
-  .trouver .t { display: flex; gap: 2mm; align-items: center; font-weight: 700; color: ${C.nuit}; margin-bottom: 1.5mm; }
-  .trouver ol { margin: 0; padding-left: 5mm; columns: 2; column-gap: 8mm; } .trouver li { margin: 0 0 .8mm; break-inside: avoid; }
-  .trouver li::marker { color: ${C.clair}; font-weight: 700; }
-  /* les points de modeEmploi.js, au dessin du kit */
-  .me-point { border: .3mm solid ${C.filet}; border-left: none; border-radius: 0; border-width: .3mm 0 0 0; padding: 4mm 0 2mm; margin: 0 0 2mm; font-size: 9.3pt; }
-  .me-point h3 { display: flex; align-items: center; gap: 2.5mm; font-size: 12.5pt; color: ${C.nuit}; margin: 0 0 2.5mm; break-after: avoid; }
-  .me-rond { display: inline-grid; place-items: center; min-width: 6mm; height: 6mm; padding: 0 1mm; border-radius: 3mm; background: ${C.clair}; color: #fff; font-size: 8pt; font-weight: 700; }
-  .me-corps p { margin: 0 0 2mm; } .me-corps ul { margin: 0 0 2mm; padding-left: 4.5mm; } .me-corps li::marker { color: ${C.clair}; }
-  .me-chemin { display: flex; flex-wrap: wrap; align-items: center; gap: 1.2mm; font-size: 8.3pt; margin: 0 0 2.5mm; }
-  .me-chemin .pas { background: ${C.pale}; border-radius: 1.5mm; padding: .6mm 2mm; color: ${C.nuit}; font-weight: 600; }
-  .me-chemin .sep { color: #94A3B8; } .me-chemin .reste { color: #64748B; }
-  .me-savoir { background: ${C.pale}; border-left: 1.3mm solid ${C.clair}; border-radius: 0 3mm 3mm 0; padding: 3mm 4mm; margin: 2mm 0 0; font-size: 8.8pt; break-inside: avoid; }
-  .me-savoir .titre { display: flex; align-items: center; gap: 1.5mm; font-weight: 700; color: ${C.nuit}; margin: 0 0 1.2mm; }
-  .me-savoir ul { list-style: none; margin: 0; padding: 0; }
-  .me-savoir li { position: relative; padding-left: 3.5mm; margin: 0 0 1mm; color: #334155; }
-  .me-savoir li::before { content: ''; position: absolute; left: 0; top: 1.6mm; width: 1.4mm; height: 1.4mm; border-radius: 50%; background: ${C.clair}; }
-  .me-corps, .me-savoir { display: flow-root; }
-  .me-flottant { float: left; display: flex; gap: 3mm; align-items: flex-start; margin: 0 4.5mm 2.5mm 0; max-width: 75%; }
-  .me-flottant .me-fig { margin: 0; }
-  .me-images { display: flex; flex-wrap: wrap; gap: 3mm; align-items: flex-start; }
-  .me-fig { display: block; margin: 0 0 3mm; break-inside: avoid; max-width: 100%; }
-  .me-fig img { display: block; width: 100%; max-height: 85mm; object-fit: contain; border: .3mm solid ${C.filet}; border-radius: 2.5mm; }
-  .me-fig figcaption { font-size: 7.6pt; color: #64748B; margin-top: 1mm; }
-  .me-bt { font-weight: 700; color: ${C.nuit}; border: .3mm solid #94A3B8; border-radius: 1mm; padding: 0 1mm; white-space: nowrap; }
+  h1.titre { font-size: 26pt; font-weight: 800; color: ${C.nuit}; margin: 2mm 0 6mm; letter-spacing: -.01em; }
+  .som-partie { margin: 0 0 1.5mm; color: ${C.nuit}; }
+  .somg { display: grid; grid-template-columns: 1fr 1fr; column-gap: 11mm; margin: 0 0 5mm; }
+  .somg div { display: flex; align-items: baseline; gap: 3.5mm; padding: 2.2mm 0; border-bottom: .3mm dotted #B8C6D6; font-size: 10.2pt; break-inside: avoid; }
+  .somg .n { color: ${C.bleu}; font-weight: 750; width: 6mm; flex: none; }
+  .somg .l { flex: 1; } .somg .p { color: ${C.bleu}; font-size: 9pt; }
+
+  /* mot de la direction */
+  .mot { padding-top: 14mm; } .mot h1 { font-size: 21pt; color: ${C.nuit}; font-weight: 800; margin: 2.5mm 0 8mm; letter-spacing: -.01em; }
+  .mot p { font-size: 10.4pt; line-height: 1.62; margin: 0 0 4mm; }
+  .mot .sign { border-left: 1.1mm solid ${C.or}; padding: 2mm 0 2mm 6mm; margin-top: 10mm; }
+  .mot .sign img { height: 19mm; display: block; margin: 0 0 2mm; }
+  .mot .sign .q { color: ${C.gris}; font-size: 9pt; }
+
+  /* aide-mémoire */
+  table.aide { width: 100%; border-collapse: collapse; font-size: 8.8pt; }
+  table.aide td { padding: 2mm 3mm; border-bottom: .3mm solid ${C.filet}; vertical-align: top; }
+  table.aide td:first-child { width: 42%; font-weight: 650; color: ${C.nuit}; }
+  table.aide tr:nth-child(even) td { background: #F7FAFD; }
+  table.aide tr.chap td { background: ${C.pale2}; color: ${C.bleu}; font-size: 7pt; letter-spacing: .2em; font-weight: 700; text-transform: uppercase;
+    padding: 1.6mm 3mm; border-bottom: none; }
+  table.aide tr { break-inside: avoid; }
 `;
 
 const page = (corps, styles = '') => `<!doctype html><html lang="fr"><head><meta charset="utf-8"><style>${STYLES}${styles}</style></head><body>${corps}</body></html>`;
 
-/** La couverture : pleine page, sans marge ni pied. */
-function couverture(m, pourQui) {
-  return page(`<section class="couv">
-    <div class="haut"><img src="${logoBlancCourant()}" alt=""><div class="k">ENSEIGNEMENT POUR ADULTES<br>LUCIE · GUIDE</div></div>
-    <div class="milieu"><div class="kick">Mode d'emploi</div><h1>Lucie,<br>pas à pas</h1><div class="ligne"></div>
-      <h2>Où aller, ce qu'on y fait, et ce qu'il faut savoir</h2>
-      <div class="sous">Le même contenu que le guide en ligne (Documentation → Mode d'emploi), composé le jour où vous l'imprimez. ${esc(pourQui)}</div></div>
-    <div class="themes">${m.rubriques.map(r => esc(r.titre)).join(' · ')}</div>
-    <div class="pied"><div><b>Institut Ilya Prigogine</b><br>${esc(mentionProduction())}</div>
-      <div style="text-align:right">Version ${esc(m.version)}<br>Captures sur données fictives</div></div>
+/** Le chemin « Où », en étapes. */
+function chemin(ou) {
+  const [ch, ...reste] = String(ou).split(/(?<=\.)\s|·|;/).map(x => x.trim()).filter(Boolean);
+  const etapes = String(ch || '').replace(/\.$/, '').split('→').map(x => x.trim()).filter(Boolean);
+  return `<div class="pt-ou">${icone('lieu', 13, C.clair, 2)}<div><span class="q">Où ?</span>&nbsp; ${etapes.map((x, i) =>
+    `${i ? '<span class="sep">›</span>' : ''}<span class="pas">${enrichiP(x)}</span>`).join('')}${reste.length ? ` <span class="reste">· ${reste.map(enrichiP).join(' · ')}</span>` : ''}</div></div>`;
+}
+
+/* LES CAPTURES : une capture étroite se place à gauche du texte (« carré comme Word », 3.5.025) ; les autres, en
+   dessous, à leur taille (0,12 mm le pixel, hauteur plafonnée), jamais plus larges que la carte. */
+const COLONNE_MM = 160;
+function largeur(im, dims) {
+  const d = dims?.(im.src);
+  if (!d?.w || !d?.h) return im.etroite ? 46 : null;
+  let w = d.w * 0.12 + 6, h = d.h * 0.12;
+  if (h > 92) { w = (w - 6) * 92 / h + 6; h = 92; }
+  return Math.min(COLONNE_MM, Math.round(w * 10) / 10);
+}
+function figure(i, w) {
+  return `<figure class="cap"${w ? ` style="width:${w}mm"` : ''}><img src="${esc(i.src)}" alt="">${i.legende ? `<figcaption>${enrichiP(i.legende)}</figcaption>` : ''}</figure>`;
+}
+
+/** Un point du guide, en carte. */
+function point(p, n, dims) {
+  const l = [...(p.image ? [{ src: p.image, legende: p.legende }] : []), ...(p.images || [])];
+  const petites = [], grandes = [];
+  let cumul = 0;
+  for (const i of l) {
+    const w = largeur(i, dims);
+    const plafond = COLONNE_MM * (petites.length ? 0.5 : 0.62);
+    if (w && cumul + w + (petites.length ? 3 : 0) < plafond) { petites.push([i, w]); cumul += w + (petites.length > 1 ? 3 : 0); }
+    else grandes.push([i, w]);
+  }
+  const corps = `<div class="pt-corps">
+      ${petites.length ? `<div class="flottant">${petites.map(([i, w]) => figure(i, w)).join('')}</div>` : ''}
+      ${p.texte ? `<p>${enrichiP(p.texte)}</p>` : ''}${p.contenu || ''}
+      ${grandes.length ? `<div class="rangee">${grandes.map(([i, w]) => figure(i, w)).join('')}</div>` : ''}
+    </div>
+    ${p.savoir?.length ? `<div class="pt-savoir">${icone('bulb', 15, C.bleu, 2)}<div><div class="t">À savoir</div>
+      <ul>${p.savoir.map(s => `<li>${enrichiP(s)}</li>`).join('')}</ul></div></div>` : ''}`;
+  if (!p.titre) return `<div class="intro">${corps}</div>`;
+  return `<div class="pt">
+    <div class="pt-tete"><span class="pt-num">${n}</span><div><div class="pt-kick">Point ${n}</div><h3>${esc(p.titre)}</h3></div></div>
+    ${p.ou ? chemin(p.ou) : ''}${corps}</div>`;
+}
+
+/** Le bandeau d'ouverture d'une page (chapitre, sommaire, aide-mémoire). */
+function bande({ kick, titre, resume, nom, grand, pubs = [] }) {
+  return `<div class="bande"><div class="rond">${icone(nom, 30, C.ciel, 1.7)}</div>
+    <div class="texte"><div class="kick">${esc(kick)}</div><h1>${esc(titre)}</h1>
+      ${resume ? `<p class="res">${enrichiP(resume)}</p>` : ''}
+      ${pubs.length ? `<div class="pubs">${pubs.map(x => `<span class="pub">${PUBLICS[x]}</span>`).join('')}</div>` : ''}</div>
+    <div class="grand">${esc(grand)}</div></div>`;
+}
+
+function chapitre(r, i, dims) {
+  const pubs = String(r.pour || '').split(/\s+/).filter(x => PUBLICS[x]);
+  const titres = r.points.filter(p => p.titre);
+  let k = 0;
+  return page(`${bande({ kick: partieDe(r.id), titre: r.titre, resume: r.resume, nom: r.icone, grand: i + 1, pubs })}
+    ${titres.length > 1 ? `<div class="trouver"><div class="t">${icone('main', 17, C.bleu)} Ce que vous trouverez ici</div>
+      <ul>${titres.map(p => `<li>${esc(p.titre)}</li>`).join('')}</ul></div>` : ''}
+    ${r.points.map(p => point(p, p.titre ? ++k : null, dims)).join('')}`);
+}
+
+/** La couverture : pleine page, sans marge ni pied ; liseré aux couleurs du logo. */
+function couverture(m) {
+  const pub = m.publics?.length === 1 ? m.publics[0] : null;
+  const titre = pub ? GUIDE_DE[pub] : 'Le guide complet';
+  const sous = pub === 'ens'
+    ? 'Vos premiers pas dans Lucie, puis tout ce que vous pouvez y faire : vos cours, vos notes, vos présences, vos avis.'
+    : "Où aller, ce qu'on y fait, et ce qu'il faut savoir : tout le travail de l'école, écran par écran.";
+  const v = String(m.version).split('.').slice(0, 2).join('.');
+  return page(`<section class="couv"><div class="liseré"><i style="background:${C.or}"></i><i style="background:${C.cyan}"></i><i style="background:${C.iip}"></i></div>
+    <div class="haut"><img src="${logoBlancCourant()}" alt=""><div class="k">ENSEIGNEMENT POUR ADULTES<br>INSTITUT ILYA PRIGOGINE</div></div>
+    <div class="milieu"><div class="kick">Mode d'emploi</div>
+      <div class="logo">${logoLucie()}<div class="nom">Lucie<span>v.${esc(v)}</span></div></div>
+      <div class="ligne"></div><h2>${esc(titre)}</h2><div class="sous">${esc(sous)}</div></div>
+    <div class="themes">${m.rubriques.map(r => esc(r.titre)).join(' · ')} · Aide-mémoire</div>
+    <div class="pied"><div><b>Institut Ilya Prigogine</b><br>Campus Erasme · Route de Lennik 808, 1070 Anderlecht</div>
+      <div style="text-align:right">${esc(mentionProduction())} · version ${esc(m.version)}<br>Captures sur données fictives</div></div>
   </section>`, `
     @page { size: A4; margin: 0; }
-    .couv { width: 210mm; height: 297mm; background: ${C.nuit}; color: #fff; padding: 22mm 20mm; display: flex; flex-direction: column; overflow: hidden; }
+    body { padding: 0; }
+    .couv { width: 210mm; height: 297mm; background: ${C.nuit}; color: #fff; padding: 24mm 22mm 20mm; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+    .couv .liseré { position: absolute; left: 0; top: 0; bottom: 0; width: 3mm; display: flex; flex-direction: column; }
+    .couv .liseré i { flex: 1; display: block; }
     .couv .haut { display: flex; justify-content: space-between; align-items: flex-start; }
     .couv .haut img { height: 30mm; margin: -6mm 0 0 -6mm; }
-    .couv .haut .k { text-align: right; font-size: 7.5pt; letter-spacing: .25em; color: #7FC3E8; line-height: 2; }
-    .couv .milieu { margin-top: auto; }
-    .couv h1 { font-size: 44pt; font-weight: 800; letter-spacing: -.02em; margin: 3mm 0 7mm; line-height: 1.02; }
-    .couv .ligne { width: 40mm; height: 1.2mm; background: ${C.or}; border-radius: 1mm; margin-bottom: 7mm; }
-    .couv h2 { font-size: 15pt; margin: 0 0 3mm; }
-    .couv .sous { font-size: 10.5pt; color: #C9DCEE; max-width: 135mm; }
-    .couv .themes { margin-top: auto; padding-top: 24mm; font-size: 8.2pt; color: #A9C3DD; line-height: 1.9; }
-    .couv .pied { margin-top: 10mm; border-top: .3mm solid rgba(255,255,255,.2); padding-top: 4mm; display: flex; justify-content: space-between; font-size: 8pt; color: #C9DCEE; }
+    .couv .haut .k { text-align: right; font-size: 7.4pt; letter-spacing: .26em; color: ${C.clair}; line-height: 2.1; }
+    .couv .milieu { margin-top: 26mm; }
+    .couv .logo { margin: 5mm 0 0 -4mm; }
+    .couv .nom { font-size: 50pt; font-weight: 800; letter-spacing: -.025em; line-height: 1; margin: -4mm 0 0 14mm; }
+    .couv .nom span { font-size: 15pt; font-weight: 500; color: ${C.clair}; margin-left: 2.5mm; letter-spacing: 0; }
+    .couv .ligne { width: 40mm; height: 1.1mm; background: ${C.clair}; margin: 9mm 0 7mm; }
+    .couv h2 { font-size: 17pt; margin: 0 0 3mm; font-weight: 750; }
+    .couv .sous { font-size: 10.6pt; color: #C3D6EA; max-width: 132mm; line-height: 1.55; }
+    .couv .themes { margin-top: auto; font-size: 8.4pt; color: #9DB4CC; line-height: 1.9; }
+    .couv .pied { margin-top: 9mm; border-top: .3mm solid rgba(255,255,255,.2); padding-top: 4mm; display: flex; justify-content: space-between; font-size: 7.8pt; color: #9DB4CC; line-height: 1.6; }
     .couv .pied b { color: #fff; }`);
 }
 
-/** Le pied de chaque page du corps : logo, titre, trace de production, numéro. */
-function pied(numeroter) {
-  // Même construction que piedGabaritPdf (lib/document.js) : trois cases de largeur fixe, sinon Chromium décale le gabarit.
-  return `<div style="width:100%;font-family:Arial,Helvetica,sans-serif;padding:0 16mm;margin:0">
-    <div style="border-top:0.5pt solid ${C.bleu};padding-top:1.2mm;display:flex;align-items:flex-start">
-      <div style="width:26mm;flex:none"><img src="${logoCourant()}" style="height:7mm;display:block"></div>
-      <div style="flex:1;min-width:0;text-align:center;font-size:6pt;color:#3F4652;line-height:1.35">
-        <b style="color:${C.nuit}">Institut Ilya Prigogine</b> · Lucie — mode d'emploi<br>${esc(mentionProduction())}</div>
-      <div style="width:26mm;flex:none;text-align:right;font-size:6.5pt;color:#3F4652">${numeroter ? '<span class="pageNumber"></span> / <span class="totalPages"></span>' : ''}</div>
-    </div></div>`;
+/* LE MOT DE LA DIRECTION — le texte du guide 3.1.219, signé par Charles Sohet. */
+function motDeLaDirection() {
+  return page(`<section class="mot"><div class="kick">Le mot de la direction</div>
+    <h1>Lucie, une assistante pour chacun de nous</h1>
+    <p>Chères et chers collègues,</p>
+    <p>Lucie est née d'une conviction simple : le temps que nous passons à recopier, à vérifier, à chercher un document ou à dissiper un malentendu est du temps que nous ne passons pas avec nos étudiants.</p>
+    <p>Elle a été pensée pour nous simplifier la vie : communiquer plus facilement et plus directement, encoder <b>une seule fois</b> ce qui l'était deux ou trois fois, alléger les démarches administratives, et éviter les erreurs et les malentendus qui naissent de tout cela.</p>
+    <p>Lucie n'est pas là pour surveiller, ni pour contrôler. <b>C'est une assistante</b> : elle se souvient à notre place, elle rappelle, elle propose — et c'est toujours vous qui décidez.</p>
+    <p>Son seul but est de remettre notre métier au cœur de nos journées : <b>former des étudiants, et de futurs professionnels qui prendront soin des autres</b>.</p>
+    <p>Lucie est jeune. Elle a encore ses maladresses, et elle grandira avec vous : chaque remarque, chaque idée envoyée par l'ampoule la rend un peu meilleure. Je compte sur votre patience et votre bienveillance — pour elle, et pour celles et ceux qui la font vivre. Partagez vos astuces entre collègues, dites-nous ce qui vous gêne… et pardonnez-lui ses premiers faux pas.</p>
+    <p>Merci de faire ce chemin avec nous.</p>
+    <div class="sign"><img src="${signatureCourante()}" alt=""><b>Charles Sohet</b><div class="q">Directeur de l'Institut Ilya Prigogine</div></div>
+  </section>`);
 }
 
-/** Le corps : sommaire, puis un chapitre par page. */
-/** Largeur et hauteur d'une capture jointe (PNG : l'en-tête IHDR), pour décider si elle flotte à gauche du texte. */
+/** Le sommaire, avec les pages de chaque chapitre. */
+function sommaire(m, pages, pageAide) {
+  const nPoints = m.rubriques.reduce((s, r) => s + r.points.filter(p => p.titre).length, 0);
+  const nImages = m.rubriques.reduce((s, r) => s + r.points.reduce((t, p) => t + (p.image ? 1 : 0) + (p.images?.length || 0), 0), 0);
+  const parties = PARTIES.map(pa => ({ ...pa, chap: m.rubriques.map((r, i) => ({ r, i })).filter(({ r }) => partieDe(r.id) === pa.titre) }))
+    .filter(pa => pa.chap.length);
+  const ligne = (n, l, p) => `<div><span class="n">${n}</span><span class="l">${esc(l)}</span><span class="p">${p ?? ''}</span></div>`;
+  return page(`<h1 class="titre">Sommaire</h1>
+    ${parties.map((pa, k) => `<div class="kick som-partie">${esc(pa.titre)}</div>
+      <div class="somg">${pa.chap.map(({ r, i }) => ligne(i + 1, r.titre, pages[i])).join('')}${k === parties.length - 1 ? ligne('✓', 'Aide-mémoire', pageAide) : ''}</div>`).join('')}
+    <div class="tuiles">
+      <div class="tuile"><div class="n">${m.rubriques.length} <small>chapitres</small></div><p>en ${parties.length} parties, de la mise en marche ${parties.length > 2 ? 'aux réglages' : 'à votre travail'}</p></div>
+      <div class="tuile"><div class="n">${nPoints} <small>points</small></div><p>chacun dit où aller, ce qu'on y fait, et ce qu'il faut savoir</p></div>
+      <div class="tuile"><div class="n">${nImages} <small>captures</small></div><p>prises sur une base d'essai : les noms sont inventés</p></div>
+    </div>
+    <div class="callout"><div>${icone('info', 18, C.nuit)}</div><div><span class="t">Ce guide en ${parties.length} parties</span>
+      ${(m.rubriques.length > 8
+        ? [`<p>${parties.map(pa => `<b>${esc(pa.titre)}</b> (${pa.chap.length > 1 ? `chapitres ${pa.chap[0].i + 1} à ${pa.chap[pa.chap.length - 1].i + 1}` : `chapitre ${pa.chap[0].i + 1}`})`).join(' · ')}.</p>`]
+        : parties.map(pa => `<p><b>${esc(pa.titre)}</b> (chapitre${pa.chap.length > 1 ? 's' : ''} ${pa.chap.length > 1 ? `${pa.chap[0].i + 1} à ${pa.chap[pa.chap.length - 1].i + 1}` : pa.chap[0].i + 1}) : ${esc(pa.chap.map(c => c.r.titre).join(' · '))}.</p>`)).join('')}
+      <p>En fin de guide, l'<b>aide-mémoire</b> : « je veux… je vais… », chaque geste et son chemin.</p></div></div>
+    <div class="deux">
+      <div class="callout clair"><div>${icone('eye', 18, C.bleu)}</div><div><span class="t">Des données fictives</span><p>Les captures viennent d'une base d'essai : les noms, matricules et adresses sont <b>inventés</b>. Ce que vous verrez porte vos cours et vos étudiants.</p></div></div>
+      <div class="callout clair"><div>${icone('bulb', 18, C.bleu)}</div><div><span class="t">Une question, une idée ?</span><p>L'<b>ampoule</b> « Proposer une amélioration » est sur tous les écrans : la direction y répond, et la réponse revient sur votre tableau de bord.</p></div></div>
+    </div>
+    <div class="callout"><div>${icone('refresh', 18, C.nuit)}</div><div><span class="t">Un guide qui suit Lucie</span><p>Ce document est composé, le jour où vous l'imprimez, à partir du guide en ligne (Documentation → Mode d'emploi), qui fait foi. Lucie s'améliore au fil des semaines : les écrans peuvent changer ; ce qui est attendu de vous, et l'endroit où le trouver, reste le même. Version décrite : ${esc(m.version)}.</p></div></div>`);
+}
+
+/** L'aide-mémoire : chaque point qui a un chemin, « je veux… je vais… ». */
+function aideMemoire(m) {
+  const lignes = m.rubriques.map(r => {
+    const pts = r.points.filter(p => p.titre && p.ou);
+    if (!pts.length) return '';
+    return `<tr class="chap"><td colspan="2">${esc(r.titre)}</td></tr>${pts.map(p => `<tr><td>${esc(p.titre)}</td><td>${enrichiP(String(p.ou).replace(/\.$/, ''))}</td></tr>`).join('')}`;
+  }).join('');
+  return page(`${bande({ kick: 'Pour aller vite', titre: 'Aide-mémoire', resume: 'Je veux… je vais… — chaque point du guide et son chemin.', nom: 'IconChecklist', grand: '✓' })}
+    <table class="aide">${lignes}</table>`);
+}
+
+/** Le pied de chaque page : logo au-dessus du filet, deux lignes centrées. La page « n / N » est posée ensuite. */
+function pied() {
+  return `<div style="width:100%;font-family:Inter,Arial,Helvetica,sans-serif;padding:0 18mm;margin:0">
+    <img src="${logoCourant()}" style="height:7.5mm;display:block;margin:0 0 1mm">
+    <div style="border-top:0.5pt solid ${C.bleu};padding-top:1.3mm;text-align:center;font-size:6.3pt;color:#3F4652;line-height:1.4">
+      <b style="color:${C.nuit}">Institut Ilya Prigogine</b> · Lucie — mode d'emploi<br>${esc(mentionProduction())}</div></div>`;
+}
+const MARGES = { top: '16mm', right: '0', bottom: '27mm', left: '0' };
+
+/** Largeur et hauteur d'une capture jointe (PNG : l'en-tête IHDR). */
 function dimsDepuis(images) {
   const cache = new Map();
   return src => {
@@ -126,39 +332,13 @@ function dimsDepuis(images) {
     cache.set(src, d); return d;
   };
 }
-
-function corps(m, dims = null) {
-  const nPoints = m.rubriques.reduce((s, r) => s + r.points.length, 0);
-  const nImages = m.rubriques.reduce((s, r) => s + r.points.reduce((t, p) => t + (p.image ? 1 : 0) + (p.images?.length || 0), 0), 0);
-  const sommaire = `<section>
-    <h1 class="som">Sommaire</h1>
-    <div class="somg">${m.rubriques.map((r, i) => `<div><span>${i + 1}</span><span>${esc(r.titre)}</span></div>`).join('')}</div>
-    <div class="tuiles">
-      <div class="tuile"><div class="n">${m.rubriques.length} <small>chapitres</small></div><p>un par métier de l'école, du tableau de bord à la configuration</p></div>
-      <div class="tuile"><div class="n">${nPoints} <small>points</small></div><p>chacun dit où aller, ce qu'on y fait, et ce qu'il faut savoir</p></div>
-      <div class="tuile"><div class="n">${nImages} <small>captures</small></div><p>prises sur une base d'essai : les noms sont fictifs</p></div>
-    </div>
-    <div class="callout"><div>${icone('info', 18, C.iip)}</div><div><b class="t">Le guide en ligne fait foi</b><p>Ce document est composé, le jour où vous l'imprimez, à partir du guide en ligne (Documentation → Mode d'emploi). Une nouveauté y paraît d'abord ; ce PDF la reprend sans rien faire.</p></div></div>
-    <div class="deux">
-      <div class="callout clair"><div>${icone('main', 18, C.iip)}</div><div><b class="t">Comment lire un point</b><p>Le chemin « Où » se suit de gauche à droite ; les boutons sont écrits comme à l'écran ; « À savoir » dit la règle à retenir.</p></div></div>
-      <div class="callout clair"><div>${icone('refresh', 18, C.iip)}</div><div><b class="t">Un outil vivant</b><p>Lucie change chaque semaine. Version décrite : ${esc(m.version)}.</p></div></div>
-    </div>
-  </section>`;
-  const chapitres = m.rubriques.map((r, i) => {
-    const pubs = String(r.pour || '').split(/\s+/).filter(x => PUBLICS[x]);
-    const titres = r.points.filter(p => p.titre);
-    return `<section class="saut">
-      <div class="bande"><div class="rond">${icone(r.icone, 26, '#9CD3EE')}</div>
-        <div><div class="kick">Chapitre ${i + 1} sur ${m.rubriques.length}</div><h2>${esc(r.titre)}</h2>
-          ${r.resume ? `<p>${esc(r.resume)}</p>` : ''}
-          ${pubs.length ? `<div class="pubs">${pubs.map(x => `<span class="pub">${PUBLICS[x]}</span>`).join('')}</div>` : ''}</div>
-        <div class="grand">${i + 1}</div></div>
-      ${titres.length > 1 ? `<div class="trouver"><div class="t">${icone('main', 17, C.iip)} Ce que vous trouverez ici</div>
-        <ol>${titres.map(p => `<li>${esc(p.titre)}</li>`).join('')}</ol></div>` : ''}
-      ${r.points.map((p, k) => pointImprimable(p, p.titre ? k + 1 : null, () => {}, dims)).join('')}
-    </section>`;
-  }).join('');
-  return page(sommaire + chapitres);
+function joindre(html, images) {
+  for (const [src, data] of Object.entries(images)) {
+    if (/^\/guide\/[\w.-]+\.(png|jpe?g|webp)$/i.test(src) && /^data:image\/(png|jpeg|webp);base64,/.test(String(data)) && html.includes(`src="${src}"`)) {
+      html = html.split(`src="${src}"`).join(`src="${data}"`);
+    }
+  }
+  return html;
 }
 
 /** Les chemins d'images que le document attend (l'écran les joint). */
@@ -172,23 +352,46 @@ export function imagesDuGuide(role, voir) {
 /** Le PDF complet. `images` : { '/guide/x.png': 'data:image/png;base64,…' }. */
 export async function rendreGuidePdf(role, voir, images = {}) {
   const m = modeEmploiPour(role, voir);
-  const pourQui = m.publics ? `Édition pour : ${m.publics.map(p => PUBLICS[p].toLowerCase()).join(', ')}.` : 'Édition complète (tous les publics).';
-  let html = corps(m, dimsDepuis(images));
-  for (const [src, data] of Object.entries(images)) {
-    if (/^\/guide\/[\w.-]+\.(png|jpe?g|webp)$/i.test(src) && /^data:image\/(png|jpeg|webp);base64,/.test(String(data))) {
-      html = html.split(`src="${src}"`).join(`src="${data}"`);
-    }
-  }
-  const [a, b] = await Promise.all([
-    rendrePdf(couverture(m, pourQui), { pageCss: true }),
-    rendrePdf(html, { pied, pagination: 'toujours', marges: { top: '14mm', right: '16mm', bottom: '20mm', left: '16mm' } }),
-  ]);
-  const { PDFDocument } = await import('pdf-lib');
+  const dims = dimsDepuis(images);
+  const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
+  const corpsOpts = { pied, marges: MARGES };
+
+  // 1. Tout sauf le sommaire : couverture, mot, chapitres, aide-mémoire.
+  const morceaux = [
+    { html: couverture(m), pageCss: true },
+    { html: motDeLaDirection(), ...corpsOpts },
+    ...m.rubriques.map((r, i) => ({ html: joindre(chapitre(r, i, dims), images), ...corpsOpts })),
+    { html: aideMemoire(m), ...corpsOpts },
+  ];
+  // 2. Le sommaire se compte d'abord (pages provisoires), puis se refait avec les vraies pages.
+  const brouillon = sommaire(m, m.rubriques.map(() => '00'), '00');
+  const [rendus, [somBrouillon]] = await Promise.all([rendrePdfs(morceaux, {}, 3), rendrePdfs([{ html: brouillon, ...corpsOpts }], {}, 1)]);
+  const docs = await Promise.all(rendus.map(b => PDFDocument.load(b)));
+  const nSom = (await PDFDocument.load(somBrouillon)).getPageCount();
+  // Pagination : la couverture ne compte pas ; le mot de la direction est la page 1.
+  const nMot = docs[1].getPageCount();
+  let p = 1 + nMot + nSom;
+  const pages = m.rubriques.map((_, i) => { const d = p; p += docs[2 + i].getPageCount(); return d; });
+  const pageAide = p;
+  const [som] = await rendrePdfs([{ html: sommaire(m, pages, pageAide), ...corpsOpts }], {}, 1);
+
+  // 3. L'assemblage, le liseré et la pagination.
+  const ordre = [docs[0], docs[1], await PDFDocument.load(som), ...docs.slice(2)];
   const doc = await PDFDocument.create();
-  for (const src of [a, b]) {
-    const d = await PDFDocument.load(src);
-    (await doc.copyPages(d, d.getPageIndices())).forEach(p => doc.addPage(p));
-  }
+  for (const d of ordre) (await doc.copyPages(d, d.getPageIndices())).forEach(pg => doc.addPage(pg));
+  const police = await doc.embedFont(StandardFonts.Helvetica);
+  const mm = x => x * 72 / 25.4;
+  const hex = h => rgb(parseInt(h.slice(1, 3), 16) / 255, parseInt(h.slice(3, 5), 16) / 255, parseInt(h.slice(5, 7), 16) / 255);
+  const total = doc.getPageCount() - 1;
+  doc.getPages().forEach((pg, k) => {
+    if (k === 0) return;
+    const { width, height } = pg.getSize();
+    const tiers = height / 3;
+    [C.iip, C.cyan, C.or].forEach((c, j) => pg.drawRectangle({ x: 0, y: j * tiers, width: mm(2.2), height: tiers, color: hex(c) }));
+    const t = `${k} / ${total}`;
+    const taille = 6.5;
+    pg.drawText(t, { x: width - mm(18) - police.widthOfTextAtSize(t, taille), y: mm(10.4), size: taille, font: police, color: hex('#3F4652') });
+  });
   doc.setTitle("Lucie — mode d'emploi");
   return { pdf: Buffer.from(await doc.save()), nom: `Lucie_mode_emploi_${m.version}` };
 }

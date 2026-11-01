@@ -2907,6 +2907,16 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   joindre), `POST /api/documentation/mode-emploi/pdf` (data URL des captures, limite 60 Mo dans `server.js`) ; repli de l'écran :
   l'ancienne mise en page, imprimée par le navigateur. Couleurs du kit adaptées à l'IIP : nuit #0E2A4F, bleus #2C7DB8 / #3E9BD0,
   or #F9B619.
+- **LE MODE D'EMPLOI PDF REFAIT AU KIT FeLSI** (3.5.032, Charles, 1er novembre 2026 : « fais évoluer le design vers le modèle
+  microcertif de la FeLSI » ; niveau de détail : le « Guide de l'enseignant » 3.1.219). `lib/guideKit.js` réécrit : couverture
+  (logo blanc, figure de la Vierge et « Lucie v.x.y », titre selon le public — guide de l'enseignant, du secrétariat… ou complet),
+  **le mot de la direction** signé (texte du guide 3.1.219, `signatureCourante()`), **sommaire paginé** groupé en parties
+  (`PARTIES` : Mise en marche · Les étudiants et les cours · L'école · Les textes et les réglages), tuiles et encadrés ; chaque
+  chapitre ouvre une page par un **bandeau pleine largeur** (marges latérales en `padding` du corps, pas en `@page`, sinon Chromium
+  coupe le bandeau) ; chaque point en carte (rond, « POINT n », bande « Où ? », captures en cadre bleu pâle, « À savoir ») ;
+  **aide-mémoire** « Je veux… je vais… » tiré des `ou` des points. Chaque morceau se rend à part (`rendrePdfs`) pour connaître la
+  page de chaque chapitre ; pdf-lib réunit, pose le **liseré aux trois couleurs du logo** et la pagination « n / N » (couverture
+  non comptée). Police Inter : paquet `fonts-inter` ajouté à l'image du serveur.
 - **PORTAIL, ÉTAPE 1 : LE MOT DE PASSE ET LA BELGIQUE** (3.1.513). `compte` (empreinte scrypt salée, dans la base du
   PORTAIL seulement, survit aux dépôts) ; `POST /api/portail/connexion` (adresse ou matricule + mot de passe ; appareil
   reconnu → session ; sinon code `connexion` composé par Lucie → `POST /connexion/code`, qui reconnaît l'appareil, 3 au
