@@ -3044,6 +3044,18 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   réponse possible. Accès **bloqué hors de Belgique**, exception accordée par le secrétariat pour une période ; la vérification
   du QR reste ouverte partout. (Mot de passe et Belgique : FAITS en 3.1.513 ; VA en ligne et code du candidat : FAITS en 3.1.514 ; PAE en ligne : FAIT en 3.1.515 ; messages : FAITS en 3.1.516 ; parcours, frais, aide : FAITS en 3.1.517.) Toute écriture venant du portail passe par le relevé de Lucie (`portailSync.js`), jamais l'inverse. **Ordre de construction** : 1 mot de passe et blocage hors Belgique · 2 VA en ligne déplacée + code candidat · 3 PAE en ligne · 4 messages · puis parcours, frais, aide.
 
+**LES ATTESTATIONS DES ANNÉES PASSÉES DANS LES ESPACES** (3.5.027, Charles, 1er novembre 2026 : « Lucie est nouvelle de
+cette année ; pour tous les résultats antérieurs, toutes les attestations de réussite, de VA, etc., dans les espaces des
+étudiants » ; tranché : réussites par UE + VA complètes + un document « toutes les années » ; aucun courriel ; bouton de la
+direction, simulation d'abord ; TOUS les étudiants, archivés compris). `piecesHistoriques(etudId, anneeActive)`
+(`routes/attestations.js` : `attestationsDe`, `pageAttestation`, `pageAttestationValorisation` — les pièces d'Éditions ; une
+pièce à mention manquante n'est pas composée mais nommée ; deux décisions de VA contraires bloquent) ; `lib/depotHistorique.js`
+(`deposerHistorique({ ecrire, limite })`, par lots de 100 étudiants) → `deposerDansLEspace`, `portail_depot` (natures `hist_*`,
+session 0, `avise_le` posé d'emblée : l'avis du dépôt d'office ne part pas) ; E1 « document jamais ouvert » ignore
+`espace_hist_*`. Routes `GET/POST /api/fonctions/historique` (direction) ; écran : Mise en service → *Les années passées dans
+les espaces*. **À lancer par la direction, sur la dev puis en production** ; les pièces paraissent quand « Mes documents » est
+ouvert à l'étudiant.
+
 **LE BUDGET DES SECTIONS** (3.5.019, Charles, 1er novembre 2026 ; cahier des charges : `docs/contexte/guide-budget-sections.md`).
 Gestion → Finances → Budget, faces Enveloppes · Lignes · Investissements · Inventaire · Exécution · Paramètres (direction).
 `lib/budgetSections.js` : enveloppe = socle + montant par étudiant × pondération × effectif (guide A.4), arrondie à l'euro ;

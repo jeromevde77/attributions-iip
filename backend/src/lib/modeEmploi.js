@@ -10,7 +10,7 @@
  *   savoir — ce qu'il faut savoir : les règles qui bloquent ou qui surprennent.
  * Il explique le travail, pas l'informatique (CLAUDE.md, § 7). La version décrite se dit en tête.
  */
-export const VERSION_DECRITE = '3.5.025';
+export const VERSION_DECRITE = '3.5.027';
 
 export const RUBRIQUES = [
   {
@@ -1615,6 +1615,18 @@ export const RUBRIQUES = [
           "Le dépôt d'office demande aussi « Mes documents » : la pièce déposée doit pouvoir se lire.",
           "Un étudiant d'essai peut être un dossier fictif ou un volontaire ; il agit pour de vrai (une demande de VA en essai est une vraie demande).",
           "Les rappels par courriel ont leur propre interrupteur, dans Configuration → Courriels → Rappels.",
+        ],
+      },
+      {
+        titre: "Les attestations des années passées dans les espaces",
+        pour: "dir",
+        ou: "Configuration → Accès → Mise en service → Les années passées dans les espaces.",
+        texte: "Lucie est née cette année, mais les étudiants ont un passé. Ce bloc dépose dans l'espace de chacun, archivés compris, les pièces des années avant l'année active : une attestation de réussite par unité réussie, une attestation de réussite « valorisation » par VA complète, et un document qui les réunit toutes. [[Compter ce qui serait déposé]] montre combien, par nature, par année et par section ; [[Déposer|fort]] les dépose, par lots de cent étudiants, jusqu'au bout.",
+        savoir: [
+          "Ce sont les pièces d'Éditions, avec leur référence et leur QR d'authenticité ; elles entrent au registre des envois.",
+          "Aucun courriel ne part, et aucun rappel « document jamais ouvert » ne les concerne : elles attendent dans « Mes documents ». Quand l'espace s'ouvrira, l'annonce aux étudiants dira qu'ils y trouvent leurs attestations.",
+          "Une pièce à laquelle il manque une mention (code FWB, ECTS, domaine, périodes, activités) n'est pas composée : elle est nommée sous le compte, à compléter au référentiel avant de relancer.",
+          "Relancer ne dépose jamais deux fois la même pièce. Un archivé la verra s'il revient.",
         ],
       },
       {
