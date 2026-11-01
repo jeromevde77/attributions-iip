@@ -978,8 +978,11 @@ select[multiple], select[size]:not([size="1"]) {
   /* LA LIGNE DE REGROUPEMENT N'EST PAS UN EN-TÊTE (3.5.042, Charles : « ce n'est pas un haut de fenêtre, ce doit être
      blanc ») : elle a son réglage propre, « Lignes de regroupement », qui suit les cartes (blanc) tant qu'on n'y touche pas. */
   background: var(--c-fond_regroupement, var(--tab-repere));
-  border-top: 1px solid var(--menu-bord);
-  border-bottom: 1px solid var(--menu-bord);
+  /* UN SEUL FILET, FIN (3.5.049, Charles : « j'ai beaucoup de mal avec l'épaisseur de ces lignes ») : un filet en haut ET
+     en bas faisait, entre deux lignes voisines, un trait double. Le filet du bas seul, de la couleur et de l'épaisseur
+     réglées (Thèmes et couleurs → Filets ; Formes et composants → Tableaux → Filets). */
+  border-top: 0;
+  border-bottom: var(--d-filet-h, 1px) solid var(--c-filet, rgb(var(--gris-200)));
   color: var(--menu-texte);
 }
 .tab-entete {
