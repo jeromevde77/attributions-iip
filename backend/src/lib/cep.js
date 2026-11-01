@@ -26,6 +26,7 @@
 
 import db from '../db/index.js';
 import { joursFeries } from '../routes/horaire.js';
+import { periodesDI } from './periodesUE.js';
 
 export const REGIONS = { bruxelles: 'Bruxelles-Capitale', wallonie: 'Wallonie', flandre: 'Flandre' };
 
@@ -337,6 +338,37 @@ export function congesDe(annee) {
   return { vacances, feries };
 }
 
+/* LES HEURES THÉORIQUES VIENNENT DU DOSSIER PÉDAGOGIQUE (3.5.015, Charles, 1er novembre 2026 : « les périodes suivies par
+   l'étudiant, hors stages et hors épreuve intégrée — les périodes professeur, autonomie comprise ») — et non de l'horaire
+   encodé, qui peut être incomplet (UE 333 : une séance de 2 h pour 170 périodes). Une période = 50 minutes (Charles).
+   periodesDI() = périodes professeur, autonomie comprise, hors Z ; on en retire les cours de stage. Les cours dispensés
+   [b] emportent leur part d'autonomie, au prorata de leurs périodes. */
+const MIN_PERIODE = 50;
+function periodesCep(ueNum, annee, coursDispenses) {
+  const u = db.prepare(`SELECT ue_tot_prf tot_prf, ue_per_cours per_cours, ue_aut aut FROM ue WHERE ue_num = ?
+    ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1`).get(ueNum, annee) || {};
+  const total = periodesDI(u);
+  const cours = db.prepare(`SELECT cours_code, COALESCE(cours_per, 0) per, COALESCE(is_stage, 0) stage, cours_nom FROM cours
+    WHERE ue_num = ? AND annee_scolaire = (SELECT MAX(annee_scolaire) FROM cours WHERE ue_num = ? AND annee_scolaire <= ?)`).all(ueNum, ueNum, annee);
+  const estStage = c => !!c.stage || HORS_CEP.test(c.cours_nom || '');
+  const perCours = cours.reduce((s, c) => s + c.per, 0) || Number(u.per_cours) || 0;
+  const aut = Math.max(0, total - perCours);
+  const part = c => c.per + (perCours ? aut * c.per / perCours : 0);
+  const stage = cours.filter(estStage).reduce((s, c) => s + part(c), 0);
+  const a = Math.max(0, total - stage);
+  const b = cours.filter(c => !estStage(c) && coursDispenses.has(c.cours_code)).reduce((s, c) => s + part(c), 0);
+  return { a: Math.round(a * MIN_PERIODE), b: Math.round(Math.min(a, b) * MIN_PERIODE), periodes: Math.round(a * 100) / 100 };
+}
+
+/** Les dates de l'unité pour l'organisation de l'étudiant (Organisation → Dates des UE). */
+function datesUE(etudId, ueNum, annee) {
+  const org = db.prepare(`SELECT COALESCE(num_organisation, 1) o FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`)
+    .get(etudId, annee, ueNum)?.o || 1;
+  const r = db.prepare(`SELECT date_debut, date_fin FROM organisation_ue WHERE ue_num = ? AND annee_scolaire = ? AND date_debut IS NOT NULL
+    ORDER BY (num_organisation = ?) DESC, num_organisation LIMIT 1`).get(ueNum, annee, org);
+  return r || {};
+}
+
 /**
  * Tout ce qu'une attestation CEP porte pour UNE unité.
  * `jusquau` borne l'assiduité : les séances futures ne se comptent pas.
@@ -350,11 +382,21 @@ export function dossierCepUE(etudId, ueNum, annee, jusquau = new Date().toISOStr
     ...bilan(seances.filter(s => s.date >= p.du && s.date <= p.au), jusquau),
   }));
   const total = bilan(seances, '9999-12-31');
+  const disp = dispenses(etudId, ueNum, annee);
+  const dp = periodesCep(ueNum, annee, disp.cours);
+  const a = dp.a, b = dispense_complete ? a : dp.b, c = a - b;
+  // [d] : la part de [c] que l'inscription tardive a fait manquer, dans la proportion que l'horaire en donne.
+  const suivi = total.theorique - total.dispense;
+  const d = suivi > 0 ? Math.round(c * total.tardive / suivi) : 0;
+  const dates = datesUE(etudId, ueNum, annee);
+  // PAS DE PAGE POUR UNE UNITÉ QUI NE DONNE AUCUNE HEURE (Charles) : dispense totale, ou rien que du stage.
+  const exclue = dispense_complete ? 'dispensée en entier (valorisation) — aucune heure de congé'
+    : a === 0 ? "stage — les heures de stage n'ouvrent pas le congé" : null;
   return {
-    ue_num: ueNum, inscription, dispense_complete,
-    debut: seances[0]?.date || null, fin: seances[seances.length - 1]?.date || null,
-    // (a) (b) (c) (d) du formulaire, en minutes
-    a: total.theorique, b: total.dispense, c: total.theorique - total.dispense, d: total.tardive,
+    ue_num: ueNum, inscription, dispense_complete, exclue, periodes_dp: dp.periodes,
+    debut: dates.date_debut || seances[0]?.date || null, fin: dates.date_fin || seances[seances.length - 1]?.date || null,
+    // (a) (b) (c) (d) du formulaire, en minutes — [a] du dossier pédagogique, 50 minutes la période
+    a, b, c, d, horaire_minutes: total.theorique,
     horaire: horaireParJour(seances.filter(s => !s.annule)),
     detail: horaireDetaille(seances),
     periodes, nb_seances: seances.length,

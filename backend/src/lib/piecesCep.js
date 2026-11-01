@@ -55,7 +55,8 @@ export function chargerCep(etudId, annee, { jusquau } = {}) {
   const sectionLib = section ? (db.prepare('SELECT libelle FROM section WHERE code = ?').get(section)?.libelle || section) : null;
   const unites = unitesInscrites(e.id, annee)
     .filter(u => !u.epreuve_integree)
-    .map(u => ({ ...u, ...dossierCepUE(e.id, u.ue_num, annee, jusquau) }));
+    .map(u => ({ ...u, ...dossierCepUE(e.id, u.ue_num, annee, jusquau) }))
+    .filter(u => !u.exclue);
   return { etudiant: e, cep, annee, section, section_libelle: sectionLib, unites, conges: congesDe(annee),
     session2: secondeSession(e.id, annee) };
 }
