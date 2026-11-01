@@ -425,7 +425,16 @@ function CalendrierConges({ onGenerer }) {
   const [d, setD] = useState(null);
   const [lignes, setLignes] = useState([]);
   const [sale, setSale] = useState(false);
-  const charger = () => api('/conges-annee').then(j => { setD(j); setLignes(j.periodes.map(p => ({ du: p.du, au: p.au, libelle: p.label || p.libelle || 'Congé' }))); setSale(j.source === 'ecole'); })
+  const charger = () => api('/conges-annee').then(j => {
+    setD(j);
+    const l = j.periodes.map(p => ({ du: p.du, au: p.au, libelle: p.label || p.libelle || 'Congé' }));
+    // Repris de l'école : on propose l'été (5 semaines dès l'ouverture de la fenêtre), à corriger si besoin.
+    if (j.source === 'ecole' && !j.semaines_ete && j.reglage?.ete_du) {
+      const d0 = new Date(`${j.reglage.ete_du}T00:00:00Z`); const w = (d0.getUTCDay() + 6) % 7; const lundi = new Date(d0.getTime() + ((7 - w) % 7) * 864e5);
+      const fin = new Date(lundi.getTime() + 32 * 864e5);
+      l.push({ du: lundi.toISOString().slice(0, 10), au: fin.toISOString().slice(0, 10), libelle: 'Vacances d’été' });
+    }
+    setLignes(l); setSale(j.source === 'ecole'); })
     .catch(e => setD({ erreur: e.message }));
   useEffect(() => { charger(); }, []);
   if (!d) return <div className="text-sm text-slate-500">Chargement…</div>;
@@ -463,9 +472,10 @@ function CalendrierConges({ onGenerer }) {
       <div className="carte overflow-hidden">
         <EnteteCarte titre="L’année qui en résulte" sous={`Une semaine compte en congé quand ses cinq jours ouvrables tombent dans une période. L’été (entre le ${d.reglage?.ete_du} et le ${d.reglage?.ete_au}) se place par personne, au générateur.`} />
         <div className="px-4 py-3 text-sm space-y-1">
-          <p><b>13 semaines de congé</b> au total : <b>{d.semaines_conge}</b> semaine(s) de congés scolaires + <b>{d.semaines_ete}</b> semaine(s) d’été, d’un seul tenant. Restent <b>{travail}</b> semaines de travail, soit <b>{heures} h</b> pour un temps plein (36 h par semaine).</p>
-          <p className="text-slate-600">Une personne peut travailler pendant une semaine de congé scolaire (Carnaval, par exemple) : son été s’allonge d’autant, au générateur. Le total reste 13 semaines de congé et 1 404 h.</p>
-          {d.semaines_conge !== 8 && <p className="text-amber-700">Les congés fixés comptent {d.semaines_conge} semaine(s) au lieu de 8 : l’été passe à {d.semaines_ete} semaine(s).</p>}
+          <p><b>13 semaines de congé</b> par an : ici <b>{d.semaines_conge}</b> semaine(s) de congés scolaires + <b>{d.semaines_ete}</b> semaine(s) d’été = <b>{d.semaines_total}</b>. Restent <b>{travail}</b> semaines de travail : <b>{heures} h</b> dues pour un temps plein (36 h × 39), en proportion pour un temps partiel.</p>
+          <p className="text-slate-600">Une personne peut travailler pendant une semaine de congé scolaire (Carnaval, par exemple) : au générateur, on la coche, et son été s’allonge d’autant. Le total reste 13 semaines de congé et 1 404 h.</p>
+          {d.source === 'module' && d.semaines_total !== 13 && <p className="text-amber-700">Les congés fixés comptent {d.semaines_total} semaine(s) au lieu de 13 : le générateur ajuste l’été pour garder 39 semaines de travail.</p>}
+          {d.source === 'ecole' && <p className="text-amber-700">Rien n’est encore fixé : vérifiez les lignes ci-dessus (l’été est proposé), puis « Fixer les congés ».</p>}
           <button className="bouton mt-2" onClick={onGenerer}>Générer l’année d’une personne →</button>
         </div>
       </div>
@@ -489,7 +499,10 @@ function Generer({ info, personnes, recharger }) {
   useEffect(() => { if (p) { setFormule(p.formule); setFraction(p.fraction); } setSim(null); }, [uid]);
   // L'été s'allonge d'une semaine par semaine de congé travaillée (l'échange).
   // 13 semaines de congé au total : l'été est le complément des congés scolaires réellement pris.
-  const nEte = 13 - ((cal?.semaines || []).filter(x => x.conge).length - travaillees.length);
+  const a2 = ANNEE.v.split('-')[1];
+  const estEte = l => l >= `${a2}-06-15` && l <= `${a2}-08-31`;
+  const eteFixe = (cal?.semaines || []).some(x => x.conge && estEte(x.lundi));
+  const nEte = 13 - ((cal?.semaines || []).filter(x => x.conge && !estEte(x.lundi)).length - travaillees.length);
   const lundisEte = useMemo(() => (cal?.semaines || []).filter(s => { const fin = new Date(new Date(s.lundi).getTime() + (7 * nEte - 1) * 864e5).toISOString().slice(0, 10); return s.lundi >= cal.reglage.ete_du && fin <= cal.reglage.ete_au; }), [cal, nEte]);
   const corps = () => ({ formule, fraction: Number(fraction), ete: ete || null, jourLibre: Number(jourLibre), travaillees, fortes: Object.fromEntries(Object.entries(fortes).filter(([, v]) => v).map(([k, v]) => [k, Math.round(Number(v) * 60)])) });
   const simuler = async () => { try { setSim(await api(`/generer/${uid}`, { method: 'POST', body: JSON.stringify(corps()) })); } catch (e) { informer({ message: e.message }); } };
@@ -513,8 +526,9 @@ function Generer({ info, personnes, recharger }) {
           </select>
           <label className="flex items-center gap-1.5">Temps <input type="number" min="0.1" max="1" step="0.05" className="controle border border-slate-300 rounded-champ w-20" value={fraction} onChange={e => setFraction(e.target.value)} /></label>
           {formule === '4j' && <label className="flex items-center gap-1.5">Jour libre <select className="controle border border-slate-300 rounded-champ" value={jourLibre} onChange={e => setJourLibre(e.target.value)}>{['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi'].map((j, i) => <option key={i} value={i}>{j}</option>)}</select></label>}
-          <label className="flex items-center gap-1.5">Été à partir du <select className="controle border border-slate-300 rounded-champ" value={ete} onChange={e => setEte(e.target.value)}>
-            <option value="">— choisir —</option>{lundisEte.map(s => <option key={s.lundi} value={s.lundi}>{s.lundi}</option>)}</select></label>
+          {eteFixe ? <span className="text-second text-slate-600">Été : {nEte} semaines, fixé dans « Congés »</span>
+            : <label className="flex items-center gap-1.5">Été ({nEte} sem.) à partir du <select className="controle border border-slate-300 rounded-champ" value={ete} onChange={e => setEte(e.target.value)}>
+            <option value="">— choisir —</option>{lundisEte.map(s => <option key={s.lundi} value={s.lundi}>{s.lundi}</option>)}</select></label>}
           <button className="bouton" onClick={simuler}>Calculer</button>
           <button className="bouton bouton-fort" disabled={!ok} onClick={ecrire}>Enregistrer l’année</button>
         </div>
@@ -522,7 +536,7 @@ function Generer({ info, personnes, recharger }) {
           <div className="px-4 pb-3 text-second text-slate-600">
             <b>Échanger une semaine de congé contre l’été</b> — cochez les semaines de congé où cette personne travaille ; son été passe à {nEte} semaines, d’un seul tenant :
             <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5">
-              {cal.semaines.filter(x => x.conge).map(x => (
+              {cal.semaines.filter(x => x.conge && !estEte(x.lundi)).map(x => (
                 <label key={x.lundi} className="inline-flex items-center gap-1.5">
                   <input type="checkbox" checked={travaillees.includes(x.lundi)} onChange={e => { setTravaillees(t => (e.target.checked ? [...t, x.lundi] : t.filter(y => y !== x.lundi))); setEte(''); setSim(null); }} />
                   {x.conge} · {fmt(x.lundi)}

@@ -251,34 +251,46 @@ export function genererAnnee(uid, annee, opts = {}, { ecrire = false, par = null
   const modele = Array.isArray(opts.modele) && opts.modele.length === 7 ? opts.modele : modeleSemaine(formule, fraction, Number(opts.jourLibre ?? 4));
   const semaines = semainesDeLAnnee(annee), conges = semainesDeConge(annee), feries = feriesDe(annee);
   const erreurs = [], avertissements = [];
-  // L'été : cinq semaines consécutives dans la fenêtre.
-  /* L'ÉCHANGE (3.5.055, Charles : « je peux décider qu'un membre du personnel travaille à Carnaval pour avoir 6 semaines
-     en été ») : une semaine de congé scolaire travaillée s'ajoute à l'été, qui reste d'un seul tenant. Le total des
-     congés ne bouge pas. */
+  /* LES 13 SEMAINES (3.5.056, Charles : « je fixe les congés, c'est-à-dire 5 semaines en été et les semaines à Toussaint,
+     Carnaval, Noël et Pâques ; tu as donc 1 404, pas 1 584 »). La direction fixe TOUTES les semaines de congé, été compris,
+     dans la face « Congés » ; le dû est TOUJOURS 36 h × 39 semaines par temps plein. Une semaine fixée en juillet-août est
+     une semaine d'été. L'ÉCHANGE : une semaine de congé scolaire travaillée (Carnaval) ajoute une semaine à l'été, accolée à
+     lui. Si aucun été n'est fixé (calendrier de l'école seul), on le place au générateur (`ete`). */
+  const [, a2] = String(annee).split('-').map(Number);
+  const estEte = l => l >= `${a2}-06-15` && l <= `${a2}-08-31`;
   const travaillees = new Set((opts.travaillees || []).map(lundiDe));
-  for (const l of travaillees) if (!conges.has(l)) erreurs.push(`La semaine du ${l} n’est pas une semaine de congé : rien à échanger.`);
-  const nEte = REGLES.congesAnnuels - ([...conges.keys()].filter(l => !travaillees.has(l)).length);
-  if (nEte < 1) erreurs.push(`Les congés scolaires (${conges.size} semaines) dépassent les 13 semaines de congé de l’année.`);
-  let ete = opts.ete || null;
+  for (const l of travaillees) if (!conges.has(l) || estEte(l)) erreurs.push(`La semaine du ${l} n’est pas une semaine de congé scolaire : rien à échanger.`);
+  const scolaires = [...conges.keys()].filter(l => !estEte(l));
+  const eteFixe = [...conges.keys()].filter(estEte).sort();
+  const prises = scolaires.filter(l => !travaillees.has(l)).length;
+  const nEte = REGLES.congesAnnuels - prises;
+  if (nEte < 1) erreurs.push(`Les congés scolaires (${prises} semaines) dépassent les 13 semaines de congé de l’année.`);
   const eteSemaines = new Set();
+  let ete = opts.ete ? lundiDe(opts.ete) : null;
+  if (!ete && eteFixe.length) ete = eteFixe[0];
   if (ete) {
-    ete = lundiDe(ete);
-    const fin = plusJours(ete, 7 * nEte - 1);
-    if (ete < R.ete_du || fin > R.ete_au) erreurs.push(`Les ${nEte} semaines d’été (${ete} → ${fin}) doivent tenir entre le ${R.ete_du} et le ${R.ete_au}.`);
-    for (let i = 0; i < nEte; i++) eteSemaines.add(plusJours(ete, 7 * i));
-    for (const l of eteSemaines) if (conges.has(l)) erreurs.push(`La semaine du ${l} est déjà un congé scolaire.`);
-  } else erreurs.push(`Les ${nEte} semaines d’été ne sont pas encore choisies.`);
-  const nbConge = conges.size;
-  if (nbConge !== 8) avertissements.push(`Les congés fixés comptent ${nbConge} semaine(s) (8 prévues : deux à Toussaint, Noël, Carnaval et Pâques) : l’été passe à ${nEte} semaine(s), pour garder 13 semaines de congé et 39 de travail.`);
+    let debut = ete;
+    // L'été fixé s'allonge d'abord après lui ; s'il sortirait de la fenêtre, il commence plus tôt.
+    if (!opts.ete && plusJours(debut, 7 * nEte - 1) > R.ete_au) debut = plusJours(lundiDe(R.ete_au), -7 * (nEte - 1));
+    const fin = plusJours(debut, 7 * nEte - 1);
+    if (debut < R.ete_du || fin > R.ete_au) erreurs.push(`Les ${nEte} semaines d’été (${debut} → ${fin}) doivent tenir entre le ${R.ete_du} et le ${R.ete_au}.`);
+    for (let i = 0; i < nEte; i++) eteSemaines.add(plusJours(debut, 7 * i));
+    ete = debut;
+  } else erreurs.push(`L’été n’est pas fixé : ajoutez-le dans la face « Congés » (${nEte} semaines).`);
+  const nbConge = scolaires.length;
+  if (eteFixe.length && eteFixe.length + scolaires.length !== REGLES.congesAnnuels)
+    avertissements.push(`Les congés fixés comptent ${eteFixe.length + scolaires.length} semaines au lieu de 13 : l’été est ramené à ${nEte} semaine(s) pour que l’année compte 39 semaines de travail.`);
   const rows = semaines.map(l => {
-    const statut = conges.has(l) && !travaillees.has(l) ? 'conge' : eteSemaines.has(l) ? 'ete' : 'travail';
-    return { lundi: l, statut, echange: conges.has(l) && travaillees.has(l) ? conges.get(l) : null,
+    const ec = eteSemaines.has(l), sc = conges.has(l) && !estEte(l) && !travaillees.has(l);
+    const statut = sc ? 'conge' : ec ? 'ete' : 'travail';
+    return { lundi: l, statut, echange: travaillees.has(l) ? conges.get(l) : null,
       libelle: statut === 'conge' ? conges.get(l) : statut === 'ete' ? 'Vacances d’été' : (travaillees.has(l) ? `${conges.get(l)} — travaillée, récupérée en été` : null),
       jours: statut === 'travail' ? modele.map(j => (j ? { ...j } : null)) : Array(7).fill(null) };
   });
   const travail = rows.filter(r => r.statut === 'travail');
   const cibleSemaine = Math.round(REGLES.hebdo * fraction);
-  const cibleAnnee = cibleSemaine * travail.length;
+  // Le dû ne dépend pas du calendrier : 36 h × 39 semaines par temps plein, toujours.
+  const cibleAnnee = cibleSemaine * (52 - REGLES.congesAnnuels);
   // Annualisé : les semaines fortes, compensées sur les autres.
   if (formule === 'annualise' && opts.fortes && Object.keys(opts.fortes).length) {
     let surplus = 0;
@@ -301,7 +313,7 @@ export function genererAnnee(uid, annee, opts = {}, { ecrire = false, par = null
   }
   const totalAnnee = rows.reduce((s, r) => s + r.minutes, 0);
   if (totalAnnee !== cibleAnnee) erreurs.push(`L’année compte ${hm(totalAnnee)} pour ${hm(cibleAnnee)} dues : rien de plus, rien de moins.`);
-  const bilan = { formule, fraction, ete, semaines_travail: travail.length, semaines_conge: nbConge - [...travaillees].filter(l => conges.has(l)).length, semaines_ete: eteSemaines.size, echanges: [...travaillees],
+  const bilan = { formule, fraction, ete, semaines_travail: travail.length, semaines_conge: prises, semaines_ete: eteSemaines.size, echanges: [...travaillees],
     cible_annee: cibleAnnee, total_annee: totalAnnee, erreurs, avertissements, semaines_en_defaut: rows.filter(r => r.controles.length).length };
   if (ecrire) {
     if (erreurs.length || bilan.semaines_en_defaut) throw Object.assign(new Error('L’année ne respecte pas les règles : rien n’est écrit.'), { status: 409, bilan });
@@ -352,7 +364,7 @@ export function modifierSemaine(uid, annee, lundi, jours, par) {
   db.prepare("UPDATE tt_semaine SET jours_json = ?, genere_par = ?, genere_le = datetime('now') WHERE utilisateur_id = ? AND lundi = ?")
     .run(JSON.stringify(jours), par, uid, lundi);
   const total = anneeDe(uid, annee).reduce((s, r) => s + r.minutes, 0);
-  const cible = Math.round(REGLES.hebdo * p.fraction) * anneeDe(uid, annee).filter(r => r.statut === 'travail').length;
+  const cible = Math.round(REGLES.hebdo * p.fraction) * (52 - REGLES.congesAnnuels);
   return { total, cible, ecart: total - cible };
 }
 
@@ -511,7 +523,7 @@ export function anneeEquipe(annee, { heures = true } = {}) {
       return heures ? { lundi: l, statut: s?.statut || null, prevu, reel } : { lundi: l, statut: s?.statut || null };
     });
     const travail = lignes.filter(x => x.statut === 'travail').length;
-    const du = Math.round(REGLES.hebdo * g.fraction) * travail;
+    const du = Math.round(REGLES.hebdo * g.fraction) * (52 - REGLES.congesAnnuels);
     const out = { id: g.id, nom: g.nom, email: g.email, formule: g.formule, fraction: g.fraction, genere: sem.size > 0, semaines: lignes };
     if (heures) Object.assign(out, { du, prevu: lignes.reduce((t, x) => t + x.prevu, 0), reel: lignes.reduce((t, x) => t + x.reel, 0) });
     return out;

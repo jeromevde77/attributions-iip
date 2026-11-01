@@ -43,7 +43,7 @@ r.get('/personnes', authRequired, (req, res) => {
     ORDER BY u.nom_complet`).all().map(p => {
     const sem = anneeDe(p.utilisateur_id, an);
     return { ...p, nom: nomEcranDuCompte(p.nom_complet, p.email), genere: sem.length > 0,
-      total: sem.reduce((s, x) => s + x.minutes, 0), cible: Math.round(REGLES.hebdo * p.fraction) * sem.filter(x => x.statut === 'travail').length };
+      total: sem.reduce((s, x) => s + x.minutes, 0), cible: Math.round(REGLES.hebdo * p.fraction) * (52 - REGLES.congesAnnuels) };
   });
   const comptes = db.prepare("SELECT id, nom_complet, email, role FROM utilisateur WHERE actif = 1 ORDER BY nom_complet").all()
     .map(u => ({ id: u.id, nom: nomEcranDuCompte(u.nom_complet, u.email), role: u.role }));
@@ -72,8 +72,10 @@ r.put('/reglage', authRequired, (req, res) => {
 r.get('/conges-annee', authRequired, (req, res) => {
   if (!gere(req.user) && !designe(req.user.id)) return res.status(404).json({ error: 'Introuvable.' });
   const an = annee(req); const p = periodesDeConge(an); const c = semainesDeConge(an);
-  // 13 semaines de congé au total : l'été en est le complément ; 39 semaines de travail, 1 404 h par temps plein.
-  res.json({ ...p, semaines_conge: c.size, semaines_ete: Math.max(0, REGLES.congesAnnuels - c.size), semaines_travail: 52 - REGLES.congesAnnuels, heures: (52 - REGLES.congesAnnuels) * 36, reglage: reglage(an) });
+  // 13 semaines de congé au total, été compris ; 39 semaines de travail, 1 404 h par temps plein (3.5.056).
+  const a2 = an.split('-')[1]; const ete = [...c.keys()].filter(l => l >= `${a2}-06-15` && l <= `${a2}-08-31`).length;
+  res.json({ ...p, semaines_conge: c.size - ete, semaines_ete: ete, semaines_total: c.size, semaines_travail: 52 - REGLES.congesAnnuels,
+    heures: (52 - REGLES.congesAnnuels) * 36, reglage: reglage(an) });
 });
 r.put('/conges-annee', authRequired, (req, res) => {
   if (!gere(req.user)) return res.status(403).json({ error: 'Réservé à la direction et à la direction adjointe.' });
@@ -100,7 +102,7 @@ r.get('/annee/:uid', authRequired, (req, res) => {
   const uid = cible(req, res); if (uid == null) return;
   const an = annee(req), sem = anneeDe(uid, an);
   const p = db.prepare('SELECT * FROM tt_personne WHERE utilisateur_id = ?').get(uid);
-  const cibleA = p ? Math.round(REGLES.hebdo * p.fraction) * sem.filter(x => x.statut === 'travail').length : 0;
+  const cibleA = p ? Math.round(REGLES.hebdo * p.fraction) * (52 - REGLES.congesAnnuels) : 0;
   res.json({ personne: p, semaines: sem, total: sem.reduce((s, x) => s + x.minutes, 0), cible: cibleA });
 });
 
