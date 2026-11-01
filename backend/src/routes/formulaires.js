@@ -48,7 +48,7 @@ function attributions(profId, annee, { expert = null } = {}) {
       (SELECT p.statut FROM professeur p WHERE p.id = v.professeur_id), '')) ${expert ? "= 'EXP'" : "<> 'EXP'"}`;
   try {
     l = db.prepare(`
-      SELECT codification_unite, ue_num, MIN(ue_nom) AS ue_nom, nom_cours, type_cours, MIN(section) AS section,
+      SELECT codification_unite, ue_num, MIN(ue_nom) AS ue_nom, nom_cours, type_cours, MIN(section) AS section, MIN(code_cours) AS code_cours,
              SUM(COALESCE(total_attribue_professeur, periodes_attribuees, 0)) AS periodes
       FROM v_attribution_complete v
       WHERE professeur_id = ? AND annee_scolaire = ? ${filtre}
@@ -169,13 +169,27 @@ function signataire(annee) {
   } catch { /* */ }
   return { nom: '', prenom: '', qualite: 'Directeur' };
 }
-/** Les séances de l'horaire d'un cours pour le mois — quand l'horaire est importé. */
+/** Les séances de l'horaire d'un cours pour le mois — quand l'horaire est importé.
+    LE CODE DU COURS MANQUAIT (3.5.021, Charles : « pourquoi tu ne complètes pas sur base de l'horaire ? ») : la liste des
+    attributions ne l'emportait pas, la recherche ne trouvait donc jamais rien et l'A27 restait à remplir à la main. Une
+    séance annulée ne compte pas. Une pièce de paiement ne compte que les séances qui NOMMENT l'expert ; celles qui ne nomment
+    personne ne servent que si l'horaire de ce cours ne le nomme jamais (sinon elles peuvent être celles d'un autre). */
 function seancesDuMois(profId, annee, mois, coursCode) {
   if (!mois || !coursCode) return null;
   try {
-    const l = db.prepare(`SELECT date, minutes FROM horaire_seance WHERE professeur_id = ? AND annee_scolaire = ?
-      AND cours_code = ? AND CAST(substr(date, 6, 2) AS INTEGER) = ? ORDER BY date`).all(profId, annee, coursCode, Number(mois));
-    if (!l.length) return null;
+    const nomme = !!db.prepare('SELECT 1 FROM horaire_seance WHERE professeur_id = ? AND annee_scolaire = ? AND cours_code = ? LIMIT 1').get(profId, annee, coursCode);
+    const qui = nomme ? 'professeur_id = ?' : '(professeur_id = ? OR professeur_id IS NULL)';
+    const l = db.prepare(`SELECT date, COALESCE(NULLIF(minutes, 0),
+        (CAST(substr(heure_fin, 1, 2) AS INTEGER) * 60 + CAST(substr(heure_fin, 4, 2) AS INTEGER))
+        - (CAST(substr(heure_debut, 1, 2) AS INTEGER) * 60 + CAST(substr(heure_debut, 4, 2) AS INTEGER))) AS minutes
+      FROM horaire_seance WHERE ${qui} AND annee_scolaire = ?
+      AND cours_code = ? AND COALESCE(annule, 0) = 0 AND CAST(substr(date, 6, 2) AS INTEGER) = ? ORDER BY date`).all(profId, annee, coursCode, Number(mois));
+    if (!l.length) {
+      // L'horaire de ce cours existe pour l'année, mais rien ce mois-ci : aucune prestation, 0 période.
+      const connu = db.prepare(`SELECT 1 FROM horaire_seance WHERE ${qui} AND annee_scolaire = ? AND cours_code = ? LIMIT 1`)
+        .get(profId, annee, coursCode);
+      return connu ? { dates: '—', periodes: 0 } : null;
+    }
     const jours = [...new Set(l.map(z => z.date.slice(8, 10)))];
     return { dates: `${jours.join(', ')}/${String(mois).padStart(2, '0')}`, periodes: Math.round(l.reduce((n, z) => n + (z.minutes || 0), 0) / 50) };
   } catch { return null; }
