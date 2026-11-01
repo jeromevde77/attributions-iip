@@ -2139,7 +2139,7 @@ const THEMES = [
     valeurs: COULEURS_SOMBRE },
   /* MÉTAL ET PASTEL (3.5.037) : chacun peut les choisir pour soi (palette de la barre du haut) ; l'école peut aussi les
      adopter ici pour tout le monde. Mêmes valeurs, écrites une fois (lib/couleurs.js). */
-  { cle: 'metal', nom: 'Métal', texte: 'Acier et gris froids ; les états gardent leur sens.', gris: 'neutre', valeurs: COULEURS_METAL },
+  { cle: 'metal', nom: 'Métal', texte: 'Les gris d’Apple, sans couleur ; les états gardent leur sens.', gris: 'apple', valeurs: COULEURS_METAL },
   { cle: 'pastel', nom: 'Pastel', texte: 'Tons doux sur fond blanc ; les états gardent leur sens.', gris: 'neutre', valeurs: COULEURS_PASTEL },
 ];
 const GROUPES_COULEURS = [
