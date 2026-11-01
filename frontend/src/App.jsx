@@ -835,6 +835,7 @@ export default function App() {
       <Route path="/"             element={<Navigate to="/accueil" replace />} />
       <Route path="/attributions" element={<Navigate to="/organisation" replace />} />
       <Route path="/professeurs"  element={<ProtectedLayout><Professeurs /></ProtectedLayout>} />
+      <Route path="/temps-travail" element={<Navigate to="/professeurs?vue=temps" replace />} />
       <Route path="/accueil"      element={<ProtectedLayout><AxeAccueil /></ProtectedLayout>} />
       <Route path="/organisation" element={<ProtectedLayout><Organisation /></ProtectedLayout>} />
       <Route path="/etudiants"    element={<ProtectedLayout><AxeEtudiants /></ProtectedLayout>} />
