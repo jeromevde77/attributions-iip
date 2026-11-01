@@ -5,7 +5,7 @@ import { readFileSync, createReadStream, writeFileSync, copyFileSync, existsSync
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import db from '../db/index.js';
-import { professeurDe } from '../middleware/auth.js';
+import { professeurDe, directionStricte } from '../middleware/auth.js';
 import { messagesRecus, videLe } from './communication.js';
 import { anneeActiveEnBase } from '../helpers/annee.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
@@ -201,7 +201,7 @@ r.post('/rollback/:snapshotId', authRequired, roleRequired('admin'), (req, res) 
 
 // ─── Backup SQLite ────────────────────────────────────────────────────────────
 
-r.get('/backup', authRequired, roleRequired('admin'), (req, res) => {
+r.get('/backup', authRequired, directionStricte, (req, res) => {
   try {
     const dbPath = resolve(__dirname, '../../data/attributions.db');
     const buf = readFileSync(dbPath);

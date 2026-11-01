@@ -1,13 +1,15 @@
 /** Configuration → Fonctions (3.5.001) : lire et régler l'état de chaque fonction ; savoir ce qui vaut pour moi. */
 import { Router } from 'express';
 import { authRequired } from '../middleware/auth.js';
+import { litLaConfiguration } from '../middleware/permissions.js';
 import { reglagesFonctions, reglerFonctions, fonctionPour, CATALOGUE } from '../lib/fonctions.js';
 import { deposerBientot } from '../lib/portailSync.js';
 import { deposerHistorique } from '../lib/depotHistorique.js';
 
 const r = Router();
 const DIRECTION = ['admin', 'directeur', 'directeur_adjoint'];
-const direction = (req, res, next) => (DIRECTION.includes(req.user?.role) ? next()
+// La lecture de la configuration (3.5.030) voit la Mise en service sans la changer.
+const direction = (req, res, next) => (DIRECTION.includes(req.user?.role) || (req.method === 'GET' && litLaConfiguration(req.user)) ? next()
   : res.status(403).json({ error: 'Réservé à la direction.' }));
 
 // Ce qui vaut pour le compte connecté (l'écran cache ce qui est éteint pour lui).

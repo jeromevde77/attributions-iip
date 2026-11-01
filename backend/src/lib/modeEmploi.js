@@ -10,7 +10,7 @@
  *   savoir — ce qu'il faut savoir : les règles qui bloquent ou qui surprennent.
  * Il explique le travail, pas l'informatique (CLAUDE.md, § 7). La version décrite se dit en tête.
  */
-export const VERSION_DECRITE = '3.5.029';
+export const VERSION_DECRITE = '3.5.030';
 
 export const RUBRIQUES = [
   {
@@ -778,7 +778,7 @@ export const RUBRIQUES = [
         texte: "Quand une séance de seconde session se clôt, Lucie cherche les étudiants refusés dont le PAE porte des unités qui ont l'unité refusée en prérequis — directement ou en cascade — et prévient le secrétariat, la coordination de la section et la direction. Dans la fenêtre, l'aperçu montre les unités à retirer (on peut en décocher), ce que valent leurs frais, ce qui est déduit de ce que l'étudiant doit encore et ce qui lui est remboursé, et le texte qu'il recevra. [[Retirer et prévenir|IconCheck|fort]] retire les unités de son PAE, note le remboursement et le prévient.",
         savoir: [
           "Rien n'est retiré d'office : c'est le secrétariat (ou la direction) qui clique. La coordination lit les dossiers de ses sections.",
-          "L'étudiant est prévenu par un message dans son espace si « Messages » lui est ouvert, sinon par courriel (adresse d'institut, à défaut privée). Le texte cite le décret du 16 avril 1991 et le règlement des études.",
+          "L'étudiant est prévenu par un message dans son espace si « Messages » lui est ouvert, sinon par courriel (adresse d'institut, à défaut privée). Le texte cite l'article 32, § 3, du règlement des études (décret du 16 avril 1991, article 36ter).",
           "Les frais remboursés sont ceux des unités retirées — droit d'inscription et frais variables —, jamais la partie fixe ni les frais d'analyse d'une VA. Si l'étudiant doit encore de l'argent, ils s'en déduisent d'abord.",
           "Le remboursement s'affiche dans la fiche → Finances (« Remboursement à faire ») jusqu'à ce qu'il soit encodé comme un versement négatif, nature « Remboursement ».",
           "Une unité qui porte déjà un résultat, une note ou un report reste au programme : elle est nommée. « Sans suite » ferme un dossier avec un motif.",
@@ -1616,6 +1616,18 @@ export const RUBRIQUES = [
         ],
         images: [
           { src: "/guide/config-courriels.png", legende: "Configuration → Courriels : l'envoi de documents par courriel, le récapitulatif quotidien ([[M’envoyer le mien maintenant]] pour l'essayer) et l'expéditeur — Microsoft 365 ou serveur SMTP." },
+        ],
+      },
+      {
+        titre: "Ouvrir Configuration en lecture (le service informatique)",
+        pour: "dir",
+        ou: "Configuration → Accès → Plafonds par rôle, colonne « Configuration ».",
+        texte: "Configuration est un module de la grille, comme les autres. Il naît « écrit » pour la direction et « aucun » pour les autres rôles. Mis à « lit » pour un rôle — par exemple un rôle « Service informatique » créé par [[+ Nouveau rôle]], en lecture partout sauf Dotation, Budget et Recrutement —, il fait paraître « Config. » dans la barre : chaque onglet se lit, aucun champ ni bouton n'y répond, et un bandeau le dit.",
+        savoir: [
+          "Écrire reste à la direction, quoi que dise la grille : le serveur refuse toute modification.",
+          "Les mots de passe et les clés de la messagerie ne s'affichent jamais, à personne.",
+          "Deux lectures restent à la direction seule, parce qu'elles contiennent tout : télécharger une sauvegarde et l'export de la base.",
+          "Dotation, Budget et Recrutement suivent leur propre colonne : à « aucun », ils restent fermés, Configuration ouverte ou non.",
         ],
       },
       {

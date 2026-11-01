@@ -124,7 +124,7 @@ function texteAvis(e, ref, retirees, ch) {
 Cette unité est un prérequis des unités suivantes, auxquelles vous étiez inscrit(e) :
 ${liste}
 
-Conformément au décret du 16 avril 1991 organisant l'enseignement de promotion sociale et au règlement des études de l'Institut, une unité ne peut être suivie tant que ses prérequis ne sont pas acquis : votre inscription à ces unités est donc annulée.
+Une unité ne peut être suivie tant que ses prérequis ne sont pas acquis. Conformément à l'article 32, § 3, du règlement des études de l'Institut (décret du 16 avril 1991, article 36ter), votre programme annuel est modifié en conséquence : votre inscription à ces unités est annulée.
 ${frais ? `\n${frais}\n` : ''}
 Pour toute question, adressez-vous au secrétariat ou à votre coordination.
 

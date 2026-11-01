@@ -3044,6 +3044,17 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   réponse possible. Accès **bloqué hors de Belgique**, exception accordée par le secrétariat pour une période ; la vérification
   du QR reste ouverte partout. (Mot de passe et Belgique : FAITS en 3.1.513 ; VA en ligne et code du candidat : FAITS en 3.1.514 ; PAE en ligne : FAIT en 3.1.515 ; messages : FAITS en 3.1.516 ; parcours, frais, aide : FAITS en 3.1.517.) Toute écriture venant du portail passe par le relevé de Lucie (`portailSync.js`), jamais l'inverse. **Ordre de construction** : 1 mot de passe et blocage hors Belgique · 2 VA en ligne déplacée + code candidat · 3 PAE en ligne · 4 messages · puis parcours, frais, aide.
 
+**CONFIGURATION DANS LA GRILLE DES PLAFONDS** (3.5.030, Charles, 1er novembre 2026 : « un accès en lecture à tout sauf dotation,
+finances-budget et recrutement au service info » ; tranché : Configuration en lecture, mots de passe masqués). Module
+`configuration` (MODULES de `permissions.js`, `MODULES_ACCES` de `lib/modules.js`) : naît « ecrit » pour la direction, « rien »
+pour tous les autres (`initial`). « lit » : `roleRequired('admin')` laisse passer une LECTURE (GET/HEAD) quand
+`litLaConfiguration(user)` (auth.js) ; écrire reste à la direction ; `directionStricte` garde ce qui contient tout (télécharger une
+sauvegarde, `/historique/backup`). Barre : « Config. » si direction ou plafond ≠ rien ; l'écran passe en lecture seule
+(`fieldset disabled`, bandeau). Mise en service (`routes/fonctions.js`) lisible aussi. Les secrets de messagerie étaient déjà
+masqués (`pass_defini`, `secret_defini`). **Le rôle « Service informatique » se crée à l'écran** (+ Nouveau rôle).
+Le refus en 2e session cite l'**article 32 § 3 du RDE** (D. 16/04/1991, art. 36ter) ; le remboursement est maintenu malgré l'art. 19 §2
+(désinscription de l'étudiant, autre cas) — à préciser dans le RDE 2027-2028.
+
 **LE REFUS EN SECONDE SESSION ET LE PAE** (3.5.029, Charles, 1er novembre 2026 : « notification au secrétariat et à la
 coordination : l'UE XXX est échouée en 2e session, les UE suivantes doivent être retirées du PAE ; puis un mail — ou un message
 dans son espace — : inscription annulée conformément au décret du 16.04.1991, frais liés remboursés sauf ceux d'une VA » ; tranché :

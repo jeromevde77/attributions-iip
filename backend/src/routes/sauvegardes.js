@@ -17,7 +17,7 @@ import fs from 'fs';
 import path from 'path';
 import Database from 'better-sqlite3';
 import db from '../db/index.js';
-import { authRequired, roleRequired } from '../middleware/auth.js';
+import { authRequired, roleRequired, directionStricte } from '../middleware/auth.js';
 
 const r = Router();
 
@@ -249,7 +249,7 @@ r.post('/executer', authRequired, roleRequired('admin'), async (req, res) => {
   res.json(resultat);
 });
 
-r.get('/:id/telecharger', authRequired, roleRequired('admin'), (req, res) => {
+r.get('/:id/telecharger', authRequired, directionStricte, (req, res) => {
   const s = db.prepare('SELECT * FROM sauvegarde WHERE id = ?').get(Number(req.params.id));
   if (!s || s.erreur) return res.status(404).json({ error: 'sauvegarde introuvable' });
   const chemin = path.join(DOSSIER, s.fichier);

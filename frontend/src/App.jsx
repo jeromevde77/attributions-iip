@@ -590,7 +590,7 @@ function ProtectedLayout({ children }) {
      2026 : « changer cette icône et mettre Documentation à côté, ce sera plus
      clair pour tout le monde »). Une bibliothèque, et son nom. */
   nav.push(['/documentation', 'Documentation', ICONE_AXE.documentation]);
-  if (estDirection(u)) nav.push(['/configuration', 'Config.', ICONE_AXE.configuration]);
+  if (estDirection(u) || droitEffectif(u, 'configuration') !== 'rien') nav.push(['/configuration', 'Config.', ICONE_AXE.configuration]);
 
   return (
     <div className="min-h-screen flex flex-col">

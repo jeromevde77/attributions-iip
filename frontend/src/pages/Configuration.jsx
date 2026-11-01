@@ -1,3 +1,4 @@
+import { estDirection, droitEffectif } from '../lib/modules.js';
 import { ICONE_AXE } from '../lib/iconesAxes.js';
 import InscritsPrevus from '../components/InscritsPrevus.jsx';
 import { useEffect, useState, lazy, Suspense } from 'react';
@@ -1177,6 +1178,7 @@ export default function Configuration() {
   // « QUI A FAIT QUOI » N'APPARAÎT QUE POUR L'ADMINISTRATEUR, et le serveur le
   // refuse de toute façon : un onglet visible qui rend un 403 se lit « Lucie
   // est cassée », pas « ce n'est pas pour vous ».
+  const lectureSeule = !estDirection(getUser()) && droitEffectif(getUser(), 'configuration') === 'lit';
   const groupesVisibles = CONF_GROUPES.map(g => ({ ...g,
     items: g.items.filter(t => !['audit', 'transferts'].includes(t.key) || getUser()?.role === 'admin') }));
   const porte = t => t.key === tab || (t.faces || []).some(([k]) => k === tab);
@@ -1227,6 +1229,10 @@ export default function Configuration() {
           </div>
         )}
 
+      {/* LA CONFIGURATION EN LECTURE (3.5.030) : un rôle qui ne fait que lire voit chaque onglet, mais aucun champ ni bouton
+          n'y répond (fieldset désactivé) — et le serveur refuserait de toute façon. */}
+      {lectureSeule && <div className="bloc-etat px-3 py-2 text-second" data-etat="disponible">Lecture seule : vous voyez les réglages, seule la direction les modifie.</div>}
+      <fieldset disabled={lectureSeule} className="contents">
       {ongletActif?.demenage && <Demenage d={ongletActif.demenage} />}
 
       {/* ── Le référentiel de l'année, ses quatre faces ── */}
@@ -1474,6 +1480,7 @@ docker start attributions-backend-dev`}</div>
       {tab === 'procedures' && <div className="space-y-4"><GestionParametres groupes={['procedures']} /><OngletProcedures /></div>}
       {tab === 'audit' && <Audit />}
       {false && tab === 'statistiques' && <OngletStatistiques />}
+      </fieldset>
 
         </div>
     </div>
