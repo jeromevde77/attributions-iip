@@ -29,6 +29,9 @@ export const REGLES = {
   hebdo: 36 * 60, pauseMin: 15, seuilPause: 6 * 60, continuMax: 6 * 60,
   jourMax: 8 * 60, jourMaxLong: 9 * 60, repos: 11 * 60, semaineMaxFlex: 45 * 60,
   ecartJour: 2 * 60, ecartSemaine: 5 * 60, semainesEte: 5,
+  // 13 SEMAINES DE CONGÉ AU TOTAL (Charles, 1er novembre 2026) : 39 semaines de travail, 36 × 39 = 1 404 h par temps plein.
+  // L'été est le complément : 13 − les semaines de congé scolaire réellement prises.
+  congesAnnuels: 13,
 };
 export const FORMULES = {
   '5j': '36 h sur 5 jours, sans flexibilité',
@@ -73,6 +76,10 @@ export function migrerTempsTravail(base = db) {
       objet TEXT NOT NULL, periode TEXT NOT NULL,        -- releve + « 2026-11 » | conges + « 2026-2027 »
       etape TEXT NOT NULL,                              -- personne | adjoint | direction
       par_id INTEGER, par_nom TEXT, le TEXT DEFAULT (datetime('now')), empreinte TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS tt_conge (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, annee TEXT NOT NULL, du TEXT NOT NULL, au TEXT NOT NULL, libelle TEXT,
+      fixe_par TEXT, fixe_le TEXT DEFAULT (datetime('now')));
+    CREATE INDEX IF NOT EXISTS idx_tt_conge ON tt_conge(annee);
     CREATE TRIGGER IF NOT EXISTS tt_signature_sans_retouche BEFORE UPDATE ON tt_signature
       BEGIN SELECT RAISE(ABORT, 'Une signature ne se modifie pas.'); END;
     CREATE TRIGGER IF NOT EXISTS tt_signature_sans_effacement BEFORE DELETE ON tt_signature
@@ -117,9 +124,37 @@ export function feriesDe(annee) {
   return new Map([...joursFeries(a1), ...joursFeries(a2)]);
 }
 
-/** Les semaines de congé scolaire : celles dont les cinq jours ouvrables tombent dans une période « vacances ». */
+/* LES CONGÉS DU PERSONNEL ADMINISTRATIF SE FIXENT ICI (3.5.055, Charles : « tu ne me permets pas de générer le calendrier
+ * de l'année et de fixer les vacances ? »). La direction fixe, année par année, les périodes de congé (Toussaint, Noël,
+ * Carnaval, Pâques…) ; tant qu'elle n'en a fixé aucune, le module lit le calendrier de l'école (« vacances » de la
+ * Planification). Les cinq semaines d'été se choisissent par personne, au générateur. */
+export function congesFixes(annee) {
+  try { return db.prepare('SELECT id, du, au, libelle, fixe_par, fixe_le FROM tt_conge WHERE annee = ? ORDER BY du').all(annee); } catch { return []; }
+}
+export function periodesDeConge(annee) {
+  const fixes = congesFixes(annee);
+  if (fixes.length) return { source: 'module', periodes: fixes.map(c => ({ du: c.du, au: c.au, label: c.libelle || 'Congé' })) };
+  return { source: 'ecole', periodes: congesDe(annee).vacances };
+}
+export function fixerConges(annee, periodes, par) {
+  const l = (periodes || []).map(p => ({ du: String(p.du || ''), au: String(p.au || ''), libelle: String(p.libelle || '').trim() || 'Congé' }));
+  for (const p of l) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(p.du) || !/^\d{4}-\d{2}-\d{2}$/.test(p.au)) throw Object.assign(new Error(`« ${p.libelle} » : dates à écrire.`), { status: 400 });
+    if (p.au < p.du) throw Object.assign(new Error(`« ${p.libelle} » : la fin précède le début.`), { status: 400 });
+  }
+  const tri = [...l].sort((a, b) => a.du.localeCompare(b.du));
+  for (let i = 1; i < tri.length; i++) if (tri[i].du <= tri[i - 1].au) throw Object.assign(new Error(`« ${tri[i - 1].libelle} » et « ${tri[i].libelle} » se chevauchent.`), { status: 400 });
+  db.transaction(() => {
+    db.prepare('DELETE FROM tt_conge WHERE annee = ?').run(annee);
+    const ins = db.prepare('INSERT INTO tt_conge (annee, du, au, libelle, fixe_par) VALUES (?,?,?,?,?)');
+    for (const p of tri) ins.run(annee, p.du, p.au, p.libelle, par);
+  })();
+  return congesFixes(annee);
+}
+
+/** Les semaines de congé : celles dont les cinq jours ouvrables tombent dans une période de congé. */
 export function semainesDeConge(annee) {
-  const { vacances } = congesDe(annee);
+  const { periodes: vacances } = periodesDeConge(annee);
   const out = new Map();
   for (const l of semainesDeLAnnee(annee)) {
     const v = vacances.find(p => p.du <= l && p.au >= plusJours(l, 4));
@@ -217,20 +252,28 @@ export function genererAnnee(uid, annee, opts = {}, { ecrire = false, par = null
   const semaines = semainesDeLAnnee(annee), conges = semainesDeConge(annee), feries = feriesDe(annee);
   const erreurs = [], avertissements = [];
   // L'été : cinq semaines consécutives dans la fenêtre.
+  /* L'ÉCHANGE (3.5.055, Charles : « je peux décider qu'un membre du personnel travaille à Carnaval pour avoir 6 semaines
+     en été ») : une semaine de congé scolaire travaillée s'ajoute à l'été, qui reste d'un seul tenant. Le total des
+     congés ne bouge pas. */
+  const travaillees = new Set((opts.travaillees || []).map(lundiDe));
+  for (const l of travaillees) if (!conges.has(l)) erreurs.push(`La semaine du ${l} n’est pas une semaine de congé : rien à échanger.`);
+  const nEte = REGLES.congesAnnuels - ([...conges.keys()].filter(l => !travaillees.has(l)).length);
+  if (nEte < 1) erreurs.push(`Les congés scolaires (${conges.size} semaines) dépassent les 13 semaines de congé de l’année.`);
   let ete = opts.ete || null;
   const eteSemaines = new Set();
   if (ete) {
     ete = lundiDe(ete);
-    const fin = plusJours(ete, 7 * REGLES.semainesEte - 1);
-    if (ete < R.ete_du || fin > R.ete_au) erreurs.push(`Les cinq semaines d’été (${ete} → ${fin}) doivent tenir entre le ${R.ete_du} et le ${R.ete_au}.`);
-    for (let i = 0; i < REGLES.semainesEte; i++) eteSemaines.add(plusJours(ete, 7 * i));
+    const fin = plusJours(ete, 7 * nEte - 1);
+    if (ete < R.ete_du || fin > R.ete_au) erreurs.push(`Les ${nEte} semaines d’été (${ete} → ${fin}) doivent tenir entre le ${R.ete_du} et le ${R.ete_au}.`);
+    for (let i = 0; i < nEte; i++) eteSemaines.add(plusJours(ete, 7 * i));
     for (const l of eteSemaines) if (conges.has(l)) erreurs.push(`La semaine du ${l} est déjà un congé scolaire.`);
-  } else erreurs.push('Les cinq semaines d’été ne sont pas encore choisies.');
+  } else erreurs.push(`Les ${nEte} semaines d’été ne sont pas encore choisies.`);
   const nbConge = conges.size;
-  if (nbConge !== 8) avertissements.push(`Le calendrier de l’école compte ${nbConge} semaine(s) de congés scolaires (8 attendues : deux à Toussaint, Noël, Carnaval et Pâques). L’année se calcule sur ce calendrier : vérifiez-le dans Organisation → Planification → calendrier.`);
+  if (nbConge !== 8) avertissements.push(`Les congés fixés comptent ${nbConge} semaine(s) (8 prévues : deux à Toussaint, Noël, Carnaval et Pâques) : l’été passe à ${nEte} semaine(s), pour garder 13 semaines de congé et 39 de travail.`);
   const rows = semaines.map(l => {
-    const statut = conges.has(l) ? 'conge' : eteSemaines.has(l) ? 'ete' : 'travail';
-    return { lundi: l, statut, libelle: conges.get(l) || (statut === 'ete' ? 'Vacances d’été' : null),
+    const statut = conges.has(l) && !travaillees.has(l) ? 'conge' : eteSemaines.has(l) ? 'ete' : 'travail';
+    return { lundi: l, statut, echange: conges.has(l) && travaillees.has(l) ? conges.get(l) : null,
+      libelle: statut === 'conge' ? conges.get(l) : statut === 'ete' ? 'Vacances d’été' : (travaillees.has(l) ? `${conges.get(l)} — travaillée, récupérée en été` : null),
       jours: statut === 'travail' ? modele.map(j => (j ? { ...j } : null)) : Array(7).fill(null) };
   });
   const travail = rows.filter(r => r.statut === 'travail');
@@ -258,7 +301,7 @@ export function genererAnnee(uid, annee, opts = {}, { ecrire = false, par = null
   }
   const totalAnnee = rows.reduce((s, r) => s + r.minutes, 0);
   if (totalAnnee !== cibleAnnee) erreurs.push(`L’année compte ${hm(totalAnnee)} pour ${hm(cibleAnnee)} dues : rien de plus, rien de moins.`);
-  const bilan = { formule, fraction, ete, semaines_travail: travail.length, semaines_conge: nbConge, semaines_ete: eteSemaines.size,
+  const bilan = { formule, fraction, ete, semaines_travail: travail.length, semaines_conge: nbConge - [...travaillees].filter(l => conges.has(l)).length, semaines_ete: eteSemaines.size, echanges: [...travaillees],
     cible_annee: cibleAnnee, total_annee: totalAnnee, erreurs, avertissements, semaines_en_defaut: rows.filter(r => r.controles.length).length };
   if (ecrire) {
     if (erreurs.length || bilan.semaines_en_defaut) throw Object.assign(new Error('L’année ne respecte pas les règles : rien n’est écrit.'), { status: 409, bilan });

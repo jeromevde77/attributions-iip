@@ -38,7 +38,7 @@ t('39 semaines de travail', g.bilan.semaines_travail === 39, g.bilan.semaines_tr
 t('1 404 h dues et prévues', g.bilan.cible_annee === 1404 * 60 && g.bilan.total_annee === 1404 * 60, g.bilan);
 t('aucune erreur', !g.bilan.erreurs.length && !g.bilan.semaines_en_defaut, g.bilan.erreurs);
 t('7 h 12 par jour, pause de 30 min', T.dureeJour(g.modele[0]) === 432 && g.modele[0].pause_debut === '12:00', g.modele[0]);
-t('l’été hors fenêtre est refusé', T.genererAnnee(1, A, { formule: '5j', ete: '2027-07-19' }).bilan.erreurs.some(e => /cinq semaines/.test(e)));
+t('l’été hors fenêtre est refusé', T.genererAnnee(1, A, { formule: '5j', ete: '2027-07-19' }).bilan.erreurs.some(e => /5 semaines d’été/.test(e)));
 t('sans été : signalé', T.genererAnnee(1, A, { formule: '5j' }).bilan.erreurs.some(e => /pas encore choisies/.test(e)));
 g = T.genererAnnee(1, A, { formule: '5j', fraction: 1, ete: '2027-07-05' }, { ecrire: true, par: 'banc' });
 t('écrit : 52 semaines en base', T.anneeDe(1, A).length === 52);
@@ -107,6 +107,21 @@ const se = T.semaineEquipe(A, '2026-11-04');
 t('la semaine part du lundi', se.lundi === '2026-11-02');
 const s1 = se.personnes.find(p => p.id === 1);
 t('semaine du 2 novembre : 36 h prévues, 29 h 18 prestées', s1.prevu === 2160 && s1.preste === 2160 + 30 - 432, [s1.prevu, s1.preste]);
+
+console.log('\nL’échange : Carnaval travaillé, six semaines d’été');
+{ const lc = [...T.semainesDeConge(A).keys()].find(l => l.startsWith('2027-02-15'));
+  const g2 = T.genererAnnee(1, A, { formule: '5j', ete: '2027-07-05', travaillees: [lc] });
+  t('six semaines d’été, une de congé en moins, toujours 39 semaines et 1 404 h', g2.bilan.semaines_ete === 6 && g2.bilan.semaines_travail === 39 && g2.bilan.total_annee === 1404 * 60 && !g2.bilan.erreurs.length, g2.bilan);
+  t('été de six semaines au 12 juillet : hors fenêtre', T.genererAnnee(1, A, { formule: '5j', ete: '2027-07-12', travaillees: [lc] }).bilan.erreurs.some(e => /6 semaines/.test(e)));
+}
+
+console.log('\nLes congés fixés par la direction');
+t('sans congés fixés : le calendrier de l’école', T.periodesDeConge(A).source === 'ecole');
+T.fixerConges(A, [{ du: '2026-10-19', au: '2026-10-30', libelle: 'Toussaint' }, { du: '2026-12-21', au: '2027-01-01', libelle: 'Noël' },
+  { du: '2027-02-15', au: '2027-02-26', libelle: 'Carnaval' }, { du: '2027-04-26', au: '2027-05-07', libelle: 'Pâques' }, { du: '2027-05-10', au: '2027-05-14', libelle: 'Pont' }], 'banc');
+t('fixés : 9 semaines de congé', T.periodesDeConge(A).source === 'module' && T.semainesDeConge(A).size === 9, T.semainesDeConge(A).size);
+{ const g3 = T.genererAnnee(1, A, { formule: '5j', ete: '2027-07-05' }); t('9 semaines de congé : l’été passe à 4, toujours 39 semaines et 1 404 h', g3.bilan.semaines_ete === 4 && g3.bilan.semaines_travail === 39 && g3.bilan.cible_annee === 1404 * 60, g3.bilan); }
+t('deux périodes qui se chevauchent : refusé', /chevauchent/.test((() => { try { T.fixerConges(A, [{ du: '2026-10-19', au: '2026-10-30', libelle: 'A' }, { du: '2026-10-26', au: '2026-11-06', libelle: 'B' }], 'b'); return ''; } catch (e) { return e.message; } })()));
 
 console.log(`\n${ok} ok, ${ko} faux`);
 process.exit(ko ? 1 : 0);

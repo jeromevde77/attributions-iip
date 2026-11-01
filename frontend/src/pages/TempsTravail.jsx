@@ -57,9 +57,9 @@ export default function TempsTravail() {
   if (!info.gere && !info.designe) return <div className="carte px-4 py-3 text-sm text-slate-600">Le temps de travail ne concerne que les membres du personnel désignés par la direction.</div>;
 
   const faces = [
-    ...(info.designe || info.gere ? [['annee', 'Année', IconCalendarWeek], ['releve', 'Relevé du mois', IconClockHour4],
-      ['equipe-annee', 'L’équipe : l’année', IconUsers], ['equipe-semaine', 'L’équipe : une semaine', IconUsers], ['equipe', 'L’équipe : un mois', IconUsers]] : []),
-    ...(info.gere ? [['suivi', 'Suivi', IconChecklist], ['generer', 'Générer l’année', IconWand], ['reglages', 'Personnes et réglages', IconSettings]] : []),
+    ...(info.designe || info.gere ? [['annee', 'Année', IconCalendarWeek], ['releve', 'Relevé', IconClockHour4],
+      ['equipe-annee', 'Équipe · année', IconUsers], ['equipe-semaine', 'Équipe · semaine', IconUsers], ['equipe', 'Équipe · mois', IconUsers]] : []),
+    ...(info.gere ? [['suivi', 'Suivi', IconChecklist], ['calendrier', 'Congés', IconCalendarWeek], ['generer', 'Générer', IconWand], ['reglages', 'Personnes', IconSettings]] : []),
   ];
   const listePers = personnes.personnes || [];
   const ouvrir = async url => { try { setApercu(await api(url)); } catch (e) { informer({ message: e.message }); } };
@@ -94,6 +94,7 @@ export default function TempsTravail() {
       {face === 'equipe-annee' && <EquipeAnnee gere={info.gere} onSemaine={l => { SEMAINE.v = l; setFace('equipe-semaine'); }} />}
       {face === 'equipe-semaine' && <EquipeSemaine gere={info.gere} />}
       {face === 'suivi' && <Suivi onOuvrir={(id, f) => { setUid(id); setFace(f); }} />}
+      {face === 'calendrier' && <CalendrierConges onGenerer={() => setFace('generer')} />}
       {face === 'generer' && <Generer info={info} personnes={listePers} recharger={chargerPersonnes} />}
       </div>
       {face === 'reglages' && <Reglages info={info} donnees={personnes} recharger={() => { chargerPersonnes(); api('/moi').then(setInfo); }} />}
@@ -416,6 +417,62 @@ function Suivi({ onOuvrir }) {
   );
 }
 
+/* LE CALENDRIER DE L'ANNÉE ET SES CONGÉS (3.5.055, Charles : « tu ne me permets pas de générer le calendrier de l'année et
+   de fixer les vacances ? »). La direction fixe les périodes de congé ; tant qu'elle ne l'a pas fait, on voit celles du
+   calendrier de l'école, à reprendre d'un clic. Le générateur s'en sert ; les cinq semaines d'été se choisissent par
+   personne, au générateur. */
+function CalendrierConges({ onGenerer }) {
+  const [d, setD] = useState(null);
+  const [lignes, setLignes] = useState([]);
+  const [sale, setSale] = useState(false);
+  const charger = () => api('/conges-annee').then(j => { setD(j); setLignes(j.periodes.map(p => ({ du: p.du, au: p.au, libelle: p.label || p.libelle || 'Congé' }))); setSale(j.source === 'ecole'); })
+    .catch(e => setD({ erreur: e.message }));
+  useEffect(() => { charger(); }, []);
+  if (!d) return <div className="text-sm text-slate-500">Chargement…</div>;
+  if (d.erreur) return <div className="text-sm text-red-700">{d.erreur}</div>;
+  const maj = (i, k, v) => { setLignes(l => l.map((x, j) => (j === i ? { ...x, [k]: v } : x))); setSale(true); };
+  const enregistrer = async () => {
+    try { await api('/conges-annee', { method: 'PUT', body: JSON.stringify({ periodes: lignes }) }); await charger(); setSale(false); informer({ message: 'Congés de l’année fixés.' }); }
+    catch (e) { informer({ message: e.message }); }
+  };
+  const travail = d.semaines_travail, heures = d.heures;
+  return (
+    <div className="space-y-4">
+      <div className="carte overflow-hidden">
+        <EnteteCarte titre={`Les congés de l’année ${ANNEE.v}`}
+          sous={d.source === 'ecole' ? 'Repris du calendrier de l’école : vérifiez, corrigez, puis « Fixer les congés ».' : 'Fixés par la direction pour le personnel administratif.'}>
+          <button className="bouton bouton-fort" disabled={!sale} onClick={enregistrer}>Fixer les congés</button>
+        </EnteteCarte>
+        <Tableau dense>
+          <TableauEntete><Th>Congé</Th><Th>Du</Th><Th>Au</Th><Th /></TableauEntete>
+          <tbody>
+            {lignes.map((x, i) => (
+              <Tr key={i}>
+                <Td><input className="controle border border-slate-300 rounded-champ text-sm w-56" value={x.libelle} onChange={e => maj(i, 'libelle', e.target.value)} /></Td>
+                <Td><input type="date" className="controle border border-slate-300 rounded-champ text-sm" value={x.du} onChange={e => maj(i, 'du', e.target.value)} /></Td>
+                <Td><input type="date" className="controle border border-slate-300 rounded-champ text-sm" value={x.au} onChange={e => maj(i, 'au', e.target.value)} /></Td>
+                <Td align="droite"><button className="bouton px-2 py-0.5 text-second" onClick={() => { setLignes(l => l.filter((_, j) => j !== i)); setSale(true); }}>Retirer</button></Td>
+              </Tr>
+            ))}
+          </tbody>
+        </Tableau>
+        <div className="px-4 py-3 flex flex-wrap items-center gap-2">
+          <button className="bouton" onClick={() => { setLignes(l => [...l, { du: '', au: '', libelle: 'Congé' }]); setSale(true); }}>+ Ajouter une période</button>
+        </div>
+      </div>
+      <div className="carte overflow-hidden">
+        <EnteteCarte titre="L’année qui en résulte" sous={`Une semaine compte en congé quand ses cinq jours ouvrables tombent dans une période. L’été (entre le ${d.reglage?.ete_du} et le ${d.reglage?.ete_au}) se place par personne, au générateur.`} />
+        <div className="px-4 py-3 text-sm space-y-1">
+          <p><b>13 semaines de congé</b> au total : <b>{d.semaines_conge}</b> semaine(s) de congés scolaires + <b>{d.semaines_ete}</b> semaine(s) d’été, d’un seul tenant. Restent <b>{travail}</b> semaines de travail, soit <b>{heures} h</b> pour un temps plein (36 h par semaine).</p>
+          <p className="text-slate-600">Une personne peut travailler pendant une semaine de congé scolaire (Carnaval, par exemple) : son été s’allonge d’autant, au générateur. Le total reste 13 semaines de congé et 1 404 h.</p>
+          {d.semaines_conge !== 8 && <p className="text-amber-700">Les congés fixés comptent {d.semaines_conge} semaine(s) au lieu de 8 : l’été passe à {d.semaines_ete} semaine(s).</p>}
+          <button className="bouton mt-2" onClick={onGenerer}>Générer l’année d’une personne →</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Generer({ info, personnes, recharger }) {
   const actifs = personnes.filter(p => p.actif);
   const [uid, setUid] = useState(actifs[0]?.utilisateur_id || null);
@@ -425,12 +482,16 @@ function Generer({ info, personnes, recharger }) {
   const [ete, setEte] = useState('');
   const [jourLibre, setJourLibre] = useState(4);
   const [fortes, setFortes] = useState({});
+  const [travaillees, setTravaillees] = useState([]);
   const [cal, setCal] = useState(null);
   const [sim, setSim] = useState(null);
   useEffect(() => { api('/calendrier').then(setCal); }, []);
   useEffect(() => { if (p) { setFormule(p.formule); setFraction(p.fraction); } setSim(null); }, [uid]);
-  const lundisEte = useMemo(() => (cal?.semaines || []).filter(s => { const fin = new Date(new Date(s.lundi).getTime() + 34 * 864e5).toISOString().slice(0, 10); return s.lundi >= cal.reglage.ete_du && fin <= cal.reglage.ete_au; }), [cal]);
-  const corps = () => ({ formule, fraction: Number(fraction), ete: ete || null, jourLibre: Number(jourLibre), fortes: Object.fromEntries(Object.entries(fortes).filter(([, v]) => v).map(([k, v]) => [k, Math.round(Number(v) * 60)])) });
+  // L'été s'allonge d'une semaine par semaine de congé travaillée (l'échange).
+  // 13 semaines de congé au total : l'été est le complément des congés scolaires réellement pris.
+  const nEte = 13 - ((cal?.semaines || []).filter(x => x.conge).length - travaillees.length);
+  const lundisEte = useMemo(() => (cal?.semaines || []).filter(s => { const fin = new Date(new Date(s.lundi).getTime() + (7 * nEte - 1) * 864e5).toISOString().slice(0, 10); return s.lundi >= cal.reglage.ete_du && fin <= cal.reglage.ete_au; }), [cal, nEte]);
+  const corps = () => ({ formule, fraction: Number(fraction), ete: ete || null, jourLibre: Number(jourLibre), travaillees, fortes: Object.fromEntries(Object.entries(fortes).filter(([, v]) => v).map(([k, v]) => [k, Math.round(Number(v) * 60)])) });
   const simuler = async () => { try { setSim(await api(`/generer/${uid}`, { method: 'POST', body: JSON.stringify(corps()) })); } catch (e) { informer({ message: e.message }); } };
   const ecrire = async () => {
     if (!(await demander({ message: 'Enregistrer cette année ? Elle remplace l’année déjà générée pour cette personne (les écarts encodés restent).' }))) return;
@@ -457,6 +518,18 @@ function Generer({ info, personnes, recharger }) {
           <button className="bouton" onClick={simuler}>Calculer</button>
           <button className="bouton bouton-fort" disabled={!ok} onClick={ecrire}>Enregistrer l’année</button>
         </div>
+        {cal && (
+          <div className="px-4 pb-3 text-second text-slate-600">
+            <b>Échanger une semaine de congé contre l’été</b> — cochez les semaines de congé où cette personne travaille ; son été passe à {nEte} semaines, d’un seul tenant :
+            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5">
+              {cal.semaines.filter(x => x.conge).map(x => (
+                <label key={x.lundi} className="inline-flex items-center gap-1.5">
+                  <input type="checkbox" checked={travaillees.includes(x.lundi)} onChange={e => { setTravaillees(t => (e.target.checked ? [...t, x.lundi] : t.filter(y => y !== x.lundi))); setEte(''); setSim(null); }} />
+                  {x.conge} · {fmt(x.lundi)}
+                </label>))}
+            </div>
+          </div>
+        )}
         {formule === 'annualise' && cal && (
           <div className="px-4 pb-3 text-second text-slate-600">
             Semaines chargées (heures) — les autres semaines compensent d’elles-mêmes :
