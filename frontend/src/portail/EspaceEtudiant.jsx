@@ -506,6 +506,37 @@ const PARCOURS_ETAT = {
   pas_encore: ['#EEF1F5', '#64748b', 'pas encore accessible'],
 };
 
+/** LE SCHÉMA DE CAPITALISATION (3.5.010) : le dessin de la fiche, déposé par Lucie, montré comme une image (aucun script
+ *  ne passe) ; sur téléphone il défile de côté, un toucher l'ouvre en grand. */
+const LEGENDE_SCHEMA = [['#3E7D5E', 'réussie'], ['#6B46C1', 'par faveur'], ['#2F6FB0', 'au programme cette année', true], ['#2F6FB0', 'disponible'],
+  ['#B45309', 'ajournée, en attente'], ['#9AA3B0', 'encore indisponible']];
+function SchemaParcours({ svg }) {
+  const [grand, setGrand] = useState(false);
+  const src = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+  const vb = (svg.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/) || []).slice(1).map(Number);
+  const largeur = vb.length ? Math.round(vb[0] * 2.2) : 900;
+  return (
+    <section className="bg-white border border-slate-200 rounded-carte p-3 space-y-2">
+      <h2 className="intertitre">Mon schéma de capitalisation</h2>
+      <p className="sm:hidden text-xs text-slate-500">Faites glisser le schéma de côté, ou touchez-le pour l’agrandir.</p>
+      <div className="overflow-x-auto">
+        <button type="button" onClick={() => setGrand(true)} className="block" title="Agrandir">
+          <img src={src} alt="Schéma de capitalisation" style={{ width: largeur, maxWidth: 'none' }} className="sm:max-w-full" />
+        </button>
+      </div>
+      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600">
+        {LEGENDE_SCHEMA.map(([c, l, plein]) => (
+          <span key={l} className="inline-flex items-center gap-1"><span className="w-3.5 h-3" style={{ borderRadius: 2, background: plein ? c : '#fff', border: `1px solid ${c}`, borderLeft: `3px solid ${c}` }} />{l}</span>))}
+        <span>· une flèche : il faut d’abord l’unité de départ · ★ épreuve intégrée</span>
+      </div>
+      {grand && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-3" onClick={() => setGrand(false)}>
+          <div className="bg-white rounded-carte p-3 max-w-full max-h-full overflow-auto"><img src={src} alt="" style={{ width: Math.max(largeur, 1000), maxWidth: 'none' }} /></div>
+        </div>)}
+    </section>
+  );
+}
+
 /** MON PARCOURS (3.1.517) : le schéma de l'année — chaque unité de ses sections, par bloc, et les crédits acquis. */
 function MonParcours({ onErreur }) {
   const [p, setP] = useState(null);
@@ -526,6 +557,8 @@ function MonParcours({ onErreur }) {
           <div className="h-2 rounded-full bg-slate-200 overflow-hidden"><div className="h-full" style={{ width: `${pc}%`, background: 'var(--c-reussi, #3E7D5E)' }} /></div>
         </> : <div className="text-sm"><b>{x.unites.filter(u => u.etat === 'acquise').length}</b> unité(s) acquise(s) sur {x.unites.length} — {x.sections.join(', ')} · {x.annee}</div>}
       </div>
+      {x.schema && <SchemaParcours svg={x.schema} />}
+      <h2 className="intertitre pt-1">Où j’en suis cette année</h2>
       <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600">
         {Object.entries(PARCOURS_ETAT).map(([k, [f, t, l]]) => (
           <span key={k} className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded-sm border border-slate-300" style={{ background: f }} />{l}</span>))}
@@ -538,7 +571,7 @@ function MonParcours({ onErreur }) {
               const [f, t] = PARCOURS_ETAT[u.etat] || PARCOURS_ETAT.pas_encore;
               return (
                 <div key={u.ue_num} className="rounded-champ px-2.5 py-2 text-xs border min-w-0" style={{ background: f, color: t, borderColor: u.etat === 'accessible' ? t : 'transparent' }}>
-                  <div className="font-bold">UE {u.ue_num}{u.epreuve ? ' ★' : ''}{u.va ? ' · VA' : ''}</div>
+                  <div className="font-bold">UE {u.ue_num}{u.epreuve ? ' ★' : ''}{u.va ? ` · ${u.va === true ? 'VA' : u.va}` : ''}</div>
                   <div className="truncate" title={u.ue_nom}>{u.ue_nom}</div>
                   <div className="opacity-80">{u.ects ? `${u.ects} ECTS` : ''}{u.raison ? ` · ${u.raison}` : ''}</div>
                 </div>);
