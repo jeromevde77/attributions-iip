@@ -1473,7 +1473,8 @@ function ProfesseursListe({ vue: vueInitiale = 'membres' }) {
   const [editProf, setEditProf] = useState(null);
   // La rubrique ouverte dans l'axe Personnel : la liste des membres, ou l'une
   // des deux faces qui s'en détachaient en emportant le rail.
-  const [vue, setVue] = useState(vueInitiale);
+  // Une rubrique peut s'ouvrir par l'adresse : /professeurs?vue=temps (3.5.054 : « je ne vois pas où est le module »).
+  const [vue, setVue] = useState(() => { try { return new URLSearchParams(window.location.search).get('vue') || vueInitiale; } catch { return vueInitiale; } });
   const [ttMoi, setTtMoi] = useState(null);
   useEffect(() => { fetch('/api/temps-travail/moi', { headers: authHeaders() }).then(r => (r.ok ? r.json() : null)).then(setTtMoi).catch(() => {}); }, []);
   const [sortBy, setSortBy] = useState({ key: 'nom_prenom', dir: 'asc' });
