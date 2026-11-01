@@ -33,18 +33,20 @@ export default function SuiviEspace({ id }) {
   };
   if (!espace) return null;
   const jour = d => String(d || '').slice(0, 10).split('-').reverse().join('/');
-  return <>
-    {espace.actif && espace.sans_adresse_ecole && <CodeCandidat id={id} candidat={espace.candidat} onChange={charger} />}
-    {espace.actif && <AccesHorsBelgique id={id} exception={espace.exception} onChange={charger} />}
-    <div className="bloc-etat px-3 py-2 text-second mb-3 space-y-1" data-etat="neutre">
-      {direction && espace.actif && <div className="float-right flex flex-col items-end gap-1">
-        <button type="button" className="bouton inline-flex items-center gap-1.5" onClick={voirComme}><IconEye size={15} /> Voir son espace</button>
-        {erreurApercu && <span className="text-red-700 max-w-[320px] text-right">{erreurApercu}</span>}
-      </div>}
-      <div className="font-semibold text-iip-texte">Son espace étudiant
-        {espace.connexions[0]
-          ? <span className="font-normal text-slate-500"> · dernière connexion le {jour(espace.connexions[0].utilise_le)} à {String(espace.connexions[0].utilise_le).slice(11, 16)}</span>
-          : <span className="font-normal text-slate-500"> · jamais connecté</span>}</div>
+  /* UNE SECTION, DES FILETS (3.5.020, Charles : « trop de cadres, des erreurs d'alignement ») : l'espace, l'accès hors de
+     Belgique et le code du candidat étaient trois bandeaux encadrés empilés, et « Voir son espace » flottait à droite avec
+     son message dessous. Une section, une ligne par sujet, les boutons alignés à droite de leur ligne. */
+  return (
+    <section className="divide-y divide-slate-100 border-b border-slate-200 mb-4 text-second">
+      <div className="py-2 space-y-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="flex-1 min-w-0 font-semibold text-iip-texte">Son espace étudiant
+            {espace.connexions[0]
+              ? <span className="font-normal text-slate-500"> · dernière connexion le {jour(espace.connexions[0].utilise_le)} à {String(espace.connexions[0].utilise_le).slice(11, 16)}</span>
+              : <span className="font-normal text-slate-500"> · jamais connecté</span>}</span>
+          {direction && espace.actif && <button type="button" className="bouton inline-flex items-center gap-1.5" onClick={voirComme}><IconEye size={15} /> Voir son espace</button>}
+        </div>
+        {erreurApercu && <div className="text-red-700">{erreurApercu}</div>}
       {espace.pae && <div className="flex flex-wrap gap-x-2">
         <span className="min-w-0 flex-1">PAE {espace.pae.annee}</span>
         <span className={espace.pae.a_jour ? 'text-emerald-700' : 'text-amber-700'}>{espace.pae.a_jour
@@ -56,8 +58,11 @@ export default function SuiviEspace({ id }) {
           <span className={a.signe_le ? 'text-emerald-700' : 'text-amber-700'}>
             {a.signe_le ? `accusé signé le ${jour(a.signe_le)}` : `ouvert le ${jour(a.presente_le)}, non signé`}</span>
         </div>))}
-    </div>
-  </>;
+      </div>
+      {espace.actif && <AccesHorsBelgique id={id} exception={espace.exception} onChange={charger} />}
+      {espace.actif && espace.sans_adresse_ecole && <CodeCandidat id={id} candidat={espace.candidat} onChange={charger} />}
+    </section>
+  );
 }
 
 /* L'ACCÈS HORS DE BELGIQUE (3.1.513, Charles : « bloquer, avec une exception accordée par le secrétariat pour une
@@ -80,7 +85,7 @@ function AccesHorsBelgique({ id, exception, onChange }) {
     setOuvert(false); setMotif(''); setJusqu(''); onChange?.();
   };
   return (
-    <div className="bloc-etat px-3 py-2 text-second mb-3 space-y-1.5" data-etat={exception ? 'disponible' : 'neutre'}>
+    <div className="py-2 space-y-1.5">
       <div className="flex flex-wrap items-center gap-2">
         <IconWorld size={15} className="text-slate-400" />
         <span className="flex-1 min-w-0">
@@ -123,7 +128,7 @@ function CodeCandidat({ id, candidat, onChange }) {
     } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
   };
   return (
-    <div className="bloc-etat px-3 py-2 text-second mb-3 space-y-1" data-etat={valable ? 'disponible' : 'neutre'}>
+    <div className="py-2 space-y-1">
       <div className="flex flex-wrap items-center gap-2">
         <IconKey size={15} className="text-slate-400" />
         <span className="flex-1 min-w-0">

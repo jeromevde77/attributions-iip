@@ -86,7 +86,7 @@ export default function SuiviEtudiant({ etudId }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start gap-2 text-second text-slate-500 bg-slate-50 border border-slate-200 rounded-carte px-3 py-2">
+      <div className="flex items-start gap-2 text-mention text-slate-500">
         <IconLock size={14} className="flex-none mt-0.5 text-slate-400" />
         <span>Dossier <b>confidentiel</b> : visible des seuls enseignants de cet étudiant,
           de la coordination de sa section et de la direction. Chaque note est signée et datée ;
@@ -100,8 +100,8 @@ export default function SuiviEtudiant({ etudId }) {
       )}
 
       {/* ── Écrire ── */}
-      <div className="carte p-3 space-y-2">
-        <div className="flex items-center gap-3">
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-3">
           <span className="intertitre">Ajouter au dossier</span>
           {['note', 'rapport'].map(t => (
             <label key={t} className="flex items-center gap-1.5 text-sm cursor-pointer">

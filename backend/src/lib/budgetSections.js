@@ -138,9 +138,10 @@ export function migrerBudgetSections(dbx = db) {
      du 27 septembre passe à « écrit » — toujours borné à ses sections par getUserSections. Une fois. */
   if (!dbx.prepare("SELECT 1 FROM migration_faite WHERE cle = 'plafonds_2026_11_01_budget_coordination'").get()) {
     try {
+      // Marquée faite SEULEMENT si la ligne existait : sur une base neuve, les plafonds naissent après cette migration.
       dbx.transaction(() => {
-        dbx.prepare("UPDATE role_plafond SET niveau = 'ecrit', maj_le = datetime('now') WHERE role = 'coordination' AND module = 'budget'").run();
-        dbx.prepare("INSERT INTO migration_faite (cle) VALUES ('plafonds_2026_11_01_budget_coordination')").run();
+        const x = dbx.prepare("UPDATE role_plafond SET niveau = 'ecrit', maj_le = datetime('now') WHERE role = 'coordination' AND module = 'budget'").run();
+        if (x.changes) dbx.prepare("INSERT INTO migration_faite (cle) VALUES ('plafonds_2026_11_01_budget_coordination')").run();
       })();
     } catch { /* role_plafond pas encore créée : au démarrage suivant */ }
   }

@@ -2531,7 +2531,7 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
               {/* La barre « Ouvrir dans la revue des PAE » est retirée : la ligne
                   d'état du parcours y mène, et la fiche ne compose plus le PAE. */}
 
-        <div className="px-5 py-3">
+        <div className="corps-fenetre px-5 py-3">
           {/* Inscriptions + résultats */}
           {onglet === 'va' && <Valorisations etudId={id} annee={annee} />}
 
