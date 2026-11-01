@@ -581,3 +581,11 @@ export function uesValorisees(etudId) {
   } catch { rows = []; }
   return { parAnnee: new Set(rows.map(r => `${r.annee_scolaire}|${r.ue_num}`)), ues: new Set(rows.map(r => Number(r.ue_num))) };
 }
+
+/** VA OU VAE (3.5.012, Charles : « l'étudiant a une VA et une VAE, tu as mis deux VAE ») : la PORTE par laquelle la demande
+ *  est entrée fait foi ; la base légale (D, E = acquis non formels ou informels) ne décide qu'à défaut de porte. */
+export function sigleVA(v) {
+  const porte = String(v?.porte || '').toUpperCase();
+  if (porte === 'VAE' || porte === 'VA') return porte;
+  return ['D', 'E'].includes(String(v?.base_code || '').toUpperCase()) ? 'VAE' : 'VA';
+}

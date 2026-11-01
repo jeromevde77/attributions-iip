@@ -9,6 +9,7 @@
 import db from '../db/index.js';
 import { composerPAE, donneesCapitalisation } from '../routes/etudiants.js';
 import { schemaSvg } from './schemaSvg.js';
+import { sigleVA } from './valorisation.js';
 import { calculerFrais } from '../routes/fraisScolarite.js';
 import { qrSvg } from './banque.js';
 
@@ -21,7 +22,7 @@ export function parcoursPortail(e, annee) {
   // VA OU VAE, JAMAIS L'UN POUR L'AUTRE (la règle de la fiche, 3.5.006).
   const vaDe = db.prepare(`SELECT porte, base_code FROM etudiant_valorisation WHERE etudiant_id = ? AND ue_num = ? AND type = 'complete'
     ORDER BY id DESC LIMIT 1`);
-  const sigle = n => { const v = vaDe.get(e.id, n); return v && (String(v.porte || '').toUpperCase() === 'VAE' || ['D', 'E'].includes(String(v.base_code || '').toUpperCase())) ? 'VAE' : 'VA'; };
+  const sigle = n => sigleVA(vaDe.get(e.id, n) || {});
   const unites = (c.pae || []).map(u => {
     const acquise = !!(u.deja_reussie || u.va_complete);
     const etat = acquise ? 'acquise' : u.inscrite ? 'programme' : u.en_attente ? 'attente' : u.accessible ? 'accessible' : 'pas_encore';

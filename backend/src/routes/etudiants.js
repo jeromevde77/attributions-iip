@@ -30,7 +30,7 @@ import {
   controleDelai, manquesDossier, pieceProduisible, journaliser, journalDe,
   rafraichirEtat, pourcentageDe, POURCENTAGE_DISPENSE,
   PEUT_INSTRUIRE, PORTES, CODES_PORTE,
-  estAdmissionDeSection, unitesDeBase, decideHorsCircuit, vaRetenue, vaSur20, vaPourcent, ANNEE_CIRCUIT_VA,
+  estAdmissionDeSection, unitesDeBase, decideHorsCircuit, vaRetenue, vaSur20, vaPourcent, ANNEE_CIRCUIT_VA, sigleVA,
 } from '../lib/valorisation.js';
 import { gesteRequis, gesteAutorise } from '../lib/gestes.js';
 import { codeGroupe } from '../lib/groupes.js';
@@ -7000,7 +7000,7 @@ export function donneesCapitalisation(etudId, annee, sectionForcee = null) {
       ORDER BY annee_scolaire`).all(etudId)) {
     if (!reussite[v.ue_num]) reussite[v.ue_num] = { annee: v.annee_scolaire, note: null, va: true,
       // VA ou VAE, noté (3.5.006) : la porte, à défaut la base (D, E = non formel).
-      sigle: String(v.porte || '').toUpperCase() === 'VAE' || ['D', 'E'].includes(String(v.base_code || '').toUpperCase()) ? 'VAE' : 'VA' };
+      sigle: sigleVA(v) };
   }
   /* L'ÉTAT DE CHAQUE UNITÉ VIENT DU MOTEUR (lib/pae.js) — le même que la
      proposition du PAE : le schéma ne peut plus dire « indisponible » d'une
@@ -7370,7 +7370,7 @@ r.get('/:id/grille', authRequired, (req, res) => {
       kind: 'va', points: vaSur20(v.pourcentage), derogation: false, vid: v.id,
       // VA OU VAE, ÇA SE NOTE (Charles, 31 octobre 2026 : « c'est important ») : la porte du dossier, à défaut sa base
       // (D, E = acquis non formels ou informels).
-      sigle: String(v.porte || '').toUpperCase() === 'VAE' || ['D', 'E'].includes(String(v.base_code || '').toUpperCase()) ? 'VAE' : 'VA',
+      sigle: sigleVA(v),
     };
   }
   // La faveur : posée par le Conseil (ou dans cette grille) sur l'unité, ou
