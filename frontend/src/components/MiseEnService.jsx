@@ -32,7 +32,7 @@ function AnneesPassees() {
   const simuler = async () => { setFait(null); setB(await appel('GET')); };
   const deposer = async () => {
     if (!(await demander(`Déposer ${b.pieces} pièce(s) dans les espaces de ${b.etudiants} étudiant(s) ? Aucun courriel ne part.`))) return;
-    // Par lots de cent étudiants, jusqu'au bout ; les totaux s'additionnent.
+    // Par lots de cinquante étudiants, jusqu'au bout ; les totaux s'additionnent.
     const total = { ...b, etudiants: 0, pieces: 0, deja: b.deja, par_annee: {}, par_nature: {}, par_section: {}, manques: [] };
     const ajouter = (o, x) => Object.entries(x).forEach(([k, n]) => { o[k] = (o[k] || 0) + n; });
     setB(null);
