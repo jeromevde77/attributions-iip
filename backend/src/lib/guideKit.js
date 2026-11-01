@@ -146,8 +146,12 @@ const STYLES = `
     padding: 3.5mm 5mm; margin: 0 0 4mm; break-inside: avoid; }
   .callout .t { display: block; font-weight: 700; color: ${C.nuit}; margin-bottom: .8mm; } .callout p { margin: 0 0 1mm; }
   .deux { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; margin: 0 0 4mm; } .deux .callout { margin: 0; }
-  .tuiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4mm; margin: 6mm 0 5mm; }
-  .tuile { background: ${C.nuit}; color: #fff; border-radius: 3.5mm; padding: 4.5mm 5mm; }
+  .tuiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4mm; margin: 6mm 0 5mm; break-inside: avoid; }
+  .tuile { background: ${C.nuit}; color: #fff; border-radius: 3.5mm; padding: 4.5mm 5mm; break-inside: avoid; }
+  .callout, .deux { break-inside: avoid; }
+  /* Un long sommaire (25 chapitres et les annexes) se resserre pour tenir sur sa page (3.5.050). */
+  .som-serre .somg div { padding: 1.3mm 0; font-size: 9.6pt; } .som-serre .somg { margin: 0 0 3mm; } .som-serre .tuiles { margin: 4mm 0 3.5mm; }
+  .som-serre .titre { margin-bottom: 3mm; } .som-serre .deux, .som-serre .callout { display: none; } .som-note { display: none; } .som-serre .som-note { display: block; font-size: 8.5pt; color: #4A5568; line-height: 1.5; margin: 0; } .som-serre .callout { padding: 3mm 4mm; margin-bottom: 3mm; } .som-serre .callout p { margin: .6mm 0; }
   .tuile .n { font-size: 24pt; font-weight: 800; line-height: 1; } .tuile .n small { font-size: 11pt; font-weight: 650; color: ${C.ciel}; }
   .tuile p { margin: 2mm 0 0; font-size: 8pt; color: #C3D6EA; line-height: 1.4; }
 
@@ -344,7 +348,7 @@ function sommaire(m, pages, pageAide, annexes = []) {
   const parties = PARTIES.map(pa => ({ ...pa, chap: m.rubriques.map((r, i) => ({ r, i })).filter(({ r }) => partieDe(r.id) === pa.titre) }))
     .filter(pa => pa.chap.length);
   const ligne = (n, l, p) => `<div><span class="n">${n}</span><span class="l">${esc(l)}</span><span class="p">${p ?? ''}</span></div>`;
-  return page(`<h1 class="titre">Sommaire</h1>
+  return page(`<div class="${m.rubriques.length > 12 ? 'som-serre' : ''}"><h1 class="titre">Sommaire</h1>
     ${parties.map((pa, k) => `<div class="kick som-partie">${esc(pa.titre)}</div>
       <div class="somg">${pa.chap.map(({ r, i }) => ligne(i + 1, r.titre, pages[i])).join('')}${k === parties.length - 1 ? ligne('✓', 'Aide-mémoire', pageAide) + annexes.map(x => ligne(x.n, x.l, x.p)).join('') : ''}</div>`).join('')}
     <div class="tuiles">
@@ -352,16 +356,17 @@ function sommaire(m, pages, pageAide, annexes = []) {
       <div class="tuile"><div class="n">${nPoints} <small>points</small></div><p>chacun dit où aller, ce qu'on y fait, et ce qu'il faut savoir</p></div>
       <div class="tuile"><div class="n">${nImages} <small>captures</small></div><p>prises sur une base d'essai : les noms sont inventés</p></div>
     </div>
+    <p class="som-note">Les parties du guide se lisent ci-dessus ; en fin de guide, l'<b>aide-mémoire</b> (« je veux… je vais… »)${annexes.length ? ', puis les <b>annexes</b> : toutes les pièces que Lucie produit, et leurs spécimens sur données fictives' : ''}. Ce document est composé, le jour où vous l'imprimez, à partir du guide en ligne (Documentation → Mode d'emploi), qui fait foi. Une question, une idée : l'<b>ampoule</b> « Proposer une amélioration », sur tous les écrans. Version décrite : ${esc(m.version)}.</p>
     <div class="callout"><div>${icone('info', 18, C.nuit)}</div><div><span class="t">Ce guide en ${parties.length} parties</span>
       ${(m.rubriques.length > 8
         ? [`<p>${parties.map(pa => `<b>${esc(pa.titre)}</b> (${pa.chap.length > 1 ? `chapitres ${pa.chap[0].i + 1} à ${pa.chap[pa.chap.length - 1].i + 1}` : `chapitre ${pa.chap[0].i + 1}`})`).join(' · ')}.</p>`]
         : parties.map(pa => `<p><b>${esc(pa.titre)}</b> (chapitre${pa.chap.length > 1 ? 's' : ''} ${pa.chap.length > 1 ? `${pa.chap[0].i + 1} à ${pa.chap[pa.chap.length - 1].i + 1}` : pa.chap[0].i + 1}) : ${esc(pa.chap.map(c => c.r.titre).join(' · '))}.</p>`)).join('')}
-      <p>En fin de guide, l'<b>aide-mémoire</b> : « je veux… je vais… », chaque geste et son chemin${annexes.length ? ' ; puis les <b>annexes</b> : toutes les pièces que Lucie produit, et leurs spécimens' : ''}.</p></div></div>
+      <p>En fin de guide, l'<b>aide-mémoire</b> : « je veux… je vais… », chaque geste et son chemin${annexes.length ? ' ; puis les <b>annexes</b> : toutes les pièces que Lucie produit, et leurs spécimens' : ''}.</p>${m.rubriques.length > 12 ? `<p>Composé le jour de l'impression à partir du guide en ligne (Documentation → Mode d'emploi), qui fait foi ; les captures viennent d'une base d'essai aux noms inventés. Version décrite : ${esc(m.version)}.</p>` : ''}</div></div>
     <div class="deux">
       <div class="callout clair"><div>${icone('eye', 18, C.bleu)}</div><div><span class="t">Des données fictives</span><p>Les captures viennent d'une base d'essai : les noms, matricules et adresses sont <b>inventés</b>. Ce que vous verrez porte vos cours et vos étudiants.</p></div></div>
       <div class="callout clair"><div>${icone('bulb', 18, C.bleu)}</div><div><span class="t">Une question, une idée ?</span><p>L'<b>ampoule</b> « Proposer une amélioration » est sur tous les écrans : la direction y répond, et la réponse revient sur votre tableau de bord.</p></div></div>
     </div>
-    <div class="callout"><div>${icone('refresh', 18, C.nuit)}</div><div><span class="t">Un guide qui suit Lucie</span><p>Ce document est composé, le jour où vous l'imprimez, à partir du guide en ligne (Documentation → Mode d'emploi), qui fait foi. Lucie s'améliore au fil des semaines : les écrans peuvent changer ; ce qui est attendu de vous, et l'endroit où le trouver, reste le même. Version décrite : ${esc(m.version)}.</p></div></div>`);
+    <div class="callout suit"><div>${icone('refresh', 18, C.nuit)}</div><div><span class="t">Un guide qui suit Lucie</span><p>Ce document est composé, le jour où vous l'imprimez, à partir du guide en ligne (Documentation → Mode d'emploi), qui fait foi. Lucie s'améliore au fil des semaines : les écrans peuvent changer ; ce qui est attendu de vous, et l'endroit où le trouver, reste le même. Version décrite : ${esc(m.version)}.</p></div></div></div>`);
 }
 
 /** L'aide-mémoire : chaque point qui a un chemin, « je veux… je vais… ». */
