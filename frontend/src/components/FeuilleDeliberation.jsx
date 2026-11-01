@@ -2258,11 +2258,22 @@ function Cloture({ seance, onClore, onRetour, onPV, onReprendre, enCours, nb, aj
  *   · dessous, LA BANDE DE DÉCISION : la note d'unité, puis les choix du
  *     Conseil. Le calcul et les gestes n'ont pas changé : seule la mise en page.
  */
+const VOIR_COURS_S2 = { ouvert: false };
 function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
   decision, onDecision, onAnnuler, session, navigation = null }) {
   const ue = e.ue || {};
-  const acquis = e.acquis || [];
-  const cours = e.cours || [];
+  /* EN SECONDE SESSION, LES ACQUIS D'ABORD, LES COURS AU TIROIR (Charles, 1er novembre 2026 : « le décret est clair :
+     on juge sur les AA au terme de l'évaluation »). Les acquis se rangent de 1 à n, leur note en regard ; les colonnes
+     des cours ne paraissent qu'à la demande. Le choix se garde d'un étudiant à l'autre, le temps de la séance. */
+  const deuxieme = Number(session) >= 2;
+  const [voirCours, setVoirCours] = useState(() => (deuxieme ? VOIR_COURS_S2.ouvert : true));
+  const basculerCours = () => setVoirCours(v => { VOIR_COURS_S2.ouvert = !v; return !v; });
+  const acquis = deuxieme
+    ? [...(e.acquis || [])].sort((x, y) => String(x.aa_code).localeCompare(String(y.aa_code), 'fr', { numeric: true }))
+    : (e.acquis || []);
+  const tousCours = e.cours || [];
+  const cours = tousCours;
+  const coursVus = !deuxieme || voirCours ? tousCours : [];
   const caseDe = (a, coursCode) => (a.evaluations || []).find(v => v.cours_code === coursCode) || null;
   const regarde = e.ue?.regarde || { aa: true, cours: true };
   const decidee = decision === 'ajourne' || decision === 'refuse' || decision === 'absent';
@@ -2407,8 +2418,14 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
             <table className="w-full border-collapse text-xs table-fixed">
               <thead className="tab-entete normal-case">
                 <tr className="align-middle">
-                  <th className="text-left px-2.5 py-1 font-semibold text-slate-600 w-[24%]">Acquis</th>
-                  {cours.map(c => (
+                  <th className="text-left px-2.5 py-1 font-semibold text-slate-600 w-[24%]">Acquis
+                    {deuxieme && tousCours.length > 0 && (
+                      <button type="button" onClick={basculerCours}
+                        className="ml-2 font-normal text-mention underline text-iip-blue"
+                        title="Seconde session : la décision se prend sur les acquis ; les cours se consultent à la demande">
+                        {voirCours ? 'masquer les cours' : `voir les ${tousCours.length} cours`}</button>)}
+                  </th>
+                  {coursVus.map(c => (
                     <th key={c.cours_code} className={`w-[112px] px-1.5 py-1 text-center font-normal align-middle ${peutCliquerNote ? 'cursor-pointer select-none hover:bg-amber-50' : ''}`}
                       style={c.ajourne_directement ? { boxShadow: 'inset 0 -3px 0 var(--c-attente)' } : undefined}
                       onClick={peutCliquerNote ? () => cycleCours(c) : undefined}
@@ -2450,7 +2467,7 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
                         <div className="truncate"><b className={`font-semibold ${enCause ? 'text-red-700' : 'text-slate-700'}`}>{a.aa_code}</b>
                           <span className="text-mention text-slate-500"> {a.description || ''}</span></div>
                       </td>
-                      {cours.map(c => (
+                      {coursVus.map(c => (
                         <td key={c.cours_code} className="px-1.5 py-1 text-center">
                           {/* LA CASE DIT CE COURS-CI (Charles, 9 octobre 2026). Ajourner un
                               cours fait tomber ses acquis AU GLOBAL — on représente le cours
@@ -2490,12 +2507,12 @@ function Fiche({ e, data, onAjuster, onLot, onAACours, onMotif, enCours, onBord,
                     « en 2e session je ne veux QUE les AA »). La note de cours,
                     qui ne pèse pas sur la décision de septembre, ne s'affiche
                     plus, même à titre indicatif. */}
-                {!(Number(session) >= 2 && !regarde.cours) && (
+                {!(Number(session) >= 2 && !regarde.cours) && coursVus.length > 0 && (
                 <tr className="border-t border-slate-200 bg-slate-50/60">
                   <td className="px-2.5 py-1.5 font-semibold text-slate-600">
                     Note du cours{!regarde.cours && <span className="font-normal text-slate-400"> · indicative</span>}
                   </td>
-                  {cours.map(c => (
+                  {coursVus.map(c => (
                     <td key={c.cours_code} className={`px-1.5 py-1.5 text-center whitespace-nowrap ${!regarde.cours ? 'opacity-60' : ''}`}>
                       <span className="relative inline-flex align-middle">
                       {note(c, { na: c.na })}
