@@ -2931,6 +2931,11 @@ circulé sans qu'on puisse dire qui l'avait sortie. « Je veux des traces. »
   trop ; je veux le texte ; une ligne marine en marge du document, comme pour la FeLSI »). PDF du mode d'emploi : les points ne sont
   plus des cartes — un filet gris au-dessus, le texte ; « Ce que vous trouverez ici », les encadrés et la signature perdent leur
   trait de gauche. Seule ligne de couleur : le liseré bleu nuit de 2,2 mm en marge gauche de chaque page (pdf-lib).
+- **L'ERGONOMIE DE LECTURE DU PDF** (3.5.036, Charles : « des captures qui débutent à la page d'après sans contexte ; des titres en
+  bas de page ; pense à l'ergonomie de la lecture »). Chaque point a un DÉBUT d'un tenant (`.pt-debut`, break-inside: avoid) :
+  titre, chemin « Où ? », texte et première capture ne se séparent jamais ; un « À savoir » de trois lignes au plus se colle au
+  bloc qui le précède ; les captures plafonnent à 72 mm de haut. Garder le point ENTIER a été essayé : 145 pages au lieu de 121,
+  trop de demi-pages blanches.
 - **PORTAIL, ÉTAPE 1 : LE MOT DE PASSE ET LA BELGIQUE** (3.1.513). `compte` (empreinte scrypt salée, dans la base du
   PORTAIL seulement, survit aux dépôts) ; `POST /api/portail/connexion` (adresse ou matricule + mot de passe ; appareil
   reconnu → session ; sinon code `connexion` composé par Lucie → `POST /connexion/code`, qui reconnaît l'appareil, 3 au

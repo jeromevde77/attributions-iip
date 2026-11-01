@@ -92,6 +92,7 @@ const STYLES = `
   .trouver li { margin: 0 0 1mm; break-inside: avoid; } .trouver li::marker { color: ${C.clair}; }
 
   /* un point = une carte, au dessin des étapes du kit */
+  .pt-debut { break-inside: avoid; }
   .pt { border-top: .3mm solid ${C.filet}; padding: 4.5mm 0 2mm;
     margin: 0 0 4.5mm; }
   .pt-tete { display: flex; align-items: center; gap: 3.5mm; margin: 0 0 3mm; break-inside: avoid; break-after: avoid; }
@@ -116,7 +117,7 @@ const STYLES = `
   /* les captures, dans un cadre bleu pâle, légende centrée (ancien guide) */
   /* Une capture se pose seule, sur un filet gris (3.5.034, Charles : « tu mets des bandes bleues claires »). */
   .cap { margin: 0 0 3mm; break-inside: avoid; }
-  .cap img { display: block; width: 100%; max-height: 92mm; object-fit: contain; border-radius: 2mm; border: .3mm solid #CBD5E1; background: #fff; }
+  .cap img { display: block; width: 100%; max-height: 72mm; object-fit: contain; border-radius: 2mm; border: .3mm solid #CBD5E1; background: #fff; }
   .cap figcaption { font-size: 7.8pt; color: ${C.gris}; text-align: center; margin-top: 1.8mm; line-height: 1.4; }
   .annot { margin: 1mm 0 3.5mm; width: 100%; }
   .annot-ecran { position: relative; }
@@ -188,7 +189,7 @@ function largeur(im, dims) {
   const d = dims?.(im.src);
   if (!d?.w || !d?.h) return im.etroite ? 46 : null;
   let w = d.w * 0.12 + 6, h = d.h * 0.12;
-  if (h > 92) { w = (w - 6) * 92 / h + 6; h = 92; }
+  if (h > 72) { w = (w - 6) * 72 / h + 6; h = 72; }
   return Math.min(COLONNE_MM, Math.round(w * 10) / 10);
 }
 function figure(i, w) {
@@ -238,17 +239,29 @@ function point(p, n, dims) {
     if (w && cumul + w + (petites.length ? 3 : 0) < plafond) { petites.push([i, w]); cumul += w + (petites.length > 1 ? 3 : 0); }
     else grandes.push([i, w]);
   }
+  /* L'ERGONOMIE DE LECTURE (3.5.036, Charles : « des captures qui débutent à la page d'après sans contexte ; des titres en bas
+     de page ») : un point ne se coupe pas s'il tient sur une page (`.pt`, break-inside: avoid) ; s'il est plus long, son DÉBUT —
+     titre, chemin, texte et première capture — reste d'un tenant (`.pt-debut`), et la suite vient après. */
+  const dessiner = ([i, w]) => (i.reperes?.length ? captureAnnotee(i) : figure(i, w));
+  const [premiere, ...suite] = grandes;
   const corps = `<div class="pt-corps">
       ${petites.length ? `<div class="flottant">${petites.map(([i, w]) => figure(i, w)).join('')}</div>` : ''}
       ${p.texte ? `<p>${enrichiP(p.texte)}</p>` : ''}${p.contenu || ''}
-      ${grandes.length ? `<div class="rangee">${grandes.map(([i, w]) => (i.reperes?.length ? captureAnnotee(i) : figure(i, w))).join('')}</div>` : ''}
-    </div>
-    ${p.savoir?.length ? `<div class="pt-savoir">${icone('bulb', 15, C.bleu, 2)}<div><div class="t">À savoir</div>
-      <ul>${p.savoir.map(s => `<li>${enrichiP(s)}</li>`).join('')}</ul></div></div>` : ''}`;
-  if (!p.titre) return `<div class="intro">${corps}</div>`;
-  return `<div class="pt">
-    <div class="pt-tete"><span class="pt-num">${n}</span><div><div class="pt-kick">Point ${n}</div><h3>${esc(p.titre)}</h3></div></div>
-    ${p.ou ? chemin(p.ou) : ''}${corps}</div>`;
+      ${premiere ? `<div class="rangee">${dessiner(premiere)}</div>` : ''}
+    </div>`;
+  const savoir = p.savoir?.length ? `<div class="pt-savoir">${icone('bulb', 15, C.bleu, 2)}<div><div class="t">À savoir</div>
+      <ul>${p.savoir.map(s => `<li>${enrichiP(s)}</li>`).join('')}</ul></div></div>` : '';
+  // Le début (titre, chemin, texte, première capture) reste d'un tenant ; le reste suit, chaque capture et « À savoir » entiers.
+  // Un « À savoir » court (trois lignes au plus) reste collé au bloc qui le précède : il n'ouvre jamais une page seul.
+  const court = p.savoir?.length && p.savoir.length <= 3;
+  const derniere = court && suite.length ? suite.pop() : null;
+  const milieu = (suite.length ? `<div class="rangee">${suite.map(dessiner).join('')}</div>` : '')
+    + (derniere ? `<div class="pt-debut"><div class="rangee">${dessiner(derniere)}</div>${savoir}</div>` : '');
+  const tete = p.titre ? `<div class="pt-tete"><span class="pt-num">${n}</span><div><div class="pt-kick">Point ${n}</div><h3>${esc(p.titre)}</h3></div></div>
+    ${p.ou ? chemin(p.ou) : ''}` : '';
+  const collerAuDebut = court && !derniere;
+  const debut = `<div class="pt-debut">${tete}${corps}${collerAuDebut ? savoir : ''}</div>`;
+  return `<div class="${p.titre ? 'pt' : 'intro'}">${debut}${milieu}${court ? '' : savoir}</div>`;
 }
 
 /** Le bandeau d'ouverture d'une page (chapitre, sommaire, aide-mémoire). */
