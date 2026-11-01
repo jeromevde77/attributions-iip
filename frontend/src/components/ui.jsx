@@ -1123,7 +1123,11 @@ export function Fenetre({ icone: Ic, titre, sous, large = 'moyenne',
     };
   }, []);
 
-  return (
+  // UNE FENÊTRE SE POSE SUR LA PAGE, JAMAIS DANS SON PARENT (3.5.012, Charles : la fenêtre d'une case du parcours, ouverte
+  // dans la fiche, était coupée au bas de la fiche). Un ancêtre qui porte un transform, un filtre ou un overflow devient le
+  // cadre de son « fixed » : rendue dans document.body, elle n'a plus d'ancêtre que la page. Les événements suivent
+  // toujours l'arbre de React.
+  const fenetre = (
     <div role="dialog" aria-modal="true" aria-label={titre}
       /* UNE FENÊTRE NE BOUGE PAS UNE FOIS OUVERTE.
          Centrée verticalement, elle se recentrait à chaque changement
@@ -1226,6 +1230,7 @@ export function Fenetre({ icone: Ic, titre, sous, large = 'moyenne',
       </div>
     </div>
   );
+  return typeof document !== 'undefined' ? createPortal(fenetre, document.body) : fenetre;
 }
 
 /** Un intertitre : il dit de quoi parle ce qui suit, en petit et en gris. */
