@@ -1220,6 +1220,22 @@ select[multiple], select[size]:not([size="1"]) {
   background: var(--tab-repere); border-bottom: 1px solid var(--menu-bord);
 }
 
+/* L'EN-TÊTE DE CARTE — UN SEUL MODÈLE (3.5.032, Charles, 1er novembre 2026 : « l'en-tête est blanche ici, bleu clair
+ * ailleurs… c'est ceci la version à généraliser » — la bande de « Envoi de documents par courriel »). Une bande très
+ * pâle du principal, un filet dessous ; l'icône à l'accent, le titre de carte, une phrase grise ; les actions à droite.
+ * Composant : `EnteteCarte` (ui.jsx). Une carte qui a un titre le pose ainsi, et pas autrement. */
+.entete-carte {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem;
+  padding: .75rem 1rem;
+  background: var(--c-fond_entete_carte, color-mix(in srgb, var(--c-principal, #16406A) 5%, var(--blanc, #fff)));
+  border-bottom: 1px solid var(--menu-bord);
+}
+.entete-carte .titre-carte { margin: 0; display: flex; align-items: center; gap: .5rem; }
+.entete-carte .entete-carte-sous { margin: .125rem 0 0; font-size: 12px; color: rgb(var(--gris-500, 100 116 139)); line-height: 1.45; }
+.carte > .entete-carte:first-child { border-top-left-radius: inherit; border-top-right-radius: inherit; }
+/* Une carte qui porte un en-tête a un corps blanc (le modèle « Courriels » retenu le 1er novembre 2026). */
+.carte:has(> .entete-carte) { background: var(--blanc, #fff); }
+
 /* À PLAT (2.12.214, Charles : « sans cadre, juste à plat »). Le titre d'un
  * panneau posé sur la page, souligné d'un filet ; le contenu dessous, sans
  * fond ni bordure. Même hauteur partout : deux panneaux côte à côte ont leurs

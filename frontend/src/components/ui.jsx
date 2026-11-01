@@ -1279,6 +1279,30 @@ export function PieceFenetre({ icone: Ic, titre, sous, meta, ton = 'neutre',
 }
 
 /** Les boutons du pied : un seul principal, le reste en retrait. */
+/** L'EN-TÊTE DE CARTE (3.5.032) — le seul modèle : bande pâle, filet, icône, titre, phrase, actions à droite.
+ *  `<section className="carte overflow-hidden"><EnteteCarte icone={IconMail} titre="…" sous="…">{actions}</EnteteCarte>…` */
+export function EnteteCarte({ icone: Ic = null, titre, sous = null, children = null, className = '' }) {
+  return (
+    <div className={`entete-carte ${className}`}>
+      <div className="min-w-0">
+        <h3 className="titre-carte">{Ic && <Ic size={17} className="flex-none" style={{ color: 'var(--c-accent, #0E7490)' }} />}{titre}</h3>
+        {sous && <p className="entete-carte-sous">{sous}</p>}
+      </div>
+      {children && <div className="flex-none flex items-center gap-2">{children}</div>}
+    </div>
+  );
+}
+
+/** UN OUTIL DANS LE BANDEAU D'UNE FENÊTRE (3.5.032, Charles : « si on a un bouton IMPRIMER, ENVOYER ou APERÇU, il doit être
+ *  dans le bandeau supérieur. Point. »). Une icône blanche, nommée au survol ET pour les lecteurs d'écran ; se pose dans
+ *  `outils` de `Fenetre`. Même dessin qu'`IconeApercu` (PreviewModal). */
+export function OutilFenetre({ Icone, titre, onClick, disabled = false, href = null, download = null }) {
+  const cls = 'flex-none w-8 h-8 grid place-items-center rounded-champ text-white hover:bg-white/15 disabled:opacity-35 disabled:hover:bg-transparent transition-colors duration-150 ease-ios';
+  return href
+    ? <a href={href} download={download} title={titre} aria-label={titre} className={cls}><Icone size={17} /></a>
+    : <button type="button" onClick={onClick} disabled={disabled} title={titre} aria-label={titre} className={cls}><Icone size={17} /></button>;
+}
+
 export function BoutonFenetre({ principal = false, ton = 'neutre', desactive = false,
                                 onClick, children }) {
   // LE STANDARD (3.1.249) : `.bouton`, fort pour l'action principale, brique pour l'alerte.
