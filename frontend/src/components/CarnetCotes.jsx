@@ -56,20 +56,31 @@ export default function CarnetCotes({ coursCode, annee, groupe = '', sessionFeui
   const aS2 = evals.some(e => e.session === 2);
   const codes = (d?.acquis || []).map(a => a.aa_code);
   const cles = codes.length ? codes : [''];
-  const valeur = (ev, e) => saisie[ev.id]?.[e.id] ?? affiche(e.notes?.[ev.id]);
-  const sales = Object.entries(saisie).flatMap(([id, m]) => Object.keys(m).map(k => [Number(id), Number(k)]));
-  const invalides = sales.filter(([id, k]) => { const ev = evals.find(x => x.id === id); return ev && !valide(saisie[id][k], ev.sur); });
+  /* UNE COLONNE PAR CASE À REMPLIR (3.5.078) : une évaluation ordinaire = une colonne ; une évaluation notée PAR ACQUIS
+     (l'écrit, l'oral de l'épreuve intégrée) = une colonne par acquis rattaché, sa note d'ensemble se calcule. */
+  const colonnes = evals.flatMap(ev => (ev.par_acquis ? ev.aa.map((a, i) => ({ ev, aa: a.aa_code, poidsAA: a.poids, premier: i === 0, dernier: i === ev.aa.length - 1 }))
+    : [{ ev, aa: null, premier: true, dernier: true }]));
+  const cleCol = c => (c.aa ? `${c.ev.id}|${c.aa}` : String(c.ev.id));
+  const valeur = (c, e) => saisie[cleCol(c)]?.[e.id] ?? affiche(c.aa ? e.notes_aa?.[c.ev.id]?.[c.aa] : e.notes?.[c.ev.id]);
+  const sales = Object.entries(saisie).flatMap(([k, m]) => Object.keys(m).map(et => [k, Number(et)]));
+  const evDe = k => evals.find(x => x.id === Number(String(k).split('|')[0]));
+  const invalides = sales.filter(([k, et]) => { const ev = evDe(k); return ev && !valide(saisie[k][et], ev.sur); });
   const rattachees = evals.filter(e => e.session === session && (codes.length ? e.aa.length : true));
 
-  const poser = (evId, etId, v) => { setFait(null); setSaisie(s => ({ ...s, [evId]: { ...(s[evId] || {}), [etId]: v } })); };
+  const poser = (cle, etId, v) => { setFait(null); setSaisie(s => ({ ...s, [cle]: { ...(s[cle] || {}), [etId]: v } })); };
 
   async function enregistrer() {
     setEnCours(true); setErreur(null);
     try {
       let n = 0;
-      for (const [id, m] of Object.entries(saisie)) {
-        const j = await appel(`${base}/evaluations/${id}/notes`, { method: 'PUT',
-          body: JSON.stringify({ annee, notes: Object.entries(m).map(([k, v]) => ({ etudiant_id: Number(k), valeur: v })) }) });
+      // Une requête par évaluation ; une évaluation par acquis envoie ses acquis ensemble.
+      const parEval = {};
+      for (const [cle, m] of Object.entries(saisie)) {
+        const [id, aa] = cle.split('|');
+        for (const [k, v] of Object.entries(m)) (parEval[id] ||= []).push({ etudiant_id: Number(k), valeur: v, ...(aa ? { aa_code: aa } : {}) });
+      }
+      for (const [id, notes] of Object.entries(parEval)) {
+        const j = await appel(`${base}/evaluations/${id}/notes`, { method: 'PUT', body: JSON.stringify({ annee, notes }) });
         n += j.ecrites;
       }
       setFait(`${n} note(s) enregistrée(s) dans le carnet.`);
@@ -77,8 +88,9 @@ export default function CarnetCotes({ coursCode, annee, groupe = '', sessionFeui
     } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
   }
 
-  async function coller(ev) {
-    const texte = await saisir({ titre: `Coller les notes — ${ev.intitule}`, multiligne: true, confirmer: 'Remplir la colonne',
+  async function coller(c) {
+    const ev = c.ev;
+    const texte = await saisir({ titre: `Coller les notes — ${ev.intitule}${c.aa ? ` · ${c.aa}` : ''}`, multiligne: true, confirmer: 'Remplir la colonne',
       message: 'Collez une colonne depuis Excel. Deux formes :\n– une note par ligne, dans l’ordre de la liste affichée ;\n– ou deux colonnes : le matricule (ou « NOM Prénom ») puis la note.\nRien ne s’enregistre avant « Enregistrer ».' });
     if (!texte) return;
     const lignes = String(texte).split(/\r?\n/).map(l => l.replace(/\s+$/, '')).filter(l => l.trim());
@@ -94,7 +106,7 @@ export default function CarnetCotes({ coursCode, annee, groupe = '', sessionFeui
         message: `${lignes.length} ligne(s) collée(s) pour ${etudiants.length} étudiant(s) affiché(s). Remplir dans l’ordre quand même ?` }))) return;
       etudiants.forEach((e, i) => { if (i < lignes.length) nouvelles[e.id] = lignes[i].trim(); });
     }
-    setSaisie(s => ({ ...s, [ev.id]: { ...(s[ev.id] || {}), ...nouvelles } }));
+    setSaisie(s => ({ ...s, [cleCol(c)]: { ...(s[cleCol(c)] || {}), ...nouvelles } }));
     if (inconnus.length) informer({ titre: 'Lignes non reconnues', message: `${inconnus.length} ligne(s) ne correspondent à aucun étudiant de la liste :\n${inconnus.slice(0, 10).join('\n')}` });
   }
 
@@ -167,19 +179,21 @@ export default function CarnetCotes({ coursCode, annee, groupe = '', sessionFeui
             <thead>
               <tr className="tab-entete">
                 <th className="px-2 py-1.5 text-left sticky left-0 z-10 bg-inherit min-w-[200px]">Étudiant</th>
-                {evals.map(ev => (
-                  <th key={ev.id} className={`px-1.5 py-1 align-bottom min-w-[86px] ${ev.session !== session ? 'opacity-50' : ''}`}>
+                {colonnes.map(c => { const ev = c.ev; return [
+                  <th key={cleCol(c)} className={`px-1.5 py-1 align-bottom min-w-[86px] ${ev.session !== session ? 'opacity-50' : ''} ${c.aa && !c.premier ? 'border-l border-dashed border-slate-200' : ''}`}>
                     <button type="button" className="text-left w-full hover:underline" onClick={() => setFiche({ ...ev })} title="Modifier l’évaluation">
-                      <div className="font-semibold text-slate-800 normal-case tracking-normal">{ev.intitule}</div>
+                      <div className="font-semibold text-slate-800 normal-case tracking-normal">{c.aa && !c.premier ? '\u00a0' : ev.intitule}</div>
                       <div className="font-normal normal-case tracking-normal text-slate-500">
-                        {[fr(ev.date), `/${nb(ev.sur)}`, ev.poids !== 1 ? `×${nb(ev.poids)}` : '', ev.session === 2 ? 'S2' : ''].filter(Boolean).join(' · ')}</div>
+                        {c.aa && !c.premier ? '\u00a0' : [fr(ev.date), `/${nb(ev.sur)}`, ev.poids !== 1 ? `×${nb(ev.poids)}` : '', ev.session === 2 ? 'S2' : ''].filter(Boolean).join(' · ')}</div>
                       <div className="font-normal normal-case tracking-normal" style={{ color: ev.aa.length ? 'var(--c-texte)' : 'rgb(var(--gris-400))' }}>
-                        {codes.length ? (ev.aa.length ? ev.aa.map(a => a.aa_code).join(', ') : 'carnet seul') : 'note du cours'}</div>
+                        {c.aa ? <b>{c.aa}{Number(c.poidsAA) !== 1 ? ` ×${nb(c.poidsAA)}` : ''}</b>
+                          : codes.length ? (ev.aa.length ? ev.aa.map(a => a.aa_code).join(', ') : 'carnet seul') : 'note du cours'}</div>
                     </button>
-                    <button type="button" className="font-normal normal-case tracking-normal text-slate-500 hover:underline" onClick={() => coller(ev)}>
+                    <button type="button" className="font-normal normal-case tracking-normal text-slate-500 hover:underline" onClick={() => coller(c)}>
                       <IconClipboardText size={12} className="inline -mt-0.5" /> coller</button>
-                  </th>
-                ))}
+                  </th>,
+                  c.aa && c.dernier ? <th key={`${ev.id}=`} className="px-1.5 py-1 align-bottom text-right" title="Note de l’évaluation : moyenne de ses acquis, pondérée">= {ev.intitule}</th> : null,
+                ]; })}
                 <th className="px-2 py-1.5 text-right" title="Moyenne de toutes les évaluations de la session, sur 20">Moy. /20</th>
                 {cles.map(k => <th key={k || 'c'} className="px-2 py-1.5 text-right" title="Proposition par acquis, arrondie à l’unité">→ {nomAA(k)}</th>)}
               </tr>
@@ -191,16 +205,18 @@ export default function CarnetCotes({ coursCode, annee, groupe = '', sessionFeui
                     <b>{String(e.nom || '').toUpperCase()}</b> {e.prenom}
                     {e.groupe && <span className="block text-xs text-slate-400">{e.groupe}</span>}
                   </td>
-                  {evals.map(ev => {
-                    const v = valeur(ev, e); const ok = valide(v, ev.sur);
-                    const sale = saisie[ev.id]?.[e.id] !== undefined;
-                    return (
-                      <td key={ev.id} className="px-1 py-0.5 text-center">
-                        <input value={v} onChange={x => poser(ev.id, e.id, x.target.value)} inputMode="decimal"
+                  {colonnes.map(c => {
+                    const ev = c.ev; const k = cleCol(c);
+                    const v = valeur(c, e); const ok = valide(v, ev.sur);
+                    const sale = saisie[k]?.[e.id] !== undefined;
+                    return [
+                      <td key={k} className={`px-1 py-0.5 text-center ${c.aa && !c.premier ? 'border-l border-dashed border-slate-100' : ''}`}>
+                        <input value={v} onChange={x => poser(k, e.id, x.target.value)} inputMode="decimal" aria-label={`${ev.intitule}${c.aa ? ` ${c.aa}` : ''} — ${e.nom} ${e.prenom}`}
                           className="w-[4.2rem] h-7 text-center border rounded-champ"
                           style={{ borderColor: !ok ? 'var(--c-refuse)' : sale ? 'var(--c-attente)' : 'rgb(var(--gris-300))' }} />
-                      </td>
-                    );
+                      </td>,
+                      c.aa && c.dernier ? <td key={`${ev.id}=`} className="px-2 text-right tabular-nums text-slate-600">{affiche(e.notes?.[ev.id]) || '—'}</td> : null,
+                    ];
                   })}
                   <td className="px-2 text-right tabular-nums">{e.moyenne?.[session] != null ? nb(e.moyenne[session]) : '—'}</td>
                   {cles.map(k => {
@@ -237,7 +253,7 @@ function FicheEvaluation({ fiche, acquis, base, annee, onFermer, onFait }) {
   async function enregistrer() {
     setErreur(null);
     try {
-      const corps = JSON.stringify({ annee, intitule: f.intitule, date: f.date || null, sur: f.sur, poids: f.poids, session: f.session, aa: f.aa });
+      const corps = JSON.stringify({ annee, intitule: f.intitule, date: f.date || null, sur: f.sur, poids: f.poids, session: f.session, aa: f.aa, par_acquis: !!f.par_acquis });
       if (f.id) await appel(`${base}/evaluations/${f.id}`, { method: 'PUT', body: corps });
       else await appel(`${base}/evaluations`, { method: 'POST', body: corps });
       onFait(f.id ? 'Évaluation modifiée.' : `« ${f.intitule} » ajoutée au carnet.`);
@@ -278,6 +294,10 @@ function FicheEvaluation({ fiche, acquis, base, annee, onFermer, onFait }) {
           <div>
             <span className="intertitre block mb-1">Acquis évalués</span>
             <p className="text-second text-slate-500 mt-0 mb-1.5">Cochés : l’évaluation compte dans la proposition de ces acquis. Aucun : elle reste dans votre carnet.</p>
+            <label className="flex items-start gap-2 mb-2 cursor-pointer">
+              <input type="checkbox" className="mt-1" checked={!!f.par_acquis} onChange={e => setF({ ...f, par_acquis: e.target.checked })} />
+              <span><b>Noter acquis par acquis</b> <span className="text-slate-500">— une note par acquis coché (l’écrit, l’oral d’une épreuve intégrée) ; la note de l’évaluation en est la moyenne, pondérée par le poids de chaque acquis.</span></span>
+            </label>
             <div className="space-y-1 max-h-60 overflow-auto">
               {acquis.map(a => (
                 <div key={a.aa_code} className="flex items-start gap-2">

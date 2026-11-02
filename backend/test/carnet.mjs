@@ -3,7 +3,7 @@
 import fs from 'node:fs'; import path from 'node:path'; import os from 'node:os';
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lucie-carnet-'));
 process.env.DB_PATH = path.join(dir, 'test.db');
-const { lireValeur, propositions } = await import('../src/lib/carnet.js');
+const { lireValeur, propositions, noteDEnsemble } = await import('../src/lib/carnet.js');
 let ok = 0, ko = 0;
 const t = (nom, c, d = '') => { if (c) { ok++; console.log('  ok   ' + nom); } else { ko++; console.log('  FAUX ' + nom + (d ? '  → ' + JSON.stringify(d) : '')); } };
 
@@ -39,6 +39,19 @@ const pc = propositions({ evaluations: [{ id: 1, sur: 20, poids: 1, session: 1, 
 t('cours sans acquis : la note du cours', pc.get(7).aa[''].note === 12);
 const arr = propositions({ evaluations: [{ id: 5, sur: 20, poids: 1, session: 1, aa: [] }], notes: N({ 5: { 1: { points: 9.5 } } }), acquis: [], etudiants: [1] });
 t('9,5 s’arrondit à 10 (règle de la maison)', arr.get(1).aa[''].note === 10);
+
+console.log('\nUne note par acquis (écrit, oral de l’épreuve intégrée)');
+const ecrit = { id: 10, sur: 20, poids: 1, session: 1, par_acquis: 1, aa: [{ aa_code: 'AA1', poids: 3 }, { aa_code: 'AA2', poids: 4 }] };
+const oral = { id: 11, sur: 20, poids: 1, session: 1, par_acquis: 1, aa: [{ aa_code: 'AA1', poids: 2 }, { aa_code: 'AA3', poids: 5 }] };
+const nAA = new Map([[10, new Map([[7, { AA1: { points: 14 }, AA2: { points: 12 } }]])], [11, new Map([[7, { AA1: { points: 15 }, AA3: { points: 11 } }]])]]);
+const pa = propositions({ evaluations: [ecrit, oral], notes: new Map(), notesAA: nAA, acquis: ['AA1', 'AA2', 'AA3'], etudiants: [7] });
+// AA1 : (14×3 + 15×2) / 5 = 14,4 → 14
+t('chaque acquis prend SA note de chaque partie', pa.get(7).aa.AA1.note === 14 && pa.get(7).aa.AA1.sur20 === 14.4, pa.get(7).aa.AA1);
+t('un acquis d’une seule partie', pa.get(7).aa.AA2.note === 12 && pa.get(7).aa.AA3.note === 11);
+t('note de l’écrit = moyenne pondérée de ses acquis', noteDEnsemble(ecrit, { AA1: { points: 14 }, AA2: { points: 12 } }).points === Math.round(((14 * 3 + 12 * 4) / 7) * 100) / 100);
+t('un acquis non noté sort de la note d’ensemble', noteDEnsemble(ecrit, { AA1: { points: 14 } }).points === 14);
+t('rien de noté : pas de note d’ensemble', noteDEnsemble(ecrit, {}) === null);
+t('seulement une mention : la mention', noteDEnsemble(ecrit, { AA1: { mention: 'CM' } }).mention === 'CM');
 
 console.log(`\n${ok} ok, ${ko} faux`);
 fs.rmSync(dir, { recursive: true, force: true });

@@ -254,6 +254,16 @@ export const ajouts = {
   ],
   mescours: [
     {
+      titre: "Le carnet : noter acquis par acquis (l’écrit et l’oral d’une épreuve intégrée)",
+      pour: 'ens coo dir',
+      ou: "Mes cours → le cours → Carnet → [[Évaluation|IconPlus]] → cocher les acquis, puis « Noter acquis par acquis ».",
+      texte: "Certaines lignes d’une UE ne sont pas évaluées pour elles-mêmes (la préparation d’une épreuve intégrée, l’encadrement d’un stage) : ce qu’on note, ce sont des épreuves — l’écrit, l’oral, des séances. Dans le carnet du cours qui porte l’évaluation (ex. 264.2), on crée « Écrit » et « Oral », on coche les acquis que chacun évalue avec leur poids, et on coche « Noter acquis par acquis ». Le carnet ouvre alors une colonne par acquis : on y met une note par acquis ; la note de l’écrit (et de l’oral) en est la moyenne pondérée. Un acquis évalué à l’écrit et à l’oral reçoit une proposition qui combine les deux. [[Reprendre dans la feuille de notes|IconArrowRight]] verse ces propositions dans la feuille, comme pour toute évaluation — le calcul de la délibération ne change pas.",
+      savoir: [
+        "La coordination de la section et le titulaire du cours créent ces évaluations ; pour un TFE, le promoteur encodera la fiche de notation depuis l’espace enseignant, et elle arrivera dans ce carnet.",
+        "Une évaluation déjà notée ne passe pas d’une note unique à une note par acquis (ni l’inverse) : on en crée une autre.",
+      ],
+    },
+    {
       titre: "L'espace enseignant : un site à part, plus simple",
       pour: 'ens coo dir',
       ou: "enseignants.lucie-iip.be — sur téléphone, tablette ou ordinateur.",

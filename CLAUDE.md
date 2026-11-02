@@ -3369,6 +3369,15 @@ d'après le nom (`map $host`). Mise en place pour Jérôme : `scripts/vps/ESPACE
 Poste ? ») : `geocoder` (`lib/distanceRoute.js`) passe `countrycodes=be` puis les voisins à Nominatim, filtre Photon sur BE/FR/NL/LU/DE ;
 au-delà de 400 km aller, refus « adresse mal comprise » ; les points d'avant sont oubliés une fois (`geo_version`). Le départ
 « autre » d'une visite se saisit par `ChampsAdresse` (code postal bpost → localité → rue BeST), recomposé en `depart_texte`.
+**L'ÉCRIT ET L'ORAL DE L'ÉPREUVE INTÉGRÉE : LE CARNET, ACQUIS PAR ACQUIS** (3.5.078, Charles : « certains cours ou lignes
+d'attribution ne sont pas des cours mais de l'encadrement ; on donne une note pour l'écrit et l'oral, obtenue par les AA liés » ;
+tranché : le carnet tel qu'il existe, une note PAR ACQUIS, créé par la coordination et le titulaire, le promoteur encode la fiche
+du TFE). `carnet_evaluation.par_acquis` + `carnet_note_aa` (`lib/carnet.js` : `notesParAcquis`, `noteDEnsemble` ; `propositions`
+lit la note de chaque acquis d'une évaluation par acquis) ; la note d'ensemble est réécrite dans `carnet_note` à chaque saisie
+(moyenne, Excel). Rien ne change au calcul de la délibération : la reprise dans la feuille reste la porte. Banc `test/carnet.mjs`
+(22 ok). **Le pont** : un professeur dont l'espace enseignant est ouvert (fonction + compte relié + portail installé :
+`espace_enseignant_url` de `GET /api/fonctions/moi`) voit à son arrivée `PontEspaceEnseignant` (une fois par session) ;
+une coordination non. **Reste pour Mes TFE** : la fiche de notation dans l'espace enseignant (promoteur), versée dans ce carnet.
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en

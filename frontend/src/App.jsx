@@ -1,4 +1,5 @@
 import { ICONE_AXE } from './lib/iconesAxes.js';
+import PontEspaceEnseignant from './components/PontEspaceEnseignant.jsx';
 import { nomDuCompte } from './lib/nom.js';
 import { BoutonAnnulerReglage } from './lib/annulerReglage.jsx';
 import { useMiseEnPage, basculerMiseEnPage, changerMiseEnPage, deplacer, poigneeGlisser } from './lib/miseEnPage.js';
@@ -815,6 +816,7 @@ function ProtectedLayout({ children }) {
         )}
       </header>
       <main className="flex-1">{children}</main>
+      <PontEspaceEnseignant />
       {compteOuvert && <MonCompte onFermer={() => setCompteOuvert(false)} />}
       <ApercuGlobal />
     </div>
