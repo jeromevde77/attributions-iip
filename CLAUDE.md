@@ -3460,6 +3460,14 @@ formation ») ajouté à `TYPES_MOMENT`. (3) `etatMaintenant` (sorti de `routes/
 bouton « Contacter » / « Urgence » de l'espace, numéros en `tel:`. (4) `guideEnseignant` : le mode d'emploi version Enseignants en
 texte (face « Aide »). Routes du portail : `/api/enseignant/documents|document/:envoi|document/:envoi/accuser|agenda|contact|guide`.
 
+**LES DEUX ESPACES AU DESSIN DE LUCIE, INSTALLABLES SUR LE TÉLÉPHONE** (3.5.090, Charles : « tu me fais le même espace pour
+les étudiants » ; « une version iPhone, iPad » ; « pourquoi ce n'est pas le même style que Lucie, donc dans une fenêtre ? »).
+`EspaceEtudiant.jsx` prend la mise en page de l'espace enseignant (navigation à gauche dès `md`, bande d'onglets et logo en tête
+sur téléphone, `LogoLucie`). Toute fenêtre des espaces est `components/FenetreEspace.jsx` (centrée, bandeau du principal, rayon
+22, 88 vh, pied pour les actions) — jamais un volet de côté. Application installable sans service worker : `frontend/public-portail/`
+(icônes, `manifest-etudiants|enseignants.webmanifest`), `publicDir` de `vite.portail.config.js`, balises dans `portail.html` et
+`enseignants.html`, type et « no-cache » dans `nginx-portail.conf`.
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux

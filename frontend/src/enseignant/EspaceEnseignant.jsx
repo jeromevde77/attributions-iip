@@ -1,5 +1,6 @@
 import { teinteCours, styleTuileCours } from '../lib/teinteCours.js';
 import LogoLucie from '../components/LogoLucie.jsx';
+import FenetreEspace from '../components/FenetreEspace.jsx';
 import { useCallback, useEffect, useState } from 'react';
 import { IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook, IconFileText, IconHelpCircle, IconPhone } from '@tabler/icons-react';
 
@@ -206,18 +207,7 @@ function MaJournee({ moi, onPresences, onSemaine }) {
 
 /* MES UE ET MES ÉTUDIANTS (3.5.086, Charles : « les DUE des UE dans lesquelles ils sont, les listes d'étudiants, les fiches
    des étudiants » ; tranché : une fiche PÉDAGOGIQUE). Un seul cadre par unité ; la DUE et la fiche s'ouvrent par-dessus. */
-function Volet({ titre, sous, onFermer, children }) {
-  return (
-    <div className="fixed inset-0 z-40 bg-slate-900/40 flex justify-end" onClick={onFermer}>
-      <div className="h-full w-full max-w-3xl bg-white flex flex-col" onClick={e => e.stopPropagation()}>
-        <div className="flex items-start gap-3 px-5 py-4 text-white" style={{ background: 'var(--c-principal-fonce, #16406A)' }}>
-          <div className="flex-1 min-w-0"><div className="font-semibold">{titre}</div>{sous && <div className="text-second opacity-80">{sous}</div>}</div>
-          <button type="button" aria-label="Fermer" className="min-h-9 px-2" onClick={onFermer}>✕</button>
-        </div>
-        <div className="flex-1 overflow-auto p-5">{children}</div>
-      </div>
-    </div>);
-}
+const Volet = props => <FenetreEspace {...props} />;
 /* LIRE ET CONFIRMER UN TEXTE DE L'ÉCOLE (3.5.088) : l'ouvrir le pose « présenté » ; « Je confirme avoir pris connaissance »
    le pose « confirmé », dans le registre de lecture de Lucie. */
 function LireTexte({ vid, onFermer }) {
@@ -231,19 +221,17 @@ function LireTexte({ vid, onFermer }) {
     catch (e) { setErreur(e.message); } finally { setEnvoi(false); }
   };
   return (
-    <Volet titre={t?.titre || 'Texte'} sous={t ? `Version ${t.numero}${t.publiee_le ? ` du ${court(t.publiee_le)}` : ''}` : ''} onFermer={onFermer}>
+    <Volet titre={t?.titre || 'Texte'} sous={t ? `Version ${t.numero}${t.publiee_le ? ` du ${court(t.publiee_le)}` : ''}` : ''} onFermer={onFermer}
+      pied={t && (t.confirme_le
+        ? <span className="text-second" style={{ color: 'var(--c-reussi, #3E7D5E)' }}>Vous avez confirmé avoir pris connaissance de ce texte le {court(t.confirme_le)}.</span>
+        : <><span className="flex-1 min-w-0 text-second text-slate-600">La direction vous demande d’en prendre connaissance.</span>
+            <button type="button" className="bouton bouton-fort controle" disabled={envoi} onClick={confirmer}>Je confirme avoir pris connaissance</button></>)}>
       {erreur && <div className="bloc-etat px-3 py-2 text-sm mb-3" data-etat="corriger">{erreur}</div>}
       {!t ? !erreur && <p className="text-slate-500">Chargement…</p> : (
         <div className="space-y-4">
           <iframe title={t.titre} srcDoc={`<!doctype html><meta charset="utf-8"><style>body{font:15px/1.55 'Segoe UI',Arial,sans-serif;color:#1B2B4B;margin:0;padding:4px}</style>${t.html}`}
-            sandbox="" className="w-full border-0" style={{ height: '60vh' }} />
+            sandbox="" className="w-full border-0" style={{ height: '58vh' }} />
           {t.source_url && <p className="m-0 text-second"><a className="text-iip-blue underline" href={t.source_url} target="_blank" rel="noreferrer">Le texte officiel, en ligne</a></p>}
-          {t.confirme_le
-            ? <div className="bloc-etat px-3 py-2 text-sm" data-etat="reussi">Vous avez confirmé avoir pris connaissance de ce texte le {court(t.confirme_le)}.</div>
-            : <div className="flex flex-wrap items-center gap-3 border-t border-slate-200 pt-3">
-                <span className="flex-1 min-w-0 text-second text-slate-600">La direction vous demande d’en prendre connaissance.</span>
-                <button type="button" className="bouton bouton-fort controle" disabled={envoi} onClick={confirmer}>Je confirme avoir pris connaissance</button>
-              </div>}
         </div>)}
     </Volet>);
 }
@@ -287,18 +275,15 @@ function OuvrirDocument({ d, onFermer }) {
   }, [d.envoi_id]);
   const accuser = async () => { try { const r = await appel('POST', `/document/${d.envoi_id}/accuser`); setEtat(x => ({ ...x, accuse_le: r.accuse_le })); } catch (e) { setErreur(e.message); } };
   return (
-    <Volet titre={d.sujet || d.nom_fichier} sous={`Envoyé le ${court(d.envoye_le)}${d.reference ? ` · réf. ${d.reference}` : ''}`} onFermer={onFermer}>
+    <Volet titre={d.sujet || d.nom_fichier} sous={`Envoyé le ${court(d.envoye_le)}${d.reference ? ` · réf. ${d.reference}` : ''}`} onFermer={onFermer}
+      pied={url && <>
+        <a className="bouton controle" href={url} download={d.nom_fichier} target="_blank" rel="noreferrer">Télécharger</a>
+        <span className="flex-1" />
+        {etat.accuse_le ? <span className="text-second" style={{ color: 'var(--c-reussi, #3E7D5E)' }}>Réception accusée le {court(etat.accuse_le)}</span>
+          : <button type="button" className="bouton bouton-fort controle" onClick={accuser}>J’accuse réception de cette pièce</button>}</>}>
       {erreur && <div className="bloc-etat px-3 py-2 text-sm mb-3" data-etat="corriger">{erreur}</div>}
       {!url ? !erreur && <p className="text-slate-500">Chargement…</p> : (
-        <div className="space-y-4">
-          <iframe title={d.nom_fichier} src={url} className="w-full border border-slate-200 rounded-champ" style={{ height: '62vh' }} />
-          <div className="flex flex-wrap items-center gap-3">
-            <a className="bouton controle" href={url} download={d.nom_fichier} target="_blank" rel="noreferrer">Télécharger</a>
-            <span className="flex-1" />
-            {etat.accuse_le ? <span className="text-second" style={{ color: 'var(--c-reussi, #3E7D5E)' }}>Réception accusée le {court(etat.accuse_le)}</span>
-              : <button type="button" className="bouton bouton-fort controle" onClick={accuser}>J’accuse réception de cette pièce</button>}
-          </div>
-        </div>)}
+        <iframe title={d.nom_fichier} src={url} className="w-full border border-slate-200 rounded-champ" style={{ height: '62vh' }} />)}
     </Volet>);
 }
 function MesDocuments() {
@@ -678,6 +663,8 @@ export default function EspaceEnseignant() {
   const aller = k => { setFace(k); setSeance(null); };
   return (
     <div className="min-h-screen flex flex-col md:flex-row" style={{ background: 'var(--page-fond, #F5F7FA)' }}>
+      {/* Sur téléphone, le logo et le nom au-dessus de la bande d'onglets. */}
+      <div className="md:hidden bg-white px-4 pt-3 pb-1 flex items-center gap-3"><Logo /><span className="ml-auto text-second text-slate-500 truncate">{String(moi.nom || '').toUpperCase()} {moi.prenom}</span></div>
       <nav aria-label="Espace enseignant" className="md:w-60 md:shrink-0 bg-white border-b md:border-b-0 md:border-r border-slate-200 p-3 md:p-4 flex md:flex-col gap-1 overflow-x-auto">
         <div className="hidden md:flex items-center gap-2.5 px-2 pb-4"><div className="leading-tight"><Logo /><div className="text-second text-slate-500 pl-1">espace enseignant</div></div></div>
         {FACES.map(f => (

@@ -12,7 +12,8 @@ export default defineConfig({
     '/api/portail': { target: process.env.VITE_PORTAIL_URL || 'http://localhost:3101', changeOrigin: true },
     '/api/enseignant': { target: process.env.VITE_PORTAIL_URL || 'http://localhost:3101', changeOrigin: true } } },
   // Pas le dossier public/ du personnel (le guide « Quoi de neuf » y a vécu) : rien ne passe le mur par là.
-  publicDir: false,
+  // Ses propres fichiers publics (icônes, manifestes de l'écran d'accueil, 3.5.090) — jamais ceux du personnel.
+  publicDir: 'public-portail',
   build: { outDir: 'dist-portail', sourcemap: false, // Deux entrées, un seul site derrière le mur : les étudiants (portail.html) et les enseignants (enseignants.html, 3.5.076).
   rollupOptions: { input: { portail: resolve(__dirname, 'portail.html'), enseignants: resolve(__dirname, 'enseignants.html') } } },
 });
