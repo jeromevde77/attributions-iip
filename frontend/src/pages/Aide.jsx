@@ -116,16 +116,18 @@ function ImageDuPoint({ im, p, onAgrandir, onTaille }) {
     setLargeur(l); onTaille?.(im.src, l);
   };
   return (
-    <figure className="m-0 max-w-full rounded-champ border border-slate-200 overflow-hidden bg-white"
-      style={{ width: largeur ? `${largeur + 2}px` : '18rem' }}>
-      <button type="button" className="relative block w-full bg-slate-50 cursor-zoom-in" title="Agrandir"
+    /* LA FENÊTRE SEULE, CENTRÉE (3.5.087, Charles : « un cadre, puis un fond gris, puis la fenêtre — je ne veux que la
+       fenêtre, et centrée ») : plus de cadre ni de fond autour de la capture ; les captures de fenêtres sont rognées au bord
+       de la fenêtre (coins arrondis transparents). */
+    <figure className="m-0 mx-auto max-w-full" style={{ width: largeur ? `${largeur}px` : '18rem' }}>
+      <button type="button" className="relative block w-full cursor-zoom-in" title="Agrandir"
         onClick={() => onAgrandir?.(im)}>
         <img src={im.src} alt={im.legende || p.titre} loading="lazy" onLoad={charge}
-          className="block w-full h-auto object-contain" style={{ maxHeight: plafond }} />
+          className="block w-full h-auto object-contain" style={{ maxHeight: plafond, filter: 'drop-shadow(0 2px 6px rgba(15, 30, 60, .14))' }} />
         <span className="absolute right-1.5 bottom-1.5 inline-grid place-items-center w-7 h-7 rounded-full bg-white/90 border border-slate-200 text-slate-500">
           <IconZoomIn size={15} /></span>
       </button>
-      {im.legende && <figcaption className="px-3 py-1.5 text-mention text-slate-500 border-t border-slate-100"><Enrichi texte={im.legende} /></figcaption>}
+      {im.legende && <figcaption className="px-1 pt-2 text-mention text-slate-500 text-center"><Enrichi texte={im.legende} /></figcaption>}
     </figure>
   );
 }
