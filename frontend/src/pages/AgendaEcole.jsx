@@ -37,6 +37,7 @@ export default function AgendaEcole({ annee }) {
               <button className="bouton px-1.5" onClick={() => setSel(null)} aria-label="Fermer"><IconX size={14} /></button>
             </div>
             <p className="text-second m-0"><b>{ag.besoin[k].sections_actives}</b> section(s) active(s) : {ag.sections.filter(s => s.semaines[k].actif).map(s => `${s.section} (${s.semaines[k].seances} séance(s)${s.semaines[k].force ? ', forcée' : ''})`).join(', ') || '—'} · <b>{ag.besoin[k].presents_requis}</b> personne(s) requise(s) au secrétariat.</p>
+            {ag.stages?.[k] && (ag.stages[k].etudiants > 0 || ag.stages[k].prepares > 0 || ag.stages[k].periodes.length > 0) && <p className="text-second m-0">Stages : <b>{ag.stages[k].etudiants}</b> étudiant(s) en stage{ag.stages[k].debuts ? `, ${ag.stages[k].debuts} début(s)` : ''}{ag.stages[k].prepares ? `, ${ag.stages[k].prepares} à préparer dans les deux semaines` : ''}{ag.stages[k].periodes.length ? ` · ${ag.stages[k].periodes.join(', ')}` : ''}.</p>}
             {ag.chaleur?.[k]?.raisons?.length > 0 && <p className="text-second text-slate-600 m-0">Chaleur : {ag.chaleur[k].raisons.join(' · ')}.</p>}
           </div>)}
       </div>

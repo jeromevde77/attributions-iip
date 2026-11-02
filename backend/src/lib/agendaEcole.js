@@ -91,6 +91,29 @@ function seancesParSection(annee, semaines) {
   return out;
 }
 
+/* LES STAGES (3.5.065, Charles : « et stages ? »). Par semaine : les étudiants en stage (table `stage`, hors annulés), ceux
+   dont le stage COMMENCE (la préparation — autorisation, convention, pièces des art. 51 et 55 — se fait les deux semaines
+   d'avant), et les périodes des UE de stage (un cours `is_stage`) d'après les dates de leurs organisations, pour les sections
+   dont les stages ne sont pas encore encodés un à un (AESI). */
+export function stagesParSemaine(annee, semaines = semaines52(annee)) {
+  const fin = plus(semaines[semaines.length - 1], 6);
+  const st = essai(() => db.prepare(`SELECT section, date_debut AS du, COALESCE(date_fin, date_debut) AS au FROM stage
+    WHERE date_debut IS NOT NULL AND date_debut <= ? AND COALESCE(date_fin, date_debut) >= ? AND COALESCE(statut, '') NOT IN ('annule', 'abandonne')`).all(fin, semaines[0]), []);
+  const ues = essai(() => db.prepare(`SELECT o.ue_num, o.section, o.num_organisation AS org, o.date_debut AS du, o.date_fin AS au FROM organisation_ue o
+    WHERE o.annee_scolaire = ? AND o.date_debut IS NOT NULL AND o.date_fin IS NOT NULL
+      AND EXISTS (SELECT 1 FROM cours c WHERE c.ue_num = o.ue_num AND COALESCE(c.is_stage, 0) = 1)`).all(annee), []);
+  const avecStages = new Set(st.map(x => x.section));
+  return semaines.map(l => {
+    const d = plus(l, 6);
+    const en = st.filter(x => x.du <= d && x.au >= l);
+    const debuts = st.filter(x => x.du >= l && x.du <= d).length;
+    const prepares = st.filter(x => x.du > d && x.du <= plus(d, 14)).length;
+    const periodes = ues.filter(u => u.du <= d && u.au >= l && !avecStages.has(u.section)).map(u => `${u.section} · UE ${u.ue_num}${u.org > 1 ? ` (org ${u.org})` : ''}`);
+    const sections = [...new Set(en.map(x => x.section || '—'))];
+    return { lundi: l, etudiants: en.length, debuts, prepares, sections, periodes };
+  });
+}
+
 /** L'agenda complet de l'année, tel que la ligne du temps le dessine. */
 export function agenda(annee, { user = null, presentsMin = 2 } = {}) {
   const semaines = semaines52(annee);
@@ -116,11 +139,12 @@ export function agenda(annee, { user = null, presentsMin = 2 } = {}) {
     return { lundi: l, sections_actives: actives, seances: nSeances, presents_requis: f === 'totale' ? 0 : actives ? presentsMin : 1 };
   });
   const perim = user ? sectionsPeintes(user, sections.map(s => s.section)) : [];
+  const stages = stagesParSemaine(annee, semaines);
   return {
     annee, semaines, types_cours: TYPES_COURS,
     cours: semaines.map(l => { const c = coursDe.get(l); return c ? { id: c.id, type: c.type, label: c.label } : null; }),
     fermetures: semaines.map(l => { const f = ferm.get(l); return f ? { fermeture: f.fermeture, libelle: f.libelle, par: f.par, le: f.le } : null; }),
-    jours_fermes: joursFermes(annee), sections, besoin,
+    jours_fermes: joursFermes(annee), sections, besoin, stages,
     peut: { etablissement: !!user && PEINT_ETABLISSEMENT.includes(user.role), sections: perim },
   };
 }

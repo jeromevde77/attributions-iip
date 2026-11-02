@@ -174,5 +174,15 @@ const m1 = L.moments(A, { user: { id: 1, role: 'secretariat' } }).find(m => m.id
 t('une échéance porte son domaine, sa nature et ses rôles', m1 && m1.nature === 'echeance' && m1.domaine === 'administratif' && m1.pour === 'secretariat', m1);
 t('un enseignant ne la voit pas', !L.moments(A, { user: { id: 7, role: 'professeur' } }).some(m => m.id === idm));
 
+console.log('\nLes stages');
+db.exec(`CREATE TABLE IF NOT EXISTS stage (id INTEGER PRIMARY KEY, etudiant_id INTEGER, annee_scolaire TEXT, section TEXT, date_debut TEXT, date_fin TEXT, statut TEXT DEFAULT 'prevu')`);
+for (let k = 0; k < 6; k++) db.prepare("INSERT INTO stage (etudiant_id, annee_scolaire, section, date_debut, date_fin) VALUES (?, '2026-2027', 'TIM', '2027-03-15', '2027-04-09')").run(k + 1);
+const sts = G.stagesParSemaine(A);
+const sm = x => sts.find(y => y.lundi === x);
+t('6 étudiants en stage la semaine du 22/03', sm('2027-03-22').etudiants === 6 && sm('2027-03-15').debuts === 6, sm('2027-03-22'));
+t('la préparation se lit les deux semaines d’avant', sm('2027-03-01').prepares === 6 && sm('2027-03-08').prepares === 6 && sm('2027-02-22').prepares === 0);
+const chs = L.chaleur(A).find(c => c.lundi === '2027-03-08');
+t('la préparation des stages entre dans la période', chs.raisons.some(r => /stages à préparer/.test(r)), chs.raisons);
+
 console.log(`\n${ok} ok, ${ko} faux`);
 process.exit(ko ? 1 : 0);

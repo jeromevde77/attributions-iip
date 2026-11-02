@@ -3287,6 +3287,10 @@ Banc : 57 ok.
 `debutDAnnee` (`lib/tempsTravail.js`, `lib/agendaEcole.js`, recopiée dans `pages/TempsTravail.jsx`) ; 52 semaines jusqu'au 15 août
 suivant (une semaine orpheline possible certaines années, en fermeture d'été). `recalerAnnees()` déplace au démarrage les semaines
 d'une année générée avant (septembre → août) vers celles qui lui manquent, statut et heures compris.
+**Les stages dans l'agenda** (3.5.065, Charles : « et stages ? ») : `stagesParSemaine` (`lib/agendaEcole.js`) — étudiants en stage
+(table `stage`, hors annulés), débuts, préparation (les deux semaines d'avant : art. 51 et 55), périodes des UE de stage (`cours.is_stage`
+× `organisation_ue`) pour les sections sans stages encodés (AESI) ; rangée « Stages » de `AgendaLigne` ; deux sources de la tension
+(`stages_prep` poids 2, `stages_en` poids 1). Banc : 60 ok.
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
