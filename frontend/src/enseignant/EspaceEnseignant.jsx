@@ -1,6 +1,7 @@
 import { teinteCours, styleTuileCours } from '../lib/teinteCours.js';
+import LogoLucie from '../components/LogoLucie.jsx';
 import { useCallback, useEffect, useState } from 'react';
-import { IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin } from '@tabler/icons-react';
+import { IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown } from '@tabler/icons-react';
 
 /**
  * L'ESPACE ENSEIGNANT (3.5.076, Charles, 2 novembre 2026 : « pour les profs, il faut penser les menus autrement… un module
@@ -37,14 +38,7 @@ const STATUTS = [
 ];
 const cleDe = p => (p?.statut === 'present' && p.retard ? 'retard' : p?.statut || null);
 
-function Logo() {
-  return (
-    <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true">
-      <path d="M9 5 V25 H27" fill="none" stroke="var(--c-principal, #19537E)" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="9" cy="5" r="2.6" fill="#F9B619" /><circle cx="9" cy="25" r="2.6" fill="#05B7E6" /><circle cx="27" cy="25" r="2.6" fill="#19537E" />
-    </svg>
-  );
-}
+const Logo = () => <LogoLucie hauteur={30} className="" />;
 
 // ── L'ENTRÉE ──
 function Entree({ onEntre }) {
@@ -78,7 +72,7 @@ function Entree({ onEntre }) {
   return (
     <div className="min-h-screen grid place-items-center px-4" style={{ background: 'var(--page-fond, #F5F7FA)' }}>
       <div className="w-full max-w-md bg-white border border-slate-200 rounded-carte p-6 space-y-4">
-        <div className="flex items-center gap-3"><Logo /><div><div className="font-semibold text-lg text-iip-texte">Lucie</div><div className="text-second text-slate-500">Espace enseignant · Institut Ilya Prigogine</div></div></div>
+        <div className="flex items-center gap-3"><Logo /><div className="text-second text-slate-500">Espace enseignant · Institut Ilya Prigogine</div></div>
         {erreur && <div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">{erreur}</div>}
         {vue === 'connexion' && (
           <form onSubmit={entrer} className="space-y-3">
@@ -159,6 +153,9 @@ function MaJournee({ moi, onPresences, onSemaine }) {
   const [d, setD] = useState(null);
   const [erreur, setErreur] = useState(null);
   useEffect(() => { setD(null); appel('GET', `/journee?date=${jour}`).then(setD).catch(e => setErreur(e.message)); }, [jour]);
+  const [t, setT] = useState(null);
+  useEffect(() => { appel('GET', '/tableau').then(setT).catch(() => setT({ pret: false })); }, []);
+  const aFaire = t?.a_faire || [];
   return (
     <div className="space-y-5">
       <header className="flex flex-wrap items-end justify-between gap-3">
@@ -180,7 +177,13 @@ function MaJournee({ moi, onPresences, onSemaine }) {
             : <p className="text-slate-500">Aucune séance ce jour-là dans votre horaire.</p>}
           <section className="bg-white border border-slate-200 rounded-carte overflow-hidden">
             <div className="entete-carte px-4 py-3 font-semibold text-iip-texte">Ce qui m’attend</div>
-            {!d.sans_presences.length && !(moi.attente || []).length && <p className="m-0 px-4 py-3 text-slate-500">Rien en retard. Bonne journée.</p>}
+            {!d.sans_presences.length && !aFaire.length && <p className="m-0 px-4 py-3 text-slate-500">Rien en retard. Bonne journée.</p>}
+            {aFaire.map((x, i) => (
+              <div key={`f${i}`} className="flex items-center gap-3 px-4 py-3 border-t border-slate-100">
+                <span className="px-2 py-0.5 rounded-pastille text-mention text-white" style={{ background: x.retard ? 'var(--c-refuse, #9D4A38)' : x.type === 'due' ? 'var(--c-attente, #B45309)' : 'var(--c-disponible, #2F6FB0)' }}>
+                  {{ tache: 'tâche', texte: 'à lire', message: 'message', rappel: 'rappel', due: 'DUE' }[x.type] || 'à faire'}</span>
+                <span className="flex-1 min-w-0">{x.titre}{x.echeance ? ` — pour le ${court(x.echeance)}${x.retard ? ' (en retard)' : ''}` : ''}</span>
+              </div>))}
             {d.sans_presences.map(s => (
               <button key={s.id} type="button" onClick={() => onPresences(s.id)} className="w-full text-left flex items-center gap-3 px-4 py-3 border-t border-slate-100 bg-white hover:bg-slate-50">
                 <span className="px-2 py-0.5 rounded-pastille text-mention text-white" style={{ background: 'var(--c-attente, #B45309)' }}>présences</span>
@@ -191,6 +194,98 @@ function MaJournee({ moi, onPresences, onSemaine }) {
         </>)}
     </div>
   );
+}
+
+/* MES UE ET MES ÉTUDIANTS (3.5.086, Charles : « les DUE des UE dans lesquelles ils sont, les listes d'étudiants, les fiches
+   des étudiants » ; tranché : une fiche PÉDAGOGIQUE). Un seul cadre par unité ; la DUE et la fiche s'ouvrent par-dessus. */
+function Volet({ titre, sous, onFermer, children }) {
+  return (
+    <div className="fixed inset-0 z-40 bg-slate-900/40 flex justify-end" onClick={onFermer}>
+      <div className="h-full w-full max-w-3xl bg-white flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="flex items-start gap-3 px-5 py-4 text-white" style={{ background: 'var(--c-principal-fonce, #16406A)' }}>
+          <div className="flex-1 min-w-0"><div className="font-semibold">{titre}</div>{sous && <div className="text-second opacity-80">{sous}</div>}</div>
+          <button type="button" aria-label="Fermer" className="min-h-9 px-2" onClick={onFermer}>✕</button>
+        </div>
+        <div className="flex-1 overflow-auto p-5">{children}</div>
+      </div>
+    </div>);
+}
+function FicheEtudiant({ id, onFermer }) {
+  const [f, setF] = useState(null);
+  const [erreur, setErreur] = useState(null);
+  useEffect(() => { appel('GET', `/etudiant/${id}`).then(setF).catch(e => setErreur(e.message)); }, [id]);
+  return (
+    <Volet titre={f ? `${String(f.nom || '').toUpperCase()} ${f.prenom || ''}` : 'Fiche'} sous={f ? [f.section, f.matricule, f.email].filter(Boolean).join(' · ') : ''} onFermer={onFermer}>
+      {erreur && <p className="text-red-700">{erreur}</p>}
+      {!f ? !erreur && <p className="text-slate-500">Chargement…</p> : (
+        <div className="space-y-5 text-sm">
+          {f.amenagements.length > 0 && (
+            <div className="bloc-etat px-3 py-2" data-etat="disponible"><div className="font-semibold mb-1">Aménagements raisonnables accordés</div>
+              <ul className="m-0 pl-5">{f.amenagements.map((a, i) => <li key={i}>{a.libelle}{a.precisions ? ` — ${a.precisions}` : ''}{a.ue_num ? ` (UE ${a.ue_num})` : ''}</li>)}</ul></div>)}
+          {f.cours.map(c => {
+            const p = c.presences; const dus = p.present + p.absent + p.justifie;
+            return (
+              <section key={c.code} className="border-t border-slate-200 pt-3 first:border-t-0 first:pt-0">
+                <div className="font-semibold">{c.nom || c.code} <span className="font-normal text-slate-500">· UE {c.ue_num}{c.groupe ? ` · ${c.groupe}` : ''}</span></div>
+                <div className="text-slate-600 mt-1">Présences : {p.present} présent·e · {p.absent} absent·e · {p.justifie} justifiée(s){p.passees ? ` — sur ${p.passees} séance(s) passée(s)${dus < p.passees ? `, ${p.passees - dus} non encodée(s)` : ''}` : ''}</div>
+                {c.notes.length > 0 ? (
+                  <table className="mt-2 w-full max-w-md text-sm"><tbody>
+                    {c.notes.map((n, i) => <tr key={i} className="border-t border-slate-100"><td className="py-1 pr-3">{n.evaluation}</td>
+                      <td className="py-1 text-right tabular-nums">{n.mention || (n.points != null ? `${String(n.points).replace('.', ',')} / ${n.sur}` : '—')}</td></tr>)}
+                  </tbody></table>) : <div className="text-slate-400 mt-1">Aucune note au carnet.</div>}
+              </section>);
+          })}
+        </div>)}
+    </Volet>);
+}
+function VoirDUE({ ue, onFermer }) {
+  const [d, setD] = useState(null);
+  const [erreur, setErreur] = useState(null);
+  useEffect(() => { appel('GET', `/due/${ue}`).then(setD).catch(e => setErreur(e.message)); }, [ue]);
+  return (
+    <Volet titre={d ? `DUE — UE ${d.ue_num} ${d.ue_nom || ''}` : 'DUE'} sous={d ? (d.statut === 'validee' ? 'version validée par la direction' : 'en préparation — elle se rédige dans Lucie, Mes cours') : ''} onFermer={onFermer}>
+      {erreur && <p className="text-red-700">{erreur}</p>}
+      {d ? <iframe title="DUE" srcDoc={d.html} sandbox="" className="w-full border-0" style={{ height: '75vh' }} /> : !erreur && <p className="text-slate-500">Chargement…</p>}
+    </Volet>);
+}
+function MesUE() {
+  const [t, setT] = useState(null);
+  const [ouvert, setOuvert] = useState({});
+  const [fiche, setFiche] = useState(null);
+  const [due, setDue] = useState(null);
+  useEffect(() => { appel('GET', '/tableau').then(setT).catch(() => setT({ pret: false })); }, []);
+  if (!t) return <p className="text-slate-500">Chargement…</p>;
+  if (!t.pret || !t.ues?.length) return <p className="text-slate-500">Aucune unité attribuée cette année dans Lucie.</p>;
+  return (
+    <div className="space-y-5">
+      <h1 className="m-0 text-2xl font-semibold text-iip-texte">Mes UE et mes étudiants{t.annee ? ` · ${t.annee}` : ''}</h1>
+      {t.ues.map(u => (
+        <section key={u.ue_num} className="bg-white border border-slate-200 rounded-carte overflow-hidden">
+          <div className="entete-carte px-4 py-3 flex flex-wrap items-center gap-3">
+            <span className="flex-1 min-w-0 font-semibold text-iip-texte">UE {u.ue_num} — {u.ue_nom}{u.section ? <span className="font-normal text-slate-500"> · {u.section}</span> : ''}</span>
+            {u.a_due && <button type="button" className="bouton controle" onClick={() => setDue(u.ue_num)}>DUE{u.due_statut === 'validee' ? '' : ' (en préparation)'}</button>}
+          </div>
+          {u.cours.map(c => {
+            const k = `${u.ue_num}|${c.code}`;
+            return (
+              <div key={c.code} className="border-t border-slate-100">
+                <button type="button" className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-slate-50" onClick={() => setOuvert(o => ({ ...o, [k]: !o[k] }))}>
+                  {ouvert[k] ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
+                  <span className="flex-1 min-w-0">{c.nom || c.code}</span>
+                  <span className="text-second text-slate-500">{c.etudiants.length} étudiant(s)</span>
+                </button>
+                {ouvert[k] && (
+                  <ul className="m-0 pl-0 list-none pb-2">
+                    {c.etudiants.map(e => (
+                      <li key={e.id}><button type="button" className="w-full text-left px-11 py-1.5 text-sm hover:bg-slate-50 flex gap-3" onClick={() => setFiche(e.id)}>
+                        <span className="flex-1">{String(e.nom || '').toUpperCase()} {e.prenom}</span>{e.groupe && <span className="text-second text-slate-500">{e.groupe}</span>}</button></li>))}
+                  </ul>)}
+              </div>);
+          })}
+        </section>))}
+      {fiche && <FicheEtudiant id={fiche} onFermer={() => setFiche(null)} />}
+      {due && <VoirDUE ue={due} onFermer={() => setDue(null)} />}
+    </div>);
 }
 
 function Presences({ seanceId, onRetour, motifs: MOTIFS = [] }) {
@@ -330,6 +425,7 @@ function MonCompte({ moi, onToken }) {
 const FACES = [
   { k: 'journee', l: 'Ma journée', I: IconSun },
   { k: 'horaire', l: 'Mon horaire', I: IconCalendarWeek },
+  { k: 'ues', l: 'Mes UE et étudiants', I: IconUsers },
   { k: 'compte', l: 'Mon compte', I: IconUserCircle },
 ];
 
@@ -376,7 +472,7 @@ export default function EspaceEnseignant() {
   return (
     <div className="min-h-screen flex flex-col md:flex-row" style={{ background: 'var(--page-fond, #F5F7FA)' }}>
       <nav aria-label="Espace enseignant" className="md:w-60 md:shrink-0 bg-white border-b md:border-b-0 md:border-r border-slate-200 p-3 md:p-4 flex md:flex-col gap-1 overflow-x-auto">
-        <div className="hidden md:flex items-center gap-2.5 px-2 pb-4"><Logo /><div className="leading-tight"><div className="font-semibold text-iip-texte">Lucie</div><div className="text-second text-slate-500">espace enseignant</div></div></div>
+        <div className="hidden md:flex items-center gap-2.5 px-2 pb-4"><div className="leading-tight"><Logo /><div className="text-second text-slate-500 pl-1">espace enseignant</div></div></div>
         {FACES.map(f => (
           <button key={f.k} type="button" onClick={() => aller(f.k)} aria-current={face === f.k && !seance ? 'page' : undefined}
             className="shrink-0 min-h-11 px-3 rounded-champ inline-flex items-center gap-2.5 text-sm text-left"
@@ -395,6 +491,7 @@ export default function EspaceEnseignant() {
         {seance ? <Presences seanceId={seance} motifs={moi.motifs} onRetour={() => setSeance(null)} />
           : face === 'journee' ? <MaJournee moi={moi} onPresences={setSeance} onSemaine={() => aller('horaire')} />
           : face === 'horaire' ? <MonHoraire moi={moi} onPresences={setSeance} />
+          : face === 'ues' ? <MesUE />
           : <MonCompte moi={moi} onToken={entrer} />}
         <p className="mt-8 text-mention text-slate-400">Ce que vous enregistrez ici part dans Lucie au relevé suivant (quelques secondes).{moi.depose_le ? ` Données de Lucie du ${court(moi.depose_le)} à ${String(moi.depose_le).slice(11, 16)} (UTC).` : ''}</p>
       </main>

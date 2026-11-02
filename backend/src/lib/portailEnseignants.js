@@ -17,6 +17,8 @@ import { fonctionPour } from './fonctions.js';
 import { seancesPourEspace, presencesDepuisEspace } from '../routes/mesCours.js';
 import { aujourdhuiBruxelles } from './presenceQr.js';
 import { MOTIFS_JUSTIFIES } from './cep.js';
+import { attributionsDe, etudiantsDuCours } from './etudiantsCours.js';
+import { ceQuiAttend } from './recapQuotidien.js';
 
 const URL_ENS = () => (process.env.ENSEIGNANTS_URL_PUBLIQUE || 'https://enseignants.lucie-iip.be').replace(/\/$/, '');
 const esc = t => String(t ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -64,6 +66,75 @@ function aDeposer() {
 }
 const compte = id => comptesEnseignants().find(u => u.id === Number(id)) || null;
 
+/* LE TABLEAU DE BORD DU PROFESSEUR (3.5.086, Charles : « pour les profs, les notifications, ce qu'ils ont à faire… les
+   présences des leçons passées, les DUE des UE dans lesquelles ils sont, les listes d'étudiants, les fiches des étudiants » ;
+   tranché : dans l'espace enseignant, et une fiche PÉDAGOGIQUE — ni adresse, ni numéro national, ni frais). Composé ici,
+   déposé avec le reste ; le portail ne fait que le montrer. */
+const anneeActive = () => db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code
+  || db.prepare('SELECT code FROM annee_scolaire ORDER BY code DESC LIMIT 1').get()?.code;
+async function tableauDe(u, profId, annee, documentDUE) {
+  const aFaire = [];
+  if (u.id > 0) {
+    try {
+      const a = ceQuiAttend({ id: u.id, role: u.role, professeur_id: profId }, null);
+      for (const t of a.taches) aFaire.push({ type: 'tache', titre: t.titre, echeance: t.echeance || null, retard: !!t.retard });
+      for (const t of a.textes) aFaire.push({ type: 'texte', titre: `À lire et confirmer dans Lucie : ${t.titre}` });
+      for (const m of a.messages) aFaire.push({ type: 'message', titre: `Message non lu dans Lucie : ${m.titre}` });
+      for (const r of a.rappels || []) aFaire.push({ type: 'rappel', titre: r.titre || r.objet || 'Rappel' });
+    } catch { /* tables absentes */ }
+  }
+  const attrs = attributionsDe(profId, annee);
+  const ues = new Map(), fiches = new Map();
+  const statutDUE = db.prepare('SELECT statut FROM due WHERE ue_num = ? AND annee_scolaire = ?');
+  const seancesPassees = db.prepare(`SELECT id FROM horaire_seance WHERE annee_scolaire = ? AND cours_code = ? AND COALESCE(annule, 0) = 0 AND date <= date('now')`);
+  const presencesDe = db.prepare(`SELECT p.etudiant_id, p.statut, COUNT(*) n FROM presence p JOIN horaire_seance h ON h.id = p.seance_id
+    WHERE h.annee_scolaire = ? AND h.cours_code = ? GROUP BY p.etudiant_id, p.statut`);
+  const notesDe = db.prepare(`SELECT e.intitule, e.sur, n.etudiant_id, n.points, n.mention FROM carnet_evaluation e
+    JOIN carnet_note n ON n.evaluation_id = e.id WHERE e.annee_scolaire = ? AND e.cours_code = ? ORDER BY e.ordre, e.id`);
+  for (const a of attrs) {
+    if (!ues.has(a.ue_num)) {
+      let statut = 'preparation';
+      try { statut = statutDUE.get(a.ue_num, annee)?.statut || 'preparation'; } catch { /* */ }
+      let due = null;
+      try { due = documentDUE ? documentDUE(a.ue_num, annee) : null; } catch { due = null; }
+      ues.set(a.ue_num, { ue_num: a.ue_num, ue_nom: a.ue_nom, section: a.section, due_statut: statut, due_html: due, cours: [] });
+    }
+    const ue = ues.get(a.ue_num);
+    if (ue.cours.some(c => c.code === a.code_cours)) continue;
+    let liste = null;
+    try { liste = etudiantsDuCours(profId, a.code_cours, annee); } catch { liste = null; }
+    const etus = liste?.etudiants || [];
+    const passees = (() => { try { return seancesPassees.all(annee, a.code_cours).length; } catch { return 0; } })();
+    const pres = new Map();
+    try { for (const r of presencesDe.all(annee, a.code_cours)) { const x = pres.get(r.etudiant_id) || {}; x[r.statut] = r.n; pres.set(r.etudiant_id, x); } } catch { /* */ }
+    const notes = new Map();
+    try { for (const r of notesDe.all(annee, a.code_cours)) { (notes.get(r.etudiant_id) || notes.set(r.etudiant_id, []).get(r.etudiant_id)).push({ evaluation: r.intitule, sur: r.sur, points: r.points, mention: r.mention }); } } catch { /* */ }
+    ue.cours.push({ code: a.code_cours, nom: a.cours_nom, etudiants: etus.map(e => ({ id: e.id, groupe: e.groupe || null })) });
+    for (const e of etus) {
+      if (!fiches.has(e.id)) {
+        const x = db.prepare('SELECT nom, prenom, email_ecole, id_ecampus, section_rattachement FROM etudiant WHERE id = ?').get(e.id) || {};
+        fiches.set(e.id, { id: e.id, nom: x.nom || e.nom, prenom: x.prenom || e.prenom, email: x.email_ecole || null, matricule: x.id_ecampus || null,
+          section: x.section_rattachement || null, cours: [], amenagements: [] });
+      }
+      const p = pres.get(e.id) || {};
+      fiches.get(e.id).cours.push({ code: a.code_cours, nom: a.cours_nom, ue_num: a.ue_num, groupe: e.groupe || null,
+        presences: { passees, present: p.present || 0, absent: p.absent || 0, justifie: p.justifie || 0 }, notes: notes.get(e.id) || [] });
+    }
+  }
+  // Les aménagements raisonnables : les MESURES accordées seulement (secret professionnel, décret du 30 juin 2016, art. 5).
+  try {
+    const m = db.prepare(`SELECT d.etudiant_id, m.libelle, m.precisions, m.ue_num FROM amenagement_dossier d JOIN amenagement_mesure m ON m.dossier_id = d.id
+      WHERE d.annee_scolaire = ? AND d.statut IN ('accepte','partiel','recours') AND m.accorde = 1`).all(annee);
+    for (const x of m) {
+      const f = fiches.get(x.etudiant_id); if (!f) continue;
+      if (x.ue_num && !f.cours.some(c => c.ue_num === x.ue_num)) continue;
+      f.amenagements.push({ libelle: x.libelle, precisions: x.precisions || null, ue_num: x.ue_num || null });
+    }
+  } catch { /* module absent */ }
+  for (const ue of ues.values()) if (ue.due_statut !== 'validee') aFaire.push({ type: 'due', titre: `DUE de l'UE ${ue.ue_num} à rédiger ou compléter dans Lucie (Mes cours)`, ue_num: ue.ue_num });
+  return { annee, a_faire: aFaire, ues: [...ues.values()], etudiants: [...fiches.values()] };
+}
+
 export async function deposerEnseignants(appel) {
   const jour = aujourdhuiBruxelles();
   const du = decaler(jour, -30), au = decaler(jour, 21);
@@ -75,7 +146,18 @@ export async function deposerEnseignants(appel) {
     for (const e of x.etudiants) etudiants.set(e.id, e);
     presences.push(...x.presences);
   }
-  await appel('POST', '/interne/ens/depot', { enseignants, seances, etudiants: [...etudiants.values()], presences, attentes: [],
+  // Le tableau de bord de chacun (3.5.086).
+  const tableaux = [];
+  const annee = anneeActive();
+  let documentDUE = null;
+  try { documentDUE = (await import('../routes/due.js')).documentDUE; } catch { /* */ }
+  for (const u of aDeposer()) {
+    const profId = u.apercuProfId || db.prepare('SELECT professeur_id FROM utilisateur WHERE id = ?').get(u.id)?.professeur_id;
+    if (!profId || !annee) continue;
+    try { tableaux.push({ ens_id: u.id, contenu: await tableauDe(u, profId, annee, documentDUE) }); }
+    catch (e) { console.error(`[espace enseignant] tableau ${u.id} :`, e.message); }
+  }
+  await appel('POST', '/interne/ens/depot', { enseignants, seances, etudiants: [...etudiants.values()], presences, attentes: [], tableaux,
     // La liste FERMÉE des motifs d'une absence justifiée : celle de Lucie, jamais une copie.
     motifs: Object.entries(MOTIFS_JUSTIFIES).map(([k, l]) => ({ k, l })) });
   return enseignants.length;

@@ -121,7 +121,8 @@ const STYLES = `
   /* les captures, dans un cadre bleu pâle, légende centrée (ancien guide) */
   /* Une capture se pose seule, sur un filet gris (3.5.034, Charles : « tu mets des bandes bleues claires »). */
   .cap { margin: 0 0 3mm; break-inside: avoid; }
-  .cap img { display: block; width: 100%; max-height: 72mm; object-fit: contain; border-radius: 2mm; border: .3mm solid #CBD5E1; background: #fff; }
+  /* La fenêtre seule, centrée (3.5.087) : ni cadre ni fond autour ; la capture est rognée au bord de la fenêtre. */
+  .cap img { display: block; max-width: 100%; width: auto; height: auto; max-height: 72mm; object-fit: contain; margin: 0 auto; }
   .cap figcaption { font-size: 7.8pt; color: ${C.gris}; text-align: center; margin-top: 1.8mm; line-height: 1.4; }
   .annot { margin: 1mm 0 3.5mm; width: 100%; }
   .annot-ecran { position: relative; }
