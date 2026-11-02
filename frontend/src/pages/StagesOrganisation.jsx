@@ -11,6 +11,7 @@ import { IconSend, IconCheck } from '@tabler/icons-react';
 import { EnteteCarte, Tableau, TableauEntete, Th, Td, Tr, PastilleEtat, TuileEtat } from '../components/ui.jsx';
 import { authHeaders } from '../lib/api.js';
 import { demander, informer } from '../lib/dialogue.jsx';
+import { VisitesTrajets } from '../components/VisitesStage.jsx';
 
 const fr = d => (d ? String(d).slice(0, 10).split('-').reverse().join('/') : '—');
 const STATUTS = { prevu: 'Prévu', autorise: 'Autorisé', en_cours: 'En cours', termine: 'Terminé', rompu: 'Rompu', annule: 'Annulé' };
@@ -19,7 +20,7 @@ const appel = (url, o = {}) => fetch(url, { ...o, headers: { ...authHeaders(), .
 const plus = (d, n) => new Date(new Date(`${d}T00:00:00Z`).getTime() + n * 864e5).toISOString().slice(0, 10);
 
 export default function StagesOrganisation({ annee }) {
-  const [face, setFace] = useState('ensemble');
+  const [face, setFace] = useState(() => { try { return new URLSearchParams(window.location.search).get('face') || 'ensemble'; } catch { return 'ensemble'; } });
   const [d, setD] = useState(null);
   const [nProp, setNProp] = useState(0);
   const charger = () => {
@@ -27,7 +28,7 @@ export default function StagesOrganisation({ annee }) {
     appel(`/api/stages/propositions?annee=${encodeURIComponent(annee)}`).then(l => setNProp(l.length)).catch(() => setNProp(0));
   };
   useEffect(() => { if (annee) charger(); }, [annee]);
-  const faces = [['ensemble', 'Vue d’ensemble'], ['pieces', `Pièces manquantes${d?.synthese?.incomplets ? ` (${d.synthese.incomplets})` : ''}`], ['lot', 'Affecter en lot'], ['propositions', `Propositions${nProp ? ` (${nProp})` : ''}`]];
+  const faces = [['ensemble', 'Vue d’ensemble'], ['pieces', `Pièces manquantes${d?.synthese?.incomplets ? ` (${d.synthese.incomplets})` : ''}`], ['lot', 'Affecter en lot'], ['propositions', `Propositions${nProp ? ` (${nProp})` : ''}`], ['trajets', 'Visites et trajets']];
   return (
     <div className="space-y-4">
       <div>
@@ -42,6 +43,7 @@ export default function StagesOrganisation({ annee }) {
         {face === 'pieces' && <Pieces d={d} recharger={charger} />}
         {face === 'lot' && <Lot annee={annee} recharger={charger} />}
         {face === 'propositions' && <Propositions annee={annee} recharger={charger} />}
+        {face === 'trajets' && <Trajets />}
       </>}
     </div>
   );
@@ -72,13 +74,14 @@ function Ensemble({ d }) {
           <select className="controle border border-slate-300 rounded-champ text-sm" value={statut} onChange={e => setStatut(e.target.value)}><option value="">Tous les statuts</option>{Object.entries(STATUTS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
         </EnteteCarte>
         <Tableau dense>
-          <TableauEntete><Th>Étudiant</Th><Th>Section</Th><Th>UE</Th><Th>Lieu</Th><Th>Du</Th><Th>Au</Th><Th>Professeur de stage</Th><Th>Statut</Th><Th>Il manque</Th></TableauEntete>
+          <TableauEntete><Th>Étudiant</Th><Th>Section</Th><Th>UE</Th><Th>Lieu</Th><Th>Du</Th><Th>Au</Th><Th>Professeur de stage</Th><Th>Statut</Th><Th align="droite">Visites</Th><Th>Il manque</Th></TableauEntete>
           <tbody>{liste.map(s => (
             <Tr key={s.id}>
               <Td><a className="underline-offset-2 hover:underline" href={`/etudiants?q=${encodeURIComponent(s.etud_nom)}`}>{String(s.etud_nom).toUpperCase()} {s.etud_prenom}</a></Td>
               <Td ton="secondaire">{s.section || '—'}</Td><Td ton="secondaire">{s.ue_num ? `UE ${s.ue_num}` : '—'}</Td>
               <Td>{s.lieu_nom || <span className="text-slate-400">—</span>}</Td><Td>{fr(s.date_debut)}</Td><Td>{fr(s.date_fin)}</Td>
               <Td ton="secondaire">{s.professeur || '—'}</Td><Td>{STATUTS[s.statut] || s.statut}</Td>
+              <Td align="droite" ton="secondaire" title="faites / prévues">{s.visites_faites || s.visites_prevues ? `${s.visites_faites} / ${s.visites_faites + s.visites_prevues}` : '—'}</Td>
               <Td>{s.manquent?.length ? <PastilleEtat etat={s.urgence === 'rouge' ? 'corriger' : 'surveiller'} title={s.manquent.join(', ')}>{s.manquent.length} élément(s)</PastilleEtat> : <span className="text-slate-400">—</span>}</Td>
             </Tr>))}</tbody>
         </Tableau>
@@ -225,4 +228,11 @@ function Propositions({ annee, recharger }) {
         </Tableau>)}
     </div>
   );
+}
+
+/* VISITES ET TRAJETS (3.5.068, Charles : « où as-tu mis les trajets ? » ; choisi : une face ici) : l'écran des visites et de
+   la fiche de transport — le même que celui du professeur dans Mes cours (components/VisitesStage.jsx), ici pour tous les
+   professeurs de stage ; il porte déjà la liste des stages sans visite. */
+function Trajets() {
+  return <VisitesTrajets />;
 }

@@ -493,7 +493,10 @@ r.get('/', authRequired, (req, res) => {
 
   const auj = new Date().toISOString().slice(0, 10);
   const nomProf = db.prepare("SELECT TRIM(nom || ' ' || COALESCE(prenom, '')) n FROM professeur WHERE id = ?");
+  // Les visites de chaque stage (3.5.068) : prévues, faites — la table vient du module des visites, elle peut manquer.
+  let vis = null; try { vis = db.prepare("SELECT SUM(statut = 'prevue') prevues, SUM(statut = 'faite') faites FROM stage_visite WHERE stage_id = ?"); } catch { vis = null; }
   for (const x of stages) {
+    const v = vis ? vis.get(x.id) : null; x.visites_prevues = v?.prevues || 0; x.visites_faites = v?.faites || 0;
     Object.assign(x, piecesDuStage(x, annee, auj));
     x.professeur = x.professeur_id ? nomProf.get(x.professeur_id)?.n || null : null;
   }

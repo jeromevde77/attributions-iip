@@ -287,7 +287,9 @@ function FaceReglages({ info }) {
   );
 }
 
-export default function VisitesStage({ onFermer }) {
+/* LE CONTENU, SANS LA FENÊTRE (3.5.068) : servi en fenêtre depuis Mes cours (le professeur, ses visites) et en page dans
+   Organisation → Stages → Visites et trajets (le secrétariat et la direction). Une seule source, deux portes. */
+export function VisitesTrajets({ onOutil = null }) {
   const [info, setInfo] = useState(null);
   const [face, setFace] = useState('visites');
   const [prof, setProf] = useState('');
@@ -299,29 +301,38 @@ export default function VisitesStage({ onFermer }) {
   useEffect(() => { if (info?.gestion) api('/regles').then(j => setPersonnes(j.personnes)).catch(() => {}); }, [info?.gestion]);
   const ouvrir = async url => { try { setApercu(await api(url)); } catch (e) { informer({ message: e.message }); } };
   const faces = [['visites', 'Les visites'], ['fiche', 'Fiche de transport'], ...(info?.gestion ? [['reglages', 'Frais de déplacement']] : [])];
+  // En fenêtre, la sortie va au bandeau (la règle des fenêtres) ; en page, elle reste dans la barre des faces.
+  const cible = face === 'fiche' && info && (prof || info.professeur_id) ? `/fiche/${prof || info.professeur_id}/${moisFiche}/document` : null;
+  useEffect(() => { if (onOutil) onOutil(cible ? <OutilFenetre Icone={IconPrinter} titre="Fiche de transport du mois" onClick={() => ouvrir(cible)} /> : null); }, [cible]);
+  if (!info) return <div className="text-second text-slate-500">{erreur || 'Chargement…'}</div>;
   return (
-    <Fenetre icone={IconCar} titre="Visites de stage" sous="Dans l’agenda, avec le lieu de l’étudiant ; et la fiche de transport du mois" large="grande"
-      onFermer={onFermer}
-      outils={face === 'fiche' && (prof || info?.professeur_id) ? <OutilFenetre Icone={IconPrinter} titre="Fiche de transport du mois" onClick={() => ouvrir(`/fiche/${prof || info.professeur_id}/${moisFiche}/document`)} /> : null}
-      pied={<button className="bouton ml-auto" onClick={onFermer}>Fermer</button>}>
-      {!info ? <div className="text-second text-slate-500">{erreur || 'Chargement…'}</div> : (
-        <div className="space-y-3">
-          <div className="flex flex-nowrap items-end gap-4 border-b" style={{ borderColor: 'var(--c-filet)' }}>
-            {faces.map(([k, l]) => <button key={k} className={`onglet-page ${face === k ? 'onglet-page-actif' : ''}`} onClick={() => setFace(k)}>{l}</button>)}
-            {info.gestion && face !== 'reglages' && (
-              <select className="controle border border-slate-300 rounded-champ bg-white text-sm ml-auto mb-1" value={prof} onChange={e => setProf(e.target.value)}>
-                <option value="">{face === 'fiche' ? (info.professeur_id ? 'Ma fiche' : '— choisir une personne —') : 'Tous les professeurs de stage'}</option>
-                {personnes.map(p => <option key={p.id} value={p.id}>{p.nom}</option>)}
-              </select>)}
-          </div>
-          {!info.relie && !info.gestion && <Encadre etat="surveiller" titre="Votre compte n’est relié à aucune fiche de professeur">
-            La direction le relie dans Personnel → fiche de l’enseignant → Accès Lucie.</Encadre>}
-          {face === 'visites' && <FaceVisites info={info} prof={prof} />}
-          {face === 'fiche' && <FaceFiche info={info} prof={prof} mois={moisFiche} setMois={setMoisFiche} />}
-          {face === 'reglages' && <FaceReglages info={info} />}
-        </div>)}
+    <div className="space-y-3">
+      <div className="flex flex-nowrap items-end gap-4 border-b" style={{ borderColor: 'var(--c-filet)' }}>
+        {faces.map(([k, l]) => <button key={k} className={`onglet-page ${face === k ? 'onglet-page-actif' : ''}`} onClick={() => setFace(k)}>{l}</button>)}
+        <span className="ml-auto" />
+        {info.gestion && face !== 'reglages' && (
+          <select className="controle border border-slate-300 rounded-champ bg-white text-sm mb-1" value={prof} onChange={e => setProf(e.target.value)}>
+            <option value="">{face === 'fiche' ? (info.professeur_id ? 'Ma fiche' : '— choisir une personne —') : 'Tous les professeurs de stage'}</option>
+            {personnes.map(p => <option key={p.id} value={p.id}>{p.nom}</option>)}
+          </select>)}
+        {!onOutil && cible && <button className="bouton-sortir px-2.5 py-1 text-second inline-flex items-center gap-1.5 mb-1" onClick={() => ouvrir(cible)}><IconPrinter size={14} /> Fiche du mois</button>}
+      </div>
+      {!info.relie && !info.gestion && <Encadre etat="surveiller" titre="Votre compte n’est relié à aucune fiche de professeur">
+        La direction le relie dans Personnel → fiche de l’enseignant → Accès Lucie.</Encadre>}
+      {face === 'visites' && <FaceVisites info={info} prof={prof} />}
+      {face === 'fiche' && <FaceFiche info={info} prof={prof} mois={moisFiche} setMois={setMoisFiche} />}
+      {face === 'reglages' && <FaceReglages info={info} />}
       {apercu && <PreviewModal html={apercu.html} titre={apercu.titre} nomFichier={apercu.nom_fichier} envoiPossible={false} onClose={() => setApercu(null)} />}
-    </Fenetre>
+    </div>
   );
 }
 
+export default function VisitesStage({ onFermer }) {
+  const [outil, setOutil] = useState(null);
+  return (
+    <Fenetre icone={IconCar} titre="Visites de stage" sous="Dans l’agenda, avec le lieu de l’étudiant ; et la fiche de transport du mois" large="grande"
+      onFermer={onFermer} outils={outil} pied={<button className="bouton ml-auto" onClick={onFermer}>Fermer</button>}>
+      <VisitesTrajets onOutil={setOutil} />
+    </Fenetre>
+  );
+}

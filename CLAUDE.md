@@ -3313,6 +3313,21 @@ attestations). Organisation → *Stages* (`pages/StagesOrganisation.jsx`), route
 écriture ; un stage existant de l'UE est complété, seuls les champs fournis), `GET|POST /propositions` (un stage par inscrit d'une UE
 à cours `is_stage` qui n'en a pas, aux dates de son organisation), `POST /:id/relancer` (courriel à l'adresse d'école, `relance_le`).
 Périmètre : `getUserSections`. **À venir** : lot 2 (lieux et places), lot 3 (heures, évaluations, attestations).
+**Visites et trajets** (3.5.068, Charles : « où as-tu mis les trajets ? ») : 5e face de Stages ; `VisitesTrajets` (sorti de
+`components/VisitesStage.jsx`, une source, deux portes : fenêtre de Mes cours — sortie au bandeau par `onOutil` — et page) ;
+l'entrée « voiture » du rail Étudiants y mène ; `GET /api/stages` porte `visites_prevues` / `visites_faites` (colonne Visites).
+
+**L'ESPACE TFE ET LE RAIL D'ORGANISATION EN QUATRE GROUPES** (3.5.069, Charles, 2 novembre 2026 : « revoir les groupements du
+menu » ; « il faudra encore un espace TFE » ; tranché : sujets et promoteurs, jalons et dépôts, défense et jury, lien avec l'épreuve
+intégrée). Rail : `ordreRail` d'Organisation = programme (structure, unité) · année (agenda, planifier, effectifs) · qui enseigne
+(attributions, labo, horaires) · étudiants (rentrée, répartition, stages, tfe). Organisation → *Travaux de fin d'études*
+(`pages/TfeOrganisation.jsx`, routes ajoutées à `routes/tfe.js` AVANT `/:id`) : même table `tfe` que la fiche ; `GET /annee` (TFE de
+l'année dans le périmètre, jury, remises, `en_retard`, décision de l'UE d'épreuve intégrée LUE de `etudiant_inscription`, et
+`sans_tfe` = inscrits d'une UE `estEpreuveIntegree` sans TFE) ; calendrier des remises par section et année (`tfe_jalon`,
+`PUT /jalons` : un jalon déjà remis ne se retire pas) ; `tfe_remise` (`PUT /:id/remise`, date du jour par défaut) ;
+`POST /:id/relancer` (adresse d'école, `relance_le`) ; `POST /convoquer` (simulation d'abord : étudiant à l'adresse d'école, jury à
+`professeur.adresse_mail` ; refuse sans date, heure, local ou jury ; `convoque_le`) ; `local_defense` sur `tfe`. `Jury` exporté de
+`components/Tfe.jsx`. **À venir** : impression du planning des défenses, PV de défense, note proposée vers l'épreuve intégrée.
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en

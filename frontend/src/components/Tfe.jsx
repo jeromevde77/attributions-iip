@@ -16,7 +16,7 @@ const ECRIT = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretaria
 /* LE JURY (3.1.378) : promoteur, copromoteur, lecteur, auditeur, président. Un nom importé que Lucie n'a
    pas reconnu reste en texte, en ocre, avec la liste pour le rattacher à une personne du personnel. */
 const ROLES = [['promoteur', 'Promoteur'], ['copromoteur', 'Copromoteur'], ['lecteur', 'Lecteur'], ['auditeur', 'Auditeur'], ['president', 'Président du jury']];
-function Jury({ membres, profs, peutEcrire, onChange }) {
+export function Jury({ membres, profs, peutEcrire, onChange }) {
   const [ajout, setAjout] = useState('');
   const poser = liste => onChange(liste.map(m => ({ role: m.role, professeur_id: m.professeur_id || null, nom_libre: m.professeur_id ? null : m.nom_libre })));
   const nomProf = p => `${String(p.nom || '').toUpperCase()} ${p.prenom || ''}`.trim();
