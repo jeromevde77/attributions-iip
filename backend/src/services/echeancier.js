@@ -24,18 +24,24 @@ const aujourdhui = () => iso(new Date());
 // 1. INSTANCIATION
 // ─────────────────────────────────────────────────────────────────────────────
 
+/* La personne par défaut d'un type (3.5.066) : la colonne peut manquer si l'échéancier tourne avant la route qui la crée. */
+function colonnePersonne(db) {
+  try { const c = db.prepare('PRAGMA table_info(echeance_type)').all().map(x => x.name); if (!c.includes('responsable_user_id')) db.exec('ALTER TABLE echeance_type ADD COLUMN responsable_user_id INTEGER'); } catch { /* lecture seule */ }
+}
+
 export function instancier(db, anneeScolaire, { verbose = false } = {}) {
   const stats = { crees: 0, existants: 0, ignores: 0 };
   const anneeDebut = anneeDebutDe(anneeScolaire);
   const estEnConge = chargerPeriodesConges(db, anneeScolaire);
   const datesGedi = DATES_GEDI[anneeScolaire] || [];
 
+  colonnePersonne(db);
   const types = db.prepare('SELECT * FROM echeance_type WHERE actif = 1').all();
   const insert = db.prepare(`
     INSERT INTO echeance
-      (type_id, annee_scolaire, date_due, libelle_override, responsable_role,
+      (type_id, annee_scolaire, date_due, libelle_override, responsable_role, responsable_user_id,
        statut, source_type, source_id, genere_auto)
-    VALUES (@type_id, @annee, @date_due, @libelle, @role, 'a_faire',
+    VALUES (@type_id, @annee, @date_due, @libelle, @role, @personne, 'a_faire',
             @source_type, @source_id, @auto)
   `);
 
@@ -44,7 +50,7 @@ export function instancier(db, anneeScolaire, { verbose = false } = {}) {
     try {
       insert.run({
         type_id: type.id, annee: anneeScolaire, date_due,
-        libelle, role: type.responsable_defaut || null,
+        libelle, role: type.responsable_defaut || null, personne: type.responsable_user_id || null,
         source_type, source_id, auto,
       });
       stats.crees++;
@@ -112,7 +118,7 @@ export function instancier(db, anneeScolaire, { verbose = false } = {}) {
               WHERE type_id = ? AND annee_scolaire = ? AND source_type = 'organisation_ue' AND source_id = ?
                 AND date_due NOT IN (${dates.map(() => '?').join(',')})
                 AND genere_auto = 1 AND statut = 'a_faire' AND fait_le IS NULL AND COALESCE(commentaire, '') = ''
-                AND responsable_user_id IS NULL
+                AND (responsable_user_id IS NULL OR responsable_user_id = (SELECT responsable_user_id FROM echeance_type WHERE id = echeance.type_id))
                 AND NOT EXISTS (SELECT 1 FROM tache t WHERE t.echeance_id = echeance.id)`)
               .run(type.id, anneeScolaire, ue.id, ...dates).changes;
           } catch (e) { console.error(`   ! ${type.code} — ancien jalon de l'UE ${ue.ue_num} : ${e.message}`); }
@@ -170,7 +176,7 @@ export function instancier(db, anneeScolaire, { verbose = false } = {}) {
             db.prepare(`DELETE FROM echeance WHERE type_id = ? AND annee_scolaire = ? AND source_type = 'deliberation_seance'
                 AND source_id = ? AND date_due NOT IN (${dates.map(() => '?').join(',')})
                 AND genere_auto = 1 AND statut = 'a_faire' AND fait_le IS NULL AND COALESCE(commentaire, '') = ''
-                AND responsable_user_id IS NULL AND NOT EXISTS (SELECT 1 FROM tache t WHERE t.echeance_id = echeance.id)`)
+                AND (responsable_user_id IS NULL OR responsable_user_id = (SELECT responsable_user_id FROM echeance_type WHERE id = echeance.type_id)) AND NOT EXISTS (SELECT 1 FROM tache t WHERE t.echeance_id = echeance.id)`)
               .run(type.id, anneeScolaire, se.id, ...dates);
           } catch (e) { console.error(`   ! ${type.code} — séance ${se.id} : ${e.message}`); }
         }
@@ -198,15 +204,16 @@ export function instancier(db, anneeScolaire, { verbose = false } = {}) {
 export function declencher(db, { ancre, dateRef, anneeScolaire, sourceType, sourceId, libelle }) {
   const anneeDebut = anneeDebutDe(anneeScolaire);
   const estEnConge = chargerPeriodesConges(db, anneeScolaire);
+  colonnePersonne(db);
   const types = db.prepare(
     `SELECT * FROM echeance_type WHERE actif = 1 AND regle_date LIKE ?`
   ).all(`rel:${ancre}%`);
 
   const insert = db.prepare(`
     INSERT INTO echeance
-      (type_id, annee_scolaire, date_due, libelle_override, responsable_role,
+      (type_id, annee_scolaire, date_due, libelle_override, responsable_role, responsable_user_id,
        statut, source_type, source_id, genere_auto)
-    VALUES (?, ?, ?, ?, ?, 'a_faire', ?, ?, 1)
+    VALUES (?, ?, ?, ?, ?, ?, 'a_faire', ?, ?, 1)
   `);
 
   let crees = 0;
@@ -215,7 +222,7 @@ export function declencher(db, { ancre, dateRef, anneeScolaire, sourceType, sour
     for (const d of calculerDates(type.regle_date, ctx)) {
       try {
         insert.run(type.id, anneeScolaire, d.date_due, libelle || null,
-                   type.responsable_defaut || null, sourceType || null, sourceId || null);
+                   type.responsable_defaut || null, type.responsable_user_id || null, sourceType || null, sourceId || null);
         crees++;
       } catch { /* déjà présente */ }
     }

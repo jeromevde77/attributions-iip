@@ -3292,6 +3292,18 @@ d'une année générée avant (septembre → août) vers celles qui lui manquent
 × `organisation_ue`) pour les sections sans stages encodés (AESI) ; rangée « Stages » de `AgendaLigne` ; deux sources de la tension
 (`stages_prep` poids 2, `stages_en` poids 1). Banc : 60 ok.
 
+**QUI FAIT QUOI, ET L'ÉCHÉANCIER QUI SE COCHE SEUL** (3.5.066, Charles, 2 novembre 2026, après l'analyse « qui fait quoi, ce qui
+n'est pas fait, et à qui » : 114 échéances passées non cochées, aucune par le secrétariat ; 707 séances sans présence ; 211 VA à
+valider). (1) `lib/echeancesConstatees.js` (`constaterEcheances`, au démarrage, toutes les heures et au « Régénérer ») coche ce que
+Lucie VOIT fait — `ue_preparation` (chaque cours attribué + séances à l'horaire ; les locaux ne sont pas lus, l'horaire importé
+n'en porte pas), `ue_ouverture`, `ue_comptage_dixieme` (`premierDixiemeUE`), `ue_conseil_etudes`, `ue_publication_resultats` —
+au nom de « Lucie (constaté) », constat en commentaire ; ne décoche jamais. Banc `test/echeancesConstatees.mjs` (7 ok).
+(2) `echeance_type.responsable_user_id` : une PERSONNE par type (référentiel de l'échéancier, direction) ; posée sur les
+échéances ouvertes sans personne (ou qui avaient l'ancienne) et sur les suivantes ; le nettoyage des jalons la tient pour
+« non touchée ». (3) Gestion → Équipe → *Qui fait quoi* (`components/QuiFaitQuoi.jsx`, `routes/quiFaitQuoi.js`, direction) :
+activité par personne sur 7/30/90 jours, ce qui attend avec « Confier » (`ConfierTache` accepte `initial`), sections sans
+coordination.
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux

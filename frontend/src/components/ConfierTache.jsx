@@ -22,7 +22,7 @@ import { Fenetre } from './ui.jsx';
  * donc sur une liste, et « aucune section » est un cas normal — le secrétariat
  * et la direction n'en ont pas.
  */
-export default function ConfierTache({ onClose, onCree }) {
+export default function ConfierTache({ onClose, onCree, initial = {} }) {
   const annee = getAnnee();
   const [personnes, setPersonnes] = useState(null);
   const [recherche, setRecherche] = useState('');
@@ -32,7 +32,7 @@ export default function ConfierTache({ onClose, onCree }) {
   // peut pas être les deux : cocher l'un retire l'autre.
   const [informes, setInformes] = useState(() => new Set());
   const [form, setForm] = useState({
-    titre: '', detail: '', echeance: '', priorite: 1,
+    titre: initial.titre || '', detail: initial.detail || '', echeance: initial.echeance || '', priorite: initial.priorite ?? 1,
   });
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState(null);

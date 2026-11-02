@@ -10,6 +10,7 @@
 import { genererRappelsDeliberation } from '../lib/rappelsDeliberation.js';
 import { genererRappelsPersonnel } from '../lib/rappelsPersonnel.js';
 import { genererRappelsEtudiants } from '../lib/rappelsEtudiants.js';
+import { constaterEcheances } from '../lib/echeancesConstatees.js';
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
@@ -17,6 +18,11 @@ import { clauseEcheance, sectionsRestreintes, sectionEcheanceSql } from '../lib/
 import { tachesVisibles } from './reunions.js';
 import { anneeActive, instancier, recalculerStatuts, genererRappels }
   from '../services/echeancier.js';
+
+/* UNE PERSONNE PAR TYPE D'ÉCHÉANCE (3.5.066, Charles : « un responsable par type d'échéance »). Au lieu d'un rôle (« le
+   secrétariat »), un type porte une PERSONNE par défaut : ses échéances ouvertes et les suivantes vont à elle, et ses
+   rappels aussi (genererRappels envoie au responsable nommé avant le rôle). */
+try { const c = db.prepare('PRAGMA table_info(echeance_type)').all().map(x => x.name); if (!c.includes('responsable_user_id')) db.exec('ALTER TABLE echeance_type ADD COLUMN responsable_user_id INTEGER'); } catch (e) { console.error('[échéancier] responsable par type', e.message); }
 
 const r = Router();
 
@@ -299,6 +305,8 @@ r.post('/instancier', authRequired, roleRequired('admin', 'editeur'), (req, res)
   const annee = req.body.annee || anneeActive(db);
   try {
     const stats = instancier(db, annee);
+    let constatees = {};
+    try { constatees = constaterEcheances(annee); } catch (e) { console.error('[échéances constatées]', e.message); }
     const statuts = recalculerStatuts(db);
     const rappels = genererRappels(db);
     // « Régénérer » relance aussi les rappels de la délibération (3.1.523).
@@ -308,7 +316,7 @@ r.post('/instancier', authRequired, roleRequired('admin', 'editeur'), (req, res)
     try { personnel = genererRappelsPersonnel(annee); } catch (e) { console.error('[rappels personnel]', e.message); }
     let etudiants = {};
     try { etudiants = genererRappelsEtudiants(annee); } catch (e) { console.error('[rappels étudiants]', e.message); }
-    res.json({ ok: true, annee, ...stats, ...statuts, ...rappels, rappels_deliberation: delib, rappels_personnel: personnel, rappels_etudiants: etudiants });
+    res.json({ ok: true, annee, ...stats, ...statuts, ...rappels, constatees, rappels_deliberation: delib, rappels_personnel: personnel, rappels_etudiants: etudiants });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -316,7 +324,8 @@ r.post('/instancier', authRequired, roleRequired('admin', 'editeur'), (req, res)
 
 r.get('/types', authRequired, (req, res) => {
   const types = db.prepare(`
-    SELECT t.*, (SELECT COUNT(*) FROM echeance e WHERE e.type_id = t.id) AS nb_instances
+    SELECT t.*, (SELECT COUNT(*) FROM echeance e WHERE e.type_id = t.id) AS nb_instances,
+      (SELECT lucie_nom_compte(u.nom_complet, u.email) FROM utilisateur u WHERE u.id = t.responsable_user_id) AS responsable_nom
       FROM echeance_type t ORDER BY t.zone, t.libelle
   `).all();
   res.json(types);
@@ -349,7 +358,16 @@ r.patch('/types/:id', authRequired, roleRequired('admin'), (req, res) => {
   const id = Number(req.params.id);
   const permis = ['libelle', 'description', 'zone', 'categorie', 'regle_date',
                   'responsable_defaut', 'rappels_defaut', 'base_legale',
-                  'lien_interne', 'filtre_source', 'actif'];
+                  'lien_interne', 'filtre_source', 'actif', 'responsable_user_id'];
+  // La personne passe aux échéances OUVERTES du type qui n'ont personne, ou qui avaient l'ancienne personne par défaut ;
+  // une échéance confiée à quelqu'un d'autre à la main garde son responsable.
+  if (req.body.responsable_user_id !== undefined) {
+    const avant = db.prepare('SELECT responsable_user_id FROM echeance_type WHERE id = ?').get(id)?.responsable_user_id ?? null;
+    const apres = req.body.responsable_user_id ? Number(req.body.responsable_user_id) : null;
+    req.body.responsable_user_id = apres;
+    db.prepare(`UPDATE echeance SET responsable_user_id = ? WHERE type_id = ? AND statut IN ('a_faire', 'en_retard')
+      AND (responsable_user_id IS NULL OR responsable_user_id = ?)`).run(apres, id, avant ?? -1);
+  }
   const champs = [], vals = [];
   for (const k of permis) {
     if (req.body[k] !== undefined) { champs.push(`${k} = ?`); vals.push(req.body[k]); }
