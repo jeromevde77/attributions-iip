@@ -3441,6 +3441,14 @@ seulement. Routes `GET /api/enseignant/tableau|due/:ue|etudiant/:id` (seulement 
 Ma journée, face « Mes UE et étudiants » (DUE en iframe `sandbox`, fiche en volet). **Le logo de Lucie** est un composant
 partagé (`components/LogoLucie.jsx`), repris par l'espace enseignant. **Horaire** : un seul cadre, une couleur par cours (3.5.085).
 
+**LES TEXTES DE L'ÉCOLE DANS L'ESPACE ENSEIGNANT** (3.5.088, Charles : « comment ils cliquent pour voir et signer ? »). Les
+textes de Documentation destinés au rôle du compte (`corpus_destinataire`) partent au portail avec le tableau de bord (`textes` :
+HTML de la dernière version, `texteHtml` — html, parties par `corpsImprimable`, texte brut ; `ens_texte`), avec l'état de lecture
+(`etatLecture`). Dans l'espace : la route qui SERT le texte note `texte_ouvert` (jamais en aperçu), « Je confirme » note
+`texte_confirme` (refusé tant que le texte n'a pas été ouvert) ; Lucie relève (`lectureDepuisEspace`) et écrit `corpus_lecture`
+(`ouvert_le`, `confirme_le`) au nom du compte. Écran : lignes « à lire » de Ma journée cliquables, face « Textes de l'école ».
+Au passage : le nettoyage des présences du portail ne lit que les gestes qui portent une séance.
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux

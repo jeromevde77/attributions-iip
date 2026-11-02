@@ -1,7 +1,7 @@
 import { teinteCours, styleTuileCours } from '../lib/teinteCours.js';
 import LogoLucie from '../components/LogoLucie.jsx';
 import { useCallback, useEffect, useState } from 'react';
-import { IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown } from '@tabler/icons-react';
+import { IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook } from '@tabler/icons-react';
 
 /**
  * L'ESPACE ENSEIGNANT (3.5.076, Charles, 2 novembre 2026 : « pour les profs, il faut penser les menus autrement… un module
@@ -156,6 +156,7 @@ function MaJournee({ moi, onPresences, onSemaine }) {
   const [t, setT] = useState(null);
   useEffect(() => { appel('GET', '/tableau').then(setT).catch(() => setT({ pret: false })); }, []);
   const aFaire = t?.a_faire || [];
+  const [lire, setLire] = useState(null);
   return (
     <div className="space-y-5">
       <header className="flex flex-wrap items-end justify-between gap-3">
@@ -179,10 +180,13 @@ function MaJournee({ moi, onPresences, onSemaine }) {
             <div className="entete-carte px-4 py-3 font-semibold text-iip-texte">Ce qui m’attend</div>
             {!d.sans_presences.length && !aFaire.length && <p className="m-0 px-4 py-3 text-slate-500">Rien en retard. Bonne journée.</p>}
             {aFaire.map((x, i) => (
-              <div key={`f${i}`} className="flex items-center gap-3 px-4 py-3 border-t border-slate-100">
+              <div key={`f${i}`} role={x.version_id ? 'button' : undefined} tabIndex={x.version_id ? 0 : undefined}
+                onClick={x.version_id ? () => setLire(x.version_id) : undefined}
+                className={`flex items-center gap-3 px-4 py-3 border-t border-slate-100 ${x.version_id ? 'cursor-pointer hover:bg-slate-50' : ''}`}>
                 <span className="px-2 py-0.5 rounded-pastille text-mention text-white" style={{ background: x.retard ? 'var(--c-refuse, #9D4A38)' : x.type === 'due' ? 'var(--c-attente, #B45309)' : 'var(--c-disponible, #2F6FB0)' }}>
                   {{ tache: 'tâche', texte: 'à lire', message: 'message', rappel: 'rappel', due: 'DUE' }[x.type] || 'à faire'}</span>
                 <span className="flex-1 min-w-0">{x.titre}{x.echeance ? ` — pour le ${court(x.echeance)}${x.retard ? ' (en retard)' : ''}` : ''}</span>
+                {x.version_id && <IconChevronRight size={16} className="text-slate-400" />}
               </div>))}
             {d.sans_presences.map(s => (
               <button key={s.id} type="button" onClick={() => onPresences(s.id)} className="w-full text-left flex items-center gap-3 px-4 py-3 border-t border-slate-100 bg-white hover:bg-slate-50">
@@ -192,6 +196,7 @@ function MaJournee({ moi, onPresences, onSemaine }) {
               </button>))}
           </section>
         </>)}
+      {lire && <LireTexte vid={lire} onFermer={() => { setLire(null); appel('GET', '/tableau').then(setT).catch(() => {}); }} />}
     </div>
   );
 }
@@ -210,6 +215,60 @@ function Volet({ titre, sous, onFermer, children }) {
       </div>
     </div>);
 }
+/* LIRE ET CONFIRMER UN TEXTE DE L'ÉCOLE (3.5.088) : l'ouvrir le pose « présenté » ; « Je confirme avoir pris connaissance »
+   le pose « confirmé », dans le registre de lecture de Lucie. */
+function LireTexte({ vid, onFermer }) {
+  const [t, setT] = useState(null);
+  const [erreur, setErreur] = useState(null);
+  const [envoi, setEnvoi] = useState(false);
+  useEffect(() => { appel('GET', `/texte/${vid}`).then(setT).catch(e => setErreur(e.message)); }, [vid]);
+  const confirmer = async () => {
+    setEnvoi(true); setErreur(null);
+    try { const r = await appel('POST', `/texte/${vid}/confirmer`); setT(x => ({ ...x, confirme_le: r.confirme_le })); }
+    catch (e) { setErreur(e.message); } finally { setEnvoi(false); }
+  };
+  return (
+    <Volet titre={t?.titre || 'Texte'} sous={t ? `Version ${t.numero}${t.publiee_le ? ` du ${court(t.publiee_le)}` : ''}` : ''} onFermer={onFermer}>
+      {erreur && <div className="bloc-etat px-3 py-2 text-sm mb-3" data-etat="corriger">{erreur}</div>}
+      {!t ? !erreur && <p className="text-slate-500">Chargement…</p> : (
+        <div className="space-y-4">
+          <iframe title={t.titre} srcDoc={`<!doctype html><meta charset="utf-8"><style>body{font:15px/1.55 'Segoe UI',Arial,sans-serif;color:#1B2B4B;margin:0;padding:4px}</style>${t.html}`}
+            sandbox="" className="w-full border-0" style={{ height: '60vh' }} />
+          {t.source_url && <p className="m-0 text-second"><a className="text-iip-blue underline" href={t.source_url} target="_blank" rel="noreferrer">Le texte officiel, en ligne</a></p>}
+          {t.confirme_le
+            ? <div className="bloc-etat px-3 py-2 text-sm" data-etat="reussi">Vous avez confirmé avoir pris connaissance de ce texte le {court(t.confirme_le)}.</div>
+            : <div className="flex flex-wrap items-center gap-3 border-t border-slate-200 pt-3">
+                <span className="flex-1 min-w-0 text-second text-slate-600">La direction vous demande d’en prendre connaissance.</span>
+                <button type="button" className="bouton bouton-fort controle" disabled={envoi} onClick={confirmer}>Je confirme avoir pris connaissance</button>
+              </div>}
+        </div>)}
+    </Volet>);
+}
+function TextesEcole() {
+  const [l, setL] = useState(null);
+  const [lire, setLire] = useState(null);
+  const charger = () => appel('GET', '/textes').then(setL).catch(() => setL([]));
+  useEffect(() => { charger(); }, []);
+  if (!l) return <p className="text-slate-500">Chargement…</p>;
+  return (
+    <div className="space-y-4">
+      <h1 className="m-0 text-2xl font-semibold text-iip-texte">Les textes de l’école</h1>
+      <p className="m-0 text-slate-600">Les règles du jeu : circulaires, règlements, procédures. Ceux qui ne sont pas encore confirmés vous attendent.</p>
+      {!l.length ? <p className="text-slate-500">Aucun texte pour l’instant.</p> : (
+        <section className="bg-white border border-slate-200 rounded-carte overflow-hidden">
+          {l.map(t => (
+            <button key={t.version_id} type="button" onClick={() => setLire(t.version_id)}
+              className="w-full text-left flex items-center gap-3 px-4 py-3 border-t border-slate-100 first:border-t-0 hover:bg-slate-50"
+              style={{ borderLeft: `4px solid ${t.confirme_le ? 'var(--c-reussi, #3E7D5E)' : 'var(--c-refuse, #9D4A38)'}` }}>
+              <span className="flex-1 min-w-0">{t.titre}</span>
+              <span className="text-second text-slate-500 whitespace-nowrap">{t.confirme_le ? `confirmé le ${court(t.confirme_le)}` : t.ouvert_le ? 'ouvert, à confirmer' : 'à lire et confirmer'}</span>
+              <IconChevronRight size={16} className="text-slate-400" />
+            </button>))}
+        </section>)}
+      {lire && <LireTexte vid={lire} onFermer={() => { setLire(null); charger(); }} />}
+    </div>);
+}
+
 function FicheEtudiant({ id, onFermer }) {
   const [f, setF] = useState(null);
   const [erreur, setErreur] = useState(null);
@@ -426,6 +485,7 @@ const FACES = [
   { k: 'journee', l: 'Ma journée', I: IconSun },
   { k: 'horaire', l: 'Mon horaire', I: IconCalendarWeek },
   { k: 'ues', l: 'Mes UE et étudiants', I: IconUsers },
+  { k: 'textes', l: 'Textes de l’école', I: IconBook },
   { k: 'compte', l: 'Mon compte', I: IconUserCircle },
 ];
 
@@ -492,6 +552,7 @@ export default function EspaceEnseignant() {
           : face === 'journee' ? <MaJournee moi={moi} onPresences={setSeance} onSemaine={() => aller('horaire')} />
           : face === 'horaire' ? <MonHoraire moi={moi} onPresences={setSeance} />
           : face === 'ues' ? <MesUE />
+          : face === 'textes' ? <TextesEcole />
           : <MonCompte moi={moi} onToken={entrer} />}
         <p className="mt-8 text-mention text-slate-400">Ce que vous enregistrez ici part dans Lucie au relevé suivant (quelques secondes).{moi.depose_le ? ` Données de Lucie du ${court(moi.depose_le)} à ${String(moi.depose_le).slice(11, 16)} (UTC).` : ''}</p>
       </main>

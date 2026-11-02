@@ -19,6 +19,8 @@ import { aujourdhuiBruxelles } from './presenceQr.js';
 import { MOTIFS_JUSTIFIES } from './cep.js';
 import { attributionsDe, etudiantsDuCours } from './etudiantsCours.js';
 import { ceQuiAttend } from './recapQuotidien.js';
+import { etatLecture, derniereVersion } from '../routes/documentation.js';
+import { corpsImprimable, STYLES_IMPRESSION } from './textesParties.js';
 
 const URL_ENS = () => (process.env.ENSEIGNANTS_URL_PUBLIQUE || 'https://enseignants.lucie-iip.be').replace(/\/$/, '');
 const esc = t => String(t ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -70,6 +72,36 @@ const compte = id => comptesEnseignants().find(u => u.id === Number(id)) || null
    présences des leçons passées, les DUE des UE dans lesquelles ils sont, les listes d'étudiants, les fiches des étudiants » ;
    tranché : dans l'espace enseignant, et une fiche PÉDAGOGIQUE — ni adresse, ni numéro national, ni frais). Composé ici,
    déposé avec le reste ; le portail ne fait que le montrer. */
+/* LES TEXTES DE L'ÉCOLE DANS L'ESPACE (3.5.088, Charles : « comment ils cliquent pour voir et signer ? » ; « le MDP ne sait
+   pas que je lui demande de consulter des documents qui étaient avant dans Documentation »). Les textes de Documentation que
+   la direction destine à son rôle : le texte servi par l'espace pose `ouvert_le`, « Je confirme » pose `confirme_le` — dans
+   le registre de lecture de Lucie (`corpus_lecture`), relevés comme les présences. Même règle que Documentation : on ne
+   confirme pas un texte qui n'a pas été présenté. */
+const echapper = t => String(t ?? '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+function texteHtml(d, v) {
+  try {
+    if (v.format === 'html') return v.contenu;
+    if (v.format === 'parties') { const t = JSON.parse(v.contenu || '{}'); return `<style>${STYLES_IMPRESSION}</style>${corpsImprimable({ titre: d.titre, version: v, parties: t.parties || [] })}`; }
+    return String(v.contenu || '').split(/\n{2,}/).map(p => `<p>${echapper(p).replace(/\n/g, '<br>')}</p>`).join('');
+  } catch { return '<p>Ce texte ne peut pas s’afficher ici : ouvrez-le dans Lucie.</p>'; }
+}
+function textesPour(u, versions) {
+  if (!(u.id > 0)) return [];
+  let docs = [];
+  try { docs = db.prepare(`SELECT d.id, d.cle, d.titre, d.nature, d.source_url FROM corpus_document d JOIN corpus_destinataire t ON t.document_id = d.id AND t.role = ?
+      WHERE d.retire_le IS NULL ORDER BY d.titre`).all(u.role || 'professeur'); } catch { return []; }
+  const out = [];
+  for (const d of docs) {
+    const v = derniereVersion(d.id);
+    if (!v) continue;
+    if (!versions.has(v.id)) versions.set(v.id, { version_id: v.id, titre: d.titre, numero: v.numero, publiee_le: v.publiee_le, html: texteHtml(d, v), source_url: d.source_url || null });
+    const e = etatLecture(d.id, u.id);
+    out.push({ version_id: v.id, titre: d.titre, nature: d.nature, ouvert_le: e.ouvert_le, confirme_le: e.confirme_le });
+  }
+  return out;
+}
+let versionsTextes = new Map();
+
 const anneeActive = () => db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code
   || db.prepare('SELECT code FROM annee_scolaire ORDER BY code DESC LIMIT 1').get()?.code;
 async function tableauDe(u, profId, annee, documentDUE) {
@@ -78,7 +110,6 @@ async function tableauDe(u, profId, annee, documentDUE) {
     try {
       const a = ceQuiAttend({ id: u.id, role: u.role, professeur_id: profId }, null);
       for (const t of a.taches) aFaire.push({ type: 'tache', titre: t.titre, echeance: t.echeance || null, retard: !!t.retard });
-      for (const t of a.textes) aFaire.push({ type: 'texte', titre: `À lire et confirmer dans Lucie : ${t.titre}` });
       for (const m of a.messages) aFaire.push({ type: 'message', titre: `Message non lu dans Lucie : ${m.titre}` });
       for (const r of a.rappels || []) aFaire.push({ type: 'rappel', titre: r.titre || r.objet || 'Rappel' });
     } catch { /* tables absentes */ }
@@ -131,8 +162,10 @@ async function tableauDe(u, profId, annee, documentDUE) {
       f.amenagements.push({ libelle: x.libelle, precisions: x.precisions || null, ue_num: x.ue_num || null });
     }
   } catch { /* module absent */ }
+  const textes = textesPour(u, versionsTextes);
+  for (const t of textes) if (!t.confirme_le) aFaire.unshift({ type: 'texte', titre: `À lire et confirmer : ${t.titre}`, version_id: t.version_id });
   for (const ue of ues.values()) if (ue.due_statut !== 'validee') aFaire.push({ type: 'due', titre: `DUE de l'UE ${ue.ue_num} à rédiger ou compléter dans Lucie (Mes cours)`, ue_num: ue.ue_num });
-  return { annee, a_faire: aFaire, ues: [...ues.values()], etudiants: [...fiches.values()] };
+  return { annee, a_faire: aFaire, textes, ues: [...ues.values()], etudiants: [...fiches.values()] };
 }
 
 export async function deposerEnseignants(appel) {
@@ -148,6 +181,7 @@ export async function deposerEnseignants(appel) {
   }
   // Le tableau de bord de chacun (3.5.086).
   const tableaux = [];
+  versionsTextes = new Map();
   const annee = anneeActive();
   let documentDUE = null;
   try { documentDUE = (await import('../routes/due.js')).documentDUE; } catch { /* */ }
@@ -157,10 +191,26 @@ export async function deposerEnseignants(appel) {
     try { tableaux.push({ ens_id: u.id, contenu: await tableauDe(u, profId, annee, documentDUE) }); }
     catch (e) { console.error(`[espace enseignant] tableau ${u.id} :`, e.message); }
   }
-  await appel('POST', '/interne/ens/depot', { enseignants, seances, etudiants: [...etudiants.values()], presences, attentes: [], tableaux,
+  await appel('POST', '/interne/ens/depot', { enseignants, seances, etudiants: [...etudiants.values()], presences, attentes: [], tableaux, textes: [...versionsTextes.values()],
     // La liste FERMÉE des motifs d'une absence justifiée : celle de Lucie, jamais une copie.
     motifs: Object.entries(MOTIFS_JUSTIFIES).map(([k, l]) => ({ k, l })) });
   return enseignants.length;
+}
+
+/** Un texte ouvert ou confirmé dans l'espace : écrit au registre de lecture de Lucie, au nom du compte. */
+function lectureDepuisEspace(u, g) {
+  let c = {}; try { c = JSON.parse(g.contenu || '{}'); } catch { c = {}; }
+  const v = db.prepare('SELECT id, document_id FROM corpus_version WHERE id = ?').get(Number(c.version_id));
+  if (!v || !(u.id > 0)) return 'Ce texte n’existe plus.';
+  if (!db.prepare('SELECT 1 FROM corpus_destinataire WHERE document_id = ? AND role = ?').get(v.document_id, u.role || 'professeur')) return 'Ce texte ne vous est pas destiné.';
+  const quand = String(c.le || '').match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/) ? c.le : null;
+  db.prepare(`INSERT INTO corpus_lecture (version_id, utilisateur_id, ouvert_le) VALUES (?,?, COALESCE(?, datetime('now')))
+    ON CONFLICT(version_id, utilisateur_id) DO UPDATE SET ouvert_le = COALESCE(corpus_lecture.ouvert_le, excluded.ouvert_le)`).run(v.id, u.id, g.type === 'texte_ouvert' ? quand : null);
+  if (g.type === 'texte_confirme') {
+    if (etatLecture(v.document_id, u.id).confirme_le) return null;
+    db.prepare(`UPDATE corpus_lecture SET confirme_le = COALESCE(?, datetime('now')) WHERE version_id = ? AND utilisateur_id = ? AND confirme_le IS NULL`).run(quand, v.id, u.id);
+  }
+  return null;
 }
 
 export async function releverEnseignants(appel) {
@@ -200,6 +250,7 @@ export async function releverEnseignants(appel) {
     const u = compte(g.ens_id);
     let erreur = null;
     if (!u) erreur = 'Votre espace enseignant n’est plus ouvert.';
+    else if (g.type === 'texte_ouvert' || g.type === 'texte_confirme') erreur = lectureDepuisEspace(u, g);
     else if (g.type !== 'presences') erreur = 'Geste inconnu.';
     else {
       let lignes = []; try { lignes = JSON.parse(g.contenu || '[]'); } catch { lignes = []; }
