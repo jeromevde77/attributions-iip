@@ -23,7 +23,7 @@ export const ajouts = {
       texte: "Tous les stages de l'année : les chiffres clés en tête (stages, en cours, sans lieu, incomplets, à relancer d'urgence), puis « Qui est en stage, quand » — le nombre d'étudiants en stage chaque semaine, par section —, puis la liste, filtrable par étudiant, lieu, UE, section et statut, avec le professeur de stage, les visites faites sur prévues et ce qui manque. Le stage d'un étudiant se retouche dans sa fiche, onglet Stages.",
       images: [{ src: "/guide/stages-ensemble.png", legende: "La vue d'ensemble (données d'essai) : huit stages de l'UE 336 en deux organisations, Toussaint–Noël et Carnaval–Pâques." }],
       savoir: [
-        "La coordination voit et gère les stages de ses sections ; le secrétariat et la direction, tous.",
+        "La coordination voit et gère les stages et les TFE de ses sections, quelles que soient les cases de sa fiche ; le secrétariat et la direction, tous.",
       ],
     },
     {

@@ -3337,6 +3337,11 @@ horaires, unité, PAE), Gestion, Configuration. Un écran ne gère plus l'ouvert
 échéances constatées), Pour commencer (tiroir) ; captures `stages-*`, `tfe-*`, `gestion-qui-fait-quoi` (base d'essai). Dans
 `2026-11.html`, les nouveautés récentes ont leur onglet « Les dernières nouveautés » : elles s'étaient rangées sous « Ce que
 Lucie refuse désormais ».
+**Stages et TFE pour toute coordination** (3.5.073, Charles : « Moiny n'a pas accès aux stages, pourtant elle est coordinatrice » ;
+tranché : toute coordination, quelles que soient ses cases). Écran : rubriques `roles: STAGES_TFE` (`Organisation.jsx`), axe Organisation
+ouvert aussi par le rôle (5e élément d'`AXES`, `App.jsx`). Serveur : `garderModuleSauf(prefixe, ['coordination'])` (`garde.js`) sur
+`/api/stages` et `/api/tfe` — les routes posent leurs rôles et le périmètre. Au passage : un sous-menu d'`Axe` ne fait plus revenir
+une rubrique que le rôle ne voit pas (laboratoire, horaires, unité paraissaient chez une coordination sans Organisation).
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en

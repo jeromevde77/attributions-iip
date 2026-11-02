@@ -541,7 +541,9 @@ function ProtectedLayout({ children }) {
        Étudiants. Organisation est l'axe des unités, des cours et des
        référentiels — des livres —, ce qui rend le presse-papiers au PAE, qui
        est littéralement une liste à cocher. */
-    ['/organisation',  'Organisation',    ICONE_AXE.organisation, 'attributions'],
+    /* STAGES ET TFE POUR TOUTE COORDINATION (3.5.073, Charles : « toute coordination voit Stages et TFE ») : l'axe s'ouvre
+       aussi par le rôle, et n'y montre alors que ce que ses cases permettent — au moins Stages et TFE. */
+    ['/organisation',  'Organisation',    ICONE_AXE.organisation, 'attributions', ['coordination']],
     // GESTION OUVERTE, PAR RUBRIQUE (14 octobre 2026) : qui lit les statistiques y entre ; la dotation
     // et les finances ne s'y montrent qu'à qui en a le droit.
     ['/gestion',       'Gestion',         ICONE_AXE.gestion,  ['pilotage', 'dotation']],
@@ -556,7 +558,7 @@ function ProtectedLayout({ children }) {
   const etroite = useBarreCompacte(REQUETE_ETROITE);
   const mep = useMiseEnPage();
   const nav = AXES
-    .filter(([, , , module]) => !module || [].concat(module).some(m => droitEffectif(u, m) !== 'rien'))
+    .filter(([, , , module, roles]) => !module || [].concat(module).some(m => droitEffectif(u, m) !== 'rien') || (roles || []).includes(u?.role))
     /* « MA FICHE » POUR UN PROFESSEUR (5 octobre 2026 : « en mode prof, je ne
        vois pas ma fiche »). Le serveur ne lui rend que sa propre fiche (soiSeul) ;
        l'axe « Personnel » lui montrait une liste d'une ligne, sans dire que

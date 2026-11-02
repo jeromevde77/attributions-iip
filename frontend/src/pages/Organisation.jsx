@@ -22,6 +22,9 @@ const LaboratoireTemporel = lazy(() => import('./LaboratoireTemporel.jsx'));
 const AgendaEcole = lazy(() => import('./AgendaEcole.jsx'));
 const StagesOrganisation = lazy(() => import('./StagesOrganisation.jsx'));
 const TfeOrganisation = lazy(() => import('./TfeOrganisation.jsx'));
+/* Stages et TFE : direction, secrétariat et TOUTE coordination (ses sections), quelles que soient les cases de sa fiche
+   (3.5.073, Charles). Le serveur fait la même règle (`garderModuleSauf`). */
+const STAGES_TFE = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat', 'coordination'];
 import { IconeLaboratoire } from '../components/IconeLaboratoire.jsx';
 const HoraireSemaine = lazy(() => import('./HoraireSemaine.jsx'));
 const Effectifs = lazy(() => import('./Configuration.jsx').then(m => ({ default: m.OngletStatistiques })));
@@ -135,11 +138,11 @@ export default function Organisation({ ongletInitial }) {
           rendu: <Suspense fallback={<div className="p-4 text-sm text-slate-400">Chargement…</div>}>
                    <RepartitionCours /></Suspense> },
         /* LES STAGES (3.5.067) : la vue de l'année, les pièces manquantes, l'affectation en lot, les propositions. */
-        { key: 'stages', module: 'stages', label: 'Stages', icone: IconBriefcase,
+        { key: 'stages', roles: STAGES_TFE, label: 'Stages', icone: IconBriefcase,
           rendu: <Suspense fallback={<div className="p-4 text-sm text-slate-400">Chargement…</div>}>
                    {annee ? <StagesOrganisation annee={annee} /> : <div className="text-sm text-slate-400 p-4">Chargement de l'année active…</div>}</Suspense> },
         /* LES TFE (3.5.069) : sujets et promoteurs, remises, défenses et jurys, décision de l'épreuve intégrée. */
-        { key: 'tfe', module: 'etudiants', label: 'Travaux de fin d’études', icone: IconFileCertificate,
+        { key: 'tfe', roles: STAGES_TFE, label: 'Travaux de fin d’études', icone: IconFileCertificate,
           rendu: <Suspense fallback={<div className="p-4 text-sm text-slate-400">Chargement…</div>}>
                    {annee ? <TfeOrganisation annee={annee} /> : <div className="text-sm text-slate-400 p-4">Chargement de l'année active…</div>}</Suspense> },
         /* LES GROUPES COMMUNS (9 octobre 2026) : les TP d'un bloc coupés en

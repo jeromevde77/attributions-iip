@@ -176,6 +176,9 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial,
 
   const [sousOuvert, setSousOuvert] = useState(null);
   for (const sm of sousMenus) {
+    /* PAS DE DROIT, PAS DE TIROIR (3.5.073) : un sous-menu qui porte la clé d'une rubrique que le rôle ne voit pas ne la fait
+       pas revenir par la bande — une coordination sans Organisation voyait le laboratoire, les horaires et l'unité. */
+    if (onglets.some(o => o.key === sm.key) && !visibles.some(o => o.key === sm.key)) continue;
     const enfants = (sm.enfants || []).map(e => {
       // PAS DE DROIT, PAS D'ICÔNE (3.1.20) : un outil que la porte refuserait
       // ne revient pas par le tiroir, même quand l'écran hôte n'est pas ouvert.

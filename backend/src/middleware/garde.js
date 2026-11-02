@@ -142,6 +142,17 @@ function surSaFiche(req, user) {
   } catch { return false; }
 }
 
+/** Le garde d'un module, sauf pour certains rôles qui passent toujours — la route pose alors elle-même ses rôles et son
+ *  périmètre (Stages et TFE pour toute coordination, 3.5.073). */
+export function garderModuleSauf(prefixe, roles) {
+  const garde = garderModule(prefixe);
+  return (req, res, next) => {
+    const user = req.user || utilisateurDuJeton(req);
+    if (user && roles.includes(user.role)) return next();
+    return garde(req, res, next);
+  };
+}
+
 export function garderModule(prefixe) {
   return (req, res, next) => {
     // Le module se résout à CHAQUE requête, et non une fois au montage : deux
