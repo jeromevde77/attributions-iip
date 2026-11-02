@@ -21,6 +21,8 @@ import { attributionsDe, etudiantsDuCours } from './etudiantsCours.js';
 import { ceQuiAttend } from './recapQuotidien.js';
 import { etatLecture, derniereVersion } from '../routes/documentation.js';
 import { corpsImprimable, STYLES_IMPRESSION } from './textesParties.js';
+import { copieDeLEnvoi } from '../routes/envois.js';
+import { modeEmploiPour } from './modeEmploi.js';
 
 const URL_ENS = () => (process.env.ENSEIGNANTS_URL_PUBLIQUE || 'https://enseignants.lucie-iip.be').replace(/\/$/, '');
 const esc = t => String(t ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -191,7 +193,8 @@ export async function deposerEnseignants(appel) {
     try { tableaux.push({ ens_id: u.id, contenu: await tableauDe(u, profId, annee, documentDUE) }); }
     catch (e) { console.error(`[espace enseignant] tableau ${u.id} :`, e.message); }
   }
-  await appel('POST', '/interne/ens/depot', { enseignants, seances, etudiants: [...etudiants.values()], presences, attentes: [], tableaux, textes: [...versionsTextes.values()],
+  await appel('POST', '/interne/ens/depot', { enseignants, seances, etudiants: [...etudiants.values()], presences, attentes: [], tableaux, textes: [...versionsTextes.values()], guide: guideEnseignant(),
+    agenda: annee ? await agendaEnseignant(annee) : [], contact: await contactMaintenant(),
     // La liste FERMÉE des motifs d'une absence justifiée : celle de Lucie, jamais une copie.
     motifs: Object.entries(MOTIFS_JUSTIFIES).map(([k, l]) => ({ k, l })) });
   return enseignants.length;
@@ -211,6 +214,100 @@ function lectureDepuisEspace(u, g) {
     db.prepare(`UPDATE corpus_lecture SET confirme_le = COALESCE(?, datetime('now')) WHERE version_id = ? AND utilisateur_id = ? AND confirme_le IS NULL`).run(quand, v.id, u.id);
   }
   return null;
+}
+
+/* MES DOCUMENTS (3.5.089, Charles : « l'espace enseignant est le meilleur endroit pour poster son contrat de travail » ;
+   tranché : celui que Lucie a envoyé). Toute pièce envoyée par Lucie à un professeur (contrat, fiche d'attributions, pièces de
+   délibération, mesures d'aménagement) part dans son espace, telle qu'elle est partie (`copieDeLEnvoi`) ; il l'ouvre, puis en
+   accuse réception — relevé dans `envoi_accuse_personnel`, lu par le registre des envois. */
+function envoisPour(u, profId) {
+  try {
+    return db.prepare(`SELECT m.id, m.sujet, m.nom_fichier, m.envoye_le, m.type_doc, m.reference FROM envoi_mail m
+      JOIN envoi_copie c ON c.envoi_id = m.id
+      WHERE m.statut IN ('envoye','simule') AND ((m.destinataire_type = 'professeur' AND m.destinataire_id = ?) OR (m.destinataire_type = 'utilisateur' AND m.destinataire_id = ?))
+      ORDER BY m.envoye_le DESC`).all(profId, u.id > 0 ? u.id : -1);
+  } catch { return []; }
+}
+export async function deposerDocumentsEnseignants(appel) {
+  const connus = new Set((await appel('GET', '/interne/ens/documents/connus')).ids || []);
+  const voulus = new Map();
+  for (const u of aDeposer()) {
+    const profId = u.apercuProfId || db.prepare('SELECT professeur_id FROM utilisateur WHERE id = ?').get(u.id)?.professeur_id;
+    if (!profId) continue;
+    for (const m of envoisPour(u, profId)) voulus.set(`${u.id}|${m.id}`, { ...m, ens_id: u.id });
+  }
+  const aRetirer = [...connus].filter(k => !voulus.has(k));
+  if (aRetirer.length) await appel('POST', '/interne/ens/documents/retirer', { cles: aRetirer });
+  const lot = [];
+  for (const [k, m] of voulus) {
+    if (lot.length >= 15 || connus.has(k)) continue;
+    const c = await copieDeLEnvoi(m.id);
+    if (c.erreur) continue;
+    let acc = null; try { acc = db.prepare('SELECT presente_le, accuse_le FROM envoi_accuse_personnel WHERE envoi_id = ?').get(m.id); } catch { /* */ }
+    lot.push({ cle: k, envoi_id: m.id, ens_id: m.ens_id, sujet: m.sujet, nom_fichier: c.nom || m.nom_fichier, envoye_le: m.envoye_le, reference: m.reference,
+      type_doc: m.type_doc, mime: c.type || 'application/pdf', contenu_b64: Buffer.from(c.corps).toString('base64'), presente_le: acc?.presente_le || null, accuse_le: acc?.accuse_le || null });
+  }
+  if (lot.length) await appel('POST', '/interne/ens/documents', { documents: lot });
+}
+function accuseDepuisEspace(u, g) {
+  let c = {}; try { c = JSON.parse(g.contenu || '{}'); } catch { c = {}; }
+  const profId = db.prepare('SELECT professeur_id FROM utilisateur WHERE id = ?').get(u.id)?.professeur_id;
+  const m = db.prepare('SELECT id FROM envoi_mail WHERE id = ?').get(Number(c.envoi_id));
+  if (!m || !profId || !envoisPour(u, profId).some(x => x.id === m.id)) return 'Cette pièce ne vous est pas adressée.';
+  const quand = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(String(c.le || '')) ? c.le : null;
+  db.prepare(`INSERT INTO envoi_accuse_personnel (envoi_id, utilisateur_id, presente_le) VALUES (?,?, COALESCE(?, datetime('now')))
+    ON CONFLICT(envoi_id) DO UPDATE SET presente_le = COALESCE(envoi_accuse_personnel.presente_le, excluded.presente_le)`).run(m.id, u.id, g.type === 'doc_ouvert' ? quand : null);
+  if (g.type === 'doc_accuse') db.prepare(`UPDATE envoi_accuse_personnel SET accuse_le = COALESCE(accuse_le, ?, datetime('now')) WHERE envoi_id = ?`).run(quand, m.id);
+  return null;
+}
+
+/* L'AGENDA DE L'ÉCOLE DANS L'HORAIRE (3.5.089, Charles : « l'horaire de l'enseignant intègre l'agenda de l'école — ouverture,
+   fermeture —, les congés, les fériés, les journées de formation… »). Une liste de jours ou de plages, lue de l'agenda de
+   l'école (une seule source) : semaines de congé du calendrier, fermetures de l'école, fériés et jours fermés, et les moments
+   destinés aux enseignants (journées de formation, réunions, délibérations, rentrée…). */
+async function agendaEnseignant(annee) {
+  const out = [];
+  try {
+    const { semaines52, fermetures, plus } = await import('./agendaEcole.js');
+    const { moments } = await import('./ligneTemps.js');
+    const { joursFeries } = await import('../routes/horaire.js');
+    const sem = semaines52(annee);
+    const cal = db.prepare("SELECT date_debut, type, label FROM annee_calendrier WHERE annee_scolaire = ? AND type = 'vacances'").all(annee);
+    for (const c of cal) out.push({ type: 'conge', du: c.date_debut, au: plus(c.date_debut, 6), libelle: c.label || 'Congé scolaire' });
+    for (const [lundi, f] of fermetures(annee)) {
+      if (f.fermeture === 'totale') out.push({ type: 'ferme', du: lundi, au: plus(lundi, 6), libelle: f.libelle || 'École fermée' });
+    }
+    const ans = [...new Set([sem[0].slice(0, 4), sem[51].slice(0, 4)])].map(Number);
+    for (const an of ans) for (const [date, libelle] of joursFeries(an)) if (date >= sem[0] && date <= plus(sem[51], 6)) out.push({ type: 'ferie', du: date, au: date, libelle });
+    for (const m of moments(annee, { user: { role: 'professeur' } })) {
+      if (m.type === 'horaires') continue;
+      out.push({ type: m.type === 'formation' ? 'formation' : 'moment', du: m.du, au: m.au || m.du, libelle: m.titre || m.libelle_type, genre: m.libelle_type,
+        heure_debut: m.heure_debut || null, heure_fin: m.heure_fin || null, lieu: m.lieu || null });
+    }
+  } catch (e) { console.error('[espace enseignant] agenda :', e.message); }
+  return out.sort((a, b) => a.du.localeCompare(b.du));
+}
+/* CONTACTER / URGENCE (3.5.089) : qui est là au secrétariat, et la permanence du jour, avec leurs numéros — la même lecture
+   que le bouton de Lucie (`etatMaintenant`). Déposé toutes les deux minutes. */
+async function contactMaintenant() {
+  try {
+    const { etatMaintenant } = await import('../routes/equipe.js');
+    const e = etatMaintenant({ user: { id: 0, role: 'professeur' }, query: {} });
+    const p = x => ({ nom: x.nom, role: x.role, telephone: x.telephone || null });
+    return { secretariat_ouvert: !!e.secretariat_ouvert, heure: e.heure, date: e.date,
+      presents: (e.presents || []).map(x => ({ ...p(x), jusqu: x.jusqu || null })),
+      permanences: (e.permanences || []).map(x => ({ ...p(x), debut: x.debut, fin: x.fin, en_cours: !!x.en_cours, secours: (x.secours || []).map(p) })) };
+  } catch (e) { return null; }
+}
+
+/* LE MODE D'EMPLOI DE L'ESPACE (3.5.089) : les chapitres du guide destinés aux enseignants, en texte simple. */
+function guideEnseignant() {
+  try {
+    const m = modeEmploiPour('professeur', null);
+    const nettoyer = t => String(t || '').replace(/\[\[([^|\]]*)(\|[^\]]*)?\]\]/g, '« $1 »');
+    return { version: m.version, chapitres: m.rubriques.map(r => ({ titre: r.titre, resume: r.resume || '',
+      points: (r.points || []).map(p => ({ titre: p.titre, ou: nettoyer(p.ou), texte: nettoyer(p.texte), savoir: (p.savoir || []).map(nettoyer) })) })) };
+  } catch { return null; }
 }
 
 export async function releverEnseignants(appel) {
@@ -251,6 +348,7 @@ export async function releverEnseignants(appel) {
     let erreur = null;
     if (!u) erreur = 'Votre espace enseignant n’est plus ouvert.';
     else if (g.type === 'texte_ouvert' || g.type === 'texte_confirme') erreur = lectureDepuisEspace(u, g);
+    else if (g.type === 'doc_ouvert' || g.type === 'doc_accuse') erreur = accuseDepuisEspace(u, g);
     else if (g.type !== 'presences') erreur = 'Geste inconnu.';
     else {
       let lignes = []; try { lignes = JSON.parse(g.contenu || '[]'); } catch { lignes = []; }

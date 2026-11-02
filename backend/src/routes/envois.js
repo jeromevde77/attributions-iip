@@ -30,6 +30,10 @@ import { envoyerEmail, mailerConfigure, lireConfigSmtp, ecrireConfigSmtp, verifi
 const r = express.Router();
 
 function ensureTable() {
+  /* L'ACCUSÉ DU PERSONNEL (3.5.089) : une pièce envoyée par Lucie à un professeur (contrat, fiche d'attributions…) s'ouvre
+     dans son espace enseignant ; l'espace dit quand elle lui a été présentée et quand il en a accusé réception. */
+  db.exec(`CREATE TABLE IF NOT EXISTS envoi_accuse_personnel (envoi_id INTEGER PRIMARY KEY, utilisateur_id INTEGER,
+    presente_le TEXT, accuse_le TEXT)`);
   db.exec(`
     CREATE TABLE IF NOT EXISTS envoi_mail (
       id                 INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -628,7 +632,9 @@ r.get('/journal', authRequired, gesteRequis('envois.envoyer'), (req, res) => {
            m.email, m.sujet, m.nom_fichier, m.taille, m.statut, m.erreur, m.envoye_par, m.envoye_le,
            m.reference, m.contenu, m.mode,
            (SELECT 1 FROM envoi_copie c WHERE c.envoi_id = m.id) AS copie,
-           (SELECT c.empreinte FROM envoi_copie c WHERE c.envoi_id = m.id) AS empreinte
+           (SELECT c.empreinte FROM envoi_copie c WHERE c.envoi_id = m.id) AS empreinte,
+           (SELECT a.presente_le FROM envoi_accuse_personnel a WHERE a.envoi_id = m.id) AS presente_le,
+           (SELECT a.accuse_le FROM envoi_accuse_personnel a WHERE a.envoi_id = m.id) AS accuse_le
     FROM envoi_mail m WHERE ${clauses.join(' AND ')}
     ORDER BY m.envoye_le DESC, m.id DESC LIMIT ${n}
   `).all(...params));

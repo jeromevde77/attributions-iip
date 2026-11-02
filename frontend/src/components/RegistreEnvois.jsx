@@ -140,7 +140,8 @@ export default function RegistreEnvois() {
                             <span className="block text-slate-400">{l.email}</span></td>
                           <td className="px-2 py-1 text-slate-600">{l.contenu || <i className="text-slate-400">—</i>}
                             <span className="block text-xs text-slate-400">{l.nom_fichier || (l.mode === 'corps' ? 'dans le corps du courriel' : '')}
-                              {l.reference ? ` · réf. ${l.reference}` : ''}{l.erreur ? ` · ${l.erreur}` : ''}</span></td>
+                              {l.reference ? ` · réf. ${l.reference}` : ''}{l.erreur ? ` · ${l.erreur}` : ''}
+                              {l.accuse_le ? ` · accusé dans l’espace le ${quand(l.accuse_le)}` : l.presente_le ? ` · ouvert dans l’espace le ${quand(l.presente_le)}` : ''}</span></td>
                           <td className="px-2 py-1 text-right whitespace-nowrap">
                             <span className="pastille-etat" data-etat={(STATUT[l.statut] || [l.statut, 'neutre'])[1]}>{(STATUT[l.statut] || [l.statut])[0]}</span>
                             {l.copie ? <button className="bouton ml-1.5" disabled={copieEnCours === l.id} onClick={() => ouvrirCopie(l)}>{copieEnCours === l.id ? '…' : 'Copie'}</button> : null}

@@ -27,7 +27,7 @@ import { parcoursPortail, fraisPortail } from './portailEspace.js';
 import { tfePortail, stagePortail, appliquerGesteTfe } from './portailTfeStage.js';
 import { offrePAE, deposerProposition, recevoirSignature, signatureDe } from './paeEnLigne.js';
 import { fonctionsEspace, fonctionPour, fonctionOuverte, CATALOGUE as CATALOGUE_FONCTIONS } from './fonctions.js';
-import { deposerEnseignants, releverEnseignants } from './portailEnseignants.js';
+import { deposerEnseignants, releverEnseignants, deposerDocumentsEnseignants } from './portailEnseignants.js';
 import { offreVA, etatVA, appliquerGeste, accuserReception, codesDOffice, candidatsValides, candidatDe, anneeActive as anneeVA } from './portailValorisation.js';
 
 const URL_INTERNE = () => (process.env.PORTAIL_INTERNE_URL || '').replace(/\/$/, '');
@@ -372,7 +372,10 @@ export async function passerPortail() {
     // présences reprises (pour qu'il voie ce que Lucie a gardé). Une panne ici n'arrête pas l'espace des étudiants.
     let ensDepot = tours % 12 === 0;
     try { const x = await releverEnseignants(appel); if (x.gestes) ensDepot = true; } catch (e) { if (tours % 30 === 0) console.error('[espace enseignant]', e.message); }
-    if (ensDepot) { try { await deposerEnseignants(appel); } catch (e) { console.error('[espace enseignant] dépôt :', e.message); } }
+    if (ensDepot) {
+      try { await deposerEnseignants(appel); } catch (e) { console.error('[espace enseignant] dépôt :', e.message); }
+      try { await deposerDocumentsEnseignants(appel); } catch (e) { console.error('[espace enseignant] documents :', e.message); }
+    }
     if (tours % 12 === 0) { await deposer(); await deposerDocuments(); }
     tours++;
   } catch (e) {
@@ -435,6 +438,7 @@ export async function ouvrirApercuEnseignant(profId, par) {
   try {
     db.prepare('INSERT INTO ens_apercu (professeur_id, par) VALUES (?,?)').run(Number(profId), par);
     await deposerEnseignants(appel);
+    try { await deposerDocumentsEnseignants(appel); } catch { /* */ }
     const r = await appel('POST', '/interne/ens/apercu', { ens_id: identifiantEspace(profId), par });
     return { url: r.url };
   } catch (e) {

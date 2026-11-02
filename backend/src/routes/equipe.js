@@ -86,7 +86,8 @@ const nomDe = u => nomEcranDuCompte(u.nom_complet, u.email);
 const personne = u => ({ id: u.id, nom: nomDe(u), role: ROLES[u.role] || u.role, telephone: u.telephone_affiche || null });
 
 /** Ce que la tuile montre : qui est là maintenant, et la permanence du jour. */
-r.get('/maintenant', authRequired, (req, res) => {
+/** Qui est là, maintenant (ou un autre jour) : la route, et l'espace enseignant (3.5.089, bouton Contacter / Urgence). */
+export function etatMaintenant(req) {
   /* UN AUTRE JOUR DE LA SEMAINE (Charles, 14 octobre 2026 : « la même vue, mais pour chaque jour de
    * la semaine ») : `?date=AAAA-MM-JJ` lit la frise de ce jour-là. Hors aujourd'hui, il n'y a pas de
    * « maintenant » : un jour à venir se lit tout entier « attendu », un jour passé « fini ». */
@@ -149,11 +150,12 @@ r.get('/maintenant', authRequired, (req, res) => {
    * secrétariat est là, selon la frise, et pas en pause : les heures ne s'écrivent pas en dur. */
   const SECRETARIAT = new Set(['secretariat', 'editeur']);
   const secretariatOuvert = !autreJour && journee.some(p => p.etat === 'la' && SECRETARIAT.has(comptes.get(p.id)?.role));
-  res.json({ ...m, autre_jour: autreJour, aujourdhui: auj.date, presents, attendus, journee, permanences: perm, secretariat_ouvert: secretariatOuvert,
+  return ({ ...m, autre_jour: autreJour, aujourdhui: auj.date, presents, attendus, journee, permanences: perm, secretariat_ouvert: secretariatOuvert,
     moi: { etat: moiP?.etat || null, depuis: moiP?.heure || null, a_un_horaire: db.prepare('SELECT 1 FROM equipe_horaire WHERE utilisateur_id = ? LIMIT 1').get(req.user.id) ? true : false,
       telephone: comptes.get(req.user.id)?.telephone_affiche || '' },
     peut_gerer: GERER.includes(req.user.role) });
-});
+}
+r.get('/maintenant', authRequired, (req, res) => res.json(etatMaintenant(req)));
 
 /** J'arrive / Je pars — pour le jour même. */
 r.post('/pointer', authRequired, (req, res) => {

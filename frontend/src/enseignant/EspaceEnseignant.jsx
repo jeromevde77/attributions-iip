@@ -1,7 +1,7 @@
 import { teinteCours, styleTuileCours } from '../lib/teinteCours.js';
 import LogoLucie from '../components/LogoLucie.jsx';
 import { useCallback, useEffect, useState } from 'react';
-import { IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook } from '@tabler/icons-react';
+import { IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin, IconUsers, IconChevronDown, IconBook, IconFileText, IconHelpCircle, IconPhone } from '@tabler/icons-react';
 
 /**
  * L'ESPACE ENSEIGNANT (3.5.076, Charles, 2 novembre 2026 : « pour les profs, il faut penser les menus autrement… un module
@@ -157,6 +157,8 @@ function MaJournee({ moi, onPresences, onSemaine }) {
   useEffect(() => { appel('GET', '/tableau').then(setT).catch(() => setT({ pret: false })); }, []);
   const aFaire = t?.a_faire || [];
   const [lire, setLire] = useState(null);
+  const [agJour, setAgJour] = useState([]);
+  useEffect(() => { appel('GET', `/agenda?du=${jour}&au=${jour}`).then(setAgJour).catch(() => setAgJour([])); }, [jour]);
   return (
     <div className="space-y-5">
       <header className="flex flex-wrap items-end justify-between gap-3">
@@ -172,6 +174,7 @@ function MaJournee({ moi, onPresences, onSemaine }) {
         </div>
       </header>
       {erreur && <div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">{erreur}</div>}
+      {agJour.length > 0 && <div className="flex flex-wrap gap-2">{agJour.map((a, i) => <AgendaPastille key={i} a={a} />)}</div>}
       {!d ? <p className="text-slate-500">Chargement…</p> : (
         <>
           {d.seances.length ? <div className="grid gap-4 md:grid-cols-2">{d.seances.map(s => <CarteSeance key={s.id} s={s} onPresences={onPresences} />)}</div>
@@ -266,6 +269,100 @@ function TextesEcole() {
             </button>))}
         </section>)}
       {lire && <LireTexte vid={lire} onFermer={() => { setLire(null); charger(); }} />}
+    </div>);
+}
+
+/* MES DOCUMENTS (3.5.089) : les pièces que l'école lui a envoyées par Lucie — son contrat, sa fiche d'attributions… — telles
+   qu'elles sont parties. Les ouvrir les pose « présentées » ; il en accuse réception d'un bouton. */
+function OuvrirDocument({ d, onFermer }) {
+  const [url, setUrl] = useState(null);
+  const [etat, setEtat] = useState(d);
+  const [erreur, setErreur] = useState(null);
+  useEffect(() => {
+    let u = null;
+    fetch(`/api/enseignant/document/${d.envoi_id}`, { headers: { Authorization: `Bearer ${lire()}` }, credentials: 'same-origin' })
+      .then(async r => { if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `Erreur ${r.status}`); u = URL.createObjectURL(await r.blob()); setUrl(u); setEtat(x => ({ ...x, presente_le: x.presente_le || 'maintenant' })); })
+      .catch(e => setErreur(e.message));
+    return () => { if (u) URL.revokeObjectURL(u); };
+  }, [d.envoi_id]);
+  const accuser = async () => { try { const r = await appel('POST', `/document/${d.envoi_id}/accuser`); setEtat(x => ({ ...x, accuse_le: r.accuse_le })); } catch (e) { setErreur(e.message); } };
+  return (
+    <Volet titre={d.sujet || d.nom_fichier} sous={`Envoyé le ${court(d.envoye_le)}${d.reference ? ` · réf. ${d.reference}` : ''}`} onFermer={onFermer}>
+      {erreur && <div className="bloc-etat px-3 py-2 text-sm mb-3" data-etat="corriger">{erreur}</div>}
+      {!url ? !erreur && <p className="text-slate-500">Chargement…</p> : (
+        <div className="space-y-4">
+          <iframe title={d.nom_fichier} src={url} className="w-full border border-slate-200 rounded-champ" style={{ height: '62vh' }} />
+          <div className="flex flex-wrap items-center gap-3">
+            <a className="bouton controle" href={url} download={d.nom_fichier} target="_blank" rel="noreferrer">Télécharger</a>
+            <span className="flex-1" />
+            {etat.accuse_le ? <span className="text-second" style={{ color: 'var(--c-reussi, #3E7D5E)' }}>Réception accusée le {court(etat.accuse_le)}</span>
+              : <button type="button" className="bouton bouton-fort controle" onClick={accuser}>J’accuse réception de cette pièce</button>}
+          </div>
+        </div>)}
+    </Volet>);
+}
+function MesDocuments() {
+  const [l, setL] = useState(null);
+  const [ouvert, setOuvert] = useState(null);
+  const charger = () => appel('GET', '/documents').then(setL).catch(() => setL([]));
+  useEffect(() => { charger(); }, []);
+  if (!l) return <p className="text-slate-500">Chargement…</p>;
+  return (
+    <div className="space-y-4">
+      <h1 className="m-0 text-2xl font-semibold text-iip-texte">Mes documents</h1>
+      <p className="m-0 text-slate-600">Les pièces que l’école vous a envoyées par Lucie — votre contrat, votre fiche d’attributions… —, telles qu’elles sont parties.</p>
+      {!l.length ? <p className="text-slate-500">Aucune pièce pour l’instant.</p> : (
+        <section className="bg-white border border-slate-200 rounded-carte overflow-hidden">
+          {l.map(d => (
+            <button key={d.envoi_id} type="button" onClick={() => setOuvert(d)}
+              className="w-full text-left flex items-center gap-3 px-4 py-3 border-t border-slate-100 first:border-t-0 hover:bg-slate-50"
+              style={{ borderLeft: `4px solid ${d.accuse_le ? 'var(--c-reussi, #3E7D5E)' : 'var(--c-disponible, #2F6FB0)'}` }}>
+              <span className="flex-1 min-w-0">{d.sujet || d.nom_fichier}<span className="block text-second text-slate-500">envoyé le {court(d.envoye_le)}{d.reference ? ` · réf. ${d.reference}` : ''}</span></span>
+              <span className="text-second text-slate-500 whitespace-nowrap">{d.accuse_le ? `reçu le ${court(d.accuse_le)}` : 'à ouvrir'}</span>
+              <IconChevronRight size={16} className="text-slate-400" />
+            </button>))}
+        </section>)}
+      {ouvert && <OuvrirDocument d={ouvert} onFermer={() => { setOuvert(null); charger(); }} />}
+    </div>);
+}
+/* L'AIDE (3.5.089) : le mode d'emploi des enseignants, tel que Lucie le tient (guide en ligne, version Enseignants). */
+function Aide() {
+  const [g, setG] = useState(null);
+  const [ouvert, setOuvert] = useState(0);
+  useEffect(() => { appel('GET', '/guide').then(setG).catch(() => setG({ chapitres: [] })); }, []);
+  if (!g) return <p className="text-slate-500">Chargement…</p>;
+  return (
+    <div className="space-y-4 max-w-3xl">
+      <h1 className="m-0 text-2xl font-semibold text-iip-texte">Aide</h1>
+      <section className="bg-white border border-slate-200 rounded-carte p-4 space-y-2 text-sm">
+        <div className="font-semibold">Cet espace en bref</div>
+        <ul className="m-0 pl-5 space-y-1 text-slate-700">
+          <li><b>Ma journée</b> : vos séances du jour, et ce qui vous attend (présences à prendre, textes à confirmer, DUE…).</li>
+          <li><b>Les présences</b> : un toucher par étudiant — P, P* (retard), A, J (justifié, avec son motif). Elles arrivent dans Lucie en quelques secondes.</li>
+          <li><b>Mon horaire</b> : la semaine, l’agenda de l’école (congés, fériés, journées fermées), une couleur par cours.</li>
+          <li><b>Mes UE et étudiants</b> : la DUE de chaque unité, vos listes et la fiche de chaque étudiant.</li>
+          <li><b>Textes de l’école</b> et <b>Mes documents</b> : ce que l’école vous demande de lire, ce qu’elle vous a envoyé ; on confirme, on accuse réception.</li>
+          <li><b>Mon compte</b> : mot de passe et appareils reconnus (trois au plus).</li>
+        </ul>
+      </section>
+      {(g.chapitres || []).length > 0 && <div className="text-second text-slate-500">Le mode d’emploi complet des enseignants{g.version ? ` (Lucie ${g.version})` : ''} :</div>}
+      {(g.chapitres || []).map((c, i) => (
+        <section key={i} className="bg-white border border-slate-200 rounded-carte overflow-hidden">
+          <button type="button" className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-slate-50" onClick={() => setOuvert(o => (o === i ? null : i))}>
+            {ouvert === i ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}<span className="flex-1 font-semibold text-iip-texte">{c.titre}</span>
+          </button>
+          {ouvert === i && (
+            <div className="px-4 pb-4 space-y-4 text-sm">
+              {c.resume && <p className="m-0 text-slate-600">{c.resume}</p>}
+              {c.points.map((p, k) => (
+                <div key={k} className="border-t border-slate-100 pt-3">
+                  <div className="font-semibold">{p.titre}</div>
+                  {p.ou && <div className="text-second text-slate-500 mt-0.5">Où : {p.ou}</div>}
+                  {p.texte && <p className="m-0 mt-1 text-slate-700">{p.texte}</p>}
+                  {p.savoir.length > 0 && <ul className="m-0 mt-1 pl-5 text-slate-600">{p.savoir.map((x, j) => <li key={j}>{x}</li>)}</ul>}
+                </div>))}
+            </div>)}
+        </section>))}
     </div>);
 }
 
@@ -419,11 +516,57 @@ function Presences({ seanceId, onRetour, motifs: MOTIFS = [] }) {
   );
 }
 
+/* L'AGENDA DE L'ÉCOLE DANS L'HORAIRE (3.5.089) : un jour férié, fermé ou de congé est hachuré ; les moments s'y écrivent. */
+const TEINTE_AGENDA = { ferie: '#9D4A38', ferme: '#9D4A38', conge: '#64748B', formation: '#6B46C1', moment: '#2F6FB0' };
+const MOT_AGENDA = { ferie: 'Férié', ferme: 'École fermée', conge: 'Congé', formation: 'Formation', moment: '' };
+function AgendaPastille({ a }) {
+  const c = TEINTE_AGENDA[a.type] || '#2F6FB0';
+  return (
+    <div className="text-mention rounded-r-champ px-2 py-1" style={{ background: `color-mix(in srgb, ${c} 12%, #fff)`, borderLeft: `3px solid ${c}` }}>
+      <b>{MOT_AGENDA[a.type] || a.genre || ''}</b>{(MOT_AGENDA[a.type] || a.genre) && a.libelle ? ' · ' : ''}{a.libelle}
+      {a.heure_debut ? ` · ${String(a.heure_debut).slice(0, 5)}${a.heure_fin ? `–${String(a.heure_fin).slice(0, 5)}` : ''}` : ''}{a.lieu ? ` · ${a.lieu}` : ''}
+    </div>);
+}
+
+/* CONTACTER / URGENCE (3.5.089) : le même bouton que Lucie — vert « Contacter » quand le secrétariat est là, orange « Urgence »
+   sinon ; il nomme qui est là et la permanence, et chaque numéro s'appelle d'un toucher. */
+function BoutonContact() {
+  const [c, setC] = useState(null);
+  const [ouvert, setOuvert] = useState(false);
+  const charger = () => appel('GET', '/contact').then(setC).catch(() => {});
+  useEffect(() => { charger(); const t = setInterval(charger, 120000); return () => clearInterval(t); }, []);
+  if (!c) return null;
+  const ok = !!c.secretariat_ouvert;
+  const Tel = ({ p }) => (p.telephone ? <a className="text-iip-blue underline whitespace-nowrap" href={`tel:${String(p.telephone).replace(/\s+/g, '')}`}>{p.telephone}</a> : <span className="text-slate-400">pas de numéro</span>);
+  return (<>
+    <button type="button" onClick={() => { charger(); setOuvert(true); }} className="shrink-0 min-h-11 md:min-h-9 px-3 rounded-champ inline-flex items-center gap-2 text-sm font-semibold text-white"
+      style={{ background: ok ? 'var(--c-reussi, #3E7D5E)' : 'var(--c-attente, #B45309)' }}>
+      <IconPhone size={16} /> {ok ? 'Contacter' : 'Urgence'}
+    </button>
+    {ouvert && (
+      <Volet titre={ok ? 'Contacter l’école' : 'Urgence'} sous={ok ? 'Le secrétariat est ouvert' : 'Le secrétariat est fermé : la permanence'} onFermer={() => setOuvert(false)}>
+        <div className="space-y-5 text-sm">
+          {c.presents.length > 0 && <section><div className="font-semibold mb-1">Là maintenant</div>
+            <ul className="m-0 pl-0 list-none divide-y divide-slate-100">{c.presents.map((p, i) => <li key={i} className="py-2 flex flex-wrap gap-x-3"><span className="flex-1 min-w-0">{p.nom} <span className="text-slate-500">· {p.role}{p.jusqu ? ` · jusqu’à ${p.jusqu}` : ''}</span></span><Tel p={p} /></li>)}</ul></section>}
+          {c.permanences.length > 0 && <section><div className="font-semibold mb-1">La permanence aujourd’hui</div>
+            <ul className="m-0 pl-0 list-none divide-y divide-slate-100">{c.permanences.map((p, i) => <li key={i} className="py-2">
+              <div className="flex flex-wrap gap-x-3"><span className="flex-1 min-w-0">{p.debut}–{p.fin} · {p.nom}{p.en_cours ? <b className="ml-1" style={{ color: 'var(--c-reussi, #3E7D5E)' }}>en cours</b> : ''}</span><Tel p={p} /></div>
+              {p.secours.length > 0 && <div className="text-second text-slate-500 mt-0.5">En secours : {p.secours.map((x, k) => <span key={k}>{k ? ' · ' : ''}{x.nom} <Tel p={x} /></span>)}</div>}</li>)}</ul></section>}
+          {!c.presents.length && !c.permanences.length && <p className="m-0 text-slate-500">Personne n’est signalé pour l’instant.</p>}
+          <p className="m-0 text-mention text-slate-400">Mis à jour à {c.heure}.</p>
+        </div>
+      </Volet>)}
+  </>);
+}
+
 function MonHoraire({ moi, onPresences }) {
   const [ref, setRef] = useState(moi.aujourdhui);
   const [d, setD] = useState(null);
   useEffect(() => { setD(null); appel('GET', `/semaine?date=${ref}`).then(setD).catch(() => setD({ jours: [], seances: [] })); }, [ref]);
-  const jours = (d?.jours || []).filter((j, i) => i < 5 || (d?.seances || []).some(s => s.date === j));
+  const [ag, setAg] = useState([]);
+  useEffect(() => { if (d?.jours?.length) appel('GET', `/agenda?du=${d.jours[0]}&au=${d.jours[6]}`).then(setAg).catch(() => setAg([])); }, [d]);
+  const duJour = j => ag.filter(a => a.du <= j && j <= a.au);
+  const jours = (d?.jours || []).filter((j, i) => i < 5 || (d?.seances || []).some(s => s.date === j) || duJour(j).some(a => a.type !== 'conge' && a.type !== 'ferme'));
   return (
     <div className="space-y-4">
       <header className="flex flex-wrap items-end justify-between gap-3">
@@ -440,8 +583,10 @@ function MonHoraire({ moi, onPresences }) {
         <div className="bg-white border border-slate-200 rounded-carte overflow-hidden grid divide-y md:divide-y-0 md:divide-x divide-slate-200"
           style={{ gridTemplateColumns: `repeat(auto-fit, minmax(10rem, 1fr))` }}>
           {jours.map(j => (
-            <div key={j} className="p-3 flex flex-col gap-2 md:min-h-[12rem]">
+            <div key={j} className="p-3 flex flex-col gap-2 md:min-h-[12rem]"
+              style={duJour(j).some(a => ['ferie', 'ferme', 'conge'].includes(a.type)) ? { background: 'repeating-linear-gradient(45deg, transparent 0 8px, rgba(27,43,75,.045) 8px 16px)' } : undefined}>
               <span className={`font-semibold first-letter:uppercase ${j === d.aujourdhui ? 'text-iip-blue' : 'text-iip-texte'}`}>{jourFr(j)}{j === d.aujourdhui ? ' · aujourd’hui' : ''}</span>
+              {duJour(j).map((a, i) => <AgendaPastille key={i} a={a} />)}
               {d.seances.filter(s => s.date === j).map(s => (
                 <button key={s.id} type="button" disabled={s.visite || s.annule} onClick={() => onPresences(s.id)}
                   className="text-left rounded-r-champ px-2.5 py-2 flex flex-col gap-0.5"
@@ -486,6 +631,8 @@ const FACES = [
   { k: 'horaire', l: 'Mon horaire', I: IconCalendarWeek },
   { k: 'ues', l: 'Mes UE et étudiants', I: IconUsers },
   { k: 'textes', l: 'Textes de l’école', I: IconBook },
+  { k: 'documents', l: 'Mes documents', I: IconFileText },
+  { k: 'aide', l: 'Aide', I: IconHelpCircle },
   { k: 'compte', l: 'Mon compte', I: IconUserCircle },
 ];
 
@@ -540,6 +687,7 @@ export default function EspaceEnseignant() {
             <f.I size={18} /> {f.l}
           </button>))}
         <div className="hidden md:block flex-1" />
+        <div className="shrink-0 md:px-2 md:pb-2"><BoutonContact /></div>
         <div className="md:border-t border-slate-200 md:pt-3 md:px-2 flex md:flex-col gap-1 shrink-0 ml-auto md:ml-0">
           <span className="hidden md:block font-semibold text-sm">{String(moi.nom || '').toUpperCase()} {moi.prenom}</span>
           <button type="button" className="text-second text-iip-blue inline-flex items-center gap-1 min-h-11 md:min-h-0" onClick={quitter}><IconLogout size={15} /> Se déconnecter</button>
@@ -553,6 +701,8 @@ export default function EspaceEnseignant() {
           : face === 'horaire' ? <MonHoraire moi={moi} onPresences={setSeance} />
           : face === 'ues' ? <MesUE />
           : face === 'textes' ? <TextesEcole />
+          : face === 'documents' ? <MesDocuments />
+          : face === 'aide' ? <Aide />
           : <MonCompte moi={moi} onToken={entrer} />}
         <p className="mt-8 text-mention text-slate-400">Ce que vous enregistrez ici part dans Lucie au relevé suivant (quelques secondes).{moi.depose_le ? ` Données de Lucie du ${court(moi.depose_le)} à ${String(moi.depose_le).slice(11, 16)} (UTC).` : ''}</p>
       </main>

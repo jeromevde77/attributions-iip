@@ -3449,6 +3449,17 @@ HTML de la dernière version, `texteHtml` — html, parties par `corpsImprimable
 (`ouvert_le`, `confirme_le`) au nom du compte. Écran : lignes « à lire » de Ma journée cliquables, face « Textes de l'école ».
 Au passage : le nettoyage des présences du portail ne lit que les gestes qui portent une séance.
 
+**L'ESPACE ENSEIGNANT : DOCUMENTS, AGENDA, CONTACT, AIDE** (3.5.089, Charles : « le meilleur endroit pour poster son contrat
+de travail » — tranché : celui envoyé par Lucie ; « l'horaire intègre l'agenda de l'école, le bouton Contacter ou Urgence » ; « le
+mode d'emploi de son espace »). (1) `deposerDocumentsEnseignants` (`lib/portailEnseignants.js`) : les envois du registre adressés au
+professeur (`destinataire_type` professeur/utilisateur) qui ont une copie, partis tels quels (`copieDeLEnvoi`) dans `ens_document` ;
+ouvrir = geste `doc_ouvert`, « J'accuse réception » = `doc_accuse`, relevés dans `envoi_accuse_personnel` (créée par `ensureTable`
+d'`envois.js`), lus par le registre des envois (`presente_le`, `accuse_le` du journal). (2) `agendaEnseignant` : congés
+(`annee_calendrier` vacances), fermetures totales, `joursFeries`, `moments` pour le rôle professeur ; type `formation` (« Journée de
+formation ») ajouté à `TYPES_MOMENT`. (3) `etatMaintenant` (sorti de `routes/equipe.js`) déposé en `contact` toutes les deux minutes :
+bouton « Contacter » / « Urgence » de l'espace, numéros en `tel:`. (4) `guideEnseignant` : le mode d'emploi version Enseignants en
+texte (face « Aide »). Routes du portail : `/api/enseignant/documents|document/:envoi|document/:envoi/accuser|agenda|contact|guide`.
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux
