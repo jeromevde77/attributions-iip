@@ -529,7 +529,7 @@ function BoutonContact() {
       <IconPhone size={16} /> {ok ? 'Contacter' : 'Urgence'}
     </button>
     {ouvert && (
-      <Volet titre={ok ? 'Contacter l’école' : 'Urgence'} sous={ok ? 'Le secrétariat est ouvert' : 'Le secrétariat est fermé : la permanence'} onFermer={() => setOuvert(false)}>
+      <Volet titre={ok ? 'Contacter l’école' : 'Urgence'} sous={ok ? 'Le secrétariat est ouvert' : 'Le secrétariat est fermé : la permanence'} large="34rem" onFermer={() => setOuvert(false)}>
         <div className="space-y-5 text-sm">
           {c.presents.length > 0 && <section><div className="font-semibold mb-1">Là maintenant</div>
             <ul className="m-0 pl-0 list-none divide-y divide-slate-100">{c.presents.map((p, i) => <li key={i} className="py-2 flex flex-wrap gap-x-3"><span className="flex-1 min-w-0">{p.nom} <span className="text-slate-500">· {p.role}{p.jusqu ? ` · jusqu’à ${p.jusqu}` : ''}</span></span><Tel p={p} /></li>)}</ul></section>}
