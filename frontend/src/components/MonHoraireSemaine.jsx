@@ -19,9 +19,9 @@ function Seance({ s, style }) {
   return (
     <div className={`absolute left-1 right-1 rounded-champ border px-2 py-1 overflow-hidden text-left
                      ${s.annule ? 'bg-white border-dashed border-slate-300 text-slate-400 line-through' : 'bg-white border-slate-200'}`}
-      style={{ ...style, borderLeft: s.annule ? undefined : '4px solid var(--c-principal)' }}
+      style={{ ...style, borderLeft: s.annule ? undefined : `4px solid ${s.visite ? 'var(--c-accent)' : 'var(--c-principal)'}` }}
       title={`${s.cours_nom} — ${hm(s.heure_debut)} à ${hm(s.heure_fin)}${s.local ? ` — ${s.local}` : ''}${s.annule ? ' — annulée' : ''}`}>
-      <div className="text-mention tabular-nums text-slate-500">{hm(s.heure_debut)} – {hm(s.heure_fin)}{s.annule && <span className="no-underline"> · annulée</span>}</div>
+      <div className="text-mention tabular-nums text-slate-500">{s.sans_heure ? 'heure à préciser' : `${hm(s.heure_debut)} – ${hm(s.heure_fin)}`}{s.annule && <span className="no-underline"> · annulée</span>}</div>
       <div className="text-second font-semibold text-iip-texte leading-tight">{s.cours_nom || s.cours_code}</div>
       {s.matiere && <div className="text-mention text-slate-500 leading-tight">{s.matiere}{s.sous_groupe ? ` · gr. ${s.sous_groupe}` : ''}</div>}
       {s.local && <div className="text-mention text-slate-500 inline-flex items-center gap-0.5"><IconMapPin size={10} />{s.local}</div>}
@@ -57,7 +57,7 @@ export default function MonHoraireSemaine({ onFermer }) {
         {jours.length ? `Semaine du ${jjmm(jours[0])} au ${jjmm(jours[6])}` : '…'}</span>
       <button type="button" className="bouton px-2" onClick={() => setDate(decaler(jours[0] || data?.aujourdhui, 7))} aria-label="Semaine suivante"><IconChevronRight size={16} /></button>
       {date && <button type="button" className="text-second text-iip-blue underline" onClick={() => setDate(null)}>cette semaine</button>}
-      <span className="ml-auto text-second text-slate-500">{seances.filter(s => !s.annule).length} séance(s)</span>
+      <span className="ml-auto text-second text-slate-500">{seances.filter(s => !s.annule && !s.visite).length} séance(s){seances.some(s => s.visite && !s.annule) ? ` · ${seances.filter(s => s.visite && !s.annule).length} visite(s) de stage` : ''}</span>
     </div>
   );
 

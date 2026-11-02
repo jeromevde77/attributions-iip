@@ -110,13 +110,15 @@ export function icsDesSeances(seances, { nom = 'Lucie — mon horaire', domaine 
   const L = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Institut Ilya Prigogine//Lucie//FR', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
     `X-WR-CALNAME:${echap(nom)}`, 'X-WR-TIMEZONE:Europe/Brussels', 'REFRESH-INTERVAL;VALUE=DURATION:PT4H', 'X-PUBLISHED-TTL:PT4H', ...VTIMEZONE];
   for (const s of seances) {
-    const titre = `${s.cours_code || ''}${s.cours_nom ? ` · ${s.cours_nom}` : s.matiere ? ` · ${s.matiere}` : ''}`.trim() || 'Cours';
-    const details = [s.ue_num != null ? `UE ${s.ue_num}` : null, s.matiere && s.cours_nom ? s.matiere : null,
+    const titre = s.titre || `${s.cours_code || ''}${s.cours_nom ? ` · ${s.cours_nom}` : s.matiere ? ` · ${s.matiere}` : ''}`.trim() || 'Cours';
+    const details = s.description || [s.ue_num != null ? `UE ${s.ue_num}` : null, s.matiere && s.cours_nom ? s.matiere : null,
       s.sous_groupe ? `sous-groupe ${s.sous_groupe}` : null, 'Horaire de Lucie — ce qui fait foi est l’horaire de l’école.'].filter(Boolean).join('\n');
     const modif = s.modifie_le ? new Date(String(s.modifie_le).replace(' ', 'T') + 'Z') : null;
-    L.push('BEGIN:VEVENT', `UID:seance-${s.id}@${domaine}`, `DTSTAMP:${utc(maintenant)}`,
+    L.push('BEGIN:VEVENT', `UID:${s.uid || `seance-${s.id}`}@${domaine}`, `DTSTAMP:${utc(maintenant)}`,
       ...(modif && !isNaN(modif) ? [`LAST-MODIFIED:${utc(modif)}`] : []),
-      `DTSTART;TZID=Europe/Brussels:${quand(s.date, s.heure_debut)}`, `DTEND;TZID=Europe/Brussels:${quand(s.date, s.heure_fin || s.heure_debut)}`,
+      // Une visite sans heure se pose sur la journée entière.
+      ...(s.heure_debut ? [`DTSTART;TZID=Europe/Brussels:${quand(s.date, s.heure_debut)}`, `DTEND;TZID=Europe/Brussels:${quand(s.date, s.heure_fin || s.heure_debut)}`]
+        : [`DTSTART;VALUE=DATE:${String(s.date).slice(0, 10).replace(/-/g, '')}`]),
       `SUMMARY:${echap((s.annule ? 'Annulé — ' : '') + titre)}`,
       ...(s.local_texte ? [`LOCATION:${echap(s.local_texte)}`] : []),
       `DESCRIPTION:${echap(details)}`,
@@ -124,4 +126,15 @@ export function icsDesSeances(seances, { nom = 'Lucie — mon horaire', domaine 
   }
   L.push('END:VCALENDAR');
   return L.map(plier).join('\r\n') + '\r\n';
+}
+
+/** LES VISITES DE STAGE DANS L'AGENDA (3.5.058) : la même forme que les séances, le lieu et son adresse en LOCATION. */
+export function evenementsDesVisites(liste) {
+  return liste.map(v => ({
+    uid: `visite-${v.id}`, date: v.date, heure_debut: v.heure_debut, heure_fin: v.heure_fin,
+    titre: `Visite de stage — ${String(v.etud_nom || '').toUpperCase()} ${v.etud_prenom || ''}`.trim(),
+    local_texte: [v.lieu_nom, v.lieu_service, v.lieu_adresse, [v.lieu_cp, v.lieu_localite].filter(Boolean).join(' ')].filter(Boolean).join(', '),
+    description: [v.intitule, v.remarques, 'Visite posée dans Lucie (Mes cours → Mes visites de stage).'].filter(Boolean).join('\n'),
+    annule: v.statut === 'annulee', modifie_le: v.maj_le,
+  }));
 }

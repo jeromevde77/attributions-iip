@@ -7,6 +7,8 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired } from '../middleware/auth.js';
+import { evenementsDesVisites } from '../lib/agendaIcs.js';
+import { visitesDuProf } from '../lib/visitesStage.js';
 import { migrerAgenda, lienActif, nouveauLien, revoquerLien, utilisateurDuJeton, seancesDuProf, icsDesSeances } from '../lib/agendaIcs.js';
 
 try { migrerAgenda(); } catch (e) { console.error('[migration] agenda :', e.message); }
@@ -21,7 +23,10 @@ r.get('/flux/:fichier', (req, res) => {
   // Même réponse pour un jeton faux ou révoqué : rien ne se devine.
   if (!u) return res.status(404).type('text/plain').send('Lien inconnu ou remplacé.');
   const depuis = new Date(Date.now() - 60 * 86400e3).toISOString().slice(0, 10);
-  const ics = icsDesSeances(seancesDuProf(u.professeur_id, depuis), { domaine: new URL(base()).hostname });
+  // Les séances, puis les visites de stage du professeur (3.5.057).
+  let visites = [];
+  try { visites = u.professeur_id ? evenementsDesVisites(visitesDuProf(u.professeur_id, depuis, '9999-12-31')) : []; } catch { /* table absente */ }
+  const ics = icsDesSeances([...seancesDuProf(u.professeur_id, depuis), ...visites], { domaine: new URL(base()).hostname });
   res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
   res.setHeader('Content-Disposition', 'inline; filename="lucie-horaire.ics"');
   res.setHeader('Cache-Control', 'private, max-age=900');
