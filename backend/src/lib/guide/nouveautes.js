@@ -4,6 +4,20 @@ export const chapitres = [];
 export const ajouts = {
   demarrage: [
     {
+      titre: "Qui a accès à quoi : les écrans de novembre",
+      pour: 'sec coo dir',
+      ou: "Configuration → Accès règle les cases de chacun ; ce point dit ce qui s'ouvre à qui.",
+      texte: "Les écrans ajoutés depuis la reprise de novembre ne s'ouvrent pas à tout le monde. La règle tient en une ligne par écran ; la direction adjointe peut ce que peut la direction, sauf où c'est dit.",
+      savoir: [
+        "Temps de travail : la direction et la direction adjointe préparent l'année, voient les heures de tous, forcent tension et calme et valident les modulations ; chaque personne désignée dans le module voit ses heures, et des autres seulement qui travaille et qui est en congé ; elle propose une modulation.",
+        "Agenda de l'école : la direction et la direction adjointe peignent l'école (fermetures, cours, jours fermés, grands moments, séries) ; la coordination peint la rangée des sections pour les siennes ; tout compte connecté le lit, et ne voit des grands moments que ceux qui le concernent (« pour qui »).",
+        "Stages (vue, pièces, lot, propositions) et Travaux de fin d'études : la direction et le secrétariat, tout ; TOUTE coordination, ses sections, quelles que soient les cases de sa fiche ; pas les enseignants. L'import d'une liste de TFE reste au secrétariat et à la direction.",
+        "Visites et trajets : le professeur de stage, ses visites et sa fiche de transport (Mes cours) ; le secrétariat et la direction, tout, et la règle de remboursement ; la coordination, ses sections ; la direction approuve la fiche après la signature de la personne.",
+        "Qui fait quoi (Gestion → Équipe) : la direction et la direction adjointe.",
+        "La personne responsable d'un type d'échéance se choisit dans le référentiel de l'échéancier : direction et secrétariat.",
+      ],
+    },
+    {
       titre: "Un tiroir du rail se referme d'un clic",
       ou: "Le rail de gauche, sur tous les écrans.",
       texte: "Certaines entrées du rail déplient leurs rubriques en dessous, dans un tiroir : le laboratoire temporel et ses sept étapes, les horaires, l'unité, Inscriptions & PAE, les familles de Gestion et de Configuration. Un clic sur l'entrée qui porte le tiroir le referme, un second le rouvre — même quand on travaille dans l'une de ses rubriques. Le tiroir refermé revient de lui-même quand on passe à une autre entrée.",
@@ -15,6 +29,18 @@ export const ajouts = {
       pour: 'sec coo dir',
       ou: "Organisation → le rail de gauche.",
       texte: "Les entrées se rangent en quatre groupes, séparés par un filet, de ce qui se décide d'abord à ce qui se vit : le programme (Schéma de capitalisation, Unité : croiser, pondérer, décrire) ; l'année (Agenda de l'école, Planification, Effectifs et postes) ; qui enseigne et quand (Attributions, Laboratoire temporel, Horaires) ; les étudiants (Rentrée, Répartition des étudiants, Stages, Travaux de fin d'études).",
+    },
+    {
+      titre: "Encoder un stage, pas à pas",
+      pour: 'sec coo dir',
+      ou: "Organisation → Stages (pour plusieurs étudiants) · fiche de l'étudiant → onglet Stages (pour un seul).",
+      texte: "Un stage, c'est un étudiant dans un LIEU, pour une UE de stage, à des dates. 1 Le lieu : il se choisit dans le répertoire de la section ; s'il n'y est pas, [[Nouveau lieu]] le crée (nom, service, adresse complète — elle figure au supplément au diplôme —, contact). Le répertoire entier s'importe d'un classeur (Étudiants → rail → Importer → « Répertoire de lieux de stage »). 2 Le stage : pour une cohorte, Organisation → Stages → Propositions crée un stage par inscrit de l'UE de stage, aux dates de son organisation, puis Affecter en lot donne à tous le même lieu, les mêmes dates, le même professeur ; pour un seul étudiant, fiche → Stages → [[Ajouter un stage|IconPlus|fort]]. 3 Le détail, dans la fiche (la ligne du stage s'ouvre d'un clic) : intitulé, UE, dates, heures prévues, statut, professeur de stage (IIP), maître de stage. 4 Les pièces, au fur et à mesure : autorisation et convention (art. 51), casier modèle 2, médecine du travail, vaccination (art. 55) ; la convention se dépose en PDF et part à la signature de la direction. 5 Le suivi : le professeur de stage planifie ses visites (Mes cours → Mes visites de stage) ; en fin de stage, heures effectuées, évaluation et note du tuteur, statut « Terminé ».",
+      images: [{ src: "/guide/etudiants-stages.png", legende: "Fiche → Stages : la ligne ouverte porte le lieu, l'UE, les dates, les heures, le statut, le professeur de stage et les pièces." }],
+      savoir: [
+        "Organisation → Stages → Pièces manquantes dit, stage par stage, ce qui reste à encoder ; « Relancer » écrit à l'étudiant ce qui est de son ressort.",
+        "Aucun stage ne commence sans autorisation écrite et convention signée (RDE, art. 51) ; le casier de moins de six mois est exigé avant le premier dixième de l'unité (art. 55).",
+        "Le professeur de stage marqué ★ est attribué à une UE de stage cette année. C'est lui qui verra le stage dans ses visites.",
+      ],
     },
     {
       titre: "Les stages de l'année, au même endroit",
@@ -62,6 +88,15 @@ export const ajouts = {
       images: [{ src: "/guide/tfe-ensemble.png", legende: "La vue d'ensemble des TFE (données d'essai) : un promoteur à désigner, des remises en retard, une épreuve intégrée réussie." }],
       savoir: [
         "La coordination voit et tient les TFE de ses sections ; le secrétariat et la direction, tous. L'import d'une liste de TFE (Étudiants → rail → Importer) reste au secrétariat et à la direction.",
+      ],
+    },
+    {
+      titre: "Qui encode un TFE ?",
+      pour: 'sec coo dir',
+      ou: "Organisation → Travaux de fin d'études, ou fiche de l'étudiant → onglet TFE.",
+      texte: "L'école, pas l'étudiant : le secrétariat ou la coordination pose le titre, le jury, les remises et la défense ; une liste entière s'importe (Étudiants → rail → Importer → « Importer des TFE »). L'étudiant n'encode rien dans Lucie ; il reçoit les relances de remise et sa convocation à son adresse d'école. Les membres du jury reçoivent leur convocation à l'adresse de leur fiche du personnel.",
+      savoir: [
+        "Aujourd'hui, le promoteur et le jury n'ont pas d'écran à eux dans Lucie : ils sont prévenus par courriel.",
       ],
     },
     {

@@ -3342,6 +3342,10 @@ tranché : toute coordination, quelles que soient ses cases). Écran : rubriques
 ouvert aussi par le rôle (5e élément d'`AXES`, `App.jsx`). Serveur : `garderModuleSauf(prefixe, ['coordination'])` (`garde.js`) sur
 `/api/stages` et `/api/tfe` — les routes posent leurs rôles et le périmètre. Au passage : un sous-menu d'`Axe` ne fait plus revenir
 une rubrique que le rôle ne voit pas (laboratoire, horaires, unité paraissaient chez une coordination sans Organisation).
+**La fiche d'un stage porte le professeur de stage et la vaccination** (3.5.074, Charles : « explique comment ça marche pour encoder
+un stage ») : `piecesDuStage` les exigeait, seule l'affectation en lot posait le professeur et rien ne cochait la vaccination
+(`components/Stages.jsx`, liste de `GET /api/stages/choix`). Guide : « Encoder un stage, pas à pas », « Qui encode un TFE ? »,
+« Qui a accès à quoi : les écrans de novembre ». **Le promoteur et le jury n'ont pas encore d'écran** : à prévoir avec l'espace enseignant.
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en

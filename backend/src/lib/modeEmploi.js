@@ -18,7 +18,7 @@ import * as gConfig from './guide/config.js';
 import * as gEcole from './guide/ecole.js';
 import * as gNouveautes from './guide/nouveautes.js';
 
-export const VERSION_DECRITE = '3.5.073';
+export const VERSION_DECRITE = '3.5.074';
 
 export const RUBRIQUES = [
   {
@@ -479,7 +479,7 @@ export const RUBRIQUES = [
       {
         titre: "Stages et conventions de stage",
         ou: "Fiche → Stages.",
-        texte: "Un stage par unité de stage, avec son statut : Prévu, Autorisé, En cours, Terminé, Rompu, Annulé. Le lieu se choisit dans le répertoire de la section, ou se crée. Les jalons de l'article 51 — autorisation écrite, convention signée — se cochent avec leur date.",
+        texte: "Un stage par unité de stage, avec son statut : Prévu, Autorisé, En cours, Terminé, Rompu, Annulé. Le lieu se choisit dans le répertoire de la section, ou se crée. Le professeur de stage (IIP) se choisit dans le personnel. Les pièces se posent avec leur date : autorisation écrite et convention signée (art. 51), casier modèle 2, médecine du travail, et la vaccination se coche (art. 55).",
         savoir: [
           "La convention reçue du lieu se dépose en PDF ; elle part à la signature du directeur (Tableau de bord → « À signer »), qui y appose le fac-similé.",
           "Le répertoire des lieux de stage d'une section s'importe d'un classeur (Importer → « Répertoire de lieux de stage »).",
