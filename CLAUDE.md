@@ -3332,6 +3332,11 @@ l'année dans le périmètre, jury, remises, `en_retard`, décision de l'UE d'é
 universel, cela, de se refermer ») : écrit UNE fois dans `RailDessine` (`ui.jsx`, `replies`, `basculerTiroir`) — une entrée qui
 montre son tiroir le replie, un second clic le rouvre, un tiroir disparu est oublié. Vaut pour tous les rails : axes (laboratoire,
 horaires, unité, PAE), Gestion, Configuration. Un écran ne gère plus l'ouverture de son tiroir au clic.
+**Le mode d'emploi et « Quoi de neuf » à jour** (3.5.072, Charles : « mets à jour l'aide, le mode d'emploi ») : points de
+`guide/nouveautes.js` pour Organisation (rail, Stages ×4, TFE ×5), Gestion (Qui fait quoi), Équipe (responsable par type,
+échéances constatées), Pour commencer (tiroir) ; captures `stages-*`, `tfe-*`, `gestion-qui-fait-quoi` (base d'essai). Dans
+`2026-11.html`, les nouveautés récentes ont leur onglet « Les dernières nouveautés » : elles s'étaient rangées sous « Ce que
+Lucie refuse désormais ».
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
