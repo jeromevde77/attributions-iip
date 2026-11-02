@@ -155,5 +155,24 @@ const s3 = T.anneeDe(3, A);
 t('accepté : mars en congé, Carnaval au travail', mod.statut === 'acceptee' && s3.find(x => x.lundi === '2027-03-08').statut === 'conge' && s3.find(x => x.lundi === '2027-02-22').statut === 'travail', mod.statut);
 t('le journal de l’agenda garde les gestes', G.journalAgenda(A).length >= 8);
 
+console.log('\nLes séries et les rôles');
+const sid = L.ecrireSerie(A, { titre: 'Collège', type: 'reunion', regle: 'semaine', jour: 0, du: '2026-09-01', au: '2027-06-30', pour: ['direction'] }, 'banc');
+let el = L.moments(A, { user: { id: 4, role: 'directeur' } }).filter(m => m.serie_id === sid);
+t('Collège chaque lundi, sauf Noël et l’été (fermés)', el.length > 30 && el.every(m => new Date(m.du + 'T00:00:00Z').getUTCDay() === 1) && !el.some(m => m.du === '2026-12-21' || m.du === '2026-12-28'), el.length);
+t('ni le 2 novembre ni un férié', !el.some(m => m.du === '2027-03-29'));
+t('la série « pour la direction » ne se montre pas au secrétariat', !L.moments(A, { user: { id: 1, role: 'secretariat' } }).some(m => m.serie_id === sid));
+L.exceptionSerie(sid, '2026-11-09', '2026-11-10', 'banc'); L.exceptionSerie(sid, '2026-11-16', null, 'banc');
+el = L.moments(A, {}).filter(m => m.serie_id === sid);
+t('une date se déplace, une autre s’annule', el.some(m => m.du === '2026-11-10' && m.deplace === '2026-11-09') && !el.some(m => m.du === '2026-11-16'));
+const s2 = L.ecrireSerie(A, { titre: 'Coordination', type: 'reunion', regle: 'quinzaine', jour: 3, du: '2026-09-10', au: '2026-10-31', pour: 'coordination,direction' }, 'banc');
+el = L.moments(A, { user: { id: 9, role: 'coordination' } }).filter(m => m.serie_id === s2).map(m => m.du);
+t('Coordination un jeudi sur deux, vue par la coordination', el.join() === '2026-09-10,2026-09-24,2026-10-08,2026-10-22', el);
+const s4 = L.ecrireSerie(A, { titre: 'Conseil', type: 'conseil', regle: 'mois', jour: 1, rang: 2, du: '2026-09-01', au: '2026-12-31' }, 'banc');
+t('le 2e mardi du mois', L.moments(A, {}).filter(m => m.serie_id === s4).map(m => m.du).join() === '2026-09-08,2026-10-13,2026-11-10,2026-12-08');
+const idm = L.ecrireMoment(A, { type: 'echeance', titre: 'Remise DOC2', du: '2026-09-04', domaine: 'administratif', pour: ['secretariat'] }, 'banc');
+const m1 = L.moments(A, { user: { id: 1, role: 'secretariat' } }).find(m => m.id === idm);
+t('une échéance porte son domaine, sa nature et ses rôles', m1 && m1.nature === 'echeance' && m1.domaine === 'administratif' && m1.pour === 'secretariat', m1);
+t('un enseignant ne la voit pas', !L.moments(A, { user: { id: 7, role: 'professeur' } }).some(m => m.id === idm));
+
 console.log(`\n${ok} ok, ${ko} faux`);
 process.exit(ko ? 1 : 0);

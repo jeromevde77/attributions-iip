@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { IconChevronLeft, IconChevronRight, IconWand, IconX, IconFlame, IconSnowflake, IconFlag, IconCheck, IconSend, IconZoomIn } from '@tabler/icons-react';
 import { EnteteCarte, PastilleEtat } from './ui.jsx';
 import AgendaLigne, { useAgenda, GrilleAnnee, COL_NOM, HACHURE } from './AgendaLigne.jsx';
+import AgendaMois from './AgendaMois.jsx';
 import { demander, informer, saisir } from '../lib/dialogue.jsx';
 
 const hm = m => { if (m == null) return ''; const s = m < 0 ? '−' : ''; m = Math.abs(Math.round(m)); return `${s}${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`; };
@@ -79,10 +80,10 @@ export default function LigneTempsTravail({ api, info, onReleve }) {
       {/* LA BARRE : le zoom, la navigation, la personne, l'assistant — une ligne. */}
       <div className="flex flex-nowrap items-center gap-2 overflow-x-auto">
         <div className="segments flex-none">
-          {[['annee', 'Année'], ['semaines', 'Semaines'], ['semaine', 'Semaine']].map(([k, l]) => (
-            <button key={k} type="button" onClick={() => zoomer(k, k === 'annee' ? null : centre)} className={zoom === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}>{l}</button>))}
+          {[['annee', 'Année'], ['mois', 'Mois'], ['semaines', 'Semaines'], ['semaine', 'Semaine']].map(([k, l]) => (
+            <button key={k} type="button" onClick={() => zoomer(k, ['annee', 'mois'].includes(k) ? null : centre)} className={zoom === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}>{l}</button>))}
         </div>
-        {zoom !== 'annee' && <>
+        {!['annee', 'mois'].includes(zoom) && <>
           <button className="bouton controle flex-none px-2" onClick={() => avancer(-1)} aria-label="Avant"><IconChevronLeft size={16} /></button>
           <span className="text-second text-slate-600 whitespace-nowrap">{zoom === 'semaine' ? `Semaine du ${fmt(centre)} au ${fmt(plus(centre, 4))}` : `Du ${fmt(centre)} au ${fmt(plus(centre, 7 * 8 - 3))}`}</span>
           <button className="bouton controle flex-none px-2" onClick={() => avancer(1)} aria-label="Après"><IconChevronRight size={16} /></button>
@@ -101,11 +102,12 @@ export default function LigneTempsTravail({ api, info, onReleve }) {
       <div className={`grid gap-3 ${mod ? 'xl:grid-cols-[minmax(0,1fr)_340px]' : ''}`}>
         <div className="carte overflow-hidden min-w-0">
           {zoom === 'annee' && <VueAnnee d={d} ag={ag} rechargerAg={rechargerAg} annee={annee} apercu={apercu} focus={focus} sel={sel} setSel={setSel} zoomer={zoomer} recharger={charger} />}
+          {zoom === 'mois' && <AgendaMois annee={annee} ag={ag} recharger={rechargerAg} onChange={charger} />}
           {zoom === 'semaines' && <VueSemaines d={d} ch={ch} apercu={apercu} focus={focus} debut={debut} mod={mod} sel={sel} setSel={setSel} peutModuler={peutModuler} basculerJour={basculerJour} zoomer={zoomer} />}
           {zoom === 'semaine' && <VueSemaine d={d} ch={ch} apercu={apercu} focus={focus} lundi={centre} mod={mod} peutModuler={peutModuler} basculerJour={basculerJour} />}
           {zoom === 'annee' && sel && <DetailSemaine d={d} l={sel} c={ch.get(sel)} fp={fp} peutModuler={peutModuler} api={api} recharger={charger}
             mod={mod} donnerSemaine={donnerSemaine} fixerCible={fixerCible} basculerListe={basculerListe} zoomer={zoomer} onFermer={() => setSel(null)} />}
-          {zoom !== 'annee' && <Moments d={d} debut={debut} fin={plus(debut, 7 * fenetre - 1)} />}
+          {!['annee', 'mois'].includes(zoom) && <Moments d={d} debut={debut} fin={plus(debut, 7 * fenetre - 1)} />}
         </div>
         {mod && <Assistant fp={fp} mod={mod} setMod={setMod} plan={plan} api={api} gere={d.gere}
           onFermer={() => { setMod(null); setPlan(null); }} onFait={() => { setMod(null); setPlan(null); charger(); }} onReleve={onReleve} />}

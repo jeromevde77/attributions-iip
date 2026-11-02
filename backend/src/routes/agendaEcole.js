@@ -11,7 +11,7 @@ import {
   reprendreCongesModule, PEINT_ETABLISSEMENT, plus,
 } from '../lib/agendaEcole.js';
 import { reglage, feriesDe } from '../lib/tempsTravail.js';
-import { moments, chaleur, TYPES_MOMENT } from '../lib/ligneTemps.js';
+import { moments, chaleur, TYPES_MOMENT, NATURES, NATURE_DU_TYPE, DOMAINES, POUR, ecrireMoment, retirerMoment, ecrireSerie, retirerSerie, exceptionSerie } from '../lib/ligneTemps.js';
 
 try { migrerAgenda(); } catch (e) { console.error('[agenda] migration', e.message); }
 
@@ -26,7 +26,7 @@ r.get('/', authRequired, (req, res) => {
   try { reprendreCongesModule(an); } catch (e) { console.error('[agenda] reprise', e.message); }
   const ag = agenda(an, { user: req.user, presentsMin: reglage(an).presents_min });
   const f = feriesDe(an);
-  res.json({ ...ag, moments: moments(an), chaleur: chaleur(an), types_moment: TYPES_MOMENT,
+  res.json({ ...ag, moments: moments(an, { user: req.user }), chaleur: chaleur(an), types_moment: TYPES_MOMENT, natures: NATURES, nature_du_type: NATURE_DU_TYPE, domaines: DOMAINES, pour: POUR,
     feries: Object.fromEntries([...f].filter(([d]) => d >= ag.semaines[0] && d <= plus(ag.semaines[51], 6))) });
 });
 r.put('/fermeture', authRequired, (req, res) => {
@@ -47,6 +47,27 @@ r.delete('/jour-ferme/:date', authRequired, (req, res) => {
 });
 r.put('/section', authRequired, (req, res) => {
   try { forcerSection(annee(req), String(req.body?.section || ''), req.body?.lundis, req.body?.etat || null, req.user, nomDe(req.user)); res.json({ ok: true }); } catch (e) { faute(res, e); }
+});
+// LES ÉLÉMENTS (3.5.062) : un moment daté, ou une série qui revient ; la direction les pose.
+r.post('/moments', authRequired, (req, res) => {
+  if (!direction(req, res)) return;
+  try { res.json({ id: ecrireMoment(annee(req), req.body || {}, nomDe(req.user)) }); } catch (e) { faute(res, e); }
+});
+r.delete('/moments/:id', authRequired, (req, res) => {
+  if (!direction(req, res)) return;
+  try { retirerMoment(req.params.id); res.json({ ok: true }); } catch (e) { faute(res, e); }
+});
+r.post('/series', authRequired, (req, res) => {
+  if (!direction(req, res)) return;
+  try { res.json({ id: ecrireSerie(annee(req), req.body || {}, nomDe(req.user)) }); } catch (e) { faute(res, e); }
+});
+r.delete('/series/:id', authRequired, (req, res) => {
+  if (!direction(req, res)) return;
+  try { retirerSerie(req.params.id); res.json({ ok: true }); } catch (e) { faute(res, e); }
+});
+r.put('/series/:id/exception', authRequired, (req, res) => {
+  if (!direction(req, res)) return;
+  try { exceptionSerie(req.params.id, String(req.body?.date || ''), req.body?.nouvelle || null, nomDe(req.user)); res.json({ ok: true }); } catch (e) { faute(res, e); }
 });
 r.get('/journal', authRequired, (req, res) => {
   if (!direction(req, res)) return;

@@ -176,7 +176,7 @@ r.get('/suivi', authRequired, (req, res) => {
 // La direction voit les heures de tous ; une personne désignée, les siennes, et des autres leur présence et leurs congés.
 r.get('/ligne', authRequired, (req, res) => {
   if (!gere(req.user) && !designe(req.user.id)) return res.status(404).json({ error: 'Introuvable.' });
-  res.json({ ...ligne(annee(req), { voirHeures: gere(req.user), moi: req.user.id }), gere: gere(req.user) });
+  res.json({ ...ligne(annee(req), { voirHeures: gere(req.user), moi: req.user.id, user: req.user }), gere: gere(req.user) });
 });
 r.get('/moments', authRequired, (req, res) => {
   if (!gere(req.user) && !designe(req.user.id)) return res.status(404).json({ error: 'Introuvable.' });

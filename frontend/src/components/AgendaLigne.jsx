@@ -20,6 +20,12 @@ export const HACHURE = 'repeating-linear-gradient(135deg, var(--c-fond_indispo, 
 export const COL_NOM = 'minmax(7.5rem, 10rem)';
 const COULEUR_COURS = { cours: 'var(--c-filet, #E2E8F0)', vacances: HACHURE, ev1: 'var(--c-principal)', ev2: 'var(--c-principal)', stage: 'var(--c-accent)' };
 const CHALEUR = { chaud: 'var(--c-attente)', creux: 'var(--c-disponible)' };
+/* LA COULEUR DIT LA NATURE (3.5.062) — des jetons de Configuration, jamais une couleur en dur. */
+/* Les couleurs des séries de graphiques (Configuration → Thèmes et couleurs), proches du classeur de l'école : réunions en
+   rose-rouge comme « Coord », échéances en or, horaires en cyan, conseils en vert. */
+export const COULEUR_NATURE = { evenement: 'var(--c-serie_1, #19537E)', echeance: 'var(--c-serie_3, #F9B619)', reunion: 'var(--c-serie_6, #D14F8A)',
+  conseil: 'var(--c-serie_5, #4FA64A)', horaires: 'var(--c-serie_2, #05B7E6)' };
+export const TEXTE_NATURE = { echeance: 'var(--c-texte, #16406A)' };
 
 const appel = (url, annee, o = {}) => fetch(`${url}${url.includes('?') ? '&' : '?'}annee=${annee}`, { ...o, headers: { ...authHeaders(), ...(o.body ? { 'Content-Type': 'application/json' } : {}) } })
   .then(async r => { const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`); return j; });
@@ -91,7 +97,7 @@ export default function AgendaLigne({ annee, ag, recharger, apres = null, selSem
       } else if (p.cle === 'moment') {
         const titre = await saisir({ message: `Grand moment du ${fmt(x)} au ${fmt(plus(y, 4))} — son nom :`, obligatoire: true, valeur: p.titre || '' });
         if (!titre) return;
-        await appel('/api/temps-travail/moments', annee, { method: 'POST', body: JSON.stringify({ type: p.valeur || 'autre', titre, du: p.du || x, au: p.au || plus(y, 4) }) });
+        await appel('/api/agenda-ecole/moments', annee, { method: 'POST', body: JSON.stringify({ type: p.valeur || 'autre', titre, du: p.du || x, au: p.au || plus(y, 4) }) });
       } else if (p.cle === 'fermeture') {
         let libelle = null;
         if (p.valeur !== 'ouvert') {
@@ -148,7 +154,7 @@ export default function AgendaLigne({ annee, ag, recharger, apres = null, selSem
   };
   const retirerMoment = async m => {
     if (!(await demander(`Retirer « ${m.titre} » ?`))) return;
-    try { await appel(`/api/temps-travail/moments/${m.id}`, annee, { method: 'DELETE' }); apresGeste(); } catch (e) { informer({ message: e.message }); }
+    try { await appel(`/api/agenda-ecole/moments/${m.id}`, annee, { method: 'DELETE' }); apresGeste(); } catch (e) { informer({ message: e.message }); }
   };
 
   return (
@@ -217,10 +223,10 @@ export default function AgendaLigne({ annee, ag, recharger, apres = null, selSem
         </div>
       </div>
       <Legende />
-      {(ag.jours_fermes.length > 0 || ag.moments.length > 0) && (
+      {(ag.jours_fermes.length > 0 || ag.moments.some(m => !m.serie_id)) && (
         <div className="px-4 py-2 border-t text-second space-y-1">
           {ag.moments.length > 0 && <div className="flex flex-wrap gap-x-3 gap-y-1"><span className="text-slate-500">Grands moments :</span>
-            {ag.moments.filter(m => m.type !== 'deliberations').map((m, i) => <span key={i} className="whitespace-nowrap inline-flex items-center gap-1"><b>{m.titre}</b> <span className="text-slate-500">{fmt(m.du)}{m.au !== m.du ? `→${fmt(m.au)}` : ''}</span>
+            {ag.moments.filter(m => m.type !== 'deliberations' && !m.serie_id).map((m, i) => <span key={i} className="whitespace-nowrap inline-flex items-center gap-1"><b>{m.titre}</b> <span className="text-slate-500">{fmt(m.du)}{m.au !== m.du ? `→${fmt(m.au)}` : ''}</span>
               {peutEtab && m.id && <button className="text-slate-400 hover:text-[var(--c-refuse)]" onClick={() => retirerMoment(m)} aria-label="Retirer"><IconX size={11} /></button>}</span>)}
             {ag.moments.some(m => m.type === 'deliberations') && <span className="text-slate-500">· {ag.moments.filter(m => m.type === 'deliberations').length} semaine(s) de délibérations (lues des séances)</span>}</div>}
           {ag.jours_fermes.length > 0 && <div className="flex flex-wrap gap-x-3 gap-y-1"><span className="text-slate-500">Jours fermés par l’école :</span>
@@ -235,7 +241,7 @@ export default function AgendaLigne({ annee, ag, recharger, apres = null, selSem
 }
 
 /* LE MENU DE LA ZONE : ce qu'on met sur les semaines glissées. */
-const MOMENTS_RAPIDES = [['examens', 'Examens'], ['inscriptions', 'Inscriptions'], ['diplomes', 'Remise des diplômes'], ['rentree', 'Rentrée'], ['jpo', 'Portes ouvertes'], ['autre', 'Autre…']];
+const MOMENTS_RAPIDES = [['examens', 'Examens'], ['inscriptions', 'Inscriptions'], ['diplomes', 'Remise des diplômes'], ['rentree', 'Rentrée'], ['jpo', 'Portes ouvertes'], ['echeance', 'Échéance'], ['conseil', 'Conseil'], ['horaires', 'Horaires'], ['salon', 'Salon'], ['autre', 'Autre…']];
 function MenuZone({ zone, pos, peutEtab, peutSections, types, onChoix, onFermer }) {
   const [x, y] = zone.a <= zone.b ? [zone.a, zone.b] : [zone.b, zone.a];
   const n = Math.round((new Date(`${y}T00:00:00Z`) - new Date(`${x}T00:00:00Z`)) / 6048e5) + 1;
@@ -301,7 +307,7 @@ function RangeeMoments({ ag, droite, cible, toucher, enCours, onRetirer }) {
   const s0 = new Date(`${ag.semaines[0]}T00:00:00Z`).getTime(), span = 52 * 7 * 864e5;
   const pos = x => Math.max(0, Math.min(1, (new Date(`${x}T00:00:00Z`).getTime() - s0) / span));
   // Les délibérations, nombreuses, se marquent d'un point ; les autres moments portent leur nom.
-  const noms = ag.moments.filter(m => m.type !== 'deliberations');
+  const noms = ag.moments.filter(m => m.type !== 'deliberations' && m.nature !== 'reunion' && !m.serie_id);
   const couloirs = [];
   const places = noms.map(m => { let k = couloirs.findIndex(fin => fin < m.du); if (k < 0) { k = couloirs.length; couloirs.push(m.au); } else couloirs[k] = m.au; return { ...m, k }; });
   const n = Math.max(1, couloirs.length);
@@ -313,7 +319,7 @@ function RangeeMoments({ ag, droite, cible, toucher, enCours, onRetirer }) {
         {places.map((m, i) => (
           <span key={i} title={`${m.titre} · ${fmt(m.du)}${m.au !== m.du ? ` → ${fmt(m.au)}` : ''}`}
             className="absolute h-[1.05rem] rounded-[3px] text-mention text-white px-1 truncate leading-[1.05rem] pointer-events-none z-[1]"
-            style={{ left: `${pos(m.du) * 100}%`, width: `max(0.6rem, ${(pos(plus(m.au, 1)) - pos(m.du)) * 100}%)`, top: `${m.k * 1.25}rem`, background: 'var(--c-principal)' }}>
+            style={{ left: `${pos(m.du) * 100}%`, width: `max(0.6rem, ${(pos(plus(m.au, 1)) - pos(m.du)) * 100}%)`, top: `${m.k * 1.25}rem`, background: COULEUR_NATURE[m.nature] || 'var(--c-principal)', color: TEXTE_NATURE[m.nature] || 'white' }}>
             {m.titre}
           </span>))}
         {delib.map((m, i) => <span key={`d${i}`} title={`${m.titre} · ${fmt(m.du)}${m.au !== m.du ? ` → ${fmt(m.au)}` : ''}`}
@@ -341,18 +347,21 @@ function Legende() {
 }
 
 /* ── SAISIR À LA MAIN : le même geste, avec un mini calendrier ── */
-function SaisieManuelle({ ag, annee, peutEtab, peutSections, onFermer, onFait, poser }) {
-  const [quoi, setQuoi] = useState('moment');
-  const [du, setDu] = useState(null), [au, setAu] = useState(null);
-  const [valeur, setValeur] = useState('inscriptions');
+export function SaisieManuelle({ ag, annee, peutEtab, peutSections, onFermer, onFait, poser = null, initial = {} }) {
+  const [quoi, setQuoi] = useState(initial.quoi || 'moment');
+  const [du, setDu] = useState(initial.du || null), [au, setAu] = useState(initial.au && initial.au !== initial.du ? initial.au : null);
+  const [valeur, setValeur] = useState(initial.type || 'inscriptions');
+  const [domaine, setDomaine] = useState(''), [pour, setPour] = useState([]);
+  const [heure, setHeure] = useState(''), [heureFin, setHeureFin] = useState('');
+  const [repeter, setRepeter] = useState(''), [rang, setRang] = useState(1), [jusquau, setJusquau] = useState(plus(ag.semaines[51], 4));
   const [titre, setTitre] = useState('');
   const [section, setSection] = useState(peutSections[0] || '');
-  const [mois, setMois] = useState(() => { const d = new Date().toISOString().slice(0, 7); return d >= ag.semaines[0].slice(0, 7) && d <= plus(ag.semaines[51], 6).slice(0, 7) ? d : ag.semaines[0].slice(0, 7); });
+  const [mois, setMois] = useState(() => { const d = (initial.du || new Date().toISOString()).slice(0, 7); return d >= ag.semaines[0].slice(0, 7) && d <= plus(ag.semaines[51], 6).slice(0, 7) ? d : ag.semaines[0].slice(0, 7); });
   const [occupe, setOccupe] = useState(false);
   const QUOI = [['moment', 'Grand moment'], ['jour', 'Jour fermé (mardi gras, 2 novembre…)'], ['fermeture', 'École fermée'], ['chaleur', 'Chaleur'], ['cours', 'Cours'],
-    ...(peutSections.length ? [['section', 'Section']] : [])].filter(([k]) => peutEtab || k === 'section');
+    ...(peutSections.length ? [['section', 'Section']] : [])].filter(([k]) => (peutEtab || k === 'section') && (poser || ['moment', 'jour', 'fermeture'].includes(k)));
   const valeurs = quoi === 'moment' ? Object.entries(ag.types_moment || {}).filter(([k]) => k !== 'deliberations') : quoi === 'jour' ? [] : PINCEAUX[quoi].valeurs;
-  useEffect(() => { setValeur(quoi === 'moment' ? 'inscriptions' : valeurs?.[0]?.[0] || null); }, [quoi]);
+  useEffect(() => { if (quoi === (initial.quoi || 'moment') && initial.type) return; setValeur(quoi === 'moment' ? 'inscriptions' : valeurs?.[0]?.[0] || null); }, [quoi]);
   const fin = au || du;
   const choisir = d => { if (!du || (du && au)) { setDu(d); setAu(null); } else if (d < du) { setAu(du); setDu(d); } else setAu(d); };
   const valider = async () => {
@@ -369,7 +378,11 @@ function SaisieManuelle({ ag, annee, peutEtab, peutSections, onFermer, onFait, p
       }
       if (quoi === 'moment') {
         if (!titre.trim()) { informer({ message: 'Nommez le moment.' }); return; }
-        await appel('/api/temps-travail/moments', annee, { method: 'POST', body: JSON.stringify({ type: valeur, titre: titre.trim(), du, au: fin }) });
+        const extra = { domaine: domaine || null, pour, heure_debut: heure || null, heure_fin: heureFin || null };
+        if (repeter) {
+          const jour = (new Date(`${du}T00:00:00Z`).getUTCDay() + 6) % 7;
+          await appel('/api/agenda-ecole/series', annee, { method: 'POST', body: JSON.stringify({ type: valeur, titre: titre.trim(), regle: repeter, jour, rang: repeter === 'mois' ? Number(rang) : null, du, au: jusquau, ...extra }) });
+        } else await appel('/api/agenda-ecole/moments', annee, { method: 'POST', body: JSON.stringify({ type: valeur, titre: titre.trim(), du, au: fin, ...extra }) });
         onFait(); return;
       }
       if (quoi === 'fermeture' && valeur !== 'ouvert' && !titre.trim()) { informer({ message: 'Nommez la fermeture (Noël, été…).' }); return; }
@@ -384,7 +397,7 @@ function SaisieManuelle({ ag, annee, peutEtab, peutSections, onFermer, onFait, p
   };
   const besoinTitre = ['moment', 'jour', 'fermeture'].includes(quoi) && !(quoi === 'fermeture' && valeur === 'ouvert');
   return (
-    <Fenetre icone={IconCalendarPlus} titre="Saisir dans l’agenda" large="moyenne" onFermer={onFermer}
+    <Fenetre icone={IconCalendarPlus} titre="Saisir dans l’agenda" large="grande" onFermer={onFermer}
       pied={<div className="flex items-center gap-3 w-full">
         <span className="text-second text-slate-500 min-w-0 flex-1">{du ? `Du ${fmt(du)} au ${fmt(fin)}` : 'Touchez le premier jour, puis le dernier.'}{quoi !== 'moment' && quoi !== 'jour' && du ? ' — par semaines entières.' : ''}</span>
         <button className="bouton bouton-fort" disabled={!du || occupe || (besoinTitre && !titre.trim())} onClick={valider}>{occupe ? 'Enregistrement…' : 'Poser'}</button>
@@ -397,6 +410,28 @@ function SaisieManuelle({ ag, annee, peutEtab, peutSections, onFermer, onFait, p
           {valeurs && valeurs.length > 0 && <label className="block"><span className="text-second text-slate-600">{quoi === 'moment' ? 'Nature' : 'Valeur'}</span>
             <select className="controle border border-slate-300 rounded-champ w-full mt-1" value={valeur || ''} onChange={e => setValeur(e.target.value)}>
               {valeurs.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>}
+          {quoi === 'moment' && <>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="block"><span className="text-second text-slate-600">Domaine</span>
+                <select className="controle border border-slate-300 rounded-champ w-full mt-1" value={domaine} onChange={e => setDomaine(e.target.value)}>
+                  <option value="">—</option>{Object.entries(ag.domaines || {}).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
+              <label className="block"><span className="text-second text-slate-600">Heure (facultative)</span>
+                <span className="flex items-center gap-1 mt-1"><input type="time" className="controle border border-slate-300 rounded-champ w-full" value={heure} onChange={e => setHeure(e.target.value)} />
+                  <input type="time" className="controle border border-slate-300 rounded-champ w-full" value={heureFin} onChange={e => setHeureFin(e.target.value)} /></span></label>
+            </div>
+            <div><span className="text-second text-slate-600">Pour qui (rien coché : tout le monde)</span>
+              <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">{Object.entries(ag.pour || {}).map(([k, l]) => (
+                <label key={k} className="inline-flex items-center gap-1.5 text-second"><input type="checkbox" checked={pour.includes(k)} onChange={e => setPour(p => (e.target.checked ? [...p, k] : p.filter(x => x !== k)))} />{l}</label>))}</div></div>
+            <label className="block"><span className="text-second text-slate-600">Répéter</span>
+              <span className="flex flex-wrap items-center gap-1 mt-1">
+                <select className="controle border border-slate-300 rounded-champ" value={repeter} onChange={e => setRepeter(e.target.value)}>
+                  <option value="">Non, une fois</option><option value="semaine">Chaque semaine</option><option value="quinzaine">Une semaine sur deux</option><option value="mois">Chaque mois</option></select>
+                {repeter === 'mois' && <select className="controle border border-slate-300 rounded-champ" value={rang} onChange={e => setRang(e.target.value)}>
+                  {[[1, '1er'], [2, '2e'], [3, '3e'], [4, '4e'], [-1, 'dernier']].map(([k, l]) => <option key={k} value={k}>le {l} {du ? ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'][(new Date(`${du}T00:00:00Z`).getUTCDay() + 6) % 7] : 'jour'} du mois</option>)}</select>}
+                {repeter && <>jusqu’au <input type="date" className="controle border border-slate-300 rounded-champ" value={jusquau} onChange={e => setJusquau(e.target.value)} /></>}
+              </span>
+              {repeter && <span className="text-mention text-slate-500">Le jour de la semaine est celui du premier jour choisi ; les semaines où l’école est fermée et les jours fermés sont sautés.</span>}</label>
+          </>}
           {quoi === 'section' && <label className="block"><span className="text-second text-slate-600">Section</span>
             <select className="controle border border-slate-300 rounded-champ w-full mt-1" value={section} onChange={e => setSection(e.target.value)}>
               {peutSections.map(s => <option key={s} value={s}>{s}</option>)}</select></label>}

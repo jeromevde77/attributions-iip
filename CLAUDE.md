@@ -3274,6 +3274,15 @@ coordination pour les siennes (`getUserSections`). Journal `agenda_journal` en a
 **Glisser pour choisir une zone** (3.5.061, Charles : « sélectionner à la souris une zone et mettre tension, examens ou autre » ;
 « chaud, ça fait moche ») : appui, glisser, lâcher sur la ligne du temps (cases `data-lundi`, Pointer Events) → `MenuZone` ; un clic
 simple garde son effet. À l'écran, chaud/creux se disent **Tension / Calme** (la base garde `chaud`/`creux`).
+**La vue Mois, le classement et les séries** (3.5.062, Charles, d'après sa « Timeline Santé 2025-2026 » — modèle seulement, pas
+d'import ; tranché : domaine + nature ; séries « en fonction des rôles »). `components/AgendaMois.jsx` (zoom Mois de l'agenda et du
+Temps de travail : douze lignes, jours en colonnes, glisser → `SaisieManuelle`). Un élément (`evenement_etablissement`, colonnes
+`domaine`, `pour`, `serie_id`) : TYPE (examens, réunion, échéance, conseil, horaires, salon…) → NATURE (`NATURE_DU_TYPE`, la
+couleur — séries de graphiques `--c-serie_*`), DOMAINE (administratif, pédagogique, ASBL, HE), POUR (direction, secrétariat,
+coordination, professeur ; vide = tous ; `voit()` filtre côté serveur, la direction voit tout). Séries `agenda_serie` (semaine,
+quinzaine, mois au n-ième jour ; fermetures totales et jours fermés sautés) et `agenda_serie_exception` (déplacer, annuler une
+date), dates calculées à la lecture (`datesDeSerie`). Routes d'écriture sur `/api/agenda-ecole` (moments, séries), direction.
+Banc : 57 ok.
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en

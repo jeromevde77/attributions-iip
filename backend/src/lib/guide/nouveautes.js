@@ -39,6 +39,18 @@ export const ajouts = {
       ],
     },
     {
+      titre: "L'agenda en vue Mois : réunions, échéances, événements",
+      pour: 'sec coo dir',
+      ou: "Organisation → Agenda de l'école → [[Mois]] (ou Temps de travail → Ligne du temps → [[Mois]]).",
+      texte: "Un mois par ligne, les jours en colonnes, chaque élément à son jour. La couleur dit la nature : événement, échéance (un document à remettre), réunion, conseil, horaires ; les boutons de couleur masquent une nature, les domaines (administratif, pédagogique, ASBL, HE) filtrent. On glisse sur des jours — ou on touche un jour — et la saisie s'ouvre à ces dates : le nom, le type, le domaine, l'heure, pour qui, et si l'élément revient (chaque semaine, une semaine sur deux, chaque mois le n-ième jour). Un élément touché se lit ; on le retire, et pour une série on déplace ou on annule une seule date, ou on retire la série.",
+      images: [{ src: "/guide/agenda-mois.png", legende: "La vue Mois (données d'essai) : Collège et Coordination en séries, échéances, salon, examens, inscriptions, délibérations." }],
+      savoir: [
+        "« Pour qui » : la direction, le secrétariat, la coordination, les enseignants ; rien coché, tout le monde. Chacun ne voit que ce qui le concerne ; la direction voit tout.",
+        "Une série saute les semaines où l'école est fermée et les jours fermés ; elle ne réchauffe pas la période (une réunion ne fait pas une semaine de tension).",
+        "Les délibérations viennent des séances : elles se lisent, elles ne se posent pas ici.",
+      ],
+    },
+    {
       titre: "La ligne du temps : l'année, les semaines, la semaine",
       pour: 'sec dir',
       ou: "Personnel → Temps de travail → Ligne du temps.",
