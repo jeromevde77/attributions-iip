@@ -33,6 +33,7 @@ import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import Database from 'better-sqlite3';
 import { autorise, etatGeo } from './geo.js';
+import { monterEnseignants } from './enseignants.js';
 
 const PORT_PUBLIC = Number(process.env.PORT_PUBLIC || 3101);
 const PORT_INTERNE = Number(process.env.PORT_INTERNE || 3102);
@@ -756,7 +757,6 @@ pub.get('/api/portail/verifier/:ref', (req, res) => {
   res.json(p ? { trouve: true, ...p, etablissement: 'Institut Ilya Prigogine' } : { trouve: false, reference: ref });
 });
 
-pub.use((req, res) => res.status(404).json({ error: 'Introuvable.' }));
 
 // ══ LE CÔTÉ INTERNE — Lucie seule, par le réseau Docker ════════════════════
 const int = express();
@@ -931,6 +931,9 @@ int.post('/interne/acquitter', (req, res) => {
   })();
   res.json({ ok: true });
 });
+// L'ESPACE ENSEIGNANT (3.5.076) : ses routes publiques et internes, sur ses propres tables.
+monterEnseignants(pub, int, { db, SECRET, empreinte, maintenant, egal, tropDEssais, ipDe, hacher, verifierMdp, mdpRefuse, autorise, nomAppareil });
+pub.use((req, res) => res.status(404).json({ error: 'Introuvable.' }));
 int.use((req, res) => res.status(404).end());
 
 pub.listen(PORT_PUBLIC, () => console.log(`[portail] public ${PORT_PUBLIC}`));

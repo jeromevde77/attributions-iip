@@ -3353,6 +3353,18 @@ contrôles, où sont les notes, règles, reports — `hote: 'pae'` par enfant) e
 qu'un écran monte garde sa place dans tout l'axe ; ailleurs, un clic ouvre son hôte et le lance (`lucie.outil`). Les visites de stage
 quittent le rail. Noms : Configuration « Journal des modifications » (ex-« Qui a fait quoi »), labo « 1. Le schéma », Mes cours
 « Mes cours de l'année » ; icônes uniques au labo.
+**L'ESPACE ENSEIGNANT, ÉTAPE 1** (3.5.076, Charles, 2 novembre 2026 : logigramme et maquette validés ; tranché : site à part
+derrière le mur, DANS le portail existant, à son adresse enseignants.lucie-iip.be ; mot de passe propre + code sur un nouvel
+appareil ; étape 1 = entrée, Ma journée, présences, horaire ; une coordination qui enseigne aura une bascule ; puis Mes TFE,
+notes et carnet, stages, avis, messages, textes, fiche). Portail : `portail/src/enseignants.js` (`monterEnseignants`, tables
+`ens_*` à part, routes `/api/enseignant/*`, port interne `/interne/ens/depot|releve|acquitter`). Lucie : `lib/portailEnseignants.js`
+(dépôt : comptes actifs reliés à une fiche de professeur ET fonction `enseignant.espace` ouverte — Mise en service —, leurs
+séances de J-30 à J+21 par `seancesPourEspace` (règle de Mes cours), inscrits, présences, motifs de `MOTIFS_JUSTIFIES` ;
+relevé : lien et code composés par Lucie, présences jugées par `presencesDepuisEspace` → `ecrirePresences`, au nom
+« NOM Prénom (espace enseignant) »), branché dans `passerPortail`. Site : `frontend/enseignants.html`, `src/enseignant/`,
+même construction que le site des étudiants (`vite.portail.config.js`, deux entrées) ; nginx du portail choisit la page
+d'après le nom (`map $host`). Mise en place pour Jérôme : `scripts/vps/ESPACE-ENSEIGNANT.md` (DNS, Caddy, une variable).
+**Le QR de présence et le ticket restent dans Lucie** (le jeton se signe de la clé de Lucie, que le portail n'a pas).
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en

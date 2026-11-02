@@ -26,6 +26,7 @@ import { aDeposer as messagesADeposer, recevoir as recevoirMessages, aviserParCo
 import { parcoursPortail, fraisPortail } from './portailEspace.js';
 import { offrePAE, deposerProposition, recevoirSignature, signatureDe } from './paeEnLigne.js';
 import { fonctionsEspace, fonctionPour, fonctionOuverte, CATALOGUE as CATALOGUE_FONCTIONS } from './fonctions.js';
+import { deposerEnseignants, releverEnseignants } from './portailEnseignants.js';
 import { offreVA, etatVA, appliquerGeste, accuserReception, codesDOffice, candidatsValides, candidatDe, anneeActive as anneeVA } from './portailValorisation.js';
 
 const URL_INTERNE = () => (process.env.PORTAIL_INTERNE_URL || '').replace(/\/$/, '');
@@ -350,6 +351,11 @@ export async function passerPortail() {
   try {
     migrerPortail();
     await relever();
+    // L'ESPACE ENSEIGNANT (3.5.076) : relevé à chaque passage ; déposé toutes les deux minutes, et aussitôt après des
+    // présences reprises (pour qu'il voie ce que Lucie a gardé). Une panne ici n'arrête pas l'espace des étudiants.
+    let ensDepot = tours % 12 === 0;
+    try { const x = await releverEnseignants(appel); if (x.gestes) ensDepot = true; } catch (e) { if (tours % 30 === 0) console.error('[espace enseignant]', e.message); }
+    if (ensDepot) { try { await deposerEnseignants(appel); } catch (e) { console.error('[espace enseignant] dépôt :', e.message); } }
     if (tours % 12 === 0) { await deposer(); await deposerDocuments(); }
     tours++;
   } catch (e) {

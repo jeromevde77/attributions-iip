@@ -254,6 +254,17 @@ export const ajouts = {
   ],
   mescours: [
     {
+      titre: "L'espace enseignant : un site à part, plus simple",
+      pour: 'ens coo dir',
+      ou: "enseignants.lucie-iip.be — sur téléphone, tablette ou ordinateur.",
+      texte: "Un site à part, réservé aux enseignants, sans les menus de gestion de Lucie. Il s'ouvre sur Ma journée : les séances du jour avec [[Prendre les présences|IconUserCheck|fort]], et « Ce qui m'attend » (les séances passées dont les présences manquent). Les présences se prennent d'un toucher par étudiant — P présent, P* en retard, A absent, J absence justifiée avec son motif —, [[Tous présents]] d'abord pour aller vite. Mon horaire montre la semaine, visites de stage comprises ; Mon compte, ses appareils et son mot de passe. La première fois : « Première visite » → un lien arrive à votre adresse de l'institut → vous choisissez un mot de passe pour cet espace (celui de Lucie ne change pas) ; sur un nouvel appareil, un code à six chiffres en plus.",
+      savoir: [
+        "Ce que vous enregistrez dans l'espace part dans Lucie en quelques secondes, à votre nom ; si Lucie refuse (séance qui ne vous appartient plus, par exemple), l'espace le dit sur la séance.",
+        "Il ne s'ouvre que depuis la Belgique, comme l'espace des étudiants.",
+        "La direction l'ouvre dans Configuration → Accès → Mise en service, d'abord en essai pour quelques comptes. Les notes, le carnet, les TFE, les stages et les avis y viendront ensuite ; en attendant, ils restent dans Mes cours.",
+      ],
+    },
+    {
       titre: "Mes visites de stage : dans l'agenda, avec le lieu de l'étudiant",
       pour: 'ens coo sec dir',
       ou: "Mes cours → rail → Mes visites de stage (secrétariat, coordination, direction : Organisation → Stages → Visites et trajets).",

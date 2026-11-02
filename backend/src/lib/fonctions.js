@@ -36,6 +36,8 @@ export const CATALOGUE = [
     quoi: "Pendant la fenêtre fixée par la direction, l'étudiant propose son programme (avec les frais estimés) et le confirme par code." },
   { cle: 'espace.candidats', famille: 'espace', titre: "Le code d'accès des candidats",
     quoi: "Un candidat sans adresse d'institut reçoit à son adresse privée un code pour entrer dans l'espace (demande de VA, documents, frais, messages)." },
+  { cle: 'enseignant.espace', famille: 'personnel', titre: 'L’espace enseignant',
+    quoi: "Le site à part des enseignants (enseignants.lucie-iip.be), derrière le mur : Ma journée, les présences, l'horaire. Ouvert compte par compte en essai, puis pour tous." },
   { cle: 'presence.qr', famille: 'personnel', titre: 'La présence par QR et le ticket de sortie',
     quoi: "Dans Mes cours → Ma journée, le professeur projette le QR de présence et le ticket de sortie. Éteinte, la présence s'encode à la main comme avant." },
 ];
