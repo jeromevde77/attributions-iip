@@ -298,7 +298,12 @@ function MesDocuments() {
       <p className="m-0 text-slate-600">Les pièces que l’école vous a envoyées par Lucie — votre contrat, votre fiche d’attributions… —, telles qu’elles sont parties.</p>
       {!l.length ? <p className="text-slate-500">Aucune pièce pour l’instant.</p> : (
         <section className="bg-white border border-slate-200 rounded-carte overflow-hidden">
-          {l.map(d => (
+          {l.map(d => d.sans_copie ? (
+            <div key={d.envoi_id} className="flex items-center gap-3 px-4 py-3 border-t border-slate-100 first:border-t-0"
+              style={{ borderLeft: '4px solid var(--c-indisponible, #CBD5E1)' }}>
+              <span className="flex-1 min-w-0">{d.sujet || d.nom_fichier}<span className="block text-second text-slate-500">envoyé le {court(d.envoye_le)}{d.reference ? ` · réf. ${d.reference}` : ''}</span></span>
+              <span className="text-second text-slate-500 text-right">copie non conservée par Lucie<span className="block">à redemander au secrétariat</span></span>
+            </div>) : (
             <button key={d.envoi_id} type="button" onClick={() => setOuvert(d)}
               className="w-full text-left flex items-center gap-3 px-4 py-3 border-t border-slate-100 first:border-t-0 hover:bg-slate-50"
               style={{ borderLeft: `4px solid ${d.accuse_le ? 'var(--c-reussi, #3E7D5E)' : 'var(--c-disponible, #2F6FB0)'}` }}>
@@ -664,9 +669,11 @@ export default function EspaceEnseignant() {
   return (
     <div className="min-h-screen flex flex-col md:flex-row" style={{ background: 'var(--page-fond, #F5F7FA)' }}>
       {/* Sur téléphone, le logo et le nom au-dessus de la bande d'onglets. */}
-      <div className="md:hidden bg-white px-4 pt-3 pb-1 flex items-center gap-3"><Logo /><span className="ml-auto text-second text-slate-500 truncate">{String(moi.nom || '').toUpperCase()} {moi.prenom}</span></div>
-      <nav aria-label="Espace enseignant" className="md:w-60 md:shrink-0 bg-white border-b md:border-b-0 md:border-r border-slate-200 p-3 md:p-4 flex md:flex-col gap-1 overflow-x-auto">
+      <div className="md:hidden bg-white px-4 pt-3 pb-1 flex items-center gap-3"><Logo /><span className="ml-auto"><BoutonContact /></span></div>
+      <nav aria-label="Espace enseignant" className="md:w-60 md:shrink-0 bg-white border-b md:border-b-0 md:border-r border-slate-200 p-3 md:p-4 flex md:flex-col gap-1 overflow-x-auto md:sticky md:top-0 md:h-screen">
         <div className="hidden md:flex items-center gap-2.5 px-2 pb-4"><div className="leading-tight"><Logo /><div className="text-second text-slate-500 pl-1">espace enseignant</div></div></div>
+        {/* Contacter / Urgence EN HAUT (3.5.093, Charles : « trop bas, ça doit être en haut ») : sous le logo, avant les faces. */}
+        <div className="hidden md:block px-2 pb-3"><BoutonContact /></div>
         {FACES.map(f => (
           <button key={f.k} type="button" onClick={() => aller(f.k)} aria-current={face === f.k && !seance ? 'page' : undefined}
             className="shrink-0 min-h-11 px-3 rounded-champ inline-flex items-center gap-2.5 text-sm text-left"
@@ -674,7 +681,6 @@ export default function EspaceEnseignant() {
             <f.I size={18} /> {f.l}
           </button>))}
         <div className="hidden md:block flex-1" />
-        <div className="shrink-0 md:px-2 md:pb-2"><BoutonContact /></div>
         <div className="md:border-t border-slate-200 md:pt-3 md:px-2 flex md:flex-col gap-1 shrink-0 ml-auto md:ml-0">
           <span className="hidden md:block font-semibold text-sm">{String(moi.nom || '').toUpperCase()} {moi.prenom}</span>
           <button type="button" className="text-second text-iip-blue inline-flex items-center gap-1 min-h-11 md:min-h-0" onClick={quitter}><IconLogout size={15} /> Se déconnecter</button>

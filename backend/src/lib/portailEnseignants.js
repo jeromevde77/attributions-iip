@@ -222,8 +222,10 @@ function lectureDepuisEspace(u, g) {
    accuse réception — relevé dans `envoi_accuse_personnel`, lu par le registre des envois. */
 function envoisPour(u, profId) {
   try {
-    return db.prepare(`SELECT m.id, m.sujet, m.nom_fichier, m.envoye_le, m.type_doc, m.reference FROM envoi_mail m
-      JOIN envoi_copie c ON c.envoi_id = m.id
+    // Une pièce partie avant le 1er octobre 2026 n'a pas de copie (3.5.093, Charles : « où est son contrat ? ») : elle se NOMME
+    // quand même — date, objet —, sans rien recomposer ; « copie non conservée ».
+    return db.prepare(`SELECT m.id, m.sujet, m.nom_fichier, m.envoye_le, m.type_doc, m.reference,
+        EXISTS (SELECT 1 FROM envoi_copie c WHERE c.envoi_id = m.id) AS copie FROM envoi_mail m
       WHERE m.statut IN ('envoye','simule') AND ((m.destinataire_type = 'professeur' AND m.destinataire_id = ?) OR (m.destinataire_type = 'utilisateur' AND m.destinataire_id = ?))
       ORDER BY m.envoye_le DESC`).all(profId, u.id > 0 ? u.id : -1);
   } catch { return []; }
@@ -241,6 +243,11 @@ export async function deposerDocumentsEnseignants(appel) {
   const lot = [];
   for (const [k, m] of voulus) {
     if (lot.length >= 15 || connus.has(k)) continue;
+    if (!m.copie) {
+      lot.push({ cle: k, envoi_id: m.id, ens_id: m.ens_id, sujet: m.sujet, nom_fichier: m.nom_fichier, envoye_le: m.envoye_le, reference: m.reference,
+        type_doc: m.type_doc, mime: 'x-sans-copie', contenu_b64: '' });
+      continue;
+    }
     const c = await copieDeLEnvoi(m.id);
     if (c.erreur) continue;
     let acc = null; try { acc = db.prepare('SELECT presente_le, accuse_le FROM envoi_accuse_personnel WHERE envoi_id = ?').get(m.id); } catch { /* */ }
