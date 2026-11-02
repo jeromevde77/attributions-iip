@@ -1,4 +1,4 @@
-/* Les points du 1er novembre 2026 (3.5.037 → 3.5.039, temps de travail revu en 3.5.057) : le temps de travail du secrétariat, le thème de chacun, la bande
+/* Les points du 1er et du 2 novembre 2026 (3.5.037 → 3.5.058 ; temps de travail revu en 3.5.057, visites de stage en 3.5.058) : le temps de travail du secrétariat, le thème de chacun, la bande
    des en-têtes. Même forme que les autres compléments. */
 export const chapitres = [];
 export const ajouts = {
@@ -73,6 +73,45 @@ export const ajouts = {
         "Un jour qui enfreint une règle s'affiche en rouge, et le relevé ne peut pas être signé tant qu'il n'est pas corrigé.",
         "Le relevé se signe dans l'ordre : la personne, la direction adjointe (contrôle), la direction (accord). Chaque signature porte le nom de qui a cliqué et l'heure ; si le relevé change ensuite, elle tombe et se refait. Signé par la direction, le mois est verrouillé.",
         "La fiche de congés, sous le relevé, se signe par la direction adjointe puis la direction ; [[Relevé du mois|IconPrinter]] et [[Fiche de congés|IconPrinter]] sortent les pièces.",
+      ],
+    },
+  ],
+  mescours: [
+    {
+      titre: "Mes visites de stage : dans l'agenda, avec le lieu de l'étudiant",
+      pour: 'ens coo sec dir',
+      ou: "Mes cours → rail → Mes visites de stage (secrétariat, coordination, direction : Étudiants → rail → Visites de stage et frais de déplacement).",
+      texte: "Le professeur de stage pose ses visites : [[Planifier une visite|IconPlus|fort]], il choisit le stage — l'étudiant et son lieu, repris de la fiche du stage, avec l'adresse —, la date, l'heure, le départ du trajet (l'école, le domicile ou un autre lieu) et les kilomètres aller-retour. La visite paraît dans Mon horaire de la semaine et dans l'agenda du téléphone (Mon horaire dans mon agenda), à l'adresse du lieu. Une fois faite, [[Faite|IconCheck]] la marque, avec ses kilomètres.",
+      images: [{ src: "/guide/visites-planifier.png", legende: "Planifier une visite (données d'essai) : le stage, son adresse, la date, le départ et les kilomètres — Lucie propose ceux de la dernière visite au même lieu." },
+        { src: "/guide/visites-semaine.png", legende: "Les visites dans Mon horaire de la semaine, liseré cyan, à côté des séances." }],
+      savoir: [
+        "Les stages proposés sont ceux dont vous êtes le professeur de stage (fiche de l'étudiant → onglet Stages). Un stage sans professeur désigné ne paraît pas.",
+        "Lucie CALCULE les kilomètres aller-retour par la route (OpenStreetMap), depuis l'école, le domicile de la fiche ou l'adresse tapée, jusqu'au lieu de stage : ils se proposent dans le champ, « reprendre » les remet. Le chiffre tapé reste celui qui compte ; s'il s'écarte de plus de 10 % (et de plus de 3 km) de l'itinéraire calculé, la fiche le signale à la direction, sans bloquer la signature. Les adresses quittent Lucie le temps du calcul.",
+        "Sans calcul possible (adresse incomplète, service injoignable), Lucie le dit et propose la dernière distance tapée pour ce lieu.",
+        "Une visite à venir ne se marque pas « faite » ; une visite faite ne se supprime pas (elle peut être annulée).",
+        "Le secrétariat, la coordination (ses sections) et la direction voient et posent les visites de tous.",
+      ],
+    },
+    {
+      titre: "La fiche de transport du mois",
+      pour: 'ens coo sec dir',
+      ou: "Visites de stage → onglet « Fiche de transport ».",
+      texte: "La fiche reprend les visites faites du mois : date, étudiant, lieu et adresse, départ et son adresse, kilomètres aller-retour et — si l'école rembourse vos déplacements — le montant (kilomètres × taux). La personne certifie ses déplacements ([[Je certifie|fort]]), puis la direction approuve ; la pièce sort par l'imprimante du bandeau, avec les deux signatures.",
+      images: [{ src: "/guide/visites-fiche.png", legende: "La fiche d'octobre (données d'essai) : deux visites depuis le domicile, 140 km, 60,56 €." }],
+      savoir: [
+        "Lucie refuse de signer une fiche où manquent des kilomètres, où le taux n'est pas réglé, ou dont une visite part d'un autre départ que celui qui est remboursé.",
+        "Chaque signature porte le nom de qui a cliqué et l'heure ; elle tombe si une visite du mois change, et se refait.",
+        "Approuvée par la direction, la fiche verrouille le mois : ses visites ne se modifient plus.",
+      ],
+    },
+    {
+      titre: "Qui est remboursé, et depuis où",
+      pour: 'sec dir',
+      ou: "Visites de stage → onglet « Frais de déplacement » (secrétariat et direction).",
+      texte: "Une ligne par professeur de stage : son adresse de domicile (fiche du professeur) et ce que l'école rembourse — rien, le trajet depuis l'école, ou le trajet depuis le domicile. Le taux au kilomètre se règle au-dessus, par la direction ; vide, il reste « à régler » et aucune fiche remboursée ne se signe.",
+      images: [{ src: "/guide/visites-frais.png", legende: "Le taux et la règle de chacun (données d'essai)." }],
+      savoir: [
+        "Sans remboursement, la fiche se tient quand même (kilomètres, sans montant) : elle sert de trace des visites.",
       ],
     },
   ],

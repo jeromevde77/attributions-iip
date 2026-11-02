@@ -21,6 +21,7 @@ import {
   IconChecks, IconLock, IconGift,
   IconQrcode,
   IconCash, IconAdjustmentsHorizontal,
+  IconCar,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
@@ -42,6 +43,7 @@ const ExtraitsBancaires = lazy(() => import('../components/ExtraitsBancaires.jsx
 const PropositionsPAE = lazy(() => import('../components/PropositionsPAE.jsx'));
 const RefusSeconde = lazy(() => import('../components/RefusSeconde.jsx'));
 const MessagesEtudiants = lazy(() => import('../components/MessagesEtudiants.jsx'));
+const VisitesStage = lazy(() => import('../components/VisitesStage.jsx'));
 const HorsBloc = lazy(() => import('../components/HorsBloc.jsx'));
 const PaeHorsRegle = lazy(() => import('../components/PaeHorsRegle.jsx'));
 const DecisionsSansInscription = lazy(() => import('../components/DecisionsSansInscription.jsx'));
@@ -3057,6 +3059,7 @@ export default function Etudiants() {
   // LES REFUS EN 2E SESSION (3.5.029) : ouverts aussi depuis la notification (/etudiants?outil=refus2).
   const [refus2, setRefus2] = useState(() => { try { return new URLSearchParams(window.location.search).get('outil') === 'refus2'; } catch { return false; } });
   const [messagesEtud, setMessagesEtud] = useState(false);
+  const [visitesStage, setVisitesStage] = useState(false);
   const [rapportPAE, setRapportPAE] = useState(false);
   const [importListe, setImportListe] = useState(false);
   const [importHisto, setImportHisto] = useState(false);
@@ -3676,6 +3679,9 @@ export default function Etudiants() {
       /* LES MESSAGES AUX ÉTUDIANTS (3.1.516) : lus dans leur espace ; leurs réponses reviennent à l'auteur. */
       ...(droitsRail.passe('admin', 'editeur', 'coordination') ? [{ key: 'messages-etudiants', label: 'Écrire aux étudiants — messages dans leur espace',
         icon: IconMessages, onClick: () => setMessagesEtud(true) }] : []),
+      /* LES VISITES DE STAGE ET LA FICHE DE TRANSPORT (3.5.058). */
+      ...(droitsRail.passe('admin', 'editeur', 'coordination') ? [{ key: 'visites-stage', label: 'Visites de stage et frais de déplacement',
+        icon: IconCar, onClick: () => setVisitesStage(true) }] : []),
       ...(droitsRail.passe('admin', 'editeur') ? [{ key: 'extraits-bancaires', label: 'Extraits de compte — versements des étudiants',
         icon: IconCash, onClick: () => setExtraits(true) }] : []),
     ] },
@@ -4191,6 +4197,7 @@ export default function Etudiants() {
       {extraits && (
         <Suspense fallback={null}><ExtraitsBancaires onFermer={() => setExtraits(false)} /></Suspense>
       )}
+      {visitesStage && <Suspense fallback={null}><VisitesStage onFermer={() => setVisitesStage(false)} /></Suspense>}
       {messagesEtud && (
         <Suspense fallback={null}><MessagesEtudiants onFermer={() => setMessagesEtud(false)} /></Suspense>
       )}

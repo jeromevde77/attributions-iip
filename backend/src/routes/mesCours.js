@@ -1,3 +1,4 @@
+import { visitesDuProf } from '../lib/visitesStage.js';
 import { Router } from 'express';
 import { dispensesDeLUE, dispenseDuCours } from '../lib/dispenses.js';
 import db from '../db/index.js';
@@ -647,6 +648,16 @@ r.get('/semaine', authRequired, (req, res) => {
           sous_groupe: s.sous_groupe, annule: !!s.annule });
       }
     }
+  }
+  // LES VISITES DE STAGE (3.5.058) : dans l'horaire de la semaine, à côté des séances.
+  if (profId) {
+    try {
+      for (const v of visitesDuProf(profId, jours[0], jours[6])) {
+        out.push({ id: `v${v.id}`, visite: true, date: v.date, cours_code: '', cours_nom: `Visite de stage — ${String(v.etud_nom || '').toUpperCase()} ${v.etud_prenom || ''}`.trim(),
+          ue_num: v.ue_num ?? null, matiere: v.statut === 'faite' ? 'faite' : '', heure_debut: v.heure_debut || '09:00', heure_fin: v.heure_fin || (v.heure_debut ? v.heure_debut : '10:00'),
+          sans_heure: !v.heure_debut, local: [v.lieu_nom, v.lieu_localite].filter(Boolean).join(', '), sous_groupe: null, annule: v.statut === 'annulee' });
+      }
+    } catch { /* table absente */ }
   }
   out.sort((x, y) => (x.date + x.heure_debut).localeCompare(y.date + y.heure_debut));
   res.json({ jours, aujourdhui, relie: !!profId, seances: out });

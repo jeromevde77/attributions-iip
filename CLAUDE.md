@@ -3144,6 +3144,27 @@ présté par semaine, presté / dû / solde de l'année, présents par semaine �
 (jour par jour — `semaineEquipe`) ; les heures des autres restent à la direction. Banc :
 `backend/test/tempsTravail.mjs` (41 ok).
 
+**LES VISITES DE STAGE ET LA FICHE DE TRANSPORT** (3.5.058, Charles, 2 novembre 2026 : « que les chargés de cours qui
+suivent des étudiants en stage placent dans leur agenda leurs visites, avec le lieu de stage lié à l'étudiant ; et une fiche de
+transport, car pour certains nous payons les frais de déplacement depuis chez eux ou l'école, en fonction »). Mes cours → rail →
+*Mes visites de stage* ; Étudiants → rail → *Visites de stage et frais de déplacement* (secrétariat, coordination de ses sections,
+direction). `components/VisitesStage.jsx`, `routes/visitesStage.js` sur `/api/visites-stage`, métier `lib/visitesStage.js`, tables
+`stage_visite`, `stage_trajet` (règle par professeur : aucun · école · domicile, posée par direction ou secrétariat),
+`stage_trajet_km` (la distance se retient par lieu et départ), `stage_fiche_signature` (en ajout seul, déclencheurs). Une visite
+appartient à un STAGE (`stage.professeur_id` = le professeur de stage) : le lieu et son adresse viennent du stage, jamais retapés.
+Elle paraît dans *Mon horaire de la semaine* (`GET /mes-cours/semaine`, `visite: true`) et dans le flux iCalendar
+(`evenementsDesVisites`, `lib/agendaIcs.js`). Fiche mensuelle par personne : visites FAITES, départ et adresse (domicile = fiche du
+professeur ; école = `etablissement.adresse`), km A/R, montant = km × `stages_km_taux` (paramètre, vide = « à régler », direction).
+Signée par la personne puis approuvée par la direction ; une signature vaut pour CE contenu (empreinte) ; approuvée, le mois est
+verrouillé. Refus de signer : km manquants, taux non réglé, départ autre que celui remboursé. Confirmé par Charles le 2 novembre
+2026 : **règle par personne et non par visite ; taux unique ; signature personne → direction**.
+**Les kilomètres se calculent** (3.5.059, Charles : « et tu calcules les kilomètres ? » ; tranché : calculer, domicile
+compris ; le chiffre tapé est gardé, l'écart signalé) : `lib/distanceRoute.js` — Nominatim (repli Photon, adresse entière puis
+forme courte « rue, CP commune ») et OSRM, mis en mémoire (`geo_adresse`, `distance_route` ; une panne ne se garde pas) ;
+`stage_visite.km_calcule` posé après chaque écriture (`calculerVisite`) ; `GET /km` propose le calcul ; écart notable = plus de
+3 km ET plus de 10 % (`ecartNotable`), montré sur la fiche et la pièce (« carte : n »), sans bloquer la signature. **Les adresses
+(domicile compris) partent vers OpenStreetMap : à porter dans la fiche RGPD.** Banc : `backend/test/visitesStage.mjs` (38 ok).
+
 **TOUT TABLEAU SUIT LES RÉGLAGES, ET CHACUN CHOISIT SON THÈME** (3.5.037, Charles, 1er novembre 2026 : « non respect du
 design » sur Qui a fait quoi, Nouveautés, la liste des étudiants, l'encodage rapide, les recours ; « ce doit être géré dans
 paramètres, TOUJOURS identique » ; « TOUT paramétrable dans Configuration » ; « que TOUT le monde ait le choix entre des
@@ -3232,7 +3253,7 @@ directement pour un autre) ; une année modulée passe en `annualise` ; moduler 
 Au passage : `modeleSemaine` répartit le reste de la division (à 80 %, l'année entière était refusée pour une minute par jour).
 Banc : `test/ligneTemps.mjs` (35 ok).
 
-**L'AGENDA DE L'ÉCOLE, PEINT SUR LA LIGNE DU TEMPS** (3.5.058, Charles, 2 novembre 2026 : « les congés plus simplement dans
+**L'AGENDA DE L'ÉCOLE, PEINT SUR LA LIGNE DU TEMPS** (3.5.060, Charles, 2 novembre 2026 : « les congés plus simplement dans
 la ligne du temps ; j'encode pour l'établissement, chaque section est différente ; on sait quand on a besoin de personnel » ;
 « centraliser l'agenda de l'école » ; « peindre les moments chauds et placer les choses importantes depuis la ligne, et un bouton
 pour saisir en manuel avec un mini calendrier »). Organisation → *Agenda de l'école* (`pages/AgendaEcole.jsx`) et en tête de la

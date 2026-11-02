@@ -3,7 +3,7 @@ import { ouvrirApercu } from '../lib/apercu.js';
 import { IconChalkboard } from '@tabler/icons-react';
 import { couleurBloc, rangBloc } from '../lib/blocs.js';
 import { useEffect, useState } from 'react';
-import { IconChartHistogram, IconBooks, IconChevronLeft, IconAlertTriangle, IconMessageCircle, IconPrinter, IconCertificate, IconAccessible, IconPencil, IconUserCheck, IconFileDescription, IconTable, IconFileText, IconNotebook, IconCalendarShare, IconCalendarWeek, IconMessages } from '@tabler/icons-react';
+import { IconChartHistogram, IconBooks, IconChevronLeft, IconAlertTriangle, IconMessageCircle, IconPrinter, IconCertificate, IconAccessible, IconPencil, IconUserCheck, IconFileDescription, IconTable, IconFileText, IconNotebook, IconCalendarShare, IconCalendarWeek, IconMessages, IconCar } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { MOTIFS_ECHEC } from '../components/motifsEchec.js';
 import PresencesCours from '../components/PresencesCours.jsx';
@@ -15,6 +15,7 @@ import CarnetCotes from '../components/CarnetCotes.jsx';
 import AgendaAbonnement from '../components/AgendaAbonnement.jsx';
 import MessagesEtudiants from '../components/MessagesEtudiants.jsx';
 import MonHoraireSemaine from '../components/MonHoraireSemaine.jsx';
+import VisitesStage from '../components/VisitesStage.jsx';
 import { demander, informer } from '../lib/dialogue.jsx';
 import { OuvrirEditions, RailLateral, Encadre } from '../components/ui.jsx';
 import AvisValorisationProf from '../components/AvisValorisationProf.jsx';
@@ -78,6 +79,7 @@ export default function MesCours() {
   const [agenda, setAgenda] = useState(false);       // mon horaire dans mon agenda
   const [messages, setMessages] = useState(false);   // écrire à mes étudiants (3.1.516)
   const [semaine, setSemaine] = useState(false);     // mon horaire de la semaine (3.1.464)
+  const [visites, setVisites] = useState(false);     // mes visites de stage (3.5.058)
   const [face, setFace] = useState('notes');          // notes | carnet | presences | indicateurs
   /* LA SÉANCE CHOISIE DANS « MA JOURNÉE » (28 octobre 2026) : un clic y ouvre le
      cours sur la bonne face. Si elle est d'une autre année que celle affichée,
@@ -231,6 +233,7 @@ export default function MesCours() {
     {agenda && <AgendaAbonnement onFermer={() => setAgenda(false)} />}
     {messages && <MessagesEtudiants titre="Écrire à mes étudiants" onFermer={() => setMessages(false)} />}
     {semaine && <MonHoraireSemaine onFermer={() => setSemaine(false)} />}
+    {visites && <VisitesStage onFermer={() => setVisites(false)} />}
     <RailLateral icon={ICONE_AXE.mesCours} titre="Mes cours" sousTitre={annee}
       sections={[{ items: [
         { key: 'liste', label: 'Mes cours', icon: IconBooks, actif: !ouvert && !vueDue,
@@ -241,6 +244,8 @@ export default function MesCours() {
           onClick: () => { setVueDue(false); setOuvert(null); setFeuille(null); setTimeout(() => allerA('avis-va'), 50); } },
         { key: 'semaine', label: 'Mon horaire de la semaine', icon: IconCalendarWeek, onClick: () => setSemaine(true) },
         { key: 'agenda', label: 'Mon horaire dans mon agenda', icon: IconCalendarShare, onClick: () => setAgenda(true) },
+        // LES VISITES DE STAGE (3.5.058) : dans l'agenda, avec le lieu de l'étudiant ; et la fiche de transport.
+        { key: 'visites', label: 'Mes visites de stage', icon: IconCar, onClick: () => setVisites(true) },
         // LES MESSAGES AUX ÉTUDIANTS (3.1.516) : les inscrits de ses UE ; leurs réponses reviennent ici.
         { key: 'messages', label: 'Écrire à mes étudiants', icon: IconMessages, onClick: () => setMessages(true) },
         { key: 'avis-ar', label: 'Aménagements raisonnables', icon: IconAccessible,
