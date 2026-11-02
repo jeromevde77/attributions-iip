@@ -3,6 +3,7 @@ import { IconCar, IconChevronLeft, IconChevronRight, IconPlus, IconPrinter, Icon
 import { Fenetre, OutilFenetre, Tableau, Th, Td, Tr, Encadre, PastilleEtat, EnteteCarte } from './ui.jsx';
 import PreviewModal from './PreviewModal.jsx';
 import { authHeaders } from '../lib/api.js';
+import ChampsAdresse from './ChampsAdresse.jsx';
 import { demander, informer } from '../lib/dialogue.jsx';
 
 /**
@@ -34,6 +35,16 @@ function FormVisite({ info, stages, visite, onFini, onAnnuler }) {
         depart_texte: '', km_ar: '', statut: 'prevue', remarques: '' });
   const [erreur, setErreur] = useState('');
   const maj = (k, x) => setV(p => ({ ...p, [k]: x }));
+  // Le départ « autre » : code postal, localité, rue — recomposés en une adresse pour le calcul et la fiche.
+  const [depart, setDepart] = useState(() => {
+    const m = String(visite?.depart_texte || '').match(/^(.*?),?\s*(\d{4})\s+(.+)$/);
+    return m ? { rue: m[1].trim(), cp: m[2], localite: m[3].trim() } : { rue: String(visite?.depart_texte || ''), cp: '', localite: '' };
+  });
+  useEffect(() => {
+    if (v.depart !== 'autre') return;
+    const t = [depart.rue, [depart.cp, depart.localite].filter(Boolean).join(' ')].filter(x => String(x || '').trim()).join(', ');
+    setV(p => (p.depart_texte === t ? p : { ...p, depart_texte: t }));
+  }, [depart, v.depart]);
   // LA DISTANCE SE CALCULE (3.5.059) : la carte (OpenStreetMap) propose l'aller-retour routier ; à défaut, la dernière
   // distance tapée pour ce lieu depuis ce départ. Ce qu'on tape reste ce qui compte — un écart se signale sur la fiche.
   const [carte, setCarte] = useState(null);       // { km_calcule, raison } | 'calcul'
@@ -82,7 +93,10 @@ function FormVisite({ info, stages, visite, onFini, onAnnuler }) {
             {Object.entries(info.departs).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
           </select></label>
         {v.depart === 'autre'
-          ? <label className="text-second text-slate-600">D’où ?<input className={champ} value={v.depart_texte || ''} onChange={e => maj('depart_texte', e.target.value)} /></label>
+          ? <div className="text-second text-slate-600">D’où ?
+              {/* L'ADRESSE DE BELGIQUE (3.5.077, Charles : « ne faut-il pas la base de la Poste ? ») : le code postal propose la
+                  localité (bpost) et la rue (BeST) — un mot seul (« waterloo ») trouvait un Waterloo à l'étranger. */}
+              <ChampsAdresse valeurs={depart} poser={(k, x) => setDepart(d => ({ ...d, [k]: x }))} /></div>
           : <div className="text-mention text-slate-500 self-end pb-2">{v.depart === 'domicile' ? (info.domicile || 'adresse de domicile : fiche du professeur') : info.ecole}</div>}
         <label className="text-second text-slate-600">Kilomètres aller-retour<input inputMode="decimal" className={champ} value={v.km_ar ?? ''} onChange={e => maj('km_ar', e.target.value)} placeholder="ex. 46" />
           <span className="text-mention text-slate-500 block mt-1">

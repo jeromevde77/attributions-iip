@@ -3365,6 +3365,10 @@ relevé : lien et code composés par Lucie, présences jugées par `presencesDep
 même construction que le site des étudiants (`vite.portail.config.js`, deux entrées) ; nginx du portail choisit la page
 d'après le nom (`map $host`). Mise en place pour Jérôme : `scripts/vps/ESPACE-ENSEIGNANT.md` (DNS, Caddy, une variable).
 **Le QR de présence et le ticket restent dans Lucie** (le jeton se signe de la clé de Lucie, que le portail n'a pas).
+**Les kilomètres se cherchent en Belgique** (3.5.077, Charles, capture : « waterloo » → 4 042 km ; « ne faut-il pas la base de la
+Poste ? ») : `geocoder` (`lib/distanceRoute.js`) passe `countrycodes=be` puis les voisins à Nominatim, filtre Photon sur BE/FR/NL/LU/DE ;
+au-delà de 400 km aller, refus « adresse mal comprise » ; les points d'avant sont oubliés une fois (`geo_version`). Le départ
+« autre » d'une visite se saisit par `ChampsAdresse` (code postal bpost → localité → rue BeST), recomposé en `depart_texte`.
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
