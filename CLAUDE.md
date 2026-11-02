@@ -3158,7 +3158,12 @@ professeur ; école = `etablissement.adresse`), km A/R, montant = km × `stages_
 Signée par la personne puis approuvée par la direction ; une signature vaut pour CE contenu (empreinte) ; approuvée, le mois est
 verrouillé. Refus de signer : km manquants, taux non réglé, départ autre que celui remboursé. Confirmé par Charles le 2 novembre
 2026 : **règle par personne et non par visite ; taux unique ; signature personne → direction**.
-Banc : `backend/test/visitesStage.mjs` (29 ok).
+**Les kilomètres se calculent** (3.5.059, Charles : « et tu calcules les kilomètres ? » ; tranché : calculer, domicile
+compris ; le chiffre tapé est gardé, l'écart signalé) : `lib/distanceRoute.js` — Nominatim (repli Photon, adresse entière puis
+forme courte « rue, CP commune ») et OSRM, mis en mémoire (`geo_adresse`, `distance_route` ; une panne ne se garde pas) ;
+`stage_visite.km_calcule` posé après chaque écriture (`calculerVisite`) ; `GET /km` propose le calcul ; écart notable = plus de
+3 km ET plus de 10 % (`ecartNotable`), montré sur la fiche et la pièce (« carte : n »), sans bloquer la signature. **Les adresses
+(domicile compris) partent vers OpenStreetMap : à porter dans la fiche RGPD.** Banc : `backend/test/visitesStage.mjs` (38 ok).
 
 **TOUT TABLEAU SUIT LES RÉGLAGES, ET CHACUN CHOISIT SON THÈME** (3.5.037, Charles, 1er novembre 2026 : « non respect du
 design » sur Qui a fait quoi, Nouveautés, la liste des étudiants, l'encodage rapide, les recours ; « ce doit être géré dans

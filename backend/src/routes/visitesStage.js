@@ -13,7 +13,7 @@ import { anneeDeTravail } from '../helpers/annee.js';
 import {
   migrerVisites, profDuCompte, gere, REGLENT, DEPARTS, REGLES, STATUTS, stageAccessible, stagesASuivre, visites,
   regleDe, taux, ecrireTaux, ecrireRegle, personnesDeStage, adresseDepart, kmPropose, ecrireVisite, supprimerVisite,
-  fiche, signer, moisAvecVisites,
+  fiche, signer, moisAvecVisites, kmCalcules, calculerVisite,
 } from '../lib/visitesStage.js';
 
 try { migrerVisites(); } catch (e) { console.error('[migration] visites de stage :', e.message); }
@@ -54,24 +54,29 @@ r.get('/', authRequired, (req, res) => {
   res.json({ visites: visites(req.user, { du: req.query.du, au: req.query.au, profId: req.query.prof }) });
 });
 
-r.get('/km', authRequired, (req, res) => {
+r.get('/km', authRequired, async (req, res) => {
   const s = stageAccessible(req.user, req.query.stage);
   if (!s) return res.status(404).json({ error: 'Stage introuvable.' });
   const pid = s.professeur_id || profDuCompte(req.user.id);
-  res.json({ km_ar: kmPropose(pid, s.lieu_id, String(req.query.depart || 'ecole')) });
+  const depart = String(req.query.depart || 'ecole');
+  // La distance calculée par la carte (3.5.059), et la dernière tapée pour ce lieu depuis ce départ.
+  const c = await kmCalcules(pid, s, depart, req.query.texte).catch(e => ({ km_ar: null, raison: e.message }));
+  res.json({ km_ar: kmPropose(pid, s.lieu_id, depart), km_calcule: c.km_ar, raison: c.raison || null });
 });
 
-r.post('/', authRequired, (req, res) => {
+r.post('/', authRequired, async (req, res) => {
   const x = ecrireVisite(req.user, null, req.body || {});
   if (x.error) return res.status(x.code).json({ error: x.error });
-  res.json(x);
+  const c = await calculerVisite(x.id).catch(() => null);
+  res.json({ ...x, km_calcule: c?.km_ar ?? null });
 });
 r.put('/taux', authRequired, (req, res) => {
   if (!NIVEAU_DIRECTION.includes(req.user.role)) return res.status(403).json({ error: 'La direction règle le taux.' });
-r.put('/:id', authRequired, (req, res) => {
+r.put('/:id', authRequired, async (req, res) => {
   const x = ecrireVisite(req.user, req.params.id, req.body || {});
   if (x.error) return res.status(x.code).json({ error: x.error });
-  res.json(x);
+  const c = await calculerVisite(x.id).catch(() => null);
+  res.json({ ...x, km_calcule: c?.km_ar ?? null });
 });
 r.delete('/:id', authRequired, (req, res) => {
   const x = supprimerVisite(req.user, req.params.id);
@@ -135,14 +140,14 @@ r.get('/fiche/:profId/:mois/document', authRequired, (req, res) => {
     <td>${esc(l.etudiant)}</td>
     <td>${esc(l.lieu)}<br><span class="m">${esc(l.adresse)}</span></td>
     <td>${esc(DEPARTS[l.depart])}<br><span class="m">${esc(l.depart_adresse)}</span></td>
-    <td class="n">${km(l.km_ar)}</td><td class="n">${f.regle === 'aucun' ? '' : eur(l.montant)}</td></tr>`).join('');
+    <td class="n">${km(l.km_ar)}${l.km_calcule != null ? `<br><span class="m">${l.ecart ? '<b>' : ''}carte : ${km(l.km_calcule)}${l.ecart ? '</b>' : ''}</span>` : ''}</td><td class="n">${f.regle === 'aucun' ? '' : eur(l.montant)}</td></tr>`).join('');
   const corps = `<div class="ft">
     <p>Remboursement : <b>${esc(f.regle_libelle)}</b>${f.regle !== 'aucun' ? ` · taux : <b>${f.taux ? f.taux.toLocaleString('fr-BE', { minimumFractionDigits: 2, maximumFractionDigits: 4 }) + ' € / km' : 'à régler'}</b>` : ''}.</p>
     <table><thead><tr><th>Date</th><th>Étudiant</th><th>Lieu de stage</th><th>Départ</th><th class="n">km A/R</th><th class="n">Montant</th></tr></thead>
     <tbody>${lignes || '<tr><td colspan="6" class="m">Aucune visite faite ce mois-là.</td></tr>'}
     <tr class="tot"><td colspan="4">Total du mois · ${f.lignes.length} visite(s)</td><td class="n">${km(f.km)}</td><td class="n">${f.regle === 'aucun' ? '' : eur(f.total)}</td></tr></tbody></table>
     ${f.problemes.length ? `<p class="regle"><b>À compléter :</b> ${esc(f.problemes.join(' ; '))}.</p>` : ''}
-    <p class="regle">Visites de stage encodées dans Lucie et marquées « faites » par le professeur de stage. Les kilomètres sont ceux de l’aller-retour entre le départ indiqué et le lieu de stage.</p>
+    <p class="regle">Visites de stage encodées dans Lucie et marquées « faites » par le professeur de stage. Les kilomètres sont ceux de l’aller-retour entre le départ indiqué et le lieu de stage ; « carte » donne la distance routière calculée (OpenStreetMap), en gras quand elle s’écarte de plus de 10 % de celle déclarée.</p>
     <table class="sig"><tr>${sig('personne')}${sig('direction')}</tr></table></div>`;
   const mois = new Date(`${f.mois}-15T12:00:00Z`).toLocaleDateString('fr-BE', { month: 'long', year: 'numeric' });
   res.json({ html: envelopperDocument({ html: corps, titre: `Fiche de transport — ${f.professeur} — ${f.mois}`, styles: STYLES,

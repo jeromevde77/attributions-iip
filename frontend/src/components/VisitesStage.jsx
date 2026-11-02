@@ -34,11 +34,26 @@ function FormVisite({ info, stages, visite, onFini, onAnnuler }) {
         depart_texte: '', km_ar: '', statut: 'prevue', remarques: '' });
   const [erreur, setErreur] = useState('');
   const maj = (k, x) => setV(p => ({ ...p, [k]: x }));
-  // La distance déjà encodée pour ce lieu, depuis ce départ, se propose.
+  // LA DISTANCE SE CALCULE (3.5.059) : la carte (OpenStreetMap) propose l'aller-retour routier ; à défaut, la dernière
+  // distance tapée pour ce lieu depuis ce départ. Ce qu'on tape reste ce qui compte — un écart se signale sur la fiche.
+  const [carte, setCarte] = useState(null);       // { km_calcule, raison } | 'calcul'
   useEffect(() => {
-    if (!v.stage_id || v.depart === 'autre' || (visite?.id && visite.km_ar != null)) return;
-    api(`/km?stage=${v.stage_id}&depart=${v.depart}`).then(j => { if (j.km_ar != null) setV(p => (p.km_ar === '' ? { ...p, km_ar: j.km_ar } : p)); }).catch(() => {});
-  }, [v.stage_id, v.depart]);
+    if (!v.stage_id) return;
+    if (v.depart === 'autre' && !String(v.depart_texte || '').trim()) { setCarte(null); return; }
+    let vivant = true;
+    const t = setTimeout(() => {
+      setCarte('calcul');
+      api(`/km?stage=${v.stage_id}&depart=${v.depart}&texte=${encodeURIComponent(v.depart_texte || '')}`).then(j => {
+        if (!vivant) return;
+        setCarte({ km_calcule: j.km_calcule, raison: j.raison });
+        const propose = j.km_calcule ?? j.km_ar;
+        if (propose != null) setV(p => (p.km_ar === '' || p.km_ar == null ? { ...p, km_ar: propose } : p));
+      }).catch(() => vivant && setCarte(null));
+    }, v.depart === 'autre' ? 700 : 0);
+    return () => { vivant = false; clearTimeout(t); };
+  }, [v.stage_id, v.depart, v.depart_texte]);
+  const ecart = carte && carte !== 'calcul' && carte.km_calcule != null && v.km_ar !== '' && v.km_ar != null
+    && Math.abs(Number(String(v.km_ar).replace(',', '.')) - carte.km_calcule) > Math.max(3, 0.1 * carte.km_calcule);
   const st = stages.find(s => String(s.id) === String(v.stage_id));
   async function enregistrer() {
     setErreur('');
@@ -53,7 +68,7 @@ function FormVisite({ info, stages, visite, onFini, onAnnuler }) {
       <EnteteCarte titre={visite?.id ? 'Modifier la visite' : 'Planifier une visite'} />
       <div className="p-3 grid gap-3 md:grid-cols-3">
         <label className="md:col-span-3 text-second text-slate-600">Le stage (l’étudiant et son lieu)
-          <select className={champ} value={v.stage_id} disabled={!!visite?.id} onChange={e => maj('stage_id', e.target.value)}>
+          <select className={champ} value={v.stage_id} disabled={!!visite?.id} onChange={e => setV(p => ({ ...p, stage_id: e.target.value, km_ar: '' }))}>
             {stages.map(s => <option key={s.id} value={s.id}>{nomEtud(s)} — {s.lieu_nom || 'lieu non désigné'}{s.lieu_localite ? `, ${s.lieu_localite}` : ''}{info.gestion && s.professeur ? ` · ${s.professeur}` : ''}</option>)}
           </select>
           {st && <span className="text-mention text-slate-500 inline-flex items-center gap-1 mt-1"><IconMapPin size={11} />
@@ -69,7 +84,13 @@ function FormVisite({ info, stages, visite, onFini, onAnnuler }) {
         {v.depart === 'autre'
           ? <label className="text-second text-slate-600">D’où ?<input className={champ} value={v.depart_texte || ''} onChange={e => maj('depart_texte', e.target.value)} /></label>
           : <div className="text-mention text-slate-500 self-end pb-2">{v.depart === 'domicile' ? (info.domicile || 'adresse de domicile : fiche du professeur') : info.ecole}</div>}
-        <label className="text-second text-slate-600">Kilomètres aller-retour<input inputMode="decimal" className={champ} value={v.km_ar} onChange={e => maj('km_ar', e.target.value)} placeholder="ex. 46" /></label>
+        <label className="text-second text-slate-600">Kilomètres aller-retour<input inputMode="decimal" className={champ} value={v.km_ar ?? ''} onChange={e => maj('km_ar', e.target.value)} placeholder="ex. 46" />
+          <span className="text-mention text-slate-500 block mt-1">
+            {carte === 'calcul' ? 'calcul de l’itinéraire…'
+              : carte?.km_calcule != null ? <>Itinéraire calculé : <b>{carte.km_calcule} km</b> aller-retour{ecart && <> — <span className="text-amber-700">écart avec votre chiffre, il sera signalé sur la fiche</span></>}
+                {String(v.km_ar) !== String(carte.km_calcule) && <> · <button type="button" className="underline text-iip-blue" onClick={() => maj('km_ar', carte.km_calcule)}>reprendre</button></>}</>
+              : carte?.raison ? `Pas de calcul : ${carte.raison}.` : ''}
+          </span></label>
         <label className="text-second text-slate-600">Statut
           <select className={champ} value={v.statut} onChange={e => maj('statut', e.target.value)}>
             {Object.entries(info.statuts).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
@@ -102,8 +123,8 @@ function FaceVisites({ info, prof }) {
   async function faite(v) {
     let km = v.km_ar;
     if (km == null) {
-      const p = await api(`/km?stage=${v.stage_id}&depart=${v.depart}`).catch(() => ({}));
-      km = p.km_ar ?? null;
+      const p = await api(`/km?stage=${v.stage_id}&depart=${v.depart}&texte=${encodeURIComponent(v.depart_texte || '')}`).catch(() => ({}));
+      km = p.km_calcule ?? p.km_ar ?? null;
       if (km == null) { setEdition({ ...v, statut: 'faite' }); return; }
     }
     try { await envoyer(`/${v.id}`, 'PUT', { statut: 'faite', km_ar: km }); charger(); } catch (e) { informer({ message: e.message }); }
@@ -137,7 +158,7 @@ function FaceVisites({ info, prof }) {
               <Td>{v.lieu_nom || '—'}<div className="text-mention text-slate-500">{[v.lieu_adresse, [v.lieu_cp, v.lieu_localite].filter(Boolean).join(' ')].filter(Boolean).join(', ')}</div></Td>
               {info.gestion && <Td ton="secondaire">{v.professeur}</Td>}
               <Td ton="secondaire">{info.departs[v.depart]}{v.depart === 'autre' && v.depart_texte ? ` (${v.depart_texte})` : ''}</Td>
-              <Td align="droite" className="tabular-nums">{v.km_ar ?? '—'}</Td>
+              <Td align="droite" className="tabular-nums" title={v.km_calcule != null ? `Itinéraire calculé : ${v.km_calcule} km A/R` : undefined}>{v.km_ar ?? '—'}{v.ecart && <div><PastilleEtat etat="surveiller" title={`Calculé : ${v.km_calcule} km`}>carte : {v.km_calcule}</PastilleEtat></div>}</Td>
               <Td><PastilleEtat etat={ETAT_STATUT[v.statut]}>{info.statuts[v.statut]}</PastilleEtat></Td>
               <Td align="droite" className="whitespace-nowrap">
                 {!v.verrouillee && <>
@@ -197,11 +218,13 @@ function FaceFiche({ info, prof, mois, setMois }) {
               <Tr key={l.id}><Td className="tabular-nums">{jma(l.date)}</Td><Td>{l.etudiant}</Td>
                 <Td>{l.lieu}<div className="text-mention text-slate-500">{l.adresse}</div></Td>
                 <Td ton="secondaire">{info.departs[l.depart]}<div className="text-mention">{l.depart_adresse}</div>{!l.conforme && <PastilleEtat etat="surveiller">hors règle</PastilleEtat>}</Td>
-                <Td align="droite" className="tabular-nums">{l.km_ar ?? '—'}</Td>{f.regle !== 'aucun' && <Td align="droite" className="tabular-nums">{eur(l.montant)}</Td>}</Tr>))}
+                <Td align="droite" className="tabular-nums">{l.km_ar ?? '—'}{l.km_calcule != null && <div className="text-mention text-slate-500">carte : {l.km_calcule}</div>}{l.ecart && <PastilleEtat etat="surveiller">écart</PastilleEtat>}</Td>{f.regle !== 'aucun' && <Td align="droite" className="tabular-nums">{eur(l.montant)}</Td>}</Tr>))}
               <tr className="ligne-total"><Td colSpan={4}>Total · {f.lignes.length} visite(s)</Td><Td align="droite" className="tabular-nums">{f.km}</Td>{f.regle !== 'aucun' && <Td align="droite" className="tabular-nums">{eur(f.total)}</Td>}</tr>
             </tbody>
           </Tableau>) : <div className="text-second text-slate-500">Aucune visite faite en {nomMois(mois)}.</div>}
         {f.problemes.length > 0 && f.lignes.length > 0 && <Encadre etat="surveiller" titre="À compléter avant de signer">{f.problemes.join(' ; ')}.</Encadre>}
+        {f.lignes.some(l => l.ecart) && <Encadre etat="surveiller" titre="Kilomètres à regarder">
+          {f.lignes.filter(l => l.ecart).length} visite(s) déclarent une distance qui s’écarte de plus de 10 % de l’itinéraire calculé (« carte »). La signature reste possible : un détour peut se justifier, mieux vaut l’écrire en remarque.</Encadre>}
         <div className="grid gap-2 md:grid-cols-2">
           {['personne', 'direction'].map(e => {
             const s = f.signatures.find(x => x.etape === e && x.valable);
