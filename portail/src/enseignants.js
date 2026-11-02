@@ -45,6 +45,8 @@ export function monterEnseignants(pub, int, o) {
     CREATE TABLE IF NOT EXISTS ens_attente (ens_id INTEGER PRIMARY KEY, contenu TEXT);
     CREATE TABLE IF NOT EXISTS ens_reglage (cle TEXT PRIMARY KEY, valeur TEXT);
     CREATE TABLE IF NOT EXISTS ens_tableau (ens_id INTEGER PRIMARY KEY, contenu TEXT);
+    CREATE TABLE IF NOT EXISTS ens_document (cle TEXT PRIMARY KEY, envoi_id INTEGER NOT NULL, ens_id INTEGER NOT NULL, sujet TEXT, nom_fichier TEXT,
+      envoye_le TEXT, reference TEXT, type_doc TEXT, mime TEXT, contenu BLOB, presente_le TEXT, accuse_le TEXT);
     CREATE TABLE IF NOT EXISTS ens_texte (version_id INTEGER PRIMARY KEY, titre TEXT, numero INTEGER, publiee_le TEXT, html TEXT, source_url TEXT);
     CREATE TABLE IF NOT EXISTS ens_apercu_jeton (jeton_hash TEXT PRIMARY KEY, ens_id INTEGER NOT NULL, par TEXT,
       expire_le TEXT NOT NULL, utilise_le TEXT);
@@ -271,6 +273,47 @@ export function monterEnseignants(pub, int, o) {
     geste(req.ens.id, 'texte_confirme', { version_id: Number(req.params.vid), le: maintenant() });
     res.json({ ok: true, confirme_le: maintenant() });
   });
+  // ── MES DOCUMENTS (3.5.089) : les pièces que Lucie lui a envoyées — les ouvrir, en accuser réception ──
+  const etatDoc = (ens, envoi) => {
+    const d = db.prepare('SELECT * FROM ens_document WHERE ens_id = ? AND envoi_id = ?').get(ens, Number(envoi));
+    if (!d) return null;
+    const g = db.prepare(`SELECT type, MIN(cree_le) le FROM ens_geste WHERE ens_id = ? AND type IN ('doc_ouvert','doc_accuse') AND json_extract(contenu, '$.envoi_id') = ? GROUP BY type`).all(ens, d.envoi_id);
+    const vu = Object.fromEntries(g.map(x => [x.type, x.le]));
+    return { envoi_id: d.envoi_id, sujet: d.sujet, nom_fichier: d.nom_fichier, envoye_le: d.envoye_le, reference: d.reference, type_doc: d.type_doc,
+      presente_le: d.presente_le || vu.doc_ouvert || null, accuse_le: d.accuse_le || vu.doc_accuse || null };
+  };
+  pub.get('/api/enseignant/documents', connecte, (req, res) => {
+    res.json(db.prepare('SELECT envoi_id FROM ens_document WHERE ens_id = ? ORDER BY envoye_le DESC').all(req.ens.id).map(d => etatDoc(req.ens.id, d.envoi_id)));
+  });
+  pub.get('/api/enseignant/document/:envoi', connecte, (req, res) => {
+    const e = etatDoc(req.ens.id, req.params.envoi);
+    const d = e && db.prepare('SELECT mime, contenu, nom_fichier FROM ens_document WHERE ens_id = ? AND envoi_id = ?').get(req.ens.id, Number(req.params.envoi));
+    if (!d) return res.status(404).json({ error: 'Pièce introuvable.' });
+    if (!req.apercu && !e.presente_le) geste(req.ens.id, 'doc_ouvert', { envoi_id: e.envoi_id, le: maintenant() });
+    res.setHeader('Content-Type', d.mime || 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(d.nom_fichier || 'piece.pdf')}`);
+    res.send(d.contenu);
+  });
+  pub.post('/api/enseignant/document/:envoi/accuser', connecte, (req, res) => {
+    const e = etatDoc(req.ens.id, req.params.envoi);
+    if (!e) return res.status(404).json({ error: 'Pièce introuvable.' });
+    if (e.accuse_le) return res.json({ ok: true, accuse_le: e.accuse_le });
+    if (!e.presente_le) return res.status(409).json({ error: 'Ouvrez d’abord la pièce : on n’accuse réception que de ce qu’on a vu.' });
+    geste(req.ens.id, 'doc_accuse', { envoi_id: e.envoi_id, le: maintenant() });
+    res.json({ ok: true, accuse_le: maintenant() });
+  });
+  const reglage = cle => { try { return JSON.parse(db.prepare('SELECT valeur FROM ens_reglage WHERE cle = ?').get(cle)?.valeur || 'null'); } catch { return null; } };
+  // L'agenda de l'école (congés, fermetures, fériés, formations, moments) et le contact du moment (3.5.089).
+  pub.get('/api/enseignant/agenda', connecte, (req, res) => {
+    const du = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.du || '')) ? String(req.query.du) : '0000';
+    const au = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.au || '')) ? String(req.query.au) : '9999';
+    res.json((reglage('agenda') || []).filter(a => a.au >= du && a.du <= au));
+  });
+  pub.get('/api/enseignant/contact', connecte, (req, res) => res.json(reglage('contact') || { presents: [], permanences: [] }));
+  pub.get('/api/enseignant/guide', connecte, (req, res) => {
+    let g = null; try { g = JSON.parse(db.prepare("SELECT valeur FROM ens_reglage WHERE cle = 'guide'").get()?.valeur || 'null'); } catch { g = null; }
+    res.json(g || { chapitres: [] });
+  });
   pub.get('/api/enseignant/due/:ue', connecte, (req, res) => {
     const u = (tableau(req.ens.id)?.ues || []).find(x => Number(x.ue_num) === Number(req.params.ue));
     if (!u?.due_html) return res.status(404).json({ error: 'DUE introuvable pour cette unité.' });
@@ -337,6 +380,8 @@ export function monterEnseignants(pub, int, o) {
     const b = req.body || {};
     db.transaction(() => {
       db.exec('DELETE FROM ens; DELETE FROM ens_seance; DELETE FROM ens_inscrit; DELETE FROM ens_etudiant; DELETE FROM ens_attente; DELETE FROM ens_tableau;');
+      for (const [cle, val] of [['agenda', b.agenda], ['contact', b.contact]]) if (val !== undefined) db.prepare("INSERT INTO ens_reglage (cle, valeur) VALUES (?, ?) ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur").run(cle, JSON.stringify(val));
+      if (b.guide) db.prepare("INSERT INTO ens_reglage (cle, valeur) VALUES ('guide', ?) ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur").run(JSON.stringify(b.guide));
       db.exec('DELETE FROM ens_texte');
       const itx = db.prepare('INSERT OR REPLACE INTO ens_texte (version_id, titre, numero, publiee_le, html, source_url) VALUES (?,?,?,?,?,?)');
       for (const t of b.textes || []) if (Number(t.version_id)) itx.run(Number(t.version_id), String(t.titre || ''), Number(t.numero) || null, t.publiee_le || null, String(t.html || ''), t.source_url || null);
@@ -365,6 +410,18 @@ export function monterEnseignants(pub, int, o) {
       db.prepare("INSERT INTO ens_reglage (cle, valeur) VALUES ('motifs', ?) ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur")
         .run(JSON.stringify((b.motifs || []).filter(m => /^[a-z_]{2,30}$/.test(String(m.k))).map(m => ({ k: String(m.k), l: String(m.l || '').slice(0, 120) }))));
     })();
+    res.json({ ok: true });
+  });
+  int.get('/interne/ens/documents/connus', (req, res) => res.json({ ids: db.prepare('SELECT cle FROM ens_document').all().map(x => x.cle) }));
+  int.post('/interne/ens/documents', (req, res) => {
+    const i = db.prepare(`INSERT OR REPLACE INTO ens_document (cle, envoi_id, ens_id, sujet, nom_fichier, envoye_le, reference, type_doc, mime, contenu, presente_le, accuse_le)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`);
+    db.transaction(() => { for (const d of req.body?.documents || []) i.run(String(d.cle), Number(d.envoi_id), Number(d.ens_id), String(d.sujet || ''), String(d.nom_fichier || ''),
+      d.envoye_le || null, d.reference || null, d.type_doc || null, String(d.mime || 'application/pdf'), Buffer.from(String(d.contenu_b64 || ''), 'base64'), d.presente_le || null, d.accuse_le || null); })();
+    res.json({ ok: true });
+  });
+  int.post('/interne/ens/documents/retirer', (req, res) => {
+    for (const c of req.body?.cles || []) db.prepare('DELETE FROM ens_document WHERE cle = ?').run(String(c));
     res.json({ ok: true });
   });
   int.get('/interne/ens/releve', (req, res) => {

@@ -58,11 +58,11 @@ export function migrerLigneTemps(base = db) {
 export const TYPES_MOMENT = {
   inscriptions: 'Inscriptions', examens: 'Examens', deliberations: 'Délibérations', diplomes: 'Remise des diplômes',
   rentree: 'Rentrée', jpo: 'Portes ouvertes', ceremonie: 'Cérémonie', audit_qualite: 'Qualité',
-  reunion: 'Réunion', echeance: 'Échéance, document', conseil: 'Conseil', horaires: 'Horaires', salon: 'Salon, SIEP', autre: 'Autre',
+  reunion: 'Réunion', echeance: 'Échéance, document', conseil: 'Conseil', horaires: 'Horaires', salon: 'Salon, SIEP', formation: 'Journée de formation', autre: 'Autre',
 };
 export const NATURES = { evenement: 'Événement', echeance: 'Échéance', reunion: 'Réunion', conseil: 'Conseil', horaires: 'Horaires' };
 export const NATURE_DU_TYPE = { inscriptions: 'evenement', examens: 'evenement', diplomes: 'evenement', rentree: 'evenement', jpo: 'evenement',
-  ceremonie: 'evenement', salon: 'evenement', audit_qualite: 'echeance', autre: 'evenement', deliberations: 'conseil',
+  ceremonie: 'evenement', salon: 'evenement', formation: 'evenement', audit_qualite: 'echeance', autre: 'evenement', deliberations: 'conseil',
   reunion: 'reunion', echeance: 'echeance', conseil: 'conseil', horaires: 'horaires' };
 export const DOMAINES = { administratif: 'Administratif', pedagogique: 'Pédagogique', asbl: 'ASBL', he: 'HE' };
 export const POUR = { direction: 'Direction', secretariat: 'Secrétariat', coordination: 'Coordination', professeur: 'Enseignants' };
