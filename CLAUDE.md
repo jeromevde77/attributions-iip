@@ -3467,7 +3467,8 @@ sur téléphone, `LogoLucie`). Toute fenêtre des espaces est `components/Fenetr
 22, 88 vh, pied pour les actions) — jamais un volet de côté. Application installable sans service worker : `frontend/public-portail/`
 (icônes, `manifest-etudiants|enseignants.webmanifest`), `publicDir` de `vite.portail.config.js`, balises dans `portail.html` et
 `enseignants.html`, type et « no-cache » dans `nginx-portail.conf`. **Largeur** (3.5.091, Charles : « pourquoi si peu large ? 80 %, et 100 % si plus petit ») :
-`FenetreEspace` prend 80 % de la largeur dès `sm`, toute la largeur sur téléphone ; une petite fenêtre passe `large` (Contacter).
+`FenetreEspace` prend 80 % de la largeur dès `sm`, toute la largeur sur téléphone ; une petite fenêtre passe `large` (Contacter). **Les pages des espaces ne se bornent pas** (3.5.092, Charles :
+« Largeur ! ») : ni `max-w-*` sur une face (Aide, Mon compte, contenu de l'espace étudiant) ; seuls les formulaires d'entrée restent étroits.
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en

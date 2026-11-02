@@ -317,7 +317,7 @@ function Aide() {
   useEffect(() => { appel('GET', '/guide').then(setG).catch(() => setG({ chapitres: [] })); }, []);
   if (!g) return <p className="text-slate-500">Chargement…</p>;
   return (
-    <div className="space-y-4 max-w-3xl">
+    <div className="space-y-4">
       <h1 className="m-0 text-2xl font-semibold text-iip-texte">Aide</h1>
       <section className="bg-white border border-slate-200 rounded-carte p-4 space-y-2 text-sm">
         <div className="font-semibold">Cet espace en bref</div>
@@ -592,7 +592,7 @@ function MonCompte({ moi, onToken }) {
   const charger = () => appel('GET', '/appareils').then(setApp).catch(() => setApp({ appareils: [] }));
   useEffect(() => { charger(); }, []);
   return (
-    <div className="space-y-5 max-w-2xl">
+    <div className="space-y-5">
       <h1 className="m-0 text-2xl font-semibold text-iip-texte">Mon compte</h1>
       <p className="m-0 text-slate-600">{String(moi.nom || '').toUpperCase()} {moi.prenom} · {moi.email}</p>
       <section className="bg-white border border-slate-200 rounded-carte overflow-hidden">
