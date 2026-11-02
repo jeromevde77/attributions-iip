@@ -3156,8 +3156,8 @@ Elle paraît dans *Mon horaire de la semaine* (`GET /mes-cours/semaine`, `visite
 (`evenementsDesVisites`, `lib/agendaIcs.js`). Fiche mensuelle par personne : visites FAITES, départ et adresse (domicile = fiche du
 professeur ; école = `etablissement.adresse`), km A/R, montant = km × `stages_km_taux` (paramètre, vide = « à régler », direction).
 Signée par la personne puis approuvée par la direction ; une signature vaut pour CE contenu (empreinte) ; approuvée, le mois est
-verrouillé. Refus de signer : km manquants, taux non réglé, départ autre que celui remboursé. Choix pris sans question (session
-reprise) : **règle par personne et non par visite ; taux unique ; signature personne → direction** — à confirmer par Charles.
+verrouillé. Refus de signer : km manquants, taux non réglé, départ autre que celui remboursé. Confirmé par Charles le 2 novembre
+2026 : **règle par personne et non par visite ; taux unique ; signature personne → direction**.
 Banc : `backend/test/visitesStage.mjs` (29 ok).
 
 **TOUT TABLEAU SUIT LES RÉGLAGES, ET CHACUN CHOISIT SON THÈME** (3.5.037, Charles, 1er novembre 2026 : « non respect du
