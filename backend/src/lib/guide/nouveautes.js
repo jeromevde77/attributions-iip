@@ -19,11 +19,23 @@ export const ajouts = {
       titre: "Préparer l'année, en quatre étapes",
       pour: 'dir',
       ou: "Personnel → Temps de travail → Préparer l'année.",
-      texte: "Quatre étapes numérotées, dans l'ordre où elles se font : 1 Personnes et règles (qui entre dans le module, sa formule, sa part de temps plein ; l'horaire variable au règlement de travail ; le minimum de présents) · 2 Congés (les 13 semaines, été compris, puis [[Fixer les congés|fort]]) · 3 Grands moments (rentrée, inscriptions, examens, remise des diplômes, portes ouvertes… ; les délibérations se lisent seules des séances) · 4 Générer les années ([[Calculer]], puis [[Enregistrer l'année|fort]], qui reste gris tant qu'une règle n'est pas tenue). « Étape suivante » mène à la suivante.",
+      texte: "Quatre étapes numérotées, dans l'ordre où elles se font : 1 Personnes et règles (qui entre dans le module, sa formule, sa part de temps plein ; l'horaire variable au règlement de travail ; le minimum de présents) · 2 Congés (ils se peignent dans l'agenda de l'école : fermée pour Noël et l'été, en partie pour Toussaint, Carnaval et Pâques) · 3 Grands moments (rentrée, inscriptions, examens, remise des diplômes, portes ouvertes… ; les délibérations se lisent seules des séances) · 4 Générer les années ([[Calculer]], puis [[Enregistrer l'année|fort]], qui reste gris tant qu'une règle n'est pas tenue). « Étape suivante » mène à la suivante.",
       images: [{ src: "/guide/temps-moments.png", legende: "Étape 3, les grands moments (données d'essai) : ceux que la direction pose, et les délibérations, lues des séances." }],
       savoir: [
-        "Une personne peut travailler pendant une semaine de congé scolaire (Carnaval, par exemple) : on la coche au générateur, et son été s'allonge d'autant. Le total ne change pas.",
+        "Fermée : congé pour tout le personnel. En partie : au choix de chacun — sur la ligne du temps, « Prendre cette semaine en congé » et « Travailler cette semaine », une prise pour une rendue ; la direction adjointe contrôle, la direction accepte. Treize semaines de congé, toujours.",
         "Régénérer une année remplace ses semaines, modulations comprises ; les écarts déjà encodés au relevé restent.",
+      ],
+    },
+    {
+      titre: "L'agenda de l'école : peindre l'année",
+      pour: 'sec coo dir',
+      ou: "Organisation → Agenda de l'école (et en tête du Temps de travail).",
+      texte: "Un seul agenda pour toute l'école, sur la ligne du temps de l'année : les grands moments, la chaleur des semaines, le calendrier des cours, la fermeture de l'école, les sections et le personnel qu'elles demandent. [[Peindre]] : on choisit un pinceau — Chaleur, Grand moment, École fermée, Cours, Section — et sa valeur, on touche la première semaine puis la dernière (la même pour une seule). [[Saisir|IconCalendarPlus]] ouvre le même geste avec un mini calendrier : grand moment, jour fermé (mardi gras, 2 novembre…), fermeture, chaleur, cours ou section, du premier au dernier jour.",
+      images: [{ src: "/guide/agenda-saisir.png", legende: "Saisir dans l'agenda (données d'essai) : quoi, sa nature, son nom, et les jours au mini calendrier ; en rouge les fériés et jours fermés, grisé l'école fermée." }],
+      savoir: [
+        "Une section est active la semaine où l'horaire lui donne des séances ; on la force pour une semaine sans séance (un stage) ou pour corriger. La rangée « Sections » compte les sections actives ; elles disent combien de personnes le secrétariat doit garder (le minimum réglé quand une section est active, une permanence quand l'école est en partie fermée, personne quand elle est fermée). La ligne « Au travail » passe en rouge en dessous.",
+        "Un jour fermé par l'école compte comme presté pour le personnel ; le relevé dit qui l'a posé et quand. Il s'ajoute aux fériés légaux pour l'horaire, la simulation et le congé-éducation.",
+        "La direction et la direction adjointe peignent l'établissement ; la coordination force les semaines de ses sections ; le secrétariat lit. Chaque geste entre au journal de l'agenda.",
       ],
     },
     {

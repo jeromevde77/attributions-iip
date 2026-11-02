@@ -3232,6 +3232,25 @@ directement pour un autre) ; une année modulée passe en `annualise` ; moduler 
 Au passage : `modeleSemaine` répartit le reste de la division (à 80 %, l'année entière était refusée pour une minute par jour).
 Banc : `test/ligneTemps.mjs` (35 ok).
 
+**L'AGENDA DE L'ÉCOLE, PEINT SUR LA LIGNE DU TEMPS** (3.5.058, Charles, 2 novembre 2026 : « les congés plus simplement dans
+la ligne du temps ; j'encode pour l'établissement, chaque section est différente ; on sait quand on a besoin de personnel » ;
+« centraliser l'agenda de l'école » ; « peindre les moments chauds et placer les choses importantes depuis la ligne, et un bouton
+pour saisir en manuel avec un mini calendrier »). Organisation → *Agenda de l'école* (`pages/AgendaEcole.jsx`) et en tête de la
+vue Année du Temps de travail : UN composant, `components/AgendaLigne.jsx` (pinceaux Chaleur · Grand moment · École fermée · Cours
+· Section ; première puis dernière semaine ; « Saisir » = mini calendrier). Moteur `lib/agendaEcole.js`, routes
+`/api/agenda-ecole`. Quatre couches : les COURS = `annee_calendrier` (peinte, pas doublée ; septembre → juillet, l'été n'y entre
+pas pour ne pas décaler l'échéancier) ; la FERMETURE de l'école sur 52 semaines (`agenda_semaine` : totale = congé pour tout le
+personnel, Noël et été ; partielle = au choix de chacun, Toussaint, Carnaval, Pâques) ; les JOURS FERMÉS (`agenda_jour_ferme` :
+mardi gras, 2 novembre…) que **`joursFeries()` ajoute aux fériés légaux** — horaire, simulation, congé-éducation et temps de
+travail les lisent donc tous ; compté comme presté au relevé, avec qui l'a posé et quand ; les SECTIONS actives quand l'horaire
+leur donne des séances (`horaire_seance`, annulées exclues), forçables (`agenda_section`). Le BESOIN de personnel par semaine
+(0 si fermée, `presents_min` si une section est active, sinon une permanence) colore « Au travail » et avertit l'assistant ; les
+séances de l'horaire entrent dans la chaleur. Le temps de travail lit l'agenda : `genererSelonAgenda` (fermetures totales +
+semaines choisies, par défaut les partielles ; 13 en tout) ; l'assistant échange (`prendre` / `travailler`, une pour une, jamais
+une semaine totale), circuit de la modulation. L'ancienne saisie des congés par dates (`tt_conge`) est reprise une fois dans
+l'agenda (`reprendreCongesModule`). Peindre l'établissement : direction et direction adjointe ; une section : aussi la
+coordination pour les siennes (`getUserSections`). Journal `agenda_journal` en ajout seul. Banc : `test/ligneTemps.mjs` (49 ok).
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux

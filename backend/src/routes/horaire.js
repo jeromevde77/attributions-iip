@@ -24,6 +24,7 @@
 //     en clair plutôt que d'être rattaché au hasard.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { joursFermesCivils } from '../lib/agendaEcole.js';
 import { Router } from 'express';
 import multer from 'multer';
 import db from '../db/index.js';
@@ -452,7 +453,14 @@ function paques(an) {
   const mois = Math.floor((h + l - 7 * m + 114) / 31), jour = ((h + l - 7 * m + 114) % 31) + 1;
   return `${an}-${String(mois).padStart(2, '0')}-${String(jour).padStart(2, '0')}`;
 }
+/* LES JOURS FERMÉS DE L'ÉCOLE S'AJOUTENT AUX FÉRIÉS LÉGAUX (3.5.058, agenda de l'école : mardi gras, 2 novembre…) — ici,
+   une fois : l'horaire, la simulation, le congé-éducation et le temps de travail les lisent tous par cette fonction. */
 export function joursFeries(an) {
+  const m = joursFeriesLegaux(an);
+  for (const j of joursFermesCivils(an)) if (!m.has(j.date)) m.set(j.date, `${j.libelle} (fermeture de l’école)`);
+  return m;
+}
+export function joursFeriesLegaux(an) {
   const p = paques(an);
   return new Map([
     [`${an}-01-01`, 'Nouvel an'], [ajouterJours(p, 1), 'Lundi de Pâques'], [`${an}-05-01`, 'Fête du travail'],

@@ -11,9 +11,10 @@ import {
   migrerTempsTravail, reglage, ecrireReglage, genererAnnee, anneeDe, modifierSemaine, releve, ecrireEcart, ficheConges,
   signer, planningEquipe, anneeEquipe, semaineEquipe, periodesDeConge, fixerConges, FORMULES, ABSENCES, REGLES, hm, semainesDeLAnnee, semainesDeConge, JOURS, plusJours,
 } from '../lib/tempsTravail.js';
+import { migrerAgenda, fermetures } from '../lib/agendaEcole.js';
 import { migrerLigneTemps, ligne, moments as momentsDe, ecrireMoment, retirerMoment, forcerChaleur, assistant, proposer, modulations, valider, refuser } from '../lib/ligneTemps.js';
 
-try { migrerTempsTravail(); migrerLigneTemps(); } catch (e) { console.error('[temps de travail] migration', e.message); }
+try { migrerAgenda(); migrerTempsTravail(); migrerLigneTemps(); } catch (e) { console.error('[temps de travail] migration', e.message); }
 
 const r = Router();
 const GERER = ['admin', 'directeur', 'directeur_adjoint'];
@@ -87,7 +88,9 @@ r.put('/conges-annee', authRequired, (req, res) => {
 // Le calendrier de l'année : semaines, congés scolaires, fenêtre d'été (pour choisir l'été).
 r.get('/calendrier', authRequired, (req, res) => {
   const an = annee(req); const c = semainesDeConge(an);
-  res.json({ semaines: semainesDeLAnnee(an).map(l => ({ lundi: l, conge: c.get(l) || null })), reglage: reglage(an) });
+  const ag = fermetures(an);
+  res.json({ semaines: semainesDeLAnnee(an).map(l => ({ lundi: l, conge: c.get(l) || null, fermeture: ag.get(l)?.fermeture || null })), reglage: reglage(an),
+    agenda: ag.size > 0, totales: [...ag.values()].filter(f => f.fermeture === 'totale').length, partielles: [...ag.values()].filter(f => f.fermeture === 'partielle').length });
 });
 
 // LE GÉNÉRATEUR : simulation (ecrire absent) puis écriture — la direction seule écrit.
@@ -238,7 +241,7 @@ r.get('/releve/:uid/:mois/document', authRequired, (req, res) => {
   const lignes = rel.jours.filter(j => j.prevu || j.reel || j.etat !== 'libre').map(j => `<tr>
     <td>${j.jour_semaine} ${j.jour.slice(8)}/${j.jour.slice(5, 7)}</td>
     <td>${j.plan?.debut ? `${esc(j.plan.debut)}–${esc(j.plan.fin)}` : ''}</td>
-    <td>${j.saisie?.type === 'reel' ? `${esc(j.saisie.debut)}–${esc(j.saisie.fin)}` : j.saisie?.type === 'absence' ? esc(ABSENCES[j.saisie.motif]?.libelle) : ''}${j.ferie ? esc(j.ferie) : ''}</td>
+    <td>${j.saisie?.type === 'reel' ? `${esc(j.saisie.debut)}–${esc(j.saisie.fin)}` : j.saisie?.type === 'absence' ? esc(ABSENCES[j.saisie.motif]?.libelle) : ''}${j.ferie ? esc(j.ferie) : ''}${j.fermeture_ecole ? `<br><span class="m">fermeture décidée par l’école — posée par ${esc(j.fermeture_ecole.par)} le ${esc(String(j.fermeture_ecole.le).slice(0, 10))}</span>` : ''}</td>
     <td class="m">${ETAT[j.etat] || ''}</td><td class="n">${j.prevu ? hm(j.prevu) : ''}</td><td class="n">${j.reel || j.prevu ? hm(j.reel) : ''}</td>
     <td class="n">${j.ecart ? hm(j.ecart) : ''}</td></tr>`).join('');
   const corps = `<div class="tt">

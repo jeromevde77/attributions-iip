@@ -23,6 +23,7 @@
 import crypto from 'node:crypto';
 import db from '../db/index.js';
 import { congesDe } from './cep.js';
+import { fermetures, joursFermes } from './agendaEcole.js';
 import { joursFeries } from '../routes/horaire.js';
 
 export const REGLES = {
@@ -154,6 +155,9 @@ export function fixerConges(annee, periodes, par) {
 
 /** Les semaines de congé : celles dont les cinq jours ouvrables tombent dans une période de congé. */
 export function semainesDeConge(annee) {
+  // L'AGENDA DE L'ÉCOLE FAIT FOI (3.5.058) : ses semaines fermées, totales ou partielles. À défaut, l'ancien chemin.
+  const ag = fermetures(annee);
+  if (ag.size) return new Map([...ag].map(([l, f]) => [l, f.libelle || (f.fermeture === 'totale' ? 'Fermeture' : 'Fermeture partielle')]));
   const { periodes: vacances } = periodesDeConge(annee);
   const out = new Map();
   for (const l of semainesDeLAnnee(annee)) {
@@ -261,6 +265,8 @@ export function genererAnnee(uid, annee, opts = {}, { ecrire = false, par = null
      lui. Si aucun été n'est fixé (calendrier de l'école seul), on le place au générateur (`ete`). */
   const [, a2] = String(annee).split('-').map(Number);
   const estEte = l => l >= `${a2}-06-15` && l <= `${a2}-08-31`;
+  const ag = fermetures(annee);
+  if (ag.size) return genererSelonAgenda({ uid, annee, opts, formule, fraction, modele, semaines, feries, ag, ecrire, par, R });
   const travaillees = new Set((opts.travaillees || []).map(lundiDe));
   for (const l of travaillees) if (!conges.has(l) || estEte(l)) erreurs.push(`La semaine du ${l} n’est pas une semaine de congé scolaire : rien à échanger.`);
   const scolaires = [...conges.keys()].filter(l => !estEte(l));
@@ -333,6 +339,53 @@ export function genererAnnee(uid, annee, opts = {}, { ecrire = false, par = null
   return { bilan, semaines: rows, modele };
 }
 
+/* L'ANNÉE SELON L'AGENDA DE L'ÉCOLE (3.5.058, Charles : « à Noël tout le monde a congé ; en été cinq semaines jusqu'au
+   15 août, tout est fermé ; Toussaint, Carnaval et Pâques en partie fermés — au choix de chacun »). Les semaines de
+   fermeture TOTALE sont des congés pour tous ; les autres congés de la personne sont SES semaines (`opts.conges`), par
+   défaut les semaines de fermeture partielle. 13 semaines de congé en tout, 39 de travail, 1 404 h par temps plein. */
+function genererSelonAgenda({ uid, annee, opts, formule, fraction, modele, semaines, feries, ag, ecrire, par, R }) {
+  const erreurs = [], avertissements = [];
+  const totales = new Set([...ag].filter(([, f]) => f.fermeture === 'totale').map(([l]) => l));
+  const partielles = [...ag].filter(([, f]) => f.fermeture === 'partielle').map(([l]) => l);
+  const choix = new Set((Array.isArray(opts.conges) ? opts.conges : partielles).map(lundiDe).filter(l => !totales.has(l) && semaines.includes(l)));
+  const conges = new Set([...totales, ...choix]);
+  if (conges.size !== REGLES.congesAnnuels) erreurs.push(`L’agenda de l’école et les semaines choisies font ${conges.size} semaines de congé au lieu de 13 (${totales.size} de fermeture totale + ${choix.size} choisies). Corrigez l’agenda (Organisation → Agenda de l’école) ou le choix de la personne.`);
+  const [, a2] = String(annee).split('-').map(Number);
+  const rows = semaines.map(l => {
+    const f = ag.get(l), c = conges.has(l);
+    const ete = c && (Number(l.slice(5, 7)) >= 7 && l <= `${a2}-08-31`);
+    const statut = c ? (ete ? 'ete' : 'conge') : 'travail';
+    return { lundi: l, statut, libelle: c ? (f?.libelle || 'Congé choisi') : (f ? `${f.libelle || 'Fermeture partielle'} — au travail` : null),
+      jours: c ? Array(7).fill(null) : modele.map(j => (j ? { ...j } : null)) };
+  });
+  const cibleSemaine = Math.round(REGLES.hebdo * fraction);
+  const cibleAnnee = cibleSemaine * (52 - REGLES.congesAnnuels);
+  for (const r of rows) {
+    r.minutes = totalSemaine(r.jours);
+    r.feries = r.jours.map((j, i) => (j && feries.has(plusJours(r.lundi, i)) ? feries.get(plusJours(r.lundi, i)) : null)).filter(Boolean);
+    r.controles = r.statut === 'travail' ? controleSemaine(r.jours, { formule, fraction, modele, rtVariable: R.rt_variable }) : [];
+  }
+  const totalAnnee = rows.reduce((t, r) => t + r.minutes, 0);
+  if (!erreurs.length && totalAnnee !== cibleAnnee) erreurs.push(`L’année compte ${hm(totalAnnee)} pour ${hm(cibleAnnee)} dues : rien de plus, rien de moins.`);
+  const travail = rows.filter(r => r.statut === 'travail');
+  const bilan = { formule, fraction, source: 'agenda', semaines_travail: travail.length, semaines_conge: rows.filter(r => r.statut === 'conge').length,
+    semaines_ete: rows.filter(r => r.statut === 'ete').length, fermetures_totales: totales.size, choisies: [...choix].sort(),
+    cible_annee: cibleAnnee, total_annee: totalAnnee, erreurs, avertissements, semaines_en_defaut: rows.filter(r => r.controles.length).length };
+  if (ecrire) {
+    if (erreurs.length || bilan.semaines_en_defaut) throw Object.assign(new Error('L’année ne respecte pas les règles : rien n’est écrit.'), { status: 409, bilan });
+    const ins = db.prepare(`INSERT INTO tt_semaine (utilisateur_id, annee, lundi, statut, jours_json, genere_le, genere_par)
+      VALUES (?,?,?,?,?,datetime('now'),?) ON CONFLICT(utilisateur_id, lundi) DO UPDATE SET annee = excluded.annee,
+      statut = excluded.statut, jours_json = excluded.jours_json, genere_le = excluded.genere_le, genere_par = excluded.genere_par`);
+    db.transaction(() => {
+      db.prepare(`INSERT INTO tt_personne (utilisateur_id, fraction, formule, maj_par) VALUES (?,?,?,?)
+        ON CONFLICT(utilisateur_id) DO UPDATE SET fraction = excluded.fraction, formule = excluded.formule, maj_par = excluded.maj_par, maj_le = datetime('now')`)
+        .run(uid, fraction, formule, par);
+      for (const r of rows) ins.run(uid, annee, r.lundi, r.statut, JSON.stringify(r.jours), par);
+    })();
+  }
+  return { bilan, semaines: rows, modele };
+}
+
 /** Allonge ou raccourcit une semaine-modèle jusqu'à `cible` minutes, en répartissant sur ses jours (fins décalées). */
 function etirer(modele, cible) {
   const jours = modele.map(j => (j ? { ...j } : null));
@@ -381,6 +434,8 @@ export function verrouille(uid, jour) {
 export function releve(uid, annee, mois) {
   const sem = new Map(anneeDe(uid, annee).map(r => [r.lundi, r]));
   const feries = feriesDe(annee);
+  // Un jour fermé par l'école compte comme presté, et garde sa trace : qui l'a posé, quand (3.5.058).
+  const fermes = new Map(joursFermes(annee).map(x => [x.date, x]));
   const pers = personne(uid) || {};
   const long = pers.formule === '4j' || (pers.formule === 'annualise' && reglage(annee).rt_variable);
   const ecarts = new Map(db.prepare('SELECT * FROM tt_ecart WHERE utilisateur_id = ? AND jour LIKE ?').all(uid, `${mois}-%`).map(e => [e.jour, e]));
@@ -400,7 +455,9 @@ export function releve(uid, annee, mois) {
     if (e?.type === 'reel') { r = dureeJour(e); etat = 'reel'; }
     if (e?.type === 'absence') { r = ABSENCES[e.motif]?.compte ? p : 0; etat = 'absence'; }
     prevu += p; reel += r;
+    const fe = fermes.get(jour);
     jours.push({ jour, jour_semaine: JOURS[i], etat, ferie: feries.get(jour) || null, prevu: p, reel: r, ecart: r - p, plan,
+      fermeture_ecole: fe ? { libelle: fe.libelle, par: fe.par, le: fe.le } : null,
       saisie: e ? { type: e.type, debut: e.debut, fin: e.fin, pause_debut: e.pause_debut, pause_fin: e.pause_fin, motif: e.motif, note: e.note, par: e.saisi_par } : null,
       controles: e?.type === 'reel' ? controleJour(e, { long }) : [] });
   }

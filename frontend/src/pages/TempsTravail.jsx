@@ -95,7 +95,7 @@ export default function TempsTravail() {
 }
 
 /* PRÉPARER L'ANNÉE : quatre étapes, dans l'ordre où elles se font. */
-const ETAPES_PREP = [['personnes', 'Personnes et règles'], ['conges', 'Congés'], ['moments', 'Grands moments'], ['generer', 'Générer les années']];
+const ETAPES_PREP = [['personnes', 'Personnes et règles'], ['conges', 'Congés (agenda de l’école)'], ['moments', 'Grands moments'], ['generer', 'Générer les années']];
 function Preparer({ info, personnes, listePers, recharger }) {
   const [etape, setEtape] = useState('personnes');
   const i = ETAPES_PREP.findIndex(e => e[0] === etape);
@@ -109,7 +109,7 @@ function Preparer({ info, personnes, listePers, recharger }) {
           </button>))}
       </div>
       {etape === 'personnes' && <Reglages info={info} donnees={personnes} recharger={recharger} />}
-      {etape === 'conges' && <CalendrierConges onGenerer={() => setEtape('generer')} />}
+      {etape === 'conges' && <CongesAgenda onSuivant={() => setEtape('moments')} />}
       {etape === 'moments' && <MomentsAnnee />}
       {etape === 'generer' && <Generer info={info} personnes={listePers} recharger={recharger} />}
       {i < ETAPES_PREP.length - 1 && <div><button className="bouton" onClick={() => setEtape(ETAPES_PREP[i + 1][0])}>Étape suivante : {ETAPES_PREP[i + 1][1]} →</button></div>}
@@ -319,66 +319,25 @@ function Suivi({ uid, onOuvrir }) {
   );
 }
 
-/* LE CALENDRIER DE L'ANNÉE ET SES CONGÉS (3.5.055, Charles : « tu ne me permets pas de générer le calendrier de l'année et
-   de fixer les vacances ? »). La direction fixe les périodes de congé ; tant qu'elle ne l'a pas fait, on voit celles du
-   calendrier de l'école, à reprendre d'un clic. Le générateur s'en sert ; les cinq semaines d'été se choisissent par
-   personne, au générateur. */
-function CalendrierConges({ onGenerer }) {
-  const [d, setD] = useState(null);
-  const [lignes, setLignes] = useState([]);
-  const [sale, setSale] = useState(false);
-  const charger = () => api('/conges-annee').then(j => {
-    setD(j);
-    const l = j.periodes.map(p => ({ du: p.du, au: p.au, libelle: p.label || p.libelle || 'Congé' }));
-    // Repris de l'école : on propose l'été (5 semaines dès l'ouverture de la fenêtre), à corriger si besoin.
-    if (j.source === 'ecole' && !j.semaines_ete && j.reglage?.ete_du) {
-      const d0 = new Date(`${j.reglage.ete_du}T00:00:00Z`); const w = (d0.getUTCDay() + 6) % 7; const lundi = new Date(d0.getTime() + ((7 - w) % 7) * 864e5);
-      const fin = new Date(lundi.getTime() + 32 * 864e5);
-      l.push({ du: lundi.toISOString().slice(0, 10), au: fin.toISOString().slice(0, 10), libelle: 'Vacances d’été' });
-    }
-    setLignes(l); setSale(j.source === 'ecole'); })
-    .catch(e => setD({ erreur: e.message }));
-  useEffect(() => { charger(); }, []);
-  if (!d) return <div className="text-sm text-slate-500">Chargement…</div>;
-  if (d.erreur) return <div className="text-sm text-red-700">{d.erreur}</div>;
-  const maj = (i, k, v) => { setLignes(l => l.map((x, j) => (j === i ? { ...x, [k]: v } : x))); setSale(true); };
-  const enregistrer = async () => {
-    try { await api('/conges-annee', { method: 'PUT', body: JSON.stringify({ periodes: lignes }) }); await charger(); setSale(false); informer({ message: 'Congés de l’année fixés.' }); }
-    catch (e) { informer({ message: e.message }); }
-  };
-  const travail = d.semaines_travail, heures = d.heures;
+/* LES CONGÉS SE PEIGNENT DANS L'AGENDA DE L'ÉCOLE (3.5.058, Charles : « plus simple de ne pas les encoder par dates mais
+   dans la ligne du temps »). Fermée = congé pour tous (Noël, été) ; en partie fermée = au choix de chacun (Toussaint,
+   Carnaval, Pâques). L'ancienne saisie par dates (3.5.055) est reprise d'office dans l'agenda. */
+function CongesAgenda({ onSuivant }) {
+  const [c, setC] = useState(null);
+  useEffect(() => { api('/calendrier').then(setC).catch(() => setC({})); }, []);
+  if (!c) return <div className="text-sm text-slate-500">Chargement…</div>;
+  const total = (c.totales || 0) + (c.partielles || 0);
   return (
-    <div className="space-y-4">
-      <div className="carte overflow-hidden">
-        <EnteteCarte titre={`Les congés de l’année ${ANNEE.v}`}
-          sous={d.source === 'ecole' ? 'Repris du calendrier de l’école : vérifiez, corrigez, puis « Fixer les congés ».' : 'Fixés par la direction pour le personnel administratif.'}>
-          <button className="bouton bouton-fort" disabled={!sale} onClick={enregistrer}>Fixer les congés</button>
-        </EnteteCarte>
-        <Tableau dense>
-          <TableauEntete><Th>Congé</Th><Th>Du</Th><Th>Au</Th><Th /></TableauEntete>
-          <tbody>
-            {lignes.map((x, i) => (
-              <Tr key={i}>
-                <Td><input className="controle border border-slate-300 rounded-champ text-sm w-56" value={x.libelle} onChange={e => maj(i, 'libelle', e.target.value)} /></Td>
-                <Td><input type="date" className="controle border border-slate-300 rounded-champ text-sm" value={x.du} onChange={e => maj(i, 'du', e.target.value)} /></Td>
-                <Td><input type="date" className="controle border border-slate-300 rounded-champ text-sm" value={x.au} onChange={e => maj(i, 'au', e.target.value)} /></Td>
-                <Td align="droite"><button className="bouton px-2 py-0.5 text-second" onClick={() => { setLignes(l => l.filter((_, j) => j !== i)); setSale(true); }}>Retirer</button></Td>
-              </Tr>
-            ))}
-          </tbody>
-        </Tableau>
-        <div className="px-4 py-3 flex flex-wrap items-center gap-2">
-          <button className="bouton" onClick={() => { setLignes(l => [...l, { du: '', au: '', libelle: 'Congé' }]); setSale(true); }}>+ Ajouter une période</button>
-        </div>
-      </div>
-      <div className="carte overflow-hidden">
-        <EnteteCarte titre="L’année qui en résulte" sous={`Une semaine compte en congé quand ses cinq jours ouvrables tombent dans une période. L’été (entre le ${d.reglage?.ete_du} et le ${d.reglage?.ete_au}) se place par personne, au générateur.`} />
-        <div className="px-4 py-3 text-sm space-y-1">
-          <p><b>13 semaines de congé</b> par an : ici <b>{d.semaines_conge}</b> semaine(s) de congés scolaires + <b>{d.semaines_ete}</b> semaine(s) d’été = <b>{d.semaines_total}</b>. Restent <b>{travail}</b> semaines de travail : <b>{heures} h</b> dues pour un temps plein (36 h × 39), en proportion pour un temps partiel.</p>
-          <p className="text-slate-600">Une personne peut travailler pendant une semaine de congé scolaire (Carnaval, par exemple) : au générateur, on la coche, et son été s’allonge d’autant. Le total reste 13 semaines de congé et 1 404 h.</p>
-          {d.source === 'module' && d.semaines_total !== 13 && <p className="text-amber-700">Les congés fixés comptent {d.semaines_total} semaine(s) au lieu de 13 : le générateur ajuste l’été pour garder 39 semaines de travail.</p>}
-          {d.source === 'ecole' && <p className="text-amber-700">Rien n’est encore fixé : vérifiez les lignes ci-dessus (l’été est proposé), puis « Fixer les congés ».</p>}
-          <button className="bouton mt-2" onClick={onGenerer}>Générer l’année d’une personne →</button>
+    <div className="carte overflow-hidden">
+      <EnteteCarte titre={`Les congés ${ANNEE.v}`} sous="Ils se peignent sur la ligne du temps de l’école : Organisation → Agenda de l’école, pinceau « École fermée » (ou « Saisir », au calendrier)." />
+      <div className="px-4 py-3 text-sm space-y-2">
+        {c.agenda ? <p className="m-0"><b>{c.totales}</b> semaine(s) de fermeture totale — congé pour tout le personnel — et <b>{c.partielles}</b> en partie fermée(s), au choix de chacun : <b>{total}</b> semaine(s). Treize semaines de congé, 39 de travail, 1 404 h pour un temps plein.</p>
+          : <p className="m-0 text-amber-700">L’agenda de l’école ne porte encore aucune fermeture pour {ANNEE.v} : peignez Noël et l’été (fermée), Toussaint, Carnaval et Pâques (en partie).</p>}
+        {c.agenda && total !== 13 && <p className="m-0 text-amber-700">L’agenda compte {total} semaine(s) de fermeture : chaque personne devra en choisir {13 - (c.totales || 0)} hors des fermetures totales pour arriver à 13.</p>}
+        <p className="m-0 text-slate-600">Hors Noël et l’été, chacun échange ses semaines depuis la ligne du temps (« Prendre cette semaine en congé », « Travailler cette semaine ») ; la direction adjointe contrôle, la direction accepte.</p>
+        <div className="flex flex-wrap gap-2 pt-1">
+          <a className="bouton bouton-fort" href="/organisation?onglet=agenda">Ouvrir l’agenda de l’école</a>
+          <button className="bouton" onClick={onSuivant}>Étape suivante : Grands moments →</button>
         </div>
       </div>
     </div>
@@ -428,13 +387,13 @@ function Generer({ info, personnes, recharger }) {
           </select>
           <label className="flex items-center gap-1.5">Temps <input type="number" min="0.1" max="1" step="0.05" className="controle border border-slate-300 rounded-champ w-20" value={fraction} onChange={e => setFraction(e.target.value)} /></label>
           {formule === '4j' && <label className="flex items-center gap-1.5">Jour libre <select className="controle border border-slate-300 rounded-champ" value={jourLibre} onChange={e => setJourLibre(e.target.value)}>{['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi'].map((j, i) => <option key={i} value={i}>{j}</option>)}</select></label>}
-          {eteFixe ? <span className="text-second text-slate-600">Été : {nEte} semaines, fixé dans « Congés »</span>
+          {cal?.agenda ? <span className="text-second text-slate-600">Congés : l’agenda de l’école ({cal.totales} fermée(s), {cal.partielles} en partie)</span> : eteFixe ? <span className="text-second text-slate-600">Été : {nEte} semaines, fixé dans « Congés »</span>
             : <label className="flex items-center gap-1.5">Été ({nEte} sem.) à partir du <select className="controle border border-slate-300 rounded-champ" value={ete} onChange={e => setEte(e.target.value)}>
             <option value="">— choisir —</option>{lundisEte.map(s => <option key={s.lundi} value={s.lundi}>{s.lundi}</option>)}</select></label>}
           <button className="bouton" onClick={simuler}>Calculer</button>
           <button className="bouton bouton-fort" disabled={!ok} onClick={ecrire}>Enregistrer l’année</button>
         </div>
-        {cal && (
+        {cal && !cal.agenda && (
           <div className="px-4 pb-3 text-second text-slate-600">
             <b>Échanger une semaine de congé contre l’été</b> — cochez les semaines de congé où cette personne travaille ; son été passe à {nEte} semaines, d’un seul tenant :
             <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5">

@@ -21,6 +21,7 @@
 //     COMPENSATOIRE : il ne compte pas dans l'écart de 2 h du jour ni dans les 5 h de la semaine (lecture à confirmer).
 // ─────────────────────────────────────────────────────────────────────────────
 import db from '../db/index.js';
+import { agenda, fermetures } from './agendaEcole.js';
 import {
   REGLES, reglage, semainesDeLAnnee, semainesDeConge, feriesDe, anneeDe, dureeJour, controleJour, modeleSemaine, verrouille,
   plusJours, hm, JOURS,
@@ -113,6 +114,8 @@ const SOURCES = [
     sql: `SELECT date_debut AS d, COUNT(*) AS n FROM organisation_ue WHERE date_debut >= ? AND date_debut < ? GROUP BY date_debut` },
   { cle: 'deliberations', libelle: 'séances de délibération', poids: 2,
     sql: `SELECT date_seance AS d, COUNT(*) AS n FROM deliberation_seance WHERE date_seance >= ? AND date_seance < ? GROUP BY date_seance` },
+  { cle: 'seances', libelle: 'séances de cours à l’horaire', poids: 2,
+    sql: `SELECT date AS d, COUNT(*) AS n FROM horaire_seance WHERE date >= ? AND date < ? AND COALESCE(annule, 0) = 0 GROUP BY date` },
   { cle: 'echeances', libelle: 'échéances du secrétariat', poids: 1,
     sql: `SELECT date_due AS d, COUNT(*) AS n FROM echeance WHERE date_due >= ? AND date_due < ? AND responsable_role = 'secretariat' GROUP BY date_due` },
 ];
@@ -287,6 +290,38 @@ export function assistant(uid, annee, v = {}) {
     touchees.add(l);
   }
 
+  /* ÉCHANGER UNE SEMAINE DE CONGÉ (3.5.058, « au choix de chacun » hors Noël et été) : prendre une semaine de travail en
+     congé, rendre une semaine de congé au travail — autant de l'une que de l'autre, 13 semaines de congé toujours. Une
+     semaine de fermeture TOTALE ne se travaille pas. */
+  const prendre = [...new Set((v.prendre || []).map(lundiDe))], travailler = [...new Set((v.travailler || []).map(lundiDe))];
+  const ferm = fermetures(annee);
+  const signe = l => verrouille(uid, l) || verrouille(uid, plusJours(l, 6));
+  for (const l of prendre) {
+    const s = parLundi.get(l);
+    if (!s || s.statut !== 'travail') { refus.push(`Semaine du ${l} : pas une semaine de travail.`); continue; }
+    if (signe(l) || l < lundiDe(aujourdhui)) { refus.push(`Semaine du ${l} : passée ou signée.`); continue; }
+    s.statut = 'conge'; s.jours = Array(7).fill(null); touchees.add(l);
+  }
+  for (const l of travailler) {
+    const s = parLundi.get(l);
+    if (!s || s.statut === 'travail') { refus.push(`Semaine du ${l} : pas une semaine de congé.`); continue; }
+    if (ferm.get(l)?.fermeture === 'totale') { refus.push(`Semaine du ${l} : l’école est fermée (${ferm.get(l).libelle || 'fermeture totale'}).`); continue; }
+    if (signe(l) || l < lundiDe(aujourdhui)) { refus.push(`Semaine du ${l} : passée ou signée.`); continue; }
+    s.statut = 'travail'; s.jours = modele.map(j => (j ? { ...j } : null)); touchees.add(l);
+  }
+  if (prendre.length !== travailler.length) refus.push(`Treize semaines de congé, toujours : ${prendre.length} semaine(s) prise(s) en congé pour ${travailler.length} rendue(s) au travail.`);
+  // Le besoin de personnel : une semaine prise en congé ne doit pas laisser moins de monde que les sections n'en demandent.
+  const avertissements = [];
+  if (prendre.length) {
+    const ag = agenda(annee, { presentsMin: R.presents_min });
+    for (const l of prendre) {
+      const k = ag.semaines.indexOf(l); if (k < 0) continue;
+      const autres = db.prepare("SELECT COUNT(*) n FROM tt_semaine s JOIN tt_personne p ON p.utilisateur_id = s.utilisateur_id AND p.actif = 1 WHERE s.lundi = ? AND s.statut = 'travail' AND s.utilisateur_id <> ?").get(l, uid).n;
+      const b = ag.besoin[k];
+      if (autres < b.presents_requis) avertissements.push(`Semaine du ${l} : ${autres} présent(s) pour ${b.presents_requis} requis (${b.sections_actives} section(s) active(s)).`);
+    }
+  }
+
   const du = Math.round(REGLES.hebdo * fraction) * (52 - REGLES.congesAnnuels);
   const avantTotal = sem.reduce((s, x) => s + total(x.jours), 0);
   let aPlacer = du - [...parLundi.values()].reduce((s, x) => s + total(x.jours), 0);
@@ -322,12 +357,13 @@ export function assistant(uid, annee, v = {}) {
   const changees = [...new Set([...touchees, ...reports])].sort().map(l => {
     const s = parLundi.get(l), a = avant.get(l);
     return { lundi: l, avant: total(a.jours), apres: total(s.jours), jours: s.jours, report: reports.includes(l),
-      chaleur: ch.get(l)?.niveau || 'normal', score: ch.get(l)?.score || 0, controles: controleModule(s.jours, { fraction, modele }) };
+      statut: s.statut, statut_avant: a.statut,
+      chaleur: ch.get(l)?.niveau || 'normal', score: ch.get(l)?.score || 0, controles: s.statut === 'travail' ? controleModule(s.jours, { fraction, modele }) : [] };
   });
   const apresTotal = [...parLundi.values()].reduce((s, x) => s + total(x.jours), 0);
   const erreurs = [...refus];
   if (apresTotal !== du) erreurs.push(`L’année compterait ${hm(apresTotal)} pour ${hm(du)} dues : ${hm(Math.abs(du - apresTotal))} ${du > apresTotal ? 'restent à placer' : 'sont en trop'} — retirez une exclusion, ou chargez une autre semaine.`);
-  return { du, avant: avantTotal, apres: apresTotal, changees, erreurs, en_defaut: changees.filter(c => c.controles.length).length };
+  return { du, avant: avantTotal, apres: apresTotal, changees, erreurs, avertissements, en_defaut: changees.filter(c => c.controles.length).length };
 }
 
 const nomDe = uid => essai(() => db.prepare('SELECT nom_complet, email FROM utilisateur WHERE id = ?').get(uid), null);
@@ -337,8 +373,8 @@ export function proposer(uid, annee, v, user, nomUser) {
   const plan = assistant(uid, annee, v);
   if (plan.erreurs.length || plan.en_defaut) throw Object.assign(err('La modulation ne tient pas encore : rien n’est enregistré.'), { bilan: plan });
   if (!plan.changees.length) throw err('Rien ne change.', 400);
-  const avant = Object.fromEntries(anneeDe(uid, annee).filter(s => plan.changees.some(c => c.lundi === s.lundi)).map(s => [s.lundi, s.jours]));
-  const changements = plan.changees.map(c => ({ lundi: c.lundi, jours: c.jours, avant: c.avant, apres: c.apres }));
+  const avant = Object.fromEntries(anneeDe(uid, annee).filter(s => plan.changees.some(c => c.lundi === s.lundi)).map(s => [s.lundi, { statut: s.statut, jours: s.jours }]));
+  const changements = plan.changees.map(c => ({ lundi: c.lundi, jours: c.jours, avant: c.avant, apres: c.apres, statut: c.statut, statut_avant: c.statut_avant }));
   const resume = String(v.resume || '').trim() || resumer(plan);
   const gereDirect = ['admin', 'directeur', 'directeur_adjoint'].includes(user.role) && user.id !== uid;
   const id = Number(db.prepare(`INSERT INTO tt_modulation (utilisateur_id, annee, statut, resume, changements_json, avant_json, propose_par, propose_par_id)
@@ -356,6 +392,8 @@ function resumer(plan) {
   if (recup.length) parts.push(`${recup.length} jour(s) donné(s)`);
   const chargees = plan.changees.filter(c => !c.report && c.apres > c.avant).length;
   if (chargees) parts.push(`${chargees} semaine(s) chargée(s)`);
+  const pris = plan.changees.filter(c => c.statut !== 'travail' && c.statut_avant === 'travail').length;
+  if (pris) parts.push(`${pris} semaine(s) de congé échangée(s)`);
   const rep = plan.changees.filter(c => c.report);
   if (rep.length) parts.push(`report sur ${rep.length} semaine(s)`);
   return parts.join(', ') || 'Modulation';
@@ -389,14 +427,16 @@ export function valider(id, etape, user, nomUser) {
   if (!['directeur', 'admin'].includes(user.role)) throw err('Réservé à la direction.', 403);
   if (!m.adjoint_le) throw err('La direction adjointe contrôle d’abord.');
   const avant = JSON.parse(m.avant_json), ch = JSON.parse(m.changements_json);
-  const actuel = new Map(anneeDe(m.utilisateur_id, m.annee).map(s => [s.lundi, s.jours]));
+  const actuel = new Map(anneeDe(m.utilisateur_id, m.annee).map(s => [s.lundi, { statut: s.statut, jours: s.jours }]));
+  // Les propositions d'avant 3.5.058 gardaient les seuls jours.
+  for (const k of Object.keys(avant)) if (Array.isArray(avant[k])) avant[k] = { statut: actuel.get(k)?.statut, jours: avant[k] };
   for (const c of ch) {
     if (JSON.stringify(actuel.get(c.lundi)) !== JSON.stringify(avant[c.lundi])) throw err(`La semaine du ${c.lundi} a changé depuis la proposition : à refaire.`);
     if (verrouille(m.utilisateur_id, c.lundi) || verrouille(m.utilisateur_id, plusJours(c.lundi, 6))) throw err(`La semaine du ${c.lundi} est dans un mois signé.`);
   }
-  const up = db.prepare("UPDATE tt_semaine SET jours_json = ?, genere_par = ?, genere_le = datetime('now') WHERE utilisateur_id = ? AND lundi = ?");
+  const up = db.prepare("UPDATE tt_semaine SET statut = COALESCE(?, statut), jours_json = ?, genere_par = ?, genere_le = datetime('now') WHERE utilisateur_id = ? AND lundi = ?");
   db.transaction(() => {
-    for (const c of ch) up.run(JSON.stringify(c.jours), `${nomUser} (modulation)`, m.utilisateur_id, c.lundi);
+    for (const c of ch) up.run(c.statut || null, JSON.stringify(c.jours), `${nomUser} (modulation)`, m.utilisateur_id, c.lundi);
     // Une année modulée suit les règles de l'horaire annualisé.
     db.prepare("UPDATE tt_personne SET formule = 'annualise', maj_par = ?, maj_le = datetime('now') WHERE utilisateur_id = ?").run(nomUser, m.utilisateur_id);
     db.prepare("UPDATE tt_modulation SET statut = 'acceptee', direction_par = ?, direction_le = datetime('now') WHERE id = ?").run(nomUser, id);
@@ -446,9 +486,11 @@ export function ligne(annee, { voirHeures, moi }) {
     return out;
   });
   const presents = semaines.map((l, k) => personnes.filter(p => p.semaines[k].statut === 'travail').length);
+  const ag = agenda(annee, { presentsMin: reglage(annee).presents_min });
   return {
     semaines, conges: Object.fromEntries(conges), feries: Object.fromEntries([...feries].filter(([d]) => d >= semaines[0] && d <= plusJours(semaines[51], 6))),
     chaleur: chaleur(annee), moments: moments(annee), types_moment: TYPES_MOMENT, personnes, presents,
     presents_min: reglage(annee).presents_min, rt_variable: reglage(annee).rt_variable,
+    agenda: { cours: ag.cours, fermetures: ag.fermetures, jours_fermes: ag.jours_fermes, besoin: ag.besoin, sections: ag.sections.map(x => ({ section: x.section, actives: x.semaines.map(y => (y.actif ? 1 : 0)) })) },
   };
 }
