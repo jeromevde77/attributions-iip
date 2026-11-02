@@ -201,12 +201,15 @@ export function modeleSemaine(formule, fraction = 1, jourLibre = 4) {
     return { debut: deb, fin: f(fin), ...(avecPause ? { pause_debut: '12:00', pause_fin: '12:30' } : {}) };
   };
   const total = Math.round(REGLES.hebdo * fraction);
+  // Le reste de la division va aux premiers jours : à 80 %, 28 h 48 = 4 × 5 h 46 + 5 h 44, et non 5 × 5 h 46 (3.5.057 : une
+  // minute de trop par jour, et l'année entière était refusée).
+  const repartir = (n, idx) => { const base = Math.floor(total / n); let reste = total - base * n; return idx.map(() => base + (reste-- > 0 ? 1 : 0)); };
   if (formule === '4j') {
-    const parJour = Math.round(total / 4);
-    return Array.from({ length: 7 }, (_, i) => (i < 5 && i !== jourLibre ? jour('08:00', parJour) : null));
+    const idx = [0, 1, 2, 3, 4].filter(i => i !== jourLibre), m = repartir(4, idx);
+    return Array.from({ length: 7 }, (_, i) => (idx.includes(i) ? jour('08:00', m[idx.indexOf(i)]) : null));
   }
-  const parJour = Math.round(total / 5);
-  return Array.from({ length: 7 }, (_, i) => (i < 5 ? jour('08:30', parJour) : null));
+  const m = repartir(5, [0, 1, 2, 3, 4]);
+  return Array.from({ length: 7 }, (_, i) => (i < 5 ? jour('08:30', m[i]) : null));
 }
 
 const totalSemaine = jours => (jours || []).reduce((s, j) => s + dureeJour(j), 0);
@@ -392,7 +395,7 @@ export function releve(uid, annee, mois) {
     const plan = s?.statut === 'travail' ? s.jours[i] : null;
     const p = dureeJour(plan);
     const e = ecarts.get(jour);
-    let r = p, etat = s ? (s.statut === 'travail' ? (plan ? 'prevu' : 'libre') : s.statut) : 'hors';
+    let r = p, etat = s ? (s.statut === 'travail' ? (plan?.recup ? 'recup' : plan ? 'prevu' : 'libre') : s.statut) : 'hors';
     if (feries.has(jour) && plan) { etat = 'ferie'; }
     if (e?.type === 'reel') { r = dureeJour(e); etat = 'reel'; }
     if (e?.type === 'absence') { r = ABSENCES[e.motif]?.compte ? p : 0; etat = 'absence'; }
@@ -492,7 +495,7 @@ export function planningEquipe(annee, mois) {
   return {
     jours, presents_min: R.presents_min,
     personnes: parPersonne.map(g => ({ id: g.id, nom: g.nom, email: g.email,
-      jours: g.rel.jours.filter(j => (s2d(j.jour).getUTCDay() + 6) % 7 < 5).map(j => ({ jour: j.jour, etat: j.etat, present: j.reel > 0 && j.etat !== 'absence', plan: j.plan ? `${j.plan.debut}–${j.plan.fin}` : null })) })),
+      jours: g.rel.jours.filter(j => (s2d(j.jour).getUTCDay() + 6) % 7 < 5).map(j => ({ jour: j.jour, etat: j.etat, present: j.reel > 0 && j.etat !== 'absence', plan: j.plan?.debut ? `${j.plan.debut}–${j.plan.fin}` : null })) })),
   };
 }
 
