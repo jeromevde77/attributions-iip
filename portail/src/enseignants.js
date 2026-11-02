@@ -45,6 +45,7 @@ export function monterEnseignants(pub, int, o) {
     CREATE TABLE IF NOT EXISTS ens_attente (ens_id INTEGER PRIMARY KEY, contenu TEXT);
     CREATE TABLE IF NOT EXISTS ens_reglage (cle TEXT PRIMARY KEY, valeur TEXT);
     CREATE TABLE IF NOT EXISTS ens_tableau (ens_id INTEGER PRIMARY KEY, contenu TEXT);
+    CREATE TABLE IF NOT EXISTS ens_texte (version_id INTEGER PRIMARY KEY, titre TEXT, numero INTEGER, publiee_le TEXT, html TEXT, source_url TEXT);
     CREATE TABLE IF NOT EXISTS ens_apercu_jeton (jeton_hash TEXT PRIMARY KEY, ens_id INTEGER NOT NULL, par TEXT,
       expire_le TEXT NOT NULL, utilise_le TEXT);
     CREATE TABLE IF NOT EXISTS ens_geste (id INTEGER PRIMARY KEY AUTOINCREMENT, ens_id INTEGER NOT NULL, type TEXT NOT NULL,
@@ -242,6 +243,34 @@ export function monterEnseignants(pub, int, o) {
       ues: (t.ues || []).map(u => ({ ue_num: u.ue_num, ue_nom: u.ue_nom, section: u.section, due_statut: u.due_statut, a_due: !!u.due_html,
         cours: u.cours.map(c => ({ code: c.code, nom: c.nom, etudiants: c.etudiants.map(e => ({ ...e, nom: noms.get(e.id)?.nom || '', prenom: noms.get(e.id)?.prenom || '' })) })) })) });
   });
+  // ── LES TEXTES DE L'ÉCOLE (3.5.088) : les lire ici pose « présenté », « Je confirme » pose « confirmé » — Lucie les relève. ──
+  const geste = (ens, type, contenu) => db.prepare('INSERT INTO ens_geste (ens_id, type, contenu) VALUES (?,?,?)').run(ens, type, JSON.stringify(contenu));
+  const etatTexte = (ens, vid) => {
+    const t = (tableau(ens)?.textes || []).find(x => Number(x.version_id) === Number(vid));
+    if (!t) return null;
+    const g = db.prepare(`SELECT type, MIN(cree_le) le FROM ens_geste WHERE ens_id = ? AND type IN ('texte_ouvert','texte_confirme') AND json_extract(contenu, '$.version_id') = ? GROUP BY type`).all(ens, Number(vid));
+    const vu = Object.fromEntries(g.map(x => [x.type, x.le]));
+    return { ...t, ouvert_le: t.ouvert_le || vu.texte_ouvert || null, confirme_le: t.confirme_le || vu.texte_confirme || null };
+  };
+  pub.get('/api/enseignant/textes', connecte, (req, res) => {
+    res.json((tableau(req.ens.id)?.textes || []).map(t => etatTexte(req.ens.id, t.version_id)));
+  });
+  pub.get('/api/enseignant/texte/:vid', connecte, (req, res) => {
+    const e = etatTexte(req.ens.id, req.params.vid);
+    const t = e && db.prepare('SELECT * FROM ens_texte WHERE version_id = ?').get(Number(req.params.vid));
+    if (!t) return res.status(404).json({ error: 'Texte introuvable.' });
+    // Servi, donc présenté — sauf à l'aperçu de la direction, qui ne compte jamais comme lu.
+    if (!req.apercu && !e.ouvert_le) { geste(req.ens.id, 'texte_ouvert', { version_id: t.version_id, le: maintenant() }); e.ouvert_le = maintenant(); }
+    res.json({ ...e, numero: t.numero, publiee_le: t.publiee_le, html: t.html, source_url: t.source_url });
+  });
+  pub.post('/api/enseignant/texte/:vid/confirmer', connecte, (req, res) => {
+    const e = etatTexte(req.ens.id, req.params.vid);
+    if (!e) return res.status(404).json({ error: 'Texte introuvable.' });
+    if (e.confirme_le) return res.json({ ok: true, confirme_le: e.confirme_le });
+    if (!e.ouvert_le) return res.status(409).json({ error: 'Ouvrez d’abord le texte : on ne confirme que ce qui a été présenté.' });
+    geste(req.ens.id, 'texte_confirme', { version_id: Number(req.params.vid), le: maintenant() });
+    res.json({ ok: true, confirme_le: maintenant() });
+  });
   pub.get('/api/enseignant/due/:ue', connecte, (req, res) => {
     const u = (tableau(req.ens.id)?.ues || []).find(x => Number(x.ue_num) === Number(req.params.ue));
     if (!u?.due_html) return res.status(404).json({ error: 'DUE introuvable pour cette unité.' });
@@ -308,6 +337,9 @@ export function monterEnseignants(pub, int, o) {
     const b = req.body || {};
     db.transaction(() => {
       db.exec('DELETE FROM ens; DELETE FROM ens_seance; DELETE FROM ens_inscrit; DELETE FROM ens_etudiant; DELETE FROM ens_attente; DELETE FROM ens_tableau;');
+      db.exec('DELETE FROM ens_texte');
+      const itx = db.prepare('INSERT OR REPLACE INTO ens_texte (version_id, titre, numero, publiee_le, html, source_url) VALUES (?,?,?,?,?,?)');
+      for (const t of b.textes || []) if (Number(t.version_id)) itx.run(Number(t.version_id), String(t.titre || ''), Number(t.numero) || null, t.publiee_le || null, String(t.html || ''), t.source_url || null);
       const it = db.prepare('INSERT OR REPLACE INTO ens_tableau (ens_id, contenu) VALUES (?,?)');
       for (const t of b.tableaux || []) if (Number(t.ens_id)) it.run(Number(t.ens_id), JSON.stringify(t.contenu || {}));
       const ie = db.prepare("INSERT INTO ens (id, nom, prenom, email, maj_le, apercu_seul) VALUES (?,?,?,?, datetime('now'), ?)");
@@ -323,8 +355,8 @@ export function monterEnseignants(pub, int, o) {
       const iet = db.prepare('INSERT OR REPLACE INTO ens_etudiant (id, nom, prenom, groupe) VALUES (?,?,?,?)');
       for (const e of b.etudiants || []) iet.run(Number(e.id), String(e.nom || ''), String(e.prenom || ''), e.groupe || null);
       // Les présences de Lucie font foi, sauf celles qu'un geste non encore relevé vient de poser.
-      const pendants = new Set(db.prepare('SELECT seance_id FROM ens_geste WHERE releve_le IS NULL').all().map(x => x.seance_id));
-      db.exec('DELETE FROM ens_presence WHERE seance_id NOT IN (SELECT seance_id FROM ens_geste WHERE releve_le IS NULL)');
+      const pendants = new Set(db.prepare('SELECT seance_id FROM ens_geste WHERE releve_le IS NULL AND seance_id IS NOT NULL').all().map(x => x.seance_id));
+      db.exec('DELETE FROM ens_presence WHERE seance_id NOT IN (SELECT seance_id FROM ens_geste WHERE releve_le IS NULL AND seance_id IS NOT NULL)');
       const ip = db.prepare(`INSERT OR REPLACE INTO ens_presence (seance_id, etudiant_id, statut, retard, motif) VALUES (?,?,?,?,?)`);
       for (const p of b.presences || []) if (!pendants.has(Number(p.seance_id))) ip.run(Number(p.seance_id), Number(p.etudiant_id), p.statut || null, p.retard ? 1 : 0, p.motif || null);
       const ia = db.prepare('INSERT INTO ens_attente (ens_id, contenu) VALUES (?,?)');
