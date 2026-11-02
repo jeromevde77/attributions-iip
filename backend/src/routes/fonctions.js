@@ -3,7 +3,8 @@ import { Router } from 'express';
 import { authRequired } from '../middleware/auth.js';
 import { litLaConfiguration } from '../middleware/permissions.js';
 import { reglagesFonctions, reglerFonctions, fonctionPour, CATALOGUE } from '../lib/fonctions.js';
-import { deposerBientot } from '../lib/portailSync.js';
+import { deposerBientot, portailActif } from '../lib/portailSync.js';
+import db from '../db/index.js';
 import { deposerHistorique } from '../lib/depotHistorique.js';
 
 const r = Router();
@@ -14,7 +15,15 @@ const direction = (req, res, next) => (DIRECTION.includes(req.user?.role) || (re
 
 // Ce qui vaut pour le compte connecté (l'écran cache ce qui est éteint pour lui).
 r.get('/moi', authRequired, (req, res) => {
-  res.json(Object.fromEntries(CATALOGUE.filter(c => c.famille === 'personnel').map(c => [c.cle, fonctionPour(c.cle, { userId: req.user.id })])));
+  const f = Object.fromEntries(CATALOGUE.filter(c => c.famille === 'personnel').map(c => [c.cle, fonctionPour(c.cle, { userId: req.user.id })]));
+  /* LE PONT VERS L'ESPACE ENSEIGNANT (3.5.078, Charles : « s'il détecte que c'est un prof, qu'il le redirige vers son espace
+     et explique ») : l'adresse n'est donnée que si l'espace lui est ouvert, que son compte est relié à une fiche de
+     professeur et que le portail est installé — sinon, rien ne s'affiche. */
+  const relie = !!db.prepare('SELECT professeur_id FROM utilisateur WHERE id = ?').get(req.user.id)?.professeur_id;
+  if (f['enseignant.espace'] && relie && portailActif()) {
+    f.espace_enseignant_url = (process.env.ENSEIGNANTS_URL_PUBLIQUE || 'https://enseignants.lucie-iip.be').replace(/\/$/, '');
+  }
+  res.json(f);
 });
 r.get('/', authRequired, direction, (req, res) => res.json(reglagesFonctions()));
 r.put('/', authRequired, direction, (req, res) => {

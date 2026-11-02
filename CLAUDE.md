@@ -3332,6 +3332,104 @@ l'année dans le périmètre, jury, remises, `en_retard`, décision de l'UE d'é
 universel, cela, de se refermer ») : écrit UNE fois dans `RailDessine` (`ui.jsx`, `replies`, `basculerTiroir`) — une entrée qui
 montre son tiroir le replie, un second clic le rouvre, un tiroir disparu est oublié. Vaut pour tous les rails : axes (laboratoire,
 horaires, unité, PAE), Gestion, Configuration. Un écran ne gère plus l'ouverture de son tiroir au clic.
+**Le mode d'emploi et « Quoi de neuf » à jour** (3.5.072, Charles : « mets à jour l'aide, le mode d'emploi ») : points de
+`guide/nouveautes.js` pour Organisation (rail, Stages ×4, TFE ×5), Gestion (Qui fait quoi), Équipe (responsable par type,
+échéances constatées), Pour commencer (tiroir) ; captures `stages-*`, `tfe-*`, `gestion-qui-fait-quoi` (base d'essai). Dans
+`2026-11.html`, les nouveautés récentes ont leur onglet « Les dernières nouveautés » : elles s'étaient rangées sous « Ce que
+Lucie refuse désormais ».
+**Stages et TFE pour toute coordination** (3.5.073, Charles : « Moiny n'a pas accès aux stages, pourtant elle est coordinatrice » ;
+tranché : toute coordination, quelles que soient ses cases). Écran : rubriques `roles: STAGES_TFE` (`Organisation.jsx`), axe Organisation
+ouvert aussi par le rôle (5e élément d'`AXES`, `App.jsx`). Serveur : `garderModuleSauf(prefixe, ['coordination'])` (`garde.js`) sur
+`/api/stages` et `/api/tfe` — les routes posent leurs rôles et le périmètre. Au passage : un sous-menu d'`Axe` ne fait plus revenir
+une rubrique que le rôle ne voit pas (laboratoire, horaires, unité paraissaient chez une coordination sans Organisation).
+**La fiche d'un stage porte le professeur de stage et la vaccination** (3.5.074, Charles : « explique comment ça marche pour encoder
+un stage ») : `piecesDuStage` les exigeait, seule l'affectation en lot posait le professeur et rien ne cochait la vaccination
+(`components/Stages.jsx`, liste de `GET /api/stages/choix`). Guide : « Encoder un stage, pas à pas », « Qui encode un TFE ? »,
+« Qui a accès à quoi : les écrans de novembre ». **Le promoteur et le jury n'ont pas encore d'écran** : à prévoir avec l'espace enseignant.
+**Le rail Étudiants par étape du parcours** (3.5.075, Charles, maquette validée après la carte de la navigation) : `ordreRail`
+Inscrire (créer, contrôler, PAE, extraits) · Accompagner (VA, AR, suivi des présences, écrire) · Évaluer (délibération) · Recours
+(procédures) · purge ; tiroirs PAE (composer, revue, PAE en ligne, inscrits par UE, refus 2e session), Délibération (rapide,
+contrôles, où sont les notes, règles, reports — `hote: 'pae'` par enfant) et Procédures. **`outilsPermanents` d'`Axe`** : un outil
+qu'un écran monte garde sa place dans tout l'axe ; ailleurs, un clic ouvre son hôte et le lance (`lucie.outil`). Les visites de stage
+quittent le rail. Noms : Configuration « Journal des modifications » (ex-« Qui a fait quoi »), labo « 1. Le schéma », Mes cours
+« Mes cours de l'année » ; icônes uniques au labo.
+**L'ESPACE ENSEIGNANT, ÉTAPE 1** (3.5.076, Charles, 2 novembre 2026 : logigramme et maquette validés ; tranché : site à part
+derrière le mur, DANS le portail existant, à son adresse enseignants.lucie-iip.be ; mot de passe propre + code sur un nouvel
+appareil ; étape 1 = entrée, Ma journée, présences, horaire ; une coordination qui enseigne aura une bascule ; puis Mes TFE,
+notes et carnet, stages, avis, messages, textes, fiche). Portail : `portail/src/enseignants.js` (`monterEnseignants`, tables
+`ens_*` à part, routes `/api/enseignant/*`, port interne `/interne/ens/depot|releve|acquitter`). Lucie : `lib/portailEnseignants.js`
+(dépôt : comptes actifs reliés à une fiche de professeur ET fonction `enseignant.espace` ouverte — Mise en service —, leurs
+séances de J-30 à J+21 par `seancesPourEspace` (règle de Mes cours), inscrits, présences, motifs de `MOTIFS_JUSTIFIES` ;
+relevé : lien et code composés par Lucie, présences jugées par `presencesDepuisEspace` → `ecrirePresences`, au nom
+« NOM Prénom (espace enseignant) »), branché dans `passerPortail`. Site : `frontend/enseignants.html`, `src/enseignant/`,
+même construction que le site des étudiants (`vite.portail.config.js`, deux entrées) ; nginx du portail choisit la page
+d'après le nom (`map $host`). Mise en place pour Jérôme : `scripts/vps/ESPACE-ENSEIGNANT.md` (DNS, Caddy, une variable).
+**Le QR de présence et le ticket restent dans Lucie** (le jeton se signe de la clé de Lucie, que le portail n'a pas).
+**Les kilomètres se cherchent en Belgique** (3.5.077, Charles, capture : « waterloo » → 4 042 km ; « ne faut-il pas la base de la
+Poste ? ») : `geocoder` (`lib/distanceRoute.js`) passe `countrycodes=be` puis les voisins à Nominatim, filtre Photon sur BE/FR/NL/LU/DE ;
+au-delà de 400 km aller, refus « adresse mal comprise » ; les points d'avant sont oubliés une fois (`geo_version`). Le départ
+« autre » d'une visite se saisit par `ChampsAdresse` (code postal bpost → localité → rue BeST), recomposé en `depart_texte`.
+**L'ÉCRIT ET L'ORAL DE L'ÉPREUVE INTÉGRÉE : LE CARNET, ACQUIS PAR ACQUIS** (3.5.078, Charles : « certains cours ou lignes
+d'attribution ne sont pas des cours mais de l'encadrement ; on donne une note pour l'écrit et l'oral, obtenue par les AA liés » ;
+tranché : le carnet tel qu'il existe, une note PAR ACQUIS, créé par la coordination et le titulaire, le promoteur encode la fiche
+du TFE). `carnet_evaluation.par_acquis` + `carnet_note_aa` (`lib/carnet.js` : `notesParAcquis`, `noteDEnsemble` ; `propositions`
+lit la note de chaque acquis d'une évaluation par acquis) ; la note d'ensemble est réécrite dans `carnet_note` à chaque saisie
+(moyenne, Excel). Rien ne change au calcul de la délibération : la reprise dans la feuille reste la porte. Banc `test/carnet.mjs`
+(22 ok). **Le pont** : un professeur dont l'espace enseignant est ouvert (fonction + compte relié + portail installé :
+`espace_enseignant_url` de `GET /api/fonctions/moi`) voit à son arrivée `PontEspaceEnseignant` (une fois par session) ;
+une coordination non. **Reste pour Mes TFE** : la fiche de notation dans l'espace enseignant (promoteur), versée dans ce carnet.
+
+**LES FICHES D'ÉVALUATION DU TFE ET DES STAGES** (3.5.079, Charles, 2 novembre 2026 : « paramétrable en ligne par la
+coordination TFE ou cursus ou la personne en charge des TFE ; de même pour les stages » ; « une fiche pour le lieu de stage, une
+pour le superviseur, etc. »). Organisation → TFE et → Stages, face *Fiches d'évaluation* (`components/FichesEvaluation.jsx`,
+`routes/fichesEvaluation.js` sur `/api/fiches-evaluation`, tables `fiche_modele`, `fiche_critere`, `fiche_responsable`). Une fiche
+(par UE et année : épreuve intégrée pour le TFE, UE à cours `is_stage` pour les stages) = nom, qui la remplit (`REMPLI_PAR` :
+promoteur, copromoteur, lecteur, président, jury ; superviseur, maître de stage, étudiant), moment, sur, poids, cours qui porte la
+note, critères (acquis du cours, poids, consigne). **Elle s'écrit comme une évaluation `par_acquis` du carnet** (`evaluation_id`) :
+aucune seconde source de notes. Règlent : direction, coordination de la section, responsables désignés par section et domaine
+(désignés par la direction ou la coordination). Gardes du carnet : fiche notée non supprimable, acquis noté non retirable, pas de
+changement de cours. **À venir** : le remplissage depuis l'espace enseignant (promoteur, jury, superviseur) ; une porte pour le
+maître de stage (sans compte : encodé par le superviseur en attendant) ; un responsable sans accès à Organisation (professeur) ne
+voit pas encore la face.
+
+**MON TFE ET MON STAGE DANS L'ESPACE DE L'ÉTUDIANT** (3.5.081, Charles, 2 novembre 2026 : « un onglet stage et un onglet
+TFE, avec des infos ; pour le TFE il pourrait y entrer sa question de recherche » ; tranché : tout ce qui était proposé, deux
+fonctions nées éteintes). Fonctions `espace.tfe`, `espace.stage` (`lib/fonctions.js`). Lucie : `lib/portailTfeStage.js` —
+`tfePortail`, `stagePortail` déposés avec le lot de l'étudiant (`deposerVA` → `/interne/va`, colonnes `tfe`, `stage` d'`espace_lot`
+du portail) ; gestes `ts_geste` du portail (question, remise ; la remise ne vit là que jusqu'au relevé) relevés par `relever`
+(`r.ts`, `/interne/ts/piece/:id`) et jugés par `appliquerGesteTfe`. **La question n'est qu'une proposition** (`tfe_question` :
+proposée → acceptée, elle devient `tfe.question_recherche`, ou renvoyée avec un mot) ; une remise déposée = fichier sous
+`DATA_DIR/tfe/<id>` (`tfe_depot`) et `tfe_remise` reçue au jour du dépôt, au nom de l'étudiant (un second dépôt ne déplace pas
+la date). Coordination de la section et promoteur/copromoteur (compte relié) prévenus (`lucie_notification` type `tfe_espace`).
+Fiche → onglet TFE (`components/Tfe.jsx`, `DepuisLEspace`) : Accepter, Renvoyer avec un mot (`POST /api/tfe/question/:qid`),
+ouvrir un dépôt (`GET /api/tfe/depot/:id`). Écran étudiant : `frontend/src/portail/TfeStage.jsx`. Un stage terminé ne
+réclame plus de pièces. nginx du site étudiant : 26 Mo aussi sur `/api/portail/tfe/remise`.
+
+**TOUTES LES ANNEXES DE LA CIRCULAIRE 9760 DEVIENNENT DES FENÊTRES** (3.5.083, Charles, 2 novembre 2026 : « tu dois intégrer
+TOUS les documents pour qu'ils deviennent des fenêtres, et ensuite imprimer, comme le EA12 » ; tranché : une seule mécanique pour
+toutes ; à vérifier d'abord A2, A3, A5, A7, A8, A18, A14, A15, A29-A33). `services/annexesLibres.js` : `detecter(x)` lit le
+modèle Word UNE FOIS REMPLI de ce que Lucie sait (`remplirIdentite` + `SPECIFIQUES`) et rend les blancs qui restent — `texte`
+(pointillés, soulignés, « _ _ /_ _ /20_ _ »), `cellule` (case vide, nommée par sa voisine de gauche ou par l'en-tête de sa colonne :
+`nomDeColonne`, géométrie des largeurs `tcW`, sous-colonnes « du / au », numéro de ligne compté depuis le dernier rang d'en-tête),
+`grille` (≥ 4 cases étroites vides côte à côte), `case` (case à cocher, nommée par le texte qui suit, sinon qui précède) ;
+signatures et cachets écartés. Identifiant = type + libellé normalisé + rang parmi les mêmes : une saisie retrouve sa place si
+Lucie apprend à remplir un autre blanc. `appliquer(x, valeurs)` écrit de la fin vers le début. Routes `GET/PUT
+/api/formulaires/:cle/libres` (annexe_saisie, clé `libres`, au nom de la personne connectée) ; `remplirAnnexe` pose `d.libres`
+(`donneesCompletes`, donc aussi la série). Écran `components/FenetreAnnexe.jsx` (blancs d'un même tableau en tableau, cases à
+cocher en ligne, Word et aperçu PDF au bandeau), ouvert par l'avion des « Autres annexes » d'Éditions → Personnel (`fenetre` de
+`GET /api/formulaires`). L'A1 ter et l'A27 gardent `SaisieAnnexe`. **L'A27 ne garde que les blocs d'UE remplis** (3.5.082).
+**Le PDF des annexes passe par LibreOffice**, ajouté à l'image du serveur en 3.5.080 (`libreoffice-writer-nogui`).
+
+**VOIR L'ESPACE D'UN PROFESSEUR, ET L'ŒIL DE LA BARRE BLEUE** (3.5.084, Charles, 2 novembre 2026 : « comme pour les étudiants,
+je dois pouvoir voir l'espace de chaque prof — depuis sa fiche » ; « dans la barre bleue, le petit œil, si on a accès à son
+portail : la direction »). Le mécanisme de l'aperçu étudiant (3.1.518, 3.5.023) repris pour l'espace enseignant : `ens_apercu`
+dans Lucie (trace, 30 min) ; `aDeposer()` (`lib/portailEnseignants.js`) dépose aussi le professeur ouvert en aperçu, fonction
+éteinte ou sans compte (identifiant d'espace = son compte relié, sinon `-id` de sa fiche ; `profDe` lit `apercuProfId`), marqué
+`apercu_seul` (aucune porte de l'espace ne l'admet) ; `ouvrirApercuEnseignant` (`portailSync.js`) → `/interne/ens/apercu` →
+lien d'une minute à usage unique, échangé par `POST /api/enseignant/apercu` contre 30 min en lecture seule (`connecte` refuse
+tout sauf GET, sans contrôle de la Belgique) ; bandeau « Aperçu de la direction ». Route `POST /api/espace-enseignant/:profId/apercu`
+(direction). **L'œil** (`OutilFenetre` `IconEye`, `lib/voirEspace.js`) dans la barre bleue de la fiche du personnel (consultation
+et modification) et de la fiche de l'étudiant, pour la direction (`passeRole('admin')`).
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en

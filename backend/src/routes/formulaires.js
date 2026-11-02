@@ -9,7 +9,7 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
-import { ANNEXES, remplirAnnexe } from '../services/formulairesFWB.js';
+import { ANNEXES, remplirAnnexe, blancsAnnexe } from '../services/formulairesFWB.js';
 
 const r = Router();
 const PEUT = roleRequired('admin', 'editeur');
@@ -264,7 +264,9 @@ function manques(cle, v) {
 /** Les données d'une annexe : ce que Lucie sait, puis ce qui a été saisi. */
 function donneesCompletes(cle, profId, annee, mois) {
   const d = donnees(cle, profId, annee, mois);
-  if (!SAISISSABLES.includes(cle) || !d.membre) return { d, manques: [] };
+  // Les autres annexes (3.5.083) : ce qui a été tapé dans leur fenêtre s'écrit dans leurs blancs.
+  if (!SAISISSABLES.includes(cle)) { const s = d.membre ? saisieDe(cle, profId, annee, mois) : null; return { d: { ...d, libres: s?.donnees?.libres || {} }, manques: [] }; }
+  if (!d.membre) return { d, manques: [] };
   const s = saisieDe(cle, profId, annee, mois);
   const valeurs = s ? { ...proposition(cle, profId, annee, mois), ...s.donnees } : proposition(cle, profId, annee, mois);
   return { d: { ...d, ...valeurs }, manques: s ? manques(cle, valeurs) : ['vérifiez ce que Lucie propose dans la fenêtre de la pièce, puis enregistrez'] };
@@ -302,6 +304,48 @@ r.put('/:cle/saisie', authRequired, PEUT, (req, res) => {
       modifie_par = excluded.modifie_par, modifie_le = excluded.modifie_le`)
     .run(cle, Number(professeur_id), annee, moisCle(cle, mois), JSON.stringify(valeurs), par);
   res.json({ ok: true, manques: manques(cle, valeurs) });
+});
+
+/* TOUTES LES ANNEXES EN FENÊTRE (3.5.083, Charles : « intégrer TOUS les documents pour qu'ils deviennent des fenêtres, et
+   ensuite imprimer, comme l'EA12 » ; tranché : une seule mécanique). Lucie lit les blancs qui restent dans le modèle une fois
+   rempli de ce qu'elle sait (services/annexesLibres.js) ; ce qu'on y tape s'enregistre (annexe_saisie, clé « libres ») au nom
+   de la personne connectée, et la pièce le porte. L'A1 ter et l'A27 gardent leur fenêtre écrite à la main. */
+r.get('/:cle/libres', authRequired, PEUT, async (req, res) => {
+  const { cle } = req.params;
+  const a = ANNEXES.find(z => z.cle === cle);
+  if (!a || SAISISSABLES.includes(cle)) return res.status(404).json({ error: 'Annexe inconnue.' });
+  const profId = Number(req.query.professeur_id), annee = String(req.query.annee || ''), mois = req.query.mois;
+  if (!profId || !annee) return res.status(400).json({ error: 'professeur_id et annee requis' });
+  if (a.mois && !mois) return res.status(400).json({ error: 'Choisissez le mois.' });
+  const d = donnees(cle, profId, annee, mois);
+  if (!d.membre) return res.status(404).json({ error: 'Membre introuvable' });
+  try {
+    const champs = await blancsAnnexe(cle, d);
+    const s = saisieDe(cle, profId, annee, mois);
+    res.json({ cle, titre: a.titre, champs, valeurs: s?.donnees?.libres || {}, enregistre: s ? { par: s.modifie_par, le: s.modifie_le } : null });
+  } catch (e) { res.status(500).json({ error: `Le modèle n'a pas pu être lu : ${e.message}` }); }
+});
+r.put('/:cle/libres', authRequired, PEUT, (req, res) => {
+  const { cle } = req.params;
+  const a = ANNEXES.find(z => z.cle === cle);
+  if (!a || SAISISSABLES.includes(cle)) return res.status(404).json({ error: 'Annexe inconnue.' });
+  const { professeur_id, annee, mois, valeurs } = req.body || {};
+  if (!professeur_id || !annee || !valeurs || typeof valeurs !== 'object') return res.status(400).json({ error: 'professeur_id, annee et valeurs requis' });
+  if (!membre(Number(professeur_id))) return res.status(404).json({ error: 'Membre introuvable' });
+  const propres = {};
+  for (const [k, v] of Object.entries(valeurs).slice(0, 2000)) {
+    if (typeof k !== 'string' || k.length > 120) continue;
+    if (v === true) propres[k] = true;
+    else if (v != null && String(v).trim()) propres[k] = String(v).slice(0, 2000);
+  }
+  const avant = saisieDe(cle, Number(professeur_id), annee, mois)?.donnees || {};
+  const par = req.user?.nom || req.user?.email || null;
+  db.prepare(`INSERT INTO annexe_saisie (cle, professeur_id, annee_scolaire, mois, donnees_json, modifie_par, modifie_le)
+      VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+    ON CONFLICT (cle, professeur_id, annee_scolaire, mois) DO UPDATE SET donnees_json = excluded.donnees_json,
+      modifie_par = excluded.modifie_par, modifie_le = excluded.modifie_le`)
+    .run(cle, Number(professeur_id), annee, moisCle(cle, mois), JSON.stringify({ ...avant, libres: propres }), par);
+  res.json({ ok: true, enregistre: { par, le: new Date().toISOString() } });
 });
 
 /* EN SÉRIE : plusieurs annexes pour plusieurs membres, dans une archive ZIP —
@@ -372,7 +416,7 @@ r.post('/lot', authRequired, PEUT, async (req, res) => {
 });
 
 r.get('/', authRequired, PEUT, (_req, res) => {
-  res.json(ANNEXES.map(({ cle, titre, usage, mois, ea12 }) => ({ cle, titre, usage, mois: !!mois, ea12: !!ea12, saisie: SAISISSABLES.includes(cle) })));
+  res.json(ANNEXES.map(({ cle, titre, usage, mois, ea12 }) => ({ cle, titre, usage, mois: !!mois, ea12: !!ea12, saisie: SAISISSABLES.includes(cle), fenetre: !ea12 && !SAISISSABLES.includes(cle) })));
 });
 
 r.get('/:cle', authRequired, PEUT, async (req, res) => {

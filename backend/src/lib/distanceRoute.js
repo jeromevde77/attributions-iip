@@ -27,8 +27,20 @@ export function migrerDistances(base = db) {
       calcule_le TEXT DEFAULT (datetime('now')),
       PRIMARY KEY (depart, arrivee)
     );
+    CREATE TABLE IF NOT EXISTS geo_version (v INTEGER PRIMARY KEY);
   `);
+  /* LA BELGIQUE D'ABORD (3.5.077, Charles : « waterloo » donnait 4 042 km — un Waterloo à l'étranger). Les points trouvés
+     avant cette règle ne valent plus : on les oublie une fois, ils se recalculent. */
+  if (!base.prepare('SELECT 1 FROM geo_version WHERE v = 1').get()) {
+    base.exec('DELETE FROM geo_adresse; DELETE FROM distance_route; INSERT INTO geo_version (v) VALUES (1);');
+  }
 }
+
+/* Une adresse se cherche en Belgique d'abord, puis chez nos voisins (un lieu de stage frontalier) ; jamais plus loin. */
+const PAYS = ['be', 'be,fr,nl,lu,de'];
+const PAYS_PHOTON = new Set(['BE', 'FR', 'NL', 'LU', 'DE']);
+/** Au-delà, une distance de visite de stage est une adresse mal comprise, pas un trajet. */
+const KM_ALLER_MAX = 400;
 
 const UA = 'Lucie-IIP/1.0 (gestion academique, Institut Ilya Prigogine)';
 const norm = a => String(a || '').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -62,15 +74,19 @@ export async function geocoder(adresse) {
     if (pt) break;
     try {
       await attendre();
-      const j = await json(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(q)}`);
-      repondu = true;
-      if (j?.[0]) { pt = { lat: Number(j[0].lat), lon: Number(j[0].lon) }; source = 'nominatim'; }
+      for (const pays of PAYS) {
+        if (pt) break;
+        if (pays !== PAYS[0]) await attendre();
+        const j = await json(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=${pays}&q=${encodeURIComponent(q)}`);
+        repondu = true;
+        if (j?.[0]) { pt = { lat: Number(j[0].lat), lon: Number(j[0].lon) }; source = 'nominatim'; }
+      }
     } catch { /* repli */ }
     if (pt) break;
     try {
-      const j = await json(`https://photon.komoot.io/api/?limit=1&q=${encodeURIComponent(q)}`);
+      const j = await json(`https://photon.komoot.io/api/?limit=5&lat=50.83&lon=4.35&q=${encodeURIComponent(q)}`);
       repondu = true;
-      const c = j?.features?.[0]?.geometry?.coordinates;
+      const c = (j?.features || []).find(f => PAYS_PHOTON.has(String(f?.properties?.countrycode || '').toUpperCase()))?.geometry?.coordinates;
       if (c) { pt = { lat: Number(c[1]), lon: Number(c[0]) }; source = 'photon'; }
     } catch { /* rien */ }
   }
@@ -99,6 +115,7 @@ export async function kmAllerRetour(depart, arrivee) {
     const m = j?.routes?.[0]?.distance;
     if (!(m >= 0)) return { km_ar: null, raison: 'itinéraire introuvable' };
     const aller = Math.round(m / 100) / 10;
+    if (aller > KM_ALLER_MAX) return { km_ar: null, raison: `itinéraire de ${Math.round(aller * 2)} km aller-retour : l'adresse a sans doute été mal comprise — précisez le code postal et la rue` };
     db.prepare(`INSERT INTO distance_route (depart, arrivee, km_aller) VALUES (?, ?, ?)
       ON CONFLICT(depart, arrivee) DO UPDATE SET km_aller = excluded.km_aller, calcule_le = datetime('now')`).run(a, b, aller);
     return { km_ar: Math.round(aller * 2) };

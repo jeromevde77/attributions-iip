@@ -1138,7 +1138,7 @@ export default function Configuration() {
       { key: 'transferts', label: 'Transferts', icon: IconArrowsExchange },
       { key: 'systeme', label: 'Traces et historique', icon: IconHistory },
       { key: 'registre-envois', label: 'Registre des envois', icon: IconMailForward },
-      { key: 'audit', label: 'Qui a fait quoi', icon: IconUserSearch },
+      { key: 'audit', label: 'Journal des modifications', icon: IconUserSearch },
       { key: 'changelog', label: 'Nouveautés', icon: IconSparkles },
     ]},
     /* CE QUI N'EST PAS UN RÉGLAGE. Des outils, une file de travail, des

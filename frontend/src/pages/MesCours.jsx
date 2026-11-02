@@ -3,7 +3,7 @@ import { ouvrirApercu } from '../lib/apercu.js';
 import { IconChalkboard } from '@tabler/icons-react';
 import { couleurBloc, rangBloc } from '../lib/blocs.js';
 import { useEffect, useState } from 'react';
-import { IconChartHistogram, IconBooks, IconChevronLeft, IconAlertTriangle, IconMessageCircle, IconPrinter, IconCertificate, IconAccessible, IconPencil, IconUserCheck, IconFileDescription, IconTable, IconFileText, IconNotebook, IconCalendarShare, IconCalendarWeek, IconMessages, IconCar } from '@tabler/icons-react';
+import { IconChartHistogram, IconBooks, IconChevronLeft, IconAlertTriangle, IconMessageCircle, IconPrinter, IconCertificate, IconAccessible, IconPencil, IconUserCheck, IconFileDescription, IconTable, IconFileText, IconNotebook, IconCalendarShare, IconCalendarWeek, IconMessages, IconCar, IconBook2 } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { MOTIFS_ECHEC } from '../components/motifsEchec.js';
 import PresencesCours from '../components/PresencesCours.jsx';
@@ -236,7 +236,7 @@ export default function MesCours() {
     {visites && <VisitesStage onFermer={() => setVisites(false)} />}
     <RailLateral icon={ICONE_AXE.mesCours} titre="Mes cours" sousTitre={annee}
       sections={[{ items: [
-        { key: 'liste', label: 'Mes cours', icon: IconBooks, actif: !ouvert && !vueDue,
+        { key: 'liste', label: 'Mes cours de l’année', icon: IconBook2, actif: !ouvert && !vueDue,
           onClick: () => { setVueDue(false); setOuvert(null); setFeuille(null); } },
         { key: 'due', label: 'Mes unités : croisement et DUE', icon: IconFileDescription, actif: vueDue,
           onClick: () => { setVueDue(true); setOuvert(null); setFeuille(null); } },

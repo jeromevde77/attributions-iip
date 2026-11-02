@@ -80,6 +80,18 @@ etudiants-dev.lucie-iip.be {
 	reverse_proxy portail-frontend-dev:80
 }
 
+# L'ESPACE ENSEIGNANT (3.5.076) : le même site derrière le mur, servi à son adresse ; nginx du portail choisit la page
+# (enseignants.html) d'après le nom. Il ne relaie que /api/enseignant/ vers le portail.
+enseignants.lucie-iip.be {
+	import commun
+	reverse_proxy portail-frontend:80
+}
+enseignants-dev.lucie-iip.be {
+	import commun
+	header X-Lucie-Env "DEVELOPPEMENT"
+	reverse_proxy portail-frontend-dev:80
+}
+
 # LE PASSAGE À SENS UNIQUE : Lucie (et elle seule, par son réseau) atteint le port INTERNE du portail par ici.
 # Ces deux ports ne sont PAS publiés (docker-compose ne publie que 80 et 443) : ils n'existent que sur les
 # réseaux Docker. Le portail exige en plus son jeton (PORTAIL_JETON).

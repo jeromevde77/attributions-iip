@@ -6,7 +6,7 @@ import { useSearchParams } from 'react-router-dom';
 import Axe from '../components/Axe.jsx';
 import {
   IconLayoutGrid, IconSchool, IconSitemap, IconFileDescription, IconTimeline, IconUserCheck, IconCalendarCog,
-  IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup, IconListDetails, IconCalendarEvent, IconPercentage, IconTable, IconCalendarWeek, IconChartBar, IconPuzzle, IconEye, IconCalendarMonth, IconBriefcase, IconFileCertificate,
+  IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup, IconListDetails, IconCalendarEvent, IconPercentage, IconTable, IconCalendarWeek, IconChartBar, IconPuzzle, IconEye, IconCalendarMonth, IconBriefcase, IconFileCertificate, IconHierarchy2, IconCalendarTime, IconCalendarCheck,
 } from '@tabler/icons-react';
 import Attributions from './Attributions.jsx';
 import Planification from './Planification.jsx';
@@ -22,6 +22,9 @@ const LaboratoireTemporel = lazy(() => import('./LaboratoireTemporel.jsx'));
 const AgendaEcole = lazy(() => import('./AgendaEcole.jsx'));
 const StagesOrganisation = lazy(() => import('./StagesOrganisation.jsx'));
 const TfeOrganisation = lazy(() => import('./TfeOrganisation.jsx'));
+/* Stages et TFE : direction, secrétariat et TOUTE coordination (ses sections), quelles que soient les cases de sa fiche
+   (3.5.073, Charles). Le serveur fait la même règle (`garderModuleSauf`). */
+const STAGES_TFE = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat', 'coordination'];
 import { IconeLaboratoire } from '../components/IconeLaboratoire.jsx';
 const HoraireSemaine = lazy(() => import('./HoraireSemaine.jsx'));
 const Effectifs = lazy(() => import('./Configuration.jsx').then(m => ({ default: m.OngletStatistiques })));
@@ -74,13 +77,13 @@ export default function Organisation({ ongletInitial }) {
       sousMenus={[{ key: 'laboratoire', label: 'Le laboratoire temporel', icone: IconeLaboratoire, hote: 'laboratoire',
         enfants: [
           // LES ÉTAPES DANS L'ORDRE DU TRAVAIL (3.1.465) — celui de ETAPES_LABO (LaboratoireTemporel.jsx).
-          { key: 'labo-schema', label: '1. Schéma de capitalisation', icone: IconSitemap },
+          { key: 'labo-schema', label: '1. Le schéma', icone: IconHierarchy2 },
           { key: 'labo-temps', label: '2. Le temps', icone: IconTimeline },
           { key: 'labo-groupes', label: '3. Les groupes', icone: IconPuzzle },
           { key: 'labo-planning', label: '4. Le planning', icone: IconCalendarCog },
           { key: 'labo-disponibilites', label: '5. Les disponibilités', icone: IconUserCheck },
-          { key: 'labo-semaine', label: '6. La semaine', icone: IconCalendarWeek },
-          { key: 'labo-horaire', label: '7. L’horaire', icone: IconEye },
+          { key: 'labo-semaine', label: '6. La semaine', icone: IconCalendarTime },
+          { key: 'labo-horaire', label: '7. L’horaire', icone: IconCalendarCheck },
         ] }, { key: 'horaire-semaine', label: 'Horaires', icone: IconCalendarWeek, hote: 'horaire-semaine',
         enfants: [
           { key: 'horaire-consulter', label: 'Consulter l’horaire', icone: IconEye },
@@ -135,11 +138,11 @@ export default function Organisation({ ongletInitial }) {
           rendu: <Suspense fallback={<div className="p-4 text-sm text-slate-400">Chargement…</div>}>
                    <RepartitionCours /></Suspense> },
         /* LES STAGES (3.5.067) : la vue de l'année, les pièces manquantes, l'affectation en lot, les propositions. */
-        { key: 'stages', module: 'stages', label: 'Stages', icone: IconBriefcase,
+        { key: 'stages', roles: STAGES_TFE, label: 'Stages', icone: IconBriefcase,
           rendu: <Suspense fallback={<div className="p-4 text-sm text-slate-400">Chargement…</div>}>
                    {annee ? <StagesOrganisation annee={annee} /> : <div className="text-sm text-slate-400 p-4">Chargement de l'année active…</div>}</Suspense> },
         /* LES TFE (3.5.069) : sujets et promoteurs, remises, défenses et jurys, décision de l'épreuve intégrée. */
-        { key: 'tfe', module: 'etudiants', label: 'Travaux de fin d’études', icone: IconFileCertificate,
+        { key: 'tfe', roles: STAGES_TFE, label: 'Travaux de fin d’études', icone: IconFileCertificate,
           rendu: <Suspense fallback={<div className="p-4 text-sm text-slate-400">Chargement…</div>}>
                    {annee ? <TfeOrganisation annee={annee} /> : <div className="text-sm text-slate-400 p-4">Chargement de l'année active…</div>}</Suspense> },
         /* LES GROUPES COMMUNS (9 octobre 2026) : les TP d'un bloc coupés en

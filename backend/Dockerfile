@@ -16,6 +16,8 @@ WORKDIR /app
 # fontconfig, Chromium ne sait pas qu'Arial se substitue par Liberation Sans —
 # il retombe sur une police par défaut qu'il étire pour approcher les largeurs
 # demandées. C'est ce qui donnait ce texte élargi dans les PDF exportés.
+# « libreoffice-writer-nogui » (3.5.080) : les annexes Word de la circulaire (EA12, A2…A34) sortent aussi en PDF
+# (services/docx-to-pdf.js) ; sans lui, « Le PDF n'est pas encore disponible sur ce serveur ».
 # « fonts-inter » (3.5.032) : la police du mode d'emploi PDF au modèle du kit FeLSI (lib/guideKit.js).
 RUN apt-get update && apt-get install -y --no-install-recommends \
     fontconfig fonts-liberation fonts-dejavu-core fonts-inter \
@@ -24,6 +26,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpangocairo-1.0-0 libpango-1.0-0 libcairo2 libgtk-3-0 libx11-xcb1 \
     libxshmfence1 \
     poppler-utils tesseract-ocr tesseract-ocr-fra \
+    libreoffice-writer-nogui \
     && rm -rf /var/lib/apt/lists/*
 
 COPY package.json ./

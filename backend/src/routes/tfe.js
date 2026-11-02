@@ -14,6 +14,8 @@ import db from '../db/index.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
 import { estEpreuveIntegree } from './acquis.js';
 import { envoyerEmail, templateNotif } from '../services/mailer.js';
+import fs from 'fs';
+import { tfeEspaceDe, traiterQuestion } from '../lib/portailTfeStage.js';
 
 const r = Router();
 const ECRITURE = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat', 'coordination'];
@@ -115,7 +117,7 @@ r.get('/etudiant/:id', authRequired, (req, res) => {
       (SELECT ue_nom FROM ue u WHERE u.ue_num = t.ue_num ORDER BY u.annee_scolaire DESC LIMIT 1) AS ue_nom,
       (SELECT UPPER(p.nom) || ' ' || COALESCE(p.prenom, '') FROM professeur p WHERE p.id = t.promoteur_id) AS promoteur
     FROM tfe t WHERE t.etudiant_id = ? ORDER BY t.annee_scolaire DESC, t.id DESC`).all(etudId);
-  for (const t of liste) t.membres = membresDe.all(t.id);
+  for (const t of liste) { t.membres = membresDe.all(t.id); t.espace = tfeEspaceDe(t.id); }
   res.json(liste);
 });
 
@@ -306,6 +308,24 @@ r.post('/convoquer', authRequired, roleRequired(...ECRITURE), async (req, res) =
     } catch (e) { echecs.push({ nom: l.nom, erreur: e.message }); }
   }
   res.json({ simulation: false, envoyes, echecs, ignores: lignes.filter(l => l.manque.length).map(l => ({ nom: l.nom, manque: l.manque })) });
+});
+
+/* LA QUESTION DE RECHERCHE ET LES REMISES DÉPOSÉES DEPUIS L'ESPACE DE L'ÉTUDIANT (3.5.081). Accepter : elle devient la
+   question du TFE ; renvoyer : avec un mot, que l'étudiant lit dans son espace. */
+r.post('/question/:qid', authRequired, roleRequired(...ECRITURE), (req, res) => {
+  const q = db.prepare('SELECT t.etudiant_id FROM tfe_question q JOIN tfe t ON t.id = q.tfe_id WHERE q.id = ?').get(Number(req.params.qid));
+  if (!q || !permis(req, q.etudiant_id)) return res.status(404).json({ error: 'Proposition introuvable.' });
+  const x = traiterQuestion(req.params.qid, { accepter: !!req.body?.accepter, mot: req.body?.mot }, req.user?.nom || req.user?.email);
+  if (x.erreur) return res.status(400).json({ error: x.erreur });
+  res.json(x);
+});
+r.get('/depot/:id', authRequired, (req, res) => {
+  const d = db.prepare('SELECT d.*, t.etudiant_id FROM tfe_depot d JOIN tfe t ON t.id = d.tfe_id WHERE d.id = ?').get(Number(req.params.id));
+  if (!d || !permis(req, d.etudiant_id)) return res.status(404).json({ error: 'Fichier introuvable.' });
+  if (!fs.existsSync(d.chemin)) return res.status(410).json({ error: 'Le fichier n’est plus sur le serveur.' });
+  res.setHeader('Content-Type', d.type_mime || 'application/octet-stream');
+  res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(d.nom)}`);
+  fs.createReadStream(d.chemin).pipe(res);
 });
 
 r.put('/:id', authRequired, roleRequired(...ECRITURE), (req, res) => {

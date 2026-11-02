@@ -40,7 +40,7 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial,
                                  qui est un outil d'un autre écran ouvre l'écran
                                  hôte, qui lance l'outil (sessionStorage
                                  « lucie.outil »). */
-                              sousMenus = [],
+                              sousMenus = [], outilsPermanents = [],
                               impression = 'etudiants', echanges = false }) {
   // LES RUBRIQUES « À VENIR » NE SONT PLUS DANS LE MENU.
   // Une place réservée annonçant un écran qui n'existe pas est une promesse
@@ -174,8 +174,24 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial,
   for (const o of visibles) parCle.set(o.key, entreeRubrique(o));
   for (const it of sousOutils) if (!parCle.has(it.key)) parCle.set(it.key, it);
 
+  /* LES OUTILS QUI VALENT POUR TOUT L'AXE (3.5.075, Charles : le rail Étudiants « par étape du parcours »). Un outil vit sur
+     l'écran qui le monte (Suivi des présences, Écrire aux étudiants… sur la liste des étudiants) : ailleurs dans l'axe, il
+     disparaissait du rail. Déclaré ici, il garde sa place partout ; absent de l'écran ouvert, un clic ouvre son écran hôte et
+     le lance (`lucie.outil`). Le libellé et l'icône déclarés ici l'emportent sur ceux de l'écran. */
+  for (const op of outilsPermanents) {
+    if (op.peut && !op.peut()) continue;
+    if (!visibles.some(o => o.key === op.hote)) continue;
+    const present = parCle.get(op.key);
+    if (present) { parCle.set(op.key, { ...present, label: op.label || present.label, icon: op.icone || present.icon }); continue; }
+    parCle.set(op.key, { key: op.key, label: op.label, icon: op.icone, actif: false,
+      onClick: () => { try { sessionStorage.setItem('lucie.outil', op.key); } catch { /* */ } setActif(op.hote); } });
+  }
+
   const [sousOuvert, setSousOuvert] = useState(null);
   for (const sm of sousMenus) {
+    /* PAS DE DROIT, PAS DE TIROIR (3.5.073) : un sous-menu qui porte la clé d'une rubrique que le rôle ne voit pas ne la fait
+       pas revenir par la bande — une coordination sans Organisation voyait le laboratoire, les horaires et l'unité. */
+    if (onglets.some(o => o.key === sm.key) && !visibles.some(o => o.key === sm.key)) continue;
     const enfants = (sm.enfants || []).map(e => {
       // PAS DE DROIT, PAS D'ICÔNE (3.1.20) : un outil que la porte refuserait
       // ne revient pas par le tiroir, même quand l'écran hôte n'est pas ouvert.
@@ -186,7 +202,7 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial,
       if (onglets.some(o => o.key === e.key)) return null;
       // L'outil vit sur un autre écran : on l'ouvre, et il se lance.
       return { key: e.key, label: e.label, icon: e.icone, actif: false,
-        onClick: () => { try { sessionStorage.setItem('lucie.outil', e.key); } catch { /* */ } setActif(sm.hote); } };
+        onClick: () => { try { sessionStorage.setItem('lucie.outil', e.key); } catch { /* */ } setActif(e.hote || sm.hote); } };
     }).filter(Boolean);
     for (const e of sm.enfants || []) parCle.delete(e.key);
     // UN SOUS-MENU QUI PORTE LA CLÉ D'UNE RUBRIQUE EST CETTE RUBRIQUE : elle

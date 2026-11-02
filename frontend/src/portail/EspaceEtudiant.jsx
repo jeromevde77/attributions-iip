@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import SchemaCapitalisation from '../components/SchemaCapitalisation.jsx';
-import { IconCertificate, IconFileText, IconBook, IconSignature, IconCheck, IconLogout, IconLock, IconDevices, IconTrash, IconShieldCheck, IconShieldX, IconKey, IconWorld, IconUserCircle, IconAward, IconUpload, IconPlus, IconAlertTriangle, IconListCheck, IconMessages, IconRoute, IconCash, IconHelpCircle, IconCopy } from '@tabler/icons-react';
+import { MonTfe, MonStage } from './TfeStage.jsx';
+import { IconCertificate, IconFileText, IconBook, IconSignature, IconCheck, IconLogout, IconLock, IconDevices, IconTrash, IconShieldCheck, IconShieldX, IconKey, IconWorld, IconUserCircle, IconAward, IconUpload, IconPlus, IconAlertTriangle, IconListCheck, IconMessages, IconRoute, IconCash, IconHelpCircle, IconCopy, IconSchool, IconBriefcase } from '@tabler/icons-react';
 
 /**
  * L'ESPACE DE L'ÉTUDIANT (3.1.475, Charles : « un mini espace ultra sécurisé : récupérer ses documents, voir ses
@@ -45,7 +46,7 @@ const Tete = ({ sous, onQuitter }) => (
 );
 
 // Le nom court d'un onglet sur téléphone (la grille des onglets, 3.5.009).
-const COURT = { resultats: 'Résultats', messages: 'Messages', parcours: 'Parcours', pae: 'PAE', documents: 'Documents', va: 'VA / VAE', frais: 'Frais', aide: 'Aide', compte: 'Compte' };
+const COURT = { resultats: 'Résultats', messages: 'Messages', parcours: 'Parcours', pae: 'PAE', tfe: 'TFE', stage: 'Stage', documents: 'Documents', va: 'VA / VAE', frais: 'Frais', aide: 'Aide', compte: 'Compte' };
 const ETAT_COULEUR = { reussi: 'var(--c-reussi, #3E7D5E)', surveiller: 'var(--c-attente, #B45309)', corriger: 'var(--c-refuse, #9D4A38)' };
 
 /** L'accusé d'une pièce : ouvrir, puis signer par code. */
@@ -636,6 +637,8 @@ const GUIDE = [
   ['Mon PAE', "Pendant la période annoncée, cochez les unités que vous voulez suivre et envoyez votre proposition ; votre coordination la valide ou la corrige. Sous la liste, les frais estimés suivent vos choix. Une fois votre PAE confirmé par l'école, confirmez-le à votre tour."],
   ['Mes documents', "Vos attestations et les décisions qui vous concernent. Ouvrez-les, puis signez l'accusé de réception (un code reçu par courriel). Téléchargement libre pendant 90 jours ; ensuite, un code est demandé."],
   ['Valorisation', "Faire reconnaître des études ou une expérience pour une unité : une demande par unité, avec vos pièces. Vous complétez tant que le secrétariat ne l'a pas examinée. L'admission se demande au secrétariat."],
+  ['Mon TFE', "Le titre, le jury, les remises attendues et la défense. Proposez votre question de recherche : votre promoteur ou votre coordination l'accepte, ou vous la renvoie avec un mot. Déposez chaque remise (PDF, Word ou image, 25 Mo au plus) : elle est reçue au jour du dépôt. Les fiches d'évaluation disent ce qui sera regardé."],
+  ['Mon stage', "Où, quand, qui vous encadre ; les pièces qui manquent encore avant de commencer ; les visites de votre superviseur ; les fiches d'évaluation du stage."],
   ['Mes frais', 'Ce qui est dû, versé, ce qui reste ; et le QR à scanner pour payer avec la bonne communication.'],
   ['Mon compte', 'Changer votre mot de passe ; voir et oublier vos appareils reconnus (trois au plus).'],
 ];
@@ -1149,7 +1152,7 @@ function Espace() {
   const aSigner = d ? d.documents.filter(x => !x.signe_le).length + d.reglements.filter(x => !x.signe_le).length : 0;
   const msg = ['messages', nonLus ? `Messages (${nonLus})` : 'Messages', IconMessages];
   const FACES = ([['resultats', 'Mes résultats', IconCertificate], msg, ['parcours', 'Mon parcours', IconRoute], ['pae', 'Mon PAE', IconListCheck],
-      ['documents', 'Mes documents', IconFileText], ['va', 'Valorisation', IconAward], ['frais', 'Mes frais', IconCash], ['aide', 'Aide et règles', IconHelpCircle], ['compte', 'Mon compte', IconUserCircle]])
+      ['tfe', 'Mon TFE', IconSchool], ['stage', 'Mon stage', IconBriefcase], ['documents', 'Mes documents', IconFileText], ['va', 'Valorisation', IconAward], ['frais', 'Mes frais', IconCash], ['aide', 'Aide et règles', IconHelpCircle], ['compte', 'Mon compte', IconUserCircle]])
     // LES FONCTIONS OUVERTES (3.5.001) : seuls les onglets que Lucie a ouverts pour cet étudiant ; l'aide et le compte, toujours.
     .filter(([k]) => ['aide', 'compte'].includes(k) || (d?.fonctions || []).includes(k));
   if (d && FACES.length && !FACES.some(([k]) => k === face)) setTimeout(() => setFace(FACES[0][0]), 0);
@@ -1210,6 +1213,8 @@ function Espace() {
         {d && face === 'aide' && <AideRegles reglements={d.reglements} onLire={lireTexte} Accuse={Accuse} onFait={charger} onErreur={echec} />}
         {face === 'parcours' && <MonParcours onErreur={echec} />}
         {face === 'frais' && <MesFrais onErreur={echec} />}
+        {face === 'tfe' && <MonTfe appel={appel} jeton={lire} onErreur={echec} />}
+        {face === 'stage' && <MonStage appel={appel} onErreur={echec} />}
 
         {d?.candidat && <div className="bloc-etat px-3 py-2 text-sm" data-etat="disponible">Accès par code, jusqu’au {jourFr(d.candidat.jusqu_au)} ou
           jusqu’à votre adresse de l’institut.</div>}

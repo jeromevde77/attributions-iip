@@ -40,6 +40,14 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
   const [message, setMessage] = useState(null);
   const [nouveauLieu, setNouveauLieu] = useState(null);
   const [minimum, setMinimum] = useState({ section: null, heures: null });
+  /* LE PROFESSEUR DE STAGE ET LA VACCINATION SE POSENT AUSSI ICI (3.5.074) : Organisation → Stages les exigeait (pièces
+     manquantes) sans que la fiche permette de les écrire — seule l'affectation en lot le pouvait. */
+  const [profs, setProfs] = useState([]);
+  useEffect(() => {
+    if (!annee) return;
+    fetch(`/api/stages/choix?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : { professeurs: [] })).then(j => setProfs(j.professeurs || [])).catch(() => {});
+  }, [annee]);
 
   async function charger() {
     const [s, l] = await Promise.all([
@@ -294,7 +302,15 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
                     </Champ>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2 border-t border-slate-100">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3 pt-2 border-t border-slate-100">
+                    <Champ libelle="Professeur de stage (IIP)">
+                      <select value={s.professeur_id || ''} disabled={!peutEcrire}
+                        onChange={e => maj(s.id, { professeur_id: e.target.value ? Number(e.target.value) : null })}
+                        className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
+                        <option value="">— à désigner —</option>
+                        {profs.map(p => <option key={p.id} value={p.id}>{p.stage ? '★ ' : ''}{p.nom}</option>)}
+                      </select>
+                    </Champ>
                     <ChampTexte libelle="Maître de stage" valeur={s.maitre_stage}
                       onValider={v => maj(s.id, { maitre_stage: v })} lecture={!peutEcrire} />
                     <ChampTexte libelle="Fonction" valeur={s.maitre_fonction}
@@ -304,7 +320,7 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
                   </div>
 
                   {/* Les jalons de l'article 51 et les pièces de l'article 55 */}
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3 pt-2 border-t border-slate-100">
+                  <div className="grid grid-cols-1 md:grid-cols-5 gap-3 pt-2 border-t border-slate-100">
                     <ChampTexte libelle="Autorisation le" valeur={s.autorisation_le} type="date"
                       onValider={v => maj(s.id, { autorisation_le: v })} lecture={!peutEcrire} />
                     <ChampTexte libelle="Convention le" valeur={s.convention_le} type="date"
@@ -313,6 +329,13 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
                       onValider={v => maj(s.id, { casier_le: v })} lecture={!peutEcrire} />
                     <ChampTexte libelle="Médecine du travail" valeur={s.medecine_le} type="date"
                       onValider={v => maj(s.id, { medecine_le: v })} lecture={!peutEcrire} />
+                    <Champ libelle="Vaccination (art. 55)">
+                      <label className="flex items-center gap-2 text-sm py-1.5">
+                        <input type="checkbox" checked={!!s.vaccination_ok} disabled={!peutEcrire}
+                          onChange={e => maj(s.id, { vaccination_ok: e.target.checked ? 1 : 0 })} />
+                        en ordre
+                      </label>
+                    </Champ>
                   </div>
 
                   {/* La convention elle-même : déposée ici, signée d'un clic par la

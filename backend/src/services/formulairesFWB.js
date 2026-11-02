@@ -23,6 +23,8 @@ import {
   debutLigne, tableaux, cellule, paragraphes, episser, remplacer, ajouter, ecrireCellule, grille, cocher, esc,
 } from './ea12_fill_officiel.js';
 
+import { detecter, appliquer as appliquerLibres, champsPublics } from './annexesLibres.js';
+
 const DOSSIER = path.join(import.meta.dirname, 'circulaire-9760');
 const T = s => [...String(s).matchAll(/<w:t(?: [^>]*)?>([^<]*)<\/w:t>/g)].map(m => m[1]).join('');
 const tout = x => ({ s: 0, e: x.length });
@@ -326,6 +328,21 @@ function remplirA27(x, d) {
       });
     });
   });
+  // LES BLOCS D'UE INUTILES S'EN VONT (3.5.082, Charles : « s'il n'y a qu'une UE, pourquoi tu laisses le reste ») : le
+  // modèle en prévoit trois ; on garde ceux que Lucie a remplis (un au moins), du « n) Intitulé… » du premier bloc vide
+  // jusqu'à la fin du tableau du dernier.
+  {
+    const blocsUE = tableaux(x).map((tb, i) => ({ tb, i }))
+      .filter(({ tb }) => tb.rows[0]?.length && /Dénomination du cours/.test(T(x.slice(tb.rows[0][0].s, tb.rows[0].at(-1).e))));
+    const intitules = paragraphes(x, 0, x.length).filter(p => /Intitulé\s+de\s+l.unité\s+d.enseignement/.test(p.texte));
+    const garder = Math.max(1, ues.length);
+    if (blocsUE.length > garder && intitules.length === blocsUE.length) {
+      const dernier = blocsUE.at(-1).tb;
+      const fin = x.indexOf('</w:tbl>', [...dernier.rows].reverse().find(r => r.length).at(-1).e) + '</w:tbl>'.length;
+      const debut = intitules[garder].s;
+      if (debut > 0 && fin > debut) x = x.slice(0, debut) + x.slice(fin);
+    }
+  }
   // La signature du chef d'établissement : son nom et la date, saisis dans Lucie.
   if (d.date_signature) x = ajouter(x, tout(x), /^\s*Date\s*:\s*$/, dateFr(d.date_signature));
   if (d.signataire) x = ajouter(x, tout(x), /Signature du chef de l.établissement/, d.signataire);
@@ -434,8 +451,21 @@ export async function remplirAnnexe(cle, d) {
   let x = await zip.file('word/document.xml').async('string');
   x = remplirIdentite(x, d);
   if (SPECIFIQUES[cle]) x = SPECIFIQUES[cle](x, d);
+  // Ce qui a été tapé dans la fenêtre de l'annexe (3.5.083) : posé dans les blancs qui restent.
+  if (d.libres && Object.keys(d.libres).length) x = appliquerLibres(x, d.libres);
   zip.file('word/document.xml', x);
   return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
+}
+
+/** Les blancs qui restent dans l'annexe une fois remplie de ce que Lucie sait : ce que la fenêtre montre. */
+export async function blancsAnnexe(cle, d) {
+  const a = ANNEXES.find(z => z.cle === cle);
+  if (!a) throw new Error(`annexe inconnue : ${cle}`);
+  const zip = await JSZip.loadAsync(fs.readFileSync(path.join(DOSSIER, a.fichier)));
+  let x = await zip.file('word/document.xml').async('string');
+  x = remplirIdentite(x, d);
+  if (SPECIFIQUES[cle]) x = SPECIFIQUES[cle](x, d);
+  return champsPublics(detecter(x));
 }
 
 export default remplirAnnexe;

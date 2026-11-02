@@ -1,8 +1,217 @@
-/* Les points du 1er et du 2 novembre 2026 (3.5.037 → 3.5.058 ; temps de travail revu en 3.5.057, visites de stage en 3.5.058) : le temps de travail du secrétariat, le thème de chacun, la bande
+/* Les points du 1er et du 2 novembre 2026 (3.5.037 → 3.5.071 ; stages, TFE, qui fait quoi et rail en 3.5.066-071 ; temps de travail revu en 3.5.057, visites de stage en 3.5.058) : le temps de travail du secrétariat, le thème de chacun, la bande
    des en-têtes. Même forme que les autres compléments. */
 export const chapitres = [];
 export const ajouts = {
+  etudiants: [
+    {
+      titre: "Le rail Étudiants, par étape du parcours",
+      pour: 'sec coo dir',
+      ou: "Étudiants → le rail de gauche.",
+      texte: "Cinq groupes, séparés par un filet, dans l'ordre de l'année. Inscrire : Créer un étudiant, Contrôler les dossiers, Inscriptions & PAE (son tiroir : Composer le PAE, Revue des PAE, PAE en ligne, Inscrits par unité, Refus en 2e session), Frais — extraits de compte. Accompagner : Valorisation des acquis, Aménagements raisonnables, Suivi des présences, Écrire aux étudiants. Évaluer : Délibération (son tiroir : Encodage rapide, Contrôles des notes et des décisions, Où sont les notes ?, Règles de délibération, Reports de notes). Recours : Procédures (Registre, Anciens dossiers). Enfin, Vider des résultats, sur la liste des étudiants seulement.",
+      savoir: [
+        "Les outils restent à leur place quel que soit l'écran ouvert : Suivi des présences, par exemple, s'ouvre aussi depuis la Délibération.",
+        "Les visites de stage ne sont plus dans ce rail : Organisation → Stages → Visites et trajets.",
+      ],
+    },
+  ],
+  espace: [
+    {
+      titre: "Mon TFE et Mon stage, dans l'espace de l'étudiant",
+      pour: 'sec coo dir',
+      ou: "Espace de l'étudiant → Mon TFE, Mon stage. Ouverture : Configuration → Accès → Mise en service, « Mon TFE » et « Mon stage ».",
+      texte: "Mon TFE montre le titre, le jury, les remises attendues (reçues ou non) et la défense. L'étudiant y propose sa question de recherche et y dépose chaque remise (PDF, Word ou image, 25 Mo au plus) : la remise est marquée reçue au jour du dépôt, à son nom. Il y lit aussi les fiches d'évaluation (les acquis et ce qui sera regardé, jamais une note). Mon stage montre le lieu, les dates, le superviseur et le maître de stage, les pièces qui manquent encore avant de commencer, les visites prévues et les fiches d'évaluation du stage.",
+      savoir: [
+        "La question de recherche n'est qu'une proposition : dans la fiche de l'étudiant → onglet TFE, [[Accepter|IconCheck|fort]] en fait la question du TFE ; [[Renvoyer avec un mot|IconArrowBackUp]] la lui rend, avec ce mot. La coordination de la section et le promoteur (s'il a un compte) sont prévenus au tableau de bord.",
+        "Les fichiers déposés se retrouvent au même endroit, sous « Remises déposées depuis son espace ».",
+        "Les deux fonctions naissent éteintes : essai sur quelques étudiants d'abord, comme le reste de l'espace.",
+      ],
+    },
+  ],
+  demarrage: [
+    {
+      titre: "Qui a accès à quoi : les écrans de novembre",
+      pour: 'sec coo dir',
+      ou: "Configuration → Accès règle les cases de chacun ; ce point dit ce qui s'ouvre à qui.",
+      texte: "Les écrans ajoutés depuis la reprise de novembre ne s'ouvrent pas à tout le monde. La règle tient en une ligne par écran ; la direction adjointe peut ce que peut la direction, sauf où c'est dit.",
+      savoir: [
+        "Temps de travail : la direction et la direction adjointe préparent l'année, voient les heures de tous, forcent tension et calme et valident les modulations ; chaque personne désignée dans le module voit ses heures, et des autres seulement qui travaille et qui est en congé ; elle propose une modulation.",
+        "Agenda de l'école : la direction et la direction adjointe peignent l'école (fermetures, cours, jours fermés, grands moments, séries) ; la coordination peint la rangée des sections pour les siennes ; tout compte connecté le lit, et ne voit des grands moments que ceux qui le concernent (« pour qui »).",
+        "Stages (vue, pièces, lot, propositions) et Travaux de fin d'études : la direction et le secrétariat, tout ; TOUTE coordination, ses sections, quelles que soient les cases de sa fiche ; pas les enseignants. L'import d'une liste de TFE reste au secrétariat et à la direction.",
+        "Visites et trajets : le professeur de stage, ses visites et sa fiche de transport (Mes cours) ; le secrétariat et la direction, tout, et la règle de remboursement ; la coordination, ses sections ; la direction approuve la fiche après la signature de la personne.",
+        "Qui fait quoi (Gestion → Équipe) : la direction et la direction adjointe.",
+        "La personne responsable d'un type d'échéance se choisit dans le référentiel de l'échéancier : direction et secrétariat.",
+      ],
+    },
+    {
+      titre: "Un tiroir du rail se referme d'un clic",
+      ou: "Le rail de gauche, sur tous les écrans.",
+      texte: "Certaines entrées du rail déplient leurs rubriques en dessous, dans un tiroir : le laboratoire temporel et ses sept étapes, les horaires, l'unité, Inscriptions & PAE, les familles de Gestion et de Configuration. Un clic sur l'entrée qui porte le tiroir le referme, un second le rouvre — même quand on travaille dans l'une de ses rubriques. Le tiroir refermé revient de lui-même quand on passe à une autre entrée.",
+    },
+  ],
+  organisation: [
+    {
+      titre: "Le rail d'Organisation, dans l'ordre du travail",
+      pour: 'sec coo dir',
+      ou: "Organisation → le rail de gauche.",
+      texte: "Les entrées se rangent en quatre groupes, séparés par un filet, de ce qui se décide d'abord à ce qui se vit : le programme (Schéma de capitalisation, Unité : croiser, pondérer, décrire) ; l'année (Agenda de l'école, Planification, Effectifs et postes) ; qui enseigne et quand (Attributions, Laboratoire temporel, Horaires) ; les étudiants (Rentrée, Répartition des étudiants, Stages, Travaux de fin d'études).",
+    },
+    {
+      titre: "Encoder un stage, pas à pas",
+      pour: 'sec coo dir',
+      ou: "Organisation → Stages (pour plusieurs étudiants) · fiche de l'étudiant → onglet Stages (pour un seul).",
+      texte: "Un stage, c'est un étudiant dans un LIEU, pour une UE de stage, à des dates. 1 Le lieu : il se choisit dans le répertoire de la section ; s'il n'y est pas, [[Nouveau lieu]] le crée (nom, service, adresse complète — elle figure au supplément au diplôme —, contact). Le répertoire entier s'importe d'un classeur (Étudiants → rail → Importer → « Répertoire de lieux de stage »). 2 Le stage : pour une cohorte, Organisation → Stages → Propositions crée un stage par inscrit de l'UE de stage, aux dates de son organisation, puis Affecter en lot donne à tous le même lieu, les mêmes dates, le même professeur ; pour un seul étudiant, fiche → Stages → [[Ajouter un stage|IconPlus|fort]]. 3 Le détail, dans la fiche (la ligne du stage s'ouvre d'un clic) : intitulé, UE, dates, heures prévues, statut, professeur de stage (IIP), maître de stage. 4 Les pièces, au fur et à mesure : autorisation et convention (art. 51), casier modèle 2, médecine du travail, vaccination (art. 55) ; la convention se dépose en PDF et part à la signature de la direction. 5 Le suivi : le professeur de stage planifie ses visites (Mes cours → Mes visites de stage) ; en fin de stage, heures effectuées, évaluation et note du tuteur, statut « Terminé ».",
+      images: [{ src: "/guide/etudiants-stages.png", legende: "Fiche → Stages : la ligne ouverte porte le lieu, l'UE, les dates, les heures, le statut, le professeur de stage et les pièces." }],
+      savoir: [
+        "Organisation → Stages → Pièces manquantes dit, stage par stage, ce qui reste à encoder ; « Relancer » écrit à l'étudiant ce qui est de son ressort.",
+        "Aucun stage ne commence sans autorisation écrite et convention signée (RDE, art. 51) ; le casier de moins de six mois est exigé avant le premier dixième de l'unité (art. 55).",
+        "Le professeur de stage marqué ★ est attribué à une UE de stage cette année. C'est lui qui verra le stage dans ses visites.",
+      ],
+    },
+    {
+      titre: "Les stages de l'année, au même endroit",
+      pour: 'sec coo dir',
+      ou: "Organisation → Stages → Vue d'ensemble.",
+      texte: "Tous les stages de l'année : les chiffres clés en tête (stages, en cours, sans lieu, incomplets, à relancer d'urgence), puis « Qui est en stage, quand » — le nombre d'étudiants en stage chaque semaine, par section —, puis la liste, filtrable par étudiant, lieu, UE, section et statut, avec le professeur de stage, les visites faites sur prévues et ce qui manque. Le stage d'un étudiant se retouche dans sa fiche, onglet Stages.",
+      images: [{ src: "/guide/stages-ensemble.png", legende: "La vue d'ensemble (données d'essai) : huit stages de l'UE 336 en deux organisations, Toussaint–Noël et Carnaval–Pâques." }],
+      savoir: [
+        "La coordination voit et gère les stages et les TFE de ses sections, quelles que soient les cases de sa fiche ; le secrétariat et la direction, tous.",
+      ],
+    },
+    {
+      titre: "Ce qui manque avant de commencer (art. 51 et 55)",
+      pour: 'sec coo dir',
+      ou: "Organisation → Stages → Pièces manquantes.",
+      texte: "Pour chaque stage, ce qui manque : le lieu, les dates, le professeur de stage, l'autorisation et la convention signée (RDE, art. 51 : aucun stage ne commence sans elles), le casier judiciaire de moins de six mois, la médecine du travail et la vaccination (art. 55). En rouge, ce qui presse : un début dans moins de quatorze jours, ou le premier dixième de l'unité passé sans casier — celui de l'organisation de l'étudiant. [[Relancer|IconSend]] écrit à l'étudiant, à son adresse d'école, la liste des pièces qui sont de son ressort ; la date de la relance reste sur la ligne.",
+      images: [{ src: "/guide/stages-pieces.png", legende: "Les pièces manquantes (données d'essai), les plus urgentes en tête." }],
+    },
+    {
+      titre: "Affecter en lot, et les stages proposés",
+      pour: 'sec coo dir',
+      ou: "Organisation → Stages → Affecter en lot · Propositions.",
+      texte: "Affecter en lot : on choisit une UE de stage ; ses inscrits paraissent, avec leur organisation (un bouton par organisation coche ses étudiants et reprend ses dates) ; à droite, ce qu'ils reçoivent tous — le lieu, les dates, le professeur de stage, le maître de stage, l'intitulé. [[Voir ce qui sera écrit]] montre le résultat, étudiant par étudiant, puis [[Affecter|IconCheck|fort]] l'écrit. Seuls les champs remplis s'écrivent : un stage qui existe déjà est complété, jamais vidé. Propositions : un stage par inscrit d'une UE de stage qui n'en a pas encore, aux dates de son organisation (en AESI, Toussaint–Noël ou Carnaval–Pâques) ; on coche ceux qu'on crée.",
+      images: [{ src: "/guide/stages-lot.png", legende: "Affecter en lot (données d'essai) : l'UE 336, ses deux organisations, ses inscrits ; à droite, ce qu'ils reçoivent." },
+        { src: "/guide/stages-propositions.png", legende: "Les propositions (données d'essai) : un stage par inscrit d'une UE de stage qui n'en a pas." }],
+      savoir: [
+        "Le professeur de stage marqué d'une étoile est attribué à une UE de stage cette année.",
+      ],
+    },
+    {
+      titre: "Les visites et les trajets de tous",
+      pour: 'sec coo dir',
+      ou: "Organisation → Stages → Visites et trajets (l'entrée « voiture » du rail Étudiants y mène aussi).",
+      texte: "Le même écran que celui du professeur, pour tous les professeurs de stage : les visites du mois, [[Planifier une visite|IconPlus|fort]], la liste des stages sans visite avec [[Visite|IconPlus]] sur chaque ligne, la fiche de transport du mois de chacun et les frais de déplacement (qui est remboursé, depuis où, à quel taux). Le menu à droite choisit un professeur. La fiche se signe par la personne, puis la direction l'approuve ; l'imprimante du bandeau la sort.",
+      images: [{ src: "/guide/stages-trajets.png", legende: "Visites et trajets (données d'essai) : les stages qui n'ont encore aucune visite." }],
+      savoir: [
+        "Le professeur garde ses propres visites dans Mes cours → Mes visites de stage.",
+      ],
+    },
+    {
+      titre: "Les travaux de fin d'études : la vue de l'année",
+      pour: 'sec coo dir',
+      ou: "Organisation → Travaux de fin d'études → Vue d'ensemble.",
+      texte: "Tous les TFE de l'année — les mêmes que dans la fiche de chaque étudiant, onglet TFE : rien n'est en double. En tête, les TFE encodés, les inscrits d'une épreuve intégrée sans TFE, ceux sans promoteur, ceux dont une remise est en retard et les défenses fixées. Une ligne par TFE : l'étudiant, sa section, le titre, le promoteur, les remises reçues, la défense et la décision de l'épreuve intégrée — lue de la délibération de l'unité, jamais écrite ici. [[Jury|IconUsers]] compose le jury : promoteur, copromoteur, lecteur, auditeur, président, choisis dans le personnel.",
+      images: [{ src: "/guide/tfe-ensemble.png", legende: "La vue d'ensemble des TFE (données d'essai) : un promoteur à désigner, des remises en retard, une épreuve intégrée réussie." }],
+      savoir: [
+        "La coordination voit et tient les TFE de ses sections ; le secrétariat et la direction, tous. L'import d'une liste de TFE (Étudiants → rail → Importer) reste au secrétariat et à la direction.",
+      ],
+    },
+    {
+      titre: "Qui encode un TFE ?",
+      pour: 'sec coo dir',
+      ou: "Organisation → Travaux de fin d'études, ou fiche de l'étudiant → onglet TFE.",
+      texte: "L'école, pas l'étudiant : le secrétariat ou la coordination pose le titre, le jury, les remises et la défense ; une liste entière s'importe (Étudiants → rail → Importer → « Importer des TFE »). L'étudiant n'encode rien dans Lucie ; il reçoit les relances de remise et sa convocation à son adresse d'école. Les membres du jury reçoivent leur convocation à l'adresse de leur fiche du personnel.",
+      savoir: [
+        "Aujourd'hui, le promoteur et le jury n'ont pas d'écran à eux dans Lucie : ils sont prévenus par courriel.",
+      ],
+    },
+    {
+      titre: "Les fiches d'évaluation du TFE et des stages",
+      pour: 'coo dir',
+      ou: "Organisation → Travaux de fin d'études → Fiches d'évaluation (et Organisation → Stages → Fiches d'évaluation).",
+      texte: "Chaque épreuve intégrée (et chaque UE de stage) a ses fiches : « Écrit », « Oral », « Fiche du lieu de stage », « Fiche du superviseur »… autant que le dispositif en demande. Une fiche dit qui la remplit (promoteur, jury de commun accord, maître de stage, superviseur…), quand, sur combien, et ses critères : les acquis évalués, leur poids, et ce qu'on y regarde. [[Nouvelle fiche|IconPlus]], ou un des modèles proposés quand l'UE n'en a encore aucune. Enregistrée, la fiche devient une évaluation du carnet de cotes du cours qui la porte, notée acquis par acquis : la note rejoint la feuille de notes comme toute autre.",
+      savoir: [
+        "Règlent les fiches : la direction, la coordination de la section, et les responsables désignés en tête de la face (« Désigner… ») — la personne en charge des TFE ou des stages.",
+        "Une fiche qui porte déjà des notes ne se supprime pas, et on n'en retire pas un acquis déjà noté.",
+        "Les acquis se lient au cours d'abord (Pondérations) : une fiche ne propose que les acquis du cours qui porte la note.",
+      ],
+    },
+    {
+      titre: "Ceux qui n'ont pas encore de TFE",
+      pour: 'sec coo dir',
+      ou: "Organisation → Travaux de fin d'études → Sans TFE.",
+      texte: "Les étudiants inscrits cette année à une épreuve intégrée dont aucun TFE n'est encodé. Le titre est la seule chose demandée : on le tape sur la ligne, [[Créer|IconPlus]] (ou Entrée). Le promoteur, le jury et les dates se posent ensuite.",
+      images: [{ src: "/guide/tfe-sans.png", legende: "Les inscrits d'une épreuve intégrée sans TFE (données d'essai)." }],
+    },
+    {
+      titre: "Les remises : le calendrier de la section, et ce qui est reçu",
+      pour: 'sec coo dir',
+      ou: "Organisation → Travaux de fin d'études → Remises.",
+      texte: "Chaque section fixe ce que ses étudiants remettent, et pour quand : [[Remise|IconPlus]] ajoute une ligne (projet de TFE, version intermédiaire, version finale…) et sa date limite, [[Enregistrer|fort]] la garde. Dessous, une ligne par TFE de la section et une colonne par remise : un clic sur la case la marque reçue aujourd'hui, un second l'efface. Passée la date, la case vide devient « en retard », en rouge, et [[Relancer|IconSend]] écrit à l'étudiant, à son adresse d'école, ce qui n'a pas été reçu.",
+      images: [{ src: "/guide/tfe-remises.png", legende: "Le calendrier de la section et les remises de chacun (données d'essai)." }],
+      savoir: [
+        "Une remise déjà reçue par quelqu'un ne se retire plus du calendrier : on change sa date ou son nom.",
+      ],
+    },
+    {
+      titre: "Les défenses et les convocations",
+      pour: 'sec coo dir',
+      ou: "Organisation → Travaux de fin d'études → Défenses.",
+      texte: "Le planning des défenses, dans l'ordre des dates : date, heure et local s'écrivent sur la ligne et s'enregistrent en quittant la case ; le bouton du jury l'ouvre. Les TFE dont la défense est fixée et qui ne sont pas encore convoqués sont cochés d'office. [[Convoquer|IconSend|fort]] montre d'abord, TFE par TFE, qui recevra la convocation et ce qui manque (date, heure, local, jury, adresse) ; l'avion du bandeau l'envoie alors à l'étudiant, à son adresse d'école, et à chaque membre du jury, à l'adresse de sa fiche du personnel. La date de convocation reste sur la ligne.",
+      images: [{ src: "/guide/tfe-defenses.png", legende: "Le planning des défenses (données d'essai)." },
+        { src: "/guide/tfe-convoquer.png", legende: "Avant d'envoyer (données d'essai) : une convocation prête, une autre à laquelle il manque le local." }],
+      savoir: [
+        "Un TFE à qui il manque la date, l'heure, le local ou le jury ne part pas ; les autres partent.",
+        "Un membre du jury sans adresse dans sa fiche n'est pas prévenu : l'aperçu le nomme.",
+      ],
+    },
+  ],
+  gestion: [
+    {
+      titre: "Qui fait quoi : ce qui a été fait, ce qui attend, et à qui le confier",
+      pour: 'dir',
+      ou: "Gestion → rail → Équipe → Qui fait quoi.",
+      texte: "Trois blocs. Ce qui attend : les VA à valider, à notifier et à encoder dans eProm, les PAE à revoir, les séances de délibération à clore, les échéances et les tâches en retard — par section, avec à qui cela revient ; [[Confier|IconSend]] en fait une tâche pour quelqu'un, qui paraît à son Accueil. Les présences à encoder : les séances passées sans présence, par enseignant. Ce qui a été fait ces 7, 30 ou 90 derniers jours : par personne, les fiches, PAE, résultats et notes touchés, les PAE revus, les VA décidées, les tâches et échéances cochées. Sous les blocs, les sections qui n'ont aucune coordination dans Lucie.",
+      images: [{ src: "/guide/gestion-qui-fait-quoi.png", legende: "Qui fait quoi (données d'essai)." }],
+      savoir: [
+        "Une trace absente n'est pas un travail absent : ce qui se fait hors de Lucie ne se voit pas ici.",
+        "Réservé à la direction et à la direction adjointe.",
+      ],
+    },
+  ],
+  equipe: [
+    {
+      titre: "Une personne par type d'échéance, et les échéances que Lucie coche seule",
+      pour: 'sec coo dir',
+      ou: "Suivi d'équipe → Échéancier.",
+      texte: "Chaque type d'échéance (préparer une unité, compter au premier dixième, publier les résultats…) peut nommer UNE personne : ses échéances ouvertes et les suivantes lui reviennent, et ses rappels aussi. La direction la choisit dans le référentiel de l'échéancier. Lucie coche elle-même ce qu'elle voit fait, au nom de « Lucie (constaté) », avec ce qu'elle a constaté en commentaire : une unité préparée (chaque cours attribué, des séances à l'horaire), ouverte (présences de la première séance), comptée au premier dixième (présences jusqu'à ce jour), son conseil tenu (séance close) et ses résultats publiés. Elle ne décoche jamais.",
+      savoir: [
+        "Ce que Lucie ne peut pas voir — un local réservé, une convocation envoyée hors de Lucie — se coche toujours à la main.",
+      ],
+    },
+  ],
   personnel: [
+    {
+      titre: "Voir l'espace d'un professeur ou d'un étudiant, comme lui",
+      pour: 'dir',
+      ou: "Fiche d'un membre du personnel, ou fiche d'un étudiant → l'œil dans la barre bleue, à côté de l'avion.",
+      texte: "L'œil ouvre, dans un nouvel onglet, l'espace de la personne tel qu'elle le voit : l'espace enseignant d'un professeur (Ma journée, présences, horaire), l'espace étudiant d'un étudiant. Un bandeau « Aperçu de la direction » le rappelle en tête.",
+      savoir: [
+        "Lecture seule : rien ne s'enregistre, rien ne compte comme lu ou signé par la personne. Chaque aperçu est tracé au nom de qui l'ouvre.",
+        "Il marche même quand l'espace n'est pas encore ouvert à la personne (Mise en service), et pour un professeur qui n'a pas de compte : c'est ainsi qu'on vérifie avant d'ouvrir.",
+        "Réservé à la direction et à l'administrateur.",
+      ],
+    },
+    {
+      titre: "Les annexes de la circulaire se complètent dans Lucie",
+      pour: 'sec dir',
+      ou: "Éditions → Personnel → une personne → Autres annexes de la circulaire 9760 → l’avion sur la ligne de la pièce.",
+      texte: "Chaque annexe officielle (A2 à A34) s'ouvre désormais dans une fenêtre de Lucie, comme l'EA12. Lucie y a déjà écrit ce qu'elle sait — l'établissement, l'identité de la personne, le contenu propre de l'A4, de l'A6, de l'A14 et de l'A15 — et vous montre tout ce qui reste en blanc dans le modèle : les lignes à pointillés, les cases des tableaux (présentées en tableau, ligne par ligne, comme sur le Word), les numéros à une case par chiffre et les cases à cocher. Tapez ce qu'il faut, [[Enregistrer]], puis produisez la pièce depuis le bandeau : Word ou aperçu PDF.",
+      savoir: [
+        "Rien n'est obligatoire : un blanc laissé vide reste vide sur la pièce. Les signatures ne se tapent pas : elles se posent à la main, sur le papier.",
+        "Ce qui est tapé est gardé par personne, par année (et par mois pour les relevés), au nom de qui l'a enregistré : la pièce se reproduit à l'identique, et la série (plusieurs personnes, plusieurs annexes) le reprend aussi.",
+        "L'A1 ter et l'A27 gardent leur fenêtre à elles : les prestations d'expert y sont reprises de l'horaire. L'A27 ne garde plus que les blocs d'unités remplis.",
+      ],
+    },
     {
       titre: "Le temps de travail du secrétariat : le cadre",
       pour: 'sec dir',
@@ -91,15 +300,37 @@ export const ajouts = {
   ],
   mescours: [
     {
+      titre: "Le carnet : noter acquis par acquis (l’écrit et l’oral d’une épreuve intégrée)",
+      pour: 'ens coo dir',
+      ou: "Mes cours → le cours → Carnet → [[Évaluation|IconPlus]] → cocher les acquis, puis « Noter acquis par acquis ».",
+      texte: "Certaines lignes d’une UE ne sont pas évaluées pour elles-mêmes (la préparation d’une épreuve intégrée, l’encadrement d’un stage) : ce qu’on note, ce sont des épreuves — l’écrit, l’oral, des séances. Dans le carnet du cours qui porte l’évaluation (ex. 264.2), on crée « Écrit » et « Oral », on coche les acquis que chacun évalue avec leur poids, et on coche « Noter acquis par acquis ». Le carnet ouvre alors une colonne par acquis : on y met une note par acquis ; la note de l’écrit (et de l’oral) en est la moyenne pondérée. Un acquis évalué à l’écrit et à l’oral reçoit une proposition qui combine les deux. [[Reprendre dans la feuille de notes|IconArrowRight]] verse ces propositions dans la feuille, comme pour toute évaluation — le calcul de la délibération ne change pas.",
+      savoir: [
+        "La coordination de la section et le titulaire du cours créent ces évaluations ; pour un TFE, le promoteur encodera la fiche de notation depuis l’espace enseignant, et elle arrivera dans ce carnet.",
+        "Une évaluation déjà notée ne passe pas d’une note unique à une note par acquis (ni l’inverse) : on en crée une autre.",
+      ],
+    },
+    {
+      titre: "L'espace enseignant : un site à part, plus simple",
+      pour: 'ens coo dir',
+      ou: "enseignants.lucie-iip.be — sur téléphone, tablette ou ordinateur.",
+      texte: "Un site à part, réservé aux enseignants, sans les menus de gestion de Lucie. Il s'ouvre sur Ma journée : les séances du jour avec [[Prendre les présences|IconUserCheck|fort]], et « Ce qui m'attend » (les séances passées dont les présences manquent). Les présences se prennent d'un toucher par étudiant — P présent, P* en retard, A absent, J absence justifiée avec son motif —, [[Tous présents]] d'abord pour aller vite. Mon horaire montre la semaine, visites de stage comprises ; Mon compte, ses appareils et son mot de passe. La première fois : « Première visite » → un lien arrive à votre adresse de l'institut → vous choisissez un mot de passe pour cet espace (celui de Lucie ne change pas) ; sur un nouvel appareil, un code à six chiffres en plus.",
+      savoir: [
+        "Ce que vous enregistrez dans l'espace part dans Lucie en quelques secondes, à votre nom ; si Lucie refuse (séance qui ne vous appartient plus, par exemple), l'espace le dit sur la séance.",
+        "Il ne s'ouvre que depuis la Belgique, comme l'espace des étudiants.",
+        "La direction l'ouvre dans Configuration → Accès → Mise en service, d'abord en essai pour quelques comptes. Les notes, le carnet, les TFE, les stages et les avis y viendront ensuite ; en attendant, ils restent dans Mes cours.",
+      ],
+    },
+    {
       titre: "Mes visites de stage : dans l'agenda, avec le lieu de l'étudiant",
       pour: 'ens coo sec dir',
-      ou: "Mes cours → rail → Mes visites de stage (secrétariat, coordination, direction : Étudiants → rail → Visites de stage et frais de déplacement).",
+      ou: "Mes cours → rail → Mes visites de stage (secrétariat, coordination, direction : Organisation → Stages → Visites et trajets).",
       texte: "Le professeur de stage pose ses visites : [[Planifier une visite|IconPlus|fort]], il choisit le stage — l'étudiant et son lieu, repris de la fiche du stage, avec l'adresse —, la date, l'heure, le départ du trajet (l'école, le domicile ou un autre lieu) et les kilomètres aller-retour. La visite paraît dans Mon horaire de la semaine et dans l'agenda du téléphone (Mon horaire dans mon agenda), à l'adresse du lieu. Une fois faite, [[Faite|IconCheck]] la marque, avec ses kilomètres.",
       images: [{ src: "/guide/visites-planifier.png", legende: "Planifier une visite (données d'essai) : le stage, son adresse, la date, le départ et les kilomètres — Lucie propose ceux de la dernière visite au même lieu." },
         { src: "/guide/visites-semaine.png", legende: "Les visites dans Mon horaire de la semaine, liseré cyan, à côté des séances." }],
       savoir: [
         "Les stages proposés sont ceux dont vous êtes le professeur de stage (fiche de l'étudiant → onglet Stages). Un stage sans professeur désigné ne paraît pas.",
         "Lucie CALCULE les kilomètres aller-retour par la route (OpenStreetMap), depuis l'école, le domicile de la fiche ou l'adresse tapée, jusqu'au lieu de stage : ils se proposent dans le champ, « reprendre » les remet. Le chiffre tapé reste celui qui compte ; s'il s'écarte de plus de 10 % (et de plus de 3 km) de l'itinéraire calculé, la fiche le signale à la direction, sans bloquer la signature. Les adresses quittent Lucie le temps du calcul.",
+        "Un départ « autre » se donne comme une adresse de fiche : code postal d’abord, qui propose la localité (bpost), puis la rue (BeST). Lucie cherche en Belgique d’abord, puis chez nos voisins, jamais plus loin ; un itinéraire de plus de 800 km aller-retour est refusé comme une adresse mal comprise.",
         "Sans calcul possible (adresse incomplète, service injoignable), Lucie le dit et propose la dernière distance tapée pour ce lieu.",
         "Une visite à venir ne se marque pas « faite » ; une visite faite ne se supprime pas (elle peut être annulée).",
         "Le secrétariat, la coordination (ses sections) et la direction voient et posent les visites de tous.",
@@ -108,7 +339,7 @@ export const ajouts = {
     {
       titre: "La fiche de transport du mois",
       pour: 'ens coo sec dir',
-      ou: "Visites de stage → onglet « Fiche de transport ».",
+      ou: "Visites de stage (ou Organisation → Stages → Visites et trajets) → onglet « Fiche de transport ».",
       texte: "La fiche reprend les visites faites du mois : date, étudiant, lieu et adresse, départ et son adresse, kilomètres aller-retour et — si l'école rembourse vos déplacements — le montant (kilomètres × taux). La personne certifie ses déplacements ([[Je certifie|fort]]), puis la direction approuve ; la pièce sort par l'imprimante du bandeau, avec les deux signatures.",
       images: [{ src: "/guide/visites-fiche.png", legende: "La fiche d'octobre (données d'essai) : deux visites depuis le domicile, 140 km, 60,56 €." }],
       savoir: [
@@ -120,7 +351,7 @@ export const ajouts = {
     {
       titre: "Qui est remboursé, et depuis où",
       pour: 'sec dir',
-      ou: "Visites de stage → onglet « Frais de déplacement » (secrétariat et direction).",
+      ou: "Organisation → Stages → Visites et trajets → onglet « Frais de déplacement » (secrétariat et direction).",
       texte: "Une ligne par professeur de stage : son adresse de domicile (fiche du professeur) et ce que l'école rembourse — rien, le trajet depuis l'école, ou le trajet depuis le domicile. Le taux au kilomètre se règle au-dessus, par la direction ; vide, il reste « à régler » et aucune fiche remboursée ne se signe.",
       images: [{ src: "/guide/visites-frais.png", legende: "Le taux et la règle de chacun (données d'essai)." }],
       savoir: [

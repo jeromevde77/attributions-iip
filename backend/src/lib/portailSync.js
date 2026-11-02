@@ -24,8 +24,10 @@ import { piecesATransmettre, marquerTransmises } from './authentique.js';
 import { derniereVersion, versionReference } from '../routes/documentation.js';
 import { aDeposer as messagesADeposer, recevoir as recevoirMessages, aviserParCourriel } from './messagesEtudiants.js';
 import { parcoursPortail, fraisPortail } from './portailEspace.js';
+import { tfePortail, stagePortail, appliquerGesteTfe } from './portailTfeStage.js';
 import { offrePAE, deposerProposition, recevoirSignature, signatureDe } from './paeEnLigne.js';
 import { fonctionsEspace, fonctionPour, fonctionOuverte, CATALOGUE as CATALOGUE_FONCTIONS } from './fonctions.js';
+import { deposerEnseignants, releverEnseignants } from './portailEnseignants.js';
 import { offreVA, etatVA, appliquerGeste, accuserReception, codesDOffice, candidatsValides, candidatDe, anneeActive as anneeVA } from './portailValorisation.js';
 
 const URL_INTERNE = () => (process.env.PORTAIL_INTERNE_URL || '').replace(/\/$/, '');
@@ -174,7 +176,8 @@ async function deposerVA(ids) {
       const f = new Set(fonctionsDonnees(e.id));
       lots.push({ etudiant_id: e.id, offre: f.has('va') ? offreVA(e, annee) : null, etat: f.has('va') ? etatVA(e, annee) : [],
         pae: !f.has('pae') ? null : offrePAE(e),
-        parcours: !f.has('parcours') ? null : parcoursPortail(e, annee), frais: f.has('frais') ? await fraisPortail(e, annee) : null });
+        parcours: !f.has('parcours') ? null : parcoursPortail(e, annee), frais: f.has('frais') ? await fraisPortail(e, annee) : null,
+        tfe: f.has('tfe') ? tfePortail(e, anneeActive()) : null, stage: f.has('stage') ? stagePortail(e, anneeActive()) : null });
     }
     catch (x) { console.error(`[portail] VA de l'étudiant ${e.id} :`, x.message); }
   }
@@ -184,7 +187,7 @@ async function deposerVA(ids) {
 // ── RELEVER ────────────────────────────────────────────────────────────────
 async function relever() {
   const r = await appel('GET', '/interne/releve');
-  const ok = { demandes: [], accuses: [], connexions: [], entrees: [], va: [], pae: [], messages_lus: [], messages_reponses: [] };
+  const ok = { demandes: [], accuses: [], connexions: [], entrees: [], va: [], pae: [], ts: [], messages_lus: [], messages_reponses: [] };
   // Le candidat reçoit ses codes à son adresse privée, tant que son accès vaut (3.5.008).
   const etudiant = id => etudiantDuPortail(id);
   for (const d of r.demandes || []) {
@@ -267,6 +270,21 @@ async function relever() {
     ok.pae.push({ id: g.id, erreur });
     touches.add(Number(g.etudiant_id));
   }
+  // LE TFE EN LIGNE (3.5.081) : la question de recherche (une proposition) et les remises déposées.
+  for (const g of r.ts || []) {
+    const e = etudiantDuPortail(g.etudiant_id);
+    let erreur = null;
+    try {
+      if (!e) erreur = 'Votre accès à l’espace n’est plus valable : adressez-vous au secrétariat.';
+      else if (!fonctionPour('espace.tfe', { etudiantId: e.id })) erreur = 'Le TFE en ligne n’est pas ouvert : adressez-vous à votre coordination.';
+      else {
+        const contenu = g.type === 'remise' ? await lireBinaire(`/interne/ts/piece/${g.id}`) : null;
+        erreur = appliquerGesteTfe(e, g, contenu, anneeActive());
+      }
+    } catch (x) { console.error('[portail] geste TFE :', x.message); erreur = 'Le geste n’a pas pu être enregistré : réessayez, ou adressez-vous à votre coordination.'; }
+    ok.ts.push({ id: g.id, erreur });
+    touches.add(Number(g.etudiant_id));
+  }
   // LES MESSAGES (3.1.516) : ✓ lu, et les réponses (au fil, l'auteur prévenu).
   if ((r.messages_lus || []).length || (r.messages_reponses || []).length) {
     const m = recevoirMessages({ lus: r.messages_lus || [], reponses: r.messages_reponses || [] });
@@ -274,7 +292,7 @@ async function relever() {
     for (const x of [...(r.messages_lus || []), ...(r.messages_reponses || [])]) touches.add(Number(x.etudiant_id));
     tours = 0;
   }
-  if (ok.demandes.length || ok.accuses.length || ok.connexions.length || ok.entrees.length || ok.va.length || ok.pae.length
+  if (ok.demandes.length || ok.accuses.length || ok.connexions.length || ok.entrees.length || ok.va.length || ok.pae.length || ok.ts.length
     || ok.messages_lus.length || ok.messages_reponses.length) await appel('POST', '/interne/acquitter', ok);
   // Ce qui vient de changer, ou qui vient d'entrer, voit ses demandes à jour dans les secondes qui suivent.
   if (touches.size) await deposerVA([...touches]);
@@ -350,6 +368,11 @@ export async function passerPortail() {
   try {
     migrerPortail();
     await relever();
+    // L'ESPACE ENSEIGNANT (3.5.076) : relevé à chaque passage ; déposé toutes les deux minutes, et aussitôt après des
+    // présences reprises (pour qu'il voie ce que Lucie a gardé). Une panne ici n'arrête pas l'espace des étudiants.
+    let ensDepot = tours % 12 === 0;
+    try { const x = await releverEnseignants(appel); if (x.gestes) ensDepot = true; } catch (e) { if (tours % 30 === 0) console.error('[espace enseignant]', e.message); }
+    if (ensDepot) { try { await deposerEnseignants(appel); } catch (e) { console.error('[espace enseignant] dépôt :', e.message); } }
     if (tours % 12 === 0) { await deposer(); await deposerDocuments(); }
     tours++;
   } catch (e) {
@@ -401,6 +424,22 @@ export function retirerException(etudiantId, par) {
   db.prepare("UPDATE portail_exception SET retire_le = datetime('now'), retire_par = ? WHERE etudiant_id = ? AND retire_le IS NULL").run(par, etudiantId);
   tours = 0;
   return { ok: true };
+}
+
+/** L'APERÇU DE L'ESPACE ENSEIGNANT (3.5.084) : comme celui de l'étudiant — tracé, déposé aussitôt, puis un lien d'une minute. */
+export async function ouvrirApercuEnseignant(profId, par) {
+  if (!portailActif()) return { erreur: 'Le portail n’est pas configuré sur ce serveur.' };
+  const { migrerApercuEnseignant, identifiantEspace } = await import('./portailEnseignants.js');
+  migrerApercuEnseignant();
+  if (!db.prepare('SELECT 1 FROM professeur WHERE id = ?').get(Number(profId))) return { erreur: 'Fiche introuvable.' };
+  try {
+    db.prepare('INSERT INTO ens_apercu (professeur_id, par) VALUES (?,?)').run(Number(profId), par);
+    await deposerEnseignants(appel);
+    const r = await appel('POST', '/interne/ens/apercu', { ens_id: identifiantEspace(profId), par });
+    return { url: r.url };
+  } catch (e) {
+    return { erreur: /404/.test(e.message) ? 'L’espace enseignant n’a pas reçu ce professeur.' : 'L’espace enseignant ne répond pas.' };
+  }
 }
 
 /** L'APERÇU DE LA DIRECTION (3.1.518, Charles : « en tant que directeur, je dois avoir un mode voir comme un étudiant pour

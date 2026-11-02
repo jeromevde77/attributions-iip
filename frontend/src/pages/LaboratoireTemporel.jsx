@@ -5,7 +5,7 @@ import { passeRole } from '../lib/droits.js';
 import { teinteCours, styleTuileCours } from '../lib/teinteCours.js';
 import { IconeLaboratoire } from '../components/IconeLaboratoire.jsx';
 import { RailLateral } from '../components/ui.jsx';
-import { IconSitemap, IconPuzzle, IconCalendarWeek, IconTimeline, IconTrash, IconHistory, IconUserCheck, IconCalendarCog, IconWand, IconEye, IconArrowLeft, IconArrowRight } from '@tabler/icons-react';
+import { IconSitemap, IconHierarchy2, IconCalendarTime, IconCalendarCheck, IconPuzzle, IconCalendarWeek, IconTimeline, IconTrash, IconHistory, IconUserCheck, IconCalendarCog, IconWand, IconEye, IconArrowLeft, IconArrowRight } from '@tabler/icons-react';
 const HoraireSemaine = lazy(() => import('./HoraireSemaine.jsx'));
 
 /* LE LABORATOIRE SE FAIT PAR ÉTAPES (3.1.465, Charles, 29 octobre 2026 : « pas clair ; il faut que ça se fasse
@@ -13,7 +13,7 @@ const HoraireSemaine = lazy(() => import('./HoraireSemaine.jsx'));
    (le schéma), quand (le temps), en combien de groupes, dans quelles plages, avec quels enseignants, puis la
    semaine se calcule et se verse ; l'horaire se regarde à la fin. Chaque étape dit ce qu'on y fait. */
 export const ETAPES_LABO = [
-  { k: 'schema', titre: 'Schéma de capitalisation', Icone: IconSitemap,
+  { k: 'schema', titre: 'Le schéma', Icone: IconHierarchy2,
     dit: 'Quelles UE s’organisent cette année, dans quel bloc et quel quadrimestre, et ce qui dépend de quoi.' },
   { k: 'temps', titre: 'Le temps', Icone: IconTimeline,
     dit: 'Quand chaque UE se donne : ses dates dans l’année (« Organisation de base » les propose), ses couches, son verre.' },
@@ -23,9 +23,9 @@ export const ETAPES_LABO = [
     dit: 'Les blocs de cours de l’école sur la semaine, et ce qu’on évite ou interdit (section, bloc, local, UE).' },
   { k: 'disponibilites', titre: 'Les disponibilités', Icone: IconUserCheck,
     dit: 'Quand chaque enseignant peut donner cours — commun à toutes ses sections.' },
-  { k: 'semaine', titre: 'La semaine', Icone: IconCalendarWeek,
+  { k: 'semaine', titre: 'La semaine', Icone: IconCalendarTime,
     dit: 'Lucie calcule la semaine type à partir de tout ce qui précède ; on l’adopte, on la retouche, puis on la verse dans l’horaire.' },
-  { k: 'horaire', titre: 'L’horaire', Icone: IconEye,
+  { k: 'horaire', titre: 'L’horaire', Icone: IconCalendarCheck,
     dit: 'Le résultat : l’horaire tel que le voient les classes, les professeurs et les locaux.' },
 ];
 const StructureSection = lazy(() => import('./StructureSection.jsx'));

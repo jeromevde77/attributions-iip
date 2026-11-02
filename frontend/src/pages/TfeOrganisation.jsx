@@ -8,6 +8,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { IconSend, IconUsers, IconPlus, IconTrash } from '@tabler/icons-react';
 import { EnteteCarte, Tableau, TableauEntete, Th, Td, Tr, PastilleEtat, TuileEtat, Fenetre, OutilFenetre } from '../components/ui.jsx';
+import FichesEvaluation from '../components/FichesEvaluation.jsx';
 import { api, authHeaders } from '../lib/api.js';
 import { demander, informer } from '../lib/dialogue.jsx';
 import { Jury } from '../components/Tfe.jsx';
@@ -33,7 +34,7 @@ export default function TfeOrganisation({ annee }) {
       `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`, 'fr')))).catch(() => {});
   }, []);
   const faces = [['ensemble', 'Vue d’ensemble'], ['sans', `Sans TFE${d?.synthese?.sans_tfe ? ` (${d.synthese.sans_tfe})` : ''}`],
-    ['remises', `Remises${d?.synthese?.en_retard ? ` (${d.synthese.en_retard} en retard)` : ''}`], ['defenses', 'Défenses']];
+    ['remises', `Remises${d?.synthese?.en_retard ? ` (${d.synthese.en_retard} en retard)` : ''}`], ['defenses', 'Défenses'], ['fiches', 'Fiches d’évaluation']];
   return (
     <div className="space-y-4">
       <div>
@@ -48,6 +49,7 @@ export default function TfeOrganisation({ annee }) {
         {face === 'sans' && <SansTfe d={d} annee={annee} recharger={charger} />}
         {face === 'remises' && <Remises d={d} annee={annee} recharger={charger} />}
         {face === 'defenses' && <Defenses d={d} recharger={charger} ouvrirJury={setJury} />}
+        {face === 'fiches' && <FichesEvaluation annee={annee} domaine="tfe" />}
       </>}
       {jury && (
         <Fenetre icone={IconUsers} titre={`Jury — ${nomEtud(jury)}`} sous={jury.titre} onFermer={() => { setJury(null); charger(); }}>

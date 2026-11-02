@@ -167,6 +167,8 @@ export function acquisDuCours(coursCode, ueNum, annee) {
 
 // Le dossier professeur du compte connecté — sans lui, pas de porte.
 function profDe(req) {
+  // L'aperçu de la direction (3.5.084) : la fiche d'un professeur sans compte se lit comme s'il en avait un.
+  if (req.user?.apercuProfId) return req.user.apercuProfId;
   try {
     return db.prepare('SELECT professeur_id FROM utilisateur WHERE id = ?')
       .get(req.user?.id)?.professeur_id || null;
@@ -1325,5 +1327,54 @@ r.post('/:coursCode/presences/:seanceId', authRequired, (req, res) => {
   if (out.erreur) return res.status(400).json({ error: out.erreur });
   res.json({ ok: true, ...out });
 });
+
+/* L'ESPACE ENSEIGNANT (3.5.076) : ce que Lucie dépose au portail pour un compte, par LES MÊMES RÈGLES que Mes cours
+ * (attributions, `accesCours`, `seancesDuCours`) — ses séances de `du` à `au`, les inscrits de chacune et les présences
+ * déjà prises ; et la reprise de ce qu'il y encode, par la seule porte des présences (`ecrirePresences`). */
+export function seancesPourEspace(user, du, au) {
+  const req = { user };
+  const profId = profDe(req);
+  if (!profId) return { relie: false, seances: [], etudiants: [], presences: [] };
+  const annees = db.prepare('SELECT DISTINCT annee_scolaire a FROM horaire_seance WHERE date BETWEEN ? AND ?').all(du, au).map(x => x.a);
+  const seances = [], etudiants = new Map();
+  for (const annee of annees) {
+    const attrs = attributionsDe(profId, annee);
+    for (const code of [...new Set(attrs.map(a => a.code_cours))]) {
+      const d = accesCours(req, code, annee);
+      if (!d) continue;
+      const a = attrs.find(x => x.code_cours === code);
+      for (const e of d.etudiants) etudiants.set(e.id, { id: e.id, nom: e.nom, prenom: e.prenom, groupe: e.groupe || null });
+      for (const x of seancesDuCours(req, d, code, annee).filter(z => z.date >= du && z.date <= au)) {
+        seances.push({ id: x.id, date: x.date, heure_debut: x.heure_debut, heure_fin: x.heure_fin, cours_code: code,
+          cours_nom: a?.cours_nom || '', ue_num: a?.ue_num ?? null, matiere: x.matiere, local: x.local_texte || '',
+          annule: !!x.annule, inscrits: d.etudiants.map(e => e.id) });
+      }
+    }
+  }
+  const ids = seances.map(x => x.id);
+  const presences = ids.length ? db.prepare(`SELECT seance_id, etudiant_id, statut, retard, motif FROM presence
+    WHERE seance_id IN (${ids.map(() => '?').join(',')})`).all(...ids) : [];
+  let visites = [];
+  try {
+    visites = visitesDuProf(profId, du, au).map(v => ({ id: -Number(v.id), date: v.date, heure_debut: v.heure_debut || null, heure_fin: v.heure_fin || null,
+      cours_nom: `Visite de stage — ${String(v.etud_nom || '').toUpperCase()} ${v.etud_prenom || ''}`.trim(), ue_num: v.ue_num ?? null,
+      local: [v.lieu_nom, v.lieu_localite].filter(Boolean).join(', '), annule: v.statut === 'annulee', visite: true, inscrits: [] }));
+  } catch { /* table absente */ }
+  return { relie: true, seances: [...seances, ...visites], etudiants: [...etudiants.values()], presences };
+}
+
+export function presencesDepuisEspace(user, seanceId, lignes, par) {
+  const req = { user };
+  const s = lireSeance(seanceId);
+  if (!s) return { erreur: 'Cette séance n’existe plus dans l’horaire.' };
+  const d = accesCours(req, s.cours_code, s.annee_scolaire);
+  if (!d || !seancesDuCours(req, d, s.cours_code, s.annee_scolaire).some(x => x.id === s.id)) return { erreur: 'Cette séance ne fait plus partie de vos séances.' };
+  if (s.annule) return { erreur: 'Séance annulée : il n’y a pas de présence à prendre.' };
+  if (s.date > aujourdhuiBruxelles()) return { erreur: 'Cette séance n’a pas encore eu lieu.' };
+  const miens = new Set(d.etudiants.map(e => e.id));
+  const l = (lignes || []).filter(x => miens.has(Number(x.etudiant_id)))
+    .map(x => ({ seance_id: s.id, etudiant_id: Number(x.etudiant_id), statut: x.statut || null, motif: x.motif || null, retard: !!x.retard }));
+  return ecrirePresences(l, par);
+}
 
 export default r;

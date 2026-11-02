@@ -11,7 +11,7 @@ import db from '../db/index.js';
 import { authRequired } from '../middleware/auth.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { accesCours, acquisDuCours } from './mesCours.js';
-import { migrerCarnet, lireValeur, propositions, evaluationsDuCours, notesDuCarnet, MENTIONS_CARNET } from '../lib/carnet.js';
+import { migrerCarnet, lireValeur, propositions, evaluationsDuCours, notesDuCarnet, notesParAcquis, noteDEnsemble, MENTIONS_CARNET } from '../lib/carnet.js';
 
 try { migrerCarnet(); } catch (e) { console.error('[migration] carnet :', e.message); }
 
@@ -43,7 +43,9 @@ function lireEvaluation(b, acquis) {
   const etrangers = aa.filter(x => !codes.has(x.aa_code));
   if (etrangers.length) return { erreur: `Acquis inconnu(s) pour ce cours : ${etrangers.map(x => x.aa_code).join(', ')}.` };
   if (aa.some(x => !(x.poids > 0 && x.poids <= 100))) return { erreur: 'Le poids d’un acquis est un nombre positif.' };
-  return { intitule, sur, poids, date, session, aa };
+  const par_acquis = b?.par_acquis ? 1 : 0;
+  if (par_acquis && !aa.length) return { erreur: 'Une évaluation notée acquis par acquis se rattache à ses acquis : cochez-les.' };
+  return { intitule, sur, poids, date, session, aa, par_acquis };
 }
 
 // ── Le carnet d'un cours : évaluations, notes, propositions ─────────────────
@@ -53,20 +55,22 @@ r.get('/:coursCode', authRequired, (req, res) => {
   if (!c) return res.status(403).json({ error: REFUS });
   const evaluations = evaluationsDuCours(c.code, annee);
   const notes = notesDuCarnet(evaluations);
+  const notesAA = notesParAcquis(evaluations);
   const ids = c.d.etudiants.map(e => e.id);
   const codes = c.acquis.map(a => a.aa_code);
-  const props = { 1: propositions({ evaluations, notes, acquis: codes, etudiants: ids, session: 1 }),
-    2: propositions({ evaluations, notes, acquis: codes, etudiants: ids, session: 2 }) };
+  const props = { 1: propositions({ evaluations, notes, notesAA, acquis: codes, etudiants: ids, session: 1 }),
+    2: propositions({ evaluations, notes, notesAA, acquis: codes, etudiants: ids, session: 2 }) };
   // L'an dernier a-t-il un carnet ? « Reprendre l'an dernier » n'est proposé que s'il y a quelque chose à reprendre.
   const precedent = evaluations.length ? null : db.prepare(`SELECT annee_scolaire AS a, COUNT(*) n FROM carnet_evaluation
     WHERE cours_code = ? AND annee_scolaire < ? GROUP BY annee_scolaire ORDER BY annee_scolaire DESC LIMIT 1`).get(c.code, annee) || null;
   res.json({
     annee, cours_code: c.code, ue_num: c.d.ueNum, acquis: c.acquis, mentions: MENTIONS_CARNET, precedent,
     evaluations: evaluations.map(e => ({ id: e.id, intitule: e.intitule, date: e.date, sur: e.sur, poids: e.poids,
-      session: e.session, aa: e.aa, cree_par: e.cree_par, modifie_par: e.modifie_par,
+      session: e.session, aa: e.aa, par_acquis: !!e.par_acquis, cree_par: e.cree_par, modifie_par: e.modifie_par,
       notees: [...(notes.get(e.id)?.values() || [])].filter(n => n.points != null || n.mention).length })),
     etudiants: c.d.etudiants.map(e => ({ id: e.id, nom: e.nom, prenom: e.prenom, id_ecampus: e.id_ecampus, groupe: e.groupe || '',
       notes: Object.fromEntries(evaluations.map(ev => [ev.id, notes.get(ev.id)?.get(e.id) || null]).filter(([, v]) => v)),
+      notes_aa: Object.fromEntries(evaluations.filter(ev => ev.par_acquis).map(ev => [ev.id, notesAA.get(ev.id)?.get(e.id) || {}])),
       propositions: { 1: props[1].get(e.id)?.aa || {}, 2: props[2].get(e.id)?.aa || {} },
       moyenne: { 1: props[1].get(e.id)?.moyenne ?? null, 2: props[2].get(e.id)?.moyenne ?? null } })),
   });
@@ -80,8 +84,8 @@ r.post('/:coursCode/evaluations', authRequired, (req, res) => {
   if (v.erreur) return res.status(400).json({ error: v.erreur });
   const id = db.transaction(() => {
     const ordre = (db.prepare('SELECT MAX(ordre) m FROM carnet_evaluation WHERE annee_scolaire = ? AND cours_code = ?').get(annee, c.code)?.m ?? 0) + 1;
-    const nid = db.prepare(`INSERT INTO carnet_evaluation (annee_scolaire, cours_code, ue_num, intitule, date, sur, poids, session, ordre, cree_par)
-      VALUES (?,?,?,?,?,?,?,?,?,?)`).run(annee, c.code, c.d.ueNum, v.intitule, v.date, v.sur, v.poids, v.session, ordre, qui(req)).lastInsertRowid;
+    const nid = db.prepare(`INSERT INTO carnet_evaluation (annee_scolaire, cours_code, ue_num, intitule, date, sur, poids, session, ordre, cree_par, par_acquis)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?)`).run(annee, c.code, c.d.ueNum, v.intitule, v.date, v.sur, v.poids, v.session, ordre, qui(req), v.par_acquis).lastInsertRowid;
     const lien = db.prepare('INSERT INTO carnet_evaluation_aa (evaluation_id, aa_code, poids) VALUES (?,?,?)');
     for (const a of v.aa) lien.run(nid, a.aa_code, a.poids);
     return nid;
@@ -102,11 +106,21 @@ r.put('/:coursCode/evaluations/:id', authRequired, (req, res) => {
   const v = lireEvaluation(req.body, c.acquis);
   if (v.erreur) return res.status(400).json({ error: v.erreur });
   // Baisser le maximum sous des points déjà donnés les rendrait incohérents : refusé, nommé.
-  const trop = db.prepare('SELECT COUNT(*) n FROM carnet_note WHERE evaluation_id = ? AND points > ?').get(ev.id, v.sur).n;
+  const trop = db.prepare('SELECT COUNT(*) n FROM carnet_note WHERE evaluation_id = ? AND points > ?').get(ev.id, v.sur).n
+    + db.prepare('SELECT COUNT(*) n FROM carnet_note_aa WHERE evaluation_id = ? AND points > ?').get(ev.id, v.sur).n;
   if (trop) return res.status(409).json({ error: `${trop} note(s) dépassent ${v.sur} : corrigez-les avant de baisser le maximum.` });
+  // Changer la façon de noter une évaluation déjà notée mêlerait deux grilles : refusé, nommé.
+  if (Number(ev.par_acquis || 0) !== v.par_acquis && db.prepare('SELECT COUNT(*) n FROM carnet_note WHERE evaluation_id = ?').get(ev.id).n) {
+    return res.status(409).json({ error: 'Cette évaluation a déjà des notes : on ne passe pas d’une note unique à une note par acquis (ni l’inverse). Créez une autre évaluation.' });
+  }
+  if (v.par_acquis) {
+    const garde = new Set(v.aa.map(a => a.aa_code));
+    const orph = db.prepare('SELECT DISTINCT aa_code FROM carnet_note_aa WHERE evaluation_id = ?').all(ev.id).filter(x => !garde.has(x.aa_code));
+    if (orph.length) return res.status(409).json({ error: `Des notes existent pour ${orph.map(x => x.aa_code).join(', ')} : effacez-les avant de décocher cet acquis.` });
+  }
   db.transaction(() => {
-    db.prepare(`UPDATE carnet_evaluation SET intitule = ?, date = ?, sur = ?, poids = ?, session = ?, modifie_par = ?, modifie_le = datetime('now')
-      WHERE id = ?`).run(v.intitule, v.date, v.sur, v.poids, v.session, qui(req), ev.id);
+    db.prepare(`UPDATE carnet_evaluation SET intitule = ?, date = ?, sur = ?, poids = ?, session = ?, par_acquis = ?, modifie_par = ?, modifie_le = datetime('now')
+      WHERE id = ?`).run(v.intitule, v.date, v.sur, v.poids, v.session, v.par_acquis, qui(req), ev.id);
     db.prepare('DELETE FROM carnet_evaluation_aa WHERE evaluation_id = ?').run(ev.id);
     const lien = db.prepare('INSERT INTO carnet_evaluation_aa (evaluation_id, aa_code, poids) VALUES (?,?,?)');
     for (const a of v.aa) lien.run(ev.id, a.aa_code, a.poids);
@@ -122,6 +136,7 @@ r.delete('/:coursCode/evaluations/:id', authRequired, (req, res) => {
   if (!ev) return res.status(404).json({ error: 'Évaluation introuvable.' });
   db.transaction(() => {
     db.prepare('DELETE FROM carnet_note WHERE evaluation_id = ?').run(ev.id);
+    db.prepare('DELETE FROM carnet_note_aa WHERE evaluation_id = ?').run(ev.id);
     db.prepare('DELETE FROM carnet_evaluation_aa WHERE evaluation_id = ?').run(ev.id);
     db.prepare('DELETE FROM carnet_evaluation WHERE id = ?').run(ev.id);
   })();
@@ -139,12 +154,15 @@ r.put('/:coursCode/evaluations/:id/notes', authRequired, (req, res) => {
   const lignes = Array.isArray(req.body?.notes) ? req.body.notes : [];
   const erreurs = [];
   const lues = [];
+  const liens = ev.par_acquis ? new Set(db.prepare('SELECT aa_code FROM carnet_evaluation_aa WHERE evaluation_id = ?').all(ev.id).map(x => x.aa_code)) : null;
   for (const l of lignes) {
     const id = Number(l?.etudiant_id);
     if (!miens.has(id)) { erreurs.push(`étudiant ${id} hors de la liste de ce cours`); continue; }
+    const aa = liens ? String(l?.aa_code || '') : null;
+    if (liens && !liens.has(aa)) { erreurs.push(`acquis ${aa || '(aucun)'} non rattaché à cette évaluation`); continue; }
     const v = lireValeur(l?.valeur, ev.sur);
-    if (v.erreur) { const e = miens.get(id); erreurs.push(`${String(e.nom || '').toUpperCase()} ${e.prenom || ''} : ${v.erreur}`); continue; }
-    lues.push({ id, ...v });
+    if (v.erreur) { const e = miens.get(id); erreurs.push(`${String(e.nom || '').toUpperCase()} ${e.prenom || ''}${aa ? ` (${aa})` : ''} : ${v.erreur}`); continue; }
+    lues.push({ id, aa, ...v });
   }
   // Tout ou rien : une colonne à moitié enregistrée ne se relit pas.
   if (erreurs.length) return res.status(400).json({ error: erreurs.slice(0, 6).join(' · ') + (erreurs.length > 6 ? ` · … et ${erreurs.length - 6} autre(s)` : ''), erreurs });
@@ -154,6 +172,27 @@ r.put('/:coursCode/evaluations/:id/notes', authRequired, (req, res) => {
       saisi_par = excluded.saisi_par, saisi_le = excluded.saisi_le`);
   const oter = db.prepare('DELETE FROM carnet_note WHERE evaluation_id = ? AND etudiant_id = ?');
   let n = 0;
+  if (liens) {
+    const evx = { ...ev, aa: db.prepare('SELECT aa_code, poids FROM carnet_evaluation_aa WHERE evaluation_id = ?').all(ev.id) };
+    const poserAA = db.prepare(`INSERT INTO carnet_note_aa (evaluation_id, etudiant_id, aa_code, points, mention, saisi_par, saisi_le)
+      VALUES (?,?,?,?,?,?,datetime('now'))
+      ON CONFLICT(evaluation_id, etudiant_id, aa_code) DO UPDATE SET points = excluded.points, mention = excluded.mention,
+        saisi_par = excluded.saisi_par, saisi_le = excluded.saisi_le`);
+    const oterAA = db.prepare('DELETE FROM carnet_note_aa WHERE evaluation_id = ? AND etudiant_id = ? AND aa_code = ?');
+    db.transaction(() => {
+      for (const x of lues) {
+        if (x.points == null && !x.mention) n += oterAA.run(ev.id, x.id, x.aa).changes;
+        else { poserAA.run(ev.id, x.id, x.aa, x.points, x.mention, qui(req)); n++; }
+      }
+      // La note d'ensemble de chaque étudiant touché se recalcule (elle nourrit la moyenne du carnet et l'export).
+      const parAA = notesParAcquis([evx]).get(ev.id) || new Map();
+      for (const id of new Set(lues.map(x => x.id))) {
+        const t = noteDEnsemble(evx, parAA.get(id));
+        if (!t) oter.run(ev.id, id); else poser.run(ev.id, id, t.points, t.mention, qui(req));
+      }
+    })();
+    return res.json({ ok: true, ecrites: n });
+  }
   db.transaction(() => {
     for (const x of lues) {
       if (x.points == null && !x.mention) n += oter.run(ev.id, x.id).changes;
@@ -175,8 +214,8 @@ r.post('/:coursCode/reprendre', authRequired, (req, res) => {
   let n = 0, aaPerdus = 0;
   db.transaction(() => {
     for (const e of evaluationsDuCours(c.code, prec)) {
-      const nid = db.prepare(`INSERT INTO carnet_evaluation (annee_scolaire, cours_code, ue_num, intitule, date, sur, poids, session, ordre, cree_par)
-        VALUES (?,?,?,?,NULL,?,?,?,?,?)`).run(annee, c.code, c.d.ueNum, e.intitule, e.sur, e.poids, e.session, e.ordre, qui(req)).lastInsertRowid;
+      const nid = db.prepare(`INSERT INTO carnet_evaluation (annee_scolaire, cours_code, ue_num, intitule, date, sur, poids, session, ordre, cree_par, par_acquis)
+        VALUES (?,?,?,?,NULL,?,?,?,?,?,?)`).run(annee, c.code, c.d.ueNum, e.intitule, e.sur, e.poids, e.session, e.ordre, qui(req), e.par_acquis ? 1 : 0).lastInsertRowid;
       for (const a of e.aa) {
         if (codes.has(a.aa_code)) db.prepare('INSERT INTO carnet_evaluation_aa (evaluation_id, aa_code, poids) VALUES (?,?,?)').run(nid, a.aa_code, a.poids);
         else aaPerdus++;
@@ -196,7 +235,7 @@ r.get('/:coursCode/excel', authRequired, async (req, res) => {
   const notes = notesDuCarnet(evaluations);
   const ids = c.d.etudiants.map(e => e.id);
   const codes = c.acquis.map(a => a.aa_code);
-  const p = propositions({ evaluations, notes, acquis: codes, etudiants: ids, session: 1 });
+  const p = propositions({ evaluations, notes, notesAA: notesParAcquis(evaluations), acquis: codes, etudiants: ids, session: 1 });
   const wb = new ExcelJS.Workbook();
   const f = wb.addWorksheet('Carnet');
   const cles = codes.length ? codes : [''];

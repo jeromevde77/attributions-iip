@@ -55,7 +55,47 @@ export function migrerCarnet(base = db) {
       mention TEXT,
       saisi_par TEXT, saisi_le TEXT DEFAULT (datetime('now')),
       PRIMARY KEY (evaluation_id, etudiant_id));
+    -- UNE NOTE PAR ACQUIS (3.5.078, Charles : « l'écrit et l'oral de l'épreuve intégrée sont obtenus par les AA liés » ;
+    -- tranché : le carnet tel qu'il existe, une note par acquis). Une évaluation « par acquis » se note acquis par acquis ;
+    -- sa note d'ensemble (carnet_note) en est la moyenne pondérée par le poids de chaque lien, recalculée à chaque saisie.
+    CREATE TABLE IF NOT EXISTS carnet_note_aa (
+      evaluation_id INTEGER NOT NULL REFERENCES carnet_evaluation(id) ON DELETE CASCADE,
+      etudiant_id INTEGER NOT NULL,
+      aa_code TEXT NOT NULL,
+      points REAL,
+      mention TEXT,
+      saisi_par TEXT, saisi_le TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (evaluation_id, etudiant_id, aa_code));
   `);
+  try { base.exec('ALTER TABLE carnet_evaluation ADD COLUMN par_acquis INTEGER NOT NULL DEFAULT 0'); } catch { /* déjà là */ }
+}
+
+/** Les notes par acquis : Map evaluation_id → Map etudiant_id → { [aa_code]: { points, mention } }. */
+export function notesParAcquis(evaluations) {
+  const m = new Map();
+  const ids = evaluations.filter(e => e.par_acquis).map(e => e.id);
+  if (!ids.length) return m;
+  for (const n of db.prepare(`SELECT evaluation_id, etudiant_id, aa_code, points, mention FROM carnet_note_aa
+      WHERE evaluation_id IN (${ids.map(() => '?').join(',')})`).all(...ids)) {
+    if (!m.has(n.evaluation_id)) m.set(n.evaluation_id, new Map());
+    const e = m.get(n.evaluation_id);
+    if (!e.has(n.etudiant_id)) e.set(n.etudiant_id, {});
+    e.get(n.etudiant_id)[n.aa_code] = { points: n.points, mention: n.mention };
+  }
+  return m;
+}
+
+/** La note d'ensemble d'une évaluation par acquis : la moyenne de ses acquis notés, pondérée par le poids des liens,
+ *  dans l'échelle de l'évaluation. Sans aucun point, la première mention (PP, NP, CM) ; rien du tout : null. */
+export function noteDEnsemble(ev, parAA) {
+  let num = 0, den = 0, mention = null;
+  for (const l of ev.aa || []) {
+    const n = parAA?.[l.aa_code];
+    if (n?.points != null) { const w = Number(l.poids) || 0; num += n.points * w; den += w; }
+    else if (n?.mention && !mention) mention = n.mention;
+  }
+  if (den > 0) return { points: Math.round((num / den) * 100) / 100, mention: null };
+  return mention ? { points: null, mention } : null;
 }
 
 /** Une saisie de cellule : « 12,5 », « 12.5 », « PP », vide. Rend { points, mention } ou { erreur }. */
@@ -77,7 +117,7 @@ export function lireValeur(brut, sur) {
  * Rend Map etudiant_id → { [aa_code]: { note, sur20, nb } } pour la session demandée,
  * et `moyenne` (toutes évaluations, pondérées, une décimale) — repère du carnet.
  */
-export function propositions({ evaluations, notes, acquis, etudiants, session = 1 }) {
+export function propositions({ evaluations, notes, acquis, etudiants, session = 1, notesAA = new Map() }) {
   const evs = evaluations.filter(e => (e.session || 1) === session);
   const cles = acquis.length ? acquis : [''];
   const sortie = new Map();
@@ -88,7 +128,8 @@ export function propositions({ evaluations, notes, acquis, etudiants, session = 
       for (const e of evs) {
         const lien = aa ? (e.aa || []).find(x => x.aa_code === aa) : { poids: 1 };
         if (!lien) continue;
-        const n = notes.get(e.id)?.get(etu);
+        // Une évaluation par acquis donne À CHAQUE ACQUIS sa propre note ; les autres, la même note à tous.
+        const n = e.par_acquis && aa ? notesAA.get(e.id)?.get(etu)?.[aa] : notes.get(e.id)?.get(etu);
         if (n?.points == null || !(e.sur > 0)) continue;
         const w = (Number(e.poids) || 0) * (Number(lien.poids) || 0);
         if (!(w > 0)) continue;

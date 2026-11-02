@@ -16,7 +16,7 @@ import { migrerReunions } from './db/migrations_reunions.js';
 import { migrerBesoinsOffres } from './db/migrations_besoins.js';
 import { migrerJournalPersonnel } from './db/migrations_journal.js';
 import mfaRoutes, { migrerMfa } from './routes/mfa.js';
-import { garderModule } from './middleware/garde.js';
+import { garderModule, garderModuleSauf } from './middleware/garde.js';
 import { migrerConstat } from './middleware/garde.js';
 import { verifierCleMfa } from './lib/secret-box.js';
 import { demarrerMoteur } from './services/echeancier.js';
@@ -67,6 +67,7 @@ import cepRoutes from './routes/cep.js';
 import { migrerCep } from './lib/cep.js';
 import stagesRoutes, { migrerStages } from './routes/stages.js';
 import tfeRoutes, { migrerTfe } from './routes/tfe.js';
+import fichesEvaluationRoutes, { migrerFiches } from './routes/fichesEvaluation.js';
 import conventionsRoutes, { migrerConventions } from './routes/conventions.js';
 import attestationsRoutes, { migrerAttestations } from './routes/attestations.js';
 import dueRoutes, { migrerDUE } from './routes/due.js';
@@ -2979,6 +2980,8 @@ try { migrerAmenagements(db); } catch (e) { console.error('[migration] aménagem
 try { migrerCep(db); } catch (e) { console.error('[migration] congé-éducation :', e.message); }
 try { migrerStages(db); } catch (e) { console.error('[migration] stages :', e.message); }
 try { migrerTfe(db); } catch (e) { console.error('[migration] tfe :', e.message); }
+try { migrerFiches(db); } catch (e) { console.error('[migration] fiches d’évaluation :', e.message); }
+try { (await import('./lib/portailTfeStage.js')).migrerTfeEspace(db); } catch (e) { console.error('[migration] TFE de l’espace :', e.message); }
 try { db.exec('ALTER TABLE attribution ADD COLUMN fonds_propres INTEGER NOT NULL DEFAULT 0'); } catch { /* déjà là */ }
 try { migrerSectionDiplome(db); } catch (e) { console.error('[migration] données du titre :', e.message); }
 try { migrerConventions(db); } catch (e) { console.error('[migration] conventions :', e.message); }
@@ -3129,7 +3132,7 @@ app.use('/api/pae-en-ligne', (await import('./routes/paeEnLigne.js')).default);
 // L'ESPACE DE L'ÉTUDIANT N'EST PLUS ICI (3.1.477, le mur) : il vit dans le portail (dossier portail/,
 // etudiants.lucie-iip.be), sa base et ses clés à lui. Lucie n'en sert qu'une lecture pour la fiche.
 {
-  const { suiviPortail, planifierPortail, poserException, retirerException, deposerBientot, ouvrirApercu } = await import('./lib/portailSync.js');
+  const { suiviPortail, planifierPortail, poserException, retirerException, deposerBientot, ouvrirApercu, ouvrirApercuEnseignant } = await import('./lib/portailSync.js');
   const { authRequired: exigerCompte, roleRequired: exigerRole } = await import('./middleware/auth.js');
   const { nomEcranDuCompte } = await import('./lib/nom.js');
   const qui = req => nomEcranDuCompte(req.user?.nom, req.user?.email) || '?';
@@ -3143,6 +3146,12 @@ app.use('/api/pae-en-ligne', (await import('./routes/paeEnLigne.js')).default);
   app.post('/api/portail-suivi/:id/apercu', exigerCompte, (req, res, next) => (['admin', 'directeur', 'directeur_adjoint'].includes(req.user?.role)
     ? next() : res.status(403).json({ error: 'Réservé à la direction.' })), async (req, res) => {
     const r = await ouvrirApercu(Number(req.params.id), qui(req));
+    res.status(r.erreur ? 409 : 200).json(r.erreur ? { error: r.erreur } : r);
+  });
+  // Voir l'espace enseignant d'un professeur, depuis sa fiche — la direction seule (3.5.084).
+  app.post('/api/espace-enseignant/:profId/apercu', exigerCompte, (req, res, next) => (['admin', 'directeur', 'directeur_adjoint'].includes(req.user?.role)
+    ? next() : res.status(403).json({ error: 'Réservé à la direction.' })), async (req, res) => {
+    const r = await ouvrirApercuEnseignant(Number(req.params.profId), qui(req));
     res.status(r.erreur ? 409 : 200).json(r.erreur ? { error: r.erreur } : r);
   });
   // Le code d'accès du candidat (sans adresse de l'institut) : l'envoyer, ou le renouveler — secrétariat et direction.
@@ -3220,8 +3229,10 @@ app.use('/api/amenagements', garderModule('amenagements'), amenagementsRoutes);
 try { migrerEffectifsPrevus(); } catch (e) { console.error('[migration] effectifs prévus :', e.message); }
 app.use('/api/effectifs-prevus', effectifsPrevusRoutes);
 app.use('/api/cep', cepRoutes);
-app.use('/api/stages', garderModule('stages'), stagesRoutes);
-app.use('/api/tfe', garderModule('etudiants'), tfeRoutes);
+app.use('/api/stages', garderModuleSauf('stages', ['coordination']), stagesRoutes);
+app.use('/api/tfe', garderModuleSauf('etudiants', ['coordination']), tfeRoutes);
+// Les fiches d'évaluation (TFE, stages) : direction, coordination de la section, responsables désignés — décidé route par route.
+app.use('/api/fiches-evaluation', fichesEvaluationRoutes);
 app.use('/api/conventions', garderModule('stages'), conventionsRoutes);
 app.use('/api/attestations', garderModule('attestations'), attestationsRoutes);
 app.use('/api/annexe2', garderModule('annexe2'), annexe2Routes);
