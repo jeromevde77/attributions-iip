@@ -8,13 +8,13 @@ import { nomEcranDuCompte } from '../lib/nom.js';
 import { envelopperDocument } from '../lib/document.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import {
-  migrerTempsTravail, reglage, ecrireReglage, genererAnnee, anneeDe, modifierSemaine, releve, ecrireEcart, ficheConges,
+  migrerTempsTravail, recalerAnnees, reglage, ecrireReglage, genererAnnee, anneeDe, modifierSemaine, releve, ecrireEcart, ficheConges,
   signer, planningEquipe, anneeEquipe, semaineEquipe, periodesDeConge, fixerConges, FORMULES, ABSENCES, REGLES, hm, semainesDeLAnnee, semainesDeConge, JOURS, plusJours,
 } from '../lib/tempsTravail.js';
 import { migrerAgenda, fermetures } from '../lib/agendaEcole.js';
 import { migrerLigneTemps, ligne, moments as momentsDe, ecrireMoment, retirerMoment, forcerChaleur, assistant, proposer, modulations, valider, refuser } from '../lib/ligneTemps.js';
 
-try { migrerAgenda(); migrerTempsTravail(); migrerLigneTemps(); } catch (e) { console.error('[temps de travail] migration', e.message); }
+try { migrerAgenda(); migrerTempsTravail(); migrerLigneTemps(); const n = recalerAnnees(); if (n) console.log(`[temps de travail] ${n} semaine(s) recalée(s) sur l'année qui commence le 15 août`); } catch (e) { console.error('[temps de travail] migration', e.message); }
 
 const r = Router();
 const GERER = ['admin', 'directeur', 'directeur_adjoint'];

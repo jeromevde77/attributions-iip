@@ -28,8 +28,9 @@ export default function AgendaMois({ annee, ag, recharger, onChange = null }) {
   if (!ag) return <div className="px-4 py-3 text-sm text-slate-500">Chargement de l’agenda…</div>;
   if (ag.erreur) return <div className="px-4 py-3 text-sm text-red-700">{ag.erreur}</div>;
   const peutEtab = ag.peut?.etablissement;
-  const a1 = Number(String(annee).split('-')[0]);
-  const mois = Array.from({ length: 12 }, (_, i) => { const d = new Date(Date.UTC(a1, 8 + i, 1)); return d.toISOString().slice(0, 7); });
+  // Du mois du premier jour de l'année (mi-août) au mois du dernier (mi-août suivant) ; les jours hors de l'année sont pâles.
+  const premier = ag.semaines[0], dernier = plus(ag.semaines[ag.semaines.length - 1], 6);
+  const mois = []; for (let d = `${premier.slice(0, 7)}-01`; d <= dernier; d = new Date(Date.UTC(Number(d.slice(0, 4)), Number(d.slice(5, 7)), 1)).toISOString().slice(0, 10)) mois.push(d.slice(0, 7));
   const ferm = new Map(ag.semaines.map((l, i) => [l, ag.fermetures[i]]));
   const fermes = new Map(ag.jours_fermes.map(j => [j.date, j.libelle]));
   const elements = ag.moments.filter(m => (!domaine || m.domaine === domaine) && !masquees.includes(m.nature));
@@ -106,12 +107,12 @@ export default function AgendaMois({ annee, ag, recharger, onChange = null }) {
                 <div className="grid" style={{ gridTemplateColumns: COLS }}>
                   <div className="text-second font-semibold text-iip-texte pr-2 self-center">{MOIS[m - 1]} {y}</div>
                   {jours.map(d => {
-                    const w = new Date(`${d}T00:00:00Z`).getUTCDay(); const we = w === 0 || w === 6;
+                    const w = new Date(`${d}T00:00:00Z`).getUTCDay(); const we = w === 0 || w === 6; const hors = d < premier || d > dernier;
                     const f = ferm.get(lundiDe(d)); const ferie = ag.feries?.[d] || fermes.get(d);
                     return (
                       <div key={d} data-jour={d} 
                         title={[ferie, f ? `École ${f.fermeture === 'totale' ? 'fermée' : 'en partie fermée'} — ${f.libelle}` : null].filter(Boolean).join(' · ')}
-                        className={`h-9 mx-px rounded-[3px] flex flex-col items-center justify-center leading-none ${peutEtab ? 'cursor-crosshair' : ''} ${dansZone(d) ? 'ring-2 ring-[var(--c-accent)]' : ''}`}
+                        className={`h-9 mx-px rounded-[3px] flex flex-col items-center justify-center leading-none ${peutEtab ? 'cursor-crosshair' : ''} ${dansZone(d) ? 'ring-2 ring-[var(--c-accent)]' : ''} ${hors ? 'opacity-30' : ''}`}
                         style={{ background: f?.fermeture === 'totale' ? 'color-mix(in srgb, var(--c-texte) 14%, transparent)' : f?.fermeture === 'partielle' ? 'color-mix(in srgb, var(--c-texte) 7%, transparent)' : we ? HACHURE : 'color-mix(in srgb, var(--c-filet, #E2E8F0) 45%, transparent)' }}>
                         <span className="text-[9px] text-slate-400">{JS[w]}</span>
                         <span className={`text-second tabular-nums ${ferie ? 'text-[var(--c-refuse)] font-semibold' : 'text-iip-texte'}`}>{Number(d.slice(8))}</span>

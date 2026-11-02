@@ -12,7 +12,7 @@ export const ajouts = {
         "13 semaines de congé par an, été compris ; le dû est toujours de 36 h × 39 semaines = 1 404 heures par temps plein, en proportion pour un temps partiel. On module les semaines, jamais le total.",
         "Un jour férié pendant une semaine de travail compte pour ses heures prévues : il ne se récupère pas.",
         "Chaque membre désigné voit ses heures et, des autres, seulement qui travaille et qui est en congé.",
-        "Le module a sa propre année (en tête d'écran) : on prépare l'année suivante sans changer l'année de travail du reste de Lucie.",
+        "Le module a sa propre année (en tête d'écran) : elle commence le premier lundi à partir du 15 août — le lendemain de la fermeture d'été — et finit le 15 août suivant ; on prépare l'année suivante sans changer l'année de travail du reste de Lucie.",
       ],
     },
     {

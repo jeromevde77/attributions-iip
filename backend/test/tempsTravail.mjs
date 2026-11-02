@@ -30,7 +30,17 @@ const A = '2026-2027';
 
 console.log('\nLe calendrier');
 t('52 semaines', T.semainesDeLAnnee(A).length === 52);
+t('l’année commence le premier lundi à partir du 15 août (17/08/2026) et finit le 15/08/2027', T.semainesDeLAnnee(A)[0] === '2026-08-17' && T.plusJours(T.semainesDeLAnnee(A)[51], 6) === '2027-08-15', T.semainesDeLAnnee(A)[0]);
+t('2027-2028 commence le lundi 16/08/2027, sans trou', T.semainesDeLAnnee('2027-2028')[0] === '2027-08-16');
 t('8 semaines de congés scolaires', T.semainesDeConge(A).size === 8, T.semainesDeConge(A).size);
+
+console.log('\nLe recalage des années d’avant 3.5.063');
+db.prepare("INSERT OR IGNORE INTO tt_personne (utilisateur_id, fraction, formule) VALUES (2, 1, '5j')").run();
+{ const ins = db.prepare("INSERT INTO tt_semaine (utilisateur_id, annee, lundi, statut, jours_json) VALUES (2, ?, ?, 'travail', '[]')");
+  const anc = Array.from({ length: 52 }, (_, i) => T.plusJours('2026-08-31', 7 * i)); for (const l of anc) ins.run(A, l);
+  const n = T.recalerAnnees(); const l2 = T.anneeDe(2, A).map(x => x.lundi);
+  t('deux semaines recalées, l’année retombe sur ses 52 semaines', n === 2 && l2.length === 52 && l2[0] === '2026-08-17' && !l2.includes('2027-08-23'), [n, l2[0], l2[51]]);
+  db.prepare('DELETE FROM tt_semaine WHERE utilisateur_id = 2').run(); }
 
 console.log('\nTemps plein, 5 jours');
 let g = T.genererAnnee(1, A, { formule: '5j', fraction: 1, ete: '2027-07-05' });

@@ -3283,6 +3283,10 @@ coordination, professeur ; vide = tous ; `voit()` filtre côté serveur, la dire
 quinzaine, mois au n-ième jour ; fermetures totales et jours fermés sautés) et `agenda_serie_exception` (déplacer, annuler une
 date), dates calculées à la lecture (`datesDeSerie`). Routes d'écriture sur `/api/agenda-ecole` (moments, séries), direction.
 Banc : 57 ok.
+**L'année de l'agenda et du temps de travail commence le premier lundi à partir du 15 août** (3.5.063, Charles) :
+`debutDAnnee` (`lib/tempsTravail.js`, `lib/agendaEcole.js`, recopiée dans `pages/TempsTravail.jsx`) ; 52 semaines jusqu'au 15 août
+suivant (une semaine orpheline possible certaines années, en fermeture d'été). `recalerAnnees()` déplace au démarrage les semaines
+d'une année générée avant (septembre → août) vers celles qui lui manquent, statut et heures compris.
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en

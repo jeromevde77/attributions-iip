@@ -56,6 +56,26 @@ const lundiDe = s => { const d = s2d(s); const w = (d.getUTCDay() + 6) % 7; retu
 const min = h => { const m = /^(\d{1,2}):(\d{2})$/.exec(String(h || '')); return m ? Number(m[1]) * 60 + Number(m[2]) : null; };
 export const hm = m => { const s = m < 0 ? '−' : ''; m = Math.abs(Math.round(m)); return `${s}${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`; };
 
+/* RECALER LES ANNÉES GÉNÉRÉES AVANT 3.5.063 (elles commençaient au lundi de la semaine du 1er septembre) : chaque semaine
+   tombée hors de l'année prend la place d'une semaine qui lui manque, dans l'ordre, avec son statut et ses heures — le
+   total ne change pas. Rien si les comptes ne se répondent pas. */
+export function recalerAnnees(base = db) {
+  const paires = base.prepare('SELECT DISTINCT utilisateur_id, annee FROM tt_semaine').all();
+  let n = 0;
+  for (const { utilisateur_id: uid, annee } of paires) {
+    const semaines = semainesDeLAnnee(annee), dans = new Set(semaines);
+    const lignes = base.prepare('SELECT lundi FROM tt_semaine WHERE utilisateur_id = ? AND annee = ? ORDER BY lundi').all(uid, annee).map(r => r.lundi);
+    const hors = lignes.filter(l => !dans.has(l)), presents = new Set(lignes), manquent = semaines.filter(l => !presents.has(l));
+    if (!hors.length || hors.length !== manquent.length) continue;
+    // Les semaines de fin passent au début (ou l'inverse), dans l'ordre.
+    const tri = (a, b) => a.localeCompare(b);
+    const src = hors.sort(tri), dst = manquent.sort(tri);
+    base.transaction(() => { src.forEach((l, i) => base.prepare('UPDATE tt_semaine SET lundi = ? WHERE utilisateur_id = ? AND lundi = ?').run(dst[i], uid, l)); })();
+    n += src.length;
+  }
+  return n;
+}
+
 export function migrerTempsTravail(base = db) {
   base.exec(`
     CREATE TABLE IF NOT EXISTS tt_personne (
@@ -112,10 +132,14 @@ export function ecrireReglage(annee, v) {
   return reglage(annee);
 }
 
-/** Les 52 semaines de l'année scolaire : du lundi de la semaine du 1er septembre. */
+/* L'ANNÉE COMMENCE LE PREMIER LUNDI À PARTIR DU 15 AOÛT (3.5.063, Charles : « que l'année commence le 15 août ou la
+   semaine du 15 août dans la ligne du temps »). Le 15 août est le dernier jour de la fermeture d'été : l'année démarre
+   juste après, et 52 semaines la mènent au 15 août suivant. */
+export function debutDAnnee(a1) { const d = `${a1}-08-15`; const w = (s2d(d).getUTCDay() + 6) % 7; return w === 0 ? d : plusJours(d, 7 - w); }
+/** Les 52 semaines de l'année : du premier lundi à partir du 15 août. */
 export function semainesDeLAnnee(annee) {
   const a1 = Number(String(annee).split('-')[0]);
-  const l0 = lundiDe(`${a1}-09-01`);
+  const l0 = debutDAnnee(a1);
   return Array.from({ length: 52 }, (_, i) => plusJours(l0, 7 * i));
 }
 

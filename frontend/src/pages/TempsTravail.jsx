@@ -13,7 +13,9 @@ import LigneTempsTravail from '../components/LigneTempsTravail.jsx';
 
 /* L'ANNÉE DU MODULE est la sienne : celle qui contient aujourd'hui (septembre → août), choisie en tête d'écran ; elle ne
    suit pas l'année de travail du reste de Lucie (on prépare 2026-2027 pendant qu'on encode encore 2025-2026). */
-const anneeDuJour = () => { const d = new Date(); const y = d.getFullYear(); return d.getMonth() >= 8 ? `${y}-${y + 1}` : `${y - 1}-${y}`; };
+// L'année commence le premier lundi à partir du 15 août (3.5.063) — la règle de lib/tempsTravail.js, recopiée ici.
+const debutDAnnee = y => { const d = new Date(Date.UTC(y, 7, 15)); const w = (d.getUTCDay() + 6) % 7; return new Date(d.getTime() + (w ? 7 - w : 0) * 864e5).toISOString().slice(0, 10); };
+const anneeDuJour = () => { const j = new Date().toISOString().slice(0, 10); const y = Number(j.slice(0, 4)); return j >= debutDAnnee(y) ? `${y}-${y + 1}` : `${y - 1}-${y}`; };
 const ANNEE = { v: anneeDuJour() };
 const api = (url, o = {}) => fetch(`/api/temps-travail${url}${url.includes('?') ? '&' : '?'}annee=${ANNEE.v}`, { ...o, headers: { ...authHeaders(), ...(o.body ? { 'Content-Type': 'application/json' } : {}) } })
   .then(async r => { const j = await r.json().catch(() => ({})); if (!r.ok) throw Object.assign(new Error(j.error || `Erreur ${r.status}`), { bilan: j.bilan }); return j; });
@@ -185,7 +187,7 @@ function FicheConges({ uid, info, ouvrir }) {
   );
 }
 
-const moisDansAnnee = () => { const m = moisCourant(); const [a1, a2] = ANNEE.v.split('-'); return m >= `${a1}-09` && m <= `${a2}-08` ? m : `${a1}-09`; };
+const moisDansAnnee = () => { const m = moisCourant(); const [a1, a2] = ANNEE.v.split('-'); return m >= `${a1}-08` && m <= `${a2}-08` ? m : `${a1}-08`; };
 function Releve({ uid, info, ouvrir }) {
   const [mois, setMois] = useState(moisDansAnnee());
   const [d, setD] = useState(null); const [edit, setEdit] = useState(null);

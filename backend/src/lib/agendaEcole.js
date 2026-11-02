@@ -55,12 +55,13 @@ const journal = (annee, objet, cle, avant, apres, par) => db.prepare('INSERT INT
   .run(annee, objet, cle, avant == null ? null : String(avant), apres == null ? null : String(apres), par);
 
 /** Les 52 semaines de l'année : du lundi de la semaine du 1er septembre. */
+export function debutDAnnee(a1) { const d = `${a1}-08-15`; const w = (s2d(d).getUTCDay() + 6) % 7; return w === 0 ? d : plus(d, 7 - w); }
 export function semaines52(annee) {
   const a1 = Number(String(annee).split('-')[0]);
-  const l0 = lundiDe(`${a1}-09-01`);
+  const l0 = debutDAnnee(a1);  // le premier lundi à partir du 15 août (3.5.063)
   return Array.from({ length: 52 }, (_, i) => plus(l0, 7 * i));
 }
-const anneeDeDate = d => { const y = Number(d.slice(0, 4)), m = Number(d.slice(5, 7)); return m >= 9 ? `${y}-${y + 1}` : `${y - 1}-${y}`; };
+const anneeDeDate = d => { const y = Number(d.slice(0, 4)); return d >= debutDAnnee(y) ? `${y}-${y + 1}` : `${y - 1}-${y}`; };
 
 // ── Lectures ──
 export function fermetures(annee) {
