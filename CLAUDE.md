@@ -3304,6 +3304,16 @@ au nom de « Lucie (constaté) », constat en commentaire ; ne décoche jamais. 
 activité par personne sur 7/30/90 jours, ce qui attend avec « Confier » (`ConfierTache` accepte `initial`), sections sans
 coordination.
 
+**LA GESTION DES STAGES DANS ORGANISATION — LOT 1** (3.5.067, Charles, 2 novembre 2026 : « une vraie gestion des stages » ;
+tranché : vue d'ensemble, pièces et jalons manquants, affectation en lot, lieux et places ; AESI PROPOSÉS d'après les UE de stage ;
+coordination + secrétariat ; lot 1 = vue + pièces + lot + propositions, lot 2 = lieux et places, lot 3 = heures, évaluations,
+attestations). Organisation → *Stages* (`pages/StagesOrganisation.jsx`), routes ajoutées à `routes/stages.js` : `piecesDuStage`
+(lieu, dates, professeur, autorisation et convention art. 51, casier — six mois —, médecine, vaccination art. 55 ; rouge si début
+≤ 14 j ou 1/10 de L'ORGANISATION de l'étudiant passé sans casier), `GET /choix`, `GET /inscrits`, `POST /lot` (simulation puis
+écriture ; un stage existant de l'UE est complété, seuls les champs fournis), `GET|POST /propositions` (un stage par inscrit d'une UE
+à cours `is_stage` qui n'en a pas, aux dates de son organisation), `POST /:id/relancer` (courriel à l'adresse d'école, `relance_le`).
+Périmètre : `getUserSections`. **À venir** : lot 2 (lieux et places), lot 3 (heures, évaluations, attestations).
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux

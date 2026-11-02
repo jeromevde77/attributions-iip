@@ -6,7 +6,7 @@ import { useSearchParams } from 'react-router-dom';
 import Axe from '../components/Axe.jsx';
 import {
   IconLayoutGrid, IconSchool, IconSitemap, IconFileDescription, IconTimeline, IconUserCheck, IconCalendarCog,
-  IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup, IconListDetails, IconCalendarEvent, IconPercentage, IconTable, IconCalendarWeek, IconChartBar, IconPuzzle, IconEye, IconCalendarMonth,
+  IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup, IconListDetails, IconCalendarEvent, IconPercentage, IconTable, IconCalendarWeek, IconChartBar, IconPuzzle, IconEye, IconCalendarMonth, IconBriefcase,
 } from '@tabler/icons-react';
 import Attributions from './Attributions.jsx';
 import Planification from './Planification.jsx';
@@ -20,6 +20,7 @@ const CentrePlanification = lazy(() => import('./CentrePlanification.jsx'));
 const RepartitionCours = lazy(() => import('./RepartitionCours.jsx'));
 const LaboratoireTemporel = lazy(() => import('./LaboratoireTemporel.jsx'));
 const AgendaEcole = lazy(() => import('./AgendaEcole.jsx'));
+const StagesOrganisation = lazy(() => import('./StagesOrganisation.jsx'));
 import { IconeLaboratoire } from '../components/IconeLaboratoire.jsx';
 const HoraireSemaine = lazy(() => import('./HoraireSemaine.jsx'));
 const Effectifs = lazy(() => import('./Configuration.jsx').then(m => ({ default: m.OngletStatistiques })));
@@ -65,7 +66,7 @@ export default function Organisation({ ongletInitial }) {
          la DERNIÈRE rubrique — après Horaires et Effectifs —, loin de l'icône
          cliquée. L'ordre est celui du rail tel qu'il était ; seule l'unité porte
          ses trois étapes dessous. */
-      ordreRail={[['attributions', 'agenda', 'planifier', 'laboratoire', 'rentree', 'repartition', 'structure', 'unite',
+      ordreRail={[['attributions', 'agenda', 'planifier', 'laboratoire', 'rentree', 'repartition', 'stages', 'structure', 'unite',
         'horaire-semaine', 'effectifs']]}
       sousMenus={[{ key: 'laboratoire', label: 'Le laboratoire temporel', icone: IconeLaboratoire, hote: 'laboratoire',
         enfants: [
@@ -130,6 +131,10 @@ export default function Organisation({ ongletInitial }) {
           sansMarge: true,
           rendu: <Suspense fallback={<div className="p-4 text-sm text-slate-400">Chargement…</div>}>
                    <RepartitionCours /></Suspense> },
+        /* LES STAGES (3.5.067) : la vue de l'année, les pièces manquantes, l'affectation en lot, les propositions. */
+        { key: 'stages', module: 'stages', label: 'Stages', icone: IconBriefcase,
+          rendu: <Suspense fallback={<div className="p-4 text-sm text-slate-400">Chargement…</div>}>
+                   {annee ? <StagesOrganisation annee={annee} /> : <div className="text-sm text-slate-400 p-4">Chargement de l'année active…</div>}</Suspense> },
         /* LES GROUPES COMMUNS (9 octobre 2026) : les TP d'un bloc coupés en
            briques, pour que les groupes de tous les cours s'emboîtent à l'horaire. */
 
