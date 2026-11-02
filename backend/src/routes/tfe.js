@@ -12,6 +12,8 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
+import { estEpreuveIntegree } from './acquis.js';
+import { envoyerEmail, templateNotif } from '../services/mailer.js';
 
 const r = Router();
 const ECRITURE = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat', 'coordination'];
@@ -46,7 +48,26 @@ export function migrerTfe(dbx) {
     );
     CREATE INDEX IF NOT EXISTS idx_tfe_membre ON tfe_membre(tfe_id);
     `);
-    for (const c of ['heure_defense TEXT', 'section TEXT', 'origine TEXT']) { try { dbx.exec(`ALTER TABLE tfe ADD COLUMN ${c}`); } catch { /* déjà là */ } }
+    /* L'ESPACE TFE D'ORGANISATION (3.5.069) : le calendrier des remises PAR SECTION ET PAR ANNÉE (tfe_jalon), ce que chaque
+       étudiant a remis (tfe_remise), le local de défense et la trace des convocations et relances. */
+    dbx.exec(`
+    CREATE TABLE IF NOT EXISTS tfe_jalon (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      annee_scolaire TEXT NOT NULL,
+      section        TEXT NOT NULL,
+      libelle        TEXT NOT NULL,
+      date_limite    TEXT,
+      ordre          INTEGER DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_tfe_jalon ON tfe_jalon(annee_scolaire, section);
+    CREATE TABLE IF NOT EXISTS tfe_remise (
+      tfe_id    INTEGER NOT NULL,
+      jalon_id  INTEGER NOT NULL,
+      recu_le   TEXT NOT NULL,
+      recu_par  TEXT,
+      PRIMARY KEY (tfe_id, jalon_id)
+    );`);
+    for (const c of ['heure_defense TEXT', 'section TEXT', 'origine TEXT', 'local_defense TEXT', 'convoque_le TEXT', 'relance_le TEXT']) { try { dbx.exec(`ALTER TABLE tfe ADD COLUMN ${c}`); } catch { /* déjà là */ } }
     // Le promoteur de 3.1.366 rejoint le jury.
     try {
       dbx.exec(`INSERT INTO tfe_membre (tfe_id, role, professeur_id)
@@ -103,7 +124,7 @@ function valeurs(b) {
     annee_scolaire: propre(b.annee_scolaire), ue_num: b.ue_num ? Number(b.ue_num) : null, titre: propre(b.titre),
     promoteur_id: b.promoteur_id ? Number(b.promoteur_id) : null,
     date_depot: propre(b.date_depot), date_defense: propre(b.date_defense), remarques: propre(b.remarques),
-    heure_defense: propre(b.heure_defense),
+    heure_defense: propre(b.heure_defense), local_defense: propre(b.local_defense),
   };
 }
 
@@ -119,14 +140,182 @@ r.post('/', authRequired, roleRequired(...ECRITURE), (req, res) => {
   res.json({ id });
 });
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   L'ESPACE TFE D'ORGANISATION (3.5.069, Charles, 2 novembre 2026 : « il faudra encore un espace TFE » ; tranché : sujets et
+   promoteurs, jalons et dépôts, défense et jury, lien avec l'épreuve intégrée). Organisation → TFE. Le TFE de chaque étudiant
+   reste celui de sa fiche (même table) : cet espace en donne la vue de l'année, le calendrier des remises par section, le
+   planning des défenses et les convocations. L'épreuve intégrée n'est pas réécrite : sa décision se LIT de l'inscription.
+   ───────────────────────────────────────────────────────────────────────────── */
+const aujourdhui = () => new Date().toISOString().slice(0, 10);
+const sectionDe = t => t.section || t.sec || null;
+function dansPerimetre(req, section) {
+  const perim = getUserSections(req.user);
+  return !perim || (section && perim.includes(section));
+}
+
+/** Les UE d'épreuve intégrée de l'année (le référentiel ou la ligne annuelle, `estEpreuveIntegree`). */
+function uesEI(annee) {
+  return db.prepare('SELECT DISTINCT ue_num, section FROM ue WHERE annee_scolaire = ?').all(annee)
+    .filter(u => estEpreuveIntegree(u.ue_num, annee));
+}
+
+function lireAnnee(req, annee) {
+  const auj = aujourdhui();
+  const tfes = db.prepare(`
+    SELECT t.*, e.nom etud_nom, e.prenom etud_prenom, e.email_ecole, e.section_rattachement sec,
+      (SELECT ue_nom FROM ue u WHERE u.ue_num = t.ue_num ORDER BY u.annee_scolaire DESC LIMIT 1) AS ue_nom
+    FROM tfe t JOIN etudiant e ON e.id = t.etudiant_id
+    WHERE t.annee_scolaire = ? ORDER BY e.nom, e.prenom`).all(annee).filter(t => dansPerimetre(req, sectionDe(t)));
+  const jalons = db.prepare('SELECT * FROM tfe_jalon WHERE annee_scolaire = ? ORDER BY section, COALESCE(date_limite, \'9999\'), ordre, id').all(annee)
+    .filter(j => dansPerimetre(req, j.section));
+  const remises = db.prepare(`SELECT r.* FROM tfe_remise r JOIN tfe t ON t.id = r.tfe_id WHERE t.annee_scolaire = ?`).all(annee);
+  const eis = uesEI(annee);
+  const eiNums = [...new Set(eis.map(u => u.ue_num))];
+  const decisionEI = db.prepare(`SELECT i.ue_num, i.resultat, i.points, i.resultat_s1, i.resultat_s2 FROM etudiant_inscription i
+    WHERE i.etudiant_id = ? AND i.annee_scolaire = ? AND i.ue_num IN (${eiNums.map(() => '?').join(',') || 'NULL'}) LIMIT 1`);
+  for (const t of tfes) {
+    t.section = sectionDe(t);
+    t.membres = membresDe.all(t.id);
+    const mes = jalons.filter(j => j.section === t.section);
+    t.remises = mes.map(j => ({ jalon_id: j.id, libelle: j.libelle, date_limite: j.date_limite,
+      recu_le: remises.find(r => r.tfe_id === t.id && r.jalon_id === j.id)?.recu_le || null }));
+    t.en_retard = t.remises.filter(r => !r.recu_le && r.date_limite && r.date_limite < auj).map(r => r.libelle);
+    t.sans_jury = !t.membres.some(m => m.role === 'promoteur');
+    t.ei = eiNums.length ? decisionEI.get(t.etudiant_id, annee, ...eiNums) || null : null;
+  }
+  // Les inscrits d'une épreuve intégrée de l'année qui n'ont pas de TFE encodé.
+  const avec = new Set(tfes.map(t => t.etudiant_id));
+  const sans = eiNums.length ? db.prepare(`
+    SELECT DISTINCT e.id etudiant_id, e.nom etud_nom, e.prenom etud_prenom, e.section_rattachement section, i.ue_num,
+      (SELECT ue_nom FROM ue u WHERE u.ue_num = i.ue_num ORDER BY u.annee_scolaire DESC LIMIT 1) AS ue_nom
+    FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.annee_scolaire = ? AND i.ue_num IN (${eiNums.map(() => '?').join(',')})
+      AND COALESCE(e.sortie_statut, '') <> 'archive' ORDER BY e.nom, e.prenom`).all(annee, ...eiNums)
+    .filter(x => !avec.has(x.etudiant_id) && dansPerimetre(req, x.section || eis.find(u => u.ue_num === x.ue_num)?.section)) : [];
+  const sections = [...new Set([...tfes.map(t => t.section), ...sans.map(x => x.section), ...eis.map(u => u.section)].filter(Boolean))]
+    .filter(s => dansPerimetre(req, s)).sort((a, b) => a.localeCompare(b, 'fr'));
+  return {
+    annee, tfe: tfes, sans_tfe: sans, jalons, sections, ues_ei: eis,
+    synthese: {
+      total: tfes.length, sans_tfe: sans.length,
+      sans_promoteur: tfes.filter(t => t.sans_jury).length,
+      en_retard: tfes.filter(t => t.en_retard.length).length,
+      defense_posee: tfes.filter(t => t.date_defense).length,
+      convoques: tfes.filter(t => t.convoque_le).length,
+    },
+  };
+}
+
+r.get('/annee', authRequired, (req, res) => {
+  const annee = propre(req.query.annee);
+  if (!annee) return res.status(400).json({ error: 'année requise' });
+  res.json(lireAnnee(req, annee));
+});
+
+/** Le calendrier des remises d'une section : on renvoie la liste entière. Un jalon déjà remis ne se retire pas. */
+r.put('/jalons', authRequired, roleRequired(...ECRITURE), (req, res) => {
+  const { annee, section, jalons } = req.body || {};
+  if (!annee || !section || !Array.isArray(jalons)) return res.status(400).json({ error: 'année, section et jalons requis' });
+  if (!dansPerimetre(req, section)) return res.status(404).json({ error: 'Section hors de votre périmètre.' });
+  const propres = jalons.map((j, i) => ({ id: j.id ? Number(j.id) : null, libelle: propre(j.libelle), date_limite: propre(j.date_limite), ordre: i }))
+    .filter(j => j.libelle);
+  const avant = db.prepare('SELECT id, libelle FROM tfe_jalon WHERE annee_scolaire = ? AND section = ?').all(annee, section);
+  const gardes = new Set(propres.filter(j => j.id).map(j => j.id));
+  for (const a of avant.filter(a => !gardes.has(a.id))) {
+    const n = db.prepare('SELECT COUNT(*) n FROM tfe_remise WHERE jalon_id = ?').get(a.id).n;
+    if (n) return res.status(409).json({ error: `« ${a.libelle} » porte déjà ${n} remise(s) : il ne se retire pas.` });
+  }
+  db.transaction(() => {
+    for (const a of avant.filter(a => !gardes.has(a.id))) db.prepare('DELETE FROM tfe_jalon WHERE id = ?').run(a.id);
+    for (const j of propres) {
+      if (j.id && avant.some(a => a.id === j.id)) db.prepare('UPDATE tfe_jalon SET libelle = ?, date_limite = ?, ordre = ? WHERE id = ?').run(j.libelle, j.date_limite, j.ordre, j.id);
+      else db.prepare('INSERT INTO tfe_jalon (annee_scolaire, section, libelle, date_limite, ordre) VALUES (?,?,?,?,?)').run(annee, section, j.libelle, j.date_limite, j.ordre);
+    }
+  })();
+  res.json({ ok: true });
+});
+
+/** Ce que l'étudiant a remis : la date du jour par défaut ; `recu_le: null` efface. */
+r.put('/:id/remise', authRequired, roleRequired(...ECRITURE), (req, res) => {
+  const t = db.prepare('SELECT t.*, e.section_rattachement sec FROM tfe t JOIN etudiant e ON e.id = t.etudiant_id WHERE t.id = ?').get(Number(req.params.id));
+  if (!t || !permis(req, t.etudiant_id)) return res.status(404).json({ error: 'TFE introuvable' });
+  const j = db.prepare('SELECT * FROM tfe_jalon WHERE id = ?').get(Number(req.body?.jalon_id));
+  if (!j || j.annee_scolaire !== t.annee_scolaire) return res.status(400).json({ error: 'Remise inconnue pour cette année.' });
+  if (req.body.recu_le === null) db.prepare('DELETE FROM tfe_remise WHERE tfe_id = ? AND jalon_id = ?').run(t.id, j.id);
+  else db.prepare(`INSERT INTO tfe_remise (tfe_id, jalon_id, recu_le, recu_par) VALUES (?,?,?,?)
+    ON CONFLICT(tfe_id, jalon_id) DO UPDATE SET recu_le = excluded.recu_le, recu_par = excluded.recu_par`)
+    .run(t.id, j.id, propre(req.body.recu_le) || aujourdhui(), auteur(req));
+  res.json({ ok: true });
+});
+
+/** Relancer l'étudiant pour ce qui est en retard — à son adresse d'école, seulement. */
+r.post('/:id/relancer', authRequired, roleRequired(...ECRITURE), async (req, res) => {
+  const t = db.prepare('SELECT t.*, e.prenom, e.email_ecole, e.section_rattachement sec FROM tfe t JOIN etudiant e ON e.id = t.etudiant_id WHERE t.id = ?').get(Number(req.params.id));
+  if (!t || !permis(req, t.etudiant_id)) return res.status(404).json({ error: 'TFE introuvable' });
+  if (!t.email_ecole) return res.status(409).json({ error: 'Pas d’adresse d’école : la relance ne part pas.' });
+  const sec = sectionDe(t);
+  const retard = db.prepare(`SELECT j.* FROM tfe_jalon j WHERE j.annee_scolaire = ? AND j.section = ? AND j.date_limite < ?
+    AND NOT EXISTS (SELECT 1 FROM tfe_remise r WHERE r.tfe_id = ? AND r.jalon_id = j.id) ORDER BY j.date_limite`).all(t.annee_scolaire, sec, aujourdhui(), t.id);
+  if (!retard.length) return res.status(409).json({ error: 'Aucune remise en retard pour ce TFE.' });
+  const corps = `<p>Bonjour ${t.prenom},</p><p>Pour votre travail de fin d’études « ${t.titre} », les remises suivantes n’ont pas été reçues :</p><ul>${retard.map(j => `<li>${j.libelle} — attendue le ${String(j.date_limite).split('-').reverse().join('/')}</li>`).join('')}</ul><p>Merci de les remettre au plus vite, ou de prendre contact avec votre promoteur.</p>`;
+  try { await envoyerEmail({ to: t.email_ecole, subject: 'Votre TFE : remises attendues', html: templateNotif({ titre: 'Votre TFE : remises attendues', corps }) }); }
+  catch (e) { return res.status(502).json({ error: `Le courriel n’est pas parti : ${e.message}` }); }
+  db.prepare("UPDATE tfe SET relance_le = datetime('now') WHERE id = ?").run(t.id);
+  res.json({ ok: true, a: t.email_ecole, remises: retard.map(j => j.libelle) });
+});
+
+/** Convoquer à la défense : l'étudiant (adresse d'école) et chaque membre du jury (adresse de l'institut). Simulation d'abord :
+ *  elle dit qui reçoit, et ce qui empêche (date, heure ou local manquants, adresse absente). */
+r.post('/convoquer', authRequired, roleRequired(...ECRITURE), async (req, res) => {
+  const { ids, simulation = true } = req.body || {};
+  if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ error: 'Aucun TFE choisi.' });
+  const LIB = { promoteur: 'Promoteur', copromoteur: 'Copromoteur', lecteur: 'Lecteur', auditeur: 'Auditeur', president: 'Président du jury' };
+  const lignes = [];
+  for (const id of ids.map(Number)) {
+    const t = db.prepare('SELECT t.*, e.nom, e.prenom, e.email_ecole, e.section_rattachement sec FROM tfe t JOIN etudiant e ON e.id = t.etudiant_id WHERE t.id = ?').get(id);
+    if (!t || !permis(req, t.etudiant_id)) continue;
+    const jury = db.prepare(`SELECT m.role, m.nom_libre, p.nom, p.prenom, p.adresse_mail FROM tfe_membre m LEFT JOIN professeur p ON p.id = m.professeur_id
+      WHERE m.tfe_id = ? ORDER BY m.ordre, m.id`).all(id);
+    const manque = [];
+    if (!t.date_defense) manque.push('date'); if (!t.heure_defense) manque.push('heure'); if (!t.local_defense) manque.push('local');
+    if (!jury.length) manque.push('jury');
+    const dest = [];
+    if (t.email_ecole) dest.push({ qui: `${String(t.nom).toUpperCase()} ${t.prenom}`, role: 'étudiant', email: t.email_ecole });
+    else manque.push('adresse d’école de l’étudiant');
+    const sansAdresse = [];
+    for (const m of jury) {
+      const nom = m.nom ? `${String(m.nom).toUpperCase()} ${m.prenom || ''}`.trim() : m.nom_libre;
+      if (m.adresse_mail) dest.push({ qui: nom, role: LIB[m.role] || m.role, email: m.adresse_mail }); else sansAdresse.push(nom);
+    }
+    lignes.push({ id, t, jury, dest, manque, sans_adresse: sansAdresse,
+      nom: `${String(t.nom).toUpperCase()} ${t.prenom}`, deja: t.convoque_le });
+  }
+  const pretes = lignes.filter(l => !l.manque.length);
+  const resume = lignes.map(({ t, jury, ...l }) => ({ ...l, dest: l.dest.map(d => `${d.qui} (${d.role})`) }));
+  if (simulation) return res.json({ simulation: true, lignes: resume, envoyables: pretes.length });
+  const envoyes = [], echecs = [];
+  for (const l of pretes) {
+    const t = l.t;
+    const quand = `le ${String(t.date_defense).split('-').reverse().join('/')} à ${t.heure_defense}, local ${t.local_defense}`;
+    const juryHtml = l.jury.map(m => `<li>${LIB[m.role] || m.role} : ${m.nom ? `${m.prenom || ''} ${String(m.nom).toUpperCase()}`.trim() : m.nom_libre}</li>`).join('');
+    const corps = `<p>La défense du travail de fin d’études de ${t.prenom} ${String(t.nom).toUpperCase()}, « ${t.titre} », aura lieu ${quand}.</p><p>Composition du jury :</p><ul>${juryHtml}</ul>`;
+    try {
+      for (const d of l.dest) await envoyerEmail({ to: d.email, subject: `Défense de TFE — ${t.prenom} ${String(t.nom).toUpperCase()}`, html: templateNotif({ titre: 'Convocation à la défense du TFE', corps }) });
+      db.prepare("UPDATE tfe SET convoque_le = datetime('now') WHERE id = ?").run(t.id);
+      envoyes.push(l.nom);
+    } catch (e) { echecs.push({ nom: l.nom, erreur: e.message }); }
+  }
+  res.json({ simulation: false, envoyes, echecs, ignores: lignes.filter(l => l.manque.length).map(l => ({ nom: l.nom, manque: l.manque })) });
+});
+
 r.put('/:id', authRequired, roleRequired(...ECRITURE), (req, res) => {
   const t = db.prepare('SELECT * FROM tfe WHERE id = ?').get(Number(req.params.id));
   if (!t || !permis(req, t.etudiant_id)) return res.status(404).json({ error: 'TFE introuvable' });
   const v = valeurs({ ...t, ...req.body });
   if (!v.titre) return res.status(400).json({ error: 'Le titre du TFE est obligatoire.' });
-  db.prepare(`UPDATE tfe SET annee_scolaire = ?, ue_num = ?, titre = ?, promoteur_id = ?, date_depot = ?, date_defense = ?, heure_defense = ?, remarques = ?,
+  db.prepare(`UPDATE tfe SET annee_scolaire = ?, ue_num = ?, titre = ?, promoteur_id = ?, date_depot = ?, date_defense = ?, heure_defense = ?, local_defense = ?, remarques = ?,
     maj_par = ?, maj_le = datetime('now') WHERE id = ?`)
-    .run(v.annee_scolaire || t.annee_scolaire, v.ue_num, v.titre, v.promoteur_id, v.date_depot, v.date_defense, v.heure_defense, v.remarques, auteur(req), t.id);
+    .run(v.annee_scolaire || t.annee_scolaire, v.ue_num, v.titre, v.promoteur_id, v.date_depot, v.date_defense, v.heure_defense, v.local_defense, v.remarques, auteur(req), t.id);
   if (Array.isArray(req.body.membres)) poserMembres(t.id, req.body.membres);
   res.json({ ok: true });
 });
@@ -135,6 +324,7 @@ r.delete('/:id', authRequired, roleRequired(...ECRITURE), (req, res) => {
   const t = db.prepare('SELECT * FROM tfe WHERE id = ?').get(Number(req.params.id));
   if (!t || !permis(req, t.etudiant_id)) return res.status(404).json({ error: 'TFE introuvable' });
   db.prepare('DELETE FROM tfe_membre WHERE tfe_id = ?').run(t.id);
+  db.prepare('DELETE FROM tfe_remise WHERE tfe_id = ?').run(t.id);
   db.prepare('DELETE FROM tfe WHERE id = ?').run(t.id);
   res.json({ ok: true });
 });

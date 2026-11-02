@@ -6,7 +6,7 @@ import { useSearchParams } from 'react-router-dom';
 import Axe from '../components/Axe.jsx';
 import {
   IconLayoutGrid, IconSchool, IconSitemap, IconFileDescription, IconTimeline, IconUserCheck, IconCalendarCog,
-  IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup, IconListDetails, IconCalendarEvent, IconPercentage, IconTable, IconCalendarWeek, IconChartBar, IconPuzzle, IconEye, IconCalendarMonth, IconBriefcase,
+  IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup, IconListDetails, IconCalendarEvent, IconPercentage, IconTable, IconCalendarWeek, IconChartBar, IconPuzzle, IconEye, IconCalendarMonth, IconBriefcase, IconFileCertificate,
 } from '@tabler/icons-react';
 import Attributions from './Attributions.jsx';
 import Planification from './Planification.jsx';
@@ -21,6 +21,7 @@ const RepartitionCours = lazy(() => import('./RepartitionCours.jsx'));
 const LaboratoireTemporel = lazy(() => import('./LaboratoireTemporel.jsx'));
 const AgendaEcole = lazy(() => import('./AgendaEcole.jsx'));
 const StagesOrganisation = lazy(() => import('./StagesOrganisation.jsx'));
+const TfeOrganisation = lazy(() => import('./TfeOrganisation.jsx'));
 import { IconeLaboratoire } from '../components/IconeLaboratoire.jsx';
 const HoraireSemaine = lazy(() => import('./HoraireSemaine.jsx'));
 const Effectifs = lazy(() => import('./Configuration.jsx').then(m => ({ default: m.OngletStatistiques })));
@@ -66,8 +67,10 @@ export default function Organisation({ ongletInitial }) {
          la DERNIÈRE rubrique — après Horaires et Effectifs —, loin de l'icône
          cliquée. L'ordre est celui du rail tel qu'il était ; seule l'unité porte
          ses trois étapes dessous. */
-      ordreRail={[['attributions', 'agenda', 'planifier', 'laboratoire', 'rentree', 'repartition', 'stages', 'structure', 'unite',
-        'horaire-semaine', 'effectifs']]}
+      /* QUATRE GROUPES, DANS L'ORDRE DU TRAVAIL (3.5.069, Charles, 2 novembre 2026 : « revoir les groupements du
+         menu ») : le programme, l'année, qui enseigne et quand, les étudiants. */
+      ordreRail={[['structure', 'unite'], ['agenda', 'planifier', 'effectifs'], ['attributions', 'laboratoire', 'horaire-semaine'],
+        ['rentree', 'repartition', 'stages', 'tfe']]}
       sousMenus={[{ key: 'laboratoire', label: 'Le laboratoire temporel', icone: IconeLaboratoire, hote: 'laboratoire',
         enfants: [
           // LES ÉTAPES DANS L'ORDRE DU TRAVAIL (3.1.465) — celui de ETAPES_LABO (LaboratoireTemporel.jsx).
@@ -135,6 +138,10 @@ export default function Organisation({ ongletInitial }) {
         { key: 'stages', module: 'stages', label: 'Stages', icone: IconBriefcase,
           rendu: <Suspense fallback={<div className="p-4 text-sm text-slate-400">Chargement…</div>}>
                    {annee ? <StagesOrganisation annee={annee} /> : <div className="text-sm text-slate-400 p-4">Chargement de l'année active…</div>}</Suspense> },
+        /* LES TFE (3.5.069) : sujets et promoteurs, remises, défenses et jurys, décision de l'épreuve intégrée. */
+        { key: 'tfe', module: 'etudiants', label: 'Travaux de fin d’études', icone: IconFileCertificate,
+          rendu: <Suspense fallback={<div className="p-4 text-sm text-slate-400">Chargement…</div>}>
+                   {annee ? <TfeOrganisation annee={annee} /> : <div className="text-sm text-slate-400 p-4">Chargement de l'année active…</div>}</Suspense> },
         /* LES GROUPES COMMUNS (9 octobre 2026) : les TP d'un bloc coupés en
            briques, pour que les groupes de tous les cours s'emboîtent à l'horaire. */
 
