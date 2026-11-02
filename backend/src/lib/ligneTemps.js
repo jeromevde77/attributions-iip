@@ -21,6 +21,7 @@
 //     COMPENSATOIRE : il ne compte pas dans l'écart de 2 h du jour ni dans les 5 h de la semaine (lecture à confirmer).
 // ─────────────────────────────────────────────────────────────────────────────
 import db from '../db/index.js';
+import { agenda, fermetures } from './agendaEcole.js';
 import {
   REGLES, reglage, semainesDeLAnnee, semainesDeConge, feriesDe, anneeDe, dureeJour, controleJour, modeleSemaine, verrouille,
   plusJours, hm, JOURS,
@@ -49,52 +50,158 @@ export function migrerLigneTemps(base = db) {
   `);
 }
 
-// ── Les grands moments ──
+// ── Les éléments de l'agenda : grands moments, réunions, échéances ──
+/* LE CLASSEMENT (3.5.062, Charles, d'après sa « Timeline Santé 2025-2026 » : documents, Collège, Coord, horaires, rentrée,
+   JPO, SIEP, remise des diplômes… ; tranché : domaine + nature ; les réunions qui reviennent en séries, « en fonction des
+   rôles »). Le TYPE dit la sorte (examens, réunion, échéance…), la NATURE s'en déduit (elle donne la couleur), le DOMAINE
+   (administratif, pédagogique, ASBL, HE) se choisit, et POUR dit quels rôles l'élément concerne — vide : tout le monde. */
 export const TYPES_MOMENT = {
   inscriptions: 'Inscriptions', examens: 'Examens', deliberations: 'Délibérations', diplomes: 'Remise des diplômes',
-  rentree: 'Rentrée', jpo: 'Portes ouvertes', ceremonie: 'Cérémonie', audit_qualite: 'Qualité', autre: 'Autre',
+  rentree: 'Rentrée', jpo: 'Portes ouvertes', ceremonie: 'Cérémonie', audit_qualite: 'Qualité',
+  reunion: 'Réunion', echeance: 'Échéance, document', conseil: 'Conseil', horaires: 'Horaires', salon: 'Salon, SIEP', autre: 'Autre',
 };
+export const NATURES = { evenement: 'Événement', echeance: 'Échéance', reunion: 'Réunion', conseil: 'Conseil', horaires: 'Horaires' };
+export const NATURE_DU_TYPE = { inscriptions: 'evenement', examens: 'evenement', diplomes: 'evenement', rentree: 'evenement', jpo: 'evenement',
+  ceremonie: 'evenement', salon: 'evenement', audit_qualite: 'echeance', autre: 'evenement', deliberations: 'conseil',
+  reunion: 'reunion', echeance: 'echeance', conseil: 'conseil', horaires: 'horaires' };
+export const DOMAINES = { administratif: 'Administratif', pedagogique: 'Pédagogique', asbl: 'ASBL', he: 'HE' };
+export const POUR = { direction: 'Direction', secretariat: 'Secrétariat', coordination: 'Coordination', professeur: 'Enseignants' };
+const DIRECTION = ['admin', 'directeur', 'directeur_adjoint'];
+const groupeDuRole = r => (DIRECTION.includes(r) ? 'direction' : r);
+/** Un élément « pour » des rôles : la direction voit tout ; les autres, ce qui est pour tous ou pour leur rôle. */
+export function voit(user, pour) {
+  if (!user || DIRECTION.includes(user.role)) return true;
+  const l = String(pour || '').split(',').filter(Boolean);
+  return !l.length || l.includes(groupeDuRole(user.role));
+}
+const pourPropre = v => [...new Set((Array.isArray(v) ? v : String(v || '').split(',')).map(x => String(x).trim()).filter(x => POUR[x]))].join(',') || null;
 // Ce qu'un moment pèse dans la chaleur de sa semaine.
-// Les délibérations comptent déjà par leurs séances (SOURCES) : pas deux fois.
-const POIDS_MOMENT = { inscriptions: 3, examens: 2, diplomes: 2, rentree: 3, jpo: 1, ceremonie: 1 };
+// Les délibérations comptent déjà par leurs séances (SOURCES) : pas deux fois. Les réunions ne réchauffent pas une semaine.
+const POIDS_MOMENT = { inscriptions: 3, examens: 2, diplomes: 2, rentree: 3, jpo: 1, ceremonie: 1, echeance: 1, salon: 1 };
 
 function bornes(annee) {
   const s = semainesDeLAnnee(annee);
   return { du: s[0], au: plusJours(s[51], 6) };
 }
 
-/** Les grands moments de l'année : ceux de l'établissement (modifiables) et les délibérations (lues, regroupées par semaine). */
-export function moments(annee) {
+let migre = false;
+function migrerElements() {
+  if (migre) return; migre = true;
+  essai(() => {
+    const cols = db.prepare('PRAGMA table_info(evenement_etablissement)').all().map(c => c.name);
+    for (const [c, t] of [['domaine', 'TEXT'], ['pour', 'TEXT'], ['serie_id', 'INTEGER']]) if (!cols.includes(c)) db.exec(`ALTER TABLE evenement_etablissement ADD COLUMN ${c} ${t}`);
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS agenda_serie (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, annee TEXT NOT NULL, titre TEXT NOT NULL, type TEXT NOT NULL, domaine TEXT, pour TEXT,
+        regle TEXT NOT NULL,                                  -- semaine | quinzaine | mois
+        jour INTEGER NOT NULL,                                -- 0 lundi … 4 vendredi (5, 6 le week-end)
+        rang INTEGER,                                         -- pour « mois » : 1…4, ou -1 le dernier
+        du TEXT NOT NULL, au TEXT NOT NULL, heure_debut TEXT, heure_fin TEXT, sauf_fermetures INTEGER NOT NULL DEFAULT 1,
+        par TEXT, le TEXT DEFAULT (datetime('now')));
+      CREATE TABLE IF NOT EXISTS agenda_serie_exception (
+        serie_id INTEGER NOT NULL, date TEXT NOT NULL, nouvelle_date TEXT, par TEXT, le TEXT DEFAULT (datetime('now')),
+        PRIMARY KEY (serie_id, date));
+    `);
+  }, null);
+}
+
+/** Les dates d'une série, fermetures et jours fermés sautés si demandé, exceptions appliquées. */
+export function datesDeSerie(sr, { fermees = new Set(), feries = new Map() } = {}) {
+  const out = [];
+  const exc = new Map(essai(() => db.prepare('SELECT date, nouvelle_date FROM agenda_serie_exception WHERE serie_id = ?').all(sr.id), []).map(e => [e.date, e.nouvelle_date]));
+  const d0 = plusJours(lundiDe(sr.du), Number(sr.jour));
+  for (let d = d0, k = 0; d <= sr.au; d = plusJours(d, 7), k++) {
+    if (d < sr.du) continue;
+    if (sr.regle === 'quinzaine' && k % 2) continue;
+    if (sr.regle === 'mois') {
+      const m = d.slice(0, 7), n = Math.floor((Number(d.slice(8)) - 1) / 7) + 1;
+      const dernier = plusJours(d, 7).slice(0, 7) !== m;
+      if (!(Number(sr.rang) === n || (Number(sr.rang) === -1 && dernier))) continue;
+    }
+    if (sr.sauf_fermetures && (fermees.has(lundiDe(d)) || feries.has(d))) continue;
+    if (exc.has(d)) { const n = exc.get(d); if (n) out.push({ date: n, deplace: d }); continue; }
+    out.push({ date: d });
+  }
+  return out.sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/** Les éléments de l'année vus par `user` : ceux de l'établissement, les dates des séries, les délibérations (lues). */
+export function moments(annee, { user = null } = {}) {
+  migrerElements();
   const { du, au } = bornes(annee);
-  const out = essai(() => db.prepare(`SELECT id, type, titre, date_debut AS du, COALESCE(date_fin, date_debut) AS au, lieu, description
+  const out = essai(() => db.prepare(`SELECT id, type, titre, date_debut AS du, COALESCE(date_fin, date_debut) AS au, heure_debut, heure_fin, lieu, description, domaine, pour
     FROM evenement_etablissement WHERE (annee_scolaire = ? OR (annee_scolaire IS NULL AND date_debut BETWEEN ? AND ?)) ORDER BY date_debut`)
-    .all(annee, du, au), []).map(m => ({ ...m, source: 'etablissement', libelle_type: TYPES_MOMENT[m.type] || m.type }));
+    .all(annee, du, au), []).filter(m => voit(user, m.pour))
+    .map(m => ({ ...m, source: 'etablissement', libelle_type: TYPES_MOMENT[m.type] || m.type, nature: NATURE_DU_TYPE[m.type] || 'evenement' }));
+  const series = essai(() => db.prepare('SELECT * FROM agenda_serie WHERE annee = ? ORDER BY id').all(annee), []).filter(sr => voit(user, sr.pour));
+  if (series.length) {
+    const fermees = new Set(essai(() => db.prepare("SELECT lundi FROM agenda_semaine WHERE annee = ? AND fermeture = 'totale'").all(annee).map(x => x.lundi), []));
+    const feries = feriesDe(annee);
+    for (const sr of series) for (const o of datesDeSerie(sr, { fermees, feries }))
+      out.push({ id: null, serie_id: sr.id, type: sr.type, titre: sr.titre, du: o.date, au: o.date, deplace: o.deplace || null, heure_debut: sr.heure_debut, heure_fin: sr.heure_fin,
+        domaine: sr.domaine, pour: sr.pour, source: 'serie', libelle_type: TYPES_MOMENT[sr.type] || sr.type, nature: NATURE_DU_TYPE[sr.type] || 'reunion' });
+  }
   const delib = essai(() => db.prepare(`SELECT date_seance AS d FROM deliberation_seance WHERE date_seance BETWEEN ? AND ? ORDER BY date_seance`).all(du, au), []);
   const parSemaine = new Map();
   for (const { d } of delib) { const l = lundiDe(String(d).slice(0, 10)); const x = parSemaine.get(l) || []; x.push(String(d).slice(0, 10)); parSemaine.set(l, x); }
-  for (const [, ds] of parSemaine) out.push({ id: null, type: 'deliberations', libelle_type: TYPES_MOMENT.deliberations, source: 'deliberation',
-    titre: ds.length > 1 ? `Délibérations (${ds.length} séances)` : 'Délibération', du: ds[0], au: ds[ds.length - 1] });
+  for (const [, ds] of parSemaine) out.push({ id: null, type: 'deliberations', libelle_type: TYPES_MOMENT.deliberations, source: 'deliberation', nature: 'conseil', domaine: 'pedagogique',
+    titre: ds.length > 1 ? `Délibérations (${ds.length} séances)` : 'Délibération', du: ds[0], au: ds[ds.length - 1], dates: ds });
   return out.sort((a, b) => a.du.localeCompare(b.du));
 }
 
 export function ecrireMoment(annee, v, par) {
+  migrerElements();
   const type = TYPES_MOMENT[v.type] && v.type !== 'deliberations' ? v.type : null;
   if (!type) throw err('Type de moment inconnu (les délibérations se lisent des séances).', 400);
   const titre = String(v.titre || '').trim() || TYPES_MOMENT[type];
   const du = String(v.du || ''), au = String(v.au || v.du || '');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(du) || !/^\d{4}-\d{2}-\d{2}$/.test(au)) throw err('Dates à écrire.', 400);
   if (au < du) throw err('La fin précède le début.', 400);
+  const domaine = DOMAINES[v.domaine] ? v.domaine : null, pour = pourPropre(v.pour);
+  const h = x => (/^\d{1,2}:\d{2}$/.test(String(x || '')) ? x : null);
   if (v.id) {
-    const r = db.prepare('UPDATE evenement_etablissement SET type = ?, titre = ?, date_debut = ?, date_fin = ?, annee_scolaire = ? WHERE id = ?')
-      .run(type, titre, du, au === du ? null : au, annee, Number(v.id));
+    const r = db.prepare('UPDATE evenement_etablissement SET type = ?, titre = ?, date_debut = ?, date_fin = ?, annee_scolaire = ?, domaine = ?, pour = ?, heure_debut = ?, heure_fin = ? WHERE id = ?')
+      .run(type, titre, du, au === du ? null : au, annee, domaine, pour, h(v.heure_debut), h(v.heure_fin), Number(v.id));
     if (!r.changes) throw err('Moment introuvable.', 404);
     return Number(v.id);
   }
-  return Number(db.prepare('INSERT INTO evenement_etablissement (type, titre, date_debut, date_fin, annee_scolaire, cree_par) VALUES (?,?,?,?,?,?)')
-    .run(type, titre, du, au === du ? null : au, annee, par).lastInsertRowid);
+  return Number(db.prepare('INSERT INTO evenement_etablissement (type, titre, date_debut, date_fin, annee_scolaire, cree_par, domaine, pour, heure_debut, heure_fin) VALUES (?,?,?,?,?,?,?,?,?,?)')
+    .run(type, titre, du, au === du ? null : au, annee, par, domaine, pour, h(v.heure_debut), h(v.heure_fin)).lastInsertRowid);
 }
 export function retirerMoment(id) {
   if (!db.prepare('DELETE FROM evenement_etablissement WHERE id = ?').run(Number(id)).changes) throw err('Moment introuvable.', 404);
+}
+
+/** Une série : « chaque lundi », « un jeudi sur deux », « le 2e mardi du mois »… */
+export function ecrireSerie(annee, v, par) {
+  migrerElements();
+  const type = TYPES_MOMENT[v.type] && v.type !== 'deliberations' ? v.type : null;
+  if (!type) throw err('Type inconnu.', 400);
+  if (!['semaine', 'quinzaine', 'mois'].includes(v.regle)) throw err('Répétition inconnue.', 400);
+  const jour = Number(v.jour); if (!(jour >= 0 && jour <= 6)) throw err('Jour de la semaine à choisir.', 400);
+  const rang = v.regle === 'mois' ? Number(v.rang) : null;
+  if (v.regle === 'mois' && ![1, 2, 3, 4, -1].includes(rang)) throw err('Le rang dans le mois : 1er, 2e, 3e, 4e ou dernier.', 400);
+  const { du: d0, au: a0 } = bornes(annee);
+  const du = String(v.du || d0), au = String(v.au || a0);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(du) || !/^\d{4}-\d{2}-\d{2}$/.test(au) || au < du) throw err('Dates de la série à corriger.', 400);
+  const titre = String(v.titre || '').trim(); if (!titre) throw err('Nommez la série (Collège, Coordination…).', 400);
+  const h = x => (/^\d{1,2}:\d{2}$/.test(String(x || '')) ? x : null);
+  return Number(db.prepare(`INSERT INTO agenda_serie (annee, titre, type, domaine, pour, regle, jour, rang, du, au, heure_debut, heure_fin, sauf_fermetures, par)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(annee, titre, type, DOMAINES[v.domaine] ? v.domaine : null, pourPropre(v.pour), v.regle, jour, rang, du, au,
+    h(v.heure_debut), h(v.heure_fin), v.sauf_fermetures === false ? 0 : 1, par).lastInsertRowid);
+}
+export function retirerSerie(id) {
+  migrerElements();
+  db.prepare('DELETE FROM agenda_serie_exception WHERE serie_id = ?').run(Number(id));
+  if (!db.prepare('DELETE FROM agenda_serie WHERE id = ?').run(Number(id)).changes) throw err('Série introuvable.', 404);
+}
+/** Une date de la série : l'annuler (nouvelle = null) ou la déplacer. */
+export function exceptionSerie(id, date, nouvelle, par) {
+  migrerElements();
+  if (!db.prepare('SELECT 1 FROM agenda_serie WHERE id = ?').get(Number(id))) throw err('Série introuvable.', 404);
+  if (nouvelle && !/^\d{4}-\d{2}-\d{2}$/.test(nouvelle)) throw err('Nouvelle date à écrire.', 400);
+  db.prepare(`INSERT INTO agenda_serie_exception (serie_id, date, nouvelle_date, par) VALUES (?,?,?,?)
+    ON CONFLICT(serie_id, date) DO UPDATE SET nouvelle_date = excluded.nouvelle_date, par = excluded.par, le = datetime('now')`).run(Number(id), date, nouvelle || null, par);
 }
 
 // ── La chaleur des semaines ──
@@ -113,6 +220,8 @@ const SOURCES = [
     sql: `SELECT date_debut AS d, COUNT(*) AS n FROM organisation_ue WHERE date_debut >= ? AND date_debut < ? GROUP BY date_debut` },
   { cle: 'deliberations', libelle: 'séances de délibération', poids: 2,
     sql: `SELECT date_seance AS d, COUNT(*) AS n FROM deliberation_seance WHERE date_seance >= ? AND date_seance < ? GROUP BY date_seance` },
+  { cle: 'seances', libelle: 'séances de cours à l’horaire', poids: 2,
+    sql: `SELECT date AS d, COUNT(*) AS n FROM horaire_seance WHERE date >= ? AND date < ? AND COALESCE(annule, 0) = 0 GROUP BY date` },
   { cle: 'echeances', libelle: 'échéances du secrétariat', poids: 1,
     sql: `SELECT date_due AS d, COUNT(*) AS n FROM echeance WHERE date_due >= ? AND date_due < ? AND responsable_role = 'secretariat' GROUP BY date_due` },
 ];
@@ -287,6 +396,38 @@ export function assistant(uid, annee, v = {}) {
     touchees.add(l);
   }
 
+  /* ÉCHANGER UNE SEMAINE DE CONGÉ (3.5.058, « au choix de chacun » hors Noël et été) : prendre une semaine de travail en
+     congé, rendre une semaine de congé au travail — autant de l'une que de l'autre, 13 semaines de congé toujours. Une
+     semaine de fermeture TOTALE ne se travaille pas. */
+  const prendre = [...new Set((v.prendre || []).map(lundiDe))], travailler = [...new Set((v.travailler || []).map(lundiDe))];
+  const ferm = fermetures(annee);
+  const signe = l => verrouille(uid, l) || verrouille(uid, plusJours(l, 6));
+  for (const l of prendre) {
+    const s = parLundi.get(l);
+    if (!s || s.statut !== 'travail') { refus.push(`Semaine du ${l} : pas une semaine de travail.`); continue; }
+    if (signe(l) || l < lundiDe(aujourdhui)) { refus.push(`Semaine du ${l} : passée ou signée.`); continue; }
+    s.statut = 'conge'; s.jours = Array(7).fill(null); touchees.add(l);
+  }
+  for (const l of travailler) {
+    const s = parLundi.get(l);
+    if (!s || s.statut === 'travail') { refus.push(`Semaine du ${l} : pas une semaine de congé.`); continue; }
+    if (ferm.get(l)?.fermeture === 'totale') { refus.push(`Semaine du ${l} : l’école est fermée (${ferm.get(l).libelle || 'fermeture totale'}).`); continue; }
+    if (signe(l) || l < lundiDe(aujourdhui)) { refus.push(`Semaine du ${l} : passée ou signée.`); continue; }
+    s.statut = 'travail'; s.jours = modele.map(j => (j ? { ...j } : null)); touchees.add(l);
+  }
+  if (prendre.length !== travailler.length) refus.push(`Treize semaines de congé, toujours : ${prendre.length} semaine(s) prise(s) en congé pour ${travailler.length} rendue(s) au travail.`);
+  // Le besoin de personnel : une semaine prise en congé ne doit pas laisser moins de monde que les sections n'en demandent.
+  const avertissements = [];
+  if (prendre.length) {
+    const ag = agenda(annee, { presentsMin: R.presents_min });
+    for (const l of prendre) {
+      const k = ag.semaines.indexOf(l); if (k < 0) continue;
+      const autres = db.prepare("SELECT COUNT(*) n FROM tt_semaine s JOIN tt_personne p ON p.utilisateur_id = s.utilisateur_id AND p.actif = 1 WHERE s.lundi = ? AND s.statut = 'travail' AND s.utilisateur_id <> ?").get(l, uid).n;
+      const b = ag.besoin[k];
+      if (autres < b.presents_requis) avertissements.push(`Semaine du ${l} : ${autres} présent(s) pour ${b.presents_requis} requis (${b.sections_actives} section(s) active(s)).`);
+    }
+  }
+
   const du = Math.round(REGLES.hebdo * fraction) * (52 - REGLES.congesAnnuels);
   const avantTotal = sem.reduce((s, x) => s + total(x.jours), 0);
   let aPlacer = du - [...parLundi.values()].reduce((s, x) => s + total(x.jours), 0);
@@ -322,12 +463,13 @@ export function assistant(uid, annee, v = {}) {
   const changees = [...new Set([...touchees, ...reports])].sort().map(l => {
     const s = parLundi.get(l), a = avant.get(l);
     return { lundi: l, avant: total(a.jours), apres: total(s.jours), jours: s.jours, report: reports.includes(l),
-      chaleur: ch.get(l)?.niveau || 'normal', score: ch.get(l)?.score || 0, controles: controleModule(s.jours, { fraction, modele }) };
+      statut: s.statut, statut_avant: a.statut,
+      chaleur: ch.get(l)?.niveau || 'normal', score: ch.get(l)?.score || 0, controles: s.statut === 'travail' ? controleModule(s.jours, { fraction, modele }) : [] };
   });
   const apresTotal = [...parLundi.values()].reduce((s, x) => s + total(x.jours), 0);
   const erreurs = [...refus];
   if (apresTotal !== du) erreurs.push(`L’année compterait ${hm(apresTotal)} pour ${hm(du)} dues : ${hm(Math.abs(du - apresTotal))} ${du > apresTotal ? 'restent à placer' : 'sont en trop'} — retirez une exclusion, ou chargez une autre semaine.`);
-  return { du, avant: avantTotal, apres: apresTotal, changees, erreurs, en_defaut: changees.filter(c => c.controles.length).length };
+  return { du, avant: avantTotal, apres: apresTotal, changees, erreurs, avertissements, en_defaut: changees.filter(c => c.controles.length).length };
 }
 
 const nomDe = uid => essai(() => db.prepare('SELECT nom_complet, email FROM utilisateur WHERE id = ?').get(uid), null);
@@ -337,8 +479,8 @@ export function proposer(uid, annee, v, user, nomUser) {
   const plan = assistant(uid, annee, v);
   if (plan.erreurs.length || plan.en_defaut) throw Object.assign(err('La modulation ne tient pas encore : rien n’est enregistré.'), { bilan: plan });
   if (!plan.changees.length) throw err('Rien ne change.', 400);
-  const avant = Object.fromEntries(anneeDe(uid, annee).filter(s => plan.changees.some(c => c.lundi === s.lundi)).map(s => [s.lundi, s.jours]));
-  const changements = plan.changees.map(c => ({ lundi: c.lundi, jours: c.jours, avant: c.avant, apres: c.apres }));
+  const avant = Object.fromEntries(anneeDe(uid, annee).filter(s => plan.changees.some(c => c.lundi === s.lundi)).map(s => [s.lundi, { statut: s.statut, jours: s.jours }]));
+  const changements = plan.changees.map(c => ({ lundi: c.lundi, jours: c.jours, avant: c.avant, apres: c.apres, statut: c.statut, statut_avant: c.statut_avant }));
   const resume = String(v.resume || '').trim() || resumer(plan);
   const gereDirect = ['admin', 'directeur', 'directeur_adjoint'].includes(user.role) && user.id !== uid;
   const id = Number(db.prepare(`INSERT INTO tt_modulation (utilisateur_id, annee, statut, resume, changements_json, avant_json, propose_par, propose_par_id)
@@ -356,6 +498,8 @@ function resumer(plan) {
   if (recup.length) parts.push(`${recup.length} jour(s) donné(s)`);
   const chargees = plan.changees.filter(c => !c.report && c.apres > c.avant).length;
   if (chargees) parts.push(`${chargees} semaine(s) chargée(s)`);
+  const pris = plan.changees.filter(c => c.statut !== 'travail' && c.statut_avant === 'travail').length;
+  if (pris) parts.push(`${pris} semaine(s) de congé échangée(s)`);
   const rep = plan.changees.filter(c => c.report);
   if (rep.length) parts.push(`report sur ${rep.length} semaine(s)`);
   return parts.join(', ') || 'Modulation';
@@ -389,14 +533,16 @@ export function valider(id, etape, user, nomUser) {
   if (!['directeur', 'admin'].includes(user.role)) throw err('Réservé à la direction.', 403);
   if (!m.adjoint_le) throw err('La direction adjointe contrôle d’abord.');
   const avant = JSON.parse(m.avant_json), ch = JSON.parse(m.changements_json);
-  const actuel = new Map(anneeDe(m.utilisateur_id, m.annee).map(s => [s.lundi, s.jours]));
+  const actuel = new Map(anneeDe(m.utilisateur_id, m.annee).map(s => [s.lundi, { statut: s.statut, jours: s.jours }]));
+  // Les propositions d'avant 3.5.058 gardaient les seuls jours.
+  for (const k of Object.keys(avant)) if (Array.isArray(avant[k])) avant[k] = { statut: actuel.get(k)?.statut, jours: avant[k] };
   for (const c of ch) {
     if (JSON.stringify(actuel.get(c.lundi)) !== JSON.stringify(avant[c.lundi])) throw err(`La semaine du ${c.lundi} a changé depuis la proposition : à refaire.`);
     if (verrouille(m.utilisateur_id, c.lundi) || verrouille(m.utilisateur_id, plusJours(c.lundi, 6))) throw err(`La semaine du ${c.lundi} est dans un mois signé.`);
   }
-  const up = db.prepare("UPDATE tt_semaine SET jours_json = ?, genere_par = ?, genere_le = datetime('now') WHERE utilisateur_id = ? AND lundi = ?");
+  const up = db.prepare("UPDATE tt_semaine SET statut = COALESCE(?, statut), jours_json = ?, genere_par = ?, genere_le = datetime('now') WHERE utilisateur_id = ? AND lundi = ?");
   db.transaction(() => {
-    for (const c of ch) up.run(JSON.stringify(c.jours), `${nomUser} (modulation)`, m.utilisateur_id, c.lundi);
+    for (const c of ch) up.run(c.statut || null, JSON.stringify(c.jours), `${nomUser} (modulation)`, m.utilisateur_id, c.lundi);
     // Une année modulée suit les règles de l'horaire annualisé.
     db.prepare("UPDATE tt_personne SET formule = 'annualise', maj_par = ?, maj_le = datetime('now') WHERE utilisateur_id = ?").run(nomUser, m.utilisateur_id);
     db.prepare("UPDATE tt_modulation SET statut = 'acceptee', direction_par = ?, direction_le = datetime('now') WHERE id = ?").run(nomUser, id);
@@ -418,7 +564,7 @@ export function refuser(id, motif, user, nomUser) {
 }
 
 // ── La ligne du temps : tout ce que l'écran dessine, en un appel ──
-export function ligne(annee, { voirHeures, moi }) {
+export function ligne(annee, { voirHeures, moi, user = null }) {
   const semaines = semainesDeLAnnee(annee);
   const conges = semainesDeConge(annee);
   const feries = feriesDe(annee);
@@ -446,9 +592,11 @@ export function ligne(annee, { voirHeures, moi }) {
     return out;
   });
   const presents = semaines.map((l, k) => personnes.filter(p => p.semaines[k].statut === 'travail').length);
+  const ag = agenda(annee, { presentsMin: reglage(annee).presents_min });
   return {
     semaines, conges: Object.fromEntries(conges), feries: Object.fromEntries([...feries].filter(([d]) => d >= semaines[0] && d <= plusJours(semaines[51], 6))),
-    chaleur: chaleur(annee), moments: moments(annee), types_moment: TYPES_MOMENT, personnes, presents,
+    chaleur: chaleur(annee), moments: moments(annee, { user }), types_moment: TYPES_MOMENT, personnes, presents,
     presents_min: reglage(annee).presents_min, rt_variable: reglage(annee).rt_variable,
+    agenda: { cours: ag.cours, fermetures: ag.fermetures, jours_fermes: ag.jours_fermes, besoin: ag.besoin, sections: ag.sections.map(x => ({ section: x.section, actives: x.semaines.map(y => (y.actif ? 1 : 0)) })) },
   };
 }

@@ -3156,9 +3156,14 @@ Elle paraît dans *Mon horaire de la semaine* (`GET /mes-cours/semaine`, `visite
 (`evenementsDesVisites`, `lib/agendaIcs.js`). Fiche mensuelle par personne : visites FAITES, départ et adresse (domicile = fiche du
 professeur ; école = `etablissement.adresse`), km A/R, montant = km × `stages_km_taux` (paramètre, vide = « à régler », direction).
 Signée par la personne puis approuvée par la direction ; une signature vaut pour CE contenu (empreinte) ; approuvée, le mois est
-verrouillé. Refus de signer : km manquants, taux non réglé, départ autre que celui remboursé. Choix pris sans question (session
-reprise) : **règle par personne et non par visite ; taux unique ; signature personne → direction** — à confirmer par Charles.
-Banc : `backend/test/visitesStage.mjs` (29 ok).
+verrouillé. Refus de signer : km manquants, taux non réglé, départ autre que celui remboursé. Confirmé par Charles le 2 novembre
+2026 : **règle par personne et non par visite ; taux unique ; signature personne → direction**.
+**Les kilomètres se calculent** (3.5.059, Charles : « et tu calcules les kilomètres ? » ; tranché : calculer, domicile
+compris ; le chiffre tapé est gardé, l'écart signalé) : `lib/distanceRoute.js` — Nominatim (repli Photon, adresse entière puis
+forme courte « rue, CP commune ») et OSRM, mis en mémoire (`geo_adresse`, `distance_route` ; une panne ne se garde pas) ;
+`stage_visite.km_calcule` posé après chaque écriture (`calculerVisite`) ; `GET /km` propose le calcul ; écart notable = plus de
+3 km ET plus de 10 % (`ecartNotable`), montré sur la fiche et la pièce (« carte : n »), sans bloquer la signature. **Les adresses
+(domicile compris) partent vers OpenStreetMap : à porter dans la fiche RGPD.** Banc : `backend/test/visitesStage.mjs` (38 ok).
 
 **TOUT TABLEAU SUIT LES RÉGLAGES, ET CHACUN CHOISIT SON THÈME** (3.5.037, Charles, 1er novembre 2026 : « non respect du
 design » sur Qui a fait quoi, Nouveautés, la liste des étudiants, l'encodage rapide, les recours ; « ce doit être géré dans
@@ -3247,6 +3252,41 @@ score logarithmique, un quart chaud, un quart creux (à score égal, les plus lo
 directement pour un autre) ; une année modulée passe en `annualise` ; moduler exige l'horaire variable au règlement de travail.
 Au passage : `modeleSemaine` répartit le reste de la division (à 80 %, l'année entière était refusée pour une minute par jour).
 Banc : `test/ligneTemps.mjs` (35 ok).
+
+**L'AGENDA DE L'ÉCOLE, PEINT SUR LA LIGNE DU TEMPS** (3.5.060, Charles, 2 novembre 2026 : « les congés plus simplement dans
+la ligne du temps ; j'encode pour l'établissement, chaque section est différente ; on sait quand on a besoin de personnel » ;
+« centraliser l'agenda de l'école » ; « peindre les moments chauds et placer les choses importantes depuis la ligne, et un bouton
+pour saisir en manuel avec un mini calendrier »). Organisation → *Agenda de l'école* (`pages/AgendaEcole.jsx`) et en tête de la
+vue Année du Temps de travail : UN composant, `components/AgendaLigne.jsx` (pinceaux Chaleur · Grand moment · École fermée · Cours
+· Section ; première puis dernière semaine ; « Saisir » = mini calendrier). Moteur `lib/agendaEcole.js`, routes
+`/api/agenda-ecole`. Quatre couches : les COURS = `annee_calendrier` (peinte, pas doublée ; septembre → juillet, l'été n'y entre
+pas pour ne pas décaler l'échéancier) ; la FERMETURE de l'école sur 52 semaines (`agenda_semaine` : totale = congé pour tout le
+personnel, Noël et été ; partielle = au choix de chacun, Toussaint, Carnaval, Pâques) ; les JOURS FERMÉS (`agenda_jour_ferme` :
+mardi gras, 2 novembre…) que **`joursFeries()` ajoute aux fériés légaux** — horaire, simulation, congé-éducation et temps de
+travail les lisent donc tous ; compté comme presté au relevé, avec qui l'a posé et quand ; les SECTIONS actives quand l'horaire
+leur donne des séances (`horaire_seance`, annulées exclues), forçables (`agenda_section`). Le BESOIN de personnel par semaine
+(0 si fermée, `presents_min` si une section est active, sinon une permanence) colore « Au travail » et avertit l'assistant ; les
+séances de l'horaire entrent dans la chaleur. Le temps de travail lit l'agenda : `genererSelonAgenda` (fermetures totales +
+semaines choisies, par défaut les partielles ; 13 en tout) ; l'assistant échange (`prendre` / `travailler`, une pour une, jamais
+une semaine totale), circuit de la modulation. L'ancienne saisie des congés par dates (`tt_conge`) est reprise une fois dans
+l'agenda (`reprendreCongesModule`). Peindre l'établissement : direction et direction adjointe ; une section : aussi la
+coordination pour les siennes (`getUserSections`). Journal `agenda_journal` en ajout seul. Banc : `test/ligneTemps.mjs` (49 ok).
+**Glisser pour choisir une zone** (3.5.061, Charles : « sélectionner à la souris une zone et mettre tension, examens ou autre » ;
+« chaud, ça fait moche ») : appui, glisser, lâcher sur la ligne du temps (cases `data-lundi`, Pointer Events) → `MenuZone` ; un clic
+simple garde son effet. À l'écran, chaud/creux se disent **Tension / Calme** (la base garde `chaud`/`creux`).
+**La vue Mois, le classement et les séries** (3.5.062, Charles, d'après sa « Timeline Santé 2025-2026 » — modèle seulement, pas
+d'import ; tranché : domaine + nature ; séries « en fonction des rôles »). `components/AgendaMois.jsx` (zoom Mois de l'agenda et du
+Temps de travail : douze lignes, jours en colonnes, glisser → `SaisieManuelle`). Un élément (`evenement_etablissement`, colonnes
+`domaine`, `pour`, `serie_id`) : TYPE (examens, réunion, échéance, conseil, horaires, salon…) → NATURE (`NATURE_DU_TYPE`, la
+couleur — séries de graphiques `--c-serie_*`), DOMAINE (administratif, pédagogique, ASBL, HE), POUR (direction, secrétariat,
+coordination, professeur ; vide = tous ; `voit()` filtre côté serveur, la direction voit tout). Séries `agenda_serie` (semaine,
+quinzaine, mois au n-ième jour ; fermetures totales et jours fermés sautés) et `agenda_serie_exception` (déplacer, annuler une
+date), dates calculées à la lecture (`datesDeSerie`). Routes d'écriture sur `/api/agenda-ecole` (moments, séries), direction.
+Banc : 57 ok.
+**L'année de l'agenda et du temps de travail commence le premier lundi à partir du 15 août** (3.5.063, Charles) :
+`debutDAnnee` (`lib/tempsTravail.js`, `lib/agendaEcole.js`, recopiée dans `pages/TempsTravail.jsx`) ; 52 semaines jusqu'au 15 août
+suivant (une semaine orpheline possible certaines années, en fermeture d'été). `recalerAnnees()` déplace au démarrage les semaines
+d'une année générée avant (septembre → août) vers celles qui lui manquent, statut et heures compris.
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en

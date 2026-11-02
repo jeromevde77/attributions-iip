@@ -89,5 +89,35 @@ x = V.ecrireVisite(prof, null, { stage_id: 50, date: '2026-11-03' });
 t('une visite prévue se supprime', V.supprimerVisite(prof, x.id).ok);
 t('une visite faite ne se supprime pas', V.supprimerVisite(prof, v1).code === 409);
 
+console.log('\nLes kilomètres calculés (service de carte simulé)');
+let appels = [];
+globalThis.fetch = async url => {
+  appels.push(String(url));
+  if (String(url).includes('nominatim')) return { ok: true, json: async () => [{ lat: '50.8', lon: '4.3' }] };
+  if (String(url).includes('osrm')) return { ok: true, json: async () => ({ routes: [{ distance: 19500 }] }) };
+  return { ok: false, status: 500, json: async () => ({}) };
+};
+const D = await import('../src/lib/distanceRoute.js');
+const st = V.stageAccessible(prof, 50);
+let c = await V.kmCalcules(10, st, 'domicile');
+t('domicile → lieu : 19,5 km aller, 39 km A/R', c.km_ar === 39, c);
+const n = appels.length;
+c = await V.kmCalcules(10, st, 'domicile');
+t('le trajet se garde : aucun nouvel appel', c.km_ar === 39 && appels.length === n, appels.length - n);
+c = await V.kmCalcules(11, st, 'domicile');
+t('domicile absent de la fiche : pas de calcul, la raison est dite', c.km_ar === null && /domicile/.test(c.raison), c);
+x = V.ecrireVisite(prof, null, { stage_id: 50, date: '2026-11-01', depart: 'domicile', km_ar: 39, statut: 'faite' });
+await V.calculerVisite(x.id);
+t('la visite garde sa distance calculée', db.prepare('SELECT km_calcule FROM stage_visite WHERE id=?').get(x.id).km_calcule === 39);
+V.ecrireVisite(prof, x.id, { km_ar: 60 });
+const f11 = V.fiche(10, '2026-11');
+t('60 km déclarés pour 39 calculés : écart signalé', f11.lignes.find(l => l.id === x.id).ecart === true, f11.lignes);
+t('écart de 2 km : pas signalé', D.ecartNotable(41, 39) === false);
+t('écart signalé sans bloquer la signature', !f11.problemes.some(p => p.includes('écart')), f11.problemes);
+globalThis.fetch = async () => { throw new Error('réseau coupé'); };
+c = await D.kmAllerRetour('Rue Inconnue 1, 9999 Nulle-part', 'Rue Autre 2, 9998 Ailleurs');
+t('réseau coupé : null avec la raison, rien ne casse', c.km_ar === null && !!c.raison, c);
+t('une panne ne se garde pas en mémoire', !db.prepare("SELECT 1 FROM geo_adresse WHERE adresse LIKE 'rue inconnue%'").get());
+
 console.log(`\n${ok} ok, ${ko} faux`);
 process.exit(ko ? 1 : 0);

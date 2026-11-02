@@ -8,6 +8,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { IconChevronLeft, IconChevronRight, IconWand, IconX, IconFlame, IconSnowflake, IconFlag, IconCheck, IconSend, IconZoomIn } from '@tabler/icons-react';
 import { EnteteCarte, PastilleEtat } from './ui.jsx';
+import AgendaLigne, { useAgenda, GrilleAnnee, COL_NOM, HACHURE } from './AgendaLigne.jsx';
+import AgendaMois from './AgendaMois.jsx';
 import { demander, informer, saisir } from '../lib/dialogue.jsx';
 
 const hm = m => { if (m == null) return ''; const s = m < 0 ? '−' : ''; m = Math.abs(Math.round(m)); return `${s}${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`; };
@@ -21,12 +23,13 @@ const min = h => { const m = /^(\d{1,2}):(\d{2})$/.exec(String(h || '')); return
 const aujourdhui = () => new Date().toISOString().slice(0, 10);
 const nomCourt = n => String(n || '').split(/\s+/).slice(0, 2).join(' ');
 // La chaleur : une information d'état, donc une pastille pleine (ocre pour chaud, bleu pour creux).
-const CHALEUR = { chaud: { fond: 'var(--c-attente)', mot: 'chaude', Ic: IconFlame }, creux: { fond: 'var(--c-disponible)', mot: 'creuse', Ic: IconSnowflake }, normal: { fond: null, mot: 'normale', Ic: null } };
-const HACHURE = 'repeating-linear-gradient(135deg, var(--c-fond_indispo, #EEF0F4) 0 4px, transparent 4px 8px)';
+const CHALEUR = { chaud: { fond: 'var(--c-attente)', mot: 'tension', Ic: IconFlame }, creux: { fond: 'var(--c-disponible)', mot: 'calme', Ic: IconSnowflake }, normal: { fond: null, mot: 'normale', Ic: null } };
 const BARRE_MAX = 45 * 60;   // l'échelle d'une barre de semaine : 45 h, le plafond de l'art. 20bis
 const JOUR_MAX = 9 * 60;
 
 export default function LigneTempsTravail({ api, info, onReleve }) {
+  const annee = info?.annee;
+  const [ag, rechargerAg] = useAgenda(annee);
   const [d, setD] = useState(null);
   const [zoom, setZoom] = useState('annee');
   const [centre, setCentre] = useState(lundiDe(aujourdhui()));
@@ -43,7 +46,7 @@ export default function LigneTempsTravail({ api, info, onReleve }) {
   // L'assistant recalcule à chaque changement.
   useEffect(() => {
     if (!mod || !focus) { setPlan(null); return; }
-    if (!mod.recup.length && !Object.keys(mod.cibles).length) { setPlan(null); return; }
+    if (!mod.recup.length && !Object.keys(mod.cibles).length && !(mod.prendre || []).length && !(mod.travailler || []).length) { setPlan(null); return; }
     let vivant = true;
     api(`/moduler/${focus}/assistant`, { method: 'POST', body: JSON.stringify(mod) }).then(p => vivant && setPlan(p)).catch(e => vivant && setPlan({ erreur: e.message }));
     return () => { vivant = false; };
@@ -58,10 +61,12 @@ export default function LigneTempsTravail({ api, info, onReleve }) {
   const fp = d.personnes.find(p => p.id === focus);
   const peutModuler = fp && fp.heures && (fp.moi || d.gere) && fp.genere;
   const apercu = new Map((plan?.changees || []).map(c => [c.lundi, c]));
-  const ouvrirAssistant = () => { setMod(m => m || { recup: [], cibles: {}, exclure: [] }); };
-  const basculerJour = jour => { ouvrirAssistant(); setMod(m => { const x = m || { recup: [], cibles: {}, exclure: [] }; return { ...x, recup: x.recup.includes(jour) ? x.recup.filter(j => j !== jour) : [...x.recup, jour].sort() }; }); };
-  const donnerSemaine = l => { ouvrirAssistant(); setMod(m => { const x = m || { recup: [], cibles: {}, exclure: [] }; const js = [0, 1, 2, 3, 4].map(i => plus(l, i)).filter(j => j >= aujourdhui()); const tous = js.every(j => x.recup.includes(j)); return { ...x, recup: tous ? x.recup.filter(j => !js.includes(j)) : [...new Set([...x.recup, ...js])].sort() }; }); };
-  const fixerCible = (l, minutes) => { ouvrirAssistant(); setMod(m => { const x = m || { recup: [], cibles: {}, exclure: [] }; const c = { ...x.cibles }; if (minutes == null) delete c[l]; else c[l] = minutes; return { ...x, cibles: c }; }); };
+  const ouvrirAssistant = () => { setMod(m => m || { recup: [], cibles: {}, exclure: [], prendre: [], travailler: [] }); };
+  const basculerJour = jour => { ouvrirAssistant(); setMod(m => { const x = m || { recup: [], cibles: {}, exclure: [], prendre: [], travailler: [] }; return { ...x, recup: x.recup.includes(jour) ? x.recup.filter(j => j !== jour) : [...x.recup, jour].sort() }; }); };
+  const donnerSemaine = l => { ouvrirAssistant(); setMod(m => { const x = m || { recup: [], cibles: {}, exclure: [], prendre: [], travailler: [] }; const js = [0, 1, 2, 3, 4].map(i => plus(l, i)).filter(j => j >= aujourdhui()); const tous = js.every(j => x.recup.includes(j)); return { ...x, recup: tous ? x.recup.filter(j => !js.includes(j)) : [...new Set([...x.recup, ...js])].sort() }; }); };
+  const fixerCible = (l, minutes) => { ouvrirAssistant(); setMod(m => { const x = m || { recup: [], cibles: {}, exclure: [], prendre: [], travailler: [] }; const c = { ...x.cibles }; if (minutes == null) delete c[l]; else c[l] = minutes; return { ...x, cibles: c }; }); };
+  // ÉCHANGER UNE SEMAINE DE CONGÉ (3.5.058) : on en prend une, on en rend une — l'assistant compte.
+  const basculerListe = (cle, l) => { ouvrirAssistant(); setMod(m => { const x = m || { recup: [], cibles: {}, exclure: [], prendre: [], travailler: [] }; const t = x[cle] || []; return { ...x, [cle]: t.includes(l) ? t.filter(y => y !== l) : [...t, l].sort() }; }); };
   const fenetre = zoom === 'semaines' ? 8 : 1;
   const debut = zoom === 'annee' ? d.semaines[0] : centre;
   const avancer = k => setCentre(c => { const n = plus(c, 7 * k * fenetre); return n < d.semaines[0] ? d.semaines[0] : n > d.semaines[51] ? d.semaines[51] : n; });
@@ -75,10 +80,10 @@ export default function LigneTempsTravail({ api, info, onReleve }) {
       {/* LA BARRE : le zoom, la navigation, la personne, l'assistant — une ligne. */}
       <div className="flex flex-nowrap items-center gap-2 overflow-x-auto">
         <div className="segments flex-none">
-          {[['annee', 'Année'], ['semaines', 'Semaines'], ['semaine', 'Semaine']].map(([k, l]) => (
-            <button key={k} type="button" onClick={() => zoomer(k, k === 'annee' ? null : centre)} className={zoom === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}>{l}</button>))}
+          {[['annee', 'Année'], ['mois', 'Mois'], ['semaines', 'Semaines'], ['semaine', 'Semaine']].map(([k, l]) => (
+            <button key={k} type="button" onClick={() => zoomer(k, ['annee', 'mois'].includes(k) ? null : centre)} className={zoom === k ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}>{l}</button>))}
         </div>
-        {zoom !== 'annee' && <>
+        {!['annee', 'mois'].includes(zoom) && <>
           <button className="bouton controle flex-none px-2" onClick={() => avancer(-1)} aria-label="Avant"><IconChevronLeft size={16} /></button>
           <span className="text-second text-slate-600 whitespace-nowrap">{zoom === 'semaine' ? `Semaine du ${fmt(centre)} au ${fmt(plus(centre, 4))}` : `Du ${fmt(centre)} au ${fmt(plus(centre, 7 * 8 - 3))}`}</span>
           <button className="bouton controle flex-none px-2" onClick={() => avancer(1)} aria-label="Après"><IconChevronRight size={16} /></button>
@@ -96,13 +101,13 @@ export default function LigneTempsTravail({ api, info, onReleve }) {
 
       <div className={`grid gap-3 ${mod ? 'xl:grid-cols-[minmax(0,1fr)_340px]' : ''}`}>
         <div className="carte overflow-hidden min-w-0">
-          {zoom === 'annee' && <VueAnnee d={d} ch={ch} apercu={apercu} focus={focus} sel={sel} setSel={setSel} zoomer={zoomer} />}
+          {zoom === 'annee' && <VueAnnee d={d} ag={ag} rechargerAg={rechargerAg} annee={annee} apercu={apercu} focus={focus} sel={sel} setSel={setSel} zoomer={zoomer} recharger={charger} />}
+          {zoom === 'mois' && <AgendaMois annee={annee} ag={ag} recharger={rechargerAg} onChange={charger} />}
           {zoom === 'semaines' && <VueSemaines d={d} ch={ch} apercu={apercu} focus={focus} debut={debut} mod={mod} sel={sel} setSel={setSel} peutModuler={peutModuler} basculerJour={basculerJour} zoomer={zoomer} />}
           {zoom === 'semaine' && <VueSemaine d={d} ch={ch} apercu={apercu} focus={focus} lundi={centre} mod={mod} peutModuler={peutModuler} basculerJour={basculerJour} />}
-          <Legende />
           {zoom === 'annee' && sel && <DetailSemaine d={d} l={sel} c={ch.get(sel)} fp={fp} peutModuler={peutModuler} api={api} recharger={charger}
-            mod={mod} donnerSemaine={donnerSemaine} fixerCible={fixerCible} zoomer={zoomer} onFermer={() => setSel(null)} />}
-          <Moments d={d} debut={zoom === 'annee' ? null : debut} fin={zoom === 'annee' ? null : plus(debut, 7 * fenetre - 1)} />
+            mod={mod} donnerSemaine={donnerSemaine} fixerCible={fixerCible} basculerListe={basculerListe} zoomer={zoomer} onFermer={() => setSel(null)} />}
+          {!['annee', 'mois'].includes(zoom) && <Moments d={d} debut={debut} fin={plus(debut, 7 * fenetre - 1)} />}
         </div>
         {mod && <Assistant fp={fp} mod={mod} setMod={setMod} plan={plan} api={api} gere={d.gere}
           onFermer={() => { setMod(null); setPlan(null); }} onFait={() => { setMod(null); setPlan(null); charger(); }} onReleve={onReleve} />}
@@ -112,46 +117,27 @@ export default function LigneTempsTravail({ api, info, onReleve }) {
 }
 
 /* ── L'ANNÉE : 52 colonnes ── */
-const COL_NOM = 'minmax(7.5rem, 10rem)';
-function GrilleAnnee({ children, className = '' }) {
-  return <div className={`grid items-stretch ${className}`} style={{ gridTemplateColumns: `${COL_NOM} repeat(52, minmax(0, 1fr)) 5.5rem` }}>{children}</div>;
-}
-function VueAnnee({ d, ch, apercu, focus, sel, setSel, zoomer }) {
-  const mois = [];
-  d.semaines.forEach((l, i) => { const m = Number(plus(l, 3).slice(5, 7)); if (!mois.length || mois[mois.length - 1].m !== m) mois.push({ m, i }); });
-  return (
-    <div className="px-3 py-3 overflow-x-auto">
-      <div className="min-w-[760px] space-y-1">
-        <GrilleAnnee>
-          <div />
-          {d.semaines.map((l, i) => { const mm = mois.find(x => x.i === i); return <div key={l} className="text-mention text-slate-500 whitespace-nowrap overflow-visible">{mm ? MOIS[mm.m - 1] : ''}</div>; })}
-          <div />
+/* L'ANNÉE : l'agenda de l'école peint en tête (AgendaLigne), puis une ligne par personne et la ligne « Au travail ». */
+function VueAnnee({ d, ag, rechargerAg, annee, apercu, focus, sel, setSel, zoomer, recharger }) {
+  const lignes = (
+    <>
+      {d.personnes.map(p => (
+        <GrilleAnnee key={p.id} className={`py-1 border-t ${p.id === focus ? 'bg-[color-mix(in_srgb,var(--c-principal)_4%,transparent)]' : ''}`}>
+          <div className="text-second pr-2 self-center truncate" title={p.nom}>{nomCourt(p.nom)}{!p.genere && <span className="text-slate-400"> · à générer</span>}</div>
+          {p.semaines.map(s => <BarreSemaine key={s.lundi} p={p} s={s} ap={p.id === focus ? apercu.get(s.lundi) : null} sel={sel === s.lundi} onClick={() => setSel(x => (x === s.lundi ? null : s.lundi))} />)}
+          <div className="text-second text-right self-center tabular-nums whitespace-nowrap">{p.heures ? <><b>{court(p.prevu)}</b><div className="text-mention text-slate-500">sur {court(p.du)}</div></> : ''}</div>
         </GrilleAnnee>
-        <RangeeMoments d={d} />
-        <GrilleAnnee>
-          <div className="text-second text-slate-600 pr-2 self-center">Chaleur</div>
-          {d.semaines.map(l => { const c = ch.get(l); const k = CHALEUR[c?.niveau || 'normal'];
-            return <button key={l} type="button" onClick={() => setSel(s => (s === l ? null : l))} title={`${fmt(l)} · semaine ${k.mot}${c?.raisons?.length ? ' — ' + c.raisons.join(', ') : ''}`}
-              className={`h-4 mx-px rounded-[3px] ${sel === l ? 'ring-2 ring-[var(--c-principal)]' : ''}`}
-              style={{ background: c?.conge ? HACHURE : k.fond || 'var(--c-filet, #E2E8F0)', opacity: k.fond ? 1 : 0.6, outline: c?.force ? '1px dashed var(--c-texte)' : 'none' }} />; })}
-          <div />
-        </GrilleAnnee>
-        {d.personnes.map(p => (
-          <GrilleAnnee key={p.id} className={`py-1 border-t ${p.id === focus ? 'bg-[color-mix(in_srgb,var(--c-principal)_4%,transparent)]' : ''}`}>
-            <div className="text-second pr-2 self-center truncate" title={p.nom}>{nomCourt(p.nom)}{!p.genere && <span className="text-slate-400"> · à générer</span>}</div>
-            {p.semaines.map(s => <BarreSemaine key={s.lundi} p={p} s={s} ap={p.id === focus ? apercu.get(s.lundi) : null} sel={sel === s.lundi} onClick={() => setSel(x => (x === s.lundi ? null : s.lundi))} />)}
-            <div className="text-second text-right self-center tabular-nums whitespace-nowrap">{p.heures ? <><b>{court(p.prevu)}</b><div className="text-mention text-slate-500">sur {court(p.du)}</div></> : ''}</div>
-          </GrilleAnnee>
-        ))}
-        <GrilleAnnee className="border-t pt-1">
-          <div className="text-second text-slate-600 pr-2">Au travail</div>
-          {d.presents.map((n, i) => <div key={i} className={`text-mention text-center tabular-nums ${n < d.presents_min && !d.conges[d.semaines[i]] ? 'font-bold text-[var(--c-refuse)]' : 'text-slate-500'}`}>{n}</div>)}
-          <div />
-        </GrilleAnnee>
-        <p className="text-mention text-slate-500 pt-1">Touchez une semaine pour la voir en détail ; <button className="underline inline-flex items-center gap-0.5" onClick={() => zoomer('semaines', sel || lundiDe(aujourdhui()))}><IconZoomIn size={12} /> zoomer</button> pour la voir jour par jour.</p>
-      </div>
-    </div>
+      ))}
+      <GrilleAnnee className="border-t pt-1">
+        <div className="text-second text-slate-600 pr-2">Au travail</div>
+        {d.presents.map((n, i) => { const req = d.agenda?.besoin?.[i]?.presents_requis ?? d.presents_min;
+          return <div key={i} title={`${n} au travail · ${req} requis`} className={`text-mention text-center tabular-nums ${n < req ? 'font-bold text-[var(--c-refuse)]' : 'text-slate-500'}`}>{n}</div>; })}
+        <div className="text-mention text-slate-500 text-right">présents</div>
+      </GrilleAnnee>
+      <p className="text-mention text-slate-500 pt-1">Touchez une semaine pour la voir en détail ; <button className="underline inline-flex items-center gap-0.5" onClick={() => zoomer('semaines', sel || lundiDe(aujourdhui()))}><IconZoomIn size={12} /> zoomer</button> pour la voir jour par jour. En rouge : moins de présents que les sections actives n’en demandent.</p>
+    </>
   );
+  return <AgendaLigne annee={annee} ag={ag} recharger={rechargerAg} apres={lignes} selSemaine={sel} onSemaine={l => setSel(x => (x === l ? null : l))} onChange={recharger} />;
 }
 
 function BarreSemaine({ p, s, ap, sel, onClick }) {
@@ -174,41 +160,8 @@ function BarreSemaine({ p, s, ap, sel, onClick }) {
 }
 
 /* Les grands moments, en bandes posées sur l'année (deux couloirs quand ils se chevauchent). */
-function RangeeMoments({ d }) {
-  const s0 = new Date(`${d.semaines[0]}T00:00:00Z`).getTime(), span = 52 * 7 * 864e5;
-  const pos = x => Math.max(0, Math.min(1, (new Date(`${x}T00:00:00Z`).getTime() - s0) / span));
-  const couloirs = [];
-  const places = d.moments.map(m => { let k = couloirs.findIndex(fin => fin < m.du); if (k < 0) { k = couloirs.length; couloirs.push(m.au); } else couloirs[k] = m.au; return { ...m, k }; });
-  const n = Math.max(1, couloirs.length);
-  return (
-    <div className="grid" style={{ gridTemplateColumns: `${COL_NOM} minmax(0,1fr) 5.5rem` }}>
-      <div className="text-second text-slate-600 pr-2 self-center">Moments</div>
-      <div className="relative" style={{ height: `${n * 1.25}rem` }}>
-        {places.map((m, i) => (
-          <span key={i} title={`${m.titre} · ${fmt(m.du)}${m.au !== m.du ? ` → ${fmt(m.au)}` : ''}`}
-            className="absolute h-[1.05rem] rounded-[3px] text-mention text-white px-1 truncate leading-[1.05rem]"
-            style={{ left: `${pos(m.du) * 100}%`, width: `max(0.6rem, ${(pos(plus(m.au, 1)) - pos(m.du)) * 100}%)`, top: `${m.k * 1.25}rem`, background: m.type === 'deliberations' ? 'var(--c-texte)' : 'var(--c-principal)' }}>
-            {m.titre}
-          </span>))}
-      </div>
-      <div />
-    </div>
-  );
-}
-
-function Legende() {
-  const P = ({ fond, children }) => <span className="inline-flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-[2px]" style={{ background: fond }} />{children}</span>;
-  return (
-    <div className="px-4 py-2 border-t flex flex-wrap gap-x-4 gap-y-1 text-mention text-slate-600">
-      <P fond="var(--c-attente)">semaine chaude</P><P fond="var(--c-disponible)">semaine creuse</P><P fond={HACHURE}>congé</P>
-      <P fond="var(--c-principal)">heures prévues</P><P fond="var(--c-accent)">proposition de l’assistant · jour donné</P>
-      <span className="inline-flex items-center gap-1"><span className="inline-block w-4 border-t border-dashed border-slate-400" />36 h (référence)</span>
-    </div>
-  );
-}
-
-/* Une semaine choisie dans l'année : pourquoi elle est chaude ou creuse, qui fait combien, et ce qu'on peut y faire. */
-function DetailSemaine({ d, l, c, fp, peutModuler, api, recharger, donnerSemaine, fixerCible, zoomer, onFermer }) {
+/* Une semaine choisie dans l'année : pourquoi elle est en tension ou calme, qui fait combien, et ce qu'on peut y faire. */
+function DetailSemaine({ d, l, c, fp, peutModuler, api, recharger, donnerSemaine, fixerCible, basculerListe, zoomer, onFermer }) {
   const [heures, setHeures] = useState('');
   const k = CHALEUR[c?.niveau || 'normal'];
   const s = fp?.semaines.find(x => x.lundi === l);
@@ -219,7 +172,7 @@ function DetailSemaine({ d, l, c, fp, peutModuler, api, recharger, donnerSemaine
     <div className="border-t px-4 py-3 space-y-2 text-sm">
       <div className="flex flex-wrap items-center gap-2">
         <span className="titre-carte">Semaine du {fmt(l)} au {fmt(plus(l, 4))}</span>
-        {c?.conge ? <PastilleEtat etat="indisponible">{c.conge}</PastilleEtat> : <PastilleEtat etat={c?.niveau === 'chaud' ? 'surveiller' : c?.niveau === 'creux' ? 'disponible' : 'neutre'}>semaine {k.mot}{c?.force ? ' (fixée)' : ''}</PastilleEtat>}
+        {c?.conge ? <PastilleEtat etat="indisponible">{c.conge}</PastilleEtat> : <PastilleEtat etat={c?.niveau === 'chaud' ? 'surveiller' : c?.niveau === 'creux' ? 'disponible' : 'neutre'}>{k.mot === 'normale' ? 'semaine normale' : k.mot}{c?.force ? ' (fixée)' : ''}</PastilleEtat>}
         <div className="flex-1" />
         <button className="bouton text-second inline-flex items-center gap-1" onClick={() => zoomer('semaine', l)}><IconZoomIn size={14} /> Voir la semaine</button>
         <button className="bouton px-1.5" onClick={onFermer} aria-label="Fermer"><IconX size={14} /></button>
@@ -232,9 +185,9 @@ function DetailSemaine({ d, l, c, fp, peutModuler, api, recharger, donnerSemaine
       </div>
       {d.gere && !c?.conge && (
         <div className="flex flex-wrap items-center gap-2 text-second">
-          <span className="text-slate-600">La direction fixe la chaleur :</span>
+          <span className="text-slate-600">La direction fixe la période :</span>
           <div className="segments">
-            {[['calcul', 'Calcul de Lucie'], ['chaud', 'Chaude'], ['normal', 'Normale'], ['creux', 'Creuse']].map(([n, t]) => {
+            {[['calcul', 'Calcul de Lucie'], ['chaud', 'Tension'], ['normal', 'Normale'], ['creux', 'Calme']].map(([n, t]) => {
               const actif = n === 'calcul' ? !c?.force : c?.force && c.niveau === n;
               return <button key={n} type="button" onClick={() => forcer(n)} className={actif ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}>{t}</button>; })}
           </div>
@@ -247,6 +200,14 @@ function DetailSemaine({ d, l, c, fp, peutModuler, api, recharger, donnerSemaine
           <input type="number" min="31" max="45" step="0.5" className="controle border border-slate-300 rounded-champ w-20" placeholder="h" value={heures} onChange={e => setHeures(e.target.value)} />
           <button className="bouton" disabled={!heures} onClick={() => { fixerCible(l, Math.round(Number(heures) * 60)); setHeures(''); }}>heures</button>
           <span className="text-mention text-slate-500">l’assistant remet la différence ailleurs</span>
+        </div>)}
+      {peutModuler && futur && s && (s.statut === 'travail' || (s.statut && d.agenda?.fermetures?.[d.semaines.indexOf(l)]?.fermeture !== 'totale')) && (
+        <div className="flex flex-wrap items-center gap-2 text-second">
+          <span className="text-slate-600">Ses congés :</span>
+          {s.statut === 'travail'
+            ? <button className="bouton" onClick={() => basculerListe('prendre', l)}>Prendre cette semaine en congé</button>
+            : <button className="bouton" onClick={() => basculerListe('travailler', l)}>Travailler cette semaine</button>}
+          <span className="text-mention text-slate-500">13 semaines de congé toujours : une prise, une rendue ; la direction valide</span>
         </div>)}
     </div>
   );
@@ -348,7 +309,7 @@ function VueSemaine({ d, ch, apercu, focus, lundi, mod, peutModuler, basculerJou
     <div className="px-3 py-3 overflow-x-auto">
       <div className="min-w-[760px] space-y-2">
         <div className="flex flex-wrap items-center gap-2 text-second">
-          {c?.conge ? <PastilleEtat etat="indisponible">{c.conge}</PastilleEtat> : <PastilleEtat etat={c?.niveau === 'chaud' ? 'surveiller' : c?.niveau === 'creux' ? 'disponible' : 'neutre'}>semaine {CHALEUR[c?.niveau || 'normal'].mot}</PastilleEtat>}
+          {c?.conge ? <PastilleEtat etat="indisponible">{c.conge}</PastilleEtat> : <PastilleEtat etat={c?.niveau === 'chaud' ? 'surveiller' : c?.niveau === 'creux' ? 'disponible' : 'neutre'}>{CHALEUR[c?.niveau || 'normal'].mot === 'normale' ? 'semaine normale' : CHALEUR[c?.niveau || 'normal'].mot}</PastilleEtat>}
           {ms.map((m, i) => <span key={i} className="inline-flex items-center gap-1"><IconFlag size={13} /> {m.titre}</span>)}
           {!c?.conge && c?.raisons?.length > 0 && <span className="text-slate-500">· {c.raisons.join(' · ')}</span>}
         </div>
@@ -430,11 +391,16 @@ function Assistant({ fp, mod, setMod, plan, api, gere, onFermer, onFait }) {
       <div className="px-4 py-3 space-y-3 text-sm">
         <div>
           <div className="intertitre">1. Ce que {fp.moi ? 'je change' : 'l’on change'}</div>
-          {!mod.recup.length && !Object.keys(mod.cibles).length && <p className="text-second text-slate-500 m-0">Rien encore. Zoom <b>Semaines</b> ou <b>Semaine</b> : touchez un jour pour le donner. Zoom <b>Année</b> : touchez une semaine pour la donner ou la charger.</p>}
+          {!mod.recup.length && !Object.keys(mod.cibles).length && !(mod.prendre || []).length && !(mod.travailler || []).length && <p className="text-second text-slate-500 m-0">Rien encore. Zoom <b>Semaines</b> ou <b>Semaine</b> : touchez un jour pour le donner. Zoom <b>Année</b> : touchez une semaine pour la donner ou la charger.</p>}
           {recupParSemaine.map(([l, js]) => (
             <div key={l} className="flex flex-wrap items-center gap-1 py-0.5">
               <span className="text-second text-slate-600">Donné{js.length > 1 ? 's' : ''} :</span>
               {js.map(j => <button key={j} type="button" className="pastille-etat inline-flex items-center gap-0.5" data-etat="disponible" onClick={() => retirer(j)} title="Reprendre ce jour">{JOURS[(new Date(`${j}T00:00:00Z`).getUTCDay() + 6) % 7]} {fmt(j)} <IconX size={10} /></button>)}
+            </div>))}
+          {[['prendre', 'Congé pris'], ['travailler', 'Congé rendu (au travail)']].map(([k, t]) => (mod[k] || []).length > 0 && (
+            <div key={k} className="flex flex-wrap items-center gap-1 py-0.5">
+              <span className="text-second text-slate-600">{t} :</span>
+              {mod[k].map(l => <button key={l} type="button" className="pastille-etat inline-flex items-center gap-0.5" data-etat="disponible" onClick={() => setMod(m => ({ ...m, [k]: m[k].filter(x => x !== l) }))}>sem. {fmt(l)} <IconX size={10} /></button>)}
             </div>))}
           {Object.entries(mod.cibles).map(([l, m]) => (
             <div key={l} className="flex items-center gap-1 py-0.5 text-second">Semaine du {fmt(l)} à <b>{hm(m)}</b>
@@ -461,11 +427,12 @@ function Assistant({ fp, mod, setMod, plan, api, gere, onFermer, onFait }) {
             {(mod.exclure || []).length > 0 && <p className="text-mention text-slate-500 m-0">Semaines écartées : {mod.exclure.map(fmt).join(', ')} · <button className="underline" onClick={() => setMod(m => ({ ...m, exclure: [] }))}>les rendre</button></p>}
           </div>)}
         {plan?.erreurs?.map((e, i) => <div key={i} className="bloc-etat px-3 py-2 text-second" data-etat="corriger">{e}</div>)}
+        {plan?.avertissements?.map((e, i) => <div key={`a${i}`} className="bloc-etat px-3 py-2 text-second" data-etat="surveiller">{e}</div>)}
         {plan?.changees?.filter(c => c.controles.length).map(c => <div key={c.lundi} className="bloc-etat px-3 py-2 text-second" data-etat="corriger">{fmt(c.lundi)} : {c.controles.join(' ')}</div>)}
-        <p className="text-mention text-slate-500 m-0">Un jour donné est un repos compensatoire. L’assistant remet ses heures dans les semaines à venir — les chaudes d’abord —, sans dépasser 9 h par jour, 2 h de plus que l’horaire de référence, ni 5 h de plus par semaine (art. 20bis).</p>
+        <p className="text-mention text-slate-500 m-0">Un jour donné est un repos compensatoire. L’assistant remet ses heures dans les semaines à venir — celles en tension d’abord —, sans dépasser 9 h par jour, 2 h de plus que l’horaire de référence, ni 5 h de plus par semaine (art. 20bis).</p>
         <div className="flex flex-wrap gap-2 pt-1">
           <button className="bouton bouton-fort inline-flex items-center gap-1.5" disabled={!ok || envoi} onClick={envoyer}>{direct ? <IconCheck size={15} /> : <IconSend size={15} />} {direct ? 'Appliquer' : 'Envoyer à la direction'}</button>
-          <button className="bouton" onClick={() => setMod({ recup: [], cibles: {}, exclure: [] })}>Tout effacer</button>
+          <button className="bouton" onClick={() => setMod({ recup: [], cibles: {}, exclure: [], prendre: [], travailler: [] })}>Tout effacer</button>
         </div>
       </div>
     </div>

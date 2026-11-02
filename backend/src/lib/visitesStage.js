@@ -22,6 +22,7 @@ import crypto from 'node:crypto';
 import db from '../db/index.js';
 import { getParam } from '../routes/parametres.js';
 import { getUserSections, NIVEAU_DIRECTION } from '../middleware/auth.js';
+import { migrerDistances, kmAllerRetour, ecartNotable } from './distanceRoute.js';
 
 export const GESTION = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat', 'coordination'];
 export const REGLENT = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'];
@@ -78,6 +79,9 @@ export function migrerVisites(base = db) {
     CREATE TRIGGER IF NOT EXISTS stage_fiche_signature_fixe_d BEFORE DELETE ON stage_fiche_signature
       BEGIN SELECT RAISE(ABORT, 'Une signature ne s''efface pas.'); END;
   `);
+  // LA DISTANCE CALCULÉE (3.5.059) : à côté de celle que le professeur tape, jamais à sa place.
+  try { base.exec('ALTER TABLE stage_visite ADD COLUMN km_calcule REAL'); } catch { /* déjà là */ }
+  migrerDistances(base);
 }
 
 // ── Qui ─────────────────────────────────────────────────────────────────────
@@ -152,7 +156,7 @@ export function visites(user, { du, au, profId } = {}) {
     cl.push('v.professeur_id = ?'); p.push(pid);
   }
   return db.prepare(`${SELECT_VISITE} WHERE ${cl.join(' AND ')} ORDER BY v.date, v.heure_debut`).all(...p)
-    .map(v => ({ ...v, professeur: nomProf(v.professeur_id), verrouillee: verrouille(v.professeur_id, v.date.slice(0, 7)) }));
+    .map(v => ({ ...v, professeur: nomProf(v.professeur_id), verrouillee: verrouille(v.professeur_id, v.date.slice(0, 7)), ecart: ecartNotable(v.km_ar, v.km_calcule) }));
 }
 
 // ── La règle de remboursement et le taux ────────────────────────────────────
@@ -194,6 +198,36 @@ export function adresseDepart(profId, depart, texte) {
   }
   if (depart === 'ecole') return db.prepare('SELECT adresse FROM etablissement WHERE id = 1').get()?.adresse || "l'école";
   return texte || 'autre départ';
+}
+
+/** L'adresse réelle du départ, ou null quand elle manque (jamais un texte de remplacement : il partirait à la carte). */
+function adresseReelle(profId, depart, texte) {
+  if (depart === 'domicile') {
+    const p = db.prepare('SELECT adresse_rue, code_postal, commune FROM professeur WHERE id = ?').get(profId);
+    return p?.adresse_rue && (p.code_postal || p.commune) ? `${p.adresse_rue}, ${[p.code_postal, p.commune].filter(Boolean).join(' ')}` : null;
+  }
+  if (depart === 'ecole') return db.prepare('SELECT adresse FROM etablissement WHERE id = 1').get()?.adresse || null;
+  return String(texte || '').trim() || null;
+}
+const adresseLieuComplete = s => s && s.lieu_adresse && (s.lieu_cp || s.lieu_localite)
+  ? `${s.lieu_adresse}, ${[s.lieu_cp, s.lieu_localite].filter(Boolean).join(' ')}` : null;
+
+/** LES KILOMÈTRES CALCULÉS (3.5.059) : la distance routière aller-retour entre le départ et le lieu du stage. */
+export async function kmCalcules(profId, stage, depart, texte) {
+  const a = adresseReelle(profId, depart, texte);
+  if (!a) return { km_ar: null, raison: depart === 'domicile' ? 'adresse du domicile absente de la fiche du professeur' : "adresse de départ absente" };
+  const b = adresseLieuComplete(stage);
+  if (!b) return { km_ar: null, raison: 'adresse du lieu de stage incomplète (fiche du lieu)' };
+  return kmAllerRetour(a, b);
+}
+/** Calcule et range la distance d'une visite enregistrée (appelé après l'écriture ; une panne ne bloque rien). */
+export async function calculerVisite(id) {
+  const v = db.prepare(`SELECT v.*, l.adresse AS lieu_adresse, l.cp AS lieu_cp, l.localite AS lieu_localite
+    FROM stage_visite v JOIN stage s ON s.id = v.stage_id LEFT JOIN stage_lieu l ON l.id = s.lieu_id WHERE v.id = ?`).get(Number(id));
+  if (!v) return null;
+  const r = await kmCalcules(v.professeur_id, v, v.depart, v.depart_texte);
+  db.prepare('UPDATE stage_visite SET km_calcule = ? WHERE id = ?').run(r.km_ar, v.id);
+  return r;
 }
 
 /** Les kilomètres proposés : la dernière distance encodée pour ce lieu, depuis ce départ. */
@@ -276,7 +310,8 @@ export function fiche(profId, mois) {
     const montant = rembourse && conforme && v.km_ar != null && t ? Math.round(v.km_ar * t * 100) / 100 : null;
     return { id: v.id, date: v.date, heure_debut: v.heure_debut, heure_fin: v.heure_fin,
       etudiant: `${String(v.etud_nom || '').toUpperCase()} ${v.etud_prenom || ''}`.trim(), lieu: v.lieu_nom || '', adresse: adresseLieu(v),
-      depart: v.depart, depart_adresse: adresseDepart(profId, v.depart, v.depart_texte), km_ar: v.km_ar, montant, conforme, remarques: v.remarques };
+      depart: v.depart, depart_adresse: adresseDepart(profId, v.depart, v.depart_texte), km_ar: v.km_ar, montant, conforme, remarques: v.remarques,
+      km_calcule: v.km_calcule ?? null, ecart: ecartNotable(v.km_ar, v.km_calcule) };
   });
   const problemes = [];
   if (lignes.some(l => l.km_ar == null)) problemes.push('une visite faite sans kilomètres');

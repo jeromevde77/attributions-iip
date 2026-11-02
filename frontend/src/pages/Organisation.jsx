@@ -6,7 +6,7 @@ import { useSearchParams } from 'react-router-dom';
 import Axe from '../components/Axe.jsx';
 import {
   IconLayoutGrid, IconSchool, IconSitemap, IconFileDescription, IconTimeline, IconUserCheck, IconCalendarCog,
-  IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup, IconListDetails, IconCalendarEvent, IconPercentage, IconTable, IconCalendarWeek, IconChartBar, IconPuzzle, IconEye,
+  IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup, IconListDetails, IconCalendarEvent, IconPercentage, IconTable, IconCalendarWeek, IconChartBar, IconPuzzle, IconEye, IconCalendarMonth,
 } from '@tabler/icons-react';
 import Attributions from './Attributions.jsx';
 import Planification from './Planification.jsx';
@@ -19,6 +19,7 @@ import { authHeaders } from '../lib/api.js';
 const CentrePlanification = lazy(() => import('./CentrePlanification.jsx'));
 const RepartitionCours = lazy(() => import('./RepartitionCours.jsx'));
 const LaboratoireTemporel = lazy(() => import('./LaboratoireTemporel.jsx'));
+const AgendaEcole = lazy(() => import('./AgendaEcole.jsx'));
 import { IconeLaboratoire } from '../components/IconeLaboratoire.jsx';
 const HoraireSemaine = lazy(() => import('./HoraireSemaine.jsx'));
 const Effectifs = lazy(() => import('./Configuration.jsx').then(m => ({ default: m.OngletStatistiques })));
@@ -64,7 +65,7 @@ export default function Organisation({ ongletInitial }) {
          la DERNIÈRE rubrique — après Horaires et Effectifs —, loin de l'icône
          cliquée. L'ordre est celui du rail tel qu'il était ; seule l'unité porte
          ses trois étapes dessous. */
-      ordreRail={[['attributions', 'planifier', 'laboratoire', 'rentree', 'repartition', 'structure', 'unite',
+      ordreRail={[['attributions', 'agenda', 'planifier', 'laboratoire', 'rentree', 'repartition', 'structure', 'unite',
         'horaire-semaine', 'effectifs']]}
       sousMenus={[{ key: 'laboratoire', label: 'Le laboratoire temporel', icone: IconeLaboratoire, hote: 'laboratoire',
         enfants: [
@@ -90,6 +91,11 @@ export default function Organisation({ ongletInitial }) {
       onglets={[
         { key: 'attributions', module: 'attributions', label: 'Attributions', icone: IconLayoutGrid, sansMarge: true,
           rendu: <Attributions /> },
+        /* L'AGENDA DE L'ÉCOLE (3.5.058) : un seul agenda, lu partout — cours, fermeture, jours fermés, sections, moments,
+           chaleur, peints sur la ligne du temps de l'année. */
+        { key: 'agenda', module: 'organisation', label: 'Agenda de l’école', icone: IconCalendarMonth,
+          rendu: <Suspense fallback={<div className="p-4 text-sm text-slate-400">Chargement…</div>}>
+                   {annee ? <AgendaEcole annee={annee} /> : <div className="text-sm text-slate-400 p-4">Chargement de l'année active…</div>}</Suspense> },
         /* PLANIFIER, C'EST UN SEUL TERRITOIRE — DONC UNE SEULE PORTE.
          *
          * Trois entrées du rail répondaient à la même question — QUAND les
