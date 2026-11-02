@@ -3470,6 +3470,12 @@ sur téléphone, `LogoLucie`). Toute fenêtre des espaces est `components/Fenetr
 `FenetreEspace` prend 80 % de la largeur dès `sm`, toute la largeur sur téléphone ; une petite fenêtre passe `large` (Contacter). **Les pages des espaces ne se bornent pas** (3.5.092, Charles :
 « Largeur ! ») : ni `max-w-*` sur une face (Aide, Mon compte, contenu de l'espace étudiant) ; seuls les formulaires d'entrée restent étroits.
 
+**LES PIÈCES SANS COPIE, ET « URGENCE » EN HAUT** (3.5.093, Charles : « où est son contrat ? » ; « trop bas, ça doit être en haut »).
+Lucie garde la copie des envois depuis le 1er octobre 2026 seulement : un contrat parti le 30 septembre n'en a pas. `envoisPour`
+(`lib/portailEnseignants.js`) les rend quand même (`copie` = 0) ; déposées avec `mime = 'x-sans-copie'` et sans contenu, l'espace les
+NOMME (« copie non conservée, à redemander au secrétariat ») sans les ouvrir ni en accuser réception — rien n'est recomposé (tranché).
+`BoutonContact` est sous le logo de la navigation (à côté du logo sur téléphone) ; la navigation est collante.
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux

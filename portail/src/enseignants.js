@@ -279,7 +279,7 @@ export function monterEnseignants(pub, int, o) {
     if (!d) return null;
     const g = db.prepare(`SELECT type, MIN(cree_le) le FROM ens_geste WHERE ens_id = ? AND type IN ('doc_ouvert','doc_accuse') AND json_extract(contenu, '$.envoi_id') = ? GROUP BY type`).all(ens, d.envoi_id);
     const vu = Object.fromEntries(g.map(x => [x.type, x.le]));
-    return { envoi_id: d.envoi_id, sujet: d.sujet, nom_fichier: d.nom_fichier, envoye_le: d.envoye_le, reference: d.reference, type_doc: d.type_doc,
+    return { envoi_id: d.envoi_id, sujet: d.sujet, nom_fichier: d.nom_fichier, envoye_le: d.envoye_le, reference: d.reference, type_doc: d.type_doc, sans_copie: d.mime === 'x-sans-copie',
       presente_le: d.presente_le || vu.doc_ouvert || null, accuse_le: d.accuse_le || vu.doc_accuse || null };
   };
   pub.get('/api/enseignant/documents', connecte, (req, res) => {
@@ -289,6 +289,7 @@ export function monterEnseignants(pub, int, o) {
     const e = etatDoc(req.ens.id, req.params.envoi);
     const d = e && db.prepare('SELECT mime, contenu, nom_fichier FROM ens_document WHERE ens_id = ? AND envoi_id = ?').get(req.ens.id, Number(req.params.envoi));
     if (!d) return res.status(404).json({ error: 'Pièce introuvable.' });
+    if (e.sans_copie) return res.status(404).json({ error: 'Lucie n’a pas gardé de copie de cette pièce : demandez-la au secrétariat.' });
     if (!req.apercu && !e.presente_le) geste(req.ens.id, 'doc_ouvert', { envoi_id: e.envoi_id, le: maintenant() });
     res.setHeader('Content-Type', d.mime || 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(d.nom_fichier || 'piece.pdf')}`);
@@ -296,7 +297,7 @@ export function monterEnseignants(pub, int, o) {
   });
   pub.post('/api/enseignant/document/:envoi/accuser', connecte, (req, res) => {
     const e = etatDoc(req.ens.id, req.params.envoi);
-    if (!e) return res.status(404).json({ error: 'Pièce introuvable.' });
+    if (!e || e.sans_copie) return res.status(404).json({ error: 'Pièce introuvable.' });
     if (e.accuse_le) return res.json({ ok: true, accuse_le: e.accuse_le });
     if (!e.presente_le) return res.status(409).json({ error: 'Ouvrez d’abord la pièce : on n’accuse réception que de ce qu’on a vu.' });
     geste(req.ens.id, 'doc_accuse', { envoi_id: e.envoi_id, le: maintenant() });
