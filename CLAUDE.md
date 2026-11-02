@@ -3328,6 +3328,8 @@ l'année dans le périmètre, jury, remises, `en_retard`, décision de l'UE d'é
 `POST /:id/relancer` (adresse d'école, `relance_le`) ; `POST /convoquer` (simulation d'abord : étudiant à l'adresse d'école, jury à
 `professeur.adresse_mail` ; refuse sans date, heure, local ou jury ; `convoque_le`) ; `local_defense` sur `tfe`. `Jury` exporté de
 `components/Tfe.jsx`. **À venir** : impression du planning des défenses, PV de défense, note proposée vers l'épreuve intégrée.
+**Un tiroir du rail se referme même quand on travaille dans l'un de ses outils** (3.5.070, Charles : « il ne se referme pas » —
+le laboratoire s'ouvre toujours sur une étape, l'outil actif tenait le tiroir ouvert) : `sousFerme` dans `Axe.jsx`.
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en

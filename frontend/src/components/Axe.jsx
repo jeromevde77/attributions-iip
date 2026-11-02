@@ -175,6 +175,14 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial,
   for (const it of sousOutils) if (!parCle.has(it.key)) parCle.set(it.key, it);
 
   const [sousOuvert, setSousOuvert] = useState(null);
+  /* UN TIROIR SE REFERME AUSSI QUAND ON TRAVAILLE DANS L'UN DE SES OUTILS (3.5.070, Charles : « il ne se referme pas »).
+     Le laboratoire s'ouvre toujours sur une étape : un outil actif tenait le tiroir ouvert, le clic sur la rubrique ne
+     pouvait plus le fermer. `sousFerme` garde ce choix ; ouvrir à nouveau l'efface. */
+  const [sousFerme, setSousFerme] = useState({});
+  const basculer = (cle, ouvert) => {
+    if (ouvert) { setSousFerme(f => ({ ...f, [cle]: true })); setSousOuvert(null); }
+    else { setSousFerme(f => { const n = { ...f }; delete n[cle]; return n; }); setSousOuvert(cle); }
+  };
   for (const sm of sousMenus) {
     const enfants = (sm.enfants || []).map(e => {
       // PAS DE DROIT, PAS D'ICÔNE (3.1.20) : un outil que la porte refuserait
@@ -197,17 +205,17 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial,
       // FERMÉ PAR DÉFAUT (Charles, 4 octobre 2026) : on arrive sur la rubrique
       // sans le tiroir ; un clic sur elle, quand on y est déjà, l'ouvre ou le
       // referme. Il reste ouvert tant qu'on travaille dans l'un de ses outils.
-      const ouvertR = enfants.some(e => e.actif) || sousOuvert === sm.key;
+      const ouvertR = !sousFerme[sm.key] && (enfants.some(e => e.actif) || sousOuvert === sm.key);
       parCle.set(sm.key, { ...rubrique, sous: ouvertR ? enfants : undefined,
         onClick: () => {
-          if (rubrique.actif) setSousOuvert(o => (o === sm.key ? null : sm.key));
+          if (rubrique.actif || enfants.some(e => e.actif)) basculer(sm.key, ouvertR);
           else rubrique.onClick();
         } });
       continue;
     }
-    const ouvert = sousOuvert === sm.key || enfants.some(e => e.actif);
+    const ouvert = !sousFerme[sm.key] && (sousOuvert === sm.key || enfants.some(e => e.actif));
     parCle.set(sm.key, { key: sm.key, label: sm.label, icon: sm.icone, actif: false,
-      onClick: () => setSousOuvert(o => (o === sm.key ? null : sm.key)),
+      onClick: () => basculer(sm.key, ouvert),
       sous: ouvert ? enfants : undefined });
   }
 
