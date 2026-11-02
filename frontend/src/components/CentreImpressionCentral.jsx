@@ -1495,7 +1495,7 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
                   </label>
                 </div>
                 <ul className="grid gap-x-4 sm:grid-cols-2 border-t border-slate-100">
-                  {annexes.filter(a => !a.ea12 && a.cle !== 'A1ter' && a.cle !== 'A27').map(a => (
+                  {annexes.filter(a => !a.ea12 && !((peutContrats && !!expert.length) && (a.cle === 'A1ter' || a.cle === 'A27'))).map(a => (
                     <li key={a.cle} className="flex items-center justify-between gap-2 py-1 border-b border-slate-100 text-sm">
                       <span className="min-w-0 truncate" title={a.titre}>
                         {a.titre}
