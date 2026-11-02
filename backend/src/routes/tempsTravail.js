@@ -11,8 +11,9 @@ import {
   migrerTempsTravail, reglage, ecrireReglage, genererAnnee, anneeDe, modifierSemaine, releve, ecrireEcart, ficheConges,
   signer, planningEquipe, anneeEquipe, semaineEquipe, periodesDeConge, fixerConges, FORMULES, ABSENCES, REGLES, hm, semainesDeLAnnee, semainesDeConge, JOURS, plusJours,
 } from '../lib/tempsTravail.js';
+import { migrerLigneTemps, ligne, moments as momentsDe, ecrireMoment, retirerMoment, forcerChaleur, assistant, proposer, modulations, valider, refuser } from '../lib/ligneTemps.js';
 
-try { migrerTempsTravail(); } catch (e) { console.error('[temps de travail] migration', e.message); }
+try { migrerTempsTravail(); migrerLigneTemps(); } catch (e) { console.error('[temps de travail] migration', e.message); }
 
 const r = Router();
 const GERER = ['admin', 'directeur', 'directeur_adjoint'];
@@ -168,6 +169,54 @@ r.get('/suivi', authRequired, (req, res) => {
   }));
 });
 
+// ── LA LIGNE DU TEMPS (3.5.057) : l'année de l'équipe, la chaleur des semaines, les grands moments, la modulation ──
+// La direction voit les heures de tous ; une personne désignée, les siennes, et des autres leur présence et leurs congés.
+r.get('/ligne', authRequired, (req, res) => {
+  if (!gere(req.user) && !designe(req.user.id)) return res.status(404).json({ error: 'Introuvable.' });
+  res.json({ ...ligne(annee(req), { voirHeures: gere(req.user), moi: req.user.id }), gere: gere(req.user) });
+});
+r.get('/moments', authRequired, (req, res) => {
+  if (!gere(req.user) && !designe(req.user.id)) return res.status(404).json({ error: 'Introuvable.' });
+  res.json(momentsDe(annee(req)));
+});
+r.post('/moments', authRequired, (req, res) => {
+  if (!gere(req.user)) return res.status(403).json({ error: 'Réservé à la direction et à la direction adjointe.' });
+  try { res.json({ id: ecrireMoment(annee(req), req.body || {}, nomDe(req.user)) }); } catch (e) { faute(res, e); }
+});
+r.delete('/moments/:id', authRequired, (req, res) => {
+  if (!gere(req.user)) return res.status(403).json({ error: 'Réservé à la direction et à la direction adjointe.' });
+  try { retirerMoment(req.params.id); res.json({ ok: true }); } catch (e) { faute(res, e); }
+});
+// Forcer une semaine en chaude, creuse ou normale (« calcul » rend la main au calcul).
+r.put('/chaleur/:lundi', authRequired, (req, res) => {
+  if (!gere(req.user)) return res.status(403).json({ error: 'Réservé à la direction et à la direction adjointe.' });
+  try { forcerChaleur(annee(req), req.params.lundi, req.body?.niveau, nomDe(req.user)); res.json({ ok: true }); } catch (e) { faute(res, e); }
+});
+// L'assistant : une proposition, rien n'est écrit.
+r.post('/moduler/:uid/assistant', authRequired, (req, res) => {
+  const uid = cible(req, res); if (uid == null) return;
+  try { res.json(assistant(uid, annee(req), req.body || {})); } catch (e) { faute(res, e); }
+});
+// Enregistrer : la personne propose ; la direction (adjointe) applique directement l'année d'un autre.
+r.post('/moduler/:uid', authRequired, (req, res) => {
+  const uid = cible(req, res); if (uid == null) return;
+  try { res.json(proposer(uid, annee(req), req.body || {}, req.user, nomDe(req.user))); } catch (e) { faute(res, e); }
+});
+r.get('/modulations', authRequired, (req, res) => {
+  if (!gere(req.user) && !designe(req.user.id)) return res.status(404).json({ error: 'Introuvable.' });
+  res.json(modulations(annee(req), gere(req.user) ? (req.query.uid ? Number(req.query.uid) : null) : req.user.id));
+});
+r.post('/modulations/:id/valider', authRequired, (req, res) => {
+  if (!gere(req.user)) return res.status(403).json({ error: 'Réservé à la direction et à la direction adjointe.' });
+  try { res.json(valider(Number(req.params.id), req.body?.etape, req.user, nomDe(req.user))); } catch (e) { faute(res, e); }
+});
+// Refuser (direction, avec motif) ou retirer sa propre proposition.
+r.post('/modulations/:id/refuser', authRequired, (req, res) => {
+  const m = db.prepare('SELECT utilisateur_id FROM tt_modulation WHERE id = ?').get(Number(req.params.id));
+  if (!m || (m.utilisateur_id !== req.user.id && !gere(req.user))) return res.status(404).json({ error: 'Introuvable.' });
+  try { res.json(refuser(Number(req.params.id), req.body?.motif, req.user, nomDe(req.user))); } catch (e) { faute(res, e); }
+});
+
 // ── Les deux pièces : le relevé du mois, la fiche de congés ──
 const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
 const ETAPES = { personne: 'La personne', adjoint: 'La direction adjointe (contrôle)', direction: 'La direction (accord)' };
@@ -185,10 +234,10 @@ r.get('/releve/:uid/:mois/document', authRequired, (req, res) => {
   const an = annee(req), rel = releve(uid, an, req.params.mois);
   const u = db.prepare('SELECT nom_complet, email FROM utilisateur WHERE id = ?').get(uid);
   const nom = nomEcranDuCompte(u?.nom_complet, u?.email);
-  const ETAT = { prevu: '', libre: 'jour libre', conge: 'congé scolaire', ete: 'vacances d’été', ferie: 'férié', reel: 'réel encodé', absence: 'absence', hors: '' };
+  const ETAT = { prevu: '', recup: 'jour donné (récupération)', libre: 'jour libre', conge: 'congé scolaire', ete: 'vacances d’été', ferie: 'férié', reel: 'réel encodé', absence: 'absence', hors: '' };
   const lignes = rel.jours.filter(j => j.prevu || j.reel || j.etat !== 'libre').map(j => `<tr>
     <td>${j.jour_semaine} ${j.jour.slice(8)}/${j.jour.slice(5, 7)}</td>
-    <td>${j.plan ? `${esc(j.plan.debut)}–${esc(j.plan.fin)}` : ''}</td>
+    <td>${j.plan?.debut ? `${esc(j.plan.debut)}–${esc(j.plan.fin)}` : ''}</td>
     <td>${j.saisie?.type === 'reel' ? `${esc(j.saisie.debut)}–${esc(j.saisie.fin)}` : j.saisie?.type === 'absence' ? esc(ABSENCES[j.saisie.motif]?.libelle) : ''}${j.ferie ? esc(j.ferie) : ''}</td>
     <td class="m">${ETAT[j.etat] || ''}</td><td class="n">${j.prevu ? hm(j.prevu) : ''}</td><td class="n">${j.reel || j.prevu ? hm(j.reel) : ''}</td>
     <td class="n">${j.ecart ? hm(j.ecart) : ''}</td></tr>`).join('');

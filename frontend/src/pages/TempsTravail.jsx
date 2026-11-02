@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
-import { IconPrinter, IconWand, IconSignature, IconCalendarWeek, IconUsers, IconSettings, IconClockHour4, IconChecklist } from '@tabler/icons-react';
+import { IconPrinter, IconSignature } from '@tabler/icons-react';
 import { authHeaders, getUser } from '../lib/api.js';
 import { demander, informer } from '../lib/dialogue.jsx';
 import { Tableau, TableauEntete, Th, Td, Tr, EnteteCarte, PastilleEtat } from '../components/ui.jsx';
 import PreviewModal from '../components/PreviewModal.jsx';
+import LigneTempsTravail from '../components/LigneTempsTravail.jsx';
 
 /* LE TEMPS DE TRAVAIL DU SECRÉTARIAT (3.5.039, Charles, 1er novembre 2026 — courriel à Nicolas : « souplesse dans
  * l'organisation des semaines, pas sur le nombre d'heures » ; « un générateur annuel qui respecte le décret et calcule le
  * temps de travail »). Règles et calculs : backend/src/lib/tempsTravail.js — l'écran ne calcule rien, il montre.
- * Faces : Mon année · Mon relevé · L'équipe, et pour la direction : Suivi · Générer l'année · Personnes et réglages. */
+ * Faces (3.5.057) : Ligne du temps (components/LigneTempsTravail.jsx) · Relevé et signatures · Préparer l'année (direction). */
 
 /* L'ANNÉE DU MODULE est la sienne : celle qui contient aujourd'hui (septembre → août), choisie en tête d'écran ; elle ne
    suit pas l'année de travail du reste de Lucie (on prépare 2026-2027 pendant qu'on encode encore 2025-2026). */
@@ -20,7 +21,7 @@ const hm = m => { if (m == null) return ''; const s = m < 0 ? '−' : ''; m = Ma
 const JOURS_C = ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim'];
 const fmt = d => `${d.slice(8)}/${d.slice(5, 7)}`;
 const moisCourant = () => new Date().toISOString().slice(0, 7);
-const ETAT_JOUR = { prevu: ['neutre', 'prévu'], libre: [null, 'libre'], conge: ['disponible', 'congé'], ete: ['disponible', 'été'],
+const ETAT_JOUR = { prevu: ['neutre', 'prévu'], recup: ['disponible', 'jour donné'], libre: [null, 'libre'], conge: ['disponible', 'congé'], ete: ['disponible', 'été'],
   ferie: ['disponible', 'férié'], reel: ['surveiller', 'réel'], absence: ['surveiller', 'absence'], hors: [null, ''] };
 const ETAPES = { personne: 'la personne', adjoint: 'la direction adjointe', direction: 'la direction' };
 
@@ -41,14 +42,14 @@ function Signatures({ sig, ordre }) {
 export default function TempsTravail() {
   const moi = getUser();
   const [info, setInfo] = useState(null);
-  const [face, setFace] = useState('annee');
+  const [face, setFace] = useState('ligne');
   const [uid, setUid] = useState(moi?.id);
   const [personnes, setPersonnes] = useState([]);
   const [apercu, setApercu] = useState(null);
   const [erreur, setErreur] = useState('');
   const [an, setAn] = useState(ANNEE.v);
   const changerAnnee = v => { ANNEE.v = v; setAn(v); setInfo(i => ({ ...i, annee: v })); };
-  useEffect(() => { api('/moi').then(i => { setInfo(i); if (i.gere && !i.designe) setFace('suivi'); }).catch(e => setErreur(e.message)); }, []);
+  useEffect(() => { api('/moi').then(setInfo).catch(e => setErreur(e.message)); }, []);
   const chargerPersonnes = () => info?.gere && api('/personnes').then(setPersonnes).catch(e => setErreur(e.message));
   useEffect(() => { chargerPersonnes(); }, [info?.gere]);
   useEffect(() => { if (info?.gere && !info.designe && personnes.personnes?.length && uid === moi?.id) setUid(personnes.personnes[0].utilisateur_id); }, [personnes]);
@@ -56,11 +57,11 @@ export default function TempsTravail() {
   if (!info) return <div className="text-sm text-slate-500">{erreur || 'Chargement…'}</div>;
   if (!info.gere && !info.designe) return <div className="carte px-4 py-3 text-sm text-slate-600">Le temps de travail ne concerne que les membres du personnel désignés par la direction.</div>;
 
-  const faces = [
-    ...(info.designe || info.gere ? [['annee', 'Année', IconCalendarWeek], ['releve', 'Relevé', IconClockHour4],
-      ['equipe-annee', 'Équipe · année', IconUsers], ['equipe-semaine', 'Équipe · semaine', IconUsers], ['equipe', 'Équipe · mois', IconUsers]] : []),
-    ...(info.gere ? [['suivi', 'Suivi', IconChecklist], ['calendrier', 'Congés', IconCalendarWeek], ['generer', 'Générer', IconWand], ['reglages', 'Personnes', IconSettings]] : []),
-  ];
+  /* TROIS FACES, DANS L'ORDRE DU TRAVAIL (3.5.057, Charles : « un ordre chronologique logique ») : la ligne du temps — l'année
+     de l'équipe à zoom, les moments, la chaleur, l'assistant —, le relevé du mois et ses signatures, et pour la direction la
+     préparation de l'année, en étapes numérotées. Les onglets Équipe (année, semaine, mois), Suivi, Congés et Générer de
+     3.5.039-3.5.056 s'y sont fondus. */
+  const faces = [['ligne', 'Ligne du temps'], ['releve', 'Relevé et signatures'], ...(info.gere ? [['preparer', 'Préparer l’année']] : [])];
   const listePers = personnes.personnes || [];
   const ouvrir = async url => { try { setApercu(await api(url)); } catch (e) { informer({ message: e.message }); } };
 
@@ -69,46 +70,97 @@ export default function TempsTravail() {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="titre-ecran">Temps de travail</h1>
-          <p className="text-second text-slate-500">36 h de travail effectif par semaine pour un temps plein · l’horaire prévu fait foi, on n’encode que les écarts.</p>
+          <p className="text-second text-slate-500">36 h de travail effectif par semaine pour un temps plein, 1 404 h sur l’année · on module les semaines, jamais le total.</p>
         </div>
-        <div className="flex flex-nowrap items-center gap-2">
-        <select className="controle border border-slate-300 rounded-champ text-sm" value={an} onChange={e => changerAnnee(e.target.value)} aria-label="Année">
+        <select className="controle border border-slate-300 rounded-champ text-sm flex-none" value={an} onChange={e => changerAnnee(e.target.value)} aria-label="Année">
           {[-1, 0, 1].map(k => { const a = Number(anneeDuJour().slice(0, 4)) + k; return <option key={k} value={`${a}-${a + 1}`}>{a}-{a + 1}</option>; })}
         </select>
-        {info.gere && ['annee', 'releve'].includes(face) && (
-          <select className="controle border border-slate-300 rounded-champ text-sm" value={uid} onChange={e => setUid(Number(e.target.value))}>
-            {info.designe && <option value={moi.id}>Moi</option>}
-            {listePers.filter(p => p.actif && p.utilisateur_id !== moi.id).map(p => <option key={p.utilisateur_id} value={p.utilisateur_id}>{p.nom}</option>)}
-          </select>
-        )}
-        </div>
       </div>
       <div className="flex flex-nowrap gap-1 border-b overflow-x-auto" style={{ borderColor: 'var(--menu-bord)' }}>
         {faces.map(([k, l]) => <button key={k} onClick={() => setFace(k)} className={`onglet-page ${face === k ? 'onglet-page-actif' : ''}`}>{l}</button>)}
       </div>
       {erreur && <div className="text-sm text-red-700">{erreur}</div>}
       <div key={an} className="space-y-4">
-      {face === 'annee' && <Annee uid={uid} info={info} ouvrir={ouvrir} />}
-      {face === 'releve' && <Releve uid={uid} info={info} ouvrir={ouvrir} />}
-      {face === 'equipe' && <Equipe />}
-      {face === 'equipe-annee' && <EquipeAnnee gere={info.gere} onSemaine={l => { SEMAINE.v = l; setFace('equipe-semaine'); }} />}
-      {face === 'equipe-semaine' && <EquipeSemaine gere={info.gere} />}
-      {face === 'suivi' && <Suivi onOuvrir={(id, f) => { setUid(id); setFace(f); }} />}
-      {face === 'calendrier' && <CalendrierConges onGenerer={() => setFace('generer')} />}
-      {face === 'generer' && <Generer info={info} personnes={listePers} recharger={chargerPersonnes} />}
+        {face === 'ligne' && <LigneTempsTravail api={api} info={info} onReleve={id => { setUid(id); setFace('releve'); }} />}
+        {face === 'releve' && <>
+          {info.gere && <Suivi uid={uid} onOuvrir={id => setUid(id)} />}
+          <Releve uid={uid} info={info} ouvrir={ouvrir} />
+          <FicheConges uid={uid} info={info} ouvrir={ouvrir} />
+        </>}
+        {face === 'preparer' && <Preparer info={info} personnes={personnes} listePers={listePers} recharger={() => { chargerPersonnes(); api('/moi').then(setInfo); }} />}
       </div>
-      {face === 'reglages' && <Reglages info={info} donnees={personnes} recharger={() => { chargerPersonnes(); api('/moi').then(setInfo); }} />}
       {apercu && <PreviewModal html={apercu.html} titre={apercu.titre} nomFichier={apercu.nom_fichier} envoiPossible={false} onClose={() => setApercu(null)} />}
     </div>
   );
 }
 
-function Annee({ uid, info, ouvrir }) {
-  const [d, setD] = useState(null); const [fc, setFc] = useState(null);
-  const charger = () => { api(`/annee/${uid}`).then(setD).catch(() => setD({ semaines: [] })); api(`/conges/${uid}`).then(setFc).catch(() => setFc(null)); };
+/* PRÉPARER L'ANNÉE : quatre étapes, dans l'ordre où elles se font. */
+const ETAPES_PREP = [['personnes', 'Personnes et règles'], ['conges', 'Congés'], ['moments', 'Grands moments'], ['generer', 'Générer les années']];
+function Preparer({ info, personnes, listePers, recharger }) {
+  const [etape, setEtape] = useState('personnes');
+  const i = ETAPES_PREP.findIndex(e => e[0] === etape);
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-nowrap items-center gap-2 overflow-x-auto">
+        {ETAPES_PREP.map(([k, l], n) => (
+          <button key={k} type="button" onClick={() => setEtape(k)}
+            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-champ border whitespace-nowrap text-sm ${etape === k ? 'border-[var(--c-principal)] font-semibold text-iip-texte' : 'border-transparent text-slate-600'}`}>
+            <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-mention ${etape === k ? 'bg-[var(--c-principal)] text-white' : 'border border-slate-300'}`}>{n + 1}</span>{l}
+          </button>))}
+      </div>
+      {etape === 'personnes' && <Reglages info={info} donnees={personnes} recharger={recharger} />}
+      {etape === 'conges' && <CalendrierConges onGenerer={() => setEtape('generer')} />}
+      {etape === 'moments' && <MomentsAnnee />}
+      {etape === 'generer' && <Generer info={info} personnes={listePers} recharger={recharger} />}
+      {i < ETAPES_PREP.length - 1 && <div><button className="bouton" onClick={() => setEtape(ETAPES_PREP[i + 1][0])}>Étape suivante : {ETAPES_PREP[i + 1][1]} →</button></div>}
+    </div>
+  );
+}
+
+/* LES GRANDS MOMENTS DE L'ANNÉE (3.5.057) : ce que la direction pose (inscriptions, examens, remise des diplômes…, dans les
+   événements de l'établissement — la table de la rentrée) et ce que Lucie lit seule (les séances de délibération). Ils
+   s'affichent sur la ligne du temps et réchauffent leurs semaines. */
+function MomentsAnnee() {
+  const [l, setL] = useState(null);
+  const [types, setTypes] = useState({});
+  const [n, setN] = useState({ type: 'inscriptions', titre: '', du: '', au: '' });
+  const charger = () => { api('/moments').then(setL).catch(e => setL({ erreur: e.message })); api('/ligne').then(x => setTypes(x.types_moment)).catch(() => {}); };
+  useEffect(() => { charger(); }, []);
+  if (!l) return <div className="text-sm text-slate-500">Chargement…</div>;
+  if (l.erreur) return <div className="text-sm text-red-700">{l.erreur}</div>;
+  const ajouter = async () => { try { await api('/moments', { method: 'POST', body: JSON.stringify(n) }); setN({ type: n.type, titre: '', du: '', au: '' }); charger(); } catch (e) { informer({ message: e.message }); } };
+  const retirer = async m => { if (!(await demander(`Retirer « ${m.titre} » ?`))) return; try { await api(`/moments/${m.id}`, { method: 'DELETE' }); charger(); } catch (e) { informer({ message: e.message }); } };
+  const choix = Object.entries(types).filter(([k]) => k !== 'deliberations');
+  return (
+    <div className="carte overflow-hidden">
+      <EnteteCarte titre={`Les grands moments ${ANNEE.v}`} sous="Inscriptions, examens, remise des diplômes, rentrée… Ils se posent sur la ligne du temps et rendent leurs semaines plus chaudes. Les délibérations se lisent seules des séances." />
+      <Tableau dense>
+        <TableauEntete><Th>Moment</Th><Th>Nature</Th><Th>Du</Th><Th>Au</Th><Th /></TableauEntete>
+        <tbody>
+          {l.map((m, i) => (
+            <Tr key={m.id || `d${i}`}>
+              <Td>{m.titre}</Td><Td ton="secondaire">{m.libelle_type}</Td><Td>{fmt(m.du)}</Td><Td>{m.au !== m.du ? fmt(m.au) : ''}</Td>
+              <Td align="droite">{m.source === 'etablissement' ? <button className="bouton px-2 py-0.5 text-second" onClick={() => retirer(m)}>Retirer</button> : <span className="text-mention text-slate-500">lu des séances</span>}</Td>
+            </Tr>))}
+          <Tr>
+            <Td><input className="controle border border-slate-300 rounded-champ text-sm w-full" placeholder="Intitulé (facultatif)" value={n.titre} onChange={e => setN({ ...n, titre: e.target.value })} /></Td>
+            <Td><select className="controle border border-slate-300 rounded-champ text-sm" value={n.type} onChange={e => setN({ ...n, type: e.target.value })}>{choix.map(([k, t]) => <option key={k} value={k}>{t}</option>)}</select></Td>
+            <Td><input type="date" className="controle border border-slate-300 rounded-champ text-sm" value={n.du} onChange={e => setN({ ...n, du: e.target.value })} /></Td>
+            <Td><input type="date" className="controle border border-slate-300 rounded-champ text-sm" value={n.au} onChange={e => setN({ ...n, au: e.target.value })} /></Td>
+            <Td align="droite"><button className="bouton bouton-fort px-2 py-0.5 text-second" disabled={!n.du} onClick={ajouter}>Ajouter</button></Td>
+          </Tr>
+        </tbody>
+      </Tableau>
+    </div>
+  );
+}
+
+/* LA FICHE DE CONGÉS (signée par la direction adjointe, puis la direction). */
+function FicheConges({ uid, info, ouvrir }) {
+  const [fc, setFc] = useState(null);
+  const charger = () => api(`/conges/${uid}`).then(setFc).catch(() => setFc(null));
   useEffect(() => { charger(); }, [uid]);
-  if (!d) return <div className="text-sm text-slate-500">Chargement…</div>;
-  if (!d.semaines.length) return <div className="carte px-4 py-3 text-sm text-slate-600">L’année n’est pas encore générée. {info.gere ? 'Face « Générer l’année ».' : 'La direction adjointe la prépare avec vous.'}</div>;
+  if (!fc || !fc.periodes.length) return null;
   const signer = async etape => {
     if (!(await demander({ message: `Signer la fiche de congés ${info.annee} au nom de ${ETAPES[etape]} ?` }))) return;
     try { await api(`/signer/${uid}`, { method: 'POST', body: JSON.stringify({ objet: 'conges', periode: info.annee, etape }) }); charger(); }
@@ -116,35 +168,19 @@ function Annee({ uid, info, ouvrir }) {
   };
   const role = getUser()?.role;
   return (
-    <div className="space-y-4">
-      <div className="carte overflow-hidden">
-        <EnteteCarte titre="L’année" sous={`${d.semaines.filter(s => s.statut === 'travail').length} semaines de travail · ${hm(d.total)} prévues pour ${hm(d.cible)} dues${d.total !== d.cible ? ' — écart à corriger' : ''}`} />
-        <div className="px-4 py-3 flex flex-wrap gap-1">
-          {d.semaines.map(s => (
-            <div key={s.lundi} title={`Semaine du ${s.lundi} : ${s.statut === 'travail' ? hm(s.minutes) : s.statut === 'ete' ? 'vacances d’été' : 'congé scolaire'}`}
-              className="w-[3.4rem] text-center rounded-champ border py-1" style={{ borderColor: 'var(--menu-bord)', background: s.statut === 'travail' ? 'var(--c-fond_tuile, #fff)' : 'var(--c-fond_entete, var(--fond-bande))' }}>
-              <div className="text-mention text-slate-500">{fmt(s.lundi)}</div>
-              <div className="text-second font-semibold">{s.statut === 'travail' ? hm(s.minutes).replace(' h ', 'h') : s.statut === 'ete' ? 'été' : 'congé'}</div>
-            </div>
-          ))}
-        </div>
+    <div className="carte overflow-hidden">
+      <EnteteCarte titre="Fiche de congés" sous="À signer par la direction adjointe, puis par la direction pour accord, avant le 1er décembre.">
+        <button className="bouton-sortir px-2.5 py-1 text-second inline-flex items-center gap-1.5" onClick={() => ouvrir(`/conges/${uid}/document`)}><IconPrinter size={14} /> Fiche de congés</button>
+      </EnteteCarte>
+      <Tableau dense>
+        <TableauEntete><Th>Période</Th><Th>Du</Th><Th>Au</Th></TableauEntete>
+        <tbody>{fc.periodes.map(p => <Tr key={p.du}><Td>{p.libelle}</Td><Td>{p.du}</Td><Td>{p.au}</Td></Tr>)}</tbody>
+      </Tableau>
+      <div className="px-4 py-3 flex flex-wrap items-center gap-3">
+        <Signatures sig={fc.signatures} ordre={['adjoint', 'direction']} />
+        {['directeur_adjoint', 'admin', 'directeur'].includes(role) && uid !== getUser()?.id && <button className="bouton text-second" onClick={() => signer('adjoint')}><IconSignature size={14} /> Signer (direction adjointe)</button>}
+        {['directeur', 'admin'].includes(role) && uid !== getUser()?.id && <button className="bouton text-second" onClick={() => signer('direction')}><IconSignature size={14} /> Accord de la direction</button>}
       </div>
-      {fc && (
-        <div className="carte overflow-hidden">
-          <EnteteCarte titre="Fiche de congés" sous="À signer par la direction adjointe, puis par la direction pour accord, avant le 1er décembre.">
-            <button className="bouton-sortir px-2.5 py-1 text-second inline-flex items-center gap-1.5" onClick={() => ouvrir(`/conges/${uid}/document`)}><IconPrinter size={14} /> Fiche de congés</button>
-          </EnteteCarte>
-          <Tableau dense>
-            <TableauEntete><Th>Période</Th><Th>Du</Th><Th>Au</Th></TableauEntete>
-            <tbody>{fc.periodes.map(p => <Tr key={p.du}><Td>{p.libelle}</Td><Td>{p.du}</Td><Td>{p.au}</Td></Tr>)}</tbody>
-          </Tableau>
-          <div className="px-4 py-3 flex flex-wrap items-center gap-3">
-            <Signatures sig={fc.signatures} ordre={['adjoint', 'direction']} />
-            {['directeur_adjoint', 'admin', 'directeur'].includes(role) && uid !== getUser()?.id && <button className="bouton text-second" onClick={() => signer('adjoint')}><IconSignature size={14} /> Signer (direction adjointe)</button>}
-            {['directeur', 'admin'].includes(role) && uid !== getUser()?.id && <button className="bouton text-second" onClick={() => signer('direction')}><IconSignature size={14} /> Accord de la direction</button>}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -184,7 +220,7 @@ function Releve({ uid, info, ouvrir }) {
             return (
               <Tr key={j.jour}>
                 <Td className="whitespace-nowrap">{j.jour_semaine} {fmt(j.jour)}</Td>
-                <Td ton="secondaire">{j.plan ? `${j.plan.debut}–${j.plan.fin}${j.plan.pause_debut ? ` (pause ${j.plan.pause_debut}–${j.plan.pause_fin})` : ''}` : ''}</Td>
+                <Td ton="secondaire">{j.plan?.debut ? `${j.plan.debut}–${j.plan.fin}${j.plan.pause_debut ? ` (pause ${j.plan.pause_debut}–${j.plan.pause_fin})` : ''}` : ''}</Td>
                 <Td>
                   {etat && <PastilleEtat etat={etat}>{mot}</PastilleEtat>}{' '}
                   {j.saisie?.type === 'reel' && `${j.saisie.debut}–${j.saisie.fin}${j.saisie.pause_debut ? ` (pause ${j.saisie.pause_debut}–${j.saisie.pause_fin})` : ''}`}
@@ -251,168 +287,34 @@ function EditionEcart({ edit, info, onClose, onSave }) {
   );
 }
 
-function Equipe() {
-  const [mois, setMois] = useState(moisDansAnnee());
-  const [d, setD] = useState(null);
-  useEffect(() => { api(`/equipe/${mois}`).then(setD).catch(e => setD({ erreur: e.message })); }, [mois]);
-  if (!d) return <div className="text-sm text-slate-500">Chargement…</div>;
-  if (d.erreur) return <div className="text-sm text-red-700">{d.erreur}</div>;
-  return (
-    <div className="space-y-3">
-      <div className="flex flex-nowrap items-center gap-2">
-        <input type="month" className="controle border border-slate-300 rounded-champ text-sm" value={mois} onChange={e => e.target.value && setMois(e.target.value)} />
-        <span className="text-second text-slate-500">Qui est prévu, jour par jour. Au moins {d.presents_min} présents, et le secrétariat ouvert cinq jours par semaine.</span>
-      </div>
-      <div className="overflow-x-auto">
-        <Tableau dense>
-          <TableauEntete>
-            <Th>Personne</Th>
-            {d.jours.map(j => <Th key={j.jour} align="centre" title={j.ferie || j.alerte || ''}>{fmt(j.jour)}</Th>)}
-          </TableauEntete>
-          <tbody>
-            {d.personnes.map(p => (
-              <Tr key={p.id}>
-                <Td className="whitespace-nowrap">{p.nom}</Td>
-                {d.jours.map(j => { const x = p.jours.find(y => y.jour === j.jour);
-                  return <Td key={j.jour} align="centre" title={x?.plan || ''}>{x?.present ? '●' : x && ['conge', 'ete'].includes(x.etat) ? <span className="text-slate-400">C</span> : x?.etat === 'absence' ? <span className="text-slate-400">A</span> : ''}</Td>; })}
-              </Tr>
-            ))}
-            <Tr>
-              <Td ton="fort">Présents</Td>
-              {d.jours.map(j => <Td key={j.jour} align="centre">{j.ferie ? <span className="text-slate-400">F</span> : j.alerte ? <PastilleEtat etat={j.presents ? 'surveiller' : 'corriger'} title={j.alerte}>{j.presents}</PastilleEtat> : j.presents}</Td>)}
-            </Tr>
-          </tbody>
-        </Tableau>
-      </div>
-      <p className="text-second text-slate-500">● prévu présent · C congé · A absence · F férié.</p>
-    </div>
-  );
-}
-
-const SEMAINE = { v: null };
-const lundiDe = d => { const x = new Date(`${d}T00:00:00Z`); const w = (x.getUTCDay() + 6) % 7; return new Date(x.getTime() - w * 864e5).toISOString().slice(0, 10); };
-const plus = (d, n) => new Date(new Date(`${d}T00:00:00Z`).getTime() + n * 864e5).toISOString().slice(0, 10);
-const court = m => (m ? hm(m).replace(' h ', 'h').replace(/h00$/, 'h') : '');
-
-/* L'ANNÉE DE L'ÉQUIPE (3.5.040, Charles : « toute l'année ; une version en semaines, avec le temps de travail de chacun
-   par semaine, et annuel »). Une ligne par personne, une colonne par semaine ; les totaux de l'année au bout. */
-function EquipeAnnee({ gere, onSemaine }) {
-  const [d, setD] = useState(null);
-  useEffect(() => { api('/equipe-annee').then(setD).catch(e => setD({ erreur: e.message })); }, []);
-  if (!d) return <div className="text-sm text-slate-500">Chargement…</div>;
-  if (d.erreur) return <div className="text-sm text-red-700">{d.erreur}</div>;
-  const cel = x => (x.statut === 'travail' ? (gere ? court(x.reel) : '●') : x.statut === 'ete' ? 'été' : x.statut === 'conge' ? 'C' : '');
-  return (
-    <div className="space-y-3">
-      <p className="text-second text-slate-500">{gere ? 'Heures prestées par semaine (le prévu, corrigé des écarts encodés) ; au bout, l’année face au dû.' : 'Qui travaille, qui est en congé, semaine par semaine.'} Un clic sur une semaine l’ouvre jour par jour.</p>
-      <div className="overflow-x-auto">
-        <Tableau dense>
-          <TableauEntete>
-            <Th className="sticky left-0 z-10">Personne</Th>
-            {d.semaines.map(l => <Th key={l} align="centre" className="cursor-pointer px-1" onClick={() => onSemaine(l)} title={`Semaine du ${l}`}>{fmt(l)}</Th>)}
-            {gere && <><Th align="droite">Presté</Th><Th align="droite">Dû</Th><Th align="droite">Solde</Th></>}
-          </TableauEntete>
-          <tbody>
-            {d.personnes.map(p => (
-              <Tr key={p.id}>
-                <Td className="whitespace-nowrap sticky left-0 z-10" style={{ background: 'var(--c-fond_ligne, #fff)' }}>{p.nom}{!p.genere && <span className="text-slate-400"> · à générer</span>}</Td>
-                {p.semaines.map(x => (
-                  <Td key={x.lundi} align="centre" className={`px-1 whitespace-nowrap ${x.statut === 'travail' ? '' : 'text-slate-400'}`}
-                    title={x.statut === 'travail' && gere ? `prévu ${hm(x.prevu)} · presté ${hm(x.reel)}` : ''}>
-                    <span className={gere && x.statut === 'travail' && x.reel !== x.prevu ? 'font-semibold' : ''}>{cel(x)}</span>
-                  </Td>
-                ))}
-                {gere && <><Td align="droite" ton="fort" className="whitespace-nowrap">{hm(p.reel)}</Td><Td align="droite" className="whitespace-nowrap">{hm(p.du)}</Td>
-                  <Td align="droite" className="whitespace-nowrap">{p.reel - p.du ? <PastilleEtat etat={p.reel > p.du ? 'surveiller' : 'corriger'}>{hm(p.reel - p.du)}</PastilleEtat> : '0'}</Td></>}
-              </Tr>
-            ))}
-            <Tr>
-              <Td ton="fort" className="sticky left-0 z-10" style={{ background: 'var(--c-fond_ligne, #fff)' }}>Au travail</Td>
-              {d.presents.map((n, i) => <Td key={i} align="centre" className="px-1">{n < d.presents_min ? <PastilleEtat etat={n ? 'surveiller' : 'corriger'}>{n}</PastilleEtat> : n}</Td>)}
-              {gere && <Td colSpan={3} />}
-            </Tr>
-          </tbody>
-        </Tableau>
-      </div>
-      <p className="text-second text-slate-500">C congé scolaire · été vacances d’été{gere ? ' · en gras : une semaine dont le presté diffère du prévu' : ' · ● au travail'}. La ligne « Au travail » compte les personnes en semaine de travail (le roulement de l’été s’y lit).</p>
-    </div>
-  );
-}
-
-/* UNE SEMAINE DE L'ÉQUIPE, jour par jour. */
-function EquipeSemaine({ gere }) {
-  const [lundi, setLundi] = useState(SEMAINE.v || lundiDe(new Date().toISOString().slice(0, 10)));
-  const [d, setD] = useState(null);
-  useEffect(() => { SEMAINE.v = lundi; api(`/equipe-semaine/${lundi}`).then(setD).catch(e => setD({ erreur: e.message })); }, [lundi]);
-  if (!d) return <div className="text-sm text-slate-500">Chargement…</div>;
-  if (d.erreur) return <div className="text-sm text-red-700">{d.erreur}</div>;
-  const J = ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim'];
-  const visibles = d.jours.map((j, i) => i < 5 || d.personnes.some(p => p.jours[i].plan || p.jours[i].present)).map((v, i) => (v ? i : -1)).filter(i => i >= 0);
-  return (
-    <div className="space-y-3">
-      <div className="flex flex-nowrap items-center gap-2">
-        <button className="bouton" onClick={() => setLundi(plus(lundi, -7))} aria-label="Semaine précédente">‹</button>
-        <input type="date" className="controle border border-slate-300 rounded-champ text-sm" value={lundi} onChange={e => e.target.value && setLundi(lundiDe(e.target.value))} />
-        <button className="bouton" onClick={() => setLundi(plus(lundi, 7))} aria-label="Semaine suivante">›</button>
-        <span className="text-second text-slate-500">Semaine du {fmt(d.lundi)} au {fmt(plus(d.lundi, 6))}</span>
-      </div>
-      <Tableau dense>
-        <TableauEntete>
-          <Th>Personne</Th>
-          {visibles.map(i => <Th key={i} align="centre" title={d.jours[i].ferie || ''}>{J[i]} {fmt(d.jours[i].jour)}{d.jours[i].ferie ? ' · férié' : ''}</Th>)}
-          {gere && <><Th align="droite">Prévu</Th><Th align="droite">Presté</Th></>}
-        </TableauEntete>
-        <tbody>
-          {d.personnes.map(p => (
-            <Tr key={p.id}>
-              <Td className="whitespace-nowrap">{p.nom}</Td>
-              {visibles.map(i => { const c = p.jours[i];
-                return (
-                  <Td key={i} align="centre" className="whitespace-nowrap">
-                    {c.statut && c.statut !== 'travail' ? <span className="text-slate-400">{c.statut === 'ete' ? 'été' : 'congé'}</span>
-                      : c.absence ? <PastilleEtat etat="surveiller">{c.absence}</PastilleEtat>
-                      : gere ? <>{c.reel || c.plan || ''}{c.reel && <div className="text-mention text-slate-500">prévu {c.plan || '—'}</div>}</>
-                      : c.present ? '●' : ''}
-                  </Td>
-                ); })}
-              {gere && <><Td align="droite">{hm(p.prevu)}</Td><Td align="droite" ton="fort">{hm(p.preste)}</Td></>}
-            </Tr>
-          ))}
-        </tbody>
-      </Tableau>
-    </div>
-  );
-}
-
-function Suivi({ onOuvrir }) {
+/* LE SUIVI DE LA DIRECTION, en tête du relevé : chaque personne, son solde, ses signatures — une ligne choisit le relevé. */
+function Suivi({ uid, onOuvrir }) {
   const [mois, setMois] = useState(moisDansAnnee());
   const [d, setD] = useState(null);
   useEffect(() => { api(`/suivi?mois=${mois}`).then(setD).catch(e => setD({ erreur: e.message })); }, [mois]);
   if (!d) return <div className="text-sm text-slate-500">Chargement…</div>;
   if (d.erreur) return <div className="text-sm text-red-700">{d.erreur}</div>;
   return (
-    <div className="space-y-3">
-      <input type="month" className="controle border border-slate-300 rounded-champ text-sm" value={mois} onChange={e => e.target.value && setMois(e.target.value)} />
+    <div className="carte overflow-hidden">
+      <EnteteCarte titre="Le suivi de l’équipe" sous="Touchez une personne pour ouvrir son relevé et sa fiche de congés.">
+        <input type="month" className="controle border border-slate-300 rounded-champ text-sm" value={mois} onChange={e => e.target.value && setMois(e.target.value)} aria-label="Mois" />
+      </EnteteCarte>
       <Tableau dense>
-        <TableauEntete><Th>Personne</Th><Th>Formule</Th><Th>Année</Th><Th align="droite">Solde</Th><Th>Relevé du mois</Th><Th>Fiche de congés</Th><Th /></TableauEntete>
+        <TableauEntete><Th>Personne</Th><Th>Formule</Th><Th>Année</Th><Th align="droite">Solde</Th><Th>Relevé du mois</Th><Th>Fiche de congés</Th></TableauEntete>
         <tbody>
           {d.map(p => (
-            <Tr key={p.id}>
+            <Tr key={p.id} actif={p.id === uid} onClick={() => onOuvrir(p.id)} className="cursor-pointer">
               <Td>{p.nom}</Td>
               <Td ton="secondaire">{p.formule === '4j' ? '4 × 9 h' : p.formule === 'annualise' ? 'Annualisé' : '5 jours'} · {Math.round(p.fraction * 100)} %</Td>
               <Td>{p.genere ? <PastilleEtat etat="reussi">générée</PastilleEtat> : <PastilleEtat etat="surveiller">à générer</PastilleEtat>}</Td>
               <Td align="droite">{hm(p.solde)}</Td>
               <Td>{p.defauts ? <PastilleEtat etat="corriger">{p.defauts} jour(s) en défaut</PastilleEtat> : null} <span className="text-second text-slate-500">{p.releve.length ? `signé : ${p.releve.map(e => ETAPES[e]).join(', ')}` : 'non signé'}</span></Td>
               <Td><span className="text-second text-slate-500">{p.conges.length ? `signée : ${p.conges.map(e => ETAPES[e]).join(', ')}` : 'non signée'}</span></Td>
-              <Td align="droite" className="whitespace-nowrap">
-                <button className="bouton px-2 py-0.5 text-second" onClick={() => onOuvrir(p.id, 'releve')}>Relevé</button>{' '}
-                <button className="bouton px-2 py-0.5 text-second" onClick={() => onOuvrir(p.id, 'annee')}>Année</button>
-              </Td>
             </Tr>
           ))}
         </tbody>
       </Tableau>
-      {!d.length && <p className="text-sm text-slate-500">Personne n’est encore désigné : face « Personnes et réglages ».</p>}
+      {!d.length && <p className="px-4 py-3 text-sm text-slate-500">Personne n’est encore désigné : Préparer l’année → 1. Personnes et règles.</p>}
     </div>
   );
 }
@@ -511,7 +413,7 @@ function Generer({ info, personnes, recharger }) {
     try { await api(`/generer/${uid}`, { method: 'POST', body: JSON.stringify({ ...corps(), ecrire: true }) }); informer({ message: 'Année enregistrée.' }); recharger(); }
     catch (e) { informer({ message: e.message + (e.bilan?.erreurs?.length ? ' ' + e.bilan.erreurs.join(' ') : '') }); }
   };
-  if (!actifs.length) return <p className="text-sm text-slate-500">Désignez d’abord les personnes concernées (face « Personnes et réglages »).</p>;
+  if (!actifs.length) return <p className="text-sm text-slate-500">Désignez d’abord les personnes concernées (étape 1 : Personnes et règles).</p>;
   const ok = sim && !sim.bilan.erreurs.length && !sim.bilan.semaines_en_defaut;
   return (
     <div className="space-y-4">

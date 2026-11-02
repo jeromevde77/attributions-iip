@@ -3212,6 +3212,26 @@ règle les paramètres. L'orthoptie n'a pas d'enveloppe : quote-part (1/3 du bud
 l'ASBL à produits constants (A.5). Banc : `backend/test/budget.mjs` (47 ok). **À venir** : le mode d'emploi du module (partie B
 pour les coordinations, A et B pour la direction) et son export PDF.
 
+**LE TEMPS DE TRAVAIL EN LIGNE DU TEMPS** (3.5.057, Charles, 2 novembre 2026 : « simplifier ; un ordre chronologique ;
+des semaines avec plus d'heures, d'autres sans ; un zoom de l'année à la semaine, puis dans la semaine ; donner un jour, une
+semaine, et reporter avec un assistant ; les moments chauds et creux ; les grands moments » ; tranché : ligne du temps à zoom,
+report sur les périodes chaudes, chaleur calculée puis corrigeable, la personne propose et la direction valide). Personnel →
+Temps de travail : trois faces — **Ligne du temps** (`components/LigneTempsTravail.jsx` : Année · Semaines · Semaine), **Relevé
+et signatures** (suivi de l'équipe en tête pour la direction, relevé, fiche de congés), **Préparer l'année** (direction, quatre
+étapes : personnes et règles · congés · grands moments · générer). Les onglets Équipe, Suivi, Congés, Générer de 3.5.039-056
+s'y sont fondus. Moteur `lib/ligneTemps.js` (règles et générateur restent dans `lib/tempsTravail.js`) : **grands moments** =
+`evenement_etablissement` (la table de la rentrée, une seule porte ; types inscriptions, examens, diplomes, rentree, jpo…) +
+délibérations lues de `deliberation_seance` ; **chaleur** = activité de la même semaine l'an dernier (dossiers touchés en
+(étudiant, jour), envois, demandes de VA) + ce que l'année annonce (séances, ouvertures d'UE, échéances du secrétariat, moments),
+score logarithmique, un quart chaud, un quart creux (à score égal, les plus loin des chaudes), forçable (`tt_chaleur`) ;
+**assistant** (`POST /moduler/:uid/assistant`, ne fait que proposer) : jours donnés = repos compensatoire (`{ recup: true }` dans
+`jours_json`, hors écart de 2 h et des 5 h de la semaine — lecture à confirmer), semaines chargées, report sur les semaines
+à venir non signées, chaudes d'abord pour ajouter, calmes d'abord pour retirer, bornes art. 20bis ; **circuit** `tt_modulation`
+(proposée → contrôlée par l'adjoint → acceptée par la direction, qui l'applique si rien n'a bougé ; la direction applique
+directement pour un autre) ; une année modulée passe en `annualise` ; moduler exige l'horaire variable au règlement de travail.
+Au passage : `modeleSemaine` répartit le reste de la division (à 80 %, l'année entière était refusée pour une minute par jour).
+Banc : `test/ligneTemps.mjs` (35 ok).
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux
