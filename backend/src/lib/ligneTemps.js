@@ -21,7 +21,7 @@
 //     COMPENSATOIRE : il ne compte pas dans l'écart de 2 h du jour ni dans les 5 h de la semaine (lecture à confirmer).
 // ─────────────────────────────────────────────────────────────────────────────
 import db from '../db/index.js';
-import { agenda, fermetures } from './agendaEcole.js';
+import { agenda, fermetures, stagesParSemaine } from './agendaEcole.js';
 import {
   REGLES, reglage, semainesDeLAnnee, semainesDeConge, feriesDe, anneeDe, dureeJour, controleJour, modeleSemaine, verrouille,
   plusJours, hm, JOURS,
@@ -253,11 +253,16 @@ export function chaleur(annee) {
   for (const m of ms) {
     semaines.forEach((l, i) => { if (m.du <= plusJours(l, 6) && m.au >= l && POIDS_MOMENT[m.type]) parMoment[i].push(m); });
   }
-  const maxi = Object.fromEntries(SOURCES.map(s => [s.cle, Math.max(0, ...comptes[s.cle])]));
+  // Les stages : leur préparation (les deux semaines avant chaque début) et leur suivi (étudiants en stage).
+  const SOURCES_STAGE = [{ cle: 'stages_prep', libelle: 'stages à préparer (conventions, pièces)', poids: 2 }, { cle: 'stages_en', libelle: 'étudiants en stage', poids: 1 }];
+  const st = essai(() => stagesParSemaine(annee, semaines), semaines.map(() => ({ prepares: 0, debuts: 0, etudiants: 0 })));
+  comptes.stages_prep = st.map(x => x.prepares + x.debuts); comptes.stages_en = st.map(x => x.etudiants);
+  const TOUTES = [...SOURCES, ...SOURCES_STAGE];
+  const maxi = Object.fromEntries(TOUTES.map(s => [s.cle, Math.max(0, ...comptes[s.cle])]));
   const conges = semainesDeConge(annee);
   const brut = semaines.map((l, i) => {
     let score = 0; const raisons = [];
-    for (const s of SOURCES) {
+    for (const s of TOUTES) {
       const n = comptes[s.cle][i]; if (!n) continue;
       score += s.poids * Math.log1p(n) / Math.log1p(maxi[s.cle] || 1);
       raisons.push(`${n} ${s.libelle}${s.histoire ? ' (l’an dernier)' : ''}`);

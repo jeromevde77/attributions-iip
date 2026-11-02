@@ -2944,6 +2944,10 @@ import { anneeActive as anneeActiveRappels } from './services/echeancier.js';
   const tourPersonnel = () => { try { const r = genererRappelsPersonnel(anneeActiveRappels(db)); if (Object.values(r).some(x => x)) console.log('[rappels personnel]', r); } catch (e) { console.error('[rappels personnel]', e.message); } };
   setTimeout(tourPersonnel, 75_000).unref?.();
   setInterval(tourPersonnel, 60 * 60 * 1000).unref?.();
+  // LES ÉCHÉANCES QUE LUCIE VOIT FAITES (3.5.066) : au démarrage, puis toutes les heures.
+  const tourConstats = async () => { try { const { constaterEcheances } = await import('./lib/echeancesConstatees.js'); const r = constaterEcheances(anneeActiveRappels(db)); if (Object.keys(r).length) console.log('[échéances constatées]', r); } catch (e) { console.error('[échéances constatées]', e.message); } };
+  setTimeout(tourConstats, 20 * 1000).unref?.();
+  setInterval(tourConstats, 60 * 60 * 1000).unref?.();
   setTimeout(tourDelib, 45_000).unref?.();
   setInterval(tourDelib, 60 * 60 * 1000).unref?.();
   // LES RAPPELS AUX ÉTUDIANTS (3.1.525) : la file partout (si le portail existe), l'avis du jour en production.
@@ -3269,6 +3273,7 @@ app.use('/api/communication', (await import('./routes/communication.js')).defaul
 app.use('/api/equipe', (await import('./routes/equipe.js')).default);
 app.use('/api/temps-travail', (await import('./routes/tempsTravail.js')).default);
 app.use('/api/agenda-ecole', (await import('./routes/agendaEcole.js')).default);
+app.use('/api/qui-fait-quoi', (await import('./routes/quiFaitQuoi.js')).default);
 app.use('/api/visites-stage', (await import('./routes/visitesStage.js')).default);
 // Le registre des pièces authentiques : créé, et débarrassé des spécimens inscrits par erreur (3.5.047), au démarrage.
 try { (await import('./lib/authentique.js')).migrerAuthentique(); } catch (e) { console.error('[authentique]', e.message); }

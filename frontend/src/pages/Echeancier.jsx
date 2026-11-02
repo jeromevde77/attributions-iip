@@ -5,6 +5,8 @@ import {
 } from '@tabler/icons-react';
 import { PageHeader, Tabs, Btn, KpiCard, RailLateral, Fenetre, EnteteCarte } from '../components/ui.jsx';
 import { authHeaders } from '../lib/api.js';
+import { useDroits } from '../lib/droits.js';
+import { nomDuCompte } from '../lib/nom.js';
 
 const MOIS = ['janvier','février','mars','avril','mai','juin',
               'juillet','août','septembre','octobre','novembre','décembre'];
@@ -46,6 +48,9 @@ export default function Echeancier() {
   const [tab, setTab] = useState('timeline');
   const [data, setData] = useState(null);
   const [types, setTypes] = useState([]);
+  const [comptes, setComptes] = useState([]);
+  const { passe } = useDroits();
+  const peutRegler = passe('admin');
   const [chargement, setChargement] = useState(true);
   const [filtres, setFiltres] = useState({ zone: '', statut: '', responsable: '', mien: false });
   const [message, setMessage] = useState(null);
@@ -75,6 +80,15 @@ export default function Echeancier() {
       return;
     }
     setTypes(j);
+    // UNE PERSONNE PAR TYPE (3.5.066) : la direction choisit qui répond de chaque type d'échéance.
+    if (peutRegler && !comptes.length) fetch('/api/users', { headers: authHeaders() }).then(r => (r.ok ? r.json() : [])).then(l => setComptes((Array.isArray(l) ? l : []).filter(u => u.actif))).catch(() => {});
+  }
+  async function choisirResponsable(t, uid) {
+    const rep = await fetch(`/api/echeancier/types/${t.id}`, { method: 'PATCH', headers: { ...authHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify({ responsable_user_id: uid ? Number(uid) : null }) });
+    const j = await rep.json().catch(() => ({}));
+    if (!rep.ok) { setMessage({ type: 'err', texte: j.error || `Erreur ${rep.status}` }); return; }
+    setMessage({ type: 'ok', texte: uid ? `« ${t.libelle} » : ses échéances ouvertes et les suivantes vont à cette personne.` : `« ${t.libelle} » : retour au rôle.` });
+    chargerTypes(); charger();
   }
 
   useEffect(() => { charger(); /* eslint-disable-next-line */ }, [filtres]);
@@ -322,7 +336,7 @@ export default function Echeancier() {
                     <th className="px-3 py-2 text-left">Échéance</th>
                     <th className="px-3 py-2 text-left w-40">Zone</th>
                     <th className="px-3 py-2 text-left w-52">Règle de date</th>
-                    <th className="px-3 py-2 text-left w-28">Responsable</th>
+                    <th className="px-3 py-2 text-left w-44">Responsable</th>
                     <th className="px-3 py-2 text-left w-56">Base légale</th>
                     <th className="px-3 py-2 text-left w-20">Instances</th>
                   </tr>
@@ -340,7 +354,15 @@ export default function Echeancier() {
                       <td className="px-3 py-2">
                         <code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded text-slate-700">{t.regle_date}</code>
                       </td>
-                      <td className="px-3 py-2 text-slate-600">{t.responsable_defaut || '—'}</td>
+                      <td className="px-3 py-2 text-slate-600">
+                        {peutRegler && comptes.length ? (
+                          <select className="border border-slate-300 rounded-champ text-xs px-1 py-0.5 max-w-[11rem]" value={t.responsable_user_id || ''} onChange={e => choisirResponsable(t, e.target.value)}
+                            title="La personne qui répond de ce type d’échéance : ses échéances ouvertes et les suivantes vont à elle, avec leurs rappels.">
+                            <option value="">{t.responsable_defaut ? `Rôle : ${t.responsable_defaut}` : '—'}</option>
+                            {comptes.map(u => <option key={u.id} value={u.id}>{nomDuCompte(u.nom_complet, u.email)}</option>)}
+                          </select>
+                        ) : (t.responsable_nom || t.responsable_defaut || '—')}
+                      </td>
                       <td className="px-3 py-2 text-xs text-slate-500">{t.base_legale || '—'}</td>
                       <td className="px-3 py-2 text-slate-600">{t.nb_instances}</td>
                     </tr>

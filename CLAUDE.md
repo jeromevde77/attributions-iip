@@ -3287,6 +3287,32 @@ Banc : 57 ok.
 `debutDAnnee` (`lib/tempsTravail.js`, `lib/agendaEcole.js`, recopiée dans `pages/TempsTravail.jsx`) ; 52 semaines jusqu'au 15 août
 suivant (une semaine orpheline possible certaines années, en fermeture d'été). `recalerAnnees()` déplace au démarrage les semaines
 d'une année générée avant (septembre → août) vers celles qui lui manquent, statut et heures compris.
+**Les stages dans l'agenda** (3.5.065, Charles : « et stages ? ») : `stagesParSemaine` (`lib/agendaEcole.js`) — étudiants en stage
+(table `stage`, hors annulés), débuts, préparation (les deux semaines d'avant : art. 51 et 55), périodes des UE de stage (`cours.is_stage`
+× `organisation_ue`) pour les sections sans stages encodés (AESI) ; rangée « Stages » de `AgendaLigne` ; deux sources de la tension
+(`stages_prep` poids 2, `stages_en` poids 1). Banc : 60 ok.
+
+**QUI FAIT QUOI, ET L'ÉCHÉANCIER QUI SE COCHE SEUL** (3.5.066, Charles, 2 novembre 2026, après l'analyse « qui fait quoi, ce qui
+n'est pas fait, et à qui » : 114 échéances passées non cochées, aucune par le secrétariat ; 707 séances sans présence ; 211 VA à
+valider). (1) `lib/echeancesConstatees.js` (`constaterEcheances`, au démarrage, toutes les heures et au « Régénérer ») coche ce que
+Lucie VOIT fait — `ue_preparation` (chaque cours attribué + séances à l'horaire ; les locaux ne sont pas lus, l'horaire importé
+n'en porte pas), `ue_ouverture`, `ue_comptage_dixieme` (`premierDixiemeUE`), `ue_conseil_etudes`, `ue_publication_resultats` —
+au nom de « Lucie (constaté) », constat en commentaire ; ne décoche jamais. Banc `test/echeancesConstatees.mjs` (7 ok).
+(2) `echeance_type.responsable_user_id` : une PERSONNE par type (référentiel de l'échéancier, direction) ; posée sur les
+échéances ouvertes sans personne (ou qui avaient l'ancienne) et sur les suivantes ; le nettoyage des jalons la tient pour
+« non touchée ». (3) Gestion → Équipe → *Qui fait quoi* (`components/QuiFaitQuoi.jsx`, `routes/quiFaitQuoi.js`, direction) :
+activité par personne sur 7/30/90 jours, ce qui attend avec « Confier » (`ConfierTache` accepte `initial`), sections sans
+coordination.
+
+**LA GESTION DES STAGES DANS ORGANISATION — LOT 1** (3.5.067, Charles, 2 novembre 2026 : « une vraie gestion des stages » ;
+tranché : vue d'ensemble, pièces et jalons manquants, affectation en lot, lieux et places ; AESI PROPOSÉS d'après les UE de stage ;
+coordination + secrétariat ; lot 1 = vue + pièces + lot + propositions, lot 2 = lieux et places, lot 3 = heures, évaluations,
+attestations). Organisation → *Stages* (`pages/StagesOrganisation.jsx`), routes ajoutées à `routes/stages.js` : `piecesDuStage`
+(lieu, dates, professeur, autorisation et convention art. 51, casier — six mois —, médecine, vaccination art. 55 ; rouge si début
+≤ 14 j ou 1/10 de L'ORGANISATION de l'étudiant passé sans casier), `GET /choix`, `GET /inscrits`, `POST /lot` (simulation puis
+écriture ; un stage existant de l'UE est complété, seuls les champs fournis), `GET|POST /propositions` (un stage par inscrit d'une UE
+à cours `is_stage` qui n'en a pas, aux dates de son organisation), `POST /:id/relancer` (courriel à l'adresse d'école, `relance_le`).
+Périmètre : `getUserSections`. **À venir** : lot 2 (lieux et places), lot 3 (heures, évaluations, attestations).
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en

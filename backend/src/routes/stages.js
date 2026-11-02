@@ -24,6 +24,8 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
 import { getParam } from './parametres.js';
+import { envoyerEmail, templateNotif } from '../services/mailer.js';
+import { premierDixiemeUE } from '../lib/datesReelles.js';
 
 const r = Router();
 
@@ -489,6 +491,12 @@ r.get('/', authRequired, (req, res) => {
     ORDER BY s.section, e.nom, s.date_debut
   `).all(...params);
 
+  const auj = new Date().toISOString().slice(0, 10);
+  const nomProf = db.prepare("SELECT TRIM(nom || ' ' || COALESCE(prenom, '')) n FROM professeur WHERE id = ?");
+  for (const x of stages) {
+    Object.assign(x, piecesDuStage(x, annee, auj));
+    x.professeur = x.professeur_id ? nomProf.get(x.professeur_id)?.n || null : null;
+  }
   const manquants = stages.filter(s => !s.autorisation_le || !s.convention_le).length;
   res.json({
     annee, stages,
@@ -498,8 +506,159 @@ r.get('/', authRequired, (req, res) => {
       sans_convention: manquants,
       en_cours: stages.filter(s => s.statut === 'en_cours').length,
       termines: stages.filter(s => s.statut === 'termine').length,
+      a_relancer: stages.filter(s => s.urgence === 'rouge').length,
+      incomplets: stages.filter(s => s.manquent.length).length,
     },
   });
+});
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   LA GESTION DES STAGES DANS ORGANISATION (3.5.067, Charles, 2 novembre 2026 : « une vraie gestion des stages » ; tranché :
+   vue d'ensemble, pièces et jalons manquants, affectation en lot, lieux et places ; les stages de l'AESI PROPOSÉS d'après les
+   UE de stage ; coordination + secrétariat ; lot 1 = vue, pièces, lot et propositions).
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/** Ce qui manque à un stage, et son urgence : rouge si le début est dans 14 jours (ou passé) ou si le premier dixième de
+ *  l'UE est passé sans casier (art. 55 : exclusion de l'UE), ocre s'il manque quelque chose, rien sinon. */
+export function piecesDuStage(x, annee, auj = new Date().toISOString().slice(0, 10)) {
+  if (['termine', 'rompu', 'annule'].includes(x.statut)) return { manquent: [], urgence: null, dixieme: null };
+  const manquent = [];
+  if (!x.lieu_id) manquent.push('lieu');
+  if (!x.date_debut) manquent.push('dates');
+  if (!x.professeur_id) manquent.push('professeur de stage');
+  if (!x.autorisation_le) manquent.push('autorisation (art. 51)');
+  if (!x.convention_le) manquent.push('convention signée (art. 51)');
+  if (!x.casier_le) manquent.push('casier judiciaire (art. 55)');
+  else if (x.date_debut) { const six = new Date(`${x.casier_le}T00:00:00Z`); six.setUTCMonth(six.getUTCMonth() + 6); if (new Date(`${x.date_debut}T00:00:00Z`) > six) manquent.push('casier de plus de six mois'); }
+  if (!x.medecine_le) manquent.push('médecine du travail (art. 55)');
+  if (!x.vaccination_ok) manquent.push('vaccination (art. 55)');
+  let dixieme = null;
+  // Le premier dixième de L'ORGANISATION de l'étudiant (AESI : Toussaint–Noël ou Carnaval–Pâques), pas celui de la première venue.
+  try {
+    const org = x.ue_num ? db.prepare('SELECT num_organisation n FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?').get(x.etudiant_id, annee, x.ue_num)?.n || null : null;
+    dixieme = x.ue_num ? premierDixiemeUE(x.ue_num, annee, { numOrganisation: org })?.date || null : null;
+  } catch { dixieme = null; }
+  const dans14 = new Date(Date.now() + 14 * 864e5).toISOString().slice(0, 10);
+  let urgence = manquent.length ? 'ocre' : null;
+  if (manquent.length && x.date_debut && x.date_debut <= dans14) urgence = 'rouge';
+  if (!x.casier_le && dixieme && dixieme <= auj) urgence = 'rouge';
+  return { manquent, urgence, dixieme };
+}
+
+/** Ce que l'écran propose de choisir : les UE de stage de l'année (cours `is_stage`) et les professeurs — ceux attribués à
+ *  ces UE d'abord. */
+r.get('/choix', authRequired, (req, res) => {
+  const annee = String(req.query.annee || ''); if (!annee) return res.status(400).json({ error: 'annee requise' });
+  const perim = perimetre(req);
+  const ues = db.prepare(`SELECT o.ue_num, MIN(o.section) section, GROUP_CONCAT(DISTINCT o.section) sections,
+      (SELECT ue_nom FROM ue u WHERE u.ue_num = o.ue_num ORDER BY u.annee_scolaire DESC LIMIT 1) ue_nom,
+      (SELECT COUNT(*) FROM etudiant_inscription i WHERE i.ue_num = o.ue_num AND i.annee_scolaire = o.annee_scolaire) inscrits
+    FROM organisation_ue o WHERE o.annee_scolaire = ? AND EXISTS (SELECT 1 FROM cours c WHERE c.ue_num = o.ue_num AND COALESCE(c.is_stage, 0) = 1)
+    GROUP BY o.ue_num ORDER BY section, o.ue_num`).all(annee).filter(u => !perim || String(u.sections || '').split(',').some(x => perim.includes(x)));
+  const attribues = new Set(db.prepare(`SELECT DISTINCT professeur_id FROM attribution WHERE annee_scolaire = ? AND professeur_id IS NOT NULL
+    AND ue_num IN (SELECT ue_num FROM cours WHERE COALESCE(is_stage, 0) = 1)`).all(annee).map(x => x.professeur_id));
+  const profs = db.prepare("SELECT id, TRIM(UPPER(nom) || ' ' || COALESCE(prenom, '')) nom FROM professeur ORDER BY nom, prenom").all()
+    .map(p => ({ ...p, stage: attribues.has(p.id) })).sort((a, b) => Number(b.stage) - Number(a.stage) || a.nom.localeCompare(b.nom));
+  res.json({ ues, professeurs: profs });
+});
+
+/** Les inscrits d'une UE et leur stage de cette UE (affectation en lot). */
+r.get('/inscrits', authRequired, (req, res) => {
+  const annee = String(req.query.annee || ''), ue = Number(req.query.ue_num);
+  if (!annee || !ue) return res.status(400).json({ error: 'annee et ue_num requis' });
+  const perim = perimetre(req);
+  const l = db.prepare(`SELECT e.id, e.nom, e.prenom, e.section_rattachement section, i.num_organisation org,
+      (SELECT s.id FROM stage s WHERE s.etudiant_id = e.id AND s.annee_scolaire = i.annee_scolaire AND s.ue_num = i.ue_num ORDER BY s.date_debut LIMIT 1) stage_id
+    FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.annee_scolaire = ? AND i.ue_num = ? ORDER BY e.nom, e.prenom`).all(annee, ue)
+    .filter(x => !perim || !x.section || perim.includes(x.section));
+  const orgs = db.prepare('SELECT num_organisation org, section, date_debut du, date_fin au FROM organisation_ue WHERE ue_num = ? AND annee_scolaire = ? ORDER BY num_organisation').all(ue, annee);
+  res.json({ inscrits: l, organisations: orgs });
+});
+
+/** Affecter en lot : le même lieu, les mêmes dates, le même professeur à plusieurs étudiants d'une UE. Simulation d'abord ;
+ *  un étudiant qui a déjà un stage pour cette UE voit ce stage complété (seuls les champs fournis changent). */
+r.post('/lot', authRequired, roleRequired(...ECRITURE), (req, res) => {
+  const b = req.body || {};
+  const annee = String(b.annee || ''), ue = Number(b.ue_num), ids = (b.etudiant_ids || []).map(Number).filter(Boolean);
+  if (!annee || !ue || !ids.length) return res.status(400).json({ error: 'Une UE et au moins un étudiant.' });
+  const perim = perimetre(req);
+  const champs = {};
+  for (const k of ['lieu_id', 'date_debut', 'date_fin', 'professeur_id', 'maitre_stage', 'maitre_email', 'heures_prevues', 'intitule', 'domaine'])
+    if (b[k] !== undefined && b[k] !== null && b[k] !== '') champs[k] = b[k];
+  if (champs.date_debut && champs.date_fin && champs.date_fin < champs.date_debut) return res.status(400).json({ error: 'La fin précède le début.' });
+  if (!Object.keys(champs).length) return res.status(400).json({ error: 'Rien à poser : un lieu, des dates ou un professeur de stage.' });
+  const plan = ids.map(id => {
+    const e = db.prepare('SELECT id, nom, prenom, section_rattachement section FROM etudiant WHERE id = ?').get(id);
+    if (!e) return { etudiant_id: id, refus: 'étudiant introuvable' };
+    if (perim && e.section && !perim.includes(e.section)) return { etudiant_id: id, nom: `${e.nom} ${e.prenom}`, refus: 'hors de votre périmètre' };
+    const ex = db.prepare('SELECT id FROM stage WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? ORDER BY date_debut LIMIT 1').get(id, annee, ue);
+    const sec = e.section || db.prepare('SELECT section FROM organisation_ue WHERE ue_num = ? AND annee_scolaire = ? LIMIT 1').get(ue, annee)?.section || null;
+    return { etudiant_id: id, nom: `${String(e.nom).toUpperCase()} ${e.prenom}`, section: sec, geste: ex ? 'compléter' : 'créer', stage_id: ex?.id || null };
+  });
+  if (!b.ecrire) return res.json({ plan, champs });
+  const par = req.user?.email || null;
+  db.transaction(() => {
+    for (const x of plan) {
+      if (x.refus) continue;
+      if (x.stage_id) db.prepare(`UPDATE stage SET ${Object.keys(champs).map(k => `${k} = ?`).join(', ')}, maj_le = datetime('now') WHERE id = ?`).run(...Object.values(champs), x.stage_id);
+      else db.prepare(`INSERT INTO stage (etudiant_id, annee_scolaire, ue_num, section, statut, cree_par, ${Object.keys(champs).join(', ')}) VALUES (?, ?, ?, ?, 'prevu', ?, ${Object.keys(champs).map(() => '?').join(', ')})`)
+        .run(x.etudiant_id, annee, ue, x.section, par, ...Object.values(champs));
+    }
+  })();
+  res.json({ ok: true, plan, ecrits: plan.filter(x => !x.refus).length });
+});
+
+/** Les stages PROPOSÉS d'après les UE de stage (un cours `is_stage`) : un par inscrit qui n'en a pas encore, aux dates de son
+ *  organisation (AESI : Toussaint–Noël, Carnaval–Pâques). Rien n'est écrit ici. */
+function propositions(annee, perim) {
+  const ues = db.prepare(`SELECT DISTINCT o.ue_num FROM organisation_ue o WHERE o.annee_scolaire = ?
+    AND EXISTS (SELECT 1 FROM cours c WHERE c.ue_num = o.ue_num AND COALESCE(c.is_stage, 0) = 1)`).all(annee).map(x => x.ue_num);
+  const out = [];
+  for (const ue of ues) {
+    const orgs = db.prepare('SELECT num_organisation org, section, date_debut du, date_fin au FROM organisation_ue WHERE ue_num = ? AND annee_scolaire = ?').all(ue, annee);
+    const nomUE = db.prepare('SELECT ue_nom FROM ue WHERE ue_num = ? ORDER BY annee_scolaire DESC LIMIT 1').get(ue)?.ue_nom || `UE ${ue}`;
+    for (const i of db.prepare(`SELECT e.id, e.nom, e.prenom, e.section_rattachement section, COALESCE(i.num_organisation, 1) org FROM etudiant_inscription i
+        JOIN etudiant e ON e.id = i.etudiant_id WHERE i.annee_scolaire = ? AND i.ue_num = ?
+        AND NOT EXISTS (SELECT 1 FROM stage s WHERE s.etudiant_id = e.id AND s.annee_scolaire = i.annee_scolaire AND s.ue_num = i.ue_num)`).all(annee, ue)) {
+      const o = orgs.find(x => x.org === i.org) || orgs[0];
+      const sec = i.section || o?.section || null;
+      if (perim && sec && !perim.includes(sec)) continue;
+      out.push({ etudiant_id: i.id, nom: `${String(i.nom).toUpperCase()} ${i.prenom}`, section: sec, ue_num: ue, ue_nom: nomUE, org: o?.org || 1, du: o?.du || null, au: o?.au || null });
+    }
+  }
+  return out;
+}
+r.get('/propositions', authRequired, (req, res) => {
+  const annee = String(req.query.annee || ''); if (!annee) return res.status(400).json({ error: 'annee requise' });
+  res.json(propositions(annee, perimetre(req)));
+});
+r.post('/propositions', authRequired, roleRequired(...ECRITURE), (req, res) => {
+  const annee = String(req.body?.annee || ''); if (!annee) return res.status(400).json({ error: 'annee requise' });
+  const voulus = new Set((req.body?.items || []).map(x => `${x.etudiant_id}|${x.ue_num}`));
+  const choisis = propositions(annee, perimetre(req)).filter(p => voulus.has(`${p.etudiant_id}|${p.ue_num}`));
+  const ins = db.prepare(`INSERT INTO stage (etudiant_id, annee_scolaire, ue_num, section, date_debut, date_fin, intitule, statut, cree_par) VALUES (?,?,?,?,?,?,?,'prevu',?)`);
+  db.transaction(() => { for (const p of choisis) ins.run(p.etudiant_id, annee, p.ue_num, p.section, p.du, p.au, p.ue_nom, req.user?.email || null); })();
+  res.json({ ok: true, crees: choisis.length });
+});
+
+/** Relancer l'étudiant : un courriel à son adresse d'école qui dit ce qui manque, et la date de la relance. */
+r.post('/:id/relancer', authRequired, roleRequired(...ECRITURE), async (req, res) => {
+  try { db.exec('ALTER TABLE stage ADD COLUMN relance_le TEXT'); } catch { /* déjà là */ }
+  const x = db.prepare(`SELECT s.*, e.nom, e.prenom, e.email_ecole, e.section_rattachement sec, l.nom lieu_nom FROM stage s JOIN etudiant e ON e.id = s.etudiant_id
+    LEFT JOIN stage_lieu l ON l.id = s.lieu_id WHERE s.id = ?`).get(Number(req.params.id));
+  if (!x) return res.status(404).json({ error: 'Stage introuvable.' });
+  const perim = perimetre(req);
+  if (perim && (x.section || x.sec) && !perim.includes(x.section || x.sec)) return res.status(404).json({ error: 'Stage introuvable.' });
+  if (!x.email_ecole) return res.status(409).json({ error: 'Pas d’adresse d’école : la relance ne part pas.' });
+  const { manquent } = piecesDuStage(x, x.annee_scolaire);
+  const pieces = manquent.filter(m => !['lieu', 'dates', 'professeur de stage'].includes(m));
+  if (!pieces.length) return res.status(409).json({ error: 'Rien à demander à l’étudiant : il ne manque aucune pièce de son ressort.' });
+  const corps = `<p>Bonjour ${x.prenom},</p><p>Pour votre stage${x.intitule ? ` « ${x.intitule} »` : ''}${x.lieu_nom ? ` à ${x.lieu_nom}` : ''}${x.date_debut ? `, qui commence le ${x.date_debut.split('-').reverse().join('/')}` : ''}, il manque encore :</p><ul>${pieces.map(p => `<li>${p}</li>`).join('')}</ul><p>Aucun stage ne peut commencer sans autorisation écrite et convention signée (RDE, art. 51) ; le casier judiciaire (modèle 2, moins de six mois) est exigé avant le premier dixième de l’unité (art. 55). Merci de remettre ces pièces au secrétariat au plus vite.</p>`;
+  try { await envoyerEmail({ to: x.email_ecole, subject: 'Votre stage : pièces à remettre', html: templateNotif({ titre: 'Votre stage : pièces à remettre', corps }) }); }
+  catch (e) { return res.status(502).json({ error: `Le courriel n’est pas parti : ${e.message}` }); }
+  db.prepare("UPDATE stage SET relance_le = datetime('now') WHERE id = ?").run(x.id);
+  res.json({ ok: true, a: x.email_ecole, pieces });
 });
 
 export default r;

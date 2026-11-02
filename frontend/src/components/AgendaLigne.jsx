@@ -210,6 +210,19 @@ export default function AgendaLigne({ annee, ag, recharger, apres = null, selSem
                 className="text-mention text-center tabular-nums text-slate-500 self-center">{b.sections_actives || ''}</div>)}
               <div />
             </GrilleAnnee>)}
+          {(ag.stages || []).some(x => x.etudiants || x.periodes.length || x.prepares) && (() => { const max = Math.max(1, ...ag.stages.map(x => x.etudiants));
+            return (
+              <GrilleAnnee droite={droite}>
+                <div className="text-second text-slate-600 pr-2 self-center">Stages</div>
+                {ag.stages.map(x => (
+                  <div key={x.lundi} title={`${fmt(x.lundi)} · ${x.etudiants} étudiant(s) en stage${x.sections.length ? ` (${x.sections.join(', ')})` : ''}${x.debuts ? ` · ${x.debuts} début(s)` : ''}${x.prepares ? ` · ${x.prepares} à préparer (conventions, pièces)` : ''}${x.periodes.length ? ` · périodes : ${x.periodes.join(', ')}` : ''}`}
+                    className="relative h-5 mx-px rounded-[3px] flex items-end justify-center" style={{ background: x.prepares ? 'color-mix(in srgb, var(--c-attente) 18%, transparent)' : 'transparent' }}>
+                    {x.etudiants > 0 && <span className="absolute left-[12%] right-[12%] bottom-0 rounded-t-[2px]" style={{ height: `${Math.max(15, (x.etudiants / max) * 100)}%`, background: 'var(--c-serie_5, #4FA64A)' }} />}
+                    {!x.etudiants && x.periodes.length > 0 && <span className="absolute inset-x-0 bottom-0 h-1 rounded-[2px]" style={{ background: 'var(--c-serie_5, #4FA64A)', opacity: 0.6 }} />}
+                    {x.etudiants > 0 && <span className="relative text-[9px] leading-none text-white pb-0.5 tabular-nums">{x.etudiants}</span>}
+                  </div>))}
+                <div />
+              </GrilleAnnee>); })()}
           {ouvertes && ag.sections.map(s => (
             <GrilleAnnee key={s.section} droite={droite}>
               <div className="text-mention text-slate-600 pr-2 self-center truncate pl-2" title={s.section}>{s.section}</div>
@@ -349,6 +362,7 @@ function Legende() {
       <P fond="var(--c-attente)">tension</P><P fond="var(--c-disponible)">calme</P>
       <P fond="var(--c-texte)">école fermée</P><P fond="color-mix(in srgb, var(--c-texte) 35%, transparent)">en partie fermée</P>
       <span className="inline-flex items-center gap-1"><span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: 'var(--c-refuse)' }} />jour fermé</span>
+      <P fond="var(--c-serie_5, #4FA64A)">étudiants en stage</P><P fond="color-mix(in srgb, var(--c-attente) 18%, transparent)" bord>stages à préparer</P>
       <P fond={HACHURE}>vacances (cours)</P><P fond="var(--c-principal)">heures prévues · section active</P><P fond="var(--c-accent)">proposition · jour donné · stage</P>
     </div>
   );

@@ -3,12 +3,13 @@ import { IconReportAnalytics, IconReportMoney, IconChartInfographic, IconSchool,
 import { droitEffectif } from '../lib/modules.js';
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import { api, getAnnee, getUser, authHeaders } from '../lib/api.js';
-import { IconChartBar, IconHome, IconUsers, IconSettings, IconChevronRight, IconChevronDown, IconPrinter, IconEye, IconRotateClockwise, IconCheck, IconX, IconTrash, IconCash, IconCalendar, IconArrowsLeftRight, IconScale, IconUsersGroup, IconUserCheck } from '@tabler/icons-react';
+import { IconChartBar, IconHome, IconUsers, IconSettings, IconChevronRight, IconChevronDown, IconPrinter, IconEye, IconRotateClockwise, IconCheck, IconX, IconTrash, IconCash, IconCalendar, IconArrowsLeftRight, IconScale, IconUsersGroup, IconUserCheck, IconListCheck } from '@tabler/icons-react';
 import { PageHeader, Tabs, RailLateral, OuvrirEditions, TuileEtat, Chevron, Fenetre, EnteteCarte, OutilFenetre } from '../components/ui.jsx';
 import { createPortal } from 'react-dom';
 import Distributions from '../components/Distributions.jsx';
 import Population from '../components/Population.jsx';
 import PilotagePresences from '../components/PilotagePresences.jsx';
+import QuiFaitQuoi from '../components/QuiFaitQuoi.jsx';
 import PlanActionQualite from '../components/PlanActionQualite.jsx';
 import PopulationEcole from '../components/PopulationEcole.jsx';
 import PersonnelEcole from '../components/PersonnelEcole.jsx';
@@ -1582,6 +1583,9 @@ export default function Pilotage({ vue = 'tout' }) {
        direction et secrétariat (la route le garde ; la coordination n'y passe pas). */
     { key: 'g-presences', label: 'Présences', icon: IconUserCheck, faces: [
       !coord && ['presences-ue', 'Présences par UE']] },
+    /* QUI FAIT QUOI (3.5.066) : ce que chacun a fait, ce qui attend et à qui — la direction seule. */
+    { key: 'g-equipe', label: 'Équipe', icon: IconListCheck, faces: [
+      ['admin', 'directeur', 'directeur_adjoint'].includes(u?.role) && ['qui-fait-quoi', 'Qui fait quoi']] },
     { key: 'g-resultats', label: 'Résultats', icon: IconSchool, faces: [
       ['deliberation', 'Décisions et taux de réussite'], ['distributions', 'Distributions des cotes']] },
     { key: 'g-dotation', label: 'Dotation', icon: IconBuildingBank, faces: [
@@ -1617,6 +1621,7 @@ export default function Pilotage({ vue = 'tout' }) {
     : k === 'etp' ? (etpData ? renderETP() : <div className="text-gray-400 py-4">Chargement…</div>)
     : k === 'dotation' ? <DotationComparaison civil={civil} />
     : k === 'deliberation' ? <StatsDeliberation annee={anneeActive} />
+    : k === 'qui-fait-quoi' ? <QuiFaitQuoi annee={anneeActive} />
     : null);
   // Ce qui s'imprime : toutes les faces sauf la configuration, qui règle et ne rapporte rien.
   const IMPRIMABLES = RUBRIQUES.map(r => ({ ...r, faces: r.faces.filter(([k]) => k !== 'config') })).filter(r => r.faces.length);
@@ -1936,6 +1941,9 @@ thead { display: table-header-group; }
         ) : tab === 'qualite' ? (
           <PageHeader icon={IconRosette} titre="Démarche qualité"
             sous="Le plan d’action : ce qui est décidé, qui s’en charge, où on en est" />
+        ) : tab === 'qui-fait-quoi' ? (
+          <PageHeader icon={IconListCheck} titre="Qui fait quoi"
+            sous="Ce que chacun a fait dans Lucie, ce qui attend, et à qui le confier" />
         ) : tab === 'presences-ue' ? (
           <PageHeader icon={IconChartBar} titre="Présences et régularité"
             sous="Présences encodées, réguliers au premier dixième, PEP estimée — par section et par unité" />
@@ -1956,6 +1964,8 @@ thead { display: table-header-group; }
           <Distributions annee={vue === 'gestion' ? anneeActive : null} />
         ) : tab === 'population' ? (
           <Population annee={anneeActive} />
+        ) : tab === 'qui-fait-quoi' ? (
+          <QuiFaitQuoi annee={anneeActive} />
         ) : tab === 'presences-ue' ? (
           <PilotagePresences annee={anneeActive} />
         ) : tab === 'qualite' ? (
