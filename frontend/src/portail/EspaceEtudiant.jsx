@@ -1181,7 +1181,7 @@ function Espace() {
         </div>
       </nav>
       <main className="flex-1 min-w-0 p-4 md:p-8">
-      <div className="max-w-[900px] space-y-4">
+      <div className="space-y-4">
         {erreur && <div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">{erreur}</div>}
         {d?.apercu && <div className="bloc-etat px-3 py-2 text-sm" data-etat="surveiller"><b>Aperçu de la direction</b> — l’espace de {nom} tel qu’il le voit.
           Lecture seule : rien ne s’enregistre, rien ne compte comme lu ni signé. Ouvert par {d.apercu.par}.</div>}
