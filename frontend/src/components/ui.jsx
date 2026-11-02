@@ -258,6 +258,16 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
    */
   const [survol, setSurvol] = useState(null);
   const [idees, setIdees] = useState(false);
+  /* TOUT TIROIR SE REFERME D'UN CLIC SUR SON ENTRÉE — geste universel (3.5.071, Charles : « geste universel, cela, de se
+     refermer »). Écrit ICI, une fois, pour tous les rails (axes, Gestion, Configuration…) : une entrée qui montre son
+     tiroir le replie ; un second clic le rouvre. Le tiroir replié revient de lui-même quand on change d'entrée. */
+  const [replies, setReplies] = useState(() => new Set());
+  const basculerTiroir = cle => setReplies(r => { const n = new Set(r); n.has(cle) ? n.delete(cle) : n.add(cle); return n; });
+  const avecTiroir = (sections || []).flatMap(sec => (sec?.items || []).filter(i => i.sous?.length > 0).map(i => i.key)).join('|');
+  useEffect(() => {
+    const garder = new Set(avecTiroir.split('|'));
+    setReplies(r => ([...r].every(k => garder.has(k)) ? r : new Set([...r].filter(k => garder.has(k)))));
+  }, [avecTiroir]);
   const surviser = (e, label) => {
     const r = e.currentTarget.getBoundingClientRect();
     const p = e.currentTarget.closest('aside').getBoundingClientRect();
@@ -531,7 +541,11 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
                 {sec.label}
               </div>
             )}
-            {sec.items.map(it => {
+            {sec.items.map(it0 => {
+              const aTiroir = it0.sous?.length > 0;
+              const it = aTiroir && replies.has(it0.key)
+                ? { ...it0, sous: undefined, onClick: () => basculerTiroir(it0.key) }
+                : aTiroir ? { ...it0, onClick: () => basculerTiroir(it0.key) } : it0;
               const Ic = it.icon;
               return (
                 /* LE FILET APPARTIENT AU TIROIR, PAS À LA RUBRIQUE AU-DESSUS.
