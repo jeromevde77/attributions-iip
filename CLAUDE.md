@@ -3346,6 +3346,13 @@ une rubrique que le rôle ne voit pas (laboratoire, horaires, unité paraissaien
 un stage ») : `piecesDuStage` les exigeait, seule l'affectation en lot posait le professeur et rien ne cochait la vaccination
 (`components/Stages.jsx`, liste de `GET /api/stages/choix`). Guide : « Encoder un stage, pas à pas », « Qui encode un TFE ? »,
 « Qui a accès à quoi : les écrans de novembre ». **Le promoteur et le jury n'ont pas encore d'écran** : à prévoir avec l'espace enseignant.
+**Le rail Étudiants par étape du parcours** (3.5.075, Charles, maquette validée après la carte de la navigation) : `ordreRail`
+Inscrire (créer, contrôler, PAE, extraits) · Accompagner (VA, AR, suivi des présences, écrire) · Évaluer (délibération) · Recours
+(procédures) · purge ; tiroirs PAE (composer, revue, PAE en ligne, inscrits par UE, refus 2e session), Délibération (rapide,
+contrôles, où sont les notes, règles, reports — `hote: 'pae'` par enfant) et Procédures. **`outilsPermanents` d'`Axe`** : un outil
+qu'un écran monte garde sa place dans tout l'axe ; ailleurs, un clic ouvre son hôte et le lance (`lucie.outil`). Les visites de stage
+quittent le rail. Noms : Configuration « Journal des modifications » (ex-« Qui a fait quoi »), labo « 1. Le schéma », Mes cours
+« Mes cours de l'année » ; icônes uniques au labo.
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en

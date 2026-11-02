@@ -18,7 +18,7 @@ import * as gConfig from './guide/config.js';
 import * as gEcole from './guide/ecole.js';
 import * as gNouveautes from './guide/nouveautes.js';
 
-export const VERSION_DECRITE = '3.5.074';
+export const VERSION_DECRITE = '3.5.075';
 
 export const RUBRIQUES = [
   {
@@ -1612,7 +1612,7 @@ export const RUBRIQUES = [
              + "Cursus compatibles · Règles de délibération · Procédures et délais · Planification. Documents et "
              + "envois : Modèles de pièces · Pièces officielles · Descriptifs d'UE · Courriels · Réponses types. "
              + "Accès : Accès · Sécurité. Système : Thèmes et couleurs · Sauvegardes · Traces et "
-             + "historique · Registre des envois · Qui a fait quoi · Nouveautés.",
+             + "historique · Registre des envois · Journal des modifications · Nouveautés.",
         savoir: [
           "On y règle des MODÈLES et des règles ; on n'y produit pas de pièces (c'est l'avion).",
         ] },
@@ -1746,10 +1746,10 @@ export const RUBRIQUES = [
       },
       {
         titre: "Traces",
-        ou: "Configuration → Système → Traces et historique · Registre des envois · Qui a fait quoi · Nouveautés.",
+        ou: "Configuration → Système → Traces et historique · Registre des envois · Journal des modifications · Nouveautés.",
         texte: "L'historique des modifications, le registre de tout ce qui est parti par courriel, le journal de qui a fait quoi (administrateur), et le journal des versions de Lucie.",
         images: [
-          { src: "/guide/config-traces.png", legende: "Configuration → Qui a fait quoi : tous les registres réunis, filtrés par personne, registre et dates — quand, qui, quel geste, sur quoi." },
+          { src: "/guide/config-traces.png", legende: "Configuration → Journal des modifications : tous les registres réunis, filtrés par personne, registre et dates — quand, qui, quel geste, sur quoi." },
         ],
       },
     ],
@@ -1777,7 +1777,7 @@ const ORDRE_CONFIG = ['Les cinq familles', 'Identité fait foi', 'Plusieurs éta
   'Le modèle de diplôme', "Descriptifs d'UE", 'Courriels', 'Le récapitulatif quotidien', 'Les rappels par courriel', 'Réponses types',
   'Accès, fonctions, sécurité', 'Créer un rôle', 'Sécurité', 'Ouvrir Configuration en lecture', 'La mise en service des fonctions',
   'Les attestations des années passées', 'Thèmes et couleurs', 'Une seule bande', "Régler l'apparence", "Revenir sur un réglage",
-  'Le mode « Mise en page »', 'Sauvegardes', 'Transferts', 'Traces et historique', 'Registre des envois', 'Qui a fait quoi', 'Nouveautés', 'Traces'];
+  'Le mode « Mise en page »', 'Sauvegardes', 'Transferts', 'Traces et historique', 'Registre des envois', 'Journal des modifications', 'Nouveautés', 'Traces'];
 (function completer() {
   const chap = id => RUBRIQUES.find(r => r.id === id);
   for (const c of COMPLEMENTS) for (const [cle, point] of Object.entries(c.remplacements || {})) {

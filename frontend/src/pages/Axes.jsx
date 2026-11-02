@@ -8,6 +8,8 @@ import {
   IconChartBar, IconSpeakerphone,
   IconCertificate, IconClipboardList, IconScale, IconShieldExclamation, IconDoorEnter,
   IconUserCheck, IconRoute, IconFileText, IconStairsUp, IconEyeCheck, IconArrowForwardUp, IconTablePlus, IconFolder, IconNotes, IconAccessible, IconTable,
+  IconUserPlus, IconListSearch, IconCash, IconQrcode, IconMessages, IconInbox, IconPlaylistX, IconBolt, IconChecks, IconZoomQuestion, IconAdjustments,
+  IconListDetails, IconArchive,
 } from '@tabler/icons-react';
 import Axe from '../components/Axe.jsx';
 import Accueil from './Accueil.jsx';
@@ -108,34 +110,52 @@ export function AxeEtudiants() {
        * Quatre groupes, séparés par un filet : on entre (créer, PAE, composer
        * le PAE suivant), on instruit (valorisation, délibération), on délivre
        * (diplômes) — puis l'exception (procédures), puis ce qui efface. */
+      /* LE RAIL PAR ÉTAPE DU PARCOURS (3.5.075, Charles, 2 novembre 2026 ; maquette validée). Cinq groupes dans l'ordre de
+         l'année : inscrire, accompagner, évaluer, recours, vider. Chaque outil vit sous la rubrique à laquelle il appartient,
+         ou à son étape ; les visites de stage ont quitté ce rail (Organisation → Stages → Visites et trajets). Une icône par
+         entrée, qui n'est qu'à elle. */
       ordreRail={[
-        ['nouvel-etudiant', 'controles-dossiers', 'pae', 'deliberation'],
+        ['nouvel-etudiant', 'controles-dossiers', 'pae', 'extraits-bancaires'],
+        ['valorisation', 'amenagements', 'presence-qr', 'messages-etudiants'],
+        ['deliberation'],
         ['procedures'],
         ['purge'],
       ]}
-      /* L'ORDRE EST CELUI DU PARCOURS, PAS CELUI DE LA CONSTRUCTION.
-         On entre dans l'école, on demande une valorisation, on compose son
-         programme, on délibère, on délivre le titre — et les procédures sont
-         l'exception, à part et signalée. Un menu rangé dans l'ordre où les
-         écrans ont été écrits oblige chacun à retenir une liste ; rangé dans
-         l'ordre du travail, il ne se retient pas, il se suit. */
-      /* LE PARCOURS, UN SOUS-MENU (Charles, 2 octobre 2026). */
-      /* TOUT LE PARCOURS SOUS « INSCRIPTIONS & PAE » (Charles, 4 octobre
-         2026). Le sous-menu « Parcours » vivait à côté de la rubrique qu'il
-         servait ; il s'ouvre désormais SOUS elle — composer le PAE (l'escalier),
-         la revue, les reports de notes, la valorisation, les aménagements. Le
-         tiroir est ouvert dès qu'on est dans l'un d'eux. */
-      sousMenus={[{ key: 'pae', label: 'Inscriptions & PAE', icone: IconClipboardList, hote: 'pae',
-        enfants: [
-          { key: 'passage', label: 'Composer le PAE', icone: IconStairsUp,
-            peut: () => peutGeste('etudiants.pae_composer') },
-          { key: 'revue-pae', label: 'Revue des PAE', icone: IconEyeCheck },
-          { key: 'inscrits-unites', label: 'Inscrits par unité', icone: IconTable },
-          { key: 'reports', label: 'Reports de notes', icone: IconArrowForwardUp,
-            peut: () => passeRole(['admin', 'directeur', 'directeur_adjoint', 'editeur']) },
-          { key: 'valorisation', label: 'Valorisation des acquis (VA)', icone: IconCertificate },
-          { key: 'amenagements', label: 'Aménagements raisonnables (AR)', icone: IconAccessible },
-        ] }]}
+      outilsPermanents={[
+        { key: 'nouvel-etudiant', label: 'Créer un étudiant', icone: IconUserPlus, hote: 'pae', peut: () => peutGeste('etudiants.creer') },
+        { key: 'controles-dossiers', label: 'Contrôler les dossiers', icone: IconListSearch, hote: 'pae' },
+        { key: 'extraits-bancaires', label: 'Frais — extraits de compte', icone: IconCash, hote: 'pae',
+          peut: () => passeRole(['admin', 'editeur']) },
+        { key: 'presence-qr', label: 'Suivi des présences', icone: IconQrcode, hote: 'pae',
+          peut: () => passeRole(['admin', 'editeur', 'coordination']) },
+        { key: 'messages-etudiants', label: 'Écrire aux étudiants', icone: IconMessages, hote: 'pae',
+          peut: () => passeRole(['admin', 'editeur', 'coordination']) },
+      ]}
+      sousMenus={[
+        { key: 'pae', label: 'Inscriptions & PAE', icone: IconClipboardList, hote: 'pae',
+          enfants: [
+            { key: 'passage', label: 'Composer le PAE', icone: IconStairsUp, peut: () => peutGeste('etudiants.pae_composer') },
+            { key: 'revue-pae', label: 'Revue des PAE', icone: IconEyeCheck },
+            { key: 'pae-en-ligne', label: 'PAE en ligne', icone: IconInbox, peut: () => peutGeste('etudiants.pae_composer') },
+            { key: 'inscrits-unites', label: 'Inscrits par unité', icone: IconTable },
+            { key: 'refus2', label: 'Refus en 2e session', icone: IconPlaylistX,
+              peut: () => passeRole(['admin', 'editeur']) || peutGeste('etudiants.pae_composer') },
+          ] },
+        { key: 'deliberation', label: 'Délibération', icone: IconScale, hote: 'deliberation',
+          enfants: [
+            { key: 'rapide', label: 'Encodage rapide', icone: IconBolt },
+            { key: 'controles', label: 'Contrôles des notes et des décisions', icone: IconChecks, peut: () => passeRole(['admin', 'editeur']) },
+            { key: 'ou-notes', label: 'Où sont les notes ?', icone: IconZoomQuestion, peut: () => passeRole(['admin', 'editeur']) },
+            { key: 'regles', label: 'Règles de délibération', icone: IconAdjustments, peut: () => passeRole(['admin', 'editeur']) },
+            { key: 'reports', label: 'Reports de notes', icone: IconArrowForwardUp, hote: 'pae',
+              peut: () => passeRole(['admin', 'directeur', 'directeur_adjoint', 'editeur']) },
+          ] },
+        { key: 'procedures', label: 'Procédures', icone: IconShieldExclamation, hote: 'procedures',
+          enfants: [
+            { key: 'registre', label: 'Registre', icone: IconListDetails },
+            { key: 'anciens', label: 'Anciens dossiers', icone: IconArchive },
+          ] },
+      ]}
       onglets={[
         { key: 'pae', module: 'etudiants', label: 'Inscriptions & PAE', icone: IconClipboardList,
           sansMarge: true, railPropre: true,

@@ -28,7 +28,7 @@ export const chapitres = [
           "Corriger l'identité dans Configuration corrige toutes les pièces produites ensuite ; une pièce déjà produite ne change pas.",
           "Le nom imprimé dans le pied est celui de la personne connectée, jamais un nom choisi.",
           "Deux exceptions à la mise en page commune : le diplôme (A4 paysage, sans marge ni pied, sur le papier à diplôme) et le corps d'un courriel.",
-          "Les documents produits sont gardés au registre « documents » de Configuration → Système → Qui a fait quoi (administrateur).",
+          "Les documents produits sont gardés au registre « documents » de Configuration → Système → Journal des modifications (administrateur).",
           "Sur les écrans les noms s'écrivent « NOM Prénom » ; sur les pièces, « Prénom NOM ».",
         ],
       },

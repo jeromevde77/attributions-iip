@@ -2,6 +2,18 @@
    des en-têtes. Même forme que les autres compléments. */
 export const chapitres = [];
 export const ajouts = {
+  etudiants: [
+    {
+      titre: "Le rail Étudiants, par étape du parcours",
+      pour: 'sec coo dir',
+      ou: "Étudiants → le rail de gauche.",
+      texte: "Cinq groupes, séparés par un filet, dans l'ordre de l'année. Inscrire : Créer un étudiant, Contrôler les dossiers, Inscriptions & PAE (son tiroir : Composer le PAE, Revue des PAE, PAE en ligne, Inscrits par unité, Refus en 2e session), Frais — extraits de compte. Accompagner : Valorisation des acquis, Aménagements raisonnables, Suivi des présences, Écrire aux étudiants. Évaluer : Délibération (son tiroir : Encodage rapide, Contrôles des notes et des décisions, Où sont les notes ?, Règles de délibération, Reports de notes). Recours : Procédures (Registre, Anciens dossiers). Enfin, Vider des résultats, sur la liste des étudiants seulement.",
+      savoir: [
+        "Les outils restent à leur place quel que soit l'écran ouvert : Suivi des présences, par exemple, s'ouvre aussi depuis la Délibération.",
+        "Les visites de stage ne sont plus dans ce rail : Organisation → Stages → Visites et trajets.",
+      ],
+    },
+  ],
   demarrage: [
     {
       titre: "Qui a accès à quoi : les écrans de novembre",

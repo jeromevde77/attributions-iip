@@ -46,7 +46,7 @@
  *   35. Transferts : fermer les portes du passé             (ajout)
  *   36. Traces et historique                                (ajout)
  *   37. Registre des envois                                 (ajout)
- *   38. Qui a fait quoi                                     (ajout)
+ *   38. Journal des modifications                                     (ajout)
  *   39. Nouveautés                                          (ajout)
  *   40. Traces                                              (remplacé : devient la synthèse des registres)
  *
@@ -299,9 +299,9 @@ export const ajouts = {
       ],
     },
     {
-      titre: "Qui a fait quoi",
+      titre: "Journal des modifications",
       pour: "dir",
-      ou: "Configuration → Système → Qui a fait quoi (compte administrateur).",
+      ou: "Configuration → Système → Journal des modifications (compte administrateur).",
       texte: "Un seul écran qui réunit les registres déjà tenus ailleurs — attributions, valorisation, procédures, comptes, dossiers, documents, parcours, envois, PAE, délibération, conventions, présences, suivi, fiches, PAE et notes — pour répondre à la question qu'on se pose après coup : qu'a fait cette personne ? Filtres : « Tout le monde » ou une personne (avec son nombre de gestes), « Tous les registres » ou un seul, du… au… ; [[Tout afficher]] les efface.",
       savoir: [
         "Il ne crée aucun registre de plus : il lit ceux qui s'écrivent déjà, et rien n'y est modifiable.",
@@ -325,11 +325,11 @@ export const remplacements = {
          + "Cursus compatibles · Règles de délibération · Procédures et délais · Planification. Documents et "
          + "envois : Modèles de pièces · Pièces officielles · Descriptifs d'UE · Courriels · Réponses types. "
          + "Accès : Accès · Sécurité · Mise en service. Système : Thèmes et couleurs · Formes et composants · Catalogue des éléments · "
-         + "Sauvegardes · Transferts · Traces et historique · Registre des envois · Qui a fait quoi · Nouveautés.",
+         + "Sauvegardes · Transferts · Traces et historique · Registre des envois · Journal des modifications · Nouveautés.",
     savoir: [
       "On y règle des MODÈLES et des règles ; on n'y produit pas de pièces (c'est l'avion).",
       "Le titre de l'écran dit la famille et la rubrique ouvertes. Les rubriques annuelles (Unités et cours, Prérequis d'UE, Règles de délibération) portent l'année de travail en tête ; la changer là change l'année de travail.",
-      "Transferts et Qui a fait quoi ne paraissent que pour le compte administrateur.",
+      "Transferts et Journal des modifications ne paraissent que pour le compte administrateur.",
     ],
   },
 
@@ -402,13 +402,13 @@ export const remplacements = {
 
   "config|Traces": {
     titre: "Traces",
-    ou: "Configuration → Système → Traces et historique · Registre des envois · Qui a fait quoi · Transferts.",
-    texte: "Où relire ce qui s'est passé : l'historique des attributions et sa conservation (Traces et historique), tout ce qui est parti par courriel ou a été déposé dans un espace étudiant (Registre des envois), tous les gestes d'une personne à travers les registres (Qui a fait quoi), les portes de reprise du passé fermées ou rouvertes (Transferts). Les fiches, PAE et notes ont en plus leur journal de modifications, champ par champ, lu dans « Qui a fait quoi ».",
+    ou: "Configuration → Système → Traces et historique · Registre des envois · Journal des modifications · Transferts.",
+    texte: "Où relire ce qui s'est passé : l'historique des attributions et sa conservation (Traces et historique), tout ce qui est parti par courriel ou a été déposé dans un espace étudiant (Registre des envois), tous les gestes d'une personne à travers les registres (Journal des modifications), les portes de reprise du passé fermées ou rouvertes (Transferts). Les fiches, PAE et notes ont en plus leur journal de modifications, champ par champ, lu dans « Journal des modifications ».",
     savoir: [
       "Ces registres se lisent ; aucun ne se corrige ni ne s'efface depuis l'écran.",
     ],
     images: [
-      { src: "/guide/config-traces.png", legende: "Configuration → Qui a fait quoi : tous les registres réunis, filtrés par personne, registre et dates — quand, qui, quel geste, sur quoi." },
+      { src: "/guide/config-traces.png", legende: "Configuration → Journal des modifications : tous les registres réunis, filtrés par personne, registre et dates — quand, qui, quel geste, sur quoi." },
     ],
   },
 };

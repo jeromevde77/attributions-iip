@@ -6,7 +6,7 @@ import { useSearchParams } from 'react-router-dom';
 import Axe from '../components/Axe.jsx';
 import {
   IconLayoutGrid, IconSchool, IconSitemap, IconFileDescription, IconTimeline, IconUserCheck, IconCalendarCog,
-  IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup, IconListDetails, IconCalendarEvent, IconPercentage, IconTable, IconCalendarWeek, IconChartBar, IconPuzzle, IconEye, IconCalendarMonth, IconBriefcase, IconFileCertificate,
+  IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup, IconListDetails, IconCalendarEvent, IconPercentage, IconTable, IconCalendarWeek, IconChartBar, IconPuzzle, IconEye, IconCalendarMonth, IconBriefcase, IconFileCertificate, IconHierarchy2, IconCalendarTime, IconCalendarCheck,
 } from '@tabler/icons-react';
 import Attributions from './Attributions.jsx';
 import Planification from './Planification.jsx';
@@ -77,13 +77,13 @@ export default function Organisation({ ongletInitial }) {
       sousMenus={[{ key: 'laboratoire', label: 'Le laboratoire temporel', icone: IconeLaboratoire, hote: 'laboratoire',
         enfants: [
           // LES ÉTAPES DANS L'ORDRE DU TRAVAIL (3.1.465) — celui de ETAPES_LABO (LaboratoireTemporel.jsx).
-          { key: 'labo-schema', label: '1. Schéma de capitalisation', icone: IconSitemap },
+          { key: 'labo-schema', label: '1. Le schéma', icone: IconHierarchy2 },
           { key: 'labo-temps', label: '2. Le temps', icone: IconTimeline },
           { key: 'labo-groupes', label: '3. Les groupes', icone: IconPuzzle },
           { key: 'labo-planning', label: '4. Le planning', icone: IconCalendarCog },
           { key: 'labo-disponibilites', label: '5. Les disponibilités', icone: IconUserCheck },
-          { key: 'labo-semaine', label: '6. La semaine', icone: IconCalendarWeek },
-          { key: 'labo-horaire', label: '7. L’horaire', icone: IconEye },
+          { key: 'labo-semaine', label: '6. La semaine', icone: IconCalendarTime },
+          { key: 'labo-horaire', label: '7. L’horaire', icone: IconCalendarCheck },
         ] }, { key: 'horaire-semaine', label: 'Horaires', icone: IconCalendarWeek, hote: 'horaire-semaine',
         enfants: [
           { key: 'horaire-consulter', label: 'Consulter l’horaire', icone: IconEye },

@@ -21,7 +21,6 @@ import {
   IconChecks, IconLock, IconGift,
   IconQrcode,
   IconCash, IconAdjustmentsHorizontal,
-  IconCar,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
@@ -3679,9 +3678,7 @@ export default function Etudiants() {
       /* LES MESSAGES AUX ÉTUDIANTS (3.1.516) : lus dans leur espace ; leurs réponses reviennent à l'auteur. */
       ...(droitsRail.passe('admin', 'editeur', 'coordination') ? [{ key: 'messages-etudiants', label: 'Écrire aux étudiants — messages dans leur espace',
         icon: IconMessages, onClick: () => setMessagesEtud(true) }] : []),
-      /* LES VISITES DE STAGE ET LA FICHE DE TRANSPORT (3.5.058) — depuis 3.5.068 une face d'Organisation → Stages : l'entrée y mène. */
-      ...(droitsRail.passe('admin', 'editeur', 'coordination') ? [{ key: 'visites-stage', label: 'Visites de stage et frais de déplacement (Organisation → Stages)',
-        icon: IconCar, onClick: () => { window.location.href = '/organisation?onglet=stages&face=trajets'; } }] : []),
+      /* LES VISITES DE STAGE ont quitté ce rail (3.5.075) : Organisation → Stages → Visites et trajets. */
       ...(droitsRail.passe('admin', 'editeur') ? [{ key: 'extraits-bancaires', label: 'Extraits de compte — versements des étudiants',
         icon: IconCash, onClick: () => setExtraits(true) }] : []),
     ] },
