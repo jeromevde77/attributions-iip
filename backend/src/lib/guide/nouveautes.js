@@ -191,6 +191,17 @@ export const ajouts = {
   ],
   personnel: [
     {
+      titre: "Les annexes de la circulaire se complètent dans Lucie",
+      pour: 'sec dir',
+      ou: "Éditions → Personnel → une personne → Autres annexes de la circulaire 9760 → l’avion sur la ligne de la pièce.",
+      texte: "Chaque annexe officielle (A2 à A34) s'ouvre désormais dans une fenêtre de Lucie, comme l'EA12. Lucie y a déjà écrit ce qu'elle sait — l'établissement, l'identité de la personne, le contenu propre de l'A4, de l'A6, de l'A14 et de l'A15 — et vous montre tout ce qui reste en blanc dans le modèle : les lignes à pointillés, les cases des tableaux (présentées en tableau, ligne par ligne, comme sur le Word), les numéros à une case par chiffre et les cases à cocher. Tapez ce qu'il faut, [[Enregistrer]], puis produisez la pièce depuis le bandeau : Word ou aperçu PDF.",
+      savoir: [
+        "Rien n'est obligatoire : un blanc laissé vide reste vide sur la pièce. Les signatures ne se tapent pas : elles se posent à la main, sur le papier.",
+        "Ce qui est tapé est gardé par personne, par année (et par mois pour les relevés), au nom de qui l'a enregistré : la pièce se reproduit à l'identique, et la série (plusieurs personnes, plusieurs annexes) le reprend aussi.",
+        "L'A1 ter et l'A27 gardent leur fenêtre à elles : les prestations d'expert y sont reprises de l'horaire. L'A27 ne garde plus que les blocs d'unités remplis.",
+      ],
+    },
+    {
       titre: "Le temps de travail du secrétariat : le cadre",
       pour: 'sec dir',
       ou: "Personnel → rail → Temps de travail.",

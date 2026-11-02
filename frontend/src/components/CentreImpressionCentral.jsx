@@ -16,6 +16,7 @@ import {
 const RegistreEnvois = lazy(() => import('./RegistreEnvois.jsx'));
 import PreviewModal, { IconeApercu } from './PreviewModal.jsx';
 import SaisieAnnexe from './SaisieAnnexe.jsx';
+import FenetreAnnexe from './FenetreAnnexe.jsx';
 /* La séance de valorisation est chargée à la demande : Éditions s'ouvre
    souvent pour un rapport, et cet écran porte le rendu du procès-verbal. */
 const SeanceValorisation = lazy(() => import('./SeanceValorisation.jsx'));
@@ -1469,8 +1470,8 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
                   {annexes.filter(a => a.cle === 'A1ter' || a.cle === 'A27').map(a => (
                     <li key={a.cle} className="flex items-center justify-between gap-3 py-1.5 text-sm">
                       <span>{a.titre}{a.mois && <span className="text-slate-400 text-second"> · mois de {['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'][mois - 1]}</span>}</span>
-                      {a.saisie
-                        ? <Avion titre="Compléter dans Lucie, puis produire en Word ou PDF" onClick={() => setACompleter(a)} />
+                      {(a.saisie || a.fenetre)
+                        ? <Avion titre="Ouvrir la pièce dans Lucie, la compléter, puis produire en Word ou PDF" onClick={() => setACompleter(a)} />
                         : <span className="inline-flex items-center gap-1">
                             <button type="button" onClick={() => apercuAnnexe(a)} disabled={!!enCours} className="bouton text-second px-2 py-0.5" title="Voir le formulaire rempli, en PDF">{enCours === `v${a.cle}` ? '…' : 'Aperçu'}</button>
                             <Avion titre="Produire le Word officiel" onClick={() => telecharger(a)} occupe={enCours === a.cle} /></span>}
@@ -1501,8 +1502,8 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
                         {a.titre}
                         {PREREMPLIES.includes(a.cle) && <span className="ml-1.5 text-mention text-slate-400">pré-rempli</span>}
                       </span>
-                      {a.saisie
-                        ? <Avion titre="Compléter dans Lucie, puis produire en Word ou PDF" onClick={() => setACompleter(a)} />
+                      {(a.saisie || a.fenetre)
+                        ? <Avion titre="Ouvrir la pièce dans Lucie, la compléter, puis produire en Word ou PDF" onClick={() => setACompleter(a)} />
                         : <span className="inline-flex items-center gap-1">
                             <button type="button" onClick={() => apercuAnnexe(a)} disabled={!!enCours} className="bouton text-second px-2 py-0.5" title="Voir le formulaire rempli, en PDF">{enCours === `v${a.cle}` ? '…' : 'Aperçu'}</button>
                             <Avion titre="Produire le Word officiel" onClick={() => telecharger(a)} occupe={enCours === a.cle} /></span>}
@@ -1514,8 +1515,9 @@ function OngletPersonnel({ onClose, membreInitial = null, outilsMembre = null })
           </div>
         )}
       </div>
-      {aCompleter && choisi && <SaisieAnnexe annexe={aCompleter} membre={{ id: choisi.id, nom: nom(choisi) }} annee={annee}
-        moisInitial={mois} onFermer={() => setACompleter(null)} />}
+      {aCompleter && choisi && (aCompleter.saisie
+        ? <SaisieAnnexe annexe={aCompleter} membre={{ id: choisi.id, nom: nom(choisi) }} annee={annee} moisInitial={mois} onFermer={() => setACompleter(null)} />
+        : <FenetreAnnexe annexe={aCompleter} membre={{ id: choisi.id, nom: nom(choisi) }} annee={annee} moisInitial={mois} onFermer={() => setACompleter(null)} />)}
       {contrat && <PreviewModal html={contrat.html} titre={contrat.titre} nomFichier={contrat.nom}
         destinataire={destinataire} typeDoc={contrat.typeDoc} sujetMail={`${contrat.titre} — Institut Ilya Prigogine`}
         onClose={() => setContrat(null)} />}

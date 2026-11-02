@@ -3405,6 +3405,21 @@ Fiche → onglet TFE (`components/Tfe.jsx`, `DepuisLEspace`) : Accepter, Renvoye
 ouvrir un dépôt (`GET /api/tfe/depot/:id`). Écran étudiant : `frontend/src/portail/TfeStage.jsx`. Un stage terminé ne
 réclame plus de pièces. nginx du site étudiant : 26 Mo aussi sur `/api/portail/tfe/remise`.
 
+**TOUTES LES ANNEXES DE LA CIRCULAIRE 9760 DEVIENNENT DES FENÊTRES** (3.5.083, Charles, 2 novembre 2026 : « tu dois intégrer
+TOUS les documents pour qu'ils deviennent des fenêtres, et ensuite imprimer, comme le EA12 » ; tranché : une seule mécanique pour
+toutes ; à vérifier d'abord A2, A3, A5, A7, A8, A18, A14, A15, A29-A33). `services/annexesLibres.js` : `detecter(x)` lit le
+modèle Word UNE FOIS REMPLI de ce que Lucie sait (`remplirIdentite` + `SPECIFIQUES`) et rend les blancs qui restent — `texte`
+(pointillés, soulignés, « _ _ /_ _ /20_ _ »), `cellule` (case vide, nommée par sa voisine de gauche ou par l'en-tête de sa colonne :
+`nomDeColonne`, géométrie des largeurs `tcW`, sous-colonnes « du / au », numéro de ligne compté depuis le dernier rang d'en-tête),
+`grille` (≥ 4 cases étroites vides côte à côte), `case` (case à cocher, nommée par le texte qui suit, sinon qui précède) ;
+signatures et cachets écartés. Identifiant = type + libellé normalisé + rang parmi les mêmes : une saisie retrouve sa place si
+Lucie apprend à remplir un autre blanc. `appliquer(x, valeurs)` écrit de la fin vers le début. Routes `GET/PUT
+/api/formulaires/:cle/libres` (annexe_saisie, clé `libres`, au nom de la personne connectée) ; `remplirAnnexe` pose `d.libres`
+(`donneesCompletes`, donc aussi la série). Écran `components/FenetreAnnexe.jsx` (blancs d'un même tableau en tableau, cases à
+cocher en ligne, Word et aperçu PDF au bandeau), ouvert par l'avion des « Autres annexes » d'Éditions → Personnel (`fenetre` de
+`GET /api/formulaires`). L'A1 ter et l'A27 gardent `SaisieAnnexe`. **L'A27 ne garde que les blocs d'UE remplis** (3.5.082).
+**Le PDF des annexes passe par LibreOffice**, ajouté à l'image du serveur en 3.5.080 (`libreoffice-writer-nogui`).
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux
