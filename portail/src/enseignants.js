@@ -44,6 +44,7 @@ export function monterEnseignants(pub, int, o) {
       motif TEXT, PRIMARY KEY (seance_id, etudiant_id));
     CREATE TABLE IF NOT EXISTS ens_attente (ens_id INTEGER PRIMARY KEY, contenu TEXT);
     CREATE TABLE IF NOT EXISTS ens_reglage (cle TEXT PRIMARY KEY, valeur TEXT);
+    CREATE TABLE IF NOT EXISTS ens_tableau (ens_id INTEGER PRIMARY KEY, contenu TEXT);
     CREATE TABLE IF NOT EXISTS ens_apercu_jeton (jeton_hash TEXT PRIMARY KEY, ens_id INTEGER NOT NULL, par TEXT,
       expire_le TEXT NOT NULL, utilise_le TEXT);
     CREATE TABLE IF NOT EXISTS ens_geste (id INTEGER PRIMARY KEY AUTOINCREMENT, ens_id INTEGER NOT NULL, type TEXT NOT NULL,
@@ -231,6 +232,26 @@ export function monterEnseignants(pub, int, o) {
       seances: db.prepare('SELECT * FROM ens_seance WHERE ens_id = ? AND date BETWEEN ? AND ? ORDER BY date, heure_debut').all(req.ens.id, jours[0], jours[6])
         .map(s => ({ ...s, annule: !!s.annule, visite: !!s.visite })) });
   });
+  // ── MON TABLEAU DE BORD (3.5.086) : ce qui m'attend, mes UE et leur DUE, mes listes, la fiche de mes étudiants ──
+  const tableau = id => { try { return JSON.parse(db.prepare('SELECT contenu FROM ens_tableau WHERE ens_id = ?').get(id)?.contenu || 'null'); } catch { return null; } };
+  pub.get('/api/enseignant/tableau', connecte, (req, res) => {
+    const t = tableau(req.ens.id);
+    if (!t) return res.json({ pret: false });
+    const noms = new Map((t.etudiants || []).map(e => [e.id, e]));
+    res.json({ pret: true, annee: t.annee, a_faire: t.a_faire || [],
+      ues: (t.ues || []).map(u => ({ ue_num: u.ue_num, ue_nom: u.ue_nom, section: u.section, due_statut: u.due_statut, a_due: !!u.due_html,
+        cours: u.cours.map(c => ({ code: c.code, nom: c.nom, etudiants: c.etudiants.map(e => ({ ...e, nom: noms.get(e.id)?.nom || '', prenom: noms.get(e.id)?.prenom || '' })) })) })) });
+  });
+  pub.get('/api/enseignant/due/:ue', connecte, (req, res) => {
+    const u = (tableau(req.ens.id)?.ues || []).find(x => Number(x.ue_num) === Number(req.params.ue));
+    if (!u?.due_html) return res.status(404).json({ error: 'DUE introuvable pour cette unité.' });
+    res.json({ ue_num: u.ue_num, ue_nom: u.ue_nom, statut: u.due_statut, html: u.due_html });
+  });
+  pub.get('/api/enseignant/etudiant/:id', connecte, (req, res) => {
+    const e = (tableau(req.ens.id)?.etudiants || []).find(x => Number(x.id) === Number(req.params.id));
+    if (!e) return res.status(404).json({ error: 'Cet étudiant ne figure dans aucune de vos listes.' });
+    res.json(e);
+  });
   const maSeance = (req, res) => {
     const s = db.prepare('SELECT * FROM ens_seance WHERE id = ? AND ens_id = ? AND visite = 0').get(Number(req.params.id), req.ens.id);
     if (!s) { res.status(404).json({ error: 'Séance introuvable dans vos séances.' }); return null; }
@@ -286,7 +307,9 @@ export function monterEnseignants(pub, int, o) {
   int.post('/interne/ens/depot', (req, res) => {
     const b = req.body || {};
     db.transaction(() => {
-      db.exec('DELETE FROM ens; DELETE FROM ens_seance; DELETE FROM ens_inscrit; DELETE FROM ens_etudiant; DELETE FROM ens_attente;');
+      db.exec('DELETE FROM ens; DELETE FROM ens_seance; DELETE FROM ens_inscrit; DELETE FROM ens_etudiant; DELETE FROM ens_attente; DELETE FROM ens_tableau;');
+      const it = db.prepare('INSERT OR REPLACE INTO ens_tableau (ens_id, contenu) VALUES (?,?)');
+      for (const t of b.tableaux || []) if (Number(t.ens_id)) it.run(Number(t.ens_id), JSON.stringify(t.contenu || {}));
       const ie = db.prepare("INSERT INTO ens (id, nom, prenom, email, maj_le, apercu_seul) VALUES (?,?,?,?, datetime('now'), ?)");
       for (const e of b.enseignants || []) if (Number(e.id) && String(e.email || '').includes('@')) ie.run(Number(e.id), String(e.nom || ''), String(e.prenom || ''), String(e.email), e.apercu_seul ? 1 : 0);
       const is = db.prepare(`INSERT OR REPLACE INTO ens_seance (id, ens_id, date, heure_debut, heure_fin, cours_code, cours_nom, ue_num, matiere, local, annule, visite)

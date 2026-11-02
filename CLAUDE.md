@@ -3431,6 +3431,16 @@ tout sauf GET, sans contrôle de la Belgique) ; bandeau « Aperçu de la directi
 (direction). **L'œil** (`OutilFenetre` `IconEye`, `lib/voirEspace.js`) dans la barre bleue de la fiche du personnel (consultation
 et modification) et de la fiche de l'étudiant, pour la direction (`passeRole('admin')`).
 
+**LE TABLEAU DE BORD DU PROFESSEUR DANS SON ESPACE** (3.5.086, Charles : « les notifications, ce qu'ils ont à faire… les
+présences des leçons passées, les DUE des UE dans lesquelles ils sont, les listes d'étudiants, les fiches des étudiants » ;
+tranché : dans l'espace enseignant ; une fiche PÉDAGOGIQUE). `tableauDe` (`lib/portailEnseignants.js`), déposé avec le reste
+(`tableaux` → `ens_tableau` du portail) : à faire = `ceQuiAttend` (tâches, textes, messages, rappels) + DUE non validées ;
+UE de `attributionsDe` avec `documentDUE` (HTML), cours et étudiants de `etudiantsDuCours` ; fiche par étudiant : section,
+matricule, adresse d'école, par cours présences (séances passées, P/A/J) et notes du carnet, aménagements = MESURES accordées
+seulement. Routes `GET /api/enseignant/tableau|due/:ue|etudiant/:id` (seulement ses étudiants). Écran : « Ce qui m'attend » de
+Ma journée, face « Mes UE et étudiants » (DUE en iframe `sandbox`, fiche en volet). **Le logo de Lucie** est un composant
+partagé (`components/LogoLucie.jsx`), repris par l'espace enseignant. **Horaire** : un seul cadre, une couleur par cours (3.5.085).
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux
