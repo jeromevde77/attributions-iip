@@ -5,10 +5,10 @@
  * défense. Chaque champ s'enregistre en quittant la case.
  */
 import { useEffect, useState } from 'react';
-import { IconPlus, IconTrash, IconFileText } from '@tabler/icons-react';
+import { IconPlus, IconTrash, IconFileText, IconCheck, IconArrowBackUp, IconDownload } from '@tabler/icons-react';
 import { api, authHeaders } from '../lib/api.js';
 import ChoixUnite from './ChoixUnite.jsx';
-import { demander } from '../lib/dialogue.jsx';
+import { demander, saisir } from '../lib/dialogue.jsx';
 import { passeRole } from '../lib/droits.js';
 
 const ECRIT = ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat', 'coordination'];
@@ -52,7 +52,46 @@ export function Jury({ membres, profs, peutEcrire, onChange }) {
     </div>);
 }
 
-function Ligne({ t, profs, peutEcrire, onEnregistre, onSupprime }) {
+/* CE QUI VIENT DE L'ESPACE DE L'ÉTUDIANT (3.5.081) : sa question de recherche (proposée, à accepter ou renvoyer avec un mot)
+   et les fichiers de ses remises. */
+function DepuisLEspace({ t, peutEcrire, ecrire }) {
+  const e = t.espace || { questions: [], depots: [] };
+  const attente = e.questions.find(q => q.etat === 'proposee');
+  const ouvrir = async d => {
+    const r = await fetch(`/api/tfe/depot/${d.id}`, { headers: authHeaders() });
+    if (!r.ok) return;
+    const url = URL.createObjectURL(await r.blob());
+    const a = document.createElement('a'); a.href = url; a.download = d.nom; a.click(); setTimeout(() => URL.revokeObjectURL(url), 5000);
+  };
+  const renvoyer = async q => {
+    const mot = await saisir({ message: 'Ce que vous dites à l’étudiant (il le lit dans son espace)', obligatoire: true });
+    if (mot) ecrire(`/api/tfe/question/${q.id}`, 'POST', { accepter: false, mot });
+  };
+  if (!t.question_recherche && !e.questions.length && !e.depots.length) return null;
+  return (
+    <div className="border-t pt-3 space-y-2 text-sm" style={{ borderColor: 'var(--menu-bord)' }}>
+      <div className="text-second text-slate-600">Question de recherche</div>
+      {t.question_recherche ? <p className="m-0 whitespace-pre-wrap">{t.question_recherche}</p> : <p className="m-0 text-slate-500">Pas encore de question retenue.</p>}
+      {attente && (
+        <div className="bloc-etat px-3 py-2 space-y-2" data-etat="surveiller">
+          <div>Proposée par l’étudiant le {String(attente.proposee_le).slice(0, 10).split('-').reverse().join('/')} :</div>
+          <div className="whitespace-pre-wrap">« {attente.texte} »</div>
+          {peutEcrire && <div className="flex gap-2">
+            <button type="button" className="bouton bouton-fort inline-flex items-center gap-1.5" onClick={() => ecrire(`/api/tfe/question/${attente.id}`, 'POST', { accepter: true })}><IconCheck size={15} /> Accepter</button>
+            <button type="button" className="bouton inline-flex items-center gap-1.5" onClick={() => renvoyer(attente)}><IconArrowBackUp size={15} /> Renvoyer avec un mot</button>
+          </div>}
+        </div>)}
+      {e.depots.length > 0 && <>
+        <div className="text-second text-slate-600 pt-1">Remises déposées depuis son espace</div>
+        <ul className="m-0 pl-0 list-none space-y-1">
+          {e.depots.map(d => <li key={d.id} className="flex items-center gap-2">
+            <button type="button" className="bouton inline-flex items-center gap-1.5" onClick={() => ouvrir(d)}><IconDownload size={14} /> {d.libelle || 'Remise'}</button>
+            <span className="text-second text-slate-500">{d.nom} · {String(d.depose_le).slice(0, 16).replace(' ', ' à ')}</span></li>)}
+        </ul></>}
+    </div>);
+}
+
+function Ligne({ t, profs, peutEcrire, onEnregistre, onSupprime, ecrire }) {
   const [v, setV] = useState(t);
   useEffect(() => setV(t), [t]);
   const garder = async (champ, valeur) => {
@@ -97,6 +136,7 @@ function Ligne({ t, profs, peutEcrire, onEnregistre, onSupprime }) {
         </div>
       </div>
       <Jury membres={t.membres || []} profs={profs} peutEcrire={peutEcrire} onChange={m => onEnregistre(t.id, { membres: m })} />
+      <DepuisLEspace t={t} peutEcrire={peutEcrire} ecrire={ecrire} />
       <label className="block text-second text-slate-600">Remarques
         <textarea rows={2} className="controle w-full mt-1 h-auto py-2 text-sm" {...champ('remarques')} />
       </label>
@@ -151,6 +191,6 @@ export default function Tfe({ etudId, annee }) {
       {!liste.length
         ? <p className="text-second text-slate-500">Aucun TFE encodé pour cet étudiant.</p>
         : liste.map(t => <Ligne key={t.id} t={t} profs={profs} peutEcrire={peutEcrire}
-            onEnregistre={(id, champs) => ecrire(`/api/tfe/${id}`, 'PUT', champs)} onSupprime={supprimer} />)}
+            onEnregistre={(id, champs) => ecrire(`/api/tfe/${id}`, 'PUT', champs)} onSupprime={supprimer} ecrire={ecrire} />)}
     </div>);
 }

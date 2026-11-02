@@ -14,6 +14,19 @@ export const ajouts = {
       ],
     },
   ],
+  espace: [
+    {
+      titre: "Mon TFE et Mon stage, dans l'espace de l'étudiant",
+      pour: 'sec coo dir',
+      ou: "Espace de l'étudiant → Mon TFE, Mon stage. Ouverture : Configuration → Accès → Mise en service, « Mon TFE » et « Mon stage ».",
+      texte: "Mon TFE montre le titre, le jury, les remises attendues (reçues ou non) et la défense. L'étudiant y propose sa question de recherche et y dépose chaque remise (PDF, Word ou image, 25 Mo au plus) : la remise est marquée reçue au jour du dépôt, à son nom. Il y lit aussi les fiches d'évaluation (les acquis et ce qui sera regardé, jamais une note). Mon stage montre le lieu, les dates, le superviseur et le maître de stage, les pièces qui manquent encore avant de commencer, les visites prévues et les fiches d'évaluation du stage.",
+      savoir: [
+        "La question de recherche n'est qu'une proposition : dans la fiche de l'étudiant → onglet TFE, [[Accepter|IconCheck|fort]] en fait la question du TFE ; [[Renvoyer avec un mot|IconArrowBackUp]] la lui rend, avec ce mot. La coordination de la section et le promoteur (s'il a un compte) sont prévenus au tableau de bord.",
+        "Les fichiers déposés se retrouvent au même endroit, sous « Remises déposées depuis son espace ».",
+        "Les deux fonctions naissent éteintes : essai sur quelques étudiants d'abord, comme le reste de l'espace.",
+      ],
+    },
+  ],
   demarrage: [
     {
       titre: "Qui a accès à quoi : les écrans de novembre",

@@ -2981,6 +2981,7 @@ try { migrerCep(db); } catch (e) { console.error('[migration] congé-éducation 
 try { migrerStages(db); } catch (e) { console.error('[migration] stages :', e.message); }
 try { migrerTfe(db); } catch (e) { console.error('[migration] tfe :', e.message); }
 try { migrerFiches(db); } catch (e) { console.error('[migration] fiches d’évaluation :', e.message); }
+try { (await import('./lib/portailTfeStage.js')).migrerTfeEspace(db); } catch (e) { console.error('[migration] TFE de l’espace :', e.message); }
 try { db.exec('ALTER TABLE attribution ADD COLUMN fonds_propres INTEGER NOT NULL DEFAULT 0'); } catch { /* déjà là */ }
 try { migrerSectionDiplome(db); } catch (e) { console.error('[migration] données du titre :', e.message); }
 try { migrerConventions(db); } catch (e) { console.error('[migration] conventions :', e.message); }

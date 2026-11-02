@@ -3392,6 +3392,19 @@ changement de cours. **À venir** : le remplissage depuis l'espace enseignant (p
 maître de stage (sans compte : encodé par le superviseur en attendant) ; un responsable sans accès à Organisation (professeur) ne
 voit pas encore la face.
 
+**MON TFE ET MON STAGE DANS L'ESPACE DE L'ÉTUDIANT** (3.5.081, Charles, 2 novembre 2026 : « un onglet stage et un onglet
+TFE, avec des infos ; pour le TFE il pourrait y entrer sa question de recherche » ; tranché : tout ce qui était proposé, deux
+fonctions nées éteintes). Fonctions `espace.tfe`, `espace.stage` (`lib/fonctions.js`). Lucie : `lib/portailTfeStage.js` —
+`tfePortail`, `stagePortail` déposés avec le lot de l'étudiant (`deposerVA` → `/interne/va`, colonnes `tfe`, `stage` d'`espace_lot`
+du portail) ; gestes `ts_geste` du portail (question, remise ; la remise ne vit là que jusqu'au relevé) relevés par `relever`
+(`r.ts`, `/interne/ts/piece/:id`) et jugés par `appliquerGesteTfe`. **La question n'est qu'une proposition** (`tfe_question` :
+proposée → acceptée, elle devient `tfe.question_recherche`, ou renvoyée avec un mot) ; une remise déposée = fichier sous
+`DATA_DIR/tfe/<id>` (`tfe_depot`) et `tfe_remise` reçue au jour du dépôt, au nom de l'étudiant (un second dépôt ne déplace pas
+la date). Coordination de la section et promoteur/copromoteur (compte relié) prévenus (`lucie_notification` type `tfe_espace`).
+Fiche → onglet TFE (`components/Tfe.jsx`, `DepuisLEspace`) : Accepter, Renvoyer avec un mot (`POST /api/tfe/question/:qid`),
+ouvrir un dépôt (`GET /api/tfe/depot/:id`). Écran étudiant : `frontend/src/portail/TfeStage.jsx`. Un stage terminé ne
+réclame plus de pièces. nginx du site étudiant : 26 Mo aussi sur `/api/portail/tfe/remise`.
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux

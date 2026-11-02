@@ -126,6 +126,13 @@ db.exec(`
     WHEN OLD.signe_le IS NOT NULL BEGIN SELECT RAISE(ABORT, 'Un accusé signé ne s''efface pas.'); END;
 `);
 
+/* LE TFE ET LE STAGE (3.5.081) : déposés par Lucie avec le lot de l'étudiant ; les gestes TFE (question, remise) attendent ici
+   le relevé de Lucie, qui les juge. Une remise ne vit ici que jusqu'au relevé. */
+for (const c of ['tfe TEXT', 'stage TEXT']) { try { db.exec(`ALTER TABLE espace_lot ADD COLUMN ${c}`); } catch { /* déjà là */ } }
+db.exec(`CREATE TABLE IF NOT EXISTS ts_geste (id INTEGER PRIMARY KEY AUTOINCREMENT, etudiant_id INTEGER NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('question','remise')), tfe_id INTEGER, jalon_id INTEGER, nom TEXT, taille INTEGER, contenu BLOB,
+  texte TEXT, cree_le TEXT NOT NULL DEFAULT (datetime('now')), releve_le TEXT, erreur TEXT, vu_le TEXT)`);
+
 /* LA MOTIVATION PAR ACQUIS (3.5.006) : un type de geste de plus et sa colonne. Une contrainte CHECK ne se
    modifie pas en SQLite : la table se reconstruit, ses lignes recopiées. */
 if (!/'motiver'/.test(db.prepare("SELECT sql FROM sqlite_master WHERE name = 'va_geste'").get()?.sql || '')) {
@@ -391,7 +398,7 @@ pub.post('/api/portail/session', (req, res) => {
 try { db.exec('ALTER TABLE etudiant ADD COLUMN fonctions TEXT'); } catch { /* déjà là */ }
 const fonctionsDe = id => { try { return JSON.parse(db.prepare('SELECT fonctions FROM etudiant WHERE id = ?').get(id)?.fonctions || '[]'); } catch { return []; } };
 /** L'aperçu de la direction voit TOUT l'espace, fonctions éteintes comprises (3.5.023) ; l'étudiant, ses seules fonctions. */
-const TOUTES = ['documents', 'depot_office', 'resultats', 'reglements', 'messages', 'parcours', 'frais', 'va', 'pae', 'candidats'];
+const TOUTES = ['documents', 'depot_office', 'resultats', 'reglements', 'messages', 'parcours', 'frais', 'va', 'pae', 'candidats', 'tfe', 'stage'];
 const fonctionsVues = req => (req.apercu ? TOUTES : fonctionsDe(req.etudiant?.id));
 /** Une route d'une fonction fermée pour cet étudiant : 404, comme si elle n'existait pas. */
 const exige = f => (req, res, next) => (fonctionsVues(req).includes(f) ? next()
@@ -666,6 +673,55 @@ pub.get('/api/portail/frais', connecte, exige('frais'), (req, res) => {
   res.json({ pret: !!l, frais: l ? JSON.parse(l.frais || 'null') : null, maj_le: l?.maj_le || null });
 });
 
+// ── MON TFE, MON STAGE (3.5.081) ──
+pub.get('/api/portail/tfe', connecte, exige('tfe'), (req, res) => {
+  const id = req.etudiant.id, l = lotEspace(id);
+  const enAttente = db.prepare('SELECT id, type, tfe_id, jalon_id, nom, texte, cree_le FROM ts_geste WHERE etudiant_id = ? AND releve_le IS NULL ORDER BY id').all(id);
+  const refus = db.prepare('SELECT id, type, nom, erreur FROM ts_geste WHERE etudiant_id = ? AND erreur IS NOT NULL AND vu_le IS NULL ORDER BY id').all(id);
+  res.json({ pret: !!l, tfe: l ? JSON.parse(l.tfe || 'null') : null, maj_le: l?.maj_le || null, en_attente: enAttente, refus });
+});
+pub.post('/api/portail/tfe/refus-lus', connecte, exige('tfe'), (req, res) => {
+  db.prepare("UPDATE ts_geste SET vu_le = datetime('now') WHERE etudiant_id = ? AND erreur IS NOT NULL AND vu_le IS NULL").run(req.etudiant.id);
+  res.json({ ok: true });
+});
+const monTfe = (req, res, tfeId) => {
+  const l = lotEspace(req.etudiant.id);
+  const t = (l ? JSON.parse(l.tfe || 'null') || [] : []).find(x => Number(x.id) === Number(tfeId));
+  if (!t) res.status(404).json({ error: 'TFE introuvable.' });
+  return t || null;
+};
+const gesteTs = (req, res, champs) => {
+  if (db.prepare(`SELECT COUNT(*) n FROM ts_geste WHERE etudiant_id = ? AND cree_le > datetime('now', '-1 hour')`).get(req.etudiant.id).n >= 30) {
+    res.status(429).json({ error: 'Trop de gestes en une heure. Réessayez plus tard.' }); return false;
+  }
+  db.prepare('INSERT INTO ts_geste (etudiant_id, type, tfe_id, jalon_id, nom, taille, contenu, texte) VALUES (?,?,?,?,?,?,?,?)')
+    .run(req.etudiant.id, champs.type, champs.tfe_id ?? null, champs.jalon_id ?? null, champs.nom ?? null, champs.contenu?.length ?? null, champs.contenu ?? null, champs.texte ?? null);
+  return true;
+};
+pub.post('/api/portail/tfe/question', connecte, exige('tfe'), (req, res) => {
+  if (!monTfe(req, res, req.body?.tfe_id)) return;
+  const texte = String(req.body?.texte || '').trim();
+  if (texte.length < 10) return res.status(400).json({ error: 'Écrivez votre question de recherche (dix caractères au moins).' });
+  if (texte.length > 2000) return res.status(400).json({ error: 'Deux mille caractères au plus.' });
+  if (gesteTs(req, res, { type: 'question', tfe_id: Number(req.body.tfe_id), texte })) res.json({ ok: true });
+});
+pub.post('/api/portail/tfe/remise', connecte, exige('tfe'), express.raw({ type: 'application/octet-stream', limit: '25mb' }), (req, res) => {
+  const t = monTfe(req, res, req.query.tfe_id);
+  if (!t) return;
+  const jalon = Number(req.query.jalon_id);
+  if (!(t.remises || []).some(r => Number(r.jalon_id) === jalon)) return res.status(404).json({ error: 'Cette remise n’est pas au calendrier.' });
+  const b = Buffer.isBuffer(req.body) ? req.body : null;
+  if (!b || !b.length) return res.status(400).json({ error: 'Aucun fichier reçu.' });
+  if (!typeReel(b)) return res.status(400).json({ error: "Ce fichier n'est pas un PDF, une image ou un document Word valable." });
+  if (gesteTs(req, res, { type: 'remise', tfe_id: t.id, jalon_id: jalon, nom: String(req.query.nom || '').slice(0, 150), contenu: b })) res.json({ ok: true });
+});
+pub.use('/api/portail/tfe/remise', (err, req, res, next) => (err?.type === 'entity.too.large'
+  ? res.status(413).json({ error: 'Fichier trop lourd (25 Mo au plus).' }) : next(err)));
+pub.get('/api/portail/stage', connecte, exige('stage'), (req, res) => {
+  const l = lotEspace(req.etudiant.id);
+  res.json({ pret: !!l, stage: l ? JSON.parse(l.stage || 'null') : null, maj_le: l?.maj_le || null });
+});
+
 // ── LES MESSAGES (3.1.516) ──
 pub.get('/api/portail/messages', connecte, exige('messages'), (req, res) => {
   const id = req.etudiant.id;
@@ -841,17 +897,25 @@ int.post('/interne/va', (req, res) => {
     ON CONFLICT(etudiant_id) DO UPDATE SET offre = excluded.offre, etat = excluded.etat, maj_le = excluded.maj_le`);
   const ie = db.prepare(`INSERT INTO espace_lot (etudiant_id, parcours, frais, maj_le) VALUES (?,?,?, datetime('now'))
     ON CONFLICT(etudiant_id) DO UPDATE SET parcours = excluded.parcours, frais = excluded.frais, maj_le = excluded.maj_le`);
+  const its = db.prepare(`UPDATE espace_lot SET tfe = ?, stage = ? WHERE etudiant_id = ?`);
   const ip = db.prepare(`INSERT INTO pae_lot (etudiant_id, offre, maj_le) VALUES (?,?, datetime('now'))
     ON CONFLICT(etudiant_id) DO UPDATE SET offre = excluded.offre, maj_le = excluded.maj_le`);
   db.transaction(() => { for (const x of l) if (Number(x.etudiant_id)) {
     i.run(Number(x.etudiant_id), JSON.stringify(x.offre ?? null), JSON.stringify(x.etat ?? []));
     if (x.pae !== undefined) ip.run(Number(x.etudiant_id), JSON.stringify(x.pae ?? null));
     if (x.parcours !== undefined || x.frais !== undefined) ie.run(Number(x.etudiant_id), JSON.stringify(x.parcours ?? null), JSON.stringify(x.frais ?? null));
+    if (x.tfe !== undefined || x.stage !== undefined) its.run(JSON.stringify(x.tfe ?? null), JSON.stringify(x.stage ?? null), Number(x.etudiant_id));
   } })();
   res.json({ ok: true, n: l.length });
 });
 int.get('/interne/va/piece/:id', (req, res) => {
   const g = db.prepare(`SELECT contenu FROM va_geste WHERE id = ? AND type = 'piece' AND releve_le IS NULL`).get(Number(req.params.id));
+  if (!g?.contenu) return res.status(404).end();
+  res.setHeader('Content-Type', 'application/octet-stream'); res.send(g.contenu);
+});
+
+int.get('/interne/ts/piece/:id', (req, res) => {
+  const g = db.prepare(`SELECT contenu FROM ts_geste WHERE id = ? AND type = 'remise' AND releve_le IS NULL`).get(Number(req.params.id));
   if (!g?.contenu) return res.status(404).end();
   res.setHeader('Content-Type', 'application/octet-stream'); res.send(g.contenu);
 });
@@ -907,6 +971,7 @@ int.get('/interne/releve', (req, res) => {
     // Les gestes de valorisation, dans l'ordre (la pièce se lit à part, /interne/va/piece/:id).
     va: db.prepare('SELECT id, etudiant_id, type, ue_num, porte, fichier_id, nature, nom, taille, texte FROM va_geste WHERE releve_le IS NULL ORDER BY id LIMIT 50').all(),
     pae: db.prepare('SELECT id, etudiant_id, type, annee, ues, programme, ip, signe_le FROM pae_geste WHERE releve_le IS NULL ORDER BY id LIMIT 100').all(),
+    ts: db.prepare('SELECT id, etudiant_id, type, tfe_id, jalon_id, nom, taille, texte FROM ts_geste WHERE releve_le IS NULL ORDER BY id LIMIT 30').all(),
     messages_lus: db.prepare('SELECT id, message_id, etudiant_id, lu_le FROM message_lu WHERE releve_le IS NULL LIMIT 500').all(),
     messages_reponses: db.prepare('SELECT id, message_id, etudiant_id, corps, le FROM message_reponse WHERE releve_le IS NULL ORDER BY id LIMIT 200').all(),
   });
@@ -925,6 +990,10 @@ int.post('/interne/acquitter', (req, res) => {
     db.prepare("DELETE FROM va_geste WHERE releve_le < datetime('now', '-30 days')").run();
     for (const id of ids('messages_lus')) db.prepare("UPDATE message_lu SET releve_le = datetime('now') WHERE id = ?").run(id);
     for (const id of ids('messages_reponses')) db.prepare("UPDATE message_reponse SET releve_le = datetime('now') WHERE id = ?").run(id);
+    for (const g of Array.isArray(req.body?.ts) ? req.body.ts : []) {
+      db.prepare("UPDATE ts_geste SET releve_le = datetime('now'), erreur = ?, contenu = NULL WHERE id = ?").run(g.erreur ? String(g.erreur).slice(0, 300) : null, Number(g.id));
+    }
+    db.prepare("DELETE FROM ts_geste WHERE releve_le < datetime('now', '-30 days')").run();
     for (const g of Array.isArray(req.body?.pae) ? req.body.pae : []) {
       db.prepare("UPDATE pae_geste SET releve_le = datetime('now'), erreur = ? WHERE id = ?").run(g.erreur ? String(g.erreur).slice(0, 300) : null, Number(g.id));
     }
