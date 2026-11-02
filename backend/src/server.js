@@ -67,6 +67,7 @@ import cepRoutes from './routes/cep.js';
 import { migrerCep } from './lib/cep.js';
 import stagesRoutes, { migrerStages } from './routes/stages.js';
 import tfeRoutes, { migrerTfe } from './routes/tfe.js';
+import fichesEvaluationRoutes, { migrerFiches } from './routes/fichesEvaluation.js';
 import conventionsRoutes, { migrerConventions } from './routes/conventions.js';
 import attestationsRoutes, { migrerAttestations } from './routes/attestations.js';
 import dueRoutes, { migrerDUE } from './routes/due.js';
@@ -2979,6 +2980,7 @@ try { migrerAmenagements(db); } catch (e) { console.error('[migration] aménagem
 try { migrerCep(db); } catch (e) { console.error('[migration] congé-éducation :', e.message); }
 try { migrerStages(db); } catch (e) { console.error('[migration] stages :', e.message); }
 try { migrerTfe(db); } catch (e) { console.error('[migration] tfe :', e.message); }
+try { migrerFiches(db); } catch (e) { console.error('[migration] fiches d’évaluation :', e.message); }
 try { db.exec('ALTER TABLE attribution ADD COLUMN fonds_propres INTEGER NOT NULL DEFAULT 0'); } catch { /* déjà là */ }
 try { migrerSectionDiplome(db); } catch (e) { console.error('[migration] données du titre :', e.message); }
 try { migrerConventions(db); } catch (e) { console.error('[migration] conventions :', e.message); }
@@ -3222,6 +3224,8 @@ app.use('/api/effectifs-prevus', effectifsPrevusRoutes);
 app.use('/api/cep', cepRoutes);
 app.use('/api/stages', garderModuleSauf('stages', ['coordination']), stagesRoutes);
 app.use('/api/tfe', garderModuleSauf('etudiants', ['coordination']), tfeRoutes);
+// Les fiches d'évaluation (TFE, stages) : direction, coordination de la section, responsables désignés — décidé route par route.
+app.use('/api/fiches-evaluation', fichesEvaluationRoutes);
 app.use('/api/conventions', garderModule('stages'), conventionsRoutes);
 app.use('/api/attestations', garderModule('attestations'), attestationsRoutes);
 app.use('/api/annexe2', garderModule('annexe2'), annexe2Routes);

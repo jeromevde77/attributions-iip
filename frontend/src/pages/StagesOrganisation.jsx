@@ -12,6 +12,7 @@ import { EnteteCarte, Tableau, TableauEntete, Th, Td, Tr, PastilleEtat, TuileEta
 import { authHeaders } from '../lib/api.js';
 import { demander, informer } from '../lib/dialogue.jsx';
 import { VisitesTrajets } from '../components/VisitesStage.jsx';
+import FichesEvaluation from '../components/FichesEvaluation.jsx';
 
 const fr = d => (d ? String(d).slice(0, 10).split('-').reverse().join('/') : '—');
 const STATUTS = { prevu: 'Prévu', autorise: 'Autorisé', en_cours: 'En cours', termine: 'Terminé', rompu: 'Rompu', annule: 'Annulé' };
@@ -28,7 +29,7 @@ export default function StagesOrganisation({ annee }) {
     appel(`/api/stages/propositions?annee=${encodeURIComponent(annee)}`).then(l => setNProp(l.length)).catch(() => setNProp(0));
   };
   useEffect(() => { if (annee) charger(); }, [annee]);
-  const faces = [['ensemble', 'Vue d’ensemble'], ['pieces', `Pièces manquantes${d?.synthese?.incomplets ? ` (${d.synthese.incomplets})` : ''}`], ['lot', 'Affecter en lot'], ['propositions', `Propositions${nProp ? ` (${nProp})` : ''}`], ['trajets', 'Visites et trajets']];
+  const faces = [['ensemble', 'Vue d’ensemble'], ['pieces', `Pièces manquantes${d?.synthese?.incomplets ? ` (${d.synthese.incomplets})` : ''}`], ['lot', 'Affecter en lot'], ['propositions', `Propositions${nProp ? ` (${nProp})` : ''}`], ['trajets', 'Visites et trajets'], ['fiches', 'Fiches d’évaluation']];
   return (
     <div className="space-y-4">
       <div>
@@ -44,6 +45,7 @@ export default function StagesOrganisation({ annee }) {
         {face === 'lot' && <Lot annee={annee} recharger={charger} />}
         {face === 'propositions' && <Propositions annee={annee} recharger={charger} />}
         {face === 'trajets' && <Trajets />}
+        {face === 'fiches' && <FichesEvaluation annee={annee} domaine="stage" />}
       </>}
     </div>
   );

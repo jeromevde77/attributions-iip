@@ -3379,6 +3379,19 @@ lit la note de chaque acquis d'une évaluation par acquis) ; la note d'ensemble 
 `espace_enseignant_url` de `GET /api/fonctions/moi`) voit à son arrivée `PontEspaceEnseignant` (une fois par session) ;
 une coordination non. **Reste pour Mes TFE** : la fiche de notation dans l'espace enseignant (promoteur), versée dans ce carnet.
 
+**LES FICHES D'ÉVALUATION DU TFE ET DES STAGES** (3.5.079, Charles, 2 novembre 2026 : « paramétrable en ligne par la
+coordination TFE ou cursus ou la personne en charge des TFE ; de même pour les stages » ; « une fiche pour le lieu de stage, une
+pour le superviseur, etc. »). Organisation → TFE et → Stages, face *Fiches d'évaluation* (`components/FichesEvaluation.jsx`,
+`routes/fichesEvaluation.js` sur `/api/fiches-evaluation`, tables `fiche_modele`, `fiche_critere`, `fiche_responsable`). Une fiche
+(par UE et année : épreuve intégrée pour le TFE, UE à cours `is_stage` pour les stages) = nom, qui la remplit (`REMPLI_PAR` :
+promoteur, copromoteur, lecteur, président, jury ; superviseur, maître de stage, étudiant), moment, sur, poids, cours qui porte la
+note, critères (acquis du cours, poids, consigne). **Elle s'écrit comme une évaluation `par_acquis` du carnet** (`evaluation_id`) :
+aucune seconde source de notes. Règlent : direction, coordination de la section, responsables désignés par section et domaine
+(désignés par la direction ou la coordination). Gardes du carnet : fiche notée non supprimable, acquis noté non retirable, pas de
+changement de cours. **À venir** : le remplissage depuis l'espace enseignant (promoteur, jury, superviseur) ; une porte pour le
+maître de stage (sans compte : encodé par le superviseur en attendant) ; un responsable sans accès à Organisation (professeur) ne
+voit pas encore la face.
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux

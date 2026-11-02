@@ -112,6 +112,17 @@ export const ajouts = {
       ],
     },
     {
+      titre: "Les fiches d'évaluation du TFE et des stages",
+      pour: 'coo dir',
+      ou: "Organisation → Travaux de fin d'études → Fiches d'évaluation (et Organisation → Stages → Fiches d'évaluation).",
+      texte: "Chaque épreuve intégrée (et chaque UE de stage) a ses fiches : « Écrit », « Oral », « Fiche du lieu de stage », « Fiche du superviseur »… autant que le dispositif en demande. Une fiche dit qui la remplit (promoteur, jury de commun accord, maître de stage, superviseur…), quand, sur combien, et ses critères : les acquis évalués, leur poids, et ce qu'on y regarde. [[Nouvelle fiche|IconPlus]], ou un des modèles proposés quand l'UE n'en a encore aucune. Enregistrée, la fiche devient une évaluation du carnet de cotes du cours qui la porte, notée acquis par acquis : la note rejoint la feuille de notes comme toute autre.",
+      savoir: [
+        "Règlent les fiches : la direction, la coordination de la section, et les responsables désignés en tête de la face (« Désigner… ») — la personne en charge des TFE ou des stages.",
+        "Une fiche qui porte déjà des notes ne se supprime pas, et on n'en retire pas un acquis déjà noté.",
+        "Les acquis se lient au cours d'abord (Pondérations) : une fiche ne propose que les acquis du cours qui porte la note.",
+      ],
+    },
+    {
       titre: "Ceux qui n'ont pas encore de TFE",
       pour: 'sec coo dir',
       ou: "Organisation → Travaux de fin d'études → Sans TFE.",
