@@ -1,3 +1,4 @@
+import { styleTuileCours } from '../lib/teinteCours.js';
 import { useEffect, useState } from 'react';
 import { IconCalendarWeek, IconChevronLeft, IconChevronRight, IconMapPin } from '@tabler/icons-react';
 import { Fenetre, Encadre } from './ui.jsx';
@@ -17,9 +18,11 @@ const jjmm = iso => iso.slice(8, 10) + '/' + iso.slice(5, 7);
 
 function Seance({ s, style }) {
   return (
-    <div className={`absolute left-1 right-1 rounded-champ border px-2 py-1 overflow-hidden text-left
-                     ${s.annule ? 'bg-white border-dashed border-slate-300 text-slate-400 line-through' : 'bg-white border-slate-200'}`}
-      style={{ ...style, borderLeft: s.annule ? undefined : `4px solid ${s.visite ? 'var(--c-accent)' : 'var(--c-principal)'}` }}
+    <div className={`absolute left-1 right-1 rounded-r-champ px-2 py-1 overflow-hidden text-left
+                     ${s.annule ? 'bg-white border border-dashed border-slate-300 text-slate-400 line-through' : ''}`}
+      /* Chaque cours sa couleur, bande plus foncée que le fond, sans filet (3.5.085) ; la visite garde l'accent. */
+      style={{ ...style, ...(s.annule ? {} : s.visite ? { background: 'color-mix(in srgb, var(--c-accent) 16%, var(--blanc, #fff))', borderLeft: '4px solid var(--c-accent)' }
+        : styleTuileCours(s.cours_code, { filet: false })) }}
       title={`${s.cours_nom} — ${hm(s.heure_debut)} à ${hm(s.heure_fin)}${s.local ? ` — ${s.local}` : ''}${s.annule ? ' — annulée' : ''}`}>
       <div className="text-mention tabular-nums text-slate-500">{s.sans_heure ? 'heure à préciser' : `${hm(s.heure_debut)} – ${hm(s.heure_fin)}`}{s.annule && <span className="no-underline"> · annulée</span>}</div>
       <div className="text-second font-semibold text-iip-texte leading-tight">{s.cours_nom || s.cours_code}</div>
@@ -84,16 +87,16 @@ export default function MonHoraireSemaine({ onFermer }) {
                 <div key={h} className="absolute right-1.5 text-mention text-slate-400 tabular-nums"
                   style={{ top: 28 + (h * 60 - debut) * ppm - 6 }}>{h} h</div>))}
             </div>
-            <div className="flex-1 grid gap-1.5 min-w-0" style={{ gridTemplateColumns: `repeat(${visibles.length}, minmax(0, 1fr))` }}>
+            {/* Un seul cadre (3.5.085) : les jours sont des colonnes séparées par un filet, pas des cadres. */}
+            <div className="flex-1 grid min-w-0 border border-slate-200 rounded-champ overflow-hidden divide-x divide-slate-200 bg-white" style={{ gridTemplateColumns: `repeat(${visibles.length}, minmax(0, 1fr))` }}>
               {visibles.map(j => {
                 const i = jours.indexOf(j);
                 const auj = j === data.aujourdhui;
                 return (
                   <div key={j} className="min-w-0">
-                    <div className={`h-7 text-center text-second font-semibold ${auj ? 'text-iip-blue' : 'text-slate-600'}`}>
+                    <div className={`h-7 leading-7 text-center text-second font-semibold border-b border-slate-200 ${auj ? 'text-iip-blue' : 'text-slate-600'}`}>
                       {JOURS[i]} <span className="font-normal text-slate-400 tabular-nums">{jjmm(j)}</span></div>
-                    <div className={`relative rounded-champ border ${auj ? 'border-iip-blue/40' : 'border-slate-200'}`}
-                      style={{ height: (fin - debut) * ppm, background: 'rgb(var(--gris-50, 248 250 252))' }}>
+                    <div className="relative" style={{ height: (fin - debut) * ppm }}>
                       {heures.map(h => <div key={h} className="absolute left-0 right-0 border-t border-slate-200/70" style={{ top: (h * 60 - debut) * ppm }} />)}
                       {seances.filter(s => s.date === j).map(s => (
                         <Seance key={s.id} s={s} style={{ top: (min(s.heure_debut) - debut) * ppm + 1,

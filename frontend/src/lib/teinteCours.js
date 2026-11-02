@@ -28,12 +28,14 @@ export function teinteCours(code) {
   return nuancer(base, m ? NUANCES[(Number(m[2]) - 1 + NUANCES.length) % NUANCES.length] : 0);
 }
 
-/** Le style d'une tuile : fond teinté, liseré gauche, filet. */
-export function styleTuileCours(code, { fond = 18 } = {}) {
+/** Le style d'une tuile : fond teinté, liseré gauche plus foncé que le fond, et (au choix) un filet. `filet: false` — un seul
+ *  cadre, celui de l'horaire (3.5.085, Charles : « trop de cadres… un seul ; chaque cours une couleur différente, bande latérale
+ *  plus foncée que le fond »), pour l'horaire du professeur dans Lucie et dans son espace. */
+export function styleTuileCours(code, { fond = 18, filet = true } = {}) {
   const c = teinteCours(code);
   return {
-    background: `color-mix(in srgb, ${c} ${fond}%, var(--blanc))`,
+    background: `color-mix(in srgb, ${c} ${fond}%, var(--blanc, #fff))`,
     borderLeft: `4px solid ${c}`,
-    boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${c} 35%, var(--blanc))`,
+    ...(filet ? { boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${c} 35%, var(--blanc, #fff))` } : {}),
   };
 }

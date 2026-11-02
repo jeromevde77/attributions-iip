@@ -1,3 +1,4 @@
+import { teinteCours, styleTuileCours } from '../lib/teinteCours.js';
 import { useCallback, useEffect, useState } from 'react';
 import { IconSun, IconUserCheck, IconCalendarWeek, IconUserCircle, IconLogout, IconChevronLeft, IconChevronRight, IconCheck, IconDevices, IconTrash, IconLock, IconMapPin } from '@tabler/icons-react';
 
@@ -138,7 +139,8 @@ function ChoisirMotDePasse({ onFait, avecActuel }) {
 function CarteSeance({ s, onPresences }) {
   const fait = s.presences && s.presences.attendus && s.presences.prises >= s.presences.attendus;
   return (
-    <article className="bg-white border border-slate-200 rounded-carte p-4 flex flex-col gap-2">
+    <article className="bg-white border border-slate-200 rounded-carte p-4 flex flex-col gap-2"
+      style={s.annule || s.visite ? undefined : { borderLeft: `4px solid ${teinteCours(s.cours_code)}`, borderTopLeftRadius: 0, borderBottomLeftRadius: 0 }}>
       <div className="flex items-center justify-between gap-2">
         <span className="text-second text-slate-500">{h(s.heure_debut)}{s.heure_fin ? ` – ${h(s.heure_fin)}` : ''}{s.local ? ` · ${s.local}` : ''}</span>
         {s.annule ? <span className="px-2 py-0.5 rounded-pastille text-mention text-white" style={{ background: 'var(--c-refuse, #9D4A38)' }}>annulée</span>
@@ -278,18 +280,21 @@ function MonHoraire({ moi, onPresences }) {
           <button type="button" className="bouton controle" aria-label="Semaine suivante" onClick={() => setRef(decaler(ref, 7))}><IconChevronRight size={16} /></button>
         </div>
       </header>
+      {/* UN SEUL CADRE (3.5.085, Charles : « trop de cadres… un seul ») : la semaine est un cadre, les jours des colonnes séparées
+          par un filet, chaque cours sa couleur (fond pâle, bande plus foncée) — celle de l'horaire de Lucie (teinteCours). */}
       {!d ? <p className="text-slate-500">Chargement…</p> : (
-        <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(auto-fit, minmax(10rem, 1fr))` }}>
+        <div className="bg-white border border-slate-200 rounded-carte overflow-hidden grid divide-y md:divide-y-0 md:divide-x divide-slate-200"
+          style={{ gridTemplateColumns: `repeat(auto-fit, minmax(10rem, 1fr))` }}>
           {jours.map(j => (
-            <div key={j} className={`bg-white border rounded-carte p-3 flex flex-col gap-2 md:min-h-[12rem] ${j === d.aujourdhui ? 'border-iip-blue' : 'border-slate-200'}`}>
-              <span className="font-semibold text-iip-texte first-letter:uppercase">{jourFr(j)}</span>
+            <div key={j} className="p-3 flex flex-col gap-2 md:min-h-[12rem]">
+              <span className={`font-semibold first-letter:uppercase ${j === d.aujourdhui ? 'text-iip-blue' : 'text-iip-texte'}`}>{jourFr(j)}{j === d.aujourdhui ? ' · aujourd’hui' : ''}</span>
               {d.seances.filter(s => s.date === j).map(s => (
                 <button key={s.id} type="button" disabled={s.visite || s.annule} onClick={() => onPresences(s.id)}
-                  className="text-left rounded-champ px-2.5 py-2 flex flex-col gap-0.5"
-                  style={{ background: 'var(--page-fond, #F5F7FA)', borderLeft: `4px solid ${s.visite ? '#F9B619' : 'var(--c-principal, #19537E)'}` }}>
-                  <span className="text-mention text-slate-500">{h(s.heure_debut)}{s.heure_fin ? ` – ${h(s.heure_fin)}` : ''}</span>
-                  <span className={`text-sm font-medium ${s.annule ? 'line-through text-slate-400' : ''}`}>{s.cours_nom || s.cours_code}</span>
-                  {s.local && <span className="text-mention text-slate-500 inline-flex items-center gap-1">{s.visite && <IconMapPin size={12} />}{s.local}</span>}
+                  className="text-left rounded-r-champ px-2.5 py-2 flex flex-col gap-0.5"
+                  style={s.annule ? { background: '#F4F5F7', borderLeft: '4px solid #C9CED6' } : s.visite ? { background: 'color-mix(in srgb, #F9B619 18%, #fff)', borderLeft: '4px solid #B8860B' } : styleTuileCours(s.cours_code, { filet: false })}>
+                  <span className="text-mention text-slate-600">{h(s.heure_debut)}{s.heure_fin ? ` – ${h(s.heure_fin)}` : ''}</span>
+                  <span className={`text-sm font-medium ${s.annule ? 'line-through text-slate-400' : 'text-iip-texte'}`}>{s.cours_nom || s.cours_code}</span>
+                  {s.local && <span className="text-mention text-slate-600 inline-flex items-center gap-1">{s.visite && <IconMapPin size={12} />}{s.local}</span>}
                 </button>))}
               {!d.seances.some(s => s.date === j) && <span className="text-second text-slate-400">—</span>}
             </div>))}
