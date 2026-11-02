@@ -118,7 +118,7 @@ function Remise({ t, r, enCours, jeton, onFait, onErreur }) {
     <div className="px-4 py-3 flex flex-wrap items-center gap-3">
       <span className={`flex-none ${etat === 'reussi' ? 'text-emerald-700' : etat === 'corriger' ? 'text-red-700' : 'text-slate-400'}`}>
         {r.recu_le ? <IconCheck size={18} /> : etat === 'corriger' ? <IconAlertTriangle size={18} /> : <IconClock size={18} />}</span>
-      <div className="flex-1 min-w-0 text-sm">
+      <div className="flex-1 min-w-[11rem] text-sm">
         <div className="font-semibold">{r.libelle}</div>
         <div className="text-xs text-slate-500">{r.date_limite ? `pour le ${jourFr(r.date_limite)}` : 'sans date'}{r.recu_le ? ` · reçue le ${jourFr(r.recu_le)}` : ''}
           {r.depots?.length ? ` · ${r.depots.length} fichier${r.depots.length > 1 ? 's' : ''} déposé${r.depots.length > 1 ? 's' : ''}, le dernier le ${jourFr(r.depots[0].depose_le)}` : ''}</div>

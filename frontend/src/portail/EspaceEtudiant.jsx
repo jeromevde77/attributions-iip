@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import SchemaCapitalisation from '../components/SchemaCapitalisation.jsx';
 import { MonTfe, MonStage } from './TfeStage.jsx';
+import LogoLucie from '../components/LogoLucie.jsx';
+import FenetreEspace from '../components/FenetreEspace.jsx';
 import { IconCertificate, IconFileText, IconBook, IconSignature, IconCheck, IconLogout, IconLock, IconDevices, IconTrash, IconShieldCheck, IconShieldX, IconKey, IconWorld, IconUserCircle, IconAward, IconUpload, IconPlus, IconAlertTriangle, IconListCheck, IconMessages, IconRoute, IconCash, IconHelpCircle, IconCopy, IconSchool, IconBriefcase } from '@tabler/icons-react';
 
 /**
@@ -36,8 +38,8 @@ async function appel(methode, chemin, corps, brut = false) {
 
 const Tete = ({ sous, onQuitter }) => (
   <div className="bg-white border-b border-slate-200 px-5 py-3 flex items-center gap-3">
-    <div className="w-8 h-8 rounded-lg bg-iip-blue text-white grid place-items-center text-second font-extrabold">IIP</div>
-    <div className="leading-tight flex-1 min-w-0">
+    <LogoLucie hauteur={28} className="shrink-0" />
+    <div className="leading-tight flex-1 min-w-0 border-l border-slate-200 pl-3">
       <div className="text-sm font-bold text-iip-texte">Institut Ilya Prigogine</div>
       <div className="text-xs text-slate-500 truncate">{sous || 'Mon espace étudiant'}</div>
     </div>
@@ -1158,21 +1160,33 @@ function Espace() {
   if (d && FACES.length && !FACES.some(([k]) => k === face)) setTimeout(() => setFace(FACES[0][0]), 0);
 
   return (
-    <div className="min-h-screen bg-slate-100">
-      <Tete sous={d ? [nom, d.etudiant.matricule].filter(Boolean).join(' · ') : '…'} onQuitter={quitter} />
-      <div className="max-w-[860px] mx-auto px-4 py-6 space-y-4">
+    /* LE MÊME DESSIN QUE L'ESPACE ENSEIGNANT (3.5.090, Charles : « tu me fais le même espace pour les étudiants ») : la
+       navigation à gauche sur ordinateur et iPad, une bande d'onglets qui défile sur téléphone, le logo de Lucie. */
+    <div className="min-h-screen flex flex-col md:flex-row" style={{ background: 'var(--page-fond, #F5F7FA)' }}>
+      {/* Sur téléphone, le logo et le nom au-dessus de la bande d'onglets. */}
+      <div className="md:hidden bg-white px-4 pt-3 pb-1 flex items-center gap-3"><LogoLucie hauteur={24} className="" /><span className="ml-auto text-second text-slate-500 truncate">{nom}</span></div>
+      <nav aria-label="Mon espace" className="md:w-60 md:shrink-0 bg-white border-b md:border-b-0 md:border-r border-slate-200 p-3 md:p-4 flex md:flex-col gap-1 overflow-x-auto md:sticky md:top-0 md:h-screen">
+        <div className="hidden md:block px-2 pb-4"><LogoLucie hauteur={30} className="" /><div className="text-second text-slate-500 pl-1">espace étudiant · Institut Ilya Prigogine</div></div>
+        {FACES.map(([k, l, I]) => (
+          <button key={k} type="button" onClick={() => setFace(k)} aria-current={face === k ? 'page' : undefined}
+            className="shrink-0 min-h-11 px-3 rounded-champ inline-flex items-center gap-2.5 text-sm text-left whitespace-nowrap"
+            style={face === k ? { background: 'var(--menu-actif, #E3ECF5)', color: 'var(--c-principal-fonce, #16406A)', fontWeight: 600 } : {}}>
+            <I size={18} /> <span className="md:hidden">{k === 'messages' ? l : COURT[k] || l}</span><span className="hidden md:inline">{l}</span>
+          </button>))}
+        <div className="hidden md:block flex-1" />
+        <div className="md:border-t border-slate-200 md:pt-3 md:px-2 flex md:flex-col gap-1 shrink-0 ml-auto md:ml-0">
+          <span className="hidden md:block font-semibold text-sm">{nom}</span>
+          {d?.etudiant?.matricule && <span className="hidden md:block text-second text-slate-500">{d.etudiant.matricule}</span>}
+          <button type="button" className="text-second text-iip-blue inline-flex items-center gap-1 min-h-11 md:min-h-0" onClick={quitter}><IconLogout size={15} /> Se déconnecter</button>
+        </div>
+      </nav>
+      <main className="flex-1 min-w-0 p-4 md:p-8">
+      <div className="max-w-[900px] space-y-4">
         {erreur && <div className="bloc-etat px-3 py-2 text-sm" data-etat="corriger">{erreur}</div>}
         {d?.apercu && <div className="bloc-etat px-3 py-2 text-sm" data-etat="surveiller"><b>Aperçu de la direction</b> — l’espace de {nom} tel qu’il le voit.
           Lecture seule : rien ne s’enregistre, rien ne compte comme lu ni signé. Ouvert par {d.apercu.par}.</div>}
         {aSigner > 0 && <div className="bloc-etat px-3 py-2 text-sm" data-etat="surveiller">{aSigner} pièce(s) attendent votre accusé de réception.</div>}
-        {/* TOUS LES ONGLETS À LA VUE (3.5.009, Charles : « on n'a plus Mes frais ») : sur téléphone, la barre d'icônes débordait
-            et cachait les derniers onglets hors de l'écran. Une grille qui passe à la ligne, chaque onglet nommé. */}
-        <div className="grid grid-cols-5 sm:flex sm:flex-wrap gap-1 border-b border-slate-200 pb-1">
-          {FACES.map(([k, l, I]) => (
-            <button key={k} type="button" onClick={() => setFace(k)} title={l} aria-label={l}
-              className={`onglet-page flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1.5 px-1 sm:px-3 ${face === k ? 'onglet-page-actif' : ''}`}>
-              <I size={16} /> <span className="sm:hidden text-[11px] leading-tight text-center">{k === 'messages' ? l : COURT[k] || l}</span><span className="hidden sm:inline">{l}</span></button>))}
-        </div>
+        <h1 className="m-0 text-2xl font-semibold text-iip-texte">{(FACES.find(([k]) => k === face) || [])[1] || 'Mon espace'}</h1>
 
         {d && face === 'resultats' && (d.resultats.length ? d.resultats.map(a => (
           <section key={a.annee} className="bg-white border border-slate-200 rounded-carte overflow-hidden">
@@ -1228,17 +1242,12 @@ function Espace() {
         </div>}
 
         {texte && (
-          <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-start justify-center p-4 overflow-auto" onClick={() => setTexte(null)}>
-            <div className="bg-white rounded-carte max-w-[760px] w-full p-5 space-y-3" onClick={e => e.stopPropagation()}>
-              <div className="flex items-start gap-3">
-                <h2 className="titre-carte flex-1">{texte.titre} <span className="text-xs text-slate-400 font-normal">version {texte.numero}</span></h2>
-                <button type="button" className="bouton" onClick={() => setTexte(null)}>Fermer</button>
-              </div>
-              <div className="texte-corpus" dangerouslySetInnerHTML={{ __html: texte.contenu }} />
-              {texte.source_url && <a href={texte.source_url} target="_blank" rel="noreferrer" className="text-second text-iip-blue underline">Le texte officiel</a>}
-            </div>
-          </div>)}
+          <FenetreEspace titre={texte.titre} sous={`Version ${texte.numero}`} onFermer={() => setTexte(null)}
+            pied={texte.source_url ? <a href={texte.source_url} target="_blank" rel="noreferrer" className="text-second text-iip-blue underline">Le texte officiel</a> : null}>
+            <div className="texte-corpus" dangerouslySetInnerHTML={{ __html: texte.contenu }} />
+          </FenetreEspace>)}
       </div>
+      </main>
     </div>
   );
 }
