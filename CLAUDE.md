@@ -3144,6 +3144,22 @@ présté par semaine, presté / dû / solde de l'année, présents par semaine �
 (jour par jour — `semaineEquipe`) ; les heures des autres restent à la direction. Banc :
 `backend/test/tempsTravail.mjs` (41 ok).
 
+**LES VISITES DE STAGE ET LA FICHE DE TRANSPORT** (3.5.058, Charles, 2 novembre 2026 : « que les chargés de cours qui
+suivent des étudiants en stage placent dans leur agenda leurs visites, avec le lieu de stage lié à l'étudiant ; et une fiche de
+transport, car pour certains nous payons les frais de déplacement depuis chez eux ou l'école, en fonction »). Mes cours → rail →
+*Mes visites de stage* ; Étudiants → rail → *Visites de stage et frais de déplacement* (secrétariat, coordination de ses sections,
+direction). `components/VisitesStage.jsx`, `routes/visitesStage.js` sur `/api/visites-stage`, métier `lib/visitesStage.js`, tables
+`stage_visite`, `stage_trajet` (règle par professeur : aucun · école · domicile, posée par direction ou secrétariat),
+`stage_trajet_km` (la distance se retient par lieu et départ), `stage_fiche_signature` (en ajout seul, déclencheurs). Une visite
+appartient à un STAGE (`stage.professeur_id` = le professeur de stage) : le lieu et son adresse viennent du stage, jamais retapés.
+Elle paraît dans *Mon horaire de la semaine* (`GET /mes-cours/semaine`, `visite: true`) et dans le flux iCalendar
+(`evenementsDesVisites`, `lib/agendaIcs.js`). Fiche mensuelle par personne : visites FAITES, départ et adresse (domicile = fiche du
+professeur ; école = `etablissement.adresse`), km A/R, montant = km × `stages_km_taux` (paramètre, vide = « à régler », direction).
+Signée par la personne puis approuvée par la direction ; une signature vaut pour CE contenu (empreinte) ; approuvée, le mois est
+verrouillé. Refus de signer : km manquants, taux non réglé, départ autre que celui remboursé. Choix pris sans question (session
+reprise) : **règle par personne et non par visite ; taux unique ; signature personne → direction** — à confirmer par Charles.
+Banc : `backend/test/visitesStage.mjs` (29 ok).
+
 **TOUT TABLEAU SUIT LES RÉGLAGES, ET CHACUN CHOISIT SON THÈME** (3.5.037, Charles, 1er novembre 2026 : « non respect du
 design » sur Qui a fait quoi, Nouveautés, la liste des étudiants, l'encodage rapide, les recours ; « ce doit être géré dans
 paramètres, TOUJOURS identique » ; « TOUT paramétrable dans Configuration » ; « que TOUT le monde ait le choix entre des
