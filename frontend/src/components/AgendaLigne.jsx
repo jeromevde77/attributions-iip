@@ -5,7 +5,7 @@
  * semaine puis la dernière : c'est posé. « Saisir » ouvre le même geste avec un mini calendrier. Serveur :
  * lib/agendaEcole.js (/api/agenda-ecole), et pour la chaleur et les moments lib/ligneTemps.js (/api/temps-travail).
  * Servi à deux endroits — Organisation → Agenda de l'école, et en tête du Temps de travail — : un seul agenda. */
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { IconBrush, IconCalendarPlus, IconChevronLeft, IconChevronRight, IconX, IconChevronDown, IconChevronUp } from '@tabler/icons-react';
 import { Fenetre } from './ui.jsx';
 import { authHeaders } from '../lib/api.js';
@@ -26,7 +26,7 @@ const appel = (url, annee, o = {}) => fetch(`${url}${url.includes('?') ? '&' : '
 
 /* LES PINCEAUX : ce qu'on peint, sur quelle rangée, avec quelles valeurs. */
 const PINCEAUX = {
-  chaleur: { mot: 'Chaleur', rangee: 'chaleur', valeurs: [['chaud', 'Chaude'], ['creux', 'Creuse'], ['normal', 'Normale'], ['calcul', 'Calcul de Lucie']], direction: true },
+  chaleur: { mot: 'Période', rangee: 'chaleur', valeurs: [['chaud', 'Tension'], ['creux', 'Calme'], ['normal', 'Normale'], ['calcul', 'Calcul de Lucie']], direction: true },
   moment: { mot: 'Grand moment', rangee: 'moments', valeurs: null, direction: true },
   fermeture: { mot: 'École fermée', rangee: 'fermeture', valeurs: [['totale', 'Fermée'], ['partielle', 'En partie'], ['ouvert', 'Ouverte']], direction: true },
   cours: { mot: 'Cours', rangee: 'cours', valeurs: [['cours', 'Cours'], ['vacances', 'Vacances'], ['ev1', 'Évaluations 1'], ['ev2', 'Évaluations 2'], ['stage', 'Stage']], direction: true },
@@ -55,6 +55,22 @@ export default function AgendaLigne({ annee, ag, recharger, apres = null, selSem
   const [ouvertes, setOuvertes] = useState(false);      // sections dépliées
   const [saisie, setSaisie] = useState(false);
   const [occupe, setOccupe] = useState(false);
+  /* GLISSER POUR CHOISIR UNE ZONE (3.5.061, Charles : « sélectionner à la souris une zone et mettre tension, examens ou
+     autre »). On appuie sur une semaine, on glisse, on lâche : un menu propose quoi y mettre. Un simple clic garde son
+     effet. Pointer Events : la souris comme le doigt. */
+  const glisse = useRef({ actif: false, a: null, x0: 0, bouge: false, section: null, ignorer: false });
+  const surface = useRef(null);
+  const [zone, setZone] = useState(null);                // { a, b, section }
+  const [menu, setMenu] = useState(null);                // { x, y }
+  const [bande, setBande] = useState(null);              // { left, width } — le surlignage
+  useLayoutEffect(() => {
+    if (!zone || !surface.current) { setBande(null); return; }
+    const [x, y] = zone.a <= zone.b ? [zone.a, zone.b] : [zone.b, zone.a];
+    const ea = surface.current.querySelector(`[data-lundi="${x}"]`), eb = surface.current.querySelector(`[data-lundi="${y}"]`);
+    if (!ea || !eb) return;
+    const r0 = surface.current.getBoundingClientRect(), ra = ea.getBoundingClientRect(), rb = eb.getBoundingClientRect();
+    setBande({ left: ra.left - r0.left, width: rb.right - ra.left });
+  }, [zone]);
   if (!ag) return <div className="px-4 py-3 text-sm text-slate-500">Chargement de l’agenda…</div>;
   if (ag.erreur) return <div className="px-4 py-3 text-sm text-red-700">{ag.erreur}</div>;
   const peutEtab = ag.peut?.etablissement, peutSections = ag.peut?.sections || [];
@@ -73,7 +89,7 @@ export default function AgendaLigne({ annee, ag, recharger, apres = null, selSem
       if (p.cle === 'chaleur') {
         for (const l of lundis) await appel(`/api/temps-travail/chaleur/${l}`, annee, { method: 'PUT', body: JSON.stringify({ niveau: p.valeur }) });
       } else if (p.cle === 'moment') {
-        const titre = await saisir({ message: `Grand moment du ${fmt(x)} au ${fmt(plus(y, 4))} — son nom :`, obligatoire: true });
+        const titre = await saisir({ message: `Grand moment du ${fmt(x)} au ${fmt(plus(y, 4))} — son nom :`, obligatoire: true, valeur: p.titre || '' });
         if (!titre) return;
         await appel('/api/temps-travail/moments', annee, { method: 'POST', body: JSON.stringify({ type: p.valeur || 'autre', titre, du: p.du || x, au: p.au || plus(y, 4) }) });
       } else if (p.cle === 'fermeture') {
@@ -93,6 +109,7 @@ export default function AgendaLigne({ annee, ag, recharger, apres = null, selSem
     } catch (e) { informer({ message: e.message }); } finally { setOccupe(false); setDebut(null); }
   };
   const toucher = (rangee, l, section = null) => {
+    if (glisse.current.ignorer) { glisse.current.ignorer = false; return; }
     if (!pinceau || PINCEAUX[pinceau.cle].rangee !== rangee || (rangee === 'section' && pinceau.section !== section)) { if (!pinceau) onSemaine?.(l); return; }
     if (!debut) { setDebut(l); return; }
     poser(debut, l);
@@ -101,6 +118,29 @@ export default function AgendaLigne({ annee, ag, recharger, apres = null, selSem
     && debut && l === debut;
   const cible = (rangee, section = null) => pinceau && PINCEAUX[pinceau.cle].rangee === rangee && (rangee !== 'section' || pinceau.section === section);
   const anneau = (rangee, l, section) => (enCours(rangee, l, section) ? 'ring-2 ring-[var(--c-accent)]' : selSemaine === l && !pinceau ? 'ring-2 ring-[var(--c-principal)]' : '');
+
+  const lundiSous = e => document.elementFromPoint(e.clientX, e.clientY)?.closest?.('[data-lundi]');
+  const appui = e => {
+    if (pinceau || !peutPeindre || e.button > 0) return;
+    const t = e.target.closest?.('[data-lundi]'); if (!t) return;
+    glisse.current = { actif: true, a: t.dataset.lundi, x0: e.clientX, bouge: false, section: t.dataset.section || null, ignorer: false };
+  };
+  const bouge = e => {
+    const g = glisse.current; if (!g.actif) return;
+    if (!g.bouge && Math.abs(e.clientX - g.x0) < 6) return;
+    const t = lundiSous(e); if (!t) return;
+    g.bouge = true; setMenu(null);
+    setZone({ a: g.a, b: t.dataset.lundi, section: g.section });
+  };
+  const lache = e => {
+    const g = glisse.current; if (!g.actif) return;
+    g.actif = false;
+    if (!g.bouge) return;                                  // un clic : la case s'en occupe
+    g.ignorer = true; setTimeout(() => { glisse.current.ignorer = false; }, 0);
+    setMenu({ x: Math.min(e.clientX, window.innerWidth - 300), y: Math.min(e.clientY + 10, window.innerHeight - 380) });
+  };
+  const fermerMenu = () => { setMenu(null); setZone(null); };
+  const appliquer = async p => { const z = zone; fermerMenu(); await poser(z.a, z.b, p); };
 
   const retirerJour = async j => {
     if (!(await demander(`Rouvrir le ${fmt(j.date)} (${j.libelle}) ?`))) return;
@@ -119,7 +159,9 @@ export default function AgendaLigne({ annee, ag, recharger, apres = null, selSem
           onOuvrirSections={() => setOuvertes(true)} />
       )}
       <div className="px-3 py-2 overflow-x-auto">
-        <div className="min-w-[760px] space-y-1">
+        <div ref={surface} className={`relative min-w-[760px] space-y-1 ${peutPeindre && !pinceau ? 'select-none' : ''}`} style={{ touchAction: 'pan-y' }}
+          onPointerDown={appui} onPointerMove={bouge} onPointerUp={lache} onPointerLeave={() => { if (glisse.current.actif && glisse.current.bouge) { glisse.current.actif = false; setMenu({ x: 200, y: 200 }); } }}>
+          {bande && <div className="absolute top-0 bottom-0 pointer-events-none rounded-[4px] z-10" style={{ left: bande.left, width: bande.width, background: 'color-mix(in srgb, var(--c-accent) 18%, transparent)', outline: '2px solid var(--c-accent)' }} />}
           <GrilleAnnee droite={droite}>
             <div />
             {ag.semaines.map((l, i) => { const mm = mois.find(x => x.i === i); return <div key={l} className="text-mention text-slate-500 whitespace-nowrap overflow-visible">{mm ? MOIS[mm.m - 1] : ''}</div>; })}
@@ -127,9 +169,9 @@ export default function AgendaLigne({ annee, ag, recharger, apres = null, selSem
           </GrilleAnnee>
           <RangeeMoments ag={ag} droite={droite} cible={cible('moments')} toucher={l => toucher('moments', l)} enCours={l => enCours('moments', l)} onRetirer={peutEtab ? retirerMoment : null} />
           <GrilleAnnee droite={droite}>
-            <div className="text-second text-slate-600 pr-2 self-center">Chaleur</div>
+            <div className="text-second text-slate-600 pr-2 self-center">Période</div>
             {ag.semaines.map(l => { const c = ch.get(l); const f = c?.niveau !== 'normal' ? CHALEUR[c?.niveau] : null;
-              return <button key={l} type="button" onClick={() => toucher('chaleur', l)} title={`${fmt(l)} · ${c?.niveau === 'chaud' ? 'chaude' : c?.niveau === 'creux' ? 'creuse' : 'normale'}${c?.force ? ' (fixée)' : ''}${c?.raisons?.length ? ' — ' + c.raisons.join(', ') : ''}`}
+              return <button key={l} data-lundi={l} type="button" onClick={() => toucher('chaleur', l)} title={`${fmt(l)} · ${c?.niveau === 'chaud' ? 'tension' : c?.niveau === 'creux' ? 'calme' : 'normale'}${c?.force ? ' (fixée)' : ''}${c?.raisons?.length ? ' — ' + c.raisons.join(', ') : ''}`}
                 className={`h-4 mx-px rounded-[3px] ${anneau('chaleur', l)} ${cible('chaleur') ? 'cursor-crosshair' : ''}`}
                 style={{ background: c?.conge ? HACHURE : f || 'var(--c-filet, #E2E8F0)', opacity: f ? 1 : 0.6, outline: c?.force ? '1px dashed var(--c-texte)' : 'none' }} />; })}
             <div />
@@ -137,7 +179,7 @@ export default function AgendaLigne({ annee, ag, recharger, apres = null, selSem
           <GrilleAnnee droite={droite}>
             <div className="text-second text-slate-600 pr-2 self-center">Cours</div>
             {ag.semaines.map((l, i) => { const c = ag.cours[i];
-              return <button key={l} type="button" onClick={() => toucher('cours', l)} title={c ? `${fmt(l)} · ${ag.types_cours[c.type] || c.type}${c.label ? ' — ' + c.label : ''}` : `${fmt(l)} · hors du calendrier des cours`}
+              return <button key={l} data-lundi={l} type="button" onClick={() => toucher('cours', l)} title={c ? `${fmt(l)} · ${ag.types_cours[c.type] || c.type}${c.label ? ' — ' + c.label : ''}` : `${fmt(l)} · hors du calendrier des cours`}
                 className={`h-3 mx-px rounded-[2px] ${anneau('cours', l)} ${cible('cours') ? 'cursor-crosshair' : ''}`}
                 style={{ background: c ? COULEUR_COURS[c.type] || 'var(--c-filet, #E2E8F0)' : 'transparent', opacity: c ? (c.type === 'ev1' || c.type === 'ev2' ? 0.55 : 1) : 1, border: c ? 'none' : '1px dotted var(--c-filet, #E2E8F0)' }} />; })}
             <div />
@@ -145,7 +187,7 @@ export default function AgendaLigne({ annee, ag, recharger, apres = null, selSem
           <GrilleAnnee droite={droite}>
             <div className="text-second text-slate-600 pr-2 self-center">École</div>
             {ag.semaines.map((l, i) => { const f = ag.fermetures[i]; const jf = ag.jours_fermes.filter(j => lundiDe(j.date) === l);
-              return <button key={l} type="button" onClick={() => toucher('fermeture', l)}
+              return <button key={l} data-lundi={l} type="button" onClick={() => toucher('fermeture', l)}
                 title={`${fmt(l)} · ${f ? `${f.fermeture === 'totale' ? 'fermée' : 'en partie fermée'} — ${f.libelle || ''} (${f.par || ''})` : 'ouverte'}${jf.length ? ' · ' + jf.map(j => `${fmt(j.date)} ${j.libelle}`).join(', ') : ''}`}
                 className={`relative h-5 mx-px rounded-[3px] ${anneau('fermeture', l)} ${cible('fermeture') ? 'cursor-crosshair' : ''}`}
                 style={{ background: f?.fermeture === 'totale' ? 'var(--c-texte)' : f?.fermeture === 'partielle' ? 'color-mix(in srgb, var(--c-texte) 35%, transparent)' : 'color-mix(in srgb, var(--c-filet, #E2E8F0) 60%, transparent)' }}>
@@ -165,7 +207,7 @@ export default function AgendaLigne({ annee, ag, recharger, apres = null, selSem
             <GrilleAnnee key={s.section} droite={droite}>
               <div className="text-mention text-slate-600 pr-2 self-center truncate pl-2" title={s.section}>{s.section}</div>
               {s.semaines.map(x => (
-                <button key={x.lundi} type="button" onClick={() => toucher('section', x.lundi, s.section)}
+                <button key={x.lundi} data-lundi={x.lundi} data-section={s.section} type="button" onClick={() => toucher('section', x.lundi, s.section)}
                   title={`${s.section} · ${fmt(x.lundi)} · ${x.seances} séance(s)${x.force ? ` — forcée ${x.force === 'active' ? 'active' : 'sans cours'}` : ''}`}
                   className={`h-2.5 mx-px rounded-[2px] ${anneau('section', x.lundi, s.section)} ${cible('section', s.section) ? 'cursor-crosshair' : ''}`}
                   style={{ background: x.actif ? 'var(--c-principal)' : 'transparent', opacity: x.actif ? (x.deduit ? 0.75 : 0.4) : 1, outline: x.force ? '1px dashed var(--c-texte)' : 'none', border: x.actif ? 'none' : '1px solid var(--c-filet, #E2E8F0)' }} />))}
@@ -185,9 +227,44 @@ export default function AgendaLigne({ annee, ag, recharger, apres = null, selSem
             {ag.jours_fermes.map(j => <span key={j.date} className="whitespace-nowrap inline-flex items-center gap-1" title={`Posé par ${j.par} le ${String(j.le).slice(0, 10)}`}><b>{fmt(j.date)}</b> {j.libelle}
               {peutEtab && <button className="text-slate-400 hover:text-[var(--c-refuse)]" onClick={() => retirerJour(j)} aria-label="Rouvrir"><IconX size={11} /></button>}</span>)}</div>}
         </div>)}
+      {menu && zone && <MenuZone zone={zone} pos={menu} peutEtab={peutEtab} peutSections={peutSections} types={ag.types_moment} onChoix={appliquer} onFermer={fermerMenu} />}
       {saisie && <SaisieManuelle ag={ag} annee={annee} peutEtab={peutEtab} peutSections={peutSections} onFermer={() => setSaisie(false)}
         onFait={() => { setSaisie(false); apresGeste(); }} poser={poser} />}
     </div>
+  );
+}
+
+/* LE MENU DE LA ZONE : ce qu'on met sur les semaines glissées. */
+const MOMENTS_RAPIDES = [['examens', 'Examens'], ['inscriptions', 'Inscriptions'], ['diplomes', 'Remise des diplômes'], ['rentree', 'Rentrée'], ['jpo', 'Portes ouvertes'], ['autre', 'Autre…']];
+function MenuZone({ zone, pos, peutEtab, peutSections, types, onChoix, onFermer }) {
+  const [x, y] = zone.a <= zone.b ? [zone.a, zone.b] : [zone.b, zone.a];
+  const n = Math.round((new Date(`${y}T00:00:00Z`) - new Date(`${x}T00:00:00Z`)) / 6048e5) + 1;
+  useEffect(() => { const k = e => e.key === 'Escape' && onFermer(); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, []);
+  const B = ({ children, onClick, fort }) => <button type="button" onClick={onClick} className={`bouton px-2 py-1 text-second ${fort ? 'bouton-fort' : ''}`}>{children}</button>;
+  const section = zone.section && peutSections.includes(zone.section) ? zone.section : null;
+  return (
+    <>
+      <div className="fixed inset-0 z-40" onClick={onFermer} />
+      <div className="fixed z-50 w-[290px] carte shadow-flottant p-3 space-y-2.5 bg-white" style={{ left: pos.x, top: pos.y }}>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold text-iip-texte flex-1">Du {fmt(x)} au {fmt(plus(y, 4))} · {n} semaine{n > 1 ? 's' : ''}</span>
+          <button className="bouton px-1 py-0" onClick={onFermer} aria-label="Fermer"><IconX size={12} /></button>
+        </div>
+        {peutEtab && <>
+          <div><div className="intertitre">La période</div>
+            <div className="flex flex-wrap gap-1"><B fort onClick={() => onChoix({ cle: 'chaleur', valeur: 'chaud' })}>Tension</B><B onClick={() => onChoix({ cle: 'chaleur', valeur: 'creux' })}>Calme</B>
+              <B onClick={() => onChoix({ cle: 'chaleur', valeur: 'normal' })}>Normale</B><B onClick={() => onChoix({ cle: 'chaleur', valeur: 'calcul' })}>Calcul de Lucie</B></div></div>
+          <div><div className="intertitre">Un grand moment</div>
+            <div className="flex flex-wrap gap-1">{MOMENTS_RAPIDES.map(([k, t]) => <B key={k} onClick={() => onChoix({ cle: 'moment', valeur: k, titre: k === 'autre' ? '' : (types?.[k] || t) })}>{t}</B>)}</div></div>
+          <div><div className="intertitre">L’école</div>
+            <div className="flex flex-wrap gap-1"><B onClick={() => onChoix({ cle: 'fermeture', valeur: 'totale' })}>Fermée</B><B onClick={() => onChoix({ cle: 'fermeture', valeur: 'partielle' })}>En partie</B><B onClick={() => onChoix({ cle: 'fermeture', valeur: 'ouvert' })}>Ouverte</B></div></div>
+          <div><div className="intertitre">Les cours</div>
+            <div className="flex flex-wrap gap-1">{PINCEAUX.cours.valeurs.map(([k, t]) => <B key={k} onClick={() => onChoix({ cle: 'cours', valeur: k })}>{t}</B>)}</div></div>
+        </>}
+        {section && <div><div className="intertitre">Section {section}</div>
+          <div className="flex flex-wrap gap-1">{PINCEAUX.section.valeurs.map(([k, t]) => <B key={k} onClick={() => onChoix({ cle: 'section', valeur: k, section })}>{t}</B>)}</div></div>}
+      </div>
+    </>
   );
 }
 
@@ -235,15 +312,15 @@ function RangeeMoments({ ag, droite, cible, toucher, enCours, onRetirer }) {
       <div className="relative" style={{ height: `${n * 1.25 + 0.6}rem` }}>
         {places.map((m, i) => (
           <span key={i} title={`${m.titre} · ${fmt(m.du)}${m.au !== m.du ? ` → ${fmt(m.au)}` : ''}`}
-            className="absolute h-[1.05rem] rounded-[3px] text-mention text-white px-1 truncate leading-[1.05rem]"
+            className="absolute h-[1.05rem] rounded-[3px] text-mention text-white px-1 truncate leading-[1.05rem] pointer-events-none z-[1]"
             style={{ left: `${pos(m.du) * 100}%`, width: `max(0.6rem, ${(pos(plus(m.au, 1)) - pos(m.du)) * 100}%)`, top: `${m.k * 1.25}rem`, background: 'var(--c-principal)' }}>
             {m.titre}
           </span>))}
         {delib.map((m, i) => <span key={`d${i}`} title={`${m.titre} · ${fmt(m.du)}${m.au !== m.du ? ` → ${fmt(m.au)}` : ''}`}
           className="absolute w-1.5 h-1.5 rounded-full" style={{ left: `calc(${pos(m.du) * 100}% + 2px)`, bottom: 0, background: 'var(--c-texte)' }} />)}
-        {cible && <div className="absolute inset-0 grid" style={{ gridTemplateColumns: 'repeat(52, minmax(0, 1fr))' }}>
-          {ag.semaines.map(l => <button key={l} type="button" onClick={() => toucher(l)} title={`Semaine du ${fmt(l)}`}
-            className={`mx-px rounded-[3px] cursor-crosshair hover:bg-[color-mix(in_srgb,var(--c-accent)_20%,transparent)] ${enCours(l) ? 'ring-2 ring-[var(--c-accent)]' : ''}`} />)}
+        {<div className={`absolute inset-0 grid ${cible ? 'z-10' : ''}`} style={{ gridTemplateColumns: 'repeat(52, minmax(0, 1fr))' }}>
+          {ag.semaines.map(l => <button key={l} data-lundi={l} type="button" onClick={() => cible && toucher(l)} title={`Semaine du ${fmt(l)}`}
+            className={`mx-px rounded-[3px] ${cible ? 'cursor-crosshair hover:bg-[color-mix(in_srgb,var(--c-accent)_20%,transparent)]' : ''} ${enCours(l) ? 'ring-2 ring-[var(--c-accent)]' : ''}`} />)}
         </div>}
       </div>
       <div />
@@ -255,7 +332,7 @@ function Legende() {
   const P = ({ fond, children, bord }) => <span className="inline-flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-[2px]" style={{ background: fond, border: bord ? '1px solid var(--c-filet, #E2E8F0)' : 'none' }} />{children}</span>;
   return (
     <div className="px-4 py-2 border-t flex flex-wrap gap-x-4 gap-y-1 text-mention text-slate-600">
-      <P fond="var(--c-attente)">semaine chaude</P><P fond="var(--c-disponible)">semaine creuse</P>
+      <P fond="var(--c-attente)">tension</P><P fond="var(--c-disponible)">calme</P>
       <P fond="var(--c-texte)">école fermée</P><P fond="color-mix(in srgb, var(--c-texte) 35%, transparent)">en partie fermée</P>
       <span className="inline-flex items-center gap-1"><span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: 'var(--c-refuse)' }} />jour fermé</span>
       <P fond={HACHURE}>vacances (cours)</P><P fond="var(--c-principal)">heures prévues · section active</P><P fond="var(--c-accent)">proposition · jour donné · stage</P>

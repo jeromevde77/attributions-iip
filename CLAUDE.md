@@ -3271,6 +3271,9 @@ semaines choisies, par défaut les partielles ; 13 en tout) ; l'assistant échan
 une semaine totale), circuit de la modulation. L'ancienne saisie des congés par dates (`tt_conge`) est reprise une fois dans
 l'agenda (`reprendreCongesModule`). Peindre l'établissement : direction et direction adjointe ; une section : aussi la
 coordination pour les siennes (`getUserSections`). Journal `agenda_journal` en ajout seul. Banc : `test/ligneTemps.mjs` (49 ok).
+**Glisser pour choisir une zone** (3.5.061, Charles : « sélectionner à la souris une zone et mettre tension, examens ou autre » ;
+« chaud, ça fait moche ») : appui, glisser, lâcher sur la ligne du temps (cases `data-lundi`, Pointer Events) → `MenuZone` ; un clic
+simple garde son effet. À l'écran, chaud/creux se disent **Tension / Calme** (la base garde `chaud`/`creux`).
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en

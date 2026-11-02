@@ -22,7 +22,7 @@ const min = h => { const m = /^(\d{1,2}):(\d{2})$/.exec(String(h || '')); return
 const aujourdhui = () => new Date().toISOString().slice(0, 10);
 const nomCourt = n => String(n || '').split(/\s+/).slice(0, 2).join(' ');
 // La chaleur : une information d'état, donc une pastille pleine (ocre pour chaud, bleu pour creux).
-const CHALEUR = { chaud: { fond: 'var(--c-attente)', mot: 'chaude', Ic: IconFlame }, creux: { fond: 'var(--c-disponible)', mot: 'creuse', Ic: IconSnowflake }, normal: { fond: null, mot: 'normale', Ic: null } };
+const CHALEUR = { chaud: { fond: 'var(--c-attente)', mot: 'tension', Ic: IconFlame }, creux: { fond: 'var(--c-disponible)', mot: 'calme', Ic: IconSnowflake }, normal: { fond: null, mot: 'normale', Ic: null } };
 const BARRE_MAX = 45 * 60;   // l'échelle d'une barre de semaine : 45 h, le plafond de l'art. 20bis
 const JOUR_MAX = 9 * 60;
 
@@ -158,7 +158,7 @@ function BarreSemaine({ p, s, ap, sel, onClick }) {
 }
 
 /* Les grands moments, en bandes posées sur l'année (deux couloirs quand ils se chevauchent). */
-/* Une semaine choisie dans l'année : pourquoi elle est chaude ou creuse, qui fait combien, et ce qu'on peut y faire. */
+/* Une semaine choisie dans l'année : pourquoi elle est en tension ou calme, qui fait combien, et ce qu'on peut y faire. */
 function DetailSemaine({ d, l, c, fp, peutModuler, api, recharger, donnerSemaine, fixerCible, basculerListe, zoomer, onFermer }) {
   const [heures, setHeures] = useState('');
   const k = CHALEUR[c?.niveau || 'normal'];
@@ -170,7 +170,7 @@ function DetailSemaine({ d, l, c, fp, peutModuler, api, recharger, donnerSemaine
     <div className="border-t px-4 py-3 space-y-2 text-sm">
       <div className="flex flex-wrap items-center gap-2">
         <span className="titre-carte">Semaine du {fmt(l)} au {fmt(plus(l, 4))}</span>
-        {c?.conge ? <PastilleEtat etat="indisponible">{c.conge}</PastilleEtat> : <PastilleEtat etat={c?.niveau === 'chaud' ? 'surveiller' : c?.niveau === 'creux' ? 'disponible' : 'neutre'}>semaine {k.mot}{c?.force ? ' (fixée)' : ''}</PastilleEtat>}
+        {c?.conge ? <PastilleEtat etat="indisponible">{c.conge}</PastilleEtat> : <PastilleEtat etat={c?.niveau === 'chaud' ? 'surveiller' : c?.niveau === 'creux' ? 'disponible' : 'neutre'}>{k.mot === 'normale' ? 'semaine normale' : k.mot}{c?.force ? ' (fixée)' : ''}</PastilleEtat>}
         <div className="flex-1" />
         <button className="bouton text-second inline-flex items-center gap-1" onClick={() => zoomer('semaine', l)}><IconZoomIn size={14} /> Voir la semaine</button>
         <button className="bouton px-1.5" onClick={onFermer} aria-label="Fermer"><IconX size={14} /></button>
@@ -183,9 +183,9 @@ function DetailSemaine({ d, l, c, fp, peutModuler, api, recharger, donnerSemaine
       </div>
       {d.gere && !c?.conge && (
         <div className="flex flex-wrap items-center gap-2 text-second">
-          <span className="text-slate-600">La direction fixe la chaleur :</span>
+          <span className="text-slate-600">La direction fixe la période :</span>
           <div className="segments">
-            {[['calcul', 'Calcul de Lucie'], ['chaud', 'Chaude'], ['normal', 'Normale'], ['creux', 'Creuse']].map(([n, t]) => {
+            {[['calcul', 'Calcul de Lucie'], ['chaud', 'Tension'], ['normal', 'Normale'], ['creux', 'Calme']].map(([n, t]) => {
               const actif = n === 'calcul' ? !c?.force : c?.force && c.niveau === n;
               return <button key={n} type="button" onClick={() => forcer(n)} className={actif ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}>{t}</button>; })}
           </div>
@@ -307,7 +307,7 @@ function VueSemaine({ d, ch, apercu, focus, lundi, mod, peutModuler, basculerJou
     <div className="px-3 py-3 overflow-x-auto">
       <div className="min-w-[760px] space-y-2">
         <div className="flex flex-wrap items-center gap-2 text-second">
-          {c?.conge ? <PastilleEtat etat="indisponible">{c.conge}</PastilleEtat> : <PastilleEtat etat={c?.niveau === 'chaud' ? 'surveiller' : c?.niveau === 'creux' ? 'disponible' : 'neutre'}>semaine {CHALEUR[c?.niveau || 'normal'].mot}</PastilleEtat>}
+          {c?.conge ? <PastilleEtat etat="indisponible">{c.conge}</PastilleEtat> : <PastilleEtat etat={c?.niveau === 'chaud' ? 'surveiller' : c?.niveau === 'creux' ? 'disponible' : 'neutre'}>{CHALEUR[c?.niveau || 'normal'].mot === 'normale' ? 'semaine normale' : CHALEUR[c?.niveau || 'normal'].mot}</PastilleEtat>}
           {ms.map((m, i) => <span key={i} className="inline-flex items-center gap-1"><IconFlag size={13} /> {m.titre}</span>)}
           {!c?.conge && c?.raisons?.length > 0 && <span className="text-slate-500">· {c.raisons.join(' · ')}</span>}
         </div>
@@ -427,7 +427,7 @@ function Assistant({ fp, mod, setMod, plan, api, gere, onFermer, onFait }) {
         {plan?.erreurs?.map((e, i) => <div key={i} className="bloc-etat px-3 py-2 text-second" data-etat="corriger">{e}</div>)}
         {plan?.avertissements?.map((e, i) => <div key={`a${i}`} className="bloc-etat px-3 py-2 text-second" data-etat="surveiller">{e}</div>)}
         {plan?.changees?.filter(c => c.controles.length).map(c => <div key={c.lundi} className="bloc-etat px-3 py-2 text-second" data-etat="corriger">{fmt(c.lundi)} : {c.controles.join(' ')}</div>)}
-        <p className="text-mention text-slate-500 m-0">Un jour donné est un repos compensatoire. L’assistant remet ses heures dans les semaines à venir — les chaudes d’abord —, sans dépasser 9 h par jour, 2 h de plus que l’horaire de référence, ni 5 h de plus par semaine (art. 20bis).</p>
+        <p className="text-mention text-slate-500 m-0">Un jour donné est un repos compensatoire. L’assistant remet ses heures dans les semaines à venir — celles en tension d’abord —, sans dépasser 9 h par jour, 2 h de plus que l’horaire de référence, ni 5 h de plus par semaine (art. 20bis).</p>
         <div className="flex flex-wrap gap-2 pt-1">
           <button className="bouton bouton-fort inline-flex items-center gap-1.5" disabled={!ok || envoi} onClick={envoyer}>{direct ? <IconCheck size={15} /> : <IconSend size={15} />} {direct ? 'Appliquer' : 'Envoyer à la direction'}</button>
           <button className="bouton" onClick={() => setMod({ recup: [], cibles: {}, exclure: [], prendre: [], travailler: [] })}>Tout effacer</button>
