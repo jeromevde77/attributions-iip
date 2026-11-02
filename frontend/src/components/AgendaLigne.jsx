@@ -143,6 +143,7 @@ export default function AgendaLigne({ annee, ag, recharger, apres = null, selSem
     g.actif = false;
     if (!g.bouge) return;                                  // un clic : la case s'en occupe
     g.ignorer = true; setTimeout(() => { glisse.current.ignorer = false; }, 0);
+    try { window.getSelection()?.removeAllRanges(); } catch { /* rien */ }
     setMenu({ x: Math.min(e.clientX, window.innerWidth - 300), y: Math.min(e.clientY + 10, window.innerHeight - 380) });
   };
   const fermerMenu = () => { setMenu(null); setZone(null); };
@@ -246,26 +247,33 @@ function MenuZone({ zone, pos, peutEtab, peutSections, types, onChoix, onFermer 
   const [x, y] = zone.a <= zone.b ? [zone.a, zone.b] : [zone.b, zone.a];
   const n = Math.round((new Date(`${y}T00:00:00Z`) - new Date(`${x}T00:00:00Z`)) / 6048e5) + 1;
   useEffect(() => { const k = e => e.key === 'Escape' && onFermer(); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, []);
-  const B = ({ children, onClick, fort }) => <button type="button" onClick={onClick} className={`bouton px-2 py-1 text-second ${fort ? 'bouton-fort' : ''}`}>{children}</button>;
+  // Des pastilles compactes, pas des boutons de barre : le menu doit tenir à l'écran.
+  const B = ({ children, onClick, fort }) => <button type="button" onClick={onClick}
+    className={`px-2 py-0.5 rounded-champ border text-second leading-5 ${fort ? 'text-white font-semibold' : 'text-iip-texte hover:bg-[color-mix(in_srgb,var(--c-principal)_8%,transparent)]'}`}
+    style={{ borderColor: fort ? 'var(--c-principal)' : 'var(--c-filet, #E2E8F0)', background: fort ? 'var(--c-principal)' : undefined }}>{children}</button>;
+  // Il tient dans la fenêtre : on le remonte s'il déborde en bas, il défile s'il reste trop haut.
+  const boite = useRef(null);
+  const [haut, setHaut] = useState(pos.y);
+  useLayoutEffect(() => { const h = boite.current?.offsetHeight || 0; setHaut(Math.max(8, Math.min(pos.y, window.innerHeight - h - 8))); }, [pos.y]);
   const section = zone.section && peutSections.includes(zone.section) ? zone.section : null;
   return (
     <>
       <div className="fixed inset-0 z-40" onClick={onFermer} />
-      <div className="fixed z-50 w-[290px] carte shadow-flottant p-3 space-y-2.5 bg-white" style={{ left: pos.x, top: pos.y }}>
+      <div ref={boite} className="fixed z-50 w-[290px] carte shadow-flottant p-3 space-y-2 bg-white select-none overflow-y-auto" style={{ left: pos.x, top: haut, maxHeight: 'calc(100vh - 16px)' }}>
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold text-iip-texte flex-1">Du {fmt(x)} au {fmt(plus(y, 4))} · {n} semaine{n > 1 ? 's' : ''}</span>
           <button className="bouton px-1 py-0" onClick={onFermer} aria-label="Fermer"><IconX size={12} /></button>
         </div>
         {peutEtab && <>
           <div><div className="intertitre">La période</div>
-            <div className="flex flex-wrap gap-1"><B fort onClick={() => onChoix({ cle: 'chaleur', valeur: 'chaud' })}>Tension</B><B onClick={() => onChoix({ cle: 'chaleur', valeur: 'creux' })}>Calme</B>
+            <div className="flex flex-wrap gap-1 mt-1"><B fort onClick={() => onChoix({ cle: 'chaleur', valeur: 'chaud' })}>Tension</B><B onClick={() => onChoix({ cle: 'chaleur', valeur: 'creux' })}>Calme</B>
               <B onClick={() => onChoix({ cle: 'chaleur', valeur: 'normal' })}>Normale</B><B onClick={() => onChoix({ cle: 'chaleur', valeur: 'calcul' })}>Calcul de Lucie</B></div></div>
           <div><div className="intertitre">Un grand moment</div>
-            <div className="flex flex-wrap gap-1">{MOMENTS_RAPIDES.map(([k, t]) => <B key={k} onClick={() => onChoix({ cle: 'moment', valeur: k, titre: k === 'autre' ? '' : (types?.[k] || t) })}>{t}</B>)}</div></div>
+            <div className="flex flex-wrap gap-1 mt-1">{MOMENTS_RAPIDES.map(([k, t]) => <B key={k} onClick={() => onChoix({ cle: 'moment', valeur: k, titre: k === 'autre' ? '' : (types?.[k] || t) })}>{t}</B>)}</div></div>
           <div><div className="intertitre">L’école</div>
-            <div className="flex flex-wrap gap-1"><B onClick={() => onChoix({ cle: 'fermeture', valeur: 'totale' })}>Fermée</B><B onClick={() => onChoix({ cle: 'fermeture', valeur: 'partielle' })}>En partie</B><B onClick={() => onChoix({ cle: 'fermeture', valeur: 'ouvert' })}>Ouverte</B></div></div>
+            <div className="flex flex-wrap gap-1 mt-1"><B onClick={() => onChoix({ cle: 'fermeture', valeur: 'totale' })}>Fermée</B><B onClick={() => onChoix({ cle: 'fermeture', valeur: 'partielle' })}>En partie</B><B onClick={() => onChoix({ cle: 'fermeture', valeur: 'ouvert' })}>Ouverte</B></div></div>
           <div><div className="intertitre">Les cours</div>
-            <div className="flex flex-wrap gap-1">{PINCEAUX.cours.valeurs.map(([k, t]) => <B key={k} onClick={() => onChoix({ cle: 'cours', valeur: k })}>{t}</B>)}</div></div>
+            <div className="flex flex-wrap gap-1 mt-1">{PINCEAUX.cours.valeurs.map(([k, t]) => <B key={k} onClick={() => onChoix({ cle: 'cours', valeur: k })}>{t}</B>)}</div></div>
         </>}
         {section && <div><div className="intertitre">Section {section}</div>
           <div className="flex flex-wrap gap-1">{PINCEAUX.section.valeurs.map(([k, t]) => <B key={k} onClick={() => onChoix({ cle: 'section', valeur: k, section })}>{t}</B>)}</div></div>}
