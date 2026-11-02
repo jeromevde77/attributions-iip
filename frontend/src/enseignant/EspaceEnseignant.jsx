@@ -343,6 +343,13 @@ export default function EspaceEnseignant() {
     window.history.replaceState(null, '', window.location.pathname);
     appel('POST', '/session', { jeton }).then(r => { poser(r.token); setToken(r.token); setDefinir(true); }).catch(e => setErreur(e.message));
   }, []);
+  // L'aperçu de la direction (3.5.084) : un lien d'une minute, depuis la fiche du professeur dans Lucie.
+  useEffect(() => {
+    const jeton = new URLSearchParams(window.location.search).get('apercu');
+    if (!jeton) return;
+    window.history.replaceState(null, '', window.location.pathname);
+    appel('POST', '/apercu', { jeton }).then(r => { poser(r.token); setToken(r.token); setDefinir(false); }).catch(e => setErreur(e.message));
+  }, []);
   useEffect(() => {
     if (!token || definir) return;
     appel('GET', '/moi').then(setMoi).catch(e => { if (e.session) setToken(null); else setErreur(e.message); });
@@ -378,6 +385,8 @@ export default function EspaceEnseignant() {
         </div>
       </nav>
       <main className="flex-1 min-w-0 p-4 md:p-8">
+        {moi.apercu && <div className="bloc-etat px-3 py-2 text-sm mb-4" data-etat="surveiller"><b>Aperçu de la direction</b> — l’espace de {String(moi.nom || '').toUpperCase()} {moi.prenom} tel qu’il le voit.
+          Lecture seule : rien ne s’enregistre. Ouvert par {moi.apercu.par}.</div>}
         {seance ? <Presences seanceId={seance} motifs={moi.motifs} onRetour={() => setSeance(null)} />
           : face === 'journee' ? <MaJournee moi={moi} onPresences={setSeance} onSemaine={() => aller('horaire')} />
           : face === 'horaire' ? <MonHoraire moi={moi} onPresences={setSeance} />

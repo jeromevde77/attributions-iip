@@ -29,14 +29,47 @@ export function comptesEnseignants() {
       WHERE COALESCE(u.actif, 1) = 1 AND u.email LIKE '%@%'`).all()
     .filter(u => fonctionPour('enseignant.espace', { userId: u.id }));
 }
+
+/* L'APERÇU DE LA DIRECTION (3.5.084, Charles : « comme pour les étudiants, je dois pouvoir voir l'espace de chaque prof » ;
+   « depuis sa fiche »). Un professeur ouvert en aperçu ces 30 dernières minutes est déposé au portail même si la fonction
+   est éteinte pour lui, et même s'il n'a pas de compte (identifiant négatif : -id de sa fiche) ; il l'est `apercu_seul` quand
+   lui-même n'y a pas droit : aucune porte de l'espace ne l'admet, seul le lien d'aperçu l'ouvre, en lecture seule. */
+export function migrerApercuEnseignant() {
+  db.exec(`CREATE TABLE IF NOT EXISTS ens_apercu (id INTEGER PRIMARY KEY AUTOINCREMENT, professeur_id INTEGER NOT NULL,
+    par TEXT, le TEXT NOT NULL DEFAULT (datetime('now')))`);
+}
+function enApercu() {
+  try { migrerApercuEnseignant(); return db.prepare(`SELECT DISTINCT professeur_id FROM ens_apercu WHERE le >= datetime('now', '-30 minutes')`).all().map(x => x.professeur_id); }
+  catch { return []; }
+}
+/** L'identifiant de l'espace d'un professeur : son compte relié s'il en a un, sinon -id de sa fiche. */
+export function identifiantEspace(profId) {
+  const u = db.prepare(`SELECT id FROM utilisateur WHERE professeur_id = ? AND COALESCE(actif, 1) = 1 ORDER BY id LIMIT 1`).get(Number(profId));
+  return u ? u.id : -Number(profId);
+}
+function aDeposer() {
+  const vrais = comptesEnseignants();
+  const ids = new Set(vrais.map(u => u.id));
+  const apercus = [];
+  for (const pid of enApercu()) {
+    const p = db.prepare('SELECT id, nom, prenom, adresse_mail FROM professeur WHERE id = ?').get(pid);
+    if (!p) continue;
+    const id = identifiantEspace(pid);
+    if (ids.has(id)) continue;
+    const u = id > 0 ? db.prepare('SELECT id, email, role FROM utilisateur WHERE id = ?').get(id) : null;
+    apercus.push({ id, email: u?.email || p.adresse_mail || `apercu-${pid}@lucie.invalid`, role: u?.role || 'professeur', nom: p.nom, prenom: p.prenom,
+      apercu_seul: true, ...(u ? {} : { apercuProfId: pid }) });
+  }
+  return [...vrais, ...apercus];
+}
 const compte = id => comptesEnseignants().find(u => u.id === Number(id)) || null;
 
 export async function deposerEnseignants(appel) {
   const jour = aujourdhuiBruxelles();
   const du = decaler(jour, -30), au = decaler(jour, 21);
   const enseignants = [], seances = [], etudiants = new Map(), presences = [];
-  for (const u of comptesEnseignants()) {
-    enseignants.push({ id: u.id, nom: u.nom, prenom: u.prenom, email: u.email });
+  for (const u of aDeposer()) {
+    enseignants.push({ id: u.id, nom: u.nom, prenom: u.prenom, email: u.email, apercu_seul: !!u.apercu_seul });
     const x = seancesPourEspace(u, du, au);
     for (const s of x.seances) seances.push({ ...s, ens_id: u.id });
     for (const e of x.etudiants) etudiants.set(e.id, e);

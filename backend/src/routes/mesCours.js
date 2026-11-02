@@ -167,6 +167,8 @@ export function acquisDuCours(coursCode, ueNum, annee) {
 
 // Le dossier professeur du compte connecté — sans lui, pas de porte.
 function profDe(req) {
+  // L'aperçu de la direction (3.5.084) : la fiche d'un professeur sans compte se lit comme s'il en avait un.
+  if (req.user?.apercuProfId) return req.user.apercuProfId;
   try {
     return db.prepare('SELECT professeur_id FROM utilisateur WHERE id = ?')
       .get(req.user?.id)?.professeur_id || null;

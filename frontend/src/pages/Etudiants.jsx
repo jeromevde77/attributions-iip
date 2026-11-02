@@ -17,7 +17,7 @@ import { RailLateral, Chevron } from '../components/ui.jsx';
 import SuiviEtudiant from '../components/SuiviEtudiant.jsx';
 import NouvelEtudiant from '../components/NouvelEtudiant.jsx';
 import {
-  IconAddressBook, IconListSearch, IconAlertTriangle, IconEyeCheck, IconInbox, IconPlaylistX, IconMessages, IconTablePlus, IconArrowForwardUp, IconArchive, IconDoorExit, IconSchool, IconArrowBackUp, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconSend, IconWritingSign, IconWritingSignOff, IconX,
+  IconAddressBook, IconListSearch, IconEye, IconAlertTriangle, IconEyeCheck, IconInbox, IconPlaylistX, IconMessages, IconTablePlus, IconArrowForwardUp, IconArchive, IconDoorExit, IconSchool, IconArrowBackUp, IconAward, IconCertificate, IconStairsUp, IconUserPlus, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconSend, IconWritingSign, IconWritingSignOff, IconX,
   IconChecks, IconLock, IconGift,
   IconQrcode,
   IconCash, IconAdjustmentsHorizontal,
@@ -47,6 +47,7 @@ const HorsBloc = lazy(() => import('../components/HorsBloc.jsx'));
 const PaeHorsRegle = lazy(() => import('../components/PaeHorsRegle.jsx'));
 const DecisionsSansInscription = lazy(() => import('../components/DecisionsSansInscription.jsx'));
 const NationalitesNormaliser = lazy(() => import('../components/NationalitesNormaliser.jsx'));
+import { voirEspaceEtudiant } from '../lib/voirEspace.js';
 import { useEchangesDuRail, Fenetre, Encadre, BulleAide, OuvrirEditions, IconeFaveur, OutilFenetre } from '../components/ui.jsx';
 import PassageAnnee from '../components/PassageAnnee.jsx';
 import ComposerPAE from '../components/ComposerPAE.jsx';
@@ -2461,7 +2462,11 @@ export function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
             + (data.niveau?.libelle ? ' · ' + data.niveau.libelle : '')}
       large="ecran" onFermer={onClose}
       /* L'AVION, ET RIEN D'AUTRE (2 octobre 2026) : il ouvre le centre d'édition sur cet étudiant — dans le bandeau. */
-      outils={<OutilFenetre Icone={IconSend} titre="Imprimer ou envoyer — le centre d'édition, sur cet étudiant" onClick={() => setEdition(true)} />}>
+      outils={<>
+        {/* L'ŒIL (3.5.084) : la direction voit l'espace de l'étudiant, en lecture seule. */}
+        {passeRole('admin') && <OutilFenetre Icone={IconEye} titre="Voir son espace étudiant (lecture seule)" onClick={() => voirEspaceEtudiant(id)} />}
+        <OutilFenetre Icone={IconSend} titre="Imprimer ou envoyer — le centre d'édition, sur cet étudiant" onClick={() => setEdition(true)} />
+      </>}>
       <div className="-mx-5 -my-4">
 
 

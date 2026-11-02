@@ -191,6 +191,17 @@ export const ajouts = {
   ],
   personnel: [
     {
+      titre: "Voir l'espace d'un professeur ou d'un étudiant, comme lui",
+      pour: 'dir',
+      ou: "Fiche d'un membre du personnel, ou fiche d'un étudiant → l'œil dans la barre bleue, à côté de l'avion.",
+      texte: "L'œil ouvre, dans un nouvel onglet, l'espace de la personne tel qu'elle le voit : l'espace enseignant d'un professeur (Ma journée, présences, horaire), l'espace étudiant d'un étudiant. Un bandeau « Aperçu de la direction » le rappelle en tête.",
+      savoir: [
+        "Lecture seule : rien ne s'enregistre, rien ne compte comme lu ou signé par la personne. Chaque aperçu est tracé au nom de qui l'ouvre.",
+        "Il marche même quand l'espace n'est pas encore ouvert à la personne (Mise en service), et pour un professeur qui n'a pas de compte : c'est ainsi qu'on vérifie avant d'ouvrir.",
+        "Réservé à la direction et à l'administrateur.",
+      ],
+    },
+    {
       titre: "Les annexes de la circulaire se complètent dans Lucie",
       pour: 'sec dir',
       ou: "Éditions → Personnel → une personne → Autres annexes de la circulaire 9760 → l’avion sur la ligne de la pièce.",

@@ -44,15 +44,19 @@ export function monterEnseignants(pub, int, o) {
       motif TEXT, PRIMARY KEY (seance_id, etudiant_id));
     CREATE TABLE IF NOT EXISTS ens_attente (ens_id INTEGER PRIMARY KEY, contenu TEXT);
     CREATE TABLE IF NOT EXISTS ens_reglage (cle TEXT PRIMARY KEY, valeur TEXT);
+    CREATE TABLE IF NOT EXISTS ens_apercu_jeton (jeton_hash TEXT PRIMARY KEY, ens_id INTEGER NOT NULL, par TEXT,
+      expire_le TEXT NOT NULL, utilise_le TEXT);
     CREATE TABLE IF NOT EXISTS ens_geste (id INTEGER PRIMARY KEY AUTOINCREMENT, ens_id INTEGER NOT NULL, type TEXT NOT NULL,
       seance_id INTEGER, contenu TEXT, cree_le TEXT NOT NULL DEFAULT (datetime('now')), releve_le TEXT, erreur TEXT);
   `);
 
+  // L'APERÇU DE LA DIRECTION (3.5.084) : un professeur déposé pour le seul aperçu n'existe pour aucune porte de l'espace.
+  try { db.exec('ALTER TABLE ens ADD COLUMN apercu_seul INTEGER NOT NULL DEFAULT 0'); } catch { /* déjà là */ }
   const HORS = "Votre espace ne s'ouvre que depuis la Belgique, et pas au travers d'un VPN.";
   const permis = req => autorise(ipDe(req), false);
   const refuserHors = res => res.status(403).json({ hors_belgique: true, error: HORS });
   const trouver = ident => { const i = String(ident || '').trim(); return i && i.length <= 120 && i.includes('@')
-    ? db.prepare('SELECT * FROM ens WHERE lower(email) = lower(?)').get(i) : null; };
+    ? db.prepare('SELECT * FROM ens WHERE lower(email) = lower(?) AND COALESCE(apercu_seul, 0) = 0').get(i) : null; };
   const session = (id, definir = false) => jwt.sign({ scope: 'enseignant', ens_id: id, ...(definir ? { definir: true } : {}) }, SECRET,
     { expiresIn: definir ? '30m' : '8h' });
 
@@ -84,6 +88,12 @@ export function monterEnseignants(pub, int, o) {
       const p = jwt.verify(String(req.headers.authorization || '').replace(/^Bearer /, ''), SECRET);
       const e = p.scope === 'enseignant' && db.prepare('SELECT * FROM ens WHERE id = ?').get(p.ens_id);
       if (!e) throw new Error('inconnu');
+      // L'aperçu de la direction : lecture seule, d'où qu'il vienne ; rien ne s'écrit.
+      if (p.apercu) {
+        if (req.method !== 'GET') return res.status(403).json({ error: 'Aperçu de la direction : lecture seule, rien ne s’enregistre.' });
+        req.ens = e; req.apercu = { par: p.par || '' }; return next();
+      }
+      if (e.apercu_seul) throw new Error('aperçu seul');
       if (!permis(req)) return refuserHors(res);
       if (p.definir && req.path !== '/api/enseignant/mot-de-passe') return res.status(403).json({ definir: true, error: 'Choisissez d’abord votre mot de passe.' });
       req.ens = e; req.peutDefinir = !!p.definir; next();
@@ -200,7 +210,7 @@ export function monterEnseignants(pub, int, o) {
     const e = req.ens;
     let attente = []; try { attente = JSON.parse(db.prepare('SELECT contenu FROM ens_attente WHERE ens_id = ?').get(e.id)?.contenu || '[]'); } catch { attente = []; }
     let motifs = []; try { motifs = JSON.parse(db.prepare("SELECT valeur FROM ens_reglage WHERE cle = 'motifs'").get()?.valeur || '[]'); } catch { motifs = []; }
-    res.json({ id: e.id, nom: e.nom, prenom: e.prenom, email: e.email, aujourdhui: aujourdhui(), attente, en_route: enAttente(e.id), motifs,
+    res.json({ id: e.id, nom: e.nom, prenom: e.prenom, email: e.email, aujourdhui: aujourdhui(), apercu: req.apercu || null, attente, en_route: enAttente(e.id), motifs,
       depose_le: db.prepare("SELECT valeur FROM ens_reglage WHERE cle = 'depose_le'").get()?.valeur || null });
   });
   pub.get('/api/enseignant/journee', connecte, (req, res) => {
@@ -255,13 +265,30 @@ export function monterEnseignants(pub, int, o) {
     res.json({ ok: true, n: lignes.length });
   });
 
+  pub.post('/api/enseignant/apercu', (req, res) => {
+    const j = db.prepare('SELECT * FROM ens_apercu_jeton WHERE jeton_hash = ?').get(empreinte(String(req.body?.jeton || '')));
+    if (!j || j.utilise_le || j.expire_le < maintenant()) return res.status(400).json({ error: 'Lien d’aperçu expiré : rouvrez-le depuis la fiche dans Lucie.' });
+    if (!db.prepare('SELECT 1 FROM ens WHERE id = ?').get(j.ens_id)) return res.status(404).json({ error: 'Cet espace n’existe plus.' });
+    db.prepare("UPDATE ens_apercu_jeton SET utilise_le = datetime('now') WHERE jeton_hash = ?").run(j.jeton_hash);
+    res.json({ token: jwt.sign({ scope: 'enseignant', ens_id: j.ens_id, apercu: true, par: j.par }, SECRET, { expiresIn: '30m' }) });
+  });
+
   // ══ LE PORT INTERNE : Lucie dépose et relève ══
+  int.post('/interne/ens/apercu', (req, res) => {
+    const id = Number(req.body?.ens_id);
+    if (!db.prepare('SELECT 1 FROM ens WHERE id = ?').get(id)) return res.status(404).json({ error: 'Cet enseignant n’a pas d’espace.' });
+    const jeton = crypto.randomBytes(32).toString('base64url');
+    db.prepare("DELETE FROM ens_apercu_jeton WHERE expire_le < datetime('now', '-1 day')").run();
+    db.prepare("INSERT INTO ens_apercu_jeton (jeton_hash, ens_id, par, expire_le) VALUES (?,?,?, datetime('now', '+1 minute'))")
+      .run(empreinte(jeton), id, String(req.body?.par || '').slice(0, 120));
+    res.json({ url: `${URL_ENS}/?apercu=${jeton}` });
+  });
   int.post('/interne/ens/depot', (req, res) => {
     const b = req.body || {};
     db.transaction(() => {
       db.exec('DELETE FROM ens; DELETE FROM ens_seance; DELETE FROM ens_inscrit; DELETE FROM ens_etudiant; DELETE FROM ens_attente;');
-      const ie = db.prepare("INSERT INTO ens (id, nom, prenom, email, maj_le) VALUES (?,?,?,?, datetime('now'))");
-      for (const e of b.enseignants || []) if (Number(e.id) && String(e.email || '').includes('@')) ie.run(Number(e.id), String(e.nom || ''), String(e.prenom || ''), String(e.email));
+      const ie = db.prepare("INSERT INTO ens (id, nom, prenom, email, maj_le, apercu_seul) VALUES (?,?,?,?, datetime('now'), ?)");
+      for (const e of b.enseignants || []) if (Number(e.id) && String(e.email || '').includes('@')) ie.run(Number(e.id), String(e.nom || ''), String(e.prenom || ''), String(e.email), e.apercu_seul ? 1 : 0);
       const is = db.prepare(`INSERT OR REPLACE INTO ens_seance (id, ens_id, date, heure_debut, heure_fin, cours_code, cours_nom, ue_num, matiere, local, annule, visite)
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`);
       const ii = db.prepare('INSERT OR IGNORE INTO ens_inscrit (seance_id, etudiant_id) VALUES (?,?)');

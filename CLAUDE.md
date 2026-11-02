@@ -3420,6 +3420,17 @@ cocher en ligne, Word et aperçu PDF au bandeau), ouvert par l'avion des « Autr
 `GET /api/formulaires`). L'A1 ter et l'A27 gardent `SaisieAnnexe`. **L'A27 ne garde que les blocs d'UE remplis** (3.5.082).
 **Le PDF des annexes passe par LibreOffice**, ajouté à l'image du serveur en 3.5.080 (`libreoffice-writer-nogui`).
 
+**VOIR L'ESPACE D'UN PROFESSEUR, ET L'ŒIL DE LA BARRE BLEUE** (3.5.084, Charles, 2 novembre 2026 : « comme pour les étudiants,
+je dois pouvoir voir l'espace de chaque prof — depuis sa fiche » ; « dans la barre bleue, le petit œil, si on a accès à son
+portail : la direction »). Le mécanisme de l'aperçu étudiant (3.1.518, 3.5.023) repris pour l'espace enseignant : `ens_apercu`
+dans Lucie (trace, 30 min) ; `aDeposer()` (`lib/portailEnseignants.js`) dépose aussi le professeur ouvert en aperçu, fonction
+éteinte ou sans compte (identifiant d'espace = son compte relié, sinon `-id` de sa fiche ; `profDe` lit `apercuProfId`), marqué
+`apercu_seul` (aucune porte de l'espace ne l'admet) ; `ouvrirApercuEnseignant` (`portailSync.js`) → `/interne/ens/apercu` →
+lien d'une minute à usage unique, échangé par `POST /api/enseignant/apercu` contre 30 min en lecture seule (`connecte` refuse
+tout sauf GET, sans contrôle de la Belgique) ; bandeau « Aperçu de la direction ». Route `POST /api/espace-enseignant/:profId/apercu`
+(direction). **L'œil** (`OutilFenetre` `IconEye`, `lib/voirEspace.js`) dans la barre bleue de la fiche du personnel (consultation
+et modification) et de la fiche de l'étudiant, pour la direction (`passeRole('admin')`).
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux

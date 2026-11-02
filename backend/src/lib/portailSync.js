@@ -426,6 +426,22 @@ export function retirerException(etudiantId, par) {
   return { ok: true };
 }
 
+/** L'APERÇU DE L'ESPACE ENSEIGNANT (3.5.084) : comme celui de l'étudiant — tracé, déposé aussitôt, puis un lien d'une minute. */
+export async function ouvrirApercuEnseignant(profId, par) {
+  if (!portailActif()) return { erreur: 'Le portail n’est pas configuré sur ce serveur.' };
+  const { migrerApercuEnseignant, identifiantEspace } = await import('./portailEnseignants.js');
+  migrerApercuEnseignant();
+  if (!db.prepare('SELECT 1 FROM professeur WHERE id = ?').get(Number(profId))) return { erreur: 'Fiche introuvable.' };
+  try {
+    db.prepare('INSERT INTO ens_apercu (professeur_id, par) VALUES (?,?)').run(Number(profId), par);
+    await deposerEnseignants(appel);
+    const r = await appel('POST', '/interne/ens/apercu', { ens_id: identifiantEspace(profId), par });
+    return { url: r.url };
+  } catch (e) {
+    return { erreur: /404/.test(e.message) ? 'L’espace enseignant n’a pas reçu ce professeur.' : 'L’espace enseignant ne répond pas.' };
+  }
+}
+
 /** L'APERÇU DE LA DIRECTION (3.1.518, Charles : « en tant que directeur, je dois avoir un mode voir comme un étudiant pour
  *  tester ou vérifier ») : le portail fabrique un lien d'une minute, à usage unique, qui ouvre l'espace en lecture seule.
  *  Chaque aperçu se trace ici (qui, quel étudiant, quand). */

@@ -10,7 +10,7 @@ import { api, getAnnee, getUser, nomDoc, authHeaders } from '../lib/api.js';
 import ProfFicheModal from './ProfFicheModal.jsx';
 import PreviewModal, { IconeApercu } from '../components/PreviewModal.jsx';
 import CoursEditModal from '../components/CoursEditModal.jsx';
-import { IconSend, IconAlertTriangle, IconAddressBook, IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck, IconBriefcase, IconTargetArrow, IconChevronDown, IconChevronRight, IconChevronLeft, IconUsers, IconSchool, IconUserPlus, IconBuilding, IconBuildingBank, IconFileDescription, IconFileImport, IconFileTypePdf, IconFileTypeDocx, IconClockHour4 } from '@tabler/icons-react';
+import { IconSend, IconAlertTriangle, IconAddressBook, IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck, IconBriefcase, IconTargetArrow, IconChevronDown, IconChevronRight, IconChevronLeft, IconUsers, IconSchool, IconUserPlus, IconBuilding, IconBuildingBank, IconFileDescription, IconFileImport, IconFileTypePdf, IconFileTypeDocx, IconClockHour4, IconEye } from '@tabler/icons-react';
 import { MODULES_ACCES, ROLES_LUCIE, estDirection } from '../lib/modules.js';
 import { RailLateral, OuvrirEditions, Fenetre, Encadre, OutilFenetre, EnteteCarte } from '../components/ui.jsx';
 import ImportPersonnelFwb from '../components/ImportPersonnelFwb.jsx';
@@ -40,6 +40,7 @@ function peutGenererContrat(u) {
 import { DossierAdmin, Absences, Entretiens, Journal } from '../components/DossierPersonnel.jsx';
 import CalculateurAnciennete from '../components/CalculateurAnciennete.jsx';
 import { ouvrirApercu } from '../lib/apercu.js';
+import { voirEspaceEnseignant } from '../lib/voirEspace.js';
 import { demander, informer } from '../lib/dialogue.jsx';
 import { useDroits, passeRole, ecritModule, peutGeste } from '../lib/droits.js';
 import { chargerIdentite, useIdentite } from '../lib/identite.js';
@@ -763,6 +764,8 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint =
         </div>
       )}
       titre={detail.nom_prenom}
+      /* L'ŒIL (3.5.084, Charles : « dans la barre bleue, le petit œil — la direction ») : son espace enseignant, en lecture seule. */
+      outils={passeRole('admin') && detail.id ? <OutilFenetre Icone={IconEye} titre="Voir son espace enseignant (lecture seule)" onClick={() => voirEspaceEnseignant(detail.id)} /> : null}
       sous={
         <span className="inline-flex items-center gap-3">
           {detail.adresse_mail && <span className="flex items-center gap-1"><IconMail size={11}/>{detail.adresse_mail}</span>}

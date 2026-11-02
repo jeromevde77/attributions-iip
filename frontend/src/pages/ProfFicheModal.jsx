@@ -4,11 +4,13 @@ import { authHeaders } from '../lib/api.js';
 import { useState, useEffect, useRef } from 'react';
 import FonctionsPanel from '../components/FonctionsPanel.jsx';
 import ChampsAdresse, { ChoixPays } from '../components/ChampsAdresse.jsx';
-import { Fenetre, Chevron } from '../components/ui.jsx';
+import { Fenetre, Chevron, OutilFenetre } from '../components/ui.jsx';
+import { passeRole } from '../lib/droits.js';
+import { voirEspaceEnseignant } from '../lib/voirEspace.js';
 import { api, getAnnee } from '../lib/api.js';
 import { eidStatus, eidReadAll, eidToProf, eidChamps } from '../lib/eid.js';
 import NominationsPanel from '../components/NominationsPanel.jsx';
-import { IconId, IconTrash, IconFileText, IconChevronRight, IconChevronLeft } from '@tabler/icons-react';
+import { IconId, IconTrash, IconFileText, IconChevronRight, IconChevronLeft, IconEye } from '@tabler/icons-react';
 import { informer, demander } from '../lib/dialogue.jsx';
 
 const _tok = () => localStorage.getItem('token');
@@ -432,6 +434,8 @@ export default function ProfFicheModal({ prof, onClose, onSaved, restreint = fal
       sous={isNew ? 'Identité, statut, coordonnées — rien n’est enregistré avant validation'
         : 'Identité, statut, charges et disponibilités'}
       large="grande" onFermer={onClose}
+      /* L'ŒIL (3.5.084) : la direction voit l'espace enseignant de ce professeur, en lecture seule. */
+      outils={!isNew && prof?.id && passeRole('admin') ? <OutilFenetre Icone={IconEye} titre="Voir son espace enseignant (lecture seule)" onClick={() => voirEspaceEnseignant(prof.id)} /> : null}
       /* LES FLÈCHES EN HAUT, À CÔTÉ DU X (Charles, 7 octobre 2026), comme sur
          la fiche de consultation et la fiche étudiant. */
       navigation={position && (onPrec || onSuiv) ? {
