@@ -3520,6 +3520,7 @@ la fiche choisit le rôle et les sections.**
 de la liste des personnes (désormais en LECTURE), « Le rôle décide » liste les comptes dont `permissions_json` réduit le rôle et ce que
 leur effacement ouvrirait, par rôle et module (`GET /api/users/cases-personnelles`) ; « Le rôle décide pour tous »
 (`POST …/effacer`, `ecrire`) remet `{}` en gardant l'octroi nominatif (`MODULES_SUR_OCTROI`). Prod au 3 novembre : 36 comptes.
+Sur la fiche, l'octroi nominatif se dit en UNE case « Référent·e des aménagements raisonnables » (lecture + écriture, 3.5.102).
 
 **L'A27 SIGNÉE ET CACHETÉE** (3.5.101, Charles : « pour les prestations des experts, ma signature et le sceau de l'établissement
 doré »). `insererImageSous` (`services/formulairesFWB.js`) pose une image DANS le Word (média, relation, type de contenu, paragraphe

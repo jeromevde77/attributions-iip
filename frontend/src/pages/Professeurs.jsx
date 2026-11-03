@@ -308,7 +308,14 @@ function AccesLuciePanel({ profId, detail }) {
   const DroitsDuRole = () => (
     <div className="space-y-1.5">
       <div className="text-second text-slate-500">Les droits viennent du rôle : ils se paramètrent dans <b>Configuration → Accès</b>.</div>
-      {MODULES_ACCES.filter(m => m.key === 'amenagements').map(m => <ModuleRow key={m.key} m={m} />)}
+      {/* UNE CASE, PAS DEUX (3.5.102, Charles : « pourquoi lecture, écriture ? ») : référent·e des aménagements raisonnables =
+          instruire les dossiers (lecture et écriture). Secret professionnel : le rôle seul n'y donne pas accès. */}
+      <label className="flex items-center gap-2 text-sm cursor-pointer">
+        <input type="checkbox" checked={!!(perms.amenagements?.lire || perms.amenagements?.ecrire)}
+          onChange={e => setPerms(prev => ({ ...prev, amenagements: { lire: e.target.checked, ecrire: e.target.checked } }))} />
+        Référent·e des aménagements raisonnables
+        <span className="text-second text-slate-500">— instruit les dossiers (secret professionnel : le rôle seul n’y donne pas accès)</span>
+      </label>
     </div>);
   const ModuleRow = ({ m }) => {
     const p = perms[m.key] || { lire: false, ecrire: false, voir_tout: false };
