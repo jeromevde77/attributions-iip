@@ -216,7 +216,7 @@ function plafonds() {
 }
 
 /** Niveau maximal de ce rôle sur ce module : 'rien' | 'lit' | 'ecrit' | 'validation'. */
-function plafondDe(role, module) {
+export function plafondDe(role, module) {
   const table = plafonds();
   if (table && table[role] && table[role][module]) return table[role][module];
   /* Le repli ne vaut que pour les rôles de la maison. Un rôle défini sans

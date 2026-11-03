@@ -3516,6 +3516,10 @@ le bouton ouvre toujours `UEModal`. (2) `Professeurs.jsx` → Accès Lucie : rô
 plus de cases par module ; à l'enregistrement `permsDuRole` ouvre toutes les cases (le plafond du rôle borne) sauf `amenagements`,
 octroi nominatif gardé (`MODULES_SUR_OCTROI`). **La gestion des accès est en deux temps : Configuration → Accès paramètre les rôles ;
 la fiche choisit le rôle et les sections.**
+**Les cases personnelles se retirent en un geste** (3.5.100, tranché : resserrer d'abord les rôles) : Configuration → Accès, au-dessus
+de la liste des personnes (désormais en LECTURE), « Le rôle décide » liste les comptes dont `permissions_json` réduit le rôle et ce que
+leur effacement ouvrirait, par rôle et module (`GET /api/users/cases-personnelles`) ; « Le rôle décide pour tous »
+(`POST …/effacer`, `ecrire`) remet `{}` en gardant l'octroi nominatif (`MODULES_SUR_OCTROI`). Prod au 3 novembre : 36 comptes.
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en

@@ -266,6 +266,7 @@ export default function Users({ embedded = false }) {
             {error && <div className="text-red-600 text-sm mt-2">{error}</div>}
         </Fenetre>
       )}
+      <CasesPersonnelles onFait={load} />
       <MatriceAcces users={users} sectionsDispo={allSections} profils={profils}
         moiId={me?.id}
         action={
@@ -378,6 +379,43 @@ export default function Users({ embedded = false }) {
 // personnel. Chaque case se modifie d'un clic — le droit tourne entre les
 // valeurs que le rôle autorise — et la modification rejoint la fiche de la
 // personne, puisque c'est la même donnée.
+/* LE RÔLE DÉCIDE (3.5.100) : les comptes dont des cases personnelles RÉDUISENT ce que le rôle permet, et ce que leur effacement
+   ouvrirait. On resserre d'abord la grille des rôles, puis on applique. Les aménagements (octroi nominatif) ne bougent pas. */
+const NOM_MODULE = Object.fromEntries(MODULES_ACCES.map(m => [m.key, m.label]));
+function CasesPersonnelles({ onFait }) {
+  const [l, setL] = useState(null);
+  const charger = () => authFetch('/api/users/cases-personnelles').then(j => setL(j.comptes || [])).catch(() => setL([]));
+  useEffect(() => { charger(); }, []);
+  if (!l || !l.length) return null;
+  const parRole = {};
+  for (const c of l) for (const o of c.ouvre) {
+    const k = `${c.role}|${o.module}|${o.gagne}`;
+    (parRole[k] = parRole[k] || { role: c.role, module: o.module, gagne: o.gagne, noms: [] }).noms.push(nomDuCompte(c.nom, c.email));
+  }
+  const lignes = Object.values(parRole).sort((a, b) => a.role.localeCompare(b.role) || b.noms.length - a.noms.length);
+  async function appliquer() {
+    if (!await demander(`Effacer les cases personnelles de ${l.length} compte(s) ?\n\nChacun recevra exactement ce que son rôle permet : les accès de ce tableau s'ouvriront. Les aménagements raisonnables (octroi nominatif) ne changent pas.`)) return;
+    try { await authFetch('/api/users/cases-personnelles/effacer', { method: 'POST', body: JSON.stringify({ ecrire: true }) }); await charger(); onFait?.(); }
+    catch (e) { informer(e.message); }
+  }
+  return (
+    <div className="carte overflow-hidden mb-4">
+      <TitreCarte titre={`Le rôle décide — ${l.length} compte(s) ont encore des cases personnelles`}
+        droite={<button type="button" className="bouton bouton-fort controle text-second" onClick={appliquer}>Le rôle décide pour tous</button>}>
+        Ces cases réduisent ce que leur rôle permet. Les effacer ouvrirait ce qui suit. Resserrez d’abord la grille des rôles (face « Rôles ») si un accès ne doit pas s’ouvrir : ce tableau se met à jour.
+      </TitreCarte>
+      <table className="w-full text-sm">
+        <thead><tr><th className="px-3 py-1.5 text-left">Rôle</th><th className="px-3 py-1.5 text-left">Module</th><th className="px-3 py-1.5 text-left">S’ouvrirait</th><th className="px-3 py-1.5 text-left">Comptes</th></tr></thead>
+        <tbody>{lignes.map(x => (
+          <tr key={`${x.role}|${x.module}|${x.gagne}`}>
+            <td className="px-3 py-1.5">{x.role}</td><td className="px-3 py-1.5">{NOM_MODULE[x.module] || x.module}</td>
+            <td className="px-3 py-1.5">{x.gagne}</td>
+            <td className="px-3 py-1.5 text-second text-slate-600" title={x.noms.join(', ')}>{x.noms.length} — {x.noms.slice(0, 4).join(', ')}{x.noms.length > 4 ? '…' : ''}</td>
+          </tr>))}</tbody>
+      </table>
+    </div>);
+}
+
 function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil, action,
                        onBasculerActif, onMotDePasse, onReinitMfa, peutReinitMfa,
                        onRetirer, moiId }) {
@@ -488,7 +526,8 @@ function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil, acti
       {MODULES_ACCES.map(m => {
         const droit = droitEffectif(u, m.key);
         const d = LIBELLE_DROIT[droit] || LIBELLE_DROIT.rien;
-        const modifiable = !!cycle(u, m.key) && reglableIci(u);
+        // LES CASES SE LISENT ICI, ELLES NE SE COCHENT PLUS (3.5.100) : le rôle décide, il se paramètre dans la grille des rôles.
+        const modifiable = false;
         /* RÉDUIT PAR LA FICHE (27 septembre 2026) : la grille des rôles, au-dessus,
            donne le maximum ; une case plus basse vient de la fiche de la
            personne. Sans le dire, les deux tableaux semblaient se contredire. */
