@@ -312,6 +312,49 @@ r.post('/ue/:ueNum/renumeroter', (req, res) => {
     acquis: db.prepare('SELECT aa_code, aa_num, description FROM aa WHERE ue_num = ? ORDER BY aa_num').all(ueNum) });
 });
 
+/* RATTACHER À L'ACQUIS PRÉCÉDENT (3.5.094, Charles : « les sous-acquis donnent la note de l'acquis ; on ne va pas plus en
+ * détail »). L'import du dossier pédagogique coupait les sous-points d'un acquis (« réaliser et présenter un premier bilan… : »
+ * suivi de « comparer…, », « identifier… ; ») en chapeau et en acquis de plus. Le geste rend le sous-point à son acquis — une
+ * ligne « – … » de sa description, avec le chapeau qui le précédait quand c'était, lui aussi, un sous-point —, supprime le faux
+ * acquis et renumérote les suivants (codes réécrits partout, `recoder`). Simulation d'abord. REFUSÉ dès que le faux acquis
+ * ou un acquis à renuméroter porte une note, un poids, une motivation… (tranché : les UE déjà notées ne bougent pas). */
+r.post('/:code/sous-point', (req, res) => {
+  if (!estDirection(req.user)) return res.status(403).json({ error: 'Réservé à la direction' });
+  const x = db.prepare('SELECT * FROM aa WHERE aa_code = ?').get(req.params.code);
+  if (!x) return res.status(404).json({ error: 'Acquis introuvable' });
+  const liste = db.prepare('SELECT * FROM aa WHERE ue_num = ? ORDER BY aa_num, aa_code').all(x.ue_num);
+  const i = liste.findIndex(a => a.aa_code === x.aa_code);
+  if (i < 1) return res.status(400).json({ error: "C'est le premier acquis de l'unité : il n'a pas d'acquis précédent." });
+  const parent = liste[i - 1];
+  const estParent = /:\s*$/.test(String(parent.description || '').split('\n')[0]) || /\n– /.test(parent.description || '');
+  if (!estParent) {
+    return res.status(400).json({ error: `${parent.aa_code} ne se termine pas par « : » : il n'annonce pas de sous-points. Corrigez d'abord son texte si c'est bien un acquis à sous-points.` });
+  }
+  const suivants = liste.slice(i + 1);
+  const bloques = [x, ...suivants].map(a => ({ code: a.aa_code, inv: inventaireAA(a.aa_code) }))
+    .filter(b => Object.values(b.inv).some(n => n > 0));
+  if (bloques.length) {
+    return res.status(409).json({ error: `Impossible : ${bloques.map(b => `${b.code} (${Object.entries(b.inv).map(([k, n]) => `${n} ${k}`).join(', ')})`).join(' ; ')}. Les acquis déjà évalués ne se renumérotent pas.` });
+  }
+  const propre = t => String(t || '').replace(/^(?:[-•–o]\s+)/, '').trim();
+  const sous = [...(x.chapeau ? String(x.chapeau).split('\n') : []), x.description].map(propre).filter(Boolean);
+  const texte = `${String(parent.description || '').trim()}${sous.map(l => `\n– ${l}`).join('')}`;
+  const cibles = suivants.map((a, k) => ({ de: a.aa_code, vers: `AA${x.ue_num}.${i + 1 + k}` })).filter(c => c.de !== c.vers);
+  const apercu = { parent: parent.aa_code, texte, supprime: x.aa_code, renommes: cibles.map(c => `${c.de} → ${c.vers}`) };
+  if (!req.body?.ecrire) return res.json({ simulation: true, ...apercu });
+  const etrangers = cibles.length ? db.prepare(`SELECT aa_code FROM aa WHERE aa_code IN (${cibles.map(() => '?').join(',')}) AND ue_num <> ?`)
+    .all(...cibles.map(c => c.vers), x.ue_num) : [];
+  if (etrangers.length) return res.status(409).json({ error: `Code déjà pris par une autre unité : ${etrangers.map(e => e.aa_code).join(', ')}` });
+  db.transaction(() => {
+    db.prepare('UPDATE aa SET description = ? WHERE aa_code = ?').run(texte, parent.aa_code);
+    db.prepare('DELETE FROM aa WHERE aa_code = ?').run(x.aa_code);
+    suivants.forEach((a, k) => db.prepare('UPDATE aa SET aa_num = ? WHERE aa_code = ?').run(i + 1 + k, a.aa_code));
+    for (const c of cibles) recoder(c.de, `__sous__${c.de}`);
+    for (const c of cibles) recoder(`__sous__${c.de}`, c.vers);
+  })();
+  res.json({ ok: true, ...apercu });
+});
+
 // ── Supprimer un AA ──────────────────────────────────────────────────────────
 // La suppression effaçait la seule ligne du référentiel : notes, pondérations,
 // motivations restaient accrochées à un acquis disparu — des notes qu'aucune

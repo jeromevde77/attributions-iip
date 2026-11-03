@@ -3476,6 +3476,15 @@ Lucie garde la copie des envois depuis le 1er octobre 2026 seulement : un contra
 NOMME (« copie non conservée, à redemander au secrétariat ») sans les ouvrir ni en accuser réception — rien n'est recomposé (tranché).
 `BoutonContact` est sous le logo de la navigation (à côté du logo sur téléphone) ; la navigation est collante.
 
+**LES SOUS-POINTS D'UN ACQUIS** (3.5.094, Charles : « les sous-acquis donnent la note de l'acquis ; on ne va pas aller plus en
+détail »). Un acquis qui finit par « : » annonce des sous-points ; ils vivent DANS sa description, une ligne « – … » chacun
+(affichée `whitespace-pre-line`), sans code ni note. `decouperAcquis` (`parseDossierPedagogique.js`, `enSous`) les y range jusqu'au
+sous-point qui finit par « ; » ou « . ». Réparer une UE déjà importée : fiche de l'UE → Acquis → ↰ (`POST /api/aa/:code/sous-point`,
+direction, simulation puis `ecrire`) — le faux acquis (et son chapeau, quand c'était un sous-point) rejoint l'acquis précédent, les
+suivants sont renumérotés par `recoder`. REFUSÉ dès que le faux acquis ou un suivant porte une trace (`inventaireAA`) : les UE 79,
+254, 261-264, notées sous ces codes par l'ancien classeur, ne bougent pas (tranché). **À faire par la direction en production** :
+UE 338 (↰ sur AA338.3) et UE 337 (↰ sur AA337.7, trois fois).
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux

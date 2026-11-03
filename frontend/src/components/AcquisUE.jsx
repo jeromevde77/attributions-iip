@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { IconTargetArrow, IconLink, IconUnlink, IconAlertTriangle, IconPencil,
          IconArrowUp, IconArrowDown, IconListNumbers, IconCheck, IconX, IconTrash,
-         IconGripVertical, IconPlus } from '@tabler/icons-react';
+         IconGripVertical, IconPlus, IconCornerLeftUp } from '@tabler/icons-react';
 import { authHeaders, getUser } from '../lib/api.js';
 import { chargerChapeaux } from '../lib/chapeaux.js';
 import { demander, informer, saisir } from '../lib/dialogue.jsx';
@@ -186,6 +186,19 @@ export default function AcquisUE({ ueNum, annee, estAdmin }) {
       ? { type: 'chapeau', id: nouvelId(), texte: (a.description || '').trim() } : x)));
   }
 
+  /* UN SOUS-POINT N'EST PAS UN ACQUIS (3.5.094, Charles : « les sous-acquis donnent la note de l'acquis »). L'import coupait
+     « réaliser… : – comparer…, – identifier… ; » en plusieurs acquis. Le geste rend le sous-point à l'acquis précédent ; les
+     suivants sont renumérotés. Simulation d'abord ; refusé si un acquis concerné est déjà évalué. */
+  async function enSousPoint(a) {
+    const sim = await envoyer(`/api/aa/${encodeURIComponent(a.aa_code)}/sous-point`, {}, 'POST');
+    if (!sim) return;
+    const msg = `${a.aa_code} devient un sous-point de ${sim.parent}, qui se lira :\n\n${sim.texte}\n\n${a.aa_code} est supprimé.`
+      + (sim.renommes.length ? `\nRenumérotés : ${sim.renommes.join(', ')}.` : '');
+    if (!(await demander(msg))) return;
+    const j = await envoyer(`/api/aa/${encodeURIComponent(a.aa_code)}/sous-point`, { ecrire: true }, 'POST');
+    if (j) { chargerChapeaux(ueNum, true); await charger(); setMessage(`${a.aa_code} rattaché à ${j.parent}.`); }
+  }
+
   /* AJOUTER UN ACQUIS à la main : le code suit le dernier (AA<ue>.<n+1>), le
      libellé se saisit, et l'acquis se range ensuite comme les autres. */
   async function ajouterAcquis() {
@@ -360,12 +373,16 @@ export default function AcquisUE({ ueNum, annee, estAdmin }) {
                   <div className="flex-1 min-w-0">
                     <div className="text-sm text-slate-800 leading-snug flex items-start gap-1.5">
                       <span className="text-xs font-bold text-iip-blue bg-iip-blue/8 px-1.5 py-0.5 rounded flex-none">{a.aa_code}</span>
-                      <span className="flex-1">{a.description}</span>
+                      <span className="flex-1 whitespace-pre-line">{a.description}</span>
                       {peutCorriger && (
                         <>
                           <button onClick={() => setEdition({ code: a.aa_code, nouveau_code: a.aa_code, description: a.description || '' })}
                             title="Corriger le code ou le libellé" className="text-slate-300 hover:text-iip-blue flex-none">
                             <IconPencil size={14} /></button>
+                          <button onClick={() => enSousPoint(a)}
+                            title="C'est un sous-point de l'acquis précédent : le lui rendre (il ne garde pas de note à lui)"
+                            className="text-slate-300 hover:text-iip-blue flex-none">
+                            <IconCornerLeftUp size={14} /></button>
                           <button onClick={() => enChapeau(a)}
                             title="Ce n'est pas un acquis mais une phrase d'introduction : en faire un chapeau"
                             className="text-slate-300 hover:text-iip-blue flex-none text-xs font-semibold italic leading-none mt-0.5">

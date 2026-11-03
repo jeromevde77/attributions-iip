@@ -225,6 +225,7 @@ function parseDP(xmlStr, numXml = null) {
     let commence = false;
     let amorce = [];          // les lignes de l'introduction, avant le premier « : »
     let chapeau = null;       // en attente d'être posé sur l'acquis suivant
+    let enSous = false;       // l'acquis précédent finit par « : » : ses sous-points suivent
     for (const l of lignes) {
       // Fin de la liste : critères de maîtrise, ou section suivante
       if (/degr[ée] de ma[îi]trise|pour la d[ée]termination/i.test(l)) break;
@@ -238,6 +239,16 @@ function parseDP(xmlStr, numXml = null) {
         // Certains dossiers listent directement, sans phrase d'introduction
         if (/^[-•–]|^\d+[.)]\s/.test(l)) commence = true;
         else { amorce.push(l); continue; }
+      }
+      /* LES SOUS-POINTS D'UN ACQUIS (3.5.094, Charles : « les sous-acquis donnent la note de l'acquis ; on ne va pas plus
+         en détail »). « réaliser et présenter un premier bilan de son projet professionnel : » est suivi de ses sous-points
+         (« comparer…, », « identifier… ; ») : ils appartiennent à CET acquis — une ligne « – … » de sa description —, jamais
+         un chapeau ni un acquis de plus. La liste se ferme sur le sous-point qui finit par « ; » ou « . ». */
+      if (enSous && out.length) {
+        const t = l.replace(/^(?:[-•–o]\s+|\d+[.)]\s*)/, '').trim();
+        out[out.length - 1].description += `\n– ${t}`;
+        if (!/[,:]\s*$/.test(l)) enSous = false;
+        continue;
       }
       /* LES LIGNES QUI FINISSENT PAR UNE VIRGULE PRÉCISENT LE CHAPEAU. Les
          dossiers d'AeSI introduisent les acquis par une suite de conditions —
@@ -257,6 +268,7 @@ function parseDP(xmlStr, numXml = null) {
       if (t.length < 15) continue;
       out.push({ description: t, chapeau });
       chapeau = null;
+      enSous = /:\s*$/.test(t);
     }
     return out.map((a, i) => ({ num: i + 1, ...a }));
   };
