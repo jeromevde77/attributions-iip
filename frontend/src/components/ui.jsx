@@ -326,7 +326,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
        *
        * La barre du haut demeure le seul point fixe, et le rail s'y raccroche.
        */
-      className={`group/rail fixed left-0 z-10 flex py-0
+      className={`rail-lucie group/rail fixed left-0 z-10 flex py-0
         top-[calc(var(--barre-h,4rem)+1rem)] bottom-4
         rounded-r-carte border-l-0 border-r border-y
         transition-[width] duration-300 ease-ios
@@ -605,6 +605,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
                         '--tw-ring-color': 'var(--menu-actif-bord)' }
                     : { color: 'var(--menu-texte-doux)' }}
                   onFocus={undefined}
+                  data-actif={it.actif ? '1' : undefined}
                   data-case-rail={epingle ? undefined : '1'}>
                   {it.bientot && (
                     <span aria-hidden="true" className="absolute -top-1 -right-1 z-[1] px-1 rounded-pastille text-[8px] font-bold leading-[12px] text-white"

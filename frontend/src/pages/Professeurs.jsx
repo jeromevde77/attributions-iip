@@ -776,13 +776,13 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint =
         <div className="flex -mx-5 -my-4 h-[calc(88vh-4.25rem)]">
 
           {/* ── Colonne gauche — identité + KPIs + actions ── */}
-          <div className="w-64 flex-shrink-0 border-r border-gray-100 flex flex-col bg-gray-50/50 overflow-auto">
+          <div className="w-64 flex-shrink-0 border-r border-slate-200 flex flex-col overflow-auto">
 
             {/* Charge — du plus synthétique au plus détaillé, l'un sous l'autre */}
-            <div className="p-4 space-y-2 border-b border-gray-100">
-              <div className="bg-white rounded-xl border border-gray-200 px-4 py-3 text-center">
+            <div className="px-4 pt-2 pb-3 space-y-0">
+              <div className="px-1 py-2 text-center border-b border-slate-200">
                 <div className="text-xs text-gray-500 mb-0.5">Charge totale</div>
-                <div className="text-2xl font-bold text-iip-turquoise">{etpTotal.toFixed(4)}</div>
+                <div className="text-xl font-semibold text-iip-turquoise">{etpTotal.toFixed(4)}</div>
                 <div className="text-mention text-gray-400">ETP{heuresHELB > 0 ? ' — IIP + HELB' : ''}</div>
               </div>
 
@@ -791,7 +791,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint =
                   professionnelle — et l'ETP ne se lit pas sans eux. Les sommes
                   incluent l'autonomie, qui compte dans la charge. */}
               {detail?.detail_etp && (
-                <div className="bg-white rounded-xl border border-gray-200 px-3 py-2.5">
+                <div className="px-1 py-2 border-b border-slate-200">
                   <div className="text-xs text-gray-500 mb-1.5 text-center">
                     Détail — autonomie comprise
                   </div>
@@ -825,22 +825,22 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint =
                 </div>
               )}
 
-              <div className="bg-white rounded-xl border border-gray-200 px-4 py-2.5 text-center">
+              <div className="px-1 py-2 text-center border-b border-slate-200">
                 <div className="text-xs text-gray-500 mb-0.5">Périodes IIP</div>
-                <div className="text-xl font-bold text-iip-blue">{totalIIP}</div>
+                <div className="text-lg font-semibold text-iip-blue">{totalIIP}</div>
                 <div className="text-mention text-gray-400">
                   per. + aut. · {enHeures(totalIIP)} h
                 </div>
               </div>
 
               {heuresHELB > 0 && (
-                <div className="bg-white rounded-xl border border-gray-200 px-4 py-2.5 text-center">
+                <div className="px-1 py-2 text-center border-b border-slate-200">
                   <div className="text-xs text-gray-500 mb-0.5">Heures HELB</div>
-                  <div className="text-xl font-bold text-purple-600">{heuresHELB} h</div>
+                  <div className="text-lg font-semibold text-purple-600">{heuresHELB} h</div>
                 </div>
               )}
 
-              <div className="bg-white rounded-xl border border-gray-200 px-3 py-2 text-center">
+              <div className="px-1 py-2 text-center">
                 <div className="text-mention text-gray-400">Ancienneté PO</div>
                 <div className="text-base font-bold text-gray-700">{detail.anciennete_25_26_po ?? 0}</div>
               </div>
@@ -866,7 +866,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche, onEditions, restreint =
               {((peutGeste('personnel.fiche') && ecritModule('organisation'))
                 || String(getUser()?.professeur_id ?? '') === String(profId)) && (
               <button onClick={() => onEdit(detail)}
-                className="w-full flex items-center gap-2 text-xs bg-slate-50 hover:bg-slate-100 text-iip-blue border border-slate-200 rounded-lg px-3 py-2 font-medium transition">
+                className="bouton w-full flex items-center gap-2 text-xs">
                 <IconEdit size={14}/> Modifier la fiche
               </button>
               )}

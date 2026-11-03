@@ -162,6 +162,13 @@ export const COULEURS_METAL = { principal: '#1D1D1F', accent: '#0071E3', texte: 
                fond_ligne: '#FFFFFF', fond_tuile: '#FFFFFF', fond_champ: '#FFFFFF', filet: '#F0F0F2', fond_survol: '#F7F7F9',
                fenetre_bandeau: '#1D1D1F', bouton_fort: '#0071E3', segment_actif: '#1D1D1F',
                titre: '#1D1D1F', intertitre: '#6E6E73' };
+/* LE NOUVEAU STYLE, À L'ESSAI (3.5.103, Charles : « basé sur apple.com, en gardant le bleu, pas de noir » ; « fond blanc uni
+   partout ; le rail devient une parenthèse » ; prototype validé, à essayer dans la vraie Lucie). Fond blanc partout, texte marine,
+   bleu du logo pour les actions, filets très pâles. */
+export const COULEURS_NOUVEAU = { principal: '#16406A', accent: '#1F78BE', texte: '#16406A', donnees: '#1F78BE', menu_sombre: '#16406A',
+               fond_page: '#FFFFFF', fond_indispo: '#F6F8FB', fond_menus: '#FFFFFF', fond_carte: '#FFFFFF', fond_entete: '#FFFFFF',
+               fond_regroupement: '#FFFFFF', fond_ligne: '#FFFFFF', fond_tuile: '#FFFFFF', fond_champ: '#FFFFFF', filet: '#EDEEF2', fond_survol: '#F6F8FB',
+               fenetre_bandeau: '#16406A', bouton_fort: '#1F78BE', segment_actif: '#1F78BE', titre: '#16406A', intertitre: '#8A9BB2' };
 export const COULEURS_PASTEL = { principal: '#5A6FA8', accent: '#5FAFC2', texte: '#3A4466', donnees: '#7FA7D9', menu_sombre: '#4A5A8A',
                iip: '#5A6FA8', helb: '#D97FA8', ct: '#7FA7D9', pp: '#6DB896',
                reussi: '#5BAA7A', faveur: '#9D7FD0', disponible: '#6F9AD6', attente: '#E39A50', refuse: '#DB7070',
@@ -175,8 +182,9 @@ export const THEMES_PERSONNELS = {
   sombre: { nom: 'Sombre', texte: 'Gris foncés, texte clair', couleurs: COULEURS_SOMBRE, gris: 'sombre' },
   metal:  { nom: 'Métal', texte: 'Blanc et gris d’Apple, sans bordure', couleurs: COULEURS_METAL, gris: 'apple' },
   pastel: { nom: 'Pastel', texte: 'Tons doux sur fond blanc', couleurs: COULEURS_PASTEL, gris: 'neutre' },
+  nouveau: { nom: 'Nouveau style', texte: 'À l’essai : fond blanc, rail en parenthèse', couleurs: COULEURS_NOUVEAU, gris: 'neutre' },
 };
-const CLES_PERSO = [...new Set([COULEURS_SOMBRE, COULEURS_METAL, COULEURS_PASTEL].flatMap(Object.keys))];
+const CLES_PERSO = [...new Set([COULEURS_SOMBRE, COULEURS_METAL, COULEURS_PASTEL, COULEURS_NOUVEAU].flatMap(Object.keys))];
 function poserThemePerso() {
   const t = THEMES_PERSONNELS[themeActuel()];
   if (t?.couleurs) { poser(t.couleurs); poserGris(t.gris); }

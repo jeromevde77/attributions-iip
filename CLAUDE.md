@@ -3527,6 +3527,14 @@ doré »). `insererImageSous` (`services/formulairesFWB.js`) pose une image DANS
 aligné à droite sous le libellé) : `cachetCourant()` sous « Cachet de l'établissement », `signatureCourante()` sous « Signature du chef
 de l'établissement ». Une autre annexe à signer se branche de même dans `remplirAnnexe`.
 
+**LE « NOUVEAU STYLE », À L'ESSAI** (3.5.103, Charles, 3 novembre 2026 : « un design basé sur apple.com en gardant le bleu,
+pas de noir, gris clair » ; « fond blanc uni partout ; le rail devient une parenthèse » ; prototype publié en artefact, puis
+« le style dans la vraie Lucie, en essai »). Thème personnel `nouveau` (`THEMES_PERSONNELS` de `lib/couleurs.js`,
+`THEMES_PERSO` de `lib/theme.js`), visible dans la palette de la DIRECTION seulement (`ChoixTheme`). Règles sous
+`:root[data-theme="nouveau"]` en fin d'`index.css` : cartes, tableaux et tuiles sans cadre ni ombre, champs blancs à filet
+#E4E7EC, rail transparent (`.rail-lucie`) avec sa parenthèse (`::after`, fondu par masque) et un point bleu face à l'entrée
+`[data-actif]`, fenêtres à 22 px. Les réglages de l'école ne changent pas. Si Charles l'adopte : en faire le défaut.
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux

@@ -2,6 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { IconPalette, IconCheck } from '@tabler/icons-react';
 import { useTheme, choisirTheme, THEMES_PERSO } from '../lib/theme.js';
 import { THEMES_PERSONNELS, DEFAUT } from '../lib/couleurs.js';
+import { passeRole } from '../lib/droits.js';
+
+/* « Nouveau style » est à l'essai (3.5.103) : seule la direction le voit dans la palette. */
+const themesVisibles = theme => THEMES_PERSO.filter(k => k !== 'nouveau' || theme === 'nouveau' || passeRole(['admin', 'directeur', 'directeur_adjoint']));
 
 /* LE CHOIX DU THÈME, POUR CHACUN (3.5.037, Charles : « que TOUT le monde puisse, non pas gérer la mise en page, mais avoir
  * le choix entre des thèmes »). Une palette dans la barre du haut ; quatre thèmes, nommés, avec leurs trois couleurs.
@@ -35,7 +39,7 @@ export default function ChoixTheme({ enLigne = false }) {
   if (enLigne) return (
     <div className="flex flex-wrap items-center gap-1.5 w-full" role="radiogroup" aria-label="Thème">
       <IconPalette size={14} className="flex-none" />
-      {THEMES_PERSO.map(k => (
+      {themesVisibles(theme).map(k => (
         <button key={k} role="radio" aria-checked={theme === k} onClick={() => choisirTheme(k)}
           className={`objet-barre ${theme === k ? 'objet-barre-etat' : ''}`} style={theme === k ? { '--e': 'var(--c-principal)' } : undefined}>
           <Pastilles cle={k} /> {THEMES_PERSONNELS[k].nom}
@@ -54,7 +58,7 @@ export default function ChoixTheme({ enLigne = false }) {
         <div role="menu" className="absolute right-0 top-full mt-2 z-50 w-64 rounded-carte border shadow-flottant p-1.5"
           style={{ background: 'var(--c-fond_carte, var(--c-fond_page, #fff))', borderColor: 'var(--menu-bord)' }}>
           <p className="px-2.5 pt-1.5 pb-1 text-mention uppercase tracking-wide" style={{ color: 'var(--c-intertitre, var(--menu-texte-doux))' }}>Mon thème</p>
-          {THEMES_PERSO.map(k => (
+          {themesVisibles(theme).map(k => (
             <button key={k} role="menuitemradio" aria-checked={theme === k}
               onClick={() => { choisirTheme(k); setOuvert(false); }}
               className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-champ text-left hover:bg-[var(--menu-survol)]">
