@@ -3485,6 +3485,15 @@ suivants sont renumérotés par `recoder`. REFUSÉ dès que le faux acquis ou un
 254, 261-264, notées sous ces codes par l'ancien classeur, ne bougent pas (tranché). **À faire par la direction en production** :
 UE 338 (↰ sur AA338.3) et UE 337 (↰ sur AA337.7, trois fois).
 
+**CONFIGURATION EN ÉCRITURE HORS DIRECTION** (3.5.095, Charles : « je ne parviens pas à mettre les droits à Configuration à
+Amélie Verkest » ; tranché : rôle Conseiller qualité ; elle modifie tout sauf les accès et le système). Les routes de Configuration
+sont en `roleRequired('admin')` : `ecritLaConfiguration(user, chemin)` (`middleware/permissions.js`) y laisse ÉCRIRE un rôle au plafond
+« Configuration » ≥ « écrit », sur une liste fermée de portes (`PORTES_CONFIG` : parametres, etablissement, annees, ref, prerequis,
+règles de délibération, effectifs-prevus, templates, reponses-types, envois/rappels|recap, config/*) moins `CONFIG_FERMEE` (couleurs,
+design, mise en page, annuler, sécurité, fonctions). Comptes, rôles, plafonds, sauvegardes, serveur de courriel : direction seule.
+L'écran (`Configuration.jsx`) met les onglets Accès et Système en lecture seule pour ce rôle. **Une nouvelle porte de Configuration
+ouverte à ce rôle s'ajoute à `PORTES_CONFIG`.**
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux
