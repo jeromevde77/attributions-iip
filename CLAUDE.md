@@ -3533,7 +3533,7 @@ pas de noir, gris clair » ; « fond blanc uni partout ; le rail devient une par
 `THEMES_PERSO` de `lib/theme.js`), visible dans la palette de la DIRECTION seulement (`ChoixTheme`). Règles sous
 `:root[data-theme="nouveau"]` en fin d'`index.css` : cartes, tableaux et tuiles sans cadre ni ombre, champs blancs à filet
 #E4E7EC, rail transparent (`.rail-lucie`) avec sa parenthèse (`::after`, fondu par masque) et un point bleu face à l'entrée
-`[data-actif]`, fenêtres à 22 px. Les réglages de l'école ne changent pas. Si Charles l'adopte : en faire le défaut.
+`[data-actif]`, fenêtres à 22 px. **Second passage** (3.5.104, Charles : « bof, très peu abouti ») : le thème dépasse aussi les réglages de forme de l'école (`--d-*` en `!important`, sous ce thème seulement) — police du système, titre d'écran 26 px, boutons et rubriques en pilule, bleu du logo pour l'action, en-têtes de tableau sans bande ni capitales, pastilles d'état pâles, `--menu-*` redéfinis. Les réglages de l'école ne changent pas. Si Charles l'adopte : en faire le défaut.
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
