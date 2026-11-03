@@ -675,7 +675,7 @@ function SectionModal({ section, onClose, onSaved, annee, isAdmin }) {
 }
 
 // ─── Modale UE ───
-function UEModal({ ue, sections, onClose, onSaved, navigation = null }) {
+export function UEModal({ ue, sections, onClose, onSaved, navigation = null, ongletInitial = 'fiche' }) {
   const isNew = !ue?._edit;
   const me = getUser?.();
   const isAdmin = estDirection(me);
@@ -704,7 +704,7 @@ function UEModal({ ue, sections, onClose, onSaved, navigation = null }) {
      dossier pédagogique, éditables, déjà mises en page » — proposition B) : Fiche · Contenu ·
      Programme · Organisation. Le texte du dossier se charge à part ; seules les rubriques touchées
      partent à l'enregistrement. */
-  const [onglet, setOnglet] = useState('fiche');
+  const [onglet, setOnglet] = useState(ongletInitial);
   const [dossier, setDossier] = useState(null);
   const [rubriques, setRubriques] = useState({});
   const [rubriquesTouchees, setRubriquesTouchees] = useState({});

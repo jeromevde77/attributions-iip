@@ -3505,6 +3505,10 @@ imports restent refusés (409 / ignorés). (2) Menu Notes de la Délibération :
 cours » et « Corriger une note » (`FeuilleCorrection.jsx`, supprimé) retirés ; Excel gardé ; « Annuler la délibération » = bouton
 rouge à côté de « Délibérer ». **Une correction en ligne de commande d'une note close : `INSERT INTO note_force` d'abord.**
 
+**LE DOSSIER PÉDAGOGIQUE DANS L'ATELIER DE L'UNITÉ** (3.5.098, Charles : « il manque un aperçu du DP avant de croiser ; il n'est
+visible que dans Config »). Organisation → Unité (`AtelierUE.jsx`) : bouton « Dossier pédagogique » qui ouvre `UEModal` (exporté de
+`pages/Referentiels.jsx`, prop `ongletInitial`, ici « contenu ») — la même fiche, pas une copie.
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux
