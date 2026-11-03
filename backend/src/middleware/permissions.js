@@ -323,4 +323,21 @@ export function litLaConfiguration(user) {
   try { return plafondDe(fraicheur(user).role, 'configuration') !== 'rien'; } catch { return false; }
 }
 
+/* ÉCRIRE DANS LA CONFIGURATION SANS ÊTRE LA DIRECTION (3.5.095, Charles : « je ne parviens pas à mettre les droits d'accès à
+ * Configuration à Amélie Verkest » ; tranché : un rôle au plafond « Configuration » = « écrit » modifie tout, SAUF les accès et le
+ * système). Les routes de Configuration sont gardées par `roleRequired('admin')` : la direction seule. Un rôle « écrit » y passe
+ * pour ÉCRIRE, mais seulement sur les portes de ces parties-là — établissement, années, coûts, enseignement (unités, cours,
+ * prérequis, règles de délibération), procédures et délais, planification, modèles de pièces, DUE, réponses types, rappels et
+ * récapitulatif. Jamais : comptes, rôles, plafonds, sécurité, mise en service, couleurs et formes, sauvegardes, serveur de courriel. */
+const PORTES_CONFIG = [/^\/api\/parametres(\/|$)/, /^\/api\/etablissement(\/|$)/, /^\/api\/annees(\/|$)/, /^\/api\/ref\//,
+  /^\/api\/prerequis(\/|$)/, /^\/api\/acquis\/deliberation\/regles/, /^\/api\/effectifs-prevus(\/|$)/, /^\/api\/templates(\/|$)/,
+  /^\/api\/reponses-types(\/|$)/, /^\/api\/envois\/(rappels|recap)(\/|$)/, /^\/api\/config\//];
+const CONFIG_FERMEE = /^\/api\/config\/(couleurs|theme|design|mise-en-page|mise_en_page|annuler|securite|fonctions)/;
+export function ecritLaConfiguration(user, chemin) {
+  if (!user) return false;
+  const c = String(chemin || '').split('?')[0];
+  if (!PORTES_CONFIG.some(r => r.test(c)) || CONFIG_FERMEE.test(c)) return false;
+  try { return ['ecrit', 'validation'].includes(plafondDe(fraicheur(user).role, 'configuration')); } catch { return false; }
+}
+
 export default { peut, exigePermission, droitsDe, MODULES };

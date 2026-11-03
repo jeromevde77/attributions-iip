@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import db from '../db/index.js';
-import { litLaConfiguration } from './permissions.js';
+import { litLaConfiguration, ecritLaConfiguration } from './permissions.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'change-me-in-prod';
 
@@ -93,6 +93,8 @@ export function roleRequired(...roles) {
     // une route réservée à la direction quand il ne fait que LIRE. Écrire reste à la direction. Les lectures qui
     // contiennent tout (une sauvegarde, l'export de la base) se gardent par `directionStricte`.
     if ((req.method === 'GET' || req.method === 'HEAD') && roles.includes('admin') && !req._directionStricte && litLaConfiguration(req.user)) return next();
+    // …et un rôle au plafond « écrit » y ÉCRIT, hors accès et système (3.5.095, `ecritLaConfiguration`).
+    if (roles.includes('admin') && !req._directionStricte && ecritLaConfiguration(req.user, req.originalUrl)) return next();
 
     // Un coordinateur n'écrit jamais directement : ses modifications passent
     // par une demande. Les écrans qui savent la déposer le font eux-mêmes ;

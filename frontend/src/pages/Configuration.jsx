@@ -1163,7 +1163,10 @@ export default function Configuration() {
   // « QUI A FAIT QUOI » N'APPARAÎT QUE POUR L'ADMINISTRATEUR, et le serveur le
   // refuse de toute façon : un onglet visible qui rend un 403 se lit « Lucie
   // est cassée », pas « ce n'est pas pour vous ».
-  const lectureSeule = !estDirection(getUser()) && droitEffectif(getUser(), 'configuration') === 'lit';
+  // Un rôle « écrit » (3.5.095) modifie tout SAUF les accès et le système, qu'il lit (le serveur, `ecritLaConfiguration`, refuse).
+  const niveauConfig = estDirection(getUser()) ? 'direction' : droitEffectif(getUser(), 'configuration');
+  const ongletsFermes = CONF_GROUPES.filter(g => ['Accès', 'Système'].includes(g.label)).flatMap(g => g.items.flatMap(t => [t.key, ...(t.faces || []).map(([k]) => k)]));
+  const lectureSeule = niveauConfig === 'lit' || (niveauConfig !== 'direction' && ongletsFermes.includes(tab));
   const groupesVisibles = CONF_GROUPES.map(g => ({ ...g,
     items: g.items.filter(t => !['audit', 'transferts'].includes(t.key) || getUser()?.role === 'admin') }));
   const porte = t => t.key === tab || (t.faces || []).some(([k]) => k === tab);
@@ -1221,7 +1224,7 @@ export default function Configuration() {
 
       {/* LA CONFIGURATION EN LECTURE (3.5.030) : un rôle qui ne fait que lire voit chaque onglet, mais aucun champ ni bouton
           n'y répond (fieldset désactivé) — et le serveur refuserait de toute façon. */}
-      {lectureSeule && <div className="bloc-etat px-3 py-2 text-second" data-etat="disponible">Lecture seule : vous voyez les réglages, seule la direction les modifie.</div>}
+      {lectureSeule && <div className="bloc-etat px-3 py-2 text-second" data-etat="disponible">{niveauConfig === 'lit' ? 'Lecture seule : vous voyez les réglages, seule la direction les modifie.' : 'Lecture seule : les accès et le système se règlent par la direction.'}</div>}
       <fieldset disabled={lectureSeule} className="contents">
       {ongletActif?.demenage && <Demenage d={ongletActif.demenage} />}
 
