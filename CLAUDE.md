@@ -3521,6 +3521,11 @@ de la liste des personnes (désormais en LECTURE), « Le rôle décide » liste 
 leur effacement ouvrirait, par rôle et module (`GET /api/users/cases-personnelles`) ; « Le rôle décide pour tous »
 (`POST …/effacer`, `ecrire`) remet `{}` en gardant l'octroi nominatif (`MODULES_SUR_OCTROI`). Prod au 3 novembre : 36 comptes.
 
+**L'A27 SIGNÉE ET CACHETÉE** (3.5.101, Charles : « pour les prestations des experts, ma signature et le sceau de l'établissement
+doré »). `insererImageSous` (`services/formulairesFWB.js`) pose une image DANS le Word (média, relation, type de contenu, paragraphe
+aligné à droite sous le libellé) : `cachetCourant()` sous « Cachet de l'établissement », `signatureCourante()` sous « Signature du chef
+de l'établissement ». Une autre annexe à signer se branche de même dans `remplirAnnexe`.
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux
