@@ -48,6 +48,19 @@ function close(x) {
                  AND COALESCE(s3.cloturee, 0) = 0)))))`;
 }
 
+/* LA DIRECTION CORRIGE UNE NOTE D'UNE SÉANCE CLOSE (3.5.097, Charles : « je dois pouvoir changer les notes ; la trace sera
+ * gardée de toute façon ; il faut réduire la charge de travail admin »). Plus besoin de rouvrir la séance : la route pose une
+ * PERMISSION (`note_force`, l'étudiant, l'unité, l'année), écrit, puis la retire — le tout dans la même requête. Le journal des
+ * modifications garde l'ancienne valeur, la nouvelle et le nom de qui l'a changée. La décision déjà notifiée ne change pas d'elle-même. */
+export const DIRECTION_CORRIGE = ['admin', 'directeur', 'directeur_adjoint'];
+export function avecNoteForcee(etudId, annee, ueNum, fn) {
+  db.prepare('INSERT OR IGNORE INTO note_force (etudiant_id, annee_scolaire, ue_num) VALUES (?,?,?)').run(Number(etudId), annee, Number(ueNum));
+  try { return fn(); }
+  finally { db.prepare('DELETE FROM note_force WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?').run(Number(etudId), annee, Number(ueNum)); }
+}
+const pasForcee = x => `NOT EXISTS (SELECT 1 FROM note_force f WHERE f.etudiant_id = ${x}.etudiant_id
+  AND f.annee_scolaire = ${x}.annee_scolaire AND f.ue_num = ${x}.ue_num)`;
+
 export function poserGardeNotes(dbx = db) {
   // Recréés à chaque démarrage : la règle peut évoluer, un déclencheur ancien ne doit pas rester.
   dbx.exec(`
@@ -62,13 +75,15 @@ export function poserGardeNotes(dbx = db) {
     ['etudiant_note_detail', note, ['origine', 'code']], ['etudiant_inscription', ins, ['num_organisation']]]
     .flatMap(([t, c, l]) => l.filter(x => !c.has(x)).map(x => `${t}.${x}`));
   if (manque.length) { console.error('[garde des notes] non posée, colonnes absentes :', manque.join(', ')); return false; }
+  dbx.exec(`CREATE TABLE IF NOT EXISTS note_force (etudiant_id INTEGER NOT NULL, annee_scolaire TEXT NOT NULL, ue_num INTEGER NOT NULL,
+    PRIMARY KEY (etudiant_id, annee_scolaire, ue_num))`);
   dbx.exec(`
     CREATE TRIGGER garde_note_close_ins BEFORE INSERT ON etudiant_note_detail
-      WHEN ${close('NEW')} BEGIN SELECT RAISE(IGNORE); END;
+      WHEN ${pasForcee('NEW')} AND ${close('NEW')} BEGIN SELECT RAISE(IGNORE); END;
     CREATE TRIGGER garde_note_close_maj BEFORE UPDATE OF points, mention ON etudiant_note_detail
-      WHEN ${close('OLD')} BEGIN SELECT RAISE(IGNORE); END;
+      WHEN ${pasForcee('OLD')} AND ${close('OLD')} BEGIN SELECT RAISE(IGNORE); END;
     CREATE TRIGGER garde_note_close_supp BEFORE DELETE ON etudiant_note_detail
-      WHEN ${close('OLD')} AND EXISTS (SELECT 1 FROM etudiant WHERE id = OLD.etudiant_id)
+      WHEN ${pasForcee('OLD')} AND ${close('OLD')} AND EXISTS (SELECT 1 FROM etudiant WHERE id = OLD.etudiant_id)
       BEGIN SELECT RAISE(IGNORE); END;`);
   return true;
 }
@@ -83,4 +98,4 @@ export function noteVerrouillee(etudId, annee, ueNum, code = 's1|') {
 }
 
 export const MESSAGE_CLOSE = (ue, s) => `La séance de ${s === 2 ? 'seconde' : 'première'} session de l'UE ${ue} est close : `
-  + 'ses notes ne se modifient plus. La direction peut rouvrir la séance, avec un motif écrit.';
+  + 'ses notes ne se modifient plus que par la direction (chaque changement est tracé).';

@@ -14,9 +14,10 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PastilleEtape, LienEtape } from '../components/graphiques.jsx';
-import { IconPercentage, IconTable, IconFileDescription, IconCheck, IconArrowRight, IconLock } from '@tabler/icons-react';
+import { IconPercentage, IconTable, IconFileDescription, IconCheck, IconArrowRight, IconLock, IconBook } from '@tabler/icons-react';
 import { api, authHeaders, getAnnee, getUser } from '../lib/api.js';
 import { Fiche } from './DUE.jsx';
+import { UEModal } from './Referentiels.jsx';
 import { RailLateral } from '../components/ui.jsx';
 import PonderationsUE from './PonderationsUE.jsx';
 import CroisementUE, { proposer } from '../components/CroisementUE.jsx';
@@ -137,6 +138,7 @@ export default function AtelierUE({ faceInitiale = 'croisement', faces = FACES.m
   const [erreur, setErreur] = useState(null);
   const [section, setSection] = useState(memo.section || '');
   const [ue, setUe] = useState(memo.ue || null);
+  const [dp, setDp] = useState(null);   // la fiche du dossier pédagogique ouverte (3.5.098)
   const [faceLocale, setFaceLocale] = useState(ouvertes.some(f => f[0] === faceInitiale) ? faceInitiale : ouvertes[0][0]);
   // Un clic sur une étape du rail quand l'écran n'était pas encore ouvert : l'axe
   // l'a notée (`lucie.outil`), on l'ouvre directement.
@@ -189,6 +191,14 @@ export default function AtelierUE({ faceInitiale = 'croisement', faces = FACES.m
   if (!liste) return <p className="p-4 text-sm text-slate-400">Chargement…</p>;
   if (!liste.ues.length) return <p className="p-4 text-sm text-slate-500">Aucune unité ne vous est ouverte cette année.</p>;
   const u = (liste.ues || []).find(x => x.ue_num === ue);
+  async function ouvrirDP() {
+    const an = getAnnee();
+    const [j, sections] = await Promise.all([
+      fetch(`/api/ref/ue/${ue}?annee=${encodeURIComponent(an)}`, { headers: authHeaders() }).then(r => (r.ok ? r.json() : null)),
+      fetch('/api/ref/sections', { headers: authHeaders() }).then(r => (r.ok ? r.json() : [])).catch(() => []),
+    ]);
+    if (j) setDp({ ue: { ...j, ue_num: ue, annee_scolaire: an, _edit: true }, sections: Array.isArray(sections) ? sections : [] });
+  }
 
   return (
     <div className="p-4 space-y-3">
@@ -205,7 +215,12 @@ export default function AtelierUE({ faceInitiale = 'croisement', faces = FACES.m
         </select>
         <input className="controle w-24" inputMode="numeric" placeholder="n° d'UE" value={numero} aria-label="Aller à l'unité n°"
           onChange={e => setNumero(e.target.value.replace(/\D/g, ''))} onKeyDown={e => { if (e.key === 'Enter') allerA(numero); }} />
+        {/* LE DOSSIER PÉDAGOGIQUE AVANT DE CROISER (3.5.098, Charles : « il manque un aperçu du DP avant de faire cela ; il n'est
+            visible que dans Config ») : la même fiche que Configuration → Unités et cours, ouverte sur son contenu. */}
+        {ue && <button type="button" className="bouton controle inline-flex items-center gap-1.5" onClick={ouvrirDP}>
+          <IconBook size={15} /> Dossier pédagogique</button>}
       </div>
+      {dp && <UEModal ue={dp.ue} sections={dp.sections} ongletInitial="contenu" onClose={() => setDp(null)} onSaved={() => setDp(null)} />}
 
       <Frise faces={FACES} ouvertes={ouvertes.map(f => f[0])} face={face} onFace={setFace} et={suivi} />
 

@@ -43,7 +43,7 @@ import { garderTransfert, porteFermee, refusPorte } from '../lib/transferts.js';
 import { migrerReprise, simulerReprise, appliquerReprise, forcerCloture,
          MOTIF_REPRISE, MENTION_REPRISE } from '../lib/repriseHistorique.js';
 
-import { noteVerrouillee, MESSAGE_CLOSE } from '../lib/gardeNotes.js';
+import { noteVerrouillee, MESSAGE_CLOSE, DIRECTION_CORRIGE, avecNoteForcee } from '../lib/gardeNotes.js';
 import { uesValorisees } from '../lib/valorisation.js';
 import { logoCourant } from '../lib/identite.js';
 const r = Router();
@@ -1283,12 +1283,15 @@ r.put('/feuille/note', authRequired,
   const coursEcrit = cours_code && cours_code !== CODE_EPREUVE_UE ? cours_code : null;
   const code = prefixe + (coursEcrit ? `${coursEcrit}|${aa_code}` : aa_code);
   const verrou = noteVerrouillee(etudiant_id, annee_scolaire, ue_num, prefixe || 's1|');
-  if (verrou) return res.status(409).json({ error: MESSAGE_CLOSE(ue_num, verrou.session), seance_close: true });
+  // La direction corrige une séance close sans la rouvrir (3.5.097) : `avecNoteForcee` ; les autres, 409.
+  if (verrou && !DIRECTION_CORRIGE.includes(req.user?.role)) return res.status(409).json({ error: MESSAGE_CLOSE(ue_num, verrou.session), seance_close: true });
+  const ecrire = f => (verrou ? avecNoteForcee(etudiant_id, annee_scolaire, ue_num, f) : f());
 
   // Une mention vaut zéro : NP et PP ne sont pas des notes, mais elles
   // comptent comme telles dans la moyenne.
   const valeur = mention ? 0 : note;
 
+  ecrire(() => {
   if (valeur == null) {
     db.prepare(`DELETE FROM etudiant_note_detail
       WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND type = 'aa' AND code IN (?, ?)`)
@@ -1304,6 +1307,7 @@ r.put('/feuille/note', authRequired,
     `).run(etudiant_id, annee_scolaire, Number(ue_num), code, valeur, mention || null);
   }
 
+  });
   res.json({ ok: true });
 });
 
@@ -5538,8 +5542,8 @@ r.put('/ue/:ueNum/epreuve', authRequired,
   }
 
   const prefixe = session === 1 || session === 2 ? `s${session}|` : 's1|';
-  { const v = noteVerrouillee(etudiant_id, annee_scolaire, ueNum, prefixe);
-    if (v) return res.status(409).json({ error: MESSAGE_CLOSE(ueNum, v.session), seance_close: true }); }
+  const verrouE = noteVerrouillee(etudiant_id, annee_scolaire, ueNum, prefixe);
+  if (verrouE && !DIRECTION_CORRIGE.includes(req.user?.role)) return res.status(409).json({ error: MESSAGE_CLOSE(ueNum, verrouE.session), seance_close: true });
   const poser = db.prepare(`
     INSERT INTO etudiant_note_detail
       (etudiant_id, annee_scolaire, ue_num, type, code, points, mention)
@@ -5549,6 +5553,7 @@ r.put('/ue/:ueNum/epreuve', authRequired,
   const effacer = db.prepare(`DELETE FROM etudiant_note_detail
     WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND type = 'aa' AND code = ?`);
 
+  const ecrireE = () => {
   db.transaction(() => {
     for (const aa of acquis) {
       const code = `${prefixe}${aa}`;
@@ -5556,6 +5561,8 @@ r.put('/ue/:ueNum/epreuve', authRequired,
       else effacer.run(etudiant_id, annee_scolaire, ueNum, code);
     }
   })();
+  };
+  if (verrouE) avecNoteForcee(etudiant_id, annee_scolaire, ueNum, ecrireE); else ecrireE();
 
   res.json({ ok: true, ue_num: ueNum, mention: mention || null, acquis: acquis.length });
 });
@@ -5596,8 +5603,8 @@ r.put('/cours/:coursCode/epreuve', authRequired,
   }
 
   const prefixe = session === 1 || session === 2 ? `s${session}|` : 's1|';
-  { const v = noteVerrouillee(etudiant_id, annee_scolaire, co.ue_num, prefixe);
-    if (v) return res.status(409).json({ error: MESSAGE_CLOSE(co.ue_num, v.session), seance_close: true }); }
+  const verrouE = noteVerrouillee(etudiant_id, annee_scolaire, co.ue_num, prefixe);
+  if (verrouE && !DIRECTION_CORRIGE.includes(req.user?.role)) return res.status(409).json({ error: MESSAGE_CLOSE(co.ue_num, verrouE.session), seance_close: true });
   const poser = db.prepare(`
     INSERT INTO etudiant_note_detail
       (etudiant_id, annee_scolaire, ue_num, type, code, points, mention)
@@ -5607,6 +5614,7 @@ r.put('/cours/:coursCode/epreuve', authRequired,
   const effacer = db.prepare(`DELETE FROM etudiant_note_detail
     WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND type = 'aa' AND code = ?`);
 
+  const ecrireE = () => {
   db.transaction(() => {
     for (const aa of acquis) {
       const code = `${prefixe}${coursCode}|${aa}`;
@@ -5614,6 +5622,8 @@ r.put('/cours/:coursCode/epreuve', authRequired,
       else effacer.run(etudiant_id, annee_scolaire, co.ue_num, code);
     }
   })();
+  };
+  if (verrouE) avecNoteForcee(etudiant_id, annee_scolaire, co.ue_num, ecrireE); else ecrireE();
 
   res.json({ ok: true, cours_code: coursCode, mention: mention || null,
              acquis: acquis.length });

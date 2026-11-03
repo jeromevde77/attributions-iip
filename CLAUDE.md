@@ -145,7 +145,7 @@ droit d'inscription de l'UE (forfait de la circulaire compris si elle le porte) 
 dispense. **Un candidat non inscrit paie aussi les 150 € de frais fixes** (Charles : « oui, voir dans le
 RDE » — le texte du RDE, dans le corpus de la prod, n'a pas pu être relu depuis la session).
 
-**UNE NOTE D'UNE SÉANCE CLOSE NE S'ÉCRIT PLUS, PAR AUCUNE PORTE** (3.1.432). Seul Mes cours le refusait ;
+**UNE NOTE D'UNE SÉANCE CLOSE NE S'ÉCRIT PLUS, PAR AUCUNE PORTE** (3.1.432 ; sauf la direction depuis 3.5.097, voir plus bas). Seul Mes cours le refusait ;
 la feuille de notes, les épreuves d'unité et de cours, le détail de la grille du parcours, « effacer » de
 la grille et les imports écrivaient sans regarder. `lib/gardeNotes.js` porte la règle de `clotures()`
 (session de la note `s2|` ou non ; séance de l'organisation de l'étudiant, la ligne « unité entière »
@@ -3491,8 +3491,23 @@ sont en `roleRequired('admin')` : `ecritLaConfiguration(user, chemin)` (`middlew
 « Configuration » ≥ « écrit », sur une liste fermée de portes (`PORTES_CONFIG` : parametres, etablissement, annees, ref, prerequis,
 règles de délibération, effectifs-prevus, templates, reponses-types, envois/rappels|recap, config/*) moins `CONFIG_FERMEE` (couleurs,
 design, mise en page, annuler, sécurité, fonctions). Comptes, rôles, plafonds, sauvegardes, serveur de courriel : direction seule.
-L'écran (`Configuration.jsx`) met les onglets Accès et Système en lecture seule pour ce rôle. **Une nouvelle porte de Configuration
+L'écran (`Configuration.jsx`) met les onglets Accès et Système en lecture seule pour ce rôle. **La liste des rôles de la fiche du personnel (Accès Lucie) lit le serveur** (3.5.096 : `ROLES_LUCIE` en dur y cachait les rôles créés à l'écran, dont « Conseiller qualité ») — `/api/profils-acces/plafonds`, comme Comptes. **Une nouvelle porte de Configuration
 ouverte à ce rôle s'ajoute à `PORTES_CONFIG`.**
+
+**LA DIRECTION CORRIGE UNE NOTE CLOSE, ET UNE SEULE GRILLE** (3.5.097, Charles, UE 333 : « je dois pouvoir changer les notes ;
+la trace sera gardée de toute façon ; il faut réduire la charge de travail admin » ; « deux tableaux pour encoder, cela ne va pas, risque
+d'erreur » ; « on garde juste Encoder/corriger : toute l'unité ; on supprime par cours ; on garde Excel ; annuler la délibération n'a
+rien à faire dans Notes »). (1) Les rôles `DIRECTION_CORRIGE` (`lib/gardeNotes.js`) écrivent une note d'une séance close sans la
+rouvrir : `PUT /acquis/feuille/note` et les épreuves d'unité et de cours passent par `avecNoteForcee` — une ligne `note_force`
+(étudiant, année, UE) que les déclencheurs `garde_note_close_*` respectent, retirée dans la même requête ; le journal des
+modifications garde ancienne valeur, nouvelle et auteur. La décision notifiée ne change pas d'elle-même. Les autres rôles et les
+imports restent refusés (409 / ignorés). (2) Menu Notes de la Délibération : « Encoder / corriger — toute l'unité » seul ; « Par
+cours » et « Corriger une note » (`FeuilleCorrection.jsx`, supprimé) retirés ; Excel gardé ; « Annuler la délibération » = bouton
+rouge à côté de « Délibérer ». **Une correction en ligne de commande d'une note close : `INSERT INTO note_force` d'abord.**
+
+**LE DOSSIER PÉDAGOGIQUE DANS L'ATELIER DE L'UNITÉ** (3.5.098, Charles : « il manque un aperçu du DP avant de croiser ; il n'est
+visible que dans Config »). Organisation → Unité (`AtelierUE.jsx`) : bouton « Dossier pédagogique » qui ouvre `UEModal` (exporté de
+`pages/Referentiels.jsx`, prop `ongletInitial`, ici « contenu ») — la même fiche, pas une copie.
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
