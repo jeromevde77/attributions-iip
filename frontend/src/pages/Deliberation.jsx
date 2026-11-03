@@ -25,7 +25,6 @@ import { BoutonEditions, Fenetre, RailLateral, EnteteCarte } from '../components
 import RepriseLot from '../components/RepriseLot.jsx';
 import ImportTableauPlat from '../components/ImportTableauPlat.jsx';
 import ReglesDeliberation from '../components/ReglesDeliberation.jsx';
-import FeuilleCorrection from '../components/FeuilleCorrection.jsx';
 import { informer } from '../lib/dialogue.jsx';
 
 /**
@@ -121,7 +120,6 @@ export default function Deliberation() {
   const [repriseLot, setRepriseLot] = useState(false);   // reprendre le classeur en lot
   // LA FEUILLE DE CORRECTION : toute l'unité d'un coup, pour rattraper une
   // note changée après coup sans repasser devant chaque étudiant.
-  const [corriger, setCorriger] = useState(null);        // ue_num en correction
 
   // La grille de toute l'unité montre les acquis de tous les collègues : elle
   // n'a de sens que pour qui les encode déjà tous. Le serveur applique la même
@@ -463,6 +461,13 @@ export default function Deliberation() {
     : 'border-iip-blue text-iip-blue'}`}>
                       Délibérer {u.session === 2 ? 'S2' : 'S1'}
                     </button>
+                    {/* ANNULER LA DÉLIBÉRATION À CÔTÉ DE « DÉLIBÉRER » (3.5.097, Charles : « cela n'a rien à faire dans Notes »). */}
+                    {u.decides > 0 && (
+                      <button onClick={() => setAnnuler(u)} title="Annuler la délibération — les notes encodées sont conservées"
+                        aria-label="Annuler la délibération" className="bouton bouton-compact flex-none text-red-700">
+                        <IconRotate size={15} />
+                      </button>
+                    )}
                     {/* PLUSIEURS ORGANISATIONS, PLUSIEURS DÉLIBÉRATIONS : la
                         répartition des étudiants se prépare d'ici, avant
                         d'ouvrir la feuille. */}
@@ -483,13 +488,12 @@ export default function Deliberation() {
                       <MenuActions compact libelle="Notes" Icone={IconPencil}
                         titre="Encoder, importer, corriger les notes de cette unité"
                         items={[
+                          /* UNE SEULE GRILLE (3.5.097, Charles : « on garde juste Encoder/corriger : toute l'unité ; on supprime
+                             par cours ») : « Par cours » et « Corriger une note » faisaient trois tableaux pour les mêmes notes. */
                           { separateur: true, titre: 'Encoder' },
-                          { si: peutToutEncoder, libelle: "Toute l'unité", Icone: IconTable,
-                            aide: 'Tous les cours dans une seule grille',
+                          { si: peutToutEncoder, libelle: "Encoder / corriger — toute l'unité", Icone: IconTable,
+                            aide: 'Tous les cours dans une seule grille ; la direction y corrige aussi une séance close',
                             onClick: () => setEncoderUE(u.ue_num) },
-                          { libelle: 'Par cours', Icone: IconList,
-                            aide: 'Choisir un cours de la liste qui se déplie',
-                            onClick: () => ouvrirCours(u.ue_num) },
                           { si: peutToutEncoder, separateur: true, titre: 'Classeur des professeurs' },
                           { si: peutToutEncoder, libelle: 'Exporter la grille Excel', Icone: IconFileSpreadsheet,
                             aide: "À envoyer aux professeurs ; rempli, il revient par « Toute l'unité » → Importer",
@@ -497,13 +501,6 @@ export default function Deliberation() {
                           { si: peutToutEncoder, libelle: 'Importer un classeur de suivi', Icone: IconUpload,
                             aide: 'Reprendre des notes depuis un autre classeur',
                             onClick: () => setImporter(u.ue_num) },
-                          { si: peutToutEncoder && u.decides > 0, separateur: true, titre: 'Après délibération' },
-                          { si: peutToutEncoder && u.decides > 0, libelle: 'Corriger une note', Icone: IconEdit,
-                            aide: "Toute l'unité sur une feuille : reprendre une note et sa décision",
-                            onClick: () => setCorriger(u.ue_num) },
-                          { si: u.decides > 0, libelle: 'Annuler la délibération', Icone: IconRotate, danger: true,
-                            aide: 'Les notes encodées sont conservées',
-                            onClick: () => setAnnuler(u) },
                           { separateur: true, titre: 'Réglages' },
                           { libelle: 'Paramétrer cours et acquis', Icone: IconAdjustments,
                             aide: "Liens acquis ↔ cours, pondérations, épreuve intégrée",
@@ -600,11 +597,6 @@ export default function Deliberation() {
         <DiagnosticAnnees annee={annee} onClose={() => setAnnees(false)} onFini={charger} />
       )}
 
-      {corriger != null && (
-        <FeuilleCorrection ueNum={corriger} annee={annee}
-          onClose={() => setCorriger(null)}
-          onModifie={charger} />
-      )}
 
       {importer != null && (
         <ImportNotesUE ueNum={importer} annee={annee}
