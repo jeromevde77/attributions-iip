@@ -18,6 +18,7 @@ import { IconPercentage, IconTable, IconFileDescription, IconCheck, IconArrowRig
 import { api, authHeaders, getAnnee, getUser } from '../lib/api.js';
 import { Fiche } from './DUE.jsx';
 import { UEModal } from './Referentiels.jsx';
+import ApercuDossier from '../components/ApercuDossier.jsx';
 import { RailLateral } from '../components/ui.jsx';
 import PonderationsUE from './PonderationsUE.jsx';
 import CroisementUE, { proposer } from '../components/CroisementUE.jsx';
@@ -27,6 +28,8 @@ import CroisementUE, { proposer } from '../components/CroisementUE.jsx';
    d'abord les acquis et le programme ; la pondération en découle ; le descriptif
    s'écrit sur cette base et se valide. */
 const FACES = [
+  // L'ÉTAPE 0 (3.5.099, Charles : « le dossier pédagogique en étape 0, puis cliquable au besoin ») : lire avant de croiser.
+  ['dossier', 'Lire le dossier pédagogique', IconBook, 0],
   ['croisement', 'Croiser les acquis et le programme', IconTable, 1],
   ['ponderation', 'Pondérer', IconPercentage, 2],
   ['descriptif', 'Décrire l’unité (DUE)', IconFileDescription, 3],
@@ -233,6 +236,7 @@ export default function AtelierUE({ faceInitiale = 'croisement', faces = FACES.m
           <IconLock size={15} /> {verrouDe(face, suivi)}{passeLesVerrous() ? ' Vous la consultez en tant que direction : rien n’est validé pour autant.' : ''}
           <button type="button" className="bouton ml-auto" onClick={() => setFace('croisement')}>Aller à l'étape 1</button>
         </div>)}
+      {ue && face === 'dossier' && <ApercuDossier key={ue} ueNum={ue} onSuivante={() => setFace('croisement')} />}
       {ue && face === 'croisement' && <CroisementUE key={ue} ueNum={ue} onEnregistre={() => lireSuivi(ue)}
         suivante={ouvertes.find(f => f[3] === 2) ? () => setFace('ponderation') : ouvertes.find(f => f[3] === 3) ? () => setFace('descriptif') : null} />}
       {ue && face === 'ponderation' && faces.includes('ponderation') && (!verrouDe('ponderation', suivi) || passeLesVerrous()) && <PonderationsUE key={ue} ueFixe={ue} />}

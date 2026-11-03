@@ -141,6 +141,11 @@ function ouvrirFeuilleImpression(data) {
 // ─── Panneau « Accès Lucie » (admin) : lie un compte utilisateur à un·e membre ───
 
 // permissions_json stocke : { attributions: {lire, ecrire, voir_tout}, personnel: {lire, ecrire}, ..., recrutement: {lire, ecrire} }
+/* LE RÔLE DÉCIDE (3.5.099, Charles : « on ne doit pas choisir les droits là ; là on choisit le rôle et la/les sections, point »).
+   Les droits se paramètrent par rôle, dans Configuration → Accès ; la fiche n'écrit plus de case par module : toutes ouvertes,
+   le plafond du rôle les borne. Seuls les aménagements raisonnables restent un octroi NOMINATIF (secret professionnel). */
+const permsDuRole = perms => Object.fromEntries(MODULES_ACCES.map(m => [m.key,
+  m.key === 'amenagements' ? { lire: !!perms?.amenagements?.lire, ecrire: !!perms?.amenagements?.ecrire } : { lire: true, ecrire: true }]));
 const PERM_DEFAUT = () => Object.fromEntries(MODULES_ACCES.map(m => [m.key, { lire: false, ecrire: false, voir_tout: false }]));
 
 
@@ -154,6 +159,7 @@ function AccesLuciePanel({ profId, detail }) {
   const [sectionsDispo, setSectionsDispo] = useState([]);
   const [profils, setProfils] = useState([]);
   const [rolesDispo, setRolesDispo] = useState(ROLES_LUCIE);
+  const [choixSections, setChoixSections] = useState(false);
 
   // Appliquer un profil : il pose le rôle et remplit les cases, puis on
   // retouche librement. Aucun héritage — ce qui est coché fait foi.
@@ -253,7 +259,7 @@ function AccesLuciePanel({ profId, detail }) {
         // coordination : un secrétariat de section, cela existe.
         sections,
         perimetre_toutes: toutes,
-        permissions_json: JSON.stringify(perms),
+        permissions_json: JSON.stringify(permsDuRole(perms)),
       }) });
       setPwd(p); charger();
     } catch (e) { setErr(e.message); } finally { setBusy(false); }
@@ -268,8 +274,8 @@ function AccesLuciePanel({ profId, detail }) {
         // coordination : un secrétariat de section, cela existe.
         sections,
         perimetre_toutes: toutes,
-        permissions_json: JSON.stringify(perms),
-        acces_recrutement: perms.recrutement?.lire ? 1 : 0, // compat
+        permissions_json: JSON.stringify(permsDuRole(perms)),
+        acces_recrutement: 1, // compat : le rôle décide
       }) });
       setSaved(true); setTimeout(() => setSaved(false), 2000);
     } catch (e) { setErr(e.message); } finally { setBusy(false); }
@@ -298,6 +304,12 @@ function AccesLuciePanel({ profId, detail }) {
     }));
   };
 
+  // Les droits ne se règlent pas ici : le rôle les donne. Seul l'octroi des aménagements reste nominatif.
+  const DroitsDuRole = () => (
+    <div className="space-y-1.5">
+      <div className="text-second text-slate-500">Les droits viennent du rôle : ils se paramètrent dans <b>Configuration → Accès</b>.</div>
+      {MODULES_ACCES.filter(m => m.key === 'amenagements').map(m => <ModuleRow key={m.key} m={m} />)}
+    </div>);
   const ModuleRow = ({ m }) => {
     const p = perms[m.key] || { lire: false, ecrire: false, voir_tout: false };
     const hasScope = ['attributions', 'personnel'].includes(m.key);
@@ -309,7 +321,7 @@ function AccesLuciePanel({ profId, detail }) {
         : [...(prev[`${m.key}_sections`] || []), code],
     }));
     return (
-      <div className={`rounded-lg border ${p.lire || p.ecrire ? 'bg-iip-blue/5 border-iip-blue/20' : 'bg-gray-50 border-gray-100'}`}>
+      <div className="border-t border-slate-100">
         <div className="flex items-center gap-2 px-3 py-2">
           <span className="text-base w-5 flex-shrink-0"><m.Icone size={14} stroke={1.6} className="text-slate-400" /></span>
           <div className="flex-1 min-w-0">
@@ -348,59 +360,34 @@ function AccesLuciePanel({ profId, detail }) {
   // sections » était cochée dès que la liste était vide : la décocher rendait
   // la même chose, et « aucun accès » n'avait aucun moyen de s'exprimer —
   // alors que c'est devenu le défaut du modèle.
+  /* LE RÔLE ET LES SECTIONS, SANS CADRES (3.5.099, Charles : « trop de cadres et de bordures ») : une rangée de segments,
+     puis les sections à cocher quand on en choisit. */
   const BlocPerimetre = (
-    <div className="border border-slate-200 rounded-lg p-2.5">
-      <div className="text-xs text-gray-500 font-medium mb-1.5">Périmètre</div>
-
-      {[[1, 'Toutes les sections', 'y compris celles à venir'],
-        [2, 'Ces sections',        'celles cochées ci-dessous'],
-        [0, 'Aucun accès',         'ne voit rien tant que rien n\u2019est donné']]
-        .map(([val, titre, aide]) => {
-          const actif = toutes ? val === 1 : (sections.length ? val === 2 : val === 0);
+    <div className="space-y-1.5">
+      <div className="text-xs text-gray-500 font-medium">Sections</div>
+      <div className="segments">
+        {[[1, 'Toutes'], [2, 'Ces sections'], [0, 'Aucune']].map(([val, titre]) => {
+          const actif = toutes ? val === 1 : ((sections.length > 0 || choixSections) ? val === 2 : val === 0);
           return (
-            <button key={val} type="button"
+            <button key={val} type="button" aria-pressed={actif} className={actif ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}
               onClick={() => {
-                if (val === 1) { setToutes(1); setSections([]); }
-                if (val === 0) { setToutes(0); setSections([]); }
-                if (val === 2) setToutes(0);   // on ouvre la liste, on n'enregistre rien encore
-              }}
-              className={`w-full text-left mb-1 px-2 py-1 rounded-champ border text-second ${
-                actif ? 'border-iip-blue bg-slate-50 text-iip-blue'
-                      : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}>
-              {titre}
-              <span className="block text-mention text-slate-400 leading-tight">{aide}</span>
-            </button>
-          );
+                if (val === 1) { setToutes(1); setSections([]); setChoixSections(false); }
+                if (val === 0) { setToutes(0); setSections([]); setChoixSections(false); }
+                if (val === 2) { setToutes(0); setChoixSections(true); }
+              }}>{titre}</button>);
         })}
-
-      {!toutes && (
-        <div className="mt-1.5 pt-1.5 border-t border-slate-100">
-          <div className="flex flex-wrap gap-1">
-            {sectionsDispo.map(s => (
-              <button key={s.code} type="button"
-                onClick={() => setSections(v => v.includes(s.code)
-                  ? v.filter(x => x !== s.code) : [...v, s.code])}
-                className={`text-xs px-2 py-0.5 rounded-champ border transition ${
-                  sections.includes(s.code)
-                    ? 'bg-iip-blue text-white border-iip-blue'
-                    : 'border-gray-200 text-gray-400 hover:border-iip-blue'}`}>
-                {s.code}
-              </button>
-            ))}
-          </div>
-          {!sections.length && (
-            <div className="mt-1.5 text-mention text-amber-700 leading-tight">
-              Aucune section : ce compte ne verra rien.
-            </div>
-          )}
-        </div>
-      )}
-
-      <p className="text-xs text-slate-500 mt-1.5">
-        Le périmètre vaut pour tous les modules à la fois, et pour TOUS LES
-        RÔLES — un secrétariat de section, cela existe. La direction n'est pas
-        cloisonnable&nbsp;: c'est elle qui répare les erreurs de paramétrage.
-      </p>
+      </div>
+      {!toutes && (sections.length > 0 || choixSections) && (
+        <div className="flex flex-wrap gap-1">
+          {sectionsDispo.map(s => (
+            <button key={s.code} type="button"
+              onClick={() => setSections(v => v.includes(s.code) ? v.filter(x => x !== s.code) : [...v, s.code])}
+              className={`text-xs px-2 py-0.5 rounded-pastille transition ${sections.includes(s.code)
+                ? 'bg-iip-blue text-white' : 'text-slate-500 hover:text-iip-blue'}`}>
+              {s.code}
+            </button>))}
+        </div>)}
+      {!toutes && !sections.length && <div className="text-mention text-amber-700">Aucune section : ce compte ne verra rien.</div>}
     </div>
   );
 
@@ -454,12 +441,7 @@ function AccesLuciePanel({ profId, detail }) {
 
       {BlocPerimetre}
 
-      <div>
-        <div className="text-xs text-gray-500 mb-2 font-medium">Permissions</div>
-        <div className="space-y-1.5">
-          {MODULES_ACCES.map(m => <ModuleRow key={m.key} m={m} />)}
-        </div>
-      </div>
+      <DroitsDuRole />
       <button onClick={creer} disabled={busy}
         className="bouton bouton-fort w-full flex items-center justify-center gap-1.5">
         <IconPlus size={15} /> Créer l'accès &amp; générer le mot de passe
@@ -490,16 +472,7 @@ function AccesLuciePanel({ profId, detail }) {
 
       {BlocPerimetre}
 
-      {/* Permissions modules */}
-      <div>
-        <div className="text-xs text-gray-500 mb-2 font-medium">Permissions par module</div>
-        <div className="space-y-1.5">
-          {MODULES_ACCES.map(m => <ModuleRow key={m.key} m={m} />)}
-        </div>
-        <div className="mt-2 text-mention text-gray-400 italic">
-          "Tout voir" = accès à toutes les sections (sinon : sections autorisées seulement)
-        </div>
-      </div>
+      <DroitsDuRole />
 
       {/* « RESTRICTIONS GRANULAIRES » A ÉTÉ RETIRÉ, PARCE QU'IL NE RESTREIGNAIT
           RIEN. Il écrivait dans `utilisateur_permission`, une table que quatre

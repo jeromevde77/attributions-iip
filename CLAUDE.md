@@ -3509,6 +3509,14 @@ rouge à côté de « Délibérer ». **Une correction en ligne de commande d'un
 visible que dans Config »). Organisation → Unité (`AtelierUE.jsx`) : bouton « Dossier pédagogique » qui ouvre `UEModal` (exporté de
 `pages/Referentiels.jsx`, prop `ongletInitial`, ici « contenu ») — la même fiche, pas une copie.
 
+**L'ÉTAPE 0 ET LA FICHE QUI NE RÈGLE QUE LE RÔLE** (3.5.099, Charles : « le DP en étape 0, puis cliquable au besoin » ; « dans la
+fiche, on choisit le rôle et la/les sections, point » ; « trop de cadres et de bordures »). (1) `AtelierUE.jsx` : face `dossier`
+(numéro 0, `components/ApercuDossier.jsx` — les rubriques du DP en lecture par `rubriquesDuDossier`), dans Organisation et Mes cours ;
+le bouton ouvre toujours `UEModal`. (2) `Professeurs.jsx` → Accès Lucie : rôle + sections (segments Toutes · Ces sections · Aucune),
+plus de cases par module ; à l'enregistrement `permsDuRole` ouvre toutes les cases (le plafond du rôle borne) sauf `amenagements`,
+octroi nominatif gardé (`MODULES_SUR_OCTROI`). **La gestion des accès est en deux temps : Configuration → Accès paramètre les rôles ;
+la fiche choisit le rôle et les sections.**
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux
