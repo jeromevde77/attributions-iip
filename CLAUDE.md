@@ -3491,7 +3491,7 @@ sont en `roleRequired('admin')` : `ecritLaConfiguration(user, chemin)` (`middlew
 « Configuration » ≥ « écrit », sur une liste fermée de portes (`PORTES_CONFIG` : parametres, etablissement, annees, ref, prerequis,
 règles de délibération, effectifs-prevus, templates, reponses-types, envois/rappels|recap, config/*) moins `CONFIG_FERMEE` (couleurs,
 design, mise en page, annuler, sécurité, fonctions). Comptes, rôles, plafonds, sauvegardes, serveur de courriel : direction seule.
-L'écran (`Configuration.jsx`) met les onglets Accès et Système en lecture seule pour ce rôle. **Une nouvelle porte de Configuration
+L'écran (`Configuration.jsx`) met les onglets Accès et Système en lecture seule pour ce rôle. **La liste des rôles de la fiche du personnel (Accès Lucie) lit le serveur** (3.5.096 : `ROLES_LUCIE` en dur y cachait les rôles créés à l'écran, dont « Conseiller qualité ») — `/api/profils-acces/plafonds`, comme Comptes. **Une nouvelle porte de Configuration
 ouverte à ce rôle s'ajoute à `PORTES_CONFIG`.**
 
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en

@@ -153,6 +153,7 @@ function AccesLuciePanel({ profId, detail }) {
   const [account, setAccount]   = useState(undefined);
   const [sectionsDispo, setSectionsDispo] = useState([]);
   const [profils, setProfils] = useState([]);
+  const [rolesDispo, setRolesDispo] = useState(ROLES_LUCIE);
 
   // Appliquer un profil : il pose le rôle et remplit les cases, puis on
   // retouche librement. Aucun héritage — ce qui est coché fait foi.
@@ -234,6 +235,12 @@ function AccesLuciePanel({ profId, detail }) {
     charger();
     af('/api/ref/sections').then(d => setSectionsDispo(Array.isArray(d) ? d : [])).catch(() => {});
     af('/api/profils-acces').then(d => setProfils(Array.isArray(d) ? d : [])).catch(() => {});
+    // LES RÔLES VIENNENT DU SERVEUR (3.5.096, Charles : « Conseiller qualité » manquait) : ceux qu'on crée à l'écran comptent.
+    af('/api/profils-acces/plafonds').then(pl => {
+      const deBase = Object.fromEntries(ROLES_LUCIE);
+      const l = (pl?.roles || []).filter(c => c !== 'editeur').map(c => [c, deBase[c] || pl.libelles?.[c] || c]);
+      if (l.length) setRolesDispo(l);
+    }).catch(() => {});
   }, [profId]);
 
   async function creer() {
@@ -410,7 +417,7 @@ function AccesLuciePanel({ profId, detail }) {
         <div>
           <div className="text-xs text-gray-500 mb-1">Rôle</div>
           <select value={role} onChange={e => changerRole(e.target.value)} className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
-            {ROLES_LUCIE.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            {rolesDispo.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
         </div>
       </div>
@@ -474,7 +481,7 @@ function AccesLuciePanel({ profId, detail }) {
         <div>
           <div className="text-xs text-gray-500 mb-1">Rôle</div>
           <select value={role} onChange={e => changerRole(e.target.value)} disabled={busy} className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
-            {ROLES_LUCIE.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            {rolesDispo.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
         </div>
       </div>
