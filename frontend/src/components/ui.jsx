@@ -3,7 +3,7 @@ import { createContext, Fragment, lazy, Suspense, useContext, useEffect, useRef,
 const CentreImpressionCentral = lazy(() => import('./CentreImpressionCentral.jsx'));
 const Ameliorations = lazy(() => import('./Ameliorations.jsx'));
 import { createPortal } from 'react-dom';
-import { IconPin, IconPinnedOff, IconSun, IconMoon, IconSend, IconBulb, IconX, IconGift, IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
+import { IconPin, IconPinnedOff, IconSun, IconMoon, IconSend, IconBulb, IconX, IconGift, IconChevronLeft, IconChevronRight, IconAdjustmentsHorizontal, IconLayoutSidebarLeftCollapse } from '@tabler/icons-react';
 import { demander } from '../lib/dialogue.jsx';
 import { useRailEpingle, basculerEpingle, LARGEUR_RAIL } from '../lib/railEpingle.js';
 import { useMode, basculerMode } from '../lib/theme.js';
@@ -245,6 +245,12 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
    */
   const [centre, setCentre] = useState(false);
   const epingle = useRailEpingle();
+  /* LE VOLET SE REPLIE (3.5.114, Charles : « profiter d'un maximum de la largeur ; le menu du côté prend beaucoup de place —
+     si on laissait juste des icônes ? »). Replié — c'est le défaut —, le rail redevient une colonne d'icônes et l'icône
+     « réglages » rouvre le volet. Son contenu reste monté (caché) : l'écran y garde son état. Mémorisé sur l'appareil. */
+  const [voletReplie, setVoletReplie] = useState(() => { try { return localStorage.getItem('lucie.voletOuvert') !== '1'; } catch { return true; } });
+  const replierVolet = v => { setVoletReplie(v); try { localStorage.setItem('lucie.voletOuvert', v ? '0' : '1'); } catch { /* sans mémoire */ } };
+  const voletVu = volet && !voletReplie;
   // On ne s'abonne au mode que pour savoir quelle icône proposer — soleil ou
   // lune : les couleurs, elles, viennent des jetons.
   const mode = useMode();
@@ -279,17 +285,17 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
   // suit quand on épingle, sans qu'aucun d'eux ait à le savoir.
   useEffect(() => {
     const r = document.documentElement;
-    r.style.setProperty('--rail', volet ? LARGEUR_RAIL.volet
+    r.style.setProperty('--rail', voletVu ? LARGEUR_RAIL.volet
       : epingle ? LARGEUR_RAIL.ouvert : LARGEUR_RAIL.replie);
     // LA LARGEUR RÉELLE DU PANNEAU, distincte de la gouttière : c'est là que
     // le filet du rail monte rejoindre celui de la barre du haut.
     r.style.setProperty('--rail-largeur',
-      volet || epingle ? '14.5rem' : '3.5rem');
+      voletVu || epingle ? '14.5rem' : '3.5rem');
     return () => {
       r.style.removeProperty('--rail');
       r.style.removeProperty('--rail-largeur');
     };
-  }, [epingle, volet]);
+  }, [epingle, voletVu]);
 
   /**
    * LE RAIL NE BOUGE PLUS.
@@ -330,7 +336,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
         top-[calc(var(--barre-h,4rem)+1rem)] bottom-4
         rounded-r-carte border-l-0 border-r border-y
         transition-[width] duration-300 ease-ios
-        ${volet ? 'w-[14.5rem]' : epingle ? 'w-[14.5rem]' : 'w-14'}`}
+        ${voletVu ? 'w-[14.5rem]' : epingle ? 'w-[14.5rem]' : 'w-14'}`}
       style={{ background: 'var(--menu-fond)', borderColor: 'var(--menu-bord)' }}>
       {/* LA COLONNE DES ICÔNES — ce que tous les écrans ont en commun. */}
       {/* LE RAIL RESPIRE COMME LA ZONE DE TRAVAIL.
@@ -347,7 +353,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
           choisi à la main : que la page respire plus ou moins, les deux
           milieux restent sur la même ligne. */}
       <div className={`flex flex-col pb-3 min-h-0 flex-shrink-0
-        ${volet ? 'w-14 border-r' : 'flex-1'}`}
+        ${voletVu ? 'w-14 border-r' : 'flex-1'}`}
         style={{ borderColor: 'var(--menu-filet)',
                  paddingTop: '0.25rem' }}>
       {/* UN EN-TÊTE VIDE OCCUPE QUAND MÊME SA PLACE.
@@ -541,7 +547,12 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
                 {sec.label}
               </div>
             )}
-            {sec.items.map(it0 => {
+            {sec.items.map(itBrut => {
+              /* LE VOLET REPLIÉ SE ROUVRE SOUS LA RUBRIQUE OUVERTE (3.5.115, Charles : « l'icône de paramètres sous l'icône
+                 Attributions, comme pour le reste ») : il prend la place d'un tiroir d'une entrée. */
+              const it0 = volet && voletReplie && itBrut.actif && !(itBrut.sous?.length > 0)
+                ? { ...itBrut, sous: [{ key: '__volet', label: `${volet.titre || 'Volet'} — ouvrir`, icon: IconAdjustmentsHorizontal, onClick: () => replierVolet(false) }] }
+                : itBrut;
               const aTiroir = it0.sous?.length > 0;
               const it = aTiroir && replies.has(it0.key)
                 ? { ...it0, sous: undefined, onClick: () => basculerTiroir(it0.key) }
@@ -736,12 +747,15 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
 
       {/* LE VOLET — ce que cet écran-ci ne peut pas dire en icônes. */}
       {volet && (
-        <div className="flex-1 min-w-0 flex flex-col pb-3 px-3 min-h-0"
+        <div className={`flex-1 min-w-0 flex-col pb-3 px-3 min-h-0 ${voletReplie ? 'hidden' : 'flex'}`}
           style={{ paddingTop: '0.5rem' }}>
-          {volet.titre && (
-            <div className="intertitre px-1 pb-2 flex-shrink-0"
-              style={{ color: 'var(--menu-texte-doux)' }}>{volet.titre}</div>
-          )}
+          <div className="px-1 pb-2 flex-shrink-0 flex items-center gap-2">
+            <span className="intertitre flex-1 min-w-0" style={{ color: 'var(--menu-texte-doux)' }}>{volet.titre}</span>
+            <button type="button" onClick={() => replierVolet(true)} title="Replier : garder seulement les icônes"
+              aria-label="Replier le volet" className="flex-none hover:opacity-70" style={{ color: 'var(--menu-texte-doux)' }}>
+              <IconLayoutSidebarLeftCollapse size={16} />
+            </button>
+          </div>
           <div ref={surNoeudVolet}
             className="min-h-0 overflow-y-auto rail-defile text-sm"
             style={{ color: 'var(--menu-texte)' }} />
@@ -759,7 +773,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, surAccu
         /* LA MÊME BULLE QUE LA BARRE DU HAUT (Charles, 3 octobre 2026 : « une
            uniformité entre rail et menu du haut ») : marine, texte blanc. */
         <span style={{ top: survol.y, background: 'var(--c-principal, #16406A)',
-                       left: volet ? 'calc(3.5rem + 10px)' : 'calc(100% + 10px)' }}
+                       left: voletVu ? 'calc(3.5rem + 10px)' : 'calc(100% + 10px)' }}
           className="pointer-events-none absolute -translate-y-1/2 z-50
                      px-2 py-0.5 rounded-champ shadow-flottant text-white font-medium
                      text-xs whitespace-nowrap">
