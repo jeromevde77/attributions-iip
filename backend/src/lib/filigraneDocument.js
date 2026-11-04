@@ -96,6 +96,21 @@ const STYLES = `<style>
 let SPECIMEN = false;
 export function enSpecimen(fn) { const avant = SPECIMEN; SPECIMEN = true; try { return fn(); } finally { SPECIMEN = avant; } }
 
+/* LE SPÉCIMEN D'UNE PIÈCE RÉELLE (3.5.117, Charles : « dans l'envoi des diplômes, une case Spécimen, avec un filigrane
+   Spécimen »). « SPÉCIMEN » en grand, en travers, sur chaque page (élément fixe : il se répète à l'impression), et la marque
+   `data-specimen="1"` que `filigraner` lit : une pièce marquée n'entre jamais au registre des pièces authentiques, même si
+   elle part par courriel. */
+export const MARQUE_SPECIMEN = 'data-specimen="1"';
+export function poserSpecimen(html) {
+  const h = String(html || '');
+  if (!h || h.includes(MARQUE_SPECIMEN)) return h;
+  const div = `<div ${MARQUE_SPECIMEN} aria-hidden="true" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;`
+    + 'pointer-events:none;z-index:9999;"><div style="transform:rotate(-30deg);font:800 120pt/1 Helvetica,Arial,sans-serif;'
+    + 'letter-spacing:8pt;color:rgba(157,74,56,0.2);border:3mm solid rgba(157,74,56,0.2);padding:4mm 14mm;white-space:nowrap">SPÉCIMEN</div></div>';
+  const m = h.match(/<body[^>]*>/i);
+  return m ? h.slice(0, m.index + m[0].length) + div + h.slice(m.index + m[0].length) : div + h;
+}
+
 export function filigraner(html, o = {}) {
   let doc = String(html || '');
   if (!/class="cloture|class="[^"]*\bcote\b/.test(doc)) return doc;
@@ -123,7 +138,7 @@ export function filigraner(html, o = {}) {
   while ((m = re.exec(doc))) {
     const page = doc.slice(dernier, m.index);
     const refBloc = k++ === 0 ? ref : nouvelleReference();
-    if (SPECIMEN) { sortie += page + '<div class="authenticite"><div class="authenticite-t"><b>SPÉCIMEN</b> — données fictives, pièce sans valeur</div></div>' + m[0] + fondCloture({ ref: 'SPÉCIMEN', texte: 'Spécimen — sans valeur' }); dernier = re.lastIndex; continue; }
+    if (SPECIMEN || doc.includes(MARQUE_SPECIMEN)) { sortie += page + '<div class="authenticite"><div class="authenticite-t"><b>SPÉCIMEN</b> — ' + (SPECIMEN ? 'données fictives, ' : '') + 'pièce sans valeur</div></div>' + m[0] + fondCloture({ ref: 'SPÉCIMEN', texte: 'Spécimen — sans valeur' }); dernier = re.lastIndex; continue; }
     enregistrerPiece({ reference: refBloc, nature: dernierTexte(page, 'doc-cadre-t') || o.texte,
       objet: [dernierTexte(page, 'doc-cadre-s'), dernierTexte(page, 'doc-cadre-l')].filter(Boolean).join(' — '),
       personne: dernierTexte(page, 'nom') });
