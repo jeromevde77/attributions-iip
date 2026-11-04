@@ -5,7 +5,7 @@ import { passeRole } from '../lib/droits.js';
 import { teinteCours, styleTuileCours } from '../lib/teinteCours.js';
 import { IconeLaboratoire } from '../components/IconeLaboratoire.jsx';
 import { RailLateral } from '../components/ui.jsx';
-import { IconSitemap, IconHierarchy2, IconCalendarTime, IconCalendarCheck, IconPuzzle, IconCalendarWeek, IconTimeline, IconTrash, IconHistory, IconUserCheck, IconCalendarCog, IconWand, IconEye, IconArrowLeft, IconArrowRight } from '@tabler/icons-react';
+import { IconSitemap, IconHierarchy2, IconCalendarTime, IconCalendarCheck, IconPuzzle, IconCalendarWeek, IconTimeline, IconTrash, IconHistory, IconUserCheck, IconCalendarCog, IconWand, IconEye, IconArrowLeft, IconArrowRight, IconTool, IconChevronDown, IconGlass } from '@tabler/icons-react';
 const HoraireSemaine = lazy(() => import('./HoraireSemaine.jsx'));
 
 /* LE LABORATOIRE SE FAIT PAR ÉTAPES (3.1.465, Charles, 29 octobre 2026 : « pas clair ; il faut que ça se fasse
@@ -79,6 +79,7 @@ export default function LaboratoireTemporel() {
   const [types, setTypes] = useState([]);
   const [erreur, setErreur] = useState(null);
   const [zoom, setZoom] = useState('annee');
+  const [outils, setOutils] = useState(false);   // le menu « Outils » de la barre (3.5.116)
   /* UN SEUL LABORATOIRE (Charles, 10 octobre 2026 : « réunis tout dans le labo ») :
      quatre faces sur la même section et le même bloc — le temps (l'année, les
      couches, le verre), les groupes (briques, plan des groupes), la semaine
@@ -449,40 +450,57 @@ Les étudiants se répartissent ensuite entre les organisations (répartition de
 
   return (
     <div className="space-y-3">
-      {/* LES BOUTONS EN HAUT. */}
-      <div className="flex flex-wrap items-center gap-2">
-        <IconeLaboratoire size={26} className="text-iip-blue" />
-        <b className="text-base text-iip-blue mr-2">Le laboratoire temporel</b>
-        <select className="controle" value={section} onChange={e => setSection(e.target.value)}>
+      {/* LA BARRE TIENT SUR UNE LIGNE (3.5.116, Charles : « le menu passe plus bas » — les boutons passaient sur deux lignes
+          et poussaient les étapes). Section, bloc, zoom ; les gestes vont dans « Outils » ; l'aide passe sous l'étape. */}
+      <div className="flex flex-nowrap items-center gap-2 min-w-0">
+        <IconeLaboratoire size={26} className="text-iip-blue flex-none" />
+        <b className="text-base text-iip-blue mr-2 whitespace-nowrap">Le laboratoire temporel</b>
+        <select className="controle min-w-0" value={section} onChange={e => setSection(e.target.value)}>
           {sections.map(s => <option key={s.code} value={s.code}>{s.libelle || s.code}</option>)}
         </select>
-        <select className="controle" value={bloc} onChange={e => setBloc(e.target.value)}>
+        <select className="controle min-w-0" value={bloc} onChange={e => setBloc(e.target.value)}>
           <option value="">Tous les blocs</option>
           {blocs.map(b => <option key={b} value={b}>{b}</option>)}
         </select>
-        {face === 'temps' && <div className="segments flex h-9">
+        {face === 'temps' && <div className="segments flex h-9 flex-none">
           {[['annee', 'L’année'], ['couches', 'Les couches'], ['ue', 'Une UE']].map(([k, l]) => (
             <button key={k} disabled={k === 'ue' && !ueChoisie} onClick={() => setZoom(k)}
-              className={`px-3 text-second ${zoom === k ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'} disabled:opacity-40`}>{l}</button>))}
+              className={`px-3 text-second whitespace-nowrap ${zoom === k ? 'bg-iip-blue text-white' : 'bg-white text-slate-600'} disabled:opacity-40`}>{l}</button>))}
         </div>}
-        {face === 'temps' && peutEcrire && data && (
-          <button className="bouton" onClick={() => remplirDepuisAttributions(zoom === 'ue' && ueChoisie ? [ueChoisie.ue_num] : [...new Set(ues.filter(u => !u.stage).map(u => u.ue_num))])}
-            title="Les activités, groupes et périodes déjà attribués remplissent les verres">
-            {zoom === 'ue' && ueChoisie ? `Remplir le verre de l’UE ${ueChoisie.ue_num} depuis les attributions` : 'Remplir les verres depuis les attributions'}</button>)}
         {face === 'temps' && data && (() => {
-          // LES COHORTES : dès qu'une UE du bloc est dédoublée. Sans bloc choisi, celui des UE dédoublées s'il n'y en a qu'un.
           const bl = [...new Set((data.ues || []).filter(u => u.nb_organisations > 1).map(u => String(u.ue_niv || '').toUpperCase()).filter(Boolean))];
-          // Dès qu'une UE est dédoublée OU que la section a plus d'une cohorte (3.1.281).
-          if (!bl.length && listeCohortes.length < 2) return null;
+          const avecCohortes = bl.length || listeCohortes.length >= 2;
           const b = bloc || (bl.length === 1 ? bl[0] : '');
-          return <button className="bouton" disabled={!b} onClick={() => setCohortes(b)} title={b ? `La cohorte de chaque étudiant de ${b}, et son organisation dans les UE dédoublées` : 'Choisissez un bloc'}>Cohortes{b ? ` ${b}` : ''}</button>;
+          if (!peutEcrire && !avecCohortes) return null;
+          const item = 'w-full text-left flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 disabled:opacity-40';
+          const faire = f => () => { setOutils(false); f(); };
+          return (
+            <div className="relative flex-none ml-auto">
+              <button type="button" className="bouton controle inline-flex items-center gap-1.5" onClick={() => setOutils(o => !o)} aria-expanded={outils}>
+                <IconTool size={15} /> Outils <IconChevronDown size={14} />
+              </button>
+              {outils && (<>
+                <div className="fixed inset-0 z-20" onClick={() => setOutils(false)} />
+                <div className="absolute right-0 mt-1 z-30 w-80 carte bg-white py-1 shadow-flottant">
+                  {peutEcrire && <button type="button" className={item}
+                    onClick={faire(() => remplirDepuisAttributions(zoom === 'ue' && ueChoisie ? [ueChoisie.ue_num] : [...new Set(ues.filter(u => !u.stage).map(u => u.ue_num))]))}
+                    title="Les activités, groupes et périodes déjà attribués remplissent les verres">
+                    <IconGlass size={15} />{zoom === 'ue' && ueChoisie ? `Remplir le verre de l’UE ${ueChoisie.ue_num} depuis les attributions` : 'Remplir les verres depuis les attributions'}</button>}
+                  {avecCohortes && <button type="button" className={item} disabled={!b} onClick={faire(() => setCohortes(b))}
+                    title={b ? `La cohorte de chaque étudiant de ${b}, et son organisation dans les UE dédoublées` : 'Choisissez un bloc'}>
+                    <IconUserCheck size={15} />Cohortes{b ? ` ${b}` : ' (choisissez un bloc)'}</button>}
+                  {peutEcrire && <>
+                    <button type="button" className={item} onClick={faire(organisationDeBase)}
+                      title="Lucie propose les dates de chaque UE d’après le schéma de capitalisation (prérequis), le quadrimestre et l’épreuve intégrée"><IconWand size={15} />Organisation de base</button>
+                    <button type="button" className={item} onClick={faire(restaurerSauvegarde)} title="Revenir à une sauvegarde du laboratoire"><IconHistory size={15} />Sauvegardes</button>
+                    <div className="my-1 border-t border-slate-100" />
+                    <button type="button" className={item} style={{ color: 'var(--c-refuse)' }} onClick={faire(grandNettoyage)}
+                      title="Sauvegarder, tout vider (la structure reste), puis réimporter depuis les attributions"><IconTrash size={15} />Grand nettoyage du labo</button>
+                  </>}
+                </div>
+              </>)}
+            </div>);
         })()}
-        {face === 'temps' && peutEcrire && data && <>
-          <button className="bouton" onClick={organisationDeBase} title="Lucie propose les dates de chaque UE d’après le schéma de capitalisation (prérequis), le quadrimestre et l’épreuve intégrée"><IconWand size={15} />Organisation de base</button>
-          <button className="bouton" onClick={restaurerSauvegarde} title="Revenir à une sauvegarde du laboratoire"><IconHistory size={15} />Sauvegardes</button>
-          <button className="bouton bouton-detruire" onClick={grandNettoyage} title="Sauvegarder, tout vider (la structure reste), puis réimporter depuis les attributions"><IconTrash size={15} />Grand nettoyage du labo</button>
-        </>}
-        <span className="text-second text-slate-500">{face !== 'temps' ? '' : zoom === 'ue' ? 'Glisser une activité dans un cours ; tirer le haut d’une couche ; double-clic : revenir à l’année.' : (zoom === 'couches' ? 'Glisser une barre la déplace, ses bords l’allongent ; « à la suite » ou « en parallèle » arrangent un cours d’un clic · double-clic : le verre.' : 'Ctrl + molette ou double-clic pour zoomer · glisser une tuile la déplace dans l’année, ses bords l’allongent.')}</span>
       </div>
       <RailLateral titre="Le laboratoire temporel" sections={[{ items: ETAPES_LABO
         .map((e, i) => ({ key: `labo-${e.k}`, label: `${i + 1}. ${e.titre}`, icon: e.Icone, actif: face === e.k,
@@ -509,6 +527,7 @@ Les étudiants se répartissent ensuite entre les organisations (répartition de
               <div className="flex-1 min-w-[240px]">
                 <div className="text-sm font-semibold text-iip-texte">Étape {i + 1} sur {ETAPES_LABO.length} — {e.titre}</div>
                 <div className="text-second text-slate-600">{e.dit}</div>
+                {face === 'temps' && <div className="text-mention text-slate-500 mt-0.5">{zoom === 'ue' ? 'Glisser une activité dans un cours ; tirer le haut d’une couche ; double-clic : revenir à l’année.' : (zoom === 'couches' ? 'Glisser une barre la déplace, ses bords l’allongent ; « à la suite » ou « en parallèle » arrangent un cours d’un clic · double-clic : le verre.' : 'Ctrl + molette ou double-clic pour zoomer · glisser une tuile la déplace dans l’année, ses bords l’allongent.')}</div>}
               </div>
               {av && <button type="button" className="bouton" onClick={() => allerEtape(av.k)}><IconArrowLeft size={15} /> {av.titre}</button>}
               {ap && <button type="button" className="bouton bouton-fort" onClick={() => allerEtape(ap.k)}>Étape suivante : {ap.titre} <IconArrowRight size={15} /></button>}

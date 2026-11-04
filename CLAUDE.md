@@ -3549,6 +3549,10 @@ seule lecture ; le reste de `/api/ref` garde sa garde. **Un mini guide** (une fi
 d'emploi) se compose par `rendreMiniGuidePdf(m, images)` (`lib/guideKit.js` : `m.titre`, `m.sous`, `m.rubriques` aux points du
 mode d'emploi, `r.partie`, `aideMemoire: false` pour s'en passer) — premier : « Répartir les étudiants dans les groupes ».
 
+**LA BARRE DU LABORATOIRE SUR UNE LIGNE** (3.5.116, Charles : « le menu passe plus bas »). `LaboratoireTemporel.jsx` : section,
+bloc, zoom, puis « Outils » (menu : remplir les verres, cohortes, organisation de base, sauvegardes, grand nettoyage) ; l'aide du
+zoom passe sous la description de l'étape. La règle de 3.1.468 (une barre ne passe jamais sur deux lignes) valait aussi ici.
+
 **LE VOLET DU RAIL SE REPLIE EN ICÔNES** (3.5.114, Charles : « profiter d'un maximum de la largeur ; si on laissait juste des
 icônes ? »). `RailDessine` (`ui.jsx`) : `voletReplie` (défaut replié, `localStorage` « lucie.voletOuvert ») ; replié, le rail garde
 sa largeur d'icônes (`voletVu` décide `--rail`) et l'icône `IconAdjustmentsHorizontal` le rouvre, posée en tiroir sous la rubrique ouverte (3.5.115, « comme pour le reste ») ; le contenu du volet reste
