@@ -3549,6 +3549,11 @@ seule lecture ; le reste de `/api/ref` garde sa garde. **Un mini guide** (une fi
 d'emploi) se compose par `rendreMiniGuidePdf(m, images)` (`lib/guideKit.js` : `m.titre`, `m.sous`, `m.rubriques` aux points du
 mode d'emploi, `r.partie`, `aideMemoire: false` pour s'en passer) — premier : « Répartir les étudiants dans les groupes ».
 
+**UN PROFESSEUR NE VOIT QUE SES UNITÉS DANS MES COURS** (3.5.110, Charles, aperçu comme une professeure : l'UE 67 paraissait,
+puis « ne figure pas dans vos attributions »). `GET /api/due` ajoutait aux attributions les unités des sections de la fiche
+(`getUserSections`) ; pour le rôle `professeur`, ce périmètre ne compte plus — seules ses attributions. La coordination garde ses
+sections.
+
 **QUELLE COORDINATION SUPERVISE QUEL GROUPE DU TRONC COMMUN** (3.5.109, Charles, 4 novembre 2026 : « cocher dans les attributions
 quel groupe est sous la supervision de quelle coordination pour le TC » ; tranché : une étiquette et des rappels, EN PLUS de la
 coordination de la section ; posée par la direction et le secrétariat sur le groupe de la répartition et les attributions liées).
