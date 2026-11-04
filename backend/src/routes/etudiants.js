@@ -2,6 +2,7 @@
 // Lucie — Module Étudiants : base étudiants, inscriptions, résultats et PAE
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { peutPoserSupervision } from '../lib/supervisionGroupes.js';
 import { baseEcole, ecrireBase, toutesContraintes, ecrireContraintes, TYPES_CONTRAINTE, migrerPlages, plagesDe, ecrirePlages, simuler as simulerAnnee, poserSimulation, ecrireLocaux, reglesDe, ecrireRegles, documentHoraire, adopterProposition, retoucherLigne, retirerLigne, verserPlan, retablirImportees } from '../lib/simulationHoraire.js';
 import { migrerGroupesCommuns, cohorte as cohorteGC, proposerBriques, appliquerBriques } from '../lib/groupesCommuns.js';
 import { dispensesDeLUE } from '../lib/dispenses.js';
@@ -1743,7 +1744,7 @@ r.get('/repartition-cours/ue', authRequired, (req, res) => {
   `).all(ueNum, annee);
   const attr = db.prepare(`
     SELECT a.code_cours, COALESCE(a.num_organisation, 1) AS org,
-           a.code AS groupe, p.nom, p.prenom,
+           a.code AS groupe, p.nom, p.prenom, a.coordination_section,
            COALESCE(a.activite_id, 0) AS activite_id,
            t.libelle AS activite_libelle, COALESCE(t.ordre, 999) AS activite_ordre
     FROM attribution a LEFT JOIN professeur p ON p.id = a.professeur_id
@@ -1759,8 +1760,9 @@ r.get('/repartition-cours/ue', authRequired, (req, res) => {
       activite_libelle: a.activite_libelle || null, activite_ordre: a.activite_ordre, groupes: new Map() };
     const clef = `${a.org}|${a.groupe || ''}`;
     const g = bloc.groupes.get(clef)
-      || { num_organisation: a.org, groupe: a.groupe || null, professeurs: new Set() };
+      || { num_organisation: a.org, groupe: a.groupe || null, professeurs: new Set(), supervision: new Set() };
     if (a.nom) g.professeurs.add(`${a.prenom ? a.prenom[0] + '. ' : ''}${a.nom}`);
+    if (a.coordination_section) g.supervision.add(a.coordination_section);
     bloc.groupes.set(clef, g);
     acts.set(a.activite_id, bloc);
   }
@@ -1770,7 +1772,9 @@ r.get('/repartition-cours/ue', authRequired, (req, res) => {
     if (!blocs.length) blocs.push({ activite_id: 0, activite_libelle: null, groupes: new Map() });
     return blocs.map(b => {
       const groupes = [...b.groupes.values()]
-        .map(g => ({ ...g, professeurs: [...g.professeurs].join(', ') }))
+        .map(g => ({ ...g, professeurs: [...g.professeurs].join(', '),
+          // Une seule section quand toutes les lignes du groupe s'accordent ; sinon « mixte » (3.5.109).
+          supervision: g.supervision.size === 1 ? [...g.supervision][0] : g.supervision.size ? 'mixte' : null }))
         .sort((x, y) => x.num_organisation - y.num_organisation
           || String(x.groupe || '').localeCompare(String(y.groupe || ''), 'fr', { numeric: true }));
       // Un seul groupe (ou aucun) : « Tous » — chaque inscrit y est d'office.
@@ -1800,7 +1804,28 @@ r.get('/repartition-cours/ue', authRequired, (req, res) => {
   const dispenses = Object.fromEntries([...disp].map(([id, d]) => [id, { ue: d.ue, cours: Object.fromEntries(d.cours) }]));
 
   marquerPrimo(etudiants, annee);
-  res.json({ ue_num: ueNum, annee, cours, etudiants, affectations, dispenses });
+  const tc = db.prepare(`SELECT 1 FROM ue WHERE ue_num = ? AND annee_scolaire = ? AND ue_tc = 'x'`).get(ueNum, annee);
+  res.json({ ue_num: ueNum, annee, cours, etudiants, affectations, dispenses, tronc_commun: !!tc,
+    peut_superviser: peutPoserSupervision(req.user),
+    sections: db.prepare('SELECT code FROM section ORDER BY code').all().map(x => x.code) });
+});
+
+/* LA COORDINATION QUI SUPERVISE UN GROUPE (3.5.109, Charles : « cocher quel groupe est sous la supervision de quelle
+   coordination pour le TC »). Posée sur le GROUPE d'une activité d'un cours (organisation + nom), elle s'écrit sur toutes
+   les lignes d'attribution de ce groupe. Une étiquette et des rappels (`lib/supervisionGroupes.js`), rien de plus. */
+r.put('/repartition-cours/supervision', authRequired, (req, res) => {
+  if (!peutPoserSupervision(req.user)) return res.status(403).json({ error: 'La supervision d\'un groupe se pose par la direction ou le secrétariat.' });
+  const { ue_num, cours_code, activite_id = 0, num_organisation = 1, groupe = null } = req.body || {};
+  const annee = req.body?.annee || anneeDeTravail(req);
+  const sup = String(req.body?.section || '').trim() || null;
+  if (!ue_num || !cours_code) return res.status(400).json({ error: 'ue_num et cours_code requis' });
+  if (sup && !db.prepare('SELECT 1 FROM section WHERE code = ?').get(sup)) return res.status(400).json({ error: `Section inconnue : ${sup}` });
+  const n = db.prepare(`UPDATE attribution SET coordination_section = ?, updated_by = ?
+    WHERE ue_num = ? AND annee_scolaire = ? AND code_cours = ? AND COALESCE(activite_id, 0) = ?
+      AND COALESCE(num_organisation, 1) = ? AND COALESCE(code, '') = COALESCE(?, '')`)
+    .run(sup, req.user.id, Number(ue_num), annee, cours_code, Number(activite_id) || 0, Number(num_organisation) || 1, groupe || null).changes;
+  if (!n) return res.status(404).json({ error: 'Aucune ligne d\'attribution pour ce groupe.' });
+  res.json({ ok: true, lignes: n, section: sup });
 });
 
 /* RENOMMER UN GROUPE, ET L'ATTRIBUTION SUIT (3.1.23, Charles, 4 octobre 2026 :

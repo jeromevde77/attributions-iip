@@ -3549,6 +3549,16 @@ seule lecture ; le reste de `/api/ref` garde sa garde. **Un mini guide** (une fi
 d'emploi) se compose par `rendreMiniGuidePdf(m, images)` (`lib/guideKit.js` : `m.titre`, `m.sous`, `m.rubriques` aux points du
 mode d'emploi, `r.partie`, `aideMemoire: false` pour s'en passer) — premier : « Répartir les étudiants dans les groupes ».
 
+**QUELLE COORDINATION SUPERVISE QUEL GROUPE DU TRONC COMMUN** (3.5.109, Charles, 4 novembre 2026 : « cocher dans les attributions
+quel groupe est sous la supervision de quelle coordination pour le TC » ; tranché : une étiquette et des rappels, EN PLUS de la
+coordination de la section ; posée par la direction et le secrétariat sur le groupe de la répartition et les attributions liées).
+`attribution.coordination_section` (`lib/supervisionGroupes.js` : `migrerSupervision`, `sectionsSupervisant`, `peutPoserSupervision`).
+Écrans : Organisation → Répartition des étudiants (« sup. » sous chaque groupe d'une UE `ue_tc`, `PUT
+/api/etudiants/repartition-cours/supervision` — toutes les lignes du groupe : cours, activité, organisation, nom) ; Attributions,
+colonne « Sup. » (`PATCH /api/attributions/:id`, refus 403 pour les autres rôles, section contrôlée). Rappels qui la lisent : délai
+dépassé des points (ses lignes seulement), séance non close et date à poser (`rappelsDeliberation.js`), présences non prises
+(`rappelsPersonnel.js`, copie à la coordination qui supervise les groupes du professeur). Ni droit d'accès, ni comptage.
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux

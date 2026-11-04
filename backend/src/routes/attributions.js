@@ -6,6 +6,7 @@ import { authRequired, roleRequired, withSectionScope, canAccessSection,
 import { saveSnapshot } from '../helpers/snapshot.js';
 import { gesteRequis, gesteAutorise } from '../lib/gestes.js';
 import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
+import { peutPoserSupervision } from '../lib/supervisionGroupes.js';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -429,6 +430,7 @@ r.get('/', authRequired, withSectionScope, (req, res) => {
            cg.cours_vc1            AS grille_vc1,
            att.activite_id         AS activite_id,
            COALESCE(att.fonds_propres, 0) AS fonds_propres,
+           att.coordination_section AS coordination_section,
            act.libelle             AS activite_nom
     FROM v_attribution_complete a
     LEFT JOIN v_cours_conformite co
@@ -1209,8 +1211,16 @@ r.patch('/:id', authRequired, gesteRequis('attributions.modifier'), (req, res) =
     'modification_attribution','commentaire','commentaire_2','statut_exception',
     'per_etudiant_total_dp','periodes_attribuees','autonomie_attribuee','helb_nature',
     // PAYÉE SUR FONDS PROPRES (3.1.385, Charles, 15 octobre 2026) : sinon la FWB paie, et la ligne ne coûte rien à l'école.
-    'fonds_propres'
+    'fonds_propres',
+    // LA COORDINATION QUI SUPERVISE LE GROUPE (tronc commun, 3.5.109) : posée par la direction et le secrétariat seulement.
+    'coordination_section'
   ];
+  if ('coordination_section' in req.body) {
+    if (!peutPoserSupervision(req.user)) return res.status(403).json({ error: 'La supervision d\'un groupe se pose par la direction ou le secrétariat.' });
+    const sup = String(req.body.coordination_section || '').trim();
+    if (sup && !db.prepare('SELECT 1 FROM section WHERE code = ?').get(sup)) return res.status(400).json({ error: `Section inconnue : ${sup}` });
+    req.body.coordination_section = sup || null;
+  }
   const updates = [];
   const params = { id: req.params.id, uid: req.user.id };
   for (const k of allowed) {

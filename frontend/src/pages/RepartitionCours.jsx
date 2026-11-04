@@ -135,6 +135,36 @@ export default function RepartitionCours() {
     } catch (e) { setErreur(e.message); }
   }
 
+  /* LA COORDINATION QUI SUPERVISE LE GROUPE (tronc commun, 3.5.109) : posée par la direction et le secrétariat, elle
+     s'écrit sur les lignes d'attribution du groupe ; sa coordination reçoit en plus les rappels du groupe. */
+  async function poserSupervision(c, g, section) {
+    setErreur(null);
+    try {
+      const r = await fetch('/api/etudiants/repartition-cours/supervision', { method: 'PUT',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ annee, ue_num: data.ue_num, cours_code: c.cours_code, activite_id: c.activite_id || 0,
+          num_organisation: g?.num_organisation || 1, groupe: g?.groupe || null, section }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || `Refusé (${r.status})`);
+      setData(d => ({ ...d, cours: d.cours.map(x => (x.cle !== c.cle ? x : { ...x, groupes: x.groupes.map(y =>
+        (cleGroupe(y) === cleGroupe(g) ? { ...y, supervision: j.section } : y)) })) }));
+    } catch (e) { setErreur(e.message); }
+  }
+  function Supervision({ c, g }) {
+    if (!data?.tronc_commun || !g) return null;
+    if (!data.peut_superviser) {
+      return g.supervision ? <span className="block font-normal text-slate-500" title="Coordination qui supervise ce groupe">sup. {g.supervision}</span> : null;
+    }
+    return (
+      <select value={g.supervision && g.supervision !== 'mixte' ? g.supervision : ''} onClick={e => e.stopPropagation()}
+        onChange={e => poserSupervision(c, g, e.target.value || null)}
+        title="Coordination qui supervise ce groupe (tronc commun) : elle reçoit en plus les rappels du groupe"
+        className="mt-0.5 block w-full text-mention font-normal border border-slate-200 rounded bg-white py-0 px-1">
+        <option value="">{g.supervision === 'mixte' ? 'sup. : mixte' : 'sup. : —'}</option>
+        {(data.sections || []).map(sec => <option key={sec} value={sec}>sup. {sec}</option>)}
+      </select>);
+  }
+
   async function ouvrirUE(num) {
     setUeNum(num); setData(null); setAttente(new Map()); setCoches(new Set()); setErreur(null);
     try {
@@ -645,6 +675,7 @@ export default function RepartitionCours() {
                 {(data.cours || []).map(c => c.sans_groupe ? (
                   <th key={c.cle} className="px-2 py-1 bg-slate-50 border-b border-l border-dashed border-slate-200 text-mention text-emerald-700">
                     Tous{c.groupes[0]?.professeurs ? <span className="block font-normal text-slate-400">{c.groupes[0].professeurs}</span> : null}
+                    <Supervision c={c} g={c.groupes[0]} />
                   </th>
                 ) : c.groupes.map(g => (
                   /* L'EN-TÊTE ENTIER PLACE LES COCHÉS : on sélectionne dix
@@ -667,6 +698,7 @@ export default function RepartitionCours() {
                       <span className="block text-mention font-bold text-iip-blue">⊕ placer {coches.size}</span>
                     )}
                     <span className="block font-normal text-slate-400">{g.professeurs || '—'}</span>
+                    <Supervision c={c} g={g} />
                   </th>
                 )))}
               </tr>

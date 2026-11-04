@@ -2983,6 +2983,8 @@ try { migrerTfe(db); } catch (e) { console.error('[migration] tfe :', e.message)
 try { migrerFiches(db); } catch (e) { console.error('[migration] fiches d’évaluation :', e.message); }
 try { (await import('./lib/portailTfeStage.js')).migrerTfeEspace(db); } catch (e) { console.error('[migration] TFE de l’espace :', e.message); }
 try { db.exec('ALTER TABLE attribution ADD COLUMN fonds_propres INTEGER NOT NULL DEFAULT 0'); } catch { /* déjà là */ }
+// La coordination qui supervise un groupe du tronc commun (3.5.109) : `lib/supervisionGroupes.js`.
+(await import('./lib/supervisionGroupes.js')).migrerSupervision();
 try { migrerSectionDiplome(db); } catch (e) { console.error('[migration] données du titre :', e.message); }
 try { migrerConventions(db); } catch (e) { console.error('[migration] conventions :', e.message); }
 try { migrerAttestations(db); } catch (e) { console.error('[migration] attestations :', e.message); }

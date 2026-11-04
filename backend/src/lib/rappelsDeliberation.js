@@ -10,6 +10,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import db from '../db/index.js';
 import { mettreEnFile, comptesDuRole } from './rappels.js';
+import { sectionsSupervisant } from './supervisionGroupes.js';
 import { resteAEncoder } from '../routes/mesCours.js';
 
 const DIRECTION = ['admin', 'directeur', 'directeur_adjoint'];
@@ -69,12 +70,15 @@ export function genererRappelsDeliberation(annee) {
     // ── LES PROFESSEURS DE L'UE : J-10, J-3 (la date), J-2 (dernier délai), J-1 et J (délai dépassé) ──
     const jalonProf = n === 10 ? 'J-10' : n === 3 ? 'J-3' : n === 2 ? 'J-2' : (n === 1 || n === 0) ? `depasse-${n}` : null;
     if (jalonProf) {
-      const lignes = db.prepare(`SELECT DISTINCT a.professeur_id, a.code_cours, p.nom, p.prenom,
+      const lignes = db.prepare(`SELECT a.professeur_id, a.code_cours, MAX(p.nom) nom, MAX(p.prenom) prenom,
+          GROUP_CONCAT(DISTINCT NULLIF(a.coordination_section, '')) AS supervision,
           (SELECT c.cours_nom FROM cours c WHERE c.cours_code = a.code_cours ORDER BY (c.annee_scolaire = ?) DESC LIMIT 1) AS cours_nom
         FROM attribution a JOIN professeur p ON p.id = a.professeur_id
         WHERE a.annee_scolaire = ? AND a.ue_num = ? AND a.code_cours IS NOT NULL
-          AND (? = 0 OR COALESCE(a.num_organisation, 1) = ?)`).all(annee, annee, s.ue_num, s.org, s.org);
+          AND (? = 0 OR COALESCE(a.num_organisation, 1) = ?)
+        GROUP BY a.professeur_id, a.code_cours`).all(annee, annee, s.ue_num, s.org, s.org);
       const enRetard = [];
+      const enRetardSup = new Map();   // section qui supervise un groupe (tronc commun) → ses lignes en retard
       for (const l of lignes) {
         let reste = [];
         try { reste = resteAEncoder(l.professeur_id, l.code_cours, annee, s.session); } catch { reste = []; }
@@ -96,7 +100,14 @@ export function genererRappelsDeliberation(annee) {
           detail = `${reste.length} étudiant(s) sans note complète ; délibération de l'${ue}${sess} ${n === 0 ? "aujourd'hui" : 'demain'}.`;
           urgent = true;
         }
-        if (reste.length && jalonProf.startsWith('depasse')) enRetard.push(`${String(l.nom || '').toUpperCase()} ${l.prenom || ''} : ${cours}, ${reste.length} étudiant(s)`);
+        if (reste.length && jalonProf.startsWith('depasse')) {
+          const ligne = `${String(l.nom || '').toUpperCase()} ${l.prenom || ''} : ${cours}, ${reste.length} étudiant(s)`;
+          enRetard.push(ligne);
+          for (const sup of String(l.supervision || '').split(',').filter(x => x && x !== section)) {
+            if (!enRetardSup.has(sup)) enRetardSup.set(sup, []);
+            enRetardSup.get(sup).push(ligne);
+          }
+        }
         if (!titre) continue;
         for (const u of comptesProf.all(l.professeur_id)) {
           if (deposerUneFois({ cibleType: 'deliberation_seance', cibleId: s.id, jalon: `${jalonProf}|${l.code_cours}`, utilisateurId: u.id,
@@ -111,12 +122,21 @@ export function genererRappelsDeliberation(annee) {
             detail: enRetard.join(' · '), lien: '/etudiants', urgent: true })) stats.coordination++;
         }
       }
+      // ── ET À LA COORDINATION QUI SUPERVISE LE GROUPE (tronc commun, 3.5.109), EN PLUS : ses lignes seulement ──
+      for (const [sup, lignesSup] of enRetardSup) {
+        for (const uid of comptesDuRole('coordination', sup)) {
+          if (deposerUneFois({ cibleType: 'deliberation_seance', cibleId: s.id, jalon: jalonProf, utilisateurId: uid,
+            cle: 'deliberation_coordination', titre: `Encodage incomplet — ${ue}${sess}, délibération le ${jourFr(date)} (groupes supervisés)`,
+            detail: lignesSup.join(' · '), lien: '/etudiants', urgent: true })) stats.coordination++;
+        }
+      }
     }
 
     // ── LA SÉANCE PASSÉE ET NON CLOSE : J+2, puis chaque semaine ──
     if (n <= -2) {
       const jalon = `non-close-s${Math.floor((-n - 2) / 7)}`;
       const dest = new Set([...comptesDuRole('secretariat'), ...comptesDuRole('coordination', section),
+        ...sectionsSupervisant({ annee, ueNum: s.ue_num, org: s.org || null }).flatMap(sup => comptesDuRole('coordination', sup)),
         ...DIRECTION.flatMap(r => comptesDuRole(r))]);
       for (const uid of dest) {
         if (deposerUneFois({ cibleType: 'deliberation_seance', cibleId: s.id, jalon, utilisateurId: uid, cle: 'deliberation_non_close',
@@ -138,7 +158,8 @@ export function genererRappelsDeliberation(annee) {
   } catch { ues = []; }
   for (const o of ues) {
     const ue = `UE ${o.ue_num}${nomUE(o.ue_num) ? ` — ${nomUE(o.ue_num)}` : ''}${o.org > 1 ? ` · org ${o.org}` : ''}`;
-    const dest = new Set([...comptesDuRole('secretariat'), ...comptesDuRole('coordination', o.section)]);
+    const dest = new Set([...comptesDuRole('secretariat'), ...comptesDuRole('coordination', o.section),
+      ...sectionsSupervisant({ annee, ueNum: o.ue_num, org: o.org || null }).flatMap(sup => comptesDuRole('coordination', sup))]);
     for (const uid of dest) {
       if (deposerUneFois({ cibleType: 'organisation_ue', cibleId: o.id, jalon: 'date_a_poser', utilisateurId: uid, cle: 'deliberation_date_a_poser',
         titre: `Date de délibération à poser — ${ue}`,
