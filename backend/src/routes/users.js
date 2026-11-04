@@ -6,7 +6,7 @@ import { gesteRequis } from '../lib/gestes.js';
 import { envoyerEmail, templateNotif } from '../services/mailer.js';
 import { creerJeton, comptePeutMotDePasse, VALIDITE_INVITATION_MINUTES, dureeLisible } from '../lib/motDePasse.js';
 import { journaliser } from './mfa.js';
-import { rolesConnus } from '../middleware/permissions.js';
+import { rolesConnus, plafondDe, MODULES, MODULES_SUR_OCTROI, invaliderPlafonds } from '../middleware/permissions.js';
 import { enregistrerDroits, recalculerDroits } from './profilsAcces.js';
 
 const r = Router();
@@ -57,6 +57,48 @@ r.get('/', authRequired, roleRequired('admin'), (req, res) => {
     u.sections = sectionsOf(u.id); // toujours, pour que l'UI affiche le périmètre réel
     }
   res.json(users);
+});
+
+/* LE RÔLE DÉCIDE (3.5.100, Charles : « la gestion d'accès en deux temps : dans Config le paramétrage des rôles, dans la fiche le
+ * rôle et les sections » ; tranché : resserrer d'abord les rôles, puis effacer les cases personnelles). Les cases par personne
+ * (`permissions_json`) qui RÉDUISENT ce que le rôle permet, et ce que leur effacement ouvrirait — lu avant d'écrire. L'octroi
+ * nominatif (`MODULES_SUR_OCTROI`, les aménagements) n'est jamais touché. */
+const NIV = { rien: 0, lit: 1, validation: 2, ecrit: 2 };
+function casesPersonnelles() {
+  const comptes = db.prepare(`SELECT id, email, nom_complet, role, permissions_json FROM utilisateur
+    WHERE actif = 1 AND role NOT IN ('admin','directeur','directeur_adjoint')`).all();
+  const out = [];
+  for (const u of comptes) {
+    let p = {}; try { p = JSON.parse(u.permissions_json || '{}') || {}; } catch { p = {}; }
+    const ouvre = [];
+    for (const m of MODULES) {
+      if (MODULES_SUR_OCTROI.includes(m)) continue;
+      const pl = plafondDe(u.role, m) || 'rien';
+      if (pl === 'rien' || !p[m]) continue;
+      const lit = p[m].lire !== false || p[m].ecrire === true;
+      const ecrit = p[m].ecrire !== false;
+      if (!lit) ouvre.push({ module: m, gagne: pl === 'lit' ? 'lecture' : 'lecture et écriture' });
+      else if (!ecrit && NIV[pl] >= 2) ouvre.push({ module: m, gagne: 'écriture' });
+    }
+    if (ouvre.length) out.push({ id: u.id, nom: u.nom_complet, email: u.email, role: u.role, ouvre });
+  }
+  return out;
+}
+r.get('/cases-personnelles', authRequired, gesteRequis('configuration.comptes'), (req, res) => res.json({ comptes: casesPersonnelles() }));
+r.post('/cases-personnelles/effacer', authRequired, gesteRequis('configuration.comptes'), (req, res) => {
+  const liste = casesPersonnelles();
+  if (!req.body?.ecrire) return res.json({ simulation: true, comptes: liste });
+  const maj = db.prepare('UPDATE utilisateur SET permissions_json = ? WHERE id = ?');
+  db.transaction(() => {
+    for (const c of liste) {
+      const u = db.prepare('SELECT permissions_json FROM utilisateur WHERE id = ?').get(c.id);
+      let p = {}; try { p = JSON.parse(u?.permissions_json || '{}') || {}; } catch { p = {}; }
+      const garde = Object.fromEntries(MODULES_SUR_OCTROI.filter(m => p[m]).map(m => [m, p[m]]));
+      maj.run(JSON.stringify(garde), c.id);
+    }
+  })();
+  invaliderPlafonds();
+  res.json({ ok: true, comptes: liste.length });
 });
 
 /*

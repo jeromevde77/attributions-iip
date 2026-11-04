@@ -31,7 +31,7 @@ const CLE = 'lucie.mode';
  * « ecole » = les couleurs de l'école telles que la direction les a réglées (la Maison IIP par défaut). Les menus sont
  * marine (mode « sombre ») avec le thème Sombre seulement. */
 const CLE_THEME = 'lucie.theme';
-export const THEMES_PERSO = ['ecole', 'sombre', 'metal', 'pastel'];
+export const THEMES_PERSO = ['ecole', 'sombre', 'metal', 'pastel', 'nouveau'];
 const abonnes = new Set();
 
 function lireTheme() {

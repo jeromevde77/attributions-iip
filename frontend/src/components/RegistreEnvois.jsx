@@ -39,7 +39,12 @@ export default function RegistreEnvois() {
     if (q.trim()) p.set('q', q.trim());
     const t = setTimeout(() => {
       fetch(`/api/envois/journal?${p}`, { headers: authHeaders() })
-        .then(async r => { const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`); return j; })
+        .then(async r => {
+          // Une réponse coupée en route se lit comme un objet vide : on le dit, au lieu de planter l'écran.
+          const j = await r.json().catch(() => null);
+          if (!r.ok) throw new Error(j?.error || `Erreur ${r.status}`);
+          if (!Array.isArray(j)) throw new Error('La liste des envois est arrivée incomplète. Rechargez la page ; si cela revient, raccourcissez la période.');
+          return j; })
         .then(j => vivant && setLignes(j))
         .catch(e => vivant && setErreur(e.message));
     }, q ? 300 : 0);

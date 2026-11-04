@@ -19,6 +19,7 @@
 import fs from 'fs';
 import path from 'path';
 import JSZip from 'jszip';
+import { cachetCourant, signatureCourante } from '../lib/identite.js';
 import {
   debutLigne, tableaux, cellule, paragraphes, episser, remplacer, ajouter, ecrireCellule, grille, cocher, esc,
 } from './ea12_fill_officiel.js';
@@ -441,6 +442,40 @@ function remplirA1ter(x, d) {
   return x;
 }
 
+/* LA SIGNATURE ET LE CACHET DORÉ SUR L'A27 (3.5.101, Charles : « pour les prestations des experts, il faut ajouter ma signature
+ * et le sceau de l'établissement doré »). Deux images posées dans le Word, chacune sous son libellé : le cachet de
+ * l'établissement de la section (`cachetCourant`, le sceau doré de l'IIP par défaut) sous « Cachet de l'établissement », la
+ * signature du chef d'établissement (`signatureCourante`) sous « Signature du chef de l'établissement ». */
+function dimsPng(buf) { return buf.length > 24 && buf.readUInt32BE(12) === 0x49484452 ? { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) } : { w: 1, h: 1 }; }
+async function insererImageSous(zip, x, libelle, dataUrl, largeurCm, nom) {
+  const m = /^data:image\/(png|jpe?g);base64,(.*)$/.exec(String(dataUrl || ''));
+  if (!m) return x;
+  const ext = m[1] === 'png' ? 'png' : 'jpeg';
+  const buf = Buffer.from(m[2], 'base64');
+  const paras = [...x.matchAll(/<w:p[ >][\s\S]*?<\/w:p>/g)];
+  const par = paras.find(p => libelle.test(T(p[0])));
+  if (!par) return x;
+  const rels = await zip.file('word/_rels/document.xml.rels').async('string');
+  const ids = [...rels.matchAll(/Id="rId(\d+)"/g)].map(r => Number(r[1]));
+  const rid = `rId${Math.max(0, ...ids) + 1}`;
+  const fichier = `media/lucie_${nom}.${ext}`;
+  zip.file(`word/${fichier}`, buf);
+  zip.file('word/_rels/document.xml.rels', rels.replace('</Relationships>',
+    `<Relationship Id="${rid}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="${fichier}"/></Relationships>`));
+  const ct = await zip.file('[Content_Types].xml').async('string');
+  if (!new RegExp(`Extension="${ext}"`, 'i').test(ct)) zip.file('[Content_Types].xml', ct.replace('<Types ', '<Types ').replace(/(<Types[^>]*>)/, `$1<Default Extension="${ext}" ContentType="image/${ext}"/>`));
+  const { w, h } = dimsPng(buf);
+  const cx = Math.round(largeurCm * 360000), cy = Math.round(cx * h / w);
+  const id = 9000 + ids.length;
+  const dessin = `<w:p><w:pPr><w:jc w:val="right"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/>`
+    + `<wp:docPr id="${id}" name="${nom}"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">`
+    + `<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">`
+    + `<pic:nvPicPr><pic:cNvPr id="${id}" name="${nom}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rid}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>`
+    + `<pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
+  const fin = par.index + par[0].length;
+  return x.slice(0, fin) + dessin + x.slice(fin);
+}
+
 const SPECIFIQUES = { A1ter: remplirA1ter, A4: remplirA4, A6: remplirA6, A14: remplirRelevé, A15: remplirRelevé, A27: remplirA27 };
 
 /** Remplit une annexe. `d` porte etab, membre et le contenu propre. */
@@ -453,6 +488,10 @@ export async function remplirAnnexe(cle, d) {
   if (SPECIFIQUES[cle]) x = SPECIFIQUES[cle](x, d);
   // Ce qui a été tapé dans la fenêtre de l'annexe (3.5.083) : posé dans les blancs qui restent.
   if (d.libres && Object.keys(d.libres).length) x = appliquerLibres(x, d.libres);
+  if (cle === 'A27') {
+    x = await insererImageSous(zip, x, /Cachet de l.établissement/, cachetCourant(), 3.2, 'cachet');
+    x = await insererImageSous(zip, x, /Signature du chef de l.établissement/, signatureCourante(), 4.2, 'signature');
+  }
   zip.file('word/document.xml', x);
   return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
 }

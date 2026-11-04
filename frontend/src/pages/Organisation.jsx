@@ -6,7 +6,7 @@ import { useSearchParams } from 'react-router-dom';
 import Axe from '../components/Axe.jsx';
 import {
   IconLayoutGrid, IconSchool, IconSitemap, IconFileDescription, IconTimeline, IconUserCheck, IconCalendarCog,
-  IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup, IconListDetails, IconCalendarEvent, IconPercentage, IconTable, IconCalendarWeek, IconChartBar, IconPuzzle, IconEye, IconCalendarMonth, IconBriefcase, IconFileCertificate, IconHierarchy2, IconCalendarTime, IconCalendarCheck,
+  IconClock, IconCalendarStats, IconBuilding, IconBooks, IconUsersGroup, IconListDetails, IconBook, IconCalendarEvent, IconPercentage, IconTable, IconCalendarWeek, IconChartBar, IconPuzzle, IconEye, IconCalendarMonth, IconBriefcase, IconFileCertificate, IconHierarchy2, IconCalendarTime, IconCalendarCheck,
 } from '@tabler/icons-react';
 import Attributions from './Attributions.jsx';
 import Planification from './Planification.jsx';
@@ -91,6 +91,7 @@ export default function Organisation({ ongletInitial }) {
           { key: 'horaire-controler', label: 'Contrôler contre les attributions', icone: IconClock },
         ] }, { key: 'unite', label: 'Unité : croiser, pondérer, décrire', icone: IconListDetails, hote: 'unite',
         enfants: [
+          { key: 'face-dossier', label: '0. Lire le dossier pédagogique', icone: IconBook },
           { key: 'face-croisement', label: '1. Croiser les acquis et le programme', icone: IconTable },
           { key: 'face-ponderation', label: '2. Pondérer', icone: IconPercentage },
           { key: 'face-descriptif', label: '3. Décrire l’unité (DUE)', icone: IconFileDescription },

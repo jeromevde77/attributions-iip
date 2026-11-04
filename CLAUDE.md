@@ -3509,6 +3509,38 @@ rouge à côté de « Délibérer ». **Une correction en ligne de commande d'un
 visible que dans Config »). Organisation → Unité (`AtelierUE.jsx`) : bouton « Dossier pédagogique » qui ouvre `UEModal` (exporté de
 `pages/Referentiels.jsx`, prop `ongletInitial`, ici « contenu ») — la même fiche, pas une copie.
 
+**L'ÉTAPE 0 ET LA FICHE QUI NE RÈGLE QUE LE RÔLE** (3.5.099, Charles : « le DP en étape 0, puis cliquable au besoin » ; « dans la
+fiche, on choisit le rôle et la/les sections, point » ; « trop de cadres et de bordures »). (1) `AtelierUE.jsx` : face `dossier`
+(numéro 0, `components/ApercuDossier.jsx` — les rubriques du DP en lecture par `rubriquesDuDossier`), dans Organisation et Mes cours ;
+le bouton ouvre toujours `UEModal`. **En lecture** (3.5.106, Charles : « depuis Organisation, on sait modifier ?! ») : ouverte depuis l'atelier, `UEModal lecture` désactive fiche, acquis et motifs (`fieldset disabled`), rubriques en lecture, titre « Dossier pédagogique de l'UE n », pied « Fermer » ; le dossier se modifie dans Configuration → Unités et cours. (2) `Professeurs.jsx` → Accès Lucie : rôle + sections (segments Toutes · Ces sections · Aucune),
+plus de cases par module ; à l'enregistrement `permsDuRole` ouvre toutes les cases (le plafond du rôle borne) sauf `amenagements`,
+octroi nominatif gardé (`MODULES_SUR_OCTROI`). **La gestion des accès est en deux temps : Configuration → Accès paramètre les rôles ;
+la fiche choisit le rôle et les sections.**
+**Les cases personnelles se retirent en un geste** (3.5.100, tranché : resserrer d'abord les rôles) : Configuration → Accès, au-dessus
+de la liste des personnes (désormais en LECTURE), « Le rôle décide » liste les comptes dont `permissions_json` réduit le rôle et ce que
+leur effacement ouvrirait, par rôle et module (`GET /api/users/cases-personnelles`) ; « Le rôle décide pour tous »
+(`POST …/effacer`, `ecrire`) remet `{}` en gardant l'octroi nominatif (`MODULES_SUR_OCTROI`). Prod au 3 novembre : 36 comptes.
+Sur la fiche, l'octroi nominatif se dit en UNE case « Référent·e des aménagements raisonnables » (lecture + écriture, 3.5.102).
+
+**L'A27 SIGNÉE ET CACHETÉE** (3.5.101, Charles : « pour les prestations des experts, ma signature et le sceau de l'établissement
+doré »). `insererImageSous` (`services/formulairesFWB.js`) pose une image DANS le Word (média, relation, type de contenu, paragraphe
+aligné à droite sous le libellé) : `cachetCourant()` sous « Cachet de l'établissement », `signatureCourante()` sous « Signature du chef
+de l'établissement ». Une autre annexe à signer se branche de même dans `remplirAnnexe`.
+
+**LE « NOUVEAU STYLE », À L'ESSAI** (3.5.103, Charles, 3 novembre 2026 : « un design basé sur apple.com en gardant le bleu,
+pas de noir, gris clair » ; « fond blanc uni partout ; le rail devient une parenthèse » ; prototype publié en artefact, puis
+« le style dans la vraie Lucie, en essai »). Thème personnel `nouveau` (`THEMES_PERSONNELS` de `lib/couleurs.js`,
+`THEMES_PERSO` de `lib/theme.js`), visible dans la palette de la DIRECTION seulement (`ChoixTheme`). Règles sous
+`:root[data-theme="nouveau"]` en fin d'`index.css` : cartes, tableaux et tuiles sans cadre ni ombre, champs blancs à filet
+#E4E7EC, rail transparent (`.rail-lucie`) avec sa parenthèse (`::after`, fondu par masque) et un point bleu face à l'entrée
+`[data-actif]`, fenêtres à 22 px. **Second passage** (3.5.104, Charles : « bof, très peu abouti ») : le thème dépasse aussi les réglages de forme de l'école (`--d-*` en `!important`, sous ce thème seulement) — police du système, titre d'écran 26 px, boutons et rubriques en pilule, bleu du logo pour l'action, en-têtes de tableau sans bande ni capitales, pastilles d'état pâles, `--menu-*` redéfinis. Les réglages de l'école ne changent pas. Si Charles l'adopte : en faire le défaut.
+
+**UNE RÉPONSE COUPÉE SE DIT, ELLE NE PLANTE PAS L'ÉCRAN** (3.5.105, Charles, 4 novembre 2026, production 3.5.098 : la feuille S2
+de l'UE 333 affichait « Load failed » et le registre des envois plantait sur `(u||[]).map`). Les deux sont des réponses
+VOLUMINEUSES dont le corps n'est pas arrivé entier (Safari : « Load failed » au `json()` ; le registre lisait l'échec en `{}`).
+Le registre exige un tableau, la feuille dit « pas arrivée entière ». **La cause côté serveur n'est pas établie** (le serveur
+n'a pas redémarré, la sauvegarde passe) : à regarder sur le VPS — `df -h`, `docker system df`, journaux du conteneur frontend.
+
 **LA VERSION 3.5.000 — LA MISE EN PRODUCTION DU 30 OCTOBRE 2026** (Charles : « une mise à jour majeure ; on pousse tout en
 main, mais tout ce qui est rappel et notification nouvelle est désactivé »). Tout ce qui sépare 3.1.496 de 3.1.526 part en
 production sous le numéro 3.5.000. **Les rappels naissent ÉTEINTS** (`DEFAUT.actif = false` dans `lib/rappels.js`) : ni ceux

@@ -251,6 +251,7 @@ export default function MesCours() {
         { key: 'avis-ar', label: 'Aménagements raisonnables', icon: IconAccessible,
           onClick: () => { setVueDue(false); setOuvert(null); setFeuille(null); setTimeout(() => allerA('avis-ar'), 50); } },
         ...(vueDue ? [
+          { key: 'due-dossier', label: '0. Lire le dossier pédagogique', icon: IconFileText, actif: faceDue === 'dossier', onClick: () => setFaceDue('dossier') },
           { key: 'due-croisement', label: '1. Croiser les acquis et le programme', icon: IconTable, actif: faceDue === 'croisement', onClick: () => setFaceDue('croisement') },
           { key: 'due-descriptif', label: '3. Décrire l’unité (DUE)', icon: IconFileText, actif: faceDue === 'descriptif', onClick: () => setFaceDue('descriptif') },
         ] : []),
@@ -263,7 +264,7 @@ export default function MesCours() {
           { key: 'presences', label: 'Présences', icon: IconUserCheck, actif: face === 'presences', onClick: () => setFace('presences') },
         ] : []),
       ] }]} />
-    {vueDue ? <div className="gouttiere-rail"><AtelierUE faces={['croisement', 'descriptif']} face={faceDue} onFace={setFaceDue} railPropre={false} /></div> : (
+    {vueDue ? <div className="gouttiere-rail"><AtelierUE faces={['dossier', 'croisement', 'descriptif']} face={faceDue} onFace={setFaceDue} railPropre={false} /></div> : (
     <div className="gouttiere-rail px-4 py-3 md:px-6 space-y-2.5">
       <div className="flex items-center gap-2">
         <IconBooks size={20} className="text-iip-turquoise" />
