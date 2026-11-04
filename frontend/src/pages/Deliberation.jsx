@@ -5,7 +5,7 @@ const ControleDecisions = lazy(() => import('../components/ControleDecisions.jsx
 const NotesDoubles = lazy(() => import('../components/NotesDoubles.jsx'));
 const ClotureReprise = lazy(() => import('./Configuration.jsx').then(m => ({ default: m.ClotureReprise })));
 import GroupesParBloc from '../components/GroupesParBloc.jsx';
-import { IconChevronRight, IconArrowLeft, IconBolt, IconAlertTriangle,
+import { IconChevronRight, IconArrowLeft, IconAlertTriangle,
   IconRotate, IconPrinter, IconFileSpreadsheet, IconPencil, IconTable, IconList,
   IconUpload, IconEdit, IconAdjustments, IconChecks, IconScale, IconZoomQuestion } from '@tabler/icons-react';
 import MenuActions from '../components/MenuActions.jsx';
@@ -20,7 +20,6 @@ import ImportNotesUE from '../components/ImportNotesUE.jsx';
 import ImportSuivi from '../components/ImportSuivi.jsx';
 import DiagnosticAnnees from '../components/DiagnosticAnnees.jsx';
 import SchemaLiensAA from '../components/SchemaLiensAA.jsx';
-import EncodageRapide from './EncodageRapide.jsx';
 import CorrectionUE from '../components/CorrectionUE.jsx';
 import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
 import { BoutonEditions, Fenetre, RailLateral, EnteteCarte } from '../components/ui.jsx';
@@ -52,7 +51,6 @@ export default function Deliberation() {
   const [ueNum, setUeNum] = useState(null);
   // La répartition des étudiants dans les organisations d'une unité, depuis le plan.
   const [repartirUE, setRepartirUE] = useState(null);
-  const [rapide, setRapide] = useState(false);
   const [corriger, setCorriger] = useState(false);   // Corriger une UE — années reprises (3.5.118, temporaire)
   /* LES CONTRÔLES VENUS DE CONFIGURATION (lot 4, 2 octobre 2026) : le
      contrôle des notes de décision et la clôture d'une année reprise
@@ -231,20 +229,6 @@ export default function Deliberation() {
     );
   }
 
-  if (rapide) {
-    return (
-      <div>
-        <div className="px-5 pt-4">
-          <button onClick={() => { setRapide(false); charger(); }}
-            className="flex items-center gap-1.5 text-sm text-iip-blue hover:underline">
-            <IconArrowLeft size={15} /> Retour à la délibération
-          </button>
-        </div>
-        <EncodageRapide />
-      </div>
-    );
-  }
-
   const sec = plan?.sections.find(s => s.section === section) || null;
 
   // LA FEUILLE EST LE CONTENU DE L'ÉCRAN, PAS UNE FENÊTRE PAR-DESSUS
@@ -282,7 +266,6 @@ export default function Deliberation() {
             l'impression dans l'avion ; le reste se range dans le rail, sous
             la rubrique, réservé aux mêmes rôles. */}
         <RailLateral icon={IconScale} titre="Délibération" sections={[{ items: [
-          { key: 'rapide', label: 'Encodage rapide', icon: IconBolt, onClick: () => setRapide(true) },
           ...(passeRole(['admin', 'editeur']) ? [
             { key: 'corriger-ue', label: 'Corriger une UE (années reprises)', icon: IconPencil, onClick: () => setCorriger(true) }] : []),
           ...(peutToutEncoder ? [

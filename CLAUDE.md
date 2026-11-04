@@ -3562,7 +3562,7 @@ reprises) » (`components/CorrectionUE.jsx`, `routes/correctionUE.js` sur `/api/
 inscrit (notes cours × acquis, note de cours, note d'unité, décision proposée) ; l'épreuve d'unité (`__ue__`) a sa colonne.
 Écritures : note `s{n}|cours|aa` (épreuve : `s{n}|aa`), décision et note sur l'inscription, faveur = ajustement de l'unité
 (comme la grille du parcours) — toutes sous `avecNoteForcee`. Rôles vérifiés par le rôle, pas `roleRequired('admin')` (la
-lecture de Configuration l'ouvrait). **À retirer quand les corrections des imports seront finies.**
+lecture de Configuration l'ouvrait). **À retirer quand les corrections des imports seront finies.** Il REMPLACE l'encodage rapide (la matrice, `EncodageRapide.jsx`, retiré en 3.5.120 à la demande de Charles ; les routes `/matrice` du serveur restent).
 
 **LE SPÉCIMEN D'UNE PIÈCE RÉELLE, ET LA LISTE DES DIPLÔMÉS PAR MENTION** (3.5.117, Charles : « une case Spécimen avec un
 filigrane Spécimen » dans l'envoi des diplômes ; « liste des diplômés par grade » — tranché : par mention, dans une section).
