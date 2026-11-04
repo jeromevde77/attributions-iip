@@ -105,8 +105,9 @@ export function poserSpecimen(html) {
   const h = String(html || '');
   if (!h || h.includes(MARQUE_SPECIMEN)) return h;
   const div = `<div ${MARQUE_SPECIMEN} aria-hidden="true" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;`
-    + 'pointer-events:none;z-index:9999;"><div style="transform:rotate(-30deg);font:800 120pt/1 Helvetica,Arial,sans-serif;'
-    + 'letter-spacing:8pt;color:rgba(157,74,56,0.2);border:3mm solid rgba(157,74,56,0.2);padding:4mm 14mm;white-space:nowrap">SPÉCIMEN</div></div>';
+    + 'pointer-events:none;z-index:9999;"><div style="transform:rotate(-30deg);font:700 96pt/1 Helvetica,Arial,sans-serif;'
+    // Discret (3.5.122, Charles : « un peu flagrant et rouge ») : gris-bleu très pâle, sans cadre ; lisible, mais le texte passe devant.
+    + 'letter-spacing:10pt;color:rgba(27,43,75,0.08);white-space:nowrap">SPÉCIMEN</div></div>';
   const m = h.match(/<body[^>]*>/i);
   return m ? h.slice(0, m.index + m[0].length) + div + h.slice(m.index + m[0].length) : div + h;
 }
